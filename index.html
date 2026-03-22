@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Präteritum-Werkstatt</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <section id="setup-screen" class="panel setup-panel">
+        <div class="panel__header">
+          <div>
+            <p class="eyebrow">Deutsch 3. Klasse</p>
+            <h1>Präteritum-Werkstatt</h1>
+            <p class="hero__copy">
+              Starte mit deinem Namen, bearbeite 10 Texte und sammle Punkte für die Highscore-Liste.
+            </p>
+          </div>
+          <div class="hero__mascot">
+            <div class="mascot-fallback" aria-hidden="true"></div>
+            <img
+              src="./assets/zora.png"
+              alt=""
+              aria-hidden="true"
+              onerror="this.parentElement.classList.add('is-fallback')"
+            />
+            <img
+              src="./assets/kroko.png"
+              alt=""
+              aria-hidden="true"
+              onerror="this.parentElement.classList.add('is-fallback')"
+            />
+          </div>
+        </div>
+
+        <form id="setup-form" class="setup-form" onsubmit="return false">
+          <label class="field">
+            <span>Dein Name für die Highscore-Liste</span>
+            <input id="player-name" type="text" maxlength="24" required />
+          </label>
+          <p id="setup-error" class="error-text" aria-live="polite"></p>
+          <p id="boot-status" class="error-text" aria-live="polite"></p>
+          <div class="action-row">
+            <button
+              id="start-button"
+              type="button"
+              onclick="if(!window.__appReady){document.getElementById('boot-status').textContent='Die App-Datei wurde nicht richtig geladen.';}"
+            >
+              Training starten
+            </button>
+          </div>
+        </form>
+
+        <section class="panel panel--nested">
+          <div class="panel__header">
+            <div>
+              <p class="section-tag">Highscore</p>
+              <h2>Top 10</h2>
+            </div>
+            <button id="teacher-open-button" class="teacher-button button-secondary" type="button">L</button>
+          </div>
+          <ol id="highscore-list" class="highscore-list"></ol>
+        </section>
+      </section>
+
+      <main id="trainer-shell" class="layout is-hidden">
+        <header class="hero">
+          <div class="hero__text">
+            <p class="eyebrow">Deutsch 3. Klasse</p>
+            <h1>Präteritum-Werkstatt</h1>
+            <p class="hero__copy">
+              Lies den Text im Präsens und verwandle ihn Wort für Wort ins Präteritum.
+              Tippe Wörter an, ändere sie und prüfe danach deine Sätze.
+            </p>
+          </div>
+          <div class="hero__mascot">
+            <div class="mascot-fallback" aria-hidden="true"></div>
+            <img
+              src="./assets/zora.png"
+              alt=""
+              aria-hidden="true"
+              onerror="this.parentElement.classList.add('is-fallback')"
+            />
+            <img
+              src="./assets/kroko.png"
+              alt=""
+              aria-hidden="true"
+              onerror="this.parentElement.classList.add('is-fallback')"
+            />
+          </div>
+        </header>
+
+        <section class="panel controls-panel panel-with-zora">
+          <div class="panel__header">
+            <div>
+              <p class="section-tag">Aufgabe</p>
+              <h2 id="text-title">Text 1</h2>
+            </div>
+            <div class="pill-cloud">
+              <span id="text-topic" class="pill">Thema</span>
+              <span id="text-progress" class="pill">1 / 10</span>
+            </div>
+          </div>
+
+          <div class="status-row">
+            <div class="pill">
+              <span>Kind</span>
+              <strong id="player-output">-</strong>
+            </div>
+            <div class="pill">
+              <span>Textpunkte</span>
+              <strong id="score-output">0</strong>
+            </div>
+            <div class="pill">
+              <span>Versuche</span>
+              <strong id="attempts-output">0</strong>
+            </div>
+          </div>
+
+          <p id="text-intro" class="info-copy"></p>
+
+          <div id="feedback-box" class="feedback-box" aria-live="polite">
+            Tippe ein Wort im Text an und ändere es. Alle Wörter dürfen bearbeitet werden.
+          </div>
+        </section>
+
+        <section class="panel panel--nested trainer-highscore-panel">
+          <div class="panel__header">
+            <div>
+              <p class="section-tag">Highscore</p>
+              <h2>Top 10</h2>
+            </div>
+            <button id="trainer-teacher-open-button" class="teacher-button button-secondary" type="button">L</button>
+          </div>
+          <ol id="trainer-highscore-list" class="highscore-list"></ol>
+        </section>
+
+        <section class="panel trainer-panel panel-with-zora">
+          <div class="panel__header">
+            <div>
+              <p class="section-tag">Text im Präsens</p>
+              <h2>Mach daraus einen Präteritum-Text</h2>
+            </div>
+            <div class="hint-card">
+              Jeder Satz wird erst nach der Kontrolle bewertet.
+            </div>
+          </div>
+
+          <section id="theme-stage" class="theme-stage">
+            <div id="clipart-list" class="clipart-list" aria-label="Passende Cliparts"></div>
+          </section>
+
+          <div id="sentence-list" class="sentence-list" aria-live="polite"></div>
+        </section>
+
+        <section class="panel controls-panel panel-with-zora trainer-actions-panel">
+          <div class="panel__header">
+            <div>
+              <p class="section-tag">Kontrolle</p>
+              <h2>Aktionen am Seitenende</h2>
+            </div>
+          </div>
+
+          <div class="action-row trainer-action-row">
+            <button id="check-all-button" type="button">Alle Sätze kontrollieren</button>
+            <button id="reset-button" class="button-secondary" type="button">Text zurücksetzen</button>
+            <button id="next-button" class="button-secondary" type="button" disabled>Nächster Text</button>
+            <button id="menu-button" class="button-secondary" type="button">Zum Start</button>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <dialog id="editor-dialog" class="editor-dialog">
+      <form method="dialog" class="editor-form">
+        <p class="editor-tag">Wort bearbeiten</p>
+        <h3 id="editor-title">Wort ändern</h3>
+        <p id="editor-hint" class="editor-hint"></p>
+
+        <label class="field">
+          <span>Neues Wort</span>
+          <input id="editor-input" type="text" maxlength="24" autocomplete="off" />
+        </label>
+
+        <div class="editor-actions">
+          <button id="save-word-button" type="button">Speichern</button>
+          <button id="reset-word-button" class="button-secondary" type="button">
+            Original
+          </button>
+          <button class="button-secondary" type="submit">Schlie&szlig;en</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="teacher-dialog" class="editor-dialog teacher-dialog">
+      <form method="dialog" class="editor-form teacher-form">
+        <p class="editor-tag">Lehrerbereich</p>
+        <h3>Verwaltung</h3>
+        <p id="teacher-error" class="error-text" aria-live="polite"></p>
+
+        <section id="teacher-login-section" class="teacher-section">
+          <label class="field">
+            <span>Passwort</span>
+            <input id="teacher-password-input" type="password" maxlength="24" autocomplete="off" />
+          </label>
+          <div class="editor-actions">
+            <button id="teacher-login-button" type="button">Öffnen</button>
+            <button class="button-secondary" type="submit">Schlie&szlig;en</button>
+          </div>
+        </section>
+
+        <section id="teacher-content-section" class="teacher-section is-hidden">
+          <div class="teacher-grid">
+            <section class="panel panel--nested teacher-panel">
+              <div class="panel__header">
+                <div>
+                  <p class="section-tag">Highscore</p>
+                  <h2>Gesamtwertung</h2>
+                </div>
+                <button id="export-highscore-button" class="teacher-export-button button-secondary" type="button">Export</button>
+              </div>
+              <div id="teacher-highscore-list" class="teacher-highscore-list"></div>
+            </section>
+
+            <section class="panel panel--nested teacher-panel">
+              <div class="panel__header">
+                <div>
+                  <p class="section-tag">Passwort</p>
+                  <h2>Neu setzen</h2>
+                </div>
+              </div>
+              <label class="field">
+                <span>Neues Lehrerpasswort</span>
+                <input id="teacher-new-password-input" type="password" maxlength="24" autocomplete="off" />
+              </label>
+              <div class="editor-actions">
+                <button id="teacher-save-password-button" type="button">Passwort speichern</button>
+                <button id="teacher-reset-stats-button" class="button-secondary" type="button">Alle Statistiken zurücksetzen</button>
+              </div>
+            </section>
+
+            <section class="panel panel--nested teacher-panel">
+              <div class="panel__header">
+                <div>
+                  <p class="section-tag">Statistik 1</p>
+                  <h2>Texte im &Uuml;berblick</h2>
+                </div>
+                <button id="export-texts-button" class="teacher-export-button button-secondary" type="button">Export</button>
+              </div>
+              <div id="teacher-stats-texts" class="teacher-stats"></div>
+            </section>
+
+            <section class="panel panel--nested teacher-panel">
+              <div class="panel__header">
+                <div>
+                  <p class="section-tag">Statistik 2</p>
+                  <h2>Falsch bearbeitete W&ouml;rter</h2>
+                </div>
+                <button id="export-edited-words-button" class="teacher-export-button button-secondary" type="button">Export</button>
+              </div>
+              <div id="teacher-stats-edited-words" class="teacher-stats"></div>
+            </section>
+
+            <section class="panel panel--nested teacher-panel">
+              <div class="panel__header">
+                <div>
+                  <p class="section-tag">Statistik 3</p>
+                  <h2>Nicht bearbeitete W&ouml;rter</h2>
+                </div>
+                <button id="export-missed-words-button" class="teacher-export-button button-secondary" type="button">Export</button>
+              </div>
+              <div id="teacher-stats-missed-words" class="teacher-stats"></div>
+            </section>
+
+            <section class="panel panel--nested teacher-panel">
+              <div class="panel__header">
+                <div>
+                  <p class="section-tag">Statistik 4</p>
+                  <h2>Bearbeitete Texte pro Kind</h2>
+                </div>
+                <button id="export-players-button" class="teacher-export-button button-secondary" type="button">Export</button>
+              </div>
+              <div id="teacher-stats-players" class="teacher-stats"></div>
+            </section>
+          </div>
+
+          <div class="editor-actions">
+            <button id="teacher-logout-button" class="button-secondary" type="button">Sperren</button>
+            <button class="button-secondary" type="submit">Schlie&szlig;en</button>
+          </div>
+        </section>
+      </form>
+    </dialog>
+
+    <script>
+      window.__appReady = false;
+      window.addEventListener("error", function (event) {
+        var bootStatus = document.getElementById("boot-status");
+        if (bootStatus) {
+          bootStatus.textContent = "Script-Fehler: " + (event.message || "unbekannt");
+        }
+      });
+      window.setTimeout(function () {
+        if (!window.__appReady) {
+          var bootStatus = document.getElementById("boot-status");
+          if (bootStatus && !bootStatus.textContent) {
+            bootStatus.textContent = "Die App konnte nicht vollständig geladen werden.";
+          }
+        }
+      }, 1200);
+    </script>
+    <script src="./app.js"></script>
+  </body>
+</html>
+

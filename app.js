@@ -147,6 +147,7 @@ var teacherContentSection = document.getElementById("teacher-content-section");
 var teacherHighscoreList = document.getElementById("teacher-highscore-list");
 var teacherNewPasswordInput = document.getElementById("teacher-new-password-input");
 var teacherSavePasswordButton = document.getElementById("teacher-save-password-button");
+var teacherResetStatsButton = document.getElementById("teacher-reset-stats-button");
 var teacherLogoutButton = document.getElementById("teacher-logout-button");
 var teacherStatsPlayers = document.getElementById("teacher-stats-players");
 var teacherStatsTexts = document.getElementById("teacher-stats-texts");
@@ -205,6 +206,7 @@ teacherOpenButton.onclick = openTeacherDialog;
 trainerTeacherOpenButton.onclick = openTeacherDialog;
 teacherLoginButton.onclick = unlockTeacherArea;
 teacherSavePasswordButton.onclick = saveTeacherPassword;
+teacherResetStatsButton.onclick = resetAllTeacherStats;
 teacherLogoutButton.onclick = lockTeacherArea;
 exportHighscoreButton.onclick = function () { exportTeacherTable(teacherHighscoreList, "highscore-gesamtwertung"); };
 exportTextsButton.onclick = function () { exportTeacherTable(teacherStatsTexts, "texte-im-ueberblick"); };
@@ -244,7 +246,10 @@ function ensureTokenizedTexts(texts) {
       sentence = texts[textIndex].sentences[sentenceIndex];
       text.sentences.push({
         present: typeof sentence.present === "string" ? tokenizeSentence(sentence.present) : sentence.present.slice(),
-        past: typeof sentence.past === "string" ? tokenizeSentence(sentence.past) : sentence.past.slice()
+        past: typeof sentence.past === "string" ? tokenizeSentence(sentence.past) : sentence.past.slice(),
+        answer: sentence.answer
+          ? (typeof sentence.answer === "string" ? tokenizeSentence(sentence.answer) : sentence.answer.slice())
+          : null
       });
     }
     normalized.push(text);
@@ -290,26 +295,9 @@ function polishTextLibrary(texts) {
       present = typeof sentence.present === "string" ? sentence.present : joinTokens(sentence.present);
       past = typeof sentence.past === "string" ? sentence.past : joinTokens(sentence.past);
 
-      if (present.indexOf(" sieht zuerst ") !== -1 && past.indexOf(" sah zuerst ") !== -1) {
-        present = present.replace(" sieht zuerst ", " betrachtet zuerst ");
-        past = past.replace(" sah zuerst ", " betrachtete zuerst ");
-      }
-
-      if (present.indexOf(" kommt dazu, trägt ") !== -1 && present.indexOf(" herbei und hilft gleich mit.") !== -1) {
-        present = present.replace(" kommt dazu, trägt ", " kommt dazu, bringt ");
-        present = present.replace(" herbei und hilft gleich mit.", " mit und hilft sofort.");
-        past = past.replace(" kam dazu, trug ", " kam dazu, brachte ");
-        past = past.replace(" herbei und half gleich mit.", " mit und half sofort.");
-      }
-
-      if (present === "Gemeinsam schreiben, bauen oder ordnen beide alles weiter.") {
-        present = "Gemeinsam ordnen beide alles, vergleichen ihre Ideen und arbeiten weiter.";
-        past = "Gemeinsam ordneten beide alles, verglichen ihre Ideen und arbeiteten weiter.";
-      }
-
       sentence.present = tokenizeSentence(present);
       sentence.past = tokenizeSentence(past);
-      sentence.past = buildVerbOnlyPastTokens(sentence.present, sentence.past);
+      sentence.answer = buildVerbOnlyPastTokens(sentence.present, sentence.past);
     }
     polished.push(texts[textIndex]);
   }
@@ -380,6 +368,10 @@ function buildVerbOnlyPastTokens(presentTokens, pastTokens) {
   }
 
   return rebuilt;
+}
+
+function getExpectedSentenceTokens(sentence) {
+  return sentence.answer && sentence.answer.length ? sentence.answer : sentence.past;
 }
 
 function normalizeGermanText(value) {
@@ -655,7 +647,7 @@ function startOptionalIntegrations() {
   }
   window.__optionalLoadsStarted = true;
 
-  loadOptionalScript("./text-library-custom.js", function () {
+  loadOptionalScript("./text-library-custom.js?v=20260321-5", function () {
     if (!state.playerName) {
       refreshExtendedTextLibrary();
     }
@@ -681,7 +673,8 @@ window.setTimeout(function () {
 function createTokenElement(sentenceIndex, tokenIndex) {
   var sentence = getCurrentText().sentences[sentenceIndex];
   var tokenState = state.currentTokens[sentenceIndex][tokenIndex];
-  var expected = sentence.past[tokenIndex];
+  var expectedTokens = getExpectedSentenceTokens(sentence);
+  var expected = expectedTokens[tokenIndex];
   var wasEdited = tokenState.value !== tokenState.original;
   var element;
   if (PUNCTUATION[tokenState.original]) {
@@ -800,7 +793,7 @@ function checkAllSentences() {
 
 function sentenceIsCorrect(sentenceIndex) {
   var current = state.currentTokens[sentenceIndex];
-  var expected = getCurrentText().sentences[sentenceIndex].past;
+  var expected = getExpectedSentenceTokens(getCurrentText().sentences[sentenceIndex]);
   var i;
   for (i = 0; i < current.length; i += 1) {
     if (current[i].value !== expected[i]) {
@@ -1150,6 +1143,7 @@ function copyWordStats(entries) {
 
 function collectEditedInputStats(sentenceIndex) {
   var sentence = getCurrentText().sentences[sentenceIndex];
+  var expected = getExpectedSentenceTokens(sentence);
   var current = state.currentTokens[sentenceIndex];
   var tokenIndex;
   for (tokenIndex = 0; tokenIndex < current.length; tokenIndex += 1) {
@@ -1159,7 +1153,7 @@ function collectEditedInputStats(sentenceIndex) {
     if (current[tokenIndex].value === current[tokenIndex].original) {
       continue;
     }
-    if (current[tokenIndex].value === sentence.past[tokenIndex]) {
+    if (current[tokenIndex].value === expected[tokenIndex]) {
       state.currentEditedCorrectInputs += 1;
     } else {
       state.currentEditedWrongInputs += 1;
@@ -1169,26 +1163,27 @@ function collectEditedInputStats(sentenceIndex) {
 
 function collectSentenceMistakes(sentenceIndex) {
   var sentence = getCurrentText().sentences[sentenceIndex];
+  var expected = getExpectedSentenceTokens(sentence);
   var current = state.currentTokens[sentenceIndex];
   var tokenIndex;
   for (tokenIndex = 0; tokenIndex < current.length; tokenIndex += 1) {
     if (PUNCTUATION[current[tokenIndex].original]) {
       continue;
     }
-    if (current[tokenIndex].value === sentence.past[tokenIndex]) {
+    if (current[tokenIndex].value === expected[tokenIndex]) {
       continue;
     }
     if (current[tokenIndex].value !== current[tokenIndex].original) {
       rememberWordStat(state.currentWrongEditedWords, {
         key: "edited-" + String(sentenceIndex) + "-" + String(tokenIndex),
-        word: sentence.past[tokenIndex],
+        word: expected[tokenIndex],
         source: current[tokenIndex].original,
         entered: current[tokenIndex].value
       });
     } else {
       rememberWordStat(state.currentUneditedWrongWords, {
         key: "missed-" + String(sentenceIndex) + "-" + String(tokenIndex),
-        word: sentence.past[tokenIndex],
+        word: expected[tokenIndex],
         source: current[tokenIndex].original,
         entered: current[tokenIndex].value
       });
@@ -1363,6 +1358,18 @@ function saveTeacherPassword() {
   localStorage.setItem(TEACHER_PASSWORD_KEY, newPassword);
   teacherNewPasswordInput.value = "";
   teacherError.textContent = "Das Lehrerpasswort wurde gespeichert.";
+}
+
+function resetAllTeacherStats() {
+  if (!window.confirm("Sollen wirklich alle Highscores, Sitzungen und Statistikdaten gelöscht werden?")) {
+    return;
+  }
+  localStorage.setItem(HIGHSCORE_STORAGE_KEY, JSON.stringify([]));
+  localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify([]));
+  teacherError.textContent = "Alle Statistikdaten wurden zurückgesetzt.";
+  deleteAllRemoteStatistics(function () {
+    renderHighscores();
+  });
 }
 
 function renderTeacherContent(highscores) {
@@ -1993,6 +2000,23 @@ function deleteRemotePlayerData(playerName, callback) {
   }
 }
 
+function deleteAllRemoteStatistics(callback) {
+  var pending = 0;
+  function doneDeleting() {
+    pending -= 1;
+    if (pending <= 0) {
+      callback();
+    }
+  }
+  if (!firebaseEnabled || !firebaseDatabase) {
+    callback();
+    return;
+  }
+  pending = 2;
+  firebaseDatabase.ref(HIGHSCORE_PATH).remove().then(doneDeleting).catch(doneDeleting);
+  firebaseDatabase.ref(SESSION_PATH).remove().then(doneDeleting).catch(doneDeleting);
+}
+
 function deleteMatchingSnapshotChildren(snapshot, basePath, playerName, callback) {
   var value;
   var key;
@@ -2303,30 +2327,9 @@ function polishTextLibrary(texts) {
       present = typeof sentence.present === "string" ? sentence.present : joinTokens(sentence.present);
       past = typeof sentence.past === "string" ? sentence.past : joinTokens(sentence.past);
 
-      if (present.indexOf(" sieht zuerst ") !== -1 && past.indexOf(" sah zuerst ") !== -1) {
-        present = present.replace(" sieht zuerst ", " betrachtet zuerst ");
-        past = past.replace(" sah zuerst ", " betrachtete zuerst ");
-      }
-
-      if (present.indexOf(" kommt dazu, trägt ") !== -1 && present.indexOf(" herbei und hilft gleich mit.") !== -1) {
-        present = present.replace(" kommt dazu, trägt ", " kommt dazu, bringt ");
-        present = present.replace(" herbei und hilft gleich mit.", " mit und hilft sofort.");
-        past = past.replace(" kam dazu, trug ", " kam dazu, brachte ");
-        past = past.replace(" herbei und half gleich mit.", " mit und half sofort.");
-      }
-
-      if (present.indexOf(" nimmt ") !== -1 && present.indexOf(" in die Hand und beginnt ruhig.") !== -1) {
-        present = present.replace(" in die Hand und beginnt ruhig.", " in die Hand und arbeitet konzentriert weiter.");
-        past = past.replace(" in die Hand und begann ruhig.", " in die Hand und arbeitete konzentriert weiter.");
-      }
-
-      if (present === "Gemeinsam schreiben, bauen oder ordnen beide alles weiter.") {
-        present = "Gemeinsam ordnen beide alles, vergleichen ihre Ideen und arbeiten weiter.";
-        past = "Gemeinsam ordneten beide alles, verglichen ihre Ideen und arbeiteten weiter.";
-      }
-
       sentence.present = tokenizeSentence(present);
       sentence.past = tokenizeSentence(past);
+      sentence.answer = buildVerbOnlyPastTokens(sentence.present, sentence.past);
     }
     polished.push(texts[textIndex]);
   }
@@ -2646,7 +2649,8 @@ function getSentenceDifferenceInfo(sentenceIndex) {
   var columnIndex;
   var info = {
     presentChanged: {},
-    pastChanged: {}
+    pastChanged: {},
+    pastChangedList: []
   };
 
   for (rowIndex = 0; rowIndex <= presentTokens.length; rowIndex += 1) {
@@ -2692,6 +2696,7 @@ function getSentenceDifferenceInfo(sentenceIndex) {
   for (columnIndex = 0; columnIndex < pastTokens.length; columnIndex += 1) {
     if (!pastMatched[columnIndex] && !PUNCTUATION[pastTokens[columnIndex]]) {
       info.pastChanged[columnIndex] = true;
+      info.pastChangedList.push(pastTokens[columnIndex]);
     }
   }
 
@@ -2760,19 +2765,11 @@ function getSentenceClipart(text, sentenceIndex) {
 }
 
 function getSentenceVerbSolutions(sentenceIndex) {
-  var sentence = getCurrentText().sentences[sentenceIndex];
   var differenceInfo = getSentenceDifferenceInfo(sentenceIndex);
-  var verbs = [];
-  var tokenIndex;
-  for (tokenIndex = 0; tokenIndex < sentence.present.length; tokenIndex += 1) {
-    if (differenceInfo.presentChanged[tokenIndex] && sentence.past[tokenIndex]) {
-      verbs.push(sentence.past[tokenIndex]);
-    }
+  if (differenceInfo.pastChangedList.length) {
+    return differenceInfo.pastChangedList.slice();
   }
-  if (!verbs.length) {
-    verbs.push(joinTokens(sentence.past));
-  }
-  return verbs;
+  return [];
 }
 
 function saveSentenceHighscore(sentenceIndex) {
