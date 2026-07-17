@@ -455,10 +455,14 @@
     return dateAtMinutes(state.sliderMinutes);
   }
 
+  let lastSun = null, lastMoon = null; // zuletzt berechnete Positionen für schnelle View-Updates
+
   function renderCompass() {
     const d = compassDate();
     const sun = Astro.getSunPosition(d, state.lat, state.lng);
     const moon = Astro.getMoonPosition(d, state.lat, state.lng);
+    lastSun = sun;
+    lastMoon = moon;
 
     placeBody('sun', sun);
     placeBody('moon', moon);
@@ -526,6 +530,22 @@
     $('compass-plane').style.transform = 'rotateZ(' + -state.heading + 'deg)';
   }
 
+  // Leichtes View-Update ohne Astro-Neuberechnung – für Drag und Sensor-Events.
+  // Über requestAnimationFrame gedrosselt, da Sensoren mit ~60 Hz feuern.
+  let viewUpdatePending = false;
+  function scheduleViewUpdate() {
+    if (viewUpdatePending) return;
+    viewUpdatePending = true;
+    requestAnimationFrame(() => {
+      viewUpdatePending = false;
+      applySceneTransform();
+      placeCardinals();
+      updatePathBillboards();
+      if (lastSun) placeBody('sun', lastSun);
+      if (lastMoon) placeBody('moon', lastMoon);
+    });
+  }
+
   // Drehen/Kippen per Zeiger (Maus oder Finger)
   function initCompassDrag() {
     const scene = $('compass-scene');
@@ -543,58 +563,118 @@
       state.tilt = Math.min(85, Math.max(15, state.tilt - (ev.clientY - lastY) * 0.3));
       lastX = ev.clientX;
       lastY = ev.clientY;
-      if (state.deviceOrientation) toggleDeviceOrientation(); // manuelles Drehen beendet Sensor-Modus
-      renderCompass();
+      if (state.deviceOrientation) stopDeviceOrientation(); // manuelles Drehen beendet Sensor-Modus
+      scheduleViewUpdate();
     });
     const stop = () => { dragging = false; };
     scene.addEventListener('pointerup', stop);
     scene.addEventListener('pointercancel', stop);
   }
 
-  // Ausrichtung am echten Kompass (Gerätesensor)
+  // ---------- Kopplung an den Gerätekompass ----------
+  // Drehung folgt der Blickrichtung des Geräts, die Kippung der Geräteneigung:
+  // flach gehalten → Draufsicht, hochkant Richtung Horizont → gekippte Ansicht.
+
+  function screenAngle() {
+    if (screen.orientation && typeof screen.orientation.angle === 'number') {
+      return screen.orientation.angle;
+    }
+    return typeof window.orientation === 'number' ? window.orientation : 0;
+  }
+
+  // kürzester Weg zwischen zwei Winkeln, für ruckelfreie Glättung
+  function angleLerp(a, b, t) {
+    const d = ((b - a + 540) % 360) - 180;
+    return (a + d * t + 360) % 360;
+  }
+
   function onDeviceOrientation(ev) {
+    if (!state.deviceOrientation) return;
+
     let heading = null;
     if (typeof ev.webkitCompassHeading === 'number') {
-      heading = ev.webkitCompassHeading; // iOS
-    } else if (ev.absolute && typeof ev.alpha === 'number') {
-      heading = 360 - ev.alpha;
+      heading = ev.webkitCompassHeading + screenAngle(); // iOS liefert echten Kompasswert
     } else if (typeof ev.alpha === 'number') {
-      heading = 360 - ev.alpha; // bester verfügbarer Wert
+      heading = 360 - ev.alpha + screenAngle();
     }
-    if (heading != null && state.deviceOrientation) {
-      state.heading = (heading + 360) % 360;
-      renderCompass();
+
+    // Neigung: im Hochformat steuert beta, im Querformat gamma
+    let tiltRaw = null;
+    const angle = screenAngle();
+    if (angle === 90 || angle === -90 || angle === 270) {
+      if (typeof ev.gamma === 'number') tiltRaw = Math.abs(ev.gamma);
+    } else if (typeof ev.beta === 'number') {
+      tiltRaw = Math.abs(ev.beta);
     }
+
+    // Glättung gegen Sensor-Zittern
+    if (heading != null) state.heading = angleLerp(state.heading, (heading + 360) % 360, 0.25);
+    if (tiltRaw != null) {
+      const target = Math.min(85, Math.max(5, tiltRaw));
+      state.tilt = state.tilt + (target - state.tilt) * 0.25;
+    }
+    scheduleViewUpdate();
+  }
+
+  function startDeviceOrientation() {
+    state.deviceOrientation = true;
+    if ('ondeviceorientationabsolute' in window) {
+      window.addEventListener('deviceorientationabsolute', onDeviceOrientation);
+    } else {
+      window.addEventListener('deviceorientation', onDeviceOrientation);
+    }
+    $('orient-btn').textContent = '📱 Kompass-Kopplung aktiv – tippen zum Beenden';
+    $('orient-btn').classList.add('active');
+  }
+
+  function stopDeviceOrientation() {
+    state.deviceOrientation = false;
+    window.removeEventListener('deviceorientationabsolute', onDeviceOrientation);
+    window.removeEventListener('deviceorientation', onDeviceOrientation);
+    $('orient-btn').textContent = '📱 Am echten Kompass ausrichten';
+    $('orient-btn').classList.remove('active');
   }
 
   function toggleDeviceOrientation() {
     const btn = $('orient-btn');
     if (state.deviceOrientation) {
-      state.deviceOrientation = false;
-      window.removeEventListener('deviceorientationabsolute', onDeviceOrientation);
-      window.removeEventListener('deviceorientation', onDeviceOrientation);
-      btn.textContent = '📱 Am echten Kompass ausrichten';
+      stopDeviceOrientation();
       return;
     }
-    const start = () => {
-      state.deviceOrientation = true;
-      if ('ondeviceorientationabsolute' in window) {
-        window.addEventListener('deviceorientationabsolute', onDeviceOrientation);
-      } else {
-        window.addEventListener('deviceorientation', onDeviceOrientation);
-      }
-      btn.textContent = '📱 Sensor-Ausrichtung beenden';
-    };
-    if (typeof DeviceOrientationEvent !== 'undefined' &&
-        typeof DeviceOrientationEvent.requestPermission === 'function') {
-      DeviceOrientationEvent.requestPermission()
-        .then((res) => { if (res === 'granted') start(); })
-        .catch(() => { btn.textContent = '📱 Sensor nicht verfügbar'; });
-    } else if (typeof DeviceOrientationEvent !== 'undefined') {
-      start();
-    } else {
+    if (typeof DeviceOrientationEvent === 'undefined') {
       btn.textContent = '📱 Sensor nicht verfügbar';
+      return;
     }
+    if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+      // iOS: Sensorzugriff erfordert Nutzergeste + Berechtigung
+      DeviceOrientationEvent.requestPermission()
+        .then((res) => {
+          if (res === 'granted') startDeviceOrientation();
+          else btn.textContent = '📱 Sensor-Zugriff abgelehnt';
+        })
+        .catch(() => { btn.textContent = '📱 Sensor nicht verfügbar'; });
+    } else {
+      startDeviceOrientation();
+    }
+  }
+
+  // Auf Geräten ohne Berechtigungspflicht (z. B. Android) automatisch koppeln,
+  // sobald der Sensor tatsächlich Werte liefert. iOS verlangt eine Nutzergeste,
+  // dort bleibt es beim Button.
+  function tryAutoOrientation() {
+    if (typeof DeviceOrientationEvent === 'undefined') return;
+    if (typeof DeviceOrientationEvent.requestPermission === 'function') return;
+    const probe = (ev) => {
+      cleanup();
+      if (ev.alpha != null && !state.deviceOrientation) startDeviceOrientation();
+    };
+    const cleanup = () => {
+      window.removeEventListener('deviceorientationabsolute', probe);
+      window.removeEventListener('deviceorientation', probe);
+    };
+    window.addEventListener('deviceorientationabsolute', probe);
+    window.addEventListener('deviceorientation', probe);
+    setTimeout(cleanup, 4000);
   }
 
   // ---------- Rendering & Events ----------
@@ -644,6 +724,7 @@
     updateLocationLabel();
     renderAll();
     locate(); // automatische Standortbestimmung
+    tryAutoOrientation(); // Kompass-Kopplung, wo ohne Nachfrage möglich
 
     $('date-input').addEventListener('change', setDateFromInput);
     $('today-btn').addEventListener('click', () => {

@@ -323,6 +323,11 @@ tr.hl-blue td { color: var(--accent-blue); }
 #time-slider { flex: 1 1 160px; accent-color: var(--accent); }
 
 .compass-buttons { margin-top: 0.6rem; }
+.btn.active {
+  background: #2e4a2e;
+  border-color: #4a7a4a;
+  color: #b8e6b8;
+}
 
 .app-footer {
   text-align: center;
