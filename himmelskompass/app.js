@@ -79,6 +79,122 @@
     map.on('click', (ev) => {
       setLocation(ev.latlng.lat, ev.latlng.lng, false);
     });
+    map.on('zoomend', () => {
+      drawMapOverlay();
+      renderCompass(); // zeichnet auch die aktuellen Richtungslinien neu
+    });
+  }
+
+  // ---------- Himmels-Overlay auf der Karte ----------
+  let skyOverlay = null;     // Bahnen, Stunden und Auf-/Untergangslinien
+  let currentLinesLayer = null; // Linien zur aktuellen Sonnen-/Mondposition
+
+  // Projektion der Himmelskuppel auf die Karte: fester Pixelradius um den Ort
+  function mapProjection() {
+    if (!map) return null;
+    const center = L.latLng(state.lat, state.lng);
+    const cpt = map.latLngToLayerPoint(center);
+    const size = map.getSize();
+    const radius = Math.max(70, Math.min(size.x, size.y) / 2 - 30);
+    return {
+      center,
+      radius,
+      project(az, alt) {
+        const r = radius * Math.cos(alt);
+        return map.layerPointToLatLng(
+          L.point(cpt.x + r * Math.sin(az), cpt.y - r * Math.cos(az))
+        );
+      }
+    };
+  }
+
+  function drawMapOverlay() {
+    const proj = mapProjection();
+    if (!proj) return;
+    if (skyOverlay) skyOverlay.remove();
+    skyOverlay = L.layerGroup().addTo(map);
+
+    // Horizontkreis
+    skyOverlay.addLayer(L.circleMarker(proj.center, {
+      radius: proj.radius, color: '#5a7db8', weight: 1, dashArray: '4 4',
+      fill: false, opacity: 0.5, interactive: false
+    }));
+
+    addPathToMap('sun', Astro.getSunPosition, '#ffd166', proj);
+    addPathToMap('moon', Astro.getMoonPosition, '#6ab7ff', proj);
+
+    const noon = dateAtMinutes(12 * 60);
+    const st = Astro.getSunTimes(noon, state.lat, state.lng);
+    const mt = Astro.getMoonTimes(noon, state.lat, state.lng);
+    addRiseSetLine(st.sunrise, Astro.getSunPosition, '#ff9e00', '☀️↑', proj);
+    addRiseSetLine(st.sunset, Astro.getSunPosition, '#ff5470', '☀️↓', proj);
+    addRiseSetLine(mt.rise, Astro.getMoonPosition, '#8ec9ff', '🌙↑', proj);
+    addRiseSetLine(mt.set, Astro.getMoonPosition, '#4a90d9', '🌙↓', proj);
+  }
+
+  // Bahn über dem Horizont als Linienzug, dazu Stundenpunkte mit Uhrzeit
+  function addPathToMap(name, getPos, color, proj) {
+    let seg = [];
+    const flush = () => {
+      if (seg.length > 1) {
+        skyOverlay.addLayer(L.polyline(seg, {
+          color, weight: 2.5, opacity: 0.85, interactive: false
+        }));
+      }
+      seg = [];
+    };
+    for (let m = 0; m <= 1440; m += 10) {
+      const p = getPos(dateAtMinutes(Math.min(m, 1439)), state.lat, state.lng);
+      if (p.altitude >= 0) seg.push(proj.project(p.azimuth, p.altitude));
+      else flush();
+    }
+    flush();
+
+    for (let h = 0; h < 24; h++) {
+      const p = getPos(dateAtMinutes(h * 60), state.lat, state.lng);
+      if (p.altitude <= 0) continue;
+      const dot = L.circleMarker(proj.project(p.azimuth, p.altitude), {
+        radius: 3, color, fillColor: color, fillOpacity: 1, weight: 1, interactive: false
+      });
+      if (h % 3 === 0) {
+        dot.bindTooltip(h + ' h', {
+          permanent: true, direction: 'top', offset: [0, -4],
+          className: 'map-time-tip ' + name
+        });
+      }
+      skyOverlay.addLayer(dot);
+    }
+  }
+
+  // Gestrichelte Richtungslinie zum Auf- bzw. Untergangspunkt mit Uhrzeit
+  function addRiseSetLine(time, getPos, color, label, proj) {
+    if (!time) return;
+    const az = getPos(time, state.lat, state.lng).azimuth;
+    const end = proj.project(az, 0);
+    skyOverlay.addLayer(L.polyline([proj.center, end], {
+      color, weight: 2, dashArray: '6 4', opacity: 0.9, interactive: false
+    }));
+    skyOverlay.addLayer(
+      L.circleMarker(end, { radius: 2, color, fillColor: color, fillOpacity: 1, interactive: false })
+        .bindTooltip(label + ' ' + fmtTime(time), {
+          permanent: true, direction: 'top', offset: [0, -4], className: 'map-time-tip'
+        })
+    );
+  }
+
+  // Durchgezogene Linien zur Sonnen-/Mondposition zur eingestellten Uhrzeit
+  function updateMapCurrentLines(sun, moon) {
+    const proj = mapProjection();
+    if (!proj) return;
+    if (currentLinesLayer) currentLinesLayer.remove();
+    currentLinesLayer = L.layerGroup().addTo(map);
+    [[sun, '#ffd166'], [moon, '#6ab7ff']].forEach(([pos, color]) => {
+      const up = pos.altitude >= 0;
+      currentLinesLayer.addLayer(L.polyline(
+        [proj.center, proj.project(pos.azimuth, pos.altitude)],
+        { color, weight: 3, opacity: up ? 0.9 : 0.3, interactive: false }
+      ));
+    });
   }
 
   function setLocation(lat, lng, panTo) {
@@ -283,6 +399,58 @@
   // ---------- 3D-Kompass ----------
   const R = 140; // Radius des Horizonts in px (Hälfte von 280)
 
+  // Position am Himmel → Koordinaten in der Kompass-Ebene (x, y) plus Höhe (z)
+  function skyXYZ(pos) {
+    return [
+      R * Math.cos(pos.altitude) * Math.sin(pos.azimuth),
+      -R * Math.cos(pos.altitude) * Math.cos(pos.azimuth),
+      R * Math.sin(pos.altitude)
+    ];
+  }
+
+  // Tagesbahnen von Sonne und Mond als Punktketten mit Stunden-Beschriftung
+  function buildCompassPaths() {
+    buildCompassPath('sun', Astro.getSunPosition);
+    buildCompassPath('moon', Astro.getMoonPosition);
+    updatePathBillboards();
+  }
+
+  function buildCompassPath(name, getPos) {
+    const cont = $(name + '-path');
+    cont.innerHTML = '';
+    for (let m = 0; m < 1440; m += 15) {
+      const p = getPos(dateAtMinutes(m), state.lat, state.lng);
+      const [x, y, z] = skyXYZ(p);
+      const dot = document.createElement('div');
+      dot.className = 'path-dot ' + name + (p.altitude < 0 ? ' below' : '') +
+        (m % 60 === 0 ? ' hour' : '');
+      dot.style.transform = 'translate3d(' + x + 'px,' + y + 'px,' + z + 'px) translate(-50%,-50%)';
+      cont.appendChild(dot);
+    }
+    for (let h = 0; h < 24; h += 2) {
+      const p = getPos(dateAtMinutes(h * 60), state.lat, state.lng);
+      if (p.altitude <= 0.02) continue; // nur über dem Horizont beschriften
+      const [x, y, z] = skyXYZ(p);
+      const lab = document.createElement('div');
+      lab.className = 'path-label ' + name;
+      lab.textContent = h + ' h';
+      lab.dataset.x = x;
+      lab.dataset.y = y;
+      lab.dataset.z = z;
+      cont.appendChild(lab);
+    }
+  }
+
+  // Stunden-Beschriftungen zum Betrachter drehen (abhängig von Drehung/Kippung)
+  function updatePathBillboards() {
+    const bb = ' rotateZ(' + state.heading + 'deg) rotateX(' + -state.tilt + 'deg)';
+    document.querySelectorAll('.path-label').forEach((el) => {
+      // Sonnen-Labels über, Mond-Labels unter der Bahn – vermeidet Überlappungen
+      const off = el.classList.contains('moon') ? ' translate(-50%,45%)' : ' translate(-50%,-145%)';
+      el.style.transform = 'translate3d(' + el.dataset.x + 'px,' + el.dataset.y + 'px,' + el.dataset.z + 'px)' + bb + off;
+    });
+  }
+
   function compassDate() {
     return dateAtMinutes(state.sliderMinutes);
   }
@@ -303,6 +471,8 @@
     $('time-slider-label').textContent = fmtTime(d) + ' Uhr';
     applySceneTransform();
     placeCardinals();
+    updatePathBillboards();
+    updateMapCurrentLines(sun, moon);
   }
 
   function bodyText(pos) {
@@ -316,9 +486,7 @@
     const lineEl = $(name + '-line');
 
     // Projektion: Azimut 0° = Nord (oben), Höhe hebt den Marker aus der Ebene
-    const x = R * Math.cos(pos.altitude) * Math.sin(pos.azimuth);
-    const y = -R * Math.cos(pos.altitude) * Math.cos(pos.azimuth);
-    const z = R * Math.sin(pos.altitude);
+    const [x, y, z] = skyXYZ(pos);
 
     group.style.transform = 'translate3d(' + x + 'px,' + y + 'px,0)';
 
@@ -433,6 +601,8 @@
   function renderAll() {
     renderSun();
     renderMoon();
+    buildCompassPaths();
+    drawMapOverlay();
     renderCompass();
   }
 
