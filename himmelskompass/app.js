@@ -255,7 +255,8 @@
     );
   }
 
-  // Durchgezogene Linien zur Sonnen-/Mondposition zur eingestellten Uhrzeit
+  // Aktuelle Richtungslinien zu Sonne/Mond und die Lage des Milchstraßen-Bands
+  // zur eingestellten Uhrzeit
   function updateMapCurrentLines(sun, moon) {
     const proj = mapProjection();
     if (!proj) return;
@@ -268,6 +269,24 @@
         { color, weight: 3, opacity: up ? 0.9 : 0.3, interactive: false }
       ));
     });
+
+    // Milchstraßen-Band: nur der Teil über dem Horizont
+    const band = Astro.getMilkyWayBand(compassDate(), state.lat, state.lng);
+    band.push(band[0]); // Ring schließen
+    let seg = [];
+    const flush = () => {
+      if (seg.length > 1) {
+        currentLinesLayer.addLayer(L.polyline(seg, {
+          color: '#b794ff', weight: 2, opacity: 0.7, dashArray: '2 6', interactive: false
+        }));
+      }
+      seg = [];
+    };
+    for (const p of band) {
+      if (p.altitude >= 0) seg.push(proj.project(p.azimuth, p.altitude));
+      else flush();
+    }
+    flush();
   }
 
   function setLocation(lat, lng, panTo) {
@@ -585,7 +604,32 @@
   function buildCompassPaths() {
     buildCompassPath('sun', Astro.getSunPosition);
     buildCompassPath('moon', Astro.getMoonPosition);
+    buildMilkyWayBand();
     updatePathBillboards();
+  }
+
+  // Milchstraßen-Band: feste Punktmenge, deren Positionen sich mit der Uhrzeit ändern
+  function buildMilkyWayBand() {
+    const cont = $('mw-band');
+    if (cont.childElementCount) return; // Punkte existieren schon, nur Positionen ändern sich
+    for (let i = 0; i < 90; i++) {
+      const dot = document.createElement('div');
+      dot.className = 'mw-dot';
+      cont.appendChild(dot);
+    }
+  }
+
+  function placeMilkyWayBand(band) {
+    const dots = $('mw-band').children;
+    for (let i = 0; i < band.length && i < dots.length; i++) {
+      const p = band[i];
+      const [x, y, z] = skyXYZ(p);
+      const dot = dots[i];
+      // Kernbereich um das galaktische Zentrum (±40° galaktische Länge) heller
+      const core = p.l <= 40 || p.l >= 320;
+      dot.className = 'mw-dot' + (core ? ' core' : '') + (p.altitude < 0 ? ' below' : '');
+      dot.style.transform = 'translate3d(' + x + 'px,' + y + 'px,' + z + 'px) translate(-50%,-50%)';
+    }
   }
 
   function buildCompassPath(name, getPos) {
@@ -642,6 +686,7 @@
     placeBody('sun', sun);
     placeBody('moon', moon);
     placeBody('gc', gc);
+    placeMilkyWayBand(Astro.getMilkyWayBand(d, state.lat, state.lng));
 
     $('sun-azalt').textContent = bodyText(sun);
     $('moon-azalt').textContent = bodyText(moon);
@@ -854,6 +899,33 @@
     setTimeout(cleanup, 4000);
   }
 
+  // ---------- Zeitraffer-Animation ----------
+  // Spielt den Tagesverlauf ab: Sonne, Mond und Milchstraße wandern über den Himmel.
+  let playTimer = null;
+
+  function togglePlayback() {
+    if (playTimer) {
+      stopPlayback();
+      return;
+    }
+    state.live = false;
+    playTimer = setInterval(() => {
+      state.sliderMinutes = (state.sliderMinutes + 4) % 1440;
+      $('time-slider').value = String(state.sliderMinutes);
+      renderCompass();
+    }, 100);
+    $('play-btn').textContent = '⏸';
+    $('play-btn').classList.add('active');
+  }
+
+  function stopPlayback() {
+    if (!playTimer) return;
+    clearInterval(playTimer);
+    playTimer = null;
+    $('play-btn').textContent = '▶';
+    $('play-btn').classList.remove('active');
+  }
+
   // ---------- Rendering & Events ----------
   function renderAll() {
     renderSun();
@@ -915,16 +987,19 @@
     });
     $('locate-btn').addEventListener('click', locate);
     $('time-slider').addEventListener('input', () => {
+      stopPlayback();
       state.live = false;
       state.sliderMinutes = Number($('time-slider').value);
       renderCompass();
     });
     $('now-btn').addEventListener('click', () => {
+      stopPlayback();
       state.live = true;
       setDateToday();
       setSliderToNow();
       renderAll();
     });
+    $('play-btn').addEventListener('click', togglePlayback);
     $('orient-btn').addEventListener('click', toggleDeviceOrientation);
 
     // Minütlich aktualisieren, solange der Kompass "live" ist

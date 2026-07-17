@@ -321,6 +321,25 @@ tr.hl-blue td { color: var(--accent-blue); }
 .path-label.sun { color: #ffd166; }
 .path-label.moon { color: #8ec9ff; }
 
+/* Milchstraßen-Band */
+.mw-dot {
+  position: absolute;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: #b794ff;
+  opacity: 0.55;
+  box-shadow: 0 0 4px rgba(183, 148, 255, 0.5);
+}
+.mw-dot.core {
+  width: 5px;
+  height: 5px;
+  background: #d9c8ff;
+  opacity: 0.9;
+  box-shadow: 0 0 7px rgba(217, 200, 255, 0.9);
+}
+.mw-dot.below { opacity: 0.08; box-shadow: none; }
+
 .body-group {
   position: absolute;
   left: 50%;

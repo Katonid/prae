@@ -249,6 +249,36 @@
     };
   }
 
+  // Galaktische Ebene (b = 0) als Punktkette in Äquatorialkoordinaten,
+  // einmalig vorberechnet. Nordgalaktischer Pol (J2000): RA 192,85948°,
+  // Dek 27,12825°; galaktische Länge des Himmelsnordpols: 122,93192°.
+  const NGP_RA = rad * 192.85948;
+  const NGP_DEC = rad * 27.12825;
+  const L_NCP = rad * 122.93192;
+  const galacticPlane = [];
+  for (let l = 0; l < 360; l += 4) {
+    const dl = L_NCP - rad * l;
+    const dec = Math.asin(Math.cos(NGP_DEC) * Math.cos(dl));
+    const ra = NGP_RA + Math.atan2(Math.sin(dl), -Math.sin(NGP_DEC) * Math.cos(dl));
+    galacticPlane.push({ ra, dec, l });
+  }
+
+  // Aktuelle Lage des Milchstraßen-Bands am Himmel des Ortes.
+  // l = galaktische Länge (0 = galaktisches Zentrum, hellster Bereich).
+  function getMilkyWayBand(date, lat, lng) {
+    const lw = rad * -lng;
+    const phi = rad * lat;
+    const st = siderealTime(toDays(date), lw);
+    return galacticPlane.map((p) => {
+      const H = st - p.ra;
+      return {
+        azimuth: normalizeAz(azimuth(H, phi, p.dec) + Math.PI), // 0 = Nord
+        altitude: altitude(H, phi, p.dec),
+        l: p.l
+      };
+    });
+  }
+
   // Phasenname aus Phasenwert (0 = Neumond, 0.5 = Vollmond)
   function moonPhaseName(phase) {
     const names = [
@@ -266,6 +296,7 @@
     getMoonIllumination,
     getMoonTimes,
     getGalacticCenterPosition,
+    getMilkyWayBand,
     moonPhaseName
   };
 })(typeof window !== 'undefined' ? window : globalThis);
