@@ -160,6 +160,7 @@
             <div class="cardinal-minor nw">NW</div>
             <div class="body-path" id="sun-path"></div>
             <div class="body-path" id="moon-path"></div>
+            <div class="body-path" id="mw-band"></div>
             <div class="body-group" id="sun-group">
               <div class="altitude-line" id="sun-line"></div>
               <div class="body-marker sun-marker" id="sun-marker">☀️</div>
@@ -190,11 +191,15 @@
       <div class="time-slider-row">
         <label for="time-slider">Uhrzeit: <strong id="time-slider-label">–</strong></label>
         <input type="range" id="time-slider" min="0" max="1439" step="1" value="720">
+        <button id="play-btn" class="btn btn-small" type="button" aria-label="Tagesverlauf abspielen">▶</button>
         <button id="now-btn" class="btn btn-small" type="button">Jetzt</button>
       </div>
       <div class="compass-buttons">
         <button id="orient-btn" class="btn btn-small" type="button">📱 Am echten Kompass ausrichten</button>
       </div>
+      <p class="hint">Das violette Band zeigt die Lage der Milchstraße am Himmel, der hellere Abschnitt ihr
+        Zentrum (🌌). Mit ▶ läuft der Tagesverlauf als Animation ab – so siehst du, wie Sonne, Mond und
+        Milchstraße über den Himmel wandern.</p>
       <p class="hint">Bei aktiver Kompass-Kopplung folgt die Ansicht der Ausrichtung und Neigung deines Geräts:
         Drehe dich, und der Kompass dreht mit; halte das Gerät flach für die Draufsicht oder hebe es Richtung
         Horizont für die gekippte Ansicht. Manuelles Ziehen mit Finger/Maus beendet die Kopplung.</p>
