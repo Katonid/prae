@@ -1,0 +1,310 @@
+/* Himmelskompass – Styles */
+:root {
+  --bg: #0d1b2a;
+  --bg-card: #1b2a3f;
+  --bg-card2: #162335;
+  --fg: #e8eef7;
+  --fg-dim: #9fb0c7;
+  --accent: #ffb703;
+  --accent-blue: #6ab7ff;
+  --border: #2c3e57;
+  --radius: 14px;
+
+  --c-night: #0b1026;
+  --c-astro: #1b2557;
+  --c-naut: #2e4482;
+  --c-civil: #5a7db8;
+  --c-blue: #4a90d9;
+  --c-golden: #ffb703;
+  --c-day: #bfe0ff;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  line-height: 1.5;
+}
+
+.app-header {
+  text-align: center;
+  padding: 1.2rem 1rem 0.4rem;
+}
+.app-header h1 { margin: 0; font-size: 1.6rem; }
+.subtitle { margin: 0.2rem 0 0; color: var(--fg-dim); font-size: 0.9rem; }
+
+main {
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 0.8rem;
+  display: grid;
+  gap: 0.9rem;
+}
+
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem;
+}
+.card h2 { margin: 0 0 0.7rem; font-size: 1.15rem; }
+.card h3 { margin: 0 0 0.4rem; font-size: 0.95rem; color: var(--fg-dim); }
+
+.hint { color: var(--fg-dim); font-size: 0.8rem; margin: 0.6rem 0 0; }
+
+/* Controls */
+.controls-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  align-items: flex-end;
+}
+.control { display: flex; flex-direction: column; gap: 0.2rem; }
+.control-label { font-size: 0.8rem; color: var(--fg-dim); }
+input[type="date"] {
+  background: var(--bg-card2);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.45rem 0.6rem;
+  font-size: 1rem;
+  color-scheme: dark;
+}
+.btn {
+  background: var(--bg-card2);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.5rem 0.9rem;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.btn:hover { background: #22334d; }
+.btn:active { transform: translateY(1px); }
+.btn-small { padding: 0.35rem 0.7rem; font-size: 0.85rem; }
+.location-label { margin-top: 0.6rem; font-size: 0.9rem; color: var(--fg-dim); }
+
+/* Karte */
+#map {
+  height: 300px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  z-index: 0;
+}
+
+/* Sonne */
+.sun-headline {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.9rem;
+}
+.big-time {
+  flex: 1 1 100px;
+  background: var(--bg-card2);
+  border-radius: 10px;
+  padding: 0.5rem 0.8rem;
+  text-align: center;
+}
+.big-time-label { display: block; font-size: 0.78rem; color: var(--fg-dim); }
+.big-time-value { font-size: 1.4rem; font-weight: 600; }
+
+.timeline-wrap { margin-bottom: 0.9rem; }
+.day-timeline {
+  display: flex;
+  height: 26px;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  position: relative;
+}
+.day-timeline .seg { height: 100%; }
+.day-timeline .now-marker {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  width: 2px;
+  background: #ff5470;
+  box-shadow: 0 0 4px #ff5470;
+}
+.timeline-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem 0.8rem;
+  margin-top: 0.4rem;
+  font-size: 0.72rem;
+  color: var(--fg-dim);
+}
+.timeline-legend .sw {
+  display: inline-block;
+  width: 10px; height: 10px;
+  border-radius: 2px;
+  margin-right: 4px;
+  vertical-align: -1px;
+}
+.sw.night { background: var(--c-night); }
+.sw.astro { background: var(--c-astro); }
+.sw.naut { background: var(--c-naut); }
+.sw.civil { background: var(--c-civil); }
+.sw.blue { background: var(--c-blue); }
+.sw.golden { background: var(--c-golden); }
+.sw.day { background: var(--c-day); }
+
+.twilight-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+@media (max-width: 560px) {
+  .twilight-grid { grid-template-columns: 1fr; }
+}
+.times-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.92rem;
+}
+.times-table td {
+  padding: 0.32rem 0.3rem;
+  border-bottom: 1px solid var(--border);
+}
+.times-table td:last-child {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.times-table tr:last-child td { border-bottom: none; }
+tr.hl-sun td { color: var(--accent); font-weight: 600; }
+tr.hl-golden td { color: #ffd166; }
+tr.hl-blue td { color: var(--accent-blue); }
+
+/* Mond */
+.moon-flex {
+  display: flex;
+  gap: 1.2rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.moon-visual { text-align: center; flex: 0 0 auto; margin: 0 auto; }
+#moon-canvas { display: block; margin: 0 auto; }
+.moon-phase-name { font-weight: 600; margin-top: 0.4rem; }
+.moon-illum { color: var(--fg-dim); font-size: 0.85rem; }
+.moon-table { flex: 1 1 240px; }
+
+/* 3D-Kompass */
+.compass-scene {
+  perspective: 700px;
+  height: 340px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  touch-action: none;
+  cursor: grab;
+  user-select: none;
+  overflow: hidden;
+}
+.compass-scene:active { cursor: grabbing; }
+.compass-tilt {
+  transform-style: preserve-3d;
+  width: 280px;
+  height: 280px;
+  position: relative;
+}
+.compass-plane {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+}
+.horizon-disc {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle, rgba(90, 125, 184, 0.35) 0%, rgba(27, 42, 63, 0.9) 70%);
+  border: 2px solid var(--border);
+  transform: translateZ(0);
+}
+.horizon-ring {
+  position: absolute;
+  inset: 28%;
+  border-radius: 50%;
+  border: 1px dashed rgba(159, 176, 199, 0.35);
+}
+.cardinal, .cardinal-minor {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  font-weight: 700;
+  color: var(--fg);
+  transform-style: preserve-3d;
+}
+.cardinal-minor { font-size: 0.65rem; color: var(--fg-dim); font-weight: 400; }
+/* Positionen werden per JS gesetzt (damit sie zum Betrachter billboarden) */
+
+.body-group {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform-style: preserve-3d;
+}
+.altitude-line {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 2px;
+  transform-origin: bottom center;
+  background: linear-gradient(to top, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0.1));
+}
+.body-marker {
+  position: absolute;
+  font-size: 1.5rem;
+  transform-style: preserve-3d;
+  filter: drop-shadow(0 0 6px rgba(255, 183, 3, 0.6));
+  transition: opacity 0.2s;
+}
+.moon-marker { filter: drop-shadow(0 0 6px rgba(106, 183, 255, 0.6)); }
+.body-marker.below { opacity: 0.35; filter: grayscale(0.6); }
+
+.compass-info {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-top: 0.4rem;
+}
+.body-info {
+  flex: 1 1 200px;
+  background: var(--bg-card2);
+  border-radius: 10px;
+  padding: 0.5rem 0.8rem;
+  display: flex;
+  flex-direction: column;
+  font-size: 0.9rem;
+}
+.body-state { color: var(--fg-dim); font-size: 0.8rem; }
+
+.time-slider-row {
+  margin-top: 0.8rem;
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  flex-wrap: wrap;
+}
+.time-slider-row label { font-size: 0.9rem; white-space: nowrap; }
+#time-slider { flex: 1 1 160px; accent-color: var(--accent); }
+
+.compass-buttons { margin-top: 0.6rem; }
+
+.app-footer {
+  text-align: center;
+  color: var(--fg-dim);
+  font-size: 0.78rem;
+  padding: 1rem;
+}
+.app-footer a { color: var(--accent-blue); }
+
+/* Leaflet Dark-Anpassung */
+.leaflet-container { background: #0d1b2a; }

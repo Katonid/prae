@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0d1b2a">
+  <meta name="description" content="Sonnenauf- und -untergang, Dämmerung, goldene und blaue Stunde, Mondphase und 3D-Himmelskompass für jeden Ort und jedes Datum.">
+  <title>Himmelskompass – Sonne &amp; Mond</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="app-header">
+    <h1>🌗 Himmelskompass</h1>
+    <p class="subtitle">Sonne, Mond &amp; Dämmerung für Ort und Datum</p>
+  </header>
+
+  <main>
+    <!-- Datum & Ort -->
+    <section class="card controls-card">
+      <div class="controls-row">
+        <label class="control">
+          <span class="control-label">Datum</span>
+          <input type="date" id="date-input">
+        </label>
+        <button id="today-btn" class="btn" type="button">Heute</button>
+        <button id="locate-btn" class="btn" type="button">📍 Mein Standort</button>
+      </div>
+      <div id="location-label" class="location-label">Standort wird ermittelt&nbsp;…</div>
+    </section>
+
+    <!-- Karte -->
+    <section class="card map-card">
+      <h2>Ort auf der Karte wählen</h2>
+      <div id="map" aria-label="Karte zur Ortsauswahl"></div>
+      <p class="hint">Tippe auf die Karte oder ziehe den Marker, um den Ort zu ändern.</p>
+    </section>
+
+    <!-- Sonne -->
+    <section class="card sun-card">
+      <h2>☀️ Sonne</h2>
+      <div class="sun-headline">
+        <div class="big-time">
+          <span class="big-time-label">Aufgang</span>
+          <span id="sunrise-big" class="big-time-value">–</span>
+        </div>
+        <div class="big-time">
+          <span class="big-time-label">Untergang</span>
+          <span id="sunset-big" class="big-time-value">–</span>
+        </div>
+        <div class="big-time">
+          <span class="big-time-label">Tageslänge</span>
+          <span id="daylength" class="big-time-value">–</span>
+        </div>
+      </div>
+
+      <div class="timeline-wrap">
+        <div id="day-timeline" class="day-timeline" title="Tagesverlauf"></div>
+        <div class="timeline-legend">
+          <span><i class="sw night"></i>Nacht</span>
+          <span><i class="sw astro"></i>Astron.</span>
+          <span><i class="sw naut"></i>Nautisch</span>
+          <span><i class="sw blue"></i>Blaue Std.</span>
+          <span><i class="sw golden"></i>Goldene Std.</span>
+          <span><i class="sw day"></i>Tag</span>
+        </div>
+      </div>
+
+      <div class="twilight-grid">
+        <div class="twilight-col">
+          <h3>Morgens</h3>
+          <table class="times-table">
+            <tbody>
+              <tr><td>Astronomische Dämmerung</td><td id="t-nightEnd">–</td></tr>
+              <tr><td>Nautische Dämmerung</td><td id="t-nauticalDawn">–</td></tr>
+              <tr><td>Bürgerliche Dämmerung</td><td id="t-dawn">–</td></tr>
+              <tr class="hl-blue"><td>Blaue Stunde</td><td id="t-blueMorning">–</td></tr>
+              <tr class="hl-golden"><td>Goldene Stunde</td><td id="t-goldenMorning">–</td></tr>
+              <tr class="hl-sun"><td>Sonnenaufgang</td><td id="t-sunrise">–</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="twilight-col">
+          <h3>Abends</h3>
+          <table class="times-table">
+            <tbody>
+              <tr class="hl-sun"><td>Sonnenuntergang</td><td id="t-sunset">–</td></tr>
+              <tr class="hl-golden"><td>Goldene Stunde</td><td id="t-goldenEvening">–</td></tr>
+              <tr class="hl-blue"><td>Blaue Stunde</td><td id="t-blueEvening">–</td></tr>
+              <tr><td>Bürgerliche Dämmerung</td><td id="t-dusk">–</td></tr>
+              <tr><td>Nautische Dämmerung</td><td id="t-nauticalDusk">–</td></tr>
+              <tr><td>Astronomische Dämmerung</td><td id="t-night">–</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <p class="hint">Sonnenhöchststand: <span id="t-solarNoon">–</span> · Alle Zeiten in der Zeitzone deines Geräts.</p>
+    </section>
+
+    <!-- Mond -->
+    <section class="card moon-card">
+      <h2>🌙 Mond</h2>
+      <div class="moon-flex">
+        <div class="moon-visual">
+          <canvas id="moon-canvas" width="140" height="140" aria-label="Mondphasen-Darstellung"></canvas>
+          <div id="moon-phase-name" class="moon-phase-name">–</div>
+          <div id="moon-illum" class="moon-illum">–</div>
+        </div>
+        <table class="times-table moon-table">
+          <tbody>
+            <tr><td>Mondaufgang</td><td id="m-rise">–</td></tr>
+            <tr><td>Monduntergang</td><td id="m-set">–</td></tr>
+            <tr><td>Entfernung</td><td id="m-dist">–</td></tr>
+            <tr><td>Nächster Vollmond</td><td id="m-fullmoon">–</td></tr>
+            <tr><td>Nächster Neumond</td><td id="m-newmoon">–</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 3D-Kompass -->
+    <section class="card compass-card">
+      <h2>🧭 3D-Kompass – Sonne &amp; Mond am Himmel</h2>
+      <div class="compass-scene" id="compass-scene">
+        <div class="compass-tilt" id="compass-tilt">
+          <div class="compass-plane" id="compass-plane">
+            <div class="horizon-disc"></div>
+            <div class="horizon-ring"></div>
+            <div class="cardinal n">N</div>
+            <div class="cardinal e">O</div>
+            <div class="cardinal s">S</div>
+            <div class="cardinal w">W</div>
+            <div class="cardinal-minor ne">NO</div>
+            <div class="cardinal-minor se">SO</div>
+            <div class="cardinal-minor sw2">SW</div>
+            <div class="cardinal-minor nw">NW</div>
+            <div class="body-group" id="sun-group">
+              <div class="altitude-line" id="sun-line"></div>
+              <div class="body-marker sun-marker" id="sun-marker">☀️</div>
+            </div>
+            <div class="body-group" id="moon-group">
+              <div class="altitude-line" id="moon-line"></div>
+              <div class="body-marker moon-marker" id="moon-marker">🌙</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="compass-info">
+        <div class="body-info sun-info">
+          <strong>☀️ Sonne</strong>
+          <span id="sun-azalt">–</span>
+          <span id="sun-state" class="body-state">–</span>
+        </div>
+        <div class="body-info moon-info">
+          <strong>🌙 Mond</strong>
+          <span id="moon-azalt">–</span>
+          <span id="moon-state" class="body-state">–</span>
+        </div>
+      </div>
+      <div class="time-slider-row">
+        <label for="time-slider">Uhrzeit: <strong id="time-slider-label">–</strong></label>
+        <input type="range" id="time-slider" min="0" max="1439" step="1" value="720">
+        <button id="now-btn" class="btn btn-small" type="button">Jetzt</button>
+      </div>
+      <div class="compass-buttons">
+        <button id="orient-btn" class="btn btn-small" type="button">📱 Am echten Kompass ausrichten</button>
+      </div>
+      <p class="hint">Ziehe den Kompass mit dem Finger/der Maus, um ihn zu drehen und zu kippen.</p>
+    </section>
+  </main>
+
+  <footer class="app-footer">
+    <p>Himmelskompass · funktioniert offline · Kartendaten © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a></p>
+  </footer>
+
+  <script src="vendor/leaflet/leaflet.js"></script>
+  <script src="astro.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
