@@ -101,7 +101,7 @@
           </table>
         </div>
       </div>
-      <p class="hint">Sonnenhöchststand: <span id="t-solarNoon">–</span> · Alle Zeiten in der Zeitzone deines Geräts.</p>
+      <p class="hint">Sonnenhöchststand: <span id="t-solarNoon">–</span> · Alle Zeiten in der Ortszeit des gewählten Ortes (<span id="tz-label">–</span>).</p>
     </section>
 
     <!-- Mond -->
@@ -123,6 +123,23 @@
           </tbody>
         </table>
       </div>
+    </section>
+
+    <!-- Milchstraße -->
+    <section class="card mw-card">
+      <h2>🌌 Milchstraße</h2>
+      <div id="mw-status" class="mw-status">–</div>
+      <table class="times-table">
+        <tbody>
+          <tr><td>Zentrum sichtbar</td><td id="mw-window">–</td></tr>
+          <tr><td>Beste Zeit</td><td id="mw-best">–</td></tr>
+          <tr><td>Richtung / Höhe</td><td id="mw-dir">–</td></tr>
+          <tr><td>Mond</td><td id="mw-moon">–</td></tr>
+        </tbody>
+      </table>
+      <p class="hint">Bezieht sich auf das helle Milchstraßenzentrum in der Nacht, die am gewählten Datum
+        beginnt: astronomische Nacht (Sonne unter −18°), Zentrum über dem Horizont, möglichst ohne
+        Mondlicht. Die Position des Zentrums ist im 3D-Kompass als 🌌 markiert.</p>
     </section>
 
     <!-- 3D-Kompass -->
@@ -150,6 +167,10 @@
             <div class="body-group" id="moon-group">
               <div class="altitude-line" id="moon-line"></div>
               <div class="body-marker moon-marker" id="moon-marker">🌙</div>
+            </div>
+            <div class="body-group" id="gc-group">
+              <div class="altitude-line" id="gc-line"></div>
+              <div class="body-marker gc-marker" id="gc-marker" title="Galaktisches Zentrum">🌌</div>
             </div>
           </div>
         </div>
@@ -185,6 +206,7 @@
   </footer>
 
   <script src="vendor/leaflet/leaflet.js"></script>
+  <script src="vendor/tz-lookup/tz.js"></script>
   <script src="astro.js"></script>
   <script src="app.js"></script>
 </body>
