@@ -182,10 +182,10 @@
 
   function hoursLater(date, h) { return new Date(date.valueOf() + h * dayMs / 24); }
 
-  // Mondauf-/-untergang für den Kalendertag, der um 0 Uhr Ortszeit (Gerätezeit) beginnt
+  // Mondauf-/-untergang in den 24 Stunden ab dem übergebenen Zeitpunkt.
+  // Der Aufrufer übergibt Mitternacht in der Zeitzone des Ortes.
   function getMoonTimes(date, lat, lng) {
     const t = new Date(date);
-    t.setHours(0, 0, 0, 0);
 
     const hc = 0.133 * rad;
     let h0 = getMoonPosition(t, lat, lng).altitude - hc;
@@ -233,6 +233,22 @@
     return result;
   }
 
+  // ---------- Galaktisches Zentrum (Milchstraße) ----------
+  // J2000: RA 17h 45m 40s, Deklination −29° 00′ 28″ (Sagittarius A*)
+  const GC_RA = rad * 266.4168;
+  const GC_DEC = rad * -29.0078;
+
+  function getGalacticCenterPosition(date, lat, lng) {
+    const lw = rad * -lng;
+    const phi = rad * lat;
+    const d = toDays(date);
+    const H = siderealTime(d, lw) - GC_RA;
+    return {
+      azimuth: normalizeAz(azimuth(H, phi, GC_DEC) + Math.PI), // 0 = Nord
+      altitude: altitude(H, phi, GC_DEC)
+    };
+  }
+
   // Phasenname aus Phasenwert (0 = Neumond, 0.5 = Vollmond)
   function moonPhaseName(phase) {
     const names = [
@@ -249,6 +265,7 @@
     getMoonPosition,
     getMoonIllumination,
     getMoonTimes,
+    getGalacticCenterPosition,
     moonPhaseName
   };
 })(typeof window !== 'undefined' ? window : globalThis);

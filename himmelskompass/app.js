@@ -6,8 +6,9 @@
   const state = {
     lat: 52.52,          // Fallback: Berlin
     lng: 13.405,
-    date: new Date(),    // ausgewählter Kalendertag
-    sliderMinutes: null, // Uhrzeit für den Kompass (Minuten seit Mitternacht)
+    tz: Intl.DateTimeFormat().resolvedOptions().timeZone, // Zeitzone des Ortes
+    day: null,           // ausgewählter Kalendertag {y, m, d} in der Orts-Zeitzone
+    sliderMinutes: null, // Uhrzeit für den Kompass (Minuten seit Mitternacht, Ortszeit)
     live: true,          // Kompass folgt der aktuellen Uhrzeit
     heading: 0,          // Kompassdrehung (Grad)
     tilt: 62,            // Kippwinkel der 3D-Ansicht (Grad)
@@ -21,7 +22,7 @@
 
   function fmtTime(d) {
     if (!d || isNaN(d)) return '–';
-    return d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+    return d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', timeZone: state.tz });
   }
   function fmtRange(a, b) {
     if (!a || !b) return '–';
@@ -29,7 +30,7 @@
   }
   function fmtDateTime(d) {
     if (!d) return '–';
-    return d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' }) + ' ' + fmtTime(d);
+    return d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', timeZone: state.tz }) + ' ' + fmtTime(d);
   }
   function fmtDuration(ms) {
     if (ms == null || isNaN(ms) || ms < 0) return '–';
@@ -43,18 +44,53 @@
     return DIRECTIONS[Math.round(azDeg / 22.5) % 16];
   }
 
-  // Datum des gewählten Tages mit gegebener Uhrzeit (Minuten seit Mitternacht)
+  // ---------- Zeitzone des Ortes ----------
+
+  function updateTimezone() {
+    try {
+      state.tz = tzlookup(state.lat, state.lng);
+    } catch (e) {
+      state.tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    }
+  }
+
+  // Datum/Uhrzeit eines Zeitpunkts, ausgedrückt in der Orts-Zeitzone
+  function tzParts(date) {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: state.tz, year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', hourCycle: 'h23'
+    }).formatToParts(date);
+    const get = (k) => Number(parts.find((p) => p.type === k).value);
+    return { y: get('year'), m: get('month'), d: get('day'), hh: get('hour'), mm: get('minute') };
+  }
+
+  // Date-Objekt für "y-m-d hh:mm" in der Orts-Zeitzone
+  function dateInTz(y, m, d, hh, mm) {
+    let t = Date.UTC(y, m - 1, d, hh, mm);
+    // zweifache Korrektur, damit auch Zeitumstellungen richtig getroffen werden
+    for (let i = 0; i < 2; i++) {
+      const p = tzParts(new Date(t));
+      t += Date.UTC(y, m - 1, d, hh, mm) - Date.UTC(p.y, p.m - 1, p.d, p.hh, p.mm);
+    }
+    return new Date(t);
+  }
+
+  function tzLabel() {
+    // Offset für den gewählten Tag bestimmen (Sommer-/Winterzeit)
+    const ref = state.day ? dateAtMinutes(12 * 60) : new Date();
+    const offset = new Intl.DateTimeFormat('de-DE', { timeZone: state.tz, timeZoneName: 'shortOffset' })
+      .formatToParts(ref).find((p) => p.type === 'timeZoneName');
+    return state.tz.replace(/_/g, ' ') + (offset ? ', ' + offset.value : '');
+  }
+
+  // Gewählter Tag mit gegebener Uhrzeit (Minuten seit Mitternacht, Ortszeit)
   function dateAtMinutes(minutes) {
-    const d = new Date(state.date);
-    d.setHours(0, minutes, 0, 0);
-    return d;
+    return dateInTz(state.day.y, state.day.m, state.day.d, 0, minutes);
   }
 
   function selectedIsToday() {
-    const now = new Date();
-    return state.date.getFullYear() === now.getFullYear() &&
-      state.date.getMonth() === now.getMonth() &&
-      state.date.getDate() === now.getDate();
+    const p = tzParts(new Date());
+    return p.y === state.day.y && p.m === state.day.m && p.d === state.day.d;
   }
 
   // ---------- Karte ----------
@@ -152,7 +188,7 @@
 
     const noon = dateAtMinutes(12 * 60);
     const st = Astro.getSunTimes(noon, state.lat, state.lng);
-    const mt = Astro.getMoonTimes(noon, state.lat, state.lng);
+    const mt = Astro.getMoonTimes(dateAtMinutes(0), state.lat, state.lng);
     addRiseSetLine(st.sunrise, Astro.getSunPosition, '#ff9e00', '☀️↑', proj);
     addRiseSetLine(st.sunset, Astro.getSunPosition, '#ff5470', '☀️↓', proj);
     addRiseSetLine(mt.rise, Astro.getMoonPosition, '#8ec9ff', '🌙↑', proj);
@@ -239,6 +275,9 @@
     state.lng = ((lng + 180) % 360 + 360) % 360 - 180; // auf -180..180 normalisieren
     if (marker) marker.setLatLng([state.lat, state.lng]);
     if (panTo && map) map.setView([state.lat, state.lng], Math.max(map.getZoom(), 10));
+    updateTimezone();
+    // "Jetzt" bedeutet in der neuen Zeitzone eine andere Uhrzeit
+    if (state.live && selectedIsToday()) setSliderToNow();
     updateLocationLabel();
     renderAll();
   }
@@ -246,7 +285,7 @@
   function updateLocationLabel() {
     const el = $('location-label');
     const coords = state.lat.toFixed(4) + '°, ' + state.lng.toFixed(4) + '°';
-    el.textContent = '📍 ' + coords;
+    el.textContent = '📍 ' + coords + ' · 🕐 ' + tzLabel();
     // Ortsname per Reverse-Geocoding (optional, scheitert offline still)
     const url = 'https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=10' +
       '&lat=' + state.lat + '&lon=' + state.lng;
@@ -256,7 +295,10 @@
         if (!j) return;
         const a = j.address || {};
         const name = a.city || a.town || a.village || a.municipality || a.county || j.name;
-        if (name) el.textContent = '📍 ' + name + (a.country ? ', ' + a.country : '') + ' (' + coords + ')';
+        if (name) {
+          el.textContent = '📍 ' + name + (a.country ? ', ' + a.country : '') +
+            ' (' + coords + ') · 🕐 ' + tzLabel();
+        }
       })
       .catch(() => { /* offline oder blockiert – Koordinaten reichen */ });
   }
@@ -299,6 +341,7 @@
     $('t-nauticalDusk').textContent = fmtTime(t.nauticalDusk);
     $('t-night').textContent = fmtTime(t.night);
     $('t-solarNoon').textContent = fmtTime(t.solarNoon);
+    $('tz-label').textContent = tzLabel();
 
     renderTimeline();
   }
@@ -339,10 +382,10 @@
       }
     }
     if (selectedIsToday()) {
-      const now = new Date();
+      const p = tzParts(new Date());
       const nm = document.createElement('div');
       nm.className = 'now-marker';
-      nm.style.left = ((now.getHours() * 60 + now.getMinutes()) / 1440 * 100) + '%';
+      nm.style.left = ((p.hh * 60 + p.mm) / 1440 * 100) + '%';
       nm.title = 'Jetzt';
       el.appendChild(nm);
     }
@@ -351,7 +394,7 @@
   // ---------- Mond ----------
   function renderMoon() {
     const noon = dateAtMinutes(12 * 60);
-    const times = Astro.getMoonTimes(noon, state.lat, state.lng);
+    const times = Astro.getMoonTimes(dateAtMinutes(0), state.lat, state.lng);
     const illum = Astro.getMoonIllumination(noon);
     const pos = Astro.getMoonPosition(noon, state.lat, state.lng);
 
@@ -433,6 +476,99 @@
     ctx.restore();
   }
 
+  // ---------- Milchstraße ----------
+  // Sichtbarkeit des hellen Zentrums in der Nacht, die am gewählten Tag beginnt:
+  // astronomische Nacht (Sonne < −18°), Zentrum ausreichend hoch, möglichst mondfrei.
+  function renderMilkyWay() {
+    const start = dateAtMinutes(12 * 60); // Scan von Mittag bis Mittag des Folgetags
+    const stepMin = 5;
+    const samples = [];
+    for (let i = 0; i <= (24 * 60) / stepMin; i++) {
+      const t = new Date(start.valueOf() + i * stepMin * 60000);
+      const gc = Astro.getGalacticCenterPosition(t, state.lat, state.lng);
+      samples.push({
+        t,
+        sunAlt: deg(Astro.getSunPosition(t, state.lat, state.lng).altitude),
+        gcAlt: deg(gc.altitude),
+        gcAz: deg(gc.azimuth),
+        moonAlt: deg(Astro.getMoonPosition(t, state.lat, state.lng).altitude)
+      });
+    }
+    const moonFrac = Astro.getMoonIllumination(dateAtMinutes(24 * 60)).fraction;
+    const moonPct = Math.round(moonFrac * 100);
+    const moonOk = (s) => s.moonAlt < 0 || moonFrac < 0.2;
+
+    const dark = samples.filter((s) => s.sunAlt < -18);
+    const visible = samples.filter((s) => s.sunAlt < -18 && s.gcAlt > 3);
+    const clear = visible.filter(moonOk);
+
+    const statusEl = $('mw-status');
+    statusEl.className = 'mw-status';
+
+    if (dark.length === 0) {
+      statusEl.textContent = 'In dieser Nacht wird es nicht astronomisch dunkel – die Milchstraße ist praktisch nicht sichtbar.';
+      statusEl.classList.add('bad');
+      $('mw-window').textContent = '–';
+      $('mw-best').textContent = '–';
+      $('mw-dir').textContent = '–';
+      $('mw-moon').textContent = '–';
+      return;
+    }
+    if (visible.length === 0) {
+      statusEl.textContent = 'Das galaktische Zentrum steht während der dunklen Stunden unter dem Horizont – das helle Band der Milchstraße ist nicht zu sehen.';
+      statusEl.classList.add('bad');
+      $('mw-window').textContent = '–';
+      $('mw-best').textContent = '–';
+      $('mw-dir').textContent = '–';
+      $('mw-moon').textContent = 'Dunkel von ' + fmtRange(dark[0].t, dark[dark.length - 1].t);
+      return;
+    }
+
+    $('mw-window').textContent = intervalsToText(visible, stepMin);
+
+    const bestPool = clear.length > 0 ? clear : visible;
+    const best = bestPool.reduce((a, b) => (b.gcAlt > a.gcAlt ? b : a));
+    $('mw-best').textContent = fmtTime(best.t);
+    $('mw-dir').textContent = dirName(best.gcAz) + ' (Azimut ' + best.gcAz.toFixed(0) +
+      '°) · Höhe ' + best.gcAlt.toFixed(0) + '°';
+
+    const disturbed = visible.filter((s) => !moonOk(s));
+    if (disturbed.length === 0) {
+      $('mw-moon').textContent = 'stört nicht (' + moonPct + ' % beleuchtet)';
+    } else if (clear.length === 0) {
+      $('mw-moon').textContent = 'stört die ganze Zeit (' + moonPct + ' % beleuchtet, über dem Horizont)';
+    } else {
+      $('mw-moon').textContent = 'stört ' + intervalsToText(disturbed, stepMin) + ' (' + moonPct + ' %)';
+    }
+
+    if (clear.length * stepMin >= 30 && best.gcAlt >= 10) {
+      statusEl.textContent = 'Gute Bedingungen: Das Milchstraßenzentrum ist bei dunklem Himmel sichtbar.';
+      statusEl.classList.add('good');
+    } else if (clear.length > 0) {
+      statusEl.textContent = 'Sichtbar, aber eingeschränkt – das Zentrum steht tief oder das mondfreie Fenster ist kurz.';
+      statusEl.classList.add('ok');
+    } else {
+      statusEl.textContent = 'Das Zentrum steht zwar am Himmel, aber der Mond hellt die Nacht auf.';
+      statusEl.classList.add('ok');
+    }
+  }
+
+  // zusammenhängende Zeitfenster aus einer Sample-Liste ableiten, z. B. "23:40 – 03:05"
+  function intervalsToText(samples, stepMin) {
+    const out = [];
+    let runStart = null, prev = null;
+    for (const s of samples) {
+      if (prev && s.t - prev.t > stepMin * 60000 * 1.5) {
+        out.push(fmtRange(runStart.t, prev.t));
+        runStart = null;
+      }
+      if (!runStart) runStart = s;
+      prev = s;
+    }
+    if (runStart) out.push(fmtRange(runStart.t, prev.t));
+    return out.join(' und ');
+  }
+
   // ---------- 3D-Kompass ----------
   const R = 140; // Radius des Horizonts in px (Hälfte von 280)
 
@@ -492,17 +628,20 @@
     return dateAtMinutes(state.sliderMinutes);
   }
 
-  let lastSun = null, lastMoon = null; // zuletzt berechnete Positionen für schnelle View-Updates
+  let lastSun = null, lastMoon = null, lastGc = null; // für schnelle View-Updates
 
   function renderCompass() {
     const d = compassDate();
     const sun = Astro.getSunPosition(d, state.lat, state.lng);
     const moon = Astro.getMoonPosition(d, state.lat, state.lng);
+    const gc = Astro.getGalacticCenterPosition(d, state.lat, state.lng);
     lastSun = sun;
     lastMoon = moon;
+    lastGc = gc;
 
     placeBody('sun', sun);
     placeBody('moon', moon);
+    placeBody('gc', gc);
 
     $('sun-azalt').textContent = bodyText(sun);
     $('moon-azalt').textContent = bodyText(moon);
@@ -580,6 +719,7 @@
       updatePathBillboards();
       if (lastSun) placeBody('sun', lastSun);
       if (lastMoon) placeBody('moon', lastMoon);
+      if (lastGc) placeBody('gc', lastGc);
     });
   }
 
@@ -718,6 +858,7 @@
   function renderAll() {
     renderSun();
     renderMoon();
+    renderMilkyWay();
     buildCompassPaths();
     drawMapOverlay();
     renderCompass();
@@ -727,7 +868,7 @@
     const v = $('date-input').value;
     if (!v) return;
     const [y, m, d] = v.split('-').map(Number);
-    state.date = new Date(y, m - 1, d, 12, 0, 0);
+    state.day = { y, m, d };
     // Bei "heute" folgt der Kompass wieder der aktuellen Zeit
     if (selectedIsToday() && state.live) {
       setSliderToNow();
@@ -739,21 +880,23 @@
   }
 
   function setSliderToNow() {
-    const now = new Date();
-    state.sliderMinutes = now.getHours() * 60 + now.getMinutes();
+    const p = tzParts(new Date());
+    state.sliderMinutes = p.hh * 60 + p.mm;
     $('time-slider').value = String(state.sliderMinutes);
   }
 
-  function setDateInput(d) {
+  // Heutigen Tag (in der Orts-Zeitzone) auswählen und ins Eingabefeld schreiben
+  function setDateToday() {
+    const p = tzParts(new Date());
+    state.day = { y: p.y, m: p.m, d: p.d };
     const pad = (n) => String(n).padStart(2, '0');
-    $('date-input').value = d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+    $('date-input').value = p.y + '-' + pad(p.m) + '-' + pad(p.d);
   }
 
   function init() {
     // Datum: heute vorauswählen
-    state.date = new Date();
-    state.date.setHours(12, 0, 0, 0);
-    setDateInput(new Date());
+    updateTimezone();
+    setDateToday();
     setSliderToNow();
 
     initMap();
@@ -765,9 +908,10 @@
 
     $('date-input').addEventListener('change', setDateFromInput);
     $('today-btn').addEventListener('click', () => {
-      setDateInput(new Date());
       state.live = true;
-      setDateFromInput();
+      setDateToday();
+      setSliderToNow();
+      renderAll();
     });
     $('locate-btn').addEventListener('click', locate);
     $('time-slider').addEventListener('input', () => {
@@ -777,9 +921,7 @@
     });
     $('now-btn').addEventListener('click', () => {
       state.live = true;
-      setDateInput(new Date());
-      state.date = new Date();
-      state.date.setHours(12, 0, 0, 0);
+      setDateToday();
       setSliderToNow();
       renderAll();
     });

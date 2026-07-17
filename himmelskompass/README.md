@@ -4,7 +4,10 @@ Eine installierbare Progressive Web App, die für einen frei wählbaren Ort und 
 
 - **Sonne:** Auf- und Untergang, bürgerliche/nautische/astronomische Dämmerung, goldene Stunde, blaue Stunde, Sonnenhöchststand, Tageslänge und ein farbiger Tagesverlaufs-Balken
 - **Mond:** Mondphase (mit Grafik), Beleuchtungsgrad, Auf- und Untergang, Entfernung sowie nächster Voll- und Neumond
-- **3D-Kompass:** Aktuelle Position von Sonne und Mond am Himmel (Azimut und Höhe, auch unter dem Horizont), mit Zeit-Schieberegler, frei dreh-/kippbar per Fingergeste und optional am echten Gerätekompass ausrichtbar
+- **3D-Kompass:** Aktuelle Position von Sonne, Mond und Milchstraßenzentrum (🌌) am Himmel (Azimut und Höhe, auch unter dem Horizont) samt Tagesbahnen mit Uhrzeiten, mit Zeit-Schieberegler, frei dreh-/kippbar per Fingergeste und an die Gerätesensoren koppelbar (Drehung und Neigung)
+- **Milchstraße:** Sichtbarkeit des galaktischen Zentrums für die gewählte Nacht – Zeitfenster, beste Zeit, Richtung/Höhe und Mondstörung
+- **Karten-Overlay:** Sonnen-/Mondbahn, Auf- und Untergangsrichtungen mit Uhrzeiten um den gewählten Ort; Vollbild per Tipp auf die Karte
+- **Zeitzonen:** Alle Zeiten werden in der Zeitzone des gewählten Ortes angezeigt (Offline-Bestimmung aus den Koordinaten via tz-lookup)
 
 ## Bedienung
 
@@ -12,7 +15,7 @@ Eine installierbare Progressive Web App, die für einen frei wählbaren Ort und 
 - **Ort:** wird beim Start automatisch per Geolocation bestimmt; alternativ auf die Karte tippen oder den Marker ziehen („📍 Mein Standort“ bestimmt den Standort erneut)
 - **Kompass:** Der Schieberegler stellt die Uhrzeit ein („Jetzt“ springt zur aktuellen Zeit und folgt ihr dann minütlich)
 
-Alle Zeiten werden in der Zeitzone des Geräts angezeigt.
+Alle Zeiten werden in der Ortszeit des gewählten Ortes angezeigt (die Zeitzone wird offline aus den Koordinaten bestimmt und in der App angezeigt).
 
 ## Technik
 

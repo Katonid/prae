@@ -232,6 +232,19 @@ tr.hl-blue td { color: var(--accent-blue); }
 .moon-illum { color: var(--fg-dim); font-size: 0.85rem; }
 .moon-table { flex: 1 1 240px; }
 
+/* Milchstraße */
+.mw-status {
+  border-radius: 10px;
+  padding: 0.6rem 0.8rem;
+  margin-bottom: 0.7rem;
+  font-size: 0.92rem;
+  background: var(--bg-card2);
+  border-left: 4px solid var(--border);
+}
+.mw-status.good { border-left-color: #4a7a4a; background: #1d2e22; }
+.mw-status.ok { border-left-color: #b08a2e; background: #2e2818; }
+.mw-status.bad { border-left-color: #7a4a4a; background: #2e1d1d; }
+
 /* 3D-Kompass */
 .compass-scene {
   perspective: 700px;
@@ -330,6 +343,7 @@ tr.hl-blue td { color: var(--accent-blue); }
   transition: opacity 0.2s;
 }
 .moon-marker { filter: drop-shadow(0 0 6px rgba(106, 183, 255, 0.6)); }
+.gc-marker { font-size: 1.1rem; filter: drop-shadow(0 0 6px rgba(186, 148, 255, 0.7)); }
 .body-marker.below { opacity: 0.35; filter: grayscale(0.6); }
 
 .compass-info {
