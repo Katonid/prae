@@ -77,11 +77,37 @@
       setLocation(p.lat, p.lng, false);
     });
     map.on('click', (ev) => {
+      // Erster Tipp auf die kleine Karte öffnet das Vollbild;
+      // im Vollbild setzt ein Tipp den Ort.
+      if (!mapFullscreen) {
+        setMapFullscreen(true);
+        return;
+      }
       setLocation(ev.latlng.lat, ev.latlng.lng, false);
     });
     map.on('zoomend', () => {
       drawMapOverlay();
       renderCompass(); // zeichnet auch die aktuellen Richtungslinien neu
+    });
+
+    $('map-close').addEventListener('click', () => setMapFullscreen(false));
+    document.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Escape' && mapFullscreen) setMapFullscreen(false);
+    });
+  }
+
+  let mapFullscreen = false;
+
+  function setMapFullscreen(on) {
+    mapFullscreen = on;
+    document.body.classList.toggle('map-fullscreen', on);
+    if (!map) return;
+    // Nach der Größenänderung Kartengröße neu ermitteln und Overlay neu zeichnen
+    requestAnimationFrame(() => {
+      map.invalidateSize();
+      map.setView([state.lat, state.lng], map.getZoom());
+      drawMapOverlay();
+      renderCompass();
     });
   }
 
@@ -95,7 +121,8 @@
     const center = L.latLng(state.lat, state.lng);
     const cpt = map.latLngToLayerPoint(center);
     const size = map.getSize();
-    const radius = Math.max(70, Math.min(size.x, size.y) / 2 - 30);
+    // Genug Rand lassen, damit die Zeit-Beschriftungen nicht abgeschnitten werden
+    const radius = Math.max(70, Math.min(size.x, size.y) / 2 - 56);
     return {
       center,
       radius,
@@ -166,18 +193,28 @@
     }
   }
 
+  // Beschriftung am Horizontrand nach innen ausrichten, damit nichts abgeschnitten wird
+  function tipDirection(az) {
+    const x = Math.sin(az);
+    const y = -Math.cos(az); // Bildschirm-y: negativ = oben
+    if (Math.abs(x) > Math.abs(y)) return x > 0 ? 'left' : 'right';
+    return y < 0 ? 'bottom' : 'top';
+  }
+  const tipOffsets = { top: [0, -4], bottom: [0, 4], left: [-6, 0], right: [6, 0] };
+
   // Gestrichelte Richtungslinie zum Auf- bzw. Untergangspunkt mit Uhrzeit
   function addRiseSetLine(time, getPos, color, label, proj) {
     if (!time) return;
     const az = getPos(time, state.lat, state.lng).azimuth;
     const end = proj.project(az, 0);
+    const dir = tipDirection(az);
     skyOverlay.addLayer(L.polyline([proj.center, end], {
       color, weight: 2, dashArray: '6 4', opacity: 0.9, interactive: false
     }));
     skyOverlay.addLayer(
       L.circleMarker(end, { radius: 2, color, fillColor: color, fillOpacity: 1, interactive: false })
         .bindTooltip(label + ' ' + fmtTime(time), {
-          permanent: true, direction: 'top', offset: [0, -4], className: 'map-time-tip'
+          permanent: true, direction: dir, offset: tipOffsets[dir], className: 'map-time-tip'
         })
     );
   }

@@ -1,5 +1,5 @@
 /* Himmelskompass – Service Worker */
-const VERSION = 'v3';
+const VERSION = 'v4';
 const APP_CACHE = 'himmelskompass-app-' + VERSION;
 const RUNTIME_CACHE = 'himmelskompass-runtime-' + VERSION;
 
