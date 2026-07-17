@@ -35,8 +35,12 @@
     <!-- Karte -->
     <section class="card map-card">
       <h2>Ort auf der Karte wählen</h2>
-      <div id="map" aria-label="Karte zur Ortsauswahl"></div>
-      <p class="hint">Tippe auf die Karte oder ziehe den Marker, um den Ort zu ändern.</p>
+      <div class="map-wrap" id="map-wrap">
+        <div id="map" aria-label="Karte zur Ortsauswahl"></div>
+        <button id="map-close" class="map-close-btn" type="button" aria-label="Karte schließen">✕ Schließen</button>
+      </div>
+      <p class="hint">Tippe auf die Karte, um sie im Vollbild zu öffnen – dort wählst du den Ort
+        per Tippen oder durch Ziehen des Markers.</p>
     </section>
 
     <!-- Sonne -->
