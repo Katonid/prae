@@ -206,13 +206,19 @@
 
   function render() {
     if (!active) return;
+    // DPR auf 2 begrenzen: volle 3x-Auflösung kostet auf iPhones nur Bildrate
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const w = canvas.clientWidth, h = canvas.clientHeight;
-    if (canvas.width !== w * devicePixelRatio) {
-      canvas.width = w * devicePixelRatio;
-      canvas.height = h * devicePixelRatio;
+    const bw = Math.round(w * dpr), bh = Math.round(h * dpr);
+    if (canvas.width !== bw || canvas.height !== bh) {
+      canvas.width = bw;
+      canvas.height = bh;
     }
-    ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
-    ctx.clearRect(0, 0, w, h);
+    // Löschen immer ohne Transformation über den vollen Puffer –
+    // clearRect mit aktiver Transform löscht in iOS-Safari nicht zuverlässig
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
     const b = hasSensor && basis ? basis : manualBasis();
     const fpx = (h / 2) / Math.tan(FOV_V / 2);
@@ -461,6 +467,7 @@
   let dragInited = false;
 
   function open(options) {
+    if (active) close(); // sauberer Neustart, verhindert doppelte Render-Schleifen
     opts = options;
     opts.focus = opts.focus || 'iss';
     satrec = null;
@@ -494,7 +501,7 @@
 
   function close() {
     active = false;
-    if (rafId) cancelAnimationFrame(rafId);
+    if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
     window.removeEventListener('deviceorientationabsolute', onOrient);
     window.removeEventListener('deviceorientation', onOrient);
     if (stream) {
