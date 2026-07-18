@@ -1,5 +1,5 @@
 /* Himmelskompass – Service Worker */
-const VERSION = 'v6';
+const VERSION = 'v7';
 const APP_CACHE = 'himmelskompass-app-' + VERSION;
 const RUNTIME_CACHE = 'himmelskompass-runtime-' + VERSION;
 
@@ -9,6 +9,8 @@ const APP_SHELL = [
   './style.css',
   './app.js',
   './astro.js',
+  './iss.js',
+  './vendor/satellite/satellite.min.js',
   './manifest.webmanifest',
   './icons/icon.svg',
   './icons/icon-192.png',
@@ -48,8 +50,11 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
   if (event.request.method !== 'GET') return;
 
-  // Nominatim (Ortsnamen) nie cachen – online nutzen, offline scheitern lassen
-  if (url.hostname.includes('nominatim')) return;
+  // Live-Daten (Ortsnamen, ISS-Bahndaten, Weltraumwetter) nie cachen –
+  // die App hat dafür eigene localStorage-Caches
+  if (url.hostname.includes('nominatim') ||
+      url.hostname.includes('celestrak') ||
+      url.hostname.includes('swpc.noaa.gov')) return;
 
   // Kartenkacheln: Netz zuerst, Cache als Offline-Fallback
   if (url.hostname.includes('tile.openstreetmap.org')) {

@@ -32,10 +32,9 @@ html, body {
 
 .app-header {
   text-align: center;
-  padding: 1.2rem 1rem 0.4rem;
+  padding: 0.8rem 1rem 0.2rem;
 }
-.app-header h1 { margin: 0; font-size: 1.6rem; }
-.subtitle { margin: 0.2rem 0 0; color: var(--fg-dim); font-size: 0.9rem; }
+.app-header h1 { margin: 0; font-size: 1.35rem; }
 
 main {
   max-width: 860px;
@@ -89,10 +88,40 @@ input[type="date"] {
 .btn-small { padding: 0.35rem 0.7rem; font-size: 0.85rem; }
 .location-label { margin-top: 0.6rem; font-size: 0.9rem; color: var(--fg-dim); }
 
-/* Karte */
-.map-wrap { position: relative; }
+/* Tab-Navigation */
+.tab-bar {
+  display: flex;
+  gap: 0.4rem;
+  position: sticky;
+  top: 0;
+  z-index: 900;
+  background: var(--bg);
+  padding: 0.4rem 0;
+}
+.tab-btn {
+  flex: 1;
+  background: var(--bg-card);
+  color: var(--fg-dim);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.55rem 0.4rem;
+  font-size: 0.95rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.tab-btn.active {
+  background: var(--bg-card2);
+  color: var(--fg);
+  border-color: var(--accent);
+  font-weight: 600;
+}
+.tab-panel { display: none; }
+.tab-panel.show { display: block; }
+
+/* Karte (Vorschau in der Kopfkarte) */
+.map-wrap { position: relative; margin-top: 0.6rem; }
 #map {
-  height: 300px;
+  height: 150px;
   border-radius: 10px;
   border: 1px solid var(--border);
   z-index: 0;
@@ -232,8 +261,8 @@ tr.hl-blue td { color: var(--accent-blue); }
 .moon-illum { color: var(--fg-dim); font-size: 0.85rem; }
 .moon-table { flex: 1 1 240px; }
 
-/* Milchstraße */
-.mw-status {
+/* Status-Boxen (Milchstraße, ISS, Polarlicht) */
+.status-box {
   border-radius: 10px;
   padding: 0.6rem 0.8rem;
   margin-bottom: 0.7rem;
@@ -241,9 +270,27 @@ tr.hl-blue td { color: var(--accent-blue); }
   background: var(--bg-card2);
   border-left: 4px solid var(--border);
 }
-.mw-status.good { border-left-color: #4a7a4a; background: #1d2e22; }
-.mw-status.ok { border-left-color: #b08a2e; background: #2e2818; }
-.mw-status.bad { border-left-color: #7a4a4a; background: #2e1d1d; }
+.status-box.good { border-left-color: #4a7a4a; background: #1d2e22; }
+.status-box.ok { border-left-color: #b08a2e; background: #2e2818; }
+.status-box.bad { border-left-color: #7a4a4a; background: #2e1d1d; }
+
+/* ISS-Überflugliste */
+.iss-pass {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.2rem 0.8rem;
+  align-items: baseline;
+  padding: 0.45rem 0.3rem;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.9rem;
+  opacity: 0.55;
+}
+.iss-pass.visible { opacity: 1; }
+.iss-pass:last-child { border-bottom: none; }
+.iss-time { font-weight: 600; font-variant-numeric: tabular-nums; }
+.iss-detail { color: var(--fg-dim); }
+.iss-vis { margin-left: auto; font-size: 0.8rem; color: var(--fg-dim); }
+.iss-pass.visible .iss-vis { color: #b8e6b8; }
 
 /* 3D-Kompass */
 .compass-scene {
@@ -410,7 +457,10 @@ tr.hl-blue td { color: var(--accent-blue); }
 /* Leaflet Dark-Anpassung */
 .leaflet-container { background: #0d1b2a; }
 
-/* Zeit-Beschriftungen des Himmels-Overlays auf der Karte */
+/* Zeit-Beschriftungen des Himmels-Overlays: nur im Vollbild einblenden,
+   in der kleinen Vorschau wären sie unlesbar */
+.map-time-tip { display: none; }
+body.map-fullscreen .map-time-tip { display: block; }
 .map-time-tip {
   background: rgba(13, 27, 42, 0.85);
   border: none;
