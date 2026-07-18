@@ -522,7 +522,7 @@
     const clear = visible.filter(moonOk);
 
     const statusEl = $('mw-status');
-    statusEl.className = 'mw-status';
+    statusEl.className = 'status-box';
 
     if (dark.length === 0) {
       statusEl.textContent = 'In dieser Nacht wird es nicht astronomisch dunkel – die Milchstraße ist praktisch nicht sichtbar.';
@@ -586,6 +586,194 @@
     }
     if (runStart) out.push(fmtRange(runStart.t, prev.t));
     return out.join(' und ');
+  }
+
+  // ---------- ISS-Überflüge ----------
+  const ISS_TLE_URL = 'https://celestrak.org/NORAD/elements/gp.php?CATNR=25544&FORMAT=tle';
+
+  function loadIssTle() {
+    try {
+      const cached = JSON.parse(localStorage.getItem('hk-iss-tle') || 'null');
+      if (cached && cached.l1 && cached.l2) state.issTle = cached;
+    } catch (e) { /* defekter Cache */ }
+    renderIss();
+    const age = state.issTle ? Date.now() - state.issTle.fetched : Infinity;
+    if (age < 6 * 3600 * 1000) return; // Bahndaten sind frisch genug
+    fetch(ISS_TLE_URL)
+      .then((r) => (r.ok ? r.text() : null))
+      .then((txt) => {
+        const lines = (txt || '').trim().split(/\r?\n/);
+        if (lines.length >= 3 && lines[1].startsWith('1 ') && lines[2].startsWith('2 ')) {
+          state.issTle = { name: lines[0].trim(), l1: lines[1], l2: lines[2], fetched: Date.now() };
+          localStorage.setItem('hk-iss-tle', JSON.stringify(state.issTle));
+          renderIss();
+        }
+      })
+      .catch(() => { renderIss(); });
+  }
+
+  // Epoche aus TLE-Zeile 1 (Spalten 19–32: JJTTT.ttttt)
+  function tleEpoch(l1) {
+    const yy = Number(l1.substring(18, 20));
+    const ddd = Number(l1.substring(20, 32));
+    const year = yy < 57 ? 2000 + yy : 1900 + yy;
+    return new Date(Date.UTC(year, 0, 1) + (ddd - 1) * 86400000);
+  }
+
+  function renderIss() {
+    const statusEl = $('iss-status');
+    const listEl = $('iss-passes');
+    statusEl.className = 'status-box';
+    listEl.innerHTML = '';
+
+    if (!state.issTle) {
+      statusEl.textContent = 'Keine ISS-Bahndaten verfügbar (offline?). Sobald eine Verbindung besteht, werden sie automatisch geladen.';
+      statusEl.classList.add('bad');
+      return;
+    }
+
+    const epoch = tleEpoch(state.issTle.l1);
+    const start = dateAtMinutes(12 * 60);
+    const epochDist = Math.abs(start - epoch) / 86400000;
+    const result = ISS.computePasses(state.issTle.l1, state.issTle.l2, state.lat, state.lng, start, 24);
+
+    if (result.error || !result.passes) {
+      statusEl.textContent = 'Die Bahnberechnung ist fehlgeschlagen – bitte später erneut versuchen.';
+      statusEl.classList.add('bad');
+      return;
+    }
+
+    const visiblePasses = result.passes.filter((p) => p.visibleFrom);
+    if (result.passes.length === 0) {
+      statusEl.textContent = 'Kein Überflug über 10° Horizonthöhe in dieser Nacht.';
+      statusEl.classList.add('bad');
+    } else if (visiblePasses.length === 0) {
+      statusEl.textContent = result.passes.length + ' Überflug/Überflüge, aber keiner sichtbar (Tageslicht oder ISS im Erdschatten).';
+      statusEl.classList.add('ok');
+    } else {
+      statusEl.textContent = visiblePasses.length + ' sichtbare(r) Überflug/Überflüge in dieser Nacht 🎉';
+      statusEl.classList.add('good');
+    }
+
+    for (const p of result.passes) {
+      const row = document.createElement('div');
+      row.className = 'iss-pass' + (p.visibleFrom ? ' visible' : '');
+      const dir = dirName(deg(p.startAz)) + ' → ' + dirName(deg(p.endAz));
+      let vis;
+      if (p.visibleFrom) {
+        const full = p.visibleFrom.valueOf() === p.start.valueOf() && p.visibleTo.valueOf() === p.end.valueOf();
+        vis = full ? 'sichtbar' : 'sichtbar ' + fmtRange(p.visibleFrom, p.visibleTo);
+      } else {
+        vis = 'nicht sichtbar';
+      }
+      row.innerHTML =
+        '<span class="iss-time">' + fmtRange(p.start, p.end) + '</span>' +
+        '<span class="iss-detail">max. ' + Math.round(deg(p.maxEl)) + '° · ' + dir + '</span>' +
+        '<span class="iss-vis">' + vis + '</span>';
+      listEl.appendChild(row);
+    }
+
+    const noteEl = $('iss-note');
+    let note = 'Überflüge über 10° Horizonthöhe in der Nacht ab dem gewählten Datum. „Sichtbar“ heißt: dunkler Himmel und die ISS wird noch von der Sonne angestrahlt. Bahndaten vom ' +
+      epoch.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }) + '.';
+    if (epochDist > 10) {
+      note += ' ⚠️ Das gewählte Datum liegt weit von der Bahndaten-Epoche entfernt – die Zeiten sind entsprechend unsicher.';
+    }
+    noteEl.textContent = note;
+  }
+
+  // ---------- Polarlicht ----------
+  const KP_URL = 'https://services.swpc.noaa.gov/products/noaa-planetary-k-index-forecast.json';
+
+  function loadKp() {
+    try {
+      const cached = JSON.parse(localStorage.getItem('hk-kp') || 'null');
+      if (cached && Array.isArray(cached.rows)) state.kpData = cached;
+    } catch (e) { /* defekter Cache */ }
+    renderAurora();
+    const age = state.kpData ? Date.now() - state.kpData.fetched : Infinity;
+    if (age < 30 * 60 * 1000) return;
+    fetch(KP_URL)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((rows) => {
+        if (!Array.isArray(rows)) return;
+        state.kpData = { rows, fetched: Date.now() };
+        localStorage.setItem('hk-kp', JSON.stringify(state.kpData));
+        renderAurora();
+      })
+      .catch(() => { renderAurora(); });
+  }
+
+  // Geomagnetische Breite (Dipolnäherung, nordgeomagn. Pol ≈ 80,7° N / 72,7° W)
+  function geomagneticLatitude(lat, lng) {
+    const r = Math.PI / 180;
+    const poleLat = 80.7 * r, poleLng = -72.7 * r;
+    return Math.asin(
+      Math.sin(lat * r) * Math.sin(poleLat) +
+      Math.cos(lat * r) * Math.cos(poleLat) * Math.cos(lng * r - poleLng)
+    ) / r;
+  }
+
+  function renderAurora() {
+    const statusEl = $('aurora-status');
+    statusEl.className = 'status-box';
+    const maglat = geomagneticLatitude(state.lat, state.lng);
+    $('aurora-maglat').textContent = maglat.toFixed(1) + '°';
+
+    // Wird es in dieser Nacht überhaupt dunkel genug? (Sonne < −10°)
+    const start = dateAtMinutes(12 * 60);
+    let darkEnough = false;
+    for (let i = 0; i <= 96; i++) {
+      const t = new Date(start.valueOf() + i * 15 * 60000);
+      if (deg(Astro.getSunPosition(t, state.lat, state.lng).altitude) < -10) { darkEnough = true; break; }
+    }
+    $('aurora-dark').textContent = darkEnough ? 'ausreichend dunkel' : 'wird nicht richtig dunkel';
+
+    if (!state.kpData) {
+      $('aurora-kp').textContent = '–';
+      statusEl.textContent = 'Keine Weltraumwetter-Daten verfügbar (offline?). Sie werden automatisch geladen, sobald eine Verbindung besteht.';
+      statusEl.classList.add('bad');
+      return;
+    }
+
+    // Kp-Werte im Nachtfenster (NOAA-Zeiten sind UTC)
+    const end = new Date(start.valueOf() + 24 * 3600000);
+    let maxKp = null;
+    for (const row of state.kpData.rows) {
+      const t = new Date(row.time_tag + (String(row.time_tag).includes('Z') ? '' : 'Z'));
+      if (t >= start && t <= end && isFinite(row.kp)) {
+        if (maxKp === null || row.kp > maxKp) maxKp = Number(row.kp);
+      }
+    }
+    if (maxKp === null) {
+      $('aurora-kp').textContent = 'keine Prognose für dieses Datum';
+      statusEl.textContent = 'Die Kp-Prognose der NOAA reicht nur wenige Tage in die Zukunft – wähle ein näheres Datum für eine Abschätzung.';
+      statusEl.classList.add('ok');
+      return;
+    }
+    $('aurora-kp').textContent = maxKp.toFixed(1);
+
+    // Faustformel: Polarlicht-Oval reicht bis ca. 67° − 2·Kp geomagnetischer Breite
+    const ovalLat = 67 - 2 * maxKp;
+    let text, cls;
+    if (!darkEnough) {
+      text = 'In dieser Nacht wird es nicht dunkel genug für Polarlicht.';
+      cls = 'bad';
+    } else if (maglat >= ovalLat) {
+      text = 'Sehr gute Chance – bei klarem Himmel kann Polarlicht bis in den Zenit stehen.';
+      cls = 'good';
+    } else if (maglat >= ovalLat - 5) {
+      text = 'Gute Chance auf Polarlicht am Nordhorizont.';
+      cls = 'good';
+    } else if (maglat >= ovalLat - 10) {
+      text = 'Geringe Chance – nur bei klarer Sicht tief am Nordhorizont (Kamera hilft).';
+      cls = 'ok';
+    } else {
+      text = 'Praktisch ausgeschlossen – der Ort liegt zu weit vom Polarlicht-Oval entfernt.';
+      cls = 'bad';
+    }
+    statusEl.textContent = text;
+    statusEl.classList.add(cls);
   }
 
   // ---------- 3D-Kompass ----------
@@ -931,9 +1119,27 @@
     renderSun();
     renderMoon();
     renderMilkyWay();
+    renderIss();
+    renderAurora();
     buildCompassPaths();
     drawMapOverlay();
     renderCompass();
+  }
+
+  // ---------- Tab-Navigation ----------
+  function initTabs() {
+    const btns = document.querySelectorAll('.tab-btn');
+    const showTab = (name) => {
+      btns.forEach((b) => b.classList.toggle('active', b.dataset.tab === name));
+      document.querySelectorAll('.tab-panel').forEach((p) => {
+        p.classList.toggle('show', p.classList.contains(name));
+      });
+      try { localStorage.setItem('hk-tab', name); } catch (e) { /* egal */ }
+    };
+    btns.forEach((b) => b.addEventListener('click', () => showTab(b.dataset.tab)));
+    let saved = 'zeiten';
+    try { saved = localStorage.getItem('hk-tab') || 'zeiten'; } catch (e) { /* egal */ }
+    showTab(saved);
   }
 
   function setDateFromInput() {
@@ -971,12 +1177,15 @@
     setDateToday();
     setSliderToNow();
 
+    initTabs();
     initMap();
     initCompassDrag();
     updateLocationLabel();
     renderAll();
     locate(); // automatische Standortbestimmung
     tryAutoOrientation(); // Kompass-Kopplung, wo ohne Nachfrage möglich
+    loadIssTle(); // ISS-Bahndaten laden bzw. aus dem Cache verwenden
+    loadKp(); // NOAA-Kp-Prognose für die Polarlicht-Chance
 
     $('date-input').addEventListener('change', setDateFromInput);
     $('today-btn').addEventListener('click', () => {

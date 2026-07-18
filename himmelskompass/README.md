@@ -8,6 +8,9 @@ Eine installierbare Progressive Web App, die für einen frei wählbaren Ort und 
 - **Milchstraße:** Sichtbarkeit des galaktischen Zentrums für die gewählte Nacht – Zeitfenster, beste Zeit, Richtung/Höhe und Mondstörung
 - **Karten-Overlay:** Sonnen-/Mondbahn, Auf- und Untergangsrichtungen mit Uhrzeiten um den gewählten Ort; Vollbild per Tipp auf die Karte
 - **Zeitzonen:** Alle Zeiten werden in der Zeitzone des gewählten Ortes angezeigt (Offline-Bestimmung aus den Koordinaten via tz-lookup)
+- **ISS-Überflüge:** Sichtbare Überflüge der Raumstation für die gewählte Nacht (SGP4-Bahnberechnung mit satellite.js, Bahndaten von CelesTrak mit localStorage-Cache)
+- **Polarlicht-Chance:** Abschätzung aus der NOAA-Kp-Prognose und der geomagnetischen Breite des Ortes
+- **Kompakte Bedienung:** Tab-Navigation (Zeiten / Kompass / Nacht) mit kleiner Kartenvorschau, die sich per Tipp zum Vollbild öffnet
 
 ## Bedienung
 

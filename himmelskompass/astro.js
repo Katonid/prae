@@ -289,8 +289,14 @@
     return names[idx];
   }
 
+  // Äquatorialkoordinaten der Sonne (für Beleuchtungsprüfung von Satelliten)
+  function getSunRaDec(date) {
+    return sunCoords(toDays(date));
+  }
+
   global.Astro = {
     getSunPosition,
+    getSunRaDec,
     getSunTimes,
     getMoonPosition,
     getMoonIllumination,
