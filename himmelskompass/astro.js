@@ -294,9 +294,21 @@
     return sunCoords(toDays(date));
   }
 
+  // RA/Dek → Azimut/Höhe für Ort und Zeitpunkt (z. B. für Planeten)
+  function raDecToAzAlt(ra, dec, date, lat, lng) {
+    const lw = rad * -lng;
+    const phi = rad * lat;
+    const H = siderealTime(toDays(date), lw) - ra;
+    return {
+      azimuth: normalizeAz(azimuth(H, phi, dec) + Math.PI), // 0 = Nord
+      altitude: altitude(H, phi, dec)
+    };
+  }
+
   global.Astro = {
     getSunPosition,
     getSunRaDec,
+    raDecToAzAlt,
     getSunTimes,
     getMoonPosition,
     getMoonIllumination,

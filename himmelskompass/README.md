@@ -9,7 +9,8 @@ Eine installierbare Progressive Web App, die für einen frei wählbaren Ort und 
 - **Karten-Overlay:** Sonnen-/Mondbahn, Auf- und Untergangsrichtungen mit Uhrzeiten um den gewählten Ort; Vollbild per Tipp auf die Karte
 - **Zeitzonen:** Alle Zeiten werden in der Zeitzone des gewählten Ortes angezeigt (Offline-Bestimmung aus den Koordinaten via tz-lookup)
 - **ISS-Überflüge:** Sichtbare Überflüge der Raumstation für die gewählte Nacht (SGP4-Bahnberechnung mit satellite.js, Bahndaten von CelesTrak mit localStorage-Cache)
-- **AR-Himmelsansicht:** Kamera auf den Himmel richten – wahlweise ISS-Modus (Live-Position mit Bahnspur, Richtungspfeil und nächstem sichtbaren Überflug) oder Sonne-&-Mond-Modus (Markierungsringe, Richtungspfeile, Tagesbahnen mit Uhrzeiten, Auf-/Untergangszeiten und Mondphase); dazu immer Milchstraßen-Band und Horizont, ohne Sensoren per Wischen bedienbar
+- **AR-Himmelsansicht:** Kamera auf den Himmel richten – wahlweise ISS-Modus (Live-Position mit Bahnspur, Richtungspfeil und nächstem sichtbaren Überflug), Sonne-&-Mond-Modus (Markierungsringe, Richtungspfeile, Tagesbahnen mit Uhrzeiten, Auf-/Untergangszeiten und Mondphase) oder Planeten-Modus (Merkur bis Saturn mit Helligkeit, dazu Mond und ISS); dazu immer Milchstraßen-Band und Horizont, ohne Sensoren per Wischen bedienbar
+- **Planeten:** Positionen und Helligkeiten der hellen Planeten (JPL-Keplerbahn-Elemente, offline berechnet) als Tabelle im Nacht-Tab
 - **Polarlicht-Chance:** Abschätzung aus der NOAA-Kp-Prognose und der geomagnetischen Breite des Ortes
 - **Kompakte Bedienung:** Tab-Navigation (Zeiten / Kompass / Nacht) mit kleiner Kartenvorschau, die sich per Tipp zum Vollbild öffnet
 

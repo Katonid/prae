@@ -27,6 +27,16 @@
   let trailComputed = 0;
   let sunPath = [], moonPath = []; // Tagesbahnen für den Sonne-&-Mond-Modus
 
+  const PLANET_COLORS = {
+    Merkur: '#c9b8a8', Venus: '#fff3c4', Mars: '#ff8a66',
+    Jupiter: '#ffe0b0', Saturn: '#ffd98f'
+  };
+  const DIRECTIONS = ['N', 'NNO', 'NO', 'ONO', 'O', 'OSO', 'SO', 'SSO',
+    'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
+  function dirName(azRad) {
+    return DIRECTIONS[Math.round(((azRad / rad + 360) % 360) / 22.5) % 16];
+  }
+
   // ---------- Orientierung ----------
 
   // W3C-Rotationsmatrix (ZXY): bildet Gerätekoordinaten auf Ost/Nord/Oben ab
@@ -243,6 +253,7 @@
 
     // Sonne und Mond (im Sonne-&-Mond-Modus mit Tagesbahnen, Ringen und Pfeilen)
     const sunMoonFocus = opts.focus === 'sunmoon';
+    const moonRing = opts.focus !== 'iss'; // auch im Planeten-Modus hervorheben
     if (sunMoonFocus) {
       drawDayPath(sunPath, b, w, h, fpx, 'rgba(255,209,102,0.55)', '#ffd166');
       drawDayPath(moonPath, b, w, h, fpx, 'rgba(106,183,255,0.55)', '#8ec9ff');
@@ -266,7 +277,7 @@
     const moon = Astro.getMoonPosition(nowDate, opts.lat, opts.lng);
     const mp = project(moon.azimuth, moon.altitude, b, w, h, fpx);
     if (mp.visible) {
-      if (sunMoonFocus) {
+      if (moonRing) {
         ctx.beginPath();
         ctx.arc(mp.px, mp.py, 26, 0, 2 * Math.PI);
         ctx.strokeStyle = '#8ec9ff';
@@ -274,8 +285,8 @@
         ctx.stroke();
       }
       ctx.font = '28px serif'; ctx.fillText('🌙', mp.px, mp.py);
-      drawLabel('Mond ' + (moon.altitude / rad).toFixed(0) + '°', mp.px, mp.py + (sunMoonFocus ? 44 : 26), '#8ec9ff');
-    } else if (sunMoonFocus) {
+      drawLabel('Mond ' + (moon.altitude / rad).toFixed(0) + '°', mp.px, mp.py + (moonRing ? 44 : 26), '#8ec9ff');
+    } else if (moonRing && moon.altitude > -0.35) {
       drawEdgeArrow(mp, '#8ec9ff',
         '→ 🌙 (Az ' + ((moon.azimuth / rad + 360) % 360).toFixed(0) + '°, ' + (moon.altitude / rad).toFixed(0) + '°)', w, h, -64);
     }
@@ -323,7 +334,7 @@
       } else {
         bottom.textContent = 'ISS-Position konnte nicht berechnet werden.' + (nextPassText ? ' · ' + nextPassText : '');
       }
-    } else {
+    } else if (opts.focus === 'sunmoon') {
       // Sonne-&-Mond-Modus: Statuszeile mit Auf-/Untergang und Mondphase
       const t = Astro.getSunTimes(nowDate, opts.lat, opts.lng);
       const illum = Astro.getMoonIllumination(nowDate);
@@ -332,6 +343,63 @@
         ' · Auf ' + opts.fmtTime(t.sunrise) + ' / Unter ' + opts.fmtTime(t.sunset) +
         '  |  🌙 Az ' + ((moon.azimuth / rad + 360) % 360).toFixed(0) + '°, Höhe ' + (moon.altitude / rad).toFixed(0) + '°' +
         ' (' + Math.round(illum.fraction * 100) + ' % beleuchtet)';
+    } else {
+      // Planeten-Modus: helle Planeten, dazu Mond (oben) und ISS
+      const magStr = (m) => (m < 0 ? '−' : '+') + Math.abs(m).toFixed(1).replace('.', ',') + ' mag';
+      const visible = [], below = [];
+      for (const name of Planets.NAMES) {
+        const p = Planets.position(name, nowDate, opts.lat, opts.lng);
+        if (p.altitude > 0) visible.push({ name, p }); else below.push(name);
+        if (p.altitude < -0.02) continue;
+        const pr = project(p.azimuth, p.altitude, b, w, h, fpx);
+        if (!pr.visible) continue;
+        const rr = Math.max(3, Math.min(10, 6 - p.mag));
+        const color = PLANET_COLORS[name];
+        ctx.beginPath();
+        ctx.arc(pr.px, pr.py, rr, 0, 2 * Math.PI);
+        ctx.fillStyle = color;
+        ctx.shadowColor = color;
+        ctx.shadowBlur = 14;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        drawLabel(name + ' ' + magStr(p.mag) + ' · ' + (p.altitude / rad).toFixed(0) + '°',
+          pr.px, pr.py + rr + 16, color);
+      }
+      visible.sort((a, c) => a.p.mag - c.p.mag);
+
+      let issText = '';
+      if (satrec) {
+        const iss = issNow(nowDate);
+        if (iss && iss.el > 0) {
+          const ip = project(iss.az, iss.el, b, w, h, fpx);
+          if (ip.visible) {
+            ctx.font = '26px serif';
+            ctx.fillText('🛰️', ip.px, ip.py + 3);
+            drawLabel('ISS · ' + (iss.el / rad).toFixed(0) + '°', ip.px, ip.py + 34, '#ffffff');
+          } else {
+            drawEdgeArrow(ip, '#ff9e9e', '→ 🛰️ ISS (' + dirName(iss.az) + ')', w, h, -128);
+          }
+          issText = '🛰️ ISS ' + dirName(iss.az) + ' ' + (iss.el / rad).toFixed(0) + '°' +
+            (iss.sunlit && iss.darkSky ? ' (sichtbar!)' : '');
+        } else if (iss) {
+          issText = '🛰️ ISS unter dem Horizont';
+        }
+      }
+
+      const illum = Math.round(Astro.getMoonIllumination(nowDate).fraction * 100);
+      const moonText = '🌙 ' + (moon.altitude > 0
+        ? dirName(moon.azimuth) + ' ' + (moon.altitude / rad).toFixed(0) + '°'
+        : 'unter dem Horizont') + ' (' + illum + ' %)';
+
+      bottom.textContent =
+        (sun.altitude > -6 * rad ? '☀️ Himmel noch hell · ' : '') +
+        (visible.length
+          ? 'Sichtbar: ' + visible.map((v) =>
+              v.name + ' (' + dirName(v.p.azimuth) + ' ' + (v.p.altitude / rad).toFixed(0) + '°, ' + magStr(v.p.mag) + ')'
+            ).join(', ')
+          : 'Kein Planet über dem Horizont') +
+        (below.length ? ' · unter dem Horizont: ' + below.join(', ') : '') +
+        ' · ' + moonText + (issText ? ' · ' + issText : '');
     }
 
     // Blickrichtung oben anzeigen
@@ -402,6 +470,9 @@
       } catch (e) {
         return false;
       }
+    } else if (opts.tle) {
+      // Im Planeten-Modus ist die ISS ein optionaler Bonus
+      try { satrec = satellite.twoline2satrec(opts.tle.l1, opts.tle.l2); } catch (e) { satrec = null; }
     }
     canvas = $('ar-canvas');
     ctx = canvas.getContext('2d');
