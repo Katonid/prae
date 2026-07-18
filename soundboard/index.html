@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <title>Theater-Soundboard</title>
+  <meta name="description" content="Soundboard für Theateraufführungen: 16 frei belegbare Felder für Soundeffekte und Lieder.">
+  <meta name="theme-color" content="#14141f">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Soundboard">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main id="grid" class="grid" aria-label="Soundboard mit 16 Feldern"></main>
+
+  <footer class="bottombar">
+    <button id="resetAllBtn" class="bar-btn primary" type="button">⏮&nbsp;&nbsp;Alle auf Anfang</button>
+    <button id="editBtn" class="bar-btn" type="button">✎&nbsp;&nbsp;Bearbeiten</button>
+  </footer>
+
+  <div id="toast" class="toast" hidden></div>
+
+  <dialog id="editDialog">
+    <h2 id="editTitle">Feld bearbeiten</h2>
+
+    <label class="field">
+      <span class="field-name">Beschriftung</span>
+      <input id="editLabel" type="text" maxlength="60" autocomplete="off" placeholder="z.&nbsp;B. Donner, Auftrittsmusik …">
+    </label>
+
+    <div class="field">
+      <span class="field-name">Farbe</span>
+      <div id="swatches" class="swatches"></div>
+      <label class="custom-color">Eigene Farbe: <input id="editColor" type="color"></label>
+    </div>
+
+    <div class="field">
+      <span class="field-name">Tondatei</span>
+      <div id="editFileInfo" class="file-info">keine Datei</div>
+      <div class="file-buttons">
+        <button id="pickFileBtn" type="button">Datei wählen …</button>
+        <button id="removeFileBtn" type="button" class="danger">Entfernen</button>
+      </div>
+    </div>
+
+    <div class="dialog-actions">
+      <button id="closeEditBtn" type="button" class="primary">Fertig</button>
+    </div>
+  </dialog>
+
+  <input id="filePicker" type="file" accept="audio/*,.mp3,.m4a,.aac,.wav,.ogg,.flac" hidden>
+
+  <script src="app.js"></script>
+</body>
+</html>

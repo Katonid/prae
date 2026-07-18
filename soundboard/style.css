@@ -1,0 +1,380 @@
+/* Theater-Soundboard */
+
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+  background: #14141f;
+  color: #f2f2f7;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+}
+
+/* ---------- Matrix ---------- */
+
+.grid {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  grid-template-rows: repeat(8, 1fr);
+  gap: 8px;
+  padding: 8px;
+  padding-top: calc(8px + env(safe-area-inset-top));
+  padding-left: calc(8px + env(safe-area-inset-left));
+  padding-right: calc(8px + env(safe-area-inset-right));
+}
+
+/* iPad und breite Bildschirme: 4 x 4 */
+@media (min-width: 520px) {
+  .grid {
+    grid-template-columns: repeat(4, 1fr);
+    grid-template-rows: repeat(4, 1fr);
+  }
+}
+
+.pad {
+  --pad-color: #555;
+  --pad-bg: rgba(85, 85, 85, 0.25);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-width: 0;
+  min-height: 0;
+  padding: 8px 10px 14px;
+  border: 2px solid var(--pad-color);
+  border-radius: 14px;
+  background: var(--pad-bg);
+  color: #fff;
+  font: inherit;
+  cursor: pointer;
+  overflow: hidden;
+  touch-action: manipulation;
+  transition: background 0.15s ease, box-shadow 0.15s ease, transform 0.05s ease;
+}
+
+.pad:active {
+  transform: scale(0.98);
+}
+
+.pad.playing {
+  background: var(--pad-color);
+  box-shadow: 0 0 18px var(--pad-color);
+}
+
+.pad.empty {
+  border-style: dashed;
+  border-color: rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.pad.flash {
+  animation: padflash 0.4s ease;
+}
+
+@keyframes padflash {
+  0%   { box-shadow: 0 0 0 4px #fff inset; }
+  100% { box-shadow: 0 0 0 0 transparent inset; }
+}
+
+.pad-label {
+  max-width: 100%;
+  font-weight: 700;
+  font-size: clamp(0.85rem, 2.4vmin, 1.35rem);
+  line-height: 1.15;
+  text-align: center;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.55);
+}
+
+.pad-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: clamp(0.65rem, 1.7vmin, 0.9rem);
+  font-variant-numeric: tabular-nums;
+  opacity: 0.9;
+}
+
+.pad-icon {
+  font-size: 0.9em;
+}
+
+.pad.playing .pad-icon {
+  animation: pulse 1s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.35; }
+}
+
+.pad-progress {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 5px;
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.pad-progress-fill {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: #fff;
+  opacity: 0.85;
+}
+
+.pad.empty .pad-progress {
+  display: none;
+}
+
+/* Stift-Symbol im Bearbeiten-Modus */
+.pad-edit-badge {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  display: none;
+  font-size: 0.95rem;
+  opacity: 0.85;
+}
+
+body.edit-mode .pad-edit-badge {
+  display: block;
+}
+
+body.edit-mode .pad {
+  animation: wobble 2.4s ease-in-out infinite;
+}
+
+@keyframes wobble {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0); }
+  50%      { box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.25); }
+}
+
+/* ---------- Fußleiste ---------- */
+
+.bottombar {
+  display: flex;
+  gap: 8px;
+  padding: 8px;
+  padding-bottom: calc(8px + env(safe-area-inset-bottom));
+  padding-left: calc(8px + env(safe-area-inset-left));
+  padding-right: calc(8px + env(safe-area-inset-right));
+  background: #0c0c14;
+}
+
+.bar-btn {
+  flex: 1;
+  padding: 14px 10px;
+  border: none;
+  border-radius: 12px;
+  background: #2a2a3a;
+  color: #f2f2f7;
+  font: inherit;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.bar-btn.primary {
+  flex: 2;
+  background: #4361ee;
+  color: #fff;
+}
+
+.bar-btn:active {
+  filter: brightness(1.25);
+}
+
+.bar-btn.active {
+  background: #f7b32b;
+  color: #14141f;
+}
+
+/* ---------- Toast ---------- */
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(84px + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  max-width: min(90vw, 420px);
+  padding: 10px 16px;
+  border-radius: 12px;
+  background: rgba(240, 240, 245, 0.95);
+  color: #14141f;
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-align: center;
+  z-index: 30;
+  pointer-events: none;
+}
+
+/* ---------- Dialog ---------- */
+
+dialog {
+  width: min(92vw, 420px);
+  max-height: 85dvh;
+  overflow-y: auto;
+  border: 1px solid #3a3a4d;
+  border-radius: 16px;
+  background: #1d1d2b;
+  color: #f2f2f7;
+  padding: 20px;
+}
+
+dialog::backdrop {
+  background: rgba(0, 0, 0, 0.6);
+}
+
+dialog h2 {
+  margin: 0 0 16px;
+  font-size: 1.2rem;
+}
+
+.field {
+  display: block;
+  margin-bottom: 18px;
+}
+
+.field-name {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.7;
+}
+
+#editLabel {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #3a3a4d;
+  border-radius: 10px;
+  background: #14141f;
+  color: #f2f2f7;
+  font: inherit;
+  font-size: 1rem;
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+.swatches {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.swatch {
+  aspect-ratio: 1;
+  border: 2px solid transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  padding: 0;
+}
+
+.swatch.selected {
+  border-color: #fff;
+  box-shadow: 0 0 0 2px #14141f inset;
+}
+
+.custom-color {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.9rem;
+}
+
+.custom-color input[type="color"] {
+  width: 44px;
+  height: 32px;
+  border: none;
+  border-radius: 8px;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+.file-info {
+  margin-bottom: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #14141f;
+  font-size: 0.9rem;
+  word-break: break-all;
+  opacity: 0.9;
+}
+
+.file-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.file-buttons button,
+.dialog-actions button {
+  padding: 10px 14px;
+  border: none;
+  border-radius: 10px;
+  background: #2a2a3a;
+  color: #f2f2f7;
+  font: inherit;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.file-buttons button:active,
+.dialog-actions button:active {
+  filter: brightness(1.25);
+}
+
+#pickFileBtn {
+  flex: 1;
+  background: #4361ee;
+  color: #fff;
+}
+
+button.danger {
+  background: #5c1f28;
+  color: #ffb3bb;
+}
+
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 4px;
+}
+
+.dialog-actions .primary {
+  min-width: 120px;
+  background: #4361ee;
+  color: #fff;
+}
