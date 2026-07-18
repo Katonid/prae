@@ -206,6 +206,7 @@
     <section class="card iss-card tab-panel nacht">
       <h2>🛰️ ISS-Überflüge</h2>
       <div id="iss-status" class="status-box">Bahndaten werden geladen&nbsp;…</div>
+      <button id="ar-btn" class="btn ar-btn" type="button">📡 AR-Ansicht: ISS am Himmel finden</button>
       <div id="iss-passes"></div>
       <p class="hint" id="iss-note">Überflüge über 10° Horizonthöhe in der Nacht ab dem gewählten Datum.
         „Sichtbar“ heißt: dunkler Himmel und die ISS wird noch von der Sonne angestrahlt.</p>
@@ -227,6 +228,17 @@
     </section>
   </main>
 
+  <!-- AR-Himmelsansicht -->
+  <div id="ar-view" class="ar-view" hidden>
+    <video id="ar-video" autoplay playsinline muted hidden></video>
+    <canvas id="ar-canvas"></canvas>
+    <div class="ar-top">
+      <span id="ar-center-info" class="ar-center-info">–</span>
+      <button id="ar-close" class="map-close-btn ar-close-btn" type="button" aria-label="AR-Ansicht schließen">✕ Schließen</button>
+    </div>
+    <div id="ar-bottom" class="ar-bottom">–</div>
+  </div>
+
   <footer class="app-footer">
     <p>Himmelskompass · funktioniert offline · Kartendaten © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> · ISS-Bahndaten © CelesTrak · Weltraumwetter © NOAA SWPC</p>
   </footer>
@@ -236,6 +248,7 @@
   <script src="vendor/satellite/satellite.min.js"></script>
   <script src="astro.js"></script>
   <script src="iss.js"></script>
+  <script src="ar.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

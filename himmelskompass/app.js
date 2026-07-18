@@ -1209,6 +1209,20 @@
       renderAll();
     });
     $('play-btn').addEventListener('click', togglePlayback);
+    $('ar-btn').addEventListener('click', () => {
+      if (!state.issTle) {
+        $('ar-btn').textContent = '📡 AR-Ansicht: erst ISS-Bahndaten nötig (online gehen)';
+        return;
+      }
+      AR.open({
+        lat: state.lat,
+        lng: state.lng,
+        tle: state.issTle,
+        fmtTime: fmtTime,
+        fmtRange: fmtRange
+      });
+    });
+    $('ar-close').addEventListener('click', () => AR.close());
     $('orient-btn').addEventListener('click', toggleDeviceOrientation);
 
     // Minütlich aktualisieren, solange der Kompass "live" ist
