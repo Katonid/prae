@@ -1223,6 +1223,15 @@
       });
     });
     $('ar-close').addEventListener('click', () => AR.close());
+    const openSunMoonAr = () => AR.open({
+      lat: state.lat,
+      lng: state.lng,
+      focus: 'sunmoon',
+      fmtTime: fmtTime,
+      fmtRange: fmtRange
+    });
+    $('ar-sunmoon-btn').addEventListener('click', openSunMoonAr);
+    $('ar-sunmoon-btn2').addEventListener('click', openSunMoonAr);
     $('orient-btn').addEventListener('click', toggleDeviceOrientation);
 
     // Minütlich aktualisieren, solange der Kompass "live" ist
