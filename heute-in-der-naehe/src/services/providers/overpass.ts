@@ -34,40 +34,88 @@ try {
   /* storage unavailable */
 }
 
-function withTimeout(signal: AbortSignal | undefined, ms: number): AbortSignal | undefined {
-  const t = typeof AbortSignal.timeout === 'function' ? AbortSignal.timeout(ms) : undefined;
-  if (signal && t && typeof AbortSignal.any === 'function') return AbortSignal.any([signal, t]);
-  return signal ?? t;
+/** Start the next mirror if the current one hasn't answered after this long. */
+const HEDGE_DELAY_MS = 5000;
+/** Hard per-endpoint timeout. */
+const ENDPOINT_TIMEOUT_MS = 25000;
+
+function rememberEndpoint(idx: number): void {
+  if (idx === preferredEp) return;
+  preferredEp = idx;
+  try {
+    localStorage.setItem(EP_KEY, String(idx));
+  } catch {
+    /* non-fatal */
+  }
 }
 
-async function overpassFetch(query: string, signal?: AbortSignal): Promise<unknown> {
-  let lastError: unknown = new Error('overpass:unavailable');
-  for (let i = 0; i < ENDPOINTS.length; i++) {
-    const idx = (preferredEp + i) % ENDPOINTS.length;
-    try {
-      const res = await fetch(ENDPOINTS[idx], {
+/**
+ * Hedged failover: query the preferred endpoint first; if it hasn't
+ * answered within HEDGE_DELAY_MS (or fails outright), the next mirror is
+ * queried in parallel. The first successful response wins and the rest
+ * are aborted – a hanging server no longer blocks the search for its
+ * full timeout.
+ */
+function overpassFetch(query: string, signal?: AbortSignal): Promise<unknown> {
+  const order = ENDPOINTS.map((_, i) => (preferredEp + i) % ENDPOINTS.length);
+  return new Promise((resolve, reject) => {
+    const controllers: AbortController[] = [];
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    let started = 0;
+    let failures = 0;
+    let settled = false;
+    let lastError: unknown = new Error('overpass:unavailable');
+
+    const finish = (fn: () => void) => {
+      settled = true;
+      timers.forEach(clearTimeout);
+      controllers.forEach((c) => c.abort());
+      fn();
+    };
+
+    const onOuterAbort = () => {
+      if (!settled) finish(() => reject(new DOMException('aborted', 'AbortError')));
+    };
+    signal?.addEventListener('abort', onOuterAbort, { once: true });
+
+    const startNext = () => {
+      if (settled || started >= order.length) return;
+      const idx = order[started++];
+      const ctrl = new AbortController();
+      controllers.push(ctrl);
+      timers.push(setTimeout(() => ctrl.abort(), ENDPOINT_TIMEOUT_MS));
+      timers.push(setTimeout(startNext, HEDGE_DELAY_MS));
+
+      fetch(ENDPOINTS[idx], {
         method: 'POST',
         body: 'data=' + encodeURIComponent(query),
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        signal: withTimeout(signal, 40000),
-      });
-      if (!res.ok) throw new Error(`overpass:${res.status}`);
-      const data = await res.json();
-      if (idx !== preferredEp) {
-        preferredEp = idx;
-        try {
-          localStorage.setItem(EP_KEY, String(idx));
-        } catch {
-          /* non-fatal */
-        }
-      }
-      return data;
-    } catch (err) {
-      if (signal?.aborted) throw err; // user navigated away – don't retry
-      lastError = err;
-    }
-  }
-  throw lastError;
+        signal: ctrl.signal,
+      })
+        .then(async (res) => {
+          if (!res.ok) throw new Error(`overpass:${res.status}`);
+          return res.json();
+        })
+        .then((data) => {
+          if (settled) return;
+          rememberEndpoint(idx);
+          finish(() => resolve(data));
+        })
+        .catch((err) => {
+          if (settled) return;
+          if (signal?.aborted) {
+            finish(() => reject(err));
+            return;
+          }
+          lastError = err;
+          failures++;
+          if (failures >= order.length) finish(() => reject(lastError));
+          else startNext(); // hard failure → don't wait for the hedge timer
+        });
+    };
+
+    startNext();
+  });
 }
 
 interface OverpassElement {
@@ -117,7 +165,7 @@ function buildQuery(
       }),
     )
     .join('\n  ');
-  return `[out:json][timeout:30];\n(\n  ${clauses}\n);\nout center 500;`;
+  return `[out:json][timeout:25];\n(\n  ${clauses}\n);\nout center 500;`;
 }
 
 function matchesSelector(tags: Record<string, string>, selector: string): boolean {
