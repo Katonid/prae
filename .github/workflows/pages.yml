@@ -23,12 +23,29 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: heute-in-der-naehe/package-lock.json
+      - name: Build Heute in der Nähe
+        working-directory: heute-in-der-naehe
+        run: |
+          npm ci
+          npm run build
+      - name: Assemble site
+        run: |
+          mkdir -p _site
+          rsync -a --exclude '_site' --exclude '.git' --exclude 'heute-in-der-naehe' --exclude '.github' ./ _site/
+          mkdir -p _site/heute-in-der-naehe
+          cp -r heute-in-der-naehe/dist/. _site/heute-in-der-naehe/
       - name: Setup Pages
         uses: actions/configure-pages@v5
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: '.'
+          path: '_site'
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
