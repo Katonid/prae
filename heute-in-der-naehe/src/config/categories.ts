@@ -54,7 +54,7 @@ export const CATEGORIES: CategoryDef[] = [
       sc('beach', 'Strand', 'Beach', 'Plage', ['natural=beach'], {
         outdoor: true, typicallyFree: true, family: true, photo: ['nature', 'water', 'sunset'], photoTip: 'tip_water', bestTime: 'sunset',
       }),
-      sc('lake', 'See', 'Lake', 'Lac', ['natural=water][water~"lake|lagoon|reservoir"]'], {
+      sc('lake', 'See', 'Lake', 'Lac', ['natural=water][water~"^(lake|lagoon|reservoir)$"'], {
         named: true, outdoor: true, typicallyFree: true, photo: ['nature', 'water'], photoTip: 'tip_water', bestTime: 'sunrise',
       }),
       sc('nature_reserve', 'Naturschutzgebiet', 'Nature reserve', 'Réserve naturelle', ['leisure=nature_reserve'], {
