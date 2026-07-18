@@ -505,6 +505,27 @@ a {
 .place-thumb-icon {
   font-size: 30px;
 }
+.map-thumb {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.map-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: none;
+}
+.map-thumb-pin {
+  position: absolute;
+  transform: translate(-50%, -55%);
+  font-size: 15px;
+  line-height: 1;
+  text-shadow:
+    0 0 3px #fff,
+    0 0 6px #fff;
+  pointer-events: none;
+}
 .place-info {
   min-width: 0;
   flex: 1;
