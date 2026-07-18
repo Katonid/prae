@@ -1,5 +1,5 @@
 /* Himmelskompass – Service Worker */
-const VERSION = 'v7';
+const VERSION = 'v8';
 const APP_CACHE = 'himmelskompass-app-' + VERSION;
 const RUNTIME_CACHE = 'himmelskompass-runtime-' + VERSION;
 
@@ -10,6 +10,7 @@ const APP_SHELL = [
   './app.js',
   './astro.js',
   './iss.js',
+  './ar.js',
   './vendor/satellite/satellite.min.js',
   './manifest.webmanifest',
   './icons/icon.svg',

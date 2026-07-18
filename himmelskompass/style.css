@@ -446,6 +446,65 @@ tr.hl-blue td { color: var(--accent-blue); }
   color: #b8e6b8;
 }
 
+/* AR-Himmelsansicht */
+.ar-btn { margin-bottom: 0.7rem; width: 100%; }
+.ar-view {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  background: radial-gradient(ellipse at 50% 120%, #14213c 0%, #05080f 70%);
+  overflow: hidden;
+}
+#ar-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+#ar-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+}
+.ar-top {
+  position: absolute;
+  top: calc(env(safe-area-inset-top, 0px) + 10px);
+  left: 12px;
+  right: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.6rem;
+  pointer-events: none;
+}
+.ar-center-info {
+  background: rgba(13, 27, 42, 0.75);
+  border-radius: 8px;
+  padding: 0.35rem 0.7rem;
+  font-size: 0.85rem;
+}
+.ar-close-btn {
+  display: block;
+  position: static;
+  pointer-events: auto;
+}
+.ar-bottom {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
+  background: rgba(13, 27, 42, 0.8);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.55rem 0.8rem;
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+body.ar-open { overflow: hidden; }
+
 .app-footer {
   text-align: center;
   color: var(--fg-dim);
