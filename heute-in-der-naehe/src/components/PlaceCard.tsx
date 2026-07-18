@@ -3,7 +3,7 @@ import { useT } from '../i18n';
 import { useApp } from '../state/store';
 import type { Place } from '../types';
 import { estimateMinutes, formatDistance, formatMinutes } from '../services/geo';
-import { resolveImage } from '../services/images';
+import { resolveImage, tileThumb } from '../services/images';
 import { getCategory } from '../config/categories';
 import { findSub } from '../services/providers/overpass';
 import { buildNavUrl } from '../services/navigation';
@@ -11,7 +11,10 @@ import { buildNavUrl } from '../services/navigation';
 export function PlaceCard({ place, onOpen }: { place: Place; onOpen: () => void }) {
   const { t, lang } = useT();
   const { units, settings, favorites, toggleFavorite } = useApp();
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  // undefined = still resolving, null = no photo → map-tile fallback
+  const [imageUrl, setImageUrl] = useState<string | null | undefined>(undefined);
+  const [photoFailed, setPhotoFailed] = useState(false);
+  const [tileFailed, setTileFailed] = useState(false);
   const [visible, setVisible] = useState(false);
   const ref = useRef<HTMLElement>(null);
 
@@ -49,12 +52,33 @@ export function PlaceCard({ place, onOpen }: { place: Place; onOpen: () => void 
   const isFav = favorites.has(place.id);
   const dist = place.distanceM;
 
+  const showPhoto = imageUrl && !photoFailed;
+  const showTile = !showPhoto && imageUrl === null && !settings.reducedData && !tileFailed;
+  const tile = showTile ? tileThumb(place.lat, place.lon) : null;
+
   return (
     <article ref={ref} className="place-card">
       <button className="place-card-main" onClick={onOpen}>
         <div className="place-thumb" style={{ '--tile-color': cat.color } as CSSProperties}>
-          {imageUrl ? (
-            <img src={imageUrl} alt="" loading="lazy" />
+          {showPhoto ? (
+            <img src={imageUrl} alt="" loading="lazy" onError={() => setPhotoFailed(true)} />
+          ) : tile ? (
+            <span className="map-thumb">
+              <img
+                src={tile.url}
+                alt=""
+                loading="lazy"
+                style={{ objectPosition: tile.objectPosition }}
+                onError={() => setTileFailed(true)}
+              />
+              <span
+                className="map-thumb-pin"
+                style={{ left: tile.pinLeft, top: tile.pinTop }}
+                aria-hidden
+              >
+                {cat.icon}
+              </span>
+            </span>
           ) : (
             <span className="place-thumb-icon" aria-hidden>{cat.icon}</span>
           )}
