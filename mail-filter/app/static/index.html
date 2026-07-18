@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mailsortierer</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='0.9em' font-size='90'%3E%F0%9F%93%A7%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header>
+  <h1>&#128231; Mailsortierer</h1>
+  <div class="header-actions">
+    <span id="status-line">–</span>
+    <button id="btn-run" class="primary">Jetzt pr&uuml;fen</button>
+  </div>
+</header>
+
+<nav>
+  <button class="tab active" data-tab="accounts">Konten</button>
+  <button class="tab" data-tab="rules">Regeln</button>
+  <button class="tab" data-tab="logs">Protokoll</button>
+  <button class="tab" data-tab="settings">Einstellungen</button>
+</nav>
+
+<main>
+  <!-- ======== Konten ======== -->
+  <section id="tab-accounts" class="tab-panel active">
+    <div class="section-head">
+      <h2>Mailkonten</h2>
+      <button id="btn-new-account" class="primary">+ Konto hinzuf&uuml;gen</button>
+    </div>
+    <div id="accounts-list" class="card-list"></div>
+
+    <dialog id="account-dialog">
+      <form id="account-form" method="dialog">
+        <h3 id="account-dialog-title">Konto hinzuf&uuml;gen</h3>
+        <input type="hidden" name="id">
+        <label>Bezeichnung
+          <input name="name" required placeholder="z. B. Privat (GMX)">
+        </label>
+        <fieldset>
+          <legend>Posteingang (IMAP)</legend>
+          <div class="row">
+            <label class="grow">Server
+              <input name="imap_host" required placeholder="imap.gmx.net">
+            </label>
+            <label>Port
+              <input name="imap_port" type="number" value="993" required>
+            </label>
+            <label>Verschl&uuml;sselung
+              <select name="imap_security">
+                <option value="ssl">SSL/TLS</option>
+                <option value="starttls">STARTTLS</option>
+                <option value="none">Keine</option>
+              </select>
+            </label>
+          </div>
+          <div class="row">
+            <label class="grow">Benutzername
+              <input name="username" required placeholder="name@gmx.net">
+            </label>
+            <label class="grow">Passwort
+              <input name="password" type="password" placeholder="Beim Bearbeiten leer = unver&auml;ndert">
+            </label>
+          </div>
+        </fieldset>
+        <fieldset>
+          <legend>Postausgang (SMTP) &ndash; f&uuml;r Abwesenheitsnotizen</legend>
+          <div class="row">
+            <label class="grow">Server
+              <input name="smtp_host" placeholder="mail.gmx.net">
+            </label>
+            <label>Port
+              <input name="smtp_port" type="number" value="587">
+            </label>
+            <label>Verschl&uuml;sselung
+              <select name="smtp_security">
+                <option value="starttls">STARTTLS</option>
+                <option value="ssl">SSL/TLS</option>
+                <option value="none">Keine</option>
+              </select>
+            </label>
+          </div>
+          <div class="row">
+            <label class="grow">Benutzername (leer = wie IMAP)
+              <input name="smtp_username">
+            </label>
+            <label class="grow">Passwort (leer = wie IMAP)
+              <input name="smtp_password" type="password">
+            </label>
+          </div>
+          <label>Absenderadresse (leer = Benutzername)
+            <input name="from_address" placeholder="name@gmx.net">
+          </label>
+        </fieldset>
+        <label class="checkbox">
+          <input type="checkbox" name="active" checked> Konto aktiv
+        </label>
+        <div class="dialog-actions">
+          <button type="button" class="secondary" id="account-cancel">Abbrechen</button>
+          <button type="submit" class="primary">Speichern</button>
+        </div>
+      </form>
+    </dialog>
+  </section>
+
+  <!-- ======== Regeln ======== -->
+  <section id="tab-rules" class="tab-panel">
+    <div class="section-head">
+      <h2>Filterregeln</h2>
+      <button id="btn-new-rule" class="primary">+ Regel hinzuf&uuml;gen</button>
+    </div>
+    <p class="hint">Absender-Muster: exakte Adresse (<code>chef@firma.de</code>) oder
+      Platzhalter (<code>*@firma.de</code>). Die erste passende Regel wird angewendet.
+      Der Zielordner wird automatisch angelegt, falls er noch nicht existiert.</p>
+    <div id="rules-list" class="card-list"></div>
+
+    <dialog id="rule-dialog">
+      <form id="rule-form" method="dialog">
+        <h3 id="rule-dialog-title">Regel hinzuf&uuml;gen</h3>
+        <input type="hidden" name="id">
+        <label>Mailkonto
+          <select name="account_id" required></select>
+        </label>
+        <div class="row">
+          <label class="grow">Absender-Muster
+            <input name="sender_pattern" required placeholder="chef@firma.de oder *@firma.de">
+          </label>
+          <label class="grow">Zielordner
+            <input name="target_folder" required placeholder="Nach-dem-Urlaub">
+          </label>
+        </div>
+        <label class="checkbox">
+          <input type="checkbox" name="auto_reply" id="rule-auto-reply">
+          Abwesenheitsnotiz an den Absender senden
+        </label>
+        <div id="reply-fields">
+          <label>Betreff der Notiz
+            <input name="reply_subject" value="Abwesenheitsnotiz">
+          </label>
+          <label>Text der Notiz
+            <textarea name="reply_body" rows="5" placeholder="Ich bin bis zum TT.MM. im Urlaub und lese Ihre E-Mail danach."></textarea>
+          </label>
+        </div>
+        <label class="checkbox">
+          <input type="checkbox" name="active" checked> Regel aktiv
+        </label>
+        <div class="dialog-actions">
+          <button type="button" class="secondary" id="rule-cancel">Abbrechen</button>
+          <button type="submit" class="primary">Speichern</button>
+        </div>
+      </form>
+    </dialog>
+  </section>
+
+  <!-- ======== Protokoll ======== -->
+  <section id="tab-logs" class="tab-panel">
+    <div class="section-head">
+      <h2>Protokoll</h2>
+      <button id="btn-refresh-logs" class="secondary">Aktualisieren</button>
+    </div>
+    <table id="log-table">
+      <thead><tr><th>Zeit (UTC)</th><th>Stufe</th><th>Meldung</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </section>
+
+  <!-- ======== Einstellungen ======== -->
+  <section id="tab-settings" class="tab-panel">
+    <h2>Einstellungen</h2>
+    <form id="settings-form">
+      <label>Abrufintervall (Sekunden, min. 30)
+        <input name="poll_interval_seconds" type="number" min="30" max="86400" required>
+      </label>
+      <label>Sperrfrist f&uuml;r Abwesenheitsnotizen (Stunden pro Absender)
+        <input name="reply_cooldown_hours" type="number" min="1" max="8760" required>
+      </label>
+      <p class="hint">Die Sperrfrist verhindert, dass ein Absender bei jeder
+        einzelnen Mail erneut eine Abwesenheitsnotiz erh&auml;lt.</p>
+      <button type="submit" class="primary">Speichern</button>
+    </form>
+  </section>
+</main>
+
+<div id="toast"></div>
+<script src="/static/app.js"></script>
+</body>
+</html>

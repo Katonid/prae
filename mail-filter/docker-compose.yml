@@ -1,0 +1,16 @@
+services:
+  mailsortierer:
+    build: .
+    container_name: mailsortierer
+    ports:
+      # links: Port auf der DiskStation, rechts: Port im Container
+      - "8385:8000"
+    volumes:
+      # Konfiguration und Protokolle bleiben hier dauerhaft erhalten
+      - ./data:/data
+    environment:
+      - TZ=Europe/Berlin
+      # Zugangsdaten fuer das Webinterface (dringend empfohlen!)
+      - ADMIN_USERNAME=admin
+      - ADMIN_PASSWORD=bitte-aendern
+    restart: unless-stopped

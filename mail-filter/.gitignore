@@ -1,0 +1,4 @@
+# Laufzeitdaten (SQLite-Datenbank mit Zugangsdaten) niemals einchecken
+data/
+__pycache__/
+*.pyc
