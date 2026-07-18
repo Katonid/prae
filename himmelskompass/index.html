@@ -214,6 +214,17 @@
         „Sichtbar“ heißt: dunkler Himmel und die ISS wird noch von der Sonne angestrahlt.</p>
     </section>
 
+    <!-- Planeten -->
+    <section class="card planets-card tab-panel nacht">
+      <h2>🪐 Planeten</h2>
+      <button id="ar-planets-btn" class="btn ar-btn" type="button">📡 AR-Ansicht: Planeten, Mond &amp; ISS</button>
+      <table class="times-table">
+        <tbody id="planets-table"></tbody>
+      </table>
+      <p class="hint">Positionen zur aktuellen Uhrzeit. Helligkeit in mag – je kleiner der Wert,
+        desto heller (Venus ca. −4, Jupiter ca. −2, mit bloßem Auge sichtbar bis ca. +6).</p>
+    </section>
+
     <!-- Polarlicht -->
     <section class="card aurora-card tab-panel nacht">
       <h2>🌠 Polarlicht-Chance</h2>
@@ -250,6 +261,7 @@
   <script src="vendor/satellite/satellite.min.js"></script>
   <script src="astro.js"></script>
   <script src="iss.js"></script>
+  <script src="planets.js"></script>
   <script src="ar.js"></script>
   <script src="app.js"></script>
 </body>

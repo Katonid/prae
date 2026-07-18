@@ -776,6 +776,25 @@
     statusEl.classList.add(cls);
   }
 
+  // ---------- Planeten-Tabelle ----------
+  function renderPlanets() {
+    const tbody = $('planets-table');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+    const now = new Date();
+    for (const name of Planets.NAMES) {
+      const p = Planets.position(name, now, state.lat, state.lng);
+      const tr = document.createElement('tr');
+      const magTxt = (p.mag < 0 ? '−' : '+') + Math.abs(p.mag).toFixed(1).replace('.', ',') + ' mag';
+      const posTxt = deg(p.altitude) > 0
+        ? dirName(deg(p.azimuth)) + ' · Höhe ' + deg(p.altitude).toFixed(0) + '° · ' + magTxt
+        : 'unter dem Horizont';
+      tr.innerHTML = '<td>' + name + '</td><td' +
+        (deg(p.altitude) > 0 ? '' : ' style="color:var(--fg-dim)"') + '>' + posTxt + '</td>';
+      tbody.appendChild(tr);
+    }
+  }
+
   // ---------- 3D-Kompass ----------
   const R = 140; // Radius des Horizonts in px (Hälfte von 280)
 
@@ -1121,6 +1140,7 @@
     renderMilkyWay();
     renderIss();
     renderAurora();
+    renderPlanets();
     buildCompassPaths();
     drawMapOverlay();
     renderCompass();
@@ -1232,6 +1252,14 @@
     });
     $('ar-sunmoon-btn').addEventListener('click', openSunMoonAr);
     $('ar-sunmoon-btn2').addEventListener('click', openSunMoonAr);
+    $('ar-planets-btn').addEventListener('click', () => AR.open({
+      lat: state.lat,
+      lng: state.lng,
+      focus: 'planets',
+      tle: state.issTle || null, // ISS als Bonus, wenn Bahndaten vorliegen
+      fmtTime: fmtTime,
+      fmtRange: fmtRange
+    }));
     $('orient-btn').addEventListener('click', toggleDeviceOrientation);
 
     // Minütlich aktualisieren, solange der Kompass "live" ist
@@ -1241,6 +1269,7 @@
         renderCompass();
         renderTimeline();
       }
+      renderPlanets(); // Tabelle zeigt immer die aktuelle Uhrzeit
     }, 60000);
 
     // Service Worker für Offline-Betrieb
