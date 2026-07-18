@@ -23,11 +23,7 @@ jobs:
               -w "%{http_code} time=%{time_total}s" || echo "CURL_FAILED")
             echo "STATUS: $code"
             grep -i "access-control-allow-origin" /tmp/h || echo "NO_CORS_HEADER"
-            python3 -c "import json
-try:
-    d=json.load(open('/tmp/body'))
-    print('ELEMENTS:', len(d.get('elements',[])))
-except Exception:
-    print('BODY_NOT_JSON:', open('/tmp/body','rb').read()[:150])"
+            echo "NODES: $(grep -c '"type": "node"' /tmp/body || true)"
+            echo "BODY_START: $(head -c 120 /tmp/body | tr '\n' ' ')"
             echo
           done
