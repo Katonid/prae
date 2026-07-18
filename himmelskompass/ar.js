@@ -25,6 +25,7 @@
   let nextPassText = '';
   let trail = [];         // ISS-Bahnspur der nächsten Minuten
   let trailComputed = 0;
+  let sunPath = [], moonPath = []; // Tagesbahnen für den Sonne-&-Mond-Modus
 
   // ---------- Orientierung ----------
 
@@ -131,6 +132,23 @@
     }
   }
 
+  // Tagesbahnen von Sonne und Mond (±12 h um jetzt), mit Stunden-Markierungen
+  function buildDayPaths() {
+    sunPath = [];
+    moonPath = [];
+    const base = new Date();
+    base.setMinutes(0, 0, 0); // an voller Stunde ausrichten, damit Labels "glatt" sind
+    for (let m = -720; m <= 780; m += 15) {
+      const t = new Date(base.valueOf() + m * 60000);
+      const isHour = t.getMinutes() === 0 && (t.getHours() % 2 === 0);
+      const label = isHour ? opts.fmtTime(t) : null;
+      const s = Astro.getSunPosition(t, opts.lat, opts.lng);
+      sunPath.push({ az: s.azimuth, alt: s.altitude, label });
+      const mo = Astro.getMoonPosition(t, opts.lat, opts.lng);
+      moonPath.push({ az: mo.azimuth, alt: mo.altitude, label });
+    }
+  }
+
   // ---------- Zeichnen ----------
 
   function drawLabel(text, px, py, color, font) {
@@ -141,6 +159,39 @@
     ctx.fillRect(px - wTxt / 2 - 5, py - 11, wTxt + 10, 20);
     ctx.fillStyle = color;
     ctx.fillText(text, px, py + 4);
+  }
+
+  // Pfeil am Bildrand in Richtung eines Objekts außerhalb des Sichtfelds.
+  // radiusOffset staffelt mehrere Pfeile, damit sie sich nicht überdecken.
+  function drawEdgeArrow(p, color, labelText, w, h, radiusOffset) {
+    const ang = Math.atan2(-(p.y || 0), p.x || 1);
+    const rr = Math.min(w, h) / 2 - 70 + (radiusOffset || 0);
+    const ax = w / 2 + rr * Math.cos(ang);
+    const ay = h / 2 + rr * Math.sin(ang);
+    ctx.save();
+    ctx.translate(ax, ay);
+    ctx.rotate(ang);
+    ctx.beginPath();
+    ctx.moveTo(22, 0); ctx.lineTo(-8, -12); ctx.lineTo(-8, 12); ctx.closePath();
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.restore();
+    drawLabel(labelText, ax, ay + 28, color);
+  }
+
+  // Tagesbahn als Punktkette mit Uhrzeit-Markierungen zeichnen
+  function drawDayPath(path, b, w, h, fpx, color, labelColor) {
+    ctx.fillStyle = color;
+    for (const q of path) {
+      if (q.alt < -0.05) continue;
+      const p = project(q.az, q.alt, b, w, h, fpx);
+      if (!p.visible) continue;
+      ctx.beginPath();
+      ctx.arc(p.px, p.py, 2, 0, 2 * Math.PI);
+      ctx.fill();
+      if (q.label) drawLabel(q.label, p.px, p.py - 14, labelColor, '11px system-ui');
+      ctx.fillStyle = color;
+    }
   }
 
   function render() {
@@ -190,73 +241,97 @@
     const gp = project(gc.azimuth, gc.altitude, b, w, h, fpx);
     if (gp.visible) { ctx.font = '22px serif'; ctx.fillText('🌌', gp.px, gp.py); }
 
-    // Sonne und Mond
+    // Sonne und Mond (im Sonne-&-Mond-Modus mit Tagesbahnen, Ringen und Pfeilen)
+    const sunMoonFocus = opts.focus === 'sunmoon';
+    if (sunMoonFocus) {
+      drawDayPath(sunPath, b, w, h, fpx, 'rgba(255,209,102,0.55)', '#ffd166');
+      drawDayPath(moonPath, b, w, h, fpx, 'rgba(106,183,255,0.55)', '#8ec9ff');
+    }
     const sun = Astro.getSunPosition(nowDate, opts.lat, opts.lng);
     const sp = project(sun.azimuth, sun.altitude, b, w, h, fpx);
     if (sp.visible) {
+      if (sunMoonFocus) {
+        ctx.beginPath();
+        ctx.arc(sp.px, sp.py, 28, 0, 2 * Math.PI);
+        ctx.strokeStyle = '#ffd166';
+        ctx.lineWidth = 2.5;
+        ctx.stroke();
+      }
       ctx.font = '30px serif'; ctx.fillText('☀️', sp.px, sp.py);
-      drawLabel('Sonne ' + (sun.altitude / rad).toFixed(0) + '°', sp.px, sp.py + 28, '#ffd166');
+      drawLabel('Sonne ' + (sun.altitude / rad).toFixed(0) + '°', sp.px, sp.py + (sunMoonFocus ? 46 : 28), '#ffd166');
+    } else if (sunMoonFocus) {
+      drawEdgeArrow(sp, '#ffd166',
+        '→ ☀️ (Az ' + ((sun.azimuth / rad + 360) % 360).toFixed(0) + '°, ' + (sun.altitude / rad).toFixed(0) + '°)', w, h);
     }
     const moon = Astro.getMoonPosition(nowDate, opts.lat, opts.lng);
     const mp = project(moon.azimuth, moon.altitude, b, w, h, fpx);
     if (mp.visible) {
-      ctx.font = '28px serif'; ctx.fillText('🌙', mp.px, mp.py);
-      drawLabel('Mond ' + (moon.altitude / rad).toFixed(0) + '°', mp.px, mp.py + 26, '#8ec9ff');
-    }
-
-    // ISS: Bahnspur und aktuelle Position
-    updateTrail(now);
-    ctx.strokeStyle = 'rgba(255,120,120,0.7)';
-    ctx.setLineDash([6, 5]);
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    started = false;
-    for (const q of trail) {
-      const p = project(q.az, q.el, b, w, h, fpx);
-      if (p.visible && q.el > -0.15) {
-        if (started) ctx.lineTo(p.px, p.py); else { ctx.moveTo(p.px, p.py); started = true; }
-      } else started = false;
-    }
-    ctx.stroke();
-    ctx.setLineDash([]);
-
-    const iss = issNow(nowDate);
-    const bottom = $('ar-bottom');
-    if (iss) {
-      const ip = project(iss.az, iss.el, b, w, h, fpx);
-      const state = iss.el > 0
-        ? (iss.sunlit && iss.darkSky ? 'jetzt sichtbar!' : iss.sunlit ? 'über dem Horizont (Himmel zu hell)' : 'über dem Horizont, im Erdschatten')
-        : 'unter dem Horizont';
-      if (ip.visible) {
+      if (sunMoonFocus) {
         ctx.beginPath();
-        ctx.arc(ip.px, ip.py, 26, 0, 2 * Math.PI);
-        ctx.strokeStyle = iss.el > 0 && iss.sunlit && iss.darkSky ? '#7cff9b' : '#ff7878';
+        ctx.arc(mp.px, mp.py, 26, 0, 2 * Math.PI);
+        ctx.strokeStyle = '#8ec9ff';
         ctx.lineWidth = 2.5;
         ctx.stroke();
-        ctx.font = '30px serif';
-        ctx.fillText('🛰️', ip.px, ip.py + 4);
-        drawLabel('ISS · ' + (iss.el / rad).toFixed(0) + '°', ip.px, ip.py + 44, '#ffffff', 'bold 14px system-ui');
-      } else {
-        // Richtungspfeil zur ISS am Bildrand
-        const ang = Math.atan2(-(ip.y || 0), ip.x || 1);
-        const rr = Math.min(w, h) / 2 - 70;
-        const ax = w / 2 + rr * Math.cos(ang);
-        const ay = h / 2 + rr * Math.sin(ang);
-        ctx.save();
-        ctx.translate(ax, ay);
-        ctx.rotate(ang);
-        ctx.beginPath();
-        ctx.moveTo(22, 0); ctx.lineTo(-8, -12); ctx.lineTo(-8, 12); ctx.closePath();
-        ctx.fillStyle = '#ff9e9e';
-        ctx.fill();
-        ctx.restore();
-        drawLabel('→ ISS (Az ' + ((iss.az / rad + 360) % 360).toFixed(0) + '°, ' + (iss.el / rad).toFixed(0) + '°)', ax, ay + 28, '#ffb3b3');
       }
-      bottom.textContent = '🛰️ ISS ' + state +
-        ' · Azimut ' + ((iss.az / rad + 360) % 360).toFixed(0) + '°, Höhe ' + (iss.el / rad).toFixed(0) + '°' +
-        (nextPassText ? ' · ' + nextPassText : '');
+      ctx.font = '28px serif'; ctx.fillText('🌙', mp.px, mp.py);
+      drawLabel('Mond ' + (moon.altitude / rad).toFixed(0) + '°', mp.px, mp.py + (sunMoonFocus ? 44 : 26), '#8ec9ff');
+    } else if (sunMoonFocus) {
+      drawEdgeArrow(mp, '#8ec9ff',
+        '→ 🌙 (Az ' + ((moon.azimuth / rad + 360) % 360).toFixed(0) + '°, ' + (moon.altitude / rad).toFixed(0) + '°)', w, h, -64);
+    }
+
+    const bottom = $('ar-bottom');
+    if (opts.focus === 'iss') {
+      // ISS: Bahnspur und aktuelle Position
+      updateTrail(now);
+      ctx.strokeStyle = 'rgba(255,120,120,0.7)';
+      ctx.setLineDash([6, 5]);
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      started = false;
+      for (const q of trail) {
+        const p = project(q.az, q.el, b, w, h, fpx);
+        if (p.visible && q.el > -0.15) {
+          if (started) ctx.lineTo(p.px, p.py); else { ctx.moveTo(p.px, p.py); started = true; }
+        } else started = false;
+      }
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      const iss = issNow(nowDate);
+      if (iss) {
+        const ip = project(iss.az, iss.el, b, w, h, fpx);
+        const state = iss.el > 0
+          ? (iss.sunlit && iss.darkSky ? 'jetzt sichtbar!' : iss.sunlit ? 'über dem Horizont (Himmel zu hell)' : 'über dem Horizont, im Erdschatten')
+          : 'unter dem Horizont';
+        if (ip.visible) {
+          ctx.beginPath();
+          ctx.arc(ip.px, ip.py, 26, 0, 2 * Math.PI);
+          ctx.strokeStyle = iss.el > 0 && iss.sunlit && iss.darkSky ? '#7cff9b' : '#ff7878';
+          ctx.lineWidth = 2.5;
+          ctx.stroke();
+          ctx.font = '30px serif';
+          ctx.fillText('🛰️', ip.px, ip.py + 4);
+          drawLabel('ISS · ' + (iss.el / rad).toFixed(0) + '°', ip.px, ip.py + 44, '#ffffff', 'bold 14px system-ui');
+        } else {
+          drawEdgeArrow(ip, '#ff9e9e',
+            '→ ISS (Az ' + ((iss.az / rad + 360) % 360).toFixed(0) + '°, ' + (iss.el / rad).toFixed(0) + '°)', w, h);
+        }
+        bottom.textContent = '🛰️ ISS ' + state +
+          ' · Azimut ' + ((iss.az / rad + 360) % 360).toFixed(0) + '°, Höhe ' + (iss.el / rad).toFixed(0) + '°' +
+          (nextPassText ? ' · ' + nextPassText : '');
+      } else {
+        bottom.textContent = 'ISS-Position konnte nicht berechnet werden.' + (nextPassText ? ' · ' + nextPassText : '');
+      }
     } else {
-      bottom.textContent = 'ISS-Position konnte nicht berechnet werden.' + (nextPassText ? ' · ' + nextPassText : '');
+      // Sonne-&-Mond-Modus: Statuszeile mit Auf-/Untergang und Mondphase
+      const t = Astro.getSunTimes(nowDate, opts.lat, opts.lng);
+      const illum = Astro.getMoonIllumination(nowDate);
+      bottom.textContent =
+        '☀️ Az ' + ((sun.azimuth / rad + 360) % 360).toFixed(0) + '°, Höhe ' + (sun.altitude / rad).toFixed(0) + '°' +
+        ' · Auf ' + opts.fmtTime(t.sunrise) + ' / Unter ' + opts.fmtTime(t.sunset) +
+        '  |  🌙 Az ' + ((moon.azimuth / rad + 360) % 360).toFixed(0) + '°, Höhe ' + (moon.altitude / rad).toFixed(0) + '°' +
+        ' (' + Math.round(illum.fraction * 100) + ' % beleuchtet)';
     }
 
     // Blickrichtung oben anzeigen
@@ -319,10 +394,14 @@
 
   function open(options) {
     opts = options;
-    try {
-      satrec = satellite.twoline2satrec(opts.tle.l1, opts.tle.l2);
-    } catch (e) {
-      return false;
+    opts.focus = opts.focus || 'iss';
+    satrec = null;
+    if (opts.focus === 'iss') {
+      try {
+        satrec = satellite.twoline2satrec(opts.tle.l1, opts.tle.l2);
+      } catch (e) {
+        return false;
+      }
     }
     canvas = $('ar-canvas');
     ctx = canvas.getContext('2d');
@@ -335,7 +414,9 @@
     if (!dragInited) { initDrag(); dragInited = true; }
     startSensors();
     startCamera();
-    computeNextPass();
+    nextPassText = '';
+    if (opts.focus === 'iss') computeNextPass();
+    else buildDayPaths();
     render();
     return true;
   }
