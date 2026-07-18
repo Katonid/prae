@@ -1,0 +1,33 @@
+name: Check Overpass mirror health
+
+on:
+  workflow_dispatch:
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Probe public Overpass instances
+        run: |
+          Q='[out:json][timeout:20];node["amenity"="cafe"](around:2000,51.514,7.466);out 3;'
+          for ep in \
+            "https://overpass-api.de/api/interpreter" \
+            "https://overpass.kumi.systems/api/interpreter" \
+            "https://overpass.private.coffee/api/interpreter" \
+            "https://overpass.osm.jp/api/interpreter" \
+            "https://maps.mail.ru/osm/tools/overpass/api/interpreter"; do
+            echo "=== $ep"
+            code=$(curl -s -m 30 -D /tmp/h -o /tmp/body -X POST "$ep" \
+              --data-urlencode "data=$Q" \
+              -H "Origin: https://katonid.github.io" \
+              -w "%{http_code} time=%{time_total}s" || echo "CURL_FAILED")
+            echo "STATUS: $code"
+            grep -i "access-control-allow-origin" /tmp/h || echo "NO_CORS_HEADER"
+            python3 -c "import json
+try:
+    d=json.load(open('/tmp/body'))
+    print('ELEMENTS:', len(d.get('elements',[])))
+except Exception:
+    print('BODY_NOT_JSON:', open('/tmp/body','rb').read()[:150])"
+            echo
+          done
