@@ -6,15 +6,18 @@ import { isOpenNow } from '../openingHours';
 import type { PlaceProvider } from './types';
 
 /**
- * Public Overpass instances, tried in order with automatic failover –
- * the main instance is frequently overloaded (429/406/504). The last
- * working endpoint is remembered across sessions. Override the list via
- * VITE_OVERPASS_URL (comma-separated).
+ * Public Overpass instances, tried in order with automatic failover.
+ * Health-verified 2026-07 (see .github/workflows/overpass-check.yml):
+ * z.overpass-api.de is pinned directly because the overpass-api.de
+ * round-robin also routes to a broken backend (lz4 → 406); the French
+ * and VK instances host full planet data and send CORS headers. The
+ * last working endpoint is remembered across sessions. Override the
+ * list via VITE_OVERPASS_URL (comma-separated).
  */
 const DEFAULT_ENDPOINTS = [
-  'https://overpass-api.de/api/interpreter',
-  'https://overpass.kumi.systems/api/interpreter',
-  'https://overpass.private.coffee/api/interpreter',
+  'https://z.overpass-api.de/api/interpreter',
+  'https://overpass.openstreetmap.fr/api/interpreter',
+  'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
 ];
 const ENDPOINTS = (import.meta.env.VITE_OVERPASS_URL
   ? String(import.meta.env.VITE_OVERPASS_URL).split(',')
@@ -26,10 +29,10 @@ const ENDPOINTS = (import.meta.env.VITE_OVERPASS_URL
 const EP_KEY = 'hin-overpass-ep';
 let preferredEp = 0;
 try {
-  preferredEp = Math.min(
-    parseInt(localStorage.getItem(EP_KEY) ?? '0', 10) || 0,
-    ENDPOINTS.length - 1,
-  );
+  // stored by URL so a changed endpoint list can never revive a stale index
+  const saved = localStorage.getItem(EP_KEY);
+  const idx = saved ? ENDPOINTS.indexOf(saved) : -1;
+  if (idx >= 0) preferredEp = idx;
 } catch {
   /* storage unavailable */
 }
@@ -43,7 +46,7 @@ function rememberEndpoint(idx: number): void {
   if (idx === preferredEp) return;
   preferredEp = idx;
   try {
-    localStorage.setItem(EP_KEY, String(idx));
+    localStorage.setItem(EP_KEY, ENDPOINTS[idx]);
   } catch {
     /* non-fatal */
   }
