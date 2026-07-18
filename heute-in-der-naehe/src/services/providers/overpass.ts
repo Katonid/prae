@@ -5,8 +5,70 @@ import { haversineM } from '../geo';
 import { isOpenNow } from '../openingHours';
 import type { PlaceProvider } from './types';
 
-const OVERPASS_URL =
-  import.meta.env.VITE_OVERPASS_URL || 'https://overpass-api.de/api/interpreter';
+/**
+ * Public Overpass instances, tried in order with automatic failover –
+ * the main instance is frequently overloaded (429/406/504). The last
+ * working endpoint is remembered across sessions. Override the list via
+ * VITE_OVERPASS_URL (comma-separated).
+ */
+const DEFAULT_ENDPOINTS = [
+  'https://overpass-api.de/api/interpreter',
+  'https://overpass.kumi.systems/api/interpreter',
+  'https://overpass.private.coffee/api/interpreter',
+];
+const ENDPOINTS = (import.meta.env.VITE_OVERPASS_URL
+  ? String(import.meta.env.VITE_OVERPASS_URL).split(',')
+  : DEFAULT_ENDPOINTS
+)
+  .map((s) => s.trim())
+  .filter(Boolean);
+
+const EP_KEY = 'hin-overpass-ep';
+let preferredEp = 0;
+try {
+  preferredEp = Math.min(
+    parseInt(localStorage.getItem(EP_KEY) ?? '0', 10) || 0,
+    ENDPOINTS.length - 1,
+  );
+} catch {
+  /* storage unavailable */
+}
+
+function withTimeout(signal: AbortSignal | undefined, ms: number): AbortSignal | undefined {
+  const t = typeof AbortSignal.timeout === 'function' ? AbortSignal.timeout(ms) : undefined;
+  if (signal && t && typeof AbortSignal.any === 'function') return AbortSignal.any([signal, t]);
+  return signal ?? t;
+}
+
+async function overpassFetch(query: string, signal?: AbortSignal): Promise<unknown> {
+  let lastError: unknown = new Error('overpass:unavailable');
+  for (let i = 0; i < ENDPOINTS.length; i++) {
+    const idx = (preferredEp + i) % ENDPOINTS.length;
+    try {
+      const res = await fetch(ENDPOINTS[idx], {
+        method: 'POST',
+        body: 'data=' + encodeURIComponent(query),
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        signal: withTimeout(signal, 40000),
+      });
+      if (!res.ok) throw new Error(`overpass:${res.status}`);
+      const data = await res.json();
+      if (idx !== preferredEp) {
+        preferredEp = idx;
+        try {
+          localStorage.setItem(EP_KEY, String(idx));
+        } catch {
+          /* non-fatal */
+        }
+      }
+      return data;
+    } catch (err) {
+      if (signal?.aborted) throw err; // user navigated away – don't retry
+      lastError = err;
+    }
+  }
+  throw lastError;
+}
 
 interface OverpassElement {
   type: 'node' | 'way' | 'relation';
@@ -164,14 +226,7 @@ export const overpassProvider: PlaceProvider = {
   async search(query: SearchQuery, signal?: AbortSignal): Promise<Place[]> {
     const subs = subsForQuery(query);
     const q = buildQuery(subs, query);
-    const res = await fetch(OVERPASS_URL, {
-      method: 'POST',
-      body: 'data=' + encodeURIComponent(q),
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      signal,
-    });
-    if (!res.ok) throw new Error(`overpass:${res.status}`);
-    const data = (await res.json()) as { elements: OverpassElement[] };
+    const data = (await overpassFetch(q, signal)) as { elements: OverpassElement[] };
 
     const places: Place[] = [];
     for (const el of data.elements) {

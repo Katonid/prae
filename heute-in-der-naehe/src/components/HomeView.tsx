@@ -1,4 +1,4 @@
-import { useEffect, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { useT } from '../i18n';
 import { useApp } from '../state/store';
 import { CATEGORIES, getCategory } from '../config/categories';
@@ -31,10 +31,10 @@ interface Props {
 export function HomeView({ onOpenCategory, onOpenFilter, needsLocation, onPickLocation }: Props) {
   const { t, lang } = useT();
   const { settings, location, locationStatus, weather, units } = useApp();
-  const [recs, setRecs] = useState<Recommendation[]>([]);
+  const [recPlaces, setRecPlaces] = useState<Place[]>([]);
   const [selected, setSelected] = useState<Place | null>(null);
 
-  // Context-aware recommendations from the cached highlight search
+  // One highlight search per location (cached 5 min in searchPlaces) …
   useEffect(() => {
     if (!location) return;
     const ctrl = new AbortController();
@@ -46,10 +46,17 @@ export function HomeView({ onOpenCategory, onOpenFilter, needsLocation, onPickLo
       },
       ctrl.signal,
     )
-      .then((res) => setRecs(recommend(res.places, weather, settings.familyMode)))
-      .catch(() => setRecs([]));
+      .then((res) => setRecPlaces(res.places))
+      .catch(() => setRecPlaces([]));
     return () => ctrl.abort();
-  }, [location, weather, settings.defaultRadiusM, settings.familyMode]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location?.lat, location?.lon, settings.defaultRadiusM]);
+
+  // … while weather/family-mode changes only re-rank locally, without refetching
+  const recs: Recommendation[] = useMemo(
+    () => recommend(recPlaces, weather, settings.familyMode),
+    [recPlaces, weather, settings.familyMode],
+  );
 
   const visibleCategories = CATEGORIES.filter(
     (c) => !settings.hiddenCategories.includes(c.id),
