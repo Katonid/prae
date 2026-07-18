@@ -7,7 +7,10 @@
   'use strict';
 
   const rad = Math.PI / 180;
-  const FOV_V = 65 * rad; // angenommenes vertikales Sichtfeld der Kamera
+  // Angenommenes vertikales Sichtfeld der Kamera: im Querformat ist die
+  // vertikale Achse die kurze Sensorseite, daher deutlich kleiner
+  const FOV_V_PORTRAIT = 65 * rad;
+  const FOV_V_LANDSCAPE = 42 * rad;
 
   let opts = null;        // { lat, lng, tle, fmtTime, fmtRange }
   let satrec = null;
@@ -57,13 +60,30 @@
     };
   }
 
+  function screenAngle() {
+    if (screen.orientation && typeof screen.orientation.angle === 'number') {
+      return screen.orientation.angle;
+    }
+    return typeof window.orientation === 'number' ? window.orientation : 0;
+  }
+
   function onOrient(ev) {
     let alpha = ev.alpha;
     if (typeof ev.webkitCompassHeading === 'number') {
       alpha = 360 - ev.webkitCompassHeading; // iOS: echten Kompass nutzen
     }
     if (alpha == null || ev.beta == null) return;
-    basis = orientationBasis(alpha, ev.beta, ev.gamma);
+    const bs = orientationBasis(alpha, ev.beta, ev.gamma);
+    // Hoch-/Querformat: Bildschirm-Achsen sind gegenüber den Geräteachsen um
+    // die Blickachse gedreht – rechts/oben entsprechend rotieren
+    const th = screenAngle() * rad;
+    if (th) {
+      const c = Math.cos(th), s = Math.sin(th);
+      const r = bs.r, u = bs.u;
+      bs.r = [r[0] * c - u[0] * s, r[1] * c - u[1] * s, r[2] * c - u[2] * s];
+      bs.u = [r[0] * s + u[0] * c, r[1] * s + u[1] * c, r[2] * s + u[2] * c];
+    }
+    basis = bs;
     hasSensor = true;
   }
 
@@ -221,7 +241,7 @@
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
     const b = hasSensor && basis ? basis : manualBasis();
-    const fpx = (h / 2) / Math.tan(FOV_V / 2);
+    const fpx = (h / 2) / Math.tan((h >= w ? FOV_V_PORTRAIT : FOV_V_LANDSCAPE) / 2);
     const now = Date.now();
     const nowDate = new Date(now);
 
