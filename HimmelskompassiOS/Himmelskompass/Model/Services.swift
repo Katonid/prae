@@ -65,14 +65,18 @@ enum SkyServices {
             let (data, response) = try await URLSession.shared.data(from: tleURL)
             guard let http = response as? HTTPURLResponse, http.statusCode == 200,
                   let text = String(data: data, encoding: .utf8) else { return cachedTLE() }
-            let lines = text.trimmingCharacters(in: .whitespacesAndNewlines)
+            // Zeilen robust einlesen: CelesTrak liefert \r\n-Umbrüche, und
+            // components(separatedBy: .newlines) erzeugt daraus Leerzeilen
+            let lines = text
                 .components(separatedBy: .newlines)
                 .map { $0.trimmingCharacters(in: CharacterSet(charactersIn: "\r")) }
-            guard lines.count >= 3, lines[1].hasPrefix("1 "), lines[2].hasPrefix("2 ") else {
+                .filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
+            guard let i1 = lines.firstIndex(where: { $0.hasPrefix("1 ") }),
+                  i1 + 1 < lines.count, lines[i1 + 1].hasPrefix("2 ") else {
                 return cachedTLE()
             }
-            let tle = TLEData(name: lines[0].trimmingCharacters(in: .whitespaces),
-                              l1: lines[1], l2: lines[2], fetched: Date())
+            let name = i1 > 0 ? lines[i1 - 1].trimmingCharacters(in: .whitespaces) : "ISS"
+            let tle = TLEData(name: name, l1: lines[i1], l2: lines[i1 + 1], fetched: Date())
             if let encoded = try? JSONEncoder().encode(tle) {
                 UserDefaults.standard.set(encoded, forKey: tleCacheKey)
             }
