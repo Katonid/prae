@@ -104,15 +104,53 @@ private struct SkyOverlayCanvas: View {
     var cameraTick: Int
 
     var body: some View {
+        // Alle benötigten Werte hier (im MainActor-Kontext) einsammeln, damit
+        // der Zeichencode im Canvas nicht auf den AppState zugreifen muss.
+        let lat = state.lat
+        let lng = state.lng
+        let f = state.formatters
+        let cal = state.calendar
+        let day = state.day
+        let compassDate = state.compassDate()
+        let noon = state.dateAtMinutes(12 * 60)
+        let midnight = state.dateAtMinutes(0)
+        let sunTimes = state.dayData?.sunTimes ?? Astro.sunTimes(date: noon, lat: lat, lng: lng)
+        let moonTimes = state.dayData?.moonTimes ?? Astro.moonTimes(date: midnight, lat: lat, lng: lng)
+        let coord = CLLocationCoordinate2D(latitude: lat, longitude: lng)
+        let mapProxy = proxy
+        let tick = cameraTick
+
         Canvas { ctx, size in
-            _ = cameraTick // Neuzeichnen bei Kartenbewegung erzwingen
-            let coord = CLLocationCoordinate2D(latitude: state.lat, longitude: state.lng)
-            guard let center = proxy.convert(coord, to: .local) else { return }
+            _ = tick // Neuzeichnen bei Kartenbewegung erzwingen
+            guard let center = mapProxy.convert(coord, to: .local) else { return }
             let radius = max(70, min(size.width, size.height) / 2 - 56)
+
+            // Gewählter Tag mit gegebener Uhrzeit (Minuten seit Mitternacht,
+            // Ortszeit) – bewusst lokal, ohne Zugriff auf den AppState
+            func dateAtMinutes(_ minutes: Int) -> Date {
+                var comps = DateComponents()
+                comps.year = day.year
+                comps.month = day.month
+                comps.day = day.day
+                comps.hour = minutes / 60
+                comps.minute = minutes % 60
+                return cal.date(from: comps) ?? Date()
+            }
 
             func project(_ az: Double, _ alt: Double) -> CGPoint {
                 let r = radius * cos(alt)
                 return CGPoint(x: center.x + r * sin(az), y: center.y - r * cos(az))
+            }
+
+            func drawLabel(_ text: String, at point: CGPoint, color: Color) {
+                let resolved = ctx.resolve(
+                    Text(text).font(.system(size: 11, weight: .semibold)).foregroundStyle(color)
+                )
+                let tSize = resolved.measure(in: CGSize(width: 200, height: 40))
+                let rect = CGRect(x: point.x - tSize.width / 2 - 3, y: point.y - tSize.height / 2 - 1,
+                                  width: tSize.width + 6, height: tSize.height + 2)
+                ctx.fill(Path(roundedRect: rect, cornerRadius: 4), with: .color(HKColor.bg.opacity(0.75)))
+                ctx.draw(resolved, at: point)
             }
 
             // Horizontkreis
@@ -120,8 +158,6 @@ private struct SkyOverlayCanvas: View {
                                                  width: 2 * radius, height: 2 * radius))
             ctx.stroke(horizon, with: .color(Color(red: 0.35, green: 0.49, blue: 0.72).opacity(0.6)),
                        style: StrokeStyle(lineWidth: 1, dash: [4, 4]))
-
-            let f = state.formatters
 
             // Bahn über dem Horizont als Linienzug, dazu Stundenpunkte mit Uhrzeit
             func drawPath(_ getPos: (Date) -> SkyPosition, _ color: Color) {
@@ -135,33 +171,30 @@ private struct SkyOverlayCanvas: View {
                     seg = []
                 }
                 for m in stride(from: 0, through: 1440, by: 10) {
-                    let pos = getPos(state.dateAtMinutes(min(m, 1439)))
+                    let pos = getPos(dateAtMinutes(min(m, 1439)))
                     if pos.altitude >= 0 { seg.append(project(pos.azimuth, pos.altitude)) } else { flush() }
                 }
                 flush()
 
                 for h in 0..<24 {
-                    let pos = getPos(state.dateAtMinutes(h * 60))
+                    let pos = getPos(dateAtMinutes(h * 60))
                     guard pos.altitude > 0 else { continue }
                     let p = project(pos.azimuth, pos.altitude)
                     ctx.fill(Path(ellipseIn: CGRect(x: p.x - 3, y: p.y - 3, width: 6, height: 6)),
                              with: .color(color))
                     if h % 3 == 0 {
-                        drawLabel(ctx, "\(h) h", at: CGPoint(x: p.x, y: p.y - 12), color: color)
+                        drawLabel("\(h) h", at: CGPoint(x: p.x, y: p.y - 12), color: color)
                     }
                 }
             }
 
-            drawPath({ Astro.sunPosition(date: $0, lat: state.lat, lng: state.lng) }, HKColor.sun)
+            drawPath({ Astro.sunPosition(date: $0, lat: lat, lng: lng) }, HKColor.sun)
             drawPath({ d in
-                let m = Astro.moonPosition(date: d, lat: state.lat, lng: state.lng)
+                let m = Astro.moonPosition(date: d, lat: lat, lng: lng)
                 return SkyPosition(azimuth: m.azimuth, altitude: m.altitude)
             }, HKColor.moon)
 
             // Gestrichelte Richtungslinien zu Auf-/Untergangspunkten mit Uhrzeit
-            let sunTimes = state.dayData?.sunTimes ?? Astro.sunTimes(date: state.dateAtMinutes(720), lat: state.lat, lng: state.lng)
-            let moonTimes = state.dayData?.moonTimes ?? Astro.moonTimes(date: state.dateAtMinutes(0), lat: state.lat, lng: state.lng)
-
             func riseSetLine(_ time: Date?, _ getPos: (Date) -> SkyPosition, _ color: Color, _ label: String) {
                 guard let time else { return }
                 let az = getPos(time).azimuth
@@ -173,26 +206,25 @@ private struct SkyOverlayCanvas: View {
                            style: StrokeStyle(lineWidth: 2, dash: [6, 4]))
                 // Beschriftung leicht nach innen versetzen, damit nichts abgeschnitten wird
                 let inward = CGPoint(x: end.x - 18 * sin(az), y: end.y + 18 * cos(az))
-                drawLabel(ctx, label + " " + f.time(time), at: inward, color: color)
+                drawLabel(label + " " + f.time(time), at: inward, color: color)
             }
 
-            riseSetLine(sunTimes.sunrise, { Astro.sunPosition(date: $0, lat: state.lat, lng: state.lng) },
+            riseSetLine(sunTimes.sunrise, { Astro.sunPosition(date: $0, lat: lat, lng: lng) },
                         Color(red: 1.0, green: 0.62, blue: 0.0), "☀️↑")
-            riseSetLine(sunTimes.sunset, { Astro.sunPosition(date: $0, lat: state.lat, lng: state.lng) },
+            riseSetLine(sunTimes.sunset, { Astro.sunPosition(date: $0, lat: lat, lng: lng) },
                         Color(red: 1.0, green: 0.33, blue: 0.44), "☀️↓")
             riseSetLine(moonTimes.rise, { d in
-                let m = Astro.moonPosition(date: d, lat: state.lat, lng: state.lng)
+                let m = Astro.moonPosition(date: d, lat: lat, lng: lng)
                 return SkyPosition(azimuth: m.azimuth, altitude: m.altitude)
             }, HKColor.moonLight, "🌙↑")
             riseSetLine(moonTimes.set, { d in
-                let m = Astro.moonPosition(date: d, lat: state.lat, lng: state.lng)
+                let m = Astro.moonPosition(date: d, lat: lat, lng: lng)
                 return SkyPosition(azimuth: m.azimuth, altitude: m.altitude)
             }, Color(red: 0.29, green: 0.56, blue: 0.85), "🌙↓")
 
             // Aktuelle Richtungslinien zu Sonne/Mond zur eingestellten Uhrzeit
-            let d = state.compassDate()
-            let sun = Astro.sunPosition(date: d, lat: state.lat, lng: state.lng)
-            let moon = Astro.moonPosition(date: d, lat: state.lat, lng: state.lng)
+            let sun = Astro.sunPosition(date: compassDate, lat: lat, lng: lng)
+            let moon = Astro.moonPosition(date: compassDate, lat: lat, lng: lng)
             for (pos, color) in [(SkyPosition(azimuth: sun.azimuth, altitude: sun.altitude), HKColor.sun),
                                  (SkyPosition(azimuth: moon.azimuth, altitude: moon.altitude), HKColor.moon)] {
                 var line = Path()
@@ -202,7 +234,7 @@ private struct SkyOverlayCanvas: View {
             }
 
             // Milchstraßen-Band: nur der Teil über dem Horizont
-            var band = Astro.milkyWayBand(date: d, lat: state.lat, lng: state.lng)
+            var band = Astro.milkyWayBand(date: compassDate, lat: lat, lng: lng)
             if let first = band.first { band.append(first) } // Ring schließen
             var seg: [CGPoint] = []
             func flushBand() {
@@ -219,16 +251,5 @@ private struct SkyOverlayCanvas: View {
             }
             flushBand()
         }
-    }
-
-    private func drawLabel(_ ctx: GraphicsContext, _ text: String, at point: CGPoint, color: Color) {
-        let resolved = ctx.resolve(
-            Text(text).font(.system(size: 11, weight: .semibold)).foregroundStyle(color)
-        )
-        let size = resolved.measure(in: CGSize(width: 200, height: 40))
-        let rect = CGRect(x: point.x - size.width / 2 - 3, y: point.y - size.height / 2 - 1,
-                          width: size.width + 6, height: size.height + 2)
-        ctx.fill(Path(roundedRect: rect, cornerRadius: 4), with: .color(HKColor.bg.opacity(0.75)))
-        ctx.draw(resolved, at: point)
     }
 }
