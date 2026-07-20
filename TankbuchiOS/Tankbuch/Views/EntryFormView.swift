@@ -42,6 +42,8 @@ struct EntryFormView: View {
         _stationId = State(initialValue: entry.stationId)
         _stationName = State(initialValue: entry.stationName)
         _stationPlace = State(initialValue: entry.stationPlace)
+        _appliedStationName = State(initialValue: entry.stationName)
+        _appliedStationPlace = State(initialValue: entry.stationPlace)
         if let lat = entry.stationLat, let lng = entry.stationLng {
             _stationCoordinate = State(initialValue: CLLocationCoordinate2D(latitude: lat, longitude: lng))
             _stationSource = State(initialValue: entry.stationLocationSource)
@@ -93,6 +95,10 @@ struct EntryFormView: View {
     @State private var adBlueTotalText = ""
 
     @State private var priceWasAutoFilled = true
+    // Werte der zuletzt programmatisch übernommenen Station: solange die
+    // Textfelder damit übereinstimmen, bleiben deren Koordinaten erhalten.
+    @State private var appliedStationName: String?
+    @State private var appliedStationPlace: String?
     @State private var priceSourceStatus = "Kein Livepreis geladen"
     @State private var statusMessage: String?
     @State private var isSaving = false
@@ -177,6 +183,8 @@ struct EntryFormView: View {
                     set: { newValue in
                         if let station = appModel.stations.first(where: { $0.id == newValue }) {
                             applyStation(station)
+                        } else {
+                            stationId = nil
                         }
                     }
                 )) {
@@ -187,15 +195,18 @@ struct EntryFormView: View {
                 }
             }
 
+            // onChange feuert auch bei programmatischen Änderungen (applyStation);
+            // die Koordinaten werden nur gelöscht, wenn der Text tatsächlich
+            // von der übernommenen Station abweicht.
             TextField("Name der Tankstelle", text: $stationName)
-                .onChange(of: stationName) { _, _ in
-                    guard initialized else { return }
+                .onChange(of: stationName) { _, newValue in
+                    guard initialized, newValue != appliedStationName else { return }
                     stationCoordinate = nil
                     stationSource = nil
                 }
             TextField("Ort / Adresse", text: $stationPlace)
-                .onChange(of: stationPlace) { _, _ in
-                    guard initialized else { return }
+                .onChange(of: stationPlace) { _, newValue in
+                    guard initialized, newValue != appliedStationPlace else { return }
                     stationCoordinate = nil
                     stationSource = nil
                 }
@@ -349,6 +360,8 @@ struct EntryFormView: View {
 
     private func applyStation(_ station: NearbyStation) {
         stationId = station.id
+        appliedStationName = station.name
+        appliedStationPlace = station.place
         stationName = station.name
         stationPlace = station.place
         stationCoordinate = station.coordinate

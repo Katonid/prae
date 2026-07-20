@@ -255,10 +255,11 @@ enum Backup {
         return try JSONSerialization.data(withJSONObject: payload, options: [.prettyPrinted, .sortedKeys])
     }
 
+    /// Ohne Endung – die ergänzt der fileExporter über den Content-Type.
     static var suggestedFileName: String {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd"
-        return "tankbuch-backup-\(formatter.string(from: Date())).json"
+        return "tankbuch-backup-\(formatter.string(from: Date()))"
     }
 
     // MARK: Feld-Parser
@@ -324,7 +325,8 @@ enum Backup {
     private static func date(_ value: Any?) -> Date? {
         guard let text = value as? String, !text.isEmpty else { return nil }
         if let parsed = isoFormatter.date(from: text) { return parsed }
-        return isoFormatterNoFraction.date(from: text)
+        if let parsed = isoFormatterNoFraction.date(from: text) { return parsed }
+        return dateOnlyFormatter.date(from: text)
     }
 
     private static func dataUrl(_ value: Any?) -> Data? {
@@ -344,6 +346,13 @@ enum Backup {
     private static let isoFormatterNoFraction: ISO8601DateFormatter = {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime]
+        return formatter
+    }()
+
+    private static let dateOnlyFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "yyyy-MM-dd"
         return formatter
     }()
 }
