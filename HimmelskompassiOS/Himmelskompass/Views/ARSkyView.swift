@@ -50,12 +50,15 @@ final class ARMotionTracker: ObservableObject {
     /// Aktuelle Basis: Sensor, sofern verfügbar und nicht per Wischen übersteuert.
     func basis(interfaceAngle: Double) -> ViewBasis {
         if hasSensor && !sensorOverridden, let m = motionManager.deviceMotion?.attitude.rotationMatrix {
-            // Referenzrahmen: X = Nord, Y = West, Z = oben.
-            // Spalten der Matrix = Geräteachsen im Referenzrahmen.
+            // Referenzrahmen: X = Nord, Y = West, Z = oben. Die Matrix bildet
+            // Referenz- auf Gerätekoordinaten ab, d. h. die ZEILEN der Matrix
+            // sind die Geräteachsen im Referenzrahmen.
             // Umrechnung nach Ost/Nord/Oben: E = −W, N = N, U = U.
-            var r = (-m.m21, m.m11, m.m31)                  // Geräte-x (rechts)
-            var u = (-m.m22, m.m12, m.m32)                  // Geräte-y (oben)
-            let f = (m.m23, -m.m13, -m.m33)                 // Rückkamera (−z)
+            // Probe (aufrecht, Kamera nach Norden): rechts = Ost, oben = Zenit,
+            // Blick = Nord.
+            var r = (-m.m12, m.m11, m.m13)                  // Geräte-x (rechts)
+            var u = (-m.m22, m.m21, m.m23)                  // Geräte-y (oben)
+            let f = (m.m32, -m.m31, -m.m33)                 // Rückkamera (−z)
 
             // Hoch-/Querformat: Bildschirm-Achsen gegenüber den Geräteachsen
             // um die Blickachse rotieren
