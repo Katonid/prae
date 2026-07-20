@@ -173,8 +173,10 @@ struct CompassCardView: View {
         motionManager.deviceMotionUpdateInterval = 1.0 / 30.0
         motionManager.startDeviceMotionUpdates(using: frame, to: .main) { motion, _ in
             guard let motion, deviceCoupled else { return }
-            // heading: Richtung, in die die Geräteoberkante zeigt (0 = Nord)
-            var target = motion.heading
+            // heading: Richtung, in die die Geräteoberkante zeigt (0 = Nord);
+            // im Querformat um die Bildschirmdrehung korrigieren
+            var target = (motion.heading + interfaceRotationAngle())
+                .truncatingRemainder(dividingBy: 360)
             if target < 0 { target += 360 }
             // Neigung: hochkant gehalten → Blick zum Horizont (großer Kippwinkel)
             let pitchDeg = abs(motion.attitude.pitch * 180 / .pi)
@@ -226,10 +228,11 @@ struct CompassSceneView: View {
 
             // Position am Himmel → Bildschirmpunkt
             func project(x: Double, y: Double, z: Double) -> Projected {
-                // Drehung um die Hochachse (Kompassrichtung)
+                // Drehung um die Hochachse: Die Blickrichtung (heading) wandert
+                // nach oben, die Szene dreht dafür gegen den Uhrzeigersinn
                 let cH = cos(hRad), sH = sin(hRad)
-                let rx = x * cH - y * sH
-                let ry = x * sH + y * cH
+                let rx = x * cH + y * sH
+                let ry = -x * sH + y * cH
                 // Kippung um die Querachse
                 let cT = cos(tRad), sT = sin(tRad)
                 let sy = ry * cT - z * sT
