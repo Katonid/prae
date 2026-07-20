@@ -70,6 +70,16 @@ struct SettingsView: View {
                     Text("Die Codes gelten für alle Geräte und werden über iCloud verteilt. Neue Nutzer melden sich mit Name + Code an.")
                 }
 
+                Section {
+                    ForEach(TravelData.crewNames, id: \.self) { member in
+                        MemberCodeRow(member: member)
+                    }
+                } header: {
+                    Text("Persönliche Einladungscodes (Admin)")
+                } footer: {
+                    Text("Codes im Format CANADA2026-XXXX-XXXX wie in der Web-App. Ist ein Code hinterlegt, zählt für dieses Mitglied nur noch dieser; ohne Eintrag genügt jeder Code mit dem passenden Mitglieds-Kürzel (ANDR, NADI, SIMO, TOBI).")
+                }
+
                 if !store.activeViewerProfiles.isEmpty {
                     Section("Registrierte Betrachter") {
                         ForEach(store.activeViewerProfiles) { viewer in
@@ -115,6 +125,43 @@ struct SettingsView: View {
             familyCode = store.data.config.familyCode
             companionCode = store.data.config.companionCode
         }
+    }
+}
+
+/// Eingabezeile für den persönlichen Einladungscode eines Crew-Mitglieds.
+struct MemberCodeRow: View {
+    @EnvironmentObject private var store: AppStore
+    let member: String
+
+    @State private var code = ""
+    @State private var saved = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                MemberChip(name: member)
+                Spacer()
+                if saved {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundStyle(Theme.forestGreen)
+                }
+            }
+            HStack {
+                TextField("CANADA2026-…", text: $code)
+                    .textInputAutocapitalization(.characters)
+                    .autocorrectionDisabled()
+                    .font(.callout.monospaced())
+                Button("Sichern") {
+                    store.updateMemberCode(member: member, code: code)
+                    saved = true
+                }
+                .buttonStyle(.bordered)
+                .font(.footnote)
+                .disabled(code == (store.data.config.effectiveMemberCodes[member] ?? ""))
+            }
+        }
+        .padding(.vertical, 2)
+        .onAppear { code = store.data.config.effectiveMemberCodes[member] ?? "" }
     }
 }
 

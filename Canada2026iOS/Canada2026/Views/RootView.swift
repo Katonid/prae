@@ -88,7 +88,7 @@ struct AccessGateView: View {
                         .pickerStyle(.segmented)
 
                         if mode == .crew {
-                            Text("Reise-Mitglieder haben Vollzugriff auf alle Bereiche.")
+                            Text("Reise-Mitglieder haben Vollzugriff auf alle Bereiche. Mit deinem persönlichen Einladungscode aus der Web-App (z. B. CANADA2026-ANDR-…) wirst du automatisch erkannt – alternativ Mitglied wählen und den gemeinsamen Crew-Code eingeben.")
                                 .font(.footnote)
                                 .foregroundStyle(.secondary)
                             Picker("Mitglied", selection: $selectedMember) {

@@ -189,7 +189,38 @@ struct SharedConfig: Codable, Equatable {
     var crewCode: String = "AHORN26"
     var familyCode: String = "FAMILIE26"
     var companionCode: String = "BEGLEITER26"
+    /// Persönliche Einladungscodes im PWA-Format (Mitgliedsname → Code).
+    /// Optional, damit ältere synchronisierte Konfigurationen weiter dekodierbar bleiben.
+    var memberCodes: [String: String]?
     var updatedAt: Date = Date()
+
+    static let defaultMemberCodes: [String: String] = [
+        "Andreas": "CANADA2026-ANDR-EA26"
+    ]
+
+    var effectiveMemberCodes: [String: String] {
+        SharedConfig.defaultMemberCodes.merging(memberCodes ?? [:]) { _, custom in custom }
+    }
+}
+
+/// Format der PWA-Einladungscodes: CANADA2026-<KÜRZEL>-<SUFFIX>.
+/// Das Kürzel im zweiten Block identifiziert das Crew-Mitglied.
+enum InviteCode {
+    static let crewPrefixes: [String: String] = [
+        "ANDR": "Andreas",
+        "NADI": "Nadine",
+        "SIMO": "Simon",
+        "TOBI": "Tobias"
+    ]
+
+    /// Liefert das Crew-Mitglied für einen Code im PWA-Format, sonst nil.
+    static func crewMember(for code: String) -> String? {
+        let normalized = code.trimmingCharacters(in: .whitespaces).uppercased()
+        let parts = normalized.split(separator: "-").map(String.init)
+        guard parts.count == 3, parts[0] == "CANADA2026" else { return nil }
+        guard parts[2].count == 4, parts[2].allSatisfy({ $0.isLetter || $0.isNumber }) else { return nil }
+        return crewPrefixes[parts[1]]
+    }
 }
 
 /// Lokale Hinweis-/Aktivitätsmeldung (abgeleitet aus Sync-Ereignissen).

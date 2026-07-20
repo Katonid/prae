@@ -141,17 +141,38 @@ final class AppStore: ObservableObject {
     }
 
     func loginCrew(member: String, code: String) throws {
-        guard code.trimmingCharacters(in: .whitespaces).uppercased() == data.config.crewCode.uppercased() else {
-            throw LoginError.wrongCode
+        let clean = code.trimmingCharacters(in: .whitespaces).uppercased()
+        // Persönlicher Einladungscode im PWA-Format (z. B. CANADA2026-ANDR-EA26):
+        // bestimmt das Mitglied direkt, unabhängig von der Auswahl.
+        var resolvedMember = member
+        if let matched = crewMember(forInviteCode: clean) {
+            resolvedMember = matched
+        } else {
+            guard clean == data.config.crewCode.uppercased() else {
+                throw LoginError.wrongCode
+            }
         }
         deviceUser = DeviceUser(
-            name: member,
-            role: member == TravelData.adminName ? .admin : .crew,
+            name: resolvedMember,
+            role: resolvedMember == TravelData.adminName ? .admin : .crew,
             viewerId: "",
             selected: true
         )
         persistDeviceUser()
-        addNotice(kind: "system", text: "Angemeldet als \(member) (\(deviceUser.role.label))", view: "home")
+        addNotice(kind: "system", text: "Angemeldet als \(resolvedMember) (\(deviceUser.role.label))", view: "home")
+    }
+
+    /// Prüft einen persönlichen Einladungscode: exakter Treffer aus der
+    /// Konfiguration gewinnt; sonst zählt das PWA-Format mit Mitglieds-Kürzel.
+    private func crewMember(forInviteCode code: String) -> String? {
+        if let entry = data.config.effectiveMemberCodes.first(where: { !$0.value.isEmpty && $0.value.uppercased() == code }) {
+            return entry.key
+        }
+        guard let member = InviteCode.crewMember(for: code) else { return nil }
+        // Hat der Admin für dieses Mitglied einen festen Code hinterlegt,
+        // zählt nur noch dieser (bereits oben geprüft).
+        let pinned = data.config.effectiveMemberCodes[member] ?? ""
+        return pinned.isEmpty ? member : nil
     }
 
     func loginViewer(name: String, role: AccessRole, code: String) throws {
@@ -775,6 +796,14 @@ final class AppStore: ObservableObject {
         data.config.crewCode = crew.trimmingCharacters(in: .whitespaces).uppercased()
         data.config.familyCode = family.trimmingCharacters(in: .whitespaces).uppercased()
         data.config.companionCode = companion.trimmingCharacters(in: .whitespaces).uppercased()
+        data.config.updatedAt = Date()
+        touch(.config, "shared")
+    }
+
+    func updateMemberCode(member: String, code: String) {
+        var codes = data.config.memberCodes ?? SharedConfig.defaultMemberCodes
+        codes[member] = code.trimmingCharacters(in: .whitespaces).uppercased()
+        data.config.memberCodes = codes
         data.config.updatedAt = Date()
         touch(.config, "shared")
     }

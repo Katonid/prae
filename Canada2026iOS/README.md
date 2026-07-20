@@ -19,10 +19,17 @@ Wie in der PWA gibt es zwei Ebenen:
 | **Begleiter** (Betrachter) | beliebig viele, per Name + Code | Wie Familie, aber ohne Bingo und Challenges |
 
 Die Anmeldung erfolgt beim ersten Start über Name/Mitglied + Zugangscode.
-Standard-Codes (vom Admin in den Einstellungen änderbar, Verteilung an alle
-Geräte über iCloud):
 
-- Crew: `AHORN26`
+**Persönliche Einladungscodes aus der Web-App funktionieren direkt:**
+Codes im PWA-Format `CANADA2026-XXXX-XXXX` werden erkannt, das Mitglieds-Kürzel
+im zweiten Block (`ANDR`, `NADI`, `SIMO`, `TOBI`) bestimmt automatisch das
+Crew-Mitglied – z. B. meldet `CANADA2026-ANDR-EA26` direkt Andreas an.
+Der Admin kann in den Einstellungen pro Mitglied einen festen Code hinterlegen;
+dann zählt für dieses Mitglied nur noch genau dieser Code.
+
+Zusätzliche Standard-Codes (vom Admin änderbar, Verteilung über iCloud):
+
+- Crew (gemeinsam, mit Mitglieder-Auswahl): `AHORN26`
 - Familie: `FAMILIE26`
 - Begleiter: `BEGLEITER26`
 
