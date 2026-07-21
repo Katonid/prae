@@ -100,9 +100,16 @@ struct SoundBoard: Codable, Identifiable, Equatable {
     var name: String = "Board"
     var colorHex: String = "#f7b32b"
     var hidden: Bool = false
+    /// Eigenes Emoji des Boards (nil = Standardsymbol 🎭).
+    var icon: String? = nil
     /// Dateiname des Hintergrundbilds unter Documents/Backgrounds/.
     var backgroundImagePath: String? = nil
     var pads: [SoundPad] = []
+
+    var displayIcon: String {
+        if let icon, !icon.isEmpty { return icon }
+        return "🎭"
+    }
 }
 
 /// Wurzelobjekt der gespeicherten Daten.

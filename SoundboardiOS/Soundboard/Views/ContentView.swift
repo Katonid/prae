@@ -57,8 +57,8 @@ struct ContentView: View {
 
     private var header: some View {
         HStack {
-            Image(systemName: "theatermasks.fill")
-                .foregroundStyle(Color(hex: store.activeBoard?.colorHex ?? "#f7b32b"))
+            Text(store.activeBoard?.displayIcon ?? "🎭")
+                .font(.title2)
             Text(store.activeBoard?.name ?? "Soundboard")
                 .font(.system(.title2, design: .rounded, weight: .bold))
                 .foregroundStyle(.white)
@@ -92,9 +92,8 @@ struct ContentView: View {
                             store.selectBoard(board.id)
                         } label: {
                             HStack(spacing: 6) {
-                                Circle()
-                                    .fill(Color(hex: board.colorHex))
-                                    .frame(width: 8, height: 8)
+                                Text(board.displayIcon)
+                                    .font(.footnote)
                                 Text(board.name)
                                     .font(.system(.footnote, design: .rounded, weight: active ? .bold : .medium))
                             }
@@ -127,42 +126,65 @@ struct ContentView: View {
     private func padGrid(columns: Int) -> some View {
         let board = store.activeBoard
         let pads = (board?.pads ?? []).filter { store.editMode || !$0.hidden }
-        let grid = Array(repeating: GridItem(.flexible(), spacing: 12), count: columns)
+        let spacing: CGFloat = 12
+        let grid = Array(repeating: GridItem(.flexible(), spacing: spacing), count: columns)
 
-        return ScrollView {
-            LazyVGrid(columns: grid, spacing: 12) {
-                ForEach(pads) { pad in
-                    let tile = PadView(pad: pad, isEditing: store.editMode, engine: engine) {
-                        editingPadID = pad.id
+        return Group {
+            if columns >= 4 {
+                // Breite Bildschirme (iPad): das ganze Raster passt ohne Scrollen auf den Schirm.
+                GeometryReader { geo in
+                    let rows = max(1, (pads.count + columns - 1) / columns)
+                    let cellHeight = max(44, (geo.size.height - spacing * CGFloat(rows - 1) - 12) / CGFloat(rows))
+                    LazyVGrid(columns: grid, spacing: spacing) {
+                        ForEach(pads) { pad in
+                            padCell(pad, boardID: board?.id)
+                                .frame(height: cellHeight)
+                        }
                     }
-                    .aspectRatio(columns == 4 ? 1.35 : 1.15, contentMode: .fit)
-
-                    if store.editMode {
-                        // Im Bearbeiten-Modus: gedrückt halten und ziehen zum Sortieren.
-                        tile
-                            .opacity(draggedPadID == pad.id ? 0.35 : 1)
-                            .onDrag {
-                                draggedPadID = pad.id
-                                return NSItemProvider(object: pad.id.uuidString as NSString)
-                            }
-                            .onDrop(of: [.text], delegate: PadDropDelegate(
-                                targetPadID: pad.id,
-                                boardID: board?.id,
-                                draggedPadID: $draggedPadID,
-                                store: store
-                            ))
-                    } else {
-                        tile
+                    .padding(.horizontal)
+                }
+            } else {
+                ScrollView {
+                    LazyVGrid(columns: grid, spacing: spacing) {
+                        ForEach(pads) { pad in
+                            padCell(pad, boardID: board?.id)
+                                .aspectRatio(1.15, contentMode: .fit)
+                        }
                     }
+                    .padding(.horizontal)
+                    .padding(.bottom, 12)
                 }
             }
-            .padding(.horizontal)
-            .padding(.bottom, 12)
         }
         // Fängt Ablegen außerhalb der Felder ab, damit kein Feld abgedunkelt hängen bleibt.
         .onDrop(of: [.text], isTargeted: nil) { _ in
             draggedPadID = nil
             return true
+        }
+    }
+
+    @ViewBuilder
+    private func padCell(_ pad: SoundPad, boardID: UUID?) -> some View {
+        let tile = PadView(pad: pad, isEditing: store.editMode, engine: engine) {
+            editingPadID = pad.id
+        }
+
+        if store.editMode {
+            // Im Bearbeiten-Modus: gedrückt halten und ziehen zum Sortieren.
+            tile
+                .opacity(draggedPadID == pad.id ? 0.35 : 1)
+                .onDrag {
+                    draggedPadID = pad.id
+                    return NSItemProvider(object: pad.id.uuidString as NSString)
+                }
+                .onDrop(of: [.text], delegate: PadDropDelegate(
+                    targetPadID: pad.id,
+                    boardID: boardID,
+                    draggedPadID: $draggedPadID,
+                    store: store
+                ))
+        } else {
+            tile
         }
     }
 

@@ -24,6 +24,7 @@ struct BoardSettingsView: View {
                                 .environmentObject(store)
                         } label: {
                             HStack {
+                                Text(board.displayIcon)
                                 Circle()
                                     .fill(Color(hex: board.colorHex))
                                     .frame(width: 12, height: 12)
@@ -141,6 +142,28 @@ struct BoardDetailView: View {
                 ))
             }
 
+            Section {
+                HStack {
+                    Text("Symbol")
+                    Spacer()
+                    TextField("🎭", text: Binding(
+                        get: { board.icon ?? "" },
+                        set: { value in
+                            // Nur das zuletzt eingegebene Zeichen behalten (ein Emoji).
+                            let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+                            store.updateBoard(boardID) {
+                                $0.icon = trimmed.isEmpty ? nil : String(trimmed.suffix(1))
+                            }
+                        }
+                    ))
+                    .multilineTextAlignment(.trailing)
+                    .frame(width: 80)
+                    .font(.title2)
+                }
+            } footer: {
+                Text("Über die Emoji-Taste der Tastatur ein beliebiges Symbol wählen. Feld leeren für das Standardsymbol 🎭.")
+            }
+
             Section("Farbe") {
                 LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 8), spacing: 10) {
                     ForEach(BoardDefaults.swatchColors, id: \.self) { hex in
@@ -159,6 +182,11 @@ struct BoardDetailView: View {
                     }
                 }
                 .padding(.vertical, 4)
+
+                ColorPicker("Eigene Farbe mischen", selection: Binding(
+                    get: { Color(hex: board.colorHex) },
+                    set: { newColor in store.updateBoard(boardID) { $0.colorHex = newColor.toHex() } }
+                ), supportsOpacity: false)
             }
 
             Section {

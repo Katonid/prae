@@ -9,7 +9,10 @@ mit SwiftUI neu gestaltet und zusätzlich mit Anbindung an Streamingdienste
 
 **Boards & Felder**
 - 5 Boards mit je 16 Feldern, umschaltbar über die Board-Leiste oben
-- Boards lassen sich umbenennen, einfärben, sortieren und ausblenden
+- Auf dem iPad passt das 4 × 4-Raster vollständig ohne Scrollen auf den Bildschirm
+- Boards lassen sich umbenennen, einfärben, sortieren und ausblenden;
+  jedes Board bekommt auf Wunsch ein eigenes Emoji als Symbol
+- Farben überall wahlweise aus 16 Vorschlägen oder frei über den Farbmischer
 - Optionales Hintergrundbild pro Board (aus der Fotomediathek)
 - Felder mit Beschriftung, Farbe (16 Vorschläge + freie Farbwahl), Lautstärke,
   Ausblenddauer beim Stoppen (0–10 s) und Sichtbarkeits-Schalter
