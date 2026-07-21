@@ -147,8 +147,10 @@ struct ContentView: View {
     // MARK: - Raster
 
     private func padGrid(columns: Int) -> some View {
+        // Alle Felder behalten ihren Platz: Ausgeblendete Felder hinterlassen im
+        // Abspielmodus eine Lücke, statt die übrigen Kacheln aufrücken zu lassen.
         let board = store.activeBoard
-        let pads = (board?.pads ?? []).filter { store.editMode || !$0.hidden }
+        let pads = board?.pads ?? []
         let spacing: CGFloat = 12
         let grid = Array(repeating: GridItem(.flexible(), spacing: spacing), count: columns)
 
@@ -188,26 +190,31 @@ struct ContentView: View {
 
     @ViewBuilder
     private func padCell(_ pad: SoundPad, boardID: UUID?) -> some View {
-        let tile = PadView(pad: pad, isEditing: store.editMode, engine: engine) {
-            editingPadID = pad.id
-        }
-
-        if store.editMode {
-            // Im Bearbeiten-Modus: gedrückt halten und ziehen zum Sortieren.
-            tile
-                .opacity(draggedPadID == pad.id ? 0.35 : 1)
-                .onDrag {
-                    draggedPadID = pad.id
-                    return NSItemProvider(object: pad.id.uuidString as NSString)
-                }
-                .onDrop(of: [.text], delegate: PadDropDelegate(
-                    targetPadID: pad.id,
-                    boardID: boardID,
-                    draggedPadID: $draggedPadID,
-                    store: store
-                ))
+        if !store.editMode && pad.hidden {
+            // Platzhalter: hält die Position, ist aber unsichtbar und nicht antippbar.
+            Color.clear
         } else {
-            tile
+            let tile = PadView(pad: pad, isEditing: store.editMode, engine: engine) {
+                editingPadID = pad.id
+            }
+
+            if store.editMode {
+                // Im Bearbeiten-Modus: gedrückt halten und ziehen zum Sortieren.
+                tile
+                    .opacity(draggedPadID == pad.id ? 0.35 : 1)
+                    .onDrag {
+                        draggedPadID = pad.id
+                        return NSItemProvider(object: pad.id.uuidString as NSString)
+                    }
+                    .onDrop(of: [.text], delegate: PadDropDelegate(
+                        targetPadID: pad.id,
+                        boardID: boardID,
+                        draggedPadID: $draggedPadID,
+                        store: store
+                    ))
+            } else {
+                tile
+            }
         }
     }
 
