@@ -81,7 +81,7 @@ struct BoardSettingsView: View {
                 } header: {
                     Text("iCloud")
                 } footer: {
-                    Text("Gleicht Boards, Einstellungen, Tondateien und Hintergrundbilder über iCloud zwischen allen Geräten mit derselben Apple-ID ab. Bei Unterschieden gewinnt der zuletzt geänderte Stand.\n\nFalls „iCloud nicht verfügbar" angezeigt wird: In den iOS-Einstellungen oben auf deinen Namen tippen → iCloud → iCloud Drive einschalten. Beim allerersten Start kann die Einrichtung des iCloud-Speichers ein bis zwei Minuten dauern.")
+                    Text("Gleicht Boards, Einstellungen, Tondateien und Hintergrundbilder über iCloud zwischen allen Geräten mit derselben Apple-ID ab. Bei Unterschieden gewinnt der zuletzt geänderte Stand.\n\nFalls „iCloud nicht verfügbar“ angezeigt wird: In den iOS-Einstellungen oben auf deinen Namen tippen → iCloud → iCloud Drive einschalten. Beim allerersten Start kann die Einrichtung des iCloud-Speichers ein bis zwei Minuten dauern.")
                 }
 
                 Section {
