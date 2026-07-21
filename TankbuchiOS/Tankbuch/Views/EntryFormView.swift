@@ -1,6 +1,7 @@
 import SwiftUI
 import CoreData
 import CoreLocation
+import UIKit
 
 // Tankvorgang erfassen/bearbeiten – portiert aus dem PWA-Formular inklusive
 // gegenseitiger Umrechnung von Literpreis/Liter/Gesamtpreis, Preisvorschlag,
@@ -62,6 +63,7 @@ struct EntryFormView: View {
         _adBluePriceText = State(initialValue: Format.inputNumber(entry.adBluePricePerLiter, digits: 3))
         _adBlueTotalText = State(initialValue: Format.inputNumber(entry.adBlueTotalPrice, digits: 2))
         _priceWasAutoFilled = State(initialValue: false)
+        _odometerWasAutoFilled = State(initialValue: false)
         _priceSourceStatus = State(initialValue: "Gespeicherter Eintrag")
         _initialized = State(initialValue: true)
     }
@@ -95,6 +97,7 @@ struct EntryFormView: View {
     @State private var adBlueTotalText = ""
 
     @State private var priceWasAutoFilled = true
+    @State private var odometerWasAutoFilled = true
     // Werte der zuletzt programmatisch übernommenen Station: solange die
     // Textfelder damit übereinstimmen, bleiben deren Koordinaten erhalten.
     @State private var appliedStationName: String?
@@ -108,6 +111,7 @@ struct EntryFormView: View {
     @FocusState private var focusedField: FuelField?
 
     enum FuelField {
+        case odometer
         case price, liters, total
         case adBluePrice, adBlueLiters, adBlueTotal
     }
@@ -128,7 +132,30 @@ struct EntryFormView: View {
             notesSection
             actionSection
         }
+        .scrollDismissesKeyboard(.interactively)
+        .toolbar {
+            // Der Ziffernblock hat keine Return-Taste – "Fertig" schließt
+            // die Tastatur, damit Tab-Leiste und Buttons erreichbar bleiben.
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button("Fertig") {
+                    focusedField = nil
+                    hideKeyboard()
+                }
+                .fontWeight(.semibold)
+            }
+        }
         .onAppear(perform: initializeOnce)
+        // Vorbefüllter Kilometerstand: beim Antippen komplett markieren,
+        // damit die Eingabe den alten Wert direkt ersetzt.
+        .onReceive(NotificationCenter.default.publisher(for: UITextField.textDidBeginEditingNotification)) { notification in
+            guard let textField = notification.object as? UITextField else { return }
+            DispatchQueue.main.async {
+                if focusedField == .odometer {
+                    textField.selectAll(nil)
+                }
+            }
+        }
         .onChange(of: appModel.prefillStation) { _, station in
             if let station { applyStation(station) }
         }
@@ -140,6 +167,9 @@ struct EntryFormView: View {
             }
             priceWasAutoFilled = true
             prefillPrice()
+            if odometerWasAutoFilled {
+                prefillOdometer()
+            }
         }
         .onChange(of: fuelType) { _, _ in
             guard initialized else { return }
@@ -248,6 +278,11 @@ struct EntryFormView: View {
                     .keyboardType(.decimalPad)
                     .multilineTextAlignment(.trailing)
                     .frame(maxWidth: 140)
+                    .focused($focusedField, equals: .odometer)
+                    .onChange(of: odometerText) { _, _ in
+                        guard initialized, focusedField == .odometer else { return }
+                        odometerWasAutoFilled = false
+                    }
             }
 
             Toggle("Volltankung", isOn: $fullTank)
@@ -369,6 +404,18 @@ struct EntryFormView: View {
         } else {
             prefillPrice()
         }
+        prefillOdometer()
+    }
+
+    /// Letzten Kilometerstand des Fahrzeugs vorbefüllen (nur neue Einträge).
+    private func prefillOdometer() {
+        guard !isEditing else { return }
+        let lastOdometer = allEntries
+            .filter { $0.vehicleId == vehicleId && $0.odometer != nil }
+            .max { $0.date < $1.date }?
+            .odometer
+        odometerText = Format.inputNumber(lastOdometer, digits: 0)
+        odometerWasAutoFilled = true
     }
 
     private func applyStation(_ station: NearbyStation) {

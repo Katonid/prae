@@ -419,6 +419,11 @@ struct VehicleEditView: View {
                     Button("Speichern") { save() }
                         .fontWeight(.semibold)
                 }
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("Fertig") { hideKeyboard() }
+                        .fontWeight(.semibold)
+                }
             }
             .onAppear(perform: loadOnce)
             .onChange(of: photoItem) { _, item in

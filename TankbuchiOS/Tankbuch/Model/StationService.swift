@@ -45,34 +45,37 @@ enum StationServiceError: LocalizedError {
 }
 
 enum StationService {
-    static let searchRadiusMeters: Double = 1800
-    static let maxStations = 12
+    /// Standard-Umkreis 5 km, per Regler bis 20 km erweiterbar.
+    static let defaultRadiusMeters: Double = 5000
+    static let maxRadiusMeters: Double = 20000
+    static let maxStations = 25
 
     /// Erst Tankerkönig (falls API-Schlüssel vorhanden), sonst Apple-Kartensuche.
-    static func fetchNearbyStations(lat: Double, lng: Double, apiKey: String) async -> (stations: [NearbyStation], error: String?) {
+    static func fetchNearbyStations(lat: Double, lng: Double, apiKey: String, radiusMeters: Double) async -> (stations: [NearbyStation], error: String?) {
+        let radius = min(max(radiusMeters, 1000), maxRadiusMeters)
         let trimmedKey = apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
         if !trimmedKey.isEmpty {
             do {
-                let stations = try await fetchTankerkoenig(lat: lat, lng: lng, apiKey: trimmedKey)
+                let stations = try await fetchTankerkoenig(lat: lat, lng: lng, apiKey: trimmedKey, radiusMeters: radius)
                 if !stations.isEmpty {
                     return (stations, nil)
                 }
             } catch {
-                let fallback = (try? await fetchAppleMaps(lat: lat, lng: lng)) ?? []
+                let fallback = (try? await fetchAppleMaps(lat: lat, lng: lng, radiusMeters: radius)) ?? []
                 return (fallback, "Livepreise nicht geladen: \(error.localizedDescription)")
             }
         }
 
-        let stations = (try? await fetchAppleMaps(lat: lat, lng: lng)) ?? []
+        let stations = (try? await fetchAppleMaps(lat: lat, lng: lng, radiusMeters: radius)) ?? []
         return (stations, nil)
     }
 
-    static func fetchTankerkoenig(lat: Double, lng: Double, apiKey: String) async throws -> [NearbyStation] {
+    static func fetchTankerkoenig(lat: Double, lng: Double, apiKey: String, radiusMeters: Double) async throws -> [NearbyStation] {
         var components = URLComponents(string: "https://creativecommons.tankerkoenig.de/json/list.php")!
         components.queryItems = [
             URLQueryItem(name: "lat", value: String(lat)),
             URLQueryItem(name: "lng", value: String(lng)),
-            URLQueryItem(name: "rad", value: String(searchRadiusMeters / 1000)),
+            URLQueryItem(name: "rad", value: String(radiusMeters / 1000)),
             URLQueryItem(name: "sort", value: "dist"),
             URLQueryItem(name: "type", value: "all"),
             URLQueryItem(name: "apikey", value: apiKey)
@@ -128,15 +131,15 @@ enum StationService {
         return Array(stations.sorted { $0.distanceKm < $1.distanceKm }.prefix(maxStations))
     }
 
-    static func fetchAppleMaps(lat: Double, lng: Double) async throws -> [NearbyStation] {
+    static func fetchAppleMaps(lat: Double, lng: Double, radiusMeters: Double) async throws -> [NearbyStation] {
         let request = MKLocalSearch.Request()
         request.naturalLanguageQuery = "Tankstelle"
         request.pointOfInterestFilter = MKPointOfInterestFilter(including: [.gasStation])
         request.resultTypes = .pointOfInterest
         request.region = MKCoordinateRegion(
             center: CLLocationCoordinate2D(latitude: lat, longitude: lng),
-            latitudinalMeters: searchRadiusMeters * 2,
-            longitudinalMeters: searchRadiusMeters * 2
+            latitudinalMeters: radiusMeters * 2,
+            longitudinalMeters: radiusMeters * 2
         )
 
         let response = try await MKLocalSearch(request: request).start()
@@ -145,7 +148,7 @@ enum StationService {
         let stations = response.mapItems.compactMap { item -> NearbyStation? in
             let coordinate = item.placemark.coordinate
             let distance = origin.distance(from: CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude))
-            guard distance <= searchRadiusMeters * 1.5 else { return nil }
+            guard distance <= radiusMeters * 1.1 else { return nil }
 
             let street = [item.placemark.thoroughfare, item.placemark.subThoroughfare]
                 .compactMap { $0 }

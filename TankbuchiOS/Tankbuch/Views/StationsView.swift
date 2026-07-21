@@ -71,6 +71,18 @@ struct StationsView: View {
                 .disabled(appModel.isLoadingStations)
             }
 
+            HStack(spacing: 10) {
+                Text("Umkreis \(Format.number(appModel.searchRadiusKm, digits: 0)) km")
+                    .font(.footnote.weight(.semibold))
+                    .frame(width: 92, alignment: .leading)
+                    .monospacedDigit()
+                Slider(value: $appModel.searchRadiusKm, in: 1...20) { editing in
+                    if !editing {
+                        Task { await reloadForRadiusChange() }
+                    }
+                }
+            }
+
             HStack {
                 Text(appModel.stationStatus)
                     .font(.footnote)
@@ -89,6 +101,13 @@ struct StationsView: View {
         .padding(.vertical, 8)
     }
 
+    /// Nach dem Loslassen des Umkreis-Reglers die Suche mit dem neuen Radius
+    /// wiederholen (sofern schon ein Suchort existiert).
+    private func reloadForRadiusChange() async {
+        guard let center = appModel.searchCenter else { return }
+        await appModel.loadStations(around: center)
+    }
+
     private var map: some View {
         Map(position: $mapPosition, selection: $selectedStationId) {
             UserAnnotation()
@@ -102,10 +121,11 @@ struct StationsView: View {
         .onChange(of: appModel.stations) { _, stations in
             guard let first = stations.first else { return }
             let center = appModel.searchCenter ?? first.coordinate
+            let diameter = appModel.searchRadiusKm * 1000 * 2.2
             mapPosition = .region(MKCoordinateRegion(
                 center: center,
-                latitudinalMeters: StationService.searchRadiusMeters * 2.4,
-                longitudinalMeters: StationService.searchRadiusMeters * 2.4
+                latitudinalMeters: diameter,
+                longitudinalMeters: diameter
             ))
         }
     }

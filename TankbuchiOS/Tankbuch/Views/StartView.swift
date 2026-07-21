@@ -142,19 +142,24 @@ struct StartView: View {
 
     private struct TrendPoint: Identifiable {
         let id: String
+        let index: Int
         let date: Date
         let value: Double
     }
 
+    /// Alle Werte des Fahrzeugs (chronologisch); das Diagramm zeigt die
+    /// letzten 9 und lässt sich zu den älteren scrollen.
     private var trendPoints: [TrendPoint] {
         guard let vehicle = selectedVehicle else { return [] }
         let computed = TripMath.computedEntries(for: vehicle, entries: Array(entries))
-        let points: [TrendPoint] = computed.compactMap { item in
+        let raw: [(id: String, date: Date, value: Double)] = computed.compactMap { item in
             let value = trendMetric == .consumption ? item.trip.consumption : item.entry.pricePerLiter
             guard let value, value > 0 else { return nil }
-            return TrendPoint(id: item.entry.externalId, date: item.entry.date, value: value)
+            return (item.entry.externalId, item.entry.date, value)
         }
-        return Array(points.suffix(9))
+        return raw.enumerated().map { index, point in
+            TrendPoint(id: point.id, index: index, date: point.date, value: point.value)
+        }
     }
 
     private var trendPanel: some View {
@@ -181,31 +186,47 @@ struct StartView: View {
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, minHeight: 120)
             } else {
+                // Gleichmäßige Abstände über den Index; sichtbar sind die
+                // letzten 9 Werte, ältere erreicht man durch Wischen.
+                let visibleLength = min(8, points.count - 1)
                 Chart(points) { point in
                     AreaMark(
-                        x: .value("Datum", point.date),
+                        x: .value("Nr.", point.index),
                         y: .value(trendMetric.label, point.value)
                     )
                     .foregroundStyle(Color.accentColor.opacity(0.15))
 
                     LineMark(
-                        x: .value("Datum", point.date),
+                        x: .value("Nr.", point.index),
                         y: .value(trendMetric.label, point.value)
                     )
                     .foregroundStyle(Color.accentColor)
                     .lineStyle(StrokeStyle(lineWidth: 2.5))
 
                     PointMark(
-                        x: .value("Datum", point.date),
+                        x: .value("Nr.", point.index),
                         y: .value(trendMetric.label, point.value)
                     )
                     .foregroundStyle(Color.accentColor)
                 }
                 .chartYScale(domain: .automatic(includesZero: false))
+                .chartScrollableAxes(.horizontal)
+                .chartXVisibleDomain(length: max(1, visibleLength))
+                .chartScrollPosition(initialX: max(0, points.count - 1 - visibleLength))
+                .chartXAxis {
+                    AxisMarks(values: .automatic(desiredCount: 4)) { value in
+                        AxisGridLine()
+                        AxisValueLabel {
+                            if let index = value.as(Int.self), points.indices.contains(index) {
+                                Text(Format.dayMonth(points[index].date))
+                            }
+                        }
+                    }
+                }
                 .frame(height: 190)
 
                 if let latest = points.last {
-                    Text("\(points.count) Werte, zuletzt \(Format.number(latest.value, digits: trendMetric == .consumption ? 1 : 3)) \(trendMetric == .consumption ? "l/100 km" : "€/l").")
+                    Text("\(points.count) Werte, zuletzt \(Format.number(latest.value, digits: trendMetric == .consumption ? 1 : 3)) \(trendMetric == .consumption ? "l/100 km" : "€/l").\(points.count > 9 ? " Ältere Werte per Wischen nach rechts." : "")")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }

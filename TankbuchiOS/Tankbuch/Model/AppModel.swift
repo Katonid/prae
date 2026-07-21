@@ -67,11 +67,17 @@ final class AppModel: ObservableObject {
     @Published var appearance: Appearance {
         didSet { UserDefaults.standard.set(appearance.rawValue, forKey: "appearance") }
     }
+    /// Suchradius der Tankstellensuche in Kilometern (Standard 5, max. 20).
+    @Published var searchRadiusKm: Double {
+        didSet { UserDefaults.standard.set(searchRadiusKm, forKey: "searchRadiusKm") }
+    }
 
     init() {
         tankerkoenigApiKey = UserDefaults.standard.string(forKey: "tankerkoenigApiKey") ?? ""
         selectedVehicleId = UserDefaults.standard.string(forKey: "selectedVehicleId") ?? ""
         appearance = Appearance(rawValue: UserDefaults.standard.string(forKey: "appearance") ?? "") ?? .system
+        let storedRadius = UserDefaults.standard.double(forKey: "searchRadiusKm")
+        searchRadiusKm = storedRadius > 0 ? min(storedRadius, 20) : 5
     }
 
     func refreshStationsAroundCurrentLocation() async {
@@ -107,7 +113,8 @@ final class AppModel: ObservableObject {
         let result = await StationService.fetchNearbyStations(
             lat: coordinate.latitude,
             lng: coordinate.longitude,
-            apiKey: tankerkoenigApiKey
+            apiKey: tankerkoenigApiKey,
+            radiusMeters: searchRadiusKm * 1000
         )
         stations = result.stations
 

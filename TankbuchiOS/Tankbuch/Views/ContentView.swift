@@ -1,5 +1,12 @@
 import SwiftUI
 import CoreData
+import UIKit
+
+/// Blendet die Tastatur aus – auch für Felder ohne eigenen FocusState.
+@MainActor
+func hideKeyboard() {
+    UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+}
 
 struct ContentView: View {
     @EnvironmentObject private var appModel: AppModel
