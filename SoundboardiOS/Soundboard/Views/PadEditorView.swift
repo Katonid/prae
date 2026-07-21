@@ -87,7 +87,7 @@ struct PadEditorView: View {
 
             ColorPicker("Eigene Farbe", selection: Binding(
                 get: { Color(hex: pad.colorHex) },
-                set: { update { $0.colorHex = $1.toHex() } }
+                set: { newColor in update { $0.colorHex = newColor.toHex() } }
             ), supportsOpacity: false)
         }
     }
