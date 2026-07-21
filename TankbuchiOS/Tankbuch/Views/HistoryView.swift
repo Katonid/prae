@@ -1,6 +1,7 @@
 import SwiftUI
-import SwiftData
+import CoreData
 import MapKit
+import UIKit
 
 // Verlauf: alle Tankvorgänge (neueste zuerst). Auf dem iPhone als Liste mit
 // Karten-Sheet, auf dem iPad wie in der PWA als übersichtliche Tabelle mit
@@ -8,18 +9,19 @@ import MapKit
 
 struct HistoryView: View {
     @EnvironmentObject private var appModel: AppModel
-    @Environment(\.modelContext) private var modelContext
+    @Environment(\.managedObjectContext) private var viewContext
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
-    @Query(sort: \Vehicle.createdAt) private var vehicles: [Vehicle]
-    @Query(sort: \FuelEntry.date, order: .reverse) private var entries: [FuelEntry]
+    @FetchRequest(sortDescriptors: [SortDescriptor(\Vehicle.createdAt)]) private var vehicles: FetchedResults<Vehicle>
+    @FetchRequest(sortDescriptors: [SortDescriptor(\FuelEntry.date, order: .reverse)]) private var entries: FetchedResults<FuelEntry>
 
     @State private var entryToEdit: FuelEntry?
     @State private var entryToDelete: FuelEntry?
     @State private var showMap = false
     @State private var tableSelection: String?
+    @State private var shareFile: ShareFile?
 
     private var computedById: [String: ComputedEntry] {
-        TripMath.computedByEntryId(vehicles: vehicles, entries: entries)
+        TripMath.computedByEntryId(vehicles: Array(vehicles), entries: Array(entries))
     }
 
     private var mappableEntries: [FuelEntry] {
@@ -43,6 +45,28 @@ struct HistoryView: View {
             }
             .navigationTitle("Verlauf")
             .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Menu {
+                        Button {
+                            export(.pdf)
+                        } label: {
+                            Label("Als PDF exportieren", systemImage: "doc.richtext")
+                        }
+                        Button {
+                            export(.xlsx)
+                        } label: {
+                            Label("Als Excel exportieren", systemImage: "tablecells")
+                        }
+                        Button {
+                            export(.csv)
+                        } label: {
+                            Label("Als CSV exportieren", systemImage: "doc.plaintext")
+                        }
+                    } label: {
+                        Label("Exportieren", systemImage: "square.and.arrow.up")
+                    }
+                    .disabled(entries.isEmpty)
+                }
                 if horizontalSizeClass != .regular && !mappableEntries.isEmpty {
                     ToolbarItem(placement: .topBarTrailing) {
                         Button {
@@ -52,6 +76,9 @@ struct HistoryView: View {
                         }
                     }
                 }
+            }
+            .sheet(item: $shareFile) { file in
+                ShareSheet(url: file.url)
             }
             .sheet(item: $entryToEdit) { entry in
                 NavigationStack {
@@ -87,8 +114,8 @@ struct HistoryView: View {
             )) {
                 Button("Endgültig löschen", role: .destructive) {
                     if let entry = entryToDelete {
-                        modelContext.delete(entry)
-                        try? modelContext.save()
+                        viewContext.delete(entry)
+                        try? viewContext.save()
                     }
                     entryToDelete = nil
                 }
@@ -167,6 +194,37 @@ struct HistoryView: View {
                 intervalText: item?.intervalConsumption.map { "\(Format.number($0, digits: 1))" } ?? "-",
                 consumptionText: item?.trip.consumption.map { "\(Format.number($0, digits: 1))" } ?? "-"
             )
+        }
+    }
+
+    // MARK: Export (CSV / Excel / PDF, wie die PWA)
+
+    private enum ExportKind {
+        case pdf, xlsx, csv
+    }
+
+    private func export(_ kind: ExportKind) {
+        let report = ExportReport.build(vehicles: Array(vehicles), entries: Array(entries))
+        let data: Data
+        let fileName: String
+        switch kind {
+        case .csv:
+            data = Exports.csv(report: report)
+            fileName = "tankbuch-\(Exports.dateStamp).csv"
+        case .xlsx:
+            data = Exports.xlsx(report: report)
+            fileName = "tankbuch-report-\(Exports.dateStamp).xlsx"
+        case .pdf:
+            data = Exports.pdf(report: report)
+            fileName = "tankbuch-report-\(Exports.dateStamp).pdf"
+        }
+
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent(fileName)
+        do {
+            try data.write(to: url, options: .atomic)
+            shareFile = ShareFile(url: url)
+        } catch {
+            NSLog("Tankbuch: Export fehlgeschlagen: \(error)")
         }
     }
 
@@ -372,34 +430,48 @@ struct EntryMapContent: View {
         }
         .safeAreaInset(edge: .bottom) {
             if let entry = selectedEntry {
-                Button {
-                    onOpenEntry?(entry)
-                } label: {
-                    HStack(spacing: 8) {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(entry.stationName)
-                                .font(.headline)
-                            Text("\(Format.date(entry.date)) · \(Format.number(entry.liters, digits: 2)) l · \(Format.currency(entry.totalPrice))")
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
+                HStack(spacing: 10) {
+                    Button {
+                        onOpenEntry?(entry)
+                    } label: {
+                        HStack(spacing: 8) {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(entry.stationName)
+                                    .font(.headline)
+                                Text("\(Format.date(entry.date)) · \(Format.number(entry.liters, digits: 2)) l · \(Format.currency(entry.totalPrice))")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                                if onOpenEntry != nil {
+                                    Text("Antippen für den vollständigen Eintrag")
+                                        .font(.caption2)
+                                        .foregroundStyle(.tertiary)
+                                }
+                            }
+                            Spacer()
                             if onOpenEntry != nil {
-                                Text("Antippen für den vollständigen Eintrag")
-                                    .font(.caption2)
-                                    .foregroundStyle(.tertiary)
+                                Image(systemName: "chevron.right")
+                                    .foregroundStyle(.secondary)
                             }
                         }
-                        Spacer()
-                        if onOpenEntry != nil {
-                            Image(systemName: "chevron.right")
-                                .foregroundStyle(.secondary)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(onOpenEntry == nil)
+
+                    Button {
+                        Navigation.navigate(to: entry)
+                    } label: {
+                        VStack(spacing: 2) {
+                            Image(systemName: "arrow.triangle.turn.up.right.circle.fill")
+                                .font(.title2)
+                            Text("Route")
+                                .font(.caption2.weight(.semibold))
                         }
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(10)
-                    .contentShape(Rectangle())
+                    .buttonStyle(.borderedProminent)
                 }
-                .buttonStyle(.plain)
-                .disabled(onOpenEntry == nil)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(10)
                 .background(.thinMaterial)
             }
         }
@@ -429,4 +501,21 @@ struct EntryMapContent: View {
         )
         return .region(MKCoordinateRegion(center: center, span: span))
     }
+}
+
+// MARK: - Teilen-Blatt für Exportdateien
+
+struct ShareFile: Identifiable {
+    let id = UUID()
+    let url: URL
+}
+
+struct ShareSheet: UIViewControllerRepresentable {
+    let url: URL
+
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: [url], applicationActivities: nil)
+    }
+
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
 }

@@ -1,6 +1,7 @@
 import Foundation
 import CoreLocation
 import MapKit
+import UIKit
 
 // Tankstellensuche wie in der PWA: mit Tankerkönig-API-Schlüssel kommen
 // Livepreise (MTS-K), ohne Schlüssel liefert die Apple-Kartensuche
@@ -222,6 +223,37 @@ enum StationService {
     private static func normalizedPrice(_ value: Any?) -> Double? {
         guard let price = doubleValue(value), price > 0 else { return nil }
         return price
+    }
+}
+
+// MARK: - Navigation
+
+enum Navigation {
+    /// Startet die Routenführung in Apple Karten – bevorzugt zu den
+    /// Koordinaten, sonst per Adresssuche (wie openNavigation der PWA).
+    @MainActor
+    static func navigate(name: String, place: String, lat: Double?, lng: Double?) {
+        if let lat, let lng {
+            let placemark = MKPlacemark(coordinate: CLLocationCoordinate2D(latitude: lat, longitude: lng))
+            let item = MKMapItem(placemark: placemark)
+            item.name = name.isEmpty ? "Tankstelle" : name
+            item.openInMaps(launchOptions: [MKLaunchOptionsDirectionsModeKey: MKLaunchOptionsDirectionsModeDriving])
+            return
+        }
+
+        let query = [name, place]
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+            .joined(separator: ", ")
+        guard !query.isEmpty,
+              let encoded = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+              let url = URL(string: "maps://?daddr=\(encoded)&dirflg=d") else { return }
+        UIApplication.shared.open(url)
+    }
+
+    @MainActor
+    static func navigate(to entry: FuelEntry) {
+        navigate(name: entry.stationName, place: entry.stationPlace, lat: entry.stationLat, lng: entry.stationLng)
     }
 }
 

@@ -1,5 +1,5 @@
 import SwiftUI
-import SwiftData
+import CoreData
 
 struct ContentView: View {
     @EnvironmentObject private var appModel: AppModel

@@ -1,5 +1,5 @@
 import SwiftUI
-import SwiftData
+import CoreData
 import MapKit
 
 // Tankstellen-Explorer wie in der PWA: Suche per Standort oder Ortsname,
@@ -9,7 +9,7 @@ import MapKit
 
 struct StationsView: View {
     @EnvironmentObject private var appModel: AppModel
-    @Query(sort: \Vehicle.createdAt) private var vehicles: [Vehicle]
+    @FetchRequest(sortDescriptors: [SortDescriptor(\Vehicle.createdAt)]) private var vehicles: FetchedResults<Vehicle>
 
     @State private var searchText = ""
     @State private var sortByPrice = false

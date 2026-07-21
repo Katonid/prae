@@ -1,10 +1,11 @@
 import Foundation
-import SwiftData
+import CoreData
 
-// SwiftData-Modelle, CloudKit-kompatibel: alle Attribute optional oder mit
-// Standardwert, keine Unique-Constraints. Fahrzeuge und Einträge referenzieren
-// sich wie in der PWA über String-IDs, damit Backups verlustfrei hin- und
-// herwandern können und Sync-Reihenfolgen keine Rolle spielen.
+// Core-Data-Klassen zum programmatischen Modell in Persistence.swift.
+// Optionale Zahlen liegen als NSNumber?-Attribute (…Num) im Store und werden
+// über gleichnamige Double?-Properties angesprochen, damit Berechnungen und
+// Views unverändert bleiben. Fahrzeuge und Einträge behalten zusätzlich die
+// String-IDs der PWA für den Backup-Roundtrip.
 
 enum FuelType: String, CaseIterable, Identifiable {
     case diesel
@@ -59,109 +60,170 @@ enum TireSeason: String, CaseIterable, Identifiable {
         let month = Calendar.current.component(.month, from: date)
         return (4...10).contains(month) ? .summer : .winter
     }
-
-    var next: TireSeason {
-        switch self {
-        case .summer: return .winter
-        case .winter: return .allseason
-        case .allseason: return .summer
-        }
-    }
 }
 
-@Model
-final class Vehicle {
-    var externalId: String = UUID().uuidString
-    var name: String = "Mein Fahrzeug"
-    var plate: String = ""
-    var fuelType: String = FuelType.diesel.rawValue
-    var defaultPrice: Double?
-    var startOdometer: Double?
-    @Attribute(.externalStorage) var photoData: Data?
-    var createdAt: Date = Date()
+// MARK: - Wurzel-Objekt (Freigabe-Anker)
 
-    init(
-        externalId: String = UUID().uuidString,
-        name: String = "Mein Fahrzeug",
-        plate: String = "",
-        fuelType: String = FuelType.diesel.rawValue,
-        defaultPrice: Double? = nil,
-        startOdometer: Double? = nil,
-        photoData: Data? = nil
-    ) {
-        self.externalId = externalId
-        self.name = name
-        self.plate = plate
-        self.fuelType = fuelType
-        self.defaultPrice = defaultPrice
-        self.startOdometer = startOdometer
-        self.photoData = photoData
-        self.createdAt = Date()
+@objc(Tankbuch)
+final class Tankbuch: NSManagedObject {
+    @NSManaged var name: String
+    @NSManaged var createdAt: Date
+    @NSManaged var vehicles: NSSet?
+}
+
+// MARK: - Fahrzeug
+
+@objc(Vehicle)
+final class Vehicle: NSManagedObject {
+    @NSManaged var externalId: String
+    @NSManaged var name: String
+    @NSManaged var plate: String
+    @NSManaged var fuelType: String
+    @NSManaged var defaultPriceNum: NSNumber?
+    @NSManaged var startOdometerNum: NSNumber?
+    @NSManaged var photoData: Data?
+    @NSManaged var createdAt: Date
+    @NSManaged var root: Tankbuch?
+    @NSManaged var entries: NSSet?
+
+    var defaultPrice: Double? {
+        get { defaultPriceNum?.doubleValue }
+        set { defaultPriceNum = newValue.map { NSNumber(value: $0) } }
+    }
+
+    var startOdometer: Double? {
+        get { startOdometerNum?.doubleValue }
+        set { startOdometerNum = newValue.map { NSNumber(value: $0) } }
     }
 
     var displayName: String {
         plate.isEmpty ? name : "\(name) (\(plate))"
     }
+
+    /// Neues Fahrzeug, an das aktive Tankbuch gehängt und dessen Store zugeordnet.
+    @discardableResult
+    static func create(in context: NSManagedObjectContext, persistence: PersistenceController) -> Vehicle {
+        let vehicle = Vehicle(context: context)
+        vehicle.externalId = UUID().uuidString
+        vehicle.name = "Mein Fahrzeug"
+        vehicle.plate = ""
+        vehicle.fuelType = FuelType.diesel.rawValue
+        vehicle.createdAt = Date()
+        let root = persistence.activeRoot(in: context)
+        persistence.assign(vehicle, near: root, in: context)
+        vehicle.root = root
+        return vehicle
+    }
 }
 
-@Model
-final class FuelEntry {
-    var externalId: String = UUID().uuidString
-    var vehicleId: String = ""
-    var vehicleName: String = ""
-    var date: Date = Date()
-    var createdAt: Date = Date()
-    var updatedAt: Date?
+// MARK: - Tankvorgang
 
-    var stationId: String?
-    var stationName: String = ""
-    var stationPlace: String = ""
-    var stationLat: Double?
-    var stationLng: Double?
-    var stationLocationSource: String?
+@objc(FuelEntry)
+final class FuelEntry: NSManagedObject {
+    @NSManaged var externalId: String
+    @NSManaged var vehicleId: String
+    @NSManaged var vehicleName: String
+    @NSManaged var date: Date
+    @NSManaged var createdAt: Date
+    @NSManaged var updatedAt: Date?
 
-    var fuelType: String = FuelType.diesel.rawValue
-    var fullTank: Bool = true
-    var adBlue: Bool = false
-    var trailer: Bool = false
-    var tireSeason: String = TireSeason.summer.rawValue
+    @NSManaged var stationId: String?
+    @NSManaged var stationName: String
+    @NSManaged var stationPlace: String
+    @NSManaged var stationLatNum: NSNumber?
+    @NSManaged var stationLngNum: NSNumber?
+    @NSManaged var stationLocationSource: String?
 
-    var adBlueLiters: Double?
-    var adBluePricePerLiter: Double?
-    var adBlueTotalPrice: Double?
+    @NSManaged var fuelType: String
+    @NSManaged var fullTank: Bool
+    @NSManaged var adBlue: Bool
+    @NSManaged var trailer: Bool
+    @NSManaged var tireSeason: String
 
-    var pricePerLiter: Double?
-    var liters: Double?
-    var totalPrice: Double?
-    var odometer: Double?
+    @NSManaged var adBlueLitersNum: NSNumber?
+    @NSManaged var adBluePricePerLiterNum: NSNumber?
+    @NSManaged var adBlueTotalPriceNum: NSNumber?
 
-    var notes: String = ""
+    @NSManaged var pricePerLiterNum: NSNumber?
+    @NSManaged var litersNum: NSNumber?
+    @NSManaged var totalPriceNum: NSNumber?
+    @NSManaged var odometerNum: NSNumber?
 
-    init(
-        externalId: String = UUID().uuidString,
-        vehicleId: String,
-        vehicleName: String = "",
-        date: Date = Date()
-    ) {
-        self.externalId = externalId
-        self.vehicleId = vehicleId
-        self.vehicleName = vehicleName
-        self.date = date
-        self.createdAt = Date()
+    @NSManaged var notes: String
+    @NSManaged var vehicle: Vehicle?
+
+    var stationLat: Double? {
+        get { stationLatNum?.doubleValue }
+        set { stationLatNum = newValue.map { NSNumber(value: $0) } }
+    }
+
+    var stationLng: Double? {
+        get { stationLngNum?.doubleValue }
+        set { stationLngNum = newValue.map { NSNumber(value: $0) } }
+    }
+
+    var adBlueLiters: Double? {
+        get { adBlueLitersNum?.doubleValue }
+        set { adBlueLitersNum = newValue.map { NSNumber(value: $0) } }
+    }
+
+    var adBluePricePerLiter: Double? {
+        get { adBluePricePerLiterNum?.doubleValue }
+        set { adBluePricePerLiterNum = newValue.map { NSNumber(value: $0) } }
+    }
+
+    var adBlueTotalPrice: Double? {
+        get { adBlueTotalPriceNum?.doubleValue }
+        set { adBlueTotalPriceNum = newValue.map { NSNumber(value: $0) } }
+    }
+
+    var pricePerLiter: Double? {
+        get { pricePerLiterNum?.doubleValue }
+        set { pricePerLiterNum = newValue.map { NSNumber(value: $0) } }
+    }
+
+    var liters: Double? {
+        get { litersNum?.doubleValue }
+        set { litersNum = newValue.map { NSNumber(value: $0) } }
+    }
+
+    var totalPrice: Double? {
+        get { totalPriceNum?.doubleValue }
+        set { totalPriceNum = newValue.map { NSNumber(value: $0) } }
+    }
+
+    var odometer: Double? {
+        get { odometerNum?.doubleValue }
+        set { odometerNum = newValue.map { NSNumber(value: $0) } }
     }
 
     var hasCoordinates: Bool {
         stationLat != nil && stationLng != nil
     }
+
+    /// Neuer Eintrag, mit dem Fahrzeug verknüpft und dessen Store zugeordnet.
+    @discardableResult
+    static func create(in context: NSManagedObjectContext, persistence: PersistenceController, vehicle: Vehicle) -> FuelEntry {
+        let entry = FuelEntry(context: context)
+        entry.externalId = UUID().uuidString
+        entry.vehicleId = vehicle.externalId
+        entry.vehicleName = vehicle.name
+        entry.date = Date()
+        entry.createdAt = Date()
+        entry.stationName = ""
+        entry.stationPlace = ""
+        entry.fuelType = vehicle.fuelType
+        entry.tireSeason = TireSeason.defaultFor(date: Date()).rawValue
+        entry.notes = ""
+        persistence.assign(entry, near: vehicle, in: context)
+        entry.vehicle = vehicle
+        return entry
+    }
 }
 
-/// Winziger Datensatz ohne Nutzdaten: Ein Update darauf erzeugt eine Änderung
-/// im Store und stößt damit die CloudKit-Synchronisierung manuell an.
-@Model
-final class SyncPing {
-    var updatedAt: Date = Date()
+// MARK: - Sync-Anstoß
 
-    init() {
-        updatedAt = Date()
-    }
+@objc(SyncPing)
+final class SyncPing: NSManagedObject {
+    @NSManaged var updatedAt: Date
 }
