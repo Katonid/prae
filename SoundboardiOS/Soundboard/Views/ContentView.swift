@@ -1,0 +1,315 @@
+import SwiftUI
+import UniformTypeIdentifiers
+
+struct ContentView: View {
+    @EnvironmentObject var store: BoardStore
+    @EnvironmentObject var engine: AudioEngine
+
+    @State private var editingPadID: UUID?
+    @State private var showBoardSettings = false
+    @State private var draggedPadID: UUID?
+
+    var body: some View {
+        GeometryReader { geo in
+            let wide = geo.size.width > 650
+            VStack(spacing: 0) {
+                header
+                boardChips
+                padGrid(columns: wide ? 4 : 2)
+                bottomBar
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            // Als .background beeinflusst das (überstehend skalierte) Foto die
+            // Größe der Oberfläche nicht – zuvor sprengte es das ganze Layout.
+            .background { background }
+            .overlay(alignment: .bottom) { toast }
+        }
+        .preferredColorScheme(.dark)
+        .sheet(item: $editingPadID) { padID in
+            PadEditorView(padID: padID)
+                .environmentObject(store)
+                .environmentObject(engine)
+        }
+        .sheet(isPresented: $showBoardSettings) {
+            BoardSettingsView()
+                .environmentObject(store)
+                .environmentObject(engine)
+        }
+    }
+
+    // MARK: - Hintergrund
+
+    @ViewBuilder
+    private var background: some View {
+        let board = store.activeBoard
+        ZStack {
+            StageBackground(boardColor: Color(hex: board?.colorHex ?? "#f7b32b"))
+            // Bild kommt aus dem Zwischenspeicher (einmal geladen und verkleinert).
+            if let board, let image = store.backgroundImage(for: board) {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFill()
+                    .overlay(Color.black.opacity(0.55))
+            }
+        }
+        .ignoresSafeArea()
+        .allowsHitTesting(false)
+    }
+
+    // MARK: - Kopfbereich
+
+    private var header: some View {
+        HStack {
+            Text(store.activeBoard?.displayIcon ?? "🎭")
+                .font(.title2)
+            Text(store.activeBoard?.name ?? "Soundboard")
+                .font(.system(.title2, design: .rounded, weight: .bold))
+                .foregroundStyle(.white)
+            Spacer()
+            Button {
+                showBoardSettings = true
+            } label: {
+                Image(systemName: "slider.horizontal.3")
+                    .font(.title3)
+                    .foregroundStyle(.white.opacity(0.85))
+                    .padding(8)
+                    .background(.white.opacity(0.08), in: Circle())
+            }
+        }
+        .padding(.horizontal)
+        .padding(.top, 6)
+    }
+
+    // MARK: - Board-Auswahl
+
+    @ViewBuilder
+    private var boardChips: some View {
+        let visible = store.visibleBoards
+        if visible.count > 1 || store.editMode {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(visible) { board in
+                        let active = board.id == store.activeBoard?.id
+                        let boardColor = Color(hex: board.colorHex)
+                        Button {
+                            Haptics.tap()
+                            store.selectBoard(board.id)
+                        } label: {
+                            HStack(spacing: 6) {
+                                Text(board.displayIcon)
+                                    .font(.footnote)
+                                Text(board.name)
+                                    .font(.system(.footnote, design: .rounded, weight: active ? .bold : .medium))
+                            }
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 7)
+                            // Jeder Reiter trägt immer die Farbe seines Boards –
+                            // der aktive kräftig, die übrigen dezent.
+                            .background(boardColor.opacity(active ? 0.45 : 0.16), in: Capsule())
+                            .overlay(
+                                Capsule().strokeBorder(
+                                    boardColor.opacity(active ? 0.95 : 0.4),
+                                    lineWidth: active ? 1.5 : 1
+                                )
+                            )
+                            .foregroundStyle(.white)
+                        }
+                    }
+
+                    if store.editMode {
+                        Button {
+                            Haptics.tap()
+                            store.addBoard()
+                        } label: {
+                            HStack(spacing: 4) {
+                                Image(systemName: "plus")
+                                Text("Board")
+                            }
+                            .font(.system(.footnote, design: .rounded, weight: .semibold))
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 7)
+                            .background(.white.opacity(0.06), in: Capsule())
+                            .overlay(
+                                Capsule().strokeBorder(
+                                    .white.opacity(0.3),
+                                    style: StrokeStyle(lineWidth: 1, dash: [4, 3])
+                                )
+                            )
+                            .foregroundStyle(.white.opacity(0.85))
+                        }
+                    }
+                }
+                .padding(.horizontal)
+                .padding(.vertical, 8)
+            }
+        } else {
+            Spacer().frame(height: 10)
+        }
+    }
+
+    // MARK: - Raster
+
+    private func padGrid(columns: Int) -> some View {
+        // Alle Felder behalten ihren Platz: Ausgeblendete Felder hinterlassen im
+        // Abspielmodus eine Lücke, statt die übrigen Kacheln aufrücken zu lassen.
+        let board = store.activeBoard
+        let pads = board?.pads ?? []
+        let spacing: CGFloat = 12
+        let grid = Array(repeating: GridItem(.flexible(), spacing: spacing), count: columns)
+
+        return Group {
+            if columns >= 4 {
+                // Breite Bildschirme (iPad): das ganze Raster passt ohne Scrollen auf den Schirm.
+                GeometryReader { geo in
+                    let rows = max(1, (pads.count + columns - 1) / columns)
+                    let cellHeight = max(44, (geo.size.height - spacing * CGFloat(rows - 1) - 12) / CGFloat(rows))
+                    LazyVGrid(columns: grid, spacing: spacing) {
+                        ForEach(pads) { pad in
+                            padCell(pad, boardID: board?.id)
+                                .frame(height: cellHeight)
+                        }
+                    }
+                    .padding(.horizontal)
+                }
+            } else {
+                ScrollView {
+                    LazyVGrid(columns: grid, spacing: spacing) {
+                        ForEach(pads) { pad in
+                            padCell(pad, boardID: board?.id)
+                                .aspectRatio(1.15, contentMode: .fit)
+                        }
+                    }
+                    .padding(.horizontal)
+                    .padding(.bottom, 12)
+                }
+            }
+        }
+        // Fängt Ablegen außerhalb der Felder ab, damit kein Feld abgedunkelt hängen bleibt.
+        .onDrop(of: [.text], isTargeted: nil) { _ in
+            draggedPadID = nil
+            return true
+        }
+    }
+
+    @ViewBuilder
+    private func padCell(_ pad: SoundPad, boardID: UUID?) -> some View {
+        if !store.editMode && pad.hidden {
+            // Platzhalter: hält die Position, ist aber unsichtbar und nicht antippbar.
+            Color.clear
+        } else {
+            let tile = PadView(pad: pad, isEditing: store.editMode, engine: engine) {
+                editingPadID = pad.id
+            }
+
+            if store.editMode {
+                // Im Bearbeiten-Modus: gedrückt halten und ziehen zum Sortieren.
+                tile
+                    .opacity(draggedPadID == pad.id ? 0.35 : 1)
+                    .onDrag {
+                        draggedPadID = pad.id
+                        return NSItemProvider(object: pad.id.uuidString as NSString)
+                    }
+                    .onDrop(of: [.text], delegate: PadDropDelegate(
+                        targetPadID: pad.id,
+                        boardID: boardID,
+                        draggedPadID: $draggedPadID,
+                        store: store
+                    ))
+            } else {
+                tile
+            }
+        }
+    }
+
+    // MARK: - Fußleiste
+
+    private var bottomBar: some View {
+        HStack(spacing: 8) {
+            Button {
+                Haptics.heavy()
+                engine.resetAll()
+                store.showStatus("Alle Töne auf Anfang gesetzt.")
+            } label: {
+                Label("Alle auf Anfang", systemImage: "backward.end.fill")
+                    .font(.system(.subheadline, design: .rounded, weight: .semibold))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .foregroundStyle(.white)
+            }
+
+            Button {
+                Haptics.tap()
+                draggedPadID = nil
+                withAnimation(.spring(duration: 0.3)) {
+                    store.editMode.toggle()
+                }
+                if store.editMode {
+                    store.showStatus("Feld antippen zum Bearbeiten, gedrückt halten zum Verschieben.")
+                }
+            } label: {
+                Label(store.editMode ? "Fertig" : "Bearbeiten",
+                      systemImage: store.editMode ? "checkmark" : "pencil")
+                    .font(.system(.subheadline, design: .rounded, weight: .semibold))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(
+                        store.editMode ? AnyShapeStyle(Color(hex: "#f7b32b").opacity(0.9)) : AnyShapeStyle(.white.opacity(0.06)),
+                        in: RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    )
+                    .foregroundStyle(store.editMode ? .black : .white)
+            }
+        }
+        .padding(6)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .strokeBorder(.white.opacity(0.08), lineWidth: 1)
+        )
+        .padding(.horizontal)
+        .padding(.bottom, 8)
+    }
+
+    // MARK: - Statusmeldung
+
+    @ViewBuilder
+    private var toast: some View {
+        if let message = store.statusMessage {
+            Text(message)
+                .font(.system(.footnote, design: .rounded, weight: .medium))
+                .foregroundStyle(.white)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 10)
+                .background(.black.opacity(0.8), in: Capsule())
+                .padding(.bottom, 70)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+                .animation(.spring(duration: 0.3), value: store.statusMessage)
+        }
+    }
+}
+
+/// Sortieren per Drag & Drop im Bearbeiten-Modus.
+private struct PadDropDelegate: DropDelegate {
+    let targetPadID: UUID
+    let boardID: UUID?
+    @Binding var draggedPadID: UUID?
+    let store: BoardStore
+
+    func dropEntered(info: DropInfo) {
+        guard let dragged = draggedPadID, dragged != targetPadID, let boardID else { return }
+        store.movePad(inBoard: boardID, from: dragged, to: targetPadID)
+    }
+
+    func dropUpdated(info: DropInfo) -> DropProposal? {
+        DropProposal(operation: .move)
+    }
+
+    func performDrop(info: DropInfo) -> Bool {
+        draggedPadID = nil
+        return true
+    }
+}
+
+extension UUID: @retroactive Identifiable {
+    public var id: UUID { self }
+}
