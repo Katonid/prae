@@ -239,7 +239,7 @@ final class AudioEngine: NSObject, ObservableObject {
             filePlayer?.currentTime = 0
             filePlayer?.volume = targetVolume
             previewPlayer?.pause()
-            previewPlayer?.seek(to: .zero)
+            _ = await previewPlayer?.seek(to: .zero)
             previewPlayer?.volume = targetVolume
             await MainActor.run { [weak self] in
                 self?.fadeTasks[padID] = nil
