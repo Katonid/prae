@@ -60,22 +60,28 @@ struct BoardSettingsView: View {
 
                 Section {
                     Toggle("Mit iCloud synchronisieren", isOn: $cloud.enabled)
-                    LabeledContent("Status",
-                                   value: !cloud.enabled ? "Aus" : (cloud.available ? "Aktiv" : "iCloud nicht verfügbar"))
+                    LabeledContent("Status", value: cloudStatusText)
                     if let last = cloud.lastSync {
                         LabeledContent("Letzter Abgleich",
                                        value: last.formatted(date: .abbreviated, time: .shortened))
                     }
                     Button {
-                        Task { await cloud.syncNow() }
+                        Task { await cloud.syncNow(manual: true) }
                     } label: {
-                        Label("Jetzt abgleichen", systemImage: "arrow.triangle.2.circlepath")
+                        if cloud.syncing {
+                            HStack(spacing: 8) {
+                                ProgressView()
+                                Text("Wird abgeglichen …")
+                            }
+                        } else {
+                            Label("Jetzt abgleichen", systemImage: "arrow.triangle.2.circlepath")
+                        }
                     }
-                    .disabled(!cloud.enabled || !cloud.available)
+                    .disabled(!cloud.enabled || cloud.syncing)
                 } header: {
                     Text("iCloud")
                 } footer: {
-                    Text("Gleicht Boards, Einstellungen, Tondateien und Hintergrundbilder über iCloud zwischen allen Geräten mit derselben Apple-ID ab. Bei Unterschieden gewinnt der zuletzt geänderte Stand.")
+                    Text("Gleicht Boards, Einstellungen, Tondateien und Hintergrundbilder über iCloud zwischen allen Geräten mit derselben Apple-ID ab. Bei Unterschieden gewinnt der zuletzt geänderte Stand.\n\nFalls „iCloud nicht verfügbar" angezeigt wird: In den iOS-Einstellungen oben auf deinen Namen tippen → iCloud → iCloud Drive einschalten. Beim allerersten Start kann die Einrichtung des iCloud-Speichers ein bis zwei Minuten dauern.")
                 }
 
                 Section {
@@ -160,7 +166,30 @@ struct BoardSettingsView: View {
             } message: {
                 Text("Alle Felder und Töne dieses Boards werden entfernt.")
             }
+            // Statusmeldungen auch hier anzeigen – der Toast der Hauptansicht
+            // liegt hinter diesem Fenster und wäre sonst unsichtbar.
+            .overlay(alignment: .bottom) {
+                if let message = store.statusMessage {
+                    Text(message)
+                        .font(.system(.footnote, design: .rounded, weight: .medium))
+                        .foregroundStyle(.white)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 10)
+                        .background(.black.opacity(0.85), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        .padding(.horizontal, 24)
+                        .padding(.bottom, 16)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                        .animation(.spring(duration: 0.3), value: store.statusMessage)
+                }
+            }
         }
+    }
+
+    private var cloudStatusText: String {
+        if !cloud.enabled { return "Aus" }
+        if cloud.syncing { return "Wird abgeglichen …" }
+        return cloud.available ? "Aktiv" : "iCloud nicht verfügbar"
     }
 
     private func prepareExport() {
