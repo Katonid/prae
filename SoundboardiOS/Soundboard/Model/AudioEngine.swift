@@ -183,6 +183,9 @@ final class AudioEngine: NSObject, ObservableObject {
     }
 
     private func play(_ pad: SoundPad, fromStart: Bool) {
+        // Sitzung ggf. reaktivieren (z. B. nach Unterbrechung durch Anruf),
+        // damit die Wiedergabe auch im Hintergrund weiterläuft.
+        try? AVAudioSession.sharedInstance().setActive(true)
         switch pad.source {
         case .file(_, let relativePath):
             guard let player = filePlayer(for: pad, relativePath: relativePath) else { return }
