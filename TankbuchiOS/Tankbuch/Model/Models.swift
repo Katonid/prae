@@ -227,3 +227,12 @@ final class FuelEntry: NSManagedObject {
 final class SyncPing: NSManagedObject {
     @NSManaged var updatedAt: Date
 }
+
+// Handgeschriebene NSManagedObject-Klassen bekommen die Identifiable-
+// Konformität nicht automatisch (das erledigt sonst Xcodes Codegen) –
+// für ForEach/sheet(item:) hier nachgerüstet; die id liefert die
+// AnyObject-Standardimplementierung.
+extension Tankbuch: Identifiable {}
+extension Vehicle: Identifiable {}
+extension FuelEntry: Identifiable {}
+extension SyncPing: Identifiable {}
