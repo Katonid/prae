@@ -159,6 +159,11 @@ struct ContentView: View {
             .padding(.horizontal)
             .padding(.bottom, 12)
         }
+        // Fängt Ablegen außerhalb der Felder ab, damit kein Feld abgedunkelt hängen bleibt.
+        .onDrop(of: [.text], isTargeted: nil) { _ in
+            draggedPadID = nil
+            return true
+        }
     }
 
     // MARK: - Fußleiste
@@ -180,6 +185,7 @@ struct ContentView: View {
 
             Button {
                 Haptics.tap()
+                draggedPadID = nil
                 withAnimation(.spring(duration: 0.3)) {
                     store.editMode.toggle()
                 }

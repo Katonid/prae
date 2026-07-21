@@ -13,6 +13,7 @@ final class AudioEngine: NSObject, ObservableObject {
 
     private var filePlayers: [UUID: AVAudioPlayer] = [:]
     private var previewPlayers: [UUID: AVPlayer] = [:]
+    private var previewObservers: [UUID: NSObjectProtocol] = [:]
     private var fadeTasks: [UUID: Task<Void, Never>] = [:]
     private var songCache: [String: Song] = [:]
 
@@ -32,6 +33,12 @@ final class AudioEngine: NSObject, ObservableObject {
         ticker = Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { [weak self] _ in
             Task { @MainActor [weak self] in
                 guard let self else { return }
+                // Zu Ende gespielte Apple-Music-Titel wieder freigeben.
+                if self.appleMusicPadID != nil,
+                   ApplicationMusicPlayer.shared.state.playbackStatus == .stopped {
+                    self.appleMusicPadID = nil
+                    self.tick &+= 1
+                }
                 if self.anyActivity { self.tick &+= 1 }
             }
         }
@@ -40,7 +47,8 @@ final class AudioEngine: NSObject, ObservableObject {
     private var anyActivity: Bool {
         if filePlayers.values.contains(where: { $0.isPlaying || $0.currentTime > 0 }) { return true }
         if previewPlayers.values.contains(where: { $0.timeControlStatus != .paused }) { return true }
-        if appleMusicPadID != nil { return true }
+        if appleMusicPadID != nil,
+           ApplicationMusicPlayer.shared.state.playbackStatus == .playing { return true }
         return false
     }
 
@@ -121,6 +129,9 @@ final class AudioEngine: NSObject, ObservableObject {
         filePlayers[padID] = nil
         previewPlayers[padID]?.pause()
         previewPlayers[padID] = nil
+        if let observer = previewObservers.removeValue(forKey: padID) {
+            NotificationCenter.default.removeObserver(observer)
+        }
         if appleMusicPadID == padID {
             ApplicationMusicPlayer.shared.stop()
             appleMusicPadID = nil
@@ -261,7 +272,7 @@ final class AudioEngine: NSObject, ObservableObject {
         let item = AVPlayerItem(url: url)
         let player = AVPlayer(playerItem: item)
         previewPlayers[pad.id] = player
-        NotificationCenter.default.addObserver(
+        previewObservers[pad.id] = NotificationCenter.default.addObserver(
             forName: .AVPlayerItemDidPlayToEndTime,
             object: item,
             queue: .main

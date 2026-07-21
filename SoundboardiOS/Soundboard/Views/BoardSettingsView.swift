@@ -77,6 +77,7 @@ struct BoardSettingsView: View {
                 contentType: .json,
                 defaultFilename: "Soundboard-Export"
             ) { result in
+                exportDocument = nil
                 if case .success = result {
                     store.showStatus("Export gespeichert.")
                 }
