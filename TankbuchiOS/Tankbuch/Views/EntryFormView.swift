@@ -132,6 +132,19 @@ struct EntryFormView: View {
             notesSection
             actionSection
         }
+        .scrollDismissesKeyboard(.interactively)
+        .toolbar {
+            // Der Ziffernblock hat keine Return-Taste – "Fertig" schließt
+            // die Tastatur, damit Tab-Leiste und Buttons erreichbar bleiben.
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button("Fertig") {
+                    focusedField = nil
+                    hideKeyboard()
+                }
+                .fontWeight(.semibold)
+            }
+        }
         .onAppear(perform: initializeOnce)
         // Vorbefüllter Kilometerstand: beim Antippen komplett markieren,
         // damit die Eingabe den alten Wert direkt ersetzt.
