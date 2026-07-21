@@ -138,6 +138,17 @@ final class AudioEngine: NSObject, ObservableObject {
         }
     }
 
+    /// Vergisst alle Player – z. B. wenn iCloud einen neuen Datenstand liefert.
+    func discardAll() {
+        for padID in Array(filePlayers.keys) { discard(padID: padID) }
+        for padID in Array(previewPlayers.keys) { discard(padID: padID) }
+        if appleMusicPadID != nil {
+            ApplicationMusicPlayer.shared.stop()
+            appleMusicPadID = nil
+        }
+        tick &+= 1
+    }
+
     /// Lautstärke eines bereits geladenen Players live anpassen.
     func applyVolume(_ pad: SoundPad) {
         filePlayers[pad.id]?.volume = Float(pad.volume)

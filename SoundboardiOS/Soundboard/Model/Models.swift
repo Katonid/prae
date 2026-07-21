@@ -100,9 +100,16 @@ struct SoundBoard: Codable, Identifiable, Equatable {
     var name: String = "Board"
     var colorHex: String = "#f7b32b"
     var hidden: Bool = false
+    /// Eigenes Emoji des Boards (nil = Standardsymbol 🎭).
+    var icon: String? = nil
     /// Dateiname des Hintergrundbilds unter Documents/Backgrounds/.
     var backgroundImagePath: String? = nil
     var pads: [SoundPad] = []
+
+    var displayIcon: String {
+        if let icon, !icon.isEmpty { return icon }
+        return "🎭"
+    }
 }
 
 /// Wurzelobjekt der gespeicherten Daten.
@@ -110,6 +117,8 @@ struct AppData: Codable {
     var version: Int = 1
     var boards: [SoundBoard] = []
     var activeBoardID: UUID? = nil
+    /// Zeitpunkt der letzten Nutzeränderung – Grundlage für den iCloud-Abgleich.
+    var savedAt: Date? = nil
 }
 
 enum BoardDefaults {

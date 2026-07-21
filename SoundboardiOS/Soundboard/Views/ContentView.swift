@@ -57,8 +57,8 @@ struct ContentView: View {
 
     private var header: some View {
         HStack {
-            Image(systemName: "theatermasks.fill")
-                .foregroundStyle(Color(hex: store.activeBoard?.colorHex ?? "#f7b32b"))
+            Text(store.activeBoard?.displayIcon ?? "🎭")
+                .font(.title2)
             Text(store.activeBoard?.name ?? "Soundboard")
                 .font(.system(.title2, design: .rounded, weight: .bold))
                 .foregroundStyle(.white)
@@ -82,7 +82,7 @@ struct ContentView: View {
     @ViewBuilder
     private var boardChips: some View {
         let visible = store.visibleBoards
-        if visible.count > 1 {
+        if visible.count > 1 || store.editMode {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
                     ForEach(visible) { board in
@@ -92,25 +92,47 @@ struct ContentView: View {
                             store.selectBoard(board.id)
                         } label: {
                             HStack(spacing: 6) {
-                                Circle()
-                                    .fill(Color(hex: board.colorHex))
-                                    .frame(width: 8, height: 8)
+                                Text(board.displayIcon)
+                                    .font(.footnote)
                                 Text(board.name)
                                     .font(.system(.footnote, design: .rounded, weight: active ? .bold : .medium))
                             }
                             .padding(.horizontal, 12)
                             .padding(.vertical, 7)
                             .background(
-                                active ? Color(hex: board.colorHex).opacity(0.3) : .white.opacity(0.07),
+                                active ? AnyShapeStyle(Color(hex: board.colorHex).opacity(0.32)) : AnyShapeStyle(.white.opacity(0.07)),
                                 in: Capsule()
                             )
                             .overlay(
                                 Capsule().strokeBorder(
-                                    active ? Color(hex: board.colorHex).opacity(0.8) : .clear,
-                                    lineWidth: 1.5
+                                    active ? Color(hex: board.colorHex).opacity(0.85) : Color.white.opacity(0.10),
+                                    lineWidth: active ? 1.5 : 1
                                 )
                             )
                             .foregroundStyle(.white)
+                        }
+                    }
+
+                    if store.editMode {
+                        Button {
+                            Haptics.tap()
+                            store.addBoard()
+                        } label: {
+                            HStack(spacing: 4) {
+                                Image(systemName: "plus")
+                                Text("Board")
+                            }
+                            .font(.system(.footnote, design: .rounded, weight: .semibold))
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 7)
+                            .background(.white.opacity(0.06), in: Capsule())
+                            .overlay(
+                                Capsule().strokeBorder(
+                                    .white.opacity(0.3),
+                                    style: StrokeStyle(lineWidth: 1, dash: [4, 3])
+                                )
+                            )
+                            .foregroundStyle(.white.opacity(0.85))
                         }
                     }
                 }
@@ -127,37 +149,35 @@ struct ContentView: View {
     private func padGrid(columns: Int) -> some View {
         let board = store.activeBoard
         let pads = (board?.pads ?? []).filter { store.editMode || !$0.hidden }
-        let grid = Array(repeating: GridItem(.flexible(), spacing: 12), count: columns)
+        let spacing: CGFloat = 12
+        let grid = Array(repeating: GridItem(.flexible(), spacing: spacing), count: columns)
 
-        return ScrollView {
-            LazyVGrid(columns: grid, spacing: 12) {
-                ForEach(pads) { pad in
-                    let tile = PadView(pad: pad, isEditing: store.editMode, engine: engine) {
-                        editingPadID = pad.id
+        return Group {
+            if columns >= 4 {
+                // Breite Bildschirme (iPad): das ganze Raster passt ohne Scrollen auf den Schirm.
+                GeometryReader { geo in
+                    let rows = max(1, (pads.count + columns - 1) / columns)
+                    let cellHeight = max(44, (geo.size.height - spacing * CGFloat(rows - 1) - 12) / CGFloat(rows))
+                    LazyVGrid(columns: grid, spacing: spacing) {
+                        ForEach(pads) { pad in
+                            padCell(pad, boardID: board?.id)
+                                .frame(height: cellHeight)
+                        }
                     }
-                    .aspectRatio(columns == 4 ? 1.35 : 1.15, contentMode: .fit)
-
-                    if store.editMode {
-                        // Im Bearbeiten-Modus: gedrückt halten und ziehen zum Sortieren.
-                        tile
-                            .opacity(draggedPadID == pad.id ? 0.35 : 1)
-                            .onDrag {
-                                draggedPadID = pad.id
-                                return NSItemProvider(object: pad.id.uuidString as NSString)
-                            }
-                            .onDrop(of: [.text], delegate: PadDropDelegate(
-                                targetPadID: pad.id,
-                                boardID: board?.id,
-                                draggedPadID: $draggedPadID,
-                                store: store
-                            ))
-                    } else {
-                        tile
+                    .padding(.horizontal)
+                }
+            } else {
+                ScrollView {
+                    LazyVGrid(columns: grid, spacing: spacing) {
+                        ForEach(pads) { pad in
+                            padCell(pad, boardID: board?.id)
+                                .aspectRatio(1.15, contentMode: .fit)
+                        }
                     }
+                    .padding(.horizontal)
+                    .padding(.bottom, 12)
                 }
             }
-            .padding(.horizontal)
-            .padding(.bottom, 12)
         }
         // Fängt Ablegen außerhalb der Felder ab, damit kein Feld abgedunkelt hängen bleibt.
         .onDrop(of: [.text], isTargeted: nil) { _ in
@@ -166,10 +186,35 @@ struct ContentView: View {
         }
     }
 
+    @ViewBuilder
+    private func padCell(_ pad: SoundPad, boardID: UUID?) -> some View {
+        let tile = PadView(pad: pad, isEditing: store.editMode, engine: engine) {
+            editingPadID = pad.id
+        }
+
+        if store.editMode {
+            // Im Bearbeiten-Modus: gedrückt halten und ziehen zum Sortieren.
+            tile
+                .opacity(draggedPadID == pad.id ? 0.35 : 1)
+                .onDrag {
+                    draggedPadID = pad.id
+                    return NSItemProvider(object: pad.id.uuidString as NSString)
+                }
+                .onDrop(of: [.text], delegate: PadDropDelegate(
+                    targetPadID: pad.id,
+                    boardID: boardID,
+                    draggedPadID: $draggedPadID,
+                    store: store
+                ))
+        } else {
+            tile
+        }
+    }
+
     // MARK: - Fußleiste
 
     private var bottomBar: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 8) {
             Button {
                 Haptics.heavy()
                 engine.resetAll()
@@ -179,7 +224,7 @@ struct ContentView: View {
                     .font(.system(.subheadline, design: .rounded, weight: .semibold))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
-                    .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 14))
+                    .background(.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                     .foregroundStyle(.white)
             }
 
@@ -199,12 +244,18 @@ struct ContentView: View {
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
                     .background(
-                        store.editMode ? Color(hex: "#f7b32b").opacity(0.85) : .white.opacity(0.08),
-                        in: RoundedRectangle(cornerRadius: 14)
+                        store.editMode ? AnyShapeStyle(Color(hex: "#f7b32b").opacity(0.9)) : AnyShapeStyle(.white.opacity(0.06)),
+                        in: RoundedRectangle(cornerRadius: 14, style: .continuous)
                     )
                     .foregroundStyle(store.editMode ? .black : .white)
             }
         }
+        .padding(6)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .strokeBorder(.white.opacity(0.08), lineWidth: 1)
+        )
         .padding(.horizontal)
         .padding(.bottom, 8)
     }

@@ -7,11 +7,13 @@ import UniformTypeIdentifiers
 struct BoardSettingsView: View {
     @EnvironmentObject var store: BoardStore
     @EnvironmentObject var engine: AudioEngine
+    @EnvironmentObject var cloud: CloudSync
     @Environment(\.dismiss) private var dismiss
 
     @State private var showExporter = false
     @State private var showImporter = false
     @State private var pendingImportURL: URL?
+    @State private var pendingDeleteBoardID: UUID?
     @State private var exportDocument: ExportDocument?
 
     var body: some View {
@@ -24,6 +26,7 @@ struct BoardSettingsView: View {
                                 .environmentObject(store)
                         } label: {
                             HStack {
+                                Text(board.displayIcon)
                                 Circle()
                                     .fill(Color(hex: board.colorHex))
                                     .frame(width: 12, height: 12)
@@ -38,10 +41,41 @@ struct BoardSettingsView: View {
                         }
                     }
                     .onMove { store.moveBoards(fromOffsets: $0, toOffset: $1) }
+                    .onDelete { offsets in
+                        if let index = offsets.first, store.boards.indices.contains(index) {
+                            pendingDeleteBoardID = store.boards[index].id
+                        }
+                    }
+
+                    Button {
+                        store.addBoard()
+                    } label: {
+                        Label("Neues Board hinzufügen", systemImage: "plus.circle.fill")
+                    }
                 } header: {
                     Text("Boards")
                 } footer: {
-                    Text("Zum Sortieren ziehen. Ausgeblendete Boards erscheinen nicht in der Auswahlleiste.")
+                    Text("Zum Sortieren ziehen, zum Löschen nach links wischen. Ausgeblendete Boards erscheinen nicht in der Auswahlleiste.")
+                }
+
+                Section {
+                    Toggle("Mit iCloud synchronisieren", isOn: $cloud.enabled)
+                    LabeledContent("Status",
+                                   value: !cloud.enabled ? "Aus" : (cloud.available ? "Aktiv" : "iCloud nicht verfügbar"))
+                    if let last = cloud.lastSync {
+                        LabeledContent("Letzter Abgleich",
+                                       value: last.formatted(date: .abbreviated, time: .shortened))
+                    }
+                    Button {
+                        Task { await cloud.syncNow() }
+                    } label: {
+                        Label("Jetzt abgleichen", systemImage: "arrow.triangle.2.circlepath")
+                    }
+                    .disabled(!cloud.enabled || !cloud.available)
+                } header: {
+                    Text("iCloud")
+                } footer: {
+                    Text("Gleicht Boards, Einstellungen, Tondateien und Hintergrundbilder über iCloud zwischen allen Geräten mit derselben Apple-ID ab. Bei Unterschieden gewinnt der zuletzt geänderte Stand.")
                 }
 
                 Section {
@@ -58,7 +92,7 @@ struct BoardSettingsView: View {
                 } header: {
                     Text("Sichern & Übertragen")
                 } footer: {
-                    Text("Der Export enthält alle Boards, Einstellungen und lokalen Tondateien. Beim Import werden die vorhandenen Daten ersetzt.")
+                    Text("Der Export enthält alle Boards, Einstellungen und lokalen Tondateien. Beim Import werden die vorhandenen Daten ersetzt. Auch Sicherungen der Theater-Soundboard-Webapp (.soundboard-Dateien) können importiert werden – inklusive aller Töne, Farben und Gesten.")
                 }
             }
             .navigationTitle("Boards & Daten")
@@ -84,7 +118,7 @@ struct BoardSettingsView: View {
             }
             .fileImporter(
                 isPresented: $showImporter,
-                allowedContentTypes: [.json],
+                allowedContentTypes: [.json, UTType(filenameExtension: "soundboard") ?? .data],
                 allowsMultipleSelection: false
             ) { result in
                 if case .success(let urls) = result, let url = urls.first {
@@ -97,7 +131,7 @@ struct BoardSettingsView: View {
             )) {
                 Button("Importieren", role: .destructive) {
                     if let url = pendingImportURL {
-                        engine.resetAll()
+                        engine.discardAll()
                         store.importData(from: url)
                     }
                     pendingImportURL = nil
@@ -107,6 +141,24 @@ struct BoardSettingsView: View {
                 }
             } message: {
                 Text("Beim Import werden alle vorhandenen Boards, Felder und Tondateien durch den Inhalt der Export-Datei ersetzt.")
+            }
+            .alert("Board löschen?", isPresented: Binding(
+                get: { pendingDeleteBoardID != nil },
+                set: { if !$0 { pendingDeleteBoardID = nil } }
+            )) {
+                Button("Löschen", role: .destructive) {
+                    if let boardID = pendingDeleteBoardID,
+                       let board = store.boards.first(where: { $0.id == boardID }) {
+                        board.pads.forEach { engine.discard(padID: $0.id) }
+                        store.deleteBoard(boardID)
+                    }
+                    pendingDeleteBoardID = nil
+                }
+                Button("Abbrechen", role: .cancel) {
+                    pendingDeleteBoardID = nil
+                }
+            } message: {
+                Text("Alle Felder und Töne dieses Boards werden entfernt.")
             }
         }
     }
@@ -141,6 +193,28 @@ struct BoardDetailView: View {
                 ))
             }
 
+            Section {
+                HStack {
+                    Text("Symbol")
+                    Spacer()
+                    TextField("🎭", text: Binding(
+                        get: { board.icon ?? "" },
+                        set: { value in
+                            // Nur das zuletzt eingegebene Zeichen behalten (ein Emoji).
+                            let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+                            store.updateBoard(boardID) {
+                                $0.icon = trimmed.isEmpty ? nil : String(trimmed.suffix(1))
+                            }
+                        }
+                    ))
+                    .multilineTextAlignment(.trailing)
+                    .frame(width: 80)
+                    .font(.title2)
+                }
+            } footer: {
+                Text("Über die Emoji-Taste der Tastatur ein beliebiges Symbol wählen. Feld leeren für das Standardsymbol 🎭.")
+            }
+
             Section("Farbe") {
                 LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 8), spacing: 10) {
                     ForEach(BoardDefaults.swatchColors, id: \.self) { hex in
@@ -159,6 +233,11 @@ struct BoardDetailView: View {
                     }
                 }
                 .padding(.vertical, 4)
+
+                ColorPicker("Eigene Farbe mischen", selection: Binding(
+                    get: { Color(hex: board.colorHex) },
+                    set: { newColor in store.updateBoard(boardID) { $0.colorHex = newColor.toHex() } }
+                ), supportsOpacity: false)
             }
 
             Section {

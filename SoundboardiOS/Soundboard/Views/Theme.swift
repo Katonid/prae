@@ -40,18 +40,27 @@ struct StageBackground: View {
     var body: some View {
         ZStack {
             LinearGradient(
-                colors: [Color(hex: "#1c1834"), Color(hex: "#0a0914")],
+                colors: [Color(hex: "#191537"), Color(hex: "#0c0a1a"), Color(hex: "#070610")],
                 startPoint: .top,
                 endPoint: .bottom
             )
+            // Scheinwerfer von oben in der Boardfarbe …
             RadialGradient(
-                colors: [boardColor.opacity(0.22), .clear],
-                center: .init(x: 0.5, y: -0.15),
+                colors: [boardColor.opacity(0.28), .clear],
+                center: .init(x: 0.5, y: -0.2),
                 startRadius: 0,
-                endRadius: 600
+                endRadius: 650
+            )
+            // … und ein leiser Widerschein von unten.
+            RadialGradient(
+                colors: [boardColor.opacity(0.10), .clear],
+                center: .init(x: 0.5, y: 1.2),
+                startRadius: 0,
+                endRadius: 500
             )
         }
         .ignoresSafeArea()
+        .animation(.easeInOut(duration: 0.6), value: boardColor)
     }
 }
 

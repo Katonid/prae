@@ -1,15 +1,21 @@
 # Soundboard (native iOS-App)
 
 Die native iOS-Version des [Theater-Soundboards](https://jerosch.net/apps/theater-soundboard):
-5 Boards mit je 16 frei belegbaren Feldern für Soundeffekte und Lieder – für iPhone und iPad,
+Boards mit je 16 frei belegbaren Feldern für Soundeffekte und Lieder – für iPhone und iPad,
 mit SwiftUI neu gestaltet und zusätzlich mit Anbindung an Streamingdienste
 (Apple Music, Deezer, Spotify).
 
 ## Funktionen
 
 **Boards & Felder**
-- 5 Boards mit je 16 Feldern, umschaltbar über die Board-Leiste oben
-- Boards lassen sich umbenennen, einfärben, sortieren und ausblenden
+- Beliebig viele Boards mit je 16 Feldern (Start: 5), umschaltbar über die
+  Board-Leiste oben; neue Boards über „Neues Board hinzufügen" in den
+  Board-Einstellungen oder das „+ Board" in der Leiste (Bearbeiten-Modus),
+  Löschen per Wischgeste in der Board-Liste
+- Auf dem iPad passt das 4 × 4-Raster vollständig ohne Scrollen auf den Bildschirm
+- Boards lassen sich umbenennen, einfärben, sortieren und ausblenden;
+  jedes Board bekommt auf Wunsch ein eigenes Emoji als Symbol
+- Farben überall wahlweise aus 16 Vorschlägen oder frei über den Farbmischer
 - Optionales Hintergrundbild pro Board (aus der Fotomediathek)
 - Felder mit Beschriftung, Farbe (16 Vorschläge + freie Farbwahl), Lautstärke,
   Ausblenddauer beim Stoppen (0–10 s) und Sichtbarkeits-Schalter
@@ -41,6 +47,12 @@ mit SwiftUI neu gestaltet und zusätzlich mit Anbindung an Streamingdienste
 - Vollständiger Export (Boards, Einstellungen, lokale Tondateien, Hintergrundbilder)
   als JSON-Datei, z. B. zum Übertragen auf ein anderes Gerät
 - Import ersetzt nach Rückfrage alle vorhandenen Daten
+- **PWA-Import:** Sicherungen der Theater-Soundboard-Webapp (.soundboard-Dateien)
+  werden erkannt und vollständig übernommen – Töne, Farben, Beschriftungen,
+  Lautstärken, Gesten und Hintergrundbilder
+- **iCloud-Synchronisierung:** Boards, Einstellungen und Tondateien werden über
+  iCloud zwischen allen Geräten mit derselben Apple-ID abgeglichen
+  (abschaltbar; bei Unterschieden gewinnt der zuletzt geänderte Stand)
 
 ## Projekt öffnen und bauen
 
@@ -57,6 +69,16 @@ App-ID `de.familie.soundboard` → App Services → MusicKit). Beim ersten Zugri
 fragt die App die Medien-Berechtigung ab (`NSAppleMusicUsageDescription` ist
 bereits hinterlegt). Die Wiedergabe in voller Länge erfordert ein aktives
 Apple-Music-Abo des angemeldeten Apple-Accounts.
+
+### Hinweise zu iCloud
+
+Die Synchronisierung nutzt den iCloud-Container `iCloud.de.familie.soundboard`
+(Berechtigungen in `Config/Soundboard.entitlements`). Beim ersten Bauen mit
+automatischem Signieren legt Xcode den Container im Developer-Konto an.
+Erscheint ein Signierfehler mit Bezug auf iCloud, unter *Signing &
+Capabilities* prüfen, dass das bezahlte Team gewählt ist, und erneut bauen.
+Auf den Geräten muss dieselbe Apple-ID mit aktiviertem iCloud Drive
+angemeldet sein.
 
 ### Hinweise zu Spotify und Deezer
 
