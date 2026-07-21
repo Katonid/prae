@@ -82,7 +82,7 @@ struct ContentView: View {
     @ViewBuilder
     private var boardChips: some View {
         let visible = store.visibleBoards
-        if visible.count > 1 {
+        if visible.count > 1 || store.editMode {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
                     ForEach(visible) { board in
@@ -100,16 +100,39 @@ struct ContentView: View {
                             .padding(.horizontal, 12)
                             .padding(.vertical, 7)
                             .background(
-                                active ? Color(hex: board.colorHex).opacity(0.3) : .white.opacity(0.07),
+                                active ? AnyShapeStyle(Color(hex: board.colorHex).opacity(0.32)) : AnyShapeStyle(.white.opacity(0.07)),
                                 in: Capsule()
                             )
                             .overlay(
                                 Capsule().strokeBorder(
-                                    active ? Color(hex: board.colorHex).opacity(0.8) : .clear,
-                                    lineWidth: 1.5
+                                    active ? Color(hex: board.colorHex).opacity(0.85) : Color.white.opacity(0.10),
+                                    lineWidth: active ? 1.5 : 1
                                 )
                             )
                             .foregroundStyle(.white)
+                        }
+                    }
+
+                    if store.editMode {
+                        Button {
+                            Haptics.tap()
+                            store.addBoard()
+                        } label: {
+                            HStack(spacing: 4) {
+                                Image(systemName: "plus")
+                                Text("Board")
+                            }
+                            .font(.system(.footnote, design: .rounded, weight: .semibold))
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 7)
+                            .background(.white.opacity(0.06), in: Capsule())
+                            .overlay(
+                                Capsule().strokeBorder(
+                                    .white.opacity(0.3),
+                                    style: StrokeStyle(lineWidth: 1, dash: [4, 3])
+                                )
+                            )
+                            .foregroundStyle(.white.opacity(0.85))
                         }
                     }
                 }
@@ -191,7 +214,7 @@ struct ContentView: View {
     // MARK: - Fußleiste
 
     private var bottomBar: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 8) {
             Button {
                 Haptics.heavy()
                 engine.resetAll()
@@ -201,7 +224,7 @@ struct ContentView: View {
                     .font(.system(.subheadline, design: .rounded, weight: .semibold))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
-                    .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 14))
+                    .background(.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                     .foregroundStyle(.white)
             }
 
@@ -221,12 +244,18 @@ struct ContentView: View {
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
                     .background(
-                        store.editMode ? Color(hex: "#f7b32b").opacity(0.85) : .white.opacity(0.08),
-                        in: RoundedRectangle(cornerRadius: 14)
+                        store.editMode ? AnyShapeStyle(Color(hex: "#f7b32b").opacity(0.9)) : AnyShapeStyle(.white.opacity(0.06)),
+                        in: RoundedRectangle(cornerRadius: 14, style: .continuous)
                     )
                     .foregroundStyle(store.editMode ? .black : .white)
             }
         }
+        .padding(6)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .strokeBorder(.white.opacity(0.08), lineWidth: 1)
+        )
         .padding(.horizontal)
         .padding(.bottom, 8)
     }

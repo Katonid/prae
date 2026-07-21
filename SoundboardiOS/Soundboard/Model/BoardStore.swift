@@ -95,6 +95,44 @@ final class BoardStore: ObservableObject {
         scheduleSave()
     }
 
+    /// Legt ein neues, leeres Board an und wechselt dorthin.
+    func addBoard() {
+        let index = boards.count
+        let board = SoundBoard(
+            name: "Board \(index + 1)",
+            colorHex: BoardDefaults.boardColors[index % BoardDefaults.boardColors.count],
+            hidden: false,
+            pads: (0..<BoardDefaults.padCount).map {
+                SoundPad(colorHex: BoardDefaults.padColors[$0 % BoardDefaults.padColors.count])
+            }
+        )
+        boards.append(board)
+        activeBoardID = board.id
+        scheduleSave()
+        showStatus("Neues Board angelegt.")
+    }
+
+    /// Löscht ein Board samt seiner gespeicherten Ton- und Bilddateien.
+    func deleteBoard(_ boardID: UUID) {
+        guard boards.count > 1 else {
+            showStatus("Das letzte Board kann nicht gelöscht werden.")
+            return
+        }
+        guard let index = boards.firstIndex(where: { $0.id == boardID }) else { return }
+        let board = boards[index]
+        for pad in board.pads {
+            deleteStoredAudio(of: pad.source)
+        }
+        if let background = board.backgroundImagePath {
+            try? FileManager.default.removeItem(at: Self.backgroundsDirURL.appendingPathComponent(background))
+        }
+        boards.remove(at: index)
+        if activeBoardID == boardID {
+            activeBoardID = visibleBoards.first?.id
+        }
+        scheduleSave()
+    }
+
     // MARK: - Statusmeldungen (Toast)
 
     func showStatus(_ message: String) {
@@ -373,7 +411,7 @@ final class BoardStore: ObservableObject {
         for board in sortedBoards {
             var newBoard = SoundBoard(
                 name: board.name ?? "Board \(board.id)",
-                colorHex: board.color ?? BoardDefaults.boardColors[(board.id - 1) % BoardDefaults.boardColors.count],
+                colorHex: board.color ?? Self.cycled(BoardDefaults.boardColors, board.id - 1),
                 hidden: board.hidden ?? false
             )
 
@@ -392,7 +430,7 @@ final class BoardStore: ObservableObject {
             for pad in sortedPads {
                 var newPad = SoundPad(
                     label: pad.label ?? "",
-                    colorHex: pad.color ?? BoardDefaults.padColors[(pad.id - 1) % BoardDefaults.padColors.count]
+                    colorHex: pad.color ?? Self.cycled(BoardDefaults.padColors, pad.id - 1)
                 )
                 newPad.volume = min(max(pad.volume ?? 1, 0), 1)
                 newPad.fadeOutSeconds = min(max(pad.fadeOutDuration ?? 0.5, 0), 10)
@@ -431,6 +469,12 @@ final class BoardStore: ObservableObject {
         activeBoardID = visibleBoards.first?.id
         saveNow()
         showStatus("PWA-Import abgeschlossen: \(importedAudio) Tondatei(en) übernommen.")
+    }
+
+    /// Sicherer zyklischer Zugriff, auch bei negativen Indizes (z. B. id 0 im Import).
+    private static func cycled(_ colors: [String], _ index: Int) -> String {
+        let count = colors.count
+        return colors[((index % count) + count) % count]
     }
 
     private static func audioExtension(fileName: String, mimeType: String?) -> String {

@@ -1,14 +1,17 @@
 # Soundboard (native iOS-App)
 
 Die native iOS-Version des [Theater-Soundboards](https://jerosch.net/apps/theater-soundboard):
-5 Boards mit je 16 frei belegbaren Feldern für Soundeffekte und Lieder – für iPhone und iPad,
+Boards mit je 16 frei belegbaren Feldern für Soundeffekte und Lieder – für iPhone und iPad,
 mit SwiftUI neu gestaltet und zusätzlich mit Anbindung an Streamingdienste
 (Apple Music, Deezer, Spotify).
 
 ## Funktionen
 
 **Boards & Felder**
-- 5 Boards mit je 16 Feldern, umschaltbar über die Board-Leiste oben
+- Beliebig viele Boards mit je 16 Feldern (Start: 5), umschaltbar über die
+  Board-Leiste oben; neue Boards über „Neues Board hinzufügen" in den
+  Board-Einstellungen oder das „+ Board" in der Leiste (Bearbeiten-Modus),
+  Löschen per Wischgeste in der Board-Liste
 - Auf dem iPad passt das 4 × 4-Raster vollständig ohne Scrollen auf den Bildschirm
 - Boards lassen sich umbenennen, einfärben, sortieren und ausblenden;
   jedes Board bekommt auf Wunsch ein eigenes Emoji als Symbol

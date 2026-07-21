@@ -132,6 +132,10 @@ final class AudioEngine: NSObject, ObservableObject {
         if let observer = previewObservers.removeValue(forKey: padID) {
             NotificationCenter.default.removeObserver(observer)
         }
+        if appleMusicPadID == padID {
+            ApplicationMusicPlayer.shared.stop()
+            appleMusicPadID = nil
+        }
     }
 
     /// Vergisst alle Player – z. B. wenn iCloud einen neuen Datenstand liefert.
@@ -143,10 +147,6 @@ final class AudioEngine: NSObject, ObservableObject {
             appleMusicPadID = nil
         }
         tick &+= 1
-        if appleMusicPadID == padID {
-            ApplicationMusicPlayer.shared.stop()
-            appleMusicPadID = nil
-        }
     }
 
     /// Lautstärke eines bereits geladenen Players live anpassen.

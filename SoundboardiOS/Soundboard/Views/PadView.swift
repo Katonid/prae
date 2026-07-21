@@ -17,18 +17,18 @@ struct PadView: View {
         tile
             .overlay {
                 if flash {
-                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    RoundedRectangle(cornerRadius: 22, style: .continuous)
                         .fill(.white.opacity(0.45))
                         .transition(.opacity)
                 }
             }
-            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-            .shadow(color: playing ? padColor.opacity(0.65) : .black.opacity(0.35),
-                    radius: playing ? 14 : 6, y: 4)
+            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .shadow(color: playing ? padColor.opacity(0.7) : .black.opacity(0.35),
+                    radius: playing ? 16 : 8, y: 5)
             .scaleEffect(playing ? 1.02 : 1.0)
             .animation(.spring(duration: 0.25), value: playing)
             .opacity(pad.hidden && isEditing ? 0.4 : 1)
-            .contentShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
             .modifier(PadGestures(pad: pad, isEditing: isEditing, engine: engine,
                                   onEdit: onEdit, onFlash: triggerFlash))
     }
@@ -38,16 +38,23 @@ struct PadView: View {
             LinearGradient(
                 colors: pad.source.isEmpty
                     ? [Color.white.opacity(0.06), Color.white.opacity(0.02)]
-                    : [padColor.opacity(playing ? 1.0 : 0.85), padColor.opacity(playing ? 0.75 : 0.45)],
+                    : [padColor.opacity(playing ? 1.0 : 0.9), padColor.opacity(playing ? 0.75 : 0.5)],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
 
-            if pad.source.isEmpty {
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .strokeBorder(style: StrokeStyle(lineWidth: 1.5, dash: [6, 5]))
-                    .foregroundStyle(.white.opacity(0.25))
-                    .padding(2)
+            // Sanfter Glanz am oberen Rand.
+            LinearGradient(
+                colors: [.white.opacity(pad.source.isEmpty ? 0.04 : 0.18), .white.opacity(0.02), .clear],
+                startPoint: .top,
+                endPoint: .center
+            )
+
+            if pad.source.isEmpty && isEditing {
+                Image(systemName: "plus.circle.fill")
+                    .font(.title)
+                    .foregroundStyle(.white.opacity(0.35))
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
 
             VStack(alignment: .leading, spacing: 4) {
@@ -65,19 +72,27 @@ struct PadView: View {
 
                 Spacer(minLength: 0)
 
-                Text(pad.source.isEmpty ? (isEditing ? "antippen zum Belegen" : "leer") : pad.displayLabel)
+                Text(pad.source.isEmpty ? (isEditing ? "" : "leer") : pad.displayLabel)
                     .font(.system(.subheadline, design: .rounded, weight: .bold))
-                    .foregroundStyle(pad.source.isEmpty ? .white.opacity(0.45) : .white)
+                    .foregroundStyle(pad.source.isEmpty ? .white.opacity(0.35) : .white)
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
                     .shadow(color: .black.opacity(0.4), radius: 2, y: 1)
 
                 statusLine
             }
-            .padding(10)
-            .padding(.bottom, 4)
+            .padding(12)
+            .padding(.bottom, 8)
 
             progressBar
+
+            // Feine Kontur; leuchtet beim Abspielen.
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .strokeBorder(
+                    .white.opacity(pad.source.isEmpty ? 0.10 : (playing ? 0.5 : 0.14)),
+                    lineWidth: playing ? 1.5 : 1
+                )
+                .allowsHitTesting(false)
         }
         .overlay(alignment: .topTrailing) {
             if isEditing {
@@ -125,11 +140,18 @@ struct PadView: View {
     private var progressBar: some View {
         if let progress, progress.duration > 0 {
             GeometryReader { geo in
-                Rectangle()
-                    .fill(.white.opacity(0.9))
-                    .frame(width: geo.size.width * min(1, progress.current / progress.duration), height: 3)
-                    .frame(maxHeight: .infinity, alignment: .bottom)
+                ZStack(alignment: .leading) {
+                    Capsule()
+                        .fill(.white.opacity(0.18))
+                    Capsule()
+                        .fill(.white.opacity(0.95))
+                        .frame(width: max(4, geo.size.width * min(1, progress.current / progress.duration)))
+                }
+                .frame(height: 4)
+                .frame(maxHeight: .infinity, alignment: .bottom)
             }
+            .padding(.horizontal, 12)
+            .padding(.bottom, 8)
             .allowsHitTesting(false)
         }
     }
@@ -150,9 +172,10 @@ struct ServiceBadge: View {
             Text(name)
         }
         .font(.system(size: 9, weight: .bold, design: .rounded))
-        .padding(.horizontal, 6)
+        .padding(.horizontal, 7)
         .padding(.vertical, 3)
-        .background(.black.opacity(0.35), in: Capsule())
+        .background(.ultraThinMaterial, in: Capsule())
+        .overlay(Capsule().strokeBorder(.white.opacity(0.15), lineWidth: 0.5))
         .foregroundStyle(.white.opacity(0.95))
     }
 

@@ -13,6 +13,7 @@ struct BoardSettingsView: View {
     @State private var showExporter = false
     @State private var showImporter = false
     @State private var pendingImportURL: URL?
+    @State private var pendingDeleteBoardID: UUID?
     @State private var exportDocument: ExportDocument?
 
     var body: some View {
@@ -40,10 +41,21 @@ struct BoardSettingsView: View {
                         }
                     }
                     .onMove { store.moveBoards(fromOffsets: $0, toOffset: $1) }
+                    .onDelete { offsets in
+                        if let index = offsets.first, store.boards.indices.contains(index) {
+                            pendingDeleteBoardID = store.boards[index].id
+                        }
+                    }
+
+                    Button {
+                        store.addBoard()
+                    } label: {
+                        Label("Neues Board hinzufügen", systemImage: "plus.circle.fill")
+                    }
                 } header: {
                     Text("Boards")
                 } footer: {
-                    Text("Zum Sortieren ziehen. Ausgeblendete Boards erscheinen nicht in der Auswahlleiste.")
+                    Text("Zum Sortieren ziehen, zum Löschen nach links wischen. Ausgeblendete Boards erscheinen nicht in der Auswahlleiste.")
                 }
 
                 Section {
@@ -129,6 +141,24 @@ struct BoardSettingsView: View {
                 }
             } message: {
                 Text("Beim Import werden alle vorhandenen Boards, Felder und Tondateien durch den Inhalt der Export-Datei ersetzt.")
+            }
+            .alert("Board löschen?", isPresented: Binding(
+                get: { pendingDeleteBoardID != nil },
+                set: { if !$0 { pendingDeleteBoardID = nil } }
+            )) {
+                Button("Löschen", role: .destructive) {
+                    if let boardID = pendingDeleteBoardID,
+                       let board = store.boards.first(where: { $0.id == boardID }) {
+                        board.pads.forEach { engine.discard(padID: $0.id) }
+                        store.deleteBoard(boardID)
+                    }
+                    pendingDeleteBoardID = nil
+                }
+                Button("Abbrechen", role: .cancel) {
+                    pendingDeleteBoardID = nil
+                }
+            } message: {
+                Text("Alle Felder und Töne dieses Boards werden entfernt.")
             }
         }
     }
