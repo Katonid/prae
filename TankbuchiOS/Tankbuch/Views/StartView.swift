@@ -68,13 +68,49 @@ struct StartView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 statusBand
+                newEntryButton
                 trendPanel
                 summaryPanel
                 annualPanel
             }
             .padding()
+            .padding(.bottom, 72)
         }
         .background(Color(.systemGroupedBackground))
+        .overlay(alignment: .bottomTrailing) {
+            floatingNewEntryButton
+        }
+    }
+
+    // MARK: Neuer Tankvorgang
+
+    private var newEntryButton: some View {
+        Button {
+            appModel.startNewEntry()
+        } label: {
+            Label("Neuer Tankvorgang", systemImage: "plus.circle.fill")
+                .font(.headline)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 6)
+        }
+        .buttonStyle(.borderedProminent)
+        .controlSize(.large)
+    }
+
+    private var floatingNewEntryButton: some View {
+        Button {
+            appModel.startNewEntry()
+        } label: {
+            Image(systemName: "plus")
+                .font(.title2.weight(.semibold))
+                .foregroundStyle(.white)
+                .frame(width: 56, height: 56)
+                .background(Color.accentColor)
+                .clipShape(Circle())
+                .shadow(radius: 4, y: 2)
+        }
+        .padding(20)
+        .accessibilityLabel("Neuer Tankvorgang")
     }
 
     // MARK: Statusband
@@ -194,24 +230,25 @@ struct StartView: View {
         .clipShape(RoundedRectangle(cornerRadius: 16))
     }
 
-    // MARK: Gesamtsummen (über alle Fahrzeuge, wie die PWA)
+    // MARK: Gesamtsummen (für das gewählte Fahrzeug)
 
     private var summaryPanel: some View {
-        let totalCost = entries.reduce(0.0) { $0 + ($1.totalPrice ?? 0) }
-        let totalLiters = entries.reduce(0.0) { $0 + ($1.liters ?? 0) }
-        let consumptions = TripMath.computedByEntryId(vehicles: vehicles, entries: entries)
-            .values
+        let computed = selectedVehicle.map { TripMath.computedEntries(for: $0, entries: entries) } ?? []
+        let vehicleEntries = computed.map(\.entry)
+        let totalCost = vehicleEntries.reduce(0.0) { $0 + ($1.totalPrice ?? 0) }
+        let totalLiters = vehicleEntries.reduce(0.0) { $0 + ($1.liters ?? 0) }
+        let consumptions = computed
             .compactMap { $0.entry.fullTank ? $0.trip.consumption : nil }
             .filter { $0 > 0 }
         let averageConsumption = consumptions.isEmpty ? nil : consumptions.reduce(0, +) / Double(consumptions.count)
 
         return VStack(alignment: .leading, spacing: 12) {
-            Text("Gesamt")
+            Text("Gesamt – \(selectedVehicle?.name ?? "Fahrzeug")")
                 .font(.headline)
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 140), spacing: 12)], spacing: 12) {
-                summaryTile("Tankvorgänge", entries.isEmpty ? "-" : String(entries.count))
-                summaryTile("Spritkosten", entries.isEmpty ? "-" : Format.currency(totalCost))
-                summaryTile("Liter", entries.isEmpty ? "-" : "\(Format.number(totalLiters, digits: 2)) l")
+                summaryTile("Tankvorgänge", vehicleEntries.isEmpty ? "-" : String(vehicleEntries.count))
+                summaryTile("Spritkosten", vehicleEntries.isEmpty ? "-" : Format.currency(totalCost))
+                summaryTile("Liter", vehicleEntries.isEmpty ? "-" : "\(Format.number(totalLiters, digits: 2)) l")
                 summaryTile("Ø Verbrauch", averageConsumption.map { "\(Format.number($0, digits: 1)) l/100 km" } ?? "-")
             }
         }

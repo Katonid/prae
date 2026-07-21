@@ -154,3 +154,14 @@ final class FuelEntry {
         stationLat != nil && stationLng != nil
     }
 }
+
+/// Winziger Datensatz ohne Nutzdaten: Ein Update darauf erzeugt eine Änderung
+/// im Store und stößt damit die CloudKit-Synchronisierung manuell an.
+@Model
+final class SyncPing {
+    var updatedAt: Date = Date()
+
+    init() {
+        updatedAt = Date()
+    }
+}
