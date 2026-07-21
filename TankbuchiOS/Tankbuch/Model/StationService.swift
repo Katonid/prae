@@ -170,12 +170,32 @@ enum StationService {
     }
 
     /// Ort/Adresse in Koordinaten auflösen (ersetzt Nominatim der PWA).
+    /// Erst der Adress-Geocoder (zuverlässig für Orte und Adressen), bei
+    /// Fehlschlag die Apple-Suche, die auch unscharfe Eingaben versteht.
     static func geocode(place: String) async -> (coordinate: CLLocationCoordinate2D, label: String)? {
         let geocoder = CLGeocoder()
-        guard let placemark = try? await geocoder.geocodeAddressString(place).first,
-              let location = placemark.location else { return nil }
-        let label = [placemark.name, placemark.locality].compactMap { $0 }.joined(separator: ", ")
-        return (location.coordinate, label.isEmpty ? place : label)
+        if let placemark = try? await geocoder.geocodeAddressString(place).first,
+           let location = placemark.location {
+            let label = [placemark.name, placemark.locality]
+                .compactMap { $0 }
+                .reduce(into: [String]()) { result, part in
+                    if !result.contains(part) { result.append(part) }
+                }
+                .joined(separator: ", ")
+            return (location.coordinate, label.isEmpty ? place : label)
+        }
+
+        let request = MKLocalSearch.Request()
+        request.naturalLanguageQuery = place
+        guard let response = try? await MKLocalSearch(request: request).start(),
+              let item = response.mapItems.first else { return nil }
+        let label = [item.name, item.placemark.locality]
+            .compactMap { $0 }
+            .reduce(into: [String]()) { result, part in
+                if !result.contains(part) { result.append(part) }
+            }
+            .joined(separator: ", ")
+        return (item.placemark.coordinate, label.isEmpty ? place : label)
     }
 
     // MARK: Hilfen
