@@ -35,6 +35,7 @@ mit SwiftUI neu gestaltet und zusätzlich mit Anbindung an Streamingdienste
 **Tonquellen pro Feld**
 - **Lokale Audiodatei** (über die Dateien-App, z. B. MP3/M4A/WAV) – wird in der App gespeichert
   und funktioniert komplett offline
+- **Mikrofonaufnahme** direkt in der App (mit Vorhören und Neu-Aufnehmen)
 - **Apple Music**: Titel direkt im Apple-Music-Katalog suchen und in voller Länge nativ
   abspielen (aktives Apple-Music-Abo und Anmeldung auf dem Gerät vorausgesetzt)
 - **Deezer**: Titel über die öffentliche Deezer-Suche finden; in der App wird die

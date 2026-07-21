@@ -43,13 +43,15 @@ struct ContentView: View {
     private var background: some View {
         let board = store.activeBoard
         StageBackground(boardColor: Color(hex: board?.colorHex ?? "#f7b32b"))
-        if let board, let url = store.backgroundImageURL(for: board),
-           let image = UIImage(contentsOfFile: url.path) {
+        // Bild kommt aus dem Zwischenspeicher (einmal geladen und verkleinert) –
+        // das Dekodieren bei jeder Bildaktualisierung hatte das iPhone lahmgelegt.
+        if let board, let image = store.backgroundImage(for: board) {
             Image(uiImage: image)
                 .resizable()
                 .scaledToFill()
                 .ignoresSafeArea()
                 .overlay(Color.black.opacity(0.55).ignoresSafeArea())
+                .allowsHitTesting(false)
         }
     }
 
@@ -87,6 +89,7 @@ struct ContentView: View {
                 HStack(spacing: 8) {
                     ForEach(visible) { board in
                         let active = board.id == store.activeBoard?.id
+                        let boardColor = Color(hex: board.colorHex)
                         Button {
                             Haptics.tap()
                             store.selectBoard(board.id)
@@ -99,13 +102,12 @@ struct ContentView: View {
                             }
                             .padding(.horizontal, 12)
                             .padding(.vertical, 7)
-                            .background(
-                                active ? AnyShapeStyle(Color(hex: board.colorHex).opacity(0.32)) : AnyShapeStyle(.white.opacity(0.07)),
-                                in: Capsule()
-                            )
+                            // Jeder Reiter trägt immer die Farbe seines Boards –
+                            // der aktive kräftig, die übrigen dezent.
+                            .background(boardColor.opacity(active ? 0.45 : 0.16), in: Capsule())
                             .overlay(
                                 Capsule().strokeBorder(
-                                    active ? Color(hex: board.colorHex).opacity(0.85) : Color.white.opacity(0.10),
+                                    boardColor.opacity(active ? 0.95 : 0.4),
                                     lineWidth: active ? 1.5 : 1
                                 )
                             )

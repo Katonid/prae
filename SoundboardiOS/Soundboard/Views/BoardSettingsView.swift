@@ -289,8 +289,7 @@ struct BoardDetailView: View {
             }
 
             Section("Hintergrundbild") {
-                if let url = store.backgroundImageURL(for: board),
-                   let image = UIImage(contentsOfFile: url.path) {
+                if let image = store.backgroundImage(for: board) {
                     Image(uiImage: image)
                         .resizable()
                         .scaledToFill()

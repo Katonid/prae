@@ -9,6 +9,7 @@ struct PadEditorView: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var showFileImporter = false
+    @State private var showRecorder = false
     @State private var streamingService: StreamingServiceKind?
 
     private var pad: SoundPad {
@@ -47,6 +48,11 @@ struct PadEditorView: View {
             .sheet(item: $streamingService) { service in
                 StreamingPickerView(service: service) { source in
                     assignStreaming(source: source)
+                }
+            }
+            .sheet(isPresented: $showRecorder) {
+                RecordingView { url in
+                    assignFile(url: url)
                 }
             }
         }
@@ -100,6 +106,11 @@ struct PadEditorView: View {
                 showFileImporter = true
             } label: {
                 Label("Audiodatei wählen …", systemImage: "folder")
+            }
+            Button {
+                showRecorder = true
+            } label: {
+                Label("Mit dem Mikrofon aufnehmen …", systemImage: "mic")
             }
             Button {
                 streamingService = .appleMusic
