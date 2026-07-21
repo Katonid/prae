@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import UIKit
 
 /// Verwaltet Boards und Felder, speichert alles im Documents-Verzeichnis
 /// (JSON-Datei + Audiodateien + Hintergrundbilder) und stellt Import/Export bereit.
@@ -18,6 +19,8 @@ final class BoardStore: ObservableObject {
 
     private var saveTask: Task<Void, Never>?
     private var statusTask: Task<Void, Never>?
+    /// Einmal geladene (und verkleinerte) Hintergrundbilder, Schlüssel = Dateiname.
+    private var backgroundImageCache: [String: UIImage] = [:]
 
     // MARK: - Pfade
 
@@ -75,7 +78,10 @@ final class BoardStore: ObservableObject {
 
     func selectBoard(_ boardID: UUID) {
         activeBoardID = boardID
-        scheduleSave()
+        // Reine Navigation: speichern, aber NICHT als inhaltliche Änderung werten –
+        // sonst erklärt sich jedes Gerät beim bloßen Umschalten zum "neuesten Stand"
+        // und der iCloud-Abgleich übernimmt echte Änderungen anderer Geräte nie.
+        scheduleSave(markUserChange: false)
     }
 
     func movePad(inBoard boardID: UUID, from source: UUID, to target: UUID) {
@@ -167,11 +173,11 @@ final class BoardStore: ObservableObject {
         }
     }
 
-    func scheduleSave() {
+    func scheduleSave(markUserChange: Bool = true) {
         saveTask?.cancel()
         saveTask = Task {
             try? await Task.sleep(for: .milliseconds(400))
-            if !Task.isCancelled { saveNow() }
+            if !Task.isCancelled { saveNow(markUserChange: markUserChange) }
         }
     }
 
@@ -191,9 +197,17 @@ final class BoardStore: ObservableObject {
 
     /// Übernimmt einen kompletten Datenstand aus iCloud (Mediendateien liegen bereits lokal).
     func adopt(data: AppData) {
+        let previousActive = activeBoardID
         boards = data.boards
-        activeBoardID = data.activeBoardID ?? boards.first?.id
+        // Das lokal gewählte Board beibehalten, wenn es noch existiert –
+        // sonst springt die Ansicht bei jedem Abgleich zum Board des anderen Geräts.
+        if let previousActive, boards.contains(where: { $0.id == previousActive }) {
+            activeBoardID = previousActive
+        } else {
+            activeBoardID = data.activeBoardID ?? boards.first?.id
+        }
         savedAt = data.savedAt
+        backgroundImageCache.removeAll()
         if let active = activeBoard, active.hidden, let firstVisible = visibleBoards.first {
             activeBoardID = firstVisible.id
         }
@@ -236,10 +250,12 @@ final class BoardStore: ObservableObject {
         let name = UUID().uuidString + ".jpg"
         let target = Self.backgroundsDirURL.appendingPathComponent(name)
         do {
-            try data.write(to: target, options: .atomic)
+            let jpeg = Self.downscaledJPEG(from: data) ?? data
+            try jpeg.write(to: target, options: .atomic)
             updateBoard(boardID) { board in
                 if let old = board.backgroundImagePath {
                     try? FileManager.default.removeItem(at: Self.backgroundsDirURL.appendingPathComponent(old))
+                    backgroundImageCache[old] = nil
                 }
                 board.backgroundImagePath = name
             }
@@ -252,6 +268,7 @@ final class BoardStore: ObservableObject {
         updateBoard(boardID) { board in
             if let old = board.backgroundImagePath {
                 try? FileManager.default.removeItem(at: Self.backgroundsDirURL.appendingPathComponent(old))
+                backgroundImageCache[old] = nil
             }
             board.backgroundImagePath = nil
         }
@@ -260,6 +277,39 @@ final class BoardStore: ObservableObject {
     func backgroundImageURL(for board: SoundBoard) -> URL? {
         guard let path = board.backgroundImagePath else { return nil }
         return Self.backgroundsDirURL.appendingPathComponent(path)
+    }
+
+    /// Liefert das Hintergrundbild eines Boards aus dem Zwischenspeicher.
+    /// Wird nur einmal von der Festplatte geladen und dabei auf eine
+    /// darstellungsfreundliche Größe verkleinert – große Fotos hatten sonst
+    /// die Oberfläche lahmgelegt (Laden bei jeder Bildaktualisierung).
+    func backgroundImage(for board: SoundBoard) -> UIImage? {
+        guard let path = board.backgroundImagePath else { return nil }
+        if let cached = backgroundImageCache[path] { return cached }
+        let url = Self.backgroundsDirURL.appendingPathComponent(path)
+        guard let raw = UIImage(contentsOfFile: url.path) else { return nil }
+        let image = Self.downscaled(raw)
+        backgroundImageCache[path] = image
+        return image
+    }
+
+    /// Verkleinert ein Bild auf höchstens 2048 px Kantenlänge.
+    private static func downscaled(_ image: UIImage, maxDimension: CGFloat = 2048) -> UIImage {
+        let largest = max(image.size.width, image.size.height)
+        guard largest > maxDimension, largest > 0 else { return image }
+        let scale = maxDimension / largest
+        let newSize = CGSize(width: image.size.width * scale, height: image.size.height * scale)
+        let format = UIGraphicsImageRendererFormat.default()
+        format.scale = 1
+        return UIGraphicsImageRenderer(size: newSize, format: format).image { _ in
+            image.draw(in: CGRect(origin: .zero, size: newSize))
+        }
+    }
+
+    /// Dekodiert Bilddaten, verkleinert sie und liefert JPEG-Daten zurück.
+    private static func downscaledJPEG(from data: Data) -> Data? {
+        guard let image = UIImage(data: data) else { return nil }
+        return downscaled(image).jpegData(compressionQuality: 0.8)
     }
 
     // MARK: - Export / Import
@@ -322,6 +372,7 @@ final class BoardStore: ObservableObject {
         try? FileManager.default.removeItem(at: Self.backgroundsDirURL)
         try? FileManager.default.createDirectory(at: Self.audioDirURL, withIntermediateDirectories: true)
         try? FileManager.default.createDirectory(at: Self.backgroundsDirURL, withIntermediateDirectories: true)
+        backgroundImageCache.removeAll()
     }
 
     private func importIOSExport(_ file: ExportFile) {
@@ -419,7 +470,9 @@ final class BoardStore: ObservableObject {
                let base64 = bg.dataBase64,
                let bytes = Data(base64Encoded: base64) {
                 let name = UUID().uuidString + ".jpg"
-                try? bytes.write(to: Self.backgroundsDirURL.appendingPathComponent(name))
+                // Verkleinern: PWA-Exporte enthalten Fotos oft in Originalgröße.
+                let jpeg = Self.downscaledJPEG(from: bytes) ?? bytes
+                try? jpeg.write(to: Self.backgroundsDirURL.appendingPathComponent(name))
                 newBoard.backgroundImagePath = name
             }
 

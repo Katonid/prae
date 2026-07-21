@@ -43,13 +43,15 @@ struct ContentView: View {
     private var background: some View {
         let board = store.activeBoard
         StageBackground(boardColor: Color(hex: board?.colorHex ?? "#f7b32b"))
-        if let board, let url = store.backgroundImageURL(for: board),
-           let image = UIImage(contentsOfFile: url.path) {
+        // Bild kommt aus dem Zwischenspeicher (einmal geladen und verkleinert) –
+        // das Dekodieren bei jeder Bildaktualisierung hatte das iPhone lahmgelegt.
+        if let board, let image = store.backgroundImage(for: board) {
             Image(uiImage: image)
                 .resizable()
                 .scaledToFill()
                 .ignoresSafeArea()
                 .overlay(Color.black.opacity(0.55).ignoresSafeArea())
+                .allowsHitTesting(false)
         }
     }
 
