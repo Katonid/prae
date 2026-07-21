@@ -1,5 +1,5 @@
 import Foundation
-import SwiftData
+import CoreData
 
 // Import und Export von Datensicherungen im JSON-Format der Tankbuch-PWA
 // (`tankbuch-backup-JJJJ-MM-TT.json`). Der Import akzeptiert wie die PWA
@@ -121,29 +121,41 @@ enum Backup {
     }
 
     /// Ersetzt alle lokalen Daten durch das Backup (wie der PWA-Import).
-    /// Die Löschungen und Neuanlagen synchronisieren über iCloud auf alle Geräte.
-    static func apply(_ backup: ParsedBackup, context: ModelContext) throws {
-        let existingVehicles = try context.fetch(FetchDescriptor<Vehicle>())
-        let existingEntries = try context.fetch(FetchDescriptor<FuelEntry>())
+    /// Die Löschungen und Neuanlagen synchronisieren über iCloud auf alle
+    /// Geräte – bei einem geteilten Tankbuch auch zum Partner.
+    static func apply(_ backup: ParsedBackup, context: NSManagedObjectContext, persistence: PersistenceController) throws {
+        let existingVehicles = try context.fetch(NSFetchRequest<Vehicle>(entityName: "Vehicle"))
+        let existingEntries = try context.fetch(NSFetchRequest<FuelEntry>(entityName: "FuelEntry"))
         existingVehicles.forEach { context.delete($0) }
         existingEntries.forEach { context.delete($0) }
 
+        let root = persistence.activeRoot(in: context)
+
+        var vehiclesById: [String: Vehicle] = [:]
         for item in backup.vehicles {
-            let vehicle = Vehicle(
-                externalId: item.id,
-                name: item.name,
-                plate: item.plate,
-                fuelType: item.fuelType,
-                defaultPrice: item.defaultPrice,
-                startOdometer: item.startOdometer,
-                photoData: item.photoData
-            )
-            context.insert(vehicle)
+            let vehicle = Vehicle(context: context)
+            persistence.assign(vehicle, near: root, in: context)
+            vehicle.externalId = item.id
+            vehicle.name = item.name
+            vehicle.plate = item.plate
+            vehicle.fuelType = item.fuelType
+            vehicle.defaultPrice = item.defaultPrice
+            vehicle.startOdometer = item.startOdometer
+            vehicle.photoData = item.photoData
+            vehicle.createdAt = Date()
+            vehicle.root = root
+            vehiclesById[item.id] = vehicle
         }
 
         for item in backup.entries {
-            let entry = FuelEntry(externalId: item.id, vehicleId: item.vehicleId, vehicleName: item.vehicleName, date: item.date)
-            if let createdAt = item.createdAt { entry.createdAt = createdAt }
+            guard let vehicle = vehiclesById[item.vehicleId] else { continue }
+            let entry = FuelEntry(context: context)
+            persistence.assign(entry, near: vehicle, in: context)
+            entry.externalId = item.id
+            entry.vehicleId = item.vehicleId
+            entry.vehicleName = item.vehicleName
+            entry.date = item.date
+            entry.createdAt = item.createdAt ?? Date()
             entry.updatedAt = item.updatedAt
             entry.stationId = item.stationId
             entry.stationName = item.stationName
@@ -164,7 +176,7 @@ enum Backup {
             entry.totalPrice = item.totalPrice
             entry.odometer = item.odometer
             entry.notes = item.notes
-            context.insert(entry)
+            entry.vehicle = vehicle
         }
 
         try context.save()

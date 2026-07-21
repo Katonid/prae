@@ -1,5 +1,5 @@
 import SwiftUI
-import SwiftData
+import CoreData
 import PhotosUI
 import UniformTypeIdentifiers
 import UIKit
@@ -9,9 +9,9 @@ import UIKit
 
 struct SettingsView: View {
     @EnvironmentObject private var appModel: AppModel
-    @Environment(\.modelContext) private var modelContext
-    @Query(sort: \Vehicle.createdAt) private var vehicles: [Vehicle]
-    @Query private var entries: [FuelEntry]
+    @Environment(\.managedObjectContext) private var viewContext
+    @FetchRequest(sortDescriptors: [SortDescriptor(\Vehicle.createdAt)]) private var vehicles: FetchedResults<Vehicle>
+    @FetchRequest(sortDescriptors: []) private var entries: FetchedResults<FuelEntry>
 
     @State private var vehicleToEdit: Vehicle?
     @State private var showNewVehicle = false
@@ -30,6 +30,7 @@ struct SettingsView: View {
         NavigationStack {
             Form {
                 vehiclesSection
+                SharingSection()
                 appearanceSection
                 apiKeySection
                 backupSection
@@ -239,7 +240,7 @@ struct SettingsView: View {
         guard let backup = pendingBackup else { return }
         pendingBackup = nil
         do {
-            try Backup.apply(backup, context: modelContext)
+            try Backup.apply(backup, context: viewContext, persistence: PersistenceController.shared)
             if let key = backup.tankerkoenigApiKey, !key.isEmpty {
                 appModel.tankerkoenigApiKey = key
             }
@@ -257,8 +258,8 @@ struct SettingsView: View {
     private func prepareExport() {
         do {
             let data = try Backup.export(
-                vehicles: vehicles,
-                entries: entries,
+                vehicles: Array(vehicles),
+                entries: Array(entries),
                 selectedVehicleId: appModel.selectedVehicleId,
                 tankerkoenigApiKey: appModel.tankerkoenigApiKey
             )
@@ -274,15 +275,18 @@ struct SettingsView: View {
     /// den Abgleich (auch auf den anderen Geräten).
     private func triggerSync() {
         do {
-            let pings = try modelContext.fetch(FetchDescriptor<SyncPing>())
+            let request = NSFetchRequest<SyncPing>(entityName: "SyncPing")
+            let pings = try viewContext.fetch(request)
             if let ping = pings.first {
                 ping.updatedAt = Date()
                 // Durch parallele Geräte entstandene Duplikate aufräumen.
-                pings.dropFirst().forEach { modelContext.delete($0) }
+                pings.dropFirst().forEach { viewContext.delete($0) }
             } else {
-                modelContext.insert(SyncPing())
+                let ping = SyncPing(context: viewContext)
+                PersistenceController.shared.assign(ping, near: nil, in: viewContext)
+                ping.updatedAt = Date()
             }
-            try modelContext.save()
+            try viewContext.save()
             syncMessage = "Synchronisierung angestoßen – Ergebnis erscheint oben."
         } catch {
             syncMessage = "Synchronisierung konnte nicht angestoßen werden: \(error.localizedDescription)"
@@ -294,10 +298,10 @@ struct SettingsView: View {
         vehicleToDelete = nil
 
         for entry in entries where entry.vehicleId == vehicle.externalId {
-            modelContext.delete(entry)
+            viewContext.delete(entry)
         }
-        modelContext.delete(vehicle)
-        try? modelContext.save()
+        viewContext.delete(vehicle)
+        try? viewContext.save()
 
         if appModel.selectedVehicleId == vehicle.externalId {
             appModel.selectedVehicleId = vehicles.first { $0.externalId != vehicle.externalId }?.externalId ?? ""
@@ -331,7 +335,7 @@ struct VehicleEditView: View {
     let vehicle: Vehicle?
 
     @EnvironmentObject private var appModel: AppModel
-    @Environment(\.modelContext) private var modelContext
+    @Environment(\.managedObjectContext) private var viewContext
     @Environment(\.dismiss) private var dismiss
 
     @State private var name = ""
@@ -462,8 +466,7 @@ struct VehicleEditView: View {
         if let vehicle {
             target = vehicle
         } else {
-            target = Vehicle()
-            modelContext.insert(target)
+            target = Vehicle.create(in: viewContext, persistence: PersistenceController.shared)
         }
 
         target.name = trimmedName
@@ -473,7 +476,12 @@ struct VehicleEditView: View {
         target.startOdometer = Format.parseNumber(startOdometerText)
         target.photoData = photoData
 
-        try? modelContext.save()
+        do {
+            try viewContext.save()
+        } catch {
+            errorMessage = "Speichern fehlgeschlagen: \(error.localizedDescription)"
+            return
+        }
 
         if vehicle == nil || appModel.selectedVehicleId.isEmpty {
             appModel.selectedVehicleId = target.externalId

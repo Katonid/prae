@@ -1,5 +1,5 @@
 import SwiftUI
-import SwiftData
+import CoreData
 import CoreLocation
 
 // Tankvorgang erfassen/bearbeiten – portiert aus dem PWA-Formular inklusive
@@ -9,7 +9,7 @@ import CoreLocation
 /// Tab-Variante: immer ein neuer Eintrag.
 struct EntryFormScreen: View {
     @EnvironmentObject private var appModel: AppModel
-    @Query(sort: \Vehicle.createdAt) private var vehicles: [Vehicle]
+    @FetchRequest(sortDescriptors: [SortDescriptor(\Vehicle.createdAt)]) private var vehicles: FetchedResults<Vehicle>
 
     var body: some View {
         NavigationStack {
@@ -67,9 +67,9 @@ struct EntryFormView: View {
     }
 
     @EnvironmentObject private var appModel: AppModel
-    @Environment(\.modelContext) private var modelContext
-    @Query(sort: \Vehicle.createdAt) private var vehicles: [Vehicle]
-    @Query private var allEntries: [FuelEntry]
+    @Environment(\.managedObjectContext) private var viewContext
+    @FetchRequest(sortDescriptors: [SortDescriptor(\Vehicle.createdAt)]) private var vehicles: FetchedResults<Vehicle>
+    @FetchRequest(sortDescriptors: []) private var allEntries: FetchedResults<FuelEntry>
 
     // Formularzustand
     @State private var vehicleId = ""
@@ -400,8 +400,8 @@ struct EntryFormView: View {
             return
         }
 
-        let stationPrice = TripMath.lastStationPrice(entries: allEntries, stationId: stationId, stationName: stationName, fuelType: fuelType)
-        let vehiclePrice = TripMath.lastVehiclePrice(entries: allEntries, vehicleId: vehicle.externalId, fuelType: fuelType)
+        let stationPrice = TripMath.lastStationPrice(entries: Array(allEntries), stationId: stationId, stationName: stationName, fuelType: fuelType)
+        let vehiclePrice = TripMath.lastVehiclePrice(entries: Array(allEntries), vehicleId: vehicle.externalId, fuelType: fuelType)
         let defaultPrice = vehicle.defaultPrice
         let fallback = stationPrice ?? vehiclePrice ?? defaultPrice
 
@@ -483,7 +483,7 @@ struct EntryFormView: View {
             liters: Format.parseNumber(litersText),
             totalPrice: Format.parseNumber(totalText),
             vehicle: vehicle,
-            entries: allEntries,
+            entries: Array(allEntries),
             date: date,
             fullTank: fullTank,
             ignoredEntryId: entryToEdit?.externalId
@@ -543,15 +543,27 @@ struct EntryFormView: View {
             }
         }
 
+        let persistence = PersistenceController.shared
         let entry: FuelEntry
         if let existing = entryToEdit {
-            entry = existing
+            // Wechselt der Eintrag zu einem Fahrzeug in einem anderen Store
+            // (privat ↔ geteilt), muss er dort neu angelegt werden –
+            // storeübergreifende Beziehungen sind nicht erlaubt.
+            if let vehicleStore = vehicle.objectID.persistentStore,
+               let entryStore = existing.objectID.persistentStore,
+               vehicleStore !== entryStore {
+                viewContext.delete(existing)
+                entry = FuelEntry.create(in: viewContext, persistence: persistence, vehicle: vehicle)
+                entry.createdAt = existing.createdAt
+            } else {
+                entry = existing
+            }
             entry.updatedAt = Date()
         } else {
-            entry = FuelEntry(vehicleId: vehicle.externalId, vehicleName: vehicle.name, date: date)
-            modelContext.insert(entry)
+            entry = FuelEntry.create(in: viewContext, persistence: persistence, vehicle: vehicle)
         }
 
+        entry.vehicle = vehicle
         entry.vehicleId = vehicle.externalId
         entry.vehicleName = vehicle.name
         entry.date = date
@@ -578,7 +590,12 @@ struct EntryFormView: View {
         vehicle.defaultPrice = price
         appModel.selectedVehicleId = vehicle.externalId
 
-        try? modelContext.save()
+        do {
+            try viewContext.save()
+        } catch {
+            statusMessage = "Speichern fehlgeschlagen: \(error.localizedDescription)"
+            return
+        }
 
         if isEditing {
             onDone?()
@@ -591,8 +608,8 @@ struct EntryFormView: View {
 
     private func deleteEntry() {
         guard let entry = entryToEdit else { return }
-        modelContext.delete(entry)
-        try? modelContext.save()
+        viewContext.delete(entry)
+        try? viewContext.save()
         onDone?()
     }
 }

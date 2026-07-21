@@ -1,34 +1,46 @@
 import SwiftUI
-import SwiftData
+import CoreData
+import CloudKit
+import UIKit
 
 @main
 struct TankbuchApp: App {
-    let container: ModelContainer
+    @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @StateObject private var appModel = AppModel()
-
-    init() {
-        let schema = Schema([Vehicle.self, FuelEntry.self, SyncPing.self])
-        do {
-            // Mit iCloud-Capability synchronisiert SwiftData automatisch über
-            // CloudKit; ohne Capability läuft die App rein lokal weiter.
-            let config = ModelConfiguration(schema: schema, cloudKitDatabase: .automatic)
-            container = try ModelContainer(for: schema, configurations: [config])
-        } catch {
-            do {
-                let localConfig = ModelConfiguration(schema: schema, cloudKitDatabase: .none)
-                container = try ModelContainer(for: schema, configurations: [localConfig])
-            } catch {
-                let memoryConfig = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
-                container = try! ModelContainer(for: schema, configurations: [memoryConfig])
-            }
-        }
-    }
+    private let persistence = PersistenceController.shared
 
     var body: some Scene {
         WindowGroup {
             ContentView()
                 .environmentObject(appModel)
+                .environment(\.managedObjectContext, persistence.viewContext)
         }
-        .modelContainer(container)
+    }
+}
+
+// Der Scene-Delegate nimmt iCloud-Freigabe-Einladungen an (Tippen auf den
+// Einladungslink startet die App mit den Share-Metadaten).
+
+final class AppDelegate: NSObject, UIApplicationDelegate {
+    func application(
+        _ application: UIApplication,
+        configurationForConnecting connectingSceneSession: UISceneSession,
+        options: UIScene.ConnectionOptions
+    ) -> UISceneConfiguration {
+        let configuration = UISceneConfiguration(name: nil, sessionRole: connectingSceneSession.role)
+        configuration.delegateClass = SceneDelegate.self
+        return configuration
+    }
+}
+
+final class SceneDelegate: NSObject, UIWindowSceneDelegate {
+    func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
+        if let metadata = connectionOptions.cloudKitShareMetadata {
+            PersistenceController.shared.acceptShareInvitation(metadata)
+        }
+    }
+
+    func windowScene(_ windowScene: UIWindowScene, userDidAcceptCloudKitShareWith cloudKitShareMetadata: CKShare.Metadata) {
+        PersistenceController.shared.acceptShareInvitation(cloudKitShareMetadata)
     }
 }

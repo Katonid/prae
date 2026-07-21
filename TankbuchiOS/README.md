@@ -39,20 +39,35 @@ und SwiftUI, ohne Web-Anteile. Die bestehende PWA bleibt unverändert.
   Tankerkönig-API-Schlüssel.
 - **Export:** Die App exportiert dasselbe Format, sodass die Daten auch wieder
   zurück in die Web-App wandern können.
-- **iCloud-Sync:** Fahrzeuge und Tankvorgänge liegen in SwiftData mit
-  CloudKit-Spiegelung und synchronisieren automatisch zwischen allen Geräten
-  derselben Apple-ID (privater iCloud-Container, keine eigenen Server).
-  Unter *Einstellungen → iCloud* wird das letzte Sync-Ereignis angezeigt und
-  der Abgleich lässt sich manuell anstoßen (CloudKit kennt keinen offiziellen
-  „Sync jetzt“-Aufruf; die App erzeugt dafür eine Mini-Änderung an einem
-  Ping-Datensatz, was den Abgleich weckt).
+- **iCloud-Sync:** Fahrzeuge und Tankvorgänge liegen in Core Data mit
+  CloudKit-Spiegelung (`NSPersistentCloudKitContainer`) und synchronisieren
+  automatisch zwischen allen Geräten derselben Apple-ID (privater
+  iCloud-Container, keine eigenen Server). Unter *Einstellungen → iCloud*
+  wird das letzte Sync-Ereignis angezeigt und der Abgleich lässt sich
+  manuell anstoßen (CloudKit kennt keinen offiziellen „Sync jetzt“-Aufruf;
+  die App erzeugt dafür eine Mini-Änderung an einem Ping-Datensatz, was den
+  Abgleich weckt).
+- **Gemeinsames Tankbuch (zwei Apple-IDs):** Unter *Einstellungen →
+  Gemeinsames Tankbuch* lässt sich das komplette Tankbuch per
+  iCloud-Freigabe (CloudKit-Sharing/CKShare) mit einer anderen Apple-ID
+  teilen – z. B. mit der Partnerin. Die Einladung geht per Nachricht raus;
+  nach dem Annehmen sehen und bearbeiten beide dieselben Fahrzeuge und
+  Tankvorgänge, neue Einträge wandern automatisch in die geteilte Zone.
+  Teilnehmer, Berechtigungen und das Beenden der Freigabe verwaltet die
+  Standard-Freigabeansicht von iOS.
 
 ## Technik
 
 - Swift 5 / SwiftUI, Mindestversion iOS 17, universell für iPhone und iPad
-- Persistenz: SwiftData mit `cloudKitDatabase: .automatic`
-  (NSPersistentCloudKitContainer-Unterbau); alle Modelle CloudKit-kompatibel
-  (Standardwerte, keine Unique-Constraints)
+- Persistenz: Core Data mit `NSPersistentCloudKitContainer`, programmatisches
+  Modell (`Model/Persistence.swift`), zwei Stores (privat + geteilt für
+  angenommene Freigaben); alle Modelle CloudKit-kompatibel (Standardwerte,
+  optionale Beziehungen mit Inversen, keine Unique-Constraints)
+- Freigabe: Wurzel-Objekt „Tankbuch“ als CKShare-Anker; Fahrzeuge hängen am
+  Tankbuch, Einträge am Fahrzeug – dadurch landen auch künftige Datensätze
+  automatisch in der geteilten Zone. Einladung/Verwaltung über
+  `UICloudSharingController`, Annahme über den Scene-Delegate
+  (`CKSharingSupported` in `Config/Info.plist`)
 - Verbrauchslogik in `Model/TripMath.swift`, 1:1 aus der PWA portiert
 - Backup-Format in `Model/Backup.swift` (tolerantes Parsen wie
   `normalizeState` der PWA)
@@ -99,6 +114,18 @@ der [CloudKit Console](https://icloud.developer.apple.com) über
 *Deploy Schema Changes* in die Produktionsumgebung übernehmen, bevor der
 TestFlight-Build verteilt wird – TestFlight-Builds nutzen die
 Produktions-Datenbank.
+
+Hinweis Umstieg von der SwiftData-Version: Der Wechsel auf Core Data nutzt
+neue Store-Dateien – Testdaten aus einem früheren Build erscheinen nicht
+automatisch. Vorher in der alten Version *Einstellungen → Backup
+exportieren*, danach in der neuen Version importieren. Falls in der
+CloudKit-Entwicklungsumgebung noch Datenreste der SwiftData-Version stören,
+in der CloudKit Console die Development-Umgebung zurücksetzen
+(*Reset Development Environment*).
+
+Hinweis Freigabe testen: CloudKit-Sharing funktioniert nur auf echten
+Geräten mit zwei verschiedenen Apple-IDs (nicht im Simulator) und braucht
+eine Internetverbindung auf beiden Seiten.
 
 Die App fragt beim ersten Antippen der Tankstellensuche nach der
 Standort-Berechtigung; ohne Standort funktioniert alles außer der

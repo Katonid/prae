@@ -137,8 +137,8 @@ final class AppModel: ObservableObject {
 
 // MARK: - iCloud-Sync-Überwachung
 
-/// Beobachtet die CloudKit-Sync-Ereignisse des (SwiftData-internen)
-/// NSPersistentCloudKitContainer und stellt das letzte Ergebnis dar.
+/// Beobachtet die CloudKit-Sync-Ereignisse des NSPersistentCloudKitContainer
+/// und stellt das letzte Ergebnis dar.
 @MainActor
 final class SyncMonitor: ObservableObject {
     @Published var lastEventText = "Noch keine Synchronisierung beobachtet."

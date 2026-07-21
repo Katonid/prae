@@ -1,5 +1,5 @@
 import SwiftUI
-import SwiftData
+import CoreData
 import MapKit
 
 // Verlauf: alle Tankvorgänge (neueste zuerst). Auf dem iPhone als Liste mit
@@ -8,10 +8,10 @@ import MapKit
 
 struct HistoryView: View {
     @EnvironmentObject private var appModel: AppModel
-    @Environment(\.modelContext) private var modelContext
+    @Environment(\.managedObjectContext) private var viewContext
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
-    @Query(sort: \Vehicle.createdAt) private var vehicles: [Vehicle]
-    @Query(sort: \FuelEntry.date, order: .reverse) private var entries: [FuelEntry]
+    @FetchRequest(sortDescriptors: [SortDescriptor(\Vehicle.createdAt)]) private var vehicles: FetchedResults<Vehicle>
+    @FetchRequest(sortDescriptors: [SortDescriptor(\FuelEntry.date, order: .reverse)]) private var entries: FetchedResults<FuelEntry>
 
     @State private var entryToEdit: FuelEntry?
     @State private var entryToDelete: FuelEntry?
@@ -19,7 +19,7 @@ struct HistoryView: View {
     @State private var tableSelection: String?
 
     private var computedById: [String: ComputedEntry] {
-        TripMath.computedByEntryId(vehicles: vehicles, entries: entries)
+        TripMath.computedByEntryId(vehicles: Array(vehicles), entries: Array(entries))
     }
 
     private var mappableEntries: [FuelEntry] {
@@ -87,8 +87,8 @@ struct HistoryView: View {
             )) {
                 Button("Endgültig löschen", role: .destructive) {
                     if let entry = entryToDelete {
-                        modelContext.delete(entry)
-                        try? modelContext.save()
+                        viewContext.delete(entry)
+                        try? viewContext.save()
                     }
                     entryToDelete = nil
                 }

@@ -1,5 +1,5 @@
 import SwiftUI
-import SwiftData
+import CoreData
 import Charts
 import UIKit
 
@@ -8,8 +8,8 @@ import UIKit
 
 struct StartView: View {
     @EnvironmentObject private var appModel: AppModel
-    @Query(sort: \Vehicle.createdAt) private var vehicles: [Vehicle]
-    @Query private var entries: [FuelEntry]
+    @FetchRequest(sortDescriptors: [SortDescriptor(\Vehicle.createdAt)]) private var vehicles: FetchedResults<Vehicle>
+    @FetchRequest(sortDescriptors: []) private var entries: FetchedResults<FuelEntry>
 
     @State private var trendMetric: TrendMetric = .consumption
 
@@ -138,7 +138,7 @@ struct StartView: View {
                     Text(FuelType.label(for: vehicle.fuelType))
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
-                    if let consumption = TripMath.lastConsumption(for: vehicle, entries: entries) {
+                    if let consumption = TripMath.lastConsumption(for: vehicle, entries: Array(entries)) {
                         Text("Letzter Verbrauch: \(Format.number(consumption, digits: 1)) l/100 km")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
@@ -162,7 +162,7 @@ struct StartView: View {
 
     private var trendPoints: [TrendPoint] {
         guard let vehicle = selectedVehicle else { return [] }
-        let computed = TripMath.computedEntries(for: vehicle, entries: entries)
+        let computed = TripMath.computedEntries(for: vehicle, entries: Array(entries))
         let points: [TrendPoint] = computed.compactMap { item in
             let value = trendMetric == .consumption ? item.trip.consumption : item.entry.pricePerLiter
             guard let value, value > 0 else { return nil }
@@ -233,7 +233,7 @@ struct StartView: View {
     // MARK: Gesamtsummen (für das gewählte Fahrzeug)
 
     private var summaryPanel: some View {
-        let computed = selectedVehicle.map { TripMath.computedEntries(for: $0, entries: entries) } ?? []
+        let computed = selectedVehicle.map { TripMath.computedEntries(for: $0, entries: Array(entries)) } ?? []
         let vehicleEntries = computed.map(\.entry)
         let totalCost = vehicleEntries.reduce(0.0) { $0 + ($1.totalPrice ?? 0) }
         let totalLiters = vehicleEntries.reduce(0.0) { $0 + ($1.liters ?? 0) }
@@ -280,7 +280,7 @@ struct StartView: View {
             Text("Jahresstatistik")
                 .font(.headline)
             if let vehicle = selectedVehicle {
-                let annual = TripMath.annualStats(for: vehicle, entries: entries)
+                let annual = TripMath.annualStats(for: vehicle, entries: Array(entries))
                 if annual.isEmpty {
                     Text("Noch keine Jahresdaten.")
                         .font(.subheadline)
