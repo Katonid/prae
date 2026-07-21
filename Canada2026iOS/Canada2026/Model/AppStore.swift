@@ -264,6 +264,9 @@ final class AppStore: ObservableObject {
         case .viewerProfile:
             guard let item = data.viewerProfiles.first(where: { $0.id == entityId }) else { return nil }
             return (encodeEntity(item), ms(item.updatedAt), item.displayName, nil)
+        case .awardVote:
+            guard let item = (data.awardVotes ?? []).first(where: { $0.id == entityId }) else { return nil }
+            return (encodeEntity(item), ms(item.updatedAt), item.voter, nil)
         case .config:
             return (encodeEntity(data.config), Int64(data.config.updatedAt.timeIntervalSince1970 * 1000), deviceUser.name, nil)
         }
@@ -343,6 +346,13 @@ final class AppStore: ObservableObject {
             case .viewerProfile:
                 if let item = try? decoder.decode(ViewerProfile.self, from: raw) {
                     changed = merge(&data.viewerProfiles, item, isNewer: { $0.updatedAt < item.updatedAt }) || changed
+                }
+            case .awardVote:
+                if let item = try? decoder.decode(AwardVote.self, from: raw) {
+                    var votes = data.awardVotes ?? []
+                    let didChange = merge(&votes, item, isNewer: { $0.updatedAt < item.updatedAt })
+                    if didChange { data.awardVotes = votes }
+                    changed = didChange || changed
                 }
             case .config:
                 if let item = try? decoder.decode(SharedConfig.self, from: raw), item.updatedAt > data.config.updatedAt {
@@ -706,6 +716,26 @@ final class AppStore: ObservableObject {
         touch(.bucket, item.id)
     }
 
+    func toggleBucketVote(_ item: BucketItem) {
+        guard let index = data.bucketList.firstIndex(where: { $0.id == item.id }) else { return }
+        var votes = data.bucketList[index].voteList
+        if let existing = votes.firstIndex(of: deviceUser.name) {
+            votes.remove(at: existing)
+        } else {
+            votes.append(deviceUser.name)
+        }
+        data.bucketList[index].votes = votes
+        data.bucketList[index].updatedAt = Date()
+        touch(.bucket, item.id)
+    }
+
+    func linkBucketPhoto(_ item: BucketItem, photoId: String) {
+        guard let index = data.bucketList.firstIndex(where: { $0.id == item.id }) else { return }
+        data.bucketList[index].photoId = photoId
+        data.bucketList[index].updatedAt = Date()
+        touch(.bucket, item.id)
+    }
+
     func toggleBucketItem(_ item: BucketItem) {
         guard let index = data.bucketList.firstIndex(where: { $0.id == item.id }) else { return }
         data.bucketList[index].done.toggle()
@@ -763,6 +793,39 @@ final class AppStore: ObservableObject {
         answer.text = clean
         data.dailyAnswers.append(answer)
         touch(.dailyAnswer, answer.id)
+    }
+
+    // MARK: - Canada Awards
+
+    /// Alle Stimmen eines Tages für eine Kategorie: Wähler → gewähltes Mitglied.
+    func awardVotes(day: String, category: String) -> [String: String] {
+        var result: [String: String] = [:]
+        for vote in data.awardVotes ?? [] where vote.day == day && vote.category == category && !vote.votedFor.isEmpty {
+            result[vote.voter] = vote.votedFor
+        }
+        return result
+    }
+
+    func castAwardVote(day: String, category: String, votedFor: String) {
+        let id = "\(day)|\(category)|\(deviceUser.name)"
+        var votes = data.awardVotes ?? []
+        if let index = votes.firstIndex(where: { $0.id == id }) {
+            votes[index].votedFor = votedFor
+            votes[index].updatedAt = Date()
+        } else {
+            votes.append(AwardVote(id: id, day: day, category: category, voter: deviceUser.name, votedFor: votedFor, updatedAt: Date()))
+        }
+        data.awardVotes = votes
+        touch(.awardVote, id)
+    }
+
+    /// Tagessieger einer Kategorie (bei Gleichstand alle Führenden).
+    func awardWinners(day: String, category: String) -> [String] {
+        let votes = awardVotes(day: day, category: category)
+        var counts: [String: Int] = [:]
+        for votedFor in votes.values { counts[votedFor, default: 0] += 1 }
+        guard let best = counts.values.max(), best > 0 else { return [] }
+        return counts.filter { $0.value == best }.keys.sorted()
     }
 
     // MARK: - Soundtrack

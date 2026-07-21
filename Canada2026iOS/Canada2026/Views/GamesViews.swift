@@ -12,11 +12,17 @@ struct CrewHubView: View {
                     NavigationLink { DailyQuestionView() } label: {
                         Label("Tagesfrage", systemImage: "questionmark.bubble")
                     }
+                    NavigationLink { AwardsView() } label: {
+                        Label("Canada Awards", systemImage: "rosette")
+                    }
                     NavigationLink { BucketListView() } label: {
                         Label("Bucket List", systemImage: "star.circle")
                     }
                     NavigationLink { SoundtrackView() } label: {
                         Label("Soundtrack", systemImage: "music.note.list")
+                    }
+                    NavigationLink { TravelBookView() } label: {
+                        Label("STAN Roadbook", systemImage: "book.closed")
                     }
                 }
 
@@ -278,37 +284,139 @@ struct BucketListView: View {
 
             Section("Wünsche") {
                 ForEach(store.visibleBucketList) { item in
-                    Button {
-                        if store.isCrew { store.toggleBucketItem(item) }
+                    BucketListRow(item: item)
+                }
+            }
+        }
+        .navigationTitle("Bucket List")
+    }
+}
+
+struct BucketListRow: View {
+    @EnvironmentObject private var store: AppStore
+    let item: BucketItem
+    @State private var showsPhotoPicker = false
+
+    private var voted: Bool { item.voteList.contains(store.deviceUser.name) }
+    private var linkedPhoto: PhotoItem? {
+        guard let photoId = item.photoId, !photoId.isEmpty else { return nil }
+        return store.data.photos.first { $0.id == photoId && !$0.deleted }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .top) {
+                Button {
+                    if store.isCrew { store.toggleBucketItem(item) }
+                } label: {
+                    Image(systemName: item.done ? "checkmark.circle.fill" : "circle")
+                        .font(.title3)
+                        .foregroundStyle(item.done ? Theme.forestGreen : .secondary)
+                }
+                .buttonStyle(.plain)
+                .disabled(!store.isCrew)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(item.text)
+                        .strikethrough(item.done)
+                    Text([
+                        "\(item.voteList.count) Stimme\(item.voteList.count == 1 ? "" : "n")",
+                        item.done && !item.doneBy.isEmpty ? "Erledigt von \(item.doneBy)" : "Idee von \(item.addedBy)"
+                    ].joined(separator: " · "))
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                if let photo = linkedPhoto,
+                   let image = UIImage(contentsOfFile: store.photoFileURL(photo).path) {
+                    NavigationLink {
+                        PhotoDetailView(photoId: photo.id)
                     } label: {
-                        HStack {
-                            Image(systemName: item.done ? "checkmark.circle.fill" : "circle")
-                                .foregroundStyle(item.done ? Theme.forestGreen : .secondary)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(item.text)
-                                    .foregroundStyle(.primary)
-                                    .strikethrough(item.done)
-                                Text(item.done && !item.doneBy.isEmpty ? "Erledigt von \(item.doneBy)" : "Idee von \(item.addedBy)")
-                                    .font(.caption2)
-                                    .foregroundStyle(.secondary)
-                            }
-                            Spacer()
+                        Image(uiImage: image)
+                            .resizable()
+                            .scaledToFill()
+                            .frame(width: 44, height: 44)
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                    }
+                }
+            }
+
+            if store.isCrew {
+                HStack(spacing: 10) {
+                    Button(voted ? "Stimme entfernen" : "Dafür stimmen") {
+                        store.toggleBucketVote(item)
+                    }
+                    .font(.caption.weight(.semibold))
+                    .buttonStyle(.bordered)
+
+                    Button(linkedPhoto == nil ? "Foto verknüpfen" : "Foto ändern") {
+                        showsPhotoPicker = true
+                    }
+                    .font(.caption)
+                    .buttonStyle(.bordered)
+                }
+            }
+        }
+        .padding(.vertical, 2)
+        .swipeActions {
+            if store.isCrew && (item.addedBy == store.deviceUser.name || store.isAdmin) {
+                Button(role: .destructive) {
+                    store.deleteBucketItem(item)
+                } label: {
+                    Label("Löschen", systemImage: "trash")
+                }
+            }
+        }
+        .sheet(isPresented: $showsPhotoPicker) {
+            BucketPhotoPickerSheet(item: item)
+        }
+    }
+}
+
+/// Foto aus dem gemeinsamen Album mit einem Bucket-List-Wunsch verknüpfen.
+struct BucketPhotoPickerSheet: View {
+    @EnvironmentObject private var store: AppStore
+    @Environment(\.dismiss) private var dismiss
+    let item: BucketItem
+
+    private let columns = [GridItem(.adaptive(minimum: 100), spacing: 4)]
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                if store.visiblePhotos.isEmpty {
+                    Text("Noch keine Fotos im Album.")
+                        .foregroundStyle(.secondary)
+                        .padding(.top, 60)
+                }
+                LazyVGrid(columns: columns, spacing: 4) {
+                    ForEach(store.visiblePhotos) { photo in
+                        Button {
+                            store.linkBucketPhoto(item, photoId: photo.id)
+                            dismiss()
+                        } label: {
+                            PhotoThumbnail(photo: photo)
                         }
                     }
-                    .disabled(!store.isCrew)
-                    .swipeActions {
-                        if store.isCrew && (item.addedBy == store.deviceUser.name || store.isAdmin) {
-                            Button(role: .destructive) {
-                                store.deleteBucketItem(item)
-                            } label: {
-                                Label("Löschen", systemImage: "trash")
-                            }
+                }
+                .padding(4)
+            }
+            .navigationTitle("Foto wählen")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Abbrechen") { dismiss() }
+                }
+                if item.photoId != nil && !(item.photoId ?? "").isEmpty {
+                    ToolbarItem(placement: .destructiveAction) {
+                        Button("Entfernen") {
+                            store.linkBucketPhoto(item, photoId: "")
+                            dismiss()
                         }
                     }
                 }
             }
         }
-        .navigationTitle("Bucket List")
     }
 }
 

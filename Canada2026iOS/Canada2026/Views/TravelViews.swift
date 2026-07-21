@@ -19,6 +19,20 @@ struct TravelHubView: View {
                         Label("Fotoalbum", systemImage: "photo.on.rectangle.angled")
                     }
                 }
+                Section("Entdecken") {
+                    NavigationLink { WeatherView() } label: {
+                        Label("Wetter", systemImage: "cloud.sun")
+                    }
+                    NavigationLink { PhotoSpotsView() } label: {
+                        Label("Fotospots", systemImage: "camera.viewfinder")
+                    }
+                    NavigationLink { NearbyView() } label: {
+                        Label("Heute in der Nähe", systemImage: "location.magnifyingglass")
+                    }
+                    NavigationLink { InterestingView() } label: {
+                        Label("Interessantes", systemImage: "sparkle.magnifyingglass")
+                    }
+                }
                 Section("Organisation") {
                     NavigationLink { FlightsView() } label: {
                         Label("Flüge", systemImage: "airplane")
@@ -49,7 +63,8 @@ struct TravelHubView: View {
 struct PlanView: View {
     var body: some View {
         List {
-            ForEach(Array(TravelData.stations.enumerated()), id: \.element.id) { index, station in
+            ForEach(TravelData.stations.indices, id: \.self) { index in
+                let station = TravelData.stations[index]
                 NavigationLink {
                     StationDetailView(station: station)
                 } label: {
@@ -117,7 +132,8 @@ struct StationDetailView: View {
             }
 
             Section("Aufgaben") {
-                ForEach(Array(station.todos.enumerated()), id: \.offset) { index, todo in
+                ForEach(station.todos.indices, id: \.self) { index in
+                    let todo = station.todos[index]
                     let checkId = "todo-\(station.id)-\(index)"
                     Button {
                         if store.isCrew { store.toggleCheck(checkId) }
@@ -239,14 +255,14 @@ struct ChecksView: View {
     var body: some View {
         List {
             Section("Dokumente") {
-                ForEach(Array(TravelData.documents.enumerated()), id: \.offset) { index, document in
-                    checkRow(id: "doc-\(index)", title: document)
+                ForEach(TravelData.documents.indices, id: \.self) { index in
+                    checkRow(id: "doc-\(index)", title: TravelData.documents[index])
                 }
             }
             ForEach(TravelData.stations) { station in
                 Section("Aufgaben \(station.name)") {
-                    ForEach(Array(station.todos.enumerated()), id: \.offset) { index, todo in
-                        checkRow(id: "todo-\(station.id)-\(index)", title: todo)
+                    ForEach(station.todos.indices, id: \.self) { index in
+                        checkRow(id: "todo-\(station.id)-\(index)", title: station.todos[index])
                     }
                 }
             }

@@ -53,17 +53,31 @@ Zusätzliche Standard-Codes (vom Admin änderbar, Verteilung über iCloud):
   synchronisierten Häkchen inklusive „erledigt von"
 - **Flüge:** LH240 (FRA → YYZ) und LH6779 (YYZ → FRA) mit allen Status-,
   Check-in- und Flightradar-Links
+- **Wetter:** Open-Meteo-Vorhersage je Reiseort mit den Tagesabschnitten
+  Vormittag/Nachmittag/Abend/Nacht (wie die PWA, 45-Minuten-Cache)
+- **Fotospots:** alle 54 kuratierten Fotospots der PWA mit Region-Filter,
+  Karte, bester Uhrzeit, Tipps und Google-Maps-Links
+- **Heute in der Nähe:** Live-Suche über die Overpass-API (OpenStreetMap) im
+  3-km-Umkreis – Parken, Essen, Cafés, Supermärkte, Shopping, Tankstellen –
+  um den eigenen Standort oder eine Station
+- **Interessantes:** die 22 kuratierten Orte passend zu den Crew-Interessen
+  (Sneaker, Sport, Technik, Shopping …) mit Interessen-Filter
+- **Canada Awards:** tägliche Abstimmungen in den sechs Kategorien der PWA
+  (Bestes Foto des Tages, Tagesheld, …) mit Live-Ergebnissen und Tagessiegern
 - **Canada Bingo:** alle 50 Bingo-Felder in 10 Kategorien, pro Crew-Mitglied
 - **Roadtrip Challenges:** alle 40 Challenges pro Station, pro Crew-Mitglied
+- **STAN Roadbook:** Reisebuch als PDF (Deckblatt, Route, Journal, Fotoalbum,
+  Awards, Statistik) mit wählbaren Inhalten, plus JSON-Rohdaten-Export
 - **Score & Erfolge:** Rangliste und die 10 Achievements der PWA
   (Tierbeobachter, Kanada-Profi, Roadtrip Champion, …), automatisch berechnet
-- **Bucket List:** gemeinsame Wunschliste inkl. der Standard-Einträge
+- **Bucket List:** gemeinsame Wunschliste inkl. der Standard-Einträge, mit
+  Stimmen („Dafür stimmen") und Foto-Verknüpfung aus dem Album wie in der PWA
 - **Tagesfrage:** Frage des Tages stellen (mit den PWA-Vorlagen) und von allen
   beantworten lassen
 - **Soundtrack:** gemeinsame Songliste mit Musik-Links
 - **Hinweise:** Aktivitäts-/Hinweisliste (neue Nachrichten, Fotos, Journal-Einträge)
-- **Einstellungen:** Profilwechsel, Zugangscodes (Admin), Sync-Diagnose,
-  JSON-Backup-Export
+- **Einstellungen:** Profilwechsel, Zugangscodes (Admin), Einladungen als
+  QR-Code, Sync-Diagnose, JSON-Backup-Export
 - **Reise-Infos:** Einreise, Geld, Unterwegs, Gesundheit
 
 ## Synchronisation ohne Firebase
@@ -129,12 +143,22 @@ Voraussetzungen: Mac mit Xcode 16+, Apple-Developer-Programm-Mitgliedschaft.
 - `Model/AppStore.swift` – zentraler Zustand, Persistenz, Rollen- und Punktelogik
 - `Views/…` – alle Ansichten (Start, Reise, Journal, Nachrichten, STAN-Hub, …)
 
-## Bewusste Unterschiede zur PWA
+## Externe Dienste
 
-Die Kernfunktionen sind vollständig nativ umgesetzt. Einige Randbereiche der
-sehr umfangreichen PWA sind (noch) nicht enthalten und können bei Bedarf
-nachgerüstet werden: Wetteranzeige, Fotospot-/„In der Nähe"-Kataloge,
-Canada-Awards-Abstimmungen, PDF-/ZIP-Roadbook-Export, QR-Code-Einladungen
-sowie die Entwickler-/Performance-Diagnosen. Die Nachrichtenfunktion, alle
-Spiel- und Reisebereiche sowie die Benutzerkonten mit den zwei
-Betrachter-Rollen sind enthalten.
+Die App nutzt neben iCloud nur zwei freie, schlüssellose Dienste – dieselben
+wie die PWA: **Open-Meteo** für das Wetter und die **Overpass-API**
+(OpenStreetMap) für „Heute in der Nähe". Beide funktionieren ohne Konto und
+ohne API-Key; fällt einer aus, bleibt der Rest der App voll nutzbar.
+
+## Abdeckung gegenüber der PWA
+
+Alle Funktionsbereiche der PWA sind nativ umgesetzt: Reiseplan, Karte und
+Reise-Spur, Nachrichten, Journal, Fotoalbum, Kosten, Checklisten, Flüge,
+Wetter, Fotospots, „Heute in der Nähe", Interessantes, Canada Bingo,
+Roadtrip Challenges, Score & Erfolge, Canada Awards, Bucket List (inkl.
+Stimmen und Foto-Verknüpfung), Tagesfrage, Soundtrack, Roadbook-PDF,
+QR-Einladungen, Hinweise, Backup und die Benutzerkonten mit Admin-, Crew-
+und den beiden Betrachter-Rollen. Nicht übernommen wurden nur rein
+technische PWA-Interna ohne Nutzerfunktion (Service-Worker-/Cache-Verwaltung,
+Firebase-Diagnosewerkzeuge, Performance-Overlays) – deren Rolle übernimmt
+nativ die Sync-Diagnose.

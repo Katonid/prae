@@ -138,9 +138,25 @@ struct BucketItem: Codable, Identifiable, Equatable {
     var addedBy: String = ""
     var done: Bool = false
     var doneBy: String = ""
+    /// Stimmen ("Dafür stimmen") wie in der PWA; optional für Abwärtskompatibilität.
+    var votes: [String]?
+    /// Verknüpftes Foto aus dem Album; optional für Abwärtskompatibilität.
+    var photoId: String?
     var createdAt: Date = Date()
     var updatedAt: Date = Date()
     var deleted: Bool = false
+
+    var voteList: [String] { votes ?? [] }
+}
+
+/// Canada-Awards-Stimme: pro Tag, Kategorie und Wähler genau eine Stimme.
+struct AwardVote: Codable, Identifiable, Equatable {
+    var id: String = ""                  // "\(day)|\(category)|\(voter)"
+    var day: String = ""
+    var category: String = ""
+    var voter: String = ""
+    var votedFor: String = ""            // leer = Stimme zurückgezogen
+    var updatedAt: Date = Date()
 }
 
 struct DailyQuestion: Codable, Identifiable, Equatable {
@@ -248,6 +264,8 @@ struct TripData: Codable, Equatable {
     var dailyAnswers: [DailyAnswer] = []
     var soundtrack: [SoundtrackItem] = []
     var viewerProfiles: [ViewerProfile] = []
+    /// Optional, damit vor diesem Feature gespeicherte Daten dekodierbar bleiben.
+    var awardVotes: [AwardVote]?
     var config: SharedConfig = SharedConfig()
 }
 
@@ -266,5 +284,6 @@ enum EntityKind: String, CaseIterable, Codable {
     case dailyAnswer
     case soundtrack
     case viewerProfile
+    case awardVote
     case config
 }

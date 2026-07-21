@@ -1,4 +1,5 @@
 import SwiftUI
+import CoreImage.CIFilterBuiltins
 
 // Einstellungen, Hinweise, Sync-Diagnose und Backup.
 
@@ -91,6 +92,16 @@ struct SettingsView: View {
                         }
                     }
                 }
+
+                Section {
+                    NavigationLink {
+                        InviteQRView()
+                    } label: {
+                        Label("Einladungen als QR-Code teilen", systemImage: "qrcode")
+                    }
+                } footer: {
+                    Text("QR-Codes für die Zugangscodes – zum Abfotografieren beim Einladen neuer Nutzer.")
+                }
             }
 
             Section("Backup & Reisearchiv") {
@@ -125,6 +136,64 @@ struct SettingsView: View {
             familyCode = store.data.config.familyCode
             companionCode = store.data.config.companionCode
         }
+    }
+}
+
+/// QR-Codes für alle Zugangscodes (Rollen-Codes und persönliche Codes).
+struct InviteQRView: View {
+    @EnvironmentObject private var store: AppStore
+
+    struct CodeEntry: Identifiable {
+        let label: String
+        let code: String
+        var id: String { label }
+    }
+
+    private var entries: [CodeEntry] {
+        var result: [CodeEntry] = [
+            CodeEntry(label: "Crew (gemeinsam)", code: store.data.config.crewCode),
+            CodeEntry(label: "Familie", code: store.data.config.familyCode),
+            CodeEntry(label: "Begleiter", code: store.data.config.companionCode)
+        ]
+        for member in TravelData.crewNames {
+            if let code = store.data.config.effectiveMemberCodes[member], !code.isEmpty {
+                result.append(CodeEntry(label: "Persönlich: \(member)", code: code))
+            }
+        }
+        return result
+    }
+
+    var body: some View {
+        List {
+            ForEach(entries) { entry in
+                Section(entry.label) {
+                    VStack(spacing: 10) {
+                        if let image = InviteQRView.qrImage(for: entry.code) {
+                            Image(uiImage: image)
+                                .interpolation(.none)
+                                .resizable()
+                                .scaledToFit()
+                                .frame(maxWidth: 220)
+                        }
+                        Text(entry.code)
+                            .font(.callout.monospaced().weight(.semibold))
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 8)
+                }
+            }
+        }
+        .navigationTitle("Einladungs-QR-Codes")
+    }
+
+    static func qrImage(for text: String) -> UIImage? {
+        let filter = CIFilter.qrCodeGenerator()
+        filter.message = Data(text.utf8)
+        filter.correctionLevel = "M"
+        guard let output = filter.outputImage?.transformed(by: CGAffineTransform(scaleX: 10, y: 10)) else { return nil }
+        let context = CIContext()
+        guard let cgImage = context.createCGImage(output, from: output.extent) else { return nil }
+        return UIImage(cgImage: cgImage)
     }
 }
 

@@ -151,6 +151,10 @@ struct HomeView: View {
                     .buttonStyle(.bordered)
                 NavigationLink("Karte & Route") { TripMapView() }
                     .buttonStyle(.bordered)
+                NavigationLink { WeatherView() } label: {
+                    Label("Wetter", systemImage: "cloud.sun")
+                }
+                .buttonStyle(.bordered)
             }
             .font(.footnote)
         }

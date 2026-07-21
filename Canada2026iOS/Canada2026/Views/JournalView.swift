@@ -7,11 +7,17 @@ struct JournalView: View {
     @State private var editingEntry: JournalEntry?
     @State private var showsNewEntry = false
 
-    private var groupedEntries: [(day: String, entries: [JournalEntry])] {
+    private struct DayGroup: Identifiable {
+        let day: String
+        let entries: [JournalEntry]
+        var id: String { day }
+    }
+
+    private var groupedEntries: [DayGroup] {
         let entries = store.journalEntries()
         let grouped = Dictionary(grouping: entries, by: { $0.day })
         return grouped.keys.sorted(by: >).map { day in
-            (day, (grouped[day] ?? []).sorted { $0.createdAt > $1.createdAt })
+            DayGroup(day: day, entries: (grouped[day] ?? []).sorted { $0.createdAt > $1.createdAt })
         }
     }
 
@@ -30,7 +36,7 @@ struct JournalView: View {
                     }
                     .padding(.vertical, 8)
                 }
-                ForEach(groupedEntries, id: \.day) { group in
+                ForEach(groupedEntries) { group in
                     Section(HomeView.dayLabel(group.day)) {
                         ForEach(group.entries) { entry in
                             JournalRow(entry: entry)
