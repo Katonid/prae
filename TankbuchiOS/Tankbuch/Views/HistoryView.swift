@@ -69,14 +69,16 @@ struct HistoryView: View {
             }
             .sheet(isPresented: $showMap) {
                 NavigationStack {
-                    EntryMapContent(entries: mappableEntries)
-                        .navigationTitle("Tankstellen-Karte")
-                        .navigationBarTitleDisplayMode(.inline)
-                        .toolbar {
-                            ToolbarItem(placement: .topBarTrailing) {
-                                Button("Fertig") { showMap = false }
-                            }
+                    EntryMapContent(entries: mappableEntries) { entry in
+                        openEntryFromMapSheet(entry)
+                    }
+                    .navigationTitle("Tankstellen-Karte")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .topBarTrailing) {
+                            Button("Fertig") { showMap = false }
                         }
+                    }
                 }
             }
             .alert("Eintrag löschen?", isPresented: Binding(
@@ -168,11 +170,22 @@ struct HistoryView: View {
         }
     }
 
+    /// Erst das Karten-Sheet schließen, dann das Bearbeiten-Sheet öffnen –
+    /// zwei gleichzeitige Sheet-Übergänge verschluckt SwiftUI sonst.
+    private func openEntryFromMapSheet(_ entry: FuelEntry) {
+        showMap = false
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            entryToEdit = entry
+        }
+    }
+
     private var regularLayout: some View {
         VStack(spacing: 0) {
             if !mappableEntries.isEmpty {
-                EntryMapContent(entries: mappableEntries)
-                    .frame(height: 300)
+                EntryMapContent(entries: mappableEntries) { entry in
+                    entryToEdit = entry
+                }
+                .frame(height: 300)
             }
 
             Table(tableRows, selection: $tableSelection) {
@@ -337,6 +350,8 @@ private struct HistoryRow: View {
 
 struct EntryMapContent: View {
     let entries: [FuelEntry]
+    /// Antippen der Detailanzeige öffnet den vollständigen Eintrag.
+    var onOpenEntry: ((FuelEntry) -> Void)?
 
     @State private var selectedEntryId: String?
 
@@ -357,15 +372,34 @@ struct EntryMapContent: View {
         }
         .safeAreaInset(edge: .bottom) {
             if let entry = selectedEntry {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(entry.stationName)
-                        .font(.headline)
-                    Text("\(Format.date(entry.date)) · \(Format.number(entry.liters, digits: 2)) l · \(Format.currency(entry.totalPrice))")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                Button {
+                    onOpenEntry?(entry)
+                } label: {
+                    HStack(spacing: 8) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(entry.stationName)
+                                .font(.headline)
+                            Text("\(Format.date(entry.date)) · \(Format.number(entry.liters, digits: 2)) l · \(Format.currency(entry.totalPrice))")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                            if onOpenEntry != nil {
+                                Text("Antippen für den vollständigen Eintrag")
+                                    .font(.caption2)
+                                    .foregroundStyle(.tertiary)
+                            }
+                        }
+                        Spacer()
+                        if onOpenEntry != nil {
+                            Image(systemName: "chevron.right")
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(10)
+                    .contentShape(Rectangle())
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(10)
+                .buttonStyle(.plain)
+                .disabled(onOpenEntry == nil)
                 .background(.thinMaterial)
             }
         }

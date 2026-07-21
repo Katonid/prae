@@ -111,13 +111,14 @@ final class AppModel: ObservableObject {
         )
         stations = result.stations
 
+        let wo = searchCenterLabel.isEmpty ? "" : " bei „\(searchCenterLabel)“"
         if let error = result.error {
             stationStatus = error
         } else if stations.isEmpty {
-            stationStatus = "Keine Tankstelle in der Nähe gefunden."
+            stationStatus = "Keine Tankstelle\(wo) gefunden."
         } else {
             let live = stations.first?.source == "tankerkoenig" ? "mit Livepreisen" : "ohne Livepreise"
-            stationStatus = "\(stations.count) Tankstellen \(live)."
+            stationStatus = "\(stations.count) Tankstellen\(wo), \(live)."
         }
     }
 
