@@ -23,6 +23,8 @@ mit SwiftUI neu gestaltet und zusätzlich mit Anbindung an Streamingdienste
 - Fortschrittsbalken, Spielzeit und Gesamtlänge auf jedem Feld
 - „⏮ Alle auf Anfang“ stoppt alles und setzt alle Töne zurück
 - Der Bildschirm bleibt während der Nutzung wach (kein Ruhezustand in der Vorstellung)
+- Laufende Töne spielen auch weiter, wenn die App in den Hintergrund wechselt
+  (Hintergrund-Audiomodus) – man kann also parallel in anderen Apps arbeiten
 
 **Tonquellen pro Feld**
 - **Lokale Audiodatei** (über die Dateien-App, z. B. MP3/M4A/WAV) – wird in der App gespeichert
