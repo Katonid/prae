@@ -132,7 +132,16 @@ private struct AppleMusicSearchView: View {
             songs = try await AppleMusicService.searchSongs(term: searchTerm)
             if songs.isEmpty { errorMessage = "Keine Titel gefunden." }
         } catch {
-            errorMessage = "Suche fehlgeschlagen – Internetverbindung prüfen."
+            // Den echten Grund anzeigen – meist fehlt die MusicKit-Freischaltung
+            // der App-ID im Apple-Developer-Portal (Fehler 401/403).
+            let details = error.localizedDescription
+            if details.contains("401") || details.contains("403")
+                || details.lowercased().contains("unauthorized")
+                || details.lowercased().contains("permission") {
+                errorMessage = "Apple Music lehnt die Anfrage ab. Für die App-ID de.familie.soundboard muss im Apple-Developer-Portal unter „Identifiers“ → „App Services“ der Dienst MusicKit aktiviert sein. Danach die App neu starten (die Freischaltung kann einige Minuten dauern)."
+            } else {
+                errorMessage = "Suche fehlgeschlagen: \(details)"
+            }
         }
     }
 }
