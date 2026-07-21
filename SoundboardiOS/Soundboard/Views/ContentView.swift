@@ -12,16 +12,16 @@ struct ContentView: View {
     var body: some View {
         GeometryReader { geo in
             let wide = geo.size.width > 650
-            ZStack {
-                background
-
-                VStack(spacing: 0) {
-                    header
-                    boardChips
-                    padGrid(columns: wide ? 4 : 2)
-                    bottomBar
-                }
+            VStack(spacing: 0) {
+                header
+                boardChips
+                padGrid(columns: wide ? 4 : 2)
+                bottomBar
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            // Als .background beeinflusst das (überstehend skalierte) Foto die
+            // Größe der Oberfläche nicht – zuvor sprengte es das ganze Layout.
+            .background { background }
             .overlay(alignment: .bottom) { toast }
         }
         .preferredColorScheme(.dark)
@@ -42,17 +42,18 @@ struct ContentView: View {
     @ViewBuilder
     private var background: some View {
         let board = store.activeBoard
-        StageBackground(boardColor: Color(hex: board?.colorHex ?? "#f7b32b"))
-        // Bild kommt aus dem Zwischenspeicher (einmal geladen und verkleinert) –
-        // das Dekodieren bei jeder Bildaktualisierung hatte das iPhone lahmgelegt.
-        if let board, let image = store.backgroundImage(for: board) {
-            Image(uiImage: image)
-                .resizable()
-                .scaledToFill()
-                .ignoresSafeArea()
-                .overlay(Color.black.opacity(0.55).ignoresSafeArea())
-                .allowsHitTesting(false)
+        ZStack {
+            StageBackground(boardColor: Color(hex: board?.colorHex ?? "#f7b32b"))
+            // Bild kommt aus dem Zwischenspeicher (einmal geladen und verkleinert).
+            if let board, let image = store.backgroundImage(for: board) {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFill()
+                    .overlay(Color.black.opacity(0.55))
+            }
         }
+        .ignoresSafeArea()
+        .allowsHitTesting(false)
     }
 
     // MARK: - Kopfbereich
