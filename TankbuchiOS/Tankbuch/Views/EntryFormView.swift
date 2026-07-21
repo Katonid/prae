@@ -552,9 +552,12 @@ struct EntryFormView: View {
             if let vehicleStore = vehicle.objectID.persistentStore,
                let entryStore = existing.objectID.persistentStore,
                vehicleStore !== entryStore {
+                let preservedId = existing.externalId
+                let preservedCreatedAt = existing.createdAt
                 viewContext.delete(existing)
                 entry = FuelEntry.create(in: viewContext, persistence: persistence, vehicle: vehicle)
-                entry.createdAt = existing.createdAt
+                entry.externalId = preservedId
+                entry.createdAt = preservedCreatedAt
             } else {
                 entry = existing
             }

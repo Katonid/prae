@@ -79,8 +79,16 @@ final class PersistenceController {
             container = cloudContainer
             cloudKitAvailable = true
         } else {
-            // Ohne iCloud (fehlende Capability, defekter Store o. Ä.) lokal weiterlaufen.
-            let (localContainer, _) = makeContainer(withCloudKit: false)
+            // Ohne iCloud (fehlende Capability o. Ä.) lokal weiterlaufen.
+            var (localContainer, localError) = makeContainer(withCloudKit: false)
+            if localError != nil {
+                // Defekte Store-Dateien verwerfen und frisch anlegen – besser
+                // eine leere App als ein Absturz beim ersten Fetch.
+                let coordinator = localContainer.persistentStoreCoordinator
+                try? coordinator.destroyPersistentStore(at: privateURL, type: .sqlite, options: nil)
+                try? coordinator.destroyPersistentStore(at: sharedURL, type: .sqlite, options: nil)
+                (localContainer, localError) = makeContainer(withCloudKit: false)
+            }
             container = localContainer
             cloudKitAvailable = false
         }
@@ -162,7 +170,10 @@ final class PersistenceController {
     /// Aktualisierte Share-Daten (z. B. neue Teilnehmer) lokal übernehmen –
     /// wird vom UICloudSharingController-Delegate gerufen.
     func persistUpdatedShare(_ share: CKShare) {
-        guard let store = privatePersistentStore else { return }
+        // Eigene Zone → privater Store; fremde Zone (angenommene Freigabe)
+        // → Shared-Store, sonst geht das Update ins Leere.
+        let isOwnZone = share.recordID.zoneID.ownerName == CKCurrentUserDefaultName
+        guard let store = isOwnZone ? privatePersistentStore : sharedPersistentStore else { return }
         container.persistUpdatedShare(share, in: store, completion: nil)
     }
 

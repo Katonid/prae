@@ -297,14 +297,16 @@ struct SettingsView: View {
         guard let vehicle = vehicleToDelete, vehicles.count > 1 else { return }
         vehicleToDelete = nil
 
-        for entry in entries where entry.vehicleId == vehicle.externalId {
+        // ID vor dem Löschen sichern – nach dem Save ist das Objekt ungültig.
+        let deletedId = vehicle.externalId
+        for entry in entries where entry.vehicleId == deletedId {
             viewContext.delete(entry)
         }
         viewContext.delete(vehicle)
         try? viewContext.save()
 
-        if appModel.selectedVehicleId == vehicle.externalId {
-            appModel.selectedVehicleId = vehicles.first { $0.externalId != vehicle.externalId }?.externalId ?? ""
+        if appModel.selectedVehicleId == deletedId {
+            appModel.selectedVehicleId = vehicles.first { $0.externalId != deletedId }?.externalId ?? ""
         }
     }
 }
