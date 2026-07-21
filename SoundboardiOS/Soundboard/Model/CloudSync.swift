@@ -8,6 +8,7 @@ final class CloudSync: ObservableObject {
 
     @Published private(set) var available = false
     @Published private(set) var lastSync: Date?
+    @Published private(set) var syncing = false
     @Published var enabled: Bool {
         didSet {
             UserDefaults.standard.set(enabled, forKey: "cloudSyncEnabled")
@@ -20,8 +21,6 @@ final class CloudSync: ObservableObject {
 
     private var containerDocs: URL?
     private var pushTask: Task<Void, Never>?
-    private var syncing = false
-    private var started = false
 
     init() {
         enabled = UserDefaults.standard.object(forKey: "cloudSyncEnabled") as? Bool ?? true
@@ -29,37 +28,32 @@ final class CloudSync: ObservableObject {
 
     // MARK: - Einstieg
 
-    /// Ermittelt den iCloud-Container (darf nicht auf dem Main-Thread geschehen)
-    /// und stößt danach einen Abgleich an.
     func start() {
         guard enabled else { return }
-        started = true
-        Task.detached(priority: .utility) { [weak self] in
-            let url = FileManager.default
-                .url(forUbiquityContainerIdentifier: nil)?
-                .appendingPathComponent("Documents", isDirectory: true)
-            if let url {
-                try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
-            }
-            await MainActor.run { [weak self] in
-                guard let self else { return }
-                self.containerDocs = url
-                self.available = url != nil
-            }
-            if url != nil {
-                await self?.syncNow()
-            }
-        }
+        Task { await syncNow() }
     }
 
     /// Beim Zurückkehren in den Vordergrund nach Neuerungen anderer Geräte schauen.
     func appBecameActive() {
         guard enabled else { return }
-        if containerDocs == nil {
-            if !started { start() }
-            return
-        }
         Task { await syncNow() }
+    }
+
+    /// Ermittelt den iCloud-Container bei Bedarf neu
+    /// (die Abfrage darf nicht auf dem Main-Thread laufen).
+    private func discoverContainer() async -> URL? {
+        if let containerDocs { return containerDocs }
+        let url = await Task.detached(priority: .utility) { () -> URL? in
+            guard let base = FileManager.default.url(forUbiquityContainerIdentifier: nil) else {
+                return nil
+            }
+            let docs = base.appendingPathComponent("Documents", isDirectory: true)
+            try? FileManager.default.createDirectory(at: docs, withIntermediateDirectories: true)
+            return docs
+        }.value
+        containerDocs = url
+        available = url != nil
+        return url
     }
 
     /// Verzögerter Push nach einer Nutzeränderung (mehrere Änderungen bündeln).
@@ -74,10 +68,18 @@ final class CloudSync: ObservableObject {
 
     // MARK: - Abgleich
 
-    func syncNow() async {
-        guard enabled, let cloudDocs = containerDocs, let store, !syncing else { return }
+    /// Vollständiger Abgleich. `manual` steuert, ob der Nutzer Rückmeldungen bekommt.
+    func syncNow(manual: Bool = false) async {
+        guard enabled, let store, !syncing else { return }
         syncing = true
         defer { syncing = false }
+
+        guard let cloudDocs = await discoverContainer() else {
+            if manual {
+                store.showStatus("iCloud nicht verfügbar – bitte Apple-ID-Anmeldung und iCloud Drive in den iOS-Einstellungen prüfen.")
+            }
+            return
+        }
 
         let cloudJSON = cloudDocs.appendingPathComponent("soundboard.json")
         let cloudData = await Self.readCloudData(url: cloudJSON)
@@ -100,16 +102,23 @@ final class CloudSync: ObservableObject {
         } else if let localDate,
                   cloudDate == nil || cloudDate! < localDate.addingTimeInterval(-1) {
             // Lokal ist neuer (oder Cloud leer): hochladen.
-            await pushNow()
+            let ok = await pushNow()
+            if manual {
+                store.showStatus(ok ? "Stand zu iCloud hochgeladen." : "iCloud-Upload fehlgeschlagen.")
+            }
         } else {
             lastSync = Date()
+            if manual {
+                store.showStatus("Bereits auf dem neuesten Stand.")
+            }
         }
     }
 
-    func pushNow() async {
-        guard enabled, let cloudDocs = containerDocs, let store else { return }
+    @discardableResult
+    func pushNow() async -> Bool {
+        guard enabled, let store, let cloudDocs = await discoverContainer() else { return false }
         let data = AppData(boards: store.boards, activeBoardID: store.activeBoardID, savedAt: store.savedAt)
-        guard let json = try? JSONEncoder().encode(data) else { return }
+        guard let json = try? JSONEncoder().encode(data) else { return false }
         let audio = Self.referencedAudio(store.boards)
         let backgrounds = Self.referencedBackgrounds(store.boards)
         let localAudio = BoardStore.audioDirURL
@@ -126,6 +135,7 @@ final class CloudSync: ObservableObject {
             )
         }.value
         if ok { lastSync = Date() }
+        return ok
     }
 
     // MARK: - Dateiarbeit (läuft abseits des Main-Threads)
