@@ -14,7 +14,9 @@ und SwiftUI, ohne Web-Anteile. Die bestehende PWA bleibt unverändert.
 - **Verbrauchsberechnung:** Strecke seit letztem Tanken, Verbrauch und Kosten
   pro 100 km über Teiltankungen hinweg (wie die PWA nur bei Volltankungen)
 - **Verlauf:** alle Tankvorgänge mit Bearbeiten/Löschen, Karte aller
-  Tankstellen-Positionen (Apple Karten)
+  Tankstellen-Positionen (Apple Karten) mit Routenführung zur ausgewählten
+  Tankstelle; Export als PDF-Report, Excel (.xlsx) oder CSV über das
+  Teilen-Menü (wie in der PWA, ohne Fremdbibliotheken)
 - **Übersicht:** Verlaufsgrafik Verbrauch/Literpreis (letzte 9 Werte),
   Gesamtsummen, Jahresstatistik je Fahrzeug
 - **Tankstellensuche:** Umkreissuche per Standort oder Ortsname; mit

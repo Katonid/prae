@@ -223,6 +223,19 @@ struct EntryFormView: View {
                       systemImage: "location.fill")
             }
             .disabled(appModel.isLoadingStations)
+
+            if !stationName.trimmingCharacters(in: .whitespaces).isEmpty {
+                Button {
+                    Navigation.navigate(
+                        name: stationName,
+                        place: stationPlace,
+                        lat: stationCoordinate?.latitude,
+                        lng: stationCoordinate?.longitude
+                    )
+                } label: {
+                    Label("Zur Tankstelle navigieren", systemImage: "arrow.triangle.turn.up.right.circle")
+                }
+            }
         }
     }
 

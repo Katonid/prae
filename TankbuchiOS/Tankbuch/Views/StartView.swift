@@ -68,7 +68,6 @@ struct StartView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 statusBand
-                newEntryButton
                 trendPanel
                 summaryPanel
                 annualPanel
@@ -83,19 +82,6 @@ struct StartView: View {
     }
 
     // MARK: Neuer Tankvorgang
-
-    private var newEntryButton: some View {
-        Button {
-            appModel.startNewEntry()
-        } label: {
-            Label("Neuer Tankvorgang", systemImage: "plus.circle.fill")
-                .font(.headline)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 6)
-        }
-        .buttonStyle(.borderedProminent)
-        .controlSize(.large)
-    }
 
     private var floatingNewEntryButton: some View {
         Button {
