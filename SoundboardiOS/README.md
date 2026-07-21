@@ -44,6 +44,12 @@ mit SwiftUI neu gestaltet und zusätzlich mit Anbindung an Streamingdienste
 - Vollständiger Export (Boards, Einstellungen, lokale Tondateien, Hintergrundbilder)
   als JSON-Datei, z. B. zum Übertragen auf ein anderes Gerät
 - Import ersetzt nach Rückfrage alle vorhandenen Daten
+- **PWA-Import:** Sicherungen der Theater-Soundboard-Webapp (.soundboard-Dateien)
+  werden erkannt und vollständig übernommen – Töne, Farben, Beschriftungen,
+  Lautstärken, Gesten und Hintergrundbilder
+- **iCloud-Synchronisierung:** Boards, Einstellungen und Tondateien werden über
+  iCloud zwischen allen Geräten mit derselben Apple-ID abgeglichen
+  (abschaltbar; bei Unterschieden gewinnt der zuletzt geänderte Stand)
 
 ## Projekt öffnen und bauen
 
@@ -60,6 +66,16 @@ App-ID `de.familie.soundboard` → App Services → MusicKit). Beim ersten Zugri
 fragt die App die Medien-Berechtigung ab (`NSAppleMusicUsageDescription` ist
 bereits hinterlegt). Die Wiedergabe in voller Länge erfordert ein aktives
 Apple-Music-Abo des angemeldeten Apple-Accounts.
+
+### Hinweise zu iCloud
+
+Die Synchronisierung nutzt den iCloud-Container `iCloud.de.familie.soundboard`
+(Berechtigungen in `Config/Soundboard.entitlements`). Beim ersten Bauen mit
+automatischem Signieren legt Xcode den Container im Developer-Konto an.
+Erscheint ein Signierfehler mit Bezug auf iCloud, unter *Signing &
+Capabilities* prüfen, dass das bezahlte Team gewählt ist, und erneut bauen.
+Auf den Geräten muss dieselbe Apple-ID mit aktiviertem iCloud Drive
+angemeldet sein.
 
 ### Hinweise zu Spotify und Deezer
 

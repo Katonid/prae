@@ -132,6 +132,17 @@ final class AudioEngine: NSObject, ObservableObject {
         if let observer = previewObservers.removeValue(forKey: padID) {
             NotificationCenter.default.removeObserver(observer)
         }
+    }
+
+    /// Vergisst alle Player – z. B. wenn iCloud einen neuen Datenstand liefert.
+    func discardAll() {
+        for padID in Array(filePlayers.keys) { discard(padID: padID) }
+        for padID in Array(previewPlayers.keys) { discard(padID: padID) }
+        if appleMusicPadID != nil {
+            ApplicationMusicPlayer.shared.stop()
+            appleMusicPadID = nil
+        }
+        tick &+= 1
         if appleMusicPadID == padID {
             ApplicationMusicPlayer.shared.stop()
             appleMusicPadID = nil

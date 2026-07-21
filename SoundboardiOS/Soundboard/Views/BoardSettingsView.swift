@@ -7,6 +7,7 @@ import UniformTypeIdentifiers
 struct BoardSettingsView: View {
     @EnvironmentObject var store: BoardStore
     @EnvironmentObject var engine: AudioEngine
+    @EnvironmentObject var cloud: CloudSync
     @Environment(\.dismiss) private var dismiss
 
     @State private var showExporter = false
@@ -46,6 +47,26 @@ struct BoardSettingsView: View {
                 }
 
                 Section {
+                    Toggle("Mit iCloud synchronisieren", isOn: $cloud.enabled)
+                    LabeledContent("Status",
+                                   value: !cloud.enabled ? "Aus" : (cloud.available ? "Aktiv" : "iCloud nicht verfügbar"))
+                    if let last = cloud.lastSync {
+                        LabeledContent("Letzter Abgleich",
+                                       value: last.formatted(date: .abbreviated, time: .shortened))
+                    }
+                    Button {
+                        Task { await cloud.syncNow() }
+                    } label: {
+                        Label("Jetzt abgleichen", systemImage: "arrow.triangle.2.circlepath")
+                    }
+                    .disabled(!cloud.enabled || !cloud.available)
+                } header: {
+                    Text("iCloud")
+                } footer: {
+                    Text("Gleicht Boards, Einstellungen, Tondateien und Hintergrundbilder über iCloud zwischen allen Geräten mit derselben Apple-ID ab. Bei Unterschieden gewinnt der zuletzt geänderte Stand.")
+                }
+
+                Section {
                     Button {
                         prepareExport()
                     } label: {
@@ -59,7 +80,7 @@ struct BoardSettingsView: View {
                 } header: {
                     Text("Sichern & Übertragen")
                 } footer: {
-                    Text("Der Export enthält alle Boards, Einstellungen und lokalen Tondateien. Beim Import werden die vorhandenen Daten ersetzt.")
+                    Text("Der Export enthält alle Boards, Einstellungen und lokalen Tondateien. Beim Import werden die vorhandenen Daten ersetzt. Auch Sicherungen der Theater-Soundboard-Webapp (.soundboard-Dateien) können importiert werden – inklusive aller Töne, Farben und Gesten.")
                 }
             }
             .navigationTitle("Boards & Daten")
@@ -85,7 +106,7 @@ struct BoardSettingsView: View {
             }
             .fileImporter(
                 isPresented: $showImporter,
-                allowedContentTypes: [.json],
+                allowedContentTypes: [.json, UTType(filenameExtension: "soundboard") ?? .data],
                 allowsMultipleSelection: false
             ) { result in
                 if case .success(let urls) = result, let url = urls.first {
@@ -98,7 +119,7 @@ struct BoardSettingsView: View {
             )) {
                 Button("Importieren", role: .destructive) {
                     if let url = pendingImportURL {
-                        engine.resetAll()
+                        engine.discardAll()
                         store.importData(from: url)
                     }
                     pendingImportURL = nil

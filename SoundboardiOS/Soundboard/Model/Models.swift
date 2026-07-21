@@ -117,6 +117,8 @@ struct AppData: Codable {
     var version: Int = 1
     var boards: [SoundBoard] = []
     var activeBoardID: UUID? = nil
+    /// Zeitpunkt der letzten Nutzeränderung – Grundlage für den iCloud-Abgleich.
+    var savedAt: Date? = nil
 }
 
 enum BoardDefaults {
