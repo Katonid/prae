@@ -253,6 +253,7 @@
 				DEVELOPMENT_TEAM = "";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Config/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Soundboard;
 				INFOPLIST_KEY_NSAppleMusicUsageDescription = "Der Zugriff auf Apple Music wird benötigt, um Musiktitel aus deiner Mediathek und dem Apple-Music-Katalog auf Soundboard-Feldern abzuspielen.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Der Zugriff auf die Fotomediathek wird benötigt, um ein Hintergrundbild für ein Board auszuwählen.";
@@ -287,6 +288,7 @@
 				DEVELOPMENT_TEAM = "";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Config/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Soundboard;
 				INFOPLIST_KEY_NSAppleMusicUsageDescription = "Der Zugriff auf Apple Music wird benötigt, um Musiktitel aus deiner Mediathek und dem Apple-Music-Katalog auf Soundboard-Feldern abzuspielen.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Der Zugriff auf die Fotomediathek wird benötigt, um ein Hintergrundbild für ein Board auszuwählen.";
