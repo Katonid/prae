@@ -19,7 +19,8 @@ und SwiftUI, ohne Web-Anteile. Die bestehende PWA bleibt unverändert.
   Teilen-Menü (wie in der PWA, ohne Fremdbibliotheken)
 - **Übersicht:** Verlaufsgrafik Verbrauch/Literpreis (letzte 9 Werte),
   Gesamtsummen, Jahresstatistik je Fahrzeug
-- **Tankstellensuche:** Umkreissuche per Standort oder Ortsname; mit
+- **Tankstellensuche:** Umkreissuche per Standort oder Ortsname (Umkreis
+  standardmäßig 5 km, per Regler stufenlos bis 20 km); mit
   Tankerkönig-API-Schlüssel Livepreise (MTS-K), ohne Schlüssel Treffer über
   Apple Karten; Sortierung nach Entfernung oder Preis; Station direkt in das
   Formular übernehmbar
