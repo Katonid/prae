@@ -482,6 +482,9 @@ struct EntryFormView: View {
     /// Gegenseitige Umrechnung von Preis/Liter/Gesamt (bzw. AdBlue).
     private func recalculate(changed: FuelField) {
         switch changed {
+        case .odometer:
+            return
+
         case .price, .liters, .total:
             let price = Format.parseNumber(priceText)
             let liters = Format.parseNumber(litersText)
