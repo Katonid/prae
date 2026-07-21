@@ -23,9 +23,10 @@ struct ContentView: View {
                 .tag(AppTab.stations)
 
             SettingsView()
-                .tabItem { Label("Fahrzeuge", systemImage: "car.2") }
+                .tabItem { Label("Einstellungen", systemImage: "gearshape") }
                 .tag(AppTab.settings)
         }
+        .preferredColorScheme(appModel.appearance.colorScheme)
     }
 }
 
@@ -47,9 +48,9 @@ struct NoVehiclePlaceholder: View {
         ContentUnavailableView {
             Label("Kein Fahrzeug", systemImage: "car")
         } description: {
-            Text("Lege unter „Fahrzeuge“ ein Fahrzeug an oder importiere dort eine Datensicherung der Tankbuch-Web-App.\n\nFalls du die App schon auf einem anderen Gerät nutzt, warte kurz auf den iCloud-Abgleich.")
+            Text("Lege unter „Einstellungen“ ein Fahrzeug an oder importiere dort eine Datensicherung der Tankbuch-Web-App.\n\nFalls du die App schon auf einem anderen Gerät nutzt, warte kurz auf den iCloud-Abgleich.")
         } actions: {
-            Button("Zu Fahrzeuge") {
+            Button("Zu den Einstellungen") {
                 appModel.selectedTab = .settings
             }
             .buttonStyle(.borderedProminent)

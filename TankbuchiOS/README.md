@@ -25,6 +25,10 @@ und SwiftUI, ohne Web-Anteile. Die bestehende PWA bleibt unverändert.
   Preis an der Tankstelle, letzter Preis des Fahrzeugs oder Preisvorgabe
 - **Mehrere Fahrzeuge:** Name, Kennzeichen, Kraftstoffart, Preisvorgabe,
   Anfangs-Kilometerstand, Foto
+- **Bedienung:** Plus-Button auf der Startseite für neue Tankvorgänge;
+  auf dem iPad zeigt der Verlauf wie die PWA eine Tabelle mit Karte darüber;
+  Hell-/Dunkelmodus unter *Einstellungen → Darstellung* wählbar
+  (Automatisch/Hell/Dunkel)
 
 ## Datensicherung & iCloud
 
@@ -38,6 +42,10 @@ und SwiftUI, ohne Web-Anteile. Die bestehende PWA bleibt unverändert.
 - **iCloud-Sync:** Fahrzeuge und Tankvorgänge liegen in SwiftData mit
   CloudKit-Spiegelung und synchronisieren automatisch zwischen allen Geräten
   derselben Apple-ID (privater iCloud-Container, keine eigenen Server).
+  Unter *Einstellungen → iCloud* wird das letzte Sync-Ereignis angezeigt und
+  der Abgleich lässt sich manuell anstoßen (CloudKit kennt keinen offiziellen
+  „Sync jetzt“-Aufruf; die App erzeugt dafür eine Mini-Änderung an einem
+  Ping-Datensatz, was den Abgleich weckt).
 
 ## Technik
 

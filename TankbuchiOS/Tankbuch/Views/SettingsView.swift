@@ -23,15 +23,19 @@ struct SettingsView: View {
     @State private var exportDocument: BackupDocument?
     @State private var showExporter = false
 
+    @StateObject private var syncMonitor = SyncMonitor()
+    @State private var syncMessage: String?
+
     var body: some View {
         NavigationStack {
             Form {
                 vehiclesSection
+                appearanceSection
                 apiKeySection
                 backupSection
                 iCloudSection
             }
-            .navigationTitle("Fahrzeuge & Daten")
+            .navigationTitle("Einstellungen")
             .sheet(item: $vehicleToEdit) { vehicle in
                 VehicleEditView(vehicle: vehicle)
             }
@@ -131,6 +135,19 @@ struct SettingsView: View {
         }
     }
 
+    // MARK: Darstellung
+
+    private var appearanceSection: some View {
+        Section("Darstellung") {
+            Picker("Erscheinungsbild", selection: $appModel.appearance) {
+                ForEach(Appearance.allCases) { appearance in
+                    Text(appearance.label).tag(appearance)
+                }
+            }
+            .pickerStyle(.segmented)
+        }
+    }
+
     // MARK: Tankerkönig
 
     private var apiKeySection: some View {
@@ -158,7 +175,7 @@ struct SettingsView: View {
             Button {
                 prepareExport()
             } label: {
-                Label("Backup exportieren", systemImage: "square.and.arrow.up")
+                Label("Backup exportieren (PWA-Datei, .json)", systemImage: "square.and.arrow.up")
             }
             .disabled(vehicles.isEmpty)
 
@@ -176,14 +193,28 @@ struct SettingsView: View {
 
     private var iCloudSection: some View {
         Section {
-            Label {
-                Text("Fahrzeuge und Tankvorgänge synchronisieren automatisch über iCloud auf alle Geräte, die mit derselben Apple-ID angemeldet sind.")
+            LabeledContent("Letzter Abgleich") {
+                Text(syncMonitor.lastEventText)
                     .font(.footnote)
-            } icon: {
-                Image(systemName: "icloud")
+                    .foregroundStyle(syncMonitor.lastEventWasError ? .red : .secondary)
+                    .multilineTextAlignment(.trailing)
+            }
+
+            Button {
+                triggerSync()
+            } label: {
+                Label("Jetzt synchronisieren", systemImage: "arrow.triangle.2.circlepath.icloud")
+            }
+
+            if let syncMessage {
+                Text(syncMessage)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
             }
         } header: {
             Text("iCloud")
+        } footer: {
+            Text("Fahrzeuge und Tankvorgänge synchronisieren automatisch über iCloud auf alle Geräte derselben Apple-ID. „Jetzt synchronisieren“ stößt den Abgleich zusätzlich manuell an.")
         }
     }
 
@@ -235,6 +266,26 @@ struct SettingsView: View {
             showExporter = true
         } catch {
             backupMessage = "Export fehlgeschlagen: \(error.localizedDescription)"
+        }
+    }
+
+    /// CloudKit bietet keinen offiziellen „Sync jetzt“-Aufruf; eine winzige
+    /// Änderung am Ping-Datensatz erzeugt aber einen Export und weckt damit
+    /// den Abgleich (auch auf den anderen Geräten).
+    private func triggerSync() {
+        do {
+            let pings = try modelContext.fetch(FetchDescriptor<SyncPing>())
+            if let ping = pings.first {
+                ping.updatedAt = Date()
+                // Durch parallele Geräte entstandene Duplikate aufräumen.
+                pings.dropFirst().forEach { modelContext.delete($0) }
+            } else {
+                modelContext.insert(SyncPing())
+            }
+            try modelContext.save()
+            syncMessage = "Synchronisierung angestoßen – Ergebnis erscheint oben."
+        } catch {
+            syncMessage = "Synchronisierung konnte nicht angestoßen werden: \(error.localizedDescription)"
         }
     }
 

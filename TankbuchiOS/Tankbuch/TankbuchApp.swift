@@ -7,7 +7,7 @@ struct TankbuchApp: App {
     @StateObject private var appModel = AppModel()
 
     init() {
-        let schema = Schema([Vehicle.self, FuelEntry.self])
+        let schema = Schema([Vehicle.self, FuelEntry.self, SyncPing.self])
         do {
             // Mit iCloud-Capability synchronisiert SwiftData automatisch über
             // CloudKit; ohne Capability läuft die App rein lokal weiter.
