@@ -22,6 +22,8 @@ struct SpotBriefingView: View {
     @State private var shotIdeas: [ShotIdea] = []
     @State private var isLoadingIdeas = false
     @State private var ideasError: String?
+    @State private var learnings: [ReviewLearning] = []
+    @State private var legalFromCache = false
 
     private var today: DayScore? { days.first }
 
@@ -37,6 +39,9 @@ struct SpotBriefingView: View {
                     }
                     if let legal {
                         legalCard(legal)
+                    }
+                    if !learnings.isEmpty {
+                        learningCard
                     }
                     if let today {
                         conditionsCard(today)
@@ -66,8 +71,21 @@ struct SpotBriefingView: View {
         isLoading = true
         defer { isLoading = false }
         days = (try? await state.days(for: spot.coordinate)) ?? []
+        learnings = ReviewMemory.recent(2)
         if let profile = state.profile {
-            legal = await LegalService.shared.assess(coordinate: spot.coordinate, profile: profile)
+            let live = await LegalService.shared.assess(coordinate: spot.coordinate, profile: profile)
+            // Offline-first (PRD Kap. 10): Wenn der Geodienst nicht
+            // antwortet, den letzten erfolgreichen Check mit sichtbarem
+            // Datenstand zeigen statt „keine Daten".
+            if live.verdict == .unknown,
+               let cached = LegalCache.assessment(for: spot.id, coordinate: spot.coordinate) {
+                legal = cached
+                legalFromCache = true
+            } else {
+                legal = live
+                legalFromCache = false
+                LegalCache.save(live, spotID: spot.id)
+            }
         }
     }
 
@@ -149,6 +167,11 @@ struct SpotBriefingView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
+            if legalFromCache {
+                Label("Offline — letzter Check vom \(Theme.shortDayFormatter.string(from: legal.checkedAt)), \(Theme.time(legal.checkedAt)) Uhr. Vor dem Start aktualisieren.", systemImage: "wifi.slash")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+            }
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -192,6 +215,29 @@ struct SpotBriefingView: View {
                         .foregroundStyle(.orange)
                 }
             }
+        }
+        .padding()
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 16))
+    }
+
+    // MARK: Lern-Erinnerung (PRD Phase 3 — der Loop schließt sich)
+
+    private var learningCard: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label("Aus deinem letzten Flight Review", systemImage: "graduationcap")
+                .font(.headline)
+            ForEach(learnings) { learning in
+                HStack(alignment: .top, spacing: 8) {
+                    Image(systemName: "lightbulb")
+                        .foregroundStyle(.orange)
+                    Text(learning.text)
+                        .font(.subheadline)
+                }
+            }
+            Text("Denk heute beim Fliegen dran.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -256,6 +302,13 @@ struct SpotBriefingView: View {
         if let profile = state.profile {
             context.append("Drohne: \(profile.name)")
         }
+        // Lern-Loop (PRD F6): frühere Kritikpunkte fließen in die Ideen ein
+        // („Du fliegst oft zu hoch — versuch heute 30 m mit Vordergrund").
+        let pastLearnings = ReviewMemory.recent(3)
+        if !pastLearnings.isEmpty {
+            context.append("Frühere Verbesserungsvorschläge aus der Bildkritik des Piloten (beziehe sie ein, wo passend): "
+                + pastLearnings.map(\.text).joined(separator: " | "))
+        }
 
         do {
             shotIdeas = try await ClaudeService.shared.shotIdeas(
@@ -274,6 +327,13 @@ struct SpotBriefingView: View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Licht")
                 .font(.headline)
+            // Sonnenrichtungen — wichtig für Gegenlicht-/Silhouetten-Planung
+            if let sunrise = day.sunDay.sunrise {
+                sunDirectionRow(label: "Aufgang", symbol: "sunrise", date: sunrise)
+            }
+            if let sunset = day.sunDay.sunset {
+                sunDirectionRow(label: "Untergang", symbol: "sunset", date: sunset)
+            }
             ForEach(day.sunDay.lightWindows, id: \.self) { window in
                 HStack {
                     Image(systemName: window.kind.rawValue.hasPrefix("Blaue") ? "moon.stars" : "sun.horizon")
@@ -291,5 +351,23 @@ struct SpotBriefingView: View {
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 16))
+    }
+
+    /// Zeile mit Uhrzeit, Himmelsrichtung und Richtungspfeil der Sonne.
+    private func sunDirectionRow(label: String, symbol: String, date: Date) -> some View {
+        let azimuth = SunCalculator.position(at: date, latitude: spot.latitude, longitude: spot.longitude).azimuth
+        return HStack {
+            Image(systemName: symbol)
+                .foregroundStyle(.secondary)
+                .frame(width: 22)
+            Text("\(label) \(Theme.time(date)) Uhr aus \(Theme.compassDirection(azimuth))")
+                .font(.subheadline)
+            Spacer()
+            Image(systemName: "location.north.fill")
+                .font(.caption)
+                .foregroundStyle(.orange)
+                .rotationEffect(.degrees(azimuth))
+                .accessibilityLabel("Richtung \(Int(azimuth)) Grad")
+        }
     }
 }

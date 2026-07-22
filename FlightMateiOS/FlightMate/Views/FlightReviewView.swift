@@ -194,6 +194,9 @@ struct FlightReviewView: View {
         defer { isAnalyzing = false }
         do {
             critiques = try await ClaudeService.shared.critiques(for: images)
+            // Lern-Loop (PRD Phase 3): Vorschläge merken — sie tauchen
+            // im nächsten Briefing und in den Bildideen wieder auf.
+            ReviewMemory.add(critiques.map(\.verbesserung))
         } catch {
             errorMessage = error.localizedDescription
         }

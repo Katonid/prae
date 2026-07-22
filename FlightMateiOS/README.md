@@ -74,6 +74,15 @@ Dieser Stand entspricht dem **MVP-Fundament** (PRD Phase 0/1).
   konkrete, ausführbare Bildideen für Ort, Licht und Wind vor — die
   legale Maximalhöhe aus dem Legal-Check geht als harte Bedingung in
   den Prompt ein.
+- **Lern-Loop (User Journey Phase 3):** Die Verbesserungsvorschläge
+  aus dem Flight Review werden lokal gemerkt (letzte 12, nur auf dem
+  Gerät). Im nächsten Briefing erscheinen sie als Erinnerung („Denk
+  heute dran …") und fließen in die Bildideen ein — der Kreis
+  Entscheiden → Fliegen → Lernen schließt sich.
+- **Offline-Briefing:** Der letzte erfolgreiche Legal-Check pro Spot
+  wird gecacht; ohne Netz zeigt das Briefing ihn mit sichtbarem
+  Datenstand statt „keine Daten" (PRD Kap. 10, offline-first).
+  Dazu Sonnenauf-/-untergangsrichtung mit Kompasspfeil im Briefing.
 - **KI-Anbindung:** Eigener Anthropic-API-Schlüssel des Nutzers
   („bring your own key", Einstellungen → KI-Funktionen), gespeichert
   in der Keychain. Claude-API direkt (`claude-opus-4-8`, adaptives
