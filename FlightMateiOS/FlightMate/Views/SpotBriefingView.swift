@@ -24,8 +24,12 @@ struct SpotBriefingView: View {
     @State private var ideasError: String?
     @State private var learnings: [ReviewLearning] = []
     @State private var legalFromCache = false
+    @State private var selectedDayIndex = 0
 
-    private var today: DayScore? { days.first }
+    /// Der geplante Tag — standardmäßig heute, per Tages-Chips wählbar.
+    private var selectedDay: DayScore? {
+        days.indices.contains(selectedDayIndex) ? days[selectedDayIndex] : days.first
+    }
 
     var body: some View {
         ScrollView {
@@ -34,8 +38,11 @@ struct SpotBriefingView: View {
                     ProgressView("Briefing wird erstellt …")
                         .padding(.top, 60)
                 } else {
-                    if let today {
-                        windowCard(today)
+                    if days.count > 1 {
+                        dayPicker
+                    }
+                    if let selectedDay {
+                        windowCard(selectedDay)
                     }
                     if let legal {
                         legalCard(legal)
@@ -43,9 +50,9 @@ struct SpotBriefingView: View {
                     if !learnings.isEmpty {
                         learningCard
                     }
-                    if let today {
-                        conditionsCard(today)
-                        lightCard(today)
+                    if let selectedDay {
+                        conditionsCard(selectedDay)
+                        lightCard(selectedDay)
                     }
                     if claude.hasKey {
                         ideasCard
@@ -89,11 +96,42 @@ struct SpotBriefingView: View {
         }
     }
 
+    // MARK: Tages-Auswahl
+
+    private var dayPicker: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(Array(days.enumerated()), id: \.offset) { index, day in
+                    Button {
+                        selectedDayIndex = index
+                        shotIdeas = []
+                        ideasError = nil
+                    } label: {
+                        VStack(spacing: 2) {
+                            Text(Calendar.current.isDateInToday(day.date) ? "Heute" : Theme.shortDayFormatter.string(from: day.date))
+                                .font(.caption)
+                            Text("\(day.score)")
+                                .font(.headline)
+                                .foregroundStyle(Theme.scoreColor(day.score))
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(
+                            index == selectedDayIndex ? Color.accentColor.opacity(0.18) : Color.clear,
+                            in: RoundedRectangle(cornerRadius: 10)
+                        )
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+    }
+
     // MARK: Bestes Fenster
 
     private func windowCard(_ day: DayScore) -> some View {
         VStack(spacing: 8) {
-            Text("Heute")
+            Text(Calendar.current.isDateInToday(day.date) ? "Heute" : Theme.dayFormatter.string(from: day.date))
                 .font(.caption)
                 .foregroundStyle(.secondary)
             HStack(spacing: 16) {
@@ -110,7 +148,7 @@ struct SpotBriefingView: View {
                                 .foregroundStyle(.secondary)
                         }
                     } else {
-                        Text("Heute kein lohnendes Flugfenster")
+                        Text("An diesem Tag kein lohnendes Flugfenster")
                             .font(.headline)
                     }
                 }
@@ -289,14 +327,15 @@ struct SpotBriefingView: View {
         var context: [String] = [
             String(format: "Koordinaten: %.4f, %.4f", spot.latitude, spot.longitude),
         ]
-        if let today, let window = today.bestWindow {
-            context.append("Bestes Flugfenster heute: \(Theme.time(window.start))–\(Theme.time(window.end)) Uhr (Flight Score \(window.score)/10)")
-            if let hour = today.hours.first(where: { $0.hour.date == window.start }) {
+        if let selectedDay, let window = selectedDay.bestWindow {
+            context.append("Geplanter Tag: \(Theme.dayFormatter.string(from: selectedDay.date))")
+            context.append("Bestes Flugfenster: \(Theme.time(window.start))–\(Theme.time(window.end)) Uhr (Flight Score \(window.score)/10)")
+            if let hour = selectedDay.hours.first(where: { $0.hour.date == window.start }) {
                 context.append("Licht im Fenster: \(SunCalculator.lightLabel(at: hour.hour.date, latitude: spot.latitude, longitude: spot.longitude))")
                 context.append("Wind: \(Int(max(hour.hour.windSpeed10Kmh, hour.hour.windSpeed120Kmh))) km/h aus \(Theme.compassDirection(hour.hour.windDirectionDeg))")
             }
         }
-        if let sunset = today?.sunDay.sunset {
+        if let sunset = selectedDay?.sunDay.sunset {
             context.append("Sonnenuntergang: \(Theme.time(sunset)) Uhr")
         }
         if let profile = state.profile {

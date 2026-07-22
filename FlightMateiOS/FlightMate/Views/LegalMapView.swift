@@ -73,12 +73,17 @@ struct LegalMapView: View {
         NavigationStack {
             MapReader { proxy in
                 Map(position: $camera) {
-                    // Zonen-Umrisse des sichtbaren Ausschnitts (dipul)
+                    // Zonen-Umrisse des sichtbaren Ausschnitts (DE: dipul, CA: NRCan/TC)
                     ForEach(overlays) { zone in
                         ForEach(Array(zone.rings.enumerated()), id: \.offset) { _, ring in
                             MapPolygon(coordinates: ring)
                                 .foregroundStyle(Theme.verdictColor(zone.severity).opacity(0.16))
                             MapPolyline(coordinates: ring + [ring[0]])
+                                .stroke(Theme.verdictColor(zone.severity).opacity(0.75), lineWidth: 1.5)
+                        }
+                        ForEach(Array(zone.circles.enumerated()), id: \.offset) { _, circle in
+                            MapCircle(center: circle.center, radius: circle.radiusM)
+                                .foregroundStyle(Theme.verdictColor(zone.severity).opacity(0.16))
                                 .stroke(Theme.verdictColor(zone.severity).opacity(0.75), lineWidth: 1.5)
                         }
                     }

@@ -51,6 +51,21 @@ struct SpotsView: View {
                             }
                         }
 
+                        if !state.notificationsEnabled {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Label("Beste Fenster automatisch melden?", systemImage: "bell.badge")
+                                    .font(.subheadline.weight(.semibold))
+                                Text("FlightMate meldet dir maximal einmal am Tag, wenn an einem deiner Spots ein außergewöhnlich gutes Flugfenster bevorsteht.")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                Button("Benachrichtigungen aktivieren") {
+                                    Task { await state.setNotifications(true) }
+                                }
+                                .buttonStyle(.bordered)
+                            }
+                            .padding(.vertical, 4)
+                        }
+
                         if !state.canAddSpot {
                             Text("Free-Tier: bis zu \(Spot.freeTierLimit) Spots. Unbegrenzte Spots und proaktive Benachrichtigungen kommen mit FlightMate Pro.")
                                 .font(.caption)

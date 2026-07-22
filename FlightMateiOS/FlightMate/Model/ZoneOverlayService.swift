@@ -11,12 +11,18 @@
 //  die dichten Korridore (Straßen, Bahn, Wasserstraßen, Strom) und
 //  Wohngrundstücke erst ab näherem Zoom, damit die Karte in Städten
 //  nicht vollflächig zugedeckt wird.
-//  Abdeckung: Deutschland (dipul); weitere Länder folgen.
+//  Abdeckung: Deutschland (dipul) und Kanada (NRCan-Nationalparks
+//  als Polygone, Transport-Canada-Flughäfen als 3-NM-Kreise).
 //
 
 import Foundation
 import CoreLocation
 import MapKit
+
+struct ZoneCircle {
+    let center: CLLocationCoordinate2D
+    let radiusM: Double
+}
 
 struct ZoneOverlay: Identifiable {
     let id: String
@@ -24,6 +30,8 @@ struct ZoneOverlay: Identifiable {
     let severity: LegalVerdict
     /// Äußere Ringe der Polygone (Löcher werden für die Anzeige ignoriert).
     let rings: [[CLLocationCoordinate2D]]
+    /// Kreiszonen (z. B. 3-NM-Umkreis um kanadische Flughäfen).
+    var circles: [ZoneCircle] = []
 }
 
 final class ZoneOverlayService {
@@ -64,11 +72,14 @@ final class ZoneOverlayService {
     }
 
     /// Lädt die Zonen-Umrisse für den sichtbaren Kartenausschnitt.
-    /// Liefert [] bei zu großem Ausschnitt oder außerhalb Deutschlands.
+    /// Liefert [] bei zu großem Ausschnitt oder außerhalb der Abdeckung.
     func zones(in region: MKCoordinateRegion) async -> [ZoneOverlay] {
         guard region.span.latitudeDelta < Self.maxSpanDeg,
               region.span.longitudeDelta < Self.maxSpanDeg else { return [] }
         let c = region.center
+        if (41.6...83.5).contains(c.latitude), ((-141.1)...(-52.5)).contains(c.longitude) {
+            return await canadaZones(in: region)
+        }
         guard (46.5...55.5).contains(c.latitude), (4.5...16.5).contains(c.longitude) else { return [] }
 
         let minLat = c.latitude - region.span.latitudeDelta / 2
@@ -95,6 +106,101 @@ final class ZoneOverlayService {
         return result.sorted { $0.severity < $1.severity }
     }
 
+    // MARK: Kanada (NRCan + Transport Canada)
+
+    private func canadaZones(in region: MKCoordinateRegion) async -> [ZoneOverlay] {
+        let minLat = region.center.latitude - region.span.latitudeDelta / 2
+        let maxLat = region.center.latitude + region.span.latitudeDelta / 2
+        let minLon = region.center.longitude - region.span.longitudeDelta / 2
+        let maxLon = region.center.longitude + region.span.longitudeDelta / 2
+        let envelope = String(format: "{\"xmin\":%f,\"ymin\":%f,\"xmax\":%f,\"ymax\":%f}",
+                              minLon, minLat, maxLon, maxLat)
+
+        async let parks = Self.fetchCanadaParks(envelope: envelope)
+        async let airports = Self.fetchCanadaAirports(envelope: envelope)
+        let parkZones = (try? await parks) ?? []
+        let airportZones = (try? await airports) ?? []
+        return (parkZones + airportZones).sorted { $0.severity < $1.severity }
+    }
+
+    private static func arcgisGeoJSON(baseURL: String, envelope: String,
+                                      outFields: String) async throws -> Data {
+        var components = URLComponents(string: baseURL + "/query")!
+        components.queryItems = [
+            URLQueryItem(name: "geometry", value: envelope),
+            URLQueryItem(name: "geometryType", value: "esriGeometryEnvelope"),
+            URLQueryItem(name: "inSR", value: "4326"),
+            URLQueryItem(name: "spatialRel", value: "esriSpatialRelIntersects"),
+            URLQueryItem(name: "outFields", value: outFields),
+            URLQueryItem(name: "returnGeometry", value: "true"),
+            URLQueryItem(name: "outSR", value: "4326"),
+            URLQueryItem(name: "f", value: "geojson"),
+            URLQueryItem(name: "resultRecordCount", value: "50"),
+        ]
+        var request = URLRequest(url: components.url!)
+        request.timeoutInterval = 12
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+            throw GeoQueryError.badResponse
+        }
+        return data
+    }
+
+    /// Nationalparks (Parks-Canada-Drohnenverbot) als rote Polygone.
+    private static func fetchCanadaParks(envelope: String) async throws -> [ZoneOverlay] {
+        let data = try await arcgisGeoJSON(
+            baseURL: "https://proxyinternet.nrcan.gc.ca/arcgis/rest/services/CLSS-SATC/CLSS_Administrative_Boundaries/MapServer/1",
+            envelope: envelope, outFields: "adminAreaNameEng")
+        let collection = try JSONDecoder().decode(FeatureCollection.self, from: data)
+        return collection.features.compactMap { feature in
+            guard let rings = feature.geometry?.coordinates.outerRings.filter({ $0.count >= 3 }),
+                  !rings.isEmpty else { return nil }
+            return ZoneOverlay(
+                id: "ca-park-\(feature.properties?.adminAreaNameEng ?? UUID().uuidString)",
+                title: feature.properties?.adminAreaNameEng,
+                severity: .forbidden,
+                rings: rings.map { ring in
+                    ring.count > 400 ? stride(from: 0, to: ring.count, by: ring.count / 400 + 1).map { ring[$0] } : ring
+                }
+            )
+        }
+    }
+
+    /// Flughäfen mit Flugsicherung als orange 3-NM-Kreise (≈ 5,6 km).
+    private static func fetchCanadaAirports(envelope: String) async throws -> [ZoneOverlay] {
+        let data = try await arcgisGeoJSON(
+            baseURL: "https://maps-cartes.services.geo.ca/server_serveur/rest/services/TC/canadian_airports_w_air_navigation_services_en/MapServer/0",
+            envelope: envelope, outFields: "AIRPORT")
+
+        struct PointCollection: Decodable {
+            struct Feature: Decodable {
+                struct Geometry: Decodable {
+                    let type: String
+                    let coordinates: [Double]
+                }
+                struct Properties: Decodable { let AIRPORT: String? }
+                let geometry: Geometry?
+                let properties: Properties?
+            }
+            let features: [Feature]
+        }
+        let collection = try JSONDecoder().decode(PointCollection.self, from: data)
+        return collection.features.compactMap { feature in
+            guard let geometry = feature.geometry, geometry.type == "Point",
+                  geometry.coordinates.count >= 2 else { return nil }
+            let center = CLLocationCoordinate2D(latitude: geometry.coordinates[1],
+                                                longitude: geometry.coordinates[0])
+            let name = feature.properties?.AIRPORT
+            return ZoneOverlay(
+                id: "ca-airport-\(name ?? UUID().uuidString)",
+                title: name,
+                severity: .conditional,
+                rings: [],
+                circles: [ZoneCircle(center: center, radiusM: 5_556)]
+            )
+        }
+    }
+
     // MARK: WFS-GeoJSON
 
     private struct FeatureCollection: Decodable {
@@ -102,7 +208,10 @@ final class ZoneOverlayService {
             let id: String?
             let geometry: Geometry?
             let properties: Properties?
-            struct Properties: Decodable { let name: String? }
+            struct Properties: Decodable {
+                let name: String?
+                let adminAreaNameEng: String?
+            }
         }
         struct Geometry: Decodable {
             let type: String

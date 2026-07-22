@@ -64,7 +64,8 @@ struct SettingsView: View {
                         }
                         .disabled(apiKeyInput.trimmingCharacters(in: .whitespaces).isEmpty)
                     }
-                    Text("Deinen Schlüssel bekommst du unter platform.claude.com. Er wird nur in der Keychain dieses Geräts gespeichert und ausschließlich für die Claude-API verwendet. Die KI-Aufrufe kosten dich API-Guthaben.")
+                    Toggle("Sparsames Modell (Haiku)", isOn: $claude.useEconomyModel)
+                    Text("Sparmodus: KI-Aufrufe kosten rund ein Fünftel (Claude Haiku statt Opus), die Kritik wird etwas weniger tiefgründig. Deinen Schlüssel bekommst du unter platform.claude.com; er wird nur in der Keychain dieses Geräts gespeichert. Die KI-Aufrufe kosten API-Guthaben.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
