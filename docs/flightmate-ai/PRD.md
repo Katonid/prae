@@ -304,6 +304,7 @@ Kuratierte, drohnentaugliche Foto-Locations: legal geprüft, mit Startplatz-Hinw
 - **Löst:** P5 (Spots sind Zufallsfunde)
 - **Begründung:** Erst jetzt sinnvoll: Es braucht eine aktive Nutzerbasis (Daten) und den etablierten Legal-Check (jeder Spot ist geprüft, nicht nur „schön"). Ein Spot-Feature ohne Legal-Garantie wäre ein Instagram-Klon — mit ihr ist es einzigartig.
 - **Apple-Prinzip:** Kuration statt offenem User-Generated-Content-Strom. Qualität vor Menge; keine Likes, keine Feeds, kein Social-Druck.
+- **Scope-Ergänzung (Product-Owner-Entscheidung, 07/2026):** Erste Ausbaustufe vorgezogen — datengetrieben statt redaktionell: Foto-Orte (Aussichtspunkte, Gipfel, Wasserfälle, Burgen, Leuchttürme) kommen aus OpenStreetMap; jeder Kandidat wird beim Öffnen automatisch mit dem echten Legal-Check und dem Flight Score geprüft. Redaktionelle Kuration und Community-Daten bleiben die spätere V3-Ausbaustufe.
 
 ### F10 — Herstellerübergreifende Unterstützung
 Offenes Drohnenprofil-System (Autel, Potensic, weitere): Gewichtsklasse, Windtoleranz, Kameradaten. Nutzer wählen ihr Modell aus einem gepflegten Katalog.
