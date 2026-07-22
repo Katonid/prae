@@ -17,9 +17,17 @@ Dieser Stand entspricht dem **MVP-Fundament** (PRD Phase 0/1).
   Inklusive „bestes Fenster"-Erkennung und 7-Tage-Ausblick.
 - **Legal-Check (F2):** Tipp auf die Karte → „Erlaubt / Erlaubt mit
   Auflagen / Verboten" für genau diese Koordinate, mit redaktionellen
-  Klartexten je Zonentyp (EU Open A1, Klasse C0). Datenquelle für
-  Deutschland: dipul-WFS (BMDV), Live-Abfrage mit sichtbarer Quelle
-  und Zeitstempel. Außerhalb Deutschlands oder ohne Netz zeigt die App
+  Klartexten je Zonentyp. Länder-Provider-Architektur:
+  - **Deutschland** (EU Open A1, Klasse C0): dipul-WFS (BMDV),
+    Live-Abfrage mit sichtbarer Quelle und Zeitstempel.
+  - **Kanada** (CARs Part IX, Mikrodrohnen < 250 g): Nationalparks
+    aus dem amtlichen NRCan-CLSS-Dienst (Parks-Canada-Drohnenverbot,
+    Punkt-in-Polygon) und Flughäfen mit Flugsicherung aus dem
+    Transport-Canada-Dienst (3-NM-Umkreis). Nicht abfragbare
+    Zonentypen (Luftraumklasse F, NOTAMs, Provinzparks) werden
+    sichtbar als „nicht geprüft" gelistet, mit Verweis auf NAV Drone.
+
+  Außerhalb der abgedeckten Länder oder ohne Netz zeigt die App
   ehrlich „Keine Daten" statt zu raten.
 - **Lichtplanung (F3):** Sonnenauf-/-untergang, goldene und blaue
   Stunde, vollständig on-device berechnet; das Licht fließt in den
@@ -36,6 +44,9 @@ Dieser Stand entspricht dem **MVP-Fundament** (PRD Phase 0/1).
 
 - Proaktive Benachrichtigungen (F4-Teil 2, braucht Backend/APNs-Scheduler)
 - Geo-Zonen AT/CH (MVP-Ziel DACH; aktuell ehrlich als Lücke markiert)
+- Kanada: Luftraumklasse F (CYR/CYD/CYA) und NOTAMs als Live-Abfrage —
+  derzeit kein offen abfragbarer Dienst; wird als „nicht geprüft"
+  angezeigt
 - AI-Bildkritik & Shot-Vorschläge (V2), Spot-Entdeckung (V3)
 - Abo/StoreKit (Free-Tier-Grenzen sind bereits im Code verankert)
 - Validierung der dipul-Layernamen gegen den Live-Dienst und

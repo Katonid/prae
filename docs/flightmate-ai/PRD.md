@@ -229,6 +229,7 @@ Kartenansicht mit EU-/nationalen Geo-Zonen. Tap auf einen Punkt → Klartext-Ant
 - **Löst:** P2 (Rechtsunsicherheit)
 - **Begründung:** Rechtssicherheit ist für alle drei Personas ein Blocker. Eine App, die Flüge empfiehlt, ohne die Legalität zu prüfen, wäre unverantwortlich — Score und Legal-Check sind untrennbar.
 - **Umfang MVP:** Deutschland + Österreich + Schweiz vollständig; klare Kennzeichnung, wo keine Daten vorliegen. Lieber ehrliche Lücken als falsche Sicherheit.
+- **Scope-Ergänzung (Product-Owner-Entscheidung, 07/2026):** Kanada als erstes Reiseland — Nationalparks (Parks-Canada-Drohnenverbot, NRCan-CLSS-Daten) und Flughäfen mit Flugsicherung (Transport Canada) als Live-Abfrage; Luftraumklasse F, NOTAMs und Provinzparks als transparent gekennzeichnete, nicht prüfbare Zonentypen mit Verweis auf NAV Drone. Regelbasis: CARs Part IX (Mikrodrohnen < 250 g).
 
 #### F3 — Licht- & Golden-Hour-Planung
 Sonnenauf-/untergang, Golden Hour, blaue Stunde und Sonnenrichtung für jeden Spot — integriert in den Flight Score (gutes Licht hebt den Score, Mittagslicht senkt ihn).

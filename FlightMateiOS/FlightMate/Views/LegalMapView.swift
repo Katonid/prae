@@ -119,7 +119,7 @@ struct LegalResultView: View {
                 }
 
                 if assessment.zones.isEmpty && assessment.verdict == .allowed {
-                    Text("Für diesen Punkt sind keine Geo-Zonen hinterlegt. Es gelten die Grundregeln der Open-Kategorie A1 (C0): max. 120 m Höhe, Sichtverbindung halten, nicht über Menschenansammlungen.")
+                    Text(assessment.baselineText)
                         .font(.callout)
                 }
 
@@ -142,10 +142,15 @@ struct LegalResultView: View {
                 }
 
                 if !assessment.uncheckedLayers.isEmpty && assessment.verdict != .unknown {
-                    Label("\(assessment.uncheckedLayers.count) Zonentyp(en) konnten nicht geprüft werden — bitte auf maps.dipul.de gegenprüfen.",
-                          systemImage: "exclamationmark.triangle")
-                        .font(.caption)
-                        .foregroundStyle(.orange)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Label("Nicht geprüft: \(assessment.uncheckedLayers.joined(separator: ", ")).",
+                              systemImage: "exclamationmark.triangle")
+                        if let hint = assessment.uncheckedHint {
+                            Text(hint)
+                        }
+                    }
+                    .font(.caption)
+                    .foregroundStyle(.orange)
                 }
 
                 if assessment.verdict == .unknown {

@@ -38,6 +38,7 @@ struct SettingsView: View {
                 Section("Datenquellen") {
                     LabeledContent("Wetter & Höhenwind", value: "Open-Meteo")
                     LabeledContent("Geo-Zonen (DE)", value: "dipul / BMDV")
+                    LabeledContent("Geo-Zonen (CA)", value: "NRCan · Transport Canada")
                     LabeledContent("Sonnenstand", value: "on-device berechnet")
                     Text(LegalAssessment.disclaimer)
                         .font(.caption)
