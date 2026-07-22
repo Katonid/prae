@@ -52,6 +52,8 @@ struct TodayView: View {
                             .foregroundStyle(.secondary)
                     }
                 }
+                .frame(maxWidth: 640)
+                .frame(maxWidth: .infinity)
                 .padding()
             }
             .navigationTitle("Heute")

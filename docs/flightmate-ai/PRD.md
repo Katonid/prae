@@ -320,6 +320,7 @@ Proaktive Hinweise auf seltene fotografische Gelegenheiten an gespeicherten Spot
 Große Karten- und Planungsansicht für die Vorbereitung zu Hause.
 
 - **Begründung:** Lena und ambitionierte Planer arbeiten am großen Bildschirm. Kein neues Feature-Set — dieselbe App, besseres Planungs-Canvas.
+- **Scope-Ergänzung (Product-Owner-Entscheidung, 07/2026):** Teilweise vorgezogen — die App läuft bereits ab MVP nativ und bildschirmfüllend auf dem iPad (Lesebreiten-Layout, Karte in Vollbild). Das erweiterte Planungs-Canvas (Split-View Karte + Ausblick) bleibt V3.
 
 ---
 

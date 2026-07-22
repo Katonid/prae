@@ -58,8 +58,8 @@ struct LegalMapView: View {
             .navigationBarTitleDisplayMode(.inline)
             .sheet(isPresented: $showResult) {
                 if let assessment {
-                    LegalResultView(assessment: assessment) {
-                        addAsSpot(assessment.coordinate)
+                    LegalResultView(assessment: assessment) { name in
+                        state.addSpot(name: name, coordinate: assessment.coordinate)
                     }
                     .presentationDetents([.medium, .large])
                 }
@@ -82,13 +82,6 @@ struct LegalMapView: View {
         }
     }
 
-    private func addAsSpot(_ coordinate: CLLocationCoordinate2D) {
-        guard state.canAddSpot else { return }
-        state.addSpot(
-            name: String(format: "Spot %.3f, %.3f", coordinate.latitude, coordinate.longitude),
-            coordinate: coordinate
-        )
-    }
 }
 
 // MARK: Ergebnis-Blatt
@@ -97,7 +90,9 @@ struct LegalResultView: View {
     @EnvironmentObject private var state: AppState
     @Environment(\.dismiss) private var dismiss
     let assessment: LegalAssessment
-    let onSaveSpot: () -> Void
+    let onSaveSpot: (String) -> Void
+    @State private var askForName = false
+    @State private var spotName = ""
 
     var body: some View {
         ScrollView {
@@ -160,13 +155,25 @@ struct LegalResultView: View {
 
                 if state.canAddSpot && assessment.verdict != .forbidden {
                     Button {
-                        onSaveSpot()
-                        dismiss()
+                        askForName = true
                     } label: {
                         Label("Als Spot speichern", systemImage: "star")
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.bordered)
+                    .alert("Spot benennen", isPresented: $askForName) {
+                        TextField("z. B. Seeufer West", text: $spotName)
+                        Button("Speichern") {
+                            let name = spotName.trimmingCharacters(in: .whitespacesAndNewlines)
+                            onSaveSpot(name.isEmpty
+                                ? String(format: "Spot %.3f, %.3f", assessment.coordinate.latitude, assessment.coordinate.longitude)
+                                : name)
+                            dismiss()
+                        }
+                        Button("Abbrechen", role: .cancel) {}
+                    } message: {
+                        Text("Unter diesem Namen erscheint der Ort in deinen Spots und in Benachrichtigungen.")
+                    }
                 }
 
                 VStack(alignment: .leading, spacing: 4) {

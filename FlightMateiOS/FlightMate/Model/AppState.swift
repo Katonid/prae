@@ -47,6 +47,14 @@ final class AppState: NSObject, ObservableObject {
         Task { await updateSpotNotifications() }
     }
 
+    func renameSpot(_ spot: Spot, to name: String) {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty,
+              let index = spots.firstIndex(where: { $0.id == spot.id }) else { return }
+        spots[index].name = trimmed
+        Task { await updateSpotNotifications() }
+    }
+
     // MARK: Benachrichtigungen (PRD F4: max. eine pro Tag, Score ≥ 8)
 
     @Published var notificationsEnabled: Bool = UserDefaults.standard.bool(forKey: "notificationsEnabled") {

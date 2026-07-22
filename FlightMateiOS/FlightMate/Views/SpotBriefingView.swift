@@ -45,6 +45,8 @@ struct SpotBriefingView: View {
                         .padding(.top, 8)
                 }
             }
+            .frame(maxWidth: 640)
+            .frame(maxWidth: .infinity)
             .padding()
         }
         .navigationTitle(spot.name)

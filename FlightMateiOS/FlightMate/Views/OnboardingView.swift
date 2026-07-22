@@ -86,5 +86,7 @@ struct OnboardingView: View {
                 .foregroundStyle(.secondary)
                 .padding(.bottom, 24)
         }
+        .frame(maxWidth: 560)
+        .frame(maxWidth: .infinity)
     }
 }
