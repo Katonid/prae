@@ -47,12 +47,22 @@ final class ClaudeService: ObservableObject {
 
     @Published private(set) var hasKey: Bool
 
-    private static let model = "claude-opus-4-8"
+    /// Sparmodus (Nutzerwunsch): Haiku statt Opus — rund ein Fünftel
+    /// der Kosten, etwas weniger tiefgründige Kritik.
+    @Published var useEconomyModel: Bool {
+        didSet { UserDefaults.standard.set(useEconomyModel, forKey: "claudeEconomyModel") }
+    }
+
+    private static let defaultModel = "claude-opus-4-8"
+    private static let economyModel = "claude-haiku-4-5"
     private static let keychainService = "de.familie.flightmate"
     private static let keychainAccount = "anthropic-api-key"
 
+    private var modelID: String { useEconomyModel ? Self.economyModel : Self.defaultModel }
+
     private init() {
         hasKey = Self.loadKey() != nil
+        useEconomyModel = UserDefaults.standard.bool(forKey: "claudeEconomyModel")
     }
 
     // MARK: Schlüsselverwaltung (Keychain)
@@ -179,14 +189,18 @@ final class ClaudeService: ObservableObject {
             "text": "Bewerte diese \(images.count) Luftaufnahme(n) entlang deiner Rubrik.",
         ])
 
-        let body: [String: Any] = [
-            "model": Self.model,
+        var body: [String: Any] = [
+            "model": modelID,
             "max_tokens": 8000,
-            "thinking": ["type": "adaptive"],
             "system": Self.critiqueSystemPrompt,
             "output_config": ["format": ["type": "json_schema", "schema": Self.critiqueSchema]],
             "messages": [["role": "user", "content": content]],
         ]
+        if !useEconomyModel {
+            // Adaptives Thinking gibt es erst ab der 4.6-Familie —
+            // im Sparmodus (Haiku 4.5) wird ohne Thinking angefragt.
+            body["thinking"] = ["type": "adaptive"]
+        }
 
         struct Result: Decodable { let critiques: [ImageCritique] }
         let text = try await send(body: body)
@@ -238,14 +252,16 @@ final class ClaudeService: ObservableObject {
         Schlage 2 bis 3 unterschiedliche Bildideen für diesen Ort und dieses Licht vor.
         """
 
-        let body: [String: Any] = [
-            "model": Self.model,
+        var body: [String: Any] = [
+            "model": modelID,
             "max_tokens": 4000,
-            "thinking": ["type": "adaptive"],
             "system": system,
             "output_config": ["format": ["type": "json_schema", "schema": Self.ideasSchema]],
             "messages": [["role": "user", "content": prompt]],
         ]
+        if !useEconomyModel {
+            body["thinking"] = ["type": "adaptive"]
+        }
 
         struct Result: Decodable { let ideen: [ShotIdea] }
         let text = try await send(body: body)

@@ -22,8 +22,14 @@ struct SpotBriefingView: View {
     @State private var shotIdeas: [ShotIdea] = []
     @State private var isLoadingIdeas = false
     @State private var ideasError: String?
+    @State private var learnings: [ReviewLearning] = []
+    @State private var legalFromCache = false
+    @State private var selectedDayIndex = 0
 
-    private var today: DayScore? { days.first }
+    /// Der geplante Tag — standardmäßig heute, per Tages-Chips wählbar.
+    private var selectedDay: DayScore? {
+        days.indices.contains(selectedDayIndex) ? days[selectedDayIndex] : days.first
+    }
 
     var body: some View {
         ScrollView {
@@ -32,15 +38,21 @@ struct SpotBriefingView: View {
                     ProgressView("Briefing wird erstellt …")
                         .padding(.top, 60)
                 } else {
-                    if let today {
-                        windowCard(today)
+                    if days.count > 1 {
+                        dayPicker
+                    }
+                    if let selectedDay {
+                        windowCard(selectedDay)
                     }
                     if let legal {
                         legalCard(legal)
                     }
-                    if let today {
-                        conditionsCard(today)
-                        lightCard(today)
+                    if !learnings.isEmpty {
+                        learningCard
+                    }
+                    if let selectedDay {
+                        conditionsCard(selectedDay)
+                        lightCard(selectedDay)
                     }
                     if claude.hasKey {
                         ideasCard
@@ -66,8 +78,52 @@ struct SpotBriefingView: View {
         isLoading = true
         defer { isLoading = false }
         days = (try? await state.days(for: spot.coordinate)) ?? []
+        learnings = ReviewMemory.recent(2)
         if let profile = state.profile {
-            legal = await LegalService.shared.assess(coordinate: spot.coordinate, profile: profile)
+            let live = await LegalService.shared.assess(coordinate: spot.coordinate, profile: profile)
+            // Offline-first (PRD Kap. 10): Wenn der Geodienst nicht
+            // antwortet, den letzten erfolgreichen Check mit sichtbarem
+            // Datenstand zeigen statt „keine Daten".
+            if live.verdict == .unknown,
+               let cached = LegalCache.assessment(for: spot.id, coordinate: spot.coordinate) {
+                legal = cached
+                legalFromCache = true
+            } else {
+                legal = live
+                legalFromCache = false
+                LegalCache.save(live, spotID: spot.id)
+            }
+        }
+    }
+
+    // MARK: Tages-Auswahl
+
+    private var dayPicker: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(Array(days.enumerated()), id: \.offset) { index, day in
+                    Button {
+                        selectedDayIndex = index
+                        shotIdeas = []
+                        ideasError = nil
+                    } label: {
+                        VStack(spacing: 2) {
+                            Text(Calendar.current.isDateInToday(day.date) ? "Heute" : Theme.shortDayFormatter.string(from: day.date))
+                                .font(.caption)
+                            Text("\(day.score)")
+                                .font(.headline)
+                                .foregroundStyle(Theme.scoreColor(day.score))
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(
+                            index == selectedDayIndex ? Color.accentColor.opacity(0.18) : Color.clear,
+                            in: RoundedRectangle(cornerRadius: 10)
+                        )
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
         }
     }
 
@@ -75,7 +131,7 @@ struct SpotBriefingView: View {
 
     private func windowCard(_ day: DayScore) -> some View {
         VStack(spacing: 8) {
-            Text("Heute")
+            Text(Calendar.current.isDateInToday(day.date) ? "Heute" : Theme.dayFormatter.string(from: day.date))
                 .font(.caption)
                 .foregroundStyle(.secondary)
             HStack(spacing: 16) {
@@ -92,7 +148,7 @@ struct SpotBriefingView: View {
                                 .foregroundStyle(.secondary)
                         }
                     } else {
-                        Text("Heute kein lohnendes Flugfenster")
+                        Text("An diesem Tag kein lohnendes Flugfenster")
                             .font(.headline)
                     }
                 }
@@ -149,6 +205,11 @@ struct SpotBriefingView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
+            if legalFromCache {
+                Label("Offline — letzter Check vom \(Theme.shortDayFormatter.string(from: legal.checkedAt)), \(Theme.time(legal.checkedAt)) Uhr. Vor dem Start aktualisieren.", systemImage: "wifi.slash")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+            }
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -192,6 +253,29 @@ struct SpotBriefingView: View {
                         .foregroundStyle(.orange)
                 }
             }
+        }
+        .padding()
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 16))
+    }
+
+    // MARK: Lern-Erinnerung (PRD Phase 3 — der Loop schließt sich)
+
+    private var learningCard: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label("Aus deinem letzten Flight Review", systemImage: "graduationcap")
+                .font(.headline)
+            ForEach(learnings) { learning in
+                HStack(alignment: .top, spacing: 8) {
+                    Image(systemName: "lightbulb")
+                        .foregroundStyle(.orange)
+                    Text(learning.text)
+                        .font(.subheadline)
+                }
+            }
+            Text("Denk heute beim Fliegen dran.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -243,18 +327,26 @@ struct SpotBriefingView: View {
         var context: [String] = [
             String(format: "Koordinaten: %.4f, %.4f", spot.latitude, spot.longitude),
         ]
-        if let today, let window = today.bestWindow {
-            context.append("Bestes Flugfenster heute: \(Theme.time(window.start))–\(Theme.time(window.end)) Uhr (Flight Score \(window.score)/10)")
-            if let hour = today.hours.first(where: { $0.hour.date == window.start }) {
+        if let selectedDay, let window = selectedDay.bestWindow {
+            context.append("Geplanter Tag: \(Theme.dayFormatter.string(from: selectedDay.date))")
+            context.append("Bestes Flugfenster: \(Theme.time(window.start))–\(Theme.time(window.end)) Uhr (Flight Score \(window.score)/10)")
+            if let hour = selectedDay.hours.first(where: { $0.hour.date == window.start }) {
                 context.append("Licht im Fenster: \(SunCalculator.lightLabel(at: hour.hour.date, latitude: spot.latitude, longitude: spot.longitude))")
                 context.append("Wind: \(Int(max(hour.hour.windSpeed10Kmh, hour.hour.windSpeed120Kmh))) km/h aus \(Theme.compassDirection(hour.hour.windDirectionDeg))")
             }
         }
-        if let sunset = today?.sunDay.sunset {
+        if let sunset = selectedDay?.sunDay.sunset {
             context.append("Sonnenuntergang: \(Theme.time(sunset)) Uhr")
         }
         if let profile = state.profile {
             context.append("Drohne: \(profile.name)")
+        }
+        // Lern-Loop (PRD F6): frühere Kritikpunkte fließen in die Ideen ein
+        // („Du fliegst oft zu hoch — versuch heute 30 m mit Vordergrund").
+        let pastLearnings = ReviewMemory.recent(3)
+        if !pastLearnings.isEmpty {
+            context.append("Frühere Verbesserungsvorschläge aus der Bildkritik des Piloten (beziehe sie ein, wo passend): "
+                + pastLearnings.map(\.text).joined(separator: " | "))
         }
 
         do {
@@ -274,6 +366,13 @@ struct SpotBriefingView: View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Licht")
                 .font(.headline)
+            // Sonnenrichtungen — wichtig für Gegenlicht-/Silhouetten-Planung
+            if let sunrise = day.sunDay.sunrise {
+                sunDirectionRow(label: "Aufgang", symbol: "sunrise", date: sunrise)
+            }
+            if let sunset = day.sunDay.sunset {
+                sunDirectionRow(label: "Untergang", symbol: "sunset", date: sunset)
+            }
             ForEach(day.sunDay.lightWindows, id: \.self) { window in
                 HStack {
                     Image(systemName: window.kind.rawValue.hasPrefix("Blaue") ? "moon.stars" : "sun.horizon")
@@ -291,5 +390,23 @@ struct SpotBriefingView: View {
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 16))
+    }
+
+    /// Zeile mit Uhrzeit, Himmelsrichtung und Richtungspfeil der Sonne.
+    private func sunDirectionRow(label: String, symbol: String, date: Date) -> some View {
+        let azimuth = SunCalculator.position(at: date, latitude: spot.latitude, longitude: spot.longitude).azimuth
+        return HStack {
+            Image(systemName: symbol)
+                .foregroundStyle(.secondary)
+                .frame(width: 22)
+            Text("\(label) \(Theme.time(date)) Uhr aus \(Theme.compassDirection(azimuth))")
+                .font(.subheadline)
+            Spacer()
+            Image(systemName: "location.north.fill")
+                .font(.caption)
+                .foregroundStyle(.orange)
+                .rotationEffect(.degrees(azimuth))
+                .accessibilityLabel("Richtung \(Int(azimuth)) Grad")
+        }
     }
 }

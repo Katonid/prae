@@ -39,7 +39,10 @@ Dieser Stand entspricht dem **MVP-Fundament** (PRD Phase 0/1).
 
   Außerhalb der abgedeckten Länder oder ohne Netz zeigt die App
   ehrlich „Keine Daten" statt zu raten.
-- **Zonen-Umrisse auf der Karte (DE):** Die Karte zeichnet alle
+- **Zonen-Umrisse auf der Karte (DE + CA):** In Kanada zeichnet die
+  Karte Nationalpark-Polygone (rot, NRCan) und 3-NM-Kreise um
+  Flughäfen mit Flugsicherung (orange, Transport Canada). In
+  Deutschland: Die Karte zeichnet alle
   flächigen Zonentypen des sichtbaren Ausschnitts als farbige
   Polygone (rot = verboten, orange = mit Auflagen, mit Legende) —
   wie auf der amtlichen dipul-Karte. Zwei Zoom-Stufen: Schutzgebiete
@@ -61,9 +64,11 @@ Dieser Stand entspricht dem **MVP-Fundament** (PRD Phase 0/1).
   zwei Spalten (Score + Tagesverlauf links, Licht + 7-Tage-Ausblick
   rechts) — der Anfang des Planungs-Canvas aus PRD F12.
 - **Pre-Flight-Briefing (User Journey Phase 2):** Tipp auf einen Spot
-  → eine Karte mit 10 Sekunden Lesezeit: bestes Fenster heute (plus
+  → eine Karte mit 10 Sekunden Lesezeit: bestes Fenster (plus
   Hinweis auf den besten Tag der Woche), Legal-Status mit Maximalhöhe,
-  Bedingungen im Fenster und Lichtzeiten.
+  Bedingungen im Fenster und Lichtzeiten. Über Tages-Chips lässt sich
+  jeder der nächsten 7 Tage planen — Bildideen und Lichtzeiten folgen
+  dem gewählten Tag.
 - **Flight Review (F5, KI):** Neuer „Review"-Tab — nach dem Flug bis
   zu 5 Aufnahmen auswählen (PhotosPicker, kein Mediathek-Vollzugriff);
   Claude bewertet jede entlang der festen PRD-Rubrik mit max. 2
@@ -74,13 +79,23 @@ Dieser Stand entspricht dem **MVP-Fundament** (PRD Phase 0/1).
   konkrete, ausführbare Bildideen für Ort, Licht und Wind vor — die
   legale Maximalhöhe aus dem Legal-Check geht als harte Bedingung in
   den Prompt ein.
+- **Lern-Loop (User Journey Phase 3):** Die Verbesserungsvorschläge
+  aus dem Flight Review werden lokal gemerkt (letzte 12, nur auf dem
+  Gerät). Im nächsten Briefing erscheinen sie als Erinnerung („Denk
+  heute dran …") und fließen in die Bildideen ein — der Kreis
+  Entscheiden → Fliegen → Lernen schließt sich.
+- **Offline-Briefing:** Der letzte erfolgreiche Legal-Check pro Spot
+  wird gecacht; ohne Netz zeigt das Briefing ihn mit sichtbarem
+  Datenstand statt „keine Daten" (PRD Kap. 10, offline-first).
+  Dazu Sonnenauf-/-untergangsrichtung mit Kompasspfeil im Briefing.
 - **KI-Anbindung:** Eigener Anthropic-API-Schlüssel des Nutzers
   („bring your own key", Einstellungen → KI-Funktionen), gespeichert
   in der Keychain. Claude-API direkt (`claude-opus-4-8`, adaptives
   Thinking, Structured Outputs für garantiert parsbares JSON). Score
   und Legal-Check bleiben deterministisch (PRD Kap. 12). Für einen
   öffentlichen Release ist weiterhin der Server-Proxy aus dem PRD
-  vorgesehen.
+  vorgesehen. **Sparmodus:** Schalter in den Einstellungen stellt die
+  KI-Aufrufe auf `claude-haiku-4-5` um (~1/5 der Kosten).
 - **Proaktive Benachrichtigung (F4):** Maximal eine Meldung pro Tag,
   nur bei außergewöhnlich guten Fenstern (Score ≥ 8) an gespeicherten
   Spots, gemeldet 2 h vor Fensterbeginn. Komplett auf dem Gerät
