@@ -36,12 +36,12 @@ enum LegalCache {
         guard assessment.verdict != .unknown else { return }
         let snapshot = LegalSnapshot(
             verdictRaw: assessment.verdict.rawValue,
-            zones: assessment.zones.map {
+            zones: assessment.zones.map { hit in
                 LegalSnapshot.Zone(
-                    title: $0.featureName.map { name in "\($0.rule.title): \(name)" } ?? $0.rule.title,
-                    text: $0.rule.plainText,
-                    severityRaw: $0.rule.severity.rawValue,
-                    maxAltitudeM: $0.rule.maxAltitudeM
+                    title: hit.featureName.map { name in "\(hit.rule.title): \(name)" } ?? hit.rule.title,
+                    text: hit.rule.plainText,
+                    severityRaw: hit.rule.severity.rawValue,
+                    maxAltitudeM: hit.rule.maxAltitudeM
                 )
             },
             baselineText: assessment.baselineText,
