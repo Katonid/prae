@@ -11,7 +11,10 @@ import SwiftUI
 
 struct TodayView: View {
     @EnvironmentObject private var state: AppState
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State private var showSettings = false
+
+    private var isWide: Bool { horizontalSizeClass == .regular }
 
     var body: some View {
         NavigationStack {
@@ -20,23 +23,24 @@ struct TodayView: View {
                     if let error = state.loadError {
                         errorCard(error)
                     } else if let today = state.today {
-                        scoreCard(today)
-                        hourStrip(today)
-                        lightCard(today)
-                        NavigationLink {
-                            ScoreDetailView()
-                        } label: {
-                            HStack {
-                                Label("7-Tage-Ausblick", systemImage: "calendar")
-                                Spacer()
-                                Image(systemName: "chevron.right")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
+                        if isWide {
+                            // iPad-Planungslayout: zwei Spalten (PRD F12)
+                            HStack(alignment: .top, spacing: 16) {
+                                VStack(spacing: 16) {
+                                    scoreCard(today)
+                                    hourStrip(today)
+                                }
+                                VStack(spacing: 16) {
+                                    lightCard(today)
+                                    sevenDayLink
+                                }
                             }
-                            .padding()
-                            .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 14))
+                        } else {
+                            scoreCard(today)
+                            hourStrip(today)
+                            lightCard(today)
+                            sevenDayLink
                         }
-                        .buttonStyle(.plain)
                     } else if state.isLoading {
                         ProgressView("Bedingungen werden geprüft …")
                             .padding(.top, 80)
@@ -52,7 +56,7 @@ struct TodayView: View {
                             .foregroundStyle(.secondary)
                     }
                 }
-                .frame(maxWidth: 640)
+                .frame(maxWidth: isWide ? 1000 : 640)
                 .frame(maxWidth: .infinity)
                 .padding()
             }
@@ -68,6 +72,25 @@ struct TodayView: View {
             .refreshable { await state.refresh() }
             .onAppear { state.requestLocation() }
         }
+    }
+
+    // MARK: 7-Tage-Link
+
+    private var sevenDayLink: some View {
+        NavigationLink {
+            ScoreDetailView()
+        } label: {
+            HStack {
+                Label("7-Tage-Ausblick", systemImage: "calendar")
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .padding()
+            .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 14))
+        }
+        .buttonStyle(.plain)
     }
 
     // MARK: Score-Karte

@@ -15,6 +15,8 @@ struct SpotsView: View {
     @State private var spotDays: [UUID: [DayScore]] = [:]
     @State private var renamingSpot: Spot?
     @State private var newName = ""
+    @State private var addingCurrentLocation = false
+    @State private var currentLocationName = ""
 
     var body: some View {
         NavigationStack {
@@ -58,6 +60,30 @@ struct SpotsView: View {
                 }
             }
             .navigationTitle("Spots")
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        currentLocationName = ""
+                        addingCurrentLocation = true
+                    } label: {
+                        Image(systemName: "plus")
+                    }
+                    .disabled(!state.canAddSpot || state.currentLocation == nil)
+                    .accessibilityLabel("Aktuellen Standort als Spot speichern")
+                }
+            }
+            .alert("Aktuellen Standort speichern", isPresented: $addingCurrentLocation) {
+                TextField("z. B. Hausrunde", text: $currentLocationName)
+                Button("Speichern") {
+                    if let location = state.currentLocation {
+                        let name = currentLocationName.trimmingCharacters(in: .whitespacesAndNewlines)
+                        state.addSpot(name: name.isEmpty ? "Mein Standort" : name, coordinate: location)
+                    }
+                }
+                Button("Abbrechen", role: .cancel) {}
+            } message: {
+                Text("FlightMate beobachtet die Flugbedingungen an diesem Ort und meldet dir außergewöhnlich gute Fenster.")
+            }
             .task(id: state.spots) { await loadScores() }
             .refreshable { await loadScores() }
             .alert("Spot umbenennen", isPresented: Binding(

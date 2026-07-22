@@ -66,6 +66,7 @@ struct LegalMapView: View {
     @AppStorage("mapAppearance") private var appearance: MapAppearance = .auto
     @State private var overlays: [ZoneOverlay] = []
     @State private var zoomedOut = false
+    @State private var detailHidden = false
     @State private var overlayTask: Task<Void, Never>?
 
     var body: some View {
@@ -146,6 +147,10 @@ struct LegalMapView: View {
                             Circle().fill(Theme.verdictColor(.conditional)).frame(width: 8, height: 8)
                             Text("mit Auflagen")
                         }
+                        if detailHidden {
+                            Text("· mehr beim Hineinzoomen")
+                                .foregroundStyle(.secondary)
+                        }
                     }
                     .font(.caption2)
                     .padding(.horizontal, 10)
@@ -199,7 +204,9 @@ struct LegalMapView: View {
 
     /// Lädt die Umrisse für den neuen Ausschnitt (bricht laufende Ladung ab).
     private func reloadOverlays(for region: MKCoordinateRegion) {
-        zoomedOut = region.span.latitudeDelta >= ZoneOverlayService.maxSpanDeg
+        let span = max(region.span.latitudeDelta, region.span.longitudeDelta)
+        zoomedOut = span >= ZoneOverlayService.maxSpanDeg
+        detailHidden = span >= ZoneOverlayService.detailSpanDeg && !zoomedOut
         overlayTask?.cancel()
         overlayTask = Task {
             let zones = await ZoneOverlayService.shared.zones(in: region)
