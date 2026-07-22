@@ -25,6 +25,7 @@ struct SpotBriefingView: View {
     @State private var learnings: [ReviewLearning] = []
     @State private var legalFromCache = false
     @State private var selectedDayIndex = 0
+    @State private var icsURL: URL?
 
     /// Der geplante Tag — standardmäßig heute, per Tages-Chips wählbar.
     private var selectedDay: DayScore? {
@@ -70,8 +71,44 @@ struct SpotBriefingView: View {
         }
         .navigationTitle(spot.name)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                ShareLink(item: briefingText) {
+                    Image(systemName: "square.and.arrow.up")
+                }
+                .accessibilityLabel("Briefing teilen")
+            }
+        }
         .task { await load() }
         .refreshable { await load() }
+    }
+
+    /// Teilbarer Kurztext des Briefings (Teilen-Knopf in der Toolbar).
+    private var briefingText: String {
+        var lines = ["Drohnen-Briefing: \(spot.name) (FlightMate AI)"]
+        if let day = selectedDay {
+            lines.append(Theme.dayFormatter.string(from: day.date))
+            if let window = day.bestWindow {
+                lines.append("Bestes Fenster: \(Theme.time(window.start))–\(Theme.time(window.end)) Uhr, Flight Score \(window.score)/10")
+            } else {
+                lines.append("Kein lohnendes Flugfenster")
+            }
+        }
+        if let legal {
+            lines.append("Legal-Check: \(legal.verdict.title), max. \(legal.maxAltitudeM) m")
+        }
+        return lines.joined(separator: "\n")
+    }
+
+    private func updateICS() {
+        if let window = selectedDay?.bestWindow {
+            icsURL = CalendarExport.icsFile(spotName: spot.name,
+                                            latitude: spot.latitude,
+                                            longitude: spot.longitude,
+                                            window: window)
+        } else {
+            icsURL = nil
+        }
     }
 
     private func load() async {
@@ -79,6 +116,7 @@ struct SpotBriefingView: View {
         defer { isLoading = false }
         days = (try? await state.days(for: spot.coordinate)) ?? []
         learnings = ReviewMemory.recent(2)
+        updateICS()
         if let profile = state.profile {
             let live = await LegalService.shared.assess(coordinate: spot.coordinate, profile: profile)
             // Offline-first (PRD Kap. 10): Wenn der Geodienst nicht
@@ -106,6 +144,7 @@ struct SpotBriefingView: View {
                         selectedDayIndex = index
                         shotIdeas = []
                         ideasError = nil
+                        updateICS()
                     } label: {
                         VStack(spacing: 2) {
                             Text(Calendar.current.isDateInToday(day.date) ? "Heute" : Theme.shortDayFormatter.string(from: day.date))
@@ -152,6 +191,14 @@ struct SpotBriefingView: View {
                             .font(.headline)
                     }
                 }
+            }
+
+            if let icsURL {
+                ShareLink(item: icsURL) {
+                    Label("Fenster in Kalender eintragen", systemImage: "calendar.badge.plus")
+                        .font(.subheadline)
+                }
+                .buttonStyle(.bordered)
             }
 
             // Bester Tag der Woche, falls heute schwach ist.

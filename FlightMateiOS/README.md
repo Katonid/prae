@@ -63,6 +63,13 @@ Dieser Stand entspricht dem **MVP-Fundament** (PRD Phase 0/1).
 - **iPad-Planungslayout:** Auf breiten Bildschirmen zeigt „Heute"
   zwei Spalten (Score + Tagesverlauf links, Licht + 7-Tage-Ausblick
   rechts) — der Anfang des Planungs-Canvas aus PRD F12.
+- **Score-Erklärung am Ring:** Tipp auf den Score-Ring im Heute-Tab
+  öffnet die Faktoren-Begründung der besten Stunde („Warum 7?").
+  Darüber steht der per Reverse-Geocoding ermittelte Ortsname.
+- **Kalender & Teilen:** Im Briefing lässt sich das beste Fenster als
+  .ics-Termin exportieren (Teilen-Blatt → Kalender; inkl. Erinnerung
+  „Akkus laden" eine Stunde vorher — ohne Kalender-Berechtigung) und
+  das Briefing als Kurztext teilen.
 - **Pre-Flight-Briefing (User Journey Phase 2):** Tipp auf einen Spot
   → eine Karte mit 10 Sekunden Lesezeit: bestes Fenster (plus
   Hinweis auf den besten Tag der Woche), Legal-Status mit Maximalhöhe,
