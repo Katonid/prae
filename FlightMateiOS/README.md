@@ -1,0 +1,65 @@
+# ✈️ FlightMate AI — native iOS-App
+
+Der intelligente Copilot für Drohnenpiloten und Landschaftsfotografen.
+Die App steuert keine Drohne — sie hilft, **zur richtigen Zeit am richtigen
+Ort die bestmöglichen Luftaufnahmen zu machen**.
+
+Grundlage ist das PRD unter [`../docs/flightmate-ai/PRD.md`](../docs/flightmate-ai/PRD.md).
+Dieser Stand entspricht dem **MVP-Fundament** (PRD Phase 0/1).
+
+## Was schon funktioniert
+
+- **Flight Score (F1):** 0–10 pro Stunde und Tag, deterministisch und
+  erklärbar berechnet aus Wind **in Flughöhe** (120 m, Open-Meteo),
+  Böen, Regenrisiko, Sicht, Temperatur und Lichtqualität — gewichtet
+  nach dem konkreten Drohnenprofil. Jede Zahl kann per Tipp ihre
+  Begründung zeigen („Böen 32 km/h — 84 % deiner Windtoleranz").
+  Inklusive „bestes Fenster"-Erkennung und 7-Tage-Ausblick.
+- **Legal-Check (F2):** Tipp auf die Karte → „Erlaubt / Erlaubt mit
+  Auflagen / Verboten" für genau diese Koordinate, mit redaktionellen
+  Klartexten je Zonentyp (EU Open A1, Klasse C0). Datenquelle für
+  Deutschland: dipul-WFS (BMDV), Live-Abfrage mit sichtbarer Quelle
+  und Zeitstempel. Außerhalb Deutschlands oder ohne Netz zeigt die App
+  ehrlich „Keine Daten" statt zu raten.
+- **Lichtplanung (F3):** Sonnenauf-/-untergang, goldene und blaue
+  Stunde, vollständig on-device berechnet; das Licht fließt in den
+  Score ein (Golden Hour hebt, Mittagslicht senkt).
+- **Spots (F4, lokal):** Bis zu 3 gespeicherte Orte (Free-Tier-Grenze
+  aus dem PRD); jeder Spot zeigt das beste Fenster der nächsten 7 Tage.
+- **Onboarding < 2 min:** Einzige Frage ist das Drohnenmodell
+  (Mini 3 / Mini 4K / Mini 4 Pro) — Windtoleranz, EU-Klasse und Regeln
+  werden abgeleitet. Kein Account.
+- **Offline-first:** Letzte Wetterprognose wird pro Ort gecacht und
+  bei Netzausfall mit sichtbarem Datenstand verwendet.
+
+## Noch offen (bewusst, siehe PRD-Roadmap)
+
+- Proaktive Benachrichtigungen (F4-Teil 2, braucht Backend/APNs-Scheduler)
+- Geo-Zonen AT/CH (MVP-Ziel DACH; aktuell ehrlich als Lücke markiert)
+- AI-Bildkritik & Shot-Vorschläge (V2), Spot-Entdeckung (V3)
+- Abo/StoreKit (Free-Tier-Grenzen sind bereits im Code verankert)
+- Validierung der dipul-Layernamen gegen den Live-Dienst und
+  Score-Validierung mit realen Flugtagen (PRD Phase 0-Meilenstein)
+
+## Technik
+
+- Swift 5 / SwiftUI, iOS 17+, iPhone, keine externen Abhängigkeiten
+- `Model/FlightScoreEngine.swift` — deterministisches Regelwerk mit
+  Faktoren-Ausgabe (bewusst **kein** LLM, PRD Kap. 12)
+- `Model/DroneProfile.swift` — Drohnen als Datenprofile, modellagnostischer
+  Kern von Tag 1 (PRD Kap. 10)
+- `Model/SunCalculator.swift` — Sonnenposition/Lichtfenster on-device
+  (Meeus/SunCalc-Näherung)
+- `Model/WeatherService.swift` — Open-Meteo inkl. `wind_speed_120m`,
+  Koordinaten für Abfragen auf ~1 km gerundet (Datenschutz), Cache
+- `Model/LegalService.swift` — dipul-WFS-Abfrage + versioniertes
+  Regelwerk, ehrliche Degradation
+- Karten: MapKit · Standort: CoreLocation (nur „While Using")
+
+## Bauen
+
+1. `FlightMateiOS/FlightMate.xcodeproj` in Xcode 16+ öffnen.
+2. Unter *Signing & Capabilities* eigenes Team wählen (Bundle-ID
+   `de.familie.flightmate` ggf. anpassen).
+3. iPhone als Ziel wählen, **Run**. Die App fragt beim ersten Start
+   nach der Standortberechtigung (optional — Fallback Berlin).
