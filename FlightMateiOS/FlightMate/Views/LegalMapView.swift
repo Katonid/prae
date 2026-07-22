@@ -11,6 +11,23 @@
 import SwiftUI
 import MapKit
 
+/// Kartenstil-Auswahl: Straße / Hybrid / Satellit.
+enum MapStyleChoice: String, CaseIterable, Identifiable {
+    case standard = "Karte"
+    case hybrid = "Hybrid"
+    case imagery = "Satellit"
+
+    var id: String { rawValue }
+
+    var style: MapStyle {
+        switch self {
+        case .standard: return .standard(elevation: .realistic)
+        case .hybrid: return .hybrid(elevation: .realistic)
+        case .imagery: return .imagery(elevation: .realistic)
+        }
+    }
+}
+
 struct LegalMapView: View {
     @EnvironmentObject private var state: AppState
     @State private var camera: MapCameraPosition = .automatic
@@ -18,11 +35,24 @@ struct LegalMapView: View {
     @State private var assessment: LegalAssessment?
     @State private var isChecking = false
     @State private var showResult = false
+    @State private var styleChoice: MapStyleChoice = .hybrid
+    @State private var overlays: [ZoneOverlay] = []
+    @State private var zoomedOut = false
+    @State private var overlayTask: Task<Void, Never>?
 
     var body: some View {
         NavigationStack {
             MapReader { proxy in
                 Map(position: $camera) {
+                    // Zonen-Umrisse des sichtbaren Ausschnitts (dipul)
+                    ForEach(overlays) { zone in
+                        ForEach(Array(zone.rings.enumerated()), id: \.offset) { _, ring in
+                            MapPolygon(coordinates: ring)
+                                .foregroundStyle(Theme.verdictColor(zone.severity).opacity(0.16))
+                            MapPolyline(coordinates: ring + [ring[0]])
+                                .stroke(Theme.verdictColor(zone.severity).opacity(0.75), lineWidth: 1.5)
+                        }
+                    }
                     UserAnnotation()
                     if let pin {
                         Marker("Startpunkt", systemImage: "flag.checkered", coordinate: pin)
@@ -33,11 +63,25 @@ struct LegalMapView: View {
                             .tint(.yellow)
                     }
                 }
-                .mapStyle(.hybrid(elevation: .realistic))
+                .mapStyle(styleChoice.style)
                 .onTapGesture { screenPoint in
                     guard let coordinate = proxy.convert(screenPoint, from: .local) else { return }
                     check(coordinate)
                 }
+                .onMapCameraChange(frequency: .onEnd) { context in
+                    reloadOverlays(for: context.region)
+                }
+            }
+            .safeAreaInset(edge: .top) {
+                Picker("Kartenstil", selection: $styleChoice) {
+                    ForEach(MapStyleChoice.allCases) { choice in
+                        Text(choice.rawValue).tag(choice)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .padding(.horizontal)
+                .padding(.vertical, 6)
+                .background(.thinMaterial)
             }
             .overlay(alignment: .bottom) {
                 if isChecking {
@@ -46,8 +90,14 @@ struct LegalMapView: View {
                         .padding(10)
                         .background(.thinMaterial, in: Capsule())
                         .padding(.bottom, 12)
+                } else if zoomedOut {
+                    Text("Zoome hinein, um Zonen-Umrisse zu sehen")
+                        .font(.subheadline)
+                        .padding(10)
+                        .background(.thinMaterial, in: Capsule())
+                        .padding(.bottom, 12)
                 } else if pin == nil {
-                    Text("Tippe auf deinen Startpunkt, um den Legal-Check zu starten")
+                    Text("Tippe auf deinen Startpunkt für den punktgenauen Legal-Check")
                         .font(.subheadline)
                         .padding(10)
                         .background(.thinMaterial, in: Capsule())
@@ -82,6 +132,17 @@ struct LegalMapView: View {
         }
     }
 
+    /// Lädt die Umrisse für den neuen Ausschnitt (bricht laufende Ladung ab).
+    private func reloadOverlays(for region: MKCoordinateRegion) {
+        zoomedOut = region.span.latitudeDelta >= ZoneOverlayService.maxSpanDeg
+        overlayTask?.cancel()
+        overlayTask = Task {
+            let zones = await ZoneOverlayService.shared.zones(in: region)
+            if !Task.isCancelled {
+                await MainActor.run { overlays = zones }
+            }
+        }
+    }
 }
 
 // MARK: Ergebnis-Blatt

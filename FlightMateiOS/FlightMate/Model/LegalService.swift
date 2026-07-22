@@ -274,9 +274,65 @@ struct GermanyLegalProvider: LegalProvider {
                  severity: .forbidden,
                  plainText: "Über militärischen Anlagen und Übungsgebieten ist der Betrieb ohne Zustimmung verboten.",
                  maxAltitudeM: nil),
-        ZoneRule(layer: "energieerzeugungsanlagen", title: "Energieerzeugungsanlage",
+        ZoneRule(layer: "flugbeschraenkungsgebiete", title: "Flugbeschränkungsgebiet",
+                 severity: .forbidden,
+                 plainText: "Flugbeschränkungsgebiet (ED-R): Der Betrieb ist ohne Freigabe der zuständigen Stelle verboten.",
+                 maxAltitudeM: 0),
+        ZoneRule(layer: "temporaere_betriebseinschraenkungen", title: "Temporäre Betriebseinschränkung",
+                 severity: .forbidden,
+                 plainText: "Temporäre Einschränkung (z. B. Einsatzlage oder Großveranstaltung): Hier ist der Betrieb aktuell nicht erlaubt.",
+                 maxAltitudeM: 0),
+        ZoneRule(layer: "polizei", title: "Polizei-Liegenschaft",
+                 severity: .forbidden,
+                 plainText: "Über Liegenschaften der Polizei und in deren 100-m-Umkreis ist der Betrieb ohne Zustimmung verboten.",
+                 maxAltitudeM: nil),
+        ZoneRule(layer: "sicherheitsbehoerden", title: "Sicherheitsbehörde",
+                 severity: .forbidden,
+                 plainText: "Über Liegenschaften von Sicherheitsbehörden ist der Betrieb ohne Zustimmung verboten.",
+                 maxAltitudeM: nil),
+        ZoneRule(layer: "behoerden", title: "Behörde / Verfassungsorgan",
+                 severity: .forbidden,
+                 plainText: "Über Grundstücken von Verfassungsorganen und obersten Behörden ist der Betrieb ohne Zustimmung verboten.",
+                 maxAltitudeM: nil),
+        ZoneRule(layer: "diplomatische_vertretungen", title: "Diplomatische Vertretung",
+                 severity: .forbidden,
+                 plainText: "Über diplomatischen Vertretungen und in deren 100-m-Umkreis ist der Betrieb verboten.",
+                 maxAltitudeM: nil),
+        ZoneRule(layer: "internationale_organisationen", title: "Internationale Organisation",
+                 severity: .forbidden,
+                 plainText: "Über Einrichtungen internationaler Organisationen ist der Betrieb ohne Zustimmung verboten.",
+                 maxAltitudeM: nil),
+        ZoneRule(layer: "kraftwerke", title: "Kraftwerk",
                  severity: .conditional,
-                 plainText: "Zu Kraftwerken und Umspannanlagen 100 m Abstand halten, sofern der Betreiber nicht zustimmt.",
+                 plainText: "Zu Kraftwerken 100 m Abstand halten, sofern der Betreiber nicht zustimmt.",
+                 maxAltitudeM: nil),
+        ZoneRule(layer: "umspannwerke", title: "Umspannwerk",
+                 severity: .conditional,
+                 plainText: "Zu Umspannwerken 100 m Abstand halten, sofern der Betreiber nicht zustimmt.",
+                 maxAltitudeM: nil),
+        ZoneRule(layer: "stromleitungen", title: "Hochspannungsleitung",
+                 severity: .conditional,
+                 plainText: "Zu Hochspannungs-Freileitungen 100 m Abstand halten (Anlagen der Energieverteilung).",
+                 maxAltitudeM: nil),
+        ZoneRule(layer: "windkraftanlagen", title: "Windkraftanlage",
+                 severity: .conditional,
+                 plainText: "Windkraftanlagen zählen zur Energieerzeugung: 100 m Abstand halten, sofern der Betreiber nicht zustimmt — zusätzlich Vorsicht wegen Turbulenzen.",
+                 maxAltitudeM: nil),
+        ZoneRule(layer: "labore", title: "Labor / Gefahrstoff-Einrichtung",
+                 severity: .conditional,
+                 plainText: "Zu Einrichtungen, in denen mit Gefahrstoffen gearbeitet wird, 100 m Abstand halten.",
+                 maxAltitudeM: nil),
+        ZoneRule(layer: "freibaeder", title: "Freibad / Badestelle",
+                 severity: .conditional,
+                 plainText: "Über Freibädern und Badestellen ist der Betrieb während der Betriebszeiten nicht erlaubt (Menschenansammlungen, Privatsphäre).",
+                 maxAltitudeM: nil),
+        ZoneRule(layer: "schifffahrtsanlagen", title: "Schifffahrtsanlage",
+                 severity: .conditional,
+                 plainText: "Zu Schleusen und Schifffahrtsanlagen Abstand halten; Überflug nur mit Zustimmung der zuständigen Stelle.",
+                 maxAltitudeM: nil),
+        ZoneRule(layer: "seewasserstrassen", title: "Seewasserstraße",
+                 severity: .conditional,
+                 plainText: "Über Seewasserstraßen nur direkt queren; sonst 100 m seitlichen Abstand halten, sofern keine Zustimmung vorliegt.",
                  maxAltitudeM: nil),
     ]
 
@@ -332,10 +388,16 @@ struct GermanyLegalProvider: LegalProvider {
         )
     }
 
-    /// Fragt einen dipul-Layer im ~500-m-Umkreis der Koordinate ab und
+    /// Fragt einen dipul-Layer punktgenau an der Koordinate ab und
     /// liefert die Namen der getroffenen Zonen (nil = Zone ohne Namen).
+    ///
+    /// Wichtig: Der Suchkasten ist bewusst winzig (~40 m). Ein größerer
+    /// Umkreis (früher 500 m) meldet Zonen, die nur IN DER NÄHE liegen,
+    /// als „hier" — und bläht damit jede Zone scheinbar auf. Verifiziert
+    /// am NSG Dellwiger Bach: Punkt außerhalb → 500-m-Kasten meldete
+    /// fälschlich „Verboten", punktgenau korrekt „Erlaubt".
     private static func queryLayer(_ layer: String, around c: CLLocationCoordinate2D) async throws -> [String?] {
-        let d = 0.005 // ≈ 500 m in Breitengraden
+        let d = 0.0004 // ≈ 40 m — GPS-Toleranz, nicht Umkreissuche
         var components = URLComponents(string: "https://uas-betrieb.de/geoservices/dipul/wfs")!
         components.queryItems = [
             URLQueryItem(name: "service", value: "WFS"),
