@@ -95,6 +95,8 @@ final class AppState: NSObject, ObservableObject {
     private let locationManager = CLLocationManager()
     @Published var currentLocation: CLLocationCoordinate2D?
     @Published var locationDenied = false
+    /// Ortsname zum aktuellen Standort (z. B. „Dortmund"), nur Anzeige.
+    @Published var locationName: String?
 
     /// Fallback, solange kein Standort vorliegt (wie Himmelskompass: Berlin).
     var effectiveLocation: CLLocationCoordinate2D {
@@ -197,6 +199,7 @@ extension AppState: CLLocationManagerDelegate {
             if previous == nil ||
                 abs(previous!.latitude - coordinate.latitude) > 0.05 ||
                 abs(previous!.longitude - coordinate.longitude) > 0.05 {
+                self.updateLocationName(for: location)
                 await self.refresh()
             }
         }
@@ -204,5 +207,14 @@ extension AppState: CLLocationManagerDelegate {
 
     nonisolated func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
         // Fallback-Ort übernimmt; kein harter Fehler für die UI.
+    }
+}
+
+extension AppState {
+    fileprivate func updateLocationName(for location: CLLocation) {
+        Task { @MainActor in
+            let placemarks = try? await CLGeocoder().reverseGeocodeLocation(location)
+            self.locationName = placemarks?.first?.locality ?? placemarks?.first?.name
+        }
     }
 }

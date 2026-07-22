@@ -13,8 +13,18 @@ struct TodayView: View {
     @EnvironmentObject private var state: AppState
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State private var showSettings = false
+    @State private var factorsHour: HourScore?
 
     private var isWide: Bool { horizontalSizeClass == .regular }
+
+    /// Die Referenzstunde des Tages (Beginn des besten Fensters).
+    private func referenceHour(_ day: DayScore) -> HourScore? {
+        if let window = day.bestWindow,
+           let hour = day.hours.first(where: { $0.hour.date == window.start }) {
+            return hour
+        }
+        return day.hours.max { $0.score < $1.score }
+    }
 
     var body: some View {
         NavigationStack {
@@ -69,6 +79,10 @@ struct TodayView: View {
                 }
             }
             .sheet(isPresented: $showSettings) { SettingsView() }
+            .sheet(item: $factorsHour) { hourScore in
+                HourFactorsView(hourScore: hourScore)
+                    .presentationDetents([.medium])
+            }
             .refreshable { await state.refresh() }
             .onAppear { state.requestLocation() }
         }
@@ -97,6 +111,11 @@ struct TodayView: View {
 
     private func scoreCard(_ day: DayScore) -> some View {
         VStack(spacing: 12) {
+            if let name = state.locationName {
+                Label(name, systemImage: "location")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
             ZStack {
                 Circle()
                     .stroke(Theme.scoreColor(day.score).opacity(0.15), lineWidth: 14)
@@ -113,7 +132,15 @@ struct TodayView: View {
                 }
             }
             .frame(width: 160, height: 160)
-            .accessibilityLabel("Flight Score \(day.score) von 10")
+            .contentShape(Circle())
+            .onTapGesture {
+                factorsHour = referenceHour(day)
+            }
+            .accessibilityLabel("Flight Score \(day.score) von 10 — antippen für die Begründung")
+
+            Text("Tippe auf den Ring für die Begründung")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
 
             if let window = day.bestWindow {
                 Text("Bestes Fenster: \(Theme.time(window.start))–\(Theme.time(window.end)) Uhr")
