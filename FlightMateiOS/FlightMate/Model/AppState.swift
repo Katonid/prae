@@ -39,10 +39,47 @@ final class AppState: NSObject, ObservableObject {
     func addSpot(name: String, coordinate: CLLocationCoordinate2D) {
         guard canAddSpot else { return }
         spots.append(Spot(name: name, coordinate: coordinate))
+        Task { await updateSpotNotifications() }
     }
 
     func removeSpot(_ spot: Spot) {
         spots.removeAll { $0.id == spot.id }
+        Task { await updateSpotNotifications() }
+    }
+
+    // MARK: Benachrichtigungen (PRD F4: max. eine pro Tag, Score ≥ 8)
+
+    @Published var notificationsEnabled: Bool = UserDefaults.standard.bool(forKey: "notificationsEnabled") {
+        didSet { UserDefaults.standard.set(notificationsEnabled, forKey: "notificationsEnabled") }
+    }
+    @Published var notificationsDenied = false
+
+    func setNotifications(_ enabled: Bool) async {
+        if enabled {
+            let granted = await NotificationPlanner.requestPermission()
+            notificationsEnabled = granted
+            notificationsDenied = !granted
+            if granted { await updateSpotNotifications() }
+        } else {
+            notificationsEnabled = false
+            await NotificationPlanner.cancelAll()
+        }
+    }
+
+    /// Plant die Spot-Benachrichtigungen anhand frischer 7-Tage-Scores neu.
+    func updateSpotNotifications() async {
+        guard notificationsEnabled else { return }
+        guard !spots.isEmpty else {
+            await NotificationPlanner.cancelAll()
+            return
+        }
+        var entries: [(spot: Spot, days: [DayScore])] = []
+        for spot in spots {
+            if let days = try? await days(for: spot.coordinate) {
+                entries.append((spot, days))
+            }
+        }
+        await NotificationPlanner.reschedule(entries: entries)
     }
 
     // MARK: Standort
@@ -94,6 +131,7 @@ final class AppState: NSObject, ObservableObject {
             ).filter { $0.date >= Calendar.current.startOfDay(for: Date()) }
             forecastFromCache = fromCache
             forecastFetchedAt = forecast.fetchedAt
+            await updateSpotNotifications()
         } catch {
             loadError = "Keine Wetterdaten verfügbar — bitte später erneut versuchen. Ohne verlässliche Daten zeigt FlightMate keinen Score an."
         }

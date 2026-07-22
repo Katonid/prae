@@ -11,6 +11,7 @@
 //  Architektur: ein Provider pro Rechtsraum. Jeder Provider kennt
 //  seine Abdeckung, seine amtlichen Datenquellen und sein Regelwerk.
 //    - Deutschland: dipul-WFS (BMDV), EU Open A1 / C0
+//    - Schweiz: BAZL-Drohnenkarte via geo.admin.ch (amtlicher Wortlaut)
 //    - Kanada: NRCan-CLSS (Nationalparks) + Transport Canada
 //      (Flughäfen mit Flugsicherung), CARs Part IX (Mikrodrohnen)
 //  Außerhalb der Abdeckung und bei Netzausfall zeigt die App ehrlich
@@ -84,6 +85,9 @@ struct LegalAssessment {
 
 protocol LegalProvider {
     var regionName: String { get }
+    /// ISO-3166-Ländercode (z. B. "DE") für die Provider-Wahl per
+    /// Reverse-Geocoding; die Bounding-Box ist nur Fallback.
+    var countryCode: String { get }
     func covers(_ coordinate: CLLocationCoordinate2D) -> Bool
     func assess(coordinate: CLLocationCoordinate2D, profile: DroneProfile) async -> LegalAssessment
 }
@@ -95,15 +99,22 @@ final class LegalService {
     private init() {}
 
     private let providers: [LegalProvider] = [
+        SwitzerlandLegalProvider(),
         GermanyLegalProvider(),
         CanadaLegalProvider(),
     ]
 
     func assess(coordinate: CLLocationCoordinate2D, profile: DroneProfile) async -> LegalAssessment {
-        if let provider = providers.first(where: { $0.covers(coordinate) }) {
+        // Ländercode klärt Grenzregionen (z. B. Bodensee), in denen sich
+        // die Bounding-Boxen der Provider überlappen.
+        let code = await countryCode(for: coordinate)
+        let provider = providers.first { $0.countryCode == code }
+            ?? (code == nil ? providers.first { $0.covers(coordinate) } : nil)
+
+        if let provider {
             return await provider.assess(coordinate: coordinate, profile: profile)
         }
-        let regions = providers.map(\.regionName).joined(separator: " und ")
+        let regions = providers.map(\.regionName).joined(separator: ", ")
         return LegalAssessment(
             coordinate: coordinate, verdict: .unknown, zones: [],
             uncheckedLayers: [], uncheckedHint: nil,
@@ -111,6 +122,13 @@ final class LegalService {
             maxAltitudeM: profile.maxLegalAltitudeM, checkedAt: Date(),
             sourceNote: "Geo-Zonen-Daten sind derzeit für \(regions) angebunden. Für diesen Ort kann FlightMate keine Aussage treffen — bitte die nationalen Regeln vor Ort prüfen."
         )
+    }
+
+    private func countryCode(for c: CLLocationCoordinate2D) async -> String? {
+        let geocoder = CLGeocoder()
+        let location = CLLocation(latitude: c.latitude, longitude: c.longitude)
+        let placemarks = try? await geocoder.reverseGeocodeLocation(location)
+        return placemarks?.first?.isoCountryCode
     }
 }
 
@@ -188,6 +206,7 @@ private func arcgisPointQuery(baseURL: String, coordinate: CLLocationCoordinate2
 
 struct GermanyLegalProvider: LegalProvider {
     let regionName = "Deutschland"
+    let countryCode = "DE"
 
     func covers(_ c: CLLocationCoordinate2D) -> Bool {
         (47.2...55.1).contains(c.latitude) && (5.5...15.6).contains(c.longitude)
@@ -360,6 +379,7 @@ struct GermanyLegalProvider: LegalProvider {
 ///   Luftraumklasse F (CYR/CYD/CYA), NOTAMs, Provinzparks.
 struct CanadaLegalProvider: LegalProvider {
     let regionName = "Kanada"
+    let countryCode = "CA"
 
     func covers(_ c: CLLocationCoordinate2D) -> Bool {
         (41.6...83.5).contains(c.latitude) && ((-141.1)...(-52.5)).contains(c.longitude)
@@ -454,5 +474,129 @@ struct CanadaLegalProvider: LegalProvider {
     /// „BANFF NATIONAL PARK OF CANADA" → „Banff National Park Of Canada"
     private static func titleCase(_ s: String) -> String {
         s.lowercased().split(separator: " ").map { $0.prefix(1).uppercased() + $0.dropFirst() }.joined(separator: " ")
+    }
+}
+
+// MARK: - Schweiz (BAZL-Drohnenkarte, EU-Regeln übernommen)
+
+/// Schweiz-Provider auf Basis der amtlichen Drohnenkarte des BAZL
+/// (Bundesamt für Zivilluftfahrt) via geo.admin.ch. Besonderheit:
+/// Der Bund liefert die Beschränkungstexte selbst auf Deutsch mit —
+/// die App zeigt den amtlichen Wortlaut und wertet nur die Schwere
+/// aus. Nennt der amtliche Text eine Gewichtsgrenze (z. B. „mehr als
+/// 250 g"), unter der die Drohne des Nutzers liegt, wird die Zone als
+/// nicht betroffen markiert — für C0-Minis oft der entscheidende
+/// Unterschied.
+struct SwitzerlandLegalProvider: LegalProvider {
+    let regionName = "Schweiz"
+    let countryCode = "CH"
+
+    func covers(_ c: CLLocationCoordinate2D) -> Bool {
+        (45.8...47.85).contains(c.latitude) && (5.9...10.55).contains(c.longitude)
+    }
+
+    func assess(coordinate: CLLocationCoordinate2D, profile: DroneProfile) async -> LegalAssessment {
+        do {
+            let features = try await Self.identify(coordinate)
+            var hits: [ZoneHit] = []
+            for feature in features {
+                let (severity, note) = Self.severity(
+                    restrictionID: feature.restrictionID,
+                    restrictionTextDE: feature.restrictionDE,
+                    profile: profile
+                )
+                var text = feature.restrictionDE
+                if let message = feature.messageDE, !message.isEmpty {
+                    text += " " + message
+                }
+                if let note {
+                    text += "\n\(note)"
+                }
+                hits.append(ZoneHit(rule: ZoneRule(
+                    layer: "bazl", title: feature.name,
+                    severity: severity, plainText: text, maxAltitudeM: nil
+                ), featureName: nil))
+            }
+
+            hits.sort { $0.rule.severity > $1.rule.severity }
+            let verdict = hits.map(\.rule.severity).max() ?? .allowed
+            return LegalAssessment(
+                coordinate: coordinate, verdict: verdict, zones: hits,
+                uncheckedLayers: [], uncheckedHint: nil,
+                baselineText: "Für diesen Punkt sind keine Einschränkungen in der BAZL-Drohnenkarte hinterlegt. Die Schweiz wendet die EU-Drohnenregeln an — es gelten die Grundregeln der Open-Kategorie A1 (C0): max. 120 m Höhe, Sichtverbindung halten, nicht über Menschenansammlungen.",
+                maxAltitudeM: profile.maxLegalAltitudeM, checkedAt: Date(),
+                sourceNote: "Quelle: BAZL-Drohnenkarte via geo.admin.ch (amtlicher Wortlaut), Live-Abfrage."
+            )
+        } catch {
+            return LegalAssessment(
+                coordinate: coordinate, verdict: .unknown, zones: [],
+                uncheckedLayers: ["Einschränkungen für Drohnen (BAZL)"], uncheckedHint: nil,
+                baselineText: "",
+                maxAltitudeM: profile.maxLegalAltitudeM, checkedAt: Date(),
+                sourceNote: "BAZL-Drohnenkarte (geo.admin.ch) nicht erreichbar — keine Aussage möglich. Prüfe die Karte auf map.geo.admin.ch, bevor du startest."
+            )
+        }
+    }
+
+    // MARK: Schwere-Auswertung
+
+    /// Deterministische Auswertung des amtlichen Texts: erst die
+    /// Gewichtsgrenze prüfen (Zone ggf. nicht anwendbar), sonst die
+    /// Restriktions-ID des BAZL.
+    static func severity(restrictionID: String, restrictionTextDE: String,
+                         profile: DroneProfile) -> (LegalVerdict, String?) {
+        if let range = restrictionTextDE.range(of: "mehr als [0-9]+ g", options: .regularExpression) {
+            let grams = Int(restrictionTextDE[range].filter(\.isNumber))
+            if let grams, profile.weightGrams <= grams {
+                return (.allowed, "Diese Einschränkung gilt erst über \(grams) g — deine \(profile.name) (\(profile.weightGrams) g) ist hier nicht betroffen. Fliege trotzdem rücksichtsvoll.")
+            }
+        }
+        if restrictionID.hasPrefix("PROHIBITED") {
+            return (.forbidden, nil)
+        }
+        return (.conditional, nil)
+    }
+
+    // MARK: geo.admin.ch-Abfrage
+
+    struct SwissZoneFeature {
+        let name: String
+        let restrictionID: String
+        let restrictionDE: String
+        let messageDE: String?
+    }
+
+    private static func identify(_ c: CLLocationCoordinate2D) async throws -> [SwissZoneFeature] {
+        var components = URLComponents(string: "https://api3.geo.admin.ch/rest/services/api/MapServer/identify")!
+        components.queryItems = [
+            URLQueryItem(name: "geometry", value: String(format: "%f,%f", c.longitude, c.latitude)),
+            URLQueryItem(name: "geometryType", value: "esriGeometryPoint"),
+            URLQueryItem(name: "layers", value: "all:ch.bazl.einschraenkungen-drohnen"),
+            URLQueryItem(name: "sr", value: "4326"),
+            URLQueryItem(name: "tolerance", value: "0"),
+            URLQueryItem(name: "mapExtent", value: "5.9,45.8,10.5,47.8"),
+            URLQueryItem(name: "imageDisplay", value: "100,100,96"),
+            URLQueryItem(name: "returnGeometry", value: "false"),
+        ]
+
+        struct Response: Decodable {
+            struct Result: Decodable {
+                let attributes: [String: AnyDecodable]?
+            }
+            let results: [Result]
+        }
+        let data = try await fetchJSON(components)
+        let response = try JSONDecoder().decode(Response.self, from: data)
+        return response.results.compactMap { result in
+            guard let attributes = result.attributes else { return nil }
+            func string(_ key: String) -> String? { attributes[key]?.value as? String }
+            guard let restriction = string("zone_restriction_de") else { return nil }
+            return SwissZoneFeature(
+                name: string("zone_name_de") ?? "Drohnen-Einschränkung",
+                restrictionID: string("zone_restriction_id") ?? "",
+                restrictionDE: restriction,
+                messageDE: string("zone_message_de")
+            )
+        }
     }
 }

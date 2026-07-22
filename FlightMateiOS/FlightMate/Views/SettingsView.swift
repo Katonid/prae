@@ -30,6 +30,21 @@ struct SettingsView: View {
                     }
                 }
 
+                Section("Benachrichtigungen") {
+                    Toggle("Beste Flugfenster melden", isOn: Binding(
+                        get: { state.notificationsEnabled },
+                        set: { newValue in Task { await state.setNotifications(newValue) } }
+                    ))
+                    Text("Maximal eine Meldung pro Tag, nur bei außergewöhnlich guten Fenstern (Score ≥ 8) an deinen gespeicherten Spots — geplant direkt auf dem Gerät, ohne Server.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    if state.notificationsDenied {
+                        Text("Benachrichtigungen sind in den iOS-Einstellungen deaktiviert. Erlaube sie dort, um Flugfenster gemeldet zu bekommen.")
+                            .font(.caption)
+                            .foregroundStyle(.orange)
+                    }
+                }
+
                 Section("Datenschutz") {
                     Text("Kein Account, kein Tracking, keine Werbung. Dein Standort wird nur bei aktiver Nutzung verwendet und für Wetterabfragen auf ~1 km gerundet. Spots liegen ausschließlich auf diesem Gerät.")
                         .font(.callout)
@@ -38,6 +53,7 @@ struct SettingsView: View {
                 Section("Datenquellen") {
                     LabeledContent("Wetter & Höhenwind", value: "Open-Meteo")
                     LabeledContent("Geo-Zonen (DE)", value: "dipul / BMDV")
+                    LabeledContent("Geo-Zonen (CH)", value: "BAZL / geo.admin.ch")
                     LabeledContent("Geo-Zonen (CA)", value: "NRCan · Transport Canada")
                     LabeledContent("Sonnenstand", value: "on-device berechnet")
                     Text(LegalAssessment.disclaimer)
