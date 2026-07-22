@@ -9,7 +9,9 @@ import SwiftUI
 
 struct SettingsView: View {
     @EnvironmentObject private var state: AppState
+    @ObservedObject private var claude = ClaudeService.shared
     @Environment(\.dismiss) private var dismiss
+    @State private var apiKeyInput = ""
 
     var body: some View {
         NavigationStack {
@@ -43,6 +45,28 @@ struct SettingsView: View {
                             .font(.caption)
                             .foregroundStyle(.orange)
                     }
+                }
+
+                Section("KI-Funktionen (Flight Review & Bildideen)") {
+                    if claude.hasKey {
+                        Label("API-Schlüssel gespeichert (Keychain)", systemImage: "checkmark.seal")
+                            .foregroundStyle(.green)
+                        Button("Schlüssel löschen", role: .destructive) {
+                            claude.clearKey()
+                        }
+                    } else {
+                        SecureField("Anthropic API-Schlüssel (sk-ant-…)", text: $apiKeyInput)
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled()
+                        Button("Schlüssel speichern") {
+                            claude.saveKey(apiKeyInput)
+                            apiKeyInput = ""
+                        }
+                        .disabled(apiKeyInput.trimmingCharacters(in: .whitespaces).isEmpty)
+                    }
+                    Text("Deinen Schlüssel bekommst du unter platform.claude.com. Er wird nur in der Keychain dieses Geräts gespeichert und ausschließlich für die Claude-API verwendet. Die KI-Aufrufe kosten dich API-Guthaben.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
 
                 Section("Datenschutz") {
