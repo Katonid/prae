@@ -13,6 +13,8 @@ import CoreLocation
 struct SpotsView: View {
     @EnvironmentObject private var state: AppState
     @State private var spotDays: [UUID: [DayScore]] = [:]
+    @State private var renamingSpot: Spot?
+    @State private var newName = ""
 
     var body: some View {
         NavigationStack {
@@ -30,6 +32,15 @@ struct SpotsView: View {
                                 SpotBriefingView(spot: spot)
                             } label: {
                                 SpotRow(spot: spot, days: spotDays[spot.id] ?? [])
+                            }
+                            .swipeActions(edge: .leading) {
+                                Button {
+                                    newName = spot.name
+                                    renamingSpot = spot
+                                } label: {
+                                    Label("Umbenennen", systemImage: "pencil")
+                                }
+                                .tint(.blue)
                             }
                         }
                         .onDelete { indexSet in
@@ -49,6 +60,19 @@ struct SpotsView: View {
             .navigationTitle("Spots")
             .task(id: state.spots) { await loadScores() }
             .refreshable { await loadScores() }
+            .alert("Spot umbenennen", isPresented: Binding(
+                get: { renamingSpot != nil },
+                set: { if !$0 { renamingSpot = nil } }
+            )) {
+                TextField("Name", text: $newName)
+                Button("Speichern") {
+                    if let spot = renamingSpot {
+                        state.renameSpot(spot, to: newName)
+                    }
+                    renamingSpot = nil
+                }
+                Button("Abbrechen", role: .cancel) { renamingSpot = nil }
+            }
         }
     }
 

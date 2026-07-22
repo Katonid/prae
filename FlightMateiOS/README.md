@@ -72,7 +72,9 @@ Dieser Stand entspricht dem **MVP-Fundament** (PRD Phase 0/1).
 
 ## Technik
 
-- Swift 5 / SwiftUI, iOS 17+, iPhone, keine externen Abhängigkeiten
+- Swift 5 / SwiftUI, iOS 17+, universell für iPhone und iPad
+  (bildschirmfüllend, Lesebreiten-Layout auf großen Displays),
+  keine externen Abhängigkeiten
 - `Model/FlightScoreEngine.swift` — deterministisches Regelwerk mit
   Faktoren-Ausgabe (bewusst **kein** LLM, PRD Kap. 12)
 - `Model/DroneProfile.swift` — Drohnen als Datenprofile, modellagnostischer
