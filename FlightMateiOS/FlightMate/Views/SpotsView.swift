@@ -26,7 +26,11 @@ struct SpotsView: View {
                 } else {
                     List {
                         ForEach(state.spots) { spot in
-                            SpotRow(spot: spot, days: spotDays[spot.id] ?? [])
+                            NavigationLink {
+                                SpotBriefingView(spot: spot)
+                            } label: {
+                                SpotRow(spot: spot, days: spotDays[spot.id] ?? [])
+                            }
                         }
                         .onDelete { indexSet in
                             for index in indexSet {

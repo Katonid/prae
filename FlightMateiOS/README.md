@@ -40,6 +40,10 @@ Dieser Stand entspricht dem **MVP-Fundament** (PRD Phase 0/1).
   Score ein (Golden Hour hebt, Mittagslicht senkt).
 - **Spots (F4, lokal):** Bis zu 3 gespeicherte Orte (Free-Tier-Grenze
   aus dem PRD); jeder Spot zeigt das beste Fenster der nächsten 7 Tage.
+- **Pre-Flight-Briefing (User Journey Phase 2):** Tipp auf einen Spot
+  → eine Karte mit 10 Sekunden Lesezeit: bestes Fenster heute (plus
+  Hinweis auf den besten Tag der Woche), Legal-Status mit Maximalhöhe,
+  Bedingungen im Fenster und Lichtzeiten.
 - **Proaktive Benachrichtigung (F4):** Maximal eine Meldung pro Tag,
   nur bei außergewöhnlich guten Fenstern (Score ≥ 8) an gespeicherten
   Spots, gemeldet 2 h vor Fensterbeginn. Komplett auf dem Gerät
