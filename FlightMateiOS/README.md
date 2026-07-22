@@ -63,6 +63,13 @@ Dieser Stand entspricht dem **MVP-Fundament** (PRD Phase 0/1).
 - **iPad-Planungslayout:** Auf breiten Bildschirmen zeigt „Heute"
   zwei Spalten (Score + Tagesverlauf links, Licht + 7-Tage-Ausblick
   rechts) — der Anfang des Planungs-Canvas aus PRD F12.
+- **Spot-Entdeckung (F9, erste Ausbaustufe):** Neuer „Entdecken"-Tab
+  — Foto-Orte in der Nähe aus OpenStreetMap (Aussichtspunkte, Gipfel,
+  Wasserfälle, Burgen & Schlösser, Leuchttürme; Radius 10/25/50 km,
+  Kategorie-Chips). Beim Antippen prüft FlightMate den Ort automatisch
+  mit Legal-Check und Flight Score („geprüft, nicht nur schön") und
+  zeigt das beste Fenster der Woche; ein Tipp speichert ihn als Spot.
+  Keine Likes, keine Feeds (PRD N2). Daten: © OpenStreetMap (ODbL).
 - **Score-Erklärung am Ring:** Tipp auf den Score-Ring im Heute-Tab
   öffnet die Faktoren-Begründung der besten Stunde („Warum 7?").
   Darüber steht der per Reverse-Geocoding ermittelte Ortsname.
@@ -124,8 +131,9 @@ Dieser Stand entspricht dem **MVP-Fundament** (PRD Phase 0/1).
 - Kanada: Luftraumklasse F (CYR/CYD/CYA) und NOTAMs als Live-Abfrage —
   derzeit kein offen abfragbarer Dienst; wird als „nicht geprüft"
   angezeigt
-- Spot-Entdeckung (V3); Server-Proxy für die KI-Funktionen
-  (für einen öffentlichen Release — aktuell „bring your own key")
+- Spot-Entdeckung: redaktionelle Kuration & Community-Ebene (V3);
+  Server-Proxy für die KI-Funktionen (für einen öffentlichen
+  Release — aktuell „bring your own key")
 - Abo/StoreKit (Free-Tier-Grenzen sind bereits im Code verankert)
 - Validierung der dipul-Layernamen gegen den Live-Dienst und
   Score-Validierung mit realen Flugtagen (PRD Phase 0-Meilenstein)
