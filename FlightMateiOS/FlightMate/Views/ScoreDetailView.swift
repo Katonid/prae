@@ -126,7 +126,7 @@ struct HourFactorsView: View {
             Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 6) {
                 GridRow {
                     Text("Wind (Boden)")
-                    Text("\(Int(hourScore.hour.windSpeed10Kmh)) km/h")
+                    Text("\(Int(hourScore.hour.windSpeed10Kmh)) km/h aus \(Theme.compassDirection(hourScore.hour.windDirectionDeg))")
                 }
                 GridRow {
                     Text("Wind (120 m)")

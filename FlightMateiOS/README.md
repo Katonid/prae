@@ -39,18 +39,27 @@ Dieser Stand entspricht dem **MVP-Fundament** (PRD Phase 0/1).
 
   Außerhalb der abgedeckten Länder oder ohne Netz zeigt die App
   ehrlich „Keine Daten" statt zu raten.
-- **Zonen-Umrisse auf der Karte (DE):** Die Karte zeichnet die
-  flächigen Schutz- und Luftfahrt-Zonen des sichtbaren Ausschnitts
-  als farbige Polygone (rot = verboten, orange = mit Auflagen) —
-  wie auf der amtlichen dipul-Karte. Verkehrswege-Korridore und
-  Wohngrundstücke bleiben bewusst dem punktgenauen Tipp-Check
-  vorbehalten (sonst wäre die Karte in Städten vollflächig bedeckt).
-  Kartenstil umschaltbar: Karte / Hybrid / Satellit.
+- **Zonen-Umrisse auf der Karte (DE):** Die Karte zeichnet alle
+  flächigen Zonentypen des sichtbaren Ausschnitts als farbige
+  Polygone (rot = verboten, orange = mit Auflagen, mit Legende) —
+  wie auf der amtlichen dipul-Karte. Zwei Zoom-Stufen: Schutzgebiete
+  und Luftfahrt-Zonen früh; dichte Korridore (Straßen, Bahn,
+  Wasserstraßen, Strom) und Wohngrundstücke ab ~10 km Ausschnitt,
+  damit Städte nicht vollflächig zugedeckt werden (Legende zeigt
+  „mehr beim Hineinzoomen"). Kartenstil umschaltbar
+  (Karte / Hybrid / Satellit) und Tag-/Nachtansicht unabhängig vom
+  Geräte-Erscheinungsbild erzwingbar; beide Einstellungen bleiben
+  gespeichert.
 - **Lichtplanung (F3):** Sonnenauf-/-untergang, goldene und blaue
   Stunde, vollständig on-device berechnet; das Licht fließt in den
   Score ein (Golden Hour hebt, Mittagslicht senkt).
 - **Spots (F4, lokal):** Bis zu 3 gespeicherte Orte (Free-Tier-Grenze
   aus dem PRD); jeder Spot zeigt das beste Fenster der nächsten 7 Tage.
+  Speichern per Karten-Tipp oder mit einem Tipp auf „+" direkt am
+  aktuellen Standort; umbenennen per Wisch-Aktion.
+- **iPad-Planungslayout:** Auf breiten Bildschirmen zeigt „Heute"
+  zwei Spalten (Score + Tagesverlauf links, Licht + 7-Tage-Ausblick
+  rechts) — der Anfang des Planungs-Canvas aus PRD F12.
 - **Pre-Flight-Briefing (User Journey Phase 2):** Tipp auf einen Spot
   → eine Karte mit 10 Sekunden Lesezeit: bestes Fenster heute (plus
   Hinweis auf den besten Tag der Woche), Legal-Status mit Maximalhöhe,

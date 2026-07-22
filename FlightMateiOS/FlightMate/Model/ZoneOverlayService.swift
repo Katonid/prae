@@ -6,11 +6,12 @@
 //  antworten, zeichnet die Karte die Geo-Zonen des sichtbaren
 //  Ausschnitts als Polygone — wie auf der amtlichen dipul-Karte.
 //
-//  Bewusste Auswahl: Gezeichnet werden flächige Schutz- und
-//  Luftfahrt-Zonen. Verkehrswege-Korridore (Straßen, Bahn, Wasser)
-//  und Wohngrundstücke würden die Karte in Städten vollständig
-//  zudecken — sie bleiben Teil des punktgenauen Legal-Checks beim
-//  Tippen. Abdeckung: Deutschland (dipul); weitere Länder folgen.
+//  Gezeichnet werden alle flächigen Zonentypen (Nutzerwunsch) — aber
+//  in zwei Zoom-Stufen: Schutzgebiete und Luftfahrt-Zonen früh,
+//  die dichten Korridore (Straßen, Bahn, Wasserstraßen, Strom) und
+//  Wohngrundstücke erst ab näherem Zoom, damit die Karte in Städten
+//  nicht vollflächig zugedeckt wird.
+//  Abdeckung: Deutschland (dipul); weitere Länder folgen.
 //
 
 import Foundation
@@ -32,20 +33,30 @@ final class ZoneOverlayService {
     /// Ab dieser Kartenspanne (Grad) wird nicht mehr geladen — zu viele
     /// Features, zu wenig erkennbar. UI zeigt dann einen Zoom-Hinweis.
     static let maxSpanDeg = 0.35
+    /// Dichte Korridore und Wohngrundstücke erst ab diesem Zoom (~10 km).
+    static let detailSpanDeg = 0.10
 
-    /// Flächige Zonen, die gezeichnet werden (dipul-Layer).
-    private static let overlayLayers = [
-        "flugbeschraenkungsgebiete",
-        "temporaere_betriebseinschraenkungen",
-        "flughaefen",
-        "flugplaetze",
-        "kontrollzonen",
-        "naturschutzgebiete",
-        "nationalparks",
-        "vogelschutzgebiete",
-        "militaerische_anlagen",
-        "krankenhaeuser",
-        "justizvollzugsanstalten",
+    /// Flächige Zonen, die gezeichnet werden (dipul-Layer), mit der
+    /// Kartenspanne, ab der sie erscheinen.
+    private static let overlayLayers: [(layer: String, maxSpan: Double)] = [
+        ("flugbeschraenkungsgebiete", maxSpanDeg),
+        ("temporaere_betriebseinschraenkungen", maxSpanDeg),
+        ("flughaefen", maxSpanDeg),
+        ("flugplaetze", maxSpanDeg),
+        ("kontrollzonen", maxSpanDeg),
+        ("naturschutzgebiete", maxSpanDeg),
+        ("nationalparks", maxSpanDeg),
+        ("vogelschutzgebiete", maxSpanDeg),
+        ("militaerische_anlagen", maxSpanDeg),
+        ("krankenhaeuser", maxSpanDeg),
+        ("justizvollzugsanstalten", maxSpanDeg),
+        ("bahnanlagen", maxSpanDeg),
+        ("stromleitungen", maxSpanDeg),
+        ("bundesautobahnen", detailSpanDeg),
+        ("bundesstrassen", detailSpanDeg),
+        ("binnenwasserstrassen", detailSpanDeg),
+        ("seewasserstrassen", detailSpanDeg),
+        ("wohngrundstuecke", detailSpanDeg),
     ]
 
     private static func severity(for layer: String) -> LegalVerdict {
@@ -65,9 +76,12 @@ final class ZoneOverlayService {
         let minLon = c.longitude - region.span.longitudeDelta / 2
         let maxLon = c.longitude + region.span.longitudeDelta / 2
 
+        let span = max(region.span.latitudeDelta, region.span.longitudeDelta)
+        let activeLayers = Self.overlayLayers.filter { span < $0.maxSpan }.map(\.layer)
+
         var result: [ZoneOverlay] = []
         await withTaskGroup(of: [ZoneOverlay].self) { group in
-            for layer in Self.overlayLayers {
+            for layer in activeLayers {
                 group.addTask {
                     (try? await Self.fetchLayer(layer, minLat: minLat, minLon: minLon,
                                                 maxLat: maxLat, maxLon: maxLon)) ?? []

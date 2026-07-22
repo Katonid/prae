@@ -49,4 +49,11 @@ enum Theme {
     }()
 
     static func time(_ date: Date) -> String { timeFormatter.string(from: date) }
+
+    /// 270° → "W" — Windrichtung als Himmelsrichtung.
+    static func compassDirection(_ degrees: Double) -> String {
+        let directions = ["N", "NO", "O", "SO", "S", "SW", "W", "NW"]
+        let index = Int((degrees + 22.5) / 45.0) % 8
+        return directions[index]
+    }
 }
