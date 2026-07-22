@@ -13,11 +13,15 @@ import SwiftUI
 
 struct SpotBriefingView: View {
     @EnvironmentObject private var state: AppState
+    @ObservedObject private var claude = ClaudeService.shared
     let spot: Spot
 
     @State private var days: [DayScore] = []
     @State private var legal: LegalAssessment?
     @State private var isLoading = true
+    @State private var shotIdeas: [ShotIdea] = []
+    @State private var isLoadingIdeas = false
+    @State private var ideasError: String?
 
     private var today: DayScore? { days.first }
 
@@ -37,6 +41,9 @@ struct SpotBriefingView: View {
                     if let today {
                         conditionsCard(today)
                         lightCard(today)
+                    }
+                    if claude.hasKey {
+                        ideasCard
                     }
                     Text("Guten Flug! Während des Flugs gilt: Augen an den Luftraum, nicht ans Telefon.")
                         .font(.footnote)
@@ -189,6 +196,76 @@ struct SpotBriefingView: View {
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 16))
+    }
+
+    // MARK: Bildideen (PRD F6, KI)
+
+    private var ideasCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Label("Bildideen", systemImage: "sparkles")
+                    .font(.headline)
+                Spacer()
+                if isLoadingIdeas { ProgressView() }
+            }
+            if shotIdeas.isEmpty && !isLoadingIdeas {
+                Button("Bildideen für dieses Licht holen") {
+                    Task { await loadShotIdeas() }
+                }
+                .buttonStyle(.bordered)
+            }
+            if let ideasError {
+                Text(ideasError)
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+            }
+            ForEach(shotIdeas) { idea in
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(idea.titel)
+                        .font(.subheadline.weight(.semibold))
+                    Text(idea.idee)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.vertical, 2)
+            }
+        }
+        .padding()
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 16))
+    }
+
+    private func loadShotIdeas() async {
+        isLoadingIdeas = true
+        ideasError = nil
+        defer { isLoadingIdeas = false }
+
+        var context: [String] = [
+            String(format: "Koordinaten: %.4f, %.4f", spot.latitude, spot.longitude),
+        ]
+        if let today, let window = today.bestWindow {
+            context.append("Bestes Flugfenster heute: \(Theme.time(window.start))–\(Theme.time(window.end)) Uhr (Flight Score \(window.score)/10)")
+            if let hour = today.hours.first(where: { $0.hour.date == window.start }) {
+                context.append("Licht im Fenster: \(SunCalculator.lightLabel(at: hour.hour.date, latitude: spot.latitude, longitude: spot.longitude))")
+                context.append("Wind: \(Int(max(hour.hour.windSpeed10Kmh, hour.hour.windSpeed120Kmh))) km/h aus \(Theme.compassDirection(hour.hour.windDirectionDeg))")
+            }
+        }
+        if let sunset = today?.sunDay.sunset {
+            context.append("Sonnenuntergang: \(Theme.time(sunset)) Uhr")
+        }
+        if let profile = state.profile {
+            context.append("Drohne: \(profile.name)")
+        }
+
+        do {
+            shotIdeas = try await ClaudeService.shared.shotIdeas(
+                spotName: spot.name,
+                contextLines: context,
+                maxAltitudeM: legal?.maxAltitudeM ?? state.profile?.maxLegalAltitudeM ?? 120
+            )
+        } catch {
+            ideasError = error.localizedDescription
+        }
     }
 
     // MARK: Licht

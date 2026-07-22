@@ -2,8 +2,8 @@
 //  ContentView.swift
 //  FlightMate
 //
-//  Drei Tabs, nicht mehr (PRD: wenige Funktionen, hoher Nutzen):
-//  Heute (Flight Score) · Karte (Legal-Check) · Spots.
+//  Vier Tabs, nicht mehr (PRD: wenige Funktionen, hoher Nutzen):
+//  Heute (Score) · Karte (Legal) · Spots · Review (KI-Bildkritik, V2).
 //
 
 import SwiftUI
@@ -22,6 +22,8 @@ struct ContentView: View {
                     .tabItem { Label("Karte", systemImage: "map") }
                 SpotsView()
                     .tabItem { Label("Spots", systemImage: "star") }
+                FlightReviewView()
+                    .tabItem { Label("Review", systemImage: "sparkles") }
             }
         }
     }

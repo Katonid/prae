@@ -64,6 +64,23 @@ Dieser Stand entspricht dem **MVP-Fundament** (PRD Phase 0/1).
   → eine Karte mit 10 Sekunden Lesezeit: bestes Fenster heute (plus
   Hinweis auf den besten Tag der Woche), Legal-Status mit Maximalhöhe,
   Bedingungen im Fenster und Lichtzeiten.
+- **Flight Review (F5, KI):** Neuer „Review"-Tab — nach dem Flug bis
+  zu 5 Aufnahmen auswählen (PhotosPicker, kein Mediathek-Vollzugriff);
+  Claude bewertet jede entlang der festen PRD-Rubrik mit max. 2
+  Stärken und genau einem umsetzbaren Verbesserungsvorschlag
+  (Mentor-Ton). Bilder werden verkleinert übertragen, nicht
+  gespeichert, nicht fürs Training verwendet.
+- **Bildideen (F6, KI):** Im Spot-Briefing schlägt Claude 2–3
+  konkrete, ausführbare Bildideen für Ort, Licht und Wind vor — die
+  legale Maximalhöhe aus dem Legal-Check geht als harte Bedingung in
+  den Prompt ein.
+- **KI-Anbindung:** Eigener Anthropic-API-Schlüssel des Nutzers
+  („bring your own key", Einstellungen → KI-Funktionen), gespeichert
+  in der Keychain. Claude-API direkt (`claude-opus-4-8`, adaptives
+  Thinking, Structured Outputs für garantiert parsbares JSON). Score
+  und Legal-Check bleiben deterministisch (PRD Kap. 12). Für einen
+  öffentlichen Release ist weiterhin der Server-Proxy aus dem PRD
+  vorgesehen.
 - **Proaktive Benachrichtigung (F4):** Maximal eine Meldung pro Tag,
   nur bei außergewöhnlich guten Fenstern (Score ≥ 8) an gespeicherten
   Spots, gemeldet 2 h vor Fensterbeginn. Komplett auf dem Gerät
@@ -85,7 +102,8 @@ Dieser Stand entspricht dem **MVP-Fundament** (PRD Phase 0/1).
 - Kanada: Luftraumklasse F (CYR/CYD/CYA) und NOTAMs als Live-Abfrage —
   derzeit kein offen abfragbarer Dienst; wird als „nicht geprüft"
   angezeigt
-- AI-Bildkritik & Shot-Vorschläge (V2), Spot-Entdeckung (V3)
+- Spot-Entdeckung (V3); Server-Proxy für die KI-Funktionen
+  (für einen öffentlichen Release — aktuell „bring your own key")
 - Abo/StoreKit (Free-Tier-Grenzen sind bereits im Code verankert)
 - Validierung der dipul-Layernamen gegen den Live-Dienst und
   Score-Validierung mit realen Flugtagen (PRD Phase 0-Meilenstein)

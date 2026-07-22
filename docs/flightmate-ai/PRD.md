@@ -407,6 +407,8 @@ Datenschutz ist ein Produktmerkmal, kein Compliance-Anhang. Zielgruppe und Recht
 
 **Grundsatz:** AI wird nur eingesetzt, wo sie ein Nutzerproblem besser löst als deterministische Logik — und niemals dort, wo Nachvollziehbarkeit sicherheits- oder rechtsrelevant ist.
 
+**Scope-Ergänzung (Product-Owner-Entscheidung, 07/2026):** Für das persönliche MVP werden F5 (Bildkritik) und F6 (Shot-Vorschläge) ohne Backend umgesetzt: Der Nutzer hinterlegt seinen eigenen Anthropic-API-Schlüssel in der App (Keychain, nur auf dem Gerät); die App ruft die Claude-API direkt auf. Für einen öffentlichen Release gilt weiterhin die Architektur aus Kap. 10 (Server-Proxy, Schlüssel serverseitig).
+
 ### Wo bewusst KEINE generative AI eingesetzt wird
 
 | Bereich | Warum deterministisch |
