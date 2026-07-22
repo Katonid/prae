@@ -77,6 +77,16 @@ struct SpotCandidate: Identifiable, Hashable {
 
 enum DiscoveryService {
 
+    /// Öffentliche Overpass-Instanzen; die Hauptinstanz ist zu Stoßzeiten
+    /// oft überlastet (504) — deshalb werden die Spiegel der Reihe nach
+    /// probiert, bis einer antwortet.
+    private static let endpoints = [
+        "https://overpass-api.de/api/interpreter",
+        "https://overpass.private.coffee/api/interpreter",
+        "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
+        "https://overpass.kumi.systems/api/interpreter",
+    ]
+
     static func candidates(around center: CLLocationCoordinate2D, radiusM: Int,
                            kinds: Set<SpotCandidate.Kind>) async throws -> [SpotCandidate] {
         guard !kinds.isEmpty else { return [] }
@@ -84,20 +94,27 @@ enum DiscoveryService {
         let nodeQueries = kinds
             .map { "node\($0.osmFilter)(around:\(radiusM),\(center.latitude),\(center.longitude));" }
             .joined()
-        let query = "[out:json][timeout:20];(\(nodeQueries));out body 80;"
-
-        var request = URLRequest(url: URL(string: "https://overpass-api.de/api/interpreter")!)
-        request.httpMethod = "POST"
-        request.timeoutInterval = 25
-        request.setValue("FlightMateAI/1.0 (private Drohnen-Foto-App)", forHTTPHeaderField: "User-Agent")
-        request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
+        let query = "[out:json][timeout:15];(\(nodeQueries));out body 80;"
         let encoded = query.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? query
-        request.httpBody = "data=\(encoded)".data(using: .utf8)
+        let body = "data=\(encoded)".data(using: .utf8)
 
-        let (data, response) = try await URLSession.shared.data(for: request)
-        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
-            throw GeoQueryError.badResponse
+        var data: Data?
+        for endpoint in endpoints {
+            var request = URLRequest(url: URL(string: endpoint)!)
+            request.httpMethod = "POST"
+            request.timeoutInterval = 20
+            request.setValue("FlightMateAI/1.0 (private Drohnen-Foto-App)", forHTTPHeaderField: "User-Agent")
+            request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
+            request.httpBody = body
+
+            if let (received, response) = try? await URLSession.shared.data(for: request),
+               (response as? HTTPURLResponse)?.statusCode == 200 {
+                data = received
+                break
+            }
+            // Nicht erreichbar oder überlastet (429/504) → nächster Spiegel.
         }
+        guard let data else { throw GeoQueryError.badResponse }
 
         struct OverpassResult: Decodable {
             struct Element: Decodable {

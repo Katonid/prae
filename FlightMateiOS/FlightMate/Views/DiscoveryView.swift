@@ -136,7 +136,7 @@ struct DiscoveryView: View {
                 kinds: selectedKinds
             )
         } catch {
-            errorMessage = "Die Orte-Suche (OpenStreetMap) ist gerade nicht erreichbar — bitte später erneut versuchen."
+            errorMessage = "Alle OpenStreetMap-Server sind gerade ausgelastet — zieh die Liste zum Aktualisieren nach unten oder versuch es in ein paar Minuten erneut."
         }
     }
 }
