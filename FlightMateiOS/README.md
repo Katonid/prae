@@ -20,6 +20,12 @@ Dieser Stand entspricht dem **MVP-Fundament** (PRD Phase 0/1).
   Klartexten je Zonentyp. Länder-Provider-Architektur:
   - **Deutschland** (EU Open A1, Klasse C0): dipul-WFS (BMDV),
     Live-Abfrage mit sichtbarer Quelle und Zeitstempel.
+  - **Schweiz** (EU-Regeln übernommen): amtliche BAZL-Drohnenkarte via
+    geo.admin.ch — die App zeigt den amtlichen Beschränkungstext im
+    Wortlaut. Nennt der Text eine Gewichtsgrenze (z. B. „mehr als
+    250 g"), unter der die Drohne des Nutzers liegt, wird die Zone als
+    „nicht betroffen" markiert — für die C0-Minis oft der
+    entscheidende Unterschied.
   - **Kanada** (CARs Part IX, Mikrodrohnen < 250 g): Nationalparks
     aus dem amtlichen NRCan-CLSS-Dienst (Parks-Canada-Drohnenverbot,
     Punkt-in-Polygon) und Flughäfen mit Flugsicherung aus dem
@@ -34,6 +40,11 @@ Dieser Stand entspricht dem **MVP-Fundament** (PRD Phase 0/1).
   Score ein (Golden Hour hebt, Mittagslicht senkt).
 - **Spots (F4, lokal):** Bis zu 3 gespeicherte Orte (Free-Tier-Grenze
   aus dem PRD); jeder Spot zeigt das beste Fenster der nächsten 7 Tage.
+- **Proaktive Benachrichtigung (F4):** Maximal eine Meldung pro Tag,
+  nur bei außergewöhnlich guten Fenstern (Score ≥ 8) an gespeicherten
+  Spots, gemeldet 2 h vor Fensterbeginn. Komplett auf dem Gerät
+  vorausgeplant (lokale Notifications) — kein Server, keine Spot-Daten
+  verlassen das Gerät. Opt-in in den Einstellungen.
 - **Onboarding < 2 min:** Einzige Frage ist das Drohnenmodell
   (Mini 3 / Mini 4K / Mini 4 Pro) — Windtoleranz, EU-Klasse und Regeln
   werden abgeleitet. Kein Account.
@@ -42,8 +53,11 @@ Dieser Stand entspricht dem **MVP-Fundament** (PRD Phase 0/1).
 
 ## Noch offen (bewusst, siehe PRD-Roadmap)
 
-- Proaktive Benachrichtigungen (F4-Teil 2, braucht Backend/APNs-Scheduler)
-- Geo-Zonen AT/CH (MVP-Ziel DACH; aktuell ehrlich als Lücke markiert)
+- Geo-Zonen Österreich (Dronespace/Austro Control hat keinen offen
+  abfragbaren Dienst; aktuell ehrlich als Lücke markiert)
+- Benachrichtigungen im Hintergrund aktualisieren (BGAppRefresh bzw.
+  später serverseitiger Scheduler, PRD Kap. 10) — aktuell wird bei
+  jedem App-Start neu geplant
 - Kanada: Luftraumklasse F (CYR/CYD/CYA) und NOTAMs als Live-Abfrage —
   derzeit kein offen abfragbarer Dienst; wird als „nicht geprüft"
   angezeigt
