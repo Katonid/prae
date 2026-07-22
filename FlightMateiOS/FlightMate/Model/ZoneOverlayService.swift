@@ -7,8 +7,10 @@
 //  Ausschnitts als Polygone — wie auf der amtlichen dipul-Karte.
 //
 //  Bewusste Auswahl: Gezeichnet werden flächige Schutz- und
-//  Luftfahrt-Zonen. Verkehrswege-Korridore (Straßen, Bahn, Wasser)
-//  und Wohngrundstücke würden die Karte in Städten vollständig
+//  Luftfahrt-Zonen sowie die Korridore von Bahnanlagen und
+//  Hochspannungsleitungen (Nutzerwunsch — beide unterliegen der
+//  100-m-Abstandsregel). Straßen-/Wasserstraßen-Korridore und
+//  Wohngrundstücke würden die Karte in Städten vollständig
 //  zudecken — sie bleiben Teil des punktgenauen Legal-Checks beim
 //  Tippen. Abdeckung: Deutschland (dipul); weitere Länder folgen.
 //
@@ -46,6 +48,8 @@ final class ZoneOverlayService {
         "militaerische_anlagen",
         "krankenhaeuser",
         "justizvollzugsanstalten",
+        "bahnanlagen",
+        "stromleitungen",
     ]
 
     private static func severity(for layer: String) -> LegalVerdict {

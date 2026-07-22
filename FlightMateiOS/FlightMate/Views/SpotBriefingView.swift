@@ -162,7 +162,7 @@ struct SpotBriefingView: View {
                 Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 6) {
                     GridRow {
                         Label("Wind in Flughöhe", systemImage: "wind")
-                        Text("\(Int(max(hour.hour.windSpeed10Kmh, hour.hour.windSpeed120Kmh))) km/h")
+                        Text("\(Int(max(hour.hour.windSpeed10Kmh, hour.hour.windSpeed120Kmh))) km/h aus \(Theme.compassDirection(hour.hour.windDirectionDeg))")
                     }
                     GridRow {
                         Label("Böen", systemImage: "tornado")

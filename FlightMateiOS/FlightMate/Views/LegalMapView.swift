@@ -28,6 +28,33 @@ enum MapStyleChoice: String, CaseIterable, Identifiable {
     }
 }
 
+/// Tag-/Nachtansicht der Karte — unabhängig vom Erscheinungsbild
+/// des Geräts (Nutzerwunsch: abends hell planen oder tagsüber die
+/// Nachtdarstellung prüfen).
+enum MapAppearance: String, CaseIterable, Identifiable {
+    case auto = "Automatisch"
+    case day = "Tag"
+    case night = "Nacht"
+
+    var id: String { rawValue }
+
+    var scheme: ColorScheme? {
+        switch self {
+        case .auto: return nil
+        case .day: return .light
+        case .night: return .dark
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .auto: return "circle.lefthalf.filled"
+        case .day: return "sun.max"
+        case .night: return "moon.stars"
+        }
+    }
+}
+
 struct LegalMapView: View {
     @EnvironmentObject private var state: AppState
     @State private var camera: MapCameraPosition = .automatic
@@ -35,7 +62,8 @@ struct LegalMapView: View {
     @State private var assessment: LegalAssessment?
     @State private var isChecking = false
     @State private var showResult = false
-    @State private var styleChoice: MapStyleChoice = .hybrid
+    @AppStorage("mapStyleChoice") private var styleChoice: MapStyleChoice = .hybrid
+    @AppStorage("mapAppearance") private var appearance: MapAppearance = .auto
     @State private var overlays: [ZoneOverlay] = []
     @State private var zoomedOut = false
     @State private var overlayTask: Task<Void, Never>?
@@ -71,6 +99,9 @@ struct LegalMapView: View {
                 .onMapCameraChange(frequency: .onEnd) { context in
                     reloadOverlays(for: context.region)
                 }
+                .transformEnvironment(\.colorScheme) { scheme in
+                    if let forced = appearance.scheme { scheme = forced }
+                }
             }
             .safeAreaInset(edge: .top) {
                 Picker("Kartenstil", selection: $styleChoice) {
@@ -104,8 +135,42 @@ struct LegalMapView: View {
                         .padding(.bottom, 12)
                 }
             }
+            .overlay(alignment: .topTrailing) {
+                if !zoomedOut && !overlays.isEmpty {
+                    HStack(spacing: 10) {
+                        HStack(spacing: 4) {
+                            Circle().fill(Theme.verdictColor(.forbidden)).frame(width: 8, height: 8)
+                            Text("verboten")
+                        }
+                        HStack(spacing: 4) {
+                            Circle().fill(Theme.verdictColor(.conditional)).frame(width: 8, height: 8)
+                            Text("mit Auflagen")
+                        }
+                    }
+                    .font(.caption2)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(.thinMaterial, in: Capsule())
+                    .padding(.trailing, 12)
+                    .padding(.top, 8)
+                }
+            }
             .navigationTitle("Legal-Check")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Menu {
+                        Picker("Kartenansicht", selection: $appearance) {
+                            ForEach(MapAppearance.allCases) { choice in
+                                Label(choice.rawValue, systemImage: choice.symbol).tag(choice)
+                            }
+                        }
+                    } label: {
+                        Image(systemName: appearance.symbol)
+                    }
+                    .accessibilityLabel("Tag- oder Nachtansicht der Karte")
+                }
+            }
             .sheet(isPresented: $showResult) {
                 if let assessment {
                     LegalResultView(assessment: assessment) { name in

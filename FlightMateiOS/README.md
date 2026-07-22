@@ -40,12 +40,16 @@ Dieser Stand entspricht dem **MVP-Fundament** (PRD Phase 0/1).
   Außerhalb der abgedeckten Länder oder ohne Netz zeigt die App
   ehrlich „Keine Daten" statt zu raten.
 - **Zonen-Umrisse auf der Karte (DE):** Die Karte zeichnet die
-  flächigen Schutz- und Luftfahrt-Zonen des sichtbaren Ausschnitts
-  als farbige Polygone (rot = verboten, orange = mit Auflagen) —
-  wie auf der amtlichen dipul-Karte. Verkehrswege-Korridore und
-  Wohngrundstücke bleiben bewusst dem punktgenauen Tipp-Check
-  vorbehalten (sonst wäre die Karte in Städten vollflächig bedeckt).
-  Kartenstil umschaltbar: Karte / Hybrid / Satellit.
+  flächigen Schutz- und Luftfahrt-Zonen sowie die Korridore von
+  Bahnanlagen und Hochspannungsleitungen des sichtbaren Ausschnitts
+  als farbige Polygone (rot = verboten, orange = mit Auflagen, mit
+  Legende) — wie auf der amtlichen dipul-Karte. Straßen-/
+  Wasserstraßen-Korridore und Wohngrundstücke bleiben bewusst dem
+  punktgenauen Tipp-Check vorbehalten (sonst wäre die Karte in
+  Städten vollflächig bedeckt). Kartenstil umschaltbar
+  (Karte / Hybrid / Satellit) und Tag-/Nachtansicht unabhängig vom
+  Geräte-Erscheinungsbild erzwingbar; beide Einstellungen bleiben
+  gespeichert.
 - **Lichtplanung (F3):** Sonnenauf-/-untergang, goldene und blaue
   Stunde, vollständig on-device berechnet; das Licht fließt in den
   Score ein (Golden Hour hebt, Mittagslicht senkt).
