@@ -19,7 +19,11 @@ Dieser Stand entspricht dem **MVP-Fundament** (PRD Phase 0/1).
   Auflagen / Verboten" für genau diese Koordinate, mit redaktionellen
   Klartexten je Zonentyp. Länder-Provider-Architektur:
   - **Deutschland** (EU Open A1, Klasse C0): dipul-WFS (BMDV),
-    Live-Abfrage mit sichtbarer Quelle und Zeitstempel.
+    Live-Abfrage mit sichtbarer Quelle und Zeitstempel. Punktgenau
+    (~40-m-GPS-Toleranz statt Umkreissuche — eine Zone in der Nähe
+    ist kein Treffer am Startpunkt) und mit 27 Zonentypen inkl.
+    Flugbeschränkungsgebieten (ED-R) und temporären Sperrungen;
+    Layernamen gegen den Live-Dienst validiert.
   - **Schweiz** (EU-Regeln übernommen): amtliche BAZL-Drohnenkarte via
     geo.admin.ch — die App zeigt den amtlichen Beschränkungstext im
     Wortlaut. Nennt der Text eine Gewichtsgrenze (z. B. „mehr als
@@ -35,6 +39,13 @@ Dieser Stand entspricht dem **MVP-Fundament** (PRD Phase 0/1).
 
   Außerhalb der abgedeckten Länder oder ohne Netz zeigt die App
   ehrlich „Keine Daten" statt zu raten.
+- **Zonen-Umrisse auf der Karte (DE):** Die Karte zeichnet die
+  flächigen Schutz- und Luftfahrt-Zonen des sichtbaren Ausschnitts
+  als farbige Polygone (rot = verboten, orange = mit Auflagen) —
+  wie auf der amtlichen dipul-Karte. Verkehrswege-Korridore und
+  Wohngrundstücke bleiben bewusst dem punktgenauen Tipp-Check
+  vorbehalten (sonst wäre die Karte in Städten vollflächig bedeckt).
+  Kartenstil umschaltbar: Karte / Hybrid / Satellit.
 - **Lichtplanung (F3):** Sonnenauf-/-untergang, goldene und blaue
   Stunde, vollständig on-device berechnet; das Licht fließt in den
   Score ein (Golden Hour hebt, Mittagslicht senkt).
