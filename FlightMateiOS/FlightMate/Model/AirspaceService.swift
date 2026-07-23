@@ -158,23 +158,30 @@ final class AirspaceService: ObservableObject {
     nonisolated static func airspaces(around center: CLLocationCoordinate2D,
                                       radiusM: Int,
                                       excludingCountry: String? = nil) async throws -> [Airspace] {
-        guard let key = loadKey() else { throw GeoQueryError.badResponse }
+        guard let key = loadKey() else { throw AirspaceError.noKey }
 
         var components = URLComponents(string: "https://api.core.openaip.net/api/airspaces")!
         components.queryItems = [
             URLQueryItem(name: "pos", value: String(format: "%f,%f", center.latitude, center.longitude)),
             URLQueryItem(name: "dist", value: String(radiusM)),
-            URLQueryItem(name: "limit", value: "200"),
+            URLQueryItem(name: "limit", value: "100"),
+            // Nur die benötigten Felder — volle Luftraum-Objekte sind
+            // mehrere MB groß und liefen auf Mobilfunk ins Timeout
+            // (Nutzer-Befund: Schlüssel ok, Check trotzdem „nicht geprüft").
+            URLQueryItem(name: "fields", value: "_id,name,type,geometry,lowerLimit,country"),
         ]
         var request = URLRequest(url: components.url!)
-        request.timeoutInterval = 15
+        request.timeoutInterval = 20
         request.setValue(key, forHTTPHeaderField: "x-openaip-api-key")
-        let (data, response) = try await URLSession.shared.data(for: request)
-        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
-            throw GeoQueryError.badResponse
+        guard let (data, response) = try? await URLSession.shared.data(for: request) else {
+            throw AirspaceError.network
         }
+        guard let http = response as? HTTPURLResponse else { throw AirspaceError.network }
+        guard http.statusCode == 200 else { throw AirspaceError.http(http.statusCode) }
 
-        let result = try JSONDecoder().decode(APIResponse.self, from: data)
+        guard let result = try? JSONDecoder().decode(APIResponse.self, from: data) else {
+            throw AirspaceError.decoding
+        }
         return result.items.compactMap { item in
             guard excludingCountry.map({ !(item.country?.codes.contains($0) ?? false) }) ?? true,
                   let (title, severity) = classify(type: item.type),
@@ -202,6 +209,35 @@ final class AirspaceService: ObservableObject {
         case 1: return lower.value <= 400   // Fuß
         default: return false               // Flight Level → weit über Drohnenhöhe
         }
+    }
+
+    // MARK: Fehlerbild
+
+    /// Typisierte Fehler, damit der Legal-Check den Grund nennen kann
+    /// („Nicht geprüft: Lufträume (openAIP: …)") statt still zu schlucken.
+    enum AirspaceError: Error {
+        case noKey
+        case http(Int)
+        case network
+        case decoding
+
+        /// Kurzer deutscher Grund für die „Nicht geprüft"-Zeile.
+        var reasonText: String {
+            switch self {
+            case .noKey: return "kein Schlüssel"
+            case .http(403), .http(404), .http(401):
+                return "Schlüssel nicht anerkannt — in den Einstellungen testen"
+            case .http(429): return "Abfrage-Limit erreicht, später erneut"
+            case .http(let status): return "HTTP \(status)"
+            case .network: return "Netzfehler/Timeout"
+            case .decoding: return "unerwartetes Antwortformat"
+            }
+        }
+    }
+
+    /// Grund-Text zu einem beliebigen Fehler aus diesem Dienst.
+    nonisolated static func failureReason(_ error: Error) -> String {
+        (error as? AirspaceError)?.reasonText ?? "Netzfehler/Timeout"
     }
 
     // MARK: Schlüssel-Diagnose (Einstellungen → „Schlüssel testen")
@@ -266,21 +302,23 @@ final class AirspaceService: ObservableObject {
     /// die in den Transport-Canada-Daten fehlen.
     nonisolated static func aerodromes(around center: CLLocationCoordinate2D,
                                        radiusM: Int) async throws -> [Aerodrome] {
-        guard let key = loadKey() else { throw GeoQueryError.badResponse }
+        guard let key = loadKey() else { throw AirspaceError.noKey }
 
         var components = URLComponents(string: "https://api.core.openaip.net/api/airports")!
         components.queryItems = [
             URLQueryItem(name: "pos", value: String(format: "%f,%f", center.latitude, center.longitude)),
             URLQueryItem(name: "dist", value: String(radiusM)),
             URLQueryItem(name: "limit", value: "100"),
+            URLQueryItem(name: "fields", value: "_id,name,type,geometry"),
         ]
         var request = URLRequest(url: components.url!)
-        request.timeoutInterval = 15
+        request.timeoutInterval = 20
         request.setValue(key, forHTTPHeaderField: "x-openaip-api-key")
-        let (data, response) = try await URLSession.shared.data(for: request)
-        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
-            throw GeoQueryError.badResponse
+        guard let (data, response) = try? await URLSession.shared.data(for: request) else {
+            throw AirspaceError.network
         }
+        guard let http = response as? HTTPURLResponse else { throw AirspaceError.network }
+        guard http.statusCode == 200 else { throw AirspaceError.http(http.statusCode) }
 
         struct APIResponse: Decodable {
             struct Item: Decodable {
@@ -294,7 +332,9 @@ final class AirspaceService: ObservableObject {
             }
             let items: [Item]
         }
-        let result = try JSONDecoder().decode(APIResponse.self, from: data)
+        guard let result = try? JSONDecoder().decode(APIResponse.self, from: data) else {
+            throw AirspaceError.decoding
+        }
         let centerLocation = CLLocation(latitude: center.latitude, longitude: center.longitude)
 
         return result.items.compactMap { item in
@@ -311,8 +351,11 @@ final class AirspaceService: ObservableObject {
     }
 
     /// Punktgenauer Treffer-Test (Ray-Casting) für den Legal-Check.
+    /// Kleiner Radius reicht: Ein Luftraum, der den Punkt enthält, hat
+    /// dorthin Distanz 0 und ist auch bei 2 km Suchradius dabei —
+    /// das hält die Antwort klein und schnell.
     nonisolated static func hits(at coordinate: CLLocationCoordinate2D) async throws -> [Airspace] {
-        let spaces = try await airspaces(around: coordinate, radiusM: 30_000)
+        let spaces = try await airspaces(around: coordinate, radiusM: 2_000)
         return spaces.filter { contains(point: coordinate, ring: $0.ring) }
     }
 

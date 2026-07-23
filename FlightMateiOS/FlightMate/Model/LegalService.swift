@@ -606,8 +606,8 @@ struct CanadaLegalProvider: LegalProvider {
         // openAIP — die decken die orangen Flugplatz-Zonen der
         // NAV-Drone-Karte ab (z. B. Tyendinaga/Mohawk).
         if AirspaceService.hasStoredKey {
-            if let aerodromes = try? await AirspaceService.aerodromes(around: coordinate, radiusM: 5_600) {
-                for aerodrome in aerodromes {
+            do {
+                for aerodrome in try await AirspaceService.aerodromes(around: coordinate, radiusM: 5_600) {
                     let limit: Double = aerodrome.isHeliport ? 1_852 : 5_556
                     guard aerodrome.distanceM <= limit else { continue }
                     hits.append(ZoneHit(
@@ -615,8 +615,8 @@ struct CanadaLegalProvider: LegalProvider {
                                                  distanceKm: aerodrome.distanceM / 1000),
                         featureName: aerodrome.name))
                 }
-            } else {
-                failed.append("Kleine Flugplätze (openAIP)")
+            } catch {
+                failed.append("Kleine Flugplätze (openAIP: \(AirspaceService.failureReason(error)))")
             }
         }
 
@@ -644,14 +644,14 @@ struct CanadaLegalProvider: LegalProvider {
 
         // Lufträume (CTR, CYR/CYA) über openAIP — nur mit Schlüssel.
         if AirspaceService.hasStoredKey {
-            if let spaces = try? await AirspaceService.hits(at: coordinate) {
-                for space in spaces {
+            do {
+                for space in try await AirspaceService.hits(at: coordinate) {
                     hits.append(ZoneHit(
                         rule: Self.airspaceRule(title: space.title, severity: space.severity),
                         featureName: space.name))
                 }
-            } else {
-                failed.append("Lufträume (openAIP)")
+            } catch {
+                failed.append("Lufträume (openAIP: \(AirspaceService.failureReason(error)))")
             }
         }
 
@@ -986,15 +986,15 @@ struct EuropeanNeighborsProvider: LegalProvider {
 
         // Lufträume (CTR, Restricted/Prohibited) über openAIP.
         if AirspaceService.hasStoredKey {
-            if let spaces = try? await AirspaceService.hits(at: coordinate) {
-                for space in spaces {
+            do {
+                for space in try await AirspaceService.hits(at: coordinate) {
                     hits.append(ZoneHit(
                         rule: openAIPZoneRule(title: space.title, severity: space.severity),
                         featureName: space.name))
                 }
                 sources.append("openAIP (Lufträume)")
-            } else {
-                failed.append("Lufträume (openAIP)")
+            } catch {
+                failed.append("Lufträume (openAIP: \(AirspaceService.failureReason(error)))")
             }
         } else {
             unchecked.append("Lufträume (CTR, Restricted) — openAIP-Schlüssel in den Einstellungen hinterlegen, dann prüft FlightMate sie live")
