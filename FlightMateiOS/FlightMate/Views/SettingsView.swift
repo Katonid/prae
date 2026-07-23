@@ -89,7 +89,7 @@ struct SettingsView: View {
                         }
                         .disabled(airspaceKeyInput.trimmingCharacters(in: .whitespaces).isEmpty)
                     }
-                    Text("Zeigt Lufträume (Kontrollzonen, Flugbeschränkungs- und Advisory-Gebiete) auf der Karte und im Legal-Check — in Kanada (das Zonenbild der NAV-Drone-Karte) und in den Nachbarländern Deutschlands (NL, BE, LU, FR, DK, CZ, PL, AT). Die USA brauchen keinen Schlüssel — dort kommen die Daten direkt von der FAA. Der Schlüssel ist kostenlos: Konto auf openaip.net anlegen → Profil → „API Clients". Daten: openAIP (CC BY-NC).")
+                    Text("Zeigt Lufträume (Kontrollzonen, Flugbeschränkungs- und Advisory-Gebiete) auf der Karte und im Legal-Check — in Kanada (das Zonenbild der NAV-Drone-Karte) und in den Nachbarländern Deutschlands (NL, BE, LU, FR, DK, CZ, PL, AT). Die USA brauchen keinen Schlüssel — dort kommen die Daten direkt von der FAA. Der Schlüssel ist kostenlos: Konto auf openaip.net anlegen → Profil → „API Clients“. Daten: openAIP (CC BY-NC).")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
