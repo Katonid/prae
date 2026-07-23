@@ -55,10 +55,22 @@ Dieser Stand entspricht dem **MVP-Fundament** (PRD Phase 0/1).
     EU-Regeln (Open A1/C0) sind harmonisiert und werden als Basis
     ausgewiesen, inklusive Landes-Besonderheiten (z. B. Frankreichs
     Verbot über Ortschaften, Polens DroneTower-Check-in-Pflicht).
-    Lufträume live über openAIP (mit Schlüssel); die nationalen
-    Geozonen-Portale (GoDrone, Droneguide, Géoportail, Droneluftrum,
-    DronView, PANSA, Dronespace, ANA) werden je Land als
-    Gegenprüf-Hinweis genannt.
+    Lufträume live über openAIP (mit Schlüssel). **Nationale
+    Geozonen direkt in der App** (Nutzerwunsch: kein Portal-Suchen),
+    wo eine amtliche offene Quelle existiert — je live verifiziert:
+    - Niederlande: Natura-2000-Gebiete (PDOK/RVO-WFS,
+      GetPropertyValue — <1 KB pro Punktabfrage statt
+      Multi-MB-Polygone); Drohnenverbot in Natura 2000
+    - Frankreich: amtliche DGAC-Restriktionskarte für Freizeitpiloten
+      (IGN/Géoplateforme-WFS) — „Vol interdit" wird als Verbot
+      gemeldet, Höhenwerte als Auflage, amtliche Bemerkungen im
+      Wortlaut
+    - Luxemburg: amtliche UAS-Geozonen im ED-269-Format
+      (drones.geoportail.lu, 5-min-aktuell) — Punkt-in-Polygon lokal,
+      abgelaufene temporäre Zonen werden ausgeblendet
+    Für BE, DK, CZ, PL, AT gibt es keine offen abfragbaren Dienste —
+    dort bleibt der ehrliche Portal-Verweis (Droneguide, Droneluftrum,
+    DronView, PANSA, Dronespace).
 
   Außerhalb der abgedeckten Länder oder ohne Netz zeigt die App
   ehrlich „Keine Daten" statt zu raten.
@@ -161,11 +173,12 @@ Dieser Stand entspricht dem **MVP-Fundament** (PRD Phase 0/1).
 
 ## Noch offen (bewusst, siehe PRD-Roadmap)
 
-- Nationale Geozonen der EU-Nachbarländer (GoDrone, Droneguide,
-  Géoportail, Droneluftrum, DronView, PANSA, Dronespace) als
-  Live-Abfrage — die Portale haben keine durchgängig offenen
-  Schnittstellen; aktuell EU-Basisregeln + openAIP-Lufträume +
-  ehrlicher Portal-Verweis je Land
+- Nationale Geozonen von BE, DK, CZ, PL, AT als Live-Abfrage — diese
+  Portale (Droneguide, Droneluftrum, DronView, PANSA, Dronespace)
+  haben keine offenen Schnittstellen; NL, FR und LU sind bereits
+  live angebunden. Nationale Zonen (Natura 2000, DGAC-Karte) auch
+  als Karten-Overlays — die amtlichen Polygone sind sehr groß
+  (mehrere MB), dafür braucht es eine Vereinfachungs-Stufe
 - Benachrichtigungen im Hintergrund aktualisieren (BGAppRefresh bzw.
   später serverseitiger Scheduler, PRD Kap. 10) — aktuell wird bei
   jedem App-Start neu geplant

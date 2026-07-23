@@ -852,11 +852,12 @@ struct EuropeanNeighborsProvider: LegalProvider {
     /// Land → (Name, nationales Geozonen-Portal, Besonderheit).
     static let countryInfo: [String: (name: String, portal: String, note: String?)] = [
         "NL": ("Niederlande", "GoDrone (godrone.nl, LVNL)",
-               "Viele Naturschutzgebiete (Natura 2000) und weite Teile der Randstad sind gesperrt — vorab die GoDrone-Karte prüfen."),
+               "Viele Naturschutzgebiete (Natura 2000) sind für Drohnen gesperrt — FlightMate prüft sie für diesen Punkt live."),
         "BE": ("Belgien", "Droneguide (map.droneguide.be, skeyes)", nil),
-        "LU": ("Luxemburg", "ANA Luxembourg (ana.lu, Drohnenkarte)", nil),
+        "LU": ("Luxemburg", "ANA Luxembourg (ana.lu, Drohnenkarte)",
+               "FlightMate prüft die amtlichen UAS-Geozonen Luxemburgs für diesen Punkt live."),
         "FR": ("Frankreich", "Géoportail „Restrictions UAS“ (geoportail.gouv.fr)",
-               "In Frankreich ist Freizeit-Fliegen über Ortschaften und Wohngebieten („agglomérations“) grundsätzlich verboten — auch unter 250 g. Die Géoportail-Karte zeigt die Flächen."),
+               "In Frankreich ist Freizeit-Fliegen über Ortschaften und Wohngebieten („agglomérations“) grundsätzlich verboten — auch unter 250 g. FlightMate prüft die amtliche Restriktionskarte für diesen Punkt live."),
         "DK": ("Dänemark", "Droneluftrum (droneluftrum.dk, Naviair)", nil),
         "CZ": ("Tschechien", "DronView (dronview.rlp.cz, ŘLP)", nil),
         "PL": ("Polen", "PANSA UTM / DroneTower (drony.gov.pl)",
@@ -868,6 +869,7 @@ struct EuropeanNeighborsProvider: LegalProvider {
         var hits: [ZoneHit] = []
         var failed: [String] = []
         var unchecked: [String] = []
+        var sources: [String] = []
 
         // Lufträume (CTR, Restricted/Prohibited) über openAIP.
         if AirspaceService.hasStoredKey {
@@ -877,6 +879,7 @@ struct EuropeanNeighborsProvider: LegalProvider {
                         rule: openAIPZoneRule(title: space.title, severity: space.severity),
                         featureName: space.name))
                 }
+                sources.append("openAIP (Lufträume)")
             } else {
                 failed.append("Lufträume (openAIP)")
             }
@@ -890,7 +893,29 @@ struct EuropeanNeighborsProvider: LegalProvider {
         let code = await Self.countryCode(for: coordinate)
         let info = code.flatMap { Self.countryInfo[$0] }
         let portal = info?.portal ?? "das nationale Drohnen-Portal"
-        unchecked.append("Nationale Drohnen-Geozonen (Naturschutzgebiete, Städte, Infrastruktur) — \(portal)")
+
+        // Nationale Geozonen: wo eine amtliche offene Quelle existiert
+        // (NL, FR, LU), prüft FlightMate sie direkt — der Portal-Verweis
+        // bleibt nur für den Rest (Nutzerwunsch: kein Suchen im Web).
+        if let code, NationalGeoZones.supports(code) {
+            if let nationalHits = try? await NationalGeoZones.hits(country: code, at: coordinate) {
+                for hit in nationalHits {
+                    hits.append(ZoneHit(rule: ZoneRule(
+                        layer: "national-\(code)", title: hit.title,
+                        severity: hit.severity, plainText: hit.text,
+                        maxAltitudeM: hit.maxAltitudeM
+                    ), featureName: hit.featureName))
+                }
+                if let source = NationalGeoZones.sourceName(code) {
+                    sources.append(source)
+                }
+                unchecked.append("Kurzfristige lokale Sperren (z. B. Events, NOTAMs) — im Zweifel \(portal)")
+            } else {
+                failed.append("Nationale Geozonen (\(info?.name ?? code)) — Dienst nicht erreichbar, bitte \(portal) prüfen")
+            }
+        } else {
+            unchecked.append("Nationale Drohnen-Geozonen (Naturschutzgebiete, Städte, Infrastruktur) — \(portal)")
+        }
 
         hits.sort { $0.rule.severity > $1.rule.severity }
         let verdict = hits.map(\.rule.severity).max() ?? .allowed
@@ -901,15 +926,14 @@ struct EuropeanNeighborsProvider: LegalProvider {
             baseline += " Besonderheit \(info.name): \(note)"
         }
 
+        sources.append("EU-Regelwerk (EASA)")
         return LegalAssessment(
             coordinate: coordinate, verdict: verdict, zones: hits,
             uncheckedLayers: failed + unchecked,
-            uncheckedHint: "Bitte vor dem Start die nationalen Geo-Zonen gegenprüfen: \(portal).",
+            uncheckedHint: nil,
             baselineText: baseline,
             maxAltitudeM: min(maxAltitude, 120), checkedAt: Date(),
-            sourceNote: AirspaceService.hasStoredKey
-                ? "Quellen: openAIP (Lufträume, Live-Abfrage) + EU-Regelwerk (EASA). Nationale Geozonen: \(portal)."
-                : "Quelle: EU-Regelwerk (EASA). Lufträume und nationale Geozonen: \(portal)."
+            sourceNote: "Quellen: \(sources.joined(separator: ", ")) — Live-Abfrage."
         )
     }
 

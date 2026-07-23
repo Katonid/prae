@@ -105,6 +105,7 @@ struct SettingsView: View {
                     LabeledContent("Geo-Zonen (CH)", value: "BAZL / geo.admin.ch")
                     LabeledContent("Geo-Zonen (CA)", value: "NRCan · Transport Canada")
                     LabeledContent("Geo-Zonen (US)", value: "FAA · National Park Service")
+                    LabeledContent("Geo-Zonen (NL/FR/LU)", value: "PDOK · IGN · geoportail.lu")
                     LabeledContent("Lufträume (CA/EU)", value: "openAIP (mit Schlüssel)")
                     LabeledContent("Sonnenstand", value: "on-device berechnet")
                     Text(LegalAssessment.disclaimer)
