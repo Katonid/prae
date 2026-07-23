@@ -15,17 +15,22 @@ struct ContentView: View {
         if !state.isOnboarded {
             OnboardingView()
         } else {
-            TabView {
+            TabView(selection: $state.selectedTab) {
                 TodayView()
                     .tabItem { Label("Heute", systemImage: "sun.max") }
+                    .tag(AppState.Tab.today)
                 LegalMapView()
                     .tabItem { Label("Karte", systemImage: "map") }
+                    .tag(AppState.Tab.map)
                 DiscoveryView()
                     .tabItem { Label("Entdecken", systemImage: "binoculars") }
+                    .tag(AppState.Tab.discover)
                 SpotsView()
                     .tabItem { Label("Spots", systemImage: "star") }
+                    .tag(AppState.Tab.spots)
                 FlightReviewView()
                     .tabItem { Label("Review", systemImage: "sparkles") }
+                    .tag(AppState.Tab.review)
             }
         }
     }

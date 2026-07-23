@@ -18,12 +18,38 @@ struct DiscoveryView: View {
     @State private var radiusM = 25_000
     @State private var isLoading = false
     @State private var errorMessage: String?
+    @State private var showPlaceSearch = false
+    @State private var placeQuery = ""
 
     private let radiusOptions = [10_000, 25_000, 50_000]
+
+    /// Standard: eigener Standort; die Karte oder die Ortssuche können
+    /// einen anderen Punkt vorgeben (Reiseplanung).
+    private var searchCenter: CLLocationCoordinate2D {
+        state.discoveryCenter ?? state.effectiveLocation
+    }
 
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
+                if state.discoveryCenter != nil {
+                    HStack(spacing: 8) {
+                        Label("Suche um: \(state.discoveryCenterName ?? "gewählter Kartenpunkt")",
+                              systemImage: "mappin.and.ellipse")
+                            .font(.caption)
+                            .lineLimit(1)
+                        Spacer()
+                        Button {
+                            state.clearDiscoveryCenter()
+                        } label: {
+                            Label("Mein Standort", systemImage: "location")
+                                .font(.caption)
+                        }
+                    }
+                    .padding(.horizontal)
+                    .padding(.top, 8)
+                }
+
                 kindChips
                     .padding(.horizontal)
                     .padding(.vertical, 8)
@@ -75,6 +101,13 @@ struct DiscoveryView: View {
             }
             .navigationTitle("Entdecken")
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button {
+                        showPlaceSearch = true
+                    } label: {
+                        Label("Ort suchen", systemImage: "magnifyingglass")
+                    }
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
                         Picker("Umkreis", selection: $radiusM) {
@@ -87,6 +120,15 @@ struct DiscoveryView: View {
                     }
                 }
             }
+            .alert("Ort suchen", isPresented: $showPlaceSearch) {
+                TextField("Ort, Region oder Adresse", text: $placeQuery)
+                Button("Suchen") {
+                    Task { await searchPlace() }
+                }
+                Button("Abbrechen", role: .cancel) {}
+            } message: {
+                Text("Foto-Orte rund um einen beliebigen Ort finden — z. B. für die Reiseplanung.")
+            }
             .task { await search() }
             .refreshable { await search() }
             .onChange(of: radiusM) {
@@ -95,6 +137,22 @@ struct DiscoveryView: View {
             .onChange(of: selectedKinds) {
                 Task { await search() }
             }
+            .onChange(of: state.discoveryRequestID) {
+                Task { await search() }
+            }
+        }
+    }
+
+    /// Freitext-Ortssuche (CLGeocoder) — setzt das Suchzentrum.
+    private func searchPlace() async {
+        let query = placeQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else { return }
+        let placemark = try? await CLGeocoder().geocodeAddressString(query).first
+        if let location = placemark?.location {
+            state.exploreSpots(around: location.coordinate,
+                               name: placemark?.locality ?? placemark?.name ?? query)
+        } else {
+            errorMessage = "Der Ort wurde nicht gefunden — bitte anders formulieren, z. B. Ortsname plus Land."
         }
     }
 
@@ -131,7 +189,7 @@ struct DiscoveryView: View {
         defer { isLoading = false }
         do {
             candidates = try await DiscoveryService.candidates(
-                around: state.effectiveLocation,
+                around: searchCenter,
                 radiusM: radiusM,
                 kinds: selectedKinds
             )

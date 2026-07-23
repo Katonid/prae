@@ -24,6 +24,40 @@ final class AppState: NSObject, ObservableObject {
     var profile: DroneProfile? { DroneProfile.profile(for: droneProfileID) }
     var isOnboarded: Bool { profile != nil }
 
+    // MARK: Tab-Steuerung & Entdecken-Ziel
+
+    enum Tab: Hashable { case today, map, discover, spots, review }
+    @Published var selectedTab: Tab = .today
+
+    /// Entdecken sucht standardmäßig am eigenen Standort; die Karte
+    /// (oder die Ortssuche) kann einen beliebigen Punkt vorgeben —
+    /// „Foto-Orte hier entdecken" für die Reiseplanung.
+    @Published var discoveryCenter: CLLocationCoordinate2D?
+    @Published var discoveryCenterName: String?
+    /// Zähler statt Equatable-Koordinate: Jede Änderung stößt im
+    /// Entdecken-Tab eine neue Suche an.
+    @Published var discoveryRequestID = 0
+
+    func exploreSpots(around coordinate: CLLocationCoordinate2D, name: String? = nil) {
+        discoveryCenter = coordinate
+        discoveryCenterName = name
+        discoveryRequestID += 1
+        selectedTab = .discover
+        if name == nil {
+            Task {
+                let location = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
+                let placemark = try? await CLGeocoder().reverseGeocodeLocation(location).first
+                discoveryCenterName = placemark?.locality ?? placemark?.name
+            }
+        }
+    }
+
+    func clearDiscoveryCenter() {
+        discoveryCenter = nil
+        discoveryCenterName = nil
+        discoveryRequestID += 1
+    }
+
     // MARK: Spots
 
     @Published var spots: [Spot] = [] {

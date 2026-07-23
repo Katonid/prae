@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Hintergrund-Aktualisierung (BGAppRefresh): Wetter an den Spots
+	     prüfen und Flugfenster-Benachrichtigungen neu planen. Xcode
+	     ergänzt diese Datei automatisch um die generierten Schlüssel
+	     (GENERATE_INFOPLIST_FILE bleibt aktiv). -->
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>de.familie.flightmate.refresh</string>
+	</array>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>fetch</string>
+	</array>
+</dict>
+</plist>
