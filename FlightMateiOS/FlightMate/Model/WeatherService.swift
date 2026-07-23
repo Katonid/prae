@@ -68,7 +68,9 @@ final class WeatherService {
             store(fresh)
             return (fresh, false)
         } catch {
-            if let cached = cached(latitude: lat, longitude: lon), !cached.isStale {
+            // Offline-first (Reisepaket): Auch ein älterer Datenstand ist
+            // ehrlicher als gar keiner — die UI zeigt das Alter sichtbar an.
+            if let cached = cached(latitude: lat, longitude: lon) {
                 return (cached, true)
             }
             throw WeatherError.offlineNoCache

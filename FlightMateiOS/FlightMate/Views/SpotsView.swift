@@ -17,6 +17,8 @@ struct SpotsView: View {
     @State private var newName = ""
     @State private var addingCurrentLocation = false
     @State private var currentLocationName = ""
+    @State private var offlineRunning = false
+    @State private var offlineResult: String?
 
     var body: some View {
         NavigationStack {
@@ -71,6 +73,8 @@ struct SpotsView: View {
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
+
+                        offlinePackSection
                     }
                 }
             }
@@ -115,6 +119,47 @@ struct SpotsView: View {
                 Button("Abbrechen", role: .cancel) { renamingSpot = nil }
             }
         }
+    }
+
+    /// Offline-Reisepaket: alles Cachebare für alle Spots vorab laden
+    /// (Provinzpark = Funkloch). Ein Tipp, ehrliche Zusammenfassung.
+    private var offlinePackSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label("Offline-Reisepaket", systemImage: "arrow.down.circle")
+                .font(.subheadline.weight(.semibold))
+            Text("Lädt Wetter, Legal-Check und Lufträume aller Spots aufs Gerät — fürs Briefing im Funkloch, mit sichtbarem Datenstand.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Button {
+                offlineRunning = true
+                offlineResult = nil
+                Task {
+                    offlineResult = await OfflinePack.prepare(state: state)
+                    offlineRunning = false
+                }
+            } label: {
+                if offlineRunning {
+                    HStack {
+                        ProgressView()
+                        Text("Wird geladen …")
+                    }
+                } else {
+                    Text("Jetzt für offline laden")
+                }
+            }
+            .buttonStyle(.bordered)
+            .disabled(offlineRunning)
+            if let offlineResult {
+                Text(offlineResult)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } else if let prepared = OfflinePack.lastPrepared {
+                Text("Zuletzt geladen: \(Theme.shortDayFormatter.string(from: prepared)), \(Theme.time(prepared)) Uhr")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(.vertical, 4)
     }
 
     private func loadScores() async {

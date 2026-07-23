@@ -209,7 +209,14 @@ Dieser Stand entspricht dem **MVP-Fundament** (PRD Phase 0/1).
   (Mini 3 / Mini 4K / Mini 4 Pro) — Windtoleranz, EU-Klasse und Regeln
   werden abgeleitet. Kein Account.
 - **Offline-first:** Letzte Wetterprognose wird pro Ort gecacht und
-  bei Netzausfall mit sichtbarem Datenstand verwendet.
+  bei Netzausfall mit sichtbarem Datenstand verwendet — auch ein
+  älterer Stand ist ehrlicher als keiner.
+- **Offline-Reisepaket:** Knopf im Spots-Tab lädt für alle
+  gespeicherten Spots alles Cachebare vorab aufs Gerät (7-Tage-
+  Wetter, Legal-Check-Schnappschuss, mit openAIP-Schlüssel auch
+  Lufträume & Flugplätze im Umkreis) — fürs Briefing im
+  Provinzpark-Funkloch; ehrliche Zusammenfassung inkl. Hinweis,
+  dass das Apple-Kartenbild selbst nicht vorab speicherbar ist.
 - **iCloud-Sync & Datenexport:** Spots und Drohnenmodell
   synchronisieren über den iCloud-Key-Value-Store auf alle Geräte
   (Entitlement in Support/FlightMate.entitlements; Konflikt:
