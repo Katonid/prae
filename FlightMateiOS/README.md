@@ -92,9 +92,17 @@ Dieser Stand entspricht dem **MVP-Fundament** (PRD Phase 0/1).
       dazu **tagesaktuell aktivierte NOTAM-Gebiete** (erste
       NOTAM-Live-Prüfung der App) mit Höhenband und Zeitplan; die
       Zonen erscheinen auch als Karten-Overlays
-    Für BE, CZ, PL, AT gibt es (noch) keine offen abfragbaren
-    Dienste — dort bleibt der ehrliche Portal-Verweis (Droneguide,
-    DronView, PANSA, Dronespace); wird beobachtet.
+    - Tschechien: das amtliche DronView-Raster der Flugsicherung ŘLP
+      (dronemap.gov.cz) liegt offen als GeoJSON vor —
+      Flugverbotszellen und je Rasterzelle abgesenkte Höhengrenzen
+      (in Fuß kodiert, die App rechnet in Meter um). Die ~4-MB-Datei
+      wird auf dem Gerät zwischengespeichert (7 Tage, bei
+      Netzfehlern bleibt der alte Stand), die Punktprüfung läuft
+      lokal; abweichende Zellen erscheinen auch als Karten-Overlays
+    Für BE, PL, AT gibt es (noch) keine offen abfragbaren Dienste —
+    dort bleibt der ehrliche Portal-Verweis (Droneguide, PANSA,
+    Dronespace); wird beobachtet (Stand 07/2026: Login- bzw.
+    Gateway-gesperrt).
 
   Außerhalb der abgedeckten Länder oder ohne Netz zeigt die App
   ehrlich „Keine Daten" statt zu raten.
@@ -193,6 +201,15 @@ Dieser Stand entspricht dem **MVP-Fundament** (PRD Phase 0/1).
 - **Score-Erklärung am Ring:** Tipp auf den Score-Ring im Heute-Tab
   öffnet die Faktoren-Begründung der besten Stunde („Warum 7?").
   Darüber steht der per Reverse-Geocoding ermittelte Ortsname.
+- **Lebendiger Himmel & Glas-Design:** Der Heute-Tab öffnet auf
+  einem Farbverlauf, der dem echten Sonnenstand am Standort folgt
+  (Nachtblau → Morgenrot → Tagblau → goldene Stunde → Dämmerung,
+  deterministisch aus den Sonnenzeiten, im Dark Mode gedimmt), mit
+  Tageszeit-Gruß und Datum als Kopfzeile. Alle Karten der App teilen
+  einen Milchglas-Look (Material + feine Kontur + weicher Schatten,
+  `flightCard`-Modifier in Theme.swift); der Score-Ring baut sich
+  beim Öffnen federnd auf und leuchtet weich in der Score-Farbe —
+  Zahl und Text bleiben die eigentliche Aussage (Barrierefreiheit).
 - **Kalender & Teilen:** Im Briefing lässt sich das beste Fenster als
   .ics-Termin exportieren (Teilen-Blatt → Kalender; inkl. Erinnerung
   „Akkus laden" eine Stunde vorher — ohne Kalender-Berechtigung) und
@@ -294,12 +311,12 @@ Dieser Stand entspricht dem **MVP-Fundament** (PRD Phase 0/1).
 
 ## Noch offen (bewusst, siehe PRD-Roadmap)
 
-- Nationale Geozonen von BE, DK, CZ, PL, AT als Live-Abfrage — diese
-  Portale (Droneguide, Droneluftrum, DronView, PANSA, Dronespace)
-  haben keine offenen Schnittstellen; NL, FR und LU sind bereits
-  live angebunden. Nationale Zonen (Natura 2000, DGAC-Karte) auch
-  als Karten-Overlays — die amtlichen Polygone sind sehr groß
-  (mehrere MB), dafür braucht es eine Vereinfachungs-Stufe
+- Nationale Geozonen von BE, PL, AT als Live-Abfrage — diese Portale
+  (Droneguide, PANSA, Dronespace) haben keine offenen Schnittstellen
+  (Stand 07/2026 erneut geprüft); NL, FR, LU, DK und CZ sind bereits
+  live angebunden. Nationale Zonen von NL/FR auch als
+  Karten-Overlays — die amtlichen Polygone sind sehr groß (mehrere
+  MB), dafür braucht es eine Vereinfachungs-Stufe
 - Serverseitiger Benachrichtigungs-Scheduler (PRD Kap. 10) für einen
   öffentlichen Release — aktuell BGAppRefresh auf dem Gerät (iOS
   bestimmt die Laufzeitpunkte selbst)

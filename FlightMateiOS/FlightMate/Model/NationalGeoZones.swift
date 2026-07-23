@@ -15,9 +15,16 @@
 //    - Luxemburg: amtliche UAS-Geozonen im ED-269-Format
 //      (drones.geoportail.lu, alle 5 min aktualisiert; kleine Datei,
 //      Punkt-in-Polygon lokal).
-//  Die übrigen Länder (BE, DK, CZ, PL, AT) veröffentlichen ihre Zonen
-//  nur als Karten-Portale ohne offene Schnittstelle — dort bleibt der
-//  ehrliche Portal-Verweis.
+//    - Dänemark: amtliche Dronezoner (Trafikstyrelsen) samt aktiver
+//      NOTAM-Gebiete (öffentliche ArcGIS-Dienste hinter dronezoner.dk).
+//    - Tschechien: das amtliche DronView-Raster (dronemap.gov.cz, ŘLP)
+//      liegt offen als GeoJSON vor — Flugverbotszellen und abgesenkte
+//      Höhengrenzen je Rasterzelle (Punkt-in-Polygon lokal, Datei
+//      wird auf dem Gerät zwischengespeichert).
+//  Die übrigen Länder (BE, PL, AT) veröffentlichen ihre Zonen nur als
+//  Login-Portale ohne offene Schnittstelle (Stand Juli 2026 erneut
+//  geprüft: Droneguide 401, PANSA-Gateway 403, Dronespace Keycloak) —
+//  dort bleibt der ehrliche Portal-Verweis.
 //
 
 import Foundation
@@ -35,7 +42,7 @@ enum NationalGeoZones {
 
     /// Länder mit angebundener Live-Quelle.
     static func supports(_ countryCode: String) -> Bool {
-        ["NL", "FR", "LU", "DK"].contains(countryCode)
+        ["NL", "FR", "LU", "DK", "CZ"].contains(countryCode)
     }
 
     /// Kurzname der Live-Quelle (für Quellenangabe im Ergebnis).
@@ -45,6 +52,7 @@ enum NationalGeoZones {
         case "FR": return "IGN Géoplateforme (Restriktionskarte DGAC)"
         case "LU": return "geoportail.lu (amtliche UAS-Geozonen, ED-269)"
         case "DK": return "Trafikstyrelsen (Dronezoner inkl. NOTAMs)"
+        case "CZ": return "dronemap.gov.cz (DronView-Raster, ŘLP)"
         default: return nil
         }
     }
@@ -55,6 +63,7 @@ enum NationalGeoZones {
         case "FR": return try await france(at: coordinate)
         case "LU": return try await luxembourg(at: coordinate)
         case "DK": return try await denmark(at: coordinate)
+        case "CZ": return try await czechia(at: coordinate)
         default: return []
         }
     }
@@ -316,6 +325,135 @@ enum NationalGeoZones {
             return Hit(title: "UAS-Geozone (Luxemburg)", severity: severity,
                        text: text, maxAltitudeM: severity == .forbidden ? 0 : nil,
                        featureName: feature.name)
+        }
+    }
+
+    // MARK: Tschechien — amtliches DronView-Raster (ŘLP / dronemap.gov.cz)
+
+    /// Eine Rasterzelle des amtlichen Drohnen-Rasters: Obergrenze in
+    /// Fuß (0 = Flugverbot) plus Umriss als [Lon, Lat]-Ring.
+    struct CzechCell {
+        let ceilingFt: Double
+        let ring: [[Double]]
+        /// Grobe Lage für schnelles Vorfiltern (erste Ecke der Zelle).
+        let refLat: Double
+        let refLon: Double
+    }
+
+    /// Standard-Obergrenze der Open-Kategorie (120 m) in Fuß — Zellen
+    /// auf diesem Wert sind keine Abweichung und werden ausgeblendet.
+    private static let czechDefaultCeilingFt = 390.0
+
+    private static func czechia(at c: CLLocationCoordinate2D) async throws -> [Hit] {
+        let cells = try await CzechGridStore.shared.cells()
+        let matching = cells.filter { cell in
+            abs(cell.refLat - c.latitude) < 0.05 && abs(cell.refLon - c.longitude) < 0.08
+                && contains(point: c, ring: cell.ring)
+        }
+        guard let strictest = matching.min(by: { $0.ceilingFt < $1.ceilingFt }) else { return [] }
+
+        let meters = strictest.ceilingFt * 0.3048
+        if meters < 1 {
+            return [Hit(
+                title: "Flugverbot (DronView-Raster)", severity: .forbidden,
+                text: "Das amtliche tschechische Drohnen-Raster (DronView, Flugsicherung ŘLP) markiert diese Rasterzelle als gesperrt — z. B. Kontrollzone, Schutzgebiet oder Stadtkern. Hier gilt: nicht starten.",
+                maxAltitudeM: 0, featureName: nil)]
+        }
+        let rounded = Int(meters.rounded())
+        return [Hit(
+            title: "Höhenbeschränkung (DronView-Raster)", severity: .conditional,
+            text: "Das amtliche tschechische Drohnen-Raster (DronView, Flugsicherung ŘLP) begrenzt die Flughöhe in dieser Rasterzelle auf \(rounded) m — meist wegen naher Lufträume oder An-/Abflugstrecken.",
+            maxAltitudeM: rounded, featureName: nil)]
+    }
+
+    /// Zellen des Rasters, die vom EU-Standard (120 m) abweichen —
+    /// auch für die Karten-Overlays (ZoneOverlayService) nutzbar.
+    static func czechDeviatingCells() async throws -> [CzechCell] {
+        try await CzechGridStore.shared.cells()
+    }
+
+    /// Lädt und hält das Raster: ~4 MB GeoJSON, deshalb Datei-Cache
+    /// (7 Tage, bei Netzfehlern bleibt der alte Stand) und einmaliges
+    /// Parsen pro App-Lauf. Behalten werden nur die abweichenden
+    /// Zellen (Verbot oder abgesenkte Obergrenze) — gut ein Drittel.
+    actor CzechGridStore {
+        static let shared = CzechGridStore()
+        private var parsed: [CzechCell]?
+
+        func cells() async throws -> [CzechCell] {
+            if let parsed { return parsed }
+            let gridData = try await NationalGeoZones.cachedFetch(
+                urlString: "https://dronemap.gov.cz/data/permanent/grid.geojson",
+                cacheName: "cz-grid.geojson")
+            var cells = try Self.parse(gridData)
+            // Die wenigen Sonderformen sind eine Ergänzungsdatei —
+            // wenn sie fehlt, bleibt das Hauptraster trotzdem nutzbar.
+            if let extra = try? await NationalGeoZones.cachedFetch(
+                urlString: "https://dronemap.gov.cz/tiles/cz/grid/grid_shapes.geojson",
+                cacheName: "cz-grid-shapes.geojson"),
+               let more = try? Self.parse(extra) {
+                cells.append(contentsOf: more)
+            }
+            parsed = cells
+            return cells
+        }
+
+        private static func parse(_ data: Data) throws -> [CzechCell] {
+            struct GridFile: Decodable {
+                struct Feature: Decodable {
+                    struct Properties: Decodable {
+                        let ceil: Double?
+                    }
+                    struct Geometry: Decodable {
+                        let coordinates: [[[Double]]]?
+                    }
+                    let properties: Properties?
+                    let geometry: Geometry?
+                }
+                let features: [Feature]
+            }
+            let collection = try JSONDecoder().decode(GridFile.self, from: data)
+            return collection.features.compactMap { feature in
+                guard let ceiling = feature.properties?.ceil,
+                      ceiling < NationalGeoZones.czechDefaultCeilingFt,
+                      let ring = feature.geometry?.coordinates?.first,
+                      let corner = ring.first, corner.count >= 2 else { return nil }
+                return CzechCell(ceilingFt: ceiling, ring: ring,
+                                 refLat: corner[1], refLon: corner[0])
+            }
+        }
+    }
+
+    // MARK: Datei-Cache für große Zonen-Dateien
+
+    /// Wie der openAIP-Cache: 7 Tage frisch, bei Netzfehlern springt
+    /// der letzte gespeicherte Stand ein (Reisetauglichkeit).
+    private static func cachedFetch(urlString: String, cacheName: String,
+                                    maxAge: TimeInterval = 7 * 86_400) async throws -> Data {
+        let directory = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("national-geozones", isDirectory: true)
+        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let file = directory.appendingPathComponent(cacheName)
+
+        if let attributes = try? FileManager.default.attributesOfItem(atPath: file.path),
+           let modified = attributes[.modificationDate] as? Date,
+           Date().timeIntervalSince(modified) < maxAge,
+           let data = try? Data(contentsOf: file) {
+            return data
+        }
+
+        do {
+            var request = URLRequest(url: URL(string: urlString)!)
+            request.timeoutInterval = 25
+            let (data, response) = try await URLSession.shared.data(for: request)
+            guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+                throw GeoQueryError.badResponse
+            }
+            try? data.write(to: file)
+            return data
+        } catch {
+            if let stale = try? Data(contentsOf: file) { return stale }
+            throw error
         }
     }
 

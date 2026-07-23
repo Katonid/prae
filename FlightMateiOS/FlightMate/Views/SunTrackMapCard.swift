@@ -90,7 +90,7 @@ struct SunTrackMapCard: View {
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 16))
+        .flightCard(cornerRadius: 16)
     }
 
     private var captionText: String {

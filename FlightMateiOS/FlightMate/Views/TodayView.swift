@@ -19,8 +19,19 @@ struct TodayView: View {
     @State private var current: WeatherService.CurrentConditions?
     @State private var kpIndex: Double?
     @State private var showChecklist = false
+    @State private var ringProgress: Double = 0
 
     private var isWide: Bool { horizontalSizeClass == .regular }
+
+    /// Tageszeit-Gruß für den Kopfbereich über dem Himmelsverlauf.
+    private var greeting: String {
+        switch Calendar.current.component(.hour, from: Date()) {
+        case 5..<11: return "Guten Morgen"
+        case 11..<18: return "Guten Tag"
+        case 18..<23: return "Guten Abend"
+        default: return "Gute Nacht"
+        }
+    }
 
     /// Die Referenzstunde des Tages (Beginn des besten Fensters).
     private func referenceHour(_ day: DayScore) -> HourScore? {
@@ -35,6 +46,7 @@ struct TodayView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 16) {
+                    header
                     if let error = state.loadError {
                         errorCard(error)
                     } else if let today = state.today {
@@ -82,7 +94,16 @@ struct TodayView: View {
                 .frame(maxWidth: .infinity)
                 .padding()
             }
+            // Der Himmel folgt dem echten Sonnenstand am Standort —
+            // die Sonnenzeiten sind ohnehin berechnet (SunCalculator).
+            .background(SkyBackdrop(sunrise: state.today?.sunDay.sunrise,
+                                    sunset: state.today?.sunDay.sunset))
             .navigationTitle("Heute")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(.hidden, for: .navigationBar)
+            // Der obere Verlauf ist in jeder Phase kräftig gefärbt —
+            // helle Titel und Symbole bleiben darauf lesbar.
+            .toolbarColorScheme(.dark, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button { showChecklist = true } label: {
@@ -111,6 +132,23 @@ struct TodayView: View {
             .task { await loadNowcast() }
             .onAppear { state.requestLocation() }
         }
+    }
+
+    // MARK: Kopfbereich über dem Himmelsverlauf
+
+    private var header: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(greeting)
+                .font(.system(.largeTitle, design: .rounded).bold())
+                .foregroundStyle(.white)
+            Text(Theme.dayFormatter.string(from: Date()))
+                .font(.subheadline)
+                .foregroundStyle(.white.opacity(0.85))
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .shadow(color: .black.opacity(0.25), radius: 4, y: 1)
+        .padding(.top, 4)
+        .accessibilityElement(children: .combine)
     }
 
     // MARK: Kurzfrist-Blick („Jetzt starten oder kurz warten?")
@@ -185,7 +223,7 @@ struct TodayView: View {
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 14))
+        .flightCard(cornerRadius: 14)
     }
 
     private func tile(_ value: String, _ label: String, color: Color? = nil) -> some View {
@@ -199,7 +237,7 @@ struct TodayView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 10)
-        .background(Color.gray.opacity(0.10), in: RoundedRectangle(cornerRadius: 10))
+        .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 10))
     }
 
     private func windDirectionTile(_ degrees: Double) -> some View {
@@ -218,7 +256,7 @@ struct TodayView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 10)
-        .background(Color.gray.opacity(0.10), in: RoundedRectangle(cornerRadius: 10))
+        .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 10))
     }
 
     // MARK: Winde-nach-Höhe-Link
@@ -235,7 +273,7 @@ struct TodayView: View {
                     .foregroundStyle(.secondary)
             }
             .padding()
-            .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 14))
+            .flightCard(cornerRadius: 14)
         }
         .buttonStyle(.plain)
     }
@@ -308,7 +346,7 @@ struct TodayView: View {
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 14))
+        .flightCard(cornerRadius: 14)
     }
 
     // MARK: 7-Tage-Link
@@ -325,7 +363,7 @@ struct TodayView: View {
                     .foregroundStyle(.secondary)
             }
             .padding()
-            .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 14))
+            .flightCard(cornerRadius: 14)
         }
         .buttonStyle(.plain)
     }
@@ -368,7 +406,7 @@ struct TodayView: View {
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 14))
+        .flightCard(cornerRadius: 14)
     }
 
     // MARK: Score-Karte
@@ -384,12 +422,17 @@ struct TodayView: View {
                 Circle()
                     .stroke(Theme.scoreColor(day.score).opacity(0.15), lineWidth: 14)
                 Circle()
-                    .trim(from: 0, to: Double(day.score) / 10)
+                    .trim(from: 0, to: ringProgress)
                     .stroke(Theme.scoreColor(day.score), style: StrokeStyle(lineWidth: 14, lineCap: .round))
                     .rotationEffect(.degrees(-90))
+                    // Weicher Schein in der Score-Farbe — der Ring
+                    // „leuchtet", ohne die Farbe allein sprechen zu
+                    // lassen (Zahl + Text bleiben die Aussage).
+                    .shadow(color: Theme.scoreColor(day.score).opacity(0.45), radius: 12)
                 VStack(spacing: 0) {
                     Text("\(day.score)")
                         .font(.system(size: 56, weight: .bold, design: .rounded))
+                        .contentTransition(.numericText())
                     Text("von 10")
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -399,6 +442,18 @@ struct TodayView: View {
             .contentShape(Circle())
             .onTapGesture {
                 factorsHour = referenceHour(day)
+            }
+            // Der Ring baut sich beim Öffnen federnd bis zum Score auf.
+            .onAppear {
+                ringProgress = 0
+                withAnimation(.spring(response: 1.1, dampingFraction: 0.85).delay(0.15)) {
+                    ringProgress = Double(day.score) / 10
+                }
+            }
+            .onChange(of: day.score) { _, newScore in
+                withAnimation(.spring(response: 0.7, dampingFraction: 0.85)) {
+                    ringProgress = Double(newScore) / 10
+                }
             }
             .accessibilityLabel("Flight Score \(day.score) von 10 — antippen für die Begründung")
 
@@ -428,7 +483,7 @@ struct TodayView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 20)
-        .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 20))
+        .flightCard(cornerRadius: 20)
     }
 
     // MARK: Stunden-Übersicht
@@ -454,7 +509,7 @@ struct TodayView: View {
             .frame(height: 70, alignment: .bottom)
         }
         .padding()
-        .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 14))
+        .flightCard(cornerRadius: 14)
     }
 
     // MARK: Licht-Karte
@@ -486,7 +541,7 @@ struct TodayView: View {
             }
         }
         .padding()
-        .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 14))
+        .flightCard(cornerRadius: 14)
     }
 
     // MARK: Fehler

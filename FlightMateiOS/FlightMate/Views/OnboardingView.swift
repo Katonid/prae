@@ -53,7 +53,7 @@ struct OnboardingView: View {
                                 .foregroundStyle(selectedID == profile.id ? Color.accentColor : Color.secondary)
                         }
                         .padding()
-                        .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 14))
+                        .flightCard(cornerRadius: 14)
                     }
                     .buttonStyle(.plain)
                 }

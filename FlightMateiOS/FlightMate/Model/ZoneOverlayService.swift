@@ -11,11 +11,12 @@
 //  die dichten Korridore (Straßen, Bahn, Wasserstraßen, Strom) und
 //  Wohngrundstücke erst ab näherem Zoom, damit die Karte in Städten
 //  nicht vollflächig zugedeckt wird.
-//  Abdeckung: Deutschland (dipul), USA (FAA/NPS) und Kanada
+//  Abdeckung: Deutschland (dipul), USA (FAA/NPS), Kanada
 //  (NRCan-Nationalparks, Transport-Canada-Flughäfen, CWFIS-Waldbrand-
 //  Sperrkreise, Ontario-Provinzparks; mit openAIP-Schlüssel zusätzlich
 //  Lufträume wie CTR/CYR/CYA und kleine Flugplätze — das
-//  NAV-Drone-Bild, siehe AirspaceService).
+//  NAV-Drone-Bild, siehe AirspaceService), Dänemark (Dronezoner +
+//  NOTAMs) und Tschechien (DronView-Raster).
 //
 
 import Foundation
@@ -140,6 +141,13 @@ final class ZoneOverlayService {
             result.append(contentsOf: await denmarkZones(in: region))
         }
 
+        // Tschechien: das amtliche DronView-Raster (Flugverbotszellen
+        // und abgesenkte Höhengrenzen) — dieselbe Datei wie im
+        // Legal-Check, auf dem Gerät zwischengespeichert.
+        if (48.4...51.2).contains(c.latitude), (12.0...18.95).contains(c.longitude) {
+            result.append(contentsOf: await czechiaZones(in: region))
+        }
+
         result.append(contentsOf: await airspaces)
         // „Verboten" oben zeichnen, damit es nie unter Orange verschwindet.
         return result.sorted { $0.severity < $1.severity }
@@ -173,6 +181,33 @@ final class ZoneOverlayService {
 
         return ((try? await red) ?? []) + ((try? await blue) ?? [])
             + ((try? await orange) ?? []) + ((try? await notams) ?? [])
+    }
+
+    private func czechiaZones(in region: MKCoordinateRegion) async -> [ZoneOverlay] {
+        guard let cells = try? await NationalGeoZones.czechDeviatingCells() else { return [] }
+        let minLat = region.center.latitude - region.span.latitudeDelta / 2 - 0.01
+        let maxLat = region.center.latitude + region.span.latitudeDelta / 2 + 0.01
+        let minLon = region.center.longitude - region.span.longitudeDelta / 2 - 0.01
+        let maxLon = region.center.longitude + region.span.longitudeDelta / 2 + 0.01
+
+        return cells.enumerated().compactMap { index, cell in
+            guard (minLat...maxLat).contains(cell.refLat),
+                  (minLon...maxLon).contains(cell.refLon) else { return nil }
+            let ring = cell.ring.compactMap { pair -> CLLocationCoordinate2D? in
+                guard pair.count >= 2 else { return nil }
+                return CLLocationCoordinate2D(latitude: pair[1], longitude: pair[0])
+            }
+            guard ring.count >= 3 else { return nil }
+            let meters = cell.ceilingFt * 0.3048
+            if meters < 1 {
+                return ZoneOverlay(id: "cz-grid-\(index)",
+                                   title: "Flugverbot (DronView-Raster)",
+                                   severity: .forbidden, rings: [ring])
+            }
+            return ZoneOverlay(id: "cz-grid-\(index)",
+                               title: "DronView: max. \(Int(meters.rounded())) m",
+                               severity: .conditional, rings: [ring])
+        }
     }
 
     // MARK: Offline-Cache der Overlays (Reisepaket)
