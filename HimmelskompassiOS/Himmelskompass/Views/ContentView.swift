@@ -26,6 +26,7 @@ enum ARMode {
 
 struct ContentView: View {
     @EnvironmentObject private var state: AppState
+    @Environment(\.scenePhase) private var scenePhase
     @AppStorage("hk-tab") private var tabRaw = AppTab.zeiten.rawValue
     @State private var showFullscreenMap = false
     @State private var arMode: ARMode?
@@ -75,6 +76,10 @@ struct ContentView: View {
             guard !started else { return }
             started = true
             state.start()
+        }
+        .onChange(of: scenePhase) {
+            // Beim Zurückkehren in die App das Datum aktuell halten
+            if scenePhase == .active { state.refreshOnActivate() }
         }
         .onReceive(Timer.publish(every: 60, on: .main, in: .common).autoconnect()) { _ in
             state.minuteTick()
