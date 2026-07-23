@@ -87,14 +87,37 @@ enum DiscoveryService {
         "https://overpass.kumi.systems/api/interpreter",
     ]
 
+    /// Jede Kategorie läuft als eigene kleine Abfrage parallel — eine
+    /// große kombinierte Abfrage scheitert auf den ausgelasteten
+    /// öffentlichen Servern deutlich öfter (vom Nutzer beobachtet:
+    /// weniger Kategorien → Suche klappt). Was durchkommt, wird
+    /// angezeigt; Fehler nur, wenn ALLE Kategorien scheitern.
     static func candidates(around center: CLLocationCoordinate2D, radiusM: Int,
                            kinds: Set<SpotCandidate.Kind>) async throws -> [SpotCandidate] {
         guard !kinds.isEmpty else { return [] }
 
-        let nodeQueries = kinds
-            .map { "node\($0.osmFilter)(around:\(radiusM),\(center.latitude),\(center.longitude));" }
-            .joined()
-        let query = "[out:json][timeout:15];(\(nodeQueries));out body 80;"
+        var all: [SpotCandidate] = []
+        var successes = 0
+        await withTaskGroup(of: [SpotCandidate]?.self) { group in
+            for kind in kinds {
+                group.addTask {
+                    try? await fetch(kind: kind, center: center, radiusM: radiusM)
+                }
+            }
+            for await result in group {
+                if let result {
+                    successes += 1
+                    all.append(contentsOf: result)
+                }
+            }
+        }
+        guard successes > 0 else { throw GeoQueryError.badResponse }
+        return all.sorted { $0.distanceM < $1.distanceM }
+    }
+
+    private static func fetch(kind: SpotCandidate.Kind, center: CLLocationCoordinate2D,
+                              radiusM: Int) async throws -> [SpotCandidate] {
+        let query = "[out:json][timeout:10];node\(kind.osmFilter)(around:\(radiusM),\(center.latitude),\(center.longitude));out body 40;"
         let encoded = query.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? query
         let body = "data=\(encoded)".data(using: .utf8)
 
@@ -102,7 +125,7 @@ enum DiscoveryService {
         for endpoint in endpoints {
             var request = URLRequest(url: URL(string: endpoint)!)
             request.httpMethod = "POST"
-            request.timeoutInterval = 20
+            request.timeoutInterval = 15
             request.setValue("FlightMateAI/1.0 (private Drohnen-Foto-App)", forHTTPHeaderField: "User-Agent")
             request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
             request.httpBody = body
@@ -128,9 +151,8 @@ enum DiscoveryService {
         let result = try JSONDecoder().decode(OverpassResult.self, from: data)
         let centerLocation = CLLocation(latitude: center.latitude, longitude: center.longitude)
 
-        return result.elements.compactMap { element -> SpotCandidate? in
+        return result.elements.map { element in
             let tags = element.tags ?? [:]
-            guard let kind = kind(for: tags), kinds.contains(kind) else { return nil }
             let distance = CLLocation(latitude: element.lat, longitude: element.lon)
                 .distance(from: centerLocation)
             return SpotCandidate(
@@ -142,15 +164,5 @@ enum DiscoveryService {
                 distanceM: distance
             )
         }
-        .sorted { $0.distanceM < $1.distanceM }
-    }
-
-    private static func kind(for tags: [String: String]) -> SpotCandidate.Kind? {
-        if tags["tourism"] == "viewpoint" { return .viewpoint }
-        if tags["natural"] == "peak" { return .peak }
-        if tags["waterway"] == "waterfall" { return .waterfall }
-        if tags["historic"] == "castle" { return .castle }
-        if tags["man_made"] == "lighthouse" { return .lighthouse }
-        return nil
     }
 }

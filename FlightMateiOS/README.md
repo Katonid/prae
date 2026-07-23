@@ -69,6 +69,12 @@ Dieser Stand entspricht dem **MVP-Fundament** (PRD Phase 0/1).
   Kategorie-Chips). Beim Antippen prüft FlightMate den Ort automatisch
   mit Legal-Check und Flight Score („geprüft, nicht nur schön") und
   zeigt das beste Fenster der Woche; ein Tipp speichert ihn als Spot.
+  Die Mini-Karte lässt sich antippen und öffnet eine zoombare
+  Vollbild-Karte (Hybrid, mit eigenem Standort), um den Spot genau zu
+  verorten; „Dorthin navigieren" übergibt den Ort an Apple Karten.
+  Jede Kategorie fragt Overpass als eigene kleine Abfrage parallel ab
+  (mit Spiegel-Servern als Ausweichlösung) — was durchkommt, wird
+  angezeigt; ein Fehler erscheint nur, wenn alle Kategorien scheitern.
   Keine Likes, keine Feeds (PRD N2). Daten: © OpenStreetMap (ODbL).
 - **Score-Erklärung am Ring:** Tipp auf den Score-Ring im Heute-Tab
   öffnet die Faktoren-Begründung der besten Stunde („Warum 7?").
