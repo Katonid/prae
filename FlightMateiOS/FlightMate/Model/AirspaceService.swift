@@ -204,6 +204,54 @@ final class AirspaceService: ObservableObject {
         }
     }
 
+    // MARK: Schlüssel-Diagnose (Einstellungen → „Schlüssel testen")
+
+    /// Ergebnis einer Test-Abfrage, als Klartext für die Einstellungen.
+    /// Damit lässt sich unterscheiden: Schlüssel falsch (401/403),
+    /// Limit erreicht (429), Netzproblem oder alles in Ordnung.
+    nonisolated static func testKey() async -> String {
+        guard let key = loadKey() else {
+            return "Kein Schlüssel gespeichert."
+        }
+        var components = URLComponents(string: "https://api.core.openaip.net/api/airspaces")!
+        components.queryItems = [
+            // Testpunkt Frankfurt — dort gibt es garantiert Lufträume.
+            URLQueryItem(name: "pos", value: "50.05,8.6"),
+            URLQueryItem(name: "dist", value: "30000"),
+            URLQueryItem(name: "limit", value: "5"),
+        ]
+        var request = URLRequest(url: components.url!)
+        request.timeoutInterval = 15
+        request.setValue(key, forHTTPHeaderField: "x-openaip-api-key")
+
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+            let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+            struct Info: Decodable {
+                let totalCount: Int?
+                let message: String?
+            }
+            let info = try? JSONDecoder().decode(Info.self, from: data)
+            switch status {
+            case 200:
+                if let count = info?.totalCount {
+                    return "Schlüssel funktioniert ✓ — Testabfrage bei Frankfurt fand \(count) Lufträume."
+                }
+                return "Verbindung steht, aber die Antwort hatte ein unerwartetes Format. Bitte melden — die Schnittstelle hat sich womöglich geändert."
+            case 401, 403:
+                let detail = info?.message.map { " Serverantwort: „\($0)\u{201C}" } ?? ""
+                return "Schlüssel wird NICHT anerkannt (HTTP \(status)).\(detail) Bitte auf openaip.net einloggen → Profil → „API Clients\u{201C} → Schlüssel erzeugen und die Zeichenkette vollständig kopieren. Danach hier löschen und neu speichern."
+            case 429:
+                return "openAIP meldet: Abfrage-Limit erreicht (HTTP 429). Der Schlüssel ist gültig — bitte in ein paar Minuten erneut versuchen."
+            default:
+                let detail = info?.message.map { " Serverantwort: „\($0)\u{201C}" } ?? ""
+                return "openAIP antwortet mit HTTP \(status).\(detail)"
+            }
+        } catch {
+            return "openAIP ist nicht erreichbar: \(error.localizedDescription) Bitte Internetverbindung prüfen und erneut testen."
+        }
+    }
+
     // MARK: Flugplätze & Heliports (openAIP /airports)
 
     struct Aerodrome {

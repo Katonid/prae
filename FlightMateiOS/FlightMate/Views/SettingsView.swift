@@ -14,6 +14,8 @@ struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var apiKeyInput = ""
     @State private var airspaceKeyInput = ""
+    @State private var airspaceTestResult: String?
+    @State private var airspaceTestRunning = false
 
     var body: some View {
         NavigationStack {
@@ -76,16 +78,46 @@ struct SettingsView: View {
                     if airspace.hasKey {
                         Label("openAIP-Schlüssel gespeichert (Keychain)", systemImage: "checkmark.seal")
                             .foregroundStyle(.green)
+                        Button {
+                            airspaceTestRunning = true
+                            airspaceTestResult = nil
+                            Task {
+                                airspaceTestResult = await AirspaceService.testKey()
+                                airspaceTestRunning = false
+                            }
+                        } label: {
+                            if airspaceTestRunning {
+                                HStack {
+                                    ProgressView()
+                                    Text("Teste Verbindung …")
+                                }
+                            } else {
+                                Label("Schlüssel testen", systemImage: "antenna.radiowaves.left.and.right")
+                            }
+                        }
+                        .disabled(airspaceTestRunning)
+                        if let airspaceTestResult {
+                            Text(airspaceTestResult)
+                                .font(.caption)
+                                .foregroundStyle(airspaceTestResult.contains("✓") ? .green : .orange)
+                        }
                         Button("Schlüssel löschen", role: .destructive) {
                             airspace.clearKey()
+                            airspaceTestResult = nil
                         }
                     } else {
                         SecureField("openAIP API-Schlüssel", text: $airspaceKeyInput)
                             .textInputAutocapitalization(.never)
                             .autocorrectionDisabled()
-                        Button("Schlüssel speichern") {
+                        Button("Schlüssel speichern & testen") {
                             airspace.saveKey(airspaceKeyInput)
                             airspaceKeyInput = ""
+                            airspaceTestRunning = true
+                            airspaceTestResult = nil
+                            Task {
+                                airspaceTestResult = await AirspaceService.testKey()
+                                airspaceTestRunning = false
+                            }
                         }
                         .disabled(airspaceKeyInput.trimmingCharacters(in: .whitespaces).isEmpty)
                     }
