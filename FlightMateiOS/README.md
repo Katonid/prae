@@ -153,7 +153,14 @@ Dieser Stand entspricht dem **MVP-Fundament** (PRD Phase 0/1).
   Hinweis auf den besten Tag der Woche), Legal-Status mit Maximalhöhe,
   Bedingungen im Fenster und Lichtzeiten. Über Tages-Chips lässt sich
   jeder der nächsten 7 Tage planen — Bildideen und Lichtzeiten folgen
-  dem gewählten Tag.
+  dem gewählten Tag. Die Rechts-Karte zeigt **alle** vermuteten
+  Einschränkungen mit Klartext sowie die „Nicht geprüft"-Liste
+  (Nutzerwunsch — nicht nur die erste Zone). **Ortszeit:** Alle
+  Zeiten im Briefing (Fenster, Tages-Chips, Licht, Benachrichtigungs-
+  texte) stehen in der Zeitzone des Spots, nicht der Gerätezeit —
+  bei fernen Spots mit sichtbarem Hinweis; auch die Tagesgrenzen der
+  7-Tage-Ansicht folgen der Spot-Zeitzone (Open-Meteo liefert den
+  UTC-Versatz mit).
 - **Flight Review (F5, KI):** Neuer „Review"-Tab — nach dem Flug bis
   zu 5 Aufnahmen auswählen (PhotosPicker, kein Mediathek-Vollzugriff);
   Claude bewertet jede entlang der festen PRD-Rubrik mit max. 2

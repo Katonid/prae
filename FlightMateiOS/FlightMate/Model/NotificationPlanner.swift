@@ -42,13 +42,13 @@ enum NotificationPlanner {
         let center = UNUserNotificationCenter.current()
         let calendar = Calendar.current
 
-        var bestPerDay: [Date: (spot: Spot, window: BestWindow)] = [:]
+        var bestPerDay: [Date: (spot: Spot, window: BestWindow, timeZone: TimeZone)] = [:]
         for entry in entries {
             for day in entry.days {
                 guard let window = day.bestWindow, window.score >= minScore else { continue }
                 let key = calendar.startOfDay(for: day.date)
                 if let existing = bestPerDay[key], existing.window.score >= window.score { continue }
-                bestPerDay[key] = (entry.spot, window)
+                bestPerDay[key] = (entry.spot, window, day.timeZone)
             }
         }
 
@@ -61,7 +61,7 @@ enum NotificationPlanner {
 
             let content = UNMutableNotificationContent()
             content.title = "Flight Score \(pick.window.score) an „\(pick.spot.name)\u{201C}"
-            content.body = "Bestes Fenster: \(Theme.time(pick.window.start))–\(Theme.time(pick.window.end)) Uhr. Akkus laden!"
+            content.body = "Bestes Fenster: \(Theme.time(pick.window.start, in: pick.timeZone))–\(Theme.time(pick.window.end, in: pick.timeZone)) Uhr Ortszeit. Akkus laden!"
             content.sound = .default
 
             let components = calendar.dateComponents([.year, .month, .day, .hour, .minute], from: fireDate)

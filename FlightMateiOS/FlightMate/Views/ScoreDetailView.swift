@@ -23,7 +23,7 @@ struct ScoreDetailView: View {
                                 .font(.subheadline)
                                 .foregroundStyle(Theme.scoreColor(window.score))
                             Spacer()
-                            Text("\(Theme.time(window.start))–\(Theme.time(window.end)) Uhr")
+                            Text("\(Theme.time(window.start, in: day.timeZone))–\(Theme.time(window.end, in: day.timeZone)) Uhr")
                                 .font(.subheadline.monospacedDigit())
                         }
                     } else {
@@ -37,7 +37,7 @@ struct ScoreDetailView: View {
                             selectedHour = hourScore
                         } label: {
                             HStack {
-                                Text("\(Theme.time(hourScore.hour.date))")
+                                Text("\(Theme.time(hourScore.hour.date, in: day.timeZone))")
                                     .font(.subheadline.monospacedDigit())
                                     .frame(width: 48, alignment: .leading)
                                 Text("\(hourScore.score)")

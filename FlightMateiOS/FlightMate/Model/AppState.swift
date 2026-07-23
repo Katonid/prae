@@ -175,10 +175,13 @@ final class AppState: NSObject, ObservableObject {
         let location = effectiveLocation
         do {
             let (forecast, fromCache) = try await WeatherService.shared.forecast(for: location)
+            var calendar = Calendar(identifier: .gregorian)
+            calendar.timeZone = forecast.timeZone
             days = FlightScoreEngine.days(
                 forecast: forecast, profile: profile,
-                latitude: location.latitude, longitude: location.longitude
-            ).filter { $0.date >= Calendar.current.startOfDay(for: Date()) }
+                latitude: location.latitude, longitude: location.longitude,
+                calendar: calendar
+            ).filter { $0.date >= calendar.startOfDay(for: Date()) }
             forecastFromCache = fromCache
             forecastFetchedAt = forecast.fetchedAt
             await updateSpotNotifications()
@@ -191,10 +194,15 @@ final class AppState: NSObject, ObservableObject {
     func days(for coordinate: CLLocationCoordinate2D) async throws -> [DayScore] {
         guard let profile else { return [] }
         let (forecast, _) = try await WeatherService.shared.forecast(for: coordinate)
+        // Tage in der Zeitzone des ORTES bilden — ein Kanada-Spot soll
+        // nicht an deutscher Mitternacht umbrechen.
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = forecast.timeZone
         return FlightScoreEngine.days(
             forecast: forecast, profile: profile,
-            latitude: coordinate.latitude, longitude: coordinate.longitude
-        ).filter { $0.date >= Calendar.current.startOfDay(for: Date()) }
+            latitude: coordinate.latitude, longitude: coordinate.longitude,
+            calendar: calendar
+        ).filter { $0.date >= calendar.startOfDay(for: Date()) }
     }
 
     // MARK: Init

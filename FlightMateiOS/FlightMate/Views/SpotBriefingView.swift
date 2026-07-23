@@ -83,13 +83,29 @@ struct SpotBriefingView: View {
         .refreshable { await load() }
     }
 
+    /// Zeitzone des Spots — alle Zeiten im Briefing sind Ortszeit.
+    private var briefingTimeZone: TimeZone {
+        selectedDay?.timeZone ?? days.first?.timeZone ?? .current
+    }
+
+    /// Weicht die Spot-Zeitzone von der Gerätezeit ab? (Reiseplanung)
+    private var showsForeignTimeZone: Bool {
+        briefingTimeZone.secondsFromGMT() != TimeZone.current.secondsFromGMT()
+    }
+
+    private func isToday(_ day: DayScore) -> Bool {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = day.timeZone
+        return calendar.isDateInToday(day.date)
+    }
+
     /// Teilbarer Kurztext des Briefings (Teilen-Knopf in der Toolbar).
     private var briefingText: String {
         var lines = ["Drohnen-Briefing: \(spot.name) (FlightMate AI)"]
         if let day = selectedDay {
-            lines.append(Theme.dayFormatter.string(from: day.date))
+            lines.append(Theme.fullDay(day.date, in: day.timeZone) + " (Ortszeit des Spots)")
             if let window = day.bestWindow {
-                lines.append("Bestes Fenster: \(Theme.time(window.start))–\(Theme.time(window.end)) Uhr, Flight Score \(window.score)/10")
+                lines.append("Bestes Fenster: \(Theme.time(window.start, in: briefingTimeZone))–\(Theme.time(window.end, in: briefingTimeZone)) Uhr (Ortszeit), Flight Score \(window.score)/10")
             } else {
                 lines.append("Kein lohnendes Flugfenster")
             }
@@ -147,7 +163,7 @@ struct SpotBriefingView: View {
                         updateICS()
                     } label: {
                         VStack(spacing: 2) {
-                            Text(Calendar.current.isDateInToday(day.date) ? "Heute" : Theme.shortDayFormatter.string(from: day.date))
+                            Text(isToday(day) ? "Heute" : Theme.shortDay(day.date, in: day.timeZone))
                                 .font(.caption)
                             Text("\(day.score)")
                                 .font(.headline)
@@ -170,16 +186,21 @@ struct SpotBriefingView: View {
 
     private func windowCard(_ day: DayScore) -> some View {
         VStack(spacing: 8) {
-            Text(Calendar.current.isDateInToday(day.date) ? "Heute" : Theme.dayFormatter.string(from: day.date))
+            Text(isToday(day) ? "Heute" : Theme.fullDay(day.date, in: day.timeZone))
                 .font(.caption)
                 .foregroundStyle(.secondary)
+            if showsForeignTimeZone {
+                Label("Alle Zeiten in Ortszeit des Spots", systemImage: "clock.badge.exclamationmark")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
             HStack(spacing: 16) {
                 Text("\(day.score)")
                     .font(.system(size: 44, weight: .bold, design: .rounded))
                     .foregroundStyle(Theme.scoreColor(day.score))
                 VStack(alignment: .leading, spacing: 2) {
                     if let window = day.bestWindow {
-                        Text("Bestes Fenster: \(Theme.time(window.start))–\(Theme.time(window.end)) Uhr")
+                        Text("Bestes Fenster: \(Theme.time(window.start, in: briefingTimeZone))–\(Theme.time(window.end, in: briefingTimeZone)) Uhr")
                             .font(.headline)
                         if let hour = day.hours.first(where: { $0.hour.date == window.start }) {
                             Text(hour.verdict.rawValue)
@@ -205,10 +226,11 @@ struct SpotBriefingView: View {
             if (day.bestWindow?.score ?? 0) < 7,
                let bestDay = days.max(by: { $0.score < $1.score }),
                bestDay.score >= 7,
-               !Calendar.current.isDate(bestDay.date, inSameDayAs: day.date),
+               !{ var c = Calendar(identifier: .gregorian); c.timeZone = day.timeZone
+                  return c.isDate(bestDay.date, inSameDayAs: day.date) }(),
                let window = bestDay.bestWindow {
                 Label(
-                    "Besser: \(Theme.shortDayFormatter.string(from: bestDay.date)), \(Theme.time(window.start))–\(Theme.time(window.end)) Uhr (Score \(bestDay.score))",
+                    "Besser: \(Theme.shortDay(bestDay.date, in: bestDay.timeZone)), \(Theme.time(window.start, in: bestDay.timeZone))–\(Theme.time(window.end, in: bestDay.timeZone)) Uhr (Score \(bestDay.score))",
                     systemImage: "sparkles"
                 )
                 .font(.subheadline)
@@ -238,14 +260,33 @@ struct SpotBriefingView: View {
                         .foregroundStyle(.secondary)
                 }
             }
-            if let first = legal.zones.first {
-                Text(first.featureName.map { "\(first.rule.title): \($0)" } ?? first.rule.title)
-                    .font(.subheadline)
-                if legal.zones.count > 1 {
-                    Text("und \(legal.zones.count - 1) weitere Zone(n) — Details im Legal-Check auf der Karte.")
+            // Alle vermuteten Einschränkungen direkt im Briefing
+            // (Nutzerwunsch) — mit Klartext, nicht nur die erste Zone.
+            ForEach(legal.zones) { hit in
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 6) {
+                        Circle()
+                            .fill(Theme.verdictColor(hit.rule.severity))
+                            .frame(width: 8, height: 8)
+                        Text(hit.featureName.map { "\(hit.rule.title): \($0)" } ?? hit.rule.title)
+                            .font(.subheadline.weight(.medium))
+                    }
+                    Text(hit.rule.plainText)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
+                .padding(.vertical, 2)
+            }
+            if !legal.uncheckedLayers.isEmpty && legal.verdict != .unknown {
+                VStack(alignment: .leading, spacing: 2) {
+                    Label("Nicht geprüft: \(legal.uncheckedLayers.joined(separator: ", ")).",
+                          systemImage: "exclamationmark.triangle")
+                    if let hint = legal.uncheckedHint {
+                        Text(hint)
+                    }
+                }
+                .font(.caption)
+                .foregroundStyle(.orange)
             }
             if legal.verdict == .unknown {
                 Text(legal.sourceNote)
@@ -376,14 +417,14 @@ struct SpotBriefingView: View {
         ]
         if let selectedDay, let window = selectedDay.bestWindow {
             context.append("Geplanter Tag: \(Theme.dayFormatter.string(from: selectedDay.date))")
-            context.append("Bestes Flugfenster: \(Theme.time(window.start))–\(Theme.time(window.end)) Uhr (Flight Score \(window.score)/10)")
+            context.append("Bestes Flugfenster: \(Theme.time(window.start, in: briefingTimeZone))–\(Theme.time(window.end, in: briefingTimeZone)) Uhr Ortszeit (Flight Score \(window.score)/10)")
             if let hour = selectedDay.hours.first(where: { $0.hour.date == window.start }) {
                 context.append("Licht im Fenster: \(SunCalculator.lightLabel(at: hour.hour.date, latitude: spot.latitude, longitude: spot.longitude))")
                 context.append("Wind: \(Int(max(hour.hour.windSpeed10Kmh, hour.hour.windSpeed120Kmh))) km/h aus \(Theme.compassDirection(hour.hour.windDirectionDeg))")
             }
         }
         if let sunset = selectedDay?.sunDay.sunset {
-            context.append("Sonnenuntergang: \(Theme.time(sunset)) Uhr")
+            context.append("Sonnenuntergang: \(Theme.time(sunset, in: briefingTimeZone)) Uhr Ortszeit")
         }
         if let profile = state.profile {
             context.append("Drohne: \(profile.name)")
@@ -428,7 +469,7 @@ struct SpotBriefingView: View {
                     Text(window.kind.rawValue)
                         .font(.subheadline)
                     Spacer()
-                    Text("\(Theme.time(window.start))–\(Theme.time(window.end))")
+                    Text("\(Theme.time(window.start, in: briefingTimeZone))–\(Theme.time(window.end, in: briefingTimeZone))")
                         .font(.subheadline.monospacedDigit())
                         .foregroundStyle(.secondary)
                 }
@@ -446,7 +487,7 @@ struct SpotBriefingView: View {
             Image(systemName: symbol)
                 .foregroundStyle(.secondary)
                 .frame(width: 22)
-            Text("\(label) \(Theme.time(date)) Uhr aus \(Theme.compassDirection(azimuth))")
+            Text("\(label) \(Theme.time(date, in: briefingTimeZone)) Uhr aus \(Theme.compassDirection(azimuth))")
                 .font(.subheadline)
             Spacer()
             Image(systemName: "location.north.fill")
