@@ -253,6 +253,7 @@
 				DEVELOPMENT_TEAM = "";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Support/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = "FlightMate AI";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Der Standort wird benötigt, um Flugwetter, Lichtzeiten und Geo-Zonen für deinen Ort zu prüfen. Es findet kein Tracking statt; der Standort wird nicht dauerhaft gespeichert.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -284,6 +285,7 @@
 				DEVELOPMENT_TEAM = "";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Support/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = "FlightMate AI";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Der Standort wird benötigt, um Flugwetter, Lichtzeiten und Geo-Zonen für deinen Ort zu prüfen. Es findet kein Tracking statt; der Standort wird nicht dauerhaft gespeichert.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;

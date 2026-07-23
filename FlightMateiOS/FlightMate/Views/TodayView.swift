@@ -14,6 +14,7 @@ struct TodayView: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State private var showSettings = false
     @State private var factorsHour: HourScore?
+    @State private var todaysFeedback = ScoreValidation.todays()
 
     private var isWide: Bool { horizontalSizeClass == .regular }
 
@@ -51,6 +52,7 @@ struct TodayView: View {
                             lightCard(today)
                             sevenDayLink
                         }
+                        feedbackCard(today)
                     } else if state.isLoading {
                         ProgressView("Bedingungen werden geprüft …")
                             .padding(.top, 80)
@@ -105,6 +107,47 @@ struct TodayView: View {
             .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 14))
         }
         .buttonStyle(.plain)
+    }
+
+    // MARK: Score-Feedback (PRD Phase 0: Kalibrierung mit echten Flugtagen)
+
+    private func feedbackCard(_ day: DayScore) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label("Warst du heute draußen?", systemImage: "checkmark.seal")
+                .font(.subheadline.bold())
+            Text(todaysFeedback == nil
+                 ? "Wie gut traf der Score \(day.score) die echten Bedingungen? Deine Ein-Tipp-Rückmeldung kalibriert das Regelwerk."
+                 : "Danke — deine Rückmeldung für heute ist gespeichert. Tippen zum Ändern.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            HStack(spacing: 8) {
+                ForEach(ScoreFeedback.Rating.allCases, id: \.self) { rating in
+                    let isSelected = todaysFeedback?.rating == rating
+                    Button {
+                        ScoreValidation.rate(score: day.score, rating: rating)
+                        todaysFeedback = ScoreValidation.todays()
+                    } label: {
+                        Label(rating.title, systemImage: rating.symbol)
+                            .font(.caption)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .background(
+                                isSelected ? Color.accentColor.opacity(0.25) : Color.gray.opacity(0.12),
+                                in: Capsule()
+                            )
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            if let summary = ScoreValidation.summary {
+                Text(summary)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding()
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 14))
     }
 
     // MARK: Score-Karte

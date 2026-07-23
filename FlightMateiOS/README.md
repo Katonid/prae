@@ -175,6 +175,18 @@ Dieser Stand entspricht dem **MVP-Fundament** (PRD Phase 0/1).
   Spots, gemeldet 2 h vor Fensterbeginn. Komplett auf dem Gerät
   vorausgeplant (lokale Notifications) — kein Server, keine Spot-Daten
   verlassen das Gerät. Opt-in in den Einstellungen.
+  **Hintergrund-Aktualisierung:** Über BGAppRefresh prüft die App
+  auch ungeöffnet regelmäßig das Wetter an den Spots und plant die
+  Meldungen neu (iOS entscheidet den Zeitpunkt, typisch 1–2× täglich
+  bei regelmäßiger Nutzung; Support/Info.plist trägt die
+  Task-Kennung `de.familie.flightmate.refresh`).
+- **Score-Validierung (PRD Phase 0):** Karte im Heute-Tab „Warst du
+  heute draußen?" — Ein-Tipp-Rückmeldung (passte / zu optimistisch /
+  zu pessimistisch), eine pro Tag, lokal gespeichert (letzte 90
+  Tage). Ab drei Rückmeldungen zeigt die Karte die Bilanz samt
+  Tendenz; damit werden die Score-Gewichte später bewusst von Hand
+  nachjustiert — kein automatisches Lernen, das Regelwerk bleibt
+  erklärbar (PRD Kap. 12).
 - **Onboarding < 2 min:** Einzige Frage ist das Drohnenmodell
   (Mini 3 / Mini 4K / Mini 4 Pro) — Windtoleranz, EU-Klasse und Regeln
   werden abgeleitet. Kein Account.
@@ -189,9 +201,9 @@ Dieser Stand entspricht dem **MVP-Fundament** (PRD Phase 0/1).
   live angebunden. Nationale Zonen (Natura 2000, DGAC-Karte) auch
   als Karten-Overlays — die amtlichen Polygone sind sehr groß
   (mehrere MB), dafür braucht es eine Vereinfachungs-Stufe
-- Benachrichtigungen im Hintergrund aktualisieren (BGAppRefresh bzw.
-  später serverseitiger Scheduler, PRD Kap. 10) — aktuell wird bei
-  jedem App-Start neu geplant
+- Serverseitiger Benachrichtigungs-Scheduler (PRD Kap. 10) für einen
+  öffentlichen Release — aktuell BGAppRefresh auf dem Gerät (iOS
+  bestimmt die Laufzeitpunkte selbst)
 - Kanada: NOTAMs als Live-Abfrage — kein offen abfragbarer Dienst
   (NAV-Drone-API ist login-pflichtig); wird als „nicht geprüft"
   angezeigt. Lufträume (CTR, CYR/CYD/CYA) sind inzwischen über
