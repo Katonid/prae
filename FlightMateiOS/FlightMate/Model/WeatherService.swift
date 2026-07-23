@@ -152,6 +152,72 @@ final class WeatherService {
                         utcOffsetSeconds: api.utc_offset_seconds)
     }
 
+    // MARK: Kurzfrist-Blick (15-Minuten-Daten, „Jetzt oder gleich?")
+
+    /// Eine Viertelstunde der nächsten ~2,5 h — nur die Größen, die
+    /// die Startentscheidung kippen können (Böen, Wind, Regen).
+    struct QuarterForecast {
+        let date: Date
+        let windKmh: Double
+        let gustsKmh: Double
+        let precipitationMm: Double
+    }
+
+    /// 15-Minuten-Nowcast für die nächsten ~2,5 Stunden. Bewusst ohne
+    /// Cache: Kurzfrist-Daten sind nur frisch etwas wert — offline
+    /// blendet die UI den Streifen einfach aus.
+    func nowcast(for coordinate: CLLocationCoordinate2D) async throws -> [QuarterForecast] {
+        let lat = (coordinate.latitude * 100).rounded() / 100
+        let lon = (coordinate.longitude * 100).rounded() / 100
+
+        var components = URLComponents(string: "https://api.open-meteo.com/v1/forecast")!
+        components.queryItems = [
+            URLQueryItem(name: "latitude", value: String(lat)),
+            URLQueryItem(name: "longitude", value: String(lon)),
+            URLQueryItem(name: "minutely_15", value: "precipitation,wind_speed_10m,wind_gusts_10m"),
+            URLQueryItem(name: "forecast_minutely_15", value: "12"),
+            URLQueryItem(name: "timezone", value: "auto"),
+        ]
+        let (data, response) = try await URLSession.shared.data(from: components.url!)
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+            throw WeatherError.badResponse
+        }
+
+        struct APIResponse: Decodable {
+            struct Minutely: Decodable {
+                let time: [String]
+                let precipitation: [Double?]
+                let wind_speed_10m: [Double?]
+                let wind_gusts_10m: [Double?]
+            }
+            let utc_offset_seconds: Int
+            let minutely_15: Minutely
+        }
+        let api = try JSONDecoder().decode(APIResponse.self, from: data)
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd'T'HH:mm"
+        formatter.timeZone = TimeZone(secondsFromGMT: api.utc_offset_seconds)
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+
+        let m = api.minutely_15
+        var quarters: [QuarterForecast] = []
+        for (index, timeString) in m.time.enumerated() {
+            guard let date = formatter.date(from: timeString),
+                  date > Date().addingTimeInterval(-15 * 60) else { continue }
+            func value(_ array: [Double?]) -> Double {
+                index < array.count ? (array[index] ?? 0) : 0
+            }
+            quarters.append(QuarterForecast(
+                date: date,
+                windKmh: value(m.wind_speed_10m),
+                gustsKmh: value(m.wind_gusts_10m),
+                precipitationMm: value(m.precipitation)
+            ))
+        }
+        guard !quarters.isEmpty else { throw WeatherError.badResponse }
+        return quarters
+    }
+
     // MARK: Cache (UserDefaults, pro gerundetem Ort)
 
     private func cacheKey(latitude: Double, longitude: Double) -> String {

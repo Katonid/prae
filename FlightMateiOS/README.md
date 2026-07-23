@@ -154,6 +154,12 @@ Dieser Stand entspricht dem **MVP-Fundament** (PRD Phase 0/1).
   Schlüssel); ausgeliefert werden kleine Special:FilePath-Thumbnails,
   ein Tipp aufs Bild öffnet die Commons-Seite mit Lizenz/Urheber.
   Keine Likes, keine Feeds (PRD N2). Daten: © OpenStreetMap (ODbL).
+- **Kurzfrist-Blick „Nächste 2 Stunden":** Farbstreifen im Heute-Tab
+  aus den 15-Minuten-Daten von Open-Meteo (Böen, Wind, Regen) mit
+  deterministischer Kernaussage — „Jetzt ist das bessere Fenster —
+  ab 14:30 wird es kritisch" bzw. „Kurz warten: ab 15:00 beruhigt
+  es sich". Bewusst ohne Cache (Kurzfrist-Daten sind nur frisch
+  etwas wert); offline wird der Streifen ausgeblendet.
 - **Score-Erklärung am Ring:** Tipp auf den Score-Ring im Heute-Tab
   öffnet die Faktoren-Begründung der besten Stunde („Warum 7?").
   Darüber steht der per Reverse-Geocoding ermittelte Ortsname.

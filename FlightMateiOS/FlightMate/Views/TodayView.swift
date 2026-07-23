@@ -15,6 +15,7 @@ struct TodayView: View {
     @State private var showSettings = false
     @State private var factorsHour: HourScore?
     @State private var todaysFeedback = ScoreValidation.todays()
+    @State private var nowcast: [WeatherService.QuarterForecast] = []
 
     private var isWide: Bool { horizontalSizeClass == .regular }
 
@@ -39,6 +40,7 @@ struct TodayView: View {
                             HStack(alignment: .top, spacing: 16) {
                                 VStack(spacing: 16) {
                                     scoreCard(today)
+                                    if nowcast.count >= 4 { nowcastCard }
                                     hourStrip(today)
                                 }
                                 VStack(spacing: 16) {
@@ -48,6 +50,7 @@ struct TodayView: View {
                             }
                         } else {
                             scoreCard(today)
+                            if nowcast.count >= 4 { nowcastCard }
                             hourStrip(today)
                             lightCard(today)
                             sevenDayLink
@@ -85,9 +88,90 @@ struct TodayView: View {
                 HourFactorsView(hourScore: hourScore)
                     .presentationDetents([.medium])
             }
-            .refreshable { await state.refresh() }
+            .refreshable {
+                await state.refresh()
+                await loadNowcast()
+            }
+            .task { await loadNowcast() }
             .onAppear { state.requestLocation() }
         }
+    }
+
+    // MARK: Kurzfrist-Blick („Jetzt starten oder kurz warten?")
+
+    private func loadNowcast() async {
+        nowcast = (try? await WeatherService.shared.nowcast(for: state.effectiveLocation)) ?? []
+    }
+
+    private enum QuarterState {
+        case good, caution, blocked
+
+        var color: Color {
+            switch self {
+            case .good: return Theme.scoreColor(9)
+            case .caution: return Theme.scoreColor(5)
+            case .blocked: return Theme.scoreColor(1)
+            }
+        }
+    }
+
+    private func quarterState(_ quarter: WeatherService.QuarterForecast) -> QuarterState {
+        guard let profile = state.profile else { return .good }
+        if quarter.gustsKmh >= profile.maxWindKmh || quarter.precipitationMm >= 0.2 {
+            return .blocked
+        }
+        if quarter.gustsKmh >= profile.maxWindKmh * 0.8 || quarter.precipitationMm > 0 {
+            return .caution
+        }
+        return .good
+    }
+
+    /// Deterministische Kernaussage — beantwortet die häufigste
+    /// Vor-Ort-Frage: jetzt starten oder kurz warten?
+    private var nowcastSummary: String {
+        let states = nowcast.map(quarterState)
+        guard let first = states.first else { return "" }
+        if !states.contains(.blocked) {
+            if states.allSatisfy({ $0 == .good }) {
+                return "Die nächsten 2 Stunden bleiben stabil — freie Fensterwahl."
+            }
+            return "Flugtauglich, zeitweise böig — Wind-Reserven einplanen."
+        }
+        if first != .blocked, let firstBlocked = states.firstIndex(of: .blocked) {
+            return "Jetzt ist das bessere Fenster — ab \(Theme.time(nowcast[firstBlocked].date)) Uhr wird es kritisch."
+        }
+        if let firstOpen = states.firstIndex(where: { $0 != .blocked }) {
+            return "Kurz warten: ab \(Theme.time(nowcast[firstOpen].date)) Uhr beruhigt es sich."
+        }
+        return "In den nächsten 2 Stunden keine Beruhigung in Sicht — Böen oder Regen über der Toleranz."
+    }
+
+    private var nowcastCard: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label("Nächste 2 Stunden", systemImage: "clock.arrow.2.circlepath")
+                .font(.subheadline.bold())
+            HStack(spacing: 3) {
+                ForEach(Array(nowcast.enumerated()), id: \.offset) { _, quarter in
+                    RoundedRectangle(cornerRadius: 3)
+                        .fill(quarterState(quarter).color.opacity(0.85))
+                        .frame(height: 22)
+                        .frame(maxWidth: .infinity)
+                }
+            }
+            HStack {
+                Text(Theme.time(nowcast.first?.date ?? Date()))
+                Spacer()
+                Text(Theme.time(nowcast.last?.date ?? Date()))
+            }
+            .font(.caption2)
+            .foregroundStyle(.secondary)
+            Text(nowcastSummary)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .padding()
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 14))
     }
 
     // MARK: 7-Tage-Link
