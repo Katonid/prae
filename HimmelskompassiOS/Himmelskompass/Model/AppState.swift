@@ -177,13 +177,30 @@ final class AppState: NSObject, ObservableObject {
         recomputeAll()
     }
 
-    /// Minütlicher Tick: im Live-Modus der aktuellen Uhrzeit folgen
+    /// Liegt der gewählte Tag vollständig in der Vergangenheit?
+    private func selectedDayIsPast() -> Bool {
+        !selectedIsToday() && dateAtMinutes(24 * 60 - 1) < Date()
+    }
+
+    /// Minütlicher Tick: im Live-Modus der aktuellen Uhrzeit folgen;
+    /// um Mitternacht automatisch zum neuen Tag springen
     func minuteTick() {
-        if live && selectedIsToday() {
+        guard live else { return }
+        if selectedDayIsPast() {
+            goToToday()
+            return
+        }
+        if selectedIsToday() {
             setSliderToNow()
             // Der Tagesbalken bekommt eine neue "Jetzt"-Markierung
             recomputeDayData()
         }
+    }
+
+    /// Beim Wiederöffnen der App immer zum aktuellen Zeitpunkt springen:
+    /// heutiges Datum, aktuelle Uhrzeit im Kompass.
+    func refreshOnActivate() {
+        goToToday()
     }
 
     // MARK: - Ort
