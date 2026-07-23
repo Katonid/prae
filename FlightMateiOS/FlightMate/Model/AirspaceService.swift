@@ -19,6 +19,7 @@
 import Foundation
 import Security
 import CoreLocation
+import CryptoKit
 
 @MainActor
 final class AirspaceService: ObservableObject {
@@ -160,24 +161,24 @@ final class AirspaceService: ObservableObject {
                                       excludingCountry: String? = nil) async throws -> [Airspace] {
         guard let key = loadKey() else { throw AirspaceError.noKey }
 
+        // Auf das Cache-Raster runden; der vergrößerte Radius gleicht
+        // die Rundung aus (Treffer-Filterung passiert ohnehin exakt
+        // beim Aufrufer per Punkt-in-Polygon).
         var components = URLComponents(string: "https://api.core.openaip.net/api/airspaces")!
         components.queryItems = [
-            URLQueryItem(name: "pos", value: String(format: "%f,%f", center.latitude, center.longitude)),
-            URLQueryItem(name: "dist", value: String(radiusM)),
+            URLQueryItem(name: "pos", value: String(format: "%.2f,%.2f",
+                                                    Self.quantize(center.latitude),
+                                                    Self.quantize(center.longitude))),
+            // Radius auf 5-km-Stufen aufrunden — sonst erzeugt jede
+            // Zoomstufe einen eigenen Cache-Eintrag.
+            URLQueryItem(name: "dist", value: String(((radiusM + Self.gridSlackM + 4_999) / 5_000) * 5_000)),
             URLQueryItem(name: "limit", value: "100"),
             // Nur die benötigten Felder — volle Luftraum-Objekte sind
             // mehrere MB groß und liefen auf Mobilfunk ins Timeout
             // (Nutzer-Befund: Schlüssel ok, Check trotzdem „nicht geprüft").
             URLQueryItem(name: "fields", value: "_id,name,type,geometry,lowerLimit,country"),
         ]
-        var request = URLRequest(url: components.url!)
-        request.timeoutInterval = 20
-        request.setValue(key, forHTTPHeaderField: "x-openaip-api-key")
-        guard let (data, response) = try? await URLSession.shared.data(for: request) else {
-            throw AirspaceError.network
-        }
-        guard let http = response as? HTTPURLResponse else { throw AirspaceError.network }
-        guard http.statusCode == 200 else { throw AirspaceError.http(http.statusCode) }
+        let data = try await fetchWithCache(components, apiKey: key)
 
         guard let result = try? JSONDecoder().decode(APIResponse.self, from: data) else {
             throw AirspaceError.decoding
@@ -209,6 +210,74 @@ final class AirspaceService: ObservableObject {
         case 1: return lower.value <= 400   // Fuß
         default: return false               // Flight Level → weit über Drohnenhöhe
         }
+    }
+
+    // MARK: Zwischenspeicher (Nutzer hat das openAIP-Abfrage-Limit getroffen)
+    //
+    // Zwei Aufgaben: (1) Wiederholte Abfragen desselben Gebiets gehen
+    // nicht mehr ins Netz — dafür werden Position und Radius auf ein
+    // Raster gerundet, sodass benachbarte Kartenschwenks denselben
+    // Cache-Eintrag treffen. (2) Schlägt eine Abfrage fehl (429,
+    // Funkloch), dient der letzte gespeicherte Stand als Antwort —
+    // Lufträume ändern sich nur im 28-Tage-AIRAC-Zyklus, ein etwas
+    // älterer Stand ist ehrlicher als „nicht geprüft".
+
+    /// So lange gilt ein Cache-Eintrag als frisch (kein Netzzugriff).
+    private static let cacheFreshTTL: TimeInterval = 12 * 3600
+
+    /// Positionsraster (~2 km) — der Abfrage-Radius wird entsprechend
+    /// vergrößert, damit trotz Rundung nichts durchs Raster fällt.
+    private static let gridStepDeg = 0.02
+    private static let gridSlackM = 2_500
+
+    private nonisolated static func quantize(_ value: Double) -> Double {
+        (value / gridStepDeg).rounded() * gridStepDeg
+    }
+
+    /// Lädt eine openAIP-URL mit Datei-Zwischenspeicher: frisch → Cache,
+    /// sonst Netz (Erfolg wird gespeichert), bei Fehlern → alter
+    /// Cache-Stand, falls vorhanden.
+    private nonisolated static func fetchWithCache(_ components: URLComponents,
+                                                   apiKey: String) async throws -> Data {
+        guard let url = components.url else { throw AirspaceError.network }
+        let cacheFile = cacheFileURL(for: url)
+        let manager = FileManager.default
+
+        if let attributes = try? manager.attributesOfItem(atPath: cacheFile.path),
+           let modified = attributes[.modificationDate] as? Date,
+           Date().timeIntervalSince(modified) < cacheFreshTTL,
+           let cached = try? Data(contentsOf: cacheFile) {
+            return cached
+        }
+
+        var request = URLRequest(url: url)
+        request.timeoutInterval = 20
+        request.setValue(apiKey, forHTTPHeaderField: "x-openaip-api-key")
+        do {
+            guard let (data, response) = try? await URLSession.shared.data(for: request) else {
+                throw AirspaceError.network
+            }
+            guard let http = response as? HTTPURLResponse else { throw AirspaceError.network }
+            guard http.statusCode == 200 else { throw AirspaceError.http(http.statusCode) }
+            try? manager.createDirectory(at: cacheFile.deletingLastPathComponent(),
+                                         withIntermediateDirectories: true)
+            try? data.write(to: cacheFile)
+            return data
+        } catch {
+            // Abgelaufener Zwischenspeicher ist besser als gar keine Antwort.
+            if let stale = try? Data(contentsOf: cacheFile) {
+                return stale
+            }
+            throw error
+        }
+    }
+
+    private nonisolated static func cacheFileURL(for url: URL) -> URL {
+        let digest = SHA256.hash(data: Data(url.absoluteString.utf8))
+        let name = digest.map { String(format: "%02x", $0) }.joined()
+        let caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+        return caches.appendingPathComponent("openaip", isDirectory: true)
+            .appendingPathComponent(name + ".json")
     }
 
     // MARK: Fehlerbild
@@ -304,21 +373,19 @@ final class AirspaceService: ObservableObject {
                                        radiusM: Int) async throws -> [Aerodrome] {
         guard let key = loadKey() else { throw AirspaceError.noKey }
 
+        // Gleiche Raster-Logik wie bei den Lufträumen; die Entfernung
+        // je Flugplatz wird unten exakt gegen die ECHTE Position
+        // berechnet — die Rundung betrifft nur Netzabfrage und Cache.
         var components = URLComponents(string: "https://api.core.openaip.net/api/airports")!
         components.queryItems = [
-            URLQueryItem(name: "pos", value: String(format: "%f,%f", center.latitude, center.longitude)),
-            URLQueryItem(name: "dist", value: String(radiusM)),
+            URLQueryItem(name: "pos", value: String(format: "%.2f,%.2f",
+                                                    Self.quantize(center.latitude),
+                                                    Self.quantize(center.longitude))),
+            URLQueryItem(name: "dist", value: String(((radiusM + Self.gridSlackM + 4_999) / 5_000) * 5_000)),
             URLQueryItem(name: "limit", value: "100"),
             URLQueryItem(name: "fields", value: "_id,name,type,geometry"),
         ]
-        var request = URLRequest(url: components.url!)
-        request.timeoutInterval = 20
-        request.setValue(key, forHTTPHeaderField: "x-openaip-api-key")
-        guard let (data, response) = try? await URLSession.shared.data(for: request) else {
-            throw AirspaceError.network
-        }
-        guard let http = response as? HTTPURLResponse else { throw AirspaceError.network }
-        guard http.statusCode == 200 else { throw AirspaceError.http(http.statusCode) }
+        let data = try await fetchWithCache(components, apiKey: key)
 
         struct APIResponse: Decodable {
             struct Item: Decodable {
