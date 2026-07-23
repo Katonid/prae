@@ -170,6 +170,17 @@ Dieser Stand entspricht dem **MVP-Fundament** (PRD Phase 0/1).
   **„Winde nach Höhe"**: stündliche Tabelle mit Richtungspfeil und
   km/h auf 10/80/120/180 m (Open-Meteo-Modellwinde), Tage wählbar,
   farbcodiert gegen die Windtoleranz des Profils.
+- **Akku- & Kälte-Rechner:** Deterministische Faustformel aus
+  Nennflugzeit des Modells, Temperatur (Kältefaktor bis −35 %) und
+  Wind (bis −30 % an der Toleranzgrenze) — als Kachel im
+  „Aktuell"-Raster und als Zeile im Briefing („≈ 22 min pro Akku
+  (Kälte −15 % · Wind −10 %) · für 45 min Session: 3 Akkus", inkl.
+  20 % RTH-Reserve). Erklärbar statt gelernt (PRD Kap. 12).
+- **Vorflug-Checkliste:** Haken-Symbol im Heute-Tab — kurze
+  abhakbare Liste (Akkus, Karte, Propeller, RTH, Legal-Check, Böen,
+  e-ID, Startplatz), pro Tag gemerkt; dazu dynamische Punkte aus den
+  Live-Daten: „Kompass kalibrieren" ab KP 4 und „Akkus warm halten"
+  unter 5 °C erscheinen nur, wenn sie heute relevant sind.
 - **Kurzfrist-Blick „Nächste 2 Stunden":** Farbstreifen im Heute-Tab
   aus den 15-Minuten-Daten von Open-Meteo (Böen, Wind, Regen) mit
   deterministischer Kernaussage — „Jetzt ist das bessere Fenster —

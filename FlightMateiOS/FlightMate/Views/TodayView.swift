@@ -18,6 +18,7 @@ struct TodayView: View {
     @State private var nowcast: [WeatherService.QuarterForecast] = []
     @State private var current: WeatherService.CurrentConditions?
     @State private var kpIndex: Double?
+    @State private var showChecklist = false
 
     private var isWide: Bool { horizontalSizeClass == .regular }
 
@@ -83,11 +84,20 @@ struct TodayView: View {
             }
             .navigationTitle("Heute")
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button { showChecklist = true } label: {
+                        Image(systemName: "checklist")
+                    }
+                    .accessibilityLabel("Vorflug-Checkliste")
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button { showSettings = true } label: {
                         Image(systemName: "gearshape")
                     }
                 }
+            }
+            .sheet(isPresented: $showChecklist) {
+                ChecklistView(extraItems: checklistExtras)
             }
             .sheet(isPresented: $showSettings) { SettingsView() }
             .sheet(item: $factorsHour) { hourScore in
@@ -112,6 +122,22 @@ struct TodayView: View {
         nowcast = (await quartersTask) ?? []
         current = await currentTask
         kpIndex = await kpTask
+    }
+
+    /// Dynamische Checklisten-Punkte aus den Live-Daten von heute.
+    private var checklistExtras: [ChecklistItem] {
+        var extras: [ChecklistItem] = []
+        if let kpIndex, kpIndex >= 4 {
+            extras.append(ChecklistItem(
+                id: "kp", title: "Kompass kalibrieren (KP \(String(format: "%.1f", kpIndex)))",
+                subtitle: "Erhöhte Geomagnetik — GPS kann ungenauer sein"))
+        }
+        if let current, current.temperatureC < 5 {
+            extras.append(ChecklistItem(
+                id: "cold", title: "Akkus warm halten (aktuell \(String(format: "%.0f", current.temperatureC)) °C)",
+                subtitle: "Innentasche statt Rucksack — Kälte kostet Kapazität"))
+        }
+        return extras
     }
 
     // MARK: „Aktuell"-Kachelraster (Nutzerwunsch nach App-Vorbild)
@@ -141,6 +167,14 @@ struct TodayView: View {
                     tile(String(format: "%.1f", kpIndex), "KP-Index",
                          color: kpIndex >= 5 ? Theme.scoreColor(1)
                             : kpIndex >= 4 ? Theme.scoreColor(5) : nil)
+                }
+                if let profile = state.profile {
+                    let estimate = BatteryEstimator.estimate(
+                        profile: profile, temperatureC: now.temperatureC,
+                        windKmh: max(now.windKmh, now.gustsKmh * 0.8))
+                    tile(estimate.minutesText, "Akku-Schätzung",
+                         color: estimate.minutes < profile.nominalFlightMinutes * 0.75
+                            ? Theme.scoreColor(5) : nil)
                 }
             }
             if let kpIndex, kpIndex >= 4 {

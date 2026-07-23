@@ -327,6 +327,18 @@ struct SpotBriefingView: View {
                         Label("Böen", systemImage: "tornado")
                         Text("\(Int(hour.hour.windGusts10Kmh)) km/h")
                     }
+                    if let profile = state.profile {
+                        let estimate = BatteryEstimator.estimate(
+                            profile: profile,
+                            temperatureC: hour.hour.temperatureC,
+                            windKmh: max(hour.hour.windSpeed120Kmh, hour.hour.windSpeed10Kmh))
+                        GridRow {
+                            Label("Akku-Schätzung", systemImage: "battery.75percent")
+                            Text(estimate.minutesText + " pro Akku" +
+                                 (estimate.lossText.map { " (\($0))" } ?? "") +
+                                 " · für 45 min Session: \(BatteryEstimator.batteriesNeeded(for: 45, estimate: estimate)) Akkus")
+                        }
+                    }
                     GridRow {
                         Label("Regenrisiko", systemImage: "cloud.rain")
                         Text("\(Int(hour.hour.precipitationProbability)) %")
