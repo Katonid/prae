@@ -67,6 +67,10 @@ final class ClaudeService: ObservableObject {
 
     // MARK: Schlüsselverwaltung (Keychain)
 
+    /// Schlüssel liegen als synchronisierbare Einträge im
+    /// iCloud-Schlüsselbund (Nutzerwunsch: Geräte-Sync) — Apple
+    /// verschlüsselt sie Ende-zu-Ende; sie tauchen in keiner
+    /// Datei-Sicherung auf.
     func saveKey(_ key: String) {
         let trimmed = key.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, let data = trimmed.data(using: .utf8) else { return }
@@ -75,7 +79,8 @@ final class ClaudeService: ObservableObject {
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: Self.keychainService,
             kSecAttrAccount as String: Self.keychainAccount,
-            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
+            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlock,
+            kSecAttrSynchronizable as String: true,
             kSecValueData as String: data,
         ]
         SecItemAdd(attributes as CFDictionary, nil)
@@ -88,10 +93,12 @@ final class ClaudeService: ObservableObject {
     }
 
     private static func deleteKeyItem() {
+        // SynchronizableAny räumt auch alte, nur lokale Einträge ab.
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: keychainService,
             kSecAttrAccount as String: keychainAccount,
+            kSecAttrSynchronizable as String: kSecAttrSynchronizableAny,
         ]
         SecItemDelete(query as CFDictionary)
     }
@@ -101,6 +108,7 @@ final class ClaudeService: ObservableObject {
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: keychainService,
             kSecAttrAccount as String: keychainAccount,
+            kSecAttrSynchronizable as String: kSecAttrSynchronizableAny,
             kSecReturnData as String: true,
             kSecMatchLimit as String: kSecMatchLimitOne,
         ]

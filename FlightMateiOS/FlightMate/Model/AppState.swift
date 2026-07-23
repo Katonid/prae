@@ -18,7 +18,10 @@ final class AppState: NSObject, ObservableObject {
     // MARK: Onboarding & Profil
 
     @Published var droneProfileID: String? {
-        didSet { UserDefaults.standard.set(droneProfileID, forKey: "droneProfileID") }
+        didSet {
+            UserDefaults.standard.set(droneProfileID, forKey: "droneProfileID")
+            NSUbiquitousKeyValueStore.default.set(droneProfileID, forKey: "droneProfileID")
+        }
     }
 
     var profile: DroneProfile? { DroneProfile.profile(for: droneProfileID) }
@@ -64,6 +67,9 @@ final class AppState: NSObject, ObservableObject {
         didSet {
             if let data = try? JSONEncoder().encode(spots) {
                 UserDefaults.standard.set(data, forKey: "spots")
+                // iCloud-Sync (Nutzerwunsch): Spots wandern über den
+                // Key-Value-Store automatisch auf die anderen Geräte.
+                NSUbiquitousKeyValueStore.default.set(data, forKey: "spots")
             }
         }
     }
@@ -202,6 +208,50 @@ final class AppState: NSObject, ObservableObject {
         }
         locationManager.delegate = self
         locationManager.desiredAccuracy = kCLLocationAccuracyHundredMeters
+        startCloudSync()
+    }
+
+    // MARK: iCloud-Sync (Key-Value-Store)
+
+    /// Beim Start den iCloud-Stand übernehmen (falls neuer) und auf
+    /// Änderungen von anderen Geräten lauschen. Konfliktstrategie:
+    /// Der zuletzt schreibende Stand gewinnt (KVS-Semantik) — für
+    /// eine Handvoll Spots die ehrlich einfachste Lösung.
+    private func startCloudSync() {
+        let store = NSUbiquitousKeyValueStore.default
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(cloudStoreChanged),
+            name: NSUbiquitousKeyValueStore.didChangeExternallyNotification,
+            object: store)
+        store.synchronize()
+        adoptCloudData(initial: true)
+    }
+
+    @objc private nonisolated func cloudStoreChanged(_ note: Notification) {
+        Task { @MainActor in
+            self.adoptCloudData(initial: false)
+        }
+    }
+
+    private func adoptCloudData(initial: Bool) {
+        let store = NSUbiquitousKeyValueStore.default
+        if let data = store.data(forKey: "spots"),
+           let cloudSpots = try? JSONDecoder().decode([Spot].self, from: data) {
+            // Beim Start nur übernehmen, wenn lokal nichts liegt —
+            // sonst würde ein alter iCloud-Stand frische lokale Spots
+            // überschreiben. Echte Fern-Änderungen übernehmen wir immer.
+            if !initial || spots.isEmpty {
+                if cloudSpots.map(\.id) != spots.map(\.id) || cloudSpots.map(\.name) != spots.map(\.name) {
+                    spots = cloudSpots
+                    Task { await updateSpotNotifications() }
+                }
+            }
+        }
+        if let cloudProfile = store.string(forKey: "droneProfileID"),
+           DroneProfile.profile(for: cloudProfile) != nil,
+           droneProfileID == nil {
+            droneProfileID = cloudProfile
+        }
     }
 }
 

@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct SettingsView: View {
     @EnvironmentObject private var state: AppState
@@ -16,6 +17,9 @@ struct SettingsView: View {
     @State private var airspaceKeyInput = ""
     @State private var airspaceTestResult: String?
     @State private var airspaceTestRunning = false
+    @State private var exportURL: URL?
+    @State private var showImporter = false
+    @State private var transferMessage: String?
 
     var body: some View {
         NavigationStack {
@@ -126,6 +130,38 @@ struct SettingsView: View {
                         .foregroundStyle(.secondary)
                 }
 
+                Section("Daten & Synchronisation") {
+                    Label("iCloud-Sync aktiv", systemImage: "icloud")
+                        .foregroundStyle(.secondary)
+                    Text("Spots und Drohnenmodell wandern über iCloud automatisch auf deine anderen Geräte; die API-Schlüssel über den iCloud-Schlüsselbund (Ende-zu-Ende-verschlüsselt). Voraussetzung: gleiche Apple-ID und iCloud-Schlüsselbund aktiviert.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    if let exportURL {
+                        ShareLink(item: exportURL) {
+                            Label("Sicherung teilen/sichern", systemImage: "square.and.arrow.up")
+                        }
+                    } else {
+                        Button {
+                            exportURL = try? DataTransfer.exportFile(state: state)
+                            transferMessage = exportURL == nil
+                                ? "Export fehlgeschlagen — bitte erneut versuchen."
+                                : "Sicherung erstellt (Spots, Modell, Score-Feedback — ohne Schlüssel)."
+                        } label: {
+                            Label("Daten exportieren", systemImage: "square.and.arrow.up")
+                        }
+                    }
+                    Button {
+                        showImporter = true
+                    } label: {
+                        Label("Daten importieren", systemImage: "square.and.arrow.down")
+                    }
+                    if let transferMessage {
+                        Text(transferMessage)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
                 Section("Datenschutz") {
                     Text("Kein Account, kein Tracking, keine Werbung. Dein Standort wird nur bei aktiver Nutzung verwendet und für Wetterabfragen auf ~1 km gerundet. Spots liegen ausschließlich auf diesem Gerät.")
                         .font(.callout)
@@ -160,6 +196,22 @@ struct SettingsView: View {
             }
             .onChange(of: state.droneProfileID) {
                 Task { await state.refresh() }
+            }
+            .fileImporter(isPresented: $showImporter, allowedContentTypes: [.json]) { result in
+                switch result {
+                case .success(let url):
+                    do {
+                        let added = try DataTransfer.importFile(at: url, into: state)
+                        transferMessage = added == 0
+                            ? "Import gelesen — keine neuen Spots (alle schon vorhanden)."
+                            : "Import erfolgreich: \(added) neue\(added == 1 ? "r" : "") Spot\(added == 1 ? "" : "s") übernommen."
+                        Task { await state.updateSpotNotifications() }
+                    } catch {
+                        transferMessage = "Import fehlgeschlagen — ist das eine FlightMate-Sicherung (.json)?"
+                    }
+                case .failure:
+                    transferMessage = "Import abgebrochen."
+                }
             }
         }
     }

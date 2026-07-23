@@ -203,6 +203,14 @@ Dieser Stand entspricht dem **MVP-Fundament** (PRD Phase 0/1).
   werden abgeleitet. Kein Account.
 - **Offline-first:** Letzte Wetterprognose wird pro Ort gecacht und
   bei Netzausfall mit sichtbarem Datenstand verwendet.
+- **iCloud-Sync & Datenexport:** Spots und Drohnenmodell
+  synchronisieren über den iCloud-Key-Value-Store auf alle Geräte
+  (Entitlement in Support/FlightMate.entitlements; Konflikt:
+  zuletzt geschriebener Stand gewinnt), die API-Schlüssel über den
+  iCloud-Schlüsselbund (kSecAttrSynchronizable, Ende-zu-Ende-
+  verschlüsselt). Dazu Export/Import als JSON-Sicherung in den
+  Einstellungen (Spots, Modell, Score-Feedback — bewusst ohne
+  Schlüssel; Import vereinigt nach ID, löscht nichts).
 
 ## Noch offen (bewusst, siehe PRD-Roadmap)
 

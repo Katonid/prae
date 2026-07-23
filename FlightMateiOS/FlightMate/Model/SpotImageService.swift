@@ -27,7 +27,10 @@ enum SpotImageService {
     }
 
     /// Bilder für einen Kandidaten: erst die am OSM-Knoten gepflegten
-    /// Verweise, dann Commons-Fotos aus dem Umkreis (300 m).
+    /// Verweise, dann Commons-Fotos aus der direkten Umgebung — nach
+    /// Relevanz sortiert (Titel passt zum Spot-Namen vor Entfernung),
+    /// damit nicht das Nachbarmotiv die Galerie dominiert
+    /// (Nutzer-Befund: „Lake on the Mountain" zeigte die Glenora-Fähre).
     static func images(for candidate: SpotCandidate, limit: Int = 6) async -> [SpotImage] {
         var result: [SpotImage] = []
         var seen = Set<String>()
@@ -52,10 +55,21 @@ enum SpotImageService {
             }
         }
 
-        // 3. Commons-GeoSearch im Umkreis
-        for title in await nearbyFileTitles(latitude: candidate.latitude,
-                                            longitude: candidate.longitude) {
-            add(commonsImage(fileTitle: title))
+        // 3. Commons-GeoSearch: eng um den Spot (150 m), sortiert nach
+        //    Namenstreffer im Dateititel, dann nach Entfernung.
+        let nameWords = candidate.name.lowercased()
+            .components(separatedBy: CharacterSet.alphanumerics.inverted)
+            .filter { $0.count >= 4 }
+        let nearby = await nearbyFiles(latitude: candidate.latitude,
+                                       longitude: candidate.longitude)
+            .sorted { a, b in
+                let aMatches = nameWords.contains { a.title.lowercased().contains($0) }
+                let bMatches = nameWords.contains { b.title.lowercased().contains($0) }
+                if aMatches != bMatches { return aMatches }
+                return a.distanceM < b.distanceM
+            }
+        for file in nearby {
+            add(commonsImage(fileTitle: file.title))
         }
         return result
     }
@@ -73,16 +87,22 @@ enum SpotImageService {
         return SpotImage(id: fileTitle, thumbnailURL: thumbnail, pageURL: page)
     }
 
-    /// Frei lizenzierte Fotos im Umkreis (Wikimedia-Commons-GeoSearch).
-    private static func nearbyFileTitles(latitude: Double, longitude: Double) async -> [String] {
+    struct NearbyFile {
+        let title: String
+        let distanceM: Double
+    }
+
+    /// Frei lizenzierte Fotos im Umkreis (Wikimedia-Commons-GeoSearch,
+    /// eng gefasst: 150 m), mit Entfernung fürs Relevanz-Ranking.
+    private static func nearbyFiles(latitude: Double, longitude: Double) async -> [NearbyFile] {
         var components = URLComponents(string: "https://commons.wikimedia.org/w/api.php")!
         components.queryItems = [
             URLQueryItem(name: "action", value: "query"),
             URLQueryItem(name: "list", value: "geosearch"),
             URLQueryItem(name: "gscoord", value: "\(latitude)|\(longitude)"),
-            URLQueryItem(name: "gsradius", value: "300"),
+            URLQueryItem(name: "gsradius", value: "150"),
             URLQueryItem(name: "gsnamespace", value: "6"),
-            URLQueryItem(name: "gslimit", value: "12"),
+            URLQueryItem(name: "gslimit", value: "20"),
             URLQueryItem(name: "format", value: "json"),
         ]
         var request = URLRequest(url: components.url!)
@@ -91,7 +111,10 @@ enum SpotImageService {
 
         struct Response: Decodable {
             struct Query: Decodable {
-                struct Item: Decodable { let title: String }
+                struct Item: Decodable {
+                    let title: String
+                    let dist: Double?
+                }
                 let geosearch: [Item]
             }
             let query: Query?
@@ -101,6 +124,8 @@ enum SpotImageService {
               let decoded = try? JSONDecoder().decode(Response.self, from: data) else {
             return []
         }
-        return (decoded.query?.geosearch ?? []).map(\.title)
+        return (decoded.query?.geosearch ?? []).map {
+            NearbyFile(title: $0.title, distanceM: $0.dist ?? 0)
+        }
     }
 }
