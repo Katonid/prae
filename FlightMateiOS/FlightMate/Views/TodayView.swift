@@ -16,6 +16,8 @@ struct TodayView: View {
     @State private var factorsHour: HourScore?
     @State private var todaysFeedback = ScoreValidation.todays()
     @State private var nowcast: [WeatherService.QuarterForecast] = []
+    @State private var current: WeatherService.CurrentConditions?
+    @State private var kpIndex: Double?
 
     private var isWide: Bool { horizontalSizeClass == .regular }
 
@@ -44,15 +46,19 @@ struct TodayView: View {
                                     hourStrip(today)
                                 }
                                 VStack(spacing: 16) {
+                                    if let current { currentCard(current) }
                                     lightCard(today)
+                                    windProfileLink
                                     sevenDayLink
                                 }
                             }
                         } else {
                             scoreCard(today)
                             if nowcast.count >= 4 { nowcastCard }
+                            if let current { currentCard(current) }
                             hourStrip(today)
                             lightCard(today)
+                            windProfileLink
                             sevenDayLink
                         }
                         feedbackCard(today)
@@ -100,7 +106,104 @@ struct TodayView: View {
     // MARK: Kurzfrist-Blick („Jetzt starten oder kurz warten?")
 
     private func loadNowcast() async {
-        nowcast = (try? await WeatherService.shared.nowcast(for: state.effectiveLocation)) ?? []
+        async let quartersTask = try? WeatherService.shared.nowcast(for: state.effectiveLocation)
+        async let currentTask = try? WeatherService.shared.current(for: state.effectiveLocation)
+        async let kpTask = WeatherService.shared.kpIndex()
+        nowcast = (await quartersTask) ?? []
+        current = await currentTask
+        kpIndex = await kpTask
+    }
+
+    // MARK: „Aktuell"-Kachelraster (Nutzerwunsch nach App-Vorbild)
+
+    private func currentCard(_ now: WeatherService.CurrentConditions) -> some View {
+        let columns = [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())]
+        let limit = state.profile?.maxWindKmh ?? 38
+        return VStack(alignment: .leading, spacing: 8) {
+            Label("Aktuell", systemImage: "gauge.with.needle")
+                .font(.subheadline.bold())
+            LazyVGrid(columns: columns, spacing: 8) {
+                tile(String(format: "%.0f %%", now.cloudCoverPercent), "Wolkendecke")
+                tile(String(format: "%.1f km", now.visibilityM / 1000), "Sicht")
+                tile(String(format: "%.1f °C", now.temperatureC), "Temperatur")
+                tile("\(Int(now.windKmh.rounded())) km/h", "Wind",
+                     color: now.windKmh >= limit ? Theme.scoreColor(1) : nil)
+                tile("\(Int(now.gustsKmh.rounded())) km/h", "Böen",
+                     color: now.gustsKmh >= limit ? Theme.scoreColor(1)
+                        : now.gustsKmh >= limit * 0.8 ? Theme.scoreColor(5) : nil)
+                windDirectionTile(now.windDirectionDeg)
+                tile(String(format: "%.1f mm", now.precipitationMm), "Niederschlag",
+                     color: now.precipitationMm > 0 ? Theme.scoreColor(5) : nil)
+                tile(String(format: "%.1f °C", now.apparentC), "Gefühlt")
+                tile(String(format: "%.0f %%", now.humidityPercent), "Luftfeuchte")
+                tile(String(format: "%.1f", now.uvIndex), "UV-Index")
+                if let kpIndex {
+                    tile(String(format: "%.1f", kpIndex), "KP-Index",
+                         color: kpIndex >= 5 ? Theme.scoreColor(1)
+                            : kpIndex >= 4 ? Theme.scoreColor(5) : nil)
+                }
+            }
+            if let kpIndex, kpIndex >= 4 {
+                Text("Erhöhte Geomagnetik (KP \(String(format: "%.1f", kpIndex))) — GPS kann ungenauer sein; Kompass vor dem Start kalibrieren.")
+                    .font(.caption2)
+                    .foregroundStyle(.orange)
+            }
+        }
+        .padding()
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 14))
+    }
+
+    private func tile(_ value: String, _ label: String, color: Color? = nil) -> some View {
+        VStack(spacing: 2) {
+            Text(value)
+                .font(.subheadline.bold().monospacedDigit())
+                .foregroundStyle(color ?? .primary)
+            Text(label)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 10)
+        .background(Color.gray.opacity(0.10), in: RoundedRectangle(cornerRadius: 10))
+    }
+
+    private func windDirectionTile(_ degrees: Double) -> some View {
+        VStack(spacing: 2) {
+            HStack(spacing: 4) {
+                Image(systemName: "arrow.up")
+                    .font(.caption)
+                    // Pfeil zeigt, WOHIN der Wind weht (Richtung + 180°).
+                    .rotationEffect(.degrees(degrees + 180))
+                Text(Theme.compassDirection(degrees))
+                    .font(.subheadline.bold())
+            }
+            Text("Wind aus")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 10)
+        .background(Color.gray.opacity(0.10), in: RoundedRectangle(cornerRadius: 10))
+    }
+
+    // MARK: Winde-nach-Höhe-Link
+
+    private var windProfileLink: some View {
+        NavigationLink {
+            WindProfileView()
+        } label: {
+            HStack {
+                Label("Winde nach Höhe", systemImage: "wind")
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .padding()
+            .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 14))
+        }
+        .buttonStyle(.plain)
     }
 
     private enum QuarterState {

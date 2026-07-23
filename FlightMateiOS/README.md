@@ -154,6 +154,15 @@ Dieser Stand entspricht dem **MVP-Fundament** (PRD Phase 0/1).
   Schlüssel); ausgeliefert werden kleine Special:FilePath-Thumbnails,
   ein Tipp aufs Bild öffnet die Commons-Seite mit Lizenz/Urheber.
   Keine Likes, keine Feeds (PRD N2). Daten: © OpenStreetMap (ODbL).
+- **„Aktuell"-Kachelraster & „Winde nach Höhe":** Nach App-Vorbild
+  des Nutzers — im Heute-Tab ein Kachelraster mit den aktuellen
+  Bedingungen (Wolkendecke, Sicht, Wind/Böen farbcodiert gegen die
+  Drohnen-Toleranz, Windrichtungs-Pfeil, Niederschlag, Temperatur,
+  gefühlt, Luftfeuchte, UV) plus **KP-Index** von der NOAA (offen) —
+  ab KP 4 mit GPS-/Kompass-Warnhinweis. Dazu die neue Ansicht
+  **„Winde nach Höhe"**: stündliche Tabelle mit Richtungspfeil und
+  km/h auf 10/80/120/180 m (Open-Meteo-Modellwinde), Tage wählbar,
+  farbcodiert gegen die Windtoleranz des Profils.
 - **Kurzfrist-Blick „Nächste 2 Stunden":** Farbstreifen im Heute-Tab
   aus den 15-Minuten-Daten von Open-Meteo (Böen, Wind, Regen) mit
   deterministischer Kernaussage — „Jetzt ist das bessere Fenster —
