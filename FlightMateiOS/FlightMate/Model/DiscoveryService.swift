@@ -152,6 +152,15 @@ enum DiscoveryService {
         }
     }
 
+    /// Die letzten Treffer unabhängig vom aktuellen Suchzentrum —
+    /// für die Einblendung auf der Zonenkarte (Karte-Tab).
+    static func lastResults(maxAge: TimeInterval = 7 * 86_400) -> [SpotCandidate]? {
+        guard let data = try? Data(contentsOf: resultsFile),
+              let stored = try? JSONDecoder().decode(StoredSearch.self, from: data),
+              Date().timeIntervalSince(stored.savedAt) < maxAge else { return nil }
+        return stored.candidates
+    }
+
     static func storedResults(center: CLLocationCoordinate2D, radiusM: Int,
                               kinds: Set<SpotCandidate.Kind>,
                               toleranceM: Double = 100,

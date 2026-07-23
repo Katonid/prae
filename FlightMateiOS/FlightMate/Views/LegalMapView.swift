@@ -71,6 +71,10 @@ struct LegalMapView: View {
     @State private var zoomedOut = false
     @State private var detailHidden = false
     @State private var overlayTask: Task<Void, Never>?
+    // Auf Wunsch: die letzten Entdecken-Treffer im Zonen-Kontext —
+    // ein Tipp auf den Marker startet den punktgenauen Legal-Check.
+    @AppStorage("mapShowsPhotoSpots") private var showsPhotoSpots = false
+    @State private var photoSpots: [SpotCandidate] = []
 
     var body: some View {
         NavigationStack {
@@ -99,6 +103,13 @@ struct LegalMapView: View {
                     ForEach(state.spots) { spot in
                         Marker(spot.name, systemImage: "star.fill", coordinate: spot.coordinate)
                             .tint(.yellow)
+                    }
+                    if showsPhotoSpots {
+                        ForEach(photoSpots) { candidate in
+                            Marker(candidate.name, systemImage: candidate.kind.symbol,
+                                   coordinate: candidate.coordinate)
+                                .tint(.teal)
+                        }
                     }
                 }
                 .mapStyle(styleChoice.style)
@@ -173,6 +184,17 @@ struct LegalMapView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        showsPhotoSpots.toggle()
+                        if showsPhotoSpots { loadPhotoSpots() }
+                    } label: {
+                        Image(systemName: showsPhotoSpots ? "binoculars.fill" : "binoculars")
+                    }
+                    .accessibilityLabel(showsPhotoSpots
+                        ? "Foto-Orte auf der Karte ausblenden"
+                        : "Gefundene Foto-Orte auf der Karte einblenden")
+                }
+                ToolbarItem(placement: .topBarTrailing) {
                     Menu {
                         Picker("Kartenansicht", selection: $appearance) {
                             ForEach(MapAppearance.allCases) { choice in
@@ -185,6 +207,7 @@ struct LegalMapView: View {
                     .accessibilityLabel("Tag- oder Nachtansicht der Karte")
                 }
             }
+            .onAppear { if showsPhotoSpots { loadPhotoSpots() } }
             .sheet(isPresented: $showResult) {
                 if let assessment {
                     LegalResultView(assessment: assessment) { name in
@@ -194,6 +217,12 @@ struct LegalMapView: View {
                 }
             }
         }
+    }
+
+    /// Die letzten Entdecken-Treffer (Ergebnis-Gedächtnis auf dem
+    /// Gerät) — ohne eigene Suche, nur einblenden, was da ist.
+    private func loadPhotoSpots() {
+        photoSpots = DiscoveryService.lastResults() ?? []
     }
 
     private func check(_ coordinate: CLLocationCoordinate2D) {
