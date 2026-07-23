@@ -14,6 +14,8 @@ struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var apiKeyInput = ""
     @State private var airspaceKeyInput = ""
+    @State private var airspaceTestResult: String?
+    @State private var airspaceTestRunning = false
 
     var body: some View {
         NavigationStack {
@@ -76,20 +78,50 @@ struct SettingsView: View {
                     if airspace.hasKey {
                         Label("openAIP-Schlüssel gespeichert (Keychain)", systemImage: "checkmark.seal")
                             .foregroundStyle(.green)
+                        Button {
+                            airspaceTestRunning = true
+                            airspaceTestResult = nil
+                            Task {
+                                airspaceTestResult = await AirspaceService.testKey()
+                                airspaceTestRunning = false
+                            }
+                        } label: {
+                            if airspaceTestRunning {
+                                HStack {
+                                    ProgressView()
+                                    Text("Teste Verbindung …")
+                                }
+                            } else {
+                                Label("Schlüssel testen", systemImage: "antenna.radiowaves.left.and.right")
+                            }
+                        }
+                        .disabled(airspaceTestRunning)
+                        if let airspaceTestResult {
+                            Text(airspaceTestResult)
+                                .font(.caption)
+                                .foregroundStyle(airspaceTestResult.contains("✓") ? .green : .orange)
+                        }
                         Button("Schlüssel löschen", role: .destructive) {
                             airspace.clearKey()
+                            airspaceTestResult = nil
                         }
                     } else {
                         SecureField("openAIP API-Schlüssel", text: $airspaceKeyInput)
                             .textInputAutocapitalization(.never)
                             .autocorrectionDisabled()
-                        Button("Schlüssel speichern") {
+                        Button("Schlüssel speichern & testen") {
                             airspace.saveKey(airspaceKeyInput)
                             airspaceKeyInput = ""
+                            airspaceTestRunning = true
+                            airspaceTestResult = nil
+                            Task {
+                                airspaceTestResult = await AirspaceService.testKey()
+                                airspaceTestRunning = false
+                            }
                         }
                         .disabled(airspaceKeyInput.trimmingCharacters(in: .whitespaces).isEmpty)
                     }
-                    Text("Zeigt Lufträume (Kontrollzonen, Flugbeschränkungs- und Advisory-Gebiete) auf der Karte und im Legal-Check — in Kanada (das Zonenbild der NAV-Drone-Karte) und in den Nachbarländern Deutschlands (NL, BE, LU, FR, DK, CZ, PL, AT). Die USA brauchen keinen Schlüssel — dort kommen die Daten direkt von der FAA. Der Schlüssel ist kostenlos: Konto auf openaip.net anlegen → Profil → „API Clients". Daten: openAIP (CC BY-NC).")
+                    Text("Zeigt Lufträume (Kontrollzonen, Flugbeschränkungs- und Advisory-Gebiete) auf der Karte und im Legal-Check — in Kanada (das Zonenbild der NAV-Drone-Karte) und in den Nachbarländern Deutschlands (NL, BE, LU, FR, DK, CZ, PL, AT). Die USA brauchen keinen Schlüssel — dort kommen die Daten direkt von der FAA. Der Schlüssel ist kostenlos: Konto auf openaip.net anlegen → Profil → „API Clients“. Daten: openAIP (CC BY-NC).")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -103,8 +135,9 @@ struct SettingsView: View {
                     LabeledContent("Wetter & Höhenwind", value: "Open-Meteo")
                     LabeledContent("Geo-Zonen (DE)", value: "dipul / BMDV")
                     LabeledContent("Geo-Zonen (CH)", value: "BAZL / geo.admin.ch")
-                    LabeledContent("Geo-Zonen (CA)", value: "NRCan · Transport Canada")
+                    LabeledContent("Geo-Zonen (CA)", value: "NRCan · TC · CWFIS · Ontario")
                     LabeledContent("Geo-Zonen (US)", value: "FAA · National Park Service")
+                    LabeledContent("Geo-Zonen (NL/FR/LU)", value: "PDOK · IGN · geoportail.lu")
                     LabeledContent("Lufträume (CA/EU)", value: "openAIP (mit Schlüssel)")
                     LabeledContent("Sonnenstand", value: "on-device berechnet")
                     Text(LegalAssessment.disclaimer)

@@ -522,17 +522,44 @@ struct CanadaLegalProvider: LegalProvider {
     )
 
     /// In Kanada ohne abfragbare Quelle — der Pilot muss sie selbst prüfen.
-    /// Lufträume (CTR, CYR/CYA) sind mit openAIP-Schlüssel abgedeckt,
-    /// ohne Schlüssel stehen sie ehrlich in dieser Liste.
+    /// Waldbrände (CWFIS) und Ontario-Provinzparks werden inzwischen
+    /// live geprüft; Lufträume und kleine Flugplätze mit openAIP-Schlüssel.
     static var uncheckedZoneTypes: [String] {
         var types = [
-            "NOTAMs / Waldbrand-Sperrzonen (9,3 km)",
-            "Provinzparks (je Provinz eigene Regeln)",
+            "NOTAMs (tagesaktuelle Sperrungen) — NAV Drone",
+            "Provinzparks außerhalb Ontarios (je Provinz eigene Regeln)",
         ]
         if !AirspaceService.hasStoredKey {
-            types.insert("Lufträume CTR & Klasse F (CYR/CYD/CYA) — openAIP-Schlüssel in den Einstellungen hinterlegen, dann prüft FlightMate sie live", at: 0)
+            types.insert("Lufträume CTR & Klasse F (CYR/CYD/CYA) sowie kleine Flugplätze — openAIP-Schlüssel in den Einstellungen hinterlegen, dann prüft FlightMate sie live", at: 0)
         }
         return types
+    }
+
+    static func fireRule(distanceKm: Double) -> ZoneRule {
+        ZoneRule(
+            layer: "cwfis", title: "Waldbrand-Sperrzone (9,3 km)",
+            severity: .forbidden,
+            plainText: String(format: "Satelliten-Hotspot eines Waldbrands in ≈ %.1f km Entfernung (letzte 24 h, NRCan/CWFIS). Im Umkreis von 5 NM (9,3 km) um Waldbrände ist der Luftraum für Drohnen gesperrt (CARs 601.15) — die Behinderung von Löscharbeiten ist strafbar. Nicht starten.", distanceKm),
+            maxAltitudeM: 0)
+    }
+
+    static let ontarioParkRule = ZoneRule(
+        layer: "ontario_parks", title: "Provinzpark (Ontario Parks)",
+        severity: .forbidden,
+        plainText: "In Ontarios Provinzparks sind Start, Landung und Betrieb von Drohnen ohne Genehmigung verboten (Ontario Parks) — das gilt auch für Drohnen unter 250 g.",
+        maxAltitudeM: 0)
+
+    static func aerodromeRule(isHeliport: Bool, distanceKm: Double) -> ZoneRule {
+        ZoneRule(
+            layer: "aerodrome", title: isHeliport ? "Heliport in der Nähe" : "Flugplatz in der Nähe",
+            severity: .conditional,
+            plainText: String(format: "Registrierter \(isHeliport ? "Heliport" : "Flugplatz") in ≈ %.1f km Entfernung. Für Drohnen ab 250 g gilt die \(isHeliport ? "1-NM-Zone (1,9 km)" : "3-NM-Zone (5,6 km)") — Betrieb nur mit Erlaubnis. Für deine Mikrodrohne unter 250 g gilt: Flugverkehr niemals gefährden (CARs 900.06), An-/Abflugwege und Platzrunde meiden, sehr niedrig bleiben.", distanceKm),
+            maxAltitudeM: 30)
+    }
+
+    /// Ontario (Bounding-Box) — nur dort ist die Provinzpark-Quelle gültig.
+    static func isOntario(_ c: CLLocationCoordinate2D) -> Bool {
+        (41.6...56.9).contains(c.latitude) && ((-95.2)...(-74.3)).contains(c.longitude)
     }
 
     /// Klartexte für openAIP-Luftraumtreffer, nach Schwere.
@@ -550,6 +577,48 @@ struct CanadaLegalProvider: LegalProvider {
         async let airportsResult: Result<[String?], Error> = Self.query(
             baseURL: "https://maps-cartes.services.geo.ca/server_serveur/rest/services/TC/canadian_airports_w_air_navigation_services_en/MapServer/0",
             coordinate: coordinate, distanceM: 5_600, nameFields: ["AIRPORT", "ICAO"])
+        async let fireResult = Self.nearestFireResult(to: coordinate)
+
+        switch await fireResult {
+        case .success(let distanceM):
+            if let distanceM, distanceM <= 9_300 {
+                hits.append(ZoneHit(rule: Self.fireRule(distanceKm: distanceM / 1000), featureName: nil))
+            }
+        case .failure:
+            failed.append("Waldbrand-Sperrzonen (NRCan/CWFIS)")
+        }
+
+        if Self.isOntario(coordinate) {
+            switch await Self.query(
+                baseURL: "https://ws.lioservices.lrc.gov.on.ca/arcgis2/rest/services/LIO_OPEN_DATA/LIO_Open03/MapServer/4",
+                coordinate: coordinate, distanceM: nil,
+                nameFields: ["PROTECTED_AREA_NAME_ENG"]) {
+            case .success(let names):
+                for name in names {
+                    hits.append(ZoneHit(rule: Self.ontarioParkRule, featureName: name.map(Self.titleCase)))
+                }
+            case .failure:
+                failed.append("Provinzparks Ontario (LIO)")
+            }
+        }
+
+        // Kleine Flugplätze & Heliports (auch ohne Flugsicherung) über
+        // openAIP — die decken die orangen Flugplatz-Zonen der
+        // NAV-Drone-Karte ab (z. B. Tyendinaga/Mohawk).
+        if AirspaceService.hasStoredKey {
+            if let aerodromes = try? await AirspaceService.aerodromes(around: coordinate, radiusM: 5_600) {
+                for aerodrome in aerodromes {
+                    let limit: Double = aerodrome.isHeliport ? 1_852 : 5_556
+                    guard aerodrome.distanceM <= limit else { continue }
+                    hits.append(ZoneHit(
+                        rule: Self.aerodromeRule(isHeliport: aerodrome.isHeliport,
+                                                 distanceKm: aerodrome.distanceM / 1000),
+                        featureName: aerodrome.name))
+                }
+            } else {
+                failed.append("Kleine Flugplätze (openAIP)")
+            }
+        }
 
         switch await parksResult {
         case .success(let names):
@@ -607,8 +676,8 @@ struct CanadaLegalProvider: LegalProvider {
             baselineText: "Für Mikrodrohnen unter 250 g (deine \(profile.name)) gelten in Kanada die Grundregeln der CARs 900.06: keine Gefährdung von Luftverkehr und Personen, Sichtverbindung halten, unter 122 m (400 ft) bleiben, Abstand zu Menschenansammlungen und Einsatzkräften. Keine Registrierung und kein Zertifikat nötig.",
             maxAltitudeM: min(maxAltitude, 122), checkedAt: Date(),
             sourceNote: AirspaceService.hasStoredKey
-                ? "Quellen: NRCan/CLSS (Nationalparks), Transport Canada (Flughäfen), openAIP (Lufträume), Live-Abfrage. NOTAMs: NAV Drone."
-                : "Quellen: NRCan/CLSS (Nationalparks), Transport Canada (Flughäfen), Live-Abfrage. Luftraum & NOTAMs: NAV Drone."
+                ? "Quellen: NRCan/CLSS (Nationalparks), Transport Canada (Flughäfen), NRCan/CWFIS (Waldbrände), Ontario Parks (LIO), openAIP (Lufträume & Flugplätze) — Live-Abfrage. NOTAMs: NAV Drone."
+                : "Quellen: NRCan/CLSS (Nationalparks), Transport Canada (Flughäfen), NRCan/CWFIS (Waldbrände), Ontario Parks (LIO) — Live-Abfrage. Luftraum & NOTAMs: NAV Drone."
         )
     }
 
@@ -618,6 +687,50 @@ struct CanadaLegalProvider: LegalProvider {
             return .success(try await arcgisPointQuery(
                 baseURL: baseURL, coordinate: coordinate,
                 distanceM: distanceM, nameFields: nameFields))
+        } catch {
+            return .failure(error)
+        }
+    }
+
+    /// Nächster Waldbrand-Hotspot (Satellit, letzte 24 h) über den
+    /// offenen CWFIS-GeoServer von NRCan. Gefiltert wird über die
+    /// lat/lon-Attribute (CQL) — das umgeht die projizierte Geometrie
+    /// des Dienstes. Liefert die Distanz in Metern oder nil.
+    static func nearestFireResult(to c: CLLocationCoordinate2D) async -> Result<Double?, Error> {
+        var components = URLComponents(string: "https://cwfis.cfs.nrcan.gc.ca/geoserver/public/ows")!
+        let cql = String(format: "lat BETWEEN %f AND %f AND lon BETWEEN %f AND %f",
+                         c.latitude - 0.15, c.latitude + 0.15,
+                         c.longitude - 0.25, c.longitude + 0.25)
+        components.queryItems = [
+            URLQueryItem(name: "service", value: "WFS"),
+            URLQueryItem(name: "version", value: "2.0.0"),
+            URLQueryItem(name: "request", value: "GetFeature"),
+            URLQueryItem(name: "typeNames", value: "public:hotspots_last24hrs"),
+            URLQueryItem(name: "outputFormat", value: "application/json"),
+            URLQueryItem(name: "count", value: "200"),
+            URLQueryItem(name: "cql_filter", value: cql),
+        ]
+        struct Response: Decodable {
+            struct Feature: Decodable {
+                struct Properties: Decodable {
+                    let lat: Double?
+                    let lon: Double?
+                }
+                let properties: Properties?
+            }
+            let features: [Feature]
+        }
+        do {
+            let data = try await fetchJSON(components)
+            let response = try JSONDecoder().decode(Response.self, from: data)
+            let here = CLLocation(latitude: c.latitude, longitude: c.longitude)
+            let nearest = response.features
+                .compactMap { feature -> Double? in
+                    guard let lat = feature.properties?.lat, let lon = feature.properties?.lon else { return nil }
+                    return CLLocation(latitude: lat, longitude: lon).distance(from: here)
+                }
+                .min()
+            return .success(nearest)
         } catch {
             return .failure(error)
         }
@@ -852,11 +965,12 @@ struct EuropeanNeighborsProvider: LegalProvider {
     /// Land → (Name, nationales Geozonen-Portal, Besonderheit).
     static let countryInfo: [String: (name: String, portal: String, note: String?)] = [
         "NL": ("Niederlande", "GoDrone (godrone.nl, LVNL)",
-               "Viele Naturschutzgebiete (Natura 2000) und weite Teile der Randstad sind gesperrt — vorab die GoDrone-Karte prüfen."),
+               "Viele Naturschutzgebiete (Natura 2000) sind für Drohnen gesperrt — FlightMate prüft sie für diesen Punkt live."),
         "BE": ("Belgien", "Droneguide (map.droneguide.be, skeyes)", nil),
-        "LU": ("Luxemburg", "ANA Luxembourg (ana.lu, Drohnenkarte)", nil),
-        "FR": ("Frankreich", "Géoportail „Restrictions UAS" (geoportail.gouv.fr)",
-               "In Frankreich ist Freizeit-Fliegen über Ortschaften und Wohngebieten („agglomérations") grundsätzlich verboten — auch unter 250 g. Die Géoportail-Karte zeigt die Flächen."),
+        "LU": ("Luxemburg", "ANA Luxembourg (ana.lu, Drohnenkarte)",
+               "FlightMate prüft die amtlichen UAS-Geozonen Luxemburgs für diesen Punkt live."),
+        "FR": ("Frankreich", "Géoportail „Restrictions UAS“ (geoportail.gouv.fr)",
+               "In Frankreich ist Freizeit-Fliegen über Ortschaften und Wohngebieten („agglomérations“) grundsätzlich verboten — auch unter 250 g. FlightMate prüft die amtliche Restriktionskarte für diesen Punkt live."),
         "DK": ("Dänemark", "Droneluftrum (droneluftrum.dk, Naviair)", nil),
         "CZ": ("Tschechien", "DronView (dronview.rlp.cz, ŘLP)", nil),
         "PL": ("Polen", "PANSA UTM / DroneTower (drony.gov.pl)",
@@ -868,6 +982,7 @@ struct EuropeanNeighborsProvider: LegalProvider {
         var hits: [ZoneHit] = []
         var failed: [String] = []
         var unchecked: [String] = []
+        var sources: [String] = []
 
         // Lufträume (CTR, Restricted/Prohibited) über openAIP.
         if AirspaceService.hasStoredKey {
@@ -877,6 +992,7 @@ struct EuropeanNeighborsProvider: LegalProvider {
                         rule: openAIPZoneRule(title: space.title, severity: space.severity),
                         featureName: space.name))
                 }
+                sources.append("openAIP (Lufträume)")
             } else {
                 failed.append("Lufträume (openAIP)")
             }
@@ -890,7 +1006,29 @@ struct EuropeanNeighborsProvider: LegalProvider {
         let code = await Self.countryCode(for: coordinate)
         let info = code.flatMap { Self.countryInfo[$0] }
         let portal = info?.portal ?? "das nationale Drohnen-Portal"
-        unchecked.append("Nationale Drohnen-Geozonen (Naturschutzgebiete, Städte, Infrastruktur) — \(portal)")
+
+        // Nationale Geozonen: wo eine amtliche offene Quelle existiert
+        // (NL, FR, LU), prüft FlightMate sie direkt — der Portal-Verweis
+        // bleibt nur für den Rest (Nutzerwunsch: kein Suchen im Web).
+        if let code, NationalGeoZones.supports(code) {
+            if let nationalHits = try? await NationalGeoZones.hits(country: code, at: coordinate) {
+                for hit in nationalHits {
+                    hits.append(ZoneHit(rule: ZoneRule(
+                        layer: "national-\(code)", title: hit.title,
+                        severity: hit.severity, plainText: hit.text,
+                        maxAltitudeM: hit.maxAltitudeM
+                    ), featureName: hit.featureName))
+                }
+                if let source = NationalGeoZones.sourceName(code) {
+                    sources.append(source)
+                }
+                unchecked.append("Kurzfristige lokale Sperren (z. B. Events, NOTAMs) — im Zweifel \(portal)")
+            } else {
+                failed.append("Nationale Geozonen (\(info?.name ?? code)) — Dienst nicht erreichbar, bitte \(portal) prüfen")
+            }
+        } else {
+            unchecked.append("Nationale Drohnen-Geozonen (Naturschutzgebiete, Städte, Infrastruktur) — \(portal)")
+        }
 
         hits.sort { $0.rule.severity > $1.rule.severity }
         let verdict = hits.map(\.rule.severity).max() ?? .allowed
@@ -901,15 +1039,14 @@ struct EuropeanNeighborsProvider: LegalProvider {
             baseline += " Besonderheit \(info.name): \(note)"
         }
 
+        sources.append("EU-Regelwerk (EASA)")
         return LegalAssessment(
             coordinate: coordinate, verdict: verdict, zones: hits,
             uncheckedLayers: failed + unchecked,
-            uncheckedHint: "Bitte vor dem Start die nationalen Geo-Zonen gegenprüfen: \(portal).",
+            uncheckedHint: nil,
             baselineText: baseline,
             maxAltitudeM: min(maxAltitude, 120), checkedAt: Date(),
-            sourceNote: AirspaceService.hasStoredKey
-                ? "Quellen: openAIP (Lufträume, Live-Abfrage) + EU-Regelwerk (EASA). Nationale Geozonen: \(portal)."
-                : "Quelle: EU-Regelwerk (EASA). Lufträume und nationale Geozonen: \(portal)."
+            sourceNote: "Quellen: \(sources.joined(separator: ", ")) — Live-Abfrage."
         )
     }
 

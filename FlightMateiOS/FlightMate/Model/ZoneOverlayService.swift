@@ -11,10 +11,11 @@
 //  die dichten Korridore (Straßen, Bahn, Wasserstraßen, Strom) und
 //  Wohngrundstücke erst ab näherem Zoom, damit die Karte in Städten
 //  nicht vollflächig zugedeckt wird.
-//  Abdeckung: Deutschland (dipul) und Kanada (NRCan-Nationalparks
-//  als Polygone, Transport-Canada-Flughäfen als 3-NM-Kreise; mit
-//  openAIP-Schlüssel zusätzlich Lufträume wie CTR und CYR/CYA —
-//  das NAV-Drone-Bild, siehe AirspaceService).
+//  Abdeckung: Deutschland (dipul), USA (FAA/NPS) und Kanada
+//  (NRCan-Nationalparks, Transport-Canada-Flughäfen, CWFIS-Waldbrand-
+//  Sperrkreise, Ontario-Provinzparks; mit openAIP-Schlüssel zusätzlich
+//  Lufträume wie CTR/CYR/CYA und kleine Flugplätze — das
+//  NAV-Drone-Bild, siehe AirspaceService).
 //
 
 import Foundation
@@ -145,10 +146,100 @@ final class ZoneOverlayService {
         async let airports = Self.fetchCanadaAirports(envelope: envelope)
         // US-Zonen ausblenden — im Grenzband zeichnet sie der FAA-Zweig.
         async let airspaces = Self.fetchAirspaces(in: region, excludingCountry: "US")
+        async let fires = Self.fetchCanadaFires(in: region)
+        async let aerodromes = Self.fetchAerodromeCircles(in: region)
+        async let ontarioParks = Self.fetchOntarioParks(center: region.center, envelope: envelope)
         let parkZones = (try? await parks) ?? []
         let airportZones = (try? await airports) ?? []
         let airspaceZones = await airspaces
-        return (parkZones + airportZones + airspaceZones).sorted { $0.severity < $1.severity }
+        let fireZones = (try? await fires) ?? []
+        let aerodromeZones = await aerodromes
+        let ontarioZones = await ontarioParks
+        return (parkZones + airportZones + airspaceZones + fireZones + aerodromeZones + ontarioZones)
+            .sorted { $0.severity < $1.severity }
+    }
+
+    /// Ontarios Provinzparks (Drohnenverbot) als rote Polygone —
+    /// nur innerhalb Ontarios, offener LIO-Dienst der Provinz.
+    private static func fetchOntarioParks(center: CLLocationCoordinate2D,
+                                          envelope: String) async -> [ZoneOverlay] {
+        guard CanadaLegalProvider.isOntario(center) else { return [] }
+        return (try? await fetchArcGISPolygons(
+            baseURL: "https://ws.lioservices.lrc.gov.on.ca/arcgis2/rest/services/LIO_OPEN_DATA/LIO_Open03/MapServer/4",
+            envelope: envelope, outFields: "PROTECTED_AREA_NAME_ENG",
+            whereClause: nil, idPrefix: "ca-onpark", severity: { _ in .forbidden })) ?? []
+    }
+
+    /// Waldbrand-Hotspots (Satellit, letzte 24 h) als rote
+    /// 9,3-km-Sperrkreise (CARs 601.15) — offener CWFIS-GeoServer.
+    private static func fetchCanadaFires(in region: MKCoordinateRegion) async throws -> [ZoneOverlay] {
+        var components = URLComponents(string: "https://cwfis.cfs.nrcan.gc.ca/geoserver/public/ows")!
+        let c = region.center
+        let cql = String(format: "lat BETWEEN %f AND %f AND lon BETWEEN %f AND %f",
+                         c.latitude - region.span.latitudeDelta / 2 - 0.1,
+                         c.latitude + region.span.latitudeDelta / 2 + 0.1,
+                         c.longitude - region.span.longitudeDelta / 2 - 0.15,
+                         c.longitude + region.span.longitudeDelta / 2 + 0.15)
+        components.queryItems = [
+            URLQueryItem(name: "service", value: "WFS"),
+            URLQueryItem(name: "version", value: "2.0.0"),
+            URLQueryItem(name: "request", value: "GetFeature"),
+            URLQueryItem(name: "typeNames", value: "public:hotspots_last24hrs"),
+            URLQueryItem(name: "outputFormat", value: "application/json"),
+            URLQueryItem(name: "count", value: "100"),
+            URLQueryItem(name: "cql_filter", value: cql),
+        ]
+        var request = URLRequest(url: components.url!)
+        request.timeoutInterval = 12
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+            throw GeoQueryError.badResponse
+        }
+        struct Response: Decodable {
+            struct Feature: Decodable {
+                struct Properties: Decodable {
+                    let lat: Double?
+                    let lon: Double?
+                }
+                let properties: Properties?
+            }
+            let features: [Feature]
+        }
+        let result = try JSONDecoder().decode(Response.self, from: data)
+        return result.features.enumerated().compactMap { index, feature in
+            guard let lat = feature.properties?.lat, let lon = feature.properties?.lon else { return nil }
+            return ZoneOverlay(
+                id: String(format: "ca-fire-%.3f-%.3f-%d", lat, lon, index),
+                title: "Waldbrand-Sperrzone (9,3 km, CARs 601.15)",
+                severity: .forbidden,
+                rings: [],
+                circles: [ZoneCircle(center: CLLocationCoordinate2D(latitude: lat, longitude: lon),
+                                     radiusM: 9_300)]
+            )
+        }
+    }
+
+    /// Kleine Flugplätze & Heliports (openAIP, mit Schlüssel) als
+    /// orange 3-NM- bzw. 1-NM-Kreise — die orangen Flugplatz-Zonen
+    /// der NAV-Drone-Karte.
+    private static func fetchAerodromeCircles(in region: MKCoordinateRegion) async -> [ZoneOverlay] {
+        guard AirspaceService.hasStoredKey else { return [] }
+        let halfDiagonalM = MKMapPoint(region.center).distance(
+            to: MKMapPoint(CLLocationCoordinate2D(
+                latitude: region.center.latitude + region.span.latitudeDelta / 2,
+                longitude: region.center.longitude + region.span.longitudeDelta / 2)))
+        let radius = min(max(Int(halfDiagonalM), 5_000), 60_000)
+        let aerodromes = (try? await AirspaceService.aerodromes(around: region.center, radiusM: radius)) ?? []
+        return aerodromes.enumerated().map { index, aerodrome in
+            ZoneOverlay(
+                id: "ca-aero-\(aerodrome.name)-\(index)",
+                title: aerodrome.isHeliport ? "Heliport: \(aerodrome.name)" : "Flugplatz: \(aerodrome.name)",
+                severity: .conditional,
+                rings: [],
+                circles: [ZoneCircle(center: aerodrome.coordinate,
+                                     radiusM: aerodrome.isHeliport ? 1_852 : 5_556)]
+            )
+        }
     }
 
     /// Lufträume (CTR, CYR/CYA …) aus openAIP — nur mit hinterlegtem
@@ -273,20 +364,20 @@ final class ZoneOverlayService {
                               minLon, minLat, maxLon, maxLat)
 
         // Kontrollierter Luftraum mit Bodenkontakt (Klasse B/C/D/E-Flächen).
-        async let classAirspace = Self.fetchUSPolygons(
+        async let classAirspace = Self.fetchArcGISPolygons(
             baseURL: "\(Self.faaBase)/Class_Airspace/FeatureServer/0",
             envelope: envelope, outFields: "NAME",
             whereClause: "TYPE_CODE='CLASS' AND LOWER_VAL=0 AND CLASS IN ('B','C','D','E')",
             idPrefix: "us-class", severity: { _ in .conditional })
         // Special Use Airspace: Prohibited/Restricted rot, Rest orange.
-        async let sua = Self.fetchUSPolygons(
+        async let sua = Self.fetchArcGISPolygons(
             baseURL: "\(Self.faaBase)/Special_Use_Airspace/FeatureServer/0",
             envelope: envelope, outFields: "NAME,TYPE_CODE",
             whereClause: "LOWER_VAL=0",
             idPrefix: "us-sua",
             severity: { ["P", "R"].contains($0 ?? "") ? .forbidden : .conditional })
         // Nationalparks (NPS): Drohnenverbot in allen Gebieten.
-        async let parks = Self.fetchUSPolygons(
+        async let parks = Self.fetchArcGISPolygons(
             baseURL: "https://services1.arcgis.com/fBc8EJBxQRMcHlei/arcgis/rest/services/NPS_Land_Resources_Division_Boundary_and_Tract_Data_Service/FeatureServer/2",
             envelope: envelope, outFields: "UNIT_NAME",
             whereClause: nil,
@@ -298,7 +389,7 @@ final class ZoneOverlayService {
         return all.sorted { $0.severity < $1.severity }
     }
 
-    private static func fetchUSPolygons(baseURL: String, envelope: String, outFields: String,
+    private static func fetchArcGISPolygons(baseURL: String, envelope: String, outFields: String,
                                         whereClause: String?, idPrefix: String,
                                         severity: (String?) -> LegalVerdict) async throws -> [ZoneOverlay] {
         let data = try await arcgisGeoJSON(baseURL: baseURL, envelope: envelope,
@@ -312,7 +403,7 @@ final class ZoneOverlayService {
                 .filter { $0.count >= 3 }
             guard !rings.isEmpty else { return nil }
             let properties = feature.properties
-            let title = properties?.NAME ?? properties?.UNIT_NAME
+            let title = properties?.NAME ?? properties?.UNIT_NAME ?? properties?.PROTECTED_AREA_NAME_ENG
             // Index anhängen: mehrere Teilflächen können denselben
             // Namen tragen (z. B. „NEW YORK CLASS B").
             return ZoneOverlay(
@@ -338,6 +429,7 @@ final class ZoneOverlayService {
                 let NAME: String?
                 let TYPE_CODE: String?
                 let UNIT_NAME: String?
+                let PROTECTED_AREA_NAME_ENG: String?
             }
         }
         struct Geometry: Decodable {

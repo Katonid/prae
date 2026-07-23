@@ -204,6 +204,112 @@ final class AirspaceService: ObservableObject {
         }
     }
 
+    // MARK: Schlüssel-Diagnose (Einstellungen → „Schlüssel testen")
+
+    /// Ergebnis einer Test-Abfrage, als Klartext für die Einstellungen.
+    /// Damit lässt sich unterscheiden: Schlüssel falsch (401/403),
+    /// Limit erreicht (429), Netzproblem oder alles in Ordnung.
+    nonisolated static func testKey() async -> String {
+        guard let key = loadKey() else {
+            return "Kein Schlüssel gespeichert."
+        }
+        var components = URLComponents(string: "https://api.core.openaip.net/api/airspaces")!
+        components.queryItems = [
+            // Testpunkt Frankfurt — dort gibt es garantiert Lufträume.
+            URLQueryItem(name: "pos", value: "50.05,8.6"),
+            URLQueryItem(name: "dist", value: "30000"),
+            URLQueryItem(name: "limit", value: "5"),
+        ]
+        var request = URLRequest(url: components.url!)
+        request.timeoutInterval = 15
+        request.setValue(key, forHTTPHeaderField: "x-openaip-api-key")
+
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+            let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+            struct Info: Decodable {
+                let totalCount: Int?
+                let message: String?
+            }
+            let info = try? JSONDecoder().decode(Info.self, from: data)
+            switch status {
+            case 200:
+                if let count = info?.totalCount {
+                    return "Schlüssel funktioniert ✓ — Testabfrage bei Frankfurt fand \(count) Lufträume."
+                }
+                return "Verbindung steht, aber die Antwort hatte ein unerwartetes Format. Bitte melden — die Schnittstelle hat sich womöglich geändert."
+            case 401, 403:
+                let detail = info?.message.map { " Serverantwort: „\($0)\u{201C}" } ?? ""
+                return "Schlüssel wird NICHT anerkannt (HTTP \(status)).\(detail) Bitte auf openaip.net einloggen → Profil → „API Clients\u{201C} → Schlüssel erzeugen und die Zeichenkette vollständig kopieren. Danach hier löschen und neu speichern."
+            case 429:
+                return "openAIP meldet: Abfrage-Limit erreicht (HTTP 429). Der Schlüssel ist gültig — bitte in ein paar Minuten erneut versuchen."
+            default:
+                let detail = info?.message.map { " Serverantwort: „\($0)\u{201C}" } ?? ""
+                return "openAIP antwortet mit HTTP \(status).\(detail)"
+            }
+        } catch {
+            return "openAIP ist nicht erreichbar: \(error.localizedDescription) Bitte Internetverbindung prüfen und erneut testen."
+        }
+    }
+
+    // MARK: Flugplätze & Heliports (openAIP /airports)
+
+    struct Aerodrome {
+        let name: String
+        let isHeliport: Bool
+        let coordinate: CLLocationCoordinate2D
+        let distanceM: Double
+    }
+
+    /// Registrierte Flugplätze und Heliports rund um eine Position —
+    /// auch die kleinen ohne Flugsicherung (z. B. Tyendinaga/Mohawk),
+    /// die in den Transport-Canada-Daten fehlen.
+    nonisolated static func aerodromes(around center: CLLocationCoordinate2D,
+                                       radiusM: Int) async throws -> [Aerodrome] {
+        guard let key = loadKey() else { throw GeoQueryError.badResponse }
+
+        var components = URLComponents(string: "https://api.core.openaip.net/api/airports")!
+        components.queryItems = [
+            URLQueryItem(name: "pos", value: String(format: "%f,%f", center.latitude, center.longitude)),
+            URLQueryItem(name: "dist", value: String(radiusM)),
+            URLQueryItem(name: "limit", value: "100"),
+        ]
+        var request = URLRequest(url: components.url!)
+        request.timeoutInterval = 15
+        request.setValue(key, forHTTPHeaderField: "x-openaip-api-key")
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+            throw GeoQueryError.badResponse
+        }
+
+        struct APIResponse: Decodable {
+            struct Item: Decodable {
+                struct Geometry: Decodable {
+                    let type: String
+                    let coordinates: [Double]
+                }
+                let name: String
+                let type: Int
+                let geometry: Geometry?
+            }
+            let items: [Item]
+        }
+        let result = try JSONDecoder().decode(APIResponse.self, from: data)
+        let centerLocation = CLLocation(latitude: center.latitude, longitude: center.longitude)
+
+        return result.items.compactMap { item in
+            guard item.type != 8, // Aerodrome Closed
+                  let geometry = item.geometry, geometry.coordinates.count >= 2 else { return nil }
+            let coordinate = CLLocationCoordinate2D(latitude: geometry.coordinates[1],
+                                                    longitude: geometry.coordinates[0])
+            let distance = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
+                .distance(from: centerLocation)
+            // 4 = Heliport Militär, 7 = Heliport zivil
+            return Aerodrome(name: item.name, isHeliport: item.type == 4 || item.type == 7,
+                             coordinate: coordinate, distanceM: distance)
+        }
+    }
+
     /// Punktgenauer Treffer-Test (Ray-Casting) für den Legal-Check.
     nonisolated static func hits(at coordinate: CLLocationCoordinate2D) async throws -> [Airspace] {
         let spaces = try await airspaces(around: coordinate, radiusM: 30_000)
