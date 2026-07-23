@@ -29,6 +29,13 @@ struct HourForecast: Codable, Hashable {
     let windDirectionDeg: Double
     let windGusts10Kmh: Double
     let windSpeed120Kmh: Double
+    // Höhenwind-Profil („Winde nach Höhe") — optional, damit alte
+    // Cache-Einträge lesbar bleiben.
+    var windSpeed80Kmh: Double? = nil
+    var windSpeed180Kmh: Double? = nil
+    var windDirection80Deg: Double? = nil
+    var windDirection120Deg: Double? = nil
+    var windDirection180Deg: Double? = nil
 }
 
 struct Forecast: Codable {
@@ -89,6 +96,8 @@ final class WeatherService {
                 "cloud_cover", "visibility",
                 "wind_speed_10m", "wind_direction_10m", "wind_gusts_10m",
                 "wind_speed_120m",
+                "wind_speed_80m", "wind_speed_180m",
+                "wind_direction_80m", "wind_direction_120m", "wind_direction_180m",
             ].joined(separator: ",")),
             URLQueryItem(name: "forecast_days", value: "7"),
             URLQueryItem(name: "timezone", value: "auto"),
@@ -112,9 +121,19 @@ final class WeatherService {
             let wind_direction_10m: [Double?]
             let wind_gusts_10m: [Double?]
             let wind_speed_120m: [Double?]
+            let wind_speed_80m: [Double?]?
+            let wind_speed_180m: [Double?]?
+            let wind_direction_80m: [Double?]?
+            let wind_direction_120m: [Double?]?
+            let wind_direction_180m: [Double?]?
         }
         let utc_offset_seconds: Int
         let hourly: Hourly
+    }
+
+    private static func optionalValue(_ array: [Double?]?, at index: Int) -> Double? {
+        guard let array, index < array.count else { return nil }
+        return array[index]
     }
 
     static func parse(data: Data, latitude: Double, longitude: Double) throws -> Forecast {
@@ -144,12 +163,162 @@ final class WeatherService {
                 // Fallback: ohne Höhenwind konservativ Bodenwind × 1,5
                 windSpeed120Kmh: i < h.wind_speed_120m.count
                     ? (h.wind_speed_120m[i] ?? value(h.wind_speed_10m) * 1.5)
-                    : value(h.wind_speed_10m) * 1.5
+                    : value(h.wind_speed_10m) * 1.5,
+                windSpeed80Kmh: optionalValue(h.wind_speed_80m, at: i),
+                windSpeed180Kmh: optionalValue(h.wind_speed_180m, at: i),
+                windDirection80Deg: optionalValue(h.wind_direction_80m, at: i),
+                windDirection120Deg: optionalValue(h.wind_direction_120m, at: i),
+                windDirection180Deg: optionalValue(h.wind_direction_180m, at: i)
             ))
         }
         guard !hours.isEmpty else { throw WeatherError.badResponse }
         return Forecast(latitude: latitude, longitude: longitude, fetchedAt: Date(), hours: hours,
                         utcOffsetSeconds: api.utc_offset_seconds)
+    }
+
+    // MARK: Aktuelle Bedingungen (Kachelraster im Heute-Tab)
+
+    struct CurrentConditions {
+        let temperatureC: Double
+        let apparentC: Double
+        let humidityPercent: Double
+        let precipitationMm: Double
+        let cloudCoverPercent: Double
+        let visibilityM: Double
+        let windKmh: Double
+        let windDirectionDeg: Double
+        let gustsKmh: Double
+        let uvIndex: Double
+    }
+
+    /// Momentaufnahme für das „Aktuell"-Kachelraster (Open-Meteo current).
+    func current(for coordinate: CLLocationCoordinate2D) async throws -> CurrentConditions {
+        let lat = (coordinate.latitude * 100).rounded() / 100
+        let lon = (coordinate.longitude * 100).rounded() / 100
+
+        var components = URLComponents(string: "https://api.open-meteo.com/v1/forecast")!
+        components.queryItems = [
+            URLQueryItem(name: "latitude", value: String(lat)),
+            URLQueryItem(name: "longitude", value: String(lon)),
+            URLQueryItem(name: "current", value: [
+                "temperature_2m", "apparent_temperature", "relative_humidity_2m",
+                "precipitation", "cloud_cover", "visibility",
+                "wind_speed_10m", "wind_direction_10m", "wind_gusts_10m", "uv_index",
+            ].joined(separator: ",")),
+            URLQueryItem(name: "timezone", value: "auto"),
+        ]
+        let (data, response) = try await URLSession.shared.data(from: components.url!)
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+            throw WeatherError.badResponse
+        }
+        struct APIResponse: Decodable {
+            struct Current: Decodable {
+                let temperature_2m: Double?
+                let apparent_temperature: Double?
+                let relative_humidity_2m: Double?
+                let precipitation: Double?
+                let cloud_cover: Double?
+                let visibility: Double?
+                let wind_speed_10m: Double?
+                let wind_direction_10m: Double?
+                let wind_gusts_10m: Double?
+                let uv_index: Double?
+            }
+            let current: Current
+        }
+        let api = try JSONDecoder().decode(APIResponse.self, from: data).current
+        return CurrentConditions(
+            temperatureC: api.temperature_2m ?? 0,
+            apparentC: api.apparent_temperature ?? api.temperature_2m ?? 0,
+            humidityPercent: api.relative_humidity_2m ?? 0,
+            precipitationMm: api.precipitation ?? 0,
+            cloudCoverPercent: api.cloud_cover ?? 0,
+            visibilityM: api.visibility ?? 20_000,
+            windKmh: api.wind_speed_10m ?? 0,
+            windDirectionDeg: api.wind_direction_10m ?? 0,
+            gustsKmh: api.wind_gusts_10m ?? 0,
+            uvIndex: api.uv_index ?? 0
+        )
+    }
+
+    /// Planetarer KP-Index (NOAA SWPC, offen) — hohe Werte stören
+    /// GPS/GNSS und kündigen Polarlicht an. Liefert den letzten
+    /// Messwert oder nil (Anzeige blendet die Kachel dann aus).
+    func kpIndex() async -> Double? {
+        guard let url = URL(string: "https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json") else { return nil }
+        var request = URLRequest(url: url)
+        request.timeoutInterval = 12
+        guard let (data, response) = try? await URLSession.shared.data(for: request),
+              (response as? HTTPURLResponse)?.statusCode == 200 else { return nil }
+        struct Row: Decodable { let Kp: Double? }
+        guard let rows = try? JSONDecoder().decode([Row].self, from: data) else { return nil }
+        return rows.last?.Kp
+    }
+
+    // MARK: Kurzfrist-Blick (15-Minuten-Daten, „Jetzt oder gleich?")
+
+    /// Eine Viertelstunde der nächsten ~2,5 h — nur die Größen, die
+    /// die Startentscheidung kippen können (Böen, Wind, Regen).
+    struct QuarterForecast {
+        let date: Date
+        let windKmh: Double
+        let gustsKmh: Double
+        let precipitationMm: Double
+    }
+
+    /// 15-Minuten-Nowcast für die nächsten ~2,5 Stunden. Bewusst ohne
+    /// Cache: Kurzfrist-Daten sind nur frisch etwas wert — offline
+    /// blendet die UI den Streifen einfach aus.
+    func nowcast(for coordinate: CLLocationCoordinate2D) async throws -> [QuarterForecast] {
+        let lat = (coordinate.latitude * 100).rounded() / 100
+        let lon = (coordinate.longitude * 100).rounded() / 100
+
+        var components = URLComponents(string: "https://api.open-meteo.com/v1/forecast")!
+        components.queryItems = [
+            URLQueryItem(name: "latitude", value: String(lat)),
+            URLQueryItem(name: "longitude", value: String(lon)),
+            URLQueryItem(name: "minutely_15", value: "precipitation,wind_speed_10m,wind_gusts_10m"),
+            URLQueryItem(name: "forecast_minutely_15", value: "12"),
+            URLQueryItem(name: "timezone", value: "auto"),
+        ]
+        let (data, response) = try await URLSession.shared.data(from: components.url!)
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+            throw WeatherError.badResponse
+        }
+
+        struct APIResponse: Decodable {
+            struct Minutely: Decodable {
+                let time: [String]
+                let precipitation: [Double?]
+                let wind_speed_10m: [Double?]
+                let wind_gusts_10m: [Double?]
+            }
+            let utc_offset_seconds: Int
+            let minutely_15: Minutely
+        }
+        let api = try JSONDecoder().decode(APIResponse.self, from: data)
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd'T'HH:mm"
+        formatter.timeZone = TimeZone(secondsFromGMT: api.utc_offset_seconds)
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+
+        let m = api.minutely_15
+        var quarters: [QuarterForecast] = []
+        for (index, timeString) in m.time.enumerated() {
+            guard let date = formatter.date(from: timeString),
+                  date > Date().addingTimeInterval(-15 * 60) else { continue }
+            func value(_ array: [Double?]) -> Double {
+                index < array.count ? (array[index] ?? 0) : 0
+            }
+            quarters.append(QuarterForecast(
+                date: date,
+                windKmh: value(m.wind_speed_10m),
+                gustsKmh: value(m.wind_gusts_10m),
+                precipitationMm: value(m.precipitation)
+            ))
+        }
+        guard !quarters.isEmpty else { throw WeatherError.badResponse }
+        return quarters
     }
 
     // MARK: Cache (UserDefaults, pro gerundetem Ort)
