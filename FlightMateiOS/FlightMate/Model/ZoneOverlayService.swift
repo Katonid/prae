@@ -76,9 +76,21 @@ final class ZoneOverlayService {
 
     /// Lädt die Zonen-Umrisse für den sichtbaren Kartenausschnitt.
     /// Liefert [] bei zu großem Ausschnitt oder außerhalb der Abdeckung.
+    /// Offline-Verhalten (Reisepaket): Erfolgreiche Ergebnisse werden
+    /// auf dem Gerät gespeichert; kommt live nichts (Funkloch), springt
+    /// der letzte gespeicherte Stand der Gegend ein.
     func zones(in region: MKCoordinateRegion) async -> [ZoneOverlay] {
         guard region.span.latitudeDelta < Self.maxSpanDeg,
               region.span.longitudeDelta < Self.maxSpanDeg else { return [] }
+        let live = await liveZones(in: region)
+        if !live.isEmpty {
+            Self.storeOverlayCache(live, for: region)
+            return live
+        }
+        return Self.loadOverlayCache(for: region) ?? live
+    }
+
+    private func liveZones(in region: MKCoordinateRegion) async -> [ZoneOverlay] {
         let c = region.center
         // Die Boxen von USA und Kanada überlappen im Grenzband (Great
         // Lakes, Bundesstaat New York / Südontario) — dort werden beide
@@ -161,6 +173,103 @@ final class ZoneOverlayService {
 
         return ((try? await red) ?? []) + ((try? await blue) ?? [])
             + ((try? await orange) ?? []) + ((try? await notams) ?? [])
+    }
+
+    // MARK: Offline-Cache der Overlays (Reisepaket)
+
+    private struct StoredZones: Codable {
+        struct Overlay: Codable {
+            let id: String
+            let title: String?
+            let severityRaw: Int
+            /// Ringe als flache [lat, lon, lat, lon, …]-Listen.
+            let rings: [[Double]]
+            /// Kreise als [lat, lon, radiusM]-Tripel.
+            let circles: [[Double]]
+        }
+        let centerLat: Double
+        let centerLon: Double
+        let spanDeg: Double
+        let savedAt: Date
+        let overlays: [Overlay]
+    }
+
+    private static var overlayCacheDirectory: URL {
+        FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("zone-overlays", isDirectory: true)
+    }
+
+    private static func cacheFile(for region: MKCoordinateRegion) -> URL {
+        let key = String(format: "%.2f_%.2f",
+                         (region.center.latitude / 0.05).rounded() * 0.05,
+                         (region.center.longitude / 0.05).rounded() * 0.05)
+        return overlayCacheDirectory.appendingPathComponent("z\(key).json")
+    }
+
+    static func storeOverlayCache(_ zones: [ZoneOverlay], for region: MKCoordinateRegion) {
+        let stored = StoredZones(
+            centerLat: region.center.latitude,
+            centerLon: region.center.longitude,
+            spanDeg: max(region.span.latitudeDelta, region.span.longitudeDelta),
+            savedAt: Date(),
+            overlays: zones.map { zone in
+                StoredZones.Overlay(
+                    id: zone.id, title: zone.title, severityRaw: zone.severity.rawValue,
+                    rings: zone.rings.map { ring in
+                        ring.flatMap { [$0.latitude, $0.longitude] }
+                    },
+                    circles: zone.circles.map { [$0.center.latitude, $0.center.longitude, $0.radiusM] }
+                )
+            }
+        )
+        guard let data = try? JSONEncoder().encode(stored) else { return }
+        try? FileManager.default.createDirectory(at: overlayCacheDirectory,
+                                                 withIntermediateDirectories: true)
+        try? data.write(to: cacheFile(for: region), options: .atomic)
+    }
+
+    /// Sucht in den gespeicherten Ausschnitten einen, der das
+    /// Kartenzentrum abdeckt (max. 14 Tage alt) — exakte Kachel zuerst.
+    static func loadOverlayCache(for region: MKCoordinateRegion) -> [ZoneOverlay]? {
+        let manager = FileManager.default
+        let exact = cacheFile(for: region)
+        var candidates = [exact]
+        if let files = try? manager.contentsOfDirectory(at: overlayCacheDirectory,
+                                                        includingPropertiesForKeys: nil) {
+            candidates += files.filter { $0 != exact }
+        }
+        for file in candidates {
+            guard let data = try? Data(contentsOf: file),
+                  let stored = try? JSONDecoder().decode(StoredZones.self, from: data) else { continue }
+            if Date().timeIntervalSince(stored.savedAt) > 14 * 86_400 {
+                try? manager.removeItem(at: file)
+                continue
+            }
+            let halfSpan = stored.spanDeg / 2 + 0.02
+            guard abs(stored.centerLat - region.center.latitude) < halfSpan,
+                  abs(stored.centerLon - region.center.longitude) < halfSpan else { continue }
+            let overlays = stored.overlays.map { overlay in
+                ZoneOverlay(
+                    id: overlay.id,
+                    title: overlay.title,
+                    severity: LegalVerdict(rawValue: overlay.severityRaw) ?? .conditional,
+                    rings: overlay.rings.map { flat in
+                        stride(from: 0, to: flat.count - 1, by: 2).map {
+                            CLLocationCoordinate2D(latitude: flat[$0], longitude: flat[$0 + 1])
+                        }
+                    },
+                    circles: overlay.circles.compactMap { triple in
+                        triple.count >= 3
+                            ? ZoneCircle(center: CLLocationCoordinate2D(latitude: triple[0],
+                                                                        longitude: triple[1]),
+                                         radiusM: triple[2])
+                            : nil
+                    }
+                )
+            }
+            return overlays.isEmpty ? nil : overlays
+        }
+        return nil
     }
 
     private static func usBBox(_ c: CLLocationCoordinate2D) -> Bool {

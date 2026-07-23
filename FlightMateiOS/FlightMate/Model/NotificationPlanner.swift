@@ -46,6 +46,8 @@ enum NotificationPlanner {
         for entry in entries {
             for day in entry.days {
                 guard let window = day.bestWindow, window.score >= minScore else { continue }
+                // Trend-Tage (8+) sind zu unsicher für „Score ≥ 8"-Meldungen.
+                guard day.date < Date().addingTimeInterval(7 * 86_400) else { continue }
                 let key = calendar.startOfDay(for: day.date)
                 if let existing = bestPerDay[key], existing.window.score >= window.score { continue }
                 bestPerDay[key] = (entry.spot, window, day.timeZone)

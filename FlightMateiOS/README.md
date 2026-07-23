@@ -14,7 +14,10 @@ Dieser Stand entspricht dem **MVP-Fundament** (PRD Phase 0/1).
   Böen, Regenrisiko, Sicht, Temperatur und Lichtqualität — gewichtet
   nach dem konkreten Drohnenprofil. Jede Zahl kann per Tipp ihre
   Begründung zeigen („Böen 32 km/h — 84 % deiner Windtoleranz").
-  Inklusive „bestes Fenster"-Erkennung und 7-Tage-Ausblick.
+  Inklusive „bestes Fenster"-Erkennung und 14-Tage-Ausblick —
+  ab Tag 8 sichtbar als „Trend" gekennzeichnet (gedämpfte Chips im
+  Briefing, Hinweisbanner; Benachrichtigungen kommen nur aus den
+  verlässlichen ersten 7 Tagen).
 - **Legal-Check (F2):** Tipp auf die Karte → „Erlaubt / Erlaubt mit
   Auflagen / Verboten" für genau diese Koordinate, mit redaktionellen
   Klartexten je Zonentyp. Länder-Provider-Architektur:
@@ -273,11 +276,13 @@ Dieser Stand entspricht dem **MVP-Fundament** (PRD Phase 0/1).
   bei Netzausfall mit sichtbarem Datenstand verwendet — auch ein
   älterer Stand ist ehrlicher als keiner.
 - **Offline-Reisepaket:** Knopf im Spots-Tab lädt für alle
-  gespeicherten Spots alles Cachebare vorab aufs Gerät (7-Tage-
-  Wetter, Legal-Check-Schnappschuss, mit openAIP-Schlüssel auch
-  Lufträume & Flugplätze im Umkreis) — fürs Briefing im
-  Provinzpark-Funkloch; ehrliche Zusammenfassung inkl. Hinweis,
-  dass das Apple-Kartenbild selbst nicht vorab speicherbar ist.
+  gespeicherten Spots alles Cachebare vorab aufs Gerät (14-Tage-
+  Wetter, Legal-Check-Schnappschuss, **Karten-Zonen im ~20-km-
+  Umkreis** — Overlay-Cache, 14 Tage gültig, springt im Funkloch
+  automatisch ein —, mit openAIP-Schlüssel auch Lufträume &
+  Flugplätze) — fürs Briefing im Provinzpark-Funkloch; ehrliche
+  Zusammenfassung inkl. Hinweis, dass das Apple-Kartenbild selbst
+  nicht vorab speicherbar ist.
 - **iCloud-Sync & Datenexport:** Spots und Drohnenmodell
   synchronisieren über den iCloud-Key-Value-Store auf alle Geräte
   (Entitlement in Support/FlightMate.entitlements; Konflikt:

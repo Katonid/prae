@@ -178,6 +178,8 @@ struct SpotBriefingView: View {
                             index == selectedDayIndex ? Color.accentColor.opacity(0.18) : Color.clear,
                             in: RoundedRectangle(cornerRadius: 10)
                         )
+                        // Trend-Tage (8+) gedämpft — Orientierung, keine Planung.
+                        .opacity(day.date > Date().addingTimeInterval(7 * 86_400) ? 0.55 : 1)
                     }
                     .buttonStyle(.plain)
                 }
@@ -196,6 +198,11 @@ struct SpotBriefingView: View {
                 Label("Alle Zeiten in Ortszeit des Spots", systemImage: "clock.badge.exclamationmark")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
+            }
+            if day.date > Date().addingTimeInterval(7 * 86_400) {
+                Label("Trend-Prognose (Tag 8+) — grobe Orientierung, noch keine Planungsbasis", systemImage: "chart.line.uptrend.xyaxis")
+                    .font(.caption2)
+                    .foregroundStyle(.orange)
             }
             HStack(spacing: 16) {
                 Text("\(day.score)")

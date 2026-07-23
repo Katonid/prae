@@ -318,7 +318,7 @@ struct TodayView: View {
             ScoreDetailView()
         } label: {
             HStack {
-                Label("7-Tage-Ausblick", systemImage: "calendar")
+                Label("14-Tage-Ausblick", systemImage: "calendar")
                 Spacer()
                 Image(systemName: "chevron.right")
                     .font(.caption)
