@@ -103,7 +103,7 @@ struct SettingsView: View {
                     LabeledContent("Wetter & Höhenwind", value: "Open-Meteo")
                     LabeledContent("Geo-Zonen (DE)", value: "dipul / BMDV")
                     LabeledContent("Geo-Zonen (CH)", value: "BAZL / geo.admin.ch")
-                    LabeledContent("Geo-Zonen (CA)", value: "NRCan · Transport Canada")
+                    LabeledContent("Geo-Zonen (CA)", value: "NRCan · TC · CWFIS · Ontario")
                     LabeledContent("Geo-Zonen (US)", value: "FAA · National Park Service")
                     LabeledContent("Geo-Zonen (NL/FR/LU)", value: "PDOK · IGN · geoportail.lu")
                     LabeledContent("Lufträume (CA/EU)", value: "openAIP (mit Schlüssel)")

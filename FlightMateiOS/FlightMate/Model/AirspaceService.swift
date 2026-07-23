@@ -204,6 +204,64 @@ final class AirspaceService: ObservableObject {
         }
     }
 
+    // MARK: Flugplätze & Heliports (openAIP /airports)
+
+    struct Aerodrome {
+        let name: String
+        let isHeliport: Bool
+        let coordinate: CLLocationCoordinate2D
+        let distanceM: Double
+    }
+
+    /// Registrierte Flugplätze und Heliports rund um eine Position —
+    /// auch die kleinen ohne Flugsicherung (z. B. Tyendinaga/Mohawk),
+    /// die in den Transport-Canada-Daten fehlen.
+    nonisolated static func aerodromes(around center: CLLocationCoordinate2D,
+                                       radiusM: Int) async throws -> [Aerodrome] {
+        guard let key = loadKey() else { throw GeoQueryError.badResponse }
+
+        var components = URLComponents(string: "https://api.core.openaip.net/api/airports")!
+        components.queryItems = [
+            URLQueryItem(name: "pos", value: String(format: "%f,%f", center.latitude, center.longitude)),
+            URLQueryItem(name: "dist", value: String(radiusM)),
+            URLQueryItem(name: "limit", value: "100"),
+        ]
+        var request = URLRequest(url: components.url!)
+        request.timeoutInterval = 15
+        request.setValue(key, forHTTPHeaderField: "x-openaip-api-key")
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+            throw GeoQueryError.badResponse
+        }
+
+        struct APIResponse: Decodable {
+            struct Item: Decodable {
+                struct Geometry: Decodable {
+                    let type: String
+                    let coordinates: [Double]
+                }
+                let name: String
+                let type: Int
+                let geometry: Geometry?
+            }
+            let items: [Item]
+        }
+        let result = try JSONDecoder().decode(APIResponse.self, from: data)
+        let centerLocation = CLLocation(latitude: center.latitude, longitude: center.longitude)
+
+        return result.items.compactMap { item in
+            guard item.type != 8, // Aerodrome Closed
+                  let geometry = item.geometry, geometry.coordinates.count >= 2 else { return nil }
+            let coordinate = CLLocationCoordinate2D(latitude: geometry.coordinates[1],
+                                                    longitude: geometry.coordinates[0])
+            let distance = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
+                .distance(from: centerLocation)
+            // 4 = Heliport Militär, 7 = Heliport zivil
+            return Aerodrome(name: item.name, isHeliport: item.type == 4 || item.type == 7,
+                             coordinate: coordinate, distanceM: distance)
+        }
+    }
+
     /// Punktgenauer Treffer-Test (Ray-Casting) für den Legal-Check.
     nonisolated static func hits(at coordinate: CLLocationCoordinate2D) async throws -> [Airspace] {
         let spaces = try await airspaces(around: coordinate, radiusM: 30_000)

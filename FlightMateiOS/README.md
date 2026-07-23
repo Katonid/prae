@@ -37,9 +37,16 @@ Dieser Stand entspricht dem **MVP-Fundament** (PRD Phase 0/1).
     openAIP-Schlüssel (Einstellungen) prüft der Legal-Check zusätzlich
     die Lufträume der NAV-Drone-Karte: Kontrollzonen (CTR) und
     Class-F-Gebiete (CYR/CYD/CYA), punktgenau per Ray-Casting.
-    Verbleibende nicht abfragbare Zonentypen (NOTAMs, Provinzparks —
-    ohne Schlüssel auch die Lufträume) werden sichtbar als „nicht
-    geprüft" gelistet, mit Verweis auf NAV Drone.
+    Dazu live (Nutzerwunsch: Antworten in der App statt
+    Portal-Verweis): **Waldbrand-Sperrzonen** — Satelliten-Hotspots
+    der letzten 24 h vom offenen NRCan/CWFIS-GeoServer, Treffer im
+    9,3-km-Umkreis (CARs 601.15) melden „Verboten";
+    **Ontario-Provinzparks** (Drohnenverbot) vom offenen LIO-Dienst
+    der Provinz; mit openAIP-Schlüssel auch **kleine Flugplätze und
+    Heliports** ohne Flugsicherung (3-NM-/1-NM-Hinweis, z. B.
+    Tyendinaga/Mohawk). Verbleibende nicht abfragbare Zonentypen
+    (NOTAMs, Provinzparks außerhalb Ontarios) werden sichtbar als
+    „nicht geprüft" gelistet, mit Verweis auf NAV Drone.
   - **USA** (49 USC 44809, Recreational Exception — komplett ohne
     Schlüssel, alle Quellen offen): FAA UAS Facility Maps
     (LAANC-Rasterzellen mit Höhen-Obergrenze — Obergrenze 0 ft =
@@ -75,11 +82,14 @@ Dieser Stand entspricht dem **MVP-Fundament** (PRD Phase 0/1).
   Außerhalb der abgedeckten Länder oder ohne Netz zeigt die App
   ehrlich „Keine Daten" statt zu raten.
 - **Zonen-Umrisse auf der Karte (DE + CA + US + EU-Nachbarn):** In
-  Kanada zeichnet die Karte Nationalpark-Polygone (rot, NRCan) und
+  Kanada zeichnet die Karte Nationalpark-Polygone (rot, NRCan),
   3-NM-Kreise um Flughäfen mit Flugsicherung (orange, Transport
-  Canada); mit openAIP-Schlüssel zusätzlich die Lufträume wie auf der
+  Canada), Waldbrand-Sperrkreise (rot, 9,3 km um CWFIS-Hotspots)
+  und in Ontario die Provinzpark-Polygone (rot, LIO); mit
+  openAIP-Schlüssel zusätzlich die Lufträume wie auf der
   NAV-Drone-Karte — Flugverbots- und Restricted-Gebiete (CYR) rot,
-  Kontrollzonen (CTR) und Advisory-Gebiete (CYA) orange. In den USA
+  Kontrollzonen (CTR) und Advisory-Gebiete (CYA) orange — sowie
+  orange 3-NM-/1-NM-Kreise um kleine Flugplätze und Heliports. In den USA
   (ohne Schlüssel): FAA-Luftraumklassen B/C/D/E, Special Use Airspace
   und NPS-Nationalparks; im Grenzband (Great Lakes, Bundesstaat New
   York) werden USA- und Kanada-Quellen kombiniert. In den
