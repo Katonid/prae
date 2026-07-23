@@ -54,6 +54,9 @@ struct SpotBriefingView: View {
                     if let selectedDay {
                         conditionsCard(selectedDay)
                         lightCard(selectedDay)
+                        SunTrackMapCard(coordinate: spot.coordinate,
+                                        sunDay: selectedDay.sunDay,
+                                        timeZone: selectedDay.timeZone)
                     }
                     if claude.hasKey {
                         ideasCard

@@ -107,6 +107,12 @@ Dieser Stand entspricht dem **MVP-Fundament** (PRD Phase 0/1).
   (Karte / Hybrid / Satellit) und Tag-/Nachtansicht unabhängig vom
   Geräte-Erscheinungsbild erzwingbar; beide Einstellungen bleiben
   gespeichert.
+- **Sonne auf der Karte:** Das Briefing zeigt je gewähltem Tag eine
+  Karte mit Azimut-Linien vom Spot zur Sonne bei Auf- (orange) und
+  Untergang (violett), inkl. Uhrzeit-Etiketten in Ortszeit und
+  Gradangabe — Blick entlang der Linie = Gegenlicht/Silhouette,
+  Motive auf der Gegenseite werden angestrahlt. Komplett on-device
+  (SunCalculator), keine weitere Datenquelle.
 - **Lichtplanung (F3):** Sonnenauf-/-untergang, goldene und blaue
   Stunde, vollständig on-device berechnet; das Licht fließt in den
   Score ein (Golden Hour hebt, Mittagslicht senkt).
