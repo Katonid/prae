@@ -1096,7 +1096,8 @@ struct EuropeanNeighborsProvider: LegalProvider {
                "In Frankreich ist Freizeit-Fliegen über Ortschaften und Wohngebieten („agglomérations“) grundsätzlich verboten — auch unter 250 g. FlightMate prüft die amtliche Restriktionskarte für diesen Punkt live."),
         "DK": ("Dänemark", "Dronezoner (dronezoner.dk, Trafikstyrelsen)",
                "FlightMate prüft die amtlichen Dronezoner (rot/blau/orange) und aktive NOTAM-Gebiete für diesen Punkt live."),
-        "CZ": ("Tschechien", "DronView (dronview.rlp.cz, ŘLP)", nil),
+        "CZ": ("Tschechien", "DronView (dronemap.gov.cz, ŘLP)",
+               "FlightMate prüft das amtliche DronView-Raster (Flugverbotszellen und Höhengrenzen) für diesen Punkt live."),
         "PL": ("Polen", "PANSA UTM / DroneTower (drony.gov.pl)",
                "In Polen ist vor jedem Flug ein Check-in über die PANSA-App (DroneTower) vorgeschrieben."),
         "AT": ("Österreich", "Dronespace (map.dronespace.at, Austro Control)", nil),
@@ -1132,8 +1133,9 @@ struct EuropeanNeighborsProvider: LegalProvider {
         let portal = info?.portal ?? "das nationale Drohnen-Portal"
 
         // Nationale Geozonen: wo eine amtliche offene Quelle existiert
-        // (NL, FR, LU), prüft FlightMate sie direkt — der Portal-Verweis
-        // bleibt nur für den Rest (Nutzerwunsch: kein Suchen im Web).
+        // (NL, FR, LU, DK, CZ), prüft FlightMate sie direkt — der
+        // Portal-Verweis bleibt nur für den Rest (Nutzerwunsch: kein
+        // Suchen im Web).
         if let code, NationalGeoZones.supports(code) {
             if let nationalHits = try? await NationalGeoZones.hits(country: code, at: coordinate) {
                 for hit in nationalHits {

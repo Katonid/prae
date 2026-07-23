@@ -83,3 +83,29 @@ enum Theme {
         return directions[index]
     }
 }
+
+// MARK: - Einheitlicher Karten-Stil
+
+/// Der Karten-Look der App: Material-Fläche („Milchglas“) mit feiner
+/// Kontur und weichem Schatten. Über dem Himmels-Hintergrund des
+/// Heute-Tabs wirkt das wie Glas, auf neutralem Grund bleibt es ruhig.
+private struct FlightCard: ViewModifier {
+    let cornerRadius: CGFloat
+
+    func body(content: Content) -> some View {
+        content
+            .background(.regularMaterial,
+                        in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .strokeBorder(Color.primary.opacity(0.07), lineWidth: 0.8)
+            )
+            .shadow(color: .black.opacity(0.10), radius: 12, x: 0, y: 5)
+    }
+}
+
+extension View {
+    func flightCard(cornerRadius: CGFloat = 16) -> some View {
+        modifier(FlightCard(cornerRadius: cornerRadius))
+    }
+}

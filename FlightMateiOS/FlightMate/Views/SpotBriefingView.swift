@@ -249,7 +249,7 @@ struct SpotBriefingView: View {
         }
         .frame(maxWidth: .infinity)
         .padding()
-        .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 16))
+        .flightCard(cornerRadius: 16)
     }
 
     // MARK: Legal
@@ -311,7 +311,7 @@ struct SpotBriefingView: View {
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 16))
+        .flightCard(cornerRadius: 16)
     }
 
     // MARK: Bedingungen im Fenster
@@ -366,7 +366,7 @@ struct SpotBriefingView: View {
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 16))
+        .flightCard(cornerRadius: 16)
     }
 
     // MARK: Lern-Erinnerung (PRD Phase 3 — der Loop schließt sich)
@@ -389,7 +389,7 @@ struct SpotBriefingView: View {
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 16))
+        .flightCard(cornerRadius: 16)
     }
 
     // MARK: Bildideen (PRD F6, KI)
@@ -426,7 +426,7 @@ struct SpotBriefingView: View {
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 16))
+        .flightCard(cornerRadius: 16)
     }
 
     private func loadShotIdeas() async {
@@ -499,7 +499,7 @@ struct SpotBriefingView: View {
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 16))
+        .flightCard(cornerRadius: 16)
     }
 
     /// Zeile mit Uhrzeit, Himmelsrichtung und Richtungspfeil der Sonne.

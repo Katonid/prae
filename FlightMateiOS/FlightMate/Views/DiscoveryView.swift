@@ -284,7 +284,7 @@ struct DiscoveryDetailView: View {
                                 .foregroundStyle(Theme.scoreColor(window.score))
                         }
                         .padding()
-                        .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 14))
+                        .flightCard(cornerRadius: 14)
                     }
 
                     if saved {
@@ -364,7 +364,7 @@ struct DiscoveryDetailView: View {
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 14))
+        .flightCard(cornerRadius: 14)
     }
 
     /// Fotos vom Ort (OSM-Verweise + Wikimedia Commons im Umkreis) —

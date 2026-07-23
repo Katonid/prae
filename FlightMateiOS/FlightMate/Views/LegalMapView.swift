@@ -282,7 +282,7 @@ struct LegalResultView: View {
                     }
                     .padding()
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 12))
+                    .flightCard(cornerRadius: 12)
                 }
 
                 if !assessment.uncheckedLayers.isEmpty && assessment.verdict != .unknown {
