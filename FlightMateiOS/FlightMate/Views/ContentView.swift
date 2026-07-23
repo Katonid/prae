@@ -28,8 +28,8 @@ struct ContentView: View {
                 SpotsView()
                     .tabItem { Label("Spots", systemImage: "star") }
                     .tag(AppState.Tab.spots)
-                FlightReviewView()
-                    .tabItem { Label("Review", systemImage: "sparkles") }
+                FlightsTabView()
+                    .tabItem { Label("Flüge", systemImage: "book.closed") }
                     .tag(AppState.Tab.review)
             }
         }

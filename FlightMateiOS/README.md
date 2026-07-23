@@ -189,7 +189,14 @@ Dieser Stand entspricht dem **MVP-Fundament** (PRD Phase 0/1).
   bei fernen Spots mit sichtbarem Hinweis; auch die Tagesgrenzen der
   7-Tage-Ansicht folgen der Spot-Zeitzone (Open-Meteo liefert den
   UTC-Versatz mit).
-- **Flight Review (F5, KI):** Neuer „Review"-Tab — nach dem Flug bis
+- **Flug-Logbuch (Roadmap-Punkt 4):** „Flüge"-Tab (oben umschaltbar
+  Logbuch ⇄ KI-Bildkritik) — ein Eintrag pro Flugtag mit Datum,
+  Ort/Spot (aus den gespeicherten Spots übernehmbar), Flight Score,
+  Ein-Tipp-Bewertung, Notiz und bis zu drei verkleinerten Fotos
+  (lokal in Documents). Wer für HEUTE mit Bewertung loggt, füttert
+  automatisch die Score-Kalibrierung. Einträge wandern (ohne Fotos)
+  mit in die Export-Sicherung; Import vereinigt nach ID.
+- **Flight Review (F5, KI):** Im „Flüge"-Tab als zweiter Bereich — nach dem Flug bis
   zu 5 Aufnahmen auswählen (PhotosPicker, kein Mediathek-Vollzugriff);
   Claude bewertet jede entlang der festen PRD-Rubrik mit max. 2
   Stärken und genau einem umsetzbaren Verbesserungsvorschlag

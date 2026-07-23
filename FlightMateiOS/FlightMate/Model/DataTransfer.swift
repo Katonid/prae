@@ -16,6 +16,8 @@ struct FlightMateBackup: Codable {
     var droneProfileID: String?
     var spots: [Spot]
     var scoreFeedback: [ScoreFeedback]
+    /// Optional, damit ältere Sicherungen importierbar bleiben.
+    var flightLog: [FlightLogEntry]? = nil
 }
 
 enum DataTransfer {
@@ -28,7 +30,8 @@ enum DataTransfer {
             exportedAt: Date(),
             droneProfileID: state.droneProfileID,
             spots: state.spots,
-            scoreFeedback: ScoreValidation.all()
+            scoreFeedback: ScoreValidation.all(),
+            flightLog: FlightLog.all()
         )
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
@@ -62,6 +65,8 @@ enum DataTransfer {
             state.droneProfileID = profile
         }
         ScoreValidation.merge(backup.scoreFeedback)
+        // Logbuch-Einträge (ohne Fotos — die bleiben auf dem Ursprungsgerät).
+        FlightLog.merge(backup.flightLog ?? [])
         return newSpots.count
     }
 }
