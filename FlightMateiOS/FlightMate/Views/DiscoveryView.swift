@@ -30,6 +30,11 @@ struct DiscoveryView: View {
     @State private var errorMessage: String?
     @State private var showPlaceSearch = false
     @State private var placeQuery = ""
+    // Listen- oder Kartenansicht der Treffer (bleibt gespeichert).
+    @AppStorage("discoveryShowsMap") private var showsMap = false
+    @State private var mapSelection: String?
+    @State private var pushedCandidate: SpotCandidate?
+    @State private var mapPosition: MapCameraPosition = .automatic
 
     private let radiusOptions = [10_000, 25_000, 50_000]
 
@@ -81,6 +86,8 @@ struct DiscoveryView: View {
                         description: Text("Im Umkreis von \(radiusM / 1000) km sind keine passenden Foto-Orte verzeichnet. Vergrößere den Radius oder wähle mehr Kategorien.")
                     )
                     Spacer()
+                } else if showsMap {
+                    candidateMap
                 } else {
                     List {
                         ForEach(candidates) { candidate in
@@ -119,6 +126,16 @@ struct DiscoveryView: View {
                     }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        showsMap.toggle()
+                    } label: {
+                        Label(showsMap ? "Liste" : "Karte",
+                              systemImage: showsMap ? "list.bullet" : "map")
+                    }
+                    .accessibilityLabel(showsMap ? "Treffer als Liste anzeigen"
+                                                 : "Treffer auf der Karte anzeigen")
+                }
+                ToolbarItem(placement: .topBarTrailing) {
                     Menu {
                         Picker("Umkreis", selection: $radiusM) {
                             ForEach(radiusOptions, id: \.self) { radius in
@@ -137,6 +154,11 @@ struct DiscoveryView: View {
                     }
                     .disabled(isLoading)
                 }
+            }
+            // Marker-Tipp auf der Karte → dieselbe Detailansicht wie
+            // aus der Liste (Legal-Check + Score + Fotos).
+            .navigationDestination(item: $pushedCandidate) { candidate in
+                DiscoveryDetailView(candidate: candidate)
             }
             .alert("Ort suchen", isPresented: $showPlaceSearch) {
                 TextField("Ort, Region oder Adresse", text: $placeQuery)
@@ -177,6 +199,48 @@ struct DiscoveryView: View {
             .onChange(of: state.discoveryRequestID) {
                 Task { await search() }
             }
+        }
+    }
+
+    // MARK: Treffer auf der Karte (alle gefundenen Orte im Überblick)
+
+    private var candidateMap: some View {
+        Map(position: $mapPosition, selection: $mapSelection) {
+            ForEach(candidates) { candidate in
+                Marker(candidate.name, systemImage: candidate.kind.symbol,
+                       coordinate: candidate.coordinate)
+                    .tag(candidate.id)
+            }
+            // Suchzentrum und Umkreis als Orientierung.
+            MapCircle(center: searchCenter, radius: Double(radiusM))
+                .foregroundStyle(.blue.opacity(0.04))
+                .stroke(.blue.opacity(0.35), lineWidth: 1)
+            UserAnnotation()
+        }
+        .mapControls {
+            MapUserLocationButton()
+            MapCompass()
+            MapScaleView()
+        }
+        .overlay(alignment: .bottomLeading) {
+            Text("© OpenStreetMap-Mitwirkende")
+                .font(.caption2)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(.thinMaterial, in: Capsule())
+                .padding(8)
+        }
+        .onChange(of: mapSelection) { _, selected in
+            guard let selected,
+                  let candidate = candidates.first(where: { $0.id == selected }) else { return }
+            pushedCandidate = candidate
+            // Auswahl zurücksetzen, damit derselbe Marker nach dem
+            // Zurückkehren erneut antippbar ist.
+            mapSelection = nil
+        }
+        // Neue Suche → Karte wieder auf alle Treffer einpassen.
+        .onChange(of: candidates.map(\.id)) {
+            mapPosition = .automatic
         }
     }
 
