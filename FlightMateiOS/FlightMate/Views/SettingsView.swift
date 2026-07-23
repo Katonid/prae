@@ -72,7 +72,7 @@ struct SettingsView: View {
                         .foregroundStyle(.secondary)
                 }
 
-                Section("Lufträume in Kanada (CTR, CYR/CYA)") {
+                Section("Lufträume international (openAIP)") {
                     if airspace.hasKey {
                         Label("openAIP-Schlüssel gespeichert (Keychain)", systemImage: "checkmark.seal")
                             .foregroundStyle(.green)
@@ -89,7 +89,7 @@ struct SettingsView: View {
                         }
                         .disabled(airspaceKeyInput.trimmingCharacters(in: .whitespaces).isEmpty)
                     }
-                    Text("Zeigt in Kanada die Lufträume der NAV-Drone-Karte direkt in FlightMate: Kontrollzonen (CTR) und Class-F-Gebiete (CYR/CYA) auf der Karte und im Legal-Check. Der Schlüssel ist kostenlos: Konto auf openaip.net anlegen → Profil → „API Clients". Daten: openAIP (CC BY-NC), Abfragen sind gratis.")
+                    Text("Zeigt Lufträume (Kontrollzonen, Flugbeschränkungs- und Advisory-Gebiete) auf der Karte und im Legal-Check — in Kanada (das Zonenbild der NAV-Drone-Karte) und in den Nachbarländern Deutschlands (NL, BE, LU, FR, DK, CZ, PL, AT). Die USA brauchen keinen Schlüssel — dort kommen die Daten direkt von der FAA. Der Schlüssel ist kostenlos: Konto auf openaip.net anlegen → Profil → „API Clients". Daten: openAIP (CC BY-NC).")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -104,7 +104,8 @@ struct SettingsView: View {
                     LabeledContent("Geo-Zonen (DE)", value: "dipul / BMDV")
                     LabeledContent("Geo-Zonen (CH)", value: "BAZL / geo.admin.ch")
                     LabeledContent("Geo-Zonen (CA)", value: "NRCan · Transport Canada")
-                    LabeledContent("Lufträume (CA)", value: "openAIP (mit Schlüssel)")
+                    LabeledContent("Geo-Zonen (US)", value: "FAA · National Park Service")
+                    LabeledContent("Lufträume (CA/EU)", value: "openAIP (mit Schlüssel)")
                     LabeledContent("Sonnenstand", value: "on-device berechnet")
                     Text(LegalAssessment.disclaimer)
                         .font(.caption)

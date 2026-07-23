@@ -79,33 +79,56 @@ final class ZoneOverlayService {
         guard region.span.latitudeDelta < Self.maxSpanDeg,
               region.span.longitudeDelta < Self.maxSpanDeg else { return [] }
         let c = region.center
-        if (41.6...83.5).contains(c.latitude), ((-141.1)...(-52.5)).contains(c.longitude) {
-            return await canadaZones(in: region)
+        // Die Boxen von USA und Kanada überlappen im Grenzband (Great
+        // Lakes, Bundesstaat New York / Südontario) — dort werden beide
+        // Quellen geladen; jede liefert nur die Zonen ihres Landes.
+        let inUS = Self.usBBox(c)
+        let inCanada = (41.6...83.5).contains(c.latitude) && ((-141.1)...(-52.5)).contains(c.longitude)
+        if inUS || inCanada {
+            async let us = inUS ? await usaZones(in: region) : []
+            async let canada = inCanada ? await canadaZones(in: region) : []
+            return (await us + (await canada)).sorted { $0.severity < $1.severity }
         }
-        guard (46.5...55.5).contains(c.latitude), (4.5...16.5).contains(c.longitude) else { return [] }
-
-        let minLat = c.latitude - region.span.latitudeDelta / 2
-        let maxLat = c.latitude + region.span.latitudeDelta / 2
-        let minLon = c.longitude - region.span.longitudeDelta / 2
-        let maxLon = c.longitude + region.span.longitudeDelta / 2
-
-        let span = max(region.span.latitudeDelta, region.span.longitudeDelta)
-        let activeLayers = Self.overlayLayers.filter { span < $0.maxSpan }.map(\.layer)
 
         var result: [ZoneOverlay] = []
-        await withTaskGroup(of: [ZoneOverlay].self) { group in
-            for layer in activeLayers {
-                group.addTask {
-                    (try? await Self.fetchLayer(layer, minLat: minLat, minLon: minLon,
-                                                maxLat: maxLat, maxLon: maxLon)) ?? []
+
+        // Deutschland: dipul zeichnet alles Inland; openAIP ist auf
+        // DE-Zonen ausgeblendet und ergänzt nur die Nachbarländer
+        // hinter der Grenze. Außerhalb der DE-Box (EU-Nachbarn, Schweiz,
+        // Rest der Welt) kommen die Lufträume komplett von openAIP.
+        async let airspaces = Self.fetchAirspaces(in: region, excludingCountry: "DE")
+
+        if (46.5...55.5).contains(c.latitude), (4.5...16.5).contains(c.longitude) {
+            let minLat = c.latitude - region.span.latitudeDelta / 2
+            let maxLat = c.latitude + region.span.latitudeDelta / 2
+            let minLon = c.longitude - region.span.longitudeDelta / 2
+            let maxLon = c.longitude + region.span.longitudeDelta / 2
+
+            let span = max(region.span.latitudeDelta, region.span.longitudeDelta)
+            let activeLayers = Self.overlayLayers.filter { span < $0.maxSpan }.map(\.layer)
+
+            await withTaskGroup(of: [ZoneOverlay].self) { group in
+                for layer in activeLayers {
+                    group.addTask {
+                        (try? await Self.fetchLayer(layer, minLat: minLat, minLon: minLon,
+                                                    maxLat: maxLat, maxLon: maxLon)) ?? []
+                    }
+                }
+                for await zones in group {
+                    result.append(contentsOf: zones)
                 }
             }
-            for await zones in group {
-                result.append(contentsOf: zones)
-            }
         }
+
+        result.append(contentsOf: await airspaces)
         // „Verboten" oben zeichnen, damit es nie unter Orange verschwindet.
         return result.sorted { $0.severity < $1.severity }
+    }
+
+    private static func usBBox(_ c: CLLocationCoordinate2D) -> Bool {
+        ((24.4...49.4).contains(c.latitude) && ((-125.0)...(-66.9)).contains(c.longitude))
+            || ((51.0...71.5).contains(c.latitude) && ((-180.0)...(-129.0)).contains(c.longitude))
+            || ((18.5...22.5).contains(c.latitude) && ((-161.0)...(-154.0)).contains(c.longitude))
     }
 
     // MARK: Kanada (NRCan + Transport Canada)
@@ -120,7 +143,8 @@ final class ZoneOverlayService {
 
         async let parks = Self.fetchCanadaParks(envelope: envelope)
         async let airports = Self.fetchCanadaAirports(envelope: envelope)
-        async let airspaces = Self.fetchAirspaces(in: region)
+        // US-Zonen ausblenden — im Grenzband zeichnet sie der FAA-Zweig.
+        async let airspaces = Self.fetchAirspaces(in: region, excludingCountry: "US")
         let parkZones = (try? await parks) ?? []
         let airportZones = (try? await airports) ?? []
         let airspaceZones = await airspaces
@@ -130,7 +154,8 @@ final class ZoneOverlayService {
     /// Lufträume (CTR, CYR/CYA …) aus openAIP — nur mit hinterlegtem
     /// Schlüssel; ohne Schlüssel bleibt die Karte hier ehrlich leer und
     /// der Legal-Check nennt die Lücke.
-    private static func fetchAirspaces(in region: MKCoordinateRegion) async -> [ZoneOverlay] {
+    private static func fetchAirspaces(in region: MKCoordinateRegion,
+                                       excludingCountry: String? = nil) async -> [ZoneOverlay] {
         guard AirspaceService.hasStoredKey else { return [] }
         // Radius: halbe Kartendiagonale, gedeckelt, damit die Antwort klein bleibt.
         let halfDiagonalM = MKMapPoint(region.center).distance(
@@ -138,7 +163,9 @@ final class ZoneOverlayService {
                 latitude: region.center.latitude + region.span.latitudeDelta / 2,
                 longitude: region.center.longitude + region.span.longitudeDelta / 2)))
         let radius = min(max(Int(halfDiagonalM), 5_000), 60_000)
-        let spaces = (try? await AirspaceService.airspaces(around: region.center, radiusM: radius)) ?? []
+        let spaces = (try? await AirspaceService.airspaces(
+            around: region.center, radiusM: radius,
+            excludingCountry: excludingCountry)) ?? []
         return spaces.map { space in
             ZoneOverlay(
                 id: space.id,
@@ -152,7 +179,8 @@ final class ZoneOverlayService {
     }
 
     private static func arcgisGeoJSON(baseURL: String, envelope: String,
-                                      outFields: String) async throws -> Data {
+                                      outFields: String,
+                                      whereClause: String? = nil) async throws -> Data {
         var components = URLComponents(string: baseURL + "/query")!
         components.queryItems = [
             URLQueryItem(name: "geometry", value: envelope),
@@ -165,6 +193,9 @@ final class ZoneOverlayService {
             URLQueryItem(name: "f", value: "geojson"),
             URLQueryItem(name: "resultRecordCount", value: "50"),
         ]
+        if let whereClause {
+            components.queryItems?.append(URLQueryItem(name: "where", value: whereClause))
+        }
         var request = URLRequest(url: components.url!)
         request.timeoutInterval = 12
         let (data, response) = try await URLSession.shared.data(for: request)
@@ -229,6 +260,70 @@ final class ZoneOverlayService {
         }
     }
 
+    // MARK: USA (FAA Open Data + National Park Service, ohne Schlüssel)
+
+    private static let faaBase = "https://services6.arcgis.com/ssFJjBXIUyZDrSYZ/arcgis/rest/services"
+
+    private func usaZones(in region: MKCoordinateRegion) async -> [ZoneOverlay] {
+        let minLat = region.center.latitude - region.span.latitudeDelta / 2
+        let maxLat = region.center.latitude + region.span.latitudeDelta / 2
+        let minLon = region.center.longitude - region.span.longitudeDelta / 2
+        let maxLon = region.center.longitude + region.span.longitudeDelta / 2
+        let envelope = String(format: "{\"xmin\":%f,\"ymin\":%f,\"xmax\":%f,\"ymax\":%f}",
+                              minLon, minLat, maxLon, maxLat)
+
+        // Kontrollierter Luftraum mit Bodenkontakt (Klasse B/C/D/E-Flächen).
+        async let classAirspace = Self.fetchUSPolygons(
+            baseURL: "\(Self.faaBase)/Class_Airspace/FeatureServer/0",
+            envelope: envelope, outFields: "NAME",
+            whereClause: "TYPE_CODE='CLASS' AND LOWER_VAL=0 AND CLASS IN ('B','C','D','E')",
+            idPrefix: "us-class", severity: { _ in .conditional })
+        // Special Use Airspace: Prohibited/Restricted rot, Rest orange.
+        async let sua = Self.fetchUSPolygons(
+            baseURL: "\(Self.faaBase)/Special_Use_Airspace/FeatureServer/0",
+            envelope: envelope, outFields: "NAME,TYPE_CODE",
+            whereClause: "LOWER_VAL=0",
+            idPrefix: "us-sua",
+            severity: { ["P", "R"].contains($0 ?? "") ? .forbidden : .conditional })
+        // Nationalparks (NPS): Drohnenverbot in allen Gebieten.
+        async let parks = Self.fetchUSPolygons(
+            baseURL: "https://services1.arcgis.com/fBc8EJBxQRMcHlei/arcgis/rest/services/NPS_Land_Resources_Division_Boundary_and_Tract_Data_Service/FeatureServer/2",
+            envelope: envelope, outFields: "UNIT_NAME",
+            whereClause: nil,
+            idPrefix: "us-nps", severity: { _ in .forbidden })
+
+        let all = ((try? await classAirspace) ?? [])
+            + ((try? await sua) ?? [])
+            + ((try? await parks) ?? [])
+        return all.sorted { $0.severity < $1.severity }
+    }
+
+    private static func fetchUSPolygons(baseURL: String, envelope: String, outFields: String,
+                                        whereClause: String?, idPrefix: String,
+                                        severity: (String?) -> LegalVerdict) async throws -> [ZoneOverlay] {
+        let data = try await arcgisGeoJSON(baseURL: baseURL, envelope: envelope,
+                                           outFields: outFields, whereClause: whereClause)
+        let collection = try JSONDecoder().decode(FeatureCollection.self, from: data)
+        return collection.features.enumerated().compactMap { index, feature in
+            let rings = (feature.geometry?.coordinates.outerRings ?? [])
+                .map { ring in
+                    ring.count > 400 ? stride(from: 0, to: ring.count, by: ring.count / 400 + 1).map { ring[$0] } : ring
+                }
+                .filter { $0.count >= 3 }
+            guard !rings.isEmpty else { return nil }
+            let properties = feature.properties
+            let title = properties?.NAME ?? properties?.UNIT_NAME
+            // Index anhängen: mehrere Teilflächen können denselben
+            // Namen tragen (z. B. „NEW YORK CLASS B").
+            return ZoneOverlay(
+                id: "\(idPrefix)-\(title ?? "?")-\(index)",
+                title: title,
+                severity: severity(properties?.TYPE_CODE),
+                rings: rings
+            )
+        }
+    }
+
     // MARK: WFS-GeoJSON
 
     private struct FeatureCollection: Decodable {
@@ -239,6 +334,10 @@ final class ZoneOverlayService {
             struct Properties: Decodable {
                 let name: String?
                 let adminAreaNameEng: String?
+                // FAA-/NPS-Dienste (USA) liefern Großbuchstaben-Felder.
+                let NAME: String?
+                let TYPE_CODE: String?
+                let UNIT_NAME: String?
             }
         }
         struct Geometry: Decodable {

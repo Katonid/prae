@@ -3,12 +3,13 @@
 //  FlightMate
 //
 //  Lufträume (Kontrollzonen, Flugbeschränkungs- und Advisory-Gebiete)
-//  aus der openAIP-Datenbank — die Zonen, die NAV Drone in Kanada
-//  zeigt (CTR rot, CYR/CYA orange), gibt es dort nicht als offene
-//  Schnittstelle (Login-pflichtig). openAIP führt dieselben Lufträume
-//  aus den amtlichen AIPs weltweit und ist mit kostenlosem
+//  aus der openAIP-Datenbank — weltweit, aus den amtlichen AIPs.
+//  Genutzt in Kanada (die NAV-Drone-Zonen: CTR rot, CYR/CYA orange —
+//  NAV Drone selbst ist login-pflichtig) und in den EU-Nachbarländern
+//  (NL, BE, LU, FR, DK, CZ, PL, AT). openAIP ist mit kostenlosem
 //  API-Schlüssel abfragbar (api.core.openaip.net, Lizenz CC BY-NC —
-//  für die private Nutzung dieser App zulässig).
+//  für die private Nutzung dieser App zulässig). Die USA brauchen
+//  keinen Schlüssel — dort liefert die FAA ihre Daten offen.
 //
 //  Wie beim Claude-Schlüssel gilt: Bring your own key, Ablage nur in
 //  der Keychain. Ohne Schlüssel zeigt die App die Lücke ehrlich an
@@ -128,20 +129,35 @@ final class AirspaceService: ObservableObject {
                 let unit: Int          // 0 = Meter, 1 = Fuß, 6 = Flight Level
                 let referenceDatum: Int // 0 = GND, 1 = MSL, 2 = STD
             }
+            /// Laut Schema String ODER Liste von Strings — tolerant decodieren.
+            struct CountryField: Decodable {
+                let codes: [String]
+                init(from decoder: Decoder) throws {
+                    let container = try decoder.singleValueContainer()
+                    if let one = try? container.decode(String.self) { codes = [one] }
+                    else if let many = try? container.decode([String].self) { codes = many }
+                    else { codes = [] }
+                }
+            }
             let _id: String
             let name: String
             let type: Int
             let geometry: Geometry?
             let lowerLimit: VerticalLimit?
+            let country: CountryField?
         }
         let items: [Item]
     }
 
     /// Lufträume rund um eine Position (Radius in Metern). Wirft ohne
     /// hinterlegten Schlüssel `GeoQueryError.badResponse` — Aufrufer
-    /// behandeln das als ehrliche Datenlücke.
+    /// behandeln das als ehrliche Datenlücke. `excludingCountry` blendet
+    /// ein Land aus (in Deutschland zeichnet dipul die Lufträume schon —
+    /// openAIP liefert dort nur die Zonen der Nachbarländer hinter der
+    /// Grenze).
     nonisolated static func airspaces(around center: CLLocationCoordinate2D,
-                                      radiusM: Int) async throws -> [Airspace] {
+                                      radiusM: Int,
+                                      excludingCountry: String? = nil) async throws -> [Airspace] {
         guard let key = loadKey() else { throw GeoQueryError.badResponse }
 
         var components = URLComponents(string: "https://api.core.openaip.net/api/airspaces")!
@@ -160,7 +176,8 @@ final class AirspaceService: ObservableObject {
 
         let result = try JSONDecoder().decode(APIResponse.self, from: data)
         return result.items.compactMap { item in
-            guard let (title, severity) = classify(type: item.type),
+            guard excludingCountry.map({ !(item.country?.codes.contains($0) ?? false) }) ?? true,
+                  let (title, severity) = classify(type: item.type),
                   droneRelevant(item.lowerLimit),
                   let ring = item.geometry?.coordinates.first, ring.count >= 3 else { return nil }
             let coords = ring.compactMap { point in
