@@ -35,6 +35,10 @@ struct DiscoveryView: View {
     @State private var mapSelection: String?
     @State private var pushedCandidate: SpotCandidate?
     @State private var mapPosition: MapCameraPosition = .automatic
+    // Flugzonen-Umrisse unter den Treffern (wie im Karte-Tab).
+    @State private var zoneOverlays: [ZoneOverlay] = []
+    @State private var zoneTask: Task<Void, Never>?
+    @State private var zonesZoomedOut = true
 
     private let radiusOptions = [10_000, 25_000, 50_000]
 
@@ -206,6 +210,21 @@ struct DiscoveryView: View {
 
     private var candidateMap: some View {
         Map(position: $mapPosition, selection: $mapSelection) {
+            // Flugzonen zuerst — die Treffer stehen damit sichtbar im
+            // Verbots-/Auflagen-Kontext (Nutzerwunsch: „darf an dem
+            // Spot überhaupt geflogen werden?").
+            ForEach(zoneOverlays) { zone in
+                ForEach(Array(zone.rings.enumerated()), id: \.offset) { _, ring in
+                    MapPolygon(coordinates: ring)
+                        .foregroundStyle(Theme.verdictColor(zone.severity).opacity(0.16))
+                        .stroke(Theme.verdictColor(zone.severity).opacity(0.75), lineWidth: 1.5)
+                }
+                ForEach(Array(zone.circles.enumerated()), id: \.offset) { _, circle in
+                    MapCircle(center: circle.center, radius: circle.radiusM)
+                        .foregroundStyle(Theme.verdictColor(zone.severity).opacity(0.16))
+                        .stroke(Theme.verdictColor(zone.severity).opacity(0.75), lineWidth: 1.5)
+                }
+            }
             ForEach(candidates) { candidate in
                 Marker(candidate.name, systemImage: candidate.kind.symbol,
                        coordinate: candidate.coordinate)
@@ -230,6 +249,37 @@ struct DiscoveryView: View {
                 .background(.thinMaterial, in: Capsule())
                 .padding(8)
         }
+        .overlay(alignment: .bottomTrailing) {
+            if zonesZoomedOut {
+                Text("Zoome hinein, um Flugzonen zu sehen")
+                    .font(.caption2)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(.thinMaterial, in: Capsule())
+                    .padding(8)
+            } else if !zoneOverlays.isEmpty {
+                HStack(spacing: 10) {
+                    HStack(spacing: 4) {
+                        Circle().fill(Theme.verdictColor(.forbidden)).frame(width: 8, height: 8)
+                        Text("verboten")
+                    }
+                    HStack(spacing: 4) {
+                        Circle().fill(Theme.verdictColor(.conditional)).frame(width: 8, height: 8)
+                        Text("mit Auflagen")
+                    }
+                }
+                .font(.caption2)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(.thinMaterial, in: Capsule())
+                .padding(8)
+            }
+        }
+        // Zonen-Nachladen wie im Karte-Tab: erst nach einer halben
+        // Sekunde Ruhe — Schwenken bleibt geschmeidig.
+        .onMapCameraChange(frequency: .onEnd) { context in
+            reloadZones(for: context.region)
+        }
         .onChange(of: mapSelection) { _, selected in
             guard let selected,
                   let candidate = candidates.first(where: { $0.id == selected }) else { return }
@@ -241,6 +291,26 @@ struct DiscoveryView: View {
         // Neue Suche → Karte wieder auf alle Treffer einpassen.
         .onChange(of: candidates.map(\.id)) {
             mapPosition = .automatic
+        }
+    }
+
+    /// Flugzonen-Umrisse für den sichtbaren Ausschnitt (entprellt).
+    private func reloadZones(for region: MKCoordinateRegion) {
+        let span = max(region.span.latitudeDelta, region.span.longitudeDelta)
+        zonesZoomedOut = span >= ZoneOverlayService.maxSpanDeg
+        zoneTask?.cancel()
+        zoneTask = Task {
+            try? await Task.sleep(nanoseconds: 500_000_000)
+            guard !Task.isCancelled else { return }
+            let zones = await ZoneOverlayService.shared.zones(in: region)
+            guard !Task.isCancelled else { return }
+            await MainActor.run {
+                let newIDs = Set(zones.map(\.id))
+                let oldIDs = Set(zoneOverlays.map(\.id))
+                if newIDs != oldIDs {
+                    zoneOverlays = zones
+                }
+            }
         }
     }
 

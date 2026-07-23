@@ -172,8 +172,16 @@ Dieser Stand entspricht dem **MVP-Fundament** (PRD Phase 0/1).
   **Kartenansicht:** Ein Umschalt-Knopf zeigt alle Treffer als Marker
   (mit Kategorie-Symbol) auf einer Karte, samt Suchumkreis und
   eigenem Standort; die Karte passt sich nach jeder Suche auf die
-  Treffer ein. Marker antippen öffnet dieselbe Detailansicht wie die
-  Liste. Die gewählte Ansicht (Liste/Karte) bleibt gespeichert.
+  Treffer ein. Unter den Markern zeichnet sie dieselben
+  Flugzonen-Umrisse wie der Karte-Tab (rot = verboten, orange = mit
+  Auflagen, mit Legende und Zoom-Hinweis, entprelltes Nachladen) —
+  so ist auf einen Blick sichtbar, ob ein Treffer überhaupt
+  beflogen werden darf. Marker antippen öffnet dieselbe
+  Detailansicht wie die Liste. Die gewählte Ansicht (Liste/Karte)
+  bleibt gespeichert. Umgekehrt blendet der Karte-Tab per
+  Fernglas-Knopf die letzten Entdecken-Treffer als türkise Marker in
+  die Zonenkarte ein — ein Tipp auf den Marker startet dort den
+  punktgenauen Legal-Check.
   **Reiseplanung:** Gesucht wird nicht nur am eigenen Standort — auf
   der Karte öffnet jeder angetippte Punkt den Knopf „Foto-Orte hier
   entdecken", und im Entdecken-Tab gibt es eine Freitext-Ortssuche
