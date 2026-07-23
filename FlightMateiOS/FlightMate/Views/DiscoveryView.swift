@@ -14,8 +14,18 @@ import MapKit
 struct DiscoveryView: View {
     @EnvironmentObject private var state: AppState
     @State private var candidates: [SpotCandidate] = []
-    @State private var selectedKinds: Set<SpotCandidate.Kind> = Set(SpotCandidate.Kind.allCases)
-    @State private var radiusM = 25_000
+    // Umkreis und Kategorien überleben den App-Neustart — nur so kann
+    // das Ergebnis-Gedächtnis (siehe unten) beim Start greifen.
+    @State private var selectedKinds: Set<SpotCandidate.Kind> = {
+        if let raw = UserDefaults.standard.string(forKey: "discoveryKinds") {
+            let kinds = raw.split(separator: ",")
+                .compactMap { SpotCandidate.Kind(rawValue: String($0)) }
+            if !kinds.isEmpty { return Set(kinds) }
+        }
+        return Set(SpotCandidate.Kind.allCases)
+    }()
+    @State private var radiusM =
+        UserDefaults.standard.object(forKey: "discoveryRadiusM") as? Int ?? 25_000
     @State private var isLoading = false
     @State private var errorMessage: String?
     @State private var showPlaceSearch = false
@@ -139,17 +149,29 @@ struct DiscoveryView: View {
             }
             // Nur beim ersten Erscheinen automatisch suchen — beim
             // Zurückkehren aus der Detailansicht bleiben die Treffer
-            // stehen (Nutzerwunsch; aktualisieren per Knopf/Ziehen).
+            // stehen, und nach einem App-Neustart springt die letzte
+            // gesicherte Suche ein, solange das Zentrum keine 100 m
+            // gewandert ist (Nutzerwunsch: kein ständiges Neu-Aufbauen;
+            // aktualisieren jederzeit per Knopf/Ziehen).
             .task {
                 if candidates.isEmpty && errorMessage == nil {
-                    await search()
+                    if let stored = DiscoveryService.storedResults(
+                        center: searchCenter, radiusM: radiusM, kinds: selectedKinds) {
+                        candidates = stored
+                    } else {
+                        await search()
+                    }
                 }
             }
             .refreshable { await search() }
             .onChange(of: radiusM) {
+                UserDefaults.standard.set(radiusM, forKey: "discoveryRadiusM")
                 Task { await search() }
             }
             .onChange(of: selectedKinds) {
+                UserDefaults.standard.set(
+                    selectedKinds.map(\.rawValue).sorted().joined(separator: ","),
+                    forKey: "discoveryKinds")
                 Task { await search() }
             }
             .onChange(of: state.discoveryRequestID) {
@@ -208,6 +230,8 @@ struct DiscoveryView: View {
                 radiusM: radiusM,
                 kinds: selectedKinds
             )
+            DiscoveryService.storeResults(candidates, center: searchCenter,
+                                          radiusM: radiusM, kinds: selectedKinds)
         } catch {
             errorMessage = "Alle OpenStreetMap-Server sind gerade ausgelastet — zieh die Liste zum Aktualisieren nach unten oder versuch es in ein paar Minuten erneut."
         }

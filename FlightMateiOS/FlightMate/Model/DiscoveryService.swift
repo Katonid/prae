@@ -14,8 +14,8 @@
 import Foundation
 import CoreLocation
 
-struct SpotCandidate: Identifiable, Hashable {
-    enum Kind: String, CaseIterable, Identifiable {
+struct SpotCandidate: Identifiable, Hashable, Codable {
+    enum Kind: String, CaseIterable, Identifiable, Codable {
         case viewpoint
         case peak
         case waterfall
@@ -117,6 +117,54 @@ enum DiscoveryService {
         }
         guard successes > 0 else { throw GeoQueryError.badResponse }
         return all.sorted { $0.distanceM < $1.distanceM }
+    }
+
+    // MARK: Ergebnis-Gedächtnis über App-Starts hinweg
+
+    /// Die letzte erfolgreiche Suche wird auf dem Gerät gesichert.
+    /// Beim nächsten App-Start erscheint sie sofort wieder, solange
+    /// das Suchzentrum höchstens ~100 m entfernt liegt und Umkreis
+    /// und Kategorien unverändert sind (Nutzerwunsch: kein ständiges
+    /// Neu-Aufbauen; Aktualisieren jederzeit per Knopf/Ziehen).
+    private struct StoredSearch: Codable {
+        let centerLat: Double
+        let centerLon: Double
+        let radiusM: Int
+        let kinds: [String]
+        let savedAt: Date
+        let candidates: [SpotCandidate]
+    }
+
+    private static var resultsFile: URL {
+        FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("discovery-results.json")
+    }
+
+    static func storeResults(_ candidates: [SpotCandidate],
+                             center: CLLocationCoordinate2D, radiusM: Int,
+                             kinds: Set<SpotCandidate.Kind>) {
+        let stored = StoredSearch(
+            centerLat: center.latitude, centerLon: center.longitude,
+            radiusM: radiusM, kinds: kinds.map(\.rawValue).sorted(),
+            savedAt: Date(), candidates: candidates)
+        if let data = try? JSONEncoder().encode(stored) {
+            try? data.write(to: resultsFile)
+        }
+    }
+
+    static func storedResults(center: CLLocationCoordinate2D, radiusM: Int,
+                              kinds: Set<SpotCandidate.Kind>,
+                              toleranceM: Double = 100,
+                              maxAge: TimeInterval = 7 * 86_400) -> [SpotCandidate]? {
+        guard let data = try? Data(contentsOf: resultsFile),
+              let stored = try? JSONDecoder().decode(StoredSearch.self, from: data),
+              Date().timeIntervalSince(stored.savedAt) < maxAge,
+              stored.radiusM == radiusM,
+              stored.kinds == kinds.map(\.rawValue).sorted() else { return nil }
+        let storedCenter = CLLocation(latitude: stored.centerLat, longitude: stored.centerLon)
+        let requested = CLLocation(latitude: center.latitude, longitude: center.longitude)
+        guard requested.distance(from: storedCenter) <= toleranceM else { return nil }
+        return stored.candidates
     }
 
     private static func fetch(kind: SpotCandidate.Kind, center: CLLocationCoordinate2D,

@@ -211,13 +211,19 @@ struct LegalMapView: View {
         }
     }
 
-    /// Lädt die Umrisse für den neuen Ausschnitt (bricht laufende Ladung ab).
+    /// Lädt die Umrisse für den neuen Ausschnitt — aber erst, wenn die
+    /// Karte eine halbe Sekunde ruhig steht. Während des Verschiebens
+    /// bleibt die alte Zeichnung einfach stehen (Nutzerwunsch:
+    /// geschmeidiges Schwenken statt Nachladen bei jeder Bewegung);
+    /// jede neue Bewegung bricht die wartende Ladung ab.
     private func reloadOverlays(for region: MKCoordinateRegion) {
         let span = max(region.span.latitudeDelta, region.span.longitudeDelta)
         zoomedOut = span >= ZoneOverlayService.maxSpanDeg
         detailHidden = span >= ZoneOverlayService.detailSpanDeg && !zoomedOut
         overlayTask?.cancel()
         overlayTask = Task {
+            try? await Task.sleep(nanoseconds: 500_000_000)
+            guard !Task.isCancelled else { return }
             let zones = await ZoneOverlayService.shared.zones(in: region)
             guard !Task.isCancelled else { return }
             await MainActor.run {
