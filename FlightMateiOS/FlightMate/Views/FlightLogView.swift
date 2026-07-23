@@ -11,6 +11,7 @@
 
 import SwiftUI
 import PhotosUI
+import UniformTypeIdentifiers
 
 /// Container für den Tab: Logbuch ⇄ KI-Bildkritik.
 struct FlightsTabView: View {
@@ -45,6 +46,8 @@ struct LogbookView: View {
     @EnvironmentObject private var state: AppState
     @State private var entries: [FlightLogEntry] = []
     @State private var editingEntry: FlightLogEntry?
+    @State private var showLogImporter = false
+    @State private var importMessage: String?
 
     var body: some View {
         NavigationStack {
@@ -77,6 +80,14 @@ struct LogbookView: View {
             }
             .navigationTitle("Logbuch")
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button {
+                        showLogImporter = true
+                    } label: {
+                        Image(systemName: "square.and.arrow.down")
+                    }
+                    .accessibilityLabel("DJI-Fluglogs importieren")
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
                         var new = FlightLogEntry()
@@ -88,6 +99,23 @@ struct LogbookView: View {
                     }
                     .accessibilityLabel("Flug eintragen")
                 }
+            }
+            .fileImporter(isPresented: $showLogImporter,
+                          allowedContentTypes: [.plainText, .commaSeparatedText, .text, .data],
+                          allowsMultipleSelection: true) { result in
+                guard case .success(let urls) = result else { return }
+                Task {
+                    importMessage = await DJILogImport.importFiles(urls)
+                    entries = FlightLog.all()
+                }
+            }
+            .alert("DJI-Import", isPresented: Binding(
+                get: { importMessage != nil },
+                set: { if !$0 { importMessage = nil } }
+            )) {
+                Button("OK") { importMessage = nil }
+            } message: {
+                Text(importMessage ?? "")
             }
             .sheet(item: $editingEntry, onDismiss: { entries = FlightLog.all() }) { entry in
                 LogEntryEditor(entry: entry)

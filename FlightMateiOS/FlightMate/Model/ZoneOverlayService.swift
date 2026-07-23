@@ -420,10 +420,60 @@ final class ZoneOverlayService {
             whereClause: nil,
             idPrefix: "us-nps", severity: { _ in .forbidden })
 
+        // Sicherheits-Flugverbote (rot), Dauer-TFRs (rot), Stadien (orange Kreise).
+        async let nsr = Self.fetchArcGISPolygons(
+            baseURL: "\(Self.faaBase)/DoD_Mar_13/FeatureServer/0",
+            envelope: envelope, outFields: "Facility", whereClause: nil,
+            idPrefix: "us-nsr", severity: { _ in .forbidden })
+        async let defenseTfr = Self.fetchArcGISPolygons(
+            baseURL: "\(Self.faaBase)/National_Defense_Airspace_TFR_Areas/FeatureServer/0",
+            envelope: envelope, outFields: "*", whereClause: nil,
+            idPrefix: "us-tfr", severity: { _ in .forbidden })
+        async let stadiums = Self.fetchStadiumCircles(envelope: envelope)
+
         let all = ((try? await classAirspace) ?? [])
             + ((try? await sua) ?? [])
             + ((try? await parks) ?? [])
+            + ((try? await nsr) ?? [])
+            + ((try? await defenseTfr) ?? [])
+            + ((try? await stadiums) ?? [])
         return all.sorted { $0.severity < $1.severity }
+    }
+
+    /// Stadien (FAA) als orange 3-NM-Kreise — Flugverbot gilt dort an
+    /// Veranstaltungstagen (FDC NOTAM 4/3621).
+    private static func fetchStadiumCircles(envelope: String) async throws -> [ZoneOverlay] {
+        let data = try await arcgisGeoJSON(
+            baseURL: "\(faaBase)/Stadiums/FeatureServer/0",
+            envelope: envelope, outFields: "NAME")
+        struct PointCollection: Decodable {
+            struct Feature: Decodable {
+                struct Geometry: Decodable {
+                    let type: String
+                    let coordinates: [Double]
+                }
+                struct Properties: Decodable { let NAME: String? }
+                let geometry: Geometry?
+                let properties: Properties?
+            }
+            let features: [Feature]
+        }
+        let collection = try JSONDecoder().decode(PointCollection.self, from: data)
+        return collection.features.enumerated().compactMap { index, feature in
+            guard let geometry = feature.geometry, geometry.type == "Point",
+                  geometry.coordinates.count >= 2 else { return nil }
+            let name = feature.properties?.NAME
+            return ZoneOverlay(
+                id: "us-stadium-\(name ?? String(index))",
+                title: name.map { "Stadion-TFR (an Veranstaltungstagen): \($0)" },
+                severity: .conditional,
+                rings: [],
+                circles: [ZoneCircle(
+                    center: CLLocationCoordinate2D(latitude: geometry.coordinates[1],
+                                                   longitude: geometry.coordinates[0]),
+                    radiusM: 5_556)]
+            )
+        }
     }
 
     private static func fetchArcGISPolygons(baseURL: String, envelope: String, outFields: String,
@@ -441,7 +491,7 @@ final class ZoneOverlayService {
             guard !rings.isEmpty else { return nil }
             let properties = feature.properties
             let title = properties?.NAME ?? properties?.UNIT_NAME ?? properties?.PROTECTED_AREA_NAME_ENG
-                ?? properties?.title ?? properties?.description
+                ?? properties?.title ?? properties?.description ?? properties?.Facility
             // Index anhängen: mehrere Teilflächen können denselben
             // Namen tragen (z. B. „NEW YORK CLASS B").
             return ZoneOverlay(
@@ -471,6 +521,8 @@ final class ZoneOverlayService {
                 // Dänische Dronezoner-Dienste (Trafikstyrelsen)
                 let title: String?
                 let description: String?
+                // FAA-Sicherheits-Flugverbote
+                let Facility: String?
             }
         }
         struct Geometry: Decodable {

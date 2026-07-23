@@ -232,7 +232,8 @@ private func arcgisPointQuery(baseURL: String, coordinate: CLLocationCoordinate2
 /// FAA-UAS-Grids mit Höhen-Obergrenze) — und erlaubt eine Where-Klausel.
 func arcgisPointAttributes(baseURL: String, coordinate: CLLocationCoordinate2D,
                                    outFields: [String],
-                                   whereClause: String? = nil) async throws -> [[String: AnyDecodable]] {
+                                   whereClause: String? = nil,
+                                   distanceM: Double? = nil) async throws -> [[String: AnyDecodable]] {
     var components = URLComponents(string: baseURL + "/query")!
     var items = [
         URLQueryItem(name: "geometry", value: String(format: "{\"x\":%f,\"y\":%f}", coordinate.longitude, coordinate.latitude)),
@@ -245,6 +246,10 @@ func arcgisPointAttributes(baseURL: String, coordinate: CLLocationCoordinate2D,
     ]
     if let whereClause {
         items.append(URLQueryItem(name: "where", value: whereClause))
+    }
+    if let distanceM {
+        items.append(URLQueryItem(name: "distance", value: String(Int(distanceM))))
+        items.append(URLQueryItem(name: "units", value: "esriSRUnit_Meter"))
     }
     components.queryItems = items
 
@@ -817,11 +822,26 @@ struct USALegalProvider: LegalProvider {
     }
 
     static let uncheckedZoneTypes = [
-        "TFRs & NOTAMs (tagesaktuelle Sperrungen)",
-        "Sicherheits-Flugverbote (National Security UAS Flight Restrictions)",
         "State Parks (im Bundesstaat New York verboten)",
-        "Stadien (3 NM an Veranstaltungstagen)",
     ]
+
+    static let nsrRule = ZoneRule(
+        layer: "faa_nsr", title: "Sicherheits-Flugverbot (UAS)",
+        severity: .forbidden,
+        plainText: "National Security UAS Flight Restriction (FAA): Drohnenflug vom Boden bis 400 ft AGL dauerhaft verboten (14 CFR § 99.7) — z. B. über sicherheitskritischen Anlagen und Denkmälern.",
+        maxAltitudeM: 0)
+
+    static let defenseTfrRule = ZoneRule(
+        layer: "faa_tfr", title: "Dauer-Flugverbotszone (TFR)",
+        severity: .forbidden,
+        plainText: "Dauerhafte Temporary Flight Restriction (National Defense Airspace): Der Luftraum ist gesperrt — Drohnenflug verboten.",
+        maxAltitudeM: 0)
+
+    static let stadiumRule = ZoneRule(
+        layer: "faa_stadium", title: "Stadion-TFR (3 NM)",
+        severity: .conditional,
+        plainText: "Stadion im 3-NM-Umkreis: An Veranstaltungstagen (MLB, NFL, NCAA-Division-I-Football, NASCAR) ist der Flug von einer Stunde vor bis eine Stunde nach der Veranstaltung bis 3000 ft verboten (FDC NOTAM 4/3621). Außerhalb der Veranstaltungen gilt die normale Regel.",
+        maxAltitudeM: nil)
 
     func assess(coordinate: CLLocationCoordinate2D, profile: DroneProfile) async -> LegalAssessment {
         var hits: [ZoneHit] = []
@@ -841,11 +861,25 @@ struct USALegalProvider: LegalProvider {
             baseURL: "\(Self.faaBase)/Special_Use_Airspace/FeatureServer/0",
             coordinate: coordinate, outFields: ["NAME", "TYPE_CODE"],
             whereClause: "LOWER_VAL=0")
+        async let nsrTask = Self.attributesResult(
+            baseURL: "\(Self.faaBase)/DoD_Mar_13/FeatureServer/0",
+            coordinate: coordinate, outFields: ["Facility", "Reason"])
+        async let defenseTfrTask = Self.attributesResult(
+            baseURL: "\(Self.faaBase)/National_Defense_Airspace_TFR_Areas/FeatureServer/0",
+            coordinate: coordinate, outFields: ["*"])
+        async let stadiumTask = Self.attributesResult(
+            baseURL: "\(Self.faaBase)/Stadiums/FeatureServer/0",
+            coordinate: coordinate, outFields: ["NAME", "CITY"], distanceM: 5_556)
+        async let stateTfrTask = Self.activeTfrSummary(for: coordinate)
 
         let parks = await parksTask
         let grid = await gridTask
         let classAirspace = await classTask
         let sua = await suaTask
+        let nsr = await nsrTask
+        let defenseTfr = await defenseTfrTask
+        let stadiums = await stadiumTask
+        let stateTfrInfo = await stateTfrTask
 
         switch parks {
         case .success(let features):
@@ -900,12 +934,48 @@ struct USALegalProvider: LegalProvider {
             failed.append("Special Use Airspace (FAA)")
         }
 
+        // Die vier Kern-Quellen zählen für die „keine Aussage"-Regel;
+        // die TFR-/NSR-/Stadion-Zusätze kommen danach.
+        let coreSourcesDown = failed.count == 4
+
+        switch nsr {
+        case .success(let features):
+            for feature in features {
+                hits.append(ZoneHit(rule: Self.nsrRule,
+                                    featureName: feature["Facility"]?.value as? String))
+            }
+        case .failure:
+            failed.append("Sicherheits-Flugverbote (FAA)")
+        }
+
+        switch defenseTfr {
+        case .success(let features):
+            for feature in features {
+                let name = (feature["NAME"]?.value as? String)
+                    ?? (feature["Name"]?.value as? String)
+                    ?? (feature["NOTAM_ID"]?.value as? String)
+                hits.append(ZoneHit(rule: Self.defenseTfrRule, featureName: name))
+            }
+        case .failure:
+            failed.append("Dauer-TFRs (FAA)")
+        }
+
+        switch stadiums {
+        case .success(let features):
+            for feature in features {
+                hits.append(ZoneHit(rule: Self.stadiumRule,
+                                    featureName: feature["NAME"]?.value as? String))
+            }
+        case .failure:
+            failed.append("Stadien-TFR (FAA)")
+        }
+
         if Self.isNYC(coordinate) {
             hits.append(ZoneHit(rule: Self.nycRule, featureName: nil))
         }
 
-        // Alle vier Live-Quellen weg → keine Aussage, statt zu raten.
-        if failed.count == 4 {
+        // Alle vier Kern-Quellen weg → keine Aussage, statt zu raten.
+        if coreSourcesDown {
             return LegalAssessment(
                 coordinate: coordinate, verdict: .unknown, zones: [],
                 uncheckedLayers: failed + Self.uncheckedZoneTypes, uncheckedHint: nil,
@@ -919,26 +989,79 @@ struct USALegalProvider: LegalProvider {
         let verdict = hits.map(\.rule.severity).max() ?? .allowed
         let maxAltitude = hits.compactMap(\.rule.maxAltitudeM).min() ?? profile.maxLegalAltitudeM
 
+        var unchecked = Self.uncheckedZoneTypes
+        unchecked.insert(stateTfrInfo
+            ?? "TFRs & NOTAMs (tagesaktuell) — vor dem Start in B4UFLY prüfen", at: 0)
+
         return LegalAssessment(
             coordinate: coordinate, verdict: verdict, zones: hits,
-            uncheckedLayers: failed + Self.uncheckedZoneTypes,
+            uncheckedLayers: failed + unchecked,
             uncheckedHint: "Bitte vor dem Start in der FAA-App B4UFLY (Aloft) gegenprüfen — dort sind auch TFRs tagesaktuell.",
             baselineText: "Für Freizeitflüge gilt in den USA die Recreational Exception (49 USC 44809): TRUST-Zertifikat online machen (kostenlos, Pflicht), deine \(profile.name) unter 250 g muss für reine Freizeitflüge nicht registriert werden, max. 400 ft (122 m) über Grund, Sichtverbindung halten. Kontrollierter Luftraum nur mit LAANC-Freigabe.",
             maxAltitudeM: min(maxAltitude, 122), checkedAt: Date(),
-            sourceNote: "Quellen: FAA Open Data (UAS Facility Maps, Luftraumklassen, Special Use Airspace), National Park Service — Live-Abfrage. TFRs/NOTAMs: B4UFLY."
+            sourceNote: "Quellen: FAA Open Data (UAS Facility Maps, Luftraumklassen, Special Use Airspace, Sicherheits-Flugverbote, Dauer-TFRs, Stadien, TFR-Liste), National Park Service — Live-Abfrage."
         )
     }
 
     private static func attributesResult(baseURL: String, coordinate: CLLocationCoordinate2D,
                                          outFields: [String],
-                                         whereClause: String? = nil) async -> Result<[[String: AnyDecodable]], Error> {
+                                         whereClause: String? = nil,
+                                         distanceM: Double? = nil) async -> Result<[[String: AnyDecodable]], Error> {
         do {
             return .success(try await arcgisPointAttributes(
                 baseURL: baseURL, coordinate: coordinate,
-                outFields: outFields, whereClause: whereClause))
+                outFields: outFields, whereClause: whereClause, distanceM: distanceM))
         } catch {
             return .failure(error)
         }
+    }
+
+    /// Tagesaktuelle TFR-Liste der FAA (tfr.faa.gov) — ohne Geometrien,
+    /// deshalb ehrlich als Hinweis je Bundesstaat statt als Zone.
+    private static func activeTfrSummary(for coordinate: CLLocationCoordinate2D) async -> String? {
+        let location = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
+        guard let placemark = try? await CLGeocoder().reverseGeocodeLocation(location).first,
+              let area = placemark.administrativeArea else { return nil }
+
+        guard let url = URL(string: "https://tfr.faa.gov/tfrapi/exportTfrList") else { return nil }
+        var request = URLRequest(url: url)
+        request.timeoutInterval = 12
+        request.setValue("FlightMateAI/1.0 (private Drohnen-Foto-App)", forHTTPHeaderField: "User-Agent")
+        guard let (data, response) = try? await URLSession.shared.data(for: request),
+              (response as? HTTPURLResponse)?.statusCode == 200 else { return nil }
+        struct TFR: Decodable {
+            let state: String?
+            let type: String?
+        }
+        guard let list = try? JSONDecoder().decode([TFR].self, from: data) else { return nil }
+        // administrativeArea kann Kürzel ("NY") oder Klartext sein —
+        // beides gegen das 2-Buchstaben-Feld der FAA-Liste halten.
+        let code = Self.stateCode(for: area) ?? area
+        let matching = list.filter { ($0.state ?? "").uppercased() == code.uppercased() }
+        guard !matching.isEmpty else {
+            return "Keine aktiven TFRs im Bundesstaat \(area) gemeldet (tfr.faa.gov, tagesaktuell; Kurzfrist-Sperrungen vor dem Start in B4UFLY prüfen)"
+        }
+        return "\(matching.count) aktive TFR\(matching.count == 1 ? "" : "s") im Bundesstaat \(area) (tfr.faa.gov) — Lage und Zeiten vor dem Start in B4UFLY/tfr.faa.gov prüfen"
+    }
+
+    private static func stateCode(for name: String) -> String? {
+        if name.count == 2 { return name.uppercased() }
+        let map = [
+            "alabama": "AL", "alaska": "AK", "arizona": "AZ", "arkansas": "AR",
+            "california": "CA", "colorado": "CO", "connecticut": "CT", "delaware": "DE",
+            "florida": "FL", "georgia": "GA", "hawaii": "HI", "idaho": "ID",
+            "illinois": "IL", "indiana": "IN", "iowa": "IA", "kansas": "KS",
+            "kentucky": "KY", "louisiana": "LA", "maine": "ME", "maryland": "MD",
+            "massachusetts": "MA", "michigan": "MI", "minnesota": "MN", "mississippi": "MS",
+            "missouri": "MO", "montana": "MT", "nebraska": "NE", "nevada": "NV",
+            "new hampshire": "NH", "new jersey": "NJ", "new mexico": "NM", "new york": "NY",
+            "north carolina": "NC", "north dakota": "ND", "ohio": "OH", "oklahoma": "OK",
+            "oregon": "OR", "pennsylvania": "PA", "rhode island": "RI", "south carolina": "SC",
+            "south dakota": "SD", "tennessee": "TN", "texas": "TX", "utah": "UT",
+            "vermont": "VT", "virginia": "VA", "washington": "WA", "west virginia": "WV",
+            "wisconsin": "WI", "wyoming": "WY", "district of columbia": "DC",
+        ]
+        return map[name.lowercased()]
     }
 }
 

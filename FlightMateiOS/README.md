@@ -56,8 +56,15 @@ Dieser Stand entspricht dem **MVP-Fundament** (PRD Phase 0/1).
     des National Park Service (Drohnenverbot in allen NPS-Gebieten).
     Dazu die New-York-City-Regel (Start/Landung im Stadtgebiet ohne
     Genehmigung verboten, Admin Code § 10-126) als deterministische
-    Zone. TFRs/NOTAMs, State Parks und Stadien werden ehrlich als
-    „nicht geprüft" gelistet (Verweis auf B4UFLY/Aloft).
+    Zone. Dazu (Nutzerwunsch „TFRs anbinden"): **Sicherheits-
+    Flugverbote** (National Security UAS Flight Restrictions, z. B.
+    Freiheitsstatue — live verifiziert), **Dauer-TFRs** (National
+    Defense Airspace) und **Stadien-TFRs** (3-NM-Hinweis für
+    Veranstaltungstage) aus den offenen FAA-Diensten — im Check und
+    als Karten-Overlays; zusätzlich meldet die tagesaktuelle
+    FAA-TFR-Liste (tfr.faa.gov) die Zahl aktiver TFRs im jeweiligen
+    Bundesstaat (ohne Geometrien — ehrlich als Hinweis statt Zone).
+    Nur State Parks bleiben „nicht geprüft" (kein offener Dienst).
   - **EU-Nachbarländer** (NL, BE, LU, FR, DK, CZ, PL, AT): Die
     EU-Regeln (Open A1/C0) sind harmonisiert und werden als Basis
     ausgewiesen, inklusive Landes-Besonderheiten (z. B. Frankreichs
@@ -189,6 +196,14 @@ Dieser Stand entspricht dem **MVP-Fundament** (PRD Phase 0/1).
   bei fernen Spots mit sichtbarem Hinweis; auch die Tagesgrenzen der
   7-Tage-Ansicht folgen der Spot-Zeitzone (Open-Meteo liefert den
   UTC-Versatz mit).
+- **DJI-Fluglog-Import:** Import-Knopf im Logbuch liest DJI-.SRT-
+  Untertitel (Telemetrie neben jedem Video, alte und neue Formate)
+  und AirData-CSV-Exporte — daraus entstehen automatisch Logbuch-
+  Einträge mit Datum, Ort (Reverse-Geocoding), Flugdauer und
+  maximaler Höhe; Duplikate (gleiche Startminute) werden
+  übersprungen. Ehrliche Grenze: Die verschlüsselten DJI-Fly-TXT-
+  Logs kann keine App ohne DJI-Schlüssel lesen — steht so auch in
+  der Fehlermeldung.
 - **Flug-Logbuch (Roadmap-Punkt 4):** „Flüge"-Tab (oben umschaltbar
   Logbuch ⇄ KI-Bildkritik) — ein Eintrag pro Flugtag mit Datum,
   Ort/Spot (aus den gespeicherten Spots übernehmbar), Flight Score,
