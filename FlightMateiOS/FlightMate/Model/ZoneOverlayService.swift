@@ -184,6 +184,10 @@ final class ZoneOverlayService {
     }
 
     private func czechiaZones(in region: MKCoordinateRegion) async -> [ZoneOverlay] {
+        // Das Raster ist dicht (Zellen ~600 m) — wie die dipul-Korridore
+        // erst ab näherem Zoom zeichnen, sonst ruckelt die Karte.
+        let span = max(region.span.latitudeDelta, region.span.longitudeDelta)
+        guard span < Self.detailSpanDeg else { return [] }
         guard let cells = try? await NationalGeoZones.czechDeviatingCells() else { return [] }
         let minLat = region.center.latitude - region.span.latitudeDelta / 2 - 0.01
         let maxLat = region.center.latitude + region.span.latitudeDelta / 2 + 0.01

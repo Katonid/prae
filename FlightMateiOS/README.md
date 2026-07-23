@@ -128,7 +128,10 @@ Dieser Stand entspricht dem **MVP-Fundament** (PRD Phase 0/1).
   und Luftfahrt-Zonen früh; dichte Korridore (Straßen, Bahn,
   Wasserstraßen, Strom) und Wohngrundstücke ab ~10 km Ausschnitt,
   damit Städte nicht vollflächig zugedeckt werden (Legende zeigt
-  „mehr beim Hineinzoomen"). Kartenstil umschaltbar
+  „mehr beim Hineinzoomen"). Beim Verschieben bleibt die alte
+  Zeichnung stehen und die Karte schwenkt geschmeidig — neu geladen
+  wird erst, wenn sie eine halbe Sekunde ruhig steht (jede neue
+  Bewegung bricht die wartende Ladung ab). Kartenstil umschaltbar
   (Karte / Hybrid / Satellit) und Tag-/Nachtansicht unabhängig vom
   Geräte-Erscheinungsbild erzwingbar; beide Einstellungen bleiben
   gespeichert.
@@ -160,6 +163,12 @@ Dieser Stand entspricht dem **MVP-Fundament** (PRD Phase 0/1).
   Jede Kategorie fragt Overpass als eigene kleine Abfrage parallel ab
   (mit Spiegel-Servern als Ausweichlösung) — was durchkommt, wird
   angezeigt; ein Fehler erscheint nur, wenn alle Kategorien scheitern.
+  **Ergebnis-Gedächtnis:** Die letzte erfolgreiche Suche wird auf dem
+  Gerät gesichert und erscheint nach einem App-Neustart sofort
+  wieder, solange das Suchzentrum keine 100 m gewandert ist und
+  Umkreis/Kategorien (die den Neustart ebenfalls überleben)
+  unverändert sind — kein ständiges Neu-Aufbauen; frisch laden
+  jederzeit per Aktualisieren-Knopf oder Ziehen.
   **Reiseplanung:** Gesucht wird nicht nur am eigenen Standort — auf
   der Karte öffnet jeder angetippte Punkt den Knopf „Foto-Orte hier
   entdecken", und im Entdecken-Tab gibt es eine Freitext-Ortssuche
