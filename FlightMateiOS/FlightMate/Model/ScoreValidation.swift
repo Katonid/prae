@@ -71,6 +71,19 @@ enum ScoreValidation {
         }
     }
 
+    /// Import-Zusammenführung: fremde Rückmeldungen nur für Tage
+    /// übernehmen, zu denen lokal noch nichts vorliegt.
+    static func merge(_ imported: [ScoreFeedback]) {
+        var entries = all()
+        let knownDays = Set(entries.map(\.day))
+        entries.append(contentsOf: imported.filter { !knownDays.contains($0.day) })
+        entries.sort { $0.day < $1.day }
+        entries = Array(entries.suffix(90))
+        if let data = try? JSONEncoder().encode(entries) {
+            UserDefaults.standard.set(data, forKey: storageKey)
+        }
+    }
+
     /// Kurze Bilanz für die Karte, z. B.
     /// „12 Rückmeldungen · 9× passend · Tendenz: leicht zu optimistisch".
     static var summary: String? {

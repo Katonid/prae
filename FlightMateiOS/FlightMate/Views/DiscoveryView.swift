@@ -119,6 +119,14 @@ struct DiscoveryView: View {
                         Label("\(radiusM / 1000) km", systemImage: "circle.dashed")
                     }
                 }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        Task { await search() }
+                    } label: {
+                        Label("Aktualisieren", systemImage: "arrow.clockwise")
+                    }
+                    .disabled(isLoading)
+                }
             }
             .alert("Ort suchen", isPresented: $showPlaceSearch) {
                 TextField("Ort, Region oder Adresse", text: $placeQuery)
@@ -129,7 +137,14 @@ struct DiscoveryView: View {
             } message: {
                 Text("Foto-Orte rund um einen beliebigen Ort finden — z. B. für die Reiseplanung.")
             }
-            .task { await search() }
+            // Nur beim ersten Erscheinen automatisch suchen — beim
+            // Zurückkehren aus der Detailansicht bleiben die Treffer
+            // stehen (Nutzerwunsch; aktualisieren per Knopf/Ziehen).
+            .task {
+                if candidates.isEmpty && errorMessage == nil {
+                    await search()
+                }
+            }
             .refreshable { await search() }
             .onChange(of: radiusM) {
                 Task { await search() }

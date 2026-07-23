@@ -36,6 +36,8 @@ final class AirspaceService: ObservableObject {
 
     // MARK: Schlüsselverwaltung (Keychain, gleiches Muster wie ClaudeService)
 
+    /// Synchronisierbar im iCloud-Schlüsselbund (wie der Claude-Key) —
+    /// der Schlüssel wandert automatisch auf iPhone UND iPad.
     func saveKey(_ key: String) {
         let trimmed = key.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, let data = trimmed.data(using: .utf8) else { return }
@@ -44,7 +46,8 @@ final class AirspaceService: ObservableObject {
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: Self.keychainService,
             kSecAttrAccount as String: Self.keychainAccount,
-            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
+            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlock,
+            kSecAttrSynchronizable as String: true,
             kSecValueData as String: data,
         ]
         SecItemAdd(attributes as CFDictionary, nil)
@@ -59,10 +62,12 @@ final class AirspaceService: ObservableObject {
     nonisolated static var hasStoredKey: Bool { loadKey() != nil }
 
     private nonisolated static func deleteKeyItem() {
+        // SynchronizableAny räumt auch alte, nur lokale Einträge ab.
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: keychainService,
             kSecAttrAccount as String: keychainAccount,
+            kSecAttrSynchronizable as String: kSecAttrSynchronizableAny,
         ]
         SecItemDelete(query as CFDictionary)
     }
@@ -72,6 +77,7 @@ final class AirspaceService: ObservableObject {
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: keychainService,
             kSecAttrAccount as String: keychainAccount,
+            kSecAttrSynchronizable as String: kSecAttrSynchronizableAny,
             kSecReturnData as String: true,
             kSecMatchLimit as String: kSecMatchLimitOne,
         ]
