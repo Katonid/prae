@@ -57,7 +57,10 @@ enum MapAppearance: String, CaseIterable, Identifiable {
 
 struct LegalMapView: View {
     @EnvironmentObject private var state: AppState
-    @State private var camera: MapCameraPosition = .automatic
+    // Kamera folgt dem Nutzer statt dem Inhalt: mit .automatic würde
+    // jedes Overlay-Update die Karte neu einpassen (sichtbares
+    // „Neu-Aufbauen" — vom Nutzer gemeldet).
+    @State private var camera: MapCameraPosition = .userLocation(fallback: .automatic)
     @State private var pin: CLLocationCoordinate2D?
     @State private var assessment: LegalAssessment?
     @State private var isChecking = false
@@ -73,12 +76,13 @@ struct LegalMapView: View {
         NavigationStack {
             MapReader { proxy in
                 Map(position: $camera) {
-                    // Zonen-Umrisse des sichtbaren Ausschnitts (DE: dipul, CA: NRCan/TC)
+                    // Zonen-Umrisse des sichtbaren Ausschnitts (DE: dipul, CA: NRCan/TC).
+                    // Ein Element pro Ring (Füllung + Kontur zusammen) hält die
+                    // Kartenlast klein.
                     ForEach(overlays) { zone in
                         ForEach(Array(zone.rings.enumerated()), id: \.offset) { _, ring in
                             MapPolygon(coordinates: ring)
                                 .foregroundStyle(Theme.verdictColor(zone.severity).opacity(0.16))
-                            MapPolyline(coordinates: ring + [ring[0]])
                                 .stroke(Theme.verdictColor(zone.severity).opacity(0.75), lineWidth: 1.5)
                         }
                         ForEach(Array(zone.circles.enumerated()), id: \.offset) { _, circle in
@@ -215,8 +219,15 @@ struct LegalMapView: View {
         overlayTask?.cancel()
         overlayTask = Task {
             let zones = await ZoneOverlayService.shared.zones(in: region)
-            if !Task.isCancelled {
-                await MainActor.run { overlays = zones }
+            guard !Task.isCancelled else { return }
+            await MainActor.run {
+                // Nur ersetzen, wenn sich der Zonenbestand wirklich ändert —
+                // sonst zeichnet die Karte bei jedem Schwenk alles neu.
+                let newIDs = Set(zones.map(\.id))
+                let oldIDs = Set(overlays.map(\.id))
+                if newIDs != oldIDs {
+                    overlays = zones
+                }
             }
         }
     }

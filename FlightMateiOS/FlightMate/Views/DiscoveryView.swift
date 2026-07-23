@@ -136,7 +136,7 @@ struct DiscoveryView: View {
                 kinds: selectedKinds
             )
         } catch {
-            errorMessage = "Die Orte-Suche (OpenStreetMap) ist gerade nicht erreichbar — bitte später erneut versuchen."
+            errorMessage = "Alle OpenStreetMap-Server sind gerade ausgelastet — zieh die Liste zum Aktualisieren nach unten oder versuch es in ein paar Minuten erneut."
         }
     }
 }
@@ -151,21 +151,42 @@ struct DiscoveryDetailView: View {
     @State private var days: [DayScore] = []
     @State private var isChecking = true
     @State private var saved = false
+    @State private var showFullMap = false
 
     var body: some View {
         ScrollView {
             VStack(spacing: 16) {
+                // Mini-Karte: Antippen öffnet die zoombare Vollbild-Ansicht,
+                // um den Spot genau zu verorten.
                 Map(initialPosition: .region(MKCoordinateRegion(
                     center: candidate.coordinate,
                     span: MKCoordinateSpan(latitudeDelta: 0.03, longitudeDelta: 0.03)
-                ))) {
+                )), interactionModes: []) {
                     Marker(candidate.name, systemImage: candidate.kind.symbol,
                            coordinate: candidate.coordinate)
                 }
                 .mapStyle(.hybrid)
                 .frame(height: 220)
                 .clipShape(RoundedRectangle(cornerRadius: 16))
-                .allowsHitTesting(false)
+                .overlay(alignment: .bottomTrailing) {
+                    Label("Vergrößern", systemImage: "arrow.up.left.and.arrow.down.right")
+                        .font(.caption2)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 5)
+                        .background(.thinMaterial, in: Capsule())
+                        .padding(8)
+                }
+                .contentShape(RoundedRectangle(cornerRadius: 16))
+                .onTapGesture { showFullMap = true }
+
+                Button {
+                    navigateToSpot()
+                } label: {
+                    Label("Dorthin navigieren", systemImage: "arrow.triangle.turn.up.right.diamond")
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 6)
+                }
+                .buttonStyle(.bordered)
 
                 if isChecking {
                     ProgressView("Legal-Check und Flight Score werden geprüft …")
@@ -221,7 +242,19 @@ struct DiscoveryDetailView: View {
         }
         .navigationTitle(candidate.name)
         .navigationBarTitleDisplayMode(.inline)
+        .fullScreenCover(isPresented: $showFullMap) {
+            SpotFullMapView(candidate: candidate)
+        }
         .task { await check() }
+    }
+
+    /// Übergabe an Apple Karten mit Routenführung zum Spot.
+    private func navigateToSpot() {
+        let item = MKMapItem(placemark: MKPlacemark(coordinate: candidate.coordinate))
+        item.name = candidate.name
+        item.openInMaps(launchOptions: [
+            MKLaunchOptionsDirectionsModeKey: MKLaunchOptionsDirectionsModeDefault
+        ])
     }
 
     private func legalSummary(_ legal: LegalAssessment) -> some View {
@@ -263,5 +296,39 @@ struct DiscoveryDetailView: View {
             legal = await LegalService.shared.assess(coordinate: candidate.coordinate, profile: profile)
         }
         days = (try? await state.days(for: candidate.coordinate)) ?? []
+    }
+}
+
+// MARK: Vollbild-Karte — zoomen und verschieben, um den Spot genau zu verorten
+
+struct SpotFullMapView: View {
+    @Environment(\.dismiss) private var dismiss
+    let candidate: SpotCandidate
+
+    var body: some View {
+        NavigationStack {
+            Map(initialPosition: .region(MKCoordinateRegion(
+                center: candidate.coordinate,
+                span: MKCoordinateSpan(latitudeDelta: 0.03, longitudeDelta: 0.03)
+            ))) {
+                Marker(candidate.name, systemImage: candidate.kind.symbol,
+                       coordinate: candidate.coordinate)
+                UserAnnotation()
+            }
+            .mapStyle(.hybrid)
+            .mapControls {
+                MapUserLocationButton()
+                MapCompass()
+                MapScaleView()
+            }
+            .ignoresSafeArea(edges: .bottom)
+            .navigationTitle(candidate.name)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Fertig") { dismiss() }
+                }
+            }
+        }
     }
 }

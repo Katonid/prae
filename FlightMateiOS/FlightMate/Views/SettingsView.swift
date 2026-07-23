@@ -10,8 +10,10 @@ import SwiftUI
 struct SettingsView: View {
     @EnvironmentObject private var state: AppState
     @ObservedObject private var claude = ClaudeService.shared
+    @ObservedObject private var airspace = AirspaceService.shared
     @Environment(\.dismiss) private var dismiss
     @State private var apiKeyInput = ""
+    @State private var airspaceKeyInput = ""
 
     var body: some View {
         NavigationStack {
@@ -70,6 +72,28 @@ struct SettingsView: View {
                         .foregroundStyle(.secondary)
                 }
 
+                Section("Lufträume international (openAIP)") {
+                    if airspace.hasKey {
+                        Label("openAIP-Schlüssel gespeichert (Keychain)", systemImage: "checkmark.seal")
+                            .foregroundStyle(.green)
+                        Button("Schlüssel löschen", role: .destructive) {
+                            airspace.clearKey()
+                        }
+                    } else {
+                        SecureField("openAIP API-Schlüssel", text: $airspaceKeyInput)
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled()
+                        Button("Schlüssel speichern") {
+                            airspace.saveKey(airspaceKeyInput)
+                            airspaceKeyInput = ""
+                        }
+                        .disabled(airspaceKeyInput.trimmingCharacters(in: .whitespaces).isEmpty)
+                    }
+                    Text("Zeigt Lufträume (Kontrollzonen, Flugbeschränkungs- und Advisory-Gebiete) auf der Karte und im Legal-Check — in Kanada (das Zonenbild der NAV-Drone-Karte) und in den Nachbarländern Deutschlands (NL, BE, LU, FR, DK, CZ, PL, AT). Die USA brauchen keinen Schlüssel — dort kommen die Daten direkt von der FAA. Der Schlüssel ist kostenlos: Konto auf openaip.net anlegen → Profil → „API Clients". Daten: openAIP (CC BY-NC).")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
                 Section("Datenschutz") {
                     Text("Kein Account, kein Tracking, keine Werbung. Dein Standort wird nur bei aktiver Nutzung verwendet und für Wetterabfragen auf ~1 km gerundet. Spots liegen ausschließlich auf diesem Gerät.")
                         .font(.callout)
@@ -80,6 +104,8 @@ struct SettingsView: View {
                     LabeledContent("Geo-Zonen (DE)", value: "dipul / BMDV")
                     LabeledContent("Geo-Zonen (CH)", value: "BAZL / geo.admin.ch")
                     LabeledContent("Geo-Zonen (CA)", value: "NRCan · Transport Canada")
+                    LabeledContent("Geo-Zonen (US)", value: "FAA · National Park Service")
+                    LabeledContent("Lufträume (CA/EU)", value: "openAIP (mit Schlüssel)")
                     LabeledContent("Sonnenstand", value: "on-device berechnet")
                     Text(LegalAssessment.disclaimer)
                         .font(.caption)

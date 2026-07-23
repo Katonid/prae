@@ -13,7 +13,12 @@
 //    - Deutschland: dipul-WFS (BMDV), EU Open A1 / C0
 //    - Schweiz: BAZL-Drohnenkarte via geo.admin.ch (amtlicher Wortlaut)
 //    - Kanada: NRCan-CLSS (Nationalparks) + Transport Canada
-//      (Flughäfen mit Flugsicherung), CARs Part IX (Mikrodrohnen)
+//      (Flughäfen mit Flugsicherung), CARs Part IX (Mikrodrohnen);
+//      mit openAIP-Schlüssel zusätzlich Lufträume (CTR, CYR/CYA)
+//    - USA: FAA Open Data (UAS Facility Maps/LAANC, Luftraumklassen,
+//      Special Use Airspace) + NPS-Parkgrenzen — ohne Schlüssel
+//    - EU-Nachbarländer (NL/BE/LU/FR/DK/CZ/PL/AT): EU-Basisregeln +
+//      openAIP-Lufträume + Portal-Verweis je Land
 //  Außerhalb der Abdeckung und bei Netzausfall zeigt die App ehrlich
 //  „keine Daten" statt zu raten (PRD: „lieber ehrliche Lücken als
 //  falsche Sicherheit").
@@ -85,9 +90,10 @@ struct LegalAssessment {
 
 protocol LegalProvider {
     var regionName: String { get }
-    /// ISO-3166-Ländercode (z. B. "DE") für die Provider-Wahl per
-    /// Reverse-Geocoding; die Bounding-Box ist nur Fallback.
-    var countryCode: String { get }
+    /// ISO-3166-Ländercodes (z. B. ["DE"]) für die Provider-Wahl per
+    /// Reverse-Geocoding; die Bounding-Box ist nur Fallback. Ein
+    /// Provider kann mehrere Länder abdecken (EU-Nachbarländer).
+    var countryCodes: [String] { get }
     func covers(_ coordinate: CLLocationCoordinate2D) -> Bool
     func assess(coordinate: CLLocationCoordinate2D, profile: DroneProfile) async -> LegalAssessment
 }
@@ -102,13 +108,15 @@ final class LegalService {
         SwitzerlandLegalProvider(),
         GermanyLegalProvider(),
         CanadaLegalProvider(),
+        USALegalProvider(),
+        EuropeanNeighborsProvider(),
     ]
 
     func assess(coordinate: CLLocationCoordinate2D, profile: DroneProfile) async -> LegalAssessment {
         // Ländercode klärt Grenzregionen (z. B. Bodensee), in denen sich
         // die Bounding-Boxen der Provider überlappen.
         let code = await countryCode(for: coordinate)
-        let provider = providers.first { $0.countryCode == code }
+        let provider = providers.first { code.map($0.countryCodes.contains) ?? false }
             ?? (code == nil ? providers.first { $0.covers(coordinate) } : nil)
 
         if let provider {
@@ -135,6 +143,23 @@ final class LegalService {
 // MARK: Gemeinsame Abfrage-Helfer
 
 enum GeoQueryError: Error { case badResponse }
+
+/// Klartexte für openAIP-Luftraumtreffer (Kanada und EU-Nachbarländer),
+/// nach Schwere — länderneutral formuliert.
+func openAIPZoneRule(title: String, severity: LegalVerdict) -> ZoneRule {
+    switch severity {
+    case .forbidden:
+        return ZoneRule(
+            layer: "openaip", title: title, severity: .forbidden,
+            plainText: "Gesperrter bzw. genehmigungspflichtiger Luftraum (Prohibited/Restricted — in Kanada Class F CYR). Hier brauchst du auch mit einer Mikrodrohne eine Freigabe der zuständigen Stelle — ohne Freigabe: nicht fliegen.",
+            maxAltitudeM: 0)
+    default:
+        return ZoneRule(
+            layer: "openaip", title: title, severity: .conditional,
+            plainText: "Kontrollierter oder besonderer Luftraum (z. B. Kontrollzone eines Flughafens, Advisory- oder Gefahrengebiet). Für größere Drohnen gilt hier Genehmigungspflicht bei der Flugsicherung; für Mikrodrohnen unter 250 g gilt: Flugverkehr niemals gefährden — sehr niedrig bleiben, Ausschau halten, im Zweifel nicht fliegen.",
+            maxAltitudeM: 30)
+    }
+}
 
 /// Minimaler typloser JSON-Decoder für Feature-Properties beliebiger Form.
 struct AnyDecodable: Decodable {
@@ -202,11 +227,46 @@ private func arcgisPointQuery(baseURL: String, coordinate: CLLocationCoordinate2
     }
 }
 
+/// Wie arcgisPointQuery, liefert aber die vollen Attribut-Wörterbücher —
+/// für Dienste, bei denen mehr als ein Namensfeld gebraucht wird (z. B.
+/// FAA-UAS-Grids mit Höhen-Obergrenze) — und erlaubt eine Where-Klausel.
+private func arcgisPointAttributes(baseURL: String, coordinate: CLLocationCoordinate2D,
+                                   outFields: [String],
+                                   whereClause: String? = nil) async throws -> [[String: AnyDecodable]] {
+    var components = URLComponents(string: baseURL + "/query")!
+    var items = [
+        URLQueryItem(name: "geometry", value: String(format: "{\"x\":%f,\"y\":%f}", coordinate.longitude, coordinate.latitude)),
+        URLQueryItem(name: "geometryType", value: "esriGeometryPoint"),
+        URLQueryItem(name: "inSR", value: "4326"),
+        URLQueryItem(name: "spatialRel", value: "esriSpatialRelIntersects"),
+        URLQueryItem(name: "outFields", value: outFields.joined(separator: ",")),
+        URLQueryItem(name: "returnGeometry", value: "false"),
+        URLQueryItem(name: "f", value: "json"),
+    ]
+    if let whereClause {
+        items.append(URLQueryItem(name: "where", value: whereClause))
+    }
+    components.queryItems = items
+
+    struct Response: Decodable {
+        struct Feature: Decodable { let attributes: [String: AnyDecodable]? }
+        let features: [Feature]?
+        let error: ErrorInfo?
+        struct ErrorInfo: Decodable { let code: Int }
+    }
+    let data = try await fetchJSON(components)
+    let response = try JSONDecoder().decode(Response.self, from: data)
+    guard response.error == nil, let features = response.features else {
+        throw GeoQueryError.badResponse
+    }
+    return features.compactMap(\.attributes)
+}
+
 // MARK: - Deutschland (dipul, EU Open A1 / C0)
 
 struct GermanyLegalProvider: LegalProvider {
     let regionName = "Deutschland"
-    let countryCode = "DE"
+    let countryCodes = ["DE"]
 
     func covers(_ c: CLLocationCoordinate2D) -> Bool {
         (47.2...55.1).contains(c.latitude) && (5.5...15.6).contains(c.longitude)
@@ -441,7 +501,7 @@ struct GermanyLegalProvider: LegalProvider {
 ///   Luftraumklasse F (CYR/CYD/CYA), NOTAMs, Provinzparks.
 struct CanadaLegalProvider: LegalProvider {
     let regionName = "Kanada"
-    let countryCode = "CA"
+    let countryCodes = ["CA"]
 
     func covers(_ c: CLLocationCoordinate2D) -> Bool {
         (41.6...83.5).contains(c.latitude) && ((-141.1)...(-52.5)).contains(c.longitude)
@@ -462,11 +522,23 @@ struct CanadaLegalProvider: LegalProvider {
     )
 
     /// In Kanada ohne abfragbare Quelle — der Pilot muss sie selbst prüfen.
-    static let uncheckedZoneTypes = [
-        "Luftraumklasse F (CYR/CYD/CYA)",
-        "NOTAMs / Waldbrand-Sperrzonen (9,3 km)",
-        "Provinzparks (je Provinz eigene Regeln)",
-    ]
+    /// Lufträume (CTR, CYR/CYA) sind mit openAIP-Schlüssel abgedeckt,
+    /// ohne Schlüssel stehen sie ehrlich in dieser Liste.
+    static var uncheckedZoneTypes: [String] {
+        var types = [
+            "NOTAMs / Waldbrand-Sperrzonen (9,3 km)",
+            "Provinzparks (je Provinz eigene Regeln)",
+        ]
+        if !AirspaceService.hasStoredKey {
+            types.insert("Lufträume CTR & Klasse F (CYR/CYD/CYA) — openAIP-Schlüssel in den Einstellungen hinterlegen, dann prüft FlightMate sie live", at: 0)
+        }
+        return types
+    }
+
+    /// Klartexte für openAIP-Luftraumtreffer, nach Schwere.
+    static func airspaceRule(title: String, severity: LegalVerdict) -> ZoneRule {
+        openAIPZoneRule(title: title, severity: severity)
+    }
 
     func assess(coordinate: CLLocationCoordinate2D, profile: DroneProfile) async -> LegalAssessment {
         var hits: [ZoneHit] = []
@@ -497,8 +569,24 @@ struct CanadaLegalProvider: LegalProvider {
             failed.append("Flughäfen mit Flugsicherung")
         }
 
-        // Beide Live-Quellen weg → keine Aussage, statt „erlaubt" zu raten.
-        if failed.count == 2 {
+        // Beide amtlichen Quellen weg → keine Aussage, statt „erlaubt"
+        // zu raten (openAIP zählt hier nicht mit — Zusatzquelle).
+        let officialSourcesDown = failed.count == 2
+
+        // Lufträume (CTR, CYR/CYA) über openAIP — nur mit Schlüssel.
+        if AirspaceService.hasStoredKey {
+            if let spaces = try? await AirspaceService.hits(at: coordinate) {
+                for space in spaces {
+                    hits.append(ZoneHit(
+                        rule: Self.airspaceRule(title: space.title, severity: space.severity),
+                        featureName: space.name))
+                }
+            } else {
+                failed.append("Lufträume (openAIP)")
+            }
+        }
+
+        if officialSourcesDown {
             return LegalAssessment(
                 coordinate: coordinate, verdict: .unknown, zones: [],
                 uncheckedLayers: failed + Self.uncheckedZoneTypes, uncheckedHint: nil,
@@ -518,7 +606,9 @@ struct CanadaLegalProvider: LegalProvider {
             uncheckedHint: "Bitte im NAV-Drone-Tool (map.navdrone.ca) gegenprüfen.",
             baselineText: "Für Mikrodrohnen unter 250 g (deine \(profile.name)) gelten in Kanada die Grundregeln der CARs 900.06: keine Gefährdung von Luftverkehr und Personen, Sichtverbindung halten, unter 122 m (400 ft) bleiben, Abstand zu Menschenansammlungen und Einsatzkräften. Keine Registrierung und kein Zertifikat nötig.",
             maxAltitudeM: min(maxAltitude, 122), checkedAt: Date(),
-            sourceNote: "Quellen: NRCan/CLSS (Nationalparks), Transport Canada (Flughäfen), Live-Abfrage. Luftraum & NOTAMs: NAV Drone."
+            sourceNote: AirspaceService.hasStoredKey
+                ? "Quellen: NRCan/CLSS (Nationalparks), Transport Canada (Flughäfen), openAIP (Lufträume), Live-Abfrage. NOTAMs: NAV Drone."
+                : "Quellen: NRCan/CLSS (Nationalparks), Transport Canada (Flughäfen), Live-Abfrage. Luftraum & NOTAMs: NAV Drone."
         )
     }
 
@@ -539,6 +629,297 @@ struct CanadaLegalProvider: LegalProvider {
     }
 }
 
+// MARK: - USA (FAA-Open-Data + National Park Service)
+
+/// USA-Provider auf Basis der offenen FAA-Dienste (ArcGIS/AGOL, ohne
+/// Schlüssel): UAS Facility Maps (LAANC-Grids mit Höhen-Obergrenze je
+/// Rasterzelle), Luftraumklassen (B/C/D/E-Bodenflächen), Special Use
+/// Airspace (Prohibited/Restricted) sowie die Parkgrenzen des National
+/// Park Service (Drohnenverbot in allen NPS-Gebieten). Dazu die
+/// New-York-City-Besonderheit als deterministische Regel.
+/// Regelbasis Freizeit: 49 USC 44809 (Recreational Exception).
+struct USALegalProvider: LegalProvider {
+    let regionName = "USA"
+    let countryCodes = ["US"]
+
+    func covers(_ c: CLLocationCoordinate2D) -> Bool {
+        // CONUS, Alaska, Hawaii
+        ((24.4...49.4).contains(c.latitude) && ((-125.0)...(-66.9)).contains(c.longitude))
+            || ((51.0...71.5).contains(c.latitude) && ((-180.0)...(-129.0)).contains(c.longitude))
+            || ((18.5...22.5).contains(c.latitude) && ((-161.0)...(-154.0)).contains(c.longitude))
+    }
+
+    private static let faaBase = "https://services6.arcgis.com/ssFJjBXIUyZDrSYZ/arcgis/rest/services"
+
+    static let npsRule = ZoneRule(
+        layer: "nps", title: "Nationalpark (National Park Service)",
+        severity: .forbidden,
+        plainText: "Start, Landung und Betrieb von Drohnen sind in allen Gebieten des National Park Service verboten (36 CFR 1.5) — ausdrücklich auch für Drohnen unter 250 g.",
+        maxAltitudeM: 0)
+
+    static let laancZeroRule = ZoneRule(
+        layer: "faa_uasfm0", title: "UAS-Grid: Obergrenze 0 ft",
+        severity: .forbidden,
+        plainText: "In dieser FAA-Rasterzelle wird keine automatische Freigabe (LAANC) erteilt — fliegen ist hier ohne individuelle FAA-Ausnahmegenehmigung verboten.",
+        maxAltitudeM: 0)
+
+    static func laancRule(ceilingFt: Int) -> ZoneRule {
+        let meters = Int(Double(ceilingFt) * 0.3048)
+        return ZoneRule(
+            layer: "faa_uasfm", title: "Kontrollierter Luftraum (LAANC-Grid)",
+            severity: .conditional,
+            plainText: "Kontrollierter Luftraum: Flug nur mit LAANC-Freigabe — kostenlos und meist in Sekunden per App (z. B. Aloft Air Control), auch für Freizeitpiloten Pflicht. Obergrenze in dieser Rasterzelle: \(ceilingFt) ft (≈ \(meters) m).",
+            maxAltitudeM: meters)
+    }
+
+    static let classAirspaceRule = ZoneRule(
+        layer: "faa_class", title: "Kontrollierter Luftraum (Klasse B/C/D/E)",
+        severity: .conditional,
+        plainText: "Kontrollierter Luftraum bis zum Boden: Auch Freizeitflüge brauchen hier eine FAA-Freigabe (LAANC per App; wo kein LAANC verfügbar ist, über die FAA DroneZone).",
+        maxAltitudeM: nil)
+
+    static func suaRule(typeCode: String, severity: LegalVerdict) -> ZoneRule {
+        let names: [String: String] = ["P": "Prohibited Area", "R": "Restricted Area",
+                                       "MOA": "Military Operations Area", "A": "Alert Area",
+                                       "W": "Warning Area", "D": "Danger Area"]
+        let title = names[typeCode] ?? "Special Use Airspace"
+        return severity == .forbidden
+            ? ZoneRule(layer: "faa_sua", title: title, severity: .forbidden,
+                       plainText: "Gesperrter Luftraum (\(title)): Betrieb ohne Freigabe der kontrollierenden Stelle verboten — auch für Mikrodrohnen.",
+                       maxAltitudeM: 0)
+            : ZoneRule(layer: "faa_sua", title: title, severity: .conditional,
+                       plainText: "Special Use Airspace (\(title)): Hier findet militärischer oder besonderer Flugbetrieb statt — erhöhte Vorsicht, sehr niedrig bleiben, Ausschau halten.",
+                       maxAltitudeM: nil)
+    }
+
+    static let nycRule = ZoneRule(
+        layer: "nyc", title: "New York City (Stadtgebiet)",
+        severity: .forbidden,
+        plainText: "In New York City sind Start und Landung von Drohnen im gesamten Stadtgebiet ohne Genehmigung verboten (NYC Admin Code § 10-126); freigegeben sind nur wenige Modellflugfelder. Seit 2023 gibt es ein Antragsverfahren der Stadt (nyc.gov/drones).",
+        maxAltitudeM: 0)
+
+    /// Fünf Stadtbezirke von New York City, grob als Bounding-Box.
+    private static func isNYC(_ c: CLLocationCoordinate2D) -> Bool {
+        (40.49...40.92).contains(c.latitude) && ((-74.27)...(-73.68)).contains(c.longitude)
+    }
+
+    static let uncheckedZoneTypes = [
+        "TFRs & NOTAMs (tagesaktuelle Sperrungen)",
+        "Sicherheits-Flugverbote (National Security UAS Flight Restrictions)",
+        "State Parks (im Bundesstaat New York verboten)",
+        "Stadien (3 NM an Veranstaltungstagen)",
+    ]
+
+    func assess(coordinate: CLLocationCoordinate2D, profile: DroneProfile) async -> LegalAssessment {
+        var hits: [ZoneHit] = []
+        var failed: [String] = []
+
+        async let parksTask = Self.attributesResult(
+            baseURL: "https://services1.arcgis.com/fBc8EJBxQRMcHlei/arcgis/rest/services/NPS_Land_Resources_Division_Boundary_and_Tract_Data_Service/FeatureServer/2",
+            coordinate: coordinate, outFields: ["UNIT_NAME"])
+        async let gridTask = Self.attributesResult(
+            baseURL: "\(Self.faaBase)/FAA_UAS_FacilityMap_Data_V5/FeatureServer/0",
+            coordinate: coordinate, outFields: ["CEILING", "APT1_NAME"])
+        async let classTask = Self.attributesResult(
+            baseURL: "\(Self.faaBase)/Class_Airspace/FeatureServer/0",
+            coordinate: coordinate, outFields: ["NAME", "CLASS"],
+            whereClause: "TYPE_CODE='CLASS' AND LOWER_VAL=0 AND CLASS IN ('B','C','D','E')")
+        async let suaTask = Self.attributesResult(
+            baseURL: "\(Self.faaBase)/Special_Use_Airspace/FeatureServer/0",
+            coordinate: coordinate, outFields: ["NAME", "TYPE_CODE"],
+            whereClause: "LOWER_VAL=0")
+
+        let parks = await parksTask
+        let grid = await gridTask
+        let classAirspace = await classTask
+        let sua = await suaTask
+
+        switch parks {
+        case .success(let features):
+            for feature in features {
+                hits.append(ZoneHit(rule: Self.npsRule,
+                                    featureName: feature["UNIT_NAME"]?.value as? String))
+            }
+        case .failure:
+            failed.append("Nationalparks (NPS)")
+        }
+
+        var gridFound = false
+        switch grid {
+        case .success(let features):
+            // Bei mehreren Grid-Zellen (Zellgrenze) gilt die niedrigste Obergrenze.
+            let ceilings = features.compactMap { feature -> Int? in
+                let value = feature["CEILING"]?.value
+                return (value as? Int) ?? (value as? Double).map(Int.init)
+            }
+            if let ceiling = ceilings.min() {
+                gridFound = true
+                let airport = features.first?["APT1_NAME"]?.value as? String
+                hits.append(ZoneHit(
+                    rule: ceiling <= 0 ? Self.laancZeroRule : Self.laancRule(ceilingFt: ceiling),
+                    featureName: airport))
+            }
+        case .failure:
+            failed.append("FAA UAS Facility Map (LAANC)")
+        }
+
+        switch classAirspace {
+        case .success(let features):
+            // Das LAANC-Grid ist die feinere Auskunft — Klassen-Treffer
+            // nur ergänzen, wenn es dort keine Rasterzelle gab.
+            if !gridFound, let first = features.first {
+                hits.append(ZoneHit(rule: Self.classAirspaceRule,
+                                    featureName: first["NAME"]?.value as? String))
+            }
+        case .failure:
+            failed.append("Luftraumklassen (FAA)")
+        }
+
+        switch sua {
+        case .success(let features):
+            for feature in features {
+                let typeCode = (feature["TYPE_CODE"]?.value as? String) ?? ""
+                let severity: LegalVerdict = ["P", "R"].contains(typeCode) ? .forbidden : .conditional
+                hits.append(ZoneHit(rule: Self.suaRule(typeCode: typeCode, severity: severity),
+                                    featureName: feature["NAME"]?.value as? String))
+            }
+        case .failure:
+            failed.append("Special Use Airspace (FAA)")
+        }
+
+        if Self.isNYC(coordinate) {
+            hits.append(ZoneHit(rule: Self.nycRule, featureName: nil))
+        }
+
+        // Alle vier Live-Quellen weg → keine Aussage, statt zu raten.
+        if failed.count == 4 {
+            return LegalAssessment(
+                coordinate: coordinate, verdict: .unknown, zones: [],
+                uncheckedLayers: failed + Self.uncheckedZoneTypes, uncheckedHint: nil,
+                baselineText: "",
+                maxAltitudeM: profile.maxLegalAltitudeM, checkedAt: Date(),
+                sourceNote: "FAA-/NPS-Dienste nicht erreichbar — keine Aussage möglich. Prüfe vor dem Start die FAA-App B4UFLY (in Aloft integriert)."
+            )
+        }
+
+        hits.sort { $0.rule.severity > $1.rule.severity }
+        let verdict = hits.map(\.rule.severity).max() ?? .allowed
+        let maxAltitude = hits.compactMap(\.rule.maxAltitudeM).min() ?? profile.maxLegalAltitudeM
+
+        return LegalAssessment(
+            coordinate: coordinate, verdict: verdict, zones: hits,
+            uncheckedLayers: failed + Self.uncheckedZoneTypes,
+            uncheckedHint: "Bitte vor dem Start in der FAA-App B4UFLY (Aloft) gegenprüfen — dort sind auch TFRs tagesaktuell.",
+            baselineText: "Für Freizeitflüge gilt in den USA die Recreational Exception (49 USC 44809): TRUST-Zertifikat online machen (kostenlos, Pflicht), deine \(profile.name) unter 250 g muss für reine Freizeitflüge nicht registriert werden, max. 400 ft (122 m) über Grund, Sichtverbindung halten. Kontrollierter Luftraum nur mit LAANC-Freigabe.",
+            maxAltitudeM: min(maxAltitude, 122), checkedAt: Date(),
+            sourceNote: "Quellen: FAA Open Data (UAS Facility Maps, Luftraumklassen, Special Use Airspace), National Park Service — Live-Abfrage. TFRs/NOTAMs: B4UFLY."
+        )
+    }
+
+    private static func attributesResult(baseURL: String, coordinate: CLLocationCoordinate2D,
+                                         outFields: [String],
+                                         whereClause: String? = nil) async -> Result<[[String: AnyDecodable]], Error> {
+        do {
+            return .success(try await arcgisPointAttributes(
+                baseURL: baseURL, coordinate: coordinate,
+                outFields: outFields, whereClause: whereClause))
+        } catch {
+            return .failure(error)
+        }
+    }
+}
+
+// MARK: - EU-Nachbarländer (EASA-Regeln + openAIP-Lufträume)
+
+/// Reise-Provider für die Nachbarländer Deutschlands: Niederlande,
+/// Belgien, Luxemburg, Frankreich, Dänemark, Tschechien, Polen und
+/// Österreich. Die EU-Drohnenregeln (Open A1/C0) sind harmonisiert —
+/// die Grundregeln sind also verlässlich; die *nationalen* Geo-Zonen
+/// (Naturschutz, Städte, Sonderregeln) haben aber je Land eigene
+/// Portale ohne durchgängig offene Schnittstellen. Deshalb: Lufträume
+/// (CTR, Restricted/Prohibited) live über openAIP, nationale Geozonen
+/// ehrlich als „nicht geprüft" mit dem richtigen Portal-Verweis.
+struct EuropeanNeighborsProvider: LegalProvider {
+    let regionName = "EU-Nachbarländer (NL, BE, LU, FR, DK, CZ, PL, AT)"
+    let countryCodes = ["NL", "BE", "LU", "FR", "DK", "CZ", "PL", "AT"]
+
+    func covers(_ c: CLLocationCoordinate2D) -> Bool {
+        // Westeuropa grob; DE/CH stehen in der Provider-Liste davor
+        // und gewinnen im Bounding-Box-Fallback.
+        (41.0...58.0).contains(c.latitude) && ((-5.5)...24.2).contains(c.longitude)
+    }
+
+    /// Land → (Name, nationales Geozonen-Portal, Besonderheit).
+    static let countryInfo: [String: (name: String, portal: String, note: String?)] = [
+        "NL": ("Niederlande", "GoDrone (godrone.nl, LVNL)",
+               "Viele Naturschutzgebiete (Natura 2000) und weite Teile der Randstad sind gesperrt — vorab die GoDrone-Karte prüfen."),
+        "BE": ("Belgien", "Droneguide (map.droneguide.be, skeyes)", nil),
+        "LU": ("Luxemburg", "ANA Luxembourg (ana.lu, Drohnenkarte)", nil),
+        "FR": ("Frankreich", "Géoportail „Restrictions UAS" (geoportail.gouv.fr)",
+               "In Frankreich ist Freizeit-Fliegen über Ortschaften und Wohngebieten („agglomérations") grundsätzlich verboten — auch unter 250 g. Die Géoportail-Karte zeigt die Flächen."),
+        "DK": ("Dänemark", "Droneluftrum (droneluftrum.dk, Naviair)", nil),
+        "CZ": ("Tschechien", "DronView (dronview.rlp.cz, ŘLP)", nil),
+        "PL": ("Polen", "PANSA UTM / DroneTower (drony.gov.pl)",
+               "In Polen ist vor jedem Flug ein Check-in über die PANSA-App (DroneTower) vorgeschrieben."),
+        "AT": ("Österreich", "Dronespace (map.dronespace.at, Austro Control)", nil),
+    ]
+
+    func assess(coordinate: CLLocationCoordinate2D, profile: DroneProfile) async -> LegalAssessment {
+        var hits: [ZoneHit] = []
+        var failed: [String] = []
+        var unchecked: [String] = []
+
+        // Lufträume (CTR, Restricted/Prohibited) über openAIP.
+        if AirspaceService.hasStoredKey {
+            if let spaces = try? await AirspaceService.hits(at: coordinate) {
+                for space in spaces {
+                    hits.append(ZoneHit(
+                        rule: openAIPZoneRule(title: space.title, severity: space.severity),
+                        featureName: space.name))
+                }
+            } else {
+                failed.append("Lufträume (openAIP)")
+            }
+        } else {
+            unchecked.append("Lufträume (CTR, Restricted) — openAIP-Schlüssel in den Einstellungen hinterlegen, dann prüft FlightMate sie live")
+        }
+
+        // Landesinfo per Reverse-Geocoding (der Service wählt diesen
+        // Provider zwar schon per Ländercode, reicht ihn aber nicht
+        // durch — die zweite Abfrage ist gecacht und billig).
+        let code = await Self.countryCode(for: coordinate)
+        let info = code.flatMap { Self.countryInfo[$0] }
+        let portal = info?.portal ?? "das nationale Drohnen-Portal"
+        unchecked.append("Nationale Drohnen-Geozonen (Naturschutzgebiete, Städte, Infrastruktur) — \(portal)")
+
+        hits.sort { $0.rule.severity > $1.rule.severity }
+        let verdict = hits.map(\.rule.severity).max() ?? .allowed
+        let maxAltitude = hits.compactMap(\.rule.maxAltitudeM).min() ?? profile.maxLegalAltitudeM
+
+        var baseline = "Es gelten die EU-Drohnenregeln wie in Deutschland (Open-Kategorie A1/C0 für deine \(profile.name)): max. 120 m Höhe, Sichtverbindung halten, nicht über Menschenansammlungen, EU-Registrierung (deine deutsche e-ID gilt in der ganzen EU)."
+        if let info, let note = info.note {
+            baseline += " Besonderheit \(info.name): \(note)"
+        }
+
+        return LegalAssessment(
+            coordinate: coordinate, verdict: verdict, zones: hits,
+            uncheckedLayers: failed + unchecked,
+            uncheckedHint: "Bitte vor dem Start die nationalen Geo-Zonen gegenprüfen: \(portal).",
+            baselineText: baseline,
+            maxAltitudeM: min(maxAltitude, 120), checkedAt: Date(),
+            sourceNote: AirspaceService.hasStoredKey
+                ? "Quellen: openAIP (Lufträume, Live-Abfrage) + EU-Regelwerk (EASA). Nationale Geozonen: \(portal)."
+                : "Quelle: EU-Regelwerk (EASA). Lufträume und nationale Geozonen: \(portal)."
+        )
+    }
+
+    private static func countryCode(for c: CLLocationCoordinate2D) async -> String? {
+        let location = CLLocation(latitude: c.latitude, longitude: c.longitude)
+        let placemarks = try? await CLGeocoder().reverseGeocodeLocation(location)
+        return placemarks?.first?.isoCountryCode
+    }
+}
+
 // MARK: - Schweiz (BAZL-Drohnenkarte, EU-Regeln übernommen)
 
 /// Schweiz-Provider auf Basis der amtlichen Drohnenkarte des BAZL
@@ -551,7 +932,7 @@ struct CanadaLegalProvider: LegalProvider {
 /// Unterschied.
 struct SwitzerlandLegalProvider: LegalProvider {
     let regionName = "Schweiz"
-    let countryCode = "CH"
+    let countryCodes = ["CH"]
 
     func covers(_ c: CLLocationCoordinate2D) -> Bool {
         (45.8...47.85).contains(c.latitude) && (5.9...10.55).contains(c.longitude)

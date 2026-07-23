@@ -33,15 +33,47 @@ Dieser Stand entspricht dem **MVP-Fundament** (PRD Phase 0/1).
   - **Kanada** (CARs Part IX, Mikrodrohnen < 250 g): Nationalparks
     aus dem amtlichen NRCan-CLSS-Dienst (Parks-Canada-Drohnenverbot,
     Punkt-in-Polygon) und Flughäfen mit Flugsicherung aus dem
-    Transport-Canada-Dienst (3-NM-Umkreis). Nicht abfragbare
-    Zonentypen (Luftraumklasse F, NOTAMs, Provinzparks) werden
-    sichtbar als „nicht geprüft" gelistet, mit Verweis auf NAV Drone.
+    Transport-Canada-Dienst (3-NM-Umkreis). Mit kostenlosem
+    openAIP-Schlüssel (Einstellungen) prüft der Legal-Check zusätzlich
+    die Lufträume der NAV-Drone-Karte: Kontrollzonen (CTR) und
+    Class-F-Gebiete (CYR/CYD/CYA), punktgenau per Ray-Casting.
+    Verbleibende nicht abfragbare Zonentypen (NOTAMs, Provinzparks —
+    ohne Schlüssel auch die Lufträume) werden sichtbar als „nicht
+    geprüft" gelistet, mit Verweis auf NAV Drone.
+  - **USA** (49 USC 44809, Recreational Exception — komplett ohne
+    Schlüssel, alle Quellen offen): FAA UAS Facility Maps
+    (LAANC-Rasterzellen mit Höhen-Obergrenze — Obergrenze 0 ft =
+    verboten, sonst „mit LAANC-Freigabe bis X ft"), FAA-Luftraum-
+    klassen (B/C/D/E-Bodenflächen), FAA Special Use Airspace
+    (Prohibited/Restricted rot, MOA & Co. orange) und die Parkgrenzen
+    des National Park Service (Drohnenverbot in allen NPS-Gebieten).
+    Dazu die New-York-City-Regel (Start/Landung im Stadtgebiet ohne
+    Genehmigung verboten, Admin Code § 10-126) als deterministische
+    Zone. TFRs/NOTAMs, State Parks und Stadien werden ehrlich als
+    „nicht geprüft" gelistet (Verweis auf B4UFLY/Aloft).
+  - **EU-Nachbarländer** (NL, BE, LU, FR, DK, CZ, PL, AT): Die
+    EU-Regeln (Open A1/C0) sind harmonisiert und werden als Basis
+    ausgewiesen, inklusive Landes-Besonderheiten (z. B. Frankreichs
+    Verbot über Ortschaften, Polens DroneTower-Check-in-Pflicht).
+    Lufträume live über openAIP (mit Schlüssel); die nationalen
+    Geozonen-Portale (GoDrone, Droneguide, Géoportail, Droneluftrum,
+    DronView, PANSA, Dronespace, ANA) werden je Land als
+    Gegenprüf-Hinweis genannt.
 
   Außerhalb der abgedeckten Länder oder ohne Netz zeigt die App
   ehrlich „Keine Daten" statt zu raten.
-- **Zonen-Umrisse auf der Karte (DE + CA):** In Kanada zeichnet die
-  Karte Nationalpark-Polygone (rot, NRCan) und 3-NM-Kreise um
-  Flughäfen mit Flugsicherung (orange, Transport Canada). In
+- **Zonen-Umrisse auf der Karte (DE + CA + US + EU-Nachbarn):** In
+  Kanada zeichnet die Karte Nationalpark-Polygone (rot, NRCan) und
+  3-NM-Kreise um Flughäfen mit Flugsicherung (orange, Transport
+  Canada); mit openAIP-Schlüssel zusätzlich die Lufträume wie auf der
+  NAV-Drone-Karte — Flugverbots- und Restricted-Gebiete (CYR) rot,
+  Kontrollzonen (CTR) und Advisory-Gebiete (CYA) orange. In den USA
+  (ohne Schlüssel): FAA-Luftraumklassen B/C/D/E, Special Use Airspace
+  und NPS-Nationalparks; im Grenzband (Great Lakes, Bundesstaat New
+  York) werden USA- und Kanada-Quellen kombiniert. In den
+  EU-Nachbarländern und der Schweiz zeichnet openAIP die Lufträume
+  (mit Schlüssel); in Grenznähe Deutschlands erscheinen so auch die
+  Zonen hinter der Grenze. In
   Deutschland: Die Karte zeichnet alle
   flächigen Zonentypen des sichtbaren Ausschnitts als farbige
   Polygone (rot = verboten, orange = mit Auflagen, mit Legende) —
@@ -69,6 +101,12 @@ Dieser Stand entspricht dem **MVP-Fundament** (PRD Phase 0/1).
   Kategorie-Chips). Beim Antippen prüft FlightMate den Ort automatisch
   mit Legal-Check und Flight Score („geprüft, nicht nur schön") und
   zeigt das beste Fenster der Woche; ein Tipp speichert ihn als Spot.
+  Die Mini-Karte lässt sich antippen und öffnet eine zoombare
+  Vollbild-Karte (Hybrid, mit eigenem Standort), um den Spot genau zu
+  verorten; „Dorthin navigieren" übergibt den Ort an Apple Karten.
+  Jede Kategorie fragt Overpass als eigene kleine Abfrage parallel ab
+  (mit Spiegel-Servern als Ausweichlösung) — was durchkommt, wird
+  angezeigt; ein Fehler erscheint nur, wenn alle Kategorien scheitern.
   Keine Likes, keine Feeds (PRD N2). Daten: © OpenStreetMap (ODbL).
 - **Score-Erklärung am Ring:** Tipp auf den Score-Ring im Heute-Tab
   öffnet die Faktoren-Begründung der besten Stunde („Warum 7?").
@@ -123,14 +161,18 @@ Dieser Stand entspricht dem **MVP-Fundament** (PRD Phase 0/1).
 
 ## Noch offen (bewusst, siehe PRD-Roadmap)
 
-- Geo-Zonen Österreich (Dronespace/Austro Control hat keinen offen
-  abfragbaren Dienst; aktuell ehrlich als Lücke markiert)
+- Nationale Geozonen der EU-Nachbarländer (GoDrone, Droneguide,
+  Géoportail, Droneluftrum, DronView, PANSA, Dronespace) als
+  Live-Abfrage — die Portale haben keine durchgängig offenen
+  Schnittstellen; aktuell EU-Basisregeln + openAIP-Lufträume +
+  ehrlicher Portal-Verweis je Land
 - Benachrichtigungen im Hintergrund aktualisieren (BGAppRefresh bzw.
   später serverseitiger Scheduler, PRD Kap. 10) — aktuell wird bei
   jedem App-Start neu geplant
-- Kanada: Luftraumklasse F (CYR/CYD/CYA) und NOTAMs als Live-Abfrage —
-  derzeit kein offen abfragbarer Dienst; wird als „nicht geprüft"
-  angezeigt
+- Kanada: NOTAMs als Live-Abfrage — kein offen abfragbarer Dienst
+  (NAV-Drone-API ist login-pflichtig); wird als „nicht geprüft"
+  angezeigt. Lufträume (CTR, CYR/CYD/CYA) sind inzwischen über
+  openAIP abgedeckt (kostenloser Schlüssel in den Einstellungen)
 - Spot-Entdeckung: redaktionelle Kuration & Community-Ebene (V3);
   Server-Proxy für die KI-Funktionen (für einen öffentlichen
   Release — aktuell „bring your own key")
