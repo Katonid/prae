@@ -129,6 +129,11 @@ Dieser Stand entspricht dem **MVP-Fundament** (PRD Phase 0/1).
   Jede Kategorie fragt Overpass als eigene kleine Abfrage parallel ab
   (mit Spiegel-Servern als Ausweichlösung) — was durchkommt, wird
   angezeigt; ein Fehler erscheint nur, wenn alle Kategorien scheitern.
+  **Reiseplanung:** Gesucht wird nicht nur am eigenen Standort — auf
+  der Karte öffnet jeder angetippte Punkt den Knopf „Foto-Orte hier
+  entdecken", und im Entdecken-Tab gibt es eine Freitext-Ortssuche
+  (Lupe); ein Banner zeigt das aktive Suchzentrum, „Mein Standort"
+  stellt zurück.
   Keine Likes, keine Feeds (PRD N2). Daten: © OpenStreetMap (ODbL).
 - **Score-Erklärung am Ring:** Tipp auf den Score-Ring im Heute-Tab
   öffnet die Faktoren-Begründung der besten Stunde („Warum 7?").

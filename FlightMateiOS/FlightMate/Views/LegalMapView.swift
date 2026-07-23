@@ -325,6 +325,17 @@ struct LegalResultView: View {
                     }
                 }
 
+                // Reiseplanung: Foto-Orte rund um den angetippten
+                // Kartenpunkt entdecken (statt nur am eigenen Standort).
+                Button {
+                    state.exploreSpots(around: assessment.coordinate)
+                    dismiss()
+                } label: {
+                    Label("Foto-Orte hier entdecken", systemImage: "binoculars")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+
                 VStack(alignment: .leading, spacing: 4) {
                     if assessment.verdict != .unknown {
                         Text(assessment.sourceNote)
