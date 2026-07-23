@@ -36,6 +36,14 @@ struct Forecast: Codable {
     let longitude: Double
     let fetchedAt: Date
     let hours: [HourForecast]
+    /// UTC-Versatz des Prognose-Ortes (Open-Meteo) — damit zeigen
+    /// Briefings die Ortszeit des Spots, nicht die Gerätezeit.
+    /// Optional, damit alte Cache-Einträge lesbar bleiben.
+    var utcOffsetSeconds: Int? = nil
+
+    var timeZone: TimeZone {
+        utcOffsetSeconds.flatMap(TimeZone.init(secondsFromGMT:)) ?? .current
+    }
 
     var isStale: Bool { Date().timeIntervalSince(fetchedAt) > 12 * 3600 }
 }
@@ -138,7 +146,8 @@ final class WeatherService {
             ))
         }
         guard !hours.isEmpty else { throw WeatherError.badResponse }
-        return Forecast(latitude: latitude, longitude: longitude, fetchedAt: Date(), hours: hours)
+        return Forecast(latitude: latitude, longitude: longitude, fetchedAt: Date(), hours: hours,
+                        utcOffsetSeconds: api.utc_offset_seconds)
     }
 
     // MARK: Cache (UserDefaults, pro gerundetem Ort)

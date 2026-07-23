@@ -279,7 +279,7 @@ struct DiscoveryDetailView: View {
                             Label("Bestes Fenster der Woche", systemImage: "sparkles")
                                 .font(.subheadline)
                             Spacer()
-                            Text("\(Theme.shortDayFormatter.string(from: bestDay.date)) \(Theme.time(window.start)) Uhr · Score \(window.score)")
+                            Text("\(Theme.shortDay(bestDay.date, in: bestDay.timeZone)) \(Theme.time(window.start, in: bestDay.timeZone)) Uhr Ortszeit · Score \(window.score)")
                                 .font(.subheadline.bold())
                                 .foregroundStyle(Theme.scoreColor(window.score))
                         }

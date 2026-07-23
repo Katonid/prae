@@ -57,6 +57,8 @@ struct DayScore: Identifiable {
     let hours: [HourScore]
     let bestWindow: BestWindow?
     let sunDay: SunDay
+    /// Zeitzone des Spots — Briefings zeigen Ortszeit, nicht Gerätezeit.
+    var timeZone: TimeZone = .current
 
     /// Tages-Score = bester Stunden-Score im fotografisch nutzbaren Fenster.
     var score: Int { bestWindow?.score ?? hours.map(\.score).max() ?? 0 }
@@ -79,7 +81,8 @@ enum FlightScoreEngine {
                 date: dayStart,
                 hours: scored,
                 bestWindow: bestWindow(in: scored),
-                sunDay: sunDay
+                sunDay: sunDay,
+                timeZone: calendar.timeZone
             )
         }
     }

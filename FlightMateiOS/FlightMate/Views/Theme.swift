@@ -50,6 +50,32 @@ enum Theme {
 
     static func time(_ date: Date) -> String { timeFormatter.string(from: date) }
 
+    /// Uhrzeit in einer bestimmten Zeitzone (Spot-Ortszeit im Briefing).
+    static func time(_ date: Date, in timeZone: TimeZone) -> String {
+        let f = DateFormatter()
+        f.dateFormat = "HH:mm"
+        f.timeZone = timeZone
+        return f.string(from: date)
+    }
+
+    /// „EEEE, d. MMMM" in einer bestimmten Zeitzone.
+    static func fullDay(_ date: Date, in timeZone: TimeZone) -> String {
+        let f = DateFormatter()
+        f.dateFormat = "EEEE, d. MMMM"
+        f.locale = Locale(identifier: "de_DE")
+        f.timeZone = timeZone
+        return f.string(from: date)
+    }
+
+    /// „EE d.M." in einer bestimmten Zeitzone.
+    static func shortDay(_ date: Date, in timeZone: TimeZone) -> String {
+        let f = DateFormatter()
+        f.dateFormat = "EE d.M."
+        f.locale = Locale(identifier: "de_DE")
+        f.timeZone = timeZone
+        return f.string(from: date)
+    }
+
     /// 270° → "W" — Windrichtung als Himmelsrichtung.
     static func compassDirection(_ degrees: Double) -> String {
         let directions = ["N", "NO", "O", "SO", "S", "SW", "W", "NW"]

@@ -70,10 +70,13 @@ enum BackgroundRefresh {
         for spot in spots {
             guard !Task.isCancelled else { return }
             if let (forecast, _) = try? await WeatherService.shared.forecast(for: spot.coordinate) {
+                var calendar = Calendar(identifier: .gregorian)
+                calendar.timeZone = forecast.timeZone
                 let days = FlightScoreEngine.days(
                     forecast: forecast, profile: profile,
-                    latitude: spot.latitude, longitude: spot.longitude
-                ).filter { $0.date >= Calendar.current.startOfDay(for: Date()) }
+                    latitude: spot.latitude, longitude: spot.longitude,
+                    calendar: calendar
+                ).filter { $0.date >= calendar.startOfDay(for: Date()) }
                 entries.append((spot, days))
             }
         }

@@ -186,7 +186,7 @@ struct TodayView: View {
                 .foregroundStyle(.secondary)
 
             if let window = day.bestWindow {
-                Text("Bestes Fenster: \(Theme.time(window.start))–\(Theme.time(window.end)) Uhr")
+                Text("Bestes Fenster: \(Theme.time(window.start, in: day.timeZone))–\(Theme.time(window.end, in: day.timeZone)) Uhr")
                     .font(.headline)
                 if let bestHour = day.hours.first(where: { $0.hour.date == window.start }) {
                     Text(bestHour.verdict.rawValue)
@@ -223,7 +223,7 @@ struct TodayView: View {
                         RoundedRectangle(cornerRadius: 2)
                             .fill(Theme.scoreColor(hourScore.score))
                             .frame(height: max(6, CGFloat(hourScore.score) * 5))
-                        Text(Theme.timeFormatter.string(from: hourScore.hour.date).prefix(2))
+                        Text(Theme.time(hourScore.hour.date, in: day.timeZone).prefix(2))
                             .font(.system(size: 8))
                             .foregroundStyle(.secondary)
                     }
@@ -244,9 +244,9 @@ struct TodayView: View {
                 .font(.headline)
             if let sunrise = day.sunDay.sunrise, let sunset = day.sunDay.sunset {
                 HStack {
-                    Label(Theme.time(sunrise), systemImage: "sunrise")
+                    Label(Theme.time(sunrise, in: day.timeZone), systemImage: "sunrise")
                     Spacer()
-                    Label(Theme.time(sunset), systemImage: "sunset")
+                    Label(Theme.time(sunset, in: day.timeZone), systemImage: "sunset")
                 }
                 .font(.subheadline)
             }
@@ -258,7 +258,7 @@ struct TodayView: View {
                     Text(window.kind.rawValue)
                         .font(.subheadline)
                     Spacer()
-                    Text("\(Theme.time(window.start))–\(Theme.time(window.end))")
+                    Text("\(Theme.time(window.start, in: day.timeZone))–\(Theme.time(window.end, in: day.timeZone))")
                         .font(.subheadline.monospacedDigit())
                         .foregroundStyle(.secondary)
                 }
