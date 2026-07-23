@@ -134,6 +134,12 @@ Dieser Stand entspricht dem **MVP-Fundament** (PRD Phase 0/1).
   entdecken", und im Entdecken-Tab gibt es eine Freitext-Ortssuche
   (Lupe); ein Banner zeigt das aktive Suchzentrum, „Mein Standort"
   stellt zurück.
+  **Fotos vom Ort:** Die Detailansicht zeigt eine Bildergalerie —
+  zuerst die am OSM-Knoten gepflegten Bildverweise
+  (image/wikimedia_commons-Tags), aufgefüllt mit frei lizenzierten
+  Wikimedia-Commons-Fotos aus 300 m Umkreis (GeoSearch, ohne
+  Schlüssel); ausgeliefert werden kleine Special:FilePath-Thumbnails,
+  ein Tipp aufs Bild öffnet die Commons-Seite mit Lizenz/Urheber.
   Keine Likes, keine Feeds (PRD N2). Daten: © OpenStreetMap (ODbL).
 - **Score-Erklärung am Ring:** Tipp auf den Score-Ring im Heute-Tab
   öffnet die Faktoren-Begründung der besten Stunde („Warum 7?").

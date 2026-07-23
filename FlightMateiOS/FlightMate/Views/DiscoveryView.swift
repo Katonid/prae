@@ -210,6 +210,7 @@ struct DiscoveryDetailView: View {
     @State private var isChecking = true
     @State private var saved = false
     @State private var showFullMap = false
+    @State private var images: [SpotImageService.SpotImage] = []
 
     var body: some View {
         ScrollView {
@@ -245,6 +246,10 @@ struct DiscoveryDetailView: View {
                         .padding(.vertical, 6)
                 }
                 .buttonStyle(.bordered)
+
+                if !images.isEmpty {
+                    imageGallery
+                }
 
                 if isChecking {
                     ProgressView("Legal-Check und Flight Score werden geprüft …")
@@ -347,13 +352,52 @@ struct DiscoveryDetailView: View {
         .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 14))
     }
 
+    /// Fotos vom Ort (OSM-Verweise + Wikimedia Commons im Umkreis) —
+    /// zeigt, was einen dort erwartet; Tipp aufs Bild öffnet die
+    /// Commons-Seite mit Lizenz und Urheber.
+    private var imageGallery: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Label("Fotos vom Ort", systemImage: "photo.on.rectangle.angled")
+                .font(.subheadline.bold())
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(images) { image in
+                        Link(destination: image.pageURL ?? image.thumbnailURL) {
+                            AsyncImage(url: image.thumbnailURL) { phase in
+                                switch phase {
+                                case .success(let loaded):
+                                    loaded.resizable().scaledToFill()
+                                case .failure:
+                                    Image(systemName: "photo")
+                                        .foregroundStyle(.secondary)
+                                default:
+                                    ProgressView()
+                                }
+                            }
+                            .frame(width: 170, height: 120)
+                            .clipShape(RoundedRectangle(cornerRadius: 10))
+                            .background(Color.gray.opacity(0.12),
+                                        in: RoundedRectangle(cornerRadius: 10))
+                        }
+                    }
+                }
+            }
+            Text("Fotos: OpenStreetMap-Verweise & Wikimedia Commons aus der Umgebung — Tipp aufs Bild öffnet die Bildseite mit Lizenz. Motive können vom Spot abweichen.")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
     private func check() async {
         isChecking = true
         defer { isChecking = false }
+        async let loadedImages = SpotImageService.images(for: candidate)
         if let profile = state.profile {
             legal = await LegalService.shared.assess(coordinate: candidate.coordinate, profile: profile)
         }
         days = (try? await state.days(for: candidate.coordinate)) ?? []
+        images = await loadedImages
     }
 }
 
