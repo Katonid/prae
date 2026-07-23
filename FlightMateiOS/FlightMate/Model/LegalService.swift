@@ -13,7 +13,8 @@
 //    - Deutschland: dipul-WFS (BMDV), EU Open A1 / C0
 //    - Schweiz: BAZL-Drohnenkarte via geo.admin.ch (amtlicher Wortlaut)
 //    - Kanada: NRCan-CLSS (Nationalparks) + Transport Canada
-//      (Flughäfen mit Flugsicherung), CARs Part IX (Mikrodrohnen)
+//      (Flughäfen mit Flugsicherung), CARs Part IX (Mikrodrohnen);
+//      mit openAIP-Schlüssel zusätzlich Lufträume (CTR, CYR/CYA)
 //  Außerhalb der Abdeckung und bei Netzausfall zeigt die App ehrlich
 //  „keine Daten" statt zu raten (PRD: „lieber ehrliche Lücken als
 //  falsche Sicherheit").
@@ -462,11 +463,34 @@ struct CanadaLegalProvider: LegalProvider {
     )
 
     /// In Kanada ohne abfragbare Quelle — der Pilot muss sie selbst prüfen.
-    static let uncheckedZoneTypes = [
-        "Luftraumklasse F (CYR/CYD/CYA)",
-        "NOTAMs / Waldbrand-Sperrzonen (9,3 km)",
-        "Provinzparks (je Provinz eigene Regeln)",
-    ]
+    /// Lufträume (CTR, CYR/CYA) sind mit openAIP-Schlüssel abgedeckt,
+    /// ohne Schlüssel stehen sie ehrlich in dieser Liste.
+    static var uncheckedZoneTypes: [String] {
+        var types = [
+            "NOTAMs / Waldbrand-Sperrzonen (9,3 km)",
+            "Provinzparks (je Provinz eigene Regeln)",
+        ]
+        if !AirspaceService.hasStoredKey {
+            types.insert("Lufträume CTR & Klasse F (CYR/CYD/CYA) — openAIP-Schlüssel in den Einstellungen hinterlegen, dann prüft FlightMate sie live", at: 0)
+        }
+        return types
+    }
+
+    /// Klartexte für openAIP-Luftraumtreffer, nach Schwere.
+    static func airspaceRule(title: String, severity: LegalVerdict) -> ZoneRule {
+        switch severity {
+        case .forbidden:
+            return ZoneRule(
+                layer: "openaip", title: title, severity: .forbidden,
+                plainText: "Gesperrter bzw. genehmigungspflichtiger Luftraum (Prohibited/Restricted, in Kanada Class F CYR). Hier brauchst du auch mit einer Mikrodrohne eine Freigabe der zuständigen Stelle — ohne Freigabe: nicht fliegen.",
+                maxAltitudeM: 0)
+        default:
+            return ZoneRule(
+                layer: "openaip", title: title, severity: .conditional,
+                plainText: "Kontrollierter oder besonderer Luftraum (z. B. Kontrollzone, in Kanada auch Advisory-Gebiete CYA). Drohnen ab 250 g brauchen in Kontrollzonen eine Freigabe (in Kanada: NAV Drone). Für Mikrodrohnen unter 250 g gilt: Flugverkehr niemals gefährden — sehr niedrig bleiben, Ausschau halten, im Zweifel nicht fliegen.",
+                maxAltitudeM: 30)
+        }
+    }
 
     func assess(coordinate: CLLocationCoordinate2D, profile: DroneProfile) async -> LegalAssessment {
         var hits: [ZoneHit] = []
@@ -497,6 +521,19 @@ struct CanadaLegalProvider: LegalProvider {
             failed.append("Flughäfen mit Flugsicherung")
         }
 
+        // Lufträume (CTR, CYR/CYA) über openAIP — nur mit Schlüssel.
+        if AirspaceService.hasStoredKey {
+            if let spaces = try? await AirspaceService.hits(at: coordinate) {
+                for space in spaces {
+                    hits.append(ZoneHit(
+                        rule: Self.airspaceRule(title: space.title, severity: space.severity),
+                        featureName: space.name))
+                }
+            } else {
+                failed.append("Lufträume (openAIP)")
+            }
+        }
+
         // Beide Live-Quellen weg → keine Aussage, statt „erlaubt" zu raten.
         if failed.count == 2 {
             return LegalAssessment(
@@ -518,7 +555,9 @@ struct CanadaLegalProvider: LegalProvider {
             uncheckedHint: "Bitte im NAV-Drone-Tool (map.navdrone.ca) gegenprüfen.",
             baselineText: "Für Mikrodrohnen unter 250 g (deine \(profile.name)) gelten in Kanada die Grundregeln der CARs 900.06: keine Gefährdung von Luftverkehr und Personen, Sichtverbindung halten, unter 122 m (400 ft) bleiben, Abstand zu Menschenansammlungen und Einsatzkräften. Keine Registrierung und kein Zertifikat nötig.",
             maxAltitudeM: min(maxAltitude, 122), checkedAt: Date(),
-            sourceNote: "Quellen: NRCan/CLSS (Nationalparks), Transport Canada (Flughäfen), Live-Abfrage. Luftraum & NOTAMs: NAV Drone."
+            sourceNote: AirspaceService.hasStoredKey
+                ? "Quellen: NRCan/CLSS (Nationalparks), Transport Canada (Flughäfen), openAIP (Lufträume), Live-Abfrage. NOTAMs: NAV Drone."
+                : "Quellen: NRCan/CLSS (Nationalparks), Transport Canada (Flughäfen), Live-Abfrage. Luftraum & NOTAMs: NAV Drone."
         )
     }
 

@@ -12,7 +12,9 @@
 //  Wohngrundstücke erst ab näherem Zoom, damit die Karte in Städten
 //  nicht vollflächig zugedeckt wird.
 //  Abdeckung: Deutschland (dipul) und Kanada (NRCan-Nationalparks
-//  als Polygone, Transport-Canada-Flughäfen als 3-NM-Kreise).
+//  als Polygone, Transport-Canada-Flughäfen als 3-NM-Kreise; mit
+//  openAIP-Schlüssel zusätzlich Lufträume wie CTR und CYR/CYA —
+//  das NAV-Drone-Bild, siehe AirspaceService).
 //
 
 import Foundation
@@ -118,9 +120,35 @@ final class ZoneOverlayService {
 
         async let parks = Self.fetchCanadaParks(envelope: envelope)
         async let airports = Self.fetchCanadaAirports(envelope: envelope)
+        async let airspaces = Self.fetchAirspaces(in: region)
         let parkZones = (try? await parks) ?? []
         let airportZones = (try? await airports) ?? []
-        return (parkZones + airportZones).sorted { $0.severity < $1.severity }
+        let airspaceZones = await airspaces
+        return (parkZones + airportZones + airspaceZones).sorted { $0.severity < $1.severity }
+    }
+
+    /// Lufträume (CTR, CYR/CYA …) aus openAIP — nur mit hinterlegtem
+    /// Schlüssel; ohne Schlüssel bleibt die Karte hier ehrlich leer und
+    /// der Legal-Check nennt die Lücke.
+    private static func fetchAirspaces(in region: MKCoordinateRegion) async -> [ZoneOverlay] {
+        guard AirspaceService.hasStoredKey else { return [] }
+        // Radius: halbe Kartendiagonale, gedeckelt, damit die Antwort klein bleibt.
+        let halfDiagonalM = MKMapPoint(region.center).distance(
+            to: MKMapPoint(CLLocationCoordinate2D(
+                latitude: region.center.latitude + region.span.latitudeDelta / 2,
+                longitude: region.center.longitude + region.span.longitudeDelta / 2)))
+        let radius = min(max(Int(halfDiagonalM), 5_000), 60_000)
+        let spaces = (try? await AirspaceService.airspaces(around: region.center, radiusM: radius)) ?? []
+        return spaces.map { space in
+            ZoneOverlay(
+                id: space.id,
+                title: "\(space.title): \(space.name)",
+                severity: space.severity,
+                rings: [space.ring.count > 400
+                    ? stride(from: 0, to: space.ring.count, by: space.ring.count / 400 + 1).map { space.ring[$0] }
+                    : space.ring]
+            )
+        }
     }
 
     private static func arcgisGeoJSON(baseURL: String, envelope: String,

@@ -33,15 +33,22 @@ Dieser Stand entspricht dem **MVP-Fundament** (PRD Phase 0/1).
   - **Kanada** (CARs Part IX, Mikrodrohnen < 250 g): Nationalparks
     aus dem amtlichen NRCan-CLSS-Dienst (Parks-Canada-Drohnenverbot,
     Punkt-in-Polygon) und Flughäfen mit Flugsicherung aus dem
-    Transport-Canada-Dienst (3-NM-Umkreis). Nicht abfragbare
-    Zonentypen (Luftraumklasse F, NOTAMs, Provinzparks) werden
-    sichtbar als „nicht geprüft" gelistet, mit Verweis auf NAV Drone.
+    Transport-Canada-Dienst (3-NM-Umkreis). Mit kostenlosem
+    openAIP-Schlüssel (Einstellungen) prüft der Legal-Check zusätzlich
+    die Lufträume der NAV-Drone-Karte: Kontrollzonen (CTR) und
+    Class-F-Gebiete (CYR/CYD/CYA), punktgenau per Ray-Casting.
+    Verbleibende nicht abfragbare Zonentypen (NOTAMs, Provinzparks —
+    ohne Schlüssel auch die Lufträume) werden sichtbar als „nicht
+    geprüft" gelistet, mit Verweis auf NAV Drone.
 
   Außerhalb der abgedeckten Länder oder ohne Netz zeigt die App
   ehrlich „Keine Daten" statt zu raten.
 - **Zonen-Umrisse auf der Karte (DE + CA):** In Kanada zeichnet die
   Karte Nationalpark-Polygone (rot, NRCan) und 3-NM-Kreise um
-  Flughäfen mit Flugsicherung (orange, Transport Canada). In
+  Flughäfen mit Flugsicherung (orange, Transport Canada); mit
+  openAIP-Schlüssel zusätzlich die Lufträume wie auf der
+  NAV-Drone-Karte — Flugverbots- und Restricted-Gebiete (CYR) rot,
+  Kontrollzonen (CTR) und Advisory-Gebiete (CYA) orange. In
   Deutschland: Die Karte zeichnet alle
   flächigen Zonentypen des sichtbaren Ausschnitts als farbige
   Polygone (rot = verboten, orange = mit Auflagen, mit Legende) —
@@ -134,9 +141,10 @@ Dieser Stand entspricht dem **MVP-Fundament** (PRD Phase 0/1).
 - Benachrichtigungen im Hintergrund aktualisieren (BGAppRefresh bzw.
   später serverseitiger Scheduler, PRD Kap. 10) — aktuell wird bei
   jedem App-Start neu geplant
-- Kanada: Luftraumklasse F (CYR/CYD/CYA) und NOTAMs als Live-Abfrage —
-  derzeit kein offen abfragbarer Dienst; wird als „nicht geprüft"
-  angezeigt
+- Kanada: NOTAMs als Live-Abfrage — kein offen abfragbarer Dienst
+  (NAV-Drone-API ist login-pflichtig); wird als „nicht geprüft"
+  angezeigt. Lufträume (CTR, CYR/CYD/CYA) sind inzwischen über
+  openAIP abgedeckt (kostenloser Schlüssel in den Einstellungen)
 - Spot-Entdeckung: redaktionelle Kuration & Community-Ebene (V3);
   Server-Proxy für die KI-Funktionen (für einen öffentlichen
   Release — aktuell „bring your own key")
