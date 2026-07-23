@@ -75,9 +75,16 @@ Dieser Stand entspricht dem **MVP-Fundament** (PRD Phase 0/1).
     - Luxemburg: amtliche UAS-Geozonen im ED-269-Format
       (drones.geoportail.lu, 5-min-aktuell) — Punkt-in-Polygon lokal,
       abgelaufene temporäre Zonen werden ausgeblendet
-    Für BE, DK, CZ, PL, AT gibt es keine offen abfragbaren Dienste —
-    dort bleibt der ehrliche Portal-Verweis (Droneguide, Droneluftrum,
-    DronView, PANSA, Dronespace).
+    - Dänemark: die amtlichen Dronezoner-Dienste der Trafikstyrelsen
+      (öffentliche AGOL-FeatureServer hinter dronezoner.dk) — rote
+      (flugsicherheitskritische) und blaue (sicherheitskritische)
+      Zonen als Verbot, orange Aufmerksamkeitszonen als Auflage,
+      dazu **tagesaktuell aktivierte NOTAM-Gebiete** (erste
+      NOTAM-Live-Prüfung der App) mit Höhenband und Zeitplan; die
+      Zonen erscheinen auch als Karten-Overlays
+    Für BE, CZ, PL, AT gibt es (noch) keine offen abfragbaren
+    Dienste — dort bleibt der ehrliche Portal-Verweis (Droneguide,
+    DronView, PANSA, Dronespace); wird beobachtet.
 
   Außerhalb der abgedeckten Länder oder ohne Netz zeigt die App
   ehrlich „Keine Daten" statt zu raten.

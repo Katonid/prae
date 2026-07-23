@@ -121,9 +121,46 @@ final class ZoneOverlayService {
             }
         }
 
+        // Dänemark: amtliche Dronezoner (rot/blau/orange) + aktive
+        // NOTAM-Gebiete — dieselben öffentlichen Dienste wie im
+        // Legal-Check (dronezoner.dk/Trafikstyrelsen).
+        if (54.4...57.9).contains(c.latitude), (7.9...15.4).contains(c.longitude) {
+            result.append(contentsOf: await denmarkZones(in: region))
+        }
+
         result.append(contentsOf: await airspaces)
         // „Verboten" oben zeichnen, damit es nie unter Orange verschwindet.
         return result.sorted { $0.severity < $1.severity }
+    }
+
+    private func denmarkZones(in region: MKCoordinateRegion) async -> [ZoneOverlay] {
+        let minLat = region.center.latitude - region.span.latitudeDelta / 2
+        let maxLat = region.center.latitude + region.span.latitudeDelta / 2
+        let minLon = region.center.longitude - region.span.longitudeDelta / 2
+        let maxLon = region.center.longitude + region.span.longitudeDelta / 2
+        let envelope = String(format: "{\"xmin\":%f,\"ymin\":%f,\"xmax\":%f,\"ymax\":%f}",
+                              minLon, minLat, maxLon, maxLat)
+        let base = NationalGeoZones.denmarkBase
+
+        async let red = Self.fetchArcGISPolygons(
+            baseURL: "\(base)/DroneZoner_2025_ny_bekndg/FeatureServer/1",
+            envelope: envelope, outFields: "title", whereClause: nil,
+            idPrefix: "dk-red", severity: { _ in .forbidden })
+        async let blue = Self.fetchArcGISPolygons(
+            baseURL: "\(base)/DroneZoner_2025_ny_bekndg/FeatureServer/4",
+            envelope: envelope, outFields: "title", whereClause: nil,
+            idPrefix: "dk-blue", severity: { _ in .forbidden })
+        async let orange = Self.fetchArcGISPolygons(
+            baseURL: "\(base)/DroneZoner_2025_ny_bekndg/FeatureServer/2",
+            envelope: envelope, outFields: "title", whereClause: nil,
+            idPrefix: "dk-orange", severity: { _ in .conditional })
+        async let notams = Self.fetchArcGISPolygons(
+            baseURL: "\(base)/active_notams/FeatureServer/0",
+            envelope: envelope, outFields: "description", whereClause: nil,
+            idPrefix: "dk-notam", severity: { _ in .forbidden })
+
+        return ((try? await red) ?? []) + ((try? await blue) ?? [])
+            + ((try? await orange) ?? []) + ((try? await notams) ?? [])
     }
 
     private static func usBBox(_ c: CLLocationCoordinate2D) -> Bool {
@@ -404,6 +441,7 @@ final class ZoneOverlayService {
             guard !rings.isEmpty else { return nil }
             let properties = feature.properties
             let title = properties?.NAME ?? properties?.UNIT_NAME ?? properties?.PROTECTED_AREA_NAME_ENG
+                ?? properties?.title ?? properties?.description
             // Index anhängen: mehrere Teilflächen können denselben
             // Namen tragen (z. B. „NEW YORK CLASS B").
             return ZoneOverlay(
@@ -430,6 +468,9 @@ final class ZoneOverlayService {
                 let TYPE_CODE: String?
                 let UNIT_NAME: String?
                 let PROTECTED_AREA_NAME_ENG: String?
+                // Dänische Dronezoner-Dienste (Trafikstyrelsen)
+                let title: String?
+                let description: String?
             }
         }
         struct Geometry: Decodable {

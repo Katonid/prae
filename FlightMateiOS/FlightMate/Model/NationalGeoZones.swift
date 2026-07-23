@@ -35,7 +35,7 @@ enum NationalGeoZones {
 
     /// Länder mit angebundener Live-Quelle.
     static func supports(_ countryCode: String) -> Bool {
-        ["NL", "FR", "LU"].contains(countryCode)
+        ["NL", "FR", "LU", "DK"].contains(countryCode)
     }
 
     /// Kurzname der Live-Quelle (für Quellenangabe im Ergebnis).
@@ -44,6 +44,7 @@ enum NationalGeoZones {
         case "NL": return "PDOK/RVO (Natura 2000)"
         case "FR": return "IGN Géoplateforme (Restriktionskarte DGAC)"
         case "LU": return "geoportail.lu (amtliche UAS-Geozonen, ED-269)"
+        case "DK": return "Trafikstyrelsen (Dronezoner inkl. NOTAMs)"
         default: return nil
         }
     }
@@ -53,6 +54,7 @@ enum NationalGeoZones {
         case "NL": return try await netherlands(at: coordinate)
         case "FR": return try await france(at: coordinate)
         case "LU": return try await luxembourg(at: coordinate)
+        case "DK": return try await denmark(at: coordinate)
         default: return []
         }
     }
@@ -164,6 +166,74 @@ enum NationalGeoZones {
             }
             return nil
         }
+    }
+
+    // MARK: Dänemark — amtliche Dronezoner (Trafikstyrelsen) inkl. NOTAMs
+
+    /// Die offiziellen Dienste hinter dronezoner.dk (öffentlich, AGOL):
+    /// Rot = flugsicherheitskritisch, Blau = sicherheitskritisch,
+    /// Orange = Aufmerksamkeit — plus tagesaktuelle NOTAM-Ebenen.
+    static let denmarkBase = "https://services-eu1.arcgis.com/Zvx25KS6sGRl9LIx/arcgis/rest/services"
+
+    private static func denmark(at c: CLLocationCoordinate2D) async throws -> [Hit] {
+        async let redTask = try? arcgisPointAttributes(
+            baseURL: "\(denmarkBase)/DroneZoner_2025_ny_bekndg/FeatureServer/1",
+            coordinate: c, outFields: ["title", "typeId"])
+        async let blueTask = try? arcgisPointAttributes(
+            baseURL: "\(denmarkBase)/DroneZoner_2025_ny_bekndg/FeatureServer/4",
+            coordinate: c, outFields: ["title", "typeId"])
+        async let orangeTask = try? arcgisPointAttributes(
+            baseURL: "\(denmarkBase)/DroneZoner_2025_ny_bekndg/FeatureServer/2",
+            coordinate: c, outFields: ["title", "typeId"])
+        async let notamTask = try? arcgisPointAttributes(
+            baseURL: "\(denmarkBase)/active_notams/FeatureServer/0",
+            coordinate: c, outFields: ["description", "name", "LimitMeter", "timeSchedule"])
+
+        let red = await redTask
+        let blue = await blueTask
+        let orange = await orangeTask
+        let notams = await notamTask
+        // Alle vier Dienste weg → Fehler melden statt „frei" vorgaukeln.
+        guard red != nil || blue != nil || orange != nil || notams != nil else {
+            throw GeoQueryError.badResponse
+        }
+
+        var hits: [Hit] = []
+        for feature in red ?? [] {
+            hits.append(Hit(
+                title: "Drohnen-Sperrzone (rot)", severity: .forbidden,
+                text: "Flugsicherheitskritische Zone der amtlichen Dronezoner-Karte (Trafikstyrelsen) — z. B. Flughafen oder Flugplatz samt Pufferzone. Drohnenflug hier nur mit Genehmigung; ohne Genehmigung: nicht starten.",
+                maxAltitudeM: 0,
+                featureName: (feature["title"]?.value as? String) ?? (feature["typeId"]?.value as? String)))
+        }
+        for feature in blue ?? [] {
+            hits.append(Hit(
+                title: "Sicherheitskritische Zone (blau)", severity: .forbidden,
+                text: "Sicherheitskritische Zone der amtlichen Dronezoner-Karte (z. B. Militär, Justiz, Schlösser): Drohnenbetrieb ohne Genehmigung verboten.",
+                maxAltitudeM: 0,
+                featureName: (feature["title"]?.value as? String) ?? (feature["typeId"]?.value as? String)))
+        }
+        for feature in orange ?? [] {
+            hits.append(Hit(
+                title: "Aufmerksamkeitszone (orange)", severity: .conditional,
+                text: "Aufmerksamkeitszone der amtlichen Dronezoner-Karte — hier findet besonderer Flug- oder Anlagenbetrieb statt (z. B. Segelflug, Fallschirm, HEMS). Erhöhte Vorsicht, Ausschau halten.",
+                maxAltitudeM: nil,
+                featureName: (feature["title"]?.value as? String) ?? (feature["typeId"]?.value as? String)))
+        }
+        for feature in notams ?? [] {
+            var text = "Tagesaktuell per NOTAM aktiviertes Sperr-/Beschränkungsgebiet (Naviair/Trafikstyrelsen) — hier gilt aktuell: nicht fliegen."
+            if let limit = feature["LimitMeter"]?.value as? String, !limit.isEmpty {
+                text += " Höhenband: \(limit)."
+            }
+            if let schedule = feature["timeSchedule"]?.value as? String, !schedule.isEmpty {
+                text += " Zeitplan: \(schedule)."
+            }
+            hits.append(Hit(
+                title: "Aktives NOTAM-Gebiet", severity: .forbidden,
+                text: text, maxAltitudeM: 0,
+                featureName: (feature["description"]?.value as? String) ?? (feature["name"]?.value as? String)))
+        }
+        return hits
     }
 
     // MARK: Luxemburg — amtliche UAS-Geozonen (ED-269)
