@@ -186,10 +186,17 @@ final class AirspaceService: ObservableObject {
         ]
         let data = try await fetchWithCache(components, apiKey: key)
 
-        guard let result = try? JSONDecoder().decode(APIResponse.self, from: data) else {
+        // Objekt mit items ODER direkte Liste — openAIP liefert je nach
+        // Abfrageform beides (Nutzer-Befund beim Schlüsseltest).
+        let items: [APIResponse.Item]
+        if let object = try? JSONDecoder().decode(APIResponse.self, from: data) {
+            items = object.items
+        } else if let list = try? JSONDecoder().decode([APIResponse.Item].self, from: data) {
+            items = list
+        } else {
             throw AirspaceError.decoding
         }
-        return result.items.compactMap { item in
+        return items.compactMap { item in
             guard excludingCountry.map({ !(item.country?.codes.contains($0) ?? false) }) ?? true,
                   let (title, severity) = classify(type: item.type),
                   droneRelevant(item.lowerLimit),
@@ -338,14 +345,20 @@ final class AirspaceService: ObservableObject {
         do {
             let (data, response) = try await URLSession.shared.data(for: request)
             let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+            // Wichtig (Nutzer-Befund): Bei Umkreis-Abfragen fehlt das
+            // dokumentierte totalCount — die Antwort kann ein Objekt
+            // mit items ODER direkt eine Liste sein. Beides zählt.
             struct Info: Decodable {
+                struct Item: Decodable {}
                 let totalCount: Int?
+                let items: [Item]?
                 let message: String?
             }
             let info = try? JSONDecoder().decode(Info.self, from: data)
+            let bareList = try? JSONDecoder().decode([Info.Item].self, from: data)
             switch status {
             case 200:
-                if let count = info?.totalCount {
+                if let count = info?.totalCount ?? info?.items?.count ?? bareList?.count {
                     return "Schlüssel funktioniert ✓ — Testabfrage bei Frankfurt fand \(count) Lufträume."
                 }
                 return "Verbindung steht, aber die Antwort hatte ein unerwartetes Format. Bitte melden — die Schnittstelle hat sich womöglich geändert."
@@ -405,12 +418,17 @@ final class AirspaceService: ObservableObject {
             }
             let items: [Item]
         }
-        guard let result = try? JSONDecoder().decode(APIResponse.self, from: data) else {
+        let items: [APIResponse.Item]
+        if let object = try? JSONDecoder().decode(APIResponse.self, from: data) {
+            items = object.items
+        } else if let list = try? JSONDecoder().decode([APIResponse.Item].self, from: data) {
+            items = list
+        } else {
             throw AirspaceError.decoding
         }
         let centerLocation = CLLocation(latitude: center.latitude, longitude: center.longitude)
 
-        return result.items.compactMap { item in
+        return items.compactMap { item in
             guard item.type != 8, // Aerodrome Closed
                   let geometry = item.geometry, geometry.coordinates.count >= 2 else { return nil }
             let coordinate = CLLocationCoordinate2D(latitude: geometry.coordinates[1],
