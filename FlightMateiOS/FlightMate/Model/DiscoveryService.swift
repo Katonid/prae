@@ -63,6 +63,10 @@ struct SpotCandidate: Identifiable, Hashable {
     let latitude: Double
     let longitude: Double
     let distanceM: Double
+    /// OSM-Bildverweise, falls am Knoten gepflegt (image=…-URL bzw.
+    /// wikimedia_commons=File:…) — Grundlage für die Foto-Galerie.
+    var imageTag: String? = nil
+    var commonsFile: String? = nil
 
     var coordinate: CLLocationCoordinate2D {
         CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
@@ -161,7 +165,9 @@ enum DiscoveryService {
                 kind: kind,
                 latitude: element.lat,
                 longitude: element.lon,
-                distanceM: distance
+                distanceM: distance,
+                imageTag: tags["image"],
+                commonsFile: tags["wikimedia_commons"]
             )
         }
     }
