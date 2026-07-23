@@ -169,6 +169,11 @@ Dieser Stand entspricht dem **MVP-Fundament** (PRD Phase 0/1).
   Umkreis/Kategorien (die den Neustart ebenfalls überleben)
   unverändert sind — kein ständiges Neu-Aufbauen; frisch laden
   jederzeit per Aktualisieren-Knopf oder Ziehen.
+  **Kartenansicht:** Ein Umschalt-Knopf zeigt alle Treffer als Marker
+  (mit Kategorie-Symbol) auf einer Karte, samt Suchumkreis und
+  eigenem Standort; die Karte passt sich nach jeder Suche auf die
+  Treffer ein. Marker antippen öffnet dieselbe Detailansicht wie die
+  Liste. Die gewählte Ansicht (Liste/Karte) bleibt gespeichert.
   **Reiseplanung:** Gesucht wird nicht nur am eigenen Standort — auf
   der Karte öffnet jeder angetippte Punkt den Knopf „Foto-Orte hier
   entdecken", und im Entdecken-Tab gibt es eine Freitext-Ortssuche
