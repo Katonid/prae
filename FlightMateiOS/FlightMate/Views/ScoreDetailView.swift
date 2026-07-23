@@ -57,7 +57,14 @@ struct ScoreDetailView: View {
                     }
                 } header: {
                     HStack {
-                        Text(Theme.dayFormatter.string(from: day.date))
+                        Text(Theme.fullDay(day.date, in: day.timeZone))
+                        if day.date > Date().addingTimeInterval(7 * 86_400) {
+                            Text("Trend")
+                                .font(.caption2.bold())
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(Color.gray.opacity(0.2), in: Capsule())
+                        }
                         Spacer()
                         Text("Score \(day.score)")
                             .foregroundStyle(Theme.scoreColor(day.score))
@@ -65,11 +72,18 @@ struct ScoreDetailView: View {
                 }
             }
         }
-        .navigationTitle("7-Tage-Ausblick")
+        .navigationTitle("14-Tage-Ausblick")
         .navigationBarTitleDisplayMode(.inline)
         .sheet(item: $selectedHour) { hourScore in
             HourFactorsView(hourScore: hourScore)
                 .presentationDetents([.medium])
+        }
+        .safeAreaInset(edge: .bottom) {
+            Text("Ab Tag 8 zeigt die Prognose den Trend — zur Orientierung, nicht zur Planung. Benachrichtigungen kommen nur aus den verlässlichen ersten 7 Tagen.")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .padding(.horizontal)
+                .padding(.bottom, 6)
         }
     }
 

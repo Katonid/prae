@@ -17,6 +17,7 @@
 
 import Foundation
 import CoreLocation
+import MapKit
 
 @MainActor
 enum OfflinePack {
@@ -66,12 +67,19 @@ enum OfflinePack {
                 _ = try? await AirspaceService.aerodromes(around: spot.coordinate, radiusM: 10_000)
             }
 
+            // 4. Karten-Zonen der Umgebung (~20 km) — landen im
+            //    Overlay-Cache und erscheinen offline auf der Karte.
+            let region = MKCoordinateRegion(
+                center: spot.coordinate,
+                span: MKCoordinateSpan(latitudeDelta: 0.2, longitudeDelta: 0.2))
+            _ = await ZoneOverlayService.shared.zones(in: region)
+
             if spotReady { readyCount += 1 }
         }
 
         UserDefaults.standard.set(Date(), forKey: preparedAtKey)
 
-        var parts = ["Wetter (7 Tage)", "Legal-Check"]
+        var parts = ["Wetter (14 Tage)", "Legal-Check", "Karten-Zonen (~20 km je Spot)"]
         if AirspaceService.hasStoredKey { parts.append("Lufträume & Flugplätze") }
         var summary = "\(readyCount) von \(spots.count) Spots offline bereit: \(parts.joined(separator: ", ")). Sonnenzeiten rechnet die App immer auf dem Gerät."
         if !problems.isEmpty {

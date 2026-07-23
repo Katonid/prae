@@ -178,6 +178,8 @@ struct SpotBriefingView: View {
                             index == selectedDayIndex ? Color.accentColor.opacity(0.18) : Color.clear,
                             in: RoundedRectangle(cornerRadius: 10)
                         )
+                        // Trend-Tage (8+) gedämpft — Orientierung, keine Planung.
+                        .opacity(day.date > Date().addingTimeInterval(7 * 86_400) ? 0.55 : 1)
                     }
                     .buttonStyle(.plain)
                 }
@@ -196,6 +198,11 @@ struct SpotBriefingView: View {
                 Label("Alle Zeiten in Ortszeit des Spots", systemImage: "clock.badge.exclamationmark")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
+            }
+            if day.date > Date().addingTimeInterval(7 * 86_400) {
+                Label("Trend-Prognose (Tag 8+) — grobe Orientierung, noch keine Planungsbasis", systemImage: "chart.line.uptrend.xyaxis")
+                    .font(.caption2)
+                    .foregroundStyle(.orange)
             }
             HStack(spacing: 16) {
                 Text("\(day.score)")
@@ -326,6 +333,18 @@ struct SpotBriefingView: View {
                     GridRow {
                         Label("Böen", systemImage: "tornado")
                         Text("\(Int(hour.hour.windGusts10Kmh)) km/h")
+                    }
+                    if let profile = state.profile {
+                        let estimate = BatteryEstimator.estimate(
+                            profile: profile,
+                            temperatureC: hour.hour.temperatureC,
+                            windKmh: max(hour.hour.windSpeed120Kmh, hour.hour.windSpeed10Kmh))
+                        GridRow {
+                            Label("Akku-Schätzung", systemImage: "battery.75percent")
+                            Text(estimate.minutesText + " pro Akku" +
+                                 (estimate.lossText.map { " (\($0))" } ?? "") +
+                                 " · für 45 min Session: \(BatteryEstimator.batteriesNeeded(for: 45, estimate: estimate)) Akkus")
+                        }
                     }
                     GridRow {
                         Label("Regenrisiko", systemImage: "cloud.rain")

@@ -99,7 +99,8 @@ final class WeatherService {
                 "wind_speed_80m", "wind_speed_180m",
                 "wind_direction_80m", "wind_direction_120m", "wind_direction_180m",
             ].joined(separator: ",")),
-            URLQueryItem(name: "forecast_days", value: "7"),
+            // 14 Tage: Tage 8+ sind Trend-Qualität — die UI kennzeichnet das.
+            URLQueryItem(name: "forecast_days", value: "14"),
             URLQueryItem(name: "timezone", value: "auto"),
         ]
         let (data, response) = try await URLSession.shared.data(from: components.url!)

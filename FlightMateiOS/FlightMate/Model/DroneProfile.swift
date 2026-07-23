@@ -24,6 +24,8 @@ struct DroneProfile: Identifiable, Codable, Hashable {
     let maxTempC: Double
     /// Gesetzliche Maximalhöhe in der Open-Kategorie (EU): 120 m AGL.
     let maxLegalAltitudeM: Int
+    /// Nennflugzeit pro Akku laut Hersteller (Minuten, Idealbedingungen).
+    let nominalFlightMinutes: Double
 
     var weightText: String { "\(weightGrams) g" }
 
@@ -33,17 +35,20 @@ struct DroneProfile: Identifiable, Codable, Hashable {
         DroneProfile(
             id: "dji-mini-3", name: "DJI Mini 3", manufacturer: "DJI",
             euClass: "C0", weightGrams: 248, maxWindKmh: 38,
-            minTempC: -10, maxTempC: 40, maxLegalAltitudeM: 120
+            minTempC: -10, maxTempC: 40, maxLegalAltitudeM: 120,
+            nominalFlightMinutes: 38
         ),
         DroneProfile(
             id: "dji-mini-4k", name: "DJI Mini 4K", manufacturer: "DJI",
             euClass: "C0", weightGrams: 249, maxWindKmh: 38,
-            minTempC: -10, maxTempC: 40, maxLegalAltitudeM: 120
+            minTempC: -10, maxTempC: 40, maxLegalAltitudeM: 120,
+            nominalFlightMinutes: 31
         ),
         DroneProfile(
             id: "dji-mini-4-pro", name: "DJI Mini 4 Pro", manufacturer: "DJI",
             euClass: "C0", weightGrams: 249, maxWindKmh: 38,
-            minTempC: -10, maxTempC: 40, maxLegalAltitudeM: 120
+            minTempC: -10, maxTempC: 40, maxLegalAltitudeM: 120,
+            nominalFlightMinutes: 34
         ),
     ]
 
