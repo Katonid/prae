@@ -230,7 +230,7 @@ private func arcgisPointQuery(baseURL: String, coordinate: CLLocationCoordinate2
 /// Wie arcgisPointQuery, liefert aber die vollen Attribut-Wörterbücher —
 /// für Dienste, bei denen mehr als ein Namensfeld gebraucht wird (z. B.
 /// FAA-UAS-Grids mit Höhen-Obergrenze) — und erlaubt eine Where-Klausel.
-private func arcgisPointAttributes(baseURL: String, coordinate: CLLocationCoordinate2D,
+func arcgisPointAttributes(baseURL: String, coordinate: CLLocationCoordinate2D,
                                    outFields: [String],
                                    whereClause: String? = nil) async throws -> [[String: AnyDecodable]] {
     var components = URLComponents(string: baseURL + "/query")!
@@ -971,7 +971,8 @@ struct EuropeanNeighborsProvider: LegalProvider {
                "FlightMate prüft die amtlichen UAS-Geozonen Luxemburgs für diesen Punkt live."),
         "FR": ("Frankreich", "Géoportail „Restrictions UAS“ (geoportail.gouv.fr)",
                "In Frankreich ist Freizeit-Fliegen über Ortschaften und Wohngebieten („agglomérations“) grundsätzlich verboten — auch unter 250 g. FlightMate prüft die amtliche Restriktionskarte für diesen Punkt live."),
-        "DK": ("Dänemark", "Droneluftrum (droneluftrum.dk, Naviair)", nil),
+        "DK": ("Dänemark", "Dronezoner (dronezoner.dk, Trafikstyrelsen)",
+               "FlightMate prüft die amtlichen Dronezoner (rot/blau/orange) und aktive NOTAM-Gebiete für diesen Punkt live."),
         "CZ": ("Tschechien", "DronView (dronview.rlp.cz, ŘLP)", nil),
         "PL": ("Polen", "PANSA UTM / DroneTower (drony.gov.pl)",
                "In Polen ist vor jedem Flug ein Check-in über die PANSA-App (DroneTower) vorgeschrieben."),
