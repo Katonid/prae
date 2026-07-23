@@ -197,16 +197,10 @@ final class AppState: NSObject, ObservableObject {
         }
     }
 
-    /// Beim Wiederöffnen der App: Ein liegen gebliebener vergangener Tag
-    /// (z. B. von gestern) wird durch heute ersetzt; ein bewusst gewähltes
-    /// zukünftiges Datum bleibt zum Planen erhalten.
+    /// Beim Wiederöffnen der App immer zum aktuellen Zeitpunkt springen:
+    /// heutiges Datum, aktuelle Uhrzeit im Kompass.
     func refreshOnActivate() {
-        if selectedDayIsPast() {
-            goToToday()
-        } else if live && selectedIsToday() {
-            setSliderToNow()
-            recomputeAll()
-        }
+        goToToday()
     }
 
     // MARK: - Ort

@@ -79,6 +79,7 @@ struct CompassCardView: View {
             state.live = false
             state.sliderMinutes = (state.sliderMinutes + 4) % 1440
         }
+        .onAppear { startDeviceOrientation() } // Kopplung startet automatisch
         .onDisappear { stopDeviceOrientation() }
     }
 
@@ -160,8 +161,13 @@ struct CompassCardView: View {
     private func toggleDeviceOrientation() {
         if deviceCoupled {
             stopDeviceOrientation()
-            return
+        } else {
+            startDeviceOrientation()
         }
+    }
+
+    private func startDeviceOrientation() {
+        guard !deviceCoupled else { return }
         guard motionManager.isDeviceMotionAvailable else {
             sensorUnavailable = true
             return
