@@ -265,7 +265,9 @@ Dieser Stand entspricht dem **MVP-Fundament** (PRD Phase 0/1).
   Logs kann keine App ohne DJI-Schlüssel lesen — steht so auch in
   der Fehlermeldung.
 - **Flug-Logbuch (Roadmap-Punkt 4):** „Flüge"-Tab (oben umschaltbar
-  Logbuch ⇄ KI-Bildkritik) — ein Eintrag pro Flugtag mit Datum,
+  Logbuch ⇄ KI-Bildkritik) — ein Eintrag pro Flug mit Datum und
+  Uhrzeit (auch in der Liste sichtbar; der DJI-Import übernimmt die
+  Startzeit minutengenau aus dem Log),
   Ort/Spot (aus den gespeicherten Spots übernehmbar), Flight Score,
   Ein-Tipp-Bewertung, Notiz und bis zu drei verkleinerten Fotos
   (lokal in Documents). Wer für HEUTE mit Bewertung loggt, füttert

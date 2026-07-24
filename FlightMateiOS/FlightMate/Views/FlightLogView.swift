@@ -253,7 +253,7 @@ struct LogbookView: View {
                     .font(.body)
                     .lineLimit(1)
                 HStack(spacing: 6) {
-                    Text(Theme.shortDayFormatter.string(from: entry.date))
+                    Text("\(Theme.shortDayFormatter.string(from: entry.date)) · \(Theme.time(entry.date)) Uhr")
                     if let rating = entry.rating {
                         Label(rating.title, systemImage: rating.symbol)
                     }
@@ -291,7 +291,8 @@ struct LogEntryEditor: View {
         NavigationStack {
             Form {
                 Section("Flug") {
-                    DatePicker("Datum", selection: $entry.date, displayedComponents: .date)
+                    DatePicker("Datum & Uhrzeit", selection: $entry.date,
+                               displayedComponents: [.date, .hourAndMinute])
                     TextField("Ort / Spot", text: $entry.spotName)
                     if !state.spots.isEmpty {
                         Menu("Gespeicherten Spot übernehmen") {
