@@ -2,58 +2,85 @@
 //  ArchivView.swift
 //  FlightMate
 //
-//  Drone Media Explorer, M1: Das Archiv-Fundament sichtbar gemacht —
-//  Katalogstand, Sync-Status (ehrlich: CloudKit aktiv oder lokal)
-//  und die verbundenen Ordner-Quellen (DJI Fly, SD-Karte, Ordner).
-//  Der eigentliche Import folgt in M2; Quellen lassen sich aber
-//  schon jetzt verbinden, damit M2 sofort losscannen kann.
+//  Drone Media Explorer — Archiv-Übersicht (M2): Katalogstand mit
+//  Zugang zur Bibliothek, Import aus Apple Fotos (System-Picker)
+//  und Ordner-Quellen (DJI-Fly-Ablage, SD-Karte, beliebige Ordner)
+//  mit automatischem Differenz-Scan bei jedem Öffnen. Ehrliche
+//  Statusanzeige: Sync-Zustand, Scan-Fortschritt, Ergebnis.
 //
 
 import SwiftUI
+import PhotosUI
 import UniformTypeIdentifiers
 
 struct ArchivView: View {
     @ObservedObject private var store = ArchivStore.shared
+    @ObservedObject private var importer = ImportCoordinator.shared
     @State private var sources: [ConnectedSource] = []
     @State private var showFolderPicker = false
     @State private var pickerError: String?
+    @State private var photoItems: [PhotosPickerItem] = []
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(spacing: 16) {
-                    statusCard
-                    sourcesCard
-                    roadmapCard
+            if let container = store.container {
+                content
+                    .modelContainer(container)
+            } else {
+                ContentUnavailableView("Katalog nicht verfügbar",
+                                       systemImage: "exclamationmark.triangle",
+                                       description: Text(store.statusText))
+            }
+        }
+    }
+
+    private var content: some View {
+        ScrollView {
+            VStack(spacing: 16) {
+                statusCard
+                importCard
+                sourcesCard
+                roadmapCard
+            }
+            .frame(maxWidth: 640)
+            .frame(maxWidth: .infinity)
+            .padding()
+        }
+        .navigationTitle("Archiv")
+        .onAppear {
+            sources = BookmarkStore.all()
+            // Automatik (Kap. 6): Differenz-Scan bei jedem Öffnen —
+            // unveränderte Dateien kosten dabei praktisch nichts.
+            Task { await importer.scanFolderSources() }
+        }
+        .fileImporter(isPresented: $showFolderPicker,
+                      allowedContentTypes: [.folder]) { result in
+            switch result {
+            case .success(let url):
+                do {
+                    try BookmarkStore.add(url: url, label: url.lastPathComponent)
+                    sources = BookmarkStore.all()
+                    Task { await importer.scanFolderSources() }
+                } catch {
+                    pickerError = "Der Ordner konnte nicht gemerkt werden: \(error.localizedDescription)"
                 }
-                .frame(maxWidth: 640)
-                .frame(maxWidth: .infinity)
-                .padding()
+            case .failure:
+                break
             }
-            .navigationTitle("Archiv")
-            .onAppear { sources = BookmarkStore.all() }
-            .fileImporter(isPresented: $showFolderPicker,
-                          allowedContentTypes: [.folder]) { result in
-                switch result {
-                case .success(let url):
-                    do {
-                        try BookmarkStore.add(url: url, label: url.lastPathComponent)
-                        sources = BookmarkStore.all()
-                    } catch {
-                        pickerError = "Der Ordner konnte nicht gemerkt werden: \(error.localizedDescription)"
-                    }
-                case .failure:
-                    break
-                }
-            }
-            .alert("Quelle verbinden", isPresented: Binding(
-                get: { pickerError != nil },
-                set: { if !$0 { pickerError = nil } }
-            )) {
-                Button("OK") { pickerError = nil }
-            } message: {
-                Text(pickerError ?? "")
-            }
+        }
+        .onChange(of: photoItems) {
+            guard !photoItems.isEmpty else { return }
+            let items = photoItems
+            photoItems = []
+            Task { await importer.importPhotoItems(items) }
+        }
+        .alert("Quelle verbinden", isPresented: Binding(
+            get: { pickerError != nil },
+            set: { if !$0 { pickerError = nil } }
+        )) {
+            Button("OK") { pickerError = nil }
+        } message: {
+            Text(pickerError ?? "")
         }
     }
 
@@ -67,6 +94,18 @@ struct ArchivView: View {
                 statTile("\(counts.videos)", "Videos")
                 statTile("\(counts.versions)", "Versionen")
             }
+            NavigationLink {
+                ArchivLibraryView()
+            } label: {
+                HStack {
+                    Label("Bibliothek öffnen", systemImage: "photo.stack")
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .font(.subheadline)
             Label(store.statusText,
                   systemImage: store.cloudSyncActive ? "icloud" : "icloud.slash")
                 .font(.caption)
@@ -91,12 +130,53 @@ struct ArchivView: View {
         .frame(maxWidth: .infinity)
     }
 
+    private var importCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label("Importieren", systemImage: "square.and.arrow.down")
+                .font(.subheadline.bold())
+            if importer.isRunning {
+                HStack(spacing: 8) {
+                    ProgressView()
+                    Text(importer.progressText.isEmpty ? "Import läuft …" : importer.progressText)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+            } else {
+                PhotosPicker(selection: $photoItems,
+                             matching: .any(of: [.images, .videos]),
+                             photoLibrary: .shared()) {
+                    Label("Aus Apple Fotos wählen", systemImage: "photo.on.rectangle.angled")
+                }
+                .font(.subheadline)
+                Button {
+                    Task { await importer.scanFolderSources() }
+                } label: {
+                    Label("Ordner-Quellen jetzt scannen", systemImage: "arrow.clockwise")
+                }
+                .font(.subheadline)
+                .disabled(sources.isEmpty)
+            }
+            if let summary = importer.lastSummary {
+                Label(summary, systemImage: "checkmark.circle")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Text("Doppelte Inhalte werden erkannt (Inhalts-Hash) und nur als weiterer Fundort vermerkt — nie doppelt importiert.")
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+        }
+        .padding()
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .flightCard(cornerRadius: 16)
+    }
+
     private var sourcesCard: some View {
         VStack(alignment: .leading, spacing: 10) {
             Label("Verbundene Quellen", systemImage: "externaldrive.connected.to.line.below")
                 .font(.subheadline.bold())
             if sources.isEmpty {
-                Text("Noch keine Ordner-Quelle verbunden. Verbinde z. B. die DJI-Fly-Ablage (Dateien-App → „Auf meinem iPhone“ → DJI Fly), eine SD-Karte oder einen beliebigen Ordner — der Import startet mit dem nächsten Ausbauschritt (M2) automatisch bei jedem App-Start.")
+                Text("Noch keine Ordner-Quelle verbunden. Verbinde z. B. die DJI-Fly-Ablage (Dateien-App → „Auf meinem iPhone“ → DJI Fly), eine SD-Karte oder einen beliebigen Ordner — verbundene Quellen scannt das Archiv bei jedem Öffnen automatisch auf neue Aufnahmen.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             } else {
@@ -110,7 +190,7 @@ struct ArchivView: View {
                                 .font(.subheadline)
                             Text(available
                                  ? (source.lastScanAt.map { "zuletzt gescannt \(Theme.time($0)) Uhr" }
-                                    ?? "bereit — Scan kommt mit M2")
+                                    ?? "bereit")
                                  : "zurzeit nicht verfügbar (Karte ausgeworfen / Ordner weg?)")
                                 .font(.caption2)
                                 .foregroundStyle(.secondary)
@@ -143,7 +223,7 @@ struct ArchivView: View {
         VStack(alignment: .leading, spacing: 8) {
             Label("So geht es weiter", systemImage: "map")
                 .font(.subheadline.bold())
-            Text("M1 (dieses Fundament): Katalog mit iCloud-Sync, Dedupe und Quellen-Verwaltung. M2: Import aus Apple Fotos, DJI-Fly-Ordner und SD-Karte mit vollständigen Metadaten. M3: Orte, Flugrouten und Karte. M4: Reisen, Spots und bearbeitete Versionen. M5: lokale KI-Suche.")
+            Text("M2 (jetzt): Import aus Apple Fotos und Ordner-Quellen mit vollständigen Metadaten, Bibliothek mit Detail-Ansicht. M3: Orte für Videos (Flight-Log-Kaskade), Flugrouten und die Medien-Karte. M4: Reisen, Spots und bearbeitete Versionen. M5: lokale KI-Suche.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
