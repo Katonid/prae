@@ -28,15 +28,17 @@ import CryptoKit
 private let airspaceGridStepDeg = 0.02
 private let airspaceGridSlackM = 2_500
 
-/// Kurzzeit-Bremse nach einem 429: openAIP drosselt Anfrage-Bursts
-/// (das ist NICHT das Tageskontingent). Ohne Pause würde jede
-/// weitere Kartenbewegung das Limit sofort neu auslösen — eine
-/// Minute Funkstille lässt es sich erholen; solange springt der
-/// letzte Cache-Stand ein (Nutzer-Befund beim Kanada-Schwenk).
+/// Bremse nach einem 429: openAIP drosselt Anfrage-Bursts (das ist
+/// NICHT das Tageskontingent). Ohne Pause würde jede weitere
+/// Kartenbewegung das Limit sofort neu auslösen. Die Pause eskaliert
+/// bei Wiederholung (1 → 2 → 4 → 8 → 15 min; Server-Retry-After hat
+/// Vorrang) — das Drossel-Fenster ist länger als eine Minute
+/// (Nutzer-Befund). Solange springt der letzte Cache-Stand ein.
 private final class OpenAIPRateGate: @unchecked Sendable {
     static let shared = OpenAIPRateGate()
     private let lock = NSLock()
     private var pausedUntil: Date?
+    private var strikes = 0
 
     var isPaused: Bool {
         lock.lock()
@@ -44,9 +46,23 @@ private final class OpenAIPRateGate: @unchecked Sendable {
         return pausedUntil.map { $0 > Date() } ?? false
     }
 
-    func pause(seconds: TimeInterval) {
+    /// 429 registrieren: Die Pause eskaliert bei Wiederholung
+    /// (1 → 2 → 4 → 8 → 15 min) — openAIPs Drossel-Fenster ist
+    /// offenbar länger als eine Minute (Nutzer-Befund). Nennt der
+    /// Server ein Retry-After, hat das Vorrang.
+    func registerLimit(retryAfterSeconds: Double?) {
         lock.lock()
-        pausedUntil = Date().addingTimeInterval(seconds)
+        strikes = min(strikes + 1, 5)
+        let escalation = 60.0 * pow(2, Double(strikes - 1))
+        let pause = min(max(retryAfterSeconds ?? 0, escalation), 900)
+        pausedUntil = Date().addingTimeInterval(pause)
+        lock.unlock()
+    }
+
+    /// Erfolgreiche Antwort → Eskalation zurücksetzen.
+    func registerSuccess() {
+        lock.lock()
+        strikes = 0
         lock.unlock()
     }
 }
@@ -203,11 +219,11 @@ final class AirspaceService: ObservableObject {
         var components = URLComponents(string: "https://api.core.openaip.net/api/airspaces")!
         components.queryItems = [
             URLQueryItem(name: "pos", value: String(format: "%.2f,%.2f",
-                                                    Self.quantize(center.latitude),
-                                                    Self.quantize(center.longitude))),
-            // Radius auf 5-km-Stufen aufrunden — sonst erzeugt jede
+                                                    Self.quantize(center.latitude, step: Self.gridStep(for: radiusM)),
+                                                    Self.quantize(center.longitude, step: Self.gridStep(for: radiusM)))),
+            // Radius auf Stufen aufrunden — sonst erzeugt jede
             // Zoomstufe einen eigenen Cache-Eintrag.
-            URLQueryItem(name: "dist", value: String(((radiusM + airspaceGridSlackM + 4_999) / 5_000) * 5_000)),
+            URLQueryItem(name: "dist", value: String(((radiusM + airspaceGridSlackM + Self.distStep(for: radiusM) - 1) / Self.distStep(for: radiusM)) * Self.distStep(for: radiusM))),
             URLQueryItem(name: "limit", value: "100"),
             // Nur die benötigten Felder — volle Luftraum-Objekte sind
             // mehrere MB groß und liefen auf Mobilfunk ins Timeout
@@ -268,8 +284,19 @@ final class AirspaceService: ObservableObject {
     /// So lange gilt ein Cache-Eintrag als frisch (kein Netzzugriff).
     private static let cacheFreshTTL: TimeInterval = 12 * 3600
 
-    private nonisolated static func quantize(_ value: Double) -> Double {
-        (value / airspaceGridStepDeg).rounded() * airspaceGridStepDeg
+    /// Große Radien (Karten-Overlays) rastern gröber: 5 km statt
+    /// 2 km Positions-Raster und 10-km-Distanzstufen — jeder Schwenk
+    /// trifft damit viel öfter den Cache statt openAIP (Limit-Schutz).
+    private nonisolated static func gridStep(for radiusM: Int) -> Double {
+        radiusM >= 10_000 ? 0.05 : airspaceGridStepDeg
+    }
+
+    private nonisolated static func distStep(for radiusM: Int) -> Int {
+        radiusM >= 10_000 ? 10_000 : 5_000
+    }
+
+    private nonisolated static func quantize(_ value: Double, step: Double) -> Double {
+        (value / step).rounded() * step
     }
 
     /// Lädt eine openAIP-URL mit Datei-Zwischenspeicher: frisch → Cache,
@@ -305,10 +332,13 @@ final class AirspaceService: ObservableObject {
             guard let http = response as? HTTPURLResponse else { throw AirspaceError.network }
             guard http.statusCode == 200 else {
                 if http.statusCode == 429 {
-                    OpenAIPRateGate.shared.pause(seconds: 60)
+                    let retryAfter = http.value(forHTTPHeaderField: "Retry-After")
+                        .flatMap(Double.init)
+                    OpenAIPRateGate.shared.registerLimit(retryAfterSeconds: retryAfter)
                 }
                 throw AirspaceError.http(http.statusCode)
             }
+            OpenAIPRateGate.shared.registerSuccess()
             try? manager.createDirectory(at: cacheFile.deletingLastPathComponent(),
                                          withIntermediateDirectories: true)
             try? data.write(to: cacheFile)
@@ -435,9 +465,9 @@ final class AirspaceService: ObservableObject {
         var components = URLComponents(string: "https://api.core.openaip.net/api/airports")!
         components.queryItems = [
             URLQueryItem(name: "pos", value: String(format: "%.2f,%.2f",
-                                                    Self.quantize(center.latitude),
-                                                    Self.quantize(center.longitude))),
-            URLQueryItem(name: "dist", value: String(((radiusM + airspaceGridSlackM + 4_999) / 5_000) * 5_000)),
+                                                    Self.quantize(center.latitude, step: Self.gridStep(for: radiusM)),
+                                                    Self.quantize(center.longitude, step: Self.gridStep(for: radiusM)))),
+            URLQueryItem(name: "dist", value: String(((radiusM + airspaceGridSlackM + Self.distStep(for: radiusM) - 1) / Self.distStep(for: radiusM)) * Self.distStep(for: radiusM))),
             URLQueryItem(name: "limit", value: "100"),
             URLQueryItem(name: "fields", value: "_id,name,type,geometry"),
         ]
