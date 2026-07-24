@@ -131,10 +131,17 @@ Dieser Stand entspricht dem **MVP-Fundament** (PRD Phase 0/1).
   „mehr beim Hineinzoomen"). Beim Verschieben bleibt die alte
   Zeichnung stehen und die Karte schwenkt geschmeidig — neu geladen
   wird erst, wenn sie eine halbe Sekunde ruhig steht (jede neue
-  Bewegung bricht die wartende Ladung ab). Kartenstil umschaltbar
-  (Karte / Hybrid / Satellit) und Tag-/Nachtansicht unabhängig vom
-  Geräte-Erscheinungsbild erzwingbar; beide Einstellungen bleiben
-  gespeichert.
+  Bewegung bricht die wartende Ladung ab). Alle Zonen tragen
+  stabile, geometrie-basierte IDs, damit SwiftUI beim Nachladen nur
+  die tatsächlich neuen Flächen einfügt statt die ganze Ebene neu
+  aufzubauen, und die Karte wird standardmäßig flach gerendert —
+  beides zusammen beseitigt das kurze „Wegblitzen" der Basiskarte
+  nach dem Verschieben (Nutzermeldung). Die 3D-Geländeneigung lässt
+  sich im Kartenansicht-Menü zuschalten (Nutzerwunsch; kann das
+  Neuzeichnen beim Nachladen wieder sichtbarer machen). Kartenstil
+  umschaltbar (Karte / Hybrid / Satellit) und Tag-/Nachtansicht
+  unabhängig vom Geräte-Erscheinungsbild erzwingbar; alle
+  Einstellungen bleiben gespeichert.
 - **Sonne auf der Karte:** Das Briefing zeigt je gewähltem Tag eine
   Karte mit Azimut-Linien vom Spot zur Sonne bei Auf- (orange) und
   Untergang (violett), inkl. Uhrzeit-Etiketten in Ortszeit und

@@ -101,7 +101,7 @@ final class ZoneOverlayService {
         if inUS || inCanada {
             async let us = inUS ? await usaZones(in: region) : []
             async let canada = inCanada ? await canadaZones(in: region) : []
-            return (await us + (await canada)).sorted { $0.severity < $1.severity }
+            return Self.uniqueSorted(await us + (await canada))
         }
 
         var result: [ZoneOverlay] = []
@@ -149,8 +149,16 @@ final class ZoneOverlayService {
         }
 
         result.append(contentsOf: await airspaces)
-        // „Verboten" oben zeichnen, damit es nie unter Orange verschwindet.
-        return result.sorted { $0.severity < $1.severity }
+        return Self.uniqueSorted(result)
+    }
+
+    /// Doppelte IDs entfernen (Koordinaten-Anker können in Randfällen
+    /// kollidieren — die Karte braucht eindeutige IDs pro Element) und
+    /// „Verboten" oben zeichnen, damit es nie unter Orange verschwindet.
+    private static func uniqueSorted(_ zones: [ZoneOverlay]) -> [ZoneOverlay] {
+        var seen = Set<String>()
+        return zones.filter { seen.insert($0.id).inserted }
+            .sorted { $0.severity < $1.severity }
     }
 
     private func denmarkZones(in region: MKCoordinateRegion) async -> [ZoneOverlay] {
@@ -194,7 +202,7 @@ final class ZoneOverlayService {
         let minLon = region.center.longitude - region.span.longitudeDelta / 2 - 0.01
         let maxLon = region.center.longitude + region.span.longitudeDelta / 2 + 0.01
 
-        return cells.enumerated().compactMap { index, cell in
+        return cells.compactMap { cell in
             guard (minLat...maxLat).contains(cell.refLat),
                   (minLon...maxLon).contains(cell.refLon) else { return nil }
             let ring = cell.ring.compactMap { pair -> CLLocationCoordinate2D? in
@@ -202,13 +210,15 @@ final class ZoneOverlayService {
                 return CLLocationCoordinate2D(latitude: pair[1], longitude: pair[0])
             }
             guard ring.count >= 3 else { return nil }
+            // Zellecke als stabile ID — bleibt über Nachladungen gleich.
+            let cellID = String(format: "cz-grid-%.4f_%.4f", cell.refLat, cell.refLon)
             let meters = cell.ceilingFt * 0.3048
             if meters < 1 {
-                return ZoneOverlay(id: "cz-grid-\(index)",
+                return ZoneOverlay(id: cellID,
                                    title: "Flugverbot (DronView-Raster)",
                                    severity: .forbidden, rings: [ring])
             }
-            return ZoneOverlay(id: "cz-grid-\(index)",
+            return ZoneOverlay(id: cellID,
                                title: "DronView: max. \(Int(meters.rounded())) m",
                                severity: .conditional, rings: [ring])
         }
@@ -391,10 +401,10 @@ final class ZoneOverlayService {
             let features: [Feature]
         }
         let result = try JSONDecoder().decode(Response.self, from: data)
-        return result.features.enumerated().compactMap { index, feature in
+        return result.features.compactMap { feature in
             guard let lat = feature.properties?.lat, let lon = feature.properties?.lon else { return nil }
             return ZoneOverlay(
-                id: String(format: "ca-fire-%.3f-%.3f-%d", lat, lon, index),
+                id: String(format: "ca-fire-%.4f-%.4f", lat, lon),
                 title: "Waldbrand-Sperrzone (9,3 km, CARs 601.15)",
                 severity: .forbidden,
                 rings: [],
@@ -415,9 +425,10 @@ final class ZoneOverlayService {
                 longitude: region.center.longitude + region.span.longitudeDelta / 2)))
         let radius = min(max(Int(halfDiagonalM), 5_000), 60_000)
         let aerodromes = (try? await AirspaceService.aerodromes(around: region.center, radiusM: radius)) ?? []
-        return aerodromes.enumerated().map { index, aerodrome in
+        return aerodromes.map { aerodrome in
             ZoneOverlay(
-                id: "ca-aero-\(aerodrome.name)-\(index)",
+                id: "ca-aero-\(aerodrome.name)-" + String(format: "%.4f_%.4f",
+                    aerodrome.coordinate.latitude, aerodrome.coordinate.longitude),
                 title: aerodrome.isHeliport ? "Heliport: \(aerodrome.name)" : "Flugplatz: \(aerodrome.name)",
                 severity: .conditional,
                 rings: [],
@@ -607,12 +618,13 @@ final class ZoneOverlayService {
             let features: [Feature]
         }
         let collection = try JSONDecoder().decode(PointCollection.self, from: data)
-        return collection.features.enumerated().compactMap { index, feature in
+        return collection.features.compactMap { feature in
             guard let geometry = feature.geometry, geometry.type == "Point",
                   geometry.coordinates.count >= 2 else { return nil }
             let name = feature.properties?.NAME
             return ZoneOverlay(
-                id: "us-stadium-\(name ?? String(index))",
+                id: "us-stadium-" + (name ?? String(format: "%.4f_%.4f",
+                    geometry.coordinates[1], geometry.coordinates[0])),
                 title: name.map { "Stadion-TFR (an Veranstaltungstagen): \($0)" },
                 severity: .conditional,
                 rings: [],
@@ -640,10 +652,16 @@ final class ZoneOverlayService {
             let properties = feature.properties
             let title = properties?.NAME ?? properties?.UNIT_NAME ?? properties?.PROTECTED_AREA_NAME_ENG
                 ?? properties?.title ?? properties?.description ?? properties?.Facility
-            // Index anhängen: mehrere Teilflächen können denselben
-            // Namen tragen (z. B. „NEW YORK CLASS B").
+            // Geometrie-Anker statt Laufindex: Die ID bleibt damit über
+            // Nachladungen stabil, auch wenn mehrere Teilflächen
+            // denselben Namen tragen (z. B. „NEW YORK CLASS B") —
+            // SwiftUI erkennt unveränderte Zonen wieder, statt die
+            // ganze Ebene neu aufzubauen (sichtbares Karten-Blitzen).
+            let anchor = rings[0].first.map {
+                String(format: "%.4f_%.4f", $0.latitude, $0.longitude)
+            } ?? String(index)
             return ZoneOverlay(
-                id: "\(idPrefix)-\(title ?? "?")-\(index)",
+                id: "\(idPrefix)-\(title ?? "?")-\(anchor)",
                 title: title,
                 severity: severity(properties?.TYPE_CODE),
                 rings: rings
