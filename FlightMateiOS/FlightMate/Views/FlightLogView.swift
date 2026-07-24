@@ -14,10 +14,13 @@ import PhotosUI
 import UniformTypeIdentifiers
 import MapKit
 
-/// Container für den Tab: Logbuch ⇄ KI-Bildkritik.
+/// Container für den Tab: Logbuch ⇄ Archiv ⇄ KI-Bildkritik.
+/// (Archiv = Drone Media Explorer; als Bereich statt sechstem Tab,
+/// weil iOS ab sechs Tabs den „Mehr"-Umweg erzwingt.)
 struct FlightsTabView: View {
     private enum Section: String, CaseIterable {
         case logbook = "Logbuch"
+        case archive = "Archiv"
         case review = "KI-Bildkritik"
     }
     @State private var section: Section = .logbook
@@ -35,6 +38,7 @@ struct FlightsTabView: View {
 
             switch section {
             case .logbook: LogbookView()
+            case .archive: ArchivView()
             case .review: FlightReviewView()
             }
         }

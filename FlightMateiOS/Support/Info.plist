@@ -10,9 +10,12 @@
 	<array>
 		<string>de.familie.flightmate.refresh</string>
 	</array>
+	<!-- remote-notification: CloudKit stößt damit den Katalog-Sync
+	     des Archivs an, sobald ein anderes Gerät etwas ändert. -->
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>fetch</string>
+		<string>remote-notification</string>
 	</array>
 </dict>
 </plist>

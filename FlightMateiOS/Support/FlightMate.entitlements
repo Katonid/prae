@@ -8,5 +8,17 @@
 	     braucht keine Entitlements). -->
 	<key>com.apple.developer.ubiquity-kvstore-identifier</key>
 	<string>$(TeamIdentifierPrefix)$(CFBundleIdentifier)</string>
+	<!-- CloudKit: synchronisiert den Medien-Katalog des Archivs
+	     (Drone Media Explorer, SwiftData + CloudKit — nur Metadaten,
+	     keine Medien-Dateien). Container legt Xcode beim ersten
+	     signierten Build automatisch an. -->
+	<key>com.apple.developer.icloud-services</key>
+	<array>
+		<string>CloudKit</string>
+	</array>
+	<key>com.apple.developer.icloud-container-identifiers</key>
+	<array>
+		<string>iCloud.de.familie.flightmate</string>
+	</array>
 </dict>
 </plist>
