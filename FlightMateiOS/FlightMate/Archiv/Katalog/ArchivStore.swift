@@ -95,6 +95,24 @@ final class ArchivStore: ObservableObject {
         try? container?.mainContext.save()
     }
 
+    /// Notausgang bei beschädigtem Katalog (z. B. nach Absturz
+    /// mitten im Schreiben): Store-Dateien löschen — der Katalog
+    /// wird beim nächsten Öffnen leer neu angelegt. Verloren gehen
+    /// nur Katalog-Metadaten (Originale bleiben unberührt und sind
+    /// re-importierbar). Nur wirksam, BEVOR der Store in dieser
+    /// Sitzung geöffnet wurde.
+    static func destroyStoreFiles() {
+        let support = FileManager.default.urls(
+            for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        if let items = try? FileManager.default.contentsOfDirectory(
+            at: support, includingPropertiesForKeys: nil) {
+            for item in items where item.lastPathComponent.hasPrefix("FlightMateArchiv") {
+                try? FileManager.default.removeItem(at: item)
+            }
+        }
+        ScanRegistry.reset()
+    }
+
     // MARK: Bestandszahlen für die Status-UI
 
     struct Counts {
