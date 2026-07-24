@@ -15,9 +15,13 @@ import SwiftUI
 import SwiftData
 
 struct ArchivLibraryView: View {
-    @Query(sort: \MediaAsset.capturedAt, order: .reverse)
-    private var assets: [MediaAsset]
+    // Bewusst KEIN @Query: Die Bibliothek holt ihre Daten direkt aus
+    // demselben Katalog-Store wie die Zählung der Übersicht — damit
+    // kann keine fehlende Umgebungs-Weitergabe je wieder zu „Katalog
+    // zählt 1, Bibliothek ist leer" führen (Nutzermeldung).
+    @State private var assets: [MediaAsset] = []
     @State private var filter: String = "alle"
+    @ObservedObject private var importer = ImportCoordinator.shared
 
     private var filtered: [MediaAsset] {
         switch filter {
@@ -25,6 +29,13 @@ struct ArchivLibraryView: View {
         case MediaKind.video.rawValue: return assets.filter { $0.kind == .video }
         default: return assets
         }
+    }
+
+    private func reload() {
+        guard let container = ArchivStore.shared.container else { return }
+        let descriptor = FetchDescriptor<MediaAsset>(
+            sortBy: [SortDescriptor(\.capturedAt, order: .reverse)])
+        assets = (try? container.mainContext.fetch(descriptor)) ?? []
     }
 
     var body: some View {
@@ -62,6 +73,11 @@ struct ArchivLibraryView: View {
         }
         .navigationTitle("Bibliothek")
         .navigationBarTitleDisplayMode(.inline)
+        .onAppear { reload() }
+        // Nach einem Import (isRunning kippt auf false) auffrischen.
+        .onChange(of: importer.isRunning) { _, running in
+            if !running { reload() }
+        }
     }
 
     private func cell(_ asset: MediaAsset) -> some View {
@@ -119,7 +135,6 @@ struct ArchivLibraryView: View {
 
 struct ArchivAssetDetailView: View {
     @Bindable var asset: MediaAsset
-    @Environment(\.modelContext) private var modelContext
     @State private var newTag = ""
 
     var body: some View {
@@ -275,7 +290,7 @@ struct ArchivAssetDetailView: View {
         }
         .navigationTitle(asset.fileName)
         .navigationBarTitleDisplayMode(.inline)
-        .onDisappear { try? modelContext.save() }
+        .onDisappear { ArchivStore.shared.saveQuietly() }
     }
 
     private func addTag() {

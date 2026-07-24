@@ -24,14 +24,15 @@ struct ArchivView: View {
     @State private var started = false
 
     var body: some View {
-        NavigationStack {
-            if started {
-                ArchivHomeView()
-            } else if openGuard {
+        if started {
+            ArchivHomeView()
+        } else if openGuard {
+            NavigationStack {
                 recoveryView
-            } else {
-                Color.clear.onAppear { start() }
+                    .safeAreaInset(edge: .top, spacing: 0) { FluegeSectionPicker() }
             }
+        } else {
+            Color.clear.onAppear { start() }
         }
     }
 
@@ -86,12 +87,19 @@ private struct ArchivHomeView: View {
     var body: some View {
         Group {
             if let container = store.container {
-                content
+                // WICHTIG: Der Model-Container muss ÜBER dem
+                // NavigationStack hängen — geschobene Seiten
+                // (Bibliothek, Detail) erben die Umgebung vom Stapel,
+                // nicht vom Link. Sonst bleibt die Bibliothek leer,
+                // obwohl der Katalog zählt (Nutzermeldung).
+                NavigationStack { content }
                     .modelContainer(container)
             } else {
-                ContentUnavailableView("Katalog nicht verfügbar",
-                                       systemImage: "exclamationmark.triangle",
-                                       description: Text(store.statusText))
+                NavigationStack {
+                    ContentUnavailableView("Katalog nicht verfügbar",
+                                           systemImage: "exclamationmark.triangle",
+                                           description: Text(store.statusText))
+                }
             }
         }
         // Katalog hat sich sauber geöffnet → Wächter lösen. Während
@@ -113,6 +121,7 @@ private struct ArchivHomeView: View {
             .padding()
         }
         .navigationTitle("Archiv")
+        .safeAreaInset(edge: .top, spacing: 0) { FluegeSectionPicker() }
         .onAppear {
             sources = BookmarkStore.all()
             // Automatik (Kap. 6): Differenz-Scan bei jedem Öffnen —
