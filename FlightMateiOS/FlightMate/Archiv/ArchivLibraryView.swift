@@ -13,6 +13,7 @@
 
 import SwiftUI
 import SwiftData
+import CoreLocation
 
 struct ArchivLibraryView: View {
     // Bewusst KEIN @Query: Die Bibliothek holt ihre Daten direkt aus
@@ -214,6 +215,7 @@ struct ArchivAssetDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var newTag = ""
     @State private var confirmDelete = false
+    @State private var showLocationPicker = false
 
     var body: some View {
         List {
@@ -280,12 +282,33 @@ struct ArchivAssetDetailView: View {
                        let confidence = asset.locationConfidence {
                         row("Herkunft", "\(source.titleDE) — \(confidence.titleDE)")
                     }
+                    Button {
+                        showLocationPicker = true
+                    } label: {
+                        Label("Ort korrigieren", systemImage: "mappin.and.ellipse")
+                    }
                 }
             } else {
                 Section("Ort") {
-                    Text("Kein Ort hinterlegt — die Zuordnung (Flight Log, Nachbar-Fotos, manuell) kommt mit Ausbauschritt M3.")
+                    Text("Kein Ort ermittelbar — keine GPS-Daten, kein passender Flug, kein zeitnahes Foto. Du kannst ihn manuell setzen.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                    Button {
+                        showLocationPicker = true
+                    } label: {
+                        Label("Ort auf der Karte setzen", systemImage: "mappin.and.ellipse")
+                    }
+                }
+            }
+
+            if let flight = asset.flight {
+                Section("Flug") {
+                    row("Start", "\(Theme.shortDayFormatter.string(from: flight.start)) · \(Theme.time(flight.start)) Uhr")
+                    row("Dauer", String(format: "%.0f min", flight.durationS / 60))
+                    if let maxAlt = flight.maxAltitudeM {
+                        row("Max. Höhe", String(format: "%.0f m", maxAlt))
+                    }
+                    row("Quelle", flight.sourceFileName)
                 }
             }
 
@@ -387,6 +410,20 @@ struct ArchivAssetDetailView: View {
             Button("Abbrechen", role: .cancel) {}
         } message: {
             Text("Entfernt werden nur Katalog-Daten — die Originaldatei bleibt unberührt.")
+        }
+        // Manuell gesetzte Orte gelten als hohe Sicherheit und werden
+        // von der automatischen Kaskade nie überschrieben.
+        .sheet(isPresented: $showLocationPicker) {
+            LogLocationPicker(
+                coordinate: asset.coordinate
+                    ?? CLLocationCoordinate2D(latitude: 52.52, longitude: 13.405)
+            ) { picked in
+                asset.latitude = picked.latitude
+                asset.longitude = picked.longitude
+                asset.locationSourceRaw = LocationSource.manual.rawValue
+                asset.locationConfidenceRaw = LocationConfidence.high.rawValue
+                ArchivStore.shared.saveQuietly()
+            }
         }
         .onDisappear { ArchivStore.shared.saveQuietly() }
     }

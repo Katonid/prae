@@ -40,6 +40,7 @@ struct FlightReviewView: View {
                 }
             }
             .navigationTitle("Review")
+            .navigationBarTitleDisplayMode(.inline)
             .safeAreaInset(edge: .top, spacing: 0) { FluegeSectionPicker() }
             .sheet(isPresented: $showSettings) { SettingsView() }
         }

@@ -95,6 +95,8 @@ final class MediaAsset {
     var photoMeta: PhotoMeta?
     @Relationship(deleteRule: .cascade, inverse: \VideoMeta.asset)
     var videoMeta: VideoMeta?
+    /// Zugeordneter Flug (M3, per Zeitfenster gematcht).
+    var flight: Flight?
 
     init() {}
 
@@ -183,6 +185,66 @@ final class VideoMeta {
     var asset: MediaAsset?
 
     init() {}
+}
+
+// MARK: Flüge (M3 — aus DJI-SRT/AirData-Logs)
+
+@Model
+final class Flight {
+    var id: UUID = UUID()
+    var start: Date = Date()
+    var end: Date = Date()
+    var sourceFileName: String = ""
+    var maxAltitudeM: Double?
+    /// Flugroute als JSON [[Sekunden-Offset, Lat, Lon, Höhe m], …] —
+    /// auf ~1 Punkt/Sekunde ausgedünnt (synchronisierbar klein).
+    var trackJSON: Data?
+    @Relationship(deleteRule: .nullify, inverse: \MediaAsset.flight)
+    var assets: [MediaAsset]? = []
+
+    init() {}
+
+    var durationS: TimeInterval { end.timeIntervalSince(start) }
+
+    var trackPoints: [[Double]] {
+        guard let trackJSON,
+              let points = try? JSONDecoder().decode([[Double]].self, from: trackJSON) else {
+            return []
+        }
+        return points
+    }
+
+    var trackCoordinates: [CLLocationCoordinate2D] {
+        trackPoints.compactMap { point in
+            point.count >= 3
+                ? CLLocationCoordinate2D(latitude: point[1], longitude: point[2])
+                : nil
+        }
+    }
+
+    /// Position (linear interpoliert) zu einem Zeitpunkt innerhalb
+    /// des Flugs — Herzstück der Video-Orts-Kaskade.
+    func position(at date: Date) -> (coordinate: CLLocationCoordinate2D, altitudeM: Double?)? {
+        let points = trackPoints
+        guard !points.isEmpty else { return nil }
+        let offset = date.timeIntervalSince(start)
+        var previous = points[0]
+        for point in points where point.count >= 3 {
+            if point[0] >= offset {
+                let span = point[0] - previous[0]
+                let t = span > 0 ? (offset - previous[0]) / span : 0
+                let lat = previous[1] + (point[1] - previous[1]) * t
+                let lon = previous[2] + (point[2] - previous[2]) * t
+                let alt: Double? = (point.count >= 4 && previous.count >= 4)
+                    ? previous[3] + (point[3] - previous[3]) * t : nil
+                return (CLLocationCoordinate2D(latitude: lat, longitude: lon), alt)
+            }
+            previous = point
+        }
+        guard previous.count >= 3 else { return nil }
+        return (CLLocationCoordinate2D(latitude: previous[1], longitude: previous[2]),
+                previous.count >= 4 ? previous[3] : nil)
+    }
 }
 
 // MARK: Bearbeitete Fassungen (dauerhaft mit dem Original verknüpft)

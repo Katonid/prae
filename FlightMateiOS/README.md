@@ -343,6 +343,19 @@ Dieser Stand entspricht dem **MVP-Fundament** (PRD Phase 0/1).
   nach Bestätigung nur der Katalogeintrag samt Vorschau — Originale
   bleiben grundsätzlich unberührt (Fotos-Import nimmt sie jederzeit
   wieder auf, Ordner-Funde nach Katalog-Reset).
+  **M3 — Orte, Flüge & Medien-Karte:** Flugrouten-Import aus
+  DJI-SRT-Untertiteln (voller Track, ~1 Punkt/s) und
+  AirData-CSV-Exporten als Flight-Datensätze (Dedupe über die
+  Startzeit; DJI-TXT bleibt ehrlich unlesbar). Nach jedem Import
+  läuft automatisch die Zuordnung: Medien → Flug per Zeitfenster
+  (±2 min), und die **Orts-Kaskade** verortet Medien ohne GPS —
+  Flight-Log-Interpolation (hohe Sicherheit), sonst zeitnahes Foto
+  (±10 min mittel, ±30 min gering), sonst manuell auf der Karte
+  (hohe Sicherheit, wird nie automatisch überschrieben). Herkunft +
+  Vertrauensgrad stehen sichtbar in der Detail-Ansicht, ebenso die
+  Flug-Daten (Start, Dauer, max. Höhe). Die **Medien-Karte** zeigt
+  alle verorteten Medien als Vorschau-Marker (Tipp → Detail) und
+  die Flugrouten als Linien mit Start-/Landepunkt.
   **Stabilität (nach gemeldetem Absturz beim Video-Import):** Videos
   laufen beim Import nie durch den Arbeitsspeicher (Datei-Übergabe
   statt Data — ein 4K-Video sprengte sonst den RAM); der Import

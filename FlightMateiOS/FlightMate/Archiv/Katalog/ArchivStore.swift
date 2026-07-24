@@ -24,7 +24,7 @@ final class ArchivStore: ObservableObject {
     private init() {
         let schema = Schema([
             MediaAsset.self, FileRef.self, PhotoMeta.self,
-            VideoMeta.self, EditedVersion.self,
+            VideoMeta.self, EditedVersion.self, Flight.self,
         ])
         // Erst CloudKit versuchen, dann lokaler Fallback — das Archiv
         // funktioniert auch ohne iCloud, nur eben ohne Geräte-Sync.

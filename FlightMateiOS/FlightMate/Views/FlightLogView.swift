@@ -101,6 +101,9 @@ struct LogbookView: View {
                 }
             }
             .navigationTitle("Logbuch")
+            // Kompakter Titel: Die große Titelzeile riss eine leere
+            // Lücke zwischen Tab-Leiste und Umschalter (Nutzermeldung).
+            .navigationBarTitleDisplayMode(.inline)
             .safeAreaInset(edge: .top, spacing: 0) { FluegeSectionPicker() }
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {

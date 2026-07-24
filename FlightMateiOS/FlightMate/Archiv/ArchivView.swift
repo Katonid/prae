@@ -82,6 +82,8 @@ private struct ArchivHomeView: View {
     @State private var showFolderPicker = false
     @State private var pickerError: String?
     @State private var photoItems: [PhotosPickerItem] = []
+    @State private var showFlightLogImporter = false
+    @State private var flightLogSummary: String?
     @AppStorage("archivOpenGuard") private var openGuard = false
 
     var body: some View {
@@ -121,6 +123,7 @@ private struct ArchivHomeView: View {
             .padding()
         }
         .navigationTitle("Archiv")
+        .navigationBarTitleDisplayMode(.inline)
         .safeAreaInset(edge: .top, spacing: 0) { FluegeSectionPicker() }
         .onAppear {
             sources = BookmarkStore.all()
@@ -149,6 +152,22 @@ private struct ArchivHomeView: View {
             photoItems = []
             Task { await importer.importPhotoItems(items) }
         }
+        // Nach jedem Import: Flüge zuordnen + Orts-Kaskade laufen
+        // lassen (Videos ohne GPS bekommen so ihren Ort).
+        .onChange(of: importer.isRunning) { _, running in
+            if !running {
+                let result = FlightRouteImporter.resolveLocationsAndFlights()
+                if result.linked > 0 || result.located > 0 {
+                    flightLogSummary = "Zuordnung: \(result.linked) Medien → Flug, \(result.located) Orte ermittelt"
+                }
+            }
+        }
+        .fileImporter(isPresented: $showFlightLogImporter,
+                      allowedContentTypes: [.plainText, .commaSeparatedText, .text, .data],
+                      allowsMultipleSelection: true) { result in
+            guard case .success(let urls) = result else { return }
+            Task { flightLogSummary = await FlightRouteImporter.importFiles(urls) }
+        }
         .alert("Quelle verbinden", isPresented: Binding(
             get: { pickerError != nil },
             set: { if !$0 { pickerError = nil } }
@@ -174,6 +193,18 @@ private struct ArchivHomeView: View {
             } label: {
                 HStack {
                     Label("Bibliothek öffnen", systemImage: "photo.stack")
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .font(.subheadline)
+            NavigationLink {
+                ArchivMapView()
+            } label: {
+                HStack {
+                    Label("Medien-Karte öffnen", systemImage: "map")
                     Spacer()
                     Image(systemName: "chevron.right")
                         .font(.caption)
@@ -231,9 +262,21 @@ private struct ArchivHomeView: View {
                 }
                 .font(.subheadline)
                 .disabled(sources.isEmpty)
+                Button {
+                    showFlightLogImporter = true
+                } label: {
+                    Label("Flugrouten importieren (SRT / AirData-CSV)",
+                          systemImage: "point.topleft.down.to.point.bottomright.curvepath")
+                }
+                .font(.subheadline)
             }
             if let summary = importer.lastSummary {
                 Label(summary, systemImage: "checkmark.circle")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            if let flightLogSummary {
+                Label(flightLogSummary, systemImage: "point.topleft.down.to.point.bottomright.curvepath")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -298,7 +341,7 @@ private struct ArchivHomeView: View {
         VStack(alignment: .leading, spacing: 8) {
             Label("So geht es weiter", systemImage: "map")
                 .font(.subheadline.bold())
-            Text("M2 (jetzt): Import aus Apple Fotos und Ordner-Quellen mit vollständigen Metadaten, Bibliothek mit Detail-Ansicht. M3: Orte für Videos (Flight-Log-Kaskade), Flugrouten und die Medien-Karte. M4: Reisen, Spots und bearbeitete Versionen. M5: lokale KI-Suche.")
+            Text("M3 (jetzt): Flugrouten aus SRT/AirData-Logs, Orts-Kaskade für Videos (Flight Log → Nachbar-Foto → manuell, immer mit Vertrauensgrad) und die Medien-Karte. M4: Reisen, Spots und bearbeitete Versionen. M5: lokale KI-Suche.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
