@@ -32,6 +32,12 @@ enum ThumbnailStore {
         FileManager.default.fileExists(atPath: fileURL(for: contentHash).path)
     }
 
+    /// Beim Löschen eines Katalogeintrags: Vorschau mit aufräumen
+    /// (der Hash ist pro Eintrag eindeutig — Dedupe-Kernregel).
+    static func removeThumbnail(for contentHash: String) {
+        try? FileManager.default.removeItem(at: fileURL(for: contentHash))
+    }
+
     /// Foto-Vorschau direkt aus der Datei (dekodiert nur die Zielgröße).
     static func makePhotoThumbnail(from url: URL, contentHash: String,
                                    maxPixel: CGFloat = 480) {

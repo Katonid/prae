@@ -95,6 +95,18 @@ final class ArchivStore: ObservableObject {
         try? container?.mainContext.save()
     }
 
+    /// Einträge aus dem Katalog entfernen — NUR den Katalogeintrag
+    /// samt Vorschau (Grundprinzip: Originale werden nie angefasst).
+    /// Fundorte/Metadaten/Versionen hängen per Cascade dran.
+    func delete(_ assetsToDelete: [MediaAsset]) {
+        guard let container else { return }
+        for asset in assetsToDelete {
+            ThumbnailStore.removeThumbnail(for: asset.contentHash)
+            container.mainContext.delete(asset)
+        }
+        try? container.mainContext.save()
+    }
+
     /// Notausgang bei beschädigtem Katalog (z. B. nach Absturz
     /// mitten im Schreiben): Store-Dateien löschen — der Katalog
     /// wird beim nächsten Öffnen leer neu angelegt. Verloren gehen

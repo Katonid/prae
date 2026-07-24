@@ -22,6 +22,12 @@ struct ArchivLibraryView: View {
     @State private var assets: [MediaAsset] = []
     @State private var filter: String = "alle"
     @ObservedObject private var importer = ImportCoordinator.shared
+    // Löschen (nur Katalogeintrag — Originale bleiben unberührt):
+    // einzeln per Kontextmenü, im Block per Auswählen-Modus.
+    @State private var selecting = false
+    @State private var selection = Set<UUID>()
+    @State private var pendingDelete: [MediaAsset] = []
+    @State private var confirmDelete = false
 
     private var filtered: [MediaAsset] {
         switch filter {
@@ -59,12 +65,40 @@ struct ArchivLibraryView: View {
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 110), spacing: 3)],
                               spacing: 3) {
                         ForEach(filtered) { asset in
-                            NavigationLink {
-                                ArchivAssetDetailView(asset: asset)
-                            } label: {
-                                cell(asset)
+                            if selecting {
+                                Button {
+                                    if selection.contains(asset.id) {
+                                        selection.remove(asset.id)
+                                    } else {
+                                        selection.insert(asset.id)
+                                    }
+                                } label: {
+                                    cell(asset)
+                                        .overlay(alignment: .topLeading) {
+                                            Image(systemName: selection.contains(asset.id)
+                                                  ? "checkmark.circle.fill" : "circle")
+                                                .foregroundStyle(.white, .blue)
+                                                .shadow(radius: 2)
+                                                .padding(5)
+                                        }
+                                }
+                                .buttonStyle(.plain)
+                            } else {
+                                NavigationLink {
+                                    ArchivAssetDetailView(asset: asset)
+                                } label: {
+                                    cell(asset)
+                                }
+                                .buttonStyle(.plain)
+                                .contextMenu {
+                                    Button(role: .destructive) {
+                                        pendingDelete = [asset]
+                                        confirmDelete = true
+                                    } label: {
+                                        Label("Aus dem Katalog entfernen", systemImage: "trash")
+                                    }
+                                }
                             }
-                            .buttonStyle(.plain)
                         }
                     }
                     .padding(.horizontal, 3)
@@ -73,6 +107,48 @@ struct ArchivLibraryView: View {
         }
         .navigationTitle("Bibliothek")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                if !assets.isEmpty {
+                    Button(selecting ? "Fertig" : "Auswählen") {
+                        selecting.toggle()
+                        if !selecting { selection.removeAll() }
+                    }
+                }
+            }
+            ToolbarItemGroup(placement: .bottomBar) {
+                if selecting {
+                    Button(role: .destructive) {
+                        pendingDelete = assets.filter { selection.contains($0.id) }
+                        confirmDelete = true
+                    } label: {
+                        Label("Entfernen (\(selection.count))", systemImage: "trash")
+                    }
+                    .disabled(selection.isEmpty)
+                    Spacer()
+                    Text("Originale bleiben unberührt")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+        .confirmationDialog(
+            pendingDelete.count == 1
+                ? "Diesen Eintrag aus dem Katalog entfernen?"
+                : "\(pendingDelete.count) Einträge aus dem Katalog entfernen?",
+            isPresented: $confirmDelete, titleVisibility: .visible
+        ) {
+            Button("Aus dem Katalog entfernen", role: .destructive) {
+                ArchivStore.shared.delete(pendingDelete)
+                pendingDelete = []
+                selection.removeAll()
+                selecting = false
+                reload()
+            }
+            Button("Abbrechen", role: .cancel) { pendingDelete = [] }
+        } message: {
+            Text("Entfernt werden nur Katalog-Daten (Metadaten, Bewertung, Vorschau) — die Originaldateien bleiben unberührt. Über den Fotos-Import jederzeit wieder aufnehmbar; Ordner-Funde erst nach einem Katalog-Reset erneut automatisch.")
+        }
         .onAppear { reload() }
         // Nach einem Import (isRunning kippt auf false) auffrischen.
         .onChange(of: importer.isRunning) { _, running in
@@ -135,7 +211,9 @@ struct ArchivLibraryView: View {
 
 struct ArchivAssetDetailView: View {
     @Bindable var asset: MediaAsset
+    @Environment(\.dismiss) private var dismiss
     @State private var newTag = ""
+    @State private var confirmDelete = false
 
     var body: some View {
         List {
@@ -290,6 +368,26 @@ struct ArchivAssetDetailView: View {
         }
         .navigationTitle(asset.fileName)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button(role: .destructive) {
+                    confirmDelete = true
+                } label: {
+                    Image(systemName: "trash")
+                }
+                .accessibilityLabel("Aus dem Katalog entfernen")
+            }
+        }
+        .confirmationDialog("Diesen Eintrag aus dem Katalog entfernen?",
+                            isPresented: $confirmDelete, titleVisibility: .visible) {
+            Button("Aus dem Katalog entfernen", role: .destructive) {
+                ArchivStore.shared.delete([asset])
+                dismiss()
+            }
+            Button("Abbrechen", role: .cancel) {}
+        } message: {
+            Text("Entfernt werden nur Katalog-Daten — die Originaldatei bleibt unberührt.")
+        }
         .onDisappear { ArchivStore.shared.saveQuietly() }
     }
 
