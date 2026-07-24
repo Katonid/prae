@@ -376,6 +376,19 @@ struct ArchivAssetDetailView: View {
                 }
             }
 
+            if !asset.aiTags.isEmpty {
+                Section {
+                    Text(asset.aiTags
+                        .map { "\(ArchivSearch.germanLabel(for: $0.label)) \(Int($0.confidence * 100)) %" }
+                        .joined(separator: " · "))
+                        .font(.callout)
+                } header: {
+                    Text("Erkannte Szenen")
+                } footer: {
+                    Text("On-device erkannt (Apple Vision) — Grundlage der Suche, verlässt das Gerät nie.")
+                }
+            }
+
             Section("Bearbeitete Versionen") {
                 ForEach(sortedVersions) { version in
                     VStack(alignment: .leading, spacing: 2) {

@@ -130,6 +130,14 @@ private struct ArchivHomeView: View {
             // Automatik (Kap. 6): Differenz-Scan bei jedem Öffnen —
             // unveränderte Dateien kosten dabei praktisch nichts.
             Task { await importer.scanFolderSources() }
+            // Bestand nachverschlagworten (z. B. Medien, die vor der
+            // Szenen-Erkennung importiert wurden) — Batch, on-device.
+            Task {
+                let tagged = await VisionTagger.tagUntagged()
+                if tagged > 0 {
+                    flightLogSummary = "\(tagged) Medien verschlagwortet (Vision, on-device)"
+                }
+            }
         }
         .fileImporter(isPresented: $showFolderPicker,
                       allowedContentTypes: [.folder]) { result in
@@ -160,11 +168,14 @@ private struct ArchivHomeView: View {
                 Task {
                     let result = FlightRouteImporter.resolveLocationsAndFlights()
                     let clusters = await ArchivClusterer.rebuild()
+                    // Szenen-Erkennung als Hintergrund-Batch (M5).
+                    let tagged = await VisionTagger.tagUntagged()
                     var parts: [String] = []
                     if result.linked > 0 || result.located > 0 {
                         parts.append("\(result.linked) Medien → Flug, \(result.located) Orte ermittelt")
                     }
                     if !clusters.isEmpty { parts.append(clusters) }
+                    if tagged > 0 { parts.append("\(tagged) Medien verschlagwortet (Vision, on-device)") }
                     if !parts.isEmpty {
                         flightLogSummary = parts.joined(separator: " · ")
                     }
@@ -219,6 +230,18 @@ private struct ArchivHomeView: View {
             } label: {
                 HStack {
                     Label("Medien-Karte öffnen", systemImage: "map")
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .font(.subheadline)
+            NavigationLink {
+                ArchivSearchView()
+            } label: {
+                HStack {
+                    Label("Suche („Zeige alle Wasserfälle …“)", systemImage: "magnifyingglass")
                     Spacer()
                     Image(systemName: "chevron.right")
                         .font(.caption)
@@ -379,7 +402,7 @@ private struct ArchivHomeView: View {
         VStack(alignment: .leading, spacing: 8) {
             Label("So geht es weiter", systemImage: "map")
                 .font(.subheadline.bold())
-            Text("M4 (jetzt): Reisen und Foto-Spots werden automatisch erkannt (editierbar, mit Brücke zu den Planungs-Spots), bearbeitete Versionen lassen sich dauerhaft mit dem Original verknüpfen. M5: lokale KI-Suche (Vision-Tags, „Zeige alle Wasserfälle in Kanada“).")
+            Text("M5 (jetzt): lokale KI-Suche — Szenen-Erkennung on-device (Vision) plus Facettensuche über Orte, Zeiten und Schlagworte. Damit ist die Roadmap M1–M5 des Media Explorers komplett; als Ausbau (M6) bleiben Apple-Fotos-Rücksync, DJI-SDK-Direktimport und ein LLM-Suchfrontend.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }

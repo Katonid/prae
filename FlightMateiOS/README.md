@@ -373,6 +373,19 @@ Dieser Stand entspricht dem **MVP-Fundament** (PRD Phase 0/1).
   dauerhaft mit dem Original verknüpfen — als Link oder
   Datei-Verweis (nichts wird kopiert), beliebig viele je Original,
   wisch-löschbar.
+  **M5 — lokale KI-Suche:** Szenen-Erkennung on-device mit Apples
+  Vision-Framework als Hintergrund-Batch nach jedem Import (über
+  die Vorschaubilder; bei Videos ehrlich nur ein Einzelbild), Tags
+  mit Konfidenz in der Detail-Ansicht („Erkannte Szenen"). Die
+  Suche ist eine **deterministische Facettensuche mit
+  Sprachzucker** (bewusst kein Chat-LLM; auf FTS5 wurde bei
+  persönlicher Bestandsgröße verzichtet — In-Memory-Filter über
+  den Katalog): „Zeige alle Wasserfälle in Kanada" wird zerlegt in
+  Szene (deutsches Vokabular → Vision-Taxonomie), Jahr/Monat,
+  Medienart, Favoriten und Text/Ortsnamen (Dateiname, Notizen,
+  Schlagworte, Spot-/Reise-Namen sowie die beim Clustering
+  geokodierten Länder/Orte der Foto-Spots) — die Deutung der
+  Anfrage wird immer sichtbar angezeigt.
   **Stabilität (nach gemeldetem Absturz beim Video-Import):** Videos
   laufen beim Import nie durch den Arbeitsspeicher (Datei-Übergabe
   statt Data — ein 4K-Video sprengte sonst den RAM); der Import
