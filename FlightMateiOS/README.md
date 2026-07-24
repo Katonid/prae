@@ -338,6 +338,11 @@ Dieser Stand entspricht dem **MVP-Fundament** (PRD Phase 0/1).
   Detail-Seite: Bewertung (Favorit, Sterne, Notizen, Schlagworte —
   nur im Katalog), Aufnahme-/Orts-/Foto-/Video-Metadaten, Fundorte
   je Gerät und die kompletten Roh-Metadaten als aufklappbare Liste.
+  **Löschen:** einzeln (langes Drücken im Gitter oder Papierkorb in
+  der Detail-Ansicht) oder im Block über „Auswählen"; entfernt wird
+  nach Bestätigung nur der Katalogeintrag samt Vorschau — Originale
+  bleiben grundsätzlich unberührt (Fotos-Import nimmt sie jederzeit
+  wieder auf, Ordner-Funde nach Katalog-Reset).
   **Stabilität (nach gemeldetem Absturz beim Video-Import):** Videos
   laufen beim Import nie durch den Arbeitsspeicher (Datei-Übergabe
   statt Data — ein 4K-Video sprengte sonst den RAM); der Import
