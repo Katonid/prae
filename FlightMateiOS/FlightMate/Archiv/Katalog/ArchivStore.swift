@@ -89,6 +89,12 @@ final class ArchivStore: ObservableObject {
         return (asset, true)
     }
 
+    /// Nachträgliche kleine Änderungen (z. B. Ort-Anreicherung)
+    /// sichern, ohne Fehler nach oben zu reichen.
+    func saveQuietly() {
+        try? container?.mainContext.save()
+    }
+
     // MARK: Bestandszahlen für die Status-UI
 
     struct Counts {

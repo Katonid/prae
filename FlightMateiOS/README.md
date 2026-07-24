@@ -315,10 +315,29 @@ Dieser Stand entspricht dem **MVP-Fundament** (PRD Phase 0/1).
   Metadaten; ehrlicher Lokal-Fallback ohne iCloud),
   SHA-256-Deduplikator (streamend + Schnelltest) und die
   Quellen-Verwaltung (Security-Scoped Bookmarks für DJI-Fly-Ordner/
-  SD-Karte/beliebige Ordner, geräte-gebunden). Die Archiv-Ansicht
-  zeigt Katalogstand, Sync-Status und verbundene Quellen; der
-  eigentliche Import folgt in M2. Grundprinzip: Originale werden nie
-  verändert.
+  SD-Karte/beliebige Ordner, geräte-gebunden). Grundprinzip:
+  Originale werden nie verändert.
+  **M2 — Import & Bibliothek:** Verbundene Ordner-Quellen werden bei
+  jedem Öffnen des Archivs automatisch differenz-gescannt
+  (Größe+Änderungsdatum-Register — Unverändertes wird nicht erneut
+  gehasht); Apple-Fotos-Import über den System-Picker, wobei die
+  Original-Bytes via PhotoKit geladen werden (gleicher Hash wie eine
+  SD-Karten-Kopie → Dedupe trägt über Quellen hinweg; iCloud-Fotos
+  werden nachgeladen, Fallback ohne Foto-Berechtigung über
+  Picker-Daten). Vollständige Metadaten beim Import: EXIF komplett
+  (ISO, Belichtung, Blende, Brennweite, Blickrichtung, GPS mit
+  Quelle „aus der Datei"/hohe Sicherheit, Roh-EXIF verlustfrei als
+  JSON) und Video-Analyse per AVFoundation (Dauer, Auflösung,
+  Bildrate, Codec, HDR-Format aus der Transferfunktion,
+  D-Log-Vermutung ehrlich als Heuristik, QuickTime-GPS falls
+  vorhanden — wird NICHT vorausgesetzt). Vorschaubilder entstehen
+  einmal beim Import (Fotos per Downsampling, Videos per
+  AVAssetImageGenerator) und liegen im Cache nach Inhalts-Hash.
+  **Bibliothek:** Gitter (neueste zuerst, Filter Fotos/Videos,
+  Video-Dauer-Badge, „2 Fundorte"-Badge bei Dubletten) mit
+  Detail-Seite: Bewertung (Favorit, Sterne, Notizen, Schlagworte —
+  nur im Katalog), Aufnahme-/Orts-/Foto-/Video-Metadaten, Fundorte
+  je Gerät und die kompletten Roh-Metadaten als aufklappbare Liste.
 - **Flight Review (F5, KI):** Im „Flüge"-Tab als dritter Bereich — nach dem Flug bis
   zu 5 Aufnahmen auswählen (PhotosPicker, kein Mediathek-Vollzugriff);
   Claude bewertet jede entlang der festen PRD-Rubrik mit max. 2
