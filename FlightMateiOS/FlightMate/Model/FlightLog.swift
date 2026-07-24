@@ -86,8 +86,17 @@ enum FlightLog {
     }
 
     static func delete(_ entry: FlightLogEntry) {
-        for filename in entry.photoFilenames {
+        let filenames = entry.photoFilenames
+        for filename in filenames {
             try? FileManager.default.removeItem(at: photoURL(filename))
+        }
+        // Auch die iCloud-Spiegel-Kopien aufräumen.
+        Task.detached(priority: .utility) {
+            guard let directory = ubiquityPhotosDirectory else { return }
+            for filename in filenames {
+                try? FileManager.default.removeItem(
+                    at: directory.appendingPathComponent(filename))
+            }
         }
         persist(all().filter { $0.id != entry.id })
     }
@@ -111,8 +120,10 @@ enum FlightLog {
     private static func pushToCloud(_ entries: [FlightLogEntry]) {
         var slim = entries
         for index in slim.indices {
+            // Dateinamen wandern mit (winzig) — die Bilder selbst
+            // spiegeln über iCloud Drive (siehe unten). Die Anzahl
+            // bleibt für den Lade-Hinweis erhalten.
             slim[index].cloudPhotoCount = slim[index].photoFilenames.count
-            slim[index].photoFilenames = []
         }
         if let data = try? JSONEncoder().encode(slim) {
             NSUbiquitousKeyValueStore.default.set(data, forKey: cloudKey)
@@ -138,7 +149,13 @@ enum FlightLog {
         // Gleiche Sortierung wie all(), sonst hinkt der Vergleich.
         var adopted = cloud.sorted { $0.date > $1.date }
         for index in adopted.indices {
-            adopted[index].photoFilenames = localByID[adopted[index].id]?.photoFilenames ?? []
+            // Dateinamen: Cloud-Stand übernehmen (die Bilder kommen
+            // über den iCloud-Drive-Spiegel nach). Nur wenn ein alter
+            // Cloud-Stand noch ohne Dateinamen ist, lokale behalten.
+            let localPhotos = localByID[adopted[index].id]?.photoFilenames ?? []
+            if adopted[index].photoFilenames.isEmpty && !localPhotos.isEmpty {
+                adopted[index].photoFilenames = localPhotos
+            }
         }
         let changed = adopted.map(\.id) != local.map(\.id)
             || zip(adopted, local).contains { lhs, rhs in
@@ -147,6 +164,7 @@ enum FlightLog {
                     || lhs.notes != rhs.notes || lhs.latitude != rhs.latitude
                     || lhs.longitude != rhs.longitude || lhs.showsOnMap != rhs.showsOnMap
                     || lhs.cloudPhotoCount != rhs.cloudPhotoCount
+                    || lhs.photoFilenames != rhs.photoFilenames
             }
         guard changed else { return false }
         // Direkt schreiben, ohne erneut in die Cloud zu spiegeln —
@@ -155,6 +173,68 @@ enum FlightLog {
             try? encoded.write(to: fileURL, options: .atomic)
         }
         return true
+    }
+
+    // MARK: iCloud-Drive-Spiegel der Fotos
+
+    /// Ordner „FlightLogPhotos" im iCloud-Drive-Container der App.
+    /// Der erste Zugriff kann kurz blockieren — deshalb nur aus
+    /// Hintergrund-Tasks aufrufen. nil = iCloud Drive nicht verfügbar.
+    private nonisolated static var ubiquityPhotosDirectory: URL? {
+        FileManager.default.url(forUbiquityContainerIdentifier: nil)?
+            .appendingPathComponent("Documents/FlightLogPhotos", isDirectory: true)
+    }
+
+    /// Lokales Foto in den iCloud-Spiegel hochladen (asynchron).
+    private static func mirrorPhotoToCloud(_ filename: String) {
+        Task.detached(priority: .utility) {
+            guard let directory = ubiquityPhotosDirectory else { return }
+            try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            let target = directory.appendingPathComponent(filename)
+            guard !FileManager.default.fileExists(atPath: target.path) else { return }
+            try? FileManager.default.copyItem(at: photoURL(filename), to: target)
+        }
+    }
+
+    /// Beidseitiger Abgleich: fehlende lokale Fotos aus iCloud holen
+    /// (bzw. deren Download anstoßen) und lokale Fotos hochspiegeln,
+    /// die noch fehlen. Liefert true, wenn lokal etwas dazukam.
+    static func syncPhotosWithCloud(for entries: [FlightLogEntry]) async -> Bool {
+        let task = Task.detached(priority: .utility) { () -> Bool in
+            guard let directory = ubiquityPhotosDirectory else { return false }
+            try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            var restored = false
+            for entry in entries {
+                for filename in entry.photoFilenames {
+                    let localURL = photoURL(filename)
+                    let cloudURL = directory.appendingPathComponent(filename)
+                    let localExists = FileManager.default.fileExists(atPath: localURL.path)
+                    let cloudExists = FileManager.default.fileExists(atPath: cloudURL.path)
+                    if localExists && !cloudExists {
+                        try? FileManager.default.copyItem(at: localURL, to: cloudURL)
+                    } else if !localExists {
+                        if cloudExists {
+                            try? FileManager.default.createDirectory(
+                                at: photosURL, withIntermediateDirectories: true)
+                            if (try? FileManager.default.copyItem(at: cloudURL, to: localURL)) != nil {
+                                restored = true
+                            }
+                        } else {
+                            // Noch nicht heruntergeladen (Platzhalter) —
+                            // Download anstoßen, nächster Durchlauf kopiert.
+                            try? FileManager.default.startDownloadingUbiquitousItem(at: cloudURL)
+                        }
+                    }
+                }
+            }
+            return restored
+        }
+        return await task.value
+    }
+
+    /// Fürs UI: liegt das Foto schon lokal vor?
+    static func photoExistsLocally(_ filename: String) -> Bool {
+        FileManager.default.fileExists(atPath: photoURL(filename).path)
     }
 
     // MARK: Fotos (verkleinert, lokal)
@@ -197,6 +277,7 @@ enum FlightLog {
         let filename = UUID().uuidString + ".jpg"
         do {
             try data.write(to: photoURL(filename), options: .atomic)
+            mirrorPhotoToCloud(filename)
             return filename
         } catch {
             return nil

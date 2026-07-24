@@ -15,8 +15,16 @@
 	<key>com.apple.developer.icloud-services</key>
 	<array>
 		<string>CloudKit</string>
+		<string>CloudDocuments</string>
 	</array>
 	<key>com.apple.developer.icloud-container-identifiers</key>
+	<array>
+		<string>iCloud.de.familie.flightmate</string>
+	</array>
+	<!-- iCloud Drive (CloudDocuments): spiegelt die verkleinerten
+	     Logbuch-Fotos auf alle Geräte — das KVS-Limit (1 MB) gilt
+	     nur für die Eintrags-Daten, nicht für iCloud Drive. -->
+	<key>com.apple.developer.ubiquity-container-identifiers</key>
 	<array>
 		<string>iCloud.de.familie.flightmate</string>
 	</array>
