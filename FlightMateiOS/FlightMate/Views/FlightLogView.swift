@@ -194,11 +194,30 @@ struct LogbookView: View {
             } message: {
                 Text(exportMessage ?? "")
             }
-            .onAppear { entries = FlightLog.all() }
+            .onAppear {
+                entries = FlightLog.all()
+                Task { await syncPhotos() }
+            }
             // Vom anderen Gerät übernommene Einträge sofort zeigen.
             .onChange(of: state.flightLogChangeID) {
                 entries = FlightLog.all()
+                Task { await syncPhotos() }
             }
+        }
+    }
+
+    /// Foto-Abgleich mit dem iCloud-Drive-Spiegel: Fehlendes holen
+    /// (bzw. Download anstoßen), Eigenes hochladen; danach die Liste
+    /// auffrischen, damit neue Miniaturen erscheinen. Ein zweiter
+    /// Durchlauf nach kurzer Wartezeit fängt frisch angestoßene
+    /// Downloads ein.
+    private func syncPhotos() async {
+        if await FlightLog.syncPhotosWithCloud(for: entries) {
+            entries = FlightLog.all()
+        }
+        try? await Task.sleep(nanoseconds: 5_000_000_000)
+        if await FlightLog.syncPhotosWithCloud(for: entries) {
+            entries = FlightLog.all()
         }
     }
 
@@ -293,11 +312,20 @@ struct LogbookView: View {
                 }
                 .font(.caption)
                 .foregroundStyle(.secondary)
-                // Gesyncter Eintrag, dessen Fotos auf dem anderen
-                // Gerät liegen — ehrlich sagen statt leer wirken.
-                if entry.photoFilenames.isEmpty,
-                   let count = entry.cloudPhotoCount, count > 0 {
-                    Label("\(count) Foto\(count == 1 ? "" : "s") — nur auf dem Aufnahmegerät",
+                // Gesyncte Fotos, die noch nicht lokal angekommen
+                // sind — ehrlich sagen statt leer wirken.
+                if let first = entry.photoFilenames.first,
+                   !FlightLog.photoExistsLocally(first) {
+                    Label("Fotos werden aus iCloud geladen …",
+                          systemImage: "icloud.and.arrow.down")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                } else if entry.photoFilenames.isEmpty,
+                          let count = entry.cloudPhotoCount, count > 0 {
+                    // Alter Sync-Stand (noch ohne Dateinamen) — die
+                    // Bilder kommen, sobald das Aufnahmegerät einmal
+                    // mit dem Update lief und hochgespiegelt hat.
+                    Label("\(count) Foto\(count == 1 ? "" : "s") — kommt mit dem nächsten Abgleich des Aufnahmegeräts",
                           systemImage: "icloud")
                         .font(.caption2)
                         .foregroundStyle(.tertiary)

@@ -272,9 +272,9 @@ Dieser Stand entspricht dem **MVP-Fundament** (PRD Phase 0/1).
   Ein-Tipp-Bewertung, Notiz und bis zu drei verkleinerten Fotos
   (lokal in Documents). Das erste Foto erscheint als Miniatur in der
   Logbuch-Liste (speicherschonend per ImageIO-Downsampling statt
-  Vollbild-Dekodierung, mit Zähler-Badge bei mehreren Fotos); liegen
-  die Fotos eines gesyncten Eintrags auf dem anderen Gerät, sagt die
-  Zeile das ehrlich dazu („2 Fotos — nur auf dem Aufnahmegerät").
+  Vollbild-Dekodierung, mit Zähler-Badge bei mehreren Fotos); sind
+  gesyncte Fotos noch nicht heruntergeladen, sagt die Zeile das
+  ehrlich dazu („Fotos werden aus iCloud geladen …").
   Im Eintrag öffnet ein Tipp aufs Foto den Vollbild-Betrachter
   (Blättern zwischen den Fotos, Kneif-Zoom bis 4-fach, Doppeltipp).
   Wer für HEUTE mit Bewertung loggt, füttert
@@ -288,10 +288,16 @@ Dieser Stand entspricht dem **MVP-Fundament** (PRD Phase 0/1).
   erscheinen als **lila Marker fest auf der Zonenkarte** (klar
   unterschieden von türkisen Entdecken-Treffern und gelben Spots)
   und lassen sich je Eintrag per Schalter von der Karte nehmen.
-  **iCloud-Sync:** Die Einträge (ohne Fotos — die sprengen das
-  KVS-Limit und bleiben lokal) synchronisieren über den
+  **iCloud-Sync:** Die Einträge synchronisieren über den
   iCloud-Key-Value-Store auf alle Geräte; Löschungen wandern mit,
-  zuletzt geschriebener Stand gewinnt (wie bei den Spots).
+  zuletzt geschriebener Stand gewinnt (wie bei den Spots). Die
+  **Fotos spiegeln über iCloud Drive** (App-Container, Ordner
+  FlightLogPhotos — das 1-MB-Limit gilt nur für den KVS): Hochladen
+  beim Speichern, Herunterladen beim Öffnen des Logbuchs auf dem
+  anderen Gerät (zweiter Abgleich-Durchlauf nach 5 s fängt frische
+  Downloads ein); solange zeigt die Zeile „Fotos werden aus iCloud
+  geladen …". Voraussetzung: iCloud Drive aktiviert; braucht die
+  neue iCloud-Documents-Capability (Entitlements).
   **Löschen & Sichern:** Einträge einzeln wischen oder über
   „Auswählen" im Block löschen bzw. sichern. Sicherungsformat ist
   **GPX** (offener Wegpunkt-Standard — öffnet in Karten-, Foto- und
