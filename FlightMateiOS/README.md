@@ -338,6 +338,16 @@ Dieser Stand entspricht dem **MVP-Fundament** (PRD Phase 0/1).
   Detail-Seite: Bewertung (Favorit, Sterne, Notizen, Schlagworte —
   nur im Katalog), Aufnahme-/Orts-/Foto-/Video-Metadaten, Fundorte
   je Gerät und die kompletten Roh-Metadaten als aufklappbare Liste.
+  **Stabilität (nach gemeldetem Absturz beim Video-Import):** Videos
+  laufen beim Import nie durch den Arbeitsspeicher (Datei-Übergabe
+  statt Data — ein 4K-Video sprengte sonst den RAM); der Import
+  nutzt einen eigenen Temp-Ordner, der vor/nach jedem Lauf und bei
+  jedem App-Start geleert wird (liegengebliebene Riesen-Dateien
+  hatten das Gerät lahmgelegt); unter 2 GB freiem Speicher startet
+  kein Import („ehrlich abbrechen statt sterben"); und ein
+  Absturz-Wächter ums Archiv bietet nach einem unsauberen Ende die
+  Wiederherstellung an — inklusive „Katalog zurücksetzen"
+  (Originale bleiben immer unberührt).
 - **Flight Review (F5, KI):** Im „Flüge"-Tab als dritter Bereich — nach dem Flug bis
   zu 5 Aufnahmen auswählen (PhotosPicker, kein Mediathek-Vollzugriff);
   Claude bewertet jede entlang der festen PRD-Rubrik mit max. 2

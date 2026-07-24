@@ -13,16 +13,78 @@ import SwiftUI
 import PhotosUI
 import UniformTypeIdentifiers
 
+/// Absturz-Sicherung ums Archiv: Vor dem Öffnen des Katalogs wird
+/// eine Wächter-Flagge gesetzt und nach sauberem Verlassen gelöscht.
+/// Steht sie beim nächsten Öffnen noch (= die App ist mit offenem
+/// Archiv gestorben), erscheint zuerst ein Wiederherstellungs-
+/// Bildschirm mit der Option, den Katalog zurückzusetzen — ein
+/// beschädigter Katalog kann die App so nie dauerhaft lahmlegen.
 struct ArchivView: View {
+    @AppStorage("archivOpenGuard") private var openGuard = false
+    @State private var started = false
+
+    var body: some View {
+        NavigationStack {
+            if started {
+                ArchivHomeView()
+            } else if openGuard {
+                recoveryView
+            } else {
+                Color.clear.onAppear { start() }
+            }
+        }
+    }
+
+    private func start() {
+        openGuard = true
+        _ = ArchivStore.shared
+        started = true
+    }
+
+    private var recoveryView: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "bandage")
+                .font(.largeTitle)
+                .foregroundStyle(.orange)
+            Text("Das Archiv wurde beim letzten Mal nicht sauber beendet")
+                .font(.headline)
+                .multilineTextAlignment(.center)
+            Text("Vermutlich ein Absturz (z. B. beim Import). Du kannst es normal erneut versuchen — oder den Katalog zurücksetzen, falls es wiederholt hakt. Beim Zurücksetzen gehen nur Katalog-Daten (Bewertungen, Schlagworte) verloren; deine Originale bleiben unberührt und werden beim nächsten Scan neu importiert.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+            Button {
+                start()
+            } label: {
+                Label("Archiv normal öffnen", systemImage: "arrow.clockwise")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            Button(role: .destructive) {
+                ArchivStore.destroyStoreFiles()
+                start()
+            } label: {
+                Label("Katalog zurücksetzen und öffnen", systemImage: "trash")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.bordered)
+        }
+        .padding(24)
+        .frame(maxWidth: 480)
+    }
+}
+
+private struct ArchivHomeView: View {
     @ObservedObject private var store = ArchivStore.shared
     @ObservedObject private var importer = ImportCoordinator.shared
     @State private var sources: [ConnectedSource] = []
     @State private var showFolderPicker = false
     @State private var pickerError: String?
     @State private var photoItems: [PhotosPickerItem] = []
+    @AppStorage("archivOpenGuard") private var openGuard = false
 
     var body: some View {
-        NavigationStack {
+        Group {
             if let container = store.container {
                 content
                     .modelContainer(container)
@@ -32,6 +94,10 @@ struct ArchivView: View {
                                        description: Text(store.statusText))
             }
         }
+        // Katalog hat sich sauber geöffnet → Wächter lösen. Während
+        // eines Imports setzt der ImportCoordinator ihn erneut —
+        // die beiden echten Absturz-Fenster sind damit abgedeckt.
+        .onAppear { openGuard = false }
     }
 
     private var content: some View {

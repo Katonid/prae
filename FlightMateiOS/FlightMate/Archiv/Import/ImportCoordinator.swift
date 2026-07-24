@@ -27,12 +27,45 @@ final class ImportCoordinator: ObservableObject {
     @Published var progressText = ""
     @Published var lastSummary: String?
 
+    /// Absturz-Wächter (siehe ArchivView): während eines Imports
+    /// gesetzt — stirbt die App dabei, bietet das Archiv beim
+    /// nächsten Öffnen die Wiederherstellung an.
+    private func setCrashGuard(_ active: Bool) {
+        UserDefaults.standard.set(active, forKey: "archivOpenGuard")
+    }
+
     private static let videoExtensions: Set<String> = ["mp4", "mov", "m4v"]
     private static let mediaExtensions: Set<String> =
         ["jpg", "jpeg", "png", "heic", "heif", "dng", "tif", "tiff",
          "mp4", "mov", "m4v"]
 
     enum Outcome { case new, attached }
+
+    /// Eigener Temp-Ordner des Imports — wird vor und nach jedem
+    /// Durchlauf geleert (Absturz-Reste dürfen den Speicher nicht
+    /// füllen; das hatte die App einmal komplett lahmgelegt).
+    static var importTempDirectory: URL {
+        FileManager.default.temporaryDirectory
+            .appendingPathComponent("archiv-import", isDirectory: true)
+    }
+
+    private static func cleanImportTemp() {
+        if let items = try? FileManager.default.contentsOfDirectory(
+            at: importTempDirectory, includingPropertiesForKeys: nil) {
+            for item in items { try? FileManager.default.removeItem(at: item) }
+        }
+        try? FileManager.default.createDirectory(
+            at: importTempDirectory, withIntermediateDirectories: true)
+    }
+
+    /// Freier Speicher — unter 2 GB wird kein Import mehr gestartet
+    /// (ein 4K-Video als Temp-Kopie plus Katalog braucht Luft).
+    private static func hasEnoughFreeSpace() -> Bool {
+        let values = try? URL(fileURLWithPath: NSHomeDirectory())
+            .resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey])
+        guard let free = values?.volumeAvailableCapacityForImportantUsage else { return true }
+        return free > 2_000_000_000
+    }
 
     // MARK: Ordner-Quellen (automatischer Differenz-Scan)
 
@@ -41,6 +74,7 @@ final class ImportCoordinator: ObservableObject {
         let sources = BookmarkStore.all()
         guard !sources.isEmpty else { return }
         isRunning = true
+        setCrashGuard(true)
         var imported = 0, attached = 0, failed = 0
 
         for source in sources {
@@ -98,13 +132,24 @@ final class ImportCoordinator: ObservableObject {
 
     func importPhotoItems(_ items: [PhotosPickerItem]) async {
         guard !items.isEmpty, !isRunning, ArchivStore.shared.container != nil else { return }
+        guard Self.hasEnoughFreeSpace() else {
+            lastSummary = "Import abgebrochen: Auf dem Gerät sind keine 2 GB mehr frei — bitte zuerst Speicher freigeben."
+            return
+        }
         isRunning = true
+        setCrashGuard(true)
+        Self.cleanImportTemp()
         var imported = 0, attached = 0, failed = 0
         let status = await PHPhotoLibrary.requestAuthorization(for: .readWrite)
 
         for (index, item) in items.enumerated() {
             progressText = "Importiere \(index + 1) von \(items.count) …"
             await Task.yield()
+            guard Self.hasEnoughFreeSpace() else {
+                failed += items.count - index
+                lastSummary = "Import gestoppt: Speicher fast voll."
+                break
+            }
             do {
                 if (status == .authorized || status == .limited),
                    let identifier = item.itemIdentifier,
@@ -112,12 +157,26 @@ final class ImportCoordinator: ObservableObject {
                     withLocalIdentifiers: [identifier], options: nil).firstObject {
                     let outcome = try await importPHAsset(phAsset)
                     if outcome == .new { imported += 1 } else { attached += 1 }
+                } else if item.supportedContentTypes.contains(where: { $0.conforms(to: .movie) }) {
+                    // Video ohne PHAsset-Zugriff: NIEMALS als Data in
+                    // den Arbeitsspeicher (ein 4K-Video sprengt ihn —
+                    // genau das war der gemeldete Absturz), sondern als
+                    // Datei-Übergabe in den Temp-Ordner streamen.
+                    if let picked = try await item.loadTransferable(type: PickedVideoFile.self) {
+                        let (outcome, _) = try await importFile(
+                            url: picked.url, relativePath: picked.url.lastPathComponent,
+                            sourceLabel: "Apple Fotos",
+                            photosAssetID: item.itemIdentifier, fallbackDate: nil)
+                        try? FileManager.default.removeItem(at: picked.url)
+                        if outcome == .new { imported += 1 } else { attached += 1 }
+                    } else {
+                        failed += 1
+                    }
                 } else if let data = try await item.loadTransferable(type: Data.self) {
-                    // Ohne Foto-Vollzugriff: Bytes aus dem Picker —
-                    // funktioniert, nur ohne PHAsset-Zusatzdaten.
+                    // Fotos sind klein genug für den Daten-Weg.
                     let ext = item.supportedContentTypes.first?
                         .preferredFilenameExtension ?? "jpg"
-                    let temp = FileManager.default.temporaryDirectory
+                    let temp = Self.importTempDirectory
                         .appendingPathComponent(UUID().uuidString + "." + ext)
                     try data.write(to: temp)
                     let (outcome, _) = try await importFile(
@@ -133,6 +192,7 @@ final class ImportCoordinator: ObservableObject {
                 failed += 1
             }
         }
+        Self.cleanImportTemp()
         finish(imported: imported, attached: attached, failed: failed)
     }
 
@@ -147,7 +207,9 @@ final class ImportCoordinator: ObservableObject {
             throw NSError(domain: "Import", code: 1, userInfo: [
                 NSLocalizedDescriptionKey: "Keine Original-Ressource"])
         }
-        let temp = FileManager.default.temporaryDirectory
+        try? FileManager.default.createDirectory(
+            at: Self.importTempDirectory, withIntermediateDirectories: true)
+        let temp = Self.importTempDirectory
             .appendingPathComponent(UUID().uuidString + "-" + resource.originalFilename)
         FileManager.default.createFile(atPath: temp.path, contents: nil)
         let handle = try FileHandle(forWritingTo: temp)
@@ -165,6 +227,12 @@ final class ImportCoordinator: ObservableObject {
             }
         }
         defer { try? FileManager.default.removeItem(at: temp) }
+        // Leere/abgebrochene Übertragung nicht als Medium verbuchen.
+        let written = (try? temp.resourceValues(forKeys: [.fileSizeKey]))?.fileSize ?? 0
+        guard written > 0 else {
+            throw NSError(domain: "Import", code: 2, userInfo: [
+                NSLocalizedDescriptionKey: "Übertragung war leer"])
+        }
 
         let (outcome, asset) = try await importFile(
             url: temp, relativePath: resource.originalFilename,
@@ -242,6 +310,28 @@ final class ImportCoordinator: ObservableObject {
         if failed > 0 { parts.append("\(failed) fehlgeschlagen") }
         lastSummary = parts.joined(separator: " · ")
         isRunning = false
+        setCrashGuard(false)
+    }
+}
+
+// MARK: Video-Übergabe als Datei (nie in den Arbeitsspeicher)
+
+/// Transferable-Wrapper für Picker-Videos: Der Picker übergibt eine
+/// Datei, wir verschieben sie in den Import-Temp-Ordner — der
+/// Videoinhalt läuft nie durch den RAM.
+struct PickedVideoFile: Transferable {
+    let url: URL
+
+    static var transferRepresentation: some TransferRepresentation {
+        FileRepresentation(importedContentType: .movie) { received in
+            let directory = ImportCoordinator.importTempDirectory
+            try FileManager.default.createDirectory(
+                at: directory, withIntermediateDirectories: true)
+            let target = directory.appendingPathComponent(
+                UUID().uuidString + "-" + received.file.lastPathComponent)
+            try FileManager.default.copyItem(at: received.file, to: target)
+            return PickedVideoFile(url: target)
+        }
     }
 }
 
@@ -279,5 +369,12 @@ enum ScanRegistry {
         if let data = try? JSONEncoder().encode(cache) {
             try? data.write(to: fileURL, options: .atomic)
         }
+    }
+
+    /// Beim Katalog-Reset mitlöschen — sonst würden die Scans die
+    /// „bekannten" Dateien überspringen und der Katalog bliebe leer.
+    static func reset() {
+        cache = [:]
+        try? FileManager.default.removeItem(at: fileURL)
     }
 }

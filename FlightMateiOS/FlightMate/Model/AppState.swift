@@ -217,6 +217,18 @@ final class AppState: NSObject, ObservableObject {
         locationManager.delegate = self
         locationManager.desiredAccuracy = kCLLocationAccuracyHundredMeters
         startCloudSync()
+        // Temp-Verzeichnis bei jedem Start leeren: Nach einem Absturz
+        // liegengebliebene Import-Dateien (Videos können Gigabytes
+        // groß sein) füllen sonst den Speicher, bis nichts mehr geht.
+        Task.detached(priority: .utility) {
+            let tmp = FileManager.default.temporaryDirectory
+            if let items = try? FileManager.default.contentsOfDirectory(
+                at: tmp, includingPropertiesForKeys: nil) {
+                for item in items {
+                    try? FileManager.default.removeItem(at: item)
+                }
+            }
+        }
     }
 
     // MARK: iCloud-Sync (Key-Value-Store)
