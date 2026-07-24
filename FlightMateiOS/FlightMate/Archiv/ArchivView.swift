@@ -121,6 +121,7 @@ private struct ArchivHomeView: View {
             .padding()
         }
         .navigationTitle("Archiv")
+        .navigationBarTitleDisplayMode(.inline)
         .safeAreaInset(edge: .top, spacing: 0) { FluegeSectionPicker() }
         .onAppear {
             sources = BookmarkStore.all()
