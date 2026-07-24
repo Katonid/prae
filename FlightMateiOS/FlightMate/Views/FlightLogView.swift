@@ -235,18 +235,31 @@ struct LogbookView: View {
 
     private func row(_ entry: FlightLogEntry) -> some View {
         HStack(spacing: 12) {
+            // Erstes Foto als Miniatur (speicherschonend per
+            // Downsampling); Foto-Zähler bei mehreren Bildern.
             if let filename = entry.photoFilenames.first,
-               let image = FlightLog.loadPhoto(filename) {
+               let image = FlightLog.loadThumbnail(filename) {
                 Image(uiImage: image)
                     .resizable()
                     .scaledToFill()
-                    .frame(width: 52, height: 52)
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .frame(width: 60, height: 60)
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                    .overlay(alignment: .bottomTrailing) {
+                        if entry.photoFilenames.count > 1 {
+                            Text("\(entry.photoFilenames.count)")
+                                .font(.caption2.bold())
+                                .padding(.horizontal, 5)
+                                .padding(.vertical, 2)
+                                .background(.black.opacity(0.55), in: Capsule())
+                                .foregroundStyle(.white)
+                                .padding(3)
+                        }
+                    }
             } else {
                 Image(systemName: "airplane.circle")
                     .font(.title2)
                     .foregroundStyle(.secondary)
-                    .frame(width: 52, height: 52)
+                    .frame(width: 60, height: 60)
             }
             VStack(alignment: .leading, spacing: 2) {
                 Text(entry.spotName.isEmpty ? "Flug" : entry.spotName)
@@ -260,6 +273,15 @@ struct LogbookView: View {
                 }
                 .font(.caption)
                 .foregroundStyle(.secondary)
+                // Gesyncter Eintrag, dessen Fotos auf dem anderen
+                // Gerät liegen — ehrlich sagen statt leer wirken.
+                if entry.photoFilenames.isEmpty,
+                   let count = entry.cloudPhotoCount, count > 0 {
+                    Label("\(count) Foto\(count == 1 ? "" : "s") — nur auf dem Aufnahmegerät",
+                          systemImage: "icloud")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                }
             }
             Spacer()
             if let score = entry.score {
@@ -390,7 +412,7 @@ struct LogEntryEditor: View {
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: 8) {
                                 ForEach(entry.photoFilenames, id: \.self) { filename in
-                                    if let image = FlightLog.loadPhoto(filename) {
+                                    if let image = FlightLog.loadThumbnail(filename, maxPixel: 200) {
                                         Image(uiImage: image)
                                             .resizable()
                                             .scaledToFill()

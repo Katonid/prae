@@ -19,6 +19,7 @@
 import Foundation
 import CoreLocation
 import UIKit
+import ImageIO
 
 struct FlightLogEntry: Codable, Identifiable {
     var id = UUID()
@@ -35,6 +36,10 @@ struct FlightLogEntry: Codable, Identifiable {
     var longitude: Double?
     /// Auf der Zonenkarte zeigen? (nil = ja; per Eintrag abschaltbar)
     var showsOnMap: Bool?
+    /// Foto-Anzahl auf dem Aufnahmegerät — wandert mit dem Sync,
+    /// damit andere Geräte ehrlich „2 Fotos, nur auf dem
+    /// Aufnahmegerät" zeigen können (die Bilder selbst bleiben lokal).
+    var cloudPhotoCount: Int?
 
     var coordinate: CLLocationCoordinate2D? {
         guard let latitude, let longitude else { return nil }
@@ -105,7 +110,10 @@ enum FlightLog {
 
     private static func pushToCloud(_ entries: [FlightLogEntry]) {
         var slim = entries
-        for index in slim.indices { slim[index].photoFilenames = [] }
+        for index in slim.indices {
+            slim[index].cloudPhotoCount = slim[index].photoFilenames.count
+            slim[index].photoFilenames = []
+        }
         if let data = try? JSONEncoder().encode(slim) {
             NSUbiquitousKeyValueStore.default.set(data, forKey: cloudKey)
         }
@@ -138,6 +146,7 @@ enum FlightLog {
                     || lhs.score != rhs.score || lhs.rating != rhs.rating
                     || lhs.notes != rhs.notes || lhs.latitude != rhs.latitude
                     || lhs.longitude != rhs.longitude || lhs.showsOnMap != rhs.showsOnMap
+                    || lhs.cloudPhotoCount != rhs.cloudPhotoCount
             }
         guard changed else { return false }
         // Direkt schreiben, ohne erneut in die Cloud zu spiegeln —
@@ -156,6 +165,22 @@ enum FlightLog {
 
     static func loadPhoto(_ filename: String) -> UIImage? {
         UIImage(contentsOfFile: photoURL(filename).path)
+    }
+
+    /// Kleines Vorschaubild über ImageIO-Downsampling — dekodiert nur
+    /// die Zielgröße statt des vollen 1600-px-JPEGs (Listen-Miniatur).
+    static func loadThumbnail(_ filename: String, maxPixel: CGFloat = 120) -> UIImage? {
+        let url = photoURL(filename)
+        guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else { return nil }
+        let options: [CFString: Any] = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceThumbnailMaxPixelSize: maxPixel,
+        ]
+        guard let cgImage = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else {
+            return nil
+        }
+        return UIImage(cgImage: cgImage)
     }
 
     /// Speichert ein Foto verkleinert (max. 1600 px, JPEG) und liefert
