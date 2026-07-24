@@ -17,5 +17,11 @@
 		<string>fetch</string>
 		<string>remote-notification</string>
 	</array>
+	<!-- Foto-Mediathek: Der Archiv-Import liest Original-Dateien und
+	     Metadaten über PhotoKit. OHNE diesen Text beendet iOS die App
+	     beim ersten Berechtigungs-Zugriff sofort (war der gemeldete
+	     Import-Absturz). -->
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>FlightMate liest deine Drohnen-Fotos und -Videos aus der Mediathek, um sie im Archiv zu katalogisieren. Originale werden nie verändert.</string>
 </dict>
 </plist>

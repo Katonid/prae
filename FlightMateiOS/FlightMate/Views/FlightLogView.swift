@@ -24,6 +24,7 @@ struct FlightsTabView: View {
         case review = "KI-Bildkritik"
     }
     @State private var section: Section = .logbook
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     var body: some View {
         VStack(spacing: 0) {
@@ -33,8 +34,13 @@ struct FlightsTabView: View {
                 }
             }
             .pickerStyle(.segmented)
+            .frame(maxWidth: 520)
             .padding(.horizontal)
-            .padding(.top, 8)
+            // Auf dem iPad schwebt die Tab-Leiste OBEN über dem
+            // Inhalt — dort braucht der Umschalter deutlich mehr
+            // Abstand, sonst verdeckt sie ihn und den Bereichs-Inhalt
+            // (Nutzermeldung vom iPad).
+            .padding(.top, horizontalSizeClass == .regular ? 24 : 8)
 
             switch section {
             case .logbook: LogbookView()
