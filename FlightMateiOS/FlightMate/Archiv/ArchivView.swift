@@ -152,13 +152,22 @@ private struct ArchivHomeView: View {
             photoItems = []
             Task { await importer.importPhotoItems(items) }
         }
-        // Nach jedem Import: Flüge zuordnen + Orts-Kaskade laufen
-        // lassen (Videos ohne GPS bekommen so ihren Ort).
+        // Nach jedem Import: Flüge zuordnen, Orts-Kaskade laufen
+        // lassen (Videos ohne GPS bekommen so ihren Ort) und Reisen/
+        // Foto-Spots neu verdichten.
         .onChange(of: importer.isRunning) { _, running in
             if !running {
-                let result = FlightRouteImporter.resolveLocationsAndFlights()
-                if result.linked > 0 || result.located > 0 {
-                    flightLogSummary = "Zuordnung: \(result.linked) Medien → Flug, \(result.located) Orte ermittelt"
+                Task {
+                    let result = FlightRouteImporter.resolveLocationsAndFlights()
+                    let clusters = await ArchivClusterer.rebuild()
+                    var parts: [String] = []
+                    if result.linked > 0 || result.located > 0 {
+                        parts.append("\(result.linked) Medien → Flug, \(result.located) Orte ermittelt")
+                    }
+                    if !clusters.isEmpty { parts.append(clusters) }
+                    if !parts.isEmpty {
+                        flightLogSummary = parts.joined(separator: " · ")
+                    }
                 }
             }
         }
@@ -166,7 +175,12 @@ private struct ArchivHomeView: View {
                       allowedContentTypes: [.plainText, .commaSeparatedText, .text, .data],
                       allowsMultipleSelection: true) { result in
             guard case .success(let urls) = result else { return }
-            Task { flightLogSummary = await FlightRouteImporter.importFiles(urls) }
+            Task {
+                let summary = await FlightRouteImporter.importFiles(urls)
+                let clusters = await ArchivClusterer.rebuild()
+                flightLogSummary = clusters.isEmpty
+                    ? summary : "\(summary) · \(clusters)"
+            }
         }
         .alert("Quelle verbinden", isPresented: Binding(
             get: { pickerError != nil },
@@ -205,6 +219,30 @@ private struct ArchivHomeView: View {
             } label: {
                 HStack {
                     Label("Medien-Karte öffnen", systemImage: "map")
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .font(.subheadline)
+            NavigationLink {
+                ArchivTripsView()
+            } label: {
+                HStack {
+                    Label("Reisen", systemImage: "suitcase")
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .font(.subheadline)
+            NavigationLink {
+                ArchivSpotsView()
+            } label: {
+                HStack {
+                    Label("Foto-Spots", systemImage: "camera.on.rectangle")
                     Spacer()
                     Image(systemName: "chevron.right")
                         .font(.caption)
@@ -341,7 +379,7 @@ private struct ArchivHomeView: View {
         VStack(alignment: .leading, spacing: 8) {
             Label("So geht es weiter", systemImage: "map")
                 .font(.subheadline.bold())
-            Text("M3 (jetzt): Flugrouten aus SRT/AirData-Logs, Orts-Kaskade für Videos (Flight Log → Nachbar-Foto → manuell, immer mit Vertrauensgrad) und die Medien-Karte. M4: Reisen, Spots und bearbeitete Versionen. M5: lokale KI-Suche.")
+            Text("M4 (jetzt): Reisen und Foto-Spots werden automatisch erkannt (editierbar, mit Brücke zu den Planungs-Spots), bearbeitete Versionen lassen sich dauerhaft mit dem Original verknüpfen. M5: lokale KI-Suche (Vision-Tags, „Zeige alle Wasserfälle in Kanada“).")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
