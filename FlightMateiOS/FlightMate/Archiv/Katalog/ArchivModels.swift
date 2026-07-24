@@ -87,6 +87,19 @@ final class MediaAsset {
     /// Fotos liegt — Wiedererkennung über Geräte hinweg.
     var photosAssetID: String?
 
+    /// Vision-Szenen (M5): "waterfall|0.93"-Zeilen, on-device
+    /// erkannt; nil-Datum = noch nicht verschlagwortet.
+    var aiTagsRaw: String = ""
+    var visionTaggedAt: Date?
+
+    var aiTags: [(label: String, confidence: Double)] {
+        aiTagsRaw.split(separator: "\n").compactMap { line in
+            let parts = line.split(separator: "|")
+            guard parts.count == 2, let confidence = Double(parts[1]) else { return nil }
+            return (String(parts[0]), confidence)
+        }
+    }
+
     @Relationship(deleteRule: .cascade, inverse: \FileRef.asset)
     var files: [FileRef]? = []
     @Relationship(deleteRule: .cascade, inverse: \EditedVersion.original)
@@ -284,6 +297,10 @@ final class MediaSpot {
     /// Brücke zum Planungs-Spot (FlightMate-Spots) in der Nähe.
     var linkedPlanningSpotID: UUID?
     var isManuallyEdited: Bool = false
+    /// Geokodierte Lage (M5) — macht „alle Aufnahmen in Kanada"
+    /// suchbar, ohne jedes Medium einzeln zu geokodieren.
+    var country: String?
+    var locality: String?
     @Relationship(deleteRule: .nullify, inverse: \MediaAsset.spot)
     var assets: [MediaAsset]? = []
 

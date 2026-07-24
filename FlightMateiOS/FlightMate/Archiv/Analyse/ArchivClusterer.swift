@@ -77,16 +77,21 @@ enum ArchivClusterer {
             }
         }
 
-        // Namen für neue Spots ohne Planungs-Paten: Reverse-Geocoding
-        // (begrenzt auf 10 pro Lauf — Apple drosselt sonst).
+        // Reverse-Geocoding für neue Spots (begrenzt auf 10 pro Lauf —
+        // Apple drosselt sonst): Name (falls kein Planungs-Pate) plus
+        // Land/Ort für die Suche („alle Aufnahmen in Kanada").
         var geocoded = 0
-        for spot in newSpots where spot.name.isEmpty && geocoded < 10 {
+        for spot in newSpots where geocoded < 10 {
             geocoded += 1
             let location = CLLocation(latitude: spot.latitude, longitude: spot.longitude)
             let placemark = try? await CLGeocoder()
                 .reverseGeocodeLocation(location).first
-            spot.name = placemark.flatMap { $0.name ?? $0.locality }
-                ?? String(format: "Spot %.3f, %.3f", spot.latitude, spot.longitude)
+            spot.country = placemark?.country
+            spot.locality = placemark?.locality
+            if spot.name.isEmpty {
+                spot.name = placemark.flatMap { $0.name ?? $0.locality }
+                    ?? String(format: "Spot %.3f, %.3f", spot.latitude, spot.longitude)
+            }
         }
         for spot in newSpots where spot.name.isEmpty {
             spot.name = String(format: "Spot %.3f, %.3f", spot.latitude, spot.longitude)

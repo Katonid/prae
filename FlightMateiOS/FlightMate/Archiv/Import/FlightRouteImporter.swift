@@ -26,20 +26,21 @@ enum FlightRouteImporter {
         guard let container = ArchivStore.shared.container else {
             return "Katalog nicht verfügbar."
         }
-        var imported = 0, duplicates = 0, failed = 0
+        var imported = 0, duplicates = 0
+        var unreadable: [String] = []
 
         for url in urls {
             let scoped = url.startAccessingSecurityScopedResource()
             defer { if scoped { url.stopAccessingSecurityScopedResource() } }
             guard let text = try? String(contentsOf: url, encoding: .utf8) else {
-                failed += 1
+                unreadable.append(failureReason(for: url))
                 continue
             }
             let parsed = url.pathExtension.lowercased() == "csv"
                 ? parseAirData(text)
                 : parseSRT(text)
             guard let parsed, parsed.points.count >= 2 else {
-                failed += 1
+                unreadable.append(failureReason(for: url))
                 continue
             }
 
@@ -66,12 +67,35 @@ enum FlightRouteImporter {
         try? container.mainContext.save()
 
         let resolved = resolveLocationsAndFlights()
-        var parts = ["\(imported) Flug\(imported == 1 ? "" : "üge") importiert"]
+        var parts = [imported == 1 ? "1 Flug importiert" : "\(imported) Flüge importiert"]
         if duplicates > 0 { parts.append("\(duplicates) bereits bekannt") }
-        if failed > 0 { parts.append("\(failed) nicht lesbar (DJI-TXT-Logs sind verschlüsselt — SRT/AirData-CSV verwenden)") }
+        if !unreadable.isEmpty {
+            let shown = unreadable.prefix(3).joined(separator: "; ")
+            let more = unreadable.count > 3 ? " (+\(unreadable.count - 3) weitere)" : ""
+            parts.append("Nicht lesbar: \(shown)\(more)")
+        }
         if resolved.linked > 0 { parts.append("\(resolved.linked) Medien einem Flug zugeordnet") }
         if resolved.located > 0 { parts.append("\(resolved.located) Orte ermittelt") }
         return parts.joined(separator: " · ")
+    }
+
+    /// Ehrliche, dateityp-genaue Begründung statt Pauschalverdacht
+    /// (Nutzermeldung: LRF-Dateien wurden fälschlich als
+    /// „verschlüsselte TXT-Logs" gemeldet).
+    private static func failureReason(for url: URL) -> String {
+        let name = url.lastPathComponent
+        switch url.pathExtension.lowercased() {
+        case "txt":
+            return "\(name) — DJI-TXT-Flugprotokoll, verschlüsselt (Umweg: airdata.com → CSV-Export)"
+        case "lrf":
+            return "\(name) — LRF ist DJIs kleines Vorschau-Video, enthält keine Telemetrie"
+        case "srt":
+            return "\(name) — SRT ohne GPS-Daten (Untertitel wirken erst für Videos NACH dem Einschalten)"
+        case "csv":
+            return "\(name) — CSV nicht im AirData-Format"
+        default:
+            return "\(name) — kein SRT-/AirData-Format"
+        }
     }
 
     /// SRT: Blöcke mit eingebettetem Datum + [latitude:]/[longitude:]
