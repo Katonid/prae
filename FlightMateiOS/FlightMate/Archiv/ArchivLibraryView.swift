@@ -377,15 +377,14 @@ struct ArchivAssetDetailView: View {
             }
 
             if !asset.aiTags.isEmpty {
-                Section {
+                Section("Erkannte Szenen") {
                     Text(asset.aiTags
                         .map { "\(ArchivSearch.germanLabel(for: $0.label)) \(Int($0.confidence * 100)) %" }
                         .joined(separator: " · "))
                         .font(.callout)
-                } header: {
-                    Text("Erkannte Szenen")
-                } footer: {
                     Text("On-device erkannt (Apple Vision) — Grundlage der Suche, verlässt das Gerät nie.")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
                 }
             }
 
