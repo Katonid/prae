@@ -271,6 +271,23 @@ Dieser Stand entspricht dem **MVP-Fundament** (PRD Phase 0/1).
   (lokal in Documents). Wer für HEUTE mit Bewertung loggt, füttert
   automatisch die Score-Kalibrierung. Einträge wandern (ohne Fotos)
   mit in die Export-Sicherung; Import vereinigt nach ID.
+  **Flugort:** Jeder Eintrag trägt einen Ort — beim Anlegen
+  automatisch der aktuelle Standort (bzw. die Koordinate aus dem
+  DJI-Import oder dem übernommenen Spot), nachträglich änderbar über
+  eine große zoombare Karte (Tipp setzt den Punkt). Im Eintrag zeigt
+  eine Mini-Karte den Ort; Antippen vergrößert sie. Geloggte Flüge
+  erscheinen als **lila Marker fest auf der Zonenkarte** (klar
+  unterschieden von türkisen Entdecken-Treffern und gelben Spots)
+  und lassen sich je Eintrag per Schalter von der Karte nehmen.
+  **iCloud-Sync:** Die Einträge (ohne Fotos — die sprengen das
+  KVS-Limit und bleiben lokal) synchronisieren über den
+  iCloud-Key-Value-Store auf alle Geräte; Löschungen wandern mit,
+  zuletzt geschriebener Stand gewinnt (wie bei den Spots).
+  **Löschen & Sichern:** Einträge einzeln wischen oder über
+  „Auswählen" im Block löschen bzw. sichern. Sicherungsformat ist
+  **GPX** (offener Wegpunkt-Standard — öffnet in Karten-, Foto- und
+  Outdoor-Apps, langfristig lesbar): ein Wegpunkt je Flug mit Name,
+  Zeit, Score, Bewertung und Notiz.
 - **Flight Review (F5, KI):** Im „Flüge"-Tab als zweiter Bereich — nach dem Flug bis
   zu 5 Aufnahmen auswählen (PhotosPicker, kein Mediathek-Vollzugriff);
   Claude bewertet jede entlang der festen PRD-Rubrik mit max. 2

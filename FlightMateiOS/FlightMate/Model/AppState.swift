@@ -260,7 +260,15 @@ final class AppState: NSObject, ObservableObject {
            droneProfileID == nil {
             droneProfileID = cloudProfile
         }
+        // Flug-Logbuch (ohne Fotos) — Zähler stößt offene Ansichten an.
+        if FlightLog.adoptCloud(initial: initial) {
+            flightLogChangeID += 1
+        }
     }
+
+    /// Zählt hoch, wenn Logbuch-Einträge von einem anderen Gerät
+    /// übernommen wurden — Logbuch-Liste und Karte laden dann neu.
+    @Published var flightLogChangeID = 0
 }
 
 // MARK: CLLocationManagerDelegate

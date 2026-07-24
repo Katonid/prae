@@ -58,6 +58,8 @@ enum DJILogImport {
             var entry = FlightLogEntry()
             entry.date = flight.start
             entry.spotName = await placeName(for: flight.coordinate) ?? "DJI-Import"
+            entry.latitude = flight.coordinate.latitude
+            entry.longitude = flight.coordinate.longitude
             var noteParts = ["Import aus DJI-Log (\(url.lastPathComponent))"]
             if let duration = flight.durationS, duration > 0 {
                 noteParts.append(String(format: "Dauer ≈ %.0f min", duration / 60))
