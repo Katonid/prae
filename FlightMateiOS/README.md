@@ -270,7 +270,14 @@ Dieser Stand entspricht dem **MVP-Fundament** (PRD Phase 0/1).
   Startzeit minutengenau aus dem Log),
   Ort/Spot (aus den gespeicherten Spots übernehmbar), Flight Score,
   Ein-Tipp-Bewertung, Notiz und bis zu drei verkleinerten Fotos
-  (lokal in Documents). Wer für HEUTE mit Bewertung loggt, füttert
+  (lokal in Documents). Das erste Foto erscheint als Miniatur in der
+  Logbuch-Liste (speicherschonend per ImageIO-Downsampling statt
+  Vollbild-Dekodierung, mit Zähler-Badge bei mehreren Fotos); liegen
+  die Fotos eines gesyncten Eintrags auf dem anderen Gerät, sagt die
+  Zeile das ehrlich dazu („2 Fotos — nur auf dem Aufnahmegerät").
+  Im Eintrag öffnet ein Tipp aufs Foto den Vollbild-Betrachter
+  (Blättern zwischen den Fotos, Kneif-Zoom bis 4-fach, Doppeltipp).
+  Wer für HEUTE mit Bewertung loggt, füttert
   automatisch die Score-Kalibrierung. Einträge wandern (ohne Fotos)
   mit in die Export-Sicherung; Import vereinigt nach ID.
   **Flugort:** Jeder Eintrag trägt einen Ort — beim Anlegen

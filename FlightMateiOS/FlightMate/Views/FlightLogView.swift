@@ -64,26 +64,23 @@ struct LogbookView: View {
                         systemImage: "book.closed",
                         description: Text("Halte deine Flugtage fest: Ort, Score, wie es wirklich war — und die besten Bilder. Nach der Reise hast du deine ganze Foto-Flug-Historie beisammen.")
                     )
-                } else {
+                } else if editMode.isEditing {
+                    // Auswahl-Anbindung NUR im Auswählen-Modus: Eine
+                    // List mit selection macht auf dem iPad jede Zeile
+                    // dauerhaft per Einzeltipp auswählbar — der Tipp
+                    // landete in der Auswahl statt im Öffnen-Knopf
+                    // (Nutzermeldung: Eintrag auf dem iPad nicht
+                    // antippbar).
                     List(selection: $selection) {
-                        ForEach(entries) { entry in
-                            Button {
-                                if !editMode.isEditing { editingEntry = entry }
-                            } label: {
-                                row(entry)
-                            }
-                            .buttonStyle(.plain)
-                            .tag(entry.id)
-                        }
-                        .onDelete { indexSet in
-                            for index in indexSet {
-                                FlightLog.delete(entries[index])
-                            }
-                            entries = FlightLog.all()
-                        }
+                        entryRows
                     }
                     .listStyle(.plain)
                     .environment(\.editMode, $editMode)
+                } else {
+                    List {
+                        entryRows
+                    }
+                    .listStyle(.plain)
                 }
             }
             .navigationTitle("Logbuch")
@@ -233,20 +230,52 @@ struct LogbookView: View {
         .padding(24)
     }
 
+    @ViewBuilder
+    private var entryRows: some View {
+        ForEach(entries) { entry in
+            Button {
+                if !editMode.isEditing { editingEntry = entry }
+            } label: {
+                row(entry)
+            }
+            .buttonStyle(.plain)
+            .tag(entry.id)
+        }
+        .onDelete { indexSet in
+            for index in indexSet {
+                FlightLog.delete(entries[index])
+            }
+            entries = FlightLog.all()
+        }
+    }
+
     private func row(_ entry: FlightLogEntry) -> some View {
         HStack(spacing: 12) {
+            // Erstes Foto als Miniatur (speicherschonend per
+            // Downsampling); Foto-Zähler bei mehreren Bildern.
             if let filename = entry.photoFilenames.first,
-               let image = FlightLog.loadPhoto(filename) {
+               let image = FlightLog.loadThumbnail(filename) {
                 Image(uiImage: image)
                     .resizable()
                     .scaledToFill()
-                    .frame(width: 52, height: 52)
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .frame(width: 60, height: 60)
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                    .overlay(alignment: .bottomTrailing) {
+                        if entry.photoFilenames.count > 1 {
+                            Text("\(entry.photoFilenames.count)")
+                                .font(.caption2.bold())
+                                .padding(.horizontal, 5)
+                                .padding(.vertical, 2)
+                                .background(.black.opacity(0.55), in: Capsule())
+                                .foregroundStyle(.white)
+                                .padding(3)
+                        }
+                    }
             } else {
                 Image(systemName: "airplane.circle")
                     .font(.title2)
                     .foregroundStyle(.secondary)
-                    .frame(width: 52, height: 52)
+                    .frame(width: 60, height: 60)
             }
             VStack(alignment: .leading, spacing: 2) {
                 Text(entry.spotName.isEmpty ? "Flug" : entry.spotName)
@@ -260,6 +289,15 @@ struct LogbookView: View {
                 }
                 .font(.caption)
                 .foregroundStyle(.secondary)
+                // Gesyncter Eintrag, dessen Fotos auf dem anderen
+                // Gerät liegen — ehrlich sagen statt leer wirken.
+                if entry.photoFilenames.isEmpty,
+                   let count = entry.cloudPhotoCount, count > 0 {
+                    Label("\(count) Foto\(count == 1 ? "" : "s") — nur auf dem Aufnahmegerät",
+                          systemImage: "icloud")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                }
             }
             Spacer()
             if let score = entry.score {
@@ -281,6 +319,7 @@ struct LogEntryEditor: View {
     @State private var pickerItems: [PhotosPickerItem] = []
     @State private var hasScore: Bool
     @State private var showLocationPicker = false
+    @State private var viewerTarget: PhotoViewerTarget?
 
     init(entry: FlightLogEntry) {
         _entry = State(initialValue: entry)
@@ -389,13 +428,18 @@ struct LogEntryEditor: View {
                     if !entry.photoFilenames.isEmpty {
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: 8) {
-                                ForEach(entry.photoFilenames, id: \.self) { filename in
-                                    if let image = FlightLog.loadPhoto(filename) {
+                                ForEach(Array(entry.photoFilenames.enumerated()), id: \.element) { index, filename in
+                                    if let image = FlightLog.loadThumbnail(filename, maxPixel: 200) {
                                         Image(uiImage: image)
                                             .resizable()
                                             .scaledToFill()
                                             .frame(width: 84, height: 84)
                                             .clipShape(RoundedRectangle(cornerRadius: 10))
+                                            // Tipp aufs Bild → Vollbild-
+                                            // Betrachter (Nutzerwunsch).
+                                            .onTapGesture {
+                                                viewerTarget = PhotoViewerTarget(id: index)
+                                            }
                                             .overlay(alignment: .topTrailing) {
                                                 Button {
                                                     entry.photoFilenames.removeAll { $0 == filename }
@@ -409,6 +453,9 @@ struct LogEntryEditor: View {
                                 }
                             }
                         }
+                        Text("Tipp aufs Bild zeigt es groß")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
                     }
                     if entry.photoFilenames.count < 3 {
                         PhotosPicker(selection: $pickerItems,
@@ -441,6 +488,9 @@ struct LogEntryEditor: View {
                     entry.longitude = picked.longitude
                 }
             }
+            .fullScreenCover(item: $viewerTarget) { target in
+                LogPhotoViewer(filenames: entry.photoFilenames, startIndex: target.id)
+            }
         }
     }
 
@@ -465,6 +515,111 @@ struct LogEntryEditor: View {
             ScoreValidation.rate(score: score, rating: rating)
         }
         dismiss()
+    }
+}
+
+// MARK: Fotos in groß — Blättern, Kneif-Zoom, Doppeltipp
+
+struct PhotoViewerTarget: Identifiable {
+    let id: Int
+}
+
+struct LogPhotoViewer: View {
+    @Environment(\.dismiss) private var dismiss
+    let filenames: [String]
+    @State private var current: Int
+
+    init(filenames: [String], startIndex: Int) {
+        self.filenames = filenames
+        _current = State(initialValue: min(startIndex, max(filenames.count - 1, 0)))
+    }
+
+    var body: some View {
+        NavigationStack {
+            TabView(selection: $current) {
+                ForEach(Array(filenames.enumerated()), id: \.element) { index, filename in
+                    ZoomableImage(image: FlightLog.loadPhoto(filename))
+                        .tag(index)
+                }
+            }
+            .tabViewStyle(.page)
+            .background(Color.black)
+            .navigationTitle(filenames.count > 1 ? "\(current + 1) von \(filenames.count)" : "Foto")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbarColorScheme(.dark, for: .navigationBar)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Fertig") { dismiss() }
+                }
+            }
+        }
+    }
+}
+
+/// Vollbild mit Kneif-Zoom (bis 4-fach), Ziehen im gezoomten Zustand
+/// und Doppeltipp (rein/raus).
+private struct ZoomableImage: View {
+    let image: UIImage?
+    @State private var scale: CGFloat = 1
+    @State private var lastScale: CGFloat = 1
+    @State private var offset: CGSize = .zero
+    @State private var lastOffset: CGSize = .zero
+
+    var body: some View {
+        Group {
+            if let image {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFit()
+                    .scaleEffect(scale)
+                    .offset(offset)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .contentShape(Rectangle())
+                    .gesture(
+                        MagnificationGesture()
+                            .onChanged { value in
+                                scale = min(max(lastScale * value, 1), 4)
+                            }
+                            .onEnded { _ in
+                                lastScale = scale
+                                if scale <= 1.01 { resetZoom() }
+                            }
+                    )
+                    .simultaneousGesture(
+                        DragGesture()
+                            .onChanged { value in
+                                guard scale > 1 else { return }
+                                offset = CGSize(width: lastOffset.width + value.translation.width,
+                                                height: lastOffset.height + value.translation.height)
+                            }
+                            .onEnded { _ in
+                                lastOffset = offset
+                            }
+                    )
+                    .onTapGesture(count: 2) {
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                            if scale > 1 {
+                                resetZoom()
+                            } else {
+                                scale = 2.5
+                                lastScale = 2.5
+                            }
+                        }
+                    }
+            } else {
+                Image(systemName: "photo")
+                    .font(.largeTitle)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .background(Color.black)
+    }
+
+    private func resetZoom() {
+        scale = 1
+        lastScale = 1
+        offset = .zero
+        lastOffset = .zero
     }
 }
 
