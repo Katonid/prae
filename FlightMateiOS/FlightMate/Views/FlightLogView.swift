@@ -12,6 +12,7 @@
 import SwiftUI
 import PhotosUI
 import UniformTypeIdentifiers
+import MapKit
 
 /// Container für den Tab: Logbuch ⇄ KI-Bildkritik.
 struct FlightsTabView: View {
@@ -48,6 +49,11 @@ struct LogbookView: View {
     @State private var editingEntry: FlightLogEntry?
     @State private var showLogImporter = false
     @State private var importMessage: String?
+    // Auswahl-Modus: einzeln oder im Block löschen/sichern.
+    @State private var editMode: EditMode = .inactive
+    @State private var selection = Set<UUID>()
+    @State private var exportURL: URL?
+    @State private var exportMessage: String?
 
     var body: some View {
         NavigationStack {
@@ -59,14 +65,15 @@ struct LogbookView: View {
                         description: Text("Halte deine Flugtage fest: Ort, Score, wie es wirklich war — und die besten Bilder. Nach der Reise hast du deine ganze Foto-Flug-Historie beisammen.")
                     )
                 } else {
-                    List {
+                    List(selection: $selection) {
                         ForEach(entries) { entry in
                             Button {
-                                editingEntry = entry
+                                if !editMode.isEditing { editingEntry = entry }
                             } label: {
                                 row(entry)
                             }
                             .buttonStyle(.plain)
+                            .tag(entry.id)
                         }
                         .onDelete { indexSet in
                             for index in indexSet {
@@ -76,6 +83,7 @@ struct LogbookView: View {
                         }
                     }
                     .listStyle(.plain)
+                    .environment(\.editMode, $editMode)
                 }
             }
             .navigationTitle("Logbuch")
@@ -88,16 +96,64 @@ struct LogbookView: View {
                     }
                     .accessibilityLabel("DJI-Fluglogs importieren")
                 }
+                ToolbarItem(placement: .topBarLeading) {
+                    // GPX-Sicherung: Auswahl, sonst alle Einträge.
+                    Button {
+                        exportGPX()
+                    } label: {
+                        Image(systemName: "square.and.arrow.up")
+                    }
+                    .disabled(entries.isEmpty)
+                    .accessibilityLabel("Logbuch als GPX sichern")
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    if !entries.isEmpty {
+                        Button(editMode.isEditing ? "Fertig" : "Auswählen") {
+                            withAnimation {
+                                editMode = editMode.isEditing ? .inactive : .active
+                                if !editMode.isEditing { selection.removeAll() }
+                            }
+                        }
+                    }
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
                         var new = FlightLogEntry()
                         new.spotName = state.locationName ?? state.spots.first?.name ?? ""
                         new.score = state.today?.score
+                        // Ort automatisch vom aktuellen Standort —
+                        // nachträglich im Eintrag änderbar.
+                        if let here = state.currentLocation {
+                            new.latitude = here.latitude
+                            new.longitude = here.longitude
+                        }
                         editingEntry = new
                     } label: {
                         Image(systemName: "plus")
                     }
                     .accessibilityLabel("Flug eintragen")
+                }
+                ToolbarItemGroup(placement: .bottomBar) {
+                    if editMode.isEditing {
+                        Button(role: .destructive) {
+                            for entry in entries where selection.contains(entry.id) {
+                                FlightLog.delete(entry)
+                            }
+                            selection.removeAll()
+                            entries = FlightLog.all()
+                            withAnimation { editMode = .inactive }
+                        } label: {
+                            Label("Löschen (\(selection.count))", systemImage: "trash")
+                        }
+                        .disabled(selection.isEmpty)
+                        Spacer()
+                        Button {
+                            exportGPX()
+                        } label: {
+                            Label("Sichern (\(selection.count))", systemImage: "square.and.arrow.up")
+                        }
+                        .disabled(selection.isEmpty)
+                    }
                 }
             }
             .fileImporter(isPresented: $showLogImporter,
@@ -120,8 +176,61 @@ struct LogbookView: View {
             .sheet(item: $editingEntry, onDismiss: { entries = FlightLog.all() }) { entry in
                 LogEntryEditor(entry: entry)
             }
+            .sheet(isPresented: Binding(
+                get: { exportURL != nil },
+                set: { if !$0 { exportURL = nil } }
+            )) {
+                if let exportURL {
+                    exportSheet(exportURL)
+                        .presentationDetents([.medium])
+                }
+            }
+            .alert("GPX-Sicherung", isPresented: Binding(
+                get: { exportMessage != nil },
+                set: { if !$0 { exportMessage = nil } }
+            )) {
+                Button("OK") { exportMessage = nil }
+            } message: {
+                Text(exportMessage ?? "")
+            }
             .onAppear { entries = FlightLog.all() }
+            // Vom anderen Gerät übernommene Einträge sofort zeigen.
+            .onChange(of: state.flightLogChangeID) {
+                entries = FlightLog.all()
+            }
         }
+    }
+
+    /// Auswahl (oder alle) als GPX bereitstellen.
+    private func exportGPX() {
+        let target = selection.isEmpty
+            ? entries
+            : entries.filter { selection.contains($0.id) }
+        if let url = FlightLogGPX.export(target) {
+            exportURL = url
+        } else {
+            exportMessage = "Keiner der gewählten Einträge hat einen Flugort — GPX braucht Koordinaten. Öffne die Einträge und setze den Ort, dann klappt die Sicherung."
+        }
+    }
+
+    private func exportSheet(_ url: URL) -> some View {
+        VStack(spacing: 16) {
+            Image(systemName: "point.topleft.down.to.point.bottomright.curvepath")
+                .font(.largeTitle)
+                .foregroundStyle(.tint)
+            Text("Logbuch als GPX")
+                .font(.headline)
+            Text("GPX ist der offene Standard für Geo-Wegpunkte: Die Datei öffnet in Karten-, Foto- und Outdoor-Apps und bleibt langfristig lesbar. Jeder Flug ist ein Wegpunkt mit Name, Zeit, Score und Notiz. Fotos bleiben auf dem Gerät; Einträge ohne Ort werden ausgelassen.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+            ShareLink(item: url) {
+                Label("Sichern / Teilen", systemImage: "square.and.arrow.up")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+        }
+        .padding(24)
     }
 
     private func row(_ entry: FlightLogEntry) -> some View {
@@ -171,6 +280,7 @@ struct LogEntryEditor: View {
     @State var entry: FlightLogEntry
     @State private var pickerItems: [PhotosPickerItem] = []
     @State private var hasScore: Bool
+    @State private var showLocationPicker = false
 
     init(entry: FlightLogEntry) {
         _entry = State(initialValue: entry)
@@ -186,10 +296,61 @@ struct LogEntryEditor: View {
                     if !state.spots.isEmpty {
                         Menu("Gespeicherten Spot übernehmen") {
                             ForEach(state.spots) { spot in
-                                Button(spot.name) { entry.spotName = spot.name }
+                                Button(spot.name) {
+                                    entry.spotName = spot.name
+                                    entry.latitude = spot.coordinate.latitude
+                                    entry.longitude = spot.coordinate.longitude
+                                }
                             }
                         }
                         .font(.caption)
+                    }
+                }
+
+                Section("Flugort") {
+                    if let coordinate = entry.coordinate {
+                        // Mini-Karte; Antippen öffnet die große,
+                        // zoombare Karte zum Ansehen und Verschieben.
+                        Map(initialPosition: .region(MKCoordinateRegion(
+                            center: coordinate,
+                            span: MKCoordinateSpan(latitudeDelta: 0.02, longitudeDelta: 0.02)
+                        )), interactionModes: []) {
+                            Marker(entry.spotName.isEmpty ? "Flugort" : entry.spotName,
+                                   systemImage: "airplane", coordinate: coordinate)
+                                .tint(.purple)
+                        }
+                        .frame(height: 150)
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
+                        .contentShape(Rectangle())
+                        .onTapGesture { showLocationPicker = true }
+                        // initialPosition folgt Änderungen nicht —
+                        // neue Koordinate erzwingt eine frische Karte.
+                        .id(String(format: "logmap-%.5f-%.5f",
+                                   coordinate.latitude, coordinate.longitude))
+                        .listRowInsets(EdgeInsets())
+                        Button {
+                            showLocationPicker = true
+                        } label: {
+                            Label("Ort ändern", systemImage: "mappin.and.ellipse")
+                        }
+                        Toggle("Auf der Zonenkarte zeigen", isOn: Binding(
+                            get: { entry.showsOnMap ?? true },
+                            set: { entry.showsOnMap = $0 }
+                        ))
+                    } else {
+                        if let here = state.currentLocation {
+                            Button {
+                                entry.latitude = here.latitude
+                                entry.longitude = here.longitude
+                            } label: {
+                                Label("Aktuellen Standort übernehmen", systemImage: "location")
+                            }
+                        }
+                        Button {
+                            showLocationPicker = true
+                        } label: {
+                            Label("Ort auf der Karte wählen", systemImage: "mappin.and.ellipse")
+                        }
                     }
                 }
 
@@ -271,6 +432,14 @@ struct LogEntryEditor: View {
             .onChange(of: pickerItems) {
                 Task { await importPhotos() }
             }
+            .sheet(isPresented: $showLocationPicker) {
+                LogLocationPicker(
+                    coordinate: entry.coordinate ?? state.effectiveLocation
+                ) { picked in
+                    entry.latitude = picked.latitude
+                    entry.longitude = picked.longitude
+                }
+            }
         }
     }
 
@@ -295,5 +464,66 @@ struct LogEntryEditor: View {
             ScoreValidation.rate(score: score, rating: rating)
         }
         dismiss()
+    }
+}
+
+// MARK: Flugort wählen — große, zoombare Karte
+
+struct LogLocationPicker: View {
+    @Environment(\.dismiss) private var dismiss
+    let onPick: (CLLocationCoordinate2D) -> Void
+    @State private var picked: CLLocationCoordinate2D
+
+    init(coordinate: CLLocationCoordinate2D,
+         onPick: @escaping (CLLocationCoordinate2D) -> Void) {
+        self.onPick = onPick
+        _picked = State(initialValue: coordinate)
+    }
+
+    var body: some View {
+        NavigationStack {
+            MapReader { proxy in
+                Map(initialPosition: .region(MKCoordinateRegion(
+                    center: picked,
+                    span: MKCoordinateSpan(latitudeDelta: 0.02, longitudeDelta: 0.02)
+                ))) {
+                    Marker("Flugort", systemImage: "airplane", coordinate: picked)
+                        .tint(.purple)
+                    UserAnnotation()
+                }
+                .mapStyle(.hybrid)
+                .mapControls {
+                    MapUserLocationButton()
+                    MapCompass()
+                    MapScaleView()
+                }
+                .onTapGesture { screenPoint in
+                    if let coordinate = proxy.convert(screenPoint, from: .local) {
+                        picked = coordinate
+                    }
+                }
+            }
+            .safeAreaInset(edge: .bottom) {
+                Text("Tippe auf die Karte, um den Flugort zu setzen")
+                    .font(.caption)
+                    .padding(8)
+                    .frame(maxWidth: .infinity)
+                    .background(.thinMaterial)
+            }
+            .navigationTitle("Flugort")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Abbrechen") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Übernehmen") {
+                        onPick(picked)
+                        dismiss()
+                    }
+                    .bold()
+                }
+            }
+        }
     }
 }

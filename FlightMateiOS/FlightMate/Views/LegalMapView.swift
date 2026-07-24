@@ -84,6 +84,8 @@ struct LegalMapView: View {
     // ein Tipp auf den Marker startet den punktgenauen Legal-Check.
     @AppStorage("mapShowsPhotoSpots") private var showsPhotoSpots = false
     @State private var photoSpots: [SpotCandidate] = []
+    // Logbuch-Flüge als feste Marker (lila, abschaltbar je Eintrag).
+    @State private var logEntries: [FlightLogEntry] = []
 
     var body: some View {
         NavigationStack {
@@ -118,6 +120,16 @@ struct LegalMapView: View {
                             Marker(candidate.name, systemImage: candidate.kind.symbol,
                                    coordinate: candidate.coordinate)
                                 .tint(.teal)
+                        }
+                    }
+                    // Logbuch-Flüge — lila, damit sie sich klar von den
+                    // Entdecken-Treffern (türkis) und Spots (gelb)
+                    // abheben; je Eintrag im Logbuch abschaltbar.
+                    ForEach(logEntries.filter(\.isOnMap)) { entry in
+                        if let coordinate = entry.coordinate {
+                            Marker(entry.spotName.isEmpty ? "Flug" : entry.spotName,
+                                   systemImage: "airplane", coordinate: coordinate)
+                                .tint(.purple)
                         }
                     }
                 }
@@ -220,7 +232,13 @@ struct LegalMapView: View {
                     .accessibilityLabel("Kartenansicht: Tag/Nacht und 3D-Gelände")
                 }
             }
-            .onAppear { if showsPhotoSpots { loadPhotoSpots() } }
+            .onAppear {
+                if showsPhotoSpots { loadPhotoSpots() }
+                logEntries = FlightLog.all()
+            }
+            .onChange(of: state.flightLogChangeID) {
+                logEntries = FlightLog.all()
+            }
             .sheet(isPresented: $showResult) {
                 if let assessment {
                     LegalResultView(assessment: assessment) { name in

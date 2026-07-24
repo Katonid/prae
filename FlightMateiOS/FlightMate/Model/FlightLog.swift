@@ -8,12 +8,16 @@
 //  einen Eintrag mit Bewertung anlegt, füttert automatisch auch die
 //  Score-Kalibrierung (ScoreValidation).
 //
-//  Ablage lokal: JSON im Documents-Verzeichnis, Fotos verkleinert
-//  daneben (kein iCloud-KVS — Fotos sprengen dessen Limits; die
-//  Einträge selbst wandern mit in die Export-Sicherung, Fotos nicht).
+//  Ablage: JSON im Documents-Verzeichnis, Fotos verkleinert daneben.
+//  iCloud-Sync (Nutzerwunsch): Die Einträge selbst wandern — ohne
+//  Fotos, die sprengen die KVS-Limits — über den Key-Value-Store auf
+//  die anderen Geräte; beim Übernehmen bleiben lokale Fotos zu
+//  bekannten Einträgen erhalten. Konflikt: zuletzt geschriebener
+//  Stand gewinnt (wie bei den Spots).
 //
 
 import Foundation
+import CoreLocation
 import UIKit
 
 struct FlightLogEntry: Codable, Identifiable {
@@ -24,6 +28,20 @@ struct FlightLogEntry: Codable, Identifiable {
     var rating: ScoreFeedback.Rating?
     var notes: String = ""
     var photoFilenames: [String] = []
+    // Ort des Flugs (Nutzerwunsch): beim Anlegen der eigene Standort,
+    // nachträglich änderbar. Optional, damit alte Einträge weiter
+    // decodierbar bleiben.
+    var latitude: Double?
+    var longitude: Double?
+    /// Auf der Zonenkarte zeigen? (nil = ja; per Eintrag abschaltbar)
+    var showsOnMap: Bool?
+
+    var coordinate: CLLocationCoordinate2D? {
+        guard let latitude, let longitude else { return nil }
+        return CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
+    }
+
+    var isOnMap: Bool { coordinate != nil && (showsOnMap ?? true) }
 }
 
 enum FlightLog {
@@ -52,6 +70,7 @@ enum FlightLog {
         if let data = try? JSONEncoder().encode(entries) {
             try? data.write(to: fileURL, options: .atomic)
         }
+        pushToCloud(entries)
     }
 
     /// Einfügen oder Aktualisieren (per ID).
@@ -78,6 +97,55 @@ enum FlightLog {
             entries.append(entry)
         }
         persist(entries)
+    }
+
+    // MARK: iCloud-Sync (Einträge ohne Fotos)
+
+    private static let cloudKey = "flightlog"
+
+    private static func pushToCloud(_ entries: [FlightLogEntry]) {
+        var slim = entries
+        for index in slim.indices { slim[index].photoFilenames = [] }
+        if let data = try? JSONEncoder().encode(slim) {
+            NSUbiquitousKeyValueStore.default.set(data, forKey: cloudKey)
+        }
+    }
+
+    /// Fern-Stand übernehmen (zuletzt geschriebener Stand gewinnt,
+    /// wie bei den Spots — auch Löschungen wandern so mit). Lokale
+    /// Fotos zu weiterhin vorhandenen Einträgen bleiben erhalten.
+    /// Liefert true, wenn sich etwas geändert hat.
+    @discardableResult
+    static func adoptCloud(initial: Bool) -> Bool {
+        guard let data = NSUbiquitousKeyValueStore.default.data(forKey: cloudKey),
+              let cloud = try? JSONDecoder().decode([FlightLogEntry].self, from: data) else {
+            return false
+        }
+        let local = all()
+        // Beim Start nur übernehmen, wenn lokal nichts liegt — sonst
+        // würde ein alter iCloud-Stand frische lokale Einträge kippen.
+        if initial && !local.isEmpty { return false }
+
+        let localByID = Dictionary(uniqueKeysWithValues: local.map { ($0.id, $0) })
+        // Gleiche Sortierung wie all(), sonst hinkt der Vergleich.
+        var adopted = cloud.sorted { $0.date > $1.date }
+        for index in adopted.indices {
+            adopted[index].photoFilenames = localByID[adopted[index].id]?.photoFilenames ?? []
+        }
+        let changed = adopted.map(\.id) != local.map(\.id)
+            || zip(adopted, local).contains { lhs, rhs in
+                lhs.date != rhs.date || lhs.spotName != rhs.spotName
+                    || lhs.score != rhs.score || lhs.rating != rhs.rating
+                    || lhs.notes != rhs.notes || lhs.latitude != rhs.latitude
+                    || lhs.longitude != rhs.longitude || lhs.showsOnMap != rhs.showsOnMap
+            }
+        guard changed else { return false }
+        // Direkt schreiben, ohne erneut in die Cloud zu spiegeln —
+        // das würde bei zwei Geräten einen Schreib-Pingpong anwerfen.
+        if let encoded = try? JSONEncoder().encode(adopted) {
+            try? encoded.write(to: fileURL, options: .atomic)
+        }
+        return true
     }
 
     // MARK: Fotos (verkleinert, lokal)
