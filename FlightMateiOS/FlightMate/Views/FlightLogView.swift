@@ -17,36 +17,43 @@ import MapKit
 /// Container für den Tab: Logbuch ⇄ Archiv ⇄ KI-Bildkritik.
 /// (Archiv = Drone Media Explorer; als Bereich statt sechstem Tab,
 /// weil iOS ab sechs Tabs den „Mehr"-Umweg erzwingt.)
-struct FlightsTabView: View {
-    private enum Section: String, CaseIterable {
-        case logbook = "Logbuch"
-        case archive = "Archiv"
-        case review = "KI-Bildkritik"
-    }
-    @State private var section: Section = .logbook
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+///
+/// Der Umschalter sitzt NICHT mehr über den Bereichen, sondern als
+/// safeAreaInset IN deren Navigations-Stapeln — nur so ordnet ihn
+/// iPadOS korrekt unter der oben schwebenden Tab-Leiste ein
+/// (Nutzermeldung: Leiste verdeckte den Umschalter).
+enum FluegeSection: String, CaseIterable {
+    case logbook = "Logbuch"
+    case archive = "Archiv"
+    case review = "KI-Bildkritik"
+}
+
+struct FluegeSectionPicker: View {
+    @AppStorage("fluegeSection") private var sectionRaw = FluegeSection.logbook.rawValue
 
     var body: some View {
-        VStack(spacing: 0) {
-            Picker("", selection: $section) {
-                ForEach(Section.allCases, id: \.self) { section in
-                    Text(section.rawValue).tag(section)
-                }
+        Picker("", selection: $sectionRaw) {
+            ForEach(FluegeSection.allCases, id: \.rawValue) { section in
+                Text(section.rawValue).tag(section.rawValue)
             }
-            .pickerStyle(.segmented)
-            .frame(maxWidth: 520)
-            .padding(.horizontal)
-            // Auf dem iPad schwebt die Tab-Leiste OBEN über dem
-            // Inhalt — dort braucht der Umschalter deutlich mehr
-            // Abstand, sonst verdeckt sie ihn und den Bereichs-Inhalt
-            // (Nutzermeldung vom iPad).
-            .padding(.top, horizontalSizeClass == .regular ? 24 : 8)
+        }
+        .pickerStyle(.segmented)
+        .frame(maxWidth: 520)
+        .padding(.horizontal)
+        .padding(.vertical, 6)
+        .frame(maxWidth: .infinity)
+        .background(.bar)
+    }
+}
 
-            switch section {
-            case .logbook: LogbookView()
-            case .archive: ArchivView()
-            case .review: FlightReviewView()
-            }
+struct FlightsTabView: View {
+    @AppStorage("fluegeSection") private var sectionRaw = FluegeSection.logbook.rawValue
+
+    var body: some View {
+        switch FluegeSection(rawValue: sectionRaw) ?? .logbook {
+        case .logbook: LogbookView()
+        case .archive: ArchivView()
+        case .review: FlightReviewView()
         }
     }
 }
@@ -94,6 +101,7 @@ struct LogbookView: View {
                 }
             }
             .navigationTitle("Logbuch")
+            .safeAreaInset(edge: .top, spacing: 0) { FluegeSectionPicker() }
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button {
