@@ -297,7 +297,23 @@ Dieser Stand entspricht dem **MVP-Fundament** (PRD Phase 0/1).
   **GPX** (offener Wegpunkt-Standard — öffnet in Karten-, Foto- und
   Outdoor-Apps, langfristig lesbar): ein Wegpunkt je Flug mit Name,
   Zeit, Score, Bewertung und Notiz.
-- **Flight Review (F5, KI):** Im „Flüge"-Tab als zweiter Bereich — nach dem Flug bis
+- **Archiv-Fundament (Drone Media Explorer, M1):** Im „Flüge"-Tab
+  als Bereich „Archiv" (iOS erzwingt ab sechs Tabs den
+  „Mehr"-Umweg — deshalb kein eigener Tab). Enthält das
+  Katalog-Fundament nach `docs/flightmate-ai/
+  MEDIA-EXPLORER-ARCHITEKTUR.md`: SwiftData-Modelle (MediaAsset mit
+  Inhalts-Hash als Dedupe-Anker, PhotoMeta/VideoMeta mit
+  verlustfreiem rawExif/rawMetadata, FileRef-Fundorte je Gerät,
+  EditedVersion, Ort mit Quelle+Konfidenz), CloudKit-Sync des
+  Katalogs (privater Container `iCloud.de.familie.flightmate`, nur
+  Metadaten; ehrlicher Lokal-Fallback ohne iCloud),
+  SHA-256-Deduplikator (streamend + Schnelltest) und die
+  Quellen-Verwaltung (Security-Scoped Bookmarks für DJI-Fly-Ordner/
+  SD-Karte/beliebige Ordner, geräte-gebunden). Die Archiv-Ansicht
+  zeigt Katalogstand, Sync-Status und verbundene Quellen; der
+  eigentliche Import folgt in M2. Grundprinzip: Originale werden nie
+  verändert.
+- **Flight Review (F5, KI):** Im „Flüge"-Tab als dritter Bereich — nach dem Flug bis
   zu 5 Aufnahmen auswählen (PhotosPicker, kein Mediathek-Vollzugriff);
   Claude bewertet jede entlang der festen PRD-Rubrik mit max. 2
   Stärken und genau einem umsetzbaren Verbesserungsvorschlag

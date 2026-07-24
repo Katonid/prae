@@ -419,22 +419,30 @@ große Ordner-/NAS-Quellen.
 
 ---
 
-## 12. Offene Entscheidungen (bitte abstimmen)
+## 12. Entscheidungen (abgestimmt am 24.07.2026)
 
-1. **Medien-Speichermodus-Standard:** Empfehlung Modus B (Apple Fotos
-   als Speicher) für „überall verfügbar“, Modus A für DJI-Fly-/
-   SD-/NAS-Quellen — einverstanden? Modus C (eigene iCloud-Drive-
-   Bibliothek) überhaupt gewünscht?
-2. **Neues Ziel-Layout:** Archiv als neuer Tab „Archiv“ in FlightMate
-   (Empfehlung: EIN App-Symbol, ein Datenbestand) — oder als separate
-   App?
-3. **macOS:** Reicht zum Start „iPad-App auf Apple Silicon“ (sofort,
-   null Aufwand), oder direkt natives macOS-Target (M4/M5)?
-4. **Zuhause-Definition** für die Reise-Erkennung: automatisch
-   (häufigster Ort) mit manueller Übersteuerung — okay?
-5. **Vision-Tagging-Zeitpunkt:** direkt beim Import (Import dauert
-   länger) oder als Hintergrund-Batch danach (Empfehlung)?
-6. **Freigabe der Roadmap unten** — Reihenfolge ändern erlaubt.
+1. **Medien-Speichermodus-Standard: Modus A (Referenz).** Originale
+   bleiben, wo sie sind; der Katalog referenziert je Gerät. Modus B
+   bleibt für Apple-Fotos-Quellen technisch ohnehin der Weg
+   (PhotoKit-Referenz), Modus C wird nicht gebaut.
+2. **Ein App-Symbol, ein Datenbestand.** Das Archiv wird Teil der
+   FlightMate-App. Umsetzungsdetail: iOS zeigt maximal fünf Tabs ohne
+   „Mehr“-Umweg — das Archiv wohnt deshalb als dritter Bereich im
+   „Flüge“-Tab (Logbuch ⇄ Archiv ⇄ KI-Bildkritik); dort ist alles
+   Nach-dem-Flug beisammen. Eigenständiger Tab wird neu bewertet,
+   wenn das Archiv in M2 gewachsen ist.
+3. **macOS: iPad-App auf Apple Silicon** (kein eigenes macOS-Target).
+4. **Zuhause-Definition:** automatisch (häufigster Aufnahmeort) mit
+   manueller Übersteuerung — bestätigt.
+5. **Vision-Tagging als Hintergrund-Batch** nach dem Import — bestätigt.
+6. **Roadmap M1–M6 freigegeben.**
+
+Pragmatische Ergänzung zur Modulstruktur: Das Xcode-Projekt nutzt
+synchronisierte Ordner (hand-gepflegte projekt.pbxproj) — die Module
+aus Kap. 2 werden deshalb als **Ordner mit Namensdisziplin** im
+bestehenden Target umgesetzt (Archiv/Katalog, Archiv/Import, …)
+statt als separate Swift-Packages; die Abhängigkeitsregeln gelten
+unverändert. Physische Packages bleiben eine spätere Option.
 
 ---
 
