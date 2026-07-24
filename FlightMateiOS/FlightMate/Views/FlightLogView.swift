@@ -64,26 +64,23 @@ struct LogbookView: View {
                         systemImage: "book.closed",
                         description: Text("Halte deine Flugtage fest: Ort, Score, wie es wirklich war — und die besten Bilder. Nach der Reise hast du deine ganze Foto-Flug-Historie beisammen.")
                     )
-                } else {
+                } else if editMode.isEditing {
+                    // Auswahl-Anbindung NUR im Auswählen-Modus: Eine
+                    // List mit selection macht auf dem iPad jede Zeile
+                    // dauerhaft per Einzeltipp auswählbar — der Tipp
+                    // landete in der Auswahl statt im Öffnen-Knopf
+                    // (Nutzermeldung: Eintrag auf dem iPad nicht
+                    // antippbar).
                     List(selection: $selection) {
-                        ForEach(entries) { entry in
-                            Button {
-                                if !editMode.isEditing { editingEntry = entry }
-                            } label: {
-                                row(entry)
-                            }
-                            .buttonStyle(.plain)
-                            .tag(entry.id)
-                        }
-                        .onDelete { indexSet in
-                            for index in indexSet {
-                                FlightLog.delete(entries[index])
-                            }
-                            entries = FlightLog.all()
-                        }
+                        entryRows
                     }
                     .listStyle(.plain)
                     .environment(\.editMode, $editMode)
+                } else {
+                    List {
+                        entryRows
+                    }
+                    .listStyle(.plain)
                 }
             }
             .navigationTitle("Logbuch")
@@ -231,6 +228,25 @@ struct LogbookView: View {
             .buttonStyle(.borderedProminent)
         }
         .padding(24)
+    }
+
+    @ViewBuilder
+    private var entryRows: some View {
+        ForEach(entries) { entry in
+            Button {
+                if !editMode.isEditing { editingEntry = entry }
+            } label: {
+                row(entry)
+            }
+            .buttonStyle(.plain)
+            .tag(entry.id)
+        }
+        .onDelete { indexSet in
+            for index in indexSet {
+                FlightLog.delete(entries[index])
+            }
+            entries = FlightLog.all()
+        }
     }
 
     private func row(_ entry: FlightLogEntry) -> some View {
