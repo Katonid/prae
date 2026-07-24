@@ -19,11 +19,15 @@ enum MapStyleChoice: String, CaseIterable, Identifiable {
 
     var id: String { rawValue }
 
+    // Bewusst ohne 3D-Gelände (elevation: .realistic): Die räumliche
+    // Darstellung baut die Kacheln bei jedem Overlay-Update sichtbar
+    // neu auf — die Karte „blitzte" nach dem Verschieben (Nutzer-
+    // meldung). Flach gerendert bleibt sie beim Nachladen stehen.
     var style: MapStyle {
         switch self {
-        case .standard: return .standard(elevation: .realistic)
-        case .hybrid: return .hybrid(elevation: .realistic)
-        case .imagery: return .imagery(elevation: .realistic)
+        case .standard: return .standard
+        case .hybrid: return .hybrid
+        case .imagery: return .imagery
         }
     }
 }

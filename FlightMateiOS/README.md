@@ -131,7 +131,12 @@ Dieser Stand entspricht dem **MVP-Fundament** (PRD Phase 0/1).
   „mehr beim Hineinzoomen"). Beim Verschieben bleibt die alte
   Zeichnung stehen und die Karte schwenkt geschmeidig — neu geladen
   wird erst, wenn sie eine halbe Sekunde ruhig steht (jede neue
-  Bewegung bricht die wartende Ladung ab). Kartenstil umschaltbar
+  Bewegung bricht die wartende Ladung ab). Alle Zonen tragen
+  stabile, geometrie-basierte IDs, damit SwiftUI beim Nachladen nur
+  die tatsächlich neuen Flächen einfügt statt die ganze Ebene neu
+  aufzubauen, und die Karte wird bewusst ohne 3D-Gelände gerendert —
+  beides zusammen beseitigt das kurze „Wegblitzen" der Basiskarte
+  nach dem Verschieben (Nutzermeldung). Kartenstil umschaltbar
   (Karte / Hybrid / Satellit) und Tag-/Nachtansicht unabhängig vom
   Geräte-Erscheinungsbild erzwingbar; beide Einstellungen bleiben
   gespeichert.
