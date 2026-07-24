@@ -319,6 +319,7 @@ struct LogEntryEditor: View {
     @State private var pickerItems: [PhotosPickerItem] = []
     @State private var hasScore: Bool
     @State private var showLocationPicker = false
+    @State private var viewerTarget: PhotoViewerTarget?
 
     init(entry: FlightLogEntry) {
         _entry = State(initialValue: entry)
@@ -427,13 +428,18 @@ struct LogEntryEditor: View {
                     if !entry.photoFilenames.isEmpty {
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: 8) {
-                                ForEach(entry.photoFilenames, id: \.self) { filename in
+                                ForEach(Array(entry.photoFilenames.enumerated()), id: \.element) { index, filename in
                                     if let image = FlightLog.loadThumbnail(filename, maxPixel: 200) {
                                         Image(uiImage: image)
                                             .resizable()
                                             .scaledToFill()
                                             .frame(width: 84, height: 84)
                                             .clipShape(RoundedRectangle(cornerRadius: 10))
+                                            // Tipp aufs Bild → Vollbild-
+                                            // Betrachter (Nutzerwunsch).
+                                            .onTapGesture {
+                                                viewerTarget = PhotoViewerTarget(id: index)
+                                            }
                                             .overlay(alignment: .topTrailing) {
                                                 Button {
                                                     entry.photoFilenames.removeAll { $0 == filename }
@@ -447,6 +453,9 @@ struct LogEntryEditor: View {
                                 }
                             }
                         }
+                        Text("Tipp aufs Bild zeigt es groß")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
                     }
                     if entry.photoFilenames.count < 3 {
                         PhotosPicker(selection: $pickerItems,
@@ -479,6 +488,9 @@ struct LogEntryEditor: View {
                     entry.longitude = picked.longitude
                 }
             }
+            .fullScreenCover(item: $viewerTarget) { target in
+                LogPhotoViewer(filenames: entry.photoFilenames, startIndex: target.id)
+            }
         }
     }
 
@@ -503,6 +515,111 @@ struct LogEntryEditor: View {
             ScoreValidation.rate(score: score, rating: rating)
         }
         dismiss()
+    }
+}
+
+// MARK: Fotos in groß — Blättern, Kneif-Zoom, Doppeltipp
+
+struct PhotoViewerTarget: Identifiable {
+    let id: Int
+}
+
+struct LogPhotoViewer: View {
+    @Environment(\.dismiss) private var dismiss
+    let filenames: [String]
+    @State private var current: Int
+
+    init(filenames: [String], startIndex: Int) {
+        self.filenames = filenames
+        _current = State(initialValue: min(startIndex, max(filenames.count - 1, 0)))
+    }
+
+    var body: some View {
+        NavigationStack {
+            TabView(selection: $current) {
+                ForEach(Array(filenames.enumerated()), id: \.element) { index, filename in
+                    ZoomableImage(image: FlightLog.loadPhoto(filename))
+                        .tag(index)
+                }
+            }
+            .tabViewStyle(.page)
+            .background(Color.black)
+            .navigationTitle(filenames.count > 1 ? "\(current + 1) von \(filenames.count)" : "Foto")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbarColorScheme(.dark, for: .navigationBar)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Fertig") { dismiss() }
+                }
+            }
+        }
+    }
+}
+
+/// Vollbild mit Kneif-Zoom (bis 4-fach), Ziehen im gezoomten Zustand
+/// und Doppeltipp (rein/raus).
+private struct ZoomableImage: View {
+    let image: UIImage?
+    @State private var scale: CGFloat = 1
+    @State private var lastScale: CGFloat = 1
+    @State private var offset: CGSize = .zero
+    @State private var lastOffset: CGSize = .zero
+
+    var body: some View {
+        Group {
+            if let image {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFit()
+                    .scaleEffect(scale)
+                    .offset(offset)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .contentShape(Rectangle())
+                    .gesture(
+                        MagnificationGesture()
+                            .onChanged { value in
+                                scale = min(max(lastScale * value, 1), 4)
+                            }
+                            .onEnded { _ in
+                                lastScale = scale
+                                if scale <= 1.01 { resetZoom() }
+                            }
+                    )
+                    .simultaneousGesture(
+                        DragGesture()
+                            .onChanged { value in
+                                guard scale > 1 else { return }
+                                offset = CGSize(width: lastOffset.width + value.translation.width,
+                                                height: lastOffset.height + value.translation.height)
+                            }
+                            .onEnded { _ in
+                                lastOffset = offset
+                            }
+                    )
+                    .onTapGesture(count: 2) {
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                            if scale > 1 {
+                                resetZoom()
+                            } else {
+                                scale = 2.5
+                                lastScale = 2.5
+                            }
+                        }
+                    }
+            } else {
+                Image(systemName: "photo")
+                    .font(.largeTitle)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .background(Color.black)
+    }
+
+    private func resetZoom() {
+        scale = 1
+        lastScale = 1
+        offset = .zero
+        lastOffset = .zero
     }
 }
 
