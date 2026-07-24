@@ -28,6 +28,29 @@ import CryptoKit
 private let airspaceGridStepDeg = 0.02
 private let airspaceGridSlackM = 2_500
 
+/// Kurzzeit-Bremse nach einem 429: openAIP drosselt Anfrage-Bursts
+/// (das ist NICHT das Tageskontingent). Ohne Pause würde jede
+/// weitere Kartenbewegung das Limit sofort neu auslösen — eine
+/// Minute Funkstille lässt es sich erholen; solange springt der
+/// letzte Cache-Stand ein (Nutzer-Befund beim Kanada-Schwenk).
+private final class OpenAIPRateGate: @unchecked Sendable {
+    static let shared = OpenAIPRateGate()
+    private let lock = NSLock()
+    private var pausedUntil: Date?
+
+    var isPaused: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return pausedUntil.map { $0 > Date() } ?? false
+    }
+
+    func pause(seconds: TimeInterval) {
+        lock.lock()
+        pausedUntil = Date().addingTimeInterval(seconds)
+        lock.unlock()
+    }
+}
+
 @MainActor
 final class AirspaceService: ObservableObject {
     static let shared = AirspaceService()
@@ -265,6 +288,13 @@ final class AirspaceService: ObservableObject {
             return cached
         }
 
+        // Nach einem 429 kurz gar nicht erst fragen — ein alter Stand
+        // (falls vorhanden) ist besser, als das Limit erneut zu treten.
+        if OpenAIPRateGate.shared.isPaused {
+            if let stale = try? Data(contentsOf: cacheFile) { return stale }
+            throw AirspaceError.http(429)
+        }
+
         var request = URLRequest(url: url)
         request.timeoutInterval = 20
         request.setValue(apiKey, forHTTPHeaderField: "x-openaip-api-key")
@@ -273,7 +303,12 @@ final class AirspaceService: ObservableObject {
                 throw AirspaceError.network
             }
             guard let http = response as? HTTPURLResponse else { throw AirspaceError.network }
-            guard http.statusCode == 200 else { throw AirspaceError.http(http.statusCode) }
+            guard http.statusCode == 200 else {
+                if http.statusCode == 429 {
+                    OpenAIPRateGate.shared.pause(seconds: 60)
+                }
+                throw AirspaceError.http(http.statusCode)
+            }
             try? manager.createDirectory(at: cacheFile.deletingLastPathComponent(),
                                          withIntermediateDirectories: true)
             try? data.write(to: cacheFile)
@@ -311,7 +346,7 @@ final class AirspaceService: ObservableObject {
             case .noKey: return "kein Schlüssel"
             case .http(403), .http(404), .http(401):
                 return "Schlüssel nicht anerkannt — in den Einstellungen testen"
-            case .http(429): return "Abfrage-Limit erreicht, später erneut"
+            case .http(429): return "Kurzzeit-Limit (Anfrage-Burst, nicht dein Kontingent) — erholt sich in ca. 1 Minute von selbst"
             case .http(let status): return "HTTP \(status)"
             case .network: return "Netzfehler/Timeout"
             case .decoding: return "unerwartetes Antwortformat"
