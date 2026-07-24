@@ -19,15 +19,16 @@ enum MapStyleChoice: String, CaseIterable, Identifiable {
 
     var id: String { rawValue }
 
-    // Bewusst ohne 3D-Gelände (elevation: .realistic): Die räumliche
-    // Darstellung baut die Kacheln bei jedem Overlay-Update sichtbar
+    // Standard ist flach: Die räumliche Darstellung (elevation:
+    // .realistic) baut die Kacheln bei jedem Overlay-Update sichtbar
     // neu auf — die Karte „blitzte" nach dem Verschieben (Nutzer-
-    // meldung). Flach gerendert bleibt sie beim Nachladen stehen.
-    var style: MapStyle {
+    // meldung). Wer die Geländeneigung mag, schaltet sie im
+    // Kartenansicht-Menü zu (Nutzerwunsch).
+    func style(elevation3D: Bool) -> MapStyle {
         switch self {
-        case .standard: return .standard
-        case .hybrid: return .hybrid
-        case .imagery: return .imagery
+        case .standard: return .standard(elevation: elevation3D ? .realistic : .flat)
+        case .hybrid: return .hybrid(elevation: elevation3D ? .realistic : .flat)
+        case .imagery: return .imagery(elevation: elevation3D ? .realistic : .flat)
         }
     }
 }
@@ -71,6 +72,10 @@ struct LegalMapView: View {
     @State private var showResult = false
     @AppStorage("mapStyleChoice") private var styleChoice: MapStyleChoice = .hybrid
     @AppStorage("mapAppearance") private var appearance: MapAppearance = .auto
+    // 3D-Geländeneigung auf Wunsch zuschaltbar (Standard: flach,
+    // weil das räumliche Rendern beim Overlay-Nachladen sichtbar
+    // neu aufbaut — siehe MapStyleChoice.style).
+    @AppStorage("mapElevation3D") private var elevation3D = false
     @State private var overlays: [ZoneOverlay] = []
     @State private var zoomedOut = false
     @State private var detailHidden = false
@@ -116,7 +121,7 @@ struct LegalMapView: View {
                         }
                     }
                 }
-                .mapStyle(styleChoice.style)
+                .mapStyle(styleChoice.style(elevation3D: elevation3D))
                 .onTapGesture { screenPoint in
                     guard let coordinate = proxy.convert(screenPoint, from: .local) else { return }
                     check(coordinate)
@@ -205,10 +210,14 @@ struct LegalMapView: View {
                                 Label(choice.rawValue, systemImage: choice.symbol).tag(choice)
                             }
                         }
+                        Divider()
+                        Toggle(isOn: $elevation3D) {
+                            Label("3D-Gelände", systemImage: "mountain.2")
+                        }
                     } label: {
                         Image(systemName: appearance.symbol)
                     }
-                    .accessibilityLabel("Tag- oder Nachtansicht der Karte")
+                    .accessibilityLabel("Kartenansicht: Tag/Nacht und 3D-Gelände")
                 }
             }
             .onAppear { if showsPhotoSpots { loadPhotoSpots() } }
