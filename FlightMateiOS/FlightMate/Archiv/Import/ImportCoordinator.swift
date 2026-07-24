@@ -18,6 +18,13 @@ import PhotosUI
 import Photos
 import UIKit
 
+// Datei-Konstanten statt Klassen-Statics: von nonisolierten Helfern
+// aus zugreifbar (MainActor-Statics wären dort tabu).
+private let archivVideoExtensions: Set<String> = ["mp4", "mov", "m4v"]
+private let archivMediaExtensions: Set<String> =
+    ["jpg", "jpeg", "png", "heic", "heif", "dng", "tif", "tiff",
+     "mp4", "mov", "m4v"]
+
 @MainActor
 final class ImportCoordinator: ObservableObject {
     static let shared = ImportCoordinator()
@@ -34,22 +41,19 @@ final class ImportCoordinator: ObservableObject {
         UserDefaults.standard.set(active, forKey: "archivOpenGuard")
     }
 
-    private static let videoExtensions: Set<String> = ["mp4", "mov", "m4v"]
-    private static let mediaExtensions: Set<String> =
-        ["jpg", "jpeg", "png", "heic", "heif", "dng", "tif", "tiff",
-         "mp4", "mov", "m4v"]
-
     enum Outcome { case new, attached }
 
     /// Eigener Temp-Ordner des Imports — wird vor und nach jedem
     /// Durchlauf geleert (Absturz-Reste dürfen den Speicher nicht
     /// füllen; das hatte die App einmal komplett lahmgelegt).
-    static var importTempDirectory: URL {
+    /// nonisolated: reine Dateisystem-Helfer, auch der
+    /// Video-Transferable greift von außerhalb des MainActors zu.
+    nonisolated static var importTempDirectory: URL {
         FileManager.default.temporaryDirectory
             .appendingPathComponent("archiv-import", isDirectory: true)
     }
 
-    private static func cleanImportTemp() {
+    nonisolated private static func cleanImportTemp() {
         if let items = try? FileManager.default.contentsOfDirectory(
             at: importTempDirectory, includingPropertiesForKeys: nil) {
             for item in items { try? FileManager.default.removeItem(at: item) }
@@ -60,11 +64,33 @@ final class ImportCoordinator: ObservableObject {
 
     /// Freier Speicher — unter 2 GB wird kein Import mehr gestartet
     /// (ein 4K-Video als Temp-Kopie plus Katalog braucht Luft).
-    private static func hasEnoughFreeSpace() -> Bool {
+    nonisolated private static func hasEnoughFreeSpace() -> Bool {
         let values = try? URL(fileURLWithPath: NSHomeDirectory())
             .resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey])
         guard let free = values?.volumeAvailableCapacityForImportantUsage else { return true }
         return free > 2_000_000_000
+    }
+
+    /// Medien-Dateien einer Quelle auflisten — synchron und
+    /// nonisolated (die Enumerator-Iteration gehört nicht in einen
+    /// async-Kontext; Aufruf via Task.detached).
+    nonisolated private static func listMediaFiles(root: URL)
+        -> [(url: URL, size: Int64, modified: Date, created: Date?)] {
+        let keys: Set<URLResourceKey> = [.isRegularFileKey, .fileSizeKey,
+                                         .contentModificationDateKey, .creationDateKey]
+        guard let enumerator = FileManager.default.enumerator(
+            at: root, includingPropertiesForKeys: Array(keys),
+            options: [.skipsHiddenFiles]) else { return [] }
+        var result: [(URL, Int64, Date, Date?)] = []
+        for case let url as URL in enumerator {
+            guard archivMediaExtensions.contains(url.pathExtension.lowercased()),
+                  let values = try? url.resourceValues(forKeys: keys),
+                  values.isRegularFile == true else { continue }
+            result.append((url, Int64(values.fileSize ?? 0),
+                           values.contentModificationDate ?? .distantPast,
+                           values.creationDate))
+        }
+        return result
     }
 
     // MARK: Ordner-Quellen (automatischer Differenz-Scan)
@@ -93,32 +119,23 @@ final class ImportCoordinator: ObservableObject {
 
     private func scanFolder(root: URL, source: ConnectedSource) async -> (Int, Int, Int) {
         var imported = 0, attached = 0, failed = 0
-        let keys: Set<URLResourceKey> = [.isRegularFileKey, .fileSizeKey,
-                                         .contentModificationDateKey, .creationDateKey]
-        guard let enumerator = FileManager.default.enumerator(
-            at: root, includingPropertiesForKeys: Array(keys),
-            options: [.skipsHiddenFiles]) else { return (0, 0, 0) }
+        let candidates = await Task.detached(priority: .utility) {
+            Self.listMediaFiles(root: root)
+        }.value
 
-        var candidates: [(URL, URLResourceValues)] = []
-        for case let url as URL in enumerator {
-            guard Self.mediaExtensions.contains(url.pathExtension.lowercased()),
-                  let values = try? url.resourceValues(forKeys: keys),
-                  values.isRegularFile == true else { continue }
-            candidates.append((url, values))
-        }
-
-        for (url, values) in candidates {
-            let relative = String(url.path.dropFirst(root.path.count))
+        for candidate in candidates {
+            let relative = String(candidate.url.path.dropFirst(root.path.count))
             let registryKey = "\(source.id.uuidString)|\(relative)"
-            let stamp = "\(values.fileSize ?? 0)-\((values.contentModificationDate ?? .distantPast).timeIntervalSince1970)"
+            let stamp = "\(candidate.size)-\(candidate.modified.timeIntervalSince1970)"
             // Unverändert bekannt → gar nicht erst hashen.
             if ScanRegistry.stamp(for: registryKey) == stamp { continue }
-            progressText = "Prüfe \(url.lastPathComponent) …"
+            progressText = "Prüfe \(candidate.url.lastPathComponent) …"
             await Task.yield()
             do {
                 let (outcome, _) = try await importFile(
-                    url: url, relativePath: relative, sourceLabel: source.label,
-                    fallbackDate: values.creationDate)
+                    url: candidate.url, relativePath: relative,
+                    sourceLabel: source.label,
+                    fallbackDate: candidate.created)
                 if outcome == .new { imported += 1 } else { attached += 1 }
                 ScanRegistry.set(stamp, for: registryKey)
             } catch {
@@ -278,7 +295,7 @@ final class ImportCoordinator: ObservableObject {
             return (.attached, existing)
         }
 
-        let isVideo = Self.videoExtensions.contains(url.pathExtension.lowercased())
+        let isVideo = archivVideoExtensions.contains(url.pathExtension.lowercased())
         let asset = MediaAsset()
         asset.contentHash = hash
         asset.kindRaw = (isVideo ? MediaKind.video : MediaKind.photo).rawValue
