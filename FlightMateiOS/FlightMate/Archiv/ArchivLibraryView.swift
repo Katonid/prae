@@ -567,8 +567,9 @@ struct AddVersionSheet: View {
                         Label(pickedFileName ?? "… oder Datei wählen",
                               systemImage: "doc")
                     }
-                } footer: {
                     Text("Link ODER Datei — die Version bleibt dauerhaft mit dem Original verknüpft. Die Datei selbst wird nicht kopiert, nur gemerkt.")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
                 }
             }
             .navigationTitle("Version verknüpfen")
