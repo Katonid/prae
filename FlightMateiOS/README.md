@@ -356,6 +356,23 @@ Dieser Stand entspricht dem **MVP-Fundament** (PRD Phase 0/1).
   Flug-Daten (Start, Dauer, max. Höhe). Die **Medien-Karte** zeigt
   alle verorteten Medien als Vorschau-Marker (Tipp → Detail) und
   die Flugrouten als Linien mit Start-/Landepunkt.
+  **M4 — Reisen, Foto-Spots & Versionen:** Nach jedem Import
+  verdichtet der Clusterer automatisch: **Reisen** = verortete
+  Aufnahmen weiter als 50 km vom „Zuhause" (häufigster
+  Aufnahmeort), getrennt durch Pausen über 48 h, automatisch
+  benannt per Reverse-Geocoding („Ontario, Juli 2026") und
+  umbenennbar (manuelle Namen überschreibt die Automatik nie);
+  unverortete Videos im Reisezeitraum gehören mit zur Reise.
+  **Foto-Spots** = Radius-Clustering (250 m) mit stabilen Zentren;
+  liegt ein FlightMate-Planungs-Spot in der Nähe (300 m), übernimmt
+  der Foto-Spot dessen Namen samt Verknüpfung (Brücke Planung ↔
+  Archiv), sonst Reverse-Geocoding. Je Spot: Name, Beschreibung,
+  Bewertung, Notizen, Erst-/Letztbesuch, Foto-/Video-Zähler und
+  das Aufnahmen-Gitter. **Bearbeitete Versionen** (YouTube,
+  Instagram, Familienfilm …) lassen sich in der Detail-Ansicht
+  dauerhaft mit dem Original verknüpfen — als Link oder
+  Datei-Verweis (nichts wird kopiert), beliebig viele je Original,
+  wisch-löschbar.
   **Stabilität (nach gemeldetem Absturz beim Video-Import):** Videos
   laufen beim Import nie durch den Arbeitsspeicher (Datei-Übergabe
   statt Data — ein 4K-Video sprengte sonst den RAM); der Import

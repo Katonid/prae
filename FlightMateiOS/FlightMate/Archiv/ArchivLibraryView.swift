@@ -216,6 +216,11 @@ struct ArchivAssetDetailView: View {
     @State private var newTag = ""
     @State private var confirmDelete = false
     @State private var showLocationPicker = false
+    @State private var showAddVersion = false
+
+    private var sortedVersions: [EditedVersion] {
+        (asset.versions ?? []).sorted { $0.createdAt > $1.createdAt }
+    }
 
     var body: some View {
         List {
@@ -371,6 +376,39 @@ struct ArchivAssetDetailView: View {
                 }
             }
 
+            Section("Bearbeitete Versionen") {
+                ForEach(sortedVersions) { version in
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(version.purpose.isEmpty ? "Version" : version.purpose)
+                            .font(.subheadline.bold())
+                        if let link = version.linkURL, let url = URL(string: link) {
+                            Link(link, destination: url)
+                                .font(.caption)
+                                .lineLimit(1)
+                        } else if let fileName = version.fileName {
+                            Text(fileName)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Text(Theme.shortDayFormatter.string(from: version.createdAt))
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                    }
+                }
+                .onDelete { indexSet in
+                    let versions = sortedVersions
+                    for index in indexSet {
+                        ArchivStore.shared.container?.mainContext.delete(versions[index])
+                    }
+                    ArchivStore.shared.saveQuietly()
+                }
+                Button {
+                    showAddVersion = true
+                } label: {
+                    Label("Version verknüpfen", systemImage: "plus")
+                }
+            }
+
             if let raw = rawMetadata {
                 Section {
                     DisclosureGroup("Roh-Metadaten (\(raw.count) Felder)") {
@@ -424,6 +462,9 @@ struct ArchivAssetDetailView: View {
                 asset.locationConfidenceRaw = LocationConfidence.high.rawValue
                 ArchivStore.shared.saveQuietly()
             }
+        }
+        .sheet(isPresented: $showAddVersion) {
+            AddVersionSheet(asset: asset)
         }
         .onDisappear { ArchivStore.shared.saveQuietly() }
     }
@@ -483,5 +524,78 @@ struct ArchivAssetDetailView: View {
         }
         walk(object, prefix: "")
         return flat.isEmpty ? nil : flat
+    }
+}
+
+// MARK: Bearbeitete Version verknüpfen (Link oder Datei)
+
+struct AddVersionSheet: View {
+    let asset: MediaAsset
+    @Environment(\.dismiss) private var dismiss
+    @State private var purpose = ""
+    @State private var linkURL = ""
+    @State private var pickedFileName: String?
+    @State private var pickedBookmark: Data?
+    @State private var showFilePicker = false
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("Zweck") {
+                    TextField("z. B. YouTube, Instagram, Familienfilm", text: $purpose)
+                }
+                Section("Verknüpfung") {
+                    TextField("Link (z. B. YouTube-URL)", text: $linkURL)
+                        .keyboardType(.URL)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                    Button {
+                        showFilePicker = true
+                    } label: {
+                        Label(pickedFileName ?? "… oder Datei wählen",
+                              systemImage: "doc")
+                    }
+                } footer: {
+                    Text("Link ODER Datei — die Version bleibt dauerhaft mit dem Original verknüpft. Die Datei selbst wird nicht kopiert, nur gemerkt.")
+                }
+            }
+            .navigationTitle("Version verknüpfen")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Abbrechen") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Sichern") { save() }
+                        .bold()
+                        .disabled(purpose.trimmingCharacters(in: .whitespaces).isEmpty
+                                  || (linkURL.isEmpty && pickedBookmark == nil))
+                }
+            }
+            .fileImporter(isPresented: $showFilePicker,
+                          allowedContentTypes: [.movie, .image, .data]) { result in
+                guard case .success(let url) = result else { return }
+                let scoped = url.startAccessingSecurityScopedResource()
+                pickedBookmark = try? url.bookmarkData(
+                    options: .minimalBookmark,
+                    includingResourceValuesForKeys: nil, relativeTo: nil)
+                if scoped { url.stopAccessingSecurityScopedResource() }
+                pickedFileName = url.lastPathComponent
+            }
+        }
+    }
+
+    private func save() {
+        guard let container = ArchivStore.shared.container else { return }
+        let version = EditedVersion()
+        version.purpose = purpose.trimmingCharacters(in: .whitespaces)
+        let trimmedLink = linkURL.trimmingCharacters(in: .whitespaces)
+        version.linkURL = trimmedLink.isEmpty ? nil : trimmedLink
+        version.bookmark = pickedBookmark
+        version.fileName = pickedFileName
+        version.original = asset
+        container.mainContext.insert(version)
+        ArchivStore.shared.saveQuietly()
+        dismiss()
     }
 }

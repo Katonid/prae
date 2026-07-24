@@ -97,6 +97,9 @@ final class MediaAsset {
     var videoMeta: VideoMeta?
     /// Zugeordneter Flug (M3, per Zeitfenster gematcht).
     var flight: Flight?
+    /// Automatisch erkannte Reise bzw. Foto-Spot (M4, Clustering).
+    var trip: Trip?
+    var spot: MediaSpot?
 
     init() {}
 
@@ -245,6 +248,55 @@ final class Flight {
         return (CLLocationCoordinate2D(latitude: previous[1], longitude: previous[2]),
                 previous.count >= 4 ? previous[3] : nil)
     }
+}
+
+// MARK: Reisen (M4 — automatisch erkannt, immer editierbar)
+
+@Model
+final class Trip {
+    var id: UUID = UUID()
+    /// Auto-Name („Ontario, Juli 2026" per Reverse-Geocoding) —
+    /// manuell umbenennbar; manuelle Namen überschreibt die
+    /// Automatik nie (isManuallyEdited).
+    var name: String = ""
+    var start: Date = Date()
+    var end: Date = Date()
+    var isManuallyEdited: Bool = false
+    @Relationship(deleteRule: .nullify, inverse: \MediaAsset.trip)
+    var assets: [MediaAsset]? = []
+
+    init() {}
+}
+
+// MARK: Foto-Spots (M4 — Radius-Clustering, verdichtete Orte)
+
+@Model
+final class MediaSpot {
+    var id: UUID = UUID()
+    var name: String = ""
+    /// Beschreibung ("description" kollidiert mit Swift-Konventionen).
+    var details: String = ""
+    var notes: String = ""
+    var rating: Int?
+    var latitude: Double = 0
+    var longitude: Double = 0
+    var radiusM: Double = 250
+    /// Brücke zum Planungs-Spot (FlightMate-Spots) in der Nähe.
+    var linkedPlanningSpotID: UUID?
+    var isManuallyEdited: Bool = false
+    @Relationship(deleteRule: .nullify, inverse: \MediaAsset.spot)
+    var assets: [MediaAsset]? = []
+
+    init() {}
+
+    var coordinate: CLLocationCoordinate2D {
+        CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
+    }
+
+    var firstVisit: Date? { (assets ?? []).map(\.capturedAt).min() }
+    var lastVisit: Date? { (assets ?? []).map(\.capturedAt).max() }
+    var photoCount: Int { (assets ?? []).filter { $0.kind == .photo }.count }
+    var videoCount: Int { (assets ?? []).filter { $0.kind == .video }.count }
 }
 
 // MARK: Bearbeitete Fassungen (dauerhaft mit dem Original verknüpft)
