@@ -21,6 +21,13 @@ import Security
 import CoreLocation
 import CryptoKit
 
+// Positionsraster (~2 km) — der Abfrage-Radius wird entsprechend
+// vergrößert, damit trotz Rundung nichts durchs Raster fällt.
+// Datei-Konstanten statt MainActor-Statics: auch nonisolierte
+// Helfer greifen zu (Swift-6-Isolationsregel).
+private let airspaceGridStepDeg = 0.02
+private let airspaceGridSlackM = 2_500
+
 @MainActor
 final class AirspaceService: ObservableObject {
     static let shared = AirspaceService()
@@ -177,7 +184,7 @@ final class AirspaceService: ObservableObject {
                                                     Self.quantize(center.longitude))),
             // Radius auf 5-km-Stufen aufrunden — sonst erzeugt jede
             // Zoomstufe einen eigenen Cache-Eintrag.
-            URLQueryItem(name: "dist", value: String(((radiusM + Self.gridSlackM + 4_999) / 5_000) * 5_000)),
+            URLQueryItem(name: "dist", value: String(((radiusM + airspaceGridSlackM + 4_999) / 5_000) * 5_000)),
             URLQueryItem(name: "limit", value: "100"),
             // Nur die benötigten Felder — volle Luftraum-Objekte sind
             // mehrere MB groß und liefen auf Mobilfunk ins Timeout
@@ -238,13 +245,8 @@ final class AirspaceService: ObservableObject {
     /// So lange gilt ein Cache-Eintrag als frisch (kein Netzzugriff).
     private static let cacheFreshTTL: TimeInterval = 12 * 3600
 
-    /// Positionsraster (~2 km) — der Abfrage-Radius wird entsprechend
-    /// vergrößert, damit trotz Rundung nichts durchs Raster fällt.
-    private static let gridStepDeg = 0.02
-    private static let gridSlackM = 2_500
-
     private nonisolated static func quantize(_ value: Double) -> Double {
-        (value / gridStepDeg).rounded() * gridStepDeg
+        (value / airspaceGridStepDeg).rounded() * airspaceGridStepDeg
     }
 
     /// Lädt eine openAIP-URL mit Datei-Zwischenspeicher: frisch → Cache,
@@ -400,7 +402,7 @@ final class AirspaceService: ObservableObject {
             URLQueryItem(name: "pos", value: String(format: "%.2f,%.2f",
                                                     Self.quantize(center.latitude),
                                                     Self.quantize(center.longitude))),
-            URLQueryItem(name: "dist", value: String(((radiusM + Self.gridSlackM + 4_999) / 5_000) * 5_000)),
+            URLQueryItem(name: "dist", value: String(((radiusM + airspaceGridSlackM + 4_999) / 5_000) * 5_000)),
             URLQueryItem(name: "limit", value: "100"),
             URLQueryItem(name: "fields", value: "_id,name,type,geometry"),
         ]
