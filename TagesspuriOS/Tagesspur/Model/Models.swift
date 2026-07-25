@@ -182,8 +182,12 @@ final class FamilyDay {
         self.recordName = recordName
     }
 
+    /// Person + Gerät, damit mehrere Geräte eines Familienmitglieds
+    /// unterscheidbar bleiben („Anna · iPhone“, „Anna · iPad“).
     var displayName: String {
-        memberName.isEmpty ? deviceName : memberName
+        let member = memberName.isEmpty ? "Familie" : memberName
+        guard !deviceName.isEmpty, deviceName != member else { return member }
+        return "\(member) · \(deviceName)"
     }
 
     func points() -> [TrackPoint] {
