@@ -18,11 +18,7 @@ struct OutdoorMapView: UIViewRepresentable {
         map.delegate = context.coordinator
         map.showsCompass = true
         map.pointOfInterestFilter = .excludingAll
-
-        let overlay = MKTileOverlay(urlTemplate: "https://tile.opentopomap.org/{z}/{x}/{y}.png")
-        overlay.canReplaceMapContent = true
-        overlay.maximumZ = 16
-        map.addOverlay(overlay, level: .aboveLabels)
+        map.addOverlay(OutdoorTileOverlay(), level: .aboveLabels)
         return map
     }
 
@@ -33,6 +29,96 @@ struct OutdoorMapView: UIViewRepresentable {
     }
 
     func makeCoordinator() -> Coordinator { Coordinator() }
+
+    // MARK: - Kachel-Loader
+
+    /// OpenTopoMap liefert nur über die Subdomains a/b/c aus und erwartet
+    /// (wie alle OSM-Kachelserver) einen identifizierenden User-Agent —
+    /// deshalb eigener Loader mit Subdomain-Rotation und Kachel-Cache.
+    final class OutdoorTileOverlay: MKTileOverlay {
+        private static let subdomains = ["a", "b", "c"]
+        private static let session: URLSession = {
+            let config = URLSessionConfiguration.default
+            config.httpAdditionalHeaders = ["User-Agent": "Tagesspur/1.0 (private iOS-App)"]
+            config.urlCache = URLCache(memoryCapacity: 16 * 1024 * 1024, diskCapacity: 128 * 1024 * 1024)
+            config.requestCachePolicy = .returnCacheDataElseLoad
+            return URLSession(configuration: config)
+        }()
+
+        /// Höchste Zoomstufe des Servers; darüber wird die Eltern-Kachel
+        /// ausgeschnitten und hochskaliert („Overzoom“) — sonst bliebe die
+        /// Karte beim nahen Heranzoomen komplett leer.
+        private static let serverMaxZ = 17
+
+        init() {
+            super.init(urlTemplate: nil)
+            canReplaceMapContent = true
+            minimumZ = 3
+            maximumZ = 21
+            tileSize = CGSize(width: 256, height: 256)
+        }
+
+        override func url(forTilePath path: MKTileOverlayPath) -> URL {
+            let subdomain = Self.subdomains[abs(path.x + path.y) % Self.subdomains.count]
+            return URL(string: "https://\(subdomain).tile.opentopomap.org/\(path.z)/\(path.x)/\(path.y).png")!
+        }
+
+        override func loadTile(at path: MKTileOverlayPath, result: @escaping (Data?, Error?) -> Void) {
+            if path.z <= Self.serverMaxZ {
+                fetch(path: path, completion: result)
+                return
+            }
+            // Overzoom: passende Server-Kachel laden und den Quadranten
+            // dieser Kachel auf volle Größe hochskalieren.
+            let delta = path.z - Self.serverMaxZ
+            var parent = MKTileOverlayPath()
+            parent.z = Self.serverMaxZ
+            parent.x = path.x >> delta
+            parent.y = path.y >> delta
+            parent.contentScaleFactor = path.contentScaleFactor
+            fetch(path: parent) { data, error in
+                guard let data, let zoomed = Self.crop(data: data, childPath: path, delta: delta) else {
+                    result(nil, error ?? URLError(.cannotDecodeContentData))
+                    return
+                }
+                result(zoomed, nil)
+            }
+        }
+
+        private func fetch(path: MKTileOverlayPath, completion: @escaping (Data?, Error?) -> Void) {
+            let task = Self.session.dataTask(with: url(forTilePath: path)) { data, response, error in
+                if let http = response as? HTTPURLResponse, http.statusCode != 200 {
+                    completion(nil, error ?? URLError(.badServerResponse))
+                    return
+                }
+                completion(data, error)
+            }
+            task.resume()
+        }
+
+        private static func crop(data: Data, childPath: MKTileOverlayPath, delta: Int) -> Data? {
+            guard delta <= 4,
+                  let image = UIImage(data: data),
+                  let cgImage = image.cgImage else { return nil }
+            let n = 1 << delta
+            let subWidth = cgImage.width / n
+            let subHeight = cgImage.height / n
+            guard subWidth > 0, subHeight > 0 else { return nil }
+            let offsetX = (childPath.x - ((childPath.x >> delta) << delta)) * subWidth
+            let offsetY = (childPath.y - ((childPath.y >> delta) << delta)) * subHeight
+            guard let cropped = cgImage.cropping(to: CGRect(x: offsetX, y: offsetY, width: subWidth, height: subHeight)) else {
+                return nil
+            }
+            let target = CGSize(width: 256, height: 256)
+            let format = UIGraphicsImageRendererFormat()
+            format.scale = 1
+            let renderer = UIGraphicsImageRenderer(size: target, format: format)
+            let rendered = renderer.image { _ in
+                UIImage(cgImage: cropped).draw(in: CGRect(origin: .zero, size: target))
+            }
+            return rendered.pngData()
+        }
+    }
 
     // MARK: - Annotationen
 
