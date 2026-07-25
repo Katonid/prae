@@ -50,6 +50,11 @@ Native SwiftUI-App, iOS 17+, keine externen Abhängigkeiten.
     3D-Gelände) sowie **Outdoor** — OpenTopoMap-Kacheln (OSM-Daten mit
     Höhenlinien/Wanderwegen) via MKTileOverlay, inkl. Pflicht-Attribution.
     Stilwahl wird gemerkt.
+  - Outdoor-Performance: getunte Session (8 parallele Verbindungen,
+    10-s-Timeout, Subdomain-Retry), 512-MB-Kachel-Cache, Overzoom > Z17.
+    Optional in den Einstellungen: Thunderforest-API-Key (kostenloser
+    „Hobby Project“-Tarif) → Outdoor-Stil lädt über deren CDN deutlich
+    schneller; Attribution wechselt automatisch.
 - **„Wo war ich um …?“ (Zeit-Cursor)**
   - Im Tagesdetail Uhrzeit wählen (Picker + Schieberegler): Marker zeigt
     die interpolierte Position auf der Karte, dazu Adresse

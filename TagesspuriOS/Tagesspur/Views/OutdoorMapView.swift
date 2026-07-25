@@ -37,18 +37,34 @@ struct OutdoorMapView: UIViewRepresentable {
     /// deshalb eigener Loader mit Subdomain-Rotation und Kachel-Cache.
     final class OutdoorTileOverlay: MKTileOverlay {
         private static let subdomains = ["a", "b", "c"]
+        static let thunderforestKeyDefault = "tagesspur.thunderforestKey"
+
+        /// Getunte Session: viele parallele Verbindungen (Kachelfluten),
+        /// kurzer Timeout (lahme Kacheln blockieren nicht), großer
+        /// dauerhafter Cache (besuchte Gegenden laden sofort).
         private static let session: URLSession = {
             let config = URLSessionConfiguration.default
             config.httpAdditionalHeaders = ["User-Agent": "Tagesspur/1.0 (private iOS-App)"]
-            config.urlCache = URLCache(memoryCapacity: 16 * 1024 * 1024, diskCapacity: 128 * 1024 * 1024)
+            config.urlCache = URLCache(memoryCapacity: 32 * 1024 * 1024, diskCapacity: 512 * 1024 * 1024)
             config.requestCachePolicy = .returnCacheDataElseLoad
+            config.httpMaximumConnectionsPerHost = 8
+            config.timeoutIntervalForRequest = 10
             return URLSession(configuration: config)
         }()
+
+        /// Optionaler Thunderforest-API-Key (Einstellungen): schaltet auf
+        /// den schnellen CDN-Dienst „Outdoors“ um.
+        private var thunderforestKey: String {
+            UserDefaults.standard.string(forKey: Self.thunderforestKeyDefault)?
+                .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        }
 
         /// Höchste Zoomstufe des Servers; darüber wird die Eltern-Kachel
         /// ausgeschnitten und hochskaliert („Overzoom“) — sonst bliebe die
         /// Karte beim nahen Heranzoomen komplett leer.
-        private static let serverMaxZ = 17
+        private var serverMaxZ: Int {
+            thunderforestKey.isEmpty ? 17 : 21
+        }
 
         init() {
             super.init(urlTemplate: nil)
@@ -59,20 +75,28 @@ struct OutdoorMapView: UIViewRepresentable {
         }
 
         override func url(forTilePath path: MKTileOverlayPath) -> URL {
-            let subdomain = Self.subdomains[abs(path.x + path.y) % Self.subdomains.count]
+            url(forTilePath: path, subdomainOffset: 0)
+        }
+
+        private func url(forTilePath path: MKTileOverlayPath, subdomainOffset: Int) -> URL {
+            let key = thunderforestKey
+            if !key.isEmpty {
+                return URL(string: "https://tile.thunderforest.com/outdoors/\(path.z)/\(path.x)/\(path.y).png?apikey=\(key)")!
+            }
+            let subdomain = Self.subdomains[abs(path.x + path.y + subdomainOffset) % Self.subdomains.count]
             return URL(string: "https://\(subdomain).tile.opentopomap.org/\(path.z)/\(path.x)/\(path.y).png")!
         }
 
         override func loadTile(at path: MKTileOverlayPath, result: @escaping (Data?, Error?) -> Void) {
-            if path.z <= Self.serverMaxZ {
+            if path.z <= serverMaxZ {
                 fetch(path: path, completion: result)
                 return
             }
             // Overzoom: passende Server-Kachel laden und den Quadranten
             // dieser Kachel auf volle Größe hochskalieren.
-            let delta = path.z - Self.serverMaxZ
+            let delta = path.z - serverMaxZ
             var parent = MKTileOverlayPath()
-            parent.z = Self.serverMaxZ
+            parent.z = serverMaxZ
             parent.x = path.x >> delta
             parent.y = path.y >> delta
             parent.contentScaleFactor = path.contentScaleFactor
@@ -85,8 +109,18 @@ struct OutdoorMapView: UIViewRepresentable {
             }
         }
 
-        private func fetch(path: MKTileOverlayPath, completion: @escaping (Data?, Error?) -> Void) {
-            let task = Self.session.dataTask(with: url(forTilePath: path)) { data, response, error in
+        /// Laden mit einem Wiederholungsversuch über eine andere Subdomain —
+        /// einzelne lahme/gestörte Server bremsen so nicht die ganze Karte.
+        private func fetch(path: MKTileOverlayPath, attempt: Int = 0, completion: @escaping (Data?, Error?) -> Void) {
+            let requestURL = url(forTilePath: path, subdomainOffset: attempt)
+            let task = Self.session.dataTask(with: requestURL) { [weak self] data, response, error in
+                let failed = error != nil
+                    || (response as? HTTPURLResponse).map { $0.statusCode != 200 } ?? false
+                    || data == nil
+                if failed, attempt == 0, let self {
+                    self.fetch(path: path, attempt: 1, completion: completion)
+                    return
+                }
                 if let http = response as? HTTPURLResponse, http.statusCode != 200 {
                     completion(nil, error ?? URLError(.badServerResponse))
                     return
