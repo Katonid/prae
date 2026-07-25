@@ -4,6 +4,7 @@ import CoreLocation
 struct GeoInfo: Sendable {
     var name: String
     var locality: String
+    var subLocality: String   // Ortsteil/Stadtviertel
     var thoroughfare: String
     var inlandWater: String
     var ocean: String
@@ -37,6 +38,7 @@ actor Geocoder {
         let info = GeoInfo(
             name: placemark.name ?? "",
             locality: placemark.locality ?? "",
+            subLocality: placemark.subLocality ?? "",
             thoroughfare: placemark.thoroughfare ?? "",
             inlandWater: placemark.inlandWater ?? "",
             ocean: placemark.ocean ?? "",
