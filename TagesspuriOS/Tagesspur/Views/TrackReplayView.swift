@@ -14,6 +14,8 @@ struct TrackReplayView: View {
     @State private var speed: Double = 1
     @State private var heading: Double = 0
     @State private var camera: MapCameraPosition
+    @AppStorage(AppearanceMode.mapKey) private var mapAppearance = AppearanceMode.system.rawValue
+    @Environment(\.colorScheme) private var systemScheme
 
     private let path: [TrackPoint]
     private let cumulative: [Double]
@@ -60,6 +62,7 @@ struct TrackReplayView: View {
                 }
             }
             .mapStyle(.standard(elevation: .realistic))
+            .environment(\.colorScheme, AppearanceMode.mode(for: mapAppearance).colorScheme ?? systemScheme)
             .ignoresSafeArea()
 
             VStack {

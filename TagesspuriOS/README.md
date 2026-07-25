@@ -45,9 +45,14 @@ Native SwiftUI-App, iOS 17+, keine externen Abhängigkeiten.
   - Kopfkarte im Tab „Tage“: Gesamtkilometer, Tage-Serie, Mini-Diagramm.
   - Statistikseite: Balkendiagramm der letzten 30 Tage, Summen,
     Aufenthalte, längster Tag.
-- **Kartenstile**
+- **Kartenstile & Darstellung**
   - Umschalter auf jeder Karte: Standard / Hybrid / Satellit, jeweils
     mit realistischem 3D-Gelände.
+  - Hell/Dunkel getrennt für App und Karte einstellbar (Einstellungen →
+    Darstellung), z. B. dunkle App mit heller Karte.
+  - Designsprache in `Views/Theme.swift`: Markenverlauf, Hero-Karten mit
+    wanderndem Licht-Schimmer, Tracks mit weißer Kontur, gebrandete
+    Aufenthalts- und Start/Ziel-Marker.
 - **Export & Import**
   - Umfang: einzelner Tag, Zeitraum oder alles.
   - GPX 1.1 (breit kompatibel: Tracks als `<trk>`, Aufenthalte als

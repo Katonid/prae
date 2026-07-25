@@ -6,6 +6,7 @@ struct TagesspurApp: App {
     let container: ModelContainer
     @StateObject private var tracker: LocationTracker
     @Environment(\.scenePhase) private var scenePhase
+    @AppStorage(AppearanceMode.appKey) private var appAppearance = AppearanceMode.system.rawValue
 
     init() {
         let schema = Schema([TrackDay.self, PlaceVisit.self, MediaTag.self])
@@ -28,6 +29,7 @@ struct TagesspurApp: App {
         WindowGroup {
             ContentView()
                 .environmentObject(tracker)
+                .preferredColorScheme(AppearanceMode.mode(for: appAppearance).colorScheme)
         }
         .modelContainer(container)
         .onChange(of: scenePhase) { _, phase in

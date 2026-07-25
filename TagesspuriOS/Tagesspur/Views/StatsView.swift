@@ -86,10 +86,17 @@ struct StatsView: View {
     }
 
     private func statCard(_ title: String, _ value: String, _ symbol: String) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Label(title, systemImage: symbol)
-                .font(.caption)
-                .foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 6) {
+                Image(systemName: symbol)
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundStyle(.white)
+                    .frame(width: 22, height: 22)
+                    .background(Theme.heroGradient, in: Circle())
+                Text(title)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
             Text(value)
                 .font(.system(.title2, design: .rounded).bold())
                 .lineLimit(1)
