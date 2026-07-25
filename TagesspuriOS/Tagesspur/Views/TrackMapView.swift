@@ -71,8 +71,8 @@ struct TrackMapView: View {
         }
         .overlay(alignment: .bottomLeading) {
             if isOutdoor {
-                // Pflicht-Attribution für OSM/OpenTopoMap.
-                Text("© OpenStreetMap-Mitwirkende · OpenTopoMap (CC-BY-SA)")
+                // Pflicht-Attribution der jeweiligen Kachelquelle.
+                Text(outdoorAttribution)
                     .font(.system(size: 9))
                     .padding(.horizontal, 6)
                     .padding(.vertical, 3)
@@ -80,6 +80,14 @@ struct TrackMapView: View {
                     .padding(6)
             }
         }
+    }
+
+    private var outdoorAttribution: String {
+        let key = UserDefaults.standard.string(forKey: OutdoorMapView.OutdoorTileOverlay.thunderforestKeyDefault)?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return key.isEmpty
+            ? "© OpenStreetMap-Mitwirkende · OpenTopoMap (CC-BY-SA)"
+            : "Karten © Thunderforest · Daten © OpenStreetMap-Mitwirkende"
     }
 
     private var appleMap: some View {

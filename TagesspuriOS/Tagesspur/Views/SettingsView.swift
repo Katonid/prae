@@ -18,6 +18,7 @@ struct SettingsView: View {
     @State private var analysisProgress = ""
     @AppStorage(AppearanceMode.appKey) private var appAppearance = AppearanceMode.system.rawValue
     @AppStorage(AppearanceMode.mapKey) private var mapAppearance = AppearanceMode.system.rawValue
+    @State private var thunderforestKey = UserDefaults.standard.string(forKey: OutdoorMapView.OutdoorTileOverlay.thunderforestKeyDefault) ?? ""
 
     var body: some View {
         NavigationStack {
@@ -34,6 +35,18 @@ struct SettingsView: View {
                         }
                     }
                     Text("App und Karte getrennt einstellbar — z. B. dunkle App mit heller Karte. „Automatisch“ folgt der Systemeinstellung.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+
+                Section("Outdoor-Karte") {
+                    TextField("Thunderforest-API-Key (optional)", text: $thunderforestKey)
+                        .autocorrectionDisabled()
+                        .textInputAutocapitalization(.never)
+                        .onChange(of: thunderforestKey) { _, newValue in
+                            UserDefaults.standard.set(newValue, forKey: OutdoorMapView.OutdoorTileOverlay.thunderforestKeyDefault)
+                        }
+                    Text("Ohne Key nutzt der Outdoor-Stil den freien OpenTopoMap-Server — der ist oft träge. Mit einem kostenlosen Key von thunderforest.com (Tarif „Hobby Project“) lädt der Outdoor-Stil deutlich schneller über deren CDN. Bereits geladene Gegenden bleiben lokal zwischengespeichert.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
