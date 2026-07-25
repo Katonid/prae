@@ -63,6 +63,8 @@ struct TodayView: View {
                         .animation(.snappy, value: distance)
                     Text(statusLine)
                         .font(.caption)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
                         .opacity(0.85)
                 }
                 Spacer()
@@ -72,6 +74,8 @@ struct TodayView: View {
                         .tint(.orange)
                     Text(tracker.trackingEnabled ? "Aufzeichnung" : "Pausiert")
                         .font(.caption2)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
                         .opacity(0.85)
                 }
             }
@@ -93,13 +97,13 @@ struct TodayView: View {
                     Button {
                         showReplay = true
                     } label: {
-                        Label("Abspielen", systemImage: "play.fill")
-                            .font(.footnote.bold())
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 7)
-                            .background(.white.opacity(0.22), in: Capsule())
+                        Image(systemName: "play.fill")
+                            .font(.system(size: 15, weight: .bold))
+                            .padding(11)
+                            .background(.white.opacity(0.22), in: Circle())
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel("Tag abspielen")
                 }
             }
 
@@ -124,6 +128,8 @@ struct TodayView: View {
     private func statBadge(_ symbol: String, _ value: String) -> some View {
         Label(value, systemImage: symbol)
             .font(.footnote.monospacedDigit())
+            .lineLimit(1)
+            .fixedSize()
             .opacity(0.95)
     }
 
