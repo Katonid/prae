@@ -60,7 +60,7 @@ struct SettingsView: View {
                             tracker.requestPermission()
                         }
                     }
-                    Text("Ausgewogen (Standard): präzises GPS bei Bewegung; nach 5 Minuten Stillstand grober Ruhemodus, der Bewegungsbeginn sofort selbst erkennt. „Hohe Genauigkeit“ zeichnet dauerhaft präzise auf — bestes Trackbild, spürbar mehr Akkuverbrauch.")
+                    Text("Ausgewogen (Standard): präzises GPS bei Bewegung; nach 5 Minuten Stillstand grober Ruhemodus, der Bewegungsbeginn sofort selbst erkennt. „Hohe Genauigkeit“ zeichnet dauerhaft mit bester GPS-Stufe und Punkten alle 10 m auf (wie Sport-Apps à la Komoot) — bestes Trackbild, als Dauerbetrieb aber spürbar mehr Akkuverbrauch.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }

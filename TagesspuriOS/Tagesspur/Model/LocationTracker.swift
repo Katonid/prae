@@ -42,10 +42,18 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
     @Published var highAccuracy: Bool {
         didSet {
             UserDefaults.standard.set(highAccuracy, forKey: Self.highAccuracyKey)
-            if highAccuracy, isResting {
-                exitRest()
+            if isResting {
+                if highAccuracy { exitRest() }
+            } else {
+                applyActiveParameters()
             }
         }
+    }
+
+    /// Aktive Erfassungsparameter je nach Genauigkeitsmodus setzen.
+    private func applyActiveParameters() {
+        manager.desiredAccuracy = highAccuracy ? Self.highAccuracyValue : Self.activeAccuracy
+        manager.distanceFilter = highAccuracy ? Self.highDistanceFilter : Self.activeDistanceFilter
     }
 
     private static let highAccuracyKey = "tagesspur.highAccuracy"
@@ -70,9 +78,12 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
     private static let flushAfterSeconds: TimeInterval = 90
     private static let maxAcceptableAccuracy: CLLocationAccuracy = 100
 
-    /// Präzise Erfassung (Bewegung).
+    /// Präzise Erfassung (Bewegung) im ausgewogenen Modus.
     private static let activeAccuracy = kCLLocationAccuracyNearestTenMeters
     private static let activeDistanceFilter: CLLocationDistance = 20
+    /// „Hohe Genauigkeit“: Komoot-Niveau — beste GPS-Stufe, dichte Punkte.
+    private static let highAccuracyValue = kCLLocationAccuracyBest
+    private static let highDistanceFilter: CLLocationDistance = 10
     /// Ruhemodus: grob statt aus — der GPS-Chip schläft praktisch
     /// genauso, aber Bewegungsbeginn wird sofort selbst erkannt.
     private static let restAccuracy = kCLLocationAccuracyHundredMeters
@@ -84,8 +95,7 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
         self.highAccuracy = UserDefaults.standard.bool(forKey: Self.highAccuracyKey)
         super.init()
         manager.delegate = self
-        manager.desiredAccuracy = Self.activeAccuracy
-        manager.distanceFilter = Self.activeDistanceFilter
+        applyActiveParameters()
         manager.activityType = .other
         // Apples Auto-Pause springt nach Stillstand unzuverlässig wieder
         // an — der eigene Ruhemodus (grob statt aus) ersetzt sie.
@@ -145,8 +155,7 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
         isResting = false
         restAnchor = nil
         lastMovement = Date()
-        manager.desiredAccuracy = Self.activeAccuracy
-        manager.distanceFilter = Self.activeDistanceFilter
+        applyActiveParameters()
         manager.startUpdatingLocation()
         scheduleFlushTimer()
     }
@@ -166,8 +175,7 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
     private func exitRest() {
         isResting = false
         lastMovement = Date()
-        manager.desiredAccuracy = Self.activeAccuracy
-        manager.distanceFilter = Self.activeDistanceFilter
+        applyActiveParameters()
     }
 
     private func scheduleFlushTimer() {
