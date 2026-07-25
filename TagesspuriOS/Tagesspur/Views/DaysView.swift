@@ -221,8 +221,9 @@ struct DayDetailView: View {
                 Button {
                     showReplay = true
                 } label: {
-                    Label("Abspielen", systemImage: "play.circle.fill")
+                    Image(systemName: "play.circle.fill")
                 }
+                .accessibilityLabel("Tag abspielen")
             }
         }
         .fullScreenCover(isPresented: $showReplay) {
