@@ -25,6 +25,17 @@ Native SwiftUI-App, iOS 17+, keine externen Abhängigkeiten.
   - Werden zur Laufzeit per Aufnahmezeit (und GPS, falls vorhanden) dem
     Tag zugeordnet: Medienleiste + Thumbnails auf der Karte.
   - Datenminimierung: nur Lesezugriff, keine Kopien in der App.
+- **Tages-Replay**
+  - Jeder Tag lässt sich wie ein Film abspielen: animierter Punkt mit
+    geneigter 3D-Kamera entlang des Tracks, Live-Uhrzeit, Zeitstrahl,
+    Play/Pause und Tempo (1×/2×/4×).
+- **Statistik (Swift Charts, ohne externe Abhängigkeiten)**
+  - Kopfkarte im Tab „Tage“: Gesamtkilometer, Tage-Serie, Mini-Diagramm.
+  - Statistikseite: Balkendiagramm der letzten 30 Tage, Summen,
+    Aufenthalte, längster Tag.
+- **Kartenstile**
+  - Umschalter auf jeder Karte: Standard / Hybrid / Satellit, jeweils
+    mit realistischem 3D-Gelände.
 - **Export & Import**
   - Umfang: einzelner Tag, Zeitraum oder alles.
   - GPX 1.1 (breit kompatibel: Tracks als `<trk>`, Aufenthalte als
