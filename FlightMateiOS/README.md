@@ -368,10 +368,16 @@ Dieser Stand entspricht dem **MVP-Fundament** (PRD Phase 0/1).
   die Flugrouten als Linien mit Start-/Landepunkt. Die
   **Flüge-Übersicht** (Archiv-Startseite → „Flüge") listet alle
   importierten Flüge mit Dauer, max. Höhe und Medien-Zahl; das
-  Detail zeigt die Route auf der Karte, Strecke, Quelle und die
-  Aufnahmen aus dem Flug — Löschen entfernt nur Route und
+  Detail zeigt die Route als Mini-Karte (feste Region, Antippen →
+  Vollbild — das erprobte Logbuch-Muster; eine frei bewegliche
+  Karte in einer List-Zelle stürzte ab), dazu Strecke, Quelle und
+  die Aufnahmen aus dem Flug — Löschen entfernt nur Route und
   Verknüpfung, nie die Aufnahmen (Nutzerwunsch: Flüge waren nach
-  dem Import nirgends direkt auffindbar).
+  dem Import nirgends direkt auffindbar). Alle sechs
+  Archiv-Bereiche (Bibliothek, Medien-Karte, Flüge, Suche, Reisen,
+  Foto-Spots) sitzen als **Kachel-Gitter** prominent oben auf der
+  Archiv-Startseite (Nutzerwunsch: die Textzeilen waren „wirklich
+  sehr versteckt").
   **M4 — Reisen, Foto-Spots & Versionen:** Nach jedem Import
   verdichtet der Clusterer automatisch: **Reisen** = verortete
   Aufnahmen weiter als 50 km vom „Zuhause" (häufigster
