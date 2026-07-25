@@ -5,11 +5,13 @@ import SwiftData
 /// ich an einem See war“. Deterministisch und offline.
 struct SearchView: View {
     @Query private var visits: [PlaceVisit]
+    @Query private var familyVisits: [FamilyVisit]
     @Query private var tags: [MediaTag]
     @State private var query = ""
 
     private var results: [SearchEngine.DayResult] {
-        SearchEngine.search(query: query, visits: visits, tags: tags)
+        let combined = visits.map(VisitInfo.init) + familyVisits.map(VisitInfo.init)
+        return SearchEngine.search(query: query, visits: combined, tags: tags)
     }
 
     var body: some View {
@@ -17,7 +19,7 @@ struct SearchView: View {
             List {
                 if query.isEmpty {
                     Section {
-                        Text("Beispiele: „an einem See“, „Picknick“, „Strand“, „Berlin“. Die Suche läuft über deine Aufenthaltsorte samt Ortsdaten (inkl. Gewässer) und — falls aktiviert — über die Foto-Stichwörter der On-Device-Analyse. Auf allen Geräten.")
+                        Text("Beispiele: „an einem See“, „Picknick“, „Strand“, „Berlin“. Die Suche läuft über deine Aufenthaltsorte samt Ortsdaten (inkl. Gewässer), empfangene Familien-Daten und — falls aktiviert — über die Foto-Stichwörter der On-Device-Analyse.")
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                     }

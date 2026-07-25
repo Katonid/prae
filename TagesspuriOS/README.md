@@ -53,6 +53,19 @@ Native SwiftUI-App, iOS 17+, keine externen Abhängigkeiten.
   - Designsprache in `Views/Theme.swift`: Markenverlauf, Hero-Karten mit
     wanderndem Licht-Schimmer, Tracks mit weißer Kontur, gebrandete
     Aufenthalts- und Start/Ziel-Marker.
+- **Familienfreigabe (auch andere Apple-IDs)**
+  - Eigene Zone „TagesspurFamilie“ in der privaten CloudKit-Datenbank,
+    zonenweit geteilt per CKShare; Einladung/Teilnehmerverwaltung über
+    Apples System-Dialog (Nachrichten/Mail).
+  - Gespiegelt werden Tages-Tracks (ausgedünnt auf 1500 Punkte) und
+    Aufenthalte der letzten 60 Tage — keine Fotos, keine Foto-Stichwörter.
+  - Empfangene Freigaben werden aus der Shared-DB gelesen und lokal als
+    `FamilyDay`/`FamilyVisit` zwischengespeichert (lokal-only-Konfiguration,
+    keine Kopier-Schleifen) und erscheinen in Karte, Tagesliste,
+    Tagesdetail und Suche — klar nach Person benannt.
+  - Statistik und Replay bleiben bewusst auf eigene Daten beschränkt.
+  - Einrichtung: Einstellungen → Familie; Sync automatisch beim
+    Aktivwerden der App plus manueller Knopf.
 - **Export & Import**
   - Umfang: einzelner Tag, Zeitraum oder alles.
   - GPX 1.1 (breit kompatibel: Tracks als `<trk>`, Aufenthalte als

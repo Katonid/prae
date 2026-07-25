@@ -5,21 +5,27 @@ import Charts
 /// Kalender-Tab: alle aufgezeichneten Tage, geräteübergreifend.
 struct DaysView: View {
     @Query(sort: \TrackDay.dayKey, order: .reverse) private var days: [TrackDay]
+    @Query private var familyDays: [FamilyDay]
 
     private struct DayGroup: Identifiable {
         var dayKey: String
         var days: [TrackDay]
+        var family: [FamilyDay]
         var id: String { dayKey }
-        var distance: Double { days.reduce(0) { $0 + $1.distanceMeters } }
+        var ownDistance: Double { days.reduce(0) { $0 + $1.distanceMeters } }
+        var distance: Double { ownDistance + family.reduce(0) { $0 + $1.distanceMeters } }
         var deviceNames: String {
-            Set(days.map { $0.deviceName.isEmpty ? "Gerät" : $0.deviceName })
-                .sorted().joined(separator: ", ")
+            let own = days.map { $0.deviceName.isEmpty ? "Gerät" : $0.deviceName }
+            let others = family.map(\.displayName)
+            return Set(own + others).sorted().joined(separator: ", ")
         }
     }
 
     private var groups: [DayGroup] {
-        Dictionary(grouping: days, by: \.dayKey)
-            .map { DayGroup(dayKey: $0.key, days: $0.value) }
+        let ownByDay = Dictionary(grouping: days, by: \.dayKey)
+        let familyByDay = Dictionary(grouping: familyDays, by: \.dayKey)
+        return Set(ownByDay.keys).union(familyByDay.keys)
+            .map { DayGroup(dayKey: $0, days: ownByDay[$0] ?? [], family: familyByDay[$0] ?? []) }
             .sorted { $0.dayKey > $1.dayKey }
     }
 
@@ -70,14 +76,16 @@ struct DaysView: View {
         }
     }
 
-    /// Kopfkarte: Gesamtstrecke, Serie und Mini-Diagramm der letzten 14 Tage.
+    /// Kopfkarte: eigene Gesamtstrecke, Serie und Mini-Diagramm der
+    /// letzten 14 Tage (Familien-Daten zählen hier bewusst nicht mit).
     private var summaryCard: some View {
-        let totalKm = groups.reduce(0) { $0 + $1.distance } / 1000
-        let streak = Statistics.streak(dayKeys: Set(groups.map(\.dayKey)))
+        let ownGroups = groups.filter { !$0.days.isEmpty }
+        let totalKm = ownGroups.reduce(0) { $0 + $1.ownDistance } / 1000
+        let streak = Statistics.streak(dayKeys: Set(ownGroups.map(\.dayKey)))
         let cutoff = Calendar.current.date(byAdding: .day, value: -13, to: Calendar.current.startOfDay(for: Date()))
-        let recent = groups.compactMap { group -> StatsView.DayTotal? in
+        let recent = ownGroups.compactMap { group -> StatsView.DayTotal? in
             guard let date = DayKey.date(for: group.dayKey), let cutoff, date >= cutoff else { return nil }
-            return StatsView.DayTotal(dayKey: group.dayKey, date: date, meters: group.distance)
+            return StatsView.DayTotal(dayKey: group.dayKey, date: date, meters: group.ownDistance)
         }
 
         return NavigationLink {
@@ -88,7 +96,7 @@ struct DaysView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(String(format: "%.0f km", totalKm))
                             .font(.system(.largeTitle, design: .rounded).bold())
-                        Text("insgesamt · \(groups.count) Tage")
+                        Text("insgesamt · \(ownGroups.count) Tage")
                             .font(.caption)
                             .opacity(0.85)
                     }
@@ -132,14 +140,17 @@ struct DayDetailView: View {
 
     @Environment(\.modelContext) private var context
     @State private var tracks: [TrackMapView.DeviceTrack] = []
-    @State private var visits: [PlaceVisit] = []
+    @State private var ownTrackCount = 0
+    @State private var visits: [VisitInfo] = []
     @State private var media: [MediaItem] = []
     @State private var showReplay = false
     @State private var showViewer = false
     @State private var viewerIndex = 0
 
+    /// Fürs Replay nur die eigenen Tracks — Familien-Punkte würden die
+    /// Kamera zwischen Personen springen lassen.
     private var allPoints: [TrackPoint] {
-        tracks.flatMap(\.points).sorted { $0.t < $1.t }
+        tracks.prefix(ownTrackCount).flatMap(\.points).sorted { $0.t < $1.t }
     }
 
     private var moments: [Moment] {
@@ -235,12 +246,24 @@ struct DayDetailView: View {
         let key = dayKey
         let dayPredicate = #Predicate<TrackDay> { $0.dayKey == key }
         let days = (try? context.fetch(FetchDescriptor(predicate: dayPredicate))) ?? []
-        tracks = days.map {
+        var built = days.map {
             TrackMapView.DeviceTrack(deviceId: $0.deviceId, deviceName: $0.deviceName, points: $0.points())
         }
+        ownTrackCount = built.count
+
+        let familyPredicate = #Predicate<FamilyDay> { $0.dayKey == key }
+        let familyDays = (try? context.fetch(FetchDescriptor(predicate: familyPredicate))) ?? []
+        built.append(contentsOf: familyDays.map {
+            TrackMapView.DeviceTrack(deviceId: $0.recordName, deviceName: $0.displayName, points: $0.points())
+        })
+        tracks = built
+
         let visitPredicate = #Predicate<PlaceVisit> { $0.dayKey == key }
-        visits = ((try? context.fetch(FetchDescriptor(predicate: visitPredicate))) ?? [])
-            .sorted { $0.arrival < $1.arrival }
+        let own = ((try? context.fetch(FetchDescriptor(predicate: visitPredicate))) ?? []).map(VisitInfo.init)
+        let familyVisitPredicate = #Predicate<FamilyVisit> { $0.dayKey == key }
+        let family = ((try? context.fetch(FetchDescriptor(predicate: familyVisitPredicate))) ?? []).map(VisitInfo.init)
+        visits = (own + family).sorted { $0.arrival < $1.arrival }
+
         media = PhotoMatcher.items(forDayKey: key)
     }
 }

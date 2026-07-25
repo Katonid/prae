@@ -157,6 +157,152 @@ final class PlaceVisit {
     }
 }
 
+// MARK: - Familie (lokaler Spiegel der geteilten CloudKit-Zone)
+
+/// Tages-Track eines Familienmitglieds (andere Apple-ID), aus der
+/// geteilten Zone geladen. Lokal-only (kein CloudKit-Sync dieses Typs),
+/// damit keine Kopier-Schleifen entstehen — Quelle bleibt die Freigabe.
+@Model
+final class FamilyDay {
+    @Attribute(.unique) var recordName: String = ""
+    var memberName: String = ""
+    var deviceId: String = ""
+    var deviceName: String = ""
+    var dayKey: String = ""
+    var pointsData: Data = Data()
+    var pointCount: Int = 0
+    var distanceMeters: Double = 0
+    var startDate: Date = Date()
+    var endDate: Date = Date()
+    var updatedAt: Date = Date()
+
+    init(recordName: String) {
+        self.recordName = recordName
+    }
+
+    var displayName: String {
+        memberName.isEmpty ? deviceName : memberName
+    }
+
+    func points() -> [TrackPoint] {
+        guard !pointsData.isEmpty else { return [] }
+        return (try? JSONDecoder.tagesspur.decode([TrackPoint].self, from: pointsData)) ?? []
+    }
+}
+
+/// Aufenthalt eines Familienmitglieds aus der geteilten Zone.
+@Model
+final class FamilyVisit {
+    @Attribute(.unique) var recordName: String = ""
+    var memberName: String = ""
+    var dayKey: String = ""
+    var arrival: Date = Date()
+    var departure: Date = Date()
+    var latitude: Double = 0
+    var longitude: Double = 0
+    var name: String = ""
+    var locality: String = ""
+    var thoroughfare: String = ""
+    var inlandWater: String = ""
+    var ocean: String = ""
+    var areas: String = ""
+
+    init(recordName: String) {
+        self.recordName = recordName
+    }
+}
+
+// MARK: - Gemeinsame Anzeige-Struktur für eigene und Familien-Aufenthalte
+
+/// Wertkopie eines Aufenthalts — eigene und Familien-Besuche in einer
+/// Form, damit Karte, Tagesdetail, Momente und Suche einheitlich arbeiten.
+struct VisitInfo: Identifiable {
+    var dayKey: String
+    var arrival: Date
+    var departure: Date
+    var latitude: Double
+    var longitude: Double
+    var name: String
+    var locality: String
+    var thoroughfare: String
+    var inlandWater: String
+    var ocean: String
+    var areas: String
+    var owner: String    // "" = eigene Daten, sonst Name des Familienmitglieds
+
+    var id: String {
+        "\(dayKey)-\(arrival.timeIntervalSince1970)-\(latitude)-\(longitude)-\(owner)"
+    }
+
+    init(_ visit: PlaceVisit) {
+        dayKey = visit.dayKey
+        arrival = visit.arrival
+        departure = visit.departure
+        latitude = visit.latitude
+        longitude = visit.longitude
+        name = visit.name
+        locality = visit.locality
+        thoroughfare = visit.thoroughfare
+        inlandWater = visit.inlandWater
+        ocean = visit.ocean
+        areas = visit.areas
+        owner = ""
+    }
+
+    init(_ visit: FamilyVisit) {
+        dayKey = visit.dayKey
+        arrival = visit.arrival
+        departure = visit.departure
+        latitude = visit.latitude
+        longitude = visit.longitude
+        name = visit.name
+        locality = visit.locality
+        thoroughfare = visit.thoroughfare
+        inlandWater = visit.inlandWater
+        ocean = visit.ocean
+        areas = visit.areas
+        owner = visit.memberName.isEmpty ? "Familie" : visit.memberName
+    }
+
+    var coordinate: CLLocationCoordinate2D {
+        CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
+    }
+
+    var title: String {
+        if !name.isEmpty { return name }
+        if !thoroughfare.isEmpty { return thoroughfare }
+        if !locality.isEmpty { return locality }
+        return String(format: "%.4f, %.4f", latitude, longitude)
+    }
+
+    var subtitle: String {
+        var parts: [String] = []
+        if !owner.isEmpty { parts.append(owner) }
+        if !locality.isEmpty && locality != title { parts.append(locality) }
+        if !inlandWater.isEmpty { parts.append(inlandWater) }
+        if !ocean.isEmpty { parts.append(ocean) }
+        return parts.joined(separator: " · ")
+    }
+
+    var searchText: String {
+        [name, locality, thoroughfare, inlandWater, ocean, areas]
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
+            .lowercased()
+    }
+}
+
+// MARK: - Track-Mathematik
+
+enum TrackMath {
+    /// Gleichmäßiges Ausdünnen langer Punktlisten.
+    static func downsample(_ points: [TrackPoint], maxCount: Int) -> [TrackPoint] {
+        guard points.count > maxCount, maxCount > 2 else { return points }
+        let step = Double(points.count - 1) / Double(maxCount - 1)
+        return (0..<maxCount).map { points[Int(Double($0) * step)] }
+    }
+}
+
 // MARK: - Foto-Stichwörter (Fotoanalyse, opt-in)
 
 /// Ergebnis der On-Device-Fotoanalyse (Vision): pro Aufnahme nur

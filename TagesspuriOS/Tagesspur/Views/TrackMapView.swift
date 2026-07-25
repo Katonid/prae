@@ -13,7 +13,7 @@ struct TrackMapView: View {
     }
 
     var tracks: [DeviceTrack]
-    var visits: [PlaceVisit] = []
+    var visits: [VisitInfo] = []
     var media: [MediaItem] = []
     var followsUser = false
     var onMediaTap: ((MediaItem) -> Void)? = nil
