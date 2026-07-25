@@ -94,6 +94,16 @@ struct TodayView: View {
                 }
                 .buttonStyle(.plain)
                 Spacer()
+                Button {
+                    tracker.highAccuracy.toggle()
+                } label: {
+                    Image(systemName: "scope")
+                        .font(.system(size: 15, weight: .bold))
+                        .padding(11)
+                        .background(tracker.highAccuracy ? Color.orange : Color.white.opacity(0.22), in: Circle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(tracker.highAccuracy ? "Hohe Genauigkeit ausschalten" : "Hohe Genauigkeit einschalten")
                 if allPoints.count > 1 {
                     Button {
                         showReplay = true
@@ -152,7 +162,8 @@ struct TodayView: View {
 
     private var statusLine: String {
         guard tracker.trackingEnabled else { return "Aufzeichnung pausiert" }
-        return tracker.isResting ? "Ruhemodus — spart Akku" : "GPS aktiv"
+        if tracker.isResting { return "Ruhemodus — spart Akku" }
+        return tracker.highAccuracy ? "GPS aktiv · hohe Genauigkeit" : "GPS aktiv"
     }
 
     private func reload() {
