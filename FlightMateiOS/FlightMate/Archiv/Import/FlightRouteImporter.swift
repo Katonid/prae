@@ -76,6 +76,7 @@ enum FlightRouteImporter {
         }
         if resolved.linked > 0 { parts.append("\(resolved.linked) Medien einem Flug zugeordnet") }
         if resolved.located > 0 { parts.append("\(resolved.located) Orte ermittelt") }
+        if imported > 0 { parts.append("zu finden unter „Flüge“") }
         return parts.joined(separator: " · ")
     }
 

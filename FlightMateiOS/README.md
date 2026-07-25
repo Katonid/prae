@@ -365,7 +365,13 @@ Dieser Stand entspricht dem **MVP-Fundament** (PRD Phase 0/1).
   Vertrauensgrad stehen sichtbar in der Detail-Ansicht, ebenso die
   Flug-Daten (Start, Dauer, max. Höhe). Die **Medien-Karte** zeigt
   alle verorteten Medien als Vorschau-Marker (Tipp → Detail) und
-  die Flugrouten als Linien mit Start-/Landepunkt.
+  die Flugrouten als Linien mit Start-/Landepunkt. Die
+  **Flüge-Übersicht** (Archiv-Startseite → „Flüge") listet alle
+  importierten Flüge mit Dauer, max. Höhe und Medien-Zahl; das
+  Detail zeigt die Route auf der Karte, Strecke, Quelle und die
+  Aufnahmen aus dem Flug — Löschen entfernt nur Route und
+  Verknüpfung, nie die Aufnahmen (Nutzerwunsch: Flüge waren nach
+  dem Import nirgends direkt auffindbar).
   **M4 — Reisen, Foto-Spots & Versionen:** Nach jedem Import
   verdichtet der Clusterer automatisch: **Reisen** = verortete
   Aufnahmen weiter als 50 km vom „Zuhause" (häufigster
