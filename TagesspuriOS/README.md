@@ -80,6 +80,9 @@ Native SwiftUI-App, iOS 17+, keine externen Abhängigkeiten.
     Aktivwerden der App plus manueller Knopf.
 - **Export & Import**
   - Umfang: einzelner Tag, Zeitraum oder alles.
+  - Zusätzlich im Tagesdetail: beliebigen Uhrzeit-Ausschnitt des
+    Tages-Tracks (Von/Bis) als eigene GPX-Datei exportieren — z. B. nur
+    die Wanderung von 10:15 bis 13:40.
   - GPX 1.1 (breit kompatibel: Tracks als `<trk>`, Aufenthalte als
     `<wpt>`) und JSON (verlustfreies Tagesspur-Backup).
   - Import: GPX-Dateien und Tagesspur-Backups; Punkte werden
