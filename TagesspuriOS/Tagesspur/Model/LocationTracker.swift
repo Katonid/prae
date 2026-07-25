@@ -38,6 +38,14 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
     private var lastMovement = Date()
     private var flushTimer: Timer?
 
+    /// Hintergrund-Updates dürfen nur aktiviert werden, wenn der
+    /// Hintergrundmodus „location“ wirklich in der gebauten Info.plist
+    /// steht — sonst beendet iOS die App mit einer Exception.
+    private static let hasLocationBackgroundMode: Bool = {
+        let modes = Bundle.main.object(forInfoDictionaryKey: "UIBackgroundModes") as? [String]
+        return modes?.contains("location") ?? false
+    }()
+
     private static let movementThreshold: CLLocationDistance = 60
     private static let restAfterSeconds: TimeInterval = 300
     private static let flushAfterPoints = 20
@@ -81,8 +89,10 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
             return
         }
         if authorization == .authorizedAlways {
-            manager.allowsBackgroundLocationUpdates = true
-            manager.showsBackgroundLocationIndicator = false
+            if Self.hasLocationBackgroundMode {
+                manager.allowsBackgroundLocationUpdates = true
+                manager.showsBackgroundLocationIndicator = false
+            }
             manager.startMonitoringSignificantLocationChanges()
             manager.startMonitoringVisits()
         }
@@ -95,7 +105,7 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
         manager.stopUpdatingLocation()
         manager.stopMonitoringSignificantLocationChanges()
         manager.stopMonitoringVisits()
-        if manager.authorizationStatus == .authorizedAlways {
+        if Self.hasLocationBackgroundMode {
             manager.allowsBackgroundLocationUpdates = false
         }
         flush()
