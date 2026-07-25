@@ -113,6 +113,7 @@ private struct ArchivHomeView: View {
     private var content: some View {
         ScrollView {
             VStack(spacing: 16) {
+                navigationGrid
                 statusCard
                 importCard
                 sourcesCard
@@ -213,78 +214,6 @@ private struct ArchivHomeView: View {
                 statTile("\(counts.videos)", "Videos")
                 statTile("\(counts.versions)", "Versionen")
             }
-            NavigationLink {
-                ArchivLibraryView()
-            } label: {
-                HStack {
-                    Label("Bibliothek öffnen", systemImage: "photo.stack")
-                    Spacer()
-                    Image(systemName: "chevron.right")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-            .font(.subheadline)
-            NavigationLink {
-                ArchivMapView()
-            } label: {
-                HStack {
-                    Label("Medien-Karte öffnen", systemImage: "map")
-                    Spacer()
-                    Image(systemName: "chevron.right")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-            .font(.subheadline)
-            NavigationLink {
-                ArchivFlightsView()
-            } label: {
-                HStack {
-                    Label("Flüge", systemImage: "point.topleft.down.to.point.bottomright.curvepath")
-                    Spacer()
-                    Image(systemName: "chevron.right")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-            .font(.subheadline)
-            NavigationLink {
-                ArchivSearchView()
-            } label: {
-                HStack {
-                    Label("Suche („Zeige alle Wasserfälle …“)", systemImage: "magnifyingglass")
-                    Spacer()
-                    Image(systemName: "chevron.right")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-            .font(.subheadline)
-            NavigationLink {
-                ArchivTripsView()
-            } label: {
-                HStack {
-                    Label("Reisen", systemImage: "suitcase")
-                    Spacer()
-                    Image(systemName: "chevron.right")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-            .font(.subheadline)
-            NavigationLink {
-                ArchivSpotsView()
-            } label: {
-                HStack {
-                    Label("Foto-Spots", systemImage: "camera.on.rectangle")
-                    Spacer()
-                    Image(systemName: "chevron.right")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-            .font(.subheadline)
             Label(store.statusText,
                   systemImage: store.cloudSyncActive ? "icloud" : "icloud.slash")
                 .font(.caption)
@@ -307,6 +236,49 @@ private struct ArchivHomeView: View {
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity)
+    }
+
+    /// Kachel-Gitter zu allen Archiv-Bereichen (Nutzerwunsch: Flüge
+    /// und Medien-Karte waren als Textzeilen „wirklich sehr
+    /// versteckt" — jetzt sind alle Bereiche gleich präsent).
+    private var navigationGrid: some View {
+        LazyVGrid(columns: [GridItem(.flexible(), spacing: 10),
+                            GridItem(.flexible(), spacing: 10),
+                            GridItem(.flexible(), spacing: 10)],
+                  spacing: 10) {
+            navTile("Bibliothek", "photo.stack") { ArchivLibraryView() }
+            navTile("Medien-Karte", "map") { ArchivMapView() }
+            navTile("Flüge", "point.topleft.down.to.point.bottomright.curvepath") { ArchivFlightsView() }
+            navTile("Suche", "magnifyingglass") { ArchivSearchView() }
+            navTile("Reisen", "suitcase") { ArchivTripsView() }
+            navTile("Foto-Spots", "camera.on.rectangle") { ArchivSpotsView() }
+        }
+    }
+
+    private func navTile<Destination: View>(
+        _ title: String, _ icon: String,
+        @ViewBuilder destination: @escaping () -> Destination
+    ) -> some View {
+        NavigationLink {
+            destination()
+        } label: {
+            VStack(spacing: 6) {
+                Image(systemName: icon)
+                    .font(.title3)
+                    .foregroundStyle(Color.accentColor)
+                    .frame(height: 24)
+                Text(title)
+                    .font(.caption.bold())
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 14)
+            .padding(.horizontal, 4)
+            .flightCard(cornerRadius: 14)
+        }
+        .buttonStyle(.plain)
     }
 
     private var importCard: some View {

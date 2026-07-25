@@ -86,9 +86,33 @@ struct ArchivFlightsView: View {
 struct ArchivFlightDetailView: View {
     let flight: Flight
     @State private var confirmDelete = false
+    @State private var showFullMap = false
     @Environment(\.dismiss) private var dismiss
 
     private var coordinates: [CLLocationCoordinate2D] { flight.trackCoordinates }
+
+    /// Region, die den kompletten Track mit Rand einfasst — die
+    /// Mini-Karte braucht eine feste Startposition (siehe unten).
+    private var trackRegion: MKCoordinateRegion? {
+        guard let first = coordinates.first else { return nil }
+        var minLat = first.latitude, maxLat = first.latitude
+        var minLon = first.longitude, maxLon = first.longitude
+        for coordinate in coordinates {
+            minLat = min(minLat, coordinate.latitude)
+            maxLat = max(maxLat, coordinate.latitude)
+            minLon = min(minLon, coordinate.longitude)
+            maxLon = max(maxLon, coordinate.longitude)
+        }
+        return MKCoordinateRegion(
+            center: CLLocationCoordinate2D(latitude: (minLat + maxLat) / 2,
+                                           longitude: (minLon + maxLon) / 2),
+            span: MKCoordinateSpan(latitudeDelta: max(0.003, (maxLat - minLat) * 1.4),
+                                   longitudeDelta: max(0.003, (maxLon - minLon) * 1.4)))
+    }
+
+    private var sortedAssets: [MediaAsset] {
+        (flight.assets ?? []).sorted { $0.capturedAt < $1.capturedAt }
+    }
 
     /// Gesamtstrecke entlang des Tracks in Metern.
     private var trackLengthM: Double {
@@ -106,11 +130,20 @@ struct ArchivFlightDetailView: View {
 
     var body: some View {
         List {
-            if coordinates.count >= 2 {
+            if coordinates.count >= 2, let region = trackRegion {
                 Section {
-                    routeMap
-                        .frame(height: 280)
+                    // Wie die Logbuch-Mini-Karte: feste Region, keine
+                    // Interaktion, Antippen öffnet das Vollbild — eine
+                    // frei bewegliche Karte in einer List-Zelle war der
+                    // gemeldete Absturz beim Öffnen des Flug-Details.
+                    routeMap(initialRegion: region, interactive: false)
+                        .frame(height: 240)
+                        .contentShape(Rectangle())
+                        .onTapGesture { showFullMap = true }
+                        .id("flightmap-\(flight.id.uuidString)")
                         .listRowInsets(EdgeInsets())
+                } footer: {
+                    Text("Antippen zeigt die Route im Vollbild.")
                 }
             }
             Section("Flug") {
@@ -127,13 +160,12 @@ struct ArchivFlightDetailView: View {
                 LabeledContent("Quelle", value: flight.sourceFileName)
             }
             Section("Aufnahmen aus diesem Flug") {
-                let assets = (flight.assets ?? []).sorted { $0.capturedAt < $1.capturedAt }
-                if assets.isEmpty {
+                if sortedAssets.isEmpty {
                     Text("Keine Aufnahmen zugeordnet. Die Zuordnung läuft über das Zeitfenster des Flugs (±2 Minuten) — sie greift automatisch beim nächsten Medien-Import.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 } else {
-                    ArchivAssetGrid(assets: assets)
+                    ArchivAssetGrid(assets: sortedAssets)
                         .listRowInsets(EdgeInsets())
                 }
             }
@@ -154,10 +186,26 @@ struct ArchivFlightDetailView: View {
             Button("Flug löschen", role: .destructive) { deleteFlight() }
             Button("Abbrechen", role: .cancel) {}
         }
+        .navigationDestination(isPresented: $showFullMap) {
+            fullRouteMap
+        }
     }
 
-    private var routeMap: some View {
-        Map {
+    private var fullRouteMap: some View {
+        Group {
+            if let region = trackRegion {
+                routeMap(initialRegion: region, interactive: true)
+                    .ignoresSafeArea(edges: .bottom)
+            }
+        }
+        .navigationTitle("Flugroute")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private func routeMap(initialRegion: MKCoordinateRegion,
+                          interactive: Bool) -> some View {
+        Map(initialPosition: .region(initialRegion),
+            interactionModes: interactive ? .all : []) {
             MapPolyline(coordinates: coordinates)
                 .stroke(.purple.opacity(0.8), lineWidth: 3)
             if let first = coordinates.first {
