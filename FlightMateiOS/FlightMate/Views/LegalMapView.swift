@@ -10,6 +10,7 @@
 
 import SwiftUI
 import MapKit
+import UIKit
 
 /// Kartenstil-Auswahl: Straße / Hybrid / Satellit.
 enum MapStyleChoice: String, CaseIterable, Identifiable {
@@ -308,6 +309,10 @@ struct LegalResultView: View {
     let onSaveSpot: (String) -> Void
     @State private var askForName = false
     @State private var spotName = ""
+    // „Umsehen" (Nutzerwunsch nach App-Vorbild): Apples
+    // Look-Around-Panorama des angetippten Punkts, falls es dort
+    // Aufnahmen gibt — Antippen öffnet die Vollbild-Ansicht.
+    @State private var lookAroundScene: MKLookAroundScene?
 
     var body: some View {
         ScrollView {
@@ -326,6 +331,29 @@ struct LegalResultView: View {
                         }
                     }
                     Spacer()
+                }
+
+                if let lookAroundScene {
+                    LookAroundPreview(initialScene: lookAroundScene)
+                        .frame(height: 170)
+                        .clipShape(RoundedRectangle(cornerRadius: 14))
+                }
+
+                HStack(spacing: 10) {
+                    Button {
+                        openAppleMaps()
+                    } label: {
+                        Label("Apple Karten", systemImage: "map")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                    Button {
+                        openGoogleMaps()
+                    } label: {
+                        Label("Google Maps", systemImage: "globe")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
                 }
 
                 if assessment.zones.isEmpty && assessment.verdict == .allowed {
@@ -412,6 +440,37 @@ struct LegalResultView: View {
                 .foregroundStyle(.secondary)
             }
             .padding(24)
+        }
+        .task { await loadLookAround() }
+    }
+
+    /// Look-Around-Szene des Punkts laden — nil (keine Abdeckung,
+    /// z. B. ländliches Kanada) blendet die Vorschau einfach aus.
+    private func loadLookAround() async {
+        let request = MKLookAroundSceneRequest(coordinate: assessment.coordinate)
+        lookAroundScene = try? await request.scene
+    }
+
+    private func openAppleMaps() {
+        let item = MKMapItem(placemark: MKPlacemark(coordinate: assessment.coordinate))
+        item.name = "Startpunkt"
+        item.openInMaps()
+    }
+
+    /// Google-Maps-App, falls installiert — sonst der Web-Link
+    /// (öffnet auf Geräten mit App ebenfalls die App).
+    private func openGoogleMaps() {
+        let coordinate = assessment.coordinate
+        if let appURL = URL(string: String(
+            format: "comgooglemaps://?center=%.6f,%.6f&zoom=16&q=%.6f,%.6f",
+            coordinate.latitude, coordinate.longitude,
+            coordinate.latitude, coordinate.longitude)),
+           UIApplication.shared.canOpenURL(appURL) {
+            UIApplication.shared.open(appURL)
+        } else if let webURL = URL(string: String(
+            format: "https://www.google.com/maps/search/?api=1&query=%.6f,%.6f",
+            coordinate.latitude, coordinate.longitude)) {
+            UIApplication.shared.open(webURL)
         }
     }
 
