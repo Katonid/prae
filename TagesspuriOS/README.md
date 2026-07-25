@@ -101,6 +101,15 @@ Native SwiftUI-App, iOS 17+, keine externen Abhängigkeiten.
   - Statistik und Replay bleiben bewusst auf eigene Daten beschränkt.
   - Einrichtung: Einstellungen → Familie; Sync automatisch beim
     Aktivwerden der App plus manueller Knopf.
+- **Widgets (Homescreen + Sperrbildschirm)**
+  - Eigenes Widget-Target `TagesspurWidgets` (WidgetKit): klein
+    (km/Dauer/Status), mittel (Mini-Track des Tages als Vektorpfad auf
+    Markenverlauf), Sperrbildschirm rund und rechteckig.
+  - Datenaustausch über App-Gruppe `group.de.familie.tagesspur`:
+    die App schreibt einen Tages-Schnappschuss (WidgetBridge, gedrosselt
+    1×/min) und stößt die Widget-Aktualisierung an.
+  - Einrichtung: Beim ersten Build in Xcode auch beim Target
+    „TagesspurWidgets“ unter Signing das Team wählen.
 - **Export & Import**
   - Umfang: einzelner Tag, Zeitraum oder alles.
   - Zusätzlich im Tagesdetail: beliebigen Uhrzeit-Ausschnitt des

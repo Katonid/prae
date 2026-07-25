@@ -46,6 +46,13 @@ struct TagesspurApp: App {
             switch phase {
             case .background, .inactive:
                 tracker.flush()
+                WidgetBridge.update(
+                    container: container,
+                    trackingEnabled: tracker.trackingEnabled,
+                    highAccuracy: tracker.highAccuracy,
+                    isResting: tracker.isResting,
+                    force: true
+                )
             case .active:
                 Task { await FamilySync.shared.autoSync() }
             @unknown default:
