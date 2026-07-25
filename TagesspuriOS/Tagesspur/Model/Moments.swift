@@ -29,7 +29,7 @@ enum MomentBuilder {
     private static let maxGap: TimeInterval = 45 * 60
     private static let maxDistance: CLLocationDistance = 500
 
-    static func moments(from items: [MediaItem], visits: [PlaceVisit]) -> [Moment] {
+    static func moments(from items: [MediaItem], visits: [VisitInfo]) -> [Moment] {
         let sorted = items.sorted { $0.date < $1.date }
         guard !sorted.isEmpty else { return [] }
 
@@ -76,7 +76,7 @@ enum MomentBuilder {
 
     /// Passender Aufenthalt: zeitliche Überlappung gewinnt, sonst der
     /// nächstgelegene Aufenthalt innerhalb von 300 m.
-    private static func placeName(for group: [MediaItem], center: CLLocationCoordinate2D?, visits: [PlaceVisit]) -> String {
+    private static func placeName(for group: [MediaItem], center: CLLocationCoordinate2D?, visits: [VisitInfo]) -> String {
         guard let first = group.first?.date, let last = group.last?.date else { return "" }
         if let overlap = visits.first(where: { $0.arrival <= last && $0.departure >= first && !$0.title.isEmpty }) {
             return overlap.title

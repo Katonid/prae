@@ -18,7 +18,7 @@ enum SearchEngine {
 
     struct DayResult: Identifiable {
         var dayKey: String
-        var visits: [PlaceVisit]
+        var visits: [VisitInfo]
         var photoMatches: [PhotoMatch]
         var id: String { dayKey }
     }
@@ -90,7 +90,7 @@ enum SearchEngine {
         "eis": ["ice cream"],
     ]
 
-    static func search(query: String, visits: [PlaceVisit], tags: [MediaTag]) -> [DayResult] {
+    static func search(query: String, visits: [VisitInfo], tags: [MediaTag]) -> [DayResult] {
         let tokens = tokenize(query)
         guard !tokens.isEmpty else { return [] }
 
@@ -103,7 +103,7 @@ enum SearchEngine {
             let dayVisits = visitsByDay[dayKey] ?? []
             let dayTags = tagsByDay[dayKey] ?? []
 
-            var matchedVisits: Set<PersistentIdentifier> = []
+            var matchedVisits: Set<String> = []
             var photoMatches: [PhotoMatch] = []
             var allTokensSatisfied = true
 
@@ -114,7 +114,7 @@ enum SearchEngine {
                     allTokensSatisfied = false
                     break
                 }
-                for hit in visitHits { matchedVisits.insert(hit.persistentModelID) }
+                for hit in visitHits { matchedVisits.insert(hit.id) }
                 if !photoHits.isEmpty {
                     photoMatches.append(PhotoMatch(token: token, count: photoHits.count))
                 }
@@ -124,7 +124,7 @@ enum SearchEngine {
             results.append(DayResult(
                 dayKey: dayKey,
                 visits: dayVisits
-                    .filter { matchedVisits.contains($0.persistentModelID) }
+                    .filter { matchedVisits.contains($0.id) }
                     .sorted { $0.arrival < $1.arrival },
                 photoMatches: photoMatches
             ))
@@ -140,7 +140,7 @@ enum SearchEngine {
 
     // MARK: - Ort-Abgleich
 
-    private static func matches(token: String, visit: PlaceVisit) -> Bool {
+    private static func matches(token: String, visit: VisitInfo) -> Bool {
         for candidate in variants(of: token) {
             if waterInland.contains(candidate), !visit.inlandWater.isEmpty { return true }
             if waterOcean.contains(candidate), !visit.ocean.isEmpty { return true }

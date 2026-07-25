@@ -89,6 +89,17 @@ struct SettingsView: View {
                         .foregroundStyle(.secondary)
                 }
 
+                Section("Familie") {
+                    NavigationLink {
+                        FamilyView()
+                    } label: {
+                        Label("Familienfreigabe", systemImage: "person.3.fill")
+                    }
+                    Text("Teile deine Tage mit Familienmitgliedern — auch mit anderen Apple-IDs — und sieh deren Tage in Karte, Tagesliste und Suche.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+
                 Section("Dieses Gerät") {
                     TextField("Gerätename", text: $deviceName)
                         .onChange(of: deviceName) { _, newValue in

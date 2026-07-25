@@ -9,7 +9,8 @@ struct TodayView: View {
     @Environment(\.modelContext) private var context
 
     @State private var tracks: [TrackMapView.DeviceTrack] = []
-    @State private var visits: [PlaceVisit] = []
+    @State private var ownTrackCount = 0
+    @State private var visits: [VisitInfo] = []
     @State private var media: [MediaItem] = []
     @State private var distance: Double = 0
     @State private var showReplay = false
@@ -18,8 +19,10 @@ struct TodayView: View {
 
     private var todayKey: String { DayKey.key(for: Date()) }
 
+    /// Fürs Replay nur die eigenen Tracks — Familien-Punkte würden die
+    /// Kamera zwischen Personen springen lassen.
     private var allPoints: [TrackPoint] {
-        tracks.flatMap(\.points).sorted { $0.t < $1.t }
+        tracks.prefix(ownTrackCount).flatMap(\.points).sorted { $0.t < $1.t }
     }
 
     var body: some View {
@@ -147,13 +150,24 @@ struct TodayView: View {
         let key = todayKey
         let dayPredicate = #Predicate<TrackDay> { $0.dayKey == key }
         let days = (try? context.fetch(FetchDescriptor(predicate: dayPredicate))) ?? []
-        tracks = days.map {
+        var built = days.map {
             TrackMapView.DeviceTrack(deviceId: $0.deviceId, deviceName: $0.deviceName, points: $0.points())
         }
+        ownTrackCount = built.count
         distance = days.reduce(0) { $0 + $1.distanceMeters }
 
+        let familyPredicate = #Predicate<FamilyDay> { $0.dayKey == key }
+        let familyDays = (try? context.fetch(FetchDescriptor(predicate: familyPredicate))) ?? []
+        built.append(contentsOf: familyDays.map {
+            TrackMapView.DeviceTrack(deviceId: $0.recordName, deviceName: $0.displayName, points: $0.points())
+        })
+        tracks = built
+
         let visitPredicate = #Predicate<PlaceVisit> { $0.dayKey == key }
-        visits = (try? context.fetch(FetchDescriptor(predicate: visitPredicate))) ?? []
+        let own = ((try? context.fetch(FetchDescriptor(predicate: visitPredicate))) ?? []).map(VisitInfo.init)
+        let familyVisitPredicate = #Predicate<FamilyVisit> { $0.dayKey == key }
+        let family = ((try? context.fetch(FetchDescriptor(predicate: familyVisitPredicate))) ?? []).map(VisitInfo.init)
+        visits = (own + family).sorted { $0.arrival < $1.arrival }
 
         media = PhotoMatcher.items(forDayKey: key)
     }

@@ -1,5 +1,7 @@
 import SwiftUI
 import SwiftData
+import CloudKit
+import UIKit
 
 @main
 struct TagesspurApp: App {
@@ -7,22 +9,30 @@ struct TagesspurApp: App {
     @StateObject private var tracker: LocationTracker
     @Environment(\.scenePhase) private var scenePhase
     @AppStorage(AppearanceMode.appKey) private var appAppearance = AppearanceMode.system.rawValue
+    @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
 
     init() {
-        let schema = Schema([TrackDay.self, PlaceVisit.self, MediaTag.self])
+        let syncedSchema = Schema([TrackDay.self, PlaceVisit.self, MediaTag.self])
+        let familySchema = Schema([FamilyDay.self, FamilyVisit.self])
+        let fullSchema = Schema([TrackDay.self, PlaceVisit.self, MediaTag.self, FamilyDay.self, FamilyVisit.self])
         let resolved: ModelContainer
         do {
-            // Privater CloudKit-Container: jedes Gerät schreibt nur eigene
-            // Datensätze, alle Geräte sehen den gemeinsamen Bestand.
-            let config = ModelConfiguration(schema: schema, cloudKitDatabase: .automatic)
-            resolved = try ModelContainer(for: schema, configurations: [config])
+            // Eigene Daten: privater CloudKit-Container (Sync der eigenen
+            // Geräte) — Konfiguration bleibt unbenannt, damit der bisherige
+            // Store weiterverwendet wird. Familien-Spiegel: bewusst
+            // lokal-only — Quelle ist die geteilte CloudKit-Zone,
+            // keine Kopier-Schleifen.
+            let synced = ModelConfiguration(schema: syncedSchema, cloudKitDatabase: .automatic)
+            let family = ModelConfiguration("familie", schema: familySchema, cloudKitDatabase: .none)
+            resolved = try ModelContainer(for: fullSchema, configurations: [synced, family])
         } catch {
             // Ohne iCloud (z. B. nicht angemeldet) lokal weiterarbeiten.
-            let local = ModelConfiguration(schema: schema, cloudKitDatabase: .none)
-            resolved = try! ModelContainer(for: schema, configurations: [local])
+            let local = ModelConfiguration(schema: fullSchema, cloudKitDatabase: .none)
+            resolved = try! ModelContainer(for: fullSchema, configurations: [local])
         }
         container = resolved
         _tracker = StateObject(wrappedValue: LocationTracker(container: resolved))
+        FamilySync.shared.modelContainer = resolved
     }
 
     var body: some Scene {
@@ -33,9 +43,40 @@ struct TagesspurApp: App {
         }
         .modelContainer(container)
         .onChange(of: scenePhase) { _, phase in
-            if phase == .background || phase == .inactive {
+            switch phase {
+            case .background, .inactive:
                 tracker.flush()
+            case .active:
+                Task { await FamilySync.shared.autoSync() }
+            @unknown default:
+                break
             }
         }
+    }
+}
+
+/// App-/Scene-Delegate nur für die Annahme von CloudKit-Einladungen
+/// (Familienfreigabe) — die UI bleibt vollständig SwiftUI.
+final class AppDelegate: NSObject, UIApplicationDelegate {
+    func application(_ application: UIApplication,
+                     configurationForConnecting connectingSceneSession: UISceneSession,
+                     options: UIScene.ConnectionOptions) -> UISceneConfiguration {
+        let config = UISceneConfiguration(name: nil, sessionRole: connectingSceneSession.role)
+        config.delegateClass = SceneDelegate.self
+        return config
+    }
+}
+
+final class SceneDelegate: NSObject, UIWindowSceneDelegate {
+    func scene(_ scene: UIScene, willConnectTo session: UISceneSession,
+               options connectionOptions: UIScene.ConnectionOptions) {
+        if let metadata = connectionOptions.cloudKitShareMetadata {
+            FamilySync.shared.acceptShare(metadata: metadata)
+        }
+    }
+
+    func windowScene(_ windowScene: UIWindowScene,
+                     userDidAcceptCloudKitShareWith cloudKitShareMetadata: CKShare.Metadata) {
+        FamilySync.shared.acceptShare(metadata: cloudKitShareMetadata)
     }
 }
