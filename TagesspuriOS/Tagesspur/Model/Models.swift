@@ -157,6 +157,27 @@ final class PlaceVisit {
     }
 }
 
+// MARK: - Foto-Stichwörter (Fotoanalyse, opt-in)
+
+/// Ergebnis der On-Device-Fotoanalyse (Vision): pro Aufnahme nur
+/// Stichwörter und Zeitbezug — niemals Bilddaten. Synct über CloudKit,
+/// damit die Suche geräteübergreifend funktioniert.
+@Model
+final class MediaTag {
+    var assetId: String = ""
+    var deviceId: String = ""
+    var dayKey: String = ""
+    var labels: String = ""      // kommagetrennte englische Vision-Begriffe
+    var analyzedAt: Date = Date()
+
+    init(assetId: String, deviceId: String, dayKey: String, labels: String) {
+        self.assetId = assetId
+        self.deviceId = deviceId
+        self.dayKey = dayKey
+        self.labels = labels
+    }
+}
+
 // MARK: - Tages-Schlüssel & Kodierung
 
 enum DayKey {

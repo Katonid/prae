@@ -23,8 +23,20 @@ Native SwiftUI-App, iOS 17+, keine externen Abhängigkeiten.
   - Ohne iCloud-Anmeldung arbeitet die App lokal weiter.
 - **Fotos & Videos**
   - Werden zur Laufzeit per Aufnahmezeit (und GPS, falls vorhanden) dem
-    Tag zugeordnet: Medienleiste + Thumbnails auf der Karte.
+    Tag zugeordnet und im Tagesdetail zu „Momenten“ gruppiert
+    (deterministisch: > 45 min Pause oder > 500 m Abstand = neue Gruppe),
+    wenn möglich mit dem passenden Aufenthalt beschriftet.
+  - Antippbar: Vollbild-Betrachter mit Wischen, Video-Wiedergabe und
+    Teilen; Thumbnails auf der Karte öffnen denselben Betrachter.
   - Datenminimierung: nur Lesezugriff, keine Kopien in der App.
+- **Fotoanalyse (opt-in, komplett auf dem Gerät)**
+  - Apples Vision-Framework klassifiziert Aufnahmen lokal; gespeichert
+    werden nur Stichwörter pro Aufnahme (MediaTag), nie Bilddaten.
+  - Die Suche versteht damit auch Motive: „Picknick“, „Lagerfeuer“,
+    „Hund“ … — Treffer sind als „Fotoanalyse“ gekennzeichnet, kuratierte
+    Deutsch→Vision-Synonymtabelle in `SearchEngine.photoSynonyms`.
+  - Ein Tag trifft, wenn jedes Suchwort belegt ist — durch Ort **oder**
+    Foto („Picknick am See“).
 - **Tages-Replay**
   - Jeder Tag lässt sich wie ein Film abspielen: animierter Punkt mit
     geneigter 3D-Kamera entlang des Tracks, Live-Uhrzeit, Zeitstrahl,

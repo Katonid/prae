@@ -140,14 +140,20 @@ struct DayDetailView: View {
     @State private var visits: [PlaceVisit] = []
     @State private var media: [MediaItem] = []
     @State private var showReplay = false
+    @State private var showViewer = false
+    @State private var viewerIndex = 0
 
     private var allPoints: [TrackPoint] {
         tracks.flatMap(\.points).sorted { $0.t < $1.t }
     }
 
+    private var moments: [Moment] {
+        MomentBuilder.moments(from: media, visits: visits)
+    }
+
     var body: some View {
         VStack(spacing: 0) {
-            TrackMapView(tracks: tracks, visits: visits, media: media)
+            TrackMapView(tracks: tracks, visits: visits, media: media, onMediaTap: openViewer)
             List {
                 if !tracks.isEmpty {
                     Section("Geräte") {
@@ -179,10 +185,23 @@ struct DayDetailView: View {
                         }
                     }
                 }
-                if !media.isEmpty {
-                    Section("Fotos & Videos (\(media.count))") {
-                        MediaStripView(media: media)
+                if !moments.isEmpty {
+                    Section("Momente") {
+                        ForEach(moments) { moment in
+                            VStack(alignment: .leading, spacing: 6) {
+                                HStack {
+                                    Text(moment.title)
+                                        .font(.subheadline.bold())
+                                    Spacer()
+                                    Text("\(moment.items.count)")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                                .padding(.horizontal)
+                                MediaStripView(media: moment.items, onTap: openViewer)
+                            }
                             .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 8, trailing: 0))
+                        }
                     }
                 }
             }
@@ -203,7 +222,18 @@ struct DayDetailView: View {
         .fullScreenCover(isPresented: $showReplay) {
             TrackReplayView(title: DayKey.displayName(for: dayKey), points: allPoints)
         }
+        .fullScreenCover(isPresented: $showViewer) {
+            MediaViewerView(items: media, index: viewerIndex)
+        }
         .task { reload() }
+        .task {
+            await PhotoAnalyzer.analyzeDay(dayKey: dayKey, container: context.container)
+        }
+    }
+
+    private func openViewer(_ item: MediaItem) {
+        viewerIndex = media.firstIndex { $0.id == item.id } ?? 0
+        showViewer = true
     }
 
     private func reload() {

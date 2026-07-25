@@ -8,7 +8,7 @@ struct TagesspurApp: App {
     @Environment(\.scenePhase) private var scenePhase
 
     init() {
-        let schema = Schema([TrackDay.self, PlaceVisit.self])
+        let schema = Schema([TrackDay.self, PlaceVisit.self, MediaTag.self])
         let resolved: ModelContainer
         do {
             // Privater CloudKit-Container: jedes Gerät schreibt nur eigene

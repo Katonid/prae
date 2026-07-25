@@ -15,6 +15,7 @@ struct TrackMapView: View {
     var visits: [PlaceVisit] = []
     var media: [MediaItem] = []
     var followsUser = false
+    var onMediaTap: ((MediaItem) -> Void)? = nil
 
     @State private var position: MapCameraPosition = .automatic
     @State private var styleIndex = 0
@@ -48,6 +49,9 @@ struct TrackMapView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 6))
                         .overlay(RoundedRectangle(cornerRadius: 6).stroke(.white, lineWidth: 1.5))
                         .shadow(radius: 2)
+                        .onTapGesture {
+                            onMediaTap?(item)
+                        }
                 }
             }
             if followsUser {
@@ -109,9 +113,10 @@ struct MediaThumbView: View {
     }
 }
 
-/// Horizontale Leiste mit den Medien eines Tages.
+/// Horizontale Leiste mit Aufnahmen; jedes Thumbnail ist antippbar.
 struct MediaStripView: View {
     let media: [MediaItem]
+    var onTap: ((MediaItem) -> Void)? = nil
 
     var body: some View {
         if media.isEmpty {
@@ -126,6 +131,9 @@ struct MediaStripView: View {
                             Text(item.date.formatted(date: .omitted, time: .shortened))
                                 .font(.caption2)
                                 .foregroundStyle(.secondary)
+                        }
+                        .onTapGesture {
+                            onTap?(item)
                         }
                     }
                 }

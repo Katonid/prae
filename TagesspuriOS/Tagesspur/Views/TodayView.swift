@@ -13,6 +13,8 @@ struct TodayView: View {
     @State private var media: [MediaItem] = []
     @State private var distance: Double = 0
     @State private var showReplay = false
+    @State private var showViewer = false
+    @State private var viewerIndex = 0
 
     private var todayKey: String { DayKey.key(for: Date()) }
 
@@ -26,9 +28,7 @@ struct TodayView: View {
                 heroCard
                     .padding(.horizontal)
                     .padding(.bottom, 8)
-                TrackMapView(tracks: tracks, visits: visits, media: media, followsUser: true)
-                MediaStripView(media: media)
-                    .padding(.vertical, 8)
+                TrackMapView(tracks: tracks, visits: visits, media: media, followsUser: true, onMediaTap: openViewer)
             }
             .navigationTitle("Heute")
             .navigationBarTitleDisplayMode(.inline)
@@ -37,7 +37,15 @@ struct TodayView: View {
             .fullScreenCover(isPresented: $showReplay) {
                 TrackReplayView(title: "Heute", points: allPoints)
             }
+            .fullScreenCover(isPresented: $showViewer) {
+                MediaViewerView(items: media, index: viewerIndex)
+            }
         }
+    }
+
+    private func openViewer(_ item: MediaItem) {
+        viewerIndex = media.firstIndex { $0.id == item.id } ?? 0
+        showViewer = true
     }
 
     // MARK: - Hero-Karte
@@ -68,7 +76,15 @@ struct TodayView: View {
             HStack(spacing: 14) {
                 statBadge("clock.fill", durationText)
                 statBadge("mappin.and.ellipse", "\(visits.count)")
-                statBadge("photo.on.rectangle", "\(media.count)")
+                Button {
+                    if !media.isEmpty {
+                        viewerIndex = 0
+                        showViewer = true
+                    }
+                } label: {
+                    statBadge("photo.on.rectangle", "\(media.count)")
+                }
+                .buttonStyle(.plain)
                 Spacer()
                 if allPoints.count > 1 {
                     Button {
