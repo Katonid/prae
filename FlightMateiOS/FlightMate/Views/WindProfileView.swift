@@ -105,15 +105,13 @@ struct WindProfileView: View {
     }
 
     private func cell(speed: Double?, direction: Double?) -> some View {
-        VStack(spacing: 2) {
+        VStack(spacing: 3) {
             if let speed {
                 if let direction {
-                    Image(systemName: "arrow.up")
-                        .font(.caption)
-                        // Meteorologische Richtung = WOHER der Wind kommt;
-                        // der Pfeil zeigt, wohin er weht (+180°).
-                        .rotationEffect(.degrees(direction + 180))
-                        .foregroundStyle(color(for: speed))
+                    // Kompass-Rose (Nutzerwunsch nach App-Vorbild) —
+                    // der Pfeil zeigt, wohin der Wind weht.
+                    WindCompassView(directionDeg: direction, size: 46,
+                                    arrowColor: color(for: speed))
                 }
                 Text("\(Int(speed.rounded()))")
                     .font(.caption.monospacedDigit())

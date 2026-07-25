@@ -142,6 +142,16 @@ Dieser Stand entspricht dem **MVP-Fundament** (PRD Phase 0/1).
   umschaltbar (Karte / Hybrid / Satellit) und Tag-/Nachtansicht
   unabhängig vom Geräte-Erscheinungsbild erzwingbar; alle
   Einstellungen bleiben gespeichert.
+- **„Umsehen" im Punkt-Check (Nutzerwunsch nach App-Vorbild):** Das
+  Info-Blatt des angetippten Kartenpunkts zeigt Apples
+  Look-Around-Panorama des Ortes (falls Abdeckung besteht — sonst
+  wird die Vorschau ehrlich ausgeblendet; Antippen öffnet Vollbild)
+  sowie Knöpfe zu **Apple Karten** und **Google Maps** (App falls
+  installiert, sonst Web) — um sich die Stelle genauer anzusehen.
+  Die **Windanzeiger** sind jetzt Kompass-Rosen (Ziffernblatt mit
+  Strichen und N/O/S/W, kräftiger Pfeil = wohin der Wind weht) —
+  im „Aktuell"-Raster und in „Winde nach Höhe"
+  (WindCompassView, wiederverwendbar).
 - **Sonne auf der Karte:** Das Briefing zeigt je gewähltem Tag eine
   Karte mit Azimut-Linien vom Spot zur Sonne bei Auf- (orange) und
   Untergang (violett), inkl. Uhrzeit-Etiketten in Ortszeit und

@@ -242,20 +242,14 @@ struct TodayView: View {
 
     private func windDirectionTile(_ degrees: Double) -> some View {
         VStack(spacing: 2) {
-            HStack(spacing: 4) {
-                Image(systemName: "arrow.up")
-                    .font(.caption)
-                    // Pfeil zeigt, WOHIN der Wind weht (Richtung + 180°).
-                    .rotationEffect(.degrees(degrees + 180))
-                Text(Theme.compassDirection(degrees))
-                    .font(.subheadline.bold())
-            }
-            Text("Wind aus")
+            // Kompass-Rose (Nutzerwunsch nach App-Vorbild).
+            WindCompassView(directionDeg: degrees, size: 38)
+            Text("Wind aus \(Theme.compassDirection(degrees))")
                 .font(.caption2)
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 10)
+        .padding(.vertical, 5)
         .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 10))
     }
 
