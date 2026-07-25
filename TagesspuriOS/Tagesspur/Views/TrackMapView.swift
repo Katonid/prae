@@ -17,8 +17,15 @@ struct TrackMapView: View {
     var followsUser = false
 
     @State private var position: MapCameraPosition = .automatic
+    @State private var styleIndex = 0
 
     private static let colors: [Color] = [.blue, .orange, .purple, .green, .red, .teal]
+
+    private static let styles: [(MapStyle, String)] = [
+        (.standard(elevation: .realistic), "map.fill"),
+        (.hybrid(elevation: .realistic), "globe.europe.africa.fill"),
+        (.imagery(elevation: .realistic), "mountain.2.fill"),
+    ]
 
     var body: some View {
         Map(position: $position) {
@@ -47,9 +54,21 @@ struct TrackMapView: View {
                 UserAnnotation()
             }
         }
+        .mapStyle(Self.styles[styleIndex].0)
         .mapControls {
             MapCompass()
             MapScaleView()
+        }
+        .overlay(alignment: .topTrailing) {
+            Button {
+                styleIndex = (styleIndex + 1) % Self.styles.count
+            } label: {
+                Image(systemName: Self.styles[(styleIndex + 1) % Self.styles.count].1)
+                    .font(.title3)
+                    .padding(10)
+                    .background(.thinMaterial, in: Circle())
+            }
+            .padding(10)
         }
     }
 }

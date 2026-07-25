@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import Charts
 
 /// Kalender-Tab: alle aufgezeichneten Tage, geräteübergreifend.
 struct DaysView: View {
@@ -25,6 +26,13 @@ struct DaysView: View {
     var body: some View {
         NavigationStack {
             List {
+                if !groups.isEmpty {
+                    Section {
+                        summaryCard
+                            .listRowInsets(EdgeInsets())
+                            .listRowBackground(Color.clear)
+                    }
+                }
                 if groups.isEmpty {
                     ContentUnavailableView(
                         "Noch keine Tage",
@@ -52,7 +60,68 @@ struct DaysView: View {
             .navigationDestination(for: String.self) { dayKey in
                 DayDetailView(dayKey: dayKey)
             }
+            .toolbar {
+                NavigationLink {
+                    StatsView()
+                } label: {
+                    Image(systemName: "chart.bar.fill")
+                }
+            }
         }
+    }
+
+    /// Kopfkarte: Gesamtstrecke, Serie und Mini-Diagramm der letzten 14 Tage.
+    private var summaryCard: some View {
+        let totalKm = groups.reduce(0) { $0 + $1.distance } / 1000
+        let streak = Statistics.streak(dayKeys: Set(groups.map(\.dayKey)))
+        let cutoff = Calendar.current.date(byAdding: .day, value: -13, to: Calendar.current.startOfDay(for: Date()))
+        let recent = groups.compactMap { group -> StatsView.DayTotal? in
+            guard let date = DayKey.date(for: group.dayKey), let cutoff, date >= cutoff else { return nil }
+            return StatsView.DayTotal(dayKey: group.dayKey, date: date, meters: group.distance)
+        }
+
+        return NavigationLink {
+            StatsView()
+        } label: {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(alignment: .firstTextBaseline) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(String(format: "%.0f km", totalKm))
+                            .font(.system(.largeTitle, design: .rounded).bold())
+                        Text("insgesamt · \(groups.count) Tage")
+                            .font(.caption)
+                            .opacity(0.85)
+                    }
+                    Spacer()
+                    if streak > 1 {
+                        Label("\(streak) Tage in Folge", systemImage: "flame.fill")
+                            .font(.footnote.bold())
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .background(.white.opacity(0.2), in: Capsule())
+                    }
+                }
+                if recent.count > 1 {
+                    Chart(recent) { item in
+                        BarMark(x: .value("Tag", item.date, unit: .day), y: .value("km", item.meters / 1000))
+                            .foregroundStyle(.white.opacity(0.9))
+                            .cornerRadius(2)
+                    }
+                    .chartXAxis(.hidden)
+                    .chartYAxis(.hidden)
+                    .frame(height: 56)
+                }
+            }
+            .foregroundStyle(.white)
+            .padding(16)
+            .background(
+                LinearGradient(colors: [Color(red: 0.06, green: 0.16, blue: 0.29),
+                                        Color(red: 0.17, green: 0.55, blue: 0.70)],
+                               startPoint: .topLeading, endPoint: .bottomTrailing),
+                in: RoundedRectangle(cornerRadius: 18)
+            )
+        }
+        .buttonStyle(.plain)
     }
 
     private func distanceText(_ meters: Double) -> String {
@@ -70,6 +139,11 @@ struct DayDetailView: View {
     @State private var tracks: [TrackMapView.DeviceTrack] = []
     @State private var visits: [PlaceVisit] = []
     @State private var media: [MediaItem] = []
+    @State private var showReplay = false
+
+    private var allPoints: [TrackPoint] {
+        tracks.flatMap(\.points).sorted { $0.t < $1.t }
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -117,6 +191,18 @@ struct DayDetailView: View {
         }
         .navigationTitle(DayKey.displayName(for: dayKey))
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            if allPoints.count > 1 {
+                Button {
+                    showReplay = true
+                } label: {
+                    Label("Abspielen", systemImage: "play.circle.fill")
+                }
+            }
+        }
+        .fullScreenCover(isPresented: $showReplay) {
+            TrackReplayView(title: DayKey.displayName(for: dayKey), points: allPoints)
+        }
         .task { reload() }
     }
 
