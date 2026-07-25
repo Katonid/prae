@@ -46,8 +46,15 @@ Native SwiftUI-App, iOS 17+, keine externen Abhängigkeiten.
   - Statistikseite: Balkendiagramm der letzten 30 Tage, Summen,
     Aufenthalte, längster Tag.
 - **Kartenstile & Darstellung**
-  - Umschalter auf jeder Karte: Standard / Hybrid / Satellit, jeweils
-    mit realistischem 3D-Gelände.
+  - Umschalter auf jeder Karte: Standard / Hybrid / Satellit (Apple,
+    3D-Gelände) sowie **Outdoor** — OpenTopoMap-Kacheln (OSM-Daten mit
+    Höhenlinien/Wanderwegen) via MKTileOverlay, inkl. Pflicht-Attribution.
+    Stilwahl wird gemerkt.
+- **„Wo war ich um …?“ (Zeit-Cursor)**
+  - Im Tagesdetail Uhrzeit wählen (Picker + Schieberegler): Marker zeigt
+    die interpolierte Position auf der Karte, dazu Adresse
+    (Reverse-Geocoding), umgebende Messpunkte und ehrliche Kennzeichnung
+    von Messlücken (Ruhemodus) — `TrackMath.position(at:in:)`.
   - Hell/Dunkel getrennt für App und Karte einstellbar (Einstellungen →
     Darstellung), z. B. dunkle App mit heller Karte.
   - Designsprache in `Views/Theme.swift`: Markenverlauf, Hero-Karten mit

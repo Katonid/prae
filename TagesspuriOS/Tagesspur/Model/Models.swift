@@ -301,6 +301,58 @@ enum TrackMath {
         let step = Double(points.count - 1) / Double(maxCount - 1)
         return (0..<maxCount).map { points[Int(Double($0) * step)] }
     }
+
+    /// Position zu einer Uhrzeit („Wo war ich um 14:30?“) — zwischen den
+    /// umliegenden Messpunkten linear interpoliert, mit ehrlicher Angabe
+    /// zur Messlücke.
+    struct TimePosition {
+        var coordinate: CLLocationCoordinate2D
+        var isEstimate: Bool     // große Messlücke oder außerhalb der Aufzeichnung
+        var note: String
+    }
+
+    static func position(at time: Date, in sortedPoints: [TrackPoint]) -> TimePosition? {
+        guard let first = sortedPoints.first, let last = sortedPoints.last else { return nil }
+        func fmt(_ d: Date) -> String { d.formatted(date: .omitted, time: .shortened) }
+
+        if time <= first.t {
+            return TimePosition(
+                coordinate: first.coordinate,
+                isEstimate: true,
+                note: "Vor dem ersten Messpunkt (\(fmt(first.t))) — gezeigt wird der Tagesbeginn."
+            )
+        }
+        if time >= last.t {
+            return TimePosition(
+                coordinate: last.coordinate,
+                isEstimate: true,
+                note: "Nach dem letzten Messpunkt (\(fmt(last.t))) — gezeigt wird das Tagesende."
+            )
+        }
+        guard let upper = sortedPoints.firstIndex(where: { $0.t >= time }), upper > 0 else {
+            return TimePosition(coordinate: first.coordinate, isEstimate: true, note: "")
+        }
+        let a = sortedPoints[upper - 1]
+        let b = sortedPoints[upper]
+        let span = b.t.timeIntervalSince(a.t)
+        let fraction = span > 0 ? time.timeIntervalSince(a.t) / span : 0
+        let coordinate = CLLocationCoordinate2D(
+            latitude: a.lat + (b.lat - a.lat) * fraction,
+            longitude: a.lon + (b.lon - a.lon) * fraction
+        )
+        if span > 600 {
+            return TimePosition(
+                coordinate: coordinate,
+                isEstimate: true,
+                note: "Messlücke zwischen \(fmt(a.t)) und \(fmt(b.t)) (z. B. Ruhemodus) — Position geschätzt."
+            )
+        }
+        return TimePosition(
+            coordinate: coordinate,
+            isEstimate: false,
+            note: "Zwischen den Messpunkten \(fmt(a.t)) und \(fmt(b.t))."
+        )
+    }
 }
 
 // MARK: - Foto-Stichwörter (Fotoanalyse, opt-in)
