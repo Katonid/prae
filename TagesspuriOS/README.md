@@ -11,8 +11,14 @@ Native SwiftUI-App, iOS 17+, keine externen Abhängigkeiten.
 - **Hintergrund-Tracking, akkuschonend**
   - Besuchs- (CLVisit) und Signifikanz-Monitoring laufen dauerhaft mit
     minimalem Verbrauch und wecken die App auch nach Beendigung wieder.
-  - Präzises GPS (10 m Genauigkeit, 25 m Distanzfilter) nur bei Bewegung;
-    nach 5 Minuten Stillstand automatischer Ruhemodus.
+  - Präzises GPS (10 m Genauigkeit, 20 m Distanzfilter) bei Bewegung;
+    nach 5 Minuten Stillstand Ruhemodus. Wichtig: Der Ruhemodus stellt
+    GPS nur grob (100 m) statt aus — Bewegungsbeginn wird dadurch in
+    Sekunden selbst erkannt (kein Warten auf grobe Systemereignisse,
+    keine geraden Linien im Track). Apples Auto-Pause ist deaktiviert
+    (springt nach Stillstand unzuverlässig wieder an).
+  - Einstellung „Hohe Genauigkeit“: dauerhaft präzise ohne Ruhemodus —
+    bestes Trackbild, mehr Akkuverbrauch.
   - Punkte werden gepuffert (20 Punkte / 90 s) und pro Tag als kompakter
     Blob gespeichert — wenig I/O, wenig Sync-Volumen.
 - **iCloud-Sync (SwiftData + CloudKit, privater Container)**
