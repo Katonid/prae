@@ -31,36 +31,13 @@ struct DaysView: View {
 
     var body: some View {
         NavigationStack {
-            List {
+            VStack(spacing: 0) {
                 if !groups.isEmpty {
-                    Section {
-                        summaryCard
-                            .listRowInsets(EdgeInsets())
-                            .listRowBackground(Color.clear)
-                    }
+                    summaryCard
+                        .padding(.horizontal)
+                        .padding(.bottom, 6)
                 }
-                if groups.isEmpty {
-                    ContentUnavailableView(
-                        "Noch keine Tage",
-                        systemImage: "map",
-                        description: Text("Starte die Aufzeichnung im Tab „Heute“. Über iCloud erscheinen hier auch die Tage deiner anderen Geräte.")
-                    )
-                }
-                ForEach(groups) { group in
-                    NavigationLink(value: group.dayKey) {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(DayKey.displayName(for: group.dayKey))
-                                .font(.headline)
-                            HStack {
-                                Text(distanceText(group.distance))
-                                Text("·")
-                                Text(group.deviceNames)
-                            }
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                        }
-                    }
-                }
+                daysList
             }
             .navigationTitle("Tage")
             .navigationDestination(for: String.self) { dayKey in
@@ -71,6 +48,33 @@ struct DaysView: View {
                     StatsView()
                 } label: {
                     Image(systemName: "chart.bar.fill")
+                }
+            }
+        }
+    }
+
+    private var daysList: some View {
+        List {
+            if groups.isEmpty {
+                ContentUnavailableView(
+                    "Noch keine Tage",
+                    systemImage: "map",
+                    description: Text("Starte die Aufzeichnung im Tab „Heute“. Über iCloud erscheinen hier auch die Tage deiner anderen Geräte.")
+                )
+            }
+            ForEach(groups) { group in
+                NavigationLink(value: group.dayKey) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(DayKey.displayName(for: group.dayKey))
+                            .font(.headline)
+                        HStack {
+                            Text(distanceText(group.distance))
+                            Text("·")
+                            Text(group.deviceNames)
+                        }
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                    }
                 }
             }
         }
