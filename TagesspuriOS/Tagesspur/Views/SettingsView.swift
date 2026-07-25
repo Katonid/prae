@@ -53,13 +53,14 @@ struct SettingsView: View {
 
                 Section("Aufzeichnung") {
                     Toggle("Standort aufzeichnen", isOn: $tracker.trackingEnabled)
+                    Toggle("Hohe Genauigkeit", isOn: $tracker.highAccuracy)
                     LabeledContent("Standort-Berechtigung", value: locationStatusText)
                     if !tracker.hasAlwaysPermission {
                         Button("Berechtigung anfragen („Immer“ empfohlen)") {
                             tracker.requestPermission()
                         }
                     }
-                    Text("Sparsam per Design: präzises GPS nur bei Bewegung, nach 5 Minuten Stillstand Ruhemodus; Besuchs­erkennung läuft dauerhaft mit minimalem Verbrauch.")
+                    Text("Ausgewogen (Standard): präzises GPS bei Bewegung; nach 5 Minuten Stillstand grober Ruhemodus, der Bewegungsbeginn sofort selbst erkennt. „Hohe Genauigkeit“ zeichnet dauerhaft präzise auf — bestes Trackbild, spürbar mehr Akkuverbrauch.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }

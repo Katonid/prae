@@ -8,10 +8,16 @@ import SwiftUI
 /// Strategie:
 /// - Besuchs- und Signifikanz-Monitoring laufen immer (sehr sparsam,
 ///   wecken die App auch nach Beendigung wieder auf).
-/// - Präzise GPS-Updates (10 m Genauigkeit, 25 m Distanzfilter) nur,
+/// - Präzise GPS-Updates (10 m Genauigkeit, 20 m Distanzfilter),
 ///   solange Bewegung erkannt wird.
-/// - Nach 5 Minuten ohne nennenswerte Bewegung: Ruhemodus — GPS aus,
-///   Aufwachen über Signifikanz/Besuch.
+/// - Nach 5 Minuten ohne nennenswerte Bewegung: Ruhemodus — GPS wird
+///   dabei NICHT abgeschaltet, sondern nur grob gestellt (100 m).
+///   So erkennt die App den Bewegungsbeginn selbst in Sekunden und
+///   schaltet sofort zurück auf präzise — statt kilometerweise auf
+///   Systemereignisse zu warten (das erzeugte gerade Linien im Track).
+/// - Apples Auto-Pause ist deaktiviert (springt nach Stillstand
+///   unzuverlässig wieder an).
+/// - Optional „Hohe Genauigkeit“: dauerhaft präzise, ohne Ruhemodus.
 /// - Punkte werden gepuffert und nur alle 20 Punkte bzw. 90 Sekunden
 ///   in die Datenbank geschrieben (weniger I/O, weniger Sync-Läufe).
 final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelegate {
@@ -31,6 +37,18 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
     }
 
     private static let trackingEnabledKey = "tagesspur.trackingEnabled"
+
+    /// „Hohe Genauigkeit“: dauerhaft präzise, kein Ruhemodus.
+    @Published var highAccuracy: Bool {
+        didSet {
+            UserDefaults.standard.set(highAccuracy, forKey: Self.highAccuracyKey)
+            if highAccuracy, isResting {
+                exitRest()
+            }
+        }
+    }
+
+    private static let highAccuracyKey = "tagesspur.highAccuracy"
 
     private var buffer: [TrackPoint] = []
     private var lastFlush = Date()
@@ -52,15 +70,26 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
     private static let flushAfterSeconds: TimeInterval = 90
     private static let maxAcceptableAccuracy: CLLocationAccuracy = 100
 
+    /// Präzise Erfassung (Bewegung).
+    private static let activeAccuracy = kCLLocationAccuracyNearestTenMeters
+    private static let activeDistanceFilter: CLLocationDistance = 20
+    /// Ruhemodus: grob statt aus — der GPS-Chip schläft praktisch
+    /// genauso, aber Bewegungsbeginn wird sofort selbst erkannt.
+    private static let restAccuracy = kCLLocationAccuracyHundredMeters
+    private static let restDistanceFilter: CLLocationDistance = 100
+
     init(container: ModelContainer) {
         self.container = container
         self.trackingEnabled = UserDefaults.standard.bool(forKey: Self.trackingEnabledKey)
+        self.highAccuracy = UserDefaults.standard.bool(forKey: Self.highAccuracyKey)
         super.init()
         manager.delegate = self
-        manager.desiredAccuracy = kCLLocationAccuracyNearestTenMeters
-        manager.distanceFilter = 25
+        manager.desiredAccuracy = Self.activeAccuracy
+        manager.distanceFilter = Self.activeDistanceFilter
         manager.activityType = .other
-        manager.pausesLocationUpdatesAutomatically = true
+        // Apples Auto-Pause springt nach Stillstand unzuverlässig wieder
+        // an — der eigene Ruhemodus (grob statt aus) ersetzt sie.
+        manager.pausesLocationUpdatesAutomatically = false
         authorization = manager.authorizationStatus
         applyTrackingState()
     }
@@ -116,17 +145,29 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
         isResting = false
         restAnchor = nil
         lastMovement = Date()
+        manager.desiredAccuracy = Self.activeAccuracy
+        manager.distanceFilter = Self.activeDistanceFilter
         manager.startUpdatingLocation()
         scheduleFlushTimer()
     }
 
+    /// Ruhemodus: GPS bleibt an, aber grob — spart Akku, erkennt
+    /// Bewegungsbeginn aber sofort selbst (kein Warten auf grobe
+    /// Systemereignisse, keine geraden Linien im Track).
     private func enterRest() {
-        guard !isResting else { return }
+        guard !isResting, !highAccuracy else { return }
         isResting = true
-        manager.stopUpdatingLocation()
-        flushTimer?.invalidate()
-        flushTimer = nil
+        manager.desiredAccuracy = Self.restAccuracy
+        manager.distanceFilter = Self.restDistanceFilter
         flush()
+    }
+
+    /// Zurück auf präzise Erfassung, ohne Anker/Zeit zurückzusetzen.
+    private func exitRest() {
+        isResting = false
+        lastMovement = Date()
+        manager.desiredAccuracy = Self.activeAccuracy
+        manager.distanceFilter = Self.activeDistanceFilter
     }
 
     private func scheduleFlushTimer() {
@@ -155,7 +196,7 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
         recordVisit(visit)
         // Ein Besuchsereignis kann die App im Hintergrund wecken —
         // kurz prüfen, ob wieder Bewegung stattfindet.
-        if isResting { startPreciseUpdates() }
+        if isResting { exitRest() }
     }
 
     func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
@@ -183,7 +224,7 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
             if location.distance(from: anchor) > Self.movementThreshold {
                 restAnchor = location
                 lastMovement = Date()
-                if isResting { startPreciseUpdates() }
+                if isResting { exitRest() }
             } else if !isResting,
                       Date().timeIntervalSince(lastMovement) > Self.restAfterSeconds {
                 enterRest()
