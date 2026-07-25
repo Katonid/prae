@@ -9,6 +9,7 @@
 import Foundation
 import CoreLocation
 import Combine
+import WidgetKit
 
 enum StatusKind {
     case good, ok, bad, neutral
@@ -107,6 +108,7 @@ final class AppState: NSObject, ObservableObject {
     }
 
     func start() {
+        persistSharedPlace()
         locate()
         Task {
             tle = SkyServices.cachedTLE()
@@ -212,6 +214,15 @@ final class AppState: NSObject, ObservableObject {
         locationName = nil
         updateTimezoneAndName()
         recomputeAll()
+        persistSharedPlace()
+    }
+
+    /// Ort für die Widgets in der App Group hinterlegen und Widgets auffrischen
+    private func persistSharedPlace() {
+        SharedPlace.save(SharedPlace(lat: lat, lng: lng,
+                                     timeZoneID: timeZone.identifier,
+                                     name: locationName))
+        WidgetCenter.shared.reloadAllTimelines()
     }
 
     func locate() {
@@ -253,6 +264,7 @@ final class AppState: NSObject, ObservableObject {
                     if let name {
                         self.locationName = name + (pm.country.map { ", " + $0 } ?? "")
                     }
+                    self.persistSharedPlace()
                 } else {
                     // Offline: grobe Zeitzonen-Näherung aus dem Längengrad
                     let offset = Int((self.lng / 15).rounded()) * 3600
