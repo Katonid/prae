@@ -1,8 +1,9 @@
 import SwiftUI
 import MapKit
 
-/// Wiederverwendbare Karte: Tracks (pro Gerät eine Farbe), Aufenthalte
-/// und Medien mit GPS-Position.
+/// Wiederverwendbare Karte: Tracks (weiße Kontur + Gerätefarbe),
+/// Aufenthalte, Start/Ziel und Medien. Der Hell/Dunkel-Modus der Karte
+/// ist unabhängig von der App einstellbar.
 struct TrackMapView: View {
     struct DeviceTrack: Identifiable {
         var id: String { deviceId + deviceName }
@@ -19,8 +20,8 @@ struct TrackMapView: View {
 
     @State private var position: MapCameraPosition = .automatic
     @State private var styleIndex = 0
-
-    private static let colors: [Color] = [.blue, .orange, .purple, .green, .red, .teal]
+    @AppStorage(AppearanceMode.mapKey) private var mapAppearance = AppearanceMode.system.rawValue
+    @Environment(\.colorScheme) private var systemScheme
 
     private static let styles: [(MapStyle, String)] = [
         (.standard(elevation: .realistic), "map.fill"),
@@ -28,19 +29,42 @@ struct TrackMapView: View {
         (.imagery(elevation: .realistic), "mountain.2.fill"),
     ]
 
+    private var allPointsSorted: [TrackPoint] {
+        tracks.flatMap(\.points).sorted { $0.t < $1.t }
+    }
+
     var body: some View {
         Map(position: $position) {
+            // Weiße Kontur unter allen Tracks — hebt die Route auf jedem
+            // Kartenstil sauber ab.
+            ForEach(tracks) { track in
+                if track.points.count > 1 {
+                    MapPolyline(coordinates: track.points.map(\.coordinate))
+                        .stroke(.white, style: StrokeStyle(lineWidth: 6.5, lineCap: .round, lineJoin: .round))
+                }
+            }
             ForEach(Array(tracks.enumerated()), id: \.element.id) { index, track in
                 if track.points.count > 1 {
                     MapPolyline(coordinates: track.points.map(\.coordinate))
-                        .stroke(Self.colors[index % Self.colors.count], lineWidth: 3)
+                        .stroke(Theme.trackColors[index % Theme.trackColors.count],
+                                style: StrokeStyle(lineWidth: 3.5, lineCap: .round, lineJoin: .round))
                 }
             }
+
+            if let start = allPointsSorted.first {
+                Annotation("", coordinate: start.coordinate) {
+                    TrackEndpointMarker(isStart: true)
+                }
+            }
+            if !followsUser, allPointsSorted.count > 1, let end = allPointsSorted.last {
+                Annotation("", coordinate: end.coordinate) {
+                    TrackEndpointMarker(isStart: false)
+                }
+            }
+
             ForEach(visits) { visit in
                 Annotation(visit.title, coordinate: visit.coordinate) {
-                    Image(systemName: "mappin.circle.fill")
-                        .font(.title2)
-                        .foregroundStyle(.red, .white)
+                    VisitMarkerView()
                 }
             }
             ForEach(media.filter { $0.coordinate != nil }) { item in
@@ -63,6 +87,7 @@ struct TrackMapView: View {
             MapCompass()
             MapScaleView()
         }
+        .environment(\.colorScheme, AppearanceMode.mode(for: mapAppearance).colorScheme ?? systemScheme)
         .overlay(alignment: .topTrailing) {
             Button {
                 styleIndex = (styleIndex + 1) % Self.styles.count

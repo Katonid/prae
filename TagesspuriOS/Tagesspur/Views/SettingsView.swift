@@ -16,10 +16,28 @@ struct SettingsView: View {
     @State private var analysisEnabled = PhotoAnalyzer.isEnabled
     @State private var analysisRunning = false
     @State private var analysisProgress = ""
+    @AppStorage(AppearanceMode.appKey) private var appAppearance = AppearanceMode.system.rawValue
+    @AppStorage(AppearanceMode.mapKey) private var mapAppearance = AppearanceMode.system.rawValue
 
     var body: some View {
         NavigationStack {
             Form {
+                Section("Darstellung") {
+                    Picker("App", selection: $appAppearance) {
+                        ForEach(AppearanceMode.allCases) { mode in
+                            Text(mode.label).tag(mode.rawValue)
+                        }
+                    }
+                    Picker("Karte", selection: $mapAppearance) {
+                        ForEach(AppearanceMode.allCases) { mode in
+                            Text(mode.label).tag(mode.rawValue)
+                        }
+                    }
+                    Text("App und Karte getrennt einstellbar — z. B. dunkle App mit heller Karte. „Automatisch“ folgt der Systemeinstellung.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+
                 Section("Aufzeichnung") {
                     Toggle("Standort aufzeichnen", isOn: $tracker.trackingEnabled)
                     LabeledContent("Standort-Berechtigung", value: locationStatusText)

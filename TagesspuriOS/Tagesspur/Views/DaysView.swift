@@ -114,12 +114,7 @@ struct DaysView: View {
             }
             .foregroundStyle(.white)
             .padding(16)
-            .background(
-                LinearGradient(colors: [Color(red: 0.06, green: 0.16, blue: 0.29),
-                                        Color(red: 0.17, green: 0.55, blue: 0.70)],
-                               startPoint: .topLeading, endPoint: .bottomTrailing),
-                in: RoundedRectangle(cornerRadius: 18)
-            )
+            .background(HeroCardBackground())
         }
         .buttonStyle(.plain)
     }
