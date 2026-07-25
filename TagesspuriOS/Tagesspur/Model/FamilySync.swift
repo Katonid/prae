@@ -151,6 +151,7 @@ final class FamilySync: ObservableObject {
             record["distanceMeters"] = day.distanceMeters
             record["startDate"] = day.startDate
             record["endDate"] = day.endDate
+            record["summary"] = day.summary
             record["updatedAt"] = day.updatedAt
             records.append(record)
         }
@@ -286,6 +287,7 @@ final class FamilySync: ObservableObject {
             day.distanceMeters = record["distanceMeters"] as? Double ?? 0
             day.startDate = record["startDate"] as? Date ?? Date()
             day.endDate = record["endDate"] as? Date ?? Date()
+            day.summary = record["summary"] as? String ?? ""
             day.updatedAt = record["updatedAt"] as? Date ?? Date()
         case Self.visitType:
             let visit: FamilyVisit

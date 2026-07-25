@@ -54,6 +54,7 @@ final class TrackDay {
     var distanceMeters: Double = 0
     var startDate: Date = Date()
     var endDate: Date = Date()
+    var summary: String = ""         // „Ort – Ort – Ort“ (DaySummarizer)
     var updatedAt: Date = Date()
 
     init(deviceId: String, deviceName: String, dayKey: String) {
@@ -174,6 +175,7 @@ final class FamilyDay {
     var distanceMeters: Double = 0
     var startDate: Date = Date()
     var endDate: Date = Date()
+    var summary: String = ""
     var updatedAt: Date = Date()
 
     init(recordName: String) {

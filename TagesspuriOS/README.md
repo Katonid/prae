@@ -58,6 +58,20 @@ Native SwiftUI-App, iOS 17+, keine externen Abhängigkeiten.
     Optional in den Einstellungen: Thunderforest-API-Key (kostenloser
     „Hobby Project“-Tarif) → Outdoor-Stil lädt über deren CDN deutlich
     schneller; Attribution wechselt automatisch.
+- **Gesamtkarte aller Tracks**
+  - Tab „Tage“ → Kartensymbol: alle jemals aufgezeichneten Tracks
+    (eigene Geräte + Familie) auf einer Karte. Antippen wählt einen Track
+    aus (hervorgehoben + herangezoomt), Infokarte mit Datum, Person,
+    Strecke, Dauer, Punktzahl; „Nur diesen Track zeigen“ und Sprung ins
+    Tagesdetail. Treffertoleranz zoomabhängig (30 pt).
+- **Tages-Beschreibung („Ort – Ort – Ort“)**
+  - `DaySummarizer`: pro vergangenem Tag einmalig bis zu drei Orte
+    entlang des Tracks (Stichproben nach Strecke, Reverse-Geocoding).
+    Fernstrecken (> 30 km Strecke oder > 15 km Ausdehnung) → Städte;
+    lokale Runden → Ortsteile/markante Orte. Ergebnis wird im
+    Tages-Datensatz gespeichert (synct via iCloud + Familienfreigabe)
+    und in der Tagesliste angezeigt; Berechnung gedrosselt
+    (max. 5 Tage pro Aufruf, neueste zuerst).
 - **„Wo war ich um …?“ (Zeit-Cursor)**
   - Im Tagesdetail Uhrzeit wählen (Picker + Schieberegler): Marker zeigt
     die interpolierte Position auf der Karte, dazu Adresse

@@ -6,6 +6,7 @@ import Charts
 struct DaysView: View {
     @Query(sort: \TrackDay.dayKey, order: .reverse) private var days: [TrackDay]
     @Query private var familyDays: [FamilyDay]
+    @Environment(\.modelContext) private var context
 
     private struct DayGroup: Identifiable {
         var dayKey: String
@@ -18,6 +19,11 @@ struct DaysView: View {
             let own = days.map { $0.deviceName.isEmpty ? "Gerät" : $0.deviceName }
             let others = family.map(\.displayName)
             return Set(own + others).sorted().joined(separator: ", ")
+        }
+        /// Kurzbeschreibung „Ort – Ort – Ort“ (eigene vor Familien-Daten).
+        var summary: String {
+            let candidates = days.map(\.summary) + family.map(\.summary)
+            return candidates.first { !$0.isEmpty && $0 != DaySummarizer.noResult } ?? ""
         }
     }
 
@@ -45,10 +51,18 @@ struct DaysView: View {
             }
             .toolbar {
                 NavigationLink {
+                    AllTracksMapView()
+                } label: {
+                    Image(systemName: "map.fill")
+                }
+                NavigationLink {
                     StatsView()
                 } label: {
                     Image(systemName: "chart.bar.fill")
                 }
+            }
+            .task {
+                await DaySummarizer.updateMissingSummaries(container: context.container)
             }
         }
     }
@@ -67,6 +81,12 @@ struct DaysView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(DayKey.displayName(for: group.dayKey))
                             .font(.headline)
+                        if !group.summary.isEmpty {
+                            Text(group.summary)
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                        }
                         HStack {
                             Text(distanceText(group.distance))
                             Text("·")
