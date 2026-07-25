@@ -6,7 +6,7 @@ import UIKit
 /// Höhenlinien und Wanderwegen) — als eigene Kachel-Ebene in MKMapView.
 /// Attribution ist Pflicht und wird in TrackMapView eingeblendet.
 struct OutdoorMapView: UIViewRepresentable {
-    var tracks: [TrackMapView.DeviceTrack]
+    var tracks: [(track: TrackMapView.DeviceTrack, colorIndex: Int)]
     var visits: [VisitInfo] = []
     var media: [MediaItem] = []
     var followsUser = false
@@ -195,8 +195,8 @@ struct OutdoorMapView: UIViewRepresentable {
         private var signature = ""
         private var didSetRegion = false
 
-        func update(map: MKMapView, tracks: [TrackMapView.DeviceTrack], visits: [VisitInfo], media: [MediaItem], cursor: TrackMapView.TimeCursor?) {
-            let newSignature = "\(tracks.map { "\($0.id):\($0.points.count)" }.joined())|\(visits.count)|\(media.count)|\(cursor.map { "\($0.coordinate.latitude),\($0.coordinate.longitude)" } ?? "-")"
+        func update(map: MKMapView, tracks: [(track: TrackMapView.DeviceTrack, colorIndex: Int)], visits: [VisitInfo], media: [MediaItem], cursor: TrackMapView.TimeCursor?) {
+            let newSignature = "\(tracks.map { "\($0.track.id):\($0.track.points.count):\($0.colorIndex)" }.joined())|\(visits.count)|\(media.count)|\(cursor.map { "\($0.coordinate.latitude),\($0.coordinate.longitude)" } ?? "-")"
             guard newSignature != signature else { return }
             signature = newSignature
 
@@ -204,12 +204,12 @@ struct OutdoorMapView: UIViewRepresentable {
             map.removeAnnotations(map.annotations.filter { !($0 is MKUserLocation) })
 
             var unionRect = MKMapRect.null
-            for (index, track) in tracks.enumerated() where track.points.count > 1 {
-                var coords = track.points.map(\.coordinate)
+            for entry in tracks where entry.track.points.count > 1 {
+                var coords = entry.track.points.map(\.coordinate)
                 let casing = TrackPolyline(coordinates: &coords, count: coords.count)
                 casing.isCasing = true
                 let line = TrackPolyline(coordinates: &coords, count: coords.count)
-                line.color = UIColor(Theme.trackColors[index % Theme.trackColors.count])
+                line.color = UIColor(Theme.trackColors[entry.colorIndex % Theme.trackColors.count])
                 map.addOverlay(casing, level: .aboveLabels)
                 map.addOverlay(line, level: .aboveLabels)
                 unionRect = unionRect.union(line.boundingMapRect)
