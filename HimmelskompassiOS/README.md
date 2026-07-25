@@ -34,6 +34,10 @@ diesem Projekt weder benutzt noch berührt.
   Breite
 - **Bedienung:** Tab-Navigation (Zeiten / Kompass / Nacht), Datum frei wählbar,
   Standort automatisch per GPS oder per Tipp auf die Karte
+- **Widgets:** „Heute am Himmel" (klein/mittel: Sonnenzeiten, goldene/blaue
+  Stunde, Tagesverlaufs-Balken, Mondphase), Mond-Widget sowie
+  Sperrbildschirm-Widgets – rechnen offline mit dem zuletzt in der App
+  verwendeten Ort (App Group `group.de.familie.himmelskompass`)
 
 ## Technik
 
@@ -52,9 +56,11 @@ diesem Projekt weder benutzt noch berührt.
 
 1. `HimmelskompassiOS/Himmelskompass.xcodeproj` in Xcode (16 oder neuer) öffnen.
 2. Unter *Signing & Capabilities* das eigene Team (Apple-Developer-Konto)
-   auswählen. Falls die Bundle-ID `de.familie.himmelskompass` im Konto schon
-   vergeben ist, einfach eine eigene eintragen (z. B.
-   `de.<name>.himmelskompass`).
+   auswählen – **für beide Targets** („Himmelskompass" und
+   „HimmelskompassWidgets"). Falls die Bundle-ID `de.familie.himmelskompass`
+   im Konto schon vergeben ist, eine eigene eintragen (z. B.
+   `de.<name>.himmelskompass`) und beim Widget-Target entsprechend
+   `de.<name>.himmelskompass.widgets`.
 3. iPhone/iPad per Kabel oder WLAN verbinden, als Ziel auswählen, **Run**.
    Beim ersten Start auf dem Gerät unter *Einstellungen → Allgemein →
    VPN & Geräteverwaltung* dem Entwicklerprofil vertrauen.
