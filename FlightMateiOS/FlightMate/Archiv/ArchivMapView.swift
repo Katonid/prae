@@ -101,17 +101,9 @@ struct ArchivMapView: View {
     }
 
     private func markerThumb(_ asset: MediaAsset) -> some View {
-        ZStack {
-            if let thumb = ThumbnailStore.thumbnail(for: asset.contentHash) {
-                Image(uiImage: thumb)
-                    .resizable()
-                    .scaledToFill()
-            } else {
-                Rectangle().fill(.thinMaterial)
-                Image(systemName: asset.kind == .video ? "video" : "photo")
-                    .font(.caption2)
-            }
-        }
+        // Asynchrone Vorschau — synchrones Laden aller Marker-Bilder
+        // blockierte das Öffnen der Karte spürbar.
+        ArchivThumb(contentHash: asset.contentHash, kind: asset.kind)
         .frame(width: 46, height: 46)
         .clipShape(RoundedRectangle(cornerRadius: 8))
         .overlay(

@@ -373,7 +373,12 @@ Dieser Stand entspricht dem **MVP-Fundament** (PRD Phase 0/1).
   Karte in einer List-Zelle stürzte ab), dazu Strecke, Quelle und
   die Aufnahmen aus dem Flug — Löschen entfernt nur Route und
   Verknüpfung, nie die Aufnahmen (Nutzerwunsch: Flüge waren nach
-  dem Import nirgends direkt auffindbar). Alle sechs
+  dem Import nirgends direkt auffindbar). Tempo: Der Track wird
+  einmal im Hintergrund dekodiert und vermessen (Platzhalter statt
+  Einfrieren), und sämtliche Vorschaubilder (Gitter, Bibliothek,
+  Karten-Marker) laden asynchron mit Speicher-Cache — das
+  synchrone Laden auf dem Haupt-Thread ließ das Flug-Detail
+  minutenlang wie abgestürzt wirken. Alle sechs
   Archiv-Bereiche (Bibliothek, Medien-Karte, Flüge, Suche, Reisen,
   Foto-Spots) sitzen als **Kachel-Gitter** prominent oben auf der
   Archiv-Startseite (Nutzerwunsch: die Textzeilen waren „wirklich

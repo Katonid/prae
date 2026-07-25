@@ -24,8 +24,38 @@ enum ThumbnailStore {
         directory.appendingPathComponent("\(contentHash).jpg")
     }
 
+    /// Speicher-Cache über dem Platten-Cache — einmal geladene
+    /// Vorschauen kosten beim nächsten Anzeigen nichts mehr.
+    private static let memoryCache = NSCache<NSString, UIImage>()
+
     static func thumbnail(for contentHash: String) -> UIImage? {
-        UIImage(contentsOfFile: fileURL(for: contentHash).path)
+        if let cached = memoryCache.object(forKey: contentHash as NSString) {
+            return cached
+        }
+        guard let image = UIImage(contentsOfFile: fileURL(for: contentHash).path) else {
+            return nil
+        }
+        memoryCache.setObject(image, forKey: contentHash as NSString)
+        return image
+    }
+
+    /// Asynchrone Variante für Gitter und Karten-Marker: Platten-
+    /// Zugriff und JPEG-Dekodierung laufen abseits des Haupt-Threads
+    /// (synchrones Laden vieler Vorschauen ließ die App beim Öffnen
+    /// eines Flugs wie eingefroren wirken).
+    static func loadThumbnail(for contentHash: String) async -> UIImage? {
+        if let cached = memoryCache.object(forKey: contentHash as NSString) {
+            return cached
+        }
+        let url = fileURL(for: contentHash)
+        let image = await Task.detached(priority: .userInitiated) { () -> UIImage? in
+            guard let loaded = UIImage(contentsOfFile: url.path) else { return nil }
+            return loaded.preparingForDisplay() ?? loaded
+        }.value
+        if let image {
+            memoryCache.setObject(image, forKey: contentHash as NSString)
+        }
+        return image
     }
 
     static func hasThumbnail(for contentHash: String) -> Bool {
@@ -35,6 +65,7 @@ enum ThumbnailStore {
     /// Beim Löschen eines Katalogeintrags: Vorschau mit aufräumen
     /// (der Hash ist pro Eintrag eindeutig — Dedupe-Kernregel).
     static func removeThumbnail(for contentHash: String) {
+        memoryCache.removeObject(forKey: contentHash as NSString)
         try? FileManager.default.removeItem(at: fileURL(for: contentHash))
     }
 

@@ -197,22 +197,41 @@ struct ArchivAssetGrid: View {
                 NavigationLink {
                     ArchivAssetDetailView(asset: asset)
                 } label: {
-                    ZStack {
-                        if let thumb = ThumbnailStore.thumbnail(for: asset.contentHash) {
-                            Image(uiImage: thumb)
-                                .resizable()
-                                .scaledToFill()
-                        } else {
-                            Rectangle().fill(Color.primary.opacity(0.06))
-                            Image(systemName: asset.kind == .video ? "video" : "photo")
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    .frame(minWidth: 0, maxWidth: .infinity)
-                    .aspectRatio(1, contentMode: .fill)
-                    .clipped()
+                    ArchivThumb(contentHash: asset.contentHash, kind: asset.kind)
+                        .frame(minWidth: 0, maxWidth: .infinity)
+                        .aspectRatio(1, contentMode: .fill)
+                        .clipped()
                 }
                 .buttonStyle(.plain)
+            }
+        }
+    }
+}
+
+/// Asynchron geladene Vorschau: Platzhalter sofort, Bild sobald es
+/// abseits des Haupt-Threads dekodiert ist. Vorher blockierte das
+/// synchrone Laden vieler Vorschauen das Öffnen (z. B. Flug-Detail
+/// mit vielen Aufnahmen — die App wirkte eingefroren).
+struct ArchivThumb: View {
+    let contentHash: String
+    let kind: MediaKind
+    @State private var image: UIImage?
+
+    var body: some View {
+        ZStack {
+            if let image {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFill()
+            } else {
+                Rectangle().fill(Color.primary.opacity(0.06))
+                Image(systemName: kind == .video ? "video" : "photo")
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .task(id: contentHash) {
+            if image == nil {
+                image = await ThumbnailStore.loadThumbnail(for: contentHash)
             }
         }
     }
