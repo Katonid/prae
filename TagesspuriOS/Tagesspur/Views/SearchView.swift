@@ -5,10 +5,11 @@ import SwiftData
 /// ich an einem See war“. Deterministisch und offline.
 struct SearchView: View {
     @Query private var visits: [PlaceVisit]
+    @Query private var tags: [MediaTag]
     @State private var query = ""
 
     private var results: [SearchEngine.DayResult] {
-        SearchEngine.search(query: query, in: visits)
+        SearchEngine.search(query: query, visits: visits, tags: tags)
     }
 
     var body: some View {
@@ -16,7 +17,7 @@ struct SearchView: View {
             List {
                 if query.isEmpty {
                     Section {
-                        Text("Beispiele: „an einem See“, „Strand“, „Berlin“, „Hauptstraße“. Die Suche läuft über deine Aufenthaltsorte und deren Ortsdaten (inkl. Gewässer) — auf allen Geräten.")
+                        Text("Beispiele: „an einem See“, „Picknick“, „Strand“, „Berlin“. Die Suche läuft über deine Aufenthaltsorte samt Ortsdaten (inkl. Gewässer) und — falls aktiviert — über die Foto-Stichwörter der On-Device-Analyse. Auf allen Geräten.")
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                     }
@@ -37,6 +38,17 @@ struct SearchView: View {
                                     }
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
+                                }
+                            }
+                        }
+                        ForEach(result.photoMatches) { match in
+                            NavigationLink(value: result.dayKey) {
+                                Label {
+                                    Text("Fotoanalyse: „\(match.token)“ auf \(match.count) \(match.count == 1 ? "Aufnahme" : "Aufnahmen")")
+                                        .font(.footnote)
+                                } icon: {
+                                    Image(systemName: "sparkles")
+                                        .foregroundStyle(.orange)
                                 }
                             }
                         }

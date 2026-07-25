@@ -7,9 +7,15 @@ struct SettingsView: View {
     @EnvironmentObject private var tracker: LocationTracker
     @Environment(\.modelContext) private var context
 
+    @Query private var days: [TrackDay]
+    @Query private var tags: [MediaTag]
+
     @State private var deviceName = DeviceInfo.deviceName
     @State private var photoStatus = PhotoMatcher.authorizationStatus
     @State private var confirmDelete = false
+    @State private var analysisEnabled = PhotoAnalyzer.isEnabled
+    @State private var analysisRunning = false
+    @State private var analysisProgress = ""
 
     var body: some View {
         NavigationStack {
@@ -37,6 +43,30 @@ struct SettingsView: View {
                         }
                     }
                     Text("Medien werden nur gelesen und anhand von Zeit und GPS eingeblendet — Tagesspur speichert keine Kopien.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+
+                Section("Fotoanalyse (auf dem Gerät)") {
+                    Toggle("Foto-Stichwörter für die Suche", isOn: $analysisEnabled)
+                        .onChange(of: analysisEnabled) { _, newValue in
+                            PhotoAnalyzer.isEnabled = newValue
+                        }
+                    if analysisEnabled {
+                        Button {
+                            runAnalysis()
+                        } label: {
+                            if analysisRunning {
+                                Label(analysisProgress.isEmpty ? "Analysiere…" : analysisProgress,
+                                      systemImage: "sparkles")
+                            } else {
+                                Label("Alle Tage jetzt analysieren", systemImage: "sparkles")
+                            }
+                        }
+                        .disabled(analysisRunning)
+                        LabeledContent("Analysierte Aufnahmen", value: "\(tags.count)")
+                    }
+                    Text("Erkennt Motive (z. B. Picknick, See, Hund) komplett auf dem Gerät mit Apples Vision-Framework. Gespeichert werden nur Stichwörter, nie Bilder — nichts verlässt das Gerät. Treffer erscheinen in der Suche als „Fotoanalyse“ markiert; wie jede Mustererkennung kann sie sich irren.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
@@ -93,12 +123,30 @@ struct SettingsView: View {
         }
     }
 
+    private func runAnalysis() {
+        analysisRunning = true
+        analysisProgress = ""
+        let dayKeys = Array(Set(days.map(\.dayKey)))
+        let container = context.container
+        Task {
+            let count = await PhotoAnalyzer.analyzeDays(dayKeys, container: container) { done, total in
+                analysisProgress = "\(done) von \(total)…"
+            }
+            await MainActor.run {
+                analysisRunning = false
+                analysisProgress = count == 0 ? "" : "\(count) neu analysiert"
+            }
+        }
+    }
+
     private func deleteOwnData() {
         let deviceId = DeviceInfo.deviceId
         let dayPredicate = #Predicate<TrackDay> { $0.deviceId == deviceId }
         let visitPredicate = #Predicate<PlaceVisit> { $0.deviceId == deviceId }
+        let tagPredicate = #Predicate<MediaTag> { $0.deviceId == deviceId }
         try? context.delete(model: TrackDay.self, where: dayPredicate)
         try? context.delete(model: PlaceVisit.self, where: visitPredicate)
+        try? context.delete(model: MediaTag.self, where: tagPredicate)
         try? context.save()
     }
 }
