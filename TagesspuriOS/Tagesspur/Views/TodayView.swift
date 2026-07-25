@@ -29,14 +29,10 @@ struct TodayView: View {
         NavigationStack {
             VStack(spacing: 0) {
                 heroCard
-                    .padding(.horizontal)
-                    .padding(.bottom, 8)
                 TrackMapView(tracks: tracks, visits: visits, media: media, followsUser: true, onMediaTap: openViewer)
             }
-            .navigationTitle("Heute")
-            .navigationBarTitleDisplayMode(.inline)
+            .toolbar(.hidden, for: .navigationBar)
             .task(id: tracker.pointsVersion) { reload() }
-            .refreshable { reload() }
             .fullScreenCover(isPresented: $showReplay) {
                 TrackReplayView(title: "Heute", points: allPoints)
             }
@@ -53,8 +49,13 @@ struct TodayView: View {
 
     // MARK: - Hero-Karte
 
+    /// Randloser Header: volle Breite, hinter die Statusleiste gezogen —
+    /// bildet mit der randlosen Karte eine durchgehende Fläche.
     private var heroCard: some View {
         VStack(spacing: 10) {
+            Text("Heute")
+                .font(.headline)
+                .frame(maxWidth: .infinity)
             HStack(alignment: .firstTextBaseline) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(distanceText)
@@ -121,8 +122,10 @@ struct TodayView: View {
             }
         }
         .foregroundStyle(.white)
-        .padding(16)
-        .background(HeroCardBackground())
+        .padding(.horizontal, 16)
+        .padding(.top, 4)
+        .padding(.bottom, 14)
+        .background(HeroCardBackground(cornerRadius: 0).ignoresSafeArea(edges: .top))
     }
 
     private func statBadge(_ symbol: String, _ value: String) -> some View {
