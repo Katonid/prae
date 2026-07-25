@@ -12,14 +12,63 @@
 			path = Tagesspur;
 			sourceTree = "<group>";
 		};
+		AB1800000000000000000001 /* TagesspurWidgets */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = TagesspurWidgets;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFileReference section */
 		AB1700000000000000000002 /* Tagesspur.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Tagesspur.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		AB1800000000000000000002 /* TagesspurWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = TagesspurWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
+
+/* Begin PBXBuildFile section */
+		AB1800000000000000000003 /* TagesspurWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = AB1800000000000000000002 /* TagesspurWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+/* End PBXBuildFile section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		AB1800000000000000000004 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				AB1800000000000000000003 /* TagesspurWidgets.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXContainerItemProxy section */
+		AB180000000000000000000A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = AB170000000000000000000A /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = AB1800000000000000000008;
+			remoteInfo = TagesspurWidgets;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXTargetDependency section */
+		AB180000000000000000000B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = AB1800000000000000000008 /* TagesspurWidgets */;
+			targetProxy = AB180000000000000000000A /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		AB1700000000000000000003 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AB1800000000000000000005 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -33,6 +82,7 @@
 			isa = PBXGroup;
 			children = (
 				AB1700000000000000000001 /* Tagesspur */,
+				AB1800000000000000000001 /* TagesspurWidgets */,
 				AB1700000000000000000005 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -41,6 +91,7 @@
 			isa = PBXGroup;
 			children = (
 				AB1700000000000000000002 /* Tagesspur.app */,
+				AB1800000000000000000002 /* TagesspurWidgets.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -55,10 +106,12 @@
 				AB1700000000000000000008 /* Sources */,
 				AB1700000000000000000003 /* Frameworks */,
 				AB1700000000000000000009 /* Resources */,
+				AB1800000000000000000004 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				AB180000000000000000000B /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				AB1700000000000000000001 /* Tagesspur */,
@@ -69,6 +122,28 @@
 			productName = Tagesspur;
 			productReference = AB1700000000000000000002 /* Tagesspur.app */;
 			productType = "com.apple.product-type.application";
+		};
+		AB1800000000000000000008 /* TagesspurWidgets */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AB1800000000000000000009 /* Build configuration list for PBXNativeTarget "TagesspurWidgets" */;
+			buildPhases = (
+				AB1800000000000000000006 /* Sources */,
+				AB1800000000000000000005 /* Frameworks */,
+				AB1800000000000000000007 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				AB1800000000000000000001 /* TagesspurWidgets */,
+			);
+			name = TagesspurWidgets;
+			packageProductDependencies = (
+			);
+			productName = TagesspurWidgets;
+			productReference = AB1800000000000000000002 /* TagesspurWidgets.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
 
@@ -81,6 +156,9 @@
 				LastUpgradeCheck = 1600;
 				TargetAttributes = {
 					AB1700000000000000000006 = {
+						CreatedOnToolsVersion = 16.0;
+					};
+					AB1800000000000000000008 = {
 						CreatedOnToolsVersion = 16.0;
 					};
 				};
@@ -100,6 +178,7 @@
 			projectRoot = "";
 			targets = (
 				AB1700000000000000000006 /* Tagesspur */,
+				AB1800000000000000000008 /* TagesspurWidgets */,
 			);
 		};
 /* End PBXProject section */
@@ -112,10 +191,24 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		AB1800000000000000000007 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		AB1700000000000000000008 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AB1800000000000000000006 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -313,6 +406,58 @@
 			};
 			name = Release;
 		};
+		AB180000000000000000000C /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = Config/TagesspurWidgets.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Config/TagesspurWidgetsInfo.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Tagesspur;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "de.familie.tagesspur.TagesspurWidgets";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		AB180000000000000000000D /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = Config/TagesspurWidgets.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Config/TagesspurWidgetsInfo.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Tagesspur;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "de.familie.tagesspur.TagesspurWidgets";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -330,6 +475,15 @@
 			buildConfigurations = (
 				AB170000000000000000000E /* Debug */,
 				AB170000000000000000000F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		AB1800000000000000000009 /* Build configuration list for PBXNativeTarget "TagesspurWidgets" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AB180000000000000000000C /* Debug */,
+				AB180000000000000000000D /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

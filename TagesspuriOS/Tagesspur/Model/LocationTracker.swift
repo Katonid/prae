@@ -278,6 +278,12 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
         }
         try? context.save()
         pointsVersion += 1
+        WidgetBridge.update(
+            container: container,
+            trackingEnabled: trackingEnabled,
+            highAccuracy: highAccuracy,
+            isResting: isResting
+        )
     }
 
     private func fetchOrCreateDay(dayKey: String, deviceId: String, deviceName: String, in context: ModelContext) -> TrackDay {
