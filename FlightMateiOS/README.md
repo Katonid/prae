@@ -378,7 +378,18 @@ Dieser Stand entspricht dem **MVP-Fundament** (PRD Phase 0/1).
   Einfrieren), und sämtliche Vorschaubilder (Gitter, Bibliothek,
   Karten-Marker) laden asynchron mit Speicher-Cache — das
   synchrone Laden auf dem Haupt-Thread ließ das Flug-Detail
-  minutenlang wie abgestürzt wirken. Alle sechs
+  minutenlang wie abgestürzt wirken. **Flug abspielen** (Knopf im
+  Detail oder Tipp auf die Mini-Karte): Ein Marker fliegt die
+  Route in wählbarem Tempo (1/5/10/30×) nach — mit Play/Pause,
+  Zeitstrahl zum Spulen und mitlaufendem **Höhenprofil**
+  (Swift Charts; Höhe über Startpunkt direkt aus dem Log, Cursor
+  und Live-Wert laufen mit; ohne Höhendaten wird das Profil
+  ehrlich ausgeblendet statt Nullen zu zeichnen). Die
+  Abspiel-Karte startet in geneigter **3D-Perspektive mit
+  realistischem Gelände** und ist frei dreh- und schwenkbar
+  (Zwei-Finger-Gesten bzw. Neigungs-Knopf); ehrliche Grenze: Die
+  Routenlinie liegt in Apples Karten auf dem Gelände auf — die
+  Flughöhe trägt das Profil, nicht die Linie im Raum. Alle sechs
   Archiv-Bereiche (Bibliothek, Medien-Karte, Flüge, Suche, Reisen,
   Foto-Spots) sitzen als **Kachel-Gitter** prominent oben auf der
   Archiv-Startseite (Nutzerwunsch: die Textzeilen waren „wirklich
