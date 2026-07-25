@@ -152,6 +152,10 @@ struct DayDetailView: View {
     @State private var viewerIndex = 0
     @State private var cursorTime: Date?
     @State private var cursorAddress = ""
+    @State private var exportStart: Date?
+    @State private var exportEnd: Date?
+    @State private var exportURL: URL?
+    @State private var exportMessage: String?
 
     /// Fürs Replay nur die eigenen Tracks — Familien-Punkte würden die
     /// Kamera zwischen Personen springen lassen.
@@ -181,6 +185,7 @@ struct DayDetailView: View {
             TrackMapView(tracks: tracks, visits: visits, media: media, timeCursor: cursorPin, onMediaTap: openViewer)
             List {
                 timeSection
+                exportSection
                 if !tracks.isEmpty {
                     Section("Geräte") {
                         ForEach(tracks) { track in
@@ -309,6 +314,76 @@ struct DayDetailView: View {
                     .font(.footnote)
                 }
             }
+        }
+    }
+
+    /// Zeitausschnitt des Tages-Tracks als GPX exportieren.
+    @ViewBuilder
+    private var exportSection: some View {
+        if let first = allPoints.first, let last = allPoints.last, allPoints.count > 1 {
+            Section("Zeitraum als GPX exportieren") {
+                DatePicker(
+                    "Von",
+                    selection: Binding(
+                        get: { exportStart ?? first.t },
+                        set: { exportStart = $0; exportURL = nil }
+                    ),
+                    in: first.t...last.t,
+                    displayedComponents: .hourAndMinute
+                )
+                DatePicker(
+                    "Bis",
+                    selection: Binding(
+                        get: { exportEnd ?? last.t },
+                        set: { exportEnd = $0; exportURL = nil }
+                    ),
+                    in: first.t...last.t,
+                    displayedComponents: .hourAndMinute
+                )
+                LabeledContent("Punkte im Zeitraum", value: "\(slicedPoints.count)")
+                Button {
+                    exportSlice()
+                } label: {
+                    Label("GPX-Datei erstellen", systemImage: "square.and.arrow.up")
+                }
+                .disabled(slicedPoints.count < 2)
+                if let exportURL {
+                    ShareLink(item: exportURL) {
+                        Label("„\(exportURL.lastPathComponent)“ teilen", systemImage: "shareplay")
+                    }
+                }
+                if let exportMessage {
+                    Text(exportMessage)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+    }
+
+    private var slicedPoints: [TrackPoint] {
+        guard let first = allPoints.first, let last = allPoints.last else { return [] }
+        let start = min(exportStart ?? first.t, exportEnd ?? last.t)
+        let end = max(exportStart ?? first.t, exportEnd ?? last.t)
+        return allPoints.filter { $0.t >= start && $0.t <= end }
+    }
+
+    private func exportSlice() {
+        guard let firstPoint = slicedPoints.first, let lastPoint = slicedPoints.last else { return }
+        let timeFormatter = DateFormatter()
+        timeFormatter.dateFormat = "HH-mm"
+        let label = "\(dayKey)_\(timeFormatter.string(from: firstPoint.t))_bis_\(timeFormatter.string(from: lastPoint.t))"
+        let rangeText = "\(firstPoint.t.formatted(date: .omitted, time: .shortened)) – \(lastPoint.t.formatted(date: .omitted, time: .shortened))"
+        do {
+            exportURL = try Exporter.exportTimeSlice(
+                points: slicedPoints,
+                title: "\(DayKey.displayName(for: dayKey)) \(rangeText)",
+                fileLabel: label
+            )
+            exportMessage = nil
+        } catch {
+            exportURL = nil
+            exportMessage = "Export fehlgeschlagen: \(error.localizedDescription)"
         }
     }
 

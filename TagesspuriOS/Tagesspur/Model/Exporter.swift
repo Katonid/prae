@@ -157,6 +157,35 @@ enum Exporter {
         return out
     }
 
+    /// GPX-Export eines Zeitausschnitts aus dem Tages-Track
+    /// (z. B. nur die Wanderung von 10:15 bis 13:40).
+    static func exportTimeSlice(points: [TrackPoint], title: String, fileLabel: String) throws -> URL {
+        var out = """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <gpx version="1.1" creator="Tagesspur" xmlns="http://www.topografix.com/GPX/1/1">
+          <trk>
+            <name>\(xmlEscape(title))</name>
+            <trkseg>
+
+        """
+        for point in points.sorted(by: { $0.t < $1.t }) {
+            out += "      <trkpt lat=\"\(point.lat)\" lon=\"\(point.lon)\">"
+            out += "<ele>\(point.alt)</ele>"
+            out += "<time>\(isoFormatter.string(from: point.t))</time>"
+            out += "</trkpt>\n"
+        }
+        out += """
+            </trkseg>
+          </trk>
+        </gpx>
+
+        """
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("Tagesspur_\(fileLabel).gpx")
+        try Data(out.utf8).write(to: url, options: .atomic)
+        return url
+    }
+
     // MARK: - Import
 
     struct ImportResult {
