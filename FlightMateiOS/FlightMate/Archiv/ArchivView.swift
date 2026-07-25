@@ -238,6 +238,18 @@ private struct ArchivHomeView: View {
             }
             .font(.subheadline)
             NavigationLink {
+                ArchivFlightsView()
+            } label: {
+                HStack {
+                    Label("Flüge", systemImage: "point.topleft.down.to.point.bottomright.curvepath")
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .font(.subheadline)
+            NavigationLink {
                 ArchivSearchView()
             } label: {
                 HStack {
