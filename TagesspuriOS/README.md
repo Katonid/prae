@@ -50,6 +50,9 @@ Native SwiftUI-App, iOS 17+, keine externen Abhängigkeiten.
     3D-Gelände) sowie **Outdoor** — OpenTopoMap-Kacheln (OSM-Daten mit
     Höhenlinien/Wanderwegen) via MKTileOverlay, inkl. Pflicht-Attribution.
     Stilwahl wird gemerkt.
+  - Personen/Geräte-Filter auf jeder Karte (Symbol oben links, ab zwei
+    Tracks): einzelne Geräte und Familienmitglieder ein-/ausblenden;
+    Farbzuordnung bleibt dabei stabil.
   - Outdoor-Performance: getunte Session (8 parallele Verbindungen,
     10-s-Timeout, Subdomain-Retry), 512-MB-Kachel-Cache, Overzoom > Z17.
     Optional in den Einstellungen: Thunderforest-API-Key (kostenloser

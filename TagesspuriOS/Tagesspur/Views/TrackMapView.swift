@@ -26,6 +26,7 @@ struct TrackMapView: View {
     var onMediaTap: ((MediaItem) -> Void)? = nil
 
     @State private var position: MapCameraPosition = .automatic
+    @State private var hiddenTrackIds: Set<String> = []
     @AppStorage("tagesspur.mapStyleIndex") private var styleIndex = 0
     @AppStorage(AppearanceMode.mapKey) private var mapAppearance = AppearanceMode.system.rawValue
     @Environment(\.colorScheme) private var systemScheme
@@ -39,15 +40,21 @@ struct TrackMapView: View {
     ]
     private var isOutdoor: Bool { styleIndex % Self.styleIcons.count == 3 }
 
+    /// Sichtbare Tracks mit stabiler Farbzuordnung (Index im
+    /// Gesamtbestand — Ausblenden verschiebt keine Farben).
+    private var visibleIndexedTracks: [(offset: Int, element: DeviceTrack)] {
+        Array(tracks.enumerated()).filter { !hiddenTrackIds.contains($0.element.id) }
+    }
+
     private var allPointsSorted: [TrackPoint] {
-        tracks.flatMap(\.points).sorted { $0.t < $1.t }
+        visibleIndexedTracks.flatMap { $0.element.points }.sorted { $0.t < $1.t }
     }
 
     var body: some View {
         Group {
             if isOutdoor {
                 OutdoorMapView(
-                    tracks: tracks,
+                    tracks: visibleIndexedTracks.map { (track: $0.element, colorIndex: $0.offset) },
                     visits: visits,
                     media: media,
                     followsUser: followsUser,
@@ -56,6 +63,11 @@ struct TrackMapView: View {
                 )
             } else {
                 appleMap
+            }
+        }
+        .overlay(alignment: .topLeading) {
+            if tracks.count > 1 {
+                trackFilterMenu
             }
         }
         .overlay(alignment: .topTrailing) {
@@ -82,6 +94,38 @@ struct TrackMapView: View {
         }
     }
 
+    /// Geräte/Personen auf der Karte an- und abwählen.
+    private var trackFilterMenu: some View {
+        Menu {
+            ForEach(Array(tracks.enumerated()), id: \.element.id) { _, track in
+                Toggle(isOn: Binding(
+                    get: { !hiddenTrackIds.contains(track.id) },
+                    set: { visible in
+                        if visible {
+                            hiddenTrackIds.remove(track.id)
+                        } else {
+                            hiddenTrackIds.insert(track.id)
+                        }
+                    }
+                )) {
+                    Text(track.deviceName.isEmpty ? "Gerät" : track.deviceName)
+                }
+            }
+            if !hiddenTrackIds.isEmpty {
+                Button("Alle anzeigen") {
+                    hiddenTrackIds.removeAll()
+                }
+            }
+        } label: {
+            Image(systemName: "person.2.fill")
+                .font(.title3)
+                .foregroundStyle(hiddenTrackIds.isEmpty ? Color.primary : Color.orange)
+                .padding(10)
+                .background(.thinMaterial, in: Circle())
+        }
+        .padding(10)
+    }
+
     private var outdoorAttribution: String {
         let key = UserDefaults.standard.string(forKey: OutdoorMapView.OutdoorTileOverlay.thunderforestKeyDefault)?
             .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
@@ -94,13 +138,13 @@ struct TrackMapView: View {
         Map(position: $position) {
             // Weiße Kontur unter allen Tracks — hebt die Route auf jedem
             // Kartenstil sauber ab.
-            ForEach(tracks) { track in
+            ForEach(visibleIndexedTracks, id: \.element.id) { _, track in
                 if track.points.count > 1 {
                     MapPolyline(coordinates: track.points.map(\.coordinate))
                         .stroke(.white, style: StrokeStyle(lineWidth: 6.5, lineCap: .round, lineJoin: .round))
                 }
             }
-            ForEach(Array(tracks.enumerated()), id: \.element.id) { index, track in
+            ForEach(visibleIndexedTracks, id: \.element.id) { index, track in
                 if track.points.count > 1 {
                     MapPolyline(coordinates: track.points.map(\.coordinate))
                         .stroke(Theme.trackColors[index % Theme.trackColors.count],
