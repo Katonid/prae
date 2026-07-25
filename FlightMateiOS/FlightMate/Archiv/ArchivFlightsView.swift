@@ -89,48 +89,75 @@ struct ArchivFlightDetailView: View {
     @State private var showFullMap = false
     @Environment(\.dismiss) private var dismiss
 
-    private var coordinates: [CLLocationCoordinate2D] { flight.trackCoordinates }
-
-    /// Region, die den kompletten Track mit Rand einfasst — die
-    /// Mini-Karte braucht eine feste Startposition (siehe unten).
-    private var trackRegion: MKCoordinateRegion? {
-        guard let first = coordinates.first else { return nil }
-        var minLat = first.latitude, maxLat = first.latitude
-        var minLon = first.longitude, maxLon = first.longitude
-        for coordinate in coordinates {
-            minLat = min(minLat, coordinate.latitude)
-            maxLat = max(maxLat, coordinate.latitude)
-            minLon = min(minLon, coordinate.longitude)
-            maxLon = max(maxLon, coordinate.longitude)
-        }
-        return MKCoordinateRegion(
-            center: CLLocationCoordinate2D(latitude: (minLat + maxLat) / 2,
-                                           longitude: (minLon + maxLon) / 2),
-            span: MKCoordinateSpan(latitudeDelta: max(0.003, (maxLat - minLat) * 1.4),
-                                   longitudeDelta: max(0.003, (maxLon - minLon) * 1.4)))
-    }
+    // Der Track wird EINMAL im Hintergrund dekodiert und vermessen —
+    // vorher lief die JSON-Dekodierung bei jedem Body-Durchlauf
+    // mehrfach auf dem Haupt-Thread (Nutzermeldung: „Flüge" lädt eine
+    // halbe Ewigkeit, wirkt wie abgestürzt).
+    @State private var coordinates: [CLLocationCoordinate2D] = []
+    @State private var trackRegion: MKCoordinateRegion?
+    @State private var trackLengthM: Double = 0
+    @State private var trackLoaded = false
 
     private var sortedAssets: [MediaAsset] {
         (flight.assets ?? []).sorted { $0.capturedAt < $1.capturedAt }
     }
 
-    /// Gesamtstrecke entlang des Tracks in Metern.
-    private var trackLengthM: Double {
-        guard coordinates.count >= 2 else { return 0 }
-        var total = 0.0
-        for index in 1..<coordinates.count {
-            let previous = CLLocation(latitude: coordinates[index - 1].latitude,
-                                      longitude: coordinates[index - 1].longitude)
-            let current = CLLocation(latitude: coordinates[index].latitude,
-                                     longitude: coordinates[index].longitude)
-            total += current.distance(from: previous)
-        }
-        return total
+    /// Track dekodieren, Region und Strecke berechnen — abseits des
+    /// Haupt-Threads, Ergebnis landet in den States oben.
+    private func loadTrack() async {
+        guard !trackLoaded else { return }
+        let json = flight.trackJSON
+        let result = await Task.detached(priority: .userInitiated)
+            { () -> ([CLLocationCoordinate2D], MKCoordinateRegion?, Double) in
+            guard let json,
+                  let points = try? JSONDecoder().decode([[Double]].self, from: json) else {
+                return ([], nil, 0)
+            }
+            let coords = points.compactMap { point in
+                point.count >= 3
+                    ? CLLocationCoordinate2D(latitude: point[1], longitude: point[2])
+                    : nil
+            }
+            guard let first = coords.first else { return ([], nil, 0) }
+            var minLat = first.latitude, maxLat = first.latitude
+            var minLon = first.longitude, maxLon = first.longitude
+            var length = 0.0
+            for index in coords.indices {
+                let c = coords[index]
+                minLat = min(minLat, c.latitude); maxLat = max(maxLat, c.latitude)
+                minLon = min(minLon, c.longitude); maxLon = max(maxLon, c.longitude)
+                if index > 0 {
+                    length += CLLocation(latitude: c.latitude, longitude: c.longitude)
+                        .distance(from: CLLocation(latitude: coords[index - 1].latitude,
+                                                   longitude: coords[index - 1].longitude))
+                }
+            }
+            let region = MKCoordinateRegion(
+                center: CLLocationCoordinate2D(latitude: (minLat + maxLat) / 2,
+                                               longitude: (minLon + maxLon) / 2),
+                span: MKCoordinateSpan(latitudeDelta: max(0.003, (maxLat - minLat) * 1.4),
+                                       longitudeDelta: max(0.003, (maxLon - minLon) * 1.4)))
+            return (coords, region, length)
+        }.value
+        coordinates = result.0
+        trackRegion = result.1
+        trackLengthM = result.2
+        trackLoaded = true
     }
 
     var body: some View {
         List {
-            if coordinates.count >= 2, let region = trackRegion {
+            if !trackLoaded {
+                Section {
+                    HStack {
+                        Spacer()
+                        ProgressView("Route wird geladen …")
+                        Spacer()
+                    }
+                    .frame(height: 240)
+                    .listRowInsets(EdgeInsets())
+                }
+            } else if coordinates.count >= 2, let region = trackRegion {
                 Section {
                     // Wie die Logbuch-Mini-Karte: feste Region, keine
                     // Interaktion, Antippen öffnet das Vollbild — eine
@@ -189,6 +216,7 @@ struct ArchivFlightDetailView: View {
         .navigationDestination(isPresented: $showFullMap) {
             fullRouteMap
         }
+        .task { await loadTrack() }
     }
 
     private var fullRouteMap: some View {

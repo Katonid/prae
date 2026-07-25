@@ -158,18 +158,10 @@ struct ArchivLibraryView: View {
     }
 
     private func cell(_ asset: MediaAsset) -> some View {
-        ZStack {
-            if let thumb = ThumbnailStore.thumbnail(for: asset.contentHash) {
-                Image(uiImage: thumb)
-                    .resizable()
-                    .scaledToFill()
-            } else {
-                Rectangle()
-                    .fill(Color.primary.opacity(0.06))
-                Image(systemName: asset.kind == .video ? "video" : "photo")
-                    .foregroundStyle(.secondary)
-            }
-        }
+        // Asynchrone Vorschau — hält das Gitter beim Öffnen und
+        // Scrollen flüssig (Laden + Dekodieren abseits des
+        // Haupt-Threads, mit Speicher-Cache).
+        ArchivThumb(contentHash: asset.contentHash, kind: asset.kind)
         .frame(minWidth: 0, maxWidth: .infinity)
         .aspectRatio(1, contentMode: .fill)
         .clipped()
