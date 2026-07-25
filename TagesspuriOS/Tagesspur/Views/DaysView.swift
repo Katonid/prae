@@ -150,6 +150,8 @@ struct DayDetailView: View {
     @State private var showReplay = false
     @State private var showViewer = false
     @State private var viewerIndex = 0
+    @State private var cursorTime: Date?
+    @State private var cursorAddress = ""
 
     /// Fürs Replay nur die eigenen Tracks — Familien-Punkte würden die
     /// Kamera zwischen Personen springen lassen.
@@ -161,10 +163,24 @@ struct DayDetailView: View {
         MomentBuilder.moments(from: media, visits: visits)
     }
 
+    private var cursorPosition: TrackMath.TimePosition? {
+        guard let cursorTime else { return nil }
+        return TrackMath.position(at: cursorTime, in: allPoints)
+    }
+
+    private var cursorPin: TrackMapView.TimeCursor? {
+        guard let cursorTime, let position = cursorPosition else { return nil }
+        return TrackMapView.TimeCursor(
+            coordinate: position.coordinate,
+            label: cursorTime.formatted(date: .omitted, time: .shortened)
+        )
+    }
+
     var body: some View {
         VStack(spacing: 0) {
-            TrackMapView(tracks: tracks, visits: visits, media: media, onMediaTap: openViewer)
+            TrackMapView(tracks: tracks, visits: visits, media: media, timeCursor: cursorPin, onMediaTap: openViewer)
             List {
+                timeSection
                 if !tracks.isEmpty {
                     Section("Geräte") {
                         ForEach(tracks) { track in
@@ -239,6 +255,60 @@ struct DayDetailView: View {
         .task { reload() }
         .task {
             await PhotoAnalyzer.analyzeDay(dayKey: dayKey, container: context.container)
+        }
+    }
+
+    /// „Wo war ich um …?“ — Uhrzeit wählen, Marker erscheint auf der Karte.
+    @ViewBuilder
+    private var timeSection: some View {
+        if let first = allPoints.first, let last = allPoints.last, allPoints.count > 1 {
+            Section("Wo war ich um …?") {
+                DatePicker(
+                    "Uhrzeit",
+                    selection: Binding(
+                        get: { cursorTime ?? first.t },
+                        set: { cursorTime = $0 }
+                    ),
+                    in: first.t...last.t,
+                    displayedComponents: .hourAndMinute
+                )
+                Slider(
+                    value: Binding(
+                        get: { (cursorTime ?? first.t).timeIntervalSince1970 },
+                        set: { cursorTime = Date(timeIntervalSince1970: $0) }
+                    ),
+                    in: first.t.timeIntervalSince1970...last.t.timeIntervalSince1970
+                )
+                if let position = cursorPosition, cursorTime != nil {
+                    VStack(alignment: .leading, spacing: 2) {
+                        if !cursorAddress.isEmpty {
+                            Text(cursorAddress)
+                                .font(.subheadline)
+                        }
+                        Text(position.note)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        if let visit = visits.first(where: { $0.owner.isEmpty && $0.arrival <= (cursorTime ?? first.t) && $0.departure >= (cursorTime ?? first.t) }) {
+                            Text("Aufenthalt: \(visit.title)")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .task(id: cursorTime) {
+                        guard let position = cursorPosition else { return }
+                        if let info = await Geocoder.shared.info(for: position.coordinate) {
+                            cursorAddress = [info.name, info.locality]
+                                .filter { !$0.isEmpty }
+                                .joined(separator: ", ")
+                        }
+                    }
+                    Button("Marker ausblenden") {
+                        cursorTime = nil
+                        cursorAddress = ""
+                    }
+                    .font(.footnote)
+                }
+            }
         }
     }
 
