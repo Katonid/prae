@@ -1,0 +1,62 @@
+# Tagesspur (iOS)
+
+Tagesspur zeichnet ressourcenschonend im Hintergrund den genauen Standort
+auf und speichert den Tagesverlauf als Track. Fotos und Videos aus der
+Mediathek werden anhand ihrer Zeit- und GPS-Daten eingeblendet.
+
+Native SwiftUI-App, iOS 17+, keine externen Abhängigkeiten.
+
+## Funktionen
+
+- **Hintergrund-Tracking, akkuschonend**
+  - Besuchs- (CLVisit) und Signifikanz-Monitoring laufen dauerhaft mit
+    minimalem Verbrauch und wecken die App auch nach Beendigung wieder.
+  - Präzises GPS (10 m Genauigkeit, 25 m Distanzfilter) nur bei Bewegung;
+    nach 5 Minuten Stillstand automatischer Ruhemodus.
+  - Punkte werden gepuffert (20 Punkte / 90 s) und pro Tag als kompakter
+    Blob gespeichert — wenig I/O, wenig Sync-Volumen.
+- **iCloud-Sync (SwiftData + CloudKit, privater Container)**
+  - Jedes Gerät schreibt ausschließlich Datensätze mit seiner eigenen
+    Geräte-ID → keine Konflikte.
+  - Alle Geräte sehen den gemeinsamen Bestand (geräteübergreifende
+    Ansicht in „Tage“, Karten mit einer Farbe pro Gerät).
+  - Ohne iCloud-Anmeldung arbeitet die App lokal weiter.
+- **Fotos & Videos**
+  - Werden zur Laufzeit per Aufnahmezeit (und GPS, falls vorhanden) dem
+    Tag zugeordnet: Medienleiste + Thumbnails auf der Karte.
+  - Datenminimierung: nur Lesezugriff, keine Kopien in der App.
+- **Export & Import**
+  - Umfang: einzelner Tag, Zeitraum oder alles.
+  - GPX 1.1 (breit kompatibel: Tracks als `<trk>`, Aufenthalte als
+    `<wpt>`) und JSON (verlustfreies Tagesspur-Backup).
+  - Import: GPX-Dateien und Tagesspur-Backups; Punkte werden
+    zusammengeführt, nichts doppelt.
+- **Suche („Zeige mir die Tage, an denen ich an einem See war“)**
+  - Deterministisch, offline, kein LLM: Stoppwörter entfernen, Synonyme
+    aufklappen, Abgleich gegen die per Reverse-Geocoding angereicherten
+    Aufenthalte (inkl. `inlandWater`/`ocean` der Placemarks — „See“
+    trifft damit direkt erkannte Binnengewässer).
+  - Ehrliche Grenze: Die Suche kennt nur Orte, an denen ein Aufenthalt
+    erkannt wurde — kein Vorbeifahren, keine externe POI-Datenbank.
+
+## Projektstruktur
+
+```
+TagesspuriOS/
+├── Tagesspur.xcodeproj
+├── Config/               Info.plist, Entitlements (CloudKit, Push)
+└── Tagesspur/
+    ├── TagesspurApp.swift
+    ├── Model/            Models, LocationTracker, Geocoder,
+    │                     PhotoMatcher, SearchEngine, Exporter
+    └── Views/            Heute, Tage, Suche, Export, Einstellungen
+```
+
+## Einrichtung in Xcode
+
+1. `Tagesspur.xcodeproj` öffnen, unter *Signing & Capabilities* das
+   eigene Team wählen (Bundle-ID `de.familie.tagesspur`).
+2. Der iCloud-Container `iCloud.de.familie.tagesspur` wird über die
+   Entitlements automatisch angelegt.
+3. Auf dem Gerät: Standort „Immer“ erlauben (für Hintergrund-Tracking)
+   und Mediathek-Zugriff gewähren.
