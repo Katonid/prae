@@ -30,6 +30,14 @@ Native SwiftUI-App, iOS 17+, keine externen Abhängigkeiten.
   - Anti-Verhungern: kommt > 60 s kein präziser Fix (≤ 100 m), wird
     auch ein mittelmäßiger (≤ 500 m) aufgezeichnet — Funklöcher reißen
     keine Kilometer-Löcher mehr; die Ungenauigkeit steht am Punkt.
+    Greift nur in Bewegung — im Stillstand bleibt die 100-m-Sperre,
+    damit Indoor-Streuung nicht als Zacken im Track landet.
+  - Stillstands-Filter: Nach 5 Minuten ohne Bewegung wird höchstens
+    ein Punkt pro 5 Minuten übernommen — GPS-Streuung in Gebäuden
+    („Sternchen“ um den Standort) verschwindet aus dem Trackbild.
+  - Ausreißer-Filter: Punkte, die eine Sprunggeschwindigkeit
+    > 250 km/h implizieren, werden als GPS-Spike verworfen und im
+    Ereignisprotokoll vermerkt.
   - Lücken-Diagnose: Tracker-Ereignisse (Ruhemodus, Neustarts,
     verworfene Fixe, Schalter) werden protokolliert (Ringpuffer, keine
     Ortsdaten); das Tagesdetail zeigt je Lücke Zeitraum, Distanz und

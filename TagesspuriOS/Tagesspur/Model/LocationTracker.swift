@@ -333,7 +333,9 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
         // 2-km-Fix keinen Fehlalarm auslöst.
         if let anchor = restAnchor {
             let distance = location.distance(from: anchor)
-            let wakeThreshold = max(Self.movementThreshold, location.horizontalAccuracy)
+            // Aufwachschwelle wächst mit der Ungenauigkeit (×2): ein
+            // 200-m-Streuer mit ±100 m gilt nicht als Bewegung.
+            let wakeThreshold = max(Self.movementThreshold, location.horizontalAccuracy * 2)
             if distance > wakeThreshold {
                 restAnchor = location
                 lastMovement = Date()
@@ -347,13 +349,36 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
             lastMovement = Date()
         }
 
-        // Aufzeichnungs-Gate: bevorzugt präzise Fixe (≤ 100 m). Aber der
-        // Track darf nie verhungern — kommt länger als 60 s nichts
+        let stationary = Date().timeIntervalSince(lastMovement) > Self.restAfterSeconds
+
+        // Stillstands-Filter: Wer seit > 5 min ruht, bekommt höchstens
+        // alle 5 min einen Haltepunkt — Indoor-GPS-Drift erzeugt sonst
+        // Streu-Sterne rund um den Aufenthaltsort (in beiden Modi).
+        if stationary,
+           let last = lastAcceptedLocation,
+           location.timestamp.timeIntervalSince(last.timestamp) < 300 {
+            return
+        }
+
+        // Ausreißer-Filter: Punkte, die > 250 km/h implizieren, sind
+        // GPS-Spikes, keine Bewegung.
+        if let last = lastAcceptedLocation {
+            let dt = location.timestamp.timeIntervalSince(last.timestamp)
+            if dt > 0, dt < 120 {
+                let impliedSpeed = location.distance(from: last) / dt
+                if impliedSpeed > 70 {
+                    Self.logEvent("Ausreißer verworfen (\(Int(impliedSpeed * 3.6)) km/h Sprung)")
+                    return
+                }
+            }
+        }
+
+        // Aufzeichnungs-Gate: bevorzugt präzise Fixe (≤ 100 m). In
+        // Bewegung darf der Track nicht verhungern — kommt > 60 s nichts
         // Brauchbares, wird auch ein mittelmäßiger Fix (≤ 500 m)
-        // aufgezeichnet. Ein mäßiger Punkt ist ehrlicher als ein
-        // kilometerlanges Loch; die Ungenauigkeit steht am Punkt dran.
-        let sinceLastAccepted = lastAcceptedAt.map { Date().timeIntervalSince($0) } ?? .infinity
-        let limit: CLLocationAccuracy = sinceLastAccepted > 60 ? 500 : Self.maxAcceptableAccuracy
+        // aufgezeichnet. Im Stillstand gilt das nicht (Streu-Schutz).
+        let sinceLastAccepted = lastAcceptedLocation.map { Date().timeIntervalSince($0.timestamp) } ?? .infinity
+        let limit: CLLocationAccuracy = (!stationary && sinceLastAccepted > 60) ? 500 : Self.maxAcceptableAccuracy
         guard location.horizontalAccuracy <= limit else {
             discardedSinceLastLog += 1
             if discardedSinceLastLog >= 25 {
@@ -362,11 +387,11 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
             }
             return
         }
-        lastAcceptedAt = Date()
+        lastAcceptedLocation = location
         appendToBuffer(location)
     }
 
-    private var lastAcceptedAt: Date?
+    private var lastAcceptedLocation: CLLocation?
     private var discardedSinceLastLog = 0
 
     private func appendToBuffer(_ location: CLLocation) {
