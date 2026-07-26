@@ -124,8 +124,17 @@ Native SwiftUI-App, iOS 17+, keine externen Abhängigkeiten.
     aufklappen, Abgleich gegen die per Reverse-Geocoding angereicherten
     Aufenthalte (inkl. `inlandWater`/`ocean` der Placemarks — „See“
     trifft damit direkt erkannte Binnengewässer).
-  - Ehrliche Grenze: Die Suche kennt nur Orte, an denen ein Aufenthalt
-    erkannt wurde — kein Vorbeifahren, keine externe POI-Datenbank.
+  - Wegesrand-Index: Die Drei-Orte-Beschreibung der Tage (Stichproben
+    entlang der Strecke) wird mitdurchsucht — reine Durchfahrts-Tage
+    sind damit über Stadtteile/Straßen findbar; Treffer erscheinen als
+    „Unterwegs: …“.
+  - Zeitfragen: „wo war ich gestern um 17 Uhr“, „12.07. 14:30“ o. Ä.
+    beantwortet ein deterministischer Parser direkt mit Position und
+    Adresse; Antippen öffnet das Tagesdetail mit vorbelegtem
+    Zeit-Cursor.
+  - Ehrliche Grenze: keine externe POI-Datenbank — gefunden wird, was
+    Apples Geocoder benennt (Stadtteile, Straßen, markante Orte), keine
+    freien Beschreibungen wie „Industriebrache“.
 
 ## Projektstruktur
 
