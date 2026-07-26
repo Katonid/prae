@@ -24,9 +24,10 @@ Native SwiftUI-App, iOS 17+, keine externen Abhängigkeiten.
     GPS beim Losfahren aus dem Ruhemodus grob und es entstünden
     kilometerlange Lücken. Aufgezeichnet werden weiterhin nur Fixe
     ≤ 100 m Ungenauigkeit.
-  - Ehrliche Darstellung: Tracks werden an Datenlücken (> 3 min UND
-    > 300 m) aufgetrennt statt mit falschen Geraden überbrückt
-    (`TrackMath.segments`, wirkt auf allen Karten).
+  - Durchgehende Linie: Jede Gerätespur wird auf allen Karten als eine
+    zusammenhängende Linie gezeichnet. Datenlücken werden nicht optisch
+    aufgetrennt — sie bleiben über die Lücken-Diagnose im Tagesdetail
+    nachvollziehbar (`TrackMath.segments` liefert die Lückenanalyse).
   - Anti-Verhungern: kommt > 60 s kein präziser Fix (≤ 100 m), wird
     auch ein mittelmäßiger (≤ 500 m) aufgezeichnet — Funklöcher reißen
     keine Kilometer-Löcher mehr; die Ungenauigkeit steht am Punkt.
