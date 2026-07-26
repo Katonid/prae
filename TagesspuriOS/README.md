@@ -132,9 +132,15 @@ Native SwiftUI-App, iOS 17+, keine externen Abhängigkeiten.
     beantwortet ein deterministischer Parser direkt mit Position und
     Adresse; Antippen öffnet das Tagesdetail mit vorbelegtem
     Zeit-Cursor.
-  - Ehrliche Grenze: keine externe POI-Datenbank — gefunden wird, was
-    Apples Geocoder benennt (Stadtteile, Straßen, markante Orte), keine
-    freien Beschreibungen wie „Industriebrache“.
+  - Wegesrand-POI-Suche (OpenStreetMap): expliziter Knopf in der Suche
+    fragt die Overpass-API — Namenssuche plus kuratierte Begriffs-Tabelle
+    (`POISearch.tagFilters`: Industriebrache→landuse=brownfield, Windrad,
+    Halde, Zeche, Aussichtsturm …). Treffer nur im 300-m-Umkreis der
+    eigenen Tracks (kompakte Tages-Boxen, max. 45), mit ODbL-Attribution.
+    Online-Abfrage, bewusst nicht automatisch pro Tastendruck.
+  - Ehrliche Grenze der Offline-Suche: gefunden wird, was Apples
+    Geocoder benennt — für freie Beschreibungen wie „Industriebrache“
+    die OSM-Wegesrand-Suche nutzen.
 
 ## Projektstruktur
 
