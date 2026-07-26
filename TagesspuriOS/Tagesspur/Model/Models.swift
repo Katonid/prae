@@ -308,6 +308,31 @@ enum TrackMath {
         return (0..<maxCount).map { points[Int(Double($0) * step)] }
     }
 
+    /// Trennt einen Track an Datenlücken auf (großer Zeit- UND
+    /// Ortssprung), damit Lücken nicht als falsche gerade Linien
+    /// gezeichnet werden.
+    static func segments(_ points: [TrackPoint],
+                         maxGapSeconds: TimeInterval = 180,
+                         maxJumpMeters: Double = 300) -> [[TrackPoint]] {
+        guard points.count > 1 else { return points.isEmpty ? [] : [points] }
+        var result: [[TrackPoint]] = []
+        var current: [TrackPoint] = [points[0]]
+        for i in 1..<points.count {
+            let a = points[i - 1]
+            let b = points[i]
+            let dt = b.t.timeIntervalSince(a.t)
+            let distance = CLLocation(latitude: a.lat, longitude: a.lon)
+                .distance(from: CLLocation(latitude: b.lat, longitude: b.lon))
+            if dt > maxGapSeconds && distance > maxJumpMeters {
+                result.append(current)
+                current = []
+            }
+            current.append(b)
+        }
+        result.append(current)
+        return result.filter { $0.count > 1 }
+    }
+
     /// Position zu einer Uhrzeit („Wo war ich um 14:30?“) — zwischen den
     /// umliegenden Messpunkten linear interpoliert, mit ehrlicher Angabe
     /// zur Messlücke.
