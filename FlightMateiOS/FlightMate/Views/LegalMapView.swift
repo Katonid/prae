@@ -93,7 +93,6 @@ struct LegalMapView: View {
     // Legal-Checks; steht der eigene Standort fest, ist er Punkt A.
     @State private var measureMode = false
     @State private var measurePoints: [CLLocationCoordinate2D] = []
-    @State private var measureStartIsOwnLocation = false
 
     private var measuredDistanceM: Double? {
         guard measurePoints.count == 2 else { return nil }
@@ -106,15 +105,10 @@ struct LegalMapView: View {
     private func toggleMeasureMode() {
         measureMode.toggle()
         measurePoints = []
-        measureStartIsOwnLocation = false
-        // Eigener Standort (falls bekannt) ist automatisch Punkt A —
-        // der häufigste Fall: „Wie weit ist es von mir bis dort?"
-        if measureMode, let location = state.currentLocation {
-            measurePoints = [location]
-            measureStartIsOwnLocation = true
-        }
     }
 
+    /// Beide Messpunkte werden frei angetippt (Nutzerwunsch: nicht
+    /// nur vom Standort aus messen). Weitere Tipps versetzen Punkt B.
     private func measureTap(_ coordinate: CLLocationCoordinate2D) {
         if measurePoints.count < 2 {
             measurePoints.append(coordinate)
@@ -130,29 +124,34 @@ struct LegalMapView: View {
                      ? String(format: "%.2f km Luftlinie", distance / 1_000)
                      : "\(Int(distance.rounded())) m Luftlinie")
                     .font(.headline.monospacedDigit())
-                Text(measureStartIsOwnLocation
-                     ? "von deinem Standort · Tippen versetzt das Ziel"
-                     : "Tippen versetzt Punkt B")
+                Text("Tippen versetzt Punkt B")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
             } else if measurePoints.count == 1 {
-                Text(measureStartIsOwnLocation
-                     ? "Maßband: Tippe dein Ziel an — gemessen wird von deinem Standort"
-                     : "Maßband: Tippe den zweiten Punkt an")
+                Text("Maßband: Tippe den zweiten Punkt an")
                     .font(.subheadline)
             } else {
                 Text("Maßband: Tippe den ersten Punkt an")
                     .font(.subheadline)
             }
-            Button {
-                let keepStart = measureStartIsOwnLocation
-                measurePoints = keepStart ? [measurePoints[0]] : []
-                if !keepStart { measureStartIsOwnLocation = false }
-            } label: {
-                Text("Zurücksetzen")
-                    .font(.caption)
+            HStack(spacing: 16) {
+                // Optionaler Schnellstart: Punkt A = eigener Standort.
+                if let location = state.currentLocation {
+                    Button {
+                        measurePoints = [location]
+                    } label: {
+                        Text("Ab meinem Standort")
+                            .font(.caption)
+                    }
+                }
+                Button {
+                    measurePoints = []
+                } label: {
+                    Text("Zurücksetzen")
+                        .font(.caption)
+                }
+                .disabled(measurePoints.isEmpty)
             }
-            .disabled(measurePoints.count < (measureStartIsOwnLocation ? 2 : 1))
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)

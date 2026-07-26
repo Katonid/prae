@@ -149,10 +149,11 @@ Dieser Stand entspricht dem **MVP-Fundament** (PRD Phase 0/1).
   umschaltbar (Karte / Hybrid / Satellit) und Tag-/Nachtansicht
   unabhängig vom Geräte-Erscheinungsbild erzwingbar; alle
   Einstellungen bleiben gespeichert. **Maßband** (Lineal-Symbol):
-  misst die Luftlinie zwischen zwei Punkten — der eigene Standort
-  ist automatisch Punkt A, sofern bekannt; Tippen setzt/versetzt
-  das Ziel, gestrichelte Linie plus Meter-/Kilometer-Anzeige im
-  Banner, im Maßband-Modus pausiert der Legal-Check-Tipp.
+  misst die Luftlinie zwischen zwei frei angetippten Punkten
+  (weitere Tipps versetzen Punkt B); „Ab meinem Standort" setzt
+  Punkt A optional auf die eigene Position. Gestrichelte Linie
+  plus Meter-/Kilometer-Anzeige im Banner; im Maßband-Modus
+  pausiert der Legal-Check-Tipp.
 - **„Umsehen" im Punkt-Check (Nutzerwunsch nach App-Vorbild):** Das
   Info-Blatt des angetippten Kartenpunkts zeigt Apples
   Look-Around-Panorama des Ortes (falls Abdeckung besteht — sonst
