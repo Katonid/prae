@@ -27,6 +27,13 @@ Native SwiftUI-App, iOS 17+, keine externen Abhängigkeiten.
   - Ehrliche Darstellung: Tracks werden an Datenlücken (> 3 min UND
     > 300 m) aufgetrennt statt mit falschen Geraden überbrückt
     (`TrackMath.segments`, wirkt auf allen Karten).
+  - Anti-Verhungern: kommt > 60 s kein präziser Fix (≤ 100 m), wird
+    auch ein mittelmäßiger (≤ 500 m) aufgezeichnet — Funklöcher reißen
+    keine Kilometer-Löcher mehr; die Ungenauigkeit steht am Punkt.
+  - Lücken-Diagnose: Tracker-Ereignisse (Ruhemodus, Neustarts,
+    verworfene Fixe, Schalter) werden protokolliert (Ringpuffer, keine
+    Ortsdaten); das Tagesdetail zeigt je Lücke Zeitraum, Distanz und
+    die Ereignisse in diesem Fenster.
   - Punkte werden gepuffert (20 Punkte / 90 s) und pro Tag als kompakter
     Blob gespeichert — wenig I/O, wenig Sync-Volumen.
 - **iCloud-Sync (SwiftData + CloudKit, privater Container)**
