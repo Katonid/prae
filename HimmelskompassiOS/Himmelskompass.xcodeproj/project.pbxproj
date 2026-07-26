@@ -34,6 +34,16 @@
 		};
 /* End PBXCopyFilesBuildPhase section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		AB120000000000000000001E /* Exceptions for "HimmelskompassWidgets" folder in "HimmelskompassWidgets" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = AB1200000000000000000012 /* HimmelskompassWidgets */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		AB1200000000000000000001 /* Himmelskompass */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
@@ -47,6 +57,9 @@
 		};
 		AB1200000000000000000011 /* HimmelskompassWidgets */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				AB120000000000000000001E /* Exceptions for "HimmelskompassWidgets" folder in "HimmelskompassWidgets" target */,
+			);
 			path = HimmelskompassWidgets;
 			sourceTree = "<group>";
 		};
