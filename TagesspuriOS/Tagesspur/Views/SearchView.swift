@@ -14,6 +14,15 @@ struct SearchView: View {
 
     @State private var query = ""
     @State private var timeAnswer: TimeAnswer?
+    @State private var poiState: POIState = .idle
+    @State private var poiHits: [POISearch.Hit] = []
+
+    enum POIState: Equatable {
+        case idle
+        case loading
+        case done
+        case error(String)
+    }
 
     /// Ziel für den Sprung ins Tagesdetail mit vorbelegtem Zeit-Cursor.
     struct CursorTarget: Hashable {
@@ -58,8 +67,10 @@ struct SearchView: View {
                     }
                 } else if results.isEmpty {
                     ContentUnavailableView.search(text: query)
+                    poiSection
                 } else {
                     resultSections
+                    poiSection
                 }
             }
             .searchable(text: $query, prompt: "Ort, Motiv oder „gestern 17 Uhr“")
@@ -71,6 +82,8 @@ struct SearchView: View {
                 DayDetailView(dayKey: target.dayKey, initialCursorTime: target.time)
             }
             .task(id: query) {
+                poiState = .idle
+                poiHits = []
                 await updateTimeAnswer()
             }
         }
@@ -120,6 +133,74 @@ struct SearchView: View {
                     }
                 }
             }
+        }
+    }
+
+    // MARK: - Wegesrand-Suche in OpenStreetMap (explizit per Knopf)
+
+    @ViewBuilder
+    private var poiSection: some View {
+        if query.trimmingCharacters(in: .whitespaces).count >= 3 {
+            Section("Wegesrand (OpenStreetMap)") {
+                switch poiState {
+                case .idle:
+                    Button {
+                        Task { await runPOISearch() }
+                    } label: {
+                        Label("„\(query)“ entlang aller Tracks suchen", systemImage: "binoculars.fill")
+                    }
+                case .loading:
+                    HStack(spacing: 10) {
+                        ProgressView()
+                        Text("OpenStreetMap wird befragt…")
+                            .foregroundStyle(.secondary)
+                    }
+                case .done:
+                    if poiHits.isEmpty {
+                        Text("Keine Treffer im 300-m-Umkreis deiner Tracks.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        ForEach(poiHits.prefix(40)) { hit in
+                            NavigationLink(value: hit.dayKey) {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(hit.name).font(.subheadline)
+                                    Text("\(DayKey.displayName(for: hit.dayKey)) · \(Int(hit.distance)) m vom Track")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                        }
+                    }
+                case .error(let message):
+                    Text(message)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                    Button("Erneut versuchen") {
+                        Task { await runPOISearch() }
+                    }
+                    .font(.footnote)
+                }
+                Text(POISearch.attribution)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private func runPOISearch() async {
+        poiState = .loading
+        let dayTracks = (
+            trackDays.map { POISearch.DayTrack(dayKey: $0.dayKey, points: $0.points()) }
+            + familyDays.map { POISearch.DayTrack(dayKey: $0.dayKey, points: $0.points()) }
+        )
+        .sorted { $0.dayKey > $1.dayKey }
+        .prefix(60)
+        do {
+            poiHits = try await POISearch.search(term: query, days: Array(dayTracks))
+            poiState = .done
+        } catch {
+            poiState = .error("Abfrage fehlgeschlagen (Netz oder Server ausgelastet): \(error.localizedDescription)")
         }
     }
 
