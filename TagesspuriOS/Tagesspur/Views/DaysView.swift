@@ -1,6 +1,7 @@
 import SwiftUI
 import SwiftData
 import Charts
+import CoreLocation
 
 /// Kalender-Tab: alle aufgezeichneten Tage, geräteübergreifend.
 struct DaysView: View {
@@ -213,6 +214,7 @@ struct DayDetailView: View {
         VStack(spacing: 0) {
             TrackMapView(tracks: tracks, visits: visits, media: media, timeCursor: cursorPin, externalHiddenTrackIds: $hiddenTrackIds, onMediaTap: openViewer)
             List {
+                gapSection
                 timeSection
                 exportSection
                 if !tracks.isEmpty {
@@ -318,6 +320,62 @@ struct DayDetailView: View {
         }
         .task {
             await PhotoAnalyzer.analyzeDay(dayKey: dayKey, container: context.container)
+        }
+    }
+
+    /// Lücken im Track samt protokollierten Tracker-Ereignissen —
+    /// macht sichtbar, WARUM an einer Stelle Daten fehlen.
+    private struct GapInfo: Identifiable {
+        let start: Date
+        let end: Date
+        let distance: Double
+        let events: [String]
+        var id: String { "\(start.timeIntervalSince1970)" }
+    }
+
+    private var gaps: [GapInfo] {
+        let points = allPoints
+        guard points.count > 1 else { return [] }
+        var result: [GapInfo] = []
+        for i in 1..<points.count {
+            let a = points[i - 1]
+            let b = points[i]
+            let dt = b.t.timeIntervalSince(a.t)
+            let distance = CLLocation(latitude: a.lat, longitude: a.lon)
+                .distance(from: CLLocation(latitude: b.lat, longitude: b.lon))
+            guard dt > 180, distance > 300 else { continue }
+            let events = LocationTracker.events(
+                from: a.t.addingTimeInterval(-120),
+                to: b.t.addingTimeInterval(120)
+            ).map { "\($0.0.formatted(date: .omitted, time: .shortened)) – \($0.1)" }
+            result.append(GapInfo(start: a.t, end: b.t, distance: distance, events: events))
+        }
+        return result
+    }
+
+    @ViewBuilder
+    private var gapSection: some View {
+        let dayGaps = gaps
+        if !dayGaps.isEmpty {
+            Section("Lücken-Diagnose") {
+                ForEach(dayGaps) { gap in
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("\(gap.start.formatted(date: .omitted, time: .shortened)) – \(gap.end.formatted(date: .omitted, time: .shortened)) · \(Int(gap.end.timeIntervalSince(gap.start) / 60)) min, \(String(format: "%.1f km", gap.distance / 1000)) ohne Daten")
+                            .font(.subheadline.bold())
+                        if gap.events.isEmpty {
+                            Text("Keine Ereignisse protokolliert — iOS hat in dieser Zeit keine (brauchbaren) Ortungen geliefert. Das Protokoll reicht nur einige Tage zurück.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        } else {
+                            ForEach(gap.events, id: \.self) { event in
+                                Text(event)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 

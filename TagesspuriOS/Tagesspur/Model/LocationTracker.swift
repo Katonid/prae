@@ -33,6 +33,7 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
     @Published var trackingEnabled: Bool {
         didSet {
             UserDefaults.standard.set(trackingEnabled, forKey: Self.trackingEnabledKey)
+            Self.logEvent(trackingEnabled ? "Aufzeichnung eingeschaltet" : "Aufzeichnung ausgeschaltet")
             applyTrackingState()
         }
     }
@@ -43,6 +44,7 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
     @Published var highAccuracy: Bool {
         didSet {
             UserDefaults.standard.set(highAccuracy, forKey: Self.highAccuracyKey)
+            Self.logEvent(highAccuracy ? "Hohe Genauigkeit eingeschaltet" : "Hohe Genauigkeit ausgeschaltet")
             if isResting {
                 if highAccuracy { exitRest() }
             } else {
@@ -113,10 +115,35 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
             forName: UIApplication.willTerminateNotification,
             object: nil, queue: .main
         ) { [weak self] _ in
+            Self.logEvent("App wird von iOS beendet")
             self?.flush()
         }
 
         applyTrackingState()
+    }
+
+    // MARK: - Ereignisprotokoll (Lücken-Diagnose)
+
+    private static let eventLogKey = "tagesspur.trackerEvents"
+
+    /// Protokolliert Tracker-Ereignisse (Ruhemodus, Neustarts, verworfene
+    /// Fixe …), damit Lücken im Track erklärbar werden statt Rätsel zu
+    /// bleiben. Ringpuffer, keine Ortsdaten — nur Zeit + Ereignistext.
+    static func logEvent(_ text: String) {
+        var entries = (UserDefaults.standard.array(forKey: eventLogKey) as? [[String: Any]]) ?? []
+        entries.append(["t": Date(), "e": text])
+        if entries.count > 400 { entries.removeFirst(entries.count - 400) }
+        UserDefaults.standard.set(entries, forKey: eventLogKey)
+    }
+
+    static func events(from start: Date, to end: Date) -> [(Date, String)] {
+        let entries = (UserDefaults.standard.array(forKey: eventLogKey) as? [[String: Any]]) ?? []
+        return entries.compactMap { entry -> (Date, String)? in
+            guard let t = entry["t"] as? Date, let e = entry["e"] as? String else { return nil }
+            return (t, e)
+        }
+        .filter { $0.0 >= start && $0.0 <= end }
+        .sorted { $0.0 < $1.0 }
     }
 
     // MARK: - Neustart-Diagnose
@@ -128,6 +155,7 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
         dates.append(Date())
         if dates.count > 50 { dates.removeFirst(dates.count - 50) }
         UserDefaults.standard.set(dates, forKey: relaunchLogKey)
+        logEvent("Von iOS im Hintergrund neu gestartet (App war beendet)")
     }
 
     /// Wie oft iOS die App heute im Hintergrund neu gestartet hat —
@@ -227,6 +255,7 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
         manager.distanceFilter = Self.restDistanceFilter
         flush()
         updateRelaunchRegion()
+        Self.logEvent("Ruhemodus (5 min Stillstand)")
     }
 
     /// Zurück auf präzise Erfassung, ohne Anker/Zeit zurückzusetzen.
@@ -234,6 +263,7 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
         isResting = false
         lastMovement = Date()
         applyActiveParameters()
+        Self.logEvent("Bewegung erkannt — präzise Erfassung")
     }
 
     private func scheduleFlushTimer() {
@@ -261,6 +291,7 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
         guard trackingEnabled, region.identifier == Self.relaunchRegionId else { return }
         // Weckt die App nach einer Beendigung durch iOS — sofort zurück
         // in die präzise Erfassung.
+        Self.logEvent("Geofence verlassen — Erfassung reaktiviert")
         lastMovement = Date()
         if isResting { exitRest() }
         manager.startUpdatingLocation()
@@ -316,10 +347,27 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
             lastMovement = Date()
         }
 
-        // Aufgezeichnet werden weiterhin nur präzise Fixe.
-        guard location.horizontalAccuracy <= Self.maxAcceptableAccuracy else { return }
+        // Aufzeichnungs-Gate: bevorzugt präzise Fixe (≤ 100 m). Aber der
+        // Track darf nie verhungern — kommt länger als 60 s nichts
+        // Brauchbares, wird auch ein mittelmäßiger Fix (≤ 500 m)
+        // aufgezeichnet. Ein mäßiger Punkt ist ehrlicher als ein
+        // kilometerlanges Loch; die Ungenauigkeit steht am Punkt dran.
+        let sinceLastAccepted = lastAcceptedAt.map { Date().timeIntervalSince($0) } ?? .infinity
+        let limit: CLLocationAccuracy = sinceLastAccepted > 60 ? 500 : Self.maxAcceptableAccuracy
+        guard location.horizontalAccuracy <= limit else {
+            discardedSinceLastLog += 1
+            if discardedSinceLastLog >= 25 {
+                Self.logEvent("25 ungenaue Fixe verworfen (zuletzt ±\(Int(location.horizontalAccuracy)) m)")
+                discardedSinceLastLog = 0
+            }
+            return
+        }
+        lastAcceptedAt = Date()
         appendToBuffer(location)
     }
+
+    private var lastAcceptedAt: Date?
+    private var discardedSinceLastLog = 0
 
     private func appendToBuffer(_ location: CLLocation) {
         buffer.append(TrackPoint(location: location))
