@@ -205,14 +205,17 @@ struct OutdoorMapView: UIViewRepresentable {
 
             var unionRect = MKMapRect.null
             for entry in tracks where entry.track.points.count > 1 {
-                var coords = entry.track.points.map(\.coordinate)
-                let casing = TrackPolyline(coordinates: &coords, count: coords.count)
-                casing.isCasing = true
-                let line = TrackPolyline(coordinates: &coords, count: coords.count)
-                line.color = UIColor(Theme.trackColors[entry.colorIndex % Theme.trackColors.count])
-                map.addOverlay(casing, level: .aboveLabels)
-                map.addOverlay(line, level: .aboveLabels)
-                unionRect = unionRect.union(line.boundingMapRect)
+                // An Datenlücken auftrennen — keine falschen Geraden.
+                for segment in TrackMath.segments(entry.track.points) {
+                    var coords = segment.map(\.coordinate)
+                    let casing = TrackPolyline(coordinates: &coords, count: coords.count)
+                    casing.isCasing = true
+                    let line = TrackPolyline(coordinates: &coords, count: coords.count)
+                    line.color = UIColor(Theme.trackColors[entry.colorIndex % Theme.trackColors.count])
+                    map.addOverlay(casing, level: .aboveLabels)
+                    map.addOverlay(line, level: .aboveLabels)
+                    unionRect = unionRect.union(line.boundingMapRect)
+                }
             }
             for visit in visits {
                 map.addAnnotation(VisitAnnotation(coordinate: visit.coordinate, title: visit.title))

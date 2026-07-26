@@ -19,6 +19,14 @@ Native SwiftUI-App, iOS 17+, keine externen Abhängigkeiten.
     (springt nach Stillstand unzuverlässig wieder an).
   - Einstellung „Hohe Genauigkeit“: dauerhaft präzise ohne Ruhemodus —
     bestes Trackbild, mehr Akkuverbrauch.
+  - Bewegungserkennung akzeptiert auch grobe Fixe (Funkzellen-Ortung,
+    500–3000 m) mit ungenauigkeitsabhängiger Schwelle — sonst bliebe
+    GPS beim Losfahren aus dem Ruhemodus grob und es entstünden
+    kilometerlange Lücken. Aufgezeichnet werden weiterhin nur Fixe
+    ≤ 100 m Ungenauigkeit.
+  - Ehrliche Darstellung: Tracks werden an Datenlücken (> 3 min UND
+    > 300 m) aufgetrennt statt mit falschen Geraden überbrückt
+    (`TrackMath.segments`, wirkt auf allen Karten).
   - Punkte werden gepuffert (20 Punkte / 90 s) und pro Tag als kompakter
     Blob gespeichert — wenig I/O, wenig Sync-Volumen.
 - **iCloud-Sync (SwiftData + CloudKit, privater Container)**

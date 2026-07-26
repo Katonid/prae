@@ -74,7 +74,7 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
 
     private static let movementThreshold: CLLocationDistance = 60
     private static let restAfterSeconds: TimeInterval = 300
-    private static let flushAfterPoints = 20
+    private static let flushAfterPoints = 10
     private static let flushAfterSeconds: TimeInterval = 90
     private static let maxAcceptableAccuracy: CLLocationAccuracy = 100
 
@@ -224,12 +224,19 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
     // MARK: - Punktverarbeitung
 
     private func handle(_ location: CLLocation) {
-        guard location.horizontalAccuracy >= 0,
-              location.horizontalAccuracy <= Self.maxAcceptableAccuracy else { return }
+        guard location.horizontalAccuracy >= 0 else { return }
         lastLocation = location
 
+        // Bewegungserkennung: auch GROBE Fixe zählen. Im Ruhemodus liefert
+        // iOS oft nur Funkzellen-Ortung (500–3000 m Ungenauigkeit) — die
+        // darf das Aufwachen nicht blockieren, sonst bleibt GPS beim
+        // Losfahren grob und es entstehen kilometerlange Lücken.
+        // Die Schwelle wächst mit der Ungenauigkeit, damit ein einzelner
+        // 2-km-Fix keinen Fehlalarm auslöst.
         if let anchor = restAnchor {
-            if location.distance(from: anchor) > Self.movementThreshold {
+            let distance = location.distance(from: anchor)
+            let wakeThreshold = max(Self.movementThreshold, location.horizontalAccuracy)
+            if distance > wakeThreshold {
                 restAnchor = location
                 lastMovement = Date()
                 if isResting { exitRest() }
@@ -242,8 +249,8 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
             lastMovement = Date()
         }
 
-        // Im Ruhemodus liefert die Signifikanz-Überwachung nur vereinzelt
-        // Punkte — auch die gehören in den Track.
+        // Aufgezeichnet werden weiterhin nur präzise Fixe.
+        guard location.horizontalAccuracy <= Self.maxAcceptableAccuracy else { return }
         appendToBuffer(location)
     }
 

@@ -43,12 +43,14 @@ struct AllTracksMapView: View {
         MapReader { proxy in
             Map(position: $position) {
                 ForEach(displayed) { item in
-                    MapPolyline(coordinates: item.points.map(\.coordinate))
-                        .stroke(
-                            item.id == selectedId ? Color.orange : Theme.petrol.opacity(0.7),
-                            style: StrokeStyle(lineWidth: item.id == selectedId ? 4.5 : 2.5,
-                                               lineCap: .round, lineJoin: .round)
-                        )
+                    ForEach(Array(TrackMath.segments(item.points).enumerated()), id: \.offset) { _, segment in
+                        MapPolyline(coordinates: segment.map(\.coordinate))
+                            .stroke(
+                                item.id == selectedId ? Color.orange : Theme.petrol.opacity(0.7),
+                                style: StrokeStyle(lineWidth: item.id == selectedId ? 4.5 : 2.5,
+                                                   lineCap: .round, lineJoin: .round)
+                            )
+                    }
                 }
             }
             .mapStyle(.standard(elevation: .flat))

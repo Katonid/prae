@@ -203,16 +203,17 @@ struct TrackMapView: View {
     private var appleMap: some View {
         Map(position: $position) {
             // Weiße Kontur unter allen Tracks — hebt die Route auf jedem
-            // Kartenstil sauber ab.
+            // Kartenstil sauber ab. An Datenlücken wird aufgetrennt,
+            // statt falsche Geraden zu zeichnen.
             ForEach(visibleIndexedTracks, id: \.element.id) { _, track in
-                if track.points.count > 1 {
-                    MapPolyline(coordinates: track.points.map(\.coordinate))
+                ForEach(Array(TrackMath.segments(track.points).enumerated()), id: \.offset) { _, segment in
+                    MapPolyline(coordinates: segment.map(\.coordinate))
                         .stroke(.white, style: StrokeStyle(lineWidth: 6.5, lineCap: .round, lineJoin: .round))
                 }
             }
             ForEach(visibleIndexedTracks, id: \.element.id) { index, track in
-                if track.points.count > 1 {
-                    MapPolyline(coordinates: track.points.map(\.coordinate))
+                ForEach(Array(TrackMath.segments(track.points).enumerated()), id: \.offset) { _, segment in
+                    MapPolyline(coordinates: segment.map(\.coordinate))
                         .stroke(Theme.trackColors[index % Theme.trackColors.count],
                                 style: StrokeStyle(lineWidth: 3.5, lineCap: .round, lineJoin: .round))
                 }
