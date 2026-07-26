@@ -13,7 +13,14 @@ Dieser Stand entspricht dem **MVP-Fundament** (PRD Phase 0/1).
   erklärbar berechnet aus Wind **in Flughöhe** (120 m, Open-Meteo),
   Böen, Regenrisiko, Sicht, Temperatur und Lichtqualität — gewichtet
   nach dem konkreten Drohnenprofil. Jede Zahl kann per Tipp ihre
-  Begründung zeigen („Böen 32 km/h — 84 % deiner Windtoleranz").
+  Begründung zeigen („Böen 32 km/h — 84 % deiner Windtoleranz");
+  ganz oben steht die **größte Bremse** als Klartext-Box („Das
+  drückt den Score am stärksten: Böen bis 29 km/h — 76 % deiner
+  Windtoleranz"), Wind/Böen werden schon ab 50 % der Toleranz
+  benannt (vorher erst ab 70 % — ein 6er-Score blieb ohne
+  sichtbaren Grund, Nutzermeldung), und der Tipp auf den
+  Score-Ring erklärt die AKTUELLE Stunde, nicht die beste des
+  Tages.
   Inklusive „bestes Fenster"-Erkennung und 14-Tage-Ausblick —
   ab Tag 8 sichtbar als „Trend" gekennzeichnet (gedämpfte Chips im
   Briefing, Hinweisbanner; Benachrichtigungen kommen nur aus den
@@ -141,7 +148,11 @@ Dieser Stand entspricht dem **MVP-Fundament** (PRD Phase 0/1).
   Neuzeichnen beim Nachladen wieder sichtbarer machen). Kartenstil
   umschaltbar (Karte / Hybrid / Satellit) und Tag-/Nachtansicht
   unabhängig vom Geräte-Erscheinungsbild erzwingbar; alle
-  Einstellungen bleiben gespeichert.
+  Einstellungen bleiben gespeichert. **Maßband** (Lineal-Symbol):
+  misst die Luftlinie zwischen zwei Punkten — der eigene Standort
+  ist automatisch Punkt A, sofern bekannt; Tippen setzt/versetzt
+  das Ziel, gestrichelte Linie plus Meter-/Kilometer-Anzeige im
+  Banner, im Maßband-Modus pausiert der Legal-Check-Tipp.
 - **„Umsehen" im Punkt-Check (Nutzerwunsch nach App-Vorbild):** Das
   Info-Blatt des angetippten Kartenpunkts zeigt Apples
   Look-Around-Panorama des Ortes (falls Abdeckung besteht — sonst
@@ -217,9 +228,11 @@ Dieser Stand entspricht dem **MVP-Fundament** (PRD Phase 0/1).
   Drohnen-Toleranz, Windrichtungs-Pfeil, Niederschlag, Temperatur,
   gefühlt, Luftfeuchte, UV) plus **KP-Index** von der NOAA (offen) —
   ab KP 4 mit GPS-/Kompass-Warnhinweis. Dazu die neue Ansicht
-  **„Winde nach Höhe"**: stündliche Tabelle mit Richtungspfeil und
+  **„Winde nach Höhe"**: stündliche Tabelle mit Kompass-Rosen und
   km/h auf 10/80/120/180 m (Open-Meteo-Modellwinde), Tage wählbar,
-  farbcodiert gegen die Windtoleranz des Profils.
+  farbcodiert gegen die Windtoleranz des Profils; die
+  Höhen-Kopfzeile bleibt beim Scrollen angepinnt stehen, beim
+  Öffnen springt die Liste zur laufenden Stunde (dezent markiert).
 - **Akku- & Kälte-Rechner:** Deterministische Faustformel aus
   Nennflugzeit des Modells, Temperatur (Kältefaktor bis −35 %) und
   Wind (bis −30 % an der Toleranzgrenze) — als Kachel im

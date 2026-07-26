@@ -120,6 +120,22 @@ struct HourFactorsView: View {
                 Spacer()
             }
 
+            // Nutzerwunsch: auf den ersten Blick sehen, WARUM der
+            // Score gedrückt ist — die größte Bremse als Klartext-Box.
+            if let limiting = hourScore.limitingText {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Das drückt den Score am stärksten")
+                        .font(.caption.bold())
+                        .foregroundStyle(.secondary)
+                    Text(limiting)
+                        .font(.subheadline.bold())
+                }
+                .padding(10)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.orange.opacity(0.14),
+                            in: RoundedRectangle(cornerRadius: 10))
+            }
+
             if hourScore.factors.isEmpty {
                 Label("Keine Einschränkungen — beste Voraussetzungen.", systemImage: "checkmark.circle")
                     .font(.subheadline)

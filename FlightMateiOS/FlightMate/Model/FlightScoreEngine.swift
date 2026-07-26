@@ -35,6 +35,10 @@ struct HourScore: Identifiable {
     let light: Double           // 0…1
     let factors: [ScoreFactor]
     let verdict: Verdict
+    /// Der Faktor, der den Score gerade am stärksten drückt — als
+    /// Klartext mit Zahlen (Nutzerwunsch: auf den ersten Blick sehen,
+    /// WARUM man besser nicht fliegt). nil = nichts drückt spürbar.
+    var limitingText: String?
 
     enum Verdict: String {
         case great = "Sehr gute Bedingungen"
@@ -136,21 +140,25 @@ enum FlightScoreEngine {
         let windRatio = effectiveWind / profile.maxWindKmh
         let windFactor = ramp(windRatio, easyBelow: 0.35, zeroAt: 1.0)
         if !blocked {
+            // Schon ab der Hälfte der Toleranz benennen — ein 6er-Score
+            // blieb sonst ohne sichtbaren Grund (Nutzermeldung).
             if windRatio <= 0.35 {
                 factors.append(ScoreFactor(symbol: "wind", text: "Schwacher Wind (\(Int(effectiveWind)) km/h in Flughöhe)", isPositive: true, isBlocking: false))
             } else if windRatio >= 0.7 {
                 factors.append(ScoreFactor(symbol: "wind", text: "Kräftiger Wind: \(Int(effectiveWind)) km/h in Flughöhe — \(Int(windRatio * 100)) % der Toleranz", isPositive: false, isBlocking: false))
+            } else if windRatio >= 0.5 {
+                factors.append(ScoreFactor(symbol: "wind", text: "Spürbarer Wind: \(Int(effectiveWind)) km/h in Flughöhe — \(Int(windRatio * 100)) % der Toleranz", isPositive: false, isBlocking: false))
             }
         }
 
         let gustRatio = hour.windGusts10Kmh / profile.maxWindKmh
         let gustFactor = ramp(gustRatio, easyBelow: 0.45, zeroAt: 1.0)
-        if !blocked && gustRatio >= 0.7 {
-            factors.append(ScoreFactor(symbol: "tornado", text: "Böen bis \(Int(hour.windGusts10Kmh)) km/h", isPositive: false, isBlocking: false))
+        if !blocked && gustRatio >= 0.5 {
+            factors.append(ScoreFactor(symbol: "tornado", text: "Böen bis \(Int(hour.windGusts10Kmh)) km/h — \(Int(gustRatio * 100)) % der Windtoleranz", isPositive: false, isBlocking: false))
         }
 
         let rainFactor = ramp(hour.precipitationProbability / 100, easyBelow: 0.1, zeroAt: 0.8)
-        if !blocked && hour.precipitationProbability >= 40 {
+        if !blocked && hour.precipitationProbability >= 25 {
             factors.append(ScoreFactor(symbol: "cloud.rain", text: "Regenrisiko \(Int(hour.precipitationProbability)) %", isPositive: false, isBlocking: false))
         }
 
@@ -198,8 +206,28 @@ enum FlightScoreEngine {
         default:             verdict = .poor
         }
 
+        // --- Größte Bremse (Klartext für die Score-Begründung) -------------
+        let dampers: [(value: Double, text: String)] = [
+            (windFactor, "Wind \(Int(effectiveWind)) km/h in Flughöhe — \(Int(windRatio * 100)) % deiner Windtoleranz"),
+            (gustFactor, "Böen bis \(Int(hour.windGusts10Kmh)) km/h — \(Int(gustRatio * 100)) % deiner Windtoleranz"),
+            (rainFactor, "Regenrisiko \(Int(hour.precipitationProbability)) %"),
+            (visibilityFactor, "Sicht nur \(Int(hour.visibilityM / 1000)) km"),
+            (temperatureFactor, "Kälte: \(Int(hour.temperatureC)) °C — kürzere Akkulaufzeit"),
+        ]
+        let limitingText: String?
+        if blocked {
+            limitingText = factors.first(where: \.isBlocking)?.text
+        } else if let worst = dampers.min(by: { $0.value < $1.value }), worst.value < 0.85 {
+            limitingText = worst.text
+        } else if light <= 0.5 {
+            limitingText = "\(lightLabel) — das Licht drückt den Score, nicht das Wetter"
+        } else {
+            limitingText = nil
+        }
+
         return HourScore(hour: hour, score: score, conditions: conditions,
-                         light: light, factors: factors, verdict: verdict)
+                         light: light, factors: factors, verdict: verdict,
+                         limitingText: limitingText)
     }
 
     // MARK: Bestes Fenster

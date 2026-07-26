@@ -28,31 +28,64 @@ struct WindProfileView: View {
     ]
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 12) {
-                if state.days.count > 1 {
-                    dayPicker
-                }
-                if let day = selectedDay {
-                    header
-                    ForEach(day.hours, id: \.hour.date) { hourScore in
-                        row(hourScore.hour, timeZone: day.timeZone)
+        ScrollViewReader { proxy in
+            ScrollView {
+                VStack(spacing: 12) {
+                    if state.days.count > 1 {
+                        dayPicker
                     }
-                    Text("Pfeil = wohin der Wind weht · Farbe gegen die Windtoleranz deiner \(state.profile?.name ?? "Drohne") (\(Int(state.profile?.maxWindKmh ?? 38)) km/h): grün = frei, orange = grenzwertig (ab 80 %), rot = darüber. Modellwind Open-Meteo; Böen am Boden können höher liegen.")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                        .padding(.top, 4)
-                } else {
-                    ProgressView()
-                        .padding(.top, 60)
+                    if let day = selectedDay {
+                        // Kopfzeile bleibt beim Scrollen stehen
+                        // (Nutzerwunsch): angepinnter Section-Header.
+                        LazyVStack(spacing: 8, pinnedViews: [.sectionHeaders]) {
+                            Section {
+                                ForEach(day.hours, id: \.hour.date) { hourScore in
+                                    row(hourScore.hour, timeZone: day.timeZone)
+                                        .id(hourScore.hour.date)
+                                }
+                                Text("Pfeil = wohin der Wind weht · Farbe gegen die Windtoleranz deiner \(state.profile?.name ?? "Drohne") (\(Int(state.profile?.maxWindKmh ?? 38)) km/h): grün = frei, orange = grenzwertig (ab 80 %), rot = darüber. Modellwind Open-Meteo; Böen am Boden können höher liegen.")
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                                    .padding(.top, 4)
+                            } header: {
+                                header
+                                    .padding(.vertical, 8)
+                                    .background(.bar)
+                            }
+                        }
+                    } else {
+                        ProgressView()
+                            .padding(.top, 60)
+                    }
                 }
+                .frame(maxWidth: 640)
+                .frame(maxWidth: .infinity)
+                .padding()
             }
-            .frame(maxWidth: 640)
-            .frame(maxWidth: .infinity)
-            .padding()
+            .navigationTitle("Winde nach Höhe")
+            .navigationBarTitleDisplayMode(.inline)
+            // Beim Öffnen zur aktuellen Stunde springen (Nutzerwunsch) —
+            // auch wenn die Prognose erst kurz danach eintrifft.
+            .onAppear { scrollToNow(proxy) }
+            .onChange(of: state.days.count) { scrollToNow(proxy) }
+            .onChange(of: selectedDayIndex) { _, newIndex in
+                if newIndex == 0 { scrollToNow(proxy) }
+            }
         }
-        .navigationTitle("Winde nach Höhe")
-        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    /// Zur Zeile der laufenden Stunde scrollen (nur für heute sinnvoll).
+    private func scrollToNow(_ proxy: ScrollViewProxy) {
+        guard selectedDayIndex == 0, let day = selectedDay else { return }
+        let now = Date()
+        guard let current = day.hours.first(where: {
+            now < $0.hour.date.addingTimeInterval(3_600)
+        }) else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+            withAnimation {
+                proxy.scrollTo(current.hour.date, anchor: .top)
+            }
+        }
     }
 
     private var dayPicker: some View {
@@ -91,7 +124,9 @@ struct WindProfileView: View {
     }
 
     private func row(_ hour: HourForecast, timeZone: TimeZone) -> some View {
-        HStack {
+        let now = Date()
+        let isCurrentHour = now >= hour.date && now < hour.date.addingTimeInterval(3_600)
+        return HStack {
             Text(Theme.time(hour.date, in: timeZone))
                 .font(.caption.monospacedDigit())
                 .frame(width: 52, alignment: .leading)
@@ -102,6 +137,13 @@ struct WindProfileView: View {
         }
         .padding(.vertical, 6)
         .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 8))
+        // Die laufende Stunde ist dezent markiert — sie ist auch das
+        // Sprungziel beim Öffnen.
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .strokeBorder(Color.accentColor.opacity(isCurrentHour ? 0.7 : 0),
+                              lineWidth: 1.5)
+        )
     }
 
     private func cell(speed: Double?, direction: Double?) -> some View {
