@@ -2,6 +2,7 @@ import Foundation
 import CoreLocation
 import SwiftData
 import SwiftUI
+import UIKit
 
 /// Ressourcenschonender Hintergrund-Tracker.
 ///
@@ -101,7 +102,40 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
         // an — der eigene Ruhemodus (grob statt aus) ersetzt sie.
         manager.pausesLocationUpdatesAutomatically = false
         authorization = manager.authorizationStatus
+
+        // Diagnose: Start im Hintergrund = iOS hat die App zuvor beendet
+        // und über Signifikanz/Besuch/Geofence neu gestartet.
+        if UIApplication.shared.applicationState == .background {
+            Self.recordBackgroundRelaunch()
+        }
+        // Not-Sicherung, falls iOS die App geordnet beendet.
+        NotificationCenter.default.addObserver(
+            forName: UIApplication.willTerminateNotification,
+            object: nil, queue: .main
+        ) { [weak self] _ in
+            self?.flush()
+        }
+
         applyTrackingState()
+    }
+
+    // MARK: - Neustart-Diagnose
+
+    private static let relaunchLogKey = "tagesspur.bgRelaunches"
+
+    private static func recordBackgroundRelaunch() {
+        var dates = (UserDefaults.standard.array(forKey: relaunchLogKey) as? [Date]) ?? []
+        dates.append(Date())
+        if dates.count > 50 { dates.removeFirst(dates.count - 50) }
+        UserDefaults.standard.set(dates, forKey: relaunchLogKey)
+    }
+
+    /// Wie oft iOS die App heute im Hintergrund neu gestartet hat —
+    /// jede dieser Stellen kann eine kleine Track-Lücke sein.
+    static var backgroundRelaunchesToday: Int {
+        let today = DayKey.key(for: Date())
+        let dates = (UserDefaults.standard.array(forKey: relaunchLogKey) as? [Date]) ?? []
+        return dates.filter { DayKey.key(for: $0) == today }.count
     }
 
     // MARK: - Steuerung
@@ -138,12 +172,35 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
         startPreciseUpdates()
     }
 
+    /// Geofence um die letzte Position: Wird die App von iOS beendet,
+    /// weckt das Verlassen dieses 150-m-Zauns sie deutlich früher wieder
+    /// als die grobe Signifikanz-Überwachung (~150 m statt Kilometer).
+    private static let relaunchRegionId = "tagesspur.relaunchRegion"
+
+    private func updateRelaunchRegion() {
+        guard authorization == .authorizedAlways, let location = lastLocation else { return }
+        for region in manager.monitoredRegions where region.identifier == Self.relaunchRegionId {
+            manager.stopMonitoring(for: region)
+        }
+        let region = CLCircularRegion(
+            center: location.coordinate,
+            radius: 150,
+            identifier: Self.relaunchRegionId
+        )
+        region.notifyOnExit = true
+        region.notifyOnEntry = false
+        manager.startMonitoring(for: region)
+    }
+
     private func stopAll() {
         flushTimer?.invalidate()
         flushTimer = nil
         manager.stopUpdatingLocation()
         manager.stopMonitoringSignificantLocationChanges()
         manager.stopMonitoringVisits()
+        for region in manager.monitoredRegions where region.identifier == Self.relaunchRegionId {
+            manager.stopMonitoring(for: region)
+        }
         if Self.hasLocationBackgroundMode {
             manager.allowsBackgroundLocationUpdates = false
         }
@@ -169,6 +226,7 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
         manager.desiredAccuracy = Self.restAccuracy
         manager.distanceFilter = Self.restDistanceFilter
         flush()
+        updateRelaunchRegion()
     }
 
     /// Zurück auf präzise Erfassung, ohne Anker/Zeit zurückzusetzen.
@@ -197,6 +255,15 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
         for location in locations {
             handle(location)
         }
+    }
+
+    func locationManager(_ manager: CLLocationManager, didExitRegion region: CLRegion) {
+        guard trackingEnabled, region.identifier == Self.relaunchRegionId else { return }
+        // Weckt die App nach einer Beendigung durch iOS — sofort zurück
+        // in die präzise Erfassung.
+        lastMovement = Date()
+        if isResting { exitRest() }
+        manager.startUpdatingLocation()
     }
 
     func locationManager(_ manager: CLLocationManager, didVisit visit: CLVisit) {
@@ -285,6 +352,7 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
         }
         try? context.save()
         pointsVersion += 1
+        updateRelaunchRegion()
         WidgetBridge.update(
             container: container,
             trackingEnabled: trackingEnabled,
