@@ -176,11 +176,17 @@ struct DayDetailView: View {
     @State private var exportEnd: Date?
     @State private var exportURL: URL?
     @State private var exportMessage: String?
+    @State private var hiddenTrackIds: Set<String> = []
 
-    /// Fürs Replay nur die eigenen Tracks — Familien-Punkte würden die
-    /// Kamera zwischen Personen springen lassen.
+    /// Nur eigene UND eingeblendete Tracks — die Geräteauswahl wirkt
+    /// damit auf Replay, Zeit-Cursor und GPX-Export. (Familien-Punkte
+    /// bleiben außen vor: fremde Daten gehören nicht in den Export,
+    /// und Replay würde zwischen Personen springen.)
     private var allPoints: [TrackPoint] {
-        tracks.prefix(ownTrackCount).flatMap(\.points).sorted { $0.t < $1.t }
+        tracks.prefix(ownTrackCount)
+            .filter { !hiddenTrackIds.contains($0.id) }
+            .flatMap(\.points)
+            .sorted { $0.t < $1.t }
     }
 
     private var moments: [Moment] {
@@ -202,21 +208,42 @@ struct DayDetailView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            TrackMapView(tracks: tracks, visits: visits, media: media, timeCursor: cursorPin, onMediaTap: openViewer)
+            TrackMapView(tracks: tracks, visits: visits, media: media, timeCursor: cursorPin, externalHiddenTrackIds: $hiddenTrackIds, onMediaTap: openViewer)
             List {
                 timeSection
                 exportSection
                 if !tracks.isEmpty {
                     Section("Geräte") {
-                        ForEach(tracks) { track in
-                            HStack {
-                                Text(track.deviceName.isEmpty ? "Gerät" : track.deviceName)
-                                Spacer()
-                                Text("\(track.points.count) Punkte")
-                                    .foregroundStyle(.secondary)
+                        ForEach(Array(tracks.enumerated()), id: \.element.id) { index, track in
+                            let hidden = hiddenTrackIds.contains(track.id)
+                            Button {
+                                if hidden {
+                                    hiddenTrackIds.remove(track.id)
+                                } else {
+                                    hiddenTrackIds.insert(track.id)
+                                }
+                            } label: {
+                                HStack(spacing: 10) {
+                                    Circle()
+                                        .fill(Theme.trackColors[index % Theme.trackColors.count])
+                                        .frame(width: 14, height: 14)
+                                        .opacity(hidden ? 0.35 : 1)
+                                    Text(track.deviceName.isEmpty ? "Gerät" : track.deviceName)
+                                        .foregroundStyle(hidden ? .secondary : .primary)
+                                    Spacer()
+                                    Text("\(track.points.count) Punkte")
+                                        .foregroundStyle(.secondary)
+                                    Image(systemName: hidden ? "circle" : "checkmark.circle.fill")
+                                        .foregroundStyle(hidden ? Color.secondary : Color.accentColor)
+                                }
+                                .font(.subheadline)
+                                .contentShape(Rectangle())
                             }
-                            .font(.subheadline)
+                            .buttonStyle(.plain)
                         }
+                        Text("Abwählen wirkt auf Karte, Replay, Zeit-Cursor und GPX-Export. Exportiert werden nur eigene Geräte.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
                     }
                 }
                 if !visits.isEmpty {
@@ -276,6 +303,9 @@ struct DayDetailView: View {
         }
         .fullScreenCover(isPresented: $showViewer) {
             MediaViewerView(items: media, index: viewerIndex)
+        }
+        .onChange(of: hiddenTrackIds) { _, _ in
+            exportURL = nil
         }
         .task { reload() }
         .task {

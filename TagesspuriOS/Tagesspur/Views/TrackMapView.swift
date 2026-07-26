@@ -23,11 +23,27 @@ struct TrackMapView: View {
     var media: [MediaItem] = []
     var followsUser = false
     var timeCursor: TimeCursor? = nil
+    /// Optional von außen gehaltene Auswahl (z. B. Tagesdetail: wirkt
+    /// dort auch auf Replay, Zeit-Cursor und GPX-Export). Ohne Binding
+    /// verwaltet die Karte die Auswahl selbst.
+    var externalHiddenTrackIds: Binding<Set<String>>? = nil
     var onMediaTap: ((MediaItem) -> Void)? = nil
 
     @State private var position: MapCameraPosition = .automatic
-    @State private var hiddenTrackIds: Set<String> = []
+    @State private var internalHiddenTrackIds: Set<String> = []
     @State private var showFilterPanel = false
+
+    private var hiddenTrackIds: Set<String> {
+        externalHiddenTrackIds?.wrappedValue ?? internalHiddenTrackIds
+    }
+
+    private func updateHiddenTrackIds(_ newValue: Set<String>) {
+        if let externalHiddenTrackIds {
+            externalHiddenTrackIds.wrappedValue = newValue
+        } else {
+            internalHiddenTrackIds = newValue
+        }
+    }
     @AppStorage("tagesspur.mapStyleIndex") private var styleIndex = 0
     @AppStorage(AppearanceMode.mapKey) private var mapAppearance = AppearanceMode.system.rawValue
     @Environment(\.colorScheme) private var systemScheme
@@ -131,11 +147,13 @@ struct TrackMapView: View {
             ForEach(Array(tracks.enumerated()), id: \.element.id) { index, track in
                 let hidden = hiddenTrackIds.contains(track.id)
                 Button {
+                    var updated = hiddenTrackIds
                     if hidden {
-                        hiddenTrackIds.remove(track.id)
+                        updated.remove(track.id)
                     } else {
-                        hiddenTrackIds.insert(track.id)
+                        updated.insert(track.id)
                     }
+                    updateHiddenTrackIds(updated)
                 } label: {
                     HStack(spacing: 10) {
                         Circle()
@@ -162,7 +180,7 @@ struct TrackMapView: View {
             if !hiddenTrackIds.isEmpty {
                 Divider()
                 Button("Alle anzeigen") {
-                    hiddenTrackIds.removeAll()
+                    updateHiddenTrackIds([])
                 }
                 .font(.subheadline.bold())
                 .padding(.horizontal, 12)
