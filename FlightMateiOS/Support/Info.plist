@@ -29,5 +29,11 @@
 	<array>
 		<string>comgooglemaps</string>
 	</array>
+	<!-- TestFlight/App Store Connect: Die App nutzt ausschließlich
+	     Standard-HTTPS (ATS) — von der US-Exportmeldepflicht
+	     ausgenommen. Der Eintrag beantwortet die Verschlüsselungs-
+	     Frage bei jedem Upload dauerhaft mit „Nein". -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 </dict>
 </plist>
