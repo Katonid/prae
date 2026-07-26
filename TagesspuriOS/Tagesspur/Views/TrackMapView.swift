@@ -27,6 +27,7 @@ struct TrackMapView: View {
 
     @State private var position: MapCameraPosition = .automatic
     @State private var hiddenTrackIds: Set<String> = []
+    @State private var showFilterPanel = false
     @AppStorage("tagesspur.mapStyleIndex") private var styleIndex = 0
     @AppStorage(AppearanceMode.mapKey) private var mapAppearance = AppearanceMode.system.rawValue
     @Environment(\.colorScheme) private var systemScheme
@@ -67,7 +68,21 @@ struct TrackMapView: View {
         }
         .overlay(alignment: .topLeading) {
             if tracks.count > 1 {
-                trackFilterMenu
+                trackFilterButton
+            }
+        }
+        .overlay {
+            if showFilterPanel {
+                ZStack(alignment: .topLeading) {
+                    // Unsichtbarer Fänger: erst ein Tipp NEBEN das Panel
+                    // schließt es.
+                    Color.black.opacity(0.001)
+                        .contentShape(Rectangle())
+                        .onTapGesture { showFilterPanel = false }
+                    trackFilterPanel
+                        .padding(.leading, 10)
+                        .padding(.top, 58)
+                }
             }
         }
         .overlay(alignment: .topTrailing) {
@@ -94,28 +109,10 @@ struct TrackMapView: View {
         }
     }
 
-    /// Geräte/Personen auf der Karte an- und abwählen.
-    private var trackFilterMenu: some View {
-        Menu {
-            ForEach(Array(tracks.enumerated()), id: \.element.id) { _, track in
-                Toggle(isOn: Binding(
-                    get: { !hiddenTrackIds.contains(track.id) },
-                    set: { visible in
-                        if visible {
-                            hiddenTrackIds.remove(track.id)
-                        } else {
-                            hiddenTrackIds.insert(track.id)
-                        }
-                    }
-                )) {
-                    Text(track.deviceName.isEmpty ? "Gerät" : track.deviceName)
-                }
-            }
-            if !hiddenTrackIds.isEmpty {
-                Button("Alle anzeigen") {
-                    hiddenTrackIds.removeAll()
-                }
-            }
+    /// Öffnet/schließt das Legende-Panel mit den Geräten/Personen.
+    private var trackFilterButton: some View {
+        Button {
+            showFilterPanel.toggle()
         } label: {
             Image(systemName: "person.2.fill")
                 .font(.title3)
@@ -124,6 +121,57 @@ struct TrackMapView: View {
                 .background(.thinMaterial, in: Circle())
         }
         .padding(10)
+        .accessibilityLabel("Geräte und Personen filtern")
+    }
+
+    /// Legende + Filter: Farbpunkt je Gerät/Person, Antippen blendet
+    /// ein/aus — das Panel bleibt dabei offen.
+    private var trackFilterPanel: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            ForEach(Array(tracks.enumerated()), id: \.element.id) { index, track in
+                let hidden = hiddenTrackIds.contains(track.id)
+                Button {
+                    if hidden {
+                        hiddenTrackIds.remove(track.id)
+                    } else {
+                        hiddenTrackIds.insert(track.id)
+                    }
+                } label: {
+                    HStack(spacing: 10) {
+                        Circle()
+                            .fill(Theme.trackColors[index % Theme.trackColors.count])
+                            .frame(width: 14, height: 14)
+                            .opacity(hidden ? 0.35 : 1)
+                        Text(track.deviceName.isEmpty ? "Gerät" : track.deviceName)
+                            .font(.subheadline)
+                            .foregroundStyle(hidden ? .secondary : .primary)
+                            .lineLimit(1)
+                        Spacer(minLength: 12)
+                        Image(systemName: hidden ? "circle" : "checkmark.circle.fill")
+                            .foregroundStyle(hidden ? Color.secondary : Color.accentColor)
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 9)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                if index < tracks.count - 1 {
+                    Divider().padding(.leading, 36)
+                }
+            }
+            if !hiddenTrackIds.isEmpty {
+                Divider()
+                Button("Alle anzeigen") {
+                    hiddenTrackIds.removeAll()
+                }
+                .font(.subheadline.bold())
+                .padding(.horizontal, 12)
+                .padding(.vertical, 9)
+            }
+        }
+        .frame(maxWidth: 250)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14))
+        .shadow(color: .black.opacity(0.2), radius: 8, y: 3)
     }
 
     private var outdoorAttribution: String {
