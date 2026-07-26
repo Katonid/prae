@@ -21,6 +21,13 @@ struct FamilyView: View {
     var body: some View {
         Form {
             Section("Meine Daten teilen") {
+                LabeledContent("Meine Freigabe") {
+                    Label(
+                        sync.isSharing ? "Aktiv" : "Nicht eingerichtet",
+                        systemImage: sync.isSharing ? "checkmark.circle.fill" : "exclamationmark.circle"
+                    )
+                    .foregroundStyle(sync.isSharing ? .green : .orange)
+                }
                 TextField("Mein Name (für die Familie)", text: $memberName)
                     .onChange(of: memberName) { _, newValue in
                         FamilySync.memberName = newValue
@@ -42,7 +49,7 @@ struct FamilyView: View {
                         confirmStop = true
                     }
                 }
-                Text("Die Einladung geht über Apples Standard-Dialog (Nachrichten/Mail) auch an andere Apple-IDs. Geteilt werden Tages-Tracks und Aufenthalte der letzten 60 Tage — keine Fotos, keine Foto-Stichwörter.")
+                Text("Wichtig: Jede Person teilt ihre Daten selbst. Damit du die Spur eines Familienmitglieds siehst, muss es auf seinem Gerät ebenfalls die Familienfreigabe einrichten und dich einladen — eine angenommene Einladung allein sendet nichts. Die Einladung geht über Apples Standard-Dialog (Nachrichten/Mail) auch an andere Apple-IDs. Geteilt werden Tages-Tracks und Aufenthalte der letzten 60 Tage — keine Fotos, keine Foto-Stichwörter.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
