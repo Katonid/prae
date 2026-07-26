@@ -42,6 +42,19 @@ struct TodayView: View {
         return day.hours.max { $0.score < $1.score }
     }
 
+    /// Für den Tipp auf den Score: die Stunde, in der wir JETZT sind —
+    /// der Nutzer fragt „warum jetzt nur 6?", nicht nach der besten
+    /// Stunde des Tages. Außerhalb des Tages: Referenzstunde.
+    private func currentOrReferenceHour(_ day: DayScore) -> HourScore? {
+        let now = Date()
+        if let current = day.hours.first(where: {
+            now >= $0.hour.date && now < $0.hour.date.addingTimeInterval(3_600)
+        }) {
+            return current
+        }
+        return referenceHour(day)
+    }
+
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -435,7 +448,7 @@ struct TodayView: View {
             .frame(width: 160, height: 160)
             .contentShape(Circle())
             .onTapGesture {
-                factorsHour = referenceHour(day)
+                factorsHour = currentOrReferenceHour(day)
             }
             // Der Ring baut sich beim Öffnen federnd bis zum Score auf.
             .onAppear {

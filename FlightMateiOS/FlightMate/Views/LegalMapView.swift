@@ -10,6 +10,7 @@
 
 import SwiftUI
 import MapKit
+import CoreLocation
 import UIKit
 
 /// Kartenstil-Auswahl: Straße / Hybrid / Satellit.
@@ -87,6 +88,77 @@ struct LegalMapView: View {
     @State private var photoSpots: [SpotCandidate] = []
     // Logbuch-Flüge als feste Marker (lila, abschaltbar je Eintrag).
     @State private var logEntries: [FlightLogEntry] = []
+    // Maßband (Nutzerwunsch): Entfernung zwischen zwei Punkten messen.
+    // Im Maßband-Modus setzen Tipps die Messpunkte statt des
+    // Legal-Checks; steht der eigene Standort fest, ist er Punkt A.
+    @State private var measureMode = false
+    @State private var measurePoints: [CLLocationCoordinate2D] = []
+    @State private var measureStartIsOwnLocation = false
+
+    private var measuredDistanceM: Double? {
+        guard measurePoints.count == 2 else { return nil }
+        return CLLocation(latitude: measurePoints[0].latitude,
+                          longitude: measurePoints[0].longitude)
+            .distance(from: CLLocation(latitude: measurePoints[1].latitude,
+                                       longitude: measurePoints[1].longitude))
+    }
+
+    private func toggleMeasureMode() {
+        measureMode.toggle()
+        measurePoints = []
+        measureStartIsOwnLocation = false
+        // Eigener Standort (falls bekannt) ist automatisch Punkt A —
+        // der häufigste Fall: „Wie weit ist es von mir bis dort?"
+        if measureMode, let location = state.currentLocation {
+            measurePoints = [location]
+            measureStartIsOwnLocation = true
+        }
+    }
+
+    private func measureTap(_ coordinate: CLLocationCoordinate2D) {
+        if measurePoints.count < 2 {
+            measurePoints.append(coordinate)
+        } else {
+            measurePoints[1] = coordinate
+        }
+    }
+
+    private var measureBanner: some View {
+        VStack(spacing: 4) {
+            if let distance = measuredDistanceM {
+                Text(distance >= 1_000
+                     ? String(format: "%.2f km Luftlinie", distance / 1_000)
+                     : "\(Int(distance.rounded())) m Luftlinie")
+                    .font(.headline.monospacedDigit())
+                Text(measureStartIsOwnLocation
+                     ? "von deinem Standort · Tippen versetzt das Ziel"
+                     : "Tippen versetzt Punkt B")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            } else if measurePoints.count == 1 {
+                Text(measureStartIsOwnLocation
+                     ? "Maßband: Tippe dein Ziel an — gemessen wird von deinem Standort"
+                     : "Maßband: Tippe den zweiten Punkt an")
+                    .font(.subheadline)
+            } else {
+                Text("Maßband: Tippe den ersten Punkt an")
+                    .font(.subheadline)
+            }
+            Button {
+                let keepStart = measureStartIsOwnLocation
+                measurePoints = keepStart ? [measurePoints[0]] : []
+                if !keepStart { measureStartIsOwnLocation = false }
+            } label: {
+                Text("Zurücksetzen")
+                    .font(.caption)
+            }
+            .disabled(measurePoints.count < (measureStartIsOwnLocation ? 2 : 1))
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 14))
+        .padding(.bottom, 12)
+    }
 
     var body: some View {
         NavigationStack {
@@ -133,11 +205,32 @@ struct LegalMapView: View {
                                 .tint(.purple)
                         }
                     }
+                    // Maßband: gestrichelte Linie zwischen den zwei
+                    // Messpunkten, Entfernung steht im Banner oben.
+                    if measureMode {
+                        if measurePoints.count == 2 {
+                            MapPolyline(coordinates: measurePoints)
+                                .stroke(.orange,
+                                        style: StrokeStyle(lineWidth: 3, dash: [6, 5]))
+                        }
+                        ForEach(Array(measurePoints.enumerated()), id: \.offset) { index, point in
+                            Annotation(index == 0 ? "A" : "B", coordinate: point) {
+                                Circle()
+                                    .fill(.orange)
+                                    .frame(width: 12, height: 12)
+                                    .overlay(Circle().strokeBorder(.white, lineWidth: 2))
+                            }
+                        }
+                    }
                 }
                 .mapStyle(styleChoice.style(elevation3D: elevation3D))
                 .onTapGesture { screenPoint in
                     guard let coordinate = proxy.convert(screenPoint, from: .local) else { return }
-                    check(coordinate)
+                    if measureMode {
+                        measureTap(coordinate)
+                    } else {
+                        check(coordinate)
+                    }
                 }
                 .onMapCameraChange(frequency: .onEnd) { context in
                     reloadOverlays(for: context.region)
@@ -158,7 +251,9 @@ struct LegalMapView: View {
                 .background(.thinMaterial)
             }
             .overlay(alignment: .bottom) {
-                if isChecking {
+                if measureMode {
+                    measureBanner
+                } else if isChecking {
                     Label("Geo-Zonen werden geprüft …", systemImage: "checkmark.shield")
                         .font(.subheadline)
                         .padding(10)
@@ -205,6 +300,16 @@ struct LegalMapView: View {
             .navigationTitle("Legal-Check")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        toggleMeasureMode()
+                    } label: {
+                        Image(systemName: measureMode ? "ruler.fill" : "ruler")
+                    }
+                    .accessibilityLabel(measureMode
+                        ? "Maßband beenden"
+                        : "Maßband: Entfernung auf der Karte messen")
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
                         showsPhotoSpots.toggle()
