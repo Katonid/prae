@@ -284,6 +284,7 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
             highAccuracy: highAccuracy,
             isResting: isResting
         )
+        Task { await FamilySync.shared.mirrorIfDue() }
     }
 
     private func fetchOrCreateDay(dayKey: String, deviceId: String, deviceName: String, in context: ModelContext) -> TrackDay {

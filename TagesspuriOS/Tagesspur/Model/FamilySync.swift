@@ -49,6 +49,23 @@ final class FamilySync: ObservableObject {
 
     // MARK: - Automatik (beim App-Start / Aktivwerden)
 
+    private var lastMirrorRun = Date.distantPast
+
+    /// Wird aus der Hintergrund-Aufzeichnung (flush) aufgerufen: spiegelt
+    /// die eigenen Daten gedrosselt (alle 10 Minuten) in die geteilte
+    /// Zone — Familienmitglieder sehen den Tag damit auch dann wachsen,
+    /// wenn die App nie geöffnet wird.
+    func mirrorIfDue() async {
+        guard Date().timeIntervalSince(lastMirrorRun) > 600 else { return }
+        lastMirrorRun = Date()
+        guard (try? await container.accountStatus()) == .available else { return }
+        if !isSharing {
+            await loadShareState()
+        }
+        guard isSharing else { return }
+        await mirrorOwnData()
+    }
+
     func autoSync() async {
         guard Date().timeIntervalSince(lastAutoSync) > 300 else { return }
         lastAutoSync = Date()
