@@ -20,7 +20,14 @@ enum SearchEngine {
         var dayKey: String
         var visits: [VisitInfo]
         var photoMatches: [PhotoMatch]
+        var routeSummary: String     // Wegesrand-Treffer: Drei-Orte-Beschreibung
         var id: String { dayKey }
+    }
+
+    /// Erkannte Zeitfrage („wo war ich gestern um 17 Uhr“).
+    struct TimeQuestion {
+        var dayKey: String
+        var time: Date
     }
 
     private static let stopwords: Set<String> = [
@@ -90,27 +97,35 @@ enum SearchEngine {
         "eis": ["ice cream"],
     ]
 
-    static func search(query: String, visits: [VisitInfo], tags: [MediaTag]) -> [DayResult] {
+    /// Ein Tag trifft, wenn jedes Suchwort belegt ist — durch einen
+    /// Aufenthalt, ein Foto-Stichwort oder die Wegesrand-Beschreibung
+    /// (Drei-Orte-Text aus Streckenstichproben).
+    static func search(query: String, visits: [VisitInfo], tags: [MediaTag], daySummaries: [String: String] = [:]) -> [DayResult] {
         let tokens = tokenize(query)
         guard !tokens.isEmpty else { return [] }
 
         let visitsByDay = Dictionary(grouping: visits, by: \.dayKey)
         let tagsByDay = Dictionary(grouping: tags, by: \.dayKey)
-        let allDays = Set(visitsByDay.keys).union(tagsByDay.keys)
+        let allDays = Set(visitsByDay.keys)
+            .union(tagsByDay.keys)
+            .union(daySummaries.keys)
 
         var results: [DayResult] = []
         for dayKey in allDays {
             let dayVisits = visitsByDay[dayKey] ?? []
             let dayTags = tagsByDay[dayKey] ?? []
+            let routeText = (daySummaries[dayKey] ?? "").lowercased()
 
             var matchedVisits: Set<String> = []
             var photoMatches: [PhotoMatch] = []
+            var routeMatched = false
             var allTokensSatisfied = true
 
             for token in tokens {
                 let visitHits = dayVisits.filter { matches(token: token, visit: $0) }
                 let photoHits = dayTags.filter { matchesPhoto(token: token, labels: $0.labels) }
-                if visitHits.isEmpty && photoHits.isEmpty {
+                let routeHit = matchesText(token: token, in: routeText)
+                if visitHits.isEmpty && photoHits.isEmpty && !routeHit {
                     allTokensSatisfied = false
                     break
                 }
@@ -118,6 +133,7 @@ enum SearchEngine {
                 if !photoHits.isEmpty {
                     photoMatches.append(PhotoMatch(token: token, count: photoHits.count))
                 }
+                if routeHit { routeMatched = true }
             }
             guard allTokensSatisfied else { continue }
 
@@ -126,10 +142,65 @@ enum SearchEngine {
                 visits: dayVisits
                     .filter { matchedVisits.contains($0.id) }
                     .sorted { $0.arrival < $1.arrival },
-                photoMatches: photoMatches
+                photoMatches: photoMatches,
+                routeSummary: routeMatched ? (daySummaries[dayKey] ?? "") : ""
             ))
         }
         return results.sorted { $0.dayKey > $1.dayKey }
+    }
+
+    // MARK: - Zeitfragen („wo war ich gestern um 17 Uhr“)
+
+    /// Deterministischer Parser: erkennt Tag (heute/gestern/vorgestern
+    /// oder Datum „12.07.“/„12.07.2026“) plus Uhrzeit („17 Uhr“, „17:30“).
+    /// Nur Uhrzeit ohne Tag = heute.
+    static func parseTimeQuestion(_ query: String, now: Date = Date()) -> TimeQuestion? {
+        let lower = query.lowercased()
+        let calendar = Calendar.current
+
+        var hour: Int?
+        var minute = 0
+        if let match = firstMatch(pattern: "(\\d{1,2}):(\\d{2})", in: lower) {
+            hour = Int(match[1])
+            minute = Int(match[2]) ?? 0
+        } else if let match = firstMatch(pattern: "(\\d{1,2})\\s*uhr", in: lower) {
+            hour = Int(match[1])
+        }
+        guard let h = hour, (0...23).contains(h), (0...59).contains(minute) else { return nil }
+
+        var baseDay: Date? = nil
+        if lower.contains("vorgestern") {
+            baseDay = calendar.date(byAdding: .day, value: -2, to: now)
+        } else if lower.contains("gestern") {
+            baseDay = calendar.date(byAdding: .day, value: -1, to: now)
+        } else if lower.contains("heute") {
+            baseDay = now
+        } else if let match = firstMatch(pattern: "(\\d{1,2})\\.(\\d{1,2})\\.(\\d{4})", in: lower),
+                  let day = Int(match[1]), let month = Int(match[2]), let year = Int(match[3]) {
+            baseDay = calendar.date(from: DateComponents(year: year, month: month, day: day))
+        } else if let match = firstMatch(pattern: "(\\d{1,2})\\.(\\d{1,2})\\.", in: lower),
+                  let day = Int(match[1]), let month = Int(match[2]) {
+            let year = calendar.component(.year, from: now)
+            baseDay = calendar.date(from: DateComponents(year: year, month: month, day: day))
+        } else {
+            baseDay = now
+        }
+        guard let base = baseDay,
+              let time = calendar.date(bySettingHour: h, minute: minute, second: 0, of: base) else {
+            return nil
+        }
+        return TimeQuestion(dayKey: DayKey.key(for: time), time: time)
+    }
+
+    private static func firstMatch(pattern: String, in text: String) -> [String]? {
+        guard let regex = try? NSRegularExpression(pattern: pattern),
+              let match = regex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)) else {
+            return nil
+        }
+        return (0..<match.numberOfRanges).map { index in
+            guard let range = Range(match.range(at: index), in: text) else { return "" }
+            return String(text[range])
+        }
     }
 
     static func tokenize(_ query: String) -> [String] {
@@ -147,6 +218,13 @@ enum SearchEngine {
             if visit.searchText.contains(candidate) { return true }
         }
         return false
+    }
+
+    // MARK: - Wegesrand-Abgleich (Drei-Orte-Beschreibung)
+
+    private static func matchesText(token: String, in text: String) -> Bool {
+        guard !text.isEmpty else { return false }
+        return variants(of: token).contains { text.contains($0) }
     }
 
     // MARK: - Foto-Abgleich

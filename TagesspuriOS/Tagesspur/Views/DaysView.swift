@@ -161,6 +161,9 @@ struct DaysView: View {
 /// Detailansicht eines Tages: Karte, Aufenthalte, Medien — alle Geräte.
 struct DayDetailView: View {
     let dayKey: String
+    /// Optional: Zeit-Cursor beim Öffnen vorbelegen (z. B. aus einer
+    /// Zeitfrage in der Suche).
+    var initialCursorTime: Date? = nil
 
     @Environment(\.modelContext) private var context
     @State private var tracks: [TrackMapView.DeviceTrack] = []
@@ -307,7 +310,12 @@ struct DayDetailView: View {
         .onChange(of: hiddenTrackIds) { _, _ in
             exportURL = nil
         }
-        .task { reload() }
+        .task {
+            reload()
+            if cursorTime == nil, let initialCursorTime {
+                cursorTime = initialCursorTime
+            }
+        }
         .task {
             await PhotoAnalyzer.analyzeDay(dayKey: dayKey, container: context.container)
         }
