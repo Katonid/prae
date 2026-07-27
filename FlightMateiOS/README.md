@@ -278,6 +278,15 @@ Dieser Stand entspricht dem **MVP-Fundament** (PRD Phase 0/1).
   Blockier-Grund (z. B. Regen) — der Ring trägt den TAGES-Score
   der besten Stunde und wirkte bei Regen widersprüchlich
   (Nutzermeldung: Ring 6, draußen regnet es).
+- **Kartenort als Wetter-Anker (Nutzerwunsch):** Im Punkt-Check-Blatt
+  der Zonenkarte stellt „Wetter & Score für diesen Ort anzeigen"
+  alle Heute-Werte (Score, Aktuell, Verlauf, Licht, Winde,
+  14-Tage) auf den angetippten Kartenort um. Die Startseite zeigt
+  dann ein deutliches oranges Banner („Werte für: <Ort> — auf der
+  Karte gewählt, nicht dein Standort") mit dem Knopf **„Mein
+  Standort"** zur Rückkehr; die Orts-Zeile über dem Ring wechselt
+  auf die orange Stecknadel. Die Wahl übersteht App-Neustarts —
+  nichts springt stillschweigend zurück.
   Das „beste Fenster" wird nur noch in fotografisch nutzbaren
   Stunden gesucht (Sonne über −10°, wie in der Stundenliste) und
   überspannt keine Lücken — vorher gewann die windstille Nacht

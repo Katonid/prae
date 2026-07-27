@@ -138,9 +138,46 @@ final class AppState: NSObject, ObservableObject {
     /// Ortsname zum aktuellen Standort (z. B. „Dortmund"), nur Anzeige.
     @Published var locationName: String?
 
-    /// Fallback, solange kein Standort vorliegt (wie Himmelskompass: Berlin).
+    // MARK: Kartenort als Wetter-Anker (Nutzerwunsch)
+    //
+    // Auf der Karte gewählter Ort, auf den sich Heute-Werte, Score
+    // und Prognosen beziehen — bis der Nutzer zum eigenen Standort
+    // zurückkehrt. Übersteht App-Neustarts (UserDefaults), damit die
+    // Werte nicht stillschweigend zurückspringen.
+    @Published var plannedLocation: CLLocationCoordinate2D?
+    @Published var plannedLocationName: String?
+
+    func setPlannedLocation(_ coordinate: CLLocationCoordinate2D) {
+        plannedLocation = coordinate
+        plannedLocationName = nil
+        UserDefaults.standard.set([coordinate.latitude, coordinate.longitude],
+                                  forKey: "plannedLocation")
+        UserDefaults.standard.removeObject(forKey: "plannedLocationName")
+        Task { @MainActor in
+            let placemarks = try? await CLGeocoder().reverseGeocodeLocation(
+                CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude))
+            self.plannedLocationName = placemarks?.first?.locality ?? placemarks?.first?.name
+            if let name = self.plannedLocationName {
+                UserDefaults.standard.set(name, forKey: "plannedLocationName")
+            }
+        }
+        Task { await refresh() }
+    }
+
+    func clearPlannedLocation() {
+        plannedLocation = nil
+        plannedLocationName = nil
+        UserDefaults.standard.removeObject(forKey: "plannedLocation")
+        UserDefaults.standard.removeObject(forKey: "plannedLocationName")
+        Task { await refresh() }
+    }
+
+    /// Kartenort (falls gewählt) → sonst Standort → sonst Fallback
+    /// (wie Himmelskompass: Berlin).
     var effectiveLocation: CLLocationCoordinate2D {
-        currentLocation ?? CLLocationCoordinate2D(latitude: 52.52, longitude: 13.405)
+        plannedLocation
+            ?? currentLocation
+            ?? CLLocationCoordinate2D(latitude: 52.52, longitude: 13.405)
     }
 
     func requestLocation() {
@@ -213,6 +250,13 @@ final class AppState: NSObject, ObservableObject {
         if let data = UserDefaults.standard.data(forKey: "spots"),
            let stored = try? JSONDecoder().decode([Spot].self, from: data) {
             spots = stored
+        }
+        // Gemerkten Kartenort wiederherstellen (Nutzerwunsch: Werte
+        // bleiben auf dem gewählten Ort, bis man aktiv zurückkehrt).
+        if let pair = UserDefaults.standard.array(forKey: "plannedLocation") as? [Double],
+           pair.count == 2 {
+            plannedLocation = CLLocationCoordinate2D(latitude: pair[0], longitude: pair[1])
+            plannedLocationName = UserDefaults.standard.string(forKey: "plannedLocationName")
         }
         locationManager.delegate = self
         locationManager.desiredAccuracy = kCLLocationAccuracyHundredMeters
