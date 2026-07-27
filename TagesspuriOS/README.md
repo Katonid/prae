@@ -128,6 +128,16 @@ Native SwiftUI-App, iOS 17+, keine externen Abhängigkeiten.
     keine Kopier-Schleifen) und erscheinen in Karte, Tagesliste,
     Tagesdetail und Suche — klar nach Person benannt.
   - Statistik und Replay bleiben bewusst auf eigene Daten beschränkt.
+  - Sofort-Übertragung: Die Empfängerseite abonniert stille
+    CloudKit-Pushes (CKDatabaseSubscription auf der Shared-DB) —
+    spiegelt ein Mitglied neue Daten, weckt iOS die App und sie lädt
+    sofort nach, statt aufs nächste App-Öffnen zu warten. Die
+    Senderseite spiegelt gedrosselt alle 5 Minuten aus dem
+    Aufzeichnungs-Flush heraus.
+  - Empfangs-Diagnose (Einstellungen → Familie): Anzahl angenommener
+    Freigaben (0 = Einladung fehlt auf diesem Gerät — häufigster
+    Grund für „es kommt nichts an“), geladene Tage und Zeitstempel
+    der neuesten Familien-Daten.
   - Einrichtung: Einstellungen → Familie; Sync automatisch beim
     Aktivwerden der App plus manueller Knopf.
 - **Widgets (Homescreen + Sperrbildschirm)**

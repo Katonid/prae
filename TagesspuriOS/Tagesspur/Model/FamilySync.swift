@@ -22,6 +22,9 @@ final class FamilySync: ObservableObject {
     @Published var lastSync: Date?
     @Published var isBusy = false
     @Published var statusText = ""
+    /// Anzahl angenommener Freigaben (-1 = noch nie geprüft) — macht in
+    /// der Familien-Ansicht sichtbar, ob der Empfangsweg überhaupt steht.
+    @Published var sharedZoneCount = -1
 
     var modelContainer: ModelContainer?
 
@@ -52,11 +55,11 @@ final class FamilySync: ObservableObject {
     private var lastMirrorRun = Date.distantPast
 
     /// Wird aus der Hintergrund-Aufzeichnung (flush) aufgerufen: spiegelt
-    /// die eigenen Daten gedrosselt (alle 10 Minuten) in die geteilte
+    /// die eigenen Daten gedrosselt (alle 5 Minuten) in die geteilte
     /// Zone — Familienmitglieder sehen den Tag damit auch dann wachsen,
     /// wenn die App nie geöffnet wird.
     func mirrorIfDue() async {
-        guard Date().timeIntervalSince(lastMirrorRun) > 600 else { return }
+        guard Date().timeIntervalSince(lastMirrorRun) > 300 else { return }
         lastMirrorRun = Date()
         guard (try? await container.accountStatus()) == .available else { return }
         if !isSharing {
@@ -74,7 +77,31 @@ final class FamilySync: ObservableObject {
         if isSharing {
             await mirrorOwnData()
         }
+        await ensureSharedSubscription()
         await fetchFamilyData()
+    }
+
+    // MARK: - Push: neue Familien-Daten sofort erfahren
+
+    private static let sharedSubscriptionId = "tagesspur.familie.subscription"
+    private static let sharedSubscriptionFlag = "tagesspur.family.subscribed"
+
+    /// Stille CloudKit-Pushes für die Shared-Datenbank abonnieren:
+    /// Spiegelt ein Familienmitglied neue Daten, weckt iOS diese App
+    /// und die Daten werden sofort geladen — statt erst beim nächsten
+    /// App-Öffnen (das machte die Übertragung zäh und unberechenbar).
+    func ensureSharedSubscription() async {
+        guard !UserDefaults.standard.bool(forKey: Self.sharedSubscriptionFlag) else { return }
+        let subscription = CKDatabaseSubscription(subscriptionID: Self.sharedSubscriptionId)
+        let info = CKSubscription.NotificationInfo()
+        info.shouldSendContentAvailable = true
+        subscription.notificationInfo = info
+        do {
+            _ = try await sharedDB.modifySubscriptions(saving: [subscription], deleting: [])
+            UserDefaults.standard.set(true, forKey: Self.sharedSubscriptionFlag)
+        } catch {
+            // Kein Abo (z. B. offline) — beim nächsten autoSync erneut.
+        }
     }
 
     // MARK: - Freigabe (Eigentümer-Seite)
@@ -226,6 +253,7 @@ final class FamilySync: ObservableObject {
                 let shareContainer = CKContainer(identifier: metadata.containerIdentifier)
                 _ = try await shareContainer.accept(metadata)
                 statusText = "Einladung angenommen — Daten werden geladen…"
+                await ensureSharedSubscription()
                 await fetchFamilyData()
                 statusText = "Familien-Daten geladen."
             } catch {
@@ -244,6 +272,7 @@ final class FamilySync: ObservableObject {
         do {
             let zones = try await sharedDB.allRecordZones()
                 .filter { $0.zoneID.zoneName == Self.zoneName }
+            sharedZoneCount = zones.count
             guard !zones.isEmpty else {
                 lastSync = Date()
                 return

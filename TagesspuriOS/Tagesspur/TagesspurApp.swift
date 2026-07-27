@@ -62,9 +62,35 @@ struct TagesspurApp: App {
     }
 }
 
-/// App-/Scene-Delegate nur für die Annahme von CloudKit-Einladungen
-/// (Familienfreigabe) — die UI bleibt vollständig SwiftUI.
+/// App-/Scene-Delegate für die Annahme von CloudKit-Einladungen und
+/// stille CloudKit-Pushes (Familienfreigabe) — die UI bleibt SwiftUI.
 final class AppDelegate: NSObject, UIApplicationDelegate {
+    func application(_ application: UIApplication,
+                     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
+        // Für stille CloudKit-Pushes (neue Familien-Daten) nötig; zeigt
+        // keine Mitteilungen an und fragt nicht um Erlaubnis.
+        application.registerForRemoteNotifications()
+        return true
+    }
+
+    /// Stiller CloudKit-Push: Ein Familienmitglied hat neue Daten in
+    /// seine geteilte Zone gespiegelt — sofort laden statt auf das
+    /// nächste App-Öffnen zu warten.
+    func application(_ application: UIApplication,
+                     didReceiveRemoteNotification userInfo: [AnyHashable: Any],
+                     fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
+        let note = CKNotification(fromRemoteNotificationDictionary: userInfo)
+        guard note?.databaseScope == .shared else {
+            // Pushes des eigenen SwiftData-Syncs verarbeitet das Framework selbst.
+            completionHandler(.noData)
+            return
+        }
+        Task { @MainActor in
+            await FamilySync.shared.fetchFamilyData()
+            completionHandler(.newData)
+        }
+    }
+
     func application(_ application: UIApplication,
                      configurationForConnecting connectingSceneSession: UISceneSession,
                      options: UIScene.ConnectionOptions) -> UISceneConfiguration {
