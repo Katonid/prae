@@ -80,7 +80,8 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
                      didReceiveRemoteNotification userInfo: [AnyHashable: Any],
                      fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
         let note = CKNotification(fromRemoteNotificationDictionary: userInfo)
-        guard note?.databaseScope == .shared else {
+        guard let databaseNote = note as? CKDatabaseNotification,
+              databaseNote.databaseScope == .shared else {
             // Pushes des eigenen SwiftData-Syncs verarbeitet das Framework selbst.
             completionHandler(.noData)
             return
