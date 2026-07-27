@@ -29,6 +29,14 @@ Native SwiftUI-App, iOS 17+, keine externen Abhängigkeiten.
     mit ungenauigkeitsabhängiger Schwelle (×2, gedeckelt bei 300 m) —
     ein Streu-Fix weckt nicht, ein Funkzellen-Fix verschleppt das
     Aufwachen aber auch nicht kilometerweit.
+  - Aufwach-Karenz: 45 s nach dem Wecken (Ruhemodus-Ende, Geofence,
+    Hintergrund-Neustart) zählen auch mittelmäßige Fixe (≤ 500 m),
+    solange Bewegung erkannt ist — der GPS-Empfänger braucht nach dem
+    Aufwachen einige Sekunden bis zur vollen Präzision, und bei
+    zügiger Abfahrt fehlten sonst die ersten Kilometer.
+  - Diagnose sichtbar: Einstellungen zeigen den Status des
+    Bewegungssensors („Verweigert“ = Aufwachen nur über GPS); ein
+    verweigerter/fehlender Sensor steht auch im Ereignisprotokoll.
   - Durchgehende Linie: Jede Gerätespur wird auf allen Karten als eine
     zusammenhängende Linie gezeichnet. Datenlücken werden nicht optisch
     aufgetrennt — sie bleiben über die Lücken-Diagnose im Tagesdetail

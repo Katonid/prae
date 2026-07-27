@@ -111,6 +111,9 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
         // und über Signifikanz/Besuch/Geofence neu gestartet.
         if UIApplication.shared.applicationState == .background {
             Self.recordBackgroundRelaunch()
+            // Neustart mitten in Bewegung: erste (noch grobe) Fixe zählen,
+            // sonst fehlen nach jedem Neustart hunderte Meter Track.
+            wakeGraceUntil = Date().addingTimeInterval(Self.wakeGraceSeconds)
         }
         // Not-Sicherung, falls iOS die App geordnet beendet.
         NotificationCenter.default.addObserver(
@@ -209,7 +212,13 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
     /// Ohne ihn hing das Aufwachen an Funkzellen-Fixen (±500–3000 m),
     /// was am Fahrtbeginn kilometerlange Lücken erzeugen konnte.
     private func startMotionWake() {
-        guard CMMotionActivityManager.isActivityAvailable() else { return }
+        guard CMMotionActivityManager.isActivityAvailable() else {
+            logMotionProblemOnce("Bewegungssensor nicht verfügbar — Aufwachen nur über GPS")
+            return
+        }
+        if CMMotionActivityManager.authorizationStatus() == .denied {
+            logMotionProblemOnce("Bewegungssensor VERWEIGERT — Aufwachen nur über GPS. Bitte erlauben: Einstellungen → Datenschutz → Bewegung & Fitness → Tagesspur")
+        }
         motionManager.startActivityUpdates(to: .main) { [weak self] activity in
             guard let self, let activity, self.trackingEnabled else { return }
             let moving = activity.automotive || activity.cycling || activity.running || activity.walking
@@ -221,6 +230,29 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
                 Self.logEvent("Bewegungssensor: Fahrt/Weg erkannt")
                 self.exitRest()
             }
+        }
+    }
+
+    /// Doppelte Diagnose-Einträge vermeiden (applyTrackingState läuft
+    /// mehrfach) — jedes Bewegungssensor-Problem nur einmal pro Lauf.
+    private var loggedMotionProblem: String?
+
+    private func logMotionProblemOnce(_ text: String) {
+        guard loggedMotionProblem != text else { return }
+        loggedMotionProblem = text
+        Self.logEvent(text)
+    }
+
+    /// Status des Bewegungssensor-Weckers für die Einstellungen —
+    /// macht sichtbar, ob das Aufwachen aus dem Ruhemodus über den
+    /// Motion-Coprozessor läuft oder nur über die GPS-Rückfallebene.
+    static var motionStatusText: String {
+        guard CMMotionActivityManager.isActivityAvailable() else { return "Nicht verfügbar" }
+        switch CMMotionActivityManager.authorizationStatus() {
+        case .authorized: return "Erlaubt"
+        case .denied: return "Verweigert"
+        case .restricted: return "Eingeschränkt"
+        default: return "Noch nicht gefragt"
         }
     }
 
@@ -287,9 +319,16 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
     private func exitRest() {
         isResting = false
         lastMovement = Date()
+        // Aufwach-Karenz: GPS braucht nach dem Ruhemodus einige Sekunden
+        // bis zur vollen Präzision. Solange zählt auch ein mittelmäßiger
+        // Fix — sonst fehlen bei zügiger Abfahrt die ersten Kilometer.
+        wakeGraceUntil = Date().addingTimeInterval(Self.wakeGraceSeconds)
         applyActiveParameters()
         Self.logEvent("Bewegung erkannt — präzise Erfassung")
     }
+
+    private var wakeGraceUntil = Date.distantPast
+    private static let wakeGraceSeconds: TimeInterval = 45
 
     private func scheduleFlushTimer() {
         flushTimer?.invalidate()
@@ -318,6 +357,7 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
         // in die präzise Erfassung.
         Self.logEvent("Geofence verlassen — Erfassung reaktiviert")
         lastMovement = Date()
+        wakeGraceUntil = Date().addingTimeInterval(Self.wakeGraceSeconds)
         if isResting { exitRest() }
         manager.startUpdatingLocation()
     }
@@ -403,10 +443,12 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
 
         // Aufzeichnungs-Gate: bevorzugt präzise Fixe (≤ 100 m). In
         // Bewegung darf der Track nicht verhungern — kommt > 60 s nichts
-        // Brauchbares, wird auch ein mittelmäßiger Fix (≤ 500 m)
-        // aufgezeichnet. Im Stillstand gilt das nicht (Streu-Schutz).
+        // Brauchbares ODER läuft die Aufwach-Karenz nach dem Ruhemodus,
+        // wird auch ein mittelmäßiger Fix (≤ 500 m) aufgezeichnet.
+        // Im Stillstand gilt das nicht (Streu-Schutz).
         let sinceLastAccepted = lastAcceptedLocation.map { Date().timeIntervalSince($0.timestamp) } ?? .infinity
-        let limit: CLLocationAccuracy = (!stationary && sinceLastAccepted > 60) ? 500 : Self.maxAcceptableAccuracy
+        let inWakeGrace = Date() < wakeGraceUntil
+        let limit: CLLocationAccuracy = (!stationary && (sinceLastAccepted > 60 || inWakeGrace)) ? 500 : Self.maxAcceptableAccuracy
         guard location.horizontalAccuracy <= limit else {
             discardedSinceLastLog += 1
             if discardedSinceLastLog >= 25 {
