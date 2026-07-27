@@ -178,6 +178,9 @@ final class PlaceVisit {
 final class FamilyDay {
     @Attribute(.unique) var recordName: String = ""
     var memberName: String = ""
+    /// CloudKit-Eigentümer der Freigabe-Zone — nötig, um eine einzelne
+    /// Freigabe gezielt verlassen/aufräumen zu können.
+    var ownerName: String = ""
     var deviceId: String = ""
     var deviceName: String = ""
     var dayKey: String = ""
@@ -212,6 +215,7 @@ final class FamilyDay {
 final class FamilyVisit {
     @Attribute(.unique) var recordName: String = ""
     var memberName: String = ""
+    var ownerName: String = ""
     var dayKey: String = ""
     var arrival: Date = Date()
     var departure: Date = Date()

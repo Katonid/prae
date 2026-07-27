@@ -301,7 +301,7 @@ final class FamilySync: ObservableObject {
         }
 
         for record in result.records {
-            apply(record, into: context)
+            apply(record, owner: zoneID.ownerName, into: context)
         }
         for deletedID in result.deleted {
             let name = deletedID.recordName
@@ -313,7 +313,7 @@ final class FamilySync: ObservableObject {
         }
     }
 
-    private func apply(_ record: CKRecord, into context: ModelContext) {
+    private func apply(_ record: CKRecord, owner: String, into context: ModelContext) {
         let name = record.recordID.recordName
         switch record.recordType {
         case Self.dayType:
@@ -324,6 +324,7 @@ final class FamilySync: ObservableObject {
                 day = FamilyDay(recordName: name)
                 context.insert(day)
             }
+            day.ownerName = owner
             day.memberName = record["memberName"] as? String ?? ""
             day.deviceId = record["deviceId"] as? String ?? ""
             day.deviceName = record["deviceName"] as? String ?? ""
@@ -343,6 +344,7 @@ final class FamilySync: ObservableObject {
                 visit = FamilyVisit(recordName: name)
                 context.insert(visit)
             }
+            visit.ownerName = owner
             visit.memberName = record["memberName"] as? String ?? ""
             visit.dayKey = record["dayKey"] as? String ?? ""
             visit.arrival = record["arrival"] as? Date ?? Date()
@@ -358,6 +360,29 @@ final class FamilySync: ObservableObject {
         default:
             break
         }
+    }
+
+    /// Eine einzelne angenommene Freigabe verlassen: Die Zone wird aus
+    /// der Shared-Datenbank entfernt (Apples Weg, eine Teilnahme zu
+    /// beenden) und der lokale Spiegel dieser Person aufgeräumt.
+    func leaveShare(ownerName: String) async {
+        isBusy = true
+        defer { isBusy = false }
+        do {
+            let zoneID = CKRecordZone.ID(zoneName: Self.zoneName, ownerName: ownerName)
+            _ = try await sharedDB.modifyRecordZones(saving: [], deleting: [zoneID])
+        } catch {
+            // Zone ggf. schon weg (Freigabe drüben beendet) — lokal trotzdem aufräumen.
+        }
+        if let modelContainer {
+            let context = ModelContext(modelContainer)
+            try? context.delete(model: FamilyDay.self, where: #Predicate { $0.ownerName == ownerName })
+            try? context.delete(model: FamilyVisit.self, where: #Predicate { $0.ownerName == ownerName })
+            try? context.save()
+        }
+        UserDefaults.standard.removeObject(forKey: "tagesspur.family.token.\(ownerName)")
+        if sharedZoneCount > 0 { sharedZoneCount -= 1 }
+        statusText = "Freigabe verlassen."
     }
 
     /// Lokalen Familien-Zwischenspeicher leeren (z. B. nach Verlassen
