@@ -97,6 +97,7 @@ struct TodayView: View {
                                     if let current { currentCard(current) }
                                     lightCard(today)
                                     windProfileLink
+                                    rainRadarLink
                                     sevenDayLink
                                 }
                             }
@@ -107,6 +108,7 @@ struct TodayView: View {
                             hourStrip(today)
                             lightCard(today)
                             windProfileLink
+                            rainRadarLink
                             sevenDayLink
                         }
                         feedbackCard(today)
@@ -296,6 +298,23 @@ struct TodayView: View {
         } label: {
             HStack {
                 Label("Winde nach Höhe", systemImage: "wind")
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .padding()
+            .flightCard(cornerRadius: 14)
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var rainRadarLink: some View {
+        NavigationLink {
+            RainRadarView()
+        } label: {
+            HStack {
+                Label("Regenradar", systemImage: "cloud.rain")
                 Spacer()
                 Image(systemName: "chevron.right")
                     .font(.caption)

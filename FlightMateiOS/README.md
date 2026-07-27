@@ -252,6 +252,17 @@ Dieser Stand entspricht dem **MVP-Fundament** (PRD Phase 0/1).
   Nicht-Wind-Grunds (Regen/Sicht/Kälte), Tipp auf die Zeile öffnet
   die Faktoren-Begründung — grüner Wind bei rotem Score war sonst
   nicht auflösbar (Nutzerfrage „Kann ich um 15 Uhr fliegen?").
+- **Regenradar (Nutzerwunsch):** Eigene Radar-Ansicht im Heute-Tab
+  (Karte „Regenradar") mit den RainViewer-Kompositkacheln —
+  weltweit, kostenlos, ohne Schlüssel. Zeitleiste über ~2 h
+  Rückblick plus ~30 min Kurzprognose (Extrapolations-Frames sind
+  als „Prognose" markiert), Play-Taste animiert den Zug der
+  Regenzellen; zentriert auf den Wetter-Anker (Kartenort oder
+  Standort). Technisch eine klassische MKMapView mit
+  MKTileOverlay — die SwiftUI-Karte kann keine Kachel-Overlays.
+  Ehrliche Grenzen stehen in der Ansicht: Abdeckung je nach
+  regionalem Radarnetz; „keine Farbe" heißt „kein Radar erfasst",
+  nicht sicher „trocken".
 - **Akku- & Kälte-Rechner:** Deterministische Faustformel aus
   Nennflugzeit des Modells, Temperatur (Kältefaktor bis −35 %) und
   Wind (bis −30 % an der Toleranzgrenze) — als Kachel im
