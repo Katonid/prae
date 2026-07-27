@@ -93,6 +93,10 @@ struct LegalMapView: View {
     // Legal-Checks; steht der eigene Standort fest, ist er Punkt A.
     @State private var measureMode = false
     @State private var measurePoints: [CLLocationCoordinate2D] = []
+    // 429-Pause der openAIP-Ebene: sichtbarer Countdown + Auto-Retry.
+    @State private var openAIPPauseSeconds: Int?
+    @State private var lastRegion: MKCoordinateRegion?
+    @State private var pauseRetryTask: Task<Void, Never>?
 
     private var measuredDistanceM: Double? {
         guard measurePoints.count == 2 else { return nil }
@@ -105,6 +109,10 @@ struct LegalMapView: View {
     private func toggleMeasureMode() {
         measureMode.toggle()
         measurePoints = []
+    }
+
+    private func pauseText(_ seconds: Int) -> String {
+        seconds >= 90 ? "~\((seconds + 59) / 60) min" : "~\(seconds) s"
     }
 
     /// Beide Messpunkte werden frei angetippt (Nutzerwunsch: nicht
@@ -258,6 +266,15 @@ struct LegalMapView: View {
                         .padding(10)
                         .background(.thinMaterial, in: Capsule())
                         .padding(.bottom, 12)
+                } else if let seconds = openAIPPauseSeconds {
+                    // Statt wortlos leerer Luftraum-Ebene: Pause zeigen,
+                    // Neuversuch kommt automatisch (Nutzermeldung).
+                    Label("Lufträume & Flugplätze pausiert (openAIP-Limit) — lädt in \(pauseText(seconds)) automatisch",
+                          systemImage: "clock.arrow.circlepath")
+                        .font(.subheadline)
+                        .padding(10)
+                        .background(.orange.opacity(0.25), in: Capsule())
+                        .padding(.bottom, 12)
                 } else if zoomedOut {
                     Text("Zoome hinein, um Zonen-Umrisse zu sehen")
                         .font(.subheadline)
@@ -372,6 +389,9 @@ struct LegalMapView: View {
                 assessment = result
                 isChecking = false
                 showResult = true
+                // Hat der Check gerade ein 429 gesehen, Banner +
+                // Auto-Neuversuch sofort aktivieren.
+                updateOpenAIPPauseState()
             }
         }
     }
@@ -385,6 +405,7 @@ struct LegalMapView: View {
         let span = max(region.span.latitudeDelta, region.span.longitudeDelta)
         zoomedOut = span >= ZoneOverlayService.maxSpanDeg
         detailHidden = span >= ZoneOverlayService.detailSpanDeg && !zoomedOut
+        lastRegion = region
         overlayTask?.cancel()
         overlayTask = Task {
             try? await Task.sleep(nanoseconds: 500_000_000)
@@ -399,6 +420,29 @@ struct LegalMapView: View {
                 if newIDs != oldIDs {
                     overlays = zones
                 }
+                updateOpenAIPPauseState()
+            }
+        }
+    }
+
+    /// 429-Pause sichtbar machen und den Neuversuch selbst anstoßen —
+    /// vorher blieb die Luftraum-Ebene bis zu 15 min wortlos leer,
+    /// und auch Schwenken half nicht (Nutzermeldung: „nicht
+    /// benutzbar", Zonen am Flughafen fehlten kommentarlos).
+    private func updateOpenAIPPauseState() {
+        guard AirspaceService.hasStoredKey,
+              let remaining = AirspaceService.pauseRemainingSeconds else {
+            openAIPPauseSeconds = nil
+            return
+        }
+        openAIPPauseSeconds = Int(remaining.rounded(.up))
+        pauseRetryTask?.cancel()
+        pauseRetryTask = Task {
+            try? await Task.sleep(nanoseconds: UInt64((remaining + 2) * 1_000_000_000))
+            guard !Task.isCancelled else { return }
+            openAIPPauseSeconds = nil
+            if let region = lastRegion {
+                reloadOverlays(for: region)
             }
         }
     }

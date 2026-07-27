@@ -51,6 +51,16 @@ private final class OpenAIPRateGate: @unchecked Sendable {
         return pausedUntil.map { $0 > Date() } ?? false
     }
 
+    /// Verbleibende Pausendauer — nil, wenn keine Pause läuft. Die
+    /// Karte zeigt daraus Banner + Countdown und lädt danach
+    /// automatisch nach (Nutzermeldung: Ebene blieb wortlos leer).
+    var pauseRemainingSeconds: TimeInterval? {
+        lock.lock()
+        defer { lock.unlock() }
+        guard let until = pausedUntil, until > Date() else { return nil }
+        return until.timeIntervalSinceNow
+    }
+
     /// 429 registrieren: Die Pause eskaliert bei Wiederholung
     /// (1 → 2 → 4 → 8 → 15 min) — openAIPs Drossel-Fenster ist
     /// offenbar länger als eine Minute (Nutzer-Befund). Nennt der
@@ -380,9 +390,23 @@ final class AirspaceService: ObservableObject {
         }
     }
 
+    /// Verbleibende 429-Pause (für Karten-Banner + Auto-Neuversuch).
+    nonisolated static var pauseRemainingSeconds: TimeInterval? {
+        OpenAIPRateGate.shared.pauseRemainingSeconds
+    }
+
     /// Grund-Text zu einem beliebigen Fehler aus diesem Dienst.
     nonisolated static func failureReason(_ error: Error) -> String {
-        (error as? AirspaceError)?.reasonText ?? "Netzfehler/Timeout"
+        // Beim Kurzzeit-Limit die ECHTE Restpause nennen — „ca.
+        // 1 Minute" stimmte nach Eskalation nicht mehr (Nutzermeldung).
+        if case .http(429) = error as? AirspaceError,
+           let remaining = OpenAIPRateGate.shared.pauseRemainingSeconds {
+            let text = remaining >= 90
+                ? "~\(Int((remaining / 60).rounded(.up))) min"
+                : "~\(Int(remaining.rounded(.up))) s"
+            return "Kurzzeit-Limit (Anfrage-Burst, nicht dein Kontingent) — pausiert noch \(text), lädt danach automatisch"
+        }
+        return (error as? AirspaceError)?.reasonText ?? "Netzfehler/Timeout"
     }
 
     // MARK: Schlüssel-Diagnose (Einstellungen → „Schlüssel testen")
