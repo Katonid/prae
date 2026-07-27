@@ -145,7 +145,13 @@ Dieser Stand entspricht dem **MVP-Fundament** (PRD Phase 0/1).
   ~10 km und jeder Tipp im selben Gebiet kosten keine neue Abfrage
   mehr, und Zoomen ändert die Kachel gar nicht (vorher lief jeder
   Schwenk + Tipp in eigene Abfragen und ins Burst-Limit,
-  Nutzermeldung). Alle Zonen tragen
+  Nutzermeldung). Läuft die openAIP-Ebene doch in ein 429, zeigt
+  die Karte ein **oranges Pause-Banner mit Countdown** und lädt
+  nach Ablauf **automatisch nach** — vorher blieb die Ebene bis zu
+  15 min wortlos leer und auch Schwenken half nicht (Nutzermeldung
+  „nicht benutzbar"); die „Nicht geprüft"-Zeile im Punkt-Check
+  nennt jetzt die echte Restpause statt pauschal „ca. 1 Minute".
+  Alle Zonen tragen
   stabile, geometrie-basierte IDs, damit SwiftUI beim Nachladen nur
   die tatsächlich neuen Flächen einfügt statt die ganze Ebene neu
   aufzubauen, und die Karte wird standardmäßig flach gerendert —
