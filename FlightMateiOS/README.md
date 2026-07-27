@@ -241,6 +241,11 @@ Dieser Stand entspricht dem **MVP-Fundament** (PRD Phase 0/1).
   farbcodiert gegen die Windtoleranz des Profils; die
   Höhen-Kopfzeile bleibt beim Scrollen angepinnt stehen, beim
   Öffnen springt die Liste zur laufenden Stunde (dezent markiert).
+  Jede Zeile trägt zusätzlich den **Flight Score der Stunde** als
+  farbigen Punkt plus das Symbol eines blockierenden
+  Nicht-Wind-Grunds (Regen/Sicht/Kälte), Tipp auf die Zeile öffnet
+  die Faktoren-Begründung — grüner Wind bei rotem Score war sonst
+  nicht auflösbar (Nutzerfrage „Kann ich um 15 Uhr fliegen?").
 - **Akku- & Kälte-Rechner:** Deterministische Faustformel aus
   Nennflugzeit des Modells, Temperatur (Kältefaktor bis −35 %) und
   Wind (bis −30 % an der Toleranzgrenze) — als Kachel im

@@ -15,6 +15,7 @@ import SwiftUI
 struct WindProfileView: View {
     @EnvironmentObject private var state: AppState
     @State private var selectedDayIndex = 0
+    @State private var factorsHour: HourScore?
 
     private var selectedDay: DayScore? {
         state.days.indices.contains(selectedDayIndex) ? state.days[selectedDayIndex] : state.days.first
@@ -40,10 +41,10 @@ struct WindProfileView: View {
                         LazyVStack(spacing: 8, pinnedViews: [.sectionHeaders]) {
                             Section {
                                 ForEach(day.hours, id: \.hour.date) { hourScore in
-                                    row(hourScore.hour, timeZone: day.timeZone)
+                                    row(hourScore, timeZone: day.timeZone)
                                         .id(hourScore.hour.date)
                                 }
-                                Text("Pfeil = wohin der Wind weht · Farbe gegen die Windtoleranz deiner \(state.profile?.name ?? "Drohne") (\(Int(state.profile?.maxWindKmh ?? 38)) km/h): grün = frei, orange = grenzwertig (ab 80 %), rot = darüber. Modellwind Open-Meteo; Böen am Boden können höher liegen.")
+                                Text("Pfeil = wohin der Wind weht · Farbe gegen die Windtoleranz deiner \(state.profile?.name ?? "Drohne") (\(Int(state.profile?.maxWindKmh ?? 38)) km/h): grün = frei, orange = grenzwertig (ab 80 %), rot = darüber. Der Punkt links ist der Flight Score der Stunde — der Wind kann grün sein, während Regen, Sicht oder Kälte den Start verhindern (Symbol daneben, Tipp auf die Zeile zeigt die Begründung). Modellwind Open-Meteo; Böen am Boden können höher liegen.")
                                     .font(.caption2)
                                     .foregroundStyle(.secondary)
                                     .padding(.top, 4)
@@ -64,6 +65,10 @@ struct WindProfileView: View {
             }
             .navigationTitle("Winde nach Höhe")
             .navigationBarTitleDisplayMode(.inline)
+            .sheet(item: $factorsHour) { hourScore in
+                HourFactorsView(hourScore: hourScore)
+                    .presentationDetents([.medium])
+            }
             // Beim Öffnen zur aktuellen Stunde springen (Nutzerwunsch) —
             // auch wenn die Prognose erst kurz danach eintrifft.
             .onAppear { scrollToNow(proxy) }
@@ -123,13 +128,33 @@ struct WindProfileView: View {
         .foregroundStyle(.secondary)
     }
 
-    private func row(_ hour: HourForecast, timeZone: TimeZone) -> some View {
+    private func row(_ hourScore: HourScore, timeZone: TimeZone) -> some View {
+        let hour = hourScore.hour
         let now = Date()
         let isCurrentHour = now >= hour.date && now < hour.date.addingTimeInterval(3_600)
+        // Blockiert eine NICHT-Wind-Ursache den Start (Regen, Sicht,
+        // Temperatur), zeigt ihr Symbol neben dem Score-Punkt, warum
+        // grüner Wind trotzdem „nicht fliegen" heißen kann
+        // (Nutzerfrage: „Kann ich um 15 Uhr fliegen oder nicht?").
+        let blockingSymbol = hourScore.factors.first(where: \.isBlocking)?.symbol
         return HStack {
-            Text(Theme.time(hour.date, in: timeZone))
-                .font(.caption.monospacedDigit())
-                .frame(width: 52, alignment: .leading)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(Theme.time(hour.date, in: timeZone))
+                    .font(.caption.monospacedDigit())
+                HStack(spacing: 3) {
+                    Text("\(hourScore.score)")
+                        .font(.system(size: 10, weight: .bold).monospacedDigit())
+                        .foregroundStyle(.white)
+                        .frame(width: 16, height: 16)
+                        .background(Theme.scoreColor(hourScore.score), in: Circle())
+                    if let blockingSymbol {
+                        Image(systemName: blockingSymbol)
+                            .font(.system(size: 10))
+                            .foregroundStyle(Theme.scoreColor(1))
+                    }
+                }
+            }
+            .frame(width: 52, alignment: .leading)
             ForEach(levels, id: \.label) { level in
                 cell(speed: level.speed(hour), direction: level.direction(hour))
                     .frame(maxWidth: .infinity)
@@ -144,6 +169,8 @@ struct WindProfileView: View {
                 .strokeBorder(Color.accentColor.opacity(isCurrentHour ? 0.7 : 0),
                               lineWidth: 1.5)
         )
+        .contentShape(Rectangle())
+        .onTapGesture { factorsHour = hourScore }
     }
 
     private func cell(speed: Double?, direction: Double?) -> some View {
