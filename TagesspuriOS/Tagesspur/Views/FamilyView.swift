@@ -55,6 +55,14 @@ struct FamilyView: View {
             }
 
             Section("Empfangene Familien-Daten") {
+                if sync.sharedZoneCount >= 0 {
+                    LabeledContent("Angenommene Freigaben", value: "\(sync.sharedZoneCount)")
+                }
+                if sync.sharedZoneCount == 0 {
+                    Text("Auf diesem Gerät ist keine Freigabe angenommen — deshalb können keine Daten ankommen. Bitte den Einladungs-Link des Familienmitglieds auf DIESEM Gerät öffnen. Wichtig: Wurde die Freigabe drüben beendet und neu eingerichtet, ist die alte Einladung ungültig — es braucht eine neue.")
+                        .font(.footnote)
+                        .foregroundStyle(.orange)
+                }
                 if memberNames.isEmpty {
                     Text("Noch keine Familien-Daten. Sobald du eine Einladung angenommen hast, erscheinen die Tage hier sowie in Karte, Tagesliste und Suche.")
                         .font(.footnote)
@@ -64,6 +72,10 @@ struct FamilyView: View {
                         Label(name, systemImage: "person.fill")
                     }
                     LabeledContent("Geladene Tage", value: "\(familyDays.count)")
+                    if let newest = familyDays.map(\.updatedAt).max() {
+                        LabeledContent("Neueste Familien-Daten",
+                                       value: newest.formatted(date: .abbreviated, time: .shortened))
+                    }
                 }
                 Button {
                     Task {
@@ -109,6 +121,7 @@ struct FamilyView: View {
         }
         .task {
             await sync.loadShareState()
+            await sync.fetchFamilyData()
         }
     }
 
