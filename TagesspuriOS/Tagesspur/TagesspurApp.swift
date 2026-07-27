@@ -25,10 +25,12 @@ struct TagesspurApp: App {
             let synced = ModelConfiguration(schema: syncedSchema, cloudKitDatabase: .automatic)
             let family = ModelConfiguration("familie", schema: familySchema, cloudKitDatabase: .none)
             resolved = try ModelContainer(for: fullSchema, configurations: [synced, family])
+            SyncDiagnose.cloudKitAktiv = true
         } catch {
             // Ohne iCloud (z. B. nicht angemeldet) lokal weiterarbeiten.
             let local = ModelConfiguration(schema: fullSchema, cloudKitDatabase: .none)
             resolved = try! ModelContainer(for: fullSchema, configurations: [local])
+            SyncDiagnose.cloudKitAktiv = false
         }
         container = resolved
         _tracker = StateObject(wrappedValue: LocationTracker(container: resolved))

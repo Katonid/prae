@@ -40,6 +40,15 @@ struct TrackPoint: Codable, Hashable {
     }
 }
 
+// MARK: - Sync-Diagnose
+
+/// Merkt sich, ob der Datenbank-Container mit CloudKit-Sync oder nur
+/// lokal gestartet ist — die Einstellungen zeigen das an, statt dass
+/// ein stiller Rückfall auf „nur lokal“ unbemerkt bleibt.
+enum SyncDiagnose {
+    static var cloudKitAktiv = false
+}
+
 // MARK: - Tages-Track
 
 /// Der Track eines Tages auf einem Gerät. Jedes Gerät schreibt ausschließlich
@@ -49,7 +58,9 @@ final class TrackDay {
     var deviceId: String = ""
     var deviceName: String = ""
     var dayKey: String = ""          // "2026-07-25", lokale Zeitzone bei Aufzeichnung
-    var pointsData: Data = Data()    // JSON-kodiertes [TrackPoint]
+    // externalStorage: große Tage (Best-GPS = viele Punkte) als Datei/
+    // CKAsset statt im Datensatz — CloudKit begrenzt Records auf ~1 MB.
+    @Attribute(.externalStorage) var pointsData: Data = Data()    // JSON-kodiertes [TrackPoint]
     var pointCount: Int = 0
     var distanceMeters: Double = 0
     var startDate: Date = Date()
@@ -170,7 +181,7 @@ final class FamilyDay {
     var deviceId: String = ""
     var deviceName: String = ""
     var dayKey: String = ""
-    var pointsData: Data = Data()
+    @Attribute(.externalStorage) var pointsData: Data = Data()
     var pointCount: Int = 0
     var distanceMeters: Double = 0
     var startDate: Date = Date()

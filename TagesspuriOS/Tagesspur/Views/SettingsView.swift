@@ -2,6 +2,7 @@ import SwiftUI
 import SwiftData
 import Photos
 import CoreLocation
+import CloudKit
 
 struct SettingsView: View {
     @EnvironmentObject private var tracker: LocationTracker
@@ -19,6 +20,30 @@ struct SettingsView: View {
     @AppStorage(AppearanceMode.appKey) private var appAppearance = AppearanceMode.system.rawValue
     @AppStorage(AppearanceMode.mapKey) private var mapAppearance = AppearanceMode.system.rawValue
     @State private var thunderforestKey = UserDefaults.standard.string(forKey: OutdoorMapView.OutdoorTileOverlay.thunderforestKeyDefault) ?? ""
+    @State private var accountStatusText = "…"
+
+    private struct DeviceSummary: Identifiable {
+        let id: String
+        let name: String
+        let dayCount: Int
+        let latest: Date
+    }
+
+    /// Alle Geräte, deren Tage in der (lokal gesyncten) Datenbank liegen —
+    /// fehlt hier ein eigenes Gerät, kommt dessen Sync nicht an.
+    private var deviceSummaries: [DeviceSummary] {
+        Dictionary(grouping: days, by: \.deviceId).map { id, list in
+            let baseName = list.first?.deviceName ?? "Gerät"
+            let name = id == DeviceInfo.deviceId ? "\(baseName) (dieses Gerät)" : baseName
+            return DeviceSummary(
+                id: id,
+                name: name,
+                dayCount: list.count,
+                latest: list.map(\.updatedAt).max() ?? .distantPast
+            )
+        }
+        .sorted { $0.name < $1.name }
+    }
 
     var body: some View {
         NavigationStack {
@@ -116,6 +141,25 @@ struct SettingsView: View {
                         .foregroundStyle(.secondary)
                 }
 
+                Section("iCloud-Sync (eigene Geräte)") {
+                    LabeledContent("Datenbank",
+                                   value: SyncDiagnose.cloudKitAktiv ? "iCloud-Sync aktiv" : "NUR LOKAL — kein Sync")
+                    LabeledContent("iCloud-Konto", value: accountStatusText)
+                    ForEach(deviceSummaries) { summary in
+                        LabeledContent(summary.name) {
+                            VStack(alignment: .trailing) {
+                                Text("\(summary.dayCount) Tage")
+                                Text("Stand \(summary.latest.formatted(date: .abbreviated, time: .shortened))")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                    Text("Hier müssen alle deine Geräte mit Tagen auftauchen. Voraussetzungen: gleiche Apple-ID, iCloud für Tagesspur erlaubt (iOS-Einstellungen → Apple-ID → iCloud → „Alle anzeigen“). Wichtig: Direkt über Xcode installierte Builds syncen in der CloudKit-ENTWICKLUNGSUMGEBUNG, TestFlight-/App-Store-Builds in der PRODUKTIONSUMGEBUNG — die beiden Welten sehen einander nicht. Alle Geräte (auch die der Familie) müssen dieselbe Installationsart nutzen. Der erste Abgleich kann einige Minuten dauern und braucht die App einmal geöffnet auf jedem Gerät.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+
                 Section("Dieses Gerät") {
                     TextField("Gerätename", text: $deviceName)
                         .onChange(of: deviceName) { _, newValue in
@@ -144,6 +188,17 @@ struct SettingsView: View {
             }
             .onAppear {
                 photoStatus = PhotoMatcher.authorizationStatus
+            }
+            .task {
+                let status = (try? await CKContainer.default().accountStatus()) ?? .couldNotDetermine
+                accountStatusText = switch status {
+                case .available: "Angemeldet"
+                case .noAccount: "Kein iCloud-Konto"
+                case .restricted: "Eingeschränkt"
+                case .temporarilyUnavailable: "Vorübergehend nicht verfügbar"
+                case .couldNotDetermine: "Unbekannt"
+                @unknown default: "Unbekannt"
+                }
             }
         }
     }

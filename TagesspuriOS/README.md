@@ -67,6 +67,16 @@ Native SwiftUI-App, iOS 17+, keine externen Abhängigkeiten.
   - Punkte werden gepuffert (20 Punkte / 90 s) und pro Tag als kompakter
     Blob gespeichert — wenig I/O, wenig Sync-Volumen.
 - **iCloud-Sync (SwiftData + CloudKit, privater Container)**
+  - Sync-Diagnose in den Einstellungen: Datenbank-Modus (iCloud aktiv
+    vs. stiller Lokal-Rückfall), iCloud-Konto-Status und je Gerät die
+    Zahl der Tage samt letztem Stand. Wichtigster Hinweis dort:
+    Xcode-Builds syncen in der CloudKit-Entwicklungsumgebung,
+    TestFlight-/App-Store-Builds in der Produktionsumgebung — die
+    beiden Welten sehen einander nicht; alle Geräte müssen dieselbe
+    Installationsart nutzen.
+  - Track-Blobs (`pointsData`) liegen mit `.externalStorage` außerhalb
+    des Datensatzes (CKAsset) — CloudKit begrenzt Records auf ~1 MB,
+    dichte Best-GPS-Tage sprengten das sonst.
   - Jedes Gerät schreibt ausschließlich Datensätze mit seiner eigenen
     Geräte-ID → keine Konflikte.
   - Alle Geräte sehen den gemeinsamen Bestand (geräteübergreifende
