@@ -249,11 +249,19 @@ Dieser Stand entspricht dem **MVP-Fundament** (PRD Phase 0/1).
   aus den 15-Minuten-Daten von Open-Meteo (Böen, Wind, Regen) mit
   deterministischer Kernaussage — „Jetzt ist das bessere Fenster —
   ab 14:30 wird es kritisch" bzw. „Kurz warten: ab 15:00 beruhigt
-  es sich". Bewusst ohne Cache (Kurzfrist-Daten sind nur frisch
-  etwas wert); offline wird der Streifen ausgeblendet.
+  es sich". Zusätzlich fließt der **Höhenwind (120 m)** aus der
+  Stundenprognose in die Färbung ein — die 15-Minuten-Daten kennen
+  nur Bodenwerte, und ohne den Blick nach oben meldete der
+  Streifen „beruhigt sich", während der Score wegen Höhenwind rot
+  blieb (Nutzermeldung). Bewusst ohne Cache (Kurzfrist-Daten sind
+  nur frisch etwas wert); offline wird der Streifen ausgeblendet.
 - **Score-Erklärung am Ring:** Tipp auf den Score-Ring im Heute-Tab
-  öffnet die Faktoren-Begründung der besten Stunde („Warum 7?").
+  öffnet die Faktoren-Begründung der aktuellen Stunde.
   Darüber steht der per Reverse-Geocoding ermittelte Ortsname.
+  Das „beste Fenster" wird nur noch in fotografisch nutzbaren
+  Stunden gesucht (Sonne über −10°, wie in der Stundenliste) und
+  überspannt keine Lücken — vorher gewann die windstille Nacht
+  („Bestes Fenster 22:00–00:00 Uhr", Nutzermeldung).
 - **Lebendiger Himmel & Glas-Design:** Der Heute-Tab öffnet auf
   einem Farbverlauf, der dem echten Sonnenstand am Standort folgt
   (Nachtblau → Morgenrot → Tagblau → goldene Stunde → Dämmerung,
