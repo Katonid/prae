@@ -351,6 +351,7 @@
 				INFOPLIST_KEY_CFBundleDisplayName = Tagesspur;
 				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "Tagesspur zeichnet deinen Tagesverlauf auch im Hintergrund auf. Dafür wird die Berechtigung „Immer“ benötigt.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Tagesspur zeichnet deinen Standort auf, um den Tagesverlauf als Track zu speichern.";
+				INFOPLIST_KEY_NSMotionUsageDescription = "Tagesspur nutzt den Bewegungssensor, um den Beginn einer Fahrt oder eines Wegs sofort zu erkennen und ohne Verzögerung präzise aufzuzeichnen.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Tagesspur blendet Fotos und Videos anhand ihrer Zeit- und GPS-Daten in den Tagesverlauf ein. Es werden keine Kopien gespeichert.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -386,6 +387,7 @@
 				INFOPLIST_KEY_CFBundleDisplayName = Tagesspur;
 				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "Tagesspur zeichnet deinen Tagesverlauf auch im Hintergrund auf. Dafür wird die Berechtigung „Immer“ benötigt.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Tagesspur zeichnet deinen Standort auf, um den Tagesverlauf als Track zu speichern.";
+				INFOPLIST_KEY_NSMotionUsageDescription = "Tagesspur nutzt den Bewegungssensor, um den Beginn einer Fahrt oder eines Wegs sofort zu erkennen und ohne Verzögerung präzise aufzuzeichnen.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Tagesspur blendet Fotos und Videos anhand ihrer Zeit- und GPS-Daten in den Tagesverlauf ein. Es werden keine Kopien gespeichert.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;

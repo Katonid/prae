@@ -1,5 +1,6 @@
 import Foundation
 import CoreLocation
+import CoreMotion
 import SwiftData
 import SwiftUI
 import UIKit
@@ -23,6 +24,7 @@ import UIKit
 ///   in die Datenbank geschrieben (weniger I/O, weniger Sync-Läufe).
 final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelegate {
     private let manager = CLLocationManager()
+    private let motionManager = CMMotionActivityManager()
     private let container: ModelContainer
 
     @Published var authorization: CLAuthorizationStatus = .notDetermined
@@ -197,7 +199,29 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
             manager.startMonitoringSignificantLocationChanges()
             manager.startMonitoringVisits()
         }
+        startMotionWake()
         startPreciseUpdates()
+    }
+
+    /// Bewegungssensor-Wecker: Der Motion-Coprozessor erkennt „fährt /
+    /// radelt / geht“ in Sekunden und praktisch ohne Akkuverbrauch —
+    /// unabhängig davon, wie grob die Ortung im Ruhemodus gerade ist.
+    /// Ohne ihn hing das Aufwachen an Funkzellen-Fixen (±500–3000 m),
+    /// was am Fahrtbeginn kilometerlange Lücken erzeugen konnte.
+    private func startMotionWake() {
+        guard CMMotionActivityManager.isActivityAvailable() else { return }
+        motionManager.startActivityUpdates(to: .main) { [weak self] activity in
+            guard let self, let activity, self.trackingEnabled else { return }
+            let moving = activity.automotive || activity.cycling || activity.running || activity.walking
+            guard moving, activity.confidence != .low else { return }
+            // Nur den Ruhemodus beenden — ob die Bewegung anhält,
+            // bestätigt danach das GPS selbst (sonst hielte Herumlaufen
+            // in der Wohnung die präzise Erfassung dauerhaft wach).
+            if self.isResting {
+                Self.logEvent("Bewegungssensor: Fahrt/Weg erkannt")
+                self.exitRest()
+            }
+        }
     }
 
     /// Geofence um die letzte Position: Wird die App von iOS beendet,
@@ -223,6 +247,7 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
     private func stopAll() {
         flushTimer?.invalidate()
         flushTimer = nil
+        motionManager.stopActivityUpdates()
         manager.stopUpdatingLocation()
         manager.stopMonitoringSignificantLocationChanges()
         manager.stopMonitoringVisits()
@@ -333,9 +358,12 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
         // 2-km-Fix keinen Fehlalarm auslöst.
         if let anchor = restAnchor {
             let distance = location.distance(from: anchor)
-            // Aufwachschwelle wächst mit der Ungenauigkeit (×2): ein
-            // 200-m-Streuer mit ±100 m gilt nicht als Bewegung.
-            let wakeThreshold = max(Self.movementThreshold, location.horizontalAccuracy * 2)
+            // Aufwachschwelle wächst mit der Ungenauigkeit (×2), ist aber
+            // bei 300 m gedeckelt: ein 200-m-Streuer mit ±100 m gilt nicht
+            // als Bewegung, aber ein Funkzellen-Fix (±1500 m) darf das
+            // Aufwachen nicht kilometerweit verschleppen. (Primär weckt
+            // ohnehin der Bewegungssensor — das hier ist die Rückfallebene.)
+            let wakeThreshold = max(Self.movementThreshold, min(location.horizontalAccuracy * 2, 300))
             if distance > wakeThreshold {
                 restAnchor = location
                 lastMovement = Date()
