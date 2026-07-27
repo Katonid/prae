@@ -418,6 +418,13 @@ struct LegalResultView: View {
     // Aufnahmen gibt — Antippen öffnet die Vollbild-Ansicht.
     @State private var lookAroundScene: MKLookAroundScene?
 
+    /// Ist der Heute-Tab schon auf genau diesen Punkt geankert?
+    private var weatherAnchoredHere: Bool {
+        guard let planned = state.plannedLocation else { return false }
+        return abs(planned.latitude - assessment.coordinate.latitude) < 0.0005
+            && abs(planned.longitude - assessment.coordinate.longitude) < 0.0005
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
@@ -455,6 +462,25 @@ struct LegalResultView: View {
                         openGoogleMaps()
                     } label: {
                         Label("Google Maps", systemImage: "globe")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                }
+
+                // Nutzerwunsch: Heute-Werte auf diesen Kartenort
+                // umstellen — die Startseite zeigt dann Banner +
+                // Rückkehr-Knopf zum eigenen Standort.
+                if weatherAnchoredHere {
+                    Label("Der Heute-Tab zeigt jetzt Wetter & Score für diesen Ort.",
+                          systemImage: "checkmark.circle.fill")
+                        .font(.subheadline)
+                        .foregroundStyle(.green)
+                } else {
+                    Button {
+                        state.setPlannedLocation(assessment.coordinate)
+                    } label: {
+                        Label("Wetter & Score für diesen Ort anzeigen",
+                              systemImage: "cloud.sun")
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.bordered)

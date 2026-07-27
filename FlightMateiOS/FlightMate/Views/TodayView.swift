@@ -79,6 +79,9 @@ struct TodayView: View {
             ScrollView {
                 VStack(spacing: 16) {
                     header
+                    if state.plannedLocation != nil {
+                        plannedLocationBanner
+                    }
                     if let error = state.loadError {
                         errorCard(error)
                     } else if let today = state.today {
@@ -470,11 +473,58 @@ struct TodayView: View {
         .flightCard(cornerRadius: 14)
     }
 
+    // MARK: Kartenort-Banner (Nutzerwunsch)
+
+    /// Deutlicher Hinweis, dass sich ALLE Werte gerade auf einen auf
+    /// der Karte gewählten Ort beziehen — mit Rückkehr-Knopf.
+    private var plannedLocationBanner: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "mappin.and.ellipse")
+                .font(.title3)
+                .foregroundStyle(.orange)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Werte für: \(plannedLocationLabel)")
+                    .font(.subheadline.bold())
+                Text("Auf der Karte gewählt — nicht dein Standort.")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            Button {
+                state.clearPlannedLocation()
+            } label: {
+                Label("Mein Standort", systemImage: "location.fill")
+                    .font(.caption.bold())
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.small)
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.orange.opacity(0.16), in: RoundedRectangle(cornerRadius: 14))
+        .overlay(
+            RoundedRectangle(cornerRadius: 14)
+                .strokeBorder(Color.orange.opacity(0.45), lineWidth: 1)
+        )
+    }
+
+    private var plannedLocationLabel: String {
+        if let name = state.plannedLocationName { return name }
+        if let planned = state.plannedLocation {
+            return String(format: "%.3f, %.3f", planned.latitude, planned.longitude)
+        }
+        return ""
+    }
+
     // MARK: Score-Karte
 
     private func scoreCard(_ day: DayScore) -> some View {
         VStack(spacing: 12) {
-            if let name = state.locationName {
+            if state.plannedLocation != nil {
+                Label(plannedLocationLabel, systemImage: "mappin.and.ellipse")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+            } else if let name = state.locationName {
                 Label(name, systemImage: "location")
                     .font(.caption)
                     .foregroundStyle(.secondary)
