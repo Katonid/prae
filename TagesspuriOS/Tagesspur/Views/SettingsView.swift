@@ -62,7 +62,7 @@ struct SettingsView: View {
                         }
                     }
                     LabeledContent("Hintergrund-Neustarts heute", value: "\(LocationTracker.backgroundRelaunchesToday)")
-                    Text("Ausgewogen (Standard): präzises GPS bei Bewegung; nach 5 Minuten Stillstand grober Ruhemodus. Den Beginn einer Fahrt oder eines Wegs meldet der Bewegungssensor in Sekunden (bitte Bewegungs-Berechtigung erlauben) — die App schaltet sofort zurück auf präzise. „Hohe Genauigkeit“ zeichnet dauerhaft mit bester GPS-Stufe und Punkten alle 10 m auf (wie Sport-Apps à la Komoot). Hintergrund-Neustarts: So oft hat iOS die App heute beendet und wieder geweckt — jede dieser Stellen kann eine kleine Track-Lücke sein; ein Geofence (150 m) hält sie so kurz wie möglich.")
+                    Text("Ausgewogen (Standard): beste GPS-Stufe bei Bewegung; nach 5 Minuten Stillstand grober Ruhemodus. Den Beginn einer Fahrt oder eines Wegs meldet der Bewegungssensor in Sekunden (bitte Bewegungs-Berechtigung erlauben) — die App schaltet sofort zurück auf präzise. „Hohe Genauigkeit“ zeichnet dauerhaft mit Navigations-GPS und Punkten alle 10 m auf (wie Sport-Apps à la Komoot). Hintergrund-Neustarts: So oft hat iOS die App heute beendet und wieder geweckt — jede dieser Stellen kann eine kleine Track-Lücke sein; ein Geofence (150 m) hält sie so kurz wie möglich.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
