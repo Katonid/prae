@@ -42,6 +42,25 @@ struct TodayView: View {
         return day.hours.max { $0.score < $1.score }
     }
 
+    /// Die Stunde, in der wir JETZT sind (nur wenn der Tag sie enthält).
+    private func currentHour(_ day: DayScore) -> HourScore? {
+        let now = Date()
+        return day.hours.first(where: {
+            now >= $0.hour.date && now < $0.hour.date.addingTimeInterval(3_600)
+        })
+    }
+
+    /// Kurzname eines Blockier-Grunds fürs „Jetzt"-Etikett.
+    private func shortBlockerName(_ symbol: String) -> String {
+        switch symbol {
+        case "cloud.rain": return "Regen"
+        case "wind", "tornado": return "Wind/Böen"
+        case "thermometer", "thermometer.snowflake": return "Temperatur"
+        case "eye.slash": return "Sicht"
+        default: return "blockiert"
+        }
+    }
+
     /// Für den Tipp auf den Score: die Stunde, in der wir JETZT sind —
     /// der Nutzer fragt „warum jetzt nur 6?", nicht nach der besten
     /// Stunde des Tages. Außerhalb des Tages: Referenzstunde.
@@ -297,25 +316,35 @@ struct TodayView: View {
         }
     }
 
-    /// Höhenwind (120 m) aus der Stundenprognose zur Viertelstunde —
-    /// die 15-Minuten-Daten kennen nur Bodenwerte. Ohne diesen Blick
-    /// nach oben sagte der Streifen „beruhigt sich", während der
-    /// Score wegen Höhenwind tiefrot blieb (Nutzermeldung: „passt
-    /// nicht zusammen").
-    private func wind120Kmh(at date: Date) -> Double? {
+    /// Stundenprognose zur Viertelstunde — die 15-Minuten-Daten kennen
+    /// nur Bodenwerte, der Höhenwind (120 m) kommt aus der Stunde.
+    /// Ohne diesen Blick nach oben sagte der Streifen „beruhigt sich",
+    /// während der Score wegen Höhenwind tiefrot blieb (Nutzermeldung).
+    private func hourlyForecast(at date: Date) -> HourForecast? {
         for day in state.days {
             if let hour = day.hours.first(where: {
                 date >= $0.hour.date && date < $0.hour.date.addingTimeInterval(3_600)
             }) {
-                return hour.hour.windSpeed120Kmh
+                return hour.hour
             }
         }
         return nil
     }
 
+    /// Sieht das 15-Minuten-Radar Regenpausen, wo die Stundenprognose
+    /// Regen über die volle Stunde schmiert? Dann erklärt der Streifen
+    /// den Unterschied ehrlich, statt dem Verlauf zu „widersprechen"
+    /// (Nutzermeldung: Streifen grün, Verlauf rot).
+    private var nowcastSeesRainBreaks: Bool {
+        nowcast.contains { quarter in
+            quarter.precipitationMm < 0.2
+                && (hourlyForecast(at: quarter.date)?.precipitationMm ?? 0) >= 0.2
+        }
+    }
+
     private func quarterState(_ quarter: WeatherService.QuarterForecast) -> QuarterState {
         guard let profile = state.profile else { return .good }
-        let highWind = wind120Kmh(at: quarter.date) ?? 0
+        let highWind = hourlyForecast(at: quarter.date)?.windSpeed120Kmh ?? 0
         if quarter.gustsKmh >= profile.maxWindKmh || highWind >= profile.maxWindKmh
             || quarter.precipitationMm >= 0.2 {
             return .blocked
@@ -370,6 +399,11 @@ struct TodayView: View {
             Text(nowcastSummary)
                 .font(.caption)
                 .foregroundStyle(.secondary)
+            if nowcastSeesRainBreaks {
+                Text("Streifen und Tagesverlauf dürfen sich hier unterscheiden: Der Streifen nutzt das 15-Minuten-Radar (sieht Regenpausen scharf), der Verlauf die Stundenprognose (verteilt Regen über die volle Stunde). Für „jetzt gleich“ ist der Streifen die schärfere Quelle.")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+            }
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -488,6 +522,21 @@ struct TodayView: View {
                 .font(.caption2)
                 .foregroundStyle(.secondary)
 
+            // „Jetzt"-Zeile (Nutzermeldung: Ring 6 bei Regen wirkte
+            // widersprüchlich — die 6 ist der TAGES-Score der besten
+            // Stunde; was JETZT gilt, steht ab sofort direkt hier).
+            if let nowHour = currentHour(day) {
+                HStack(spacing: 6) {
+                    Text("Jetzt: \(nowHour.score)/10")
+                        .font(.subheadline.bold())
+                        .foregroundStyle(Theme.scoreColor(nowHour.score))
+                    if let blocking = nowHour.factors.first(where: \.isBlocking) {
+                        Label(shortBlockerName(blocking.symbol), systemImage: blocking.symbol)
+                            .font(.caption)
+                            .foregroundStyle(Theme.scoreColor(1))
+                    }
+                }
+            }
             if let window = day.bestWindow {
                 Text("Bestes Fenster: \(Theme.time(window.start, in: day.timeZone))–\(Theme.time(window.end, in: day.timeZone)) Uhr")
                     .font(.headline)

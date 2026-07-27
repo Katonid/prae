@@ -265,11 +265,19 @@ Dieser Stand entspricht dem **MVP-Fundament** (PRD Phase 0/1).
   Stundenprognose in die Färbung ein — die 15-Minuten-Daten kennen
   nur Bodenwerte, und ohne den Blick nach oben meldete der
   Streifen „beruhigt sich", während der Score wegen Höhenwind rot
-  blieb (Nutzermeldung). Bewusst ohne Cache (Kurzfrist-Daten sind
+  blieb (Nutzermeldung). Sieht das 15-Minuten-Radar Regenpausen,
+  wo die Stundenprognose Regen über die volle Stunde schmiert,
+  erklärt eine Fußnote den Unterschied zum Tagesverlauf ehrlich
+  (für „jetzt gleich" ist der Streifen die schärfere Quelle).
+  Bewusst ohne Cache (Kurzfrist-Daten sind
   nur frisch etwas wert); offline wird der Streifen ausgeblendet.
 - **Score-Erklärung am Ring:** Tipp auf den Score-Ring im Heute-Tab
   öffnet die Faktoren-Begründung der aktuellen Stunde.
   Darüber steht der per Reverse-Geocoding ermittelte Ortsname.
+  Unter dem Ring steht eine eigene **„Jetzt: x/10"-Zeile** samt
+  Blockier-Grund (z. B. Regen) — der Ring trägt den TAGES-Score
+  der besten Stunde und wirkte bei Regen widersprüchlich
+  (Nutzermeldung: Ring 6, draußen regnet es).
   Das „beste Fenster" wird nur noch in fotografisch nutzbaren
   Stunden gesucht (Sonne über −10°, wie in der Stundenliste) und
   überspannt keine Lücken — vorher gewann die windstille Nacht
