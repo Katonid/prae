@@ -18,6 +18,23 @@ struct FamilyView: View {
         Set(familyDays.map(\.displayName)).sorted()
     }
 
+    private struct ShareInfo: Identifiable {
+        let id: String        // ownerName der Freigabe-Zone
+        let label: String     // Personen in dieser Freigabe
+    }
+
+    /// Angenommene Freigaben, gruppiert nach Eigentümer — zum gezielten
+    /// Verlassen einzelner Freigaben.
+    private var shareInfos: [ShareInfo] {
+        Dictionary(grouping: familyDays, by: \.ownerName).map { owner, list in
+            let names = Set(list.map(\.memberName)).filter { !$0.isEmpty }.sorted().joined(separator: ", ")
+            return ShareInfo(id: owner, label: names.isEmpty ? "Freigabe" : names)
+        }
+        .sorted { $0.label < $1.label }
+    }
+
+    @State private var shareToLeave: ShareInfo?
+
     var body: some View {
         Form {
             Section("Meine Daten teilen") {
@@ -68,14 +85,22 @@ struct FamilyView: View {
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 } else {
-                    ForEach(memberNames, id: \.self) { name in
-                        Label(name, systemImage: "person.fill")
+                    ForEach(shareInfos) { share in
+                        Label(share.label, systemImage: "person.fill")
+                            .swipeActions {
+                                Button("Verlassen", role: .destructive) {
+                                    shareToLeave = share
+                                }
+                            }
                     }
                     LabeledContent("Geladene Tage", value: "\(familyDays.count)")
                     if let newest = familyDays.map(\.updatedAt).max() {
                         LabeledContent("Neueste Familien-Daten",
                                        value: newest.formatted(date: .abbreviated, time: .shortened))
                     }
+                    Text("Eine Freigabe nach links wischen, um sie zu verlassen — deren Daten verschwinden dann von diesem Gerät. Die Person kann dich später jederzeit neu einladen.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
                 }
                 Button {
                     Task {
@@ -117,6 +142,21 @@ struct FamilyView: View {
         ) {
             Button("Freigabe beenden", role: .destructive) {
                 Task { await sync.stopSharing() }
+            }
+        }
+        .confirmationDialog(
+            "Freigabe von „\(shareToLeave?.label ?? "")“ verlassen? Die empfangenen Daten dieser Person werden von diesem Gerät entfernt.",
+            isPresented: Binding(
+                get: { shareToLeave != nil },
+                set: { if !$0 { shareToLeave = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            Button("Freigabe verlassen", role: .destructive) {
+                if let share = shareToLeave {
+                    Task { await sync.leaveShare(ownerName: share.id) }
+                }
+                shareToLeave = nil
             }
         }
         .task {

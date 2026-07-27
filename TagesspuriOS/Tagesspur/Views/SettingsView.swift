@@ -21,6 +21,7 @@ struct SettingsView: View {
     @AppStorage(AppearanceMode.mapKey) private var mapAppearance = AppearanceMode.system.rawValue
     @State private var thunderforestKey = UserDefaults.standard.string(forKey: OutdoorMapView.OutdoorTileOverlay.thunderforestKeyDefault) ?? ""
     @State private var accountStatusText = "…"
+    @State private var deviceToDelete: DeviceSummary?
 
     private struct DeviceSummary: Identifiable {
         let id: String
@@ -154,8 +155,15 @@ struct SettingsView: View {
                                     .foregroundStyle(.secondary)
                             }
                         }
+                        .swipeActions {
+                            if summary.id != DeviceInfo.deviceId {
+                                Button("Löschen", role: .destructive) {
+                                    deviceToDelete = summary
+                                }
+                            }
+                        }
                     }
-                    Text("Hier müssen alle deine Geräte mit Tagen auftauchen. Voraussetzungen: gleiche Apple-ID, iCloud für Tagesspur erlaubt (iOS-Einstellungen → Apple-ID → iCloud → „Alle anzeigen“). Wichtig: Direkt über Xcode installierte Builds syncen in der CloudKit-ENTWICKLUNGSUMGEBUNG, TestFlight-/App-Store-Builds in der PRODUKTIONSUMGEBUNG — die beiden Welten sehen einander nicht. Alle Geräte (auch die der Familie) müssen dieselbe Installationsart nutzen. Der erste Abgleich kann einige Minuten dauern und braucht die App einmal geöffnet auf jedem Gerät.")
+                    Text("Hier müssen alle deine Geräte mit Tagen auftauchen. Voraussetzungen: gleiche Apple-ID, iCloud für Tagesspur erlaubt (iOS-Einstellungen → Apple-ID → iCloud → „Alle anzeigen“). Wichtig: Direkt über Xcode installierte Builds syncen in der CloudKit-ENTWICKLUNGSUMGEBUNG, TestFlight-/App-Store-Builds in der PRODUKTIONSUMGEBUNG — die beiden Welten sehen einander nicht. Alle Geräte (auch die der Familie) müssen dieselbe Installationsart nutzen. Der erste Abgleich kann einige Minuten dauern und braucht die App einmal geöffnet auf jedem Gerät. Neue Aufzeichnungen lädt ein Gerät vor allem hoch, während die App dort geöffnet ist. Ein fremdes Gerät nach links wischen löscht dessen Aufzeichnungen — über iCloud auf allen Geräten.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
@@ -184,6 +192,21 @@ struct SettingsView: View {
             ) {
                 Button("Endgültig löschen", role: .destructive) {
                     deleteOwnData()
+                }
+            }
+            .confirmationDialog(
+                "Alle Aufzeichnungen von „\(deviceToDelete?.name ?? "")“ löschen? Über iCloud wird die Löschung auf alle Geräte übertragen.",
+                isPresented: Binding(
+                    get: { deviceToDelete != nil },
+                    set: { if !$0 { deviceToDelete = nil } }
+                ),
+                titleVisibility: .visible
+            ) {
+                Button("Endgültig löschen", role: .destructive) {
+                    if let device = deviceToDelete {
+                        deleteDevice(device.id)
+                    }
+                    deviceToDelete = nil
                 }
             }
             .onAppear {
@@ -237,6 +260,18 @@ struct SettingsView: View {
                 analysisProgress = count == 0 ? "" : "\(count) neu analysiert"
             }
         }
+    }
+
+    /// Aufzeichnungen eines (anderen) Geräts überall löschen — die
+    /// Löschung synct per iCloud auf alle Geräte.
+    private func deleteDevice(_ id: String) {
+        let dayPredicate = #Predicate<TrackDay> { $0.deviceId == id }
+        let visitPredicate = #Predicate<PlaceVisit> { $0.deviceId == id }
+        let tagPredicate = #Predicate<MediaTag> { $0.deviceId == id }
+        try? context.delete(model: TrackDay.self, where: dayPredicate)
+        try? context.delete(model: PlaceVisit.self, where: visitPredicate)
+        try? context.delete(model: MediaTag.self, where: tagPredicate)
+        try? context.save()
     }
 
     private func deleteOwnData() {

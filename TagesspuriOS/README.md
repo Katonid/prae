@@ -77,6 +77,12 @@ Native SwiftUI-App, iOS 17+, keine externen Abhängigkeiten.
   - Track-Blobs (`pointsData`) liegen mit `.externalStorage` außerhalb
     des Datensatzes (CKAsset) — CloudKit begrenzt Records auf ~1 MB,
     dichte Best-GPS-Tage sprengten das sonst.
+  - Aufräumen: In der Sync-Diagnose lassen sich fremde Geräte per
+    Wischgeste löschen (Löschung synct auf alle Geräte); in der
+    Familien-Ansicht lassen sich angenommene Freigaben einzeln
+    verlassen (Zone wird aus der Shared-DB entfernt, lokaler Spiegel
+    der Person aufgeräumt; `FamilyDay.ownerName` ordnet die Daten der
+    Freigabe zu).
   - Jedes Gerät schreibt ausschließlich Datensätze mit seiner eigenen
     Geräte-ID → keine Konflikte.
   - Alle Geräte sehen den gemeinsamen Bestand (geräteübergreifende
