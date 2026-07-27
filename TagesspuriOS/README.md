@@ -68,12 +68,19 @@ Native SwiftUI-App, iOS 17+, keine externen Abhängigkeiten.
     Blob gespeichert — wenig I/O, wenig Sync-Volumen.
 - **iCloud-Sync (SwiftData + CloudKit, privater Container)**
   - Sync-Diagnose in den Einstellungen: Datenbank-Modus (iCloud aktiv
-    vs. stiller Lokal-Rückfall), iCloud-Konto-Status und je Gerät die
-    Zahl der Tage samt letztem Stand. Wichtigster Hinweis dort:
-    Xcode-Builds syncen in der CloudKit-Entwicklungsumgebung,
+    vs. stiller Lokal-Rückfall), iCloud-Konto-Status, letztes
+    Hochladen/Empfangen und der letzte CloudKit-Fehler im Klartext
+    (SyncMonitor beobachtet NSPersistentCloudKitContainer-Events),
+    dazu je Gerät die Zahl der Tage samt letztem Stand. Wichtigste
+    Hinweise: Xcode-Builds syncen in der CloudKit-Entwicklungsumgebung,
     TestFlight-/App-Store-Builds in der Produktionsumgebung — die
     beiden Welten sehen einander nicht; alle Geräte müssen dieselbe
-    Installationsart nutzen.
+    Installationsart nutzen. Und: Das CloudKit-Schema muss einmalig in
+    der CloudKit Console von Development nach Production deployt
+    werden (Production legt Record-Typen nicht automatisch an) —
+    sonst steht der Sync für TestFlight-Builds komplett still. Nach
+    jeder Modell-Änderung: erst Xcode-Build laufen lassen (erzeugt das
+    Dev-Schema), dann erneut deployen.
   - Track-Blobs (`pointsData`) liegen mit `.externalStorage` außerhalb
     des Datensatzes (CKAsset) — CloudKit begrenzt Records auf ~1 MB,
     dichte Best-GPS-Tage sprengten das sonst.
