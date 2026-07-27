@@ -83,11 +83,13 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
     private static let flushAfterSeconds: TimeInterval = 90
     private static let maxAcceptableAccuracy: CLLocationAccuracy = 100
 
-    /// Präzise Erfassung (Bewegung) im ausgewogenen Modus.
-    private static let activeAccuracy = kCLLocationAccuracyNearestTenMeters
+    /// Präzise Erfassung (Bewegung) im ausgewogenen Modus: beste
+    /// GPS-Stufe — NearestTenMeters wurde von iOS im Hintergrund
+    /// teils minutenlang gedrosselt (Lücken trotz wacher App).
+    private static let activeAccuracy = kCLLocationAccuracyBest
     private static let activeDistanceFilter: CLLocationDistance = 20
-    /// „Hohe Genauigkeit“: Komoot-Niveau — beste GPS-Stufe, dichte Punkte.
-    private static let highAccuracyValue = kCLLocationAccuracyBest
+    /// „Hohe Genauigkeit“: Navigations-GPS, dichte Punkte.
+    private static let highAccuracyValue = kCLLocationAccuracyBestForNavigation
     private static let highDistanceFilter: CLLocationDistance = 10
     /// Ruhemodus: grob statt aus — der GPS-Chip schläft praktisch
     /// genauso, aber Bewegungsbeginn wird sofort selbst erkannt.
@@ -353,6 +355,12 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
 
     func locationManager(_ manager: CLLocationManager, didExitRegion region: CLRegion) {
         guard trackingEnabled, region.identifier == Self.relaunchRegionId else { return }
+        // Routine-Austritt während laufender Aufzeichnung (der Zaun
+        // wandert mit jeder Speicherung mit, ein fahrendes Auto verlässt
+        // ihn ständig): kein Weck-Ereignis, kein Protokoll-Spam.
+        let recentlyRecording = lastAcceptedLocation
+            .map { Date().timeIntervalSince($0.timestamp) < 60 } ?? false
+        if recentlyRecording, !isResting { return }
         // Weckt die App nach einer Beendigung durch iOS — sofort zurück
         // in die präzise Erfassung.
         Self.logEvent("Geofence verlassen — Erfassung reaktiviert")
@@ -441,21 +449,37 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
             }
         }
 
-        // Aufzeichnungs-Gate: bevorzugt präzise Fixe (≤ 100 m). In
-        // Bewegung darf der Track nicht verhungern — kommt > 60 s nichts
-        // Brauchbares ODER läuft die Aufwach-Karenz nach dem Ruhemodus,
-        // wird auch ein mittelmäßiger Fix (≤ 500 m) aufgezeichnet.
-        // Im Stillstand gilt das nicht (Streu-Schutz).
+        // Aufzeichnungs-Gate, dreistufig: bevorzugt präzise Fixe
+        // (≤ 100 m). In Bewegung darf der Track nicht verhungern —
+        // nach > 60 s ohne Brauchbares (oder in der Aufwach-Karenz)
+        // zählt auch ein mittelmäßiger Fix (≤ 500 m), nach > 150 s
+        // JEDER Fix (Notbetrieb): ein grober Punkt ist ehrlicher als
+        // eine Kilometer-Lücke; die Ungenauigkeit steht am Punkt.
+        // Im Stillstand bleibt die strenge Sperre (Streu-Schutz).
         let sinceLastAccepted = lastAcceptedLocation.map { Date().timeIntervalSince($0.timestamp) } ?? .infinity
         let inWakeGrace = Date() < wakeGraceUntil
-        let limit: CLLocationAccuracy = (!stationary && (sinceLastAccepted > 60 || inWakeGrace)) ? 500 : Self.maxAcceptableAccuracy
+        let limit: CLLocationAccuracy
+        if !stationary, sinceLastAccepted > 150 {
+            limit = .greatestFiniteMagnitude
+        } else if !stationary, sinceLastAccepted > 60 || inWakeGrace {
+            limit = 500
+        } else {
+            limit = Self.maxAcceptableAccuracy
+        }
         guard location.horizontalAccuracy <= limit else {
             discardedSinceLastLog += 1
-            if discardedSinceLastLog >= 25 {
-                Self.logEvent("25 ungenaue Fixe verworfen (zuletzt ±\(Int(location.horizontalAccuracy)) m)")
+            // Sofort sichtbar machen statt erst ab 25 Stück — sonst
+            // stehen Lücken als „keine Ortungen geliefert“ da, obwohl
+            // Fixe kamen und verworfen wurden.
+            if sinceLastAccepted > 30, Date().timeIntervalSince(lastDiscardLogAt) > 60 {
+                lastDiscardLogAt = Date()
+                Self.logEvent("Ungenaue Fixe verworfen (\(discardedSinceLastLog) Stück, zuletzt ±\(Int(location.horizontalAccuracy)) m)")
                 discardedSinceLastLog = 0
             }
             return
+        }
+        if location.horizontalAccuracy > 500 {
+            Self.logEvent("Notpunkt aufgezeichnet (±\(Int(location.horizontalAccuracy)) m)")
         }
         lastAcceptedLocation = location
         appendToBuffer(location)
@@ -463,6 +487,7 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
 
     private var lastAcceptedLocation: CLLocation?
     private var discardedSinceLastLog = 0
+    private var lastDiscardLogAt = Date.distantPast
 
     private func appendToBuffer(_ location: CLLocation) {
         buffer.append(TrackPoint(location: location))

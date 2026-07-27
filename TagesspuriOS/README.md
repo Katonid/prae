@@ -11,7 +11,9 @@ Native SwiftUI-App, iOS 17+, keine externen Abhängigkeiten.
 - **Hintergrund-Tracking, akkuschonend**
   - Besuchs- (CLVisit) und Signifikanz-Monitoring laufen dauerhaft mit
     minimalem Verbrauch und wecken die App auch nach Beendigung wieder.
-  - Präzises GPS (10 m Genauigkeit, 20 m Distanzfilter) bei Bewegung;
+  - Beste GPS-Stufe (kCLLocationAccuracyBest, 20 m Distanzfilter) bei
+    Bewegung — NearestTenMeters wurde von iOS im Hintergrund teils
+    minutenlang gedrosselt (Lücken trotz wacher App);
     nach 5 Minuten Stillstand Ruhemodus. Wichtig: Der Ruhemodus stellt
     GPS nur grob (100 m) statt aus — Bewegungsbeginn wird dadurch in
     Sekunden selbst erkannt (kein Warten auf grobe Systemereignisse,
@@ -41,11 +43,17 @@ Native SwiftUI-App, iOS 17+, keine externen Abhängigkeiten.
     zusammenhängende Linie gezeichnet. Datenlücken werden nicht optisch
     aufgetrennt — sie bleiben über die Lücken-Diagnose im Tagesdetail
     nachvollziehbar (`TrackMath.segments` liefert die Lückenanalyse).
-  - Anti-Verhungern: kommt > 60 s kein präziser Fix (≤ 100 m), wird
-    auch ein mittelmäßiger (≤ 500 m) aufgezeichnet — Funklöcher reißen
-    keine Kilometer-Löcher mehr; die Ungenauigkeit steht am Punkt.
-    Greift nur in Bewegung — im Stillstand bleibt die 100-m-Sperre,
-    damit Indoor-Streuung nicht als Zacken im Track landet.
+  - Anti-Verhungern, dreistufig: kommt > 60 s kein präziser Fix
+    (≤ 100 m), wird auch ein mittelmäßiger (≤ 500 m) aufgezeichnet;
+    nach > 150 s zählt im Notbetrieb JEDER Fix — ein grober Punkt ist
+    ehrlicher als eine Kilometer-Lücke; die Ungenauigkeit steht am
+    Punkt (`hAcc`). Greift nur in Bewegung — im Stillstand bleibt die
+    100-m-Sperre, damit Indoor-Streuung nicht als Zacken landet.
+    Verworfene Fixe werden sofort protokolliert (nicht erst ab 25),
+    Notpunkte ebenfalls — Lücken sagen in der Diagnose, ob Fixe kamen.
+  - Geofence-Austritte während laufender Aufzeichnung (der Zaun
+    wandert mit jeder Speicherung mit) gelten nicht als Weck-Ereignis
+    und landen nicht mehr im Protokoll.
   - Stillstands-Filter: Nach 5 Minuten ohne Bewegung wird höchstens
     ein Punkt pro 5 Minuten übernommen — GPS-Streuung in Gebäuden
     („Sternchen“ um den Standort) verschwindet aus dem Trackbild.
