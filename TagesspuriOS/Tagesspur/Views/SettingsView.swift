@@ -146,6 +146,15 @@ struct SettingsView: View {
                     LabeledContent("Datenbank",
                                    value: SyncDiagnose.cloudKitAktiv ? "iCloud-Sync aktiv" : "NUR LOKAL — kein Sync")
                     LabeledContent("iCloud-Konto", value: accountStatusText)
+                    LabeledContent("Letztes Hochladen",
+                                   value: SyncMonitor.lastExport?.formatted(date: .abbreviated, time: .shortened) ?? "—")
+                    LabeledContent("Letztes Empfangen",
+                                   value: SyncMonitor.lastImport?.formatted(date: .abbreviated, time: .shortened) ?? "—")
+                    if let error = SyncMonitor.lastError {
+                        Text("Sync-Fehler (\(error.date.formatted(date: .abbreviated, time: .shortened))): \(error.text)")
+                            .font(.footnote)
+                            .foregroundStyle(.red)
+                    }
                     ForEach(deviceSummaries) { summary in
                         LabeledContent(summary.name) {
                             VStack(alignment: .trailing) {

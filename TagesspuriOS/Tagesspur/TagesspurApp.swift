@@ -35,6 +35,7 @@ struct TagesspurApp: App {
         container = resolved
         _tracker = StateObject(wrappedValue: LocationTracker(container: resolved))
         FamilySync.shared.modelContainer = resolved
+        SyncMonitor.start()
     }
 
     var body: some Scene {
