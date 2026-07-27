@@ -55,6 +55,7 @@ struct SettingsView: View {
                     Toggle("Standort aufzeichnen", isOn: $tracker.trackingEnabled)
                     Toggle("Hohe Genauigkeit", isOn: $tracker.highAccuracy)
                     LabeledContent("Standort-Berechtigung", value: locationStatusText)
+                    LabeledContent("Bewegungssensor", value: LocationTracker.motionStatusText)
                     if !tracker.hasAlwaysPermission {
                         Button("Berechtigung anfragen („Immer“ empfohlen)") {
                             tracker.requestPermission()
