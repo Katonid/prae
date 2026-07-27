@@ -297,12 +297,32 @@ struct TodayView: View {
         }
     }
 
+    /// Höhenwind (120 m) aus der Stundenprognose zur Viertelstunde —
+    /// die 15-Minuten-Daten kennen nur Bodenwerte. Ohne diesen Blick
+    /// nach oben sagte der Streifen „beruhigt sich", während der
+    /// Score wegen Höhenwind tiefrot blieb (Nutzermeldung: „passt
+    /// nicht zusammen").
+    private func wind120Kmh(at date: Date) -> Double? {
+        for day in state.days {
+            if let hour = day.hours.first(where: {
+                date >= $0.hour.date && date < $0.hour.date.addingTimeInterval(3_600)
+            }) {
+                return hour.hour.windSpeed120Kmh
+            }
+        }
+        return nil
+    }
+
     private func quarterState(_ quarter: WeatherService.QuarterForecast) -> QuarterState {
         guard let profile = state.profile else { return .good }
-        if quarter.gustsKmh >= profile.maxWindKmh || quarter.precipitationMm >= 0.2 {
+        let highWind = wind120Kmh(at: quarter.date) ?? 0
+        if quarter.gustsKmh >= profile.maxWindKmh || highWind >= profile.maxWindKmh
+            || quarter.precipitationMm >= 0.2 {
             return .blocked
         }
-        if quarter.gustsKmh >= profile.maxWindKmh * 0.8 || quarter.precipitationMm > 0 {
+        if quarter.gustsKmh >= profile.maxWindKmh * 0.8
+            || highWind >= profile.maxWindKmh * 0.8
+            || quarter.precipitationMm > 0 {
             return .caution
         }
         return .good
@@ -325,7 +345,7 @@ struct TodayView: View {
         if let firstOpen = states.firstIndex(where: { $0 != .blocked }) {
             return "Kurz warten: ab \(Theme.time(nowcast[firstOpen].date)) Uhr beruhigt es sich."
         }
-        return "In den nächsten 2 Stunden keine Beruhigung in Sicht — Böen oder Regen über der Toleranz."
+        return "In den nächsten 2 Stunden keine Beruhigung in Sicht — Böen, Höhenwind oder Regen über der Toleranz."
     }
 
     private var nowcastCard: some View {

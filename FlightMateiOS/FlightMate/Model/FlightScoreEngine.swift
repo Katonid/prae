@@ -81,10 +81,18 @@ enum FlightScoreEngine {
             let hours = grouped[dayStart]!.sorted { $0.date < $1.date }
             let scored = hours.map { score(hour: $0, profile: profile, latitude: latitude, longitude: longitude) }
             let sunDay = SunCalculator.day(for: dayStart, latitude: latitude, longitude: longitude, calendar: calendar)
+            // Das beste Fenster nur in fotografisch nutzbaren Stunden
+            // suchen (Sonne über −10°, wie die Stundenliste) — sonst
+            // gewinnt die windstille Nacht („Bestes Fenster
+            // 22:00–00:00 Uhr", Nutzermeldung).
+            let usable = scored.filter {
+                SunCalculator.position(at: $0.hour.date, latitude: latitude,
+                                       longitude: longitude).altitude > -10
+            }
             return DayScore(
                 date: dayStart,
                 hours: scored,
-                bestWindow: bestWindow(in: scored),
+                bestWindow: bestWindow(in: usable.isEmpty ? scored : usable),
                 sunDay: sunDay,
                 timeZone: calendar.timeZone
             )
@@ -238,12 +246,17 @@ enum FlightScoreEngine {
         guard let best = hours.enumerated().max(by: { $0.element.score < $1.element.score }),
               best.element.score >= 4 else { return nil }
 
+        // Nur lückenlos angrenzende Stunden erweitern — die Liste kann
+        // gefiltert sein (nutzbare Stunden), und ein Fenster darf
+        // keine ausgeblendete Lücke überspannen.
         var startIndex = best.offset
         var endIndex = best.offset
-        while startIndex > 0 && hours[startIndex - 1].score >= best.element.score - 1 {
+        while startIndex > 0 && hours[startIndex - 1].score >= best.element.score - 1
+            && hours[startIndex].hour.date.timeIntervalSince(hours[startIndex - 1].hour.date) <= 3_700 {
             startIndex -= 1
         }
-        while endIndex < hours.count - 1 && hours[endIndex + 1].score >= best.element.score - 1 {
+        while endIndex < hours.count - 1 && hours[endIndex + 1].score >= best.element.score - 1
+            && hours[endIndex + 1].hour.date.timeIntervalSince(hours[endIndex].hour.date) <= 3_700 {
             endIndex += 1
         }
         return BestWindow(
