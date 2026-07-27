@@ -138,7 +138,14 @@ Dieser Stand entspricht dem **MVP-Fundament** (PRD Phase 0/1).
   „mehr beim Hineinzoomen"). Beim Verschieben bleibt die alte
   Zeichnung stehen und die Karte schwenkt geschmeidig — neu geladen
   wird erst, wenn sie eine halbe Sekunde ruhig steht (jede neue
-  Bewegung bricht die wartende Ladung ab). Alle Zonen tragen
+  Bewegung bricht die wartende Ladung ab). openAIP wird in EINER
+  gemeinsamen Kachel abgefragt (fester 55-km-Radius, 0,2°-Raster)
+  — Karten-Overlays und Punkt-Checks teilen sich denselben
+  Cache-Eintrag (12 h frisch, danach stale-Fallback): Schwenks bis
+  ~10 km und jeder Tipp im selben Gebiet kosten keine neue Abfrage
+  mehr, und Zoomen ändert die Kachel gar nicht (vorher lief jeder
+  Schwenk + Tipp in eigene Abfragen und ins Burst-Limit,
+  Nutzermeldung). Alle Zonen tragen
   stabile, geometrie-basierte IDs, damit SwiftUI beim Nachladen nur
   die tatsächlich neuen Flächen einfügt statt die ganze Ebene neu
   aufzubauen, und die Karte wird standardmäßig flach gerendert —

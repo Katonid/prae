@@ -424,7 +424,10 @@ final class ZoneOverlayService {
                 latitude: region.center.latitude + region.span.latitudeDelta / 2,
                 longitude: region.center.longitude + region.span.longitudeDelta / 2)))
         let radius = min(max(Int(halfDiagonalM), 5_000), 60_000)
-        let aerodromes = (try? await AirspaceService.aerodromes(around: region.center, radiusM: radius)) ?? []
+        let aerodromes = ((try? await AirspaceService.aerodromes(around: region.center, radiusM: radius)) ?? [])
+            // Die Kachel-Abfrage liefert einen festen 55-km-Umkreis —
+            // gezeichnet wird nur, was den Ausschnitt berühren kann.
+            .filter { $0.distanceM <= halfDiagonalM + 6_000 }
         return aerodromes.map { aerodrome in
             ZoneOverlay(
                 id: "ca-aero-\(aerodrome.name)-" + String(format: "%.4f_%.4f",

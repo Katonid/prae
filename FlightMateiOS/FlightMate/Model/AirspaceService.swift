@@ -25,8 +25,13 @@ import CryptoKit
 // vergrößert, damit trotz Rundung nichts durchs Raster fällt.
 // Datei-Konstanten statt MainActor-Statics: auch nonisolierte
 // Helfer greifen zu (Swift-6-Isolationsregel).
-private let airspaceGridStepDeg = 0.02
-private let airspaceGridSlackM = 2_500
+// EINE gemeinsame Kachel für alle openAIP-Abfragen (Karten-Overlays
+// UND Punkt-Checks): fester Radius, grobes Positionsraster. Damit
+// treffen Schwenks bis ~10 km und jeder Punkt-Tipp im selben Gebiet
+// denselben Cache-Eintrag — vorher kostete jeder Schwenk und jeder
+// Tipp eigene Abfragen und lief ins Burst-Limit (Nutzermeldung).
+private let openAIPTileGridDeg = 0.2
+private let openAIPTileDistM = 55_000
 
 /// Bremse nach einem 429: openAIP drosselt Anfrage-Bursts (das ist
 /// NICHT das Tageskontingent). Ohne Pause würde jede weitere
@@ -213,18 +218,20 @@ final class AirspaceService: ObservableObject {
                                       excludingCountry: String? = nil) async throws -> [Airspace] {
         guard let key = loadKey() else { throw AirspaceError.noKey }
 
-        // Auf das Cache-Raster runden; der vergrößerte Radius gleicht
-        // die Rundung aus (Treffer-Filterung passiert ohnehin exakt
-        // beim Aufrufer per Punkt-in-Polygon).
+        // Kachel-Abfrage: Position aufs grobe Raster gerundet, Radius
+        // fest — der angefragte radiusM dient nur noch der Semantik
+        // des Aufrufers (Treffer-Filterung passiert ohnehin exakt beim
+        // Aufrufer per Punkt-in-Polygon bzw. Distanzvergleich). Die
+        // Kachel (55 km) deckt den maximalen Rasterversatz (~14 km)
+        // plus die größten Aufrufer-Radien sicher mit ab.
+        _ = radiusM
         var components = URLComponents(string: "https://api.core.openaip.net/api/airspaces")!
         components.queryItems = [
-            URLQueryItem(name: "pos", value: String(format: "%.2f,%.2f",
-                                                    Self.quantize(center.latitude, step: Self.gridStep(for: radiusM)),
-                                                    Self.quantize(center.longitude, step: Self.gridStep(for: radiusM)))),
-            // Radius auf Stufen aufrunden — sonst erzeugt jede
-            // Zoomstufe einen eigenen Cache-Eintrag.
-            URLQueryItem(name: "dist", value: String(((radiusM + airspaceGridSlackM + Self.distStep(for: radiusM) - 1) / Self.distStep(for: radiusM)) * Self.distStep(for: radiusM))),
-            URLQueryItem(name: "limit", value: "100"),
+            URLQueryItem(name: "pos", value: String(format: "%.1f,%.1f",
+                                                    Self.quantize(center.latitude, step: openAIPTileGridDeg),
+                                                    Self.quantize(center.longitude, step: openAIPTileGridDeg))),
+            URLQueryItem(name: "dist", value: String(openAIPTileDistM)),
+            URLQueryItem(name: "limit", value: "200"),
             // Nur die benötigten Felder — volle Luftraum-Objekte sind
             // mehrere MB groß und liefen auf Mobilfunk ins Timeout
             // (Nutzer-Befund: Schlüssel ok, Check trotzdem „nicht geprüft").
@@ -283,17 +290,6 @@ final class AirspaceService: ObservableObject {
 
     /// So lange gilt ein Cache-Eintrag als frisch (kein Netzzugriff).
     private static let cacheFreshTTL: TimeInterval = 12 * 3600
-
-    /// Große Radien (Karten-Overlays) rastern gröber: 5 km statt
-    /// 2 km Positions-Raster und 10-km-Distanzstufen — jeder Schwenk
-    /// trifft damit viel öfter den Cache statt openAIP (Limit-Schutz).
-    private nonisolated static func gridStep(for radiusM: Int) -> Double {
-        radiusM >= 10_000 ? 0.05 : airspaceGridStepDeg
-    }
-
-    private nonisolated static func distStep(for radiusM: Int) -> Int {
-        radiusM >= 10_000 ? 10_000 : 5_000
-    }
 
     private nonisolated static func quantize(_ value: Double, step: Double) -> Double {
         (value / step).rounded() * step
@@ -459,16 +455,17 @@ final class AirspaceService: ObservableObject {
                                        radiusM: Int) async throws -> [Aerodrome] {
         guard let key = loadKey() else { throw AirspaceError.noKey }
 
-        // Gleiche Raster-Logik wie bei den Lufträumen; die Entfernung
-        // je Flugplatz wird unten exakt gegen die ECHTE Position
+        // Gleiche Kachel wie bei den Lufträumen; die Entfernung je
+        // Flugplatz wird unten exakt gegen die ECHTE Position
         // berechnet — die Rundung betrifft nur Netzabfrage und Cache.
+        _ = radiusM
         var components = URLComponents(string: "https://api.core.openaip.net/api/airports")!
         components.queryItems = [
-            URLQueryItem(name: "pos", value: String(format: "%.2f,%.2f",
-                                                    Self.quantize(center.latitude, step: Self.gridStep(for: radiusM)),
-                                                    Self.quantize(center.longitude, step: Self.gridStep(for: radiusM)))),
-            URLQueryItem(name: "dist", value: String(((radiusM + airspaceGridSlackM + Self.distStep(for: radiusM) - 1) / Self.distStep(for: radiusM)) * Self.distStep(for: radiusM))),
-            URLQueryItem(name: "limit", value: "100"),
+            URLQueryItem(name: "pos", value: String(format: "%.1f,%.1f",
+                                                    Self.quantize(center.latitude, step: openAIPTileGridDeg),
+                                                    Self.quantize(center.longitude, step: openAIPTileGridDeg))),
+            URLQueryItem(name: "dist", value: String(openAIPTileDistM)),
+            URLQueryItem(name: "limit", value: "200"),
             URLQueryItem(name: "fields", value: "_id,name,type,geometry"),
         ]
         let data = try await fetchWithCache(components, apiKey: key)
