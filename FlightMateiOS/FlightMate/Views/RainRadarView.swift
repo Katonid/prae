@@ -27,6 +27,7 @@ struct RainRadarView: View {
             if let catalog, !frames.isEmpty {
                 RadarMapView(
                     tileTemplate: catalog.tileTemplate(for: frames[min(frameIndex, frames.count - 1)]),
+                    allTileTemplates: frames.map { catalog.tileTemplate(for: $0) },
                     center: state.effectiveLocation
                 )
                 .ignoresSafeArea(edges: .bottom)
@@ -93,7 +94,7 @@ struct RainRadarView: View {
                     .font(.caption2)
                     .foregroundStyle(.secondary)
             }
-            Text("~2 h Rückblick + ~30 min Kurzprognose (Extrapolation, kein Modell). Abdeckung je nach regionalem Radarnetz — keine Farbe heißt „kein Radar erfasst“, nicht sicher „trocken“.")
+            Text("~2 h Rückblick + ~30 min Kurzprognose (Extrapolation, kein Modell). Abdeckung je nach regionalem Radarnetz — keine Farbe heißt „kein Radar erfasst“, nicht sicher „trocken“. Beim ersten Durchlauf laden die Bilder nach; danach läuft die Animation aus dem Zwischenspeicher.")
                 .font(.caption2)
                 .foregroundStyle(.tertiary)
         }
@@ -134,9 +135,44 @@ struct RainRadarView: View {
 
 // MARK: Klassische Karte mit Radar-Kacheln
 
+/// Gemeinsame Session mit großzügigem Kachel-Cache: Einmal geladene
+/// Radarbilder kommen beim nächsten Durchlauf aus dem Speicher —
+/// vorher lud jeder Zeitschritt frisch aus dem Netz, und Regengebiete
+/// „blitzten" während des Nachladens auf (Nutzermeldung).
+private enum RadarTileSession {
+    static let shared: URLSession = {
+        let config = URLSessionConfiguration.default
+        config.urlCache = URLCache(memoryCapacity: 16_000_000,
+                                   diskCapacity: 128_000_000)
+        config.requestCachePolicy = .returnCacheDataElseLoad
+        return URLSession(configuration: config)
+    }()
+}
+
+/// MKTileOverlay mit Cache-Session statt des internen Laders.
+private final class CachedRadarTileOverlay: MKTileOverlay {
+    override func loadTile(at path: MKTileOverlayPath,
+                           result: @escaping (Data?, Error?) -> Void) {
+        let url = url(forTilePath: path)
+        let request = URLRequest(url: url,
+                                 cachePolicy: .returnCacheDataElseLoad,
+                                 timeoutInterval: 15)
+        RadarTileSession.shared.dataTask(with: request) { data, _, error in
+            result(data, error)
+        }.resume()
+    }
+}
+
 private struct RadarMapView: UIViewRepresentable {
     let tileTemplate: String
+    /// Alle Zeitschritte — fürs Vorladen des sichtbaren Ausschnitts.
+    let allTileTemplates: [String]
     let center: CLLocationCoordinate2D
+
+    /// Native Radar-Auflösung: Ab hier skaliert MapKit die letzte
+    /// Stufe hoch, statt beim Hineinzoomen nichts mehr zu zeigen
+    /// (Nutzermeldung: „darunter wird nichts mehr angezeigt").
+    static let maxRadarZoom = 9
 
     func makeUIView(context: Context) -> MKMapView {
         let map = MKMapView()
@@ -145,33 +181,44 @@ private struct RadarMapView: UIViewRepresentable {
             center: center,
             span: MKCoordinateSpan(latitudeDelta: 2.4, longitudeDelta: 2.4)), animated: false)
         map.delegate = context.coordinator
+        context.coordinator.allTemplates = allTileTemplates
         context.coordinator.setOverlay(template: tileTemplate, on: map)
+        context.coordinator.schedulePrefetch(for: map)
         return map
     }
 
     func updateUIView(_ map: MKMapView, context: Context) {
         // Nur das Overlay tauschen, wenn sich der Zeitschritt ändert —
         // die Kamera bleibt, wie der Nutzer sie geschoben hat.
+        context.coordinator.allTemplates = allTileTemplates
         context.coordinator.setOverlay(template: tileTemplate, on: map)
     }
 
     func makeCoordinator() -> Coordinator { Coordinator() }
 
     final class Coordinator: NSObject, MKMapViewDelegate {
+        var allTemplates: [String] = []
         private var currentTemplate: String?
         private var currentOverlay: MKTileOverlay?
+        private var prefetchWork: DispatchWorkItem?
 
         func setOverlay(template: String, on map: MKMapView) {
             guard template != currentTemplate else { return }
-            if let old = currentOverlay {
-                map.removeOverlay(old)
-            }
-            let overlay = MKTileOverlay(urlTemplate: template)
+            let previous = currentOverlay
+            let overlay = CachedRadarTileOverlay(urlTemplate: template)
             overlay.canReplaceMapContent = false
             overlay.tileSize = CGSize(width: 256, height: 256)
+            overlay.maximumZ = RadarMapView.maxRadarZoom
             map.addOverlay(overlay, level: .aboveRoads)
             currentOverlay = overlay
             currentTemplate = template
+            // Das alte Bild kurz stehen lassen, bis das neue gezeichnet
+            // ist — sofortiges Entfernen ließ die Ebene aufblitzen.
+            if let previous {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) {
+                    map.removeOverlay(previous)
+                }
+            }
         }
 
         func mapView(_ mapView: MKMapView,
@@ -182,6 +229,73 @@ private struct RadarMapView: UIViewRepresentable {
                 return renderer
             }
             return MKOverlayRenderer(overlay: overlay)
+        }
+
+        func mapView(_ mapView: MKMapView, regionDidChangeAnimated animated: Bool) {
+            schedulePrefetch(for: mapView)
+        }
+
+        // MARK: Vorladen — alle Zeitschritte für den Ausschnitt
+
+        /// Wärmt den Kachel-Cache für ALLE Zeitschritte des sichtbaren
+        /// Ausschnitts (leicht verzögert, damit Schwenks nicht bei
+        /// jeder Bewegung laden). Danach spult die Animation ohne
+        /// Nachlade-Lücken.
+        func schedulePrefetch(for map: MKMapView) {
+            prefetchWork?.cancel()
+            let templates = allTemplates
+            let region = map.region
+            let width = Double(map.bounds.width)
+            let work = DispatchWorkItem { [weak self] in
+                self?.prefetch(templates: templates, region: region, viewWidth: width)
+            }
+            prefetchWork = work
+            DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + 0.8, execute: work)
+        }
+
+        private func prefetch(templates: [String], region: MKCoordinateRegion,
+                              viewWidth: Double) {
+            guard !templates.isEmpty, viewWidth > 0 else { return }
+            let zoom = max(1, min(RadarMapView.maxRadarZoom,
+                                  Int((log2(360.0 * viewWidth / (region.span.longitudeDelta * 256))).rounded())))
+            let n = Double(1 << zoom)
+            func tileX(_ lon: Double) -> Int {
+                Int(((lon + 180) / 360 * n).rounded(.down))
+            }
+            func tileY(_ lat: Double) -> Int {
+                let clamped = max(-85.05, min(85.05, lat)) * .pi / 180
+                let y = (1 - log(tan(clamped) + 1 / cos(clamped)) / .pi) / 2 * n
+                return Int(y.rounded(.down))
+            }
+            let x0 = tileX(region.center.longitude - region.span.longitudeDelta / 2)
+            let x1 = tileX(region.center.longitude + region.span.longitudeDelta / 2)
+            let y0 = tileY(region.center.latitude + region.span.latitudeDelta / 2)
+            let y1 = tileY(region.center.latitude - region.span.latitudeDelta / 2)
+            let maxTiles = 1 << zoom
+            var tiles: [(x: Int, y: Int)] = []
+            for x in min(x0, x1)...max(x0, x1) {
+                for y in min(y0, y1)...max(y0, y1) {
+                    guard (0..<maxTiles).contains(y) else { continue }
+                    tiles.append((((x % maxTiles) + maxTiles) % maxTiles, y))
+                    // Schutzdeckel je Zeitschritt — mehr Kacheln zeigt
+                    // kein Bildschirm gleichzeitig an.
+                    if tiles.count >= 24 { break }
+                }
+                if tiles.count >= 24 { break }
+            }
+            for template in templates {
+                for tile in tiles {
+                    let urlString = template
+                        .replacingOccurrences(of: "{z}", with: String(zoom))
+                        .replacingOccurrences(of: "{x}", with: String(tile.x))
+                        .replacingOccurrences(of: "{y}", with: String(tile.y))
+                    guard let url = URL(string: urlString) else { continue }
+                    let request = URLRequest(url: url,
+                                             cachePolicy: .returnCacheDataElseLoad,
+                                             timeoutInterval: 15)
+                    RadarTileSession.shared.dataTask(with: request).resume()
+                }
+            }
         }
     }
 }

@@ -260,7 +260,14 @@ Dieser Stand entspricht dem **MVP-Fundament** (PRD Phase 0/1).
   Regenzellen; zentriert auf den Wetter-Anker (Kartenort oder
   Standort). Technisch eine klassische MKMapView mit
   MKTileOverlay — die SwiftUI-Karte kann keine Kachel-Overlays.
-  Ehrliche Grenzen stehen in der Ansicht: Abdeckung je nach
+  Flüssiges Spulen: Kachel-Cache (URLCache 128 MB) plus Vorladen
+  ALLER Zeitschritte für den sichtbaren Ausschnitt (verzögert nach
+  jedem Schwenk, gedeckelt auf 24 Kacheln je Zeitschritt), und das
+  alte Bild bleibt beim Wechsel kurz stehen — vorher „blitzten"
+  Regengebiete während des Nachladens auf (Nutzermeldung). Beim
+  Hineinzoomen über die native Radar-Auflösung (z ≈ 9) skaliert
+  MapKit die letzte Stufe hoch (maximumZ) statt nichts mehr zu
+  zeigen. Ehrliche Grenzen stehen in der Ansicht: Abdeckung je nach
   regionalem Radarnetz; „keine Farbe" heißt „kein Radar erfasst",
   nicht sicher „trocken".
 - **Akku- & Kälte-Rechner:** Deterministische Faustformel aus
