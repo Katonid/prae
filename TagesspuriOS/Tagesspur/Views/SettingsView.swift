@@ -88,6 +88,15 @@ struct SettingsView: View {
                     Toggle("Standort aufzeichnen", isOn: $tracker.trackingEnabled)
                     Toggle("Hohe Genauigkeit", isOn: $tracker.highAccuracy)
                     LabeledContent("Standort-Berechtigung", value: locationStatusText)
+                    LabeledContent("Genauer Standort") {
+                        Text(tracker.accuracyAuthorization == .fullAccuracy ? "Ein" : "AUS — nur ±1–2 km!")
+                            .foregroundStyle(tracker.accuracyAuthorization == .fullAccuracy ? .secondary : .red)
+                    }
+                    if tracker.accuracyAuthorization == .reducedAccuracy {
+                        Text("Ohne „Genauer Standort“ liefert iOS nur die ungefähre Position — Stadtteile stimmen, Straßenverläufe sind unmöglich. Einschalten: iOS-Einstellungen → Datenschutz & Sicherheit → Ortungsdienste → Tagesspur → „Genauer Standort“.")
+                            .font(.footnote)
+                            .foregroundStyle(.red)
+                    }
                     LabeledContent("Bewegungssensor", value: LocationTracker.motionStatusText)
                     if !tracker.hasAlwaysPermission {
                         Button("Berechtigung anfragen („Immer“ empfohlen)") {

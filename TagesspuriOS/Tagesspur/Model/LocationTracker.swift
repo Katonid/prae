@@ -28,6 +28,9 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
     private let container: ModelContainer
 
     @Published var authorization: CLAuthorizationStatus = .notDetermined
+    /// „Genauer Standort“ (iOS-Schalter): reduziert = nur ±1–2 km —
+    /// Stadtteile stimmen dann noch, Straßenverläufe sind unmöglich.
+    @Published var accuracyAuthorization: CLAccuracyAuthorization = .fullAccuracy
     @Published var lastLocation: CLLocation?
     @Published var isResting = false
     @Published var pointsVersion = 0   // Zähler, damit Views neu laden
@@ -108,6 +111,7 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
         // an — der eigene Ruhemodus (grob statt aus) ersetzt sie.
         manager.pausesLocationUpdatesAutomatically = false
         authorization = manager.authorizationStatus
+        accuracyAuthorization = manager.accuracyAuthorization
 
         // Diagnose: Start im Hintergrund = iOS hat die App zuvor beendet
         // und über Signifikanz/Besuch/Geofence neu gestartet.
@@ -343,6 +347,10 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
 
     func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
         authorization = manager.authorizationStatus
+        accuracyAuthorization = manager.accuracyAuthorization
+        if accuracyAuthorization == .reducedAccuracy {
+            Self.logEvent("„Genauer Standort“ ist AUS — nur grobe Ortung (±1–2 km). Einschalten: iOS-Einstellungen → Datenschutz → Ortungsdienste → Tagesspur")
+        }
         applyTrackingState()
     }
 
