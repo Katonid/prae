@@ -58,6 +58,15 @@ enum PassBuilder {
                 }
                 files.append(("strip\(suffix).png", png))
             }
+        } else if card.hasBarcode,
+                  card.barcodeFormat == .code128 || card.barcodeFormat == .pdf417 {
+            // Wallet rendert 1D-Codes nur klein. Deshalb zusätzlich den Code
+            // groß als Streifenbild über die Passmitte — der offizielle
+            // Wallet-Barcode unten bleibt daneben bestehen.
+            for (suffix, scale) in [("", 1.0), ("@2x", 2.0), ("@3x", 3.0)] {
+                guard let png = renderBarcodeStrip(card: card, scale: scale) else { break }
+                files.append(("strip\(suffix).png", png))
+            }
         }
 
         // manifest.json: SHA-1 jeder Datei
@@ -191,6 +200,47 @@ enum PassBuilder {
                 )
                 symbol.draw(at: origin)
             }
+        }
+        return image.pngData()
+    }
+
+    /// Streifenbild mit groß gerendertem Barcode (weißer Grund, scharfe
+    /// Module durch ganzzahlige Skalierung ohne Interpolation).
+    private static func renderBarcodeStrip(card: Card, scale: CGFloat) -> Data? {
+        guard let code = Barcode.rawImage(message: card.barcodeMessage, format: card.barcodeFormat) else {
+            return nil
+        }
+        let size = CGSize(width: 375 * scale, height: 123 * scale)
+        let margin = 14 * scale
+        let codeWidth = CGFloat(code.width)
+        let codeHeight = CGFloat(code.height)
+        guard codeWidth > 0, codeHeight > 0 else { return nil }
+
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        format.opaque = true
+        let image = UIGraphicsImageRenderer(size: size, format: format).image { ctx in
+            UIColor.white.setFill()
+            ctx.fill(CGRect(origin: .zero, size: size))
+            ctx.cgContext.interpolationQuality = .none
+
+            let maxWidth = size.width - 2 * margin
+            let maxHeight = size.height - 2 * margin
+            let horizontal = max(1, floor(maxWidth / codeWidth))
+            let drawSize: CGSize
+            if card.barcodeFormat == .code128 {
+                // 1D-Code: Breite ganzzahlig skalieren, Höhe frei strecken.
+                drawSize = CGSize(width: codeWidth * horizontal, height: maxHeight)
+            } else {
+                // PDF417 trägt Information in beiden Achsen — Seitenverhältnis halten.
+                let uniform = max(1, min(horizontal, floor(maxHeight / codeHeight)))
+                drawSize = CGSize(width: codeWidth * uniform, height: codeHeight * uniform)
+            }
+            let origin = CGPoint(
+                x: (size.width - drawSize.width) / 2,
+                y: (size.height - drawSize.height) / 2
+            )
+            UIImage(cgImage: code).draw(in: CGRect(origin: origin, size: drawSize))
         }
         return image.pngData()
     }
