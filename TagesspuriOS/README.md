@@ -84,6 +84,10 @@ Native SwiftUI-App, iOS 17+, keine externen Abhängigkeiten.
   - Track-Blobs (`pointsData`) liegen mit `.externalStorage` außerhalb
     des Datensatzes (CKAsset) — CloudKit begrenzt Records auf ~1 MB,
     dichte Best-GPS-Tage sprengten das sonst.
+  - Tagesbeschreibungen heilen sich selbst: `summaryPointCount` merkt
+    sich, aus wie vielen Punkten die „Ort – Ort – Ort“-Beschreibung
+    entstand — weicht der aktuelle Punktebestand ab (z. B. nach
+    nachgelieferten Sync-Daten), wird sie automatisch neu berechnet.
   - Aufräumen: In der Sync-Diagnose lassen sich fremde Geräte per
     Wischgeste löschen (Löschung synct auf alle Geräte); in der
     Familien-Ansicht lassen sich angenommene Freigaben einzeln

@@ -66,6 +66,10 @@ final class TrackDay {
     var startDate: Date = Date()
     var endDate: Date = Date()
     var summary: String = ""         // „Ort – Ort – Ort“ (DaySummarizer)
+    /// Punktebestand, aus dem die Beschreibung berechnet wurde — weicht
+    /// er vom aktuellen pointCount ab, wird die Beschreibung neu erzeugt
+    /// (statt für immer auf veralteten Daten sitzen zu bleiben).
+    var summaryPointCount: Int = 0
     var updatedAt: Date = Date()
 
     init(deviceId: String, deviceName: String, dayKey: String) {
