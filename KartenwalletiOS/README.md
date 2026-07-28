@@ -30,6 +30,14 @@ systemeigenen „Zu Apple Wallet hinzufügen"-Dialog.
   `.pkpass`-Datei teilen. Geteilte Pässe kann **jeder** direkt in seine
   Wallet legen — Zertifikat und Developer-Konto braucht nur, wer Pässe
   erstellt, nicht wer sie empfängt.
+- **Pass-Dateien empfangen:** Die App ist als Öffnen-mit-Ziel für
+  `.pkpass` registriert („Öffnen mit Kartenwallet" bzw. Teilen-Menü) und
+  hat einen Import-Knopf (+ → „Pass-Datei öffnen") — praktisch, wenn
+  eine andere App den Dateityp an sich gerissen hat. Importierte Pässe
+  landen direkt im Wallet-Dialog.
+- **iPad:** iPads haben keine Apple Wallet — dort erzeugt die App die
+  Pass-Datei zum Teilen an ein iPhone, und die Detailansicht zeigt den
+  Barcode groß zum direkten Vorzeigen.
 - **Datenminimierung:** Karten, Fotos und Zertifikat bleiben auf dem
   Gerät (Zertifikat im Schlüsselbund). Kein Server, kein Konto, keine
   Analyse. Einzige Netzverbindung: das öffentliche

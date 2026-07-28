@@ -166,21 +166,38 @@ struct CardDetailView: View {
         .background(Color(hex: card.colorHex), in: RoundedRectangle(cornerRadius: 18))
     }
 
+    /// iPads haben keine Apple Wallet — dort wird stattdessen die
+    /// Pass-Datei erzeugt und zum Teilen angeboten.
+    private var walletAvailable: Bool {
+        PKAddPassesViewController.canAddPasses()
+    }
+
     private func addToWalletButton(for card: Card) -> some View {
-        Button {
-            buildAndPresent(card: card)
-        } label: {
-            HStack {
-                Image(systemName: "wallet.pass.fill")
-                Text(building ? "Pass wird erstellt …" : "Zu Apple Wallet hinzufügen")
+        VStack(spacing: 8) {
+            Button {
+                buildAndPresent(card: card)
+            } label: {
+                HStack {
+                    Image(systemName: walletAvailable ? "wallet.pass.fill" : "square.and.arrow.up")
+                    Text(building ? "Pass wird erstellt …"
+                         : walletAvailable ? "Zu Apple Wallet hinzufügen"
+                         : "Pass-Datei erstellen & teilen")
+                }
+                .font(.headline)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 6)
             }
-            .font(.headline)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 6)
+            .buttonStyle(.borderedProminent)
+            .tint(.black)
+            .disabled(building || !certStore.isReady)
+
+            if !walletAvailable {
+                Text("Auf diesem Gerät gibt es keine Apple Wallet (z. B. iPad). Erstelle die Pass-Datei und teile sie an ein iPhone — oder zeige den Code einfach direkt hier in der App vor.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
         }
-        .buttonStyle(.borderedProminent)
-        .tint(.black)
-        .disabled(building || !certStore.isReady)
     }
 
     private func buildAndPresent(card: Card) {
@@ -201,7 +218,9 @@ struct CardDetailView: View {
 
                 // PassKit prüft hier bereits die Signatur.
                 pass = try PKPass(data: data)
-                showsAddPass = true
+                if walletAvailable {
+                    showsAddPass = true
+                }
             } catch let error as PKPassKitError {
                 errorMessage = "Wallet hat den Pass nicht akzeptiert (\(error.localizedDescription)). Meist stimmt etwas mit dem Zertifikat nicht — bitte in den Einstellungen prüfen."
             } catch {

@@ -1,10 +1,16 @@
 import SwiftUI
+import PassKit
+import UniformTypeIdentifiers
 
 struct ContentView: View {
     @EnvironmentObject private var store: CardStore
     @EnvironmentObject private var certStore: CertStore
+    @EnvironmentObject private var importer: PassImporter
     @State private var showsForm = false
     @State private var showsSettings = false
+    @State private var showsPassImporter = false
+
+    private static let pkpassType = UTType("com.apple.pkpass") ?? .data
 
     var body: some View {
         NavigationStack {
@@ -25,10 +31,19 @@ struct ContentView: View {
                     }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        showsForm = true
+                    Menu {
+                        Button {
+                            showsForm = true
+                        } label: {
+                            Label("Neue Karte anlegen", systemImage: "plus.rectangle")
+                        }
+                        Button {
+                            showsPassImporter = true
+                        } label: {
+                            Label("Pass-Datei (.pkpass) öffnen", systemImage: "square.and.arrow.down")
+                        }
                     } label: {
-                        Label("Neue Karte", systemImage: "plus")
+                        Label("Hinzufügen", systemImage: "plus")
                     }
                 }
             }
@@ -37,6 +52,35 @@ struct ContentView: View {
             }
             .sheet(isPresented: $showsSettings) {
                 SettingsView()
+            }
+            .fileImporter(
+                isPresented: $showsPassImporter,
+                allowedContentTypes: [Self.pkpassType],
+                allowsMultipleSelection: false
+            ) { result in
+                if case .success(let urls) = result, let url = urls.first {
+                    importer.importPass(from: url)
+                }
+            }
+            .sheet(isPresented: Binding(
+                get: { importer.pendingPass != nil },
+                set: { if !$0 { importer.pendingPass = nil } }
+            )) {
+                if let pass = importer.pendingPass {
+                    if PKAddPassesViewController.canAddPasses() {
+                        AddPassView(pass: pass)
+                    } else {
+                        ImportedPassInfoView(pass: pass)
+                    }
+                }
+            }
+            .alert("Import fehlgeschlagen", isPresented: Binding(
+                get: { importer.errorMessage != nil },
+                set: { if !$0 { importer.errorMessage = nil } }
+            )) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(importer.errorMessage ?? "")
             }
         }
     }
@@ -105,6 +149,39 @@ struct ContentView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+/// Wird gezeigt, wenn eine .pkpass geöffnet wurde, das Gerät aber keine
+/// Apple Wallet hat (z. B. iPad).
+struct ImportedPassInfoView: View {
+    @Environment(\.dismiss) private var dismiss
+    let pass: PKPass
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 16) {
+                Image(systemName: "wallet.pass")
+                    .font(.system(size: 48))
+                    .foregroundStyle(.tint)
+                Text(pass.localizedName)
+                    .font(.title3.bold())
+                Text(pass.organizationName)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                Text("Die Pass-Datei ist gültig. Auf diesem Gerät gibt es aber keine Apple Wallet — zum Hinzufügen die Datei auf einem iPhone öffnen.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 24)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Fertig") { dismiss() }
+                }
+            }
+        }
     }
 }
 
