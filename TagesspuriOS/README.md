@@ -62,6 +62,13 @@ Native SwiftUI-App, iOS 17+, keine externen Abhängigkeiten.
   - Stillstands-Filter: Nach 5 Minuten ohne Bewegung wird höchstens
     ein Punkt pro 5 Minuten übernommen — GPS-Streuung in Gebäuden
     („Sternchen“ um den Standort) verschwindet aus dem Trackbild.
+    Wichtig: Stillstand gilt NIE, solange der Bewegungssensor Fahrt/
+    Rad/Lauf meldet — die GPS-Verschiebungs-Heuristik allein kann bei
+    groben, um Funkmasten clusternden Fixen fälschlich anschlagen und
+    dampfte sonst ganze Fahrten auf 1 Punkt / 5 min ein (Symptom:
+    exakt getaktete 4–5-min-Lücken ohne Protokoll-Einträge). Jede
+    Unterdrückung wird zudem protokolliert (Lücken-Diagnose), und der
+    Ruhemodus startet nicht, solange das Fahr-Signal anliegt.
   - Ausreißer-Filter: Punkte, die eine Sprunggeschwindigkeit
     > 250 km/h implizieren, werden als GPS-Spike verworfen und im
     Ereignisprotokoll vermerkt.
