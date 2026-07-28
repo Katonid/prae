@@ -383,6 +383,13 @@ final class AppModel: NSObject, ObservableObject {
         recalculate(from: .local)
     }
 
+    /// Von der Kamera erkannter Preis: als Netto-Betrag in Landeswährung
+    /// übernehmen und alles daraus umrechnen.
+    func applyScannedPrice(_ value: Double) {
+        localText = plainMoney(value)
+        recalculate(from: .local)
+    }
+
     // MARK: Steuer
 
     private func updateTaxRateText() {
