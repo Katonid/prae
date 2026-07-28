@@ -84,6 +84,13 @@ Native SwiftUI-App, iOS 17+, keine externen Abhängigkeiten.
   - Track-Blobs (`pointsData`) liegen mit `.externalStorage` außerhalb
     des Datensatzes (CKAsset) — CloudKit begrenzt Records auf ~1 MB,
     dichte Best-GPS-Tage sprengten das sonst.
+  - Sync-Fehler räumen sich selbst auf: Gelingt derselbe Vorgang
+    (Hochladen/Empfangen) später erfolgreich, verschwindet die rote
+    Fehlerzeile automatisch.
+  - Geräte-Umbenennung wirkt rückwirkend: Beim App-Start und beim
+    Bestätigen des Namensfelds wird der aktuelle Gerätename auf alle
+    Bestandsdaten übertragen (`DeviceInfo.normalizeStoredNames`) —
+    sonst erschiene dasselbe Gerät doppelt („iPhone“ und „17 Pro“).
   - Tagesbeschreibungen heilen sich selbst: `summaryPointCount` merkt
     sich, aus wie vielen Punkten die „Ort – Ort – Ort“-Beschreibung
     entstand — weicht der aktuelle Punktebestand ab (z. B. nach

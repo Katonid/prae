@@ -9,6 +9,7 @@ import CoreData
 enum SyncMonitor {
     static let lastErrorKey = "tagesspur.sync.lastError"
     static let lastErrorDateKey = "tagesspur.sync.lastErrorDate"
+    static let lastErrorTypeKey = "tagesspur.sync.lastErrorType"
     static let lastExportKey = "tagesspur.sync.lastExport"
     static let lastImportKey = "tagesspur.sync.lastImport"
 
@@ -24,11 +25,19 @@ enum SyncMonitor {
             if let error = event.error {
                 defaults.set("\(name(of: event.type)): \(error.localizedDescription)", forKey: lastErrorKey)
                 defaults.set(Date(), forKey: lastErrorDateKey)
+                defaults.set(event.type.rawValue, forKey: lastErrorTypeKey)
             } else {
                 switch event.type {
                 case .export: defaults.set(Date(), forKey: lastExportKey)
                 case .import: defaults.set(Date(), forKey: lastImportKey)
                 default: break
+                }
+                // Gelöst ist gelöst: Gelingt derselbe Vorgang später,
+                // verschwindet der alte Fehler statt rot kleben zu bleiben.
+                if defaults.integer(forKey: lastErrorTypeKey) == event.type.rawValue {
+                    defaults.removeObject(forKey: lastErrorKey)
+                    defaults.removeObject(forKey: lastErrorDateKey)
+                    defaults.removeObject(forKey: lastErrorTypeKey)
                 }
             }
         }

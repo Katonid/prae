@@ -487,6 +487,31 @@ enum DeviceInfo {
         return id
     }
 
+    /// Überträgt den aktuellen Gerätenamen auf alle Bestandsdaten dieses
+    /// Geräts. Aufzeichnungen tragen sonst dauerhaft den Namen vom
+    /// Aufnahmezeitpunkt — nach einer Umbenennung erschiene dasselbe
+    /// Gerät doppelt („iPhone“ und „17 Pro“).
+    static func normalizeStoredNames(container: ModelContainer) {
+        let context = ModelContext(container)
+        let id = deviceId
+        let name = deviceName
+        let dayPredicate = #Predicate<TrackDay> { $0.deviceId == id && $0.deviceName != name }
+        if let days = try? context.fetch(FetchDescriptor(predicate: dayPredicate)), !days.isEmpty {
+            for day in days {
+                day.deviceName = name
+                day.updatedAt = Date()
+            }
+        }
+        let visitPredicate = #Predicate<PlaceVisit> { $0.deviceId == id && $0.deviceName != name }
+        if let visits = try? context.fetch(FetchDescriptor(predicate: visitPredicate)), !visits.isEmpty {
+            for visit in visits {
+                visit.deviceName = name
+                visit.updatedAt = Date()
+            }
+        }
+        try? context.save()
+    }
+
     static var deviceName: String {
         get {
             UserDefaults.standard.string(forKey: nameKey) ?? defaultName

@@ -36,6 +36,10 @@ struct TagesspurApp: App {
         _tracker = StateObject(wrappedValue: LocationTracker(container: resolved))
         FamilySync.shared.modelContainer = resolved
         SyncMonitor.start()
+        // Umbenanntes Gerät: Bestandsdaten auf den aktuellen Namen ziehen.
+        Task { @MainActor in
+            DeviceInfo.normalizeStoredNames(container: resolved)
+        }
     }
 
     var body: some Scene {
