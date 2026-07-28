@@ -19,29 +19,11 @@
 			</array>
 		</dict>
 	</array>
-	<key>UTImportedTypeDeclarations</key>
-	<array>
-		<dict>
-			<key>UTTypeIdentifier</key>
-			<string>com.apple.pkpass</string>
-			<key>UTTypeDescription</key>
-			<string>Wallet-Pass</string>
-			<key>UTTypeConformsTo</key>
-			<array>
-				<string>public.data</string>
-			</array>
-			<key>UTTypeTagSpecification</key>
-			<dict>
-				<key>public.filename-extension</key>
-				<array>
-					<string>pkpass</string>
-				</array>
-				<key>public.mime-type</key>
-				<array>
-					<string>application/vnd.apple.pkpass</string>
-				</array>
-			</dict>
-		</dict>
-	</array>
+	<!-- Bewusst KEINE eigene UTImportedTypeDeclaration für com.apple.pkpass:
+	     Eine Fremd-Deklaration eines System-Dateityps kann dessen
+	     System-Deklaration verschatten — dann behandelt iOS .pkpass als
+	     generische Daten und die Wallet übernimmt das Antippen nicht mehr
+	     (genau der Effekt, den Pass2U auf dem Gerät hinterlassen hatte). -->
+
 </dict>
 </plist>
