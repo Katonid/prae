@@ -39,6 +39,11 @@ Native SwiftUI-App, iOS 17+, keine externen Abhängigkeiten.
   - Diagnose sichtbar: Einstellungen zeigen den Status des
     Bewegungssensors („Verweigert“ = Aufwachen nur über GPS); ein
     verweigerter/fehlender Sensor steht auch im Ereignisprotokoll.
+  - „Genauer Standort“-Wächter: Ist der iOS-Schalter „Genauer
+    Standort“ aus, liefert iOS nur ±1–2 km (Stadtteile stimmen,
+    Straßenverläufe unmöglich). Die Einstellungen zeigen den Zustand
+    rot an, das Ereignisprotokoll vermerkt ihn — die häufigste
+    unsichtbare Ursache für „nur grob aufgezeichnet“.
   - Durchgehende Linie: Jede Gerätespur wird auf allen Karten als eine
     zusammenhängende Linie gezeichnet. Datenlücken werden nicht optisch
     aufgetrennt — sie bleiben über die Lücken-Diagnose im Tagesdetail
