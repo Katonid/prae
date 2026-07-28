@@ -103,7 +103,7 @@ struct SettingsView: View {
         Section("So bekommst du das Zertifikat (einmalig)") {
             VStack(alignment: .leading, spacing: 10) {
                 step(1, "Apple-Developer-Konto: Du brauchst eine Mitgliedschaft im Apple Developer Program (developer.apple.com).")
-                step(2, "Unter „Certificates, Identifiers & Profiles" → „Identifiers" eine neue Pass Type ID anlegen, z. B. pass.de.familie.kartenwallet.")
+                step(2, "Unter „Certificates, Identifiers & Profiles“ → „Identifiers“ eine neue Pass Type ID anlegen, z. B. pass.de.familie.kartenwallet.")
                 step(3, "Für diese Pass Type ID ein Zertifikat erstellen (Certificate Signing Request kommt aus der Schlüsselbundverwaltung am Mac).")
                 step(4, "Das erstellte Zertifikat am Mac in die Schlüsselbundverwaltung laden, dort Zertifikat samt privatem Schlüssel auswählen und als .p12 mit Passwort exportieren.")
                 step(5, "Die .p12-Datei z. B. über iCloud Drive oder AirDrop aufs iPhone bringen und hier importieren. Fertig — alle Pässe werden ab jetzt direkt auf dem Gerät signiert.")
