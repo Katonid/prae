@@ -79,7 +79,6 @@ struct MapleLeaf: Shape {
 private struct FlagFrame: ViewModifier {
     func body(content: Content) -> some View {
         content
-            .frame(width: 54, height: 36)
             .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 5, style: .continuous)
@@ -101,7 +100,7 @@ struct CanadaFlag: View {
                 }
                 MapleLeaf()
                     .fill(Theme.canada)
-                    .frame(width: 22, height: 24)
+                    .frame(width: proxy.size.width * 0.41, height: proxy.size.height * 0.67)
             }
         }
         .modifier(FlagFrame())
@@ -119,7 +118,7 @@ struct USFlag: View {
                     }
                 }
                 Theme.usaBlue
-                    .frame(width: 23, height: 19)
+                    .frame(width: proxy.size.width * 0.43, height: proxy.size.height * 0.53)
             }
         }
         .modifier(FlagFrame())

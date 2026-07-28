@@ -1,4 +1,4 @@
-# 💱 CAD USD EUR – native iOS-App
+# 💱 Währungsrechner (CAD/USD → EUR) – native iOS-App
 
 Vollständig eigenständige, native Neuentwicklung der Reise-Währungsrechner-PWA
 (jerosch.net/apps/cad) für iPhone und iPad – geschrieben in Swift und SwiftUI,
@@ -30,6 +30,13 @@ unverändert.
   Steuersatz ortsabhängig (bekannte Stadt → NY-County → Basissatz des
   Bundesstaats); außerhalb von Kanada/USA gibt es einen ehrlichen Hinweis
 - **Schnellwerte:** $100 / $500 / $1000 / $3000
+- **Preis-Scanner:** Kamera-Knopf unten in der Bildschirmmitte; die Kamera
+  liest Preisschilder (Apple VisionKit, Texterkennung vollständig auf dem
+  Gerät), erkennt den plausibelsten Preis (Centbetrag/Währungszeichen,
+  größter Schriftzug) und übernimmt ihn auf Knopfdruck oder per Antippen
+  direkt als Netto-Betrag in die Umrechnung
+- **Alles auf einem Bildschirm:** Die Oberfläche passt sich stufenlos an
+  die Bildschirmhöhe an, sodass ohne Tastatur nicht gescrollt werden muss
 - **Merken des Zustands:** Land, Stadt, Provinz, Steuersatz und zuletzt
   bearbeitetes Feld bleiben wie im localStorage der PWA erhalten
   (UserDefaults, gleiche Feldnamen)
