@@ -190,6 +190,14 @@ Native SwiftUI-App, iOS 17+, keine externen Abhängigkeiten.
     der neuesten Familien-Daten.
   - Einrichtung: Einstellungen → Familie; Sync automatisch beim
     Aktivwerden der App plus manueller Knopf.
+- **Versionierung**
+  - Marketing-Version (`MARKETING_VERSION`, z. B. 1.2.4) wird von Hand
+    gepflegt; die Build-Nummer setzt eine Skript-Bauphase („Build-Nummer
+    setzen“) bei jedem Build automatisch auf die Anzahl der Git-Commits
+    — steigt mit jedem Merge, ist für App und Widget identisch (Apple
+    verlangt Gleichstand) und muss nie von Hand hochgezählt werden.
+    Voraussetzung fürs TestFlight-Hochladen zweier Builds: mindestens
+    ein Merge dazwischen (sonst gleiche Nummer).
 - **Widgets (Homescreen + Sperrbildschirm)**
   - Eigenes Widget-Target `TagesspurWidgets` (WidgetKit): klein
     (km/Dauer/Status), mittel (Mini-Track des Tages als Vektorpfad auf
