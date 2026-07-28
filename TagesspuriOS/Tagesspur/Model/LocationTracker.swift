@@ -229,14 +229,30 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
             guard let self, let activity, self.trackingEnabled else { return }
             let moving = activity.automotive || activity.cycling || activity.running || activity.walking
             guard moving, activity.confidence != .low else { return }
-            // Nur den Ruhemodus beenden — ob die Bewegung anhält,
-            // bestätigt danach das GPS selbst (sonst hielte Herumlaufen
-            // in der Wohnung die präzise Erfassung dauerhaft wach).
+            // Fahr-Signal merken: Solange der Coprozessor Fahrt/Rad/Lauf
+            // meldet, gilt in handle() niemals „Stillstand" — die
+            // GPS-Verschiebungs-Heuristik kann bei groben, um Funkmasten
+            // clusternden Fixen sonst fälschlich Stillstand annehmen und
+            // eine ganze Fahrt auf 1 Punkt / 5 min eindampfen.
+            // (Gehen zählt bewusst nicht — Herumlaufen in der Wohnung
+            // soll den Indoor-Streuschutz nicht aushebeln.)
+            if activity.automotive || activity.cycling || activity.running {
+                self.lastVehicleMotionAt = Date()
+            }
             if self.isResting {
                 Self.logEvent("Bewegungssensor: Fahrt/Weg erkannt")
                 self.exitRest()
             }
         }
+    }
+
+    /// Letztes „fährt Auto / radelt / läuft“-Signal des Coprozessors.
+    private var lastVehicleMotionAt = Date.distantPast
+
+    /// Fahr-Signal noch frisch? (3 min Nachlauf — der Sensor meldet
+    /// während einer Fahrt laufend neu.)
+    private var vehicleMotionActive: Bool {
+        Date().timeIntervalSince(lastVehicleMotionAt) < 180
     }
 
     /// Doppelte Diagnose-Einträge vermeiden (applyTrackingState läuft
@@ -424,7 +440,7 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
                 restAnchor = location
                 lastMovement = Date()
                 if isResting { exitRest() }
-            } else if !isResting,
+            } else if !isResting, !vehicleMotionActive,
                       Date().timeIntervalSince(lastMovement) > Self.restAfterSeconds {
                 enterRest()
             }
@@ -433,14 +449,24 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
             lastMovement = Date()
         }
 
-        let stationary = Date().timeIntervalSince(lastMovement) > Self.restAfterSeconds
+        // Stillstand NIE annehmen, solange der Bewegungssensor Fahrt/
+        // Rad/Lauf meldet — die GPS-Verschiebungs-Heuristik allein kann
+        // bei groben Fixen fälschlich anschlagen und eine ganze Fahrt
+        // auf 1 Punkt / 5 min eindampfen.
+        let stationary = !vehicleMotionActive
+            && Date().timeIntervalSince(lastMovement) > Self.restAfterSeconds
 
         // Stillstands-Filter: Wer seit > 5 min ruht, bekommt höchstens
         // alle 5 min einen Haltepunkt — Indoor-GPS-Drift erzeugt sonst
         // Streu-Sterne rund um den Aufenthaltsort (in beiden Modi).
+        // Nie mehr stillschweigend: Unterdrückung wird protokolliert.
         if stationary,
            let last = lastAcceptedLocation,
            location.timestamp.timeIntervalSince(last.timestamp) < 300 {
+            if Date().timeIntervalSince(lastSuppressionLogAt) > 300 {
+                lastSuppressionLogAt = Date()
+                Self.logEvent("Stillstands-Filter unterdrückt Punkte (kein Fahr-Signal vom Bewegungssensor)")
+            }
             return
         }
 
@@ -496,6 +522,7 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
     private var lastAcceptedLocation: CLLocation?
     private var discardedSinceLastLog = 0
     private var lastDiscardLogAt = Date.distantPast
+    private var lastSuppressionLogAt = Date.distantPast
 
     private func appendToBuffer(_ location: CLLocation) {
         buffer.append(TrackPoint(location: location))
