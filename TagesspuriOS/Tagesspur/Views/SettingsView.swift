@@ -34,7 +34,14 @@ struct SettingsView: View {
     /// fehlt hier ein eigenes Gerät, kommt dessen Sync nicht an.
     private var deviceSummaries: [DeviceSummary] {
         Dictionary(grouping: days, by: \.deviceId).map { id, list in
-            let baseName = list.first?.deviceName ?? "Gerät"
+            // Aktuellster Name gewinnt — alte Aufzeichnungen können noch
+            // den Namen vom Aufnahmezeitpunkt tragen.
+            let baseName: String
+            if id == DeviceInfo.deviceId {
+                baseName = DeviceInfo.deviceName
+            } else {
+                baseName = list.max { $0.updatedAt < $1.updatedAt }?.deviceName ?? "Gerät"
+            }
             let name = id == DeviceInfo.deviceId ? "\(baseName) (dieses Gerät)" : baseName
             return DeviceSummary(
                 id: id,
@@ -181,6 +188,9 @@ struct SettingsView: View {
                     TextField("Gerätename", text: $deviceName)
                         .onChange(of: deviceName) { _, newValue in
                             DeviceInfo.deviceName = newValue
+                        }
+                        .onSubmit {
+                            DeviceInfo.normalizeStoredNames(container: context.container)
                         }
                     Text("Jedes Gerät speichert seine eigenen Aufzeichnungen; über iCloud siehst du alle Geräte gemeinsam. Der Name hilft beim Auseinanderhalten.")
                         .font(.footnote)
