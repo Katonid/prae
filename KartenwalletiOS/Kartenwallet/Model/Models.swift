@@ -61,6 +61,12 @@ struct Card: Identifiable, Codable, Equatable {
     /// Wird bei jeder Änderung erhöht, damit ein erneut hinzugefügter Pass
     /// den alten in der Wallet ersetzt (gleiche Seriennummer, neuer Stand).
     var revision: Int = 1
+    /// Einzeln in der Wallet anzeigen statt im Stapel mit den anderen
+    /// Karten dieser App. Optional (nil = einzeln), damit bereits
+    /// gespeicherte Karten aus älteren Versionen weiter laden.
+    var separateInWallet: Bool?
+
+    var showsSeparatelyInWallet: Bool { separateInWallet ?? true }
 
     var hasBarcode: Bool {
         !barcodeMessage.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty

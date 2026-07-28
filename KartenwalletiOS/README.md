@@ -21,8 +21,15 @@ systemeigenen „Zu Apple Wallet hinzufügen"-Dialog.
 - **Gestaltung:** Passfarbe frei wählbar, Name/Zusatz/Kartennummer als
   Felder, Notizen auf der Passrückseite. Text weiß oder schwarz — je
   nachdem, was auf der gewählten Farbe lesbar ist.
-- **Verwalten:** Karten bearbeiten (erneutes Hinzufügen ersetzt den Pass
-  in der Wallet — gleiche Seriennummer), löschen, `.pkpass`-Datei teilen.
+- **Einzeldarstellung:** Karten erscheinen in der Wallet standardmäßig
+  einzeln statt gestapelt (Event-Ticket-Layout mit eigenem
+  `groupingIdentifier` pro Karte — Wallet stapelt sonst alles mit
+  derselben Pass-Type-ID). Pro Karte abschaltbar.
+- **Verwalten & Teilen:** Karten bearbeiten (erneutes Hinzufügen ersetzt
+  den Pass in der Wallet — gleiche Seriennummer), löschen,
+  `.pkpass`-Datei teilen. Geteilte Pässe kann **jeder** direkt in seine
+  Wallet legen — Zertifikat und Developer-Konto braucht nur, wer Pässe
+  erstellt, nicht wer sie empfängt.
 - **Datenminimierung:** Karten, Fotos und Zertifikat bleiben auf dem
   Gerät (Zertifikat im Schlüsselbund). Kein Server, kein Konto, keine
   Analyse. Einzige Netzverbindung: das öffentliche
