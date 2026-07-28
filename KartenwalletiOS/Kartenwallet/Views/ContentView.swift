@@ -201,6 +201,13 @@ struct CardTileView: View {
                 Text(card.title.isEmpty ? "Karte" : card.title)
                     .font(.headline)
                 Spacer()
+                if let group = card.walletGroupName {
+                    Label(group, systemImage: "square.stack")
+                        .font(.caption)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(.white.opacity(0.25), in: Capsule())
+                }
                 Image(systemName: card.kind == .photo ? "photo" : "qrcode")
                     .font(.subheadline)
                     .opacity(0.8)
