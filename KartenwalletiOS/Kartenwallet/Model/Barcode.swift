@@ -6,8 +6,8 @@ import Vision
 /// Barcode-Vorschau in der App und Barcode-Erkennung aus Fotos.
 enum Barcode {
 
-    /// Erzeugt eine Vorschau des Barcodes (scharf skaliert).
-    static func previewImage(message: String, format: BarcodeFormat) -> UIImage? {
+    /// Unskaliertes Barcode-Bild (1 Pixel pro Modul) für eigene Renderer.
+    static func rawImage(message: String, format: BarcodeFormat) -> CGImage? {
         let trimmed = message.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
         guard let data = trimmed.data(using: .isoLatin1) ?? trimmed.data(using: .utf8) else { return nil }
@@ -25,12 +25,20 @@ enum Barcode {
             filter.setValue("M", forKey: "inputCorrectionLevel")
         }
         guard let output = filter.outputImage else { return nil }
+        return CIContext().createCGImage(output, from: output.extent)
+    }
 
-        let scale = max(4, 320 / max(output.extent.width, 1))
-        let scaled = output.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
-        let context = CIContext()
-        guard let cgImage = context.createCGImage(scaled, from: scaled.extent) else { return nil }
-        return UIImage(cgImage: cgImage)
+    /// Erzeugt eine Vorschau des Barcodes (scharf skaliert).
+    static func previewImage(message: String, format: BarcodeFormat) -> UIImage? {
+        guard let raw = rawImage(message: message, format: format) else { return nil }
+        let scale = max(4, Int(320 / max(raw.width, 1)))
+        let size = CGSize(width: raw.width * scale, height: raw.height * scale)
+        let rendererFormat = UIGraphicsImageRendererFormat()
+        rendererFormat.scale = 1
+        return UIGraphicsImageRenderer(size: size, format: rendererFormat).image { ctx in
+            ctx.cgContext.interpolationQuality = .none
+            UIImage(cgImage: raw).draw(in: CGRect(origin: .zero, size: size))
+        }
     }
 
     struct DetectionResult {
