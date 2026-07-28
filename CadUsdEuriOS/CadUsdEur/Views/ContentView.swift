@@ -16,12 +16,12 @@ private struct ContentHeightKey: PreferenceKey {
 struct ContentView: View {
     @EnvironmentObject private var model: AppModel
     @FocusState private var focus: FocusField?
+    @Namespace private var switcherNamespace
     @State private var showScanner = false
     @State private var contentHeight: CGFloat = 0
     @State private var availableHeight: CGFloat = 0
 
-    /// Inhalt so verkleinern, dass alles ohne Scrollen auf den Bildschirm
-    /// passt (wie die Kompakt-Ansicht der PWA, nur stufenlos).
+    /// Inhalt so verkleinern, dass alles ohne Scrollen auf den Bildschirm passt.
     private var fitScale: CGFloat {
         guard contentHeight > 0, availableHeight > 0, contentHeight > availableHeight else { return 1 }
         return max(0.75, availableHeight / contentHeight)
@@ -56,7 +56,8 @@ struct ContentView: View {
                 .environmentObject(model)
         }
         .task { await model.start() }
-        .animation(.easeInOut(duration: 0.2), value: model.country)
+        .animation(.easeInOut(duration: 0.3), value: model.country)
+        .sensoryFeedback(.selection, trigger: model.country)
         .toolbar {
             ToolbarItemGroup(placement: .keyboard) {
                 Spacer()
@@ -100,41 +101,48 @@ struct ContentView: View {
             Image(systemName: "camera.fill")
                 .font(.system(size: 23, weight: .semibold))
                 .foregroundStyle(Theme.ink)
-                .frame(width: 56, height: 56)
-                .background(Theme.gold, in: Circle())
-                .overlay(Circle().stroke(Color.white.opacity(0.9), lineWidth: 2))
-                .shadow(color: Theme.ink.opacity(0.3), radius: 10, y: 6)
+                .frame(width: 58, height: 58)
+                .background(Theme.goldGradient, in: Circle())
+                .overlay(Circle().stroke(Color.white.opacity(0.35), lineWidth: 1))
+                .shadow(color: Theme.gold.opacity(0.45), radius: 14, y: 6)
         }
         .buttonStyle(.plain)
         .padding(.bottom, 4)
         .accessibilityLabel("Preis mit der Kamera scannen")
     }
 
-    // MARK: Länderwahl
+    // MARK: Länderwahl (gleitender Schalter)
 
     private var switcher: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 6) {
             switcherButton("Kanada CAD", country: .ca)
             switcherButton("USA USD", country: .us)
         }
-        .padding(6)
-        .background(Color.white.opacity(0.86), in: Capsule())
-        .shadow(color: Theme.ink.opacity(0.12), radius: 11, y: 8)
+        .padding(5)
+        .background(.ultraThinMaterial, in: Capsule())
+        .overlay(Capsule().stroke(Theme.glassStroke, lineWidth: 1))
+        .shadow(color: Color.black.opacity(0.35), radius: 14, y: 8)
     }
 
     private func switcherButton(_ label: String, country: Country) -> some View {
         Button {
             focus = nil
-            model.applyMode(country)
+            withAnimation(.snappy(duration: 0.3)) {
+                model.applyMode(country)
+            }
         } label: {
             Text(label)
-                .font(.system(size: 15, weight: .black))
+                .font(.system(size: 15, weight: .black, design: .rounded))
                 .frame(maxWidth: .infinity, minHeight: 38)
-                .foregroundStyle(model.country == country ? Color.white : Theme.muted)
-                .background(
-                    model.country == country ? Theme.localMain(country) : Color.clear,
-                    in: Capsule()
-                )
+                .foregroundStyle(model.country == country ? Color.white : Theme.textSecondary)
+                .background {
+                    if model.country == country {
+                        Capsule()
+                            .fill(Theme.accentGradient(country))
+                            .shadow(color: Theme.localMain(country).opacity(0.5), radius: 10, y: 4)
+                            .matchedGeometryEffect(id: "activeSegment", in: switcherNamespace)
+                    }
+                }
         }
         .buttonStyle(.plain)
     }
@@ -152,18 +160,18 @@ struct ContentView: View {
             }
             .frame(width: 46, height: 30)
             Text(model.mode.title)
-                .font(.system(size: 38, weight: .black))
+                .font(.system(size: 36, weight: .black, design: .rounded))
                 .minimumScaleFactor(0.6)
                 .lineLimit(1)
                 .frame(maxWidth: .infinity)
-                .foregroundStyle(model.country == .us ? Color.white : Theme.ink)
-                .shadow(color: model.country == .us ? .black.opacity(0.72) : .clear, radius: 5, y: 2)
+                .foregroundStyle(Theme.textPrimary)
+                .shadow(color: Color.black.opacity(0.4), radius: 6, y: 2)
             GermanyFlag()
                 .frame(width: 46, height: 30)
         }
     }
 
-    // MARK: Rechner-Karte
+    // MARK: Rechner-Karte (Glas)
 
     private var card: some View {
         VStack(spacing: 9) {
@@ -177,13 +185,13 @@ struct ContentView: View {
                         label: model.mode.netLabel, code: model.mode.code,
                         unit: "$", hint: model.localHint)
             Text("\(model.mode.code) oben - EUR unten")
-                .font(.system(size: 11, weight: .black))
+                .font(.system(size: 10, weight: .black, design: .rounded))
                 .textCase(.uppercase)
                 .kerning(0.8)
-                .foregroundStyle(Theme.muted)
+                .foregroundStyle(Theme.textFaint)
                 .padding(.vertical, 4)
                 .padding(.horizontal, 12)
-                .background(Theme.ink.opacity(0.06), in: Capsule())
+                .background(Theme.glassFill, in: Capsule())
             amountField(.eur, style: .eur, large: false,
                         label: "Euro netto", code: "EUR",
                         unit: "€", hint: model.eurHint)
@@ -196,53 +204,54 @@ struct ContentView: View {
             controls
         }
         .padding(12)
-        .background(Color.white.opacity(0.93))
-        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .stroke(Color.white.opacity(0.92), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .stroke(Theme.glassStroke, lineWidth: 1)
         )
-        .shadow(color: Theme.ink.opacity(0.14), radius: 22, y: 18)
+        .shadow(color: Color.black.opacity(0.45), radius: 26, y: 16)
     }
 
     private var rateBar: some View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
                 Text("Tageskurs")
-                    .font(.system(size: 12, weight: .bold))
+                    .font(.system(size: 11, weight: .bold))
                     .textCase(.uppercase)
                     .kerning(1)
-                    .opacity(0.86)
+                    .opacity(0.85)
                 Text(model.rateDisplay)
-                    .font(.system(size: 17, weight: .heavy))
+                    .font(.system(size: 16, weight: .heavy, design: .rounded))
                     .monospacedDigit()
+                    .contentTransition(.numericText())
             }
             Spacer()
             VStack(alignment: .trailing, spacing: 2) {
                 Text("Steuer")
-                    .font(.system(size: 12, weight: .bold))
+                    .font(.system(size: 11, weight: .bold))
                     .textCase(.uppercase)
                     .kerning(1)
-                    .opacity(0.86)
+                    .opacity(0.85)
                 Text(model.taxDisplay)
-                    .font(.system(size: 17, weight: .heavy))
+                    .font(.system(size: 16, weight: .heavy, design: .rounded))
                     .monospacedDigit()
+                    .contentTransition(.numericText())
             }
         }
         .foregroundStyle(Color.white)
         .padding(.vertical, 9)
         .padding(.horizontal, 14)
         .background(
-            LinearGradient(
-                stops: [
-                    .init(color: Theme.localMain(model.country), location: 0),
-                    .init(color: Theme.usaBlue, location: 0.54),
-                    .init(color: Theme.euroBlue, location: 1)
-                ],
-                startPoint: .leading, endPoint: .trailing
-            ),
-            in: RoundedRectangle(cornerRadius: 8, style: .continuous)
+            Theme.rateBarGradient(model.country),
+            in: RoundedRectangle(cornerRadius: 14, style: .continuous)
         )
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(Color.white.opacity(0.22), lineWidth: 1)
+        )
+        .shadow(color: Theme.euroBlue.opacity(0.45), radius: 14, y: 6)
+        .animation(.snappy, value: model.rateDisplay)
+        .animation(.snappy, value: model.taxDisplay)
     }
 
     // MARK: Provinz-Panel (Kanada)
@@ -256,23 +265,37 @@ struct ContentView: View {
             locationButton("Standort für Provinz nutzen")
         }
         .padding(9)
-        .background(Color.white.opacity(0.78))
-        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .background(Theme.glassFill)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .stroke(Theme.usaBlue.opacity(0.18), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(Theme.glassStroke, lineWidth: 1)
         )
     }
 
     private func provinceButton(_ name: String, tax: Double) -> some View {
-        Button {
+        let active = model.province == name
+        return Button {
             model.setProvinceTax(label: name, tax: tax)
         } label: {
             Text(name)
-                .font(.system(size: 15, weight: .black))
+                .font(.system(size: 15, weight: .black, design: .rounded))
                 .frame(maxWidth: .infinity, minHeight: 38)
-                .foregroundStyle(Color.white)
-                .background(Theme.canada, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .foregroundStyle(active ? Color.white : Theme.textSecondary)
+                .background {
+                    if active {
+                        RoundedRectangle(cornerRadius: 11, style: .continuous)
+                            .fill(Theme.accentGradient(.ca))
+                            .shadow(color: Theme.canada.opacity(0.5), radius: 8, y: 3)
+                    } else {
+                        RoundedRectangle(cornerRadius: 11, style: .continuous)
+                            .fill(Theme.glassFill)
+                    }
+                }
+                .overlay(
+                    RoundedRectangle(cornerRadius: 11, style: .continuous)
+                        .stroke(active ? Color.white.opacity(0.25) : Theme.glassStroke, lineWidth: 1)
+                )
         }
         .buttonStyle(.plain)
     }
@@ -288,25 +311,27 @@ struct ContentView: View {
                     .submitLabel(.search)
                     .onSubmit { model.commitCity() }
                     .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(Theme.textPrimary)
                     .padding(.horizontal, 12)
                     .frame(minHeight: 38)
-                    .background(Color.white, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .background(Theme.fieldFill, in: RoundedRectangle(cornerRadius: 11, style: .continuous))
                     .overlay(
-                        RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .stroke(Theme.line, lineWidth: 1)
+                        RoundedRectangle(cornerRadius: 11, style: .continuous)
+                            .stroke(Theme.glassStroke, lineWidth: 1)
                     )
                 TextField("Tax %", text: taxRateBinding)
                     .focused($focus, equals: .taxRate)
                     .keyboardType(.decimalPad)
-                    .font(.system(size: 15, weight: .heavy))
+                    .font(.system(size: 15, weight: .heavy, design: .rounded))
                     .monospacedDigit()
+                    .foregroundStyle(Theme.textPrimary)
                     .padding(.horizontal, 12)
                     .frame(width: 92, alignment: .leading)
                     .frame(minHeight: 38)
-                    .background(Color.white, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .background(Theme.fieldFill, in: RoundedRectangle(cornerRadius: 11, style: .continuous))
                     .overlay(
-                        RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .stroke(Theme.line, lineWidth: 1)
+                        RoundedRectangle(cornerRadius: 11, style: .continuous)
+                            .stroke(Theme.glassStroke, lineWidth: 1)
                     )
             }
             HStack(spacing: 8) {
@@ -320,11 +345,11 @@ struct ContentView: View {
             locationButton("Standort für Sales Tax nutzen")
         }
         .padding(9)
-        .background(Color.white.opacity(0.78))
-        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .background(Theme.glassFill)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .stroke(Theme.usaBlue.opacity(0.18), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(Theme.glassStroke, lineWidth: 1)
         )
     }
 
@@ -334,12 +359,20 @@ struct ContentView: View {
             model.setCityTax(label: city, tax: tax, source: "voreingestellt")
         } label: {
             Text(label)
-                .font(.system(size: 12, weight: .black))
+                .font(.system(size: 12, weight: .black, design: .rounded))
                 .minimumScaleFactor(0.8)
                 .lineLimit(1)
                 .frame(maxWidth: .infinity, minHeight: 36)
                 .foregroundStyle(Color.white)
-                .background(Theme.usaBlue, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .background(
+                    Theme.accentGradient(.us),
+                    in: RoundedRectangle(cornerRadius: 11, style: .continuous)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 11, style: .continuous)
+                        .stroke(Color.white.opacity(0.18), lineWidth: 1)
+                )
+                .shadow(color: Theme.usaBlue.opacity(0.45), radius: 8, y: 3)
         }
         .buttonStyle(.plain)
     }
@@ -349,14 +382,14 @@ struct ContentView: View {
             focus = nil
             model.useLocation()
         } label: {
-            Text(label)
-                .font(.system(size: 15, weight: .black))
+            Label(label, systemImage: "location.fill")
+                .font(.system(size: 14, weight: .heavy, design: .rounded))
                 .frame(maxWidth: .infinity, minHeight: 38)
-                .foregroundStyle(Theme.usaBlue)
-                .background(Color.white, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .foregroundStyle(Theme.textPrimary)
+                .background(Theme.glassFill, in: RoundedRectangle(cornerRadius: 11, style: .continuous))
                 .overlay(
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .stroke(Theme.usaBlue.opacity(0.22), lineWidth: 1)
+                    RoundedRectangle(cornerRadius: 11, style: .continuous)
+                        .stroke(Theme.glassStroke, lineWidth: 1)
                 )
         }
         .buttonStyle(.plain)
@@ -371,52 +404,57 @@ struct ContentView: View {
 
     private func amountField(_ field: AmountField, style: FieldStyle, large: Bool,
                              label: String, code: String, unit: String, hint: String) -> some View {
-        let accent = style == .local ? Theme.localMain(model.country) : Theme.euroBlue
-        let dark = style == .local ? Theme.localDark(model.country) : Theme.euroBlue
-        let soft = style == .local ? Theme.localSoft(model.country) : Theme.euroSoft
-        let borderColor = style == .local ? Theme.usaRed.opacity(0.34) : Theme.euroBlue.opacity(0.34)
+        let bright = style == .local ? Theme.localBright(model.country) : Theme.euroBright
+        let gradient = style == .local ? Theme.accentGradient(model.country) : Theme.euroGradient
+        let glow = style == .local ? Theme.localMain(model.country) : Theme.euroBlue
         return VStack(alignment: .leading, spacing: 4) {
             HStack {
                 Text(label)
-                    .font(.system(size: 12, weight: .black))
+                    .font(.system(size: 11, weight: .black, design: .rounded))
                     .textCase(.uppercase)
                     .kerning(0.6)
                 Spacer()
                 Text(code)
-                    .font(.system(size: 14, weight: .black))
+                    .font(.system(size: 12, weight: .black, design: .rounded))
+                    .padding(.vertical, 2)
+                    .padding(.horizontal, 8)
+                    .background(bright.opacity(0.16), in: Capsule())
             }
-            .foregroundStyle(dark)
+            .foregroundStyle(bright)
             HStack(alignment: .lastTextBaseline, spacing: 8) {
                 TextField("0", text: amountBinding(field))
                     .focused($focus, equals: .amount(field))
                     .keyboardType(.decimalPad)
-                    .font(.system(size: large ? 34 : 26, weight: .heavy))
+                    .font(.system(size: large ? 34 : 26, weight: .heavy, design: .rounded))
                     .monospacedDigit()
                     .minimumScaleFactor(0.5)
                     .lineLimit(1)
-                    .foregroundStyle(dark)
+                    .foregroundStyle(Theme.textPrimary)
                 Text(unit)
-                    .font(.system(size: large ? 17 : 15, weight: .black))
-                    .foregroundStyle(Theme.muted)
+                    .font(.system(size: large ? 17 : 15, weight: .black, design: .rounded))
+                    .foregroundStyle(Theme.textSecondary)
             }
             Text(hint.isEmpty ? " " : hint)
-                .font(.system(size: 12))
+                .font(.system(size: 12, design: .rounded))
                 .monospacedDigit()
-                .foregroundStyle(Theme.muted)
+                .foregroundStyle(Theme.textSecondary)
+                .contentTransition(.numericText())
+                .animation(.snappy, value: hint)
         }
         .padding(.vertical, large ? 9 : 7)
         .padding(.horizontal, 14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            LinearGradient(colors: [Color.white, soft], startPoint: .top, endPoint: .bottom)
-        )
+        .background(Theme.fieldFill)
         .overlay(alignment: .leading) {
-            accent.frame(width: 5)
+            RoundedRectangle(cornerRadius: 2)
+                .fill(gradient)
+                .frame(width: 4)
+                .shadow(color: glow.opacity(0.8), radius: 5, x: 2)
         }
-        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .stroke(borderColor, lineWidth: 1)
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(focus == .amount(field) ? bright.opacity(0.7) : Theme.glassStroke, lineWidth: 1)
         )
         .onTapGesture { focus = .amount(field) }
     }
@@ -427,22 +465,32 @@ struct ContentView: View {
         HStack(spacing: 10) {
             Text(model.status)
                 .font(.system(size: 12))
-                .foregroundStyle(Theme.muted)
+                .foregroundStyle(Theme.textSecondary)
+                .contentTransition(.numericText())
+                .animation(.snappy, value: model.status)
                 .frame(maxWidth: .infinity, alignment: .leading)
             Button {
                 focus = nil
                 Task { await model.refreshRate() }
             } label: {
-                Text("Aktualisieren")
-                    .font(.system(size: 14, weight: .black))
-                    .padding(.horizontal, 14)
-                    .frame(minHeight: 38)
-                    .foregroundStyle(Color(red: 0x16 / 255, green: 0x16 / 255, blue: 0x16 / 255))
-                    .background(Theme.gold, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                HStack(spacing: 6) {
+                    if model.isRefreshing {
+                        ProgressView()
+                            .controlSize(.small)
+                            .tint(Theme.ink)
+                    }
+                    Text("Aktualisieren")
+                        .font(.system(size: 14, weight: .black, design: .rounded))
+                }
+                .padding(.horizontal, 14)
+                .frame(minHeight: 38)
+                .foregroundStyle(Theme.ink)
+                .background(Theme.goldGradient, in: RoundedRectangle(cornerRadius: 11, style: .continuous))
+                .shadow(color: Theme.gold.opacity(0.35), radius: 8, y: 3)
             }
             .buttonStyle(.plain)
             .disabled(model.isRefreshing)
-            .opacity(model.isRefreshing ? 0.6 : 1)
+            .opacity(model.isRefreshing ? 0.75 : 1)
         }
     }
 
@@ -456,14 +504,14 @@ struct ContentView: View {
                     model.setQuickAmount(amount)
                 } label: {
                     Text("$\(amount)")
-                        .font(.system(size: 14, weight: .black))
+                        .font(.system(size: 14, weight: .black, design: .rounded))
                         .minimumScaleFactor(0.8)
                         .frame(maxWidth: .infinity, minHeight: 36)
-                        .foregroundStyle(Theme.ink)
-                        .background(Color.white.opacity(0.92), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                        .foregroundStyle(Theme.textPrimary)
+                        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                         .overlay(
-                            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                .stroke(Theme.line, lineWidth: 1)
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .stroke(Theme.glassStroke, lineWidth: 1)
                         )
                 }
                 .buttonStyle(.plain)
@@ -474,9 +522,8 @@ struct ContentView: View {
     private var footer: some View {
         Text("Quelle: frankfurter.dev. US-Steuer: Ortsbestimmung mit NY-County-Tabelle (Pub 718), Bundesstaaten-Basissätzen und Stadt-Voreinstellungen.")
             .font(.system(size: 10))
-            .foregroundStyle(Color.white)
+            .foregroundStyle(Theme.textFaint)
             .multilineTextAlignment(.center)
-            .shadow(color: .black.opacity(0.35), radius: 2, y: 1)
     }
 
     // MARK: Bindings
@@ -506,4 +553,5 @@ struct ContentView: View {
 #Preview {
     ContentView()
         .environmentObject(AppModel())
+        .preferredColorScheme(.dark)
 }
