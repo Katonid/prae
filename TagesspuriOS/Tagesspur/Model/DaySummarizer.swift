@@ -19,14 +19,17 @@ enum DaySummarizer {
     private static let longTripDistance: Double = 30_000
     private static let longTripDiameter: Double = 15_000
 
-    /// Ergänzt fehlende Beschreibungen der eigenen Tage (neueste zuerst,
-    /// pro Aufruf begrenzt — Reverse-Geocoding ist gedrosselt).
+    /// Ergänzt fehlende oder veraltete Beschreibungen der eigenen Tage
+    /// (neueste zuerst, pro Aufruf begrenzt — Reverse-Geocoding ist
+    /// gedrosselt). Veraltet = der Punktebestand hat sich seit der
+    /// Berechnung geändert (z. B. nachgelieferte Sync-Daten).
     static func updateMissingSummaries(container: ModelContainer, maxDays: Int = 5) async {
         let context = ModelContext(container)
         let deviceId = DeviceInfo.deviceId
         let today = DayKey.key(for: Date())
         let predicate = #Predicate<TrackDay> {
-            $0.deviceId == deviceId && $0.summary == "" && $0.dayKey < today && $0.pointCount > 1
+            $0.deviceId == deviceId && $0.dayKey < today && $0.pointCount > 1
+                && $0.summaryPointCount != $0.pointCount
         }
         var descriptor = FetchDescriptor(predicate: predicate, sortBy: [SortDescriptor(\TrackDay.dayKey, order: .reverse)])
         descriptor.fetchLimit = maxDays
@@ -35,6 +38,7 @@ enum DaySummarizer {
         for day in days {
             let text = await summary(for: day.points(), distanceMeters: day.distanceMeters)
             day.summary = text.isEmpty ? noResult : text
+            day.summaryPointCount = day.pointCount
             day.updatedAt = Date()
             try? context.save()
         }
