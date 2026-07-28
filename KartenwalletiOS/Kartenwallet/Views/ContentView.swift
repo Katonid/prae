@@ -10,8 +10,6 @@ struct ContentView: View {
     @State private var showsSettings = false
     @State private var showsPassImporter = false
 
-    private static let pkpassType = UTType("com.apple.pkpass") ?? .data
-
     var body: some View {
         NavigationStack {
             Group {
@@ -53,9 +51,13 @@ struct ContentView: View {
             .sheet(isPresented: $showsSettings) {
                 SettingsView()
             }
+            // Bewusst ohne Typfilter: Fremd-Apps können dem Dateityp .pkpass
+            // eine eigene Typkennung überstülpen — dann wäre die Datei hier
+            // ausgegraut. Ob es wirklich ein gültiger Pass ist, prüft ohnehin
+            // PassKit beim Import.
             .fileImporter(
                 isPresented: $showsPassImporter,
-                allowedContentTypes: [Self.pkpassType],
+                allowedContentTypes: [.item],
                 allowsMultipleSelection: false
             ) { result in
                 if case .success(let urls) = result, let url = urls.first {
