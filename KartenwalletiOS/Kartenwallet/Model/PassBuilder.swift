@@ -153,9 +153,12 @@ enum PassBuilder {
         if !backFields.isEmpty { fields["backFields"] = backFields }
 
         // Wallet stapelt alle Pässe mit derselben Pass-Type-ID. Nur beim
-        // Event-Ticket-Layout erlaubt Apple einen groupingIdentifier —
-        // ein eigener pro Karte sorgt für die Einzeldarstellung.
-        if card.showsSeparatelyInWallet {
+        // Event-Ticket-Layout erlaubt Apple einen groupingIdentifier:
+        // gleicher Wert = gemeinsamer Stapel, eigener Wert = einzeln.
+        if let group = card.walletGroupName {
+            pass["eventTicket"] = fields
+            pass["groupingIdentifier"] = "stapel.\(group.lowercased())"
+        } else if card.showsSeparatelyInWallet {
             pass["eventTicket"] = fields
             pass["groupingIdentifier"] = card.serialNumber
         } else {

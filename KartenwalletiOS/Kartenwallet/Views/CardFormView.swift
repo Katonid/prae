@@ -16,12 +16,47 @@ struct CardFormView: View {
     @State private var showsScanner = false
     @State private var scanHint: String?
     @State private var detectionRunning = false
+    @State private var walletDisplay: WalletDisplay
+    @State private var groupName: String
+
+    /// Darstellung des Passes in der Wallet.
+    enum WalletDisplay: String, CaseIterable, Identifiable {
+        case single, group, pile
+
+        var id: String { rawValue }
+
+        var label: String {
+            switch self {
+            case .single: return "Einzeln"
+            case .group: return "Eigener Stapel"
+            case .pile: return "Bei allen anderen"
+            }
+        }
+
+        var explanation: String {
+            switch self {
+            case .single:
+                return "Die Karte erscheint als eigene Kachel in der Wallet."
+            case .group:
+                return "Karten mit demselben Stapel-Namen liegen in der Wallet übereinander — Kachel antippen und durchblättern. Als Kachel zeigt Wallet eine der Karten aus dem Stapel."
+            case .pile:
+                return "Die Karte liegt im großen Stapel mit allen anderen Karten ohne Einzeldarstellung."
+            }
+        }
+    }
 
     init(existing: Card?) {
         self.existing = existing
         let initial = existing ?? Card()
         _card = State(initialValue: initial)
         _color = State(initialValue: Color(hex: initial.colorHex))
+        if let group = initial.walletGroupName {
+            _walletDisplay = State(initialValue: .group)
+            _groupName = State(initialValue: group)
+        } else {
+            _walletDisplay = State(initialValue: initial.showsSeparatelyInWallet ? .single : .pile)
+            _groupName = State(initialValue: "")
+        }
     }
 
     var body: some View {
@@ -56,11 +91,25 @@ struct CardFormView: View {
 
                 Section("Aussehen") {
                     ColorPicker("Passfarbe", selection: $color, supportsOpacity: false)
-                    Toggle("In der Wallet einzeln anzeigen", isOn: Binding(
-                        get: { card.showsSeparatelyInWallet },
-                        set: { card.separateInWallet = $0 }
-                    ))
-                    Text("Ausgeschaltet liegen alle Karten aus dieser App in der Wallet gestapelt übereinander.")
+                }
+
+                Section("Darstellung in der Wallet") {
+                    Picker("In der Wallet", selection: $walletDisplay) {
+                        ForEach(WalletDisplay.allCases) { mode in
+                            Text(mode.label).tag(mode)
+                        }
+                    }
+                    if walletDisplay == .group {
+                        TextField("Name des Stapels (z. B. Einkauf)", text: $groupName)
+                        if !existingGroups.isEmpty {
+                            Menu("Vorhandenen Stapel wählen") {
+                                ForEach(existingGroups, id: \.self) { name in
+                                    Button(name) { groupName = name }
+                                }
+                            }
+                        }
+                    }
+                    Text(walletDisplay.explanation)
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
@@ -218,10 +267,33 @@ struct CardFormView: View {
         }
     }
 
+    /// Stapel-Namen der übrigen Karten als Auswahlhilfe.
+    private var existingGroups: [String] {
+        var names: [String] = []
+        for other in store.cards where other.id != card.id {
+            if let name = other.walletGroupName, !names.contains(name) {
+                names.append(name)
+            }
+        }
+        return names.sorted()
+    }
+
     private func save() {
         card.colorHex = colorAsHex()
         card.title = card.title.trimmingCharacters(in: .whitespaces)
         card.barcodeMessage = card.barcodeMessage.trimmingCharacters(in: .whitespacesAndNewlines)
+        switch walletDisplay {
+        case .single:
+            card.separateInWallet = true
+            card.walletGroup = nil
+        case .pile:
+            card.separateInWallet = false
+            card.walletGroup = nil
+        case .group:
+            let name = groupName.trimmingCharacters(in: .whitespacesAndNewlines)
+            card.separateInWallet = true
+            card.walletGroup = name.isEmpty ? nil : name
+        }
         if card.kind == .photo, let photo {
             card.photoFilename = store.savePhoto(photo, for: card.id)
         }

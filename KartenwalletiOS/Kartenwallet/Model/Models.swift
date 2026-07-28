@@ -65,8 +65,17 @@ struct Card: Identifiable, Codable, Equatable {
     /// Karten dieser App. Optional (nil = einzeln), damit bereits
     /// gespeicherte Karten aus älteren Versionen weiter laden.
     var separateInWallet: Bool?
+    /// Name eines eigenen Wallet-Stapels: Karten mit demselben Namen
+    /// liegen in der Wallet übereinander. Optional (nil = kein Stapel).
+    var walletGroup: String?
 
     var showsSeparatelyInWallet: Bool { separateInWallet ?? true }
+
+    var walletGroupName: String? {
+        guard let name = walletGroup?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !name.isEmpty else { return nil }
+        return name
+    }
 
     var hasBarcode: Bool {
         !barcodeMessage.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty

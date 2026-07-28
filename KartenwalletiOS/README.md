@@ -21,10 +21,14 @@ systemeigenen „Zu Apple Wallet hinzufügen"-Dialog.
 - **Gestaltung:** Passfarbe frei wählbar, Name/Zusatz/Kartennummer als
   Felder, Notizen auf der Passrückseite. Text weiß oder schwarz — je
   nachdem, was auf der gewählten Farbe lesbar ist.
-- **Einzeldarstellung:** Karten erscheinen in der Wallet standardmäßig
-  einzeln statt gestapelt (Event-Ticket-Layout mit eigenem
-  `groupingIdentifier` pro Karte — Wallet stapelt sonst alles mit
-  derselben Pass-Type-ID). Pro Karte abschaltbar.
+- **Darstellung in der Wallet, pro Karte wählbar:** „Einzeln" (eigene
+  Kachel, Standard), „Eigener Stapel" (Karten mit demselben Stapel-Namen
+  liegen als eine Kachel übereinander — antippen und durchblättern)
+  oder „Bei allen anderen" (ein großer Stapel). Technisch:
+  Event-Ticket-Layout mit `groupingIdentifier` — eigener Wert pro Karte
+  = einzeln, gleicher Wert = gemeinsamer Stapel; Wallet stapelt sonst
+  alles mit derselben Pass-Type-ID. Welche Karte ein Stapel als Kachel
+  zeigt, entscheidet iOS.
 - **Verwalten & Teilen:** Karten bearbeiten (erneutes Hinzufügen ersetzt
   den Pass in der Wallet — gleiche Seriennummer), löschen,
   `.pkpass`-Datei teilen. Geteilte Pässe kann **jeder** direkt in seine
