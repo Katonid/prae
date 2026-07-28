@@ -18,6 +18,23 @@
 				<string>com.apple.pkpass</string>
 			</array>
 		</dict>
+		<!-- Zusätzlich generische Daten: Datei-Manager-Apps können die
+		     Typzuordnung von .pkpass verschatten — dann würde Kartenwallet
+		     im Teilen-Dialog fehlen. Über public.data erscheint die App
+		     dort immer; ob die Datei wirklich ein Pass ist, prüft PassKit
+		     beim Import und meldet Fehler verständlich. -->
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>Datei</string>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
+			<key>LSHandlerRank</key>
+			<string>None</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>public.data</string>
+			</array>
+		</dict>
 	</array>
 	<!-- Bewusst KEINE eigene UTImportedTypeDeclaration für com.apple.pkpass:
 	     Eine Fremd-Deklaration eines System-Dateityps kann dessen
