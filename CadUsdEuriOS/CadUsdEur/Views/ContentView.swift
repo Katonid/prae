@@ -13,23 +13,22 @@ struct ContentView: View {
     var body: some View {
         ZStack {
             CountryBackground(country: model.country)
-            GeometryReader { proxy in
-                ScrollView {
-                    VStack(spacing: 14) {
-                        switcher
-                        header
-                        card
-                        quickAmounts
-                        footer
-                    }
-                    .frame(maxWidth: 500)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 18)
-                    .frame(maxWidth: .infinity, minHeight: proxy.size.height)
+            ScrollView {
+                VStack(spacing: 14) {
+                    switcher
+                    header
+                    card
+                    quickAmounts
+                    footer
                 }
-                .scrollBounceBehavior(.basedOnSize)
+                .frame(maxWidth: 500)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 18)
+                .frame(maxWidth: .infinity)
             }
+            .scrollBounceBehavior(.basedOnSize)
         }
+        .task { await model.start() }
         .animation(.easeInOut(duration: 0.2), value: model.country)
         .toolbar {
             ToolbarItemGroup(placement: .keyboard) {
@@ -134,7 +133,7 @@ struct ContentView: View {
                         label: "Euro netto", code: "EUR",
                         unit: "€", hint: model.eurHint)
             amountField(.localTax, style: .local, large: false,
-                        label: model.mode.taxLabel, code: model.mode.code,
+                        label: model.localTaxFieldLabel, code: model.mode.code,
                         unit: "$", hint: model.localTaxHint)
             amountField(.eurTax, style: .eur, large: true,
                         label: "Endpreis inkl. Steuer", code: "EUR",
@@ -258,7 +257,10 @@ struct ContentView: View {
             HStack(spacing: 8) {
                 cityButton("Buffalo", city: "Buffalo", tax: 8.75)
                 cityButton("Niagara Falls", city: "Niagara Falls (New York)", tax: 8)
+            }
+            HStack(spacing: 8) {
                 cityButton("Detroit", city: "Detroit", tax: 6)
+                cityButton("Cleveland", city: "Cleveland", tax: 8)
             }
             locationButton("Standort für Sales Tax nutzen")
         }
@@ -415,7 +417,7 @@ struct ContentView: View {
     }
 
     private var footer: some View {
-        Text("Quelle: frankfurter.dev. US-Steuer: Online-Ortsprüfung plus lokale Fallback-Raten für die voreingestellten Städte.")
+        Text("Quelle: frankfurter.dev. US-Steuer: Ortsbestimmung mit NY-County-Tabelle (Pub 718), Bundesstaaten-Basissätzen und Stadt-Voreinstellungen.")
             .font(.system(size: 12))
             .foregroundStyle(Color.white)
             .multilineTextAlignment(.center)

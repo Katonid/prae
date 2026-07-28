@@ -6,12 +6,9 @@ struct CadUsdEurApp: App {
 
     var body: some Scene {
         WindowGroup {
-            NavigationStack {
-                ContentView()
-                    .toolbar(.hidden, for: .navigationBar)
-            }
-            .environmentObject(model)
-            .preferredColorScheme(.light)
+            ContentView()
+                .environmentObject(model)
+                .preferredColorScheme(.light)
         }
     }
 }

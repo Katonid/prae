@@ -30,21 +30,43 @@ enum Theme {
     }
 }
 
-// MARK: - Ahornblatt (clip-path-Polygon der PWA als Shape)
+// MARK: - Ahornblatt
+// Eckpunkte des offiziellen elfzackigen Ahornblatts der kanadischen
+// Nationalflagge (aus dem amtlichen Flaggen-SVG extrahiert; die
+// Original-Kontur besteht aus geraden Segmenten). Seitenverhältnis 3720:4030.
 
 struct MapleLeaf: Shape {
+    static let aspectRatio: CGFloat = 3720.0 / 4030.0
+
     static let points: [CGPoint] = [
-        CGPoint(x: 0.50, y: 0.00), CGPoint(x: 0.61, y: 0.30), CGPoint(x: 0.92, y: 0.17),
-        CGPoint(x: 0.76, y: 0.48), CGPoint(x: 1.00, y: 0.55), CGPoint(x: 0.66, y: 0.62),
-        CGPoint(x: 0.70, y: 1.00), CGPoint(x: 0.50, y: 0.76), CGPoint(x: 0.30, y: 1.00),
-        CGPoint(x: 0.34, y: 0.62), CGPoint(x: 0.00, y: 0.55), CGPoint(x: 0.24, y: 0.48),
-        CGPoint(x: 0.08, y: 0.17), CGPoint(x: 0.39, y: 0.30)
+        CGPoint(x: 0.5242, y: 1.0000), CGPoint(x: 0.5121, y: 0.7859), CGPoint(x: 0.5419, y: 0.7615),
+        CGPoint(x: 0.7728, y: 0.7990), CGPoint(x: 0.7417, y: 0.7196), CGPoint(x: 0.7470, y: 0.7015),
+        CGPoint(x: 1.0000, y: 0.5124), CGPoint(x: 0.9430, y: 0.4878), CGPoint(x: 0.9339, y: 0.4682),
+        CGPoint(x: 0.9839, y: 0.3263), CGPoint(x: 0.8382, y: 0.3548), CGPoint(x: 0.8185, y: 0.3454),
+        CGPoint(x: 0.7903, y: 0.2841), CGPoint(x: 0.6766, y: 0.3968), CGPoint(x: 0.6468, y: 0.3826),
+        CGPoint(x: 0.7016, y: 0.1216), CGPoint(x: 0.6137, y: 0.1685), CGPoint(x: 0.5892, y: 0.1618),
+        CGPoint(x: 0.5000, y: 0.0000), CGPoint(x: 0.4108, y: 0.1618), CGPoint(x: 0.3863, y: 0.1685),
+        CGPoint(x: 0.2984, y: 0.1216), CGPoint(x: 0.3532, y: 0.3826), CGPoint(x: 0.3234, y: 0.3968),
+        CGPoint(x: 0.2097, y: 0.2841), CGPoint(x: 0.1815, y: 0.3454), CGPoint(x: 0.1618, y: 0.3548),
+        CGPoint(x: 0.0161, y: 0.3263), CGPoint(x: 0.0661, y: 0.4682), CGPoint(x: 0.0570, y: 0.4878),
+        CGPoint(x: 0.0000, y: 0.5124), CGPoint(x: 0.2530, y: 0.7015), CGPoint(x: 0.2583, y: 0.7196),
+        CGPoint(x: 0.2272, y: 0.7990), CGPoint(x: 0.4581, y: 0.7615), CGPoint(x: 0.4879, y: 0.7859),
+        CGPoint(x: 0.4758, y: 1.0000)
     ]
 
     func path(in rect: CGRect) -> Path {
+        // Blatt formatfüllend, aber unverzerrt in rect einpassen.
+        var box = rect
+        if rect.width / rect.height > Self.aspectRatio {
+            let width = rect.height * Self.aspectRatio
+            box = CGRect(x: rect.midX - width / 2, y: rect.minY, width: width, height: rect.height)
+        } else {
+            let height = rect.width / Self.aspectRatio
+            box = CGRect(x: rect.minX, y: rect.midY - height / 2, width: rect.width, height: height)
+        }
         var path = Path()
         let scaled = Self.points.map {
-            CGPoint(x: rect.minX + $0.x * rect.width, y: rect.minY + $0.y * rect.height)
+            CGPoint(x: box.minX + $0.x * box.width, y: box.minY + $0.y * box.height)
         }
         path.addLines(scaled)
         path.closeSubpath()
@@ -79,7 +101,7 @@ struct CanadaFlag: View {
                 }
                 MapleLeaf()
                     .fill(Theme.canada)
-                    .frame(width: 14, height: 20)
+                    .frame(width: 22, height: 24)
             }
         }
         .modifier(FlagFrame())

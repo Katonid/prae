@@ -2,7 +2,7 @@ import Foundation
 import CoreLocation
 import SwiftUI
 
-// MARK: - Grunddaten (1:1 aus der PWA übernommen)
+// MARK: - Grunddaten (aus der PWA übernommen und erweitert)
 
 enum Country: String {
     case ca
@@ -22,10 +22,9 @@ struct ModeInfo {
     let subtitle: String
     let netLabel: String
     let taxLabel: String
-    let defaultTaxRate: Double
     let fallbackRate: Double
-    let apiURL: URL
-    let fallbackAPIURL: URL
+    let apiURL: URL?
+    let fallbackAPIURL: URL?
 }
 
 struct TaxMatch {
@@ -35,41 +34,68 @@ struct TaxMatch {
 }
 
 enum ModeData {
-    static let modes: [Country: ModeInfo] = [
-        .ca: ModeInfo(
-            code: "CAD",
-            title: "CAD EUR",
-            subtitle: "Kanadische Dollar und Euro mit Ontario-Steuer umrechnen.",
-            netLabel: "Kanadische Dollar",
-            taxLabel: "Preis inkl. Ontario-Steuer",
-            defaultTaxRate: 13,
-            fallbackRate: 0.67,
-            apiURL: URL(string: "https://api.frankfurter.dev/v2/rate/CAD/EUR")!,
-            fallbackAPIURL: URL(string: "https://api.frankfurter.dev/v1/latest?base=CAD&symbols=EUR")!
-        ),
-        .us: ModeInfo(
-            code: "USD",
-            title: "USD EUR",
-            subtitle: "US-Dollar und Euro mit lokaler Sales Tax umrechnen.",
-            netLabel: "US-Dollar",
-            taxLabel: "Preis inkl. Sales Tax",
-            defaultTaxRate: 8.75,
-            fallbackRate: 0.92,
-            apiURL: URL(string: "https://api.frankfurter.dev/v2/rate/USD/EUR")!,
-            fallbackAPIURL: URL(string: "https://api.frankfurter.dev/v1/latest?base=USD&symbols=EUR")!
-        )
-    ]
+    static let ca = ModeInfo(
+        code: "CAD",
+        title: "CAD EUR",
+        subtitle: "Kanadische Dollar und Euro mit Provinz-Steuer umrechnen.",
+        netLabel: "Kanadische Dollar",
+        taxLabel: "Preis inkl. Steuer",
+        fallbackRate: 0.67,
+        apiURL: URL(string: "https://api.frankfurter.dev/v2/rate/CAD/EUR"),
+        fallbackAPIURL: URL(string: "https://api.frankfurter.dev/v1/latest?base=CAD&symbols=EUR")
+    )
+
+    static let us = ModeInfo(
+        code: "USD",
+        title: "USD EUR",
+        subtitle: "US-Dollar und Euro mit lokaler Sales Tax umrechnen.",
+        netLabel: "US-Dollar",
+        taxLabel: "Preis inkl. Sales Tax",
+        fallbackRate: 0.92,
+        apiURL: URL(string: "https://api.frankfurter.dev/v2/rate/USD/EUR"),
+        fallbackAPIURL: URL(string: "https://api.frankfurter.dev/v1/latest?base=USD&symbols=EUR")
+    )
+
+    static func mode(for country: Country) -> ModeInfo {
+        country == .ca ? ca : us
+    }
 
     static let usCityRates: [String: TaxMatch] = [
-        "buffalo": TaxMatch(label: "Buffalo", tax: 8.75, source: "Avalara 2026 / Erie County"),
-        "buffalo ny": TaxMatch(label: "Buffalo", tax: 8.75, source: "Avalara 2026 / Erie County"),
-        "buffalo new york": TaxMatch(label: "Buffalo", tax: 8.75, source: "Avalara 2026 / Erie County"),
-        "niagara falls": TaxMatch(label: "Niagara Falls (New York)", tax: 8, source: "NY Tax Dept. Niagara County 2026"),
-        "niagara falls ny": TaxMatch(label: "Niagara Falls (New York)", tax: 8, source: "NY Tax Dept. Niagara County 2026"),
-        "niagara falls new york": TaxMatch(label: "Niagara Falls (New York)", tax: 8, source: "NY Tax Dept. Niagara County 2026"),
+        "buffalo": TaxMatch(label: "Buffalo", tax: 8.75, source: "Erie County, NY Pub 718"),
+        "buffalo ny": TaxMatch(label: "Buffalo", tax: 8.75, source: "Erie County, NY Pub 718"),
+        "buffalo new york": TaxMatch(label: "Buffalo", tax: 8.75, source: "Erie County, NY Pub 718"),
+        "niagara falls": TaxMatch(label: "Niagara Falls (New York)", tax: 8, source: "Niagara County, NY Pub 718"),
+        "niagara falls ny": TaxMatch(label: "Niagara Falls (New York)", tax: 8, source: "Niagara County, NY Pub 718"),
+        "niagara falls new york": TaxMatch(label: "Niagara Falls (New York)", tax: 8, source: "Niagara County, NY Pub 718"),
         "detroit": TaxMatch(label: "Detroit", tax: 6, source: "Michigan Treasury"),
         "detroit mi": TaxMatch(label: "Detroit", tax: 6, source: "Michigan Treasury"),
-        "detroit michigan": TaxMatch(label: "Detroit", tax: 6, source: "Michigan Treasury")
+        "detroit michigan": TaxMatch(label: "Detroit", tax: 6, source: "Michigan Treasury"),
+        "cleveland": TaxMatch(label: "Cleveland", tax: 8, source: "Cuyahoga County, Ohio"),
+        "cleveland oh": TaxMatch(label: "Cleveland", tax: 8, source: "Cuyahoga County, Ohio"),
+        "cleveland ohio": TaxMatch(label: "Cleveland", tax: 8, source: "Cuyahoga County, Ohio")
+    ]
+
+    /// Kombinierte Sales-Tax-Sätze je County im Bundesstaat New York
+    /// (NY Dept. of Taxation, Publication 718, Stand März 2025).
+    /// Bronx/Kings/New York/Queens/Richmond sind die fünf NYC-Boroughs.
+    static let nyCountyRates: [String: Double] = [
+        "albany": 8, "allegany": 8.5, "broome": 8, "cattaraugus": 8,
+        "cayuga": 8, "chautauqua": 8, "chemung": 8, "chenango": 8,
+        "clinton": 8, "columbia": 8, "cortland": 8, "delaware": 8,
+        "dutchess": 8.125, "erie": 8.75, "essex": 8, "franklin": 8,
+        "fulton": 8, "genesee": 8, "greene": 8, "hamilton": 8,
+        "herkimer": 8.25, "jefferson": 8, "lewis": 8, "livingston": 8,
+        "madison": 8, "monroe": 8, "montgomery": 8, "nassau": 8.625,
+        "niagara": 8, "oneida": 8.75, "onondaga": 8, "ontario": 7.5,
+        "orange": 8.125, "orleans": 8, "oswego": 8, "otsego": 8,
+        "putnam": 8.375, "rensselaer": 8, "rockland": 8.375,
+        "st lawrence": 8, "saint lawrence": 8, "saratoga": 7,
+        "schenectady": 8, "schoharie": 8, "schuyler": 8, "seneca": 8,
+        "steuben": 8, "suffolk": 8.75, "sullivan": 8, "tioga": 8,
+        "tompkins": 8, "ulster": 8, "warren": 7, "washington": 7,
+        "wayne": 8, "westchester": 8.375, "wyoming": 8, "yates": 8,
+        "bronx": 8.875, "kings": 8.875, "new york": 8.875,
+        "queens": 8.875, "richmond": 8.875
     ]
 
     static let usStateRates: [String: Double] = [
@@ -126,6 +152,8 @@ enum ModeData {
         "wyoming": 4, "wy": 4
     ]
 
+    // Quebec: 5% GST + 9,975% QST = 14,975% kombiniert (Revenu Québec).
+    // Ontario: 13% HST.
     static let canadaProvinceRates: [String: TaxMatch] = [
         "ontario": TaxMatch(label: "Ontario", tax: 13, source: "Ontario"),
         "on": TaxMatch(label: "Ontario", tax: 13, source: "Ontario"),
@@ -161,32 +189,53 @@ final class AppModel: NSObject, ObservableObject {
     @Published var isRefreshing = false
 
     // Je Land gemerkte Werte (entspricht MODES.xx.rate/taxRate in der PWA)
-    private var rates: [Country: Double] = [.ca: 0.67, .us: 0.92]
-    private var taxRates: [Country: Double] = [.ca: 13, .us: 8.75]
+    private var rateCA: Double = ModeData.ca.fallbackRate
+    private var rateUS: Double = ModeData.us.fallbackRate
+    private var taxRateCA: Double = 13
+    private var taxRateUS: Double = 8.75
     private(set) var province = "Ontario"
 
     private var lastEdited: AmountField = .local
     private var baseLocal: Double = 100
     private var restoringState = false
+    private var started = false
     private var cityLookupTask: Task<Void, Never>?
+    private var lastLookedUpCity = ""
 
-    private let locationManager = CLLocationManager()
+    private var locationManager: CLLocationManager?
     private let geocoder = CLGeocoder()
     private var waitingForLocation = false
 
-    var mode: ModeInfo { ModeData.modes[country]! }
-    var rate: Double { rates[country]! }
-    var taxRate: Double { taxRates[country]! }
+    var mode: ModeInfo { ModeData.mode(for: country) }
+    var rate: Double { country == .ca ? rateCA : rateUS }
+    var taxRate: Double { country == .ca ? taxRateCA : taxRateUS }
     var taxFactor: Double { 1 + taxRate / 100 }
 
     var rateDisplay: String { "1 \(mode.code) = \(plainMoney(rate)) EUR" }
     var taxDisplay: String { prettyPercent(taxRate) }
+    var localTaxFieldLabel: String {
+        country == .ca ? "Preis inkl. \(province)-Steuer" : mode.taxLabel
+    }
+
+    private func setRate(_ value: Double, for country: Country) {
+        if country == .ca { rateCA = value } else { rateUS = value }
+    }
+
+    private func setTaxRate(_ value: Double, for country: Country) {
+        if country == .ca { taxRateCA = value } else { taxRateUS = value }
+    }
 
     override init() {
         super.init()
-        locationManager.delegate = self
-        locationManager.desiredAccuracy = kCLLocationAccuracyKilometer
         restoreState()
+    }
+
+    /// Wird einmal beim Erscheinen der Oberfläche aufgerufen (statt Arbeit
+    /// im Initialisierer): lädt den Tageskurs.
+    func start() async {
+        guard !started else { return }
+        started = true
+        await refreshRate()
     }
 
     // MARK: Zahlen parsen/formatieren (Portierung der PWA-Helfer)
@@ -241,7 +290,7 @@ final class AppModel: NSObject, ObservableObject {
         formatter.locale = Locale(identifier: "de_DE")
         formatter.numberStyle = .decimal
         formatter.minimumFractionDigits = 0
-        formatter.maximumFractionDigits = 2
+        formatter.maximumFractionDigits = 3
         return formatter
     }()
 
@@ -281,16 +330,17 @@ final class AppModel: NSObject, ObservableObject {
 
     func recalculate(from field: AmountField) {
         lastEdited = field
+        let safeRate = rate > 0 ? rate : mode.fallbackRate
         let local: Double
         switch field {
         case .local:
             local = parseDecimal(localText)
         case .eur:
-            local = parseDecimal(eurText) / rate
+            local = parseDecimal(eurText) / safeRate
         case .localTax:
             local = parseDecimal(localTaxText) / taxFactor
         case .eurTax:
-            local = parseDecimal(eurTaxText) / rate / taxFactor
+            local = parseDecimal(eurTaxText) / safeRate / taxFactor
         }
         updateAll(fromLocal: local, active: field)
     }
@@ -303,7 +353,7 @@ final class AppModel: NSObject, ObservableObject {
 
         let values: [AmountField: Double] = [.local: local, .eur: eur, .localTax: localTax, .eurTax: eurTax]
         for field in AmountField.allCases where field != active {
-            setText(local != 0 ? plainMoney(values[field]!) : "", for: field)
+            setText(local != 0 ? plainMoney(values[field] ?? 0) : "", for: field)
         }
 
         localHint = local != 0 ? prettyMoney(local, mode.code) : ""
@@ -343,7 +393,7 @@ final class AppModel: NSObject, ObservableObject {
         taxRateText = cleanDecimalText(value)
         let next = parseDecimal(taxRateText)
         if next.isFinite && next >= 0 && next <= 15 {
-            taxRates[country] = next
+            setTaxRate(next, for: country)
             recalculate(from: lastEdited)
             saveState()
         }
@@ -353,12 +403,10 @@ final class AppModel: NSObject, ObservableObject {
         updateTaxRateText()
     }
 
-    private var lastLookedUpCity = ""
-
     func setCityTax(label: String, tax: Double, source: String, keepTypedCity: Bool = false) {
         if !keepTypedCity { cityText = label }
         lastLookedUpCity = normalizeCity(cityText)
-        taxRates[country] = tax
+        setTaxRate(tax, for: country)
         updateTaxRateText()
         status = "Sales Tax: " + prettyPercent(tax) + " (" + source + ")"
         recalculate(from: lastEdited)
@@ -367,7 +415,7 @@ final class AppModel: NSObject, ObservableObject {
 
     func setProvinceTax(label: String, tax: Double) {
         province = label
-        taxRates[.ca] = tax
+        setTaxRate(tax, for: .ca)
         updateTaxRateText()
         status = "Kanada-Steuer: " + prettyPercent(tax) + " (" + label + ")"
         recalculate(from: lastEdited)
@@ -383,7 +431,8 @@ final class AppModel: NSObject, ObservableObject {
                 setCityTax(label: "Buffalo", tax: 8.75, source: "voreingestellt")
             }
         } else {
-            let match = ModeData.canadaProvinceRates[normalizeCity(province)] ?? ModeData.canadaProvinceRates["ontario"]!
+            let match = ModeData.canadaProvinceRates[normalizeCity(province)]
+                ?? TaxMatch(label: "Ontario", tax: 13, source: "Ontario")
             setProvinceTax(label: match.label, tax: match.tax)
         }
         updateTaxRateText()
@@ -414,8 +463,9 @@ final class AppModel: NSObject, ObservableObject {
         isRefreshing = true
         status = "Tageskurs wird geladen..."
         var loaded: Double?
-        let info = ModeData.modes[target]!
+        let info = ModeData.mode(for: target)
         for url in [info.apiURL, info.fallbackAPIURL] {
+            guard let url else { continue }
             var request = URLRequest(url: url)
             request.cachePolicy = .reloadIgnoringLocalCacheData
             request.timeoutInterval = 12
@@ -427,7 +477,7 @@ final class AppModel: NSObject, ObservableObject {
             }
         }
         if let loaded {
-            rates[target] = loaded
+            setRate(loaded, for: target)
         }
         // Nur die jüngste Abfrage aktualisiert Status und Felder,
         // damit ein Länderwechsel während des Ladens nichts überschreibt.
@@ -437,7 +487,7 @@ final class AppModel: NSObject, ObservableObject {
         recalculate(from: lastEdited)
     }
 
-    // MARK: Stadt-/Steuersuche USA (Portierung der Lookup-Kette)
+    // MARK: Stadt-/Steuersuche USA
 
     func normalizeCity(_ value: String) -> String {
         var text = value.lowercased()
@@ -452,7 +502,17 @@ final class AppModel: NSObject, ObservableObject {
         if key.contains("buffalo") { return ModeData.usCityRates["buffalo"] }
         if key.contains("niagara") && key.contains("falls") { return ModeData.usCityRates["niagara falls"] }
         if key.contains("detroit") { return ModeData.usCityRates["detroit"] }
+        if key.contains("cleveland") { return ModeData.usCityRates["cleveland"] }
         return nil
+    }
+
+    /// County-genauer Satz für den Bundesstaat New York (Pub 718).
+    func findNyCountyRate(state: String, county: String) -> TaxMatch? {
+        let stateKey = normalizeCity(state)
+        guard stateKey == "ny" || stateKey == "new york" else { return nil }
+        let countyKey = normalizeCity(county).replacingOccurrences(of: " county", with: "")
+        guard !countyKey.isEmpty, let rate = ModeData.nyCountyRates[countyKey] else { return nil }
+        return TaxMatch(label: county, tax: rate, source: "\(county), NY Pub 718")
     }
 
     func findStateRate(_ text: String) -> TaxMatch? {
@@ -470,6 +530,23 @@ final class AppModel: NSObject, ObservableObject {
 
     func inferTaxFromText(_ text: String) -> TaxMatch? {
         findUsCityRate(normalizeCity(text)) ?? findStateRate(text)
+    }
+
+    /// Ortsbestimmter US-Steuersatz: bekannte Stadt -> NY-County-Tabelle ->
+    /// Basissatz des Bundesstaats.
+    private func usTaxMatch(city: String, state: String, county: String) -> TaxMatch? {
+        let combined = normalizeCity(city + " " + state)
+        if let match = ModeData.usCityRates[combined] ?? findUsCityRate(normalizeCity(city)) {
+            return match
+        }
+        if let match = findNyCountyRate(state: state, county: county) {
+            return match
+        }
+        let stateKey = normalizeCity(state)
+        if !stateKey.isEmpty, let rate = ModeData.usStateRates[stateKey] {
+            return TaxMatch(label: city.isEmpty ? state : city, tax: rate, source: "Basissatz \(state)")
+        }
+        return nil
     }
 
     /// Eingabe im Stadtfeld: bekannte Städte sofort anwenden, sonst
@@ -530,25 +607,32 @@ final class AppModel: NSObject, ObservableObject {
                     self.status = "Stadt nicht gefunden. Tax-% bitte manuell setzen."
                     return
                 }
-                let parts = [placemark.locality, placemark.subAdministrativeArea, placemark.administrativeArea]
-                let displayName = parts.compactMap { $0 }.joined(separator: " ")
-                self.applyTaxFromPlace(displayName.isEmpty ? city : displayName)
+                let locality = placemark.locality ?? city
+                let state = placemark.administrativeArea ?? ""
+                let county = placemark.subAdministrativeArea ?? ""
+                if let match = self.usTaxMatch(city: locality, state: state, county: county) {
+                    self.setCityTax(label: match.label, tax: match.tax, source: match.source + " aus Ortssuche", keepTypedCity: true)
+                } else {
+                    self.status = "Ort gefunden, aber Steuersatz nicht bekannt. Tax-% bitte manuell setzen."
+                }
             }
         }
     }
 
-    private func applyTaxFromPlace(_ displayName: String) {
-        if let match = inferTaxFromText(displayName) {
-            setCityTax(label: match.label, tax: match.tax, source: match.source + " aus Ortssuche", keepTypedCity: true)
-        } else {
-            status = "Ort gefunden, aber Bundesstaat nicht erkannt. Tax-% bitte manuell setzen."
-        }
+    // MARK: Standort (Portierung von useLocation, um County-Erkennung erweitert)
+
+    private func preparedLocationManager() -> CLLocationManager {
+        if let locationManager { return locationManager }
+        let manager = CLLocationManager()
+        manager.desiredAccuracy = kCLLocationAccuracyKilometer
+        manager.delegate = self
+        locationManager = manager
+        return manager
     }
 
-    // MARK: Standort (Portierung von useLocation)
-
     func useLocation() {
-        let authorization = locationManager.authorizationStatus
+        let manager = preparedLocationManager()
+        let authorization = manager.authorizationStatus
         if authorization == .denied || authorization == .restricted {
             status = "Standortfreigabe wurde nicht erteilt."
             return
@@ -556,9 +640,9 @@ final class AppModel: NSObject, ObservableObject {
         status = "Standort wird abgefragt..."
         waitingForLocation = true
         if authorization == .notDetermined {
-            locationManager.requestWhenInUseAuthorization()
+            manager.requestWhenInUseAuthorization()
         } else {
-            locationManager.requestLocation()
+            manager.requestLocation()
         }
     }
 
@@ -566,7 +650,7 @@ final class AppModel: NSObject, ObservableObject {
         guard waitingForLocation else { return }
         switch status {
         case .authorizedWhenInUse, .authorizedAlways:
-            locationManager.requestLocation()
+            preparedLocationManager().requestLocation()
         case .denied, .restricted:
             waitingForLocation = false
             self.status = "Standortfreigabe wurde nicht erteilt."
@@ -588,6 +672,7 @@ final class AppModel: NSObject, ObservableObject {
                 }
                 let city = placemark.locality ?? placemark.subLocality ?? ""
                 let state = placemark.administrativeArea ?? ""
+                let county = placemark.subAdministrativeArea ?? ""
                 let countryCode = (placemark.isoCountryCode ?? "").lowercased()
                 if countryCode == "ca" {
                     self.applyMode(.ca)
@@ -595,7 +680,11 @@ final class AppModel: NSObject, ObservableObject {
                 } else if countryCode == "us" {
                     self.applyMode(.us)
                     self.cityText = city.isEmpty ? state : city
-                    self.applyUsTaxFromLocation(city: city, state: state)
+                    if let match = self.usTaxMatch(city: city, state: state, county: county) {
+                        self.setCityTax(label: match.label, tax: match.tax, source: match.source + ", Standort", keepTypedCity: true)
+                    } else {
+                        self.status = "Ort erkannt. Sales Tax bitte manuell setzen."
+                    }
                 } else {
                     self.status = "Standort erkannt, aber nicht Kanada/USA. Steuer bitte manuell setzen."
                 }
@@ -614,19 +703,6 @@ final class AppModel: NSObject, ObservableObject {
             setProvinceTax(label: match.label, tax: match.tax)
         } else {
             status = "Provinz nicht erkannt. Ontario oder Quebec auswählen."
-        }
-    }
-
-    private func applyUsTaxFromLocation(city: String, state: String) {
-        let key = normalizeCity(city + " " + state)
-        let cityOnly = normalizeCity(city)
-        let stateOnly = normalizeCity(state)
-        if let match = ModeData.usCityRates[key] ?? ModeData.usCityRates[cityOnly] {
-            setCityTax(label: match.label, tax: match.tax, source: "Standort")
-        } else if stateOnly == "michigan" || stateOnly == "mi" {
-            setCityTax(label: city.isEmpty ? "Michigan" : city, tax: 6, source: "Michigan Treasury")
-        } else {
-            status = "Ort erkannt. Sales Tax bitte manuell setzen."
         }
     }
 
@@ -655,15 +731,15 @@ final class AppModel: NSObject, ObservableObject {
                 cityText = "Buffalo"
             }
             if let tax = saved["taxRate"] as? Double, tax.isFinite {
-                taxRates[.us] = tax
+                taxRateUS = tax
             }
         } else {
             if let savedProvince = saved["province"] as? String,
                let match = ModeData.canadaProvinceRates[normalizeCity(savedProvince)] {
                 province = match.label
-                taxRates[.ca] = match.tax
+                taxRateCA = match.tax
             } else if let tax = saved["taxRate"] as? Double, tax.isFinite {
-                taxRates[.ca] = tax
+                taxRateCA = tax
             }
         }
         updateTaxRateText()
@@ -673,7 +749,6 @@ final class AppModel: NSObject, ObservableObject {
         }
         restoringState = false
         saveState()
-        Task { await refreshRate() }
     }
 }
 
