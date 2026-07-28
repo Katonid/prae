@@ -56,6 +56,13 @@ struct CardFormView: View {
 
                 Section("Aussehen") {
                     ColorPicker("Passfarbe", selection: $color, supportsOpacity: false)
+                    Toggle("In der Wallet einzeln anzeigen", isOn: Binding(
+                        get: { card.showsSeparatelyInWallet },
+                        set: { card.separateInWallet = $0 }
+                    ))
+                    Text("Ausgeschaltet liegen alle Karten aus dieser App in der Wallet gestapelt übereinander.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
                 }
 
                 Section("Notiz (Rückseite des Passes)") {

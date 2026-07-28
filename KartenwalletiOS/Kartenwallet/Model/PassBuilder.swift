@@ -138,11 +138,20 @@ enum PassBuilder {
             "value": "Erstellt mit Kartenwallet am \(card.createdAt.formatted(date: .abbreviated, time: .omitted)).",
         ])
 
-        var storeCard: [String: Any] = [:]
-        if !headerFields.isEmpty { storeCard["headerFields"] = headerFields }
-        if !secondaryFields.isEmpty { storeCard["secondaryFields"] = secondaryFields }
-        if !backFields.isEmpty { storeCard["backFields"] = backFields }
-        pass["storeCard"] = storeCard
+        var fields: [String: Any] = [:]
+        if !headerFields.isEmpty { fields["headerFields"] = headerFields }
+        if !secondaryFields.isEmpty { fields["secondaryFields"] = secondaryFields }
+        if !backFields.isEmpty { fields["backFields"] = backFields }
+
+        // Wallet stapelt alle Pässe mit derselben Pass-Type-ID. Nur beim
+        // Event-Ticket-Layout erlaubt Apple einen groupingIdentifier —
+        // ein eigener pro Karte sorgt für die Einzeldarstellung.
+        if card.showsSeparatelyInWallet {
+            pass["eventTicket"] = fields
+            pass["groupingIdentifier"] = card.serialNumber
+        } else {
+            pass["storeCard"] = fields
+        }
 
         if card.hasBarcode {
             let barcode: [String: Any] = [
