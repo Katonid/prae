@@ -1,32 +1,74 @@
 import SwiftUI
 
-// Farbwerte 1:1 aus dem Stylesheet der PWA.
+// Farbwelt: dunkle Premium-Basis, die Länderfarben der PWA
+// (Kanada-Rot, US-Navy, Euro-Blau, Gold) als leuchtende Akzente.
 enum Theme {
+    // Flaggen- und Basisfarben (aus der PWA)
     static let canada = Color(red: 0xD8 / 255, green: 0x06 / 255, blue: 0x21 / 255)
-    static let canadaDark = Color(red: 0x9F / 255, green: 0x00 / 255, blue: 0x18 / 255)
-    static let canadaSoft = Color(red: 1.0, green: 0xF0 / 255, blue: 0xF2 / 255)
     static let usaRed = Color(red: 0xB2 / 255, green: 0x22 / 255, blue: 0x34 / 255)
     static let usaBlue = Color(red: 0x3C / 255, green: 0x3B / 255, blue: 0x6E / 255)
-    static let usaSoft = Color(red: 1.0, green: 0xF1 / 255, blue: 0xF3 / 255)
     static let euroBlue = Color(red: 0x00 / 255, green: 0x33 / 255, blue: 0x99 / 255)
-    static let euroSoft = Color(red: 0xE7 / 255, green: 0xEF / 255, blue: 0xFF / 255)
     static let gold = Color(red: 1.0, green: 0xCE / 255, blue: 0x00 / 255)
     static let ink = Color(red: 0x15 / 255, green: 0x15 / 255, blue: 0x15 / 255)
-    static let muted = Color(red: 0x63 / 255, green: 0x63 / 255, blue: 0x63 / 255)
-    static let line = Color(red: 0x15 / 255, green: 0x15 / 255, blue: 0x15 / 255).opacity(0.14)
     static let germanBlack = Color.black
     static let germanRed = Color(red: 0xDD / 255, green: 0x00 / 255, blue: 0x00 / 255)
+
+    // Dunkle Bühne
+    static let bgTop = Color(red: 0.04, green: 0.05, blue: 0.10)
+    static let bgBottom = Color(red: 0.08, green: 0.09, blue: 0.17)
+
+    // Text auf dunklem Grund
+    static let textPrimary = Color.white
+    static let textSecondary = Color.white.opacity(0.62)
+    static let textFaint = Color.white.opacity(0.4)
+
+    // Glas-Flächen
+    static let glassStroke = Color.white.opacity(0.14)
+    static let glassFill = Color.white.opacity(0.06)
+    static let fieldFill = Color.white.opacity(0.07)
+
+    // Leuchtende Akzenttöne (für Beschriftungen auf dunklem Grund)
+    static let canadaBright = Color(red: 1.0, green: 0.42, blue: 0.47)
+    static let usaBrightRed = Color(red: 1.0, green: 0.47, blue: 0.52)
+    static let euroBright = Color(red: 0.48, green: 0.64, blue: 1.0)
+    static let goldBright = Color(red: 1.0, green: 0.86, blue: 0.35)
+
+    static func localBright(_ country: Country) -> Color {
+        country == .ca ? canadaBright : usaBrightRed
+    }
 
     static func localMain(_ country: Country) -> Color {
         country == .ca ? canada : usaRed
     }
 
-    static func localDark(_ country: Country) -> Color {
-        country == .ca ? canadaDark : usaBlue
+    // Verlaufe
+    static func accentGradient(_ country: Country) -> LinearGradient {
+        country == .ca
+            ? LinearGradient(colors: [Color(red: 1.0, green: 0.28, blue: 0.35), canada],
+                             startPoint: .topLeading, endPoint: .bottomTrailing)
+            : LinearGradient(colors: [usaRed, usaBlue],
+                             startPoint: .topLeading, endPoint: .bottomTrailing)
     }
 
-    static func localSoft(_ country: Country) -> Color {
-        country == .ca ? canadaSoft : usaSoft
+    static let euroGradient = LinearGradient(
+        colors: [Color(red: 0.36, green: 0.55, blue: 1.0), euroBlue],
+        startPoint: .topLeading, endPoint: .bottomTrailing
+    )
+
+    static let goldGradient = LinearGradient(
+        colors: [Color(red: 1.0, green: 0.88, blue: 0.38), Color(red: 0.95, green: 0.70, blue: 0.0)],
+        startPoint: .topLeading, endPoint: .bottomTrailing
+    )
+
+    static func rateBarGradient(_ country: Country) -> LinearGradient {
+        LinearGradient(
+            stops: [
+                .init(color: localMain(country), location: 0),
+                .init(color: usaBlue, location: 0.54),
+                .init(color: euroBlue, location: 1)
+            ],
+            startPoint: .leading, endPoint: .trailing
+        )
     }
 }
 
@@ -74,17 +116,17 @@ struct MapleLeaf: Shape {
     }
 }
 
-// MARK: - Flaggen (54 x 36, wie in der PWA gezeichnet, keine Bilddateien)
+// MARK: - Flaggen (wie das Original gezeichnet, keine Bilddateien)
 
 private struct FlagFrame: ViewModifier {
     func body(content: Content) -> some View {
         content
-            .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: 5, style: .continuous)
-                    .stroke(Theme.ink.opacity(0.16), lineWidth: 1)
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .stroke(Color.white.opacity(0.25), lineWidth: 1)
             )
-            .shadow(color: Theme.ink.opacity(0.1), radius: 9, y: 8)
+            .shadow(color: Color.black.opacity(0.5), radius: 8, y: 5)
     }
 }
 
@@ -136,46 +178,52 @@ struct GermanyFlag: View {
     }
 }
 
-// MARK: - Seitenhintergründe (Portierung der body-Verläufe)
+// MARK: - Bühnenbild: dunkler Verlauf mit farbigen Lichtinseln
+// und einem großen, dezenten Länder-Wasserzeichen.
 
 struct CountryBackground: View {
     let country: Country
 
     var body: some View {
-        GeometryReader { proxy in
-            let size = proxy.size
-            if country == .ca {
-                // Kanada: rote Randstreifen, weiße Mitte, weiße Kreisfläche oben.
+        ZStack {
+            LinearGradient(colors: [Theme.bgTop, Theme.bgBottom],
+                           startPoint: .top, endPoint: .bottom)
+            GeometryReader { proxy in
+                let size = proxy.size
                 ZStack {
-                    HStack(spacing: 0) {
-                        Theme.canada.frame(width: size.width * 0.19)
-                        Color.white
-                        Theme.canada.frame(width: size.width * 0.19)
-                    }
+                    // Lichtinseln in den Länderfarben
                     Circle()
-                        .fill(Color.white.opacity(0.98))
-                        .frame(width: max(size.width, size.height) * 0.19)
-                        .position(x: size.width * 0.5, y: size.height * 0.13)
-                }
-            } else {
-                // USA: rot-weiße Querstreifen, marineblaue Diagonale oben links.
-                ZStack(alignment: .topLeading) {
-                    VStack(spacing: 0) {
-                        let stripe: CGFloat = 28
-                        let count = Int(ceil(size.height / stripe)) + 1
-                        ForEach(0..<count, id: \.self) { index in
-                            (index.isMultiple(of: 2) ? Theme.usaRed : Color.white)
-                                .frame(height: stripe)
-                        }
+                        .fill((country == .ca ? Theme.canada : Theme.usaBlue).opacity(0.5))
+                        .frame(width: size.width * 1.2, height: size.width * 1.2)
+                        .blur(radius: 80)
+                        .position(x: country == .ca ? size.width * 0.12 : size.width * 0.88,
+                                  y: size.height * 0.02)
+                    Circle()
+                        .fill((country == .ca ? Theme.gold : Theme.usaRed).opacity(0.22))
+                        .frame(width: size.width * 0.9, height: size.width * 0.9)
+                        .blur(radius: 80)
+                        .position(x: country == .ca ? size.width * 1.0 : size.width * 0.0,
+                                  y: size.height * 0.4)
+                    Circle()
+                        .fill(Theme.euroBlue.opacity(0.45))
+                        .frame(width: size.width * 1.1, height: size.width * 1.1)
+                        .blur(radius: 80)
+                        .position(x: size.width * 0.5, y: size.height * 1.02)
+
+                    // Wasserzeichen: Ahornblatt bzw. Stern
+                    if country == .ca {
+                        MapleLeaf()
+                            .fill(Color.white.opacity(0.045))
+                            .frame(width: size.width * 1.15, height: size.width * 1.25)
+                            .rotationEffect(.degrees(10))
+                            .position(x: size.width * 0.85, y: size.height * 0.32)
+                    } else {
+                        Image(systemName: "star.fill")
+                            .font(.system(size: size.width * 0.9))
+                            .foregroundStyle(Color.white.opacity(0.045))
+                            .rotationEffect(.degrees(-12))
+                            .position(x: size.width * 0.15, y: size.height * 0.3)
                     }
-                    Path { path in
-                        let reach = (size.width + size.height) * 0.41
-                        path.move(to: .zero)
-                        path.addLine(to: CGPoint(x: reach, y: 0))
-                        path.addLine(to: CGPoint(x: 0, y: reach))
-                        path.closeSubpath()
-                    }
-                    .fill(Theme.usaBlue.opacity(0.95))
                 }
             }
         }

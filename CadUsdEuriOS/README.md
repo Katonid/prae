@@ -43,11 +43,15 @@ unverändert.
 
 ## Design
 
-Farben, Verläufe, Karten- und Feld-Layout sind 1:1 aus dem Stylesheet der
-PWA übernommen. Das Ahornblatt in Flagge und App-Icon ist das offizielle
+Moderner dunkler Look statt des hellen PWA-Layouts (auf Wunsch): tiefdunkle
+Bühne mit farbigen Lichtinseln in den Länderfarben, Glas-Karten
+(Ultra-Thin-Material), leuchtende Farbverläufe für Knöpfe und Akzente,
+gleitender Länderschalter, animierte Zahlenwechsel und dezente Haptik.
+Die Farbsprache der PWA (Kanada-Rot, US-Navy, Euro-Blau, Gold) bleibt als
+Akzentwelt erhalten, ebenso Aufbau und Bedienlogik. Das Ahornblatt in
+Flagge, Hintergrund-Wasserzeichen und App-Icon ist das offizielle
 elfzackige Blatt der kanadischen Nationalflagge (Kontur aus dem amtlichen
-Flaggen-SVG übernommen); alle Flaggen werden ohne Bilddateien direkt
-gezeichnet.
+Flaggen-SVG); alle Flaggen werden ohne Bilddateien direkt gezeichnet.
 
 ## Technik
 

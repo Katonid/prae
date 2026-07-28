@@ -8,7 +8,7 @@ struct CadUsdEurApp: App {
         WindowGroup {
             ContentView()
                 .environmentObject(model)
-                .preferredColorScheme(.light)
+                .preferredColorScheme(.dark)
         }
     }
 }

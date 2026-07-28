@@ -165,12 +165,15 @@ struct PriceScannerView: View {
                     apply(candidate)
                 } label: {
                     Text("\(model.prettyMoney(candidate, model.mode.code)) übernehmen")
-                        .font(.system(size: 18, weight: .black))
+                        .font(.system(size: 18, weight: .black, design: .rounded))
+                        .contentTransition(.numericText())
                         .frame(maxWidth: .infinity, minHeight: 50)
                         .foregroundStyle(Theme.ink)
-                        .background(Theme.gold, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .background(Theme.goldGradient, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .shadow(color: Theme.gold.opacity(0.4), radius: 10, y: 4)
                 }
                 .buttonStyle(.plain)
+                .animation(.snappy, value: candidate)
             }
             Text(candidate == nil
                  ? "Preisschild in den Sucher halten – der erkannte Preis erscheint hier. Antippen im Bild geht auch."
@@ -180,7 +183,11 @@ struct PriceScannerView: View {
                 .multilineTextAlignment(.center)
         }
         .padding(14)
-        .background(Color.black.opacity(0.45), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(Color.white.opacity(0.15), lineWidth: 1)
+        )
         .padding(.horizontal, 16)
         .padding(.bottom, 12)
     }
