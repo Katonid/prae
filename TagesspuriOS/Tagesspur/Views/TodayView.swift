@@ -179,7 +179,11 @@ struct TodayView: View {
         let familyPredicate = #Predicate<FamilyDay> { $0.dayKey == key }
         let familyDays = (try? context.fetch(FetchDescriptor(predicate: familyPredicate))) ?? []
         built.append(contentsOf: familyDays.map {
-            TrackMapView.DeviceTrack(deviceId: $0.recordName, deviceName: $0.displayName, points: $0.points())
+            TrackMapView.DeviceTrack(
+                deviceId: $0.deviceId.isEmpty ? $0.recordName : $0.deviceId,
+                deviceName: $0.displayName,
+                points: $0.points()
+            )
         })
         tracks = built
 

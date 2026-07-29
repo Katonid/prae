@@ -196,7 +196,7 @@ struct OutdoorMapView: UIViewRepresentable {
         private var didSetRegion = false
 
         func update(map: MKMapView, tracks: [(track: TrackMapView.DeviceTrack, colorIndex: Int)], visits: [VisitInfo], media: [MediaItem], cursor: TrackMapView.TimeCursor?) {
-            let newSignature = "\(tracks.map { "\($0.track.id):\($0.track.points.count):\($0.colorIndex)" }.joined())|\(visits.count)|\(media.count)|\(cursor.map { "\($0.coordinate.latitude),\($0.coordinate.longitude)" } ?? "-")"
+            let newSignature = "\(tracks.map { "\($0.track.id):\($0.track.points.count):\($0.colorIndex):\(TrackColorStore.shared.hex(forId: $0.track.deviceId) ?? "-")" }.joined())|\(visits.count)|\(media.count)|\(cursor.map { "\($0.coordinate.latitude),\($0.coordinate.longitude)" } ?? "-")"
             guard newSignature != signature else { return }
             signature = newSignature
 
@@ -209,7 +209,7 @@ struct OutdoorMapView: UIViewRepresentable {
                 let casing = TrackPolyline(coordinates: &coords, count: coords.count)
                 casing.isCasing = true
                 let line = TrackPolyline(coordinates: &coords, count: coords.count)
-                line.color = UIColor(Theme.trackColors[entry.colorIndex % Theme.trackColors.count])
+                line.color = UIColor(TrackColorStore.shared.color(forId: entry.track.deviceId, fallbackIndex: entry.colorIndex))
                 map.addOverlay(casing, level: .aboveLabels)
                 map.addOverlay(line, level: .aboveLabels)
                 unionRect = unionRect.union(line.boundingMapRect)

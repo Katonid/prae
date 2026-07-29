@@ -215,6 +215,18 @@ Native SwiftUI-App, iOS 17+, keine externen Abhängigkeiten.
     verlangt Gleichstand) und muss nie von Hand hochgezählt werden.
     Voraussetzung fürs TestFlight-Hochladen zweier Builds: mindestens
     ein Merge dazwischen (sonst gleiche Nummer).
+- **Spurfarben frei wählbar**
+  - Einstellungen → „Spurfarben“: je Gerät (eigene und Familie) ein
+    ColorPicker; „Standardfarben wiederherstellen“ setzt zurück.
+  - Gespeichert im iCloud-Schlüssel-Wert-Speicher
+    (`TrackColorStore`, NSUbiquitousKeyValueStore + lokaler Spiegel)
+    — die Wahl gilt automatisch auf allen eigenen Geräten, ganz ohne
+    Schema-Änderung. Schlüssel ist die stabile deviceId der Spur;
+    Familien-Tracks nutzen dafür die deviceId aus den
+    Freigabe-Daten (recordName nur als Altbestands-Rückfall).
+  - Wirkt überall: Apple-Karten, Outdoor-Karte, Legenden-Panel,
+    Geräteliste im Tagesdetail; ohne Wunschfarbe gilt weiter die
+    Standardpalette nach Reihenfolge.
 - **Apple Watch (eigene App + Komplikationen)**
   - Watch-App (Target `TagesspurWatch`, watchOS 10): zeigt die
     heutigen Kilometer (CloudKit-Stand aller Geräte bzw. der zuletzt

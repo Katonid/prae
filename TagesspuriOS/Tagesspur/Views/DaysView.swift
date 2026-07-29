@@ -230,7 +230,7 @@ struct DayDetailView: View {
                             } label: {
                                 HStack(spacing: 10) {
                                     Circle()
-                                        .fill(Theme.trackColors[index % Theme.trackColors.count])
+                                        .fill(TrackColorStore.shared.color(forId: track.deviceId, fallbackIndex: index))
                                         .frame(width: 14, height: 14)
                                         .opacity(hidden ? 0.35 : 1)
                                     Text(track.deviceName.isEmpty ? "Gerät" : track.deviceName)
@@ -519,8 +519,15 @@ struct DayDetailView: View {
 
         let familyPredicate = #Predicate<FamilyDay> { $0.dayKey == key }
         let familyDays = (try? context.fetch(FetchDescriptor(predicate: familyPredicate))) ?? []
+        // Stabile Kennung: die deviceId des Familien-Geräts (Farben
+        // bleiben damit tagesübergreifend gleich); recordName nur als
+        // Rückfall für Altbestand ohne deviceId.
         built.append(contentsOf: familyDays.map {
-            TrackMapView.DeviceTrack(deviceId: $0.recordName, deviceName: $0.displayName, points: $0.points())
+            TrackMapView.DeviceTrack(
+                deviceId: $0.deviceId.isEmpty ? $0.recordName : $0.deviceId,
+                deviceName: $0.displayName,
+                points: $0.points()
+            )
         })
         tracks = built
 
