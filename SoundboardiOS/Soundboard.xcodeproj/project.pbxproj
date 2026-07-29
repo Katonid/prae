@@ -6,20 +6,61 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		50BD0000000000000000001A /* SoundboardWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = 50BD00000000000000000011 /* SoundboardWatch.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		50BD0000000000000000001B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 50BD0000000000000000000A /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 50BD00000000000000000015;
+			remoteInfo = SoundboardWatch;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		50BD00000000000000000019 /* Embed Watch Content */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(CONTENTS_FOLDER_PATH)/Watch";
+			dstSubfolderSpec = 16;
+			files = (
+				50BD0000000000000000001A /* SoundboardWatch.app in Embed Watch Content */,
+			);
+			name = "Embed Watch Content";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		50BD00000000000000000001 /* Soundboard */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = Soundboard;
 			sourceTree = "<group>";
 		};
+		50BD00000000000000000010 /* SoundboardWatch */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = SoundboardWatch;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFileReference section */
 		50BD00000000000000000002 /* Soundboard.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Soundboard.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		50BD00000000000000000011 /* SoundboardWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SoundboardWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		50BD00000000000000000003 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		50BD00000000000000000012 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -33,6 +74,7 @@
 			isa = PBXGroup;
 			children = (
 				50BD00000000000000000001 /* Soundboard */,
+				50BD00000000000000000010 /* SoundboardWatch */,
 				50BD00000000000000000005 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -41,6 +83,7 @@
 			isa = PBXGroup;
 			children = (
 				50BD00000000000000000002 /* Soundboard.app */,
+				50BD00000000000000000011 /* SoundboardWatch.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -55,10 +98,12 @@
 				50BD00000000000000000008 /* Sources */,
 				50BD00000000000000000003 /* Frameworks */,
 				50BD00000000000000000009 /* Resources */,
+				50BD00000000000000000019 /* Embed Watch Content */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				50BD0000000000000000001C /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				50BD00000000000000000001 /* Soundboard */,
@@ -70,7 +115,37 @@
 			productReference = 50BD00000000000000000002 /* Soundboard.app */;
 			productType = "com.apple.product-type.application";
 		};
+		50BD00000000000000000015 /* SoundboardWatch */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 50BD00000000000000000016 /* Build configuration list for PBXNativeTarget "SoundboardWatch" */;
+			buildPhases = (
+				50BD00000000000000000013 /* Sources */,
+				50BD00000000000000000012 /* Frameworks */,
+				50BD00000000000000000014 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				50BD00000000000000000010 /* SoundboardWatch */,
+			);
+			name = SoundboardWatch;
+			packageProductDependencies = (
+			);
+			productName = SoundboardWatch;
+			productReference = 50BD00000000000000000011 /* SoundboardWatch.app */;
+			productType = "com.apple.product-type.application";
+		};
 /* End PBXNativeTarget section */
+
+/* Begin PBXTargetDependency section */
+		50BD0000000000000000001C /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 50BD00000000000000000015 /* SoundboardWatch */;
+			targetProxy = 50BD0000000000000000001B /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin PBXProject section */
 		50BD0000000000000000000A /* Project object */ = {
@@ -81,6 +156,9 @@
 				LastUpgradeCheck = 1600;
 				TargetAttributes = {
 					50BD00000000000000000006 = {
+						CreatedOnToolsVersion = 16.0;
+					};
+					50BD00000000000000000015 = {
 						CreatedOnToolsVersion = 16.0;
 					};
 				};
@@ -100,6 +178,7 @@
 			projectRoot = "";
 			targets = (
 				50BD00000000000000000006 /* Soundboard */,
+				50BD00000000000000000015 /* SoundboardWatch */,
 			);
 		};
 /* End PBXProject section */
@@ -112,10 +191,24 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		50BD00000000000000000014 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		50BD00000000000000000008 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		50BD00000000000000000013 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -315,6 +408,62 @@
 			};
 			name = Release;
 		};
+		50BD00000000000000000017 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 2;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Config/WatchInfo.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Soundboard;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "de.familie.soundboard.watchkitapp";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = Debug;
+		};
+		50BD00000000000000000018 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 2;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Config/WatchInfo.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Soundboard;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "de.familie.soundboard.watchkitapp";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -332,6 +481,15 @@
 			buildConfigurations = (
 				50BD0000000000000000000E /* Debug */,
 				50BD0000000000000000000F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		50BD00000000000000000016 /* Build configuration list for PBXNativeTarget "SoundboardWatch" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				50BD00000000000000000017 /* Debug */,
+				50BD00000000000000000018 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

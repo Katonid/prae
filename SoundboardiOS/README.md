@@ -44,6 +44,17 @@ mit SwiftUI neu gestaltet und zusätzlich mit Anbindung an Streamingdienste
   beim Antippen wird der Titel in der installierten Spotify-App abgespielt
   (dort angemeldeter Account wird genutzt)
 
+**Apple Watch (Fernbedienung)**
+- Die Watch-App zeigt alle sichtbaren Boards mit ihren belegten Feldern
+  (Farben, Emojis, Beschriftungen) und löst sie per Tipp aus – die Töne
+  spielen auf dem gekoppelten iPhone (das an der Anlage hängt)
+- „Läuft gerade“-Ansicht mit Restzeit, Stopp je Feld und „Alle auf Anfang“
+- Haptisches Stichwort: Die Watch tippt ans Handgelenk, wenn ein laufender
+  Titel nur noch ca. 10 Sekunden hat
+- Hinweis: Die Watch spricht systembedingt nur mit dem iPhone, nicht mit
+  dem iPad; die Soundboard-App muss auf dem iPhone geöffnet (oder im
+  Hintergrund aktiv) sein
+
 **Sichern & Übertragen**
 - Vollständiger Export (Boards, Einstellungen, lokale Tondateien, Hintergrundbilder)
   als JSON-Datei, z. B. zum Übertragen auf ein anderes Gerät
