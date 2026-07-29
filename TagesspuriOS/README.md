@@ -107,6 +107,11 @@ Native SwiftUI-App, iOS 17+, keine externen Abhängigkeiten.
     sich, aus wie vielen Punkten die „Ort – Ort – Ort“-Beschreibung
     entstand — weicht der aktuelle Punktebestand ab (z. B. nach
     nachgelieferten Sync-Daten), wird sie automatisch neu berechnet.
+  - Fernstrecken-Granularität: Lange Tage (> 30 km) nennen Städte;
+    fällt das aber auf einen einzigen Namen zusammen (lange Fahrt
+    innerhalb einer Großstadt → „Dortmund“), schaltet die Beschreibung
+    automatisch auf Stadtteil-Ebene zurück. Bestandstage mit
+    Ein-Wort-Beschreibung berechnen sich einmalig neu.
   - Aufräumen: In der Sync-Diagnose lassen sich fremde Geräte per
     Wischgeste löschen (Löschung synct auf alle Geräte); in der
     Familien-Ansicht lassen sich angenommene Freigaben einzeln
