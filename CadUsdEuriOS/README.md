@@ -37,6 +37,20 @@ unverändert.
   direkt als Netto-Betrag in die Umrechnung
 - **Alles auf einem Bildschirm:** Die Oberfläche passt sich stufenlos an
   die Bildschirmhöhe an, sodass ohne Tastatur nicht gescrollt werden muss
+
+## Apple Watch
+
+Eigenes watchOS-Ziel (`CadUsdEurWatch`, watchOS 10), das automatisch mit
+der iPhone-App installiert wird (auch über TestFlight) und dank
+`WKRunsIndependentlyOfCompanionApp` auch ohne iPhone in der Nähe läuft:
+
+- Betrag mit der **Digitalen Krone** einstellen, Schnellwerte 10/50/100/500
+- Land per Tipp umschalten (🇨🇦 CAD ↔ 🇺🇸 USD), Tageskurs von
+  frankfurter.dev mit Ersatzkurs-Hinweis
+- Zweite Seite (nach oben wischen): Steuersatz wählen — Ontario/Quebec
+  bzw. Buffalo/Niagara Falls/Detroit/Cleveland, gleiche Sätze wie am iPhone
+- Ergebnis: Euro netto und Euro-Endpreis inkl. Steuer, deutsche Formatierung;
+  Auswahl und Betrag werden gemerkt
 - **Merken des Zustands:** Land, Stadt, Provinz, Steuersatz und zuletzt
   bearbeitetes Feld bleiben wie im localStorage der PWA erhalten
   (UserDefaults, gleiche Feldnamen)

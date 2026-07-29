@@ -6,20 +6,61 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		5CAD000000000000000000B3 /* CadUsdEurWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = 5CAD000000000000000000B2 /* CadUsdEurWatch.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		5CAD000000000000000000BD /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 5CAD000000000000000000AA /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 5CAD000000000000000000B5;
+			remoteInfo = CadUsdEurWatch;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		5CAD000000000000000000B4 /* Embed Watch Content */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(CONTENTS_FOLDER_PATH)/Watch";
+			dstSubfolderSpec = 16;
+			files = (
+				5CAD000000000000000000B3 /* CadUsdEurWatch.app in Embed Watch Content */,
+			);
+			name = "Embed Watch Content";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		5CAD000000000000000000A1 /* CadUsdEur */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = CadUsdEur;
 			sourceTree = "<group>";
 		};
+		5CAD000000000000000000B1 /* CadUsdEurWatch */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = CadUsdEurWatch;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFileReference section */
 		5CAD000000000000000000A2 /* CadUsdEur.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = CadUsdEur.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		5CAD000000000000000000B2 /* CadUsdEurWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = CadUsdEurWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		5CAD000000000000000000A3 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		5CAD000000000000000000B7 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -33,6 +74,7 @@
 			isa = PBXGroup;
 			children = (
 				5CAD000000000000000000A1 /* CadUsdEur */,
+				5CAD000000000000000000B1 /* CadUsdEurWatch */,
 				5CAD000000000000000000A5 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -41,6 +83,7 @@
 			isa = PBXGroup;
 			children = (
 				5CAD000000000000000000A2 /* CadUsdEur.app */,
+				5CAD000000000000000000B2 /* CadUsdEurWatch.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -55,10 +98,12 @@
 				5CAD000000000000000000A8 /* Sources */,
 				5CAD000000000000000000A3 /* Frameworks */,
 				5CAD000000000000000000A9 /* Resources */,
+				5CAD000000000000000000B4 /* Embed Watch Content */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				5CAD000000000000000000BC /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				5CAD000000000000000000A1 /* CadUsdEur */,
@@ -68,6 +113,28 @@
 			);
 			productName = CadUsdEur;
 			productReference = 5CAD000000000000000000A2 /* CadUsdEur.app */;
+			productType = "com.apple.product-type.application";
+		};
+		5CAD000000000000000000B5 /* CadUsdEurWatch */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 5CAD000000000000000000B9 /* Build configuration list for PBXNativeTarget "CadUsdEurWatch" */;
+			buildPhases = (
+				5CAD000000000000000000B6 /* Sources */,
+				5CAD000000000000000000B7 /* Frameworks */,
+				5CAD000000000000000000B8 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				5CAD000000000000000000B1 /* CadUsdEurWatch */,
+			);
+			name = CadUsdEurWatch;
+			packageProductDependencies = (
+			);
+			productName = CadUsdEurWatch;
+			productReference = 5CAD000000000000000000B2 /* CadUsdEurWatch.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -81,6 +148,9 @@
 				LastUpgradeCheck = 1600;
 				TargetAttributes = {
 					5CAD000000000000000000A6 = {
+						CreatedOnToolsVersion = 16.0;
+					};
+					5CAD000000000000000000B5 = {
 						CreatedOnToolsVersion = 16.0;
 					};
 				};
@@ -100,12 +170,20 @@
 			projectRoot = "";
 			targets = (
 				5CAD000000000000000000A6 /* CadUsdEur */,
+				5CAD000000000000000000B5 /* CadUsdEurWatch */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		5CAD000000000000000000A9 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		5CAD000000000000000000B8 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -122,7 +200,22 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		5CAD000000000000000000B6 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		5CAD000000000000000000BC /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 5CAD000000000000000000B5 /* CadUsdEurWatch */;
+			targetProxy = 5CAD000000000000000000BD /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		5CAD000000000000000000AC /* Debug */ = {
@@ -309,6 +402,66 @@
 			};
 			name = Release;
 		};
+		5CAD000000000000000000BA /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "Währungsrechner";
+				INFOPLIST_KEY_WKApplication = YES;
+				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = "de.familie.cadusdeur";
+				INFOPLIST_KEY_WKRunsIndependentlyOfCompanionApp = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "de.familie.cadusdeur.watchkitapp";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = Debug;
+		};
+		5CAD000000000000000000BB /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "Währungsrechner";
+				INFOPLIST_KEY_WKApplication = YES;
+				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = "de.familie.cadusdeur";
+				INFOPLIST_KEY_WKRunsIndependentlyOfCompanionApp = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "de.familie.cadusdeur.watchkitapp";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -326,6 +479,15 @@
 			buildConfigurations = (
 				5CAD000000000000000000AE /* Debug */,
 				5CAD000000000000000000AF /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		5CAD000000000000000000B9 /* Build configuration list for PBXNativeTarget "CadUsdEurWatch" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				5CAD000000000000000000BA /* Debug */,
+				5CAD000000000000000000BB /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
