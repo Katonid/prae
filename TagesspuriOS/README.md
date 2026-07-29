@@ -208,13 +208,18 @@ Native SwiftUI-App, iOS 17+, keine externen Abhängigkeiten.
   - Einrichtung: Einstellungen → Familie; Sync automatisch beim
     Aktivwerden der App plus manueller Knopf.
 - **Versionierung**
-  - Marketing-Version (`MARKETING_VERSION`, z. B. 1.2.4) wird von Hand
-    gepflegt; die Build-Nummer setzt eine Skript-Bauphase („Build-Nummer
-    setzen“) bei jedem Build automatisch auf die Anzahl der Git-Commits
-    — steigt mit jedem Merge, ist für App und Widget identisch (Apple
-    verlangt Gleichstand) und muss nie von Hand hochgezählt werden.
-    Voraussetzung fürs TestFlight-Hochladen zweier Builds: mindestens
-    ein Merge dazwischen (sonst gleiche Nummer).
+  - Marketing-Version (`MARKETING_VERSION`, aktuell 1.3.3) wird von
+    Hand gepflegt; die Build-Nummer setzt eine Skript-Bauphase
+    („Build-Nummer setzen“) bei jedem Build automatisch: primär die
+    Anzahl der Git-Commits, bei git-Fehlern ein Datumsstempel
+    (JJMMTThhmm) — nie stumm „1“. Die Nummer wird einmal pro
+    Build-Lauf berechnet und über einen gemeinsamen Zwischenspeicher
+    (`$OBJROOT`) von allen vier Targets identisch übernommen (Apple
+    verlangt Gleichstand zwischen App, Widget und Watch-Bundles).
+  - TestFlight: Ein hochgeladener Build wird erst angeboten, wenn er
+    einer Tester-Gruppe zugewiesen ist — am bequemsten in der internen
+    Gruppe „Builds automatisch verteilen“ aktivieren, dann geht jeder
+    Upload sofort an alle internen Tester.
 - **Verlauf abspielen mit Geräteauswahl**
   - Der Play-Knopf (Heute + Tagesdetail) öffnet ein Menü: „Alle
     eigenen Geräte“ (zusammengelegt, wie bisher) oder ein einzelnes
