@@ -27,9 +27,18 @@ enum DaySummarizer {
         let context = ModelContext(container)
         let deviceId = DeviceInfo.deviceId
         let today = DayKey.key(for: Date())
+        let separator = " – "
+        let noRes = noResult
+        // Neu berechnen, wenn (a) sich der Punktebestand geändert hat
+        // oder (b) ein langer Tag nur einen einzigen Ortsnamen trägt —
+        // Altbestand aus der Zeit, als Fernstrecken innerhalb einer
+        // Großstadt auf „Dortmund“ zusammenfielen.
         let predicate = #Predicate<TrackDay> {
             $0.deviceId == deviceId && $0.dayKey < today && $0.pointCount > 1
-                && $0.summaryPointCount != $0.pointCount
+                && ($0.summaryPointCount != $0.pointCount
+                    || ($0.distanceMeters > 30000
+                        && !$0.summary.contains(separator)
+                        && $0.summary != noRes))
         }
         var descriptor = FetchDescriptor(predicate: predicate, sortBy: [SortDescriptor(\TrackDay.dayKey, order: .reverse)])
         descriptor.fetchLimit = maxDays
@@ -54,29 +63,32 @@ enum DaySummarizer {
             .distance(from: CLLocation(latitude: maxLat, longitude: maxLon))
         let isLongTrip = distanceMeters > longTripDistance || diameter > longTripDiameter
 
-        var names: [String] = []
+        // Beide Ebenen in einem Geocoding-Durchlauf sammeln: grob
+        // (Stadt) und fein (Stadtteil/Ort). Fernstrecken nennen Städte —
+        // ABER: Bleibt dabei nur EIN Name übrig (lange Fahrt innerhalb
+        // einer Großstadt, „Dortmund“), wird auf die feine Ebene
+        // zurückgeschaltet, sonst verliert der Tag jede Differenzierung.
+        var fine: [String] = []
+        var coarse: [String] = []
         for point in sampleByDistance(points, count: samplesPerDay) {
             guard let info = await Geocoder.shared.info(for: point.coordinate) else { continue }
-            let name: String
-            if isLongTrip {
-                name = info.locality
-            } else {
-                name = firstNonEmpty(
-                    info.subLocality,
-                    info.areas.components(separatedBy: ", ").first ?? "",
-                    info.name,
-                    info.locality
-                )
+            let fineName = firstNonEmpty(
+                info.subLocality,
+                info.areas.components(separatedBy: ", ").first ?? "",
+                info.name,
+                info.locality
+            )
+            if !fineName.isEmpty, fine.last != fineName {
+                fine.append(fineName)
             }
-            if !name.isEmpty, names.last != name {
-                names.append(name)
+            if !info.locality.isEmpty, coarse.last != info.locality {
+                coarse.append(info.locality)
             }
         }
 
-        var distinct: [String] = []
-        for name in names where !distinct.contains(name) {
-            distinct.append(name)
-        }
+        let distinctCoarse = deduped(coarse)
+        let distinctFine = deduped(fine)
+        let distinct = (isLongTrip && distinctCoarse.count >= 2) ? distinctCoarse : distinctFine
         guard !distinct.isEmpty else { return "" }
         let picked = distinct.count <= 3
             ? distinct
@@ -88,6 +100,14 @@ enum DaySummarizer {
 
     private static func firstNonEmpty(_ values: String...) -> String {
         values.first { !$0.isEmpty } ?? ""
+    }
+
+    private static func deduped(_ names: [String]) -> [String] {
+        var result: [String] = []
+        for name in names where !result.contains(name) {
+            result.append(name)
+        }
+        return result
     }
 
     /// Gleichmäßige Stichproben entlang der zurückgelegten Strecke
