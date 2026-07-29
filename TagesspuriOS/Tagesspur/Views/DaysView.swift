@@ -171,7 +171,7 @@ struct DayDetailView: View {
     @State private var ownTrackCount = 0
     @State private var visits: [VisitInfo] = []
     @State private var media: [MediaItem] = []
-    @State private var showReplay = false
+    @State private var replayTarget: ReplayTarget?
     @State private var showViewer = false
     @State private var viewerIndex = 0
     @State private var cursorTime: Date?
@@ -191,6 +191,29 @@ struct DayDetailView: View {
             .filter { !hiddenTrackIds.contains($0.id) }
             .flatMap(\.points)
             .sorted { $0.t < $1.t }
+    }
+
+    /// Abspiel-Auswahl: alle eigenen Geräte zusammen oder ein einzelnes
+    /// Gerät / Familienmitglied.
+    @ViewBuilder
+    private var replayMenuItems: some View {
+        if ownTrackCount > 1, allPoints.count > 1 {
+            Button("Alle eigenen Geräte") {
+                replayTarget = ReplayTarget(
+                    id: "eigene",
+                    title: DayKey.displayName(for: dayKey),
+                    points: allPoints
+                )
+            }
+        }
+        ForEach(tracks) { track in
+            if track.points.count > 1 {
+                let name = track.deviceName.isEmpty ? "Gerät" : track.deviceName
+                Button(name) {
+                    replayTarget = ReplayTarget(id: track.id, title: name, points: track.points)
+                }
+            }
+        }
     }
 
     private var moments: [Moment] {
@@ -294,17 +317,17 @@ struct DayDetailView: View {
         .navigationTitle(DayKey.displayName(for: dayKey))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            if allPoints.count > 1 {
-                Button {
-                    showReplay = true
+            if tracks.contains(where: { $0.points.count > 1 }) {
+                Menu {
+                    replayMenuItems
                 } label: {
                     Image(systemName: "play.circle.fill")
                 }
-                .accessibilityLabel("Tag abspielen")
+                .accessibilityLabel("Tag abspielen — Gerät wählen")
             }
         }
-        .fullScreenCover(isPresented: $showReplay) {
-            TrackReplayView(title: DayKey.displayName(for: dayKey), points: allPoints)
+        .fullScreenCover(item: $replayTarget) { target in
+            TrackReplayView(title: target.title, points: target.points)
         }
         .fullScreenCover(isPresented: $showViewer) {
             MediaViewerView(items: media, index: viewerIndex)
