@@ -286,9 +286,9 @@ Dieser Stand entspricht dem **MVP-Fundament** (PRD Phase 0/1).
   Notizen, Ort falls die Watch einen Fix hatte). Das iPhone
   schickt Drohnenprofil und Wetter-Anker als ApplicationContext;
   ohne Verbindung gelten ehrlich gekennzeichnete
-  Mini-4-Pro-Werkswerte. Watch-App-Symbol ist noch leer
-  (Platzhalter-Asset) — fürs Gerät egal, für TestFlight später
-  ein Icon ergänzen.
+  Mini-4-Pro-Werkswerte. Watch-App-Symbol: Drohne im Score-Ring
+  vor Abendhimmel (1024 px, generiert) — Pflicht für den
+  TestFlight-Upload (Fehler 90713/90391, Nutzer-Screenshot).
 - **Akku- & Kälte-Rechner:** Deterministische Faustformel aus
   Nennflugzeit des Modells, Temperatur (Kältefaktor bis −35 %) und
   Wind (bis −30 % an der Toleranzgrenze) — als Kachel im
