@@ -18,6 +18,9 @@ struct FlightMateApp: App {
     init() {
         // Muss vor Ende des App-Starts passieren (BGTaskScheduler-Regel).
         BackgroundRefresh.register()
+        // Watch-Brücke früh aktivieren: nimmt Flüge vom Handgelenk
+        // entgegen (auch nachgelieferte) und schickt Profil + Ort hin.
+        WatchSessionBridge.activate()
     }
 
     var body: some Scene {
