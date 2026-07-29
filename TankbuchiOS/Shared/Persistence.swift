@@ -25,7 +25,13 @@ final class PersistenceController {
     private(set) var cloudKitAvailable = false
 
     static var containerIdentifier: String {
-        "iCloud." + (Bundle.main.bundleIdentifier ?? "de.familie.tankbuch")
+        // Die Watch-App (….watchkitapp) nutzt denselben Container wie die
+        // iPhone-App, damit beide auf dieselben iCloud-Daten zugreifen.
+        var bundleId = Bundle.main.bundleIdentifier ?? "de.familie.tankbuch"
+        if bundleId.hasSuffix(".watchkitapp") {
+            bundleId = String(bundleId.dropLast(".watchkitapp".count))
+        }
+        return "iCloud." + bundleId
     }
 
     var ckContainer: CKContainer {
@@ -132,6 +138,14 @@ final class PersistenceController {
         return root
     }
 
+    /// Über iCloud synchronisierter Tankerkönig-Schlüssel (liegt am
+    /// Tankbuch-Wurzelobjekt; von der Watch gelesen).
+    func cloudTankerkoenigApiKey(in context: NSManagedObjectContext) -> String {
+        fetchRoots(in: context)
+            .map(\.tankerkoenigApiKey)
+            .first { !$0.isEmpty } ?? ""
+    }
+
     /// Neue Objekte demselben Store zuordnen wie ihr Bezugsobjekt (wichtig,
     /// damit Einträge eines geteilten Fahrzeugs im Shared-Store landen –
     /// storeübergreifende Beziehungen sind in Core Data nicht erlaubt).
@@ -229,7 +243,10 @@ final class PersistenceController {
 
         tankbuch.properties = [
             attribute("name", .stringAttributeType, defaultValue: "Tankbuch"),
-            attribute("createdAt", .dateAttributeType, defaultValue: Date(timeIntervalSince1970: 0))
+            attribute("createdAt", .dateAttributeType, defaultValue: Date(timeIntervalSince1970: 0)),
+            // Synchronisiert den Tankerkönig-Schlüssel zur Watch (deren
+            // UserDefaults sind vom iPhone getrennt).
+            attribute("tankerkoenigApiKey", .stringAttributeType, defaultValue: "")
         ]
 
         vehicle.properties = [

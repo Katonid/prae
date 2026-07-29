@@ -68,6 +68,7 @@ enum TireSeason: String, CaseIterable, Identifiable {
 final class Tankbuch: NSManagedObject {
     @NSManaged var name: String
     @NSManaged var createdAt: Date
+    @NSManaged var tankerkoenigApiKey: String
     @NSManaged var vehicles: NSSet?
 }
 
@@ -236,3 +237,10 @@ extension Tankbuch: Identifiable {}
 extension Vehicle: Identifiable {}
 extension FuelEntry: Identifiable {}
 extension SyncPing: Identifiable {}
+
+extension Collection where Element == Vehicle {
+    /// Ausgewähltes Fahrzeug: gespeicherte ID, sonst das erste Fahrzeug.
+    func selected(id: String) -> Vehicle? {
+        first { $0.externalId == id } ?? first
+    }
+}

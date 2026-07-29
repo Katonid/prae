@@ -1,7 +1,9 @@
 import Foundation
 import CoreLocation
 import MapKit
+#if os(iOS)
 import UIKit
+#endif
 
 // Tankstellensuche wie in der PWA: mit Tankerkönig-API-Schlüssel kommen
 // Livepreise (MTS-K), ohne Schlüssel liefert die Apple-Kartensuche
@@ -229,8 +231,9 @@ enum StationService {
     }
 }
 
-// MARK: - Navigation
+// MARK: - Navigation (nur iOS – nutzt UIApplication)
 
+#if os(iOS)
 enum Navigation {
     /// Startet die Routenführung in Apple Karten – bevorzugt zu den
     /// Koordinaten, sonst per Adresssuche (wie openNavigation der PWA).
@@ -259,6 +262,7 @@ enum Navigation {
         navigate(name: entry.stationName, place: entry.stationPlace, lat: entry.stationLat, lng: entry.stationLng)
     }
 }
+#endif
 
 // MARK: - Standort
 

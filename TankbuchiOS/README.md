@@ -59,11 +59,40 @@ und SwiftUI, ohne Web-Anteile. Die bestehende PWA bleibt unverändert.
   Teilnehmer, Berechtigungen und das Beenden der Freigabe verwaltet die
   Standard-Freigabeansicht von iOS.
 
+## Apple-Watch-App
+
+Eigenes watchOS-Target (`TankbuchWatch/`, watchOS 10+), das denselben
+Core-Data/CloudKit-Stack nutzt (gemeinsamer Code in `Shared/`) – der
+Abgleich läuft direkt über iCloud, ohne Kopplung mit dem iPhone:
+
+- **Schnellerfassung an der Zapfsäule** in vier Schritten, alle Werte per
+  Digital Crown: Kilometerstand (startet beim letzten Stand) → Liter →
+  Gesamtpreis (aus Litern und Preis vorberechnet) → Zusammenfassung mit
+  Volltankungs-Schalter und Speichern
+- **Tankstelle automatisch:** Während der Eingabe sucht die Watch per
+  Standort die nächste Tankstelle (Tankerkönig-Livepreis, wenn ein
+  Schlüssel hinterlegt ist – er wandert über iCloud vom iPhone mit; sonst
+  Apple Karten); ohne Treffer wird die letzte Tankstelle übernommen
+- **Übersicht:** Fahrzeugwahl, letzter Verbrauch, letzte Tankfüllung
+- Gespeicherte Einträge erscheinen über iCloud automatisch auf iPhone/iPad
+  (und beim geteilten Tankbuch auch beim Partner)
+
+Hinweis: Ändert sich die Bundle-ID der iPhone-App, müssen die Watch-Werte
+mitziehen (`PRODUCT_BUNDLE_IDENTIFIER` = iOS-ID + `.watchkitapp`,
+`WKCompanionAppBundleIdentifier` = iOS-ID und der iCloud-Container in
+`Config/TankbuchWatch.entitlements`).
+
+Hinweis App-Icon der Watch: Der Icon-Slot ist vorübergehend unbefüllt
+(Build läuft mit Warnung). Für das Icon die Datei
+`Tankbuch/Assets.xcassets/AppIcon.appiconset/AppIcon1024.png` nach
+`TankbuchWatch/Assets.xcassets/AppIcon.appiconset/` kopieren und in dessen
+`Contents.json` beim Bild `"filename" : "AppIcon1024.png",` ergänzen.
+
 ## Technik
 
 - Swift 5 / SwiftUI, Mindestversion iOS 17, universell für iPhone und iPad
 - Persistenz: Core Data mit `NSPersistentCloudKitContainer`, programmatisches
-  Modell (`Model/Persistence.swift`), zwei Stores (privat + geteilt für
+  Modell (`Shared/Persistence.swift`), zwei Stores (privat + geteilt für
   angenommene Freigaben); alle Modelle CloudKit-kompatibel (Standardwerte,
   optionale Beziehungen mit Inversen, keine Unique-Constraints)
 - Freigabe: Wurzel-Objekt „Tankbuch“ als CKShare-Anker; Fahrzeuge hängen am
@@ -71,7 +100,7 @@ und SwiftUI, ohne Web-Anteile. Die bestehende PWA bleibt unverändert.
   automatisch in der geteilten Zone. Einladung/Verwaltung über
   `UICloudSharingController`, Annahme über den Scene-Delegate
   (`CKSharingSupported` in `Config/Info.plist`)
-- Verbrauchslogik in `Model/TripMath.swift`, 1:1 aus der PWA portiert
+- Verbrauchslogik in `Shared/TripMath.swift`, 1:1 aus der PWA portiert
 - Backup-Format in `Model/Backup.swift` (tolerantes Parsen wie
   `normalizeState` der PWA)
 - Tankstellen: Tankerkönig-REST-API (Livepreise) bzw. `MKLocalSearch`
@@ -84,10 +113,10 @@ Voraussetzung: Mac mit Xcode 16+, **bezahltes** Apple-Developer-Konto
 (99 €/Jahr – für TestFlight und iCloud/CloudKit erforderlich).
 
 1. `TankbuchiOS/Tankbuch.xcodeproj` in Xcode öffnen.
-2. Unter *Signing & Capabilities* das eigene Team auswählen. Die Bundle-ID
-   `de.familie.tankbuch` bei Bedarf durch eine eigene ersetzen (z. B.
-   `de.<name>.tankbuch`) – der iCloud-Container
-   `iCloud.$(CFBundleIdentifier)` passt sich automatisch an.
+2. Unter *Signing & Capabilities* das eigene Team auswählen (für beide
+   Targets, Tankbuch und TankbuchWatch). Die Bundle-ID `de.familie.tankbuch`
+   bei Bedarf durch eine eigene ersetzen (z. B. `de.<name>.tankbuch`) – der
+   iCloud-Container `iCloud.$(CFBundleIdentifier)` passt sich automatisch an.
    Xcode legt Container und Push-Zertifikate bei automatischem Signing selbst an
    (Capabilities *iCloud → CloudKit*, *Push Notifications* und
    *Background Modes → Remote notifications* sind im Projekt bereits
@@ -106,7 +135,9 @@ Voraussetzung: Mac mit Xcode 16+, **bezahltes** Apple-Developer-Konto
       Tester hinzufügen – interne Tests brauchen **kein** Review.
    5. Auf iPhone/iPad die TestFlight-App aus dem App Store laden, Einladung
       annehmen, installieren. Builds bleiben 90 Tage gültig; neue Versionen
-      einfach erneut archivieren und hochladen.
+      einfach erneut archivieren und hochladen. Die Watch-App wird als Teil
+      des iPhone-Builds mitgeliefert und erscheint auf der Watch, sobald die
+      iPhone-App installiert ist (Watch-App „Tankbuch“ → installieren).
 5. **Erster Start:** Unter *Fahrzeuge* ein Fahrzeug anlegen **oder** direkt
    die PWA-Datensicherung importieren (Datei vorher z. B. über iCloud Drive,
    AirDrop oder „Dateien“ aufs Gerät bringen). Auf weiteren Geräten genügt

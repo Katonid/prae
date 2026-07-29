@@ -39,13 +39,6 @@ struct ContentView: View {
 
 // MARK: - Gemeinsame Helfer
 
-extension Collection where Element == Vehicle {
-    /// Ausgewähltes Fahrzeug: gespeicherte ID, sonst das erste Fahrzeug.
-    func selected(id: String) -> Vehicle? {
-        first { $0.externalId == id } ?? first
-    }
-}
-
 /// Hinweis, solange noch kein Fahrzeug existiert (kein Auto-Anlegen, damit
 /// beim ersten iCloud-Abgleich keine Duplikate entstehen).
 struct NoVehiclePlaceholder: View {

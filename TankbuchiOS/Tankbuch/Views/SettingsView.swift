@@ -25,6 +25,7 @@ struct SettingsView: View {
 
     @StateObject private var syncMonitor = SyncMonitor()
     @State private var syncMessage: String?
+    @State private var apiKeySyncTask: Task<Void, Never>?
 
     var body: some View {
         NavigationStack {
@@ -37,6 +38,22 @@ struct SettingsView: View {
                 iCloudSection
             }
             .navigationTitle("Einstellungen")
+            // Beim Öffnen einmalig abgleichen: bestehender lokaler Schlüssel
+            // wandert in die iCloud-Spiegelung (für die Watch); umgekehrt
+            // übernimmt ein frisches Gerät den Schlüssel aus iCloud.
+            .onAppear(perform: reconcileApiKey)
+            // Schlüssel ans Tankbuch-Wurzelobjekt spiegeln, damit die Watch
+            // ihn über iCloud bekommt (verzögert, nicht pro Tastendruck).
+            .onChange(of: appModel.tankerkoenigApiKey) { _, newValue in
+                apiKeySyncTask?.cancel()
+                apiKeySyncTask = Task {
+                    try? await Task.sleep(nanoseconds: 2_000_000_000)
+                    guard !Task.isCancelled else { return }
+                    let root = PersistenceController.shared.activeRoot(in: viewContext)
+                    root.tankerkoenigApiKey = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
+                    try? viewContext.save()
+                }
+            }
             .sheet(item: $vehicleToEdit) { vehicle in
                 VehicleEditView(vehicle: vehicle)
             }
@@ -267,6 +284,20 @@ struct SettingsView: View {
             showExporter = true
         } catch {
             backupMessage = "Export fehlgeschlagen: \(error.localizedDescription)"
+        }
+    }
+
+    private func reconcileApiKey() {
+        let persistence = PersistenceController.shared
+        let local = appModel.tankerkoenigApiKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        let cloud = persistence.cloudTankerkoenigApiKey(in: viewContext)
+
+        if local.isEmpty, !cloud.isEmpty {
+            appModel.tankerkoenigApiKey = cloud
+        } else if !local.isEmpty, cloud != local {
+            let root = persistence.activeRoot(in: viewContext)
+            root.tankerkoenigApiKey = local
+            try? viewContext.save()
         }
     }
 

@@ -6,20 +6,66 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		AB130000000000000000001D /* TankbuchWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = AB1300000000000000000012 /* TankbuchWatch.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		AB130000000000000000001A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = AB130000000000000000000A /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = AB1300000000000000000016;
+			remoteInfo = TankbuchWatch;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		AB130000000000000000001C /* Embed Watch Content */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(CONTENTS_FOLDER_PATH)/Watch";
+			dstSubfolderSpec = 16;
+			files = (
+				AB130000000000000000001D /* TankbuchWatch.app in Embed Watch Content */,
+			);
+			name = "Embed Watch Content";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		AB1300000000000000000001 /* Tankbuch */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = Tankbuch;
 			sourceTree = "<group>";
 		};
+		AB1300000000000000000010 /* Shared */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Shared;
+			sourceTree = "<group>";
+		};
+		AB1300000000000000000011 /* TankbuchWatch */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = TankbuchWatch;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFileReference section */
 		AB1300000000000000000002 /* Tankbuch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Tankbuch.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		AB1300000000000000000012 /* TankbuchWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = TankbuchWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		AB1300000000000000000003 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AB1300000000000000000013 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -33,6 +79,8 @@
 			isa = PBXGroup;
 			children = (
 				AB1300000000000000000001 /* Tankbuch */,
+				AB1300000000000000000010 /* Shared */,
+				AB1300000000000000000011 /* TankbuchWatch */,
 				AB1300000000000000000005 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -41,6 +89,7 @@
 			isa = PBXGroup;
 			children = (
 				AB1300000000000000000002 /* Tankbuch.app */,
+				AB1300000000000000000012 /* TankbuchWatch.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -55,13 +104,16 @@
 				AB1300000000000000000008 /* Sources */,
 				AB1300000000000000000003 /* Frameworks */,
 				AB1300000000000000000009 /* Resources */,
+				AB130000000000000000001C /* Embed Watch Content */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				AB130000000000000000001B /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				AB1300000000000000000001 /* Tankbuch */,
+				AB1300000000000000000010 /* Shared */,
 			);
 			name = Tankbuch;
 			packageProductDependencies = (
@@ -70,7 +122,38 @@
 			productReference = AB1300000000000000000002 /* Tankbuch.app */;
 			productType = "com.apple.product-type.application";
 		};
+		AB1300000000000000000016 /* TankbuchWatch */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AB1300000000000000000017 /* Build configuration list for PBXNativeTarget "TankbuchWatch" */;
+			buildPhases = (
+				AB1300000000000000000014 /* Sources */,
+				AB1300000000000000000013 /* Frameworks */,
+				AB1300000000000000000015 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				AB1300000000000000000011 /* TankbuchWatch */,
+				AB1300000000000000000010 /* Shared */,
+			);
+			name = TankbuchWatch;
+			packageProductDependencies = (
+			);
+			productName = TankbuchWatch;
+			productReference = AB1300000000000000000012 /* TankbuchWatch.app */;
+			productType = "com.apple.product-type.application";
+		};
 /* End PBXNativeTarget section */
+
+/* Begin PBXTargetDependency section */
+		AB130000000000000000001B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = AB1300000000000000000016 /* TankbuchWatch */;
+			targetProxy = AB130000000000000000001A /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin PBXProject section */
 		AB130000000000000000000A /* Project object */ = {
@@ -81,6 +164,9 @@
 				LastUpgradeCheck = 1600;
 				TargetAttributes = {
 					AB1300000000000000000006 = {
+						CreatedOnToolsVersion = 16.0;
+					};
+					AB1300000000000000000016 = {
 						CreatedOnToolsVersion = 16.0;
 					};
 				};
@@ -100,6 +186,7 @@
 			projectRoot = "";
 			targets = (
 				AB1300000000000000000006 /* Tankbuch */,
+				AB1300000000000000000016 /* TankbuchWatch */,
 			);
 		};
 /* End PBXProject section */
@@ -112,10 +199,24 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		AB1300000000000000000015 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		AB1300000000000000000008 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AB1300000000000000000014 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -311,6 +412,72 @@
 			};
 			name = Release;
 		};
+		AB130000000000000000001E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Config/TankbuchWatch.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Tankbuch;
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Der Standort wird benötigt, um beim Tanken automatisch die Tankstelle in der Nähe vorzuschlagen.";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
+				INFOPLIST_KEY_WKApplication = YES;
+				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = "de.familie.tankbuch";
+				INFOPLIST_KEY_WKRunsIndependentlyOfCompanionApp = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "de.familie.tankbuch.watchkitapp";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = Debug;
+		};
+		AB130000000000000000001F /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Config/TankbuchWatch.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Tankbuch;
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Der Standort wird benötigt, um beim Tanken automatisch die Tankstelle in der Nähe vorzuschlagen.";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
+				INFOPLIST_KEY_WKApplication = YES;
+				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = "de.familie.tankbuch";
+				INFOPLIST_KEY_WKRunsIndependentlyOfCompanionApp = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "de.familie.tankbuch.watchkitapp";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -328,6 +495,15 @@
 			buildConfigurations = (
 				AB130000000000000000000E /* Debug */,
 				AB130000000000000000000F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		AB1300000000000000000017 /* Build configuration list for PBXNativeTarget "TankbuchWatch" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AB130000000000000000001E /* Debug */,
+				AB130000000000000000001F /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
