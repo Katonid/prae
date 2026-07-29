@@ -60,5 +60,12 @@ enum WidgetBridge {
         guard let data = try? encoder.encode(snapshot) else { return }
         try? data.write(to: url, options: .atomic)
         WidgetCenter.shared.reloadAllTimelines()
+
+        // Die Watch bekommt denselben Stand für ihre Anzeige.
+        WatchLink.shared.pushStatus(
+            distanceMeters: snapshot.distanceMeters,
+            trackingEnabled: trackingEnabled,
+            highAccuracy: highAccuracy
+        )
     }
 }

@@ -33,9 +33,12 @@ struct TagesspurApp: App {
             SyncDiagnose.cloudKitAktiv = false
         }
         container = resolved
-        _tracker = StateObject(wrappedValue: LocationTracker(container: resolved))
+        let trackerInstance = LocationTracker(container: resolved)
+        _tracker = StateObject(wrappedValue: trackerInstance)
         FamilySync.shared.modelContainer = resolved
         SyncMonitor.start()
+        WatchLink.shared.tracker = trackerInstance
+        WatchLink.shared.activate()
         // Umbenanntes Gerät: Bestandsdaten auf den aktuellen Namen ziehen.
         Task { @MainActor in
             DeviceInfo.normalizeStoredNames(container: resolved)
