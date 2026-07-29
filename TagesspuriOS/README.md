@@ -215,6 +215,28 @@ Native SwiftUI-App, iOS 17+, keine externen Abhängigkeiten.
     verlangt Gleichstand) und muss nie von Hand hochgezählt werden.
     Voraussetzung fürs TestFlight-Hochladen zweier Builds: mindestens
     ein Merge dazwischen (sonst gleiche Nummer).
+- **Apple Watch (eigene App + Komplikationen)**
+  - Watch-App (Target `TagesspurWatch`, watchOS 10): zeigt die
+    heutigen Kilometer (CloudKit-Stand aller Geräte bzw. der zuletzt
+    vom iPhone gemeldete Wert) und fernbedient das iPhone per
+    WatchConnectivity — Aufzeichnung an/aus, hohe Genauigkeit — ohne
+    das iPhone aus der Tasche zu holen (`PhoneLink` ↔ `WatchLink`;
+    der iPhone-Status wandert als Application-Context aus dem
+    WidgetBridge-Update mit).
+  - Eigenständige Aufzeichnung: „Weg starten“ öffnet eine
+    Workout-Session (watchOS erlaubt Hintergrund-GPS nur so — daher
+    HealthKit-Freigabe; Gesundheitsdaten werden weder gelesen noch
+    gespeichert) und zeichnet mit Navigations-GPS auf. Die Watch ist
+    dabei ein eigenständiges Gerät („Watch“) im selben
+    CloudKit-Container — ihre Wege erscheinen wie iPhone-Tracks in
+    Karte, Tagesliste und Familienfreigabe. Modell-Spiegel in
+    `WatchModels.swift` (strukturgleicher `TrackDay`).
+  - Zifferblatt-Komplikationen (Target `TagesspurWatchWidgets`):
+    heutige Kilometer + Aufzeichnungsstatus (rund, rechteckig,
+    Inline); Datenweg wie beim iPhone-Widget über einen
+    App-Gruppen-Schnappschuss (`WatchWidgetBridge`).
+  - Verteilung: Die Watch-App wird in die iPhone-App eingebettet und
+    kommt automatisch mit jedem TestFlight-Build mit.
 - **Widgets (Homescreen + Sperrbildschirm)**
   - Eigenes Widget-Target `TagesspurWidgets` (WidgetKit): klein
     (km/Dauer/Status), mittel (Mini-Track des Tages als Vektorpfad auf

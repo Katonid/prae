@@ -17,15 +17,29 @@
 			path = TagesspurWidgets;
 			sourceTree = "<group>";
 		};
+		AB1900000000000000000001 /* TagesspurWatch */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = TagesspurWatch;
+			sourceTree = "<group>";
+		};
+		AB1A00000000000000000001 /* TagesspurWatchWidgets */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = TagesspurWatchWidgets;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFileReference section */
 		AB1700000000000000000002 /* Tagesspur.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Tagesspur.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		AB1800000000000000000002 /* TagesspurWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = TagesspurWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		AB1900000000000000000002 /* TagesspurWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = TagesspurWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		AB1A00000000000000000002 /* TagesspurWatchWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = TagesspurWatchWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXBuildFile section */
 		AB1800000000000000000003 /* TagesspurWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = AB1800000000000000000002 /* TagesspurWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		AB1900000000000000000003 /* TagesspurWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = AB1900000000000000000002 /* TagesspurWatch.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		AB1A00000000000000000003 /* TagesspurWatchWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = AB1A00000000000000000002 /* TagesspurWatchWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -40,6 +54,28 @@
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		AB1900000000000000000004 /* Embed Watch Content */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(CONTENTS_FOLDER_PATH)/Watch";
+			dstSubfolderSpec = 16;
+			files = (
+				AB1900000000000000000003 /* TagesspurWatch.app in Embed Watch Content */,
+			);
+			name = "Embed Watch Content";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AB190000000000000000000E /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				AB1A00000000000000000003 /* TagesspurWatchWidgets.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXContainerItemProxy section */
@@ -50,6 +86,20 @@
 			remoteGlobalIDString = AB1800000000000000000008;
 			remoteInfo = TagesspurWidgets;
 		};
+		AB190000000000000000000A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = AB170000000000000000000A /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = AB1900000000000000000008;
+			remoteInfo = TagesspurWatch;
+		};
+		AB1A0000000000000000000A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = AB170000000000000000000A /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = AB1A00000000000000000008;
+			remoteInfo = TagesspurWatchWidgets;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXTargetDependency section */
@@ -57,6 +107,16 @@
 			isa = PBXTargetDependency;
 			target = AB1800000000000000000008 /* TagesspurWidgets */;
 			targetProxy = AB180000000000000000000A /* PBXContainerItemProxy */;
+		};
+		AB190000000000000000000B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = AB1900000000000000000008 /* TagesspurWatch */;
+			targetProxy = AB190000000000000000000A /* PBXContainerItemProxy */;
+		};
+		AB1A0000000000000000000B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = AB1A00000000000000000008 /* TagesspurWatchWidgets */;
+			targetProxy = AB1A0000000000000000000A /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -75,6 +135,20 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		AB1900000000000000000005 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AB1A00000000000000000005 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -83,6 +157,8 @@
 			children = (
 				AB1700000000000000000001 /* Tagesspur */,
 				AB1800000000000000000001 /* TagesspurWidgets */,
+				AB1900000000000000000001 /* TagesspurWatch */,
+				AB1A00000000000000000001 /* TagesspurWatchWidgets */,
 				AB1700000000000000000005 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -92,6 +168,8 @@
 			children = (
 				AB1700000000000000000002 /* Tagesspur.app */,
 				AB1800000000000000000002 /* TagesspurWidgets.appex */,
+				AB1900000000000000000002 /* TagesspurWatch.app */,
+				AB1A00000000000000000002 /* TagesspurWatchWidgets.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -107,12 +185,14 @@
 				AB1700000000000000000003 /* Frameworks */,
 				AB1700000000000000000009 /* Resources */,
 				AB1800000000000000000004 /* Embed Foundation Extensions */,
+				AB1900000000000000000004 /* Embed Watch Content */,
 				AB1700000000000000000010 /* Build-Nummer setzen */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 				AB180000000000000000000B /* PBXTargetDependency */,
+				AB190000000000000000000B /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				AB1700000000000000000001 /* Tagesspur */,
@@ -147,6 +227,54 @@
 			productReference = AB1800000000000000000002 /* TagesspurWidgets.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
+		AB1900000000000000000008 /* TagesspurWatch */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AB1900000000000000000009 /* Build configuration list for PBXNativeTarget "TagesspurWatch" */;
+			buildPhases = (
+				AB1900000000000000000006 /* Sources */,
+				AB1900000000000000000005 /* Frameworks */,
+				AB1900000000000000000007 /* Resources */,
+				AB190000000000000000000E /* Embed Foundation Extensions */,
+				AB1900000000000000000010 /* Build-Nummer setzen */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				AB1A0000000000000000000B /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				AB1900000000000000000001 /* TagesspurWatch */,
+			);
+			name = TagesspurWatch;
+			packageProductDependencies = (
+			);
+			productName = TagesspurWatch;
+			productReference = AB1900000000000000000002 /* TagesspurWatch.app */;
+			productType = "com.apple.product-type.application";
+		};
+		AB1A00000000000000000008 /* TagesspurWatchWidgets */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AB1A00000000000000000009 /* Build configuration list for PBXNativeTarget "TagesspurWatchWidgets" */;
+			buildPhases = (
+				AB1A00000000000000000006 /* Sources */,
+				AB1A00000000000000000005 /* Frameworks */,
+				AB1A00000000000000000007 /* Resources */,
+				AB1A00000000000000000010 /* Build-Nummer setzen */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				AB1A00000000000000000001 /* TagesspurWatchWidgets */,
+			);
+			name = TagesspurWatchWidgets;
+			packageProductDependencies = (
+			);
+			productName = TagesspurWatchWidgets;
+			productReference = AB1A00000000000000000002 /* TagesspurWatchWidgets.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -161,6 +289,12 @@
 						CreatedOnToolsVersion = 16.0;
 					};
 					AB1800000000000000000008 = {
+						CreatedOnToolsVersion = 16.0;
+					};
+					AB1900000000000000000008 = {
+						CreatedOnToolsVersion = 16.0;
+					};
+					AB1A00000000000000000008 = {
 						CreatedOnToolsVersion = 16.0;
 					};
 				};
@@ -181,6 +315,8 @@
 			targets = (
 				AB1700000000000000000006 /* Tagesspur */,
 				AB1800000000000000000008 /* TagesspurWidgets */,
+				AB1900000000000000000008 /* TagesspurWatch */,
+				AB1A00000000000000000008 /* TagesspurWatchWidgets */,
 			);
 		};
 /* End PBXProject section */
@@ -194,6 +330,20 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		AB1800000000000000000007 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AB1900000000000000000007 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AB1A00000000000000000007 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -233,6 +383,36 @@
 			shellPath = /bin/sh;
 			shellScript = "# Build-Nummer = Anzahl der Git-Commits: steigt mit jedem Merge,\n# identisch für App und Widget, nie wieder von Hand hochzählen.\nBUILD_NUMBER=$(git -C \"$SRCROOT\" rev-list --count HEAD 2>/dev/null || echo 1)\nPLIST=\"${BUILT_PRODUCTS_DIR}/${INFOPLIST_PATH}\"\nif [ -f \"$PLIST\" ]; then\n  /usr/libexec/PlistBuddy -c \"Set :CFBundleVersion $BUILD_NUMBER\" \"$PLIST\"\nfi\n";
 		};
+		AB1900000000000000000010 /* Build-Nummer setzen */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "Build-Nummer setzen";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# Build-Nummer = Anzahl der Git-Commits: steigt mit jedem Merge,\n# identisch für App und Widget, nie wieder von Hand hochzählen.\nBUILD_NUMBER=$(git -C \"$SRCROOT\" rev-list --count HEAD 2>/dev/null || echo 1)\nPLIST=\"${BUILT_PRODUCTS_DIR}/${INFOPLIST_PATH}\"\nif [ -f \"$PLIST\" ]; then\n  /usr/libexec/PlistBuddy -c \"Set :CFBundleVersion $BUILD_NUMBER\" \"$PLIST\"\nfi\n";
+		};
+		AB1A00000000000000000010 /* Build-Nummer setzen */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "Build-Nummer setzen";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# Build-Nummer = Anzahl der Git-Commits: steigt mit jedem Merge,\n# identisch für App und Widget, nie wieder von Hand hochzählen.\nBUILD_NUMBER=$(git -C \"$SRCROOT\" rev-list --count HEAD 2>/dev/null || echo 1)\nPLIST=\"${BUILT_PRODUCTS_DIR}/${INFOPLIST_PATH}\"\nif [ -f \"$PLIST\" ]; then\n  /usr/libexec/PlistBuddy -c \"Set :CFBundleVersion $BUILD_NUMBER\" \"$PLIST\"\nfi\n";
+		};
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -244,6 +424,20 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		AB1800000000000000000006 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AB1900000000000000000006 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AB1A00000000000000000006 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -499,6 +693,128 @@
 			};
 			name = Release;
 		};
+		AB190000000000000000000C /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Config/TagesspurWatch.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Config/TagesspurWatchInfo.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Tagesspur;
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "Für die Hintergrund-Aufzeichnung auf der Watch läuft eine Workout-Session — dafür braucht es die Health-Freigabe. Gesundheitsdaten werden weder gelesen noch gespeichert.";
+				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Für die Hintergrund-Aufzeichnung auf der Watch läuft eine Workout-Session — dafür braucht es die Health-Freigabe. Gesundheitsdaten werden weder gelesen noch gespeichert.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Die Watch zeichnet deinen Weg als Track auf, solange eine Aufzeichnung läuft.";
+				INFOPLIST_KEY_WKApplication = YES;
+				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = "de.familie.tagesspur";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.2.4;
+				PRODUCT_BUNDLE_IDENTIFIER = "de.familie.tagesspur.watchkitapp";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = Debug;
+		};
+		AB190000000000000000000D /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Config/TagesspurWatch.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Config/TagesspurWatchInfo.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Tagesspur;
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "Für die Hintergrund-Aufzeichnung auf der Watch läuft eine Workout-Session — dafür braucht es die Health-Freigabe. Gesundheitsdaten werden weder gelesen noch gespeichert.";
+				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Für die Hintergrund-Aufzeichnung auf der Watch läuft eine Workout-Session — dafür braucht es die Health-Freigabe. Gesundheitsdaten werden weder gelesen noch gespeichert.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Die Watch zeichnet deinen Weg als Track auf, solange eine Aufzeichnung läuft.";
+				INFOPLIST_KEY_WKApplication = YES;
+				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = "de.familie.tagesspur";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.2.4;
+				PRODUCT_BUNDLE_IDENTIFIER = "de.familie.tagesspur.watchkitapp";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = Release;
+		};
+		AB1A0000000000000000000C /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = Config/TagesspurWatchWidgets.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Config/TagesspurWatchWidgetsInfo.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Tagesspur;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.2.4;
+				PRODUCT_BUNDLE_IDENTIFIER = "de.familie.tagesspur.watchkitapp.TagesspurWatchWidgets";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = Debug;
+		};
+		AB1A0000000000000000000D /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = Config/TagesspurWatchWidgets.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Config/TagesspurWatchWidgetsInfo.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Tagesspur;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.2.4;
+				PRODUCT_BUNDLE_IDENTIFIER = "de.familie.tagesspur.watchkitapp.TagesspurWatchWidgets";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -525,6 +841,24 @@
 			buildConfigurations = (
 				AB180000000000000000000C /* Debug */,
 				AB180000000000000000000D /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		AB1900000000000000000009 /* Build configuration list for PBXNativeTarget "TagesspurWatch" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AB190000000000000000000C /* Debug */,
+				AB190000000000000000000D /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		AB1A00000000000000000009 /* Build configuration list for PBXNativeTarget "TagesspurWatchWidgets" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AB1A0000000000000000000C /* Debug */,
+				AB1A0000000000000000000D /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
