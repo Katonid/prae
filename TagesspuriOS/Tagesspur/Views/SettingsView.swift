@@ -71,6 +71,7 @@ struct SettingsView: View {
                 syncSection
                 deviceSection
                 dataSection
+                aboutSection
             }
             .navigationTitle("Einstellungen")
             .confirmationDialog(
@@ -337,6 +338,20 @@ struct SettingsView: View {
                 confirmDelete = true
             }
         }
+    }
+
+    /// „Welcher Stand läuft hier eigentlich?“ — nie wieder raten:
+    /// Version + Build-Nummer (= Commit-Zähler) sind direkt ablesbar.
+    private var aboutSection: some View {
+        Section("Über") {
+            LabeledContent("Version", value: Self.versionText)
+        }
+    }
+
+    static var versionText: String {
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "?"
+        let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "?"
+        return "\(version) (Build \(build))"
     }
 
     private var locationStatusText: String {
