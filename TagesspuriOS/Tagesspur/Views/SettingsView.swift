@@ -53,164 +53,21 @@ struct SettingsView: View {
         .sorted { $0.name < $1.name }
     }
 
+    // Der Formular-Rumpf ist in benannte Teil-Sektionen zerlegt — als ein
+    // einziger Ausdruck bringt er Swifts Typprüfung an die Grenze
+    // („unable to type-check this expression in reasonable time“).
     var body: some View {
         NavigationStack {
             Form {
-                Section("Darstellung") {
-                    Picker("App", selection: $appAppearance) {
-                        ForEach(AppearanceMode.allCases) { mode in
-                            Text(mode.label).tag(mode.rawValue)
-                        }
-                    }
-                    Picker("Karte", selection: $mapAppearance) {
-                        ForEach(AppearanceMode.allCases) { mode in
-                            Text(mode.label).tag(mode.rawValue)
-                        }
-                    }
-                    Text("App und Karte getrennt einstellbar — z. B. dunkle App mit heller Karte. „Automatisch“ folgt der Systemeinstellung.")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                }
-
-                Section("Outdoor-Karte") {
-                    TextField("Thunderforest-API-Key (optional)", text: $thunderforestKey)
-                        .autocorrectionDisabled()
-                        .textInputAutocapitalization(.never)
-                        .onChange(of: thunderforestKey) { _, newValue in
-                            UserDefaults.standard.set(newValue, forKey: OutdoorMapView.OutdoorTileOverlay.thunderforestKeyDefault)
-                        }
-                    Text("Ohne Key nutzt der Outdoor-Stil den freien OpenTopoMap-Server — der ist oft träge. Mit einem kostenlosen Key von thunderforest.com (Tarif „Hobby Project“) lädt der Outdoor-Stil deutlich schneller über deren CDN. Bereits geladene Gegenden bleiben lokal zwischengespeichert.")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                }
-
-                Section("Aufzeichnung") {
-                    Toggle("Standort aufzeichnen", isOn: $tracker.trackingEnabled)
-                    Toggle("Hohe Genauigkeit", isOn: $tracker.highAccuracy)
-                    LabeledContent("Standort-Berechtigung", value: locationStatusText)
-                    LabeledContent("Genauer Standort") {
-                        Text(tracker.accuracyAuthorization == .fullAccuracy ? "Ein" : "AUS — nur ±1–2 km!")
-                            .foregroundStyle(tracker.accuracyAuthorization == .fullAccuracy ? .secondary : .red)
-                    }
-                    if tracker.accuracyAuthorization == .reducedAccuracy {
-                        Text("Ohne „Genauer Standort“ liefert iOS nur die ungefähre Position — Stadtteile stimmen, Straßenverläufe sind unmöglich. Einschalten: iOS-Einstellungen → Datenschutz & Sicherheit → Ortungsdienste → Tagesspur → „Genauer Standort“.")
-                            .font(.footnote)
-                            .foregroundStyle(.red)
-                    }
-                    LabeledContent("Bewegungssensor", value: LocationTracker.motionStatusText)
-                    if !tracker.hasAlwaysPermission {
-                        Button("Berechtigung anfragen („Immer“ empfohlen)") {
-                            tracker.requestPermission()
-                        }
-                    }
-                    LabeledContent("Hintergrund-Neustarts heute", value: "\(LocationTracker.backgroundRelaunchesToday)")
-                    Text("Ausgewogen (Standard): beste GPS-Stufe bei Bewegung; nach 5 Minuten Stillstand grober Ruhemodus. Den Beginn einer Fahrt oder eines Wegs meldet der Bewegungssensor in Sekunden (bitte Bewegungs-Berechtigung erlauben) — die App schaltet sofort zurück auf präzise. „Hohe Genauigkeit“ zeichnet dauerhaft mit Navigations-GPS und Punkten alle 10 m auf (wie Sport-Apps à la Komoot). Hintergrund-Neustarts: So oft hat iOS die App heute beendet und wieder geweckt — jede dieser Stellen kann eine kleine Track-Lücke sein; ein Geofence (150 m) hält sie so kurz wie möglich.")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                }
-
-                Section("Fotos & Videos") {
-                    LabeledContent("Mediathek-Zugriff", value: photoStatusText)
-                    if photoStatus != .authorized && photoStatus != .limited {
-                        Button("Zugriff erlauben") {
-                            Task {
-                                photoStatus = await PhotoMatcher.requestAccess()
-                            }
-                        }
-                    }
-                    Text("Medien werden nur gelesen und anhand von Zeit und GPS eingeblendet — Tagesspur speichert keine Kopien.")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                }
-
-                Section("Fotoanalyse (auf dem Gerät)") {
-                    Toggle("Foto-Stichwörter für die Suche", isOn: $analysisEnabled)
-                        .onChange(of: analysisEnabled) { _, newValue in
-                            PhotoAnalyzer.isEnabled = newValue
-                        }
-                    if analysisEnabled {
-                        Button {
-                            runAnalysis()
-                        } label: {
-                            if analysisRunning {
-                                Label(analysisProgress.isEmpty ? "Analysiere…" : analysisProgress,
-                                      systemImage: "sparkles")
-                            } else {
-                                Label("Alle Tage jetzt analysieren", systemImage: "sparkles")
-                            }
-                        }
-                        .disabled(analysisRunning)
-                        LabeledContent("Analysierte Aufnahmen", value: "\(tags.count)")
-                    }
-                    Text("Erkennt Motive (z. B. Picknick, See, Hund) komplett auf dem Gerät mit Apples Vision-Framework. Gespeichert werden nur Stichwörter, nie Bilder — nichts verlässt das Gerät. Treffer erscheinen in der Suche als „Fotoanalyse“ markiert; wie jede Mustererkennung kann sie sich irren.")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                }
-
-                Section("Familie") {
-                    NavigationLink {
-                        FamilyView()
-                    } label: {
-                        Label("Familienfreigabe", systemImage: "person.3.fill")
-                    }
-                    Text("Teile deine Tage mit Familienmitgliedern — auch mit anderen Apple-IDs — und sieh deren Tage in Karte, Tagesliste und Suche.")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                }
-
-                Section("iCloud-Sync (eigene Geräte)") {
-                    LabeledContent("Datenbank",
-                                   value: SyncDiagnose.cloudKitAktiv ? "iCloud-Sync aktiv" : "NUR LOKAL — kein Sync")
-                    LabeledContent("iCloud-Konto", value: accountStatusText)
-                    LabeledContent("Letztes Hochladen",
-                                   value: SyncMonitor.lastExport?.formatted(date: .abbreviated, time: .shortened) ?? "—")
-                    LabeledContent("Letztes Empfangen",
-                                   value: SyncMonitor.lastImport?.formatted(date: .abbreviated, time: .shortened) ?? "—")
-                    if let error = SyncMonitor.lastError {
-                        Text("Sync-Fehler (\(error.date.formatted(date: .abbreviated, time: .shortened))): \(error.text)")
-                            .font(.footnote)
-                            .foregroundStyle(.red)
-                    }
-                    ForEach(deviceSummaries) { summary in
-                        LabeledContent(summary.name) {
-                            VStack(alignment: .trailing) {
-                                Text("\(summary.dayCount) Tage")
-                                Text("Stand \(summary.latest.formatted(date: .abbreviated, time: .shortened))")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                        .swipeActions {
-                            if summary.id != DeviceInfo.deviceId {
-                                Button("Löschen", role: .destructive) {
-                                    deviceToDelete = summary
-                                }
-                            }
-                        }
-                    }
-                    Text("Hier müssen alle deine Geräte mit Tagen auftauchen. Voraussetzungen: gleiche Apple-ID, iCloud für Tagesspur erlaubt (iOS-Einstellungen → Apple-ID → iCloud → „Alle anzeigen“). Wichtig: Direkt über Xcode installierte Builds syncen in der CloudKit-ENTWICKLUNGSUMGEBUNG, TestFlight-/App-Store-Builds in der PRODUKTIONSUMGEBUNG — die beiden Welten sehen einander nicht. Alle Geräte (auch die der Familie) müssen dieselbe Installationsart nutzen. Der erste Abgleich kann einige Minuten dauern und braucht die App einmal geöffnet auf jedem Gerät. Neue Aufzeichnungen lädt ein Gerät vor allem hoch, während die App dort geöffnet ist. Ein fremdes Gerät nach links wischen löscht dessen Aufzeichnungen — über iCloud auf allen Geräten.")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                }
-
-                Section("Dieses Gerät") {
-                    TextField("Gerätename", text: $deviceName)
-                        .onChange(of: deviceName) { _, newValue in
-                            DeviceInfo.deviceName = newValue
-                        }
-                        .onSubmit {
-                            DeviceInfo.normalizeStoredNames(container: context.container)
-                        }
-                    Text("Jedes Gerät speichert seine eigenen Aufzeichnungen; über iCloud siehst du alle Geräte gemeinsam. Der Name hilft beim Auseinanderhalten.")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                }
-
-                Section("Daten") {
-                    Button("Aufzeichnungen dieses Geräts löschen", role: .destructive) {
-                        confirmDelete = true
-                    }
-                }
+                appearanceSection
+                outdoorSection
+                recordingSection
+                photosSection
+                analysisSection
+                familySection
+                syncSection
+                deviceSection
+                dataSection
             }
             .navigationTitle("Einstellungen")
             .confirmationDialog(
@@ -250,6 +107,182 @@ struct SettingsView: View {
                 case .couldNotDetermine: "Unbekannt"
                 @unknown default: "Unbekannt"
                 }
+            }
+        }
+    }
+
+    // MARK: - Teil-Sektionen
+
+    private var appearanceSection: some View {
+        Section("Darstellung") {
+                    Picker("App", selection: $appAppearance) {
+                        ForEach(AppearanceMode.allCases) { mode in
+                            Text(mode.label).tag(mode.rawValue)
+                        }
+                    }
+                    Picker("Karte", selection: $mapAppearance) {
+                        ForEach(AppearanceMode.allCases) { mode in
+                            Text(mode.label).tag(mode.rawValue)
+                        }
+                    }
+                    Text("App und Karte getrennt einstellbar — z. B. dunkle App mit heller Karte. „Automatisch“ folgt der Systemeinstellung.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+        }
+    }
+
+    private var outdoorSection: some View {
+        Section("Outdoor-Karte") {
+                    TextField("Thunderforest-API-Key (optional)", text: $thunderforestKey)
+                        .autocorrectionDisabled()
+                        .textInputAutocapitalization(.never)
+                        .onChange(of: thunderforestKey) { _, newValue in
+                            UserDefaults.standard.set(newValue, forKey: OutdoorMapView.OutdoorTileOverlay.thunderforestKeyDefault)
+                        }
+                    Text("Ohne Key nutzt der Outdoor-Stil den freien OpenTopoMap-Server — der ist oft träge. Mit einem kostenlosen Key von thunderforest.com (Tarif „Hobby Project“) lädt der Outdoor-Stil deutlich schneller über deren CDN. Bereits geladene Gegenden bleiben lokal zwischengespeichert.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+        }
+    }
+
+    private var recordingSection: some View {
+        Section("Aufzeichnung") {
+                    Toggle("Standort aufzeichnen", isOn: $tracker.trackingEnabled)
+                    Toggle("Hohe Genauigkeit", isOn: $tracker.highAccuracy)
+                    LabeledContent("Standort-Berechtigung", value: locationStatusText)
+                    LabeledContent("Genauer Standort") {
+                        Text(tracker.accuracyAuthorization == .fullAccuracy ? "Ein" : "AUS — nur ±1–2 km!")
+                            .foregroundStyle(tracker.accuracyAuthorization == .fullAccuracy ? .secondary : .red)
+                    }
+                    if tracker.accuracyAuthorization == .reducedAccuracy {
+                        Text("Ohne „Genauer Standort“ liefert iOS nur die ungefähre Position — Stadtteile stimmen, Straßenverläufe sind unmöglich. Einschalten: iOS-Einstellungen → Datenschutz & Sicherheit → Ortungsdienste → Tagesspur → „Genauer Standort“.")
+                            .font(.footnote)
+                            .foregroundStyle(.red)
+                    }
+                    LabeledContent("Bewegungssensor", value: LocationTracker.motionStatusText)
+                    if !tracker.hasAlwaysPermission {
+                        Button("Berechtigung anfragen („Immer“ empfohlen)") {
+                            tracker.requestPermission()
+                        }
+                    }
+                    LabeledContent("Hintergrund-Neustarts heute", value: "\(LocationTracker.backgroundRelaunchesToday)")
+                    Text("Ausgewogen (Standard): beste GPS-Stufe bei Bewegung; nach 5 Minuten Stillstand grober Ruhemodus. Den Beginn einer Fahrt oder eines Wegs meldet der Bewegungssensor in Sekunden (bitte Bewegungs-Berechtigung erlauben) — die App schaltet sofort zurück auf präzise. „Hohe Genauigkeit“ zeichnet dauerhaft mit Navigations-GPS und Punkten alle 10 m auf (wie Sport-Apps à la Komoot). Hintergrund-Neustarts: So oft hat iOS die App heute beendet und wieder geweckt — jede dieser Stellen kann eine kleine Track-Lücke sein; ein Geofence (150 m) hält sie so kurz wie möglich.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+        }
+    }
+
+    private var photosSection: some View {
+        Section("Fotos & Videos") {
+                    LabeledContent("Mediathek-Zugriff", value: photoStatusText)
+                    if photoStatus != .authorized && photoStatus != .limited {
+                        Button("Zugriff erlauben") {
+                            Task {
+                                photoStatus = await PhotoMatcher.requestAccess()
+                            }
+                        }
+                    }
+                    Text("Medien werden nur gelesen und anhand von Zeit und GPS eingeblendet — Tagesspur speichert keine Kopien.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+        }
+    }
+
+    private var analysisSection: some View {
+        Section("Fotoanalyse (auf dem Gerät)") {
+                    Toggle("Foto-Stichwörter für die Suche", isOn: $analysisEnabled)
+                        .onChange(of: analysisEnabled) { _, newValue in
+                            PhotoAnalyzer.isEnabled = newValue
+                        }
+                    if analysisEnabled {
+                        Button {
+                            runAnalysis()
+                        } label: {
+                            if analysisRunning {
+                                Label(analysisProgress.isEmpty ? "Analysiere…" : analysisProgress,
+                                      systemImage: "sparkles")
+                            } else {
+                                Label("Alle Tage jetzt analysieren", systemImage: "sparkles")
+                            }
+                        }
+                        .disabled(analysisRunning)
+                        LabeledContent("Analysierte Aufnahmen", value: "\(tags.count)")
+                    }
+                    Text("Erkennt Motive (z. B. Picknick, See, Hund) komplett auf dem Gerät mit Apples Vision-Framework. Gespeichert werden nur Stichwörter, nie Bilder — nichts verlässt das Gerät. Treffer erscheinen in der Suche als „Fotoanalyse“ markiert; wie jede Mustererkennung kann sie sich irren.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+        }
+    }
+
+    private var familySection: some View {
+        Section("Familie") {
+                    NavigationLink {
+                        FamilyView()
+                    } label: {
+                        Label("Familienfreigabe", systemImage: "person.3.fill")
+                    }
+                    Text("Teile deine Tage mit Familienmitgliedern — auch mit anderen Apple-IDs — und sieh deren Tage in Karte, Tagesliste und Suche.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+        }
+    }
+
+    private var syncSection: some View {
+        Section("iCloud-Sync (eigene Geräte)") {
+                    LabeledContent("Datenbank",
+                                   value: SyncDiagnose.cloudKitAktiv ? "iCloud-Sync aktiv" : "NUR LOKAL — kein Sync")
+                    LabeledContent("iCloud-Konto", value: accountStatusText)
+                    LabeledContent("Letztes Hochladen",
+                                   value: SyncMonitor.lastExport?.formatted(date: .abbreviated, time: .shortened) ?? "—")
+                    LabeledContent("Letztes Empfangen",
+                                   value: SyncMonitor.lastImport?.formatted(date: .abbreviated, time: .shortened) ?? "—")
+                    if let error = SyncMonitor.lastError {
+                        Text("Sync-Fehler (\(error.date.formatted(date: .abbreviated, time: .shortened))): \(error.text)")
+                            .font(.footnote)
+                            .foregroundStyle(.red)
+                    }
+                    ForEach(deviceSummaries) { summary in
+                        LabeledContent(summary.name) {
+                            VStack(alignment: .trailing) {
+                                Text("\(summary.dayCount) Tage")
+                                Text("Stand \(summary.latest.formatted(date: .abbreviated, time: .shortened))")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        .swipeActions {
+                            if summary.id != DeviceInfo.deviceId {
+                                Button("Löschen", role: .destructive) {
+                                    deviceToDelete = summary
+                                }
+                            }
+                        }
+                    }
+                    Text("Hier müssen alle deine Geräte mit Tagen auftauchen. Voraussetzungen: gleiche Apple-ID, iCloud für Tagesspur erlaubt (iOS-Einstellungen → Apple-ID → iCloud → „Alle anzeigen“). Wichtig: Direkt über Xcode installierte Builds syncen in der CloudKit-ENTWICKLUNGSUMGEBUNG, TestFlight-/App-Store-Builds in der PRODUKTIONSUMGEBUNG — die beiden Welten sehen einander nicht. Alle Geräte (auch die der Familie) müssen dieselbe Installationsart nutzen. Der erste Abgleich kann einige Minuten dauern und braucht die App einmal geöffnet auf jedem Gerät. Neue Aufzeichnungen lädt ein Gerät vor allem hoch, während die App dort geöffnet ist. Ein fremdes Gerät nach links wischen löscht dessen Aufzeichnungen — über iCloud auf allen Geräten.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+        }
+    }
+
+    private var deviceSection: some View {
+        Section("Dieses Gerät") {
+                    TextField("Gerätename", text: $deviceName)
+                        .onChange(of: deviceName) { _, newValue in
+                            DeviceInfo.deviceName = newValue
+                        }
+                        .onSubmit {
+                            DeviceInfo.normalizeStoredNames(container: context.container)
+                        }
+                    Text("Jedes Gerät speichert seine eigenen Aufzeichnungen; über iCloud siehst du alle Geräte gemeinsam. Der Name hilft beim Auseinanderhalten.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+        }
+    }
+
+    private var dataSection: some View {
+        Section("Daten") {
+            Button("Aufzeichnungen dieses Geräts löschen", role: .destructive) {
+                confirmDelete = true
             }
         }
     }
