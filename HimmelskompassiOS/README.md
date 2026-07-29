@@ -38,6 +38,10 @@ diesem Projekt weder benutzt noch berührt.
   Stunde, Tagesverlaufs-Balken, Mondphase), Mond-Widget sowie
   Sperrbildschirm-Widgets – rechnen offline mit dem zuletzt in der App
   verwendeten Ort (App Group `group.de.familie.himmelskompass`)
+- **Apple Watch:** eigenständige Watch-App mit drei Seiten (Sonne, Mond,
+  Nacht mit ISS-Überflug und Milchstraße) samt eigenem GPS – funktioniert
+  auch ohne iPhone in der Nähe – plus Zifferblatt-Komplikationen
+  (Sonnenzeiten, goldene Stunde mit Countdown, Mondphase)
 
 ## Technik
 
@@ -56,11 +60,17 @@ diesem Projekt weder benutzt noch berührt.
 
 1. `HimmelskompassiOS/Himmelskompass.xcodeproj` in Xcode (16 oder neuer) öffnen.
 2. Unter *Signing & Capabilities* das eigene Team (Apple-Developer-Konto)
-   auswählen – **für beide Targets** („Himmelskompass" und
-   „HimmelskompassWidgets"). Falls die Bundle-ID `de.familie.himmelskompass`
-   im Konto schon vergeben ist, eine eigene eintragen (z. B.
-   `de.<name>.himmelskompass`) und beim Widget-Target entsprechend
-   `de.<name>.himmelskompass.widgets`.
+   auswählen – **für alle vier Targets** („Himmelskompass",
+   „HimmelskompassWidgets", „HimmelskompassWatch",
+   „HimmelskompassWatchWidgets"). Falls die Bundle-ID
+   `de.familie.himmelskompass` im Konto schon vergeben ist, eine eigene
+   eintragen (z. B. `de.<name>.himmelskompass`) und die Ableger-IDs
+   entsprechend anpassen (`….widgets`, `….watchkitapp`,
+   `….watchkitapp.widgets`; beim Watch-Target zusätzlich den
+   `WKCompanionAppBundleIdentifier` in den Build-Einstellungen).
+   Die Watch-App landet beim Installieren der iPhone-App automatisch mit
+   auf der gekoppelten Uhr (ggf. in der Watch-App des iPhones unter
+   „Allgemein → App-Installation" bzw. in der App-Liste aktivieren).
 3. iPhone/iPad per Kabel oder WLAN verbinden, als Ziel auswählen, **Run**.
    Beim ersten Start auf dem Gerät unter *Einstellungen → Allgemein →
    VPN & Geräteverwaltung* dem Entwicklerprofil vertrauen.
