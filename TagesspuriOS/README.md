@@ -215,6 +215,11 @@ Native SwiftUI-App, iOS 17+, keine externen Abhängigkeiten.
     verlangt Gleichstand) und muss nie von Hand hochgezählt werden.
     Voraussetzung fürs TestFlight-Hochladen zweier Builds: mindestens
     ein Merge dazwischen (sonst gleiche Nummer).
+- **Verlauf abspielen mit Geräteauswahl**
+  - Der Play-Knopf (Heute + Tagesdetail) öffnet ein Menü: „Alle
+    eigenen Geräte“ (zusammengelegt, wie bisher) oder ein einzelnes
+    Gerät bzw. Familienmitglied — jede Spur lässt sich damit einzeln
+    als Film abspielen (`ReplayTarget`, Cover per item-Binding).
 - **Spurfarben frei wählbar**
   - Einstellungen → „Spurfarben“: je Gerät (eigene und Familie) ein
     ColorPicker; „Standardfarben wiederherstellen“ setzt zurück.

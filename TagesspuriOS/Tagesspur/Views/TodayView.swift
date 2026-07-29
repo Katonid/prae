@@ -13,7 +13,7 @@ struct TodayView: View {
     @State private var visits: [VisitInfo] = []
     @State private var media: [MediaItem] = []
     @State private var distance: Double = 0
-    @State private var showReplay = false
+    @State private var replayTarget: ReplayTarget?
     @State private var showViewer = false
     @State private var viewerIndex = 0
 
@@ -33,8 +33,8 @@ struct TodayView: View {
             }
             .toolbar(.hidden, for: .navigationBar)
             .task(id: tracker.pointsVersion) { reload() }
-            .fullScreenCover(isPresented: $showReplay) {
-                TrackReplayView(title: "Heute", points: allPoints)
+            .fullScreenCover(item: $replayTarget) { target in
+                TrackReplayView(title: target.title, points: target.points)
             }
             .fullScreenCover(isPresented: $showViewer) {
                 MediaViewerView(items: media, index: viewerIndex)
@@ -104,9 +104,9 @@ struct TodayView: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(tracker.highAccuracy ? "Hohe Genauigkeit ausschalten" : "Hohe Genauigkeit einschalten")
-                if allPoints.count > 1 {
-                    Button {
-                        showReplay = true
+                if tracks.contains(where: { $0.points.count > 1 }) {
+                    Menu {
+                        replayMenuItems
                     } label: {
                         Image(systemName: "play.fill")
                             .font(.system(size: 15, weight: .bold))
@@ -114,7 +114,7 @@ struct TodayView: View {
                             .background(.white.opacity(0.22), in: Circle())
                     }
                     .buttonStyle(.plain)
-                    .accessibilityLabel("Tag abspielen")
+                    .accessibilityLabel("Tag abspielen — Gerät wählen")
                 }
             }
 
@@ -136,6 +136,25 @@ struct TodayView: View {
         .padding(.top, 4)
         .padding(.bottom, 14)
         .background(HeroCardBackground(cornerRadius: 0).ignoresSafeArea(edges: .top))
+    }
+
+    /// Abspiel-Auswahl: alle eigenen Geräte zusammen oder ein einzelnes
+    /// Gerät / Familienmitglied.
+    @ViewBuilder
+    private var replayMenuItems: some View {
+        if ownTrackCount > 1, allPoints.count > 1 {
+            Button("Alle eigenen Geräte") {
+                replayTarget = ReplayTarget(id: "eigene", title: "Heute", points: allPoints)
+            }
+        }
+        ForEach(tracks) { track in
+            if track.points.count > 1 {
+                let name = track.deviceName.isEmpty ? "Gerät" : track.deviceName
+                Button(name) {
+                    replayTarget = ReplayTarget(id: track.id, title: name, points: track.points)
+                }
+            }
+        }
     }
 
     private func statBadge(_ symbol: String, _ value: String) -> some View {

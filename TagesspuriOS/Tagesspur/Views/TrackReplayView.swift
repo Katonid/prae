@@ -3,6 +3,14 @@ import MapKit
 import CoreLocation
 import Combine
 
+/// Auswahl fürs Abspielen: welcher Track (Gerät oder Familienmitglied)
+/// im Replay läuft — gewählt über das Menü hinter dem Play-Knopf.
+struct ReplayTarget: Identifiable {
+    let id: String
+    let title: String
+    let points: [TrackPoint]
+}
+
 /// Spielt einen Tag wie einen Film ab: ein Punkt fliegt mit geneigter
 /// 3D-Kamera den Track entlang, dazu Uhrzeit, Zeitstrahl und Tempo.
 struct TrackReplayView: View {
