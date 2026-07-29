@@ -8,6 +8,8 @@
 
 /* Begin PBXBuildFile section */
 		AB120000000000000000001C /* HimmelskompassWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = AB1200000000000000000013 /* HimmelskompassWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		AB1200000000000000000033 /* HimmelskompassWatchWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = AB120000000000000000002C /* HimmelskompassWatchWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		AB1200000000000000000037 /* HimmelskompassWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = AB1200000000000000000023 /* HimmelskompassWatch.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -17,6 +19,20 @@
 			proxyType = 1;
 			remoteGlobalIDString = AB1200000000000000000012;
 			remoteInfo = HimmelskompassWidgets;
+		};
+		AB1200000000000000000035 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = AB120000000000000000000A /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = AB120000000000000000002B;
+			remoteInfo = HimmelskompassWatchWidgets;
+		};
+		AB1200000000000000000039 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = AB120000000000000000000A /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = AB1200000000000000000022;
+			remoteInfo = HimmelskompassWatch;
 		};
 /* End PBXContainerItemProxy section */
 
@@ -32,6 +48,28 @@
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		AB1200000000000000000027 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				AB1200000000000000000033 /* HimmelskompassWatchWidgets.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AB1200000000000000000036 /* Embed Watch Content */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(CONTENTS_FOLDER_PATH)/Watch";
+			dstSubfolderSpec = 16;
+			files = (
+				AB1200000000000000000037 /* HimmelskompassWatch.app in Embed Watch Content */,
+			);
+			name = "Embed Watch Content";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -41,6 +79,13 @@
 				Info.plist,
 			);
 			target = AB1200000000000000000012 /* HimmelskompassWidgets */;
+		};
+		AB120000000000000000003A /* Exceptions for "HimmelskompassWatchWidgets" folder in "HimmelskompassWatchWidgets" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = AB120000000000000000002B /* HimmelskompassWatchWidgets */;
 		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
@@ -63,11 +108,26 @@
 			path = HimmelskompassWidgets;
 			sourceTree = "<group>";
 		};
+		AB1200000000000000000020 /* HimmelskompassWatch */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = HimmelskompassWatch;
+			sourceTree = "<group>";
+		};
+		AB1200000000000000000021 /* HimmelskompassWatchWidgets */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				AB120000000000000000003A /* Exceptions for "HimmelskompassWatchWidgets" folder in "HimmelskompassWatchWidgets" target */,
+			);
+			path = HimmelskompassWatchWidgets;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFileReference section */
 		AB1200000000000000000002 /* Himmelskompass.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Himmelskompass.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		AB1200000000000000000013 /* HimmelskompassWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = HimmelskompassWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		AB1200000000000000000023 /* HimmelskompassWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = HimmelskompassWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		AB120000000000000000002C /* HimmelskompassWatchWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = HimmelskompassWatchWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -85,6 +145,20 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		AB1200000000000000000025 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AB120000000000000000002E /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -94,6 +168,8 @@
 				AB1200000000000000000001 /* Himmelskompass */,
 				AB1200000000000000000010 /* Shared */,
 				AB1200000000000000000011 /* HimmelskompassWidgets */,
+				AB1200000000000000000020 /* HimmelskompassWatch */,
+				AB1200000000000000000021 /* HimmelskompassWatchWidgets */,
 				AB1200000000000000000005 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -103,6 +179,8 @@
 			children = (
 				AB1200000000000000000002 /* Himmelskompass.app */,
 				AB1200000000000000000013 /* HimmelskompassWidgets.appex */,
+				AB1200000000000000000023 /* HimmelskompassWatch.app */,
+				AB120000000000000000002C /* HimmelskompassWatchWidgets.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -118,11 +196,13 @@
 				AB1200000000000000000003 /* Frameworks */,
 				AB1200000000000000000009 /* Resources */,
 				AB120000000000000000001A /* Embed Foundation Extensions */,
+				AB1200000000000000000036 /* Embed Watch Content */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 				AB120000000000000000001B /* PBXTargetDependency */,
+				AB1200000000000000000038 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				AB1200000000000000000001 /* Himmelskompass */,
@@ -158,6 +238,54 @@
 			productReference = AB1200000000000000000013 /* HimmelskompassWidgets.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
+		AB1200000000000000000022 /* HimmelskompassWatch */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AB120000000000000000002A /* Build configuration list for PBXNativeTarget "HimmelskompassWatch" */;
+			buildPhases = (
+				AB1200000000000000000024 /* Sources */,
+				AB1200000000000000000025 /* Frameworks */,
+				AB1200000000000000000026 /* Resources */,
+				AB1200000000000000000027 /* Embed Foundation Extensions */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				AB1200000000000000000034 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				AB1200000000000000000020 /* HimmelskompassWatch */,
+				AB1200000000000000000010 /* Shared */,
+			);
+			name = HimmelskompassWatch;
+			packageProductDependencies = (
+			);
+			productName = HimmelskompassWatch;
+			productReference = AB1200000000000000000023 /* HimmelskompassWatch.app */;
+			productType = "com.apple.product-type.application";
+		};
+		AB120000000000000000002B /* HimmelskompassWatchWidgets */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AB1200000000000000000032 /* Build configuration list for PBXNativeTarget "HimmelskompassWatchWidgets" */;
+			buildPhases = (
+				AB120000000000000000002D /* Sources */,
+				AB120000000000000000002E /* Frameworks */,
+				AB120000000000000000002F /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				AB1200000000000000000021 /* HimmelskompassWatchWidgets */,
+				AB1200000000000000000010 /* Shared */,
+			);
+			name = HimmelskompassWatchWidgets;
+			packageProductDependencies = (
+			);
+			productName = HimmelskompassWatchWidgets;
+			productReference = AB120000000000000000002C /* HimmelskompassWatchWidgets.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -172,6 +300,12 @@
 						CreatedOnToolsVersion = 16.0;
 					};
 					AB1200000000000000000012 = {
+						CreatedOnToolsVersion = 16.0;
+					};
+					AB1200000000000000000022 = {
+						CreatedOnToolsVersion = 16.0;
+					};
+					AB120000000000000000002B = {
 						CreatedOnToolsVersion = 16.0;
 					};
 				};
@@ -192,6 +326,8 @@
 			targets = (
 				AB1200000000000000000006 /* Himmelskompass */,
 				AB1200000000000000000012 /* HimmelskompassWidgets */,
+				AB1200000000000000000022 /* HimmelskompassWatch */,
+				AB120000000000000000002B /* HimmelskompassWatchWidgets */,
 			);
 		};
 /* End PBXProject section */
@@ -205,6 +341,20 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		AB1200000000000000000016 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AB1200000000000000000026 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AB120000000000000000002F /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -228,6 +378,20 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		AB1200000000000000000024 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AB120000000000000000002D /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -235,6 +399,16 @@
 			isa = PBXTargetDependency;
 			target = AB1200000000000000000012 /* HimmelskompassWidgets */;
 			targetProxy = AB120000000000000000001D /* PBXContainerItemProxy */;
+		};
+		AB1200000000000000000034 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = AB120000000000000000002B /* HimmelskompassWatchWidgets */;
+			targetProxy = AB1200000000000000000035 /* PBXContainerItemProxy */;
+		};
+		AB1200000000000000000038 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = AB1200000000000000000022 /* HimmelskompassWatch */;
+			targetProxy = AB1200000000000000000039 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -299,6 +473,7 @@
 				SDKROOT = iphoneos;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
 			};
 			name = Debug;
 		};
@@ -354,6 +529,7 @@
 				MTL_FAST_MATH = YES;
 				SDKROOT = iphoneos;
 				SWIFT_COMPILATION_MODE = wholemodule;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
 			};
 			name = Release;
 		};
@@ -481,6 +657,124 @@
 			};
 			name = Release;
 		};
+		AB1200000000000000000028 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = HimmelskompassWatch/HimmelskompassWatch.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Himmelskompass;
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Der Standort wird benötigt, um Sonnen- und Mondzeiten sowie ISS-Überflüge für deinen Ort zu berechnen.";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
+				INFOPLIST_KEY_WKApplication = YES;
+				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = "de.familie.himmelskompass";
+				INFOPLIST_KEY_WKRunsIndependentlyOfCompanionApp = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "de.familie.himmelskompass.watchkitapp";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = Debug;
+		};
+		AB1200000000000000000029 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = HimmelskompassWatch/HimmelskompassWatch.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Himmelskompass;
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Der Standort wird benötigt, um Sonnen- und Mondzeiten sowie ISS-Überflüge für deinen Ort zu berechnen.";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
+				INFOPLIST_KEY_WKApplication = YES;
+				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = "de.familie.himmelskompass";
+				INFOPLIST_KEY_WKRunsIndependentlyOfCompanionApp = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "de.familie.himmelskompass.watchkitapp";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = Release;
+		};
+		AB1200000000000000000030 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = HimmelskompassWatchWidgets/HimmelskompassWatchWidgets.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = HimmelskompassWatchWidgets/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Himmelskompass;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "de.familie.himmelskompass.watchkitapp.widgets";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = Debug;
+		};
+		AB1200000000000000000031 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = HimmelskompassWatchWidgets/HimmelskompassWatchWidgets.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = HimmelskompassWatchWidgets/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Himmelskompass;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "de.familie.himmelskompass.watchkitapp.widgets";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -507,6 +801,24 @@
 			buildConfigurations = (
 				AB1200000000000000000017 /* Debug */,
 				AB1200000000000000000018 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		AB120000000000000000002A /* Build configuration list for PBXNativeTarget "HimmelskompassWatch" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AB1200000000000000000028 /* Debug */,
+				AB1200000000000000000029 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		AB1200000000000000000032 /* Build configuration list for PBXNativeTarget "HimmelskompassWatchWidgets" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AB1200000000000000000030 /* Debug */,
+				AB1200000000000000000031 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
