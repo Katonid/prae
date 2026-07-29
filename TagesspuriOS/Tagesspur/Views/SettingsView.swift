@@ -152,7 +152,7 @@ struct SettingsView: View {
                     LabeledContent("Standort-Berechtigung", value: locationStatusText)
                     LabeledContent("Genauer Standort") {
                         Text(tracker.accuracyAuthorization == .fullAccuracy ? "Ein" : "AUS — nur ±1–2 km!")
-                            .foregroundStyle(tracker.accuracyAuthorization == .fullAccuracy ? .secondary : .red)
+                            .foregroundStyle(tracker.accuracyAuthorization == .fullAccuracy ? Color.secondary : Color.red)
                     }
                     if tracker.accuracyAuthorization == .reducedAccuracy {
                         Text("Ohne „Genauer Standort“ liefert iOS nur die ungefähre Position — Stadtteile stimmen, Straßenverläufe sind unmöglich. Einschalten: iOS-Einstellungen → Datenschutz & Sicherheit → Ortungsdienste → Tagesspur → „Genauer Standort“.")
