@@ -366,7 +366,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "# Build-Nummer = Anzahl der Git-Commits: steigt mit jedem Merge,\n# identisch für App und Widget, nie wieder von Hand hochzählen.\nBUILD_NUMBER=$(git -C \"$SRCROOT\" rev-list --count HEAD 2>/dev/null || echo 1)\nPLIST=\"${BUILT_PRODUCTS_DIR}/${INFOPLIST_PATH}\"\nif [ -f \"$PLIST\" ]; then\n  /usr/libexec/PlistBuddy -c \"Set :CFBundleVersion $BUILD_NUMBER\" \"$PLIST\"\nfi\n";
+			shellScript = "# Eine Build-Nummer pro Build-Lauf, identisch für ALLE Targets:\n# einmal berechnen, im gemeinsamen Zwischenordner ablegen. Primär die\n# Git-Commit-Anzahl; scheitert git, ein Datumsstempel (JJMMTThhmm) —\n# niemals stumm auf \"1\" zurückfallen.\nSHARED=\"$OBJROOT/tagesspur-build-number.txt\"\nif [ -f \"$SHARED\" ] && [ -n \"$(find \"$SHARED\" -mmin -30 2>/dev/null)\" ]; then\n  BUILD_NUMBER=$(cat \"$SHARED\")\nelse\n  BUILD_NUMBER=$(git -C \"$SRCROOT\" rev-list --count HEAD 2>/dev/null)\n  case \"$BUILD_NUMBER\" in\n    ''|*[!0-9]*|0|1) BUILD_NUMBER=$(date +%y%m%d%H%M) ;;\n  esac\n  echo \"$BUILD_NUMBER\" > \"$SHARED\"\nfi\nPLIST=\"${BUILT_PRODUCTS_DIR}/${INFOPLIST_PATH}\"\nif [ -f \"$PLIST\" ]; then\n  /usr/libexec/PlistBuddy -c \"Set :CFBundleVersion $BUILD_NUMBER\" \"$PLIST\"\nfi\n";
 		};
 		AB1800000000000000000010 /* Build-Nummer setzen */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -381,7 +381,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "# Build-Nummer = Anzahl der Git-Commits: steigt mit jedem Merge,\n# identisch für App und Widget, nie wieder von Hand hochzählen.\nBUILD_NUMBER=$(git -C \"$SRCROOT\" rev-list --count HEAD 2>/dev/null || echo 1)\nPLIST=\"${BUILT_PRODUCTS_DIR}/${INFOPLIST_PATH}\"\nif [ -f \"$PLIST\" ]; then\n  /usr/libexec/PlistBuddy -c \"Set :CFBundleVersion $BUILD_NUMBER\" \"$PLIST\"\nfi\n";
+			shellScript = "# Eine Build-Nummer pro Build-Lauf, identisch für ALLE Targets:\n# einmal berechnen, im gemeinsamen Zwischenordner ablegen. Primär die\n# Git-Commit-Anzahl; scheitert git, ein Datumsstempel (JJMMTThhmm) —\n# niemals stumm auf \"1\" zurückfallen.\nSHARED=\"$OBJROOT/tagesspur-build-number.txt\"\nif [ -f \"$SHARED\" ] && [ -n \"$(find \"$SHARED\" -mmin -30 2>/dev/null)\" ]; then\n  BUILD_NUMBER=$(cat \"$SHARED\")\nelse\n  BUILD_NUMBER=$(git -C \"$SRCROOT\" rev-list --count HEAD 2>/dev/null)\n  case \"$BUILD_NUMBER\" in\n    ''|*[!0-9]*|0|1) BUILD_NUMBER=$(date +%y%m%d%H%M) ;;\n  esac\n  echo \"$BUILD_NUMBER\" > \"$SHARED\"\nfi\nPLIST=\"${BUILT_PRODUCTS_DIR}/${INFOPLIST_PATH}\"\nif [ -f \"$PLIST\" ]; then\n  /usr/libexec/PlistBuddy -c \"Set :CFBundleVersion $BUILD_NUMBER\" \"$PLIST\"\nfi\n";
 		};
 		AB1900000000000000000010 /* Build-Nummer setzen */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -396,7 +396,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "# Build-Nummer = Anzahl der Git-Commits: steigt mit jedem Merge,\n# identisch für App und Widget, nie wieder von Hand hochzählen.\nBUILD_NUMBER=$(git -C \"$SRCROOT\" rev-list --count HEAD 2>/dev/null || echo 1)\nPLIST=\"${BUILT_PRODUCTS_DIR}/${INFOPLIST_PATH}\"\nif [ -f \"$PLIST\" ]; then\n  /usr/libexec/PlistBuddy -c \"Set :CFBundleVersion $BUILD_NUMBER\" \"$PLIST\"\nfi\n";
+			shellScript = "# Eine Build-Nummer pro Build-Lauf, identisch für ALLE Targets:\n# einmal berechnen, im gemeinsamen Zwischenordner ablegen. Primär die\n# Git-Commit-Anzahl; scheitert git, ein Datumsstempel (JJMMTThhmm) —\n# niemals stumm auf \"1\" zurückfallen.\nSHARED=\"$OBJROOT/tagesspur-build-number.txt\"\nif [ -f \"$SHARED\" ] && [ -n \"$(find \"$SHARED\" -mmin -30 2>/dev/null)\" ]; then\n  BUILD_NUMBER=$(cat \"$SHARED\")\nelse\n  BUILD_NUMBER=$(git -C \"$SRCROOT\" rev-list --count HEAD 2>/dev/null)\n  case \"$BUILD_NUMBER\" in\n    ''|*[!0-9]*|0|1) BUILD_NUMBER=$(date +%y%m%d%H%M) ;;\n  esac\n  echo \"$BUILD_NUMBER\" > \"$SHARED\"\nfi\nPLIST=\"${BUILT_PRODUCTS_DIR}/${INFOPLIST_PATH}\"\nif [ -f \"$PLIST\" ]; then\n  /usr/libexec/PlistBuddy -c \"Set :CFBundleVersion $BUILD_NUMBER\" \"$PLIST\"\nfi\n";
 		};
 		AB1A00000000000000000010 /* Build-Nummer setzen */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -411,7 +411,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "# Build-Nummer = Anzahl der Git-Commits: steigt mit jedem Merge,\n# identisch für App und Widget, nie wieder von Hand hochzählen.\nBUILD_NUMBER=$(git -C \"$SRCROOT\" rev-list --count HEAD 2>/dev/null || echo 1)\nPLIST=\"${BUILT_PRODUCTS_DIR}/${INFOPLIST_PATH}\"\nif [ -f \"$PLIST\" ]; then\n  /usr/libexec/PlistBuddy -c \"Set :CFBundleVersion $BUILD_NUMBER\" \"$PLIST\"\nfi\n";
+			shellScript = "# Eine Build-Nummer pro Build-Lauf, identisch für ALLE Targets:\n# einmal berechnen, im gemeinsamen Zwischenordner ablegen. Primär die\n# Git-Commit-Anzahl; scheitert git, ein Datumsstempel (JJMMTThhmm) —\n# niemals stumm auf \"1\" zurückfallen.\nSHARED=\"$OBJROOT/tagesspur-build-number.txt\"\nif [ -f \"$SHARED\" ] && [ -n \"$(find \"$SHARED\" -mmin -30 2>/dev/null)\" ]; then\n  BUILD_NUMBER=$(cat \"$SHARED\")\nelse\n  BUILD_NUMBER=$(git -C \"$SRCROOT\" rev-list --count HEAD 2>/dev/null)\n  case \"$BUILD_NUMBER\" in\n    ''|*[!0-9]*|0|1) BUILD_NUMBER=$(date +%y%m%d%H%M) ;;\n  esac\n  echo \"$BUILD_NUMBER\" > \"$SHARED\"\nfi\nPLIST=\"${BUILT_PRODUCTS_DIR}/${INFOPLIST_PATH}\"\nif [ -f \"$PLIST\" ]; then\n  /usr/libexec/PlistBuddy -c \"Set :CFBundleVersion $BUILD_NUMBER\" \"$PLIST\"\nfi\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -593,7 +593,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.2.4;
+				MARKETING_VERSION = 1.3.3;
 				PRODUCT_BUNDLE_IDENTIFIER = "de.familie.tagesspur";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -630,7 +630,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.2.4;
+				MARKETING_VERSION = 1.3.3;
 				PRODUCT_BUNDLE_IDENTIFIER = "de.familie.tagesspur";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -656,7 +656,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 1.2.4;
+				MARKETING_VERSION = 1.3.3;
 				PRODUCT_BUNDLE_IDENTIFIER = "de.familie.tagesspur.TagesspurWidgets";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -683,7 +683,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 1.2.4;
+				MARKETING_VERSION = 1.3.3;
 				PRODUCT_BUNDLE_IDENTIFIER = "de.familie.tagesspur.TagesspurWidgets";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -714,7 +714,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.2.4;
+				MARKETING_VERSION = 1.3.3;
 				PRODUCT_BUNDLE_IDENTIFIER = "de.familie.tagesspur.watchkitapp";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = watchos;
@@ -747,7 +747,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.2.4;
+				MARKETING_VERSION = 1.3.3;
 				PRODUCT_BUNDLE_IDENTIFIER = "de.familie.tagesspur.watchkitapp";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = watchos;
@@ -775,7 +775,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 1.2.4;
+				MARKETING_VERSION = 1.3.3;
 				PRODUCT_BUNDLE_IDENTIFIER = "de.familie.tagesspur.watchkitapp.TagesspurWatchWidgets";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = watchos;
@@ -803,7 +803,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 1.2.4;
+				MARKETING_VERSION = 1.3.3;
 				PRODUCT_BUNDLE_IDENTIFIER = "de.familie.tagesspur.watchkitapp.TagesspurWatchWidgets";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = watchos;
