@@ -10,6 +10,8 @@ struct SettingsView: View {
 
     @Query private var days: [TrackDay]
     @Query private var tags: [MediaTag]
+    @Query private var familyDays: [FamilyDay]
+    @ObservedObject private var trackColors = TrackColorStore.shared
 
     @State private var deviceName = DeviceInfo.deviceName
     @State private var photoStatus = PhotoMatcher.authorizationStatus
@@ -60,6 +62,7 @@ struct SettingsView: View {
         NavigationStack {
             Form {
                 appearanceSection
+                colorSection
                 outdoorSection
                 recordingSection
                 photosSection
@@ -108,6 +111,55 @@ struct SettingsView: View {
                 @unknown default: "Unbekannt"
                 }
             }
+        }
+    }
+
+    // MARK: - Spurfarben
+
+    private struct ColorTarget: Identifiable {
+        let id: String
+        let name: String
+        let index: Int
+    }
+
+    /// Alle bekannten Spuren: eigene Geräte + Familien-Geräte.
+    private var colorTargets: [ColorTarget] {
+        var targets = deviceSummaries.enumerated().map { index, summary in
+            ColorTarget(id: summary.id, name: summary.name, index: index)
+        }
+        let familyGroups = Dictionary(grouping: familyDays) {
+            $0.deviceId.isEmpty ? $0.recordName : $0.deviceId
+        }
+        let start = targets.count
+        let sortedGroups = familyGroups.sorted {
+            ($0.value.first?.displayName ?? "") < ($1.value.first?.displayName ?? "")
+        }
+        for (offset, group) in sortedGroups.enumerated() {
+            targets.append(ColorTarget(
+                id: group.key,
+                name: group.value.first?.displayName ?? "Familie",
+                index: start + offset
+            ))
+        }
+        return targets
+    }
+
+    private var colorSection: some View {
+        Section("Spurfarben") {
+            ForEach(colorTargets) { target in
+                ColorPicker(target.name, selection: Binding(
+                    get: { trackColors.color(forId: target.id, fallbackIndex: target.index) },
+                    set: { trackColors.setColor($0, forId: target.id) }
+                ), supportsOpacity: false)
+            }
+            if !trackColors.map.isEmpty {
+                Button("Standardfarben wiederherstellen") {
+                    trackColors.resetAll()
+                }
+            }
+            Text("Die Farbwahl gilt überall — Karte, Legende, Tagesdetail — und synchronisiert über iCloud auf alle deine Geräte.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
         }
     }
 

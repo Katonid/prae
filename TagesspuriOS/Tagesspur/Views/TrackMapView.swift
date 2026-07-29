@@ -32,6 +32,7 @@ struct TrackMapView: View {
     @State private var position: MapCameraPosition = .automatic
     @State private var internalHiddenTrackIds: Set<String> = []
     @State private var showFilterPanel = false
+    @ObservedObject private var trackColors = TrackColorStore.shared
 
     private var hiddenTrackIds: Set<String> {
         externalHiddenTrackIds?.wrappedValue ?? internalHiddenTrackIds
@@ -157,7 +158,7 @@ struct TrackMapView: View {
                 } label: {
                     HStack(spacing: 10) {
                         Circle()
-                            .fill(Theme.trackColors[index % Theme.trackColors.count])
+                            .fill(trackColors.color(forId: track.deviceId, fallbackIndex: index))
                             .frame(width: 14, height: 14)
                             .opacity(hidden ? 0.35 : 1)
                         Text(track.deviceName.isEmpty ? "Gerät" : track.deviceName)
@@ -211,7 +212,7 @@ struct TrackMapView: View {
             }
             ForEach(visibleIndexedTracks, id: \.element.id) { index, track in
                 MapPolyline(coordinates: track.points.map(\.coordinate))
-                    .stroke(Theme.trackColors[index % Theme.trackColors.count],
+                    .stroke(trackColors.color(forId: track.deviceId, fallbackIndex: index),
                             style: StrokeStyle(lineWidth: 3.5, lineCap: .round, lineJoin: .round))
             }
 
