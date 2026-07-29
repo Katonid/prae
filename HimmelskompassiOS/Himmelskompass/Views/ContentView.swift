@@ -9,13 +9,14 @@
 import SwiftUI
 
 enum AppTab: String, CaseIterable {
-    case zeiten, kompass, nacht
+    case zeiten, kompass, nacht, system
 
     var title: String {
         switch self {
         case .zeiten: return "☀️ Zeiten"
         case .kompass: return "🧭 Kompass"
         case .nacht: return "🌌 Nacht"
+        case .system: return "🪐 System"
         }
     }
 }
@@ -59,6 +60,8 @@ struct ContentView: View {
                         ISSCardView(openAR: { arMode = .iss })
                         PlanetsCardView(openAR: { arMode = .planets })
                         AuroraCardView()
+                    case .system:
+                        SolarSystemCardView()
                     }
 
                     Text("Himmelskompass · Kartendaten © Apple Maps · ISS-Bahndaten © CelesTrak · Weltraumwetter © NOAA SWPC")
@@ -160,6 +163,8 @@ struct ContentView: View {
                     Text(t.title)
                         .font(.subheadline.weight(tab == t ? .semibold : .regular))
                         .foregroundStyle(tab == t ? HKColor.bg : HKColor.fg)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
                         .padding(.vertical, 8)
                         .frame(maxWidth: .infinity)
                         .background(tab == t ? HKColor.accent : HKColor.card2)
