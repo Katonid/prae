@@ -222,6 +222,8 @@ final class AppState: NSObject, ObservableObject {
             forecastFromCache = fromCache
             forecastFetchedAt = forecast.fetchedAt
             await updateSpotNotifications()
+            // Watch-Begleiter mit Profil + Wetter-Anker versorgen.
+            WatchSessionBridge.pushContext(profile: profile, location: location)
         } catch {
             loadError = "Keine Wetterdaten verfügbar — bitte später erneut versuchen. Ohne verlässliche Daten zeigt FlightMate keinen Score an."
         }

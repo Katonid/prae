@@ -270,6 +270,25 @@ Dieser Stand entspricht dem **MVP-Fundament** (PRD Phase 0/1).
   zeigen. Ehrliche Grenzen stehen in der Ansicht: Abdeckung je nach
   regionalem Radarnetz; „keine Farbe" heißt „kein Radar erfasst",
   nicht sicher „trocken".
+- **Apple-Watch-Flugbegleiter (Nutzerwunsch):** Eigenes
+  watchOS-Target (FlightMateWatch, eingebettet in die iPhone-App).
+  Beim Fliegen stecken die Hände am Controller — die Watch
+  übernimmt: **Flug-Timer** je Akku mit Balken gegen die nutzbare
+  Zeit (Akku-Schätzung als Spiegel der iOS-Faustformel, 20 %
+  RTH-Reserve), **Haptik-Warnungen** ans Handgelenk (2 min vor der
+  RTH-Reserve, bei Erreichen, bei anziehenden Böen ab 80 % der
+  Windtoleranz und bei einsetzendem Niederschlag — Wetter alle
+  5 min frisch von Open-Meteo, schlüsselfrei), Knöpfe „Flug
+  starten / Akku gewechselt / Landung". Bei der Landung entsteht
+  **automatisch ein Logbuch-Eintrag** auf dem iPhone
+  (WatchConnectivity transferUserInfo — liefert auch nach, wenn
+  die iPhone-App erst später läuft; Dauer + Akkuzahl in den
+  Notizen, Ort falls die Watch einen Fix hatte). Das iPhone
+  schickt Drohnenprofil und Wetter-Anker als ApplicationContext;
+  ohne Verbindung gelten ehrlich gekennzeichnete
+  Mini-4-Pro-Werkswerte. Watch-App-Symbol ist noch leer
+  (Platzhalter-Asset) — fürs Gerät egal, für TestFlight später
+  ein Icon ergänzen.
 - **Akku- & Kälte-Rechner:** Deterministische Faustformel aus
   Nennflugzeit des Modells, Temperatur (Kältefaktor bis −35 %) und
   Wind (bis −30 % an der Toleranzgrenze) — als Kachel im

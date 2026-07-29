@@ -6,20 +6,61 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		FA130000000000000000001A /* FlightMateWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = FA1300000000000000000011 /* FlightMateWatch.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		FA130000000000000000001C /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = FA130000000000000000000A /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = FA1300000000000000000015;
+			remoteInfo = FlightMateWatch;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		FA1300000000000000000019 /* Embed Watch Content */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(CONTENTS_FOLDER_PATH)/Watch";
+			dstSubfolderSpec = 16;
+			files = (
+				FA130000000000000000001A /* FlightMateWatch.app in Embed Watch Content */,
+			);
+			name = "Embed Watch Content";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		FA1300000000000000000001 /* FlightMate */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = FlightMate;
 			sourceTree = "<group>";
 		};
+		FA1300000000000000000010 /* FlightMateWatch */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = FlightMateWatch;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFileReference section */
 		FA1300000000000000000002 /* FlightMate.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FlightMate.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		FA1300000000000000000011 /* FlightMateWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FlightMateWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		FA1300000000000000000003 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FA1300000000000000000012 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -33,6 +74,7 @@
 			isa = PBXGroup;
 			children = (
 				FA1300000000000000000001 /* FlightMate */,
+				FA1300000000000000000010 /* FlightMateWatch */,
 				FA1300000000000000000005 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -41,6 +83,7 @@
 			isa = PBXGroup;
 			children = (
 				FA1300000000000000000002 /* FlightMate.app */,
+				FA1300000000000000000011 /* FlightMateWatch.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -55,10 +98,12 @@
 				FA1300000000000000000008 /* Sources */,
 				FA1300000000000000000003 /* Frameworks */,
 				FA1300000000000000000009 /* Resources */,
+				FA1300000000000000000019 /* Embed Watch Content */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				FA130000000000000000001B /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				FA1300000000000000000001 /* FlightMate */,
@@ -68,6 +113,28 @@
 			);
 			productName = FlightMate;
 			productReference = FA1300000000000000000002 /* FlightMate.app */;
+			productType = "com.apple.product-type.application";
+		};
+		FA1300000000000000000015 /* FlightMateWatch */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = FA1300000000000000000018 /* Build configuration list for PBXNativeTarget "FlightMateWatch" */;
+			buildPhases = (
+				FA1300000000000000000013 /* Sources */,
+				FA1300000000000000000012 /* Frameworks */,
+				FA1300000000000000000014 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				FA1300000000000000000010 /* FlightMateWatch */,
+			);
+			name = FlightMateWatch;
+			packageProductDependencies = (
+			);
+			productName = FlightMateWatch;
+			productReference = FA1300000000000000000011 /* FlightMateWatch.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -81,6 +148,9 @@
 				LastUpgradeCheck = 1600;
 				TargetAttributes = {
 					FA1300000000000000000006 = {
+						CreatedOnToolsVersion = 16.0;
+					};
+					FA1300000000000000000015 = {
 						CreatedOnToolsVersion = 16.0;
 					};
 				};
@@ -100,12 +170,20 @@
 			projectRoot = "";
 			targets = (
 				FA1300000000000000000006 /* FlightMate */,
+				FA1300000000000000000015 /* FlightMateWatch */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		FA1300000000000000000009 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FA1300000000000000000014 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -122,7 +200,22 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		FA1300000000000000000013 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		FA130000000000000000001B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = FA1300000000000000000015 /* FlightMateWatch */;
+			targetProxy = FA130000000000000000001C /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		FA130000000000000000000C /* Debug */ = {
@@ -309,6 +402,64 @@
 			};
 			name = Release;
 		};
+		FA1300000000000000000016 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = FlightMate;
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Der Standort wird für den Wetterabruf am Flugort und den Logbuch-Eintrag benötigt. Kein Tracking.";
+				INFOPLIST_KEY_WKApplication = YES;
+				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = "de.familie.flightmate";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.1;
+				PRODUCT_BUNDLE_IDENTIFIER = "de.familie.flightmate.watchkitapp";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = Debug;
+		};
+		FA1300000000000000000017 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = FlightMate;
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Der Standort wird für den Wetterabruf am Flugort und den Logbuch-Eintrag benötigt. Kein Tracking.";
+				INFOPLIST_KEY_WKApplication = YES;
+				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = "de.familie.flightmate";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.1;
+				PRODUCT_BUNDLE_IDENTIFIER = "de.familie.flightmate.watchkitapp";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -326,6 +477,15 @@
 			buildConfigurations = (
 				FA130000000000000000000E /* Debug */,
 				FA130000000000000000000F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		FA1300000000000000000018 /* Build configuration list for PBXNativeTarget "FlightMateWatch" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FA1300000000000000000016 /* Debug */,
+				FA1300000000000000000017 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
