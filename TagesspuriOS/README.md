@@ -151,6 +151,16 @@ Native SwiftUI-App, iOS 17+, keine externen Abhängigkeiten.
     letzten Stunde aus dem Systemprotokoll des eigenen Prozesses
     (OSLogStore) — dorthin schreibt CoreData die echten Gründe pro
     Datensatz. Ablauf: „Sync jetzt anstoßen“, kurz warten, auslesen.
+  - Gelöster Ernstfall (30.7., Uploads hingen ab 4:59): „Zone Not
+    Found“ — wird die Familien-Zone „TagesspurFamilie“ auf dem Server
+    gelöscht, während sich CoreDatas Geräte-Sync deren zonenweite
+    Freigabe gemerkt hat, scheitert dessen Initialisierung („Never
+    successfully initialized“) und ALLE Uploads stehen still, nicht
+    nur die Familien-Spiegelung. Deshalb gilt die Invariante: Die
+    Zone existiert immer. autoSync legt sie bei jedem App-Start
+    notfalls leer neu an (Ereignisprotokoll: „Sync-Reparatur“), und
+    „Freigabe beenden“ legt sie nach dem Löschen sofort leer wieder
+    an.
   - Manueller Anstoß: „Sync jetzt anstoßen“ in der iCloud-Sektion.
     Apples CloudKit-Sync kennt keinen offiziellen Sofort-Befehl —
     der Knopf markiert den jüngsten eigenen Tag als geändert (zwingt
@@ -265,7 +275,7 @@ Native SwiftUI-App, iOS 17+, keine externen Abhängigkeiten.
   - Einrichtung: Einstellungen → Familie; Sync automatisch beim
     Aktivwerden der App plus manueller Knopf.
 - **Versionierung**
-  - Marketing-Version (`MARKETING_VERSION`, aktuell 1.4.8) wird von
+  - Marketing-Version (`MARKETING_VERSION`, aktuell 1.4.9) wird von
     Hand gepflegt; die Build-Nummer setzt eine Skript-Bauphase
     („Build-Nummer setzen“) bei jedem Build automatisch: primär die
     Anzahl der Git-Commits, bei git-Fehlern ein Datumsstempel
