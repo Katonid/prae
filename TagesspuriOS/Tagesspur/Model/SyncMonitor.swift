@@ -1,5 +1,6 @@
 import Foundation
 import CoreData
+import CloudKit
 
 /// Beobachtet die CloudKit-Sync-Ereignisse des SwiftData-Containers
 /// (der intern auf NSPersistentCloudKitContainer aufsetzt) und merkt
@@ -23,7 +24,7 @@ enum SyncMonitor {
                   event.endDate != nil else { return }
             let defaults = UserDefaults.standard
             if let error = event.error {
-                defaults.set("\(name(of: event.type)): \(error.localizedDescription)", forKey: lastErrorKey)
+                defaults.set("\(name(of: event.type)): \(describe(error))", forKey: lastErrorKey)
                 defaults.set(Date(), forKey: lastErrorDateKey)
                 defaults.set(event.type.rawValue, forKey: lastErrorTypeKey)
             } else {
@@ -41,6 +42,26 @@ enum SyncMonitor {
                 }
             }
         }
+    }
+
+    /// „Fehler 2“ ist wertlos — bei CloudKit-Teilfehlern stehen die
+    /// echten Gründe pro Datensatz im Fehler-Objekt. Auspacken und die
+    /// ersten konkreten Ursachen anzeigen (Konflikt? zu groß? Feld
+    /// unbekannt?), statt sie zu verschlucken.
+    private static func describe(_ error: Error) -> String {
+        guard let ckError = error as? CKError else { return error.localizedDescription }
+        if ckError.code == .partialFailure,
+           let partial = ckError.userInfo[CKPartialErrorsByItemIDKey] as? [AnyHashable: Error],
+           !partial.isEmpty {
+            let reasons = partial.values.prefix(2).map { inner -> String in
+                if let innerCK = inner as? CKError {
+                    return "\(innerCK.code.beschreibung) (\(innerCK.code.rawValue))"
+                }
+                return (inner as NSError).localizedDescription
+            }
+            return "Teilfehler bei \(partial.count) Datensätzen: " + reasons.joined(separator: " · ")
+        }
+        return "\(ckError.code.beschreibung) (\(ckError.code.rawValue))"
     }
 
     private static func name(of type: NSPersistentCloudKitContainer.EventType) -> String {
@@ -64,5 +85,24 @@ enum SyncMonitor {
 
     static var lastImport: Date? {
         UserDefaults.standard.object(forKey: lastImportKey) as? Date
+    }
+}
+
+extension CKError.Code {
+    /// Verständliche Kurzbeschreibung der häufigsten CloudKit-Fehler.
+    var beschreibung: String {
+        switch self {
+        case .serverRecordChanged: return "Versionskonflikt — löst sich beim nächsten Abgleich selbst"
+        case .unknownItem: return "Datensatz/Typ auf dem Server unbekannt (Schema-Deploy prüfen)"
+        case .invalidArguments: return "Server lehnt Feld/Format ab (Schema-Deploy prüfen)"
+        case .limitExceeded: return "Datensatz zu groß"
+        case .quotaExceeded: return "iCloud-Speicher voll"
+        case .networkUnavailable, .networkFailure: return "Keine Verbindung"
+        case .notAuthenticated: return "Nicht bei iCloud angemeldet"
+        case .requestRateLimited: return "Vom Server gebremst — später erneut"
+        case .zoneBusy: return "Zone beschäftigt — später erneut"
+        case .serviceUnavailable: return "iCloud-Dienst derzeit nicht erreichbar"
+        default: return "CloudKit-Fehler"
+        }
     }
 }
