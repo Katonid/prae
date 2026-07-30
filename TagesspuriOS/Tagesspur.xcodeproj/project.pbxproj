@@ -593,7 +593,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.4.9;
+				MARKETING_VERSION = 1.4.10;
 				PRODUCT_BUNDLE_IDENTIFIER = "de.familie.tagesspur";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -630,7 +630,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.4.9;
+				MARKETING_VERSION = 1.4.10;
 				PRODUCT_BUNDLE_IDENTIFIER = "de.familie.tagesspur";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -656,7 +656,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 1.4.9;
+				MARKETING_VERSION = 1.4.10;
 				PRODUCT_BUNDLE_IDENTIFIER = "de.familie.tagesspur.TagesspurWidgets";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -683,7 +683,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 1.4.9;
+				MARKETING_VERSION = 1.4.10;
 				PRODUCT_BUNDLE_IDENTIFIER = "de.familie.tagesspur.TagesspurWidgets";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -714,7 +714,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.4.9;
+				MARKETING_VERSION = 1.4.10;
 				PRODUCT_BUNDLE_IDENTIFIER = "de.familie.tagesspur.watchkitapp";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = watchos;
@@ -747,7 +747,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.4.9;
+				MARKETING_VERSION = 1.4.10;
 				PRODUCT_BUNDLE_IDENTIFIER = "de.familie.tagesspur.watchkitapp";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = watchos;
@@ -775,7 +775,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 1.4.9;
+				MARKETING_VERSION = 1.4.10;
 				PRODUCT_BUNDLE_IDENTIFIER = "de.familie.tagesspur.watchkitapp.TagesspurWatchWidgets";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = watchos;
@@ -803,7 +803,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 1.4.9;
+				MARKETING_VERSION = 1.4.10;
 				PRODUCT_BUNDLE_IDENTIFIER = "de.familie.tagesspur.watchkitapp.TagesspurWatchWidgets";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = watchos;

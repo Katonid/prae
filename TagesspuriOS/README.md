@@ -161,6 +161,14 @@ Native SwiftUI-App, iOS 17+, keine externen Abhängigkeiten.
     notfalls leer neu an (Ereignisprotokoll: „Sync-Reparatur“), und
     „Freigabe beenden“ legt sie nach dem Löschen sofort leer wieder
     an.
+  - Stufe 2 desselben Ernstfalls (13:23): Die Zone allein reicht
+    CoreData nicht — es verlangt auch den gemerkten zonenweiten
+    Freigabe-Datensatz („cloudkit.zoneshare“, „Record not found“
+    blockierte weiter). Deshalb legt autoSync bei anstehendem
+    Sync-Fehler und fehlender Freigabe auch die Freigabe leer neu an
+    (ohne Teilnehmer; Ereignisprotokoll: „Sync-Reparatur Stufe 2“).
+    Endzustand-Invariante also: Zone UND leerer Share existieren
+    immer — Teilnehmer nach so einem Vorfall neu einladen.
   - Manueller Anstoß: „Sync jetzt anstoßen“ in der iCloud-Sektion.
     Apples CloudKit-Sync kennt keinen offiziellen Sofort-Befehl —
     der Knopf markiert den jüngsten eigenen Tag als geändert (zwingt
@@ -275,7 +283,7 @@ Native SwiftUI-App, iOS 17+, keine externen Abhängigkeiten.
   - Einrichtung: Einstellungen → Familie; Sync automatisch beim
     Aktivwerden der App plus manueller Knopf.
 - **Versionierung**
-  - Marketing-Version (`MARKETING_VERSION`, aktuell 1.4.9) wird von
+  - Marketing-Version (`MARKETING_VERSION`, aktuell 1.4.10) wird von
     Hand gepflegt; die Build-Nummer setzt eine Skript-Bauphase
     („Build-Nummer setzen“) bei jedem Build automatisch: primär die
     Anzahl der Git-Commits, bei git-Fehlern ein Datumsstempel

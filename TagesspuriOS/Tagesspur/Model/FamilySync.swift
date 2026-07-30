@@ -75,6 +75,7 @@ final class FamilySync: ObservableObject {
         guard (try? await container.accountStatus()) == .available else { return }
         await ensureZoneExists()
         await loadShareState()
+        await repairDeviceSyncIfBlocked()
         if isSharing {
             await mirrorOwnData()
         }
@@ -129,6 +130,24 @@ final class FamilySync: ObservableObject {
             zoneEnsuredThisLaunch = true
         } catch {
             // Offline o. ä. — beim nächsten Abgleich erneut versuchen.
+        }
+    }
+
+    /// Stufe 2 der Sync-Reparatur (30.7., 13:23): Die Zone existierte
+    /// wieder, aber CoreDatas Geräte-Sync verlangt auch den gemerkten
+    /// zonenweiten Freigabe-Datensatz („cloudkit.zoneshare“) — dessen
+    /// Fehlen („Record not found“) blockierte die Initialisierung
+    /// genauso hart wie zuvor die fehlende Zone. Deshalb: Steht ein
+    /// Sync-Fehler an und fehlt die Freigabe, wird sie leer neu
+    /// angelegt (ohne Teilnehmer — die hat das Zonen-Löschen ohnehin
+    /// entfernt und sie müssen neu eingeladen werden).
+    private func repairDeviceSyncIfBlocked() async {
+        guard SyncMonitor.lastError != nil, !isSharing else { return }
+        do {
+            _ = try await ensureShare()
+            LocationTracker.logEvent("Familien-Freigabe leer neu angelegt (Sync-Reparatur Stufe 2) — Teilnehmer bitte neu einladen")
+        } catch {
+            // Offline o. ä. — der nächste Abgleich versucht es erneut.
         }
     }
 
