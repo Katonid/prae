@@ -185,6 +185,21 @@ Native SwiftUI-App, iOS 17+, keine externen Abhängigkeiten.
     Familien-Zone und Freigabe auf dem Server existieren (samt
     Teilnehmerzahl) bzw. mit welchem vollständigen Fehler ein Abruf
     scheitert.
+  - „Sync-Zustand neu aufbauen“ (Technische Details, letzter Ausweg):
+    Der Zonen-Vorfall vom 30.7. hinterließ ein lokal festgefahrenes
+    CloudKit-Gedächtnis — Server nachweislich gesund, Recovery
+    scheitert trotzdem dauerhaft; Apple bietet keine Schnittstelle,
+    nur dieses Gedächtnis zu leeren. Der Knopf merkt einen Neuaufbau
+    für den nächsten App-Start vor (StoreRebuild): alle Tage,
+    Aufenthalte und Foto-Stichwörter werden als JSON in „Dokumente“
+    gesichert, die Store-Datei wird gelöscht, frisch angelegt und die
+    Daten wieder eingesetzt — der neue Store synct von Null. Der
+    Server-Bestand kommt als Import dazu; DataMaintenance führt
+    Duplikate automatisch zusammen (pro Gerät+Tag gewinnt der
+    Datensatz mit den meisten Punkten; Aufenthalte nach 180-s/
+    Koordinaten-Fenster; Stichwörter je Foto+Gerät). Kurzzeitig
+    doppelt angezeigte Tage direkt nach dem Neuaufbau sind normal
+    und verschwinden von selbst.
   - Manueller Anstoß: „Sync jetzt anstoßen“ in der iCloud-Sektion.
     Apples CloudKit-Sync kennt keinen offiziellen Sofort-Befehl —
     der Knopf markiert den jüngsten eigenen Tag als geändert (zwingt
@@ -299,7 +314,7 @@ Native SwiftUI-App, iOS 17+, keine externen Abhängigkeiten.
   - Einrichtung: Einstellungen → Familie; Sync automatisch beim
     Aktivwerden der App plus manueller Knopf.
 - **Versionierung**
-  - Marketing-Version (`MARKETING_VERSION`, aktuell 1.4.12) wird von
+  - Marketing-Version (`MARKETING_VERSION`, aktuell 1.4.13) wird von
     Hand gepflegt; die Build-Nummer setzt eine Skript-Bauphase
     („Build-Nummer setzen“) bei jedem Build automatisch: primär die
     Anzahl der Git-Commits, bei git-Fehlern ein Datumsstempel
