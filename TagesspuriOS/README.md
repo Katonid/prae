@@ -39,6 +39,21 @@ Native SwiftUI-App, iOS 17+, keine externen Abhängigkeiten.
     demselben Gerät lückenlos beliefert wurde. Sitzung wird vor dem
     Update-Start aufgebaut, beim Watchdog-Eingriff erneuert und beim
     Abschalten invalidiert.
+  - Preis der Sitzung: Solange sie existiert, zeigt iOS den blauen
+    Ortungspfeil in der Dynamic Island — Apples Datenschutz-Anzeige,
+    von der App nicht abschaltbar. Deshalb lebt die Sitzung nur
+    während erkannter Bewegung: Im Ruhemodus wird sie beendet (Pfeil
+    erlischt, iOS darf die App zwischen Ereignissen schlafen legen =
+    weniger Akku) und beim Aufwachen — Bewegungssensor, Geofence oder
+    grober Fix verschaffen dabei die nötige Hintergrund-Laufzeit —
+    neu aufgebaut; greift das wider Erwarten nicht, erneuert der
+    Watchdog sie beim ersten Liefer-Stillstand. Während einer Fahrt
+    bleibt der Pfeil sichtbar — das ist bei jeder App so, die selbst
+    live GPS im Hintergrund aufzeichnet (auch Komoot). Geory zeigt
+    keinen Pfeil, weil es keine eigene Dauer-Ortung betreibt, sondern
+    laut eigener Beschreibung Apples systemseitig ohnehin gesammelten
+    Standortverlauf ausliest. Ausnahme: Im Modus „Hohe Genauigkeit“
+    gibt es keinen Ruhemodus, der Pfeil bleibt dann dauerhaft.
   - Ortungs-Watchdog: iOS kann die Hintergrund-Lieferung mitten in
     Bewegung minutenlang einstellen (nachgewiesen 30.7., App wach,
     keine Fixe geliefert); ein erneutes startUpdatingLocation belebt
@@ -237,7 +252,7 @@ Native SwiftUI-App, iOS 17+, keine externen Abhängigkeiten.
   - Einrichtung: Einstellungen → Familie; Sync automatisch beim
     Aktivwerden der App plus manueller Knopf.
 - **Versionierung**
-  - Marketing-Version (`MARKETING_VERSION`, aktuell 1.4.5) wird von
+  - Marketing-Version (`MARKETING_VERSION`, aktuell 1.4.6) wird von
     Hand gepflegt; die Build-Nummer setzt eine Skript-Bauphase
     („Build-Nummer setzen“) bei jedem Build automatisch: primär die
     Anzahl der Git-Commits, bei git-Fehlern ein Datumsstempel

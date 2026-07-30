@@ -71,7 +71,28 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
     /// drosselt iOS die Lieferung an Legacy-Sessions zunehmend —
     /// nachgewiesen am 30.7.: unsere App bekam minutenlang nichts,
     /// während Geory auf demselben Gerät lückenlos beliefert wurde.
+    ///
+    /// Preis der Sitzung: Solange sie existiert, zeigt iOS den blauen
+    /// Ortungspfeil (Dynamic Island) — nicht abschaltbar, Apples
+    /// Datenschutz-Anzeige. Deshalb lebt die Sitzung nur während
+    /// erkannter Bewegung; im Ruhemodus wird sie beendet (Pfeil weg,
+    /// App darf zwischen Ereignissen schlafen = weniger Akku) und beim
+    /// Aufwachen neu aufgebaut. Der Watchdog fängt den Fall ab, dass
+    /// eine im Hintergrund erzeugte Sitzung nicht greifen sollte.
     private var backgroundSession: CLBackgroundActivitySession?
+
+    private func startBackgroundSessionIfNeeded() {
+        guard backgroundSession == nil else { return }
+        backgroundSession = CLBackgroundActivitySession()
+        Self.logEvent("Hintergrund-Sitzung gestartet (CLBackgroundActivitySession)")
+    }
+
+    private func endBackgroundSession(reason: String) {
+        guard backgroundSession != nil else { return }
+        backgroundSession?.invalidate()
+        backgroundSession = nil
+        Self.logEvent("Hintergrund-Sitzung beendet (\(reason)) — blauer Ortungspfeil erlischt")
+    }
 
     private var buffer: [TrackPoint] = []
     private var lastFlush = Date()
@@ -221,10 +242,7 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
         // Hintergrund-Sitzung VOR dem Start der Updates aufbauen (Apples
         // dokumentierte Reihenfolge) — hält die Lieferung dauerhaft am
         // Leben, statt vom Legacy-Drosseln getroffen zu werden.
-        if backgroundSession == nil {
-            backgroundSession = CLBackgroundActivitySession()
-            Self.logEvent("Hintergrund-Sitzung gestartet (CLBackgroundActivitySession)")
-        }
+        startBackgroundSessionIfNeeded()
         startMotionWake()
         startPreciseUpdates()
     }
@@ -392,12 +410,22 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
         flush()
         updateRelaunchRegion()
         Self.logEvent("Ruhemodus (5 min Stillstand)")
+        // Sitzung nur während Bewegung: Im Stillstand braucht niemand
+        // die Dauerlieferungs-Garantie — dafür verschwindet der blaue
+        // Pfeil und iOS darf die App zwischen Ereignissen schlafen legen.
+        endBackgroundSession(reason: "Ruhemodus")
     }
 
     /// Zurück auf präzise Erfassung, ohne Anker/Zeit zurückzusetzen.
     private func exitRest() {
         isResting = false
         lastMovement = Date()
+        // Sitzung wieder aufbauen, BEVOR präzise Parameter greifen —
+        // der Weck-Auslöser (Bewegungssensor, Geofence, grober Fix)
+        // verschafft der App gerade Hintergrund-Laufzeit, in der das
+        // laut Apple zulässig ist. Greift sie wider Erwarten nicht,
+        // erneuert der Watchdog sie beim ersten Liefer-Stillstand.
+        startBackgroundSessionIfNeeded()
         // Aufwach-Karenz: GPS braucht nach dem Ruhemodus einige Sekunden
         // bis zur vollen Präzision. Solange zählt auch ein mittelmäßiger
         // Fix — sonst fehlen bei zügiger Abfahrt die ersten Kilometer.
