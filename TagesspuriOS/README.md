@@ -178,6 +178,13 @@ Native SwiftUI-App, iOS 17+, keine externen Abhängigkeiten.
     während CKFetchRecordsOperation sind harmlos — das ist der
     Upsert, der nachschaut, was schon existiert; fehlend = wird neu
     angelegt.
+  - „Server-Zustand prüfen“ (Technische Details): CoreDatas
+    Protokollzeilen schwärzen entscheidende Details als <private>
+    („fatal errors were found: <private>“) — eigene CloudKit-Abrufe
+    werden dagegen nie geschwärzt. Der Knopf zeigt unverfälscht, ob
+    Familien-Zone und Freigabe auf dem Server existieren (samt
+    Teilnehmerzahl) bzw. mit welchem vollständigen Fehler ein Abruf
+    scheitert.
   - Manueller Anstoß: „Sync jetzt anstoßen“ in der iCloud-Sektion.
     Apples CloudKit-Sync kennt keinen offiziellen Sofort-Befehl —
     der Knopf markiert den jüngsten eigenen Tag als geändert (zwingt
@@ -292,7 +299,7 @@ Native SwiftUI-App, iOS 17+, keine externen Abhängigkeiten.
   - Einrichtung: Einstellungen → Familie; Sync automatisch beim
     Aktivwerden der App plus manueller Knopf.
 - **Versionierung**
-  - Marketing-Version (`MARKETING_VERSION`, aktuell 1.4.11) wird von
+  - Marketing-Version (`MARKETING_VERSION`, aktuell 1.4.12) wird von
     Hand gepflegt; die Build-Nummer setzt eine Skript-Bauphase
     („Build-Nummer setzen“) bei jedem Build automatisch: primär die
     Anzahl der Git-Commits, bei git-Fehlern ein Datumsstempel

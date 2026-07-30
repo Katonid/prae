@@ -28,6 +28,8 @@ struct SettingsView: View {
     @State private var syncNudgeDone = false
     @State private var cloudKitLogRunning = false
     @State private var cloudKitLogText: String?
+    @State private var serverStateRunning = false
+    @State private var serverStateText: String?
 
     private struct DeviceSummary: Identifiable {
         let id: String
@@ -339,6 +341,29 @@ struct SettingsView: View {
                                 .disabled(cloudKitLogRunning)
                                 if let cloudKitLogText {
                                     Text(cloudKitLogText)
+                                        .font(.caption2.monospaced())
+                                        .foregroundStyle(.secondary)
+                                        .textSelection(.enabled)
+                                }
+                                // Eigene Abrufe werden nicht geschwärzt —
+                                // zeigt unverfälscht, ob Zone/Freigabe
+                                // auf dem Server wirklich existieren.
+                                Button {
+                                    serverStateRunning = true
+                                    Task {
+                                        let text = await FamilySync.shared.serverStateReport()
+                                        serverStateText = text
+                                        serverStateRunning = false
+                                    }
+                                } label: {
+                                    Label(
+                                        serverStateRunning ? "Prüfe Server…" : "Server-Zustand prüfen",
+                                        systemImage: "externaldrive.badge.icloud"
+                                    )
+                                }
+                                .disabled(serverStateRunning)
+                                if let serverStateText {
+                                    Text(serverStateText)
                                         .font(.caption2.monospaced())
                                         .foregroundStyle(.secondary)
                                         .textSelection(.enabled)
