@@ -30,6 +30,8 @@ struct SettingsView: View {
     @State private var cloudKitLogText: String?
     @State private var serverStateRunning = false
     @State private var serverStateText: String?
+    @State private var rebuildConfirmShown = false
+    @State private var rebuildRequested = false
 
     private struct DeviceSummary: Identifiable {
         let id: String
@@ -367,6 +369,34 @@ struct SettingsView: View {
                                         .font(.caption2.monospaced())
                                         .foregroundStyle(.secondary)
                                         .textSelection(.enabled)
+                                }
+                                // Letzter Ausweg bei festgefahrenem
+                                // CloudKit-Gedächtnis: Store frisch
+                                // aufbauen — Daten bleiben (Sicherung
+                                // + Wiedereinsetzen), Duplikate werden
+                                // danach automatisch zusammengeführt.
+                                Button(role: .destructive) {
+                                    rebuildConfirmShown = true
+                                } label: {
+                                    Label("Sync-Zustand neu aufbauen…", systemImage: "arrow.counterclockwise.icloud")
+                                }
+                                .confirmationDialog(
+                                    "Lokalen Sync-Zustand neu aufbauen?",
+                                    isPresented: $rebuildConfirmShown,
+                                    titleVisibility: .visible
+                                ) {
+                                    Button("Beim nächsten Start neu aufbauen", role: .destructive) {
+                                        StoreRebuild.request()
+                                        rebuildRequested = true
+                                    }
+                                    Button("Abbrechen", role: .cancel) {}
+                                } message: {
+                                    Text("Alle Tage, Aufenthalte und Foto-Stichwörter bleiben erhalten: Sie werden als JSON-Datei gesichert und nach dem Neuaufbau automatisch wieder eingesetzt. Nur das festgefahrene CloudKit-Gedächtnis wird verworfen. Danach die App beenden (App-Umschalter, nach oben wischen) und neu öffnen.")
+                                }
+                                if rebuildRequested || StoreRebuild.isPending {
+                                    Label("Vorgemerkt — jetzt App beenden und neu öffnen", systemImage: "checkmark.circle")
+                                        .font(.footnote)
+                                        .foregroundStyle(.secondary)
                                 }
                             }
                             .font(.footnote)

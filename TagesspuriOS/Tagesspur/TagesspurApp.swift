@@ -15,6 +15,10 @@ struct TagesspurApp: App {
         let syncedSchema = Schema([TrackDay.self, PlaceVisit.self, MediaTag.self])
         let familySchema = Schema([FamilyDay.self, FamilyVisit.self])
         let fullSchema = Schema([TrackDay.self, PlaceVisit.self, MediaTag.self, FamilyDay.self, FamilyVisit.self])
+        // Vorgemerkter Sync-Neuaufbau (festgefahrenes CloudKit-Gedächtnis):
+        // VOR dem Anlegen des Containers Daten sichern und die alte
+        // Store-Datei entfernen — der frische Store synct von Null.
+        let rebuildSnapshot = StoreRebuild.snapshotAndReset(syncedSchema: syncedSchema)
         let resolved: ModelContainer
         do {
             // Eigene Daten: privater CloudKit-Container (Sync der eigenen
@@ -33,6 +37,9 @@ struct TagesspurApp: App {
             SyncDiagnose.cloudKitAktiv = false
         }
         container = resolved
+        if let rebuildSnapshot {
+            StoreRebuild.reinsert(rebuildSnapshot, into: resolved)
+        }
         let trackerInstance = LocationTracker(container: resolved)
         _tracker = StateObject(wrappedValue: trackerInstance)
         FamilySync.shared.modelContainer = resolved
@@ -42,6 +49,7 @@ struct TagesspurApp: App {
         // Umbenanntes Gerät: Bestandsdaten auf den aktuellen Namen ziehen.
         Task { @MainActor in
             DeviceInfo.normalizeStoredNames(container: resolved)
+            DataMaintenance.dedupe(container: resolved)
         }
     }
 
@@ -64,7 +72,10 @@ struct TagesspurApp: App {
                     force: true
                 )
             case .active:
-                Task { await FamilySync.shared.autoSync() }
+                Task { @MainActor in
+                    await FamilySync.shared.autoSync()
+                    DataMaintenance.dedupe(container: container)
+                }
             @unknown default:
                 break
             }
