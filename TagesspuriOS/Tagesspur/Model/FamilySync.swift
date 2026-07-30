@@ -202,9 +202,27 @@ final class FamilySync: ObservableObject {
             for (name, value) in fields {
                 record[name] = value
             }
+            // pointsData-Probe (der letzte ungeprüfte Kandidat):
+            // Kleine Tage speichert CoreData als Bytes im Feld
+            // CD_pointsData, GROSSE Tage als Datei-Anhang (CKAsset) in
+            // einem Zusatzfeld (CD_pointsData_ckAsset). Fehlt das
+            // Anhang-Feld in der Produktion, gehen kleine Datensätze
+            // durch, große werden abgelehnt — exakt das Muster seit
+            // 4:59 (Nachtfahrt = erster großer Tag).
+            if type == "CD_TrackDay" {
+                record["CD_pointsData"] = Data([0x7B, 0x7D]) as NSData
+                let assetURL = FileManager.default.temporaryDirectory
+                    .appendingPathComponent("tagesspur-probe-asset.bin")
+                try? Data(repeating: 0x2E, count: 2048).write(to: assetURL)
+                record["CD_pointsData_ckAsset"] = CKAsset(fileURL: assetURL)
+            }
             do {
                 let saved = try await privateDB.save(record)
-                lines.append("Typ \(type): alle \(fields.count + 1) Felder vorhanden ✓")
+                if type == "CD_TrackDay" {
+                    lines.append("Typ \(type): alle Felder vorhanden ✓ (inkl. pointsData als Bytes UND als Datei-Anhang)")
+                } else {
+                    lines.append("Typ \(type): alle \(fields.count + 1) Felder vorhanden ✓")
+                }
                 try? await privateDB.deleteRecord(withID: saved.recordID)
             } catch let error as CKError where error.code == .serverRecordChanged {
                 try? await privateDB.deleteRecord(withID: probeID)

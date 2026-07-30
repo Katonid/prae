@@ -190,9 +190,13 @@ Native SwiftUI-App, iOS 17+, keine externen Abhängigkeiten.
     CoreData-Namensschema (CD_…, inkl. CD_entityName) gespeichert
     und gleich wieder gelöscht — lehnt die Produktionsumgebung einen
     Typ oder ein Feld ab (nie deployt), steht der ungeschwärzte
-    Ablehnungsgrund samt Feldname da. Data-Felder (pointsData) sind
-    bewusst ausgelassen (CoreData speichert sie größenabhängig
-    anders — Fehlalarmgefahr). Hintergrund: Produktion legt weder
+    Ablehnungsgrund samt Feldname da. Für CD_TrackDay wird auch
+    pointsData in BEIDEN Speicherformen getestet: als Bytes
+    (CD_pointsData) und als Datei-Anhang (CD_pointsData_ckAsset,
+    CKAsset) — CoreData wählt die Form größenabhängig; fehlt das
+    Anhang-Feld in der Produktion, gehen kleine Tage durch und
+    große werden abgelehnt (exakt das 4:59-Muster: Nachtfahrt =
+    erster großer Tag). Hintergrund: Produktion legt weder
     Typen noch Felder selbst an; ein einziges nicht deploytes Feld
     (Kandidat 30.7.: summaryPointCount, nachträglich eingeführt)
     lässt JEDEN Export-Stapel fatal scheitern — exakt das Muster vom
@@ -328,7 +332,7 @@ Native SwiftUI-App, iOS 17+, keine externen Abhängigkeiten.
   - Einrichtung: Einstellungen → Familie; Sync automatisch beim
     Aktivwerden der App plus manueller Knopf.
 - **Versionierung**
-  - Marketing-Version (`MARKETING_VERSION`, aktuell 1.4.15) wird von
+  - Marketing-Version (`MARKETING_VERSION`, aktuell 1.4.16) wird von
     Hand gepflegt; die Build-Nummer setzt eine Skript-Bauphase
     („Build-Nummer setzen“) bei jedem Build automatisch: primär die
     Anzahl der Git-Commits, bei git-Fehlern ein Datumsstempel
