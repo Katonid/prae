@@ -169,6 +169,15 @@ Native SwiftUI-App, iOS 17+, keine externen Abhängigkeiten.
     (ohne Teilnehmer; Ereignisprotokoll: „Sync-Reparatur Stufe 2“).
     Endzustand-Invariante also: Zone UND leerer Share existieren
     immer — Teilnehmer nach so einem Vorfall neu einladen.
+  - Spiegel-Robustheit: Vor dem Speichern werden doppelte Record-IDs
+    ausgesiebt — zwei Besuchs-Einträge mit identischer Ankunftssekunde
+    ergeben dieselbe ID, und CloudKit lehnt sonst das gesamte
+    Speicherpaket ab („You can't save the same record twice“,
+    Invalid Arguments 12; nachgewiesen 30.7., 13:35). Hinweis zum
+    Protokoll-Lesen: „Record not found“-Teilfehler bei ort-…/tag-…-IDs
+    während CKFetchRecordsOperation sind harmlos — das ist der
+    Upsert, der nachschaut, was schon existiert; fehlend = wird neu
+    angelegt.
   - Manueller Anstoß: „Sync jetzt anstoßen“ in der iCloud-Sektion.
     Apples CloudKit-Sync kennt keinen offiziellen Sofort-Befehl —
     der Knopf markiert den jüngsten eigenen Tag als geändert (zwingt
@@ -283,7 +292,7 @@ Native SwiftUI-App, iOS 17+, keine externen Abhängigkeiten.
   - Einrichtung: Einstellungen → Familie; Sync automatisch beim
     Aktivwerden der App plus manueller Knopf.
 - **Versionierung**
-  - Marketing-Version (`MARKETING_VERSION`, aktuell 1.4.10) wird von
+  - Marketing-Version (`MARKETING_VERSION`, aktuell 1.4.11) wird von
     Hand gepflegt; die Build-Nummer setzt eine Skript-Bauphase
     („Build-Nummer setzen“) bei jedem Build automatisch: primär die
     Anzahl der Git-Commits, bei git-Fehlern ein Datumsstempel
