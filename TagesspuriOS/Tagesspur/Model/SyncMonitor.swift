@@ -11,6 +11,7 @@ enum SyncMonitor {
     static let lastErrorKey = "tagesspur.sync.lastError"
     static let lastErrorDateKey = "tagesspur.sync.lastErrorDate"
     static let lastErrorTypeKey = "tagesspur.sync.lastErrorType"
+    static let lastErrorDetailKey = "tagesspur.sync.lastErrorDetail"
     static let lastExportKey = "tagesspur.sync.lastExport"
     static let lastImportKey = "tagesspur.sync.lastImport"
 
@@ -27,6 +28,10 @@ enum SyncMonitor {
                 defaults.set("\(name(of: event.type)): \(describe(error))", forKey: lastErrorKey)
                 defaults.set(Date(), forKey: lastErrorDateKey)
                 defaults.set(event.type.rawValue, forKey: lastErrorTypeKey)
+                // Roh-Dump zusätzlich sichern: Als der 12:29-Fehler kam,
+                // fehlte dem CKError das Teilfehler-Verzeichnis — ohne
+                // Rohtext wäre die Ursache erneut unsichtbar geblieben.
+                defaults.set(rawDump(of: error), forKey: lastErrorDetailKey)
             } else {
                 switch event.type {
                 case .export: defaults.set(Date(), forKey: lastExportKey)
@@ -39,6 +44,7 @@ enum SyncMonitor {
                     defaults.removeObject(forKey: lastErrorKey)
                     defaults.removeObject(forKey: lastErrorDateKey)
                     defaults.removeObject(forKey: lastErrorTypeKey)
+                    defaults.removeObject(forKey: lastErrorDetailKey)
                 }
             }
         }
@@ -50,18 +56,40 @@ enum SyncMonitor {
     /// unbekannt?), statt sie zu verschlucken.
     private static func describe(_ error: Error) -> String {
         guard let ckError = error as? CKError else { return error.localizedDescription }
-        if ckError.code == .partialFailure,
-           let partial = ckError.userInfo[CKPartialErrorsByItemIDKey] as? [AnyHashable: Error],
-           !partial.isEmpty {
-            let reasons = partial.values.prefix(2).map { inner -> String in
-                if let innerCK = inner as? CKError {
-                    return "\(innerCK.code.beschreibung) (\(innerCK.code.rawValue))"
-                }
-                return (inner as NSError).localizedDescription
-            }
-            return "Teilfehler bei \(partial.count) Datensätzen: " + reasons.joined(separator: " · ")
+        let leaves = leafErrors(of: error)
+        // Nur ein Blatt und es ist der Fehler selbst → nichts auszupacken.
+        if leaves.count == 1, (leaves[0] as NSError) === (error as NSError) {
+            return "\(ckError.code.beschreibung) (\(ckError.code.rawValue))"
         }
-        return "\(ckError.code.beschreibung) (\(ckError.code.rawValue))"
+        let reasons = leaves.prefix(2).map { inner -> String in
+            if let innerCK = inner as? CKError {
+                return "\(innerCK.code.beschreibung) (\(innerCK.code.rawValue))"
+            }
+            return (inner as NSError).localizedDescription
+        }
+        return "Teilfehler bei \(leaves.count) Datensätzen: " + reasons.joined(separator: " · ")
+    }
+
+    /// Teilfehler können VERSCHACHTELT sein (Sammel-Fehler → Zone →
+    /// Datensatz) oder als „Underlying Error“ hängen — der 12:29-Fehler
+    /// hat gezeigt, dass eine Ebene Auspacken nicht reicht. Deshalb
+    /// rekursiv bis zu den Blättern absteigen.
+    private static func leafErrors(of error: Error, depth: Int = 0) -> [Error] {
+        guard depth < 4, let ckError = error as? CKError else { return [error] }
+        if let partial = ckError.partialErrorsByItemID, !partial.isEmpty {
+            return partial.values.flatMap { leafErrors(of: $0, depth: depth + 1) }
+        }
+        if let underlying = ckError.userInfo[NSUnderlyingErrorKey] as? Error {
+            return leafErrors(of: underlying, depth: depth + 1)
+        }
+        return [error]
+    }
+
+    /// Vollständiger technischer Fehlertext (gekürzt) — die letzte
+    /// Diagnose-Instanz, wenn die aufbereitete Zeile nicht reicht.
+    private static func rawDump(of error: Error) -> String {
+        let text = String(describing: error as NSError)
+        return text.count > 1200 ? String(text.prefix(1200)) + " …" : text
     }
 
     private static func name(of type: NSPersistentCloudKitContainer.EventType) -> String {
@@ -77,6 +105,10 @@ enum SyncMonitor {
         guard let text = UserDefaults.standard.string(forKey: lastErrorKey),
               let date = UserDefaults.standard.object(forKey: lastErrorDateKey) as? Date else { return nil }
         return (text, date)
+    }
+
+    static var lastErrorDetail: String? {
+        UserDefaults.standard.string(forKey: lastErrorDetailKey)
     }
 
     static var lastExport: Date? {
