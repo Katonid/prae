@@ -73,6 +73,7 @@ final class FamilySync: ObservableObject {
         guard force || Date().timeIntervalSince(lastAutoSync) > 300 else { return }
         lastAutoSync = Date()
         guard (try? await container.accountStatus()) == .available else { return }
+        await ensureZoneExists()
         await loadShareState()
         if isSharing {
             await mirrorOwnData()
@@ -101,6 +102,33 @@ final class FamilySync: ObservableObject {
             UserDefaults.standard.set(true, forKey: Self.sharedSubscriptionFlag)
         } catch {
             // Kein Abo (z. B. offline) — beim nächsten autoSync erneut.
+        }
+    }
+
+    // MARK: - Zonen-Reparatur
+
+    /// Die Familien-Zone darf auf dem Server NIE fehlen. Grund
+    /// (Ernstfall 30.7., Uploads hingen ab 4:59): CoreDatas iCloud-Sync
+    /// merkt sich die zonenweite Freigabe der Zone und holt sie bei der
+    /// Initialisierung vom Server. Fehlt die GANZE Zone („Zone Not
+    /// Found“ / „Zone does not exist“ im Protokoll), scheitert die
+    /// Initialisierung — und damit stehen ALLE Uploads des normalen
+    /// Geräte-Syncs still, nicht nur die Familien-Spiegelung. Deshalb:
+    /// Zone bei jedem Abgleich sicherstellen; das Anlegen ist
+    /// idempotent und kostet einen Server-Roundtrip pro App-Start.
+    private var zoneEnsuredThisLaunch = false
+
+    func ensureZoneExists() async {
+        guard !zoneEnsuredThisLaunch else { return }
+        do {
+            let existing = try await privateDB.allRecordZones()
+            if !existing.contains(where: { $0.zoneID.zoneName == Self.zoneName }) {
+                _ = try await privateDB.modifyRecordZones(saving: [CKRecordZone(zoneID: zoneID)], deleting: [])
+                LocationTracker.logEvent("Familien-Zone fehlte auf dem Server — leer neu angelegt (Sync-Reparatur)")
+            }
+            zoneEnsuredThisLaunch = true
+        } catch {
+            // Offline o. ä. — beim nächsten Abgleich erneut versuchen.
         }
     }
 
@@ -151,6 +179,10 @@ final class FamilySync: ObservableObject {
         defer { isBusy = false }
         do {
             _ = try await privateDB.modifyRecordZones(saving: [], deleting: [zoneID])
+            // Zone sofort LEER neu anlegen: CoreDatas Geräte-Sync merkt
+            // sich die Freigabe und stolpert sonst dauerhaft über
+            // „Zone Not Found“ — das legte am 30.7. alle Uploads lahm.
+            _ = try? await privateDB.modifyRecordZones(saving: [CKRecordZone(zoneID: zoneID)], deleting: [])
             share = nil
             isSharing = false
             UserDefaults.standard.removeObject(forKey: Self.lastMirrorKey)
