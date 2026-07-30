@@ -202,24 +202,18 @@ final class FamilySync: ObservableObject {
             for (name, value) in fields {
                 record[name] = value
             }
-            // pointsData-Probe (der letzte ungeprüfte Kandidat):
-            // Kleine Tage speichert CoreData als Bytes im Feld
-            // CD_pointsData, GROSSE Tage als Datei-Anhang (CKAsset) in
-            // einem Zusatzfeld (CD_pointsData_ckAsset). Fehlt das
-            // Anhang-Feld in der Produktion, gehen kleine Datensätze
-            // durch, große werden abgelehnt — exakt das Muster seit
-            // 4:59 (Nachtfahrt = erster großer Tag).
+            // pointsData-Probe: Das Feld ist in Dev UND Produktion als
+            // BYTES angelegt (Console-Befund 30.7.) — seither werden
+            // die Blobs komprimiert und klein gehalten, damit sie dort
+            // hineinpassen. Die Probe prüft nur noch das Bytes-Feld;
+            // ein Anhang-Feld existiert bewusst nicht.
             if type == "CD_TrackDay" {
                 record["CD_pointsData"] = Data([0x7B, 0x7D]) as NSData
-                let assetURL = FileManager.default.temporaryDirectory
-                    .appendingPathComponent("tagesspur-probe-asset.bin")
-                try? Data(repeating: 0x2E, count: 2048).write(to: assetURL)
-                record["CD_pointsData_ckAsset"] = CKAsset(fileURL: assetURL)
             }
             do {
                 let saved = try await privateDB.save(record)
                 if type == "CD_TrackDay" {
-                    lines.append("Typ \(type): alle Felder vorhanden ✓ (inkl. pointsData als Bytes UND als Datei-Anhang)")
+                    lines.append("Typ \(type): alle Felder vorhanden ✓ (inkl. pointsData/Bytes)")
                 } else {
                     lines.append("Typ \(type): alle \(fields.count + 1) Felder vorhanden ✓")
                 }

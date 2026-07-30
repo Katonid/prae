@@ -182,6 +182,30 @@ enum StoreRebuild {
 /// synchronisiert sich auf alle Geräte. Läuft bei jedem Aktivwerden;
 /// ohne Duplikate ist es ein reiner Lesedurchlauf.
 enum DataMaintenance {
+    private static let recompressFlag = "tagesspur.pointsCompressed.v1"
+
+    /// Einmalige Umkodierung des Altbestands ins komprimierte
+    /// Blob-Format: Der große Nachtfahrt-Tag passte unkomprimiert
+    /// nicht mehr ins CloudKit-Bytes-Feld und blockierte seit 4:59
+    /// jeden Export. Nach der Umkodierung ist er klein genug und
+    /// lädt beim nächsten Sync-Lauf hoch.
+    @MainActor
+    static func recompressPoints(container: ModelContainer) {
+        guard !UserDefaults.standard.bool(forKey: recompressFlag) else { return }
+        let context = ModelContext(container)
+        guard let days = try? context.fetch(FetchDescriptor<TrackDay>()) else { return }
+        var changed = 0
+        for day in days where day.pointsData.first == 0x5B {
+            day.setPoints(day.points())
+            changed += 1
+        }
+        if changed > 0 { try? context.save() }
+        UserDefaults.standard.set(true, forKey: recompressFlag)
+        if changed > 0 {
+            LocationTracker.logEvent("Track-Blobs komprimiert (\(changed) Tage) — passen wieder ins CloudKit-Bytes-Feld")
+        }
+    }
+
     @MainActor
     static func dedupe(container: ModelContainer) {
         let context = ModelContext(container)
