@@ -268,6 +268,13 @@ final class FamilySync: ObservableObject {
             records.append(record)
         }
 
+        // Doppelte Datensatz-IDs aussieben: Zwei Besuchs-Einträge mit
+        // identischer Ankunftssekunde ergeben dieselbe Record-ID, und
+        // CloudKit lehnt dann das GESAMTE Speicherpaket ab („You can't
+        // save the same record twice“, nachgewiesen 30.7., 13:35).
+        var seenIDs = Set<CKRecord.ID>()
+        records = records.filter { seenIDs.insert($0.recordID).inserted }
+
         do {
             try await upsert(records)
             UserDefaults.standard.set(Date(), forKey: Self.lastMirrorKey)
