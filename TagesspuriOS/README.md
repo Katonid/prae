@@ -144,6 +144,13 @@ Native SwiftUI-App, iOS 17+, keine externen Abhängigkeiten.
     den Einstellungen unter „Technische Details“ aufklappbar —
     letzte Diagnose-Instanz, falls CloudKit die Einzelgründe wieder
     versteckt.
+  - Wenn selbst der Roh-Dump leer ist (nachgewiesen 30.7., 12:45:
+    „Code=2 (null)“ — CoreData übergibt den Export-Fehler ohne jedes
+    Detail), hilft der Knopf „CloudKit-Protokoll auslesen“ unter den
+    Technischen Details: Er liest die CloudKit-/Sync-Fehlerzeilen der
+    letzten Stunde aus dem Systemprotokoll des eigenen Prozesses
+    (OSLogStore) — dorthin schreibt CoreData die echten Gründe pro
+    Datensatz. Ablauf: „Sync jetzt anstoßen“, kurz warten, auslesen.
   - Manueller Anstoß: „Sync jetzt anstoßen“ in der iCloud-Sektion.
     Apples CloudKit-Sync kennt keinen offiziellen Sofort-Befehl —
     der Knopf markiert den jüngsten eigenen Tag als geändert (zwingt
@@ -258,7 +265,7 @@ Native SwiftUI-App, iOS 17+, keine externen Abhängigkeiten.
   - Einrichtung: Einstellungen → Familie; Sync automatisch beim
     Aktivwerden der App plus manueller Knopf.
 - **Versionierung**
-  - Marketing-Version (`MARKETING_VERSION`, aktuell 1.4.7) wird von
+  - Marketing-Version (`MARKETING_VERSION`, aktuell 1.4.8) wird von
     Hand gepflegt; die Build-Nummer setzt eine Skript-Bauphase
     („Build-Nummer setzen“) bei jedem Build automatisch: primär die
     Anzahl der Git-Commits, bei git-Fehlern ein Datumsstempel
