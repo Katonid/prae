@@ -30,9 +30,11 @@ final class TrackDay {
     var deviceId: String = ""
     var deviceName: String = ""
     var dayKey: String = ""
-    // Ohne .externalStorage — das CloudKit-Feld ist BYTES (siehe
-    // iPhone-Modell): Blob wird zlib-komprimiert und klein gehalten.
-    var pointsData: Data = Data()
+    // .externalStorage unverändert (wie iPhone-Modell — ein Entfernen
+    // erzwingt eine Store-Migration, siehe 1.4.17-Absturz). Der Blob
+    // wird zlib-komprimiert und klein gehalten, damit CoreData ihn
+    // immer als Bytes ins vorhandene CloudKit-Feld exportiert.
+    @Attribute(.externalStorage) var pointsData: Data = Data()
     var pointCount: Int = 0
     var distanceMeters: Double = 0
     var startDate: Date = Date()
@@ -67,7 +69,7 @@ final class TrackDay {
         return (try? (json as NSData).compressed(using: .zlib) as Data) ?? json
     }
 
-    static let maxPointsDataBytes = 700_000
+    static let maxPointsDataBytes = 400_000
 
     func setPoints(_ pts: [TrackPoint]) {
         var sorted = pts.sorted { $0.t < $1.t }

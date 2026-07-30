@@ -58,16 +58,17 @@ final class TrackDay {
     var deviceId: String = ""
     var deviceName: String = ""
     var dayKey: String = ""          // "2026-07-25", lokale Zeitzone bei Aufzeichnung
-    // BEWUSST ohne .externalStorage: Das CloudKit-Feld CD_pointsData
-    // ist historisch als BYTES angelegt (Dev UND Produktion, nachge-
-    // wiesen 30.7. in der Console) und lässt sich nicht umtypen.
-    // externalStorage ließe CoreData große Blobs als CKAsset in ein
-    // Anhang-Feld exportieren, das nirgends existiert — der Server
-    // lehnte dann jeden großen Tag fatal ab und der GESAMTE Sync
-    // stand (Blockade seit 4:59). Stattdessen: Blob komprimieren
-    // (zlib) und per Notbremse klein halten — passt dauerhaft ins
-    // Bytes-Feld.
-    var pointsData: Data = Data()    // zlib-komprimiertes JSON [TrackPoint]; Altbestand: pures JSON
+    // .externalStorage bleibt UNVERÄNDERT (ein Entfernen erzwang am
+    // 30.7. eine Store-Migration und ließ 1.4.17 beim Start
+    // abstürzen). Entscheidend ist etwas anderes: Das CloudKit-Feld
+    // CD_pointsData ist historisch BYTES (Dev UND Produktion, per
+    // Console verifiziert) und CloudKit kann Feldtypen nie ändern.
+    // Große Blobs würde CoreData als CKAsset in ein nirgends
+    // existierendes Anhang-Feld exportieren → Server lehnte jeden
+    // großen Tag fatal ab, der GESAMTE Sync stand (ab 4:59). Deshalb:
+    // Blob zlib-komprimieren und per Notbremse klein halten — dann
+    // exportiert CoreData immer Bytes und alles passt ins Feld.
+    @Attribute(.externalStorage) var pointsData: Data = Data()    // zlib-komprimiertes JSON [TrackPoint]; Altbestand: pures JSON
     var pointCount: Int = 0
     var distanceMeters: Double = 0
     var startDate: Date = Date()
@@ -106,9 +107,10 @@ final class TrackDay {
     }
 
     /// Obergrenze für den gespeicherten Blob: Das CloudKit-Bytes-Feld
-    /// lebt im Datensatz (Limit ~1 MB) — 700 kB komprimiert entspricht
-    /// weit über 50.000 Punkten und wird real nie erreicht.
-    static let maxPointsDataBytes = 700_000
+    /// lebt im Datensatz (Limit ~1 MB), und CoreData darf den Blob
+    /// nie für den Anhang-Export „groß genug“ finden — konservative
+    /// 400 kB komprimiert entsprechen immer noch zigtausenden Punkten.
+    static let maxPointsDataBytes = 400_000
 
     func setPoints(_ pts: [TrackPoint]) {
         var sorted = pts.sorted { $0.t < $1.t }

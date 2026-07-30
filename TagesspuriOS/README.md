@@ -126,8 +126,15 @@ Native SwiftUI-App, iOS 17+, keine externen Abhängigkeiten.
     sonst steht der Sync für TestFlight-Builds komplett still. Nach
     jeder Modell-Änderung: erst Xcode-Build laufen lassen (erzeugt das
     Dev-Schema), dann erneut deployen.
-  - Track-Blobs (`pointsData`) werden zlib-komprimiert im Datensatz
-    gespeichert (BYTES-Feld). Hintergrund — die Wurzel der
+  - Track-Blobs (`pointsData`) werden zlib-komprimiert gespeichert
+    und per Notbremse unter 400 kB gehalten. WICHTIG: Die
+    Speicheroption `.externalStorage` am Modell bleibt für immer
+    unangetastet — ihr Entfernen erzwang am 30.7. eine
+    Store-Migration und ließ 1.4.17 beim Start abstürzen (der
+    lokale Rückfall-Pfad öffnete mit try!; seither existiert eine
+    dritte Auffangebene: flüchtiger Speicher statt Absturzschleife,
+    Platten-Daten bleiben unangetastet, Protokoll „NOTSTART“).
+    Hintergrund — die Wurzel der
     Sync-Blockade vom 30.7. (ab 4:59): Das CloudKit-Feld
     CD_pointsData ist historisch als BYTES angelegt (Dev UND
     Produktion identisch, per Console verifiziert; „Deploy Schema
@@ -347,7 +354,7 @@ Native SwiftUI-App, iOS 17+, keine externen Abhängigkeiten.
   - Einrichtung: Einstellungen → Familie; Sync automatisch beim
     Aktivwerden der App plus manueller Knopf.
 - **Versionierung**
-  - Marketing-Version (`MARKETING_VERSION`, aktuell 1.4.17) wird von
+  - Marketing-Version (`MARKETING_VERSION`, aktuell 1.4.18) wird von
     Hand gepflegt; die Build-Nummer setzt eine Skript-Bauphase
     („Build-Nummer setzen“) bei jedem Build automatisch: primär die
     Anzahl der Git-Commits, bei git-Fehlern ein Datumsstempel
