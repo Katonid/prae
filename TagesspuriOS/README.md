@@ -117,6 +117,12 @@ Native SwiftUI-App, iOS 17+, keine externen Abhängigkeiten.
   - Sync-Fehler räumen sich selbst auf: Gelingt derselbe Vorgang
     (Hochladen/Empfangen) später erfolgreich, verschwindet die rote
     Fehlerzeile automatisch.
+  - Fehler stehen im Klartext statt als Nummerncode: CloudKit meldet
+    Sammel-Fehlschläge nur als „Fehler 2“ (partialFailure) — die
+    echten Gründe pro Datensatz packt SyncMonitor aus und zeigt die
+    ersten davon verständlich an (z. B. „Versionskonflikt — löst sich
+    beim nächsten Abgleich selbst“, „Datensatz zu groß“ oder
+    „Schema-Deploy prüfen“).
   - Manueller Anstoß: „Sync jetzt anstoßen“ in der iCloud-Sektion.
     Apples CloudKit-Sync kennt keinen offiziellen Sofort-Befehl —
     der Knopf markiert den jüngsten eigenen Tag als geändert (zwingt
@@ -231,7 +237,7 @@ Native SwiftUI-App, iOS 17+, keine externen Abhängigkeiten.
   - Einrichtung: Einstellungen → Familie; Sync automatisch beim
     Aktivwerden der App plus manueller Knopf.
 - **Versionierung**
-  - Marketing-Version (`MARKETING_VERSION`, aktuell 1.4.4) wird von
+  - Marketing-Version (`MARKETING_VERSION`, aktuell 1.4.5) wird von
     Hand gepflegt; die Build-Nummer setzt eine Skript-Bauphase
     („Build-Nummer setzen“) bei jedem Build automatisch: primär die
     Anzahl der Git-Commits, bei git-Fehlern ein Datumsstempel
