@@ -69,8 +69,8 @@ final class FamilySync: ObservableObject {
         await mirrorOwnData()
     }
 
-    func autoSync() async {
-        guard Date().timeIntervalSince(lastAutoSync) > 300 else { return }
+    func autoSync(force: Bool = false) async {
+        guard force || Date().timeIntervalSince(lastAutoSync) > 300 else { return }
         lastAutoSync = Date()
         guard (try? await container.accountStatus()) == .available else { return }
         await loadShareState()

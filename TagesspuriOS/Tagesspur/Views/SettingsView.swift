@@ -24,6 +24,8 @@ struct SettingsView: View {
     @State private var thunderforestKey = UserDefaults.standard.string(forKey: OutdoorMapView.OutdoorTileOverlay.thunderforestKeyDefault) ?? ""
     @State private var accountStatusText = "…"
     @State private var deviceToDelete: DeviceSummary?
+    @State private var syncNudgeRunning = false
+    @State private var syncNudgeDone = false
 
     private struct DeviceSummary: Identifiable {
         let id: String
@@ -289,6 +291,18 @@ struct SettingsView: View {
                                    value: SyncMonitor.lastExport?.formatted(date: .abbreviated, time: .shortened) ?? "—")
                     LabeledContent("Letztes Empfangen",
                                    value: SyncMonitor.lastImport?.formatted(date: .abbreviated, time: .shortened) ?? "—")
+                    Button {
+                        nudgeSync()
+                    } label: {
+                        if syncNudgeRunning {
+                            Label("Wird angestoßen…", systemImage: "arrow.triangle.2.circlepath")
+                        } else if syncNudgeDone {
+                            Label("Angestoßen — Zeilen oben zeigen den Erfolg", systemImage: "checkmark.circle")
+                        } else {
+                            Label("Sync jetzt anstoßen", systemImage: "arrow.triangle.2.circlepath")
+                        }
+                    }
+                    .disabled(syncNudgeRunning)
                     if let error = SyncMonitor.lastError {
                         Text("Sync-Fehler (\(error.date.formatted(date: .abbreviated, time: .shortened))): \(error.text)")
                             .font(.footnote)
@@ -386,6 +400,33 @@ struct SettingsView: View {
             await MainActor.run {
                 analysisRunning = false
                 analysisProgress = count == 0 ? "" : "\(count) neu analysiert"
+            }
+        }
+    }
+
+    /// Manueller Sync-Anstoß. Apples CloudKit-Sync kennt keinen
+    /// offiziellen „Jetzt syncen“-Befehl — aber eine markierte Änderung
+    /// am jüngsten eigenen Tag zwingt den Export sofort an, und der
+    /// Familien-Abgleich läuft ungedrosselt mit. Erfolg ist an
+    /// „Letztes Hochladen/Empfangen“ ablesbar (SyncMonitor).
+    private func nudgeSync() {
+        syncNudgeRunning = true
+        syncNudgeDone = false
+        let deviceId = DeviceInfo.deviceId
+        var descriptor = FetchDescriptor<TrackDay>(
+            predicate: #Predicate { $0.deviceId == deviceId },
+            sortBy: [SortDescriptor(\TrackDay.dayKey, order: .reverse)]
+        )
+        descriptor.fetchLimit = 1
+        if let latest = try? context.fetch(descriptor).first {
+            latest.updatedAt = Date()
+            try? context.save()
+        }
+        Task {
+            await FamilySync.shared.autoSync(force: true)
+            await MainActor.run {
+                syncNudgeRunning = false
+                syncNudgeDone = true
             }
         }
     }
