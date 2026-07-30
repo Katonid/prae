@@ -184,7 +184,15 @@ Native SwiftUI-App, iOS 17+, keine externen Abhängigkeiten.
     werden dagegen nie geschwärzt. Der Knopf zeigt unverfälscht, ob
     Familien-Zone und Freigabe auf dem Server existieren (samt
     Teilnehmerzahl) bzw. mit welchem vollständigen Fehler ein Abruf
-    scheitert.
+    scheitert. Enthält zudem eine Schema-Probe: Für jeden
+    CoreData-Typ (CD_TrackDay, CD_PlaceVisit, CD_MediaTag) wird ein
+    Probe-Datensatz gespeichert und gleich wieder gelöscht — lehnt
+    die Produktionsumgebung einen Typ ab (nie deployt), steht der
+    ungeschwärzte Ablehnungsgrund da. Hintergrund: Ein einziger
+    nicht deployter Typ lässt JEDEN Export-Stapel fatal scheitern —
+    der 30.7. zeigte genau dieses Muster (auch ein frischer Store
+    lief sofort wieder in „fatal errors“, während Import und erste
+    Exporte funktionierten).
   - „Sync-Zustand neu aufbauen“ (Technische Details, letzter Ausweg):
     Der Zonen-Vorfall vom 30.7. hinterließ ein lokal festgefahrenes
     CloudKit-Gedächtnis — Server nachweislich gesund, Recovery
@@ -314,7 +322,7 @@ Native SwiftUI-App, iOS 17+, keine externen Abhängigkeiten.
   - Einrichtung: Einstellungen → Familie; Sync automatisch beim
     Aktivwerden der App plus manueller Knopf.
 - **Versionierung**
-  - Marketing-Version (`MARKETING_VERSION`, aktuell 1.4.13) wird von
+  - Marketing-Version (`MARKETING_VERSION`, aktuell 1.4.14) wird von
     Hand gepflegt; die Build-Nummer setzt eine Skript-Bauphase
     („Build-Nummer setzen“) bei jedem Build automatisch: primär die
     Anzahl der Git-Commits, bei git-Fehlern ein Datumsstempel
