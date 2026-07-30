@@ -66,6 +66,13 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
 
     private static let highAccuracyKey = "tagesspur.highAccuracy"
 
+    /// Moderne Hintergrund-Sitzung (iOS 17): teilt iOS explizit mit,
+    /// dass eine bewusste, laufende Ortungsaufgabe aktiv ist. Ohne sie
+    /// drosselt iOS die Lieferung an Legacy-Sessions zunehmend —
+    /// nachgewiesen am 30.7.: unsere App bekam minutenlang nichts,
+    /// während Geory auf demselben Gerät lückenlos beliefert wurde.
+    private var backgroundSession: CLBackgroundActivitySession?
+
     private var buffer: [TrackPoint] = []
     private var lastFlush = Date()
     private var restAnchor: CLLocation?
@@ -211,6 +218,13 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
             manager.startMonitoringSignificantLocationChanges()
             manager.startMonitoringVisits()
         }
+        // Hintergrund-Sitzung VOR dem Start der Updates aufbauen (Apples
+        // dokumentierte Reihenfolge) — hält die Lieferung dauerhaft am
+        // Leben, statt vom Legacy-Drosseln getroffen zu werden.
+        if backgroundSession == nil {
+            backgroundSession = CLBackgroundActivitySession()
+            Self.logEvent("Hintergrund-Sitzung gestartet (CLBackgroundActivitySession)")
+        }
         startMotionWake()
         startPreciseUpdates()
     }
@@ -278,6 +292,10 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
         guard stalledFor > 120 else { return }
         lastStallRestartAt = Date()
         Self.logEvent("Ortungs-Stillstand (\(Int(stalledFor)) s in Bewegung) — Updates neu gestartet")
+        // Voller Reset inkl. Hintergrund-Sitzung — nicht nur die
+        // Update-Schleife, auch die Sitzungs-Berechtigung erneuern.
+        backgroundSession?.invalidate()
+        backgroundSession = CLBackgroundActivitySession()
         manager.stopUpdatingLocation()
         manager.startUpdatingLocation()
         wakeGraceUntil = Date().addingTimeInterval(Self.wakeGraceSeconds)
@@ -338,6 +356,8 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
     private func stopAll() {
         flushTimer?.invalidate()
         flushTimer = nil
+        backgroundSession?.invalidate()
+        backgroundSession = nil
         motionManager.stopActivityUpdates()
         manager.stopUpdatingLocation()
         manager.stopMonitoringSignificantLocationChanges()

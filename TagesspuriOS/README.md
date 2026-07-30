@@ -31,6 +31,14 @@ Native SwiftUI-App, iOS 17+, keine externen Abhängigkeiten.
     mit ungenauigkeitsabhängiger Schwelle (×2, gedeckelt bei 300 m) —
     ein Streu-Fix weckt nicht, ein Funkzellen-Fix verschleppt das
     Aufwachen aber auch nicht kilometerweit.
+  - Hintergrund-Sitzung (CLBackgroundActivitySession, iOS 17): der
+    moderne, dokumentierte Weg, iOS eine bewusste laufende
+    Ortungsaufgabe anzuzeigen. Ohne sie drosselt iOS Legacy-Sessions
+    (nur allowsBackgroundLocationUpdates) zunehmend — nachgewiesen
+    30.7.: unsere App bekam minutenlang nichts, während Geory auf
+    demselben Gerät lückenlos beliefert wurde. Sitzung wird vor dem
+    Update-Start aufgebaut, beim Watchdog-Eingriff erneuert und beim
+    Abschalten invalidiert.
   - Ortungs-Watchdog: iOS kann die Hintergrund-Lieferung mitten in
     Bewegung minutenlang einstellen (nachgewiesen 30.7., App wach,
     keine Fixe geliefert); ein erneutes startUpdatingLocation belebt
