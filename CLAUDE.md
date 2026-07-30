@@ -30,6 +30,18 @@ noch Commits auf denselben PR gepusht wurden — die hingen dann fest
   Antwort mit dem nächsten Link abwarten.** Ein bereits gemergter PR
   ist nie ein Problem; alles Weitere kommt automatisch als neuer PR.
 
+## Projekt Tagesspur — Versionierung
+
+- App-Code: `TagesspuriOS/` (vier Targets: App, Widgets, Watch,
+  Watch-Widgets). `MARKETING_VERSION` steht in allen vier Targets
+  identisch (acht Stellen im pbxproj, Debug+Release).
+- **Jede Arbeitseinheit (= jeder PR mit App-Änderungen) hebt die
+  Patch-Nummer an**: 1.4.1 → 1.4.2 → 1.4.3 … — ohne Nachfrage, als
+  Teil des PRs. Größere Sprünge (z. B. 1.5) nur auf ausdrückliche
+  Ansage des Nutzers.
+- Die Build-Nummer in Klammern vergibt die Skript-Bauphase
+  „Build-Nummer setzen" automatisch — nie von Hand pflegen.
+
 ## Projekt FlightMate AI
 
 - Produktgrundlage: `docs/flightmate-ai/PRD.md` — Änderungen am Umfang
