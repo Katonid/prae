@@ -11,8 +11,10 @@ struct ReplayTarget: Identifiable {
     let points: [TrackPoint]
 }
 
-/// Spielt einen Tag wie einen Film ab: ein Punkt fliegt mit geneigter
-/// 3D-Kamera den Track entlang, dazu Uhrzeit, Zeitstrahl und Tempo.
+/// Spielt einen Tag wie einen Film ab — wahlweise als 3D-Flug oder als
+/// 2D-Draufsicht. Beide Ansichten sind zoombar (2D pausiert auch frei
+/// verschiebbar), und die Zeitleiste lässt sich antippen und ziehen,
+/// um jeden Zeitpunkt des Verlaufs per Hand anzusteuern.
 struct TrackReplayView: View {
     let title: String
 
@@ -22,6 +24,10 @@ struct TrackReplayView: View {
     @State private var speed: Double = 1
     @State private var heading: Double = 0
     @State private var camera: MapCameraPosition
+    /// Vom Nutzer per Pinch gewählte Flughöhe — bleibt beim Abspielen
+    /// und Scrubben erhalten (die Kamera folgt nur der Position).
+    @State private var cameraDistance: Double = 1400
+    @State private var is3D = true
     @AppStorage(AppearanceMode.mapKey) private var mapAppearance = AppearanceMode.system.rawValue
     @Environment(\.colorScheme) private var systemScheme
 
@@ -54,9 +60,15 @@ struct TrackReplayView: View {
         ))
     }
 
+    /// Pausiert + 2D: freie Karte (zoomen UND verschieben). Sonst folgt
+    /// die Kamera dem Punkt — zoomen bleibt immer möglich.
+    private var interactionModes: MapInteractionModes {
+        (!isPlaying && !is3D) ? [.zoom, .pan] : [.zoom]
+    }
+
     var body: some View {
         ZStack {
-            Map(position: $camera, interactionModes: []) {
+            Map(position: $camera, interactionModes: interactionModes) {
                 MapPolyline(coordinates: path.map(\.coordinate))
                     .stroke(.white.opacity(0.6), lineWidth: 4)
                 MapPolyline(coordinates: traveledCoordinates)
@@ -69,7 +81,12 @@ struct TrackReplayView: View {
                     }
                 }
             }
-            .mapStyle(.standard(elevation: .realistic))
+            .mapStyle(is3D ? .standard(elevation: .realistic) : .standard(elevation: .flat))
+            .onMapCameraChange(frequency: .continuous) { context in
+                // Pinch-Zoom des Nutzers übernehmen — die nächste
+                // Kamerafahrt behält seine Flughöhe bei.
+                cameraDistance = context.camera.distance
+            }
             .environment(\.colorScheme, AppearanceMode.mode(for: mapAppearance).colorScheme ?? systemScheme)
             .ignoresSafeArea()
 
@@ -105,6 +122,17 @@ struct TrackReplayView: View {
             .foregroundStyle(.white)
             .shadow(radius: 3)
             Spacer()
+            Button {
+                is3D.toggle()
+                moveCamera()
+            } label: {
+                Image(systemName: is3D ? "map.fill" : "view.3d")
+                    .font(.headline)
+                    .padding(9)
+                    .background(.black.opacity(0.35), in: Circle())
+                    .foregroundStyle(.white)
+            }
+            .accessibilityLabel(is3D ? "2D-Ansicht" : "3D-Ansicht")
             Menu {
                 ForEach([1.0, 2.0, 4.0], id: \.self) { s in
                     Button("\(Int(s))×") { speed = s }
@@ -139,13 +167,43 @@ struct TrackReplayView: View {
                         .font(.system(size: 44))
                         .foregroundStyle(.white)
                 }
-                Slider(value: $progress, in: 0...1)
-                    .tint(.white)
+                scrubber
             }
         }
         .padding()
         .background(.black.opacity(0.35), in: RoundedRectangle(cornerRadius: 20))
         .padding()
+    }
+
+    /// Zeitleiste mit direkter Ansteuerung: Antippen springt zum
+    /// Zeitpunkt, Ziehen scrubbt — die Kamera folgt dem Punkt.
+    private var scrubber: some View {
+        GeometryReader { geo in
+            ZStack(alignment: .leading) {
+                Capsule()
+                    .fill(.white.opacity(0.35))
+                    .frame(height: 6)
+                Capsule()
+                    .fill(.white)
+                    .frame(width: max(0, geo.size.width * progress), height: 6)
+                Circle()
+                    .fill(.white)
+                    .frame(width: 20, height: 20)
+                    .shadow(radius: 2)
+                    .offset(x: min(max(geo.size.width * progress - 10, -10), geo.size.width - 10))
+            }
+            .frame(maxHeight: .infinity)
+            .contentShape(Rectangle())
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { value in
+                        isPlaying = false
+                        progress = min(max(value.location.x / geo.size.width, 0), 1)
+                        moveCamera()
+                    }
+            )
+        }
+        .frame(height: 32)
     }
 
     // MARK: - Replay-Logik
@@ -188,6 +246,19 @@ struct TrackReplayView: View {
         return coords
     }
 
+    /// Kamera zur aktuellen Position bewegen — 3D geneigt mit
+    /// Blickrichtung, 2D senkrecht von oben; die Flughöhe bestimmt
+    /// immer der Nutzer (Pinch).
+    private func moveCamera() {
+        let state = currentState
+        camera = .camera(MapCamera(
+            centerCoordinate: state.coordinate,
+            distance: cameraDistance,
+            heading: is3D ? heading : 0,
+            pitch: is3D ? 60 : 0
+        ))
+    }
+
     private func tick() {
         guard isPlaying else { return }
         progress += (1.0 / 30.0) / baseDuration * speed
@@ -201,12 +272,7 @@ struct TrackReplayView: View {
         if delta > 180 { delta -= 360 }
         if delta < -180 { delta += 360 }
         heading += delta * 0.08
-        camera = .camera(MapCamera(
-            centerCoordinate: state.coordinate,
-            distance: 1400,
-            heading: heading,
-            pitch: 60
-        ))
+        moveCamera()
     }
 
     private func distanceText(_ meters: Double) -> String {
