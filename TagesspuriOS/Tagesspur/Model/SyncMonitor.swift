@@ -1,6 +1,7 @@
 import Foundation
 import CoreData
 import CloudKit
+import OSLog
 
 /// Beobachtet die CloudKit-Sync-Ereignisse des SwiftData-Containers
 /// (der intern auf NSPersistentCloudKitContainer aufsetzt) und merkt
@@ -90,6 +91,41 @@ enum SyncMonitor {
     private static func rawDump(of error: Error) -> String {
         let text = String(describing: error as NSError)
         return text.count > 1200 ? String(text.prefix(1200)) + " …" : text
+    }
+
+    /// Wenn selbst der Roh-Dump leer ist (30.7., 12:45: „Code=2
+    /// (null)“ — CoreData übergibt den Fehler ohne jedes Detail),
+    /// bleibt nur die Quelle, in die CoreData die echten Gründe
+    /// schreibt: das Systemprotokoll des eigenen Prozesses. Das darf
+    /// eine App für sich selbst auslesen (OSLogStore). Gefiltert auf
+    /// CloudKit-/Sync-Fehlerzeilen der letzten Stunde.
+    static func cloudKitLogExcerpt() -> String {
+        do {
+            let store = try OSLogStore(scope: .currentProcessIdentifier)
+            let position = store.position(date: Date().addingTimeInterval(-3600))
+            var hits: [String] = []
+            for entry in try store.getEntries(at: position) {
+                guard let log = entry as? OSLogEntryLog else { continue }
+                let msg = log.composedMessage
+                if msg.contains("with error: nil") { continue }
+                let isErrorLevel = log.level == .error || log.level == .fault
+                let relevant = msg.contains("CKError")
+                    || (isErrorLevel && (log.subsystem == "com.apple.coredata"
+                        || msg.localizedCaseInsensitiveContains("CloudKit")))
+                    || (msg.contains("NSCloudKitMirroring")
+                        && msg.localizedCaseInsensitiveContains("error"))
+                guard relevant else { continue }
+                let stamp = log.date.formatted(date: .omitted, time: .standard)
+                let body = msg.count > 700 ? String(msg.prefix(700)) + " …" : msg
+                hits.append("[\(stamp)] \(body)")
+            }
+            guard !hits.isEmpty else {
+                return "Keine CloudKit-Fehlerzeilen in der letzten Stunde (seit diesem App-Start). Tipp: erst „Sync jetzt anstoßen“, kurz warten, dann erneut auslesen."
+            }
+            return hits.suffix(5).joined(separator: "\n\n")
+        } catch {
+            return "Systemprotokoll nicht lesbar: \(error.localizedDescription)"
+        }
     }
 
     private static func name(of type: NSPersistentCloudKitContainer.EventType) -> String {

@@ -26,6 +26,8 @@ struct SettingsView: View {
     @State private var deviceToDelete: DeviceSummary?
     @State private var syncNudgeRunning = false
     @State private var syncNudgeDone = false
+    @State private var cloudKitLogRunning = false
+    @State private var cloudKitLogText: String?
 
     private struct DeviceSummary: Identifiable {
         let id: String
@@ -316,6 +318,31 @@ struct SettingsView: View {
                                     .font(.caption2.monospaced())
                                     .foregroundStyle(.secondary)
                                     .textSelection(.enabled)
+                                // Wenn der Fehler „nackt“ ankommt (Code=2
+                                // ohne Details), stehen die echten Gründe
+                                // nur im Systemprotokoll — hier auslesbar.
+                                Button {
+                                    cloudKitLogRunning = true
+                                    Task.detached(priority: .userInitiated) {
+                                        let text = SyncMonitor.cloudKitLogExcerpt()
+                                        await MainActor.run {
+                                            cloudKitLogText = text
+                                            cloudKitLogRunning = false
+                                        }
+                                    }
+                                } label: {
+                                    Label(
+                                        cloudKitLogRunning ? "Lese Systemprotokoll…" : "CloudKit-Protokoll auslesen",
+                                        systemImage: "doc.text.magnifyingglass"
+                                    )
+                                }
+                                .disabled(cloudKitLogRunning)
+                                if let cloudKitLogText {
+                                    Text(cloudKitLogText)
+                                        .font(.caption2.monospaced())
+                                        .foregroundStyle(.secondary)
+                                        .textSelection(.enabled)
+                                }
                             }
                             .font(.footnote)
                         }
