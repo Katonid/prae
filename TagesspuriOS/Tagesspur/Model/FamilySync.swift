@@ -184,29 +184,79 @@ final class FamilySync: ObservableObject {
             lines.append("Zonen-Abruf fehlgeschlagen: " + String(text.prefix(500)))
         }
 
-        // Schema-Probe: Kennt die AKTUELLE Umgebung (TestFlight =
-        // Produktion) die CoreData-Typen? Produktion legt Typen NIE
-        // selbst an — ein einziger nicht deployter Typ lässt jeden
-        // Export-Stapel fatal scheitern und legt den ganzen Sync lahm.
-        // Genau dieses Muster zeigte der 30.7.: Auch ein FRISCHER
-        // Store lief sofort wieder in „fatal errors“.
-        for type in ["CD_TrackDay", "CD_PlaceVisit", "CD_MediaTag"] {
+        // Schema-Probe auf FELD-Ebene: Produktion legt weder Typen noch
+        // FELDER selbst an. Die Typ-Probe vom 30.7. war grün, der
+        // Export scheiterte trotzdem („Export failed“, Gründe
+        // geschwärzt) — ein nachträglich hinzugekommenes Feld (z. B.
+        // summaryPointCount, erst mit der feineren Tagesbeschreibung
+        // eingeführt) würde exakt dieses Muster erzeugen. Deshalb wird
+        // je Typ ein Probe-Datensatz mit ALLEN Skalar-Feldern
+        // gespeichert (CoreData-Namensschema CD_…) und gleich wieder
+        // gelöscht; eine Ablehnung nennt das Feld ungeschwärzt.
+        // (Data-Felder wie pointsData bewusst ausgelassen — CoreData
+        // speichert sie je nach Größe anders, das gäbe Fehlalarme.)
+        for (type, fields) in Self.schemaProbeFields {
             let probeID = CKRecord.ID(recordName: "tagesspur-schema-probe-\(type.lowercased())")
             let record = CKRecord(recordType: type, recordID: probeID)
+            record["CD_entityName"] = String(type.dropFirst(3))
+            for (name, value) in fields {
+                record[name] = value
+            }
             do {
                 let saved = try await privateDB.save(record)
-                lines.append("Typ \(type): vorhanden ✓")
+                lines.append("Typ \(type): alle \(fields.count + 1) Felder vorhanden ✓")
                 try? await privateDB.deleteRecord(withID: saved.recordID)
             } catch let error as CKError where error.code == .serverRecordChanged {
-                lines.append("Typ \(type): vorhanden ✓ (Alt-Probe)")
                 try? await privateDB.deleteRecord(withID: probeID)
+                lines.append("Typ \(type): Alt-Probe entfernt — bitte erneut prüfen")
             } catch {
                 let text = String(describing: error as NSError)
-                lines.append("Typ \(type): ABGELEHNT — " + String(text.prefix(300)))
+                lines.append("Typ \(type): ABGELEHNT — " + String(text.prefix(400)))
             }
         }
         return lines.joined(separator: "\n")
     }
+
+    /// Skalar-Felder je CoreData-Record-Typ, benannt wie CoreData sie
+    /// exportiert (CD_ + Attributname). Bool wird als Int gespeichert.
+    private static let schemaProbeFields: [(String, [(String, CKRecordValue)])] = [
+        ("CD_TrackDay", [
+            ("CD_deviceId", "probe" as NSString),
+            ("CD_deviceName", "probe" as NSString),
+            ("CD_dayKey", "0000-00-00" as NSString),
+            ("CD_summary", "probe" as NSString),
+            ("CD_pointCount", 0 as NSNumber),
+            ("CD_summaryPointCount", 0 as NSNumber),
+            ("CD_distanceMeters", 0.0 as NSNumber),
+            ("CD_startDate", Date(timeIntervalSince1970: 0) as NSDate),
+            ("CD_endDate", Date(timeIntervalSince1970: 0) as NSDate),
+            ("CD_updatedAt", Date(timeIntervalSince1970: 0) as NSDate),
+        ]),
+        ("CD_PlaceVisit", [
+            ("CD_deviceId", "probe" as NSString),
+            ("CD_deviceName", "probe" as NSString),
+            ("CD_dayKey", "0000-00-00" as NSString),
+            ("CD_arrival", Date(timeIntervalSince1970: 0) as NSDate),
+            ("CD_departure", Date(timeIntervalSince1970: 0) as NSDate),
+            ("CD_latitude", 0.0 as NSNumber),
+            ("CD_longitude", 0.0 as NSNumber),
+            ("CD_name", "probe" as NSString),
+            ("CD_locality", "probe" as NSString),
+            ("CD_thoroughfare", "probe" as NSString),
+            ("CD_inlandWater", "probe" as NSString),
+            ("CD_ocean", "probe" as NSString),
+            ("CD_areas", "probe" as NSString),
+            ("CD_geocoded", 0 as NSNumber),
+            ("CD_updatedAt", Date(timeIntervalSince1970: 0) as NSDate),
+        ]),
+        ("CD_MediaTag", [
+            ("CD_assetId", "probe" as NSString),
+            ("CD_deviceId", "probe" as NSString),
+            ("CD_dayKey", "0000-00-00" as NSString),
+            ("CD_labels", "probe" as NSString),
+            ("CD_analyzedAt", Date(timeIntervalSince1970: 0) as NSDate),
+        ]),
+    ]
 
     // MARK: - Freigabe (Eigentümer-Seite)
 

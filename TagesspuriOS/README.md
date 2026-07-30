@@ -184,15 +184,21 @@ Native SwiftUI-App, iOS 17+, keine externen Abhängigkeiten.
     werden dagegen nie geschwärzt. Der Knopf zeigt unverfälscht, ob
     Familien-Zone und Freigabe auf dem Server existieren (samt
     Teilnehmerzahl) bzw. mit welchem vollständigen Fehler ein Abruf
-    scheitert. Enthält zudem eine Schema-Probe: Für jeden
-    CoreData-Typ (CD_TrackDay, CD_PlaceVisit, CD_MediaTag) wird ein
-    Probe-Datensatz gespeichert und gleich wieder gelöscht — lehnt
-    die Produktionsumgebung einen Typ ab (nie deployt), steht der
-    ungeschwärzte Ablehnungsgrund da. Hintergrund: Ein einziger
-    nicht deployter Typ lässt JEDEN Export-Stapel fatal scheitern —
-    der 30.7. zeigte genau dieses Muster (auch ein frischer Store
-    lief sofort wieder in „fatal errors“, während Import und erste
-    Exporte funktionierten).
+    scheitert. Enthält zudem eine Schema-Probe auf FELD-Ebene: Für
+    jeden CoreData-Typ (CD_TrackDay, CD_PlaceVisit, CD_MediaTag)
+    wird ein Probe-Datensatz mit ALLEN Skalar-Feldern im
+    CoreData-Namensschema (CD_…, inkl. CD_entityName) gespeichert
+    und gleich wieder gelöscht — lehnt die Produktionsumgebung einen
+    Typ oder ein Feld ab (nie deployt), steht der ungeschwärzte
+    Ablehnungsgrund samt Feldname da. Data-Felder (pointsData) sind
+    bewusst ausgelassen (CoreData speichert sie größenabhängig
+    anders — Fehlalarmgefahr). Hintergrund: Produktion legt weder
+    Typen noch Felder selbst an; ein einziges nicht deploytes Feld
+    (Kandidat 30.7.: summaryPointCount, nachträglich eingeführt)
+    lässt JEDEN Export-Stapel fatal scheitern — exakt das Muster vom
+    30.7. (auch ein frischer Store lief sofort wieder in „fatal
+    errors“, während Import und erste Exporte funktionierten; die
+    Typ-Probe allein war grün).
   - „Sync-Zustand neu aufbauen“ (Technische Details, letzter Ausweg):
     Der Zonen-Vorfall vom 30.7. hinterließ ein lokal festgefahrenes
     CloudKit-Gedächtnis — Server nachweislich gesund, Recovery
@@ -322,7 +328,7 @@ Native SwiftUI-App, iOS 17+, keine externen Abhängigkeiten.
   - Einrichtung: Einstellungen → Familie; Sync automatisch beim
     Aktivwerden der App plus manueller Knopf.
 - **Versionierung**
-  - Marketing-Version (`MARKETING_VERSION`, aktuell 1.4.14) wird von
+  - Marketing-Version (`MARKETING_VERSION`, aktuell 1.4.15) wird von
     Hand gepflegt; die Build-Nummer setzt eine Skript-Bauphase
     („Build-Nummer setzen“) bei jedem Build automatisch: primär die
     Anzahl der Git-Commits, bei git-Fehlern ein Datumsstempel
