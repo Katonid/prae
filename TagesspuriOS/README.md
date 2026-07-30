@@ -243,6 +243,14 @@ Native SwiftUI-App, iOS 17+, keine externen Abhängigkeiten.
     eigenen Geräte“ (zusammengelegt, wie bisher) oder ein einzelnes
     Gerät bzw. Familienmitglied — jede Spur lässt sich damit einzeln
     als Film abspielen (`ReplayTarget`, Cover per item-Binding).
+  - Zwei Ansichten, umschaltbar im Replay: 3D-Flug (geneigte Kamera
+    mit Blickrichtung) und 2D-Draufsicht. Beide per Pinch zoombar —
+    die gewählte Flughöhe bleibt beim Abspielen erhalten
+    (onMapCameraChange übernimmt sie); pausiert ist die 2D-Ansicht
+    zusätzlich frei verschiebbar.
+  - Zeitleiste mit Direktsteuerung: Antippen springt zum Zeitpunkt,
+    Ziehen scrubbt durch den Verlauf (DragGesture minimumDistance 0);
+    die Kamera folgt dem Punkt, das Abspielen pausiert dabei.
 - **Spurfarben frei wählbar**
   - Einstellungen → „Spurfarben“: je Gerät (eigene und Familie) ein
     ColorPicker; „Standardfarben wiederherstellen“ setzt zurück.
