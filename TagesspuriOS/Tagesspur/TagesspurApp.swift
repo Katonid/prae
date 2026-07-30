@@ -33,7 +33,19 @@ struct TagesspurApp: App {
         } catch {
             // Ohne iCloud (z. B. nicht angemeldet) lokal weiterarbeiten.
             let local = ModelConfiguration(schema: fullSchema, cloudKitDatabase: .none)
-            resolved = try! ModelContainer(for: fullSchema, configurations: [local])
+            if let localContainer = try? ModelContainer(for: fullSchema, configurations: [local]) {
+                resolved = localContainer
+            } else {
+                // Absolute Auffangebene (z. B. Migrationsfehler): Der
+                // 1.4.17-Absturz entstand, weil dieser Pfad mit try!
+                // erzwungen wurde — scheitert auch die lokale Variante,
+                // startet die App jetzt mit flüchtigem Speicher statt
+                // in einer Absturzschleife. Die Daten auf der Platte
+                // bleiben unangetastet für den nächsten Start.
+                LocationTracker.logEvent("NOTSTART: Datenbank nicht ladbar — flüchtiger Speicher aktiv, Daten bleiben auf der Platte")
+                let memory = ModelConfiguration(schema: fullSchema, isStoredInMemoryOnly: true)
+                resolved = try! ModelContainer(for: fullSchema, configurations: [memory])
+            }
             SyncDiagnose.cloudKitAktiv = false
         }
         container = resolved
