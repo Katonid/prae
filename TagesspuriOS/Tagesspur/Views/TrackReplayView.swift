@@ -60,10 +60,11 @@ struct TrackReplayView: View {
         ))
     }
 
-    /// Pausiert + 2D: freie Karte (zoomen UND verschieben). Sonst folgt
-    /// die Kamera dem Punkt — zoomen bleibt immer möglich.
+    /// 2D: Karte steht fest und ist jederzeit frei zoom-/verschiebbar —
+    /// der Punkt wandert über die Karte. 3D: Kamera folgt dem Punkt,
+    /// zoomen bleibt möglich.
     private var interactionModes: MapInteractionModes {
-        (!isPlaying && !is3D) ? [.zoom, .pan] : [.zoom]
+        is3D ? [.zoom] : [.zoom, .pan]
     }
 
     var body: some View {
@@ -83,9 +84,12 @@ struct TrackReplayView: View {
             }
             .mapStyle(is3D ? .standard(elevation: .realistic) : .standard(elevation: .flat))
             .onMapCameraChange(frequency: .continuous) { context in
-                // Pinch-Zoom des Nutzers übernehmen — die nächste
-                // Kamerafahrt behält seine Flughöhe bei.
-                cameraDistance = context.camera.distance
+                // Nur im 3D-Flug relevant: Pinch-Zoom des Nutzers
+                // übernehmen, damit die Kamerafahrt seine Flughöhe
+                // behält. (In 2D ist die Karte ohnehin frei.)
+                if is3D {
+                    cameraDistance = context.camera.distance
+                }
             }
             .environment(\.colorScheme, AppearanceMode.mode(for: mapAppearance).colorScheme ?? systemScheme)
             .ignoresSafeArea()
@@ -124,7 +128,11 @@ struct TrackReplayView: View {
             Spacer()
             Button {
                 is3D.toggle()
-                moveCamera()
+                if is3D {
+                    moveCamera()
+                } else {
+                    frameWholeTrack()
+                }
             } label: {
                 Image(systemName: is3D ? "map.fill" : "view.3d")
                     .font(.headline)
@@ -199,7 +207,8 @@ struct TrackReplayView: View {
                     .onChanged { value in
                         isPlaying = false
                         progress = min(max(value.location.x / geo.size.width, 0), 1)
-                        moveCamera()
+                        // 2D: Karte bleibt stehen, nur der Punkt springt.
+                        if is3D { moveCamera() }
                     }
             )
         }
@@ -246,17 +255,31 @@ struct TrackReplayView: View {
         return coords
     }
 
-    /// Kamera zur aktuellen Position bewegen — 3D geneigt mit
-    /// Blickrichtung, 2D senkrecht von oben; die Flughöhe bestimmt
-    /// immer der Nutzer (Pinch).
+    /// 3D-Kamerafahrt: geneigt, mit Blickrichtung, Flughöhe vom Nutzer.
     private func moveCamera() {
         let state = currentState
         camera = .camera(MapCamera(
             centerCoordinate: state.coordinate,
             distance: cameraDistance,
-            heading: is3D ? heading : 0,
-            pitch: is3D ? 60 : 0
+            heading: heading,
+            pitch: 60
         ))
+    }
+
+    /// 2D-Einstieg: einmal den ganzen Track einpassen — danach steht
+    /// die Karte fest (Nutzer zoomt/verschiebt frei), der Punkt wandert.
+    private func frameWholeTrack() {
+        guard let minLat = path.map(\.lat).min(), let maxLat = path.map(\.lat).max(),
+              let minLon = path.map(\.lon).min(), let maxLon = path.map(\.lon).max() else { return }
+        let center = CLLocationCoordinate2D(
+            latitude: (minLat + maxLat) / 2,
+            longitude: (minLon + maxLon) / 2
+        )
+        let span = MKCoordinateSpan(
+            latitudeDelta: max((maxLat - minLat) * 1.35, 0.005),
+            longitudeDelta: max((maxLon - minLon) * 1.35, 0.005)
+        )
+        camera = .region(MKCoordinateRegion(center: center, span: span))
     }
 
     private func tick() {
@@ -266,6 +289,8 @@ struct TrackReplayView: View {
             progress = 1
             isPlaying = false
         }
+        // 2D: Karte steht fest, nur der Punkt bewegt sich.
+        guard is3D else { return }
         let state = currentState
         // Blickrichtung weich nachführen (kein Ruckeln bei Kurven).
         var delta = state.segmentHeading - heading
