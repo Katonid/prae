@@ -307,6 +307,18 @@ struct SettingsView: View {
                         Text("Sync-Fehler (\(error.date.formatted(date: .abbreviated, time: .shortened))): \(error.text)")
                             .font(.footnote)
                             .foregroundStyle(.red)
+                        // Roh-Fehler zum Aufklappen: Wenn CloudKit die
+                        // Einzelgründe versteckt (wie am 30.7., 12:29),
+                        // steht hier trotzdem der komplette Originaltext.
+                        if let detail = SyncMonitor.lastErrorDetail {
+                            DisclosureGroup("Technische Details") {
+                                Text(detail)
+                                    .font(.caption2.monospaced())
+                                    .foregroundStyle(.secondary)
+                                    .textSelection(.enabled)
+                            }
+                            .font(.footnote)
+                        }
                     }
                     ForEach(deviceSummaries) { summary in
                         LabeledContent(summary.name) {

@@ -137,7 +137,13 @@ Native SwiftUI-App, iOS 17+, keine externen Abhängigkeiten.
     echten Gründe pro Datensatz packt SyncMonitor aus und zeigt die
     ersten davon verständlich an (z. B. „Versionskonflikt — löst sich
     beim nächsten Abgleich selbst“, „Datensatz zu groß“ oder
-    „Schema-Deploy prüfen“).
+    „Schema-Deploy prüfen“). Das Auspacken steigt rekursiv ab
+    (Sammel-Fehler → Zone → Datensatz, auch Underlying Errors) —
+    eine Ebene reichte nachweislich nicht (30.7., 12:29). Zusätzlich
+    wird der komplette technische Originaltext gesichert und ist in
+    den Einstellungen unter „Technische Details“ aufklappbar —
+    letzte Diagnose-Instanz, falls CloudKit die Einzelgründe wieder
+    versteckt.
   - Manueller Anstoß: „Sync jetzt anstoßen“ in der iCloud-Sektion.
     Apples CloudKit-Sync kennt keinen offiziellen Sofort-Befehl —
     der Knopf markiert den jüngsten eigenen Tag als geändert (zwingt
@@ -252,7 +258,7 @@ Native SwiftUI-App, iOS 17+, keine externen Abhängigkeiten.
   - Einrichtung: Einstellungen → Familie; Sync automatisch beim
     Aktivwerden der App plus manueller Knopf.
 - **Versionierung**
-  - Marketing-Version (`MARKETING_VERSION`, aktuell 1.4.6) wird von
+  - Marketing-Version (`MARKETING_VERSION`, aktuell 1.4.7) wird von
     Hand gepflegt; die Build-Nummer setzt eine Skript-Bauphase
     („Build-Nummer setzen“) bei jedem Build automatisch: primär die
     Anzahl der Git-Commits, bei git-Fehlern ein Datumsstempel
