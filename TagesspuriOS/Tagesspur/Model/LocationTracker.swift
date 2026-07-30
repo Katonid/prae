@@ -106,7 +106,10 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
         super.init()
         manager.delegate = self
         applyActiveParameters()
-        manager.activityType = .other
+        // Navigations-Typ statt „other": iOS hält die Hintergrund-
+        // Lieferung für Navigations-/Sport-Apps deutlich zuverlässiger
+        // am Leben; der Bewegungssensor schaltet den Typ dynamisch um.
+        manager.activityType = .otherNavigation
         // Apples Auto-Pause springt nach Stillstand unzuverlässig wieder
         // an — der eigene Ruhemodus (grob statt aus) ersetzt sie.
         manager.pausesLocationUpdatesAutomatically = false
@@ -239,11 +242,45 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
             if activity.automotive || activity.cycling || activity.running {
                 self.lastVehicleMotionAt = Date()
             }
+            // Aktivitätstyp für iOS nachführen: Auto → Navigation,
+            // Rad/Lauf/Gehen → Fitness. Hilft iOS, die GPS-Lieferung
+            // im Hintergrund nicht zu drosseln.
+            let desiredType: CLActivityType = activity.automotive ? .automotiveNavigation : .fitness
+            if self.manager.activityType != desiredType {
+                self.manager.activityType = desiredType
+            }
             if self.isResting {
                 Self.logEvent("Bewegungssensor: Fahrt/Weg erkannt")
                 self.exitRest()
             }
+            // Watchdog auch über den Bewegungssensor: Er liefert während
+            // einer Fahrt laufend — schläft die Ortungs-Lieferung ein,
+            // merkt er es als Erster.
+            self.restartUpdatesIfStalled()
         }
+    }
+
+    // MARK: - Ortungs-Watchdog
+
+    /// Zeitpunkt der letzten von iOS GELIEFERTEN Ortung (unabhängig
+    /// davon, ob sie aufgezeichnet wurde).
+    private var lastDeliveredAt = Date.distantPast
+    private var lastStallRestartAt = Date.distantPast
+
+    /// Selbstheilung gegen eingeschlafene Hintergrund-Lieferung: Die
+    /// Fahrt vom 30.7. bewies, dass iOS mitten in Bewegung minutenlang
+    /// keine Ortungen liefert, ein erneutes startUpdatingLocation die
+    /// Lieferung aber sofort wiederbelebt (Geofence-Zufallsbefund um
+    /// 4:01/4:06). Genau das macht der Watchdog jetzt systematisch.
+    private func restartUpdatesIfStalled() {
+        guard trackingEnabled, !isResting, vehicleMotionActive else { return }
+        let stalledFor = Date().timeIntervalSince(max(lastDeliveredAt, lastStallRestartAt))
+        guard stalledFor > 120 else { return }
+        lastStallRestartAt = Date()
+        Self.logEvent("Ortungs-Stillstand (\(Int(stalledFor)) s in Bewegung) — Updates neu gestartet")
+        manager.stopUpdatingLocation()
+        manager.startUpdatingLocation()
+        wakeGraceUntil = Date().addingTimeInterval(Self.wakeGraceSeconds)
     }
 
     /// Letztes „fährt Auto / radelt / läuft“-Signal des Coprozessors.
@@ -419,6 +456,7 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
     // MARK: - Punktverarbeitung
 
     private func handle(_ location: CLLocation) {
+        lastDeliveredAt = Date()
         guard location.horizontalAccuracy >= 0 else { return }
         lastLocation = location
 
@@ -532,6 +570,9 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
     }
 
     private func flushIfDue() {
+        // Zweites Watchdog-Standbein: Der Flush-Timer läuft, solange die
+        // App lebt — auch wenn iOS gerade keine Ortungen liefert.
+        restartUpdatesIfStalled()
         if !buffer.isEmpty, Date().timeIntervalSince(lastFlush) >= Self.flushAfterSeconds {
             flush()
         }
