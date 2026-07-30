@@ -58,9 +58,16 @@ final class TrackDay {
     var deviceId: String = ""
     var deviceName: String = ""
     var dayKey: String = ""          // "2026-07-25", lokale Zeitzone bei Aufzeichnung
-    // externalStorage: große Tage (Best-GPS = viele Punkte) als Datei/
-    // CKAsset statt im Datensatz — CloudKit begrenzt Records auf ~1 MB.
-    @Attribute(.externalStorage) var pointsData: Data = Data()    // JSON-kodiertes [TrackPoint]
+    // BEWUSST ohne .externalStorage: Das CloudKit-Feld CD_pointsData
+    // ist historisch als BYTES angelegt (Dev UND Produktion, nachge-
+    // wiesen 30.7. in der Console) und lässt sich nicht umtypen.
+    // externalStorage ließe CoreData große Blobs als CKAsset in ein
+    // Anhang-Feld exportieren, das nirgends existiert — der Server
+    // lehnte dann jeden großen Tag fatal ab und der GESAMTE Sync
+    // stand (Blockade seit 4:59). Stattdessen: Blob komprimieren
+    // (zlib) und per Notbremse klein halten — passt dauerhaft ins
+    // Bytes-Feld.
+    var pointsData: Data = Data()    // zlib-komprimiertes JSON [TrackPoint]; Altbestand: pures JSON
     var pointCount: Int = 0
     var distanceMeters: Double = 0
     var startDate: Date = Date()
@@ -80,12 +87,41 @@ final class TrackDay {
 
     func points() -> [TrackPoint] {
         guard !pointsData.isEmpty else { return [] }
-        return (try? JSONDecoder.tagesspur.decode([TrackPoint].self, from: pointsData)) ?? []
+        return Self.decodePoints(pointsData)
     }
 
+    /// Blob lesen — versteht beide Formate: zlib-komprimiert (neu)
+    /// und pures JSON (Altbestand, beginnt mit „[“).
+    static func decodePoints(_ data: Data) -> [TrackPoint] {
+        if data.first == 0x5B {   // „[“ → unkomprimiertes Alt-JSON
+            return (try? JSONDecoder.tagesspur.decode([TrackPoint].self, from: data)) ?? []
+        }
+        guard let json = try? (data as NSData).decompressed(using: .zlib) as Data else { return [] }
+        return (try? JSONDecoder.tagesspur.decode([TrackPoint].self, from: json)) ?? []
+    }
+
+    static func encodePoints(_ pts: [TrackPoint]) -> Data {
+        let json = (try? JSONEncoder.tagesspur.encode(pts)) ?? Data()
+        return (try? (json as NSData).compressed(using: .zlib) as Data) ?? json
+    }
+
+    /// Obergrenze für den gespeicherten Blob: Das CloudKit-Bytes-Feld
+    /// lebt im Datensatz (Limit ~1 MB) — 700 kB komprimiert entspricht
+    /// weit über 50.000 Punkten und wird real nie erreicht.
+    static let maxPointsDataBytes = 700_000
+
     func setPoints(_ pts: [TrackPoint]) {
-        let sorted = pts.sorted { $0.t < $1.t }
-        pointsData = (try? JSONEncoder.tagesspur.encode(sorted)) ?? Data()
+        var sorted = pts.sorted { $0.t < $1.t }
+        var data = Self.encodePoints(sorted)
+        // Notbremse für Extremtage: schrittweise ausdünnen, bis der
+        // Blob passt — ein leicht ausgedünnter Track ist ehrlicher
+        // als ein Tag, der den gesamten Sync blockiert (4:59-Lehre).
+        while data.count > Self.maxPointsDataBytes, sorted.count > 1000 {
+            sorted = TrackMath.downsample(sorted, maxCount: sorted.count * 3 / 4)
+            data = Self.encodePoints(sorted)
+            LocationTracker.logEvent("Track-Blob ausgedünnt auf \(sorted.count) Punkte (Sync-Größengrenze)")
+        }
+        pointsData = data
         pointCount = sorted.count
         distanceMeters = Self.distance(of: sorted)
         if let first = sorted.first { startDate = first.t }

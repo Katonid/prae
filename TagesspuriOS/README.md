@@ -126,9 +126,24 @@ Native SwiftUI-App, iOS 17+, keine externen Abhängigkeiten.
     sonst steht der Sync für TestFlight-Builds komplett still. Nach
     jeder Modell-Änderung: erst Xcode-Build laufen lassen (erzeugt das
     Dev-Schema), dann erneut deployen.
-  - Track-Blobs (`pointsData`) liegen mit `.externalStorage` außerhalb
-    des Datensatzes (CKAsset) — CloudKit begrenzt Records auf ~1 MB,
-    dichte Best-GPS-Tage sprengten das sonst.
+  - Track-Blobs (`pointsData`) werden zlib-komprimiert im Datensatz
+    gespeichert (BYTES-Feld). Hintergrund — die Wurzel der
+    Sync-Blockade vom 30.7. (ab 4:59): Das CloudKit-Feld
+    CD_pointsData ist historisch als BYTES angelegt (Dev UND
+    Produktion identisch, per Console verifiziert; „Deploy Schema
+    Changes“ zeigte 0 Änderungen) und CloudKit kann Feldtypen nie
+    ändern. Der frühere `.externalStorage`-Ansatz ließ CoreData
+    große Tage als CKAsset in ein Anhang-Feld exportieren, das
+    nirgends existiert — der Server lehnte jeden großen Tag fatal ab
+    („Export failed“, Gründe als <private> geschwärzt), und weil der
+    Tag nie verschwand, stand der GESAMTE Export dauerhaft (überlebte
+    auch den Store-Neuaufbau). Jetzt: komprimieren (≈ Faktor 5–10)
+    plus Notbremse — überschreitet ein Extremtag 700 kB komprimiert,
+    wird schrittweise ausgedünnt (protokolliert). Altbestand (pures
+    JSON, beginnt mit „[“) bleibt lesbar und wird beim App-Start
+    einmalig umkodiert (DataMaintenance.recompressPoints) — damit
+    lädt auch der blockierende Tag endlich hoch. Watch-Modell
+    identisch umgestellt (schreibt dieselben Datensätze).
   - Sync-Fehler räumen sich selbst auf: Gelingt derselbe Vorgang
     (Hochladen/Empfangen) später erfolgreich, verschwindet die rote
     Fehlerzeile automatisch.
@@ -332,7 +347,7 @@ Native SwiftUI-App, iOS 17+, keine externen Abhängigkeiten.
   - Einrichtung: Einstellungen → Familie; Sync automatisch beim
     Aktivwerden der App plus manueller Knopf.
 - **Versionierung**
-  - Marketing-Version (`MARKETING_VERSION`, aktuell 1.4.16) wird von
+  - Marketing-Version (`MARKETING_VERSION`, aktuell 1.4.17) wird von
     Hand gepflegt; die Build-Nummer setzt eine Skript-Bauphase
     („Build-Nummer setzen“) bei jedem Build automatisch: primär die
     Anzahl der Git-Commits, bei git-Fehlern ein Datumsstempel

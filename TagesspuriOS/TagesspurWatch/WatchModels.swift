@@ -30,7 +30,9 @@ final class TrackDay {
     var deviceId: String = ""
     var deviceName: String = ""
     var dayKey: String = ""
-    @Attribute(.externalStorage) var pointsData: Data = Data()
+    // Ohne .externalStorage — das CloudKit-Feld ist BYTES (siehe
+    // iPhone-Modell): Blob wird zlib-komprimiert und klein gehalten.
+    var pointsData: Data = Data()
     var pointCount: Int = 0
     var distanceMeters: Double = 0
     var startDate: Date = Date()
@@ -47,17 +49,46 @@ final class TrackDay {
 
     func points() -> [TrackPoint] {
         guard !pointsData.isEmpty else { return [] }
-        return (try? JSONDecoder.tagesspur.decode([TrackPoint].self, from: pointsData)) ?? []
+        return Self.decodePoints(pointsData)
     }
 
+    /// Beide Formate lesbar: zlib-komprimiert (neu) und pures
+    /// Alt-JSON (beginnt mit „[“) — identisch zum iPhone-Modell.
+    static func decodePoints(_ data: Data) -> [TrackPoint] {
+        if data.first == 0x5B {
+            return (try? JSONDecoder.tagesspur.decode([TrackPoint].self, from: data)) ?? []
+        }
+        guard let json = try? (data as NSData).decompressed(using: .zlib) as Data else { return [] }
+        return (try? JSONDecoder.tagesspur.decode([TrackPoint].self, from: json)) ?? []
+    }
+
+    static func encodePoints(_ pts: [TrackPoint]) -> Data {
+        let json = (try? JSONEncoder.tagesspur.encode(pts)) ?? Data()
+        return (try? (json as NSData).compressed(using: .zlib) as Data) ?? json
+    }
+
+    static let maxPointsDataBytes = 700_000
+
     func setPoints(_ pts: [TrackPoint]) {
-        let sorted = pts.sorted { $0.t < $1.t }
-        pointsData = (try? JSONEncoder.tagesspur.encode(sorted)) ?? Data()
+        var sorted = pts.sorted { $0.t < $1.t }
+        var data = Self.encodePoints(sorted)
+        // Notbremse wie auf dem iPhone: Blob muss ins Bytes-Feld passen.
+        while data.count > Self.maxPointsDataBytes, sorted.count > 1000 {
+            sorted = Self.downsample(sorted, maxCount: sorted.count * 3 / 4)
+            data = Self.encodePoints(sorted)
+        }
+        pointsData = data
         pointCount = sorted.count
         distanceMeters = Self.distance(of: sorted)
         if let first = sorted.first { startDate = first.t }
         if let last = sorted.last { endDate = last.t }
         updatedAt = Date()
+    }
+
+    static func downsample(_ points: [TrackPoint], maxCount: Int) -> [TrackPoint] {
+        guard points.count > maxCount, maxCount > 2 else { return points }
+        let step = Double(points.count - 1) / Double(maxCount - 1)
+        return (0..<maxCount).map { points[Int(Double($0) * step)] }
     }
 
     func appendPoints(_ new: [TrackPoint]) {
