@@ -15,14 +15,25 @@ import MapKit
 struct MapPreviewView: View {
     @EnvironmentObject private var state: AppState
     @State private var position: MapCameraPosition = .automatic
+    @State private var cameraTick = 0
 
     var body: some View {
-        Map(position: $position, interactionModes: []) {
-            Annotation("", coordinate: CLLocationCoordinate2D(latitude: state.lat, longitude: state.lng)) {
-                markerView
+        MapReader { proxy in
+            Map(position: $position, interactionModes: []) {
+                Annotation("", coordinate: CLLocationCoordinate2D(latitude: state.lat, longitude: state.lng)) {
+                    markerView
+                }
+            }
+            .mapStyle(.standard(elevation: .flat))
+            .onMapCameraChange(frequency: .continuous) { _ in
+                cameraTick += 1
+            }
+            .overlay {
+                SkyOverlayCanvas(proxy: proxy, cameraTick: cameraTick, compact: true)
+                    .environmentObject(state)
+                    .allowsHitTesting(false)
             }
         }
-        .mapStyle(.standard(elevation: .flat))
         .onAppear { recenter() }
         .onChange(of: state.lat) { recenter() }
         .onChange(of: state.lng) { recenter() }
@@ -102,6 +113,9 @@ private struct SkyOverlayCanvas: View {
     @EnvironmentObject private var state: AppState
     var proxy: MapProxy
     var cameraTick: Int
+    /// Kompakte Darstellung für die kleine Kartenvorschau
+    /// (kleinerer Rand, ohne Stunden-Beschriftungen)
+    var compact = false
 
     var body: some View {
         // Alle benötigten Werte hier (im MainActor-Kontext) einsammeln, damit
@@ -119,11 +133,14 @@ private struct SkyOverlayCanvas: View {
         let coord = CLLocationCoordinate2D(latitude: lat, longitude: lng)
         let mapProxy = proxy
         let tick = cameraTick
+        let isCompact = compact
 
         Canvas { ctx, size in
             _ = tick // Neuzeichnen bei Kartenbewegung erzwingen
             guard let center = mapProxy.convert(coord, to: .local) else { return }
-            let radius = max(70, min(size.width, size.height) / 2 - 56)
+            let radius = isCompact
+                ? max(56, min(size.width, size.height) / 2 - 16)
+                : max(70, min(size.width, size.height) / 2 - 56)
 
             // Gewählter Tag mit gegebener Uhrzeit (Minuten seit Mitternacht,
             // Ortszeit) – bewusst lokal, ohne Zugriff auf den AppState
@@ -182,7 +199,7 @@ private struct SkyOverlayCanvas: View {
                     let p = project(pos.azimuth, pos.altitude)
                     ctx.fill(Path(ellipseIn: CGRect(x: p.x - 3, y: p.y - 3, width: 6, height: 6)),
                              with: .color(color))
-                    if h % 3 == 0 {
+                    if !isCompact && h % 3 == 0 {
                         drawLabel("\(h) h", at: CGPoint(x: p.x, y: p.y - 12), color: color)
                     }
                 }
