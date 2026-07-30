@@ -183,6 +183,28 @@ final class FamilySync: ObservableObject {
             let text = String(describing: error as NSError)
             lines.append("Zonen-Abruf fehlgeschlagen: " + String(text.prefix(500)))
         }
+
+        // Schema-Probe: Kennt die AKTUELLE Umgebung (TestFlight =
+        // Produktion) die CoreData-Typen? Produktion legt Typen NIE
+        // selbst an — ein einziger nicht deployter Typ lässt jeden
+        // Export-Stapel fatal scheitern und legt den ganzen Sync lahm.
+        // Genau dieses Muster zeigte der 30.7.: Auch ein FRISCHER
+        // Store lief sofort wieder in „fatal errors“.
+        for type in ["CD_TrackDay", "CD_PlaceVisit", "CD_MediaTag"] {
+            let probeID = CKRecord.ID(recordName: "tagesspur-schema-probe-\(type.lowercased())")
+            let record = CKRecord(recordType: type, recordID: probeID)
+            do {
+                let saved = try await privateDB.save(record)
+                lines.append("Typ \(type): vorhanden ✓")
+                try? await privateDB.deleteRecord(withID: saved.recordID)
+            } catch let error as CKError where error.code == .serverRecordChanged {
+                lines.append("Typ \(type): vorhanden ✓ (Alt-Probe)")
+                try? await privateDB.deleteRecord(withID: probeID)
+            } catch {
+                let text = String(describing: error as NSError)
+                lines.append("Typ \(type): ABGELEHNT — " + String(text.prefix(300)))
+            }
+        }
         return lines.joined(separator: "\n")
     }
 
