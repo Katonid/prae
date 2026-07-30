@@ -130,6 +130,13 @@ enum Planets {
         return (ra: ra, dec: dec, delta: delta, mag: magnitude(name, r, delta, iDeg))
     }
 
+    /// Heliozentrische ekliptikale Position in au – auch für "Erde"
+    /// (x/y in der Ekliptikebene, z nach ekliptisch Nord)
+    static func heliocentricPosition(_ name: String, date: Date) -> (x: Double, y: Double, z: Double) {
+        let p = heliocentric(name, julianCenturies(date))
+        return (x: p[0], y: p[1], z: p[2])
+    }
+
     // Position am Himmel eines Ortes
     static func position(_ name: String, date: Date, lat: Double, lng: Double) -> PlanetPosition {
         let c = compute(name, date: date)

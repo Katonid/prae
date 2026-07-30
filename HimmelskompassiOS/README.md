@@ -32,6 +32,10 @@ diesem Projekt weder benutzt noch berührt.
   (JPL-Keplerbahn-Elemente, offline berechnet)
 - **Polarlicht-Chance:** Abschätzung aus NOAA-Kp-Prognose und geomagnetischer
   Breite
+- **Sonnensystem in 3D:** Sonne, Merkur bis Saturn inkl. Erde mit Bahnen,
+  frei dreh-/kippbar, Zeit-Schieberegler ±1 Jahr mit Zeitraffer und
+  Geister-Ringen für die heutigen Positionen (Wurzel-Maßstab für die
+  Abstände)
 - **Bedienung:** Tab-Navigation (Zeiten / Kompass / Nacht), Datum frei wählbar,
   Standort automatisch per GPS oder per Tipp auf die Karte
 - **Widgets:** „Heute am Himmel" (klein/mittel: Sonnenzeiten, goldene/blaue
