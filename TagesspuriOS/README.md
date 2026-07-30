@@ -31,6 +31,16 @@ Native SwiftUI-App, iOS 17+, keine externen Abhängigkeiten.
     mit ungenauigkeitsabhängiger Schwelle (×2, gedeckelt bei 300 m) —
     ein Streu-Fix weckt nicht, ein Funkzellen-Fix verschleppt das
     Aufwachen aber auch nicht kilometerweit.
+  - Ortungs-Watchdog: iOS kann die Hintergrund-Lieferung mitten in
+    Bewegung minutenlang einstellen (nachgewiesen 30.7., App wach,
+    keine Fixe geliefert); ein erneutes startUpdatingLocation belebt
+    sie sofort wieder. Der Watchdog (Flush-Timer + Bewegungssensor-
+    Callback) startet die Updates deshalb automatisch neu, wenn in
+    Bewegung > 2 min nichts geliefert wurde — protokolliert als
+    „Ortungs-Stillstand“. Zusätzlich meldet die App iOS einen
+    Navigations-Aktivitätstyp (automotiveNavigation/fitness statt
+    „other“, dynamisch per Bewegungssensor) — Navigations-Sessions
+    drosselt iOS deutlich seltener.
   - Aufwach-Karenz: 45 s nach dem Wecken (Ruhemodus-Ende, Geofence,
     Hintergrund-Neustart) zählen auch mittelmäßige Fixe (≤ 500 m),
     solange Bewegung erkannt ist — der GPS-Empfänger braucht nach dem
