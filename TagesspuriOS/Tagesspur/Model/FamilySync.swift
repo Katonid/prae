@@ -151,6 +151,41 @@ final class FamilySync: ObservableObject {
         }
     }
 
+    /// Server-Zustand unverfälscht auslesen: CoreDatas Protokollzeilen
+    /// schwärzen die entscheidenden Details als <private> („fatal
+    /// errors were found: <private>“, 30.7., 13:50) — unsere EIGENEN
+    /// CloudKit-Aufrufe unterliegen keiner Schwärzung. Zeigt, ob Zone
+    /// und Freigabe wirklich existieren und woran ein Abruf scheitert.
+    func serverStateReport() async -> String {
+        var lines: [String] = []
+        do {
+            let zones = try await privateDB.allRecordZones()
+            let names = zones.map(\.zoneID.zoneName).sorted()
+            lines.append("Zonen (privat): " + names.joined(separator: " · "))
+            if names.contains(Self.zoneName) {
+                lines.append("Familien-Zone: vorhanden ✓")
+                let shareID = CKRecord.ID(recordName: CKRecordNameZoneWideShare, zoneID: zoneID)
+                do {
+                    let record = try await privateDB.record(for: shareID)
+                    if let share = record as? CKShare {
+                        lines.append("Freigabe: vorhanden ✓ (\(share.participants.count) Teilnehmer)")
+                    } else {
+                        lines.append("Freigabe: Datensatz da, aber kein Share-Typ (!)")
+                    }
+                } catch {
+                    let text = String(describing: error as NSError)
+                    lines.append("Freigabe-Abruf fehlgeschlagen: " + String(text.prefix(500)))
+                }
+            } else {
+                lines.append("Familien-Zone: FEHLT")
+            }
+        } catch {
+            let text = String(describing: error as NSError)
+            lines.append("Zonen-Abruf fehlgeschlagen: " + String(text.prefix(500)))
+        }
+        return lines.joined(separator: "\n")
+    }
+
     // MARK: - Freigabe (Eigentümer-Seite)
 
     func loadShareState() async {
