@@ -1,0 +1,21 @@
+# macOS
+.DS_Store
+
+# Xcode / Build
+build/
+DerivedData/
+*.xcuserstate
+*.xcscmblueprint
+*.xccheckout
+**/xcuserdata/
+*.moved-aside
+
+# Swift Package Manager
+.build/
+.swiftpm/
+
+# Temporär (von Cowork angelegt, kann gelöscht werden)
+_to_delete/
+
+# Persönliche Claude-Code-Einstellungen (nicht einchecken)
+.claude/settings.local.json
