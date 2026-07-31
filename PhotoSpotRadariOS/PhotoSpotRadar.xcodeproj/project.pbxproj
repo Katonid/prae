@@ -42,6 +42,8 @@
 		EB51C006883BD607594987C9 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 9B432B9E6F0163F218ED78A1 /* PrivacyInfo.xcprivacy */; };
 		F0E971C4250DF9CB8E8315A2 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3514312E36A46163AEE99F8 /* SettingsView.swift */; };
 		F69A8F5116FE52C71CCBDD35 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF4909A601B4B429893C8DCE /* Theme.swift */; };
+		AA10CAFE0002000000000002 /* TripRoute.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA10CAFE0001000000000001 /* TripRoute.swift */; };
+		AA10CAFE0004000000000004 /* TripRoutesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA10CAFE0003000000000003 /* TripRoutesView.swift */; };
 		F7D092031F734EB1FA95216A /* PhotoSpotCore in Frameworks */ = {isa = PBXBuildFile; productRef = CC7E9C11CD54E6CBB03241B4 /* PhotoSpotCore */; };
 /* End PBXBuildFile section */
 
@@ -81,6 +83,8 @@
 		A1300843C9A730E582C42C96 /* FlickrAPIKeyStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlickrAPIKeyStore.swift; sourceTree = "<group>"; };
 		A3514312E36A46163AEE99F8 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		AF4909A601B4B429893C8DCE /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
+		AA10CAFE0001000000000001 /* TripRoute.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TripRoute.swift; sourceTree = "<group>"; };
+		AA10CAFE0003000000000003 /* TripRoutesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TripRoutesView.swift; sourceTree = "<group>"; };
 		B34B40A1A660526F70408585 /* SpotVisibilityPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpotVisibilityPolicy.swift; sourceTree = "<group>"; };
 		B49B87AA003444060AD22992 /* AppSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettings.swift; sourceTree = "<group>"; };
 		BE1427CEFB83E083221C214E /* SpotProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpotProvider.swift; sourceTree = "<group>"; };
@@ -230,6 +234,7 @@
 				A3514312E36A46163AEE99F8 /* SettingsView.swift */,
 				4CB44016335FDB45F0DED62C /* SpotDetailView.swift */,
 				E59751AC7F35FE03F277FBFB /* SpotListView.swift */,
+				AA10CAFE0003000000000003 /* TripRoutesView.swift */,
 				05279E02E7E14DDA39E0CC4F /* Components */,
 			);
 			path = Views;
@@ -251,6 +256,7 @@
 			children = (
 				B49B87AA003444060AD22992 /* AppSettings.swift */,
 				D90412C75D8CF3336FF1909F /* PersistedPhotoSpot.swift */,
+				AA10CAFE0001000000000001 /* TripRoute.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -389,6 +395,8 @@
 				B1BA2931AB06D75F6E5C733A /* SpotRow.swift in Sources */,
 				12403F2AD91AE43BAE97498F /* SpotVisibilityPolicy.swift in Sources */,
 				F69A8F5116FE52C71CCBDD35 /* Theme.swift in Sources */,
+				AA10CAFE0002000000000002 /* TripRoute.swift in Sources */,
+				AA10CAFE0004000000000004 /* TripRoutesView.swift in Sources */,
 				6EC6AAC76B92931F2D6A2AAA /* WikimediaSpotService.swift in Sources */,
 				49AD3118C10717F436B28182 /* WikipediaService.swift in Sources */,
 			);
@@ -439,7 +447,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 5;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -453,7 +461,7 @@
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
-				MARKETING_VERSION = 1.1.0;
+				MARKETING_VERSION = 1.1.4;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -572,7 +580,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 5;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
@@ -592,7 +600,7 @@
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
-				MARKETING_VERSION = 1.1.0;
+				MARKETING_VERSION = 1.1.4;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;

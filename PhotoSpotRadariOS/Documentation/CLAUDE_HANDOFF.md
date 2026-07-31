@@ -163,6 +163,13 @@ in den Quellcode eintragen.
 
 - Keine bestehende Funktion ohne ausdrückliche Zustimmung entfernen.
 - `project.yml` ist die Quelle der Xcode-Projektkonfiguration.
+- Das erzeugte `PhotoSpotRadar.xcodeproj` ist eingecheckt und muss zum
+  Quellstand passen: Neue Dateien und Versionsänderungen erfordern
+  `xcodegen generate` und das Mitcommitten des aktualisierten Projekts
+  (ohne macOS: `project.pbxproj` von Hand nachpflegen — Dateieinträge
+  sowie MARKETING_VERSION/CURRENT_PROJECT_VERSION in Debug+Release).
+  Sonst baut Xcode mit „Cannot find type … in scope“ und zeigt eine
+  veraltete Versionsnummer.
 - Nach Änderungen `xcodegen generate`, Swift-Package-Tests und einen
   Simulator-Build ausführen.
 - Swift-6-Concurrency-Warnungen nicht unterdrücken, sondern sauber beheben.

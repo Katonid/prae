@@ -40,14 +40,7 @@ struct MapView: View {
             if isMapPresented {
                 Map(position: $position) {
                     UserAnnotation()
-                    // Saved travel routes stay visible so the prepared corridor is findable.
-                    ForEach(viewModel.trips.filter { !$0.path.isEmpty }) { trip in
-                        MapPolyline(coordinates: trip.path.map {
-                            CLLocationCoordinate2D(latitude: $0.latitude, longitude: $0.longitude)
-                        })
-                        .stroke(Theme.accentViolet.opacity(0.6),
-                                style: .init(lineWidth: 3, dash: [6, 5]))
-                    }
+                    tripRouteLines
                     ForEach(displayedSpots) { spot in
                         Annotation(spot.name, coordinate: .init(latitude: spot.latitude, longitude: spot.longitude)) {
                             Button { selectedSpot = spot } label: {
@@ -150,6 +143,20 @@ struct MapView: View {
             // Construct MapKit after the surrounding tab has produced a valid layout.
             await Task.yield()
             isMapPresented = true
+        }
+    }
+
+    /// Saved travel routes stay visible so the prepared corridor is findable.
+    /// Extracted from the Map builder to keep its expression type-checkable.
+    @MapContentBuilder
+    private var tripRouteLines: some MapContent {
+        ForEach(viewModel.trips.filter { !$0.path.isEmpty }) { trip in
+            let coordinates = trip.path.map {
+                CLLocationCoordinate2D(latitude: $0.latitude, longitude: $0.longitude)
+            }
+            MapPolyline(coordinates: coordinates)
+                .stroke(Theme.accentViolet.opacity(0.6),
+                        style: StrokeStyle(lineWidth: 3, dash: [6, 5]))
         }
     }
 
