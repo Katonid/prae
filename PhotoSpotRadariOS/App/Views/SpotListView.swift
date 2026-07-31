@@ -6,6 +6,8 @@ struct SpotListView: View {
     let imageService: ImageService
     let radius: Int
     @State private var selectedSpot: PersistedPhotoSpot?
+    /// nil shows the surroundings; a trip ID shows that route's corridor spots.
+    @State private var selectedTripID: UUID?
 
     var body: some View {
         NavigationStack {
@@ -31,7 +33,7 @@ struct SpotListView: View {
             }
             .background(Color(uiColor: .systemGroupedBackground))
             .overlay {
-                if viewModel.spots(within: radius).isEmpty {
+                if baseSpots.isEmpty {
                     ContentUnavailableView {
                         Label {
                             Text("Keine Fotospots geladen")
@@ -40,12 +42,21 @@ struct SpotListView: View {
                                 .foregroundStyle(Theme.gradient)
                         }
                     } description: {
-                        Text(viewModel.errorMessage ?? "Aktualisiere die Liste oder suche auf der Karte an einer ausgewählten Stelle.")
+                        if activeTrip != nil {
+                            Text("Für diese Route sind keine Spots geladen. Lade sie unter Einstellungen → Reisemodus → Reiserouten.")
+                        } else {
+                            Text(viewModel.errorMessage ?? "Aktualisiere die Liste oder suche auf der Karte an einer ausgewählten Stelle.")
+                        }
                     }
                 }
             }
-            .navigationTitle(viewModel.selectedSearchPoint == nil ? "In deiner Nähe" : "Am Suchpunkt")
-            .toolbar { ToolbarItem(placement: .topBarTrailing) { sortMenu } }
+            .navigationTitle(navigationTitle)
+            .toolbar {
+                if viewModel.trips.contains(where: { !$0.path.isEmpty }) {
+                    ToolbarItem(placement: .topBarLeading) { scopeMenu }
+                }
+                ToolbarItem(placement: .topBarTrailing) { sortMenu }
+            }
             .refreshable { await viewModel.refresh() }
             // Same interaction as tapping a pin on the map: the detail opens as a sheet.
             .sheet(item: $selectedSpot) { spot in
@@ -56,9 +67,37 @@ struct SpotListView: View {
         }
     }
 
+    private var activeTrip: TripRoute? {
+        selectedTripID.flatMap { id in viewModel.trips.first { $0.id == id } }
+    }
+
+    /// Surroundings by default, a route's corridor spots when one is selected.
+    private var baseSpots: [PersistedPhotoSpot] {
+        if let activeTrip { return viewModel.spots(alongTrip: activeTrip) }
+        return viewModel.spots(within: radius)
+    }
+
+    private var navigationTitle: String {
+        if let activeTrip { return activeTrip.title }
+        return viewModel.selectedSearchPoint == nil ? "In deiner Nähe" : "Am Suchpunkt"
+    }
+
+    /// Switches the list between the surroundings and a prepared travel route.
+    private var scopeMenu: some View {
+        Menu("Bereich", systemImage: activeTrip == nil
+             ? "location.circle" : "point.topleft.down.to.point.bottomright.curvepath") {
+            Picker("Bereich", selection: $selectedTripID) {
+                Text("Umgebung").tag(UUID?.none)
+                ForEach(viewModel.trips.filter { !$0.path.isEmpty }) { trip in
+                    Text(trip.title).tag(UUID?.some(trip.id))
+                }
+            }
+        }
+    }
+
     private var groups: [SpotLocationGroup] {
         var result: [SpotLocationGroup] = []
-        for spot in viewModel.spots(within: radius) {
+        for spot in baseSpots {
             if spot.sourceName.hasPrefix("Flickr"),
                let index = result.firstIndex(where: { group in
                    group.spots.first.map {

@@ -87,6 +87,35 @@ final class RadarViewModel {
         visibleSpots.filter { distance(to: $0) <= Double(radius) }
     }
 
+    /// Spots inside a trip's corridor — the same coverage circles the preparation loads.
+    /// With the default "Entfernung" sort they are ordered along the route (start → destination);
+    /// every other sort of `visibleSpots` stays as chosen.
+    func spots(alongTrip trip: TripRoute) -> [PersistedPhotoSpot] {
+        guard !trip.path.isEmpty else { return [] }
+        let centers = TripCorridor.sampleCenters(along: trip.path,
+                                                 spacing: Double(trip.corridorRadius) * 1.5,
+                                                 maximumCount: 20)
+        let corridor = Double(trip.corridorRadius)
+        let matching = visibleSpots.filter { spot in
+            centers.contains { GeoMath.distance(from: $0, to: spot.location) <= corridor }
+        }
+        guard sort == .distance else { return matching }
+        let order = matching.reduce(into: [String: Int]()) { result, spot in
+            result[spot.id] = nearestPathIndex(to: spot.location, along: trip.path)
+        }
+        return matching.sorted { (order[$0.id] ?? 0, distance(to: $0)) < (order[$1.id] ?? 0, distance(to: $1)) }
+    }
+
+    private func nearestPathIndex(to location: GeoPoint, along path: [GeoPoint]) -> Int {
+        var best = 0
+        var bestDistance = Double.greatestFiniteMagnitude
+        for (index, point) in path.enumerated() {
+            let candidate = GeoMath.distance(from: point, to: location)
+            if candidate < bestDistance { bestDistance = candidate; best = index }
+        }
+        return best
+    }
+
     func refresh() async {
         isRefreshing = true; errorMessage = nil
         defer { isRefreshing = false }
