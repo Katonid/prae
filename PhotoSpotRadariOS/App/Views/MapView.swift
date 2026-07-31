@@ -1,4 +1,5 @@
 import MapKit
+import PhotoSpotCore
 import SwiftUI
 
 private enum RadarMapAppearance: String, CaseIterable, Identifiable {
@@ -30,6 +31,7 @@ struct MapView: View {
     @State private var selectedSpot: PersistedPhotoSpot?
     @State private var position: MapCameraPosition = .userLocation(fallback: .automatic)
     @State private var cameraCenter: CLLocationCoordinate2D?
+    @State private var visibleRegion: MKCoordinateRegion?
     @State private var isMapPresented = false
     @AppStorage("mapAppearance") private var mapAppearance = RadarMapAppearance.standard
 
@@ -38,7 +40,15 @@ struct MapView: View {
             if isMapPresented {
                 Map(position: $position) {
                     UserAnnotation()
-                    ForEach(viewModel.spots(within: radius)) { spot in
+                    // Saved travel routes stay visible so the prepared corridor is findable.
+                    ForEach(viewModel.trips.filter { !$0.path.isEmpty }) { trip in
+                        MapPolyline(coordinates: trip.path.map {
+                            CLLocationCoordinate2D(latitude: $0.latitude, longitude: $0.longitude)
+                        })
+                        .stroke(Theme.accentViolet.opacity(0.6),
+                                style: .init(lineWidth: 3, dash: [6, 5]))
+                    }
+                    ForEach(displayedSpots) { spot in
                         Annotation(spot.name, coordinate: .init(latitude: spot.latitude, longitude: spot.longitude)) {
                             Button { selectedSpot = spot } label: {
                                 Image(systemName: spot.category.symbol)
@@ -58,6 +68,7 @@ struct MapView: View {
                 .mapControls { MapUserLocationButton(); MapCompass(); MapScaleView() }
                 .onMapCameraChange(frequency: .onEnd) { context in
                     cameraCenter = context.region.center
+                    visibleRegion = context.region
                 }
             } else {
                 ZStack {
@@ -78,7 +89,7 @@ struct MapView: View {
             VStack(spacing: 8) {
                 HStack {
                     Label {
-                        Text("\(viewModel.spots(within: radius).count) Spots")
+                        Text("\(displayedSpots.count) Spots")
                     } icon: {
                         Image(systemName: "camera.fill").foregroundStyle(Theme.gradient)
                     }
@@ -140,6 +151,21 @@ struct MapView: View {
             await Task.yield()
             isMapPresented = true
         }
+    }
+
+    /// Stored spots inside the visible map area (with margin), not just around the user or
+    /// search point — panning to a prepared corridor shows its spots without reloading.
+    /// Capped to the highest-scored 300 so far-out zoom levels stay responsive.
+    private var displayedSpots: [PersistedPhotoSpot] {
+        guard let region = visibleRegion else { return viewModel.spots(within: radius) }
+        let latitudePadding = region.span.latitudeDelta * 0.6
+        let longitudePadding = region.span.longitudeDelta * 0.6
+        let inView = viewModel.visibleSpots.filter { spot in
+            abs(spot.latitude - region.center.latitude) <= latitudePadding
+                && abs(spot.longitude - region.center.longitude) <= longitudePadding
+        }
+        guard inView.count > 300 else { return inView }
+        return Array(inView.sorted { $0.score > $1.score }.prefix(300))
     }
 }
 

@@ -96,7 +96,19 @@ AppIntents-Hinweis ist unkritisch, weil die App keine Siri-App-Intents nutzt.
 - Detailansicht mit bildschirmfüllender, zoombarer Fotoansicht
 - Öffnen eines Orts in Apple Karten oder Google Maps ohne automatischen
   Navigationsstart
-- Kanada-Reisemodus mit vorbereitetem Offline-Korridor
+- Reisemodus mit mehreren gespeicherten Reiserouten (Einstellungen →
+  Reisemodus → Reiserouten, `TripRoute` in den Settings als JSON):
+  Start/Zwischenziel/Ziel, wählbare Korridorbreite, Routen-Detailansicht
+  mit Karte (Polyline plus Abdeckungskreise — exakt die Bereiche, die
+  geladen werden; `TripCorridor` im Core, deterministisch getestet).
+  Gespeicherte Routen erscheinen gestrichelt auf der Hauptkarte.
+  Legacy-Felder tripStart/tripDestination werden beim ersten Start in
+  die Routenliste migriert
+- Die Hauptkarte zeigt gespeicherte Spots im sichtbaren
+  Kartenausschnitt (nicht mehr nur im Radius um Standort/Suchpunkt);
+  bei mehr als 300 Treffern die höchstbewerteten. Beim Scrollen zu
+  einem vorbereiteten Korridor sind dessen Spots damit ohne erneutes
+  Laden sichtbar
 - Optionale WLAN-Beschränkung für Bilder
 - Logbuch-/Beitragsfunktion wurde auf ausdrücklichen Nutzerwunsch im
   Juli 2026 komplett entfernt (Version 1.1.0). Nicht ohne Rücksprache

@@ -10,8 +10,8 @@ settings:
     GENERATE_INFOPLIST_FILE: NO
     # Versionierung: Patch zählt bei jeder Änderungsrunde automatisch hoch (1.1.0 → 1.1.1 → …),
     # größere Sprünge (1.2.0, 2.0.0) nur bei entsprechendem Funktionsumfang. Build-Nummer je Release +1.
-    CURRENT_PROJECT_VERSION: 3
-    MARKETING_VERSION: 1.1.1
+    CURRENT_PROJECT_VERSION: 4
+    MARKETING_VERSION: 1.1.3
 packages:
   PhotoSpotCore:
     path: .
