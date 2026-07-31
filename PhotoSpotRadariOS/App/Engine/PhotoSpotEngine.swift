@@ -57,23 +57,39 @@ final class PhotoSpotEngine {
         try await fetchSpots(near: point)
     }
 
-    func prepareTrip(from startName: String, to destinationName: String,
-                     progress: (Int, Int) -> Void) async throws -> Int {
-        let start = try await resolve(startName)
-        let destination = try await resolve(destinationName)
-        let request = MKDirections.Request()
-        request.source = start
-        request.destination = destination
-        request.transportType = .automobile
-        guard let route = try await MKDirections(request: request).calculate().routes.first else {
-            throw TripPreparationError.routeNotFound
+    /// Resolves the place names and asks MapKit for a driving route (two legs when an
+    /// intermediate stop is set). Returns the thinned polyline for storage and drawing.
+    func calculateRoutePath(from startName: String, via viaName: String?,
+                            to destinationName: String) async throws -> [GeoPoint] {
+        var stops = [try await resolve(startName)]
+        if let viaName, !viaName.isEmpty { stops.append(try await resolve(viaName)) }
+        stops.append(try await resolve(destinationName))
+        var path: [GeoPoint] = []
+        for index in 0..<(stops.count - 1) {
+            let request = MKDirections.Request()
+            request.source = stops[index]
+            request.destination = stops[index + 1]
+            request.transportType = .automobile
+            guard let route = try await MKDirections(request: request).calculate().routes.first else {
+                throw TripPreparationError.routeNotFound
+            }
+            path.append(contentsOf: Self.points(of: route.polyline))
         }
-        let points = Self.sample(route.polyline, everyMeters: 30_000, maximumCount: 20)
+        return TripCorridor.thin(path, to: 500)
+    }
+
+    /// Loads spots around the corridor coverage centers of an already calculated route.
+    /// Spacing of 1.5× the circle radius keeps neighboring circles overlapping.
+    func prepareTrip(along path: [GeoPoint], corridorRadius: Int,
+                     progress: (Int, Int) -> Void) async throws -> Int {
+        let centers = TripCorridor.sampleCenters(along: path,
+                                                 spacing: Double(corridorRadius) * 1.5,
+                                                 maximumCount: 20)
         var loadedIDs: Set<String> = []
-        for (index, point) in points.enumerated() {
-            progress(index + 1, points.count)
+        for (index, point) in centers.enumerated() {
+            progress(index + 1, centers.count)
             if let candidates = try? await provider.spots(
-                near: point, radius: max(settings.radius, 20_000),
+                near: point, radius: corridorRadius,
                 imagePixelLimit: settings.imageQuality.pixelLimit
             ) {
                 try persistence.merge(candidates, scorer: scorer)
@@ -82,7 +98,6 @@ final class PhotoSpotEngine {
             }
         }
         guard !loadedIDs.isEmpty else { throw TripPreparationError.noData }
-        settings.tripPreparedAt = .now
         settings.travelModeEnabled = true
         return loadedIDs.count
     }
@@ -122,31 +137,12 @@ final class PhotoSpotEngine {
         return item
     }
 
-    private static func sample(_ polyline: MKPolyline, everyMeters spacing: Double,
-                               maximumCount: Int) -> [GeoPoint] {
-        guard polyline.pointCount > 0 else { return [] }
+    private static func points(of polyline: MKPolyline) -> [GeoPoint] {
         let mapPoints = polyline.points()
-        var sampled: [GeoPoint] = []
-        var previous = mapPoints[0]
-        var accumulated = 0.0
-        sampled.append(.init(latitude: previous.coordinate.latitude, longitude: previous.coordinate.longitude))
-        for index in 1..<polyline.pointCount {
-            let current = mapPoints[index]
-            accumulated += current.distance(to: previous)
-            if accumulated >= spacing {
-                sampled.append(.init(latitude: current.coordinate.latitude, longitude: current.coordinate.longitude))
-                accumulated = 0
-            }
-            previous = current
+        return (0..<polyline.pointCount).map {
+            let coordinate = mapPoints[$0].coordinate
+            return GeoPoint(latitude: coordinate.latitude, longitude: coordinate.longitude)
         }
-        let end = mapPoints[polyline.pointCount - 1].coordinate
-        let endpoint = GeoPoint(latitude: end.latitude, longitude: end.longitude)
-        if sampled.last.map({ GeoMath.distance(from: $0, to: endpoint) > 5_000 }) ?? true {
-            sampled.append(endpoint)
-        }
-        guard sampled.count > maximumCount else { return sampled }
-        let scale = Double(sampled.count - 1) / Double(maximumCount - 1)
-        return (0..<maximumCount).map { sampled[Int((Double($0) * scale).rounded())] }
     }
 
     private func fetchSpots(near point: GeoPoint) async throws {

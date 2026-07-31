@@ -22,6 +22,7 @@ final class SettingsManager {
         static let tripStart = "tripStart"
         static let tripDestination = "tripDestination"
         static let tripPreparedAt = "tripPreparedAt"
+        static let tripRoutes = "tripRoutes"
         static let flickrDiscovery = "flickrDiscoveryEnabled"
         static let flickrOnly = "flickrOnlyResults"
         static let themeFilter = "spotThemeFilter"
@@ -47,9 +48,8 @@ final class SettingsManager {
     var travelModeEnabled: Bool { didSet { defaults.set(travelModeEnabled, forKey: Key.travelMode) } }
     var liveTravelRefreshEnabled: Bool { didSet { defaults.set(liveTravelRefreshEnabled, forKey: Key.liveTravelRefresh) } }
     var wifiOnlyImages: Bool { didSet { defaults.set(wifiOnlyImages, forKey: Key.wifiOnlyImages) } }
-    var tripStart: String { didSet { defaults.set(tripStart, forKey: Key.tripStart) } }
-    var tripDestination: String { didSet { defaults.set(tripDestination, forKey: Key.tripDestination) } }
-    var tripPreparedAt: Date? { didSet { defaults.set(tripPreparedAt, forKey: Key.tripPreparedAt) } }
+    /// All prepared (or preparable) travel routes, stored as JSON in the defaults.
+    var trips: [TripRoute] { didSet { persistTrips() } }
     var flickrDiscoveryEnabled: Bool { didSet { defaults.set(flickrDiscoveryEnabled, forKey: Key.flickrDiscovery) } }
     var flickrOnlyResults: Bool { didSet { defaults.set(flickrOnlyResults, forKey: Key.flickrOnly) } }
     var themeFilter: SpotThemeFilter { didSet { defaults.set(themeFilter.rawValue, forKey: Key.themeFilter) } }
@@ -78,9 +78,23 @@ final class SettingsManager {
         travelModeEnabled = defaults.object(forKey: Key.travelMode) as? Bool ?? false
         liveTravelRefreshEnabled = defaults.object(forKey: Key.liveTravelRefresh) as? Bool ?? false
         wifiOnlyImages = defaults.object(forKey: Key.wifiOnlyImages) as? Bool ?? true
-        tripStart = defaults.string(forKey: Key.tripStart) ?? ""
-        tripDestination = defaults.string(forKey: Key.tripDestination) ?? ""
-        tripPreparedAt = defaults.object(forKey: Key.tripPreparedAt) as? Date
+        if let data = defaults.data(forKey: Key.tripRoutes),
+           let saved = try? JSONDecoder().decode([TripRoute].self, from: data) {
+            trips = saved
+        } else {
+            // One-time migration of the former single-trip fields into the route list.
+            let legacyStart = defaults.string(forKey: Key.tripStart) ?? ""
+            let legacyDestination = defaults.string(forKey: Key.tripDestination) ?? ""
+            if legacyStart.isEmpty && legacyDestination.isEmpty {
+                trips = []
+            } else {
+                var legacy = TripRoute()
+                legacy.start = legacyStart
+                legacy.destination = legacyDestination
+                legacy.preparedAt = defaults.object(forKey: Key.tripPreparedAt) as? Date
+                trips = [legacy]
+            }
+        }
         flickrDiscoveryEnabled = defaults.object(forKey: Key.flickrDiscovery) as? Bool ?? false
         flickrOnlyResults = defaults.object(forKey: Key.flickrOnly) as? Bool ?? false
         if let raw = defaults.string(forKey: Key.themeFilter), let saved = SpotThemeFilter(rawValue: raw) {
@@ -102,5 +116,13 @@ final class SettingsManager {
         mapColorScheme = AppAppearance(rawValue: defaults.string(forKey: Key.mapColorScheme) ?? "") ?? .system
         // Default to calm notifications: only famous, well-documented sights.
         famousOnlyNotifications = defaults.object(forKey: Key.famousOnlyNotifications) as? Bool ?? true
+        // didSet does not run during init, so a fresh migration must persist itself once.
+        if defaults.data(forKey: Key.tripRoutes) == nil && !trips.isEmpty { persistTrips() }
+    }
+
+    private func persistTrips() {
+        if let data = try? JSONEncoder().encode(trips) {
+            defaults.set(data, forKey: Key.tripRoutes)
+        }
     }
 }

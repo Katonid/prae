@@ -37,29 +37,17 @@ struct SettingsView: View {
                     Text(settings.relevanceLevel.footnote)
                         .font(.footnote).foregroundStyle(.secondary)
                 }
-                Section("Kanada-Reisemodus") {
+                Section("Reisemodus") {
                     Toggle("Reisemodus aktiv", isOn: $settings.travelModeEnabled)
-                    TextField("Start, z. B. Toronto, Ontario", text: $settings.tripStart)
-                    TextField("Ziel, z. B. Ottawa, Ontario", text: $settings.tripDestination)
-                    Button {
-                        Task { await viewModel.prepareTrip() }
+                    NavigationLink {
+                        TripRoutesView(viewModel: viewModel, settings: settings)
                     } label: {
-                        if viewModel.isPreparingTrip {
-                            Label("Route wird vorbereitet …", systemImage: "arrow.trianglehead.2.clockwise.rotate.90")
-                        } else {
-                            Label("Route über WLAN vorbereiten", systemImage: "arrow.down.map")
-                        }
+                        LabeledContent("Reiserouten",
+                                       value: settings.trips.isEmpty ? "Keine" : "\(settings.trips.count)")
                     }
-                    .disabled(viewModel.isPreparingTrip)
                     Toggle("Live-Daten unterwegs nachladen", isOn: $settings.liveTravelRefreshEnabled)
-                    Text("Ausgeschaltet arbeitet die App unterwegs nur mit dem vorbereiteten Offline-Bestand und verbraucht für Spots keine mobilen Daten.")
+                    Text("Reiserouten laden Fotospots entlang eines Korridors für unterwegs. Ausgeschaltet arbeitet die App unterwegs nur mit dem vorbereiteten Offline-Bestand und verbraucht für Spots keine mobilen Daten.")
                         .font(.footnote).foregroundStyle(.secondary)
-                    if let progress = viewModel.tripPreparationProgress {
-                        Text(progress).font(.footnote)
-                    }
-                    if let preparedAt = settings.tripPreparedAt {
-                        LabeledContent("Zuletzt vorbereitet", value: preparedAt.formatted(date: .abbreviated, time: .shortened))
-                    }
                 }
                 Section("Radar") {
                     Picker("Benachrichtigungsradius", selection: $settings.radius) {

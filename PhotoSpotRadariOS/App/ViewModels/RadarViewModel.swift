@@ -13,8 +13,9 @@ final class RadarViewModel {
     private(set) var spots: [PersistedPhotoSpot] = []
     private(set) var isRefreshing = false
     private(set) var selectedSearchPoint: GeoPoint?
-    private(set) var isPreparingTrip = false
+    private(set) var preparingTripID: UUID?
     private(set) var tripPreparationProgress: String?
+    var isPreparingTrip: Bool { preparingTripID != nil }
     var errorMessage: String?
     var query = ""
     var filters = SpotFilters()
@@ -123,20 +124,61 @@ final class RadarViewModel {
         errorMessage = nil
     }
 
-    func prepareTrip() async {
-        let start = settings.tripStart.trimmingCharacters(in: .whitespacesAndNewlines)
-        let destination = settings.tripDestination.trimmingCharacters(in: .whitespacesAndNewlines)
+    /// All saved travel routes; the map draws them, the settings manage them.
+    var trips: [TripRoute] { settings.trips }
+
+    /// Asks MapKit for the driving route of a saved trip and stores the polyline, so the
+    /// corridor becomes visible on the map. A changed route resets the prepared state.
+    func calculateRoute(for tripID: UUID) async {
+        guard let index = settings.trips.firstIndex(where: { $0.id == tripID }) else { return }
+        let trip = settings.trips[index]
+        let start = trip.start.trimmingCharacters(in: .whitespacesAndNewlines)
+        let destination = trip.destination.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !start.isEmpty, !destination.isEmpty else {
             errorMessage = "Bitte Start und Ziel der Reise eingeben."
             return
         }
-        isPreparingTrip = true
+        preparingTripID = tripID
         errorMessage = nil
         tripPreparationProgress = "Route wird berechnet …"
-        defer { isPreparingTrip = false }
+        defer { preparingTripID = nil }
         do {
-            let count = try await engine.prepareTrip(from: start, to: destination) { [weak self] current, total in
+            let via = trip.via.trimmingCharacters(in: .whitespacesAndNewlines)
+            let path = try await engine.calculateRoutePath(from: start, via: via.isEmpty ? nil : via,
+                                                           to: destination)
+            // Re-resolve the index: the list may have changed while awaiting.
+            guard let index = settings.trips.firstIndex(where: { $0.id == tripID }) else { return }
+            settings.trips[index].path = path
+            settings.trips[index].preparedAt = nil
+            settings.trips[index].spotCount = 0
+            tripPreparationProgress = "Route berechnet. Prüfe den Korridor auf der Karte und lade dann die Spots."
+        } catch {
+            errorMessage = error.localizedDescription
+            tripPreparationProgress = nil
+        }
+    }
+
+    /// Loads the spots along a trip's corridor for offline use; calculates the route
+    /// first when it has not been calculated yet.
+    func prepare(tripID: UUID) async {
+        if settings.trips.first(where: { $0.id == tripID })?.path.isEmpty ?? true {
+            await calculateRoute(for: tripID)
+        }
+        guard let index = settings.trips.firstIndex(where: { $0.id == tripID }),
+              !settings.trips[index].path.isEmpty else { return }
+        let trip = settings.trips[index]
+        preparingTripID = tripID
+        errorMessage = nil
+        defer { preparingTripID = nil }
+        do {
+            let count = try await engine.prepareTrip(along: trip.path,
+                                                     corridorRadius: trip.corridorRadius) { [weak self] current, total in
                 self?.tripPreparationProgress = "Korridor \(current) von \(total) wird geladen …"
+            }
+            // Re-resolve the index: the list may have changed while awaiting.
+            if let index = settings.trips.firstIndex(where: { $0.id == tripID }) {
+                settings.trips[index].preparedAt = .now
+                settings.trips[index].spotCount = count
             }
             loadCached()
             tripPreparationProgress = "\(count) Fotospots wurden offline vorbereitet."
