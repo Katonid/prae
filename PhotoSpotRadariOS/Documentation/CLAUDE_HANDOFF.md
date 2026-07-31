@@ -70,6 +70,12 @@ AppIntents-Hinweis ist unkritisch, weil die App keine Siri-App-Intents nutzt.
 - Modernisiertes Design: `Theme` (Golden-Hour-Verlauf), bildbetonte
   `SpotCard`-Hero-Karten in Liste/Favoriten, Glass-Chips, Verlaufs-Pins
   auf der Karte, Hero-Detailansicht mit Scrim
+- Liste und Favoriten nutzen ein adaptives Raster
+  (`Theme.cardGridColumns`, `LazyVGrid`): eine Spalte auf dem iPhone,
+  zwei bis drei auf dem iPad je nach Ausrichtung. Wichtig:
+  `scaledToFill`-Bilder brauchen neben `clipped()`/`clipShape` immer
+  eine `contentShape`, sonst fängt das unsichtbar überstehende Bild die
+  Taps benachbarter Karten ab (zentral in `CachedSpotImage` behoben)
 - Erscheinungsbild-Schalter (Wie System / Hell / Dunkel) in
   Einstellungen → Darstellung (`AppAppearance`, per
   `preferredColorScheme` in `RootView`); „Hell“ hält die Apple-Karte

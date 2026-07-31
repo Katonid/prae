@@ -20,6 +20,9 @@ struct CachedSpotImage: View {
             }
         }
         .clipped()
+        // clipped() trims drawing only; without a content shape the scaled-to-fill photo
+        // still hit-tests far outside its frame and steals taps from neighboring views.
+        .contentShape(Rectangle())
         .task(id: url) {
             guard let url, let data = try? await service.data(for: url) else { image = nil; return }
             image = UIImage(data: data)

@@ -27,6 +27,10 @@ enum Theme {
                 .init(color: .black.opacity(0.78), location: 1)],
         startPoint: .top, endPoint: .bottom
     )
+
+    /// Adaptive columns for the hero-card grids (list and favorites): the 400-pt minimum
+    /// yields one column on iPhone and two to three on iPad depending on orientation.
+    static let cardGridColumns = [GridItem(.adaptive(minimum: 400), spacing: 18)]
 }
 
 /// Small glass capsule used on top of photos (category, distance, source).
