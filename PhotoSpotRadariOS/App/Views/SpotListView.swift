@@ -10,7 +10,7 @@ struct SpotListView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                LazyVStack(spacing: 18) {
+                LazyVGrid(columns: Theme.cardGridColumns, spacing: 18) {
                     ForEach(groups) { group in
                         if group.spots.count == 1, let spot = group.spots.first {
                             Button {
@@ -115,7 +115,6 @@ private struct PhotoGroupCard: View {
                     }
                 }
             }
-            .scrollClipDisabled()
         }
         .padding(14)
         .background(.background.secondary, in: .rect(cornerRadius: 24))
@@ -145,6 +144,8 @@ private struct MiniPhotoCard: View {
         }
         .frame(width: 150, height: 190)
         .clipShape(.rect(cornerRadius: 18))
+        // Same as SpotCard: keep the overflowing fill photo from hit-testing outside the tile.
+        .contentShape(.rect(cornerRadius: 18))
         .accessibilityLabel(spot.name)
     }
 }

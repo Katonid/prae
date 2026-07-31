@@ -8,7 +8,7 @@ struct FavoritesView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                LazyVStack(spacing: 18) {
+                LazyVGrid(columns: Theme.cardGridColumns, spacing: 18) {
                     ForEach(viewModel.spots.filter(\.isFavorite)) { spot in
                         Button {
                             selectedSpot = spot

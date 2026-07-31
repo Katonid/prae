@@ -35,6 +35,9 @@ struct SpotCard: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .clipShape(.rect(cornerRadius: 24))
+        // clipShape only trims drawing; the scaled-to-fill photo would still hit-test far
+        // outside the card and swallow taps meant for neighboring cards.
+        .contentShape(.rect(cornerRadius: 24))
         .overlay(alignment: .topTrailing) {
             HStack(spacing: 8) {
                 if spot.visitedAt != nil {
