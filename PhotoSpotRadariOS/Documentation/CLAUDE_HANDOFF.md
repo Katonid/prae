@@ -104,6 +104,11 @@ AppIntents-Hinweis ist unkritisch, weil die App keine Siri-App-Intents nutzt.
   Gespeicherte Routen erscheinen gestrichelt auf der Hauptkarte.
   Legacy-Felder tripStart/tripDestination werden beim ersten Start in
   die Routenliste migriert
+- Die Liste hat einen Bereichs-Umschalter (Toolbar links, sichtbar
+  sobald eine Route berechnet ist): „Umgebung“ oder eine Reiseroute.
+  Im Routenmodus zeigt sie die Spots im Korridor
+  (`spots(alongTrip:)`, dieselben Abdeckungskreise wie beim Laden);
+  bei Sortierung „Entfernung“ in Reihenfolge entlang der Route
 - Die Hauptkarte zeigt gespeicherte Spots im sichtbaren
   Kartenausschnitt (nicht mehr nur im Radius um Standort/Suchpunkt);
   bei mehr als 300 Treffern die höchstbewerteten. Beim Scrollen zu
