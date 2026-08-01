@@ -74,6 +74,73 @@ enum SpotImageService {
         return result
     }
 
+    // MARK: Zeilen-Info für die Entdecken-Liste (Nutzerwunsch)
+    //
+    // Vorschaubild + aussagekräftiger Name statt „Aussichtspunkt":
+    // Viele OSM-Knoten tragen kein name-Tag, aber die Commons-Fotos
+    // daneben verraten den Ort im Dateinamen (Nutzer-Beispiel:
+    // „Rombergpark-100516-13150-Park.jpg" → „Rombergpark Park").
+    // Der Vorschlag wird ehrlich als „Name aus Foto" gekennzeichnet.
+
+    struct RowInfo {
+        let thumbnailURL: URL?
+        let suggestedName: String?
+    }
+
+    @MainActor private static var rowCache: [String: RowInfo] = [:]
+
+    /// Bereits geladener Namensvorschlag (z. B. für Karten-Marker) —
+    /// ohne neuen Netzaufruf, nil solange die Zeile nie sichtbar war.
+    @MainActor static func cachedSuggestedName(for candidate: SpotCandidate) -> String? {
+        guard candidate.name == candidate.kind.title else { return nil }
+        return rowCache[candidate.id]?.suggestedName
+    }
+
+    /// Vorschaubild + Namensvorschlag für eine Listenzeile — ein
+    /// Commons-Aufruf je Kandidat, danach aus dem Cache.
+    static func rowInfo(for candidate: SpotCandidate) async -> RowInfo {
+        if let cached = await MainActor.run(body: { rowCache[candidate.id] }) {
+            return cached
+        }
+        let first = await images(for: candidate, limit: 1).first
+        var suggested: String?
+        if candidate.name == candidate.kind.title, let title = first?.id {
+            suggested = cleanedName(fromFileTitle: title, kind: candidate.kind)
+        }
+        let info = RowInfo(thumbnailURL: first?.thumbnailURL, suggestedName: suggested)
+        await MainActor.run { rowCache[candidate.id] = info }
+        return info
+    }
+
+    /// Dateititel → lesbarer Ortsname: Erweiterung und Trennzeichen
+    /// weg, Zahlen- und Kamera-Kürzel-Blöcke raus. Liefert nil, wenn
+    /// nichts Brauchbares übrig bleibt (z. B. „IMG_1234.jpg").
+    static func cleanedName(fromFileTitle title: String,
+                            kind: SpotCandidate.Kind) -> String? {
+        var name = title
+        if name.hasPrefix("File:") { name.removeFirst(5) }
+        if name.hasPrefix("http"), let url = URL(string: name) {
+            name = url.lastPathComponent.removingPercentEncoding ?? url.lastPathComponent
+        }
+        name = (name as NSString).deletingPathExtension
+        let junk: Set<String> = ["img", "dsc", "dscn", "dji", "pano", "panorama",
+                                 "photo", "foto", "bild", "image", "wp", "gopro",
+                                 "p", "pic", "picture", "web", "wiki"]
+        let tokens = name
+            .components(separatedBy: CharacterSet(charactersIn: "-_ .,()[]"))
+            .filter { token in
+                guard !token.isEmpty,
+                      token.rangeOfCharacter(from: .letters) != nil else { return false }
+                guard token.filter(\.isNumber).count < 3 else { return false }
+                return !junk.contains(token.lowercased())
+            }
+        let joined = tokens.joined(separator: " ")
+            .trimmingCharacters(in: .whitespaces)
+        guard joined.count >= 4,
+              joined.lowercased() != kind.title.lowercased() else { return nil }
+        return joined
+    }
+
     /// „File:Name.jpg" → Thumbnail- und Seiten-URL auf Commons.
     private static func commonsImage(fileTitle: String) -> SpotImage? {
         let name = fileTitle.hasPrefix("File:") ? String(fileTitle.dropFirst(5)) : fileTitle

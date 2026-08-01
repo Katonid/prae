@@ -98,19 +98,7 @@ struct DiscoveryView: View {
                             NavigationLink {
                                 DiscoveryDetailView(candidate: candidate)
                             } label: {
-                                HStack(spacing: 12) {
-                                    Image(systemName: candidate.kind.symbol)
-                                        .foregroundStyle(.tint)
-                                        .frame(width: 26)
-                                    VStack(alignment: .leading, spacing: 2) {
-                                        Text(candidate.name)
-                                            .font(.body)
-                                            .lineLimit(1)
-                                        Text("\(candidate.kind.title) · \(candidate.distanceText)")
-                                            .font(.caption)
-                                            .foregroundStyle(.secondary)
-                                    }
-                                }
+                                DiscoveryRowLabel(candidate: candidate)
                             }
                         }
                         Text("Kartendaten: © OpenStreetMap-Mitwirkende (ODbL). Drohnentauglichkeit prüft FlightMate per Legal-Check und Flight Score.")
@@ -226,7 +214,8 @@ struct DiscoveryView: View {
                 }
             }
             ForEach(candidates) { candidate in
-                Marker(candidate.name, systemImage: candidate.kind.symbol,
+                Marker(SpotImageService.cachedSuggestedName(for: candidate) ?? candidate.name,
+                       systemImage: candidate.kind.symbol,
                        coordinate: candidate.coordinate)
                     .tag(candidate.id)
             }
@@ -374,6 +363,62 @@ struct DiscoveryView: View {
 
 // MARK: Detail — hier passiert die eigentliche FlightMate-Prüfung
 
+/// Listenzeile mit Vorschaubild und aussagekräftigem Namen
+/// (Nutzerwunsch: statt fünfmal „Aussichtspunkt" den Ort erkennen).
+/// Bild + Namensvorschlag kommen je Zeile einmal von Commons und
+/// bleiben im Cache; das 640er-Thumbnail teilt sich den URL-Cache
+/// mit der Foto-Galerie der Detailseite.
+private struct DiscoveryRowLabel: View {
+    let candidate: SpotCandidate
+    @State private var info: SpotImageService.RowInfo?
+
+    private var displayName: String {
+        if candidate.name != candidate.kind.title { return candidate.name }
+        return info?.suggestedName ?? candidate.name
+    }
+
+    private var usesPhotoName: Bool {
+        candidate.name == candidate.kind.title && info?.suggestedName != nil
+    }
+
+    var body: some View {
+        HStack(spacing: 12) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Color.primary.opacity(0.06))
+                if let url = info?.thumbnailURL {
+                    AsyncImage(url: url) { image in
+                        image.resizable().scaledToFill()
+                    } placeholder: {
+                        Image(systemName: candidate.kind.symbol)
+                            .foregroundStyle(.tint)
+                    }
+                } else {
+                    Image(systemName: candidate.kind.symbol)
+                        .foregroundStyle(.tint)
+                }
+            }
+            .frame(width: 56, height: 56)
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+            VStack(alignment: .leading, spacing: 2) {
+                Text(displayName)
+                    .font(.body)
+                    .lineLimit(2)
+                Text(usesPhotoName
+                     ? "\(candidate.kind.title) · \(candidate.distanceText) · Name aus Foto"
+                     : "\(candidate.kind.title) · \(candidate.distanceText)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .task(id: candidate.id) {
+            if info == nil {
+                info = await SpotImageService.rowInfo(for: candidate)
+            }
+        }
+    }
+}
+
 struct DiscoveryDetailView: View {
     @EnvironmentObject private var state: AppState
     let candidate: SpotCandidate
@@ -384,6 +429,14 @@ struct DiscoveryDetailView: View {
     @State private var saved = false
     @State private var showFullMap = false
     @State private var images: [SpotImageService.SpotImage] = []
+    @State private var rowInfo: SpotImageService.RowInfo?
+
+    /// Derselbe Name wie in der Liste: OSM-Name, sonst der aus dem
+    /// Commons-Foto abgeleitete Vorschlag (im Cache), sonst Gattung.
+    private var displayName: String {
+        if candidate.name != candidate.kind.title { return candidate.name }
+        return rowInfo?.suggestedName ?? candidate.name
+    }
 
     var body: some View {
         ScrollView {
@@ -394,7 +447,7 @@ struct DiscoveryDetailView: View {
                     center: candidate.coordinate,
                     span: MKCoordinateSpan(latitudeDelta: 0.03, longitudeDelta: 0.03)
                 )), interactionModes: []) {
-                    Marker(candidate.name, systemImage: candidate.kind.symbol,
+                    Marker(displayName, systemImage: candidate.kind.symbol,
                            coordinate: candidate.coordinate)
                 }
                 .mapStyle(.hybrid)
@@ -450,7 +503,7 @@ struct DiscoveryDetailView: View {
                             .foregroundStyle(.green)
                     } else if legal?.verdict != .forbidden {
                         Button {
-                            state.addSpot(name: candidate.name, coordinate: candidate.coordinate)
+                            state.addSpot(name: displayName, coordinate: candidate.coordinate)
                             saved = true
                         } label: {
                             Label("Als Spot speichern", systemImage: "star")
@@ -476,18 +529,21 @@ struct DiscoveryDetailView: View {
             .frame(maxWidth: .infinity)
             .padding()
         }
-        .navigationTitle(candidate.name)
+        .navigationTitle(displayName)
         .navigationBarTitleDisplayMode(.inline)
         .fullScreenCover(isPresented: $showFullMap) {
             SpotFullMapView(candidate: candidate)
         }
-        .task { await check() }
+        .task {
+            rowInfo = await SpotImageService.rowInfo(for: candidate)
+            await check()
+        }
     }
 
     /// Übergabe an Apple Karten mit Routenführung zum Spot.
     private func navigateToSpot() {
         let item = MKMapItem(placemark: MKPlacemark(coordinate: candidate.coordinate))
-        item.name = candidate.name
+        item.name = displayName
         item.openInMaps(launchOptions: [
             MKLaunchOptionsDirectionsModeKey: MKLaunchOptionsDirectionsModeDefault
         ])
