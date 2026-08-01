@@ -131,6 +131,23 @@ AppIntents-Hinweis ist unkritisch, weil die App keine Siri-App-Intents nutzt.
 - Sichtbare Attribution „Kartendaten: © OpenStreetMap-Mitwirkende (ODbL)“
   mit Lizenzlink in Einstellungen → Datenquellen
 
+## Gelöste Feldprobleme (nicht regressieren)
+
+- 1.1.6 behob nächtliche Abstürze bei jedem Background-Refresh: Der
+  BGTaskScheduler-Launch-Handler muss mit `using: .main` registriert
+  werden, weil `BackgroundTaskManager` MainActor-gebunden ist und der
+  Handler sonst auf der privaten BGTaskScheduler-Queue in die
+  Swift-Isolationsprüfung läuft (`_dispatch_assert_queue_fail`,
+  EXC_BREAKPOINT). Bei Closures an System-APIs, die auf fremden Queues
+  aufrufen, immer die Queue explizit setzen oder die Isolation sauber
+  entkoppeln.
+- Der App-Start crash-loopt nicht mehr, wenn der SwiftData-Store nicht
+  aufgeht (z. B. alter TestFlight-Build öffnet einen von neuerem Build
+  migrierten Store): Fallback auf einen In-Memory-Store plus Hinweis
+  in der Oberfläche; die Daten auf der Platte bleiben unangetastet.
+  Alte Builds auf Testgeräten deinstallieren bzw. überall den
+  aktuellen Build installieren.
+
 ## Wichtige offene Konfiguration
 
 Keine Werte erfinden. Vor Signierung, OAuth, TestFlight oder App Store beim
