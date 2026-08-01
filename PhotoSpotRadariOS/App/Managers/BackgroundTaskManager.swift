@@ -8,7 +8,13 @@ final class BackgroundTaskManager {
 
     func register(operation: @escaping @MainActor () async -> Void) {
         self.operation = operation
-        BGTaskScheduler.shared.register(forTaskWithIdentifier: Self.refreshIdentifier, using: nil) { [weak self] task in
+        // The launch handler MUST run on the main queue: this class is MainActor-bound, so the
+        // handler closure inherits MainActor isolation and Swift's runtime executor check traps
+        // when BackgroundTasks invokes it on its private queue. With `using: nil` this crashed
+        // the app on every overnight background refresh (EXC_BREAKPOINT in
+        // _dispatch_assert_queue_fail on the com.apple.BGTaskScheduler queue).
+        BGTaskScheduler.shared.register(forTaskWithIdentifier: Self.refreshIdentifier,
+                                        using: .main) { [weak self] task in
             guard let refresh = task as? BGAppRefreshTask else { return }
             Task { @MainActor [weak self] in await self?.handle(refresh) }
         }

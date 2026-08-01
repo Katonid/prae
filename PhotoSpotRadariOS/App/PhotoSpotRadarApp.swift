@@ -15,9 +15,20 @@ struct PhotoSpotRadarApp: App {
     @State private var coordinator: NavigationCoordinator
 
     @MainActor init() {
+        // An unreadable store must not crash-loop the app (seen in the field when an older
+        // TestFlight build opened a store already migrated by a newer build). Fall back to a
+        // session-only in-memory store and leave the on-disk data untouched, so a build with
+        // the matching schema can open it again.
+        var startupNotice: String?
         let persistence: PersistenceManager
-        do { persistence = try PersistenceManager() }
-        catch { fatalError("SwiftData store could not be opened: \(error)") }
+        if let store = try? PersistenceManager() {
+            persistence = store
+        } else if let fallback = try? PersistenceManager(inMemory: true) {
+            persistence = fallback
+            startupNotice = "Der lokale Spot-Speicher konnte nicht geöffnet werden. Die App läuft vorübergehend ohne gespeicherte Daten. Bitte prüfe, ob die neueste App-Version installiert ist."
+        } else {
+            fatalError("SwiftData store could not be opened, not even in memory")
+        }
         let location = LocationManager(), notifications = NotificationManager()
         let settings = SettingsManager()
         let images = ImageService(maxMegabytes: settings.cacheSizeMB, wifiOnly: settings.wifiOnlyImages)
@@ -34,7 +45,9 @@ struct PhotoSpotRadarApp: App {
         let coordinator = NavigationCoordinator(), background = BackgroundTaskManager()
         imageService = images; self.engine = engine; backgroundManager = background
         _settings = State(initialValue: settings)
-        _viewModel = State(initialValue: RadarViewModel(persistence: persistence, locationManager: location, engine: engine, settings: settings))
+        let viewModel = RadarViewModel(persistence: persistence, locationManager: location, engine: engine, settings: settings)
+        if let startupNotice { viewModel.errorMessage = startupNotice }
+        _viewModel = State(initialValue: viewModel)
         _coordinator = State(initialValue: coordinator)
 
         background.register { await engine.refresh() }
