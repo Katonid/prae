@@ -193,6 +193,18 @@ Dieser Stand entspricht dem **MVP-Fundament** (PRD Phase 0/1).
 - **iPad-Planungslayout:** Auf breiten Bildschirmen zeigt „Heute"
   zwei Spalten (Score + Tagesverlauf links, Licht + 7-Tage-Ausblick
   rechts) — der Anfang des Planungs-Canvas aus PRD F12.
+- **Entdecken-Liste mit Vorschaubild & echten Namen (Nutzerwunsch):**
+  Jede Zeile trägt ein 56-px-Vorschaubild (erstes Commons-/OSM-Foto
+  des Spots; teilt sich den URL-Cache mit der Galerie der
+  Detailseite). Trägt der OSM-Knoten kein name-Tag (fünfmal
+  „Aussichtspunkt"), wird der Name aus dem **Dateinamen des
+  Commons-Fotos** abgeleitet („Rombergpark-100516-13150-Park.jpg" →
+  „Rombergpark Park"): Erweiterung, Zahlenblöcke und Kamera-Kürzel
+  (IMG/DSC/DJI …) raus — ehrlich als „Name aus Foto" in der
+  Unterzeile gekennzeichnet, bei unbrauchbaren Dateinamen bleibt
+  die Gattung. Liste, Detailseite, Karten-Marker, „Als Spot
+  speichern" und die Navigation nutzen denselben Namen; geladen
+  wird je Zeile einmal (Cache).
 - **Spot-Entdeckung (F9, erste Ausbaustufe):** Neuer „Entdecken"-Tab
   — Foto-Orte in der Nähe aus OpenStreetMap (Aussichtspunkte, Gipfel,
   Wasserfälle, Burgen & Schlösser, Leuchttürme; Radius 10/25/50 km,
