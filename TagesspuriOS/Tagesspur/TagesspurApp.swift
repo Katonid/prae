@@ -85,6 +85,9 @@ struct TagesspurApp: App {
                     force: true
                 )
             case .active:
+                // Im Hintergrund entstandene Sitzungen erkennt iOS ggf.
+                // nicht an — beim Öffnen im Vordergrund scharf machen.
+                tracker.rearmSessionInForeground()
                 Task { @MainActor in
                     await FamilySync.shared.autoSync()
                     DataMaintenance.dedupe(container: container)

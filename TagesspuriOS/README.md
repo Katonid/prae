@@ -41,19 +41,27 @@ Native SwiftUI-App, iOS 17+, keine externen Abhängigkeiten.
     Abschalten invalidiert.
   - Preis der Sitzung: Solange sie existiert, zeigt iOS den blauen
     Ortungspfeil in der Dynamic Island — Apples Datenschutz-Anzeige,
-    von der App nicht abschaltbar. Deshalb lebt die Sitzung nur
-    während erkannter Bewegung: Im Ruhemodus wird sie beendet (Pfeil
-    erlischt, iOS darf die App zwischen Ereignissen schlafen legen =
-    weniger Akku) und beim Aufwachen — Bewegungssensor, Geofence oder
-    grober Fix verschaffen dabei die nötige Hintergrund-Laufzeit —
-    neu aufgebaut; greift das wider Erwarten nicht, erneuert der
-    Watchdog sie beim ersten Liefer-Stillstand. Während einer Fahrt
-    bleibt der Pfeil sichtbar — das ist bei jeder App so, die selbst
-    live GPS im Hintergrund aufzeichnet (auch Komoot). Geory zeigt
+    von der App nicht abschaltbar. ENTSCHEIDENDE LEHRE (Fahrt 1.8.):
+    iOS erkennt eine Sitzung nur an, wenn sie erzeugt wird, während
+    die App „in Benutzung“ (Vordergrund) ist. Der Versuch „Sitzung im
+    Ruhemodus beenden, bei Bewegung neu aufbauen“ scheiterte deshalb
+    bei jeder Fahrt, die mit gesperrtem Gerät begann: Der Ersatz
+    entstand im Hintergrund, iOS ignorierte ihn, die Lieferung blieb
+    gedrosselt (nur Funkzellen-Fixe ±1400 m, Stillstände trotz
+    Watchdog-Neustarts). Apple koppelt Hintergrund-Präzision bewusst
+    an Sichtbarkeit — unsichtbare präzise Dauerortung ist nicht
+    vorgesehen. Deshalb Schalter „Dauer-Sitzung (blauer Pfeil)“
+    (Standard AN): AN = Sitzung wird nie invalidiert, zuverlässigste
+    Aufzeichnung, Pfeil dauerhaft; AUS = Pfeil nur bei Bewegung,
+    ausdrücklich mit Lücken-Risiko bei Fahrtbeginn mit gesperrtem
+    Gerät (orangener Warnhinweis in den Einstellungen). Zusätzlich
+    macht die App eine im Hintergrund entstandene Sitzung bei jedem
+    Aktivwerden im Vordergrund frisch scharf
+    (rearmSessionInForeground; Protokoll vermerkt je Sitzung
+    „Vordergrund“/„Hintergrund — evtl. nicht anerkannt“). Geory zeigt
     keinen Pfeil, weil es keine eigene Dauer-Ortung betreibt, sondern
     laut eigener Beschreibung Apples systemseitig ohnehin gesammelten
-    Standortverlauf ausliest. Ausnahme: Im Modus „Hohe Genauigkeit“
-    gibt es keinen Ruhemodus, der Pfeil bleibt dann dauerhaft.
+    Standortverlauf ausliest.
   - Ortungs-Watchdog: iOS kann die Hintergrund-Lieferung mitten in
     Bewegung minutenlang einstellen (nachgewiesen 30.7., App wach,
     keine Fixe geliefert); ein erneutes startUpdatingLocation belebt
@@ -354,7 +362,7 @@ Native SwiftUI-App, iOS 17+, keine externen Abhängigkeiten.
   - Einrichtung: Einstellungen → Familie; Sync automatisch beim
     Aktivwerden der App plus manueller Knopf.
 - **Versionierung**
-  - Marketing-Version (`MARKETING_VERSION`, aktuell 1.4.18) wird von
+  - Marketing-Version (`MARKETING_VERSION`, aktuell 1.4.19) wird von
     Hand gepflegt; die Build-Nummer setzt eine Skript-Bauphase
     („Build-Nummer setzen“) bei jedem Build automatisch: primär die
     Anzahl der Git-Commits, bei git-Fehlern ein Datumsstempel
