@@ -210,6 +210,12 @@ struct SettingsView: View {
         Section("Aufzeichnung") {
                     Toggle("Standort aufzeichnen", isOn: $tracker.trackingEnabled)
                     Toggle("Hohe Genauigkeit", isOn: $tracker.highAccuracy)
+                    Toggle("Dauer-Sitzung (blauer Pfeil)", isOn: $tracker.persistentSession)
+                    Text(tracker.persistentSession
+                        ? "Zuverlässigste Aufzeichnung: Die Hintergrund-Sitzung bleibt dauerhaft bestehen — dafür zeigt iOS den blauen Ortungspfeil auch im Ruhemodus. iOS erkennt Sitzungen nur an, die entstehen, während die App benutzt wird; deshalb ist „dauerhaft“ der einzige Weg, Fahrten mit gesperrtem Gerät garantiert präzise zu erfassen."
+                        : "Pfeil nur bei Bewegung: Im Ruhemodus erlischt der blaue Pfeil. ACHTUNG: Beginnt eine Fahrt mit gesperrtem Gerät, erkennt iOS die neue Sitzung oft nicht an — die Aufzeichnung kann dann grob bleiben (nur Funkzellen-Ortung) oder Lücken haben. Apple koppelt Präzision im Hintergrund bewusst an die Sichtbarkeit.")
+                        .font(.footnote)
+                        .foregroundStyle(tracker.persistentSession ? Color.secondary : Color.orange)
                     LabeledContent("Standort-Berechtigung", value: locationStatusText)
                     LabeledContent("Genauer Standort") {
                         Text(tracker.accuracyAuthorization == .fullAccuracy ? "Ein" : "AUS — nur ±1–2 km!")

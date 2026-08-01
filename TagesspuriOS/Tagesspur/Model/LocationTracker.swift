@@ -66,6 +66,33 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
 
     private static let highAccuracyKey = "tagesspur.highAccuracy"
 
+    /// Dauer-Sitzung (Standard AN): Die Hintergrund-Sitzung wird nie
+    /// invalidiert, solange die Aufzeichnung läuft — Preis: blauer
+    /// Pfeil dauerhaft. Grund (Fahrt 1.8.): iOS erkennt eine Sitzung
+    /// nur an, wenn sie erzeugt wird, während die App „in Benutzung“
+    /// ist (Vordergrund). Wird sie im Ruhemodus beendet und die Fahrt
+    /// beginnt mit gesperrtem Gerät, entsteht der Ersatz im
+    /// Hintergrund — iOS ignoriert ihn, die Lieferung bleibt
+    /// gedrosselt (nur Funkzellen-Fixe ±1400 m, Stillstände trotz
+    /// Watchdog). Apples bewusste Kopplung: unsichtbare präzise
+    /// Dauerortung soll es nicht geben. Der Schalter macht den
+    /// Kompromiss wählbar statt ihn zu verstecken.
+    @Published var persistentSession: Bool {
+        didSet {
+            UserDefaults.standard.set(persistentSession, forKey: Self.persistentSessionKey)
+            Self.logEvent(persistentSession
+                ? "Dauer-Sitzung eingeschaltet — zuverlässigste Aufzeichnung, Pfeil dauerhaft"
+                : "Dauer-Sitzung ausgeschaltet — Pfeil nur bei Bewegung, Lücken-Risiko bei Fahrtbeginn mit gesperrtem Gerät")
+            if persistentSession {
+                if trackingEnabled { startBackgroundSessionIfNeeded() }
+            } else if isResting {
+                endBackgroundSession(reason: "Dauer-Sitzung abgeschaltet")
+            }
+        }
+    }
+
+    private static let persistentSessionKey = "tagesspur.persistentSession"
+
     /// Moderne Hintergrund-Sitzung (iOS 17): teilt iOS explizit mit,
     /// dass eine bewusste, laufende Ortungsaufgabe aktiv ist. Ohne sie
     /// drosselt iOS die Lieferung an Legacy-Sessions zunehmend —
@@ -81,10 +108,25 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
     /// eine im Hintergrund erzeugte Sitzung nicht greifen sollte.
     private var backgroundSession: CLBackgroundActivitySession?
 
+    /// Wurde die aktuelle Sitzung im Vordergrund erzeugt? Nur dann
+    /// gilt sie iOS sicher als „in Benutzung“ und wird anerkannt.
+    private var sessionArmedInForeground = false
+
     private func startBackgroundSessionIfNeeded() {
         guard backgroundSession == nil else { return }
         backgroundSession = CLBackgroundActivitySession()
-        Self.logEvent("Hintergrund-Sitzung gestartet (CLBackgroundActivitySession)")
+        sessionArmedInForeground = UIApplication.shared.applicationState == .active
+        Self.logEvent("Hintergrund-Sitzung gestartet (\(sessionArmedInForeground ? "Vordergrund" : "Hintergrund — evtl. nicht anerkannt"))")
+    }
+
+    /// Beim Aktivwerden der App aufrufen: Eine im Hintergrund
+    /// entstandene Sitzung erkennt iOS ggf. nicht an (Fahrt 1.8.) —
+    /// im Vordergrund einmal frisch aufgebaut ist sie sicher scharf.
+    func rearmSessionInForeground() {
+        guard trackingEnabled, backgroundSession != nil, !sessionArmedInForeground else { return }
+        backgroundSession?.invalidate()
+        backgroundSession = nil
+        startBackgroundSessionIfNeeded()
     }
 
     private func endBackgroundSession(reason: String) {
@@ -131,6 +173,7 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
         self.container = container
         self.trackingEnabled = UserDefaults.standard.bool(forKey: Self.trackingEnabledKey)
         self.highAccuracy = UserDefaults.standard.bool(forKey: Self.highAccuracyKey)
+        self.persistentSession = (UserDefaults.standard.object(forKey: Self.persistentSessionKey) as? Bool) ?? true
         super.init()
         manager.delegate = self
         applyActiveParameters()
@@ -314,6 +357,7 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
         // Update-Schleife, auch die Sitzungs-Berechtigung erneuern.
         backgroundSession?.invalidate()
         backgroundSession = CLBackgroundActivitySession()
+        sessionArmedInForeground = UIApplication.shared.applicationState == .active
         manager.stopUpdatingLocation()
         manager.startUpdatingLocation()
         wakeGraceUntil = Date().addingTimeInterval(Self.wakeGraceSeconds)
@@ -410,10 +454,13 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
         flush()
         updateRelaunchRegion()
         Self.logEvent("Ruhemodus (5 min Stillstand)")
-        // Sitzung nur während Bewegung: Im Stillstand braucht niemand
-        // die Dauerlieferungs-Garantie — dafür verschwindet der blaue
-        // Pfeil und iOS darf die App zwischen Ereignissen schlafen legen.
-        endBackgroundSession(reason: "Ruhemodus")
+        // Sitzung im Ruhemodus nur beenden, wenn der Nutzer den
+        // Unsichtbar-Modus gewählt hat — der Ersatz bei Fahrtbeginn
+        // mit gesperrtem Gerät entsteht im Hintergrund und wird von
+        // iOS ggf. nicht anerkannt (Lücken-Risiko, Fahrt 1.8.).
+        if !persistentSession {
+            endBackgroundSession(reason: "Ruhemodus")
+        }
     }
 
     /// Zurück auf präzise Erfassung, ohne Anker/Zeit zurückzusetzen.
