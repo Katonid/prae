@@ -13,8 +13,11 @@ import AppIntents
 
 struct LogExpenseIntent: AppIntent {
     static var title: LocalizedStringResource = "Ausgabe erfassen"
+    // Hinweis: Siri-/Kurzbefehl-Metadaten (title, description, Parameter)
+    // dürfen laut App-Store-Prüfung das Wort „Apple" nicht enthalten
+    // (ITMS-90626) — deshalb hier bewusst nur „Wallet-Zahlung".
     static var description = IntentDescription(
-        "Speichert eine Zahlung in der aktiven Reise von Kassenbuch. Gedacht für die Kurzbefehle-Automation „Transaktion“ (Apple Pay): Betrag, Währung und Händler aus der Transaktion einfach als Parameter übergeben."
+        "Speichert eine Zahlung in der aktiven Reise von Kassenbuch. Gedacht für die Kurzbefehle-Automation „Transaktion“ bei Wallet-Zahlungen: Betrag, Währung und Händler aus der Transaktion einfach als Parameter übergeben."
     )
     static var openAppWhenRun = false
 
