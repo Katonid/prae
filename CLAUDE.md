@@ -49,10 +49,11 @@ noch Commits auf denselben PR gepusht wurden — die hingen dann fest
   „Reisekasse" im App Store vergeben ist). Projektordner, Target,
   Bundle-ID und iCloud-Container bleiben „Reisekasse"/`de.familie.
   reisekasse` — nach dem ersten Signieren nicht mehr ändern.
-- App-Code: `ReisekasseiOS/` (ein Target). `MARKETING_VERSION` und
-  `CURRENT_PROJECT_VERSION` stehen an zwei Stellen im pbxproj
-  (Debug+Release) — keine Skript-Bauphase, beide Werte werden im
-  Repo gepflegt.
+- App-Code: `ReisekasseiOS/` (zwei Targets: App + ReisekasseWatch).
+  `MARKETING_VERSION` und `CURRENT_PROJECT_VERSION` stehen in BEIDEN
+  Targets identisch (vier Stellen im pbxproj: App Debug+Release,
+  Watch Debug+Release) — keine Skript-Bauphase, beide Werte werden
+  im Repo gepflegt.
 - **Jede Arbeitseinheit (= jeder PR mit App-Änderungen) hebt die
   Patch-Nummer UND die Build-Nummer um je +1 an** — ohne Nachfrage,
   als Teil des PRs (Ansage des Nutzers, 08/2026: konsequent bei jedem
