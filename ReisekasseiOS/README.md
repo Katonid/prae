@@ -121,10 +121,14 @@ Hinweise:
   jedem App-Start/Aktivieren gesynct.
 - Geräteübergreifend: einfach die App auf iPhone und iPad installieren —
   gleiches iCloud-Konto ist **nicht** erforderlich, die Daten laufen
-  über die öffentliche Datenbank des App-Containers. Angezeigt werden
-  alle synchronisierten Reisen (der Container gehört der eigenen
-  App-Familie); der Einladungscode aktiviert eine Reise und trägt den
-  eigenen Namen als Teilnehmer ein.
+  über die öffentliche Datenbank des App-Containers.
+- **Einladungsmodell:** Sichtbar sind nur Reisen, in deren
+  Teilnehmerliste der eigene Name steht — durch Anlegen der Reise oder
+  Beitritt per Einladungscode („Freunde hinzufügen"). Die
+  Mitgliedschaft steht in der Reise selbst (nicht auf dem Gerät) und
+  überlebt damit Neuinstallationen: gleichen Namen wieder eintragen,
+  und die eigenen Reisen erscheinen wieder. Auf der Watch gilt dasselbe
+  (Name in den Watch-Einstellungen).
 - Die Standard-Reise „Kanada" hat auf allen Geräten dieselbe feste ID,
   und gleichnamige Duplikate (z. B. durch Neuinstallationen entstanden)
   werden automatisch zusammengeführt: Einträge, Teilnehmer und Budgets

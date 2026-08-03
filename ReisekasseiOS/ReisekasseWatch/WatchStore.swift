@@ -294,7 +294,17 @@ final class WatchStore: ObservableObject {
     // MARK: Zugriff & Auswertungen
 
     var visibleTrips: [WTrip] {
-        trips.filter { !$0.deleted }.sorted { $0.createdAtMs < $1.createdAtMs }
+        // Einladungsmodell wie auf dem iPhone: Sichtbar sind nur Reisen,
+        // in deren Teilnehmerliste der eigene Name steht (Einstellungen).
+        let me = profileName.trimmingCharacters(in: .whitespaces).lowercased()
+        guard !me.isEmpty else { return [] }
+        return trips
+            .filter { trip in
+                !trip.deleted && trip.participants.contains {
+                    $0.trimmingCharacters(in: .whitespaces).lowercased() == me
+                }
+            }
+            .sorted { $0.createdAtMs < $1.createdAtMs }
     }
 
     var activeTrip: WTrip? {

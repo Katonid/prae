@@ -37,17 +37,20 @@ final class AppStore: ObservableObject {
         trips = Self.loadJSON([Trip].self, from: Self.tripsURL) ?? []
         expenses = Self.loadJSON([Expense].self, from: Self.expensesURL) ?? []
 
-        if visibleTrips.isEmpty {
-            // Erste Nutzung: direkt eine Reise für den konkreten Anlass
-            // anlegen. Mit FESTER ID, damit jedes Gerät denselben
-            // CloudKit-Record erzeugt — sonst entsteht bei jeder
-            // Neuinstallation eine weitere „Kanada"-Reise.
-            let trip = Trip(id: "default-kanada", name: "Kanada", homeCurrency: "EUR", rates: ["CAD": 0.67])
-            trips.append(trip)
-            activeTripId = trip.id
-            saveTrips()
-            engine.enqueue(kind: .trip, entityId: trip.id)
+        // Einmalige Migration auf das Einladungsmodell: Wer die App vor
+        // dieser Version schon nutzte (und damit alle Reisen sah), wird
+        // in die Teilnehmerlisten der vorhandenen Reisen eingetragen —
+        // so bleibt für Bestandsnutzer alles sichtbar. Neue
+        // Installationen (keine lokalen Reisen) überspringen das.
+        if !defaults.bool(forKey: "membershipMigrated") {
+            if let me = profileName.nonEmpty {
+                for trip in trips where !trip.deleted {
+                    addParticipant(me, to: trip.id)
+                }
+            }
+            defaults.set(true, forKey: "membershipMigrated")
         }
+
         mergeDuplicateTrips()
         if activeTrip == nil, let first = visibleTrips.first {
             activeTripId = first.id
@@ -116,13 +119,20 @@ final class AppStore: ObservableObject {
 
     // MARK: - Reisen
 
-    /// Alle nicht gelöschten Reisen. Der CloudKit-Container gehört der
-    /// eigenen App-Familie — jede synchronisierte Reise wird angezeigt.
-    /// (Früher wurden nur „beigetretene" Reisen gezeigt; das hat nach
-    /// Neuinstallationen die eigenen Daten versteckt.)
+    /// Einladungsmodell: Sichtbar sind nur Reisen, in deren
+    /// Teilnehmerliste der eigene Name steht — hineingekommen durch
+    /// Anlegen der Reise oder Beitritt per Einladungscode. Da die
+    /// Mitgliedschaft in der Reise selbst gespeichert wird (nicht auf
+    /// dem Gerät), überlebt sie Neuinstallationen: Name wieder
+    /// eingeben, und die eigenen Reisen sind wieder da.
     var visibleTrips: [Trip] {
-        trips.filter { !$0.deleted }
+        trips.filter { !$0.deleted && isMember(of: $0) }
             .sorted { $0.createdAtMs < $1.createdAtMs }
+    }
+
+    private func isMember(of trip: Trip) -> Bool {
+        guard let me = profileName.nonEmpty?.lowercased() else { return false }
+        return trip.participants.contains { $0.trimmed.lowercased() == me }
     }
 
     var activeTrip: Trip? {
@@ -131,6 +141,11 @@ final class AppStore: ObservableObject {
 
     func createTrip(_ trip: Trip) {
         var newTrip = trip
+        // Wer eine Reise anlegt, ist automatisch Teilnehmer — sonst
+        // wäre sie im Einladungsmodell für niemanden sichtbar.
+        if let me = profileName.nonEmpty, !newTrip.participants.contains(me) {
+            newTrip.participants.append(me)
+        }
         newTrip.updatedAtMs = Date.nowMs
         trips.append(newTrip)
         activeTripId = newTrip.id

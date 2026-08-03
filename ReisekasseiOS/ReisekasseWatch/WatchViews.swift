@@ -54,7 +54,7 @@ struct OverviewPage: View {
                 VStack(spacing: 8) {
                     Image(systemName: "icloud.and.arrow.down")
                         .font(.title2)
-                    Text("Noch keine Reise — einmal synchronisieren (unterste Seite) oder das iPhone öffnen.")
+                    Text("Keine Reise sichtbar — in den Einstellungen (unterste Seite) deinen Namen wie auf dem iPhone eintragen und synchronisieren.")
                         .font(.footnote)
                         .multilineTextAlignment(.center)
                 }

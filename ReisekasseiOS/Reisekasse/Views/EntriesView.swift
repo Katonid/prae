@@ -32,7 +32,7 @@ struct EntriesView: View {
                 }
                 .scrollDismissesKeyboard(.interactively)
             } else {
-                Spacer()
+                noTripView
             }
         }
         .safeAreaInset(edge: .bottom) { quickAddBar }
@@ -160,6 +160,49 @@ struct EntriesView: View {
         .padding(.horizontal, 16)
         .padding(.top, 8)
         .padding(.bottom, 12)
+    }
+
+    // MARK: - Ohne Reise (neu anlegen oder per Code beitreten)
+
+    private var noTripView: some View {
+        VStack(spacing: 18) {
+            Spacer()
+            Image(systemName: "suitcase.rolling.fill")
+                .font(.system(size: 44))
+                .foregroundStyle(Theme.blue)
+            Text("Willkommen bei Kassenbuch")
+                .font(.title3.bold())
+            Text("Lege eine eigene Reise an — oder tritt mit dem Einladungscode einer Reise deiner Familie bei.")
+                .font(.subheadline)
+                .foregroundStyle(Theme.textDim)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 30)
+            Button {
+                showNewTrip = true
+            } label: {
+                Label("Neue Reise anlegen", systemImage: "plus")
+                    .font(.headline)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 13)
+                    .background(Capsule().fill(Theme.accent))
+                    .foregroundStyle(.white)
+            }
+            .padding(.horizontal, 40)
+            Button {
+                showFriends = true
+            } label: {
+                Label("Mit Code beitreten", systemImage: "person.badge.key")
+                    .font(.headline)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 13)
+                    .background(Capsule().fill(Theme.card))
+                    .foregroundStyle(Theme.textPrimary)
+            }
+            .padding(.horizontal, 40)
+            Spacer()
+            Spacer()
+        }
+        .frame(maxWidth: .infinity)
     }
 
     // MARK: - Budget-Karten
