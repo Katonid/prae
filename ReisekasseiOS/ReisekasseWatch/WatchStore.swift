@@ -232,7 +232,10 @@ final class WatchStore: ObservableObject {
     }
 
     private let defaults = UserDefaults.standard
-    private let database = CKContainer.default().publicCloudDatabase
+    // Container ausdrücklich benennen: CKContainer.default() leitet den
+    // Namen aus der Bundle-ID ab und würde auf der Watch den nicht
+    // existierenden Container „…reisekasse.watchkitapp“ suchen.
+    private let database = CKContainer(identifier: "iCloud.de.familie.reisekasse").publicCloudDatabase
     private var syncing = false
 
     private var lastSyncMs: Int64 {

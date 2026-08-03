@@ -66,7 +66,9 @@ final class CloudSyncEngine {
     }
 
     init() {
-        container = CKContainer.default()
+        // Container ausdrücklich benennen (statt default()), damit App und
+        // Watch garantiert in dieselbe Datenbank schreiben.
+        container = CKContainer(identifier: "iCloud.de.familie.reisekasse")
         database = container.publicCloudDatabase
     }
 

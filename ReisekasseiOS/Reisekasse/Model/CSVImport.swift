@@ -181,9 +181,40 @@ enum CSVImport {
 
     /// Baut Einträge für die Reise aus dem CSV-Text. Zeilen ohne Betrag
     /// oder Datum werden gezählt und übersprungen.
+    /// Alle bekannten Zeilentrenner auf "\n" vereinheitlichen — JS-basierte
+    /// Apps exportieren teils mit CR, Unicode LINE/PARAGRAPH SEPARATOR
+    /// oder NEL, wodurch die Datei sonst als eine einzige Zeile ankommt.
+    static func normalized(_ rawText: String) -> String {
+        rawText
+            .replacingOccurrences(of: "\u{FEFF}", with: "")
+            .replacingOccurrences(of: "\r\n", with: "\n")
+            .replacingOccurrences(of: "\r", with: "\n")
+            .replacingOccurrences(of: "\u{2028}", with: "\n")
+            .replacingOccurrences(of: "\u{2029}", with: "\n")
+            .replacingOccurrences(of: "\u{0085}", with: "\n")
+            .replacingOccurrences(of: "\u{000B}", with: "\n")
+            .replacingOccurrences(of: "\u{000C}", with: "\n")
+    }
+
+    /// Spaltennamen tolerant vergleichen: Kleinschreibung, nur Buchstaben
+    /// und Ziffern („date Paid“, „date-paid“, NBSP usw. treffen alle).
+    static func normalizedName(_ name: String) -> String {
+        name.lowercased().filter { $0.isLetter || $0.isNumber }
+    }
+
+    /// Kurzdiagnose für die Fehlermeldung, wenn der Import scheitert.
+    static func diagnostics(for rawText: String) -> String {
+        let text = normalized(rawText)
+        let headerLine = text.split(separator: "\n", maxSplits: 1).first ?? ""
+        let commas = headerLine.filter { $0 == "," }.count
+        let semicolons = headerLine.filter { $0 == ";" }.count
+        let delimiter: Character = semicolons > commas ? ";" : ","
+        let rows = parseCSV(text, delimiter: delimiter)
+        return "\(rows.count) Zeilen, Trennzeichen „\(delimiter)“, \(rows.first?.count ?? 0) Spalten erkannt"
+    }
+
     static func travelSpendExpenses(from rawText: String, tripId: String, fallbackAuthor: String) -> Result? {
-        // BOM-Zeichen entfernen, falls es die Dekodierung durchgereicht hat.
-        let text = rawText.replacingOccurrences(of: "\u{FEFF}", with: "")
+        let text = normalized(rawText)
 
         // Trennzeichen erkennen: das häufigere Zeichen in der Kopfzeile
         // gewinnt (TravelSpend nutzt Komma, eigene Exporte Semikolon).
@@ -195,8 +226,8 @@ enum CSVImport {
         let rows = parseCSV(text, delimiter: delimiter)
         guard rows.count >= 2 else { return nil }
 
-        let header = rows[0].map { $0.lowercased().trimmed }
-        func column(_ name: String) -> Int? { header.firstIndex(of: name) }
+        let header = rows[0].map(normalizedName)
+        func column(_ name: String) -> Int? { header.firstIndex(of: normalizedName(name)) }
         guard let amountCol = column("amount"),
               let dateCol = column("datepaid") ?? column("date") else {
             // Keine TravelSpend-Kopfzeile.
