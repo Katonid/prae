@@ -338,7 +338,7 @@ struct SettingsSheet: View {
 
                 Section {
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("1. Kurzbefehle-App → Automation → Neue Automation → „Transaktion“.")
+                        Text("1. Kurzbefehle-App → Automation → Neue Automation → „Wenn ich eine Wallet-Karte verwende“ (in älteren iOS-Versionen: „Transaktion“).")
                         Text("2. Karte(n) auswählen, „Sofort ausführen“ aktivieren.")
                         Text("3. Aktion „Ausgabe erfassen“ (Kassenbuch) wählen.")
                         Text("4. Betrag, Währung und Händler aus der Transaktion als Parameter übergeben.")
@@ -347,7 +347,7 @@ struct SettingsSheet: View {
                 } header: {
                     Text("Automatischer Import über Apple Pay")
                 } footer: {
-                    Text("Danach wird jede Apple-Pay-Zahlung automatisch als Eintrag gespeichert — mit Händler, Betrag, Zeit, Ort und passender Kategorie. Details im README des Projekts.")
+                    Text("Danach wird jede Apple-Pay-Zahlung automatisch als Eintrag gespeichert — mit Händler, Betrag, Zeit, Ort und passender Kategorie. Gilt pro Gerät: auf iPhone UND iPad je einmal einrichten. Details im README des Projekts.")
                 }
             }
             .navigationTitle("Einstellungen")
