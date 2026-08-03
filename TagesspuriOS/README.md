@@ -67,8 +67,17 @@ Native SwiftUI-App, iOS 17+, keine externen Abhängigkeiten.
     keine Fixe geliefert); ein erneutes startUpdatingLocation belebt
     sie sofort wieder. Der Watchdog (Flush-Timer + Bewegungssensor-
     Callback) startet die Updates deshalb automatisch neu, wenn in
-    Bewegung > 2 min nichts geliefert wurde — protokolliert als
-    „Ortungs-Stillstand“. Zusätzlich meldet die App iOS einen
+    Bewegung zu lange nichts BRAUCHBARES kam. Entscheidend (Lehre
+    der Fahrt 1.8.): Als „Lieferung“ zählen nur Fixe ≤ 200 m —
+    Funkzellen-Fixe (±1400 m) hielten den Watchdog sonst still,
+    während die Fahrt nur grob aufgezeichnet wurde (er griff am 1.8.
+    nur einmal ein, weil danach laufend Grobes eintrudelte).
+    Protokolliert als „Ortungs-Stillstand“ bzw. „Nur grobe Ortung“.
+    Takt: normal 120 s; in den ersten 10 min nach dem Aufwachen
+    (Ruhemodus-Ende, Geofence, Hintergrund-Neustart) Schnelltakt
+    60 s — die Anlaufphase einer Fahrt bleibt damit kurz, danach
+    hämmert der Watchdog konsequent weiter, bis wieder präzise
+    geliefert wird. Zusätzlich meldet die App iOS einen
     Navigations-Aktivitätstyp (automotiveNavigation/fitness statt
     „other“, dynamisch per Bewegungssensor) — Navigations-Sessions
     drosselt iOS deutlich seltener.
@@ -377,7 +386,7 @@ Native SwiftUI-App, iOS 17+, keine externen Abhängigkeiten.
   - Einrichtung: Einstellungen → Familie; Sync automatisch beim
     Aktivwerden der App plus manueller Knopf.
 - **Versionierung**
-  - Marketing-Version (`MARKETING_VERSION`, aktuell 1.4.20) wird von
+  - Marketing-Version (`MARKETING_VERSION`, aktuell 1.4.21) wird von
     Hand gepflegt; die Build-Nummer setzt eine Skript-Bauphase
     („Build-Nummer setzen“) bei jedem Build automatisch: primär die
     Anzahl der Git-Commits, bei git-Fehlern ein Datumsstempel
