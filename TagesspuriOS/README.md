@@ -119,6 +119,21 @@ Native SwiftUI-App, iOS 17+, keine externen Abhängigkeiten.
     die Ereignisse in diesem Fenster.
   - Punkte werden gepuffert (20 Punkte / 90 s) und pro Tag als kompakter
     Blob gespeichert — wenig I/O, wenig Sync-Volumen.
+- **Kurzbefehle / Automationen (App-Intents)**
+  - Drei Aktionen: „Aufzeichnung starten“, „Aufzeichnung stoppen“,
+    „Aufzeichnungs-Status“ (liefert Wahr/Falsch) — damit sind
+    Automationen wie „Wenn ich zu Hause ankomme → stoppen“ / „Wenn
+    ich den Wohnort verlasse → starten“ möglich. Ohne App-Intents
+    erschien die App gar nicht erst in der Aktionsliste der
+    Kurzbefehle-App. Siri-Sätze über AppShortcutsProvider.
+  - Wichtig bei Automationen: „Sofort ausführen“ wählen (sonst
+    fragt iOS jedes Mal nach). Intent-Starts werden im
+    Ereignisprotokoll vermerkt („per Kurzbefehl gestartet/gestoppt“).
+  - Ehrlicher Hinweis: Startet die Automation die Aufzeichnung im
+    Hintergrund (Gerät gesperrt), entsteht auch die
+    Hintergrund-Sitzung im Hintergrund — für garantierte Präzision
+    ab dem ersten Meter die Dauer-Sitzung anlassen oder in die
+    Automation zusätzlich „App öffnen“ aufnehmen.
 - **iCloud-Sync (SwiftData + CloudKit, privater Container)**
   - Sync-Diagnose in den Einstellungen: Datenbank-Modus (iCloud aktiv
     vs. stiller Lokal-Rückfall), iCloud-Konto-Status, letztes
@@ -362,7 +377,7 @@ Native SwiftUI-App, iOS 17+, keine externen Abhängigkeiten.
   - Einrichtung: Einstellungen → Familie; Sync automatisch beim
     Aktivwerden der App plus manueller Knopf.
 - **Versionierung**
-  - Marketing-Version (`MARKETING_VERSION`, aktuell 1.4.19) wird von
+  - Marketing-Version (`MARKETING_VERSION`, aktuell 1.4.20) wird von
     Hand gepflegt; die Build-Nummer setzt eine Skript-Bauphase
     („Build-Nummer setzen“) bei jedem Build automatisch: primär die
     Anzahl der Git-Commits, bei git-Fehlern ein Datumsstempel
