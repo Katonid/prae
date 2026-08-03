@@ -557,7 +557,7 @@ struct EntryEditorView: View {
             Toggle(isOn: $excludeFromDaily) {
                 VStack(alignment: .leading, spacing: 3) {
                     Text("Aus Tagesdurchschnitt ausschließen")
-                    Text("Der Eintrag zählt nicht in die Tageskennzahlen — z. B. für Flüge und große Vorabbuchungen.")
+                    Text("Für Flüge und große Vorabbuchungen: Der Eintrag zählt nicht in die Tageskennzahlen, und das automatische Tagesbudget wird entsprechend reduziert.")
                         .font(.footnote)
                         .foregroundStyle(Theme.textDim)
                 }

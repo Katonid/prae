@@ -38,6 +38,11 @@ dieselbe Technik wie in der Canada2026-App dieses Repos.
   anlegen; je Reise Heimatwährung, Gesamt-/Tagesbudget, Zeitraum und
   editierbare Wechselkurse (z. B. 1 CAD = 0,67 EUR). Erste Reise
   „Kanada" wird beim ersten Start automatisch angelegt.
+- **Automatisches Tagesbudget:** Ist kein festes Tagesbudget gesetzt,
+  rechnet die App (Gesamtbudget − „Aus Tagesdurchschnitt
+  ausgeschlossene" Ausgaben wie Flüge und Vorabbuchungen) ÷ Reisetage —
+  Voraussetzung: Gesamtbudget und Reisezeitraum sind in „Reise
+  bearbeiten" gesetzt. Gilt auf iPhone, iPad und Watch gleichermaßen.
 - **Statistiken:** Tageskennzahlen, Kategorien-Donut mit Filtern
   (Kategorie, Land, Monat, Ausgaben/Erstattungen), Monats-Trend,
   Länder-Auswertung, CSV-Export (Excel-tauglich, mit Ort und Person).
@@ -116,10 +121,14 @@ Hinweise:
   jedem App-Start/Aktivieren gesynct.
 - Geräteübergreifend: einfach die App auf iPhone und iPad installieren —
   gleiches iCloud-Konto ist **nicht** erforderlich, die Daten laufen
-  über die öffentliche Datenbank des App-Containers. Angezeigt werden
-  alle synchronisierten Reisen (der Container gehört der eigenen
-  App-Familie); der Einladungscode aktiviert eine Reise und trägt den
-  eigenen Namen als Teilnehmer ein.
+  über die öffentliche Datenbank des App-Containers.
+- **Einladungsmodell:** Sichtbar sind nur Reisen, in deren
+  Teilnehmerliste der eigene Name steht — durch Anlegen der Reise oder
+  Beitritt per Einladungscode („Freunde hinzufügen"). Die
+  Mitgliedschaft steht in der Reise selbst (nicht auf dem Gerät) und
+  überlebt damit Neuinstallationen: gleichen Namen wieder eintragen,
+  und die eigenen Reisen erscheinen wieder. Auf der Watch gilt dasselbe
+  (Name in den Watch-Einstellungen).
 - Die Standard-Reise „Kanada" hat auf allen Geräten dieselbe feste ID,
   und gleichnamige Duplikate (z. B. durch Neuinstallationen entstanden)
   werden automatisch zusammengeführt: Einträge, Teilnehmer und Budgets

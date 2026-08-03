@@ -48,7 +48,7 @@ struct TripEditorSheet: View {
                 } header: {
                     Text("Budget")
                 } footer: {
-                    Text("Ohne Tagesbudget wird es aus Gesamtbudget und Reisedauer berechnet.")
+                    Text("Ohne festes Tagesbudget rechnet die App automatisch: (Gesamtbudget − vom Tagesdurchschnitt ausgeschlossene Ausgaben wie Flüge) ÷ Reisetage. Dafür Gesamtbudget UND Reisezeitraum setzen.")
                 }
 
                 Section("Zeitraum") {
