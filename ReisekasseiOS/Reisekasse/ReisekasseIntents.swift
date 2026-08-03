@@ -14,7 +14,7 @@ import AppIntents
 struct LogExpenseIntent: AppIntent {
     static var title: LocalizedStringResource = "Ausgabe erfassen"
     static var description = IntentDescription(
-        "Speichert eine Zahlung in der aktiven Reise der Reisekasse. Gedacht für die Kurzbefehle-Automation „Transaktion“ (Apple Pay): Betrag, Währung und Händler aus der Transaktion einfach als Parameter übergeben."
+        "Speichert eine Zahlung in der aktiven Reise von Kassenbuch. Gedacht für die Kurzbefehle-Automation „Transaktion“ (Apple Pay): Betrag, Währung und Händler aus der Transaktion einfach als Parameter übergeben."
     )
     static var openAppWhenRun = false
 
@@ -38,7 +38,7 @@ struct LogExpenseIntent: AppIntent {
     func perform() async throws -> some IntentResult & ProvidesDialog {
         let store = AppStore.shared
         guard let trip = store.activeTrip else {
-            return .result(dialog: "Keine aktive Reise — bitte die Reisekasse einmal öffnen.")
+            return .result(dialog: "Keine aktive Reise — bitte Kassenbuch einmal öffnen.")
         }
         guard betrag > 0 else {
             return .result(dialog: "Der Betrag fehlt — in der Automation den Transaktions-Betrag übergeben.")

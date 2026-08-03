@@ -83,7 +83,7 @@ struct EntriesView: View {
                 }
             } label: {
                 HStack(spacing: 8) {
-                    Text(store.activeTrip?.name ?? "Reisekasse")
+                    Text(store.activeTrip?.name ?? "Kassenbuch")
                         .font(.system(size: 36, weight: .bold))
                         .foregroundStyle(Theme.textPrimary)
                     Image(systemName: "chevron.down")

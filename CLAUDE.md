@@ -42,8 +42,13 @@ noch Commits auf denselben PR gepusht wurden — die hingen dann fest
 - Die Build-Nummer in Klammern vergibt die Skript-Bauphase
   „Build-Nummer setzen" automatisch — nie von Hand pflegen.
 
-## Projekt Reisekasse — Versionierung
+## Projekt Kassenbuch (intern: Reisekasse) — Versionierung
 
+- Die App heißt für Nutzer **„Kassenbuch"** (App Store Connect,
+  Homescreen, alle App-Texte — Ansage des Nutzers, 08/2026, weil
+  „Reisekasse" im App Store vergeben ist). Projektordner, Target,
+  Bundle-ID und iCloud-Container bleiben „Reisekasse"/`de.familie.
+  reisekasse` — nach dem ersten Signieren nicht mehr ändern.
 - App-Code: `ReisekasseiOS/` (ein Target). `MARKETING_VERSION` und
   `CURRENT_PROJECT_VERSION` stehen an zwei Stellen im pbxproj
   (Debug+Release) — keine Skript-Bauphase, beide Werte werden im

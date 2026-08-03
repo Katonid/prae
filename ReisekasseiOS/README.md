@@ -1,4 +1,11 @@
-# 💶 Reisekasse — native iOS-App
+# 💶 Kassenbuch — native iOS-App
+
+**Name:** Die App heißt **„Kassenbuch"** — im App Store (der Eintrag in
+App Store Connect), auf dem Homescreen und in allen Texten der App.
+Der interne Projektname (Ordner `ReisekasseiOS/`, Target „Reisekasse",
+Bundle-ID `de.familie.reisekasse`, iCloud-Container) bleibt unverändert —
+er ist für Nutzer unsichtbar, und Bundle-ID/Container dürfen nach dem
+ersten Signieren nicht mehr wechseln.
 
 Ausgaben-Tracker für Reisen, ohne Abo und ohne Server: Swift/SwiftUI,
 iOS 17+, keine externen Abhängigkeiten. Zahlungen mit **Apple Pay werden
@@ -112,14 +119,11 @@ Voraussetzungen: Mac mit Xcode 16+, Apple-Developer-Programm.
    TestFlight-Builds nutzen die Production-Umgebung.
 6. **App in App Store Connect anlegen (einmalig, vor dem ersten
    Upload):** Der Name „Reisekasse" ist im App Store bereits vergeben —
-   der Direkt-Upload aus Xcode kann den App-Eintrag deshalb nicht
-   automatisch anlegen („App Record Creation Error"). Lösung: In
-   [App Store Connect](https://appstoreconnect.apple.com) → *Meine
-   Apps* → **+** → *Neue App* manuell anlegen, gleiche Bundle-ID
-   wählen und einen freien Namen vergeben (z. B. „Reisekasse STAN"
-   oder „STAN Reisekasse"). Dieser Name zählt nur für den Store —
-   auf dem Homescreen heißt die App weiterhin „Reisekasse". Danach
-   klappt der Upload aus Xcode.
+   der Direkt-Upload aus Xcode konnte den App-Eintrag deshalb nicht
+   automatisch anlegen („App Record Creation Error"). Deshalb wurde der
+   Eintrag manuell in [App Store Connect](https://appstoreconnect.apple.com)
+   angelegt (*Meine Apps* → **+** → *Neue App*, gleiche Bundle-ID) —
+   unter dem Namen **„Kassenbuch"**, den die App seither überall trägt.
 7. **Archivieren & TestFlight:** *Product → Archive* → Upload; in App
    Store Connect die Tester (Mitreisende) einladen.
    Die Export-Compliance-Frage entfällt: `ITSAppUsesNonExemptEncryption
