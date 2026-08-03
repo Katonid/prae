@@ -32,6 +32,10 @@ struct EntryEditorView: View {
     @State private var photoFilename: String?
     @State private var photoPickerItem: PhotosPickerItem?
     @State private var confirmDelete = false
+    @State private var author = ""
+    @State private var tripId = ""
+    @State private var showAuthorPrompt = false
+    @State private var customAuthor = ""
     @FocusState private var amountFocused: Bool
 
     private var amount: Double? {
@@ -77,11 +81,40 @@ struct EntryEditorView: View {
                 dismiss()
             }
         }
+        .alert("Bezahlt von", isPresented: $showAuthorPrompt) {
+            TextField("Name", text: $customAuthor)
+            Button("Übernehmen") {
+                if let name = customAuthor.nonEmpty { author = name }
+            }
+            Button("Abbrechen", role: .cancel) {}
+        } message: {
+            Text("Name der Person, die diese Ausgabe bezahlt hat.")
+        }
     }
 
     // MARK: - Laden & Speichern
 
+    /// Auswahlliste „Bezahlt von": Teilnehmer der gewählten Reise,
+    /// der eigene Name und der aktuell eingetragene Zahler.
+    private var authorChoices: [String] {
+        let trip = store.visibleTrips.first { $0.id == tripId } ?? store.activeTrip
+        var names = trip?.participants ?? []
+        if let me = store.profileName.nonEmpty, !names.contains(me) { names.append(me) }
+        if let current = author.nonEmpty, !names.contains(current) { names.append(current) }
+        return names
+    }
+
+    private var selectedTripName: String {
+        store.visibleTrips.first { $0.id == tripId }?.name ?? "Reise wählen"
+    }
+
     private func load() {
+        author = store.profileName
+        tripId = store.activeTrip?.id ?? ""
+        if let expense = existing {
+            author = expense.author
+            tripId = expense.tripId
+        }
         if let expense = existing {
             title = expense.title
             note = expense.note
@@ -120,8 +153,11 @@ struct EntryEditorView: View {
     }
 
     private func save() {
-        guard let trip = store.activeTrip, let value = amount, let name = title.nonEmpty else { return }
+        guard let value = amount, let name = title.nonEmpty else { return }
+        let targetTripId = tripId.nonEmpty ?? store.activeTrip?.id ?? ""
+        guard !targetTripId.isEmpty else { return }
         if var expense = existing {
+            expense.tripId = targetTripId
             expense.title = name
             expense.note = note.trimmed
             expense.amount = value
@@ -135,13 +171,15 @@ struct EntryEditorView: View {
             expense.placeName = placeName
             expense.latitude = latitude
             expense.longitude = longitude
+            expense.author = author.trimmed
             expense.excludeFromDaily = excludeFromDaily
             expense.refunded = refunded
             expense.photoFilename = photoFilename
             store.updateExpense(expense)
+            store.addParticipant(author, to: targetTripId)
         } else {
             let expense = Expense(
-                tripId: trip.id,
+                tripId: targetTripId,
                 title: name,
                 note: note.trimmed,
                 amount: value,
@@ -155,12 +193,13 @@ struct EntryEditorView: View {
                 placeName: placeName,
                 latitude: latitude,
                 longitude: longitude,
-                author: store.profileName,
+                author: author.trimmed.nonEmpty ?? store.profileName,
                 excludeFromDaily: excludeFromDaily,
                 refunded: refunded,
                 photoFilename: photoFilename
             )
             store.addExpense(expense)
+            store.addParticipant(author, to: targetTripId)
         }
         dismiss()
     }
@@ -318,6 +357,81 @@ struct EntryEditorView: View {
             }
 
             Divider().overlay(Theme.separator).padding(.leading, 54)
+
+            // Bezahlt von
+            Menu {
+                ForEach(authorChoices, id: \.self) { name in
+                    Button {
+                        author = name
+                    } label: {
+                        if name == author {
+                            Label(name, systemImage: "checkmark")
+                        } else {
+                            Text(name)
+                        }
+                    }
+                }
+                Divider()
+                Button {
+                    customAuthor = author
+                    showAuthorPrompt = true
+                } label: {
+                    Label("Anderer Name …", systemImage: "person.badge.plus")
+                }
+            } label: {
+                HStack(spacing: 12) {
+                    Image(systemName: "person.crop.circle.fill")
+                        .foregroundStyle(Theme.blue)
+                        .frame(width: 28)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(author.nonEmpty ?? "Person wählen")
+                            .foregroundStyle(author.trimmed.isEmpty ? Theme.textDim : Theme.textPrimary)
+                        Text("Bezahlt von")
+                            .font(.footnote)
+                            .foregroundStyle(Theme.textDim)
+                    }
+                    Spacer()
+                }
+                .padding(14)
+                .contentShape(Rectangle())
+            }
+
+            Divider().overlay(Theme.separator).padding(.leading, 54)
+
+            // Reise (Eintrag verschieben)
+            if store.visibleTrips.count > 1 {
+                Menu {
+                    ForEach(store.visibleTrips) { trip in
+                        Button {
+                            tripId = trip.id
+                        } label: {
+                            if trip.id == tripId {
+                                Label(trip.name, systemImage: "checkmark")
+                            } else {
+                                Text(trip.name)
+                            }
+                        }
+                    }
+                } label: {
+                    HStack(spacing: 12) {
+                        Image(systemName: "suitcase.fill")
+                            .foregroundStyle(Theme.blue)
+                            .frame(width: 28)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(selectedTripName)
+                                .foregroundStyle(Theme.textPrimary)
+                            Text("Reise")
+                                .font(.footnote)
+                                .foregroundStyle(Theme.textDim)
+                        }
+                        Spacer()
+                    }
+                    .padding(14)
+                    .contentShape(Rectangle())
+                }
+
+                Divider().overlay(Theme.separator).padding(.leading, 54)
+            }
 
             // Land
             Menu {
