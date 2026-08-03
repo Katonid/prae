@@ -26,30 +26,29 @@ final class AppStore: ObservableObject {
     let engine = CloudSyncEngine()
 
     private let defaults = UserDefaults.standard
-    private var visibleTripIds: Set<String> = [] {
-        didSet { defaults.set(Array(visibleTripIds), forKey: "visibleTripIds") }
-    }
 
     // MARK: - Initialisierung
 
     private init() {
         profileName = defaults.string(forKey: "profileName") ?? ""
         friendsBannerDismissed = defaults.bool(forKey: "friendsBannerDismissed")
-        visibleTripIds = Set(defaults.stringArray(forKey: "visibleTripIds") ?? [])
         activeTripId = defaults.string(forKey: "activeTripId") ?? ""
 
         trips = Self.loadJSON([Trip].self, from: Self.tripsURL) ?? []
         expenses = Self.loadJSON([Expense].self, from: Self.expensesURL) ?? []
 
         if visibleTrips.isEmpty {
-            // Erste Nutzung: direkt eine Reise für den konkreten Anlass anlegen.
-            let trip = Trip(name: "Kanada", homeCurrency: "EUR", rates: ["CAD": 0.67])
+            // Erste Nutzung: direkt eine Reise für den konkreten Anlass
+            // anlegen. Mit FESTER ID, damit jedes Gerät denselben
+            // CloudKit-Record erzeugt — sonst entsteht bei jeder
+            // Neuinstallation eine weitere „Kanada"-Reise.
+            let trip = Trip(id: "default-kanada", name: "Kanada", homeCurrency: "EUR", rates: ["CAD": 0.67])
             trips.append(trip)
-            visibleTripIds.insert(trip.id)
             activeTripId = trip.id
             saveTrips()
             engine.enqueue(kind: .trip, entityId: trip.id)
         }
+        mergeDuplicateTrips()
         if activeTrip == nil, let first = visibleTrips.first {
             activeTripId = first.id
         }
@@ -117,9 +116,12 @@ final class AppStore: ObservableObject {
 
     // MARK: - Reisen
 
-    /// Reisen, die auf diesem Gerät angelegt oder per Code beigetreten wurden.
+    /// Alle nicht gelöschten Reisen. Der CloudKit-Container gehört der
+    /// eigenen App-Familie — jede synchronisierte Reise wird angezeigt.
+    /// (Früher wurden nur „beigetretene" Reisen gezeigt; das hat nach
+    /// Neuinstallationen die eigenen Daten versteckt.)
     var visibleTrips: [Trip] {
-        trips.filter { !$0.deleted && visibleTripIds.contains($0.id) }
+        trips.filter { !$0.deleted }
             .sorted { $0.createdAtMs < $1.createdAtMs }
     }
 
@@ -131,7 +133,6 @@ final class AppStore: ObservableObject {
         var newTrip = trip
         newTrip.updatedAtMs = Date.nowMs
         trips.append(newTrip)
-        visibleTripIds.insert(newTrip.id)
         activeTripId = newTrip.id
         saveTrips()
         engine.enqueue(kind: .trip, entityId: newTrip.id)
@@ -153,14 +154,14 @@ final class AppStore: ObservableObject {
         var updated = trip
         updated.deleted = true
         updateTrip(updated)
-        visibleTripIds.remove(trip.id)
         if activeTripId == trip.id {
             activeTripId = visibleTrips.first?.id ?? ""
         }
     }
 
-    /// Beitritt per Einladungscode. Voraussetzung: Die Reise ist schon einmal
-    /// synchronisiert worden (der Code findet sie im lokalen Datenbestand).
+    /// Beitritt per Einladungscode: aktiviert die Reise und trägt den
+    /// eigenen Namen als Teilnehmer ein. Voraussetzung: Die Reise ist
+    /// schon einmal synchronisiert worden.
     @discardableResult
     func joinTrip(code: String) -> Trip? {
         let normalized = code.uppercased().trimmed
@@ -168,10 +169,48 @@ final class AppStore: ObservableObject {
         guard let trip = trips.first(where: { $0.joinCode.uppercased() == normalized && !$0.deleted }) else {
             return nil
         }
-        visibleTripIds.insert(trip.id)
         activeTripId = trip.id
         registerParticipant(in: trip.id)
         return trip
+    }
+
+    /// Räumt doppelte Reisen mit gleichem Namen auf — entstanden, wenn
+    /// mehrere Geräte/Neuinstallationen jeweils ihre eigene Standard-
+    /// Reise angelegt haben. Behalten wird deterministisch (auf allen
+    /// Geräten gleich) die älteste; Einträge, Teilnehmer und Budgets
+    /// der Duplikate wandern hinüber, die Duplikate werden gelöscht.
+    private func mergeDuplicateTrips() {
+        let groups = Dictionary(grouping: trips.filter { !$0.deleted }) {
+            $0.name.trimmed.lowercased()
+        }
+        for (name, group) in groups where group.count > 1 && !name.isEmpty {
+            let sorted = group.sorted {
+                if $0.createdAtMs != $1.createdAtMs { return $0.createdAtMs < $1.createdAtMs }
+                return $0.id < $1.id
+            }
+            var keeper = sorted[0]
+            for duplicate in sorted.dropFirst() {
+                for var expense in expenses where expense.tripId == duplicate.id && !expense.deleted {
+                    expense.tripId = keeper.id
+                    updateExpense(expense)
+                }
+                for participant in duplicate.participants where !keeper.participants.contains(participant) {
+                    keeper.participants.append(participant)
+                }
+                if keeper.totalBudget == nil { keeper.totalBudget = duplicate.totalBudget }
+                if keeper.dailyBudget == nil { keeper.dailyBudget = duplicate.dailyBudget }
+                if keeper.startDate == nil { keeper.startDate = duplicate.startDate }
+                if keeper.endDate == nil { keeper.endDate = duplicate.endDate }
+                for (code, rate) in duplicate.rates where keeper.rates[code] == nil {
+                    keeper.rates[code] = rate
+                }
+                var removed = duplicate
+                removed.deleted = true
+                updateTrip(removed)
+                if activeTripId == duplicate.id { activeTripId = keeper.id }
+            }
+            updateTrip(keeper)
+        }
     }
 
     /// Trägt den eigenen Namen in die Teilnehmerliste der Reise ein.
@@ -349,6 +388,10 @@ final class AppStore: ObservableObject {
 
         if tripsChanged { saveTrips() }
         if expensesChanged { saveExpenses() }
+        if tripsChanged { mergeDuplicateTrips() }
+        if activeTrip == nil, let first = visibleTrips.first {
+            activeTripId = first.id
+        }
     }
 
     // MARK: - Auswertungen
