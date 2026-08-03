@@ -42,16 +42,26 @@ noch Commits auf denselben PR gepusht wurden — die hingen dann fest
 - Die Build-Nummer in Klammern vergibt die Skript-Bauphase
   „Build-Nummer setzen" automatisch — nie von Hand pflegen.
 
-## Projekt Reisekasse — Versionierung
+## Projekt Kassenbuch (intern: Reisekasse) — Versionierung
 
-- App-Code: `ReisekasseiOS/` (ein Target). `MARKETING_VERSION` und
-  `CURRENT_PROJECT_VERSION` stehen an zwei Stellen im pbxproj
-  (Debug+Release) — keine Skript-Bauphase, beide Werte werden im
-  Repo gepflegt.
+- Die App heißt für Nutzer **„Kassenbuch"** (App Store Connect,
+  Homescreen, alle App-Texte — Ansage des Nutzers, 08/2026, weil
+  „Reisekasse" im App Store vergeben ist). Projektordner, Target,
+  Bundle-ID und iCloud-Container bleiben „Reisekasse"/`de.familie.
+  reisekasse` — nach dem ersten Signieren nicht mehr ändern.
+- App-Code: `ReisekasseiOS/` (zwei Targets: App + ReisekasseWatch).
+  `MARKETING_VERSION` und `CURRENT_PROJECT_VERSION` stehen in BEIDEN
+  Targets identisch (vier Stellen im pbxproj: App Debug+Release,
+  Watch Debug+Release) — keine Skript-Bauphase, beide Werte werden
+  im Repo gepflegt.
 - **Jede Arbeitseinheit (= jeder PR mit App-Änderungen) hebt die
   Patch-Nummer UND die Build-Nummer um je +1 an** — ohne Nachfrage,
-  als Teil des PRs. Startpunkt: 1.0 (Build 1). Größere Sprünge nur
-  auf ausdrückliche Ansage des Nutzers.
+  als Teil des PRs (Ansage des Nutzers, 08/2026: konsequent bei jedem
+  neuen Stand). Zählung: 1.0.1 (Build 2), dann 1.0.2 (Build 3) usw.
+  Größere Sprünge nur auf ausdrückliche Ansage des Nutzers.
+- `ITSAppUsesNonExemptEncryption = NO` ist im pbxproj gesetzt (App
+  nutzt keine eigene Verschlüsselung) — nicht entfernen, erspart die
+  Export-Compliance-Frage bei jedem TestFlight-Build.
 
 ## Projekt FlightMate AI
 

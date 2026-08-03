@@ -1,4 +1,11 @@
-# 💶 Reisekasse — native iOS-App
+# 💶 Kassenbuch — native iOS-App
+
+**Name:** Die App heißt **„Kassenbuch"** — im App Store (der Eintrag in
+App Store Connect), auf dem Homescreen und in allen Texten der App.
+Der interne Projektname (Ordner `ReisekasseiOS/`, Target „Reisekasse",
+Bundle-ID `de.familie.reisekasse`, iCloud-Container) bleibt unverändert —
+er ist für Nutzer unsichtbar, und Bundle-ID/Container dürfen nach dem
+ersten Signieren nicht mehr wechseln.
 
 Ausgaben-Tracker für Reisen, ohne Abo und ohne Server: Swift/SwiftUI,
 iOS 17+, keine externen Abhängigkeiten. Zahlungen mit **Apple Pay werden
@@ -37,6 +44,14 @@ dieselbe Technik wie in der Canada2026-App dieses Repos.
   Einladungscode; Mitreisende treten damit bei, und alle Einträge —
   auch automatisch erfasste Zahlungen — erscheinen bei allen, mit
   Namen der zahlenden Person.
+- **Apple Watch:** eigenes Watch-Target „ReisekasseWatch" (watchOS 10),
+  wird mit der iPhone-App mitinstalliert. Vier Seiten zum Durchblättern:
+  Übersicht (Gesamt/Heute mit Budget-Balken), letzte Einträge, neuer
+  Eintrag per Diktat („pizza 13,5 bar" — Kategorie automatisch) und
+  Einstellungen (Reise wählen, Name, Sync). Die Watch spricht direkt
+  mit derselben CloudKit-Datenbank und funktioniert damit auch ohne
+  iPhone in der Nähe (z. B. beim Bezahlen nur mit der Uhr); Einträge
+  ohne Netz warten in einer Outbox.
 
 ## Automatischer Import über Apple Pay
 
@@ -110,15 +125,26 @@ Voraussetzungen: Mac mit Xcode 16+, Apple-Developer-Programm.
    **Queryable** und **Sortable** markieren.
 5. **Schema deployen:** *Deploy Schema Changes to Production* —
    TestFlight-Builds nutzen die Production-Umgebung.
-6. **Archivieren & TestFlight:** *Product → Archive* → Upload; in App
+6. **App in App Store Connect anlegen (einmalig, vor dem ersten
+   Upload):** Der Name „Reisekasse" ist im App Store bereits vergeben —
+   der Direkt-Upload aus Xcode konnte den App-Eintrag deshalb nicht
+   automatisch anlegen („App Record Creation Error"). Deshalb wurde der
+   Eintrag manuell in [App Store Connect](https://appstoreconnect.apple.com)
+   angelegt (*Meine Apps* → **+** → *Neue App*, gleiche Bundle-ID) —
+   unter dem Namen **„Kassenbuch"**, den die App seither überall trägt.
+7. **Archivieren & TestFlight:** *Product → Archive* → Upload; in App
    Store Connect die Tester (Mitreisende) einladen.
-7. **Automation einrichten** (siehe oben) — auf jedem Gerät einmal.
+   Die Export-Compliance-Frage entfällt: `ITSAppUsesNonExemptEncryption
+   = NO` ist im Projekt hinterlegt (die App enthält keine eigene
+   Verschlüsselung).
+8. **Automation einrichten** (siehe oben) — auf jedem Gerät einmal.
 
 ## Technik
 
-- Swift 5 / SwiftUI, iOS 17+, iPhone + iPad, keine externen
-  Abhängigkeiten: CloudKit (Sync), MapKit (Karte), CoreLocation (Ort),
-  Swift Charts (Diagramme), PhotosUI (Fotos), App Intents (Kurzbefehle).
+- Swift 5 / SwiftUI, iOS 17+ (iPhone + iPad) und watchOS 10+ (zwei
+  Targets: App + ReisekasseWatch), keine externen Abhängigkeiten:
+  CloudKit (Sync), MapKit (Karte), CoreLocation (Ort), Swift Charts
+  (Diagramme), PhotosUI (Fotos), App Intents (Kurzbefehle).
 - `Model/Models.swift` — Reise/Eintrag/Kategorien/Zahlungsmittel
 - `Model/Classifier.swift` — Auto-Kategorisierung + Schnelleingabe-Parser
 - `Model/CloudSync.swift` — CloudKit-Engine (Outbox, Delta-Pull, Subscription)
@@ -126,3 +152,10 @@ Voraussetzungen: Mac mit Xcode 16+, Apple-Developer-Programm.
 - `Model/AppStore.swift` — Zustand, Persistenz, Auswertungen, CSV
 - `ReisekasseIntents.swift` — App-Intent „Ausgabe erfassen" für die Automation
 - `Views/…` — Einträge, Editor, Statistiken, Karte, Suche, Reisen/Freunde/Einstellungen
+- `../ReisekasseWatch/…` — Watch-App (eigenes Target, bewusst ohne
+  geteilte Quellen wie bei FlightMateWatch: `WatchStore.swift` spiegelt
+  die Modelle mit identischen JSON-Feldnamen und bringt eine schlanke
+  CloudKit-Anbindung mit; `WatchViews.swift` die vier Seiten)
+
+Beim ersten Signieren in Xcode auch für das Target „ReisekasseWatch"
+das Team wählen — es nutzt denselben iCloud-Container.

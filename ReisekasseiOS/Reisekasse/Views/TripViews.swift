@@ -203,9 +203,9 @@ struct FriendsSheet: View {
             Image(systemName: "person.2.badge.plus.fill")
                 .font(.system(size: 40))
                 .foregroundStyle(Theme.blue)
-            Text("Gemeinsame Reisekasse")
+            Text("Gemeinsames Kassenbuch")
                 .font(.headline)
-            Text("Mitreisende installieren die App, tippen auf „Reise beitreten“ und geben diesen Code ein. Danach landen ihre Zahlungen — auch die automatisch per Apple Pay erfassten — in dieser Reise, auf allen Geräten.")
+            Text("Mitreisende installieren Kassenbuch, tippen auf „Reise beitreten“ und geben diesen Code ein. Danach landen ihre Zahlungen — auch die automatisch per Apple Pay erfassten — in dieser Reise, auf allen Geräten.")
                 .font(.subheadline)
                 .foregroundStyle(Theme.textDim)
                 .multilineTextAlignment(.center)
@@ -217,7 +217,7 @@ struct FriendsSheet: View {
                 .frame(maxWidth: .infinity)
                 .background(RoundedRectangle(cornerRadius: 14).fill(Theme.cardSoft))
 
-            ShareLink(item: "Komm in unsere Reisekasse „\(trip.name)“! Lade die App und tritt mit dem Code \(trip.joinCode) bei.") {
+            ShareLink(item: "Komm in unser gemeinsames Kassenbuch „\(trip.name)“! Lade die App „Kassenbuch“ und tritt mit dem Code \(trip.joinCode) bei.") {
                 Label("Code teilen", systemImage: "square.and.arrow.up")
                     .font(.headline)
                     .frame(maxWidth: .infinity)
@@ -333,14 +333,14 @@ struct SettingsSheet: View {
                 } header: {
                     Text("Standort")
                 } footer: {
-                    Text("Für den Ort am Eintrag. Für die automatische Erfassung per Apple Pay im Hintergrund die Stufe „Immer“ erlauben (Einstellungen → Reisekasse → Standort).")
+                    Text("Für den Ort am Eintrag. Für die automatische Erfassung per Apple Pay im Hintergrund die Stufe „Immer“ erlauben (Einstellungen → Kassenbuch → Standort).")
                 }
 
                 Section {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("1. Kurzbefehle-App → Automation → Neue Automation → „Transaktion“.")
                         Text("2. Karte(n) auswählen, „Sofort ausführen“ aktivieren.")
-                        Text("3. Aktion „Ausgabe erfassen“ (Reisekasse) wählen.")
+                        Text("3. Aktion „Ausgabe erfassen“ (Kassenbuch) wählen.")
                         Text("4. Betrag, Währung und Händler aus der Transaktion als Parameter übergeben.")
                     }
                     .font(.subheadline)

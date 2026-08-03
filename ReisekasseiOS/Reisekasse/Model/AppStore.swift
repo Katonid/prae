@@ -457,7 +457,7 @@ final class AppStore: ObservableObject {
             lines.append(fields.map { $0.replacingOccurrences(of: ";", with: ",") }.joined(separator: ";"))
         }
 
-        let filename = "Reisekasse-\(trip.name.replacingOccurrences(of: " ", with: "-")).csv"
+        let filename = "Kassenbuch-\(trip.name.replacingOccurrences(of: " ", with: "-")).csv"
         let url = FileManager.default.temporaryDirectory.appendingPathComponent(filename)
         // BOM, damit Excel Umlaute korrekt erkennt.
         var data = Data([0xEF, 0xBB, 0xBF])

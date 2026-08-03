@@ -49,7 +49,7 @@ struct StatsView: View {
     private var header: some View {
         HStack {
             HStack(spacing: 8) {
-                Text(store.activeTrip?.name ?? "Reisekasse")
+                Text(store.activeTrip?.name ?? "Kassenbuch")
                     .font(.system(size: 30, weight: .bold))
                 Image(systemName: "chevron.down")
                     .font(.system(size: 14, weight: .bold))
