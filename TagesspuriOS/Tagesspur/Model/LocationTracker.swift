@@ -199,6 +199,7 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
             // Neustart mitten in Bewegung: erste (noch grobe) Fixe zählen,
             // sonst fehlen nach jedem Neustart hunderte Meter Track.
             wakeGraceUntil = Date().addingTimeInterval(Self.wakeGraceSeconds)
+            wakeBoostUntil = Date().addingTimeInterval(600)
         }
         // Not-Sicherung, falls iOS die App geordnet beendet.
         NotificationCenter.default.addObserver(
@@ -345,7 +346,17 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
     /// Zeitpunkt der letzten von iOS GELIEFERTEN Ortung (unabhängig
     /// davon, ob sie aufgezeichnet wurde).
     private var lastDeliveredAt = Date.distantPast
+    /// Zeitpunkt der letzten BRAUCHBAREN Ortung (≤ 200 m). Lehre der
+    /// Fahrt vom 1.8.: iOS lieferte minutenlang nur Funkzellen-Fixe
+    /// (±1414 m) — der Watchdog wertete das als „Lieferung läuft“ und
+    /// blieb still, die Fahrt blieb grob. Für den Watchdog zählt
+    /// deshalb nur noch Brauchbares.
+    private var lastUsableDeliveredAt = Date.distantPast
     private var lastStallRestartAt = Date.distantPast
+    /// Nach dem Aufwachen (Ruhemodus-Ende, Geofence, Neustart) läuft
+    /// der Watchdog 10 min im Schnelltakt (60 s statt 120 s) — die
+    /// Anlaufphase einer Fahrt soll kurz bleiben.
+    private var wakeBoostUntil = Date.distantPast
 
     /// Selbstheilung gegen eingeschlafene Hintergrund-Lieferung: Die
     /// Fahrt vom 30.7. bewies, dass iOS mitten in Bewegung minutenlang
@@ -354,10 +365,12 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
     /// 4:01/4:06). Genau das macht der Watchdog jetzt systematisch.
     private func restartUpdatesIfStalled() {
         guard trackingEnabled, !isResting, vehicleMotionActive else { return }
-        let stalledFor = Date().timeIntervalSince(max(lastDeliveredAt, lastStallRestartAt))
-        guard stalledFor > 120 else { return }
+        let stalledFor = Date().timeIntervalSince(max(lastUsableDeliveredAt, lastStallRestartAt))
+        let limit: TimeInterval = Date() < wakeBoostUntil ? 60 : 120
+        guard stalledFor > limit else { return }
         lastStallRestartAt = Date()
-        Self.logEvent("Ortungs-Stillstand (\(Int(stalledFor)) s in Bewegung) — Updates neu gestartet")
+        let coarseOnly = Date().timeIntervalSince(lastDeliveredAt) < 60
+        Self.logEvent("\(coarseOnly ? "Nur grobe Ortung" : "Ortungs-Stillstand") (\(Int(stalledFor)) s in Bewegung) — Updates neu gestartet")
         // Voller Reset inkl. Hintergrund-Sitzung — nicht nur die
         // Update-Schleife, auch die Sitzungs-Berechtigung erneuern.
         backgroundSession?.invalidate()
@@ -482,6 +495,7 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
         // bis zur vollen Präzision. Solange zählt auch ein mittelmäßiger
         // Fix — sonst fehlen bei zügiger Abfahrt die ersten Kilometer.
         wakeGraceUntil = Date().addingTimeInterval(Self.wakeGraceSeconds)
+        wakeBoostUntil = Date().addingTimeInterval(600)
         applyActiveParameters()
         Self.logEvent("Bewegung erkannt — präzise Erfassung")
     }
@@ -527,6 +541,7 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
         Self.logEvent("Geofence verlassen — Erfassung reaktiviert")
         lastMovement = Date()
         wakeGraceUntil = Date().addingTimeInterval(Self.wakeGraceSeconds)
+        wakeBoostUntil = Date().addingTimeInterval(600)
         if isResting { exitRest() }
         manager.startUpdatingLocation()
     }
@@ -558,6 +573,9 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
     private func handle(_ location: CLLocation) {
         lastDeliveredAt = Date()
         guard location.horizontalAccuracy >= 0 else { return }
+        if location.horizontalAccuracy <= 200 {
+            lastUsableDeliveredAt = Date()
+        }
         lastLocation = location
 
         // Bewegungserkennung: auch GROBE Fixe zählen. Im Ruhemodus liefert
