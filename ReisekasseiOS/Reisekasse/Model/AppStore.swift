@@ -438,12 +438,12 @@ final class AppStore: ObservableObject {
             return "Die Datei konnte nicht gelesen werden."
         }
         guard let parsed = CSVImport.travelSpendExpenses(from: text, tripId: trip.id, fallbackAuthor: profileName) else {
-            // Die gefundene Kopfzeile mit anzeigen — das macht sichtbar,
-            // ob ein falsches Format oder eine falsche Datei gewählt wurde.
-            let firstLine = text.replacingOccurrences(of: "\u{FEFF}", with: "")
-                .prefix(while: { $0 != "\n" && $0 != "\r" })
+            // Die gefundene Kopfzeile samt Diagnose anzeigen — das macht
+            // sichtbar, woran der Import konkret gescheitert ist.
+            let firstLine = CSVImport.normalized(text)
+                .prefix(while: { $0 != "\n" })
                 .prefix(90)
-            return "Kopfzeile nicht erkannt — erwartet wird ein TravelSpend-Export (travelspend_export_….csv). Gefunden: „\(firstLine)…“"
+            return "Kopfzeile nicht erkannt — erwartet wird ein TravelSpend-Export (travelspend_export_….csv). Gefunden: „\(firstLine)…“ [\(CSVImport.diagnostics(for: text))]"
         }
 
         let existingKeys = Set(expenses(for: trip.id).map(Self.importKey))
