@@ -42,6 +42,17 @@ noch Commits auf denselben PR gepusht wurden — die hingen dann fest
 - Die Build-Nummer in Klammern vergibt die Skript-Bauphase
   „Build-Nummer setzen" automatisch — nie von Hand pflegen.
 
+## Projekt Reisekasse — Versionierung
+
+- App-Code: `ReisekasseiOS/` (ein Target). `MARKETING_VERSION` und
+  `CURRENT_PROJECT_VERSION` stehen an zwei Stellen im pbxproj
+  (Debug+Release) — keine Skript-Bauphase, beide Werte werden im
+  Repo gepflegt.
+- **Jede Arbeitseinheit (= jeder PR mit App-Änderungen) hebt die
+  Patch-Nummer UND die Build-Nummer um je +1 an** — ohne Nachfrage,
+  als Teil des PRs. Startpunkt: 1.0 (Build 1). Größere Sprünge nur
+  auf ausdrückliche Ansage des Nutzers.
+
 ## Projekt FlightMate AI
 
 - Produktgrundlage: `docs/flightmate-ai/PRD.md` — Änderungen am Umfang
