@@ -38,6 +38,11 @@ dieselbe Technik wie in der Canada2026-App dieses Repos.
   anlegen; je Reise Heimatwährung, Gesamt-/Tagesbudget, Zeitraum und
   editierbare Wechselkurse (z. B. 1 CAD = 0,67 EUR). Erste Reise
   „Kanada" wird beim ersten Start automatisch angelegt.
+- **Automatisches Tagesbudget:** Ist kein festes Tagesbudget gesetzt,
+  rechnet die App (Gesamtbudget − „Aus Tagesdurchschnitt
+  ausgeschlossene" Ausgaben wie Flüge und Vorabbuchungen) ÷ Reisetage —
+  Voraussetzung: Gesamtbudget und Reisezeitraum sind in „Reise
+  bearbeiten" gesetzt. Gilt auf iPhone, iPad und Watch gleichermaßen.
 - **Statistiken:** Tageskennzahlen, Kategorien-Donut mit Filtern
   (Kategorie, Land, Monat, Ausgaben/Erstattungen), Monats-Trend,
   Länder-Auswertung, CSV-Export (Excel-tauglich, mit Ort und Person).

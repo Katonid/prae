@@ -318,12 +318,15 @@ final class WatchStore: ObservableObject {
 
     func dailyBudget(_ trip: WTrip) -> Double? {
         if let daily = trip.dailyBudget, daily > 0 { return daily }
-        if let total = trip.totalBudget, total > 0,
-           let start = trip.startDate, let end = trip.endDate, end >= start {
-            let days = (Calendar.current.dateComponents([.day], from: start, to: end).day ?? 0) + 1
-            return total / Double(days)
-        }
-        return nil
+        guard let total = trip.totalBudget, total > 0,
+              let start = trip.startDate, let end = trip.endDate, end >= start else { return nil }
+        let days = (Calendar.current.dateComponents([.day], from: start, to: end).day ?? 0) + 1
+        // Wie auf iOS: ausgeschlossene Ausgaben (Flüge, Vorabbuchungen)
+        // reduzieren den Topf, der Rest verteilt sich auf die Reisetage.
+        let excluded = expenses(for: trip.id)
+            .filter { $0.excludeFromDaily }
+            .reduce(0) { $0 + $1.homeValue(in: trip) }
+        return max(0, total - excluded) / Double(days)
     }
 
     func recentExpenses(_ trip: WTrip, limit: Int = 25) -> [WExpense] {

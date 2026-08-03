@@ -434,13 +434,17 @@ final class AppStore: ObservableObject {
             .reduce(0) { $0 + $1.homeValue(on: day, in: trip) }
     }
 
-    /// Tagesbudget: explizit gesetzt oder aus Gesamtbudget und Reisedauer abgeleitet.
+    /// Tagesbudget: explizit gesetzt — oder automatisch berechnet als
+    /// (Gesamtbudget − „Aus Tagesdurchschnitt ausgeschlossene" Ausgaben
+    /// wie Flüge und Vorabbuchungen) ÷ Reisetage.
     func dailyBudget(_ trip: Trip) -> Double? {
         if let daily = trip.dailyBudget, daily > 0 { return daily }
-        if let total = trip.totalBudget, total > 0, let days = trip.dayCount, days > 0 {
-            return total / Double(days)
-        }
-        return nil
+        guard let total = trip.totalBudget, total > 0,
+              let days = trip.dayCount, days > 0 else { return nil }
+        let excluded = expenses(for: trip.id)
+            .filter { $0.excludeFromDaily }
+            .reduce(0) { $0 + $1.homeValue(in: trip) }
+        return max(0, total - excluded) / Double(days)
     }
 
     /// Tagesgruppen für die Eintragsliste, neueste zuerst.
