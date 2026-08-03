@@ -23,6 +23,10 @@ import UIKit
 /// - Punkte werden gepuffert und nur alle 20 Punkte bzw. 90 Sekunden
 ///   in die Datenbank geschrieben (weniger I/O, weniger Sync-Läufe).
 final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelegate {
+    /// Zugriff für App-Intents (Kurzbefehle): Die App läuft beim
+    /// Ausführen eines Intents immer — die Instanz existiert dann.
+    private(set) static weak var shared: LocationTracker?
+
     private let manager = CLLocationManager()
     private let motionManager = CMMotionActivityManager()
     private let container: ModelContainer
@@ -175,6 +179,7 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
         self.highAccuracy = UserDefaults.standard.bool(forKey: Self.highAccuracyKey)
         self.persistentSession = (UserDefaults.standard.object(forKey: Self.persistentSessionKey) as? Bool) ?? true
         super.init()
+        Self.shared = self
         manager.delegate = self
         applyActiveParameters()
         // Navigations-Typ statt „other": iOS hält die Hintergrund-
