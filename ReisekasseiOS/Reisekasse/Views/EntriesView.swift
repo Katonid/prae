@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 // Hauptansicht „Einträge": Budget-Karten, Tagesliste, Schnelleingabe.
 
@@ -13,6 +14,8 @@ struct EntriesView: View {
     @State private var showFriends = false
     @State private var showSettings = false
     @State private var shareItems: [Any]?
+    @State private var showImporter = false
+    @State private var importMessage: String?
     @FocusState private var quickFocused: Bool
 
     var body: some View {
@@ -56,6 +59,28 @@ struct EntriesView: View {
             if let items = shareItems {
                 ActivityView(items: items)
             }
+        }
+        .fileImporter(
+            isPresented: $showImporter,
+            allowedContentTypes: [.commaSeparatedText, .text, .plainText],
+            allowsMultipleSelection: false
+        ) { result in
+            guard case .success(let urls) = result, let url = urls.first else { return }
+            let accessing = url.startAccessingSecurityScopedResource()
+            defer { if accessing { url.stopAccessingSecurityScopedResource() } }
+            if let data = try? Data(contentsOf: url) {
+                importMessage = store.importCSV(data: data)
+            } else {
+                importMessage = "Die Datei konnte nicht gelesen werden."
+            }
+        }
+        .alert("CSV-Import", isPresented: Binding(
+            get: { importMessage != nil },
+            set: { if !$0 { importMessage = nil } }
+        )) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(importMessage ?? "")
         }
     }
 
@@ -107,6 +132,11 @@ struct EntriesView: View {
                     }
                 } label: {
                     Label("CSV-Export", systemImage: "doc.badge.arrow.up")
+                }
+                Button {
+                    showImporter = true
+                } label: {
+                    Label("CSV importieren", systemImage: "square.and.arrow.down")
                 }
                 Button {
                     if let trip = store.activeTrip {

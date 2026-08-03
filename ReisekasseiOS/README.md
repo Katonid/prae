@@ -37,6 +37,13 @@ dieselbe Technik wie in der Canada2026-App dieses Repos.
 - **Statistiken:** Tageskennzahlen, Kategorien-Donut mit Filtern
   (Kategorie, Land, Monat, Ausgaben/Erstattungen), Monats-Trend,
   Länder-Auswertung, CSV-Export (Excel-tauglich, mit Ort und Person).
+- **CSV-Import aus TravelSpend:** Menü (⋯) → „CSV importieren" liest
+  die Export-Datei der TravelSpend-App (travelspend_export_….csv)
+  in die aktive Reise ein — mit Name, Notiz, Betrag/Währung, Datum,
+  Kategorie- und Zahlungsmittel-Zuordnung, Land, Ort samt Koordinaten,
+  „Auf Tage verteilen", „Aus Tagesdurchschnitt ausschließen" und
+  bezahlender Person. Ein erneuter Import legt nichts doppelt an
+  (gleicher Name + Tag + Betrag wird übersprungen).
 - **Karte:** alle Einträge mit Standort als Pins, unten Summe und Liste.
 - **Suche:** Volltext über Name/Notiz/Ort/Person plus Filter nach
   Kategorie, Land und Zahlungsmittel.
