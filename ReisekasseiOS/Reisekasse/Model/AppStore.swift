@@ -428,6 +428,50 @@ final class AppStore: ObservableObject {
         .sorted { abs($0.value) > abs($1.value) }
     }
 
+    // MARK: - CSV-Import (TravelSpend)
+
+    /// Importiert einen TravelSpend-Export in die aktive Reise.
+    /// Liefert eine Zusammenfassung als Nutzertext.
+    func importCSV(data: Data) -> String {
+        guard let trip = activeTrip else { return "Keine aktive Reise." }
+        let text = String(data: data, encoding: .utf8)
+            ?? String(data: data, encoding: .isoLatin1)
+            ?? ""
+        guard !text.isEmpty else { return "Die Datei konnte nicht gelesen werden." }
+        guard let parsed = CSVImport.travelSpendExpenses(from: text, tripId: trip.id, fallbackAuthor: profileName) else {
+            return "Kopfzeile nicht erkannt — erwartet wird ein TravelSpend-Export (travelspend_export_….csv)."
+        }
+
+        let existingKeys = Set(expenses(for: trip.id).map(Self.importKey))
+        var imported = 0
+        var duplicates = 0
+        for expense in parsed.expenses {
+            if existingKeys.contains(Self.importKey(expense)) {
+                duplicates += 1
+                continue
+            }
+            var newExpense = expense
+            newExpense.updatedAtMs = Date.nowMs
+            expenses.append(newExpense)
+            engine.enqueue(kind: .expense, entityId: newExpense.id)
+            imported += 1
+        }
+        if imported > 0 { saveExpenses() }
+
+        var parts = ["\(imported) Einträge importiert"]
+        if duplicates > 0 { parts.append("\(duplicates) waren schon vorhanden") }
+        if parsed.skippedRows > 0 { parts.append("\(parsed.skippedRows) Zeilen ohne Betrag/Datum übersprungen") }
+        return parts.joined(separator: ", ") + "."
+    }
+
+    /// Duplikat-Schlüssel: gleicher Name + Kalendertag + Betrag gilt als vorhanden,
+    /// damit ein erneuter Import nichts doppelt anlegt.
+    private static func importKey(_ expense: Expense) -> String {
+        let day = Int(expense.date.timeIntervalSince1970 / 86_400)
+        let cents = Int((expense.amount * 100).rounded())
+        return "\(expense.title.lowercased().trimmed)|\(day)|\(cents)"
+    }
+
     // MARK: - CSV-Export
 
     func exportCSV(trip: Trip) -> URL? {
