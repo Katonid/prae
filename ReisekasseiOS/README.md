@@ -69,7 +69,8 @@ ist die **Kurzbefehle-Automation „Transaktion"** — einmal eingerichtet,
 läuft danach alles automatisch im Hintergrund:
 
 1. **Kurzbefehle**-App öffnen → Tab **Automation** → **+** →
-   **Transaktion** (unter „Sofort ausführen" einsortiert).
+   **„Wenn ich eine Wallet-Karte verwende"** (je nach iOS-Version
+   heißt der Auslöser auch **„Transaktion"** — es ist derselbe).
 2. **Karte(n)** auswählen (z. B. alle, mit denen ihr in Kanada zahlt),
    „Sofort ausführen" aktivieren (nicht „Vor Ausführen fragen").
 3. Als Aktion **„Ausgabe erfassen"** aus der Reisekasse wählen.
@@ -88,7 +89,11 @@ Hinweise:
   (die App fragt zuerst „Beim Verwenden", danach lässt sich „Immer"
   wählen — oder direkt in den Einstellungen). Ohne „Immer" wird der
   Eintrag ohne Ort gespeichert und kann nachträglich ergänzt werden.
-- **Jede Person richtet die Automation auf ihrem iPhone ein** — so
+- **Die Automation gilt pro Gerät:** auf iPhone UND iPad je einmal
+  einrichten — iPad-Zahlungen (In-App/Safari per Apple Pay) erfasst
+  nur die iPad-Automation. Doppelte Einträge entstehen nicht, weil
+  jede Zahlung nur auf dem Gerät ausgelöst wird, auf dem sie stattfand.
+- **Jede Person richtet die Automation auf ihren Geräten ein** — so
   landen auch die Zahlungen der Mitreisenden automatisch in der
   gemeinsamen Reise (nach Beitritt per Einladungscode).
 - Bargeld erfasst man in Sekunden über die Schnelleingabe

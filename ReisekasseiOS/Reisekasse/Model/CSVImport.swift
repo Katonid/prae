@@ -11,6 +11,34 @@ import Foundation
 
 enum CSVImport {
 
+    // MARK: - Text-Dekodierung (UTF-8, UTF-16, BOM, Windows-1252)
+
+    /// CSV-Exporte kommen je nach App/Gerät in unterschiedlichen
+    /// Kodierungen — TravelSpend z. T. als UTF-16 „für Excel". Ein
+    /// falscher Zeichensatz würde die Kopfzeile unlesbar machen,
+    /// deshalb hier saubere Erkennung statt blindem UTF-8.
+    static func decodeText(_ rawData: Data) -> String? {
+        var data = rawData
+        if data.starts(with: [0xEF, 0xBB, 0xBF]) {
+            data.removeFirst(3)
+            return String(data: data, encoding: .utf8)
+        }
+        if data.starts(with: [0xFF, 0xFE]) || data.starts(with: [0xFE, 0xFF]) {
+            return String(data: data, encoding: .utf16)
+        }
+        if let utf8 = String(data: data, encoding: .utf8) {
+            return utf8
+        }
+        // UTF-16 ohne BOM (viele NUL-Bytes sind das Erkennungszeichen).
+        let nulCount = data.prefix(200).filter { $0 == 0 }.count
+        if nulCount > 10 {
+            if let utf16 = String(data: data, encoding: .utf16LittleEndian) { return utf16 }
+            if let utf16 = String(data: data, encoding: .utf16BigEndian) { return utf16 }
+        }
+        return String(data: data, encoding: .windowsCP1252)
+            ?? String(data: data, encoding: .isoLatin1)
+    }
+
     // MARK: - Generischer CSV-Parser (Anführungszeichen, "" als Escape, CRLF)
 
     static func parseCSV(_ text: String, delimiter: Character) -> [[String]] {
@@ -153,17 +181,24 @@ enum CSVImport {
 
     /// Baut Einträge für die Reise aus dem CSV-Text. Zeilen ohne Betrag
     /// oder Datum werden gezählt und übersprungen.
-    static func travelSpendExpenses(from text: String, tripId: String, fallbackAuthor: String) -> Result? {
-        // Trennzeichen erkennen: TravelSpend nutzt Komma, eigene Exporte Semikolon.
+    static func travelSpendExpenses(from rawText: String, tripId: String, fallbackAuthor: String) -> Result? {
+        // BOM-Zeichen entfernen, falls es die Dekodierung durchgereicht hat.
+        let text = rawText.replacingOccurrences(of: "\u{FEFF}", with: "")
+
+        // Trennzeichen erkennen: das häufigere Zeichen in der Kopfzeile
+        // gewinnt (TravelSpend nutzt Komma, eigene Exporte Semikolon).
         guard let headerLine = text.split(separator: "\n", maxSplits: 1).first else { return nil }
-        let delimiter: Character = headerLine.contains(";") && !headerLine.contains(",") ? ";" : ","
+        let commas = headerLine.filter { $0 == "," }.count
+        let semicolons = headerLine.filter { $0 == ";" }.count
+        let delimiter: Character = semicolons > commas ? ";" : ","
 
         let rows = parseCSV(text, delimiter: delimiter)
         guard rows.count >= 2 else { return nil }
 
         let header = rows[0].map { $0.lowercased().trimmed }
         func column(_ name: String) -> Int? { header.firstIndex(of: name) }
-        guard let amountCol = column("amount"), let dateCol = column("datepaid") else {
+        guard let amountCol = column("amount"),
+              let dateCol = column("datepaid") ?? column("date") else {
             // Keine TravelSpend-Kopfzeile.
             return nil
         }

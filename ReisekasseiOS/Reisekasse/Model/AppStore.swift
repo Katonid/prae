@@ -434,12 +434,16 @@ final class AppStore: ObservableObject {
     /// Liefert eine Zusammenfassung als Nutzertext.
     func importCSV(data: Data) -> String {
         guard let trip = activeTrip else { return "Keine aktive Reise." }
-        let text = String(data: data, encoding: .utf8)
-            ?? String(data: data, encoding: .isoLatin1)
-            ?? ""
-        guard !text.isEmpty else { return "Die Datei konnte nicht gelesen werden." }
+        guard let text = CSVImport.decodeText(data), !text.trimmed.isEmpty else {
+            return "Die Datei konnte nicht gelesen werden."
+        }
         guard let parsed = CSVImport.travelSpendExpenses(from: text, tripId: trip.id, fallbackAuthor: profileName) else {
-            return "Kopfzeile nicht erkannt — erwartet wird ein TravelSpend-Export (travelspend_export_….csv)."
+            // Die gefundene Kopfzeile mit anzeigen — das macht sichtbar,
+            // ob ein falsches Format oder eine falsche Datei gewählt wurde.
+            let firstLine = text.replacingOccurrences(of: "\u{FEFF}", with: "")
+                .prefix(while: { $0 != "\n" && $0 != "\r" })
+                .prefix(90)
+            return "Kopfzeile nicht erkannt — erwartet wird ein TravelSpend-Export (travelspend_export_….csv). Gefunden: „\(firstLine)…“"
         }
 
         let existingKeys = Set(expenses(for: trip.id).map(Self.importKey))
