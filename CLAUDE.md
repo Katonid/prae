@@ -50,8 +50,12 @@ noch Commits auf denselben PR gepusht wurden — die hingen dann fest
   Repo gepflegt.
 - **Jede Arbeitseinheit (= jeder PR mit App-Änderungen) hebt die
   Patch-Nummer UND die Build-Nummer um je +1 an** — ohne Nachfrage,
-  als Teil des PRs. Startpunkt: 1.0 (Build 1). Größere Sprünge nur
-  auf ausdrückliche Ansage des Nutzers.
+  als Teil des PRs (Ansage des Nutzers, 08/2026: konsequent bei jedem
+  neuen Stand). Zählung: 1.0.1 (Build 2), dann 1.0.2 (Build 3) usw.
+  Größere Sprünge nur auf ausdrückliche Ansage des Nutzers.
+- `ITSAppUsesNonExemptEncryption = NO` ist im pbxproj gesetzt (App
+  nutzt keine eigene Verschlüsselung) — nicht entfernen, erspart die
+  Export-Compliance-Frage bei jedem TestFlight-Build.
 
 ## Projekt FlightMate AI
 

@@ -110,9 +110,22 @@ Voraussetzungen: Mac mit Xcode 16+, Apple-Developer-Programm.
    **Queryable** und **Sortable** markieren.
 5. **Schema deployen:** *Deploy Schema Changes to Production* —
    TestFlight-Builds nutzen die Production-Umgebung.
-6. **Archivieren & TestFlight:** *Product → Archive* → Upload; in App
+6. **App in App Store Connect anlegen (einmalig, vor dem ersten
+   Upload):** Der Name „Reisekasse" ist im App Store bereits vergeben —
+   der Direkt-Upload aus Xcode kann den App-Eintrag deshalb nicht
+   automatisch anlegen („App Record Creation Error"). Lösung: In
+   [App Store Connect](https://appstoreconnect.apple.com) → *Meine
+   Apps* → **+** → *Neue App* manuell anlegen, gleiche Bundle-ID
+   wählen und einen freien Namen vergeben (z. B. „Reisekasse STAN"
+   oder „STAN Reisekasse"). Dieser Name zählt nur für den Store —
+   auf dem Homescreen heißt die App weiterhin „Reisekasse". Danach
+   klappt der Upload aus Xcode.
+7. **Archivieren & TestFlight:** *Product → Archive* → Upload; in App
    Store Connect die Tester (Mitreisende) einladen.
-7. **Automation einrichten** (siehe oben) — auf jedem Gerät einmal.
+   Die Export-Compliance-Frage entfällt: `ITSAppUsesNonExemptEncryption
+   = NO` ist im Projekt hinterlegt (die App enthält keine eigene
+   Verschlüsselung).
+8. **Automation einrichten** (siehe oben) — auf jedem Gerät einmal.
 
 ## Technik
 
