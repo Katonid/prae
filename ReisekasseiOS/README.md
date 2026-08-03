@@ -115,10 +115,16 @@ Hinweise:
 - Eine CloudKit-Subscription schickt stille Pushes; zusätzlich wird bei
   jedem App-Start/Aktivieren gesynct.
 - Geräteübergreifend: einfach die App auf iPhone und iPad installieren —
-  gleiches iCloud-Konto nötig ist **nicht** erforderlich, die Daten
-  laufen über die öffentliche Datenbank des App-Containers; sichtbar
-  sind nur Reisen, die man angelegt hat oder denen man per Code
-  beigetreten ist.
+  gleiches iCloud-Konto ist **nicht** erforderlich, die Daten laufen
+  über die öffentliche Datenbank des App-Containers. Angezeigt werden
+  alle synchronisierten Reisen (der Container gehört der eigenen
+  App-Familie); der Einladungscode aktiviert eine Reise und trägt den
+  eigenen Namen als Teilnehmer ein.
+- Die Standard-Reise „Kanada" hat auf allen Geräten dieselbe feste ID,
+  und gleichnamige Duplikate (z. B. durch Neuinstallationen entstanden)
+  werden automatisch zusammengeführt: Einträge, Teilnehmer und Budgets
+  wandern in die älteste Reise, die Doubletten verschwinden — auf allen
+  Geräten und der Watch.
 - Fotos werden verkleinert (max. 1600 px) als CloudKit-Asset verteilt.
 
 ## Projekt öffnen und auf TestFlight bringen
