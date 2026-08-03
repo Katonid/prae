@@ -39,8 +39,21 @@ enum Classifier {
             "metro inc", "no frills", "walmart", "costco", "safeway", "shoppers",
             "7-eleven", "spar ", "getränkemarkt", "lebensmittel",
         ]),
+        (.haushalt, [
+            "miete", "nebenkosten", "strom", "stadtwerke", "gasag", "e.on", "eon",
+            "vattenfall", "wasser", "abwasser", "ikea", "baumarkt", "obi",
+            "hornbach", "bauhaus", "toom", "hagebau", "möbel", "moebel", "poco",
+            "waschsalon", "reinigung", "handwerker", "schornsteinfeger", "grundsteuer",
+        ]),
+        (.abos, [
+            "netflix", "spotify", "disney", "prime video", "youtube premium",
+            "dazn", "wow ", "paramount", "icloud", "abo", "abonnement",
+            "subscription", "mitgliedsbeitrag", "telekom", "vodafone", "o2 ",
+            "congstar", "1&1", "handyvertrag", "mobilfunk", "internet", "gez",
+            "rundfunk", "versicherung", "insurance", "adac", "fitnessstudio", "gym",
+        ]),
         (.shopping, [
-            "amazon", "zalando", "ikea", "mediamarkt", "saturn", "apple store",
+            "amazon", "zalando", "mediamarkt", "saturn", "apple store",
             "best buy", "canadian tire", "mall", "outlet", "store", "shop",
             "boutique", "nike", "adidas", "foot locker", "sneaker", "h&m", "zara",
             "uniqlo", "souvenir", "geschenk", "gift",
@@ -55,7 +68,7 @@ enum Classifier {
         (.gebuehren, [
             "gebühr", "gebuehr", "fee", "atm", "geldautomat", "withdrawal", "abhebung",
             "wechselkurs", "exchange", "visa fee", "eta", "zoll", "customs",
-            "versicherung", "insurance", "roaming", "sim", "esim", "airalo",
+            "roaming", "sim", "esim", "airalo",
         ]),
         (.gesundheit, [
             "apotheke", "pharmacy", "pharmaprix", "rexall", "arzt", "doctor",

@@ -21,15 +21,19 @@ dieselbe Technik wie in der Canada2026-App dieses Repos.
   Schnelleingabe in freier Sprache („pizza 13,5 bar" — Diktat über die
   Mikrofontaste der Tastatur) und Plus-Knopf für den vollen Editor.
 - **Editor:** Betrag + Währung, Name, Notiz, Datum/Uhrzeit, „Auf Tage
-  verteilen", Zahlungsmittel, Land (mit Flagge), Ort mit Koordinaten
-  (automatisch vom Standort), Foto anfügen, „Aus Tagesdurchschnitt
-  ausschließen", „Zahlung zurückerstattet", Löschen.
+  verteilen", Zahlungsmittel, **„Bezahlt von"** (Teilnehmer wählen oder
+  beliebigen Namen eintragen — auch nachträglich änderbar), **Eintrag
+  in eine andere Reise verschieben**, Land (mit Flagge), Ort mit
+  Koordinaten (automatisch vom Standort), Foto anfügen, „Aus
+  Tagesdurchschnitt ausschließen", „Zahlung zurückerstattet", Löschen.
 - **Automatische Kategorien:** Stichwort-Klassifikator (deutsch/englisch,
   typische Händlernamen wie Tim Hortons, Uber, Loblaws …) schlägt beim
   Tippen und beim Apple-Pay-Import die Kategorie vor — jederzeit im
   Editor änderbar. Kategorien: Flüge, Transport, Unterkunft,
-  Essen & Trinken, Lebensmittel, Shopping, Aktivitäten, Gebühren,
-  Gesundheit, Sonstiges.
+  Essen & Trinken, Lebensmittel, Shopping, Aktivitäten,
+  Haushalt & Wohnen, Abos & Verträge, Gebühren, Gesundheit, Sonstiges
+  — damit passt die App auch für Ausgaben daheim (Miete, Strom,
+  Baumarkt, Streaming, Handyvertrag, Versicherungen).
 - **Mehrere Listen (Reisen):** über den Titel wechseln, „Neue Reise ..."
   anlegen; je Reise Heimatwährung, Gesamt-/Tagesbudget, Zeitraum und
   editierbare Wechselkurse (z. B. 1 CAD = 0,67 EUR). Erste Reise

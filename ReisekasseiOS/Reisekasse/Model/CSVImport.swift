@@ -134,6 +134,8 @@ enum CSVImport {
             ("shopping", .shopping),
             ("aktivitäten", .aktivitaeten), ("activities", .aktivitaeten),
             ("touren", .aktivitaeten), ("tours", .aktivitaeten), ("entertainment", .aktivitaeten),
+            ("haushalt", .haushalt), ("household", .haushalt), ("wohnen", .haushalt),
+            ("abo", .abos), ("subscription", .abos), ("verträge", .abos),
             ("gebühren", .gebuehren), ("fees", .gebuehren),
             ("gesundheit", .gesundheit), ("health", .gesundheit),
         ]

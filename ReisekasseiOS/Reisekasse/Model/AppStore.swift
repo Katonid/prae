@@ -176,10 +176,16 @@ final class AppStore: ObservableObject {
 
     /// Trägt den eigenen Namen in die Teilnehmerliste der Reise ein.
     func registerParticipant(in tripId: String) {
-        guard let name = profileName.nonEmpty else { return }
+        addParticipant(profileName, to: tripId)
+    }
+
+    /// Trägt einen beliebigen Namen in die Teilnehmerliste ein — z. B. wenn
+    /// im Editor eine andere Person als Zahler eingetragen wird.
+    func addParticipant(_ name: String, to tripId: String) {
+        guard let clean = name.nonEmpty else { return }
         guard var trip = trips.first(where: { $0.id == tripId }) else { return }
-        guard !trip.participants.contains(name) else { return }
-        trip.participants.append(name)
+        guard !trip.participants.contains(clean) else { return }
+        trip.participants.append(clean)
         updateTrip(trip)
     }
 

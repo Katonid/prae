@@ -22,6 +22,8 @@ enum ExpenseCategory: String, Codable, CaseIterable, Identifiable {
     case lebensmittel
     case shopping
     case aktivitaeten
+    case haushalt
+    case abos
     case gebuehren
     case gesundheit
     case sonstiges
@@ -37,6 +39,8 @@ enum ExpenseCategory: String, Codable, CaseIterable, Identifiable {
         case .lebensmittel: return "Lebensmittel"
         case .shopping: return "Shopping"
         case .aktivitaeten: return "Aktivitäten"
+        case .haushalt: return "Haushalt & Wohnen"
+        case .abos: return "Abos & Verträge"
         case .gebuehren: return "Gebühren"
         case .gesundheit: return "Gesundheit"
         case .sonstiges: return "Sonstiges"
@@ -52,6 +56,8 @@ enum ExpenseCategory: String, Codable, CaseIterable, Identifiable {
         case .lebensmittel: return "cart.fill"
         case .shopping: return "bag.fill"
         case .aktivitaeten: return "ticket.fill"
+        case .haushalt: return "house.fill"
+        case .abos: return "repeat.circle.fill"
         case .gebuehren: return "banknote"
         case .gesundheit: return "cross.case.fill"
         case .sonstiges: return "square.grid.2x2.fill"
@@ -67,6 +73,8 @@ enum ExpenseCategory: String, Codable, CaseIterable, Identifiable {
         case .lebensmittel: return Color(red: 0.30, green: 0.75, blue: 0.45)
         case .shopping: return Color(red: 0.95, green: 0.75, blue: 0.20)
         case .aktivitaeten: return Color(red: 0.25, green: 0.75, blue: 0.85)
+        case .haushalt: return Color(red: 0.72, green: 0.52, blue: 0.34)
+        case .abos: return Color(red: 0.72, green: 0.36, blue: 0.85)
         case .gebuehren: return Color(red: 0.60, green: 0.65, blue: 0.75)
         case .gesundheit: return Color(red: 0.90, green: 0.45, blue: 0.75)
         case .sonstiges: return Color(red: 0.55, green: 0.60, blue: 0.70)
