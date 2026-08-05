@@ -238,6 +238,45 @@ final class CloudSyncEngine {
         database.add(operation)
     }
 
+    /// Sofort-Push eines einzelnen Eintrags — für den Kurzbefehl-Intent:
+    /// Dessen Hintergrund-Prozess wird von iOS gleich nach der Rückkehr
+    /// eingefroren, die normale (verzögerte) Outbox käme zu spät.
+    /// Bei Fehlern bleibt der Eintrag in der Outbox und wird beim
+    /// nächsten App-Start nachgeschoben.
+    func pushImmediately(kind: EntityKind, entityId: String) async {
+        guard let provider = payloadProvider,
+              let payload = provider(kind, entityId) else { return }
+        let record = CKRecord(recordType: Self.recordType, recordID: recordID(kind: kind, entityId: entityId))
+        record["kind"] = kind.rawValue as CKRecordValue
+        record["entityId"] = entityId as CKRecordValue
+        record["payload"] = payload.payloadJSON as CKRecordValue
+        record["updatedAtMs"] = NSNumber(value: payload.updatedAtMs)
+        record["author"] = payload.author as CKRecordValue
+        if let assetURL = payload.assetURL, FileManager.default.fileExists(atPath: assetURL.path) {
+            record["asset"] = CKAsset(fileURL: assetURL)
+        }
+
+        let succeeded: Bool = await withCheckedContinuation { continuation in
+            let operation = CKModifyRecordsOperation(recordsToSave: [record], recordIDsToDelete: nil)
+            operation.savePolicy = .allKeys
+            operation.qualityOfService = .userInitiated
+            operation.modifyRecordsResultBlock = { result in
+                if case .success = result {
+                    continuation.resume(returning: true)
+                } else {
+                    continuation.resume(returning: false)
+                }
+            }
+            database.add(operation)
+        }
+        if succeeded {
+            let key = "\(kind.rawValue)|\(entityId)"
+            queue.async {
+                self.pendingKeys = self.pendingKeys.filter { $0 != key }
+            }
+        }
+    }
+
     // MARK: - Pull
 
     private func pullChanges(completion: @escaping () -> Void) {

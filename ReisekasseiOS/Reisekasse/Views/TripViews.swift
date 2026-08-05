@@ -337,6 +337,27 @@ struct SettingsSheet: View {
                 }
 
                 Section {
+                    if store.autoLog.isEmpty {
+                        Text("Noch keine automatischen Erfassungen.")
+                            .foregroundStyle(.secondary)
+                    } else {
+                        ForEach(store.autoLog) { entry in
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(entry.text)
+                                    .font(.subheadline)
+                                Text("\(Formatters.shortDate(entry.date)), \(Formatters.time(entry.date)) Uhr")
+                                    .font(.footnote)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                } header: {
+                    Text("Automatik-Protokoll")
+                } footer: {
+                    Text("Die letzten automatisch erfassten Zahlungen dieses Geräts — zum Prüfen, ob die Automation ausgelöst hat und wohin gespeichert wurde.")
+                }
+
+                Section {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("1. Kurzbefehle-App → Automation → Neue Automation → „Wenn ich eine Wallet-Karte verwende“ (in älteren iOS-Versionen: „Transaktion“).")
                         Text("2. Karte(n) auswählen, „Sofort ausführen“ aktivieren.")

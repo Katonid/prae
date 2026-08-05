@@ -63,6 +63,7 @@ final class AppStore: ObservableObject {
         if activeTrip == nil, let first = visibleTrips.first {
             activeTripId = first.id
         }
+        loadAutoState()
 
         wireEngine()
         engine.ensureSubscription()
@@ -320,6 +321,67 @@ final class AppStore: ObservableObject {
         }
         expense = self.expenses.first(where: { $0.id == expenseId }) ?? expense
         return expense
+    }
+
+    // MARK: - Automatische Erfassung (Kurzbefehl) — Auffangnetz & Protokoll
+
+    /// Automatisch erfasste Zahlungen, die keiner Reise zugeordnet werden
+    /// konnten (z. B. Name/aktive Reise auf dem Gerät nicht gesetzt).
+    /// Sie warten hier, statt verworfen zu werden.
+    @Published private(set) var pendingAutoExpenses: [Expense] = []
+
+    struct AutoLogEntry: Codable, Identifiable {
+        let id: String
+        let date: Date
+        let text: String
+    }
+
+    /// Protokoll der letzten automatischen Erfassungen (für die Einstellungen).
+    @Published private(set) var autoLog: [AutoLogEntry] = []
+
+    private static var pendingAutoURL: URL { documentsURL.appendingPathComponent("reisekasse-pending-auto.json") }
+
+    func loadAutoState() {
+        pendingAutoExpenses = Self.loadJSON([Expense].self, from: Self.pendingAutoURL) ?? []
+        if let data = defaults.data(forKey: "autoLog"),
+           let entries = try? JSONDecoder().decode([AutoLogEntry].self, from: data) {
+            autoLog = entries
+        }
+    }
+
+    func logAuto(_ text: String) {
+        autoLog.insert(AutoLogEntry(id: UUID().uuidString, date: Date(), text: text), at: 0)
+        autoLog = Array(autoLog.prefix(20))
+        if let data = try? JSONEncoder().encode(autoLog) {
+            defaults.set(data, forKey: "autoLog")
+        }
+    }
+
+    /// Zahlung ohne zuordenbare Reise sicher ablegen.
+    func addPendingAutoExpense(_ expense: Expense) {
+        pendingAutoExpenses.append(expense)
+        Self.saveJSON(pendingAutoExpenses, to: Self.pendingAutoURL)
+    }
+
+    /// Wartende Zahlungen in eine Reise übernehmen.
+    func adoptPendingAutoExpenses(into tripId: String) {
+        for var expense in pendingAutoExpenses {
+            expense.tripId = tripId
+            if expense.author.isEmpty { expense.author = profileName }
+            addExpense(expense)
+        }
+        pendingAutoExpenses = []
+        Self.saveJSON(pendingAutoExpenses, to: Self.pendingAutoURL)
+    }
+
+    func discardPendingAutoExpenses() {
+        pendingAutoExpenses = []
+        Self.saveJSON(pendingAutoExpenses, to: Self.pendingAutoURL)
+    }
+
+    /// Sofortiger iCloud-Upload eines Eintrags (für den Kurzbefehl-Intent).
+    func pushExpenseNow(_ expenseId: String) async {
+        await engine.pushImmediately(kind: .expense, entityId: expenseId)
     }
 
     // MARK: - Fotos

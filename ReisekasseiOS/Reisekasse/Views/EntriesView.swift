@@ -25,6 +25,9 @@ struct EntriesView: View {
                 ScrollView {
                     VStack(spacing: 16) {
                         budgetCards(trip)
+                        if !store.pendingAutoExpenses.isEmpty {
+                            pendingAutoBanner(trip)
+                        }
                         entriesList(trip)
                     }
                     .padding(.horizontal, 16)
@@ -237,6 +240,39 @@ struct EntriesView: View {
             )
         }
         .buttonStyle(.plain)
+    }
+
+    // MARK: - Wartende automatische Zahlungen
+
+    private func pendingAutoBanner(_ trip: Trip) -> some View {
+        let pending = store.pendingAutoExpenses
+        let sum = pending.reduce(0) { $0 + $1.signedAmount * trip.rate(for: $1.currency) }
+        return VStack(alignment: .leading, spacing: 10) {
+            Label("\(pending.count) automatisch erfasste Zahlung\(pending.count == 1 ? "" : "en") wartet auf Zuordnung", systemImage: "tray.full.fill")
+                .font(.subheadline.weight(.semibold))
+            Text("Erfasst, während auf diesem Gerät keine Reise sichtbar war — zusammen \(Formatters.money(sum, trip.homeCurrency)).")
+                .font(.footnote)
+                .foregroundStyle(Theme.textDim)
+            HStack {
+                Button {
+                    store.adoptPendingAutoExpenses(into: trip.id)
+                } label: {
+                    Text("In „\(trip.name)“ übernehmen")
+                        .font(.subheadline.weight(.semibold))
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 8)
+                        .background(Capsule().fill(Theme.accent))
+                        .foregroundStyle(.white)
+                }
+                Button("Verwerfen", role: .destructive) {
+                    store.discardPendingAutoExpenses()
+                }
+                .font(.subheadline)
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .cardStyle(Theme.cardSoft)
     }
 
     // MARK: - Tagesliste
