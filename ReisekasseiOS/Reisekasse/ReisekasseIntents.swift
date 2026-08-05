@@ -40,24 +40,27 @@ struct LogExpenseIntent: AppIntent {
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
         let store = AppStore.shared
-        guard let trip = store.activeTrip else {
-            return .result(dialog: "Keine aktive Reise — bitte Kassenbuch einmal öffnen.")
-        }
+
         guard betrag > 0 else {
+            store.logAuto("✗ Zahlung ohne Betrag verworfen (Automation: Transaktions-Betrag als Parameter übergeben).")
             return .result(dialog: "Der Betrag fehlt — in der Automation den Transaktions-Betrag übergeben.")
         }
 
         let merchant = haendler?.nonEmpty ?? "Zahlung"
-        let currency = normalizedCurrency(waehrung) ?? trip.homeCurrency
         let category = Classifier.categorize(merchant)
-
         var note = ""
         if let card = karte?.nonEmpty {
             note = "Karte: \(card)"
         }
 
+        // Ziel-Reise: die aktive, sonst die erste sichtbare. Gibt es keine
+        // (z. B. Name auf diesem Gerät nicht gesetzt), wird die Zahlung
+        // NICHT verworfen, sondern wartet in der App auf Zuordnung.
+        let trip = store.activeTrip ?? store.visibleTrips.first
+        let currency = normalizedCurrency(waehrung) ?? trip?.homeCurrency ?? "EUR"
+
         var expense = Expense(
-            tripId: trip.id,
+            tripId: trip?.id ?? "",
             title: merchant,
             note: note,
             amount: betrag,
@@ -70,7 +73,7 @@ struct LogExpenseIntent: AppIntent {
 
         // Standort samt Ort/Land ergänzen (klappt im Hintergrund nur mit
         // der Berechtigung „Immer"; sonst bleibt der Eintrag ohne Ort).
-        if let fix = await LocationService.shared.currentPlace(timeout: 6) {
+        if let fix = await LocationService.shared.currentPlace(timeout: 5) {
             expense.latitude = fix.latitude
             expense.longitude = fix.longitude
             expense.placeName = fix.placeName
@@ -78,9 +81,19 @@ struct LogExpenseIntent: AppIntent {
             expense.countryCode = fix.countryCode
         }
 
-        store.addExpense(expense)
-
         let amountText = Formatters.money(betrag, currency)
+        guard let trip else {
+            store.addPendingAutoExpense(expense)
+            store.logAuto("⚠︎ \(amountText) bei \(merchant) erfasst, aber keine Reise sichtbar — wartet in der App auf Zuordnung (Name in den Einstellungen prüfen).")
+            return .result(dialog: "\(amountText) bei \(merchant) gesichert — bitte Kassenbuch öffnen und einer Reise zuordnen.")
+        }
+
+        store.addExpense(expense)
+        // Sofort hochladen: Der Hintergrund-Prozess wird gleich eingefroren,
+        // die verzögerte Outbox käme sonst erst beim nächsten App-Start dran.
+        await store.pushExpenseNow(expense.id)
+        store.logAuto("✓ \(amountText) bei \(merchant) → „\(trip.name)“ (Kategorie \(category.label)).")
+
         return .result(dialog: "\(amountText) bei \(merchant) erfasst — Kategorie \(category.label).")
     }
 

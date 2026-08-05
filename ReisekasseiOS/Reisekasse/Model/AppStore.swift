@@ -22,6 +22,12 @@ final class AppStore: ObservableObject {
     @Published var friendsBannerDismissed: Bool = false {
         didSet { defaults.set(friendsBannerDismissed, forKey: "friendsBannerDismissed") }
     }
+    @Published var leftCardMetric: CardMetric = .gesamtVsBudget {
+        didSet { defaults.set(leftCardMetric.rawValue, forKey: "cardMetric.left") }
+    }
+    @Published var rightCardMetric: CardMetric = .heuteVsRestTagesbudget {
+        didSet { defaults.set(rightCardMetric.rawValue, forKey: "cardMetric.right") }
+    }
 
     let engine = CloudSyncEngine()
 
@@ -33,6 +39,8 @@ final class AppStore: ObservableObject {
         profileName = defaults.string(forKey: "profileName") ?? ""
         friendsBannerDismissed = defaults.bool(forKey: "friendsBannerDismissed")
         activeTripId = defaults.string(forKey: "activeTripId") ?? ""
+        leftCardMetric = CardMetric(rawValue: defaults.string(forKey: "cardMetric.left") ?? "") ?? .gesamtVsBudget
+        rightCardMetric = CardMetric(rawValue: defaults.string(forKey: "cardMetric.right") ?? "") ?? .heuteVsRestTagesbudget
 
         trips = Self.loadJSON([Trip].self, from: Self.tripsURL) ?? []
         expenses = Self.loadJSON([Expense].self, from: Self.expensesURL) ?? []
@@ -55,6 +63,7 @@ final class AppStore: ObservableObject {
         if activeTrip == nil, let first = visibleTrips.first {
             activeTripId = first.id
         }
+        loadAutoState()
 
         wireEngine()
         engine.ensureSubscription()
@@ -314,6 +323,67 @@ final class AppStore: ObservableObject {
         return expense
     }
 
+    // MARK: - Automatische Erfassung (Kurzbefehl) — Auffangnetz & Protokoll
+
+    /// Automatisch erfasste Zahlungen, die keiner Reise zugeordnet werden
+    /// konnten (z. B. Name/aktive Reise auf dem Gerät nicht gesetzt).
+    /// Sie warten hier, statt verworfen zu werden.
+    @Published private(set) var pendingAutoExpenses: [Expense] = []
+
+    struct AutoLogEntry: Codable, Identifiable {
+        let id: String
+        let date: Date
+        let text: String
+    }
+
+    /// Protokoll der letzten automatischen Erfassungen (für die Einstellungen).
+    @Published private(set) var autoLog: [AutoLogEntry] = []
+
+    private static var pendingAutoURL: URL { documentsURL.appendingPathComponent("reisekasse-pending-auto.json") }
+
+    func loadAutoState() {
+        pendingAutoExpenses = Self.loadJSON([Expense].self, from: Self.pendingAutoURL) ?? []
+        if let data = defaults.data(forKey: "autoLog"),
+           let entries = try? JSONDecoder().decode([AutoLogEntry].self, from: data) {
+            autoLog = entries
+        }
+    }
+
+    func logAuto(_ text: String) {
+        autoLog.insert(AutoLogEntry(id: UUID().uuidString, date: Date(), text: text), at: 0)
+        autoLog = Array(autoLog.prefix(20))
+        if let data = try? JSONEncoder().encode(autoLog) {
+            defaults.set(data, forKey: "autoLog")
+        }
+    }
+
+    /// Zahlung ohne zuordenbare Reise sicher ablegen.
+    func addPendingAutoExpense(_ expense: Expense) {
+        pendingAutoExpenses.append(expense)
+        Self.saveJSON(pendingAutoExpenses, to: Self.pendingAutoURL)
+    }
+
+    /// Wartende Zahlungen in eine Reise übernehmen.
+    func adoptPendingAutoExpenses(into tripId: String) {
+        for var expense in pendingAutoExpenses {
+            expense.tripId = tripId
+            if expense.author.isEmpty { expense.author = profileName }
+            addExpense(expense)
+        }
+        pendingAutoExpenses = []
+        Self.saveJSON(pendingAutoExpenses, to: Self.pendingAutoURL)
+    }
+
+    func discardPendingAutoExpenses() {
+        pendingAutoExpenses = []
+        Self.saveJSON(pendingAutoExpenses, to: Self.pendingAutoURL)
+    }
+
+    /// Sofortiger iCloud-Upload eines Eintrags (für den Kurzbefehl-Intent).
+    func pushExpenseNow(_ expenseId: String) async {
+        await engine.pushImmediately(kind: .expense, entityId: expenseId)
+    }
+
     // MARK: - Fotos
 
     func savePhoto(_ data: Data) -> String? {
@@ -460,6 +530,155 @@ final class AppStore: ObservableObject {
             .filter { $0.excludeFromDaily }
             .reduce(0) { $0 + $1.homeValue(in: trip) }
         return max(0, total - excluded) / Double(days)
+    }
+
+    // MARK: - Budget-Karten (sechs wählbare Kennzahlen)
+
+    /// Anzeigedaten einer Budget-Karte.
+    struct MetricDisplay {
+        let header: String
+        let amount: Double
+        /// Unterzeile "x / y"; nil → Hinweistext statt Zahlen.
+        let detail: (left: Double, right: Double)?
+        let note: String?
+        /// Balkenfüllung 0...1; nil → leerer Balken.
+        let fraction: Double?
+        /// Überschuss färbt den Betrag grün/rot.
+        let coloredAmount: Bool
+    }
+
+    /// Zwischenwerte für alle sechs Kennzahlen.
+    private struct BudgetMath {
+        var budget: Double?
+        var pot: Double?              // Budget minus ausgeschlossene Ausgaben
+        var initialDaily: Double?
+        var remainingDaily: Double?
+        var avgDaily: Double
+        var elapsedDays: Int
+        var spentToday: Double
+        var totalSpent: Double
+        var spentToDate: Double       // alle Einträge bis heute (anteilig)
+        var dailySpentToDate: Double  // nur tagesrelevante bis heute
+    }
+
+    private func budgetMath(_ trip: Trip) -> BudgetMath {
+        let calendar = Calendar.current
+        let today = Date().startOfDay
+        let list = expenses(for: trip.id)
+
+        let totalSpent = list.reduce(0) { $0 + $1.homeValue(in: trip) }
+        let excluded = list.filter { $0.excludeFromDaily }.reduce(0) { $0 + $1.homeValue(in: trip) }
+        let budget = trip.totalBudget
+        let pot = budget.map { max(0, $0 - excluded) }
+
+        let dailySpentToDate = list.filter { !$0.excludeFromDaily }
+            .reduce(0) { $0 + $1.homeValue(upTo: today, in: trip) }
+        let spentToDate = list.reduce(0) { $0 + $1.homeValue(upTo: today, in: trip) }
+        let spentToday = spent(on: today, trip: trip)
+
+        // Vergangene und verbleibende Reisetage (heute zählt zu "verbleibend").
+        var elapsed = 0
+        var remainingInclToday: Int?
+        if let start = trip.startDate?.startOfDay, let end = trip.endDate?.startOfDay,
+           end >= start, let totalDays = trip.dayCount {
+            if today < start {
+                remainingInclToday = totalDays
+            } else {
+                let upto = min(today, end)
+                elapsed = (calendar.dateComponents([.day], from: start, to: upto).day ?? 0) + 1
+                remainingInclToday = today <= end ? totalDays - elapsed + 1 : 0
+            }
+        } else if let firstDay = list.filter({ !$0.excludeFromDaily }).map({ $0.date.startOfDay }).min(),
+                  firstDay <= today {
+            // Ohne Reisezeitraum: Tage seit dem ersten Eintrag.
+            elapsed = (calendar.dateComponents([.day], from: firstDay, to: today).day ?? 0) + 1
+        }
+
+        let initialDaily = dailyBudget(trip)
+        var remainingDaily: Double?
+        if let pot, let remaining = remainingInclToday {
+            if remaining > 0 {
+                let spentBeforeToday = dailySpentToDate - spentToday
+                remainingDaily = max(0, (pot - spentBeforeToday) / Double(remaining))
+            } else {
+                remainingDaily = 0
+            }
+        }
+
+        return BudgetMath(
+            budget: budget,
+            pot: pot,
+            initialDaily: initialDaily,
+            remainingDaily: remainingDaily,
+            avgDaily: elapsed > 0 ? dailySpentToDate / Double(elapsed) : 0,
+            elapsedDays: elapsed,
+            spentToday: spentToday,
+            totalSpent: totalSpent,
+            spentToDate: spentToDate,
+            dailySpentToDate: dailySpentToDate
+        )
+    }
+
+    /// Anzeigedaten für eine gewählte Kennzahl.
+    func metricDisplay(_ metric: CardMetric, trip: Trip) -> MetricDisplay {
+        let math = budgetMath(trip)
+        switch metric {
+        case .gesamtVsBudget:
+            if let budget = math.budget, budget > 0 {
+                return MetricDisplay(header: metric.header, amount: math.totalSpent,
+                                     detail: (budget - math.totalSpent, budget), note: nil,
+                                     fraction: math.totalSpent / budget, coloredAmount: false)
+            }
+            return MetricDisplay(header: metric.header, amount: math.totalSpent,
+                                 detail: nil, note: "Kein Budget gesetzt", fraction: nil, coloredAmount: false)
+        case .durchschnittVsTagesbudget:
+            if let daily = math.initialDaily, daily > 0 {
+                return MetricDisplay(header: metric.header, amount: math.avgDaily,
+                                     detail: (math.avgDaily, daily), note: nil,
+                                     fraction: math.avgDaily / daily, coloredAmount: false)
+            }
+            return MetricDisplay(header: metric.header, amount: math.avgDaily,
+                                 detail: nil, note: "Kein Tagesbudget (Budget + Zeitraum setzen)", fraction: nil, coloredAmount: false)
+        case .durchschnittVsRestTagesbudget:
+            if let remaining = math.remainingDaily {
+                return MetricDisplay(header: metric.header, amount: math.avgDaily,
+                                     detail: (math.avgDaily, remaining), note: nil,
+                                     fraction: remaining > 0 ? math.avgDaily / remaining : 1, coloredAmount: false)
+            }
+            return MetricDisplay(header: metric.header, amount: math.avgDaily,
+                                 detail: nil, note: "Kein Tagesbudget (Budget + Zeitraum setzen)", fraction: nil, coloredAmount: false)
+        case .heuteVsRestTagesbudget:
+            if let remaining = math.remainingDaily {
+                return MetricDisplay(header: metric.header, amount: math.spentToday,
+                                     detail: (remaining - math.spentToday, remaining), note: nil,
+                                     fraction: remaining > 0 ? math.spentToday / remaining : 1, coloredAmount: false)
+            }
+            if let daily = math.initialDaily, daily > 0 {
+                return MetricDisplay(header: metric.header, amount: math.spentToday,
+                                     detail: (daily - math.spentToday, daily), note: nil,
+                                     fraction: math.spentToday / daily, coloredAmount: false)
+            }
+            return MetricDisplay(header: metric.header, amount: math.spentToday,
+                                 detail: nil, note: "Kein Budget gesetzt", fraction: nil, coloredAmount: false)
+        case .bisherVsBudget:
+            if let budget = math.budget, budget > 0 {
+                return MetricDisplay(header: metric.header, amount: math.spentToDate,
+                                     detail: (budget - math.spentToDate, budget), note: nil,
+                                     fraction: math.spentToDate / budget, coloredAmount: false)
+            }
+            return MetricDisplay(header: metric.header, amount: math.spentToDate,
+                                 detail: nil, note: "Kein Budget gesetzt", fraction: nil, coloredAmount: false)
+        case .ueberschuss:
+            if let daily = math.initialDaily, daily > 0, math.elapsedDays > 0 {
+                let surplus = Double(math.elapsedDays) * daily - math.dailySpentToDate
+                return MetricDisplay(header: metric.header, amount: surplus,
+                                     detail: nil,
+                                     note: surplus >= 0 ? "bis heute unter Tagesbudget" : "bis heute über Tagesbudget",
+                                     fraction: nil, coloredAmount: true)
+            }
+            return MetricDisplay(header: metric.header, amount: 0,
+                                 detail: nil, note: "Kein Tagesbudget (Budget + Zeitraum setzen)", fraction: nil, coloredAmount: true)
+        }
     }
 
     /// Tagesgruppen für die Eintragsliste, neueste zuerst.
