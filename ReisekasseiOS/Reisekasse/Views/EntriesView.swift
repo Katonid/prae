@@ -205,29 +205,38 @@ struct EntriesView: View {
         .frame(maxWidth: .infinity)
     }
 
-    // MARK: - Budget-Karten
+    // MARK: - Budget-Karten (Kennzahl pro Karte wählbar)
 
     private func budgetCards(_ trip: Trip) -> some View {
-        let total = store.totalSpent(trip)
-        let today = store.spent(on: Date(), trip: trip)
-        let daily = store.dailyBudget(trip)
+        HStack(spacing: 12) {
+            metricCard(trip: trip, selection: $store.leftCardMetric)
+            metricCard(trip: trip, selection: $store.rightCardMetric)
+        }
+    }
 
-        return HStack(spacing: 12) {
+    private func metricCard(trip: Trip, selection: Binding<CardMetric>) -> some View {
+        Menu {
+            ForEach(CardMetric.allCases) { metric in
+                Button {
+                    selection.wrappedValue = metric
+                } label: {
+                    if metric == selection.wrappedValue {
+                        Label(metric.menuTitle, systemImage: "checkmark")
+                    } else {
+                        Text(metric.menuTitle)
+                    }
+                    if let subtitle = metric.menuSubtitle {
+                        Text(subtitle)
+                    }
+                }
+            }
+        } label: {
             BudgetCard(
-                title: "Gesamt",
-                amount: total,
-                currency: trip.homeCurrency,
-                remaining: trip.totalBudget.map { $0 - total },
-                budget: trip.totalBudget
-            )
-            BudgetCard(
-                title: "Heute",
-                amount: today,
-                currency: trip.homeCurrency,
-                remaining: daily.map { $0 - today },
-                budget: daily
+                display: store.metricDisplay(selection.wrappedValue, trip: trip),
+                currency: trip.homeCurrency
             )
         }
+        .buttonStyle(.plain)
     }
 
     // MARK: - Tagesliste
@@ -343,18 +352,17 @@ struct EntriesView: View {
 // MARK: - Bausteine
 
 struct BudgetCard: View {
-    let title: String
-    let amount: Double
+    let display: AppStore.MetricDisplay
     let currency: String
-    let remaining: Double?
-    let budget: Double?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text(title)
+                Text(display.header)
                     .font(.subheadline)
                     .foregroundStyle(Theme.textDim)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
                 Spacer()
                 Image(systemName: "chevron.up.chevron.down")
                     .font(.caption2)
@@ -365,30 +373,39 @@ struct BudgetCard: View {
                 Text(Formatters.currencySymbol(currency))
                     .font(.system(size: 18, weight: .semibold))
                     .foregroundStyle(Theme.textDim)
-                Text(Formatters.plain(amount))
+                Text(Formatters.plain(display.amount))
                     .font(.system(size: 27, weight: .bold))
+                    .foregroundStyle(amountColor)
                     .minimumScaleFactor(0.6)
                     .lineLimit(1)
             }
             .frame(maxWidth: .infinity, alignment: .center)
 
-            if let remaining, let budget, budget > 0 {
-                Text("\(Formatters.plain(remaining)) / \(Formatters.plainShort(budget))")
+            if let detail = display.detail {
+                Text("\(Formatters.plain(detail.left)) / \(Formatters.plainShort(detail.right))")
                     .font(.footnote)
                     .foregroundStyle(Theme.textDim)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
                     .frame(maxWidth: .infinity, alignment: .center)
-                ProgressBar(fraction: amount / budget)
             } else {
-                Text("Kein Budget gesetzt")
+                Text(display.note ?? " ")
                     .font(.footnote)
                     .foregroundStyle(Theme.textDim.opacity(0.7))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
                     .frame(maxWidth: .infinity, alignment: .center)
-                ProgressBar(fraction: 0)
             }
+            ProgressBar(fraction: display.fraction ?? 0)
         }
         .padding(14)
         .frame(maxWidth: .infinity)
         .cardStyle()
+    }
+
+    private var amountColor: Color {
+        guard display.coloredAmount else { return Theme.textPrimary }
+        return display.amount >= 0 ? Color.green : Theme.accent
     }
 }
 

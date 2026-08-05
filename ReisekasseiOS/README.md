@@ -16,10 +16,14 @@ dieselbe Technik wie in der Canada2026-App dieses Repos.
 
 ## Funktionsumfang
 
-- **Einträge:** Tagesliste mit Kategorien-Icons, Budget-Karten „Gesamt"
-  und „Heute" (Ausgegeben, Verbleibend/Budget, Fortschrittsbalken),
-  Schnelleingabe in freier Sprache („pizza 13,5 bar" — Diktat über die
-  Mikrofontaste der Tastatur) und Plus-Knopf für den vollen Editor.
+- **Einträge:** Tagesliste mit Kategorien-Icons, zwei Budget-Karten mit
+  je **sechs wählbaren Kennzahlen** (Pfeile antippen): Gesamt vs.
+  Budget, Tagesdurchschnitt vs. Tagesbudget, Tagesdurchschnitt vs.
+  verbleibendem Tagesbudget, Heute vs. verbleibendem Tagesbudget,
+  Bisherige Ausgaben vs. Budget, Überschuss (grün = bis heute unter
+  Tagesbudget). Dazu Schnelleingabe in freier Sprache („pizza 13,5
+  bar" — Diktat über die Mikrofontaste der Tastatur) und Plus-Knopf
+  für den vollen Editor.
 - **Editor:** Betrag + Währung, Name, Notiz, Datum/Uhrzeit, „Auf Tage
   verteilen", Zahlungsmittel, **„Bezahlt von"** (Teilnehmer wählen oder
   beliebigen Namen eintragen — auch nachträglich änderbar), **Eintrag

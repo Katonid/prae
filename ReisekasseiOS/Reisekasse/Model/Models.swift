@@ -82,6 +82,55 @@ enum ExpenseCategory: String, Codable, CaseIterable, Identifiable {
     }
 }
 
+// MARK: - Kennzahlen der Budget-Karten
+
+/// Wählbare Ansichten der beiden Karten oben in der Eintragsliste —
+/// dieselben sechs wie in der Vorbild-App, pro Karte unabhängig.
+enum CardMetric: String, CaseIterable, Identifiable, Codable {
+    case gesamtVsBudget
+    case durchschnittVsTagesbudget
+    case durchschnittVsRestTagesbudget
+    case heuteVsRestTagesbudget
+    case bisherVsBudget
+    case ueberschuss
+
+    var id: String { rawValue }
+
+    /// Überschrift auf der Karte.
+    var header: String {
+        switch self {
+        case .gesamtVsBudget: return "Gesamt"
+        case .durchschnittVsTagesbudget, .durchschnittVsRestTagesbudget: return "Tagesdurchschnitt"
+        case .heuteVsRestTagesbudget: return "Heute"
+        case .bisherVsBudget: return "Bisherige Ausgaben"
+        case .ueberschuss: return "Überschuss"
+        }
+    }
+
+    /// Titel im Auswahlmenü.
+    var menuTitle: String {
+        switch self {
+        case .gesamtVsBudget: return "Gesamt vs. Budget"
+        case .durchschnittVsTagesbudget: return "Tagesdurchschnitt vs. Tagesbudget"
+        case .durchschnittVsRestTagesbudget: return "Tagesdurchschnitt vs. verbl. Tagesbudget"
+        case .heuteVsRestTagesbudget: return "Heute vs. verbl. Tagesbudget"
+        case .bisherVsBudget: return "Bisherige Ausgaben vs. Budget"
+        case .ueberschuss: return "Überschuss"
+        }
+    }
+
+    /// Untertitel im Auswahlmenü.
+    var menuSubtitle: String? {
+        switch self {
+        case .durchschnittVsTagesbudget: return "Im Vergleich zum initialen Tagesbudget"
+        case .durchschnittVsRestTagesbudget: return "Im Vergleich zum verbleibenden Tagesbudget"
+        case .heuteVsRestTagesbudget: return "Im Vergleich zum verbleibenden Tagesbudget"
+        case .ueberschuss: return "Bis heute gespart gegenüber dem Tagesbudget"
+        default: return nil
+        }
+    }
+}
+
 // MARK: - Zahlungsmittel
 
 enum PaymentMethod: String, Codable, CaseIterable, Identifiable {
@@ -298,6 +347,19 @@ struct Expense: Codable, Identifiable, Equatable {
         guard let offset = calendar.dateComponents([.day], from: start, to: day.startOfDay).day,
               offset >= 0, offset < spreadDays else { return 0 }
         return homeValue(in: trip) / Double(spreadDays)
+    }
+
+    /// Anteil des Eintrags, der bis einschließlich eines Kalendertags angefallen ist.
+    func homeValue(upTo day: Date, in trip: Trip) -> Double {
+        let calendar = Calendar.current
+        let start = date.startOfDay
+        guard spreadDays > 1 else {
+            return start <= day.startOfDay ? homeValue(in: trip) : 0
+        }
+        guard let offset = calendar.dateComponents([.day], from: start, to: day.startOfDay).day,
+              offset >= 0 else { return 0 }
+        let covered = min(spreadDays, offset + 1)
+        return homeValue(in: trip) * Double(covered) / Double(spreadDays)
     }
 }
 
