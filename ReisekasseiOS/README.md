@@ -48,8 +48,10 @@ dieselbe Technik wie in der Canada2026-App dieses Repos.
   Voraussetzung: Gesamtbudget und Reisezeitraum sind in „Reise
   bearbeiten" gesetzt. Gilt auf iPhone, iPad und Watch gleichermaßen.
 - **Statistiken:** Tageskennzahlen, Kategorien-Donut mit Filtern
-  (Kategorie, Land, Monat, Ausgaben/Erstattungen), Monats-Trend,
-  Länder-Auswertung, CSV-Export (Excel-tauglich, mit Ort und Person).
+  (Kategorie, Land, Monat, Ausgaben/Erstattungen), **Personen-Diagramm**
+  (Donut + Liste: wie viel jeder Teilnehmer bezahlt hat, mit
+  Prozentanteilen), Monats-Trend, Länder-Auswertung, CSV-Export
+  (Excel-tauglich, mit Ort und Person).
 - **CSV-Import aus TravelSpend:** Menü (⋯) → „CSV importieren" liest
   die Export-Datei der TravelSpend-App (travelspend_export_….csv)
   in die aktive Reise ein — mit Name, Notiz, Betrag/Währung, Datum,

@@ -24,6 +24,7 @@ struct StatsView: View {
                             friendsBanner
                         }
                         chartsSection(trip)
+                        participantsSection(trip)
                         trendSection(trip)
                         countriesSection(trip)
                         exportRow(trip)
@@ -283,6 +284,83 @@ struct StatsView: View {
             .padding(.vertical, 9)
             .background(Capsule().fill(Theme.card))
             .overlay(Capsule().stroke(Theme.separator, lineWidth: 1))
+        }
+    }
+
+    // MARK: - Personen (Ausgaben je Teilnehmer)
+
+    private func personColor(_ index: Int) -> Color {
+        let palette: [Color] = [
+            Theme.blue,
+            Theme.accent,
+            Color(red: 0.30, green: 0.75, blue: 0.45),
+            Color(red: 0.95, green: 0.75, blue: 0.20),
+            Color(red: 0.55, green: 0.40, blue: 0.95),
+            Color(red: 0.25, green: 0.75, blue: 0.85),
+            Color(red: 0.95, green: 0.55, blue: 0.15),
+            Color(red: 0.90, green: 0.45, blue: 0.75),
+        ]
+        return palette[index % palette.count]
+    }
+
+    private func participantsSection(_ trip: Trip) -> some View {
+        let persons = store.participantTotals(for: store.expenses(for: trip.id), trip: trip)
+        let sum = persons.reduce(0) { $0 + abs($1.value) }
+
+        return VStack(alignment: .leading, spacing: 12) {
+            Text("Personen")
+                .font(.title.bold())
+
+            if persons.count <= 1 {
+                Text(persons.isEmpty
+                     ? "Noch keine Daten."
+                     : "Bisher hat nur \(persons[0].name) Einträge — mit mehreren Teilnehmern zeigt das Diagramm die Aufteilung.")
+                    .font(.subheadline)
+                    .foregroundStyle(Theme.textDim)
+            } else {
+                VStack(spacing: 14) {
+                    Chart {
+                        ForEach(persons.indices, id: \.self) { index in
+                            SectorMark(
+                                angle: .value("Betrag", abs(persons[index].value)),
+                                innerRadius: .ratio(0.58),
+                                angularInset: 2
+                            )
+                            .foregroundStyle(personColor(index))
+                            .cornerRadius(4)
+                        }
+                    }
+                    .frame(height: 200)
+
+                    VStack(spacing: 0) {
+                        ForEach(persons.indices, id: \.self) { index in
+                            let person = persons[index]
+                            HStack(spacing: 12) {
+                                Circle()
+                                    .fill(personColor(index))
+                                    .frame(width: 14, height: 14)
+                                Text(person.name)
+                                Spacer()
+                                VStack(alignment: .trailing, spacing: 2) {
+                                    Text(Formatters.plain(person.value))
+                                        .font(.system(size: 17, weight: .semibold))
+                                    if sum > 0 {
+                                        Text("\(Int((abs(person.value) / sum * 100).rounded())) %")
+                                            .font(.footnote)
+                                            .foregroundStyle(Theme.textDim)
+                                    }
+                                }
+                            }
+                            .padding(.vertical, 10)
+                            if index < persons.count - 1 {
+                                Divider().overlay(Theme.separator)
+                            }
+                        }
+                    }
+                }
+                .padding(14)
+                .cardStyle()
+            }
         }
     }
 
