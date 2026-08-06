@@ -250,6 +250,13 @@ struct Trip: Codable, Identifiable, Equatable {
 
 // MARK: - Ausgabe (Eintrag)
 
+/// Anteil einer Person an einer aufgeteilten Ausgabe,
+/// in der Originalwährung des Eintrags.
+struct ExpenseShare: Codable, Equatable {
+    var name: String
+    var amount: Double
+}
+
 struct Expense: Codable, Identifiable, Equatable {
     var id: String
     var tripId: String
@@ -275,6 +282,10 @@ struct Expense: Codable, Identifiable, Equatable {
     var excludeFromDaily: Bool
     /// „Zahlung zurückerstattet" — Betrag wird von den Gesamtausgaben abgezogen.
     var refunded: Bool
+    /// Aufteilung auf mehrere Personen (Originalwährung). nil/leer =
+    /// der ganze Betrag gehört zu `author`. Ein nicht zugewiesener
+    /// Rest bleibt ebenfalls bei `author`.
+    var shares: [ExpenseShare]?
     /// Dateiname eines angehängten Fotos im lokalen Foto-Ordner.
     var photoFilename: String?
     var createdAtMs: Int64
@@ -300,6 +311,7 @@ struct Expense: Codable, Identifiable, Equatable {
         author: String = "",
         excludeFromDaily: Bool = false,
         refunded: Bool = false,
+        shares: [ExpenseShare]? = nil,
         photoFilename: String? = nil,
         createdAtMs: Int64 = Date.nowMs,
         updatedAtMs: Int64 = Date.nowMs,
@@ -323,6 +335,7 @@ struct Expense: Codable, Identifiable, Equatable {
         self.author = author
         self.excludeFromDaily = excludeFromDaily
         self.refunded = refunded
+        self.shares = shares
         self.photoFilename = photoFilename
         self.createdAtMs = createdAtMs
         self.updatedAtMs = updatedAtMs

@@ -482,6 +482,11 @@ struct ExpenseRow: View {
                         Text("•")
                         Text(expense.author)
                     }
+                    if !(expense.shares?.isEmpty ?? true) {
+                        Text("•")
+                        Image(systemName: "person.2.fill")
+                            .font(.caption2)
+                    }
                 }
                 .font(.subheadline)
                 .foregroundStyle(Theme.blue.opacity(0.85))

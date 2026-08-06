@@ -713,16 +713,33 @@ final class AppStore: ObservableObject {
             .sorted { $0.month > $1.month }
     }
 
-    /// Ausgaben je Person („Bezahlt von"), betragsstärkste zuerst.
+    /// Ausgaben je Person, betragsstärkste zuerst. Aufgeteilte Einträge
+    /// zählen mit ihren Anteilen; ein nicht zugewiesener Rest (und
+    /// Einträge ohne Aufteilung) gehen an „Bezahlt von".
     func participantTotals(for list: [Expense], trip: Trip) -> [ParticipantTotal] {
-        let grouped = Dictionary(grouping: list) { expense in
-            expense.author.trimmed.nonEmpty ?? "Ohne Person"
+        var totals: [String: Double] = [:]
+        for expense in list {
+            let rate = trip.rate(for: expense.currency)
+            let sign: Double = expense.refunded ? -1 : 1
+            let payer = expense.author.trimmed.nonEmpty ?? "Ohne Person"
+            if let shares = expense.shares, !shares.isEmpty {
+                var assigned = 0.0
+                for share in shares where share.amount != 0 {
+                    let name = share.name.trimmed.nonEmpty ?? "Ohne Person"
+                    totals[name, default: 0] += sign * share.amount * rate
+                    assigned += share.amount
+                }
+                let rest = expense.amount - assigned
+                if abs(rest) > 0.005 {
+                    totals[payer, default: 0] += sign * rest * rate
+                }
+            } else {
+                totals[payer, default: 0] += expense.homeValue(in: trip)
+            }
         }
-        return grouped.map { name, entries in
-            ParticipantTotal(name: name, value: entries.reduce(0) { $0 + $1.homeValue(in: trip) })
-        }
-        .filter { $0.value != 0 }
-        .sorted { abs($0.value) > abs($1.value) }
+        return totals.map { ParticipantTotal(name: $0.key, value: $0.value) }
+            .filter { $0.value != 0 }
+            .sorted { abs($0.value) > abs($1.value) }
     }
 
     func countryTotals(for list: [Expense], trip: Trip) -> [CountryTotal] {
@@ -788,7 +805,7 @@ final class AppStore: ObservableObject {
         formatter.locale = Locale(identifier: "de_DE")
         formatter.dateFormat = "dd.MM.yyyy HH:mm"
 
-        var lines = ["Datum;Name;Kategorie;Betrag;Währung;Betrag \(trip.homeCurrency);Zahlungsmittel;Land;Ort;Breitengrad;Längengrad;Person;Notiz;Erstattet"]
+        var lines = ["Datum;Name;Kategorie;Betrag;Währung;Betrag \(trip.homeCurrency);Zahlungsmittel;Land;Ort;Breitengrad;Längengrad;Person;Notiz;Erstattet;Aufteilung"]
         let sorted = expenses(for: trip.id).sorted { $0.date < $1.date }
         for expense in sorted {
             let fields = [
@@ -806,6 +823,7 @@ final class AppStore: ObservableObject {
                 expense.author,
                 expense.note,
                 expense.refunded ? "ja" : "nein",
+                (expense.shares ?? []).map { "\($0.name): \(String(format: "%.2f", $0.amount).replacingOccurrences(of: ".", with: ","))" }.joined(separator: " | "),
             ]
             lines.append(fields.map { $0.replacingOccurrences(of: ";", with: ",") }.joined(separator: ";"))
         }
