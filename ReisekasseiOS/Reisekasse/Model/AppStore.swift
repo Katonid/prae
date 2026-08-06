@@ -507,6 +507,12 @@ final class AppStore: ObservableObject {
         var id: String { name }
     }
 
+    struct ParticipantTotal: Identifiable {
+        let name: String
+        let value: Double
+        var id: String { name }
+    }
+
     /// Gesamtausgaben der Reise in Heimatwährung (Erstattungen abgezogen).
     func totalSpent(_ trip: Trip) -> Double {
         expenses(for: trip.id).reduce(0) { $0 + $1.homeValue(in: trip) }
@@ -705,6 +711,18 @@ final class AppStore: ObservableObject {
         }
         return grouped.map { MonthTotal(month: $0.key, value: $0.value.reduce(0) { $0 + $1.homeValue(in: trip) }) }
             .sorted { $0.month > $1.month }
+    }
+
+    /// Ausgaben je Person („Bezahlt von"), betragsstärkste zuerst.
+    func participantTotals(for list: [Expense], trip: Trip) -> [ParticipantTotal] {
+        let grouped = Dictionary(grouping: list) { expense in
+            expense.author.trimmed.nonEmpty ?? "Ohne Person"
+        }
+        return grouped.map { name, entries in
+            ParticipantTotal(name: name, value: entries.reduce(0) { $0 + $1.homeValue(in: trip) })
+        }
+        .filter { $0.value != 0 }
+        .sorted { abs($0.value) > abs($1.value) }
     }
 
     func countryTotals(for list: [Expense], trip: Trip) -> [CountryTotal] {
