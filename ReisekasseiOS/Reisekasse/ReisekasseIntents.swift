@@ -21,8 +21,12 @@ struct LogExpenseIntent: AppIntent {
     )
     static var openAppWhenRun = false
 
+    // Betrag als TEXT: Kurzbefehle scheitert sonst daran, Fremdwährungs-
+    // Beträge („$ 13.50" bei CAD-Zahlungen) in eine Zahl im deutschen
+    // Format zu wandeln, und fragt mitten im Bezahlen nach dem Betrag.
+    // Das Parsen übernimmt der Intent selbst — alle Schreibweisen.
     @Parameter(title: "Betrag")
-    var betrag: Double
+    var betrag: String
 
     @Parameter(title: "Währung (z. B. EUR, CAD)")
     var waehrung: String?
@@ -41,9 +45,9 @@ struct LogExpenseIntent: AppIntent {
     func perform() async throws -> some IntentResult & ProvidesDialog {
         let store = AppStore.shared
 
-        guard betrag > 0 else {
-            store.logAuto("✗ Zahlung ohne Betrag verworfen (Automation: Transaktions-Betrag als Parameter übergeben).")
-            return .result(dialog: "Der Betrag fehlt — in der Automation den Transaktions-Betrag übergeben.")
+        guard let amount = Self.parseAmount(betrag), amount > 0 else {
+            store.logAuto("✗ Betrag „\(betrag)“ nicht lesbar — Zahlung verworfen (in der Automation den Transaktions-Betrag übergeben).")
+            return .result(dialog: "Der Betrag „\(betrag)“ war nicht lesbar — in der Automation den Transaktions-Betrag übergeben.")
         }
 
         let merchant = haendler?.nonEmpty ?? "Zahlung"
@@ -57,14 +61,22 @@ struct LogExpenseIntent: AppIntent {
         // (z. B. Name auf diesem Gerät nicht gesetzt), wird die Zahlung
         // NICHT verworfen, sondern wartet in der App auf Zuordnung.
         let trip = store.activeTrip ?? store.visibleTrips.first
-        let currency = normalizedCurrency(waehrung) ?? trip?.homeCurrency ?? "EUR"
+
+        // Währung: expliziter Parameter → aus dem Betrags-Text → Reise.
+        // Ein nacktes „$" heißt CAD, wenn die Reise einen CAD-Kurs führt
+        // (Kanada-Fall), sonst USD.
+        var currency = normalizedCurrency(waehrung) ?? normalizedCurrency(betrag)
+        if currency == nil, betrag.contains("$") {
+            currency = (trip?.rates.keys.contains("CAD") ?? false) ? "CAD" : "USD"
+        }
+        let resolvedCurrency = currency ?? trip?.homeCurrency ?? "EUR"
 
         var expense = Expense(
             tripId: trip?.id ?? "",
             title: merchant,
             note: note,
-            amount: betrag,
-            currency: currency,
+            amount: amount,
+            currency: resolvedCurrency,
             category: category,
             payment: .applePay,
             date: Date(),
@@ -81,7 +93,7 @@ struct LogExpenseIntent: AppIntent {
             expense.countryCode = fix.countryCode
         }
 
-        let amountText = Formatters.money(betrag, currency)
+        let amountText = Formatters.money(amount, resolvedCurrency)
         guard let trip else {
             store.addPendingAutoExpense(expense)
             store.logAuto("⚠︎ \(amountText) bei \(merchant) erfasst, aber keine Reise sichtbar — wartet in der App auf Zuordnung (Name in den Einstellungen prüfen).")
@@ -95,6 +107,38 @@ struct LogExpenseIntent: AppIntent {
         store.logAuto("✓ \(amountText) bei \(merchant) → „\(trip.name)“ (Kategorie \(category.label)).")
 
         return .result(dialog: "\(amountText) bei \(merchant) erfasst — Kategorie \(category.label).")
+    }
+
+    /// Liest einen Geldbetrag aus beliebigen Schreibweisen:
+    /// "13,50", "13.50", "$13.50", "CAD 13.50", "1.234,56", "1,234.56".
+    /// Ein einzelnes Trennzeichen mit genau drei Nachziffern gilt als
+    /// Tausendergruppe (Beträge haben keine drei Dezimalstellen).
+    static func parseAmount(_ raw: String) -> Double? {
+        var text = String(raw.filter { $0.isNumber || $0 == "," || $0 == "." })
+        guard !text.isEmpty else { return nil }
+
+        let lastComma = text.lastIndex(of: ",")
+        let lastDot = text.lastIndex(of: ".")
+        if let comma = lastComma, let dot = lastDot {
+            // Beide vorhanden: das hintere ist das Dezimalzeichen.
+            if comma > dot {
+                text = text.replacingOccurrences(of: ".", with: "")
+                    .replacingOccurrences(of: ",", with: ".")
+            } else {
+                text = text.replacingOccurrences(of: ",", with: "")
+            }
+        } else if let comma = lastComma {
+            let decimals = text.distance(from: text.index(after: comma), to: text.endIndex)
+            text = decimals == 3
+                ? text.replacingOccurrences(of: ",", with: "")
+                : text.replacingOccurrences(of: ",", with: ".")
+        } else if let dot = lastDot {
+            let decimals = text.distance(from: text.index(after: dot), to: text.endIndex)
+            if decimals == 3 {
+                text = text.replacingOccurrences(of: ".", with: "")
+            }
+        }
+        return Double(text)
     }
 
     private func normalizedCurrency(_ raw: String?) -> String? {

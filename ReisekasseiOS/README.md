@@ -97,8 +97,16 @@ läuft danach alles automatisch im Hintergrund:
    „Sofort ausführen" aktivieren (nicht „Vor Ausführen fragen").
 3. Als Aktion **„Ausgabe erfassen"** aus der Reisekasse wählen.
 4. In der Aktion die Parameter aus der Transaktion belegen:
-   **Betrag** ← Transaktionsbetrag (Zahl), **Währung** ← Währung,
+   **Betrag** ← Transaktionsbetrag, **Währung** ← Währung,
    **Händler** ← Händler/Name, optional **Karte** ← Karte.
+   Der Betrag ist bewusst ein Text-Parameter: Die App liest alle
+   Schreibweisen selbst („13,50", „$13.50", „CAD 13.50" …) — so
+   fragt Kurzbefehle bei Fremdwährungszahlungen nicht nach. Ein
+   nacktes „$" wird als CAD gewertet, wenn die Reise einen CAD-Kurs
+   hat, sonst als USD.
+   Hinweis nach dem Update auf 1.0.17: Da sich der Parametertyp
+   geändert hat, einmal die Automation öffnen und die
+   Betrag-Variable neu auswählen.
 5. Fertig. Ab jetzt wird jede Apple-Pay-Zahlung als Eintrag in der
    aktiven Reise gespeichert — mit Uhrzeit, Händler, automatischer
    Kategorie und (siehe unten) Ort und Land.
