@@ -36,6 +36,8 @@ struct EntryEditorView: View {
     @State private var tripId = ""
     @State private var showAuthorPrompt = false
     @State private var customAuthor = ""
+    @State private var shares: [ExpenseShare] = []
+    @State private var showSplitSheet = false
     @FocusState private var amountFocused: Bool
 
     private var amount: Double? {
@@ -80,6 +82,14 @@ struct EntryEditorView: View {
                 if let existing { store.deleteExpense(existing) }
                 dismiss()
             }
+        }
+        .sheet(isPresented: $showSplitSheet) {
+            SplitSheet(
+                total: amount ?? 0,
+                currency: currency,
+                names: authorChoices,
+                shares: $shares
+            )
         }
         .alert("Bezahlt von", isPresented: $showAuthorPrompt) {
             TextField("Name", text: $customAuthor)
@@ -133,6 +143,7 @@ struct EntryEditorView: View {
             longitude = expense.longitude
             excludeFromDaily = expense.excludeFromDaily
             refunded = expense.refunded
+            shares = expense.shares ?? []
             photoFilename = expense.photoFilename
         } else {
             currency = store.activeTrip?.homeCurrency ?? "EUR"
@@ -174,9 +185,11 @@ struct EntryEditorView: View {
             expense.author = author.trimmed
             expense.excludeFromDaily = excludeFromDaily
             expense.refunded = refunded
+            expense.shares = shares.isEmpty ? nil : shares
             expense.photoFilename = photoFilename
             store.updateExpense(expense)
             store.addParticipant(author, to: targetTripId)
+            for share in shares { store.addParticipant(share.name, to: targetTripId) }
         } else {
             let expense = Expense(
                 tripId: targetTripId,
@@ -196,10 +209,12 @@ struct EntryEditorView: View {
                 author: author.trimmed.nonEmpty ?? store.profileName,
                 excludeFromDaily: excludeFromDaily,
                 refunded: refunded,
+                shares: shares.isEmpty ? nil : shares,
                 photoFilename: photoFilename
             )
             store.addExpense(expense)
             store.addParticipant(author, to: targetTripId)
+            for share in shares { store.addParticipant(share.name, to: targetTripId) }
         }
         dismiss()
     }
@@ -387,6 +402,33 @@ struct EntryEditorView: View {
                         Text(author.nonEmpty ?? "Person wählen")
                             .foregroundStyle(author.trimmed.isEmpty ? Theme.textDim : Theme.textPrimary)
                         Text("Bezahlt von")
+                            .font(.footnote)
+                            .foregroundStyle(Theme.textDim)
+                    }
+                    Spacer()
+                }
+                .padding(14)
+                .contentShape(Rectangle())
+            }
+
+            Divider().overlay(Theme.separator).padding(.leading, 54)
+
+            // Aufteilen (wer trägt wie viel)
+            Button {
+                showSplitSheet = true
+            } label: {
+                HStack(spacing: 12) {
+                    Image(systemName: "person.2.fill")
+                        .foregroundStyle(Theme.blue)
+                        .frame(width: 28)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(shares.isEmpty
+                             ? "Nicht aufgeteilt"
+                             : shares.map { "\($0.name) \(Formatters.plain($0.amount))" }.joined(separator: " · "))
+                            .foregroundStyle(shares.isEmpty ? Theme.textDim : Theme.textPrimary)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.7)
+                        Text("Aufteilen")
                             .font(.footnote)
                             .foregroundStyle(Theme.textDim)
                     }
@@ -602,5 +644,105 @@ struct EntryEditorView: View {
         }
         .padding(14)
         .contentShape(Rectangle())
+    }
+}
+
+// MARK: - Aufteilungs-Dialog
+
+private func parseShareAmount(_ text: String) -> Double? {
+    let cleaned = text
+        .replacingOccurrences(of: ".", with: "")
+        .replacingOccurrences(of: ",", with: ".")
+        .trimmed
+    guard !cleaned.isEmpty, let value = Double(cleaned), value > 0 else { return nil }
+    return value
+}
+
+struct SplitSheet: View {
+    let total: Double
+    let currency: String
+    let names: [String]
+    @Binding var shares: [ExpenseShare]
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var amounts: [String: String] = [:]
+
+    private var assigned: Double {
+        names.reduce(0) { $0 + (parseShareAmount(amounts[$1] ?? "") ?? 0) }
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    ForEach(names, id: \.self) { name in
+                        HStack {
+                            Text(name)
+                            Spacer()
+                            TextField("0", text: Binding(
+                                get: { amounts[name] ?? "" },
+                                set: { amounts[name] = $0 }
+                            ))
+                            .keyboardType(.decimalPad)
+                            .multilineTextAlignment(.trailing)
+                            .frame(width: 110)
+                            Text(currency)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                } header: {
+                    Text("Anteile")
+                } footer: {
+                    Text(footerText)
+                }
+
+                Section {
+                    Button("Gleichmäßig auf alle verteilen") {
+                        guard !names.isEmpty, total > 0 else { return }
+                        let each = total / Double(names.count)
+                        for name in names {
+                            amounts[name] = Formatters.plain(each)
+                        }
+                    }
+                    Button("Aufteilung entfernen", role: .destructive) {
+                        amounts = [:]
+                    }
+                }
+            }
+            .navigationTitle("Ausgabe aufteilen")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Abbrechen") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Sichern") {
+                        shares = names.compactMap { name in
+                            guard let value = parseShareAmount(amounts[name] ?? "") else { return nil }
+                            return ExpenseShare(name: name, amount: value)
+                        }
+                        dismiss()
+                    }
+                }
+            }
+        }
+        .preferredColorScheme(.dark)
+        .onAppear {
+            for share in shares {
+                amounts[share.name] = Formatters.plain(share.amount)
+            }
+        }
+    }
+
+    private var footerText: String {
+        let symbol = Formatters.currencySymbol(currency)
+        var text = "Betrag: \(Formatters.plain(total)) \(symbol) — zugewiesen: \(Formatters.plain(assigned)) \(symbol)."
+        let rest = total - assigned
+        if rest > 0.005 {
+            text += " Der Rest von \(Formatters.plain(rest)) \(symbol) bleibt bei der Person unter „Bezahlt von“."
+        } else if rest < -0.005 {
+            text += " Achtung: Es ist mehr zugewiesen als der Betrag."
+        }
+        return text
     }
 }

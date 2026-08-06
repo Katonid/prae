@@ -117,6 +117,11 @@ struct WTrip: Codable, Identifiable, Equatable {
     }
 }
 
+struct WShare: Codable, Equatable {
+    var name: String
+    var amount: Double
+}
+
 struct WExpense: Codable, Identifiable, Equatable {
     var id: String
     var tripId: String
@@ -136,6 +141,7 @@ struct WExpense: Codable, Identifiable, Equatable {
     var author: String
     var excludeFromDaily: Bool
     var refunded: Bool
+    var shares: [WShare]?
     var photoFilename: String?
     var createdAtMs: Int64
     var updatedAtMs: Int64
@@ -368,6 +374,7 @@ final class WatchStore: ObservableObject {
             author: profileName,
             excludeFromDaily: false,
             refunded: false,
+            shares: nil,
             photoFilename: nil,
             createdAtMs: nowMs,
             updatedAtMs: nowMs,

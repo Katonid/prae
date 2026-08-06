@@ -47,11 +47,18 @@ dieselbe Technik wie in der Canada2026-App dieses Repos.
   ausgeschlossene" Ausgaben wie Flüge und Vorabbuchungen) ÷ Reisetage —
   Voraussetzung: Gesamtbudget und Reisezeitraum sind in „Reise
   bearbeiten" gesetzt. Gilt auf iPhone, iPad und Watch gleichermaßen.
+- **Ausgaben aufteilen:** Im Editor unter „Aufteilen" lässt sich je
+  Eintrag festlegen, wie viel jede Person getragen hat (z. B. wenn
+  jemand einen Teil zurücküberweist) — mit „Gleichmäßig verteilen",
+  frei editierbaren Beträgen und klarer Rest-Regel: Nicht Zugewiesenes
+  bleibt bei „Bezahlt von". Das Personen-Diagramm rechnet mit den
+  Anteilen; aufgeteilte Einträge tragen ein 👥-Symbol in der Liste.
 - **Statistiken:** Tageskennzahlen, Kategorien-Donut mit Filtern
   (Kategorie, Land, Monat, Ausgaben/Erstattungen), **Personen-Diagramm**
-  (Donut + Liste: wie viel jeder Teilnehmer bezahlt hat, mit
-  Prozentanteilen), Monats-Trend, Länder-Auswertung, CSV-Export
-  (Excel-tauglich, mit Ort und Person).
+  (Donut + Liste: wie viel jeder Teilnehmer getragen hat, mit
+  Prozentanteilen, aufgeteilte Einträge anteilig), Monats-Trend,
+  Länder-Auswertung, CSV-Export (Excel-tauglich, mit Ort, Person und
+  Aufteilung).
 - **CSV-Import aus TravelSpend:** Menü (⋯) → „CSV importieren" liest
   die Export-Datei der TravelSpend-App (travelspend_export_….csv)
   in die aktive Reise ein — mit Name, Notiz, Betrag/Währung, Datum,
