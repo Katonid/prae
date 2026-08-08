@@ -188,6 +188,25 @@ final class FlightSessionModel: NSObject, ObservableObject {
         }
     }
 
+    // MARK: Wetter fürs Zifferblatt (auch ohne laufenden Flug)
+
+    /// Hält das Wetter aktuell, solange das Zifferblatt sichtbar ist:
+    /// der erste Aufruf besorgt einen Standort-Fix, danach wird
+    /// höchstens alle 5 Minuten aufgefrischt (dasselbe Intervall wie
+    /// im Flug).
+    func refreshWeatherForStandby() {
+        if coordinate == nil && phoneCoordinate == nil {
+            locationManager.requestWhenInUseAuthorization()
+            locationManager.requestLocation()
+            return // der Standort-Callback stößt refreshWeather an
+        }
+        if lastWeatherFetch == nil
+            || Date().timeIntervalSince(lastWeatherFetch!) > 300 {
+            lastWeatherFetch = Date()
+            Task { await refreshWeather() }
+        }
+    }
+
     // MARK: Wetter (Open-Meteo, schlüsselfrei — wie auf dem iPhone)
 
     func refreshWeather() async {
@@ -296,6 +315,12 @@ extension FlightSessionModel: CLLocationManagerDelegate {
 
     nonisolated func locationManager(_ manager: CLLocationManager,
                                      didFailWithError error: Error) {
-        // Ohne Watch-Fix übernimmt der iPhone-Kontext (phoneCoordinate).
+        // Ohne Watch-Fix übernimmt der iPhone-Kontext (phoneCoordinate) —
+        // gibt es auch den nicht, sagen wir ehrlich „nicht abrufbar".
+        Task { @MainActor in
+            if self.coordinate == nil && self.phoneCoordinate == nil {
+                self.weatherFailed = true
+            }
+        }
     }
 }

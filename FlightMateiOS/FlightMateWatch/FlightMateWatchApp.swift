@@ -17,8 +17,13 @@ struct FlightMateWatchApp: App {
 
     var body: some Scene {
         WindowGroup {
-            FlightSessionView()
-                .environmentObject(session)
+            // Seite 1: der Flug-Begleiter. Seite 2 (Wisch nach links):
+            // das FlightMate-Zifferblatt für die Wartezeit am Feld.
+            TabView {
+                FlightSessionView()
+                ZifferblattView()
+            }
+            .environmentObject(session)
         }
     }
 }
