@@ -113,7 +113,7 @@ final class TrackDay {
     static let maxPointsDataBytes = 400_000
 
     func setPoints(_ pts: [TrackPoint]) {
-        var sorted = pts.sorted { $0.t < $1.t }
+        var sorted = TrackMath.removeSpikes(pts.sorted { $0.t < $1.t })
         var data = Self.encodePoints(sorted)
         // Notbremse für Extremtage: schrittweise ausdünnen, bis der
         // Blob passt — ein leicht ausgedünnter Track ist ehrlicher
@@ -358,6 +358,45 @@ struct VisitInfo: Identifiable {
 // MARK: - Track-Mathematik
 
 enum TrackMath {
+    /// Zacken-Radierer: Entfernt Einzelpunkt-Ausreißer. Ein Punkt, der
+    /// von BEIDEN Nachbarn > 500 m entfernt liegt, während die
+    /// Nachbarn nahe beieinander sind, ist keine Bewegung — niemand
+    /// fährt kilometerweit raus und ist beim nächsten Messpunkt wieder
+    /// am Ausgangspunkt. Sichtbar als kilometerlange „Strahlen“ vom
+    /// Aufenthaltsort (Kanada, 1.8.): Funkzellen-Streu-Fixe, die durch
+    /// die > 2-min-Lücke des Geschwindigkeits-Filters rutschten.
+    /// Verworfen wird nur, wenn zusätzlich die Sprunggeschwindigkeit
+    /// unmöglich (> 250 km/h) ODER der Fix grob (±250 m+) war —
+    /// echte Strecken bleiben unangetastet.
+    static func removeSpikes(_ points: [TrackPoint]) -> [TrackPoint] {
+        guard points.count >= 3 else { return points }
+        var kept: [TrackPoint] = [points[0]]
+        for i in 1..<(points.count - 1) {
+            let a = kept[kept.count - 1]
+            let b = points[i]
+            let c = points[i + 1]
+            let ab = meters(a, b)
+            let bc = meters(b, c)
+            guard ab > 500, bc > 500 else { kept.append(b); continue }
+            let ac = meters(a, c)
+            guard ac < 0.2 * min(ab, bc) else { kept.append(b); continue }
+            let dtAB = b.t.timeIntervalSince(a.t)
+            let dtBC = c.t.timeIntervalSince(b.t)
+            let impossiblyFast = (dtAB > 0 && ab / dtAB > 70) || (dtBC > 0 && bc / dtBC > 70)
+            if impossiblyFast || b.hAcc > 250 {
+                continue   // b ist eine Zacke — verwerfen
+            }
+            kept.append(b)
+        }
+        kept.append(points[points.count - 1])
+        return kept
+    }
+
+    private static func meters(_ a: TrackPoint, _ b: TrackPoint) -> Double {
+        CLLocation(latitude: a.lat, longitude: a.lon)
+            .distance(from: CLLocation(latitude: b.lat, longitude: b.lon))
+    }
+
     /// Gleichmäßiges Ausdünnen langer Punktlisten.
     static func downsample(_ points: [TrackPoint], maxCount: Int) -> [TrackPoint] {
         guard points.count > maxCount, maxCount > 2 else { return points }

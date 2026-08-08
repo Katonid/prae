@@ -121,7 +121,25 @@ Native SwiftUI-App, iOS 17+, keine externen Abhängigkeiten.
     Ruhemodus startet nicht, solange das Fahr-Signal anliegt.
   - Ausreißer-Filter: Punkte, die eine Sprunggeschwindigkeit
     > 250 km/h implizieren, werden als GPS-Spike verworfen und im
-    Ereignisprotokoll vermerkt.
+    Ereignisprotokoll vermerkt. Er hat aber ein Loch: Er prüft nur
+    bei Punktabständen < 2 min — im Stillstand liegen 5 min zwischen
+    den Punkten (Stillstands-Filter), da rutschte ein einzelner
+    Funkzellen-Streu-Fix durch und riss kilometerlange „Strahlen“
+    vom Aufenthaltsort (Kanada, 1.8.). Deshalb zusätzlich:
+  - Zacken-Radierer (TrackMath.removeSpikes, läuft bei jedem
+    setPoints auf iPhone UND Watch): Ein Punkt, der von beiden
+    Nachbarn > 500 m entfernt liegt, während die Nachbarn nahe
+    beieinander sind (Rückkehr < 20 % der Auslenkung), wird
+    verworfen — aber nur, wenn zusätzlich die Sprunggeschwindigkeit
+    unmöglich (> 250 km/h) ODER der Fix grob (±250 m+) war; echte
+    Strecken bleiben unangetastet. Bestandstage werden einmalig
+    rückwirkend bereinigt (DataMaintenance.removeSpikesOnce,
+    Protokoll: „Zacken entfernt“) — auch die Kilometersummen werden
+    dadurch wieder ehrlich. Und: Der Notbetrieb (JEDER Fix zählt
+    nach > 150 s) öffnet nur noch bei echtem Fahr-Signal des
+    Bewegungssensors — ein Streu-Fix, der per GPS-Verschiebung
+    „Bewegung“ vortäuscht, bekommt höchstens ±500 m durch und kann
+    sich das Tor nicht mehr selbst öffnen.
   - Lücken-Diagnose: Tracker-Ereignisse (Ruhemodus, Neustarts,
     verworfene Fixe, Schalter) werden protokolliert (Ringpuffer, keine
     Ortsdaten); das Tagesdetail zeigt je Lücke Zeitraum, Distanz und
@@ -386,7 +404,7 @@ Native SwiftUI-App, iOS 17+, keine externen Abhängigkeiten.
   - Einrichtung: Einstellungen → Familie; Sync automatisch beim
     Aktivwerden der App plus manueller Knopf.
 - **Versionierung**
-  - Marketing-Version (`MARKETING_VERSION`, aktuell 1.4.21) wird von
+  - Marketing-Version (`MARKETING_VERSION`, aktuell 1.4.22) wird von
     Hand gepflegt; die Build-Nummer setzt eine Skript-Bauphase
     („Build-Nummer setzen“) bei jedem Build automatisch: primär die
     Anzahl der Git-Commits, bei git-Fehlern ein Datumsstempel

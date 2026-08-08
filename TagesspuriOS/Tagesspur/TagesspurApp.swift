@@ -62,6 +62,7 @@ struct TagesspurApp: App {
         Task { @MainActor in
             DeviceInfo.normalizeStoredNames(container: resolved)
             DataMaintenance.recompressPoints(container: resolved)
+            DataMaintenance.removeSpikesOnce(container: resolved)
             DataMaintenance.dedupe(container: resolved)
         }
     }

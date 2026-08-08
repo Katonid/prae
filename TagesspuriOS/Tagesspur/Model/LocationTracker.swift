@@ -650,7 +650,13 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
         let inWakeGrace = Date() < wakeGraceUntil
         let limit: CLLocationAccuracy
         if !stationary, sinceLastAccepted > 150 {
-            limit = .greatestFiniteMagnitude
+            // Notbetrieb (JEDER Fix zählt) nur mit ECHTEM Fahr-Signal:
+            // „Bewegung“ aus reiner GPS-Verschiebung kann auch ein
+            // einzelner Funkzellen-Streu-Fix sein — der öffnete sich
+            // das Tor sonst selbst und riss kilometerlange Zacken in
+            // den Stillstand (Kanada, 1.8.). Ohne Fahr-Signal bleibt
+            // der Deckel bei ±500 m.
+            limit = vehicleMotionActive ? .greatestFiniteMagnitude : 500
         } else if !stationary, sinceLastAccepted > 60 || inWakeGrace {
             limit = 500
         } else {
