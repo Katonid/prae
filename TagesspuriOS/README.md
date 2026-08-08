@@ -73,11 +73,13 @@ Native SwiftUI-App, iOS 17+, keine externen Abhängigkeiten.
     während die Fahrt nur grob aufgezeichnet wurde (er griff am 1.8.
     nur einmal ein, weil danach laufend Grobes eintrudelte).
     Protokolliert als „Ortungs-Stillstand“ bzw. „Nur grobe Ortung“.
-    Takt: normal 120 s; in den ersten 10 min nach dem Aufwachen
-    (Ruhemodus-Ende, Geofence, Hintergrund-Neustart) Schnelltakt
-    60 s — die Anlaufphase einer Fahrt bleibt damit kurz, danach
-    hämmert der Watchdog konsequent weiter, bis wieder präzise
-    geliefert wird. Zusätzlich meldet die App iOS einen
+    Takt: einheitlich 60 s (8.8.: Stillstände von 231 s lagen
+    außerhalb des früheren 10-min-Schnelltakts und durften unnötig
+    wachsen). Und: Der Watchdog wacht über JEDE Bewegung inklusive
+    Gehen (anyMotionActive) — am 8.8. schlief die Lieferung bei
+    einem Fußweg 28 min ein, weil nur Fahrt/Rad/Lauf ihn scharf
+    schalteten; für Stillstands-Filter und Notbetrieb zählt Gehen
+    weiterhin bewusst nicht. Zusätzlich meldet die App iOS einen
     Navigations-Aktivitätstyp (automotiveNavigation/fitness statt
     „other“, dynamisch per Bewegungssensor) — Navigations-Sessions
     drosselt iOS deutlich seltener.
@@ -121,7 +123,14 @@ Native SwiftUI-App, iOS 17+, keine externen Abhängigkeiten.
     Ruhemodus startet nicht, solange das Fahr-Signal anliegt.
   - Ausreißer-Filter: Punkte, die eine Sprunggeschwindigkeit
     > 250 km/h implizieren, werden als GPS-Spike verworfen und im
-    Ereignisprotokoll vermerkt. Er hat aber ein Loch: Er prüft nur
+    Ereignisprotokoll vermerkt. Serien-Auflösung (8.8.): Hat es ein
+    Streu-Fix in den Track geschafft, ist ER der falsche Anker und
+    der Filter verwarf minutenlang alle RICHTIGEN Fixe als „zu
+    schnell“ (drei Verwerfungen in Folge, 3–4-min-Lücken).
+    Bestätigen sich zwei verworfene Fixe gegenseitig (untereinander
+    plausible Geschwindigkeit, < 60 s Abstand), wird die Position
+    neu verankert — Protokoll: „Ausreißer-Serie aufgelöst“. Der
+    Filter hat zudem ein Loch: Er prüft nur
     bei Punktabständen < 2 min — im Stillstand liegen 5 min zwischen
     den Punkten (Stillstands-Filter), da rutschte ein einzelner
     Funkzellen-Streu-Fix durch und riss kilometerlange „Strahlen“
@@ -404,7 +413,7 @@ Native SwiftUI-App, iOS 17+, keine externen Abhängigkeiten.
   - Einrichtung: Einstellungen → Familie; Sync automatisch beim
     Aktivwerden der App plus manueller Knopf.
 - **Versionierung**
-  - Marketing-Version (`MARKETING_VERSION`, aktuell 1.4.22) wird von
+  - Marketing-Version (`MARKETING_VERSION`, aktuell 1.4.23) wird von
     Hand gepflegt; die Build-Nummer setzt eine Skript-Bauphase
     („Build-Nummer setzen“) bei jedem Build automatisch: primär die
     Anzahl der Git-Commits, bei git-Fehlern ein Datumsstempel

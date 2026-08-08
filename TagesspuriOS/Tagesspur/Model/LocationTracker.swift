@@ -199,7 +199,6 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
             // Neustart mitten in Bewegung: erste (noch grobe) Fixe zählen,
             // sonst fehlen nach jedem Neustart hunderte Meter Track.
             wakeGraceUntil = Date().addingTimeInterval(Self.wakeGraceSeconds)
-            wakeBoostUntil = Date().addingTimeInterval(600)
         }
         // Not-Sicherung, falls iOS die App geordnet beendet.
         NotificationCenter.default.addObserver(
@@ -323,6 +322,7 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
             if activity.automotive || activity.cycling || activity.running {
                 self.lastVehicleMotionAt = Date()
             }
+            self.lastAnyMotionAt = Date()
             // Aktivitätstyp für iOS nachführen: Auto → Navigation,
             // Rad/Lauf/Gehen → Fitness. Hilft iOS, die GPS-Lieferung
             // im Hintergrund nicht zu drosseln.
@@ -353,10 +353,6 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
     /// deshalb nur noch Brauchbares.
     private var lastUsableDeliveredAt = Date.distantPast
     private var lastStallRestartAt = Date.distantPast
-    /// Nach dem Aufwachen (Ruhemodus-Ende, Geofence, Neustart) läuft
-    /// der Watchdog 10 min im Schnelltakt (60 s statt 120 s) — die
-    /// Anlaufphase einer Fahrt soll kurz bleiben.
-    private var wakeBoostUntil = Date.distantPast
 
     /// Selbstheilung gegen eingeschlafene Hintergrund-Lieferung: Die
     /// Fahrt vom 30.7. bewies, dass iOS mitten in Bewegung minutenlang
@@ -364,10 +360,15 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
     /// Lieferung aber sofort wiederbelebt (Geofence-Zufallsbefund um
     /// 4:01/4:06). Genau das macht der Watchdog jetzt systematisch.
     private func restartUpdatesIfStalled() {
-        guard trackingEnabled, !isResting, vehicleMotionActive else { return }
+        // anyMotionActive statt vehicleMotionActive: Der Watchdog muss
+        // auch FUSSWEGE bewachen — am 8.8. schlief die Lieferung beim
+        // Gehen 28 min lang ein (0,7 km ohne Daten), weil nur Fahrt/
+        // Rad/Lauf ihn scharf schalteten. Einheitlicher 60-s-Takt:
+        // Die Stillstände um 13:08 (231 s) lagen außerhalb des alten
+        // 10-min-Schnelltakts und durften unnötig lange wachsen.
+        guard trackingEnabled, !isResting, anyMotionActive else { return }
         let stalledFor = Date().timeIntervalSince(max(lastUsableDeliveredAt, lastStallRestartAt))
-        let limit: TimeInterval = Date() < wakeBoostUntil ? 60 : 120
-        guard stalledFor > limit else { return }
+        guard stalledFor > 60 else { return }
         lastStallRestartAt = Date()
         let coarseOnly = Date().timeIntervalSince(lastDeliveredAt) < 60
         Self.logEvent("\(coarseOnly ? "Nur grobe Ortung" : "Ortungs-Stillstand") (\(Int(stalledFor)) s in Bewegung) — Updates neu gestartet")
@@ -388,6 +389,16 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
     /// während einer Fahrt laufend neu.)
     private var vehicleMotionActive: Bool {
         Date().timeIntervalSince(lastVehicleMotionAt) < 180
+    }
+
+    /// Letztes Bewegungs-Signal INKLUSIVE Gehen — nur für den
+    /// Watchdog. (Gehen zählt bewusst nicht als Fahr-Signal für
+    /// Stillstands-Filter/Notbetrieb, muss die Lieferung aber
+    /// trotzdem am Leben halten.)
+    private var lastAnyMotionAt = Date.distantPast
+
+    private var anyMotionActive: Bool {
+        Date().timeIntervalSince(lastAnyMotionAt) < 180
     }
 
     /// Doppelte Diagnose-Einträge vermeiden (applyTrackingState läuft
@@ -495,7 +506,6 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
         // bis zur vollen Präzision. Solange zählt auch ein mittelmäßiger
         // Fix — sonst fehlen bei zügiger Abfahrt die ersten Kilometer.
         wakeGraceUntil = Date().addingTimeInterval(Self.wakeGraceSeconds)
-        wakeBoostUntil = Date().addingTimeInterval(600)
         applyActiveParameters()
         Self.logEvent("Bewegung erkannt — präzise Erfassung")
     }
@@ -541,7 +551,6 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
         Self.logEvent("Geofence verlassen — Erfassung reaktiviert")
         lastMovement = Date()
         wakeGraceUntil = Date().addingTimeInterval(Self.wakeGraceSeconds)
-        wakeBoostUntil = Date().addingTimeInterval(600)
         if isResting { exitRest() }
         manager.startUpdatingLocation()
     }
@@ -627,14 +636,32 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
         }
 
         // Ausreißer-Filter: Punkte, die > 250 km/h implizieren, sind
-        // GPS-Spikes, keine Bewegung.
+        // GPS-Spikes, keine Bewegung. ABER (8.8., drei Verwerfungen in
+        // Folge): Hat es ein Streu-Fix in den Track geschafft, ist ER
+        // der falsche Anker — und der Filter verwirft dann minutenlang
+        // alle RICHTIGEN Fixe als „zu schnell“. Auflösung: Bestätigen
+        // sich zwei verworfene Fixe gegenseitig (untereinander
+        // plausible Geschwindigkeit), wird die Position neu verankert
+        // statt weiter gegen den falschen Anker zu prüfen.
         if let last = lastAcceptedLocation {
             let dt = location.timestamp.timeIntervalSince(last.timestamp)
             if dt > 0, dt < 120 {
                 let impliedSpeed = location.distance(from: last) / dt
                 if impliedSpeed > 70 {
-                    Self.logEvent("Ausreißer verworfen (\(Int(impliedSpeed * 3.6)) km/h Sprung)")
-                    return
+                    if let previous = lastRejectedOutlier,
+                       case let dt2 = location.timestamp.timeIntervalSince(previous.timestamp),
+                       dt2 > 0, dt2 < 60,
+                       location.distance(from: previous) / dt2 < 70 {
+                        Self.logEvent("Ausreißer-Serie aufgelöst — Position neu verankert")
+                        lastRejectedOutlier = nil
+                        // kein return: Fix durchläuft das normale Gate
+                    } else {
+                        lastRejectedOutlier = location
+                        Self.logEvent("Ausreißer verworfen (\(Int(impliedSpeed * 3.6)) km/h Sprung)")
+                        return
+                    }
+                } else {
+                    lastRejectedOutlier = nil
                 }
             }
         }
@@ -682,6 +709,8 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
     }
 
     private var lastAcceptedLocation: CLLocation?
+    /// Zuletzt als Ausreißer verworfener Fix — für die Serien-Auflösung.
+    private var lastRejectedOutlier: CLLocation?
     private var discardedSinceLastLog = 0
     private var lastDiscardLogAt = Date.distantPast
     private var lastSuppressionLogAt = Date.distantPast
