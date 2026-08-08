@@ -72,7 +72,7 @@ final class TrackDay {
     static let maxPointsDataBytes = 400_000
 
     func setPoints(_ pts: [TrackPoint]) {
-        var sorted = pts.sorted { $0.t < $1.t }
+        var sorted = Self.removeSpikes(pts.sorted { $0.t < $1.t })
         var data = Self.encodePoints(sorted)
         // Notbremse wie auf dem iPhone: Blob muss ins Bytes-Feld passen.
         while data.count > Self.maxPointsDataBytes, sorted.count > 1000 {
@@ -91,6 +91,35 @@ final class TrackDay {
         guard points.count > maxCount, maxCount > 2 else { return points }
         let step = Double(points.count - 1) / Double(maxCount - 1)
         return (0..<maxCount).map { points[Int(Double($0) * step)] }
+    }
+
+    /// Zacken-Radierer — identisch zum iPhone-Modell (TrackMath).
+    static func removeSpikes(_ points: [TrackPoint]) -> [TrackPoint] {
+        guard points.count >= 3 else { return points }
+        func meters(_ a: TrackPoint, _ b: TrackPoint) -> Double {
+            CLLocation(latitude: a.lat, longitude: a.lon)
+                .distance(from: CLLocation(latitude: b.lat, longitude: b.lon))
+        }
+        var kept: [TrackPoint] = [points[0]]
+        for i in 1..<(points.count - 1) {
+            let a = kept[kept.count - 1]
+            let b = points[i]
+            let c = points[i + 1]
+            let ab = meters(a, b)
+            let bc = meters(b, c)
+            guard ab > 500, bc > 500 else { kept.append(b); continue }
+            let ac = meters(a, c)
+            guard ac < 0.2 * min(ab, bc) else { kept.append(b); continue }
+            let dtAB = b.t.timeIntervalSince(a.t)
+            let dtBC = c.t.timeIntervalSince(b.t)
+            let impossiblyFast = (dtAB > 0 && ab / dtAB > 70) || (dtBC > 0 && bc / dtBC > 70)
+            if impossiblyFast || b.hAcc > 250 {
+                continue
+            }
+            kept.append(b)
+        }
+        kept.append(points[points.count - 1])
+        return kept
     }
 
     func appendPoints(_ new: [TrackPoint]) {

@@ -206,6 +206,34 @@ enum DataMaintenance {
         }
     }
 
+    private static let spikeCleanFlag = "tagesspur.spikesCleaned.v1"
+
+    /// Einmalige rückwirkende Zacken-Bereinigung: Der Zacken-Radierer
+    /// (TrackMath.removeSpikes) greift ab jetzt bei jedem Speichern —
+    /// Bestandstage (z. B. die Kanada-Strahlen vom 1.8.) werden hier
+    /// einmalig nachgezogen; auch die Kilometerzahlen werden dadurch
+    /// wieder ehrlich.
+    @MainActor
+    static func removeSpikesOnce(container: ModelContainer) {
+        guard !UserDefaults.standard.bool(forKey: spikeCleanFlag) else { return }
+        let context = ModelContext(container)
+        guard let days = try? context.fetch(FetchDescriptor<TrackDay>()) else { return }
+        var cleanedDays = 0
+        for day in days {
+            let pts = day.points()
+            let cleaned = TrackMath.removeSpikes(pts)
+            if cleaned.count != pts.count {
+                day.setPoints(cleaned)
+                cleanedDays += 1
+            }
+        }
+        if cleanedDays > 0 {
+            try? context.save()
+            LocationTracker.logEvent("Zacken entfernt — \(cleanedDays) Tage rückwirkend bereinigt")
+        }
+        UserDefaults.standard.set(true, forKey: spikeCleanFlag)
+    }
+
     @MainActor
     static func dedupe(container: ModelContainer) {
         let context = ModelContext(container)
