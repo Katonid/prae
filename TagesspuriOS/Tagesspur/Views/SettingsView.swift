@@ -319,6 +319,16 @@ struct SettingsView: View {
                         Text("Sync-Fehler (\(error.date.formatted(date: .abbreviated, time: .shortened))): \(error.text)")
                             .font(.footnote)
                             .foregroundStyle(.red)
+                        // Wegweiser bei festgefahrenem Sync: Hängt das
+                        // Hochladen trotz Fehlern seit Stunden, hilft
+                        // erfahrungsgemäß (30.7., 9.8.: veraltetes
+                        // Change-Token) nur der Neuaufbau — das soll
+                        // niemand erraten müssen.
+                        if SyncMonitor.lastExport.map({ Date().timeIntervalSince($0) > 6 * 3600 }) ?? true {
+                            Text("Das Hochladen hängt seit über 6 Stunden. Erfahrungsgemäß behebt das der Knopf „Sync-Zustand neu aufbauen“ unter den Technischen Details — alle Daten bleiben dabei erhalten (Sicherung + Wiedereinsetzen). Danach die App einmal beenden und neu öffnen.")
+                                .font(.footnote)
+                                .foregroundStyle(.orange)
+                        }
                         // Roh-Fehler zum Aufklappen: Wenn CloudKit die
                         // Einzelgründe versteckt (wie am 30.7., 12:29),
                         // steht hier trotzdem der komplette Originaltext.
