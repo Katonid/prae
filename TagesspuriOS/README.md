@@ -213,6 +213,16 @@ Native SwiftUI-App, iOS 17+, keine externen Abhängigkeiten.
   - Sync-Fehler räumen sich selbst auf: Gelingt derselbe Vorgang
     (Hochladen/Empfangen) später erfolgreich, verschwindet die rote
     Fehlerzeile automatisch.
+  - Wegweiser bei festgefahrenem Sync: Hängt das Hochladen trotz
+    Fehlerzeile > 6 Stunden, erscheint ein orangener Hinweis auf den
+    Knopf „Sync-Zustand neu aufbauen“. Bekannte Auslöser dieser
+    Klasse: gelöschte Familien-Zone (30.7.) und „Change Token
+    Expired“ auf einer EMPFANGENEN Familien-Zone (9.8., iPad: die
+    Gegenseite hatte ihre Zone neu aufgebaut, das lokale Lesezeichen
+    von CoreData war ungültig, „client knowledge differs from server
+    knowledge“ → „Never successfully initialized“). In beiden Fällen
+    ist der Neuaufbau die etablierte Lösung — er verwirft nur das
+    lokale Sync-Gedächtnis samt Lesezeichen, Daten bleiben erhalten.
   - Fehler stehen im Klartext statt als Nummerncode: CloudKit meldet
     Sammel-Fehlschläge nur als „Fehler 2“ (partialFailure) — die
     echten Gründe pro Datensatz packt SyncMonitor aus und zeigt die
@@ -413,7 +423,7 @@ Native SwiftUI-App, iOS 17+, keine externen Abhängigkeiten.
   - Einrichtung: Einstellungen → Familie; Sync automatisch beim
     Aktivwerden der App plus manueller Knopf.
 - **Versionierung**
-  - Marketing-Version (`MARKETING_VERSION`, aktuell 1.4.23) wird von
+  - Marketing-Version (`MARKETING_VERSION`, aktuell 1.4.24) wird von
     Hand gepflegt; die Build-Nummer setzt eine Skript-Bauphase
     („Build-Nummer setzen“) bei jedem Build automatisch: primär die
     Anzahl der Git-Commits, bei git-Fehlern ein Datumsstempel
