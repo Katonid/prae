@@ -163,17 +163,22 @@ Native SwiftUI-App, iOS 17+, keine externen Abhängigkeiten.
   - Auswahl über das Filter-Symbol: Zeitraum (Von/Bis, Standard =
     alles) und Geräte einzeln zu-/abschaltbar (eigene + Familie);
     die Zahl der ausgewählten Tage steht im Auswahl-Blatt.
-  - Heatmap: Punkte werden in ein Meter-Raster gebinnt (Start 100 m;
-    bei > 1500 Zellen vergröbert sich das Raster automatisch, sonst
-    ruckelt MapKit). Gezählt wird pro Zelle die Zahl der
-    VERSCHIEDENEN Tage — nicht die Punktdichte, sonst färbt ein
-    langer Aufenthalt alles um. Farbskala Regenbogen: Lila (Farbton
-    0,78) = wenigste Besuche → Rot (0,0) = meiste, logarithmisch
-    skaliert (linear wäre neben dem täglich besuchten Zuhause alles
-    andere einfarbig lila). Legende mit Skala, Rastergröße und
-    Tageszahl unten links; „heiße“ Zellen werden zuletzt gezeichnet
-    (obenauf). Heatmap-Zellen werden nur bei Filter-/Moduswechsel
-    neu berechnet, nicht bei jedem Karten-Rendern.
+  - Heatmap als eingefärbte Streckenlinien (wie die Tagesansicht):
+    Jede Spur wird in Abschnitte gleicher Farbstufe zerlegt (12
+    Stufen, Brückenpunkte gegen Linienlücken), kalte Stufen zuerst
+    gezeichnet, heiße obenauf. Gezählt werden DURCHFAHRTEN pro
+    ~120-m-Rasterzelle: Zeitstempel je Zelle sammeln, neuer Besuch
+    ab > 15 min Abstand — Hin- und Rückweg am selben Tag zählen
+    damit doppelt (Ottawa-Befund 9.8.: Tages-Zählung zeigte 1),
+    ein langer Aufenthalt bläht nichts auf, und zwei eigene Geräte,
+    die dieselbe Fahrt parallel aufzeichnen, verschmelzen zu einem
+    Besuch. Punkte je Tag auf 1500 ausgedünnt (bei 200-km-Tagen muss
+    jede Passage in jeder Zelle noch einen Punkt hinterlassen).
+    Farbskala Regenbogen: Lila (Farbton 0,78) = wenigste Besuche →
+    Rot (0,0) = meiste, logarithmisch skaliert (linear wäre neben dem
+    täglich besuchten Zuhause alles andere einfarbig lila). Legende
+    mit Skala, Zählraster und Tageszahl unten links. Segmente werden
+    nur bei Filter-/Moduswechsel neu berechnet.
 - **Kurzbefehle / Automationen (App-Intents)**
   - Drei Aktionen: „Aufzeichnung starten“, „Aufzeichnung stoppen“,
     „Aufzeichnungs-Status“ (liefert Wahr/Falsch) — damit sind
@@ -442,7 +447,7 @@ Native SwiftUI-App, iOS 17+, keine externen Abhängigkeiten.
   - Einrichtung: Einstellungen → Familie; Sync automatisch beim
     Aktivwerden der App plus manueller Knopf.
 - **Versionierung**
-  - Marketing-Version (`MARKETING_VERSION`, aktuell 1.4.25) wird von
+  - Marketing-Version (`MARKETING_VERSION`, aktuell 1.4.26) wird von
     Hand gepflegt; die Build-Nummer setzt eine Skript-Bauphase
     („Build-Nummer setzen“) bei jedem Build automatisch: primär die
     Anzahl der Git-Commits, bei git-Fehlern ein Datumsstempel
