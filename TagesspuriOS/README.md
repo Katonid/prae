@@ -155,6 +155,25 @@ Native SwiftUI-App, iOS 17+, keine externen Abhängigkeiten.
     die Ereignisse in diesem Fenster.
   - Punkte werden gepuffert (20 Punkte / 90 s) und pro Tag als kompakter
     Blob gespeichert — wenig I/O, wenig Sync-Volumen.
+- **Rückblick (Gesamtkarte mit Heatmap)**
+  - Erreichbar über das Karten-Symbol im Tab „Tage“. Zwei Ansichten,
+    umschaltbar oben: „Spuren“ (alle Tracks als Linien in den
+    Gerätefarben; Antippen wählt einen Track — Infokarte, isolieren,
+    Tagesdetail) und „Heatmap“.
+  - Auswahl über das Filter-Symbol: Zeitraum (Von/Bis, Standard =
+    alles) und Geräte einzeln zu-/abschaltbar (eigene + Familie);
+    die Zahl der ausgewählten Tage steht im Auswahl-Blatt.
+  - Heatmap: Punkte werden in ein Meter-Raster gebinnt (Start 100 m;
+    bei > 1500 Zellen vergröbert sich das Raster automatisch, sonst
+    ruckelt MapKit). Gezählt wird pro Zelle die Zahl der
+    VERSCHIEDENEN Tage — nicht die Punktdichte, sonst färbt ein
+    langer Aufenthalt alles um. Farbskala Regenbogen: Lila (Farbton
+    0,78) = wenigste Besuche → Rot (0,0) = meiste, logarithmisch
+    skaliert (linear wäre neben dem täglich besuchten Zuhause alles
+    andere einfarbig lila). Legende mit Skala, Rastergröße und
+    Tageszahl unten links; „heiße“ Zellen werden zuletzt gezeichnet
+    (obenauf). Heatmap-Zellen werden nur bei Filter-/Moduswechsel
+    neu berechnet, nicht bei jedem Karten-Rendern.
 - **Kurzbefehle / Automationen (App-Intents)**
   - Drei Aktionen: „Aufzeichnung starten“, „Aufzeichnung stoppen“,
     „Aufzeichnungs-Status“ (liefert Wahr/Falsch) — damit sind
@@ -423,7 +442,7 @@ Native SwiftUI-App, iOS 17+, keine externen Abhängigkeiten.
   - Einrichtung: Einstellungen → Familie; Sync automatisch beim
     Aktivwerden der App plus manueller Knopf.
 - **Versionierung**
-  - Marketing-Version (`MARKETING_VERSION`, aktuell 1.4.24) wird von
+  - Marketing-Version (`MARKETING_VERSION`, aktuell 1.4.25) wird von
     Hand gepflegt; die Build-Nummer setzt eine Skript-Bauphase
     („Build-Nummer setzen“) bei jedem Build automatisch: primär die
     Anzahl der Git-Commits, bei git-Fehlern ein Datumsstempel
