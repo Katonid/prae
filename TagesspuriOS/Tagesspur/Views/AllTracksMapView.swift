@@ -9,12 +9,15 @@ import CoreLocation
 /// Zwei Ansichten:
 /// - „Spuren“: alle Tracks als Linien; Antippen wählt einen Track aus
 ///   (Infokarte, isolieren, Tagesdetail).
-/// - „Heatmap“: Besuchshäufigkeit pro Ort. Gezählt wird, an wie vielen
-///   VERSCHIEDENEN Tagen ein Rasterfeld besucht wurde — nicht die
-///   Punktdichte, sonst färbt ein einziger langer Aufenthalt alles um.
-///   Farbskala: Regenbogen von Lila (seltenste Besuche) bis Rot
-///   (häufigste), logarithmisch skaliert — linear wäre neben dem
-///   Zuhause (jeden Tag besucht) alles andere einfarbig lila.
+/// - „Heatmap“: Besuchshäufigkeit als eingefärbte Streckenlinien —
+///   dieselben Spuren wie in der Tagesansicht, aber jeder Abschnitt
+///   trägt die Farbe seiner Besuchszahl. Gezählt werden DURCHFAHRTEN
+///   pro Rasterfeld (~120 m): Ein neuer Besuch beginnt, wenn zwischen
+///   zwei Vorbeikommen > 15 min liegen — Hin- und Rückweg am selben
+///   Tag zählen damit doppelt (Ottawa-Befund), ein langer Aufenthalt
+///   bläht dagegen nichts auf. Farbskala: Regenbogen von Lila
+///   (seltenste Besuche) bis Rot (häufigste), logarithmisch skaliert —
+///   linear wäre neben dem Zuhause alles andere einfarbig lila.
 struct AllTracksMapView: View {
     struct TrackItem: Identifiable {
         let id: String
@@ -48,16 +51,20 @@ struct AllTracksMapView: View {
     @State private var rangeStart: Date?
     @State private var rangeEnd: Date?
 
-    // Heatmap-Zellen werden nur bei Filter-/Moduswechsel neu berechnet,
-    // nicht bei jedem Karten-Rendern (36k Punkte binnen ist spürbar).
-    @State private var heatCells: [HeatCell] = []
+    // Heatmap-Segmente werden nur bei Filter-/Moduswechsel neu
+    // berechnet, nicht bei jedem Karten-Rendern (Binning + Episoden-
+    // Zählung über zigtausend Punkte ist spürbar).
+    @State private var heatSegments: [HeatSegment] = []
     @State private var heatMax = 1
-    @State private var heatGridMeters = 100.0
 
-    private struct HeatCell: Identifiable {
-        let id: String
-        let center: CLLocationCoordinate2D
-        let count: Int
+    private static let heatGridMeters = 120.0
+    private static let heatLevels = 12
+
+    /// Zusammenhängender Streckenabschnitt gleicher Farbstufe.
+    private struct HeatSegment: Identifiable {
+        let id: Int
+        let coordinates: [CLLocationCoordinate2D]
+        let level: Int
     }
 
     private struct DeviceEntry: Identifiable {
@@ -114,11 +121,13 @@ struct AllTracksMapView: View {
         MapReader { proxy in
             Map(position: $position) {
                 if mode == .heat {
-                    // Kleine Zählwerte zuerst — die „heißen“ Zellen
-                    // liegen damit obenauf.
-                    ForEach(heatCells.sorted { $0.count < $1.count }) { cell in
-                        MapCircle(center: cell.center, radius: heatGridMeters * 0.55)
-                            .foregroundStyle(Self.heatColor(count: cell.count, maxCount: heatMax).opacity(0.55))
+                    // Vorgesortiert: kalte Stufen zuerst, heiße obenauf.
+                    ForEach(heatSegments) { segment in
+                        MapPolyline(coordinates: segment.coordinates)
+                            .stroke(
+                                Self.levelColor(segment.level),
+                                style: StrokeStyle(lineWidth: 4, lineCap: .round, lineJoin: .round)
+                            )
                     }
                 } else {
                     ForEach(displayed) { item in
@@ -259,20 +268,23 @@ struct AllTracksMapView: View {
     /// Regenbogen-Skala: Lila (Farbwinkel 0,78) für die wenigsten
     /// Besuche, über Blau/Grün/Gelb/Orange bis Rot (0,0) für die
     /// meisten. Logarithmisch, damit nicht ein einziger oft besuchter
-    /// Ort alle anderen in Lila drückt.
-    private static func heatColor(count: Int, maxCount: Int) -> Color {
-        let t: Double
-        if maxCount <= 1 {
-            t = 1
-        } else {
-            t = log(Double(max(count, 1))) / log(Double(maxCount))
-        }
+    /// Ort alle anderen in Lila drückt. Quantisiert in 12 Stufen —
+    /// dadurch verschmelzen benachbarte Streckenabschnitte gleicher
+    /// Stufe zu einem Linienzug (weniger Karten-Objekte).
+    private static func level(count: Int, maxCount: Int) -> Int {
+        guard maxCount > 1 else { return heatLevels - 1 }
+        let t = log(Double(max(count, 1))) / log(Double(maxCount))
+        return min(heatLevels - 1, Int(t * Double(heatLevels - 1) + 0.5))
+    }
+
+    private static func levelColor(_ level: Int) -> Color {
+        let t = Double(level) / Double(heatLevels - 1)
         return Color(hue: 0.78 * (1 - t), saturation: 0.9, brightness: 0.95)
     }
 
     private var heatLegend: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Besuche (verschiedene Tage pro Ort)")
+            Text("Besuche (Durchfahrten pro Ort)")
                 .font(.caption.bold())
             HStack(spacing: 8) {
                 Text("1")
@@ -287,7 +299,7 @@ struct AllTracksMapView: View {
                 Text("\(heatMax)")
             }
             .font(.caption.monospacedDigit())
-            Text("Raster ≈ \(Int(heatGridMeters)) m · \(Set(filteredItems.map(\.dayKey)).count) Tage")
+            Text("Zählraster ≈ \(Int(Self.heatGridMeters)) m · \(Set(filteredItems.map(\.dayKey)).count) Tage")
                 .font(.caption2)
                 .foregroundStyle(.secondary)
         }
@@ -301,47 +313,80 @@ struct AllTracksMapView: View {
         let y: Int
     }
 
-    /// Punkte in ein Meter-Raster binnen; pro Zelle zählen die
-    /// VERSCHIEDENEN Tage. Wird die Karte zu voll (> 1500 Zellen),
-    /// vergröbert sich das Raster automatisch — sonst ruckelt MapKit.
+    /// Heatmap in zwei Schritten:
+    /// 1. Zählen — Punkte in ein ~120-m-Raster binnen; pro Zelle
+    ///    werden die Zeitstempel gesammelt und daraus DURCHFAHRTEN
+    ///    gezählt: Ein neuer Besuch beginnt, wenn > 15 min zwischen
+    ///    zwei Vorbeikommen liegen. Hin- und Rückweg am selben Tag
+    ///    zählen so doppelt; zwei Geräte, die dieselbe Fahrt parallel
+    ///    aufzeichnen, zählen nur einmal (Zeitstempel verschmelzen).
+    /// 2. Zeichnen — jede Spur wird in Abschnitte gleicher Farbstufe
+    ///    zerlegt und als Linie gezeichnet (wie die Tagesansicht),
+    ///    kalte Stufen zuerst, heiße obenauf.
     private func rebuildHeatmap() {
         guard mode == .heat else { return }
         let filtered = filteredItems
         guard let anchor = filtered.first?.points.first else {
-            heatCells = []
+            heatSegments = []
             heatMax = 1
             return
         }
         let latMeters = 111_320.0
         let midLatCos = max(cos(anchor.lat * .pi / 180), 0.2)
-        var grid = 100.0
-        while true {
-            let dLat = grid / latMeters
-            let dLon = grid / (latMeters * midLatCos)
-            var binned: [CellKey: Set<String>] = [:]
-            for item in filtered {
-                for point in item.points {
-                    let key = CellKey(x: Int(floor(point.lat / dLat)), y: Int(floor(point.lon / dLon)))
-                    binned[key, default: []].insert(item.dayKey)
-                }
-            }
-            if binned.count <= 1500 || grid >= 3200 {
-                heatGridMeters = grid
-                heatMax = binned.values.map(\.count).max() ?? 1
-                heatCells = binned.map { key, days in
-                    HeatCell(
-                        id: "\(key.x)/\(key.y)",
-                        center: CLLocationCoordinate2D(
-                            latitude: (Double(key.x) + 0.5) * dLat,
-                            longitude: (Double(key.y) + 0.5) * dLon
-                        ),
-                        count: days.count
-                    )
-                }
-                return
-            }
-            grid *= 2
+        let dLat = Self.heatGridMeters / latMeters
+        let dLon = Self.heatGridMeters / (latMeters * midLatCos)
+        func cellKey(_ point: TrackPoint) -> CellKey {
+            CellKey(x: Int(floor(point.lat / dLat)), y: Int(floor(point.lon / dLon)))
         }
+
+        // Schritt 1: Zeitstempel je Zelle sammeln, Durchfahrten zählen.
+        var stamps: [CellKey: [Date]] = [:]
+        for item in filtered {
+            for point in item.points {
+                stamps[cellKey(point), default: []].append(point.t)
+            }
+        }
+        var counts: [CellKey: Int] = [:]
+        counts.reserveCapacity(stamps.count)
+        for (key, times) in stamps {
+            let sorted = times.sorted()
+            var visits = 1
+            var last = sorted[0]
+            for time in sorted.dropFirst() {
+                if time.timeIntervalSince(last) > 900 { visits += 1 }
+                last = time
+            }
+            counts[key] = visits
+        }
+        heatMax = counts.values.max() ?? 1
+
+        // Schritt 2: Spuren in Abschnitte gleicher Farbstufe zerlegen.
+        var segments: [HeatSegment] = []
+        var nextId = 0
+        for item in filtered {
+            var runCoordinates: [CLLocationCoordinate2D] = []
+            var runLevel = -1
+            func closeRun() {
+                if runCoordinates.count > 1 {
+                    segments.append(HeatSegment(id: nextId, coordinates: runCoordinates, level: runLevel))
+                    nextId += 1
+                }
+            }
+            for point in item.points {
+                let level = Self.level(count: counts[cellKey(point)] ?? 1, maxCount: heatMax)
+                if level != runLevel {
+                    let bridge = runCoordinates.last
+                    closeRun()
+                    // Brückenpunkt: der Abschnittswechsel darf keine
+                    // Lücke in der Linie reißen.
+                    runCoordinates = bridge.map { [$0] } ?? []
+                    runLevel = level
+                }
+                runCoordinates.append(point.coordinate)
+            }
+            closeRun()
+        }
+        heatSegments = segments.sorted { $0.level < $1.level }
     }
 
     // MARK: - Auswahl per Tipp (nur Spuren-Modus)
@@ -449,15 +494,17 @@ struct AllTracksMapView: View {
         let own = (try? context.fetch(FetchDescriptor<TrackDay>())) ?? []
         let family = (try? context.fetch(FetchDescriptor<FamilyDay>())) ?? []
 
-        // 500 Punkte je Tag: genug Dichte für Heatmap-Raster und
-        // Linien, klein genug für flüssiges Rendern vieler Tage.
+        // 1500 Punkte je Tag: Bei langen Fahrten (200 km) muss jede
+        // Durchfahrt in jedem ~120-m-Rasterfeld noch einen Punkt
+        // hinterlassen, sonst zählt die Heatmap Passagen doppelt
+        // vorbeigefahrener Strecken nicht sauber.
         var list: [TrackItem] = own.map { day in
             TrackItem(
                 id: "own-\(day.deviceId)-\(day.dayKey)",
                 dayKey: day.dayKey,
                 deviceId: day.deviceId,
                 ownerName: day.deviceName.isEmpty ? "Gerät" : day.deviceName,
-                points: TrackMath.downsample(day.points(), maxCount: 500),
+                points: TrackMath.downsample(day.points(), maxCount: 1500),
                 pointCount: day.pointCount,
                 distanceMeters: day.distanceMeters,
                 start: day.startDate,
@@ -470,7 +517,7 @@ struct AllTracksMapView: View {
                 dayKey: day.dayKey,
                 deviceId: day.deviceId.isEmpty ? day.recordName : day.deviceId,
                 ownerName: day.displayName,
-                points: TrackMath.downsample(day.points(), maxCount: 500),
+                points: TrackMath.downsample(day.points(), maxCount: 1500),
                 pointCount: day.pointCount,
                 distanceMeters: day.distanceMeters,
                 start: day.startDate,
