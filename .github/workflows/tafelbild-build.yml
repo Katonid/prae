@@ -32,6 +32,9 @@ jobs:
           # zählt daraus die Commits.
           fetch-depth: 0
 
+      - name: Quelltext vorprüfen
+        run: python3 scripts/swift-quelltext-pruefen.py .
+
       - name: Werkzeuge zeigen
         run: |
           xcodebuild -version

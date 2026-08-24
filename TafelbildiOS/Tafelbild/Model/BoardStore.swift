@@ -40,6 +40,10 @@ final class BoardStore: ObservableObject {
     /// Kurze Rückmeldung am oberen Rand (verschwindet von selbst).
     @Published var statusMessage: String?
 
+    /// Kennung des angemeldeten iCloud-Kontos. Sie ist auf allen Geräten
+    /// derselben Apple-ID gleich und entscheidet, welche Tafeln mir gehören.
+    @Published private(set) var myUserID: String?
+
     // Reine Bedienzustände (werden nicht gespeichert)
     @Published var editing: Bool = false
     @Published var selectedWidgetID: String?
@@ -52,7 +56,12 @@ final class BoardStore: ObservableObject {
     private let defaults = UserDefaults.standard
     private var saveTask: Task<Void, Never>?
     private var statusTask: Task<Void, Never>?
+    private var refreshTask: Task<Void, Never>?
     private var mediaFetches = Set<String>()
+    /// Die Beispieltafel wartet auf den ersten Abgleich — sonst entstünde
+    /// auf einem zweiten Gerät eine zweite Tafel neben der bereits
+    /// vorhandenen.
+    private var starterPending = false
 
     // MARK: - Start
 
@@ -64,24 +73,17 @@ final class BoardStore: ObservableObject {
         boards = Self.loadJSON([Board].self, from: Self.boardsURL) ?? []
         nameLists = Self.loadJSON([NameList].self, from: Self.nameListsURL) ?? []
 
+        myUserID = defaults.string(forKey: "sync.userID")
+
+        // Beispieltafel: Auf einem frisch eingerichteten Gerät zuerst den
+        // Abgleich abwarten — sonst steht die Beispieltafel neben den
+        // Tafeln, die gleich aus iCloud eintreffen.
         if boards.isEmpty && nameLists.isEmpty && !defaults.bool(forKey: "starterCreated") {
-            let list = StarterContent.makeNameList(owner: profileName)
-            var board = StarterContent.makeBoard(owner: profileName)
-            // Beispiel-Namensliste gleich im Zufallsgenerator hinterlegen.
-            for index in board.widgets.indices {
-                if case .namePicker(var content) = board.widgets[index].content {
-                    content.listID = list.id
-                    board.widgets[index].content = .namePicker(content)
-                }
+            if syncEnabled {
+                starterPending = true
+            } else {
+                createStarterContent()
             }
-            nameLists = [list]
-            boards = [board]
-            ownBoardIDs.insert(board.id)
-            activeBoardID = board.id
-            defaults.set(true, forKey: "starterCreated")
-            saveNow()
-            engine.enqueue(kind: .nameList, entityId: list.id)
-            engine.enqueue(kind: .board, entityId: board.id)
         }
 
         if activeBoard == nil { activeBoardID = visibleBoards.first?.id ?? "" }
@@ -95,6 +97,42 @@ final class BoardStore: ObservableObject {
         Task { await ensureMediaForVisibleBoards() }
     }
 
+    /// Legt die Beispieltafel samt Namensliste an (erster Start).
+    private func createStarterContent() {
+        guard !defaults.bool(forKey: "starterCreated") else { return }
+        let list = StarterContent.makeNameList(owner: profileName)
+        var board = StarterContent.makeBoard(owner: profileName)
+        board.ownerUserID = myUserID ?? ""
+        // Beispiel-Namensliste gleich im Zufallsgenerator hinterlegen.
+        for index in board.widgets.indices {
+            if case .namePicker(var content) = board.widgets[index].content {
+                content.listID = list.id
+                board.widgets[index].content = .namePicker(content)
+            }
+        }
+        nameLists.append(list)
+        boards.append(board)
+        ownBoardIDs.insert(board.id)
+        activeBoardID = board.id
+        defaults.set(true, forKey: "starterCreated")
+        starterPending = false
+        saveNow()
+        engine.enqueue(kind: .nameList, entityId: list.id)
+        engine.enqueue(kind: .board, entityId: board.id)
+    }
+
+    /// Nach dem ersten Abgleich entscheiden, ob es eine Beispieltafel braucht.
+    private func finishFirstSync() {
+        guard starterPending else { return }
+        starterPending = false
+        if visibleBoards.isEmpty {
+            createStarterContent()
+        } else {
+            defaults.set(true, forKey: "starterCreated")
+            if activeBoard == nil { activeBoardID = visibleBoards.first?.id ?? "" }
+        }
+    }
+
     private func wireEngine() {
         // Die Engine ruft beide Blöcke bereits auf dem Main-Thread auf;
         // assumeIsolated macht das dem Compiler klar.
@@ -103,6 +141,12 @@ final class BoardStore: ObservableObject {
         }
         engine.onRemoteChanges = { [weak self] changes in
             MainActor.assumeIsolated { self?.applyRemote(changes) }
+        }
+        engine.onSyncFinished = { [weak self] in
+            MainActor.assumeIsolated { self?.finishFirstSync() }
+        }
+        engine.onUserIDChange = { [weak self] userID in
+            MainActor.assumeIsolated { self?.adoptUserID(userID) }
         }
         engine.payloadProvider = { [weak self] kind, entityId in
             guard let self else { return nil }
@@ -123,6 +167,27 @@ final class BoardStore: ObservableObject {
     func appBecameActive() {
         syncNow()
         resetDailyChecklistsIfNeeded()
+        startAutoRefresh()
+    }
+
+    /// Solange die Tafel zu sehen ist, regelmäßig nach Änderungen der
+    /// Kolleginnen schauen — eine Tafel hängt oft eine ganze Stunde am
+    /// Beamer, ohne dass jemand die App wechselt.
+    func startAutoRefresh() {
+        stopAutoRefresh()
+        guard syncEnabled else { return }
+        refreshTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(30))
+                guard !Task.isCancelled, let self, self.syncEnabled else { return }
+                self.engine.syncNow()
+            }
+        }
+    }
+
+    func stopAutoRefresh() {
+        refreshTask?.cancel()
+        refreshTask = nil
     }
 
     // MARK: - Persistenz
@@ -168,10 +233,45 @@ final class BoardStore: ObservableObject {
         set { defaults.set(Array(newValue), forKey: "ownBoardIDs") }
     }
 
+    /// Wem gehört eine Tafel bzw. wer darf sie sehen?
+    ///
+    /// Maßgeblich ist die iCloud-Kennung: Sie ist auf allen Geräten derselben
+    /// Apple-ID gleich, deshalb taucht eine Tafel dort ohne jede Einstellung
+    /// auf. Dazu kommen die auf diesem Gerät angelegten Tafeln und — für
+    /// Bestandsdaten — der eingetragene Anzeigename.
     private func isMember(of board: Board) -> Bool {
         if ownBoardIDs.contains(board.id) { return true }
-        guard let me = profileName.nonEmpty?.lowercased() else { return false }
-        return board.members.contains { $0.trimmed.lowercased() == me }
+        if let me = myUserID, !me.isEmpty {
+            if board.ownerUserID == me { return true }
+            if board.memberUserIDs.contains(me) { return true }
+        }
+        guard let name = profileName.nonEmpty?.lowercased() else { return false }
+        return board.members.contains { $0.trimmed.lowercased() == name }
+    }
+
+    /// Die iCloud-Kennung steht (erstmals) fest: eigene Tafeln damit stempeln,
+    /// damit sie auf den anderen Geräten desselben Kontos auftauchen.
+    private func adoptUserID(_ userID: String) {
+        guard !userID.isEmpty else { return }
+        myUserID = userID
+        var changed = false
+        for index in boards.indices where ownBoardIDs.contains(boards[index].id) {
+            if boards[index].ownerUserID.isEmpty {
+                boards[index].ownerUserID = userID
+                boards[index].updatedAtMs = Date.nowMs
+                engine.enqueue(kind: .board, entityId: boards[index].id)
+                changed = true
+            } else if boards[index].ownerUserID != userID,
+                      !boards[index].memberUserIDs.contains(userID) {
+                // Beigetretene Tafel: eigene Kennung als Mitglied ergänzen.
+                boards[index].memberUserIDs.append(userID)
+                boards[index].updatedAtMs = Date.nowMs
+                engine.enqueue(kind: .board, entityId: boards[index].id)
+                changed = true
+            }
+        }
+        if changed { scheduleSave() }
+        if activeBoard == nil { activeBoardID = visibleBoards.first?.id ?? "" }
     }
 
     var visibleBoards: [Board] {
@@ -187,6 +287,9 @@ final class BoardStore: ObservableObject {
         nameLists.filter { !$0.deleted }
             .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
     }
+
+    /// Anzahl aller (auch fremder) Tafeln im lokalen Bestand — für die Diagnose.
+    var allBoardsCount: Int { boards.filter { !$0.deleted }.count }
 
     func board(_ id: String) -> Board? { boards.first { $0.id == id } }
     func nameList(_ id: String?) -> NameList? {
@@ -220,6 +323,7 @@ final class BoardStore: ObservableObject {
     func createBoard(name: String = "Neue Tafel", emoji: String = "🌟") -> Board {
         var board = Board(name: name, emoji: emoji, owner: profileName)
         if let me = profileName.nonEmpty { board.members = [me] }
+        board.ownerUserID = myUserID ?? ""
         boards.append(board)
         ownBoardIDs.insert(board.id)
         activeBoardID = board.id
@@ -236,6 +340,8 @@ final class BoardStore: ObservableObject {
         copy.createdAtMs = Date.nowMs
         copy.owner = profileName
         copy.members = profileName.nonEmpty.map { [$0] } ?? []
+        copy.ownerUserID = myUserID ?? ""
+        copy.memberUserIDs = []
         copy.widgets = board.widgets.map { widget in
             var new = widget
             new.id = UUID().uuidString
@@ -256,13 +362,18 @@ final class BoardStore: ObservableObject {
 
     func deleteBoard(_ board: Board) {
         guard let index = boards.firstIndex(where: { $0.id == board.id }) else { return }
-        if boards[index].owner.nonEmpty != nil,
-           boards[index].owner.lowercased() != profileName.trimmed.lowercased(),
-           let me = profileName.nonEmpty {
-            // Fremde Tafel: nur die eigene Mitgliedschaft beenden.
-            boards[index].members.removeAll { $0.trimmed.lowercased() == me.lowercased() }
-        } else {
+        let mine = boards[index].ownerUserID.isEmpty
+            ? boards[index].owner.trimmed.lowercased() == profileName.trimmed.lowercased()
+            : boards[index].ownerUserID == (myUserID ?? "")
+        if mine {
             boards[index].deleted = true
+        } else {
+            // Fremde Tafel: nur die eigene Mitgliedschaft beenden, damit sie
+            // bei den anderen bestehen bleibt.
+            if let me = myUserID { boards[index].memberUserIDs.removeAll { $0 == me } }
+            if let name = profileName.nonEmpty {
+                boards[index].members.removeAll { $0.trimmed.lowercased() == name.lowercased() }
+            }
         }
         var ids = ownBoardIDs
         ids.remove(board.id)
@@ -447,13 +558,19 @@ final class BoardStore: ObservableObject {
         var ids = ownBoardIDs
         ids.insert(boards[index].id)
         ownBoardIDs = ids
-        if let me = profileName.nonEmpty,
-           !boards[index].members.contains(where: { $0.trimmed.lowercased() == me.lowercased() }) {
-            boards[index].members.append(me)
-            touch(boards[index].id)
-        } else {
-            scheduleSave()
+        var changed = false
+        if let me = myUserID, !me.isEmpty,
+           boards[index].ownerUserID != me,
+           !boards[index].memberUserIDs.contains(me) {
+            boards[index].memberUserIDs.append(me)
+            changed = true
         }
+        if let name = profileName.nonEmpty,
+           !boards[index].members.contains(where: { $0.trimmed.lowercased() == name.lowercased() }) {
+            boards[index].members.append(name)
+            changed = true
+        }
+        if changed { touch(boards[index].id) } else { scheduleSave() }
         activeBoardID = boards[index].id
         Task { await ensureMediaForVisibleBoards() }
         showStatus("Tafel „\(boards[index].name)“ hinzugefügt.")

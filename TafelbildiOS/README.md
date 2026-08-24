@@ -68,6 +68,32 @@ Das meistgenutzte Element, deshalb vollständig ausgebaut:
 - Es ist **kein gemeinsames iCloud-Konto nötig** — jedes Gerät braucht
   nur irgendein iCloud-Konto.
 
+## Wie der Abgleich funktioniert
+
+- **Eigene Geräte:** Tafeln und Namenslisten erscheinen automatisch auf
+  allen Geräten mit derselben Apple-ID — ohne Einstellung, ohne Code. Die
+  App merkt sich dafür die iCloud-Kennung des Kontos (die vergibt CloudKit
+  je App-Container) und zeigt jedem Gerät genau die Tafeln, die zu diesem
+  Konto gehören.
+- **Kolleginnen und Kollegen:** über den sechsstelligen Einladungscode.
+  Beim Beitritt trägt sich das Gerät mit seiner Kennung in die Tafel ein;
+  ab dann laufen Änderungen in beide Richtungen.
+- **Wann wird abgeglichen:** beim Start, bei jeder Rückkehr in die App,
+  nach jeder Änderung (gebündelt nach ~1,5 Sekunden), alle 30 Sekunden
+  solange die Tafel zu sehen ist, und zusätzlich über stille
+  iCloud-Mitteilungen. Eine Änderung der Kollegin steht also spätestens
+  eine halbe Minute später auf der eigenen Tafel.
+- **Konflikte:** Es gewinnt die zuletzt gespeicherte Fassung (je Tafel).
+- **Offline:** Alles läuft weiter; Änderungen warten in einer Warteschlange
+  und gehen hoch, sobald wieder Netz da ist.
+- **Wenn etwas klemmt:** *Einstellungen → „Abgleich prüfen"* prüft Konto,
+  Kennung, Schreiben und Lesen einzeln und nennt zu jedem Fehler die
+  Abhilfe im Klartext. Dort steht auch, welche CloudKit-Umgebung das Gerät
+  benutzt — das ist die häufigste Stolperstelle: **Eine über Xcode
+  installierte App nutzt „Development", eine über TestFlight installierte
+  „Production".** Zwei Geräte reden nur miteinander, wenn sie in derselben
+  Umgebung sind.
+
 ## Datenhaltung und Privatsphäre
 
 - Alles liegt zuerst **lokal** (JSON im Documents-Ordner, Bilder und
@@ -105,12 +131,21 @@ Voraussetzungen: Mac mit Xcode 16+, Apple-Developer-Programm.
 3. **Einmal auf dem iPad starten** und eine Tafel ändern — dadurch legt
    CloudKit den Record-Typ `Entity` in der Development-Umgebung an.
    Danach in der [CloudKit Console](https://icloud.developer.apple.com)
-   → Container → *Schema* → `Entity`:
-   - `updatedAtMs`: **Queryable** und **Sortable**
-   - `kind`: **Queryable**
+   → Container → *Schema*:
+   - **Damit geteilte Tafeln von allen geändert werden dürfen**
+     (wichtig!): *Security Roles* → Zeile `Entity` → für die Rolle
+     `_icloud` **Read UND Write** ankreuzen. Ohne das darf nur die
+     Person, die eine Tafel angelegt hat, sie ändern — Kolleginnen
+     bekämen beim Speichern einen Rechtefehler.
+   - *Optional, macht den Abgleich sparsamer:* `Entity` → Feld
+     `updatedAtMs` als **Queryable** und **Sortable** markieren. Fehlt
+     der Index, holt die App eben alle Datensätze — sie funktioniert
+     auch so.
 
-   … und *Deploy Schema Changes to Production* — TestFlight-Builds
-   nutzen die Production-Umgebung.
+   Danach *Deploy Schema Changes to Production* — TestFlight-Builds
+   nutzen die Production-Umgebung, und dort lässt sich das Schema nicht
+   aus der App heraus anlegen.
+
 4. **App-Eintrag anlegen** (einmalig) in
    [App Store Connect](https://appstoreconnect.apple.com): *Meine Apps*
    → **+** → *Neue App*, gleiche Bundle-ID. Ist der Name „Tafelbild"

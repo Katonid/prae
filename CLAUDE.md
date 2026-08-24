@@ -130,9 +130,18 @@ noch Commits auf denselben PR gepusht wurden — die hingen dann fest
   `INFOPLIST_KEY_ITSAppUsesNonExemptEncryption` — nicht entfernen,
   erspart die Export-Compliance-Frage bei jedem TestFlight-Build.
 - Datenhaltung wie in der Reisekasse: generische `Entity`-Records in der
-  öffentlichen CloudKit-Datenbank, Sichtbarkeit über Mitgliedschaft im
-  Objekt. In der CloudKit-Konsole müssen `updatedAtMs` (queryable +
-  sortable) und `kind` (queryable) indiziert sein.
+  öffentlichen CloudKit-Datenbank. **Sichtbarkeit hängt an der
+  iCloud-Kennung** (`ownerUserID` / `memberUserIDs`, aus
+  `CKContainer.fetchUserRecordID`) — nicht am Anzeigenamen; nur so
+  erscheinen eigene Tafeln auf allen Geräten derselben Apple-ID.
+- Indizes in der CloudKit-Konsole sind **optional**: Fehlt der Index auf
+  `updatedAtMs`, fällt die Abfrage automatisch auf „alles holen" zurück.
+  Pflicht ist dagegen die Sicherheitsrolle: `Entity` → `_icloud` braucht
+  Read **und** Write, sonst dürfen Kolleginnen geteilte Tafeln nicht
+  ändern.
+- Development (Xcode) und Production (TestFlight) sind getrennte
+  CloudKit-Umgebungen — Geräte gleichen nur innerhalb derselben ab. Die
+  Ansicht „Abgleich prüfen" in den Einstellungen zeigt, welche gilt.
 - **Übersetzt wird in GitHub Actions**, nicht erst auf dem Mac: Der
   Arbeitsablauf `.github/workflows/tafelbild-build.yml` baut die App bei
   jedem Push auf `TafelbildiOS/` auf einem macOS-Läufer (xcodebuild,

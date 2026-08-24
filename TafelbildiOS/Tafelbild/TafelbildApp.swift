@@ -48,6 +48,7 @@ struct TafelbildApp: App {
                 store.appBecameActive()
             default:
                 UIApplication.shared.isIdleTimerDisabled = false
+                store.stopAutoRefresh()
                 store.saveNow()
             }
         }
