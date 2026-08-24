@@ -1,10 +1,16 @@
 // Lautstärkemesser — misst über das Mikrofon des Geräts die Lautstärke im Raum.
 // Die Aufnahme bleibt im Gerät: es wird nur der Pegel berechnet, nichts gespeichert.
+// Das Mikrofon läuft nur im Vordergrund: Wandert die Seite in den Hintergrund,
+// wird es sofort freigegeben (die Aufnahmeanzeige des Geräts erlischt) und beim
+// Zurückkommen von selbst wieder angeschaltet.
 
 import { h, clear, clamp, beep, onTap } from '../util.js';
 import { section, toggleRow, field, button, toast } from '../ui.js';
 
 const SEGMENTS = 24;
+const HIDDEN_HINT = 'Pausiert — die Seite ist im Hintergrund.';
+// Verliert nur das Fenster den Fokus, wird eine halbe Minute gewartet.
+const BLUR_GRACE = 30000;
 
 export default {
   type: 'noise',
@@ -36,7 +42,13 @@ export default {
       meter.appendChild(segment);
     }
 
-    let mode = 'off'; // off | starting | running | denied | unsupported
+    let mode = 'off'; // off | starting | running | paused | denied | unsupported
+    // Steht nur beim Pausieren: erklärt, warum gerade nicht gemessen wird.
+    let pauseHint = '';
+    // Darf die Messung beim Zurückkommen von selbst weiterlaufen?
+    let autoResume = false;
+    // Kurze Schonfrist, wenn nur das Fenster den Fokus verliert (z. B. anderes Programm).
+    let blurTimer = null;
     let stream = null;
     let audioCtx = null;
     let analyser = null;
@@ -68,6 +80,9 @@ export default {
       if (mode === 'running') {
         actionButton.textContent = 'Messung stoppen';
         actionButton.className = 'w-noise__button w-noise__button--stop';
+      } else if (mode === 'paused') {
+        actionButton.textContent = 'Weiter messen';
+        actionButton.className = 'w-noise__button';
       } else if (mode === 'starting') {
         actionButton.textContent = 'Mikrofon wird gestartet …';
         actionButton.className = 'w-noise__button is-busy';
@@ -77,6 +92,7 @@ export default {
       }
 
       if (mode === 'off') statusEl.textContent = 'Zum Messen Mikrofon aktivieren.';
+      if (mode === 'paused') statusEl.textContent = pauseHint || 'Messung pausiert.';
       if (mode === 'starting') statusEl.textContent = 'Bitte die Nachfrage des Geräts bestätigen.';
       if (mode === 'denied') {
         statusEl.textContent = 'Kein Zugriff auf das Mikrofon.';
@@ -128,7 +144,7 @@ export default {
       raf = requestAnimationFrame(loop);
     }
 
-    async function start() {
+    async function start(auto = false) {
       if (mode === 'running') {
         stop();
         return;
@@ -146,9 +162,23 @@ export default {
           audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
         });
       } catch (error) {
+        if (auto) {
+          // Beim automatischen Fortsetzen nicht mit einer Warnung stören —
+          // manche Geräte verlangen dafür wieder einen Tipp.
+          mode = 'paused';
+          pauseHint = 'Zum Weitermessen antippen.';
+          autoResume = false;
+          render();
+          return;
+        }
         mode = 'denied';
         render();
         toast('Der Zugriff auf das Mikrofon wurde nicht erlaubt.', 'warn');
+        return;
+      }
+      if (document.hidden) {
+        // Während der Nachfrage ist die Seite in den Hintergrund gewandert.
+        pauseFromStream();
         return;
       }
       try {
@@ -167,13 +197,17 @@ export default {
         return;
       }
       mode = 'running';
+      pauseHint = '';
+      autoResume = false;
       render();
       loop();
     }
 
-    function stop() {
+    /** Gibt Mikrofon und Rechenzeit frei, ohne den Modus festzulegen. */
+    function release() {
       if (raf) cancelAnimationFrame(raf);
       raf = null;
+      // Erst das Stoppen der Spur schaltet die Aufnahmeanzeige des Geräts aus.
       if (stream) stream.getTracks().forEach((track) => track.stop());
       stream = null;
       analyser = null;
@@ -183,11 +217,73 @@ export default {
       overSince = 0;
       alarmUntil = 0;
       el.classList.remove('is-alarm');
+    }
+
+    function stop() {
+      clearBlurTimer();
+      release();
       mode = 'off';
+      pauseHint = '';
+      autoResume = false;
       render();
     }
 
-    onTap(actionButton, start);
+    /** Pausiert die laufende Messung und gibt das Mikrofon frei. */
+    function pause(reason) {
+      if (mode !== 'running') return;
+      release();
+      mode = 'paused';
+      pauseHint = reason;
+      autoResume = true;
+      render();
+    }
+
+    /** Sonderfall: Die Seite ging in den Hintergrund, während das Mikrofon startete. */
+    function pauseFromStream() {
+      release();
+      mode = 'paused';
+      pauseHint = HIDDEN_HINT;
+      autoResume = true;
+      render();
+    }
+
+    function clearBlurTimer() {
+      if (blurTimer) clearTimeout(blurTimer);
+      blurTimer = null;
+    }
+
+    function onVisibility() {
+      if (document.hidden) {
+        pause(HIDDEN_HINT);
+        return;
+      }
+      clearBlurTimer();
+      if (mode === 'paused' && autoResume) start(true);
+    }
+
+    function onBlur() {
+      // Am Rechner bleibt die Seite beim Programmwechsel „sichtbar"; deshalb hier
+      // eine halbe Minute Schonfrist, damit ein kurzer Klick woanders nichts abbricht.
+      if (mode !== 'running') return;
+      clearBlurTimer();
+      blurTimer = setTimeout(() => pause('Pausiert — das Fenster ist nicht im Vordergrund.'), BLUR_GRACE);
+    }
+
+    function onFocus() {
+      clearBlurTimer();
+      if (mode === 'paused' && autoResume) start(true);
+    }
+
+    function onPageHide() {
+      pause(HIDDEN_HINT);
+    }
+
+    document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('pagehide', onPageHide);
+    window.addEventListener('blur', onBlur);
+    window.addEventListener('focus', onFocus);
+
+    onTap(actionButton, () => start());
     render();
 
     return {
@@ -197,7 +293,13 @@ export default {
         // Ein Tipp auf die Karte startet die Messung; Stoppen bewusst nur über den Knopf.
         if (mode !== 'running') start();
       },
-      destroy: stop,
+      destroy() {
+        document.removeEventListener('visibilitychange', onVisibility);
+        window.removeEventListener('pagehide', onPageHide);
+        window.removeEventListener('blur', onBlur);
+        window.removeEventListener('focus', onFocus);
+        stop();
+      },
     };
   },
 
@@ -257,7 +359,8 @@ export default {
         })));
 
       wrap.appendChild(h('p', { class: 'muted small' },
-        'Datenschutz: Das Mikrofon wird nur für die Pegelanzeige genutzt. Es wird nichts aufgenommen, gespeichert oder gesendet.'));
+        'Datenschutz: Das Mikrofon wird nur für die Pegelanzeige genutzt. Es wird nichts aufgenommen, gespeichert oder gesendet. '
+        + 'Sobald die Seite in den Hintergrund wandert, wird das Mikrofon freigegeben; beim Zurückkommen misst die Anzeige von selbst weiter.'));
     }
 
     build();
