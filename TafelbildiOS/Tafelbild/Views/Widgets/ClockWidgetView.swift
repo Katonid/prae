@@ -6,6 +6,7 @@ struct ClockWidgetView: View {
     let content: ClockContent
 
     @Environment(\.boardStyle) private var style
+    @Environment(\.widgetMetrics) private var metrics
 
     /// Lernuhr: Stundenzeiger blau, Minutenzeiger orange — die im
     /// Unterricht übliche Farbgebung.
@@ -20,19 +21,19 @@ struct ClockWidgetView: View {
                 let size = geo.size
                 switch content.style {
                 case .analog:
-                    VStack(spacing: 10) {
+                    VStack(spacing: 6) {
                         analogFace(date: context.date, side: faceSide(in: size, share: 1.0))
                         if content.showDate && style.showLabels { dateLine(context.date, size: size) }
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 case .digital:
-                    VStack(spacing: 8) {
+                    VStack(spacing: 6) {
                         digitalTime(context.date, size: size)
                         if content.showDate && style.showLabels { dateLine(context.date, size: size) }
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 case .both:
-                    VStack(spacing: 12) {
+                    VStack(spacing: 6) {
                         analogFace(date: context.date, side: faceSide(in: size, share: 0.62))
                         digitalTime(context.date, size: size, scale: 0.55)
                         if content.showDate && style.showLabels { dateLine(context.date, size: size) }
@@ -41,7 +42,7 @@ struct ClockWidgetView: View {
                 }
             }
         }
-        .padding(18)
+        .padding(14)
     }
 
     private func faceSide(in size: CGSize, share: CGFloat) -> CGFloat {
@@ -196,16 +197,18 @@ struct ClockWidgetView: View {
     private func digitalTime(_ date: Date, size: CGSize, scale: CGFloat = 1.0) -> some View {
         let base = min(size.width / 4.6, size.height * 0.62)
         return Text(Self.timeText(date, showSeconds: content.showSeconds, twentyFour: content.twentyFourHour))
-            .font(Theme.font(Double(base * scale), weight: .bold))
+            .font(Theme.font(Double(base * scale), weight: .heavy))
             .monospacedDigit()
+            .tracking(-Double(base * scale) * 0.03)
             .minimumScaleFactor(0.4)
             .lineLimit(1)
-            .foregroundStyle(style.ink)
+            // `.w-clock__digital` trägt den Farbverlauf der Tafel.
+            .foregroundStyle(style.bigText)
     }
 
     private func dateLine(_ date: Date, size: CGSize) -> some View {
         Text(Self.dateText(date))
-            .font(Theme.font(Double(min(size.width * 0.07, 30)), weight: .medium))
+            .font(Theme.font(metrics.em(0.94), weight: .semibold))
             .foregroundStyle(style.inkSoft)
             .lineLimit(1)
             .minimumScaleFactor(0.5)

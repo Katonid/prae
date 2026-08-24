@@ -178,7 +178,9 @@ struct RootView: View {
             }
 
             ChromeButton(systemImage: store.editing ? "checkmark" : "square.grid.2x2",
-                         title: store.editing ? "Fertig" : (compact ? nil : "Anordnen"),
+                         // Wortlaut wie in der Web-App: „Bearbeiten" führt
+                         // hinein, „Fertig" wieder heraus.
+                         title: store.editing ? "Fertig" : (compact ? nil : "Bearbeiten"),
                          primary: true,
                          gradient: style.accentGradient) {
                 withAnimation(.easeInOut(duration: 0.25)) {

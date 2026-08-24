@@ -7,6 +7,7 @@ struct SymbolWidgetView: View {
     var interactive: Bool
 
     @Environment(\.boardStyle) private var style
+    @Environment(\.widgetMetrics) private var metrics
 
     var body: some View {
         GeometryReader { geo in
@@ -21,7 +22,7 @@ struct SymbolWidgetView: View {
 
                 if showsLabel {
                     Text(content.symbol.title)
-                        .font(Theme.font(Double(min(geo.size.width * 0.11, 27)), weight: .bold))
+                        .font(Theme.font(metrics.em(1.2), weight: .heavy))
                         .tracking(-0.3)
                         .foregroundStyle(style.ink)
                         .lineLimit(1)
@@ -38,7 +39,7 @@ struct SymbolWidgetView: View {
                 }
             }
         }
-        .padding(20)
+        .padding(16)
     }
 
     private var showsLabel: Bool { content.showLabel && style.showLabels }

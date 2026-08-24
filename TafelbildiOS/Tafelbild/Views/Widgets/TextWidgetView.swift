@@ -9,17 +9,20 @@ struct TextWidgetView: View {
     @Binding var content: TextContent
     var interactive: Bool
 
+    @Environment(\.boardStyle) private var style
+
     @State private var writing = false
 
     var body: some View {
         GeometryReader { geo in
             Text(content.text.isEmpty ? "Doppeltippen zum Schreiben" : content.text)
                 .font(Theme.font(fontSize(in: geo.size), weight: content.bold ? .bold : .regular))
-                .foregroundStyle(Color(hex: content.colorHex))
+                .foregroundStyle(textColor)
                 .multilineTextAlignment(alignment)
                 .minimumScaleFactor(0.3)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: frameAlignment)
-                .padding(22)
+                .padding(.vertical, 18)
+                .padding(.horizontal, 24)
         }
         .background {
             RoundedRectangle(cornerRadius: content.rounded ? Theme.widgetCorner : 0, style: .continuous)
@@ -34,6 +37,22 @@ struct TextWidgetView: View {
         .sheet(isPresented: $writing) {
             TextEditSheet(content: $content)
         }
+    }
+
+    /// Schriftfarbe des Textblocks.
+    ///
+    /// In der Web-App steht Text auf einer weißen Karte und ist dunkel
+    /// (`#0f172a`). Diese App hat Text früher ohne Karte gezeigt, deshalb
+    /// liegt in älteren Tafeln Weiß als Farbe — das wäre auf der hellen
+    /// Karte nicht mehr zu lesen. In dem Fall gilt die Schriftfarbe der
+    /// Karte; eine bewusst gewählte Farbe bleibt unangetastet.
+    private var textColor: Color {
+        let gewaehlt = Color(hex: content.colorHex)
+        let istWeiss = content.colorHex.lowercased().replacingOccurrences(of: "#", with: "") == "ffffff"
+        if istWeiss && !style.bare && content.backgroundOpacity < 0.5 {
+            return style.ink
+        }
+        return gewaehlt
     }
 
     /// Wie in der Web-App: die längste Zeile und die Zeilenzahl bestimmen die

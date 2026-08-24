@@ -37,15 +37,20 @@ struct BoardStyle: Equatable {
     var card: CardStyle = .glass
     /// Beschriftungen in den Elementen zeigen?
     var showLabels: Bool = true
+    /// Das Element steht ohne Karte frei auf dem Hintergrund. Dann gelten
+    /// andere Farben: helle Schrift statt dunkler, weil der Hintergrund
+    /// einer Tafel fast immer dunkel ist.
+    var bare: Bool = false
 
     static let standard = BoardStyle()
 
     init(scheme: AccentScheme = AccentSchemes.all[0], useGradient: Bool = true,
-         card: CardStyle = .glass, showLabels: Bool = true) {
+         card: CardStyle = .glass, showLabels: Bool = true, bare: Bool = false) {
         self.scheme = scheme
         self.useGradient = useGradient
         self.card = card
         self.showLabels = showLabels
+        self.bare = bare
     }
 
     init(board: Board, editing: Bool) {
@@ -72,27 +77,94 @@ struct BoardStyle: Equatable {
     // Kartenfarben
     var isDarkCard: Bool { card == .dark }
 
-    /// Schriftfarbe auf einer Karte.
-    var ink: Color { isDarkCard ? Color(hex: "#f8fafc") : Color(hex: "#0f172a") }
+    /// Schriftfarbe auf einer Karte — ohne Karte immer hell.
+    var ink: Color {
+        if bare { return Color(hex: "#f8fafc") }
+        return isDarkCard ? Color(hex: "#f8fafc") : Color(hex: "#0f172a")
+    }
     /// Schriftfarbe für Nebensächliches (Überschriften, Hinweise).
-    var inkSoft: Color { isDarkCard ? Color(hex: "#a5b0c2") : Color(hex: "#64748b") }
+    var inkSoft: Color {
+        if bare { return Color(hex: "#f8fafc").opacity(0.75) }
+        return isDarkCard ? Color(hex: "#a5b0c2") : Color(hex: "#64748b")
+    }
     /// Trennlinien in einer Karte.
-    var line: Color { isDarkCard ? Color.white.opacity(0.12) : Color(hex: "#0f172a").opacity(0.09) }
+    var line: Color {
+        if bare { return Color.white.opacity(0.22) }
+        return isDarkCard ? Color.white.opacity(0.12) : Color(hex: "#0f172a").opacity(0.09)
+    }
     /// Äußere Kante der Karte.
     var edge: Color { isDarkCard ? Color.white.opacity(0.16) : Color.white.opacity(0.65) }
     /// Ruhige Füllung innerhalb einer Karte (Fortschritt, leere Felder).
-    var wash: Color { ink.opacity(isDarkCard ? 0.10 : 0.07) }
+    var wash: Color {
+        if bare { return Color.white.opacity(0.16) }
+        return ink.opacity(isDarkCard ? 0.10 : 0.07)
+    }
+
+    /// Kräftigere Füllung (`--surface-soft-2`) — Ränder von Kästchen und
+    /// hervorgehobene Flächen.
+    var washStrong: Color {
+        if bare { return Color.white.opacity(0.30) }
+        return isDarkCard ? Color.white.opacity(0.18) : Color(hex: "#0f172a").opacity(0.12)
+    }
+
+    /// Große Schrift — gezogener Name, Uhrzeit, Pegel. Auf einer Karte im
+    /// Farbverlauf der Tafel; ohne Karte einfarbig hell, weil ein dunkles
+    /// Schema auf dunklem Grund sonst verschwindet (so macht es die Web-App).
+    var bigText: AnyShapeStyle {
+        bare ? AnyShapeStyle(ink) : AnyShapeStyle(accentGradient)
+    }
 
     /// Grundfarbe der Karte. Bei „Glas" liegt zusätzlich Material darunter.
     var cardFill: Color {
         switch card {
-        case .glass: return Color.white.opacity(0.80)
+        case .glass: return Color.white.opacity(0.72)
         case .light: return Color.white
         case .dark:  return Color(hex: "#0c1220").opacity(0.74)
         }
     }
 
     var usesMaterial: Bool { card != .light }
+}
+
+// MARK: - Maßstab eines Elements
+
+/// Der Maßstab, in dem ein Element seinen Inhalt zeichnet.
+///
+/// Die Web-App macht das über eine einzige Zahl: Jedes Element bekommt eine
+/// Grundschriftgröße (15 Punkt mal Maßstab), und alle Größen darin sind
+/// Vielfache davon — Polster, Abstände, Knöpfe, Schrift. Der Maßstab ergibt
+/// sich daraus, wie groß das Element gegenüber seiner vorgesehenen Größe ist.
+///
+/// Diese App hat früher in jedem Element eigene Formeln gerechnet. Das ergab
+/// bei gleicher Elementgröße andere Schriftgrößen als im Web — deshalb hier
+/// dieselbe Rechnung wie dort.
+struct WidgetMetrics: Equatable {
+    /// Grundschriftgröße in Punkten — im CSS das, worauf sich `em` bezieht.
+    var base: Double = 15
+    /// Verhältnis zur vorgesehenen Größe, zwischen 0,6 und 4.
+    var scale: Double = 1
+
+    /// Ein Vielfaches der Grundschriftgröße — im CSS `1.4em` und so weiter.
+    func em(_ factor: Double = 1) -> Double { base * factor }
+
+    /// Rechnet den Maßstab für ein Element aus (Web-App: `contentScale`).
+    static func measure(_ size: CGSize, standard: CGSize) -> WidgetMetrics {
+        guard standard.width > 0, standard.height > 0 else { return WidgetMetrics() }
+        let ratio = min(size.width / standard.width, size.height / standard.height)
+        let scale = min(max(ratio, 0.6), 4)
+        return WidgetMetrics(base: 15 * scale, scale: scale)
+    }
+}
+
+private struct WidgetMetricsKey: EnvironmentKey {
+    static let defaultValue = WidgetMetrics()
+}
+
+extension EnvironmentValues {
+    var widgetMetrics: WidgetMetrics {
+        get { self[WidgetMetricsKey.self] }
+        set { self[WidgetMetricsKey.self] = newValue }
+    }
 }
 
 private struct BoardStyleKey: EnvironmentKey {
@@ -124,6 +196,27 @@ extension Color {
             r = 0.5; g = 0.5; b = 0.5
         }
         self.init(red: r, green: g, blue: b)
+    }
+
+    /// Farbe aus HSL, wie CSS sie schreibt: `hsl(150, 85%, 52%)`.
+    /// SwiftUI kennt nur HSB; die beiden Systeme sind nicht dasselbe, und
+    /// eine Umrechnung „über den Daumen" verfehlt den Ton deutlich.
+    init(hslHue: Double, saturation: Double, lightness: Double) {
+        let hue = ((hslHue.truncatingRemainder(dividingBy: 360)) + 360)
+            .truncatingRemainder(dividingBy: 360)
+        let chroma = (1 - abs(2 * lightness - 1)) * saturation
+        let second = chroma * (1 - abs((hue / 60).truncatingRemainder(dividingBy: 2) - 1))
+        let match = lightness - chroma / 2
+        let rgb: (Double, Double, Double)
+        switch hue {
+        case ..<60:   rgb = (chroma, second, 0)
+        case ..<120:  rgb = (second, chroma, 0)
+        case ..<180:  rgb = (0, chroma, second)
+        case ..<240:  rgb = (0, second, chroma)
+        case ..<300:  rgb = (second, 0, chroma)
+        default:      rgb = (chroma, 0, second)
+        }
+        self.init(red: rgb.0 + match, green: rgb.1 + match, blue: rgb.2 + match)
     }
 
     /// Hex-String ("#rrggbb") der Farbe im sRGB-Farbraum.
@@ -173,6 +266,9 @@ struct WidgetCard: ViewModifier {
                     // Umgebung ein — auf dunklem Hintergrund würde die helle
                     // Karte dadurch grau statt milchig weiß.
                     .environment(\.colorScheme, style.isDarkCard ? .dark : .light)
+                    // `saturate(160%)` wie im CSS: Ohne das wirkt die Karte
+                    // grau; mit ihm nimmt sie den Farbton des Hintergrunds an.
+                    .saturation(1.6)
                     .opacity(style.usesMaterial ? 1 : 0)
                     .overlay {
                         RoundedRectangle(cornerRadius: corner, style: .continuous)

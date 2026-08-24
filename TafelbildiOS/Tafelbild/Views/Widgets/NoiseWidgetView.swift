@@ -1,78 +1,178 @@
 import SwiftUI
 
 /// Lautstärkeanzeige: misst über das Mikrofon des Geräts den Geräuschpegel
-/// im Raum. Drei Darstellungen — Tacho, Balken oder große Lampe.
+/// im Raum.
+///
+/// Aufbau und Maße folgen der Web-App (`.w-noise` im Stylesheet): Kopfzeile
+/// mit Aufschrift und Pegelzahl, darunter ein Band aus 24 Segmenten, unten
+/// eine Statuszeile. Ein Tipp startet und beendet die Messung. Aufgezeichnet
+/// wird nichts; berechnet wird nur der Pegel.
 struct NoiseWidgetView: View {
     let content: NoiseContent
     var interactive: Bool
 
     @Environment(\.boardStyle) private var style
+    @Environment(\.widgetMetrics) private var metrics
 
     @ObservedObject private var meter = NoiseMeter.shared
     @State private var overSince: Date?
-    @State private var tooLoud = false
+    @State private var alarmUntil: Date?
     /// Dieses Element hat die Messung angefordert (für ein sauberes Freigeben).
     @State private var listening = false
 
-    private var level: Double { min(1, meter.level * content.gain) }
+    /// So viele Segmente hat das Band — wie in der Web-App.
+    private static let segments = 24
+
+    /// Pegel als Zahl von 0 bis 100, wie in der Web-App gerechnet.
+    private var level: Double { min(100, max(0, meter.level * content.gain * 100)) }
+    private var threshold: Double { content.threshold * 100 }
+    private var measuring: Bool { listening && meter.running }
+    private var alarm: Bool {
+        guard content.alert, let until = alarmUntil else { return false }
+        return Date() < until
+    }
 
     var body: some View {
-        GeometryReader { geo in
-            VStack(spacing: 10) {
-                if !content.title.isEmpty && style.showLabels {
-                    Text(tooLoud && content.alert ? "Zu laut!" : content.title)
-                        .font(Theme.font(min(geo.size.width * 0.075, 24), weight: .heavy))
-                        .foregroundStyle(tooLoud && content.alert ? Theme.danger : style.ink)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.5)
-                }
-
-                Group {
-                    switch meter.permission {
-                    case .denied:
-                        hint("Mikrofon ist nicht erlaubt. In den iOS-Einstellungen → Tafelbild → Mikrofon einschalten.",
-                             symbol: "mic.slash")
-                    case .unknown where !meter.running:
-                        VStack(spacing: 12) {
-                            Spacer(minLength: 0)
-                            Text("Zum Messen Mikrofon aktivieren.")
-                                .font(Theme.font(15, weight: .semibold))
-                                .foregroundStyle(style.inkSoft)
-                                .multilineTextAlignment(.center)
-                            Button {
-                                meter.requestPermission()
-                            } label: {
-                                Text("Mikrofon aktivieren")
-                                    .font(Theme.font(16, weight: .bold))
-                                    .foregroundStyle(.white)
-                                    .frame(maxWidth: .infinity)
-                                    .frame(height: 46)
-                                    .background { Capsule().fill(style.accentGradient) }
-                                    .shadow(color: style.accentGlow, radius: 16, y: 8)
-                            }
-                            .buttonStyle(.plain)
-                        }
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    default:
-                        gaugeContent(size: geo.size)
-                    }
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-            }
+        // Die Web-App polstert den Lautstärkemesser fest: 16px oben und
+        // unten, 18px an den Seiten, 10px zwischen den Zeilen.
+        VStack(alignment: .leading, spacing: 10) {
+            head
+            band
+            status
         }
-        .padding(16)
-        .overlay {
+        .padding(.vertical, 16)
+        .padding(.horizontal, 18)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .background {
+            // `is-alarm` lässt in der Web-App die Fläche rot aufblinken.
             RoundedRectangle(cornerRadius: Theme.widgetCorner, style: .continuous)
-                .strokeBorder(Theme.danger.opacity(tooLoud && content.alert ? 0.9 : 0), lineWidth: 5)
-                .animation(.easeInOut(duration: 0.3), value: tooLoud)
+                .fill(Color(hex: "#f43f5e").opacity(alarm ? 0.22 : 0))
+                .animation(.easeInOut(duration: 0.35).repeatForever(autoreverses: true), value: alarm)
         }
+        .contentShape(Rectangle())
+        .onTapGesture { toggle() }
         // Erst messen, wenn das Mikrofon freigegeben ist: Sonst fragt iOS
         // gleich beim ersten Start nach der Erlaubnis, obwohl vielleicht
-        // niemand messen möchte. Den Anfang macht der Knopf im Element.
+        // niemand messen möchte.
         .onAppear { beginListening() }
         .onDisappear { endListening() }
         .onChange(of: meter.permission) { _, _ in beginListening() }
-        .onChange(of: meter.level) { _, _ in updateAlert() }
+        .onChange(of: meter.level) { _, _ in updateAlarm() }
+    }
+
+    // MARK: - Kopfzeile
+
+    /// `.w-noise__head` — Aufschrift links, Pegelzahl rechts, beide auf
+    /// derselben Schriftlinie.
+    private var head: some View {
+        HStack(alignment: .firstTextBaseline, spacing: metrics.em(0.5)) {
+            if style.showLabels {
+                Text(content.title.isEmpty ? "Lautstärke" : content.title)
+                    .font(Theme.font(metrics.em(1), weight: .bold))
+                    .foregroundStyle(style.ink)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+            }
+            Spacer(minLength: 0)
+            // `.w-noise__value`: 2em, sehr fett. Der Farbverlauf kommt erst
+            // beim Messen dazu (`.is-live`), sonst steht dort ein Strich.
+            Text(measuring ? "\(Int(level.rounded()))" : "–")
+                .font(Theme.font(metrics.em(2), weight: .heavy))
+                .monospacedDigit()
+                .tracking(-metrics.em(2) * 0.02)
+                .foregroundStyle(measuring ? style.bigText : AnyShapeStyle(style.ink))
+                .lineLimit(1)
+        }
+    }
+
+    // MARK: - Segmentband
+
+    /// `.w-noise__meter` — die Segmente teilen sich die Breite, der Abstand
+    /// beträgt feste 3 Punkte, das Band ist mindestens 46 Punkte hoch.
+    private var band: some View {
+        let value = measuring ? level : 0
+        let active = Int((value / 100 * Double(Self.segments)).rounded())
+        let thresholdIndex = Int((threshold / 100 * Double(Self.segments)).rounded())
+        return HStack(spacing: 3) {
+            ForEach(0..<Self.segments, id: \.self) { index in
+                segment(index: index, active: active, thresholdIndex: thresholdIndex)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .frame(minHeight: 46)
+        .animation(.linear(duration: 0.08), value: active)
+    }
+
+    private func segment(index: Int, active: Int, thresholdIndex: Int) -> some View {
+        let on = index < active
+        let hot = on && index >= thresholdIndex
+        let share = Double(index) / Double(Self.segments)
+        let lit = hot ? Color(hex: "#f43f5e") : segmentColor(share)
+        let glow = hot ? Color(hex: "#f43f5e").opacity(0.9)
+                       : Color(hslHue: 150 - share * 120, saturation: 0.90, lightness: 0.55)
+
+        return RoundedRectangle(cornerRadius: 5, style: .continuous)
+            .fill(on ? lit : style.wash)
+            .shadow(color: on ? glow : .clear, radius: hot ? 7 : 6)
+            .overlay(alignment: .trailing) {
+                // `.is-threshold::after`: ein schmaler Strich am rechten Rand
+                // des Segments, das die Schwelle markiert — etwas höher als
+                // das Band selbst.
+                if index == thresholdIndex - 1 {
+                    Capsule()
+                        .fill(style.ink.opacity(0.55))
+                        .frame(width: 2)
+                        .padding(.vertical, -4)
+                        .offset(x: 3)
+                }
+            }
+    }
+
+    /// `hsl(150 - seg * 120, 85%, 52%)` — Grün über Gelb nach Rot.
+    private func segmentColor(_ share: Double) -> Color {
+        Color(hslHue: 150 - share * 120, saturation: 0.85, lightness: 0.52)
+    }
+
+    // MARK: - Statuszeile
+
+    /// `.w-noise__status` — sagt in einem kurzen Satz, was gerade gilt.
+    @ViewBuilder
+    private var status: some View {
+        if style.showLabels || meter.permission != .granted {
+            Text(statusText)
+                .font(Theme.font(metrics.em(0.94), weight: alarm ? .bold : .semibold))
+                .foregroundStyle(alarm ? Theme.danger : style.inkSoft)
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private var statusText: String {
+        switch meter.permission {
+        case .denied:
+            return "Kein Zugriff auf das Mikrofon — in den iOS-Einstellungen unter Tafelbild erlauben."
+        case .unknown:
+            return "Zum Messen antippen."
+        case .granted:
+            guard measuring else { return "Zum Messen antippen." }
+            if alarm { return "Zu laut!" }
+            return level > threshold * 0.72 ? "Grenze fast erreicht" : "Gute Arbeitslautstärke"
+        }
+    }
+
+    // MARK: - Messung an und aus
+
+    private func toggle() {
+        guard interactive else { return }
+        switch meter.permission {
+        case .granted:
+            Haptics.tap()
+            if listening { endListening() } else { beginListening() }
+        case .unknown:
+            meter.requestPermission()
+        case .denied:
+            break
+        }
     }
 
     private func beginListening() {
@@ -85,128 +185,24 @@ struct NoiseWidgetView: View {
         guard listening else { return }
         listening = false
         meter.release()
+        alarmUntil = nil
+        overSince = nil
     }
 
-    @ViewBuilder
-    private func gaugeContent(size: CGSize) -> some View {
-        switch content.style {
-        case .gauge: gauge(size: size)
-        case .bars: bars(size: size)
-        case .lamp: lamp(size: size)
-        }
-    }
-
-    // MARK: - Tacho
-
-    private func gauge(size: CGSize) -> some View {
-        let side = min(size.width, size.height * 1.6)
-        return ZStack {
-            // Skala: 240°, unten offen.
-            Circle()
-                .trim(from: 0, to: 0.666)
-                .stroke(style.wash,
-                        style: StrokeStyle(lineWidth: side * 0.11, lineCap: .round))
-                .rotationEffect(.degrees(150))
-            Circle()
-                .trim(from: 0, to: 0.666 * level)
-                .stroke(
-                    AngularGradient(colors: [Color(hex: "#22c55e"), Color(hex: "#f59e0b"), Color(hex: "#ef4444")],
-                                    center: .center, angle: .degrees(150)),
-                    style: StrokeStyle(lineWidth: side * 0.11, lineCap: .round)
-                )
-                .rotationEffect(.degrees(150))
-                .animation(.easeOut(duration: 0.15), value: level)
-            // Schwellenmarke
-            Rectangle()
-                .fill(style.ink.opacity(0.55))
-                .frame(width: 3, height: side * 0.13)
-                .offset(y: -side * 0.5 + side * 0.055)
-                .rotationEffect(.degrees(-120 + 240 * content.threshold))
-
-            VStack(spacing: 0) {
-                Text("\(Int(level * 100))")
-                    .font(Theme.font(side * 0.24, weight: .bold))
-                    .monospacedDigit()
-                    .foregroundStyle(style.ink)
-                if style.showLabels {
-                    Text("Pegel")
-                        .font(Theme.font(side * 0.07, weight: .medium))
-                        .foregroundStyle(style.inkSoft)
-                }
-            }
-        }
-        .frame(width: side, height: side)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
-    // MARK: - Balken
-
-    private func bars(size: CGSize) -> some View {
-        let count = 14
-        let active = Int(round(level * Double(count)))
-        return HStack(alignment: .bottom, spacing: max(3, size.width * 0.012)) {
-            ForEach(0..<count, id: \.self) { index in
-                let share = Double(index + 1) / Double(count)
-                RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .fill(index < active ? barColor(share) : style.wash)
-                    .frame(height: max(10, size.height * CGFloat(0.28 + 0.62 * share)))
-            }
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
-        .animation(.easeOut(duration: 0.12), value: active)
-    }
-
-    private func barColor(_ share: Double) -> Color {
-        if share > 0.8 { return Color(hex: "#ef4444") }
-        if share > 0.55 { return Color(hex: "#f59e0b") }
-        return Color(hex: "#22c55e")
-    }
-
-    // MARK: - Lampe
-
-    private func lamp(size: CGSize) -> some View {
-        let side = min(size.width, size.height)
-        let color: Color = level > content.threshold
-            ? Color(hex: "#ef4444")
-            : (level > content.threshold * 0.6 ? Color(hex: "#f59e0b") : Color(hex: "#22c55e"))
-        return Circle()
-            .fill(color)
-            .overlay {
-                Circle().strokeBorder(Color.white.opacity(0.4), lineWidth: side * 0.03)
-            }
-            .shadow(color: color.opacity(0.7), radius: side * 0.16)
-            .scaleEffect(0.7 + 0.3 * level)
-            .frame(width: side * 0.9, height: side * 0.9)
-            .animation(.easeOut(duration: 0.15), value: level)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
-    // MARK: - Hinweis & Warnung
-
-    private func hint(_ text: String, symbol: String) -> some View {
-        VStack(spacing: 10) {
-            Image(systemName: symbol)
-                .font(.system(size: 34))
-            Text(text)
-                .font(Theme.font(17, weight: .medium))
-                .multilineTextAlignment(.center)
-        }
-        .foregroundStyle(style.inkSoft)
-        .padding(8)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
-    /// „Zu laut“ erst nach kurzem Anhalten melden — einzelne Ausrufe
-    /// sollen die Anzeige nicht sofort rot färben.
-    private func updateAlert() {
-        if level > content.threshold {
-            if overSince == nil { overSince = Date() }
-            if let since = overSince, Date().timeIntervalSince(since) > 1.2, !tooLoud {
-                tooLoud = true
+    /// „Zu laut" erst nach kurzem Anhalten melden — einzelne Ausrufe sollen
+    /// die Anzeige nicht sofort rot färben. Danach bleibt die Meldung vier
+    /// Sekunden stehen, genau wie in der Web-App.
+    private func updateAlarm() {
+        guard measuring else { return }
+        let now = Date()
+        if level > threshold {
+            if overSince == nil { overSince = now }
+            if let since = overSince, now.timeIntervalSince(since) > 1.2,
+               alarmUntil == nil || now >= alarmUntil! {
+                alarmUntil = now.addingTimeInterval(4)
             }
         } else {
             overSince = nil
-            if tooLoud { tooLoud = false }
         }
     }
 }
