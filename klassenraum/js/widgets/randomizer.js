@@ -134,6 +134,7 @@ export default {
 
     let spinTimer = null;
     let spinning = false;
+    let armed = false;
 
     function stopSpin() {
       if (spinTimer) clearInterval(spinTimer);
@@ -304,7 +305,9 @@ export default {
       } else if (state.mode !== 'repeat' && remaining.length === 0) {
         hintEl.textContent = 'Alle Namen gezogen.';
       } else {
-        hintEl.textContent = 'Karte antippen zieht den nächsten Namen';
+        hintEl.textContent = armed
+          ? 'Bereit — der nächste Tipp zieht'
+          : 'Antippen, dann nochmal tippen zum Ziehen';
       }
 
       clear(mainButton);
@@ -365,6 +368,12 @@ export default {
       refresh: render,
       onResize: fitName,
       onTap: step,
+      // Erst der zweite Tipp löst aus — sonst zieht ein versehentlicher Tipp einen Namen.
+      tapNeedsFocus: true,
+      onArmedChange(value) {
+        armed = value;
+        render();
+      },
       destroy() {
         stopSpin();
         off();

@@ -113,9 +113,11 @@ aufgedeckt ist.
 ## Bedienung in Kürze
 
 * **Element hinzufügen:** unten in der Leiste antippen (nur beim Bearbeiten).
-* **Bedienen:** Ein Tipp auf die Karte löst die Hauptfunktion aus — Zufälliger Name zieht
-  den nächsten Namen, die Ampel schaltet weiter, das Arbeitssymbol wechselt, die Uhr springt
-  zwischen analog und digital, die Lautstärkemessung startet.
+* **Bedienen:** Ein Tipp auf die Karte löst die Hauptfunktion aus — die Ampel schaltet
+  weiter, das Arbeitssymbol wechselt, die Lautstärkemessung startet. Beim **Zufälligen
+  Namen** aktiviert der erste Tipp die Karte (sie bekommt einen Rahmen), erst der zweite
+  zieht — so passiert nichts aus Versehen. Die **Uhr** reagiert nicht auf Tippen; analog
+  oder digital wird im Zahnrad gewählt.
 * **Verschieben:** Element anfassen und ziehen. (Beim Ziehen wird nichts ausgelöst.)
 * **Größe ändern:** Anfasser ziehen, **−**/**+** in der kleinen Leiste, oder zwei Finger.
 * **Einstellen:** Element antippen → Zahnrad in der kleinen Leiste darüber.

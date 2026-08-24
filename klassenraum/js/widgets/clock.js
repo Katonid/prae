@@ -212,11 +212,8 @@ export default {
       el,
       refresh: build,
       onResize: tick,
-      onTap() {
-        ctx.widget.state.mode = ctx.widget.state.mode === 'analog' ? 'digital' : 'analog';
-        ctx.save();
-        build();
-      },
+      // Bewusst ohne onTap: Ein Tipp soll die Uhr nicht umschalten.
+      // Analog oder digital wird in den Einstellungen gewählt.
       destroy: stopLoops,
     };
   },
