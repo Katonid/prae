@@ -422,9 +422,13 @@ enum Haptics {
 
 // MARK: - Zeitformat
 
-/// „5:00" bzw. „1:02:03" — für Timer und Stoppuhr.
+/// „05:00" bzw. „1:02:03" — für Timer und Stoppuhr.
+///
+/// Die Minuten stehen zweistellig, auch unter zehn. Genau so macht es die
+/// Web-App (`util.js`, `padStart(2, '0')`); ohne die führende Null sprang
+/// die Zeitanzeige beim Zählen von „10:00" auf „9:59" in der Breite.
 func formatDuration(_ seconds: Double) -> String {
-    guard seconds.isFinite, seconds >= 0 else { return "0:00" }
+    guard seconds.isFinite, seconds >= 0 else { return "00:00" }
     let total = Int(seconds.rounded())
     let hours = total / 3600
     let minutes = (total % 3600) / 60
@@ -432,5 +436,5 @@ func formatDuration(_ seconds: Double) -> String {
     if hours > 0 {
         return "\(hours):" + String(format: "%02d:%02d", minutes, secs)
     }
-    return "\(minutes):" + String(format: "%02d", secs)
+    return String(format: "%02d:%02d", minutes, secs)
 }
