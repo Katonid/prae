@@ -53,8 +53,8 @@ stehen zur Wahl:
 
 | Art | Wirkung |
 | --- | --- |
-| **Mosaik** (Vorgabe) | Kacheln verschwinden nach und nach, etwa acht Tipps bis zum ganzen Namen. |
-| **Unschärfe** | Der Name wird mit jedem Tipp schärfer — die Wortlänge ist von Anfang an zu erahnen. |
+| **Mosaik** (Vorgabe) | Ein feines Raster aus 280 Kacheln verschwindet nach und nach — zwölf Tipps bis zum ganzen Namen. |
+| **Unschärfe** | Zuerst nur ein Farbnebel, mit jedem Tipp schärfer — zehn Tipps. Die Stärke richtet sich nach der Schriftgröße, damit auch große Namen wirklich unlesbar sind. |
 | **Buchstaben** | Ein Buchstabe nach dem anderen erscheint, der Rest bleibt als Punkt stehen — wie beim Ratespiel. |
 | **Sofort** | Ohne Spannung: der Name steht direkt da. |
 

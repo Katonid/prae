@@ -982,8 +982,10 @@ p.muted { margin: 0; }
 
 .w-random__tile {
   background: linear-gradient(140deg, #e6e9f5, #cdd5f3);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.55);
-  transition: opacity 0.45s ease, transform 0.45s var(--spring);
+  box-shadow: inset 0 0 0 0.5px rgba(255, 255, 255, 0.4);
+  /* Leichte Überlappung: sonst blitzt der Name in den Fugen des Rasters durch. */
+  transform: scale(1.08);
+  transition: opacity 0.4s ease, transform 0.4s var(--spring);
 }
 
 body[data-cards="dark"] .w-random__tile {
@@ -991,7 +993,7 @@ body[data-cards="dark"] .w-random__tile {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
-.w-random__tile.is-open { opacity: 0; transform: scale(0.6) rotate(5deg); }
+.w-random__tile.is-open { opacity: 0; transform: scale(0.5); }
 
 .w-random__hint { font-size: 12.5px; color: var(--card-ink-soft); text-align: center; opacity: 0.8; }
 .w-random__actions { display: flex; justify-content: center; align-items: center; gap: 10px; }
