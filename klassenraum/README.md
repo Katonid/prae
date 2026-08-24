@@ -17,7 +17,7 @@ funktioniert auch am Telefon.
 | **Tagesablauf** | Checkliste mit Fortschrittsbalken, Punkte abhaken, sortieren, schnell erfassen. |
 | **Text** | Doppeltippen zum Schreiben, Schriftgröße passt sich automatisch an. |
 | **Bild** | Bild vom Gerät, wird beim Einfügen verkleinert. |
-| **Lautstärke** | Misst über das Mikrofon die Lautstärke im Raum, mit einstellbarer Grenze und optionalem Signalton. Beim ersten Start fragt das Gerät nach der Erlaubnis; wird sie verweigert, erklärt die Karte den Weg zurück. Das Mikrofon läuft nur im Vordergrund (siehe unten). |
+| **Lautstärke** | Misst über das Mikrofon die Lautstärke im Raum, mit einstellbarer Grenze und optionalem Signalton. Ein Tipp auf die Karte startet die Messung, der nächste beendet sie — Knöpfe gibt es keine. Beim ersten Start fragt das Gerät nach der Erlaubnis; wird sie verweigert, erklärt die Karte den Weg zurück. Das Mikrofon läuft nur im Vordergrund (siehe unten). |
 | **Klang** | Tasten, die auf Tippen eine Klangdatei abspielen — Datei vom Gerät oder Link. Mehrere Tasten je Element, eigene Farbe und Beschriftung. |
 | **Video** | Video vom Gerät oder per Link, mit Bedienleiste, Schleife und Vollbild. |
 | **Arbeitssymbol** | Einzel-, Partner-, Gruppenarbeit, Stillarbeit, Melden, Zuhören, Aufräumen. |
@@ -109,13 +109,15 @@ alles. Vier Arten stehen zur Wahl:
 Ebenfalls einstellbar: ob die **Liste der bereits gezogenen Namen** nie, nur beim
 Bearbeiten (Vorgabe) oder immer sichtbar ist. In der Unterrichtsansicht bleibt sie
 damit verborgen — und der gerade gezogene Name taucht dort erst auf, wenn er
-aufgedeckt ist.
+aufgedeckt ist. Unter dem Namen steht dort nichts weiter: Eine neue Runde wird beim
+Bearbeiten („Zurücksetzen“ über der Liste) oder im Zahnrad gestartet.
 
 ## Bedienung in Kürze
 
 * **Element hinzufügen:** unten in der Leiste antippen (nur beim Bearbeiten).
 * **Bedienen:** Ein Tipp auf die Karte löst die Hauptfunktion aus — die Ampel schaltet
-  weiter, das Arbeitssymbol wechselt, die Lautstärkemessung startet. Beim **Zufälligen
+  weiter, das Arbeitssymbol wechselt, die Lautstärkemessung startet (ein weiterer Tipp
+  beendet sie). Beim **Zufälligen
   Namen** aktiviert der erste Tipp die Karte (ein Ring pulst um den Namen), erst der
   zweite zieht — so passiert nichts aus Versehen. Knöpfe unter dem Namen gibt es nicht. Die **Uhr** reagiert nicht auf Tippen; analog
   oder digital wird im Zahnrad gewählt.

@@ -504,8 +504,10 @@ function openHelp() {
         + 'Mosaik, Unschärfe, Buchstaben oder Sofort. Die Karte hat keine Knöpfe — jeder Tipp legt ein Stück frei. '
         + 'Beim Bearbeiten zeigt das Augensymbol in der kleinen Leiste sofort alles.'),
       h('p', null, h('strong', null, 'Zufälliger Name: '), 'Liste wählen, „Ohne Zurücklegen“ verhindert Wiederholungen. '
-        + 'Gezogene Namen lassen sich antippen, um sie zurückzulegen; einzelne Namen können auch von Hand als gezogen markiert werden.'),
-      h('p', null, h('strong', null, 'Lautstärke: '), 'Beim ersten Start fragt das Gerät nach dem Mikrofon — einmal erlauben, dann läuft die Messung. '
+        + 'Gezogene Namen lassen sich antippen, um sie zurückzulegen; einzelne Namen können auch von Hand als gezogen markiert werden. '
+        + 'Eine neue Runde startest du beim Bearbeiten über „Zurücksetzen“ oder im Zahnrad.'),
+      h('p', null, h('strong', null, 'Lautstärke: '), 'Ein Tipp auf die Karte startet die Messung, der nächste beendet sie. '
+        + 'Beim ersten Start fragt das Gerät nach dem Mikrofon — einmal erlauben. '
         + 'Das Mikrofon ist nur an, solange die Seite im Vordergrund ist: Beim Wechsel in eine andere App wird es freigegeben, beim Zurückkommen misst die Karte weiter.'),
       h('p', null, h('strong', null, 'Text: '), 'Doppeltippen zum Schreiben oder den Stift in der kleinen Leiste nutzen.'),
       h('p', null, h('strong', null, 'Schreiben: '), 'Der Stift oben rechts schaltet das Schreiben ein — mit Apple Pencil, Finger oder Maus. '
