@@ -8,6 +8,7 @@ struct TimerWidgetView: View {
     var interactive: Bool
 
     @Environment(\.boardStyle) private var style
+    @Environment(\.widgetMetrics) private var metrics
 
     @State private var now = Date()
     @State private var flashing = false
@@ -15,65 +16,65 @@ struct TimerWidgetView: View {
 
     private let ticker = Timer.publish(every: 0.2, on: .main, in: .common).autoconnect()
 
-    /// Häufige Unterrichtszeiten in Minuten — wie in der Web-App.
-    private let presets: [Double] = [60, 120, 180, 300, 600, 900, 1200, 1800, 2700]
-
     var body: some View {
         GeometryReader { geo in
             let value = displayValue
-            let controlHeight: CGFloat = content.showControls ? 78 : 0
-            let labelHeight: CGFloat = style.showLabels ? 24 : 0
-            let side = max(70, min(geo.size.width, geo.size.height - controlHeight - labelHeight))
+            // Der Ring füllt den Platz zwischen Aufschrift und Knöpfen.
+            let side = max(70, min(geo.size.width, geo.size.height
+                                   - (content.showControls ? metrics.em(3.5) + 6 : 0)
+                                   - (style.showLabels ? metrics.em(1.2) : 0)))
+            // Im SVG der Web-App: viewBox 120, Kreisradius 52, Strich 8.
+            let ring = side * (104.0 / 120.0)
+            let lineWidth = side * (8.0 / 120.0)
 
             VStack(spacing: 6) {
                 if style.showLabels {
+                    // `.w-timer__label`: 0.84em, gesperrt, gedämpft.
                     Text(content.mode == .countdown ? "TIMER" : "STOPPUHR")
-                        .widgetLabel(min(geo.size.width * 0.052, 15), color: style.inkSoft)
+                        .font(Theme.font(metrics.em(0.84), weight: .bold))
+                        .tracking(metrics.em(0.84) * 0.09)
+                        .foregroundStyle(style.inkSoft)
                 }
 
                 ZStack {
                     Circle()
-                        .stroke(style.wash, lineWidth: side * 0.067)
+                        .stroke(style.wash, lineWidth: lineWidth)
+                        .frame(width: ring, height: ring)
                     Circle()
                         .trim(from: 0, to: max(0.0001, progress))
                         .stroke(ringStyle(value: value),
-                                style: StrokeStyle(lineWidth: side * 0.067, lineCap: .round))
+                                style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
                         .rotationEffect(.degrees(-90))
-                        .shadow(color: style.accent.opacity(0.55), radius: side * 0.05)
+                        .shadow(color: style.accent.opacity(0.55), radius: 6)
+                        .frame(width: ring, height: ring)
                         .animation(.linear(duration: 0.2), value: progress)
 
-                    VStack(spacing: 2) {
-                        Text(formatDuration(value))
-                            .font(Theme.font(side * 0.25, weight: .heavy))
-                            .monospacedDigit()
-                            .tracking(-side * 0.005)
-                            .minimumScaleFactor(0.4)
-                            .lineLimit(1)
-                            .foregroundStyle(timeColor(value: value))
-                        if content.mode == .countdown && !running && style.showLabels {
-                            Text("Dauer ändern")
-                                .font(Theme.font(side * 0.07, weight: .medium))
-                                .foregroundStyle(style.inkSoft)
+                    // `.w-timer__time`: max(26, min(Breite, Höhe) * 0.24).
+                    Text(formatDuration(value))
+                        .font(Theme.font(timeSize(geo.size), weight: .heavy))
+                        .monospacedDigit()
+                        .tracking(-timeSize(geo.size) * 0.02)
+                        .minimumScaleFactor(0.4)
+                        .lineLimit(1)
+                        .foregroundStyle(timeColor(value: value))
+                        .padding(.horizontal, side * 0.14)
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            guard interactive, content.mode == .countdown, !running else { return }
+                            Haptics.tap()
+                            showDurationPicker = true
                         }
-                    }
-                    .padding(.horizontal, side * 0.16)
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        guard interactive, content.mode == .countdown, !running else { return }
-                        Haptics.tap()
-                        showDurationPicker = true
-                    }
                 }
                 .frame(width: side, height: side)
                 .scaleEffect(flashing ? 1.04 : 1.0)
 
                 if content.showControls {
-                    controls(width: geo.size.width)
+                    controls
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .padding(16)
+        .padding(14)
         .onReceive(ticker) { date in
             guard running || flashing else { return }
             now = date
@@ -86,48 +87,27 @@ struct TimerWidgetView: View {
 
     // MARK: - Bedienung
 
-    private func controls(width: CGFloat) -> some View {
-        VStack(spacing: 8) {
-            HStack(spacing: 8) {
-                RoundControl(title: "−1", size: 44, style: style) { addMinute(-1) }
-                RoundControl(systemImage: "arrow.counterclockwise", size: 54, style: style) { reset() }
-                RoundControl(systemImage: running ? "pause.fill" : "play.fill",
-                             primary: true, size: 54, style: style) {
-                    running ? pause() : start()
-                }
-                RoundControl(title: "+1", size: 44, style: style) { addMinute(1) }
+    /// `.w-timer__controls` — vier runde Knöpfe, sonst nichts. Die Dauer
+    /// stellt ein Tipp auf die Zeit ein (in der Web-App das Zahnrad).
+    private var controls: some View {
+        HStack(spacing: 8) {
+            RoundControl(title: "−1", size: metrics.em(2.9), style: style) { addMinute(-1) }
+                .opacity(content.mode == .stopwatch ? 0 : 1)
+            RoundControl(systemImage: "arrow.counterclockwise",
+                         size: metrics.em(3.5), style: style) { reset() }
+            RoundControl(systemImage: running ? "pause.fill" : "play.fill",
+                         primary: true, size: metrics.em(3.5), style: style) {
+                running ? pause() : start()
             }
-            .disabled(!interactive)
-
-            if content.mode == .countdown && !running && content.pausedValue == nil && width > 300 {
-                HStack(spacing: 5) {
-                    ForEach(presets, id: \.self) { preset in
-                        let active = abs(content.duration - preset) < 1
-                        Button {
-                            guard interactive else { return }
-                            Haptics.tap()
-                            content.duration = preset
-                        } label: {
-                            Text("\(Int(preset / 60))")
-                                .font(Theme.font(13.5, weight: .semibold))
-                                .monospacedDigit()
-                                .foregroundStyle(active ? Color.white : style.inkSoft)
-                                .frame(width: 30, height: 26)
-                                .background {
-                                    Capsule().fill(active
-                                                   ? AnyShapeStyle(style.accentGradient)
-                                                   : AnyShapeStyle(style.wash))
-                                }
-                        }
-                        .buttonStyle(.plain)
-                        .disabled(!interactive)
-                    }
-                    Text("Min.")
-                        .font(Theme.font(12, weight: .medium))
-                        .foregroundStyle(style.inkSoft)
-                }
-            }
+            RoundControl(title: "+1", size: metrics.em(2.9), style: style) { addMinute(1) }
+                .opacity(content.mode == .stopwatch ? 0 : 1)
         }
+        .disabled(!interactive)
+    }
+
+    /// `fit()` in der Web-App: die Zeit wächst mit der kleineren Seite.
+    private func timeSize(_ size: CGSize) -> Double {
+        max(26, min(Double(size.width), Double(size.height)) * 0.24)
     }
 
     // MARK: - Zustand

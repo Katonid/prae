@@ -2,13 +2,18 @@ import SwiftUI
 
 /// Zufälliger Name — das meistgenutzte Element.
 ///
-/// Zwei Ziehweisen: „ohne Wiederholung" (jeder kommt erst wieder in den Topf,
-/// wenn die Liste durch ist) und „immer alle Namen". Gezogene Namen lassen
-/// sich einzeln zurücklegen, aus der Liste löschen — und ein Name kann auch
-/// von Hand als gezogen markiert werden, ohne dass der Zufall ihn wählte.
+/// Aufbau und Maße folgen der Web-App (`.w-random` im Stylesheet): oben eine
+/// Zeile mit Listenname und Zähler, darunter frei der Name, unten ein
+/// Hinweis und wahlweise die Liste der gezogenen Namen. **Bewusst ohne
+/// Knöpfe** — gezogen und aufgedeckt wird durch Tippen auf die Karte.
 ///
-/// Der gezogene Name kann schrittweise aufgedeckt werden (Mosaik, Unschärfe
-/// oder Buchstabe für Buchstabe), damit die Klasse mitraten darf.
+/// Damit niemand versehentlich zieht, braucht der erste Tipp nur die
+/// Aufmerksamkeit des Elements („scharf"), erst der zweite zieht.
+///
+/// Zwei Ziehweisen: „ohne Wiederholung" (jeder kommt erst wieder in den Topf,
+/// wenn die Liste durch ist) und „immer alle Namen". Der gezogene Name kann
+/// schrittweise aufgedeckt werden (Mosaik, Unschärfe oder Buchstabe für
+/// Buchstabe), damit die Klasse mitraten darf.
 struct NamePickerWidgetView: View {
     @Binding var content: NamePickerContent
     var interactive: Bool
@@ -19,10 +24,10 @@ struct NamePickerWidgetView: View {
     var onDeleteEntry: (NameEntry) -> Void
 
     @Environment(\.boardStyle) private var style
+    @Environment(\.widgetMetrics) private var metrics
 
     /// Maße des Mosaiks — wie in der Web-App: ein feines Raster gibt pro
-    /// Tipp wenig preis. (Die Vorgabe im Modell ist gröber; hier gilt das
-    /// Raster der Vorlage.)
+    /// Tipp wenig preis.
     private enum Mosaic {
         static let columns = 28
         static let rows = 10
@@ -34,143 +39,120 @@ struct NamePickerWidgetView: View {
     @State private var spinText: String?
     @State private var pulse = false
     @State private var confettiTrigger = 0
+    /// Erster Tipp macht scharf, zweiter zieht.
+    @State private var armed = false
 
     var body: some View {
         GeometryReader { geo in
-            let compact = geo.size.height < 300
-            VStack(spacing: 10) {
-                if style.showLabels { header(width: geo.size.width) }
+            VStack(spacing: metrics.em(0.55)) {
+                if style.showLabels { header }
 
-                ZStack {
-                    RoundedRectangle(cornerRadius: 22, style: .continuous)
-                        .fill(style.wash)
+                // `.w-random__display` — der Name steht frei, ohne Kasten.
+                VStack(spacing: 6) {
                     nameBox(size: geo.size)
-                    ConfettiView(trigger: confettiTrigger)
+                    if style.showLabels {
+                        Text(hint)
+                            .font(Theme.font(metrics.em(0.84), weight: .medium))
+                            .foregroundStyle(armed && style.bare ? style.accent : style.inkSoft)
+                            .opacity(armed ? 1 : 0.8)
+                            .lineLimit(2)
+                            .multilineTextAlignment(.center)
+                            .minimumScaleFactor(0.7)
+                    }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .contentShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-                .onTapGesture {
-                    guard interactive else { return }
-                    step()
-                }
+                .overlay { ConfettiView(trigger: confettiTrigger) }
 
-                if style.showLabels {
-                    Text(hint)
-                        .font(Theme.font(Double(min(geo.size.width * 0.033, 15)), weight: .medium))
-                        .foregroundStyle(style.inkSoft.opacity(0.8))
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.6)
-                }
-
-                actionRow(width: geo.size.width)
-
-                if showsDrawnList && !compact {
-                    history(width: geo.size.width)
-                        .frame(height: min(84, geo.size.height * 0.24))
+                if showsDrawnList && !drawnEntries.isEmpty {
+                    history
+                        .frame(maxHeight: geo.size.height * 0.36)
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         }
-        .padding(18)
+        // `.w-random { padding: 1.05em 1.2em 0.95em }`
+        .padding(.top, metrics.em(1.05))
+        .padding(.horizontal, metrics.em(1.2))
+        .padding(.bottom, metrics.em(0.95))
+        .contentShape(Rectangle())
+        .onTapGesture { tap() }
+        .overlay {
+            // `.widget.is-armed` — ein Ring in der Akzentfarbe zeigt, dass
+            // der nächste Tipp zieht.
+            RoundedRectangle(cornerRadius: Theme.widgetCorner, style: .continuous)
+                .strokeBorder(style.accent.opacity(armed && !style.bare ? 0.9 : 0), lineWidth: 3)
+                .animation(.easeInOut(duration: 0.2), value: armed)
+        }
     }
 
     // MARK: - Kopfzeile
 
-    private func header(width: CGFloat) -> some View {
-        HStack(spacing: 8) {
-            Button {
-                guard interactive else { return }
-                onOpenSettings()
-            } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: "list.bullet.rectangle")
-                        .font(.system(size: min(width * 0.032, 14), weight: .bold))
-                    Text((list?.name ?? "Liste wählen").uppercased())
-                        .widgetLabel(min(width * 0.032, 14), color: style.inkSoft)
-                        .lineLimit(1)
-                }
+    /// `.w-random__head` — Listenname links, Zähler rechts.
+    private var header: some View {
+        HStack(spacing: metrics.em(0.7)) {
+            // `.w-random__list`: 0.92em der Kopfzeile (0.84em), gesperrt.
+            Text(listTitle.uppercased())
+                .font(Theme.font(metrics.em(0.84 * 0.92), weight: .semibold))
+                .tracking(metrics.em(0.84 * 0.92) * 0.08)
                 .foregroundStyle(style.inkSoft)
-            }
-            .buttonStyle(.plain)
+                .lineLimit(1)
+                .truncationMode(.tail)
 
-            Spacer(minLength: 4)
+            Spacer(minLength: 0)
 
-            if let list {
-                Text(content.mode == .withoutRepeat
-                     ? "\(remaining.count)/\(list.activeEntries.count)"
-                     : "\(list.activeEntries.count)")
-                    .font(Theme.font(min(width * 0.032, 14), weight: .semibold))
-                    .monospacedDigit()
-                    .foregroundStyle(style.inkSoft)
-                    .padding(.horizontal, 9)
-                    .padding(.vertical, 3)
-                    .background { Capsule().fill(style.wash) }
-            }
-
-            Menu {
-                Button {
-                    withAnimation { resetRound() }
-                } label: {
-                    Label("Alle Namen zurücklegen", systemImage: "arrow.counterclockwise")
-                }
-                Menu("Als gezogen markieren") {
-                    ForEach(remaining) { entry in
-                        Button(entry.text) { markDrawn(entry) }
-                    }
-                }
-                .disabled(remaining.isEmpty)
-                Picker("Ziehweise", selection: $content.mode) {
-                    ForEach(NamePickerContent.DrawMode.allCases) { mode in
-                        Text(mode.title).tag(mode)
-                    }
-                }
-                Picker("Aufdecken", selection: $content.reveal) {
-                    ForEach(RevealMode.allCases) { mode in
-                        Text(mode.title).tag(mode)
-                    }
-                }
-                Picker("Gezogene anzeigen", selection: $content.showDrawn) {
-                    ForEach(ShowRule.allCases) { rule in
-                        Text(rule.title).tag(rule)
-                    }
-                }
-                Button {
-                    onOpenSettings()
-                } label: {
-                    Label("Liste wechseln ...", systemImage: "slider.horizontal.3")
-                }
-            } label: {
-                Image(systemName: "ellipsis.circle")
-                    .font(.system(size: 20, weight: .semibold))
-                    .foregroundStyle(style.inkSoft)
-            }
-            .disabled(!interactive)
+            // `.w-random__count`: Pille in der ruhigen Füllung.
+            Text(countText)
+                .font(Theme.font(metrics.em(0.84), weight: .semibold))
+                .monospacedDigit()
+                .foregroundStyle(style.inkSoft)
+                .padding(.horizontal, metrics.em(0.84 * 0.7))
+                .padding(.vertical, metrics.em(0.84 * 0.2))
+                .background { Capsule().fill(style.wash) }
+                .lineLimit(1)
         }
+    }
+
+    private var listTitle: String {
+        if let list { return list.name }
+        return content.listID == nil ? "Keine Liste" : "Liste wird geladen"
+    }
+
+    private var countText: String {
+        guard let list else { return "—" }
+        let all = list.activeEntries.count
+        return content.mode == .withoutRepeat ? "\(remaining.count)/\(all)" : "\(all) Namen"
     }
 
     // MARK: - Namensfeld
 
+    /// `.w-random__namebox` — der Name, darüber bei Bedarf das Mosaik.
     @ViewBuilder
     private func nameBox(size: CGSize) -> some View {
         let text = displayName
+        let fontSize = nameSize(size, text: text)
         ZStack {
             Text(hidden && revealMode == .letters ? maskedLetters(text) : text)
-                .font(Theme.font(nameSize(size), weight: .heavy))
-                .tracking(-nameSize(size) * 0.02)
+                .font(Theme.font(fontSize, weight: .heavy))
+                .tracking(-fontSize * 0.02)
+                .lineSpacing(fontSize * 0.05)
                 .foregroundStyle(hasName ? style.bigText
                                          : AnyShapeStyle(style.inkSoft.opacity(style.bare ? 0.6 : 0.55)))
                 .lineLimit(2)
-                .minimumScaleFactor(0.3)
+                .minimumScaleFactor(0.4)
                 .multilineTextAlignment(.center)
-                .padding(.horizontal, 16)
-                .blur(radius: blurRadius(size: size))
+                .blur(radius: blurRadius(fontSize: fontSize))
                 .scaleEffect(pulse ? 1.06 : 1.0)
                 .animation(.easeOut(duration: 0.25), value: content.revealParts.count)
-
-            if hidden && revealMode == .mosaik {
-                mosaic
-                    .padding(6)
-            }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 2)
+                .overlay {
+                    if hidden && revealMode == .mosaik {
+                        // `.w-random__mask { inset: -8px -6px }`
+                        mosaic.padding(.horizontal, -6).padding(.vertical, -8)
+                    }
+                }
         }
+        .frame(maxWidth: .infinity)
     }
 
     /// Feines Kachelraster über dem Namen — jede Kachel verschwindet einzeln.
@@ -193,7 +175,7 @@ struct NamePickerWidgetView: View {
             }
         }
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .animation(.easeOut(duration: 0.22), value: content.revealParts.count)
+        .animation(.easeOut(duration: 0.4), value: content.revealParts.count)
     }
 
     /// Helle Kacheln wie in der Web-App — sie verdecken, ohne zu schreien.
@@ -204,12 +186,21 @@ struct NamePickerWidgetView: View {
                        startPoint: .topLeading, endPoint: .bottomTrailing)
     }
 
+    /// Schriftgröße wie `fitName()` in der Web-App: Sie richtet sich nach der
+    /// Elementgröße und der Länge des Namens, nicht nach dem Maßstab.
+    private func nameSize(_ size: CGSize, text: String) -> Double {
+        let boxWidth = max(140, Double(size.width) - 70 + metrics.em(2.4))
+        let fitted = min(Double(size.height) * 0.29 + metrics.em(2),
+                         boxWidth / max(4, Double(text.count) * 0.6))
+        return max(20, min(fitted, 128))
+    }
+
     /// Die Unschärfe richtet sich nach der Schriftgröße — sonst bliebe ein
     /// großer Name auch mit festem Wert lesbar.
-    private func blurRadius(size: CGSize) -> Double {
+    private func blurRadius(fontSize: Double) -> Double {
         guard hidden, revealMode == .blur else { return 0 }
         let progress = min(1, Double(content.revealParts.count) / Double(RevealLayout.blurSteps))
-        return nameSize(size) * 0.42 * pow(1 - progress, 1.5) + 1.5
+        return fontSize * 0.42 * pow(1 - progress, 1.5) + 1.5
     }
 
     private func maskedLetters(_ name: String) -> String {
@@ -222,78 +213,18 @@ struct NamePickerWidgetView: View {
         })
     }
 
-    // MARK: - Ziehen und Aufdecken
-
-    private func actionRow(width: CGFloat) -> some View {
-        HStack(spacing: 8) {
-            Button {
-                guard interactive else { return }
-                step()
-            } label: {
-                HStack(spacing: 10) {
-                    Image(systemName: mainSymbol)
-                        .font(.system(size: 22, weight: .bold))
-                    Text(buttonTitle)
-                        .font(Theme.font(20, weight: .bold))
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.6)
-                }
-                .foregroundStyle(Color.white)
-                .frame(maxWidth: .infinity)
-                .frame(height: 54)
-                .background {
-                    Capsule().fill(style.accentGradient)
-                        .opacity(list == nil ? 0.45 : 1)
-                }
-                .shadow(color: style.accentGlow, radius: 17, y: 9)
-            }
-            .buttonStyle(.plain)
-            .disabled(list == nil || spinText != nil)
-            .opacity(interactive ? 1 : 0.85)
-
-            if hidden {
-                Button {
-                    guard interactive else { return }
-                    revealAll()
-                } label: {
-                    Image(systemName: "eye")
-                        .font(.system(size: 20, weight: .bold))
-                        .foregroundStyle(style.ink)
-                        .frame(width: 54, height: 54)
-                        .background {
-                            Circle().fill(style.wash)
-                                .overlay { Circle().strokeBorder(style.line, lineWidth: 1) }
-                        }
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Namen ganz aufdecken")
-            }
-        }
-    }
-
-    private var mainSymbol: String {
-        if hidden { return "sparkles" }
-        return roundComplete ? "arrow.counterclockwise.circle.fill" : "shuffle"
-    }
-
-    private var buttonTitle: String {
-        if list == nil { return "Liste wählen" }
-        if hidden { return "Aufdecken" }
-        if roundComplete { return "Neue Runde" }
-        return "Ziehen"
-    }
-
     private var hint: String {
         if list == nil { return "Einstellungen öffnen und eine Liste wählen." }
-        if entries.isEmpty { return "Die Liste ist noch leer." }
+        if entries.isEmpty { return "Einstellungen öffnen und Namen eintragen." }
         if hidden {
             let perTap = revealMode == .mosaik ? Mosaic.perTap : 1
             let total = max(1, Int(ceil(Double(revealTotal) / Double(perTap))))
             let done = min(total, Int(ceil(Double(content.revealParts.count) / Double(perTap))))
-            return "Aufdecken — Schritt \(done) von \(total)"
+            return "Tippen deckt auf — Schritt \(done) von \(total)"
         }
         if roundComplete { return "Alle Namen gezogen." }
-        return "Karte antippen zieht den nächsten Namen"
+        return armed ? "Bereit — der nächste Tipp zieht"
+                     : "Antippen, dann nochmal tippen zum Ziehen"
     }
 
     // MARK: - Gezogene Namen
@@ -304,50 +235,68 @@ struct NamePickerWidgetView: View {
         content.showDrawn.applies(editing: !interactive)
     }
 
-    private func history(width: CGFloat) -> some View {
+    /// `.w-random__drawn` — durch eine Linie abgesetzt, darüber die
+    /// Überschrift mit der Anzahl.
+    private var history: some View {
         // Der aktuelle Name bleibt verborgen, solange er nicht aufgedeckt ist.
         let shown = hidden ? drawnEntries.filter { $0.id != content.currentID } : drawnEntries
-        return ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                ForEach(shown) { entry in
-                    Menu {
-                        Button {
-                            withAnimation { putBack(entry) }
-                        } label: {
-                            Label("Zurück in den Topf", systemImage: "arrow.uturn.backward")
-                        }
-                        Button(role: .destructive) {
-                            withAnimation {
-                                putBack(entry)
-                                onDeleteEntry(entry)
-                            }
-                        } label: {
-                            Label("Aus Liste löschen", systemImage: "trash")
-                        }
-                    } label: {
-                        let current = entry.id == content.currentID
-                        Text(entry.text)
-                            .font(Theme.font(16, weight: .semibold))
-                            .foregroundStyle(current ? Color.white : style.ink)
-                            .lineLimit(1)
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 9)
-                            .background {
-                                Capsule().fill(current
-                                               ? AnyShapeStyle(style.accentGradient)
-                                               : AnyShapeStyle(style.wash))
-                            }
-                    }
-                    .disabled(!interactive)
+        return VStack(alignment: .leading, spacing: 7) {
+            Rectangle().fill(style.line).frame(height: 1)
+            HStack {
+                Text("GEZOGEN (\(shown.count))")
+                    .font(Theme.font(metrics.em(0.77), weight: .heavy))
+                    .tracking(metrics.em(0.77) * 0.08)
+                    .foregroundStyle(style.inkSoft)
+                Spacer(minLength: 0)
+                Button {
+                    guard interactive else { return }
+                    withAnimation { resetRound() }
+                } label: {
+                    Text("Zurücksetzen")
+                        .font(Theme.font(metrics.em(0.77), weight: .semibold))
+                        .foregroundStyle(style.accent)
                 }
-                if shown.isEmpty {
-                    Text("NOCH NIEMAND GEZOGEN")
-                        .widgetLabel(12, color: style.inkSoft)
-                }
+                .buttonStyle(.plain)
+                .disabled(!interactive)
             }
-            .padding(.vertical, 2)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: metrics.em(0.4)) {
+                    ForEach(shown) { entry in
+                        Menu {
+                            Button {
+                                withAnimation { putBack(entry) }
+                            } label: {
+                                Label("Zurück in den Topf", systemImage: "arrow.uturn.backward")
+                            }
+                            Button(role: .destructive) {
+                                withAnimation {
+                                    putBack(entry)
+                                    onDeleteEntry(entry)
+                                }
+                            } label: {
+                                Label("Aus Liste löschen", systemImage: "trash")
+                            }
+                        } label: {
+                            let current = entry.id == content.currentID
+                            Text(entry.text)
+                                .font(Theme.font(metrics.em(0.84), weight: .semibold))
+                                .foregroundStyle(current ? Color.white : style.ink)
+                                .lineLimit(1)
+                                .padding(.horizontal, metrics.em(0.7))
+                                .padding(.vertical, metrics.em(0.32))
+                                .background {
+                                    Capsule().fill(current
+                                                   ? AnyShapeStyle(style.accentGradient)
+                                                   : AnyShapeStyle(style.wash))
+                                }
+                        }
+                        .disabled(!interactive)
+                    }
+                }
+                .padding(.bottom, 2)
+            }
+            .scrollDisabled(!interactive)
         }
-        .scrollDisabled(!interactive)
     }
 
     // MARK: - Ableitungen
@@ -382,12 +331,8 @@ struct NamePickerWidgetView: View {
         // Die Tafel nennt eine Liste, die hier noch fehlt — sie wird geholt.
         if list == nil, content.listID != nil { return "Liste wird geladen ..." }
         if list == nil { return "Keine Liste" }
-        if entries.isEmpty { return "Liste ist leer" }
+        if entries.isEmpty { return "Keine Namen" }
         return "Bereit"
-    }
-
-    private func nameSize(_ size: CGSize) -> Double {
-        Double(min(size.width * 0.17, size.height * 0.30))
     }
 
     // MARK: - Aufdecken
@@ -418,12 +363,24 @@ struct NamePickerWidgetView: View {
 
     // MARK: - Aktionen
 
-    /// Ein Tipp: entweder den nächsten Teil aufdecken oder neu ziehen.
-    private func step() {
+    /// Ein Tipp auf die Karte. Beim Aufdecken wirkt er sofort; zum Ziehen
+    /// braucht es zwei — sonst zieht ein Wischer versehentlich neu.
+    private func tap() {
+        guard interactive else { return }
         if hidden {
             revealStep()
-        } else {
+            return
+        }
+        guard !entries.isEmpty else {
+            onOpenSettings()
+            return
+        }
+        if armed {
+            armed = false
             draw()
+        } else {
+            withAnimation(.easeOut(duration: 0.18)) { armed = true }
+            Haptics.tap()
         }
     }
 
@@ -440,12 +397,6 @@ struct NamePickerWidgetView: View {
         } else {
             Haptics.tap()
         }
-    }
-
-    private func revealAll() {
-        guard hidden else { return }
-        content.revealParts = Array(0..<revealTotal)
-        celebrate()
     }
 
     private func draw() {
@@ -500,12 +451,6 @@ struct NamePickerWidgetView: View {
             try? await Task.sleep(for: .milliseconds(220))
             withAnimation(.easeOut(duration: 0.2)) { pulse = false }
         }
-    }
-
-    private func markDrawn(_ entry: NameEntry) {
-        guard !content.drawnIDs.contains(entry.id) else { return }
-        withAnimation { content.drawnIDs.append(entry.id) }
-        Haptics.tap()
     }
 
     private func putBack(_ entry: NameEntry) {
