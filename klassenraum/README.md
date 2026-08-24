@@ -37,6 +37,13 @@ und die Möglichkeit, alles **als Datei zu sichern**.
   eine runde Scheibe. „Nur beim Bearbeiten" zeigt die Rahmen beim Einrichten und blendet
   sie in der Unterrichtsansicht aus. Einzelne Elemente lassen sich zusätzlich über das
   Rahmen-Symbol in ihrer kleinen Leiste umschalten.
+* **Beschriftungen**: *Immer*, *Nur beim Bearbeiten* oder *Nie*. Betrifft die kleinen
+  Aufschriften — Listenname und Zähler beim Zufallsnamen, „Timer", „Lautstärke",
+  die Überschrift des Tagesablaufs, das Datum unter der Uhr und Bildunterschriften.
+  Zusammen mit „ohne Rahmen" steht dann nur noch der Inhalt auf der Tafel.
+* **Stufenlose Größe**: Beim Ziehen an den Ecken wächst nicht nur das Feld, sondern
+  auch sein Inhalt mit — Schrift, Kästchen und Knöpfe skalieren gleichmäßig zwischen
+  60 % und 400 % der Grundgröße.
 * **Bewegte Hintergründe** („Nordlicht“, „Sonnenaufgang“, „Waldgrün“, „Beere“, „Tafelgrün“,
   „Kreide hell“) mit langsam wandernden Farbschleiern — dazu einfarbige Hintergründe,
   Farbverläufe oder ein eigenes Bild.

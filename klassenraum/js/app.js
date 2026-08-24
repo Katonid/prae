@@ -306,6 +306,22 @@ function openBackgroundPanel() {
       },
     }, preset.label)));
 
+    container.appendChild(section('Beschriftungen',
+      h('div', { class: 'segmented' },
+        [['always', 'Immer'], ['edit', 'Nur beim Bearbeiten'], ['never', 'Nie']].map(([value, label]) => h('button', {
+          class: 'segmented__item' + ((board.labels || 'always') === value ? ' is-active' : ''),
+          onclick: () => {
+            board.labels = value;
+            touch();
+            applyBackground();
+            render();
+          },
+        }, label))),
+      h('p', { class: 'muted small' },
+        'Betrifft die kleinen Aufschriften der Elemente — Listenname und Zähler beim Zufallsnamen, '
+        + '„Timer“, „Lautstärke“, Überschrift des Tagesablaufs, Datum unter der Uhr und Bildunterschriften. '
+        + 'Ohne Rahmen wirkt die Tafel damit deutlich ruhiger.')));
+
     container.appendChild(section('Bewegter Hintergrund', auroraGrid,
       h('p', { class: 'muted small' }, 'Sanft wandernde Farbschleier — ruhig genug für den Unterricht.')));
 

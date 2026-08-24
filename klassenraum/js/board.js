@@ -139,7 +139,20 @@ export function applyBackground() {
   stageEl.dataset.cards = style;
   document.body.dataset.cards = style;
   applyScheme(board);
+  const labels = board.labels || 'always';
+  document.body.dataset.labels = labels === 'edit' && mode === 'use' ? 'never' : labels;
   layout();
+}
+
+/**
+ * Wie groß ist das Element im Vergleich zu seiner Grundgröße? Daraus wächst die
+ * Schrift der Inhalte mit — so lässt sich jedes Feld stufenlos vergrößern.
+ */
+function contentScale(widget) {
+  const definition = getWidgetType(widget.type);
+  const size = (definition && definition.defaultSize) || { w: 360, h: 260 };
+  const ratio = Math.min(widget.w / size.w, widget.h / size.h);
+  return clamp(ratio, 0.6, 4);
 }
 
 /** Zeigt dieses Element gerade einen Rahmen? */
@@ -306,6 +319,7 @@ function layout() {
     el.classList.toggle('is-locked', Boolean(widget.locked));
     el.classList.toggle('is-selected', widget.id === selectedId);
     el.classList.toggle('widget--bare', isBare(widget, board));
+    el.style.setProperty('--w-scale', contentScale(widget).toFixed(3));
   }
   if (stackMode) {
     for (const [, instance] of instances) {
