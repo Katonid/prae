@@ -37,15 +37,20 @@ struct BoardStyle: Equatable {
     var card: CardStyle = .glass
     /// Beschriftungen in den Elementen zeigen?
     var showLabels: Bool = true
+    /// Das Element steht ohne Karte frei auf dem Hintergrund. Dann gelten
+    /// andere Farben: helle Schrift statt dunkler, weil der Hintergrund
+    /// einer Tafel fast immer dunkel ist.
+    var bare: Bool = false
 
     static let standard = BoardStyle()
 
     init(scheme: AccentScheme = AccentSchemes.all[0], useGradient: Bool = true,
-         card: CardStyle = .glass, showLabels: Bool = true) {
+         card: CardStyle = .glass, showLabels: Bool = true, bare: Bool = false) {
         self.scheme = scheme
         self.useGradient = useGradient
         self.card = card
         self.showLabels = showLabels
+        self.bare = bare
     }
 
     init(board: Board, editing: Bool) {
@@ -72,16 +77,35 @@ struct BoardStyle: Equatable {
     // Kartenfarben
     var isDarkCard: Bool { card == .dark }
 
-    /// Schriftfarbe auf einer Karte.
-    var ink: Color { isDarkCard ? Color(hex: "#f8fafc") : Color(hex: "#0f172a") }
+    /// Schriftfarbe auf einer Karte — ohne Karte immer hell.
+    var ink: Color {
+        if bare { return Color(hex: "#f8fafc") }
+        return isDarkCard ? Color(hex: "#f8fafc") : Color(hex: "#0f172a")
+    }
     /// Schriftfarbe für Nebensächliches (Überschriften, Hinweise).
-    var inkSoft: Color { isDarkCard ? Color(hex: "#a5b0c2") : Color(hex: "#64748b") }
+    var inkSoft: Color {
+        if bare { return Color(hex: "#f8fafc").opacity(0.75) }
+        return isDarkCard ? Color(hex: "#a5b0c2") : Color(hex: "#64748b")
+    }
     /// Trennlinien in einer Karte.
-    var line: Color { isDarkCard ? Color.white.opacity(0.12) : Color(hex: "#0f172a").opacity(0.09) }
+    var line: Color {
+        if bare { return Color.white.opacity(0.22) }
+        return isDarkCard ? Color.white.opacity(0.12) : Color(hex: "#0f172a").opacity(0.09)
+    }
     /// Äußere Kante der Karte.
     var edge: Color { isDarkCard ? Color.white.opacity(0.16) : Color.white.opacity(0.65) }
     /// Ruhige Füllung innerhalb einer Karte (Fortschritt, leere Felder).
-    var wash: Color { ink.opacity(isDarkCard ? 0.10 : 0.07) }
+    var wash: Color {
+        if bare { return Color.white.opacity(0.16) }
+        return ink.opacity(isDarkCard ? 0.10 : 0.07)
+    }
+
+    /// Große Schrift — gezogener Name, Uhrzeit, Pegel. Auf einer Karte im
+    /// Farbverlauf der Tafel; ohne Karte einfarbig hell, weil ein dunkles
+    /// Schema auf dunklem Grund sonst verschwindet (so macht es die Web-App).
+    var bigText: AnyShapeStyle {
+        bare ? AnyShapeStyle(ink) : AnyShapeStyle(accentGradient)
+    }
 
     /// Grundfarbe der Karte. Bei „Glas" liegt zusätzlich Material darunter.
     var cardFill: Color {
