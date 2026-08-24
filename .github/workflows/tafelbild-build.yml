@@ -47,6 +47,7 @@ jobs:
             -sdk iphonesimulator \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
+            ONLY_ACTIVE_ARCH=NO \
             2>&1 | tee /tmp/tafelbild-build.log
 
       - name: Fehler und Warnungen zusammenfassen

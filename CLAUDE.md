@@ -129,3 +129,11 @@ noch Commits auf denselben PR gepusht wurden — die hingen dann fest
   öffentlichen CloudKit-Datenbank, Sichtbarkeit über Mitgliedschaft im
   Objekt. In der CloudKit-Konsole müssen `updatedAtMs` (queryable +
   sortable) und `kind` (queryable) indiziert sein.
+- **Übersetzt wird in GitHub Actions**, nicht erst auf dem Mac: Der
+  Arbeitsablauf `.github/workflows/tafelbild-build.yml` baut die App bei
+  jedem Push auf `TafelbildiOS/` auf einem macOS-Läufer (xcodebuild,
+  iOS-Simulator-SDK, ohne Signierung) und listet am Ende alle
+  `error:`- und `warning:`-Zeilen auf.
+- **Verbindlich für Claude: erst pushen, Bau abwarten, Fehler beheben —
+  und den PR-Link erst herausgeben, wenn der Bau grün ist.** Nie wieder
+  einen ungebauten Stand als fertig melden.
