@@ -20,6 +20,17 @@ struct NamePickerWidgetView: View {
 
     @Environment(\.boardStyle) private var style
 
+    /// Maße des Mosaiks — wie in der Web-App: ein feines Raster gibt pro
+    /// Tipp wenig preis. (Die Vorgabe im Modell ist gröber; hier gilt das
+    /// Raster der Vorlage.)
+    private enum Mosaic {
+        static let columns = 28
+        static let rows = 10
+        static var tiles: Int { columns * rows }
+        static let steps = 12
+        static var perTap: Int { Int(ceil(Double(tiles) / Double(steps))) }
+    }
+
     @State private var spinText: String?
     @State private var pulse = false
     @State private var confettiTrigger = 0
@@ -145,8 +156,8 @@ struct NamePickerWidgetView: View {
             Text(hidden && revealMode == .letters ? maskedLetters(text) : text)
                 .font(Theme.font(nameSize(size), weight: .heavy))
                 .tracking(-nameSize(size) * 0.02)
-                .foregroundStyle(hasName ? AnyShapeStyle(style.accentGradient)
-                                         : AnyShapeStyle(style.inkSoft.opacity(0.55)))
+                .foregroundStyle(hasName ? style.bigText
+                                         : AnyShapeStyle(style.inkSoft.opacity(style.bare ? 0.6 : 0.55)))
                 .lineLimit(2)
                 .minimumScaleFactor(0.3)
                 .multilineTextAlignment(.center)
@@ -165,26 +176,29 @@ struct NamePickerWidgetView: View {
     /// Feines Kachelraster über dem Namen — jede Kachel verschwindet einzeln.
     private var mosaic: some View {
         let open = Set(content.revealParts)
-        return VStack(spacing: 2) {
-            ForEach(0..<RevealLayout.mosaicRows, id: \.self) { row in
-                HStack(spacing: 2) {
-                    ForEach(0..<RevealLayout.mosaicColumns, id: \.self) { column in
-                        let index = row * RevealLayout.mosaicColumns + column
-                        RoundedRectangle(cornerRadius: 3, style: .continuous)
+        return VStack(spacing: 0) {
+            ForEach(0..<Mosaic.rows, id: \.self) { row in
+                HStack(spacing: 0) {
+                    ForEach(0..<Mosaic.columns, id: \.self) { column in
+                        let index = row * Mosaic.columns + column
+                        Rectangle()
                             .fill(mosaicFill)
                             .opacity(open.contains(index) ? 0 : 1)
-                            .scaleEffect(open.contains(index) ? 0.5 : 1.06)
+                            // Leichte Überlappung: sonst blitzt der Name in
+                            // den Fugen des Rasters durch.
+                            .scaleEffect(open.contains(index) ? 0.5 : 1.08)
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
                     }
                 }
             }
         }
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         .animation(.easeOut(duration: 0.22), value: content.revealParts.count)
     }
 
     /// Helle Kacheln wie in der Web-App — sie verdecken, ohne zu schreien.
     private var mosaicFill: LinearGradient {
-        LinearGradient(colors: style.isDarkCard
+        LinearGradient(colors: (style.isDarkCard || style.bare)
                        ? [Color(hex: "#334155"), Color(hex: "#1e293b")]
                        : [Color(hex: "#e6e9f5"), Color(hex: "#cdd5f3")],
                        startPoint: .topLeading, endPoint: .bottomTrailing)
@@ -273,7 +287,7 @@ struct NamePickerWidgetView: View {
         if list == nil { return "Einstellungen öffnen und eine Liste wählen." }
         if entries.isEmpty { return "Die Liste ist noch leer." }
         if hidden {
-            let perTap = revealMode == .mosaik ? RevealLayout.mosaicPerTap : 1
+            let perTap = revealMode == .mosaik ? Mosaic.perTap : 1
             let total = max(1, Int(ceil(Double(revealTotal) / Double(perTap))))
             let done = min(total, Int(ceil(Double(content.revealParts.count) / Double(perTap))))
             return "Aufdecken — Schritt \(done) von \(total)"
@@ -383,7 +397,7 @@ struct NamePickerWidgetView: View {
     private var revealTotal: Int {
         switch revealMode {
         case .instant: return 0
-        case .mosaik:  return RevealLayout.mosaicTiles
+        case .mosaik:  return Mosaic.tiles
         case .blur:    return RevealLayout.blurSteps
         case .letters: return max(1, Self.maskableIndexes(currentEntry?.text ?? "").count)
         }
@@ -418,7 +432,7 @@ struct NamePickerWidgetView: View {
         var done = Set(content.revealParts)
         let open = (0..<total).filter { !done.contains($0) }
         guard !open.isEmpty else { return }
-        let count = revealMode == .mosaik ? RevealLayout.mosaicPerTap : 1
+        let count = revealMode == .mosaik ? Mosaic.perTap : 1
         for value in open.shuffled().prefix(count) { done.insert(value) }
         content.revealParts = Array(done).sorted()
         if content.revealParts.count >= total {
