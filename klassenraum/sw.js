@@ -1,12 +1,12 @@
-/* Service Worker: App-Dateien offline verfügbar halten. */
+/* Service Worker: App-Dateien offline verfügbar halten — und zuverlässig aktualisieren. */
 
-const CACHE = 'klassenraum-v1';
+const VERSION = 'v2';
+const CACHE = `klassenraum-${VERSION}`;
 const ASSETS = [
   './',
   './index.html',
   './css/app.css',
   './manifest.webmanifest',
-  '../firebase-config.js',
   './icons/icon.svg',
   './icons/icon-192.png',
   './icons/icon-512.png',
@@ -19,6 +19,7 @@ const ASSETS = [
   './js/lists.js',
   './js/share.js',
   './js/cloud.js',
+  './js/version.js',
   './js/widgets/index.js',
   './js/widgets/randomizer.js',
   './js/widgets/timer.js',
@@ -32,13 +33,27 @@ const ASSETS = [
 ];
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(ASSETS)).then(() => self.skipWaiting()));
+  event.waitUntil(
+    caches.open(CACHE)
+      // 'reload' erzwingt frische Dateien vom Server statt aus dem Browser-Cache.
+      .then((cache) => cache.addAll(ASSETS.map((url) => new Request(url, { cache: 'reload' }))))
+      .then(() => self.skipWaiting())
+      .catch(() => self.skipWaiting()),
+  );
 });
 
 self.addEventListener('activate', (event) => {
-  event.waitUntil(caches.keys().then((keys) => Promise.all(
-    keys.filter((key) => key !== CACHE).map((key) => caches.delete(key)),
-  )).then(() => self.clients.claim()));
+  event.waitUntil(
+    caches.keys()
+      .then((keys) => Promise.all(keys.filter((key) => key !== CACHE).map((key) => caches.delete(key))))
+      .then(() => self.clients.claim())
+      .then(() => self.clients.matchAll({ type: 'window' }))
+      .then((clients) => clients.forEach((client) => client.postMessage({ type: 'sw-updated', version: VERSION }))),
+  );
+});
+
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'skip-waiting') self.skipWaiting();
 });
 
 self.addEventListener('fetch', (event) => {
@@ -48,10 +63,14 @@ self.addEventListener('fetch', (event) => {
   if (url.origin !== self.location.origin) return;
 
   event.respondWith(
-    fetch(request)
+    // Immer beim Server nachfragen (mit Revalidierung), damit neue Fassungen
+    // sofort ankommen; nur ohne Netz wird aus dem Zwischenspeicher geliefert.
+    fetch(new Request(request, { cache: 'no-cache' }))
       .then((response) => {
-        const copy = response.clone();
-        caches.open(CACHE).then((cache) => cache.put(request, copy)).catch(() => {});
+        if (response && response.ok) {
+          const copy = response.clone();
+          caches.open(CACHE).then((cache) => cache.put(request, copy)).catch(() => {});
+        }
         return response;
       })
       .catch(() => caches.match(request).then((cached) => cached || caches.match('./index.html'))),

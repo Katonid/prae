@@ -12,6 +12,7 @@ import {
   setStackMode, isStackMode, applyBackground, openWidgetSettings, setMode, getMode,
 } from './board.js';
 import { openListsPanel } from './lists.js';
+import { APP_VERSION, APP_DATE } from './version.js';
 import { initSharing, openSharePanel, isFollowing } from './share.js';
 import {
   openPanel, closePanel, section, field, button, buttonRow, toggleRow, toast,
@@ -375,7 +376,23 @@ function openMenuPanel() {
     section('Über',
       h('p', { class: 'muted small' },
         'Klassenraum ist eine freie Tafel-App: alle Elemente liegen auf deinem Gerät, Teilen geschieht nur, wenn du einen Code erstellst.'),
-      buttonRow(button('Kurzanleitung', { icon: 'check', full: true, onClick: () => { closePanel(); openHelp(); } }))));
+      h('p', { class: 'muted small' }, `Fassung ${APP_VERSION} vom ${APP_DATE}`),
+      buttonRow(button('Kurzanleitung', { icon: 'check', full: true, onClick: () => { closePanel(); openHelp(); } })),
+      buttonRow(button('Nach Aktualisierung suchen', {
+        icon: 'reset', full: true,
+        onClick: async () => {
+          toast('Suche nach einer neuen Fassung …');
+          try {
+            if ('serviceWorker' in navigator) {
+              const registrations = await navigator.serviceWorker.getRegistrations();
+              await Promise.all(registrations.map((registration) => registration.update()));
+            }
+          } catch (error) {
+            // Ohne Netz bleibt einfach die vorhandene Fassung stehen.
+          }
+          setTimeout(() => window.location.reload(), 900);
+        },
+      }))));
 
   openPanel({ title: 'Menü', content: container });
 }
@@ -393,6 +410,8 @@ function openHelp() {
         + 'die Uhr springt zwischen analog und digital, die Lautstärkemessung startet.'),
       h('p', null, h('strong', null, 'Verschieben: '), 'Element anfassen und ziehen. Ecken ziehen ändert die Größe.'),
       h('p', null, h('strong', null, 'Einstellen: '), 'Element antippen, dann auf das Zahnrad in der kleinen Leiste.'),
+      h('p', null, h('strong', null, 'Namen aufdecken: '), 'Im Element „Zufälliger Name“ auf das Zahnrad tippen → Abschnitt „Aufdecken“: '
+        + 'Mosaik, Unschärfe, Buchstaben oder Sofort. Jeder Tipp auf die Karte legt ein Stück frei, das Augensymbol zeigt alles.'),
       h('p', null, h('strong', null, 'Zufälliger Name: '), 'Liste wählen, „Ohne Zurücklegen“ verhindert Wiederholungen. '
         + 'Gezogene Namen lassen sich antippen, um sie zurückzulegen; einzelne Namen können auch von Hand als gezogen markiert werden.'),
       h('p', null, h('strong', null, 'Lautstärke: '), 'Beim ersten Start fragt das Gerät nach dem Mikrofon — einmal erlauben, dann läuft die Messung.'),
@@ -447,6 +466,32 @@ function wireChrome() {
   onStore('change', () => renderTopbar());
 }
 
+/** Aktualisierungen zuverlässig ausliefern: neue Fassung übernimmt und lädt einmal neu. */
+function registerServiceWorker() {
+  if (!('serviceWorker' in navigator)) return;
+  const hadController = Boolean(navigator.serviceWorker.controller);
+  let reloading = false;
+
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!hadController || reloading) return;
+    reloading = true;
+    window.location.reload();
+  });
+
+  navigator.serviceWorker.addEventListener('message', (event) => {
+    if (event.data && event.data.type === 'sw-updated' && hadController) {
+      toast('Neue Fassung geladen.', 'success');
+    }
+  });
+
+  navigator.serviceWorker.register('./sw.js').then((registration) => {
+    registration.update().catch(() => {});
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) registration.update().catch(() => {});
+    });
+  }).catch(() => {});
+}
+
 async function boot() {
   cacheDom();
   await loadState();
@@ -461,9 +506,7 @@ async function boot() {
   initSharing();
   document.body.classList.remove('is-loading');
 
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js').catch(() => {});
-  }
+  registerServiceWorker();
 }
 
 boot();
