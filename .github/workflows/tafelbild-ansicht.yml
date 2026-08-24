@@ -60,18 +60,23 @@ jobs:
         run: |
           UDID="${{ steps.sim.outputs.udid }}"
           mkdir -p ansicht
-          xcrun simctl boot "$UDID" || true
-          xcrun simctl bootstatus "$UDID" -b
-          xcrun simctl install "$UDID" \
+          # Jeder simctl-Aufruf bekommt eine Zeitgrenze: Der Simulator bleibt
+          # auf geteilten Läufern gelegentlich stehen, und ohne Grenze steht
+          # dann der ganze Lauf bis zum Zeitlimit.
+          mit_grenze() { perl -e 'alarm shift; exec @ARGV' "$@"; }
+
+          mit_grenze 120 xcrun simctl boot "$UDID" || true
+          mit_grenze 240 xcrun simctl bootstatus "$UDID" -b || echo "bootstatus abgebrochen — weiter"
+          mit_grenze 150 xcrun simctl install "$UDID" \
             TafelbildiOS/build-sim/Build/Products/Debug-iphonesimulator/Tafelbild.app
           # Ohne iCloud-Konto braucht der Abgleich nicht zu laufen; so steht
           # die Beispieltafel sofort und es gibt nichts zu warten.
-          xcrun simctl spawn "$UDID" defaults write de.familie.tafelbild syncEnabled -bool NO || true
+          mit_grenze 60 xcrun simctl spawn "$UDID" defaults write de.familie.tafelbild syncEnabled -bool NO || true
           # Protokoll der App mitschneiden, damit ein Fehlstart erklärbar ist.
           xcrun simctl spawn "$UDID" log stream --level debug \
             --predicate 'processImagePath CONTAINS "Tafelbild"' > ansicht/protokoll.txt 2>&1 &
           sleep 3
-          xcrun simctl launch "$UDID" de.familie.tafelbild || true
+          mit_grenze 90 xcrun simctl launch "$UDID" de.familie.tafelbild || true
           sleep 20
 
       - name: Bildschirmfotos aufnehmen

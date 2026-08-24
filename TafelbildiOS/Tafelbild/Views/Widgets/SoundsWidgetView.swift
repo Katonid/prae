@@ -7,6 +7,7 @@ struct SoundsWidgetView: View {
     var interactive: Bool
 
     @Environment(\.boardStyle) private var style
+    @Environment(\.widgetMetrics) private var metrics
     /// Öffnet die Einstellungen (Töne zuweisen).
     var onOpenSettings: () -> Void
 
@@ -26,7 +27,7 @@ struct SoundsWidgetView: View {
                         Image(systemName: "speaker.wave.2.circle")
                             .font(.system(size: 46))
                         Text("Klangfelder anlegen")
-                            .font(Theme.font(21, weight: .semibold))
+                            .font(Theme.font(metrics.em(0.94), weight: .heavy))
                     }
                     .foregroundStyle(style.inkSoft)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -43,7 +44,7 @@ struct SoundsWidgetView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             }
         }
-        .padding(16)
+        .padding(14)
     }
 
     private func columnCount(width: CGFloat, count: Int) -> Int {
@@ -83,10 +84,10 @@ struct SoundsWidgetView: View {
             .frame(maxWidth: .infinity)
             .frame(height: height)
             .background {
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                RoundedRectangle(cornerRadius: metrics.em(1.13), style: .continuous)
                     .fill(button.hasSource ? AnyShapeStyle(color) : AnyShapeStyle(style.wash))
                     .overlay {
-                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        RoundedRectangle(cornerRadius: metrics.em(1.13), style: .continuous)
                             .strokeBorder(Color.white.opacity(playing ? 0.35 : 0), lineWidth: playing ? 4 : 0)
                     }
             }
