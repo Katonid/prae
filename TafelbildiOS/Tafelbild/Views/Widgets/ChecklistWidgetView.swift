@@ -137,7 +137,7 @@ struct ChecklistWidgetView: View {
             HStack(spacing: 12) {
                 ZStack {
                     RoundedRectangle(cornerRadius: fontSize * 0.32, style: .continuous)
-                        .strokeBorder(style.ink.opacity(style.isDarkCard ? 0.18 : 0.12), lineWidth: 2)
+                        .strokeBorder(style.ink.opacity(style.bare || style.isDarkCard ? 0.3 : 0.12), lineWidth: 2)
                         .frame(width: fontSize * 1.7, height: fontSize * 1.7)
                     if item.done {
                         RoundedRectangle(cornerRadius: fontSize * 0.32, style: .continuous)
