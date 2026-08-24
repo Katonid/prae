@@ -92,7 +92,8 @@ function starterBoard() {
       id: uid('w'), type: 'randomizer', x: 560, y: 130, w: 620, h: 470, z: 2,
       state: {
         listId: null, localNames: ['Ada B.', 'Ada K.', 'Alma', 'Antonia', 'Bo', 'Bruno'],
-        mode: 'exhaust', drawn: [], current: null, showDrawn: true, animate: true,
+        mode: 'exhaust', drawn: [], current: null, showDrawn: 'edit', animate: true,
+        reveal: 'mosaik', revealParts: [],
       },
     },
     {
@@ -140,6 +141,7 @@ export function defaultState() {
       profileName: '',
       stackModeManual: null,
       showGrid: false,
+      mode: 'edit',
     },
     cloud: {
       // Pro Board: { code, editKey, autoPush, followCode }
@@ -205,7 +207,19 @@ function normalizeState(loaded) {
   return next;
 }
 
-function normalizeWidget(widget) {
+function migrateWidgetState(widget) {
+  if (widget.type === 'randomizer' && widget.state) {
+    // Frühere Fassung: showDrawn war ein Schalter, heute drei Stufen.
+    if (widget.state.showDrawn === true) widget.state.showDrawn = 'edit';
+    if (widget.state.showDrawn === false) widget.state.showDrawn = 'never';
+    if (!widget.state.reveal) widget.state.reveal = 'mosaik';
+    if (!Array.isArray(widget.state.revealParts)) widget.state.revealParts = [];
+  }
+  return widget;
+}
+
+function normalizeWidget(rawWidget) {
+  const widget = migrateWidgetState(rawWidget);
   return {
     id: widget.id || uid('w'),
     type: widget.type,

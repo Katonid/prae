@@ -32,6 +32,8 @@ const paths = {
   chevron: '<path d="M7 10l5 5 5-5"/>',
   back: '<path d="M15 5l-7 7 7 7"/>',
   check: '<path d="M5 12.5l4.5 4.5L19 7"/>',
+  eye: '<path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
+  sparkle: '<path d="M12 3l1.8 4.7L18.5 9.5 13.8 11.3 12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"/><path d="M18 15l.9 2.3 2.3.9-2.3.9L18 21.4l-.9-2.3-2.3-.9 2.3-.9z"/>',
   download: '<path d="M12 4v11"/><path d="M8 12l4 4 4-4"/><path d="M5 20h14"/>',
   upload: '<path d="M12 20V9"/><path d="M8 12l4-4 4 4"/><path d="M5 4h14"/>',
 };

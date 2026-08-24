@@ -9,7 +9,7 @@ import {
 import { WIDGETS } from './widgets/index.js';
 import {
   initBoard, renderBoard, configureBoard, addWidgetOfType, select, updateScale,
-  setStackMode, isStackMode, applyBackground, openWidgetSettings,
+  setStackMode, isStackMode, applyBackground, openWidgetSettings, setMode, getMode,
 } from './board.js';
 import { openListsPanel } from './lists.js';
 import { initSharing, openSharePanel, isFollowing } from './share.js';
@@ -32,6 +32,7 @@ const BACKGROUND_GRADIENTS = [
 const dom = {};
 
 function cacheDom() {
+  dom.mode = document.getElementById('btn-mode');
   dom.stage = document.getElementById('stage');
   dom.canvas = document.getElementById('canvas');
   dom.selection = document.getElementById('selection-toolbar');
@@ -44,6 +45,25 @@ function renderTopbar() {
   const board = getActiveBoard();
   dom.boardName.textContent = board ? board.name : 'Klassenraum';
   dom.followBadge.classList.toggle('is-hidden', !isFollowing());
+  const editing = getMode() === 'edit';
+  dom.mode.textContent = editing ? 'Fertig' : 'Bearbeiten';
+  dom.mode.title = editing
+    ? 'Bearbeiten beenden — Steuerelemente ausblenden'
+    : 'Tafel bearbeiten — Elemente verschieben und einstellen';
+  dom.mode.classList.toggle('is-active', !editing);
+}
+
+function applyMode(next, { save = true } = {}) {
+  setMode(next);
+  if (save) {
+    getState().settings.mode = next;
+    touch({ board: false });
+  }
+  renderTopbar();
+}
+
+function toggleMode() {
+  applyMode(getMode() === 'edit' ? 'use' : 'edit');
 }
 
 function renderDock() {
@@ -336,6 +356,10 @@ function openMenuPanel() {
       buttonRow(
         button('Teilen & Konto', { icon: 'share', full: true, onClick: () => { closePanel(); openSharePanel(); } }))),
     section('Ansicht',
+      toggleRow('Unterrichtsansicht (ohne Bearbeiten-Elemente)', getMode() === 'use', (value) => {
+        applyMode(value ? 'use' : 'edit');
+        closePanel();
+      }, 'Elemente lassen sich weiter bedienen, aber nicht mehr verschieben, einstellen oder löschen.'),
       toggleRow('Listenansicht (praktisch am Telefon)', isStackMode(), (value) => {
         state.settings.stackModeManual = value;
         touch({ board: false });
@@ -360,7 +384,10 @@ function openHelp() {
   modal({
     title: 'Kurzanleitung',
     content: h('div', { class: 'stack' },
-      h('p', null, h('strong', null, 'Elemente hinzufügen: '), 'unten in der Leiste antippen.'),
+      h('p', null, h('strong', null, 'Zwei Ansichten: '), 'Oben rechts schaltet „Fertig“ in die Unterrichtsansicht — '
+        + 'dort verschwinden Elementleiste, Auswahlrahmen und Zahnräder, alles bleibt aber bedienbar. '
+        + '„Bearbeiten“ schaltet zurück.'),
+      h('p', null, h('strong', null, 'Elemente hinzufügen: '), 'unten in der Leiste antippen (nur beim Bearbeiten).'),
       h('p', null, h('strong', null, 'Bedienen: '), 'Ein Tipp auf die Karte löst die Hauptfunktion aus — '
         + 'Zufälliger Name zieht den nächsten Namen, die Ampel schaltet weiter, das Arbeitssymbol wechselt, '
         + 'die Uhr springt zwischen analog und digital, die Lautstärkemessung startet.'),
@@ -402,6 +429,7 @@ function wireChrome() {
   document.getElementById('btn-share').addEventListener('click', () => openSharePanel());
   document.getElementById('btn-menu').addEventListener('click', openMenuPanel);
   document.getElementById('btn-present').addEventListener('click', () => togglePresentation());
+  dom.mode.addEventListener('click', toggleMode);
   document.getElementById('btn-exit-present').addEventListener('click', () => togglePresentation(false));
 
   window.addEventListener('keydown', (event) => {
@@ -426,6 +454,7 @@ async function boot() {
   initBoard({ canvas: dom.canvas, stage: dom.stage, selection: dom.selection });
   renderDock();
   applyStackPreference();
+  applyMode(getState().settings.mode === 'use' ? 'use' : 'edit', { save: false });
   renderBoard();
   renderTopbar();
   wireChrome();

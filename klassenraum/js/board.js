@@ -17,9 +17,29 @@ let selectedId = null;
 let scale = 1;
 let hooks = { onOpenLists: () => {} };
 let stackMode = false;
+let mode = 'edit';
 
 export function configureBoard(options) {
   hooks = Object.assign(hooks, options || {});
+}
+
+/** 'edit' = Tafel einrichten, 'use' = im Unterricht bedienen (ohne Bearbeiten-Elemente). */
+export function getMode() {
+  return mode;
+}
+
+export function isEditing() {
+  return mode === 'edit';
+}
+
+export function setMode(value) {
+  const next = value === 'use' ? 'use' : 'edit';
+  if (next === mode) return;
+  mode = next;
+  document.body.classList.toggle('is-using', mode === 'use');
+  if (mode === 'use') select(null);
+  refreshAll();
+  layout();
 }
 
 export function isStackMode() {
@@ -181,6 +201,9 @@ function makeContext(widget) {
     openLists() {
       hooks.onOpenLists();
     },
+    isEditing() {
+      return mode === 'edit';
+    },
     openSettings() {
       openWidgetSettings(widget.id);
     },
@@ -240,6 +263,7 @@ function attachCardTap(el, widget) {
     if (Math.abs(event.clientX - startX) + Math.abs(event.clientY - startY) > 14) return;
     const instance = instances.get(widget.id);
     if (!instance || !instance.api || !instance.api.onTap) return;
+    if (mode === 'use' && instance.api.tapNeedsEditing) return;
     if (event.pointerType !== 'mouse') armTapGuard(event);
     instance.api.onTap();
   });
@@ -279,6 +303,7 @@ function layout() {
 
 function onWidgetPointerDown(event, widget, el) {
   const handle = event.target.closest('[data-handle]');
+  if (mode === 'use') return;
   select(widget.id);
   if (stackMode || widget.locked) return;
   if (!handle && event.target.closest('[data-nodrag]')) return;
@@ -356,7 +381,7 @@ function bringToFront(widget) {
 }
 
 export function select(widgetId) {
-  selectedId = widgetId;
+  selectedId = mode === 'use' ? null : widgetId;
   for (const [id, instance] of instances) {
     instance.el.classList.toggle('is-selected', id === widgetId);
   }
@@ -368,7 +393,7 @@ function renderSelection() {
   clear(selectionEl);
   const board = getActiveBoard();
   const widget = board ? board.widgets.find((entry) => entry.id === selectedId) : null;
-  if (!widget || stackMode || document.body.classList.contains('is-presenting')) {
+  if (!widget || stackMode || mode === 'use' || document.body.classList.contains('is-presenting')) {
     selectionEl.classList.remove('is-visible');
     return;
   }
