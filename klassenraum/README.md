@@ -28,6 +28,15 @@ und die Möglichkeit, alles **als Datei zu sichern**.
 
 ## Aussehen
 
+* **Sechs Farbschemata** je Klassenraum — Indigo, Ozean, Wald, Sonne, Schiefer, Kreide.
+  Sie färben Namen, Timer-Ring, Uhrzeiger, Knöpfe und Klangtasten einheitlich. Wer es
+  ruhiger mag, schaltet **„Farbverlauf verwenden" aus**: dann werden aus den bunten
+  Verläufen einfarbige, zurückhaltende Akzente.
+* **Rahmen um die Elemente**: *Immer*, *Nur beim Bearbeiten* oder *Nie*. Ohne Rahmen
+  stehen Uhr, Klangtaste oder Text frei auf der Tafel — die Uhr ist dann wirklich nur
+  eine runde Scheibe. „Nur beim Bearbeiten" zeigt die Rahmen beim Einrichten und blendet
+  sie in der Unterrichtsansicht aus. Einzelne Elemente lassen sich zusätzlich über das
+  Rahmen-Symbol in ihrer kleinen Leiste umschalten.
 * **Bewegte Hintergründe** („Nordlicht“, „Sonnenaufgang“, „Waldgrün“, „Beere“, „Tafelgrün“,
   „Kreide hell“) mit langsam wandernden Farbschleiern — dazu einfarbige Hintergründe,
   Farbverläufe oder ein eigenes Bild.

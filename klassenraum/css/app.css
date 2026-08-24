@@ -285,6 +285,52 @@ body[data-cards="dark"] .widget::after { box-shadow: inset 0 1px 0 rgba(255, 255
   to { opacity: 1; transform: none; }
 }
 
+/* Rahmenlose Elemente: der Inhalt steht frei auf der Tafel. */
+.widget--bare {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  --card-ink: #f8fafc;
+  --card-ink-soft: rgba(248, 250, 252, 0.75);
+  --card-line: rgba(255, 255, 255, 0.22);
+  --surface-soft: rgba(255, 255, 255, 0.16);
+  --surface-soft-2: rgba(255, 255, 255, 0.3);
+  --clock-face: rgba(255, 255, 255, 0.95);
+}
+
+.widget--bare::after { box-shadow: none; }
+.widget--bare .widget__inner { filter: drop-shadow(0 6px 16px rgba(2, 6, 23, 0.45)); }
+.widget--bare .w-text { background: transparent !important; }
+
+/* Das Zifferblatt bleibt eine helle Scheibe — Zahlen und Zeiger darauf dunkel. */
+.widget--bare .w-clock__svg { --card-ink: #0f172a; }
+
+/* Große Schrift steht ohne Karte direkt auf der Tafel: Akzentfarbe weicht dem
+   Kontrast, sonst verschwindet ein dunkles Schema auf dunklem Grund. */
+.widget--bare .w-random__name,
+.widget--bare .w-clock__digital,
+.widget--bare .w-noise__value {
+  background: none;
+  color: var(--card-ink);
+  -webkit-text-fill-color: var(--card-ink);
+}
+
+.widget--bare .w-random__name.is-empty { opacity: 0.6; }
+
+body.is-light-board .widget--bare {
+  --card-ink: #0f172a;
+  --card-ink-soft: rgba(15, 23, 42, 0.7);
+  --card-line: rgba(15, 23, 42, 0.18);
+  --surface-soft: rgba(15, 23, 42, 0.08);
+  --surface-soft-2: rgba(15, 23, 42, 0.16);
+}
+
+body.is-light-board .widget--bare .widget__inner { filter: drop-shadow(0 6px 14px rgba(15, 23, 42, 0.2)); }
+
+.tool-button.is-on { background: rgba(255, 255, 255, 0.2); color: #fff; }
+
 [data-nodrag] { touch-action: manipulation; }
 .w-check__list, .w-random__drawn, .panel__body, .modal__body { touch-action: pan-y; }
 
@@ -720,6 +766,28 @@ p.muted { margin: 0; }
 .swatch.is-active { border-color: var(--accent); box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.18); }
 
 .bg-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+
+.scheme-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; }
+
+.scheme {
+  border: 1px solid var(--line);
+  background: #fff;
+  border-radius: 14px;
+  padding: 10px 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 620;
+  color: var(--ink-soft);
+  transition: transform 0.16s var(--spring), border-color 0.16s ease, color 0.16s ease;
+}
+
+.scheme:hover { transform: translateY(-2px); }
+.scheme.is-active { border-color: var(--accent); color: var(--ink); box-shadow: 0 0 0 3px var(--accent-soft-bg, rgba(99, 102, 241, 0.14)); }
+.scheme__dot { width: 34px; height: 34px; border-radius: 50%; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5); }
 
 .bg-card {
   position: relative;

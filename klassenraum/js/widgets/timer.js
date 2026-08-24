@@ -3,6 +3,8 @@
 import { h, clear, formatDuration, chime, beep, onTap } from '../util.js';
 import { icon } from '../icons.js';
 import { section, toggleRow, button, buttonRow, field } from '../ui.js';
+import { accentPair } from '../theme.js';
+import { getActiveBoard } from '../store.js';
 
 const PRESETS = [1, 2, 3, 5, 10, 15, 20, 30, 45];
 
@@ -34,12 +36,14 @@ export default {
     ring.setAttribute('viewBox', '0 0 120 120');
     ring.classList.add('w-timer__ring');
     const gradientId = `timer-${Math.random().toString(36).slice(2, 8)}`;
+    const tone = accentPair(getActiveBoard());
     ring.innerHTML = `<defs><linearGradient id="${gradientId}" x1="0" y1="0" x2="1" y2="1">`
-      + '<stop offset="0%" stop-color="#6366f1"/><stop offset="55%" stop-color="#a855f7"/>'
-      + '<stop offset="100%" stop-color="#ec4899"/></linearGradient></defs>'
+      + `<stop offset="0%" stop-color="${tone.from}"/>`
+      + `<stop offset="100%" stop-color="${tone.to}"/></linearGradient></defs>`
       + '<circle class="w-timer__track" cx="60" cy="60" r="52"/>'
       + `<circle class="w-timer__progress" cx="60" cy="60" r="52" stroke="url(#${gradientId})"/>`;
     const progress = ring.querySelector('.w-timer__progress');
+    const stops = ring.querySelectorAll('stop');
     const CIRC = 2 * Math.PI * 52;
     progress.style.strokeDasharray = String(CIRC);
 
@@ -69,6 +73,12 @@ export default {
 
     function render() {
       const state = ctx.widget.state;
+      // Farbschema kann sich geändert haben — Verlauf mitziehen.
+      const colors = accentPair(getActiveBoard());
+      if (stops.length === 2) {
+        stops[0].setAttribute('stop-color', colors.from);
+        stops[1].setAttribute('stop-color', colors.to);
+      }
       const value = currentSeconds();
       timeEl.textContent = formatDuration(value);
       labelEl.textContent = state.label || (state.mode === 'stopwatch' ? 'Stoppuhr' : 'Timer');

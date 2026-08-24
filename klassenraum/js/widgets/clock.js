@@ -2,6 +2,8 @@
 
 import { h, clear, reducedMotion } from '../util.js';
 import { section, toggleRow, colorSwatches } from '../ui.js';
+import { accentPair } from '../theme.js';
+import { getActiveBoard } from '../store.js';
 
 const WEEKDAYS = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
 const MONTHS = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August',
@@ -72,8 +74,9 @@ function buildFace(face, accent, showSeconds) {
 
   // userSpaceOnUse ist wichtig: eine senkrechte Linie hat keine Breite, ein
   // Farbverlauf in Objektkoordinaten würde deshalb gar nicht gezeichnet.
+  const tone = accentPair(getActiveBoard());
   parts.push(`<defs><linearGradient id="${id}" gradientUnits="userSpaceOnUse" x1="60" y1="20" x2="140" y2="180">`
-    + `<stop offset="0%" stop-color="${accent}"/><stop offset="100%" stop-color="#ec4899"/></linearGradient></defs>`);
+    + `<stop offset="0%" stop-color="${tone.from}"/><stop offset="100%" stop-color="${tone.to}"/></linearGradient></defs>`);
 
   if (face === 'modern' || face === 'minimal') {
     parts.push(`<circle cx="100" cy="100" r="94" fill="var(--clock-face)" stroke="${accent}33" stroke-width="2"/>`);
@@ -116,7 +119,8 @@ export default {
   defaultSize: { w: 400, h: 400 },
   minSize: { w: 180, h: 180 },
   createState() {
-    return { mode: 'analog', face: 'modern', showSeconds: true, showDate: true, accent: '#6366f1', sweep: true };
+    // accent: null bedeutet „wie das Farbschema des Klassenraums".
+    return { mode: 'analog', face: 'modern', showSeconds: true, showDate: true, accent: null, sweep: true };
   },
 
   mount(ctx) {
@@ -137,7 +141,8 @@ export default {
         svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
         svg.setAttribute('viewBox', '0 0 200 200');
         svg.classList.add('w-clock__svg', `w-clock__svg--${face}`);
-        svg.innerHTML = buildFace(face, state.accent || '#6366f1', state.showSeconds !== false);
+        const accent = state.accent || accentPair(getActiveBoard()).from;
+        svg.innerHTML = buildFace(face, accent, state.showSeconds !== false);
         hands = {
           hour: svg.querySelector('.clock-hand--hour'),
           minute: svg.querySelector('.clock-hand--minute'),
@@ -283,6 +288,15 @@ export default {
 
       if (state.mode === 'analog' && (state.face || 'modern') !== 'lernuhr') {
         wrap.appendChild(section('Farbe',
+          h('div', { class: 'button-row' },
+            h('button', {
+              class: 'chip' + (state.accent ? '' : ' is-active'),
+              onclick: () => {
+                ctx.widget.state.accent = null;
+                ctx.save();
+                rerender();
+              },
+            }, 'Wie Farbschema')),
           colorSwatches(['#6366f1', '#0ea5e9', '#16a34a', '#f97316', '#e11d48', '#111827'], state.accent, (color) => {
             ctx.widget.state.accent = color;
             ctx.save();
