@@ -6,6 +6,9 @@ import SwiftUI
 /// wenn die Liste durch ist) und „immer alle Namen". Gezogene Namen lassen
 /// sich einzeln zurücklegen, aus der Liste löschen — und ein Name kann auch
 /// von Hand als gezogen markiert werden, ohne dass der Zufall ihn wählte.
+///
+/// Der gezogene Name kann schrittweise aufgedeckt werden (Mosaik, Unschärfe
+/// oder Buchstabe für Buchstabe), damit die Klasse mitraten darf.
 struct NamePickerWidgetView: View {
     @Binding var content: NamePickerContent
     var interactive: Bool
@@ -15,34 +18,42 @@ struct NamePickerWidgetView: View {
     /// Löscht einen Eintrag dauerhaft aus der Namensliste.
     var onDeleteEntry: (NameEntry) -> Void
 
+    @Environment(\.boardStyle) private var style
+
     @State private var spinText: String?
     @State private var pulse = false
+    @State private var confettiTrigger = 0
 
     var body: some View {
         GeometryReader { geo in
             let compact = geo.size.height < 300
             VStack(spacing: 10) {
-                header(width: geo.size.width)
+                if style.showLabels { header(width: geo.size.width) }
 
                 ZStack {
                     RoundedRectangle(cornerRadius: 22, style: .continuous)
-                        .fill(Color.white.opacity(0.10))
-                    Text(displayName)
-                        .font(Theme.font(nameSize(geo.size), weight: .bold))
-                        .foregroundStyle(.white)
-                        .lineLimit(2)
-                        .minimumScaleFactor(0.3)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 16)
-                        .scaleEffect(pulse ? 1.06 : 1.0)
-                        .id(displayName)
-                        .transition(.opacity)
+                        .fill(style.wash)
+                    nameBox(size: geo.size)
+                    ConfettiView(trigger: confettiTrigger)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .contentShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+                .onTapGesture {
+                    guard interactive else { return }
+                    step()
+                }
 
-                drawButton(width: geo.size.width)
+                if style.showLabels {
+                    Text(hint)
+                        .font(Theme.font(Double(min(geo.size.width * 0.045, 17)), weight: .medium))
+                        .foregroundStyle(style.inkSoft)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
+                }
 
-                if content.showHistory && !compact {
+                actionRow(width: geo.size.width)
+
+                if showsDrawnList && !compact {
                     history(width: geo.size.width)
                         .frame(height: min(84, geo.size.height * 0.24))
                 }
@@ -65,7 +76,7 @@ struct NamePickerWidgetView: View {
                         .lineLimit(1)
                 }
                 .font(Theme.font(16, weight: .semibold))
-                .foregroundStyle(.white.opacity(0.85))
+                .foregroundStyle(style.inkSoft)
             }
             .buttonStyle(.plain)
 
@@ -77,7 +88,7 @@ struct NamePickerWidgetView: View {
                      : "\(list.activeEntries.count) Namen")
                     .font(Theme.font(15, weight: .semibold))
                     .monospacedDigit()
-                    .foregroundStyle(.white.opacity(0.6))
+                    .foregroundStyle(style.inkSoft)
             }
 
             Menu {
@@ -97,7 +108,16 @@ struct NamePickerWidgetView: View {
                         Text(mode.title).tag(mode)
                     }
                 }
-                Toggle("Gezogene anzeigen", isOn: $content.showHistory)
+                Picker("Aufdecken", selection: $content.reveal) {
+                    ForEach(RevealMode.allCases) { mode in
+                        Text(mode.title).tag(mode)
+                    }
+                }
+                Picker("Gezogene anzeigen", selection: $content.showDrawn) {
+                    ForEach(ShowRule.allCases) { rule in
+                        Text(rule.title).tag(rule)
+                    }
+                }
                 Button {
                     onOpenSettings()
                 } label: {
@@ -106,51 +126,158 @@ struct NamePickerWidgetView: View {
             } label: {
                 Image(systemName: "ellipsis.circle")
                     .font(.system(size: 20, weight: .semibold))
-                    .foregroundStyle(.white.opacity(0.8))
+                    .foregroundStyle(style.inkSoft)
             }
             .disabled(!interactive)
         }
     }
 
-    // MARK: - Ziehen
+    // MARK: - Namensfeld
 
-    private func drawButton(width: CGFloat) -> some View {
-        Button {
-            guard interactive else { return }
-            draw()
-        } label: {
-            HStack(spacing: 10) {
-                Image(systemName: roundComplete ? "arrow.counterclockwise.circle.fill" : "shuffle")
-                    .font(.system(size: 22, weight: .bold))
-                Text(buttonTitle)
-                    .font(Theme.font(22, weight: .bold))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.6)
-            }
-            .foregroundStyle(Color.black)
-            .frame(maxWidth: .infinity)
-            .frame(height: 58)
-            .background {
-                Capsule().fill(list == nil ? Color.white.opacity(0.4) : Color.white)
+    @ViewBuilder
+    private func nameBox(size: CGSize) -> some View {
+        let text = displayName
+        ZStack {
+            Text(hidden && revealMode == .letters ? maskedLetters(text) : text)
+                .font(Theme.font(nameSize(size), weight: .bold))
+                .foregroundStyle(hasName ? AnyShapeStyle(style.accentGradient)
+                                         : AnyShapeStyle(style.inkSoft))
+                .lineLimit(2)
+                .minimumScaleFactor(0.3)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 16)
+                .blur(radius: blurRadius(size: size))
+                .scaleEffect(pulse ? 1.06 : 1.0)
+                .animation(.easeOut(duration: 0.25), value: content.revealParts.count)
+
+            if hidden && revealMode == .mosaik {
+                mosaic
+                    .padding(6)
             }
         }
-        .buttonStyle(.plain)
-        .disabled(list == nil || spinText != nil)
-        .opacity(interactive ? 1 : 0.85)
+    }
+
+    /// Feines Kachelraster über dem Namen — jede Kachel verschwindet einzeln.
+    private var mosaic: some View {
+        let open = Set(content.revealParts)
+        return VStack(spacing: 2) {
+            ForEach(0..<RevealLayout.mosaicRows, id: \.self) { row in
+                HStack(spacing: 2) {
+                    ForEach(0..<RevealLayout.mosaicColumns, id: \.self) { column in
+                        let index = row * RevealLayout.mosaicColumns + column
+                        RoundedRectangle(cornerRadius: 3, style: .continuous)
+                            .fill(style.accent.opacity(open.contains(index) ? 0 : 0.92))
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    }
+                }
+            }
+        }
+        .animation(.easeOut(duration: 0.22), value: content.revealParts.count)
+    }
+
+    /// Die Unschärfe richtet sich nach der Schriftgröße — sonst bliebe ein
+    /// großer Name auch mit festem Wert lesbar.
+    private func blurRadius(size: CGSize) -> Double {
+        guard hidden, revealMode == .blur else { return 0 }
+        let progress = min(1, Double(content.revealParts.count) / Double(RevealLayout.blurSteps))
+        return nameSize(size) * 0.42 * pow(1 - progress, 1.5) + 1.5
+    }
+
+    private func maskedLetters(_ name: String) -> String {
+        let indexes = Self.maskableIndexes(name)
+        let openSlots = Set(content.revealParts.compactMap { slot -> Int? in
+            indexes.indices.contains(slot) ? indexes[slot] : nil
+        })
+        return String(Array(name).enumerated().map { position, character in
+            (indexes.contains(position) && !openSlots.contains(position)) ? "•" : character
+        })
+    }
+
+    // MARK: - Ziehen und Aufdecken
+
+    private func actionRow(width: CGFloat) -> some View {
+        HStack(spacing: 8) {
+            Button {
+                guard interactive else { return }
+                step()
+            } label: {
+                HStack(spacing: 10) {
+                    Image(systemName: mainSymbol)
+                        .font(.system(size: 22, weight: .bold))
+                    Text(buttonTitle)
+                        .font(Theme.font(22, weight: .bold))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
+                }
+                .foregroundStyle(Color.white)
+                .frame(maxWidth: .infinity)
+                .frame(height: 58)
+                .background {
+                    Capsule().fill(style.accentGradient)
+                        .opacity(list == nil ? 0.45 : 1)
+                }
+                .shadow(color: style.accentGlow, radius: 16, y: 8)
+            }
+            .buttonStyle(.plain)
+            .disabled(list == nil || spinText != nil)
+            .opacity(interactive ? 1 : 0.85)
+
+            if hidden {
+                Button {
+                    guard interactive else { return }
+                    revealAll()
+                } label: {
+                    Image(systemName: "eye")
+                        .font(.system(size: 20, weight: .bold))
+                        .foregroundStyle(style.ink)
+                        .frame(width: 58, height: 58)
+                        .background { Circle().fill(style.wash) }
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Namen ganz aufdecken")
+            }
+        }
+    }
+
+    private var mainSymbol: String {
+        if hidden { return "sparkles" }
+        return roundComplete ? "arrow.counterclockwise.circle.fill" : "shuffle"
     }
 
     private var buttonTitle: String {
         if list == nil { return "Liste wählen" }
+        if hidden { return "Aufdecken" }
         if roundComplete { return "Neue Runde" }
         return "Ziehen"
     }
 
+    private var hint: String {
+        if list == nil { return "Einstellungen öffnen und eine Liste wählen." }
+        if entries.isEmpty { return "Die Liste ist noch leer." }
+        if hidden {
+            let perTap = revealMode == .mosaik ? RevealLayout.mosaicPerTap : 1
+            let total = max(1, Int(ceil(Double(revealTotal) / Double(perTap))))
+            let done = min(total, Int(ceil(Double(content.revealParts.count) / Double(perTap))))
+            return "Aufdecken — Schritt \(done) von \(total)"
+        }
+        if roundComplete { return "Alle Namen gezogen." }
+        return "Karte antippen zieht den nächsten Namen"
+    }
+
     // MARK: - Gezogene Namen
 
+    private var showsDrawnList: Bool {
+        // Im Unterricht bleibt die Liste bei „Beim Bearbeiten" verborgen —
+        // so lässt sich nicht ablesen, wer noch fehlt.
+        content.showDrawn.applies(editing: !interactive)
+    }
+
     private func history(width: CGFloat) -> some View {
-        ScrollView(.horizontal, showsIndicators: false) {
+        // Der aktuelle Name bleibt verborgen, solange er nicht aufgedeckt ist.
+        let shown = hidden ? drawnEntries.filter { $0.id != content.currentID } : drawnEntries
+        return ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
-                ForEach(drawnEntries) { entry in
+                ForEach(shown) { entry in
                     Menu {
                         Button {
                             withAnimation { putBack(entry) }
@@ -166,23 +293,25 @@ struct NamePickerWidgetView: View {
                             Label("Aus Liste löschen", systemImage: "trash")
                         }
                     } label: {
+                        let current = entry.id == content.currentID
                         Text(entry.text)
                             .font(Theme.font(17, weight: .semibold))
-                            .foregroundStyle(entry.id == content.currentID ? Color.black : .white.opacity(0.9))
+                            .foregroundStyle(current ? Color.white : style.ink)
                             .lineLimit(1)
                             .padding(.horizontal, 14)
                             .padding(.vertical, 9)
                             .background {
-                                Capsule().fill(entry.id == content.currentID
-                                               ? Color.white : Color.white.opacity(0.14))
+                                Capsule().fill(current
+                                               ? AnyShapeStyle(style.accentGradient)
+                                               : AnyShapeStyle(style.wash))
                             }
                     }
                     .disabled(!interactive)
                 }
-                if drawnEntries.isEmpty {
+                if shown.isEmpty {
                     Text("Noch niemand gezogen")
                         .font(Theme.font(16, weight: .medium))
-                        .foregroundStyle(.white.opacity(0.45))
+                        .foregroundStyle(style.inkSoft)
                 }
             }
             .padding(.vertical, 2)
@@ -209,11 +338,16 @@ struct NamePickerWidgetView: View {
         content.mode == .withoutRepeat && !entries.isEmpty && remaining.isEmpty
     }
 
+    private var currentEntry: NameEntry? {
+        guard let currentID = content.currentID else { return nil }
+        return entries.first { $0.id == currentID }
+    }
+
+    private var hasName: Bool { spinText != nil || currentEntry != nil }
+
     private var displayName: String {
         if let spinText { return spinText }
-        if let currentID = content.currentID, let entry = entries.first(where: { $0.id == currentID }) {
-            return entry.text
-        }
+        if let entry = currentEntry { return entry.text }
         // Die Tafel nennt eine Liste, die hier noch fehlt — sie wird geholt.
         if list == nil, content.listID != nil { return "Liste wird geladen ..." }
         if list == nil { return "Keine Liste" }
@@ -225,7 +359,63 @@ struct NamePickerWidgetView: View {
         Double(min(size.width * 0.17, size.height * 0.30))
     }
 
+    // MARK: - Aufdecken
+
+    private var revealMode: RevealMode { content.reveal }
+
+    private var revealTotal: Int {
+        switch revealMode {
+        case .instant: return 0
+        case .mosaik:  return RevealLayout.mosaicTiles
+        case .blur:    return RevealLayout.blurSteps
+        case .letters: return max(1, Self.maskableIndexes(currentEntry?.text ?? "").count)
+        }
+    }
+
+    /// Ist gerade ein Name im Spiel, der noch nicht ganz zu sehen ist?
+    private var hidden: Bool {
+        guard spinText == nil, currentEntry != nil, revealMode != .instant else { return false }
+        return content.revealParts.count < revealTotal
+    }
+
+    /// Zeichen, die verdeckt werden können (Buchstaben und Ziffern).
+    private static func maskableIndexes(_ name: String) -> [Int] {
+        Array(name).enumerated().compactMap { position, character in
+            character.isLetter || character.isNumber ? position : nil
+        }
+    }
+
     // MARK: - Aktionen
+
+    /// Ein Tipp: entweder den nächsten Teil aufdecken oder neu ziehen.
+    private func step() {
+        if hidden {
+            revealStep()
+        } else {
+            draw()
+        }
+    }
+
+    private func revealStep() {
+        let total = revealTotal
+        var done = Set(content.revealParts)
+        let open = (0..<total).filter { !done.contains($0) }
+        guard !open.isEmpty else { return }
+        let count = revealMode == .mosaik ? RevealLayout.mosaicPerTap : 1
+        for value in open.shuffled().prefix(count) { done.insert(value) }
+        content.revealParts = Array(done).sorted()
+        if content.revealParts.count >= total {
+            celebrate()
+        } else {
+            Haptics.tap()
+        }
+    }
+
+    private func revealAll() {
+        guard hidden else { return }
+        content.revealParts = Array(0..<revealTotal)
+        celebrate()
+    }
 
     private func draw() {
         guard !entries.isEmpty else { return }
@@ -245,10 +435,10 @@ struct NamePickerWidgetView: View {
         // Kurzes „Durchrattern" der Namen, dann bleibt der Gewinner stehen.
         Task { @MainActor in
             var delay = 45
-            for step in 0..<14 {
+            for stepIndex in 0..<14 {
                 spinText = entries.randomElement()?.text ?? winner.text
                 try? await Task.sleep(for: .milliseconds(delay))
-                delay += 8 + step * 3
+                delay += 8 + stepIndex * 3
             }
             spinText = nil
             commit(winner)
@@ -258,11 +448,22 @@ struct NamePickerWidgetView: View {
     private func commit(_ entry: NameEntry) {
         withAnimation(.spring(response: 0.35, dampingFraction: 0.6)) {
             content.currentID = entry.id
+            content.revealParts = []
             if !content.drawnIDs.contains(entry.id) {
                 content.drawnIDs.append(entry.id)
             }
-            pulse = true
         }
+        if revealMode == .instant {
+            celebrate()
+        } else {
+            Haptics.tap()
+        }
+    }
+
+    /// Kleiner Jubel, wenn der Name ganz zu sehen ist.
+    private func celebrate() {
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.6)) { pulse = true }
+        confettiTrigger += 1
         Haptics.success()
         Task { @MainActor in
             try? await Task.sleep(for: .milliseconds(220))
@@ -278,12 +479,16 @@ struct NamePickerWidgetView: View {
 
     private func putBack(_ entry: NameEntry) {
         content.drawnIDs.removeAll { $0 == entry.id }
-        if content.currentID == entry.id { content.currentID = nil }
+        if content.currentID == entry.id {
+            content.currentID = nil
+            content.revealParts = []
+        }
     }
 
     private func resetRound() {
         content.drawnIDs = []
         content.currentID = nil
+        content.revealParts = []
         spinText = nil
     }
 }

@@ -6,6 +6,8 @@ struct NoiseWidgetView: View {
     let content: NoiseContent
     var interactive: Bool
 
+    @Environment(\.boardStyle) private var style
+
     @ObservedObject private var meter = NoiseMeter.shared
     @State private var overSince: Date?
     @State private var tooLoud = false
@@ -15,10 +17,10 @@ struct NoiseWidgetView: View {
     var body: some View {
         GeometryReader { geo in
             VStack(spacing: 10) {
-                if !content.title.isEmpty {
+                if !content.title.isEmpty && style.showLabels {
                     Text(tooLoud && content.alert ? "Zu laut!" : content.title)
                         .font(Theme.font(min(geo.size.width * 0.11, 30), weight: .bold))
-                        .foregroundStyle(tooLoud && content.alert ? Theme.danger : .white)
+                        .foregroundStyle(tooLoud && content.alert ? Theme.danger : style.ink)
                         .lineLimit(1)
                         .minimumScaleFactor(0.5)
                 }
@@ -38,7 +40,7 @@ struct NoiseWidgetView: View {
                                 Text("Messung starten")
                                     .font(Theme.font(20, weight: .semibold))
                             }
-                            .foregroundStyle(.white.opacity(0.9))
+                            .foregroundStyle(style.inkSoft)
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
                         }
                         .buttonStyle(.plain)
@@ -77,7 +79,7 @@ struct NoiseWidgetView: View {
             // Skala: 240°, unten offen.
             Circle()
                 .trim(from: 0, to: 0.666)
-                .stroke(Color.white.opacity(0.12),
+                .stroke(style.wash,
                         style: StrokeStyle(lineWidth: side * 0.11, lineCap: .round))
                 .rotationEffect(.degrees(150))
             Circle()
@@ -91,7 +93,7 @@ struct NoiseWidgetView: View {
                 .animation(.easeOut(duration: 0.15), value: level)
             // Schwellenmarke
             Rectangle()
-                .fill(Color.white.opacity(0.8))
+                .fill(style.ink.opacity(0.55))
                 .frame(width: 3, height: side * 0.13)
                 .offset(y: -side * 0.5 + side * 0.055)
                 .rotationEffect(.degrees(-120 + 240 * content.threshold))
@@ -100,10 +102,12 @@ struct NoiseWidgetView: View {
                 Text("\(Int(level * 100))")
                     .font(Theme.font(side * 0.24, weight: .bold))
                     .monospacedDigit()
-                    .foregroundStyle(.white)
-                Text("Pegel")
-                    .font(Theme.font(side * 0.07, weight: .medium))
-                    .foregroundStyle(.white.opacity(0.6))
+                    .foregroundStyle(style.ink)
+                if style.showLabels {
+                    Text("Pegel")
+                        .font(Theme.font(side * 0.07, weight: .medium))
+                        .foregroundStyle(style.inkSoft)
+                }
             }
         }
         .frame(width: side, height: side)
@@ -119,7 +123,7 @@ struct NoiseWidgetView: View {
             ForEach(0..<count, id: \.self) { index in
                 let share = Double(index + 1) / Double(count)
                 RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .fill(index < active ? barColor(share) : Color.white.opacity(0.12))
+                    .fill(index < active ? barColor(share) : style.wash)
                     .frame(height: max(10, size.height * CGFloat(0.28 + 0.62 * share)))
             }
         }
@@ -143,7 +147,7 @@ struct NoiseWidgetView: View {
         return Circle()
             .fill(color)
             .overlay {
-                Circle().strokeBorder(Color.white.opacity(0.35), lineWidth: side * 0.03)
+                Circle().strokeBorder(Color.white.opacity(0.4), lineWidth: side * 0.03)
             }
             .shadow(color: color.opacity(0.7), radius: side * 0.16)
             .scaleEffect(0.7 + 0.3 * level)
@@ -162,7 +166,7 @@ struct NoiseWidgetView: View {
                 .font(Theme.font(17, weight: .medium))
                 .multilineTextAlignment(.center)
         }
-        .foregroundStyle(.white.opacity(0.75))
+        .foregroundStyle(style.inkSoft)
         .padding(8)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }

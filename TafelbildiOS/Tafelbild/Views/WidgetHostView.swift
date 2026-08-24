@@ -6,11 +6,14 @@ import SwiftUI
 /// (BoardCanvasView), damit sie nie von einem anderen Element verdeckt werden.
 struct WidgetHostView: View {
     @EnvironmentObject private var store: BoardStore
+    @Environment(\.boardStyle) private var style
 
     let boardID: String
     let widget: BoardWidget
     /// Verkleinerungsfaktor der Tafel — Rahmenstärken bleiben dadurch gleich.
     let scale: CGFloat
+    /// Wann ein Rahmen um das Element zu sehen ist (Vorgabe der Tafel).
+    var frames: ShowRule = .always
     /// In der Stapelansicht wird nicht verschoben: Dort bleiben die Elemente
     /// immer bedienbar, Einstellungen gibt es über die Kopfzeile.
     var editable: Bool = true
@@ -23,30 +26,46 @@ struct WidgetHostView: View {
     var body: some View {
         let base = content
             .frame(width: widget.width, height: widget.height)
-            .background { if usesCard { Color.clear.widgetCard() } }
+            .background { if usesCard { Color.clear.widgetCard(style: style) } }
             .allowsHitTesting(!editing)
 
         if editing {
             base
                 .overlay {
                     RoundedRectangle(cornerRadius: Theme.widgetCorner, style: .continuous)
-                        .strokeBorder(selected ? Theme.accent : Color.white.opacity(0.35),
+                        .strokeBorder(selectionColor,
                                       style: StrokeStyle(lineWidth: (selected ? 3 : 1.5) / scale,
                                                          dash: selected ? [] : [6 / scale, 5 / scale]))
+                }
+                .overlay(alignment: .topTrailing) {
+                    if widget.locked {
+                        Image(systemName: "lock.fill")
+                            .font(.system(size: 15, weight: .bold))
+                            .foregroundStyle(Theme.amber)
+                            .padding(9)
+                    }
                 }
                 .contentShape(Rectangle())
                 .onTapGesture {
                     Haptics.tap()
                     store.selectedWidgetID = widget.id
                 }
-                .gesture(moveGesture)
+                .gesture(moveGesture, including: widget.locked ? .subviews : .all)
         } else {
             base
         }
     }
 
+    /// Festgesteckte Elemente heben sich beim Auswählen bernsteinfarben ab.
+    private var selectionColor: Color {
+        if selected { return widget.locked ? Theme.amber : Theme.accent }
+        return Color.white.opacity(0.35)
+    }
+
     /// Text und Bild bringen ihren eigenen Hintergrund mit.
     private var usesCard: Bool {
+        if widget.bare { return false }
+        if !frames.applies(editing: store.editing) { return false }
         switch widget.content {
         case .text, .image: return false
         default: return true
@@ -87,6 +106,8 @@ struct WidgetHostView: View {
         case .sounds(let value):
             SoundsWidgetView(content: value, interactive: !editing,
                              onOpenSettings: { store.settingsWidgetID = widget.id })
+        case .symbols(let value):
+            SymbolWidgetView(content: bindSymbol(value), interactive: !editing)
         }
     }
 
@@ -150,6 +171,16 @@ struct WidgetHostView: View {
                 return fallback
             },
             set: { store.setContent(.trafficLight($0), widgetID: widget.id, boardID: boardID) }
+        )
+    }
+
+    private func bindSymbol(_ fallback: SymbolContent) -> Binding<SymbolContent> {
+        Binding(
+            get: {
+                if case .symbols(let value)? = store.widget(widget.id, in: boardID)?.content { return value }
+                return fallback
+            },
+            set: { store.setContent(.symbols($0), widgetID: widget.id, boardID: boardID) }
         )
     }
 

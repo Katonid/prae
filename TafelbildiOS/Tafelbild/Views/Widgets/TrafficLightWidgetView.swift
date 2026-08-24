@@ -6,13 +6,18 @@ struct TrafficLightWidgetView: View {
     @Binding var content: TrafficLightContent
     var interactive: Bool
 
+    @Environment(\.boardStyle) private var style
+
     private let order: [TrafficLightContent.LightState] = [.red, .yellow, .green]
+
+    /// Die Tafel kann Beschriftungen im Unterricht ausblenden.
+    private var showLabel: Bool { content.showLabels && style.showLabels }
 
     var body: some View {
         GeometryReader { geo in
             let horizontal = content.horizontal
             // Unter den Lampen bleibt Platz für die Beschriftung der aktiven Phase.
-            let lampSpace = geo.size.height - (content.showLabels ? 54 : 0)
+            let lampSpace = geo.size.height - (showLabel ? 54 : 0)
             let diameter = horizontal
                 ? min((geo.size.width - 60) / 3, lampSpace)
                 : min(geo.size.width - 36, (lampSpace - 40) / 3)
@@ -28,14 +33,16 @@ struct TrafficLightWidgetView: View {
                 .padding(horizontal ? 18 : 16)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background {
+                    // Das Gehäuse bleibt immer dunkel — so wirkt die Ampel
+                    // auf hellen wie auf dunklen Karten wie eine echte.
                     RoundedRectangle(cornerRadius: 32, style: .continuous)
-                        .fill(Color.black.opacity(0.35))
+                        .fill(Color(hex: "#111827").opacity(0.92))
                 }
 
-                if content.showLabels {
+                if showLabel {
                     Text(activeLabel)
                         .font(Theme.font(min(geo.size.width * 0.16, 34), weight: .bold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(style.ink)
                         .lineLimit(1)
                         .minimumScaleFactor(0.5)
                         .frame(height: 40)
@@ -64,8 +71,10 @@ struct TrafficLightWidgetView: View {
                         )
                 }
                 .frame(width: diameter, height: diameter)
-                .shadow(color: isOn ? color(for: state).opacity(0.75) : .clear,
-                        radius: diameter * 0.28)
+                .shadow(color: isOn ? color(for: state).opacity(0.85) : .clear,
+                        radius: diameter * 0.34)
+                .shadow(color: isOn ? color(for: state).opacity(0.45) : .clear,
+                        radius: diameter * 0.7)
                 .contentShape(Circle())
                 .onTapGesture {
                     guard interactive else { return }

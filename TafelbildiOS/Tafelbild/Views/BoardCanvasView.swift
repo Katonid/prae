@@ -1,13 +1,15 @@
 import SwiftUI
 
 /// Die Tafel selbst: Hintergrund, frei platzierte Elemente und — im
-/// Bearbeitungsmodus — Werkzeugleiste und Größengriff des gewählten Elements.
+/// Bearbeitungsmodus — Werkzeugleiste und Größengriffe des gewählten Elements.
 struct BoardCanvasView: View {
     /// Name des Koordinatensystems für alle Ziehgesten (unskalierte Bildschirmpunkte).
     static let space = "tafel-canvas"
 
     @EnvironmentObject private var store: BoardStore
     let board: Board
+
+    private var style: BoardStyle { BoardStyle(board: board, editing: store.editing) }
 
     var body: some View {
         GeometryReader { geo in
@@ -25,6 +27,7 @@ struct BoardCanvasView: View {
                 if store.editing { store.selectedWidgetID = nil }
             }
             .coordinateSpace(name: Self.space)
+            .environment(\.boardStyle, style)
         }
     }
 
@@ -39,7 +42,8 @@ struct BoardCanvasView: View {
             }
 
             ForEach(board.sortedWidgets) { widget in
-                WidgetHostView(boardID: board.id, widget: widget, scale: scale)
+                WidgetHostView(boardID: board.id, widget: widget, scale: scale,
+                               frames: board.frames)
                     .offset(x: widget.x, y: widget.y)
             }
 
@@ -66,10 +70,25 @@ private struct SelectionChrome: View {
     let widget: BoardWidget
     let scale: CGFloat
 
-    @State private var resizeStart: CGSize?
+    @State private var resizeStart: CGRect?
 
     /// Maßstab als Double — alle Rechnungen laufen in Tafelpunkten.
     private var factor: Double { Double(scale) }
+
+    /// Die vier Ecken bekommen je einen Griff — so lässt sich ein Element
+    /// auch nach links oben aufziehen, ohne es vorher zu verschieben.
+    private enum Corner: CaseIterable {
+        case topLeading, topTrailing, bottomLeading, bottomTrailing
+
+        var symbol: String {
+            switch self {
+            case .topLeading, .bottomTrailing: return "arrow.up.left.and.arrow.down.right"
+            case .topTrailing, .bottomLeading: return "arrow.up.right.and.arrow.down.left"
+            }
+        }
+        var movesX: Bool { self == .topLeading || self == .bottomLeading }
+        var movesY: Bool { self == .topLeading || self == .topTrailing }
+    }
 
     var body: some View {
         ZStack {
@@ -77,16 +96,28 @@ private struct SelectionChrome: View {
                 .scaleEffect(1 / scale)
                 .position(x: toolbarX, y: toolbarY)
 
-            handle
-                .scaleEffect(1 / scale)
-                .position(x: widget.x + widget.width, y: widget.y + widget.height)
+            if !widget.locked {
+                ForEach(Array(Corner.allCases.enumerated()), id: \.offset) { item in
+                    handle(item.element)
+                        .scaleEffect(1 / scale)
+                        .position(x: cornerX(item.element), y: cornerY(item.element))
+                }
+            }
         }
         .frame(width: Layout.canvas.width, height: Layout.canvas.height)
     }
 
+    private func cornerX(_ corner: Corner) -> Double {
+        corner.movesX ? widget.x : widget.x + widget.width
+    }
+
+    private func cornerY(_ corner: Corner) -> Double {
+        corner.movesY ? widget.y : widget.y + widget.height
+    }
+
     /// Mittig über dem Element, aber nicht über den Tafelrand hinaus.
     private var toolbarX: Double {
-        min(max(widget.x + widget.width / 2, 200), Layout.canvasWidth - 200)
+        min(max(widget.x + widget.width / 2, 280), Layout.canvasWidth - 280)
     }
 
     /// Oberhalb des Elements — außer es klebt am oberen Rand.
@@ -99,6 +130,18 @@ private struct SelectionChrome: View {
     private var toolbar: some View {
         HStack(spacing: 2) {
             button("gearshape.fill", label: "Einstellungen") { store.settingsWidgetID = widget.id }
+            button("minus.magnifyingglass", label: "Kleiner") { resize(by: 0.88) }
+            button("plus.magnifyingglass", label: "Größer") { resize(by: 1.14) }
+            button(widget.bare ? "square.dashed" : "square.on.square",
+                   label: widget.bare ? "Karte zeigen" : "Karte ausblenden",
+                   tint: widget.bare ? Theme.mint : .white) {
+                store.updateWidget(widget.id, in: boardID) { $0.bare.toggle() }
+            }
+            button(widget.locked ? "lock.fill" : "lock.open",
+                   label: widget.locked ? "Entsperren" : "Festecken",
+                   tint: widget.locked ? Theme.amber : .white) {
+                store.updateWidget(widget.id, in: boardID) { $0.locked.toggle() }
+            }
             button("plus.square.on.square", label: "Duplizieren") {
                 store.duplicateWidget(widget.id, in: boardID)
             }
@@ -138,6 +181,20 @@ private struct SelectionChrome: View {
         .fixedSize()
     }
 
+    /// Stufenloses Vergrößern/Verkleinern um die Mitte des Elements.
+    private func resize(by amount: Double) {
+        store.updateWidget(widget.id, in: boardID) { item in
+            let centerX = item.x + item.width / 2
+            let centerY = item.y + item.height / 2
+            item.width = min(max(item.width * amount, Layout.minWidth), Layout.canvasWidth)
+            item.height = min(max(item.height * amount, Layout.minHeight), Layout.canvasHeight)
+            item.x = centerX - item.width / 2
+            item.y = centerY - item.height / 2
+            item.clampToCanvas()
+        }
+        Haptics.tap()
+    }
+
     private func button(_ symbol: String, label: String, tint: Color = .white,
                         action: @escaping () -> Void) -> some View {
         Button {
@@ -153,29 +210,26 @@ private struct SelectionChrome: View {
         .accessibilityLabel(label)
     }
 
-    private var handle: some View {
+    private func handle(_ corner: Corner) -> some View {
         Circle()
-            .fill(Theme.accent)
+            .fill(Color.white)
             .overlay {
-                Image(systemName: "arrow.down.right")
-                    .font(.system(size: 15, weight: .bold))
-                    .foregroundStyle(.white)
+                Image(systemName: corner.symbol)
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundStyle(Theme.ink)
             }
-            .frame(width: 40, height: 40)
+            .overlay { Circle().strokeBorder(Theme.accent, lineWidth: 2.5) }
+            .frame(width: 38, height: 38)
             .shadow(color: .black.opacity(0.35), radius: 6, y: 2)
             .gesture(
                 DragGesture(minimumDistance: 1, coordinateSpace: .named(BoardCanvasView.space))
                     .onChanged { value in
-                        if resizeStart == nil {
-                            resizeStart = CGSize(width: widget.width, height: widget.height)
-                        }
+                        if resizeStart == nil { resizeStart = widget.rect }
                         guard let start = resizeStart else { return }
                         let dx = Double(value.translation.width) / factor
                         let dy = Double(value.translation.height) / factor
                         store.updateWidget(widget.id, in: boardID, transient: true) { item in
-                            item.width = Double(start.width) + dx
-                            item.height = Double(start.height) + dy
-                            item.clampToCanvas()
+                            apply(corner: corner, start: start, dx: dx, dy: dy, to: &item)
                         }
                     }
                     .onEnded { _ in
@@ -183,12 +237,42 @@ private struct SelectionChrome: View {
                         store.updateWidget(widget.id, in: boardID, transient: true) { item in
                             item.width = (item.width / Layout.grid).rounded() * Layout.grid
                             item.height = (item.height / Layout.grid).rounded() * Layout.grid
+                            item.x = (item.x / Layout.grid).rounded() * Layout.grid
+                            item.y = (item.y / Layout.grid).rounded() * Layout.grid
                             item.clampToCanvas()
                         }
                         store.commitLayout(boardID: boardID)
                         Haptics.tap()
                     }
             )
+    }
+
+    /// Zieht die gewählte Ecke; die gegenüberliegende bleibt liegen.
+    private func apply(corner: Corner, start: CGRect, dx: Double, dy: Double,
+                       to item: inout BoardWidget) {
+        let left = Double(start.minX)
+        let top = Double(start.minY)
+        let right = Double(start.maxX)
+        let bottom = Double(start.maxY)
+
+        if corner.movesX {
+            let newLeft = min(left + dx, right - Layout.minWidth)
+            item.x = max(0, newLeft)
+            item.width = right - item.x
+        } else {
+            item.x = left
+            item.width = max(Layout.minWidth, min(right + dx, Layout.canvasWidth) - left)
+        }
+
+        if corner.movesY {
+            let newTop = min(top + dy, bottom - Layout.minHeight)
+            item.y = max(0, newTop)
+            item.height = bottom - item.y
+        } else {
+            item.y = top
+            item.height = max(Layout.minHeight, min(bottom + dy, Layout.canvasHeight) - top)
+        }
+        item.clampToCanvas()
     }
 }
 
@@ -204,6 +288,8 @@ struct BoardBackgroundView: View {
         case .gradient(let from, let to):
             LinearGradient(colors: [Color(hex: from), Color(hex: to)],
                            startPoint: .topLeading, endPoint: .bottomTrailing)
+        case .aurora(let id):
+            AuroraBackgroundView(preset: AuroraPresets.find(id))
         case .image(let fileName, let dim):
             ZStack {
                 Color(hex: "#0b1020")
@@ -225,6 +311,8 @@ struct BoardBackgroundView: View {
 struct BoardStackView: View {
     @EnvironmentObject private var store: BoardStore
     let board: Board
+
+    private var style: BoardStyle { BoardStyle(board: board, editing: store.editing) }
 
     var body: some View {
         ZStack {
@@ -260,7 +348,7 @@ struct BoardStackView: View {
                                 }
 
                                 WidgetHostView(boardID: board.id, widget: widget,
-                                               scale: scale, editable: false)
+                                               scale: scale, frames: board.frames, editable: false)
                                     .frame(width: widget.width, height: widget.height)
                                     .scaleEffect(scale, anchor: .topLeading)
                                     .frame(width: width, height: CGFloat(widget.height) * scale,
@@ -274,5 +362,6 @@ struct BoardStackView: View {
                 }
             }
         }
+        .environment(\.boardStyle, style)
     }
 }

@@ -21,7 +21,87 @@ enum Theme {
         .system(size: size, weight: weight, design: .rounded)
     }
 
-    static let widgetCorner: Double = 28
+    static let widgetCorner: Double = 26
+}
+
+// MARK: - Gestaltung einer Tafel
+
+/// Alle Farben, die eine Tafel ihren Elementen vorgibt: Akzent (Farbschema),
+/// Kartenstil und Schriftfarben. Jede Ansicht liest den Wert aus der
+/// Umgebung — dadurch folgt die ganze Tafel einer Umstellung sofort.
+struct BoardStyle: Equatable {
+    var scheme: AccentScheme = AccentSchemes.all[0]
+    var useGradient: Bool = true
+    var card: CardStyle = .glass
+    /// Beschriftungen in den Elementen zeigen?
+    var showLabels: Bool = true
+
+    static let standard = BoardStyle()
+
+    init(scheme: AccentScheme = AccentSchemes.all[0], useGradient: Bool = true,
+         card: CardStyle = .glass, showLabels: Bool = true) {
+        self.scheme = scheme
+        self.useGradient = useGradient
+        self.card = card
+        self.showLabels = showLabels
+    }
+
+    init(board: Board, editing: Bool) {
+        self.init(scheme: AccentSchemes.find(board.accent),
+                  useGradient: board.gradient,
+                  card: board.cardStyle,
+                  showLabels: board.labels.applies(editing: editing))
+    }
+
+    // Akzentfarben
+    var accent: Color { Color(hex: scheme.from) }
+    var accentMid: Color { useGradient ? Color(hex: scheme.mid) : accent }
+    var accentEnd: Color { useGradient ? Color(hex: scheme.to) : accent }
+
+    /// Verlauf für Flächen, Ringe und große Schrift.
+    var accentGradient: LinearGradient {
+        LinearGradient(colors: useGradient ? [accent, accentMid, accentEnd] : [accent, accent],
+                       startPoint: .topLeading, endPoint: .bottomTrailing)
+    }
+
+    /// Leuchten unter Knöpfen im Akzentton.
+    var accentGlow: Color { accent.opacity(0.55) }
+
+    // Kartenfarben
+    var isDarkCard: Bool { card == .dark }
+
+    /// Schriftfarbe auf einer Karte.
+    var ink: Color { isDarkCard ? Color(hex: "#f8fafc") : Color(hex: "#0f172a") }
+    /// Schriftfarbe für Nebensächliches (Überschriften, Hinweise).
+    var inkSoft: Color { isDarkCard ? Color(hex: "#a5b0c2") : Color(hex: "#64748b") }
+    /// Trennlinien in einer Karte.
+    var line: Color { isDarkCard ? Color.white.opacity(0.12) : Color(hex: "#0f172a").opacity(0.09) }
+    /// Äußere Kante der Karte.
+    var edge: Color { isDarkCard ? Color.white.opacity(0.16) : Color.white.opacity(0.65) }
+    /// Ruhige Füllung innerhalb einer Karte (Fortschritt, leere Felder).
+    var wash: Color { ink.opacity(isDarkCard ? 0.10 : 0.07) }
+
+    /// Grundfarbe der Karte. Bei „Glas" liegt zusätzlich Material darunter.
+    var cardFill: Color {
+        switch card {
+        case .glass: return Color.white.opacity(0.80)
+        case .light: return Color.white
+        case .dark:  return Color(hex: "#0c1220").opacity(0.74)
+        }
+    }
+
+    var usesMaterial: Bool { card != .light }
+}
+
+private struct BoardStyleKey: EnvironmentKey {
+    static let defaultValue = BoardStyle.standard
+}
+
+extension EnvironmentValues {
+    var boardStyle: BoardStyle {
+        get { self[BoardStyleKey.self] }
+        set { self[BoardStyleKey.self] = newValue }
+    }
 }
 
 // MARK: - Farb-Hilfen
@@ -65,10 +145,9 @@ extension Color {
 
 // MARK: - Karten
 
-/// Glasfläche für ein Element auf der Tafel.
+/// Karte für ein Element auf der Tafel — Glas, Hell oder Dunkel.
 struct WidgetCard: ViewModifier {
-    var tint: Color = .white
-    var opacity: Double = 0.10
+    var style: BoardStyle = .standard
     var corner: Double = Theme.widgetCorner
 
     func body(content: Content) -> some View {
@@ -76,24 +155,26 @@ struct WidgetCard: ViewModifier {
             .background {
                 RoundedRectangle(cornerRadius: corner, style: .continuous)
                     .fill(.ultraThinMaterial)
+                    .opacity(style.usesMaterial ? 1 : 0)
                     .overlay {
                         RoundedRectangle(cornerRadius: corner, style: .continuous)
-                            .fill(tint.opacity(opacity))
+                            .fill(style.cardFill)
                     }
             }
             .overlay {
                 RoundedRectangle(cornerRadius: corner, style: .continuous)
-                    .strokeBorder(Theme.cardStroke, lineWidth: 1.5)
+                    .strokeBorder(style.edge, lineWidth: 1)
             }
             .clipShape(RoundedRectangle(cornerRadius: corner, style: .continuous))
-            .shadow(color: .black.opacity(0.28), radius: 24, x: 0, y: 12)
+            // Weit auslaufender, sehr weicher Schatten — die Karte schwebt.
+            .shadow(color: Color(hex: "#020617").opacity(0.55), radius: 30, x: 0, y: 22)
+            .shadow(color: Color(hex: "#020617").opacity(0.14), radius: 4, x: 0, y: 2)
     }
 }
 
 extension View {
-    func widgetCard(tint: Color = .white, opacity: Double = 0.10,
-                    corner: Double = Theme.widgetCorner) -> some View {
-        modifier(WidgetCard(tint: tint, opacity: opacity, corner: corner))
+    func widgetCard(style: BoardStyle = .standard, corner: Double = Theme.widgetCorner) -> some View {
+        modifier(WidgetCard(style: style, corner: corner))
     }
 
     /// Kleine Fläche für Bedienleisten über der Tafel.
@@ -103,9 +184,13 @@ extension View {
                 .fill(.ultraThinMaterial)
                 .overlay {
                     RoundedRectangle(cornerRadius: corner, style: .continuous)
-                        .strokeBorder(Color.white.opacity(0.12), lineWidth: 1)
+                        .fill(Color.black.opacity(0.28))
                 }
-                .shadow(color: .black.opacity(0.3), radius: 18, y: 8)
+                .overlay {
+                    RoundedRectangle(cornerRadius: corner, style: .continuous)
+                        .strokeBorder(Color.white.opacity(0.14), lineWidth: 1)
+                }
+                .shadow(color: .black.opacity(0.35), radius: 20, y: 10)
         }
     }
 }
