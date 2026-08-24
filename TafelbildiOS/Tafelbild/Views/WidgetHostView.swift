@@ -100,9 +100,12 @@ struct WidgetHostView: View {
                     store.selectedWidgetID = widget.id
                 }
                 guard let start = dragStart else { return }
+                let factor = Double(scale)
+                let dx = Double(value.translation.width) / factor
+                let dy = Double(value.translation.height) / factor
                 store.updateWidget(widget.id, in: boardID, transient: true) { moved in
-                    moved.x = start.x + value.translation.width / scale
-                    moved.y = start.y + value.translation.height / scale
+                    moved.x = Double(start.x) + dx
+                    moved.y = Double(start.y) + dy
                     moved.clampToCanvas()
                 }
             }

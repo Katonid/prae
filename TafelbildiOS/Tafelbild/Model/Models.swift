@@ -10,12 +10,16 @@ import CoreGraphics
 // und iPhone identisch aus, und Positionen bleiben beim Gerätewechsel gültig.
 
 enum Layout {
-    /// Feste Arbeitsfläche einer Tafel (16:10).
-    static let canvas = CGSize(width: 1600, height: 1000)
+    /// Feste Arbeitsfläche einer Tafel (16:10) — als Double für die
+    /// Modellrechnung und als CGSize für die Ansicht.
+    static let canvasWidth: Double = 1600
+    static let canvasHeight: Double = 1000
+    static let canvas = CGSize(width: canvasWidth, height: canvasHeight)
     /// Fangraster beim Verschieben und beim Ändern der Größe.
     static let grid: Double = 20
     /// Kleinstmögliche Elementgröße in Tafelpunkten.
-    static let minWidgetSize = CGSize(width: 160, height: 120)
+    static let minWidth: Double = 160
+    static let minHeight: Double = 120
 }
 
 // MARK: - Zeit- und Text-Hilfen
@@ -412,10 +416,10 @@ struct BoardWidget: Codable, Identifiable, Equatable {
 
     /// Hält das Element vollständig auf der Tafel.
     mutating func clampToCanvas() {
-        width = min(max(width, Layout.minWidgetSize.width), Layout.canvas.width)
-        height = min(max(height, Layout.minWidgetSize.height), Layout.canvas.height)
-        x = min(max(x, 0), Layout.canvas.width - width)
-        y = min(max(y, 0), Layout.canvas.height - height)
+        width = min(max(width, Layout.minWidth), Layout.canvasWidth)
+        height = min(max(height, Layout.minHeight), Layout.canvasHeight)
+        x = min(max(x, 0), Layout.canvasWidth - width)
+        y = min(max(y, 0), Layout.canvasHeight - height)
     }
 }
 
@@ -560,8 +564,9 @@ struct NameList: Codable, Identifiable, Equatable {
 
     /// Zerlegt eine eingefügte Liste (Zeilen oder Kommas) in Einträge.
     static func parse(_ raw: String) -> [NameEntry] {
+        // split liefert Substrings — erst in String wandeln, dann trimmen.
         raw.split(whereSeparator: { $0 == "\n" || $0 == "," || $0 == ";" })
-            .map { $0.trimmed }
+            .map { String($0).trimmed }
             .filter { !$0.isEmpty }
             .map { NameEntry(text: $0) }
     }

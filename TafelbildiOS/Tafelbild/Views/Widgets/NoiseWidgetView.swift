@@ -120,7 +120,7 @@ struct NoiseWidgetView: View {
                 let share = Double(index + 1) / Double(count)
                 RoundedRectangle(cornerRadius: 6, style: .continuous)
                     .fill(index < active ? barColor(share) : Color.white.opacity(0.12))
-                    .frame(height: max(10, size.height * (0.28 + 0.62 * share)))
+                    .frame(height: max(10, size.height * CGFloat(0.28 + 0.62 * share)))
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)

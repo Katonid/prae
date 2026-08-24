@@ -220,7 +220,7 @@ struct NamePickerWidgetView: View {
     }
 
     private func nameSize(_ size: CGSize) -> Double {
-        min(size.width * 0.17, size.height * 0.30)
+        Double(min(size.width * 0.17, size.height * 0.30))
     }
 
     // MARK: - Aktionen

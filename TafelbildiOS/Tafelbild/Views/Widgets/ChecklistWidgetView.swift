@@ -36,7 +36,7 @@ struct ChecklistWidgetView: View {
                             Capsule().fill(Color.white.opacity(0.14))
                             Capsule()
                                 .fill(Theme.mint)
-                                .frame(width: bar.size.width * progress)
+                                .frame(width: bar.size.width * CGFloat(progress))
                         }
                     }
                     .frame(height: 8)

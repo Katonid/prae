@@ -311,16 +311,18 @@ final class BoardStore: ObservableObject {
     /// Sucht einen möglichst freien Platz für ein neues Element.
     private func freeSpot(for size: CGSize, on board: Board) -> CGPoint {
         let step = Layout.grid * 2
+        let boxWidth = Double(size.width)
+        let boxHeight = Double(size.height)
         var best = CGPoint(x: 60, y: 60)
         var bestOverlap = Double.greatestFiniteMagnitude
         var y = 40.0
-        while y + size.height <= Layout.canvas.height - 40 {
+        while y + boxHeight <= Layout.canvasHeight - 40 {
             var x = 40.0
-            while x + size.width <= Layout.canvas.width - 40 {
-                let candidate = CGRect(x: x, y: y, width: size.width, height: size.height)
+            while x + boxWidth <= Layout.canvasWidth - 40 {
+                let candidate = CGRect(x: x, y: y, width: boxWidth, height: boxHeight)
                 let overlap = board.widgets.reduce(0.0) { sum, widget in
                     let intersection = widget.rect.intersection(candidate)
-                    return sum + (intersection.isNull ? 0 : intersection.width * intersection.height)
+                    return sum + (intersection.isNull ? 0 : Double(intersection.width * intersection.height))
                 }
                 if overlap == 0 { return CGPoint(x: x, y: y) }
                 if overlap < bestOverlap {
