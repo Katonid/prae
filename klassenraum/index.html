@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+    <title>Klassenraum — digitale Tafel für den Unterricht</title>
+    <meta name="description" content="Freie Tafel-App für Klassenzimmer: Zufallsnamen, Timer, Uhr, Ampel, Tagesablauf, Lautstärkemesser, Texte und Bilder." />
+    <meta name="theme-color" content="#33415c" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Klassenraum" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="icon" href="./icons/icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="./icons/icon-180.png" />
+    <link rel="stylesheet" href="./css/app.css" />
+  </head>
+  <body class="is-loading">
+    <header class="topbar">
+      <button id="btn-boards" class="topbar__board" type="button" title="Klassenraum wechseln">
+        <span class="topbar__board-icon" aria-hidden="true">🏫</span>
+        <span id="board-name">Klassenraum</span>
+        <span class="topbar__chevron" aria-hidden="true">▾</span>
+      </button>
+      <span id="follow-badge" class="badge is-hidden" title="Dieser Klassenraum folgt einem geteilten Code">live</span>
+      <div class="topbar__spacer"></div>
+      <button id="btn-lists" class="topbar__button" type="button" title="Namenslisten">Listen</button>
+      <button id="btn-background" class="topbar__button" type="button" title="Hintergrund">Hintergrund</button>
+      <button id="btn-share" class="topbar__button" type="button" title="Teilen &amp; Konto">Teilen</button>
+      <button id="btn-present" class="topbar__button topbar__button--icon" type="button" title="Präsentationsmodus">⛶</button>
+      <button id="btn-menu" class="topbar__button topbar__button--icon" type="button" title="Menü">⋯</button>
+    </header>
+
+    <main id="stage" class="stage">
+      <div id="canvas" class="canvas"></div>
+      <div id="selection-toolbar" class="selection-toolbar"></div>
+    </main>
+
+    <nav id="dock" class="dock" aria-label="Elemente hinzufügen"></nav>
+
+    <button id="btn-exit-present" class="exit-present" type="button" title="Präsentationsmodus beenden">Bearbeiten</button>
+
+    <div id="panel-root"></div>
+    <div id="modal-root"></div>
+    <div id="toast-root" class="toast-root" aria-live="polite"></div>
+
+    <noscript>
+      <p style="padding:24px;color:#fff">Diese App braucht JavaScript.</p>
+    </noscript>
+
+    <script type="module" src="./js/app.js"></script>
+  </body>
+</html>

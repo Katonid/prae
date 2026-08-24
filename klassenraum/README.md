@@ -1,0 +1,112 @@
+# Klassenraum — digitale Tafel für den Unterricht
+
+Eine freie Web-App als Ersatz für kostenpflichtige Tafel-Dienste. Sie läuft ohne
+Installation im Browser, ist für iPad und interaktive Tafeln gemacht und
+funktioniert auch am Telefon.
+
+**Adresse:** https://katonid.github.io/prae/klassenraum/
+
+## Was die App kann
+
+| Element | Beschreibung |
+| --- | --- |
+| **Zufälliger Name** | Zieht Namen aus einer Liste — mit oder ohne Zurücklegen. Gezogene Namen bleiben sichtbar, lassen sich einzeln zurücklegen, löschen oder von Hand als gezogen markieren. |
+| **Timer / Stoppuhr** | Voreinstellungen von 1 bis 45 Minuten, ±1 Minute, Signalton am Ende. |
+| **Uhr** | Analog (mit Ziffernblatt zum Ablesen üben) oder digital, mit Datum. |
+| **Ampel** | Drei Lichter, antippen oder doppeltippen zum Weiterschalten, mit eigenen Beschriftungen. |
+| **Tagesablauf** | Checkliste mit Fortschrittsbalken, Punkte abhaken, sortieren, schnell erfassen. |
+| **Text** | Doppeltippen zum Schreiben, Schriftgröße passt sich automatisch an. |
+| **Bild** | Bild vom Gerät, wird beim Einfügen verkleinert. |
+| **Lautstärke** | Misst über das Mikrofon die Lautstärke im Raum, mit einstellbarer Grenze und optionalem Signalton. |
+| **Arbeitssymbol** | Einzel-, Partner-, Gruppenarbeit, Stillarbeit, Melden, Zuhören, Aufräumen. |
+
+Dazu kommen: **mehrere Klassenräume** (eine eigene Tafel pro Klasse),
+**Hintergrundfarbe, Farbverlauf oder Hintergrundbild**, **Namenslisten**, die in
+allen Klassenräumen verfügbar sind, ein **Präsentationsmodus** ohne Bedienleisten
+und die Möglichkeit, alles **als Datei zu sichern**.
+
+## Bedienung in Kürze
+
+* **Element hinzufügen:** unten in der Leiste antippen.
+* **Verschieben:** Element anfassen und ziehen; an den Ecken ziehen ändert die Größe.
+* **Einstellen:** Element antippen → Zahnrad in der kleinen Leiste darüber.
+* **Sperren:** Schloss-Symbol in derselben Leiste — verhindert versehentliches Verschieben an der interaktiven Tafel.
+* **Am Telefon** schaltet die App automatisch auf eine Listenansicht um (im Menü umschaltbar).
+* **Auf den Homescreen legen:** in Safari „Teilen“ → „Zum Home-Bildschirm“. Danach startet die App im Vollbild und funktioniert auch offline.
+
+## Teilen und Konten
+
+Ein Klassenraum lässt sich unter „Teilen“ mit einem **sechsstelligen Code**
+weitergeben. Andere geben den Code ein und wählen:
+
+* **Als eigene Kopie laden** — die Kopie gehört danach der anderen Person.
+* **Live folgen** — jede Änderung der teilenden Person erscheint automatisch,
+  z. B. auf der interaktiven Tafel im Klassenzimmer.
+
+**Konten** (E-Mail und Passwort) sichern alle Klassenräume und laden sie auf
+einem anderen Gerät wieder. Sie brauchen eine einmalige Freischaltung im
+Firebase-Projekt: *Firebase-Konsole → Authentication → Anmeldemethode →
+E-Mail/Passwort aktivieren*. Solange das nicht geschehen ist, zeigt die App
+einen Hinweis; Teilen per Code funktioniert unabhängig davon.
+
+## Datenschutz
+
+* Alle Klassenräume, Listen und Bilder liegen **auf dem Gerät** (IndexedDB) und
+  werden nicht automatisch übertragen.
+* Erst beim Erstellen eines Teilen-Codes wird der betreffende Klassenraum auf den
+  Server geschrieben. Dort liegt er **unverschlüsselt** und ist für jede Person
+  mit dem Code lesbar — deshalb bitte nur **Vornamen oder Kürzel** verwenden.
+* Der Lautstärkemesser berechnet nur den Pegel. Es wird **nichts aufgenommen,
+  gespeichert oder gesendet**.
+* Ohne Teilen und ohne Konto stellt die App keine Verbindung ins Netz her.
+
+## Technik
+
+Statische Web-App ohne Build-Schritt (ES-Module, kein Framework). Sie wird über
+den GitHub-Pages-Workflow des Repos mit ausgeliefert.
+
+```
+klassenraum/
+  index.html            Grundgerüst
+  css/app.css           Oberfläche
+  js/app.js             Start, Bedienleisten, Klassenraum-Verwaltung
+  js/board.js           Tafelfläche: verschieben, Größe ändern, auswählen
+  js/store.js           Zustand und Speicherung (IndexedDB, Fallback localStorage)
+  js/widgets/*.js       die einzelnen Elemente
+  js/lists.js           Namenslisten
+  js/share.js           Teilen-Oberfläche und Live-Abgleich
+  js/cloud.js           Firebase-REST (Teilen, Konten, Sicherung)
+  js/ui.js, js/util.js, js/icons.js
+  sw.js                 Offline-Betrieb
+  scripts/generate-icons.py   erzeugt die App-Icons
+```
+
+Die Zugangsdaten kommen aus `../firebase-config.js` im Repo-Wurzelverzeichnis.
+Für die Cloud-Funktionen wird die REST-Schnittstelle der Realtime Database
+genutzt (Live-Abgleich über den Ereignisstrom, sonst regelmäßiges Nachfragen);
+es wird kein zusätzliches SDK geladen.
+
+### Lokal ausprobieren
+
+```bash
+npx http-server -p 8765 .      # im Repo-Wurzelverzeichnis
+# dann http://127.0.0.1:8765/klassenraum/ öffnen
+```
+
+### Empfohlene Datenbankregeln
+
+Die Freigaben liegen unter `klassenraum/`. Passende Regeln für die Realtime
+Database, falls sie später verschärft werden sollen:
+
+```json
+{
+  "rules": {
+    "klassenraum": {
+      "shares": { ".read": true, ".write": true },
+      "users": {
+        "$uid": { ".read": "$uid === auth.uid", ".write": "$uid === auth.uid" }
+      }
+    }
+  }
+}
+```
