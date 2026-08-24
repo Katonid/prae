@@ -1359,10 +1359,17 @@ body.is-drawing .widget { pointer-events: none; }
   z-index: 80;
   max-width: calc(100vw - 24px);
   overflow-x: auto;
-  animation: toolbar-in 0.24s var(--spring) both;
+  animation: draw-toolbar-in 0.24s var(--spring) both;
+}
+
+@keyframes draw-toolbar-in {
+  from { opacity: 0; transform: translateX(-50%) translateY(10px) scale(0.96); }
+  to { opacity: 1; transform: translateX(-50%); }
 }
 
 body.is-using .draw-toolbar { bottom: calc(22px + env(safe-area-inset-bottom)); }
+.draw-toolbar.is-quiet { opacity: 0.22; transition: opacity 0.2s ease; }
+.draw-toolbar { transition: opacity 0.25s ease; }
 
 .draw-toolbar__group { display: flex; align-items: center; gap: 6px; flex: none; }
 .draw-toolbar__group + .draw-toolbar__group { border-left: 1px solid rgba(255, 255, 255, 0.14); padding-left: 14px; }

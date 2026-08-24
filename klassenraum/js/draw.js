@@ -121,6 +121,8 @@ function eraseAt(point) {
 function onPointerDown(event) {
   if (!active) return;
   if (penOnly && event.pointerType !== 'pen') return;
+  // Beim Schreiben tritt die Leiste in den Hintergrund, damit sie nicht stört.
+  if (toolbar) toolbar.classList.add('is-quiet');
   canvas.setPointerCapture(event.pointerId);
   event.preventDefault();
   const point = toBoard(event);
@@ -168,6 +170,7 @@ function onPointerMove(event) {
 }
 
 function onPointerUp() {
+  if (toolbar) toolbar.classList.remove('is-quiet');
   if (!drawingStroke) return;
   const wasErasing = drawingStroke.erasing;
   drawingStroke = null;

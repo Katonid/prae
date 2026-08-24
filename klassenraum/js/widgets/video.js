@@ -18,6 +18,7 @@ export default {
   mount(ctx) {
     const el = h('div', { class: 'w-video' });
     let video = null;
+    let renderToken = 0;
 
     function fullscreen() {
       if (!video) return;
@@ -27,9 +28,12 @@ export default {
 
     async function render() {
       const state = ctx.widget.state;
+      // Zwei Aufrufe kurz hintereinander dürfen nicht zwei Inhalte einhängen.
+      const token = ++renderToken;
+      const source = await mediaUrl(state);
+      if (token !== renderToken) return;
       clear(el);
       video = null;
-      const source = await mediaUrl(state);
 
       if (!source) {
         const empty = h('div', { class: 'w-video__empty' },
