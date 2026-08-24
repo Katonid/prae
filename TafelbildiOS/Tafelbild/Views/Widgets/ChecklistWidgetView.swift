@@ -6,6 +6,7 @@ struct ChecklistWidgetView: View {
     var interactive: Bool
 
     @Environment(\.boardStyle) private var style
+    @Environment(\.widgetMetrics) private var metrics
 
     @State private var draft = ""
     @FocusState private var writing: Bool
@@ -13,9 +14,11 @@ struct ChecklistWidgetView: View {
     private var doneCount: Int { content.items.filter(\.done).count }
 
     var body: some View {
-        GeometryReader { geo in
-            let titleSize = min(max(geo.size.width * 0.075, 20), 34)
-            let rowSize = min(max(geo.size.width * 0.06, 17), 27)
+        // Maße wie `.w-check` in der Web-App: 1.2em Überschrift,
+        // 1.06em je Zeile, 16/18 Polster, 10 Abstand.
+        Group {
+            let titleSize = metrics.em(1.2)
+            let rowSize = metrics.em(1.06)
 
             VStack(alignment: .leading, spacing: 10) {
                 if !content.title.isEmpty && style.showLabels {
@@ -58,7 +61,7 @@ struct ChecklistWidgetView: View {
                         .multilineTextAlignment(.center)
                 } else {
                     ScrollView(.vertical, showsIndicators: false) {
-                        VStack(alignment: .leading, spacing: 8) {
+                        VStack(alignment: .leading, spacing: 3) {
                             ForEach(content.items) { item in
                                 row(item, fontSize: rowSize)
                             }
@@ -72,7 +75,8 @@ struct ChecklistWidgetView: View {
                 }
             }
         }
-        .padding(20)
+        .padding(.vertical, 16)
+        .padding(.horizontal, 18)
     }
 
     /// Schnelleingabe direkt auf der Karte — ein Punkt ist damit in zwei
@@ -136,11 +140,11 @@ struct ChecklistWidgetView: View {
         } label: {
             HStack(spacing: 12) {
                 ZStack {
-                    RoundedRectangle(cornerRadius: fontSize * 0.32, style: .continuous)
-                        .strokeBorder(style.ink.opacity(style.bare || style.isDarkCard ? 0.3 : 0.12), lineWidth: 2)
+                    RoundedRectangle(cornerRadius: fontSize * 0.55, style: .continuous)
+                        .strokeBorder(style.washStrong, lineWidth: 2)
                         .frame(width: fontSize * 1.7, height: fontSize * 1.7)
                     if item.done {
-                        RoundedRectangle(cornerRadius: fontSize * 0.32, style: .continuous)
+                        RoundedRectangle(cornerRadius: fontSize * 0.55, style: .continuous)
                             .fill(LinearGradient(colors: [Color(hex: "#10b981"), Color(hex: "#22d3ee")],
                                                  startPoint: .topLeading, endPoint: .bottomTrailing))
                             .frame(width: fontSize * 1.7, height: fontSize * 1.7)
@@ -160,8 +164,8 @@ struct ChecklistWidgetView: View {
                     .multilineTextAlignment(.leading)
                 Spacer(minLength: 0)
             }
-            .padding(.horizontal, fontSize * 0.35)
-            .padding(.vertical, fontSize * 0.3)
+            .padding(.horizontal, fontSize * 0.55)
+            .padding(.vertical, fontSize * 0.6)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
