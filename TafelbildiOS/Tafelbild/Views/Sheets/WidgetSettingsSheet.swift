@@ -428,9 +428,8 @@ private struct ChecklistSettings: View {
         Section("Schritte") {
             ForEach($content.items) { $item in
                 HStack {
-                    TextField("Emoji", text: $item.emoji)
-                        .frame(width: 44)
-                        .multilineTextAlignment(.center)
+                    EmojiField(emoji: $item.emoji, placeholder: "🙂", fontSize: 22)
+                        .frame(width: 44, height: 34)
                     TextField("Schritt", text: $item.text)
                     Button {
                         item.done.toggle()
@@ -569,9 +568,8 @@ private struct SoundsSettings: View {
         ForEach($content.buttons) { $button in
             Section {
                 HStack {
-                    TextField("Emoji", text: $button.emoji)
-                        .frame(width: 50)
-                        .multilineTextAlignment(.center)
+                    EmojiField(emoji: $button.emoji, placeholder: "🔔", fontSize: 24)
+                        .frame(width: 50, height: 36)
                     TextField("Beschriftung", text: $button.label)
                 }
                 ColorPicker("Farbe", selection: $button.colorHex.asColor, supportsOpacity: false)

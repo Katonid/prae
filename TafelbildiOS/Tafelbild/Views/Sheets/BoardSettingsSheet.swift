@@ -17,8 +17,6 @@ struct BoardSettingsSheet: View {
     @State private var photo: PhotosPickerItem?
     @State private var showDelete = false
 
-    private let emojis = ["🌟", "🍎", "📚", "✏️", "🎨", "🧩", "🔬", "🌍", "🎵", "⚽️", "🐝", "🚀"]
-
     var body: some View {
         NavigationStack {
             Form {
@@ -29,29 +27,15 @@ struct BoardSettingsSheet: View {
                             updated.name = value.nonEmpty ?? "Tafel"
                             store.updateBoard(updated)
                         }
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 10) {
-                            ForEach(emojis, id: \.self) { item in
-                                Button {
-                                    emoji = item
-                                    var updated = board
-                                    updated.emoji = item
-                                    store.updateBoard(updated)
-                                } label: {
-                                    Text(item)
-                                        .font(.system(size: 26))
-                                        .frame(width: 44, height: 44)
-                                        .background {
-                                            Circle().fill(item == emoji
-                                                          ? Theme.accent.opacity(0.3)
-                                                          : Color.primary.opacity(0.06))
-                                        }
-                                }
-                                .buttonStyle(.plain)
-                            }
+                    EmojiPickerRow(emoji: Binding(
+                        get: { emoji },
+                        set: { value in
+                            emoji = value
+                            var updated = board
+                            updated.emoji = value.isEmpty ? "🌟" : value
+                            store.updateBoard(updated)
                         }
-                        .padding(.vertical, 4)
-                    }
+                    ))
                 }
 
                 Section("Farbverlauf") {

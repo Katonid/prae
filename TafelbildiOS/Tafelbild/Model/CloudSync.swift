@@ -631,6 +631,47 @@ final class CloudSyncEngine {
         return steps
     }
 
+    /// Legt einen Beispiel-Datensatz mit ALLEN Feldern an (inklusive Datei-
+    /// anhang). CloudKit erzeugt daraus in der Development-Umgebung das
+    /// vollständige Schema — erst danach lässt es sich in einem Rutsch nach
+    /// Production übertragen.
+    func createSchemaProbe() async -> String {
+        let probe = FileManager.default.temporaryDirectory
+            .appendingPathComponent("tafelbild-schema-probe.txt")
+        try? Data("Tafelbild".utf8).write(to: probe, options: .atomic)
+
+        let record = CKRecord(recordType: Self.recordType,
+                              recordID: CKRecord.ID(recordName: "schema-probe"))
+        record["kind"] = "diagnose" as CKRecordValue
+        record["entityId"] = "schema-probe" as CKRecordValue
+        record["payload"] = "{}" as CKRecordValue
+        record["updatedAtMs"] = NSNumber(value: Date.nowMs)
+        record["author"] = "Diagnose" as CKRecordValue
+        if FileManager.default.fileExists(atPath: probe.path) {
+            record["asset"] = CKAsset(fileURL: probe)
+        }
+
+        let error: Error? = await withCheckedContinuation { continuation in
+            let box = ResumeOnce()
+            let operation = CKModifyRecordsOperation(recordsToSave: [record], recordIDsToDelete: nil)
+            operation.savePolicy = .allKeys
+            operation.qualityOfService = .userInitiated
+            operation.modifyRecordsResultBlock = { result in
+                switch result {
+                case .success: box.finish { continuation.resume(returning: nil) }
+                case .failure(let failure): box.finish { continuation.resume(returning: failure) }
+                }
+            }
+            database.add(operation)
+        }
+        try? FileManager.default.removeItem(at: probe)
+
+        if let error {
+            return "Fehlgeschlagen: " + Self.describe(error) + "\n" + Self.remedy(for: error, reading: false)
+        }
+        return "Der Datensatz „Entity“ ist jetzt mit allen Feldern angelegt. Weiter in der CloudKit-Konsole: Indizes setzen, Security Roles prüfen, danach „Deploy Schema Changes to Production“."
+    }
+
     /// Klartext-Abhilfe zu einem CloudKit-Fehler.
     static func remedy(for error: Error, reading: Bool) -> String {
         guard let ckError = error as? CKError else { return "Unbekannter Fehler — später erneut versuchen." }

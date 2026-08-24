@@ -64,6 +64,8 @@ struct RootView: View {
                 }
             case .settings:
                 AppSettingsSheet()
+            case .diagnose:
+                NavigationStack { SyncDiagnoseView() }
             }
         }
         .sheet(item: Binding(
@@ -110,6 +112,27 @@ struct RootView: View {
                 .background { Capsule().fill(Color.white.opacity(0.10)) }
             }
             .buttonStyle(.plain)
+
+            if store.syncStatus.isError {
+                Button {
+                    Haptics.tap()
+                    sheet = .diagnose
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "exclamationmark.icloud.fill")
+                        if !compact {
+                            Text("Abgleich klemmt")
+                                .font(Theme.font(15, weight: .semibold))
+                        }
+                    }
+                    .foregroundStyle(.black)
+                    .padding(.horizontal, 12)
+                    .frame(height: 36)
+                    .background { Capsule().fill(Theme.amber) }
+                }
+                .buttonStyle(.plain)
+                .padding(.leading, 6)
+            }
 
             Spacer(minLength: 0)
 
@@ -205,7 +228,7 @@ struct RootView: View {
 
 /// Blätter der Hauptansicht.
 enum RootSheet: String, Identifiable {
-    case boards, addWidget, boardSettings, nameLists, share, settings
+    case boards, addWidget, boardSettings, nameLists, share, settings, diagnose
     var id: String { rawValue }
 }
 
