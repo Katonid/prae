@@ -121,16 +121,12 @@ export default {
     const nameEl = h('div', { class: 'w-random__name' });
     const maskEl = h('div', { class: 'w-random__mask' });
     const hintEl = h('div', { class: 'w-random__hint' });
-    const mainButton = h('button', { class: 'w-random__draw', 'data-nodrag': '', title: 'Namen ziehen' });
-    const skipButton = h('button', {
-      class: 'w-random__skip', 'data-nodrag': '', title: 'Namen ganz aufdecken', html: icon('eye', 20),
-    });
-    const actions = h('div', { class: 'w-random__actions', 'data-nodrag': '' }, mainButton, skipButton);
     const drawnBox = h('div', { class: 'w-random__drawn', 'data-nodrag': '' });
 
     nameBox.append(nameEl, maskEl);
     display.append(nameBox, hintEl);
-    el.append(head, display, actions, drawnBox);
+    // Bewusst ohne Knöpfe: Gezogen und aufgedeckt wird durch Tippen auf die Karte.
+    el.append(head, display, drawnBox);
 
     let spinTimer = null;
     let spinning = false;
@@ -301,7 +297,7 @@ export default {
         const perTap = mode === 'mosaik' ? MOSAIC_PER_TAP : 1;
         const total = Math.ceil(revealTotal(state, name) / perTap);
         const done = Math.min(total, Math.ceil(revealParts(state).length / perTap));
-        hintEl.textContent = `Aufdecken — Schritt ${done} von ${total}`;
+        hintEl.textContent = `Tippen deckt auf — Schritt ${done} von ${total}`;
       } else if (state.mode !== 'repeat' && remaining.length === 0) {
         hintEl.textContent = 'Alle Namen gezogen.';
       } else {
@@ -309,13 +305,6 @@ export default {
           ? 'Bereit — der nächste Tipp zieht'
           : 'Antippen, dann nochmal tippen zum Ziehen';
       }
-
-      clear(mainButton);
-      mainButton.append(
-        h('span', { class: 'w-random__draw-icon', html: icon(hidden ? 'sparkle' : 'randomizer', 22) }),
-        h('span', null, hidden ? 'Aufdecken' : 'Ziehen'));
-      mainButton.title = hidden ? 'Nächsten Teil aufdecken' : 'Namen ziehen';
-      skipButton.classList.toggle('is-hidden', !hidden);
 
       const showDrawn = state.showDrawn === true ? 'edit' : (state.showDrawn || 'edit');
       const mayShow = showDrawn === 'always' || (showDrawn === 'edit' && ctx.isEditing());
@@ -358,8 +347,6 @@ export default {
       render();
     }
 
-    onTap(mainButton, step);
-    onTap(skipButton, revealAll);
     const off = onStore('lists-changed', render);
     render();
 
@@ -370,6 +357,12 @@ export default {
       onTap: step,
       // Erst der zweite Tipp löst aus — sonst zieht ein versehentlicher Tipp einen Namen.
       tapNeedsFocus: true,
+      // Solange etwas verdeckt ist, bietet die kleine Leiste beim Bearbeiten das Augensymbol an.
+      get actions() {
+        const state = ctx.widget.state;
+        if (!state.current || isRevealed(state, state.current)) return [];
+        return [{ icon: 'eye', title: 'Namen ganz aufdecken', run: revealAll }];
+      },
       onArmedChange(value) {
         armed = value;
         render();
@@ -483,7 +476,8 @@ export default {
         }, entry.label))),
         h('p', { class: 'muted small' },
           `${(REVEAL_MODES.find((entry) => entry.id === current) || REVEAL_MODES[0]).hint} `
-          + (current === 'instant' ? '' : 'Jeder Tipp auf die Karte deckt einen Schritt auf; das Augensymbol zeigt sofort alles.'))));
+          + (current === 'instant' ? '' : 'Jeder Tipp auf die Karte deckt einen Schritt auf. '
+            + 'Beim Bearbeiten zeigt das Augensymbol in der kleinen Leiste sofort alles.'))));
 
       const showDrawn = state.showDrawn === true ? 'edit' : (state.showDrawn || 'edit');
       wrap.appendChild(section('Gezogene Namen anzeigen',

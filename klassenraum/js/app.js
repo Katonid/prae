@@ -501,7 +501,8 @@ function openHelp() {
         + 'Der Inhalt wächst dabei mit.'),
       h('p', null, h('strong', null, 'Einstellen: '), 'Element antippen, dann auf das Zahnrad in der kleinen Leiste.'),
       h('p', null, h('strong', null, 'Namen aufdecken: '), 'Im Element „Zufälliger Name“ auf das Zahnrad tippen → Abschnitt „Aufdecken“: '
-        + 'Mosaik, Unschärfe, Buchstaben oder Sofort. Jeder Tipp auf die Karte legt ein Stück frei, das Augensymbol zeigt alles.'),
+        + 'Mosaik, Unschärfe, Buchstaben oder Sofort. Die Karte hat keine Knöpfe — jeder Tipp legt ein Stück frei. '
+        + 'Beim Bearbeiten zeigt das Augensymbol in der kleinen Leiste sofort alles.'),
       h('p', null, h('strong', null, 'Zufälliger Name: '), 'Liste wählen, „Ohne Zurücklegen“ verhindert Wiederholungen. '
         + 'Gezogene Namen lassen sich antippen, um sie zurückzulegen; einzelne Namen können auch von Hand als gezogen markiert werden.'),
       h('p', null, h('strong', null, 'Lautstärke: '), 'Beim ersten Start fragt das Gerät nach dem Mikrofon — einmal erlauben, dann läuft die Messung.'),
