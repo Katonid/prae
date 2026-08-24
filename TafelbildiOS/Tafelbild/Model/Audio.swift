@@ -1,5 +1,6 @@
 import Foundation
 import AVFoundation
+import UIKit
 import AudioToolbox
 import SwiftUI
 
@@ -63,11 +64,41 @@ final class NoiseMeter: ObservableObject {
     private let quietDb: Double = -52
     private let loudDb: Double = -8
 
+    /// Die Messung war an, als die App in den Hintergrund ging.
+    private var pausedByBackground = false
+
     private init() {
         switch AVAudioApplication.shared.recordPermission {
         case .granted: permission = .granted
         case .denied: permission = .denied
         default: permission = .unknown
+        }
+        observeAppState()
+    }
+
+    /// Das Mikrofon läuft nur, solange die App vorn ist.
+    ///
+    /// Sonst bliebe die Aufnahmeanzeige des Geräts an, während jemand längst
+    /// etwas anderes tut — das will niemand, und Strom kostet es auch. Die
+    /// Web-App macht es seit Fassung 1.5.4 genauso. Beim Zurückkommen läuft
+    /// die Messung von selbst weiter.
+    private func observeAppState() {
+        let center = NotificationCenter.default
+        center.addObserver(forName: UIApplication.didEnterBackgroundNotification,
+                           object: nil, queue: .main) { [weak self] _ in
+            Task { @MainActor in
+                guard let self, self.running else { return }
+                self.pausedByBackground = true
+                self.stop()
+            }
+        }
+        center.addObserver(forName: UIApplication.willEnterForegroundNotification,
+                           object: nil, queue: .main) { [weak self] _ in
+            Task { @MainActor in
+                guard let self, self.pausedByBackground else { return }
+                self.pausedByBackground = false
+                if self.clients > 0 { self.start() }
+            }
         }
     }
 
