@@ -505,7 +505,8 @@ function openHelp() {
         + 'Beim Bearbeiten zeigt das Augensymbol in der kleinen Leiste sofort alles.'),
       h('p', null, h('strong', null, 'Zufälliger Name: '), 'Liste wählen, „Ohne Zurücklegen“ verhindert Wiederholungen. '
         + 'Gezogene Namen lassen sich antippen, um sie zurückzulegen; einzelne Namen können auch von Hand als gezogen markiert werden.'),
-      h('p', null, h('strong', null, 'Lautstärke: '), 'Beim ersten Start fragt das Gerät nach dem Mikrofon — einmal erlauben, dann läuft die Messung.'),
+      h('p', null, h('strong', null, 'Lautstärke: '), 'Beim ersten Start fragt das Gerät nach dem Mikrofon — einmal erlauben, dann läuft die Messung. '
+        + 'Das Mikrofon ist nur an, solange die Seite im Vordergrund ist: Beim Wechsel in eine andere App wird es freigegeben, beim Zurückkommen misst die Karte weiter.'),
       h('p', null, h('strong', null, 'Text: '), 'Doppeltippen zum Schreiben oder den Stift in der kleinen Leiste nutzen.'),
       h('p', null, h('strong', null, 'Schreiben: '), 'Der Stift oben rechts schaltet das Schreiben ein — mit Apple Pencil, Finger oder Maus. '
         + 'Marker zum Hervorheben, Radierer entfernt einzelne Striche, „nur Stift“ schützt vor dem Handballen. '

@@ -17,7 +17,7 @@ funktioniert auch am Telefon.
 | **Tagesablauf** | Checkliste mit Fortschrittsbalken, Punkte abhaken, sortieren, schnell erfassen. |
 | **Text** | Doppeltippen zum Schreiben, Schriftgröße passt sich automatisch an. |
 | **Bild** | Bild vom Gerät, wird beim Einfügen verkleinert. |
-| **Lautstärke** | Misst über das Mikrofon die Lautstärke im Raum, mit einstellbarer Grenze und optionalem Signalton. Beim ersten Start fragt das Gerät nach der Erlaubnis; wird sie verweigert, erklärt die Karte den Weg zurück. |
+| **Lautstärke** | Misst über das Mikrofon die Lautstärke im Raum, mit einstellbarer Grenze und optionalem Signalton. Beim ersten Start fragt das Gerät nach der Erlaubnis; wird sie verweigert, erklärt die Karte den Weg zurück. Das Mikrofon läuft nur im Vordergrund (siehe unten). |
 | **Klang** | Tasten, die auf Tippen eine Klangdatei abspielen — Datei vom Gerät oder Link. Mehrere Tasten je Element, eigene Farbe und Beschriftung. |
 | **Video** | Video vom Gerät oder per Link, mit Bedienleiste, Schleife und Vollbild. |
 | **Arbeitssymbol** | Einzel-, Partner-, Gruppenarbeit, Stillarbeit, Melden, Zuhören, Aufräumen. |
@@ -157,6 +157,12 @@ suchen"** — falls ein Gerät doch einmal auf einem alten Stand hängen bleibt.
   mit dem Code lesbar — deshalb bitte nur **Vornamen oder Kürzel** verwenden.
 * Der Lautstärkemesser berechnet nur den Pegel. Es wird **nichts aufgenommen,
   gespeichert oder gesendet**.
+* **Das Mikrofon läuft nur im Vordergrund.** Wechselt das Gerät zu einer anderen App
+  oder einem anderen Tab, wird die Aufnahmespur sofort gestoppt — die orange
+  Aufnahmeanzeige erlischt, die Karte zeigt „Pausiert“. Beim Zurückkommen misst sie
+  von selbst weiter. Verliert am Rechner nur das Fenster den Fokus (die Seite bleibt
+  sichtbar), wartet die App eine halbe Minute, bevor sie pausiert. Verlangt das Gerät
+  fürs Fortsetzen wieder einen Tipp, steht das auf der Karte.
 * Klang- und Videodateien bleiben im Gerätespeicher und werden beim Teilen nicht
   übertragen.
 * Ohne Teilen und ohne Konto stellt die App keine Verbindung ins Netz her.
