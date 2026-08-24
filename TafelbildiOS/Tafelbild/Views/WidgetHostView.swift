@@ -73,7 +73,7 @@ struct WidgetHostView: View {
     /// Vielfache der Grundschriftgröße, die daraus folgt.
     private var metrics: WidgetMetrics {
         WidgetMetrics.measure(CGSize(width: widget.width, height: widget.height),
-                              standard: widget.kind.defaultSize)
+                              standard: widget.kind.webSize)
     }
 
     /// Farben für den Inhalt: Ohne Karte gelten helle Schrift und hellere
