@@ -11,6 +11,8 @@ struct NoiseWidgetView: View {
     @ObservedObject private var meter = NoiseMeter.shared
     @State private var overSince: Date?
     @State private var tooLoud = false
+    /// Dieses Element hat die Messung angefordert (für ein sauberes Freigeben).
+    @State private var listening = false
 
     private var level: Double { min(1, meter.level * content.gain) }
 
@@ -64,9 +66,25 @@ struct NoiseWidgetView: View {
                 .strokeBorder(Theme.danger.opacity(tooLoud && content.alert ? 0.9 : 0), lineWidth: 5)
                 .animation(.easeInOut(duration: 0.3), value: tooLoud)
         }
-        .onAppear { meter.retain() }
-        .onDisappear { meter.release() }
+        // Erst messen, wenn das Mikrofon freigegeben ist: Sonst fragt iOS
+        // gleich beim ersten Start nach der Erlaubnis, obwohl vielleicht
+        // niemand messen möchte. Den Anfang macht der Knopf im Element.
+        .onAppear { beginListening() }
+        .onDisappear { endListening() }
+        .onChange(of: meter.permission) { _, _ in beginListening() }
         .onChange(of: meter.level) { _, _ in updateAlert() }
+    }
+
+    private func beginListening() {
+        guard !listening, meter.permission == .granted else { return }
+        listening = true
+        meter.retain()
+    }
+
+    private func endListening() {
+        guard listening else { return }
+        listening = false
+        meter.release()
     }
 
     @ViewBuilder
