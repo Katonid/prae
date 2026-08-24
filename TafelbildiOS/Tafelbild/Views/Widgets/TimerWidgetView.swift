@@ -1,4 +1,5 @@
 import SwiftUI
+import Combine
 
 /// Countdown und Stoppuhr. Die Zeit wird aus Zeitstempeln berechnet, damit
 /// sie auch dann stimmt, wenn die App zwischendurch im Hintergrund war.

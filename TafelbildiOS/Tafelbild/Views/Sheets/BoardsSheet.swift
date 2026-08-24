@@ -120,7 +120,7 @@ struct JoinBoardSheet: View {
                 } header: {
                     Text("Einladungscode")
                 } footer: {
-                    Text("Den Code findest du auf dem Gerät deiner Kollegin unter „Tafel teilen\". Der Abgleich läuft über iCloud — dafür muss auf beiden Geräten ein iCloud-Konto angemeldet sein.")
+                    Text("Den Code findest du auf dem Gerät deiner Kollegin unter „Tafel teilen“. Der Abgleich läuft über iCloud — dafür muss auf beiden Geräten ein iCloud-Konto angemeldet sein.")
                 }
 
                 if failed {
@@ -191,7 +191,7 @@ struct ShareSheet: View {
                 } header: {
                     Text("Einladungscode")
                 } footer: {
-                    Text("Deine Kollegin öffnet Tafelbild → Tafeln → „Tafel beitreten\" und gibt den Code ein. Danach seht ihr dieselbe Tafel; Änderungen gleichen sich über iCloud ab.")
+                    Text("Deine Kollegin öffnet Tafelbild → Tafeln → „Tafel beitreten“ und gibt den Code ein. Danach seht ihr dieselbe Tafel; Änderungen gleichen sich über iCloud ab.")
                 }
 
                 Section {
