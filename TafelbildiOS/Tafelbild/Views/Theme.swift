@@ -117,7 +117,7 @@ struct BoardStyle: Equatable {
     /// Grundfarbe der Karte. Bei „Glas" liegt zusätzlich Material darunter.
     var cardFill: Color {
         switch card {
-        case .glass: return Color.white.opacity(0.80)
+        case .glass: return Color.white.opacity(0.72)
         case .light: return Color.white
         case .dark:  return Color(hex: "#0c1220").opacity(0.74)
         }
@@ -266,6 +266,9 @@ struct WidgetCard: ViewModifier {
                     // Umgebung ein — auf dunklem Hintergrund würde die helle
                     // Karte dadurch grau statt milchig weiß.
                     .environment(\.colorScheme, style.isDarkCard ? .dark : .light)
+                    // `saturate(160%)` wie im CSS: Ohne das wirkt die Karte
+                    // grau; mit ihm nimmt sie den Farbton des Hintergrunds an.
+                    .saturation(1.6)
                     .opacity(style.usesMaterial ? 1 : 0)
                     .overlay {
                         RoundedRectangle(cornerRadius: corner, style: .continuous)
