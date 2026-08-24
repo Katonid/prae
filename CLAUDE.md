@@ -89,6 +89,10 @@ noch Commits auf denselben PR gepusht wurden — die hingen dann fest
 - Code: `klassenraum/` — statische Web-App ohne Build-Schritt (ES-Module,
   kein Framework), wird vom bestehenden GitHub-Pages-Workflow mit
   ausgeliefert: https://katonid.github.io/prae/klassenraum/
+- GitHub Pages läuft für dieses Repo über „GitHub Actions" (Workflow
+  `pages.yml`). Der Workflow spiegelt `docs/` zusätzlich an die Wurzel,
+  damit die alten Adressen `/soundboard/` (App-Store-Links) und
+  `/flightmate-ai/` gültig bleiben — diese Zeile nicht entfernen.
 - Ersetzt den kostenpflichtigen Dienst „Classroomscreen“: Zufallsnamen,
   Timer/Stoppuhr, Uhr, Ampel, Tagesablauf, Text, Bild, Lautstärkemesser,
   Arbeitssymbole — frei verschiebbar auf einer Tafelfläche.
