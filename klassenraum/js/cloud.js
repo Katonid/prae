@@ -1,9 +1,10 @@
 // Optionale Cloud-Funktionen über die REST-Schnittstellen von Firebase:
-// Klassenräume per Code teilen, live folgen und (falls im Projekt aktiviert) Konten.
+// Klassenräume per Code teilen, live folgen, Geräte abgleichen und
+// (falls im Projekt aktiviert) Konten.
 // Ohne Netz funktioniert die App vollständig lokal — hier scheitern dann nur
 // Teilen und Konto, alles andere läuft weiter.
 
-import { shareCode } from './util.js';
+import { shareCode, randomInt } from './util.js';
 
 const ROOT = 'klassenraum';
 const AUTH_STORAGE = 'klassenraum.auth.v1';
@@ -176,8 +177,16 @@ export async function removeShare(code) {
  * Bevorzugt den Ereignisstrom der Datenbank, fällt sonst auf regelmäßiges Nachfragen zurück.
  */
 export async function subscribeShare(code, handler) {
+  return subscribePath(`${ROOT}/shares/${normalizeCode(code)}`, handler);
+}
+
+/**
+ * Allgemeiner Zuhörer auf einen Pfad der Datenbank.
+ * Mit `granular` bekommt `handler(null, { path, data })` einzelne Änderungen
+ * gemeldet, statt jedes Mal den ganzen Pfad neu zu laden.
+ */
+export async function subscribePath(path, handler, { granular = false } = {}) {
   await initCloud();
-  const path = `${ROOT}/shares/${normalizeCode(code)}`;
   let stopped = false;
   let source = null;
   let poller = null;
@@ -186,7 +195,7 @@ export async function subscribeShare(code, handler) {
   const pull = async () => {
     try {
       const payload = await dbRequest(path);
-      if (!stopped) handler(payload);
+      if (!stopped) handler(payload, null);
     } catch (_) { /* nächster Versuch später */ }
   };
 
@@ -197,17 +206,28 @@ export async function subscribeShare(code, handler) {
 
   await pull();
 
+  const onEvent = (event) => {
+    // Der Ereignisstrom liefert { path, data } — damit lässt sich gezielt
+    // nur der geänderte Datensatz übernehmen statt alles neu zu laden.
+    let detail = null;
+    try {
+      detail = JSON.parse(event.data);
+    } catch (_) {
+      detail = null;
+    }
+    if (granular && detail && typeof detail.path === 'string' && detail.path !== '/') {
+      if (!stopped) handler(null, detail);
+      return;
+    }
+    if (pending) clearTimeout(pending);
+    pending = setTimeout(pull, 250);
+  };
+
   if (typeof window.EventSource === 'function') {
     try {
       source = new window.EventSource(await dbUrl(path));
-      source.addEventListener('put', () => {
-        if (pending) clearTimeout(pending);
-        pending = setTimeout(pull, 250);
-      });
-      source.addEventListener('patch', () => {
-        if (pending) clearTimeout(pending);
-        pending = setTimeout(pull, 250);
-      });
+      source.addEventListener('put', onEvent);
+      source.addEventListener('patch', onEvent);
       source.addEventListener('error', () => {
         if (source && source.readyState === 2) startPolling();
       });
@@ -309,4 +329,84 @@ export async function pushBackup(state) {
 export async function pullBackup() {
   if (!account) throw new Error('Kein Konto angemeldet');
   return dbRequest(`${ROOT}/users/${account.uid}/backup`);
+}
+
+/* ---------- Abgleich zwischen Geräten ---------- */
+
+const SPACE_ALPHABET = 'abcdefghijkmnopqrstuvwxyz23456789';
+const LINK_MINUTES = 60;
+
+/** Unverwechselbare, nicht erratbare Kennung eines Abgleich-Bereichs. */
+function spaceId() {
+  let out = 's';
+  for (let i = 0; i < 24; i += 1) out += SPACE_ALPHABET[randomInt(SPACE_ALPHABET.length)];
+  return out;
+}
+
+function spacePath(id, rest = '') {
+  return `${ROOT}/spaces/${encodeURIComponent(id)}${rest}`;
+}
+
+/** Legt einen neuen Bereich an und gibt dessen Kennung zurück. */
+export async function createSpace(name) {
+  await initCloud();
+  const id = spaceId();
+  await dbRequest(spacePath(id, '/meta'), {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ createdAt: Date.now(), name: name || '' }),
+  });
+  return id;
+}
+
+export async function fetchSpace(id) {
+  return dbRequest(spacePath(id));
+}
+
+/** Einen einzelnen Datensatz (Tafel oder Liste) ablegen. */
+export async function putRecord(id, kind, recordId, record) {
+  return dbRequest(spacePath(id, `/${kind}/${encodeURIComponent(recordId)}`), {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(record),
+  });
+}
+
+export async function subscribeSpace(id, handler) {
+  return subscribePath(spacePath(id), handler, { granular: true });
+}
+
+/** Kurzer Kopplungscode, der eine Stunde lang auf den Bereich zeigt. */
+export async function createLinkCode(id) {
+  await initCloud();
+  const code = shareCode();
+  await dbRequest(`${ROOT}/links/${code}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ spaceId: id, createdAt: Date.now(), expiresAt: Date.now() + LINK_MINUTES * 60000 }),
+  });
+  return { code, expiresAt: Date.now() + LINK_MINUTES * 60000 };
+}
+
+export async function resolveLinkCode(code) {
+  const entry = await dbRequest(`${ROOT}/links/${normalizeCode(code)}`);
+  if (!entry || !entry.spaceId) throw new Error('CODE_UNBEKANNT');
+  if (entry.expiresAt && entry.expiresAt < Date.now()) throw new Error('CODE_ABGELAUFEN');
+  return entry.spaceId;
+}
+
+/* ---------- Bereich am Konto merken (sobald Konten aktiv sind) ---------- */
+
+export async function rememberSpaceForAccount(id) {
+  if (!account) return;
+  await dbRequest(`${ROOT}/users/${account.uid}/spaceId`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(id),
+  }).catch(() => {});
+}
+
+export async function spaceOfAccount() {
+  if (!account) return null;
+  return dbRequest(`${ROOT}/users/${account.uid}/spaceId`).catch(() => null);
 }

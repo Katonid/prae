@@ -198,6 +198,10 @@ export function defaultState() {
       // Pro Board: { code, editKey, autoPush, followCode }
       shares: {},
       account: null,
+      // Abgleich zwischen Geräten: { spaceId, deviceId, auto, pushed, lastSyncAt }
+      sync: null,
+      // Gelöschte Tafeln und Listen: { id: Zeitpunkt } — damit das Löschen mitwandert.
+      tombstones: {},
     },
   };
 }
@@ -260,6 +264,13 @@ function normalizeState(loaded) {
     next.activeBoardId = next.boards[0].id;
   }
   if (!next.cloud.shares || typeof next.cloud.shares !== 'object') next.cloud.shares = {};
+  if (!next.cloud.tombstones || typeof next.cloud.tombstones !== 'object') next.cloud.tombstones = {};
+  next.lists = next.lists.map((list) => ({
+    id: list.id || uid('list'),
+    name: list.name || 'Liste',
+    names: Array.isArray(list.names) ? list.names : [],
+    updatedAt: list.updatedAt || Date.now(),
+  }));
   return next;
 }
 
@@ -339,6 +350,14 @@ export function touch(options = {}) {
   emit('change', { reason: options.reason || 'update' });
 }
 
+/** Änderung an einer bestimmten Tafel melden (z. B. Umbenennen aus der Liste). */
+export function touchBoard(boardId, options = {}) {
+  const board = state.boards.find((entry) => entry.id === boardId);
+  if (board) board.updatedAt = Date.now();
+  persistSoon();
+  emit('change', { reason: options.reason || 'board-update' });
+}
+
 export function saveNow() {
   return persist();
 }
@@ -378,18 +397,39 @@ export function duplicateBoard(boardId) {
   return copy;
 }
 
-export function removeBoard(boardId) {
+export function removeBoard(boardId, { tombstone = true } = {}) {
   if (state.boards.length <= 1) return false;
   const index = state.boards.findIndex((board) => board.id === boardId);
   if (index < 0) return false;
   state.boards.splice(index, 1);
   delete state.cloud.shares[boardId];
+  if (tombstone) markDeleted(boardId);
   if (state.activeBoardId === boardId) {
     state.activeBoardId = state.boards[Math.max(0, index - 1)].id;
     emit('board-switch', state.activeBoardId);
   }
   touch({ board: false, reason: 'board-remove' });
   return true;
+}
+
+/** Merkt sich, dass etwas gelöscht wurde — der Abgleich trägt das weiter. */
+export function markDeleted(id, when = Date.now()) {
+  if (!state.cloud.tombstones) state.cloud.tombstones = {};
+  state.cloud.tombstones[id] = when;
+}
+
+export function getTombstones() {
+  if (!state.cloud.tombstones) state.cloud.tombstones = {};
+  return state.cloud.tombstones;
+}
+
+/** Alte Löschvermerke aufräumen (nach 60 Tagen kennt sie ohnehin niemand mehr). */
+export function pruneTombstones(maxAgeMs = 60 * 24 * 3600 * 1000) {
+  const stones = getTombstones();
+  const limit = Date.now() - maxAgeMs;
+  for (const [id, when] of Object.entries(stones)) {
+    if (!Number.isFinite(when) || when < limit) delete stones[id];
+  }
 }
 
 export function importBoard(board, { activate = true } = {}) {
@@ -402,6 +442,31 @@ export function importBoard(board, { activate = true } = {}) {
     emit('board-switch', clean.id);
   }
   touch({ board: false, reason: 'board-import' });
+  return clean;
+}
+
+/** Tafel mit vorhandener Kennung einfügen oder ersetzen (Abgleich). */
+export function upsertBoard(raw) {
+  const clean = normalizeState({ boards: [raw], activeBoardId: raw.id }).boards[0];
+  clean.id = raw.id || clean.id;
+  clean.updatedAt = raw.updatedAt || Date.now();
+  const index = state.boards.findIndex((board) => board.id === clean.id);
+  if (index >= 0) state.boards[index] = clean;
+  else state.boards.push(clean);
+  return clean;
+}
+
+/** Namensliste mit vorhandener Kennung einfügen oder ersetzen (Abgleich). */
+export function upsertList(raw) {
+  const clean = {
+    id: raw.id || uid('list'),
+    name: raw.name || 'Liste',
+    names: Array.isArray(raw.names) ? raw.names : [],
+    updatedAt: raw.updatedAt || Date.now(),
+  };
+  const index = state.lists.findIndex((list) => list.id === clean.id);
+  if (index >= 0) state.lists[index] = clean;
+  else state.lists.push(clean);
   return clean;
 }
 
@@ -452,7 +517,7 @@ export function getList(listId) {
 }
 
 export function addList(name, names) {
-  const list = { id: uid('list'), name: name || 'Neue Liste', names: names || [] };
+  const list = { id: uid('list'), name: name || 'Neue Liste', names: names || [], updatedAt: Date.now() };
   state.lists.push(list);
   touch({ board: false, reason: 'list-add' });
   emit('lists-changed', state.lists);
@@ -462,16 +527,17 @@ export function addList(name, names) {
 export function updateList(listId, patch) {
   const list = getList(listId);
   if (!list) return null;
-  Object.assign(list, patch);
+  Object.assign(list, patch, { updatedAt: Date.now() });
   touch({ board: false, reason: 'list-update' });
   emit('lists-changed', state.lists);
   return list;
 }
 
-export function removeList(listId) {
+export function removeList(listId, { tombstone = true } = {}) {
   const index = state.lists.findIndex((list) => list.id === listId);
   if (index < 0) return;
   state.lists.splice(index, 1);
+  if (tombstone) markDeleted(listId);
   touch({ board: false, reason: 'list-remove' });
   emit('lists-changed', state.lists);
 }

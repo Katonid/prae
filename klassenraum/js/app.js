@@ -4,7 +4,7 @@ import { h, clear, readImageFile } from './util.js';
 import { icon } from './icons.js';
 import {
   loadState, getState, getActiveBoard, setActiveBoard, addBoard, duplicateBoard, removeBoard,
-  addWidget, touch, saveNow, on as onStore, importBoard, AURORA,
+  addWidget, touch, touchBoard, saveNow, on as onStore, importBoard, AURORA,
 } from './store.js';
 import { WIDGETS } from './widgets/index.js';
 import {
@@ -17,6 +17,7 @@ import { collectUnusedMedia, mediaUsage, formatSize } from './media.js';
 import { APP_VERSION, APP_DATE } from './version.js';
 import { SCHEMES } from './theme.js';
 import { initSharing, openSharePanel, isFollowing } from './share.js';
+import { initSync, onSyncChanged } from './sync.js';
 import {
   openPanel, closePanel, section, field, button, buttonRow, toggleRow, toast,
   confirmDialog, promptDialog, colorSwatches, modal,
@@ -44,6 +45,7 @@ function cacheDom() {
   dom.boardName = document.getElementById('board-name');
   dom.dock = document.getElementById('dock');
   dom.followBadge = document.getElementById('follow-badge');
+  dom.syncBadge = document.getElementById('sync-badge');
 }
 
 function renderTopbar() {
@@ -121,7 +123,7 @@ function openBoardsPanel() {
             const name = await promptDialog('Klassenraum umbenennen', 'Name', board.name);
             if (!name) return;
             board.name = name;
-            touch({ board: false });
+            touchBoard(board.id, { reason: 'board-rename' });
             renderTopbar();
             render();
           },
@@ -515,6 +517,9 @@ function openHelp() {
         + 'Die Striche gehören zur Tafel und bleiben erhalten.'),
       h('p', null, h('strong', null, 'Klang & Video: '), 'Element „Klang“ oder „Video“ ablegen, im Zahnrad eine Datei vom Gerät oder einen Link wählen. '
         + 'Ein Tipp auf die Taste spielt ab.'),
+      h('p', null, h('strong', null, 'Abgleich: '), 'Unter „Teilen“ → „Abgleich zwischen Geräten“ einmal „Abgleich einrichten“ antippen — '
+        + 'die App zeigt einen Kopplungscode. Auf dem zweiten Gerät „Gerät verbinden“ und den Code eingeben. '
+        + 'Danach sind alle Tafeln und Listen auf allen Geräten gleich; bei zwei Ständen gewinnt der neuere.'),
       h('p', null, h('strong', null, 'Aussehen: '), '„Aussehen“ bietet bewegte Hintergründe, eigene Farben und Bilder, '
         + 'sechs Farbschemata (auch einfarbig statt Verlauf), drei Kartenstile und die Rahmen-Einstellung — '
         + 'ohne Rahmen stehen die Elemente frei auf der Tafel.'),
@@ -607,6 +612,23 @@ function registerServiceWorker() {
   }).catch(() => {});
 }
 
+/** Kleine Anzeige oben: läuft der Abgleich, arbeitet er gerade, hakt es? */
+function renderSyncBadge(info) {
+  if (!dom.syncBadge) return;
+  dom.syncBadge.classList.toggle('is-hidden', !info.active);
+  dom.syncBadge.classList.toggle('badge--warn', info.status === 'error');
+  if (info.status === 'busy') {
+    dom.syncBadge.textContent = 'Abgleich …';
+    dom.syncBadge.title = 'Tafeln werden gerade abgeglichen';
+  } else if (info.status === 'error') {
+    dom.syncBadge.textContent = 'Abgleich wartet';
+    dom.syncBadge.title = `${info.error || 'Keine Verbindung'} — wird nachgeholt, sobald wieder Netz da ist`;
+  } else {
+    dom.syncBadge.textContent = 'Abgleich';
+    dom.syncBadge.title = 'Alle Geräte auf demselben Stand — zum Öffnen antippen';
+  }
+}
+
 async function boot() {
   cacheDom();
   await loadState();
@@ -620,6 +642,9 @@ async function boot() {
   renderTopbar();
   wireChrome();
   initSharing();
+  initSync();
+  onSyncChanged(renderSyncBadge);
+  if (dom.syncBadge) dom.syncBadge.addEventListener('click', () => openSharePanel());
   document.body.classList.remove('is-loading');
 
   registerServiceWorker();

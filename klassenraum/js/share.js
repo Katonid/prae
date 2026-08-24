@@ -1,4 +1,5 @@
-// Teilen & Konto: Klassenräume per Code weitergeben, live folgen, Konto verwalten.
+// Teilen, Abgleich & Konto: Klassenräume per Code weitergeben, live folgen,
+// alle Geräte abgleichen und das Konto verwalten.
 
 import { h, clear, copyText, debounce } from './util.js';
 import {
@@ -9,6 +10,9 @@ import {
   accountsAvailable, signIn, signUp, signOutAccount, onAccountChanged, currentAccount,
   pushBackup, pullBackup,
 } from './cloud.js';
+import {
+  syncInfo, startSync, joinSync, linkCode, syncNow, stopSync, setAutoSync, onSyncChanged,
+} from './sync.js';
 import { openPanel, section, field, button, buttonRow, toggleRow, toast, confirmDialog } from './ui.js';
 import { renderBoard } from './board.js';
 
@@ -23,11 +27,16 @@ function shareEntry(boardId, create = false) {
   return state.cloud.shares[boardId] || null;
 }
 
-function shareLink(code) {
+function shareLink(code, param = 'code') {
   const url = new URL(window.location.href);
   url.hash = '';
-  url.search = `?code=${code}`;
+  url.search = `?${param}=${code}`;
   return url.toString();
+}
+
+function clockTime(stamp) {
+  if (!stamp) return '';
+  return new Date(stamp).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
 }
 
 const pushSoon = debounce(async () => {
@@ -86,9 +95,10 @@ export function initSharing() {
 
   const params = new URLSearchParams(window.location.search);
   const code = params.get('code');
-  if (code) {
+  const syncParam = params.get('sync');
+  if (code || syncParam) {
     window.history.replaceState({}, '', window.location.pathname);
-    setTimeout(() => openSharePanel(code.toUpperCase()), 400);
+    setTimeout(() => openSharePanel(code ? code.toUpperCase() : '', syncParam ? syncParam.toUpperCase() : ''), 400);
   }
 }
 
@@ -98,9 +108,14 @@ export function isFollowing() {
   return Boolean(entry && entry.follow && entry.code);
 }
 
-export function openSharePanel(prefillCode = '') {
+export function openSharePanel(prefillCode = '', prefillSyncCode = '') {
   const container = h('div', { class: 'stack' });
   let unsubscribeAccount = null;
+  let unsubscribeSync = null;
+  // Zuletzt erzeugter Kopplungscode, damit er im Panel stehen bleibt.
+  let pendingLink = null;
+  // Beim Verbinden: eigene Tafeln mitnehmen oder nur den anderen Stand übernehmen?
+  let keepLocal = true;
 
   function render() {
     clear(container);
@@ -240,14 +255,156 @@ export function openSharePanel(prefillCode = '') {
       h('p', { class: 'muted small' },
         '„Kopie“ gehört danach dir und kann frei verändert werden. „Live folgen“ übernimmt jede Änderung der teilenden Person.')));
 
+    /* --- Abgleich zwischen Geräten --- */
+    container.appendChild(section('Abgleich zwischen Geräten', syncBox()));
+
     /* --- Konto --- */
     container.appendChild(section('Konto', accountBox()));
 
     container.appendChild(h('p', { class: 'muted small' },
-      'Datenschutz: Geteilte Klassenräume liegen unverschlüsselt auf dem Server und sind für jede Person mit dem Code lesbar. '
+      'Datenschutz: Geteilte und abgeglichene Klassenräume liegen unverschlüsselt auf dem Server. '
+      + 'Geteiltes ist für jede Person mit dem Code lesbar; der Abgleich hängt an einer langen, zufälligen Kennung, die nur deine Geräte kennen. '
       + 'Verwende deshalb bitte nur Vornamen oder Kürzel — keine vollständigen Namen oder anderen persönlichen Daten. '
       + 'Klang- und Videodateien vom Gerät werden nicht mitgeschickt; dafür bitte einen Link verwenden. '
       + 'Geschriebenes und Markiertes wird dagegen mitgeteilt.'));
+  }
+
+  function statusText(info) {
+    if (!info.active) return 'Nicht eingerichtet.';
+    if (info.status === 'busy') return 'Wird abgeglichen …';
+    if (info.status === 'error') return `${info.error || 'Kein Netz'} — wird nachgeholt, sobald wieder Verbindung besteht.`;
+    const time = clockTime(info.lastSyncAt);
+    return time ? `Verbunden — zuletzt abgeglichen um ${time} Uhr.` : 'Verbunden.';
+  }
+
+  function linkBox() {
+    if (!pendingLink) return null;
+    return h('div', { class: 'stack' },
+      h('div', { class: 'code-display' },
+        h('span', { class: 'code-display__label' }, 'Kopplungscode (eine Stunde gültig)'),
+        h('strong', { class: 'code-display__code' }, pendingLink.code)),
+      buttonRow(
+        button('Code kopieren', {
+          icon: 'copy', small: true,
+          onClick: async () => {
+            await copyText(pendingLink.code);
+            toast('Code kopiert.', 'success');
+          },
+        }),
+        button('Link kopieren', {
+          icon: 'share', small: true,
+          onClick: async () => {
+            await copyText(shareLink(pendingLink.code, 'sync'));
+            toast('Link kopiert.', 'success');
+          },
+        })),
+      h('p', { class: 'muted small' },
+        'Auf dem anderen Gerät die App öffnen → „Teilen“ → „Gerät verbinden“ und den Code eingeben. '
+        + 'Der Link macht dasselbe in einem Schritt.'));
+  }
+
+  function syncBox() {
+    const box = h('div', { class: 'stack' });
+    const info = syncInfo();
+
+    if (!info.active) {
+      const joinInput = h('input', {
+        class: 'input input--code', type: 'text', maxlength: '8', placeholder: 'z. B. R4TK9B',
+        value: prefillSyncCode || '',
+        oninput: (event) => { event.target.value = event.target.value.toUpperCase(); },
+      });
+      box.append(
+        h('p', { class: 'muted small' },
+          'Hält alle Tafeln und Namenslisten auf allen Geräten gleich — iPad, Rechner und die Tafel im Klassenzimmer. '
+          + 'Änderungen wandern automatisch hin und her; ohne Netz wird beim nächsten Mal nachgeholt.'),
+        button('Abgleich einrichten', {
+          icon: 'upload', primary: true, full: true,
+          onClick: async () => {
+            try {
+              await startSync();
+              pendingLink = await linkCode();
+              render();
+              toast('Abgleich eingerichtet.', 'success');
+            } catch (error) {
+              toast('Einrichten nicht möglich — Internetverbindung prüfen.', 'warn');
+            }
+          },
+        }),
+        field('Code vom anderen Gerät', joinInput),
+        // Bewusst ohne render(): Ein Neuaufbau würde den eingetippten Code leeren.
+        toggleRow('Tafeln dieses Geräts mitnehmen', keepLocal, (value) => {
+          keepLocal = value;
+        }, 'Aus: Dieses Gerät übernimmt nur die Tafeln und Listen des anderen Geräts — gut für ein frisches Gerät.'),
+        buttonRow(button('Gerät verbinden', {
+          icon: 'download', small: true,
+          onClick: async () => {
+            const value = joinInput.value.trim().toUpperCase();
+            if (value.length < 4) {
+              toast('Bitte den vollständigen Code eingeben.', 'warn');
+              return;
+            }
+            try {
+              await joinSync(value, { keepLocal });
+              renderBoard();
+              render();
+              toast('Gerät verbunden — Tafeln werden abgeglichen.', 'success');
+            } catch (error) {
+              const message = error && error.message === 'CODE_ABGELAUFEN'
+                ? 'Der Code ist abgelaufen — auf dem ersten Gerät einen neuen erzeugen.'
+                : error && error.message === 'CODE_UNBEKANNT'
+                  ? 'Zu diesem Code wurde nichts gefunden.'
+                  : 'Verbinden nicht möglich — Internetverbindung prüfen.';
+              toast(message, 'warn');
+            }
+          },
+        })),
+        h('p', { class: 'muted small' },
+          'Dateien für Klang und Video bleiben auf dem jeweiligen Gerät — sie werden nicht mit abgeglichen.'));
+      return box;
+    }
+
+    // append(null) würde „null" als Text einfügen — deshalb erst filtern.
+    box.append(...[
+      h('p', { class: `sync-status is-${info.status}` }, statusText(info)),
+      toggleRow('Automatisch abgleichen', info.auto, (value) => {
+        setAutoSync(value);
+        render();
+      }, 'Aus: Es wird nur beim Tippen auf „Jetzt abgleichen“ gesendet und geholt.'),
+      buttonRow(
+        button('Jetzt abgleichen', {
+          icon: 'reset', primary: true, small: true,
+          onClick: async () => {
+            const ok = await syncNow();
+            render();
+            toast(ok ? 'Abgeglichen.' : 'Abgleich nicht möglich — Internetverbindung prüfen.', ok ? 'success' : 'warn');
+          },
+        }),
+        button('Weiteres Gerät verbinden', {
+          icon: 'share', small: true,
+          onClick: async () => {
+            try {
+              pendingLink = await linkCode();
+              render();
+            } catch (error) {
+              toast('Code konnte nicht erzeugt werden.', 'warn');
+            }
+          },
+        })),
+      linkBox(),
+      buttonRow(button('Abgleich auf diesem Gerät beenden', {
+        icon: 'close', ghost: true, small: true,
+        onClick: async () => {
+          const ok = await confirmDialog('Abgleich beenden?',
+            'Dieses Gerät wird nicht mehr abgeglichen. Alle Tafeln bleiben hier erhalten; die anderen Geräte gleichen weiter ab.', 'Beenden');
+          if (!ok) return;
+          await stopSync();
+          pendingLink = null;
+          render();
+          toast('Abgleich beendet.', 'success');
+        },
+      })),
+    ].filter(Boolean));
+    return box;
   }
 
   function accountBox() {
@@ -342,17 +499,27 @@ export function openSharePanel(prefillCode = '') {
   }
 
   const panel = openPanel({
-    title: 'Teilen & Konto',
-    subtitle: 'Klassenräume weitergeben oder übernehmen',
+    title: 'Teilen & Abgleich',
+    subtitle: 'Klassenräume weitergeben, übernehmen und Geräte abgleichen',
     content: container,
     wide: true,
     onClose: () => {
       if (unsubscribeAccount) unsubscribeAccount();
+      if (unsubscribeSync) unsubscribeSync();
     },
   });
 
   render();
   initCloud().then(() => render()).catch(() => {});
   unsubscribeAccount = onAccountChanged(() => render());
+  let firstSyncCall = true;
+  unsubscribeSync = onSyncChanged(() => {
+    // Der erste Aufruf kommt sofort beim Anmelden — dann steht die Anzeige schon.
+    if (firstSyncCall) {
+      firstSyncCall = false;
+      return;
+    }
+    render();
+  });
   return panel;
 }
