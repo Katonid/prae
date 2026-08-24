@@ -26,6 +26,7 @@ struct WidgetHostView: View {
     var body: some View {
         let base = content
             .environment(\.boardStyle, contentStyle)
+            .environment(\.widgetMetrics, metrics)
             .frame(width: widget.width, height: widget.height)
             .background { if usesCard { Color.clear.widgetCard(style: style) } }
             // Ohne Karte hebt ein weicher Schlagschatten den Inhalt vom
@@ -67,6 +68,14 @@ struct WidgetHostView: View {
         return Color.white.opacity(0.35)
     }
 
+    /// Maßstab des Inhalts — wie in der Web-App aus dem Verhältnis von
+    /// tatsächlicher zu vorgesehener Größe. Alle Größen im Element sind
+    /// Vielfache der Grundschriftgröße, die daraus folgt.
+    private var metrics: WidgetMetrics {
+        WidgetMetrics.measure(CGSize(width: widget.width, height: widget.height),
+                              standard: widget.kind.defaultSize)
+    }
+
     /// Farben für den Inhalt: Ohne Karte gelten helle Schrift und hellere
     /// Flächen, sonst verschwindet alles auf dem dunklen Hintergrund.
     private var contentStyle: BoardStyle {
@@ -75,14 +84,13 @@ struct WidgetHostView: View {
         return adjusted
     }
 
-    /// Text und Bild bringen ihren eigenen Hintergrund mit.
+    /// Jedes Element steht auf einer Karte — außer es ist ausdrücklich
+    /// rahmenlos gestellt oder die Tafel blendet die Rahmen gerade aus.
+    /// (In der Web-App gilt genau diese Regel: `.widget` trägt die Karte,
+    /// `.widget--bare` nimmt sie weg — auch bei Text und Bild.)
     private var usesCard: Bool {
         if widget.bare { return false }
-        if !frames.applies(editing: store.editing) { return false }
-        switch widget.content {
-        case .text, .image: return false
-        default: return true
-        }
+        return frames.applies(editing: store.editing)
     }
 
     // MARK: - Inhalt

@@ -100,6 +100,13 @@ struct BoardStyle: Equatable {
         return ink.opacity(isDarkCard ? 0.10 : 0.07)
     }
 
+    /// Kräftigere Füllung (`--surface-soft-2`) — Ränder von Kästchen und
+    /// hervorgehobene Flächen.
+    var washStrong: Color {
+        if bare { return Color.white.opacity(0.30) }
+        return isDarkCard ? Color.white.opacity(0.18) : Color(hex: "#0f172a").opacity(0.12)
+    }
+
     /// Große Schrift — gezogener Name, Uhrzeit, Pegel. Auf einer Karte im
     /// Farbverlauf der Tafel; ohne Karte einfarbig hell, weil ein dunkles
     /// Schema auf dunklem Grund sonst verschwindet (so macht es die Web-App).
@@ -117,6 +124,47 @@ struct BoardStyle: Equatable {
     }
 
     var usesMaterial: Bool { card != .light }
+}
+
+// MARK: - Maßstab eines Elements
+
+/// Der Maßstab, in dem ein Element seinen Inhalt zeichnet.
+///
+/// Die Web-App macht das über eine einzige Zahl: Jedes Element bekommt eine
+/// Grundschriftgröße (15 Punkt mal Maßstab), und alle Größen darin sind
+/// Vielfache davon — Polster, Abstände, Knöpfe, Schrift. Der Maßstab ergibt
+/// sich daraus, wie groß das Element gegenüber seiner vorgesehenen Größe ist.
+///
+/// Diese App hat früher in jedem Element eigene Formeln gerechnet. Das ergab
+/// bei gleicher Elementgröße andere Schriftgrößen als im Web — deshalb hier
+/// dieselbe Rechnung wie dort.
+struct WidgetMetrics: Equatable {
+    /// Grundschriftgröße in Punkten — im CSS das, worauf sich `em` bezieht.
+    var base: Double = 15
+    /// Verhältnis zur vorgesehenen Größe, zwischen 0,6 und 4.
+    var scale: Double = 1
+
+    /// Ein Vielfaches der Grundschriftgröße — im CSS `1.4em` und so weiter.
+    func em(_ factor: Double = 1) -> Double { base * factor }
+
+    /// Rechnet den Maßstab für ein Element aus (Web-App: `contentScale`).
+    static func measure(_ size: CGSize, standard: CGSize) -> WidgetMetrics {
+        guard standard.width > 0, standard.height > 0 else { return WidgetMetrics() }
+        let ratio = min(size.width / standard.width, size.height / standard.height)
+        let scale = min(max(ratio, 0.6), 4)
+        return WidgetMetrics(base: 15 * scale, scale: scale)
+    }
+}
+
+private struct WidgetMetricsKey: EnvironmentKey {
+    static let defaultValue = WidgetMetrics()
+}
+
+extension EnvironmentValues {
+    var widgetMetrics: WidgetMetrics {
+        get { self[WidgetMetricsKey.self] }
+        set { self[WidgetMetricsKey.self] = newValue }
+    }
 }
 
 private struct BoardStyleKey: EnvironmentKey {
@@ -148,6 +196,27 @@ extension Color {
             r = 0.5; g = 0.5; b = 0.5
         }
         self.init(red: r, green: g, blue: b)
+    }
+
+    /// Farbe aus HSL, wie CSS sie schreibt: `hsl(150, 85%, 52%)`.
+    /// SwiftUI kennt nur HSB; die beiden Systeme sind nicht dasselbe, und
+    /// eine Umrechnung „über den Daumen" verfehlt den Ton deutlich.
+    init(hslHue: Double, saturation: Double, lightness: Double) {
+        let hue = ((hslHue.truncatingRemainder(dividingBy: 360)) + 360)
+            .truncatingRemainder(dividingBy: 360)
+        let chroma = (1 - abs(2 * lightness - 1)) * saturation
+        let second = chroma * (1 - abs((hue / 60).truncatingRemainder(dividingBy: 2) - 1))
+        let match = lightness - chroma / 2
+        let rgb: (Double, Double, Double)
+        switch hue {
+        case ..<60:   rgb = (chroma, second, 0)
+        case ..<120:  rgb = (second, chroma, 0)
+        case ..<180:  rgb = (0, chroma, second)
+        case ..<240:  rgb = (0, second, chroma)
+        case ..<300:  rgb = (second, 0, chroma)
+        default:      rgb = (chroma, 0, second)
+        }
+        self.init(red: rgb.0 + match, green: rgb.1 + match, blue: rgb.2 + match)
     }
 
     /// Hex-String ("#rrggbb") der Farbe im sRGB-Farbraum.

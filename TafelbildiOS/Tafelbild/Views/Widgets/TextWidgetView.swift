@@ -19,7 +19,8 @@ struct TextWidgetView: View {
                 .multilineTextAlignment(alignment)
                 .minimumScaleFactor(0.3)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: frameAlignment)
-                .padding(22)
+                .padding(.vertical, 18)
+                .padding(.horizontal, 24)
         }
         .background {
             RoundedRectangle(cornerRadius: content.rounded ? Theme.widgetCorner : 0, style: .continuous)
