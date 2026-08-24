@@ -492,8 +492,9 @@ function openHelp() {
         + '„Bearbeiten“ schaltet zurück.'),
       h('p', null, h('strong', null, 'Elemente hinzufügen: '), 'unten in der Leiste antippen (nur beim Bearbeiten).'),
       h('p', null, h('strong', null, 'Bedienen: '), 'Ein Tipp auf die Karte löst die Hauptfunktion aus — '
-        + 'Zufälliger Name zieht den nächsten Namen, die Ampel schaltet weiter, das Arbeitssymbol wechselt, '
-        + 'die Uhr springt zwischen analog und digital, die Lautstärkemessung startet.'),
+        + 'die Ampel schaltet weiter, das Arbeitssymbol wechselt, die Lautstärkemessung startet. '
+        + 'Beim Zufälligen Namen aktiviert der erste Tipp die Karte, erst der zweite zieht — so passiert '
+        + 'nichts aus Versehen. Die Uhr reagiert nicht auf Tippen; analog oder digital wählst du im Zahnrad.'),
       h('p', null, h('strong', null, 'Verschieben: '), 'Element anfassen und ziehen.'),
       h('p', null, h('strong', null, 'Größe ändern: '), 'Drei Wege — an einem der vier runden Anfasser in der Ecke ziehen, '
         + 'die Knöpfe − und + in der kleinen Leiste antippen, oder mit zwei Fingern auf dem Element auseinander- bzw. zusammenziehen. '

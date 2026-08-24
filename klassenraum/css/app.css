@@ -402,6 +402,17 @@ body.is-light-board .widget--bare .widget__inner { filter: drop-shadow(0 6px 14p
 
 .widget.is-sizing { box-shadow: 0 0 0 3px var(--accent), var(--card-shadow); }
 
+/* Aktivierte Karte: der nächste Tipp löst aus. */
+.widget.is-armed { box-shadow: 0 0 0 3px var(--accent), var(--card-shadow); }
+.widget.is-armed.widget--bare { box-shadow: none; }
+.widget.is-armed .w-random__draw { animation: armed-pulse 1.8s ease-in-out infinite; }
+.widget--bare.is-armed .w-random__hint { color: var(--accent); opacity: 1; }
+
+@keyframes armed-pulse {
+  0%, 100% { box-shadow: var(--accent-glow); }
+  50% { box-shadow: 0 0 0 6px rgba(255, 255, 255, 0.16), var(--accent-glow); }
+}
+
 @keyframes handle-in { from { opacity: 0; transform: scale(0.4); } to { opacity: 1; transform: none; } }
 
 .selection-toolbar {

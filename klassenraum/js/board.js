@@ -20,6 +20,7 @@ let scale = 1;
 let hooks = { onOpenLists: () => {} };
 let stackMode = false;
 let mode = 'edit';
+let armedId = null;
 
 export function configureBoard(options) {
   hooks = Object.assign(hooks, options || {});
@@ -67,7 +68,10 @@ export function initBoard(elements) {
   buildSelectionFrame();
 
   stageEl.addEventListener('pointerdown', (event) => {
-    if (event.target === stageEl || event.target === canvasEl) select(null);
+    if (event.target === stageEl || event.target === canvasEl || event.target === selectionFrame) {
+      select(null);
+      clearArmed();
+    }
   });
 
   window.addEventListener('resize', () => {
@@ -320,6 +324,7 @@ function attachInteractions(el, widget) {
 
     const onControl = Boolean(event.target.closest && event.target.closest('[data-nodrag]'));
     const movable = mode === 'edit' && !stackMode && !widget.locked;
+    if (onControl) setArmed(widget.id);
 
     if (points.size === 1) {
       tap = { x: event.clientX, y: event.clientY, time: Date.now(), armed: !onControl };
@@ -406,6 +411,10 @@ function attachInteractions(el, widget) {
     if (!instance || !instance.api || !instance.api.onTap) return;
     if (mode === 'use' && instance.api.tapNeedsEditing) return;
     if (event.pointerType !== 'mouse') armTapGuard(event);
+    if (instance.api.tapNeedsFocus && armedId !== widget.id) {
+      setArmed(widget.id);
+      return;
+    }
     instance.api.onTap();
   };
 
@@ -537,7 +546,30 @@ function bringToFront(widget) {
   }
 }
 
+/**
+ * Manche Elemente — die Namenslisten — sollen nicht schon beim ersten Tipp
+ * auslösen: Der erste Tipp aktiviert die Karte, erst der zweite zieht.
+ */
+function setArmed(widgetId) {
+  if (armedId === widgetId) return;
+  const previous = armedId;
+  armedId = widgetId;
+  for (const id of [previous, widgetId]) {
+    if (!id) continue;
+    const instance = instances.get(id);
+    if (!instance) continue;
+    instance.el.classList.toggle('is-armed', id === armedId);
+    if (instance.api && instance.api.onArmedChange) instance.api.onArmedChange(id === armedId);
+  }
+}
+
+export function clearArmed() {
+  setArmed(null);
+}
+
 export function select(widgetId) {
+  // Ein anderes Element anzutippen hebt die Aktivierung auf.
+  if (armedId && armedId !== widgetId) setArmed(null);
   selectedId = mode === 'use' ? null : widgetId;
   for (const [id, instance] of instances) {
     instance.el.classList.toggle('is-selected', id === widgetId);
