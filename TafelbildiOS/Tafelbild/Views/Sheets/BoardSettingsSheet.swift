@@ -39,13 +39,9 @@ struct BoardSettingsSheet: View {
                 }
 
                 Section {
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 96), spacing: 10)], spacing: 10) {
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 10)], spacing: 10) {
                         ForEach(AuroraPresets.all) { preset in
-                            swatch(LinearGradient(colors: [Color(hex: preset.base)]
-                                                  + preset.blobs.map { Color(hex: $0) },
-                                                  startPoint: .topLeading, endPoint: .bottomTrailing),
-                                   selected: isSelected(.aurora(preset.id)),
-                                   caption: preset.label) {
+                            auroraTile(preset, selected: isSelected(.aurora(preset.id))) {
                                 apply(.aurora(preset.id))
                             }
                         }
@@ -60,14 +56,9 @@ struct BoardSettingsSheet: View {
                 }
 
                 Section {
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 96), spacing: 10)], spacing: 10) {
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 104), spacing: 10)], spacing: 10) {
                         ForEach(AccentSchemes.all) { entry in
-                            swatch(LinearGradient(colors: [Color(hex: entry.from),
-                                                           Color(hex: entry.mid),
-                                                           Color(hex: entry.to)],
-                                                  startPoint: .topLeading, endPoint: .bottomTrailing),
-                                   selected: board.accent == entry.id,
-                                   caption: entry.label) {
+                            schemeCard(entry, selected: board.accent == entry.id) {
                                 var updated = board
                                 updated.accent = entry.id
                                 store.updateBoard(updated)
@@ -235,6 +226,60 @@ struct BoardSettingsSheet: View {
                 Text("Die Tafel verschwindet auf allen Geräten, die sie sehen.")
             }
         }
+    }
+
+    /// Farbschema als Karte: großer Farbkreis, Name darunter.
+    private func schemeCard(_ entry: AccentScheme, selected: Bool,
+                            action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            VStack(spacing: 8) {
+                Circle()
+                    .fill(LinearGradient(colors: [Color(hex: entry.from),
+                                                  Color(hex: entry.mid),
+                                                  Color(hex: entry.to)],
+                                         startPoint: .topLeading, endPoint: .bottomTrailing))
+                    .frame(width: 38, height: 38)
+                    .shadow(color: Color(hex: entry.from).opacity(0.45), radius: 10, y: 5)
+                Text(entry.label)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(.primary)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 14)
+            .background {
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(Color.primary.opacity(0.04))
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .strokeBorder(selected ? Color(hex: entry.from) : Color.primary.opacity(0.12),
+                                  lineWidth: selected ? 2.5 : 1)
+            }
+        }
+        .buttonStyle(.plain)
+    }
+
+    /// Hintergrundvorlage als breite Kachel mit Namen darin.
+    private func auroraTile(_ preset: AuroraPreset, selected: Bool,
+                            action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            ZStack(alignment: .bottomLeading) {
+                AuroraBackgroundView(preset: preset)
+                    .frame(height: 74)
+                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                Text(preset.label)
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundStyle(preset.isLight ? Color(hex: "#0f172a") : .white)
+                    .shadow(color: .black.opacity(preset.isLight ? 0 : 0.5), radius: 4)
+                    .padding(10)
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .strokeBorder(selected ? Theme.accent : Color.primary.opacity(0.12),
+                                  lineWidth: selected ? 3 : 1)
+            }
+        }
+        .buttonStyle(.plain)
     }
 
     private func swatch(_ fill: some ShapeStyle, selected: Bool, caption: String? = nil,

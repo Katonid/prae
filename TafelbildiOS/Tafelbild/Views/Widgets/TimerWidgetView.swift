@@ -16,33 +16,43 @@ struct TimerWidgetView: View {
     private let ticker = Timer.publish(every: 0.2, on: .main, in: .common).autoconnect()
 
     /// Häufige Unterrichtszeiten in Minuten — wie in der Web-App.
-    private let presets: [Double] = [60, 120, 300, 600, 900, 1200, 1800, 2700]
+    private let presets: [Double] = [60, 120, 180, 300, 600, 900, 1200, 1800, 2700]
 
     var body: some View {
         GeometryReader { geo in
-            let side = min(geo.size.width, geo.size.height - (content.showControls ? 62 : 0))
             let value = displayValue
-            VStack(spacing: 10) {
+            let controlHeight: CGFloat = content.showControls ? 78 : 0
+            let labelHeight: CGFloat = style.showLabels ? 24 : 0
+            let side = max(70, min(geo.size.width, geo.size.height - controlHeight - labelHeight))
+
+            VStack(spacing: 6) {
+                if style.showLabels {
+                    Text(content.mode == .countdown ? "TIMER" : "STOPPUHR")
+                        .widgetLabel(min(geo.size.width * 0.052, 15), color: style.inkSoft)
+                }
+
                 ZStack {
                     Circle()
-                        .stroke(style.wash, lineWidth: side * 0.075)
+                        .stroke(style.wash, lineWidth: side * 0.067)
                     Circle()
                         .trim(from: 0, to: max(0.0001, progress))
                         .stroke(ringStyle(value: value),
-                                style: StrokeStyle(lineWidth: side * 0.075, lineCap: .round))
+                                style: StrokeStyle(lineWidth: side * 0.067, lineCap: .round))
                         .rotationEffect(.degrees(-90))
+                        .shadow(color: style.accent.opacity(0.55), radius: side * 0.05)
                         .animation(.linear(duration: 0.2), value: progress)
 
                     VStack(spacing: 2) {
                         Text(formatDuration(value))
-                            .font(Theme.font(side * 0.26, weight: .bold))
+                            .font(Theme.font(side * 0.25, weight: .heavy))
                             .monospacedDigit()
+                            .tracking(-side * 0.005)
                             .minimumScaleFactor(0.4)
                             .lineLimit(1)
-                            .foregroundStyle(style.ink)
+                            .foregroundStyle(timeColor(value: value))
                         if content.mode == .countdown && !running && style.showLabels {
                             Text("Dauer ändern")
-                                .font(Theme.font(side * 0.075, weight: .medium))
+                                .font(Theme.font(side * 0.07, weight: .medium))
                                 .foregroundStyle(style.inkSoft)
                         }
                     }
@@ -63,7 +73,7 @@ struct TimerWidgetView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .padding(18)
+        .padding(16)
         .onReceive(ticker) { date in
             guard running || flashing else { return }
             now = date
@@ -78,28 +88,31 @@ struct TimerWidgetView: View {
 
     private func controls(width: CGFloat) -> some View {
         VStack(spacing: 8) {
-            HStack(spacing: 10) {
-                circleButton("arrow.counterclockwise", tint: AnyShapeStyle(style.wash),
-                             ink: style.ink) { reset() }
-                circleButton(running ? "pause.fill" : "play.fill",
-                             tint: AnyShapeStyle(style.accentGradient), ink: .white, large: true) {
+            HStack(spacing: 8) {
+                RoundControl(title: "−1", size: 44, style: style) { addMinute(-1) }
+                RoundControl(systemImage: "arrow.counterclockwise", size: 54, style: style) { reset() }
+                RoundControl(systemImage: running ? "pause.fill" : "play.fill",
+                             primary: true, size: 54, style: style) {
                     running ? pause() : start()
                 }
-                circleButton("plus", tint: AnyShapeStyle(style.wash), ink: style.ink) { addMinute() }
+                RoundControl(title: "+1", size: 44, style: style) { addMinute(1) }
             }
-            if content.mode == .countdown && !running && content.pausedValue == nil {
-                HStack(spacing: 6) {
+            .disabled(!interactive)
+
+            if content.mode == .countdown && !running && content.pausedValue == nil && width > 300 {
+                HStack(spacing: 5) {
                     ForEach(presets, id: \.self) { preset in
+                        let active = abs(content.duration - preset) < 1
                         Button {
                             guard interactive else { return }
                             Haptics.tap()
                             content.duration = preset
                         } label: {
-                            let active = abs(content.duration - preset) < 1
-                            Text(preset < 60 ? "\(Int(preset))s" : "\(Int(preset / 60))")
-                                .font(Theme.font(15, weight: .semibold))
-                                .foregroundStyle(active ? Color.white : style.ink)
-                                .frame(width: 34, height: 28)
+                            Text("\(Int(preset / 60))")
+                                .font(Theme.font(13.5, weight: .semibold))
+                                .monospacedDigit()
+                                .foregroundStyle(active ? Color.white : style.inkSoft)
+                                .frame(width: 30, height: 26)
                                 .background {
                                     Capsule().fill(active
                                                    ? AnyShapeStyle(style.accentGradient)
@@ -110,30 +123,11 @@ struct TimerWidgetView: View {
                         .disabled(!interactive)
                     }
                     Text("Min.")
-                        .font(Theme.font(14, weight: .medium))
+                        .font(Theme.font(12, weight: .medium))
                         .foregroundStyle(style.inkSoft)
                 }
             }
         }
-    }
-
-    private func circleButton(_ symbol: String, tint: AnyShapeStyle, ink: Color,
-                              large: Bool = false,
-                              action: @escaping () -> Void) -> some View {
-        Button {
-            guard interactive else { return }
-            Haptics.tap()
-            action()
-        } label: {
-            Image(systemName: symbol)
-                .font(.system(size: large ? 24 : 18, weight: .bold))
-                .foregroundStyle(ink)
-                .frame(width: large ? 56 : 44, height: large ? 56 : 44)
-                .background(Circle().fill(tint))
-                .shadow(color: large ? style.accentGlow : .clear, radius: 14, y: 6)
-        }
-        .buttonStyle(.plain)
-        .opacity(interactive ? 1 : 0.7)
     }
 
     // MARK: - Zustand
@@ -167,11 +161,19 @@ struct TimerWidgetView: View {
         return displayValue.truncatingRemainder(dividingBy: 60) / 60
     }
 
+    /// Kurz vor Schluss färbt sich auch die Zeit.
+    private func timeColor(value: Double) -> Color {
+        guard content.mode == .countdown else { return style.ink }
+        if value <= 0 { return Theme.danger }
+        if value <= max(10, content.duration * 0.1) { return Color(hex: "#f97316") }
+        return style.ink
+    }
+
     /// Der Ring läuft im Farbverlauf der Tafel — außer kurz vor Schluss.
     private func ringStyle(value: Double) -> AnyShapeStyle {
         if content.mode == .countdown {
             if value <= 0 { return AnyShapeStyle(Theme.danger) }
-            if value <= max(10, content.duration * 0.1) { return AnyShapeStyle(Theme.amber) }
+            if value <= max(10, content.duration * 0.1) { return AnyShapeStyle(Color(hex: "#f97316")) }
         }
         return AnyShapeStyle(style.accentGradient)
     }
@@ -202,17 +204,19 @@ struct TimerWidgetView: View {
         flashing = false
     }
 
-    private func addMinute() {
+    /// Eine Minute mehr oder weniger — auch während der Timer läuft.
+    private func addMinute(_ direction: Double) {
+        let step = 60.0 * direction
         if content.mode == .countdown {
             if let endsAtMs = content.endsAtMs {
-                content.endsAtMs = endsAtMs + 60_000
+                content.endsAtMs = max(Date.nowMs, endsAtMs + Int64(step * 1000))
             } else if let paused = content.pausedValue {
-                content.pausedValue = paused + 60
+                content.pausedValue = max(0, paused + step)
             } else {
-                content.duration += 60
+                content.duration = max(0, content.duration + step)
             }
         } else {
-            content.pausedValue = (content.pausedValue ?? 0) + 60
+            content.pausedValue = max(0, (content.pausedValue ?? 0) + step)
         }
     }
 

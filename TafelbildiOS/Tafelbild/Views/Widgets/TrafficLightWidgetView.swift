@@ -41,7 +41,7 @@ struct TrafficLightWidgetView: View {
 
                 if showLabel {
                     Text(activeLabel)
-                        .font(Theme.font(min(geo.size.width * 0.16, 34), weight: .bold))
+                        .font(Theme.font(min(geo.size.width * 0.14, 30), weight: .bold))
                         .foregroundStyle(style.ink)
                         .lineLimit(1)
                         .minimumScaleFactor(0.5)

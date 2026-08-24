@@ -16,9 +16,11 @@ enum Theme {
     static let cardTint = Color.white.opacity(0.10)
     static let cardStroke = Color.white.opacity(0.16)
 
-    /// Abgerundete, freundliche Schrift in Tafelgröße.
+    /// Systemschrift (SF Pro) wie in der Web-App — klar und sachlich.
+    /// Bewusst nicht die abgerundete Variante: Die wirkt verspielt, die
+    /// Vorlage lebt von der ruhigen, präzisen Systemschrift.
     static func font(_ size: Double, weight: Font.Weight = .semibold) -> Font {
-        .system(size: size, weight: weight, design: .rounded)
+        .system(size: size, weight: weight)
     }
 
     static let widgetCorner: Double = 26
@@ -143,6 +145,18 @@ extension Color {
     }
 }
 
+extension Text {
+    /// Kleine Aufschrift über einem Element: leicht gesperrt und gedämpft —
+    /// wie „TIMER" oder „EIGENE LISTE" in der Web-App. Großbuchstaben setzt
+    /// die aufrufende Stelle selbst (`uppercased()`).
+    func widgetLabel(_ size: Double, color: Color) -> Text {
+        self
+            .font(Theme.font(size, weight: .bold))
+            .tracking(size * 0.085)
+            .foregroundStyle(color)
+    }
+}
+
 // MARK: - Karten
 
 /// Karte für ein Element auf der Tafel — Glas, Hell oder Dunkel.
@@ -155,6 +169,10 @@ struct WidgetCard: ViewModifier {
             .background {
                 RoundedRectangle(cornerRadius: corner, style: .continuous)
                     .fill(.ultraThinMaterial)
+                    // Ohne feste Vorgabe färbt iOS das Milchglas nach der
+                    // Umgebung ein — auf dunklem Hintergrund würde die helle
+                    // Karte dadurch grau statt milchig weiß.
+                    .environment(\.colorScheme, style.isDarkCard ? .dark : .light)
                     .opacity(style.usesMaterial ? 1 : 0)
                     .overlay {
                         RoundedRectangle(cornerRadius: corner, style: .continuous)
@@ -177,30 +195,41 @@ extension View {
         modifier(WidgetCard(style: style, corner: corner))
     }
 
-    /// Kleine Fläche für Bedienleisten über der Tafel.
+    /// Alter Name derselben Fläche — die Werkzeugleiste am gewählten
+    /// Element benutzt ihn weiterhin.
     func chromeBar(corner: Double = 22) -> some View {
+        chromeGlass(corner: corner)
+    }
+
+    /// Dunkles Milchglas für Bedienelemente, die frei über der Tafel liegen —
+    /// Pillen in der Kopfleiste, die Leiste am unteren Rand.
+    func chromeGlass(corner: Double = 999) -> some View {
         background {
             RoundedRectangle(cornerRadius: corner, style: .continuous)
                 .fill(.ultraThinMaterial)
+                .environment(\.colorScheme, .dark)
                 .overlay {
                     RoundedRectangle(cornerRadius: corner, style: .continuous)
-                        .fill(Color.black.opacity(0.28))
+                        .fill(Color(hex: "#0f172a").opacity(0.5))
                 }
                 .overlay {
                     RoundedRectangle(cornerRadius: corner, style: .continuous)
                         .strokeBorder(Color.white.opacity(0.14), lineWidth: 1)
                 }
-                .shadow(color: .black.opacity(0.35), radius: 20, y: 10)
+                .shadow(color: .black.opacity(0.55), radius: 18, y: 10)
         }
     }
 }
 
-/// Runder Knopf der schwebenden Werkzeugleiste.
+/// Pille der schwebenden Kopfleiste — dunkles Milchglas, weiße Schrift.
+/// `primary` färbt sie im Farbverlauf der Tafel und legt ein Leuchten darunter.
 struct ChromeButton: View {
     let systemImage: String
     var title: String? = nil
     var active: Bool = false
+    var primary: Bool = false
     var tint: Color = .white
+    var gradient: LinearGradient? = nil
     let action: () -> Void
 
     var body: some View {
@@ -208,19 +237,67 @@ struct ChromeButton: View {
             Haptics.tap()
             action()
         }) {
-            HStack(spacing: 8) {
+            HStack(spacing: 7) {
                 Image(systemName: systemImage)
-                    .font(.system(size: 17, weight: .semibold))
+                    .font(.system(size: 16, weight: .semibold))
                 if let title {
                     Text(title)
-                        .font(.system(size: 16, weight: .semibold, design: .rounded))
+                        .font(Theme.font(15, weight: primary ? .bold : .semibold))
                 }
             }
-            .foregroundStyle(active ? Color.black : tint)
-            .padding(.horizontal, title == nil ? 12 : 16)
-            .frame(height: 44)
+            .foregroundStyle(primary ? Color.white : (active ? Theme.mint : tint))
+            .padding(.horizontal, title == nil ? 13 : 16)
+            .frame(height: 42)
             .background {
-                Capsule().fill(active ? Color.white : Color.white.opacity(0.10))
+                if primary, let gradient {
+                    Capsule().fill(gradient)
+                        .shadow(color: Color(hex: "#6366f1").opacity(0.7), radius: 17, y: 9)
+                } else {
+                    Capsule().fill(.ultraThinMaterial)
+                        .environment(\.colorScheme, .dark)
+                        .overlay { Capsule().fill(Color(hex: "#0f172a").opacity(0.5)) }
+                        .overlay { Capsule().strokeBorder(Color.white.opacity(0.14), lineWidth: 1) }
+                        .shadow(color: .black.opacity(0.55), radius: 14, y: 8)
+                }
+            }
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+/// Runder Knopf innerhalb einer Karte (Timer). `primary` = Farbverlauf.
+struct RoundControl: View {
+    var systemImage: String? = nil
+    var title: String? = nil
+    var primary: Bool = false
+    var size: Double = 54
+    let style: BoardStyle
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: {
+            Haptics.tap()
+            action()
+        }) {
+            Group {
+                if let systemImage {
+                    Image(systemName: systemImage)
+                        .font(.system(size: size * 0.37, weight: .bold))
+                } else if let title {
+                    Text(title)
+                        .font(Theme.font(size * 0.30, weight: .bold))
+                }
+            }
+            .foregroundStyle(primary ? Color.white : style.ink)
+            .frame(width: size, height: size)
+            .background {
+                if primary {
+                    Circle().fill(style.accentGradient)
+                        .shadow(color: style.accentGlow, radius: size * 0.32, y: size * 0.16)
+                } else {
+                    Circle().fill(style.wash)
+                        .overlay { Circle().strokeBorder(style.line, lineWidth: 1) }
+                }
             }
         }
         .buttonStyle(.plain)

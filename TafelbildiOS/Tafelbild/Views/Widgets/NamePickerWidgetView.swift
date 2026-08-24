@@ -45,8 +45,8 @@ struct NamePickerWidgetView: View {
 
                 if style.showLabels {
                     Text(hint)
-                        .font(Theme.font(Double(min(geo.size.width * 0.045, 17)), weight: .medium))
-                        .foregroundStyle(style.inkSoft)
+                        .font(Theme.font(Double(min(geo.size.width * 0.033, 15)), weight: .medium))
+                        .foregroundStyle(style.inkSoft.opacity(0.8))
                         .lineLimit(1)
                         .minimumScaleFactor(0.6)
                 }
@@ -72,10 +72,11 @@ struct NamePickerWidgetView: View {
             } label: {
                 HStack(spacing: 6) {
                     Image(systemName: "list.bullet.rectangle")
-                    Text(list?.name ?? "Liste wählen")
+                        .font(.system(size: min(width * 0.032, 14), weight: .bold))
+                    Text((list?.name ?? "Liste wählen").uppercased())
+                        .widgetLabel(min(width * 0.032, 14), color: style.inkSoft)
                         .lineLimit(1)
                 }
-                .font(Theme.font(16, weight: .semibold))
                 .foregroundStyle(style.inkSoft)
             }
             .buttonStyle(.plain)
@@ -84,11 +85,14 @@ struct NamePickerWidgetView: View {
 
             if let list {
                 Text(content.mode == .withoutRepeat
-                     ? "\(remaining.count)/\(list.activeEntries.count) übrig"
-                     : "\(list.activeEntries.count) Namen")
-                    .font(Theme.font(15, weight: .semibold))
+                     ? "\(remaining.count)/\(list.activeEntries.count)"
+                     : "\(list.activeEntries.count)")
+                    .font(Theme.font(min(width * 0.032, 14), weight: .semibold))
                     .monospacedDigit()
                     .foregroundStyle(style.inkSoft)
+                    .padding(.horizontal, 9)
+                    .padding(.vertical, 3)
+                    .background { Capsule().fill(style.wash) }
             }
 
             Menu {
@@ -139,9 +143,10 @@ struct NamePickerWidgetView: View {
         let text = displayName
         ZStack {
             Text(hidden && revealMode == .letters ? maskedLetters(text) : text)
-                .font(Theme.font(nameSize(size), weight: .bold))
+                .font(Theme.font(nameSize(size), weight: .heavy))
+                .tracking(-nameSize(size) * 0.02)
                 .foregroundStyle(hasName ? AnyShapeStyle(style.accentGradient)
-                                         : AnyShapeStyle(style.inkSoft))
+                                         : AnyShapeStyle(style.inkSoft.opacity(0.55)))
                 .lineLimit(2)
                 .minimumScaleFactor(0.3)
                 .multilineTextAlignment(.center)
@@ -166,13 +171,23 @@ struct NamePickerWidgetView: View {
                     ForEach(0..<RevealLayout.mosaicColumns, id: \.self) { column in
                         let index = row * RevealLayout.mosaicColumns + column
                         RoundedRectangle(cornerRadius: 3, style: .continuous)
-                            .fill(style.accent.opacity(open.contains(index) ? 0 : 0.92))
+                            .fill(mosaicFill)
+                            .opacity(open.contains(index) ? 0 : 1)
+                            .scaleEffect(open.contains(index) ? 0.5 : 1.06)
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
                     }
                 }
             }
         }
         .animation(.easeOut(duration: 0.22), value: content.revealParts.count)
+    }
+
+    /// Helle Kacheln wie in der Web-App — sie verdecken, ohne zu schreien.
+    private var mosaicFill: LinearGradient {
+        LinearGradient(colors: style.isDarkCard
+                       ? [Color(hex: "#334155"), Color(hex: "#1e293b")]
+                       : [Color(hex: "#e6e9f5"), Color(hex: "#cdd5f3")],
+                       startPoint: .topLeading, endPoint: .bottomTrailing)
     }
 
     /// Die Unschärfe richtet sich nach der Schriftgröße — sonst bliebe ein
@@ -205,18 +220,18 @@ struct NamePickerWidgetView: View {
                     Image(systemName: mainSymbol)
                         .font(.system(size: 22, weight: .bold))
                     Text(buttonTitle)
-                        .font(Theme.font(22, weight: .bold))
+                        .font(Theme.font(20, weight: .bold))
                         .lineLimit(1)
                         .minimumScaleFactor(0.6)
                 }
                 .foregroundStyle(Color.white)
                 .frame(maxWidth: .infinity)
-                .frame(height: 58)
+                .frame(height: 54)
                 .background {
                     Capsule().fill(style.accentGradient)
                         .opacity(list == nil ? 0.45 : 1)
                 }
-                .shadow(color: style.accentGlow, radius: 16, y: 8)
+                .shadow(color: style.accentGlow, radius: 17, y: 9)
             }
             .buttonStyle(.plain)
             .disabled(list == nil || spinText != nil)
@@ -230,8 +245,11 @@ struct NamePickerWidgetView: View {
                     Image(systemName: "eye")
                         .font(.system(size: 20, weight: .bold))
                         .foregroundStyle(style.ink)
-                        .frame(width: 58, height: 58)
-                        .background { Circle().fill(style.wash) }
+                        .frame(width: 54, height: 54)
+                        .background {
+                            Circle().fill(style.wash)
+                                .overlay { Circle().strokeBorder(style.line, lineWidth: 1) }
+                        }
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Namen ganz aufdecken")
@@ -295,7 +313,7 @@ struct NamePickerWidgetView: View {
                     } label: {
                         let current = entry.id == content.currentID
                         Text(entry.text)
-                            .font(Theme.font(17, weight: .semibold))
+                            .font(Theme.font(16, weight: .semibold))
                             .foregroundStyle(current ? Color.white : style.ink)
                             .lineLimit(1)
                             .padding(.horizontal, 14)
@@ -309,9 +327,8 @@ struct NamePickerWidgetView: View {
                     .disabled(!interactive)
                 }
                 if shown.isEmpty {
-                    Text("Noch niemand gezogen")
-                        .font(Theme.font(16, weight: .medium))
-                        .foregroundStyle(style.inkSoft)
+                    Text("NOCH NIEMAND GEZOGEN")
+                        .widgetLabel(12, color: style.inkSoft)
                 }
             }
             .padding(.vertical, 2)
