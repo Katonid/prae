@@ -7,16 +7,18 @@ import { icon } from '../icons.js';
 import { getState, getList, on as onStore, addList } from '../store.js';
 import { section, field, toggleRow, button, buttonRow, toast } from '../ui.js';
 
-const MOSAIC_COLS = 8;
-const MOSAIC_ROWS = 3;
+// Feines Raster: viele kleine Kacheln geben pro Tipp wenig preis.
+const MOSAIC_COLS = 28;
+const MOSAIC_ROWS = 10;
 const MOSAIC_TILES = MOSAIC_COLS * MOSAIC_ROWS;
-const MOSAIC_PER_TAP = 3;
-const BLUR_STEPS = 8;
+const MOSAIC_STEPS = 12;
+const MOSAIC_PER_TAP = Math.ceil(MOSAIC_TILES / MOSAIC_STEPS);
+const BLUR_STEPS = 10;
 
 const REVEAL_MODES = [
   { id: 'instant', label: 'Sofort', hint: 'Der Name steht sofort da.' },
-  { id: 'mosaik', label: 'Mosaik', hint: 'Kachel für Kachel wird der Name freigelegt.' },
-  { id: 'blur', label: 'Unschärfe', hint: 'Der Name wird mit jedem Tipp schärfer.' },
+  { id: 'mosaik', label: 'Mosaik', hint: 'Feine Kacheln verschwinden nach und nach — zwölf Tipps bis zum ganzen Namen.' },
+  { id: 'blur', label: 'Unschärfe', hint: 'Erst nur ein Farbnebel, mit jedem Tipp schärfer — zehn Tipps.' },
   { id: 'letters', label: 'Buchstaben', hint: 'Ein Buchstabe nach dem anderen erscheint.' },
 ];
 
@@ -238,8 +240,12 @@ export default {
         return;
       }
       if (mode === 'blur') {
-        const progress = revealParts(state).length / BLUR_STEPS;
-        nameEl.style.filter = `blur(${(1 - progress) * 16 + 1}px)`;
+        const progress = Math.min(1, revealParts(state).length / BLUR_STEPS);
+        // Die Unschärfe richtet sich nach der Schriftgröße — sonst bleibt ein
+        // großer Name auch mit festem Wert lesbar.
+        const size = parseFloat(nameEl.style.fontSize) || 48;
+        const amount = size * 0.42 * Math.pow(1 - progress, 1.5) + 1.5;
+        nameEl.style.filter = `blur(${amount.toFixed(1)}px)`;
         clear(maskEl);
         return;
       }
