@@ -39,21 +39,19 @@ struct WidgetSettingsSheet: View {
                         SymbolSettings(content: bindSymbol(value))
                     }
 
-                    if let widget {
-                        Section("Auf der Tafel") {
-                            Toggle("Karte zeigen", isOn: Binding(
-                                get: { !widget.bare },
-                                set: { value in
-                                    store.updateWidget(widgetID, in: boardID) { $0.bare = !value }
-                                }
-                            ))
-                            Toggle("Position festecken", isOn: Binding(
-                                get: { widget.locked },
-                                set: { value in
-                                    store.updateWidget(widgetID, in: boardID) { $0.locked = value }
-                                }
-                            ))
-                        }
+                    Section("Auf der Tafel") {
+                        Toggle("Karte zeigen", isOn: Binding(
+                            get: { !(store.widget(widgetID, in: boardID)?.bare ?? false) },
+                            set: { value in
+                                store.updateWidget(widgetID, in: boardID) { $0.bare = !value }
+                            }
+                        ))
+                        Toggle("Position festecken", isOn: Binding(
+                            get: { store.widget(widgetID, in: boardID)?.locked ?? false },
+                            set: { value in
+                                store.updateWidget(widgetID, in: boardID) { $0.locked = value }
+                            }
+                        ))
                     }
 
                     Section {
