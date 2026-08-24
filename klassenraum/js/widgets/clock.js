@@ -1,40 +1,108 @@
-// Uhr — analog (mit Ziffernblatt zum Ablesen üben) oder digital.
+// Uhr — modern, klassisch oder als Lernuhr; dazu digital.
 
-import { h, clear } from '../util.js';
+import { h, clear, reducedMotion } from '../util.js';
 import { section, toggleRow, colorSwatches } from '../ui.js';
 
 const WEEKDAYS = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
-const MONTHS = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
+const MONTHS = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August',
+  'September', 'Oktober', 'November', 'Dezember'];
 
-function analogSvg(accent) {
-  const ns = 'http://www.w3.org/2000/svg';
-  const svg = document.createElementNS(ns, 'svg');
-  svg.setAttribute('viewBox', '0 0 200 200');
-  svg.classList.add('w-clock__svg');
-  const parts = [`<circle class="clock-face" cx="100" cy="100" r="94" style="stroke:${accent}"/>`];
+const FACES = [
+  { id: 'modern', label: 'Modern' },
+  { id: 'klassisch', label: 'Klassisch' },
+  { id: 'lernuhr', label: 'Lernuhr' },
+];
+
+const HOUR_COLOR = '#2563eb';
+const MINUTE_COLOR = '#ea580c';
+
+function polar(radius, degrees) {
+  const rad = (degrees - 90) * (Math.PI / 180);
+  return { x: 100 + Math.cos(rad) * radius, y: 100 + Math.sin(rad) * radius };
+}
+
+function ticks(face, accent) {
+  const parts = [];
   for (let i = 0; i < 60; i += 1) {
-    const angle = (i * 6 * Math.PI) / 180;
-    const long = i % 5 === 0;
-    const outer = 88;
-    const inner = long ? 78 : 83;
-    const x1 = 100 + Math.sin(angle) * inner;
-    const y1 = 100 - Math.cos(angle) * inner;
-    const x2 = 100 + Math.sin(angle) * outer;
-    const y2 = 100 - Math.cos(angle) * outer;
-    parts.push(`<line class="clock-tick${long ? ' clock-tick--long' : ''}" x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" style="stroke:${long ? accent : accent + '99'}"/>`);
+    const major = i % 5 === 0;
+    if (face === 'modern' && !major) continue;
+    const angle = i * 6;
+    const outer = face === 'lernuhr' ? 79 : 88;
+    const inner = major ? outer - (face === 'modern' ? 9 : 8) : outer - 4;
+    const a = polar(outer, angle);
+    const b = polar(inner, angle);
+    const width = major ? (face === 'modern' ? 3.4 : 3) : 1.4;
+    const color = major ? accent : `${accent}66`;
+    parts.push(`<line x1="${a.x.toFixed(1)}" y1="${a.y.toFixed(1)}" x2="${b.x.toFixed(1)}" y2="${b.y.toFixed(1)}" `
+      + `stroke="${color}" stroke-width="${width}" stroke-linecap="round"/>`);
+  }
+  return parts.join('');
+}
+
+function numbers(face) {
+  const parts = [];
+  if (face === 'modern') {
+    for (const n of [12, 3, 6, 9]) {
+      const p = polar(68, n * 30);
+      parts.push(`<text class="clock-number clock-number--light" x="${p.x.toFixed(1)}" y="${(p.y + 7).toFixed(1)}" text-anchor="middle">${n}</text>`);
+    }
+    return parts.join('');
   }
   for (let n = 1; n <= 12; n += 1) {
-    const angle = (n * 30 * Math.PI) / 180;
-    const x = 100 + Math.sin(angle) * 64;
-    const y = 100 - Math.cos(angle) * 64 + 7;
-    parts.push(`<text class="clock-number" x="${x.toFixed(1)}" y="${y.toFixed(1)}" text-anchor="middle">${n}</text>`);
+    const p = polar(face === 'lernuhr' ? 60 : 66, n * 30);
+    const fill = face === 'lernuhr' ? HOUR_COLOR : 'var(--card-ink)';
+    parts.push(`<text class="clock-number" x="${p.x.toFixed(1)}" y="${(p.y + 7).toFixed(1)}" text-anchor="middle" fill="${fill}">${n}</text>`);
   }
-  parts.push('<line class="clock-hand clock-hand--hour" x1="100" y1="108" x2="100" y2="52"/>');
-  parts.push('<line class="clock-hand clock-hand--minute" x1="100" y1="112" x2="100" y2="26"/>');
-  parts.push('<line class="clock-hand clock-hand--second" x1="100" y1="116" x2="100" y2="22"/>');
-  parts.push('<circle class="clock-pin" cx="100" cy="100" r="4.5"/>');
-  svg.innerHTML = parts.join('');
-  return svg;
+  if (face === 'lernuhr') {
+    for (let n = 5; n <= 60; n += 5) {
+      const p = polar(89, n * 6);
+      parts.push(`<text class="clock-number clock-number--minute" x="${p.x.toFixed(1)}" y="${(p.y + 4).toFixed(1)}" `
+        + `text-anchor="middle" fill="${MINUTE_COLOR}">${n === 60 ? 0 : n}</text>`);
+    }
+  }
+  return parts.join('');
+}
+
+function buildFace(face, accent, showSeconds) {
+  const id = `clk-${Math.random().toString(36).slice(2, 8)}`;
+  const parts = [];
+
+  // userSpaceOnUse ist wichtig: eine senkrechte Linie hat keine Breite, ein
+  // Farbverlauf in Objektkoordinaten würde deshalb gar nicht gezeichnet.
+  parts.push(`<defs><linearGradient id="${id}" gradientUnits="userSpaceOnUse" x1="60" y1="20" x2="140" y2="180">`
+    + `<stop offset="0%" stop-color="${accent}"/><stop offset="100%" stop-color="#ec4899"/></linearGradient></defs>`);
+
+  if (face === 'modern') {
+    parts.push(`<circle cx="100" cy="100" r="94" fill="var(--clock-face)" stroke="${accent}22" stroke-width="1.5"/>`);
+  } else {
+    parts.push(`<circle cx="100" cy="100" r="94" fill="var(--clock-face)" stroke="${face === 'lernuhr' ? HOUR_COLOR : accent}" stroke-width="${face === 'lernuhr' ? 2.5 : 3}"/>`);
+  }
+
+  parts.push(ticks(face, face === 'lernuhr' ? MINUTE_COLOR : (face === 'modern' ? 'var(--card-ink)' : accent)));
+  parts.push(numbers(face));
+
+  const hourColor = face === 'lernuhr' ? HOUR_COLOR : 'var(--card-ink)';
+  const minuteColor = face === 'lernuhr' ? MINUTE_COLOR : 'var(--card-ink)';
+
+  if (face === 'modern') {
+    parts.push('<line class="clock-hand clock-hand--hour" x1="100" y1="112" x2="100" y2="54" '
+      + `stroke="${hourColor}" stroke-width="7" stroke-linecap="round"/>`);
+    parts.push('<line class="clock-hand clock-hand--minute" x1="100" y1="116" x2="100" y2="30" '
+      + `stroke="${minuteColor}" stroke-width="5" stroke-linecap="round"/>`);
+  } else {
+    parts.push(`<line class="clock-hand clock-hand--hour" x1="100" y1="110" x2="100" y2="${face === 'lernuhr' ? 58 : 54}" `
+      + `stroke="${hourColor}" stroke-width="${face === 'lernuhr' ? 8 : 7}" stroke-linecap="round"/>`);
+    parts.push(`<line class="clock-hand clock-hand--minute" x1="100" y1="114" x2="100" y2="${face === 'lernuhr' ? 26 : 28}" `
+      + `stroke="${minuteColor}" stroke-width="${face === 'lernuhr' ? 5.5 : 4.6}" stroke-linecap="round"/>`);
+  }
+
+  if (showSeconds) {
+    parts.push(`<line class="clock-hand clock-hand--second" x1="100" y1="118" x2="100" y2="24" stroke="url(#${id})" stroke-width="2.2" stroke-linecap="round"/>`);
+  }
+
+  parts.push(`<circle class="clock-pin" cx="100" cy="100" r="${face === 'modern' ? 5 : 4.5}" fill="url(#${id})"/>`);
+  parts.push('<circle cx="100" cy="100" r="2" fill="var(--clock-face)"/>');
+  return parts.join('');
 }
 
 export default {
@@ -44,27 +112,33 @@ export default {
   defaultSize: { w: 400, h: 400 },
   minSize: { w: 180, h: 180 },
   createState() {
-    return { mode: 'analog', showSeconds: true, showDate: true, accent: '#6366f1' };
+    return { mode: 'analog', face: 'modern', showSeconds: true, showDate: true, accent: '#6366f1', sweep: true };
   },
 
   mount(ctx) {
     const el = h('div', { class: 'w-clock' });
-    let svg = null;
-    let hands = null;
     const digital = h('div', { class: 'w-clock__digital' });
     const dateEl = h('div', { class: 'w-clock__date' });
+    let svg = null;
+    let hands = null;
+    let raf = null;
+    let timer = null;
 
     function build() {
-      clear(el);
       const state = ctx.widget.state;
+      clear(el);
+      stopLoops();
       if (state.mode === 'analog') {
-        svg = analogSvg(state.accent || '#6366f1');
+        const face = FACES.some((entry) => entry.id === state.face) ? state.face : 'modern';
+        svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.setAttribute('viewBox', '0 0 200 200');
+        svg.classList.add('w-clock__svg', `w-clock__svg--${face}`);
+        svg.innerHTML = buildFace(face, state.accent || '#6366f1', state.showSeconds !== false);
         hands = {
           hour: svg.querySelector('.clock-hand--hour'),
           minute: svg.querySelector('.clock-hand--minute'),
           second: svg.querySelector('.clock-hand--second'),
         };
-        hands.second.style.display = state.showSeconds === false ? 'none' : '';
         el.appendChild(h('div', { class: 'w-clock__analog' }, svg));
       } else {
         svg = null;
@@ -73,6 +147,28 @@ export default {
       }
       if (state.showDate) el.appendChild(dateEl);
       tick();
+      startLoops();
+    }
+
+    function startLoops() {
+      const state = ctx.widget.state;
+      const smooth = hands && state.showSeconds !== false && state.sweep !== false && !reducedMotion();
+      if (smooth) {
+        const loop = () => {
+          tick();
+          raf = requestAnimationFrame(loop);
+        };
+        raf = requestAnimationFrame(loop);
+      } else {
+        timer = setInterval(tick, 250);
+      }
+    }
+
+    function stopLoops() {
+      if (raf) cancelAnimationFrame(raf);
+      if (timer) clearInterval(timer);
+      raf = null;
+      timer = null;
     }
 
     function tick() {
@@ -84,7 +180,10 @@ export default {
         const hours = (now.getHours() % 12) + minutes / 60;
         hands.hour.setAttribute('transform', `rotate(${hours * 30} 100 100)`);
         hands.minute.setAttribute('transform', `rotate(${minutes * 6} 100 100)`);
-        hands.second.setAttribute('transform', `rotate(${seconds * 6} 100 100)`);
+        if (hands.second) {
+          const value = state.sweep === false || reducedMotion() ? Math.floor(seconds) : seconds;
+          hands.second.setAttribute('transform', `rotate(${value * 6} 100 100)`);
+        }
       } else {
         const pad = (n) => String(n).padStart(2, '0');
         digital.textContent = state.showSeconds === false
@@ -98,7 +197,6 @@ export default {
       }
     }
 
-    const timer = setInterval(tick, 200);
     build();
 
     return {
@@ -110,9 +208,7 @@ export default {
         ctx.save();
         build();
       },
-      destroy() {
-        clearInterval(timer);
-      },
+      destroy: stopLoops,
     };
   },
 
@@ -144,19 +240,43 @@ export default {
               ctx.save();
               rerender();
             },
-          }, 'Digital')),
+          }, 'Digital'))));
+
+      if (state.mode === 'analog') {
+        wrap.appendChild(section('Zifferblatt',
+          h('div', { class: 'segmented' }, FACES.map((face) => h('button', {
+            class: 'segmented__item' + ((state.face || 'modern') === face.id ? ' is-active' : ''),
+            onclick: () => {
+              ctx.widget.state.face = face.id;
+              ctx.save();
+              rerender();
+            },
+          }, face.label))),
+          h('p', { class: 'muted small' }, (state.face || 'modern') === 'lernuhr'
+            ? 'Lernuhr: blaue Stundenzahlen mit blauem Zeiger, orange Minutenzahlen mit orangem Zeiger — zum Ablesen üben.'
+            : ((state.face || 'modern') === 'modern'
+              ? 'Modern: ruhiges Zifferblatt mit schlanken Zeigern und gleitendem Sekundenzeiger.'
+              : 'Klassisch: alle Zahlen von 1 bis 12 mit Minutenstrichen.'))));
+      }
+
+      wrap.appendChild(section('Anzeige',
         toggleRow('Sekunden anzeigen', state.showSeconds !== false, (value) => {
           ctx.widget.state.showSeconds = value;
           ctx.save();
           rerender();
         }),
+        state.mode === 'analog' && state.showSeconds !== false ? toggleRow('Sekundenzeiger gleitet', state.sweep !== false, (value) => {
+          ctx.widget.state.sweep = value;
+          ctx.save();
+          rerender();
+        }, 'Aus: der Zeiger springt im Sekundentakt.') : null,
         toggleRow('Datum anzeigen', state.showDate !== false, (value) => {
           ctx.widget.state.showDate = value;
           ctx.save();
           rerender();
         })));
 
-      if (state.mode === 'analog') {
+      if (state.mode === 'analog' && (state.face || 'modern') !== 'lernuhr') {
         wrap.appendChild(section('Farbe',
           colorSwatches(['#6366f1', '#0ea5e9', '#16a34a', '#f97316', '#e11d48', '#111827'], state.accent, (color) => {
             ctx.widget.state.accent = color;

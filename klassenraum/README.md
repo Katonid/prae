@@ -12,12 +12,14 @@ funktioniert auch am Telefon.
 | --- | --- |
 | **Zufälliger Name** | Zieht Namen aus einer Liste — mit oder ohne Zurücklegen. Gezogene Namen lassen sich einzeln zurücklegen, löschen oder von Hand als gezogen markieren. Der gezogene Name kann **schrittweise aufgedeckt** werden, damit die Klasse mitraten kann. |
 | **Timer / Stoppuhr** | Voreinstellungen von 1 bis 45 Minuten, ±1 Minute, Signalton am Ende. |
-| **Uhr** | Analog (mit Ziffernblatt zum Ablesen üben) oder digital, mit Datum. |
+| **Uhr** | Analog in drei Zifferblättern — **Modern** (schlank, mit gleitendem Sekundenzeiger), **Klassisch** (alle Zahlen) und **Lernuhr** (blaue Stunden-, orange Minutenzahlen mit farbgleichen Zeigern) — oder digital, jeweils mit Datum. |
 | **Ampel** | Drei Lichter, antippen oder doppeltippen zum Weiterschalten, mit eigenen Beschriftungen. |
 | **Tagesablauf** | Checkliste mit Fortschrittsbalken, Punkte abhaken, sortieren, schnell erfassen. |
 | **Text** | Doppeltippen zum Schreiben, Schriftgröße passt sich automatisch an. |
 | **Bild** | Bild vom Gerät, wird beim Einfügen verkleinert. |
 | **Lautstärke** | Misst über das Mikrofon die Lautstärke im Raum, mit einstellbarer Grenze und optionalem Signalton. Beim ersten Start fragt das Gerät nach der Erlaubnis; wird sie verweigert, erklärt die Karte den Weg zurück. |
+| **Klang** | Tasten, die auf Tippen eine Klangdatei abspielen — Datei vom Gerät oder Link. Mehrere Tasten je Element, eigene Farbe und Beschriftung. |
+| **Video** | Video vom Gerät oder per Link, mit Bedienleiste, Schleife und Vollbild. |
 | **Arbeitssymbol** | Einzel-, Partner-, Gruppenarbeit, Stillarbeit, Melden, Zuhören, Aufräumen. |
 
 Dazu kommen: **mehrere Klassenräume** (eine eigene Tafel pro Klasse), **Namenslisten**,
@@ -44,6 +46,25 @@ weiter bedienen (Namen ziehen, Ampel schalten, Timer starten, Punkte abhaken).
 Verschieben, Einstellen und Löschen sind dort gesperrt — ein Kind kann also nichts
 versehentlich verstellen. **„Bearbeiten“** schaltet zurück. Die zuletzt gewählte
 Ansicht wird gemerkt.
+
+## Schreiben und markieren
+
+Der Stift oben rechts schaltet das Schreiben ein — mit **Apple Pencil**, Finger oder Maus.
+In der Leiste: Stift, Textmarker, Radierer (entfernt einzelne Striche), sieben Farben,
+drei Strichstärken, Rückgängig und „Alles löschen". **„nur Stift"** schaltet Finger und
+Handballen aus, sodass die Hand beim Schreiben aufliegen darf. Beim Apple Pencil
+richtet sich die Strichstärke zusätzlich nach dem Druck.
+
+Das Geschriebene gehört zum Klassenraum: Es bleibt nach dem Schließen erhalten, lässt
+sich in der Unterrichtsansicht genauso nutzen und wird beim Teilen mitgeschickt.
+
+## Klang und Video
+
+Beide Elemente nehmen entweder eine **Datei vom Gerät** (bis 60 MB, liegt im
+Gerätespeicher) oder einen **Link**. Dateien vom Gerät werden beim Teilen über einen
+Code nicht mitgeschickt — ein Link funktioniert überall. Im Menü unter **Speicher**
+steht, wie viel Platz die Dateien belegen; dort lassen sich nicht mehr genutzte Dateien
+entfernen.
 
 ## Namen aufdecken
 
@@ -107,6 +128,8 @@ suchen"** — falls ein Gerät doch einmal auf einem alten Stand hängen bleibt.
   mit dem Code lesbar — deshalb bitte nur **Vornamen oder Kürzel** verwenden.
 * Der Lautstärkemesser berechnet nur den Pegel. Es wird **nichts aufgenommen,
   gespeichert oder gesendet**.
+* Klang- und Videodateien bleiben im Gerätespeicher und werden beim Teilen nicht
+  übertragen.
 * Ohne Teilen und ohne Konto stellt die App keine Verbindung ins Netz her.
 
 ## Technik
@@ -122,6 +145,8 @@ klassenraum/
   js/board.js           Tafelfläche: verschieben, Größe ändern, auswählen
   js/store.js           Zustand und Speicherung (IndexedDB, Fallback localStorage)
   js/widgets/*.js       die einzelnen Elemente
+  js/draw.js            Schreiben und Markieren auf der Tafel
+  js/media.js           Klang- und Videodateien im Gerätespeicher
   js/lists.js           Namenslisten
   js/share.js           Teilen-Oberfläche und Live-Abgleich
   js/cloud.js           Firebase-REST (Teilen, Konten, Sicherung)
