@@ -50,6 +50,8 @@ export default {
       }
 
       clear(addRow);
+      addRow.classList.toggle('is-hidden', !ctx.isEditing());
+      if (!ctx.isEditing()) return;
       const input = h('input', { class: 'input input--flat', type: 'text', placeholder: 'Punkt hinzufügen …', 'data-nodrag': '' });
       const add = () => {
         const text = input.value.trim();

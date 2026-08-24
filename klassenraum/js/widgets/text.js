@@ -58,7 +58,7 @@ export default {
     }
 
     function startEditing() {
-      if (editing) return;
+      if (editing || !ctx.isEditing()) return;
       editing = true;
       const state = ctx.widget.state;
       const area = h('textarea', {

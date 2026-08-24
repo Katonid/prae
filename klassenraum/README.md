@@ -10,7 +10,7 @@ funktioniert auch am Telefon.
 
 | Element | Beschreibung |
 | --- | --- |
-| **Zufälliger Name** | Zieht Namen aus einer Liste — mit oder ohne Zurücklegen. Gezogene Namen bleiben sichtbar, lassen sich einzeln zurücklegen, löschen oder von Hand als gezogen markieren. |
+| **Zufälliger Name** | Zieht Namen aus einer Liste — mit oder ohne Zurücklegen. Gezogene Namen lassen sich einzeln zurücklegen, löschen oder von Hand als gezogen markieren. Der gezogene Name kann **schrittweise aufgedeckt** werden, damit die Klasse mitraten kann. |
 | **Timer / Stoppuhr** | Voreinstellungen von 1 bis 45 Minuten, ±1 Minute, Signalton am Ende. |
 | **Uhr** | Analog (mit Ziffernblatt zum Ablesen üben) oder digital, mit Datum. |
 | **Ampel** | Drei Lichter, antippen oder doppeltippen zum Weiterschalten, mit eigenen Beschriftungen. |
@@ -36,9 +36,36 @@ und die Möglichkeit, alles **als Datei zu sichern**.
 * Wer in den Systemeinstellungen „Bewegung reduzieren“ aktiviert hat, bekommt die
   ruhige Variante ohne Animationen.
 
+## Zwei Ansichten
+
+Oben rechts schaltet **„Fertig“** in die **Unterrichtsansicht**: Elementleiste,
+Auswahlrahmen, Zahnräder und Eingabefelder verschwinden, die Tafel lässt sich aber
+weiter bedienen (Namen ziehen, Ampel schalten, Timer starten, Punkte abhaken).
+Verschieben, Einstellen und Löschen sind dort gesperrt — ein Kind kann also nichts
+versehentlich verstellen. **„Bearbeiten“** schaltet zurück. Die zuletzt gewählte
+Ansicht wird gemerkt.
+
+## Namen aufdecken
+
+Damit die Klasse raten kann, erscheint der gezogene Name nicht sofort. Jeder Tipp auf
+die Karte deckt einen Schritt auf; das Augensymbol zeigt sofort alles. Vier Arten
+stehen zur Wahl:
+
+| Art | Wirkung |
+| --- | --- |
+| **Mosaik** (Vorgabe) | Kacheln verschwinden nach und nach, etwa acht Tipps bis zum ganzen Namen. |
+| **Unschärfe** | Der Name wird mit jedem Tipp schärfer — die Wortlänge ist von Anfang an zu erahnen. |
+| **Buchstaben** | Ein Buchstabe nach dem anderen erscheint, der Rest bleibt als Punkt stehen — wie beim Ratespiel. |
+| **Sofort** | Ohne Spannung: der Name steht direkt da. |
+
+Ebenfalls einstellbar: ob die **Liste der bereits gezogenen Namen** nie, nur beim
+Bearbeiten (Vorgabe) oder immer sichtbar ist. In der Unterrichtsansicht bleibt sie
+damit verborgen — und der gerade gezogene Name taucht dort erst auf, wenn er
+aufgedeckt ist.
+
 ## Bedienung in Kürze
 
-* **Element hinzufügen:** unten in der Leiste antippen.
+* **Element hinzufügen:** unten in der Leiste antippen (nur beim Bearbeiten).
 * **Bedienen:** Ein Tipp auf die Karte löst die Hauptfunktion aus — Zufälliger Name zieht
   den nächsten Namen, die Ampel schaltet weiter, das Arbeitssymbol wechselt, die Uhr springt
   zwischen analog und digital, die Lautstärkemessung startet.

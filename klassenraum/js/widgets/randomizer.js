@@ -1,10 +1,24 @@
 // Zufälliger Name — Kernfunktion: Namen ziehen, mit/ohne Zurücklegen,
 // gezogene Namen sehen, zurücklegen oder von Hand als gezogen markieren.
+// Der gezogene Name kann schrittweise aufgedeckt werden, damit die Klasse raten kann.
 
-import { h, clear, pickRandom, parseNames, beep, onTap, confetti, reducedMotion } from '../util.js';
+import { h, clear, pickRandom, parseNames, beep, onTap, confetti, reducedMotion, randomInt } from '../util.js';
 import { icon } from '../icons.js';
 import { getState, getList, on as onStore, addList } from '../store.js';
 import { section, field, toggleRow, button, buttonRow, toast } from '../ui.js';
+
+const MOSAIC_COLS = 8;
+const MOSAIC_ROWS = 3;
+const MOSAIC_TILES = MOSAIC_COLS * MOSAIC_ROWS;
+const MOSAIC_PER_TAP = 3;
+const BLUR_STEPS = 8;
+
+const REVEAL_MODES = [
+  { id: 'instant', label: 'Sofort', hint: 'Der Name steht sofort da.' },
+  { id: 'mosaik', label: 'Mosaik', hint: 'Kachel für Kachel wird der Name freigelegt.' },
+  { id: 'blur', label: 'Unschärfe', hint: 'Der Name wird mit jedem Tipp schärfer.' },
+  { id: 'letters', label: 'Buchstaben', hint: 'Ein Buchstabe nach dem anderen erscheint.' },
+];
 
 function namesOf(state) {
   if (state.listId) {
@@ -28,6 +42,55 @@ function listTitle(state) {
   return 'Eigene Liste';
 }
 
+function revealMode(state) {
+  const mode = state.reveal || 'mosaik';
+  return REVEAL_MODES.some((entry) => entry.id === mode) ? mode : 'mosaik';
+}
+
+/** Zeichen, die verdeckt werden können (Buchstaben und Ziffern). */
+function maskableIndexes(name) {
+  const list = [];
+  for (let i = 0; i < name.length; i += 1) {
+    if (/[\p{L}\p{N}]/u.test(name[i])) list.push(i);
+  }
+  return list;
+}
+
+function revealTotal(state, name) {
+  const mode = revealMode(state);
+  if (mode === 'instant') return 0;
+  if (mode === 'mosaik') return MOSAIC_TILES;
+  if (mode === 'blur') return BLUR_STEPS;
+  return Math.max(1, maskableIndexes(name || '').length);
+}
+
+function revealParts(state) {
+  return Array.isArray(state.revealParts) ? state.revealParts : [];
+}
+
+function isRevealed(state, name) {
+  if (!name) return true;
+  if (revealMode(state) === 'instant') return true;
+  return revealParts(state).length >= revealTotal(state, name);
+}
+
+/** Deckt den nächsten Schritt auf; gibt true zurück, wenn der Name danach ganz zu sehen ist. */
+function revealStep(state, name) {
+  const total = revealTotal(state, name);
+  const done = new Set(revealParts(state));
+  const open = [];
+  for (let i = 0; i < total; i += 1) {
+    if (!done.has(i)) open.push(i);
+  }
+  const count = revealMode(state) === 'mosaik' ? MOSAIC_PER_TAP : 1;
+  for (let i = 0; i < count && open.length; i += 1) {
+    const pick = open.splice(randomInt(open.length), 1)[0];
+    done.add(pick);
+  }
+  state.revealParts = Array.from(done);
+  return state.revealParts.length >= total;
+}
+
 export default {
   type: 'randomizer',
   label: 'Zufälliger Name',
@@ -41,8 +104,10 @@ export default {
       mode: 'exhaust',
       drawn: [],
       current: null,
-      showDrawn: true,
+      showDrawn: 'edit',
       animate: true,
+      reveal: 'mosaik',
+      revealParts: [],
     };
   },
 
@@ -50,24 +115,27 @@ export default {
     const el = h('div', { class: 'w-random' });
     const head = h('div', { class: 'w-random__head' });
     const display = h('div', { class: 'w-random__display' });
+    const nameBox = h('div', { class: 'w-random__namebox' });
     const nameEl = h('div', { class: 'w-random__name' });
+    const maskEl = h('div', { class: 'w-random__mask' });
     const hintEl = h('div', { class: 'w-random__hint' });
-    const drawButton = h('button', {
-      class: 'w-random__draw', 'data-nodrag': '', title: 'Namen ziehen',
-    }, h('span', { class: 'w-random__draw-icon', html: icon('randomizer', 22) }), h('span', null, 'Ziehen'));
+    const mainButton = h('button', { class: 'w-random__draw', 'data-nodrag': '', title: 'Namen ziehen' });
+    const skipButton = h('button', {
+      class: 'w-random__skip', 'data-nodrag': '', title: 'Namen ganz aufdecken', html: icon('eye', 20),
+    });
+    const actions = h('div', { class: 'w-random__actions', 'data-nodrag': '' }, mainButton, skipButton);
     const drawnBox = h('div', { class: 'w-random__drawn', 'data-nodrag': '' });
 
-    display.append(nameEl, hintEl);
-    el.append(head, display, h('div', { class: 'w-random__actions', 'data-nodrag': '' }, drawButton), drawnBox);
+    nameBox.append(nameEl, maskEl);
+    display.append(nameBox, hintEl);
+    el.append(head, display, actions, drawnBox);
 
     let spinTimer = null;
     let spinning = false;
 
     function stopSpin() {
-      if (spinTimer) {
-        clearInterval(spinTimer);
-        spinTimer = null;
-      }
+      if (spinTimer) clearInterval(spinTimer);
+      spinTimer = null;
       spinning = false;
       nameEl.classList.remove('is-spinning');
     }
@@ -77,6 +145,8 @@ export default {
       void nameEl.offsetWidth;
       nameEl.classList.add('is-pop');
       confetti(display);
+      beep({ frequency: 720, duration: 0.12, gain: 0.12 });
+      beep({ frequency: 980, duration: 0.16, gain: 0.1, delay: 0.1 });
     }
 
     function draw() {
@@ -93,17 +163,19 @@ export default {
         fitName();
         return;
       }
+
       const finish = (name) => {
         const next = ctx.widget.state;
         next.current = name;
+        next.revealParts = [];
         if (!next.drawn) next.drawn = [];
         if (!next.drawn.includes(name)) next.drawn.push(name);
         ctx.save();
         render();
-        celebrate();
-        beep({ frequency: 720, duration: 0.12, gain: 0.12 });
-        beep({ frequency: 980, duration: 0.16, gain: 0.1, delay: 0.1 });
+        if (isRevealed(next, name)) celebrate();
+        else beep({ frequency: 520, duration: 0.1, gain: 0.1 });
       };
+
       const chosen = pickRandom(pool);
       if (state.animate === false || pool.length < 2 || reducedMotion()) {
         finish(chosen);
@@ -113,26 +185,79 @@ export default {
       spinning = true;
       nameEl.classList.remove('is-empty', 'is-pop');
       nameEl.classList.add('is-spinning');
+      maskEl.classList.add('is-hidden');
       let ticks = 0;
-      const total = 14;
       spinTimer = setInterval(() => {
         ticks += 1;
         nameEl.textContent = pickRandom(pool);
         fitName();
-        if (ticks >= total) {
+        if (ticks >= 14) {
           stopSpin();
           finish(chosen);
         }
       }, 55);
     }
 
+    function step() {
+      const state = ctx.widget.state;
+      if (!state.current || isRevealed(state, state.current)) {
+        draw();
+        return;
+      }
+      const complete = revealStep(state, state.current);
+      ctx.save();
+      render();
+      if (complete) celebrate();
+      else beep({ frequency: 620, duration: 0.07, gain: 0.07 });
+    }
+
+    function revealAll() {
+      const state = ctx.widget.state;
+      if (!state.current || isRevealed(state, state.current)) return;
+      const total = revealTotal(state, state.current);
+      state.revealParts = Array.from({ length: total }, (_, index) => index);
+      ctx.save();
+      render();
+      celebrate();
+    }
+
     function fitName() {
       const text = nameEl.textContent || '';
-      const boxWidth = Math.max(140, ctx.widget.w - 60);
-      const perChar = 0.6;
-      let size = Math.min(ctx.widget.h * 0.3, boxWidth / Math.max(4, text.length * perChar));
-      size = Math.max(20, Math.min(size, 132));
+      const boxWidth = Math.max(140, ctx.widget.w - 70);
+      let size = Math.min(ctx.widget.h * 0.29, boxWidth / Math.max(4, text.length * 0.6));
+      size = Math.max(20, Math.min(size, 128));
       nameEl.style.fontSize = `${size}px`;
+    }
+
+    function renderMask(state, name, hidden) {
+      const mode = revealMode(state);
+      nameEl.style.filter = '';
+      maskEl.classList.toggle('is-hidden', !hidden || mode !== 'mosaik');
+      if (!hidden) {
+        clear(maskEl);
+        return;
+      }
+      if (mode === 'blur') {
+        const progress = revealParts(state).length / BLUR_STEPS;
+        nameEl.style.filter = `blur(${(1 - progress) * 16 + 1}px)`;
+        clear(maskEl);
+        return;
+      }
+      if (mode !== 'mosaik') {
+        clear(maskEl);
+        return;
+      }
+      const open = new Set(revealParts(state));
+      if (maskEl.childElementCount !== MOSAIC_TILES) {
+        clear(maskEl);
+        maskEl.style.gridTemplateColumns = `repeat(${MOSAIC_COLS}, 1fr)`;
+        maskEl.style.gridTemplateRows = `repeat(${MOSAIC_ROWS}, 1fr)`;
+        for (let i = 0; i < MOSAIC_TILES; i += 1) maskEl.appendChild(h('span', { class: 'w-random__tile' }));
+      }
+      Array.from(maskEl.children).forEach((tile, index) => {
+        tile.classList.toggle('is-open', open.has(index));
+      });
+      void name;
     }
 
     function render() {
@@ -140,53 +265,92 @@ export default {
       const all = namesOf(state);
       const drawn = state.drawn || [];
       const remaining = remainingOf(state);
+      const name = state.current;
+      const hidden = Boolean(name) && !isRevealed(state, name);
+      const mode = revealMode(state);
 
       clear(head);
       head.append(
         h('span', { class: 'w-random__list' }, listTitle(state)),
         h('span', { class: 'w-random__count' },
-          state.mode === 'repeat'
-            ? `${all.length} Namen`
-            : `${remaining.length}/${all.length}`));
+          state.mode === 'repeat' ? `${all.length} Namen` : `${remaining.length}/${all.length}`));
 
-      nameEl.classList.toggle('is-empty', !state.current);
-      nameEl.textContent = state.current || (all.length ? 'Bereit' : 'Keine Namen');
-      hintEl.textContent = all.length === 0
-        ? 'Einstellungen öffnen und Namen eintragen.'
-        : (state.mode !== 'repeat' && remaining.length === 0
-          ? 'Alle Namen gezogen.'
-          : 'Karte antippen zieht den nächsten Namen');
+      nameEl.classList.toggle('is-empty', !name);
+      if (name && hidden && mode === 'letters') {
+        const maskable = new Set(maskableIndexes(name));
+        const open = new Set(revealParts(state).map((index) => maskableIndexes(name)[index]));
+        nameEl.textContent = Array.from(name)
+          .map((char, index) => (maskable.has(index) && !open.has(index) ? '•' : char))
+          .join('');
+      } else {
+        nameEl.textContent = name || (all.length ? 'Bereit' : 'Keine Namen');
+      }
       fitName();
+      renderMask(state, name, hidden);
+
+      if (all.length === 0) {
+        hintEl.textContent = 'Einstellungen öffnen und Namen eintragen.';
+      } else if (hidden) {
+        const perTap = mode === 'mosaik' ? MOSAIC_PER_TAP : 1;
+        const total = Math.ceil(revealTotal(state, name) / perTap);
+        const done = Math.min(total, Math.ceil(revealParts(state).length / perTap));
+        hintEl.textContent = `Aufdecken — Schritt ${done} von ${total}`;
+      } else if (state.mode !== 'repeat' && remaining.length === 0) {
+        hintEl.textContent = 'Alle Namen gezogen.';
+      } else {
+        hintEl.textContent = 'Karte antippen zieht den nächsten Namen';
+      }
+
+      clear(mainButton);
+      mainButton.append(
+        h('span', { class: 'w-random__draw-icon', html: icon(hidden ? 'sparkle' : 'randomizer', 22) }),
+        h('span', null, hidden ? 'Aufdecken' : 'Ziehen'));
+      mainButton.title = hidden ? 'Nächsten Teil aufdecken' : 'Namen ziehen';
+      skipButton.classList.toggle('is-hidden', !hidden);
+
+      const showDrawn = state.showDrawn === true ? 'edit' : (state.showDrawn || 'edit');
+      const mayShow = showDrawn === 'always' || (showDrawn === 'edit' && ctx.isEditing());
+      // Der aktuelle Name bleibt versteckt, solange er noch nicht aufgedeckt ist.
+      const visibleDrawn = hidden ? drawn.filter((entry) => entry !== name) : drawn;
 
       clear(drawnBox);
-      const show = state.showDrawn !== false && drawn.length > 0;
+      const show = mayShow && visibleDrawn.length > 0;
       if (show) {
         drawnBox.append(h('div', { class: 'w-random__drawn-head' },
-          h('span', null, `Gezogen (${drawn.length})`),
-          onTap(h('button', { class: 'link-button', 'data-nodrag': '' }, 'Zurücksetzen'), () => {
-            ctx.widget.state.drawn = [];
-            ctx.widget.state.current = null;
-            ctx.save();
-            render();
-          })));
+          h('span', null, `Gezogen (${visibleDrawn.length})`),
+          onTap(h('button', { class: 'link-button', 'data-nodrag': '' }, 'Zurücksetzen'), reset)));
         const chips = h('div', { class: 'chips' });
-        for (const name of drawn) {
+        for (const entry of visibleDrawn) {
           chips.appendChild(onTap(h('button', {
             class: 'chip-name', 'data-nodrag': '', title: 'Zurücklegen (wieder ziehbar machen)',
-          }, h('span', null, name), h('span', { class: 'chip-name__x', html: icon('close', 12) })), () => {
+          }, h('span', null, entry), h('span', { class: 'chip-name__x', html: icon('close', 12) })), () => {
             const next = ctx.widget.state;
-            next.drawn = (next.drawn || []).filter((entry) => entry !== name);
-            if (next.current === name) next.current = null;
+            next.drawn = (next.drawn || []).filter((item) => item !== entry);
+            if (next.current === entry) next.current = null;
             ctx.save();
             render();
           }));
         }
         drawnBox.appendChild(chips);
+      } else if (!ctx.isEditing() && drawn.length > 0) {
+        // In der Unterrichtsansicht bleibt nur ein unauffälliger Neustart übrig.
+        drawnBox.appendChild(h('div', { class: 'w-random__drawn-head w-random__drawn-head--quiet' },
+          onTap(h('button', { class: 'link-button', 'data-nodrag': '' }, 'Neue Runde starten'), reset)));
       }
-      drawnBox.classList.toggle('is-hidden', !show);
+      drawnBox.classList.toggle('is-hidden', !show && !(!ctx.isEditing() && drawn.length > 0));
     }
 
-    onTap(drawButton, draw);
+    function reset() {
+      const state = ctx.widget.state;
+      state.drawn = [];
+      state.current = null;
+      state.revealParts = [];
+      ctx.save();
+      render();
+    }
+
+    onTap(mainButton, step);
+    onTap(skipButton, revealAll);
     const off = onStore('lists-changed', render);
     render();
 
@@ -194,7 +358,7 @@ export default {
       el,
       refresh: render,
       onResize: fitName,
-      onTap: draw,
+      onTap: step,
       destroy() {
         stopSpin();
         off();
@@ -204,7 +368,6 @@ export default {
 
   settings(ctx) {
     const wrap = h('div', { class: 'stack' });
-    const state = ctx.widget.state;
 
     function rerender() {
       clear(wrap);
@@ -213,6 +376,7 @@ export default {
     }
 
     function build() {
+      const state = ctx.widget.state;
       const lists = getState().lists;
       const select = h('select', {
         class: 'input',
@@ -221,6 +385,7 @@ export default {
           ctx.widget.state.listId = value === '__local' ? null : value;
           ctx.widget.state.drawn = [];
           ctx.widget.state.current = null;
+          ctx.widget.state.revealParts = [];
           ctx.save();
           rerender();
         },
@@ -232,12 +397,10 @@ export default {
       wrap.appendChild(section('Namensliste',
         field('Liste wählen', select),
         buttonRow(
-          button('Listen verwalten', {
-            icon: 'layers', small: true, onClick: () => ctx.openLists(),
-          }),
+          button('Listen verwalten', { icon: 'layers', small: true, onClick: () => ctx.openLists() }),
           state.listId ? null : button('Als Liste speichern', {
             icon: 'download', small: true,
-            onClick: async () => {
+            onClick: () => {
               const names = ctx.widget.state.localNames || [];
               if (!names.length) {
                 toast('Erst Namen eintragen.', 'warn');
@@ -252,7 +415,7 @@ export default {
           }))));
 
       if (!state.listId) {
-        const area = h('textarea', {
+        wrap.appendChild(section('Namen (eine Zeile pro Name)', h('textarea', {
           class: 'input input--area', rows: 8, placeholder: 'Ein Name pro Zeile',
           value: (state.localNames || []).join('\n'),
           oninput: (event) => {
@@ -260,58 +423,83 @@ export default {
             ctx.save();
             ctx.refresh();
           },
-        });
-        wrap.appendChild(section('Namen (eine Zeile pro Name)', area));
+        })));
       }
 
-      const modeRow = h('div', { class: 'segmented' },
-        h('button', {
-          class: 'segmented__item' + (state.mode !== 'repeat' ? ' is-active' : ''),
-          onclick: () => {
-            ctx.widget.state.mode = 'exhaust';
-            ctx.save();
-            rerender();
-          },
-        }, 'Ohne Zurücklegen'),
-        h('button', {
-          class: 'segmented__item' + (state.mode === 'repeat' ? ' is-active' : ''),
-          onclick: () => {
-            ctx.widget.state.mode = 'repeat';
-            ctx.save();
-            rerender();
-          },
-        }, 'Mit Zurücklegen'));
-
       wrap.appendChild(section('Ziehen',
-        modeRow,
+        h('div', { class: 'segmented' },
+          h('button', {
+            class: 'segmented__item' + (state.mode !== 'repeat' ? ' is-active' : ''),
+            onclick: () => {
+              ctx.widget.state.mode = 'exhaust';
+              ctx.save();
+              rerender();
+            },
+          }, 'Ohne Zurücklegen'),
+          h('button', {
+            class: 'segmented__item' + (state.mode === 'repeat' ? ' is-active' : ''),
+            onclick: () => {
+              ctx.widget.state.mode = 'repeat';
+              ctx.save();
+              rerender();
+            },
+          }, 'Mit Zurücklegen')),
         h('p', { class: 'muted small' }, state.mode === 'repeat'
           ? 'Jeder Name kann mehrfach gezogen werden.'
           : 'Ein gezogener Name kommt erst nach dem Zurücksetzen wieder in den Topf.'),
-        toggleRow('Gezogene Namen im Element anzeigen', state.showDrawn !== false, (value) => {
-          ctx.widget.state.showDrawn = value;
-          ctx.save();
-          rerender();
-        }),
         toggleRow('Trommelwirbel-Animation', state.animate !== false, (value) => {
           ctx.widget.state.animate = value;
           ctx.save();
         })));
+
+      const current = revealMode(state);
+      wrap.appendChild(section('Aufdecken',
+        h('div', { class: 'chips' }, REVEAL_MODES.map((entry) => h('button', {
+          class: 'chip' + (current === entry.id ? ' is-active' : ''),
+          onclick: () => {
+            const next = ctx.widget.state;
+            next.reveal = entry.id;
+            // Der gerade sichtbare Name bleibt sichtbar; die neue Art gilt ab dem nächsten Ziehen.
+            const total = revealTotal(next, next.current || '');
+            next.revealParts = Array.from({ length: total }, (_, index) => index);
+            ctx.save();
+            rerender();
+          },
+        }, entry.label))),
+        h('p', { class: 'muted small' },
+          `${(REVEAL_MODES.find((entry) => entry.id === current) || REVEAL_MODES[0]).hint} `
+          + (current === 'instant' ? '' : 'Jeder Tipp auf die Karte deckt einen Schritt auf; das Augensymbol zeigt sofort alles.'))));
+
+      const showDrawn = state.showDrawn === true ? 'edit' : (state.showDrawn || 'edit');
+      wrap.appendChild(section('Gezogene Namen anzeigen',
+        h('div', { class: 'segmented' },
+          [['never', 'Nie'], ['edit', 'Beim Bearbeiten'], ['always', 'Immer']].map(([value, label]) => h('button', {
+            class: 'segmented__item' + (showDrawn === value ? ' is-active' : ''),
+            onclick: () => {
+              ctx.widget.state.showDrawn = value;
+              ctx.save();
+              rerender();
+            },
+          }, label))),
+        h('p', { class: 'muted small' },
+          'In der Unterrichtsansicht bleibt die Liste bei „Beim Bearbeiten“ verborgen — so lässt sich nicht ablesen, wer noch fehlt.')));
 
       const drawn = state.drawn || [];
       const remaining = remainingOf(state);
       const manageBox = h('div', { class: 'stack' });
 
       if (drawn.length) {
-        const chips = h('div', { class: 'chips' }, drawn.map((name) => h('button', {
-          class: 'chip-name', title: 'Zurücklegen',
-          onclick: () => {
-            ctx.widget.state.drawn = (ctx.widget.state.drawn || []).filter((entry) => entry !== name);
-            if (ctx.widget.state.current === name) ctx.widget.state.current = null;
-            ctx.save();
-            rerender();
-          },
-        }, h('span', null, name), h('span', { class: 'chip-name__x', html: icon('close', 12) }))));
-        manageBox.append(h('p', { class: 'muted small' }, 'Tippen legt einen Namen zurück in den Topf.'), chips);
+        manageBox.append(
+          h('p', { class: 'muted small' }, 'Tippen legt einen Namen zurück in den Topf.'),
+          h('div', { class: 'chips' }, drawn.map((name) => h('button', {
+            class: 'chip-name', title: 'Zurücklegen',
+            onclick: () => {
+              ctx.widget.state.drawn = (ctx.widget.state.drawn || []).filter((entry) => entry !== name);
+              if (ctx.widget.state.current === name) ctx.widget.state.current = null;
+              ctx.save();
+              rerender();
+            },
+          }, h('span', null, name), h('span', { class: 'chip-name__x', html: icon('close', 12) })))));
       } else {
         manageBox.appendChild(h('p', { class: 'muted small' }, 'Noch nichts gezogen.'));
       }
@@ -342,6 +530,7 @@ export default {
           onClick: () => {
             ctx.widget.state.drawn = [];
             ctx.widget.state.current = null;
+            ctx.widget.state.revealParts = [];
             ctx.save();
             rerender();
           },
@@ -350,6 +539,7 @@ export default {
           icon: 'trash', small: true, ghost: true,
           onClick: () => {
             ctx.widget.state.current = null;
+            ctx.widget.state.revealParts = [];
             ctx.save();
             rerender();
           },

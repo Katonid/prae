@@ -44,6 +44,11 @@ export default {
       const state = ctx.widget.state;
       clear(el);
       if (!state.url) {
+        if (!ctx.isEditing()) {
+          el.appendChild(h('div', { class: 'w-image__empty w-image__empty--quiet' },
+            h('span', { html: icon('image', 34) }), h('span', null, 'Kein Bild')));
+          return;
+        }
         el.appendChild(onTap(h('button', {
           class: 'w-image__empty', 'data-nodrag': '',
         }, h('span', { html: icon('image', 34) }), h('span', null, 'Bild auswählen')), pickFile));
@@ -64,6 +69,7 @@ export default {
       onTap: () => {
         if (!ctx.widget.state.url) pickFile();
       },
+      tapNeedsEditing: true,
       actions: [{ icon: 'image', title: 'Bild auswählen', run: pickFile }],
     };
   },
