@@ -2,6 +2,8 @@ import SwiftUI
 
 /// Bildelement — Foto, Grafik, gescanntes Arbeitsblatt.
 struct ImageWidgetView: View {
+    @Environment(\.boardStyle) private var style
+
     let content: ImageContent
     /// Wird angetippt, wenn noch kein Bild hinterlegt ist.
     var onChoose: () -> Void
@@ -17,7 +19,7 @@ struct ImageWidgetView: View {
                         .clipped()
                     if !content.caption.isEmpty {
                         Text(content.caption)
-                            .font(Theme.font(22, weight: .medium))
+                            .font(Theme.font(20, weight: .semibold))
                             .foregroundStyle(.white)
                             .lineLimit(2)
                             .frame(maxWidth: .infinity)
@@ -36,14 +38,24 @@ struct ImageWidgetView: View {
                 }
             } else {
                 Button(action: onChoose) {
-                    VStack(spacing: 14) {
+                    VStack(spacing: 12) {
                         Image(systemName: "photo.badge.plus")
-                            .font(.system(size: 52, weight: .regular))
+                            .font(.system(size: 44, weight: .regular))
                         Text("Bild wählen")
-                            .font(Theme.font(24, weight: .semibold))
+                            .font(Theme.font(21, weight: .bold))
                     }
-                    .foregroundStyle(.white.opacity(0.9))
+                    .foregroundStyle(style.inkSoft)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background {
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .fill(style.wash)
+                    }
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .strokeBorder(style.ink.opacity(0.18),
+                                          style: StrokeStyle(lineWidth: 2, dash: [8, 6]))
+                    }
+                    .padding(10)
                 }
                 .buttonStyle(.plain)
             }

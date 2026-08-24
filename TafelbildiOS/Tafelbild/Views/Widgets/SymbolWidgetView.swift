@@ -15,12 +15,14 @@ struct SymbolWidgetView: View {
                 Image(systemName: content.symbol.systemImage)
                     .font(.system(size: max(30, side * 0.58), weight: .semibold))
                     .foregroundStyle(style.accentGradient)
+                    .shadow(color: style.accent.opacity(0.28), radius: 18, y: 8)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .contentTransition(.symbolEffect(.replace))
 
                 if showsLabel {
                     Text(content.symbol.title)
-                        .font(Theme.font(Double(min(geo.size.width * 0.13, 30)), weight: .bold))
+                        .font(Theme.font(Double(min(geo.size.width * 0.11, 27)), weight: .bold))
+                        .tracking(-0.3)
                         .foregroundStyle(style.ink)
                         .lineLimit(1)
                         .minimumScaleFactor(0.5)
