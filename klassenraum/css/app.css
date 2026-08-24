@@ -357,24 +357,50 @@ body.is-light-board .widget--bare .widget__inner { filter: drop-shadow(0 6px 14p
 [data-nodrag] { touch-action: manipulation; }
 .w-check__list, .w-random__drawn, .panel__body, .modal__body { touch-action: pan-y; }
 
-.handle {
+/* Der Auswahlrahmen liegt über der Tafel, damit die Anfasser nicht vom
+   Element beschnitten werden — genau daran scheiterte das Vergrößern. */
+.selection-frame {
   position: absolute;
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  background: #fff;
-  border: 3px solid var(--accent);
-  box-shadow: 0 4px 12px rgba(2, 6, 23, 0.35);
+  top: 0;
+  left: 0;
   display: none;
-  z-index: 5;
+  pointer-events: none;
+  --handle: calc(36px / var(--board-scale, 1));
+  --frame-line: calc(2px / var(--board-scale, 1));
+  border-radius: var(--radius-card);
+  box-shadow: 0 0 0 var(--frame-line) rgba(129, 140, 248, 0.85);
 }
 
-.widget.is-selected .handle { display: block; animation: handle-in 0.25s var(--spring) both; }
-.widget.is-locked .handle { display: none; }
-.handle--nw { top: -13px; left: -13px; cursor: nwse-resize; }
-.handle--ne { top: -13px; right: -13px; cursor: nesw-resize; }
-.handle--sw { bottom: -13px; left: -13px; cursor: nesw-resize; }
-.handle--se { bottom: -13px; right: -13px; cursor: nwse-resize; }
+.selection-frame.is-visible { display: block; }
+
+.handle {
+  position: absolute;
+  width: var(--handle);
+  height: var(--handle);
+  border-radius: 50%;
+  background: #fff;
+  border: var(--frame-line) solid var(--accent);
+  box-shadow: 0 calc(4px / var(--board-scale, 1)) calc(12px / var(--board-scale, 1)) rgba(2, 6, 23, 0.4);
+  display: block;
+  pointer-events: auto;
+  touch-action: none;
+  cursor: pointer;
+  animation: handle-in 0.25s var(--spring) both;
+}
+
+.handle::after {
+  content: "";
+  position: absolute;
+  inset: calc(var(--handle) * -0.35);
+  border-radius: 50%;
+}
+
+.handle--nw { top: calc(var(--handle) / -2); left: calc(var(--handle) / -2); cursor: nwse-resize; }
+.handle--ne { top: calc(var(--handle) / -2); right: calc(var(--handle) / -2); cursor: nesw-resize; }
+.handle--sw { bottom: calc(var(--handle) / -2); left: calc(var(--handle) / -2); cursor: nesw-resize; }
+.handle--se { bottom: calc(var(--handle) / -2); right: calc(var(--handle) / -2); cursor: nwse-resize; }
+
+.widget.is-sizing { box-shadow: 0 0 0 3px var(--accent), var(--card-shadow); }
 
 @keyframes handle-in { from { opacity: 0; transform: scale(0.4); } to { opacity: 1; transform: none; } }
 
@@ -498,7 +524,7 @@ body.is-using #btn-lists,
 body.is-using #btn-background,
 body.is-using #btn-share { display: none; }
 
-body.is-using .handle,
+body.is-using .selection-frame,
 body.is-using .selection-toolbar { display: none !important; }
 body.is-using .widget { cursor: default; }
 
@@ -527,6 +553,7 @@ body.is-using .widget { cursor: default; }
 body.is-presenting .topbar,
 body.is-presenting .dock { display: none; }
 body.is-presenting .exit-present { display: block; }
+body.is-presenting .selection-frame { display: none !important; }
 
 /* ---------- Listenansicht (Telefon) ---------- */
 
@@ -551,7 +578,7 @@ body.is-stacked .widget {
   transform: none !important;
 }
 
-body.is-stacked .handle { display: none !important; }
+body.is-stacked .selection-frame { display: none !important; }
 body.is-stacked .w-text__view { font-size: clamp(20px, 6vw, 40px) !important; }
 body.is-stacked .w-timer__time { font-size: clamp(28px, 9vw, 54px) !important; }
 body.is-stacked .w-clock__digital { font-size: clamp(30px, 11vw, 64px) !important; }

@@ -14,6 +14,7 @@ const instances = new Map();
 let canvasEl = null;
 let stageEl = null;
 let selectionEl = null;
+let selectionFrame = null;
 let selectedId = null;
 let scale = 1;
 let hooks = { onOpenLists: () => {} };
@@ -63,6 +64,7 @@ export function initBoard(elements) {
   canvasEl = elements.canvas;
   stageEl = elements.stage;
   selectionEl = elements.selection;
+  buildSelectionFrame();
 
   stageEl.addEventListener('pointerdown', (event) => {
     if (event.target === stageEl || event.target === canvasEl) select(null);
@@ -97,6 +99,7 @@ export function updateScale() {
   const rect = stageEl.getBoundingClientRect();
   if (stackMode) {
     scale = 1;
+    canvasEl.style.setProperty('--board-scale', '1');
     canvasEl.style.transform = '';
     canvasEl.style.width = '';
     canvasEl.style.height = '';
@@ -108,6 +111,7 @@ export function updateScale() {
   canvasEl.style.width = `${BOARD_WIDTH}px`;
   canvasEl.style.height = `${BOARD_HEIGHT}px`;
   canvasEl.style.transform = `translate(${offsetX}px, ${offsetY}px) scale(${scale})`;
+  canvasEl.style.setProperty('--board-scale', String(scale));
 }
 
 export function applyBackground() {
@@ -246,12 +250,7 @@ function mountWidget(widget) {
   const api = definition.mount(ctx);
   inner.appendChild(api.el);
 
-  for (const corner of ['nw', 'ne', 'sw', 'se']) {
-    el.appendChild(h('span', { class: `handle handle--${corner}`, 'data-handle': corner }));
-  }
-
-  el.addEventListener('pointerdown', (event) => onWidgetPointerDown(event, widget, el));
-  attachCardTap(el, widget);
+  attachInteractions(el, widget);
   el.addEventListener('dblclick', (event) => {
     if (!api.onDoubleClick) return;
     // Wegen der Pointer-Erfassung zeigt event.target auf das Widget selbst —
@@ -267,32 +266,232 @@ function mountWidget(widget) {
   instances.set(widget.id, { el, api, widget, ctx, definition });
 }
 
-/** Ein sauberer Tipp auf die Karte (nicht auf ein Bedienelement) löst die Hauptaktion aus. */
-function attachCardTap(el, widget) {
-  let armed = false;
-  let startX = 0;
-  let startY = 0;
-  let startTime = 0;
+const MIN_FALLBACK = { w: 140, h: 110 };
+
+function minSizeOf(widget) {
+  const definition = getWidgetType(widget.type) || {};
+  return definition.minSize || MIN_FALLBACK;
+}
+
+function boxOf(widget) {
+  return { x: widget.x, y: widget.y, w: widget.w, h: widget.h };
+}
+
+/** Neue Maße setzen — begrenzt auf Mindestgröße und Tafelfläche. */
+function applyBox(widget, box) {
+  const min = minSizeOf(widget);
+  const w = clamp(Math.round(box.w), min.w, BOARD_WIDTH);
+  const h = clamp(Math.round(box.h), min.h, BOARD_HEIGHT);
+  widget.w = w;
+  widget.h = h;
+  widget.x = Math.round(clamp(box.x, 0, Math.max(0, BOARD_WIDTH - w)));
+  widget.y = Math.round(clamp(box.y, 0, Math.max(0, BOARD_HEIGHT - h)));
+  const instance = instances.get(widget.id);
+  if (instance && instance.api && instance.api.onResize) instance.api.onResize();
+}
+
+/** Größe um den Mittelpunkt ändern — für die Knöpfe und die Zwei-Finger-Geste. */
+export function scaleWidget(widget, factor) {
+  const centerX = widget.x + widget.w / 2;
+  const centerY = widget.y + widget.h / 2;
+  const w = widget.w * factor;
+  const h = widget.h * factor;
+  applyBox(widget, { x: centerX - w / 2, y: centerY - h / 2, w, h });
+  touch({ reason: 'widget-size' });
+  layout();
+}
+
+const pointDistance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+const pointMiddle = (a, b) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
+
+/**
+ * Alles an einem Element in einer Hand: Tippen löst die Hauptfunktion aus,
+ * Ziehen verschiebt, zwei Finger verändern stufenlos die Größe.
+ */
+function attachInteractions(el, widget) {
+  const points = new Map();
+  let gesture = null;
+  let tap = null;
 
   el.addEventListener('pointerdown', (event) => {
-    const target = event.target;
-    armed = !(target.closest && (target.closest('[data-nodrag]') || target.closest('[data-handle]')));
-    startX = event.clientX;
-    startY = event.clientY;
-    startTime = Date.now();
+    if (event.button !== undefined && event.button > 0) return;
+    points.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    if (mode === 'edit') select(widget.id);
+
+    const onControl = Boolean(event.target.closest && event.target.closest('[data-nodrag]'));
+    const movable = mode === 'edit' && !stackMode && !widget.locked;
+
+    if (points.size === 1) {
+      tap = { x: event.clientX, y: event.clientY, time: Date.now(), armed: !onControl };
+      if (movable && !onControl) {
+        el.setPointerCapture(event.pointerId);
+        bringToFront(widget);
+        el.classList.add('is-dragging');
+        gesture = { type: 'drag', start: { x: event.clientX, y: event.clientY }, origin: boxOf(widget), moved: false };
+      }
+      return;
+    }
+
+    if (points.size === 2 && movable) {
+      const [a, b] = Array.from(points.values());
+      tap = null;
+      el.classList.remove('is-dragging');
+      el.classList.add('is-sizing');
+      gesture = {
+        type: 'pinch',
+        startDistance: Math.max(16, pointDistance(a, b)),
+        startCenter: pointMiddle(a, b),
+        origin: boxOf(widget),
+      };
+      try {
+        el.setPointerCapture(event.pointerId);
+      } catch (_) { /* manche Geräte erlauben nur eine Erfassung */ }
+    }
   });
-  el.addEventListener('pointercancel', () => { armed = false; });
-  el.addEventListener('pointerup', (event) => {
-    if (!armed) return;
-    armed = false;
-    if (Date.now() - startTime > 800) return;
-    if (Math.abs(event.clientX - startX) + Math.abs(event.clientY - startY) > 14) return;
+
+  el.addEventListener('pointermove', (event) => {
+    if (!points.has(event.pointerId)) return;
+    points.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    if (!gesture) return;
+
+    if (gesture.type === 'drag') {
+      const dx = (event.clientX - gesture.start.x) / scale;
+      const dy = (event.clientY - gesture.start.y) / scale;
+      if (!gesture.moved && Math.abs(dx) + Math.abs(dy) < 2) return;
+      gesture.moved = true;
+      widget.x = Math.round(clamp(gesture.origin.x + dx, 0, Math.max(0, BOARD_WIDTH - widget.w)));
+      widget.y = Math.round(clamp(gesture.origin.y + dy, 0, Math.max(0, BOARD_HEIGHT - widget.h)));
+      layout();
+      return;
+    }
+
+    if (gesture.type === 'pinch' && points.size >= 2) {
+      const [a, b] = Array.from(points.values());
+      const ratio = clamp(pointDistance(a, b) / gesture.startDistance, 0.15, 8);
+      const center = pointMiddle(a, b);
+      const origin = gesture.origin;
+      const w = origin.w * ratio;
+      const h = origin.h * ratio;
+      const centerX = origin.x + origin.w / 2 + (center.x - gesture.startCenter.x) / scale;
+      const centerY = origin.y + origin.h / 2 + (center.y - gesture.startCenter.y) / scale;
+      applyBox(widget, { x: centerX - w / 2, y: centerY - h / 2, w, h });
+      layout();
+    }
+  });
+
+  const release = (event) => {
+    points.delete(event.pointerId);
+    const finished = gesture;
+
+    if (finished && points.size === 0) {
+      el.classList.remove('is-dragging', 'is-sizing');
+      if (finished.type === 'pinch' || finished.moved) touch({ reason: 'widget-move' });
+      gesture = null;
+      if (finished.type === 'pinch' || finished.moved) tap = null;
+    } else if (finished && finished.type === 'pinch' && points.size < 2) {
+      // Ein Finger bleibt liegen — die Geste endet, es beginnt kein Verschieben.
+      el.classList.remove('is-sizing');
+      gesture = null;
+      tap = null;
+      touch({ reason: 'widget-size' });
+    }
+
+    if (!tap || points.size > 0) return;
+    const finger = tap;
+    tap = null;
+    if (!finger.armed) return;
+    if (Date.now() - finger.time > 800) return;
+    if (Math.abs(event.clientX - finger.x) + Math.abs(event.clientY - finger.y) > 14) return;
     const instance = instances.get(widget.id);
     if (!instance || !instance.api || !instance.api.onTap) return;
     if (mode === 'use' && instance.api.tapNeedsEditing) return;
     if (event.pointerType !== 'mouse') armTapGuard(event);
     instance.api.onTap();
+  };
+
+  el.addEventListener('pointerup', release);
+  el.addEventListener('pointercancel', (event) => {
+    points.delete(event.pointerId);
+    gesture = null;
+    tap = null;
+    el.classList.remove('is-dragging', 'is-sizing');
   });
+}
+
+/** Ziehen an einem Eck-Anfasser des Auswahlrahmens. */
+function startFrameResize(event, corner) {
+  const board = getActiveBoard();
+  const widget = board ? board.widgets.find((entry) => entry.id === selectedId) : null;
+  if (!widget || widget.locked) return;
+  event.preventDefault();
+  event.stopPropagation();
+  const target = event.currentTarget;
+  target.setPointerCapture(event.pointerId);
+  const start = { x: event.clientX, y: event.clientY };
+  const origin = boxOf(widget);
+  const min = minSizeOf(widget);
+
+  const move = (moveEvent) => {
+    const dx = (moveEvent.clientX - start.x) / scale;
+    const dy = (moveEvent.clientY - start.y) / scale;
+    let { x, y, w, h } = origin;
+    if (corner.includes('e')) w = origin.w + dx;
+    if (corner.includes('s')) h = origin.h + dy;
+    if (corner.includes('w')) {
+      w = origin.w - dx;
+      x = origin.x + dx;
+    }
+    if (corner.includes('n')) {
+      h = origin.h - dy;
+      y = origin.y + dy;
+    }
+    if (w < min.w) {
+      if (corner.includes('w')) x -= min.w - w;
+      w = min.w;
+    }
+    if (h < min.h) {
+      if (corner.includes('n')) y -= min.h - h;
+      h = min.h;
+    }
+    applyBox(widget, { x, y, w, h });
+    layout();
+  };
+
+  const up = () => {
+    target.removeEventListener('pointermove', move);
+    target.removeEventListener('pointerup', up);
+    target.removeEventListener('pointercancel', up);
+    touch({ reason: 'widget-size' });
+  };
+
+  target.addEventListener('pointermove', move);
+  target.addEventListener('pointerup', up);
+  target.addEventListener('pointercancel', up);
+}
+
+/** Der Auswahlrahmen liegt über der Tafel — so werden die Anfasser nicht beschnitten. */
+function buildSelectionFrame() {
+  selectionFrame = h('div', { class: 'selection-frame' });
+  for (const corner of ['nw', 'ne', 'sw', 'se']) {
+    const handle = h('span', { class: `handle handle--${corner}`, 'data-handle': corner, title: 'Größe ändern' });
+    handle.addEventListener('pointerdown', (event) => startFrameResize(event, corner));
+    selectionFrame.appendChild(handle);
+  }
+  canvasEl.appendChild(selectionFrame);
+}
+
+function updateSelectionFrame() {
+  if (!selectionFrame) return;
+  const board = getActiveBoard();
+  const widget = board ? board.widgets.find((entry) => entry.id === selectedId) : null;
+  const show = Boolean(widget) && mode === 'edit' && !stackMode && !widget.locked
+    && !document.body.classList.contains('is-presenting');
+  selectionFrame.classList.toggle('is-visible', show);
+  if (!show) return;
+  selectionFrame.style.transform = `translate(${widget.x}px, ${widget.y}px)`;
+  selectionFrame.style.width = `${widget.w}px`;
+  selectionFrame.style.height = `${widget.h}px`;
+  selectionFrame.style.zIndex = String((widget.z || 1) + 500);
 }
 
 function layout() {
@@ -326,78 +525,8 @@ function layout() {
       if (instance.api && instance.api.onResize) instance.api.onResize();
     }
   }
+  updateSelectionFrame();
   renderSelection();
-}
-
-function onWidgetPointerDown(event, widget, el) {
-  const handle = event.target.closest('[data-handle]');
-  if (mode === 'use') return;
-  select(widget.id);
-  if (stackMode || widget.locked) return;
-  if (!handle && event.target.closest('[data-nodrag]')) return;
-  if (event.button !== undefined && event.button !== 0) return;
-
-  const startX = event.clientX;
-  const startY = event.clientY;
-  const origin = { x: widget.x, y: widget.y, w: widget.w, h: widget.h };
-  const definition = getWidgetType(widget.type) || {};
-  const min = definition.minSize || { w: 140, h: 110 };
-  let moved = false;
-
-  bringToFront(widget);
-  el.setPointerCapture(event.pointerId);
-  el.classList.add('is-dragging');
-
-  const onMove = (moveEvent) => {
-    const dx = (moveEvent.clientX - startX) / scale;
-    const dy = (moveEvent.clientY - startY) / scale;
-    if (!moved && Math.abs(dx) + Math.abs(dy) < 2) return;
-    moved = true;
-    if (handle) {
-      const mode = handle.dataset.handle;
-      let { x, y, w, h } = origin;
-      if (mode.includes('e')) w = origin.w + dx;
-      if (mode.includes('s')) h = origin.h + dy;
-      if (mode.includes('w')) {
-        w = origin.w - dx;
-        x = origin.x + dx;
-      }
-      if (mode.includes('n')) {
-        h = origin.h - dy;
-        y = origin.y + dy;
-      }
-      if (w < min.w) {
-        if (mode.includes('w')) x -= min.w - w;
-        w = min.w;
-      }
-      if (h < min.h) {
-        if (mode.includes('n')) y -= min.h - h;
-        h = min.h;
-      }
-      widget.w = Math.round(clamp(w, min.w, BOARD_WIDTH));
-      widget.h = Math.round(clamp(h, min.h, BOARD_HEIGHT));
-      widget.x = Math.round(clamp(x, 0, Math.max(0, BOARD_WIDTH - widget.w)));
-      widget.y = Math.round(clamp(y, 0, Math.max(0, BOARD_HEIGHT - widget.h)));
-      const instance = instances.get(widget.id);
-      if (instance && instance.api && instance.api.onResize) instance.api.onResize();
-    } else {
-      widget.x = Math.round(clamp(origin.x + dx, 0, Math.max(0, BOARD_WIDTH - widget.w)));
-      widget.y = Math.round(clamp(origin.y + dy, 0, Math.max(0, BOARD_HEIGHT - widget.h)));
-    }
-    layout();
-  };
-
-  const onUp = () => {
-    el.classList.remove('is-dragging');
-    el.removeEventListener('pointermove', onMove);
-    el.removeEventListener('pointerup', onUp);
-    el.removeEventListener('pointercancel', onUp);
-    if (moved) touch({ reason: 'widget-move' });
-  };
-
-  el.addEventListener('pointermove', onMove);
-  el.addEventListener('pointerup', onUp);
-  el.addEventListener('pointercancel', onUp);
 }
 
 function bringToFront(widget) {
@@ -417,6 +546,7 @@ export function select(widgetId) {
 }
 
 function renderSelection() {
+  updateSelectionFrame();
   if (!selectionEl) return;
   clear(selectionEl);
   const board = getActiveBoard();
@@ -445,6 +575,16 @@ function renderSelection() {
     }));
   }
   selectionEl.append(
+    h('button', {
+      class: 'tool-button', title: 'Kleiner',
+      onclick: () => scaleWidget(widget, 0.85),
+      html: icon('minus', 18),
+    }),
+    h('button', {
+      class: 'tool-button', title: 'Größer',
+      onclick: () => scaleWidget(widget, 1.18),
+      html: icon('plus', 18),
+    }),
     h('button', {
       class: 'tool-button', title: 'Löschen',
       onclick: async () => {
