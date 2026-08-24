@@ -79,9 +79,22 @@ jobs:
         run: |
           UDID="${{ steps.sim.outputs.udid }}"
           mkdir -p ansicht
-          xcrun simctl io "$UDID" screenshot ansicht/01-tafel.png || true
+          # simctl bleibt gelegentlich hängen und blockiert dann den ganzen
+          # Lauf. macOS bringt kein GNU-timeout mit; perl kann dasselbe.
+          shot() {
+            for versuch in 1 2 3; do
+              if perl -e 'alarm 45; exec @ARGV' xcrun simctl io "$UDID" screenshot "$1"; then
+                echo "Bildschirmfoto $1 aufgenommen"
+                return 0
+              fi
+              echo "Bildschirmfoto $1 fehlgeschlagen (Versuch $versuch)"
+              sleep 4
+            done
+            return 0
+          }
+          shot ansicht/01-tafel.png
           sleep 6
-          xcrun simctl io "$UDID" screenshot ansicht/02-tafel.png || true
+          shot ansicht/02-tafel.png
 
       - name: Absturzberichte einsammeln
         if: always()
