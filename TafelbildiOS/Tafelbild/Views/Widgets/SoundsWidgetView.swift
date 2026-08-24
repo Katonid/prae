@@ -69,28 +69,29 @@ struct SoundsWidgetView: View {
                 if content.showLabels && style.showLabels && !button.label.isEmpty {
                     Text(button.label)
                         .font(Theme.font(min(height * 0.18, 18), weight: .semibold))
-                        .foregroundStyle(color.readableForeground)
-                        .lineLimit(1)
+                        .foregroundStyle(button.hasSource ? color.readableForeground : style.inkSoft)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.center)
                         .minimumScaleFactor(0.6)
                 }
                 if !button.hasSource {
                     Text("kein Ton")
                         .font(Theme.font(12, weight: .medium))
-                        .foregroundStyle(color.readableForeground.opacity(0.7))
+                        .foregroundStyle(style.inkSoft)
                 }
             }
             .frame(maxWidth: .infinity)
             .frame(height: height)
             .background {
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .fill(color.opacity(button.hasSource ? 1 : 0.35))
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(button.hasSource ? AnyShapeStyle(color) : AnyShapeStyle(style.wash))
                     .overlay {
-                        RoundedRectangle(cornerRadius: 20, style: .continuous)
-                            .strokeBorder(Color.white.opacity(playing ? 0.9 : 0.15), lineWidth: playing ? 3 : 1)
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .strokeBorder(Color.white.opacity(playing ? 0.35 : 0), lineWidth: playing ? 4 : 0)
                     }
             }
-            .shadow(color: playing ? color.opacity(0.7) : .black.opacity(0.2),
-                    radius: playing ? 16 : 8, y: 4)
+            .shadow(color: button.hasSource ? Color(hex: "#020617").opacity(0.5) : .clear,
+                    radius: playing ? 22 : 14, y: playing ? 10 : 8)
             .scaleEffect(playing ? 0.97 : 1)
             .animation(.easeOut(duration: 0.15), value: playing)
         }
