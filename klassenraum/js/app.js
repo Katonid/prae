@@ -9,12 +9,13 @@ import {
 import { WIDGETS } from './widgets/index.js';
 import {
   initBoard, renderBoard, configureBoard, addWidgetOfType, select, updateScale,
-  setStackMode, isStackMode, applyBackground, openWidgetSettings, setMode, getMode,
+  setStackMode, isStackMode, applyBackground, openWidgetSettings, setMode, getMode, refreshAll,
 } from './board.js';
 import { openListsPanel } from './lists.js';
 import { initDrawing, setDrawActive, isDrawActive, redraw as redrawDrawing } from './draw.js';
 import { collectUnusedMedia, mediaUsage, formatSize } from './media.js';
 import { APP_VERSION, APP_DATE } from './version.js';
+import { SCHEMES } from './theme.js';
 import { initSharing, openSharePanel, isFollowing } from './share.js';
 import {
   openPanel, closePanel, section, field, button, buttonRow, toggleRow, toast,
@@ -244,6 +245,50 @@ function openBackgroundPanel() {
     const background = board.background || { type: 'aurora', value: 'nordlicht' };
     const cardStyle = board.cardStyle || 'glass';
 
+    container.appendChild(section('Farbschema',
+      h('div', { class: 'scheme-grid' }, SCHEMES.map((entry) => h('button', {
+        class: 'scheme' + ((board.accent || 'indigo') === entry.id ? ' is-active' : ''),
+        onclick: () => {
+          board.accent = entry.id;
+          touch();
+          applyBackground();
+          refreshAll();
+          render();
+        },
+      },
+      h('span', {
+        class: 'scheme__dot',
+        style: {
+          background: board.gradient === false
+            ? entry.from
+            : `linear-gradient(135deg, ${entry.from}, ${entry.mid} 55%, ${entry.to})`,
+        },
+      }),
+      h('span', null, entry.label)))),
+      toggleRow('Farbverlauf verwenden', board.gradient !== false, (value) => {
+        board.gradient = value;
+        touch();
+        applyBackground();
+        refreshAll();
+        render();
+      }, 'Aus: ruhige, einfarbige Akzente statt der bunten Verläufe.')));
+
+    container.appendChild(section('Rahmen um die Elemente',
+      h('div', { class: 'segmented' },
+        [['always', 'Immer'], ['edit', 'Nur beim Bearbeiten'], ['never', 'Nie']].map(([value, label]) => h('button', {
+          class: 'segmented__item' + ((board.frames || 'always') === value ? ' is-active' : ''),
+          onclick: () => {
+            board.frames = value;
+            touch();
+            applyBackground();
+            render();
+          },
+        }, label))),
+      h('p', { class: 'muted small' },
+        'Ohne Rahmen stehen Uhr, Klangtasten und Texte frei auf der Tafel. '
+        + '„Nur beim Bearbeiten“ zeigt die Rahmen beim Einrichten und blendet sie in der Unterrichtsansicht aus. '
+        + 'Einzelne Elemente lassen sich zusätzlich über das Rahmen-Symbol in der kleinen Leiste umschalten.')));
+
     const auroraGrid = h('div', { class: 'bg-grid' }, AURORA.map((preset) => h('button', {
       class: 'bg-card' + (background.type === 'aurora' && background.value === preset.id ? ' is-active' : ''),
       style: {
@@ -343,7 +388,7 @@ function openBackgroundPanel() {
       h('p', { class: 'muted small' }, 'Glas wirkt leicht und nimmt die Hintergrundfarbe auf, Hell ist am kontraststärksten, Dunkel schont abends die Augen.')));
   }
 
-  openPanel({ title: 'Hintergrund', subtitle: `Für „${getActiveBoard().name}"`, content: container, wide: true });
+  openPanel({ title: 'Aussehen', subtitle: `Für „${getActiveBoard().name}"`, content: container, wide: true });
   render();
 }
 
@@ -356,7 +401,7 @@ function openMenuPanel() {
       buttonRow(
         button('Namenslisten', { icon: 'layers', full: true, onClick: () => { closePanel(); openListsPanel(); } })),
       buttonRow(
-        button('Hintergrund', { icon: 'paint', full: true, onClick: () => { closePanel(); openBackgroundPanel(); } })),
+        button('Aussehen', { icon: 'palette', full: true, onClick: () => { closePanel(); openBackgroundPanel(); } })),
       buttonRow(
         button('Klassenräume', { icon: 'home', full: true, onClick: () => { closePanel(); openBoardsPanel(); } })),
       buttonRow(
@@ -446,7 +491,9 @@ function openHelp() {
         + 'Die Striche gehören zur Tafel und bleiben erhalten.'),
       h('p', null, h('strong', null, 'Klang & Video: '), 'Element „Klang“ oder „Video“ ablegen, im Zahnrad eine Datei vom Gerät oder einen Link wählen. '
         + 'Ein Tipp auf die Taste spielt ab.'),
-      h('p', null, h('strong', null, 'Aussehen: '), '„Hintergrund“ bietet bewegte Farbverläufe, eigene Farben, Bilder und drei Kartenstile.'),
+      h('p', null, h('strong', null, 'Aussehen: '), '„Aussehen“ bietet bewegte Hintergründe, eigene Farben und Bilder, '
+        + 'sechs Farbschemata (auch einfarbig statt Verlauf), drei Kartenstile und die Rahmen-Einstellung — '
+        + 'ohne Rahmen stehen die Elemente frei auf der Tafel.'),
       h('p', null, h('strong', null, 'Teilen: '), 'Menü → „Teilen & Konto“ → Code erstellen. Andere geben den Code ein und laden eine Kopie oder folgen live.'),
       h('p', null, h('strong', null, 'Auf dem Homescreen: '), 'In Safari „Teilen“ → „Zum Home-Bildschirm“ — dann startet die App im Vollbild.')),
     actions: [{ label: 'Alles klar', primary: true }],

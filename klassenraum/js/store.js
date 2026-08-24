@@ -122,6 +122,9 @@ export function defaultBoard(name = 'Neuer Klassenraum') {
     name,
     background: { type: 'aurora', value: 'nordlicht' },
     cardStyle: 'glass',
+    accent: 'indigo',
+    gradient: true,
+    frames: 'always',
     widgets: [],
     drawing: [],
     updatedAt: Date.now(),
@@ -133,7 +136,7 @@ function starterBoard() {
   board.widgets = [
     {
       id: uid('w'), type: 'clock', x: 80, y: 130, w: 420, h: 420, z: 1,
-      state: { mode: 'analog', showSeconds: true, showDate: false, accent: '#6366f1' },
+      state: { mode: 'analog', face: 'modern', showSeconds: true, showDate: false, accent: null },
     },
     {
       id: uid('w'), type: 'randomizer', x: 560, y: 130, w: 620, h: 470, z: 2,
@@ -244,6 +247,9 @@ function normalizeState(loaded) {
     name: board.name || 'Klassenraum',
     background: board.background || { type: 'aurora', value: 'nordlicht' },
     cardStyle: board.cardStyle || 'glass',
+    accent: board.accent || 'indigo',
+    gradient: board.gradient !== false,
+    frames: board.frames || 'always',
     widgets: Array.isArray(board.widgets) ? board.widgets.map(normalizeWidget) : [],
     drawing: Array.isArray(board.drawing) ? board.drawing : [],
     updatedAt: board.updatedAt || Date.now(),
@@ -256,6 +262,10 @@ function normalizeState(loaded) {
 }
 
 function migrateWidgetState(widget) {
+  if (widget.type === 'clock' && widget.state && widget.state.accent === '#6366f1') {
+    // Frühere Vorgabe: Indigo. Ab jetzt folgt die Uhr dem Farbschema.
+    widget.state.accent = null;
+  }
   if (widget.type === 'randomizer' && widget.state) {
     // Frühere Fassung: showDrawn war ein Schalter, heute drei Stufen.
     if (widget.state.showDrawn === true) widget.state.showDrawn = 'edit';
@@ -277,6 +287,7 @@ function normalizeWidget(rawWidget) {
     h: Number.isFinite(widget.h) ? widget.h : 260,
     z: Number.isFinite(widget.z) ? widget.z : 1,
     locked: Boolean(widget.locked),
+    bare: Boolean(widget.bare),
     state: widget.state && typeof widget.state === 'object' ? widget.state : {},
   };
 }

@@ -8,6 +8,7 @@ import {
   nextZ, on as onStore,
 } from './store.js';
 import { openPanel, closePanel, confirmDialog } from './ui.js';
+import { applyScheme } from './theme.js';
 
 const instances = new Map();
 let canvasEl = null;
@@ -40,6 +41,7 @@ export function setMode(value) {
   if (mode === 'use') select(null);
   refreshAll();
   layout();
+  applyBackground();
 }
 
 export function isStackMode() {
@@ -136,6 +138,17 @@ export function applyBackground() {
   const style = board.cardStyle || 'glass';
   stageEl.dataset.cards = style;
   document.body.dataset.cards = style;
+  applyScheme(board);
+  layout();
+}
+
+/** Zeigt dieses Element gerade einen Rahmen? */
+function isBare(widget, board) {
+  if (widget.bare) return true;
+  const frames = board.frames || 'always';
+  if (frames === 'never') return true;
+  if (frames === 'edit' && mode === 'use') return true;
+  return false;
 }
 
 function isLight(background) {
@@ -292,6 +305,7 @@ function layout() {
     }
     el.classList.toggle('is-locked', Boolean(widget.locked));
     el.classList.toggle('is-selected', widget.id === selectedId);
+    el.classList.toggle('widget--bare', isBare(widget, board));
   }
   if (stackMode) {
     for (const [, instance] of instances) {
@@ -436,6 +450,16 @@ function renderSelection() {
       class: 'tool-button', title: 'Duplizieren',
       onclick: () => duplicateWidget(widget.id),
       html: icon('copy', 18),
+    }),
+    h('button', {
+      class: 'tool-button' + (widget.bare ? ' is-on' : ''), title: widget.bare ? 'Rahmen zeigen' : 'Rahmen ausblenden',
+      onclick: () => {
+        widget.bare = !widget.bare;
+        touch({ reason: 'widget-frame' });
+        layout();
+        renderSelection();
+      },
+      html: icon(widget.bare ? 'frameOff' : 'frameOn', 18),
     }),
     h('button', {
       class: 'tool-button', title: widget.locked ? 'Entsperren' : 'Position sperren',
