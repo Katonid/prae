@@ -494,7 +494,10 @@ function openHelp() {
       h('p', null, h('strong', null, 'Bedienen: '), 'Ein Tipp auf die Karte löst die Hauptfunktion aus — '
         + 'Zufälliger Name zieht den nächsten Namen, die Ampel schaltet weiter, das Arbeitssymbol wechselt, '
         + 'die Uhr springt zwischen analog und digital, die Lautstärkemessung startet.'),
-      h('p', null, h('strong', null, 'Verschieben: '), 'Element anfassen und ziehen. Ecken ziehen ändert die Größe.'),
+      h('p', null, h('strong', null, 'Verschieben: '), 'Element anfassen und ziehen.'),
+      h('p', null, h('strong', null, 'Größe ändern: '), 'Drei Wege — an einem der vier runden Anfasser in der Ecke ziehen, '
+        + 'die Knöpfe − und + in der kleinen Leiste antippen, oder mit zwei Fingern auf dem Element auseinander- bzw. zusammenziehen. '
+        + 'Der Inhalt wächst dabei mit.'),
       h('p', null, h('strong', null, 'Einstellen: '), 'Element antippen, dann auf das Zahnrad in der kleinen Leiste.'),
       h('p', null, h('strong', null, 'Namen aufdecken: '), 'Im Element „Zufälliger Name“ auf das Zahnrad tippen → Abschnitt „Aufdecken“: '
         + 'Mosaik, Unschärfe, Buchstaben oder Sofort. Jeder Tipp auf die Karte legt ein Stück frei, das Augensymbol zeigt alles.'),

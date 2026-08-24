@@ -41,9 +41,12 @@ und die Möglichkeit, alles **als Datei zu sichern**.
   Aufschriften — Listenname und Zähler beim Zufallsnamen, „Timer", „Lautstärke",
   die Überschrift des Tagesablaufs, das Datum unter der Uhr und Bildunterschriften.
   Zusammen mit „ohne Rahmen" steht dann nur noch der Inhalt auf der Tafel.
-* **Stufenlose Größe**: Beim Ziehen an den Ecken wächst nicht nur das Feld, sondern
-  auch sein Inhalt mit — Schrift, Kästchen und Knöpfe skalieren gleichmäßig zwischen
-  60 % und 400 % der Grundgröße.
+* **Stufenlose Größe** auf drei Wegen: an einem der vier runden Anfasser ziehen, die
+  Knöpfe **−** und **+** in der kleinen Leiste antippen, oder mit **zwei Fingern** auf
+  dem Element auseinanderziehen. Der Inhalt wächst mit — Schrift, Kästchen und Knöpfe
+  skalieren gleichmäßig zwischen 60 % und 400 % der Grundgröße. Die Anfasser liegen in
+  einem eigenen Rahmen über der Tafel und sind auf dem Bildschirm immer gleich groß
+  (36 px), unabhängig davon, wie stark die Tafel gerade skaliert ist.
 * **Bewegte Hintergründe** („Nordlicht“, „Sonnenaufgang“, „Waldgrün“, „Beere“, „Tafelgrün“,
   „Kreide hell“) mit langsam wandernden Farbschleiern — dazu einfarbige Hintergründe,
   Farbverläufe oder ein eigenes Bild.
@@ -113,8 +116,8 @@ aufgedeckt ist.
 * **Bedienen:** Ein Tipp auf die Karte löst die Hauptfunktion aus — Zufälliger Name zieht
   den nächsten Namen, die Ampel schaltet weiter, das Arbeitssymbol wechselt, die Uhr springt
   zwischen analog und digital, die Lautstärkemessung startet.
-* **Verschieben:** Element anfassen und ziehen; an den Ecken ziehen ändert die Größe.
-  (Beim Ziehen wird nichts ausgelöst.)
+* **Verschieben:** Element anfassen und ziehen. (Beim Ziehen wird nichts ausgelöst.)
+* **Größe ändern:** Anfasser ziehen, **−**/**+** in der kleinen Leiste, oder zwei Finger.
 * **Einstellen:** Element antippen → Zahnrad in der kleinen Leiste darüber.
 * **Sperren:** Schloss-Symbol in derselben Leiste — verhindert versehentliches Verschieben an der interaktiven Tafel.
 * **Am Telefon** schaltet die App automatisch auf eine Listenansicht um (im Menü umschaltbar).
