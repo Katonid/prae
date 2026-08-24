@@ -19,7 +19,7 @@ struct NoiseWidgetView: View {
             VStack(spacing: 10) {
                 if !content.title.isEmpty && style.showLabels {
                     Text(tooLoud && content.alert ? "Zu laut!" : content.title)
-                        .font(Theme.font(min(geo.size.width * 0.11, 30), weight: .bold))
+                        .font(Theme.font(min(geo.size.width * 0.075, 24), weight: .heavy))
                         .foregroundStyle(tooLoud && content.alert ? Theme.danger : style.ink)
                         .lineLimit(1)
                         .minimumScaleFactor(0.5)
@@ -31,19 +31,26 @@ struct NoiseWidgetView: View {
                         hint("Mikrofon ist nicht erlaubt. In den iOS-Einstellungen → Tafelbild → Mikrofon einschalten.",
                              symbol: "mic.slash")
                     case .unknown where !meter.running:
-                        Button {
-                            meter.requestPermission()
-                        } label: {
-                            VStack(spacing: 10) {
-                                Image(systemName: "mic.circle.fill")
-                                    .font(.system(size: 44))
-                                Text("Messung starten")
-                                    .font(Theme.font(20, weight: .semibold))
+                        VStack(spacing: 12) {
+                            Spacer(minLength: 0)
+                            Text("Zum Messen Mikrofon aktivieren.")
+                                .font(Theme.font(15, weight: .semibold))
+                                .foregroundStyle(style.inkSoft)
+                                .multilineTextAlignment(.center)
+                            Button {
+                                meter.requestPermission()
+                            } label: {
+                                Text("Mikrofon aktivieren")
+                                    .font(Theme.font(16, weight: .bold))
+                                    .foregroundStyle(.white)
+                                    .frame(maxWidth: .infinity)
+                                    .frame(height: 46)
+                                    .background { Capsule().fill(style.accentGradient) }
+                                    .shadow(color: style.accentGlow, radius: 16, y: 8)
                             }
-                            .foregroundStyle(style.inkSoft)
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            .buttonStyle(.plain)
                         }
-                        .buttonStyle(.plain)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                     default:
                         gaugeContent(size: geo.size)
                     }
@@ -171,7 +178,7 @@ struct NoiseWidgetView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    /// „Zu laut" erst nach kurzem Anhalten melden — einzelne Ausrufe
+    /// „Zu laut“ erst nach kurzem Anhalten melden — einzelne Ausrufe
     /// sollen die Anzeige nicht sofort rot färben.
     private func updateAlert() {
         if level > content.threshold {
