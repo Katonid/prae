@@ -141,7 +141,52 @@ weitergeben. Andere geben den Code ein und wählen:
 einem anderen Gerät wieder. Sie brauchen eine einmalige Freischaltung im
 Firebase-Projekt: *Firebase-Konsole → Authentication → Anmeldemethode →
 E-Mail/Passwort aktivieren*. Solange das nicht geschehen ist, zeigt die App
-einen Hinweis; Teilen per Code funktioniert unabhängig davon.
+einen Hinweis; Teilen per Code und der Geräte-Abgleich funktionieren unabhängig
+davon.
+
+## Abgleich zwischen Geräten
+
+Der **Abgleich** hält *alle* Tafeln und Namenslisten auf allen Geräten gleich —
+iPad, Rechner und die interaktive Tafel im Klassenzimmer. Zu finden unter
+„Teilen“ → *Abgleich zwischen Geräten*.
+
+1. Auf dem ersten Gerät **„Abgleich einrichten“** antippen. Die App legt einen
+   Bereich an, lädt alles hoch und zeigt einen **Kopplungscode** (eine Stunde
+   gültig) samt Link.
+2. Auf dem zweiten Gerät **„Gerät verbinden“** und den Code eingeben — oder
+   einfach den Link öffnen. Die Tafeln beider Geräte werden zusammengeführt.
+3. Danach läuft alles von selbst: Jede Änderung wird nach kurzer Pause gesendet
+   und erscheint auf den anderen Geräten (Ereignisstrom der Datenbank, sonst
+   regelmäßiges Nachfragen). Oben zeigt die Anzeige **„Abgleich“** den Zustand;
+   ein Tipp darauf öffnet die Einstellungen.
+
+Wie zusammengeführt wird:
+
+* Jede Tafel und jede Liste ist ein eigener Datensatz mit Zeitstempel.
+  Bei zwei Ständen **gewinnt der neuere** — nicht Feld für Feld, sondern die
+  ganze Tafel. Zwei Geräte sollten also nicht gleichzeitig dieselbe Tafel
+  umbauen.
+* **Gelöschtes** wird als Vermerk mitgeschickt und verschwindet überall. Die
+  letzte verbliebene Tafel wird nie gelöscht.
+* **Ohne Netz** läuft alles lokal weiter; beim nächsten Verbinden wird
+  nachgeholt. Kommt das Gerät aus dem Hintergrund zurück, wird sofort geholt.
+* **Klang- und Videodateien** bleiben auf dem jeweiligen Gerät — nur Links
+  wandern mit.
+* „Abgleich auf diesem Gerät beenden“ trennt nur dieses Gerät; die Tafeln
+  bleiben dort erhalten, die übrigen Geräte gleichen weiter ab.
+
+Sind Konten freigeschaltet, merkt sich die App den Bereich am Konto: Wer sich auf
+einem neuen Gerät anmeldet, ist ohne Code sofort dabei.
+
+### Empfohlene Datenbankregeln
+
+`firebase-rules.json` im Ordner `klassenraum/` enthält die passenden Regeln für die
+Realtime Database (*Firebase-Konsole → Realtime Database → Regeln → einfügen →
+veröffentlichen*). Sie erlauben Lesen und Schreiben nur **unterhalb** eines
+bekannten Codes bzw. einer bekannten Bereichskennung — die Listen `shares`,
+`links` und `spaces` selbst lassen sich damit nicht mehr abrufen. Ohne diese
+Regeln (Standard: alles offen) könnte jede Person mit der Projektadresse sämtliche
+geteilten Tafeln herunterladen.
 
 ## Aktualisierungen
 
@@ -154,9 +199,12 @@ suchen"** — falls ein Gerät doch einmal auf einem alten Stand hängen bleibt.
 
 * Alle Klassenräume, Listen und Bilder liegen **auf dem Gerät** (IndexedDB) und
   werden nicht automatisch übertragen.
-* Erst beim Erstellen eines Teilen-Codes wird der betreffende Klassenraum auf den
-  Server geschrieben. Dort liegt er **unverschlüsselt** und ist für jede Person
-  mit dem Code lesbar — deshalb bitte nur **Vornamen oder Kürzel** verwenden.
+* Erst beim Erstellen eines Teilen-Codes oder beim Einrichten des Abgleichs wird
+  auf den Server geschrieben. Dort liegen die Daten **unverschlüsselt**:
+  Geteiltes ist für jede Person mit dem Code lesbar, der Abgleich hängt an einer
+  langen zufälligen Kennung, die nur die eigenen Geräte kennen. Deshalb bitte nur
+  **Vornamen oder Kürzel** verwenden. Die empfohlenen Datenbankregeln (siehe oben)
+  verhindern zusätzlich, dass jemand einfach alle Bereiche auflistet.
 * Der Lautstärkemesser berechnet nur den Pegel. Es wird **nichts aufgenommen,
   gespeichert oder gesendet**.
 * **Das Mikrofon läuft nur im Vordergrund.** Wechselt das Gerät zu einer anderen App
@@ -167,7 +215,8 @@ suchen"** — falls ein Gerät doch einmal auf einem alten Stand hängen bleibt.
   fürs Fortsetzen wieder einen Tipp, steht das auf der Karte.
 * Klang- und Videodateien bleiben im Gerätespeicher und werden beim Teilen nicht
   übertragen.
-* Ohne Teilen und ohne Konto stellt die App keine Verbindung ins Netz her.
+* Ohne Teilen, ohne Abgleich und ohne Konto stellt die App keine Verbindung ins
+  Netz her.
 
 ## Technik
 
@@ -185,8 +234,10 @@ klassenraum/
   js/draw.js            Schreiben und Markieren auf der Tafel
   js/media.js           Klang- und Videodateien im Gerätespeicher
   js/lists.js           Namenslisten
-  js/share.js           Teilen-Oberfläche und Live-Abgleich
-  js/cloud.js           Firebase-REST (Teilen, Konten, Sicherung)
+  js/share.js           Teilen-Oberfläche, Live-Folgen, Abgleich-Oberfläche
+  js/sync.js            Abgleich zwischen Geräten (Zusammenführen, Löschvermerke)
+  js/cloud.js           Firebase-REST (Teilen, Abgleich, Konten, Sicherung)
+  firebase-rules.json   empfohlene Regeln für die Realtime Database
   js/ui.js, js/util.js, js/icons.js
   sw.js                 Offline-Betrieb
   scripts/generate-icons.py   erzeugt die App-Icons

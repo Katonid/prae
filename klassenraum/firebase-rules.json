@@ -1,0 +1,30 @@
+{
+  "rules": {
+    "klassenraum": {
+      "shares": {
+        "$code": {
+          ".read": true,
+          ".write": true
+        }
+      },
+      "links": {
+        "$code": {
+          ".read": true,
+          ".write": true
+        }
+      },
+      "spaces": {
+        "$space": {
+          ".read": true,
+          ".write": true
+        }
+      },
+      "users": {
+        "$uid": {
+          ".read": "auth != null && auth.uid === $uid",
+          ".write": "auth != null && auth.uid === $uid"
+        }
+      }
+    }
+  }
+}

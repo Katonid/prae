@@ -101,6 +101,15 @@ noch Commits auf denselben PR gepusht wurden — die hingen dann fest
 - Cloud läuft über die REST-Schnittstellen von Firebase (Realtime Database
   + Identity Toolkit) mit `firebase-config.js` aus dem Wurzelverzeichnis —
   kein SDK laden, das bricht den Offline-Betrieb.
+- Drei Cloud-Wege, die nicht vermischt werden dürfen: **Teilen** (ein Board
+  unter `klassenraum/shares/<CODE>`), **Abgleich** (alle Boards und Listen als
+  Einzeldatensätze unter `klassenraum/spaces/<Kennung>`, `js/sync.js`) und
+  **Konto/Sicherung** (`klassenraum/users/<uid>`). Der Abgleich führt pro
+  Datensatz nach Zeitstempel zusammen („neuer gewinnt") und schickt
+  Löschvermerke mit; die letzte verbliebene Tafel wird nie gelöscht.
+- `klassenraum/firebase-rules.json` enthält die empfohlenen Datenbankregeln
+  (kein Auflisten von `shares`/`spaces`/`links`). Sie müssen in der
+  Firebase-Konsole eingefügt werden — Standard ist offen.
 - Konten brauchen eine einmalige Freischaltung in der Firebase-Konsole
   (Authentication → E-Mail/Passwort). Ohne sie zeigt die App einen Hinweis;
   Teilen per Code funktioniert trotzdem.

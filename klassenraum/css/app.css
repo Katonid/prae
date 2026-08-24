@@ -140,6 +140,23 @@ button { font: inherit; color: inherit; }
   animation: pulse-soft 2.6s ease-in-out infinite;
 }
 
+/* Abgleich-Anzeige oben: ruhig, nur beim Arbeiten oder bei Störung auffällig. */
+.badge--sync {
+  background: rgba(15, 23, 42, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: rgba(248, 250, 252, 0.85);
+  box-shadow: none;
+  animation: none;
+  cursor: pointer;
+}
+
+.badge--sync:hover { background: rgba(30, 41, 59, 0.72); color: #f8fafc; }
+.badge--sync.badge--warn { background: linear-gradient(135deg, #f59e0b, #f97316); color: #431407; border-color: transparent; }
+
+.sync-status { margin: 0; font-size: 0.9rem; color: var(--ink-soft); }
+.sync-status.is-error { color: var(--danger); }
+.sync-status.is-busy { opacity: 0.8; }
+
 .is-hidden { display: none !important; }
 
 /* ---------- Tafelfläche & Hintergründe ---------- */
