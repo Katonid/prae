@@ -139,6 +139,22 @@ Auf dem Mac: im TestFlight-/App-Eintrag „Auf Macs mit Apple Silicon
 verfügbar machen" aktivieren — dann läuft dieselbe App als iPad-App auf
 dem Mac.
 
+## Übersetzt wird automatisch
+
+Jeder Push auf `TafelbildiOS/` baut die App auf einem macOS-Läufer von
+GitHub Actions (`.github/workflows/tafelbild-build.yml`): `xcodebuild`
+gegen das iOS-Simulator-SDK, ohne Signierung. Am Ende des Protokolls
+stehen alle `error:`- und `warning:`-Zeilen zusammengefasst; scheitert
+der Bau, hängt das vollständige Protokoll als Artefakt am Lauf.
+
+Der Nutzen: Übersetzungsfehler fallen auf, **bevor** das Projekt auf dem
+Mac geöffnet wird — und wer am Code arbeitet (auch Claude), sieht das
+Ergebnis, ohne selbst einen Mac zu brauchen. Das Repo ist öffentlich,
+macOS-Minuten kosten damit nichts.
+
+Läufe stehen unter *Actions → „Tafelbild bauen"*; von Hand starten geht
+dort über *Run workflow*.
+
 ## Technik
 
 - Swift 5 / SwiftUI, iOS 17+ (iPhone + iPad), keine externen
