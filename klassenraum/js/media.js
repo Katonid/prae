@@ -98,12 +98,15 @@ export async function mediaUsage() {
   }
 }
 
-/** Dateiauswahl öffnen und im Gerät ablegen. */
+export const AUDIO_ACCEPT = 'audio/*,.mp3,.m4a,.aac,.wav,.aif,.aiff,.caf,.ogg,.oga,.opus,.flac,.mp4,.m4r';
+export const VIDEO_ACCEPT = 'video/*,.mp4,.mov,.m4v,.webm,.mkv,.avi';
+
+/** Dateiauswahl öffnen und im Gerät ablegen. Ohne accept zeigt iPadOS alle Dateien. */
 export function pickMedia(accept) {
   return new Promise((resolve) => {
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = accept;
+    if (accept) input.accept = accept;
     input.style.display = 'none';
     document.body.appendChild(input);
     input.addEventListener('change', async () => {

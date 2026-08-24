@@ -12,7 +12,7 @@ funktioniert auch am Telefon.
 | --- | --- |
 | **Zufälliger Name** | Zieht Namen aus einer Liste — mit oder ohne Zurücklegen. Gezogene Namen lassen sich einzeln zurücklegen, löschen oder von Hand als gezogen markieren. Der gezogene Name kann **schrittweise aufgedeckt** werden, damit die Klasse mitraten kann. |
 | **Timer / Stoppuhr** | Voreinstellungen von 1 bis 45 Minuten, ±1 Minute, Signalton am Ende. |
-| **Uhr** | Analog in drei Zifferblättern — **Modern** (schlank, mit gleitendem Sekundenzeiger), **Klassisch** (alle Zahlen) und **Lernuhr** (blaue Stunden-, orange Minutenzahlen mit farbgleichen Zeigern) — oder digital, jeweils mit Datum. |
+| **Uhr** | Analog in vier Zifferblättern — **Modern** (Vorgabe: alle Zahlen und Minutenstriche, schlanke Zeiger, gleitender Sekundenzeiger), **Klassisch** (Wanduhr-Optik), **Lernuhr** (blaue Stunden-, orange Minutenzahlen mit farbgleichen Zeigern) und **Minimal** (nur 12/3/6/9) — oder digital, jeweils mit Datum. |
 | **Ampel** | Drei Lichter, antippen oder doppeltippen zum Weiterschalten, mit eigenen Beschriftungen. |
 | **Tagesablauf** | Checkliste mit Fortschrittsbalken, Punkte abhaken, sortieren, schnell erfassen. |
 | **Text** | Doppeltippen zum Schreiben, Schriftgröße passt sich automatisch an. |
@@ -61,7 +61,11 @@ sich in der Unterrichtsansicht genauso nutzen und wird beim Teilen mitgeschickt.
 ## Klang und Video
 
 Beide Elemente nehmen entweder eine **Datei vom Gerät** (bis 60 MB, liegt im
-Gerätespeicher) oder einen **Link**. Dateien vom Gerät werden beim Teilen über einen
+Gerätespeicher) oder einen **Link**. Es gehen MP3, M4A, WAV, AAC und OGG
+beziehungsweise MP4, MOV, M4V und WebM. Blendet die Dateien-App auf dem iPad
+Dateien aus — das passiert etwa bei Netzlaufwerken —, öffnet der Knopf
+**„Alle Dateien"** die Auswahl ohne Filter. Titel aus der Musik-App sind
+systembedingt nicht auswählbar. Dateien vom Gerät werden beim Teilen über einen
 Code nicht mitgeschickt — ein Link funktioniert überall. Im Menü unter **Speicher**
 steht, wie viel Platz die Dateien belegen; dort lassen sich nicht mehr genutzte Dateien
 entfernen.

@@ -11,6 +11,7 @@ const FACES = [
   { id: 'modern', label: 'Modern' },
   { id: 'klassisch', label: 'Klassisch' },
   { id: 'lernuhr', label: 'Lernuhr' },
+  { id: 'minimal', label: 'Minimal' },
 ];
 
 const HOUR_COLOR = '#2563eb';
@@ -25,13 +26,14 @@ function ticks(face, accent) {
   const parts = [];
   for (let i = 0; i < 60; i += 1) {
     const major = i % 5 === 0;
-    if (face === 'modern' && !major) continue;
+    // Nur das Zifferblatt „Minimal" verzichtet auf die kleinen Minutenstriche.
+    if (face === 'minimal' && !major) continue;
     const angle = i * 6;
     const outer = face === 'lernuhr' ? 79 : 88;
-    const inner = major ? outer - (face === 'modern' ? 9 : 8) : outer - 4;
+    const inner = major ? outer - (face === 'minimal' ? 9 : 8) : outer - 4;
     const a = polar(outer, angle);
     const b = polar(inner, angle);
-    const width = major ? (face === 'modern' ? 3.4 : 3) : 1.4;
+    const width = major ? (face === 'modern' ? 3.2 : 3) : 1.4;
     const color = major ? accent : `${accent}66`;
     parts.push(`<line x1="${a.x.toFixed(1)}" y1="${a.y.toFixed(1)}" x2="${b.x.toFixed(1)}" y2="${b.y.toFixed(1)}" `
       + `stroke="${color}" stroke-width="${width}" stroke-linecap="round"/>`);
@@ -41,7 +43,7 @@ function ticks(face, accent) {
 
 function numbers(face) {
   const parts = [];
-  if (face === 'modern') {
+  if (face === 'minimal') {
     for (const n of [12, 3, 6, 9]) {
       const p = polar(68, n * 30);
       parts.push(`<text class="clock-number clock-number--light" x="${p.x.toFixed(1)}" y="${(p.y + 7).toFixed(1)}" text-anchor="middle">${n}</text>`);
@@ -51,7 +53,8 @@ function numbers(face) {
   for (let n = 1; n <= 12; n += 1) {
     const p = polar(face === 'lernuhr' ? 60 : 66, n * 30);
     const fill = face === 'lernuhr' ? HOUR_COLOR : 'var(--card-ink)';
-    parts.push(`<text class="clock-number" x="${p.x.toFixed(1)}" y="${(p.y + 7).toFixed(1)}" text-anchor="middle" fill="${fill}">${n}</text>`);
+    const cls = face === 'modern' ? 'clock-number clock-number--modern' : 'clock-number';
+    parts.push(`<text class="${cls}" x="${p.x.toFixed(1)}" y="${(p.y + 7).toFixed(1)}" text-anchor="middle" fill="${fill}">${n}</text>`);
   }
   if (face === 'lernuhr') {
     for (let n = 5; n <= 60; n += 5) {
@@ -72,19 +75,20 @@ function buildFace(face, accent, showSeconds) {
   parts.push(`<defs><linearGradient id="${id}" gradientUnits="userSpaceOnUse" x1="60" y1="20" x2="140" y2="180">`
     + `<stop offset="0%" stop-color="${accent}"/><stop offset="100%" stop-color="#ec4899"/></linearGradient></defs>`);
 
-  if (face === 'modern') {
-    parts.push(`<circle cx="100" cy="100" r="94" fill="var(--clock-face)" stroke="${accent}22" stroke-width="1.5"/>`);
+  if (face === 'modern' || face === 'minimal') {
+    parts.push(`<circle cx="100" cy="100" r="94" fill="var(--clock-face)" stroke="${accent}33" stroke-width="2"/>`);
   } else {
     parts.push(`<circle cx="100" cy="100" r="94" fill="var(--clock-face)" stroke="${face === 'lernuhr' ? HOUR_COLOR : accent}" stroke-width="${face === 'lernuhr' ? 2.5 : 3}"/>`);
   }
 
-  parts.push(ticks(face, face === 'lernuhr' ? MINUTE_COLOR : (face === 'modern' ? 'var(--card-ink)' : accent)));
+  const tickColor = face === 'lernuhr' ? MINUTE_COLOR : (face === 'klassisch' ? accent : '#334155');
+  parts.push(ticks(face, tickColor));
   parts.push(numbers(face));
 
   const hourColor = face === 'lernuhr' ? HOUR_COLOR : 'var(--card-ink)';
   const minuteColor = face === 'lernuhr' ? MINUTE_COLOR : 'var(--card-ink)';
 
-  if (face === 'modern') {
+  if (face === 'modern' || face === 'minimal') {
     parts.push('<line class="clock-hand clock-hand--hour" x1="100" y1="112" x2="100" y2="54" '
       + `stroke="${hourColor}" stroke-width="7" stroke-linecap="round"/>`);
     parts.push('<line class="clock-hand clock-hand--minute" x1="100" y1="116" x2="100" y2="30" '
@@ -100,7 +104,7 @@ function buildFace(face, accent, showSeconds) {
     parts.push(`<line class="clock-hand clock-hand--second" x1="100" y1="118" x2="100" y2="24" stroke="url(#${id})" stroke-width="2.2" stroke-linecap="round"/>`);
   }
 
-  parts.push(`<circle class="clock-pin" cx="100" cy="100" r="${face === 'modern' ? 5 : 4.5}" fill="url(#${id})"/>`);
+  parts.push(`<circle class="clock-pin" cx="100" cy="100" r="${face === 'lernuhr' ? 4.5 : 5}" fill="url(#${id})"/>`);
   parts.push('<circle cx="100" cy="100" r="2" fill="var(--clock-face)"/>');
   return parts.join('');
 }
@@ -252,11 +256,12 @@ export default {
               rerender();
             },
           }, face.label))),
-          h('p', { class: 'muted small' }, (state.face || 'modern') === 'lernuhr'
-            ? 'Lernuhr: blaue Stundenzahlen mit blauem Zeiger, orange Minutenzahlen mit orangem Zeiger — zum Ablesen üben.'
-            : ((state.face || 'modern') === 'modern'
-              ? 'Modern: ruhiges Zifferblatt mit schlanken Zeigern und gleitendem Sekundenzeiger.'
-              : 'Klassisch: alle Zahlen von 1 bis 12 mit Minutenstrichen.'))));
+          h('p', { class: 'muted small' }, {
+            lernuhr: 'Lernuhr: blaue Stundenzahlen mit blauem Zeiger, orange Minutenzahlen mit orangem Zeiger — zum Ablesen üben.',
+            modern: 'Modern: alle Zahlen von 1 bis 12 und alle Minutenstriche, dazu schlanke Zeiger und ein gleitender Sekundenzeiger.',
+            klassisch: 'Klassisch: kräftiger Rahmen, alle Zahlen und Minutenstriche wie auf einer Wanduhr.',
+            minimal: 'Minimal: nur 12, 3, 6 und 9 sowie die Fünf-Minuten-Striche — schlicht, aber zum Ablesenlernen ungeeignet.',
+          }[state.face || 'modern'])));
       }
 
       wrap.appendChild(section('Anzeige',
