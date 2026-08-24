@@ -8,6 +8,8 @@ struct SyncDiagnoseView: View {
     @State private var steps: [CloudSyncEngine.DiagnoseStep] = []
     @State private var running = false
     @State private var done = false
+    @State private var working = false
+    @State private var schemaHinweis: String?
 
     private var environmentName: String {
         #if DEBUG
@@ -56,6 +58,12 @@ struct SyncDiagnoseView: View {
                 }
             }
 
+            if let hinweis = schemaHinweis {
+                Section("Schema") {
+                    Text(hinweis).font(.subheadline)
+                }
+            }
+
             Section {
                 Button {
                     run()
@@ -77,6 +85,23 @@ struct SyncDiagnoseView: View {
                     Text("Die Prüfung schreibt einen kleinen Testeintrag in die iCloud-Datenbank der App und liest ihn wieder.")
                 }
             }
+
+            Section {
+                Button {
+                    anlegen()
+                } label: {
+                    HStack {
+                        Label("Schema in iCloud anlegen", systemImage: "square.stack.3d.up")
+                        if working {
+                            Spacer()
+                            ProgressView()
+                        }
+                    }
+                }
+                .disabled(working || !store.syncEnabled)
+            } footer: {
+                Text("Einmal antippen, bevor das Schema in der CloudKit-Konsole nach „Production“ übertragen wird: Es entsteht ein Beispiel-Datensatz mit allen Feldern, damit in der Konsole nichts fehlt. Der Eintrag stört nicht und taucht in der App nicht auf.")
+            }
         }
         .navigationTitle("Abgleich prüfen")
         .navigationBarTitleDisplayMode(.inline)
@@ -89,6 +114,15 @@ struct SyncDiagnoseView: View {
             Text(value)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.trailing)
+        }
+    }
+
+    private func anlegen() {
+        working = true
+        schemaHinweis = nil
+        Task { @MainActor in
+            schemaHinweis = await store.engine.createSchemaProbe()
+            working = false
         }
     }
 
