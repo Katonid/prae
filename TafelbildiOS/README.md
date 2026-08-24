@@ -130,32 +130,42 @@ Voraussetzungen: Mac mit Xcode 16+, Apple-Developer-Programm.
    anpassen).
 3. **CloudKit einrichten** (einmalig, ohne das bleibt der Abgleich stumm):
 
-   a) App aus Xcode auf einem Gerät starten, eine Tafel ändern. Damit legt
-      CloudKit den Record-Typ `Entity` in der **Development**-Umgebung an.
-      Bequemer: in der App *Einstellungen → Abgleich prüfen →
-      „Schema in iCloud anlegen"* — das schreibt einen Beispiel-Datensatz
-      mit allen Feldern (inklusive Dateianhang), damit später nichts fehlt.
+   a) **Record-Typ anlegen.** [CloudKit Console](https://icloud.developer.apple.com)
+      → Container `iCloud.de.familie.tafelbild` → oben **Development** →
+      links **Schema → Record Types → +** → Name: **`Entity`**. Dann diese
+      Felder hinzufügen (Groß-/Kleinschreibung genau so):
 
-   b) [CloudKit Console](https://icloud.developer.apple.com) öffnen →
-      Container `iCloud.de.familie.tafelbild` → oben **Development**
-      auswählen → in der linken Spalte **Schema**.
-
-   c) **Indexes → Record Type `Entity` → „Add Index"** (Pflicht, sonst
-      findet die App nichts):
-      | Feld | Index-Art |
+      | Feldname | Typ |
       |---|---|
-      | `recordName` | **Queryable** |
-      | `updatedAtMs` | **Queryable** *und* **Sortable** (zweimal anlegen) |
+      | `kind` | String |
+      | `entityId` | String |
+      | `payload` | String |
+      | `updatedAtMs` | Int(64) |
+      | `author` | String |
+      | `asset` | Asset |
+
+      *Alternativ, wenn ein Mac mit Xcode da ist:* App aus Xcode starten und
+      in der App *Einstellungen → Abgleich prüfen → „Schema in iCloud
+      anlegen"* antippen — dann entsteht der Typ mitsamt allen Feldern von
+      selbst. Beides führt zum selben Ergebnis; von Hand geht auch vom iPad
+      aus im Browser.
+
+   b) **Indexes → +** (Pflicht, sonst findet die App nichts):
+      | Record Type | Feld | Index-Art |
+      |---|---|---|
+      | `Entity` | `recordName` | **Queryable** |
+      | `Entity` | `updatedAtMs` | **Queryable** |
+      | `Entity` | `updatedAtMs` | **Sortable** |
 
       `recordName` ist die eigentliche Stolperstelle: Ohne diesen Index
       lehnt CloudKit *jede* Abfrage ab, das Hochladen funktioniert aber —
       es sieht dann so aus, als käme auf dem zweiten Gerät nichts an.
 
-   d) **Security Roles → Zeile `Entity`** → für die Rolle `_icloud`
+   c) **Security Roles → Zeile `Entity`** → für die Rolle `_icloud`
       **Read und Write** ankreuzen (Pflicht fürs Teilen: sonst darf nur
       die Person schreiben, die eine Tafel angelegt hat).
 
-   e) Oben rechts **„Deploy Schema Changes to Production"** — sonst gilt
+   d) Oben rechts **„Deploy Schema Changes to Production"** — sonst gilt
       alles nur für Xcode-Installationen, nicht für TestFlight.
 
    Danach in der App *Einstellungen → Abgleich prüfen → „Verbindung
