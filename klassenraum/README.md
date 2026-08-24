@@ -17,18 +17,33 @@ funktioniert auch am Telefon.
 | **Tagesablauf** | Checkliste mit Fortschrittsbalken, Punkte abhaken, sortieren, schnell erfassen. |
 | **Text** | Doppeltippen zum Schreiben, Schriftgröße passt sich automatisch an. |
 | **Bild** | Bild vom Gerät, wird beim Einfügen verkleinert. |
-| **Lautstärke** | Misst über das Mikrofon die Lautstärke im Raum, mit einstellbarer Grenze und optionalem Signalton. |
+| **Lautstärke** | Misst über das Mikrofon die Lautstärke im Raum, mit einstellbarer Grenze und optionalem Signalton. Beim ersten Start fragt das Gerät nach der Erlaubnis; wird sie verweigert, erklärt die Karte den Weg zurück. |
 | **Arbeitssymbol** | Einzel-, Partner-, Gruppenarbeit, Stillarbeit, Melden, Zuhören, Aufräumen. |
 
-Dazu kommen: **mehrere Klassenräume** (eine eigene Tafel pro Klasse),
-**Hintergrundfarbe, Farbverlauf oder Hintergrundbild**, **Namenslisten**, die in
-allen Klassenräumen verfügbar sind, ein **Präsentationsmodus** ohne Bedienleisten
+Dazu kommen: **mehrere Klassenräume** (eine eigene Tafel pro Klasse), **Namenslisten**,
+die in allen Klassenräumen verfügbar sind, ein **Präsentationsmodus** ohne Bedienleisten
 und die Möglichkeit, alles **als Datei zu sichern**.
+
+## Aussehen
+
+* **Bewegte Hintergründe** („Nordlicht“, „Sonnenaufgang“, „Waldgrün“, „Beere“, „Tafelgrün“,
+  „Kreide hell“) mit langsam wandernden Farbschleiern — dazu einfarbige Hintergründe,
+  Farbverläufe oder ein eigenes Bild.
+* **Drei Kartenstile:** Glas (durchscheinend), Hell (maximaler Kontrast) und Dunkel
+  (abends angenehm) — pro Klassenraum einstellbar.
+* Karten mit weichem Schlagschatten, Namen im Farbverlauf, Konfetti beim Ziehen,
+  glühende Ampellichter und ein Timer-Ring mit Farbverlauf.
+* Wer in den Systemeinstellungen „Bewegung reduzieren“ aktiviert hat, bekommt die
+  ruhige Variante ohne Animationen.
 
 ## Bedienung in Kürze
 
 * **Element hinzufügen:** unten in der Leiste antippen.
+* **Bedienen:** Ein Tipp auf die Karte löst die Hauptfunktion aus — Zufälliger Name zieht
+  den nächsten Namen, die Ampel schaltet weiter, das Arbeitssymbol wechselt, die Uhr springt
+  zwischen analog und digital, die Lautstärkemessung startet.
 * **Verschieben:** Element anfassen und ziehen; an den Ecken ziehen ändert die Größe.
+  (Beim Ziehen wird nichts ausgelöst.)
 * **Einstellen:** Element antippen → Zahnrad in der kleinen Leiste darüber.
 * **Sperren:** Schloss-Symbol in derselben Leiste — verhindert versehentliches Verschieben an der interaktiven Tafel.
 * **Am Telefon** schaltet die App automatisch auf eine Listenansicht um (im Menü umschaltbar).

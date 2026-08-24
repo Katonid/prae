@@ -1,6 +1,6 @@
 // Checkliste / Tagesablauf — Punkte abhaken, Fortschritt sehen.
 
-import { h, clear, uid, beep } from '../util.js';
+import { h, clear, uid, beep, onTap } from '../util.js';
 import { icon } from '../icons.js';
 import { section, toggleRow, field, button } from '../ui.js';
 
@@ -33,18 +33,17 @@ export default {
 
       clear(listEl);
       for (const item of items) {
-        listEl.appendChild(h('button', {
+        listEl.appendChild(onTap(h('button', {
           class: 'w-check__item' + (item.done ? ' is-done' : '') + (state.strikeDone === false ? ' no-strike' : ''),
           'data-nodrag': '',
-          onclick: () => {
-            item.done = !item.done;
-            ctx.save();
-            if (item.done) beep({ frequency: 880, duration: 0.09, gain: 0.09 });
-            render();
-          },
         },
         h('span', { class: 'w-check__box', html: item.done ? icon('check', 16) : '' }),
-        h('span', { class: 'w-check__text' }, item.text)));
+        h('span', { class: 'w-check__text' }, item.text)), () => {
+          item.done = !item.done;
+          ctx.save();
+          if (item.done) beep({ frequency: 880, duration: 0.09, gain: 0.09 });
+          render();
+        }));
       }
       if (!items.length) {
         listEl.appendChild(h('p', { class: 'muted small' }, 'Noch keine Punkte — unten hinzufügen.'));
@@ -68,7 +67,9 @@ export default {
       input.addEventListener('keydown', (event) => {
         if (event.key === 'Enter') add();
       });
-      addRow.append(input, h('button', { class: 'icon-button', 'data-nodrag': '', title: 'Hinzufügen', onclick: add, html: icon('plus', 18) }));
+      addRow.append(input, onTap(h('button', {
+        class: 'icon-button', 'data-nodrag': '', title: 'Hinzufügen', html: icon('plus', 18),
+      }), add));
     }
 
     render();

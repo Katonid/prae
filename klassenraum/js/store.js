@@ -55,6 +55,15 @@ async function idbSet(key, value) {
   });
 }
 
+export const AURORA = [
+  { id: 'nordlicht', label: 'Nordlicht', base: '#0b1120', blobs: ['#4f46e5', '#06b6d4', '#a855f7'] },
+  { id: 'sonnenaufgang', label: 'Sonnenaufgang', base: '#1e1b4b', blobs: ['#f97316', '#ec4899', '#6366f1'] },
+  { id: 'waldgruen', label: 'Waldgrün', base: '#04241f', blobs: ['#10b981', '#22d3ee', '#84cc16'] },
+  { id: 'beere', label: 'Beere', base: '#2b0b3a', blobs: ['#d946ef', '#6366f1', '#f43f5e'] },
+  { id: 'tafel', label: 'Tafelgrün', base: '#0c231c', blobs: ['#0f766e', '#134e4a', '#15803d'] },
+  { id: 'kreide', label: 'Kreide hell', base: '#eef2ff', blobs: ['#c7d2fe', '#a5f3fc', '#fbcfe8'] },
+];
+
 export const PALETTE = [
   '#33415c', '#1f2937', '#0f766e', '#3f3d56', '#4c1d95',
   '#7c2d12', '#1e3a8a', '#134e4a', '#111827', '#f8fafc',
@@ -65,7 +74,8 @@ export function defaultBoard(name = 'Neuer Klassenraum') {
   return {
     id: uid('board'),
     name,
-    background: { type: 'color', value: '#33415c' },
+    background: { type: 'aurora', value: 'nordlicht' },
+    cardStyle: 'glass',
     widgets: [],
     updatedAt: Date.now(),
   };
@@ -183,7 +193,8 @@ function normalizeState(loaded) {
   next.boards = next.boards.map((board) => ({
     id: board.id || uid('board'),
     name: board.name || 'Klassenraum',
-    background: board.background || { type: 'color', value: '#33415c' },
+    background: board.background || { type: 'aurora', value: 'nordlicht' },
+    cardStyle: board.cardStyle || 'glass',
     widgets: Array.isArray(board.widgets) ? board.widgets.map(normalizeWidget) : [],
     updatedAt: board.updatedAt || Date.now(),
   }));

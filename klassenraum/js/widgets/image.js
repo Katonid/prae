@@ -1,6 +1,6 @@
 // Bild — vom Gerät hochgeladen, automatisch verkleinert gespeichert.
 
-import { h, clear, readImageFile } from '../util.js';
+import { h, clear, readImageFile, onTap } from '../util.js';
 import { icon } from '../icons.js';
 import { section, toggleRow, field, button, toast } from '../ui.js';
 
@@ -44,9 +44,9 @@ export default {
       const state = ctx.widget.state;
       clear(el);
       if (!state.url) {
-        el.appendChild(h('button', {
-          class: 'w-image__empty', 'data-nodrag': '', onclick: pickFile,
-        }, h('span', { html: icon('image', 32) }), h('span', null, 'Bild auswählen')));
+        el.appendChild(onTap(h('button', {
+          class: 'w-image__empty', 'data-nodrag': '',
+        }, h('span', { html: icon('image', 34) }), h('span', null, 'Bild auswählen')), pickFile));
         return;
       }
       const img = h('img', { class: 'w-image__img', src: state.url, alt: state.caption || '' });
@@ -61,9 +61,10 @@ export default {
       el,
       refresh: render,
       pickFile,
-      onDoubleClick: () => {
+      onTap: () => {
         if (!ctx.widget.state.url) pickFile();
       },
+      actions: [{ icon: 'image', title: 'Bild auswählen', run: pickFile }],
     };
   },
 

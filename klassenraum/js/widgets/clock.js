@@ -105,6 +105,11 @@ export default {
       el,
       refresh: build,
       onResize: tick,
+      onTap() {
+        ctx.widget.state.mode = ctx.widget.state.mode === 'analog' ? 'digital' : 'analog';
+        ctx.save();
+        build();
+      },
       destroy() {
         clearInterval(timer);
       },

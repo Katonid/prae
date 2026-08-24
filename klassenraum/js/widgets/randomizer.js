@@ -1,7 +1,7 @@
 // Zufälliger Name — Kernfunktion: Namen ziehen, mit/ohne Zurücklegen,
 // gezogene Namen sehen, zurücklegen oder von Hand als gezogen markieren.
 
-import { h, clear, pickRandom, parseNames, beep } from '../util.js';
+import { h, clear, pickRandom, parseNames, beep, onTap, confetti, reducedMotion } from '../util.js';
 import { icon } from '../icons.js';
 import { getState, getList, on as onStore, addList } from '../store.js';
 import { section, field, toggleRow, button, buttonRow, toast } from '../ui.js';
@@ -54,31 +54,43 @@ export default {
     const hintEl = h('div', { class: 'w-random__hint' });
     const drawButton = h('button', {
       class: 'w-random__draw', 'data-nodrag': '', title: 'Namen ziehen',
-      html: icon('randomizer', 30),
-    });
+    }, h('span', { class: 'w-random__draw-icon', html: icon('randomizer', 22) }), h('span', null, 'Ziehen'));
     const drawnBox = h('div', { class: 'w-random__drawn', 'data-nodrag': '' });
 
     display.append(nameEl, hintEl);
     el.append(head, display, h('div', { class: 'w-random__actions', 'data-nodrag': '' }, drawButton), drawnBox);
 
     let spinTimer = null;
+    let spinning = false;
 
     function stopSpin() {
       if (spinTimer) {
         clearInterval(spinTimer);
         spinTimer = null;
       }
+      spinning = false;
+      nameEl.classList.remove('is-spinning');
+    }
+
+    function celebrate() {
+      nameEl.classList.remove('is-pop');
+      void nameEl.offsetWidth;
+      nameEl.classList.add('is-pop');
+      confetti(display);
     }
 
     function draw() {
+      if (spinning) return;
       const state = ctx.widget.state;
       const pool = state.mode === 'repeat' ? namesOf(state) : remainingOf(state);
       if (pool.length === 0) {
-        nameEl.textContent = namesOf(state).length === 0 ? 'Keine Namen' : 'Liste ist durch';
+        const empty = namesOf(state).length === 0;
+        nameEl.textContent = empty ? 'Keine Namen' : 'Liste ist durch';
         nameEl.classList.add('is-empty');
-        hintEl.textContent = namesOf(state).length === 0
-          ? 'In den Einstellungen eine Liste wählen oder Namen eintippen.'
-          : 'Alle Namen wurden gezogen — zurücksetzen, um neu zu starten.';
+        hintEl.textContent = empty
+          ? 'Einstellungen öffnen und Namen eintragen.'
+          : 'Alle Namen gezogen — unten zurücksetzen.';
+        fitName();
         return;
       }
       const finish = (name) => {
@@ -88,17 +100,21 @@ export default {
         if (!next.drawn.includes(name)) next.drawn.push(name);
         ctx.save();
         render();
-        beep({ frequency: 660, duration: 0.12, gain: 0.12 });
+        celebrate();
+        beep({ frequency: 720, duration: 0.12, gain: 0.12 });
+        beep({ frequency: 980, duration: 0.16, gain: 0.1, delay: 0.1 });
       };
       const chosen = pickRandom(pool);
-      if (!state.animate || pool.length < 2) {
+      if (state.animate === false || pool.length < 2 || reducedMotion()) {
         finish(chosen);
         return;
       }
       stopSpin();
-      nameEl.classList.remove('is-empty');
+      spinning = true;
+      nameEl.classList.remove('is-empty', 'is-pop');
+      nameEl.classList.add('is-spinning');
       let ticks = 0;
-      const total = 12;
+      const total = 14;
       spinTimer = setInterval(() => {
         ticks += 1;
         nameEl.textContent = pickRandom(pool);
@@ -107,15 +123,15 @@ export default {
           stopSpin();
           finish(chosen);
         }
-      }, 60);
+      }, 55);
     }
 
     function fitName() {
       const text = nameEl.textContent || '';
       const boxWidth = Math.max(140, ctx.widget.w - 60);
-      const perChar = 0.62;
-      let size = Math.min(ctx.widget.h * 0.28, boxWidth / Math.max(4, text.length * perChar));
-      size = Math.max(20, Math.min(size, 130));
+      const perChar = 0.6;
+      let size = Math.min(ctx.widget.h * 0.3, boxWidth / Math.max(4, text.length * perChar));
+      size = Math.max(20, Math.min(size, 132));
       nameEl.style.fontSize = `${size}px`;
     }
 
@@ -130,47 +146,47 @@ export default {
         h('span', { class: 'w-random__list' }, listTitle(state)),
         h('span', { class: 'w-random__count' },
           state.mode === 'repeat'
-            ? `${all.length} Namen · mit Zurücklegen`
-            : `${remaining.length} von ${all.length} übrig`));
+            ? `${all.length} Namen`
+            : `${remaining.length}/${all.length}`));
 
       nameEl.classList.toggle('is-empty', !state.current);
       nameEl.textContent = state.current || (all.length ? 'Bereit' : 'Keine Namen');
       hintEl.textContent = all.length === 0
-        ? 'Einstellungen öffnen und Namen hinzufügen.'
-        : (state.mode !== 'repeat' && remaining.length === 0 ? 'Alle Namen gezogen.' : '');
+        ? 'Einstellungen öffnen und Namen eintragen.'
+        : (state.mode !== 'repeat' && remaining.length === 0
+          ? 'Alle Namen gezogen.'
+          : 'Karte antippen zieht den nächsten Namen');
       fitName();
 
       clear(drawnBox);
-      if (state.showDrawn && drawn.length) {
+      const show = state.showDrawn !== false && drawn.length > 0;
+      if (show) {
         drawnBox.append(h('div', { class: 'w-random__drawn-head' },
           h('span', null, `Gezogen (${drawn.length})`),
-          h('button', {
-            class: 'link-button', 'data-nodrag': '', onclick: () => {
-              ctx.widget.state.drawn = [];
-              ctx.widget.state.current = null;
-              ctx.save();
-              render();
-            },
-          }, 'Zurücksetzen')));
+          onTap(h('button', { class: 'link-button', 'data-nodrag': '' }, 'Zurücksetzen'), () => {
+            ctx.widget.state.drawn = [];
+            ctx.widget.state.current = null;
+            ctx.save();
+            render();
+          })));
         const chips = h('div', { class: 'chips' });
         for (const name of drawn) {
-          chips.appendChild(h('button', {
+          chips.appendChild(onTap(h('button', {
             class: 'chip-name', 'data-nodrag': '', title: 'Zurücklegen (wieder ziehbar machen)',
-            onclick: () => {
-              const next = ctx.widget.state;
-              next.drawn = (next.drawn || []).filter((entry) => entry !== name);
-              if (next.current === name) next.current = null;
-              ctx.save();
-              render();
-            },
-          }, h('span', null, name), h('span', { class: 'chip-name__x', html: icon('close', 12) })));
+          }, h('span', null, name), h('span', { class: 'chip-name__x', html: icon('close', 12) })), () => {
+            const next = ctx.widget.state;
+            next.drawn = (next.drawn || []).filter((entry) => entry !== name);
+            if (next.current === name) next.current = null;
+            ctx.save();
+            render();
+          }));
         }
         drawnBox.appendChild(chips);
       }
-      drawnBox.classList.toggle('is-hidden', !(state.showDrawn && drawn.length));
+      drawnBox.classList.toggle('is-hidden', !show);
     }
 
-    drawButton.addEventListener('click', draw);
+    onTap(drawButton, draw);
     const off = onStore('lists-changed', render);
     render();
 
@@ -178,7 +194,7 @@ export default {
       el,
       refresh: render,
       onResize: fitName,
-      onDoubleClick: draw,
+      onTap: draw,
       destroy() {
         stopSpin();
         off();

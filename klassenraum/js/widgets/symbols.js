@@ -71,7 +71,7 @@ export default {
     }
 
     render();
-    return { el, refresh: render, onDoubleClick: next };
+    return { el, refresh: render, onTap: next };
   },
 
   settings(ctx) {
