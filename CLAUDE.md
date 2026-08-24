@@ -83,3 +83,22 @@ noch Commits auf denselben PR gepusht wurden — die hingen dann fest
   Nachfrage, als Teil des PRs. Startpunkt: 1.3.1 (Build 4);
   es folgt 1.3.2 (Build 5) usw. Größere Sprünge (z. B. 1.4) nur
   auf ausdrückliche Ansage des Nutzers.
+
+## Projekt Klassenraum (Web-App)
+
+- Code: `klassenraum/` — statische Web-App ohne Build-Schritt (ES-Module,
+  kein Framework), wird vom bestehenden GitHub-Pages-Workflow mit
+  ausgeliefert: https://katonid.github.io/prae/klassenraum/
+- Ersetzt den kostenpflichtigen Dienst „Classroomscreen“: Zufallsnamen,
+  Timer/Stoppuhr, Uhr, Ampel, Tagesablauf, Text, Bild, Lautstärkemesser,
+  Arbeitssymbole — frei verschiebbar auf einer Tafelfläche.
+- Alles liegt lokal (IndexedDB). Es geht nur dann etwas ins Netz, wenn ein
+  Teilen-Code erstellt oder ein Konto genutzt wird.
+- Cloud läuft über die REST-Schnittstellen von Firebase (Realtime Database
+  + Identity Toolkit) mit `firebase-config.js` aus dem Wurzelverzeichnis —
+  kein SDK laden, das bricht den Offline-Betrieb.
+- Konten brauchen eine einmalige Freischaltung in der Firebase-Konsole
+  (Authentication → E-Mail/Passwort). Ohne sie zeigt die App einen Hinweis;
+  Teilen per Code funktioniert trotzdem.
+- Die App-Icons erzeugt `klassenraum/scripts/generate-icons.py` — nicht von
+  Hand bearbeiten.
