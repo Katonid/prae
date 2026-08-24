@@ -16,6 +16,7 @@ import { initDrawing, setDrawActive, isDrawActive, redraw as redrawDrawing } fro
 import { collectUnusedMedia, mediaUsage, formatSize } from './media.js';
 import { APP_VERSION, APP_DATE } from './version.js';
 import { SCHEMES } from './theme.js';
+import { FONTS, applyFont, currentFontId, setFont } from './fonts.js';
 import { initSharing, openSharePanel, isFollowing } from './share.js';
 import { initSync, onSyncChanged } from './sync.js';
 import {
@@ -275,6 +276,24 @@ function openBackgroundPanel() {
         render();
       }, 'Aus: ruhige, einfarbige Akzente statt der bunten Verläufe.')));
 
+    const activeFont = currentFontId();
+    container.appendChild(section('Schrift',
+      h('div', { class: 'font-grid' }, FONTS.map((font) => h('button', {
+        class: 'font-card' + (activeFont === font.id ? ' is-active' : ''),
+        style: { '--font-preview': font.stack },
+        onclick: () => {
+          setFont(font.id);
+          refreshAll();
+          render();
+        },
+      },
+      h('span', { class: 'font-card__probe' }, 'Anna sagt'),
+      h('span', { class: 'font-card__name' }, font.label)))),
+      h('p', { class: 'muted small' },
+        (FONTS.find((font) => font.id === activeFont) || FONTS[0]).hint
+        + ' Die Schrift gilt für die ganze App auf diesem Gerät — bis auf die Systemschrift '
+        + 'haben alle das runde „a" mit Strich, wie es in der Grundschule geschrieben wird.')));
+
     container.appendChild(section('Rahmen um die Elemente',
       h('div', { class: 'segmented' },
         [['always', 'Immer'], ['edit', 'Nur beim Bearbeiten'], ['never', 'Nie']].map(([value, label]) => h('button', {
@@ -520,6 +539,8 @@ function openHelp() {
       h('p', null, h('strong', null, 'Abgleich: '), 'Unter „Teilen“ → „Abgleich zwischen Geräten“ einmal „Abgleich einrichten“ antippen — '
         + 'die App zeigt einen Kopplungscode. Auf dem zweiten Gerät „Gerät verbinden“ und den Code eingeben. '
         + 'Danach sind alle Tafeln und Listen auf allen Geräten gleich; bei zwei Ständen gewinnt der neuere.'),
+      h('p', null, h('strong', null, 'Schrift: '), 'Unter „Aussehen“ → „Schrift“ stehen vier Schriften mit dem runden „a“ zur Wahl, '
+        + 'wie es in der Grundschule geschrieben wird — dazu die Systemschrift. Die Auswahl gilt für die ganze App.'),
       h('p', null, h('strong', null, 'Aussehen: '), '„Aussehen“ bietet bewegte Hintergründe, eigene Farben und Bilder, '
         + 'sechs Farbschemata (auch einfarbig statt Verlauf), drei Kartenstile und die Rahmen-Einstellung — '
         + 'ohne Rahmen stehen die Elemente frei auf der Tafel.'),
@@ -632,6 +653,7 @@ function renderSyncBadge(info) {
 async function boot() {
   cacheDom();
   await loadState();
+  applyFont();
   configureBoard({ onOpenLists: () => openListsPanel() });
   initBoard({ canvas: dom.canvas, stage: dom.stage, selection: dom.selection });
   renderDock();

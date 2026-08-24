@@ -115,6 +115,10 @@ noch Commits auf denselben PR gepusht wurden — die hingen dann fest
   Teilen per Code funktioniert trotzdem.
 - Die App-Icons erzeugt `klassenraum/scripts/generate-icons.py` — nicht von
   Hand bearbeiten.
+- Schriften liegen als woff2 in `klassenraum/fonts/` und werden über
+  `css/fonts.css` eingebunden — **nie** von Google-Servern nachladen (bricht
+  Offline-Betrieb). Ausgewählt sind nur Schriften mit einstöckigem a/g
+  (Grundschulform); Vorgabe ist Lexend, Auswahl in `js/fonts.js`.
 
 ## Projekt Tafelbild (Klassenraum-Tafel, native iOS-App)
 
