@@ -394,7 +394,7 @@ private struct NoiseSettings: View {
                         Capsule().fill(Color.primary.opacity(0.1))
                         Capsule()
                             .fill(meter.level * content.gain > content.threshold ? Theme.danger : Theme.mint)
-                            .frame(width: geo.size.width * min(1, meter.level * content.gain))
+                            .frame(width: geo.size.width * CGFloat(min(1, meter.level * content.gain)))
                     }
                 }
                 .frame(height: 8)

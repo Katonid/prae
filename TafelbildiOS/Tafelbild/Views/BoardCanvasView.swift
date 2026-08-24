@@ -68,12 +68,14 @@ private struct SelectionChrome: View {
 
     @State private var resizeStart: CGSize?
 
+    /// Maßstab als Double — alle Rechnungen laufen in Tafelpunkten.
+    private var factor: Double { Double(scale) }
+
     var body: some View {
         ZStack {
             toolbar
                 .scaleEffect(1 / scale)
-                .position(x: min(max(widget.x + widget.width / 2, 200), Layout.canvas.width - 200),
-                          y: toolbarY)
+                .position(x: toolbarX, y: toolbarY)
 
             handle
                 .scaleEffect(1 / scale)
@@ -82,9 +84,16 @@ private struct SelectionChrome: View {
         .frame(width: Layout.canvas.width, height: Layout.canvas.height)
     }
 
+    /// Mittig über dem Element, aber nicht über den Tafelrand hinaus.
+    private var toolbarX: Double {
+        min(max(widget.x + widget.width / 2, 200), Layout.canvasWidth - 200)
+    }
+
     /// Oberhalb des Elements — außer es klebt am oberen Rand.
     private var toolbarY: Double {
-        widget.y > 90 / scale ? widget.y - 34 / scale : widget.y + widget.height + 34 / scale
+        widget.y > 90 / factor
+            ? widget.y - 34 / factor
+            : widget.y + widget.height + 34 / factor
     }
 
     private var toolbar: some View {
@@ -161,9 +170,11 @@ private struct SelectionChrome: View {
                             resizeStart = CGSize(width: widget.width, height: widget.height)
                         }
                         guard let start = resizeStart else { return }
+                        let dx = Double(value.translation.width) / factor
+                        let dy = Double(value.translation.height) / factor
                         store.updateWidget(widget.id, in: boardID, transient: true) { item in
-                            item.width = start.width + value.translation.width / scale
-                            item.height = start.height + value.translation.height / scale
+                            item.width = Double(start.width) + dx
+                            item.height = Double(start.height) + dy
                             item.clampToCanvas()
                         }
                     }
@@ -225,7 +236,7 @@ struct BoardStackView: View {
                 ScrollView {
                     VStack(spacing: 16) {
                         ForEach(board.sortedWidgets) { widget in
-                            let scale = width / widget.width
+                            let scale = width / CGFloat(widget.width)
                             VStack(spacing: 6) {
                                 if store.editing {
                                     HStack(spacing: 10) {
@@ -252,7 +263,7 @@ struct BoardStackView: View {
                                                scale: scale, editable: false)
                                     .frame(width: widget.width, height: widget.height)
                                     .scaleEffect(scale, anchor: .topLeading)
-                                    .frame(width: width, height: widget.height * scale,
+                                    .frame(width: width, height: CGFloat(widget.height) * scale,
                                            alignment: .topLeading)
                             }
                         }
