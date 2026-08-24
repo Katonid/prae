@@ -55,10 +55,15 @@ struct AppSettingsSheet: View {
                         Label("Jetzt abgleichen", systemImage: "arrow.triangle.2.circlepath")
                     }
                     .disabled(!store.syncEnabled)
+                    NavigationLink {
+                        SyncDiagnoseView()
+                    } label: {
+                        Label("Abgleich prüfen", systemImage: "stethoscope")
+                    }
                 } header: {
                     Text("iCloud")
                 } footer: {
-                    Text("Ohne Abgleich bleibt alles auf diesem Gerät — Teilen ist dann nicht möglich. Mit Abgleich liegen Tafeln, Namenslisten und Mediendateien in der iCloud-Datenbank der App; jedes Gerät braucht nur irgendein iCloud-Konto, nicht dasselbe.")
+                    Text("Tafeln und Namenslisten erscheinen automatisch auf allen Geräten mit derselben Apple-ID. Zum Teilen mit Kolleginnen genügt der Einladungscode — dafür braucht niemand dieselbe Apple-ID. Ohne Abgleich bleibt alles auf diesem Gerät.")
                 }
 
                 Section {

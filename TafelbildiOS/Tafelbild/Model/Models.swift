@@ -504,8 +504,15 @@ struct Board: Codable, Identifiable, Equatable {
     var emoji: String = "🌟"
     var background: BoardBackground = .gradient("#1e1b4b", "#0b1020")
     var widgets: [BoardWidget] = []
-    /// Namen der Kolleginnen und Kollegen, die diese Tafel sehen.
+    /// Namen der Kolleginnen und Kollegen, die diese Tafel sehen
+    /// (nur zur Anzeige — maßgeblich sind die iCloud-Kennungen unten).
     var members: [String] = []
+    /// iCloud-Kennung der Person, der die Tafel gehört. Damit taucht eine
+    /// Tafel auf allen Geräten derselben Apple-ID von selbst auf.
+    var ownerUserID: String = ""
+    /// iCloud-Kennungen aller Personen, die die Tafel sehen dürfen —
+    /// wird beim Beitritt per Code ergänzt.
+    var memberUserIDs: [String] = []
     /// Sechsstelliger Einladungscode zum Teilen.
     var joinCode: String = Board.makeJoinCode()
     var owner: String = ""
