@@ -38,6 +38,107 @@ struct BoardSettingsSheet: View {
                     ))
                 }
 
+                Section {
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 96), spacing: 10)], spacing: 10) {
+                        ForEach(AuroraPresets.all) { preset in
+                            swatch(LinearGradient(colors: [Color(hex: preset.base)]
+                                                  + preset.blobs.map { Color(hex: $0) },
+                                                  startPoint: .topLeading, endPoint: .bottomTrailing),
+                                   selected: isSelected(.aurora(preset.id)),
+                                   caption: preset.label) {
+                                apply(.aurora(preset.id))
+                            }
+                        }
+                    }
+                    .padding(.vertical, 4)
+                } header: {
+                    Text("Bewegter Hintergrund")
+                } footer: {
+                    Text("Große Farbwolken ziehen sehr langsam über den Grund — ruhig genug "
+                         + "für den Unterricht. Bei eingeschalteter Bewegungsreduzierung "
+                         + "stehen sie still.")
+                }
+
+                Section {
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 96), spacing: 10)], spacing: 10) {
+                        ForEach(AccentSchemes.all) { entry in
+                            swatch(LinearGradient(colors: [Color(hex: entry.from),
+                                                           Color(hex: entry.mid),
+                                                           Color(hex: entry.to)],
+                                                  startPoint: .topLeading, endPoint: .bottomTrailing),
+                                   selected: board.accent == entry.id,
+                                   caption: entry.label) {
+                                var updated = board
+                                updated.accent = entry.id
+                                store.updateBoard(updated)
+                                Haptics.tap()
+                            }
+                        }
+                    }
+                    .padding(.vertical, 4)
+
+                    Toggle("Farbverlauf statt einer Farbe", isOn: Binding(
+                        get: { board.gradient },
+                        set: { value in
+                            var updated = board
+                            updated.gradient = value
+                            store.updateBoard(updated)
+                        }
+                    ))
+                } header: {
+                    Text("Farbschema")
+                } footer: {
+                    Text("Das Schema färbt Knöpfe, Ringe, Zeiger und gezogene Namen auf der "
+                         + "ganzen Tafel.")
+                }
+
+                Section {
+                    Picker("Karten", selection: Binding(
+                        get: { board.cardStyle },
+                        set: { value in
+                            var updated = board
+                            updated.cardStyle = value
+                            store.updateBoard(updated)
+                        }
+                    )) {
+                        ForEach(CardStyle.allCases) { Text($0.title).tag($0) }
+                    }
+                    .pickerStyle(.segmented)
+                } header: {
+                    Text("Kartenstil")
+                } footer: {
+                    Text(board.cardStyle.explanation)
+                }
+
+                Section {
+                    Picker("Rahmen", selection: Binding(
+                        get: { board.frames },
+                        set: { value in
+                            var updated = board
+                            updated.frames = value
+                            store.updateBoard(updated)
+                        }
+                    )) {
+                        ForEach(ShowRule.allCases) { Text($0.title).tag($0) }
+                    }
+                    Picker("Beschriftungen", selection: Binding(
+                        get: { board.labels },
+                        set: { value in
+                            var updated = board
+                            updated.labels = value
+                            store.updateBoard(updated)
+                        }
+                    )) {
+                        ForEach(ShowRule.allCases) { Text($0.title).tag($0) }
+                    }
+                } header: {
+                    Text("Ruhe auf der Tafel")
+                } footer: {
+                    Text("Ohne Rahmen stehen Uhr, Ampel und Bilder frei auf dem Hintergrund. "
+                         + "Ohne Beschriftungen verschwinden Überschriften und Hinweise — "
+                         + "die Tafel wirkt aufgeräumter, die Bedienung bleibt gleich.")
+                }
+
                 Section("Farbverlauf") {
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 70), spacing: 10)], spacing: 10) {
                         ForEach(Array(BackgroundPreset.gradients.enumerated()), id: \.offset) { item in
@@ -81,7 +182,7 @@ struct BoardSettingsSheet: View {
                         }
                         .onAppear { dim = currentDim }
                         Button(role: .destructive) {
-                            apply(.gradient("#134e4a", "#07242a"))
+                            apply(.aurora("nordlicht"))
                         } label: {
                             Label("Bild entfernen", systemImage: "trash")
                         }
@@ -136,16 +237,26 @@ struct BoardSettingsSheet: View {
         }
     }
 
-    private func swatch(_ fill: some ShapeStyle, selected: Bool, action: @escaping () -> Void) -> some View {
+    private func swatch(_ fill: some ShapeStyle, selected: Bool, caption: String? = nil,
+                        action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(fill)
-                .frame(height: 54)
-                .overlay {
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .strokeBorder(selected ? Theme.accent : Color.primary.opacity(0.15),
-                                      lineWidth: selected ? 3 : 1)
+            VStack(spacing: 5) {
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(fill)
+                    .frame(height: 54)
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .strokeBorder(selected ? Theme.accent : Color.primary.opacity(0.15),
+                                          lineWidth: selected ? 3 : 1)
+                    }
+                if let caption {
+                    Text(caption)
+                        .font(.caption2)
+                        .foregroundStyle(selected ? Theme.accent : .secondary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
                 }
+            }
         }
         .buttonStyle(.plain)
     }

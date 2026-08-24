@@ -35,6 +35,23 @@ struct WidgetSettingsSheet: View {
                         NamePickerSettings(content: bindNamePicker(value))
                     case .sounds(let value):
                         SoundsSettings(content: bindSounds(value))
+                    case .symbols(let value):
+                        SymbolSettings(content: bindSymbol(value))
+                    }
+
+                    Section("Auf der Tafel") {
+                        Toggle("Karte zeigen", isOn: Binding(
+                            get: { !(store.widget(widgetID, in: boardID)?.bare ?? false) },
+                            set: { value in
+                                store.updateWidget(widgetID, in: boardID) { $0.bare = !value }
+                            }
+                        ))
+                        Toggle("Position festecken", isOn: Binding(
+                            get: { store.widget(widgetID, in: boardID)?.locked ?? false },
+                            set: { value in
+                                store.updateWidget(widgetID, in: boardID) { $0.locked = value }
+                            }
+                        ))
                     }
 
                     Section {
@@ -143,6 +160,16 @@ struct WidgetSettingsSheet: View {
                 return fallback
             },
             set: { store.setContent(.namePicker($0), widgetID: widgetID, boardID: boardID) }
+        )
+    }
+
+    private func bindSymbol(_ fallback: SymbolContent) -> Binding<SymbolContent> {
+        Binding(
+            get: {
+                if case .symbols(let value)? = store.widget(widgetID, in: boardID)?.content { return value }
+                return fallback
+            },
+            set: { store.setContent(.symbols($0), widgetID: widgetID, boardID: boardID) }
         )
     }
 
@@ -287,8 +314,22 @@ private struct ClockSettings: View {
             Toggle("Sekundenzeiger", isOn: $content.showSeconds)
             Toggle("Datum anzeigen", isOn: $content.showDate)
             Toggle("24-Stunden-Format", isOn: $content.twentyFourHour)
-            ColorPicker("Zifferblatt", selection: $content.faceHex.asColor, supportsOpacity: false)
-            ColorPicker("Akzent", selection: $content.accentHex.asColor, supportsOpacity: false)
+        }
+
+        if content.style != .digital {
+            Section {
+                Picker("Zifferblatt", selection: $content.face) {
+                    ForEach(ClockFace.allCases) { Text($0.title).tag($0) }
+                }
+                .pickerStyle(.inline)
+                ColorPicker("Farbe des Zifferblatts", selection: $content.faceHex.asColor,
+                            supportsOpacity: false)
+            } header: {
+                Text("Zifferblatt")
+            } footer: {
+                Text("Die Lernuhr zeigt den Stundenzeiger blau, den Minutenzeiger orange und "
+                     + "außen die Minutenzahlen — so wie im Unterricht eingeführt.")
+            }
         }
     }
 }
@@ -326,7 +367,6 @@ private struct TimerSettings: View {
 
             Toggle("Signal am Ende", isOn: $content.soundOnEnd)
             Toggle("Bedienknöpfe zeigen", isOn: $content.showControls)
-            ColorPicker("Farbe", selection: $content.accentHex.asColor, supportsOpacity: false)
         }
         .onAppear {
             minutes = Int(content.duration) / 60
@@ -503,9 +543,29 @@ private struct NamePickerSettings: View {
             Text(content.mode.explanation)
         }
 
-        Section("Anzeige") {
-            Toggle("Gezogene Namen zeigen", isOn: $content.showHistory)
+        Section {
+            Picker("Aufdecken", selection: $content.reveal) {
+                ForEach(RevealMode.allCases) { Text($0.title).tag($0) }
+            }
+            .pickerStyle(.inline)
+        } header: {
+            Text("Aufdecken")
+        } footer: {
+            Text(content.reveal.explanation
+                 + (content.reveal == .instant ? ""
+                    : " Jeder Tipp auf die Karte deckt einen Schritt auf; das Auge zeigt sofort alles."))
+        }
+
+        Section {
+            Picker("Gezogene Namen zeigen", selection: $content.showDrawn) {
+                ForEach(ShowRule.allCases) { Text($0.title).tag($0) }
+            }
             Toggle("Ziehen animieren", isOn: $content.animate)
+        } header: {
+            Text("Anzeige")
+        } footer: {
+            Text("Bei „Beim Bearbeiten“ bleibt die Liste im Unterricht verborgen — "
+                 + "so lässt sich nicht ablesen, wer noch fehlt.")
         }
 
         Section {
@@ -659,6 +719,59 @@ private struct SoundsSettings: View {
                 }
             }
             importingFor = nil
+        }
+    }
+}
+
+
+// MARK: - Arbeitssymbol
+
+private struct SymbolSettings: View {
+    @Binding var content: SymbolContent
+
+    private let columns = [GridItem(.adaptive(minimum: 92), spacing: 12)]
+
+    var body: some View {
+        Section {
+            LazyVGrid(columns: columns, spacing: 12) {
+                ForEach(WorkSymbol.allCases) { symbol in
+                    Button {
+                        content.symbol = symbol
+                        Haptics.tap()
+                    } label: {
+                        VStack(spacing: 6) {
+                            Image(systemName: symbol.systemImage)
+                                .font(.system(size: 30, weight: .semibold))
+                            Text(symbol.title)
+                                .font(.caption)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.7)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background {
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .fill(content.symbol == symbol
+                                      ? Theme.accent.opacity(0.18) : Color.secondary.opacity(0.10))
+                        }
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .strokeBorder(content.symbol == symbol ? Theme.accent : .clear,
+                                              lineWidth: 2)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.vertical, 4)
+        } header: {
+            Text("Symbol")
+        } footer: {
+            Text("Auf der Tafel schaltet ein Tipp auf das Element zur nächsten Arbeitsform weiter.")
+        }
+
+        Section("Anzeige") {
+            Toggle("Beschriftung anzeigen", isOn: $content.showLabel)
         }
     }
 }

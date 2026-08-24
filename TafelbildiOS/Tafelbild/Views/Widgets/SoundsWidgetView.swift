@@ -5,6 +5,8 @@ import SwiftUI
 struct SoundsWidgetView: View {
     let content: SoundsContent
     var interactive: Bool
+
+    @Environment(\.boardStyle) private var style
     /// Öffnet die Einstellungen (Töne zuweisen).
     var onOpenSettings: () -> Void
 
@@ -26,7 +28,7 @@ struct SoundsWidgetView: View {
                         Text("Klangfelder anlegen")
                             .font(Theme.font(21, weight: .semibold))
                     }
-                    .foregroundStyle(.white.opacity(0.85))
+                    .foregroundStyle(style.inkSoft)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
                 .buttonStyle(.plain)
@@ -65,7 +67,7 @@ struct SoundsWidgetView: View {
             VStack(spacing: 4) {
                 Text(button.emoji.isEmpty ? "🔊" : button.emoji)
                     .font(.system(size: min(height * 0.42, 44)))
-                if content.showLabels && !button.label.isEmpty {
+                if content.showLabels && style.showLabels && !button.label.isEmpty {
                     Text(button.label)
                         .font(Theme.font(min(height * 0.18, 18), weight: .semibold))
                         .foregroundStyle(color.readableForeground)

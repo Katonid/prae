@@ -71,6 +71,7 @@ enum WidgetKind: String, Codable, CaseIterable, Identifiable {
     case text
     case image
     case sounds
+    case symbols
 
     var id: String { rawValue }
 
@@ -85,6 +86,7 @@ enum WidgetKind: String, Codable, CaseIterable, Identifiable {
         case .text:         return "Text"
         case .image:        return "Bild"
         case .sounds:       return "Klänge"
+        case .symbols:      return "Arbeitssymbol"
         }
     }
 
@@ -99,6 +101,7 @@ enum WidgetKind: String, Codable, CaseIterable, Identifiable {
         case .text:         return "Überschrift oder Arbeitsauftrag"
         case .image:        return "Foto oder Grafik"
         case .sounds:       return "Tonfelder zum Antippen"
+        case .symbols:      return "Arbeitsform groß anzeigen"
         }
     }
 
@@ -113,6 +116,7 @@ enum WidgetKind: String, Codable, CaseIterable, Identifiable {
         case .text:         return "textformat"
         case .image:        return "photo"
         case .sounds:       return "speaker.wave.2"
+        case .symbols:      return "person.2"
         }
     }
 
@@ -128,6 +132,7 @@ enum WidgetKind: String, Codable, CaseIterable, Identifiable {
         case .text:         return CGSize(width: 640, height: 200)
         case .image:        return CGSize(width: 520, height: 380)
         case .sounds:       return CGSize(width: 640, height: 300)
+        case .symbols:      return CGSize(width: 340, height: 360)
         }
     }
 }
@@ -168,6 +173,8 @@ struct ImageContent: Codable, Equatable {
 
 struct ClockContent: Codable, Equatable {
     var style: ClockStyle = .analog
+    /// Zifferblatt der analogen Uhr.
+    var face: ClockFace = .modern
     var showSeconds: Bool = true
     var showDate: Bool = false
     var twentyFourHour: Bool = true
@@ -183,6 +190,29 @@ struct ClockContent: Codable, Equatable {
             case .digital: return "Digital"
             case .both: return "Beides"
             }
+        }
+    }
+}
+
+/// Zifferblätter der analogen Uhr — wie in der Web-App.
+enum ClockFace: String, Codable, CaseIterable, Identifiable {
+    /// Ruhig, mit dünnem Rand und kräftigen Zeigern.
+    case modern
+    /// Kräftiger Rand und Striche im Akzentton.
+    case klassisch
+    /// Lernuhr: Stunden blau, Minuten orange, mit Minutenzahlen außen.
+    case lernuhr
+    /// Nur 12/3/6/9 und die Fünf-Minuten-Striche.
+    case minimal
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .modern:    return "Modern"
+        case .klassisch: return "Klassisch"
+        case .lernuhr:   return "Lernuhr"
+        case .minimal:   return "Minimal"
         }
     }
 }
@@ -276,7 +306,13 @@ struct NamePickerContent: Codable, Equatable {
     /// Zuletzt gezogener Eintrag.
     var currentID: String? = nil
     var showHistory: Bool = true
+    /// Wann die Liste der gezogenen Namen zu sehen ist.
+    var showDrawn: ShowRule = .always
     var animate: Bool = true
+    /// Wie ein gezogener Name sichtbar wird.
+    var reveal: RevealMode = .mosaik
+    /// Bereits aufgedeckte Teile des aktuellen Namens.
+    var revealParts: [Int] = []
 
     enum DrawMode: String, Codable, CaseIterable, Identifiable {
         /// Gezogene Namen kommen erst zurück, wenn die Liste durch ist.
@@ -301,6 +337,48 @@ struct NamePickerContent: Codable, Equatable {
     }
 }
 
+/// Art, wie ein gezogener Name sichtbar wird — die Klasse darf raten.
+enum RevealMode: String, Codable, CaseIterable, Identifiable {
+    /// Der Name steht sofort da.
+    case instant
+    /// Feine Kacheln verschwinden nach und nach — zwölf Tipps.
+    case mosaik
+    /// Erst ein Farbnebel, mit jedem Tipp schärfer — zehn Tipps.
+    case blur
+    /// Ein Buchstabe nach dem anderen.
+    case letters
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .instant: return "Sofort"
+        case .mosaik:  return "Mosaik"
+        case .blur:    return "Unschärfe"
+        case .letters: return "Buchstaben"
+        }
+    }
+
+    var explanation: String {
+        switch self {
+        case .instant: return "Der Name steht sofort da."
+        case .mosaik:  return "Feine Kacheln verschwinden nach und nach — zwölf Tipps bis zum ganzen Namen."
+        case .blur:    return "Erst nur ein Farbnebel, mit jedem Tipp schärfer — zehn Tipps."
+        case .letters: return "Ein Buchstabe nach dem anderen erscheint."
+        }
+    }
+}
+
+/// Maße des Mosaiks — bewusst fein, damit ein Tipp wenig verrät.
+enum RevealLayout {
+    static let mosaicColumns = 14
+    static let mosaicRows = 5
+    static var mosaicTiles: Int { mosaicColumns * mosaicRows }
+    static let mosaicSteps = 12
+    static var mosaicPerTap: Int { Int(ceil(Double(mosaicTiles) / Double(mosaicSteps))) }
+    static let blurSteps = 10
+}
+
 struct SoundButton: Codable, Equatable, Identifiable {
     var id: String = UUID().uuidString
     var label: String = ""
@@ -320,6 +398,58 @@ struct SoundsContent: Codable, Equatable {
 
 // MARK: - Element (Widget)
 
+/// Arbeitsformen, die als großes Symbol an der Tafel stehen.
+enum WorkSymbol: String, Codable, CaseIterable, Identifiable {
+    case einzel
+    case partner
+    case gruppe
+    case still
+    case fluestern
+    case melden
+    case zuhoeren
+    case aufraeumen
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .einzel:     return "Einzelarbeit"
+        case .partner:    return "Partnerarbeit"
+        case .gruppe:     return "Gruppenarbeit"
+        case .still:      return "Stillarbeit"
+        case .fluestern:  return "Flüsterstimme"
+        case .melden:     return "Melden"
+        case .zuhoeren:   return "Zuhören"
+        case .aufraeumen: return "Aufräumen"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .einzel:     return "person.fill"
+        case .partner:    return "person.2.fill"
+        case .gruppe:     return "person.3.fill"
+        case .still:      return "speaker.slash.fill"
+        case .fluestern:  return "speaker.wave.1.fill"
+        case .melden:     return "hand.raised.fill"
+        case .zuhoeren:   return "ear.fill"
+        case .aufraeumen: return "shippingbox.fill"
+        }
+    }
+
+    /// Nächste Arbeitsform — Antippen schaltet der Reihe nach weiter.
+    var next: WorkSymbol {
+        let alle = WorkSymbol.allCases
+        let index = alle.firstIndex(of: self) ?? 0
+        return alle[(index + 1) % alle.count]
+    }
+}
+
+struct SymbolContent: Codable, Equatable {
+    var symbol: WorkSymbol = .einzel
+    var showLabel: Bool = true
+}
+
 enum WidgetContent: Equatable {
     case namePicker(NamePickerContent)
     case timer(TimerContent)
@@ -330,6 +460,7 @@ enum WidgetContent: Equatable {
     case text(TextContent)
     case image(ImageContent)
     case sounds(SoundsContent)
+    case symbols(SymbolContent)
 
     var kind: WidgetKind {
         switch self {
@@ -342,6 +473,7 @@ enum WidgetContent: Equatable {
         case .text:         return .text
         case .image:        return .image
         case .sounds:       return .sounds
+        case .symbols:      return .symbols
         }
     }
 
@@ -361,6 +493,7 @@ enum WidgetContent: Equatable {
         ]))
         case .text:         return .text(TextContent())
         case .image:        return .image(ImageContent())
+        case .symbols:      return .symbols(SymbolContent())
         case .sounds:       return .sounds(SoundsContent(buttons: [
             SoundButton(label: "Gong", emoji: "🔔", colorHex: "#0f9b8e"),
             SoundButton(label: "Applaus", emoji: "👏", colorHex: "#2dd4bf"),
@@ -388,6 +521,7 @@ extension WidgetContent: Codable {
         case .text:         self = .text(try container.decode(TextContent.self, forKey: .data))
         case .image:        self = .image(try container.decode(ImageContent.self, forKey: .data))
         case .sounds:       self = .sounds(try container.decode(SoundsContent.self, forKey: .data))
+        case .symbols:      self = .symbols(try container.decode(SymbolContent.self, forKey: .data))
         }
     }
 
@@ -404,6 +538,7 @@ extension WidgetContent: Codable {
         case .text(let value):         try container.encode(value, forKey: .data)
         case .image(let value):        try container.encode(value, forKey: .data)
         case .sounds(let value):       try container.encode(value, forKey: .data)
+        case .symbols(let value):      try container.encode(value, forKey: .data)
         }
     }
 }
@@ -417,6 +552,10 @@ struct BoardWidget: Codable, Identifiable, Equatable {
     var height: Double = 300
     /// Stapelreihenfolge — größer liegt weiter vorn.
     var z: Int = 0
+    /// Festgesteckt: lässt sich nicht mehr aus Versehen verschieben.
+    var locked: Bool = false
+    /// Ohne Karte — das Element steht frei auf der Tafel.
+    var bare: Bool = false
     var content: WidgetContent
 
     var kind: WidgetKind { content.kind }
@@ -448,6 +587,8 @@ enum BoardBackground: Equatable {
     case gradient(String, String)
     /// Dateiname unter Documents/Media/ + Abdunklung 0…1.
     case image(String, Double)
+    /// Bewegte Farbwolken — Kennung aus `AuroraPresets`.
+    case aurora(String)
 }
 
 extension BoardBackground: Codable {
@@ -456,6 +597,8 @@ extension BoardBackground: Codable {
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: Keys.self)
         switch try container.decode(String.self, forKey: .type) {
+        case "aurora":
+            self = .aurora(try container.decodeIfPresent(String.self, forKey: .a) ?? "nordlicht")
         case "solid":
             self = .solid(try container.decode(String.self, forKey: .a))
         case "image":
@@ -481,6 +624,9 @@ extension BoardBackground: Codable {
             try container.encode("image", forKey: .type)
             try container.encode(file, forKey: .a)
             try container.encode(dim, forKey: .dim)
+        case .aurora(let id):
+            try container.encode("aurora", forKey: .type)
+            try container.encode(id, forKey: .a)
         }
     }
 
@@ -520,7 +666,16 @@ struct Board: Codable, Identifiable, Equatable {
     var id: String = UUID().uuidString
     var name: String = "Neue Tafel"
     var emoji: String = "🌟"
-    var background: BoardBackground = .gradient("#134e4a", "#07242a")
+    var background: BoardBackground = .aurora("nordlicht")
+    /// Kennung des Farbschemas aus `AccentSchemes`.
+    var accent: String = "indigo"
+    /// Akzentfarbe als Verlauf (aus) oder als eine Farbe (an → aus).
+    var gradient: Bool = true
+    var cardStyle: CardStyle = .glass
+    /// Wann Rahmen um die Elemente zu sehen sind.
+    var frames: ShowRule = .always
+    /// Wann Überschriften und Hinweise in den Elementen zu sehen sind.
+    var labels: ShowRule = .always
     var widgets: [BoardWidget] = []
     /// Namen der Kolleginnen und Kollegen, die diese Tafel sehen
     /// (nur zur Anzeige — maßgeblich sind die iCloud-Kennungen unten).
@@ -661,7 +816,8 @@ enum StarterContent {
 
 extension Board {
     enum BoardKeys: String, CodingKey {
-        case id, name, emoji, background, widgets, members, ownerUserID
+        case id, name, emoji, background, accent, gradient, cardStyle, frames, labels
+        case widgets, members, ownerUserID
         case memberUserIDs, joinCode, owner, createdAtMs, updatedAtMs, deleted
         case embeddedLists
     }
@@ -672,7 +828,12 @@ extension Board {
         id = c.wert(.id, UUID().uuidString)
         name = c.wert(.name, "Tafel")
         emoji = c.wert(.emoji, "🌟")
-        background = c.wert(.background, BoardBackground.gradient("#134e4a", "#07242a"))
+        background = c.wert(.background, BoardBackground.aurora("nordlicht"))
+        accent = c.wert(.accent, "indigo")
+        gradient = c.wert(.gradient, true)
+        cardStyle = c.wert(.cardStyle, CardStyle.glass)
+        frames = c.wert(.frames, ShowRule.always)
+        labels = c.wert(.labels, ShowRule.always)
         widgets = c.wert(.widgets, [BoardWidget]())
         members = c.wert(.members, [String]())
         ownerUserID = c.wert(.ownerUserID, "")
@@ -716,7 +877,7 @@ extension NameEntry {
 }
 
 extension BoardWidget {
-    enum WidgetKeys: String, CodingKey { case id, x, y, width, height, z, content }
+    enum WidgetKeys: String, CodingKey { case id, x, y, width, height, z, locked, bare, content }
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: WidgetKeys.self)
@@ -729,6 +890,8 @@ extension BoardWidget {
         width = c.wert(.width, 400)
         height = c.wert(.height, 300)
         z = c.wert(.z, 0)
+        locked = c.wert(.locked, false)
+        bare = c.wert(.bare, false)
     }
 }
 
@@ -765,12 +928,13 @@ extension ImageContent {
 }
 
 extension ClockContent {
-    enum ClockKeys: String, CodingKey { case style, showSeconds, showDate, twentyFourHour, faceHex, accentHex }
+    enum ClockKeys: String, CodingKey { case style, face, showSeconds, showDate, twentyFourHour, faceHex, accentHex }
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: ClockKeys.self)
         self.init()
         style = c.wert(.style, ClockContent.ClockStyle.analog)
+        face = c.wert(.face, ClockFace.modern)
         showSeconds = c.wert(.showSeconds, true)
         showDate = c.wert(.showDate, false)
         twentyFourHour = c.wert(.twentyFourHour, true)
@@ -853,7 +1017,9 @@ extension ChecklistContent {
 }
 
 extension NamePickerContent {
-    enum PickerKeys: String, CodingKey { case listID, mode, drawnIDs, currentID, showHistory, animate }
+    enum PickerKeys: String, CodingKey {
+        case listID, mode, drawnIDs, currentID, showHistory, showDrawn, animate, reveal, revealParts
+    }
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: PickerKeys.self)
@@ -863,7 +1029,11 @@ extension NamePickerContent {
         drawnIDs = c.wert(.drawnIDs, [String]())
         currentID = c.optional(.currentID, String.self)
         showHistory = c.wert(.showHistory, true)
+        // Ältere Stände kannten nur den Schalter „Gezogene anzeigen".
+        showDrawn = c.wert(.showDrawn, showHistory ? ShowRule.always : ShowRule.never)
         animate = c.wert(.animate, true)
+        reveal = c.wert(.reveal, RevealMode.mosaik)
+        revealParts = c.wert(.revealParts, [Int]())
     }
 }
 
@@ -880,6 +1050,17 @@ extension SoundButton {
         fileName = c.optional(.fileName, String.self)
         volume = c.wert(.volume, 1)
         toggle = c.wert(.toggle, false)
+    }
+}
+
+extension SymbolContent {
+    enum SymbolKeys: String, CodingKey { case symbol, showLabel }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: SymbolKeys.self)
+        self.init()
+        symbol = c.wert(.symbol, WorkSymbol.einzel)
+        showLabel = c.wert(.showLabel, true)
     }
 }
 

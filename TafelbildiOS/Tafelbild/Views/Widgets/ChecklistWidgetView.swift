@@ -5,6 +5,8 @@ struct ChecklistWidgetView: View {
     @Binding var content: ChecklistContent
     var interactive: Bool
 
+    @Environment(\.boardStyle) private var style
+
     private var doneCount: Int { content.items.filter(\.done).count }
 
     var body: some View {
@@ -13,18 +15,18 @@ struct ChecklistWidgetView: View {
             let rowSize = min(max(geo.size.width * 0.06, 17), 27)
 
             VStack(alignment: .leading, spacing: 10) {
-                if !content.title.isEmpty {
+                if !content.title.isEmpty && style.showLabels {
                     HStack(alignment: .firstTextBaseline) {
                         Text(content.title)
                             .font(Theme.font(titleSize, weight: .bold))
-                            .foregroundStyle(.white)
+                            .foregroundStyle(style.ink)
                             .lineLimit(1)
                             .minimumScaleFactor(0.6)
                         Spacer()
                         if content.showProgress && !content.items.isEmpty {
                             Text("\(doneCount)/\(content.items.count)")
                                 .font(Theme.font(titleSize * 0.62, weight: .semibold))
-                                .foregroundStyle(.white.opacity(0.7))
+                                .foregroundStyle(style.inkSoft)
                                 .monospacedDigit()
                         }
                     }
@@ -33,9 +35,9 @@ struct ChecklistWidgetView: View {
                 if content.showProgress && !content.items.isEmpty {
                     GeometryReader { bar in
                         ZStack(alignment: .leading) {
-                            Capsule().fill(Color.white.opacity(0.14))
+                            Capsule().fill(style.wash)
                             Capsule()
-                                .fill(Theme.mint)
+                                .fill(style.accentGradient)
                                 .frame(width: bar.size.width * CGFloat(progress))
                         }
                     }
@@ -45,7 +47,7 @@ struct ChecklistWidgetView: View {
                 if content.items.isEmpty {
                     Text("Noch keine Schritte — über das Zahnrad ergänzen.")
                         .font(Theme.font(rowSize, weight: .medium))
-                        .foregroundStyle(.white.opacity(0.6))
+                        .foregroundStyle(style.inkSoft)
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
                         .multilineTextAlignment(.center)
                 } else {
@@ -81,15 +83,15 @@ struct ChecklistWidgetView: View {
             HStack(spacing: 12) {
                 ZStack {
                     RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .strokeBorder(Color.white.opacity(0.35), lineWidth: 2)
+                        .strokeBorder(style.ink.opacity(0.3), lineWidth: 2)
                         .frame(width: fontSize * 1.25, height: fontSize * 1.25)
                     if item.done {
                         RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .fill(Theme.mint)
+                            .fill(style.accentGradient)
                             .frame(width: fontSize * 1.25, height: fontSize * 1.25)
                         Image(systemName: "checkmark")
                             .font(.system(size: fontSize * 0.8, weight: .heavy))
-                            .foregroundStyle(Color.black)
+                            .foregroundStyle(Color.white)
                     }
                 }
                 if !item.emoji.isEmpty {
@@ -97,8 +99,8 @@ struct ChecklistWidgetView: View {
                 }
                 Text(item.text)
                     .font(Theme.font(fontSize, weight: .medium))
-                    .foregroundStyle(item.done ? .white.opacity(0.45) : .white)
-                    .strikethrough(item.done, color: .white.opacity(0.45))
+                    .foregroundStyle(item.done ? style.inkSoft : style.ink)
+                    .strikethrough(item.done, color: style.inkSoft)
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
                 Spacer(minLength: 0)

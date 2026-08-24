@@ -12,13 +12,26 @@ aus) und auf dem **iPhone** in einer eigenen Stapelansicht.
 - Beliebig viele Tafeln — je Klasse, Fach oder Tageszeit eine eigene.
   Umschalten über den Namen oben links.
 - **Frei anordnen:** „Anordnen" antippen, Elemente ziehen, an der Ecke
-  in der Größe ändern (mit Fangraster), nach vorn/hinten sortieren,
-  duplizieren, löschen.
+  an **allen vier Ecken** in der Größe ändern (mit Fangraster) oder
+  stufenweise über „−/+" in der Werkzeugleiste, nach vorn/hinten
+  sortieren, duplizieren, löschen.
 - Jede Tafel liegt auf einer festen Arbeitsfläche von 1600 × 1000
   Punkten, die auf jedes Gerät skaliert wird — die Anordnung sieht auf
   iPad, Mac und Beamer identisch aus.
-- **Hintergrund:** Farbverläufe, einfarbige Flächen oder ein eigenes
-  Bild (mit stufenlosem Abdunkeln, damit Text lesbar bleibt).
+- **Hintergrund:** sechs bewegte Farbwolken-Vorlagen (Nordlicht,
+  Sonnenaufgang, Waldgrün, Beere, Tafelgrün, Kreide hell), dazu
+  Farbverläufe, einfarbige Flächen oder ein eigenes Bild (mit
+  stufenlosem Abdunkeln, damit Text lesbar bleibt).
+- **Farbschema:** Indigo, Ozean, Wald, Sonne, Schiefer oder Kreide —
+  färbt Knöpfe, Ringe, Zeiger und gezogene Namen auf der ganzen Tafel,
+  wahlweise als Verlauf oder als eine Farbe.
+- **Kartenstil:** Glas (Milchglas), Hell (deckendes Weiß, der stärkste
+  Kontrast am Beamer) oder Dunkel.
+- **Ruhe auf der Tafel:** Rahmen und Beschriftungen lassen sich je Tafel
+  auf „Immer", „Beim Bearbeiten" oder „Nie" stellen — im Unterricht
+  bleibt dann nur der Inhalt stehen. Einzelne Elemente können zusätzlich
+  ohne Karte stehen oder festgesteckt werden, damit sie nicht mehr aus
+  Versehen verrutschen.
 - **Präsentationsmodus:** blendet die Bedienleiste aus, versteckt die
   Statusleiste, hält den Bildschirm wach.
 
@@ -27,13 +40,14 @@ aus) und auf dem **iPhone** in einer eigenen Stapelansicht.
 |---|---|
 | **Zufälliger Name** | Zieht Namen aus einer Namensliste — siehe unten |
 | **Timer** | Countdown oder Stoppuhr, Ring-Anzeige, Schnellwahl 1/2/5/10/15/20 Min., „+1 Minute", Signal am Ende |
-| **Uhr** | Analog (mit Ziffern, wie im Unterricht gebraucht), digital oder beides, wahlweise mit Datum |
+| **Uhr** | Analog mit vier Zifferblättern (Modern, Klassisch, **Lernuhr** mit blauem Stunden- und orangem Minutenzeiger, Minimal), digital oder beides, wahlweise mit Datum |
 | **Ampel** | Rot/Gelb/Grün mit frei beschriftbaren Arbeitsphasen, senkrecht oder waagerecht |
 | **Lautstärke** | Misst den Geräuschpegel über das Mikrofon: Tacho, Balken oder große Lampe, mit einstellbarer Schwelle und „Zu laut"-Warnung |
 | **Tagesablauf** | Checkliste zum Abhaken, mit Fortschrittsbalken und optionalem täglichem Zurücksetzen |
 | **Text** | Überschriften und Arbeitsaufträge: Größe, Farbe, Ausrichtung, Hintergrund |
 | **Bild** | Foto aus der Mediathek oder Datei, füllend oder vollständig, mit Bildunterschrift |
 | **Klänge** | Tonfelder auf Knopfdruck: eigene Dateien oder direkt in der App aufgenommene Ansagen |
+| **Arbeitssymbol** | Zeigt die Arbeitsform groß an (Einzel-, Partner-, Gruppenarbeit, Stillarbeit, Flüsterstimme, Melden, Zuhören, Aufräumen) — ein Tipp schaltet weiter |
 
 ### Zufälliger Name — im Detail
 Das meistgenutzte Element, deshalb vollständig ausgebaut:
@@ -56,6 +70,15 @@ Das meistgenutzte Element, deshalb vollständig ausgebaut:
   werden nicht gezogen.
 - Die Ziehung wird animiert („Durchrattern" der Namen), das lässt sich
   abschalten.
+- **Aufdecken zum Mitraten:** Der gezogene Name erscheint wahlweise
+  **sofort**, hinter einem **Mosaik** (zwölf Tipps, bis alle Kacheln weg
+  sind), als **Unschärfe** (zehn Stufen) oder **Buchstabe für
+  Buchstabe**. Jeder Tipp auf die Karte deckt einen Schritt auf, das
+  Auge daneben zeigt sofort alles — und wenn der Name ganz da ist, gibt
+  es Konfetti. Der Stand des Aufdeckens wird mitsynchronisiert.
+- **Gezogene Namen anzeigen:** „Immer", „Beim Bearbeiten" oder „Nie" —
+  bei „Beim Bearbeiten" lässt sich im Unterricht nicht ablesen, wer noch
+  fehlt.
 
 ### Teilen mit Kolleginnen und Kollegen
 - Menü ⋯ → **„Tafel teilen"** zeigt einen sechsstelligen
