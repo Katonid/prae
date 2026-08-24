@@ -102,3 +102,30 @@ noch Commits auf denselben PR gepusht wurden — die hingen dann fest
   Teilen per Code funktioniert trotzdem.
 - Die App-Icons erzeugt `klassenraum/scripts/generate-icons.py` — nicht von
   Hand bearbeiten.
+
+## Projekt Tafelbild (Klassenraum-Tafel, native iOS-App)
+
+- App-Code: `TafelbildiOS/` (ein Target: App, iPhone + iPad, iOS 17).
+  Native Ersatz-App für „Classroomscreen": frei anzuordnende Elemente
+  (Zufälliger Name, Timer, Uhr, Ampel, Lautstärke, Tagesablauf, Text,
+  Bild, Klänge) auf mehreren Tafeln, teilbar per Einladungscode.
+  (Nicht verwechseln mit der Web-App `klassenraum/` — beide existieren
+  nebeneinander.)
+- `MARKETING_VERSION` steht an zwei Stellen im pbxproj (Debug +
+  Release). **Jede Arbeitseinheit (= jeder PR mit App-Änderungen) hebt
+  die Patch-Nummer um +1 an** — ohne Nachfrage, als Teil des PRs
+  (1.0.1 → 1.0.2 → 1.0.3 …). Größere Sprünge nur auf ausdrückliche
+  Ansage des Nutzers.
+- Die **Build-Nummer vergibt die Skript-Bauphase „Build-Nummer setzen"**
+  automatisch (Anzahl der Git-Commits, sonst Datumsstempel) — wie in
+  Tagesspur, nie von Hand pflegen. Damit ist jeder TestFlight-Upload
+  garantiert neuer als der vorherige. Dafür steht im Target
+  `ENABLE_USER_SCRIPT_SANDBOXING = NO` — nicht entfernen.
+- `ITSAppUsesNonExemptEncryption = NO` steht doppelt: in
+  `Config/Info.plist` und als Build-Einstellung
+  `INFOPLIST_KEY_ITSAppUsesNonExemptEncryption` — nicht entfernen,
+  erspart die Export-Compliance-Frage bei jedem TestFlight-Build.
+- Datenhaltung wie in der Reisekasse: generische `Entity`-Records in der
+  öffentlichen CloudKit-Datenbank, Sichtbarkeit über Mitgliedschaft im
+  Objekt. In der CloudKit-Konsole müssen `updatedAtMs` (queryable +
+  sortable) und `kind` (queryable) indiziert sein.
