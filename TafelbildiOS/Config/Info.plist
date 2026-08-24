@@ -8,6 +8,22 @@
 	<string>Das Mikrofon wird für die Lautstärkeanzeige gebraucht: Die App misst nur den Geräuschpegel im Raum. Es wird nichts aufgezeichnet und nichts verschickt — außer du nimmst selbst eine Ansage für ein Klangfeld auf.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Der Zugriff auf die Fotomediathek wird benötigt, um Bilder auf eine Tafel zu legen oder als Hintergrund zu verwenden.</string>
+	<key>UIAppFonts</key>
+	<array>
+		<string>Lexend-Regular.ttf</string>
+		<string>Lexend-Medium.ttf</string>
+		<string>Lexend-SemiBold.ttf</string>
+		<string>Lexend-Bold.ttf</string>
+		<string>Lexend-ExtraBold.ttf</string>
+		<string>Andika-Regular.ttf</string>
+		<string>Andika-Bold.ttf</string>
+		<string>Quicksand-Regular.ttf</string>
+		<string>Quicksand-Medium.ttf</string>
+		<string>Quicksand-SemiBold.ttf</string>
+		<string>Quicksand-Bold.ttf</string>
+		<string>Poppins-Regular.ttf</string>
+		<string>Poppins-Bold.ttf</string>
+	</array>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>remote-notification</string>
