@@ -21,7 +21,8 @@ struct ChecklistWidgetView: View {
                 if !content.title.isEmpty && style.showLabels {
                     HStack(alignment: .firstTextBaseline) {
                         Text(content.title)
-                            .font(Theme.font(titleSize, weight: .bold))
+                            .font(Theme.font(titleSize, weight: .heavy))
+                            .tracking(-titleSize * 0.01)
                             .foregroundStyle(style.ink)
                             .lineLimit(1)
                             .minimumScaleFactor(0.6)
@@ -40,11 +41,13 @@ struct ChecklistWidgetView: View {
                         ZStack(alignment: .leading) {
                             Capsule().fill(style.wash)
                             Capsule()
-                                .fill(style.accentGradient)
+                                .fill(LinearGradient(colors: [Color(hex: "#10b981"), Color(hex: "#22d3ee")],
+                                                     startPoint: .leading, endPoint: .trailing))
                                 .frame(width: bar.size.width * CGFloat(progress))
+                                .animation(.spring(response: 0.4, dampingFraction: 0.8), value: progress)
                         }
                     }
-                    .frame(height: 8)
+                    .frame(height: 9)
                 }
 
                 if content.items.isEmpty {
@@ -133,15 +136,16 @@ struct ChecklistWidgetView: View {
         } label: {
             HStack(spacing: 12) {
                 ZStack {
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .strokeBorder(style.ink.opacity(0.3), lineWidth: 2)
-                        .frame(width: fontSize * 1.25, height: fontSize * 1.25)
+                    RoundedRectangle(cornerRadius: fontSize * 0.32, style: .continuous)
+                        .strokeBorder(style.ink.opacity(style.isDarkCard ? 0.18 : 0.12), lineWidth: 2)
+                        .frame(width: fontSize * 1.7, height: fontSize * 1.7)
                     if item.done {
-                        RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .fill(style.accentGradient)
-                            .frame(width: fontSize * 1.25, height: fontSize * 1.25)
+                        RoundedRectangle(cornerRadius: fontSize * 0.32, style: .continuous)
+                            .fill(LinearGradient(colors: [Color(hex: "#10b981"), Color(hex: "#22d3ee")],
+                                                 startPoint: .topLeading, endPoint: .bottomTrailing))
+                            .frame(width: fontSize * 1.7, height: fontSize * 1.7)
                         Image(systemName: "checkmark")
-                            .font(.system(size: fontSize * 0.8, weight: .heavy))
+                            .font(.system(size: fontSize * 0.85, weight: .heavy))
                             .foregroundStyle(Color.white)
                     }
                 }
@@ -150,12 +154,14 @@ struct ChecklistWidgetView: View {
                 }
                 Text(item.text)
                     .font(Theme.font(fontSize, weight: .medium))
-                    .foregroundStyle(item.done ? style.inkSoft : style.ink)
+                    .foregroundStyle(item.done ? style.inkSoft.opacity(0.7) : style.ink)
                     .strikethrough(item.done && content.strikeDone, color: style.inkSoft)
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
                 Spacer(minLength: 0)
             }
+            .padding(.horizontal, fontSize * 0.35)
+            .padding(.vertical, fontSize * 0.3)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
