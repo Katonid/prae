@@ -2,7 +2,7 @@
 
 import { h, clear, onTap } from '../util.js';
 import { icon } from '../icons.js';
-import { mediaUrl, pickMedia, removeMedia, formatSize } from '../media.js';
+import { mediaUrl, pickMedia, removeMedia, formatSize, VIDEO_ACCEPT } from '../media.js';
 import { section, field, toggleRow, button, buttonRow, toast } from '../ui.js';
 
 export default {
@@ -63,8 +63,8 @@ export default {
       if (state.label) el.appendChild(h('div', { class: 'w-video__label' }, state.label));
     }
 
-    async function choose() {
-      const result = await pickMedia('video/*');
+    async function choose(accept = VIDEO_ACCEPT) {
+      const result = await pickMedia(accept);
       if (!result) return;
       if (result.error === 'ZU_GROSS') {
         toast('Das Video ist zu groß (mehr als 60 MB). Besser einen Link verwenden.', 'warn');
@@ -127,6 +127,14 @@ export default {
               if (instance && instance.choose) instance.choose();
             },
           }),
+          button('Alle Dateien', {
+            icon: 'layers', small: true, ghost: true,
+            title: 'Ohne Filter — falls die Dateien-App Videos ausgraut',
+            onClick: () => {
+              const instance = ctx.instance();
+              if (instance && instance.choose) instance.choose('');
+            },
+          }),
           button('Link', {
             icon: 'share', small: true,
             onClick: () => {
@@ -177,7 +185,8 @@ export default {
         }))));
 
       wrap.appendChild(h('p', { class: 'muted small' },
-        'Videos vom Gerät bleiben auf diesem Gerät und werden beim Teilen über einen Code nicht mitgeschickt. '
+        'Es gehen MP4, MOV, M4V und WebM. Blendet die Dateien-App etwas aus, hilft „Alle Dateien“ — dann erscheint die Auswahl ohne Filter. '
+        + 'Videos vom Gerät bleiben auf diesem Gerät und werden beim Teilen über einen Code nicht mitgeschickt. '
         + 'Ein Link funktioniert überall. Für Vollbild das Symbol in der kleinen Leiste über dem Element nutzen.'));
     }
 
