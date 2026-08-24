@@ -100,7 +100,7 @@ struct WidgetHostView: View {
         case .checklist(let value):
             ChecklistWidgetView(content: bindChecklist(value), interactive: !editing)
         case .text(let value):
-            TextWidgetView(content: value)
+            TextWidgetView(content: bindText(value), interactive: !editing)
         case .image(let value):
             ImageWidgetView(content: value, onChoose: { store.settingsWidgetID = widget.id })
         case .sounds(let value):
@@ -108,6 +108,9 @@ struct WidgetHostView: View {
                              onOpenSettings: { store.settingsWidgetID = widget.id })
         case .symbols(let value):
             SymbolWidgetView(content: bindSymbol(value), interactive: !editing)
+        case .video(let value):
+            VideoWidgetView(content: value, interactive: !editing,
+                            onOpenSettings: { store.settingsWidgetID = widget.id })
         }
     }
 
@@ -171,6 +174,16 @@ struct WidgetHostView: View {
                 return fallback
             },
             set: { store.setContent(.trafficLight($0), widgetID: widget.id, boardID: boardID) }
+        )
+    }
+
+    private func bindText(_ fallback: TextContent) -> Binding<TextContent> {
+        Binding(
+            get: {
+                if case .text(let value)? = store.widget(widget.id, in: boardID)?.content { return value }
+                return fallback
+            },
+            set: { store.setContent(.text($0), widgetID: widget.id, boardID: boardID) }
         )
     }
 

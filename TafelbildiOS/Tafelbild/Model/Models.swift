@@ -72,6 +72,7 @@ enum WidgetKind: String, Codable, CaseIterable, Identifiable {
     case image
     case sounds
     case symbols
+    case video
 
     var id: String { rawValue }
 
@@ -87,6 +88,7 @@ enum WidgetKind: String, Codable, CaseIterable, Identifiable {
         case .image:        return "Bild"
         case .sounds:       return "Klänge"
         case .symbols:      return "Arbeitssymbol"
+        case .video:        return "Video"
         }
     }
 
@@ -102,6 +104,7 @@ enum WidgetKind: String, Codable, CaseIterable, Identifiable {
         case .image:        return "Foto oder Grafik"
         case .sounds:       return "Tonfelder zum Antippen"
         case .symbols:      return "Arbeitsform groß anzeigen"
+        case .video:        return "Film vom Gerät oder aus dem Netz"
         }
     }
 
@@ -117,6 +120,7 @@ enum WidgetKind: String, Codable, CaseIterable, Identifiable {
         case .image:        return "photo"
         case .sounds:       return "speaker.wave.2"
         case .symbols:      return "person.2"
+        case .video:        return "play.rectangle"
         }
     }
 
@@ -133,6 +137,7 @@ enum WidgetKind: String, Codable, CaseIterable, Identifiable {
         case .image:        return CGSize(width: 520, height: 380)
         case .sounds:       return CGSize(width: 640, height: 300)
         case .symbols:      return CGSize(width: 340, height: 360)
+        case .video:        return CGSize(width: 720, height: 460)
         }
     }
 }
@@ -143,6 +148,8 @@ struct TextContent: Codable, Equatable {
     var text: String = "Guten Morgen!"
     /// Schriftgröße in Tafelpunkten.
     var fontSize: Double = 64
+    /// Schriftgröße automatisch an das Feld anpassen.
+    var autoSize: Bool = true
     var colorHex: String = "#ffffff"
     var backgroundHex: String = "#000000"
     var backgroundOpacity: Double = 0.0
@@ -291,6 +298,10 @@ struct ChecklistContent: Codable, Equatable {
     var title: String = "Unser Tag"
     var items: [ChecklistItem] = []
     var showProgress: Bool = true
+    /// Erledigte Punkte durchstreichen.
+    var strikeDone: Bool = true
+    /// Eingabefeld direkt auf der Karte (nur beim Bearbeiten sichtbar).
+    var quickAdd: Bool = true
     /// Hakt sich beim ersten Öffnen an einem neuen Tag selbst wieder frei.
     var resetDaily: Bool = false
     /// Tag (yyyy-MM-dd) des letzten automatischen Zurücksetzens.
@@ -386,9 +397,14 @@ struct SoundButton: Codable, Equatable, Identifiable {
     var colorHex: String = "#0f9b8e"
     /// Dateiname unter Documents/Media/ (nil = leeres Feld).
     var fileName: String? = nil
+    /// Adresse einer Klangdatei im Netz — die reist beim Teilen mit.
+    var url: String = ""
     var volume: Double = 1.0
     /// Beim erneuten Antippen stoppen statt neu starten.
     var toggle: Bool = false
+
+    /// Ist überhaupt etwas zum Abspielen hinterlegt?
+    var hasSource: Bool { fileName != nil || url.nonEmpty != nil }
 }
 
 struct SoundsContent: Codable, Equatable {
@@ -445,6 +461,32 @@ enum WorkSymbol: String, Codable, CaseIterable, Identifiable {
     }
 }
 
+struct VideoContent: Codable, Equatable {
+    /// Datei unter Documents/Media — bleibt bewusst auf diesem Gerät.
+    var fileName: String? = nil
+    /// Adresse eines Videos im Netz; die reist beim Teilen mit.
+    var url: String = ""
+    /// Anzeigename der gewählten Datei (nur zur Anzeige im Einstellungsblatt).
+    var sourceLabel: String = ""
+    var caption: String = ""
+    var loop: Bool = false
+    var showControls: Bool = true
+    var muted: Bool = false
+
+    /// Adresse, aus der abgespielt wird — Datei hat Vorrang vor dem Link.
+    var playbackURL: URL? {
+        if let fileName, MediaStore.exists(fileName) { return MediaStore.url(fileName) }
+        if let trimmed = url.nonEmpty { return URL(string: trimmed) }
+        return nil
+    }
+
+    /// Es ist eine Datei hinterlegt, die auf diesem Gerät fehlt.
+    var fileMissing: Bool {
+        guard let fileName else { return false }
+        return !MediaStore.exists(fileName)
+    }
+}
+
 struct SymbolContent: Codable, Equatable {
     var symbol: WorkSymbol = .einzel
     var showLabel: Bool = true
@@ -461,6 +503,7 @@ enum WidgetContent: Equatable {
     case image(ImageContent)
     case sounds(SoundsContent)
     case symbols(SymbolContent)
+    case video(VideoContent)
 
     var kind: WidgetKind {
         switch self {
@@ -474,6 +517,7 @@ enum WidgetContent: Equatable {
         case .image:        return .image
         case .sounds:       return .sounds
         case .symbols:      return .symbols
+        case .video:        return .video
         }
     }
 
@@ -494,6 +538,7 @@ enum WidgetContent: Equatable {
         case .text:         return .text(TextContent())
         case .image:        return .image(ImageContent())
         case .symbols:      return .symbols(SymbolContent())
+        case .video:        return .video(VideoContent())
         case .sounds:       return .sounds(SoundsContent(buttons: [
             SoundButton(label: "Gong", emoji: "🔔", colorHex: "#0f9b8e"),
             SoundButton(label: "Applaus", emoji: "👏", colorHex: "#2dd4bf"),
@@ -522,6 +567,7 @@ extension WidgetContent: Codable {
         case .image:        self = .image(try container.decode(ImageContent.self, forKey: .data))
         case .sounds:       self = .sounds(try container.decode(SoundsContent.self, forKey: .data))
         case .symbols:      self = .symbols(try container.decode(SymbolContent.self, forKey: .data))
+        case .video:        self = .video(try container.decode(VideoContent.self, forKey: .data))
         }
     }
 
@@ -539,6 +585,7 @@ extension WidgetContent: Codable {
         case .image(let value):        try container.encode(value, forKey: .data)
         case .sounds(let value):       try container.encode(value, forKey: .data)
         case .symbols(let value):      try container.encode(value, forKey: .data)
+        case .video(let value):        try container.encode(value, forKey: .data)
         }
     }
 }
@@ -677,6 +724,9 @@ struct Board: Codable, Identifiable, Equatable {
     /// Wann Überschriften und Hinweise in den Elementen zu sehen sind.
     var labels: ShowRule = .always
     var widgets: [BoardWidget] = []
+    /// Handschrift und Markierungen auf der Tafel (PencilKit, Base64).
+    /// Reist mit der Tafel mit, damit Anmerkungen auf allen Geräten stehen.
+    var drawing: String = ""
     /// Namen der Kolleginnen und Kollegen, die diese Tafel sehen
     /// (nur zur Anzeige — maßgeblich sind die iCloud-Kennungen unten).
     var members: [String] = []
@@ -719,8 +769,24 @@ struct Board: Codable, Identifiable, Equatable {
         return String((0..<6).map { _ in alphabet.randomElement() ?? "A" })
     }
 
-    /// Alle Mediendateien, die diese Tafel braucht.
+    /// Alle Mediendateien, die diese Tafel auf diesem Gerät braucht.
+    /// Danach richtet sich das Aufräumen — hier fehlt nichts.
     var referencedMedia: Set<String> {
+        var names = syncedMedia
+        for widget in widgets {
+            if case .video(let content) = widget.content, let file = content.fileName {
+                names.insert(file)
+            }
+        }
+        return names
+    }
+
+    /// Mediendateien, die mit der Tafel in die Cloud gehen.
+    ///
+    /// Videos bleiben bewusst draußen: Sie sind schnell mehrere hundert
+    /// Megabyte groß, das lohnt keine Übertragung an jedes Gerät. Wer ein
+    /// Video teilen möchte, hinterlegt einen Link.
+    var syncedMedia: Set<String> {
         var names = Set<String>()
         if let background = background.imageFileName { names.insert(background) }
         for widget in widgets {
@@ -817,7 +883,7 @@ enum StarterContent {
 extension Board {
     enum BoardKeys: String, CodingKey {
         case id, name, emoji, background, accent, gradient, cardStyle, frames, labels
-        case widgets, members, ownerUserID
+        case widgets, drawing, members, ownerUserID
         case memberUserIDs, joinCode, owner, createdAtMs, updatedAtMs, deleted
         case embeddedLists
     }
@@ -835,6 +901,7 @@ extension Board {
         frames = c.wert(.frames, ShowRule.always)
         labels = c.wert(.labels, ShowRule.always)
         widgets = c.wert(.widgets, [BoardWidget]())
+        drawing = c.wert(.drawing, "")
         members = c.wert(.members, [String]())
         ownerUserID = c.wert(.ownerUserID, "")
         memberUserIDs = c.wert(.memberUserIDs, [String]())
@@ -898,13 +965,16 @@ extension BoardWidget {
 // MARK: - Nachsichtige Decoder der Element-Inhalte
 
 extension TextContent {
-    enum TextKeys: String, CodingKey { case text, fontSize, colorHex, backgroundHex, backgroundOpacity, bold, alignment, rounded }
+    enum TextKeys: String, CodingKey {
+        case text, fontSize, autoSize, colorHex, backgroundHex, backgroundOpacity, bold, alignment, rounded
+    }
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: TextKeys.self)
         self.init()
         text = c.wert(.text, "Text")
         fontSize = c.wert(.fontSize, 64)
+        autoSize = c.wert(.autoSize, true)
         colorHex = c.wert(.colorHex, "#ffffff")
         backgroundHex = c.wert(.backgroundHex, "#000000")
         backgroundOpacity = c.wert(.backgroundOpacity, 0)
@@ -1003,7 +1073,9 @@ extension ChecklistItem {
 }
 
 extension ChecklistContent {
-    enum ChecklistKeys: String, CodingKey { case title, items, showProgress, resetDaily, lastResetDay }
+    enum ChecklistKeys: String, CodingKey {
+        case title, items, showProgress, strikeDone, quickAdd, resetDaily, lastResetDay
+    }
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: ChecklistKeys.self)
@@ -1011,6 +1083,8 @@ extension ChecklistContent {
         title = c.wert(.title, "Unser Tag")
         items = c.wert(.items, [ChecklistItem]())
         showProgress = c.wert(.showProgress, true)
+        strikeDone = c.wert(.strikeDone, true)
+        quickAdd = c.wert(.quickAdd, true)
         resetDaily = c.wert(.resetDaily, false)
         lastResetDay = c.wert(.lastResetDay, "")
     }
@@ -1038,7 +1112,7 @@ extension NamePickerContent {
 }
 
 extension SoundButton {
-    enum ButtonKeys: String, CodingKey { case id, label, emoji, colorHex, fileName, volume, toggle }
+    enum ButtonKeys: String, CodingKey { case id, label, emoji, colorHex, fileName, url, volume, toggle }
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: ButtonKeys.self)
@@ -1048,8 +1122,27 @@ extension SoundButton {
         emoji = c.wert(.emoji, "🔔")
         colorHex = c.wert(.colorHex, "#0f9b8e")
         fileName = c.optional(.fileName, String.self)
+        url = c.wert(.url, "")
         volume = c.wert(.volume, 1)
         toggle = c.wert(.toggle, false)
+    }
+}
+
+extension VideoContent {
+    enum VideoKeys: String, CodingKey {
+        case fileName, url, sourceLabel, caption, loop, showControls, muted
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: VideoKeys.self)
+        self.init()
+        fileName = c.optional(.fileName, String.self)
+        url = c.wert(.url, "")
+        sourceLabel = c.wert(.sourceLabel, "")
+        caption = c.wert(.caption, "")
+        loop = c.wert(.loop, false)
+        showControls = c.wert(.showControls, true)
+        muted = c.wert(.muted, false)
     }
 }
 

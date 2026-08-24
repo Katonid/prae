@@ -37,6 +37,8 @@ struct WidgetSettingsSheet: View {
                         SoundsSettings(content: bindSounds(value))
                     case .symbols(let value):
                         SymbolSettings(content: bindSymbol(value))
+                    case .video(let value):
+                        VideoSettings(content: bindVideo(value))
                     }
 
                     Section("Auf der Tafel") {
@@ -173,6 +175,16 @@ struct WidgetSettingsSheet: View {
         )
     }
 
+    private func bindVideo(_ fallback: VideoContent) -> Binding<VideoContent> {
+        Binding(
+            get: {
+                if case .video(let value)? = store.widget(widgetID, in: boardID)?.content { return value }
+                return fallback
+            },
+            set: { store.setContent(.video($0), widgetID: widgetID, boardID: boardID) }
+        )
+    }
+
     private func bindSounds(_ fallback: SoundsContent) -> Binding<SoundsContent> {
         Binding(
             get: {
@@ -207,14 +219,25 @@ private struct TextSettings: View {
                 .frame(minHeight: 110)
                 .font(.system(.body, design: .rounded))
         }
-        Section("Darstellung") {
-            HStack {
-                Text("Größe")
-                Slider(value: $content.fontSize, in: 20...200, step: 2)
-                Text("\(Int(content.fontSize))")
-                    .monospacedDigit()
-                    .foregroundStyle(.secondary)
+        Section {
+            Toggle("Größe an das Feld anpassen", isOn: $content.autoSize)
+            if !content.autoSize {
+                HStack {
+                    Text("Größe")
+                    Slider(value: $content.fontSize, in: 20...200, step: 2)
+                    Text("\(Int(content.fontSize))")
+                        .monospacedDigit()
+                        .foregroundStyle(.secondary)
+                }
             }
+        } header: {
+            Text("Schriftgröße")
+        } footer: {
+            Text("Angepasst heißt: Das Element größer ziehen macht die Schrift größer. "
+                 + "Auf der Tafel öffnet ein Doppeltipp die Schreibfläche.")
+        }
+
+        Section("Darstellung") {
             Toggle("Fett", isOn: $content.bold)
             Picker("Ausrichtung", selection: $content.alignment) {
                 ForEach(TextContent.TextAlign.allCases) { Text($0.title).tag($0) }
@@ -458,12 +481,20 @@ private struct NoiseSettings: View {
 private struct ChecklistSettings: View {
     @Binding var content: ChecklistContent
     @State private var newItem = ""
+    @State private var bulk = ""
+    @State private var showReplace = false
 
     var body: some View {
         Section("Tagesablauf") {
             TextField("Überschrift", text: $content.title)
             Toggle("Fortschritt anzeigen", isOn: $content.showProgress)
+            Toggle("Erledigtes durchstreichen", isOn: $content.strikeDone)
             Toggle("Täglich zurücksetzen", isOn: $content.resetDaily)
+        }
+        Section {
+            Toggle("Eingabefeld auf der Karte", isOn: $content.quickAdd)
+        } footer: {
+            Text("Damit lässt sich ein Punkt direkt an der Tafel ergänzen, ohne dieses Blatt zu öffnen.")
         }
         Section("Schritte") {
             ForEach($content.items) { $item in
@@ -495,12 +526,44 @@ private struct ChecklistSettings: View {
                 Label("Alle Haken entfernen", systemImage: "arrow.counterclockwise")
             }
         }
+
+        Section {
+            TextEditor(text: $bulk)
+                .frame(minHeight: 120)
+                .font(.system(.body, design: .rounded))
+            Button {
+                showReplace = true
+            } label: {
+                Label("Liste ersetzen", systemImage: "arrow.triangle.2.circlepath")
+            }
+            .disabled(bulk.trimmed.isEmpty)
+        } header: {
+            Text("Schnell erfassen")
+        } footer: {
+            Text("Eine Zeile je Punkt — praktisch, um einen ganzen Tagesablauf auf einmal einzutragen.")
+        }
+        .onAppear {
+            if bulk.isEmpty { bulk = content.items.map(\.text).joined(separator: "\n") }
+        }
+        .alert("Liste ersetzen?", isPresented: $showReplace) {
+            Button("Ersetzen", role: .destructive) { replace() }
+            Button("Abbrechen", role: .cancel) { }
+        } message: {
+            Text("Die bisherigen Punkte werden durch die Zeilen oben ersetzt.")
+        }
     }
 
     private func add() {
         guard let text = newItem.nonEmpty else { return }
         content.items.append(ChecklistItem(text: text))
         newItem = ""
+    }
+
+    private func replace() {
+        let lines = bulk.split(whereSeparator: { $0 == "\n" })
+            .map { String($0).trimmed }
+            .filter { !$0.isEmpty }
+        content.items = lines.map { ChecklistItem(text: $0) }
     }
 }
 
@@ -635,15 +698,15 @@ private struct SoundsSettings: View {
                 ColorPicker("Farbe", selection: $button.colorHex.asColor, supportsOpacity: false)
 
                 HStack {
-                    Image(systemName: button.fileName == nil ? "waveform.slash" : "waveform")
-                        .foregroundStyle(button.fileName == nil ? .secondary : Theme.mint)
-                    Text(button.fileName == nil ? "Kein Ton hinterlegt" : "Ton hinterlegt")
+                    Image(systemName: button.hasSource ? "waveform" : "waveform.slash")
+                        .foregroundStyle(button.hasSource ? Theme.mint : .secondary)
+                    Text(button.fileName != nil ? "Datei hinterlegt"
+                         : (button.url.nonEmpty != nil ? "Link hinterlegt" : "Kein Ton hinterlegt"))
                         .foregroundStyle(.secondary)
                     Spacer()
-                    if let fileName = button.fileName {
+                    if button.hasSource {
                         Button {
-                            SoundPlayer.shared.play(buttonID: button.id, fileName: fileName,
-                                                    volume: button.volume, toggle: true)
+                            SoundPlayer.shared.play(button)
                         } label: {
                             Image(systemName: "play.circle.fill")
                         }
@@ -655,6 +718,15 @@ private struct SoundsSettings: View {
                     importingFor = button.id
                 } label: {
                     Label("Tondatei wählen", systemImage: "folder")
+                }
+
+                HStack {
+                    Image(systemName: "link")
+                        .foregroundStyle(.secondary)
+                    TextField("https://… (Klang aus dem Netz)", text: $button.url)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .keyboardType(.URL)
                 }
 
                 if recorder.recording && recordingFor == button.id {
@@ -691,6 +763,9 @@ private struct SoundsSettings: View {
                 }
             } header: {
                 Text(button.label.nonEmpty ?? "Feld")
+            } footer: {
+                Text("Eine Tondatei geht über iCloud an alle Geräte mit. Ein Link funktioniert "
+                     + "ebenfalls überall — braucht aber eine Internetverbindung.")
             }
         }
 
@@ -773,5 +848,105 @@ private struct SymbolSettings: View {
         Section("Anzeige") {
             Toggle("Beschriftung anzeigen", isOn: $content.showLabel)
         }
+    }
+}
+
+
+// MARK: - Video
+
+private struct VideoSettings: View {
+    @EnvironmentObject private var store: BoardStore
+    @Binding var content: VideoContent
+
+    @State private var showFiles = false
+    @State private var video: PhotosPickerItem?
+
+    var body: some View {
+        Section {
+            HStack {
+                Image(systemName: content.playbackURL == nil ? "questionmark.video" : "play.rectangle.fill")
+                    .foregroundStyle(content.playbackURL == nil ? .secondary : Theme.mint)
+                Text(quelle)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+            }
+            PhotosPicker(selection: $video, matching: .videos) {
+                Label("Video aus Fotos wählen", systemImage: "photo.on.rectangle")
+            }
+            Button {
+                showFiles = true
+            } label: {
+                Label("Video aus Dateien wählen", systemImage: "folder")
+            }
+            if content.fileName != nil {
+                Button(role: .destructive) {
+                    content.fileName = nil
+                    content.sourceLabel = ""
+                } label: {
+                    Label("Datei entfernen", systemImage: "trash")
+                }
+            }
+        } header: {
+            Text("Quelle")
+        } footer: {
+            Text("Videodateien bleiben auf diesem Gerät — sie werden nicht über iCloud verteilt, "
+                 + "weil sie schnell mehrere hundert Megabyte groß sind. Für alle Geräte und für "
+                 + "geteilte Tafeln stattdessen einen Link eintragen.")
+        }
+
+        Section {
+            HStack {
+                Image(systemName: "link")
+                    .foregroundStyle(.secondary)
+                TextField("https://…", text: $content.url)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .keyboardType(.URL)
+            }
+        } header: {
+            Text("Link")
+        } footer: {
+            Text("Ein Link reist mit der Tafel mit. Er wird nur benutzt, wenn keine Datei auf "
+                 + "diesem Gerät liegt.")
+        }
+
+        Section("Abspielen") {
+            Toggle("Bedienleiste anzeigen", isOn: $content.showControls)
+            Toggle("In Schleife wiederholen", isOn: $content.loop)
+            Toggle("Ohne Ton starten", isOn: $content.muted)
+            TextField("Beschriftung", text: $content.caption)
+        }
+        .fileImporter(isPresented: $showFiles, allowedContentTypes: [.movie, .video, .mpeg4Movie, .quickTimeMovie]) { result in
+            guard case .success(let url) = result else { return }
+            let ext = url.pathExtension.isEmpty ? "mp4" : url.pathExtension
+            if let fileName = store.saveLocalMedia(from: url, fileExtension: ext) {
+                content.fileName = fileName
+                content.sourceLabel = url.lastPathComponent
+            }
+        }
+        .onChange(of: video) { _, item in
+            guard let item else { return }
+            Task {
+                guard let data = try? await item.loadTransferable(type: Data.self) else { return }
+                let temporary = FileManager.default.temporaryDirectory
+                    .appendingPathComponent(UUID().uuidString + ".mov")
+                guard (try? data.write(to: temporary)) != nil,
+                      let fileName = store.saveLocalMedia(from: temporary, fileExtension: "mov")
+                else { return }
+                try? FileManager.default.removeItem(at: temporary)
+                content.fileName = fileName
+                content.sourceLabel = "Video aus Fotos"
+                video = nil
+            }
+        }
+    }
+
+    private var quelle: String {
+        if content.fileMissing { return "Die hinterlegte Datei liegt nicht auf diesem Gerät." }
+        if content.fileName != nil {
+            return "Datei: " + (content.sourceLabel.nonEmpty ?? "auf diesem Gerät")
+        }
+        if let link = content.url.nonEmpty { return "Link: " + link }
+        return "Noch kein Video ausgewählt."
     }
 }

@@ -57,12 +57,11 @@ struct SoundsWidgetView: View {
         return Button {
             guard interactive else { return }
             Haptics.tap()
-            guard let fileName = button.fileName else {
+            guard button.hasSource else {
                 onOpenSettings()
                 return
             }
-            SoundPlayer.shared.play(buttonID: button.id, fileName: fileName,
-                                    volume: button.volume, toggle: button.toggle)
+            SoundPlayer.shared.play(button)
         } label: {
             VStack(spacing: 4) {
                 Text(button.emoji.isEmpty ? "🔊" : button.emoji)
@@ -74,7 +73,7 @@ struct SoundsWidgetView: View {
                         .lineLimit(1)
                         .minimumScaleFactor(0.6)
                 }
-                if button.fileName == nil {
+                if !button.hasSource {
                     Text("kein Ton")
                         .font(Theme.font(12, weight: .medium))
                         .foregroundStyle(color.readableForeground.opacity(0.7))
@@ -84,7 +83,7 @@ struct SoundsWidgetView: View {
             .frame(height: height)
             .background {
                 RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .fill(color.opacity(button.fileName == nil ? 0.35 : 1))
+                    .fill(color.opacity(button.hasSource ? 1 : 0.35))
                     .overlay {
                         RoundedRectangle(cornerRadius: 20, style: .continuous)
                             .strokeBorder(Color.white.opacity(playing ? 0.9 : 0.15), lineWidth: playing ? 3 : 1)

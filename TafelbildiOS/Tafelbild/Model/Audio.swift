@@ -172,38 +172,71 @@ final class SoundPlayer: NSObject, ObservableObject {
     @Published private(set) var playingIDs: Set<String> = []
 
     private var players: [String: AVAudioPlayer] = [:]
+    /// Klänge, die von einer Adresse im Netz kommen, laufen über AVPlayer —
+    /// AVAudioPlayer kann nur örtliche Dateien.
+    private var streams: [String: AVPlayer] = [:]
+    private var streamEnds: [String: NSObjectProtocol] = [:]
 
-    /// Spielt die Datei eines Feldes. `toggle` = erneutes Antippen stoppt.
-    func play(buttonID: String, fileName: String, volume: Double, toggle: Bool) {
-        if let existing = players[buttonID], existing.isPlaying {
-            existing.stop()
-            players[buttonID] = nil
-            playingIDs.remove(buttonID)
-            if toggle { return }
-        }
+    /// Spielt das Feld ab: erst die Datei auf dem Gerät, sonst den Link.
+    /// `toggle` = erneutes Antippen stoppt.
+    func play(_ button: SoundButton) {
+        let id = button.id
+        let wasPlaying = isPlaying(id)
+        stop(buttonID: id)
+        if wasPlaying && button.toggle { return }
+
         if !AudioSessionCenter.isRecording {
             AudioSessionCenter.configure(recording: false)
         }
-        let url = MediaStore.url(fileName)
-        guard FileManager.default.fileExists(atPath: url.path),
-              let player = try? AVAudioPlayer(contentsOf: url) else { return }
-        player.delegate = self
-        player.volume = Float(min(max(volume, 0), 1))
-        player.prepareToPlay()
-        player.play()
-        players[buttonID] = player
-        playingIDs.insert(buttonID)
+        let volume = Float(min(max(button.volume, 0), 1))
+
+        if let fileName = button.fileName {
+            let url = MediaStore.url(fileName)
+            if FileManager.default.fileExists(atPath: url.path),
+               let player = try? AVAudioPlayer(contentsOf: url) {
+                player.delegate = self
+                player.volume = volume
+                player.prepareToPlay()
+                player.play()
+                players[id] = player
+                playingIDs.insert(id)
+                return
+            }
+        }
+
+        guard let address = button.url.nonEmpty, let remote = URL(string: address) else { return }
+        let item = AVPlayerItem(url: remote)
+        let stream = AVPlayer(playerItem: item)
+        stream.volume = volume
+        streamEnds[id] = NotificationCenter.default.addObserver(
+            forName: .AVPlayerItemDidPlayToEndTime, object: item, queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in self?.stop(buttonID: id) }
+        }
+        stream.play()
+        streams[id] = stream
+        playingIDs.insert(id)
     }
 
     func stop(buttonID: String) {
         players[buttonID]?.stop()
         players[buttonID] = nil
+        streams[buttonID]?.pause()
+        streams[buttonID] = nil
+        if let token = streamEnds[buttonID] {
+            NotificationCenter.default.removeObserver(token)
+            streamEnds[buttonID] = nil
+        }
         playingIDs.remove(buttonID)
     }
 
     func stopAll() {
         for (_, player) in players { player.stop() }
         players.removeAll()
+        for (_, stream) in streams { stream.pause() }
+        streams.removeAll()
+        for (_, token) in streamEnds { NotificationCenter.default.removeObserver(token) }
+        streamEnds.removeAll()
         playingIDs.removeAll()
     }
 

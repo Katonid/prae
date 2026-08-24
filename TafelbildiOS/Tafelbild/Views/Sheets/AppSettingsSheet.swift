@@ -1,11 +1,16 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
-/// App-Einstellungen: eigener Name, iCloud-Abgleich, Hinweise.
+/// App-Einstellungen: eigener Name, iCloud-Abgleich, Speicher, Sicherung.
 struct AppSettingsSheet: View {
     @EnvironmentObject private var store: BoardStore
     @Environment(\.dismiss) private var dismiss
 
     @ObservedObject private var meter = NoiseMeter.shared
+
+    @State private var backup: URL?
+    @State private var showImporter = false
+    @State private var storageBytes: Int64 = 0
 
     private var version: String {
         let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
@@ -83,6 +88,65 @@ struct AppSettingsSheet: View {
                 }
 
                 Section {
+                    Toggle("Nur mit dem Stift schreiben", isOn: $store.pencilOnly)
+                } header: {
+                    Text("Handschrift")
+                } footer: {
+                    Text("Mit dem Stift schreiben, mit dem Finger bedienen: Ist das eingeschaltet, "
+                         + "malt der Finger nicht mit, sondern bedient weiterhin Timer, Ampel und "
+                         + "Namen. Die Handschrift gehört zur Tafel und erscheint auf allen Geräten.")
+                }
+
+                Section {
+                    HStack {
+                        Text("Dateien auf diesem Gerät")
+                        Spacer()
+                        Text(Self.sizeText(storageBytes))
+                            .foregroundStyle(.secondary)
+                            .monospacedDigit()
+                    }
+                    Button {
+                        let removed = store.removeUnusedMedia()
+                        storageBytes = store.mediaBytes
+                        store.showStatus(removed > 0
+                                         ? "\(removed) Datei(en) entfernt."
+                                         : "Es gab nichts aufzuräumen.")
+                    } label: {
+                        Label("Nicht mehr genutzte Dateien entfernen", systemImage: "trash")
+                    }
+                } header: {
+                    Text("Speicher")
+                } footer: {
+                    Text("Bilder und Töne liegen auf dem Gerät und gehen über iCloud an die anderen "
+                         + "Geräte. Videodateien bleiben dort, wo sie ausgewählt wurden.")
+                }
+
+                Section {
+                    Button {
+                        backup = store.writeBackup()
+                    } label: {
+                        Label("Sicherung erstellen", systemImage: "arrow.down.doc")
+                    }
+                    if let backup {
+                        ShareLink(item: backup) {
+                            Label("Sicherung teilen oder ablegen", systemImage: "square.and.arrow.up")
+                        }
+                    }
+                    Button {
+                        showImporter = true
+                    } label: {
+                        Label("Sicherung einlesen", systemImage: "arrow.up.doc")
+                    }
+                } header: {
+                    Text("Sichern und übertragen")
+                } footer: {
+                    Text("Die Sicherung enthält alle Tafeln und Namenslisten als eine Datei — "
+                         + "gut für ein Backup oder den Wechsel auf ein anderes Gerät. Beim "
+                         + "Einlesen kommen die Tafeln zu den vorhandenen dazu; es wird nichts "
+                         + "überschrieben.")
+                }
+
+                Section {
                     HStack {
                         Text("Version")
                         Spacer()
@@ -94,12 +158,24 @@ struct AppSettingsSheet: View {
             }
             .navigationTitle("Einstellungen")
             .navigationBarTitleDisplayMode(.inline)
+            .onAppear { storageBytes = store.mediaBytes }
+            .fileImporter(isPresented: $showImporter, allowedContentTypes: [.json]) { result in
+                guard case .success(let url) = result else { return }
+                store.readBackup(from: url)
+                storageBytes = store.mediaBytes
+            }
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Fertig") { dismiss() }
                 }
             }
         }
+    }
+
+    private static func sizeText(_ bytes: Int64) -> String {
+        let formatter = ByteCountFormatter()
+        formatter.countStyle = .file
+        return formatter.string(fromByteCount: bytes)
     }
 
     private var microphoneLabel: String {
