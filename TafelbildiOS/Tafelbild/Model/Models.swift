@@ -838,24 +838,26 @@ enum StarterContent {
         board.members = owner.nonEmpty.map { [$0] } ?? []
 
         // Die Größen liegen nahe an den vorgesehenen — dadurch zeichnen die
-        // Elemente ungefähr im Maßstab 1, also so wie in der Web-App.
-        var text = BoardWidget(x: 80, y: 40, width: 620, height: 220, z: 0,
+        // Elemente ungefähr im Maßstab 1, also so wie in der Web-App. Die
+        // Kästen überschneiden sich nicht: links eine Spalte bis x = 700,
+        // rechts daneben ab x = 740.
+        var text = BoardWidget(x: 80, y: 30, width: 620, height: 180, z: 0,
                                content: .text(TextContent(text: "Guten Morgen!", fontSize: 84)))
         text.clampToCanvas()
 
-        let clock = BoardWidget(x: 1140, y: 40, width: 400, height: 400, z: 1,
-                                content: .clock(ClockContent()))
-        let timer = BoardWidget(x: 740, y: 40, width: 340, height: 340, z: 2,
-                                content: .timer(TimerContent()))
-        let picker = BoardWidget(x: 80, y: 290, width: 620, height: 450, z: 3,
+        let picker = BoardWidget(x: 80, y: 230, width: 620, height: 420, z: 1,
                                  content: .namePicker(NamePickerContent()))
-        let noise = BoardWidget(x: 740, y: 420, width: 460, height: 300, z: 4,
-                                content: .noise(NoiseContent()))
-        let light = BoardWidget(x: 1240, y: 480, width: 220, height: 340, z: 5,
-                                content: .trafficLight(TrafficLightContent()))
         // Mit Beispielpunkten — eine leere Liste sagt beim ersten Start nichts.
-        let checklist = BoardWidget(x: 740, y: 750, width: 700, height: 210, z: 6,
+        let checklist = BoardWidget(x: 80, y: 670, width: 620, height: 310, z: 2,
                                     content: WidgetContent.makeDefault(for: .checklist))
+        let timer = BoardWidget(x: 740, y: 30, width: 340, height: 340, z: 3,
+                                content: .timer(TimerContent()))
+        let clock = BoardWidget(x: 1120, y: 30, width: 380, height: 380, z: 4,
+                                content: .clock(ClockContent()))
+        let noise = BoardWidget(x: 740, y: 430, width: 460, height: 290, z: 5,
+                                content: .noise(NoiseContent()))
+        let light = BoardWidget(x: 1240, y: 440, width: 220, height: 330, z: 6,
+                                content: .trafficLight(TrafficLightContent()))
 
         board.widgets = [text, clock, picker, timer, light, noise, checklist]
         return board
