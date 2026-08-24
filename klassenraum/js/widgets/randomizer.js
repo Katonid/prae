@@ -6,6 +6,7 @@ import { h, clear, pickRandom, parseNames, beep, onTap, confetti, reducedMotion,
 import { icon } from '../icons.js';
 import { getState, getList, on as onStore, addList } from '../store.js';
 import { section, field, toggleRow, button, buttonRow, toast } from '../ui.js';
+import { SPIN_SOUNDS, spinSoundById, spinTick, spinEnd, previewSpinSound } from '../sfx.js';
 
 // Feines Raster: viele kleine Kacheln geben pro Tipp wenig preis.
 const MOSAIC_COLS = 28;
@@ -14,6 +15,16 @@ const MOSAIC_TILES = MOSAIC_COLS * MOSAIC_ROWS;
 const MOSAIC_STEPS = 12;
 const MOSAIC_PER_TAP = Math.ceil(MOSAIC_TILES / MOSAIC_STEPS);
 const BLUR_STEPS = 10;
+
+// Das Auslosen läuft wie ein Glücksrad aus: erst schnell, dann immer langsamer.
+const SPIN_STEPS = 18;
+const SPIN_FAST = 45;
+const SPIN_SLOW = 210;
+
+function spinDelay(step) {
+  const progress = step / (SPIN_STEPS - 1);
+  return SPIN_FAST + Math.pow(progress, 2.4) * (SPIN_SLOW - SPIN_FAST);
+}
 
 const REVEAL_MODES = [
   { id: 'instant', label: 'Sofort', hint: 'Der Name steht sofort da.' },
@@ -110,6 +121,7 @@ export default {
       animate: true,
       reveal: 'mosaik',
       revealParts: [],
+      spinSound: 'karten',
     };
   },
 
@@ -133,7 +145,7 @@ export default {
     let armed = false;
 
     function stopSpin() {
-      if (spinTimer) clearInterval(spinTimer);
+      if (spinTimer) clearTimeout(spinTimer);
       spinTimer = null;
       spinning = false;
       nameEl.classList.remove('is-spinning');
@@ -185,16 +197,21 @@ export default {
       nameEl.classList.remove('is-empty', 'is-pop');
       nameEl.classList.add('is-spinning');
       maskEl.classList.add('is-hidden');
-      let ticks = 0;
-      spinTimer = setInterval(() => {
-        ticks += 1;
+      const sound = spinSoundById(state.spinSound).id;
+
+      const stepOnce = (index) => {
         nameEl.textContent = pickRandom(pool);
         fitName();
-        if (ticks >= 14) {
+        spinTick(sound, index / (SPIN_STEPS - 1));
+        if (index >= SPIN_STEPS - 1) {
           stopSpin();
+          spinEnd(sound);
           finish(chosen);
+          return;
         }
-      }, 55);
+        spinTimer = setTimeout(() => stepOnce(index + 1), spinDelay(index));
+      };
+      stepOnce(0);
     }
 
     function step() {
@@ -453,10 +470,28 @@ export default {
         h('p', { class: 'muted small' }, state.mode === 'repeat'
           ? 'Jeder Name kann mehrfach gezogen werden.'
           : 'Ein gezogener Name kommt erst nach dem Zurücksetzen wieder in den Topf.'),
-        toggleRow('Trommelwirbel-Animation', state.animate !== false, (value) => {
+        toggleRow('Namen durchlaufen lassen', state.animate !== false, (value) => {
           ctx.widget.state.animate = value;
           ctx.save();
-        })));
+          rerender();
+        }, 'Aus: Der Name steht sofort da — dann gibt es auch keinen Klang.')));
+
+      const sound = spinSoundById(state.spinSound).id;
+      wrap.appendChild(section('Klang beim Ziehen',
+        h('div', { class: 'chips' }, SPIN_SOUNDS.map((entry) => h('button', {
+          class: 'chip' + (sound === entry.id ? ' is-active' : ''),
+          onclick: () => {
+            ctx.widget.state.spinSound = entry.id;
+            ctx.save();
+            // Direkt zum Anhören — so lässt sich vergleichen, ohne zu ziehen.
+            previewSpinSound(entry.id);
+            rerender();
+          },
+        }, entry.label))),
+        h('p', { class: 'muted small' }, `${spinSoundById(sound).hint} Zum Anhören auf die Auswahl tippen.`),
+        state.animate === false
+          ? h('p', { class: 'muted small' }, 'Zurzeit ohne Wirkung: „Namen durchlaufen lassen" ist ausgeschaltet.')
+          : null));
 
       const current = revealMode(state);
       wrap.appendChild(section('Aufdecken',

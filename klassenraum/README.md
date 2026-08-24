@@ -10,7 +10,7 @@ funktioniert auch am Telefon.
 
 | Element | Beschreibung |
 | --- | --- |
-| **Zufälliger Name** | Zieht Namen aus einer Liste — mit oder ohne Zurücklegen. Gezogene Namen lassen sich einzeln zurücklegen, löschen oder von Hand als gezogen markieren. Der gezogene Name kann **schrittweise aufgedeckt** werden, damit die Klasse mitraten kann. |
+| **Zufälliger Name** | Zieht Namen aus einer Liste — mit oder ohne Zurücklegen. Gezogene Namen lassen sich einzeln zurücklegen, löschen oder von Hand als gezogen markieren. Beim Ziehen laufen die Namen durch und werden dabei **langsamer** — mit passendem **Klang** (siehe unten). Der gezogene Name kann **schrittweise aufgedeckt** werden, damit die Klasse mitraten kann. |
 | **Timer / Stoppuhr** | Voreinstellungen von 1 bis 45 Minuten, ±1 Minute, Signalton am Ende. |
 | **Uhr** | Analog in vier Zifferblättern — **Modern** (Vorgabe: alle Zahlen und Minutenstriche, schlanke Zeiger, gleitender Sekundenzeiger), **Klassisch** (Wanduhr-Optik), **Lernuhr** (blaue Stunden-, orange Minutenzahlen mit farbgleichen Zeigern) und **Minimal** (nur 12/3/6/9) — oder digital, jeweils mit Datum. |
 | **Ampel** | Drei Lichter, antippen oder doppeltippen zum Weiterschalten, mit eigenen Beschriftungen. |
@@ -115,6 +115,25 @@ auswählbar. Dateien vom Gerät werden beim Teilen über einen
 Code nicht mitgeschickt — ein Link funktioniert überall. Im Menü unter **Speicher**
 steht, wie viel Platz die Dateien belegen; dort lassen sich nicht mehr genutzte Dateien
 entfernen.
+
+## Klang beim Auslosen
+
+Beim Ziehen laufen die Namen durch und werden dabei langsamer — wie ein
+auslaufendes Glücksrad. Dazu gibt es im Zahnrad des Elements unter **„Klang beim
+Ziehen"** vier Möglichkeiten:
+
+| Klang | Wirkung |
+| --- | --- |
+| **Kartenmischen** (Vorgabe) | helles, trockenes Rascheln — ein Stapel Karten, der durch die Finger läuft |
+| **Trommelwirbel** | tiefe, dichte Schläge, die zum Schluss lauter werden und mit einem Becken enden |
+| **Glücksrad** | trockenes Klacken einer Ratsche, das mit dem Rad langsamer wird |
+| **Ohne Ton** | beim Ziehen bleibt es still |
+
+Ein Tipp auf die Auswahl spielt den Klang gleich zur Probe ab. Alle Klänge
+werden **im Gerät erzeugt** (Web Audio, gefiltertes Rauschen) — es gibt keine
+Klangdateien, nichts wird nachgeladen, und alles funktioniert offline. Ist
+„Namen durchlaufen lassen" ausgeschaltet, steht der Name sofort da; dann gibt es
+auch keinen Klang.
 
 ## Namen aufdecken
 
@@ -259,6 +278,7 @@ klassenraum/
   fonts/                die Schriftdateien selbst (woff2, OFL)
   js/widgets/*.js       die einzelnen Elemente
   js/draw.js            Schreiben und Markieren auf der Tafel
+  js/sfx.js             Klänge fürs Auslosen (im Gerät erzeugt, ohne Dateien)
   js/media.js           Klang- und Videodateien im Gerätespeicher
   js/lists.js           Namenslisten
   js/share.js           Teilen-Oberfläche, Live-Folgen, Abgleich-Oberfläche

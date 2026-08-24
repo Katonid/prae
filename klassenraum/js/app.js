@@ -524,6 +524,8 @@ function openHelp() {
       h('p', null, h('strong', null, 'Namen aufdecken: '), 'Im Element „Zufälliger Name“ auf das Zahnrad tippen → Abschnitt „Aufdecken“: '
         + 'Mosaik, Unschärfe, Buchstaben oder Sofort. Die Karte hat keine Knöpfe — jeder Tipp legt ein Stück frei. '
         + 'Beim Bearbeiten zeigt das Augensymbol in der kleinen Leiste sofort alles.'),
+      h('p', null, h('strong', null, 'Klang beim Ziehen: '), 'Im Zahnrad des Elements „Zufälliger Name“ → „Klang beim Ziehen“: '
+        + 'Kartenmischen, Trommelwirbel, Glücksrad oder ohne Ton. Ein Tipp auf die Auswahl spielt den Klang zur Probe.'),
       h('p', null, h('strong', null, 'Zufälliger Name: '), 'Liste wählen, „Ohne Zurücklegen“ verhindert Wiederholungen. '
         + 'Gezogene Namen lassen sich antippen, um sie zurückzulegen; einzelne Namen können auch von Hand als gezogen markiert werden. '
         + 'Eine neue Runde startest du beim Bearbeiten über „Zurücksetzen“ oder im Zahnrad.'),
