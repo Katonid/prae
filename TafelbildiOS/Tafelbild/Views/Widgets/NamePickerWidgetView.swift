@@ -26,16 +26,6 @@ struct NamePickerWidgetView: View {
     @Environment(\.boardStyle) private var style
     @Environment(\.widgetMetrics) private var metrics
 
-    /// Maße des Mosaiks — wie in der Web-App: ein feines Raster gibt pro
-    /// Tipp wenig preis.
-    private enum Mosaic {
-        static let columns = 28
-        static let rows = 10
-        static var tiles: Int { columns * rows }
-        static let steps = 12
-        static var perTap: Int { Int(ceil(Double(tiles) / Double(steps))) }
-    }
-
     @State private var spinText: String?
     @State private var pulse = false
     @State private var confettiTrigger = 0
@@ -159,10 +149,10 @@ struct NamePickerWidgetView: View {
     private var mosaic: some View {
         let open = Set(content.revealParts)
         return VStack(spacing: 0) {
-            ForEach(0..<Mosaic.rows, id: \.self) { row in
+            ForEach(0..<MosaikMasse.zeilen, id: \.self) { row in
                 HStack(spacing: 0) {
-                    ForEach(0..<Mosaic.columns, id: \.self) { column in
-                        let index = row * Mosaic.columns + column
+                    ForEach(0..<MosaikMasse.spalten, id: \.self) { column in
+                        let index = row * MosaikMasse.spalten + column
                         Rectangle()
                             .fill(mosaicFill)
                             .opacity(open.contains(index) ? 0 : 1)
@@ -217,7 +207,7 @@ struct NamePickerWidgetView: View {
         if list == nil { return "Einstellungen öffnen und eine Liste wählen." }
         if entries.isEmpty { return "Einstellungen öffnen und Namen eintragen." }
         if hidden {
-            let perTap = revealMode == .mosaik ? Mosaic.perTap : 1
+            let perTap = revealMode == .mosaik ? MosaikMasse.proTipp : 1
             let total = max(1, Int(ceil(Double(revealTotal) / Double(perTap))))
             let done = min(total, Int(ceil(Double(content.revealParts.count) / Double(perTap))))
             return "Tippen deckt auf — Schritt \(done) von \(total)"
@@ -340,25 +330,18 @@ struct NamePickerWidgetView: View {
     private var revealMode: RevealMode { content.reveal }
 
     private var revealTotal: Int {
-        switch revealMode {
-        case .instant: return 0
-        case .mosaik:  return Mosaic.tiles
-        case .blur:    return RevealLayout.blurSteps
-        case .letters: return max(1, Self.maskableIndexes(currentEntry?.text ?? "").count)
-        }
+        content.aufdeckSchritte(name: currentEntry?.text ?? "")
     }
 
     /// Ist gerade ein Name im Spiel, der noch nicht ganz zu sehen ist?
     private var hidden: Bool {
-        guard spinText == nil, currentEntry != nil, revealMode != .instant else { return false }
-        return content.revealParts.count < revealTotal
+        guard spinText == nil, let entry = currentEntry else { return false }
+        return content.istVerdeckt(name: entry.text)
     }
 
     /// Zeichen, die verdeckt werden können (Buchstaben und Ziffern).
     private static func maskableIndexes(_ name: String) -> [Int] {
-        Array(name).enumerated().compactMap { position, character in
-            character.isLetter || character.isNumber ? position : nil
-        }
+        NamePickerContent.verdeckbareStellen(name)
     }
 
     // MARK: - Aktionen
@@ -389,7 +372,7 @@ struct NamePickerWidgetView: View {
         var done = Set(content.revealParts)
         let open = (0..<total).filter { !done.contains($0) }
         guard !open.isEmpty else { return }
-        let count = revealMode == .mosaik ? Mosaic.perTap : 1
+        let count = revealMode == .mosaik ? MosaikMasse.proTipp : 1
         for value in open.shuffled().prefix(count) { done.insert(value) }
         content.revealParts = Array(done).sorted()
         if content.revealParts.count >= total {
