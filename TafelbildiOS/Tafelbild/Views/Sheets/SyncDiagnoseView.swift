@@ -11,6 +11,16 @@ struct SyncDiagnoseView: View {
     @State private var working = false
     @State private var schemaHinweis: String?
 
+    /// Felder des Record-Typs „Entity“ — genau so heißen sie in der App.
+    private static let schemaFelder: [(String, String)] = [
+        ("kind", "String"),
+        ("entityId", "String"),
+        ("payload", "String"),
+        ("updatedAtMs", "Int(64)"),
+        ("author", "String"),
+        ("asset", "Asset")
+    ]
+
     private var environmentName: String {
         #if DEBUG
         return "Development (über Xcode installiert)"
@@ -55,6 +65,27 @@ struct SyncDiagnoseView: View {
                         }
                         .padding(.vertical, 2)
                     }
+                }
+            }
+
+            Section {
+                DisclosureGroup("Record-Typ „Entity“ von Hand anlegen") {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("Steht in der CloudKit-Konsole unter „Add Index“ nur „Users“ zur Auswahl, fehlt der Record-Typ. Er lässt sich im Browser anlegen — auch vom iPad aus:")
+                            .font(.footnote)
+                        Text("Schema → Record Types → + → Name: Entity. Danach diese Felder anlegen:")
+                            .font(.footnote)
+                        ForEach(Self.schemaFelder, id: \.0) { feld in
+                            HStack {
+                                Text(feld.0).font(.system(.footnote, design: .monospaced))
+                                Spacer()
+                                Text(feld.1).font(.footnote).foregroundStyle(.secondary)
+                            }
+                        }
+                        Text("Danach: Indexes → + → Entity / recordName / Queryable; dasselbe für updatedAtMs als Queryable und als Sortable. Dann Security Roles → Entity → Rolle _icloud: Read und Write. Zum Schluss „Deploy Schema Changes to Production“.")
+                            .font(.footnote)
+                    }
+                    .padding(.vertical, 4)
                 }
             }
 
