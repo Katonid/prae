@@ -62,10 +62,13 @@ sich in der Unterrichtsansicht genauso nutzen und wird beim Teilen mitgeschickt.
 
 Beide Elemente nehmen entweder eine **Datei vom Gerät** (bis 60 MB, liegt im
 Gerätespeicher) oder einen **Link**. Es gehen MP3, M4A, WAV, AAC und OGG
-beziehungsweise MP4, MOV, M4V und WebM. Blendet die Dateien-App auf dem iPad
-Dateien aus — das passiert etwa bei Netzlaufwerken —, öffnet der Knopf
-**„Alle Dateien"** die Auswahl ohne Filter. Titel aus der Musik-App sind
-systembedingt nicht auswählbar. Dateien vom Gerät werden beim Teilen über einen
+beziehungsweise MP4, MOV, M4V und WebM.
+
+Die Dateiauswahl arbeitet bewusst **ohne Filter**: iPadOS graut sonst Dateien aus,
+deren Art der Anbieter nicht mitliefert — bei MP3-Dateien in iCloud Drive und auf
+Netzlaufwerken passiert genau das. Passt die gewählte Datei nicht zur Art, weist die
+App darauf hin, nimmt sie aber an. Titel aus der Musik-App sind systembedingt nicht
+auswählbar. Dateien vom Gerät werden beim Teilen über einen
 Code nicht mitgeschickt — ein Link funktioniert überall. Im Menü unter **Speicher**
 steht, wie viel Platz die Dateien belegen; dort lassen sich nicht mehr genutzte Dateien
 entfernen.

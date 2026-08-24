@@ -2,7 +2,7 @@
 
 import { h, clear, uid, onTap } from '../util.js';
 import { icon } from '../icons.js';
-import { mediaUrl, pickMedia, removeMedia, formatSize, AUDIO_ACCEPT } from '../media.js';
+import { mediaUrl, pickMedia, removeMedia, formatSize, looksLike } from '../media.js';
 import { section, field, toggleRow, button, buttonRow, toast } from '../ui.js';
 
 const COLORS = ['#6366f1', '#0ea5e9', '#10b981', '#f59e0b', '#ef4444', '#a855f7'];
@@ -113,12 +113,15 @@ export default {
       ctx.refresh();
     }
 
-    async function chooseFile(entry, accept) {
-      const result = await pickMedia(accept);
+    async function chooseFile(entry) {
+      const result = await pickMedia();
       if (!result) return;
       if (result.error === 'ZU_GROSS') {
         toast('Die Datei ist zu groß (mehr als 60 MB).', 'warn');
         return;
+      }
+      if (!looksLike('audio', result.file)) {
+        toast('Das sieht nicht nach einer Klangdatei aus — falls sie stumm bleibt, bitte eine MP3 oder M4A wählen.', 'warn');
       }
       if (entry.mediaId) await removeMedia(entry.mediaId);
       entry.mediaId = result.id;
@@ -149,12 +152,7 @@ export default {
         buttonRow(
           button(entry.mediaId || entry.url ? 'Andere Datei' : 'Klangdatei wählen', {
             icon: 'upload', small: true, primary: !entry.mediaId && !entry.url,
-            onClick: () => chooseFile(entry, AUDIO_ACCEPT),
-          }),
-          button('Alle Dateien', {
-            icon: 'layers', small: true, ghost: true,
-            title: 'Ohne Filter — falls die Dateien-App MP3s ausgraut',
-            onClick: () => chooseFile(entry, ''),
+            onClick: () => chooseFile(entry),
           }),
           button('Link', {
             icon: 'share', small: true,
@@ -223,9 +221,9 @@ export default {
         }))));
 
       wrap.appendChild(h('p', { class: 'muted small' },
-        'Es gehen MP3, M4A, WAV, AAC und OGG. Blendet die Dateien-App auf dem iPad Dateien aus, hilft „Alle Dateien" — '
-        + 'dann erscheint die Auswahl ohne Filter. Titel aus der Musik-App sind systembedingt nicht auswählbar; '
-        + 'eine Datei aus „Dateien“ oder iCloud Drive funktioniert.'));
+        'Es gehen MP3, M4A, WAV, AAC und OGG. Die Auswahl zeigt bewusst alle Dateien an — iPadOS graut sonst '
+        + 'MP3-Dateien aus iCloud Drive oder vom Netzlaufwerk aus. Titel aus der Musik-App sind systembedingt '
+        + 'nicht auswählbar; eine Datei aus „Dateien“ funktioniert.'));
       wrap.appendChild(h('p', { class: 'muted small' },
         'Dateien vom Gerät bleiben auf diesem Gerät — beim Teilen über einen Code werden sie nicht mitgeschickt. '
         + 'Ein Link funktioniert dagegen überall.'));
