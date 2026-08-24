@@ -7,6 +7,9 @@ struct ChecklistWidgetView: View {
 
     @Environment(\.boardStyle) private var style
 
+    @State private var draft = ""
+    @FocusState private var writing: Bool
+
     private var doneCount: Int { content.items.filter(\.done).count }
 
     var body: some View {
@@ -60,9 +63,57 @@ struct ChecklistWidgetView: View {
                     }
                     .scrollDisabled(!interactive)
                 }
+
+                if content.quickAdd && interactive {
+                    quickAddRow(fontSize: rowSize)
+                }
             }
         }
         .padding(20)
+    }
+
+    /// Schnelleingabe direkt auf der Karte — ein Punkt ist damit in zwei
+    /// Sekunden erfasst, ohne die Einstellungen zu öffnen.
+    private func quickAddRow(fontSize: Double) -> some View {
+        HStack(spacing: 8) {
+            TextField("Punkt hinzufügen …", text: $draft)
+                .font(Theme.font(fontSize * 0.85, weight: .medium))
+                .foregroundStyle(style.ink)
+                .textFieldStyle(.plain)
+                .focused($writing)
+                .submitLabel(.done)
+                .onSubmit { add() }
+                .padding(.horizontal, 12)
+                .frame(height: fontSize * 2)
+                .background {
+                    RoundedRectangle(cornerRadius: 12, style: .continuous).fill(style.wash)
+                }
+
+            Button(action: add) {
+                Image(systemName: "plus")
+                    .font(.system(size: fontSize * 0.8, weight: .bold))
+                    .foregroundStyle(Color.white)
+                    .frame(width: fontSize * 2, height: fontSize * 2)
+                    .background {
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .fill(style.accentGradient)
+                    }
+            }
+            .buttonStyle(.plain)
+            .disabled(draft.trimmed.isEmpty)
+            .opacity(draft.trimmed.isEmpty ? 0.45 : 1)
+        }
+    }
+
+    private func add() {
+        guard let text = draft.nonEmpty else { return }
+        withAnimation(.easeOut(duration: 0.18)) {
+            content.items.append(ChecklistItem(text: text))
+        }
+        draft = ""
+        Haptics.tap()
+        // Der Fokus bleibt stehen, damit mehrere Punkte hintereinander gehen.
+        writing = true
     }
 
     private var progress: Double {
@@ -100,7 +151,7 @@ struct ChecklistWidgetView: View {
                 Text(item.text)
                     .font(Theme.font(fontSize, weight: .medium))
                     .foregroundStyle(item.done ? style.inkSoft : style.ink)
-                    .strikethrough(item.done, color: style.inkSoft)
+                    .strikethrough(item.done && content.strikeDone, color: style.inkSoft)
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
                 Spacer(minLength: 0)

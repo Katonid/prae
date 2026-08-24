@@ -34,6 +34,13 @@ aus) und auf dem **iPhone** in einer eigenen Stapelansicht.
   Versehen verrutschen.
 - **Präsentationsmodus:** blendet die Bedienleiste aus, versteckt die
   Statusleiste, hält den Bildschirm wach.
+- **Schreiben auf der Tafel:** Der Stiftknopf in der Leiste schaltet eine
+  Schreibebene über allen Elementen frei — Apple Pencil oder Finger, mit
+  der Werkzeugauswahl von iOS (Stift, Marker, Radierer, Farben,
+  Rückgängig). Auf Wunsch schreibt **nur der Stift**, dann bedient der
+  Finger weiter Timer, Ampel und Namen. Die Handschrift gehört zur Tafel:
+  Sie wird gespeichert und erscheint über iCloud auf allen Geräten;
+  „Handschrift wegwischen" im ⋯-Menü leert sie.
 
 ### Elemente
 | Element | Was es tut |
@@ -43,11 +50,12 @@ aus) und auf dem **iPhone** in einer eigenen Stapelansicht.
 | **Uhr** | Analog mit vier Zifferblättern (Modern, Klassisch, **Lernuhr** mit blauem Stunden- und orangem Minutenzeiger, Minimal), digital oder beides, wahlweise mit Datum |
 | **Ampel** | Rot/Gelb/Grün mit frei beschriftbaren Arbeitsphasen, senkrecht oder waagerecht |
 | **Lautstärke** | Misst den Geräuschpegel über das Mikrofon: Tacho, Balken oder große Lampe, mit einstellbarer Schwelle und „Zu laut"-Warnung |
-| **Tagesablauf** | Checkliste zum Abhaken, mit Fortschrittsbalken und optionalem täglichem Zurücksetzen |
-| **Text** | Überschriften und Arbeitsaufträge: Größe, Farbe, Ausrichtung, Hintergrund |
+| **Tagesablauf** | Checkliste zum Abhaken, mit Fortschrittsbalken, Eingabefeld direkt auf der Karte, Schnellerfassung (eine Zeile je Punkt) und optionalem täglichem Zurücksetzen |
+| **Text** | Überschriften und Arbeitsaufträge: Doppeltipp öffnet die Schreibfläche, die Schriftgröße passt sich von selbst an das Feld an; dazu Farbe, Ausrichtung, Hintergrund |
 | **Bild** | Foto aus der Mediathek oder Datei, füllend oder vollständig, mit Bildunterschrift |
-| **Klänge** | Tonfelder auf Knopfdruck: eigene Dateien oder direkt in der App aufgenommene Ansagen |
+| **Klänge** | Tonfelder auf Knopfdruck: eigene Dateien, direkt in der App aufgenommene Ansagen oder ein Link |
 | **Arbeitssymbol** | Zeigt die Arbeitsform groß an (Einzel-, Partner-, Gruppenarbeit, Stillarbeit, Flüsterstimme, Melden, Zuhören, Aufräumen) — ein Tipp schaltet weiter |
+| **Video** | Film vom Gerät oder über einen Link, wahlweise in Schleife, ohne Ton und ohne Bedienleiste |
 
 ### Zufälliger Name — im Detail
 Das meistgenutzte Element, deshalb vollständig ausgebaut:
@@ -79,6 +87,20 @@ Das meistgenutzte Element, deshalb vollständig ausgebaut:
 - **Gezogene Namen anzeigen:** „Immer", „Beim Bearbeiten" oder „Nie" —
   bei „Beim Bearbeiten" lässt sich im Unterricht nicht ablesen, wer noch
   fehlt.
+
+### Sichern, Speicher, Übertragen
+- **Sicherung erstellen** (Einstellungen) schreibt alle Tafeln und
+  Namenslisten in eine Datei und legt sie über das Teilen-Blatt ab —
+  gut für ein Backup oder den Wechsel auf ein anderes Gerät.
+  **Sicherung einlesen** fügt sie den vorhandenen Tafeln hinzu; es wird
+  nichts überschrieben.
+- **Speicher** zeigt, wie viel Platz Bilder, Töne und Videos auf diesem
+  Gerät belegen, und räumt auf Knopfdruck weg, was keine Tafel mehr
+  braucht.
+- Bilder und Töne gehen über iCloud an alle Geräte. **Videodateien
+  bleiben auf dem Gerät**, auf dem sie ausgewählt wurden — sie sind zu
+  groß für die Übertragung an jedes Gerät. Für alle Geräte und für
+  geteilte Tafeln stattdessen einen **Link** eintragen.
 
 ### Teilen mit Kolleginnen und Kollegen
 - Menü ⋯ → **„Tafel teilen"** zeigt einen sechsstelligen

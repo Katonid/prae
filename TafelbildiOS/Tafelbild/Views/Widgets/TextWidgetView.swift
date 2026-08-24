@@ -1,21 +1,51 @@
 import SwiftUI
 
 /// Textblock — Überschrift, Arbeitsauftrag, Hinweis.
+///
+/// Die Schriftgröße passt sich standardmäßig von selbst an das Feld an:
+/// größer ziehen macht die Schrift größer, ohne dass etwas einzustellen ist.
+/// Ein Doppeltipp öffnet die Schreibfläche.
 struct TextWidgetView: View {
-    let content: TextContent
+    @Binding var content: TextContent
+    var interactive: Bool
+
+    @State private var writing = false
 
     var body: some View {
-        Text(content.text.isEmpty ? "Text antippen und schreiben" : content.text)
-            .font(Theme.font(content.fontSize, weight: content.bold ? .bold : .regular))
-            .foregroundStyle(Color(hex: content.colorHex))
-            .multilineTextAlignment(alignment)
-            .minimumScaleFactor(0.3)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: frameAlignment)
-            .padding(24)
-            .background {
-                RoundedRectangle(cornerRadius: content.rounded ? Theme.widgetCorner : 0, style: .continuous)
-                    .fill(Color(hex: content.backgroundHex).opacity(content.backgroundOpacity))
-            }
+        GeometryReader { geo in
+            Text(content.text.isEmpty ? "Doppeltippen zum Schreiben" : content.text)
+                .font(Theme.font(fontSize(in: geo.size), weight: content.bold ? .bold : .regular))
+                .foregroundStyle(Color(hex: content.colorHex))
+                .multilineTextAlignment(alignment)
+                .minimumScaleFactor(0.3)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: frameAlignment)
+                .padding(22)
+        }
+        .background {
+            RoundedRectangle(cornerRadius: content.rounded ? Theme.widgetCorner : 0, style: .continuous)
+                .fill(Color(hex: content.backgroundHex).opacity(content.backgroundOpacity))
+        }
+        .contentShape(Rectangle())
+        .onTapGesture(count: 2) {
+            guard interactive else { return }
+            Haptics.tap()
+            writing = true
+        }
+        .sheet(isPresented: $writing) {
+            TextEditSheet(content: $content)
+        }
+    }
+
+    /// Wie in der Web-App: die längste Zeile und die Zeilenzahl bestimmen die
+    /// Größe. Ohne „automatisch" gilt der eingestellte Wert.
+    private func fontSize(in size: CGSize) -> Double {
+        guard content.autoSize else { return content.fontSize }
+        let text = content.text.isEmpty ? "Doppeltippen zum Schreiben" : content.text
+        let lines = text.components(separatedBy: "\n")
+        let longest = max(1, lines.map(\.count).max() ?? 1)
+        let byWidth = (Double(size.width) - 44) / (Double(longest) * 0.58)
+        let byHeight = (Double(size.height) - 44) / (Double(lines.count) * 1.28)
+        return max(14, min(160, min(byWidth, byHeight)))
     }
 
     private var alignment: TextAlignment {
@@ -32,5 +62,41 @@ struct TextWidgetView: View {
         case .center: return .center
         case .trailing: return .trailing
         }
+    }
+}
+
+/// Große Schreibfläche — auf dem iPad bequem mit der Tastatur zu füllen.
+struct TextEditSheet: View {
+    @Binding var content: TextContent
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var draft = ""
+    @FocusState private var focused: Bool
+
+    var body: some View {
+        NavigationStack {
+            TextEditor(text: $draft)
+                .font(.system(size: 24, weight: .semibold, design: .rounded))
+                .padding(12)
+                .focused($focused)
+                .navigationTitle("Text")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Abbrechen") { dismiss() }
+                    }
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Fertig") {
+                            content.text = draft
+                            dismiss()
+                        }
+                    }
+                }
+        }
+        .onAppear {
+            draft = content.text
+            focused = true
+        }
+        .presentationDetents([.medium, .large])
     }
 }

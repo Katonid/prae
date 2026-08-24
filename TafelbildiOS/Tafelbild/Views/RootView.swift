@@ -141,17 +141,32 @@ struct RootView: View {
                 sheet = .addWidget
             }
 
+            if !compact {
+                ChromeButton(systemImage: store.drawing ? "pencil.tip.crop.circle.fill" : "pencil.tip.crop.circle",
+                             active: store.drawing) {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        store.drawing.toggle()
+                        if store.drawing {
+                            store.editing = false
+                            store.selectedWidgetID = nil
+                        }
+                    }
+                }
+            }
+
             ChromeButton(systemImage: store.editing ? "checkmark" : "slider.horizontal.3",
                          title: (compact || store.editing) ? nil : "Anordnen",
                          active: store.editing) {
                 withAnimation(.easeInOut(duration: 0.2)) {
                     store.editing.toggle()
+                    if store.editing { store.drawing = false }
                     if !store.editing { store.selectedWidgetID = nil }
                 }
             }
 
             ChromeButton(systemImage: "rectangle.inset.filled.and.person.filled") {
                 store.editing = false
+                store.drawing = false
                 store.selectedWidgetID = nil
                 store.presenting = true
             }
@@ -172,6 +187,15 @@ struct RootView: View {
                 } label: {
                     Label("Tafel teilen", systemImage: "square.and.arrow.up")
                 }
+                Button {
+                    guard var board = store.activeBoard else { return }
+                    board.drawing = ""
+                    store.updateBoard(board)
+                    Haptics.tap()
+                } label: {
+                    Label("Handschrift wegwischen", systemImage: "eraser")
+                }
+                .disabled(store.activeBoard?.drawing.isEmpty ?? true)
                 Divider()
                 Button {
                     sheet = .settings

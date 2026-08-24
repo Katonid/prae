@@ -48,6 +48,12 @@ final class BoardStore: ObservableObject {
     @Published var editing: Bool = false
     @Published var selectedWidgetID: String?
     @Published var presenting: Bool = false
+    /// Schreiben und Markieren auf der Tafel ist eingeschaltet.
+    @Published var drawing: Bool = false
+    /// Nur der Apple Pencil schreibt — der Finger bleibt zum Bedienen frei.
+    @Published var pencilOnly: Bool {
+        didSet { UserDefaults.standard.set(pencilOnly, forKey: "tafelbild.pencilOnly") }
+    }
     /// Element, dessen Einstellungsblatt gerade offen ist.
     @Published var settingsWidgetID: String?
 
@@ -67,6 +73,7 @@ final class BoardStore: ObservableObject {
 
     private init() {
         syncEnabled = defaults.object(forKey: "syncEnabled") as? Bool ?? true
+        pencilOnly = defaults.bool(forKey: "tafelbild.pencilOnly")
         profileName = defaults.string(forKey: "profileName") ?? ""
         activeBoardID = defaults.string(forKey: "activeBoardID") ?? ""
 
@@ -622,10 +629,152 @@ final class BoardStore: ObservableObject {
         """
     }
 
+    // MARK: - Sicherungsdatei
+
+    /// Alle Tafeln und Namenslisten als eine Datei — für ein Backup oder
+    /// den Wechsel auf ein anderes Gerät.
+    struct BackupFile: Codable {
+        var app: String = "tafelbild"
+        var version: Int = 1
+        var createdAt: String = ""
+        var boards: [Board] = []
+        var lists: [NameList] = []
+    }
+
+    /// Schreibt die Sicherung in eine Datei und gibt deren Adresse zurück.
+    func writeBackup() -> URL? {
+        var file = BackupFile()
+        file.createdAt = ISO8601DateFormatter().string(from: Date())
+        file.boards = visibleBoards
+        file.lists = visibleNameLists
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        guard let data = try? encoder.encode(file) else {
+            showStatus("Die Sicherung konnte nicht erstellt werden.")
+            return nil
+        }
+        let name = "Tafelbild-Sicherung-" + Self.dayStamp() + ".json"
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent(name)
+        do {
+            try data.write(to: url, options: .atomic)
+        } catch {
+            showStatus("Die Sicherung konnte nicht geschrieben werden.")
+            return nil
+        }
+        return url
+    }
+
+    /// Liest eine Sicherung ein. Bestehende Tafeln bleiben stehen; alles
+    /// Eingelesene bekommt neue Kennungen, damit nichts überschrieben wird.
+    @discardableResult
+    func readBackup(from url: URL) -> (boards: Int, lists: Int)? {
+        let needsAccess = url.startAccessingSecurityScopedResource()
+        defer { if needsAccess { url.stopAccessingSecurityScopedResource() } }
+        guard let data = try? Data(contentsOf: url),
+              let file = try? JSONDecoder().decode(BackupFile.self, from: data) else {
+            showStatus("Die Datei konnte nicht gelesen werden.")
+            return nil
+        }
+
+        // Namenslisten zuerst: Die Tafeln zeigen auf ihre Kennungen.
+        var listMap: [String: String] = [:]
+        var neueListen = 0
+        for var list in file.lists where !list.deleted {
+            let alt = list.id
+            list.id = UUID().uuidString
+            list.owner = profileName
+            list.updatedAtMs = Date.nowMs
+            list.deleted = false
+            listMap[alt] = list.id
+            updateNameList(list)
+            neueListen += 1
+        }
+
+        var neueTafeln = 0
+        for var board in file.boards where !board.deleted {
+            board.id = UUID().uuidString
+            board.joinCode = Board.makeJoinCode()
+            board.owner = profileName
+            board.ownerUserID = myUserID ?? ""
+            board.memberUserIDs = []
+            board.members = profileName.nonEmpty.map { [$0] } ?? []
+            board.createdAtMs = Date.nowMs
+            board.updatedAtMs = Date.nowMs
+            board.embeddedLists = []
+            board.deleted = false
+            for index in board.widgets.indices {
+                board.widgets[index].id = UUID().uuidString
+                if case .namePicker(var content) = board.widgets[index].content {
+                    if let alt = content.listID, let neu = listMap[alt] { content.listID = neu }
+                    board.widgets[index].content = .namePicker(content)
+                }
+            }
+            boards.append(board)
+            ownBoardIDs.insert(board.id)
+            touch(board.id)
+            neueTafeln += 1
+        }
+
+        saveNow()
+        if activeBoard == nil { activeBoardID = visibleBoards.first?.id ?? "" }
+        showStatus("\(neueTafeln) Tafeln und \(neueListen) Listen eingelesen.")
+        return (neueTafeln, neueListen)
+    }
+
+    private static func dayStamp() -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter.string(from: Date())
+    }
+
     // MARK: - Medien
 
     func hasMedia(_ fileName: String) -> Bool {
         MediaStore.exists(fileName)
+    }
+
+    /// Legt eine große Datei (Video) lokal ab, ohne sie hochzuladen.
+    /// Videos bleiben auf dem Gerät; geteilt wird stattdessen ein Link.
+    @discardableResult
+    func saveLocalMedia(from source: URL, fileExtension: String) -> String? {
+        let name = UUID().uuidString + "." + fileExtension.lowercased()
+        let target = MediaStore.url(name)
+        let needsAccess = source.startAccessingSecurityScopedResource()
+        defer { if needsAccess { source.stopAccessingSecurityScopedResource() } }
+        do {
+            try FileManager.default.copyItem(at: source, to: target)
+        } catch {
+            showStatus("Die Datei konnte nicht übernommen werden.")
+            return nil
+        }
+        return name
+    }
+
+    /// Platzbedarf aller abgelegten Dateien in Byte.
+    var mediaBytes: Int64 {
+        let fm = FileManager.default
+        guard let entries = try? fm.contentsOfDirectory(atPath: MediaStore.directory.path) else { return 0 }
+        var total: Int64 = 0
+        for entry in entries {
+            let values = try? MediaStore.url(entry).resourceValues(forKeys: [.fileSizeKey])
+            total += Int64(values?.fileSize ?? 0)
+        }
+        return total
+    }
+
+    /// Entfernt Dateien, die keine Tafel mehr braucht. Gibt die Anzahl zurück.
+    @discardableResult
+    func removeUnusedMedia() -> Int {
+        var referenced = Set<String>()
+        for board in boards where !board.deleted { referenced.formUnion(board.referencedMedia) }
+        let fm = FileManager.default
+        guard let entries = try? fm.contentsOfDirectory(atPath: MediaStore.directory.path) else { return 0 }
+        var removed = 0
+        for entry in entries where !referenced.contains(entry) {
+            if (try? fm.removeItem(at: MediaStore.url(entry))) != nil { removed += 1 }
+            MediaCache.shared.forget(entry)
+        }
+        return removed
     }
 
     /// Legt eine Datei lokal ab und stellt sie zum Hochladen in die Warteschlange.
@@ -647,7 +796,7 @@ final class BoardStore: ObservableObject {
     func ensureMediaForVisibleBoards() async {
         guard syncEnabled else { return }
         var wanted = Set<String>()
-        for board in visibleBoards { wanted.formUnion(board.referencedMedia) }
+        for board in visibleBoards { wanted.formUnion(board.syncedMedia) }
         for name in wanted where !hasMedia(name) && !mediaFetches.contains(name) {
             mediaFetches.insert(name)
             let ok = await engine.fetchMedia(fileName: name, to: MediaStore.url(name))
@@ -689,7 +838,7 @@ final class BoardStore: ObservableObject {
             engine.enqueue(kind: .nameList, entityId: list.id)
         }
         var medien = Set<String>()
-        for board in boards where !board.deleted { medien.formUnion(board.referencedMedia) }
+        for board in boards where !board.deleted { medien.formUnion(board.syncedMedia) }
         for name in medien where hasMedia(name) {
             engine.enqueue(kind: .media, entityId: name)
         }

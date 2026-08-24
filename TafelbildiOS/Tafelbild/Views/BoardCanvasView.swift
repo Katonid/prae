@@ -47,6 +47,13 @@ struct BoardCanvasView: View {
                     .offset(x: widget.x, y: widget.y)
             }
 
+            // Handschrift liegt über den Elementen, fängt aber nur
+            // Berührungen, solange geschrieben wird.
+            DrawingLayerView(drawing: drawingBinding, active: store.drawing,
+                             pencilOnly: store.pencilOnly)
+                .frame(width: Layout.canvas.width, height: Layout.canvas.height)
+                .allowsHitTesting(store.drawing)
+
             if store.editing, let selected = selectedWidget {
                 SelectionChrome(boardID: board.id, widget: selected, scale: scale)
             }
@@ -59,6 +66,19 @@ struct BoardCanvasView: View {
     private var selectedWidget: BoardWidget? {
         guard let id = store.selectedWidgetID else { return nil }
         return board.widgets.first { $0.id == id }
+    }
+
+    /// Handschrift immer aus dem Speicher lesen — sonst überschriebe ein
+    /// Strich einen Stand, der eben aus iCloud gekommen ist.
+    private var drawingBinding: Binding<String> {
+        Binding(
+            get: { store.board(board.id)?.drawing ?? "" },
+            set: { value in
+                guard var updated = store.board(board.id), updated.drawing != value else { return }
+                updated.drawing = value
+                store.updateBoard(updated)
+            }
+        )
     }
 }
 
