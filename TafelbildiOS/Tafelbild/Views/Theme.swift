@@ -6,7 +6,7 @@ import UIKit
 // Entfernung gelesen, nicht aus dreißig Zentimetern.
 
 enum Theme {
-    static let accent = Color(hex: "#7c5cff")
+    static let accent = Color(hex: "#0f9b8e")
     static let mint = Color(hex: "#2dd4bf")
     static let amber = Color(hex: "#f59e0b")
     static let danger = Color(hex: "#ef4444")
@@ -27,7 +27,7 @@ enum Theme {
 // MARK: - Farb-Hilfen
 
 extension Color {
-    /// Erzeugt eine Farbe aus einem Hex-String wie "#7c5cff".
+    /// Erzeugt eine Farbe aus einem Hex-String wie "#0f9b8e".
     init(hex: String) {
         var value: UInt64 = 0
         let cleaned = hex.trimmingCharacters(in: .whitespacesAndNewlines)

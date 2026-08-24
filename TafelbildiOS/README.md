@@ -79,10 +79,15 @@ Das meistgenutzte Element, deshalb vollständig ausgebaut:
   Beim Beitritt trägt sich das Gerät mit seiner Kennung in die Tafel ein;
   ab dann laufen Änderungen in beide Richtungen.
 - **Wann wird abgeglichen:** beim Start, bei jeder Rückkehr in die App,
-  nach jeder Änderung (gebündelt nach ~1,5 Sekunden), alle 30 Sekunden
+  nach jeder Änderung (gebündelt nach ~1,5 Sekunden), alle 15 Sekunden
   solange die Tafel zu sehen ist, und zusätzlich über stille
-  iCloud-Mitteilungen. Eine Änderung der Kollegin steht also spätestens
-  eine halbe Minute später auf der eigenen Tafel.
+  iCloud-Mitteilungen. Eine Änderung der Kollegin — auch ein gezogener Name — steht damit
+  spätestens eine Viertelminute später auf der eigenen Tafel.
+- **Selbstständig vollständig:** Jede Tafel nimmt Kopien der Namenslisten
+  mit, die sie benutzt. Kommt sie auf einem anderen Gerät an, ist sie damit
+  sofort komplett — auch wenn der eigene Datensatz einer Liste noch
+  unterwegs ist. Beim Empfangen wandern die Listen in den gemeinsamen
+  Bestand und lassen sich dort ganz normal bearbeiten.
 - **Konflikte:** Es gewinnt die zuletzt gespeicherte Fassung (je Tafel).
 - **Offline:** Alles läuft weiter; Änderungen warten in einer Warteschlange
   und gehen hoch, sobald wieder Netz da ist.

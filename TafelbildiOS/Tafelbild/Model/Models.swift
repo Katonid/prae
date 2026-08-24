@@ -172,7 +172,7 @@ struct ClockContent: Codable, Equatable {
     var showDate: Bool = false
     var twentyFourHour: Bool = true
     var faceHex: String = "#ffffff"
-    var accentHex: String = "#7c5cff"
+    var accentHex: String = "#0f9b8e"
 
     enum ClockStyle: String, Codable, CaseIterable, Identifiable {
         case analog, digital, both
@@ -305,7 +305,7 @@ struct SoundButton: Codable, Equatable, Identifiable {
     var id: String = UUID().uuidString
     var label: String = ""
     var emoji: String = "🔔"
-    var colorHex: String = "#7c5cff"
+    var colorHex: String = "#0f9b8e"
     /// Dateiname unter Documents/Media/ (nil = leeres Feld).
     var fileName: String? = nil
     var volume: Double = 1.0
@@ -362,7 +362,7 @@ enum WidgetContent: Equatable {
         case .text:         return .text(TextContent())
         case .image:        return .image(ImageContent())
         case .sounds:       return .sounds(SoundsContent(buttons: [
-            SoundButton(label: "Gong", emoji: "🔔", colorHex: "#7c5cff"),
+            SoundButton(label: "Gong", emoji: "🔔", colorHex: "#0f9b8e"),
             SoundButton(label: "Applaus", emoji: "👏", colorHex: "#2dd4bf"),
             SoundButton(label: "Aufräumen", emoji: "🧹", colorHex: "#f59e0b")
         ]))
@@ -494,8 +494,9 @@ extension BoardBackground: Codable {
 enum BackgroundPreset {
     /// Farbverläufe für die Auswahl im Tafel-Einstellungsblatt.
     static let gradients: [(String, String)] = [
-        ("#1e1b4b", "#0b1020"),
+        ("#134e4a", "#07242a"),
         ("#0f2027", "#203a43"),
+        ("#1e1b4b", "#0b1020"),
         ("#232526", "#414345"),
         ("#3a1c71", "#1f1147"),
         ("#134e4a", "#0b2a27"),
@@ -508,7 +509,7 @@ enum BackgroundPreset {
 
     static let solids: [String] = [
         "#0f172a", "#1e293b", "#111827", "#052e16",
-        "#7c5cff", "#2dd4bf", "#f59e0b", "#ef4444",
+        "#0f9b8e", "#2dd4bf", "#f59e0b", "#ef4444",
         "#ffffff", "#e2e8f0"
     ]
 }
@@ -519,7 +520,7 @@ struct Board: Codable, Identifiable, Equatable {
     var id: String = UUID().uuidString
     var name: String = "Neue Tafel"
     var emoji: String = "🌟"
-    var background: BoardBackground = .gradient("#1e1b4b", "#0b1020")
+    var background: BoardBackground = .gradient("#134e4a", "#07242a")
     var widgets: [BoardWidget] = []
     /// Namen der Kolleginnen und Kollegen, die diese Tafel sehen
     /// (nur zur Anzeige — maßgeblich sind die iCloud-Kennungen unten).
@@ -536,6 +537,26 @@ struct Board: Codable, Identifiable, Equatable {
     var createdAtMs: Int64 = Date.nowMs
     var updatedAtMs: Int64 = Date.nowMs
     var deleted: Bool = false
+
+    /// Kopien der Namenslisten, die diese Tafel benutzt.
+    ///
+    /// Sie reisen mit der Tafel mit, damit eine ankommende Tafel auf jedem
+    /// Gerät sofort vollständig ist — auch wenn der eigene Datensatz der
+    /// Liste (noch) nicht angekommen ist. Lokal bleibt das Feld leer; gefüllt
+    /// wird es nur beim Hochladen, und beim Empfangen wandern die Listen in
+    /// den gemeinsamen Bestand.
+    var embeddedLists: [NameList] = []
+
+    /// IDs aller Namenslisten, auf die Elemente dieser Tafel verweisen.
+    var referencedListIDs: Set<String> {
+        var ids = Set<String>()
+        for widget in widgets {
+            if case .namePicker(let content) = widget.content, let listID = content.listID {
+                ids.insert(listID)
+            }
+        }
+        return ids
+    }
 
     static func makeJoinCode() -> String {
         // Ohne 0/O und 1/I — Codes werden auch mal vorgelesen.
@@ -642,6 +663,7 @@ extension Board {
     enum BoardKeys: String, CodingKey {
         case id, name, emoji, background, widgets, members, ownerUserID
         case memberUserIDs, joinCode, owner, createdAtMs, updatedAtMs, deleted
+        case embeddedLists
     }
 
     init(from decoder: Decoder) throws {
@@ -650,7 +672,7 @@ extension Board {
         id = c.wert(.id, UUID().uuidString)
         name = c.wert(.name, "Tafel")
         emoji = c.wert(.emoji, "🌟")
-        background = c.wert(.background, BoardBackground.gradient("#1e1b4b", "#0b1020"))
+        background = c.wert(.background, BoardBackground.gradient("#134e4a", "#07242a"))
         widgets = c.wert(.widgets, [BoardWidget]())
         members = c.wert(.members, [String]())
         ownerUserID = c.wert(.ownerUserID, "")
@@ -660,6 +682,7 @@ extension Board {
         createdAtMs = c.wert(.createdAtMs, Date.nowMs)
         updatedAtMs = c.wert(.updatedAtMs, Date.nowMs)
         deleted = c.wert(.deleted, false)
+        embeddedLists = c.wert(.embeddedLists, [NameList]())
     }
 }
 
@@ -752,7 +775,7 @@ extension ClockContent {
         showDate = c.wert(.showDate, false)
         twentyFourHour = c.wert(.twentyFourHour, true)
         faceHex = c.wert(.faceHex, "#ffffff")
-        accentHex = c.wert(.accentHex, "#7c5cff")
+        accentHex = c.wert(.accentHex, "#0f9b8e")
     }
 }
 
@@ -853,7 +876,7 @@ extension SoundButton {
         id = c.wert(.id, UUID().uuidString)
         label = c.wert(.label, "")
         emoji = c.wert(.emoji, "🔔")
-        colorHex = c.wert(.colorHex, "#7c5cff")
+        colorHex = c.wert(.colorHex, "#0f9b8e")
         fileName = c.optional(.fileName, String.self)
         volume = c.wert(.volume, 1)
         toggle = c.wert(.toggle, false)

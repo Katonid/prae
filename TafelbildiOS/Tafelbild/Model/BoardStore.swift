@@ -91,10 +91,29 @@ final class BoardStore: ObservableObject {
         engine.enabled = syncEnabled
         syncStatus = syncEnabled ? .idle : .off
         wireEngine()
+        uploadAfterUpdateIfNeeded()
         engine.ensureSubscription()
         engine.syncNow()
         pruneUnusedMedia()
         Task { await ensureMediaForVisibleBoards() }
+    }
+
+    /// Form der hochgeladenen Daten. Wird sie erhöht, lädt jedes Gerät seinen
+    /// Bestand beim nächsten Start einmal neu hoch — so kommen Neuerungen wie
+    /// die mitgereisten Namenslisten auch bei Tafeln an, die sich seit dem
+    /// Update nicht geändert haben. Ohne das müsste man von Hand nachhelfen.
+    private static let uploadFormat = 2
+
+    private func uploadAfterUpdateIfNeeded() {
+        guard syncEnabled else { return }
+        guard defaults.integer(forKey: "sync.uploadFormat") < Self.uploadFormat else { return }
+        defaults.set(Self.uploadFormat, forKey: "sync.uploadFormat")
+        for board in boards where !board.deleted && isMember(of: board) {
+            engine.enqueue(kind: .board, entityId: board.id)
+        }
+        for list in nameLists where !list.deleted {
+            engine.enqueue(kind: .nameList, entityId: list.id)
+        }
     }
 
     /// Legt die Beispieltafel samt Namensliste an (erster Start).
@@ -181,15 +200,15 @@ final class BoardStore: ObservableObject {
         startAutoRefresh()
     }
 
-    /// Solange die Tafel zu sehen ist, regelmäßig nach Änderungen der
-    /// Kolleginnen schauen — eine Tafel hängt oft eine ganze Stunde am
-    /// Beamer, ohne dass jemand die App wechselt.
+    /// Solange die Tafel zu sehen ist, alle 15 Sekunden nach Änderungen
+    /// schauen — eine Tafel hängt oft eine ganze Stunde am Beamer, ohne dass
+    /// jemand die App wechselt.
     func startAutoRefresh() {
         stopAutoRefresh()
         guard syncEnabled else { return }
         refreshTask = Task { [weak self] in
             while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(30))
+                try? await Task.sleep(for: .seconds(15))
                 guard !Task.isCancelled, let self, self.syncEnabled else { return }
                 self.engine.syncNow()
             }
@@ -532,6 +551,11 @@ final class BoardStore: ObservableObject {
         }
         scheduleSave()
         engine.enqueue(kind: .nameList, entityId: updated.id)
+        // Tafeln, die diese Liste benutzen, tragen eine Kopie — also mit
+        // hochladen, damit die Änderung auch über sie ankommt.
+        for board in boards where !board.deleted && board.referencedListIDs.contains(updated.id) {
+            engine.enqueue(kind: .board, entityId: board.id)
+        }
     }
 
     func deleteNameList(_ list: NameList) {
@@ -738,8 +762,13 @@ final class BoardStore: ObservableObject {
         let encoder = JSONEncoder()
         switch kind {
         case .board:
-            guard let board = boards.first(where: { $0.id == entityId }),
-                  let data = try? encoder.encode(board),
+            guard var board = boards.first(where: { $0.id == entityId }) else { return nil }
+            // Die Tafel nimmt Kopien ihrer Namenslisten mit — so ist sie beim
+            // Empfänger sofort vollständig, ganz gleich, was sonst ankommt.
+            board.embeddedLists = board.referencedListIDs.compactMap { listID in
+                nameLists.first { $0.id == listID && !$0.deleted }
+            }
+            guard let data = try? encoder.encode(board),
                   let json = String(data: data, encoding: .utf8) else { return nil }
             return (json, board.updatedAtMs, profileName, nil)
         case .nameList:
@@ -763,13 +792,29 @@ final class BoardStore: ObservableObject {
             switch change.kind {
             case .board:
                 guard let incoming = try? decoder.decode(Board.self, from: data) else { continue }
-                if let index = boards.firstIndex(where: { $0.id == incoming.id }) {
-                    if incoming.updatedAtMs > boards[index].updatedAtMs {
-                        boards[index] = incoming
+                // Mitgereiste Namenslisten in den gemeinsamen Bestand übernehmen.
+                for list in incoming.embeddedLists where !list.deleted {
+                    if let index = nameLists.firstIndex(where: { $0.id == list.id }) {
+                        if list.updatedAtMs > nameLists[index].updatedAtMs {
+                            nameLists[index] = list
+                            changed = true
+                        }
+                    } else {
+                        nameLists.append(list)
+                        changed = true
+                    }
+                }
+                // Lokal ohne die Kopien speichern — die Listen stehen jetzt
+                // im gemeinsamen Bestand.
+                var board = incoming
+                board.embeddedLists = []
+                if let index = boards.firstIndex(where: { $0.id == board.id }) {
+                    if board.updatedAtMs > boards[index].updatedAtMs {
+                        boards[index] = board
                         changed = true
                     }
                 } else {
-                    boards.append(incoming)
+                    boards.append(board)
                     changed = true
                 }
             case .nameList:
