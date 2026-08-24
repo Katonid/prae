@@ -91,6 +91,13 @@ Firebase-Projekt: *Firebase-Konsole → Authentication → Anmeldemethode →
 E-Mail/Passwort aktivieren*. Solange das nicht geschehen ist, zeigt die App
 einen Hinweis; Teilen per Code funktioniert unabhängig davon.
 
+## Aktualisierungen
+
+Die App prüft bei jedem Öffnen, ob auf dem Server eine neue Fassung liegt, lädt sie
+und startet sich einmal automatisch neu („Neue Fassung geladen"). Im Menü unter
+**Über** steht die laufende Fassung, daneben der Knopf **„Nach Aktualisierung
+suchen"** — falls ein Gerät doch einmal auf einem alten Stand hängen bleibt.
+
 ## Datenschutz
 
 * Alle Klassenräume, Listen und Bilder liegen **auf dem Gerät** (IndexedDB) und
