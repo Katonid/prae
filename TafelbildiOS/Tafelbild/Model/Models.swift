@@ -124,22 +124,10 @@ enum WidgetKind: String, Codable, CaseIterable, Identifiable {
         }
     }
 
-    /// Startgröße in Tafelpunkten.
-    var defaultSize: CGSize {
-        switch self {
-        case .namePicker:   return CGSize(width: 560, height: 420)
-        case .timer:        return CGSize(width: 460, height: 400)
-        case .clock:        return CGSize(width: 380, height: 380)
-        case .trafficLight: return CGSize(width: 240, height: 520)
-        case .noise:        return CGSize(width: 420, height: 380)
-        case .checklist:    return CGSize(width: 520, height: 560)
-        case .text:         return CGSize(width: 640, height: 200)
-        case .image:        return CGSize(width: 520, height: 380)
-        case .sounds:       return CGSize(width: 640, height: 300)
-        case .symbols:      return CGSize(width: 340, height: 360)
-        case .video:        return CGSize(width: 720, height: 460)
-        }
-    }
+    /// Startgröße in Tafelpunkten — dieselbe wie die vorgesehene Größe der
+    /// Web-App (`webSize` in WebMasse.swift). Damit zeichnet ein frisch
+    /// angelegtes Element im Maßstab 1, also genau wie dort.
+    var defaultSize: CGSize { webSize }
 }
 
 // MARK: - Inhalte der einzelnen Elemente
@@ -150,8 +138,8 @@ struct TextContent: Codable, Equatable {
     var fontSize: Double = 64
     /// Schriftgröße automatisch an das Feld anpassen.
     var autoSize: Bool = true
-    var colorHex: String = "#ffffff"
-    var backgroundHex: String = "#000000"
+    var colorHex: String = "#0f172a"
+    var backgroundHex: String = "#ffffff"
     var backgroundOpacity: Double = 0.0
     var bold: Bool = true
     var alignment: TextAlign = .center
@@ -267,7 +255,8 @@ struct TrafficLightContent: Codable, Equatable {
 
 struct NoiseContent: Codable, Equatable {
     /// Schwelle 0…1, ab der die Anzeige „zu laut" meldet.
-    var threshold: Double = 0.6
+    /// 0,55 wie in der Web-App (dort 55 von 100).
+    var threshold: Double = 0.55
     /// Empfindlichkeit (Verstärkung) 0,5 … 2,0.
     var gain: Double = 1.0
     var style: NoiseStyle = .gauge
@@ -381,6 +370,7 @@ enum RevealMode: String, Codable, CaseIterable, Identifiable {
 }
 
 /// Maße des Mosaiks — bewusst fein, damit ein Tipp wenig verrät.
+/// (Die geltenden Werte stehen in `MosaikMasse`; `blurSteps` gilt weiter.)
 enum RevealLayout {
     static let mosaicColumns = 14
     static let mosaicRows = 5
@@ -847,22 +837,25 @@ enum StarterContent {
         var board = Board(name: "Meine Klasse", emoji: "🍎", owner: owner)
         board.members = owner.nonEmpty.map { [$0] } ?? []
 
-        var text = BoardWidget(x: 80, y: 60, width: 720, height: 180, z: 0,
+        // Die Größen liegen nahe an den vorgesehenen — dadurch zeichnen die
+        // Elemente ungefähr im Maßstab 1, also so wie in der Web-App.
+        var text = BoardWidget(x: 80, y: 40, width: 620, height: 220, z: 0,
                                content: .text(TextContent(text: "Guten Morgen!", fontSize: 84)))
         text.clampToCanvas()
 
-        let clock = BoardWidget(x: 1180, y: 60, width: 360, height: 360, z: 1,
+        let clock = BoardWidget(x: 1140, y: 40, width: 400, height: 400, z: 1,
                                 content: .clock(ClockContent()))
-        let picker = BoardWidget(x: 80, y: 280, width: 600, height: 440, z: 2,
-                                 content: .namePicker(NamePickerContent()))
-        let timer = BoardWidget(x: 720, y: 280, width: 420, height: 380, z: 3,
+        let timer = BoardWidget(x: 740, y: 40, width: 340, height: 340, z: 2,
                                 content: .timer(TimerContent()))
-        let light = BoardWidget(x: 1180, y: 450, width: 220, height: 470, z: 4,
-                                content: .trafficLight(TrafficLightContent()))
-        let noise = BoardWidget(x: 720, y: 690, width: 420, height: 250, z: 5,
+        let picker = BoardWidget(x: 80, y: 290, width: 620, height: 450, z: 3,
+                                 content: .namePicker(NamePickerContent()))
+        let noise = BoardWidget(x: 740, y: 420, width: 460, height: 300, z: 4,
                                 content: .noise(NoiseContent()))
-        let checklist = BoardWidget(x: 80, y: 750, width: 600, height: 200, z: 6,
-                                    content: .checklist(ChecklistContent()))
+        let light = BoardWidget(x: 1240, y: 480, width: 220, height: 340, z: 5,
+                                content: .trafficLight(TrafficLightContent()))
+        // Mit Beispielpunkten — eine leere Liste sagt beim ersten Start nichts.
+        let checklist = BoardWidget(x: 740, y: 750, width: 700, height: 210, z: 6,
+                                    content: WidgetContent.makeDefault(for: .checklist))
 
         board.widgets = [text, clock, picker, timer, light, noise, checklist]
         return board
@@ -975,8 +968,8 @@ extension TextContent {
         text = c.wert(.text, "Text")
         fontSize = c.wert(.fontSize, 64)
         autoSize = c.wert(.autoSize, true)
-        colorHex = c.wert(.colorHex, "#ffffff")
-        backgroundHex = c.wert(.backgroundHex, "#000000")
+        colorHex = c.wert(.colorHex, "#0f172a")
+        backgroundHex = c.wert(.backgroundHex, "#ffffff")
         backgroundOpacity = c.wert(.backgroundOpacity, 0)
         bold = c.wert(.bold, true)
         alignment = c.wert(.alignment, TextContent.TextAlign.center)
@@ -1051,7 +1044,7 @@ extension NoiseContent {
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: NoiseKeys.self)
         self.init()
-        threshold = c.wert(.threshold, 0.6)
+        threshold = c.wert(.threshold, 0.55)
         gain = c.wert(.gain, 1)
         style = c.wert(.style, NoiseContent.NoiseStyle.gauge)
         alert = c.wert(.alert, true)
