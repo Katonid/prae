@@ -330,12 +330,10 @@ export default {
           }));
         }
         drawnBox.appendChild(chips);
-      } else if (!ctx.isEditing() && drawn.length > 0) {
-        // In der Unterrichtsansicht bleibt nur ein unauffälliger Neustart übrig.
-        drawnBox.appendChild(h('div', { class: 'w-random__drawn-head w-random__drawn-head--quiet' },
-          onTap(h('button', { class: 'link-button', 'data-nodrag': '' }, 'Neue Runde starten'), reset)));
       }
-      drawnBox.classList.toggle('is-hidden', !show && !(!ctx.isEditing() && drawn.length > 0));
+      // In der Unterrichtsansicht steht nichts unter dem Namen; zurückgesetzt wird
+      // beim Bearbeiten oder in den Einstellungen.
+      drawnBox.classList.toggle('is-hidden', !show);
     }
 
     function reset() {

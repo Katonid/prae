@@ -4,7 +4,7 @@
 // wird es sofort freigegeben (die Aufnahmeanzeige des Geräts erlischt) und beim
 // Zurückkommen von selbst wieder angeschaltet.
 
-import { h, clear, clamp, beep, onTap } from '../util.js';
+import { h, clear, clamp, beep } from '../util.js';
 import { section, toggleRow, field, button, toast } from '../ui.js';
 
 const SEGMENTS = 24;
@@ -29,11 +29,11 @@ export default {
     const valueEl = h('span', { class: 'w-noise__value' }, '–');
     const meter = h('div', { class: 'w-noise__meter' });
     const statusEl = h('div', { class: 'w-noise__status' });
-    const actionButton = h('button', { class: 'w-noise__button', 'data-nodrag': '' });
     const helpEl = h('p', { class: 'w-noise__help is-hidden' });
 
     head.append(titleEl, valueEl);
-    el.append(head, meter, statusEl, h('div', { class: 'w-noise__actions', 'data-nodrag': '' }, actionButton), helpEl);
+    // Bewusst ohne Knopf: Ein Tipp auf die Karte startet und beendet die Messung.
+    el.append(head, meter, statusEl, helpEl);
 
     const segments = [];
     for (let i = 0; i < SEGMENTS; i += 1) {
@@ -77,25 +77,11 @@ export default {
       el.classList.toggle('is-live', mode === 'running');
       helpEl.classList.toggle('is-hidden', mode !== 'denied' && mode !== 'unsupported');
 
-      if (mode === 'running') {
-        actionButton.textContent = 'Messung stoppen';
-        actionButton.className = 'w-noise__button w-noise__button--stop';
-      } else if (mode === 'paused') {
-        actionButton.textContent = 'Weiter messen';
-        actionButton.className = 'w-noise__button';
-      } else if (mode === 'starting') {
-        actionButton.textContent = 'Mikrofon wird gestartet …';
-        actionButton.className = 'w-noise__button is-busy';
-      } else {
-        actionButton.textContent = mode === 'denied' ? 'Erneut versuchen' : 'Mikrofon aktivieren';
-        actionButton.className = 'w-noise__button';
-      }
-
-      if (mode === 'off') statusEl.textContent = 'Zum Messen Mikrofon aktivieren.';
-      if (mode === 'paused') statusEl.textContent = pauseHint || 'Messung pausiert.';
+      if (mode === 'off') statusEl.textContent = 'Zum Messen antippen.';
+      if (mode === 'paused') statusEl.textContent = pauseHint || 'Messung pausiert — antippen.';
       if (mode === 'starting') statusEl.textContent = 'Bitte die Nachfrage des Geräts bestätigen.';
       if (mode === 'denied') {
-        statusEl.textContent = 'Kein Zugriff auf das Mikrofon.';
+        statusEl.textContent = 'Kein Zugriff auf das Mikrofon — zum erneuten Versuch antippen.';
         helpEl.textContent = 'Auf dem iPad: „aA“ in der Adresszeile → Website-Einstellungen → Mikrofon erlauben. '
           + 'Danach diese Seite neu laden. In den Systemeinstellungen muss Safari das Mikrofon ebenfalls erlaubt sein.';
       }
@@ -166,7 +152,7 @@ export default {
           // Beim automatischen Fortsetzen nicht mit einer Warnung stören —
           // manche Geräte verlangen dafür wieder einen Tipp.
           mode = 'paused';
-          pauseHint = 'Zum Weitermessen antippen.';
+          pauseHint = 'Pausiert — zum Weitermessen antippen.';
           autoResume = false;
           render();
           return;
@@ -283,15 +269,15 @@ export default {
     window.addEventListener('blur', onBlur);
     window.addEventListener('focus', onFocus);
 
-    onTap(actionButton, () => start());
     render();
 
     return {
       el,
       refresh: render,
       onTap: () => {
-        // Ein Tipp auf die Karte startet die Messung; Stoppen bewusst nur über den Knopf.
-        if (mode !== 'running') start();
+        // Ein Tipp auf die Karte startet die Messung, der nächste beendet sie.
+        if (mode === 'running') stop();
+        else start();
       },
       destroy() {
         document.removeEventListener('visibilitychange', onVisibility);

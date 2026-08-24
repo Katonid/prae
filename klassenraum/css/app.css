@@ -1127,7 +1127,6 @@ body[data-cards="dark"] .w-random__tile {
 .w-random__hint { font-size: 0.84em; color: var(--card-ink-soft); text-align: center; opacity: 0.8; }
 .w-random__drawn { border-top: 1px solid var(--card-line); padding-top: 9px; max-height: 36%; overflow-y: auto; }
 .w-random__drawn-head { display: flex; justify-content: space-between; align-items: center; font-size: 0.77em; font-weight: 750; color: var(--card-ink-soft); margin-bottom: 7px; text-transform: uppercase; letter-spacing: 0.08em; }
-.w-random__drawn-head--quiet { justify-content: center; margin: 0; opacity: 0.75; }
 
 /* ---------- Element: Timer ---------- */
 
@@ -1330,24 +1329,6 @@ body[data-cards="dark"] .w-random__tile {
   opacity: 0.55;
 }
 .w-noise__status { font-size: 0.94em; font-weight: 650; color: var(--card-ink-soft); }
-.w-noise__actions { display: flex; }
-.w-noise__button {
-  flex: 1;
-  border: 0;
-  border-radius: 0.95em;
-  padding: 0.85em 1.2em;
-  background: var(--accent-grad);
-  color: #fff;
-  font-size: 1em;
-  font-weight: 700;
-  cursor: pointer;
-  box-shadow: var(--accent-glow);
-  transition: transform 0.16s var(--spring), filter 0.2s ease;
-}
-.w-noise__button:hover { filter: brightness(1.06); }
-.w-noise__button:active { transform: scale(0.97); }
-.w-noise__button--stop { background: var(--surface-soft); color: var(--card-ink); box-shadow: none; }
-.w-noise__button.is-busy { opacity: 0.7; }
 .w-noise__help { margin: 0; font-size: 12.5px; line-height: 1.5; color: var(--card-ink-soft); }
 .w-noise.is-live .w-noise__value { background: var(--accent-grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
 .w-noise.is-alarm { animation: flash 0.7s ease-in-out infinite; }
