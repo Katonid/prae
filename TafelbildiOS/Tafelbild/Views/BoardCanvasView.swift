@@ -150,6 +150,11 @@ private struct SelectionChrome: View {
     private var toolbar: some View {
         HStack(spacing: 2) {
             button("gearshape.fill", label: "Einstellungen") { store.settingsWidgetID = widget.id }
+            // Nur beim Zufallsnamen und nur, solange etwas verdeckt ist —
+            // wie das Augensymbol in der Web-App (Fassung 1.5.3).
+            if verdeckterName != nil {
+                button("eye", label: "Ganz aufdecken", tint: Theme.mint) { alleAufdecken() }
+            }
             button("minus.magnifyingglass", label: "Kleiner") { resize(by: 0.88) }
             button("plus.magnifyingglass", label: "Größer") { resize(by: 1.14) }
             button(widget.bare ? "square.dashed" : "square.on.square",
@@ -199,6 +204,24 @@ private struct SelectionChrome: View {
         .frame(height: 46)
         .chromeBar(corner: 23)
         .fixedSize()
+    }
+
+    /// Der Name, der gerade noch verdeckt ist — sonst nil.
+    private var verdeckterName: String? {
+        guard case .namePicker(let inhalt) = widget.content,
+              let eintragID = inhalt.currentID,
+              let liste = store.nameList(inhalt.listID),
+              let eintrag = liste.entries.first(where: { $0.id == eintragID }),
+              inhalt.istVerdeckt(name: eintrag.text)
+        else { return nil }
+        return eintrag.text
+    }
+
+    private func alleAufdecken() {
+        guard case .namePicker(var inhalt) = widget.content, let name = verdeckterName else { return }
+        inhalt.alleAufdecken(name: name)
+        store.setContent(.namePicker(inhalt), widgetID: widget.id, boardID: boardID)
+        Haptics.success()
     }
 
     /// Stufenloses Vergrößern/Verkleinern um die Mitte des Elements.
