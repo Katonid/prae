@@ -214,6 +214,8 @@ struct NamePickerWidgetView: View {
         if let currentID = content.currentID, let entry = entries.first(where: { $0.id == currentID }) {
             return entry.text
         }
+        // Die Tafel nennt eine Liste, die hier noch fehlt — sie wird geholt.
+        if list == nil, content.listID != nil { return "Liste wird geladen ..." }
         if list == nil { return "Keine Liste" }
         if entries.isEmpty { return "Liste ist leer" }
         return "Bereit"

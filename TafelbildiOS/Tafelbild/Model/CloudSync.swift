@@ -96,10 +96,16 @@ final class CloudSyncEngine {
 
     /// Abfrageart: `true` = Delta über `updatedAtMs` (braucht den Index),
     /// `false` = alles holen (kommt mit dem Standardindex aus).
-    private var deltaQueryWorks: Bool {
-        get { defaults.object(forKey: "sync.deltaQueryWorks") as? Bool ?? true }
-        set { defaults.set(newValue, forKey: "sync.deltaQueryWorks") }
-    }
+    /// Bewusst nur für die laufende Sitzung gemerkt: Wird der Index später in
+    /// der CloudKit-Konsole angelegt, versucht es die App beim nächsten Start
+    /// von selbst wieder mit der sparsamen Delta-Abfrage.
+    private var deltaQueryWorks = true
+
+    /// Beim ersten Abgleich nach dem Start wird alles geholt, nicht nur die
+    /// Änderungen seit dem letzten Mal. Grund: Ein Datensatz kann später
+    /// hochgeladen werden, als sein Zeitstempel sagt (z. B. wenn er lange in
+    /// der Warteschlange lag). Er läge dann hinter dem Merker und käme nie an.
+    private var needsFullPull = true
 
     private(set) var status: SyncStatus = .idle {
         didSet {
@@ -314,7 +320,20 @@ final class CloudSyncEngine {
     // MARK: - Pull
 
     private func pullChanges(completion: @escaping () -> Void) {
-        pullChanges(useDelta: deltaQueryWorks, completion: completion)
+        // Beim ersten Mal nach dem Start alles holen (siehe needsFullPull).
+        let since = needsFullPull ? 0 : max(0, lastSyncMs - 5_000)
+        pullChanges(useDelta: deltaQueryWorks, since: since) { [weak self] in
+            self?.needsFullPull = false
+            completion()
+        }
+    }
+
+    /// Holt beim nächsten Abgleich wieder den kompletten Bestand.
+    func requestFullPull() {
+        queue.async {
+            self.needsFullPull = true
+            self.lastSyncMs = 0
+        }
     }
 
     /// Holt Änderungen aus der Cloud.
@@ -324,8 +343,7 @@ final class CloudSyncEngine {
     /// Abfrage automatisch auf „alles holen" zurück, was mit dem Standardindex
     /// auskommt. Bei der Datenmenge dieser App (ein paar Tafeln) ist das
     /// unproblematisch, und die App läuft ohne Handarbeit in der Konsole.
-    private func pullChanges(useDelta: Bool, completion: @escaping () -> Void) {
-        let since = max(0, lastSyncMs - 5_000)
+    private func pullChanges(useDelta: Bool, since: Int64, completion: @escaping () -> Void) {
         let query: CKQuery
         if useDelta {
             // Bewusst ohne Sortierung: Die Reihenfolge spielt keine Rolle (jede
@@ -384,7 +402,7 @@ final class CloudSyncEngine {
                         // Fehlender Index: einmal ohne Delta erneut versuchen.
                         if useDelta, Self.isIndexProblem(error) {
                             self.deltaQueryWorks = false
-                            self.pullChanges(useDelta: false, completion: completion)
+                            self.pullChanges(useDelta: false, since: since, completion: completion)
                             return
                         }
                         self.status = .error(Self.describe(error))
@@ -496,6 +514,77 @@ final class CloudSyncEngine {
         }
 
         run(CKQueryOperation(query: makeQuery(useDelta: deltaQueryWorks)), useDelta: deltaQueryWorks)
+    }
+
+    /// Holt einzelne Datensätze **gezielt über ihre Kennung** — ohne Abfrage
+    /// und damit ohne jeden Index. Damit lässt sich eine Namensliste
+    /// nachladen, auf die eine Tafel verweist, die aber (noch) fehlt.
+    func fetchEntities(kind: EntityKind, ids: [String]) async -> [RemoteEntity] {
+        guard enabled, !ids.isEmpty else { return [] }
+        let recordIDs = ids.map { recordID(kind: kind, entityId: $0) }
+
+        return await withCheckedContinuation { continuation in
+            let box = ResumeOnce()
+            var gefunden: [RemoteEntity] = []
+            let operation = CKFetchRecordsOperation(recordIDs: recordIDs)
+            operation.desiredKeys = ["kind", "entityId", "payload", "updatedAtMs", "author"]
+            operation.qualityOfService = .userInitiated
+            operation.perRecordResultBlock = { _, result in
+                guard case .success(let record) = result,
+                      let kindRaw = record["kind"] as? String,
+                      let recordKind = EntityKind(rawValue: kindRaw),
+                      let entityId = record["entityId"] as? String,
+                      let payload = record["payload"] as? String else { return }
+                gefunden.append(RemoteEntity(
+                    kind: recordKind,
+                    entityId: entityId,
+                    payloadJSON: payload,
+                    updatedAtMs: (record["updatedAtMs"] as? NSNumber)?.int64Value ?? 0
+                ))
+            }
+            operation.fetchRecordsResultBlock = { _ in
+                box.finish { continuation.resume(returning: gefunden) }
+            }
+            database.add(operation)
+        }
+    }
+
+    /// Zählt, was tatsächlich in der iCloud-Datenbank liegt — für die Diagnose.
+    func countCloudEntities() async -> [EntityKind: Int] {
+        guard enabled else { return [:] }
+        var zaehler: [EntityKind: Int] = [:]
+
+        return await withCheckedContinuation { continuation in
+            let box = ResumeOnce()
+
+            func run(_ operation: CKQueryOperation) {
+                operation.desiredKeys = ["kind"]
+                operation.qualityOfService = .userInitiated
+                operation.recordMatchedBlock = { _, result in
+                    guard case .success(let record) = result,
+                          let raw = record["kind"] as? String,
+                          let kind = EntityKind(rawValue: raw) else { return }
+                    zaehler[kind, default: 0] += 1
+                }
+                operation.queryResultBlock = { result in
+                    switch result {
+                    case .success(let cursor):
+                        if let cursor {
+                            run(CKQueryOperation(cursor: cursor))
+                        } else {
+                            box.finish { continuation.resume(returning: zaehler) }
+                        }
+                    case .failure:
+                        box.finish { continuation.resume(returning: zaehler) }
+                    }
+                }
+                database.add(operation)
+            }
+
+            let query = CKQuery(recordType: Self.recordType,
+                                predicate: NSPredicate(format: "updatedAtMs > %@", NSNumber(value: 0)))
+            run(CKQueryOperation(query: query))
+        }
     }
 
     // MARK: - Subscription für stille Push-Updates

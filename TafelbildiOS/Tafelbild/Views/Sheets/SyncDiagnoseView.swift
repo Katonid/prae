@@ -9,6 +9,8 @@ struct SyncDiagnoseView: View {
     @State private var running = false
     @State private var done = false
     @State private var working = false
+    @State private var counting = false
+    @State private var bestand: [EntityKind: Int]?
     @State private var schemaHinweis: String?
 
     /// Felder des Record-Typs „Entity“ — genau so heißen sie in der App.
@@ -66,6 +68,45 @@ struct SyncDiagnoseView: View {
                         .padding(.vertical, 2)
                     }
                 }
+            }
+
+            Section {
+                Button {
+                    zaehlen()
+                } label: {
+                    HStack {
+                        Label("Nachsehen, was in iCloud liegt", systemImage: "icloud.and.arrow.down")
+                        if counting {
+                            Spacer()
+                            ProgressView()
+                        }
+                    }
+                }
+                .disabled(counting || !store.syncEnabled)
+
+                if let bestand {
+                    row("Tafeln in iCloud", "\(bestand[.board] ?? 0)")
+                    row("Namenslisten in iCloud", "\(bestand[.nameList] ?? 0)")
+                    row("Dateien in iCloud", "\(bestand[.media] ?? 0)")
+                }
+
+                Button {
+                    store.reuploadEverything()
+                } label: {
+                    Label("Alles neu hochladen", systemImage: "arrow.up.circle")
+                }
+                .disabled(!store.syncEnabled)
+
+                Button {
+                    store.reloadEverything()
+                } label: {
+                    Label("Alles neu laden", systemImage: "arrow.down.circle")
+                }
+                .disabled(!store.syncEnabled)
+            } header: {
+                Text("Bestand")
+            } footer: {
+                Text("Fehlt auf dem einen Gerät etwas, das auf dem anderen da ist: Dort „Alles neu hochladen“ antippen, hier „Alles neu laden“.")
             }
 
             Section {
@@ -147,6 +188,15 @@ struct SyncDiagnoseView: View {
             Text(value)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.trailing)
+        }
+    }
+
+    private func zaehlen() {
+        counting = true
+        bestand = nil
+        Task { @MainActor in
+            bestand = await store.engine.countCloudEntities()
+            counting = false
         }
     }
 
