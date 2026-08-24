@@ -190,6 +190,8 @@ export function defaultState() {
     ],
     settings: {
       profileName: '',
+      // Schrift der App — Vorgabe ist eine Grundschulschrift mit rundem a.
+      font: 'lexend',
       stackModeManual: null,
       showGrid: false,
       mode: 'edit',

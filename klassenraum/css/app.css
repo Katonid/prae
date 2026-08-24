@@ -867,6 +867,28 @@ p.muted { margin: 0; }
 .scheme.is-active { border-color: var(--accent); color: var(--ink); box-shadow: 0 0 0 3px var(--accent-soft-bg, rgba(99, 102, 241, 0.14)); }
 .scheme__dot { width: 34px; height: 34px; border-radius: 50%; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5); }
 
+/* Schriftauswahl: jede Karte zeigt die Schrift, um die es geht. */
+.font-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 9px; }
+
+.font-card {
+  border: 1px solid var(--line);
+  background: #fff;
+  border-radius: 14px;
+  padding: 12px 10px 9px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  cursor: pointer;
+  text-align: left;
+  transition: transform 0.16s var(--spring), border-color 0.16s ease;
+}
+
+.font-card:hover { transform: translateY(-2px); }
+.font-card.is-active { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft-bg, rgba(99, 102, 241, 0.14)); }
+.font-card__probe { font-family: var(--font-preview); font-size: 21px; color: var(--ink); line-height: 1.15; }
+.font-card__name { font-size: 11.5px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--ink-soft); }
+
 .bg-card {
   position: relative;
   height: 78px;

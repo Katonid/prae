@@ -1,11 +1,14 @@
 /* Service Worker: App-Dateien offline verfügbar halten — und zuverlässig aktualisieren. */
 
-const VERSION = 'v13';
+const VERSION = 'v14';
 const CACHE = `klassenraum-${VERSION}`;
 const ASSETS = [
   './',
   './index.html',
   './css/app.css',
+  './css/fonts.css',
+  './fonts/lexend-latin.woff2',
+  './fonts/lexend-latin-ext.woff2',
   './manifest.webmanifest',
   './icons/icon.svg',
   './icons/icon-192.png',
@@ -20,6 +23,7 @@ const ASSETS = [
   './js/share.js',
   './js/cloud.js',
   './js/sync.js',
+  './js/fonts.js',
   './js/version.js',
   './js/theme.js',
   './js/media.js',

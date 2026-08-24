@@ -52,10 +52,34 @@ und die Möglichkeit, alles **als Datei zu sichern**.
   Farbverläufe oder ein eigenes Bild.
 * **Drei Kartenstile:** Glas (durchscheinend), Hell (maximaler Kontrast) und Dunkel
   (abends angenehm) — pro Klassenraum einstellbar.
+* **Schrift für die Grundschule** (siehe unten): vier Schriften mit rundem „a“,
+  dazu die Systemschrift.
 * Karten mit weichem Schlagschatten, Namen im Farbverlauf, Konfetti beim Ziehen,
   glühende Ampellichter und ein Timer-Ring mit Farbverlauf.
 * Wer in den Systemeinstellungen „Bewegung reduzieren“ aktiviert hat, bekommt die
   ruhige Variante ohne Animationen.
+
+## Schrift
+
+Systemschriften zeigen das kleine **a** als gedruckte Form mit Bogen — genau die
+Form, die Kinder in der Grundschule **nicht** lernen. Unter „Aussehen“ →
+**Schrift** stehen deshalb vier Schriften mit „einstöckigem“ a und g zur Wahl
+(rundes a mit Strich), alle ohne handschriftlichen Einschlag:
+
+| Schrift | Wirkung |
+| --- | --- |
+| **Lexend** (Vorgabe) | ruhig und gerade, auf Lesefreundlichkeit hin entworfen |
+| **Andika** | eigens für Leseanfänger gemacht, unterscheidet klar zwischen I, l und 1 |
+| **Quicksand** | rund und freundlich, etwas verspielter |
+| **Poppins** | klar und geometrisch, kräftig in großen Größen |
+| **Systemschrift** | die Schrift des Geräts — mit dem gedruckten a |
+
+Die Auswahl gilt für die **ganze App** auf diesem Gerät (Karten, Bedienleisten,
+Uhrzeiger-Ziffern, Textelemente) und wird gemerkt. Die Schriftdateien liegen im
+Ordner `fonts/` und werden von der App selbst ausgeliefert — nichts wird von
+Google-Servern nachgeladen, damit die App offline funktioniert und keine
+Anfragen an Dritte gehen. Alle vier stehen unter der SIL Open Font License 1.1
+(siehe `fonts/README.md`).
 
 ## Zwei Ansichten
 
@@ -230,6 +254,9 @@ klassenraum/
   js/app.js             Start, Bedienleisten, Klassenraum-Verwaltung
   js/board.js           Tafelfläche: verschieben, Größe ändern, auswählen
   js/store.js           Zustand und Speicherung (IndexedDB, Fallback localStorage)
+  js/fonts.js           Schriftauswahl (Grundschulschriften mit rundem a)
+  css/fonts.css         Einbindung der mitgelieferten Schriften
+  fonts/                die Schriftdateien selbst (woff2, OFL)
   js/widgets/*.js       die einzelnen Elemente
   js/draw.js            Schreiben und Markieren auf der Tafel
   js/media.js           Klang- und Videodateien im Gerätespeicher
