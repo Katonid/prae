@@ -52,6 +52,9 @@ jobs:
           # Vollständige Historie: Manche Projekte zählen daraus die Build-Nummer.
           fetch-depth: 0
 
+      - name: Quelltext vorprüfen
+        run: python3 scripts/swift-quelltext-pruefen.py .
+
       - name: Werkzeuge zeigen
         run: xcodebuild -version
 

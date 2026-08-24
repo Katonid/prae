@@ -625,7 +625,7 @@ final class CloudSyncEngine {
             title: "Lesen",
             ok: readResult.0,
             detail: readResult.1,
-            remedy: readResult.0 ? nil : "In der CloudKit-Konsole beim Record-Typ „Entity" einen Index auf recordName (queryable) anlegen — oder das Schema in die Production-Umgebung übertragen."
+            remedy: readResult.0 ? nil : "In der CloudKit-Konsole beim Record-Typ „Entity“ einen Index auf recordName (queryable) anlegen — oder das Schema in die Production-Umgebung übertragen."
         ))
 
         return steps
@@ -640,9 +640,9 @@ final class CloudSyncEngine {
         case .networkUnavailable, .networkFailure:
             return "Keine Verbindung — im WLAN erneut versuchen."
         case .permissionFailure:
-            return "In der CloudKit-Konsole unter „Security Roles" dem Eintrag Entity für die Rolle _icloud Lese- UND Schreibrecht geben. Ohne das dürfen andere Personen geteilte Tafeln nicht ändern."
+            return "In der CloudKit-Konsole unter „Security Roles“ dem Eintrag Entity für die Rolle _icloud Lese- UND Schreibrecht geben. Ohne das dürfen andere Personen geteilte Tafeln nicht ändern."
         case .unknownItem:
-            return "Der Record-Typ „Entity" fehlt in dieser Umgebung. In der CloudKit-Konsole „Deploy Schema Changes to Production" ausführen."
+            return "Der Record-Typ „Entity“ fehlt in dieser Umgebung. In der CloudKit-Konsole „Deploy Schema Changes to Production“ ausführen."
         case .invalidArguments:
             return reading
                 ? "Es fehlt ein Index. In der CloudKit-Konsole beim Typ Entity das Feld updatedAtMs als Queryable und Sortable markieren."
