@@ -25,8 +25,13 @@ struct WidgetHostView: View {
 
     var body: some View {
         let base = content
+            .environment(\.boardStyle, contentStyle)
             .frame(width: widget.width, height: widget.height)
             .background { if usesCard { Color.clear.widgetCard(style: style) } }
+            // Ohne Karte hebt ein weicher Schlagschatten den Inhalt vom
+            // Hintergrund ab — sonst schwimmt er.
+            .shadow(color: Color(hex: "#020617").opacity(usesCard ? 0 : 0.45),
+                    radius: 16, x: 0, y: 6)
             .allowsHitTesting(!editing)
 
         if editing {
@@ -60,6 +65,14 @@ struct WidgetHostView: View {
     private var selectionColor: Color {
         if selected { return widget.locked ? Theme.amber : Theme.accent }
         return Color.white.opacity(0.35)
+    }
+
+    /// Farben für den Inhalt: Ohne Karte gelten helle Schrift und hellere
+    /// Flächen, sonst verschwindet alles auf dem dunklen Hintergrund.
+    private var contentStyle: BoardStyle {
+        var adjusted = style
+        adjusted.bare = !usesCard
+        return adjusted
     }
 
     /// Text und Bild bringen ihren eigenen Hintergrund mit.
