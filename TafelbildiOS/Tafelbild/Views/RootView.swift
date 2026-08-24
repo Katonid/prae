@@ -11,6 +11,12 @@ struct RootView: View {
 
     private var compact: Bool { horizontalSizeClass == .compact }
 
+    /// Farbschema der aktiven Tafel — färbt auch die Bedienleiste.
+    private var style: BoardStyle {
+        guard let board = store.activeBoard else { return .standard }
+        return BoardStyle(board: board, editing: store.editing)
+    }
+
     var body: some View {
         ZStack(alignment: .top) {
             Color(hex: "#04100f").ignoresSafeArea()
@@ -33,6 +39,19 @@ struct RootView: View {
             } else {
                 topBar
                     .transition(.move(edge: .top).combined(with: .opacity))
+            }
+
+            if store.editing && !store.presenting {
+                VStack {
+                    Spacer()
+                    WidgetDock { kind in
+                        if let board = store.activeBoard {
+                            store.addWidget(kind: kind, to: board.id)
+                        }
+                    }
+                    .environment(\.boardStyle, style)
+                }
+                .transition(.move(edge: .bottom).combined(with: .opacity))
             }
 
             if let message = store.statusMessage {
@@ -94,22 +113,22 @@ struct RootView: View {
                 Haptics.tap()
                 sheet = .boards
             } label: {
-                HStack(spacing: 8) {
+                HStack(spacing: 9) {
                     Text(store.activeBoard?.emoji ?? "🌟")
-                        .font(.system(size: 20))
+                        .font(.system(size: 17))
                     if !compact {
                         Text(store.activeBoard?.name ?? "Tafelbild")
-                            .font(Theme.font(17, weight: .bold))
+                            .font(Theme.font(15, weight: .bold))
                             .lineLimit(1)
                     }
                     Image(systemName: "chevron.down")
-                        .font(.system(size: 12, weight: .bold))
+                        .font(.system(size: 11, weight: .bold))
                         .foregroundStyle(.white.opacity(0.6))
                 }
                 .foregroundStyle(.white)
-                .padding(.horizontal, 14)
-                .frame(height: 44)
-                .background { Capsule().fill(Color.white.opacity(0.10)) }
+                .padding(.horizontal, 16)
+                .frame(height: 42)
+                .chromeGlass()
             }
             .buttonStyle(.plain)
 
@@ -122,42 +141,47 @@ struct RootView: View {
                         Image(systemName: "exclamationmark.icloud.fill")
                         if !compact {
                             Text("Abgleich klemmt")
-                                .font(Theme.font(15, weight: .semibold))
+                                .font(Theme.font(14, weight: .semibold))
                         }
                     }
                     .foregroundStyle(.black)
-                    .padding(.horizontal, 12)
+                    .padding(.horizontal, 13)
                     .frame(height: 36)
                     .background { Capsule().fill(Theme.amber) }
                 }
                 .buttonStyle(.plain)
-                .padding(.leading, 6)
             }
 
             Spacer(minLength: 0)
 
-            ChromeButton(systemImage: "plus", title: compact ? nil : "Element",
-                         tint: .white) {
-                sheet = .addWidget
+            if !compact {
+                ChromeButton(systemImage: "list.bullet.rectangle.portrait", title: "Listen") {
+                    sheet = .nameLists
+                }
+                ChromeButton(systemImage: "paintbrush", title: "Aussehen") {
+                    sheet = .boardSettings
+                }
+                ChromeButton(systemImage: "square.and.arrow.up", title: "Teilen") {
+                    sheet = .share
+                }
             }
 
-            if !compact {
-                ChromeButton(systemImage: store.drawing ? "pencil.tip.crop.circle.fill" : "pencil.tip.crop.circle",
-                             active: store.drawing) {
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                        store.drawing.toggle()
-                        if store.drawing {
-                            store.editing = false
-                            store.selectedWidgetID = nil
-                        }
+            ChromeButton(systemImage: store.drawing ? "pencil.tip.crop.circle.fill" : "pencil.tip.crop.circle",
+                         active: store.drawing) {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    store.drawing.toggle()
+                    if store.drawing {
+                        store.editing = false
+                        store.selectedWidgetID = nil
                     }
                 }
             }
 
-            ChromeButton(systemImage: store.editing ? "checkmark" : "slider.horizontal.3",
-                         title: (compact || store.editing) ? nil : "Anordnen",
-                         active: store.editing) {
-                withAnimation(.easeInOut(duration: 0.2)) {
+            ChromeButton(systemImage: store.editing ? "checkmark" : "square.grid.2x2",
+                         title: store.editing ? "Fertig" : (compact ? nil : "Anordnen"),
+                         primary: true,
+                         gradient: style.accentGradient) {
+                withAnimation(.easeInOut(duration: 0.25)) {
                     store.editing.toggle()
                     if store.editing { store.drawing = false }
                     if !store.editing { store.selectedWidgetID = nil }
@@ -172,20 +196,28 @@ struct RootView: View {
             }
 
             Menu {
-                Button {
-                    sheet = .boardSettings
-                } label: {
-                    Label("Tafel gestalten", systemImage: "paintbrush")
+                if compact {
+                    Button {
+                        sheet = .nameLists
+                    } label: {
+                        Label("Namenslisten", systemImage: "list.bullet.rectangle.portrait")
+                    }
+                    Button {
+                        sheet = .boardSettings
+                    } label: {
+                        Label("Aussehen", systemImage: "paintbrush")
+                    }
+                    Button {
+                        sheet = .share
+                    } label: {
+                        Label("Tafel teilen", systemImage: "square.and.arrow.up")
+                    }
+                    Divider()
                 }
                 Button {
-                    sheet = .nameLists
+                    sheet = .addWidget
                 } label: {
-                    Label("Namenslisten", systemImage: "list.bullet.rectangle.portrait")
-                }
-                Button {
-                    sheet = .share
-                } label: {
-                    Label("Tafel teilen", systemImage: "square.and.arrow.up")
+                    Label("Element hinzufügen", systemImage: "plus")
                 }
                 Button {
                     guard var board = store.activeBoard else { return }
@@ -204,17 +236,14 @@ struct RootView: View {
                 }
             } label: {
                 Image(systemName: "ellipsis")
-                    .font(.system(size: 17, weight: .semibold))
+                    .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(.white)
-                    .frame(width: 44, height: 44)
-                    .background { Capsule().fill(Color.white.opacity(0.10)) }
+                    .frame(width: 42, height: 42)
+                    .chromeGlass()
             }
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 8)
-        .chromeBar(corner: 26)
-        .padding(.horizontal, 12)
-        .padding(.top, 6)
+        .padding(.horizontal, 14)
+        .padding(.top, 10)
     }
 
     /// Im Präsentationsmodus bleibt nur ein dezenter Knopf stehen.
@@ -243,7 +272,7 @@ struct RootView: View {
             .foregroundStyle(.white)
             .padding(.horizontal, 18)
             .padding(.vertical, 12)
-            .chromeBar(corner: 18)
+            .chromeGlass(corner: 18)
             .padding(.top, store.presenting ? 14 : 80)
             .transition(.move(edge: .top).combined(with: .opacity))
             .animation(.easeInOut(duration: 0.25), value: store.statusMessage)
@@ -269,8 +298,7 @@ struct EmptyBoardView: View {
 
     var body: some View {
         ZStack {
-            LinearGradient(colors: [Color(hex: "#134e4a"), Color(hex: "#07242a")],
-                           startPoint: .top, endPoint: .bottom)
+            AuroraBackgroundView(preset: AuroraPresets.find("nordlicht"))
                 .ignoresSafeArea()
             VStack(spacing: 18) {
                 Image(systemName: "rectangle.on.rectangle.angled")
