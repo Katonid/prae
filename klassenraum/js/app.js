@@ -4,7 +4,7 @@ import { h, clear, readImageFile } from './util.js';
 import { icon } from './icons.js';
 import {
   loadState, getState, getActiveBoard, setActiveBoard, addBoard, duplicateBoard, removeBoard,
-  addWidget, touch, saveNow, on as onStore, importBoard,
+  addWidget, touch, saveNow, on as onStore, importBoard, AURORA,
 } from './store.js';
 import { WIDGETS } from './widgets/index.js';
 import {
@@ -18,7 +18,7 @@ import {
   confirmDialog, promptDialog, colorSwatches, modal,
 } from './ui.js';
 
-const BACKGROUND_COLORS = ['#33415c', '#1f2937', '#111827', '#0f766e', '#3f3d56', '#4c1d95',
+const BACKGROUND_COLORS = ['#33415c', '#1f2937', '#0b1120', '#0f766e', '#3f3d56', '#4c1d95',
   '#7c2d12', '#1e3a8a', '#f8fafc', '#e2e8f0', '#fef3c7', '#dcfce7'];
 const BACKGROUND_GRADIENTS = [
   'linear-gradient(135deg, #1e3a8a, #0f766e)',
@@ -215,7 +215,28 @@ function openBackgroundPanel() {
   function render() {
     clear(container);
     const board = getActiveBoard();
-    const background = board.background || { type: 'color', value: '#33415c' };
+    const background = board.background || { type: 'aurora', value: 'nordlicht' };
+    const cardStyle = board.cardStyle || 'glass';
+
+    const auroraGrid = h('div', { class: 'bg-grid' }, AURORA.map((preset) => h('button', {
+      class: 'bg-card' + (background.type === 'aurora' && background.value === preset.id ? ' is-active' : ''),
+      style: {
+        background: `radial-gradient(90% 90% at 20% 15%, ${preset.blobs[0]} 0%, transparent 60%),`
+          + `radial-gradient(80% 80% at 85% 80%, ${preset.blobs[1]} 0%, transparent 62%),`
+          + `radial-gradient(70% 70% at 60% 40%, ${preset.blobs[2]} 0%, transparent 60%), ${preset.base}`,
+        color: preset.id === 'kreide' ? '#1e293b' : '#fff',
+        textShadow: preset.id === 'kreide' ? '0 1px 4px rgba(255,255,255,0.8)' : '0 1px 6px rgba(0,0,0,0.6)',
+      },
+      onclick: () => {
+        board.background = { type: 'aurora', value: preset.id };
+        touch();
+        applyBackground();
+        render();
+      },
+    }, preset.label)));
+
+    container.appendChild(section('Bewegter Hintergrund', auroraGrid,
+      h('p', { class: 'muted small' }, 'Sanft wandernde Farbschleier — ruhig genug für den Unterricht.')));
 
     const custom = h('input', {
       class: 'input input--color', type: 'color',
@@ -227,62 +248,76 @@ function openBackgroundPanel() {
       },
     });
 
-    container.append(
-      section('Farbe',
-        colorSwatches(BACKGROUND_COLORS, background.type === 'color' ? background.value : null, (color) => {
-          board.background = { type: 'color', value: color };
+    container.appendChild(section('Einfarbig',
+      colorSwatches(BACKGROUND_COLORS, background.type === 'color' ? background.value : null, (color) => {
+        board.background = { type: 'color', value: color };
+        touch();
+        applyBackground();
+        render();
+      }),
+      field('Eigene Farbe', custom)));
+
+    container.appendChild(section('Farbverlauf',
+      h('div', { class: 'bg-grid' }, BACKGROUND_GRADIENTS.map((gradient) => h('button', {
+        class: 'bg-card' + (background.value === gradient ? ' is-active' : ''),
+        style: { background: gradient },
+        onclick: () => {
+          board.background = { type: 'gradient', value: gradient };
           touch();
           applyBackground();
           render();
-        }),
-        field('Eigene Farbe', custom)),
-      section('Farbverlauf',
-        h('div', { class: 'gradient-grid' }, BACKGROUND_GRADIENTS.map((gradient) => h('button', {
-          class: 'gradient-swatch' + (background.value === gradient ? ' is-active' : ''),
-          style: { background: gradient },
+        },
+      })))));
+
+    container.appendChild(section('Hintergrundbild',
+      button('Bild vom Gerät wählen', {
+        icon: 'image', primary: true, full: true,
+        onClick: () => {
+          const input = h('input', { type: 'file', accept: 'image/*', style: { display: 'none' } });
+          document.body.appendChild(input);
+          input.addEventListener('change', async () => {
+            const file = input.files && input.files[0];
+            input.remove();
+            if (!file) return;
+            try {
+              const result = await readImageFile(file, 1920, 0.72);
+              board.background = { type: 'image', value: result.url };
+              touch();
+              applyBackground();
+              render();
+            } catch (error) {
+              toast('Bild konnte nicht geladen werden.', 'warn');
+            }
+          });
+          input.click();
+        },
+      }),
+      background.type === 'image' ? button('Bild entfernen', {
+        icon: 'trash', ghost: true, full: true,
+        onClick: () => {
+          board.background = { type: 'aurora', value: 'nordlicht' };
+          touch();
+          applyBackground();
+          render();
+        },
+      }) : null,
+      h('p', { class: 'muted small' }, 'Das Bild wird verkleinert gespeichert und bleibt auf dem Gerät.')));
+
+    container.appendChild(section('Kartenstil',
+      h('div', { class: 'segmented' },
+        [['glass', 'Glas'], ['light', 'Hell'], ['dark', 'Dunkel']].map(([value, label]) => h('button', {
+          class: 'segmented__item' + (cardStyle === value ? ' is-active' : ''),
           onclick: () => {
-            board.background = { type: 'gradient', value: gradient };
+            board.cardStyle = value;
             touch();
             applyBackground();
             render();
           },
-        })))),
-      section('Hintergrundbild',
-        button('Bild vom Gerät wählen', {
-          icon: 'image', primary: true, full: true,
-          onClick: () => {
-            const input = h('input', { type: 'file', accept: 'image/*', style: { display: 'none' } });
-            document.body.appendChild(input);
-            input.addEventListener('change', async () => {
-              const file = input.files && input.files[0];
-              input.remove();
-              if (!file) return;
-              try {
-                const result = await readImageFile(file, 1920, 0.72);
-                board.background = { type: 'image', value: result.url };
-                touch();
-                applyBackground();
-                render();
-              } catch (error) {
-                toast('Bild konnte nicht geladen werden.', 'warn');
-              }
-            });
-            input.click();
-          },
-        }),
-        background.type === 'image' ? button('Bild entfernen', {
-          icon: 'trash', ghost: true, full: true,
-          onClick: () => {
-            board.background = { type: 'color', value: '#33415c' };
-            touch();
-            applyBackground();
-            render();
-          },
-        }) : null,
-        h('p', { class: 'muted small' }, 'Das Bild wird verkleinert gespeichert und bleibt auf dem Gerät.')));
+        }, label))),
+      h('p', { class: 'muted small' }, 'Glas wirkt leicht und nimmt die Hintergrundfarbe auf, Hell ist am kontraststärksten, Dunkel schont abends die Augen.')));
   }
 
-  openPanel({ title: 'Hintergrund', subtitle: `Für „${getActiveBoard().name}“`, content: container });
+  openPanel({ title: 'Hintergrund', subtitle: `Für „${getActiveBoard().name}"`, content: container, wide: true });
   render();
 }
 
@@ -326,12 +361,16 @@ function openHelp() {
     title: 'Kurzanleitung',
     content: h('div', { class: 'stack' },
       h('p', null, h('strong', null, 'Elemente hinzufügen: '), 'unten in der Leiste antippen.'),
+      h('p', null, h('strong', null, 'Bedienen: '), 'Ein Tipp auf die Karte löst die Hauptfunktion aus — '
+        + 'Zufälliger Name zieht den nächsten Namen, die Ampel schaltet weiter, das Arbeitssymbol wechselt, '
+        + 'die Uhr springt zwischen analog und digital, die Lautstärkemessung startet.'),
       h('p', null, h('strong', null, 'Verschieben: '), 'Element anfassen und ziehen. Ecken ziehen ändert die Größe.'),
       h('p', null, h('strong', null, 'Einstellen: '), 'Element antippen, dann auf das Zahnrad in der kleinen Leiste.'),
       h('p', null, h('strong', null, 'Zufälliger Name: '), 'Liste wählen, „Ohne Zurücklegen“ verhindert Wiederholungen. '
         + 'Gezogene Namen lassen sich antippen, um sie zurückzulegen; einzelne Namen können auch von Hand als gezogen markiert werden.'),
-      h('p', null, h('strong', null, 'Ampel & Symbole: '), 'Doppeltippen schaltet weiter.'),
-      h('p', null, h('strong', null, 'Text: '), 'Doppeltippen zum Schreiben.'),
+      h('p', null, h('strong', null, 'Lautstärke: '), 'Beim ersten Start fragt das Gerät nach dem Mikrofon — einmal erlauben, dann läuft die Messung.'),
+      h('p', null, h('strong', null, 'Text: '), 'Doppeltippen zum Schreiben oder den Stift in der kleinen Leiste nutzen.'),
+      h('p', null, h('strong', null, 'Aussehen: '), '„Hintergrund“ bietet bewegte Farbverläufe, eigene Farben, Bilder und drei Kartenstile.'),
       h('p', null, h('strong', null, 'Teilen: '), 'Menü → „Teilen & Konto“ → Code erstellen. Andere geben den Code ein und laden eine Kopie oder folgen live.'),
       h('p', null, h('strong', null, 'Auf dem Homescreen: '), 'In Safari „Teilen“ → „Zum Home-Bildschirm“ — dann startet die App im Vollbild.')),
     actions: [{ label: 'Alles klar', primary: true }],

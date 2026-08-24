@@ -1,6 +1,6 @@
 // Timer und Stoppuhr — mit einem Tipp gestartet, Voreinstellungen für den Unterricht.
 
-import { h, clear, formatDuration, chime, beep } from '../util.js';
+import { h, clear, formatDuration, chime, beep, onTap } from '../util.js';
 import { icon } from '../icons.js';
 import { section, toggleRow, button, buttonRow, field } from '../ui.js';
 
@@ -33,7 +33,12 @@ export default {
     const ring = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     ring.setAttribute('viewBox', '0 0 120 120');
     ring.classList.add('w-timer__ring');
-    ring.innerHTML = '<circle class="w-timer__track" cx="60" cy="60" r="52"/><circle class="w-timer__progress" cx="60" cy="60" r="52"/>';
+    const gradientId = `timer-${Math.random().toString(36).slice(2, 8)}`;
+    ring.innerHTML = `<defs><linearGradient id="${gradientId}" x1="0" y1="0" x2="1" y2="1">`
+      + '<stop offset="0%" stop-color="#6366f1"/><stop offset="55%" stop-color="#a855f7"/>'
+      + '<stop offset="100%" stop-color="#ec4899"/></linearGradient></defs>'
+      + '<circle class="w-timer__track" cx="60" cy="60" r="52"/>'
+      + `<circle class="w-timer__progress" cx="60" cy="60" r="52" stroke="url(#${gradientId})"/>`;
     const progress = ring.querySelector('.w-timer__progress');
     const CIRC = 2 * Math.PI * 52;
     progress.style.strokeDasharray = String(CIRC);
@@ -168,10 +173,10 @@ export default {
       render();
     }
 
-    playButton.addEventListener('click', toggle);
-    resetButton.addEventListener('click', reset);
-    minusButton.addEventListener('click', () => addMinutes(-1));
-    plusButton.addEventListener('click', () => addMinutes(1));
+    onTap(playButton, toggle);
+    onTap(resetButton, reset);
+    onTap(minusButton, () => addMinutes(-1));
+    onTap(plusButton, () => addMinutes(1));
 
     startTicker();
     render();

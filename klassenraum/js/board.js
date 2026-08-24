@@ -1,10 +1,10 @@
 // Die Tafelfläche: Elemente anzeigen, verschieben, vergrößern, auswählen.
 
-import { h, clear, clamp } from './util.js';
+import { h, clear, clamp, armTapGuard } from './util.js';
 import { icon } from './icons.js';
 import { getWidgetType } from './widgets/index.js';
 import {
-  BOARD_WIDTH, BOARD_HEIGHT, getActiveBoard, touch, removeWidget, duplicateWidget,
+  BOARD_WIDTH, BOARD_HEIGHT, AURORA, getActiveBoard, touch, removeWidget, duplicateWidget,
   nextZ, on as onStore,
 } from './store.js';
 import { openPanel, closePanel, confirmDialog } from './ui.js';
@@ -91,20 +91,40 @@ export function updateScale() {
 export function applyBackground() {
   const board = getActiveBoard();
   if (!board || !stageEl) return;
-  const background = board.background || { type: 'color', value: '#33415c' };
-  if (background.type === 'image' && background.value) {
-    stageEl.style.background = `#111827 center/cover no-repeat url("${background.value}")`;
-  } else if (background.type === 'gradient') {
-    stageEl.style.background = background.value;
-  } else {
-    stageEl.style.background = background.value || '#33415c';
+  const layer = document.getElementById('stage-bg');
+  const background = board.background || { type: 'aurora', value: 'nordlicht' };
+  if (layer) {
+    layer.className = 'stage__bg';
+    layer.style.background = '';
+    layer.style.backgroundImage = '';
+    if (background.type === 'aurora') {
+      const preset = AURORA.find((entry) => entry.id === background.value) || AURORA[0];
+      layer.style.setProperty('--bg-base', preset.base);
+      preset.blobs.forEach((color, index) => layer.style.setProperty(`--blob-${index + 1}`, color));
+    } else if (background.type === 'image' && background.value) {
+      layer.classList.add('stage__bg--plain', 'stage__bg--image');
+      layer.style.background = `#0b1120 center/cover no-repeat url("${background.value}")`;
+    } else if (background.type === 'gradient') {
+      layer.classList.add('stage__bg--plain');
+      layer.style.background = background.value;
+    } else {
+      layer.classList.add('stage__bg--plain');
+      layer.style.setProperty('--bg-base', background.value || '#33415c');
+    }
   }
-  const light = isLight(background);
-  document.body.classList.toggle('is-light-board', light);
+  document.body.classList.toggle('is-light-board', isLight(background));
+  const style = board.cardStyle || 'glass';
+  stageEl.dataset.cards = style;
+  document.body.dataset.cards = style;
 }
 
 function isLight(background) {
-  if (!background || background.type !== 'color' || !background.value) return false;
+  if (!background) return false;
+  if (background.type === 'aurora') {
+    const preset = AURORA.find((entry) => entry.id === background.value);
+    return Boolean(preset && preset.id === 'kreide');
+  }
+  if (background.type !== 'color' || !background.value) return false;
   const hex = background.value.replace('#', '');
   if (hex.length !== 6) return false;
   const r = parseInt(hex.slice(0, 2), 16);
@@ -182,6 +202,7 @@ function mountWidget(widget) {
   }
 
   el.addEventListener('pointerdown', (event) => onWidgetPointerDown(event, widget, el));
+  attachCardTap(el, widget);
   el.addEventListener('dblclick', (event) => {
     if (!api.onDoubleClick) return;
     // Wegen der Pointer-Erfassung zeigt event.target auf das Widget selbst —
@@ -190,8 +211,38 @@ function mountWidget(widget) {
     if (hit && hit.closest('[data-nodrag]')) return;
     api.onDoubleClick();
   });
+  el.style.setProperty('--enter-delay', `${Math.min(canvasEl.children.length, 12) * 45}ms`);
+  el.classList.add('is-entering');
+  el.addEventListener('animationend', () => el.classList.remove('is-entering'), { once: true });
   canvasEl.appendChild(el);
   instances.set(widget.id, { el, api, widget, ctx, definition });
+}
+
+/** Ein sauberer Tipp auf die Karte (nicht auf ein Bedienelement) löst die Hauptaktion aus. */
+function attachCardTap(el, widget) {
+  let armed = false;
+  let startX = 0;
+  let startY = 0;
+  let startTime = 0;
+
+  el.addEventListener('pointerdown', (event) => {
+    const target = event.target;
+    armed = !(target.closest && (target.closest('[data-nodrag]') || target.closest('[data-handle]')));
+    startX = event.clientX;
+    startY = event.clientY;
+    startTime = Date.now();
+  });
+  el.addEventListener('pointercancel', () => { armed = false; });
+  el.addEventListener('pointerup', (event) => {
+    if (!armed) return;
+    armed = false;
+    if (Date.now() - startTime > 800) return;
+    if (Math.abs(event.clientX - startX) + Math.abs(event.clientY - startY) > 14) return;
+    const instance = instances.get(widget.id);
+    if (!instance || !instance.api || !instance.api.onTap) return;
+    if (event.pointerType !== 'mouse') armTapGuard(event);
+    instance.api.onTap();
+  });
 }
 
 function layout() {
@@ -331,6 +382,15 @@ function renderSelection() {
   selectionEl.style.top = `${Math.max(6, top - 52)}px`;
 
   const definition = getWidgetType(widget.type);
+  const instance = instances.get(widget.id);
+  const extras = (instance && instance.api && instance.api.actions) || [];
+  for (const action of extras) {
+    selectionEl.appendChild(h('button', {
+      class: 'tool-button tool-button--accent', title: action.title,
+      onclick: () => action.run(),
+      html: icon(action.icon, 18),
+    }));
+  }
   selectionEl.append(
     h('button', {
       class: 'tool-button', title: 'Löschen',

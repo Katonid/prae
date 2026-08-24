@@ -113,19 +113,23 @@ export function audio() {
 
 /** Kurzer Signalton (ohne Audiodateien, damit die App offline funktioniert). */
 export function beep({ frequency = 880, duration = 0.18, gain = 0.18, type = 'sine', delay = 0 } = {}) {
-  const ctx = audio();
-  if (!ctx) return;
-  const start = ctx.currentTime + delay;
-  const osc = ctx.createOscillator();
-  const amp = ctx.createGain();
-  osc.type = type;
-  osc.frequency.value = frequency;
-  amp.gain.setValueAtTime(0.0001, start);
-  amp.gain.exponentialRampToValueAtTime(gain, start + 0.02);
-  amp.gain.exponentialRampToValueAtTime(0.0001, start + duration);
-  osc.connect(amp).connect(ctx.destination);
-  osc.start(start);
-  osc.stop(start + duration + 0.05);
+  try {
+    const ctx = audio();
+    if (!ctx) return;
+    const start = ctx.currentTime + delay;
+    const osc = ctx.createOscillator();
+    const amp = ctx.createGain();
+    osc.type = type;
+    osc.frequency.value = frequency;
+    amp.gain.setValueAtTime(0.0001, start);
+    amp.gain.exponentialRampToValueAtTime(gain, start + 0.02);
+    amp.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+    osc.connect(amp).connect(ctx.destination);
+    osc.start(start);
+    osc.stop(start + duration + 0.05);
+  } catch (_) {
+    // Ton ist Beiwerk — spielt das Gerät ihn nicht ab, läuft alles andere weiter.
+  }
 }
 
 export function chime(times = 3) {
@@ -184,4 +188,78 @@ export function shareCode() {
   let out = '';
   for (let i = 0; i < 6; i += 1) out += alphabet[randomInt(alphabet.length)];
   return out;
+}
+
+/** Bewegungsreduzierung der Systemeinstellungen respektieren. */
+export function reducedMotion() {
+  return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+
+/*
+ * Zuverlässiges Antippen: Touchgeräte lösen sofort bei pointerup aus (ohne die
+ * übliche Verzögerung), der danach folgende „Geister-Klick" wird unterdrückt —
+ * sonst würde eine neu aufgebaute Schaltfläche an derselben Stelle doppelt zählen.
+ */
+let ghostUntil = 0;
+let ghostX = 0;
+let ghostY = 0;
+let ghostGuardReady = false;
+
+export function armTapGuard(event) {
+  ghostUntil = Date.now() + 700;
+  ghostX = event.clientX;
+  ghostY = event.clientY;
+  if (ghostGuardReady) return;
+  ghostGuardReady = true;
+  document.addEventListener('click', (click) => {
+    if (Date.now() > ghostUntil) return;
+    if (Math.abs(click.clientX - ghostX) + Math.abs(click.clientY - ghostY) > 44) return;
+    ghostUntil = 0;
+    click.stopPropagation();
+    click.preventDefault();
+  }, true);
+}
+
+export function onTap(el, handler) {
+  let armed = false;
+  let startX = 0;
+  let startY = 0;
+
+  el.addEventListener('pointerdown', (event) => {
+    armed = true;
+    startX = event.clientX;
+    startY = event.clientY;
+  });
+  el.addEventListener('pointercancel', () => { armed = false; });
+  el.addEventListener('pointerup', (event) => {
+    if (!armed) return;
+    armed = false;
+    if (event.pointerType === 'mouse') return;
+    if (Math.abs(event.clientX - startX) + Math.abs(event.clientY - startY) > 24) return;
+    armTapGuard(event);
+    handler(event);
+  });
+  el.addEventListener('click', (event) => handler(event));
+  return el;
+}
+
+/** Kleiner Konfetti-Regen als Belohnung — rein visuell, ohne Abhängigkeiten. */
+export function confetti(host, { count = 70, colors = ['#6366f1', '#22d3ee', '#f472b6', '#facc15', '#34d399'] } = {}) {
+  if (!host || reducedMotion()) return;
+  const layer = document.createElement('div');
+  layer.className = 'confetti';
+  for (let i = 0; i < count; i += 1) {
+    const piece = document.createElement('span');
+    const angle = (Math.PI * (0.15 + 0.7 * (i / count))) * -1;
+    const distance = 120 + randomInt(220);
+    piece.style.setProperty('--dx', `${Math.cos(angle) * distance * (randomInt(2) ? 1 : -1)}px`);
+    piece.style.setProperty('--dy', `${Math.sin(angle) * distance - randomInt(80)}px`);
+    piece.style.setProperty('--rot', `${randomInt(720) - 360}deg`);
+    piece.style.setProperty('--delay', `${randomInt(120)}ms`);
+    piece.style.background = colors[i % colors.length];
+    if (i % 3 === 0) piece.style.borderRadius = '50%';
+    layer.appendChild(piece);
+  }
+  host.appendChild(layer);
+  setTimeout(() => layer.remove(), 1600);
 }

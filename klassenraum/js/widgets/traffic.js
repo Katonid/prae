@@ -1,6 +1,6 @@
 // Ampel — antippen schaltet weiter, in den Einstellungen auch mit Beschriftung.
 
-import { h, clear, beep } from '../util.js';
+import { h, clear, beep, onTap } from '../util.js';
 import { section, toggleRow, field } from '../ui.js';
 
 const ORDER = ['green', 'yellow', 'red'];
@@ -27,17 +27,15 @@ export default {
       clear(lightsBox);
       el.classList.toggle('is-horizontal', Boolean(state.horizontal));
       for (const color of ['red', 'yellow', 'green']) {
-        lightsBox.appendChild(h('button', {
+        lightsBox.appendChild(onTap(h('button', {
           class: `w-traffic__light w-traffic__light--${color}` + (state.active === color ? ' is-on' : ''),
           'data-nodrag': '',
           title: (state.labels && state.labels[color]) || DEFAULT_LABELS[color],
-          onclick: (event) => {
-            event.stopPropagation();
-            ctx.widget.state.active = color;
-            ctx.save();
-            beep({ frequency: color === 'red' ? 320 : color === 'yellow' ? 520 : 720, duration: 0.1, gain: 0.08 });
-            render();
-          },
+        }), () => {
+          ctx.widget.state.active = color;
+          ctx.save();
+          beep({ frequency: color === 'red' ? 320 : color === 'yellow' ? 520 : 720, duration: 0.1, gain: 0.08 });
+          render();
         }));
       }
       const labels = state.labels || DEFAULT_LABELS;
@@ -54,7 +52,7 @@ export default {
     }
 
     render();
-    return { el, refresh: render, onDoubleClick: cycle };
+    return { el, refresh: render, onTap: cycle };
   },
 
   settings(ctx) {

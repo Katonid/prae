@@ -95,6 +95,7 @@ export default {
       onResize: fit,
       onDoubleClick: startEditing,
       edit: startEditing,
+      actions: [{ icon: 'text', title: 'Text bearbeiten', run: startEditing }],
     };
   },
 

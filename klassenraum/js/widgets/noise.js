@@ -1,7 +1,7 @@
 // Lautstärkemesser — misst über das Mikrofon des Geräts die Lautstärke im Raum.
 // Die Aufnahme bleibt im Gerät: es wird nur der Pegel berechnet, nichts gespeichert.
 
-import { h, clear, clamp, beep } from '../util.js';
+import { h, clear, clamp, beep, onTap } from '../util.js';
 import { section, toggleRow, field, button, toast } from '../ui.js';
 
 const SEGMENTS = 24;
@@ -19,11 +19,15 @@ export default {
   mount(ctx) {
     const el = h('div', { class: 'w-noise' });
     const head = h('div', { class: 'w-noise__head' });
+    const titleEl = h('span', { class: 'w-noise__title' });
+    const valueEl = h('span', { class: 'w-noise__value' }, '–');
     const meter = h('div', { class: 'w-noise__meter' });
     const statusEl = h('div', { class: 'w-noise__status' });
-    const startButton = h('button', { class: 'button button--primary', 'data-nodrag': '' }, 'Messung starten');
-    const actions = h('div', { class: 'w-noise__actions', 'data-nodrag': '' }, startButton);
-    el.append(head, meter, statusEl, actions);
+    const actionButton = h('button', { class: 'w-noise__button', 'data-nodrag': '' });
+    const helpEl = h('p', { class: 'w-noise__help is-hidden' });
+
+    head.append(titleEl, valueEl);
+    el.append(head, meter, statusEl, h('div', { class: 'w-noise__actions', 'data-nodrag': '' }, actionButton), helpEl);
 
     const segments = [];
     for (let i = 0; i < SEGMENTS; i += 1) {
@@ -32,6 +36,7 @@ export default {
       meter.appendChild(segment);
     }
 
+    let mode = 'off'; // off | starting | running | denied | unsupported
     let stream = null;
     let audioCtx = null;
     let analyser = null;
@@ -42,25 +47,47 @@ export default {
     let buffer = null;
 
     function setSegments(value) {
-      const active = Math.round((value / 100) * SEGMENTS);
       const threshold = ctx.widget.state.threshold || 55;
+      const active = Math.round((value / 100) * SEGMENTS);
       const thresholdIndex = Math.round((threshold / 100) * SEGMENTS);
       segments.forEach((segment, index) => {
         segment.classList.toggle('is-on', index < active);
         segment.classList.toggle('is-threshold', index === thresholdIndex - 1);
         segment.classList.toggle('is-hot', index < active && index >= thresholdIndex);
+        segment.style.setProperty('--seg', String(index / SEGMENTS));
       });
     }
 
-    function renderStatic() {
+    function render() {
       const state = ctx.widget.state;
-      clear(head);
-      head.append(
-        h('span', { class: 'w-noise__title' }, state.title || 'Lautstärke'),
-        h('span', { class: 'w-noise__value' }, stream ? `${Math.round(level)}` : '–'));
-      startButton.textContent = stream ? 'Messung stoppen' : 'Messung starten';
-      setSegments(stream ? level : 0);
-      if (!stream) statusEl.textContent = 'Mikrofon aus — zum Messen starten.';
+      titleEl.textContent = state.title || 'Lautstärke';
+      valueEl.textContent = mode === 'running' ? String(Math.round(level)) : '–';
+      el.classList.toggle('is-live', mode === 'running');
+      helpEl.classList.toggle('is-hidden', mode !== 'denied' && mode !== 'unsupported');
+
+      if (mode === 'running') {
+        actionButton.textContent = 'Messung stoppen';
+        actionButton.className = 'w-noise__button w-noise__button--stop';
+      } else if (mode === 'starting') {
+        actionButton.textContent = 'Mikrofon wird gestartet …';
+        actionButton.className = 'w-noise__button is-busy';
+      } else {
+        actionButton.textContent = mode === 'denied' ? 'Erneut versuchen' : 'Mikrofon aktivieren';
+        actionButton.className = 'w-noise__button';
+      }
+
+      if (mode === 'off') statusEl.textContent = 'Zum Messen Mikrofon aktivieren.';
+      if (mode === 'starting') statusEl.textContent = 'Bitte die Nachfrage des Geräts bestätigen.';
+      if (mode === 'denied') {
+        statusEl.textContent = 'Kein Zugriff auf das Mikrofon.';
+        helpEl.textContent = 'Auf dem iPad: „aA“ in der Adresszeile → Website-Einstellungen → Mikrofon erlauben. '
+          + 'Danach diese Seite neu laden. In den Systemeinstellungen muss Safari das Mikrofon ebenfalls erlaubt sein.';
+      }
+      if (mode === 'unsupported') {
+        statusEl.textContent = 'Mikrofon hier nicht verfügbar.';
+        helpEl.textContent = 'Die Messung braucht eine sichere Verbindung (https) und ein Gerät mit Mikrofon.';
+      }
+      if (mode !== 'running') setSegments(0);
     }
 
     function loop() {
@@ -74,7 +101,7 @@ export default {
       const rms = Math.sqrt(sum / buffer.length);
       const db = 20 * Math.log10(Math.max(rms, 0.00001));
       const raw = clamp(((db + 62) / 52) * 100 * (ctx.widget.state.sensitivity || 1), 0, 100);
-      level = level + (raw - level) * (raw > level ? 0.45 : 0.12);
+      level += (raw - level) * (raw > level ? 0.45 : 0.12);
 
       const state = ctx.widget.state;
       const threshold = state.threshold || 55;
@@ -96,37 +123,51 @@ export default {
       statusEl.textContent = isAlarm
         ? 'Zu laut!'
         : level > threshold * 0.72 ? 'Grenze fast erreicht' : 'Gute Arbeitslautstärke';
-      head.querySelector('.w-noise__value').textContent = String(Math.round(level));
+      valueEl.textContent = String(Math.round(level));
       setSegments(level);
       raf = requestAnimationFrame(loop);
     }
 
     async function start() {
-      if (stream) {
+      if (mode === 'running') {
         stop();
         return;
       }
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        toast('Dieses Gerät stellt kein Mikrofon bereit.', 'warn');
+      if (mode === 'starting') return;
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.isSecureContext) {
+        mode = 'unsupported';
+        render();
         return;
       }
+      mode = 'starting';
+      render();
       try {
         stream = await navigator.mediaDevices.getUserMedia({
           audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
         });
       } catch (error) {
-        toast('Kein Zugriff auf das Mikrofon. Bitte in den Browser-Einstellungen erlauben.', 'warn');
+        mode = 'denied';
+        render();
+        toast('Der Zugriff auf das Mikrofon wurde nicht erlaubt.', 'warn');
         return;
       }
-      const Ctx = window.AudioContext || window.webkitAudioContext;
-      audioCtx = new Ctx();
-      if (audioCtx.state === 'suspended') await audioCtx.resume().catch(() => {});
-      analyser = audioCtx.createAnalyser();
-      analyser.fftSize = 1024;
-      analyser.smoothingTimeConstant = 0.3;
-      buffer = new Uint8Array(analyser.fftSize);
-      audioCtx.createMediaStreamSource(stream).connect(analyser);
-      renderStatic();
+      try {
+        const Ctx = window.AudioContext || window.webkitAudioContext;
+        audioCtx = new Ctx();
+        if (audioCtx.state === 'suspended') await audioCtx.resume().catch(() => {});
+        analyser = audioCtx.createAnalyser();
+        analyser.fftSize = 1024;
+        analyser.smoothingTimeConstant = 0.3;
+        buffer = new Uint8Array(analyser.fftSize);
+        audioCtx.createMediaStreamSource(stream).connect(analyser);
+      } catch (error) {
+        stop();
+        mode = 'unsupported';
+        render();
+        return;
+      }
+      mode = 'running';
+      render();
       loop();
     }
 
@@ -140,16 +181,22 @@ export default {
       audioCtx = null;
       level = 0;
       overSince = 0;
+      alarmUntil = 0;
       el.classList.remove('is-alarm');
-      renderStatic();
+      mode = 'off';
+      render();
     }
 
-    startButton.addEventListener('click', start);
-    renderStatic();
+    onTap(actionButton, start);
+    render();
 
     return {
       el,
-      refresh: renderStatic,
+      refresh: render,
+      onTap: () => {
+        // Ein Tipp auf die Karte startet die Messung; Stoppen bewusst nur über den Knopf.
+        if (mode !== 'running') start();
+      },
       destroy: stop,
     };
   },
