@@ -16,6 +16,8 @@ struct BoardSettingsSheet: View {
     @State private var dim: Double = 0.25
     @State private var photo: PhotosPickerItem?
     @State private var showDelete = false
+    /// Schrift der ganzen App (nicht nur dieser Tafel).
+    @AppStorage(AppFont.speicherSchluessel) private var schriftWahl: AppFont = .lexend
 
     var body: some View {
         NavigationStack {
@@ -53,6 +55,19 @@ struct BoardSettingsSheet: View {
                     Text("Große Farbwolken ziehen sehr langsam über den Grund — ruhig genug "
                          + "für den Unterricht. Bei eingeschalteter Bewegungsreduzierung "
                          + "stehen sie still.")
+                }
+
+                Section {
+                    ForEach(AppFont.allCases) { schrift in
+                        schriftZeile(schrift)
+                    }
+                } header: {
+                    Text("Schrift")
+                } footer: {
+                    Text("Die Vorgabe Lexend hat ein rundes a mit Strich — so, wie Kinder es in "
+                         + "der Grundschule schreiben lernen. Die Systemschrift des Geräts zeigt "
+                         + "dagegen das gedruckte a mit Bogen. Die Einstellung gilt für die ganze "
+                         + "App, nicht nur für diese Tafel.")
                 }
 
                 Section {
@@ -226,6 +241,52 @@ struct BoardSettingsSheet: View {
                 Text("Die Tafel verschwindet auf allen Geräten, die sie sehen.")
             }
         }
+    }
+
+    /// Eine Schrift zur Auswahl — der Name steht in der Schrift selbst,
+    /// dazu „Aa" als Probe, damit das runde a sofort zu sehen ist.
+    private func schriftZeile(_ schrift: AppFont) -> some View {
+        let gewaehlt = schriftWahl == schrift
+        return Button {
+            schriftWahl = schrift
+            Haptics.tap()
+        } label: {
+            HStack(spacing: 14) {
+                Text("Aa")
+                    .font(probe(schrift, size: 26, weight: .bold))
+                    .frame(width: 52, alignment: .leading)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(schrift.title)
+                        .font(probe(schrift, size: 17, weight: .semibold))
+                        .foregroundStyle(.primary)
+                    Text(schrift.hint)
+                        .font(.system(size: 13))
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    if !schrift.vorhanden {
+                        Text("Schriftdatei fehlt — es gilt die Systemschrift.")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(Theme.amber)
+                    }
+                }
+                Spacer(minLength: 0)
+                if gewaehlt {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundStyle(Theme.accent)
+                }
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    /// Probe-Schrift für die Auswahl — unabhängig davon, was gerade gilt.
+    private func probe(_ schrift: AppFont, size: Double, weight: Font.Weight) -> Font {
+        guard let name = schrift.postScriptName(for: weight) else {
+            return .system(size: size, weight: weight)
+        }
+        return .custom(name, size: size)
     }
 
     /// Farbschema als Karte: großer Farbkreis, Name darunter.
