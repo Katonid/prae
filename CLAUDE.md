@@ -134,8 +134,10 @@ noch Commits auf denselben PR gepusht wurden — die hingen dann fest
   iCloud-Kennung** (`ownerUserID` / `memberUserIDs`, aus
   `CKContainer.fetchUserRecordID`) — nicht am Anzeigenamen; nur so
   erscheinen eigene Tafeln auf allen Geräten derselben Apple-ID.
-- Indizes in der CloudKit-Konsole sind **optional**: Fehlt der Index auf
-  `updatedAtMs`, fällt die Abfrage automatisch auf „alles holen" zurück.
+- In der CloudKit-Konsole genügt **ein** Index: `Entity` → Feld
+  `updatedAtMs` → QUERYABLE (die App sortiert selbst, SORTABLE entfällt).
+  Fehlt er, fällt die Abfrage automatisch auf „alles holen" zurück, was
+  einen Index auf `recordName` braucht.
   Pflicht ist dagegen die Sicherheitsrolle: `Entity` → `_icloud` braucht
   Read **und** Write, sonst dürfen Kolleginnen geteilte Tafeln nicht
   ändern.

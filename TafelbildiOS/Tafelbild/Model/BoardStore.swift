@@ -122,6 +122,14 @@ final class BoardStore: ObservableObject {
     }
 
     /// Nach dem ersten Abgleich entscheiden, ob es eine Beispieltafel braucht.
+    /// Nach jedem Abgleich: fehlende Bilder, Töne und Namenslisten nachholen.
+    private func fetchMissingContent() {
+        Task {
+            await ensureMediaForVisibleBoards()
+            await fetchMissingNameLists()
+        }
+    }
+
     private func finishFirstSync() {
         guard starterPending else { return }
         starterPending = false
@@ -143,7 +151,10 @@ final class BoardStore: ObservableObject {
             MainActor.assumeIsolated { self?.applyRemote(changes) }
         }
         engine.onSyncFinished = { [weak self] in
-            MainActor.assumeIsolated { self?.finishFirstSync() }
+            MainActor.assumeIsolated {
+                self?.finishFirstSync()
+                self?.fetchMissingContent()
+            }
         }
         engine.onUserIDChange = { [weak self] userID in
             MainActor.assumeIsolated { self?.adoptUserID(userID) }
@@ -618,6 +629,58 @@ final class BoardStore: ObservableObject {
             let ok = await engine.fetchMedia(fileName: name, to: MediaStore.url(name))
             mediaFetches.remove(name)
             if ok { objectWillChange.send() }
+        }
+    }
+
+    /// Lädt Namenslisten nach, auf die sichtbare Tafeln verweisen, die aber
+    /// lokal fehlen. Das passiert gezielt über die Kennung — dadurch kommt
+    /// eine Liste auch dann an, wenn sie beim Delta-Abgleich durchs Raster
+    /// gefallen ist (etwa weil sie später hochgeladen wurde, als ihr
+    /// Zeitstempel sagt).
+    func fetchMissingNameLists() async {
+        guard syncEnabled else { return }
+        var gesucht = Set<String>()
+        for board in visibleBoards {
+            for widget in board.widgets {
+                if case .namePicker(let content) = widget.content,
+                   let listID = content.listID,
+                   nameList(listID) == nil {
+                    gesucht.insert(listID)
+                }
+            }
+        }
+        guard !gesucht.isEmpty else { return }
+        let geholt = await engine.fetchEntities(kind: .nameList, ids: Array(gesucht))
+        guard !geholt.isEmpty else { return }
+        applyRemote(geholt)
+    }
+
+    /// Stellt den gesamten eigenen Bestand erneut zum Hochladen ein —
+    /// Reparaturbefehl, falls ein Datensatz nie in der Cloud angekommen ist.
+    func reuploadEverything() {
+        for board in boards where !board.deleted {
+            engine.enqueue(kind: .board, entityId: board.id)
+        }
+        for list in nameLists where !list.deleted {
+            engine.enqueue(kind: .nameList, entityId: list.id)
+        }
+        var medien = Set<String>()
+        for board in boards where !board.deleted { medien.formUnion(board.referencedMedia) }
+        for name in medien where hasMedia(name) {
+            engine.enqueue(kind: .media, entityId: name)
+        }
+        showStatus("Alles wird neu hochgeladen ...")
+        engine.syncNow()
+    }
+
+    /// Holt den kompletten Bestand erneut aus der Cloud.
+    func reloadEverything() {
+        engine.requestFullPull()
+        showStatus("Alles wird neu geladen ...")
+        engine.syncNow()
+        Task {
+            await ensureMediaForVisibleBoards()
+            await fetchMissingNameLists()
         }
     }
 

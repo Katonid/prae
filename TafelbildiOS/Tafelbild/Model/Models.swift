@@ -33,6 +33,23 @@ extension String {
     var nonEmpty: String? { trimmed.isEmpty ? nil : trimmed }
 }
 
+
+// MARK: - Nachsichtiges Einlesen
+
+/// Fehlt ein Feld im JSON (weil es aus einer älteren App-Fassung stammt),
+/// soll der Standardwert einspringen — statt dass der ganze Datensatz
+/// unlesbar wird und stumm verschwindet. Swift macht das von sich aus
+/// nicht, deshalb dieser kleine Helfer und die Codable-Erweiterungen unten.
+extension KeyedDecodingContainer {
+    func wert<T: Decodable>(_ key: Key, _ standard: T) -> T {
+        ((try? decodeIfPresent(T.self, forKey: key)) ?? nil) ?? standard
+    }
+
+    func optional<T: Decodable>(_ key: Key, _ typ: T.Type) -> T? {
+        (try? decodeIfPresent(T.self, forKey: key)) ?? nil
+    }
+}
+
 // MARK: - Entitäten für die Synchronisation
 
 enum EntityKind: String, Codable, CaseIterable {
@@ -615,5 +632,241 @@ enum StarterContent {
             entries: NameList.parse("Ada, Ben, Charlotte, David, Emma, Finn, Greta, Hannes, Ida, Jonas"),
             owner: owner
         )
+    }
+}
+
+
+// MARK: - Nachsichtige Decoder der synchronisierten Typen
+
+extension Board {
+    enum BoardKeys: String, CodingKey {
+        case id, name, emoji, background, widgets, members, ownerUserID
+        case memberUserIDs, joinCode, owner, createdAtMs, updatedAtMs, deleted
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: BoardKeys.self)
+        self.init()
+        id = c.wert(.id, UUID().uuidString)
+        name = c.wert(.name, "Tafel")
+        emoji = c.wert(.emoji, "🌟")
+        background = c.wert(.background, BoardBackground.gradient("#1e1b4b", "#0b1020"))
+        widgets = c.wert(.widgets, [BoardWidget]())
+        members = c.wert(.members, [String]())
+        ownerUserID = c.wert(.ownerUserID, "")
+        memberUserIDs = c.wert(.memberUserIDs, [String]())
+        joinCode = c.wert(.joinCode, Board.makeJoinCode())
+        owner = c.wert(.owner, "")
+        createdAtMs = c.wert(.createdAtMs, Date.nowMs)
+        updatedAtMs = c.wert(.updatedAtMs, Date.nowMs)
+        deleted = c.wert(.deleted, false)
+    }
+}
+
+extension NameList {
+    enum ListKeys: String, CodingKey {
+        case id, name, entries, owner, updatedAtMs, deleted
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: ListKeys.self)
+        self.init()
+        id = c.wert(.id, UUID().uuidString)
+        name = c.wert(.name, "Liste")
+        entries = c.wert(.entries, [NameEntry]())
+        owner = c.wert(.owner, "")
+        updatedAtMs = c.wert(.updatedAtMs, Date.nowMs)
+        deleted = c.wert(.deleted, false)
+    }
+}
+
+extension NameEntry {
+    enum EntryKeys: String, CodingKey { case id, text, paused }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: EntryKeys.self)
+        self.init()
+        id = c.wert(.id, UUID().uuidString)
+        text = c.wert(.text, "")
+        paused = c.wert(.paused, false)
+    }
+}
+
+extension BoardWidget {
+    enum WidgetKeys: String, CodingKey { case id, x, y, width, height, z, content }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: WidgetKeys.self)
+        // Ohne Inhalt ist ein Element sinnlos — das darf scheitern.
+        let inhalt = try c.decode(WidgetContent.self, forKey: .content)
+        self.init(content: inhalt)
+        id = c.wert(.id, UUID().uuidString)
+        x = c.wert(.x, 100)
+        y = c.wert(.y, 100)
+        width = c.wert(.width, 400)
+        height = c.wert(.height, 300)
+        z = c.wert(.z, 0)
+    }
+}
+
+// MARK: - Nachsichtige Decoder der Element-Inhalte
+
+extension TextContent {
+    enum TextKeys: String, CodingKey { case text, fontSize, colorHex, backgroundHex, backgroundOpacity, bold, alignment, rounded }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: TextKeys.self)
+        self.init()
+        text = c.wert(.text, "Text")
+        fontSize = c.wert(.fontSize, 64)
+        colorHex = c.wert(.colorHex, "#ffffff")
+        backgroundHex = c.wert(.backgroundHex, "#000000")
+        backgroundOpacity = c.wert(.backgroundOpacity, 0)
+        bold = c.wert(.bold, true)
+        alignment = c.wert(.alignment, TextContent.TextAlign.center)
+        rounded = c.wert(.rounded, true)
+    }
+}
+
+extension ImageContent {
+    enum ImageKeys: String, CodingKey { case fileName, fill, cornerRadius, caption }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: ImageKeys.self)
+        self.init()
+        fileName = c.optional(.fileName, String.self)
+        fill = c.wert(.fill, true)
+        cornerRadius = c.wert(.cornerRadius, 28)
+        caption = c.wert(.caption, "")
+    }
+}
+
+extension ClockContent {
+    enum ClockKeys: String, CodingKey { case style, showSeconds, showDate, twentyFourHour, faceHex, accentHex }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: ClockKeys.self)
+        self.init()
+        style = c.wert(.style, ClockContent.ClockStyle.analog)
+        showSeconds = c.wert(.showSeconds, true)
+        showDate = c.wert(.showDate, false)
+        twentyFourHour = c.wert(.twentyFourHour, true)
+        faceHex = c.wert(.faceHex, "#ffffff")
+        accentHex = c.wert(.accentHex, "#7c5cff")
+    }
+}
+
+extension TimerContent {
+    enum TimerKeys: String, CodingKey { case mode, duration, endsAtMs, startedAtMs, pausedValue, soundOnEnd, accentHex, showControls }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: TimerKeys.self)
+        self.init()
+        mode = c.wert(.mode, TimerContent.TimerMode.countdown)
+        duration = c.wert(.duration, 300)
+        endsAtMs = c.optional(.endsAtMs, Int64.self)
+        startedAtMs = c.optional(.startedAtMs, Int64.self)
+        pausedValue = c.optional(.pausedValue, Double.self)
+        soundOnEnd = c.wert(.soundOnEnd, true)
+        accentHex = c.wert(.accentHex, "#2dd4bf")
+        showControls = c.wert(.showControls, true)
+    }
+}
+
+extension TrafficLightContent {
+    enum LightKeys: String, CodingKey { case state, horizontal, showLabels, redLabel, yellowLabel, greenLabel }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: LightKeys.self)
+        self.init()
+        state = c.wert(.state, TrafficLightContent.LightState.green)
+        horizontal = c.wert(.horizontal, false)
+        showLabels = c.wert(.showLabels, true)
+        redLabel = c.wert(.redLabel, "Stopp")
+        yellowLabel = c.wert(.yellowLabel, "Flüstern")
+        greenLabel = c.wert(.greenLabel, "Gespräch")
+    }
+}
+
+extension NoiseContent {
+    enum NoiseKeys: String, CodingKey { case threshold, gain, style, alert, title }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: NoiseKeys.self)
+        self.init()
+        threshold = c.wert(.threshold, 0.6)
+        gain = c.wert(.gain, 1)
+        style = c.wert(.style, NoiseContent.NoiseStyle.gauge)
+        alert = c.wert(.alert, true)
+        title = c.wert(.title, "Lautstärke")
+    }
+}
+
+extension ChecklistItem {
+    enum ItemKeys: String, CodingKey { case id, text, done, emoji }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: ItemKeys.self)
+        self.init()
+        id = c.wert(.id, UUID().uuidString)
+        text = c.wert(.text, "")
+        done = c.wert(.done, false)
+        emoji = c.wert(.emoji, "")
+    }
+}
+
+extension ChecklistContent {
+    enum ChecklistKeys: String, CodingKey { case title, items, showProgress, resetDaily, lastResetDay }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: ChecklistKeys.self)
+        self.init()
+        title = c.wert(.title, "Unser Tag")
+        items = c.wert(.items, [ChecklistItem]())
+        showProgress = c.wert(.showProgress, true)
+        resetDaily = c.wert(.resetDaily, false)
+        lastResetDay = c.wert(.lastResetDay, "")
+    }
+}
+
+extension NamePickerContent {
+    enum PickerKeys: String, CodingKey { case listID, mode, drawnIDs, currentID, showHistory, animate }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: PickerKeys.self)
+        self.init()
+        listID = c.optional(.listID, String.self)
+        mode = c.wert(.mode, NamePickerContent.DrawMode.withoutRepeat)
+        drawnIDs = c.wert(.drawnIDs, [String]())
+        currentID = c.optional(.currentID, String.self)
+        showHistory = c.wert(.showHistory, true)
+        animate = c.wert(.animate, true)
+    }
+}
+
+extension SoundButton {
+    enum ButtonKeys: String, CodingKey { case id, label, emoji, colorHex, fileName, volume, toggle }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: ButtonKeys.self)
+        self.init()
+        id = c.wert(.id, UUID().uuidString)
+        label = c.wert(.label, "")
+        emoji = c.wert(.emoji, "🔔")
+        colorHex = c.wert(.colorHex, "#7c5cff")
+        fileName = c.optional(.fileName, String.self)
+        volume = c.wert(.volume, 1)
+        toggle = c.wert(.toggle, false)
+    }
+}
+
+extension SoundsContent {
+    enum SoundsKeys: String, CodingKey { case buttons, showLabels }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: SoundsKeys.self)
+        self.init()
+        buttons = c.wert(.buttons, [SoundButton]())
+        showLabels = c.wert(.showLabels, true)
     }
 }

@@ -9,6 +9,8 @@ struct SyncDiagnoseView: View {
     @State private var running = false
     @State private var done = false
     @State private var working = false
+    @State private var counting = false
+    @State private var bestand: [EntityKind: Int]?
     @State private var schemaHinweis: String?
 
     /// Felder des Record-Typs „Entity“ — genau so heißen sie in der App.
@@ -69,6 +71,45 @@ struct SyncDiagnoseView: View {
             }
 
             Section {
+                Button {
+                    zaehlen()
+                } label: {
+                    HStack {
+                        Label("Nachsehen, was in iCloud liegt", systemImage: "icloud.and.arrow.down")
+                        if counting {
+                            Spacer()
+                            ProgressView()
+                        }
+                    }
+                }
+                .disabled(counting || !store.syncEnabled)
+
+                if let bestand {
+                    row("Tafeln in iCloud", "\(bestand[.board] ?? 0)")
+                    row("Namenslisten in iCloud", "\(bestand[.nameList] ?? 0)")
+                    row("Dateien in iCloud", "\(bestand[.media] ?? 0)")
+                }
+
+                Button {
+                    store.reuploadEverything()
+                } label: {
+                    Label("Alles neu hochladen", systemImage: "arrow.up.circle")
+                }
+                .disabled(!store.syncEnabled)
+
+                Button {
+                    store.reloadEverything()
+                } label: {
+                    Label("Alles neu laden", systemImage: "arrow.down.circle")
+                }
+                .disabled(!store.syncEnabled)
+            } header: {
+                Text("Bestand")
+            } footer: {
+                Text("Fehlt auf dem einen Gerät etwas, das auf dem anderen da ist: Dort „Alles neu hochladen“ antippen, hier „Alles neu laden“.")
+            }
+
+            Section {
                 DisclosureGroup("Record-Typ „Entity“ von Hand anlegen") {
                     VStack(alignment: .leading, spacing: 10) {
                         Text("Steht in der CloudKit-Konsole unter „Add Index“ nur „Users“ zur Auswahl, fehlt der Record-Typ. Er lässt sich im Browser anlegen — auch vom iPad aus:")
@@ -82,7 +123,9 @@ struct SyncDiagnoseView: View {
                                 Text(feld.1).font(.footnote).foregroundStyle(.secondary)
                             }
                         }
-                        Text("Danach: Indexes → + → Entity / recordName / Queryable; dasselbe für updatedAtMs als Queryable und als Sortable. Dann Security Roles → Entity → Rolle _icloud: Read und Write. Zum Schluss „Deploy Schema Changes to Production“.")
+                        Text("Danach: Indexes → + → Record Type „Entity“, Field „updatedAtMs“, Type QUERYABLE. Das ist der einzige Pflicht-Index; „Name“ ist nur eine Bezeichnung, „Field“ die eigentliche Auswahl.")
+                            .font(.footnote)
+                        Text("Dann Security Roles → Entity → Rolle _icloud: Read und Write ankreuzen. Zum Schluss „Deploy Schema Changes to Production“ — sonst gilt alles nur für Installationen aus Xcode.")
                             .font(.footnote)
                     }
                     .padding(.vertical, 4)
@@ -145,6 +188,15 @@ struct SyncDiagnoseView: View {
             Text(value)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.trailing)
+        }
+    }
+
+    private func zaehlen() {
+        counting = true
+        bestand = nil
+        Task { @MainActor in
+            bestand = await store.engine.countCloudEntities()
+            counting = false
         }
     }
 
