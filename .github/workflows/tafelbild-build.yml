@@ -1,0 +1,66 @@
+# Übersetzt die Tafelbild-App auf einem macOS-Läufer, sobald etwas an
+# TafelbildiOS/ gepusht wird. Damit fallen Compiler-Fehler auf, bevor das
+# Projekt auf dem Mac geöffnet wird.
+name: Tafelbild bauen
+
+on:
+  push:
+    paths:
+      - 'TafelbildiOS/**'
+      - '.github/workflows/tafelbild-build.yml'
+  pull_request:
+    paths:
+      - 'TafelbildiOS/**'
+      - '.github/workflows/tafelbild-build.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: tafelbild-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Übersetzen (iOS-Simulator)
+    runs-on: macos-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Quelltext holen
+        uses: actions/checkout@v4
+        with:
+          # Vollständige Historie: Die Bauphase „Build-Nummer setzen"
+          # zählt daraus die Commits.
+          fetch-depth: 0
+
+      - name: Werkzeuge zeigen
+        run: |
+          xcodebuild -version
+          sw_vers
+
+      - name: Tafelbild übersetzen
+        run: |
+          set -o pipefail
+          xcodebuild build \
+            -project TafelbildiOS/Tafelbild.xcodeproj \
+            -target Tafelbild \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            ONLY_ACTIVE_ARCH=NO \
+            2>&1 | tee /tmp/tafelbild-build.log
+
+      - name: Fehler und Warnungen zusammenfassen
+        if: always()
+        run: |
+          echo "===== Fehler ====="
+          grep -E "error:" /tmp/tafelbild-build.log | sort -u | head -60 || echo "keine"
+          echo "===== Warnungen ====="
+          grep -E "warning:" /tmp/tafelbild-build.log | sort -u | head -40 || echo "keine"
+
+      - name: Vollständiges Protokoll sichern
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tafelbild-build-log
+          path: /tmp/tafelbild-build.log
