@@ -94,9 +94,10 @@ entfernen.
 
 ## Namen aufdecken
 
-Damit die Klasse raten kann, erscheint der gezogene Name nicht sofort. Jeder Tipp auf
-die Karte deckt einen Schritt auf; das Augensymbol zeigt sofort alles. Vier Arten
-stehen zur Wahl:
+Damit die Klasse raten kann, erscheint der gezogene Name nicht sofort. Die Karte kommt
+**ohne Knöpfe** aus: Der erste Tipp aktiviert sie, jeder weitere deckt einen Schritt auf.
+Beim Bearbeiten zeigt das Augensymbol in der kleinen Leiste über dem Element sofort
+alles. Vier Arten stehen zur Wahl:
 
 | Art | Wirkung |
 | --- | --- |
@@ -115,8 +116,8 @@ aufgedeckt ist.
 * **Element hinzufügen:** unten in der Leiste antippen (nur beim Bearbeiten).
 * **Bedienen:** Ein Tipp auf die Karte löst die Hauptfunktion aus — die Ampel schaltet
   weiter, das Arbeitssymbol wechselt, die Lautstärkemessung startet. Beim **Zufälligen
-  Namen** aktiviert der erste Tipp die Karte (sie bekommt einen Rahmen), erst der zweite
-  zieht — so passiert nichts aus Versehen. Die **Uhr** reagiert nicht auf Tippen; analog
+  Namen** aktiviert der erste Tipp die Karte (ein Ring pulst um den Namen), erst der
+  zweite zieht — so passiert nichts aus Versehen. Knöpfe unter dem Namen gibt es nicht. Die **Uhr** reagiert nicht auf Tippen; analog
   oder digital wird im Zahnrad gewählt.
 * **Verschieben:** Element anfassen und ziehen. (Beim Ziehen wird nichts ausgelöst.)
 * **Größe ändern:** Anfasser ziehen, **−**/**+** in der kleinen Leiste, oder zwei Finger.
