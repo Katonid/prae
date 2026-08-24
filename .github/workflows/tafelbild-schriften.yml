@@ -5,13 +5,20 @@
 # gerade kein Git zur Verfügung steht), kann nur Textdateien übertragen.
 # Dieser Läufer holt die Dateien selbst und legt sie ab.
 #
-# Von Hand zu starten (Actions → „Tafelbild-Schriften holen" → Run workflow).
+# Der Ablauf startet, sobald diese Datei selbst gepusht wird — „von Hand
+# starten" geht erst, wenn sie auf `main` liegt (so will es GitHub). Der
+# Commit des Läufers rührt nur den Ordner Schriften/ an und löst deshalb
+# keinen zweiten Lauf aus.
+#
 # Danach liegen die Dateien im Repo und der Ablauf wird nicht mehr gebraucht;
 # er bleibt für den Fall, dass eine Schrift dazukommt.
 name: Tafelbild-Schriften holen
 
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/tafelbild-schriften.yml'
 
 permissions:
   contents: write
