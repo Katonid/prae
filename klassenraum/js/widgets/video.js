@@ -2,7 +2,7 @@
 
 import { h, clear, onTap } from '../util.js';
 import { icon } from '../icons.js';
-import { mediaUrl, pickMedia, removeMedia, formatSize, VIDEO_ACCEPT } from '../media.js';
+import { mediaUrl, pickMedia, removeMedia, formatSize, looksLike } from '../media.js';
 import { section, field, toggleRow, button, buttonRow, toast } from '../ui.js';
 
 export default {
@@ -63,12 +63,15 @@ export default {
       if (state.label) el.appendChild(h('div', { class: 'w-video__label' }, state.label));
     }
 
-    async function choose(accept = VIDEO_ACCEPT) {
-      const result = await pickMedia(accept);
+    async function choose() {
+      const result = await pickMedia();
       if (!result) return;
       if (result.error === 'ZU_GROSS') {
         toast('Das Video ist zu groß (mehr als 60 MB). Besser einen Link verwenden.', 'warn');
         return;
+      }
+      if (!looksLike('video', result.file)) {
+        toast('Das sieht nicht nach einer Videodatei aus — falls nichts läuft, bitte MP4 oder MOV wählen.', 'warn');
       }
       const state = ctx.widget.state;
       if (state.mediaId) await removeMedia(state.mediaId);
@@ -127,14 +130,6 @@ export default {
               if (instance && instance.choose) instance.choose();
             },
           }),
-          button('Alle Dateien', {
-            icon: 'layers', small: true, ghost: true,
-            title: 'Ohne Filter — falls die Dateien-App Videos ausgraut',
-            onClick: () => {
-              const instance = ctx.instance();
-              if (instance && instance.choose) instance.choose('');
-            },
-          }),
           button('Link', {
             icon: 'share', small: true,
             onClick: () => {
@@ -185,7 +180,8 @@ export default {
         }))));
 
       wrap.appendChild(h('p', { class: 'muted small' },
-        'Es gehen MP4, MOV, M4V und WebM. Blendet die Dateien-App etwas aus, hilft „Alle Dateien“ — dann erscheint die Auswahl ohne Filter. '
+        'Es gehen MP4, MOV, M4V und WebM. Die Auswahl zeigt bewusst alle Dateien an, weil iPadOS sonst Dateien ausgraut, '
+        + 'deren Art das Netzlaufwerk oder iCloud nicht mitliefert. '
         + 'Videos vom Gerät bleiben auf diesem Gerät und werden beim Teilen über einen Code nicht mitgeschickt. '
         + 'Ein Link funktioniert überall. Für Vollbild das Symbol in der kleinen Leiste über dem Element nutzen.'));
     }

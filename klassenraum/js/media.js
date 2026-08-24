@@ -98,15 +98,28 @@ export async function mediaUsage() {
   }
 }
 
-export const AUDIO_ACCEPT = 'audio/*,.mp3,.m4a,.aac,.wav,.aif,.aiff,.caf,.ogg,.oga,.opus,.flac,.mp4,.m4r';
-export const VIDEO_ACCEPT = 'video/*,.mp4,.mov,.m4v,.webm,.mkv,.avi';
+const AUDIO_ENDINGS = ['mp3', 'm4a', 'aac', 'wav', 'aif', 'aiff', 'caf', 'ogg', 'oga', 'opus', 'flac', 'weba'];
+const VIDEO_ENDINGS = ['mp4', 'mov', 'm4v', 'webm', 'mkv', 'avi', 'mpg', 'mpeg'];
 
-/** Dateiauswahl öffnen und im Gerät ablegen. Ohne accept zeigt iPadOS alle Dateien. */
-export function pickMedia(accept) {
+/** Passt die Datei zur erwarteten Art? Wird nur für einen Hinweis genutzt. */
+export function looksLike(kind, file) {
+  const name = String(file && file.name ? file.name : '').toLowerCase();
+  const type = String(file && file.type ? file.type : '').toLowerCase();
+  const endings = kind === 'video' ? VIDEO_ENDINGS : AUDIO_ENDINGS;
+  if (type.startsWith(kind === 'video' ? 'video/' : 'audio/')) return true;
+  return endings.some((ending) => name.endsWith(`.${ending}`));
+}
+
+/**
+ * Dateiauswahl öffnen und die Datei im Gerät ablegen.
+ * Bewusst ohne accept-Filter: iPadOS graut sonst Dateien aus, deren Art der
+ * Anbieter (iCloud Drive, Netzlaufwerk) nicht mitliefert — genau das ist bei
+ * MP3-Dateien passiert. Geprüft wird stattdessen nach der Auswahl.
+ */
+export function pickMedia() {
   return new Promise((resolve) => {
     const input = document.createElement('input');
     input.type = 'file';
-    if (accept) input.accept = accept;
     input.style.display = 'none';
     document.body.appendChild(input);
     input.addEventListener('change', async () => {
@@ -117,7 +130,8 @@ export function pickMedia(accept) {
         return;
       }
       try {
-        resolve(await saveMediaFile(file));
+        const saved = await saveMediaFile(file);
+        resolve(Object.assign(saved, { file }));
       } catch (error) {
         resolve({ error: error.message });
       }
