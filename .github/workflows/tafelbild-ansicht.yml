@@ -1,0 +1,81 @@
+# Baut die Tafelbild-App, startet sie in einem iPad-Simulator und legt
+# Bildschirmfotos als Anhang ab. Damit lässt sich das Aussehen der App
+# prüfen, ohne einen Mac zur Hand zu haben.
+name: Tafelbild ansehen
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'TafelbildiOS/Tafelbild/Views/**'
+      - '.github/workflows/tafelbild-ansicht.yml'
+
+concurrency:
+  group: tafelbild-ansicht-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ansicht:
+    name: Bildschirmfotos (iPad-Simulator)
+    runs-on: macos-latest
+    timeout-minutes: 40
+
+    steps:
+      - name: Quelltext holen
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Simulator wählen
+        id: sim
+        run: |
+          # Ein iPad aus den verfügbaren Geräten nehmen — welches genau,
+          # entscheidet der Läufer je nach installiertem Xcode.
+          UDID=$(xcrun simctl list devices available -j \
+            | python3 -c "import sys,json;d=json.load(sys.stdin)['devices'];print(next((x['udid'] for rt in d for x in d[rt] if 'iPad' in x['name']), ''))")
+          if [ -z "$UDID" ]; then
+            echo "Kein iPad-Simulator gefunden"; xcrun simctl list devices available; exit 1
+          fi
+          echo "udid=$UDID" >> "$GITHUB_OUTPUT"
+          xcrun simctl list devices available | grep "$UDID"
+
+      - name: App bauen
+        working-directory: TafelbildiOS
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -project Tafelbild.xcodeproj \
+            -scheme Tafelbild \
+            -configuration Debug \
+            -destination "id=${{ steps.sim.outputs.udid }}" \
+            -derivedDataPath build-sim \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO \
+            build | tail -30
+
+      - name: App starten
+        run: |
+          UDID="${{ steps.sim.outputs.udid }}"
+          xcrun simctl boot "$UDID" || true
+          xcrun simctl bootstatus "$UDID" -b
+          xcrun simctl install "$UDID" \
+            TafelbildiOS/build-sim/Build/Products/Debug-iphonesimulator/Tafelbild.app
+          xcrun simctl launch "$UDID" de.familie.tafelbild
+          # Der Beispielinhalt entsteht erst, nachdem der Abgleich
+          # aufgegeben hat — dafür etwas Zeit lassen.
+          sleep 25
+
+      - name: Bildschirmfotos aufnehmen
+        run: |
+          UDID="${{ steps.sim.outputs.udid }}"
+          mkdir -p ansicht
+          xcrun simctl io "$UDID" screenshot ansicht/01-tafel.png
+          sleep 6
+          xcrun simctl io "$UDID" screenshot ansicht/02-tafel.png
+          ls -la ansicht
+
+      - name: Bilder ablegen
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tafelbild-ansicht
+          path: ansicht/
