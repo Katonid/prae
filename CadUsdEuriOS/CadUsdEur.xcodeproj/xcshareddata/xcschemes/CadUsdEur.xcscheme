@@ -14,10 +14,10 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "A54F4FF20A267A5F9187DB12"
-               BuildableName = "PhotoSpotRadar.app"
-               BlueprintName = "PhotoSpotRadar"
-               ReferencedContainer = "container:PhotoSpotRadar.xcodeproj">
+               BlueprintIdentifier = "5CAD000000000000000000A6"
+               BuildableName = "CadUsdEur.app"
+               BlueprintName = "CadUsdEur"
+               ReferencedContainer = "container:CadUsdEur.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -44,10 +44,10 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "A54F4FF20A267A5F9187DB12"
-            BuildableName = "PhotoSpotRadar.app"
-            BlueprintName = "PhotoSpotRadar"
-            ReferencedContainer = "container:PhotoSpotRadar.xcodeproj">
+            BlueprintIdentifier = "5CAD000000000000000000A6"
+            BuildableName = "CadUsdEur.app"
+            BlueprintName = "CadUsdEur"
+            ReferencedContainer = "container:CadUsdEur.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </LaunchAction>
@@ -61,10 +61,10 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "A54F4FF20A267A5F9187DB12"
-            BuildableName = "PhotoSpotRadar.app"
-            BlueprintName = "PhotoSpotRadar"
-            ReferencedContainer = "container:PhotoSpotRadar.xcodeproj">
+            BlueprintIdentifier = "5CAD000000000000000000A6"
+            BuildableName = "CadUsdEur.app"
+            BlueprintName = "CadUsdEur"
+            ReferencedContainer = "container:CadUsdEur.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </ProfileAction>
