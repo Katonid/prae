@@ -150,16 +150,20 @@ Voraussetzungen: Mac mit Xcode 16+, Apple-Developer-Programm.
       selbst. Beides führt zum selben Ergebnis; von Hand geht auch vom iPad
       aus im Browser.
 
-   b) **Indexes → +** (Pflicht, sonst findet die App nichts):
-      | Record Type | Feld | Index-Art |
-      |---|---|---|
-      | `Entity` | `recordName` | **Queryable** |
-      | `Entity` | `updatedAtMs` | **Queryable** |
-      | `Entity` | `updatedAtMs` | **Sortable** |
+   b) **Indexes → +** — der Dialog hat vier Zeilen: *Record Type*, *Name*
+      (frei wählbare Bezeichnung), *Type* und *Field*. **„Field" ist die
+      Auswahl, auf die es ankommt** — ohne sie meldet der Dialog „This
+      field is required".
 
-      `recordName` ist die eigentliche Stolperstelle: Ohne diesen Index
-      lehnt CloudKit *jede* Abfrage ab, das Hochladen funktioniert aber —
-      es sieht dann so aus, als käme auf dem zweiten Gerät nichts an.
+      | Record Type | Field | Type | |
+      |---|---|---|---|
+      | `Entity` | `updatedAtMs` | **QUERYABLE** | Pflicht |
+      | `Entity` | `recordName` | QUERYABLE | optional, als Reserve |
+
+      Mehr braucht es nicht: Die App sortiert selbst, ein **SORTABLE**-Index
+      ist nicht nötig. Ohne den Index auf `updatedAtMs` lehnt CloudKit jede
+      Abfrage ab — das Hochladen funktioniert aber weiter, es sieht dann so
+      aus, als käme auf dem zweiten Gerät nichts an.
 
    c) **Security Roles → Zeile `Entity`** → für die Rolle `_icloud`
       **Read und Write** ankreuzen (Pflicht fürs Teilen: sonst darf nur

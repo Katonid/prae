@@ -328,9 +328,11 @@ final class CloudSyncEngine {
         let since = max(0, lastSyncMs - 5_000)
         let query: CKQuery
         if useDelta {
+            // Bewusst ohne Sortierung: Die Reihenfolge spielt keine Rolle (jede
+            // Änderung trägt ihren Zeitstempel), und so genügt in der
+            // CloudKit-Konsole ein Index vom Typ QUERYABLE — SORTABLE entfällt.
             let predicate = NSPredicate(format: "updatedAtMs > %@", NSNumber(value: since))
             query = CKQuery(recordType: Self.recordType, predicate: predicate)
-            query.sortDescriptors = [NSSortDescriptor(key: "updatedAtMs", ascending: true)]
         } else {
             query = CKQuery(recordType: Self.recordType, predicate: NSPredicate(value: true))
         }
@@ -444,10 +446,18 @@ final class CloudSyncEngine {
             completion([])
             return
         }
-        let query = CKQuery(recordType: Self.recordType, predicate: NSPredicate(value: true))
         var collected: [RemoteEntity] = []
 
-        func run(_ operation: CKQueryOperation) {
+        func makeQuery(useDelta: Bool) -> CKQuery {
+            // Erst über updatedAtMs (derselbe Index wie beim Abgleich), sonst
+            // über alle Datensätze — dann genügt der Index auf recordName.
+            useDelta
+                ? CKQuery(recordType: Self.recordType,
+                          predicate: NSPredicate(format: "updatedAtMs > %@", NSNumber(value: 0)))
+                : CKQuery(recordType: Self.recordType, predicate: NSPredicate(value: true))
+        }
+
+        func run(_ operation: CKQueryOperation, useDelta: Bool) {
             operation.desiredKeys = ["kind", "entityId", "payload", "updatedAtMs", "author"]
             operation.recordMatchedBlock = { _, result in
                 guard case .success(let record) = result,
@@ -467,12 +477,16 @@ final class CloudSyncEngine {
                 switch result {
                 case .success(let cursor):
                     if let cursor {
-                        run(CKQueryOperation(cursor: cursor))
+                        run(CKQueryOperation(cursor: cursor), useDelta: useDelta)
                     } else {
                         let changes = collected
                         DispatchQueue.main.async { completion(changes) }
                     }
                 case .failure(let error):
+                    if useDelta, Self.isIndexProblem(error) {
+                        run(CKQueryOperation(query: makeQuery(useDelta: false)), useDelta: false)
+                        return
+                    }
                     self?.status = .error(Self.describe(error))
                     DispatchQueue.main.async { completion([]) }
                 }
@@ -481,7 +495,7 @@ final class CloudSyncEngine {
             self.database.add(operation)
         }
 
-        run(CKQueryOperation(query: query))
+        run(CKQueryOperation(query: makeQuery(useDelta: deltaQueryWorks)), useDelta: deltaQueryWorks)
     }
 
     // MARK: - Subscription für stille Push-Updates
@@ -578,7 +592,6 @@ final class CloudSyncEngine {
             let box = ResumeOnce()
             let query = CKQuery(recordType: Self.recordType,
                                 predicate: NSPredicate(format: "updatedAtMs > %@", NSNumber(value: 0)))
-            query.sortDescriptors = [NSSortDescriptor(key: "updatedAtMs", ascending: true)]
             var count = 0
             let operation = CKQueryOperation(query: query)
             operation.desiredKeys = ["kind", "entityId"]
@@ -686,7 +699,7 @@ final class CloudSyncEngine {
             return "Der Record-Typ „Entity“ fehlt in dieser Umgebung. In der CloudKit-Konsole „Deploy Schema Changes to Production“ ausführen."
         case .invalidArguments:
             return reading
-                ? "Es fehlt ein Index. In der CloudKit-Konsole beim Typ Entity das Feld updatedAtMs als Queryable und Sortable markieren."
+                ? "Es fehlt ein Index. In der CloudKit-Konsole: Schema → Indexes → + → Record Type Entity, Field updatedAtMs, Type QUERYABLE."
                 : "CloudKit hat den Datensatz abgelehnt — bitte Fehlertext melden."
         case .quotaExceeded:
             return "Der iCloud-Speicher des Containers ist voll."

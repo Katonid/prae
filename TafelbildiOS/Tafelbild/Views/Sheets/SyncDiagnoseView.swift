@@ -82,7 +82,9 @@ struct SyncDiagnoseView: View {
                                 Text(feld.1).font(.footnote).foregroundStyle(.secondary)
                             }
                         }
-                        Text("Danach: Indexes → + → Entity / recordName / Queryable; dasselbe für updatedAtMs als Queryable und als Sortable. Dann Security Roles → Entity → Rolle _icloud: Read und Write. Zum Schluss „Deploy Schema Changes to Production“.")
+                        Text("Danach: Indexes → + → Record Type „Entity“, Field „updatedAtMs“, Type QUERYABLE. Das ist der einzige Pflicht-Index; „Name“ ist nur eine Bezeichnung, „Field“ die eigentliche Auswahl.")
+                            .font(.footnote)
+                        Text("Dann Security Roles → Entity → Rolle _icloud: Read und Write ankreuzen. Zum Schluss „Deploy Schema Changes to Production“ — sonst gilt alles nur für Installationen aus Xcode.")
                             .font(.footnote)
                     }
                     .padding(.vertical, 4)
