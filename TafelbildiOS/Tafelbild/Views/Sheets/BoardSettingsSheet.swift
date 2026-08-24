@@ -81,7 +81,7 @@ struct BoardSettingsSheet: View {
                         }
                         .onAppear { dim = currentDim }
                         Button(role: .destructive) {
-                            apply(.gradient("#1e1b4b", "#0b1020"))
+                            apply(.gradient("#134e4a", "#07242a"))
                         } label: {
                             Label("Bild entfernen", systemImage: "trash")
                         }

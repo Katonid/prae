@@ -13,7 +13,7 @@ struct RootView: View {
 
     var body: some View {
         ZStack(alignment: .top) {
-            Color(hex: "#05070f").ignoresSafeArea()
+            Color(hex: "#04100f").ignoresSafeArea()
 
             if let board = store.activeBoard {
                 Group {
@@ -245,7 +245,7 @@ struct EmptyBoardView: View {
 
     var body: some View {
         ZStack {
-            LinearGradient(colors: [Color(hex: "#1e1b4b"), Color(hex: "#0b1020")],
+            LinearGradient(colors: [Color(hex: "#134e4a"), Color(hex: "#07242a")],
                            startPoint: .top, endPoint: .bottom)
                 .ignoresSafeArea()
             VStack(spacing: 18) {

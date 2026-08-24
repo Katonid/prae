@@ -637,7 +637,7 @@ private struct SoundsSettings: View {
         Section {
             Button {
                 content.buttons.append(SoundButton(label: "Neu", emoji: "🔔",
-                                                   colorHex: BackgroundPreset.solids.randomElement() ?? "#7c5cff"))
+                                                   colorHex: BackgroundPreset.solids.randomElement() ?? "#0f9b8e"))
             } label: {
                 Label("Feld hinzufügen", systemImage: "plus")
             }
