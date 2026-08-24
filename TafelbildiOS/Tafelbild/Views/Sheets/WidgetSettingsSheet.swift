@@ -438,10 +438,6 @@ private struct NoiseSettings: View {
     var body: some View {
         Section("Lautstärke") {
             TextField("Überschrift", text: $content.title)
-            Picker("Darstellung", selection: $content.style) {
-                ForEach(NoiseContent.NoiseStyle.allCases) { Text($0.title).tag($0) }
-            }
-            .pickerStyle(.segmented)
             VStack(alignment: .leading, spacing: 6) {
                 HStack {
                     Text("Schwelle „zu laut“")
