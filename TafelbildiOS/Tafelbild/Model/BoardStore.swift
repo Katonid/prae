@@ -454,16 +454,16 @@ final class BoardStore: ObservableObject {
         }
         activeBoardID = boards[index].id
         Task { await ensureMediaForVisibleBoards() }
-        showStatus("Tafel „\(boards[index].name)" hinzugefügt.")
+        showStatus("Tafel „\(boards[index].name)“ hinzugefügt.")
         return true
     }
 
     func shareText(for board: Board) -> String {
         """
-        Ich teile die Tafel „\(board.name)" aus der App Tafelbild mit dir.
+        Ich teile die Tafel „\(board.name)“ aus der App Tafelbild mit dir.
         Einladungscode: \(board.joinCode)
 
-        In der App: Tafel-Menü → „Tafel beitreten" → Code eingeben.
+        In der App: Tafel-Menü → „Tafel beitreten“ → Code eingeben.
         Oder diesen Link auf dem iPad öffnen: tafelbild://join/\(board.joinCode)
         """
     }

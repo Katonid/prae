@@ -381,7 +381,7 @@ private struct NoiseSettings: View {
             .pickerStyle(.segmented)
             VStack(alignment: .leading, spacing: 6) {
                 HStack {
-                    Text("Schwelle „zu laut\"")
+                    Text("Schwelle „zu laut“")
                     Spacer()
                     Text("\(Int(content.threshold * 100))")
                         .monospacedDigit()

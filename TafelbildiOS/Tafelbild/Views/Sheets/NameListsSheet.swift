@@ -32,7 +32,7 @@ struct NameListsSheet: View {
                         }
                     }
                 } footer: {
-                    Text("Tipp: Eine Liste kann in mehreren Tafeln benutzt werden — zum Beispiel dieselbe Klasse in „Deutsch\" und „Mathe\".")
+                    Text("Tipp: Eine Liste kann in mehreren Tafeln benutzt werden — zum Beispiel dieselbe Klasse in „Deutsch“ und „Mathe“.")
                 }
 
                 Section {
