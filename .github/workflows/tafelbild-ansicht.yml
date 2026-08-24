@@ -55,22 +55,40 @@ jobs:
       - name: App starten
         run: |
           UDID="${{ steps.sim.outputs.udid }}"
+          mkdir -p ansicht
           xcrun simctl boot "$UDID" || true
           xcrun simctl bootstatus "$UDID" -b
           xcrun simctl install "$UDID" \
             TafelbildiOS/build-sim/Build/Products/Debug-iphonesimulator/Tafelbild.app
-          xcrun simctl launch "$UDID" de.familie.tafelbild
-          # Der Beispielinhalt entsteht erst, nachdem der Abgleich
-          # aufgegeben hat — dafür etwas Zeit lassen.
-          sleep 25
+          # Protokoll der App mitschneiden, damit ein Fehlstart erklärbar ist.
+          xcrun simctl spawn "$UDID" log stream --level debug \
+            --predicate 'processImagePath CONTAINS "Tafelbild"' > ansicht/protokoll.txt 2>&1 &
+          sleep 3
+          xcrun simctl launch "$UDID" de.familie.tafelbild || true
+          sleep 20
 
       - name: Bildschirmfotos aufnehmen
+        if: always()
         run: |
           UDID="${{ steps.sim.outputs.udid }}"
           mkdir -p ansicht
-          xcrun simctl io "$UDID" screenshot ansicht/01-tafel.png
+          xcrun simctl io "$UDID" screenshot ansicht/01-tafel.png || true
           sleep 6
-          xcrun simctl io "$UDID" screenshot ansicht/02-tafel.png
+          xcrun simctl io "$UDID" screenshot ansicht/02-tafel.png || true
+
+      - name: Absturzberichte einsammeln
+        if: always()
+        run: |
+          mkdir -p ansicht
+          echo "--- läuft die App noch? ---" | tee ansicht/diagnose.txt
+          xcrun simctl spawn "${{ steps.sim.outputs.udid }}" launchctl list 2>/dev/null \
+            | grep -i tafelbild | tee -a ansicht/diagnose.txt || echo "nicht in der Liste" | tee -a ansicht/diagnose.txt
+          echo "--- Absturzberichte ---" | tee -a ansicht/diagnose.txt
+          ls -t ~/Library/Logs/DiagnosticReports 2>/dev/null | head -20 | tee -a ansicht/diagnose.txt || true
+          for f in ~/Library/Logs/DiagnosticReports/Tafelbild*; do
+            [ -e "$f" ] || continue
+            cp "$f" ansicht/ || true
+          done
           ls -la ansicht
 
       - name: Bilder ablegen
