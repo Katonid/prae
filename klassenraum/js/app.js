@@ -12,6 +12,8 @@ import {
   setStackMode, isStackMode, applyBackground, openWidgetSettings, setMode, getMode,
 } from './board.js';
 import { openListsPanel } from './lists.js';
+import { initDrawing, setDrawActive, isDrawActive, redraw as redrawDrawing } from './draw.js';
+import { collectUnusedMedia, mediaUsage, formatSize } from './media.js';
 import { APP_VERSION, APP_DATE } from './version.js';
 import { initSharing, openSharePanel, isFollowing } from './share.js';
 import {
@@ -34,6 +36,7 @@ const dom = {};
 
 function cacheDom() {
   dom.mode = document.getElementById('btn-mode');
+  dom.draw = document.getElementById('btn-draw');
   dom.stage = document.getElementById('stage');
   dom.canvas = document.getElementById('canvas');
   dom.selection = document.getElementById('selection-toolbar');
@@ -46,6 +49,8 @@ function renderTopbar() {
   const board = getActiveBoard();
   dom.boardName.textContent = board ? board.name : 'Klassenraum';
   dom.followBadge.classList.toggle('is-hidden', !isFollowing());
+  dom.draw.classList.toggle('is-active', isDrawActive());
+  dom.draw.title = isDrawActive() ? 'Schreiben beenden' : 'Schreiben und markieren';
   const editing = getMode() === 'edit';
   dom.mode.textContent = editing ? 'Fertig' : 'Bearbeiten';
   dom.mode.title = editing
@@ -373,6 +378,16 @@ function openMenuPanel() {
           togglePresentation(true);
         },
       }))),
+    section('Speicher',
+      h('p', { class: 'muted small', id: 'storage-line' }, 'Klang- und Videodateien werden auf diesem Gerät gespeichert.'),
+      buttonRow(button('Nicht mehr genutzte Dateien entfernen', {
+        icon: 'trash', full: true,
+        onClick: async () => {
+          const removed = await collectUnusedMedia();
+          toast(removed ? `${removed} Datei(en) entfernt.` : 'Es gab nichts aufzuräumen.', 'success');
+          updateStorageLine();
+        },
+      }))),
     section('Über',
       h('p', { class: 'muted small' },
         'Klassenraum ist eine freie Tafel-App: alle Elemente liegen auf deinem Gerät, Teilen geschieht nur, wenn du einen Code erstellst.'),
@@ -395,6 +410,16 @@ function openMenuPanel() {
       }))));
 
   openPanel({ title: 'Menü', content: container });
+  updateStorageLine();
+}
+
+async function updateStorageLine() {
+  const line = document.getElementById('storage-line');
+  if (!line) return;
+  const usage = await mediaUsage();
+  line.textContent = usage.count
+    ? `${usage.count} Klang-/Videodatei(en) auf diesem Gerät · ${formatSize(usage.bytes)}`
+    : 'Noch keine Klang- oder Videodateien auf diesem Gerät.';
 }
 
 function openHelp() {
@@ -416,6 +441,11 @@ function openHelp() {
         + 'Gezogene Namen lassen sich antippen, um sie zurückzulegen; einzelne Namen können auch von Hand als gezogen markiert werden.'),
       h('p', null, h('strong', null, 'Lautstärke: '), 'Beim ersten Start fragt das Gerät nach dem Mikrofon — einmal erlauben, dann läuft die Messung.'),
       h('p', null, h('strong', null, 'Text: '), 'Doppeltippen zum Schreiben oder den Stift in der kleinen Leiste nutzen.'),
+      h('p', null, h('strong', null, 'Schreiben: '), 'Der Stift oben rechts schaltet das Schreiben ein — mit Apple Pencil, Finger oder Maus. '
+        + 'Marker zum Hervorheben, Radierer entfernt einzelne Striche, „nur Stift“ schützt vor dem Handballen. '
+        + 'Die Striche gehören zur Tafel und bleiben erhalten.'),
+      h('p', null, h('strong', null, 'Klang & Video: '), 'Element „Klang“ oder „Video“ ablegen, im Zahnrad eine Datei vom Gerät oder einen Link wählen. '
+        + 'Ein Tipp auf die Taste spielt ab.'),
       h('p', null, h('strong', null, 'Aussehen: '), '„Hintergrund“ bietet bewegte Farbverläufe, eigene Farben, Bilder und drei Kartenstile.'),
       h('p', null, h('strong', null, 'Teilen: '), 'Menü → „Teilen & Konto“ → Code erstellen. Andere geben den Code ein und laden eine Kopie oder folgen live.'),
       h('p', null, h('strong', null, 'Auf dem Homescreen: '), 'In Safari „Teilen“ → „Zum Home-Bildschirm“ — dann startet die App im Vollbild.')),
@@ -449,6 +479,14 @@ function wireChrome() {
   document.getElementById('btn-menu').addEventListener('click', openMenuPanel);
   document.getElementById('btn-present').addEventListener('click', () => togglePresentation());
   dom.mode.addEventListener('click', toggleMode);
+  dom.draw.addEventListener('click', () => {
+    if (isStackMode()) {
+      toast('Zum Schreiben bitte die Tafelansicht nutzen (Menü → Listenansicht ausschalten).', 'warn');
+      return;
+    }
+    setDrawActive(!isDrawActive());
+    renderTopbar();
+  });
   document.getElementById('btn-exit-present').addEventListener('click', () => togglePresentation(false));
 
   window.addEventListener('keydown', (event) => {
@@ -461,8 +499,14 @@ function wireChrome() {
     }
   });
 
-  document.addEventListener('klassenraum:board-updated', () => renderTopbar());
-  onStore('board-switch', () => renderTopbar());
+  document.addEventListener('klassenraum:board-updated', () => {
+    renderTopbar();
+    redrawDrawing();
+  });
+  onStore('board-switch', () => {
+    renderTopbar();
+    redrawDrawing();
+  });
   onStore('change', () => renderTopbar());
 }
 
@@ -501,6 +545,7 @@ async function boot() {
   applyStackPreference();
   applyMode(getState().settings.mode === 'use' ? 'use' : 'edit', { save: false });
   renderBoard();
+  initDrawing(dom.canvas, { onChange: renderTopbar });
   renderTopbar();
   wireChrome();
   initSharing();

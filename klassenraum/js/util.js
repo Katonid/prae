@@ -26,7 +26,7 @@ export function h(tag, props, ...children) {
     for (const [key, value] of Object.entries(props)) {
       if (value === null || value === undefined || value === false) continue;
       if (key === 'class') el.className = value;
-      else if (key === 'style' && typeof value === 'object') Object.assign(el.style, value);
+      else if (key === 'style' && typeof value === 'object') applyStyle(el, value);
       else if (key === 'html') el.innerHTML = value;
       else if (key.startsWith('on') && typeof value === 'function') {
         el.addEventListener(key.slice(2).toLowerCase(), value);
@@ -39,6 +39,15 @@ export function h(tag, props, ...children) {
   }
   appendChildren(el, children);
   return el;
+}
+
+function applyStyle(el, style) {
+  for (const [name, value] of Object.entries(style)) {
+    if (value === null || value === undefined) continue;
+    // Eigene Eigenschaften (--name) lassen sich nur über setProperty setzen.
+    if (name.startsWith('--')) el.style.setProperty(name, String(value));
+    else el.style[name] = value;
+  }
 }
 
 function appendChildren(el, children) {

@@ -51,6 +51,8 @@ function applyRemoteBoard(payload) {
   board.name = payload.board.name || board.name;
   board.background = payload.board.background || board.background;
   board.widgets = Array.isArray(payload.board.widgets) ? payload.board.widgets : [];
+  board.drawing = Array.isArray(payload.board.drawing) ? payload.board.drawing : [];
+  board.cardStyle = payload.board.cardStyle || board.cardStyle;
   saveNow();
   renderBoard();
   document.dispatchEvent(new CustomEvent('klassenraum:board-updated'));
@@ -243,7 +245,9 @@ export function openSharePanel(prefillCode = '') {
 
     container.appendChild(h('p', { class: 'muted small' },
       'Datenschutz: Geteilte Klassenräume liegen unverschlüsselt auf dem Server und sind für jede Person mit dem Code lesbar. '
-      + 'Verwende deshalb bitte nur Vornamen oder Kürzel — keine vollständigen Namen oder anderen persönlichen Daten.'));
+      + 'Verwende deshalb bitte nur Vornamen oder Kürzel — keine vollständigen Namen oder anderen persönlichen Daten. '
+      + 'Klang- und Videodateien vom Gerät werden nicht mitgeschickt; dafür bitte einen Link verwenden. '
+      + 'Geschriebenes und Markiertes wird dagegen mitgeteilt.'));
   }
 
   function accountBox() {

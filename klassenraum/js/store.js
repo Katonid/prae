@@ -4,7 +4,9 @@
 import { uid, debounce } from './util.js';
 
 const DB_NAME = 'klassenraum';
+const DB_VERSION = 2;
 const DB_STORE = 'kv';
+const MEDIA_STORE = 'media';
 const STATE_KEY = 'state';
 const LS_KEY = 'klassenraum.state.v1';
 const STATE_VERSION = 1;
@@ -21,10 +23,12 @@ function openDb() {
       reject(new Error('IndexedDB nicht verfügbar'));
       return;
     }
-    const request = window.indexedDB.open(DB_NAME, 1);
+    const request = window.indexedDB.open(DB_NAME, DB_VERSION);
     request.onupgradeneeded = () => {
       const db = request.result;
       if (!db.objectStoreNames.contains(DB_STORE)) db.createObjectStore(DB_STORE);
+      // Klänge und Videos liegen als Datei-Objekte in einem eigenen Speicher.
+      if (!db.objectStoreNames.contains(MEDIA_STORE)) db.createObjectStore(MEDIA_STORE);
     };
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error || new Error('IndexedDB Fehler'));
@@ -64,6 +68,48 @@ export const AURORA = [
   { id: 'kreide', label: 'Kreide hell', base: '#eef2ff', blobs: ['#c7d2fe', '#a5f3fc', '#fbcfe8'] },
 ];
 
+/* ---------- Dateien (Klänge, Videos) ---------- */
+
+export async function mediaPut(key, record) {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(MEDIA_STORE, 'readwrite');
+    tx.objectStore(MEDIA_STORE).put(record, key);
+    tx.oncomplete = () => resolve(true);
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+export async function mediaGet(key) {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(MEDIA_STORE, 'readonly');
+    const request = tx.objectStore(MEDIA_STORE).get(key);
+    request.onsuccess = () => resolve(request.result || null);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+export async function mediaDelete(key) {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(MEDIA_STORE, 'readwrite');
+    tx.objectStore(MEDIA_STORE).delete(key);
+    tx.oncomplete = () => resolve(true);
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+export async function mediaKeys() {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(MEDIA_STORE, 'readonly');
+    const request = tx.objectStore(MEDIA_STORE).getAllKeys();
+    request.onsuccess = () => resolve(request.result || []);
+    request.onerror = () => reject(request.error);
+  });
+}
+
 export const PALETTE = [
   '#33415c', '#1f2937', '#0f766e', '#3f3d56', '#4c1d95',
   '#7c2d12', '#1e3a8a', '#134e4a', '#111827', '#f8fafc',
@@ -77,6 +123,7 @@ export function defaultBoard(name = 'Neuer Klassenraum') {
     background: { type: 'aurora', value: 'nordlicht' },
     cardStyle: 'glass',
     widgets: [],
+    drawing: [],
     updatedAt: Date.now(),
   };
 }
@@ -198,6 +245,7 @@ function normalizeState(loaded) {
     background: board.background || { type: 'aurora', value: 'nordlicht' },
     cardStyle: board.cardStyle || 'glass',
     widgets: Array.isArray(board.widgets) ? board.widgets.map(normalizeWidget) : [],
+    drawing: Array.isArray(board.drawing) ? board.drawing : [],
     updatedAt: board.updatedAt || Date.now(),
   }));
   if (!next.boards.some((board) => board.id === next.activeBoardId)) {

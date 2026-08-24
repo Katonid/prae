@@ -1072,15 +1072,14 @@ body[data-cards="dark"] .w-random__tile {
 .w-clock { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 14px; gap: 6px; }
 .w-clock__analog { flex: 1; min-height: 0; display: grid; place-items: center; width: 100%; }
 .w-clock__svg { width: 100%; height: 100%; }
-.clock-face { fill: var(--clock-face); stroke-width: 5; }
-.clock-tick { stroke-width: 1.6; }
-.clock-tick--long { stroke-width: 3; }
-.clock-number { font-size: 17px; font-weight: 700; fill: var(--card-ink); font-family: var(--font); }
-.clock-hand { stroke: var(--card-ink); stroke-linecap: round; }
-.clock-hand--hour { stroke-width: 6.5; }
-.clock-hand--minute { stroke-width: 4.5; }
-.clock-hand--second { stroke: #f43f5e; stroke-width: 2; }
-.clock-pin { fill: var(--card-ink); }
+.clock-face { fill: var(--clock-face); }
+/* Farben und Strichstärken der Zeiger stehen im SVG selbst — hier nichts
+   überschreiben, sonst bleiben Lernuhr-Farben und Farbverlauf wirkungslos. */
+.clock-number { font-size: 17px; font-weight: 700; font-family: var(--font); }
+.clock-number--light { font-size: 15px; font-weight: 600; opacity: 0.5; fill: var(--card-ink); }
+.clock-number--minute { font-size: 9.5px; font-weight: 700; }
+.w-clock__svg--modern .clock-hand--hour,
+.w-clock__svg--modern .clock-hand--minute { filter: drop-shadow(0 2px 4px rgba(2, 6, 23, 0.25)); }
 .w-clock__digital {
   font-weight: 800;
   font-variant-numeric: tabular-nums;
@@ -1262,6 +1261,173 @@ body[data-cards="dark"] .w-random__tile {
 .w-noise.is-live .w-noise__value { background: var(--accent-grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
 .w-noise.is-alarm { animation: flash 0.7s ease-in-out infinite; }
 .w-noise.is-alarm .w-noise__status { color: var(--danger); font-weight: 750; }
+
+/* ---------- Element: Klangtasten ---------- */
+
+.w-sound { display: flex; flex-direction: column; padding: 14px; gap: 10px; }
+.w-sound__title { font-size: 14px; font-weight: 750; color: var(--card-ink-soft); text-align: center; }
+.w-sound__grid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
+  gap: 10px;
+  align-content: center;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.w-sound__button {
+  border: 0;
+  border-radius: 18px;
+  padding: 14px 12px;
+  background: var(--tone, #6366f1);
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 700;
+  min-height: 74px;
+  box-shadow: 0 14px 26px -16px rgba(2, 6, 23, 0.9);
+  transition: transform 0.16s var(--spring), filter 0.2s ease, box-shadow 0.2s ease;
+}
+
+.w-sound__button:hover { filter: brightness(1.08); }
+.w-sound__button:active { transform: scale(0.95); }
+.w-sound__button.is-empty { background: var(--surface-soft); color: var(--card-ink-soft); box-shadow: none; }
+.w-sound__button.is-playing { box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.35), 0 14px 26px -16px rgba(2, 6, 23, 0.9); }
+.w-sound__icon { display: grid; place-items: center; }
+.w-sound__label { text-align: center; line-height: 1.15; word-break: break-word; }
+
+/* ---------- Element: Video ---------- */
+
+.w-video { display: flex; flex-direction: column; padding: 10px; gap: 6px; }
+.w-video__player { flex: 1; width: 100%; min-height: 0; border-radius: 16px; background: #000; object-fit: contain; }
+.w-video__label { text-align: center; font-size: 14px; font-weight: 620; color: var(--card-ink-soft); }
+.w-video__empty {
+  flex: 1;
+  border: 2px dashed var(--surface-soft-2);
+  border-radius: 18px;
+  background: var(--surface-soft);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: var(--card-ink-soft);
+  font-weight: 650;
+  cursor: pointer;
+  font-size: 14px;
+  text-align: center;
+  padding: 12px;
+}
+
+.w-video__empty:hover { border-color: var(--accent); color: var(--accent); }
+
+/* ---------- Schreiben auf der Tafel ---------- */
+
+.draw-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 900;
+  pointer-events: none;
+  touch-action: none;
+}
+
+.draw-layer.is-active { pointer-events: auto; cursor: crosshair; }
+body.is-drawing .widget { pointer-events: none; }
+
+.draw-toolbar {
+  position: fixed;
+  left: 50%;
+  bottom: calc(112px + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 9px 14px;
+  background: rgba(15, 23, 42, 0.74);
+  backdrop-filter: blur(22px) saturate(160%);
+  -webkit-backdrop-filter: blur(22px) saturate(160%);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 22px;
+  box-shadow: 0 22px 50px -22px rgba(0, 0, 0, 0.95);
+  z-index: 80;
+  max-width: calc(100vw - 24px);
+  overflow-x: auto;
+  animation: draw-toolbar-in 0.24s var(--spring) both;
+}
+
+@keyframes draw-toolbar-in {
+  from { opacity: 0; transform: translateX(-50%) translateY(10px) scale(0.96); }
+  to { opacity: 1; transform: translateX(-50%); }
+}
+
+body.is-using .draw-toolbar { bottom: calc(22px + env(safe-area-inset-bottom)); }
+.draw-toolbar.is-quiet { opacity: 0.22; transition: opacity 0.2s ease; }
+.draw-toolbar { transition: opacity 0.25s ease; }
+
+.draw-toolbar__group { display: flex; align-items: center; gap: 6px; flex: none; }
+.draw-toolbar__group + .draw-toolbar__group { border-left: 1px solid rgba(255, 255, 255, 0.14); padding-left: 14px; }
+
+.draw-tool {
+  border: 0;
+  background: transparent;
+  color: rgba(248, 250, 252, 0.85);
+  border-radius: 12px;
+  padding: 9px;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition: background 0.15s ease, transform 0.15s var(--spring), color 0.15s ease;
+}
+
+.draw-tool:hover { background: rgba(255, 255, 255, 0.16); color: #fff; }
+.draw-tool:active { transform: scale(0.92); }
+.draw-tool.is-active { background: var(--accent-grad); color: #fff; box-shadow: var(--accent-glow); }
+.draw-tool:disabled { opacity: 0.35; cursor: not-allowed; }
+.draw-tool--pen-only { flex-direction: column; gap: 2px; font-size: 9px; padding: 6px 9px; }
+
+.draw-color {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  cursor: pointer;
+  transition: transform 0.15s var(--spring);
+}
+
+.draw-color:hover { transform: scale(1.12); }
+.draw-color.is-active { border-color: #fff; box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.35); }
+
+.draw-width {
+  width: 32px;
+  height: 32px;
+  border-radius: 12px;
+  border: 0;
+  background: transparent;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.draw-width span { background: #f8fafc; border-radius: 50%; display: block; }
+.draw-width.is-active { background: rgba(255, 255, 255, 0.18); }
+
+.media-row {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+}
+
+.swatch--small { width: 30px; height: 30px; border-radius: 10px; }
 
 /* ---------- Element: Arbeitssymbol ---------- */
 
