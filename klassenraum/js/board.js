@@ -484,6 +484,12 @@ function inTextField(target) {
   return Boolean(target.closest('input, textarea, select, [contenteditable]'));
 }
 
+/** Video- und Tonspieler behalten ihre eigenen Bedienelemente. */
+function inNativeMedia(target) {
+  if (!target || !target.closest) return false;
+  return Boolean(target.closest('video, audio'));
+}
+
 const pointDistance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 const pointMiddle = (a, b) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
 
@@ -512,15 +518,20 @@ function attachInteractions(el, widget) {
         bringToFront(widget);
         el.classList.add('is-dragging');
         gesture = { type: 'drag', start: { x: event.clientX, y: event.clientY }, origin: boxOf(widget), moved: false };
-      } else if (movable && !inTextField(event.target)) {
+      } else if (movable && !inTextField(event.target) && !inNativeMedia(event.target)) {
         // Auch Knöpfe und Leuchten dürfen als Griff dienen — gerade am Telefon
-        // besteht ein Element oft fast nur aus Bedienfläche. Verschoben wird
-        // aber erst ab deutlicher Bewegung; ein Tipp bleibt ein Tipp.
+        // besteht ein Element oft fast nur aus Bedienfläche. Der Zeiger wird
+        // sofort übernommen (mitten in der Geste klappt das auf dem iPad
+        // nicht zuverlässig); bleibt es bei einem Tipp, wird der Knopf beim
+        // Loslassen von Hand ausgelöst.
+        try {
+          el.setPointerCapture(event.pointerId);
+        } catch (_) { /* dann eben ohne Übernahme */ }
         gesture = {
           type: 'maybe-drag',
-          pointerId: event.pointerId,
           start: { x: event.clientX, y: event.clientY },
           origin: boxOf(widget),
+          control: event.target,
         };
       }
       return;
@@ -551,11 +562,6 @@ function attachInteractions(el, widget) {
     if (gesture.type === 'maybe-drag') {
       const moved = Math.abs(event.clientX - gesture.start.x) + Math.abs(event.clientY - gesture.start.y);
       if (moved < 12) return;
-      // Ab hier ist es ein Verschieben: Zeiger übernehmen — die Bedienfläche
-      // bekommt dadurch weder pointerup noch click, es löst nichts aus.
-      try {
-        el.setPointerCapture(gesture.pointerId);
-      } catch (_) { /* Zeiger schon wieder weg — dann eben kein Verschieben */ }
       bringToFront(widget);
       el.classList.add('is-dragging');
       gesture = { type: 'drag', start: gesture.start, origin: gesture.origin, moved: false };
@@ -596,6 +602,18 @@ function attachInteractions(el, widget) {
       if (finished.type === 'pinch' || finished.moved) touch({ reason: 'widget-move' });
       gesture = null;
       if (finished.type === 'pinch' || finished.moved) tap = null;
+
+      // Tipp auf eine Bedienfläche: Der Zeiger war übernommen, der Knopf hat
+      // weder pointerup noch click gesehen — deshalb wird er jetzt von Hand
+      // ausgelöst. So bleibt jeder Knopf ein Griff UND ein Knopf.
+      if (finished.type === 'maybe-drag' && finished.control) {
+        const wanderung = Math.abs(event.clientX - finished.start.x) + Math.abs(event.clientY - finished.start.y);
+        if (wanderung <= 14 && finished.control.isConnected) {
+          tap = null;
+          if (event.pointerType !== 'mouse') armTapGuard(event);
+          if (typeof finished.control.click === 'function') finished.control.click();
+        }
+      }
     } else if (finished && finished.type === 'pinch' && points.size < 2) {
       // Ein Finger bleibt liegen — die Geste endet, es beginnt kein Verschieben.
       el.classList.remove('is-sizing');
