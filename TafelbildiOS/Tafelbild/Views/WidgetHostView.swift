@@ -35,8 +35,19 @@ struct WidgetHostView: View {
             .environment(\.widgetMetrics, metrics)
             .frame(width: widget.width, height: widget.height)
             .background { if usesCard { Color.clear.widgetCard(style: style) } }
-            // Ohne Karte hebt ein weicher Schlagschatten den Inhalt vom
-            // Hintergrund ab — sonst schwimmt er.
+            // Ohne Karte steht der Inhalt unmittelbar auf dem Hintergrund.
+            // Zwei Schatten, die Verschiedenes leisten:
+            //
+            // 1. Ein enger, dunkler Saum dicht am Zeichen. Er trennt Schrift
+            //    von dem, was darunter liegt — auf einem Bild ist das mal
+            //    hell, mal dunkel, und weiße Schrift verschwand darauf
+            //    stellenweise. Zweimal aufgetragen, weil ein einzelner Saum
+            //    auf hellem Grund zu dünn bleibt.
+            // 2. Der weiche Fall darunter, der das Element vom Hintergrund
+            //    abhebt (Web-App: `.widget--bare` mit
+            //    `drop-shadow(0 6px 16px rgba(2,6,23,0.45))`).
+            .shadow(color: saum, radius: saumRadius)
+            .shadow(color: saum, radius: saumRadius)
             .shadow(color: Color(hex: "#020617").opacity(usesCard ? 0 : 0.45),
                     radius: 16, x: 0, y: 6)
             .allowsHitTesting(!editing)
@@ -68,6 +79,17 @@ struct WidgetHostView: View {
             base
         }
     }
+
+    /// Farbe des engen Saums um freie Inhalte. Auf einer Karte gibt es ihn
+    /// nicht — dort steht die Schrift ohnehin auf ruhigem Grund.
+    private var saum: Color {
+        guard !usesCard else { return .clear }
+        return Color(hex: "#020617").opacity(style.unruhigerGrund ? 0.6 : 0.4)
+    }
+
+    /// Hinter einem Bild etwas breiter, damit der Saum auch über hellen
+    /// Stellen trägt. Gemessen in Tafelpunkten, also mitwachsend.
+    private var saumRadius: Double { style.unruhigerGrund ? 4 : 2.5 }
 
     /// Festgesteckte Elemente heben sich beim Auswählen bernsteinfarben ab.
     private var selectionColor: Color {

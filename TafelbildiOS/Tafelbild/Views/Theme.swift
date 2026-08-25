@@ -47,23 +47,35 @@ struct BoardStyle: Equatable {
     /// andere Farben: helle Schrift statt dunkler, weil der Hintergrund
     /// einer Tafel fast immer dunkel ist.
     var bare: Bool = false
+    /// Hinter der Tafel liegt ein Bild.
+    ///
+    /// Eine Farbe oder ein Verlauf ist ruhig; ein Foto hat helle und dunkle
+    /// Stellen dicht beieinander. Freie Schrift bekommt darauf einen
+    /// kräftigeren Saum, sonst verschwindet sie stellenweise (siehe
+    /// WidgetHostView).
+    var unruhigerGrund: Bool = false
 
     static let standard = BoardStyle()
 
     init(scheme: AccentScheme = AccentSchemes.all[0], useGradient: Bool = true,
-         card: CardStyle = .glass, showLabels: Bool = true, bare: Bool = false) {
+         card: CardStyle = .glass, showLabels: Bool = true, bare: Bool = false,
+         unruhigerGrund: Bool = false) {
         self.scheme = scheme
         self.useGradient = useGradient
         self.card = card
         self.showLabels = showLabels
         self.bare = bare
+        self.unruhigerGrund = unruhigerGrund
     }
 
     init(board: Board, editing: Bool) {
+        var bildDahinter = false
+        if case .image = board.background { bildDahinter = true }
         self.init(scheme: AccentSchemes.find(board.accent),
                   useGradient: board.gradient,
                   card: board.cardStyle,
-                  showLabels: board.labels.applies(editing: editing))
+                  showLabels: board.labels.applies(editing: editing),
+                  unruhigerGrund: bildDahinter)
     }
 
     // Akzentfarben

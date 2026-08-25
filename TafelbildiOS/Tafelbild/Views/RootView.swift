@@ -205,15 +205,10 @@ struct RootView: View {
 
             Spacer(minLength: 0)
 
-            // „Listen" und „Teilen" sind ins Menü gewandert: Beides braucht
-            // man beim Einrichten, nicht im Unterricht. Die Kopfleiste bleibt
-            // dadurch für das frei, was während der Stunde zählt.
-            if !compact {
-                ChromeButton(systemImage: "paintbrush", title: "Aussehen") {
-                    sheet = .boardSettings
-                }
-            }
-
+            // In der Kopfleiste steht nur noch, was während der Stunde
+            // zählt: Schreiben, Bearbeiten, Vollbild. „Listen", „Teilen"
+            // und „Aussehen" sind ins Menü gewandert — alles drei richtet
+            // man einmal ein und rührt es dann nicht mehr an.
             ChromeButton(systemImage: store.drawing ? "pencil.tip.crop.circle.fill" : "pencil.tip.crop.circle",
                          active: store.drawing) {
                 withAnimation(.easeInOut(duration: 0.2)) {
@@ -256,12 +251,10 @@ struct RootView: View {
                 } label: {
                     Label("Tafel teilen", systemImage: "square.and.arrow.up")
                 }
-                if compact {
-                    Button {
-                        sheet = .boardSettings
-                    } label: {
-                        Label("Aussehen", systemImage: "paintbrush")
-                    }
+                Button {
+                    sheet = .boardSettings
+                } label: {
+                    Label("Aussehen", systemImage: "paintbrush")
                 }
                 Divider()
                 Button {
