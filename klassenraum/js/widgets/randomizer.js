@@ -144,7 +144,7 @@ export default {
     let spinning = false;
     let armed = false;
     let unveilTimer = 0;
-    // Zum Ausmessen der Schriftbreite (für das Spreizen verdeckter Namen).
+    // Zum Ausmessen der Schriftbreite (für das Strecken verdeckter Namen).
     const meter = document.createElement('canvas').getContext('2d');
 
     function stopSpin() {
@@ -199,7 +199,7 @@ export default {
       spinning = true;
       nameEl.classList.remove('is-empty', 'is-pop');
       nameEl.classList.add('is-spinning');
-      nameEl.style.letterSpacing = '';
+      nameEl.style.transform = '';
       nameBox.classList.remove('is-covered');
       maskEl.classList.add('is-hidden');
       const sound = spinSoundById(state.spinSound).id;
@@ -259,15 +259,16 @@ export default {
         let size = Math.min(ctx.widget.h * 0.29, boxWidth / (length * 0.6));
         size = Math.max(20, Math.min(size, 128));
         nameEl.style.fontSize = `${size}px`;
-        nameEl.style.letterSpacing = '';
+        nameEl.style.transform = '';
         nameBox.style.minHeight = '';
         return;
       }
 
       // Verdeckt: EINE feste Schriftgröße für alle Namen — weder Breite noch
-      // Höhe der Maske dürfen etwas über den Namen verraten. Kurze Namen
-      // werden über die Breite gespreizt, sehr lange leicht gestaucht;
-      // erst wenn auch das nicht reicht, wird die Schrift kleiner.
+      // Höhe der Maske dürfen etwas über den Namen verraten. Der Schriftzug
+      // wird als Ganzes auf die Zielbreite gestreckt oder gestaucht — ohne
+      // Lücken zwischen den Buchstaben; erst wenn auch das Stauchen nicht
+      // reicht, wird die Schrift kleiner.
       let size = Math.max(20, Math.min(Math.min(ctx.widget.h * 0.29, boxWidth / (12 * 0.6)), 128));
       // Die Boxhöhe hängt an der Bezugsgröße, nie am tatsächlichen Namen —
       // auch wenn ein sehr langer Name kleiner gesetzt werden muss.
@@ -280,17 +281,16 @@ export default {
         // Scheitert die Messung (unbekannte Schrift o. Ä.), lieber grob schätzen.
         return result > 0 ? result : text.length * px * 0.6;
       };
+      const MIN_X = 0.75;
+      const MAX_X = 5;
       let width = measure(size);
-      const squeeze = -0.12 * size;
-      if (text.length > 1 && width + squeeze * text.length > target) {
-        size = Math.max(20, size * (target / (width + squeeze * text.length)));
+      if (width * MIN_X > target) {
+        size = Math.max(20, size * (target / (width * MIN_X)));
         width = measure(size);
       }
       nameEl.style.fontSize = `${size}px`;
-      const extra = text.length > 1
-        ? Math.max(-0.12 * size, (target - width) / text.length)
-        : 0;
-      nameEl.style.letterSpacing = `${extra.toFixed(1)}px`;
+      const factor = width > 0 ? Math.min(MAX_X, Math.max(MIN_X, target / width)) : 1;
+      nameEl.style.transform = `scaleX(${factor.toFixed(3)})`;
     }
 
     /**

@@ -61,11 +61,13 @@ export function formatSize(bytes) {
 export function usedMediaIds() {
   const used = new Set();
   for (const board of getState().boards) {
-    for (const widget of board.widgets) {
-      const state = widget.state || {};
-      if (state.mediaId) used.add(state.mediaId);
-      for (const entry of state.entries || []) {
-        if (entry.mediaId) used.add(entry.mediaId);
+    for (const page of board.pages || []) {
+      for (const widget of page.widgets || []) {
+        const state = widget.state || {};
+        if (state.mediaId) used.add(state.mediaId);
+        for (const entry of state.entries || []) {
+          if (entry.mediaId) used.add(entry.mediaId);
+        }
       }
     }
   }

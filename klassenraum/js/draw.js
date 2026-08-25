@@ -3,7 +3,7 @@
 
 import { h, clear, uid, onTap } from './util.js';
 import { icon } from './icons.js';
-import { BOARD_WIDTH, BOARD_HEIGHT, getActiveBoard, touch, on as onStore } from './store.js';
+import { BOARD_WIDTH, BOARD_HEIGHT, getActivePage, touch, on as onStore } from './store.js';
 import { confirmDialog } from './ui.js';
 
 const COLORS = ['#f8fafc', '#0f172a', '#ef4444', '#f59e0b', '#22c55e', '#38bdf8', '#a855f7'];
@@ -43,15 +43,17 @@ export function initDrawing(host, options = {}) {
   canvas.addEventListener('pointerleave', onPointerUp);
 
   onStore('board-switch', () => redraw());
+  // Jede Seite hat ihre eigenen Striche — beim Umblättern neu zeichnen.
+  onStore('page-switch', () => redraw());
   redraw();
   return canvas;
 }
 
 function strokes() {
-  const board = getActiveBoard();
-  if (!board) return [];
-  if (!Array.isArray(board.drawing)) board.drawing = [];
-  return board.drawing;
+  const page = getActivePage();
+  if (!page) return [];
+  if (!Array.isArray(page.drawing)) page.drawing = [];
+  return page.drawing;
 }
 
 export function redraw() {

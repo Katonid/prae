@@ -116,7 +116,13 @@ export const PALETTE = [
   '#fef3c7', '#dbeafe', '#dcfce7', '#fee2e2', '#ede9fe',
 ];
 
+/** Eine leere Seite einer Tafel — jede Tafel hat mindestens eine. */
+export function emptyPage() {
+  return { id: uid('page'), widgets: [], drawing: [] };
+}
+
 export function defaultBoard(name = 'Neuer Klassenraum') {
+  const page = emptyPage();
   return {
     id: uid('board'),
     name,
@@ -126,15 +132,15 @@ export function defaultBoard(name = 'Neuer Klassenraum') {
     gradient: true,
     frames: 'always',
     labels: 'always',
-    widgets: [],
-    drawing: [],
+    pages: [page],
+    activePageId: page.id,
     updatedAt: Date.now(),
   };
 }
 
 function starterBoard() {
   const board = defaultBoard('Klasse 4a');
-  board.widgets = [
+  board.pages[0].widgets = [
     {
       id: uid('w'), type: 'clock', x: 80, y: 130, w: 420, h: 420, z: 1,
       state: { mode: 'analog', face: 'modern', showSeconds: true, showDate: false, accent: null },
@@ -251,19 +257,22 @@ function normalizeState(loaded) {
     settings: Object.assign({}, base.settings, loaded.settings || {}),
     cloud: Object.assign({}, base.cloud, loaded.cloud || {}),
   };
-  next.boards = next.boards.map((board) => ({
-    id: board.id || uid('board'),
-    name: board.name || 'Klassenraum',
-    background: board.background || { type: 'aurora', value: 'nordlicht' },
-    cardStyle: board.cardStyle || 'glass',
-    accent: board.accent || 'indigo',
-    gradient: board.gradient !== false,
-    frames: board.frames || 'always',
-    labels: board.labels || 'always',
-    widgets: Array.isArray(board.widgets) ? board.widgets.map(normalizeWidget) : [],
-    drawing: Array.isArray(board.drawing) ? board.drawing : [],
-    updatedAt: board.updatedAt || Date.now(),
-  }));
+  next.boards = next.boards.map((board) => {
+    const pages = normalizePages(board);
+    return {
+      id: board.id || uid('board'),
+      name: board.name || 'Klassenraum',
+      background: board.background || { type: 'aurora', value: 'nordlicht' },
+      cardStyle: board.cardStyle || 'glass',
+      accent: board.accent || 'indigo',
+      gradient: board.gradient !== false,
+      frames: board.frames || 'always',
+      labels: board.labels || 'always',
+      pages,
+      activePageId: pages.some((page) => page.id === board.activePageId) ? board.activePageId : pages[0].id,
+      updatedAt: board.updatedAt || Date.now(),
+    };
+  });
   if (!next.boards.some((board) => board.id === next.activeBoardId)) {
     next.activeBoardId = next.boards[0].id;
   }
@@ -276,6 +285,21 @@ function normalizeState(loaded) {
     updatedAt: list.updatedAt || Date.now(),
   }));
   return next;
+}
+
+/**
+ * Seiten einer Tafel aufbereiten. Ältere Stände kannten keine Seiten —
+ * dort werden `widgets` und `drawing` der Tafel zur ersten Seite.
+ */
+function normalizePages(board) {
+  const raw = Array.isArray(board.pages) && board.pages.length
+    ? board.pages
+    : [{ id: board.activePageId, widgets: board.widgets, drawing: board.drawing }];
+  return raw.map((page) => ({
+    id: page.id || uid('page'),
+    widgets: Array.isArray(page.widgets) ? page.widgets.map(normalizeWidget) : [],
+    drawing: Array.isArray(page.drawing) ? page.drawing : [],
+  }));
 }
 
 function migrateWidgetState(widget) {
@@ -376,6 +400,58 @@ export function getActiveBoard() {
   return state.boards.find((board) => board.id === state.activeBoardId) || state.boards[0] || null;
 }
 
+/* ---------- Seiten einer Tafel ---------- */
+
+/** Die gerade aufgeschlagene Seite einer Tafel (Vorgabe: die aktive Tafel). */
+export function getActivePage(board = getActiveBoard()) {
+  if (!board) return null;
+  if (!Array.isArray(board.pages) || !board.pages.length) board.pages = [emptyPage()];
+  return board.pages.find((page) => page.id === board.activePageId) || board.pages[0];
+}
+
+export function setActivePage(pageId) {
+  const board = getActiveBoard();
+  if (!board || !board.pages.some((page) => page.id === pageId)) return;
+  if (board.activePageId === pageId) return;
+  board.activePageId = pageId;
+  // Die aufgeschlagene Seite wandert mit über den Abgleich — so kann ein
+  // iPad in der Hand die Seite an der großen Tafel umblättern.
+  touch({ reason: 'page-switch' });
+  emit('page-switch', pageId);
+}
+
+export function addPage() {
+  const board = getActiveBoard();
+  if (!board) return null;
+  const page = emptyPage();
+  board.pages.push(page);
+  board.activePageId = page.id;
+  touch({ reason: 'page-add' });
+  emit('page-switch', page.id);
+  return page;
+}
+
+/** Seite entfernen — die letzte Seite einer Tafel bleibt immer bestehen. */
+export function removePage(pageId) {
+  const board = getActiveBoard();
+  if (!board || board.pages.length <= 1) return false;
+  const index = board.pages.findIndex((page) => page.id === pageId);
+  if (index < 0) return false;
+  board.pages.splice(index, 1);
+  if (board.activePageId === pageId) {
+    board.activePageId = board.pages[Math.max(0, index - 1)].id;
+  }
+  touch({ reason: 'page-remove' });
+  emit('page-switch', board.activePageId);
+  return true;
+}
+
+/** Alle Elemente einer Tafel über alle Seiten hinweg (z. B. zum Zählen). */
+export function allWidgetsOf(board) {
+  if (!board || !Array.isArray(board.pages)) return [];
+  return board.pages.flatMap((page) => page.widgets || []);
+}
+
 export function setActiveBoard(boardId) {
   if (!state.boards.some((board) => board.id === boardId)) return;
   state.activeBoardId = boardId;
@@ -399,7 +475,12 @@ export function duplicateBoard(boardId) {
   copy.id = uid('board');
   copy.name = `${source.name} (Kopie)`;
   copy.updatedAt = Date.now();
-  copy.widgets = copy.widgets.map((widget) => Object.assign({}, widget, { id: uid('w') }));
+  const activeIndex = Math.max(0, copy.pages.findIndex((page) => page.id === copy.activePageId));
+  copy.pages = copy.pages.map((page) => Object.assign({}, page, {
+    id: uid('page'),
+    widgets: page.widgets.map((widget) => Object.assign({}, widget, { id: uid('w') })),
+  }));
+  copy.activePageId = copy.pages[activeIndex].id;
   state.boards.push(copy);
   state.activeBoardId = copy.id;
   touch({ board: false, reason: 'board-duplicate' });
@@ -445,7 +526,9 @@ export function pruneTombstones(maxAgeMs = 60 * 24 * 3600 * 1000) {
 export function importBoard(board, { activate = true } = {}) {
   const clean = normalizeState({ boards: [board], activeBoardId: board.id }).boards[0];
   clean.id = uid('board');
-  clean.widgets = clean.widgets.map((widget) => Object.assign({}, widget, { id: uid('w') }));
+  for (const page of clean.pages) {
+    page.widgets = page.widgets.map((widget) => Object.assign({}, widget, { id: uid('w') }));
+  }
   state.boards.push(clean);
   if (activate) {
     state.activeBoardId = clean.id;
@@ -481,16 +564,17 @@ export function upsertList(raw) {
 }
 
 export function nextZ() {
-  const board = getActiveBoard();
-  if (!board || board.widgets.length === 0) return 1;
-  return Math.max(...board.widgets.map((widget) => widget.z || 1)) + 1;
+  const page = getActivePage();
+  if (!page || page.widgets.length === 0) return 1;
+  return Math.max(...page.widgets.map((widget) => widget.z || 1)) + 1;
 }
 
 export function addWidget(widget) {
   const board = getActiveBoard();
-  if (!board) return null;
+  const page = getActivePage(board);
+  if (!page) return null;
   const full = normalizeWidget(Object.assign({ z: nextZ() }, widget));
-  board.widgets.push(full);
+  page.widgets.push(full);
   touch({ reason: 'widget-add' });
   emit('widgets-changed', board);
   return full;
@@ -498,25 +582,27 @@ export function addWidget(widget) {
 
 export function removeWidget(widgetId) {
   const board = getActiveBoard();
-  if (!board) return;
-  const index = board.widgets.findIndex((widget) => widget.id === widgetId);
+  const page = getActivePage(board);
+  if (!page) return;
+  const index = page.widgets.findIndex((widget) => widget.id === widgetId);
   if (index < 0) return;
-  board.widgets.splice(index, 1);
+  page.widgets.splice(index, 1);
   touch({ reason: 'widget-remove' });
   emit('widgets-changed', board);
 }
 
 export function duplicateWidget(widgetId) {
   const board = getActiveBoard();
-  if (!board) return null;
-  const source = board.widgets.find((widget) => widget.id === widgetId);
+  const page = getActivePage(board);
+  if (!page) return null;
+  const source = page.widgets.find((widget) => widget.id === widgetId);
   if (!source) return null;
   const copy = JSON.parse(JSON.stringify(source));
   copy.id = uid('w');
   copy.x = Math.min(BOARD_WIDTH - copy.w, copy.x + 40);
   copy.y = Math.min(BOARD_HEIGHT - copy.h, copy.y + 40);
   copy.z = nextZ();
-  board.widgets.push(copy);
+  page.widgets.push(copy);
   touch({ reason: 'widget-duplicate' });
   emit('widgets-changed', board);
   return copy;

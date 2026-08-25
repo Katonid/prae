@@ -5,6 +5,7 @@ import { icon } from './icons.js';
 import {
   loadState, getState, getActiveBoard, setActiveBoard, addBoard, duplicateBoard, removeBoard,
   addWidget, touch, touchBoard, saveNow, on as onStore, importBoard, AURORA,
+  getActivePage, setActivePage, addPage, removePage, allWidgetsOf, emptyPage,
 } from './store.js';
 import { WIDGETS } from './widgets/index.js';
 import {
@@ -73,6 +74,7 @@ function applyMode(next, { save = true } = {}) {
     touch({ board: false });
   }
   renderTopbar();
+  renderPager();
 }
 
 function toggleMode() {
@@ -120,7 +122,9 @@ function openBoardsPanel() {
           },
         },
         h('strong', null, board.name),
-        h('small', { class: 'muted' }, `${board.widgets.length} Elemente${active ? ' · geöffnet' : ''}`)),
+        h('small', { class: 'muted' }, `${allWidgetsOf(board).length} Elemente`
+          + (board.pages.length > 1 ? ` auf ${board.pages.length} Seiten` : '')
+          + (active ? ' · geöffnet' : ''))),
         h('button', {
           class: 'icon-button', title: 'Umbenennen',
           onclick: async () => {
@@ -175,11 +179,15 @@ function openBoardsPanel() {
           onClick: async () => {
             const board = getActiveBoard();
             const ok = await confirmDialog('Alle Elemente entfernen?',
-              `„${board.name}“ wird komplett geleert.`, 'Leeren');
+              `„${board.name}“ wird komplett geleert — samt Strichen und zusätzlichen Seiten.`, 'Leeren');
             if (!ok) return;
-            board.widgets = [];
+            const page = emptyPage();
+            board.pages = [page];
+            board.activePageId = page.id;
             touch();
             renderBoard();
+            redrawDrawing();
+            renderPager();
             render();
           },
         })),
@@ -455,6 +463,7 @@ function openMenuPanel() {
         state.settings.stackModeManual = value;
         touch({ board: false });
         setStackMode(value);
+        renderPager();
       }, 'Statt der Tafelfläche eine einfache Liste — praktisch, wenn am Telefon nur ein Element gebraucht wird.'),
       toggleRow('Elementleiste unten anzeigen', state.settings.dockHidden !== true, (value) => {
         state.settings.dockHidden = !value;
@@ -553,7 +562,11 @@ function openHelp() {
         + 'Marker zum Hervorheben, Radierer entfernt einzelne Striche, „nur Stift“ schützt vor dem Handballen. '
         + 'Die Striche gehören zur Tafel und bleiben erhalten.'),
       h('p', null, h('strong', null, 'Klang & Video: '), 'Element „Klang“ oder „Video“ ablegen, im Zahnrad eine Datei vom Gerät oder einen Link wählen. '
-        + 'Ein Tipp auf die Taste spielt ab.'),
+        + 'Ein Tipp auf die Taste spielt ab. Jede Klangtaste kann im Zahnrad ein Symbol (Emoji) bekommen, das groß auf der Taste steht.'),
+      h('p', null, h('strong', null, 'Seiten: '), 'Jede Tafel kann mehrere Seiten haben — unten rechts blättern die Pfeile ‹ und › durch. '
+        + 'Beim Bearbeiten legt + eine neue Seite an, ✕ löscht die aufgeschlagene (die letzte Seite bleibt immer). '
+        + 'Jede Seite hat ihre eigenen Elemente und Striche; Aussehen und Hintergrund gelten für die ganze Tafel. '
+        + 'Beim Abgleich blättern verbundene Geräte mit — so lässt sich die große Tafel vom iPad aus umblättern.'),
       h('p', null, h('strong', null, 'Angemeldet bleiben: '), 'Vergisst ein Gerät (z. B. ein Whiteboard) regelmäßig alles, '
         + 'unter „Teilen“ → Abgleich den „Tafel-Link“ kopieren und diesen Link dort als Lesezeichen oder Web-App speichern — '
         + 'beim Öffnen verbindet sich die Tafel von selbst wieder.'),
@@ -614,6 +627,47 @@ function toggleDock() {
   applyDockPreference();
 }
 
+/** Seitenanzeige unten rechts: blättern, beim Bearbeiten auch anlegen und löschen. */
+function renderPager() {
+  const controls = document.getElementById('page-controls');
+  if (!controls) return;
+  const board = getActiveBoard();
+  const pages = board ? board.pages || [] : [];
+  const editing = getMode() === 'edit';
+  // Mit nur einer Seite gibt es außerhalb des Bearbeitens nichts zu blättern.
+  const hidden = !board || isStackMode() || (pages.length <= 1 && !editing);
+  controls.classList.toggle('is-hidden', hidden);
+  if (hidden) return;
+  const index = Math.max(0, pages.findIndex((page) => page.id === board.activePageId));
+  document.getElementById('page-label').textContent = `${index + 1} / ${pages.length}`;
+  document.getElementById('btn-page-prev').disabled = index === 0;
+  document.getElementById('btn-page-next').disabled = index >= pages.length - 1;
+  document.getElementById('btn-page-remove').disabled = pages.length <= 1;
+}
+
+function flipPage(step) {
+  const board = getActiveBoard();
+  if (!board) return;
+  const pages = board.pages || [];
+  const index = pages.findIndex((page) => page.id === board.activePageId);
+  const next = pages[index + step];
+  if (next) setActivePage(next.id);
+}
+
+async function removeCurrentPage() {
+  const board = getActiveBoard();
+  const page = getActivePage(board);
+  if (!board || !page || board.pages.length <= 1) return;
+  const count = page.widgets.length;
+  const ok = await confirmDialog('Seite löschen?',
+    count
+      ? `Diese Seite mit ${count} Element(en) wird dauerhaft entfernt.`
+      : 'Diese leere Seite wird entfernt.',
+    'Löschen');
+  if (!ok) return;
+  removePage(page.id);
+}
+
 /** Die Zoom-Knöpfe zeigen, ob die Tafel gerade vergrößert ist. */
 function renderViewControls(zoom) {
   if (!dom.viewControls) return;
@@ -643,6 +697,10 @@ function wireChrome() {
   document.getElementById('btn-zoom-in').addEventListener('click', () => zoomBy(1.35));
   document.getElementById('btn-zoom-out').addEventListener('click', () => zoomBy(1 / 1.35));
   document.getElementById('btn-zoom-fit').addEventListener('click', () => resetView());
+  document.getElementById('btn-page-prev').addEventListener('click', () => flipPage(-1));
+  document.getElementById('btn-page-next').addEventListener('click', () => flipPage(1));
+  document.getElementById('btn-page-add').addEventListener('click', () => addPage());
+  document.getElementById('btn-page-remove').addEventListener('click', removeCurrentPage);
 
   window.addEventListener('keydown', (event) => {
     if (event.key === 'Escape' && document.body.classList.contains('is-presenting')) togglePresentation(false);
@@ -653,12 +711,18 @@ function wireChrome() {
   document.addEventListener('klassenraum:board-updated', () => {
     renderTopbar();
     redrawDrawing();
+    renderPager();
   });
   onStore('board-switch', () => {
     renderTopbar();
     redrawDrawing();
+    renderPager();
   });
-  onStore('change', () => renderTopbar());
+  onStore('page-switch', () => renderPager());
+  onStore('change', () => {
+    renderTopbar();
+    renderPager();
+  });
 }
 
 /** Aktualisierungen zuverlässig ausliefern: neue Fassung übernimmt und lädt einmal neu. */

@@ -211,6 +211,59 @@ body.is-loading .stage { opacity: 0; }
 body.is-presenting .view-controls,
 body.is-stacked .view-controls { display: none; }
 
+/* Seiten einer Tafel: unten rechts blättern — auch im Unterricht und beim Präsentieren. */
+.page-controls {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  opacity: 0.75;
+  transition: opacity 0.2s ease;
+}
+
+.page-controls:hover { opacity: 1; }
+.page-controls.is-hidden { display: none; }
+
+.page-controls__button {
+  min-width: 34px;
+  height: 34px;
+  padding: 0 9px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: #f8fafc;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.page-controls__button:hover { background: rgba(255, 255, 255, 0.16); }
+.page-controls__button:active { transform: scale(0.94); }
+.page-controls__button:disabled { opacity: 0.35; cursor: default; background: transparent; transform: none; }
+
+.page-controls__label {
+  color: #f8fafc;
+  font-size: 13.5px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  padding: 0 4px;
+  white-space: nowrap;
+}
+
+/* Neue Seite anlegen und löschen nur beim Bearbeiten. */
+body.is-using .page-controls__button--edit,
+body.is-presenting .page-controls__button--edit { display: none; }
+body.is-stacked .page-controls { display: none; }
+
 /* Schalter für die Elementleiste */
 .dock-toggle {
   align-self: center;
@@ -1482,11 +1535,12 @@ body[data-cards="dark"] .w-random__tile {
 /* ---------- Element: Klangtasten ---------- */
 
 .w-sound { display: flex; flex-direction: column; padding: 14px; gap: 10px; }
-.w-sound__title { font-size: 0.94em; font-weight: 750; color: var(--card-ink-soft); text-align: center; }
+.w-sound__title { font-size: 1.05em; font-weight: 750; color: var(--card-ink-soft); text-align: center; }
 .w-sound__grid {
   flex: 1;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
+  /* In em, damit die Spalten mit der Schrift des Feldes mitwachsen. */
+  grid-template-columns: repeat(auto-fit, minmax(7.4em, 1fr));
   gap: 10px;
   align-content: center;
   min-height: 0;
@@ -1496,18 +1550,18 @@ body[data-cards="dark"] .w-random__tile {
 .w-sound__button {
   border: 0;
   border-radius: 1.2em;
-  padding: 0.95em 0.8em;
+  padding: 0.8em 0.7em;
   background: var(--tone, #6366f1);
   color: #fff;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0.45em;
+  gap: 0.35em;
   cursor: pointer;
-  font-size: 0.94em;
+  font-size: 1.25em;
   font-weight: 700;
-  min-height: 4.9em;
+  min-height: 4.2em;
   box-shadow: 0 14px 26px -16px rgba(2, 6, 23, 0.9);
   transition: transform 0.16s var(--spring), filter 0.2s ease, box-shadow 0.2s ease;
 }
@@ -1517,7 +1571,12 @@ body[data-cards="dark"] .w-random__tile {
 .w-sound__button.is-empty { background: var(--surface-soft); color: var(--card-ink-soft); box-shadow: none; }
 .w-sound__button.is-playing { box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.35), 0 14px 26px -16px rgba(2, 6, 23, 0.9); }
 .w-sound__icon { display: grid; place-items: center; }
+.w-sound__emoji { font-size: 1.55em; line-height: 1.05; }
 .w-sound__label { text-align: center; line-height: 1.15; word-break: break-word; }
+
+/* Symbol-Auswahl in den Einstellungen des Tonfeldes */
+.chip--symbol { font-size: 1.15em; padding: 0.25em 0.5em; }
+.input--symbol { width: 3.4em; text-align: center; padding: 0.3em 0.4em; }
 
 /* ---------- Element: Video ---------- */
 

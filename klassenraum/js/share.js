@@ -59,11 +59,23 @@ function applyRemoteBoard(payload) {
   const board = getActiveBoard();
   if (!board || !payload || !payload.board) return;
   applyingRemote = true;
-  board.name = payload.board.name || board.name;
-  board.background = payload.board.background || board.background;
-  board.widgets = Array.isArray(payload.board.widgets) ? payload.board.widgets : [];
-  board.drawing = Array.isArray(payload.board.drawing) ? payload.board.drawing : [];
-  board.cardStyle = payload.board.cardStyle || board.cardStyle;
+  const remote = payload.board;
+  board.name = remote.name || board.name;
+  board.background = remote.background || board.background;
+  // Neue Stände schicken Seiten; ältere nur widgets/drawing — dann wird
+  // daraus eine einzelne Seite.
+  const pages = Array.isArray(remote.pages) && remote.pages.length
+    ? remote.pages
+    : [{
+      id: 'p1',
+      widgets: Array.isArray(remote.widgets) ? remote.widgets : [],
+      drawing: Array.isArray(remote.drawing) ? remote.drawing : [],
+    }];
+  board.pages = pages;
+  board.activePageId = pages.some((page) => page.id === remote.activePageId)
+    ? remote.activePageId
+    : pages[0].id;
+  board.cardStyle = remote.cardStyle || board.cardStyle;
   saveNow();
   renderBoard();
   document.dispatchEvent(new CustomEvent('klassenraum:board-updated'));

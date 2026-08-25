@@ -4,8 +4,8 @@ import { h, clear, clamp, armTapGuard } from './util.js';
 import { icon } from './icons.js';
 import { getWidgetType } from './widgets/index.js';
 import {
-  BOARD_WIDTH, BOARD_HEIGHT, AURORA, getActiveBoard, getState, touch, removeWidget, duplicateWidget,
-  nextZ, on as onStore,
+  BOARD_WIDTH, BOARD_HEIGHT, AURORA, getActiveBoard, getActivePage, getState, touch, removeWidget,
+  duplicateWidget, nextZ, on as onStore,
 } from './store.js';
 import { openPanel, closePanel, confirmDialog } from './ui.js';
 import { applyScheme } from './theme.js';
@@ -213,7 +213,7 @@ export function initBoard(elements) {
   stageEl.addEventListener('pointerdown', (event) => {
     // Alles, was kein Element und keine Bedienleiste ist, zählt als freie Fläche.
     const held = event.target.closest
-      && event.target.closest('.widget, .handle, .selection-toolbar, .view-controls, .draw-toolbar');
+      && event.target.closest('.widget, .handle, .selection-toolbar, .view-controls, .page-controls, .draw-toolbar');
     if (held) return;
     select(null);
     clearArmed();
@@ -263,6 +263,11 @@ export function initBoard(elements) {
   });
 
   onStore('board-switch', () => {
+    select(null);
+    renderBoard();
+  });
+  // Umblättern wirkt wie ein Tafelwechsel: andere Elemente, gleiche Gestaltung.
+  onStore('page-switch', () => {
     select(null);
     renderBoard();
   });
@@ -340,6 +345,12 @@ function contentScale(widget) {
   return clamp(ratio, 0.6, 4);
 }
 
+/** Die Elemente der gerade aufgeschlagenen Seite dieser Tafel. */
+function widgetsOf(board) {
+  const page = getActivePage(board);
+  return page ? page.widgets : [];
+}
+
 /** Zeigt dieses Element gerade einen Rahmen? */
 function isBare(widget, board) {
   if (widget.bare) return true;
@@ -370,7 +381,7 @@ export function renderBoard() {
   applyBackground();
 
   const seen = new Set();
-  for (const widget of board.widgets) {
+  for (const widget of widgetsOf(board)) {
     seen.add(widget.id);
     if (!instances.has(widget.id)) mountWidget(widget);
     else instances.get(widget.id).widget = widget;
@@ -655,7 +666,7 @@ function attachInteractions(el, widget) {
 /** Ziehen an einem Eck-Anfasser des Auswahlrahmens. */
 function startFrameResize(event, corner) {
   const board = getActiveBoard();
-  const widget = board ? board.widgets.find((entry) => entry.id === selectedId) : null;
+  const widget = board ? widgetsOf(board).find((entry) => entry.id === selectedId) : null;
   if (!widget || widget.locked) return;
   event.preventDefault();
   event.stopPropagation();
@@ -717,7 +728,7 @@ function buildSelectionFrame() {
 function updateSelectionFrame() {
   if (!selectionFrame) return;
   const board = getActiveBoard();
-  const widget = board ? board.widgets.find((entry) => entry.id === selectedId) : null;
+  const widget = board ? widgetsOf(board).find((entry) => entry.id === selectedId) : null;
   const show = Boolean(widget) && mode === 'edit' && !stackMode && !widget.locked
     && !document.body.classList.contains('is-presenting');
   selectionFrame.classList.toggle('is-visible', show);
@@ -731,8 +742,8 @@ function updateSelectionFrame() {
 function layout() {
   const board = getActiveBoard();
   if (!board) return;
-  const sorted = board.widgets.slice().sort((a, b) => (a.y - b.y) || (a.x - b.x));
-  for (const widget of board.widgets) {
+  const sorted = widgetsOf(board).slice().sort((a, b) => (a.y - b.y) || (a.x - b.x));
+  for (const widget of widgetsOf(board)) {
     const instance = instances.get(widget.id);
     if (!instance) continue;
     const el = instance.el;
@@ -807,7 +818,7 @@ function renderSelection() {
   if (!selectionEl) return;
   clear(selectionEl);
   const board = getActiveBoard();
-  const widget = board ? board.widgets.find((entry) => entry.id === selectedId) : null;
+  const widget = board ? widgetsOf(board).find((entry) => entry.id === selectedId) : null;
   if (!widget || stackMode || mode === 'use' || document.body.classList.contains('is-presenting')) {
     selectionEl.classList.remove('is-visible');
     return;
@@ -928,7 +939,7 @@ export function addWidgetOfType(type) {
   const board = getActiveBoard();
   if (!definition || !board) return null;
   const size = definition.defaultSize || { w: 360, h: 260 };
-  const spot = findFreeSpot(size, board.widgets);
+  const spot = findFreeSpot(size, widgetsOf(board));
   const widget = {
     type,
     x: spot.x,

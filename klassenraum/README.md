@@ -18,13 +18,28 @@ funktioniert auch am Telefon.
 | **Text** | Doppeltippen zum Schreiben, Schriftgröße passt sich automatisch an. |
 | **Bild** | Bild vom Gerät, wird beim Einfügen verkleinert. |
 | **Lautstärke** | Misst über das Mikrofon die Lautstärke im Raum, mit einstellbarer Grenze und optionalem Signalton. Ein Tipp auf die Karte startet die Messung, der nächste beendet sie — Knöpfe gibt es keine. Beim ersten Start fragt das Gerät nach der Erlaubnis; wird sie verweigert, erklärt die Karte den Weg zurück. Das Mikrofon läuft nur im Vordergrund (siehe unten). |
-| **Klang** | Tasten, die auf Tippen eine Klangdatei abspielen — Datei vom Gerät oder Link. Mehrere Tasten je Element, eigene Farbe und Beschriftung. |
+| **Klang** | Tasten, die auf Tippen eine Klangdatei abspielen — Datei vom Gerät oder Link. Mehrere Tasten je Element, eigene Farbe, Beschriftung und ein wählbares **Symbol** (Emoji), das groß auf der Taste steht. Die Schrift wächst mit der Breite des Feldes. |
 | **Video** | Video vom Gerät oder per Link, mit Bedienleiste, Schleife und Vollbild. |
 | **Arbeitssymbol** | Einzel-, Partner-, Gruppenarbeit, Stillarbeit, Melden, Zuhören, Aufräumen. |
 
-Dazu kommen: **mehrere Klassenräume** (eine eigene Tafel pro Klasse), **Namenslisten**,
-die in allen Klassenräumen verfügbar sind, ein **Präsentationsmodus** ohne Bedienleisten
-und die Möglichkeit, alles **als Datei zu sichern**.
+Dazu kommen: **mehrere Klassenräume** (eine eigene Tafel pro Klasse), **mehrere
+Seiten je Tafel** (siehe unten), **Namenslisten**, die in allen Klassenräumen
+verfügbar sind, ein **Präsentationsmodus** ohne Bedienleisten und die Möglichkeit,
+alles **als Datei zu sichern**.
+
+## Seiten
+
+Jede Tafel kann **mehrere Seiten** haben — etwa eine Seite für den Morgenkreis,
+eine für die Arbeitsphase. Unten rechts blättern die Pfeile **‹** und **›**
+durch; die Anzeige dazwischen zeigt die aktuelle Seite (z. B. „2 / 3“). Beim
+Bearbeiten legt **+** eine neue, leere Seite an und **✕** löscht die
+aufgeschlagene (mit Rückfrage; die letzte Seite bleibt immer bestehen).
+
+Jede Seite hat ihre **eigenen Elemente und eigenen Striche**; Hintergrund,
+Farbschema und Kartenstil gelten für die ganze Tafel. Mit nur einer Seite ist
+die Blätter-Leiste in der Unterrichtsansicht unsichtbar. Beim **Abgleich**
+blättern verbundene Geräte mit — vom iPad aus lässt sich so die große Tafel im
+Klassenzimmer umblättern.
 
 ## Aussehen
 
