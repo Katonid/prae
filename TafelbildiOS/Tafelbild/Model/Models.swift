@@ -298,6 +298,13 @@ struct ChecklistContent: Codable, Equatable {
 }
 
 struct NamePickerContent: Codable, Equatable {
+    /// Eigene Überschrift des Elements — leer heißt: Name der Liste.
+    ///
+    /// Wer mehrere Ziehungen auf einer Tafel hat („Wer liest vor?“,
+    /// „Wer räumt auf?“), braucht sie auseinanderzuhalten. Anders als der
+    /// Listenname hängt eine selbst gesetzte Überschrift NICHT an der
+    /// Tafelregel „Beschriftungen“: Sie sagt, worum es geht.
+    var title: String = ""
     /// ID der verwendeten Namensliste.
     var listID: String? = nil
     var mode: DrawMode = .withoutRepeat
@@ -1156,13 +1163,14 @@ extension ChecklistContent {
 
 extension NamePickerContent {
     enum PickerKeys: String, CodingKey {
-        case listID, mode, drawnIDs, currentID, showHistory, showDrawn, animate, spinSound,
+        case title, listID, mode, drawnIDs, currentID, showHistory, showDrawn, animate, spinSound,
              reveal, revealParts
     }
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: PickerKeys.self)
         self.init()
+        title = c.wert(.title, "")
         listID = c.optional(.listID, String.self)
         mode = c.wert(.mode, NamePickerContent.DrawMode.withoutRepeat)
         drawnIDs = c.wert(.drawnIDs, [String]())

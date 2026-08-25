@@ -90,6 +90,18 @@ struct RootView: View {
                 statusBanner(message)
             }
         }
+        // Die Bildschirmtastatur darf die Tafel NICHT zusammenschieben.
+        //
+        // Ohne diese Zeile zieht SwiftUI den sicheren Bereich um die
+        // Tastaturhöhe ein — auf dem iPad fast die halbe Höhe. Die Tafel
+        // rechnet sich dann auf diesen Rest herunter und die Elementleiste
+        // sitzt mitten im Bild. Verschwindet die Tastatur, bleibt das
+        // gelegentlich so stehen; es sah nach einem Zeichenfehler aus.
+        //
+        // Eine Tafel ist eine feste Fläche: Sie behält ihre Größe, die
+        // Tastatur legt sich darüber. Wer unten schreibt, schiebt die Tafel
+        // mit einem Finger hoch.
+        .ignoresSafeArea(.keyboard)
         // Beim Schriftwechsel die Ansicht neu aufbauen — sonst behielten
         // schon gezeichnete Texte die alte Schrift.
         .id(schriftWahl)
