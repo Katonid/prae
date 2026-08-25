@@ -31,8 +31,8 @@ struct TimerWidgetView: View {
                 if style.showLabels {
                     // `.w-timer__label`: 0.84em, gesperrt, gedämpft.
                     Text(content.mode == .countdown ? "TIMER" : "STOPPUHR")
-                        .font(Theme.font(metrics.em(0.84), weight: .bold))
-                        .tracking(metrics.em(0.84) * 0.09)
+                        .font(Theme.font(metrics.em(style.kopf(0.84)), weight: .bold))
+                        .tracking(metrics.em(style.kopf(0.84)) * 0.09)
                         .foregroundStyle(style.inkSoft)
                 }
 

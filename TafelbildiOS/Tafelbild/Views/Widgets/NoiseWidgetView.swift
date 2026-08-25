@@ -72,7 +72,7 @@ struct NoiseWidgetView: View {
         HStack(alignment: .firstTextBaseline, spacing: metrics.em(0.5)) {
             if style.showLabels {
                 Text(content.title.isEmpty ? "Lautstärke" : content.title)
-                    .font(Theme.font(metrics.em(1), weight: .bold))
+                    .font(Theme.font(metrics.em(style.kopf(1)), weight: .bold))
                     .foregroundStyle(style.ink)
                     .lineLimit(1)
                     .minimumScaleFactor(0.6)

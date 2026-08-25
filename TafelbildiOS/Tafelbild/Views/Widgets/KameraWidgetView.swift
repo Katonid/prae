@@ -42,7 +42,7 @@ struct KameraWidgetView: View {
                 VStack {
                     HStack {
                         Text(text)
-                            .font(Theme.font(metrics.em(0.94), weight: .bold))
+                            .font(Theme.font(metrics.em(style.kopf(0.94)), weight: .bold))
                             .foregroundStyle(.white)
                             .padding(.horizontal, 12)
                             .frame(height: 30)

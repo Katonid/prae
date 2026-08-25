@@ -19,7 +19,7 @@ struct ChecklistWidgetView: View {
         // Vorher war beides deutlich kleiner — im Klassenraum wird der
         // Tagesablauf aber aus der letzten Reihe gelesen.
         Group {
-            let titleSize = metrics.em(1.5)
+            let titleSize = metrics.em(style.kopf(1.5))
             let rowSize = metrics.em(1.45)
 
             VStack(alignment: .leading, spacing: metrics.em(0.6)) {

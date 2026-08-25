@@ -43,6 +43,9 @@ struct BoardStyle: Equatable {
     var card: CardStyle = .glass
     /// Beschriftungen in den Elementen zeigen?
     var showLabels: Bool = true
+    /// Maßstab der Überschriften, 1 = wie vorgesehen. Wird je Element
+    /// eingestellt (siehe `BoardWidget.labelSize`).
+    var labelScale: Double = 1
     /// Das Element steht ohne Karte frei auf dem Hintergrund. Dann gelten
     /// andere Farben: helle Schrift statt dunkler, weil der Hintergrund
     /// einer Tafel fast immer dunkel ist.
@@ -145,6 +148,10 @@ struct BoardStyle: Equatable {
     var bigText: AnyShapeStyle {
         bare ? AnyShapeStyle(ink) : AnyShapeStyle(accentGradient)
     }
+
+    /// Größe einer Überschrift, schon mit dem Maßstab des Elements
+    /// verrechnet. Alle Elemente rechnen ihre Überschriften darüber.
+    func kopf(_ em: Double) -> Double { em * labelScale }
 
     /// Grundfarbe der Karte. Bei „Glas" liegt zusätzlich Material darunter.
     var cardFill: Color {
