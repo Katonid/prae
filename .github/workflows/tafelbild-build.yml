@@ -35,6 +35,37 @@ jobs:
       - name: Quelltext vorprüfen
         run: python3 scripts/swift-quelltext-pruefen.py .
 
+      - name: Ressourcennamen auf Dopplung prüfen
+        run: |
+          # Xcode legt alle Ressourcen FLACH ins App-Bündel: Zwei Dateien
+          # gleichen Namens in verschiedenen Unterordnern überschreiben sich
+          # und lassen den Bau scheitern („duplicate output file"). Das
+          # passiert leicht, weil der synchronisierte Ordner jede Datei
+          # mitnimmt — einmal mit zwei README.md geschehen.
+          python3 - <<'PY'
+          import collections, os, sys
+
+          wurzel = "TafelbildiOS/Tafelbild"
+          namen = collections.defaultdict(list)
+          for ordner, _, dateien in os.walk(wurzel):
+              # Der Asset-Katalog wird eigens übersetzt, nicht flach kopiert.
+              if ".xcassets" in ordner:
+                  continue
+              for datei in dateien:
+                  if datei.endswith(".swift") or datei == ".DS_Store":
+                      continue
+                  namen[datei].append(os.path.join(ordner, datei))
+
+          doppelt = {n: p for n, p in namen.items() if len(p) > 1}
+          if doppelt:
+              for name, pfade in sorted(doppelt.items()):
+                  print(f"{name} liegt mehrfach:")
+                  for pfad in pfade:
+                      print(f"    {pfad}")
+              sys.exit("Gleiche Ressourcennamen — im Bündel würden sie sich überschreiben.")
+          print(f"{len(namen)} Ressourcen, alle Namen eindeutig.")
+          PY
+
       - name: Werkzeuge zeigen
         run: |
           xcodebuild -version

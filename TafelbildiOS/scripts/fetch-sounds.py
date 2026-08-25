@@ -7,7 +7,7 @@ nach dem Vorbild der Web-App. Das ergab nie ein glaubwürdiges Kartenmischen.
 
 Alle Quellen stehen unter **CC0** (gemeinfrei, auch kommerziell nutzbar,
 keine Namensnennung nötig). Nennung erfolgt trotzdem, in
-`TafelbildiOS/Tafelbild/Klaenge/README.md`.
+`TafelbildiOS/Tafelbild/Klaenge/Klaenge-Lizenz.md`.
 
 Aufbereitung, für jede Datei gleich:
   * auf einen Kanal mischen (Mono reicht, spart die Hälfte),
@@ -197,7 +197,7 @@ def main():
         zeilen.append(f"| {quelle['titel']} | `zieh-{name}.wav` | {quelle['urheber']} | "
                       f"{quelle['lizenz']} | {quelle['nachweis']} |")
 
-    with open(os.path.join(ordner, "README.md"), "w", encoding="utf-8") as datei:
+    with open(os.path.join(ordner, "Klaenge-Lizenz.md"), "w", encoding="utf-8") as datei:
         datei.write(
             "# Klänge beim Ziehen\n\n"
             "Echte Aufnahmen, keine Synthese. Alle Quellen stehen unter **CC0 1.0** —\n"
@@ -209,7 +209,7 @@ def main():
             "(1,72 s plus Nachklang) zugeschnitten und auf gleichen Pegel gebracht.\n\n"
             "**Nicht von Hand bearbeiten** — `TafelbildiOS/scripts/fetch-sounds.py`\n"
             "holt und erzeugt sie.\n")
-    print("\nHerkunft und Lizenz stehen in Klaenge/README.md")
+    print("\nHerkunft und Lizenz stehen in Klaenge/Klaenge-Lizenz.md")
 
 
 if __name__ == "__main__":

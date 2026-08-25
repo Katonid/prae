@@ -10,7 +10,7 @@ import AVFoundation
 // lassen.
 //
 // Jetzt liegen drei Aufnahmen im Bündel (Ordner `Klaenge/`), alle unter
-// CC0 — Herkunft und Lizenz stehen in `Klaenge/README.md`. Geholt und
+// CC0 — Herkunft und Lizenz stehen in `Klaenge/Klaenge-Lizenz.md`. Geholt und
 // zugeschnitten werden sie von `TafelbildiOS/scripts/fetch-sounds.py`.
 //
 // Damit ändert sich auch, WANN gespielt wird: Früher stieß die App bei jedem
