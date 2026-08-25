@@ -106,6 +106,41 @@ struct BoardSettingsSheet: View {
                          + "ganzen Tafel.")
                 }
 
+                if !board.versteckteWidgets.isEmpty {
+                    Section {
+                        ForEach(board.versteckteWidgets) { widget in
+                            Button {
+                                store.zeigeWieder(widget.id, in: boardID)
+                                Haptics.tap()
+                            } label: {
+                                HStack(spacing: 12) {
+                                    Image(systemName: widget.kind.systemImage)
+                                        .foregroundStyle(Theme.accent)
+                                        .frame(width: 26)
+                                    Text(widget.kind.title)
+                                        .foregroundStyle(.primary)
+                                    Spacer(minLength: 0)
+                                    Image(systemName: "eye")
+                                        .foregroundStyle(.secondary)
+                                }
+                                .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                        }
+                        Button {
+                            store.zeigeAlleWieder(boardID: boardID)
+                            Haptics.tap()
+                        } label: {
+                            Label("Alle wieder zeigen", systemImage: "eye")
+                        }
+                    } header: {
+                        Text("Von mir ausgeblendet")
+                    } footer: {
+                        Text("Diese Elemente sind nur auf diesem Gerät versteckt. Auf einer "
+                             + "geteilten Tafel stehen sie bei den anderen weiterhin.")
+                    }
+                }
+
                 Section {
                     Toggle("Eigene Farben", isOn: Binding(
                         get: { !board.accentVon.isEmpty },

@@ -240,7 +240,15 @@ struct ShareSheet: View {
                 } header: {
                     Text("Einladungscode")
                 } footer: {
-                    Text("Deine Kollegin öffnet Tafelbild → Tafeln → „Tafel beitreten“ und gibt den Code ein. Danach seht ihr dieselbe Tafel; Änderungen gleichen sich über iCloud ab.")
+                    Text("Deine Kollegin öffnet Tafelbild → Tafeln → „Tafel beitreten“ und gibt "
+                         + "den Code ein. Sie sieht die Tafel dann zunächst genau so, wie du sie "
+                         + "eingerichtet hast.\n\n"
+                         + "Danach gilt: Was auf der Tafel steht, gehört euch gemeinsam — "
+                         + "Namenslisten samt gezogener Namen, Texte, Tagesablauf, Klänge. "
+                         + "Wie es aussieht und wo es liegt, entscheidet jede für sich: "
+                         + "Anordnung, Größen, Farben und Ausgeblendetes bleiben auf dem "
+                         + "eigenen Gerät. Zwischen deinen eigenen Geräten gleicht sich "
+                         + "dagegen alles ab, auch das Umräumen.")
                 }
 
                 Section {
