@@ -13,6 +13,16 @@ struct DrawingLayerView: UIViewRepresentable {
     var active: Bool
     /// Nur der Stift schreibt; der Finger bleibt zum Bedienen frei.
     var pencilOnly: Bool
+    /// Liegt die Ebene auf dunklem Grund?
+    ///
+    /// PencilKit dreht schwarze Tinte in dunkler Umgebung selbsttätig ins
+    /// Helle. Ohne diesen Hinweis erbte die Schreibebene das Aussehen der
+    /// App — und die ist hell. Auf einer dunklen Tafel schrieb man dann mit
+    /// schwarzer Tinte auf dunkelblauem Grund: Der Strich war da, aber
+    /// nicht zu sehen. Auf dem iPhone fiel das besonders auf, weil dort die
+    /// ganze Tafel auf ein Viertel verkleinert ist und der dünne Strich
+    /// ohnehin kaum auffällt.
+    var dunklerGrund: Bool = true
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
 
@@ -28,7 +38,14 @@ struct DrawingLayerView: UIViewRepresentable {
         canvas.drawing = Self.decode(drawing)
         canvas.drawingPolicy = pencilOnly ? .pencilOnly : .anyInput
         canvas.isUserInteractionEnabled = active
+        canvas.overrideUserInterfaceStyle = dunklerGrund ? .dark : .light
+        // Ein Stift, mit dem man sofort schreiben kann — ohne erst in der
+        // Werkzeugauswahl etwas zu wählen. Die Breite ist in Tafelpunkten
+        // gedacht: Auf dem Telefon steht die Tafel auf einem Viertel, ein
+        // feiner Strich wäre dort ein Haar.
+        canvas.tool = PKInkingTool(.pen, color: .black, width: 12)
         context.coordinator.canvas = canvas
+        context.coordinator.letzterStand = drawing
         return canvas
     }
 
@@ -36,14 +53,21 @@ struct DrawingLayerView: UIViewRepresentable {
         context.coordinator.parent = self
         canvas.drawingPolicy = pencilOnly ? .pencilOnly : .anyInput
         canvas.isUserInteractionEnabled = active
+        canvas.overrideUserInterfaceStyle = dunklerGrund ? .dark : .light
 
-        // Von außen (iCloud, Tafelwechsel) geänderte Striche übernehmen —
-        // aber nie mitten im eigenen Strich.
-        if !context.coordinator.writing {
-            let incoming = Self.decode(drawing)
-            if incoming.dataRepresentation() != canvas.drawing.dataRepresentation() {
-                canvas.drawing = incoming
-            }
+        // Von außen (iCloud, Tafel- oder Seitenwechsel) geänderte Striche
+        // übernehmen — aber nur die, und nie mitten im eigenen Strich.
+        //
+        // Verglichen wird der gespeicherte Text mit dem, was diese Ebene
+        // zuletzt selbst gelesen oder geschrieben hat. Vorher wurden die
+        // Rohdaten zweier PKDrawing-Objekte verglichen; die sind aber selbst
+        // bei gleichem Inhalt nicht Byte für Byte gleich. Also galt jede
+        // Neuzeichnung als fremde Änderung, und die Ebene setzte ihre
+        // Zeichnung neu — bei jedem Sekundentakt der Uhr. Genau das war das
+        // Flackern: Buchstaben verschwanden und kamen wieder.
+        if !context.coordinator.writing, drawing != context.coordinator.letzterStand {
+            context.coordinator.letzterStand = drawing
+            canvas.drawing = Self.decode(drawing)
         }
 
         context.coordinator.showTools(active)
@@ -70,7 +94,10 @@ struct DrawingLayerView: UIViewRepresentable {
         weak var canvas: PKCanvasView?
         /// Solange gezeichnet wird, nichts von außen überschreiben.
         var writing = false
+        /// Der Stand, den diese Ebene zuletzt gelesen oder geschrieben hat.
+        var letzterStand: String = ""
         private var toolsVisible = false
+        private var beobachtet = false
         /// Eigene Werkzeugauswahl — die geteilte ist seit iOS 16 abgelöst.
         private let picker = PKToolPicker()
 
@@ -86,7 +113,9 @@ struct DrawingLayerView: UIViewRepresentable {
         /// einen neuen Stand in die Cloud.
         func canvasViewDidEndUsingTool(_ canvasView: PKCanvasView) {
             writing = false
-            parent.drawing = DrawingLayerView.encode(canvasView.drawing)
+            let neu = DrawingLayerView.encode(canvasView.drawing)
+            letzterStand = neu
+            parent.drawing = neu
         }
 
         /// Blendet die Werkzeugauswahl von iOS ein oder aus (Farben, Stifte,
@@ -94,10 +123,22 @@ struct DrawingLayerView: UIViewRepresentable {
         func showTools(_ show: Bool) {
             guard let canvas, toolsVisible != show else { return }
             toolsVisible = show
-            picker.addObserver(canvas)
+            if !beobachtet {
+                picker.addObserver(canvas)
+                beobachtet = true
+            }
             picker.setVisible(show, forFirstResponder: canvas)
             if show {
-                canvas.becomeFirstResponder()
+                // Beim ersten Einschalten hängt die Ansicht gelegentlich noch
+                // nicht im Fenster; dann geht der Erstantwortende ins Leere
+                // und die Werkzeugauswahl bleibt weg. Ein zweiter Versuch im
+                // nächsten Durchlauf reicht.
+                if !canvas.becomeFirstResponder() {
+                    DispatchQueue.main.async { [weak canvas] in
+                        guard let canvas else { return }
+                        canvas.becomeFirstResponder()
+                    }
+                }
             } else {
                 canvas.resignFirstResponder()
             }
