@@ -61,10 +61,17 @@ QUELLEN = {
     },
     "rad": {
         "titel": "Glücksrad",
-        "url": "https://upload.wikimedia.org/wikipedia/commons/d/da/Tools_Ratchet.ogg",
-        "urheber": "CapsLok",
+        "url": "https://kenney.nl/media/pages/assets/interface-sounds/"
+               "fa43c1dd4d-1677589452/kenney_interface-sounds.zip",
+        "im_archiv": "Audio/tick_004.ogg",
+        # Hier kein fertiger Mitschnitt, sondern ein echter Einzelklick, der
+        # auf der Verlangsamungskurve ausgelöst wird. Ein Glücksrad wird ja
+        # langsamer — eine feste Aufnahme hat dagegen ihr eigenes Tempo und
+        # passte nie zum Bild.
+        "reihung": True,
+        "urheber": "Kenney Vleugels (kenney.nl), Paket „Interface Sounds“",
         "lizenz": "CC0 1.0",
-        "nachweis": "https://commons.wikimedia.org/wiki/File:Tools_Ratchet.ogg",
+        "nachweis": "https://kenney.nl/assets/interface-sounds",
     },
 }
 
@@ -126,6 +133,34 @@ def schneide(mono, rate):
     return mono[anfang:ende]
 
 
+def reihe(klick, rate):
+    """Einen echten Klick auf der Ziehkurve aneinanderreihen.
+
+    Dieselben 18 Schritte wie in `ZiehLauf`: von 45 auf 210 ms, Exponent 2,4.
+    Kleine Pegelschwankungen, weil eine Ratsche nie zweimal gleich klingt.
+    """
+    schritte = 18
+    zeiten = []
+    t = 0.0
+    for i in range(schritte):
+        zeiten.append(t)
+        p = i / (schritte - 1)
+        t += (45 + p ** 2.4 * 165) / 1000
+    zeiten.append(t)                      # letzter Klick beim Anhalten
+
+    gesamt = int((t + 0.3) * rate)
+    spur = [0.0] * gesamt
+    for nummer, wann in enumerate(zeiten):
+        ab = int(wann * rate)
+        # Zum Schluss etwas leiser — das Rad läuft aus.
+        pegel = 0.75 + 0.25 * (1 - nummer / len(zeiten))
+        for i, v in enumerate(klick):
+            j = ab + i
+            if j < gesamt:
+                spur[j] += v * pegel
+    return spur
+
+
 def blende(stueck, rate):
     ein = int(0.004 * rate)
     aus = int(0.05 * rate)
@@ -151,7 +186,10 @@ def main():
     zeilen = []
     for name, quelle in QUELLEN.items():
         mono, rate = lade(quelle)
-        stueck = normiere(blende(schneide(mono, rate), rate))
+        if quelle.get("reihung"):
+            stueck = normiere(blende(reihe(schneide(mono, rate), rate), rate))
+        else:
+            stueck = normiere(blende(schneide(mono, rate), rate))
         pfad = os.path.join(ordner, f"zieh-{name}.wav")
         sf.write(pfad, stueck, rate, subtype="PCM_16")
         groesse = os.path.getsize(pfad) // 1024
