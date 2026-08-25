@@ -73,6 +73,7 @@ enum WidgetKind: String, Codable, CaseIterable, Identifiable {
     case sounds
     case symbols
     case video
+    case kamera
 
     var id: String { rawValue }
 
@@ -89,6 +90,7 @@ enum WidgetKind: String, Codable, CaseIterable, Identifiable {
         case .sounds:       return "Klänge"
         case .symbols:      return "Arbeitssymbol"
         case .video:        return "Video"
+        case .kamera:       return "Dokumentenkamera"
         }
     }
 
@@ -105,6 +107,7 @@ enum WidgetKind: String, Codable, CaseIterable, Identifiable {
         case .sounds:       return "Tonfelder zum Antippen"
         case .symbols:      return "Arbeitsform groß anzeigen"
         case .video:        return "Film vom Gerät oder aus dem Netz"
+        case .kamera:       return "Heft oder Blatt zeigen"
         }
     }
 
@@ -121,6 +124,7 @@ enum WidgetKind: String, Codable, CaseIterable, Identifiable {
         case .sounds:       return "speaker.wave.2"
         case .symbols:      return "person.2"
         case .video:        return "play.rectangle"
+        case .kamera:       return "doc.viewfinder"
         }
     }
 
@@ -485,6 +489,21 @@ enum WorkSymbol: String, Codable, CaseIterable, Identifiable {
     }
 }
 
+/// Dokumentenkamera: Livebild der Gerätekamera, wahlweise eingefroren.
+struct KameraContent: Codable, Equatable {
+    /// Eingefrorenes Bild unter Documents/Media. nil = das Livebild läuft.
+    ///
+    /// Das Standbild ist eine gewöhnliche Bilddatei und reist deshalb wie
+    /// jedes andere Bild über iCloud mit — wer die Tafel teilt, sieht das
+    /// festgehaltene Heft, nicht die Kamera des anderen.
+    var eingefroren: String? = nil
+    var caption: String = ""
+    /// Bild füllend zeigen (Vorgabe) oder ganz, mit Rändern.
+    var fuellend: Bool = true
+
+    var haeltStand: Bool { eingefroren != nil }
+}
+
 struct VideoContent: Codable, Equatable {
     /// Datei unter Documents/Media — bleibt bewusst auf diesem Gerät.
     var fileName: String? = nil
@@ -528,6 +547,7 @@ enum WidgetContent: Equatable {
     case sounds(SoundsContent)
     case symbols(SymbolContent)
     case video(VideoContent)
+    case kamera(KameraContent)
 
     var kind: WidgetKind {
         switch self {
@@ -542,6 +562,7 @@ enum WidgetContent: Equatable {
         case .sounds:       return .sounds
         case .symbols:      return .symbols
         case .video:        return .video
+        case .kamera:       return .kamera
         }
     }
 
@@ -569,6 +590,7 @@ enum WidgetContent: Equatable {
         case .sounds:       return .sounds(SoundsContent(buttons: [
             SoundButton(label: "Klang", emoji: "🔔", colorHex: "#0f9b8e")
         ]))
+        case .kamera:       return .kamera(KameraContent())
         }
     }
 }
@@ -593,6 +615,7 @@ extension WidgetContent: Codable {
         case .sounds:       self = .sounds(try container.decode(SoundsContent.self, forKey: .data))
         case .symbols:      self = .symbols(try container.decode(SymbolContent.self, forKey: .data))
         case .video:        self = .video(try container.decode(VideoContent.self, forKey: .data))
+        case .kamera:       self = .kamera(try container.decode(KameraContent.self, forKey: .data))
         }
     }
 
@@ -611,6 +634,7 @@ extension WidgetContent: Codable {
         case .sounds(let value):       try container.encode(value, forKey: .data)
         case .symbols(let value):      try container.encode(value, forKey: .data)
         case .video(let value):        try container.encode(value, forKey: .data)
+        case .kamera(let value):       try container.encode(value, forKey: .data)
         }
     }
 }
@@ -850,6 +874,8 @@ struct Board: Codable, Identifiable, Equatable {
                 for button in content.buttons {
                     if let file = button.fileName { names.insert(file) }
                 }
+            case .kamera(let content):
+                if let file = content.eingefroren { names.insert(file) }
             default:
                 break
             }
@@ -1280,6 +1306,18 @@ extension VideoContent {
         loop = c.wert(.loop, false)
         showControls = c.wert(.showControls, true)
         muted = c.wert(.muted, false)
+    }
+}
+
+extension KameraContent {
+    enum KameraKeys: String, CodingKey { case eingefroren, caption, fuellend }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: KameraKeys.self)
+        self.init()
+        eingefroren = c.optional(.eingefroren, String.self)
+        caption = c.wert(.caption, "")
+        fuellend = c.wert(.fuellend, true)
     }
 }
 

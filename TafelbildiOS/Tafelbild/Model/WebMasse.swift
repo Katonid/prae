@@ -27,6 +27,9 @@ extension WidgetKind {
         case .sounds:       return CGSize(width: 340, height: 220)
         case .symbols:      return CGSize(width: 300, height: 320)
         case .video:        return CGSize(width: 640, height: 400)
+        // Wie ein Dokumentenprojektor: groß genug, dass eine Heftseite von
+        // hinten zu lesen ist. 4:3, weil Hefte und Blätter hochkant sind.
+        case .kamera:       return CGSize(width: 640, height: 480)
         }
     }
 }

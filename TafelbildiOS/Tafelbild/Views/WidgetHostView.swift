@@ -161,6 +161,14 @@ struct WidgetHostView: View {
         case .video(let value):
             VideoWidgetView(content: value, interactive: !editing,
                             onOpenSettings: { store.settingsWidgetID = widget.id })
+        case .kamera(let value):
+            KameraWidgetView(content: bindKamera(value), interactive: !editing,
+                             onAblegen: { datei in
+                                 store.legeBildAb(datei: datei, boardID: boardID)
+                             },
+                             onSichern: { daten in
+                                 store.saveMedia(data: daten, fileExtension: "jpg")
+                             })
         }
     }
 
@@ -297,6 +305,16 @@ struct WidgetHostView: View {
                 return fallback
             },
             set: { store.setContent(.symbols($0), widgetID: widget.id, boardID: boardID) }
+        )
+    }
+
+    private func bindKamera(_ fallback: KameraContent) -> Binding<KameraContent> {
+        Binding(
+            get: {
+                if case .kamera(let value)? = store.widget(widget.id, in: boardID)?.content { return value }
+                return fallback
+            },
+            set: { store.setContent(.kamera($0), widgetID: widget.id, boardID: boardID) }
         )
     }
 

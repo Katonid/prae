@@ -6,6 +6,8 @@
 	<false/>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Das Mikrofon wird für die Lautstärkeanzeige gebraucht: Die App misst nur den Geräuschpegel im Raum. Es wird nichts aufgezeichnet und nichts verschickt — außer du nimmst selbst eine Ansage für ein Klangfeld auf.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Die Kamera wird für die Dokumentenkamera gebraucht: Ein Heft oder Blatt unter dem Gerät erscheint auf der Tafel. Aufgenommen wird nur, was du selbst einfrierst — das Standbild bleibt auf deiner Tafel.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Der Zugriff auf die Fotomediathek wird benötigt, um Bilder auf eine Tafel zu legen oder als Hintergrund zu verwenden.</string>
 	<key>UIAppFonts</key>
