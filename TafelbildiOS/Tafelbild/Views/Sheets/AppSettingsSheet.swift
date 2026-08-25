@@ -12,6 +12,10 @@ struct AppSettingsSheet: View {
     @State private var showImporter = false
     @State private var storageBytes: Int64 = 0
 
+    /// Ansicht — dieselben zwei Schalter wie im Menü der Web-App.
+    @AppStorage("stackModeManual") private var listenansicht = false
+    @AppStorage("dockHidden") private var leisteAus = false
+
     private var version: String {
         let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
         let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"
@@ -85,6 +89,22 @@ struct AppSettingsSheet: View {
                     Text("Lautstärkemessung")
                 } footer: {
                     Text("Die Messung läuft ausschließlich auf dem Gerät. Es wird nichts aufgezeichnet und nichts verschickt — nur der Pegel wird angezeigt.")
+                }
+
+                Section {
+                    Toggle("Listenansicht (Elemente untereinander)", isOn: $listenansicht)
+                    Toggle("Elementleiste unten anzeigen", isOn: Binding(
+                        get: { !leisteAus },
+                        set: { leisteAus = !$0 }
+                    ))
+                } header: {
+                    Text("Ansicht")
+                } footer: {
+                    Text("Vorgabe ist überall die Tafel — auch am Telefon. Sie lässt sich dort "
+                         + "mit zwei Fingern vergrößern und mit einem verschieben; Doppeltippen "
+                         + "zeigt wieder die ganze Tafel. Wer lieber untereinander liest, "
+                         + "schaltet auf Listenansicht. Die Elementleiste lässt sich auch mit "
+                         + "dem schmalen Knopf darüber wegblenden.")
                 }
 
                 Section {
