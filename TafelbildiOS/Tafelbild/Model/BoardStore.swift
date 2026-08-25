@@ -623,6 +623,17 @@ final class BoardStore: ObservableObject {
         if !transient { touch(boardID) }
     }
 
+    /// Legt ein Bildelement mit einer schon vorhandenen Mediendatei an.
+    ///
+    /// Gebraucht von der Dokumentenkamera: Das eingefrorene Bild bleibt als
+    /// eigenes Element auf der Tafel stehen, während die Kamera weiterläuft.
+    @discardableResult
+    func legeBildAb(datei: String, boardID: String) -> BoardWidget? {
+        guard let widget = addWidget(kind: .image, to: boardID) else { return nil }
+        setContent(.image(ImageContent(fileName: datei)), widgetID: widget.id, boardID: boardID)
+        return widget
+    }
+
     func setContent(_ content: WidgetContent, widgetID: String, boardID: String) {
         updateWidget(widgetID, in: boardID) { $0.content = content }
     }

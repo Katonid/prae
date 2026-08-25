@@ -39,6 +39,8 @@ struct WidgetSettingsSheet: View {
                         SymbolSettings(content: bindSymbol(value))
                     case .video(let value):
                         VideoSettings(content: bindVideo(value))
+                    case .kamera(let value):
+                        KameraSettings(content: bindKamera(value))
                     }
 
                     Section("Auf der Tafel") {
@@ -172,6 +174,16 @@ struct WidgetSettingsSheet: View {
                 return fallback
             },
             set: { store.setContent(.symbols($0), widgetID: widgetID, boardID: boardID) }
+        )
+    }
+
+    private func bindKamera(_ fallback: KameraContent) -> Binding<KameraContent> {
+        Binding(
+            get: {
+                if case .kamera(let value)? = store.widget(widgetID, in: boardID)?.content { return value }
+                return fallback
+            },
+            set: { store.setContent(.kamera($0), widgetID: widgetID, boardID: boardID) }
         )
     }
 
@@ -989,6 +1001,52 @@ private struct SoundsSettings: View {
     }
 }
 
+
+// MARK: - Dokumentenkamera
+
+private struct KameraSettings: View {
+    @Binding var content: KameraContent
+    @ObservedObject private var kamera = Kameraquelle.shared
+
+    var body: some View {
+        Section {
+            TextField("Aufschrift (z. B. „Merlins Heft“)", text: $content.caption)
+            Toggle("Bild füllend zeigen", isOn: $content.fuellend)
+        } header: {
+            Text("Dokumentenkamera")
+        } footer: {
+            Text("Füllend nutzt die ganze Fläche und schneidet an den Rändern etwas ab. "
+                 + "Ausgeschaltet ist das ganze Bild zu sehen, dafür mit Rändern.")
+        }
+
+        Section {
+            if content.eingefroren != nil {
+                Button {
+                    content.eingefroren = nil
+                    Haptics.tap()
+                } label: {
+                    Label("Standbild verwerfen", systemImage: "arrow.counterclockwise")
+                }
+            } else {
+                Text("Kein Standbild — die Kamera läuft.")
+                    .foregroundStyle(.secondary)
+            }
+            if kamera.erlaubnis == .verweigert {
+                Text("Kein Zugriff auf die Kamera. In den iOS-Einstellungen unter "
+                     + "Tafelbild wieder erlauben.")
+                    .foregroundStyle(.secondary)
+            }
+        } header: {
+            Text("Standbild")
+        } footer: {
+            Text("Ein Tipp auf das Element friert das Bild ein und taut es wieder auf. "
+                 + "Auf dem eingefrorenen Bild lässt sich mit dem Stift schreiben — die "
+                 + "Handschrift der Tafel liegt darüber. „Als Bild ablegen“ macht daraus "
+                 + "ein eigenes Bildelement, das stehen bleibt, während die Kamera "
+                 + "weiterläuft.")
+        }
+    }
+}
 
 // MARK: - Arbeitssymbol
 
