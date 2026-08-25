@@ -18,7 +18,7 @@ funktioniert auch am Telefon.
 | **Text** | Doppeltippen zum Schreiben, Schriftgröße passt sich automatisch an. |
 | **Bild** | Bild vom Gerät, wird beim Einfügen verkleinert. |
 | **Lautstärke** | Misst über das Mikrofon die Lautstärke im Raum, mit einstellbarer Grenze und optionalem Signalton. Ein Tipp auf die Karte startet die Messung, der nächste beendet sie — Knöpfe gibt es keine. Beim ersten Start fragt das Gerät nach der Erlaubnis; wird sie verweigert, erklärt die Karte den Weg zurück. Das Mikrofon läuft nur im Vordergrund (siehe unten). |
-| **Klang** | Tasten, die auf Tippen eine Klangdatei abspielen — Datei vom Gerät oder Link. Mehrere Tasten je Element, eigene Farbe, Beschriftung und ein wählbares **Symbol** (Emoji), das groß auf der Taste steht. Die Schrift wächst mit der Breite des Feldes. |
+| **Klang** | Tasten, die auf Tippen eine Klangdatei abspielen — Datei vom Gerät oder Link. Mehrere Tasten je Element, eigene Farbe, Beschriftung und ein wählbares **Symbol** (Emoji), das groß auf der Taste steht. Jede Beschriftung wird automatisch so groß gesetzt, dass sie ihre Taste ausfüllt; sehr lange Beschriftungen brechen um. |
 | **Video** | Video vom Gerät oder per Link, mit Bedienleiste, Schleife und Vollbild. |
 | **Arbeitssymbol** | Einzel-, Partner-, Gruppenarbeit, Stillarbeit, Melden, Zuhören, Aufräumen. |
 
