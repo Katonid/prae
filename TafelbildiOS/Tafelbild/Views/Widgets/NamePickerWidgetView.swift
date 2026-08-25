@@ -35,11 +35,13 @@ struct NamePickerWidgetView: View {
     var body: some View {
         GeometryReader { geo in
             VStack(spacing: metrics.em(0.55)) {
-                if zeigtKopf { header }
-
-                // `.w-random__display` — der Name steht frei, ohne Kasten.
-                VStack(spacing: 6) {
-                    nameBox(size: geo.size)
+                // `.w-random__display` — Überschrift, Name und Hinweis
+                // stehen als EINE Gruppe in der Mitte. Vorher klebte die
+                // Überschrift oben am Rand und der Name schwebte weit
+                // darunter; zusammengehörendes gehört zusammen.
+                VStack(spacing: metrics.em(0.3)) {
+                    if zeigtKopf { ueberschrift }
+                    nameBox(size: freierRaum(geo))
                     if style.showLabels {
                         Text(hint)
                             .font(Theme.font(metrics.em(0.84), weight: .medium))
@@ -59,6 +61,11 @@ struct NamePickerWidgetView: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            // Der Zähler bleibt oben rechts stehen, wo ihn die Web-App auch
+            // hat (`.w-random__count`) — er gehört zur Liste, nicht zum Namen.
+            .overlay(alignment: .topTrailing) {
+                if style.showLabels { zaehler }
+            }
         }
         // `.w-random { padding: 1.05em 1.2em 0.95em }`
         .padding(.top, metrics.em(1.05))
@@ -77,48 +84,55 @@ struct NamePickerWidgetView: View {
 
     // MARK: - Kopfzeile
 
-    /// Ist eine Kopfzeile zu sehen?
+    /// Ist eine Überschrift zu sehen?
     ///
-    /// Eine selbst gesetzte Überschrift immer — sie benennt das Element und
-    /// gehört damit zum Inhalt, nicht zur Zier. Wer mehrere Ziehungen
-    /// nebeneinander hat, muss sie auseinanderhalten können, auch wenn die
-    /// Tafel unter „Aussehen“ keine Beschriftungen zeigt. Ohne eigene
-    /// Überschrift steht dort der Listenname — der folgt weiter der
-    /// Tafelregel, wie `.w-random__head` in der Web-App.
+    /// Eine selbst gesetzte immer — sie benennt das Element und gehört damit
+    /// zum Inhalt, nicht zur Zier. Wer mehrere Ziehungen nebeneinander hat,
+    /// muss sie auseinanderhalten können, auch wenn die Tafel unter
+    /// „Aussehen“ keine Beschriftungen zeigt. Ohne eigene Überschrift steht
+    /// dort der Listenname — der folgt weiter der Tafelregel, wie
+    /// `.w-random__head` in der Web-App.
     private var zeigtKopf: Bool { eigeneUeberschrift != nil || style.showLabels }
 
     private var eigeneUeberschrift: String? { content.title.nonEmpty }
 
-    /// `.w-random__head` — Überschrift links, Zähler rechts.
-    private var header: some View {
-        HStack(spacing: metrics.em(0.7)) {
-            // `.w-random__list`: 0.92em der Kopfzeile (0.84em), gesperrt.
-            Text(kopfText.uppercased())
-                .font(Theme.font(metrics.em(0.84 * 0.92), weight: .semibold))
-                .tracking(metrics.em(0.84 * 0.92) * 0.08)
-                .foregroundStyle(style.inkSoft)
-                .lineLimit(1)
-                .truncationMode(.tail)
-
-            Spacer(minLength: 0)
-
-            // `.w-random__count`: Pille in der ruhigen Füllung. Der Zähler
-            // ist Beiwerk und bleibt deshalb an der Tafelregel hängen.
-            if style.showLabels {
-                Text(countText)
-                    .font(Theme.font(metrics.em(0.84), weight: .semibold))
-                    .monospacedDigit()
-                    .foregroundStyle(style.inkSoft)
-                    .padding(.horizontal, metrics.em(0.84 * 0.7))
-                    .padding(.vertical, metrics.em(0.84 * 0.2))
-                    .background { Capsule().fill(style.wash) }
-                    .lineLimit(1)
-            }
-        }
+    /// Die Überschrift über dem Namen.
+    ///
+    /// Deutlich größer als die Zeile in der Web-App (dort 0,77em, gedacht
+    /// als beiläufiger Listenname). Sobald sie selbst gesetzt wird, ist sie
+    /// die Aufschrift des Elements und muss aus der letzten Reihe zu lesen
+    /// sein. Eine eigene Überschrift steht so da, wie sie eingetippt wurde;
+    /// der Listenname bleibt in Großbuchstaben, wie im Web.
+    private var ueberschrift: some View {
+        Text(eigeneUeberschrift ?? listTitle.uppercased())
+            .font(Theme.font(kopfGroesse, weight: .bold))
+            .tracking(kopfGroesse * 0.05)
+            .foregroundStyle(style.inkSoft)
+            .lineLimit(2)
+            .multilineTextAlignment(.center)
+            .minimumScaleFactor(0.6)
     }
 
-    /// Was in der Kopfzeile steht: die eigene Überschrift, sonst die Liste.
-    private var kopfText: String { eigeneUeberschrift ?? listTitle }
+    private var kopfGroesse: Double { metrics.em(1.25) }
+
+    /// Wie viel Höhe die Überschrift der Namenszeile wegnimmt.
+    private func freierRaum(_ geo: GeometryProxy) -> CGSize {
+        guard zeigtKopf else { return geo.size }
+        return CGSize(width: geo.size.width,
+                      height: max(60, geo.size.height - kopfGroesse * 1.6))
+    }
+
+    /// `.w-random__count`: Pille in der ruhigen Füllung.
+    private var zaehler: some View {
+        Text(countText)
+            .font(Theme.font(metrics.em(0.84), weight: .semibold))
+            .monospacedDigit()
+            .foregroundStyle(style.inkSoft)
+            .padding(.horizontal, metrics.em(0.84 * 0.7))
+            .padding(.vertical, metrics.em(0.84 * 0.2))
+            .background { Capsule().fill(style.wash) }
+            .lineLimit(1)
+    }
 
     private var listTitle: String {
         if let list { return list.name }
