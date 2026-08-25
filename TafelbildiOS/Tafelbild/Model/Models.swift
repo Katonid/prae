@@ -531,10 +531,11 @@ enum WidgetContent: Equatable {
         case .image:        return .image(ImageContent())
         case .symbols:      return .symbols(SymbolContent())
         case .video:        return .video(VideoContent())
+        // Ein Feld, wie in der Web-App (`sound.js`: `entries: [defaultEntry()]`).
+        // Drei vorgefertigte Felder waren gut gemeint, aber wer nur einen
+        // Klang braucht, muss erst zwei wegräumen.
         case .sounds:       return .sounds(SoundsContent(buttons: [
-            SoundButton(label: "Gong", emoji: "🔔", colorHex: "#0f9b8e"),
-            SoundButton(label: "Applaus", emoji: "👏", colorHex: "#2dd4bf"),
-            SoundButton(label: "Aufräumen", emoji: "🧹", colorHex: "#f59e0b")
+            SoundButton(label: "Klang", emoji: "🔔", colorHex: "#0f9b8e")
         ]))
         }
     }
