@@ -736,8 +736,14 @@ private struct SoundsSettings: View {
 
     var body: some View {
         Group {
-        Section("Klangfelder") {
+        Section {
             Toggle("Beschriftungen zeigen", isOn: $content.showLabels)
+        } header: {
+            Text("Klangfelder")
+        } footer: {
+            Text("Die Beschriftung steht auf dem Feld und sagt, was erklingt. "
+                 + "Sie bleibt auch dann sichtbar, wenn die Tafel unter „Aussehen“ "
+                 + "keine Beschriftungen zeigt — nur dieser Schalter blendet sie aus.")
         }
 
         ForEach($content.buttons) { $button in

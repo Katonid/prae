@@ -52,6 +52,19 @@ struct SoundsWidgetView: View {
         return max(1, min(byWidth, count))
     }
 
+    /// Die Beschriftung sagt, was beim Antippen erklingt — ein Symbol allein
+    /// beantwortet das nicht. Sie hängt deshalb **nicht** an der Tafelregel
+    /// „Beschriftungen“: Stand die auf „Beim Bearbeiten“ oder „Nie“,
+    /// verschwand sie im Unterricht, also genau dann, wenn sie gebraucht wird.
+    ///
+    /// Die Web-App macht es ebenso. Dort blendet `body[data-labels="never"]`
+    /// `.w-sound__title` aus — die Überschrift des ganzen Elements —, nie
+    /// `.w-sound__label` an den einzelnen Feldern. Hier war beides
+    /// vertauscht. Ohne eigenen Text steht „Klang“ da, wie im Web
+    /// (`entry.label || 'Klang'`), damit ein Feld nie stumm bleibt.
+    ///
+    /// Wer die Felder ausdrücklich ohne Text will, schaltet in den
+    /// Einstellungen des Elements „Beschriftungen zeigen“ ab.
     private func padView(_ button: SoundButton, height: CGFloat) -> some View {
         let playing = player.isPlaying(button.id)
         let color = Color(hex: button.colorHex)
@@ -67,8 +80,8 @@ struct SoundsWidgetView: View {
             VStack(spacing: 4) {
                 Text(button.emoji.isEmpty ? "🔊" : button.emoji)
                     .font(.system(size: min(height * 0.42, 44)))
-                if content.showLabels && style.showLabels && !button.label.isEmpty {
-                    Text(button.label)
+                if content.showLabels {
+                    Text(button.label.nonEmpty ?? "Klang")
                         .font(Theme.font(min(height * 0.18, 18), weight: .semibold))
                         .foregroundStyle(button.hasSource ? color.readableForeground : style.inkSoft)
                         .lineLimit(2)
