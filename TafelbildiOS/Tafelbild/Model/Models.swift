@@ -655,6 +655,12 @@ struct BoardWidget: Codable, Identifiable, Equatable {
     /// Auf welcher Seite das Element liegt. **Leer heißt: erste Seite** —
     /// so gehören alle Elemente älterer Tafeln von selbst auf Seite 1.
     var pageID: String = ""
+    /// Nur für mich ausgeblendet.
+    ///
+    /// Gehört zur Anordnung, nicht zum Inhalt: Auf einer geteilten Tafel
+    /// darf jede Person für sich entscheiden, was sie sehen will, ohne es
+    /// den anderen wegzunehmen. Löschen entfernt es dagegen für alle.
+    var versteckt: Bool = false
     var content: WidgetContent
 
     var kind: WidgetKind { content.kind }
@@ -784,6 +790,12 @@ struct Board: Codable, Identifiable, Equatable {
     var name: String = "Neue Tafel"
     var emoji: String = "🌟"
     var background: BoardBackground = .aurora("nordlicht")
+    /// iCloud-Kennung dessen, der diesen Stand zuletzt gesichert hat.
+    ///
+    /// Daran erkennt der Abgleich, ob eine ankommende Fassung von einem
+    /// eigenen Gerät stammt (dann zählt sie ganz) oder von jemand anderem
+    /// (dann zählt nur der Inhalt, die eigene Anordnung bleibt).
+    var zuletztVon: String = ""
     /// Kennung des Farbschemas aus `AccentSchemes`.
     var accent: String = "indigo"
     /// Eigenes Farbschema. Ist `accentVon` gefüllt, gilt es statt `accent`;
@@ -883,6 +895,58 @@ struct Board: Codable, Identifiable, Equatable {
         return names
     }
 
+    /// Eine fremde Fassung dieser Tafel einarbeiten — Inhalt übernehmen,
+    /// eigene Anordnung behalten.
+    ///
+    /// Das ist die Regel für geteilte Tafeln: **Was auf der Tafel steht,
+    /// gehört allen; wie es aussieht und wo es liegt, gehört jedem selbst.**
+    /// Wer eine Tafel bekommt, sieht sie zunächst genau so, wie sie gedacht
+    /// war (dann gibt es sie hier ja noch nicht, und alles wird übernommen).
+    /// Ab da darf jede Person umräumen, ohne dass es den anderen die Tafel
+    /// verstellt — und ohne dass ihr jemand beim Umräumen zusieht.
+    ///
+    /// Gemeinsam sind: Name und Symbol der Tafel, die Seiten, die
+    /// Handschrift, die Mitglieder — und vor allem der **Inhalt der
+    /// Elemente**. Gerade der Zufallsgenerator muss eins zu eins
+    /// übertragen: Wer schon gezogen wurde, ist keine Ansichtssache.
+    ///
+    /// Persönlich bleiben: Lage, Größe, Stapelreihenfolge, Karte an oder
+    /// aus, Festgestecktes, Seitenzugehörigkeit und Ausgeblendetes — dazu
+    /// Hintergrund, Farbschema, Kartenstil, Rahmen- und Beschriftungsregel.
+    ///
+    /// Elemente, die die fremde Fassung nicht kennt, verschwinden: Löschen
+    /// gilt für alle. Neue kommen so an, wie sie gedacht sind — nur nicht
+    /// ausgeblendet, denn das war die Entscheidung des anderen.
+    func mitFremdemInhalt(_ fremd: Board) -> Board {
+        var neu = self
+
+        neu.name = fremd.name
+        neu.emoji = fremd.emoji
+        neu.pages = fremd.pages
+        neu.drawing = fremd.drawing
+        neu.members = fremd.members
+        neu.memberUserIDs = fremd.memberUserIDs
+        neu.ownerUserID = fremd.ownerUserID
+        neu.owner = fremd.owner
+        neu.joinCode = fremd.joinCode
+        neu.createdAtMs = fremd.createdAtMs
+        neu.updatedAtMs = fremd.updatedAtMs
+        neu.deleted = fremd.deleted
+        neu.zuletztVon = fremd.zuletztVon
+        neu.embeddedLists = []
+
+        neu.widgets = fremd.widgets.map { fremdes in
+            guard var meines = widgets.first(where: { $0.id == fremdes.id }) else {
+                var neues = fremdes
+                neues.versteckt = false
+                return neues
+            }
+            meines.content = fremdes.content
+            return meines
+        }
+        return neu
+    }
+
     var sortedWidgets: [BoardWidget] {
         widgets.sorted { $0.z < $1.z }
     }
@@ -909,7 +973,12 @@ struct Board: Codable, Identifiable, Equatable {
 
     /// Elemente einer Seite, von hinten nach vorn.
     func widgets(auf seite: String) -> [BoardWidget] {
-        sortedWidgets.filter { liegtAuf($0, seite: seite) }
+        sortedWidgets.filter { !$0.versteckt && liegtAuf($0, seite: seite) }
+    }
+
+    /// Elemente, die diese Person für sich ausgeblendet hat.
+    var versteckteWidgets: [BoardWidget] {
+        sortedWidgets.filter(\.versteckt)
     }
 
     /// Handschrift einer Seite. Für die erste Seite alter Tafeln steht sie
@@ -1007,6 +1076,7 @@ enum StarterContent {
 extension Board {
     enum BoardKeys: String, CodingKey {
         case id, name, emoji, background, accent, accentVon, accentBis, gradient, cardStyle, frames, labels
+        case zuletztVon
         case widgets, pages, drawing, members, ownerUserID
         case memberUserIDs, joinCode, owner, createdAtMs, updatedAtMs, deleted
         case embeddedLists
@@ -1020,6 +1090,7 @@ extension Board {
         emoji = c.wert(.emoji, "🌟")
         background = c.wert(.background, BoardBackground.aurora("nordlicht"))
         accent = c.wert(.accent, "indigo")
+        zuletztVon = c.wert(.zuletztVon, "")
         accentVon = c.wert(.accentVon, "")
         accentBis = c.wert(.accentBis, "")
         gradient = c.wert(.gradient, true)
@@ -1071,7 +1142,9 @@ extension NameEntry {
 }
 
 extension BoardWidget {
-    enum WidgetKeys: String, CodingKey { case id, x, y, width, height, z, locked, bare, pageID, content }
+    enum WidgetKeys: String, CodingKey {
+        case id, x, y, width, height, z, locked, bare, pageID, versteckt, content
+    }
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: WidgetKeys.self)
@@ -1087,6 +1160,7 @@ extension BoardWidget {
         locked = c.wert(.locked, false)
         pageID = c.wert(.pageID, "")
         bare = c.wert(.bare, false)
+        versteckt = c.wert(.versteckt, false)
     }
 }
 

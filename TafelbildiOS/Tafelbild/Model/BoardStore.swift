@@ -429,6 +429,9 @@ final class BoardStore: ObservableObject {
     private func touch(_ boardID: String, sync: Bool = true) {
         guard let index = boards.firstIndex(where: { $0.id == boardID }) else { return }
         boards[index].updatedAtMs = Date.nowMs
+        // Wer zuletzt geschrieben hat, entscheidet beim Empfänger darüber,
+        // ob die Anordnung mitzählt (eigenes Gerät) oder nicht (geteilt).
+        boards[index].zuletztVon = myUserID ?? ""
         scheduleSave()
         if sync { engine.enqueue(kind: .board, entityId: boardID) }
     }
@@ -640,6 +643,23 @@ final class BoardStore: ObservableObject {
 
     /// Abschluss einer Zieh- oder Größengeste: jetzt sichern und hochladen.
     func commitLayout(boardID: String) {
+        touch(boardID)
+    }
+
+    /// Element nur für mich ausblenden — auf einer geteilten Tafel bleibt
+    /// es für die anderen stehen.
+    func verstecke(_ widgetID: String, in boardID: String) {
+        updateWidget(widgetID, in: boardID) { $0.versteckt = true }
+        if selectedWidgetID == widgetID { selectedWidgetID = nil }
+    }
+
+    func zeigeWieder(_ widgetID: String, in boardID: String) {
+        updateWidget(widgetID, in: boardID) { $0.versteckt = false }
+    }
+
+    func zeigeAlleWieder(boardID: String) {
+        guard let index = boards.firstIndex(where: { $0.id == boardID }) else { return }
+        for i in boards[index].widgets.indices { boards[index].widgets[i].versteckt = false }
         touch(boardID)
     }
 
@@ -1071,6 +1091,29 @@ final class BoardStore: ObservableObject {
         }
     }
 
+    /// Entscheidet, wie viel einer ankommenden Fassung gilt.
+    ///
+    /// Von einem eigenen Gerät zählt alles — dort soll ja jede Änderung
+    /// ankommen, auch das Umräumen. Von jemand anderem zählt nur der
+    /// Inhalt; die eigene Anordnung bleibt stehen (siehe
+    /// `Board.mitFremdemInhalt`).
+    ///
+    /// Ohne iCloud-Kennung (kein Konto, alter Stand) gilt die vorsichtigere
+    /// Regel: lieber die eigene Anordnung behalten als sie unter der Hand
+    /// verstellt zu bekommen.
+    private func zusammengefuehrt(vorhanden: Board, fremd: Board) -> Board {
+        if let ich = myUserID, !ich.isEmpty, fremd.zuletztVon == ich {
+            return fremd
+        }
+        // Eine Tafel, die nur mir gehört, ist kein Fall für die Trennung:
+        // Da kommt ohnehin nur mein eigener Stand zurück.
+        if fremd.memberUserIDs.count <= 1, fremd.zuletztVon.isEmpty,
+           fremd.ownerUserID == (myUserID ?? "") {
+            return fremd
+        }
+        return vorhanden.mitFremdemInhalt(fremd)
+    }
+
     private func applyRemote(_ changes: [RemoteEntity]) {
         let decoder = JSONDecoder()
         var changed = false
@@ -1098,10 +1141,12 @@ final class BoardStore: ObservableObject {
                 board.embeddedLists = []
                 if let index = boards.firstIndex(where: { $0.id == board.id }) {
                     if board.updatedAtMs > boards[index].updatedAtMs {
-                        boards[index] = board
+                        boards[index] = zusammengefuehrt(vorhanden: boards[index], fremd: board)
                         changed = true
                     }
                 } else {
+                    // Zum ersten Mal da: genau so übernehmen, wie sie
+                    // gedacht ist — mit Anordnung, Farben und allem.
                     boards.append(board)
                     changed = true
                 }

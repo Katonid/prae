@@ -225,6 +225,7 @@ struct BoardCanvasView: View {
     private var selectedWidget: BoardWidget? {
         guard let id = store.selectedWidgetID,
               let treffer = board.widgets.first(where: { $0.id == id }),
+              !treffer.versteckt,
               board.liegtAuf(treffer, seite: sichtbareSeite)
         else { return nil }
         return treffer
@@ -384,6 +385,21 @@ private struct SelectionChrome: View {
                     }
                 } label: {
                     Label("Standardgröße", systemImage: "arrow.up.left.and.arrow.down.right")
+                }
+                Divider()
+                // Ausblenden statt löschen: Auf einer geteilten Tafel bleibt
+                // das Element für die anderen stehen. Zurückholen geht unter
+                // „Aussehen“.
+                Button {
+                    store.verstecke(widget.id, in: boardID)
+                    Haptics.tap()
+                } label: {
+                    Label("Nur für mich ausblenden", systemImage: "eye.slash")
+                }
+                Button(role: .destructive) {
+                    store.removeWidget(widget.id, from: boardID)
+                } label: {
+                    Label("Für alle entfernen", systemImage: "trash")
                 }
             } label: {
                 Image(systemName: "square.3.layers.3d")
