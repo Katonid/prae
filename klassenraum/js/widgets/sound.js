@@ -7,14 +7,20 @@ import { section, field, toggleRow, button, buttonRow, toast } from '../ui.js';
 
 const COLORS = ['#6366f1', '#0ea5e9', '#10b981', '#f59e0b', '#ef4444', '#a855f7'];
 
+// Vorschläge für das Symbol auf einer Taste — freie Eingabe geht zusätzlich.
+const SYMBOLS = ['🎵', '🔔', '⏰', '👏', '🤫', '🧹', '🍎', '🚪', '🎉', '☀️', '🐦', '🌊'];
+
 function defaultEntry(index = 0) {
-  return { id: uid('snd'), label: 'Klang', mediaId: null, url: '', fileName: '', color: COLORS[index % COLORS.length] };
+  return { id: uid('snd'), label: 'Klang', icon: '', mediaId: null, url: '', fileName: '', color: COLORS[index % COLORS.length] };
 }
 
 export default {
   type: 'sound',
   label: 'Klang',
   icon: 'sound',
+  // Die Schrift richtet sich nach der Feldbreite (siehe contentScale) —
+  // so bekommt auch ein flaches, breites Tonfeld richtig große Beschriftungen.
+  scaleBy: 'width',
   defaultSize: { w: 340, h: 220 },
   minSize: { w: 180, h: 130 },
   createState() {
@@ -83,7 +89,10 @@ export default {
           style: { '--tone': entry.color || COLORS[0] },
           title: entry.fileName || entry.url || 'Noch keine Datei',
         },
-        h('span', { class: 'w-sound__icon', html: icon(active ? 'pause' : 'play', 20) }),
+        // Mit Symbol zeigt die Taste das Symbol groß; beim Abspielen immer das Pause-Zeichen.
+        active || !entry.icon
+          ? h('span', { class: 'w-sound__icon', html: icon(active ? 'pause' : 'play', 20) })
+          : h('span', { class: 'w-sound__emoji' }, entry.icon),
         h('span', { class: 'w-sound__label' }, entry.label || 'Klang')), () => play(entry)));
       }
     }
@@ -183,7 +192,35 @@ export default {
             ctx.save();
             rerender();
           },
-        }))));
+        }))),
+        field('Symbol auf der Taste', h('div', { class: 'chips' },
+          h('button', {
+            class: 'chip' + (entry.icon ? '' : ' is-active'),
+            onclick: () => {
+              entry.icon = '';
+              ctx.save();
+              rerender();
+            },
+          }, 'Ohne'),
+          SYMBOLS.map((symbol) => h('button', {
+            class: 'chip chip--symbol' + (entry.icon === symbol ? ' is-active' : ''),
+            onclick: () => {
+              entry.icon = symbol;
+              ctx.save();
+              rerender();
+            },
+          }, symbol)),
+          h('input', {
+            class: 'input input--symbol', type: 'text', placeholder: '…',
+            title: 'Eigenes Symbol (Emoji) eintippen',
+            value: entry.icon && !SYMBOLS.includes(entry.icon) ? entry.icon : '',
+            oninput: (event) => {
+              // Kurz halten — gedacht ist ein einzelnes Emoji (das mehrere Zeichen belegen kann).
+              entry.icon = event.target.value.trim().slice(0, 8);
+              ctx.save();
+              ctx.refresh();
+            },
+          }))));
       return box;
     }
 
