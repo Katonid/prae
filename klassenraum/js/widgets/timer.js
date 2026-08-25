@@ -1,7 +1,6 @@
 // Timer und Stoppuhr — mit einem Tipp gestartet, Voreinstellungen für den Unterricht.
 
-import { h, clear, formatDuration, chime, beep, onTap } from '../util.js';
-import { icon } from '../icons.js';
+import { h, clear, formatDuration, chime, beep } from '../util.js';
 import { section, toggleRow, button, buttonRow, field } from '../ui.js';
 import { accentPair } from '../theme.js';
 import { getActiveBoard } from '../store.js';
@@ -17,6 +16,7 @@ export default {
   createState() {
     return {
       mode: 'timer',
+      face: 'ring',
       seconds: 300,
       remaining: 300,
       running: false,
@@ -32,7 +32,9 @@ export default {
     const el = h('div', { class: 'w-timer' });
     const labelEl = h('div', { class: 'w-timer__label' });
     const timeEl = h('div', { class: 'w-timer__time' });
-    const ring = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    const hintEl = h('div', { class: 'w-timer__hint' });
+    const SVG = 'http://www.w3.org/2000/svg';
+    const ring = document.createElementNS(SVG, 'svg');
     ring.setAttribute('viewBox', '0 0 120 120');
     ring.classList.add('w-timer__ring');
     const gradientId = `timer-${Math.random().toString(36).slice(2, 8)}`;
@@ -47,15 +49,40 @@ export default {
     const CIRC = 2 * Math.PI * 52;
     progress.style.strokeDasharray = String(CIRC);
 
-    const playButton = h('button', { class: 'round-button round-button--primary', 'data-nodrag': '', title: 'Start / Pause' });
-    const resetButton = h('button', { class: 'round-button', 'data-nodrag': '', title: 'Zurücksetzen', html: icon('reset', 20) });
-    const minusButton = h('button', { class: 'round-button round-button--small', 'data-nodrag': '', title: '1 Minute weniger' }, '−1');
-    const plusButton = h('button', { class: 'round-button round-button--small', 'data-nodrag': '', title: '1 Minute mehr' }, '+1');
+    // Analoge Scheibe wie die bekannten Unterrichts-Zeituhren: Auf einem
+    // 60-Minuten-Zifferblatt zeigt eine farbige Fläche die restlichen Minuten;
+    // sie schrumpft zum oberen Strich hin, während die Zeit läuft.
+    const dial = document.createElementNS(SVG, 'svg');
+    dial.setAttribute('viewBox', '0 0 120 120');
+    dial.classList.add('w-timer__dial');
+    {
+      let marks = '';
+      for (let i = 0; i < 60; i += 1) {
+        const angle = (i * 6 - 90) * (Math.PI / 180);
+        const major = i % 5 === 0;
+        const outer = 53;
+        const inner = major ? 47.5 : 50.5;
+        marks += `<line x1="${(60 + Math.cos(angle) * inner).toFixed(2)}" y1="${(60 + Math.sin(angle) * inner).toFixed(2)}"`
+          + ` x2="${(60 + Math.cos(angle) * outer).toFixed(2)}" y2="${(60 + Math.sin(angle) * outer).toFixed(2)}"`
+          + ` class="w-timer__mark${major ? ' w-timer__mark--major' : ''}"/>`;
+      }
+      let numbers = '';
+      for (let m = 5; m <= 60; m += 5) {
+        const angle = (m * 6 - 90) * (Math.PI / 180);
+        numbers += `<text x="${(60 + Math.cos(angle) * 40).toFixed(2)}" y="${(60 + Math.sin(angle) * 40 + 2.6).toFixed(2)}"`
+          + ` class="w-timer__number">${m}</text>`;
+      }
+      dial.innerHTML = `<circle class="w-timer__dial-face" cx="60" cy="60" r="56"/>`
+        + `<path class="w-timer__sector" d=""/>`
+        + marks + numbers
+        + `<circle class="w-timer__hub" cx="60" cy="60" r="3.4"/>`;
+    }
+    const sector = dial.querySelector('.w-timer__sector');
 
     el.append(
       labelEl,
-      h('div', { class: 'w-timer__face' }, ring, timeEl),
-      h('div', { class: 'w-timer__controls', 'data-nodrag': '' }, minusButton, resetButton, playButton, plusButton));
+      h('div', { class: 'w-timer__face' }, ring, dial, timeEl),
+      hintEl);
 
     let ticker = null;
     let alarmed = false;
@@ -71,8 +98,24 @@ export default {
       return Math.max(0, state.remaining || 0);
     }
 
+    /** Restfläche auf der Scheibe: Winkel im Uhrzeigersinn ab dem oberen Strich. */
+    function drawSector(seconds) {
+      const angle = Math.max(0, Math.min(359.98, (seconds / 3600) * 360));
+      if (angle <= 0.02) {
+        sector.setAttribute('d', '');
+        return;
+      }
+      const R = 53;
+      const rad = ((angle - 90) * Math.PI) / 180;
+      const x = 60 + Math.cos(rad) * R;
+      const y = 60 + Math.sin(rad) * R;
+      const large = angle > 180 ? 1 : 0;
+      sector.setAttribute('d', `M60 60 L60 ${60 - R} A${R} ${R} 0 ${large} 1 ${x.toFixed(2)} ${y.toFixed(2)} Z`);
+    }
+
     function render() {
       const state = ctx.widget.state;
+      const analog = state.face === 'scheibe';
       // Farbschema kann sich geändert haben — Verlauf mitziehen.
       const colors = accentPair(getActiveBoard());
       if (stops.length === 2) {
@@ -80,21 +123,36 @@ export default {
         stops[1].setAttribute('stop-color', colors.to);
       }
       const value = currentSeconds();
+      const warning = state.mode === 'timer' && state.running && value <= 10;
       timeEl.textContent = formatDuration(value);
       labelEl.textContent = state.label || (state.mode === 'stopwatch' ? 'Stoppuhr' : 'Timer');
-      playButton.innerHTML = icon(state.running ? 'pause' : 'play', 22);
-      const total = state.mode === 'stopwatch' ? Math.max(60, Math.ceil(value / 60) * 60) : Math.max(1, state.seconds || 1);
-      const ratio = state.mode === 'stopwatch' ? (value % total) / total : value / total;
-      progress.style.strokeDashoffset = String(CIRC * (1 - Math.max(0, Math.min(1, ratio))));
+      el.classList.toggle('is-analog', analog);
+      ring.classList.toggle('is-hidden', analog);
+      dial.classList.toggle('is-hidden', !analog);
+      if (analog) {
+        drawSector(value);
+        sector.setAttribute('fill', warning ? '#f97316' : colors.from);
+      } else {
+        const total = state.mode === 'stopwatch' ? Math.max(60, Math.ceil(value / 60) * 60) : Math.max(1, state.seconds || 1);
+        const ratio = state.mode === 'stopwatch' ? (value % total) / total : value / total;
+        progress.style.strokeDashoffset = String(CIRC * (1 - Math.max(0, Math.min(1, ratio))));
+      }
       el.classList.toggle('is-finished', state.mode === 'timer' && value <= 0 && !state.running && alarmed);
-      el.classList.toggle('is-warning', state.mode === 'timer' && state.running && value <= 10);
-      minusButton.style.visibility = state.mode === 'stopwatch' ? 'hidden' : 'visible';
-      plusButton.style.visibility = state.mode === 'stopwatch' ? 'hidden' : 'visible';
+      el.classList.toggle('is-warning', warning);
+      if (state.mode === 'timer' && value <= 0 && !state.running) {
+        hintEl.textContent = alarmed ? 'Zeit ist um — Antippen startet neu.' : 'Antippen startet.';
+      } else {
+        hintEl.textContent = state.running ? 'Antippen hält an.' : 'Antippen startet.';
+      }
       fit();
     }
 
     function fit() {
-      const size = Math.max(26, Math.min(ctx.widget.w, ctx.widget.h) * 0.24);
+      const base = Math.min(ctx.widget.w, ctx.widget.h);
+      // Auf der Scheibe steht die Zahl klein am unteren Rand — das Zifferblatt
+      // selbst ist die Anzeige.
+      const analog = ctx.widget.state.face === 'scheibe';
+      const size = analog ? Math.max(15, base * 0.085) : Math.max(26, base * 0.24);
       timeEl.style.fontSize = `${size}px`;
     }
 
@@ -169,25 +227,6 @@ export default {
       render();
     }
 
-    function addMinutes(delta) {
-      const state = ctx.widget.state;
-      if (state.mode === 'stopwatch') return;
-      const base = state.running ? currentSeconds() : state.remaining;
-      const next = Math.max(0, Math.round((base + delta * 60) / 30) * 30);
-      state.remaining = next;
-      state.seconds = Math.max(next, state.running ? state.seconds : next);
-      if (state.running) state.endsAt = Date.now() + next * 1000;
-      if (!state.running) state.seconds = next;
-      alarmed = false;
-      ctx.save();
-      render();
-    }
-
-    onTap(playButton, toggle);
-    onTap(resetButton, reset);
-    onTap(minusButton, () => addMinutes(-1));
-    onTap(plusButton, () => addMinutes(1));
-
     startTicker();
     render();
 
@@ -195,6 +234,14 @@ export default {
       el,
       refresh: render,
       onResize: fit,
+      // Ohne Knopfleiste: Ein Tipp auf die Karte startet bzw. hält an,
+      // Doppeltippen setzt zurück. Beim Bearbeiten bietet die kleine Leiste
+      // zusätzlich Zurücksetzen und ±1 Minute an.
+      onTap: toggle,
+      onDoubleClick: reset,
+      get actions() {
+        return [{ icon: 'reset', title: 'Zurücksetzen', run: reset }];
+      },
       destroy() {
         stopTicker();
       },
@@ -236,6 +283,28 @@ export default {
             },
           }, 'Stoppuhr'))));
 
+      wrap.appendChild(section('Darstellung',
+        h('div', { class: 'segmented' },
+          h('button', {
+            class: 'segmented__item' + (state.face !== 'scheibe' ? ' is-active' : ''),
+            onclick: () => {
+              ctx.widget.state.face = 'ring';
+              ctx.save();
+              rerender();
+            },
+          }, 'Ziffern mit Ring'),
+          h('button', {
+            class: 'segmented__item' + (state.face === 'scheibe' ? ' is-active' : ''),
+            onclick: () => {
+              ctx.widget.state.face = 'scheibe';
+              ctx.save();
+              rerender();
+            },
+          }, 'Scheibe (analog)')),
+        h('p', { class: 'muted small' }, state.face === 'scheibe'
+          ? 'Wie die bekannte Zeituhr im Klassenzimmer: Auf dem 60-Minuten-Zifferblatt zeigt die farbige Fläche, wie viele Minuten noch bleiben — sie schrumpft mit der Zeit. Die genaue Zeit steht klein darunter.'
+          : 'Große Ziffern mit einem Ring, der abläuft.')));
+
       if (state.mode !== 'stopwatch') {
         const chips = h('div', { class: 'chips' }, PRESETS.map((minutes) => h('button', {
           class: 'chip' + (state.seconds === minutes * 60 ? ' is-active' : ''),
@@ -271,10 +340,31 @@ export default {
         minutesInput.addEventListener('change', apply);
         secondsInput.addEventListener('change', apply);
 
+        // ±1 Minute funktioniert auch, während der Timer läuft — praktisch,
+        // wenn die Klasse noch etwas mehr Zeit braucht.
+        const nudge = (delta) => {
+          const next = ctx.widget.state;
+          const base = next.running && next.endsAt ? Math.max(0, (next.endsAt - Date.now()) / 1000) : (next.remaining || 0);
+          const value = Math.max(0, Math.round((base + delta * 60) / 30) * 30);
+          next.remaining = value;
+          if (next.running) {
+            next.endsAt = Date.now() + value * 1000;
+            next.seconds = Math.max(next.seconds || 0, value);
+          } else {
+            next.seconds = value;
+          }
+          ctx.save();
+          rerender();
+        };
+
         wrap.appendChild(section('Dauer', chips,
           h('div', { class: 'row' },
             field('Minuten', minutesInput),
-            field('Sekunden', secondsInput))));
+            field('Sekunden', secondsInput)),
+          buttonRow(
+            button('1 Minute weniger', { small: true, onClick: () => nudge(-1) }),
+            button('1 Minute mehr', { small: true, onClick: () => nudge(1) })),
+          h('p', { class: 'muted small' }, 'Geht auch, während der Timer läuft.')));
       }
 
       wrap.appendChild(section('Weiteres',

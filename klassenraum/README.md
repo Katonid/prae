@@ -11,14 +11,14 @@ funktioniert auch am Telefon.
 | Element | Beschreibung |
 | --- | --- |
 | **Zufälliger Name** | Zieht Namen aus einer Liste — mit oder ohne Zurücklegen. Gezogene Namen lassen sich einzeln zurücklegen, löschen oder von Hand als gezogen markieren. Beim Ziehen laufen die Namen durch und werden dabei **langsamer** — mit passendem **Klang** (siehe unten). Der gezogene Name kann **schrittweise aufgedeckt** werden, damit die Klasse mitraten kann. |
-| **Timer / Stoppuhr** | Voreinstellungen von 1 bis 45 Minuten, ±1 Minute, Signalton am Ende. |
+| **Timer / Stoppuhr** | Ein Tipp startet, der nächste hält an — ganz ohne Knöpfe; Doppeltippen setzt zurück. Voreinstellungen von 1 bis 45 Minuten, ±1 Minute auch im Lauf (Zahnrad), Signalton am Ende. Wahlweise **analog als Scheibe** wie die bekannte Zeituhr: Auf dem 60-Minuten-Zifferblatt zeigt die farbige Fläche die restlichen Minuten. |
 | **Uhr** | Analog in vier Zifferblättern — **Modern** (Vorgabe: alle Zahlen und Minutenstriche, schlanke Zeiger, gleitender Sekundenzeiger), **Klassisch** (Wanduhr-Optik), **Lernuhr** (blaue Stunden-, orange Minutenzahlen mit farbgleichen Zeigern) und **Minimal** (nur 12/3/6/9) — oder digital, jeweils mit Datum. |
 | **Ampel** | Drei Lichter, antippen oder doppeltippen zum Weiterschalten, mit eigenen Beschriftungen. |
 | **Tagesablauf** | Checkliste mit Fortschrittsbalken, Punkte abhaken, sortieren, schnell erfassen. |
 | **Text** | Doppeltippen zum Schreiben, Schriftgröße passt sich automatisch an. |
 | **Bild** | Bild vom Gerät, wird beim Einfügen verkleinert. |
 | **Lautstärke** | Misst über das Mikrofon die Lautstärke im Raum, mit einstellbarer Grenze und optionalem Signalton. Ein Tipp auf die Karte startet die Messung, der nächste beendet sie — Knöpfe gibt es keine. Beim ersten Start fragt das Gerät nach der Erlaubnis; wird sie verweigert, erklärt die Karte den Weg zurück. Das Mikrofon läuft nur im Vordergrund (siehe unten). |
-| **Klang** | Tasten, die auf Tippen eine Klangdatei abspielen — Datei vom Gerät oder Link. Mehrere Tasten je Element, eigene Farbe, Beschriftung und ein wählbares **Symbol** (Emoji), das groß auf der Taste steht. Jede Beschriftung wird automatisch so groß gesetzt, dass sie ihre Taste ausfüllt; sehr lange Beschriftungen brechen um. |
+| **Klang** | Tasten, die auf Tippen eine Klangdatei abspielen — Datei vom Gerät oder Link. Mehrere Tasten je Element, mit Beschriftung und wählbarem **Symbol** (Emoji). Farbe frei über den **Farbwähler**, wahlweise als **Farbverlauf** aus zwei Farben; jede Taste hat eine eingebaute Schattierung und wirkt dadurch leicht gewölbt. Jede Beschriftung wird automatisch so groß gesetzt, dass sie ihre Taste ausfüllt; sehr lange Beschriftungen brechen um. |
 | **Video** | Video vom Gerät oder per Link, mit Bedienleiste, Schleife und Vollbild. |
 | **Arbeitssymbol** | Einzel-, Partner-, Gruppenarbeit, Stillarbeit, Melden, Zuhören, Aufräumen. |
 
