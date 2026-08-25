@@ -103,8 +103,10 @@ noch Commits auf denselben PR gepusht wurden — die hingen dann fest
   kein SDK laden, das bricht den Offline-Betrieb.
 - Drei Cloud-Wege, die nicht vermischt werden dürfen: **Teilen** (ein Board
   unter `klassenraum/shares/<CODE>`), **Abgleich** (alle Boards und Listen als
-  Einzeldatensätze unter `klassenraum/spaces/<Kennung>`, `js/sync.js`) und
-  **Konto/Sicherung** (`klassenraum/users/<uid>`). Der Abgleich führt pro
+  Einzeldatensätze unter `klassenraum/spaces/<Kennung>`, Klang-/Videodateien
+  base64-kodiert unter `klassenraum/media/<Kennung>/<Datei-Id>` — bewusst
+  NEBEN dem Bereich, damit der volle Bereichsabruf sie nicht mitlädt;
+  `js/sync.js`) und **Konto/Sicherung** (`klassenraum/users/<uid>`). Der Abgleich führt pro
   Datensatz nach Zeitstempel zusammen („neuer gewinnt") und schickt
   Löschvermerke mit; die letzte verbliebene Tafel wird nie gelöscht.
 - `klassenraum/firebase-rules.json` enthält die empfohlenen Datenbankregeln

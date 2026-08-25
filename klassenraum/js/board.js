@@ -211,9 +211,10 @@ export function initBoard(elements) {
   buildSelectionFrame();
 
   stageEl.addEventListener('pointerdown', (event) => {
-    const onBackground = event.target === stageEl || event.target === canvasEl
-      || event.target === selectionFrame || (event.target.id === 'stage-bg');
-    if (!onBackground) return;
+    // Alles, was kein Element und keine Bedienleiste ist, zählt als freie Fläche.
+    const held = event.target.closest
+      && event.target.closest('.widget, .handle, .selection-toolbar, .view-controls, .draw-toolbar');
+    if (held) return;
     select(null);
     clearArmed();
     startStageGesture(event);
@@ -477,6 +478,12 @@ export function scaleWidget(widget, factor) {
   layout();
 }
 
+/** In Eingabefeldern gehört die Bewegung dem Text (Auswahl, Cursor) — nie dem Verschieben. */
+function inTextField(target) {
+  if (!target || !target.closest) return false;
+  return Boolean(target.closest('input, textarea, select, [contenteditable]'));
+}
+
 const pointDistance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 const pointMiddle = (a, b) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
 
@@ -505,6 +512,16 @@ function attachInteractions(el, widget) {
         bringToFront(widget);
         el.classList.add('is-dragging');
         gesture = { type: 'drag', start: { x: event.clientX, y: event.clientY }, origin: boxOf(widget), moved: false };
+      } else if (movable && !inTextField(event.target)) {
+        // Auch Knöpfe und Leuchten dürfen als Griff dienen — gerade am Telefon
+        // besteht ein Element oft fast nur aus Bedienfläche. Verschoben wird
+        // aber erst ab deutlicher Bewegung; ein Tipp bleibt ein Tipp.
+        gesture = {
+          type: 'maybe-drag',
+          pointerId: event.pointerId,
+          start: { x: event.clientX, y: event.clientY },
+          origin: boxOf(widget),
+        };
       }
       return;
     }
@@ -530,6 +547,20 @@ function attachInteractions(el, widget) {
     if (!points.has(event.pointerId)) return;
     points.set(event.pointerId, { x: event.clientX, y: event.clientY });
     if (!gesture) return;
+
+    if (gesture.type === 'maybe-drag') {
+      const moved = Math.abs(event.clientX - gesture.start.x) + Math.abs(event.clientY - gesture.start.y);
+      if (moved < 12) return;
+      // Ab hier ist es ein Verschieben: Zeiger übernehmen — die Bedienfläche
+      // bekommt dadurch weder pointerup noch click, es löst nichts aus.
+      try {
+        el.setPointerCapture(gesture.pointerId);
+      } catch (_) { /* Zeiger schon wieder weg — dann eben kein Verschieben */ }
+      bringToFront(widget);
+      el.classList.add('is-dragging');
+      gesture = { type: 'drag', start: gesture.start, origin: gesture.origin, moved: false };
+      tap = null;
+    }
 
     if (gesture.type === 'drag') {
       const dx = (event.clientX - gesture.start.x) / scale;
@@ -839,6 +870,15 @@ function renderSelection() {
  * verschoben, dass sie vollständig auf dem Bildschirm bleibt.
  */
 function placeSelectionToolbar(widget) {
+  // Auf kleinen Bildschirmen ist die Tafel so verkleinert, dass eine frei
+  // schwebende Leiste halbe Tafeln verdecken würde — dort sitzt sie fest unten.
+  if (window.innerWidth <= 560) {
+    selectionEl.classList.add('is-docked');
+    selectionEl.style.left = '';
+    selectionEl.style.top = '';
+    return;
+  }
+  selectionEl.classList.remove('is-docked');
   const rect = stageEl.getBoundingClientRect();
   const offsetX = (rect.width - BOARD_WIDTH * scale) / 2 + panX;
   const offsetY = (rect.height - BOARD_HEIGHT * scale) / 2 + panY;

@@ -111,8 +111,9 @@ Die Dateiauswahl arbeitet bewusst **ohne Filter**: iPadOS graut sonst Dateien au
 deren Art der Anbieter nicht mitliefert — bei MP3-Dateien in iCloud Drive und auf
 Netzlaufwerken passiert genau das. Passt die gewählte Datei nicht zur Art, weist die
 App darauf hin, nimmt sie aber an. Titel aus der Musik-App sind systembedingt nicht
-auswählbar. Dateien vom Gerät werden beim Teilen über einen
-Code nicht mitgeschickt — ein Link funktioniert überall. Im Menü unter **Speicher**
+auswählbar. Beim **Teilen über einen Code** werden Dateien vom Gerät nicht
+mitgeschickt — ein Link funktioniert überall. Beim **Abgleich zwischen Geräten**
+wandern sie dagegen mit (bis 25 MB je Datei). Im Menü unter **Speicher**
 steht, wie viel Platz die Dateien belegen; dort lassen sich nicht mehr genutzte Dateien
 entfernen.
 
@@ -164,7 +165,9 @@ Bearbeiten („Zurücksetzen“ über der Liste) oder im Zahnrad gestartet.
   Namen** aktiviert der erste Tipp die Karte (ein Ring pulst um den Namen), erst der
   zweite zieht — so passiert nichts aus Versehen. Knöpfe unter dem Namen gibt es nicht. Die **Uhr** reagiert nicht auf Tippen; analog
   oder digital wird im Zahnrad gewählt.
-* **Verschieben:** Element anfassen und ziehen. (Beim Ziehen wird nichts ausgelöst.)
+* **Verschieben:** Element anfassen und ziehen — auch Knöpfe, Leuchten und
+  Klangtasten dürfen als Griff dienen: Erst ab deutlicher Bewegung wird verschoben,
+  ein Tipp bleibt ein Tipp. (Beim Ziehen wird nichts ausgelöst.)
 * **Größe ändern:** Anfasser ziehen, **−**/**+** in der kleinen Leiste, oder zwei Finger.
 * **Einstellen:** Element antippen → Zahnrad in der kleinen Leiste darüber.
 * **Sperren:** Schloss-Symbol in derselben Leiste — verhindert versehentliches Verschieben an der interaktiven Tafel.
@@ -222,8 +225,10 @@ Wie zusammengeführt wird:
   letzte verbliebene Tafel wird nie gelöscht.
 * **Ohne Netz** läuft alles lokal weiter; beim nächsten Verbinden wird
   nachgeholt. Kommt das Gerät aus dem Hintergrund zurück, wird sofort geholt.
-* **Klang- und Videodateien** bleiben auf dem jeweiligen Gerät — nur Links
-  wandern mit.
+* **Klang- und Videodateien wandern mit** (bis 25 MB je Datei): Eine auf dem
+  iPad hinterlegte Aufräummusik spielt auch auf der interaktiven Tafel.
+  Größere Dateien bleiben auf dem Gerät. „Jetzt abgleichen“ räumt dabei auch
+  Dateien aus dem Bereich, auf die keine Tafel mehr zeigt.
 * „Abgleich auf diesem Gerät beenden“ trennt nur dieses Gerät; die Tafeln
   bleiben dort erhalten, die übrigen Geräte gleichen weiter ab.
 
@@ -265,8 +270,9 @@ suchen"** — falls ein Gerät doch einmal auf einem alten Stand hängen bleibt.
   von selbst weiter. Verliert am Rechner nur das Fenster den Fokus (die Seite bleibt
   sichtbar), wartet die App eine halbe Minute, bevor sie pausiert. Verlangt das Gerät
   fürs Fortsetzen wieder einen Tipp, steht das auf der Karte.
-* Klang- und Videodateien bleiben im Gerätespeicher und werden beim Teilen nicht
-  übertragen.
+* Klang- und Videodateien bleiben im Gerätespeicher und werden beim Teilen per
+  Code nicht übertragen. Beim Abgleich zwischen den eigenen Geräten wandern sie
+  mit (unverschlüsselt, wie alles im Abgleich-Bereich).
 * Ohne Teilen, ohne Abgleich und ohne Konto stellt die App keine Verbindung ins
   Netz her.
 

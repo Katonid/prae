@@ -128,8 +128,8 @@ async function dbUrl(path, params = {}) {
   return url.toString();
 }
 
-async function dbRequest(path, options = {}) {
-  const url = await dbUrl(path);
+async function dbRequest(path, options = {}, params = {}) {
+  const url = await dbUrl(path, params);
   const response = await fetch(url, options);
   if (!response.ok) {
     const text = await response.text().catch(() => '');
@@ -393,6 +393,37 @@ export async function resolveLinkCode(code) {
   if (!entry || !entry.spaceId) throw new Error('CODE_UNBEKANNT');
   if (entry.expiresAt && entry.expiresAt < Date.now()) throw new Error('CODE_ABGELAUFEN');
   return entry.spaceId;
+}
+
+/* ---------- Dateien (Klänge, Videos) im Abgleich-Bereich ---------- */
+
+// Dateien liegen bewusst NEBEN dem Bereich (media/<Kennung>/<Datei-Id>):
+// So holt der volle Bereichsabruf nicht bei jedem Abgleich alle Dateien mit.
+function mediaPath(spaceId, mediaId = '') {
+  const base = `${ROOT}/media/${encodeURIComponent(spaceId)}`;
+  return mediaId ? `${base}/${encodeURIComponent(mediaId)}` : base;
+}
+
+export async function putMediaRecord(spaceId, mediaId, record) {
+  return dbRequest(mediaPath(spaceId, mediaId), {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(record),
+  });
+}
+
+export async function fetchMediaRecord(spaceId, mediaId) {
+  return dbRequest(mediaPath(spaceId, mediaId));
+}
+
+/** Nur die Datei-Kennungen im Bereich — ohne die (großen) Inhalte. */
+export async function listMediaRecords(spaceId) {
+  const result = await dbRequest(mediaPath(spaceId), {}, { shallow: 'true' });
+  return result ? Object.keys(result) : [];
+}
+
+export async function deleteMediaRecord(spaceId, mediaId) {
+  return dbRequest(mediaPath(spaceId, mediaId), { method: 'DELETE' });
 }
 
 /* ---------- Bereich am Konto merken (sobald Konten aktiv sind) ---------- */
