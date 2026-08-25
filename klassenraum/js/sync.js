@@ -378,6 +378,7 @@ export async function startSync() {
   settings.pushed = {};
   settings.pushedMedia = {};
   await saveNow();
+  rememberSpaceCookie(spaceId);
   await rememberSpaceForAccount(spaceId);
   await connect(spaceId);
   return spaceId;
@@ -391,13 +392,12 @@ export async function linkCode() {
 }
 
 /**
- * Dieses Gerät mit einem Kopplungscode an einen vorhandenen Bereich hängen.
+ * Dieses Gerät an einen vorhandenen Bereich hängen (Kennung liegt schon vor).
  * `keepLocal = false` heißt: Dieses Gerät übernimmt nur den Stand des Bereichs —
  * praktisch für ein frisches Gerät, das sonst seine Beispieltafel mitbrächte.
  */
-export async function joinSync(code, { keepLocal = true } = {}) {
+export async function adoptSpace(spaceId, { keepLocal = true } = {}) {
   await initCloud();
-  const spaceId = await resolveLinkCode(code);
   const settings = syncSettings();
   settings.spaceId = spaceId;
   settings.auto = true;
@@ -410,6 +410,7 @@ export async function joinSync(code, { keepLocal = true } = {}) {
     state.cloud.shares = {};
   }
   await saveNow();
+  rememberSpaceCookie(spaceId);
   await rememberSpaceForAccount(spaceId);
   const payload = await fetchSpace(spaceId);
   mergeSpace(payload);
@@ -418,6 +419,13 @@ export async function joinSync(code, { keepLocal = true } = {}) {
   await connect(spaceId);
   await pushChanges();
   return spaceId;
+}
+
+/** Dieses Gerät mit einem Kopplungscode an einen vorhandenen Bereich hängen. */
+export async function joinSync(code, { keepLocal = true } = {}) {
+  await initCloud();
+  const spaceId = await resolveLinkCode(code);
+  return adoptSpace(spaceId, { keepLocal });
 }
 
 /** Von Hand abgleichen: erst holen, dann senden. */
@@ -448,6 +456,7 @@ export async function stopSync() {
   settings.spaceId = null;
   settings.pushed = {};
   settings.pushedMedia = {};
+  forgetSpaceCookie();
   disconnect();
   await saveNow();
   announce('off');
@@ -459,6 +468,37 @@ export function setAutoSync(value) {
   saveNow();
   if (settings.auto) pushSoon();
   announce();
+}
+
+/*
+ * Zweite Sicherung der Bereichskennung in einem langlebigen Cookie: Manche
+ * Tafel-Geräte (z. B. Whiteboards im Kiosk-Betrieb) leeren regelmäßig
+ * IndexedDB und localStorage — Cookies überleben das teils. Beim nächsten
+ * Start verbindet sich das Gerät damit von selbst wieder.
+ */
+const SPACE_COOKIE = 'klassenraum_raum';
+
+function rememberSpaceCookie(spaceId) {
+  try {
+    const path = window.location.pathname.replace(/[^/]*$/, '') || '/';
+    document.cookie = `${SPACE_COOKIE}=${encodeURIComponent(spaceId)}; max-age=${400 * 24 * 3600}; path=${path}; SameSite=Lax`;
+  } catch (_) { /* ohne Cookie eben nur der normale Speicher */ }
+}
+
+function forgetSpaceCookie() {
+  try {
+    const path = window.location.pathname.replace(/[^/]*$/, '') || '/';
+    document.cookie = `${SPACE_COOKIE}=; max-age=0; path=${path}; SameSite=Lax`;
+  } catch (_) { /* egal */ }
+}
+
+export function spaceFromCookie() {
+  try {
+    const match = document.cookie.match(new RegExp(`(?:^|; )${SPACE_COOKIE}=([^;]+)`));
+    return match ? decodeURIComponent(match[1]) : null;
+  } catch (_) {
+    return null;
+  }
 }
 
 export function initSync() {

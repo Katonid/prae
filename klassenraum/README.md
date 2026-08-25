@@ -235,6 +235,27 @@ Wie zusammengeführt wird:
 Sind Konten freigeschaltet, merkt sich die App den Bereich am Konto: Wer sich auf
 einem neuen Gerät anmeldet, ist ohne Code sofort dabei.
 
+### Angemeldet bleiben (Whiteboards im Kiosk-Betrieb)
+
+Manche Tafel-Geräte (z. B. Prowise- oder Promethean-Boards) leeren den
+Browser-Speicher regelmäßig — die App „vergisst“ dann Tafeln und Verbindung.
+Dagegen helfen drei Stufen:
+
+1. Die App bittet den Browser beim Start um **dauerhafte Speicherung**
+   (`navigator.storage.persist()`).
+2. Die Bereichskennung liegt zusätzlich in einem **langlebigen Cookie** (400
+   Tage). Überlebt es die Leerung, verbindet sich das Gerät beim nächsten
+   Öffnen von selbst wieder und holt alles aus dem Abgleich.
+3. Am sichersten: unter „Teilen“ → Abgleich den **Tafel-Link („angemeldet
+   bleiben“)** kopieren und **diesen Link** auf dem Board als Lesezeichen oder
+   Web-App speichern. Er trägt die Bereichskennung in der Adresse und läuft
+   nicht ab — beim Öffnen verbindet sich die Tafel immer von selbst.
+
+Ist der Speicher leer, übernimmt das Gerät still den Stand des Bereichs (es
+drückt keine frische Beispieltafel hinein). Liegen dagegen eigene Tafeln auf
+dem Gerät, fragt die App vor dem Zusammenführen nach. Der Tafel-Link gehört
+nur auf eigene Geräte — wer ihn kennt, kann den Klassenraum lesen und ändern.
+
 ### Empfohlene Datenbankregeln
 
 `firebase-rules.json` im Ordner `klassenraum/` enthält die passenden Regeln für die

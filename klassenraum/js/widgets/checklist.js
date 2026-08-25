@@ -8,6 +8,8 @@ export default {
   type: 'checklist',
   label: 'Tagesablauf',
   icon: 'checklist',
+  // Die Schrift richtet sich nach der Feldbreite (siehe contentScale).
+  scaleBy: 'width',
   defaultSize: { w: 480, h: 380 },
   minSize: { w: 260, h: 200 },
   createState() {
