@@ -143,6 +143,8 @@ export default {
     let spinTimer = null;
     let spinning = false;
     let armed = false;
+    // Zum Ausmessen der Schriftbreite (für das Spreizen verdeckter Namen).
+    const meter = document.createElement('canvas').getContext('2d');
 
     function stopSpin() {
       if (spinTimer) clearTimeout(spinTimer);
@@ -196,11 +198,18 @@ export default {
       spinning = true;
       nameEl.classList.remove('is-empty', 'is-pop');
       nameEl.classList.add('is-spinning');
+      nameEl.style.letterSpacing = '';
+      nameBox.classList.remove('is-covered');
       maskEl.classList.add('is-hidden');
       const sound = spinSoundById(state.spinSound).id;
+      // Beim Durchlaufen nie den gezogenen Namen zeigen — sonst „endet" das
+      // Mischen sichtbar auf ihm, bevor die Maske kommt.
+      const showPool = pool.length > 1 && revealMode(state) !== 'instant'
+        ? pool.filter((entry) => entry !== chosen)
+        : pool;
 
       const stepOnce = (index) => {
-        nameEl.textContent = pickRandom(pool);
+        nameEl.textContent = pickRandom(showPool);
         fitName();
         spinTick(sound, index / (SPIN_STEPS - 1));
         if (index >= SPIN_STEPS - 1) {
@@ -238,16 +247,48 @@ export default {
     }
 
     function fitName() {
+      const state = ctx.widget.state;
+      const name = state.current;
+      const covered = Boolean(name) && !isRevealed(state, name) && revealMode(state) !== 'letters' && !spinning;
       const text = nameEl.textContent || '';
       const boxWidth = Math.max(140, ctx.widget.w - 70);
-      let size = Math.min(ctx.widget.h * 0.29, boxWidth / Math.max(4, text.length * 0.6));
+      // Verdeckt: feste Bezugslänge statt der echten — sonst verrät schon die
+      // Schriftgröße, ob der Name kurz oder lang ist.
+      const length = covered ? Math.max(10, text.length) : Math.max(4, text.length);
+      let size = Math.min(ctx.widget.h * 0.29, boxWidth / (length * 0.6));
       size = Math.max(20, Math.min(size, 128));
       nameEl.style.fontSize = `${size}px`;
+      stretchName(covered, size);
+    }
+
+    /**
+     * Verdeckte Namen über die volle Kartenbreite spreizen: „Bo" und
+     * „Charlotte" belegen dieselbe Fläche — weder Maske noch Schleier
+     * verraten die Länge. Beim Aufdecken springt der Name auf normale Laufweite.
+     */
+    function stretchName(covered, size) {
+      if (!covered) {
+        nameEl.style.letterSpacing = '';
+        return;
+      }
+      const text = nameEl.textContent || '';
+      if (text.length < 2) {
+        nameEl.style.letterSpacing = '';
+        return;
+      }
+      const style = window.getComputedStyle(nameEl);
+      meter.font = `${style.fontWeight} ${size}px ${style.fontFamily}`;
+      const width = meter.measureText(text).width;
+      const target = Math.max(140, ctx.widget.w - 110) * 0.86;
+      const extra = Math.max(0, (target - width) / text.length);
+      nameEl.style.letterSpacing = `${extra.toFixed(1)}px`;
     }
 
     function renderMask(state, name, hidden) {
       const mode = revealMode(state);
       nameEl.style.filter = '';
+      // Volle Breite, solange verdeckt — die Maskengröße bleibt für alle Namen gleich.
+      nameBox.classList.toggle('is-covered', hidden && mode !== 'letters');
       maskEl.classList.toggle('is-hidden', !hidden || mode !== 'mosaik');
       if (!hidden) {
         clear(maskEl);
