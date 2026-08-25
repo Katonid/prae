@@ -63,7 +63,7 @@ struct SeitenSheet: View {
                 }
                 Button("Abbrechen", role: .cancel) { umbenennen = nil }
             } message: {
-                Text("Ohne Namen heißt sie nach ihrer Reihenfolge — „Seite 1", „Seite 2" …")
+                Text("Ohne Namen heißt sie nach ihrer Reihenfolge — „Seite 1“, „Seite 2“ …")
             }
         }
     }
