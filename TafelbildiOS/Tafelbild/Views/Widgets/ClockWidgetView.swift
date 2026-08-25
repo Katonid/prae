@@ -46,7 +46,10 @@ struct ClockWidgetView: View {
     }
 
     private func faceSide(in size: CGSize, share: CGFloat) -> CGFloat {
-        let height = content.showDate ? size.height - 46 : size.height
+        // Platz für das Datum: seine Zeilenhöhe plus etwas Luft. Vorher
+        // standen hier feste 46 Punkte — die passten zur alten, kleinen
+        // Schrift und ließen die Zeile jetzt am Zifferblatt kleben.
+        let height = content.showDate ? size.height - datumGroesse * 1.9 : size.height
         return max(60, min(size.width, height * share))
     }
 
@@ -215,11 +218,19 @@ struct ClockWidgetView: View {
     /// ausdrücklich eingeschaltete Inhalte.
     private func dateLine(_ date: Date, size: CGSize) -> some View {
         Text(Self.dateText(date))
-            .font(Theme.font(metrics.em(0.94), weight: .semibold))
+            .font(Theme.font(datumGroesse, weight: .bold))
             .foregroundStyle(style.inkSoft)
             .lineLimit(1)
             .minimumScaleFactor(0.5)
     }
+
+    /// Größe des Datums.
+    ///
+    /// Stand bei 0,94em und war damit kleiner als jede andere Überschrift —
+    /// „Dienstag, 25. August" ist aber eine Angabe, die aus der letzten
+    /// Reihe zu lesen sein soll. Jetzt 1,45em, und mit dem Maßstab des
+    /// Elements einstellbar wie die übrigen Überschriften.
+    private var datumGroesse: Double { metrics.em(style.kopf(1.45)) }
 
     // MARK: - Formate
 

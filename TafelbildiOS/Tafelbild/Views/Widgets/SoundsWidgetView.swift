@@ -131,7 +131,7 @@ struct SoundsWidgetView: View {
                     .font(.system(size: min(height * 0.42, 44)))
                 if content.showLabels {
                     Text(button.label.nonEmpty ?? "Klang")
-                        .font(Theme.font(min(height * 0.18, 18), weight: .semibold))
+                        .font(Theme.font(min(height * 0.18, 18) * style.labelScale, weight: .semibold))
                         .foregroundStyle(button.hasSource ? color.readableForeground : style.inkSoft)
                         .lineLimit(2)
                         .multilineTextAlignment(.center)

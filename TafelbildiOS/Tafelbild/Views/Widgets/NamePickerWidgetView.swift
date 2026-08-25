@@ -113,7 +113,7 @@ struct NamePickerWidgetView: View {
             .minimumScaleFactor(0.6)
     }
 
-    private var kopfGroesse: Double { metrics.em(1.25) }
+    private var kopfGroesse: Double { metrics.em(style.kopf(1.25)) }
 
     /// Wie viel Höhe die Überschrift der Namenszeile wegnimmt.
     private func freierRaum(_ geo: GeometryProxy) -> CGSize {

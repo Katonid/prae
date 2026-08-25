@@ -110,6 +110,10 @@ struct WidgetHostView: View {
     private var contentStyle: BoardStyle {
         var adjusted = style
         adjusted.bare = !usesCard
+        // Jedes Element entscheidet selbst über seine Beschriftungen und
+        // deren Größe — die Tafelregel ist nur die Vorgabe.
+        adjusted.showLabels = widget.labels.gilt(tafel: style.showLabels)
+        adjusted.labelScale = max(0.5, min(widget.labelSize, 3))
         return adjusted
     }
 

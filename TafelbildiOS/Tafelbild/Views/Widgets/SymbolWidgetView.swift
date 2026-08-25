@@ -11,7 +11,8 @@ struct SymbolWidgetView: View {
 
     var body: some View {
         GeometryReader { geo in
-            let side = min(geo.size.width, geo.size.height - (showsLabel ? 46 : 0))
+            let side = min(geo.size.width,
+                           geo.size.height - (showsLabel ? metrics.em(style.kopf(1.2)) * 2.4 : 0))
             VStack(spacing: 10) {
                 Image(systemName: content.symbol.systemImage)
                     .font(.system(size: max(30, side * 0.58), weight: .semibold))
@@ -22,7 +23,7 @@ struct SymbolWidgetView: View {
 
                 if showsLabel {
                     Text(content.symbol.title)
-                        .font(Theme.font(metrics.em(1.2), weight: .heavy))
+                        .font(Theme.font(metrics.em(style.kopf(1.2)), weight: .heavy))
                         .tracking(-0.3)
                         .foregroundStyle(style.ink)
                         .lineLimit(1)

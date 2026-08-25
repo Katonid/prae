@@ -12,6 +12,8 @@ struct WidgetSettingsSheet: View {
 
     private var widget: BoardWidget? { store.widget(widgetID, in: boardID) }
 
+    private var kopfGroesse: Double { widget?.labelSize ?? 1 }
+
     var body: some View {
         NavigationStack {
             Form {
@@ -56,6 +58,54 @@ struct WidgetSettingsSheet: View {
                                 store.updateWidget(widgetID, in: boardID) { $0.locked = value }
                             }
                         ))
+                    }
+
+                    Section {
+                        Picker("Beschriftung", selection: Binding(
+                            get: { store.widget(widgetID, in: boardID)?.labels ?? .tafel },
+                            set: { wert in
+                                store.updateWidget(widgetID, in: boardID) { $0.labels = wert }
+                            }
+                        )) {
+                            ForEach(WidgetLabelRegel.allCases) { Text($0.title).tag($0) }
+                        }
+                        .pickerStyle(.inline)
+
+                        VStack(alignment: .leading, spacing: 6) {
+                            HStack {
+                                Text("Größe der Überschrift")
+                                Spacer()
+                                Text("\(Int((kopfGroesse * 100).rounded())) %")
+                                    .monospacedDigit()
+                                    .foregroundStyle(.secondary)
+                            }
+                            Slider(value: Binding(
+                                get: { kopfGroesse },
+                                set: { wert in
+                                    store.updateWidget(widgetID, in: boardID) { $0.labelSize = wert }
+                                }
+                            ), in: 0.6...2.5, step: 0.05)
+                            HStack {
+                                Text("kleiner").font(.caption2).foregroundStyle(.secondary)
+                                Spacer()
+                                Button("Vorgabe") {
+                                    store.updateWidget(widgetID, in: boardID) { $0.labelSize = 1 }
+                                    Haptics.tap()
+                                }
+                                .font(.caption)
+                                .buttonStyle(.plain)
+                                .foregroundStyle(Theme.accent)
+                                Spacer()
+                                Text("größer").font(.caption2).foregroundStyle(.secondary)
+                            }
+                        }
+                    } header: {
+                        Text("Beschriftung dieses Elements")
+                    } footer: {
+                        Text("Gilt nur für dieses Element — unabhängig davon, was unter "
+                             + "„Aussehen“ für die ganze Tafel eingestellt ist. Betroffen sind "
+                             + "Überschriften und Hinweise, nicht der Inhalt: Der gezogene Name, "
+                             + "die Zeit und das Datum bleiben in jedem Fall stehen.")
                     }
 
                     Section {

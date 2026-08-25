@@ -639,6 +639,32 @@ extension WidgetContent: Codable {
     }
 }
 
+/// Ob ein einzelnes Element seine Beschriftungen zeigt.
+enum WidgetLabelRegel: String, Codable, CaseIterable, Identifiable {
+    /// Der Tafelregel folgen (Vorgabe).
+    case tafel
+    case immer
+    case nie
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .tafel: return "Wie die Tafel"
+        case .immer: return "Immer zeigen"
+        case .nie:   return "Nie zeigen"
+        }
+    }
+
+    func gilt(tafel: Bool) -> Bool {
+        switch self {
+        case .tafel: return tafel
+        case .immer: return true
+        case .nie:   return false
+        }
+    }
+}
+
 struct BoardWidget: Codable, Identifiable, Equatable {
     var id: String = UUID().uuidString
     /// Lage in Tafelpunkten (0…1600 / 0…1000).
@@ -655,6 +681,17 @@ struct BoardWidget: Codable, Identifiable, Equatable {
     /// Auf welcher Seite das Element liegt. **Leer heißt: erste Seite** —
     /// so gehören alle Elemente älterer Tafeln von selbst auf Seite 1.
     var pageID: String = ""
+    /// Beschriftungen dieses Elements — unabhängig von der Tafelregel.
+    ///
+    /// Die Regel unter „Aussehen“ gilt für die ganze Tafel; hier entscheidet
+    /// jedes Element für sich. „Wie die Tafel“ ist die Vorgabe und ändert
+    /// nichts am bisherigen Verhalten.
+    var labels: WidgetLabelRegel = .tafel
+    /// Größe der Überschrift, 1 = wie vorgesehen.
+    ///
+    /// Überschriften sind für die letzte Reihe gedacht; wie groß sie sein
+    /// müssen, hängt vom Raum ab. Deshalb je Element einstellbar.
+    var labelSize: Double = 1
     /// Nur für mich ausgeblendet.
     ///
     /// Gehört zur Anordnung, nicht zum Inhalt: Auf einer geteilten Tafel
@@ -1144,6 +1181,7 @@ extension NameEntry {
 extension BoardWidget {
     enum WidgetKeys: String, CodingKey {
         case id, x, y, width, height, z, locked, bare, pageID, versteckt, content
+        case labels, labelSize
     }
 
     init(from decoder: Decoder) throws {
@@ -1161,6 +1199,8 @@ extension BoardWidget {
         pageID = c.wert(.pageID, "")
         bare = c.wert(.bare, false)
         versteckt = c.wert(.versteckt, false)
+        labels = c.wert(.labels, WidgetLabelRegel.tafel)
+        labelSize = c.wert(.labelSize, 1)
     }
 }
 
