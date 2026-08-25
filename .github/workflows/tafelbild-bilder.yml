@@ -64,7 +64,11 @@ jobs:
               breite = 1600
               hoehe = round(bild.height * breite / bild.width)
               bild = bild.resize((breite, hoehe), Image.LANCZOS)
-              name = os.path.splitext(os.path.basename(pfad))[0] + ".jpg"
+              # Ordnername mitnehmen: Beide Geraete liefern gleich heissende
+              # Dateien, sonst ueberschriebe eines das andere.
+              ordner = os.path.basename(os.path.dirname(pfad))
+              kurz = ordner.replace("tafelbild-ansicht-", "")
+              name = f"{kurz}-{os.path.splitext(os.path.basename(pfad))[0]}.jpg"
               ziel = os.path.join(ZIEL, name)
               bild.save(ziel, "JPEG", quality=82, optimize=True)
               print(f"{ziel}  {os.path.getsize(ziel)//1024} kB")
