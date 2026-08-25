@@ -4,7 +4,7 @@ import { h, clear, clamp, armTapGuard } from './util.js';
 import { icon } from './icons.js';
 import { getWidgetType } from './widgets/index.js';
 import {
-  BOARD_WIDTH, BOARD_HEIGHT, AURORA, getActiveBoard, touch, removeWidget, duplicateWidget,
+  BOARD_WIDTH, BOARD_HEIGHT, AURORA, getActiveBoard, getState, touch, removeWidget, duplicateWidget,
   nextZ, on as onStore,
 } from './store.js';
 import { openPanel, closePanel, confirmDialog } from './ui.js';
@@ -19,6 +19,13 @@ let selectedId = null;
 let scale = 1;
 let hooks = { onOpenLists: () => {} };
 let stackMode = false;
+// Ansicht: 1 = ganze Tafel im Bild, größer = hineingezoomt (wichtig am Telefon).
+let zoom = 1;
+let panX = 0;
+let panY = 0;
+const ZOOM_MIN = 1;
+const ZOOM_MAX = 6;
+const viewListeners = new Set();
 let mode = 'edit';
 let armedId = null;
 
@@ -61,6 +68,142 @@ export function getSelectedId() {
   return selectedId;
 }
 
+/* ---------- Ansicht: hineinzoomen und verschieben ---------- */
+
+// Ein Finger auf der freien Fläche verschiebt, zwei Finger zoomen.
+const stagePoints = new Map();
+let stageGesture = null;
+
+function startStageGesture(event) {
+  // Beim Schreiben gehört die Fläche dem Stift.
+  if (stackMode || document.body.classList.contains('is-drawing')) return;
+  stagePoints.set(event.pointerId, { x: event.clientX, y: event.clientY });
+  if (stagePoints.size === 1) {
+    stageGesture = { type: 'pan', last: { x: event.clientX, y: event.clientY }, moved: false };
+    return;
+  }
+  if (stagePoints.size === 2) {
+    const [a, b] = Array.from(stagePoints.values());
+    stageGesture = {
+      type: 'pinch',
+      startDistance: Math.hypot(a.x - b.x, a.y - b.y) || 1,
+      startZoom: zoom,
+    };
+  }
+}
+
+function moveStageGesture(event) {
+  if (!stageGesture || !stagePoints.has(event.pointerId)) return;
+  stagePoints.set(event.pointerId, { x: event.clientX, y: event.clientY });
+  if (stageGesture.type === 'pan') {
+    const dx = event.clientX - stageGesture.last.x;
+    const dy = event.clientY - stageGesture.last.y;
+    if (Math.abs(dx) + Math.abs(dy) < 1) return;
+    stageGesture.moved = true;
+    panBy(dx, dy);
+    stageGesture.last = { x: event.clientX, y: event.clientY };
+    return;
+  }
+  if (stageGesture.type === 'pinch' && stagePoints.size >= 2) {
+    const [a, b] = Array.from(stagePoints.values());
+    const distance = Math.hypot(a.x - b.x, a.y - b.y) || 1;
+    setZoom(stageGesture.startZoom * (distance / stageGesture.startDistance), {
+      x: (a.x + b.x) / 2,
+      y: (a.y + b.y) / 2,
+    });
+  }
+}
+
+function endStageGesture(event) {
+  stagePoints.delete(event.pointerId);
+  if (stagePoints.size === 0) {
+    // Nur speichern, wenn wirklich verschoben wurde — ein Tipp ins Leere nicht.
+    if (stageGesture && (stageGesture.type === 'pinch' || stageGesture.moved)) storeView();
+    stageGesture = null;
+  } else if (stagePoints.size === 1) {
+    const [only] = Array.from(stagePoints.values());
+    stageGesture = { type: 'pan', last: { x: only.x, y: only.y }, moved: false };
+  }
+}
+
+export function getZoom() {
+  return zoom;
+}
+
+export function onViewChanged(listener) {
+  viewListeners.add(listener);
+  listener(zoom);
+  return () => viewListeners.delete(listener);
+}
+
+function announceView() {
+  viewListeners.forEach((listener) => {
+    try {
+      listener(zoom);
+    } catch (_) { /* eine kaputte Anzeige darf die Tafel nicht stoppen */ }
+  });
+}
+
+function storeView() {
+  const settings = getState().settings;
+  settings.view = { zoom, panX, panY };
+  touch({ board: false, reason: 'view' });
+}
+
+/** Verschiebung so begrenzen, dass die Tafel nicht aus dem Bild wandert. */
+function clampPan() {
+  if (!stageEl) return;
+  const rect = stageEl.getBoundingClientRect();
+  const overX = Math.max(0, (BOARD_WIDTH * scale - rect.width) / 2);
+  const overY = Math.max(0, (BOARD_HEIGHT * scale - rect.height) / 2);
+  panX = clamp(panX, -overX, overX);
+  panY = clamp(panY, -overY, overY);
+}
+
+/**
+ * Zoom setzen; `anchor` (Bildschirmpunkt) bleibt dabei möglichst an Ort und Stelle.
+ */
+export function setZoom(next, anchor = null) {
+  if (stackMode || !stageEl) return;
+  const wanted = clamp(next, ZOOM_MIN, ZOOM_MAX);
+  if (Math.abs(wanted - zoom) < 0.001) return;
+  const rect = stageEl.getBoundingClientRect();
+  const point = anchor || { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+  const relX = point.x - rect.left - rect.width / 2 - panX;
+  const relY = point.y - rect.top - rect.height / 2 - panY;
+  const factor = wanted / zoom;
+  panX -= relX * (factor - 1);
+  panY -= relY * (factor - 1);
+  zoom = wanted;
+  updateScale();
+  layout();
+  storeView();
+  announceView();
+}
+
+export function zoomBy(factor, anchor = null) {
+  setZoom(zoom * factor, anchor);
+}
+
+/** Zurück auf „ganze Tafel im Bild". */
+export function resetView() {
+  zoom = 1;
+  panX = 0;
+  panY = 0;
+  updateScale();
+  layout();
+  storeView();
+  announceView();
+}
+
+function panBy(dx, dy) {
+  panX += dx;
+  panY += dy;
+  clampPan();
+  updateScale();
+  layout();
+}
+
 export function initBoard(elements) {
   canvasEl = elements.canvas;
   stageEl = elements.stage;
@@ -68,16 +211,43 @@ export function initBoard(elements) {
   buildSelectionFrame();
 
   stageEl.addEventListener('pointerdown', (event) => {
-    if (event.target === stageEl || event.target === canvasEl || event.target === selectionFrame) {
-      select(null);
-      clearArmed();
-    }
+    const onBackground = event.target === stageEl || event.target === canvasEl
+      || event.target === selectionFrame || (event.target.id === 'stage-bg');
+    if (!onBackground) return;
+    select(null);
+    clearArmed();
+    startStageGesture(event);
+  });
+
+  stageEl.addEventListener('pointermove', moveStageGesture);
+  for (const name of ['pointerup', 'pointercancel', 'pointerleave']) {
+    stageEl.addEventListener(name, endStageGesture);
+  }
+
+  stageEl.addEventListener('wheel', (event) => {
+    // Nur mit gedrückter Steuerungstaste zoomen — sonst bliebe die Tafel unruhig.
+    if (!event.ctrlKey && !event.metaKey) return;
+    event.preventDefault();
+    zoomBy(event.deltaY < 0 ? 1.12 : 1 / 1.12, { x: event.clientX, y: event.clientY });
+  }, { passive: false });
+
+  stageEl.addEventListener('dblclick', (event) => {
+    if (event.target !== stageEl && event.target !== canvasEl && event.target.id !== 'stage-bg') return;
+    resetView();
   });
 
   window.addEventListener('resize', () => {
     updateScale();
     layout();
   });
+
+  const stored = getState().settings.view;
+  if (stored && Number.isFinite(stored.zoom)) {
+    zoom = clamp(stored.zoom, ZOOM_MIN, ZOOM_MAX);
+    panX = Number.isFinite(stored.panX) ? stored.panX : 0;
+    panY = Number.isFinite(stored.panY) ? stored.panY : 0;
+    announceView();
+  }
 
   window.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') select(null);
@@ -109,9 +279,11 @@ export function updateScale() {
     canvasEl.style.height = '';
     return;
   }
-  scale = Math.min(rect.width / BOARD_WIDTH, rect.height / BOARD_HEIGHT);
-  const offsetX = (rect.width - BOARD_WIDTH * scale) / 2;
-  const offsetY = (rect.height - BOARD_HEIGHT * scale) / 2;
+  const fit = Math.min(rect.width / BOARD_WIDTH, rect.height / BOARD_HEIGHT);
+  scale = fit * zoom;
+  clampPan();
+  const offsetX = (rect.width - BOARD_WIDTH * scale) / 2 + panX;
+  const offsetY = (rect.height - BOARD_HEIGHT * scale) / 2 + panY;
   canvasEl.style.width = `${BOARD_WIDTH}px`;
   canvasEl.style.height = `${BOARD_HEIGHT}px`;
   canvasEl.style.transform = `translate(${offsetX}px, ${offsetY}px) scale(${scale})`;
@@ -588,13 +760,6 @@ function renderSelection() {
     return;
   }
   selectionEl.classList.add('is-visible');
-  const rect = stageEl.getBoundingClientRect();
-  const offsetX = (rect.width - BOARD_WIDTH * scale) / 2;
-  const offsetY = (rect.height - BOARD_HEIGHT * scale) / 2;
-  const left = offsetX + widget.x * scale;
-  const top = offsetY + widget.y * scale;
-  selectionEl.style.left = `${clamp(left, 8, rect.width - 180)}px`;
-  selectionEl.style.top = `${Math.max(6, top - 52)}px`;
 
   const definition = getWidgetType(widget.type);
   const instance = instances.get(widget.id);
@@ -665,6 +830,23 @@ function renderSelection() {
       },
       html: icon('layers', 18),
     }));
+
+  placeSelectionToolbar(widget);
+}
+
+/**
+ * Die kleine Leiste sitzt über dem Element — am Telefon wird sie so
+ * verschoben, dass sie vollständig auf dem Bildschirm bleibt.
+ */
+function placeSelectionToolbar(widget) {
+  const rect = stageEl.getBoundingClientRect();
+  const offsetX = (rect.width - BOARD_WIDTH * scale) / 2 + panX;
+  const offsetY = (rect.height - BOARD_HEIGHT * scale) / 2 + panY;
+  const width = selectionEl.offsetWidth || 200;
+  const left = offsetX + widget.x * scale;
+  const top = offsetY + widget.y * scale;
+  selectionEl.style.left = `${clamp(left, 8, Math.max(8, rect.width - width - 8))}px`;
+  selectionEl.style.top = `${Math.max(6, top - 52)}px`;
 }
 
 export function openWidgetSettings(widgetId) {
