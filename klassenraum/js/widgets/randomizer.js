@@ -114,6 +114,7 @@ export default {
     return {
       listId: null,
       localNames: [],
+      title: '',
       mode: 'exhaust',
       drawn: [],
       current: null,
@@ -128,6 +129,7 @@ export default {
   mount(ctx) {
     const el = h('div', { class: 'w-random' });
     const head = h('div', { class: 'w-random__head' });
+    const titleEl = h('div', { class: 'w-random__title' });
     const display = h('div', { class: 'w-random__display' });
     const nameBox = h('div', { class: 'w-random__namebox' });
     const nameEl = h('div', { class: 'w-random__name' });
@@ -138,7 +140,7 @@ export default {
     nameBox.append(nameEl, maskEl);
     display.append(nameBox, hintEl);
     // Bewusst ohne Knöpfe: Gezogen und aufgedeckt wird durch Tippen auf die Karte.
-    el.append(head, display, drawnBox);
+    el.append(head, titleEl, display, drawnBox);
 
     let spinTimer = null;
     let spinning = false;
@@ -367,6 +369,9 @@ export default {
         h('span', { class: 'w-random__count' },
           state.mode === 'repeat' ? `${all.length} Namen` : `${remaining.length}/${all.length}`));
 
+      titleEl.textContent = state.title || '';
+      titleEl.classList.toggle('is-hidden', !state.title);
+
       nameEl.classList.toggle('is-empty', !name);
       if (name && hidden && mode === 'letters') {
         const maskable = new Set(maskableIndexes(name));
@@ -522,6 +527,16 @@ export default {
           },
         })));
       }
+
+      wrap.appendChild(section('Überschrift',
+        field('Überschrift (optional)', h('input', {
+          class: 'input', type: 'text', value: state.title || '', placeholder: 'z. B. Wer liest vor?',
+          oninput: (event) => {
+            ctx.widget.state.title = event.target.value;
+            ctx.save();
+            ctx.refresh();
+          },
+        }), 'Steht groß über dem Namen — z. B. als Frage an die Klasse.')));
 
       wrap.appendChild(section('Ziehen',
         h('div', { class: 'segmented' },

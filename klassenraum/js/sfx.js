@@ -149,6 +149,50 @@ export function spinEnd(soundId, delay = 0) {
   noiseBurst({ duration: 0.09, gain: 0.26, frequency: 700, q: 0.9, delay: delay + 0.085 });
 }
 
+/* ---------- Benachrichtigungsklänge (z. B. Timer-Ende) ---------- */
+
+export const END_SOUNDS = [
+  { id: 'dreiklang', label: 'Dreiklang', hint: 'Der vertraute helle Wechselton.' },
+  { id: 'gong', label: 'Gong', hint: 'Ein tiefer, ruhig ausklingender Schlag.' },
+  { id: 'glocke', label: 'Glocke', hint: 'Drei helle Glockenschläge.' },
+  { id: 'xylophon', label: 'Xylophon', hint: 'Eine kurze, aufsteigende Tonfolge.' },
+];
+
+export function endSoundById(id) {
+  return END_SOUNDS.find((entry) => entry.id === id) || END_SOUNDS[0];
+}
+
+/** Benachrichtigungsklang abspielen — vollständig im Gerät erzeugt. */
+export function playEndSound(id, delay = 0) {
+  if (id === 'gong') {
+    noiseBurst({ duration: 0.12, gain: 0.16, frequency: 480, q: 0.7, delay });
+    tone({ frequency: 165, duration: 1.9, gain: 0.26, type: 'sine', delay });
+    tone({ frequency: 221, duration: 1.5, gain: 0.12, type: 'sine', delay: delay + 0.012 });
+    tone({ frequency: 87, duration: 2.1, gain: 0.18, type: 'triangle', delay });
+    return;
+  }
+  if (id === 'glocke') {
+    for (let i = 0; i < 3; i += 1) {
+      const when = delay + i * 0.5;
+      tone({ frequency: 880, duration: 0.9, gain: 0.2, type: 'sine', delay: when });
+      tone({ frequency: 1760, duration: 0.5, gain: 0.08, type: 'sine', delay: when });
+      tone({ frequency: 2637, duration: 0.28, gain: 0.05, type: 'sine', delay: when });
+    }
+    return;
+  }
+  if (id === 'xylophon') {
+    [523, 659, 784, 1047].forEach((frequency, index) => {
+      tone({ frequency, duration: 0.3, gain: 0.2, type: 'triangle', delay: delay + index * 0.16 });
+      tone({ frequency: frequency * 3, duration: 0.08, gain: 0.05, type: 'sine', delay: delay + index * 0.16 });
+    });
+    return;
+  }
+  // Dreiklang (Vorgabe) — wie der bisherige Signalton.
+  for (let i = 0; i < 4; i += 1) {
+    tone({ frequency: i % 2 === 0 ? 880 : 1180, duration: 0.24, gain: 0.22, type: 'sine', delay: delay + i * 0.32 });
+  }
+}
+
 /**
  * Hörprobe für die Einstellungen — dieselbe Abfolge wie beim Ziehen,
  * aber im Voraus geplant (das ist genauer als Zeitgeber im Hintergrund).
