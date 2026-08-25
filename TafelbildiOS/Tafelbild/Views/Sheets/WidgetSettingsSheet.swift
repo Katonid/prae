@@ -725,7 +725,13 @@ private struct SoundsSettings: View {
     @Binding var content: SoundsContent
 
     @StateObject private var recorder = VoiceRecorder()
+    /// Für welches Feld gerade eine Datei gesucht wird. Bewusst getrennt
+    /// vom Schalter unten: Hingen beide am selben Wert, löschte das
+    /// Schließen des Blattes das Ziel, bevor die Auswahl ausgewertet war —
+    /// die Datei landete dann nirgends und die Karte sagte weiter
+    /// „Kein Ton hinterlegt".
     @State private var importingFor: String?
+    @State private var zeigtDateiwahl = false
     @State private var recordingFor: String?
 
     var body: some View {
@@ -762,6 +768,7 @@ private struct SoundsSettings: View {
 
                 Button {
                     importingFor = button.id
+                    zeigtDateiwahl = true
                 } label: {
                     Label("Tondatei wählen", systemImage: "folder")
                 }
@@ -817,29 +824,64 @@ private struct SoundsSettings: View {
 
         Section {
             Button {
-                content.buttons.append(SoundButton(label: "Neu", emoji: "🔔",
+                content.buttons.append(SoundButton(label: "Klang", emoji: "🔔",
                                                    colorHex: BackgroundPreset.solids.randomElement() ?? "#0f9b8e"))
             } label: {
                 Label("Feld hinzufügen", systemImage: "plus")
             }
         }
+        // Der Dateiwähler hängt an genau EINEM Abschnitt. Läge er an der
+        // Group, legte SwiftUI ihn an jedes Kind an — es gäbe so viele
+        // Wähler wie Abschnitte, alle am selben Schalter.
+        .fileImporter(isPresented: $zeigtDateiwahl,
+                      // Bewusst ohne Filter: iPadOS blendet sonst Dateien
+                      // aus, deren Art der Anbieter nicht mitliefert — bei
+                      // MP3s in iCloud Drive und auf Netzlaufwerken passiert
+                      // genau das (dieselbe Erfahrung wie in der Web-App).
+                      // Passt die Datei nicht, sagen wir es hinterher.
+                      allowedContentTypes: [.item]) { ergebnis in
+            uebernimmDatei(ergebnis)
         }
-        .fileImporter(isPresented: Binding(get: { importingFor != nil },
-                                           set: { if !$0 { importingFor = nil } }),
-                      allowedContentTypes: [.audio, .mp3, .mpeg4Audio, .wav]) { result in
-            guard case .success(let url) = result, let target = importingFor else { return }
+        }
+    }
+
+    /// Gewählte Datei in das Feld legen, für das der Wähler geöffnet wurde.
+    private func uebernimmDatei(_ ergebnis: Result<URL, Error>) {
+        let ziel = importingFor
+        importingFor = nil
+        guard let ziel else { return }
+
+        switch ergebnis {
+        case .failure:
+            // Abbrechen ist kein Fehler — nur echte Fehler melden.
+            return
+        case .success(let url):
             let scoped = url.startAccessingSecurityScopedResource()
             defer { if scoped { url.stopAccessingSecurityScopedResource() } }
-            guard let data = try? Data(contentsOf: url) else { return }
-            let ext = url.pathExtension.isEmpty ? "m4a" : url.pathExtension
-            if let fileName = store.saveMedia(data: data, fileExtension: ext),
-               let index = content.buttons.firstIndex(where: { $0.id == target }) {
-                content.buttons[index].fileName = fileName
-                if content.buttons[index].label.isEmpty {
-                    content.buttons[index].label = url.deletingPathExtension().lastPathComponent
-                }
+
+            guard let data = try? Data(contentsOf: url), !data.isEmpty else {
+                store.showStatus("Die Datei ließ sich nicht lesen. Liegt sie in iCloud, "
+                                 + "muss sie erst geladen werden.")
+                return
             }
-            importingFor = nil
+            let endung = url.pathExtension.isEmpty ? "m4a" : url.pathExtension.lowercased()
+            guard let dateiname = store.saveMedia(data: data, fileExtension: endung) else {
+                return  // saveMedia meldet den Fehler selbst
+            }
+            guard let index = content.buttons.firstIndex(where: { $0.id == ziel }) else {
+                store.showStatus("Das Klangfeld gibt es nicht mehr.")
+                return
+            }
+            content.buttons[index].fileName = dateiname
+            if content.buttons[index].label.isEmpty
+                || content.buttons[index].label == "Klang" {
+                content.buttons[index].label = url.deletingPathExtension().lastPathComponent
+            }
+            let bekannt = ["mp3", "m4a", "wav", "aac", "aif", "aiff", "caf", "ogg"]
+            if !bekannt.contains(endung) {
+                store.showStatus("„\(url.lastPathComponent)“ ist vielleicht keine Tondatei — "
+                                 + "sie ist trotzdem hinterlegt.")
+            }
         }
     }
 }
@@ -962,7 +1004,9 @@ private struct VideoSettings: View {
             Toggle("Ohne Ton starten", isOn: $content.muted)
             TextField("Beschriftung", text: $content.caption)
         }
-        .fileImporter(isPresented: $showFiles, allowedContentTypes: [.movie, .video, .mpeg4Movie, .quickTimeMovie]) { result in
+        // Ohne Filter, aus demselben Grund wie beim Klang: iPadOS blendet
+        // Dateien aus, deren Art der Anbieter nicht mitliefert.
+        .fileImporter(isPresented: $showFiles, allowedContentTypes: [.item]) { result in
             guard case .success(let url) = result else { return }
             let ext = url.pathExtension.isEmpty ? "mp4" : url.pathExtension
             if let fileName = store.saveLocalMedia(from: url, fileExtension: ext) {
