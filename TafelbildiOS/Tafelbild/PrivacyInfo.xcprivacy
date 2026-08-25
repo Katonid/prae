@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Datenschutzmanifest — seit Frühjahr 2024 Pflicht für die Abgabe im App Store.
+
+  Zwei Dinge stehen darin:
+
+  1. Welche Daten die App erhebt. Bei Tafelbild: keine. Kein Konto beim
+     Entwickler, keine Werbung, keine Analyse, kein Tracking. Alles bleibt
+     auf dem Gerät oder im privaten iCloud-Bereich der Nutzerin.
+
+  2. Warum die App bestimmte Schnittstellen benutzt, die Apple ohne Begründung
+     nicht mehr erlaubt („required reason APIs"). Hier werden nur die drei
+     angegeben, die wirklich vorkommen — jede zusätzliche Angabe wäre falsch:
+
+     * UserDefaults (CA92.1): Einstellungen der App, die nur sie selbst liest —
+       Schrift, Zoomstand, Abgleich an/aus, Feinabgleich des Mikrofons.
+     * Dateizeitstempel (C617.1): Beim Aufräumen alter Klang- und Bilddateien
+       im eigenen Ordner wird deren Anlagedatum gelesen (BoardStore).
+     * Aktive Tastaturen (54BD.1): Das Feld für ein Symbol öffnet die
+       Emoji-Tastatur (EmojiField). Dafür muss es wissen, ob es sie gibt.
+
+  Wer hier etwas ändert, prüfe zuerst, ob die Schnittstelle wirklich noch
+  benutzt wird — und ob eine neue dazugekommen ist.
+-->
+<plist version="1.0">
+<dict>
+	<key>NSPrivacyTracking</key>
+	<false/>
+	<key>NSPrivacyTrackingDomains</key>
+	<array/>
+	<key>NSPrivacyCollectedDataTypes</key>
+	<array/>
+	<key>NSPrivacyAccessedAPITypes</key>
+	<array>
+		<dict>
+			<key>NSPrivacyAccessedAPIType</key>
+			<string>NSPrivacyAccessedAPICategoryUserDefaults</string>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<array>
+				<string>CA92.1</string>
+			</array>
+		</dict>
+		<dict>
+			<key>NSPrivacyAccessedAPIType</key>
+			<string>NSPrivacyAccessedAPICategoryFileTimestamp</string>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<array>
+				<string>C617.1</string>
+			</array>
+		</dict>
+		<dict>
+			<key>NSPrivacyAccessedAPIType</key>
+			<string>NSPrivacyAccessedAPICategoryActiveKeyboards</string>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<array>
+				<string>54BD.1</string>
+			</array>
+		</dict>
+	</array>
+</dict>
+</plist>
