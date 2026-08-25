@@ -733,6 +733,42 @@ enum BoardBackground: Equatable {
     case aurora(String)
 }
 
+extension BoardBackground {
+    /// Wirkt der Grund dunkel? Danach richtet sich die Handschrift.
+    ///
+    /// PencilKit zeichnet schwarze Tinte in dunkler Umgebung von selbst
+    /// weiß — das ist genau richtig für eine Tafel. Dafür muss die
+    /// Schreibebene aber wissen, worauf sie liegt: Auf hellem Grund bleibt
+    /// Schwarz schwarz, auf dunklem wird es hell.
+    var wirktDunkel: Bool {
+        switch self {
+        case .aurora:
+            return true
+        case .solid(let hex):
+            return Self.dunkel(hex)
+        case .gradient(let von, let bis):
+            // Beide Enden zählen: Ein Verlauf von Dunkelblau nach Schwarz
+            // ist dunkel, einer von Weiß nach Hellgrau nicht.
+            return Self.dunkel(von) && Self.dunkel(bis)
+        case .image(_, let abdunklung):
+            // Ein Foto kann alles sein. Ab einer merklichen Abdunklung ist
+            // es dunkel genug für helle Schrift; sonst lieber dunkle.
+            return abdunklung >= 0.35
+        }
+    }
+
+    private static func dunkel(_ hex: String) -> Bool {
+        let sauber = hex.replacingOccurrences(of: "#", with: "")
+        guard sauber.count == 6 else { return true }
+        var wert: UInt64 = 0
+        Scanner(string: sauber).scanHexInt64(&wert)
+        let r = Double((wert >> 16) & 0xFF) / 255
+        let g = Double((wert >> 8) & 0xFF) / 255
+        let b = Double(wert & 0xFF) / 255
+        return 0.299 * r + 0.587 * g + 0.114 * b < 0.55
+    }
+}
+
 extension BoardBackground: Codable {
     private enum Keys: String, CodingKey { case type, a, b, dim }
 

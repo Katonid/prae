@@ -202,7 +202,8 @@ struct BoardCanvasView: View {
             // Handschrift liegt über den Elementen, fängt aber nur
             // Berührungen, solange geschrieben wird.
             DrawingLayerView(drawing: drawingBinding, active: store.drawing,
-                             pencilOnly: store.pencilOnly)
+                             pencilOnly: store.pencilOnly,
+                             dunklerGrund: board.background.wirktDunkel)
                 .frame(width: Layout.canvas.width, height: Layout.canvas.height)
                 .allowsHitTesting(store.drawing)
 
