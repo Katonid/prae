@@ -19,6 +19,12 @@ struct WidgetHostView: View {
     var editable: Bool = true
 
     @State private var dragStart: CGPoint?
+    /// Größe zu Beginn der Lupengeste — nil, solange nicht gezogen wird.
+    @State private var groesseVorher: CGSize?
+    /// Solange zwei Finger die Größe ändern, wird nicht verschoben. SwiftUI
+    /// meldet beim Aufziehen nämlich auch eine Ziehbewegung (der Mittelpunkt
+    /// beider Finger wandert), und das Element liefe sonst davon.
+    @State private var aufziehen = false
 
     private var editing: Bool { store.editing && editable }
     private var selected: Bool { store.selectedWidgetID == widget.id }
@@ -56,7 +62,8 @@ struct WidgetHostView: View {
                     Haptics.tap()
                     store.selectedWidgetID = widget.id
                 }
-                .gesture(moveGesture, including: widget.locked ? .subviews : .all)
+                .gesture(moveGesture.simultaneously(with: groessenGeste),
+                         including: widget.locked ? .subviews : .all)
         } else {
             base
         }
@@ -144,7 +151,7 @@ struct WidgetHostView: View {
                     dragStart = CGPoint(x: widget.x, y: widget.y)
                     store.selectedWidgetID = widget.id
                 }
-                guard let start = dragStart else { return }
+                guard !aufziehen, let start = dragStart else { return }
                 let factor = Double(scale)
                 let dx = Double(value.translation.width) / factor
                 let dy = Double(value.translation.height) / factor
@@ -164,6 +171,59 @@ struct WidgetHostView: View {
                 store.commitLayout(boardID: boardID)
                 Haptics.tap()
             }
+    }
+
+    // MARK: - Größe mit zwei Fingern
+
+    /// Aufziehen ändert die Größe — genau wie in der Web-App („mit zwei
+    /// Fingern auf dem Element auseinanderziehen“). Das Element wächst um
+    /// seine Mitte, das Seitenverhältnis bleibt.
+    ///
+    /// Am Telefon ist das der Hauptweg: Dort sind die Eck-Anfasser oft
+    /// größer als das Element selbst und erscheinen erst, wenn genug Platz
+    /// da ist (siehe BoardCanvasView).
+    private var groessenGeste: some Gesture {
+        MagnifyGesture(minimumScaleDelta: 0.01)
+            .onChanged { wert in
+                if groesseVorher == nil {
+                    groesseVorher = CGSize(width: widget.width, height: widget.height)
+                    store.selectedWidgetID = widget.id
+                }
+                guard let start = groesseVorher else { return }
+                aufziehen = true
+                let faktor = max(0.1, min(8, Double(wert.magnification)))
+                store.updateWidget(widget.id, in: boardID, transient: true) { item in
+                    let mitteX = item.x + item.width / 2
+                    let mitteY = item.y + item.height / 2
+                    item.width = spanne(Double(start.width) * faktor,
+                                        klein: Layout.minWidth, gross: Layout.canvasWidth)
+                    item.height = spanne(Double(start.height) * faktor,
+                                         klein: Layout.minHeight, gross: Layout.canvasHeight)
+                    item.x = mitteX - item.width / 2
+                    item.y = mitteY - item.height / 2
+                    item.clampToCanvas()
+                }
+            }
+            .onEnded { _ in
+                groesseVorher = nil
+                aufziehen = false
+                // Der Zug, der nebenher mitlief, darf jetzt nichts mehr
+                // nachschieben — sonst springt das Element beim Loslassen.
+                dragStart = nil
+                store.updateWidget(widget.id, in: boardID, transient: true) { item in
+                    item.width = (item.width / Layout.grid).rounded() * Layout.grid
+                    item.height = (item.height / Layout.grid).rounded() * Layout.grid
+                    item.x = (item.x / Layout.grid).rounded() * Layout.grid
+                    item.y = (item.y / Layout.grid).rounded() * Layout.grid
+                    item.clampToCanvas()
+                }
+                store.commitLayout(boardID: boardID)
+                Haptics.tap()
+            }
+    }
+
+    private func spanne(_ wert: Double, klein: Double, gross: Double) -> Double {
+        max(klein, min(wert, gross))
     }
 
     // MARK: - Bindungen zum Speicher

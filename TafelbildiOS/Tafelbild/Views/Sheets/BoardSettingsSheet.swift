@@ -1,5 +1,6 @@
 import SwiftUI
 import PhotosUI
+import UniformTypeIdentifiers
 
 /// Tafel gestalten: Name, Symbol und Hintergrund.
 struct BoardSettingsSheet: View {
@@ -15,6 +16,10 @@ struct BoardSettingsSheet: View {
     @State private var emoji: String = ""
     @State private var dim: Double = 0.25
     @State private var photo: PhotosPickerItem?
+    /// Bild aus der Dateien-App. Getrennt von der Fotomediathek, weil vieles
+    /// gar nicht dort liegt — Arbeitsblätter, aus dem Netz Geladenes, Dateien
+    /// auf einem Netzlaufwerk.
+    @State private var zeigtDateiwahl = false
     @State private var showDelete = false
     /// Schrift der ganzen App (nicht nur dieser Tafel).
     @AppStorage(AppFont.speicherSchluessel) private var schriftWahl: AppFont = .lexend
@@ -172,7 +177,12 @@ struct BoardSettingsSheet: View {
 
                 Section {
                     PhotosPicker(selection: $photo, matching: .images) {
-                        Label("Hintergrundbild wählen", systemImage: "photo")
+                        Label("Aus der Fotomediathek", systemImage: "photo")
+                    }
+                    Button {
+                        zeigtDateiwahl = true
+                    } label: {
+                        Label("Aus einer Datei öffnen", systemImage: "folder")
                     }
                     if case .image(_, let currentDim) = board.background {
                         VStack(alignment: .leading) {
@@ -196,7 +206,9 @@ struct BoardSettingsSheet: View {
                 } header: {
                     Text("Hintergrundbild")
                 } footer: {
-                    Text("Dunkle Bilder wirken auf der Tafel am ruhigsten — heller Text bleibt so gut lesbar.")
+                    Text("Dunkle Bilder wirken auf der Tafel am ruhigsten — heller Text bleibt "
+                         + "so gut lesbar. Über „Aus einer Datei“ erreichen Sie auch iCloud "
+                         + "Drive, Netzlaufwerke und alles, was nicht in der Fotomediathek liegt.")
                 }
 
                 Section {
@@ -218,6 +230,12 @@ struct BoardSettingsSheet: View {
                 name = board.name
                 emoji = board.emoji
                 if case .image(_, let value) = board.background { dim = value }
+            }
+            // Ohne Filter auf Dateiarten, aus demselben Grund wie bei Klang und
+            // Video: iPadOS blendet sonst Dateien aus, deren Art der Anbieter
+            // nicht mitliefert. Passt sie nicht, sagen wir es hinterher.
+            .fileImporter(isPresented: $zeigtDateiwahl, allowedContentTypes: [.item]) { ergebnis in
+                uebernimmHintergrund(ergebnis)
             }
             .onChange(of: photo) { _, item in
                 guard let item else { return }
@@ -241,6 +259,27 @@ struct BoardSettingsSheet: View {
                 Text("Die Tafel verschwindet auf allen Geräten, die sie sehen.")
             }
         }
+    }
+
+    /// Bilddatei als Hintergrund übernehmen.
+    private func uebernimmHintergrund(_ ergebnis: Result<URL, Error>) {
+        guard case .success(let url) = ergebnis else { return }
+        let scoped = url.startAccessingSecurityScopedResource()
+        defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+
+        guard let daten = try? Data(contentsOf: url), !daten.isEmpty else {
+            store.showStatus("Die Datei ließ sich nicht lesen. Liegt sie in iCloud, "
+                             + "muss sie erst geladen werden.")
+            return
+        }
+        guard let bild = UIImage(data: daten) else {
+            store.showStatus("„\(url.lastPathComponent)“ ist kein Bild, das die App öffnen kann.")
+            return
+        }
+        guard let fertig = MediaCache.prepareForBoard(bild),
+              let dateiname = store.saveMedia(data: fertig, fileExtension: "jpg")
+        else { return }
+        apply(.image(dateiname, dim))
     }
 
     /// Eine Schrift zur Auswahl — der Name steht in der Schrift selbst,

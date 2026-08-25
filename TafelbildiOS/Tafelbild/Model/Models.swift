@@ -596,6 +596,9 @@ struct BoardWidget: Codable, Identifiable, Equatable {
     var locked: Bool = false
     /// Ohne Karte — das Element steht frei auf der Tafel.
     var bare: Bool = false
+    /// Auf welcher Seite das Element liegt. **Leer heißt: erste Seite** —
+    /// so gehören alle Elemente älterer Tafeln von selbst auf Seite 1.
+    var pageID: String = ""
     var content: WidgetContent
 
     var kind: WidgetKind { content.kind }
@@ -702,6 +705,24 @@ enum BackgroundPreset {
 
 // MARK: - Tafel
 
+/// Eine Seite einer Tafel.
+///
+/// Eine Tafel kann mehrere Seiten haben — etwa eine je Unterrichtsstunde oder
+/// je Fach. Jede Seite hat ihre eigenen Elemente und ihre eigene Handschrift;
+/// Hintergrund, Farbschema und Namenslisten gelten für die ganze Tafel.
+///
+/// Ältere Tafeln haben gar keine Seiten eingetragen. Das ist Absicht und
+/// bedeutet: genau eine Seite. Erst wer eine zweite anlegt, bekommt die Liste
+/// wirklich gefüllt (siehe `seitenAnlegen`). So bleiben alte Stände lesbar,
+/// auch auf Geräten mit einer älteren Fassung der App.
+struct BoardPage: Codable, Equatable, Identifiable {
+    var id: String = UUID().uuidString
+    /// Leer = die App zeigt „Seite 1", „Seite 2" …
+    var name: String = ""
+    /// Handschrift dieser Seite (PencilKit, Base64).
+    var drawing: String = ""
+}
+
 struct Board: Codable, Identifiable, Equatable {
     var id: String = UUID().uuidString
     var name: String = "Neue Tafel"
@@ -717,7 +738,10 @@ struct Board: Codable, Identifiable, Equatable {
     /// Wann Überschriften und Hinweise in den Elementen zu sehen sind.
     var labels: ShowRule = .always
     var widgets: [BoardWidget] = []
-    /// Handschrift und Markierungen auf der Tafel (PencilKit, Base64).
+    /// Seiten der Tafel. Leer bedeutet: eine einzige Seite (siehe `BoardPage`).
+    var pages: [BoardPage] = []
+    /// Handschrift der ersten Seite (PencilKit, Base64). Ab der zweiten Seite
+    /// steht sie in `pages`; dieses Feld bleibt für alte Stände erhalten.
     /// Reist mit der Tafel mit, damit Anmerkungen auf allen Geräten stehen.
     var drawing: String = ""
     /// Namen der Kolleginnen und Kollegen, die diese Tafel sehen
@@ -800,6 +824,46 @@ struct Board: Codable, Identifiable, Equatable {
     var sortedWidgets: [BoardWidget] {
         widgets.sorted { $0.z < $1.z }
     }
+
+    // MARK: - Seiten
+
+    /// Die Seiten, wie die Oberfläche sie sieht: Sind keine eingetragen,
+    /// ist es genau eine — mit der Handschrift aus `drawing`.
+    var seiten: [BoardPage] {
+        pages.isEmpty ? [BoardPage(id: "", name: "", drawing: drawing)] : pages
+    }
+
+    var hatMehrereSeiten: Bool { pages.count > 1 }
+
+    /// Kennung der ersten Seite. Elemente ohne eigene Angabe gehören dorthin.
+    var ersteSeitenID: String { pages.first?.id ?? "" }
+
+    /// Gehört das Element auf diese Seite? Ein leeres `pageID` zählt zur
+    /// ersten Seite — daran hängt die Verträglichkeit mit alten Tafeln.
+    func liegtAuf(_ widget: BoardWidget, seite: String) -> Bool {
+        if widget.pageID.isEmpty { return seite == ersteSeitenID }
+        return widget.pageID == seite
+    }
+
+    /// Elemente einer Seite, von hinten nach vorn.
+    func widgets(auf seite: String) -> [BoardWidget] {
+        sortedWidgets.filter { liegtAuf($0, seite: seite) }
+    }
+
+    /// Handschrift einer Seite. Für die erste Seite alter Tafeln steht sie
+    /// noch in `drawing`.
+    func handschrift(auf seite: String) -> String {
+        if let treffer = pages.first(where: { $0.id == seite }) { return treffer.drawing }
+        return seite == ersteSeitenID ? drawing : ""
+    }
+
+    /// Anzeigename einer Seite — „Seite 3", wenn keiner vergeben wurde.
+    func seitenName(_ seite: String) -> String {
+        let liste = seiten
+        guard let index = liste.firstIndex(where: { $0.id == seite }) else { return "Seite 1" }
+        let eigener = liste[index].name.trimmingCharacters(in: .whitespaces)
+        return eigener.isEmpty ? "Seite \(index + 1)" : eigener
+    }
 }
 
 // MARK: - Namenslisten
@@ -881,7 +945,7 @@ enum StarterContent {
 extension Board {
     enum BoardKeys: String, CodingKey {
         case id, name, emoji, background, accent, gradient, cardStyle, frames, labels
-        case widgets, drawing, members, ownerUserID
+        case widgets, pages, drawing, members, ownerUserID
         case memberUserIDs, joinCode, owner, createdAtMs, updatedAtMs, deleted
         case embeddedLists
     }
@@ -899,6 +963,7 @@ extension Board {
         frames = c.wert(.frames, ShowRule.always)
         labels = c.wert(.labels, ShowRule.always)
         widgets = c.wert(.widgets, [BoardWidget]())
+        pages = c.wert(.pages, [BoardPage]())
         drawing = c.wert(.drawing, "")
         members = c.wert(.members, [String]())
         ownerUserID = c.wert(.ownerUserID, "")
@@ -942,7 +1007,7 @@ extension NameEntry {
 }
 
 extension BoardWidget {
-    enum WidgetKeys: String, CodingKey { case id, x, y, width, height, z, locked, bare, content }
+    enum WidgetKeys: String, CodingKey { case id, x, y, width, height, z, locked, bare, pageID, content }
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: WidgetKeys.self)
@@ -956,6 +1021,7 @@ extension BoardWidget {
         height = c.wert(.height, 300)
         z = c.wert(.z, 0)
         locked = c.wert(.locked, false)
+        pageID = c.wert(.pageID, "")
         bare = c.wert(.bare, false)
     }
 }

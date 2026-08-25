@@ -48,6 +48,12 @@ final class BoardStore: ObservableObject {
     @Published var editing: Bool = false
     @Published var selectedWidgetID: String?
     @Published var presenting: Bool = false
+
+    /// Welche Seite der aktiven Tafel gerade zu sehen ist.
+    ///
+    /// Bewusst NICHT abgeglichen: Wer am iPad blättert, soll nicht der
+    /// Kollegin an der Wandtafel die Seite wegziehen. Leer = erste Seite.
+    @Published var aktiveSeitenID: String = ""
     /// Schreiben und Markieren auf der Tafel ist eingeschaltet.
     @Published var drawing: Bool = false
     /// Nur der Apple Pencil schreibt — der Finger bleibt zum Bedienen frei.
@@ -440,7 +446,7 @@ final class BoardStore: ObservableObject {
         let size = kind.defaultSize
         widget.width = size.width
         widget.height = size.height
-        let spot = freeSpot(for: size, on: boards[boardIndex])
+        let spot = freeSpot(for: size, on: boards[boardIndex], seite: aktiveSeitenID)
         widget.x = spot.x
         widget.y = spot.y
         widget.z = (boards[boardIndex].widgets.map(\.z).max() ?? 0) + 1
@@ -450,6 +456,8 @@ final class BoardStore: ObservableObject {
             widget.content = .namePicker(content)
         }
         widget.clampToCanvas()
+        // Auf der Seite anlegen, die gerade zu sehen ist.
+        widget.pageID = aktiveSeitenID
         boards[boardIndex].widgets.append(widget)
         selectedWidgetID = widget.id
         touch(boardID)
@@ -457,7 +465,127 @@ final class BoardStore: ObservableObject {
     }
 
     /// Sucht einen möglichst freien Platz für ein neues Element.
-    private func freeSpot(for size: CGSize, on board: Board) -> CGPoint {
+    // MARK: - Seiten
+
+    /// Sorgt dafür, dass die Seitenliste wirklich gefüllt ist.
+    ///
+    /// Alte Tafeln haben keine Seiten eingetragen — das heißt „genau eine".
+    /// Sobald es mehr werden, muss die erste Seite echt werden. Dabei bekommen
+    /// **alle** Elemente eine ausdrückliche Seitenzugehörigkeit: Sonst würden
+    /// sie beim späteren Löschen der ersten Seite auf die dann erste springen,
+    /// weil „leer" ja „erste Seite" bedeutet.
+    private func stelleSeitenSicher(_ index: Int) {
+        guard boards[index].pages.isEmpty else { return }
+        let erste = BoardPage(name: "", drawing: boards[index].drawing)
+        boards[index].pages = [erste]
+        for i in boards[index].widgets.indices where boards[index].widgets[i].pageID.isEmpty {
+            boards[index].widgets[i].pageID = erste.id
+        }
+    }
+
+    /// Legt eine weitere Seite an und wechselt gleich dorthin.
+    @discardableResult
+    func seiteAnlegen(boardID: String) -> String? {
+        guard let index = boards.firstIndex(where: { $0.id == boardID }) else { return nil }
+        stelleSeitenSicher(index)
+        let neue = BoardPage()
+        boards[index].pages.append(neue)
+        aktiveSeitenID = neue.id
+        selectedWidgetID = nil
+        touch(boardID)
+        return neue.id
+    }
+
+    func seiteUmbenennen(_ seite: String, auf name: String, boardID: String) {
+        guard let index = boards.firstIndex(where: { $0.id == boardID }) else { return }
+        stelleSeitenSicher(index)
+        guard let seitenIndex = boards[index].pages.firstIndex(where: { $0.id == seite }) else { return }
+        boards[index].pages[seitenIndex].name = name.trimmingCharacters(in: .whitespaces)
+        touch(boardID)
+    }
+
+    /// Löscht eine Seite samt ihrer Elemente. Die letzte bleibt stehen —
+    /// eine Tafel ohne Seite gibt es nicht.
+    func seiteLoeschen(_ seite: String, boardID: String) {
+        guard let index = boards.firstIndex(where: { $0.id == boardID }) else { return }
+        stelleSeitenSicher(index)
+        guard boards[index].pages.count > 1,
+              let seitenIndex = boards[index].pages.firstIndex(where: { $0.id == seite })
+        else { return }
+        boards[index].widgets.removeAll { $0.pageID == seite }
+        boards[index].pages.remove(at: seitenIndex)
+        // Auf die benachbarte Seite wechseln, nicht ins Leere.
+        let ziel = min(seitenIndex, boards[index].pages.count - 1)
+        aktiveSeitenID = boards[index].pages[ziel].id
+        selectedWidgetID = nil
+        touch(boardID)
+    }
+
+    func seitenVerschieben(from quelle: IndexSet, to ziel: Int, boardID: String) {
+        guard let index = boards.firstIndex(where: { $0.id == boardID }) else { return }
+        stelleSeitenSicher(index)
+        boards[index].pages.move(fromOffsets: quelle, toOffset: ziel)
+        touch(boardID)
+    }
+
+    /// Kopiert eine Seite samt Elementen — praktisch für wiederkehrende Stunden.
+    @discardableResult
+    func seiteDuplizieren(_ seite: String, boardID: String) -> String? {
+        guard let index = boards.firstIndex(where: { $0.id == boardID }) else { return nil }
+        stelleSeitenSicher(index)
+        guard let seitenIndex = boards[index].pages.firstIndex(where: { $0.id == seite })
+        else { return nil }
+        var neue = boards[index].pages[seitenIndex]
+        neue.id = UUID().uuidString
+        neue.name = boards[index].seitenName(seite) + " (Kopie)"
+        let kopien = boards[index].widgets(auf: seite).map { alt -> BoardWidget in
+            var neu = alt
+            neu.id = UUID().uuidString
+            neu.pageID = neue.id
+            return neu
+        }
+        boards[index].pages.insert(neue, at: seitenIndex + 1)
+        boards[index].widgets.append(contentsOf: kopien)
+        aktiveSeitenID = neue.id
+        selectedWidgetID = nil
+        touch(boardID)
+        return neue.id
+    }
+
+    /// Handschrift einer Seite sichern.
+    func setzeHandschrift(_ text: String, seite: String, boardID: String) {
+        guard let index = boards.firstIndex(where: { $0.id == boardID }) else { return }
+        if let seitenIndex = boards[index].pages.firstIndex(where: { $0.id == seite }) {
+            guard boards[index].pages[seitenIndex].drawing != text else { return }
+            boards[index].pages[seitenIndex].drawing = text
+        } else {
+            // Tafel ohne eingetragene Seiten — die Handschrift der einen Seite
+            // bleibt dort, wo sie immer stand.
+            guard boards[index].drawing != text else { return }
+            boards[index].drawing = text
+        }
+        touch(boardID)
+    }
+
+    /// Auf eine Seite wechseln.
+    func zeigeSeite(_ seite: String) {
+        guard aktiveSeitenID != seite else { return }
+        aktiveSeitenID = seite
+        selectedWidgetID = nil
+        Haptics.tap()
+    }
+
+    /// Beim Tafelwechsel auf deren erste Seite stellen.
+    func stelleSeiteAufAnfang(_ board: Board) {
+        if !board.seiten.contains(where: { $0.id == aktiveSeitenID }) {
+            aktiveSeitenID = board.ersteSeitenID
+        }
+    }
+
+    /// Sucht einen möglichst freien Platz — nur gegen die Elemente derselben
+    /// Seite, sonst wiche ein neues Element Dingen aus, die gar nicht zu sehen
+    /// sind.
+    private func freeSpot(for size: CGSize, on board: Board, seite: String) -> CGPoint {
         let step = Layout.grid * 2
         let boxWidth = Double(size.width)
         let boxHeight = Double(size.height)
@@ -468,7 +596,7 @@ final class BoardStore: ObservableObject {
             var x = 40.0
             while x + boxWidth <= Layout.canvasWidth - 40 {
                 let candidate = CGRect(x: x, y: y, width: boxWidth, height: boxHeight)
-                let overlap = board.widgets.reduce(0.0) { sum, widget in
+                let overlap = board.widgets(auf: seite).reduce(0.0) { sum, widget in
                     let intersection = widget.rect.intersection(candidate)
                     return sum + (intersection.isNull ? 0 : Double(intersection.width * intersection.height))
                 }
