@@ -99,22 +99,40 @@ Erste Fassung.
 
 ### Bildschirmfotos
 
-Pflicht sind zwei Größen; die App läuft auf iPhone und iPad.
+App Store Connect nimmt nur Bilder an, deren Pixelmaße auf den Punkt
+stimmen — und das Feld sagt genau, welche es will:
 
-* **iPhone 6,7"** (1290 × 2796) — z. B. iPhone 15 Pro Max im Simulator
-* **iPad 12,9"** (2048 × 2732) — z. B. iPad Pro 12,9" im Simulator
+| Feld | Erlaubte Maße | Simulator |
+|---|---|---|
+| iPhone 6,5" | 1284 × 2778 oder 1242 × 2688 (auch quer) | iPhone 14 Plus, 13/12 Pro Max, 11 Pro Max |
+| iPhone 6,7"/6,9" | 1290 × 2796 (auch quer) | iPhone 15/16 Pro Max |
+| iPad 12,9"/13" | 2048 × 2732 (auch quer) | iPad Pro 12,9" |
 
-Vorschlag für die Reihenfolge (jeweils quer beim iPad, hochkant beim iPhone):
+Verlangt wird nur die jeweils größte iPhone- und iPad-Größe; die kleineren
+rechnet Apple daraus ab. Ein Satz iPhone-Bilder und ein Satz iPad-Bilder
+reichen also.
 
-1. Volle Tafel im Unterricht: Zufallsname mit gezogenem Namen, Uhr, Timer,
-   Tagesablauf.
-2. Zufallsname groß, Name halb aufgedeckt.
-3. Lautstärkemesser mit Schwelle, daneben die Ampel.
-4. Dokumentenkamera mit eingefrorenem Heft und Handschrift darauf.
-5. Einstellungen: Farbverläufe und Hintergründe.
+**Erzeugen lassen statt von Hand knipsen:** Der Arbeitsablauf
+`tafelbild-appstore-bilder.yml` macht die Bilder selbst — Actions →
+„Tafelbild Bilder für den App Store" → „Run workflow". Er baut die App,
+startet sie im passenden Simulator mit `-schaufenster 1|2|3`, fotografiert
+drei fertig eingerichtete Tafeln, prüft die Maße und hängt die Bilder als
+Anhang an den Lauf. Die Statusleiste steht dabei auf 9:41 und voller
+Batterie, die Uhr auf der Tafel zeigt die echte Zeit.
 
-Aufnehmen im Simulator: `Gerät → Bildschirmfoto sichern` (⌘S). Bilder ohne
-Statusleiste sind nicht nötig; Apple nimmt die Simulatoraufnahmen.
+Nicht dabei ist die Dokumentenkamera: Ein Simulator hat keine Kamera. Dieses
+Bild muss vom Gerät kommen.
+
+Die drei Szenen des Ablaufs (in `Tafelbild/Model/Schaufenster.swift`):
+
+1. **Morgenkreis** — „Guten Morgen", Zufallsname mit gezogenem Namen,
+   Tagesablauf, Uhr mit Datum, Timer, Ampel, Lautstärke, Arbeitssymbol.
+2. **Auslosen** — Zufallsname groß, Name halb aufgedeckt, Klangfelder.
+3. **Stillarbeit** — Timer, Lautstärke mit gesetzter Schwelle, Arbeitsform,
+   Ampel, Arbeitsauftrag.
+
+Wer von Hand fotografieren möchte: im Simulator `⌘S`. Apple nimmt
+Simulatoraufnahmen an.
 
 ### Angaben zum Datenschutz („App Privacy")
 
