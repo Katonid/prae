@@ -67,7 +67,8 @@ struct SoundsWidgetView: View {
     /// Einstellungen des Elements „Beschriftungen zeigen“ ab.
     private func padView(_ button: SoundButton, height: CGFloat) -> some View {
         let playing = player.isPlaying(button.id)
-        let color = Color(hex: button.colorHex)
+        let color = Fuellung.leitfarbe(button.colorHex, button.colorHex2)
+        let fuellung = Fuellung.stil(button.colorHex, button.colorHex2)
         return Button {
             guard interactive else { return }
             Haptics.tap()
@@ -98,7 +99,7 @@ struct SoundsWidgetView: View {
             .frame(height: height)
             .background {
                 RoundedRectangle(cornerRadius: metrics.em(1.13), style: .continuous)
-                    .fill(button.hasSource ? AnyShapeStyle(color) : AnyShapeStyle(style.wash))
+                    .fill(button.hasSource ? fuellung : AnyShapeStyle(style.wash))
                     .overlay {
                         RoundedRectangle(cornerRadius: metrics.em(1.13), style: .continuous)
                             .strokeBorder(Color.white.opacity(playing ? 0.35 : 0), lineWidth: playing ? 4 : 0)

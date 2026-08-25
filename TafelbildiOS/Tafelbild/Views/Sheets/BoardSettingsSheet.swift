@@ -21,6 +21,9 @@ struct BoardSettingsSheet: View {
     /// auf einem Netzlaufwerk.
     @State private var zeigtDateiwahl = false
     @State private var showDelete = false
+    /// Eigener Hintergrund, solange er noch nicht übernommen wurde.
+    @State private var eigenVon: String = "#1668a8"
+    @State private var eigenBis: String = ""
     /// Schrift der ganzen App (nicht nur dieser Tafel).
     @AppStorage(AppFont.speicherSchluessel) private var schriftWahl: AppFont = .lexend
 
@@ -104,6 +107,33 @@ struct BoardSettingsSheet: View {
                 }
 
                 Section {
+                    Toggle("Eigene Farben", isOn: Binding(
+                        get: { !board.accentVon.isEmpty },
+                        set: { an in
+                            var updated = board
+                            if an {
+                                let schema = AccentSchemes.find(board.accent)
+                                updated.accentVon = schema.from
+                                updated.accentBis = schema.to
+                            } else {
+                                updated.accentVon = ""
+                                updated.accentBis = ""
+                            }
+                            store.updateBoard(updated)
+                        }
+                    ))
+                    if !board.accentVon.isEmpty {
+                        Verlaufwahl(titel: "Akzentfarbe",
+                                    von: bindung(\.accentVon), bis: bindung(\.accentBis))
+                    }
+                } header: {
+                    Text("Eigenes Farbschema")
+                } footer: {
+                    Text("Statt eines der sechs Schemata eine eigene Farbe — oder ein Verlauf "
+                         + "aus zwei eigenen Farben.")
+                }
+
+                Section {
                     Picker("Karten", selection: Binding(
                         get: { board.cardStyle },
                         set: { value in
@@ -162,6 +192,23 @@ struct BoardSettingsSheet: View {
                         }
                     }
                     .padding(.vertical, 4)
+                }
+
+                Section {
+                    Verlaufwahl(titel: "Eigene Farbe",
+                                von: $eigenVon, bis: $eigenBis)
+                    Button {
+                        apply(eigenBis.nonEmpty == nil ? .solid(eigenVon)
+                                                       : .gradient(eigenVon, eigenBis))
+                        Haptics.tap()
+                    } label: {
+                        Label("Als Hintergrund nehmen", systemImage: "checkmark.circle")
+                    }
+                } header: {
+                    Text("Eigener Hintergrund")
+                } footer: {
+                    Text("Erst die Farben wählen, dann übernehmen. Mit Verlauf entsteht ein "
+                         + "weicher Übergang von oben links nach unten rechts.")
                 }
 
                 Section("Einfarbig") {
@@ -408,6 +455,18 @@ struct BoardSettingsSheet: View {
 
     private func isSelected(_ background: BoardBackground) -> Bool {
         board.background == background
+    }
+
+    /// Schreibt ein einzelnes Feld der Tafel zurück in den Speicher.
+    private func bindung(_ pfad: WritableKeyPath<Board, String>) -> Binding<String> {
+        Binding(
+            get: { board[keyPath: pfad] },
+            set: { neu in
+                var updated = board
+                updated[keyPath: pfad] = neu
+                store.updateBoard(updated)
+            }
+        )
     }
 
     private func apply(_ background: BoardBackground) {

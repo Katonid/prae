@@ -23,9 +23,13 @@ struct NoiseWidgetView: View {
     /// So viele Segmente hat das Band — wie in der Web-App.
     private static let segments = 24
 
-    /// Pegel als Zahl von 0 bis 100, wie in der Web-App gerechnet.
-    private var level: Double { min(100, max(0, meter.level * content.gain * 100)) }
-    private var threshold: Double { content.threshold * 100 }
+    /// Geschätzter Schalldruckpegel in dB(A) — siehe `NoiseSkala`.
+    private var dezibel: Double { meter.dezibel }
+    /// Ausschlag des Bandes, 0 … 1.
+    private var ausschlag: Double { meter.level }
+    /// Ausschlag, ab dem „zu laut" gilt.
+    private var schwelleAusschlag: Double { NoiseSkala.ausschlag(content.schwelleDb) }
+    private var zuLaut: Bool { dezibel >= content.schwelleDb }
     private var measuring: Bool { listening && meter.running }
     private var alarm: Bool {
         guard content.alert, let until = alarmUntil else { return false }
@@ -76,12 +80,22 @@ struct NoiseWidgetView: View {
             Spacer(minLength: 0)
             // `.w-noise__value`: 2em, sehr fett. Der Farbverlauf kommt erst
             // beim Messen dazu (`.is-live`), sonst steht dort ein Strich.
-            Text(measuring ? "\(Int(level.rounded()))" : "–")
-                .font(Theme.font(metrics.em(2), weight: .heavy))
-                .monospacedDigit()
-                .tracking(-metrics.em(2) * 0.02)
-                .foregroundStyle(measuring ? style.bigText : AnyShapeStyle(style.ink))
-                .lineLimit(1)
+            // Angezeigt wird jetzt ein geschätzter Schalldruckpegel statt
+            // einer Zahl von 0 bis 100 — 68 dB sagt einer Lehrkraft etwas,
+            // „68 von 100" nicht.
+            HStack(alignment: .firstTextBaseline, spacing: metrics.em(0.18)) {
+                Text(measuring ? "\(Int(dezibel.rounded()))" : "–")
+                    .font(Theme.font(metrics.em(2), weight: .heavy))
+                    .monospacedDigit()
+                    .tracking(-metrics.em(2) * 0.02)
+                    .foregroundStyle(measuring ? style.bigText : AnyShapeStyle(style.ink))
+                    .lineLimit(1)
+                if measuring {
+                    Text("dB")
+                        .font(Theme.font(metrics.em(0.9), weight: .bold))
+                        .foregroundStyle(style.inkSoft)
+                }
+            }
         }
     }
 
@@ -90,9 +104,9 @@ struct NoiseWidgetView: View {
     /// `.w-noise__meter` — die Segmente teilen sich die Breite, der Abstand
     /// beträgt feste 3 Punkte, das Band ist mindestens 46 Punkte hoch.
     private var band: some View {
-        let value = measuring ? level : 0
-        let active = Int((value / 100 * Double(Self.segments)).rounded())
-        let thresholdIndex = Int((threshold / 100 * Double(Self.segments)).rounded())
+        let value = measuring ? ausschlag : 0
+        let active = Int((value * Double(Self.segments)).rounded())
+        let thresholdIndex = Int((schwelleAusschlag * Double(Self.segments)).rounded())
         return HStack(spacing: 3) {
             ForEach(0..<Self.segments, id: \.self) { index in
                 segment(index: index, active: active, thresholdIndex: thresholdIndex)
@@ -156,7 +170,10 @@ struct NoiseWidgetView: View {
         case .granted:
             guard measuring else { return "Zum Messen antippen." }
             if alarm { return "Zu laut!" }
-            return level > threshold * 0.72 ? "Grenze fast erreicht" : "Gute Arbeitslautstärke"
+            // Fünf Dezibel vor der Schwelle vorwarnen: 5 dB sind eine
+            // deutlich hörbare Stufe, ein fester Bruchteil der Schwelle
+            // wäre dagegen willkürlich.
+            return dezibel > content.schwelleDb - 5 ? "Grenze fast erreicht" : "Gute Arbeitslautstärke"
         }
     }
 
@@ -195,7 +212,7 @@ struct NoiseWidgetView: View {
     private func updateAlarm() {
         guard measuring else { return }
         let now = Date()
-        if level > threshold {
+        if zuLaut {
             if overSince == nil { overSince = now }
             if let since = overSince, now.timeIntervalSince(since) > 1.2,
                alarmUntil == nil || now >= alarmUntil! {

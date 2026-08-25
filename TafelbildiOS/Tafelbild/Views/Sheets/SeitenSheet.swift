@@ -83,6 +83,19 @@ struct SeitenSheet: View {
                     .foregroundStyle(.secondary)
             }
             Spacer(minLength: 0)
+            // Sichtbarer Knopf statt nur einer Wischgeste: Umbenennen ist
+            // das, wofür diese Ansicht am häufigsten geöffnet wird.
+            Button {
+                neuerName = seite.name
+                umbenennen = seite.id
+            } label: {
+                Image(systemName: "pencil")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(Theme.accent)
+                    .frame(width: 34, height: 34)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
         }
         .contentShape(Rectangle())
         .onTapGesture {

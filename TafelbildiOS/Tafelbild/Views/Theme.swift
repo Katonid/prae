@@ -71,11 +71,25 @@ struct BoardStyle: Equatable {
     init(board: Board, editing: Bool) {
         var bildDahinter = false
         if case .image = board.background { bildDahinter = true }
-        self.init(scheme: AccentSchemes.find(board.accent),
+        self.init(scheme: BoardStyle.schema(board),
                   useGradient: board.gradient,
                   card: board.cardStyle,
                   showLabels: board.labels.applies(editing: editing),
                   unruhigerGrund: bildDahinter)
+    }
+
+    /// Eigene Farben schlagen das gewählte Schema. Die Mittelfarbe des
+    /// Verlaufs wird gemischt — ein Schema hat drei Stützstellen, gewählt
+    /// werden aber nur Anfang und Ende.
+    private static func schema(_ board: Board) -> AccentScheme {
+        guard let von = board.accentVon.nonEmpty else {
+            return AccentSchemes.find(board.accent)
+        }
+        let bis = board.accentBis.nonEmpty ?? von
+        return AccentScheme(id: "eigen", label: "Eigene Farben",
+                            from: von,
+                            mid: Fuellung.gemischt(von, bis, anteil: 0.5),
+                            to: bis)
     }
 
     // Akzentfarben
