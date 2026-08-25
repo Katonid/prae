@@ -57,19 +57,25 @@ export function formatSize(bytes) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+/** Alle Datei-Kennungen, auf die irgendeine Tafel zeigt. */
+export function usedMediaIds() {
+  const used = new Set();
+  for (const board of getState().boards) {
+    for (const widget of board.widgets) {
+      const state = widget.state || {};
+      if (state.mediaId) used.add(state.mediaId);
+      for (const entry of state.entries || []) {
+        if (entry.mediaId) used.add(entry.mediaId);
+      }
+    }
+  }
+  return used;
+}
+
 /** Dateien wegräumen, auf die kein Element mehr zeigt. */
 export async function collectUnusedMedia() {
   try {
-    const used = new Set();
-    for (const board of getState().boards) {
-      for (const widget of board.widgets) {
-        const state = widget.state || {};
-        if (state.mediaId) used.add(state.mediaId);
-        for (const entry of state.entries || []) {
-          if (entry.mediaId) used.add(entry.mediaId);
-        }
-      }
-    }
+    const used = usedMediaIds();
     const keys = await mediaKeys();
     let removed = 0;
     for (const key of keys) {

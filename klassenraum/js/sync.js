@@ -15,11 +15,16 @@ import {
 } from './store.js';
 import {
   initCloud, createSpace, fetchSpace, putRecord, subscribeSpace, createLinkCode, resolveLinkCode,
+  putMediaRecord, fetchMediaRecord, listMediaRecords, deleteMediaRecord,
   rememberSpaceForAccount, spaceOfAccount, onAccountChanged,
 } from './cloud.js';
+import { mediaGet, mediaPut, mediaKeys } from './store.js';
+import { usedMediaIds } from './media.js';
 import { renderBoard } from './board.js';
 
 const PUSH_DELAY = 2200;
+// Nur Dateien bis zu dieser Größe wandern mit — größere bleiben auf dem Gerät.
+export const MEDIA_SYNC_LIMIT = 25 * 1024 * 1024;
 
 let unsubscribeSpace = null;
 let activeSpaceId = null;
@@ -32,10 +37,11 @@ const listeners = new Set();
 export function syncSettings() {
   const cloud = getState().cloud;
   if (!cloud.sync || typeof cloud.sync !== 'object') {
-    cloud.sync = { spaceId: null, deviceId: uid('dev'), auto: true, pushed: {}, lastSyncAt: 0 };
+    cloud.sync = { spaceId: null, deviceId: uid('dev'), auto: true, pushed: {}, pushedMedia: {}, lastSyncAt: 0 };
   }
   if (!cloud.sync.deviceId) cloud.sync.deviceId = uid('dev');
   if (!cloud.sync.pushed || typeof cloud.sync.pushed !== 'object') cloud.sync.pushed = {};
+  if (!cloud.sync.pushedMedia || typeof cloud.sync.pushedMedia !== 'object') cloud.sync.pushedMedia = {};
   return cloud.sync;
 }
 
@@ -101,18 +107,112 @@ async function pushChanges() {
     jobs.push({ kind, id, record: { updatedAt: when, by: settings.deviceId, deleted: true }, stamp: when });
   }
 
-  if (!jobs.length) return;
+  const wantMedia = Array.from(usedMediaIds()).some((id) => !settings.pushedMedia[id]);
+  if (!jobs.length && !wantMedia) return;
   announce('busy');
   try {
     for (const job of jobs) {
       await putRecord(settings.spaceId, job.kind, job.id, job.record);
       settings.pushed[job.id] = job.stamp;
     }
+    await pushMedia();
     settings.lastSyncAt = Date.now();
     await saveNow();
     announce('ok');
   } catch (error) {
     announce('error', 'Senden nicht möglich');
+  }
+}
+
+/* ---------- Dateien (Klänge, Videos) ---------- */
+
+function blobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result).split(',')[1] || '');
+    reader.onerror = () => reject(reader.error || new Error('Lesen fehlgeschlagen'));
+    reader.readAsDataURL(blob);
+  });
+}
+
+async function base64ToBlob(data, type) {
+  const response = await fetch(`data:${type || 'application/octet-stream'};base64,${data}`);
+  return response.blob();
+}
+
+/** Alle benutzten Dateien hochladen, die der Bereich noch nicht kennt. */
+async function pushMedia() {
+  const settings = syncSettings();
+  if (!settings.spaceId) return;
+  const used = usedMediaIds();
+  for (const mediaId of used) {
+    if (settings.pushedMedia[mediaId]) continue;
+    const record = await mediaGet(mediaId).catch(() => null);
+    if (!record || !record.blob) continue;
+    if (record.size > MEDIA_SYNC_LIMIT) {
+      // Zu groß fürs Mitschicken — merken, damit es nicht jedes Mal geprüft wird.
+      settings.pushedMedia[mediaId] = 'zu-gross';
+      continue;
+    }
+    const data = await blobToBase64(record.blob);
+    await putMediaRecord(settings.spaceId, mediaId, {
+      name: record.name || 'Datei',
+      type: record.type || '',
+      size: record.size || 0,
+      updatedAt: record.savedAt || Date.now(),
+      by: settings.deviceId,
+      data,
+    });
+    settings.pushedMedia[mediaId] = true;
+  }
+}
+
+/** Dateien holen, auf die Tafeln zeigen, die aber lokal fehlen. */
+async function pullMissingMedia() {
+  const settings = syncSettings();
+  if (!settings.spaceId) return false;
+  const used = usedMediaIds();
+  if (!used.size) return false;
+  const local = new Set(await mediaKeys().catch(() => []));
+  let fetched = false;
+  for (const mediaId of used) {
+    if (local.has(mediaId)) continue;
+    const record = await fetchMediaRecord(settings.spaceId, mediaId).catch(() => null);
+    if (!record || !record.data) continue;
+    const blob = await base64ToBlob(record.data, record.type).catch(() => null);
+    if (!blob) continue;
+    await mediaPut(mediaId, {
+      blob,
+      name: record.name || 'Datei',
+      type: record.type || '',
+      size: record.size || blob.size,
+      savedAt: record.updatedAt || Date.now(),
+    });
+    settings.pushedMedia[mediaId] = true;
+    fetched = true;
+  }
+  if (fetched) {
+    // Klang- und Videokarten zeigen die Datei erst nach einem Neuaufbau an.
+    renderBoard();
+    emit('media-synced');
+  }
+  return fetched;
+}
+
+const pullMediaSoon = debounce(() => {
+  pullMissingMedia().catch(() => {});
+}, 1200);
+
+/** Nicht mehr benutzte Dateien auch aus dem Bereich entfernen. */
+async function cleanupRemoteMedia() {
+  const settings = syncSettings();
+  if (!settings.spaceId) return;
+  const used = usedMediaIds();
+  const remote = await listMediaRecords(settings.spaceId).catch(() => []);
+  for (const mediaId of remote) {
+    if (used.has(mediaId)) continue;
+    await deleteMediaRecord(settings.spaceId, mediaId).catch(() => {});
+    delete settings.pushedMedia[mediaId];
   }
 }
 
@@ -234,6 +334,8 @@ function afterMerge(activeBefore) {
   emit('change', { reason: 'sync' });
   if (activeBefore && getActiveBoard() !== activeBefore) emit('board-switch', state.activeBoardId);
   announce('ok');
+  // Zeigen die neuen Tafeln auf Dateien, die hier fehlen, werden sie nachgeladen.
+  pullMediaSoon();
 }
 
 /* ---------- Verbindung ---------- */
@@ -274,6 +376,7 @@ export async function startSync() {
   settings.spaceId = spaceId;
   settings.auto = true;
   settings.pushed = {};
+  settings.pushedMedia = {};
   await saveNow();
   await rememberSpaceForAccount(spaceId);
   await connect(spaceId);
@@ -299,6 +402,7 @@ export async function joinSync(code, { keepLocal = true } = {}) {
   settings.spaceId = spaceId;
   settings.auto = true;
   settings.pushed = {};
+  settings.pushedMedia = {};
   const state = getState();
   if (!keepLocal) {
     state.boards = [];
@@ -310,6 +414,7 @@ export async function joinSync(code, { keepLocal = true } = {}) {
   const payload = await fetchSpace(spaceId);
   mergeSpace(payload);
   if (!state.boards.length) addBoard('Klassenraum');
+  await pullMissingMedia().catch(() => {});
   await connect(spaceId);
   await pushChanges();
   return spaceId;
@@ -324,6 +429,9 @@ export async function syncNow() {
     const payload = await fetchSpace(settings.spaceId);
     mergeSpace(payload);
     await pushChanges();
+    await pullMissingMedia();
+    // Von Hand angestoßen ist der richtige Moment zum Aufräumen.
+    await cleanupRemoteMedia();
     settings.lastSyncAt = Date.now();
     await saveNow();
     announce('ok');
@@ -339,6 +447,7 @@ export async function stopSync() {
   const settings = syncSettings();
   settings.spaceId = null;
   settings.pushed = {};
+  settings.pushedMedia = {};
   disconnect();
   await saveNow();
   announce('off');

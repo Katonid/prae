@@ -19,6 +19,12 @@
           ".write": true
         }
       },
+      "media": {
+        "$space": {
+          ".read": true,
+          ".write": true
+        }
+      },
       "users": {
         "$uid": {
           ".read": "auth != null && auth.uid === $uid",

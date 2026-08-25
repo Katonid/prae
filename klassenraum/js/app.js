@@ -531,7 +531,8 @@ function openHelp() {
         + 'die Ampel schaltet weiter, das Arbeitssymbol wechselt, die Lautstärkemessung startet. '
         + 'Beim Zufälligen Namen aktiviert der erste Tipp die Karte, erst der zweite zieht — so passiert '
         + 'nichts aus Versehen. Die Uhr reagiert nicht auf Tippen; analog oder digital wählst du im Zahnrad.'),
-      h('p', null, h('strong', null, 'Verschieben: '), 'Element anfassen und ziehen.'),
+      h('p', null, h('strong', null, 'Verschieben: '), 'Element anfassen und ziehen — auch an Knöpfen und Leuchten: '
+        + 'Erst ab deutlicher Bewegung wird verschoben, ein Tipp bleibt ein Tipp.'),
       h('p', null, h('strong', null, 'Größe ändern: '), 'Drei Wege — an einem der vier runden Anfasser in der Ecke ziehen, '
         + 'die Knöpfe − und + in der kleinen Leiste antippen, oder mit zwei Fingern auf dem Element auseinander- bzw. zusammenziehen. '
         + 'Der Inhalt wächst dabei mit.'),
@@ -555,7 +556,8 @@ function openHelp() {
         + 'Ein Tipp auf die Taste spielt ab.'),
       h('p', null, h('strong', null, 'Abgleich: '), 'Unter „Teilen“ → „Abgleich zwischen Geräten“ einmal „Abgleich einrichten“ antippen — '
         + 'die App zeigt einen Kopplungscode. Auf dem zweiten Gerät „Gerät verbinden“ und den Code eingeben. '
-        + 'Danach sind alle Tafeln und Listen auf allen Geräten gleich; bei zwei Ständen gewinnt der neuere.'),
+        + 'Danach sind alle Tafeln, Listen und auch Klang-/Videodateien (bis 25 MB) auf allen Geräten gleich; '
+        + 'bei zwei Ständen gewinnt der neuere.'),
       h('p', null, h('strong', null, 'Am Telefon: '), 'Es wird dieselbe Tafel gezeigt, nur kleiner. Mit zwei Fingern oder den Knöpfen −/+ unten links hineinzoomen, '
         + 'mit einem Finger auf der freien Fläche verschieben, Doppeltippen zeigt wieder alles. Der Knopf über der Elementleiste blendet diese aus.'),
       h('p', null, h('strong', null, 'Schrift: '), 'Unter „Aussehen“ → „Schrift“ stehen vier Schriften mit dem runden „a“ zur Wahl, '

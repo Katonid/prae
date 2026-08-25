@@ -265,7 +265,8 @@ export function openSharePanel(prefillCode = '', prefillSyncCode = '') {
       'Datenschutz: Geteilte und abgeglichene Klassenräume liegen unverschlüsselt auf dem Server. '
       + 'Geteiltes ist für jede Person mit dem Code lesbar; der Abgleich hängt an einer langen, zufälligen Kennung, die nur deine Geräte kennen. '
       + 'Verwende deshalb bitte nur Vornamen oder Kürzel — keine vollständigen Namen oder anderen persönlichen Daten. '
-      + 'Klang- und Videodateien vom Gerät werden nicht mitgeschickt; dafür bitte einen Link verwenden. '
+      + 'Beim Teilen per Code werden Klang- und Videodateien nicht mitgeschickt (dafür einen Link verwenden); '
+      + 'beim Abgleich der eigenen Geräte wandern sie mit. '
       + 'Geschriebenes und Markiertes wird dagegen mitgeteilt.'));
   }
 
@@ -359,7 +360,7 @@ export function openSharePanel(prefillCode = '', prefillSyncCode = '') {
           },
         })),
         h('p', { class: 'muted small' },
-          'Dateien für Klang und Video bleiben auf dem jeweiligen Gerät — sie werden nicht mit abgeglichen.'));
+          'Auch Klang- und Videodateien wandern mit (bis 25 MB je Datei) — größere bleiben auf dem Gerät.'));
       return box;
     }
 
