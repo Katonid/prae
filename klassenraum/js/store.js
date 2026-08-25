@@ -211,6 +211,8 @@ export function defaultState() {
 const listeners = new Map();
 let state = defaultState();
 let ready = false;
+// true, wenn beim Start nichts im Speicher lag (frisches Gerät oder geleert).
+let freshStart = false;
 
 export function getState() {
   return state;
@@ -322,10 +324,16 @@ export async function loadState() {
       loaded = null;
     }
   }
+  freshStart = !loaded;
   state = normalizeState(loaded);
   ready = true;
   emit('loaded', state);
   return state;
+}
+
+/** Lag beim Start nichts im Speicher? (Gerät neu oder Speicher geleert.) */
+export function isFreshStart() {
+  return freshStart;
 }
 
 async function persist() {

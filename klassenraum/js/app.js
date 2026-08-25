@@ -554,6 +554,9 @@ function openHelp() {
         + 'Die Striche gehören zur Tafel und bleiben erhalten.'),
       h('p', null, h('strong', null, 'Klang & Video: '), 'Element „Klang“ oder „Video“ ablegen, im Zahnrad eine Datei vom Gerät oder einen Link wählen. '
         + 'Ein Tipp auf die Taste spielt ab.'),
+      h('p', null, h('strong', null, 'Angemeldet bleiben: '), 'Vergisst ein Gerät (z. B. ein Whiteboard) regelmäßig alles, '
+        + 'unter „Teilen“ → Abgleich den „Tafel-Link“ kopieren und diesen Link dort als Lesezeichen oder Web-App speichern — '
+        + 'beim Öffnen verbindet sich die Tafel von selbst wieder.'),
       h('p', null, h('strong', null, 'Abgleich: '), 'Unter „Teilen“ → „Abgleich zwischen Geräten“ einmal „Abgleich einrichten“ antippen — '
         + 'die App zeigt einen Kopplungscode. Auf dem zweiten Gerät „Gerät verbinden“ und den Code eingeben. '
         + 'Danach sind alle Tafeln, Listen und auch Klang-/Videodateien (bis 25 MB) auf allen Geräten gleich; '
@@ -718,6 +721,11 @@ async function boot() {
   wireChrome();
   initSharing();
   initSync();
+  // Den Browser bitten, den Speicher nicht von selbst zu leeren (hilft auf
+  // Whiteboards und iPads, deren System sonst nach Tagen aufräumt).
+  if (navigator.storage && navigator.storage.persist) {
+    navigator.storage.persist().catch(() => {});
+  }
   onSyncChanged(renderSyncBadge);
   if (dom.syncBadge) dom.syncBadge.addEventListener('click', () => openSharePanel());
   document.body.classList.remove('is-loading');

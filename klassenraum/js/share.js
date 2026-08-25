@@ -11,8 +11,10 @@ import {
   pushBackup, pullBackup,
 } from './cloud.js';
 import {
-  syncInfo, startSync, joinSync, linkCode, syncNow, stopSync, setAutoSync, onSyncChanged,
+  syncInfo, startSync, joinSync, adoptSpace, spaceFromCookie, linkCode, syncNow, stopSync,
+  setAutoSync, onSyncChanged,
 } from './sync.js';
+import { isFreshStart } from './store.js';
 import { openPanel, section, field, button, buttonRow, toggleRow, toast, confirmDialog } from './ui.js';
 import { renderBoard } from './board.js';
 
@@ -96,9 +98,52 @@ export function initSharing() {
   const params = new URLSearchParams(window.location.search);
   const code = params.get('code');
   const syncParam = params.get('sync');
+  const raumParam = params.get('raum');
   if (code || syncParam) {
     window.history.replaceState({}, '', window.location.pathname);
     setTimeout(() => openSharePanel(code ? code.toUpperCase() : '', syncParam ? syncParam.toUpperCase() : ''), 400);
+    return;
+  }
+  if (raumParam && /^s[a-z0-9]{8,}$/.test(raumParam)) {
+    window.history.replaceState({}, '', window.location.pathname);
+    reconnectSpace(raumParam, 'link');
+    return;
+  }
+  // Speicher geleert (z. B. Whiteboard im Kiosk-Betrieb), aber das Cookie hat
+  // überlebt: still wieder mit dem gemerkten Klassenraum verbinden.
+  const cookieSpace = spaceFromCookie();
+  if (cookieSpace && isFreshStart() && !syncInfo().active) {
+    reconnectSpace(cookieSpace, 'cookie');
+  }
+}
+
+/** Gerät wieder mit einem gemerkten Abgleich-Bereich verbinden („angemeldet bleiben"). */
+async function reconnectSpace(spaceId, quelle) {
+  const info = syncInfo();
+  if (info.active) {
+    if (info.spaceId !== spaceId && quelle === 'link') {
+      toast('Dieses Gerät gleicht bereits einen anderen Klassenraum ab — der Tafel-Link wurde nicht übernommen.', 'warn');
+    }
+    return;
+  }
+  try {
+    if (isFreshStart()) {
+      // Nichts Eigenes auf dem Gerät — den Stand des Bereichs übernehmen,
+      // ohne eine frische Beispieltafel in den Bereich zu drücken.
+      await adoptSpace(spaceId, { keepLocal: false });
+      renderBoard();
+      toast('Wieder mit deinem Klassenraum verbunden.', 'success');
+      return;
+    }
+    if (quelle !== 'link') return;
+    const ok = await confirmDialog('Mit dem gespeicherten Klassenraum verbinden?',
+      'Die Tafeln dieses Geräts werden mit dem Klassenraum zusammengeführt und danach abgeglichen.', 'Verbinden');
+    if (!ok) return;
+    await adoptSpace(spaceId, { keepLocal: true });
+    renderBoard();
+    toast('Mit dem Klassenraum verbunden.', 'success');
+  } catch (error) {
+    toast('Verbinden nicht möglich — Internetverbindung prüfen.', 'warn');
   }
 }
 
@@ -392,6 +437,17 @@ export function openSharePanel(prefillCode = '', prefillSyncCode = '') {
           },
         })),
       linkBox(),
+      buttonRow(button('Tafel-Link kopieren (angemeldet bleiben)', {
+        icon: 'copy', small: true,
+        onClick: async () => {
+          await copyText(shareLink(info.spaceId, 'raum'));
+          toast('Tafel-Link kopiert.', 'success');
+        },
+      })),
+      h('p', { class: 'muted small' },
+        'Für Geräte, die ihren Speicher regelmäßig leeren (z. B. Whiteboards im Klassenzimmer): '
+        + 'Den Tafel-Link dort als Lesezeichen oder Web-App speichern — beim Öffnen verbindet sich die Tafel von selbst wieder '
+        + 'und holt alle Inhalte aus dem Abgleich. Der Link läuft nicht ab; bitte nur auf eigenen Geräten verwenden.'),
       buttonRow(button('Abgleich auf diesem Gerät beenden', {
         icon: 'close', ghost: true, small: true,
         onClick: async () => {
