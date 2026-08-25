@@ -21,7 +21,7 @@ struct TimerWidgetView: View {
             let value = displayValue
             // Der Ring füllt den Platz zwischen Aufschrift und Knöpfen.
             let side = max(70, min(geo.size.width, geo.size.height
-                                   - (content.showControls ? metrics.em(3.5) + 6 : 0)
+                                   - (content.knoepfe ? metrics.em(3.5) + 6 : 0)
                                    - (style.showLabels ? metrics.em(1.2) : 0)))
             // Im SVG der Web-App: viewBox 120, Kreisradius 52, Strich 8.
             let ring = side * (104.0 / 120.0)
@@ -58,23 +58,27 @@ struct TimerWidgetView: View {
                         .lineLimit(1)
                         .foregroundStyle(timeColor(value: value))
                         .padding(.horizontal, side * 0.14)
-                        .contentShape(Rectangle())
-                        .onTapGesture {
-                            guard interactive, content.mode == .countdown, !running else { return }
-                            Haptics.tap()
-                            showDurationPicker = true
-                        }
                 }
                 .frame(width: side, height: side)
                 .scaleEffect(flashing ? 1.04 : 1.0)
 
-                if content.showControls {
+                if content.knoepfe {
                     controls
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .padding(14)
+        // Ein Timer wird angetippt, nicht bedient.
+        //
+        // Die vier Knöpfe waren im Unterricht überflüssig: Ein Tipp auf das
+        // Element startet und hält an, ein Doppeltipp setzt zurück, langes
+        // Drücken stellt die Dauer ein. Wer die Knöpfe trotzdem will,
+        // schaltet sie in den Einstellungen wieder ein.
+        .contentShape(Rectangle())
+        .onTapGesture(count: 2) { zuruecksetzen() }
+        .onTapGesture { anhaltenOderWeiter() }
+        .onLongPressGesture(minimumDuration: 0.45) { dauerEinstellen() }
         .onReceive(ticker) { date in
             guard running || flashing else { return }
             now = date
@@ -83,6 +87,26 @@ struct TimerWidgetView: View {
         .sheet(isPresented: $showDurationPicker) {
             DurationPickerSheet(duration: $content.duration)
         }
+    }
+
+    // MARK: - Bedienung durch Antippen
+
+    private func anhaltenOderWeiter() {
+        guard interactive else { return }
+        Haptics.tap()
+        running ? pause() : start()
+    }
+
+    private func zuruecksetzen() {
+        guard interactive else { return }
+        Haptics.tap()
+        reset()
+    }
+
+    private func dauerEinstellen() {
+        guard interactive, content.mode == .countdown else { return }
+        Haptics.tap()
+        showDurationPicker = true
     }
 
     // MARK: - Bedienung

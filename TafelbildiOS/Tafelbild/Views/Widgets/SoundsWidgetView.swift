@@ -13,6 +13,11 @@ struct SoundsWidgetView: View {
 
     @ObservedObject private var player = SoundPlayer.shared
 
+    /// Treibt den Fortschrittsbalken. Läuft nur, solange etwas klingt —
+    /// eine stille Tafel soll nicht zehnmal je Sekunde neu zeichnen.
+    private let takt = Timer.publish(every: 0.1, on: .main, in: .common).autoconnect()
+    @State private var jetzt = Date()
+
     var body: some View {
         GeometryReader { geo in
             let columns = columnCount(width: geo.size.width, count: max(content.buttons.count, 1))
@@ -45,6 +50,49 @@ struct SoundsWidgetView: View {
             }
         }
         .padding(14)
+        .onReceive(takt) { zeitpunkt in
+            guard !player.playingIDs.isEmpty else { return }
+            jetzt = zeitpunkt
+        }
+    }
+
+    /// Zeigt, wie weit die Datei ist und wie lange sie noch läuft.
+    ///
+    /// Ohne das war nicht zu erkennen, ob ein Klang gleich endet oder noch
+    /// eine Minute braucht — bei Aufräummusik ein Unterschied.
+    @ViewBuilder
+    private func fortschrittsbalken(_ button: SoundButton, breite: CGFloat) -> some View {
+        // `jetzt` steht nur da, damit SwiftUI den Balken neu zeichnet; der
+        // Wert kommt vom Abspieler selbst.
+        let _ = jetzt
+        let anteil = player.fortschritt(button.id)
+        let rest = player.restzeit(button.id)
+        VStack(spacing: 3) {
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    Capsule().fill(Color.white.opacity(0.28))
+                    Capsule()
+                        .fill(Color.white.opacity(0.9))
+                        // Steht die Länge nicht fest, füllt der Balken ganz —
+                        // besser als ein Balken, der bei null klebt.
+                        .frame(width: geo.size.width * CGFloat(anteil ?? 1))
+                }
+            }
+            .frame(height: max(3, min(6, breite * 0.035)))
+            if let rest, breite > 90 {
+                Text(zeitText(rest))
+                    .font(Theme.font(min(breite * 0.13, 13), weight: .semibold))
+                    .monospacedDigit()
+                    .foregroundStyle(Color.white.opacity(0.85))
+            }
+        }
+        .padding(.horizontal, 10)
+        .padding(.top, 2)
+    }
+
+    private func zeitText(_ sekunden: Double) -> String {
+        let ganze = Int(sekunden.rounded())
+        return String(format: "%d:%02d", ganze / 60, ganze % 60)
     }
 
     private func columnCount(width: CGFloat, count: Int) -> Int {
@@ -94,6 +142,7 @@ struct SoundsWidgetView: View {
                         .font(Theme.font(12, weight: .medium))
                         .foregroundStyle(style.inkSoft)
                 }
+                if playing { fortschrittsbalken(button, breite: height) }
             }
             .frame(maxWidth: .infinity)
             .frame(height: height)
