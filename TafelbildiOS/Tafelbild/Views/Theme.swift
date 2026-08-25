@@ -16,11 +16,17 @@ enum Theme {
     static let cardTint = Color.white.opacity(0.10)
     static let cardStroke = Color.white.opacity(0.16)
 
-    /// Systemschrift (SF Pro) wie in der Web-App — klar und sachlich.
-    /// Bewusst nicht die abgerundete Variante: Die wirkt verspielt, die
-    /// Vorlage lebt von der ruhigen, präzisen Systemschrift.
+    /// Schrift der App — standardmäßig Lexend, die Schrift mit dem runden a
+    /// der Grundschulschreibweise (siehe Schriften.swift). Unter „Aussehen"
+    /// lässt sie sich umstellen; „Systemschrift" ergibt SF Pro wie bisher.
+    ///
+    /// Fehlt die Schriftdatei im Bündel, liefert `Font.custom` die
+    /// Systemschrift — die App bleibt also in jedem Fall lesbar.
     static func font(_ size: Double, weight: Font.Weight = .semibold) -> Font {
-        .system(size: size, weight: weight)
+        guard let name = AppFont.gewaehlt.postScriptName(for: weight) else {
+            return .system(size: size, weight: weight)
+        }
+        return .custom(name, size: size)
     }
 
     static let widgetCorner: Double = 26
@@ -416,9 +422,13 @@ enum Haptics {
 
 // MARK: - Zeitformat
 
-/// „5:00" bzw. „1:02:03" — für Timer und Stoppuhr.
+/// „05:00" bzw. „1:02:03" — für Timer und Stoppuhr.
+///
+/// Die Minuten stehen zweistellig, auch unter zehn. Genau so macht es die
+/// Web-App (`util.js`, `padStart(2, '0')`); ohne die führende Null sprang
+/// die Zeitanzeige beim Zählen von „10:00" auf „9:59" in der Breite.
 func formatDuration(_ seconds: Double) -> String {
-    guard seconds.isFinite, seconds >= 0 else { return "0:00" }
+    guard seconds.isFinite, seconds >= 0 else { return "00:00" }
     let total = Int(seconds.rounded())
     let hours = total / 3600
     let minutes = (total % 3600) / 60
@@ -426,5 +436,5 @@ func formatDuration(_ seconds: Double) -> String {
     if hours > 0 {
         return "\(hours):" + String(format: "%02d:%02d", minutes, secs)
     }
-    return "\(minutes):" + String(format: "%02d", secs)
+    return String(format: "%02d:%02d", minutes, secs)
 }

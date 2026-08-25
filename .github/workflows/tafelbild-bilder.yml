@@ -1,0 +1,82 @@
+# Holt die Bildschirmfotos des Laufs „Tafelbild ansehen" aus dem Anhang und
+# legt sie in den Zweig.
+#
+# Warum? Anhänge lassen sich nur mit Anmeldung herunterladen. Wer die App
+# über die GitHub-Schnittstelle pflegt, kommt an sie nicht heran — über den
+# Zweig schon. Die Bilder sind Arbeitsmaterial und gehören nicht nach `main`:
+# Sie werden nach dem Ansehen wieder entfernt, der Ordner heißt deshalb
+# ausdrücklich „Arbeitsbilder".
+#
+# Startet, sobald diese Datei gepusht wird (von Hand geht erst, wenn sie auf
+# `main` liegt — so will es GitHub).
+name: Tafelbild-Bilder ablegen
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/tafelbild-bilder.yml'
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  bilder:
+    name: Bildschirmfotos in den Zweig legen
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Quelltext holen
+        uses: actions/checkout@v4
+
+      - name: Letzten Ansicht-Lauf finden und Anhang holen
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          lauf=$(gh run list --workflow tafelbild-ansicht.yml \
+                   --branch "${{ github.ref_name }}" --status success \
+                   --limit 1 --json databaseId --jq '.[0].databaseId')
+          if [ -z "$lauf" ] || [ "$lauf" = "null" ]; then
+            echo "Kein erfolgreicher Ansicht-Lauf auf diesem Zweig gefunden."
+            exit 1
+          fi
+          echo "Lauf $lauf"
+          mkdir -p roh
+          gh run download "$lauf" --dir roh
+          find roh -type f | sort
+
+      - name: Bilder verkleinern
+        run: |
+          python3 -m pip install --quiet pillow
+          python3 - <<'PY'
+          import glob, os
+          from PIL import Image
+
+          ZIEL = "TafelbildiOS/Arbeitsbilder"
+          os.makedirs(ZIEL, exist_ok=True)
+          # Ein iPad-Bild ist 2732 Punkte breit und mehrere Megabyte gross.
+          # Zum Ansehen reicht die halbe Breite als JPEG bei weitem.
+          for pfad in sorted(glob.glob("roh/**/*.png", recursive=True)):
+              bild = Image.open(pfad).convert("RGB")
+              breite = 1600
+              hoehe = round(bild.height * breite / bild.width)
+              bild = bild.resize((breite, hoehe), Image.LANCZOS)
+              name = os.path.splitext(os.path.basename(pfad))[0] + ".jpg"
+              ziel = os.path.join(ZIEL, name)
+              bild.save(ziel, "JPEG", quality=82, optimize=True)
+              print(f"{ziel}  {os.path.getsize(ziel)//1024} kB")
+          PY
+
+      - name: Ablegen
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add TafelbildiOS/Arbeitsbilder
+          if git diff --cached --quiet; then
+            echo "Nichts Neues."
+            exit 0
+          fi
+          git commit -m "Arbeitsbilder: Bildschirmfotos des Ansicht-Laufs (werden wieder entfernt)"
+          git push origin HEAD:${{ github.ref_name }}

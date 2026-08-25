@@ -1,0 +1,193 @@
+# Holt die Schriftdateien für Tafelbild und legt sie ins Repo.
+#
+# Warum ein Arbeitsablauf und nicht einfach ein Commit? Schriften sind
+# Binärdateien. Wer die App über die GitHub-Schnittstelle pflegt (etwa weil
+# gerade kein Git zur Verfügung steht), kann nur Textdateien übertragen.
+# Dieser Läufer holt die Dateien selbst und legt sie ab.
+#
+# Der Ablauf startet, sobald diese Datei selbst gepusht wird — „von Hand
+# starten" geht erst, wenn sie auf `main` liegt (so will es GitHub). Der
+# Commit des Läufers rührt nur den Ordner Schriften/ an und löst deshalb
+# keinen zweiten Lauf aus.
+#
+# Danach liegen die Dateien im Repo und der Ablauf wird nicht mehr gebraucht;
+# er bleibt für den Fall, dass eine Schrift dazukommt.
+name: Tafelbild-Schriften holen
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/tafelbild-schriften.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  schriften:
+    name: Schriften holen und ablegen
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Quelltext holen
+        uses: actions/checkout@v4
+
+      - name: Schriften von Google Fonts holen
+        run: |
+          python3 - <<'PY'
+          import os, re, urllib.request
+
+          ZIEL = "TafelbildiOS/Tafelbild/Schriften"
+          os.makedirs(ZIEL, exist_ok=True)
+
+          # Dieselben Schriften wie in der Web-App (klassenraum/js/fonts.js).
+          # Alle stehen unter der SIL Open Font License.
+          FAMILIEN = {
+              "Lexend":    "wght@400;500;600;700;800",
+              "Andika":    "wght@400;700",
+              "Quicksand": "wght@400;500;600;700",
+              "Poppins":   "wght@400;700",
+          }
+          # Dateiname je Strichstärke — dieselben Namen wie in Info.plist
+          # und in Schriften.swift.
+          STUFE = {
+              "400": "Regular", "500": "Medium", "600": "SemiBold",
+              "700": "Bold", "800": "ExtraBold",
+          }
+
+          def hole(url):
+              anfrage = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+              with urllib.request.urlopen(anfrage, timeout=60) as antwort:
+                  return antwort.read()
+
+          for familie, achse in FAMILIEN.items():
+              # Ohne modernen Browser-Kennzeichner liefert Google TTF statt woff2.
+              css = hole(f"https://fonts.googleapis.com/css2?family={familie}:{achse}").decode("utf-8")
+              paare = re.findall(r"font-weight:\s*(\d+);.*?src:\s*url\((https://[^)]+\.ttf)\)", css, re.S)
+              if not paare:
+                  raise SystemExit(f"Keine TTF-Adressen für {familie} gefunden")
+              for gewicht, url in paare:
+                  stufe = STUFE.get(gewicht)
+                  if not stufe:
+                      continue
+                  pfad = os.path.join(ZIEL, f"{familie}-{stufe}.ttf")
+                  daten = hole(url)
+                  if len(daten) < 5000:
+                      raise SystemExit(f"{pfad} wirkt unvollständig ({len(daten)} Bytes)")
+                  with open(pfad, "wb") as datei:
+                      datei.write(daten)
+                  print(f"{pfad}  {len(daten)} Bytes")
+          PY
+
+      - name: Schriften prüfen
+        run: |
+          python3 -m pip install --quiet fonttools brotli
+          python3 - <<'PY'
+          import glob, sys
+          from fontTools.ttLib import TTFont
+
+          fehlt = []
+          for pfad in sorted(glob.glob("TafelbildiOS/Tafelbild/Schriften/*.ttf")):
+              schrift = TTFont(pfad)
+              namen = {eintrag.nameID: str(eintrag) for eintrag in schrift["name"].names
+                       if eintrag.platformID == 3}
+              zeichen = schrift.getBestCmap()
+              # Ohne diese Zeichen wäre die Schrift für uns unbrauchbar:
+              # Umlaute, Gedankenstriche, deutsche Anführungszeichen, Auslassungspunkte.
+              PFLICHT = "äöüßÄÖÜ–—„“…"
+              luecken = [z for z in PFLICHT if ord(z) not in zeichen]
+              print(f"{pfad}: PostScript={namen.get(6)}", "— fehlt:" + "".join(luecken) if luecken else "— vollständig")
+              if luecken:
+                  fehlt.append(pfad)
+          if fehlt:
+              sys.exit("Diesen Schriften fehlen deutsche Zeichen: " + ", ".join(fehlt))
+          PY
+
+      - name: Namen mit Info.plist und Schriften.swift abgleichen
+        run: |
+          python3 - <<'PY'
+          import glob, os, plistlib, re, sys
+          from fontTools.ttLib import TTFont
+
+          with open("TafelbildiOS/Config/Info.plist", "rb") as datei:
+              plist = plistlib.load(datei)
+          erwartet = set(plist.get("UIAppFonts", []))
+          vorhanden = {d for d in os.listdir("TafelbildiOS/Tafelbild/Schriften")
+                       if d.endswith(".ttf")}
+          fehlend = sorted(erwartet - vorhanden)
+          zuviel = sorted(vorhanden - erwartet)
+          if zuviel:
+              print("Nicht in Info.plist eingetragen:", ", ".join(zuviel))
+          if fehlend:
+              sys.exit("In Info.plist genannt, aber nicht geholt: " + ", ".join(fehlend))
+          print(f"{len(erwartet)} Schriftdateien, alle in Info.plist eingetragen.")
+
+          # Der PostScript-Name steht IN der Datei und heißt nicht zwingend
+          # wie sie. Andika-Regular.ttf etwa nennt sich innen nur „Andika".
+          # `Font.custom` will genau diesen Namen; ein falscher fällt stumm
+          # auf die Systemschrift zurück — deshalb hier hart abgleichen.
+          echte = set()
+          for pfad in glob.glob("TafelbildiOS/Tafelbild/Schriften/*.ttf"):
+              schrift = TTFont(pfad)
+              for eintrag in schrift["name"].names:
+                  if eintrag.nameID == 6 and eintrag.platformID == 3:
+                      echte.add(str(eintrag))
+          quelle = open("TafelbildiOS/Tafelbild/Views/Schriften.swift",
+                        encoding="utf-8").read()
+          # Nur der Rumpf von `postScriptName` — anderswo stehen Anzeigenamen,
+          # die absichtlich nicht wie eine Datei heißen.
+          rumpf = quelle.split("func postScriptName", 1)
+          if len(rumpf) < 2:
+              sys.exit("In Schriften.swift fehlt `func postScriptName`.")
+          rumpf = rumpf[1].split("\n    }", 1)[0]
+          genannt = set(re.findall(r'return "([^"]+)"', rumpf))
+          unbekannt = sorted(genannt - echte)
+          if unbekannt:
+              sys.exit("Schriften.swift nennt Namen, die in keiner Datei stehen: "
+                       + ", ".join(unbekannt) + " — vorhanden: " + ", ".join(sorted(echte)))
+          print(f"{len(genannt)} PostScript-Namen aus Schriften.swift gefunden.")
+          PY
+
+      - name: Herkunft und Lizenz festhalten
+        run: |
+          cat > TafelbildiOS/Tafelbild/Schriften/README.md <<'MD'
+          # Schriften
+
+          Dieselben Schriften wie in der Web-App „Klassenraum". Alle vier haben
+          ein „einstöckiges" a und g — ein rundes a mit Strich, so wie Kinder es
+          in der Grundschule schreiben lernen. Die Systemschrift des Geräts zeigt
+          dagegen das gedruckte a mit Bogen, das Leseanfänger verwirrt.
+
+          | Schrift   | Herkunft                                  | Lizenz |
+          |-----------|-------------------------------------------|--------|
+          | Lexend    | https://fonts.google.com/specimen/Lexend    | SIL Open Font License 1.1 |
+          | Andika    | https://fonts.google.com/specimen/Andika    | SIL Open Font License 1.1 |
+          | Quicksand | https://fonts.google.com/specimen/Quicksand | SIL Open Font License 1.1 |
+          | Poppins   | https://fonts.google.com/specimen/Poppins   | SIL Open Font License 1.1 |
+
+          Die Dateien liegen im App-Bündel und werden nie nachgeladen — die App
+          läuft vollständig ohne Netz.
+
+          **Nicht von Hand pflegen:** Der Arbeitsablauf
+          `.github/workflows/tafelbild-schriften.yml` holt sie. Kommt eine
+          Schrift dazu, gehört sie dort hinein, in `TafelbildiOS/Config/Info.plist`
+          (`UIAppFonts`) und in `TafelbildiOS/Tafelbild/Views/Schriften.swift`.
+          MD
+          ls -la TafelbildiOS/Tafelbild/Schriften
+
+      - name: Ablegen
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add TafelbildiOS/Tafelbild/Schriften
+          if git diff --cached --quiet; then
+            echo "Nichts zu tun — die Schriften liegen schon so im Repo."
+            exit 0
+          fi
+          git commit -m "Tafelbild: Schriftdateien mit dem runden a (SIL OFL)
+
+          Geholt vom Arbeitsablauf 'Tafelbild-Schriften holen'. Herkunft und
+          Lizenz stehen in TafelbildiOS/Tafelbild/Schriften/README.md."
+          # Ausdrücklich auf den Zweig, auf dem der Ablauf läuft — nach dem
+          # Auschecken hängt HEAD sonst ohne Gegenstück am Server.
+          git push origin HEAD:${{ github.ref_name }}

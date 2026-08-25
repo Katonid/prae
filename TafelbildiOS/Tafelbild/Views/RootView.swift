@@ -9,6 +9,11 @@ struct RootView: View {
     /// `sheet`-Schalter nebeneinander.
     @State private var sheet: RootSheet?
 
+    /// Die Schrift der App. Sie steht hier nur, damit ein Wechsel sofort
+    /// sichtbar wird: `Theme.font` liest den Wert direkt aus den
+    /// Einstellungen, davon bekäme SwiftUI sonst nichts mit.
+    @AppStorage(AppFont.speicherSchluessel) private var schriftWahl: AppFont = .lexend
+
     private var compact: Bool { horizontalSizeClass == .compact }
 
     /// Farbschema der aktiven Tafel — färbt auch die Bedienleiste.
@@ -58,6 +63,9 @@ struct RootView: View {
                 statusBanner(message)
             }
         }
+        // Beim Schriftwechsel die Ansicht neu aufbauen — sonst behielten
+        // schon gezeichnete Texte die alte Schrift.
+        .id(schriftWahl)
         .animation(.easeInOut(duration: 0.25), value: store.presenting)
         .statusBarHidden(store.presenting)
         .persistentSystemOverlays(store.presenting ? .hidden : .automatic)
