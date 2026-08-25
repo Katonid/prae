@@ -107,10 +107,17 @@ export default {
       }
     }
 
+    // Beim Größenändern erst nach dem nächsten Bildaufbau messen — dann
+    // stehen die neuen Maße des Feldes wirklich im Layout.
+    function refit() {
+      fitWidth();
+      window.requestAnimationFrame(fitWidth);
+    }
+
     render();
     // Nach dem Laden der Schriften stimmen die Maße — noch einmal anpassen.
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => fitWidth()).catch(() => {});
-    return { el, refresh: render, onResize: fitWidth };
+    return { el, refresh: render, onResize: refit };
   },
 
   settings(ctx) {

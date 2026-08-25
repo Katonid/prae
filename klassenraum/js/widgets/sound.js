@@ -93,15 +93,54 @@ export default {
         active || !entry.icon
           ? h('span', { class: 'w-sound__icon', html: icon(active ? 'pause' : 'play', 20) })
           : h('span', { class: 'w-sound__emoji' }, entry.icon),
-        h('span', { class: 'w-sound__label' }, entry.label || 'Klang')), () => play(entry)));
+        h('span', { class: 'w-sound__label' }, h('span', { class: 'w-sound__text' }, entry.label || 'Klang'))), () => play(entry)));
+      }
+      // Direkt und noch einmal nach dem Layout — beim ersten Aufbau ist die
+      // Breite noch 0, erst danach lässt sich messen.
+      fitWidth();
+      window.requestAnimationFrame(fitWidth);
+    }
+
+    /**
+     * Jede Beschriftung so groß wählen, dass sie ihre Taste ausfüllt — kurze
+     * Wörter bekommen richtig große Schrift, statt zwischen breiten Rändern
+     * zu verschwinden. Was auch in Grundgröße nicht in eine Zeile passt,
+     * bricht stattdessen um.
+     */
+    function fitWidth() {
+      for (const button of grid.querySelectorAll('.w-sound__button')) {
+        const label = button.querySelector('.w-sound__label');
+        const text = label ? label.firstElementChild : null;
+        if (!text) continue;
+        button.style.setProperty('--sound-fit', '1');
+        label.classList.remove('is-wrap');
+        const room = label.clientWidth;
+        const need = text.offsetWidth;
+        if (!(room > 0 && need > 0)) continue;
+        if (need <= room) {
+          const factor = Math.min(4, Math.max(1, (room / need) * 0.95));
+          button.style.setProperty('--sound-fit', factor.toFixed(3));
+        } else {
+          label.classList.add('is-wrap');
+        }
       }
     }
 
+    // Beim Größenändern erst nach dem nächsten Bildaufbau messen — dann
+    // stehen die neuen Maße des Feldes wirklich im Layout.
+    function refit() {
+      fitWidth();
+      window.requestAnimationFrame(fitWidth);
+    }
+
     render();
+    // Nach dem Laden der Schriften stimmen die Maße — noch einmal anpassen.
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => fitWidth()).catch(() => {});
 
     return {
       el,
       refresh: render,
+      onResize: refit,
       onTap() {
         const entries = ctx.widget.state.entries || [];
         if (entries.length === 1) play(entries[0]);
