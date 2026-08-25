@@ -39,6 +39,24 @@ def ohne_kommentar(zeile):
     return zeile
 
 
+def entkerne(zeile):
+    """Nimmt heraus, was die Anführungsprüfung sonst in die Irre führt.
+
+    * `\\u{201C}` ist ein geschriebenes “ — also auch als solches lesen.
+    * Was in einer Einsetzung `\\(…)` steht, ist Code, kein Text; dort
+      stehende Anführungszeichen gehören nicht zum umgebenden Satz.
+    * Maskierte Anführungszeichen zählen ohnehin nicht.
+    """
+    text = (zeile.replace('\\u{201C}', '“')
+                 .replace('\\u{201D}', '“')
+                 .replace('\\"', ''))
+    vorher = None
+    while vorher != text:
+        vorher = text
+        text = re.sub(r'\\\([^()]*\)', '', text)
+    return text
+
+
 def deutsche_anfuehrung(zeile):
     """Findet ein „, das mit einem geraden " geschlossen wird."""
     stelle = zeile.find('„')
@@ -67,7 +85,7 @@ def pruefe_datei(pfad):
         if len(STRING.findall(ohne_escapes)) % 2 == 1:
             fehler.append((nummer, 'ungerade Anzahl gerader Anführungszeichen',
                            gestutzt[:120]))
-        elif deutsche_anfuehrung(code):
+        elif deutsche_anfuehrung(entkerne(code)):
             fehler.append((nummer, '„ wird mit einem geraden " geschlossen',
                            gestutzt[:120]))
     return fehler
