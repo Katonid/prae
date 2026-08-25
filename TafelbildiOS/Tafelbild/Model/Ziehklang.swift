@@ -1,18 +1,24 @@
 import Foundation
 import AVFoundation
 
-// Klänge für das Auslosen — vollständig im Gerät erzeugt, wie in der Web-App
-// (`js/sfx.js`). Es gibt keine Klangdateien: Die App braucht dafür kein Netz,
-// nichts wird nachgeladen, und das Bündel wird nicht größer.
+// Klänge für das Auslosen — vollständig im Gerät erzeugt. Es gibt keine
+// Klangdateien: Die App braucht dafür kein Netz, nichts wird nachgeladen, und
+// das Bündel wird nicht größer.
 //
-// Grundlage ist gefiltertes Rauschen. Ein kurzer Rauschstoß klingt je nach
-// Filter wie eine Karte, die über die Daumenkante läuft, wie ein Trommelschlag
-// oder wie das Klacken eines Glücksrads.
+// Diese Fassung geht bewusst NICHT mehr Zeichen für Zeichen nach der Web-App
+// (`js/sfx.js`). Deren Töne schwellen in 6 Millisekunden an — für ein
+// Kartenschnippen oder einen Ratschenklick ist das eine Ewigkeit. Echte
+// Anschläge stehen in weniger als einer Millisekunde. Genau daran lag es,
+// dass die erste Fassung „wie ein Zischen" klang und nicht wie ein Geräusch.
 //
-// Die Web-App baut dafür einen Web-Audio-Graphen und lässt den Browser
-// rechnen. iOS hat kein Gegenstück dazu, das ebenso beiläufig zu benutzen
-// wäre — hier werden die Töne deshalb als PCM-Puffer ausgerechnet und dann
-// abgespielt. Die Zahlen sind dieselben wie im Web.
+// Was stattdessen gilt:
+//   * Anstieg 0,4 ms, danach exponentiell abfallend — perkussiv statt weich.
+//   * Kartenmischen sind viele winzige Klicks (4 ms), nicht wenige lange
+//     Rauschstöße. Erst die Dichte macht das Rascheln eines Stapels.
+//   * Die Trommel hat einen Körper aus zwei Teiltönen (Fell) und darüber
+//     helles Rauschen (Schnarrsaiten) — nicht nur einen dumpfen Stoß.
+//   * Die Ratsche ist ein 3,5-ms-Anschlag mit holzigem Nachklang statt eines
+//     20-ms-Tons, der wie ein Piepser wirkte.
 
 /// Klang beim Ziehen — dieselben vier Möglichkeiten wie in der Web-App.
 enum SpinSound: String, Codable, CaseIterable, Identifiable {
@@ -98,13 +104,13 @@ final class Ziehklang {
     /// Ein Schritt des Auslosens. `fortschritt` läuft von 0 bis 1.
     func tick(_ klang: SpinSound, fortschritt: Double) {
         guard klang != .aus else { return }
-        spiele(bauTick(klang, fortschritt: fortschritt))
+        spiele(tickStimmen(klang, fortschritt: fortschritt, ab: 0))
     }
 
     /// Abschluss: Der Stapel wird aufgestoßen bzw. der Wirbel endet.
     func schluss(_ klang: SpinSound) {
         guard klang != .aus else { return }
-        spiele(bauSchluss(klang))
+        spiele(schlussStimmen(klang, ab: 0))
     }
 
     /// Hörprobe für die Einstellungen — dieselbe Abfolge wie beim Ziehen,
@@ -112,8 +118,8 @@ final class Ziehklang {
     /// Zeitgeber, die nebenher laufen.
     func probe(_ klang: SpinSound) {
         guard klang != .aus else { return }
-        // Zwölf Schritte wie im Web — kürzer als ein echter Zug, aber lang
-        // genug, um den Klang zu erkennen.
+        // Zwölf Schritte — kürzer als ein echter Zug, aber lang genug, um
+        // den Klang zu erkennen.
         let schritte = 12
         var stimmen: [Stimme] = []
         var zeit = 0.0
@@ -128,82 +134,87 @@ final class Ziehklang {
 
     // MARK: Bausteine
 
-    /// Eine einzelne Stimme im Gemisch: entweder Rauschen oder ein Ton.
+    /// Eine Stimme im Gemisch: gefiltertes Rauschen oder eine gedämpfte
+    /// Schwingung. Beide mit perkussiver Hüllkurve.
     private struct Stimme {
         enum Quelle {
-            /// Gefiltertes Rauschen. `wandern` verschiebt die Filterfrequenz
-            /// über die Dauer (im Web `sweep`).
-            case rauschen(frequenz: Double, q: Double, art: Filterart, wandern: Double)
-            case ton(frequenz: Double, art: Wellenform, biegung: Double)
+            /// Gefiltertes Rauschen — das Geräuschhafte am Anschlag.
+            case rauschen(filter: Filterart, frequenz: Double, q: Double)
+            /// Gedämpfte Schwingung — der Körper. `biegung` zieht die
+            /// Tonhöhe über die Dauer nach unten (wie ein Fell, das nachgibt).
+            case resonanz(frequenz: Double, biegung: Double)
         }
         var quelle: Quelle
         var dauer: Double
         var pegel: Double
         var ab: Double
+        /// Anstiegszeit. 0,4 ms — kürzer als jedes Ohr auflöst, also ein
+        /// Anschlag und kein Anschwellen.
+        var anstieg: Double = 0.0004
     }
 
     fileprivate enum Filterart { case bandpass, highpass }
-    private enum Wellenform { case sinus, dreieck, rechteck }
 
-    /// Kurzer gefilterter Rauschstoß (im Web `noiseBurst`).
-    private func rauschstoss(dauer: Double = 0.06, pegel: Double = 0.12,
-                             frequenz: Double = 2400, q: Double = 1,
-                             art: Filterart = .bandpass, ab: Double = 0,
-                             wandern: Double = 0) -> Stimme {
-        Stimme(quelle: .rauschen(frequenz: max(60, frequenz), q: q, art: art, wandern: wandern),
-               dauer: dauer, pegel: pegel, ab: ab)
+    private func rauschen(_ dauer: Double, _ pegel: Double, filter: Filterart,
+                          frequenz: Double, q: Double, ab: Double,
+                          anstieg: Double = 0.0004) -> Stimme {
+        Stimme(quelle: .rauschen(filter: filter, frequenz: frequenz, q: q),
+               dauer: dauer, pegel: pegel, ab: ab, anstieg: anstieg)
     }
 
-    /// Kurzer Ton mit Hüllkurve (im Web `tone`) — der Körper von Trommel
-    /// und Klacken.
-    private func ton(frequenz: Double = 200, dauer: Double = 0.08,
-                     pegel: Double = 0.08, art: Wellenform = .sinus,
-                     ab: Double = 0, biegung: Double = 0) -> Stimme {
-        Stimme(quelle: .ton(frequenz: frequenz, art: art, biegung: biegung),
-               dauer: dauer, pegel: pegel, ab: ab)
+    private func resonanz(_ frequenz: Double, _ dauer: Double, _ pegel: Double,
+                          biegung: Double = 0, ab: Double) -> Stimme {
+        Stimme(quelle: .resonanz(frequenz: frequenz, biegung: biegung),
+               dauer: dauer, pegel: pegel, ab: ab, anstieg: 0.0003)
     }
 
     // MARK: Die einzelnen Klangarten
 
-    /// Karten, die über die Daumenkante laufen. Ein einzelner Rauschstoß
-    /// klingt zu dünn — erst ein Bündel dicht aufeinanderfolgender Stöße
-    /// ergibt das Rascheln eines Stapels, der durch die Finger läuft.
+    /// Kartenstapel, der durch die Finger läuft: viele winzige Klicks.
+    /// Ein einzelner langer Rauschstoß klingt wie Zischen — erst die Dichte
+    /// vieler kurzer Anschläge ergibt das Rascheln. Gegen Ende läuft der
+    /// Stapel langsamer, also kommen weniger Klicks.
     private func kartenTick(_ fortschritt: Double, ab: Double) -> [Stimme] {
-        let stoesse = fortschritt < 0.75 ? 4 : 2
-        var zeit = ab
-        return (0..<stoesse).map { i in
-            let stimme = rauschstoss(dauer: 0.028,
-                                     pegel: (0.34 - fortschritt * 0.06) * (1 - Double(i) * 0.12),
-                                     frequenz: 1500 + Double.random(in: 0..<1800),
-                                     q: 0.8, ab: zeit, wandern: -700)
-            zeit += 0.011 + Double.random(in: 0..<0.006)
-            return stimme
-        }
-    }
-
-    /// Trommelwirbel: tiefe Schläge. Solange der Wirbel schnell läuft, sitzen
-    /// zwei Schläge dicht beieinander — so klingt es nach Wirbel und nicht
-    /// nach Klopfen.
-    private func trommelTick(_ fortschritt: Double, ab: Double) -> [Stimme] {
-        let schlaege = fortschritt < 0.6 ? 2 : 1
+        let anzahl = max(2, Int(9 - fortschritt * 5))
         var stimmen: [Stimme] = []
-        for i in 0..<schlaege {
-            let wann = ab + Double(i) * 0.028
-            let daempfung = 1 - Double(i) * 0.25
-            stimmen.append(rauschstoss(dauer: 0.05,
-                                       pegel: (0.16 + fortschritt * 0.12) * daempfung,
-                                       frequenz: 240, q: 1.3, ab: wann))
-            stimmen.append(ton(frequenz: 110, dauer: 0.05,
-                               pegel: (0.07 + fortschritt * 0.05) * daempfung,
-                               art: .dreieck, ab: wann, biegung: -35))
+        var zeit = ab
+        for _ in 0..<anzahl {
+            stimmen.append(rauschen(0.004 + Double.random(in: 0..<0.004),
+                                    (0.5 - fortschritt * 0.1) * Double.random(in: 0.7..<1.2),
+                                    filter: .highpass,
+                                    frequenz: 1400 + Double.random(in: 0..<1400),
+                                    q: 0.7, ab: zeit))
+            zeit += 0.0022 + Double.random(in: 0..<0.0035)
         }
         return stimmen
     }
 
-    /// Glücksrad: trockenes Klacken einer Ratsche.
+    /// Ein Schlag auf die kleine Trommel: Fell (zwei Teiltöne, die absacken)
+    /// und darüber die Schnarrsaiten als helles Rauschen.
+    private func trommelSchlag(_ pegel: Double, ab: Double) -> [Stimme] {
+        [resonanz(188, 0.075, 0.16 * pegel, biegung: -0.22, ab: ab),
+         resonanz(331, 0.045, 0.09 * pegel, biegung: -0.25, ab: ab),
+         rauschen(0.085, 0.34 * pegel, filter: .highpass, frequenz: 1600, q: 0.6, ab: ab)]
+    }
+
+    /// Wirbel: mehrere Schläge dicht hintereinander, gegen Ende lauter.
+    private func trommelTick(_ fortschritt: Double, ab: Double) -> [Stimme] {
+        let schlaege = fortschritt < 0.55 ? 3 : 2
+        var stimmen: [Stimme] = []
+        for i in 0..<schlaege {
+            let wann = ab + Double(i) * (0.026 + Double.random(in: 0..<0.008))
+            let pegel = (0.55 + fortschritt * 0.6) * (1 - Double(i) * 0.18)
+                * Double.random(in: 0.85..<1.15)
+            stimmen += trommelSchlag(pegel, ab: wann)
+        }
+        return stimmen
+    }
+
+    /// Ratsche: ein sehr kurzer Anschlag mit holzigem Nachklang.
     private func radTick(ab: Double) -> [Stimme] {
-        [rauschstoss(dauer: 0.02, pegel: 0.42, frequenz: 3200, q: 3.5, ab: ab),
-         ton(frequenz: 900, dauer: 0.02, pegel: 0.1, art: .rechteck, ab: ab, biegung: -260)]
+        [rauschen(0.0035, 0.55, filter: .highpass, frequenz: 3000, q: 0.7, ab: ab),
+         resonanz(1450 + Double.random(in: 0..<260), 0.016, 0.20, biegung: -0.3, ab: ab),
+         resonanz(520, 0.028, 0.12, biegung: -0.15, ab: ab)]
     }
 
     private func tickStimmen(_ klang: SpinSound, fortschritt: Double, ab: Double) -> [Stimme] {
@@ -220,25 +231,19 @@ final class Ziehklang {
         case .aus:
             return []
         case .trommel:
-            return [rauschstoss(dauer: 0.5, pegel: 0.16, frequenz: 3200, q: 0.5,
-                                art: .highpass, ab: ab),
-                    ton(frequenz: 90, dauer: 0.22, pegel: 0.1, art: .dreieck,
-                        ab: ab, biegung: -40)]
+            // Letzter Schlag und ein Becken, das ausklingt.
+            return trommelSchlag(1.5, ab: ab)
+                + [rauschen(0.9, 0.30, filter: .highpass, frequenz: 4200, q: 0.5,
+                            ab: ab, anstieg: 0.001)]
         case .rad:
-            return [rauschstoss(dauer: 0.05, pegel: 0.45, frequenz: 2600, q: 2.5, ab: ab)]
+            return radTick(ab: ab) + [resonanz(900, 0.12, 0.16, biegung: -0.1, ab: ab)]
         case .karten:
-            // Zwei kurze Stöße — der Stapel wird auf dem Tisch gerade geklopft.
-            return [rauschstoss(dauer: 0.07, pegel: 0.34, frequenz: 900, q: 0.9, ab: ab),
-                    rauschstoss(dauer: 0.09, pegel: 0.26, frequenz: 700, q: 0.9, ab: ab + 0.085)]
+            // Der Stapel wird auf dem Tisch gerade geklopft — drei Schläge.
+            return (0..<3).map { i in
+                rauschen(0.03, 0.45 - Double(i) * 0.1, filter: .bandpass,
+                         frequenz: 700, q: 1.1, ab: ab + Double(i) * 0.055)
+            }
         }
-    }
-
-    private func bauTick(_ klang: SpinSound, fortschritt: Double) -> [Stimme] {
-        tickStimmen(klang, fortschritt: fortschritt, ab: 0)
-    }
-
-    private func bauSchluss(_ klang: SpinSound) -> [Stimme] {
-        schlussStimmen(klang, ab: 0)
     }
 
     // MARK: Ausrechnen und abspielen
@@ -266,8 +271,8 @@ final class Ziehklang {
         for stimme in stimmen {
             misch(stimme, in: ziel, rahmen: Int(rahmen))
         }
-        // Sicherheitshalber begrenzen: Bei den Kartenstößen liegen mehrere
-        // Stimmen übereinander, das kann sonst über 1,0 gehen und knacken.
+        // Begrenzen: Bei den Kartenklicks liegen mehrere Stimmen übereinander,
+        // das kann sonst über 1,0 gehen und knacken.
         for i in 0..<Int(rahmen) {
             ziel[i] = max(-1, min(1, ziel[i]))
         }
@@ -278,61 +283,41 @@ final class Ziehklang {
         let start = Int(stimme.ab * rate)
         let dauer = Int(stimme.dauer * rate)
         guard dauer > 0, start < rahmen else { return }
+        let anstieg = max(Int(stimme.anstieg * rate), 1)
 
         switch stimme.quelle {
-        case let .rauschen(frequenz, q, art, wandern):
-            var filter = Biquad()
+        case let .rauschen(filter, frequenz, q):
+            var werk = Biquad()
+            werk.stelle(art: filter, frequenz: frequenz, q: q, rate: rate)
             for n in 0..<dauer {
                 let i = start + n
                 if i >= rahmen { break }
-                let t = Double(n) / Double(dauer)
-                // Wandernde Filterfrequenz wie `exponentialRampToValueAtTime`.
-                let f = wandern == 0 ? frequenz
-                                     : frequenz * pow(max(60, frequenz + wandern) / frequenz, t)
-                filter.stelle(art: art, frequenz: f, q: q, rate: rate)
-                let roh = Double.random(in: -1...1)
-                let wert = filter.rechne(roh) * huelle(t, dauer: stimme.dauer) * stimme.pegel
+                let wert = werk.rechne(Double.random(in: -1...1))
+                    * huelle(n, anstieg: anstieg, dauer: dauer, faktor: 5)
+                    * stimme.pegel
                 ziel[i] += Float(wert)
             }
 
-        case let .ton(frequenz, art, biegung):
+        case let .resonanz(frequenz, biegung):
             var phase = 0.0
             for n in 0..<dauer {
                 let i = start + n
                 if i >= rahmen { break }
                 let t = Double(n) / Double(dauer)
-                let f = biegung == 0 ? frequenz
-                                     : frequenz * pow(max(40, frequenz + biegung) / frequenz, t)
-                phase += 2 * .pi * f / rate
-                if phase > 2 * .pi { phase -= 2 * .pi }
-                let wert = welle(art, phase: phase) * huelle(t, dauer: stimme.dauer) * stimme.pegel
+                phase += 2 * .pi * (frequenz * (1 + biegung * t)) / rate
+                let wert = sin(phase)
+                    * huelle(n, anstieg: anstieg, dauer: dauer, faktor: 6)
+                    * stimme.pegel
                 ziel[i] += Float(wert)
             }
         }
     }
 
-    /// Hüllkurve wie im Web: sehr schnell auf, dann exponentiell abfallend.
-    /// Die Web-App rampt von 0,0001 auf den Pegel und wieder zurück — genau
-    /// dieser Abfall macht den trockenen, kurzen Anschlag.
-    private func huelle(_ t: Double, dauer: Double) -> Double {
-        let anstieg = min(0.006 / max(dauer, 0.001), 0.5)
-        let leise = 0.0001
-        if t < anstieg {
-            return leise * pow(1 / leise, t / anstieg)
-        }
-        let rest = (t - anstieg) / max(1 - anstieg, 0.0001)
-        return pow(leise, rest)
-    }
-
-    private func welle(_ art: Wellenform, phase: Double) -> Double {
-        switch art {
-        case .sinus:
-            return sin(phase)
-        case .dreieck:
-            return 2 / .pi * asin(sin(phase))
-        case .rechteck:
-            return sin(phase) >= 0 ? 1 : -1
-        }
+    /// Hüllkurve eines Anschlags: in `anstieg` Abtastwerten linear hoch,
+    /// danach exponentiell abfallend.
+    private func huelle(_ n: Int, anstieg: Int, dauer: Int, faktor: Double) -> Double {
+        if n < anstieg { return Double(n) / Double(anstieg) }
+        return exp(-faktor * Double(n - anstieg) / Double(max(dauer - anstieg, 1)))
     }
 
     private func starteMotor() -> Bool {
@@ -360,8 +345,7 @@ final class Ziehklang {
 
 // MARK: - Filter
 
-/// Biquad-Filter nach dem „Audio EQ Cookbook" — dasselbe, was hinter
-/// `BiquadFilterNode` im Browser steckt.
+/// Biquad-Filter nach dem „Audio EQ Cookbook".
 private struct Biquad {
     private var b0 = 1.0, b1 = 0.0, b2 = 0.0, a1 = 0.0, a2 = 0.0
     private var x1 = 0.0, x2 = 0.0, y1 = 0.0, y2 = 0.0
@@ -373,7 +357,6 @@ private struct Biquad {
         let a0: Double
         switch art {
         case .bandpass:
-            // Fassung mit konstantem Spitzenwert (0 dB), wie im Browser.
             b0 = alpha; b1 = 0; b2 = -alpha
             a0 = 1 + alpha; a1 = -2 * cos0; a2 = 1 - alpha
         case .highpass:
