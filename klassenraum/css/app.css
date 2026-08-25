@@ -172,6 +172,73 @@ button { font: inherit; color: inherit; }
 
 body.is-loading .stage { opacity: 0; }
 
+/* Zoom-Knöpfe: unten links über der Tafel, klein und ruhig. */
+.view-controls {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  z-index: 30;
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  opacity: 0.55;
+  transition: opacity 0.2s ease;
+}
+
+.view-controls:hover, .view-controls.is-zoomed { opacity: 1; }
+
+.view-controls__button {
+  min-width: 34px;
+  height: 34px;
+  padding: 0 9px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: #f8fafc;
+  font-size: 15px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+
+.view-controls__button:hover { background: rgba(255, 255, 255, 0.16); }
+.view-controls__button:active { transform: scale(0.94); }
+body.is-presenting .view-controls,
+body.is-stacked .view-controls { display: none; }
+
+/* Schalter für die Elementleiste */
+.dock-toggle {
+  align-self: center;
+  margin: 0 auto -2px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(15, 23, 42, 0.55);
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  color: rgba(248, 250, 252, 0.9);
+  border-radius: 999px;
+  padding: 5px 14px;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  z-index: 41;
+}
+
+.dock-toggle:hover { background: rgba(30, 41, 59, 0.75); }
+.dock-toggle::before { content: "▾"; margin-right: 6px; font-size: 10px; }
+body[data-dock="off"] .dock-toggle::before { content: "▴"; }
+body[data-dock="off"] .dock { display: none; }
+body[data-dock="off"] .dock-toggle { margin-bottom: calc(10px + env(safe-area-inset-bottom)); }
+body.is-using .dock-toggle,
+body.is-presenting .dock-toggle,
+body.is-drawing .dock-toggle,
+body.is-stacked .dock-toggle { display: none; }
+
 .stage__bg {
   position: absolute;
   inset: 0;
@@ -381,7 +448,8 @@ body.is-light-board .widget--bare .widget__inner { filter: drop-shadow(0 6px 14p
   left: 0;
   display: none;
   pointer-events: none;
-  --handle: calc(36px / var(--board-scale, 1));
+  /* Anfasser bleiben auf dem Bildschirm gleich groß — am Telefon etwas kleiner. */
+  --handle: calc(clamp(24px, 7vw, 36px) / var(--board-scale, 1));
   --frame-line: calc(2px / var(--board-scale, 1));
   border-radius: var(--radius-card);
   box-shadow: 0 0 0 var(--frame-line) rgba(129, 140, 248, 0.85);
@@ -447,6 +515,16 @@ body.is-light-board .widget--bare .widget__inner { filter: drop-shadow(0 6px 14p
 }
 
 .selection-toolbar.is-visible { display: flex; animation: toolbar-in 0.22s var(--spring) both; }
+
+/* Am Telefon passt die Leiste nicht in einer Reihe — dann lässt sie sich schieben. */
+.selection-toolbar {
+  max-width: calc(100vw - 16px);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.selection-toolbar::-webkit-scrollbar { display: none; }
+.selection-toolbar .tool-button { flex: 0 0 auto; }
 
 @keyframes toolbar-in { from { opacity: 0; transform: translateY(6px) scale(0.92); } to { opacity: 1; transform: none; } }
 
@@ -1553,6 +1631,20 @@ body.is-using .draw-toolbar { bottom: calc(22px + env(safe-area-inset-bottom)); 
 
 @media (max-width: 620px) {
   #btn-lists, #btn-background { display: none; }
+}
+
+/* Telefon: Kopfzeile schlank halten, damit nichts abgeschnitten wird. */
+@media (max-width: 560px) {
+  .topbar { gap: 5px; padding: 8px 9px calc(6px); flex-wrap: nowrap; }
+  #btn-share, #btn-present { display: none; }
+  .topbar__board { max-width: 34vw; padding: 8px 10px; }
+  .topbar__button { padding: 7px 10px; font-size: 12.5px; }
+  .badge { padding: 3px 7px; font-size: 9.5px; }
+  .dock__item { min-width: 58px; }
+  .dock__label { font-size: 9.5px; }
+  .view-controls__button { min-width: 38px; height: 38px; font-size: 16px; }
+  .tool-button { padding: 7px; }
+  .dock-toggle { font-size: 10.5px; padding: 4px 12px; }
 }
 
 @media (max-width: 760px) {

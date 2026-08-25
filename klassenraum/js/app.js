@@ -10,6 +10,7 @@ import { WIDGETS } from './widgets/index.js';
 import {
   initBoard, renderBoard, configureBoard, addWidgetOfType, select, updateScale,
   setStackMode, isStackMode, applyBackground, openWidgetSettings, setMode, getMode, refreshAll,
+  zoomBy, resetView, onViewChanged,
 } from './board.js';
 import { openListsPanel } from './lists.js';
 import { initDrawing, setDrawActive, isDrawActive, redraw as redrawDrawing } from './draw.js';
@@ -47,6 +48,8 @@ function cacheDom() {
   dom.dock = document.getElementById('dock');
   dom.followBadge = document.getElementById('follow-badge');
   dom.syncBadge = document.getElementById('sync-badge');
+  dom.dockToggle = document.getElementById('btn-dock');
+  dom.viewControls = document.getElementById('view-controls');
 }
 
 function renderTopbar() {
@@ -448,11 +451,23 @@ function openMenuPanel() {
         applyMode(value ? 'use' : 'edit');
         closePanel();
       }, 'Elemente lassen sich weiter bedienen, aber nicht mehr verschieben, einstellen oder löschen.'),
-      toggleRow('Listenansicht (praktisch am Telefon)', isStackMode(), (value) => {
+      toggleRow('Listenansicht (Elemente untereinander)', isStackMode(), (value) => {
         state.settings.stackModeManual = value;
         touch({ board: false });
         setStackMode(value);
-      }, 'Elemente werden untereinander angezeigt statt frei angeordnet.'),
+      }, 'Statt der Tafelfläche eine einfache Liste — praktisch, wenn am Telefon nur ein Element gebraucht wird.'),
+      toggleRow('Elementleiste unten anzeigen', state.settings.dockHidden !== true, (value) => {
+        state.settings.dockHidden = !value;
+        touch({ board: false });
+        applyDockPreference();
+      }, 'Ausgeblendet bleibt mehr Platz für die Tafel; ein Knopf am unteren Rand holt sie zurück.'),
+      buttonRow(button('Ganze Tafel zeigen', {
+        icon: 'expand', full: true,
+        onClick: () => {
+          resetView();
+          closePanel();
+        },
+      })),
       buttonRow(button('Präsentationsmodus', {
         icon: 'expand', full: true,
         onClick: () => {
@@ -541,6 +556,8 @@ function openHelp() {
       h('p', null, h('strong', null, 'Abgleich: '), 'Unter „Teilen“ → „Abgleich zwischen Geräten“ einmal „Abgleich einrichten“ antippen — '
         + 'die App zeigt einen Kopplungscode. Auf dem zweiten Gerät „Gerät verbinden“ und den Code eingeben. '
         + 'Danach sind alle Tafeln und Listen auf allen Geräten gleich; bei zwei Ständen gewinnt der neuere.'),
+      h('p', null, h('strong', null, 'Am Telefon: '), 'Es wird dieselbe Tafel gezeigt, nur kleiner. Mit zwei Fingern oder den Knöpfen −/+ unten links hineinzoomen, '
+        + 'mit einem Finger auf der freien Fläche verschieben, Doppeltippen zeigt wieder alles. Der Knopf über der Elementleiste blendet diese aus.'),
       h('p', null, h('strong', null, 'Schrift: '), 'Unter „Aussehen“ → „Schrift“ stehen vier Schriften mit dem runden „a“ zur Wahl, '
         + 'wie es in der Grundschule geschrieben wird — dazu die Systemschrift. Die Auswahl gilt für die ganze App.'),
       h('p', null, h('strong', null, 'Aussehen: '), '„Aussehen“ bietet bewegte Hintergründe, eigene Farben und Bilder, '
@@ -565,9 +582,39 @@ function togglePresentation(force) {
 }
 
 function applyStackPreference() {
+  // Vorgabe ist überall die Tafelansicht — am Telefon lässt sie sich zoomen und
+  // verschieben. Die Listenansicht bleibt als bewusste Wahl im Menü.
   const manual = getState().settings.stackModeManual;
-  const auto = window.matchMedia('(max-width: 760px)').matches;
-  setStackMode(manual === null || manual === undefined ? auto : manual);
+  setStackMode(manual === true);
+}
+
+/** Elementleiste unten ein- oder ausblenden (bleibt gespeichert). */
+function applyDockPreference() {
+  const hidden = getState().settings.dockHidden === true;
+  document.body.dataset.dock = hidden ? 'off' : 'on';
+  if (dom.dockToggle) {
+    dom.dockToggle.textContent = hidden ? 'Elemente' : 'Leiste';
+    dom.dockToggle.title = hidden
+      ? 'Elementleiste wieder einblenden'
+      : 'Elementleiste ausblenden — mehr Platz für die Tafel';
+  }
+  updateScale();
+  renderBoard();
+}
+
+function toggleDock() {
+  const settings = getState().settings;
+  settings.dockHidden = settings.dockHidden !== true;
+  touch({ board: false, reason: 'dock' });
+  applyDockPreference();
+}
+
+/** Die Zoom-Knöpfe zeigen, ob die Tafel gerade vergrößert ist. */
+function renderViewControls(zoom) {
+  if (!dom.viewControls) return;
+  dom.viewControls.classList.toggle('is-zoomed', zoom > 1.01);
+  const fit = document.getElementById('btn-zoom-fit');
+  if (fit) fit.textContent = zoom > 1.01 ? `${Math.round(zoom * 100)} %` : '⤢';
 }
 
 function wireChrome() {
@@ -587,16 +634,16 @@ function wireChrome() {
     renderTopbar();
   });
   document.getElementById('btn-exit-present').addEventListener('click', () => togglePresentation(false));
+  dom.dockToggle.addEventListener('click', toggleDock);
+  document.getElementById('btn-zoom-in').addEventListener('click', () => zoomBy(1.35));
+  document.getElementById('btn-zoom-out').addEventListener('click', () => zoomBy(1 / 1.35));
+  document.getElementById('btn-zoom-fit').addEventListener('click', () => resetView());
 
   window.addEventListener('keydown', (event) => {
     if (event.key === 'Escape' && document.body.classList.contains('is-presenting')) togglePresentation(false);
   });
 
-  window.matchMedia('(max-width: 760px)').addEventListener('change', () => {
-    if (getState().settings.stackModeManual === null || getState().settings.stackModeManual === undefined) {
-      applyStackPreference();
-    }
-  });
+
 
   document.addEventListener('klassenraum:board-updated', () => {
     renderTopbar();
@@ -660,6 +707,8 @@ async function boot() {
   initBoard({ canvas: dom.canvas, stage: dom.stage, selection: dom.selection });
   renderDock();
   applyStackPreference();
+  applyDockPreference();
+  onViewChanged(renderViewControls);
   applyMode(getState().settings.mode === 'use' ? 'use' : 'edit', { save: false });
   renderBoard();
   initDrawing(dom.canvas, { onChange: renderTopbar });
