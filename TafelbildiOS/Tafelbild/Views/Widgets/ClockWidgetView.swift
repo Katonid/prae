@@ -63,8 +63,9 @@ struct ClockWidgetView: View {
 
     /// Farbe des Zifferblatts — hell, damit die Uhr auch auf dunklen Karten
     /// wie eine echte Wanduhr wirkt.
-    private var faceColor: Color {
-        style.isDarkCard ? Color(hex: "#f8fafc") : Color(hex: content.faceHex)
+    private var faceColor: AnyShapeStyle {
+        style.isDarkCard ? AnyShapeStyle(Color(hex: "#f8fafc"))
+                         : Fuellung.stil(content.faceHex, content.faceHex2)
     }
 
     private var faceInk: Color { Color(hex: "#0f172a") }

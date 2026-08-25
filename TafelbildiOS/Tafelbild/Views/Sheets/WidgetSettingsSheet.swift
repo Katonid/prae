@@ -243,8 +243,9 @@ private struct TextSettings: View {
                 ForEach(TextContent.TextAlign.allCases) { Text($0.title).tag($0) }
             }
             .pickerStyle(.segmented)
-            ColorPicker("Schriftfarbe", selection: $content.colorHex.asColor, supportsOpacity: false)
-            ColorPicker("Hintergrund", selection: $content.backgroundHex.asColor, supportsOpacity: false)
+            Verlaufwahl(titel: "Schriftfarbe", von: $content.colorHex, bis: $content.colorHex2)
+            Verlaufwahl(titel: "Hintergrund", von: $content.backgroundHex,
+                        bis: $content.backgroundHex2)
             HStack {
                 Text("Deckkraft")
                 Slider(value: $content.backgroundOpacity, in: 0...1)
@@ -345,8 +346,8 @@ private struct ClockSettings: View {
                     ForEach(ClockFace.allCases) { Text($0.title).tag($0) }
                 }
                 .pickerStyle(.inline)
-                ColorPicker("Farbe des Zifferblatts", selection: $content.faceHex.asColor,
-                            supportsOpacity: false)
+                Verlaufwahl(titel: "Farbe des Zifferblatts", von: $content.faceHex,
+                            bis: $content.faceHex2)
             } header: {
                 Text("Zifferblatt")
             } footer: {
@@ -436,39 +437,124 @@ private struct NoiseSettings: View {
     @ObservedObject private var meter = NoiseMeter.shared
 
     var body: some View {
+        Group {
         Section("Lautstärke") {
             TextField("Überschrift", text: $content.title)
+            Toggle("Warnung anzeigen", isOn: $content.alert)
+        }
+
+        Section {
             VStack(alignment: .leading, spacing: 6) {
                 HStack {
                     Text("Schwelle „zu laut“")
                     Spacer()
-                    Text("\(Int(content.threshold * 100))")
+                    Text("\(Int(content.schwelleDb.rounded())) dB")
                         .monospacedDigit()
                         .foregroundStyle(.secondary)
                 }
-                Slider(value: $content.threshold, in: 0.1...1)
-                // Live-Pegel als Orientierung beim Einstellen.
-                GeometryReader { geo in
-                    ZStack(alignment: .leading) {
-                        Capsule().fill(Color.primary.opacity(0.1))
-                        Capsule()
-                            .fill(meter.level * content.gain > content.threshold ? Theme.danger : Theme.mint)
-                            .frame(width: geo.size.width * CGFloat(min(1, meter.level * content.gain)))
+                Slider(value: $content.schwelleDb,
+                       in: NoiseSkala.schwelleMin...NoiseSkala.schwelleMax, step: 1)
+                pegelband
+            }
+        } header: {
+            Text("Ab wann zu laut?")
+        } footer: {
+            Text("Gemessene Werte aus dem Unterricht: Stillarbeit liegt selbst in ruhigen "
+                 + "Klassen bei mindestens 50 dB, Unterrichtsgespräch und Gruppenarbeit bei "
+                 + "70 bis 75 dB — so laut wie ein Staubsauger im Zimmer. Über 80 dB ist "
+                 + "Ausnahmezustand; ab 85 dB drohen bei Dauerbelastung Gehörschäden. "
+                 + "Die Vorgabe steht deshalb bei 75 dB.")
+        }
+
+        Section {
+            ForEach(NoiseSkala.vorschlaege) { vorschlag in
+                Button {
+                    content.schwelleDb = vorschlag.dezibel
+                    Haptics.tap()
+                } label: {
+                    HStack(spacing: 12) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(vorschlag.titel)
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundStyle(.primary)
+                            Text(vorschlag.hinweis)
+                                .font(.system(size: 13))
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        Spacer(minLength: 0)
+                        Text("\(Int(vorschlag.dezibel)) dB")
+                            .font(.system(size: 15, weight: .semibold))
+                            .monospacedDigit()
+                            .foregroundStyle(.secondary)
+                        if abs(content.schwelleDb - vorschlag.dezibel) < 0.5 {
+                            Image(systemName: "checkmark")
+                                .font(.system(size: 15, weight: .bold))
+                                .foregroundStyle(Theme.accent)
+                        }
                     }
+                    .contentShape(Rectangle())
                 }
-                .frame(height: 8)
-                Text("Aktueller Pegel im Raum")
-                    .font(.caption2)
+                .buttonStyle(.plain)
+            }
+        } header: {
+            Text("Für die Arbeitsform")
+        }
+
+        Section {
+            HStack {
+                Text("Feinabgleich")
+                Spacer()
+                Text("\(Int(meter.abgleich.rounded())) dB")
+                    .monospacedDigit()
                     .foregroundStyle(.secondary)
             }
-            HStack {
-                Text("Empfindlichkeit")
-                Slider(value: $content.gain, in: 0.5...2.5)
+            Slider(value: $meter.abgleich,
+                   in: NoiseSkala.abgleichMin...NoiseSkala.abgleichMax, step: 1)
+            Button {
+                meter.abgleich = NoiseSkala.abgleichVorgabe
+                Haptics.tap()
+            } label: {
+                Label("Auf Vorgabe zurücksetzen", systemImage: "arrow.uturn.backward")
             }
-            Toggle("Warnung anzeigen", isOn: $content.alert)
+            .disabled(abs(meter.abgleich - NoiseSkala.abgleichVorgabe) < 0.5)
+        } header: {
+            Text("Abgleich des Mikrofons")
+        } footer: {
+            Text("Das Mikrofon eines iPads ist kein geeichter Schallpegelmesser — die Zahl "
+                 + "ist eine Schätzung. Wer es genauer haben möchte, stellt eine "
+                 + "Schallpegel-App daneben und schiebt hier so lange, bis beide Werte "
+                 + "übereinstimmen. Der Abgleich gilt für das Gerät, nicht für die Tafel.")
+        }
         }
         .onAppear { meter.retain() }
         .onDisappear { meter.release() }
+    }
+
+    /// Was das Mikrofon gerade hört — beim Einstellen der Schwelle hilfreich.
+    private var pegelband: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    Capsule().fill(Color.primary.opacity(0.1))
+                    Capsule()
+                        .fill(meter.dezibel >= content.schwelleDb ? Theme.danger : Theme.mint)
+                        .frame(width: geo.size.width * CGFloat(meter.level))
+                    // Strich an der eingestellten Schwelle.
+                    Capsule()
+                        .fill(Color.primary.opacity(0.5))
+                        .frame(width: 2)
+                        .offset(x: geo.size.width * CGFloat(NoiseSkala.ausschlag(content.schwelleDb)))
+                }
+            }
+            .frame(height: 8)
+            Text(meter.running
+                 ? "Im Raum gerade \(Int(meter.dezibel.rounded())) dB"
+                 : "Kein Zugriff auf das Mikrofon")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .monospacedDigit()
+        }
     }
 }
 
@@ -764,7 +850,7 @@ private struct SoundsSettings: View {
                         .frame(width: 50, height: 36)
                     TextField("Beschriftung", text: $button.label)
                 }
-                ColorPicker("Farbe", selection: $button.colorHex.asColor, supportsOpacity: false)
+                Verlaufwahl(titel: "Farbe", von: $button.colorHex, bis: $button.colorHex2)
 
                 HStack {
                     Image(systemName: button.hasSource ? "waveform" : "waveform.slash")

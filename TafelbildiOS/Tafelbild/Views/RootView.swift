@@ -8,6 +8,9 @@ struct RootView: View {
     /// Nur ein Blatt gleichzeitig — das ist verlässlicher als mehrere
     /// `sheet`-Schalter nebeneinander.
     @State private var sheet: RootSheet?
+    /// Welche Seite gerade umbenannt wird — nil, wenn keine.
+    @State private var seiteUmbenennen: String?
+    @State private var seiteNeuerName = ""
 
     /// Die Schrift der App. Sie steht hier nur, damit ein Wechsel sofort
     /// sichtbar wird: `Theme.font` liest den Wert direkt aus den
@@ -102,6 +105,21 @@ struct RootView: View {
         // Tastatur legt sich darüber. Wer unten schreibt, schiebt die Tafel
         // mit einem Finger hoch.
         .ignoresSafeArea(.keyboard)
+        .alert("Seite umbenennen", isPresented: Binding(
+            get: { seiteUmbenennen != nil },
+            set: { if !$0 { seiteUmbenennen = nil } }
+        )) {
+            TextField("Name der Seite", text: $seiteNeuerName)
+            Button("Sichern") {
+                if let seite = seiteUmbenennen, let board = store.activeBoard {
+                    store.seiteUmbenennen(seite, auf: seiteNeuerName, boardID: board.id)
+                }
+                seiteUmbenennen = nil
+            }
+            Button("Abbrechen", role: .cancel) { seiteUmbenennen = nil }
+        } message: {
+            Text("Ohne Namen heißt sie nach ihrer Reihenfolge — „Seite 1“, „Seite 2“ …")
+        }
         // Beim Schriftwechsel die Ansicht neu aufbauen — sonst behielten
         // schon gezeichnete Texte die alte Schrift.
         .id(schriftWahl)
@@ -320,6 +338,28 @@ struct RootView: View {
                         }
                 }
                 .buttonStyle(.plain)
+                // Umbenennen dort, wo die Seite steht — nicht erst zwei
+                // Ebenen tiefer in der Verwaltung.
+                .contextMenu {
+                    Button {
+                        seiteNeuerName = seite.name
+                        seiteUmbenennen = seite.id
+                    } label: {
+                        Label("Umbenennen", systemImage: "pencil")
+                    }
+                    Button {
+                        store.seiteDuplizieren(seite.id, boardID: board.id)
+                    } label: {
+                        Label("Kopie anlegen", systemImage: "plus.square.on.square")
+                    }
+                    if seiten.count > 1 {
+                        Button(role: .destructive) {
+                            store.seiteLoeschen(seite.id, boardID: board.id)
+                        } label: {
+                            Label("Seite löschen", systemImage: "trash")
+                        }
+                    }
+                }
             }
 
             if store.editing {

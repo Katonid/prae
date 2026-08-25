@@ -139,7 +139,11 @@ struct TextContent: Codable, Equatable {
     /// Schriftgröße automatisch an das Feld anpassen.
     var autoSize: Bool = true
     var colorHex: String = "#0f172a"
+    /// Zweite Farbe der Schrift. Leer heißt: einfarbig (siehe Fuellung).
+    var colorHex2: String = ""
     var backgroundHex: String = "#ffffff"
+    /// Zweite Farbe des Hintergrunds. Leer heißt: einfarbig.
+    var backgroundHex2: String = ""
     var backgroundOpacity: Double = 0.0
     var bold: Bool = true
     var alignment: TextAlign = .center
@@ -174,6 +178,8 @@ struct ClockContent: Codable, Equatable {
     var showDate: Bool = false
     var twentyFourHour: Bool = true
     var faceHex: String = "#ffffff"
+    /// Zweite Farbe des Zifferblatts. Leer heißt: einfarbig.
+    var faceHex2: String = ""
     var accentHex: String = "#0f9b8e"
 
     enum ClockStyle: String, Codable, CaseIterable, Identifiable {
@@ -254,10 +260,17 @@ struct TrafficLightContent: Codable, Equatable {
 }
 
 struct NoiseContent: Codable, Equatable {
-    /// Schwelle 0…1, ab der die Anzeige „zu laut" meldet.
-    /// 0,55 wie in der Web-App (dort 55 von 100).
+    /// Schwelle in geschätzten dB(A), ab der die Anzeige „zu laut“ meldet.
+    ///
+    /// 75 dB(A) ist der obere Rand dessen, was bei Gruppenarbeit in einer
+    /// Grundschulklasse gemessen wird (siehe `NoiseSkala`). Die frühere
+    /// Schwelle entsprach rechnerisch etwa 67 dB(A) und schlug damit schon
+    /// beim gewöhnlichen Unterrichtsgespräch an.
+    var schwelleDb: Double = NoiseSkala.schwelleVorgabe
+    /// Alte Schwelle 0…1 aus der Web-App-Rechnung. Bleibt nur stehen, damit
+    /// ältere Stände beim Einlesen umgerechnet werden können.
     var threshold: Double = 0.55
-    /// Empfindlichkeit (Verstärkung) 0,5 … 2,0.
+    /// Alte Empfindlichkeit. Der Abgleich in dB hat sie abgelöst.
     var gain: Double = 1.0
     var style: NoiseStyle = .gauge
     var alert: Bool = true
@@ -394,6 +407,8 @@ struct SoundButton: Codable, Equatable, Identifiable {
     var label: String = ""
     var emoji: String = "🔔"
     var colorHex: String = "#0f9b8e"
+    /// Zweite Farbe des Feldes. Leer heißt: einfarbig.
+    var colorHex2: String = ""
     /// Dateiname unter Documents/Media/ (nil = leeres Feld).
     var fileName: String? = nil
     /// Adresse einer Klangdatei im Netz — die reist beim Teilen mit.
@@ -737,6 +752,10 @@ struct Board: Codable, Identifiable, Equatable {
     var background: BoardBackground = .aurora("nordlicht")
     /// Kennung des Farbschemas aus `AccentSchemes`.
     var accent: String = "indigo"
+    /// Eigenes Farbschema. Ist `accentVon` gefüllt, gilt es statt `accent`;
+    /// `accentBis` leer heißt einfarbig (siehe Fuellung).
+    var accentVon: String = ""
+    var accentBis: String = ""
     /// Akzentfarbe als Verlauf (aus) oder als eine Farbe (an → aus).
     var gradient: Bool = true
     var cardStyle: CardStyle = .glass
@@ -951,7 +970,7 @@ enum StarterContent {
 
 extension Board {
     enum BoardKeys: String, CodingKey {
-        case id, name, emoji, background, accent, gradient, cardStyle, frames, labels
+        case id, name, emoji, background, accent, accentVon, accentBis, gradient, cardStyle, frames, labels
         case widgets, pages, drawing, members, ownerUserID
         case memberUserIDs, joinCode, owner, createdAtMs, updatedAtMs, deleted
         case embeddedLists
@@ -965,6 +984,8 @@ extension Board {
         emoji = c.wert(.emoji, "🌟")
         background = c.wert(.background, BoardBackground.aurora("nordlicht"))
         accent = c.wert(.accent, "indigo")
+        accentVon = c.wert(.accentVon, "")
+        accentBis = c.wert(.accentBis, "")
         gradient = c.wert(.gradient, true)
         cardStyle = c.wert(.cardStyle, CardStyle.glass)
         frames = c.wert(.frames, ShowRule.always)
@@ -1037,7 +1058,8 @@ extension BoardWidget {
 
 extension TextContent {
     enum TextKeys: String, CodingKey {
-        case text, fontSize, autoSize, colorHex, backgroundHex, backgroundOpacity, bold, alignment, rounded
+        case text, fontSize, autoSize, colorHex, colorHex2, backgroundHex, backgroundHex2
+        case backgroundOpacity, bold, alignment, rounded
     }
 
     init(from decoder: Decoder) throws {
@@ -1047,7 +1069,9 @@ extension TextContent {
         fontSize = c.wert(.fontSize, 64)
         autoSize = c.wert(.autoSize, true)
         colorHex = c.wert(.colorHex, "#0f172a")
+        colorHex2 = c.wert(.colorHex2, "")
         backgroundHex = c.wert(.backgroundHex, "#ffffff")
+        backgroundHex2 = c.wert(.backgroundHex2, "")
         backgroundOpacity = c.wert(.backgroundOpacity, 0)
         bold = c.wert(.bold, true)
         alignment = c.wert(.alignment, TextContent.TextAlign.center)
@@ -1069,7 +1093,9 @@ extension ImageContent {
 }
 
 extension ClockContent {
-    enum ClockKeys: String, CodingKey { case style, face, showSeconds, showDate, twentyFourHour, faceHex, accentHex }
+    enum ClockKeys: String, CodingKey {
+        case style, face, showSeconds, showDate, twentyFourHour, faceHex, faceHex2, accentHex
+    }
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: ClockKeys.self)
@@ -1080,6 +1106,7 @@ extension ClockContent {
         showDate = c.wert(.showDate, false)
         twentyFourHour = c.wert(.twentyFourHour, true)
         faceHex = c.wert(.faceHex, "#ffffff")
+        faceHex2 = c.wert(.faceHex2, "")
         accentHex = c.wert(.accentHex, "#0f9b8e")
     }
 }
@@ -1117,16 +1144,33 @@ extension TrafficLightContent {
 }
 
 extension NoiseContent {
-    enum NoiseKeys: String, CodingKey { case threshold, gain, style, alert, title }
+    enum NoiseKeys: String, CodingKey { case schwelleDb, threshold, gain, style, alert, title }
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: NoiseKeys.self)
         self.init()
         threshold = c.wert(.threshold, 0.55)
         gain = c.wert(.gain, 1)
+        schwelleDb = c.wert(.schwelleDb, Self.ausAlterSchwelle(threshold))
         style = c.wert(.style, NoiseContent.NoiseStyle.gauge)
         alert = c.wert(.alert, true)
         title = c.wert(.title, "Lautstärke")
+    }
+
+    /// Ältere Stände kannten nur eine Schwelle von 0 bis 1.
+    ///
+    /// Sie bezog sich auf den Ausschlag des Bandes, das von −52 bis −8 dBFS
+    /// reichte; mit dem Abgleich von 95 dB entspricht das 43 bis 87 dB(A).
+    /// Wer die Schwelle bewusst verstellt hatte, behält sie also.
+    ///
+    /// Stand dort noch der alte Vorgabewert 0,55, wird die neue Vorgabe
+    /// genommen: Diese 0,55 waren nie eine Entscheidung, sondern eine aus
+    /// der Web-App übernommene Zahl — und sie lag mit 67 dB(A) mitten im
+    /// gewöhnlichen Unterrichtsgespräch.
+    static func ausAlterSchwelle(_ alt: Double) -> Double {
+        guard abs(alt - 0.55) > 0.001 else { return NoiseSkala.schwelleVorgabe }
+        let db = 43 + alt * 44
+        return min(max(db, NoiseSkala.schwelleMin), NoiseSkala.schwelleMax)
     }
 }
 
@@ -1186,7 +1230,9 @@ extension NamePickerContent {
 }
 
 extension SoundButton {
-    enum ButtonKeys: String, CodingKey { case id, label, emoji, colorHex, fileName, url, volume, toggle }
+    enum ButtonKeys: String, CodingKey {
+        case id, label, emoji, colorHex, colorHex2, fileName, url, volume, toggle
+    }
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: ButtonKeys.self)
@@ -1195,6 +1241,7 @@ extension SoundButton {
         label = c.wert(.label, "")
         emoji = c.wert(.emoji, "🔔")
         colorHex = c.wert(.colorHex, "#0f9b8e")
+        colorHex2 = c.wert(.colorHex2, "")
         fileName = c.optional(.fileName, String.self)
         url = c.wert(.url, "")
         volume = c.wert(.volume, 1)

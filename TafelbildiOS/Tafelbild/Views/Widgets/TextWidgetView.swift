@@ -26,7 +26,8 @@ struct TextWidgetView: View {
         }
         .background {
             RoundedRectangle(cornerRadius: content.rounded ? Theme.widgetCorner : 0, style: .continuous)
-                .fill(Color(hex: content.backgroundHex).opacity(content.backgroundOpacity))
+                .fill(Fuellung.stil(content.backgroundHex, content.backgroundHex2)
+                    .opacity(content.backgroundOpacity))
         }
         .contentShape(Rectangle())
         .onTapGesture(count: 2) {
@@ -46,13 +47,12 @@ struct TextWidgetView: View {
     /// liegt in älteren Tafeln Weiß als Farbe — das wäre auf der hellen
     /// Karte nicht mehr zu lesen. In dem Fall gilt die Schriftfarbe der
     /// Karte; eine bewusst gewählte Farbe bleibt unangetastet.
-    private var textColor: Color {
-        let gewaehlt = Color(hex: content.colorHex)
+    private var textColor: AnyShapeStyle {
         let istWeiss = content.colorHex.lowercased().replacingOccurrences(of: "#", with: "") == "ffffff"
-        if istWeiss && !style.bare && content.backgroundOpacity < 0.5 {
-            return style.ink
+        if istWeiss && content.colorHex2.isEmpty && !style.bare && content.backgroundOpacity < 0.5 {
+            return AnyShapeStyle(style.ink)
         }
-        return gewaehlt
+        return Fuellung.stil(content.colorHex, content.colorHex2)
     }
 
     /// Wie in der Web-App: die längste Zeile und die Zeilenzahl bestimmen die

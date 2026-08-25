@@ -48,8 +48,17 @@ final class NoiseMeter: ObservableObject {
         case unknown, granted, denied
     }
 
-    /// Geglätteter Pegel 0 … 1.
+    /// Geglätteter Pegel 0 … 1 (für das Band).
     @Published private(set) var level: Double = 0
+    /// Geschätzter Schalldruckpegel in dB(A).
+    ///
+    /// Das Mikrofon eines iPads ist kein geeichter Schallpegelmesser: Es
+    /// liefert nur einen Pegel bezogen auf die Vollaussteuerung (dBFS).
+    /// Daraus wird hier ein Schätzwert, indem ein fester Abgleich addiert
+    /// wird — die Vorgabe 95 trifft ein iPad, das vorn im Klassenraum steht,
+    /// gut genug für eine Ampel. Wer es genauer haben will, gleicht mit einer
+    /// Schallpegel-App ab (Einstellungen des Elements).
+    @Published private(set) var dezibel: Double = NoiseSkala.leise
     /// Spitzenwert der letzten Sekunden (für die Skala).
     @Published private(set) var peak: Double = 0
     @Published private(set) var permission: Permission = .unknown
@@ -59,10 +68,22 @@ final class NoiseMeter: ObservableObject {
     private var clients = 0
     private var peakDecayTask: Task<Void, Never>?
 
-    /// Ruhepegel und Vollausschlag in Dezibel (dBFS) — passt für ein iPad,
-    /// das vorn im Klassenraum steht.
-    private let quietDb: Double = -52
-    private let loudDb: Double = -8
+    /// Abgleich zwischen Mikrofonpegel (dBFS) und geschätztem
+    /// Schalldruckpegel: dB(A) ≈ dBFS + Abgleich.
+    @Published var abgleich: Double = NoiseMeter.gespeicherterAbgleich {
+        didSet {
+            let sauber = min(max(abgleich, NoiseSkala.abgleichMin), NoiseSkala.abgleichMax)
+            if sauber != abgleich { abgleich = sauber; return }
+            UserDefaults.standard.set(abgleich, forKey: Self.abgleichSchluessel)
+        }
+    }
+
+    private static let abgleichSchluessel = "noiseAbgleichDb"
+
+    private static var gespeicherterAbgleich: Double {
+        let wert = UserDefaults.standard.object(forKey: abgleichSchluessel) as? Double
+        return wert ?? NoiseSkala.abgleichVorgabe
+    }
 
     /// Die Messung war an, als die App in den Hintergrund ging.
     private var pausedByBackground = false
@@ -168,15 +189,22 @@ final class NoiseMeter: ObservableObject {
         running = false
         level = 0
         peak = 0
+        dezibel = NoiseSkala.leise
         peakDecayTask?.cancel()
         AudioSessionCenter.configure(recording: false)
     }
 
-    /// Dezibel → 0…1, mit schnellem Anstieg und langsamem Abfall.
+    /// Mikrofonpegel → geschätzte dB(A) und Bandausschlag 0…1.
+    ///
+    /// Geglättet wird in Dezibel, nicht im Ausschlag: Lautstärke wird
+    /// logarithmisch empfunden, und nur so bleibt die Zahl ruhig. Anstieg
+    /// schnell, Abfall langsam — ein kurzer Ausruf soll sichtbar sein, das
+    /// Zurückfallen aber nicht flackern.
     private func consume(db: Double) {
-        let normalized = min(max((db - quietDb) / (loudDb - quietDb), 0), 1)
-        let smoothing = normalized > level ? 0.55 : 0.12
-        level += (normalized - level) * smoothing
+        let geschaetzt = min(max(db + abgleich, NoiseSkala.stille), NoiseSkala.schmerz)
+        let smoothing = geschaetzt > dezibel ? 0.55 : 0.12
+        dezibel += (geschaetzt - dezibel) * smoothing
+        level = NoiseSkala.ausschlag(dezibel)
         if level > peak { peak = level }
     }
 
@@ -354,4 +382,74 @@ final class VoiceRecorder: ObservableObject {
     func cancel() {
         _ = stop()
     }
+}
+
+// MARK: - Maßstab der Lautstärkemessung
+
+/// Was in einer Grundschulklasse laut ist — und ab wann es zu laut wird.
+///
+/// Die Zahlen stammen nicht aus dem Gefühl, sondern aus der Fachliteratur:
+///
+/// * **Stillarbeit** liegt selbst in einer ruhigen Klasse bei mindestens
+///   50 dB(A) — völlige Stille gibt es in einem Raum mit 25 Kindern nicht.
+/// * **Unterrichtsgespräch und Gruppenarbeit** werden mit 70 bis 75 dB(A)
+///   gemessen (Lärmforscher Peter Becker; das entspricht einem Staubsauger
+///   im selben Zimmer). Andere Erhebungen nennen im Mittel 60 bis 70 dB(A),
+///   in Grundschulen eher das obere Ende.
+/// * **Über 80 dB(A)** gelten als Extremsituation.
+/// * **Ab 85 dB(A)** drohen bei Dauerbelastung Gehörschäden; die
+///   Auslösewerte der Lärm- und Vibrations-Arbeitsschutzverordnung liegen
+///   bei 80 und 85 dB(A) für einen Achtstundentag. In Schulen werden sie im
+///   Tagesmittel meist nicht erreicht — der Lärm wirkt dort vor allem als
+///   Störung und Stress, nicht als Gehörgefahr.
+/// * Zum Vergleich: Die Arbeitsstättenregel ASR A3.7 lässt für
+///   **Hintergrundgeräusche** technischer Geräte im Klassenraum höchstens
+///   35 dB(A) zu.
+///
+/// Daraus folgen die Vorgaben dieser App: Das Band reicht von 40 bis
+/// 90 dB(A), und „zu laut“ beginnt bei 75 dB(A) — dem oberen Rand dessen,
+/// was bei Gruppenarbeit normal ist. Vorher stand die Schwelle rechnerisch
+/// bei etwa 67 dB(A) und schlug damit schon beim gewöhnlichen
+/// Unterrichtsgespräch an.
+enum NoiseSkala {
+    /// Anfang und Ende des Bandes in dB(A).
+    static let leise: Double = 40
+    static let laut: Double = 90
+    /// Grenzen, in denen sich der Messwert bewegen darf.
+    static let stille: Double = 25
+    static let schmerz: Double = 110
+
+    /// Abgleich zwischen dBFS und geschätztem Schalldruckpegel.
+    static let abgleichVorgabe: Double = 95
+    static let abgleichMin: Double = 80
+    static let abgleichMax: Double = 110
+
+    /// Wo die Schwelle stehen darf.
+    static let schwelleMin: Double = 50
+    static let schwelleMax: Double = 90
+    /// Vorgabe: oberer Rand dessen, was bei Gruppenarbeit üblich ist.
+    static let schwelleVorgabe: Double = 75
+
+    static func ausschlag(_ dezibel: Double) -> Double {
+        min(max((dezibel - leise) / (laut - leise), 0), 1)
+    }
+
+    /// Fertige Schwellen für die Arbeitsformen des Unterrichts.
+    struct Vorschlag: Identifiable {
+        let id: String
+        let titel: String
+        let dezibel: Double
+        let hinweis: String
+    }
+
+    static let vorschlaege: [Vorschlag] = [
+        Vorschlag(id: "still", titel: "Stillarbeit", dezibel: 58,
+                  hinweis: "Auch ruhige Klassen liegen bei 50 dB und mehr."),
+        Vorschlag(id: "partner", titel: "Partnerarbeit", dezibel: 66,
+                  hinweis: "Gespräch zu zweit, ohne die Nachbarn zu übertönen."),
+        Vorschlag(id: "gruppe", titel: "Gruppenarbeit", dezibel: 75,
+                  hinweis: "Üblich sind 70 bis 75 dB — darüber wird es Krach."),
+        Vorschlag(id: "krach", titel: "Nur bei Krach", dezibel: 84,
+                  hinweis: "Erst über 80 dB, also in Extremsituationen.")
+    ]
 }

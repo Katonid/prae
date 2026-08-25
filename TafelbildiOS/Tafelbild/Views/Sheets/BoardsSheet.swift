@@ -9,6 +9,9 @@ struct BoardsSheet: View {
     @State private var showJoin = false
     @State private var newName = ""
     @State private var showNew = false
+    /// Welche Tafel gerade umbenannt wird — nil, wenn keine.
+    @State private var umbenennen: String?
+    @State private var neuerName = ""
 
     var body: some View {
         NavigationStack {
@@ -50,6 +53,36 @@ struct BoardsSheet: View {
                             }
                             .tint(Theme.accent)
                         }
+                        // Umbenennen gehört dorthin, wo die Tafeln stehen.
+                        // Es ging bisher nur unter „Aussehen“ — dort sucht
+                        // niemand einen Namen.
+                        .swipeActions(edge: .leading) {
+                            Button {
+                                neuerName = board.name
+                                umbenennen = board.id
+                            } label: {
+                                Label("Umbenennen", systemImage: "pencil")
+                            }
+                            .tint(Theme.mint)
+                        }
+                        .contextMenu {
+                            Button {
+                                neuerName = board.name
+                                umbenennen = board.id
+                            } label: {
+                                Label("Umbenennen", systemImage: "pencil")
+                            }
+                            Button {
+                                store.duplicateBoard(board)
+                            } label: {
+                                Label("Kopie anlegen", systemImage: "plus.square.on.square")
+                            }
+                            Button(role: .destructive) {
+                                store.deleteBoard(board)
+                            } label: {
+                                Label("Löschen", systemImage: "trash")
+                            }
+                        }
                     }
                 } header: {
                     Text("Meine Tafeln")
@@ -84,6 +117,22 @@ struct BoardsSheet: View {
                     dismiss()
                 }
                 Button("Abbrechen", role: .cancel) { newName = "" }
+            }
+            .alert("Tafel umbenennen", isPresented: Binding(
+                get: { umbenennen != nil },
+                set: { if !$0 { umbenennen = nil } }
+            )) {
+                TextField("Name der Tafel", text: $neuerName)
+                Button("Sichern") {
+                    if let id = umbenennen, var tafel = store.board(id) {
+                        tafel.name = neuerName.nonEmpty ?? tafel.name
+                        store.updateBoard(tafel)
+                    }
+                    umbenennen = nil
+                }
+                Button("Abbrechen", role: .cancel) { umbenennen = nil }
+            } message: {
+                Text("Das Symbol der Tafel ändert sich unter „Aussehen“.")
             }
             .sheet(isPresented: $showJoin) {
                 JoinBoardSheet()
