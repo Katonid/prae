@@ -1226,6 +1226,11 @@ p.muted { margin: 0; }
 
 .w-random__namebox { position: relative; display: inline-block; max-width: 100%; padding: 2px 8px; }
 
+/* Solange der Name verdeckt ist, spannt sich die Karte über die volle Breite —
+   sonst verrät schon die Breite der Maske, wie lang der Name ist. */
+.w-random__namebox.is-covered { display: block; width: 100%; }
+.w-random__namebox.is-covered .w-random__name { display: block; text-align: center; overflow: hidden; }
+
 .w-random__mask {
   position: absolute;
   inset: -8px -6px;
@@ -1243,7 +1248,8 @@ p.muted { margin: 0; }
   box-shadow: inset 0 0 0 0.5px rgba(255, 255, 255, 0.4);
   /* Leichte Überlappung: sonst blitzt der Name in den Fugen des Rasters durch. */
   transform: scale(1.08);
-  transition: opacity 0.4s ease, transform 0.4s var(--spring);
+  /* Bewusst ohne Übergang: Beim neuen Zudecken darf nichts durchschimmern —
+     nur das Aufdecken (is-open) gleitet. */
 }
 
 body[data-cards="dark"] .w-random__tile {
@@ -1251,7 +1257,7 @@ body[data-cards="dark"] .w-random__tile {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
-.w-random__tile.is-open { opacity: 0; transform: scale(0.5); }
+.w-random__tile.is-open { opacity: 0; transform: scale(0.5); transition: opacity 0.4s ease, transform 0.4s var(--spring); }
 
 .w-random__hint { font-size: 0.84em; color: var(--card-ink-soft); text-align: center; opacity: 0.8; }
 .w-random__drawn { border-top: 1px solid var(--card-line); padding-top: 9px; max-height: 36%; overflow-y: auto; }
@@ -1372,7 +1378,8 @@ body[data-cards="dark"] .w-random__tile {
   padding: 0.45em 0.45em;
   border-radius: 0.6em;
   cursor: pointer;
-  font-size: 1.45em;
+  /* --check-fit füllt die Feldbreite: die längste Zeile bestimmt die Schrift. */
+  font-size: calc(1.45em * var(--check-fit, 1));
   color: var(--card-ink);
   transition: background 0.15s ease;
 }
@@ -1390,6 +1397,8 @@ body[data-cards="dark"] .w-random__tile {
   transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s var(--spring);
 }
 .w-check__item.is-done .w-check__box { background: linear-gradient(135deg, #10b981, #22d3ee); border-color: transparent; animation: check-pop 0.3s var(--spring); }
+/* flex:1 gibt der Zeile die volle Restbreite — daran misst sich die Schriftgröße. */
+.w-check__text { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; }
 .w-check__item.is-done .w-check__text { text-decoration: line-through; color: var(--card-ink-soft); opacity: 0.7; }
 .w-check__item.is-done.no-strike .w-check__text { text-decoration: none; }
 .w-check__add { display: flex; gap: 6px; align-items: center; font-size: 1.1em; }

@@ -50,6 +50,10 @@ export default {
       if (!items.length) {
         listEl.appendChild(h('p', { class: 'muted small' }, 'Noch keine Punkte — unten hinzufügen.'));
       }
+      // Direkt und noch einmal nach dem Layout — beim ersten Aufbau ist die
+      // Breite noch 0, erst danach lässt sich messen.
+      fitWidth();
+      window.requestAnimationFrame(fitWidth);
 
       clear(addRow);
       addRow.classList.toggle('is-hidden', !ctx.isEditing());
@@ -76,8 +80,35 @@ export default {
       }), add));
     }
 
+    /**
+     * Die Schrift der Zeilen so wählen, dass die längste Zeile die Breite des
+     * Feldes ausfüllt — kürzere Listen bekommen dadurch richtig große Schrift.
+     * Zwei Durchläufe, weil Kästchen und Abstände mit der Schrift mitwachsen.
+     */
+    const meter = document.createElement('canvas').getContext('2d');
+
+    function fitWidth() {
+      el.style.setProperty('--check-fit', '1');
+      for (let pass = 0; pass < 2; pass += 1) {
+        const texts = Array.from(listEl.querySelectorAll('.w-check__text'));
+        if (!texts.length) return;
+        let worst = Infinity;
+        for (const text of texts) {
+          const room = text.clientWidth;
+          const style = window.getComputedStyle(text);
+          meter.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+          const need = meter.measureText(text.textContent || '').width;
+          if (need > 0 && room > 0) worst = Math.min(worst, room / need);
+        }
+        if (!Number.isFinite(worst)) return;
+        const current = parseFloat(el.style.getPropertyValue('--check-fit')) || 1;
+        const factor = Math.min(3, Math.max(0.7, current * worst * 0.95));
+        el.style.setProperty('--check-fit', factor.toFixed(3));
+      }
+    }
+
     render();
-    return { el, refresh: render };
+    return { el, refresh: render, onResize: fitWidth };
   },
 
   settings(ctx) {
