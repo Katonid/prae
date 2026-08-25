@@ -35,7 +35,7 @@ struct NamePickerWidgetView: View {
     var body: some View {
         GeometryReader { geo in
             VStack(spacing: metrics.em(0.55)) {
-                if style.showLabels { header }
+                if zeigtKopf { header }
 
                 // `.w-random__display` — der Name steht frei, ohne Kasten.
                 VStack(spacing: 6) {
@@ -77,11 +77,23 @@ struct NamePickerWidgetView: View {
 
     // MARK: - Kopfzeile
 
-    /// `.w-random__head` — Listenname links, Zähler rechts.
+    /// Ist eine Kopfzeile zu sehen?
+    ///
+    /// Eine selbst gesetzte Überschrift immer — sie benennt das Element und
+    /// gehört damit zum Inhalt, nicht zur Zier. Wer mehrere Ziehungen
+    /// nebeneinander hat, muss sie auseinanderhalten können, auch wenn die
+    /// Tafel unter „Aussehen“ keine Beschriftungen zeigt. Ohne eigene
+    /// Überschrift steht dort der Listenname — der folgt weiter der
+    /// Tafelregel, wie `.w-random__head` in der Web-App.
+    private var zeigtKopf: Bool { eigeneUeberschrift != nil || style.showLabels }
+
+    private var eigeneUeberschrift: String? { content.title.nonEmpty }
+
+    /// `.w-random__head` — Überschrift links, Zähler rechts.
     private var header: some View {
         HStack(spacing: metrics.em(0.7)) {
             // `.w-random__list`: 0.92em der Kopfzeile (0.84em), gesperrt.
-            Text(listTitle.uppercased())
+            Text(kopfText.uppercased())
                 .font(Theme.font(metrics.em(0.84 * 0.92), weight: .semibold))
                 .tracking(metrics.em(0.84 * 0.92) * 0.08)
                 .foregroundStyle(style.inkSoft)
@@ -90,17 +102,23 @@ struct NamePickerWidgetView: View {
 
             Spacer(minLength: 0)
 
-            // `.w-random__count`: Pille in der ruhigen Füllung.
-            Text(countText)
-                .font(Theme.font(metrics.em(0.84), weight: .semibold))
-                .monospacedDigit()
-                .foregroundStyle(style.inkSoft)
-                .padding(.horizontal, metrics.em(0.84 * 0.7))
-                .padding(.vertical, metrics.em(0.84 * 0.2))
-                .background { Capsule().fill(style.wash) }
-                .lineLimit(1)
+            // `.w-random__count`: Pille in der ruhigen Füllung. Der Zähler
+            // ist Beiwerk und bleibt deshalb an der Tafelregel hängen.
+            if style.showLabels {
+                Text(countText)
+                    .font(Theme.font(metrics.em(0.84), weight: .semibold))
+                    .monospacedDigit()
+                    .foregroundStyle(style.inkSoft)
+                    .padding(.horizontal, metrics.em(0.84 * 0.7))
+                    .padding(.vertical, metrics.em(0.84 * 0.2))
+                    .background { Capsule().fill(style.wash) }
+                    .lineLimit(1)
+            }
         }
     }
+
+    /// Was in der Kopfzeile steht: die eigene Überschrift, sonst die Liste.
+    private var kopfText: String { eigeneUeberschrift ?? listTitle }
 
     private var listTitle: String {
         if let list { return list.name }

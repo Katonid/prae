@@ -572,6 +572,17 @@ private struct NamePickerSettings: View {
     private var list: NameList? { store.nameList(content.listID) }
 
     var body: some View {
+        Section {
+            TextField("Überschrift (z. B. „Wer liest vor?“)", text: $content.title)
+        } header: {
+            Text("Überschrift")
+        } footer: {
+            Text("Steht über dem Namen und benennt die Ziehung — hilfreich, wenn "
+                 + "mehrere auf einer Tafel liegen. Sie bleibt auch dann sichtbar, "
+                 + "wenn die Tafel unter „Aussehen“ keine Beschriftungen zeigt. "
+                 + "Ohne eigene Überschrift steht dort der Name der Liste.")
+        }
+
         Section("Namensliste") {
             Picker("Liste", selection: Binding(
                 get: { content.listID ?? "" },
