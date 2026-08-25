@@ -12,6 +12,10 @@ struct BoardCanvasView: View {
     /// Ansicht der Tafel: 1 = ganze Tafel im Bild, größer = hineingezoomt.
     /// Am Telefon ist das der Weg, überhaupt etwas erkennen zu können — die
     /// Tafel ist 1600 Punkte breit. Die Werte bleiben gespeichert, wie im Web.
+    /// Schmaler Bildschirm = Telefon. Die Web-App zieht die Grenze bei
+    /// 560 Pixeln; unter iOS ist die Größenklasse das Gegenstück.
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+
     @AppStorage("boardZoom") private var zoom: Double = 1
     @AppStorage("boardPanX") private var panX: Double = 0
     @AppStorage("boardPanY") private var panY: Double = 0
@@ -44,6 +48,17 @@ struct BoardCanvasView: View {
 
                 canvas(scale: scale)
                     .offset(x: panX, y: panY)
+
+                // Am Telefon sitzt die Werkzeugleiste des gewählten Elements
+                // fest unten, nicht über dem Element.
+                if schmal, store.editing, !store.presenting, let gewaehlt = selectedWidget {
+                    VStack {
+                        Spacer()
+                        SelectionChrome(boardID: board.id, widget: gewaehlt,
+                                        scale: 1, angedockt: true)
+                            .padding(.bottom, store.editing ? 62 : 16)
+                    }
+                }
 
                 if !store.presenting {
                     blickKnoepfe(geo)
@@ -183,7 +198,9 @@ struct BoardCanvasView: View {
                 .frame(width: Layout.canvas.width, height: Layout.canvas.height)
                 .allowsHitTesting(store.drawing)
 
-            if store.editing, let selected = selectedWidget {
+            // Auf breiten Bildschirmen schwebt die Leiste über dem Element;
+            // am Telefon liegt sie stattdessen unten (siehe oben).
+            if store.editing, !schmal, let selected = selectedWidget {
                 SelectionChrome(boardID: board.id, widget: selected, scale: scale)
             }
         }
@@ -191,6 +208,8 @@ struct BoardCanvasView: View {
         .scaleEffect(scale)
         .frame(width: Layout.canvas.width * scale, height: Layout.canvas.height * scale)
     }
+
+    private var schmal: Bool { horizontalSizeClass == .compact }
 
     private var selectedWidget: BoardWidget? {
         guard let id = store.selectedWidgetID else { return nil }
@@ -218,6 +237,11 @@ private struct SelectionChrome: View {
     let boardID: String
     let widget: BoardWidget
     let scale: CGFloat
+    /// Am Telefon sitzt die Leiste fest am unteren Bildschirmrand statt über
+    /// dem Element — frei schwebend verdeckte sie dort halbe Tafeln
+    /// (Web-App 1.6.4: `.selection-toolbar.is-docked`). Angedockt entfallen
+    /// auch die Eck-Anfasser; sie wären größer als halbe Elemente.
+    var angedockt: Bool = false
 
     @State private var resizeStart: CGRect?
 
@@ -240,20 +264,26 @@ private struct SelectionChrome: View {
     }
 
     var body: some View {
-        ZStack {
+        if angedockt {
+            // In Bildschirmkoordinaten, also ohne Gegenmaßstab und ohne
+            // Tafelrahmen — den setzt die aufrufende Stelle.
             toolbar
-                .scaleEffect(1 / scale)
-                .position(x: toolbarX, y: toolbarY)
+        } else {
+            ZStack {
+                toolbar
+                    .scaleEffect(1 / scale)
+                    .position(x: toolbarX, y: toolbarY)
 
-            if !widget.locked {
-                ForEach(Array(Corner.allCases.enumerated()), id: \.offset) { item in
-                    handle(item.element)
-                        .scaleEffect(1 / scale)
-                        .position(x: cornerX(item.element), y: cornerY(item.element))
+                if !widget.locked {
+                    ForEach(Array(Corner.allCases.enumerated()), id: \.offset) { item in
+                        handle(item.element)
+                            .scaleEffect(1 / scale)
+                            .position(x: cornerX(item.element), y: cornerY(item.element))
+                    }
                 }
             }
+            .frame(width: Layout.canvas.width, height: Layout.canvas.height)
         }
-        .frame(width: Layout.canvas.width, height: Layout.canvas.height)
     }
 
     private func cornerX(_ corner: Corner) -> Double {

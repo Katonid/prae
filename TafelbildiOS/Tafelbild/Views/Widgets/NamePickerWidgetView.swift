@@ -400,14 +400,15 @@ struct NamePickerWidgetView: View {
         // Das Auslosen läuft wie ein Glücksrad aus: erst schnell, dann immer
         // langsamer — Schrittzahl und Kurve stehen in `ZiehLauf`, damit die
         // Zeiten mit dem Klang zusammenpassen.
-        let klang = content.spinSound
+        // Der Klang ist eine durchgehende Aufnahme über den ganzen Zug,
+        // nicht mehr ein Ton je Schritt. Beide dauern 1,72 s, also endet er
+        // genau dann, wenn der Name steht.
+        Ziehklang.shared.starte(content.spinSound)
         Task { @MainActor in
             for stufe in 0..<ZiehLauf.schritte {
                 spinText = entries.randomElement()?.text ?? winner.text
-                Ziehklang.shared.tick(klang, fortschritt: ZiehLauf.fortschritt(schritt: stufe))
                 try? await Task.sleep(for: .seconds(ZiehLauf.pause(schritt: stufe)))
             }
-            Ziehklang.shared.schluss(klang)
             spinText = nil
             commit(winner)
         }

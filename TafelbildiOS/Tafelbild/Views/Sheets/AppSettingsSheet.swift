@@ -16,6 +16,10 @@ struct AppSettingsSheet: View {
     @AppStorage("stackModeManual") private var listenansicht = false
     @AppStorage("dockHidden") private var leisteAus = false
 
+    /// Farbe des App-Icons. Gemerkt wird die Wahl von iOS selbst; der Wert
+    /// hier sorgt nur dafür, dass die Auswahl sofort umspringt.
+    @State private var iconFarbe: AppIconFarbe = .vorgabe
+
     private var version: String {
         let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
         let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"
@@ -89,6 +93,30 @@ struct AppSettingsSheet: View {
                     Text("Lautstärkemessung")
                 } footer: {
                     Text("Die Messung läuft ausschließlich auf dem Gerät. Es wird nichts aufgezeichnet und nichts verschickt — nur der Pegel wird angezeigt.")
+                }
+
+                Section {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 12) {
+                            ForEach(AppIconFarbe.allCases) { farbe in
+                                iconKachel(farbe)
+                            }
+                        }
+                        .padding(.vertical, 4)
+                    }
+                    .disabled(!AppIconFarbe.moeglich)
+                } header: {
+                    Text("Farbe des App-Symbols")
+                } footer: {
+                    if AppIconFarbe.moeglich {
+                        Text("Gilt für das Symbol auf dem Homescreen. iOS meldet den Wechsel "
+                             + "mit einem eigenen Hinweis — das ist normal und kommt nicht von "
+                             + "dieser App. Ein stufenloser Farbwähler ist nicht möglich: iOS "
+                             + "lässt Apps ihr Symbol nicht selbst zeichnen, nur zwischen "
+                             + "mitgelieferten Bildern umschalten.")
+                    } else {
+                        Text("Dieses Gerät kann das App-Symbol nicht wechseln.")
+                    }
                 }
 
                 Section {
@@ -178,7 +206,12 @@ struct AppSettingsSheet: View {
             }
             .navigationTitle("Einstellungen")
             .navigationBarTitleDisplayMode(.inline)
-            .onAppear { storageBytes = store.mediaBytes }
+            .onAppear {
+                storageBytes = store.mediaBytes
+                // iOS merkt sich die Wahl selbst — beim Öffnen einlesen,
+                // damit die Auswahl den Homescreen widerspiegelt.
+                iconFarbe = AppIconFarbe.aktuell
+            }
             .fileImporter(isPresented: $showImporter, allowedContentTypes: [.json]) { result in
                 guard case .success(let url) = result else { return }
                 store.readBackup(from: url)
@@ -196,6 +229,57 @@ struct AppSettingsSheet: View {
         let formatter = ByteCountFormatter()
         formatter.countStyle = .file
         return formatter.string(fromByteCount: bytes)
+    }
+
+    /// Eine Farbe zur Wahl — Vorschau im selben Verlauf wie das echte Symbol.
+    private func iconKachel(_ farbe: AppIconFarbe) -> some View {
+        let gewaehlt = iconFarbe == farbe
+        let (von, bis) = farbe.verlauf
+        return Button {
+            Haptics.tap()
+            let vorher = iconFarbe
+            iconFarbe = farbe
+            farbe.anwenden { geklappt in
+                if !geklappt {
+                    iconFarbe = vorher
+                    store.showStatus("Das App-Symbol ließ sich nicht wechseln.")
+                }
+            }
+        } label: {
+            VStack(spacing: 6) {
+                RoundedRectangle(cornerRadius: 15, style: .continuous)
+                    .fill(LinearGradient(colors: [Color(hex: von), Color(hex: bis)],
+                                         startPoint: .topLeading, endPoint: .bottomTrailing))
+                    .frame(width: 64, height: 64)
+                    .overlay {
+                        // Andeutung des Motivs: helle Karte mit Ampelpunkten.
+                        HStack(spacing: 4) {
+                            Circle().stroke(Color(hex: "#1e293b"), lineWidth: 2.5)
+                                .frame(width: 17, height: 17)
+                            VStack(spacing: 2.5) {
+                                Circle().fill(Theme.danger).frame(width: 6, height: 6)
+                                Circle().fill(Theme.amber).frame(width: 6, height: 6)
+                                Circle().fill(Color(hex: "#22c55e")).frame(width: 6, height: 6)
+                            }
+                        }
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 6)
+                        .background {
+                            RoundedRectangle(cornerRadius: 7, style: .continuous)
+                                .fill(Color.white)
+                        }
+                    }
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 15, style: .continuous)
+                            .strokeBorder(gewaehlt ? Theme.accent : Color.primary.opacity(0.15),
+                                          lineWidth: gewaehlt ? 3 : 1)
+                    }
+                Text(farbe.title)
+                    .font(.system(size: 12, weight: gewaehlt ? .bold : .regular))
+                    .foregroundStyle(gewaehlt ? Theme.accent : .secondary)
+            }
+        }
+        .buttonStyle(.plain)
     }
 
     private var microphoneLabel: String {

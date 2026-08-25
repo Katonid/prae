@@ -149,7 +149,7 @@ jobs:
 
       - name: Herkunft und Lizenz festhalten
         run: |
-          cat > TafelbildiOS/Tafelbild/Schriften/README.md <<'MD'
+          cat > TafelbildiOS/Tafelbild/Schriften/Schriften-Lizenz.md <<'MD'
           # Schriften
 
           Dieselben Schriften wie in der Web-App „Klassenraum". Alle vier haben
@@ -186,7 +186,7 @@ jobs:
           git commit -m "Tafelbild: Schriftdateien mit dem runden a (SIL OFL)
 
           Geholt vom Arbeitsablauf 'Tafelbild-Schriften holen'. Herkunft und
-          Lizenz stehen in TafelbildiOS/Tafelbild/Schriften/README.md."
+          Lizenz stehen in TafelbildiOS/Tafelbild/Schriften/Schriften-Lizenz.md."
           # Ausdrücklich auf den Zweig, auf dem der Ablauf läuft — nach dem
           # Auschecken hängt HEAD sonst ohne Gegenstück am Server.
           git push origin HEAD:${{ github.ref_name }}
