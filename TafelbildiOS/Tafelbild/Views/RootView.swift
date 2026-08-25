@@ -14,6 +14,13 @@ struct RootView: View {
     /// Einstellungen, davon bekäme SwiftUI sonst nichts mit.
     @AppStorage(AppFont.speicherSchluessel) private var schriftWahl: AppFont = .lexend
 
+    /// Listenansicht ist eine bewusste Wahl, keine Automatik mehr. Vorgabe
+    /// ist überall die Tafel — am Telefon lässt sie sich zoomen und
+    /// verschieben (Web-App 1.6.3).
+    @AppStorage("stackModeManual") private var listenansicht = false
+    /// Elementleiste unten ausgeblendet? Bleibt gespeichert.
+    @AppStorage("dockHidden") private var leisteAus = false
+
     private var compact: Bool { horizontalSizeClass == .compact }
 
     /// Farbschema der aktiven Tafel — färbt auch die Bedienleiste.
@@ -28,7 +35,7 @@ struct RootView: View {
 
             if let board = store.activeBoard {
                 Group {
-                    if compact {
+                    if listenansicht {
                         BoardStackView(board: board)
                     } else {
                         BoardCanvasView(board: board)
@@ -47,14 +54,18 @@ struct RootView: View {
             }
 
             if store.editing && !store.presenting {
-                VStack {
+                VStack(spacing: 0) {
                     Spacer()
-                    WidgetDock { kind in
-                        if let board = store.activeBoard {
-                            store.addWidget(kind: kind, to: board.id)
+                    leisteSchalter
+                    if !leisteAus {
+                        WidgetDock { kind in
+                            if let board = store.activeBoard {
+                                store.addWidget(kind: kind, to: board.id)
+                            }
                         }
+                        .environment(\.boardStyle, style)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
                     }
-                    .environment(\.boardStyle, style)
                 }
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             }
@@ -254,6 +265,29 @@ struct RootView: View {
         }
         .padding(.horizontal, 14)
         .padding(.top, 10)
+    }
+
+    /// Schmaler Knopf über der Elementleiste: blendet sie weg — am Telefon
+    /// gewinnt die Tafel dadurch spürbar Platz. Ausgeblendet heißt er
+    /// „Elemente" und holt sie zurück (Wortlaut wie in der Web-App).
+    private var leisteSchalter: some View {
+        Button {
+            Haptics.tap()
+            withAnimation(.easeInOut(duration: 0.22)) { leisteAus.toggle() }
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: leisteAus ? "chevron.up" : "chevron.down")
+                    .font(.system(size: 10, weight: .bold))
+                Text(leisteAus ? "Elemente" : "Leiste")
+                    .font(Theme.font(12, weight: .semibold))
+            }
+            .foregroundStyle(.white.opacity(0.85))
+            .padding(.horizontal, 14)
+            .frame(height: 26)
+            .chromeGlass()
+        }
+        .buttonStyle(.plain)
+        .padding(.bottom, leisteAus ? 14 : 6)
     }
 
     /// Im Präsentationsmodus bleibt nur ein dezenter Knopf stehen.

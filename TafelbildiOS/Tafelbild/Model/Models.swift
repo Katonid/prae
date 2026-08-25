@@ -309,6 +309,8 @@ struct NamePickerContent: Codable, Equatable {
     /// Wann die Liste der gezogenen Namen zu sehen ist.
     var showDrawn: ShowRule = .always
     var animate: Bool = true
+    /// Klang, während die Namen durchlaufen.
+    var spinSound: SpinSound = .karten
     /// Wie ein gezogener Name sichtbar wird.
     var reveal: RevealMode = .mosaik
     /// Bereits aufgedeckte Teile des aktuellen Namens.
@@ -1087,7 +1089,8 @@ extension ChecklistContent {
 
 extension NamePickerContent {
     enum PickerKeys: String, CodingKey {
-        case listID, mode, drawnIDs, currentID, showHistory, showDrawn, animate, reveal, revealParts
+        case listID, mode, drawnIDs, currentID, showHistory, showDrawn, animate, spinSound,
+             reveal, revealParts
     }
 
     init(from decoder: Decoder) throws {
@@ -1101,6 +1104,7 @@ extension NamePickerContent {
         // Ältere Stände kannten nur den Schalter „Gezogene anzeigen".
         showDrawn = c.wert(.showDrawn, showHistory ? ShowRule.always : ShowRule.never)
         animate = c.wert(.animate, true)
+        spinSound = c.wert(.spinSound, SpinSound.karten)
         reveal = c.wert(.reveal, RevealMode.mosaik)
         revealParts = c.wert(.revealParts, [Int]())
     }

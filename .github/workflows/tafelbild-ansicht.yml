@@ -16,9 +16,16 @@ concurrency:
 
 jobs:
   ansicht:
-    name: Bildschirmfotos (iPad-Simulator)
+    name: Bildschirmfotos (${{ matrix.geraet }})
     runs-on: macos-latest
     timeout-minutes: 40
+    strategy:
+      # Beide Geräte, weil die App auf beiden anders aussieht: Am Telefon
+      # zeigt sie dieselbe Tafel, nur kleiner und zoombar. Ein Fehlschlag
+      # soll das andere Gerät nicht mitreißen.
+      fail-fast: false
+      matrix:
+        geraet: [iPad, iPhone]
 
     steps:
       - name: Quelltext holen
@@ -29,12 +36,13 @@ jobs:
       - name: Simulator wählen
         id: sim
         run: |
-          # Ein iPad aus den verfügbaren Geräten nehmen — welches genau,
-          # entscheidet der Läufer je nach installiertem Xcode.
-          UDID=$(xcrun simctl list devices available -j \
-            | python3 -c "import sys,json;d=json.load(sys.stdin)['devices'];print(next((x['udid'] for rt in d for x in d[rt] if 'iPad' in x['name']), ''))")
+          # Ein Gerät der gewünschten Art nehmen — welches genau, entscheidet
+          # der Läufer je nach installiertem Xcode.
+          ART="${{ matrix.geraet }}"
+          UDID=$(ART="$ART" xcrun simctl list devices available -j \
+            | ART="$ART" python3 -c "import sys,json,os;a=os.environ['ART'];d=json.load(sys.stdin)['devices'];print(next((x['udid'] for rt in d for x in d[rt] if a in x['name']), ''))")
           if [ -z "$UDID" ]; then
-            echo "Kein iPad-Simulator gefunden"; xcrun simctl list devices available; exit 1
+            echo "Kein $ART-Simulator gefunden"; xcrun simctl list devices available; exit 1
           fi
           echo "udid=$UDID" >> "$GITHUB_OUTPUT"
           xcrun simctl list devices available | grep "$UDID"
@@ -97,9 +105,9 @@ jobs:
             done
             return 0
           }
-          shot ansicht/01-tafel.png
+          shot "ansicht/01-${{ matrix.geraet }}.png"
           sleep 6
-          shot ansicht/02-tafel.png
+          shot "ansicht/02-${{ matrix.geraet }}.png"
 
       - name: Absturzberichte einsammeln
         if: always()
@@ -120,5 +128,5 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: tafelbild-ansicht
+          name: tafelbild-ansicht-${{ matrix.geraet }}
           path: ansicht/

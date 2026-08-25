@@ -619,12 +619,27 @@ private struct NamePickerSettings: View {
             Picker("Gezogene Namen zeigen", selection: $content.showDrawn) {
                 ForEach(ShowRule.allCases) { Text($0.title).tag($0) }
             }
-            Toggle("Ziehen animieren", isOn: $content.animate)
+            // Wortlaut wie im Web: Der Schalter steuert das Durchlaufen,
+            // nicht nur eine Verzierung.
+            Toggle("Namen durchlaufen lassen", isOn: $content.animate)
         } header: {
             Text("Anzeige")
         } footer: {
             Text("Bei „Beim Bearbeiten“ bleibt die Liste im Unterricht verborgen — "
-                 + "so lässt sich nicht ablesen, wer noch fehlt.")
+                 + "so lässt sich nicht ablesen, wer noch fehlt. Ohne Durchlaufen "
+                 + "steht der Name sofort da; dann gibt es auch keinen Klang.")
+        }
+
+        Section {
+            ForEach(SpinSound.allCases) { klang in
+                klangZeile(klang)
+            }
+        } header: {
+            Text("Klang beim Ziehen")
+        } footer: {
+            Text("Alle Klänge entstehen im Gerät — es wird nichts nachgeladen, "
+                 + "und sie funktionieren ohne Netz. Ein Tipp spielt den Klang "
+                 + "gleich zur Probe ab.")
         }
 
         Section {
@@ -665,6 +680,41 @@ private struct NamePickerSettings: View {
         } footer: {
             Text("Antippen schaltet um: So lässt sich jemand nachträglich als gezogen markieren oder wieder in den Topf legen.")
         }
+    }
+
+    /// Ein Ziehklang zur Auswahl. Der Tipp wählt ihn und spielt ihn gleich
+    /// zur Probe ab — hören ist hier aussagekräftiger als jede Beschreibung.
+    private func klangZeile(_ klang: SpinSound) -> some View {
+        let gewaehlt = content.spinSound == klang
+        return Button {
+            content.spinSound = klang
+            Haptics.tap()
+            Ziehklang.shared.probe(klang)
+        } label: {
+            HStack(spacing: 13) {
+                Image(systemName: klang.symbol)
+                    .font(.system(size: 17))
+                    .foregroundStyle(gewaehlt ? Theme.accent : .secondary)
+                    .frame(width: 26)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(klang.title)
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(.primary)
+                    Text(klang.hint)
+                        .font(.system(size: 13))
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 0)
+                if gewaehlt {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundStyle(Theme.accent)
+                }
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 }
 

@@ -9,26 +9,155 @@ struct BoardCanvasView: View {
     @EnvironmentObject private var store: BoardStore
     let board: Board
 
+    /// Ansicht der Tafel: 1 = ganze Tafel im Bild, größer = hineingezoomt.
+    /// Am Telefon ist das der Weg, überhaupt etwas erkennen zu können — die
+    /// Tafel ist 1600 Punkte breit. Die Werte bleiben gespeichert, wie im Web.
+    @AppStorage("boardZoom") private var zoom: Double = 1
+    @AppStorage("boardPanX") private var panX: Double = 0
+    @AppStorage("boardPanY") private var panY: Double = 0
+
+    /// Zwischenstände der laufenden Geste — Ziehen und Lupe liefern
+    /// Gesamtwerte, gebraucht wird die Änderung seit dem letzten Aufruf.
+    @State private var letzteVerschiebung: CGSize = .zero
+    @State private var letzteLupe: Double = 1
+
+    static let zoomMin = 1.0
+    static let zoomMax = 6.0
+
     private var style: BoardStyle { BoardStyle(board: board, editing: store.editing) }
 
     var body: some View {
         GeometryReader { geo in
-            let scale = min(geo.size.width / Layout.canvas.width,
-                            geo.size.height / Layout.canvas.height)
+            let passend = anpassung(geo)
+            let scale = passend * zoom
             ZStack {
+                // Hintergrund liegt unter allem: Was hier ankommt, hat kein
+                // Element getroffen — also die „freie Fläche" der Web-App.
                 BoardBackgroundView(background: board.background)
                     .ignoresSafeArea()
+                    .contentShape(Rectangle())
+                    .onTapGesture(count: 2) { ganzeTafel() }
+                    .onTapGesture {
+                        if store.editing { store.selectedWidgetID = nil }
+                    }
+                    .gesture(blickGeste(geo))
 
                 canvas(scale: scale)
+                    .offset(x: panX, y: panY)
+
+                if !store.presenting {
+                    blickKnoepfe(geo)
+                }
             }
             .frame(width: geo.size.width, height: geo.size.height)
-            .contentShape(Rectangle())
-            .onTapGesture {
-                if store.editing { store.selectedWidgetID = nil }
-            }
             .coordinateSpace(name: Self.space)
             .environment(\.boardStyle, style)
+            .onChange(of: geo.size) { _, _ in begrenze(geo) }
         }
+    }
+
+    // MARK: - Hineinzoomen und verschieben
+
+    /// Maßstab, bei dem die ganze Tafel ins Bild passt (Web: `fit`).
+    private func anpassung(_ geo: GeometryProxy) -> Double {
+        min(geo.size.width / Layout.canvas.width,
+            geo.size.height / Layout.canvas.height)
+    }
+
+    /// Ein Finger auf der freien Fläche verschiebt, zwei Finger zoomen.
+    private func blickGeste(_ geo: GeometryProxy) -> some Gesture {
+        let schieben = DragGesture()
+            .onChanged { wert in
+                panX += wert.translation.width - letzteVerschiebung.width
+                panY += wert.translation.height - letzteVerschiebung.height
+                letzteVerschiebung = wert.translation
+                begrenze(geo)
+            }
+            .onEnded { _ in letzteVerschiebung = .zero }
+
+        let lupe = MagnifyGesture()
+            .onChanged { wert in
+                let faktor = wert.magnification / letzteLupe
+                letzteLupe = wert.magnification
+                setzeZoom(zoom * faktor, anker: wert.startLocation, geo: geo)
+            }
+            .onEnded { _ in letzteLupe = 1 }
+
+        return schieben.simultaneously(with: lupe)
+    }
+
+    /// Zoomt auf einen Punkt zu, sodass die Stelle unter den Fingern
+    /// stehen bleibt (dieselbe Rechnung wie in `board.js`).
+    private func setzeZoom(_ gewuenscht: Double, anker: CGPoint?, geo: GeometryProxy) {
+        let neu = min(max(gewuenscht, Self.zoomMin), Self.zoomMax)
+        guard abs(neu - zoom) > 0.001 else { return }
+        if let anker {
+            let relX = anker.x - geo.size.width / 2 - panX
+            let relY = anker.y - geo.size.height / 2 - panY
+            let faktor = neu / zoom
+            panX -= relX * (faktor - 1)
+            panY -= relY * (faktor - 1)
+        }
+        zoom = neu
+        begrenze(geo)
+    }
+
+    /// Der Ausschnitt darf nicht über den Tafelrand hinauslaufen.
+    private func begrenze(_ geo: GeometryProxy) {
+        let scale = anpassung(geo) * zoom
+        let ueberX = max(0, (Layout.canvas.width * scale - geo.size.width) / 2)
+        let ueberY = max(0, (Layout.canvas.height * scale - geo.size.height) / 2)
+        panX = min(max(panX, -ueberX), ueberX)
+        panY = min(max(panY, -ueberY), ueberY)
+    }
+
+    /// Zurück auf „ganze Tafel im Bild".
+    private func ganzeTafel() {
+        withAnimation(.easeInOut(duration: 0.25)) {
+            zoom = 1
+            panX = 0
+            panY = 0
+        }
+        Haptics.tap()
+    }
+
+    private func blickKnoepfe(_ geo: GeometryProxy) -> some View {
+        VStack {
+            Spacer()
+            HStack {
+                HStack(spacing: 2) {
+                    blickKnopf("minus") {
+                        setzeZoom(zoom / 1.3, anker: nil, geo: geo)
+                    }
+                    .disabled(zoom <= Self.zoomMin + 0.001)
+                    blickKnopf("plus") {
+                        setzeZoom(zoom * 1.3, anker: nil, geo: geo)
+                    }
+                    .disabled(zoom >= Self.zoomMax - 0.001)
+                    if zoom > Self.zoomMin + 0.001 {
+                        blickKnopf("arrow.down.right.and.arrow.up.left") { ganzeTafel() }
+                    }
+                }
+                .chromeGlass(corner: 20)
+                Spacer()
+            }
+            .padding(.leading, 14)
+            .padding(.bottom, store.editing ? 118 : 16)
+        }
+        .animation(.easeInOut(duration: 0.2), value: zoom > Self.zoomMin + 0.001)
+    }
+
+    private func blickKnopf(_ symbol: String, _ aktion: @escaping () -> Void) -> some View {
+        Button {
+            Haptics.tap()
+            withAnimation(.easeInOut(duration: 0.18)) { aktion() }
+        } label: {
+            Image(systemName: symbol)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(.white)
+                .frame(width: 40, height: 38)
+        }
+        .buttonStyle(.plain)
     }
 
     private func canvas(scale: CGFloat) -> some View {

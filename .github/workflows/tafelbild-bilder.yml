@@ -7,15 +7,16 @@
 # Sie werden nach dem Ansehen wieder entfernt, der Ordner heißt deshalb
 # ausdrücklich „Arbeitsbilder".
 #
-# Startet, sobald diese Datei gepusht wird (von Hand geht erst, wenn sie auf
-# `main` liegt — so will es GitHub).
+# Von Hand zu starten: Actions → „Tafelbild-Bilder ablegen" → Run workflow,
+# und dort den Arbeitszweig wählen — niemals `main`.
+#
+# Ausdrücklich KEIN Push-Auslöser: Ein solcher lief beim Merge nach `main`
+# noch einmal los, weil sich die Datei dort ja ändert — und legte die
+# Arbeitsbilder im Hauptzweig ab.
 name: Tafelbild-Bilder ablegen
 
 on:
   workflow_dispatch:
-  push:
-    paths:
-      - '.github/workflows/tafelbild-bilder.yml'
 
 permissions:
   contents: write
@@ -63,7 +64,11 @@ jobs:
               breite = 1600
               hoehe = round(bild.height * breite / bild.width)
               bild = bild.resize((breite, hoehe), Image.LANCZOS)
-              name = os.path.splitext(os.path.basename(pfad))[0] + ".jpg"
+              # Ordnername mitnehmen: Beide Geraete liefern gleich heissende
+              # Dateien, sonst ueberschriebe eines das andere.
+              ordner = os.path.basename(os.path.dirname(pfad))
+              kurz = ordner.replace("tafelbild-ansicht-", "")
+              name = f"{kurz}-{os.path.splitext(os.path.basename(pfad))[0]}.jpg"
               ziel = os.path.join(ZIEL, name)
               bild.save(ziel, "JPEG", quality=82, optimize=True)
               print(f"{ziel}  {os.path.getsize(ziel)//1024} kB")
