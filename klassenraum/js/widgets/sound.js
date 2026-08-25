@@ -47,6 +47,19 @@ export default {
       render();
     });
 
+    // Fortschrittsbalken auf der spielenden Taste — so ist zu sehen,
+    // wann die Datei endet.
+    function updateProgress() {
+      const bar = grid.querySelector('.w-sound__button.is-playing .w-sound__progress-bar');
+      if (!bar) return;
+      const duration = player.duration;
+      const known = Number.isFinite(duration) && duration > 0;
+      bar.parentElement.classList.toggle('is-hidden', !known);
+      if (known) bar.style.width = `${Math.min(100, (player.currentTime / duration) * 100)}%`;
+    }
+    player.addEventListener('timeupdate', updateProgress);
+    player.addEventListener('durationchange', updateProgress);
+
     async function play(entry) {
       const state = ctx.widget.state;
       if (playingId === entry.id) {
@@ -96,8 +109,10 @@ export default {
         active || !entry.icon
           ? h('span', { class: 'w-sound__icon', html: icon(active ? 'pause' : 'play', 20) })
           : h('span', { class: 'w-sound__emoji' }, entry.icon),
-        h('span', { class: 'w-sound__label' }, h('span', { class: 'w-sound__text' }, entry.label || 'Klang'))), () => play(entry)));
+        h('span', { class: 'w-sound__label' }, h('span', { class: 'w-sound__text' }, entry.label || 'Klang')),
+        active ? h('span', { class: 'w-sound__progress' }, h('span', { class: 'w-sound__progress-bar' })) : null), () => play(entry)));
       }
+      updateProgress();
       // Direkt und noch einmal nach dem Layout — beim ersten Aufbau ist die
       // Breite noch 0, erst danach lässt sich messen.
       fitWidth();

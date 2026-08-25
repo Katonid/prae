@@ -1,11 +1,36 @@
 // Timer und Stoppuhr — mit einem Tipp gestartet, Voreinstellungen für den Unterricht.
 
-import { h, clear, formatDuration, chime, beep } from '../util.js';
-import { section, toggleRow, button, buttonRow, field } from '../ui.js';
+import { h, clear, formatDuration, beep } from '../util.js';
+import { section, toggleRow, button, buttonRow, field, toast } from '../ui.js';
 import { accentPair } from '../theme.js';
 import { getActiveBoard } from '../store.js';
+import { END_SOUNDS, endSoundById, playEndSound } from '../sfx.js';
+import { mediaUrl, pickMedia, removeMedia, formatSize, looksLike } from '../media.js';
 
 const PRESETS = [1, 2, 3, 5, 10, 15, 20, 30, 45];
+
+// Ein gemeinsamer Abspieler für eigene Abschlussklänge — es klingelt ohnehin
+// immer nur ein Timer auf einmal aus.
+const endPlayer = typeof Audio !== 'undefined' ? new Audio() : null;
+
+/** Abschlussklang des Timers abspielen: eigene Datei oder erzeugter Klang. */
+async function playEndFor(state) {
+  if (state.endSound === 'datei' && state.mediaId && endPlayer) {
+    try {
+      const source = await mediaUrl({ mediaId: state.mediaId });
+      if (source) {
+        endPlayer.src = source;
+        endPlayer.currentTime = 0;
+        await endPlayer.play();
+        return;
+      }
+    } catch (_) { /* dann eben der erzeugte Klang */ }
+    // Datei (noch) nicht auf diesem Gerät — der vertraute Klang springt ein.
+    playEndSound('dreiklang');
+    return;
+  }
+  playEndSound(state.endSound);
+}
 
 export default {
   type: 'timer',
@@ -24,6 +49,9 @@ export default {
       elapsed: 0,
       startedAt: null,
       sound: true,
+      endSound: 'dreiklang',
+      mediaId: null,
+      fileName: '',
       label: '',
     };
   },
@@ -166,7 +194,7 @@ export default {
           state.endsAt = null;
           alarmed = true;
           ctx.save();
-          if (state.sound !== false) chime(4);
+          if (state.sound !== false) playEndFor(state);
           el.classList.add('is-flash');
           setTimeout(() => el.classList.remove('is-flash'), 4000);
         }
@@ -367,6 +395,65 @@ export default {
           h('p', { class: 'muted small' }, 'Geht auch, während der Timer läuft.')));
       }
 
+      if (state.mode !== 'stopwatch') {
+        const chosen = state.endSound === 'datei' ? 'datei' : endSoundById(state.endSound).id;
+        wrap.appendChild(section('Klang am Ende',
+          toggleRow('Signalton am Ende', state.sound !== false, (value) => {
+            ctx.widget.state.sound = value;
+            ctx.save();
+            rerender();
+          }),
+          state.sound === false ? null : h('div', { class: 'chips' },
+            END_SOUNDS.map((entry) => h('button', {
+              class: 'chip' + (chosen === entry.id ? ' is-active' : ''),
+              onclick: () => {
+                ctx.widget.state.endSound = entry.id;
+                ctx.save();
+                // Direkt zum Anhören — so lässt sich vergleichen.
+                playEndSound(entry.id);
+                rerender();
+              },
+            }, entry.label)),
+            h('button', {
+              class: 'chip' + (chosen === 'datei' ? ' is-active' : ''),
+              onclick: () => {
+                ctx.widget.state.endSound = 'datei';
+                ctx.save();
+                if (ctx.widget.state.mediaId) playEndFor(ctx.widget.state);
+                rerender();
+              },
+            }, 'Eigene Datei')),
+          state.sound === false ? null : h('p', { class: 'muted small' },
+            chosen === 'datei'
+              ? 'Eine eigene Klangdatei vom Gerät — sie wandert beim Abgleich mit (bis 25 MB). Zum Anhören auf die Auswahl tippen.'
+              : `${endSoundById(chosen).hint} Wird im Gerät erzeugt und funktioniert offline. Zum Anhören auf die Auswahl tippen.`),
+          state.sound === false || chosen !== 'datei' ? null : h('div', { class: 'stack' },
+            h('p', { class: 'muted small' }, state.fileName
+              ? `Datei: ${state.fileName}`
+              : 'Noch keine Datei ausgewählt — bis dahin erklingt der Dreiklang.'),
+            buttonRow(button(state.mediaId ? 'Andere Datei' : 'Klangdatei wählen', {
+              icon: 'upload', small: true, primary: !state.mediaId,
+              onClick: async () => {
+                const result = await pickMedia();
+                if (!result) return;
+                if (result.error === 'ZU_GROSS') {
+                  toast('Die Datei ist zu groß (mehr als 60 MB).', 'warn');
+                  return;
+                }
+                if (!looksLike('audio', result.file)) {
+                  toast('Das sieht nicht nach einer Klangdatei aus — falls sie stumm bleibt, bitte eine MP3 oder M4A wählen.', 'warn');
+                }
+                const next = ctx.widget.state;
+                if (next.mediaId) await removeMedia(next.mediaId);
+                next.mediaId = result.id;
+                next.fileName = `${result.name} · ${formatSize(result.size)}`;
+                ctx.save();
+                playEndFor(next);
+                rerender();
+              },
+            })))));
+      }
+
       wrap.appendChild(section('Weiteres',
         field('Beschriftung', h('input', {
           class: 'input', type: 'text', value: state.label || '', placeholder: 'z. B. Stillarbeit',
@@ -375,12 +462,7 @@ export default {
             ctx.save();
             ctx.refresh();
           },
-        })),
-        toggleRow('Signalton am Ende', state.sound !== false, (value) => {
-          ctx.widget.state.sound = value;
-          ctx.save();
-        }),
-        buttonRow(button('Ton testen', { small: true, icon: 'play', onClick: () => chime(2) }))));
+        }))));
     }
 
     build();
