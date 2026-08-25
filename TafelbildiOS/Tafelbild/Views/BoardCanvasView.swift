@@ -61,7 +61,7 @@ struct BoardCanvasView: View {
                 }
 
                 if !store.presenting {
-                    blickKnoepfe(geo)
+                    blickKnoepfe
                 }
             }
             .frame(width: geo.size.width, height: geo.size.height)
@@ -136,43 +136,41 @@ struct BoardCanvasView: View {
         Haptics.tap()
     }
 
-    private func blickKnoepfe(_ geo: GeometryProxy) -> some View {
+    /// Nur noch ein Knopf, und nur solange hineingezoomt ist: der Weg zurück
+    /// zur ganzen Tafel. Vergrößert und verschoben wird mit den Fingern — die
+    /// Knöpfe −/+ sind entfallen. Ganz ohne Knopf sollte es aber nicht sein:
+    /// Wer versehentlich hineinzoomt, sieht sonst nur einen Ausschnitt und
+    /// muss das Doppeltippen erst kennen. Sichtbar ist er nur dann, wenn er
+    /// gebraucht wird.
+    private var blickKnoepfe: some View {
         VStack {
             Spacer()
             HStack {
-                HStack(spacing: 2) {
-                    blickKnopf("minus") {
-                        setzeZoom(zoom / 1.3, anker: nil, geo: geo)
+                if zoom > Self.zoomMin + 0.001 {
+                    Button {
+                        Haptics.tap()
+                        ganzeTafel()
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: "arrow.down.right.and.arrow.up.left")
+                                .font(.system(size: 13, weight: .semibold))
+                            Text("Ganze Tafel")
+                                .font(Theme.font(13, weight: .semibold))
+                        }
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 14)
+                        .frame(height: 34)
+                        .chromeGlass()
                     }
-                    .disabled(zoom <= Self.zoomMin + 0.001)
-                    blickKnopf("plus") {
-                        setzeZoom(zoom * 1.3, anker: nil, geo: geo)
-                    }
-                    .disabled(zoom >= Self.zoomMax - 0.001)
-                    if zoom > Self.zoomMin + 0.001 {
-                        blickKnopf("arrow.down.right.and.arrow.up.left") { ganzeTafel() }
-                    }
+                    .buttonStyle(.plain)
+                    .transition(.opacity.combined(with: .scale))
                 }
-                .chromeGlass(corner: 20)
                 Spacer()
             }
             .padding(.leading, 14)
             .padding(.bottom, store.editing ? 118 : 16)
         }
         .animation(.easeInOut(duration: 0.2), value: zoom > Self.zoomMin + 0.001)
-    }
-
-    private func blickKnopf(_ symbol: String, _ aktion: @escaping () -> Void) -> some View {
-        Button {
-            Haptics.tap()
-            withAnimation(.easeInOut(duration: 0.18)) { aktion() }
-        } label: {
-            Image(systemName: symbol)
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(.white)
-                .frame(width: 40, height: 38)
-        }
-        .buttonStyle(.plain)
     }
 
     private func canvas(scale: CGFloat) -> some View {
@@ -185,7 +183,7 @@ struct BoardCanvasView: View {
                     .frame(width: Layout.canvas.width, height: Layout.canvas.height)
             }
 
-            ForEach(board.sortedWidgets) { widget in
+            ForEach(board.widgets(auf: sichtbareSeite)) { widget in
                 WidgetHostView(boardID: board.id, widget: widget, scale: scale,
                                frames: board.frames)
                     .offset(x: widget.x, y: widget.y)
@@ -212,19 +210,28 @@ struct BoardCanvasView: View {
     private var schmal: Bool { horizontalSizeClass == .compact }
 
     private var selectedWidget: BoardWidget? {
-        guard let id = store.selectedWidgetID else { return nil }
-        return board.widgets.first { $0.id == id }
+        guard let id = store.selectedWidgetID,
+              let treffer = board.widgets.first(where: { $0.id == id }),
+              board.liegtAuf(treffer, seite: sichtbareSeite)
+        else { return nil }
+        return treffer
+    }
+
+    /// Welche Seite gerade zu sehen ist. Kennt die Tafel die gespeicherte
+    /// Seite nicht (etwa direkt nach einem Tafelwechsel), gilt die erste.
+    private var sichtbareSeite: String {
+        board.seiten.contains { $0.id == store.aktiveSeitenID }
+            ? store.aktiveSeitenID : board.ersteSeitenID
     }
 
     /// Handschrift immer aus dem Speicher lesen — sonst überschriebe ein
-    /// Strich einen Stand, der eben aus iCloud gekommen ist.
+    /// Strich einen Stand, der eben aus iCloud gekommen ist. Sie gehört zur
+    /// Seite, nicht zur ganzen Tafel.
     private var drawingBinding: Binding<String> {
         Binding(
-            get: { store.board(board.id)?.drawing ?? "" },
+            get: { store.board(board.id)?.handschrift(auf: sichtbareSeite) ?? "" },
             set: { value in
-                guard var updated = store.board(board.id), updated.drawing != value else { return }
-                updated.drawing = value
-                store.updateBoard(updated)
+                store.setzeHandschrift(value, seite: sichtbareSeite, boardID: board.id)
             }
         )
     }
@@ -516,6 +523,12 @@ struct BoardStackView: View {
 
     private var style: BoardStyle { BoardStyle(board: board, editing: store.editing) }
 
+    /// Auch die Liste zeigt nur die Elemente der sichtbaren Seite.
+    private var sichtbareSeite: String {
+        board.seiten.contains { $0.id == store.aktiveSeitenID }
+            ? store.aktiveSeitenID : board.ersteSeitenID
+    }
+
     var body: some View {
         ZStack {
             BoardBackgroundView(background: board.background)
@@ -525,7 +538,7 @@ struct BoardStackView: View {
                 let width = geo.size.width - 24
                 ScrollView {
                     VStack(spacing: 16) {
-                        ForEach(board.sortedWidgets) { widget in
+                        ForEach(board.widgets(auf: sichtbareSeite)) { widget in
                             let scale = width / CGFloat(widget.width)
                             VStack(spacing: 6) {
                                 if store.editing {

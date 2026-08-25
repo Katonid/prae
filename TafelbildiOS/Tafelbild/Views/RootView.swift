@@ -42,6 +42,8 @@ struct RootView: View {
                     }
                 }
                 .id(board.id)
+                .onAppear { store.stelleSeiteAufAnfang(board) }
+                .onChange(of: board.id) { _, _ in store.stelleSeiteAufAnfang(board) }
             } else {
                 EmptyBoardView(onCreate: { store.createBoard() }, onJoin: { sheet = .boards })
             }
@@ -51,6 +53,20 @@ struct RootView: View {
             } else {
                 topBar
                     .transition(.move(edge: .top).combined(with: .opacity))
+            }
+
+            // Seitenwechsler: auch im Unterricht erreichbar — zwischen den
+            // Seiten wird ja gerade dann gewechselt. Nur im
+            // Präsentationsmodus ist alles weg.
+            if !store.presenting, let board = store.activeBoard,
+               board.hatMehrereSeiten || store.editing {
+                VStack {
+                    Spacer()
+                    seitenWechsler(board)
+                        .padding(.bottom, store.editing
+                                 ? (leisteAus ? 60 : 152) : 16)
+                }
+                .transition(.opacity)
             }
 
             if store.editing && !store.presenting {
@@ -99,6 +115,10 @@ struct RootView: View {
             case .share:
                 if let board = store.activeBoard {
                     ShareSheet(boardID: board.id)
+                }
+            case .seiten:
+                if let board = store.activeBoard {
+                    SeitenSheet(boardID: board.id)
                 }
             case .settings:
                 AppSettingsSheet()
@@ -173,15 +193,12 @@ struct RootView: View {
 
             Spacer(minLength: 0)
 
+            // „Listen" und „Teilen" sind ins Menü gewandert: Beides braucht
+            // man beim Einrichten, nicht im Unterricht. Die Kopfleiste bleibt
+            // dadurch für das frei, was während der Stunde zählt.
             if !compact {
-                ChromeButton(systemImage: "list.bullet.rectangle.portrait", title: "Listen") {
-                    sheet = .nameLists
-                }
                 ChromeButton(systemImage: "paintbrush", title: "Aussehen") {
                     sheet = .boardSettings
-                }
-                ChromeButton(systemImage: "square.and.arrow.up", title: "Teilen") {
-                    sheet = .share
                 }
             }
 
@@ -217,23 +234,28 @@ struct RootView: View {
             }
 
             Menu {
+                Button {
+                    sheet = .nameLists
+                } label: {
+                    Label("Namenslisten", systemImage: "list.bullet.rectangle.portrait")
+                }
+                Button {
+                    sheet = .share
+                } label: {
+                    Label("Tafel teilen", systemImage: "square.and.arrow.up")
+                }
                 if compact {
-                    Button {
-                        sheet = .nameLists
-                    } label: {
-                        Label("Namenslisten", systemImage: "list.bullet.rectangle.portrait")
-                    }
                     Button {
                         sheet = .boardSettings
                     } label: {
                         Label("Aussehen", systemImage: "paintbrush")
                     }
-                    Button {
-                        sheet = .share
-                    } label: {
-                        Label("Tafel teilen", systemImage: "square.and.arrow.up")
-                    }
-                    Divider()
+                }
+                Divider()
+                Button {
+                    sheet = .seiten
+                } label: {
+                    Label("Seiten verwalten", systemImage: "doc.on.doc")
                 }
                 Button {
                     sheet = .addWidget
@@ -265,6 +287,58 @@ struct RootView: View {
         }
         .padding(.horizontal, 14)
         .padding(.top, 10)
+    }
+
+    /// Reihe der Seiten. Ein Tipp wechselt, „+" legt eine an (nur beim
+    /// Bearbeiten), langes Drücken öffnet die Verwaltung.
+    private func seitenWechsler(_ board: Board) -> some View {
+        let seiten = board.seiten
+        let aktiv = seiten.contains { $0.id == store.aktiveSeitenID }
+            ? store.aktiveSeitenID : board.ersteSeitenID
+        return HStack(spacing: 4) {
+            ForEach(Array(seiten.enumerated()), id: \.element.id) { paar in
+                let seite = paar.element
+                let gewaehlt = seite.id == aktiv
+                Button {
+                    store.zeigeSeite(seite.id)
+                } label: {
+                    Text(board.seitenName(seite.id))
+                        .font(Theme.font(13, weight: gewaehlt ? .bold : .semibold))
+                        .foregroundStyle(gewaehlt ? Color.white : .white.opacity(0.6))
+                        .lineLimit(1)
+                        .padding(.horizontal, 13)
+                        .frame(height: 32)
+                        .background {
+                            if gewaehlt {
+                                Capsule().fill(style.accentGradient)
+                            }
+                        }
+                }
+                .buttonStyle(.plain)
+            }
+
+            if store.editing {
+                Button {
+                    Haptics.tap()
+                    store.seiteAnlegen(boardID: board.id)
+                } label: {
+                    Image(systemName: "plus")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(.white.opacity(0.8))
+                        .frame(width: 34, height: 32)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 4)
+        .chromeGlass()
+        .contextMenu {
+            Button {
+                sheet = .seiten
+            } label: {
+                Label("Seiten verwalten", systemImage: "doc.on.doc")
+            }
+        }
     }
 
     /// Schmaler Knopf über der Elementleiste: blendet sie weg — am Telefon
@@ -325,7 +399,7 @@ struct RootView: View {
 
 /// Blätter der Hauptansicht.
 enum RootSheet: String, Identifiable {
-    case boards, addWidget, boardSettings, nameLists, share, settings, diagnose
+    case boards, addWidget, boardSettings, nameLists, share, seiten, settings, diagnose
     var id: String { rawValue }
 }
 
