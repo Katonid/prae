@@ -143,6 +143,7 @@ export default {
     let spinTimer = null;
     let spinning = false;
     let armed = false;
+    let unveilTimer = 0;
     // Zum Ausmessen der Schriftbreite (für das Spreizen verdeckter Namen).
     const meter = document.createElement('canvas').getContext('2d');
 
@@ -284,6 +285,28 @@ export default {
       nameEl.style.letterSpacing = `${extra.toFixed(1)}px`;
     }
 
+    /**
+     * Gürtel und Hosenträger gegen jedes Aufblitzen: Ein frisch verdeckter Name
+     * wird zunächst unsichtbar eingesetzt und erst zwei Bildaufbauten NACH der
+     * Maske sichtbar gemacht. Selbst wenn ein Browser Maske und Text nicht im
+     * selben Bild zeichnet, steht der Name nie unbedeckt da.
+     */
+    function shieldName(covered) {
+      if (unveilTimer) window.cancelAnimationFrame(unveilTimer);
+      unveilTimer = 0;
+      if (!covered) {
+        nameEl.style.visibility = '';
+        return;
+      }
+      nameEl.style.visibility = 'hidden';
+      unveilTimer = window.requestAnimationFrame(() => {
+        unveilTimer = window.requestAnimationFrame(() => {
+          nameEl.style.visibility = '';
+          unveilTimer = 0;
+        });
+      });
+    }
+
     function renderMask(state, name, hidden) {
       const mode = revealMode(state);
       nameEl.style.filter = '';
@@ -348,6 +371,7 @@ export default {
       }
       fitName();
       renderMask(state, name, hidden);
+      shieldName(hidden && mode !== 'letters');
 
       if (all.length === 0) {
         hintEl.textContent = 'Einstellungen öffnen und Namen eintragen.';
@@ -425,6 +449,7 @@ export default {
       },
       destroy() {
         stopSpin();
+        if (unveilTimer) window.cancelAnimationFrame(unveilTimer);
         off();
       },
     };
