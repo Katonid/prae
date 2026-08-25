@@ -28,6 +28,16 @@ struct BoardCanvasView: View {
     static let zoomMin = 1.0
     static let zoomMax = 6.0
 
+    /// Ab welcher Bildschirmkante ein Element Eck-Anfasser bekommt.
+    ///
+    /// Am Telefon steckt die ganze Tafel (1600 Punkte breit) in gut 390 —
+    /// ein Element ist dann kleiner als die Griffe, die es fassen sollen.
+    /// Deshalb erscheinen sie erst, wenn wirklich Platz ist: 110 Punkte
+    /// lassen neben zwei Griffen (je 38) noch Luft. Beim Hineinzoomen sind
+    /// sie dann da; unabhängig davon lässt sich jedes Element jederzeit mit
+    /// zwei Fingern aufziehen.
+    static let anfasserPlatz: Double = 110
+
     private var style: BoardStyle { BoardStyle(board: board, editing: store.editing) }
 
     var body: some View {
@@ -197,9 +207,12 @@ struct BoardCanvasView: View {
                 .allowsHitTesting(store.drawing)
 
             // Auf breiten Bildschirmen schwebt die Leiste über dem Element;
-            // am Telefon liegt sie stattdessen unten (siehe oben).
-            if store.editing, !schmal, let selected = selectedWidget {
-                SelectionChrome(boardID: board.id, widget: selected, scale: scale)
+            // am Telefon liegt sie stattdessen unten (siehe oben) — dort
+            // bleiben hier nur die Eck-Anfasser.
+            if store.editing, let selected = selectedWidget {
+                SelectionChrome(boardID: board.id, widget: selected, scale: scale,
+                                nurAnfasser: schmal,
+                                mindestKante: schmal ? Self.anfasserPlatz : 0)
             }
         }
         .frame(width: Layout.canvas.width, height: Layout.canvas.height, alignment: .topLeading)
@@ -247,8 +260,13 @@ private struct SelectionChrome: View {
     /// Am Telefon sitzt die Leiste fest am unteren Bildschirmrand statt über
     /// dem Element — frei schwebend verdeckte sie dort halbe Tafeln
     /// (Web-App 1.6.4: `.selection-toolbar.is-docked`). Angedockt entfallen
-    /// auch die Eck-Anfasser; sie wären größer als halbe Elemente.
+    /// auch die Eck-Anfasser; die zeichnet dann die Tafel selbst.
     var angedockt: Bool = false
+    /// Gegenstück dazu: nur die Anfasser, ohne Leiste — für das Telefon,
+    /// wo die Leiste unten klebt, die Griffe aber am Element sitzen müssen.
+    var nurAnfasser: Bool = false
+    /// Kleinste Bildschirmkante, ab der Anfasser gezeigt werden (0 = immer).
+    var mindestKante: Double = 0
 
     @State private var resizeStart: CGRect?
 
@@ -277,11 +295,13 @@ private struct SelectionChrome: View {
             toolbar
         } else {
             ZStack {
-                toolbar
-                    .scaleEffect(1 / scale)
-                    .position(x: toolbarX, y: toolbarY)
+                if !nurAnfasser {
+                    toolbar
+                        .scaleEffect(1 / scale)
+                        .position(x: toolbarX, y: toolbarY)
+                }
 
-                if !widget.locked {
+                if !widget.locked, anfasserPassen {
                     ForEach(Array(Corner.allCases.enumerated()), id: \.offset) { item in
                         handle(item.element)
                             .scaleEffect(1 / scale)
@@ -291,6 +311,15 @@ private struct SelectionChrome: View {
             }
             .frame(width: Layout.canvas.width, height: Layout.canvas.height)
         }
+    }
+
+    /// Passen die Griffe an das Element, ohne es zu verdecken? Gemessen wird
+    /// die Kante auf dem Bildschirm, nicht auf der Tafel — beim Hineinzoomen
+    /// wird ein Element größer, ohne dass sich sein Maß ändert.
+    private var anfasserPassen: Bool {
+        guard mindestKante > 0 else { return true }
+        return widget.width * factor >= mindestKante
+            && widget.height * factor >= mindestKante
     }
 
     private func cornerX(_ corner: Corner) -> Double {
