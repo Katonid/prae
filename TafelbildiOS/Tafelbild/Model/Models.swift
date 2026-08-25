@@ -229,7 +229,17 @@ struct TimerContent: Codable, Equatable {
     var pausedValue: Double? = nil
     var soundOnEnd: Bool = true
     var accentHex: String = "#2dd4bf"
+    /// Alte Einstellung „Bedienknöpfe zeigen“. Wird nicht mehr gelesen;
+    /// sie stand bei allen auf „an“, weil das die Vorgabe war.
     var showControls: Bool = true
+    /// Die vier runden Knöpfe unter dem Ring.
+    ///
+    /// Standardmäßig aus: Ein Timer wird angetippt (Tipp = Start und Pause,
+    /// Doppeltipp = zurücksetzen, langes Drücken = Dauer). Die Knöpfe
+    /// nahmen dem Ring Platz weg, ohne etwas zu können, was der Tipp nicht
+    /// kann. Bewusst ein NEUES Feld: So heißt „nicht gesetzt“ auch wirklich
+    /// „nie ausgewählt“ — der alte Wert war nie eine Entscheidung.
+    var knoepfe: Bool = false
 
     enum TimerMode: String, Codable, CaseIterable, Identifiable {
         case countdown, stopwatch
@@ -1112,7 +1122,10 @@ extension ClockContent {
 }
 
 extension TimerContent {
-    enum TimerKeys: String, CodingKey { case mode, duration, endsAtMs, startedAtMs, pausedValue, soundOnEnd, accentHex, showControls }
+    enum TimerKeys: String, CodingKey {
+        case mode, duration, endsAtMs, startedAtMs, pausedValue, soundOnEnd, accentHex
+        case showControls, knoepfe
+    }
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: TimerKeys.self)
@@ -1124,7 +1137,10 @@ extension TimerContent {
         pausedValue = c.optional(.pausedValue, Double.self)
         soundOnEnd = c.wert(.soundOnEnd, true)
         accentHex = c.wert(.accentHex, "#2dd4bf")
+        // Stand dort noch der alte Vorgabewert „an", gilt die neue Vorgabe:
+        // Diese Knöpfe hatte nie jemand ausgewählt, sie waren nur da.
         showControls = c.wert(.showControls, true)
+        knoepfe = c.wert(.knoepfe, false)
     }
 }
 

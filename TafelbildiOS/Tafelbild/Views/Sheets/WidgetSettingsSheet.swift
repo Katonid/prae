@@ -390,7 +390,7 @@ private struct TimerSettings: View {
             }
 
             Toggle("Signal am Ende", isOn: $content.soundOnEnd)
-            Toggle("Bedienknöpfe zeigen", isOn: $content.showControls)
+            Toggle("Bedienknöpfe zeigen", isOn: $content.knoepfe)
         }
         .onAppear {
             minutes = Int(content.duration) / 60

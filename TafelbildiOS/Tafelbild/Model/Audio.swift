@@ -277,6 +277,37 @@ final class SoundPlayer: NSObject, ObservableObject {
         playingIDs.insert(id)
     }
 
+    /// Wie weit ist das Feld durchgelaufen? 0 … 1.
+    ///
+    /// nil, solange nichts läuft oder die Länge nicht feststeht — bei einem
+    /// Klang aus dem Netz weiß man sie erst, wenn genug geladen ist.
+    func fortschritt(_ buttonID: String) -> Double? {
+        if let spieler = players[buttonID] {
+            guard spieler.duration > 0 else { return nil }
+            return min(1, max(0, spieler.currentTime / spieler.duration))
+        }
+        if let strom = streams[buttonID], let stueck = strom.currentItem {
+            let dauer = stueck.duration.seconds
+            guard dauer.isFinite, dauer > 0 else { return nil }
+            return min(1, max(0, stueck.currentTime().seconds / dauer))
+        }
+        return nil
+    }
+
+    /// Wie lange läuft es noch? In Sekunden.
+    func restzeit(_ buttonID: String) -> Double? {
+        if let spieler = players[buttonID] {
+            guard spieler.duration > 0 else { return nil }
+            return max(0, spieler.duration - spieler.currentTime)
+        }
+        if let strom = streams[buttonID], let stueck = strom.currentItem {
+            let dauer = stueck.duration.seconds
+            guard dauer.isFinite, dauer > 0 else { return nil }
+            return max(0, dauer - stueck.currentTime().seconds)
+        }
+        return nil
+    }
+
     func stop(buttonID: String) {
         players[buttonID]?.stop()
         players[buttonID] = nil

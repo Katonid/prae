@@ -175,6 +175,16 @@ struct NamePickerWidgetView: View {
                 }
         }
         .frame(maxWidth: .infinity)
+        // Jeder gezogene Name bekommt eine eigene Identität.
+        //
+        // Sonst blendet SwiftUI die Verdeckung ein: Unschärfe und Mosaik
+        // hängen an der Zahl der aufgedeckten Teile, und die springt beim
+        // Ziehen von „alles aufgedeckt" auf „nichts aufgedeckt". Das ist
+        // eine Wertänderung wie jede andere — also lief die Bewegung
+        // rückwärts ab, und der neue Name stand für eine Viertelsekunde
+        // scharf und offen da. Mit neuer Identität beginnt die Ansicht
+        // beim Zielzustand: verdeckt ab dem ersten Bild.
+        .id(content.currentID ?? "leer")
     }
 
     /// Feines Kachelraster über dem Namen — jede Kachel verschwindet einzeln.
@@ -436,14 +446,30 @@ struct NamePickerWidgetView: View {
         // nicht mehr ein Ton je Schritt. Beide dauern 1,72 s, also endet er
         // genau dann, wenn der Name steht.
         Ziehklang.shared.starte(content.spinSound)
+        // Im Durchlauf erscheint jeder Name AUSSER dem gezogenen.
+        //
+        // Vorher wurde blind aus allen gewürfelt — mal stand der Gewinner
+        // mittendrin, mal ausgerechnet zuletzt, und dann war die Ziehung
+        // verraten, bevor sie zu Ende war. Auch zweimal derselbe Name
+        // hintereinander sieht aus, als hinge das Bild.
+        let kandidaten = entries.filter { $0.id != winner.id }
         Task { @MainActor in
+            var vorher: String?
             for stufe in 0..<ZiehLauf.schritte {
-                spinText = entries.randomElement()?.text ?? winner.text
+                spinText = naechsterDurchlauf(kandidaten, ausser: vorher) ?? winner.text
+                vorher = spinText
                 try? await Task.sleep(for: .seconds(ZiehLauf.pause(schritt: stufe)))
             }
             spinText = nil
             commit(winner)
         }
+    }
+
+    /// Ein Name für den Durchlauf — nicht derselbe wie eben.
+    private func naechsterDurchlauf(_ kandidaten: [NameEntry], ausser vorher: String?) -> String? {
+        guard !kandidaten.isEmpty else { return nil }
+        let frei = kandidaten.filter { $0.text != vorher }
+        return (frei.isEmpty ? kandidaten : frei).randomElement()?.text
     }
 
     private func commit(_ entry: NameEntry) {

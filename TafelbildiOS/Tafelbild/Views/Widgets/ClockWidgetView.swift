@@ -23,20 +23,20 @@ struct ClockWidgetView: View {
                 case .analog:
                     VStack(spacing: 6) {
                         analogFace(date: context.date, side: faceSide(in: size, share: 1.0))
-                        if content.showDate && style.showLabels { dateLine(context.date, size: size) }
+                        if content.showDate { dateLine(context.date, size: size) }
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 case .digital:
                     VStack(spacing: 6) {
                         digitalTime(context.date, size: size)
-                        if content.showDate && style.showLabels { dateLine(context.date, size: size) }
+                        if content.showDate { dateLine(context.date, size: size) }
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 case .both:
                     VStack(spacing: 6) {
                         analogFace(date: context.date, side: faceSide(in: size, share: 0.62))
                         digitalTime(context.date, size: size, scale: 0.55)
-                        if content.showDate && style.showLabels { dateLine(context.date, size: size) }
+                        if content.showDate { dateLine(context.date, size: size) }
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
@@ -46,7 +46,7 @@ struct ClockWidgetView: View {
     }
 
     private func faceSide(in size: CGSize, share: CGFloat) -> CGFloat {
-        let height = (content.showDate && style.showLabels) ? size.height - 46 : size.height
+        let height = content.showDate ? size.height - 46 : size.height
         return max(60, min(size.width, height * share))
     }
 
@@ -207,6 +207,12 @@ struct ClockWidgetView: View {
             .foregroundStyle(style.bigText)
     }
 
+    /// Das Datum hängt bewusst NICHT an der Tafelregel „Beschriftungen“.
+    ///
+    /// Wer „Datum anzeigen“ einschaltet, will es sehen — und wunderte sich
+    /// zu Recht, wenn es trotzdem fehlte, weil die Tafel gerade keine
+    /// Beschriftungen zeigt. Die Regel gilt für Beiwerk, nicht für
+    /// ausdrücklich eingeschaltete Inhalte.
     private func dateLine(_ date: Date, size: CGSize) -> some View {
         Text(Self.dateText(date))
             .font(Theme.font(metrics.em(0.94), weight: .semibold))
