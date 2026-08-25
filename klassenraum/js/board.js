@@ -332,7 +332,11 @@ export function applyBackground() {
 function contentScale(widget) {
   const definition = getWidgetType(widget.type);
   const size = (definition && definition.defaultSize) || { w: 360, h: 260 };
-  const ratio = Math.min(widget.w / size.w, widget.h / size.h);
+  // Listen wachsen mit der Breite: Ein breites Feld soll breite, große Zeilen
+  // zeigen — wird es dadurch zu hoch, scrollt die Liste einfach.
+  const ratio = definition && definition.scaleBy === 'width'
+    ? widget.w / size.w
+    : Math.min(widget.w / size.w, widget.h / size.h);
   return clamp(ratio, 0.6, 4);
 }
 
