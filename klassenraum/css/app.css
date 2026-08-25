@@ -1228,8 +1228,14 @@ p.muted { margin: 0; }
 
 /* Solange der Name verdeckt ist, spannt sich die Karte über die volle Breite —
    sonst verrät schon die Breite der Maske, wie lang der Name ist. */
-.w-random__namebox.is-covered { display: block; width: 100%; }
-.w-random__namebox.is-covered .w-random__name { display: block; text-align: center; overflow: hidden; }
+.w-random__namebox.is-covered {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+}
+
+.w-random__namebox.is-covered .w-random__name { display: block; text-align: center; overflow: hidden; max-width: 100%; }
 
 .w-random__mask {
   position: absolute;

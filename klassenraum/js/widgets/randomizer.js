@@ -253,35 +253,43 @@ export default {
       const covered = Boolean(name) && !isRevealed(state, name) && revealMode(state) !== 'letters' && !spinning;
       const text = nameEl.textContent || '';
       const boxWidth = Math.max(140, ctx.widget.w - 70);
-      // Verdeckt: feste Bezugslänge statt der echten — sonst verrät schon die
-      // Schriftgröße, ob der Name kurz oder lang ist.
-      const length = covered ? Math.max(10, text.length) : Math.max(4, text.length);
-      let size = Math.min(ctx.widget.h * 0.29, boxWidth / (length * 0.6));
-      size = Math.max(20, Math.min(size, 128));
-      nameEl.style.fontSize = `${size}px`;
-      stretchName(covered, size);
-    }
 
-    /**
-     * Verdeckte Namen über die volle Kartenbreite spreizen: „Bo" und
-     * „Charlotte" belegen dieselbe Fläche — weder Maske noch Schleier
-     * verraten die Länge. Beim Aufdecken springt der Name auf normale Laufweite.
-     */
-    function stretchName(covered, size) {
       if (!covered) {
+        const length = Math.max(4, text.length);
+        let size = Math.min(ctx.widget.h * 0.29, boxWidth / (length * 0.6));
+        size = Math.max(20, Math.min(size, 128));
+        nameEl.style.fontSize = `${size}px`;
         nameEl.style.letterSpacing = '';
+        nameBox.style.minHeight = '';
         return;
       }
-      const text = nameEl.textContent || '';
-      if (text.length < 2) {
-        nameEl.style.letterSpacing = '';
-        return;
-      }
-      const style = window.getComputedStyle(nameEl);
-      meter.font = `${style.fontWeight} ${size}px ${style.fontFamily}`;
-      const width = meter.measureText(text).width;
+
+      // Verdeckt: EINE feste Schriftgröße für alle Namen — weder Breite noch
+      // Höhe der Maske dürfen etwas über den Namen verraten. Kurze Namen
+      // werden über die Breite gespreizt, sehr lange leicht gestaucht;
+      // erst wenn auch das nicht reicht, wird die Schrift kleiner.
+      let size = Math.max(20, Math.min(Math.min(ctx.widget.h * 0.29, boxWidth / (12 * 0.6)), 128));
+      // Die Boxhöhe hängt an der Bezugsgröße, nie am tatsächlichen Namen —
+      // auch wenn ein sehr langer Name kleiner gesetzt werden muss.
+      nameBox.style.minHeight = `${Math.round(size * 1.35)}px`;
       const target = Math.max(140, ctx.widget.w - 110) * 0.86;
-      const extra = Math.max(0, (target - width) / text.length);
+      const measure = (px) => {
+        const style = window.getComputedStyle(nameEl);
+        meter.font = `${style.fontWeight} ${px}px ${style.fontFamily}`;
+        const result = meter.measureText(text).width;
+        // Scheitert die Messung (unbekannte Schrift o. Ä.), lieber grob schätzen.
+        return result > 0 ? result : text.length * px * 0.6;
+      };
+      let width = measure(size);
+      const squeeze = -0.12 * size;
+      if (text.length > 1 && width + squeeze * text.length > target) {
+        size = Math.max(20, size * (target / (width + squeeze * text.length)));
+        width = measure(size);
+      }
+      nameEl.style.fontSize = `${size}px`;
+      const extra = text.length > 1
+        ? Math.max(-0.12 * size, (target - width) / text.length)
+        : 0;
       nameEl.style.letterSpacing = `${extra.toFixed(1)}px`;
     }
 

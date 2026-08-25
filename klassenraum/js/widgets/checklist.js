@@ -40,7 +40,7 @@ export default {
           'data-nodrag': '',
         },
         h('span', { class: 'w-check__box', html: item.done ? icon('check', 16) : '' }),
-        h('span', { class: 'w-check__text' }, item.text)), () => {
+        h('span', { class: 'w-check__text' }, h('span', { class: 'w-check__label' }, item.text))), () => {
           item.done = !item.done;
           ctx.save();
           if (item.done) beep({ frequency: 880, duration: 0.09, gain: 0.09 });
@@ -85,8 +85,6 @@ export default {
      * Feldes ausfüllt — kürzere Listen bekommen dadurch richtig große Schrift.
      * Zwei Durchläufe, weil Kästchen und Abstände mit der Schrift mitwachsen.
      */
-    const meter = document.createElement('canvas').getContext('2d');
-
     function fitWidth() {
       el.style.setProperty('--check-fit', '1');
       for (let pass = 0; pass < 2; pass += 1) {
@@ -94,10 +92,12 @@ export default {
         if (!texts.length) return;
         let worst = Infinity;
         for (const text of texts) {
+          // Gemessen wird im echten Layout: die innere Beschriftung hat ihre
+          // natürliche Breite, der äußere Rahmen die verfügbare — kein
+          // Nachbau der Schrift nötig, der je nach Browser scheitern kann.
+          const label = text.firstElementChild;
           const room = text.clientWidth;
-          const style = window.getComputedStyle(text);
-          meter.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
-          const need = meter.measureText(text.textContent || '').width;
+          const need = label ? label.offsetWidth : 0;
           if (need > 0 && room > 0) worst = Math.min(worst, room / need);
         }
         if (!Number.isFinite(worst)) return;
@@ -108,6 +108,8 @@ export default {
     }
 
     render();
+    // Nach dem Laden der Schriften stimmen die Maße — noch einmal anpassen.
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => fitWidth()).catch(() => {});
     return { el, refresh: render, onResize: fitWidth };
   },
 
