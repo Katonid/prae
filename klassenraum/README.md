@@ -168,7 +168,16 @@ Bearbeiten („Zurücksetzen“ über der Liste) oder im Zahnrad gestartet.
 * **Größe ändern:** Anfasser ziehen, **−**/**+** in der kleinen Leiste, oder zwei Finger.
 * **Einstellen:** Element antippen → Zahnrad in der kleinen Leiste darüber.
 * **Sperren:** Schloss-Symbol in derselben Leiste — verhindert versehentliches Verschieben an der interaktiven Tafel.
-* **Am Telefon** schaltet die App automatisch auf eine Listenansicht um (im Menü umschaltbar).
+* **Zoom:** Die Tafel lässt sich vergrößern — mit zwei Fingern auf der freien Fläche,
+  mit den Knöpfen **−/+** unten links oder am Rechner mit **Strg/⌘ + Mausrad**. Ein
+  Finger auf der freien Fläche verschiebt den Ausschnitt, **Doppeltippen** oder das
+  Symbol ⤢ zeigt wieder die ganze Tafel.
+* **Elementleiste ausblenden:** Der schmale Knopf über der Leiste blendet sie weg —
+  praktisch am Telefon. Ein Tipp auf **„Elemente"** holt sie zurück; die Einstellung
+  bleibt gespeichert (auch im Menü unter „Ansicht").
+* **Am Telefon** zeigt die App dieselbe Tafel wie am iPad, nur kleiner: hineinzoomen,
+  verschieben, Elemente antippen und in der Größe ändern funktioniert genauso. Wer
+  lieber eine einfache Liste möchte, schaltet im Menü auf **Listenansicht**.
 * **Auf den Homescreen legen:** in Safari „Teilen“ → „Zum Home-Bildschirm“. Danach startet die App im Vollbild und funktioniert auch offline.
 
 ## Teilen und Konten
@@ -287,7 +296,8 @@ klassenraum/
   firebase-rules.json   empfohlene Regeln für die Realtime Database
   js/ui.js, js/util.js, js/icons.js
   sw.js                 Offline-Betrieb
-  scripts/generate-icons.py   erzeugt die App-Icons
+  icons/                App-Icon: grüne Tafel mit Uhr und Ampelpunkten
+  scripts/generate-icons.py   erzeugt die App-Icons (reines Python, ohne Bibliotheken)
 ```
 
 Die Zugangsdaten kommen aus `../firebase-config.js` im Repo-Wurzelverzeichnis.
