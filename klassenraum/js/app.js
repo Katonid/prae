@@ -537,9 +537,13 @@ function openHelp() {
         + '„Bearbeiten“ schaltet zurück.'),
       h('p', null, h('strong', null, 'Elemente hinzufügen: '), 'unten in der Leiste antippen (nur beim Bearbeiten).'),
       h('p', null, h('strong', null, 'Bedienen: '), 'Ein Tipp auf die Karte löst die Hauptfunktion aus — '
-        + 'die Ampel schaltet weiter, das Arbeitssymbol wechselt, die Lautstärkemessung startet. '
+        + 'die Ampel schaltet weiter, das Arbeitssymbol wechselt, die Lautstärkemessung startet, der Timer startet oder hält an. '
         + 'Beim Zufälligen Namen aktiviert der erste Tipp die Karte, erst der zweite zieht — so passiert '
         + 'nichts aus Versehen. Die Uhr reagiert nicht auf Tippen; analog oder digital wählst du im Zahnrad.'),
+      h('p', null, h('strong', null, 'Timer: '), 'Ein Tipp startet, der nächste hält an — Knöpfe gibt es keine. '
+        + 'Doppeltippen setzt auf die volle Dauer zurück; beim Bearbeiten bietet die kleine Leiste zusätzlich das Zurücksetzen an. '
+        + 'Dauer und ±1 Minute (auch während er läuft) stehen im Zahnrad. Dort lässt sich der Timer auch analog anzeigen: '
+        + 'als Scheibe wie die bekannte Zeituhr, auf der die farbige Fläche die restlichen Minuten zeigt.'),
       h('p', null, h('strong', null, 'Verschieben: '), 'Element anfassen und ziehen — auch an Knöpfen und Leuchten: '
         + 'Erst ab deutlicher Bewegung wird verschoben, ein Tipp bleibt ein Tipp.'),
       h('p', null, h('strong', null, 'Größe ändern: '), 'Drei Wege — an einem der vier runden Anfasser in der Ecke ziehen, '
@@ -562,7 +566,8 @@ function openHelp() {
         + 'Marker zum Hervorheben, Radierer entfernt einzelne Striche, „nur Stift“ schützt vor dem Handballen. '
         + 'Die Striche gehören zur Tafel und bleiben erhalten.'),
       h('p', null, h('strong', null, 'Klang & Video: '), 'Element „Klang“ oder „Video“ ablegen, im Zahnrad eine Datei vom Gerät oder einen Link wählen. '
-        + 'Ein Tipp auf die Taste spielt ab. Jede Klangtaste kann im Zahnrad ein Symbol (Emoji) bekommen, das groß auf der Taste steht.'),
+        + 'Ein Tipp auf die Taste spielt ab. Jede Klangtaste kann im Zahnrad ein Symbol (Emoji) bekommen, das groß auf der Taste steht — '
+        + 'dazu jede beliebige Farbe (Farbwähler) oder einen Farbverlauf aus zwei Farben.'),
       h('p', null, h('strong', null, 'Seiten: '), 'Jede Tafel kann mehrere Seiten haben — unten rechts blättern die Pfeile ‹ und › durch. '
         + 'Beim Bearbeiten legt + eine neue Seite an, ✕ löscht die aufgeschlagene (die letzte Seite bleibt immer). '
         + 'Jede Seite hat ihre eigenen Elemente und Striche; Aussehen und Hintergrund gelten für die ganze Tafel. '

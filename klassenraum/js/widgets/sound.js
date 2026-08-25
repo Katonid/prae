@@ -11,7 +11,8 @@ const COLORS = ['#6366f1', '#0ea5e9', '#10b981', '#f59e0b', '#ef4444', '#a855f7'
 const SYMBOLS = ['🎵', '🔔', '⏰', '👏', '🤫', '🧹', '🍎', '🚪', '🎉', '☀️', '🐦', '🌊'];
 
 function defaultEntry(index = 0) {
-  return { id: uid('snd'), label: 'Klang', icon: '', mediaId: null, url: '', fileName: '', color: COLORS[index % COLORS.length] };
+  // color2 gesetzt = Farbverlauf von color nach color2.
+  return { id: uid('snd'), label: 'Klang', icon: '', mediaId: null, url: '', fileName: '', color: COLORS[index % COLORS.length], color2: '' };
 }
 
 export default {
@@ -83,10 +84,12 @@ export default {
       for (const entry of entries) {
         const active = playingId === entry.id;
         const ready = Boolean(entry.mediaId || entry.url);
+        const style = { '--tone': entry.color || COLORS[0] };
+        if (entry.color2) style['--tone-grad'] = `linear-gradient(160deg, ${entry.color || COLORS[0]}, ${entry.color2})`;
         grid.appendChild(onTap(h('button', {
           class: 'w-sound__button' + (active ? ' is-playing' : '') + (ready ? '' : ' is-empty'),
           'data-nodrag': '',
-          style: { '--tone': entry.color || COLORS[0] },
+          style,
           title: entry.fileName || entry.url || 'Noch keine Datei',
         },
         // Mit Symbol zeigt die Taste das Symbol groß; beim Abspielen immer das Pause-Zeichen.
@@ -232,6 +235,37 @@ export default {
             rerender();
           },
         }))),
+        h('div', { class: 'row' },
+          field('Eigene Farbe', h('input', {
+            class: 'input input--color', type: 'color', value: /^#[0-9a-fA-F]{6}$/.test(entry.color || '') ? entry.color : '#6366f1',
+            oninput: (event) => {
+              entry.color = event.target.value;
+              ctx.save();
+              ctx.refresh();
+            },
+          })),
+          field('Farbverlauf nach …', h('div', { class: 'row' },
+            h('input', {
+              class: 'input input--color', type: 'color',
+              value: /^#[0-9a-fA-F]{6}$/.test(entry.color2 || '') ? entry.color2 : '#0ea5e9',
+              oninput: (event) => {
+                entry.color2 = event.target.value;
+                ctx.save();
+                ctx.refresh();
+              },
+              // Erst wenn der Farbwähler zu ist, die Zeile neu aufbauen —
+              // dann erscheint auch der Knopf „Ohne Verlauf".
+              onchange: () => rerender(),
+            }),
+            entry.color2 ? button('Ohne Verlauf', {
+              small: true, ghost: true,
+              onClick: () => {
+                entry.color2 = '';
+                ctx.save();
+                rerender();
+              },
+            }) : null),
+          'Zweite Farbe antippen und wählen — die Taste bekommt einen Verlauf.')),
         field('Symbol auf der Taste', h('div', { class: 'chips' },
           h('button', {
             class: 'chip' + (entry.icon ? '' : ' is-active'),

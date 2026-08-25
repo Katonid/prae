@@ -404,12 +404,8 @@ body[data-cards="dark"] .widget::after { box-shadow: inset 0 1px 0 rgba(255, 255
 
 /* Symbole in Elementen skalieren mit der Schrift statt fest in Pixeln zu bleiben. */
 .w-sound__icon svg,
-.w-timer__controls svg,
 .w-check__box svg,
 .w-check__add svg { width: 1.25em; height: 1.25em; }
-
-.w-timer .round-button { width: 3.5em; height: 3.5em; }
-.w-timer .round-button--small { width: 2.9em; height: 2.9em; font-size: 0.94em; }
 
 .widget.is-selected {
   border-color: rgba(129, 140, 248, 0.9);
@@ -426,6 +422,7 @@ body[data-cards="dark"] .widget::after { box-shadow: inset 0 1px 0 rgba(255, 255
 body[data-labels="never"] .w-random__head,
 body[data-labels="never"] .w-random__hint,
 body[data-labels="never"] .w-timer__label,
+body[data-labels="never"] .w-timer__hint,
 body[data-labels="never"] .w-noise__title,
 body[data-labels="never"] .w-sound__title,
 body[data-labels="never"] .w-check__title,
@@ -1340,11 +1337,33 @@ body[data-cards="dark"] .w-random__tile {
   filter: drop-shadow(0 0 6px rgba(99, 102, 241, 0.55));
 }
 .w-timer__time { position: relative; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; color: var(--card-ink); }
-.w-timer__controls { display: flex; gap: 8px; align-items: center; }
+.w-timer__hint { font-size: 0.78em; color: var(--card-ink-soft); text-align: center; }
 .w-timer.is-warning .w-timer__progress { stroke: #f97316; filter: drop-shadow(0 0 10px rgba(249, 115, 22, 0.8)); }
 .w-timer.is-warning .w-timer__time { color: #f97316; animation: pulse-soft 1s ease-in-out infinite; }
 .w-timer.is-finished .w-timer__time { color: var(--danger); }
 .w-timer.is-flash { animation: flash 0.7s ease-in-out 5; }
+
+/* Analoge Scheibe (wie die Zeituhr im Klassenzimmer) */
+.w-timer__dial { position: absolute; inset: 0; margin: auto; height: 100%; width: 100%; }
+.w-timer__dial.is-hidden, .w-timer__ring.is-hidden { display: none; }
+.w-timer__dial-face { fill: var(--clock-face); stroke: var(--card-line); stroke-width: 1; }
+.w-timer__sector { opacity: 0.9; }
+.w-timer__mark { stroke: var(--card-ink); stroke-width: 1; opacity: 0.35; }
+.w-timer__mark--major { stroke-width: 1.8; opacity: 0.7; }
+.w-timer__number { font-size: 7px; font-weight: 700; fill: var(--card-ink); text-anchor: middle; opacity: 0.85; }
+.w-timer__hub { fill: var(--card-ink); }
+/* Auf der Scheibe steht die genaue Zeit klein am unteren Rand der Karte. */
+.w-timer.is-analog .w-timer__time {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 0.1em 0.55em;
+  border-radius: 999px;
+  background: var(--surface-soft);
+}
+/* Das Zifferblatt bleibt eine helle Scheibe — Striche und Zahlen darauf dunkel. */
+.widget--bare .w-timer__dial { --card-ink: #0f172a; }
 
 @keyframes flash {
   0%, 100% { background: transparent; }
@@ -1553,7 +1572,12 @@ body[data-cards="dark"] .w-random__tile {
   border-radius: 1.2em;
   /* Wenig Rand an den Seiten — die Beschriftung soll die Taste ausfüllen. */
   padding: 0.6em 0.35em;
-  background: var(--tone, #6366f1);
+  /* Grundfarbe bzw. Verlauf (--tone-grad), darüber eine eingebaute
+     Schattierung: oben heller, unten dunkler — die Taste wirkt gewölbt. */
+  background-color: var(--tone, #6366f1);
+  background-image:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.24), rgba(255, 255, 255, 0.04) 40%, rgba(2, 6, 23, 0.2)),
+    var(--tone-grad, linear-gradient(rgba(0, 0, 0, 0), rgba(0, 0, 0, 0)));
   color: #fff;
   display: flex;
   flex-direction: column;
@@ -1565,7 +1589,7 @@ body[data-cards="dark"] .w-random__tile {
   font-weight: 700;
   min-height: 4.2em;
   min-width: 0;
-  box-shadow: 0 14px 26px -16px rgba(2, 6, 23, 0.9);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 14px 26px -16px rgba(2, 6, 23, 0.9), 0 5px 12px -6px rgba(2, 6, 23, 0.45);
   transition: transform 0.16s var(--spring), filter 0.2s ease, box-shadow 0.2s ease;
 }
 
