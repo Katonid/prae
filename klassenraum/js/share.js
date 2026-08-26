@@ -12,7 +12,7 @@ import {
 } from './cloud.js';
 import {
   syncInfo, startSync, joinSync, adoptSpace, spaceFromCookie, linkCode, syncNow, stopSync,
-  setAutoSync, onSyncChanged,
+  setAutoSync, onSyncChanged, mediaSyncStatus, syncMediaNow,
 } from './sync.js';
 import { isFreshStart } from './store.js';
 import { openPanel, section, field, button, buttonRow, toggleRow, toast, confirmDialog } from './ui.js';
@@ -335,6 +335,41 @@ export function openSharePanel(prefillCode = '', prefillSyncCode = '') {
     return time ? `Verbunden — zuletzt abgeglichen um ${time} Uhr.` : 'Verbunden.';
   }
 
+  /**
+   * Stand der Klang-/Videodateien im Abgleich — mit einem Knopf, der sie
+   * gezielt überträgt und ehrlich sagt, woran es hakt (z. B. Datenbankregeln
+   * ohne den Zweig „media").
+   */
+  function mediaBox() {
+    const line = h('p', { class: 'muted small' }, 'Dateien: wird geprüft …');
+    mediaSyncStatus().then((status) => {
+      if (!status.total) {
+        line.textContent = 'Keine Klang- oder Videodateien in den Tafeln.';
+        return;
+      }
+      line.textContent = status.open
+        ? `Dateien: ${status.open} von ${status.total} noch nicht auf allen Geräten.`
+        : `Dateien: alle ${status.total} übertragen.`;
+    }).catch(() => {
+      line.textContent = '';
+    });
+    return h('div', { class: 'stack' }, line,
+      buttonRow(button('Dateien jetzt übertragen', {
+        icon: 'upload', small: true,
+        onClick: async () => {
+          const result = await syncMediaNow();
+          if (result.error) {
+            toast(result.rulesProblem
+              ? 'Der Server lehnt die Dateien ab — bitte die aktuellen Datenbankregeln (firebase-rules.json) in der Firebase-Konsole einspielen.'
+              : `Dateien nur teilweise übertragen (${result.sent} gesendet, ${result.pulled} geholt) — Internetverbindung prüfen.`, 'warn');
+          } else {
+            toast(`Dateien abgeglichen — ${result.sent} gesendet, ${result.pulled} geholt.`, 'success');
+          }
+          render();
+        },
+      })));
+  }
+
   function linkBox() {
     if (!pendingLink) return null;
     return h('div', { class: 'stack' },
@@ -417,7 +452,7 @@ export function openSharePanel(prefillCode = '', prefillSyncCode = '') {
           },
         })),
         h('p', { class: 'muted small' },
-          'Auch Klang- und Videodateien wandern mit (bis 25 MB je Datei) — größere bleiben auf dem Gerät.'));
+          'Auch Klang- und Videodateien wandern mit (bis 60 MB je Datei).'));
       return box;
     }
 
@@ -448,6 +483,7 @@ export function openSharePanel(prefillCode = '', prefillSyncCode = '') {
             }
           },
         })),
+      mediaBox(),
       linkBox(),
       buttonRow(button('Tafel-Link kopieren (angemeldet bleiben)', {
         icon: 'copy', small: true,

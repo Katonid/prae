@@ -133,7 +133,7 @@ Netzlaufwerken passiert genau das. Passt die gewählte Datei nicht zur Art, weis
 App darauf hin, nimmt sie aber an. Titel aus der Musik-App sind systembedingt nicht
 auswählbar. Beim **Teilen über einen Code** werden Dateien vom Gerät nicht
 mitgeschickt — ein Link funktioniert überall. Beim **Abgleich zwischen Geräten**
-wandern sie dagegen mit (bis 25 MB je Datei). Im Menü unter **Speicher**
+wandern sie dagegen mit (bis 60 MB je Datei). Im Menü unter **Speicher**
 steht, wie viel Platz die Dateien belegen; dort lassen sich nicht mehr genutzte Dateien
 entfernen.
 
@@ -245,7 +245,7 @@ Wie zusammengeführt wird:
   letzte verbliebene Tafel wird nie gelöscht.
 * **Ohne Netz** läuft alles lokal weiter; beim nächsten Verbinden wird
   nachgeholt. Kommt das Gerät aus dem Hintergrund zurück, wird sofort geholt.
-* **Klang- und Videodateien wandern mit** (bis 25 MB je Datei): Eine auf dem
+* **Klang- und Videodateien wandern mit** (bis 60 MB je Datei): Eine auf dem
   iPad hinterlegte Aufräummusik spielt auch auf der interaktiven Tafel.
   Größere Dateien bleiben auf dem Gerät. „Jetzt abgleichen“ räumt dabei auch
   Dateien aus dem Bereich, auf die keine Tafel mehr zeigt.
