@@ -131,6 +131,19 @@ export default {
     let hands = null;
     let raf = null;
     let timer = null;
+    let lastDateText = '';
+
+    // Das Datum soll so breit sein wie die Uhr selbst: Schriftgröße aus dem
+    // Verhältnis von Zifferblatt- zu Textbreite bestimmen (beides am
+    // Bildschirm gemessen, der Tafel-Maßstab kürzt sich dadurch heraus).
+    function fitDate() {
+      if (!dateEl.isConnected || !dateEl.textContent) return;
+      const target = svg ? svg.getBoundingClientRect().width : el.getBoundingClientRect().width * 0.92;
+      const current = dateEl.getBoundingClientRect().width;
+      if (!target || !current) return;
+      const size = (parseFloat(dateEl.style.fontSize) || 16) * (target / current);
+      dateEl.style.fontSize = `${Math.max(14, Math.min(size, 64))}px`;
+    }
 
     function build() {
       const state = ctx.widget.state;
@@ -156,6 +169,8 @@ export default {
       }
       if (state.showDate) el.appendChild(dateEl);
       tick();
+      // Erst nach dem Aufbau messen — vorher hat das Zifferblatt keine Größe.
+      requestAnimationFrame(fitDate);
       startLoops();
     }
 
@@ -202,7 +217,14 @@ export default {
         digital.style.fontSize = `${Math.max(28, size)}px`;
       }
       if (state.showDate) {
-        dateEl.textContent = `${WEEKDAYS[now.getDay()]}, ${now.getDate()}. ${MONTHS[now.getMonth()]} ${now.getFullYear()}`;
+        const text = `${WEEKDAYS[now.getDay()]}, ${now.getDate()}. ${MONTHS[now.getMonth()]} ${now.getFullYear()}`;
+        if (text !== lastDateText) {
+          // Nur bei geändertem Text neu messen (Mitternacht) — tick() läuft
+          // sonst mit jedem Bild und darf kein Layout erzwingen.
+          lastDateText = text;
+          dateEl.textContent = text;
+          requestAnimationFrame(fitDate);
+        }
       }
     }
 
@@ -211,7 +233,11 @@ export default {
     return {
       el,
       refresh: build,
-      onResize: tick,
+      onResize: () => {
+        tick();
+        // Die neue Größe steht erst nach dem nächsten Layout im Bild.
+        requestAnimationFrame(fitDate);
+      },
       // Bewusst ohne onTap: Ein Tipp soll die Uhr nicht umschalten.
       // Analog oder digital wird in den Einstellungen gewählt.
       destroy: stopLoops,

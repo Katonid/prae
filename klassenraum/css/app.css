@@ -1417,7 +1417,8 @@ body[data-cards="dark"] .w-random__tile {
   background-clip: text;
   color: transparent;
 }
-.w-clock__date { font-size: 0.94em; color: var(--card-ink-soft); font-weight: 620; text-align: center; }
+/* Schriftgröße setzt die Uhr selbst — so breit wie das Zifferblatt. */
+.w-clock__date { font-size: 0.94em; color: var(--card-ink-soft); font-weight: 620; text-align: center; white-space: nowrap; line-height: 1.2; }
 
 /* ---------- Element: Ampel ---------- */
 
