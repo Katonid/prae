@@ -150,6 +150,34 @@
 			</dict>
 		</dict>
 	</dict>
+	<!-- Der zweite Bildschirm gehört der App, nicht der Spiegelung.
+
+	     Ohne diesen Eintrag spiegelt iOS den ganzen iPad-Bildschirm auf den
+	     Beamer: samt Dock, Bedienleiste und den Benachrichtigungen anderer
+	     Programme. Mit ihm legt iOS eine eigene Szene für den zweiten
+	     Bildschirm an, und die App entscheidet, was darauf steht — bei uns
+	     die nackte Tafel (BeamerSceneDelegate in Views/Beamer.swift).
+
+	     Für die gewöhnliche App-Szene steht hier bewusst NICHTS: Die richtet
+	     SwiftUI selbst ein (WindowGroup). Ein eigener Eintrag dafür würde sie
+	     verdrängen und die App startete ins Schwarze. -->
+	<key>UIApplicationSceneManifest</key>
+	<dict>
+		<key>UIApplicationSupportsMultipleScenes</key>
+		<true/>
+		<key>UISceneConfigurations</key>
+		<dict>
+			<key>UIWindowSceneSessionRoleExternalDisplayNonInteractive</key>
+			<array>
+				<dict>
+					<key>UISceneConfigurationName</key>
+					<string>Beamer</string>
+					<key>UISceneDelegateClassName</key>
+					<string>$(PRODUCT_MODULE_NAME).BeamerSceneDelegate</string>
+				</dict>
+			</array>
+		</dict>
+	</dict>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>

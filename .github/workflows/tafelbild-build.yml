@@ -98,3 +98,85 @@ jobs:
         with:
           name: tafelbild-build-log
           path: /tmp/tafelbild-build.log
+
+  start:
+    name: Starten (Simulator)
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      - name: Quelltext holen
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Simulator wählen
+        id: sim
+        run: |
+          # Irgendein iPad reicht; die Startprüfung fragt nicht nach der Größe.
+          LISTE=$(xcrun simctl list devices available)
+          UDID=$(echo "$LISTE" | grep -F "iPad" | grep -oE '[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}' | head -1)
+          if [ -z "$UDID" ]; then
+            UDID=$(echo "$LISTE" | grep -oE '[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}' | head -1)
+          fi
+          if [ -z "$UDID" ]; then
+            echo "::error::Kein Simulator vorhanden"; echo "$LISTE"; exit 1
+          fi
+          echo "udid=$UDID" >> "$GITHUB_OUTPUT"
+
+      - name: App bauen
+        working-directory: TafelbildiOS
+        run: |
+          set -o pipefail
+          # Ad-hoc-Signatur ("-"): sonst fehlen der App im Simulator ihre
+          # Berechtigungen und CloudKit beendet den Prozess beim Start.
+          xcodebuild \
+            -project Tafelbild.xcodeproj \
+            -scheme Tafelbild \
+            -configuration Debug \
+            -destination "id=${{ steps.sim.outputs.udid }}" \
+            -derivedDataPath build-start \
+            CODE_SIGN_IDENTITY="-" CODE_SIGN_STYLE=Manual \
+            PROVISIONING_PROFILE_SPECIFIER="" DEVELOPMENT_TEAM="" \
+            build | tail -20
+
+      - name: Starten und nachsehen, ob die App steht
+        run: |
+          # Diese Stufe fängt, was der Übersetzer nicht sehen kann: eine
+          # Info.plist, die den Start verhindert. Der Szeneneintrag für den
+          # Beamer sitzt genau dort — ein Tippfehler darin ließe die App
+          # sauber übersetzen und trotzdem ins Schwarze starten.
+          UDID="${{ steps.sim.outputs.udid }}"
+          mit_grenze() { perl -e 'alarm shift; exec @ARGV' "$@"; }
+          mit_grenze 120 xcrun simctl boot "$UDID" || true
+          mit_grenze 240 xcrun simctl bootstatus "$UDID" -b || echo "bootstatus abgebrochen — weiter"
+          mit_grenze 150 xcrun simctl install "$UDID" \
+            TafelbildiOS/build-start/Build/Products/Debug-iphonesimulator/Tafelbild.app
+
+          PID=$(mit_grenze 90 xcrun simctl launch "$UDID" de.familie.tafelbild | grep -oE '[0-9]+$' || true)
+          if [ -z "$PID" ]; then
+            echo "::error::Die App ließ sich nicht starten."
+            exit 1
+          fi
+          echo "Gestartet mit Kennung $PID."
+
+          # Zwölf Sekunden stehen bleiben: Ein Absturz beim Aufbau der Szenen
+          # passiert sofort, nicht nach Minuten.
+          sleep 12
+          if ! ps -p "$PID" > /dev/null 2>&1; then
+            echo "::error::Die App ist nach dem Start wieder verschwunden."
+            mit_grenze 60 xcrun simctl spawn "$UDID" log show --last 2m --style compact \
+              --predicate 'process == "Tafelbild"' | tail -60 || true
+            exit 1
+          fi
+          echo "Die App läuft noch — Start in Ordnung."
+
+          mkdir -p start
+          mit_grenze 60 xcrun simctl io "$UDID" screenshot start/start.png || true
+
+      - name: Bild vom Start ablegen
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tafelbild-start
+          path: start
+          if-no-files-found: warn

@@ -1,0 +1,156 @@
+# Erzeugt die Bildschirmfotos für den App Store — in genau den Pixelmaßen,
+# die App Store Connect verlangt.
+#
+# Apple nimmt nur Bilder an, deren Maße auf den Punkt stimmen. Die bekommt
+# man ausschließlich aus einem Simulator der passenden Geräteklasse:
+#
+#   iPhone 6,5"   1284 × 2778  (iPhone 14 Plus, 13 Pro Max, 12 Pro Max)
+#   iPad 12,9"    2048 × 2732  (iPad Pro 12,9")
+#
+# Die App wird dafür mit `-schaufenster <n>` gestartet. Dann zeigt sie eine
+# fertig eingerichtete Tafel statt des eigenen Bestands (siehe
+# Tafelbild/Model/Schaufenster.swift) — jedes Mal dieselbe, damit die Bilder
+# wiederholbar sind.
+#
+# Nur von Hand auszulösen: Actions → „Tafelbild: Bilder für den App Store"
+# → „Run workflow". Am Ende hängen die Bilder als Anhang am Lauf.
+name: Tafelbild Bilder für den App Store
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: tafelbild-appstore-bilder-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  bilder:
+    name: ${{ matrix.name }} (${{ matrix.breite }}×${{ matrix.hoehe }})
+    runs-on: macos-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Die Reihenfolge der Namen ist die Reihenfolge der Versuche: Was
+          # auf dem Läufer installiert ist, entscheidet der Xcode-Stand.
+          - name: iPhone
+            geraete: "iPhone 14 Plus|iPhone 13 Pro Max|iPhone 12 Pro Max|iPhone 11 Pro Max"
+            breite: 1284
+            hoehe: 2778
+            ausrichtung: hochkant
+          - name: iPad
+            geraete: "iPad Pro (12.9-inch) (6th generation)|iPad Pro (12.9-inch) (5th generation)|iPad Pro 13-inch (M4)"
+            breite: 2048
+            hoehe: 2732
+            ausrichtung: quer
+
+    steps:
+      - name: Quelltext holen
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Simulator wählen
+        id: sim
+        run: |
+          # Die Namen der Reihe nach durchgehen und den ersten nehmen, den es
+          # auf diesem Läufer gibt. Welche Geräte da sind, hängt am
+          # Xcode-Stand — deshalb mehrere Kandidaten je Größe.
+          UDID=""
+          IFS='|' read -ra NAMEN <<< "${{ matrix.geraete }}"
+          LISTE=$(xcrun simctl list devices available)
+          for NAME in "${NAMEN[@]}"; do
+            ZEILE=$(echo "$LISTE" | grep -F "$NAME (" | head -1 || true)
+            if [ -n "$ZEILE" ]; then
+              UDID=$(echo "$ZEILE" | grep -oE '[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}' | head -1)
+              echo "Genommen: $NAME"
+              break
+            fi
+          done
+          if [ -z "$UDID" ]; then
+            echo "::error::Keines der gesuchten Geräte ist installiert: ${{ matrix.geraete }}"
+            echo "$LISTE"
+            exit 1
+          fi
+          echo "udid=$UDID" >> "$GITHUB_OUTPUT"
+
+      - name: App bauen
+        working-directory: TafelbildiOS
+        run: |
+          set -o pipefail
+          # Ad-hoc-Signatur ("-"): Nur dann bekommt die App im Simulator ihre
+          # Berechtigungen; ohne sie beendet CloudKit den Prozess beim Start.
+          xcodebuild \
+            -project Tafelbild.xcodeproj \
+            -scheme Tafelbild \
+            -configuration Release \
+            -destination "id=${{ steps.sim.outputs.udid }}" \
+            -derivedDataPath build-sim \
+            CODE_SIGN_IDENTITY="-" CODE_SIGN_STYLE=Manual \
+            PROVISIONING_PROFILE_SPECIFIER="" DEVELOPMENT_TEAM="" \
+            build | tail -25
+
+      - name: Simulator starten
+        run: |
+          UDID="${{ steps.sim.outputs.udid }}"
+          mit_grenze() { perl -e 'alarm shift; exec @ARGV' "$@"; }
+          mit_grenze 120 xcrun simctl boot "$UDID" || true
+          mit_grenze 240 xcrun simctl bootstatus "$UDID" -b || echo "bootstatus abgebrochen — weiter"
+          mit_grenze 150 xcrun simctl install "$UDID" \
+            TafelbildiOS/build-sim/Build/Products/Release-iphonesimulator/Tafelbild.app
+          # Die Statusleiste auf feste Werte setzen: volle Anzeige, keine
+          # halbleere Batterie, keine krumme Uhrzeit. Apple sieht das gern,
+          # und die Bilder altern nicht.
+          mit_grenze 60 xcrun simctl status_bar "$UDID" override \
+            --time "9:41" --batteryState charged --batteryLevel 100 \
+            --cellularMode active --cellularBars 4 --wifiMode active --wifiBars 3 || true
+
+      - name: Szenen fotografieren
+        run: |
+          UDID="${{ steps.sim.outputs.udid }}"
+          BREITE=${{ matrix.breite }}
+          HOEHE=${{ matrix.hoehe }}
+          ORDNER="appstore/${{ matrix.name }}"
+          mkdir -p "$ORDNER"
+          mit_grenze() { perl -e 'alarm shift; exec @ARGV' "$@"; }
+
+          # Apple nimmt beide Ausrichtungen an. Die App dreht das iPad selbst
+          # ins Querformat (Schaufenster.richteAus); klappt das auf einem
+          # Läufer einmal nicht, sind die Bilder hochkant — auch das ist ein
+          # gültiges Maß, deshalb wird hier beides durchgelassen.
+
+          for SZENE in 1 2 3; do
+            echo "--- Szene $SZENE ---"
+            mit_grenze 60 xcrun simctl terminate "$UDID" de.familie.tafelbild || true
+            sleep 2
+            mit_grenze 90 xcrun simctl launch "$UDID" de.familie.tafelbild -schaufenster "$SZENE"
+            # Zeit zum Aufbauen: Schriften laden, Farbwolken einblenden,
+            # Uhrzeiger an ihre Stelle.
+            sleep 12
+            ZIEL="$ORDNER/${{ matrix.name }}-$SZENE.png"
+            mit_grenze 60 xcrun simctl io "$UDID" screenshot "$ZIEL"
+          done
+
+          echo "=== Maße prüfen ==="
+          FEHLER=0
+          for BILD in "$ORDNER"/*.png; do
+            W=$(sips -g pixelWidth "$BILD" | awk '/pixelWidth/ {print $2}')
+            H=$(sips -g pixelHeight "$BILD" | awk '/pixelHeight/ {print $2}')
+            if { [ "$W" = "$BREITE" ] && [ "$H" = "$HOEHE" ]; } \
+               || { [ "$W" = "$HOEHE" ] && [ "$H" = "$BREITE" ]; }; then
+              echo "ok   $(basename "$BILD")  ${W}×${H}"
+            else
+              echo "::error::$(basename "$BILD") hat ${W}×${H}, gebraucht wird ${BREITE}×${HOEHE} oder ${HOEHE}×${BREITE}"
+              FEHLER=1
+            fi
+          done
+          exit $FEHLER
+
+      - name: Bilder ablegen
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tafelbild-appstore-${{ matrix.name }}
+          path: appstore/${{ matrix.name }}
+          if-no-files-found: warn
