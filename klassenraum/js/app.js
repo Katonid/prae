@@ -6,6 +6,7 @@ import {
   loadState, getState, getActiveBoard, setActiveBoard, addBoard, duplicateBoard, removeBoard,
   addWidget, touch, touchBoard, saveNow, on as onStore, importBoard, AURORA,
   getActivePage, setActivePage, addPage, removePage, allWidgetsOf, emptyPage,
+  BOARD_FORMATS, setBoardFormat,
 } from './store.js';
 import { WIDGETS } from './widgets/index.js';
 import {
@@ -321,6 +322,23 @@ function openBackgroundPanel() {
         + '„Nur beim Bearbeiten“ zeigt die Rahmen beim Einrichten und blendet sie in der Unterrichtsansicht aus. '
         + 'Einzelne Elemente lassen sich zusätzlich über das Rahmen-Symbol in der kleinen Leiste umschalten.')));
 
+    container.appendChild(section('Format der Tafelfläche',
+      h('div', { class: 'segmented' }, BOARD_FORMATS.map((format) => h('button', {
+        class: 'segmented__item' + ((board.format || '16:10') === format.id ? ' is-active' : ''),
+        onclick: () => {
+          setBoardFormat(board, format.id);
+          updateScale();
+          renderBoard();
+          redrawDrawing();
+          render();
+        },
+      }, format.label))),
+      h('p', { class: 'muted small' },
+        `${(BOARD_FORMATS.find((format) => format.id === (board.format || '16:10')) || BOARD_FORMATS[0]).hint} `
+        + 'Das Format gehört zur Tafel und gilt über den Abgleich auf allen Geräten — '
+        + 'so bleibt die Anordnung überall identisch. Beim Wechsel auf ein flacheres Format '
+        + 'werden zu tief sitzende Elemente in die Fläche hochgeholt.')));
+
     const auroraGrid = h('div', { class: 'bg-grid' }, AURORA.map((preset) => h('button', {
       class: 'bg-card' + (background.type === 'aurora' && background.value === preset.id ? ' is-active' : ''),
       style: {
@@ -632,6 +650,9 @@ function openHelp() {
         + 'mit einem Finger auf der freien Fläche verschieben, Doppeltippen zeigt wieder alles. Der Knopf über der Elementleiste blendet diese aus.'),
       h('p', null, h('strong', null, 'Schrift: '), 'Unter „Aussehen“ → „Schrift“ stehen vier Schriften mit dem runden „a“ zur Wahl, '
         + 'wie es in der Grundschule geschrieben wird — dazu die Systemschrift. Die Auswahl gilt für die ganze App.'),
+      h('p', null, h('strong', null, 'Tafel-Format: '), 'Unter „Aussehen“ → „Format der Tafelfläche“ lässt sich die Tafel auf das Gerät zuschneiden: '
+        + '16:9 füllt Whiteboards und Beamer ohne Seitenränder, 4:3 das iPad, 16:10 ist der Mittelweg. '
+        + 'Das Format gehört zur Tafel und gilt über den Abgleich auf allen Geräten.'),
       h('p', null, h('strong', null, 'Aussehen: '), '„Aussehen“ bietet bewegte Hintergründe, eigene Farben, eigene Farbverläufe aus zwei Farben '
         + 'und Bilder (mit stufenlosem Abdunkeln), sechs Farbschemata (auch einfarbig statt Verlauf), drei Kartenstile und die Rahmen-Einstellung — '
         + 'ohne Rahmen stehen die Elemente frei auf der Tafel. Der Tagesablauf kann sich auf Wunsch jeden Tag von selbst zurücksetzen (Zahnrad).'),

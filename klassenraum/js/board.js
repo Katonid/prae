@@ -4,7 +4,7 @@ import { h, clear, clamp, armTapGuard } from './util.js';
 import { icon } from './icons.js';
 import { getWidgetType } from './widgets/index.js';
 import {
-  BOARD_WIDTH, BOARD_HEIGHT, AURORA, getActiveBoard, getActivePage, getState, touch, removeWidget,
+  BOARD_WIDTH, boardHeight, AURORA, getActiveBoard, getActivePage, getState, touch, removeWidget,
   duplicateWidget, nextZ, on as onStore,
 } from './store.js';
 import { openPanel, closePanel, confirmDialog } from './ui.js';
@@ -155,7 +155,7 @@ function clampPan() {
   if (!stageEl) return;
   const rect = stageEl.getBoundingClientRect();
   const overX = Math.max(0, (BOARD_WIDTH * scale - rect.width) / 2);
-  const overY = Math.max(0, (BOARD_HEIGHT * scale - rect.height) / 2);
+  const overY = Math.max(0, (boardHeight() * scale - rect.height) / 2);
   panX = clamp(panX, -overX, overX);
   panY = clamp(panY, -overY, overY);
 }
@@ -224,6 +224,11 @@ export function initBoard(elements) {
   for (const name of ['pointerup', 'pointercancel', 'pointerleave']) {
     stageEl.addEventListener(name, endStageGesture);
   }
+  // Auch das Verschieben/Zoomen der Fläche vor dem Browser schützen (s. u.
+  // bei den Elementen: manche Touch-Rahmen brechen Gesten sonst ab).
+  stageEl.addEventListener('touchmove', (event) => {
+    if (stageGesture) event.preventDefault();
+  }, { passive: false });
 
   stageEl.addEventListener('wheel', (event) => {
     // Nur mit gedrückter Steuerungstaste zoomen — sonst bliebe die Tafel unruhig.
@@ -285,13 +290,13 @@ export function updateScale() {
     canvasEl.style.height = '';
     return;
   }
-  const fit = Math.min(rect.width / BOARD_WIDTH, rect.height / BOARD_HEIGHT);
+  const fit = Math.min(rect.width / BOARD_WIDTH, rect.height / boardHeight());
   scale = fit * zoom;
   clampPan();
   const offsetX = (rect.width - BOARD_WIDTH * scale) / 2 + panX;
-  const offsetY = (rect.height - BOARD_HEIGHT * scale) / 2 + panY;
+  const offsetY = (rect.height - boardHeight() * scale) / 2 + panY;
   canvasEl.style.width = `${BOARD_WIDTH}px`;
-  canvasEl.style.height = `${BOARD_HEIGHT}px`;
+  canvasEl.style.height = `${boardHeight()}px`;
   canvasEl.style.transform = `translate(${offsetX}px, ${offsetY}px) scale(${scale})`;
   canvasEl.style.setProperty('--board-scale', String(scale));
 }
@@ -417,7 +422,7 @@ function makeContext(widget) {
     },
     setSize(w, h) {
       widget.w = clamp(Math.round(w), 120, BOARD_WIDTH);
-      widget.h = clamp(Math.round(h), 90, BOARD_HEIGHT);
+      widget.h = clamp(Math.round(h), 90, boardHeight());
       touch({ reason: 'widget-size' });
       layout();
       const instance = instances.get(widget.id);
@@ -476,11 +481,11 @@ function boxOf(widget) {
 function applyBox(widget, box) {
   const min = minSizeOf(widget);
   const w = clamp(Math.round(box.w), min.w, BOARD_WIDTH);
-  const h = clamp(Math.round(box.h), min.h, BOARD_HEIGHT);
+  const h = clamp(Math.round(box.h), min.h, boardHeight());
   widget.w = w;
   widget.h = h;
   widget.x = Math.round(clamp(box.x, 0, Math.max(0, BOARD_WIDTH - w)));
-  widget.y = Math.round(clamp(box.y, 0, Math.max(0, BOARD_HEIGHT - h)));
+  widget.y = Math.round(clamp(box.y, 0, Math.max(0, boardHeight() - h)));
   const instance = instances.get(widget.id);
   if (instance && instance.api && instance.api.onResize) instance.api.onResize();
 }
@@ -532,7 +537,11 @@ function attachInteractions(el, widget) {
     if (points.size === 1) {
       tap = { x: event.clientX, y: event.clientY, time: Date.now(), armed: !onControl };
       if (movable && !onControl) {
-        el.setPointerCapture(event.pointerId);
+        // Manche Touch-Rahmen (interaktive Tafeln) verweigern die Übernahme —
+        // dann läuft das Ziehen eben ohne sie, statt gar nicht zu beginnen.
+        try {
+          el.setPointerCapture(event.pointerId);
+        } catch (_) { /* dann eben ohne Übernahme */ }
         bringToFront(widget);
         el.classList.add('is-dragging');
         gesture = { type: 'drag', start: { x: event.clientX, y: event.clientY }, origin: boxOf(widget), moved: false };
@@ -592,7 +601,7 @@ function attachInteractions(el, widget) {
       if (!gesture.moved && Math.abs(dx) + Math.abs(dy) < 2) return;
       gesture.moved = true;
       widget.x = Math.round(clamp(gesture.origin.x + dx, 0, Math.max(0, BOARD_WIDTH - widget.w)));
-      widget.y = Math.round(clamp(gesture.origin.y + dy, 0, Math.max(0, BOARD_HEIGHT - widget.h)));
+      widget.y = Math.round(clamp(gesture.origin.y + dy, 0, Math.max(0, boardHeight() - widget.h)));
       layout();
       return;
     }
@@ -667,6 +676,14 @@ function attachInteractions(el, widget) {
     tap = null;
     el.classList.remove('is-dragging', 'is-sizing');
   });
+
+  // Gürtel und Hosenträger für widerspenstige Touch-Rahmen (interaktive
+  // Tafeln): Solange eine Geste läuft, dem Browser die Berührung ausdrücklich
+  // wegnehmen — sonst bricht er sie mit pointercancel ab, und das Element
+  // lässt sich nicht verschieben.
+  el.addEventListener('touchmove', (event) => {
+    if (gesture) event.preventDefault();
+  }, { passive: false });
 }
 
 /** Ziehen an einem Eck-Anfasser des Auswahlrahmens. */
@@ -677,7 +694,9 @@ function startFrameResize(event, corner) {
   event.preventDefault();
   event.stopPropagation();
   const target = event.currentTarget;
-  target.setPointerCapture(event.pointerId);
+  try {
+    target.setPointerCapture(event.pointerId);
+  } catch (_) { /* dann eben ohne Übernahme */ }
   const start = { x: event.clientX, y: event.clientY };
   const origin = boxOf(widget);
   const min = minSizeOf(widget);
@@ -920,7 +939,7 @@ function placeSelectionToolbar(widget) {
   selectionEl.classList.remove('is-docked');
   const rect = stageEl.getBoundingClientRect();
   const offsetX = (rect.width - BOARD_WIDTH * scale) / 2 + panX;
-  const offsetY = (rect.height - BOARD_HEIGHT * scale) / 2 + panY;
+  const offsetY = (rect.height - boardHeight() * scale) / 2 + panY;
   const width = selectionEl.offsetWidth || 200;
   const left = offsetX + widget.x * scale;
   const top = offsetY + widget.y * scale;
@@ -960,7 +979,7 @@ export function addWidgetOfType(type) {
 
 function findFreeSpot(size, widgets) {
   const step = 40;
-  for (let y = 80; y < BOARD_HEIGHT - size.h; y += step) {
+  for (let y = 80; y < boardHeight() - size.h; y += step) {
     for (let x = 60; x < BOARD_WIDTH - size.w; x += step) {
       const overlaps = widgets.some((widget) => !(x + size.w < widget.x || x > widget.x + widget.w
         || y + size.h < widget.y || y > widget.y + widget.h));
@@ -970,7 +989,7 @@ function findFreeSpot(size, widgets) {
   const cascade = widgets.length % 8;
   return {
     x: Math.min(120 + cascade * 44, Math.max(0, BOARD_WIDTH - size.w)),
-    y: Math.min(120 + cascade * 38, Math.max(0, BOARD_HEIGHT - size.h)),
+    y: Math.min(120 + cascade * 38, Math.max(0, boardHeight() - size.h)),
   };
 }
 

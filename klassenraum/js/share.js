@@ -76,6 +76,7 @@ function applyRemoteBoard(payload) {
     ? remote.activePageId
     : pages[0].id;
   board.cardStyle = remote.cardStyle || board.cardStyle;
+  board.format = remote.format || board.format;
   saveNow();
   renderBoard();
   document.dispatchEvent(new CustomEvent('klassenraum:board-updated'));

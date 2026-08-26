@@ -12,7 +12,40 @@ const LS_KEY = 'klassenraum.state.v1';
 const STATE_VERSION = 1;
 
 export const BOARD_WIDTH = 1600;
+// Vorgabe-Höhe (16:10) — die tatsächliche Höhe einer Tafel liefert boardHeight().
 export const BOARD_HEIGHT = 1000;
+
+/**
+ * Wählbares Format der Tafelfläche: Die Breite bleibt immer 1600, die Höhe
+ * richtet sich nach dem Format. So füllt die Tafel z. B. ein 16:9-Whiteboard
+ * ohne Seitenränder — und weil das Format zur Tafel gehört (und mitwandert),
+ * sieht die Anordnung auf allen Geräten weiterhin identisch aus.
+ */
+export const BOARD_FORMATS = [
+  { id: '16:10', label: '16:10', height: 1000, hint: 'Der Mittelweg (Vorgabe) — kleine Ränder auf Whiteboard und iPad.' },
+  { id: '16:9', label: '16:9 (Whiteboard/Beamer)', height: 900, hint: 'Füllt Whiteboards und Beamer randlos.' },
+  { id: '4:3', label: '4:3 (iPad)', height: 1200, hint: 'Füllt das iPad-Querformat fast randlos.' },
+];
+
+export function boardHeight(board = getActiveBoard()) {
+  const entry = board ? BOARD_FORMATS.find((format) => format.id === board.format) : null;
+  return entry ? entry.height : BOARD_HEIGHT;
+}
+
+/** Format einer Tafel ändern; alles wird in die neue Fläche hineingeholt. */
+export function setBoardFormat(board, formatId) {
+  if (!board || !BOARD_FORMATS.some((format) => format.id === formatId)) return;
+  board.format = formatId;
+  const height = boardHeight(board);
+  for (const page of board.pages || []) {
+    for (const widget of page.widgets || []) {
+      if (widget.h > height) widget.h = height;
+      widget.y = Math.max(0, Math.min(widget.y, height - widget.h));
+    }
+  }
+  touch({ reason: 'board-format' });
+  emit('widgets-changed', board);
+}
 
 let dbPromise = null;
 
@@ -132,6 +165,7 @@ export function defaultBoard(name = 'Neuer Klassenraum') {
     gradient: true,
     frames: 'always',
     labels: 'always',
+    format: '16:10',
     pages: [page],
     activePageId: page.id,
     updatedAt: Date.now(),
@@ -268,6 +302,7 @@ function normalizeState(loaded) {
       gradient: board.gradient !== false,
       frames: board.frames || 'always',
       labels: board.labels || 'always',
+      format: BOARD_FORMATS.some((format) => format.id === board.format) ? board.format : '16:10',
       pages,
       activePageId: pages.some((page) => page.id === board.activePageId) ? board.activePageId : pages[0].id,
       updatedAt: board.updatedAt || Date.now(),
@@ -603,7 +638,7 @@ export function duplicateWidget(widgetId) {
   const copy = JSON.parse(JSON.stringify(source));
   copy.id = uid('w');
   copy.x = Math.min(BOARD_WIDTH - copy.w, copy.x + 40);
-  copy.y = Math.min(BOARD_HEIGHT - copy.h, copy.y + 40);
+  copy.y = Math.min(boardHeight(board) - copy.h, copy.y + 40);
   copy.z = nextZ();
   page.widgets.push(copy);
   touch({ reason: 'widget-duplicate' });

@@ -3,7 +3,7 @@
 
 import { h, clear, uid, onTap } from './util.js';
 import { icon } from './icons.js';
-import { BOARD_WIDTH, BOARD_HEIGHT, getActivePage, touch, on as onStore } from './store.js';
+import { BOARD_WIDTH, boardHeight, getActivePage, touch, on as onStore } from './store.js';
 import { confirmDialog } from './ui.js';
 
 const COLORS = ['#f8fafc', '#0f172a', '#ef4444', '#f59e0b', '#22c55e', '#38bdf8', '#a855f7'];
@@ -30,9 +30,9 @@ export function initDrawing(host, options = {}) {
   canvas = document.createElement('canvas');
   canvas.className = 'draw-layer';
   canvas.width = BOARD_WIDTH;
-  canvas.height = BOARD_HEIGHT;
+  canvas.height = boardHeight();
   canvas.style.width = `${BOARD_WIDTH}px`;
-  canvas.style.height = `${BOARD_HEIGHT}px`;
+  canvas.style.height = `${canvas.height}px`;
   ctx2d = canvas.getContext('2d');
   host.appendChild(canvas);
 
@@ -58,7 +58,13 @@ function strokes() {
 
 export function redraw() {
   if (!ctx2d) return;
-  ctx2d.clearRect(0, 0, BOARD_WIDTH, BOARD_HEIGHT);
+  // Die Höhe richtet sich nach dem Format der Tafel — bei Bedarf anpassen.
+  const height = boardHeight();
+  if (canvas.height !== height) {
+    canvas.height = height;
+    canvas.style.height = `${height}px`;
+  }
+  ctx2d.clearRect(0, 0, BOARD_WIDTH, canvas.height);
   for (const stroke of strokes()) paint(stroke);
 }
 
@@ -97,7 +103,7 @@ function paint(stroke) {
 function toBoard(event) {
   const rect = canvas.getBoundingClientRect();
   const scaleX = rect.width / BOARD_WIDTH;
-  const scaleY = rect.height / BOARD_HEIGHT;
+  const scaleY = rect.height / canvas.height;
   return [(event.clientX - rect.left) / scaleX, (event.clientY - rect.top) / scaleY];
 }
 
