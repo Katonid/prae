@@ -62,6 +62,9 @@ WAS DRIN IST
 • Dokumentenkamera — Heft unter das iPad legen, Bild einfrieren, mit dem
   Stift hineinschreiben.
 • Handschrift über allem, mit Apple Pencil oder Finger.
+• Beamer und Fernseher zeigen nur die Tafel — nicht den iPad-Bildschirm.
+  Bedienleiste, Menüs und die Mitteilungen anderer Apps bleiben beim
+  Lehrertisch.
 
 FÜR DEN ALLTAG GEBAUT
 

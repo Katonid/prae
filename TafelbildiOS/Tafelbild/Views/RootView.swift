@@ -24,6 +24,9 @@ struct RootView: View {
     /// Elementleiste unten ausgeblendet? Bleibt gespeichert.
     @AppStorage("dockHidden") private var leisteAus = false
 
+    /// Zeigt gerade ein zweiter Bildschirm die Tafel? (siehe Views/Beamer.swift)
+    @ObservedObject private var beamer = Beamer.shared
+
     private var compact: Bool { horizontalSizeClass == .compact }
 
     /// Farbschema der aktiven Tafel — färbt auch die Bedienleiste.
@@ -126,6 +129,7 @@ struct RootView: View {
         // schon gezeichnete Texte die alte Schrift.
         .id(schriftWahl)
         .animation(.easeInOut(duration: 0.25), value: store.presenting)
+        .animation(.easeInOut(duration: 0.25), value: beamer.angeschlossen)
         .statusBarHidden(store.presenting)
         .persistentSystemOverlays(store.presenting ? .hidden : .automatic)
         .sheet(item: $sheet) { which in
@@ -221,6 +225,21 @@ struct RootView: View {
                     .background { Capsule().fill(Theme.amber) }
                 }
                 .buttonStyle(.plain)
+            }
+
+            if beamer.angeschlossen {
+                HStack(spacing: 6) {
+                    Image(systemName: "rectangle.on.rectangle.fill")
+                    if !compact {
+                        Text("Beamer")
+                            .font(Theme.font(14, weight: .semibold))
+                    }
+                }
+                .foregroundStyle(.white)
+                .padding(.horizontal, 13)
+                .frame(height: 36)
+                .background { Capsule().fill(style.accentGradient) }
+                .transition(.opacity.combined(with: .scale))
             }
 
             Spacer(minLength: 0)
