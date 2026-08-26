@@ -626,6 +626,11 @@ function openHelp() {
         + 'Gezogene Namen lassen sich antippen, um sie zurückzulegen; einzelne Namen können auch von Hand als gezogen markiert werden. '
         + 'Eine neue Runde startest du beim Bearbeiten über „Zurücksetzen“ oder im Zahnrad. '
         + 'In den Namenslisten lässt sich jeder Name pausieren (z. B. bei Krankheit) — er bleibt in der Liste, wird aber nicht gezogen.'),
+      h('p', null, h('strong', null, 'Gruppen & Tagesgruppe: '), 'Der Auswahlmodus „Gruppen“ lost die ganze Liste in Gruppen aus '
+        + '(Größe 1–15) — Partner nebeneinander, Gruppen untereinander. Ein Tipp auf einen Namen lost ab dieser Stelle neu, alles davor bleibt. '
+        + 'Mit Merkmalen aus der Namensliste (z. B. „J“/„M“) wird jede Gruppe nach Möglichkeit gemischt, und frühere Zusammensetzungen werden '
+        + 'gemieden, bis alle Kombinationen durch waren. „Tagesgruppe“ lost eine kleine Auswahl aus — wer selten dran war, kommt bevorzugt dran. '
+        + 'Beide merken sich alle Auslosungen mit Datum (im Zahnrad einsehbar, bis zum Reset), und jeder Modus lässt sich umbenennen.'),
       h('p', null, h('strong', null, 'Kamera: '), 'Das Element „Kamera“ zeigt das Livebild der Gerätekamera — als Dokumentenkamera fürs Heft '
         + 'unter dem iPad-Ständer. Ein Tipp friert das Bild ein (die Kamera geht dabei aus), der nächste taut es auf. '
         + 'Das Standbild bleibt auf der Tafel stehen und lässt sich über das Bildsymbol als eigenes Bild ablegen. '

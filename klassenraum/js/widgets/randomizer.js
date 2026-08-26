@@ -33,6 +33,160 @@ const REVEAL_MODES = [
   { id: 'letters', label: 'Buchstaben', hint: 'Ein Buchstabe nach dem anderen erscheint.' },
 ];
 
+// Alle Auswahlmodi — die Anzeigenamen lassen sich in den Einstellungen ändern.
+const MODES = [
+  { id: 'exhaust', label: 'Ohne Zurücklegen' },
+  { id: 'repeat', label: 'Mit Zurücklegen' },
+  { id: 'gruppen', label: 'Gruppen' },
+  { id: 'tagesgruppe', label: 'Tagesgruppe' },
+];
+
+const HISTORY_MAX = 60;
+
+function modeLabel(state, id) {
+  const custom = state.modeNames && typeof state.modeNames === 'object' ? state.modeNames[id] : '';
+  const fallback = (MODES.find((entry) => entry.id === id) || MODES[0]).label;
+  return (custom || '').trim() || fallback;
+}
+
+function isGroupMode(state) {
+  return state.mode === 'gruppen' || state.mode === 'tagesgruppe';
+}
+
+function marksOf(state) {
+  if (state.listId) {
+    const list = getList(state.listId);
+    if (list && list.marks && typeof list.marks === 'object') return list.marks;
+  }
+  return {};
+}
+
+function groupSizeOf(state) {
+  const raw = Number(state.groupSize) || 2;
+  return Math.max(1, Math.min(15, Math.round(raw)));
+}
+
+function dayCountOf(state) {
+  const raw = Number(state.dayCount) || 3;
+  return Math.max(1, Math.min(30, Math.round(raw)));
+}
+
+function shuffled(list) {
+  const copy = list.slice();
+  for (let i = copy.length - 1; i > 0; i -= 1) {
+    const j = randomInt(i + 1);
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
+}
+
+function chunk(list, size) {
+  const groups = [];
+  for (let i = 0; i < list.length; i += size) groups.push(list.slice(i, i + size));
+  return groups;
+}
+
+function pairKey(a, b) {
+  return a < b ? `${a}|${b}` : `${b}|${a}`;
+}
+
+/** Wie oft standen zwei Namen in der Vergangenheit schon zusammen in einer Gruppe? */
+function pastPairCounts(history) {
+  const counts = new Map();
+  for (const entry of history || []) {
+    if (entry.mode !== 'gruppen') continue;
+    for (const group of chunk(entry.flat || [], entry.size || 2)) {
+      for (let i = 0; i < group.length; i += 1) {
+        for (let j = i + 1; j < group.length; j += 1) {
+          const key = pairKey(group[i], group[j]);
+          counts.set(key, (counts.get(key) || 0) + 1);
+        }
+      }
+    }
+  }
+  return counts;
+}
+
+/**
+ * Einen Anordnungsversuch bauen: Ab `prefix` (bereits feststehende Namen)
+ * werden die restlichen Namen so verteilt, dass jede Gruppe möglichst
+ * verschiedene Merkmale mischt (z. B. ein Junge und ein Mädchen).
+ */
+function arrangeOnce(pool, marks, size, prefix) {
+  const buckets = new Map();
+  for (const name of shuffled(pool)) {
+    const mark = marks[name] || '';
+    if (!buckets.has(mark)) buckets.set(mark, []);
+    buckets.get(mark).push(name);
+  }
+  const flat = prefix.slice();
+  const total = prefix.length + pool.length;
+  while (flat.length < total) {
+    const posInGroup = flat.length % size;
+    const groupStart = flat.length - posInGroup;
+    const groupMarks = new Set(flat.slice(groupStart).map((name) => marks[name] || ''));
+    // Bevorzugt ein Merkmal, das in der Gruppe noch fehlt — aus dem vollsten
+    // Topf, damit die Merkmale bis zum Schluss reichen.
+    let candidates = Array.from(buckets.values()).filter((list) => list.length)
+      .filter((list) => !groupMarks.has(marks[list[list.length - 1]] || ''));
+    if (!candidates.length) candidates = Array.from(buckets.values()).filter((list) => list.length);
+    const most = Math.max(...candidates.map((list) => list.length));
+    const top = candidates.filter((list) => list.length === most);
+    flat.push(top[randomInt(top.length)].pop());
+  }
+  return flat;
+}
+
+function scoreArrangement(flat, size, marks, pairCounts) {
+  let score = 0;
+  for (const group of chunk(flat, size)) {
+    for (let i = 0; i < group.length; i += 1) {
+      for (let j = i + 1; j < group.length; j += 1) {
+        // Frühere Paarungen möglichst vermeiden …
+        score += pairCounts.get(pairKey(group[i], group[j])) || 0;
+        // … aber gleiche Merkmale in einer Gruppe wiegen deutlich schwerer.
+        const a = marks[group[i]] || '';
+        if (a && a === (marks[group[j]] || '')) score += 100;
+      }
+    }
+  }
+  return score;
+}
+
+/** Beste von mehreren zufälligen Anordnungen — mischt Merkmale und meidet alte Paare. */
+function drawArrangement(pool, marks, size, history, prefix = []) {
+  const pairCounts = pastPairCounts(history);
+  let best = null;
+  let bestScore = Infinity;
+  for (let attempt = 0; attempt < 40; attempt += 1) {
+    const flat = arrangeOnce(pool, marks, size, prefix);
+    const score = scoreArrangement(flat, size, marks, pairCounts);
+    if (score < bestScore) {
+      bestScore = score;
+      best = flat;
+    }
+    if (bestScore === 0) break;
+  }
+  return best || prefix.concat(shuffled(pool));
+}
+
+/** Tagesgruppe: Wer bisher am seltensten dran war, kommt bevorzugt dran. */
+function drawDayGroup(pool, count, history) {
+  const used = new Map();
+  for (const entry of history || []) {
+    if (entry.mode !== 'tagesgruppe') continue;
+    for (const name of entry.flat || []) used.set(name, (used.get(name) || 0) + 1);
+  }
+  const ranked = shuffled(pool).sort((a, b) => (used.get(a) || 0) - (used.get(b) || 0));
+  return shuffled(ranked.slice(0, Math.max(0, Math.min(count, ranked.length))));
+}
+
+function stampLabel(at) {
+  const date = new Date(at);
+  return `${date.toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}, `
+    + `${date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr`;
+}
+
 function namesOf(state) {
   if (state.listId) {
     const list = getList(state.listId);
@@ -127,6 +281,12 @@ export default {
       reveal: 'mosaik',
       revealParts: [],
       spinSound: 'karten',
+      // Gruppen & Tagesgruppe
+      groupSize: 2,
+      dayCount: 3,
+      groups: null,
+      history: [],
+      modeNames: {},
     };
   },
 
@@ -140,9 +300,10 @@ export default {
     const maskEl = h('div', { class: 'w-random__mask' });
     const hintEl = h('div', { class: 'w-random__hint' });
     const drawnBox = h('div', { class: 'w-random__drawn', 'data-nodrag': '' });
+    const groupsBox = h('div', { class: 'w-random__groups', 'data-nodrag': '' });
 
     nameBox.append(nameEl, maskEl);
-    display.append(nameBox, hintEl);
+    display.append(nameBox, groupsBox, hintEl);
     // Bewusst ohne Knöpfe: Gezogen und aufgedeckt wird durch Tippen auf die Karte.
     el.append(head, titleEl, display, drawnBox);
 
@@ -150,6 +311,8 @@ export default {
     let spinning = false;
     let armed = false;
     let unveilTimer = 0;
+    let dealTimers = [];
+    let dealing = false;
     // Zum Ausmessen der Schriftbreite (für das Strecken verdeckter Namen).
     const meter = document.createElement('canvas').getContext('2d');
 
@@ -167,6 +330,101 @@ export default {
       confetti(display);
       beep({ frequency: 720, duration: 0.12, gain: 0.12 });
       beep({ frequency: 980, duration: 0.16, gain: 0.1, delay: 0.1 });
+    }
+
+    function stopDeal() {
+      for (const timer of dealTimers) clearTimeout(timer);
+      dealTimers = [];
+      dealing = false;
+    }
+
+    /** Gruppen oder Tagesgruppe auslosen — ab `fromIndex` bleibt alles davor stehen. */
+    function drawGroupsNow(fromIndex = 0) {
+      if (dealing || spinning) return;
+      const state = ctx.widget.state;
+      const all = namesOf(state);
+      if (!all.length) {
+        render();
+        return;
+      }
+      const isDay = state.mode === 'tagesgruppe';
+      const size = isDay ? 1 : groupSizeOf(state);
+      const shown = state.groups && state.groups.mode === state.mode && Array.isArray(state.groups.flat)
+        ? state.groups.flat : [];
+      const prefix = fromIndex > 0 ? shown.slice(0, fromIndex).filter((name) => all.includes(name)) : [];
+      const pool = all.filter((name) => !prefix.includes(name));
+      let flat;
+      if (isDay) {
+        const count = Math.min(dayCountOf(state), all.length);
+        flat = prefix.concat(drawDayGroup(pool, count - prefix.length, state.history));
+      } else {
+        flat = drawArrangement(pool, marksOf(state), size, state.history, prefix);
+      }
+      if (!Array.isArray(state.history)) state.history = [];
+      if (fromIndex > 0 && state.groups && state.groups.at) {
+        // Neuauslosung ab einer Stelle berichtigt den laufenden Durchgang —
+        // es entsteht kein neuer Verlaufseintrag.
+        state.groups = { at: state.groups.at, mode: state.mode, size, flat };
+        const entry = state.history.find((item) => item.at === state.groups.at);
+        if (entry) {
+          entry.flat = flat.slice();
+          entry.size = size;
+        }
+      } else {
+        const entry = { at: Date.now(), mode: state.mode, size, flat: flat.slice() };
+        state.history.unshift(entry);
+        if (state.history.length > HISTORY_MAX) state.history.length = HISTORY_MAX;
+        state.groups = { at: entry.at, mode: state.mode, size, flat };
+      }
+      ctx.save();
+      render(prefix.length);
+    }
+
+    /** Schriftgröße so wählen, dass alle Kärtchen gleich groß bleiben und passen. */
+    function fitGroups(size, rows, maxLen) {
+      const cardWidth = Math.max(90, (ctx.widget.w - 70) / size - 16);
+      const cardHeight = rows > 0 ? Math.max(34, (ctx.widget.h - 170) / rows - 10) : 40;
+      const byWidth = cardWidth / (Math.max(3, maxLen) * 0.58);
+      const value = Math.max(13, Math.min(byWidth, cardHeight * 0.52, 44));
+      groupsBox.style.fontSize = `${value}px`;
+    }
+
+    function renderGroups(animateFrom = Infinity) {
+      const state = ctx.widget.state;
+      stopDeal();
+      clear(groupsBox);
+      const shown = state.groups && state.groups.mode === state.mode && Array.isArray(state.groups.flat)
+        ? state.groups : null;
+      const flat = shown ? shown.flat : [];
+      const size = state.mode === 'tagesgruppe' ? 1 : (shown ? shown.size : groupSizeOf(state));
+      groupsBox.style.gridTemplateColumns = `repeat(${size}, minmax(0, 1fr))`;
+      fitGroups(size, Math.ceil(flat.length / size) || 1, flat.reduce((acc, name) => Math.max(acc, name.length), 4));
+      const animateOk = state.animate !== false && !reducedMotion() && animateFrom < flat.length;
+      const sound = spinSoundById(state.spinSound).id;
+      flat.forEach((name, index) => {
+        const groupIndex = Math.floor(index / size);
+        const card = onTap(h('button', {
+          class: 'w-random__gcard' + (groupIndex % 2 ? ' is-alt' : ''),
+          'data-nodrag': '',
+          title: 'Ab hier neu auslosen (alles davor bleibt)',
+        }, h('span', { class: 'w-random__gcard-text' }, name)), () => drawGroupsNow(index));
+        if (animateOk && index >= animateFrom) {
+          card.classList.add('is-waiting');
+          const stepIndex = index - animateFrom;
+          dealing = true;
+          dealTimers.push(setTimeout(() => {
+            card.classList.remove('is-waiting');
+            card.classList.add('is-dealt');
+            spinTick(sound, flat.length > animateFrom + 1 ? stepIndex / (flat.length - animateFrom - 1) : 1);
+            if (index === flat.length - 1) {
+              dealing = false;
+              spinEnd(sound);
+              if (animateFrom === 0) confetti(display);
+            }
+          }, 140 + stepIndex * 110));
+        }
+        groupsBox.appendChild(card);
+      });
     }
 
     function draw() {
@@ -232,6 +490,10 @@ export default {
 
     function step() {
       const state = ctx.widget.state;
+      if (isGroupMode(state)) {
+        drawGroupsNow(0);
+        return;
+      }
       if (!state.current || isRevealed(state, state.current)) {
         draw();
         return;
@@ -358,7 +620,7 @@ export default {
       void name;
     }
 
-    function render() {
+    function render(animateFrom = Infinity) {
       const state = ctx.widget.state;
       const all = namesOf(state);
       const drawn = state.drawn || [];
@@ -366,16 +628,45 @@ export default {
       const name = state.current;
       const hidden = Boolean(name) && !isRevealed(state, name);
       const mode = revealMode(state);
+      const groupMode = isGroupMode(state);
 
       clear(head);
       head.append(
         h('span', { class: 'w-random__list' }, listTitle(state)),
         h('span', { class: 'w-random__count' },
-          state.mode === 'repeat' ? `${all.length} Namen` : `${remaining.length}/${all.length}`));
+          groupMode
+            ? `${modeLabel(state, state.mode)} · ${all.length} Namen`
+            : (state.mode === 'repeat' ? `${all.length} Namen` : `${remaining.length}/${all.length}`)));
 
       titleEl.textContent = state.title || '';
       titleEl.classList.toggle('is-hidden', !state.title);
 
+      nameBox.classList.toggle('is-hidden', groupMode);
+
+      if (groupMode) {
+        renderGroups(animateFrom);
+        // Ohne Kärtchen bleibt die Fläche weg — sonst schluckt sie als
+        // Bedienfläche (data-nodrag) den Tipp, der auslosen soll.
+        groupsBox.classList.toggle('is-hidden', groupsBox.childElementCount === 0);
+        shieldName(false);
+        const shown = state.groups && state.groups.mode === state.mode && Array.isArray(state.groups.flat);
+        if (!all.length) {
+          hintEl.textContent = 'Einstellungen öffnen und Namen eintragen.';
+        } else if (!shown) {
+          hintEl.textContent = armed
+            ? 'Bereit — der nächste Tipp lost aus'
+            : 'Antippen, dann nochmal tippen zum Auslosen';
+        } else {
+          const latest = Array.isArray(state.history) && state.history[0] && state.history[0].at === state.groups.at;
+          hintEl.textContent = latest
+            ? 'Tipp auf einen Namen lost ab dort neu — alles davor bleibt. Tipp daneben lost alles neu.'
+            : `Frühere Auslosung: ${stampLabel(state.groups.at)}`;
+        }
+        drawnBox.classList.add('is-hidden');
+        return;
+      }
+
+      groupsBox.classList.add('is-hidden');
       nameEl.classList.toggle('is-empty', !name);
       if (name && hidden && mode === 'letters') {
         const maskable = new Set(maskableIndexes(name));
@@ -444,19 +735,28 @@ export default {
       render();
     }
 
-    const off = onStore('lists-changed', render);
+    // Tipp neben die Kärtchen (auf die freie Fläche) lost alles neu aus.
+    groupsBox.addEventListener('click', (event) => {
+      if (event.target === groupsBox) drawGroupsNow(0);
+    });
+
+    const off = onStore('lists-changed', () => render());
     render();
 
     return {
       el,
       refresh: render,
-      onResize: fitName,
+      onResize: () => {
+        if (isGroupMode(ctx.widget.state)) render();
+        else fitName();
+      },
       onTap: step,
       // Erst der zweite Tipp löst aus — sonst zieht ein versehentlicher Tipp einen Namen.
       tapNeedsFocus: true,
       // Solange etwas verdeckt ist, bietet die kleine Leiste beim Bearbeiten das Augensymbol an.
       get actions() {
         const state = ctx.widget.state;
+        if (isGroupMode(state)) return [];
         if (!state.current || isRevealed(state, state.current)) return [];
         return [{ icon: 'eye', title: 'Namen ganz aufdecken', run: revealAll }];
       },
@@ -466,6 +766,7 @@ export default {
       },
       destroy() {
         stopSpin();
+        stopDeal();
         if (unveilTimer) window.cancelAnimationFrame(unveilTimer);
         off();
       },
@@ -542,32 +843,119 @@ export default {
           },
         }), 'Steht groß über dem Namen — z. B. als Frage an die Klasse.')));
 
-      wrap.appendChild(section('Ziehen',
-        h('div', { class: 'segmented' },
-          h('button', {
-            class: 'segmented__item' + (state.mode !== 'repeat' ? ' is-active' : ''),
-            onclick: () => {
-              ctx.widget.state.mode = 'exhaust';
-              ctx.save();
-              rerender();
-            },
-          }, 'Ohne Zurücklegen'),
-          h('button', {
-            class: 'segmented__item' + (state.mode === 'repeat' ? ' is-active' : ''),
-            onclick: () => {
-              ctx.widget.state.mode = 'repeat';
-              ctx.save();
-              rerender();
-            },
-          }, 'Mit Zurücklegen')),
-        h('p', { class: 'muted small' }, state.mode === 'repeat'
-          ? 'Jeder Name kann mehrfach gezogen werden.'
-          : 'Ein gezogener Name kommt erst nach dem Zurücksetzen wieder in den Topf.'),
+      const activeMode = MODES.some((entry) => entry.id === state.mode) ? state.mode : 'exhaust';
+      const groupMode = isGroupMode(state);
+      wrap.appendChild(section('Auswahlmodus',
+        h('div', { class: 'segmented segmented--wrap' }, MODES.map((entry) => h('button', {
+          class: 'segmented__item' + (activeMode === entry.id ? ' is-active' : ''),
+          onclick: () => {
+            ctx.widget.state.mode = entry.id;
+            ctx.save();
+            rerender();
+          },
+        }, modeLabel(state, entry.id)))),
+        h('p', { class: 'muted small' }, {
+          exhaust: 'Ein gezogener Name kommt erst nach dem Zurücksetzen wieder in den Topf.',
+          repeat: 'Jeder Name kann mehrfach gezogen werden.',
+          gruppen: 'Lost die ganze Liste in Gruppen aus — Partner nebeneinander, Gruppen untereinander. '
+            + 'Tipp auf einen Namen lost ab dieser Stelle neu; alles davor bleibt stehen.',
+          tagesgruppe: 'Lost eine kleine Auswahl von Kindern aus (untereinander angezeigt) — wer selten dran war, kommt bevorzugt dran.',
+        }[activeMode]),
         toggleRow('Namen durchlaufen lassen', state.animate !== false, (value) => {
           ctx.widget.state.animate = value;
           ctx.save();
           rerender();
-        }, 'Aus: Der Name steht sofort da — dann gibt es auch keinen Klang.')));
+        }, groupMode
+          ? 'Aus: Die Kärtchen stehen sofort da — dann gibt es auch keinen Klang.'
+          : 'Aus: Der Name steht sofort da — dann gibt es auch keinen Klang.')));
+
+      if (activeMode === 'gruppen') {
+        const sizeInput = h('input', {
+          class: 'input input--small', type: 'number', min: '1', max: '15', value: String(groupSizeOf(state)),
+          oninput: (event) => {
+            const value = Math.max(1, Math.min(15, Math.round(Number(event.target.value) || 2)));
+            ctx.widget.state.groupSize = value;
+            ctx.save();
+            ctx.refresh();
+          },
+        });
+        wrap.appendChild(section('Gruppen',
+          field('Gruppengröße (1–15)', sizeInput,
+            'Die letzte Gruppe kann kleiner ausfallen, wenn die Gesamtzahl nicht aufgeht. '
+            + 'Gilt ab der nächsten Auslosung.'),
+          h('p', { class: 'muted small' },
+            'Sind in der Namensliste Merkmale vergeben (z. B. „J“/„M“), wird jede Gruppe nach Möglichkeit gemischt. '
+            + 'Frühere Zusammensetzungen werden gemieden, bis alle Kombinationen durch sind.')));
+      }
+
+      if (activeMode === 'tagesgruppe') {
+        const countInput = h('input', {
+          class: 'input input--small', type: 'number', min: '1', max: '30', value: String(dayCountOf(state)),
+          oninput: (event) => {
+            const value = Math.max(1, Math.min(30, Math.round(Number(event.target.value) || 3)));
+            ctx.widget.state.dayCount = value;
+            ctx.save();
+            ctx.refresh();
+          },
+        });
+        wrap.appendChild(section('Tagesgruppe',
+          field('Anzahl Kinder (1–30)', countInput, 'Gilt ab der nächsten Auslosung.')));
+      }
+
+      if (groupMode) {
+        const history = Array.isArray(state.history)
+          ? state.history.filter((entry) => entry.mode === activeMode)
+          : [];
+        const historyBox = h('div', { class: 'stack' });
+        if (!history.length) {
+          historyBox.appendChild(h('p', { class: 'muted small' }, 'Noch keine Auslosung gespeichert.'));
+        } else {
+          historyBox.append(
+            h('p', { class: 'muted small' }, 'Antippen zeigt die frühere Auslosung auf der Karte.'),
+            h('div', { class: 'stack stack--tight' }, history.map((entry) => h('button', {
+              class: 'list-row__main' + (state.groups && state.groups.at === entry.at ? ' is-active' : ''),
+              onclick: () => {
+                ctx.widget.state.groups = {
+                  at: entry.at, mode: entry.mode, size: entry.size, flat: entry.flat.slice(),
+                };
+                ctx.save();
+                ctx.refresh();
+              },
+            },
+            h('strong', null, stampLabel(entry.at)),
+            h('small', { class: 'muted' },
+              `${entry.flat.length} Namen${entry.mode === 'gruppen' ? ` · ${Math.ceil(entry.flat.length / (entry.size || 2))} Gruppen` : ''}`)))));
+        }
+        historyBox.appendChild(buttonRow(button('Verlauf löschen (Reset)', {
+          icon: 'trash', small: true, ghost: true,
+          onClick: () => {
+            ctx.widget.state.history = (ctx.widget.state.history || []).filter((entry) => entry.mode !== activeMode);
+            ctx.widget.state.groups = null;
+            ctx.save();
+            rerender();
+            toast('Verlauf gelöscht — alle Kombinationen sind wieder möglich.', 'success');
+          },
+        })));
+        wrap.appendChild(section(`Frühere Auslosungen (${history.length})`, historyBox));
+      }
+
+      wrap.appendChild(section('Modi umbenennen',
+        h('p', { class: 'muted small' }, 'Eigene Namen für die Auswahlmodi — leer lassen für den Standardnamen.'),
+        MODES.map((entry) => field(
+          (MODES.find((item) => item.id === entry.id) || {}).label || entry.id,
+          h('input', {
+            class: 'input', type: 'text',
+            value: (state.modeNames && state.modeNames[entry.id]) || '',
+            placeholder: entry.label,
+            oninput: (event) => {
+              if (!ctx.widget.state.modeNames || typeof ctx.widget.state.modeNames !== 'object') {
+                ctx.widget.state.modeNames = {};
+              }
+              ctx.widget.state.modeNames[entry.id] = event.target.value;
+              ctx.save();
+              ctx.refresh();
+            },
+          })))));
 
       const sound = spinSoundById(state.spinSound).id;
       wrap.appendChild(section('Klang beim Ziehen',
@@ -585,6 +973,9 @@ export default {
         state.animate === false
           ? h('p', { class: 'muted small' }, 'Zurzeit ohne Wirkung: „Namen durchlaufen lassen" ist ausgeschaltet.')
           : null));
+
+      // Aufdecken und „gezogene Namen" betreffen nur das Ziehen einzelner Namen.
+      if (groupMode) return;
 
       const current = revealMode(state);
       wrap.appendChild(section('Aufdecken',
