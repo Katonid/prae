@@ -8,7 +8,7 @@
 
 import { h, clear, clamp, onTap } from '../util.js';
 import { icon } from '../icons.js';
-import { addWidget, BOARD_WIDTH, BOARD_HEIGHT } from '../store.js';
+import { addWidget, BOARD_WIDTH, boardHeight } from '../store.js';
 import { section, button, toast } from '../ui.js';
 
 const HIDDEN_HINT = 'Pausiert — die Seite ist im Hintergrund.';
@@ -188,7 +188,7 @@ export default {
       addWidget({
         type: 'image',
         x: clamp(widget.x + 40, 0, BOARD_WIDTH - widget.w),
-        y: clamp(widget.y + 40, 0, BOARD_HEIGHT - widget.h),
+        y: clamp(widget.y + 40, 0, boardHeight() - widget.h),
         w: widget.w,
         h: widget.h,
         state: { url: state.frozen, fit: 'contain', caption: '', rounded: true },

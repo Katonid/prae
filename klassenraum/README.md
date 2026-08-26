@@ -46,6 +46,11 @@ Klassenzimmer umblättern.
 
 ## Aussehen
 
+* **Format der Tafelfläche** je Klassenraum: **16:10** (Vorgabe, der Mittelweg),
+  **16:9** (füllt Whiteboards und Beamer ohne Seitenränder) oder **4:3** (füllt
+  das iPad). Das Format gehört zur Tafel und wandert über den Abgleich mit —
+  die Anordnung bleibt damit auf allen Geräten identisch. Beim Wechsel auf ein
+  flacheres Format werden zu tief sitzende Elemente in die Fläche hochgeholt.
 * **Sechs Farbschemata** je Klassenraum — Indigo, Ozean, Wald, Sonne, Schiefer, Kreide.
   Sie färben Namen, Timer-Ring, Uhrzeiger, Knöpfe und Klangtasten einheitlich. Wer es
   ruhiger mag, schaltet **„Farbverlauf verwenden" aus**: dann werden aus den bunten
