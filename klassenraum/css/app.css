@@ -212,6 +212,23 @@ body.is-loading .stage { opacity: 0; }
 body.is-presenting .view-controls,
 body.is-stacked .view-controls { display: none; }
 
+/* Berührungs-Fehlersuche: Ereignisprotokoll direkt auf dem Gerät (Menü → Über). */
+.pointer-debug {
+  position: fixed;
+  left: 8px;
+  bottom: 8px;
+  z-index: 4000;
+  max-width: min(72vw, 560px);
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(2, 6, 23, 0.85);
+  color: #a7f3d0;
+  font: 11px/1.45 ui-monospace, Menlo, Consolas, monospace;
+  pointer-events: none;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
 /* Seiten einer Tafel: unten rechts blättern — auch im Unterricht und beim Präsentieren. */
 .page-controls {
   position: absolute;
