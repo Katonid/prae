@@ -253,7 +253,19 @@ Wie zusammengeführt wird:
   bleiben dort erhalten, die übrigen Geräte gleichen weiter ab.
 
 Sind Konten freigeschaltet, merkt sich die App den Bereich am Konto: Wer sich auf
-einem neuen Gerät anmeldet, ist ohne Code sofort dabei.
+einem neuen Gerät anmeldet, ist ohne Code sofort dabei. Hat ein Gerät bereits
+einen **eigenen** Bereich (z. B. weil dort versehentlich „Abgleich einrichten“
+statt „Gerät verbinden“ gewählt wurde), fragt die App beim Anmelden, ob das
+Gerät in den Bereich des Kontos wechseln soll.
+
+**Wenn der Abgleich „aneinander vorbei" läuft:** Unter „Teilen“ → Abgleich steht
+auf jedem Gerät die **Bereichskennung**. Nur Geräte mit derselben Kennung
+gleichen miteinander ab — jedes „Abgleich einrichten“ erzeugt einen **neuen,
+getrennten** Bereich. Zeigt ein Gerät eine andere Kennung, dort einfach den
+Tafel-Link des führenden Geräts öffnen (oder per Code verbinden); die Tafeln
+werden dabei zusammengeführt. Auch wichtig: Auf einem Board sind die
+Prowise-Hülle, der interne Browser und Chrome **drei getrennte Speicher** —
+jeder davon muss einmal über den Tafel-Link verbunden werden.
 
 ### Angemeldet bleiben (Whiteboards im Kiosk-Betrieb)
 

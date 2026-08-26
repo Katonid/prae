@@ -625,7 +625,9 @@ function openHelp() {
       h('p', null, h('strong', null, 'Abgleich: '), 'Unter „Teilen“ → „Abgleich zwischen Geräten“ einmal „Abgleich einrichten“ antippen — '
         + 'die App zeigt einen Kopplungscode. Auf dem zweiten Gerät „Gerät verbinden“ und den Code eingeben. '
         + 'Danach sind alle Tafeln, Listen und auch Klang-/Videodateien (bis 60 MB) auf allen Geräten gleich; '
-        + 'bei zwei Ständen gewinnt der neuere.'),
+        + 'bei zwei Ständen gewinnt der neuere. Wichtig: „Abgleich einrichten“ nur auf dem ERSTEN Gerät — jedes weitere '
+        + 'Einrichten erzeugt einen neuen, getrennten Bereich. Ob Geräte zusammengehören, zeigt die Bereichskennung '
+        + 'unter „Teilen“ → Abgleich: Sie muss überall gleich sein.'),
       h('p', null, h('strong', null, 'Am Telefon: '), 'Es wird dieselbe Tafel gezeigt, nur kleiner. Mit zwei Fingern oder den Knöpfen −/+ unten links hineinzoomen, '
         + 'mit einem Finger auf der freien Fläche verschieben, Doppeltippen zeigt wieder alles. Der Knopf über der Elementleiste blendet diese aus.'),
       h('p', null, h('strong', null, 'Schrift: '), 'Unter „Aussehen“ → „Schrift“ stehen vier Schriften mit dem runden „a“ zur Wahl, '
