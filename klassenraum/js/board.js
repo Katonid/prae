@@ -434,7 +434,18 @@ export function renderBoard() {
   for (const widget of widgetsOf(board)) {
     seen.add(widget.id);
     if (!instances.has(widget.id)) mountWidget(widget);
-    else instances.get(widget.id).widget = widget;
+    else {
+      const instance = instances.get(widget.id);
+      if (instance.widget !== widget) {
+        // Abgleich oder Live-Folgen hat hinter derselben Kennung ein neues
+        // Widget-Objekt eingesetzt — Kontext und Anzeige müssen mitziehen,
+        // sonst zeigt das Element für immer den alten Stand (und Ziehen
+        // schriebe in ein verwaistes Objekt).
+        instance.widget = widget;
+        if (instance.ctx) instance.ctx.widget = widget;
+        if (instance.api && instance.api.refresh) instance.api.refresh();
+      }
+    }
   }
   for (const [id, instance] of Array.from(instances.entries())) {
     if (!seen.has(id)) {
@@ -449,25 +460,28 @@ export function renderBoard() {
 }
 
 function makeContext(widget) {
-  return {
+  // ctx.widget wird beim Abgleich/Live-Folgen gegen das neue Objekt getauscht
+  // (renderBoard) — deshalb hier überall über ctx.widget zugreifen, nie über
+  // die eingefrorene Ausgangsvariable.
+  const ctx = {
     widget,
     save() {
       touch({ reason: 'widget-state' });
     },
     refresh() {
-      const instance = instances.get(widget.id);
+      const instance = instances.get(ctx.widget.id);
       if (instance && instance.api && instance.api.refresh) instance.api.refresh();
     },
     instance() {
-      const instance = instances.get(widget.id);
+      const instance = instances.get(ctx.widget.id);
       return instance ? instance.api : null;
     },
     setSize(w, h) {
-      widget.w = clamp(Math.round(w), 120, BOARD_WIDTH);
-      widget.h = clamp(Math.round(h), 90, boardHeight());
+      ctx.widget.w = clamp(Math.round(w), 120, BOARD_WIDTH);
+      ctx.widget.h = clamp(Math.round(h), 90, boardHeight());
       touch({ reason: 'widget-size' });
       layout();
-      const instance = instances.get(widget.id);
+      const instance = instances.get(ctx.widget.id);
       if (instance && instance.api && instance.api.onResize) instance.api.onResize();
     },
     openLists() {
@@ -477,9 +491,10 @@ function makeContext(widget) {
       return mode === 'edit';
     },
     openSettings() {
-      openWidgetSettings(widget.id);
+      openWidgetSettings(ctx.widget.id);
     },
   };
+  return ctx;
 }
 
 function mountWidget(widget) {
@@ -562,13 +577,22 @@ const pointMiddle = (a, b) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
  * Alles an einem Element in einer Hand: Tippen löst die Hauptfunktion aus,
  * Ziehen verschiebt, zwei Finger verändern stufenlos die Größe.
  */
-function attachInteractions(el, widget) {
+function attachInteractions(el, mounted) {
+  // Beim Abgleich oder Live-Folgen wird das Widget-Objekt hinter derselben
+  // Kennung ausgetauscht — deshalb bei jedem Ereignis das aktuelle Objekt
+  // auflösen, statt das beim Aufbau übergebene festzuhalten (sonst schreibt
+  // Ziehen in ein verwaistes Objekt und das Element bewegt sich nicht).
+  const widgetNow = () => {
+    const instance = instances.get(mounted.id);
+    return (instance && instance.widget) || mounted;
+  };
   const points = new Map();
   let gesture = null;
   let tap = null;
 
   el.addEventListener('pointerdown', (event) => {
     if (event.button !== undefined && event.button > 0) return;
+    const widget = widgetNow();
     // Verwaiste Zeiger aufräumen: Geht ein Loslassen verloren (IR-Rahmen an
     // interaktiven Tafeln und Safari verschlucken so etwas gelegentlich),
     // bliebe der alte Punkt für immer stehen — jeder weitere Ein-Finger-Zug
@@ -641,6 +665,7 @@ function attachInteractions(el, widget) {
     if (!points.has(event.pointerId)) return;
     points.set(event.pointerId, { x: event.clientX, y: event.clientY });
     if (!gesture) return;
+    const widget = widgetNow();
 
     if (gesture.type === 'maybe-drag') {
       const moved = Math.abs(event.clientX - gesture.start.x) + Math.abs(event.clientY - gesture.start.y);
@@ -679,6 +704,7 @@ function attachInteractions(el, widget) {
   });
 
   const release = (event) => {
+    const widget = widgetNow();
     points.delete(event.pointerId);
     const finished = gesture;
     dlog(`↑ #${event.pointerId} Geste=${finished ? finished.type : '—'}${finished && finished.moved ? ' (bewegt)' : ''} Punkte=${points.size}`);

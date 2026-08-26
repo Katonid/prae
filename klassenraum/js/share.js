@@ -21,6 +21,12 @@ import { renderBoard } from './board.js';
 let applyingRemote = false;
 let unsubscribeFollow = null;
 let followedCode = null;
+// Zuletzt übernommener Stand beim Live-Folgen — unveränderte Stände werden
+// nicht erneut angewendet (sonst springt jede eigene Bewegung alle paar
+// Sekunden zurück, obwohl die teilende Person gar nichts geändert hat).
+let lastFollowStamp = 0;
+// Warnung „diese Tafel folgt live" nicht bei jedem Handgriff wiederholen.
+let lastFollowWarn = 0;
 
 function shareEntry(boardId, create = false) {
   const state = getState();
@@ -58,6 +64,9 @@ const pushSoon = debounce(async () => {
 function applyRemoteBoard(payload) {
   const board = getActiveBoard();
   if (!board || !payload || !payload.board) return;
+  // Nichts Neues von der teilenden Person? Dann auch nichts überschreiben.
+  if (payload.updatedAt && payload.updatedAt === lastFollowStamp) return;
+  lastFollowStamp = payload.updatedAt || 0;
   applyingRemote = true;
   const remote = payload.board;
   board.name = remote.name || board.name;
@@ -104,7 +113,21 @@ async function syncFollow() {
 }
 
 export function initSharing() {
-  onStore('change', () => pushSoon());
+  onStore('change', (payload) => {
+    pushSoon();
+    // Wer auf einer LIVE folgenden Tafel selbst umbaut, verliert die Änderung
+    // beim nächsten Stand der teilenden Person wieder — das einmal klar sagen.
+    const reason = payload && payload.reason ? String(payload.reason) : '';
+    if (!/^widget-|^draw|^page-|^board-format/.test(reason)) return;
+    if (!isFollowing()) return;
+    const now = Date.now();
+    if (now - lastFollowWarn < 30000) return;
+    lastFollowWarn = now;
+    const board = getActiveBoard();
+    const entry = board ? shareEntry(board.id) : null;
+    toast(`Diese Tafel folgt live dem Code ${entry && entry.code ? entry.code : ''} — eigene Änderungen werden `
+      + 'vom nächsten Stand der teilenden Person überschrieben. Zum selbst Gestalten unter „Teilen“ das Folgen beenden.', 'warn');
+  });
   onStore('board-switch', () => syncFollow());
   syncFollow();
 
