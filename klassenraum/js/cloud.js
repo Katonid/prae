@@ -207,11 +207,17 @@ export async function subscribePath(path, handler, { granular = false } = {}) {
   let poller = null;
   let pending = null;
 
-  const pull = async () => {
+  const pull = async (versuch = 0) => {
     try {
       const payload = await dbRequest(path);
       if (!stopped) handler(payload, null);
-    } catch (_) { /* nächster Versuch später */ }
+    } catch (_) {
+      // Genau dieser Abruf trägt oft die eben gemeldete Änderung — schlägt er
+      // fehl (gekappte Verbindung, eingeschlafenes WLAN), kurz darauf noch
+      // einmal versuchen statt still bis zum nächsten Sicherheits-Abruf zu
+      // warten.
+      if (!stopped && versuch < 3) setTimeout(() => pull(versuch + 1), 2000);
+    }
   };
 
   const startPolling = () => {
@@ -243,9 +249,11 @@ export async function subscribePath(path, handler, { granular = false } = {}) {
       source = new window.EventSource(await dbUrl(path));
       source.addEventListener('put', onEvent);
       source.addEventListener('patch', onEvent);
-      source.addEventListener('error', () => {
-        if (source && source.readyState === 2) startPolling();
-      });
+      // Bei JEDEM Fehler auf regelmäßiges Nachfragen umschalten — nicht nur,
+      // wenn der Strom endgültig zu ist. Vorher konnte ein Strom, der in einer
+      // Wiederverbindungs-Schleife hing, Live-Folgen und Abgleich still
+      // verhungern lassen.
+      source.addEventListener('error', () => startPolling());
     } catch (_) {
       startPolling();
     }
@@ -253,10 +261,15 @@ export async function subscribePath(path, handler, { granular = false } = {}) {
     startPolling();
   }
 
+  // Sicherheitsnetz: Auch mit intaktem Ereignisstrom regelmäßig nachsehen —
+  // falls die Verbindung einschläft, ohne je einen Fehler zu melden.
+  const safety = setInterval(pull, 60000);
+
   return () => {
     stopped = true;
     if (pending) clearTimeout(pending);
     if (poller) clearInterval(poller);
+    clearInterval(safety);
     if (source) source.close();
   };
 }

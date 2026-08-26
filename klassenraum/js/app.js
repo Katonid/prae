@@ -877,6 +877,12 @@ async function boot() {
   }
   onSyncChanged(renderSyncBadge);
   if (dom.syncBadge) dom.syncBadge.addEventListener('click', () => openSharePanel());
+  // Das LIVE-Badge führt direkt zum Teilen-Fenster — dort lässt sich das
+  // Folgen beenden, wenn man die Tafel selbst gestalten will.
+  if (dom.followBadge) {
+    dom.followBadge.style.cursor = 'pointer';
+    dom.followBadge.addEventListener('click', () => openSharePanel());
+  }
   document.body.classList.remove('is-loading');
 
   registerServiceWorker();
