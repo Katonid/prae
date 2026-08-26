@@ -118,33 +118,23 @@ Verlangt wird nur die jeweils größte iPhone- und iPad-Größe; die kleineren
 rechnet Apple daraus ab. Ein Satz iPhone-Bilder und ein Satz iPad-Bilder
 reichen also.
 
-**Welche Geräte es gibt, wandert mit dem Xcode-Stand.** Die Läufer von
-GitHub hatten im August 2026 nur noch iOS-26-Simulatoren: iPhone 17 Pro Max
-und iPad Pro 13" statt iPhone 14 Plus und iPad Pro 12,9". Der Arbeitsablauf
-nennt deshalb je Klasse mehrere Kandidaten und lässt jedes Maß aus einer
-Reihe gelten; wer ihn anpasst, ändert beides zusammen.
+**Die Bilder werden von Hand gemacht — auf dem Gerät.** Es gab einmal
+einen Arbeitsablauf, der sie im Simulator erzeugen sollte. Er ist wieder
+entfernt: Er hat nie ein brauchbares Bild geliefert, und die Aufnahmen, auf
+die es ankommt, kann ein Simulator ohnehin nicht zeigen — die
+Dokumentenkamera hat er nicht, den Beamer auch nicht.
 
-**Erzeugen lassen statt von Hand knipsen:** Der Arbeitsablauf
-`tafelbild-appstore-bilder.yml` macht die Bilder selbst — Actions →
-„Tafelbild Bilder für den App Store" → „Run workflow". Er baut die App,
-startet sie im passenden Simulator mit `-schaufenster 1|2|3`, fotografiert
-drei fertig eingerichtete Tafeln, prüft die Maße und hängt die Bilder als
-Anhang an den Lauf. Die Statusleiste steht dabei auf 9:41 und voller
-Batterie, die Uhr auf der Tafel zeigt die echte Zeit.
+So geht es:
 
-Nicht dabei ist die Dokumentenkamera: Ein Simulator hat keine Kamera. Dieses
-Bild muss vom Gerät kommen.
+1. Auf dem iPad eine Tafel schön einrichten (Zufallsname mit gezogenem
+   Namen, Timer, Uhr, Tagesablauf …).
+2. Bildschirmfoto machen — beim iPad ohne Knopf: Ein-/Aus-Taste und
+   Lauter-Taste kurz zusammen.
+3. Dasselbe auf dem iPhone, oder die iPad-Bilder für beide Felder nehmen,
+   solange die Maße stimmen.
 
-Die drei Szenen des Ablaufs (in `Tafelbild/Model/Schaufenster.swift`):
-
-1. **Morgenkreis** — „Guten Morgen", Zufallsname mit gezogenem Namen,
-   Tagesablauf, Uhr mit Datum, Timer, Ampel, Lautstärke, Arbeitssymbol.
-2. **Auslosen** — Zufallsname groß, Name halb aufgedeckt, Klangfelder.
-3. **Stillarbeit** — Timer, Lautstärke mit gesetzter Schwelle, Arbeitsform,
-   Ampel, Arbeitsauftrag.
-
-Wer von Hand fotografieren möchte: im Simulator `⌘S`. Apple nimmt
-Simulatoraufnahmen an.
+Apple nimmt auch Simulatoraufnahmen an (`⌘S` im Simulator), falls ein
+Gerät der geforderten Größe gerade fehlt.
 
 ### Angaben zum Datenschutz („App Privacy")
 

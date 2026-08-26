@@ -108,8 +108,6 @@ struct RootView: View {
         // Tastatur legt sich darüber. Wer unten schreibt, schiebt die Tafel
         // mit einem Finger hoch.
         .ignoresSafeArea(.keyboard)
-        // Nur beim Erzeugen der App-Store-Bilder: iPad ins Querformat.
-        .onAppear { Schaufenster.richteAus() }
         .alert("Seite umbenennen", isPresented: Binding(
             get: { seiteUmbenennen != nil },
             set: { if !$0 { seiteUmbenennen = nil } }

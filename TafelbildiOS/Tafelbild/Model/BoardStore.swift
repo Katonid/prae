@@ -99,21 +99,9 @@ final class BoardStore: ObservableObject {
             }
         }
 
-        // Bildschirmfotos für den App Store: fertige Tafel, kein Abgleich.
-        // Ohne den Startwert `-schaufenster` passiert hier nichts.
-        if let szene = Schaufenster.szeneNummer {
-            boards = [Schaufenster.tafel(szene)]
-            nameLists = [Schaufenster.liste]
-            activeBoardID = boards[0].id
-            starterPending = false
-        }
-
         if activeBoard == nil { activeBoardID = visibleBoards.first?.id ?? "" }
 
-        // Im Schaufenster bleibt der Abgleich außen vor — ohne die
-        // Einstellung dauerhaft zu ändern: Sonst käme aus iCloud etwas
-        // hereingeschneit und stünde plötzlich auf dem Bildschirmfoto.
-        let abgleich = syncEnabled && !Schaufenster.aktiv
+        let abgleich = syncEnabled
         engine.enabled = abgleich
         syncStatus = abgleich ? .idle : .off
         wireEngine()
