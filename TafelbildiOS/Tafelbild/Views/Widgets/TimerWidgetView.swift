@@ -349,12 +349,20 @@ struct TimerScheibe: View {
         return min(1, minuten / skala)
     }
 
-    /// Die Farbfläche bleibt innerhalb des Ziffernkranzes.
+    // Die Ringe von außen nach innen: Striche ganz am Rand, darunter die
+    // Zahlen, in der Mitte die Farbfläche. Die Werte sind so gewählt, dass
+    // sich nichts berührt — auch nicht bei zweistelligen Zahlen, die
+    // waagerecht am Rand deutlich breiter sind als hoch.
+    //
+    //   Striche   0,975 … 0,915 (lang) bzw. 0,940 (kurz)
+    //   Zahlen    Mitte bei 0,775, halbe Höhe 0,100
+    //   Fläche    bis 0,630 (mit Zahlen) bzw. 0,900 (ohne)
+
     private var flaeche: Double {
-        radius * (content.ziffernblatt.zeigtZahlen ? 0.70 : 0.88)
+        radius * (content.ziffernblatt.zeigtZahlen ? 0.63 : 0.90)
     }
 
-    private var kranz: Double { radius * 0.94 }
+    private var kranz: Double { radius * 0.975 }
 
     private var strichfarbe: Color {
         Fuellung.istHell(content.blattHex) ? Color(hex: "#0f172a") : Color(hex: "#f8fafc")
@@ -405,14 +413,14 @@ struct TimerScheibe: View {
             if skala <= 60 {
                 ForEach(Array(0..<Int(skala)), id: \.self) { minute in
                     if minute % grosserSchritt != 0 {
-                        strich(minute, laenge: radius * 0.045,
+                        strich(minute, laenge: radius * 0.035,
                                dicke: max(1, seite * 0.006),
                                farbe: strichfarbe.opacity(0.4))
                     }
                 }
             }
             ForEach(marken, id: \.self) { minute in
-                strich(minute, laenge: radius * 0.085,
+                strich(minute, laenge: radius * 0.06,
                        dicke: max(1.5, seite * 0.013),
                        farbe: strichfarbe.opacity(0.85))
             }
@@ -430,9 +438,9 @@ struct TimerScheibe: View {
     private var zahlen: some View {
         ForEach(marken, id: \.self) { minute in
             Text("\(minute)")
-                .font(Theme.font(seite * 0.105, weight: .heavy))
+                .font(Theme.font(seite * 0.10, weight: .heavy))
                 .foregroundStyle(strichfarbe)
-                .offset(stelle(Double(minute), abstand: radius * 0.80))
+                .offset(stelle(Double(minute), abstand: radius * 0.775))
         }
     }
 
@@ -440,8 +448,8 @@ struct TimerScheibe: View {
         ZStack {
             Capsule()
                 .fill(strichfarbe)
-                .frame(width: max(2, seite * 0.024), height: radius * 0.76)
-                .offset(y: -radius * 0.38)
+                .frame(width: max(2, seite * 0.024), height: radius * 0.68)
+                .offset(y: -radius * 0.34)
                 .rotationEffect(.degrees(-anteil * 360))
             Circle()
                 .fill(strichfarbe)
