@@ -65,15 +65,36 @@ export function onSyncChanged(listener) {
   return () => listeners.delete(listener);
 }
 
-function announce(next, error = '') {
-  if (next) status = next;
-  lastError = error;
+function notifyListeners() {
   const info = syncInfo();
   listeners.forEach((listener) => {
     try {
       listener(info);
     } catch (_) { /* eine kaputte Anzeige darf den Abgleich nicht stoppen */ }
   });
+}
+
+// Wächter gegen ein festhängendes „Wird abgeglichen …": Meldet sich nach dem
+// Start eines Abgleichs lange nichts, wird ehrlich „hängt" angezeigt — der
+// nächste Anstoß (Sichtbarwerden, Änderung, Knopf) versucht es ohnehin neu.
+let busyGuard = null;
+
+function announce(next, error = '') {
+  if (next) status = next;
+  lastError = error;
+  if (busyGuard) {
+    clearTimeout(busyGuard);
+    busyGuard = null;
+  }
+  if (status === 'busy') {
+    busyGuard = setTimeout(() => {
+      busyGuard = null;
+      status = 'error';
+      lastError = 'Der letzte Abgleich kam nicht zum Ende — wird erneut versucht';
+      notifyListeners();
+    }, 90000);
+  }
+  notifyListeners();
 }
 
 /* ---------- Hochladen ---------- */
@@ -511,9 +532,15 @@ export async function joinSync(code, { keepLocal = true } = {}) {
 }
 
 /** Von Hand abgleichen: erst holen, dann senden. */
+let syncNowRunning = false;
+
 export async function syncNow() {
   const settings = syncSettings();
   if (!settings.spaceId) return false;
+  // Läuft schon einer (z. B. weil die Seite gerade sichtbar wurde und
+  // gleichzeitig der Knopf gedrückt ist), nicht noch einen darüberlegen.
+  if (syncNowRunning) return true;
+  syncNowRunning = true;
   announce('busy');
   try {
     const payload = await fetchSpace(settings.spaceId);
@@ -527,8 +554,12 @@ export async function syncNow() {
     announce('ok');
     return true;
   } catch (error) {
-    announce('error', 'Abgleich nicht möglich');
+    announce('error', String((error && error.message) || '') === 'ZEITUEBERSCHREITUNG'
+      ? 'Verbindung zu langsam — wird erneut versucht'
+      : 'Abgleich nicht möglich');
     return false;
+  } finally {
+    syncNowRunning = false;
   }
 }
 

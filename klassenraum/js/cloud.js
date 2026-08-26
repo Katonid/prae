@@ -128,9 +128,24 @@ async function dbUrl(path, params = {}) {
   return url.toString();
 }
 
-async function dbRequest(path, options = {}, params = {}) {
+/**
+ * Anfrage an die Datenbank — immer mit Zeitlimit: Eine hängende Verbindung
+ * (schwacher Mobilfunk, eingeschlafenes WLAN) darf den Abgleich nicht endlos
+ * auf „Wird abgeglichen …" stehen lassen.
+ */
+async function dbRequest(path, options = {}, params = {}, timeoutMs = 30000) {
   const url = await dbUrl(path, params);
-  const response = await fetch(url, options);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  let response;
+  try {
+    response = await fetch(url, Object.assign({}, options, { signal: controller.signal }));
+  } catch (error) {
+    if (error && error.name === 'AbortError') throw new Error('ZEITUEBERSCHREITUNG');
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
   if (!response.ok) {
     const text = await response.text().catch(() => '');
     throw new Error(`Server meldet ${response.status}${text ? `: ${text.slice(0, 120)}` : ''}`);
@@ -360,7 +375,8 @@ export async function createSpace(name) {
 }
 
 export async function fetchSpace(id) {
-  return dbRequest(spacePath(id));
+  // Ein Bereich mit Foto-Hintergründen kann mehrere MB groß sein — mehr Zeit lassen.
+  return dbRequest(spacePath(id), {}, {}, 120000);
 }
 
 /** Einen einzelnen Datensatz (Tafel oder Liste) ablegen. */
@@ -369,7 +385,7 @@ export async function putRecord(id, kind, recordId, record) {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(record),
-  });
+  }, {}, 120000);
 }
 
 export async function subscribeSpace(id, handler) {
@@ -405,15 +421,16 @@ function mediaPath(spaceId, mediaId = '') {
 }
 
 export async function putMediaRecord(spaceId, mediaId, record) {
+  // Große Klangdateien brauchen auf Schul-WLAN und Mobilfunk richtig Zeit.
   return dbRequest(mediaPath(spaceId, mediaId), {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(record),
-  });
+  }, {}, 300000);
 }
 
 export async function fetchMediaRecord(spaceId, mediaId) {
-  return dbRequest(mediaPath(spaceId, mediaId));
+  return dbRequest(mediaPath(spaceId, mediaId), {}, {}, 300000);
 }
 
 /** Nur die Datei-Kennungen im Bereich — ohne die (großen) Inhalte. */
