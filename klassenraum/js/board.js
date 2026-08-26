@@ -36,6 +36,33 @@ let armedId = null;
 // für Chromium; Safari respektiert touch-action: none von allein.
 const CLAIM_TOUCHMOVE = /Chrome|Chromium|CriOS|Edg|SamsungBrowser|Android/.test(navigator.userAgent);
 
+/* ---------- Berührungs-Fehlersuche ----------
+ * Zeigt am Gerät selbst, welche Zeiger-Ereignisse ankommen — für Fälle, in
+ * denen sich Ziehen oder Tippen nur auf echter Hardware seltsam verhält.
+ * Einschalten im Menü unter „Über". Ausgeschaltet kostet das nichts.
+ */
+let debugBox = null;
+
+export function togglePointerDebug() {
+  if (debugBox) {
+    debugBox.remove();
+    debugBox = null;
+    return false;
+  }
+  debugBox = h('div', { class: 'pointer-debug' });
+  document.body.appendChild(debugBox);
+  dlog('Fehlersuche an — jetzt ein Element ziehen. Ausschalten wieder im Menü.');
+  return true;
+}
+
+function dlog(text) {
+  if (!debugBox) return;
+  const line = document.createElement('div');
+  line.textContent = text;
+  debugBox.appendChild(line);
+  while (debugBox.childElementCount > 16) debugBox.firstElementChild.remove();
+}
+
 export function configureBoard(options) {
   hooks = Object.assign(hooks, options || {});
 }
@@ -84,6 +111,12 @@ let stageGesture = null;
 function startStageGesture(event) {
   // Beim Schreiben gehört die Fläche dem Stift.
   if (stackMode || document.body.classList.contains('is-drawing')) return;
+  // Verwaiste Zeiger verwerfen (siehe attachInteractions) — sonst würde ein
+  // Ein-Finger-Wischen auf der Fläche fälschlich zoomen statt verschieben.
+  if (event.isPrimary && stagePoints.size) {
+    stagePoints.clear();
+    stageGesture = null;
+  }
   stagePoints.set(event.pointerId, { x: event.clientX, y: event.clientY });
   if (stagePoints.size === 1) {
     stageGesture = { type: 'pan', last: { x: event.clientX, y: event.clientY }, moved: false };
@@ -536,6 +569,18 @@ function attachInteractions(el, widget) {
 
   el.addEventListener('pointerdown', (event) => {
     if (event.button !== undefined && event.button > 0) return;
+    // Verwaiste Zeiger aufräumen: Geht ein Loslassen verloren (IR-Rahmen an
+    // interaktiven Tafeln und Safari verschlucken so etwas gelegentlich),
+    // bliebe der alte Punkt für immer stehen — jeder weitere Ein-Finger-Zug
+    // sähe dann aus wie eine Zwei-Finger-Geste und würde skalieren statt
+    // verschieben. Ein neuer Erst-Finger (isPrimary) beweist, dass kein
+    // anderer Finger mehr aufliegt.
+    if (event.isPrimary && points.size) {
+      points.clear();
+      gesture = null;
+      el.classList.remove('is-dragging', 'is-sizing');
+      dlog(`verwaiste Zeiger verworfen (${widget.type})`);
+    }
     points.set(event.pointerId, { x: event.clientX, y: event.clientY });
     if (mode === 'edit') select(widget.id);
 
@@ -588,6 +633,8 @@ function attachInteractions(el, widget) {
         el.setPointerCapture(event.pointerId);
       } catch (_) { /* manche Geräte erlauben nur eine Erfassung */ }
     }
+    dlog(`↓ ${event.pointerType} #${event.pointerId}${event.isPrimary ? '*' : ''} `
+      + `Punkte=${points.size} Steuer=${onControl ? 'ja' : 'nein'} beweglich=${movable ? 'ja' : 'nein'} → ${gesture ? gesture.type : '—'}`);
   });
 
   el.addEventListener('pointermove', (event) => {
@@ -602,12 +649,14 @@ function attachInteractions(el, widget) {
       el.classList.add('is-dragging');
       gesture = { type: 'drag', start: gesture.start, origin: gesture.origin, moved: false };
       tap = null;
+      dlog('→ wird zu Ziehen (ab Bedienfläche)');
     }
 
     if (gesture.type === 'drag') {
       const dx = (event.clientX - gesture.start.x) / scale;
       const dy = (event.clientY - gesture.start.y) / scale;
       if (!gesture.moved && Math.abs(dx) + Math.abs(dy) < 2) return;
+      if (!gesture.moved) dlog('… zieht');
       gesture.moved = true;
       widget.x = Math.round(clamp(gesture.origin.x + dx, 0, Math.max(0, BOARD_WIDTH - widget.w)));
       widget.y = Math.round(clamp(gesture.origin.y + dy, 0, Math.max(0, boardHeight() - widget.h)));
@@ -632,6 +681,7 @@ function attachInteractions(el, widget) {
   const release = (event) => {
     points.delete(event.pointerId);
     const finished = gesture;
+    dlog(`↑ #${event.pointerId} Geste=${finished ? finished.type : '—'}${finished && finished.moved ? ' (bewegt)' : ''} Punkte=${points.size}`);
 
     if (finished && points.size === 0) {
       el.classList.remove('is-dragging', 'is-sizing');
@@ -681,6 +731,7 @@ function attachInteractions(el, widget) {
   el.addEventListener('pointerup', release);
   el.addEventListener('pointercancel', (event) => {
     points.delete(event.pointerId);
+    dlog(`✕ ABBRUCH durch den Browser (#${event.pointerId}) — Geste war ${gesture ? gesture.type : '—'}`);
     gesture = null;
     tap = null;
     el.classList.remove('is-dragging', 'is-sizing');

@@ -12,7 +12,7 @@ import { WIDGETS } from './widgets/index.js';
 import {
   initBoard, renderBoard, configureBoard, addWidgetOfType, select, updateScale,
   setStackMode, isStackMode, applyBackground, openWidgetSettings, setMode, getMode, refreshAll,
-  zoomBy, resetView, onViewChanged,
+  zoomBy, resetView, onViewChanged, togglePointerDebug,
 } from './board.js';
 import { openListsPanel } from './lists.js';
 import { initDrawing, setDrawActive, isDrawActive, redraw as redrawDrawing } from './draw.js';
@@ -555,6 +555,16 @@ function openMenuPanel() {
         'Klassenraum ist eine freie Tafel-App: alle Elemente liegen auf deinem Gerät, Teilen geschieht nur, wenn du einen Code erstellst.'),
       h('p', { class: 'muted small' }, `Fassung ${APP_VERSION} vom ${APP_DATE}`),
       buttonRow(button('Kurzanleitung', { icon: 'check', full: true, onClick: () => { closePanel(); openHelp(); } })),
+      buttonRow(button('Berührungs-Fehlersuche', {
+        icon: 'eye', full: true, ghost: true,
+        onClick: () => {
+          const an = togglePointerDebug();
+          closePanel();
+          toast(an
+            ? 'Fehlersuche an — jetzt ein Element ziehen; das Protokoll erscheint unten links.'
+            : 'Fehlersuche aus.', 'success');
+        },
+      })),
       buttonRow(button('Nach Aktualisierung suchen', {
         icon: 'reset', full: true,
         onClick: async () => {
