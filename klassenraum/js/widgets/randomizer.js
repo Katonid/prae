@@ -36,7 +36,11 @@ const REVEAL_MODES = [
 function namesOf(state) {
   if (state.listId) {
     const list = getList(state.listId);
-    if (list) return list.names.slice();
+    // Pausierte Namen (z. B. krank) zählen nicht mit und werden nicht gezogen.
+    if (list) {
+      const paused = Array.isArray(list.paused) ? list.paused : [];
+      return list.names.filter((name) => !paused.includes(name));
+    }
   }
   return Array.isArray(state.localNames) ? state.localNames.slice() : [];
 }

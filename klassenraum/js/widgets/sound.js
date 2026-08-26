@@ -2,7 +2,7 @@
 
 import { h, clear, uid, onTap } from '../util.js';
 import { icon } from '../icons.js';
-import { mediaUrl, pickMedia, removeMedia, formatSize, looksLike } from '../media.js';
+import { mediaUrl, pickMedia, removeMedia, formatSize, looksLike, saveMediaFile } from '../media.js';
 import { section, field, toggleRow, button, buttonRow, toast } from '../ui.js';
 
 const COLORS = ['#6366f1', '#0ea5e9', '#10b981', '#f59e0b', '#ef4444', '#a855f7'];
@@ -179,6 +179,90 @@ export default {
       ctx.refresh();
     }
 
+    // Eine Ansage direkt in der App aufnehmen — z. B. „Bitte aufräumen!".
+    let recording = null; // { entryId, recorder, stream, guard }
+
+    function stopRecording() {
+      if (!recording) return;
+      try {
+        recording.recorder.stop();
+      } catch (_) { /* dann ist sie schon zu Ende */ }
+    }
+
+    async function toggleRecording(entry) {
+      if (recording) {
+        if (recording.entryId !== entry.id) {
+          toast('Erst die laufende Aufnahme beenden.', 'warn');
+          return;
+        }
+        stopRecording();
+        return;
+      }
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.MediaRecorder) {
+        toast('Aufnehmen ist auf diesem Gerät nicht möglich.', 'warn');
+        return;
+      }
+      let stream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      } catch (_) {
+        toast('Der Zugriff auf das Mikrofon wurde nicht erlaubt.', 'warn');
+        return;
+      }
+      const mime = ['audio/mp4', 'audio/webm;codecs=opus', 'audio/webm']
+        .find((type) => window.MediaRecorder.isTypeSupported(type)) || '';
+      const recorder = new window.MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
+      const chunks = [];
+      recorder.addEventListener('dataavailable', (event) => {
+        if (event.data && event.data.size) chunks.push(event.data);
+      });
+      recorder.addEventListener('stop', async () => {
+        stream.getTracks().forEach((track) => track.stop());
+        if (recording && recording.guard) clearInterval(recording.guard);
+        const closed = recording && recording.closed;
+        recording = null;
+        const type = recorder.mimeType || mime || 'audio/webm';
+        const blob = new Blob(chunks, { type });
+        if (closed || !blob.size) {
+          if (!closed) toast('Nichts aufgenommen.', 'warn');
+          rerender();
+          return;
+        }
+        const stamp = new Date();
+        const name = `Ansage ${stamp.getDate()}.${stamp.getMonth() + 1}. `
+          + `${String(stamp.getHours()).padStart(2, '0')}.${String(stamp.getMinutes()).padStart(2, '0')} Uhr`
+          + `.${type.includes('mp4') ? 'm4a' : 'webm'}`;
+        try {
+          const saved = await saveMediaFile(new File([blob], name, { type }));
+          if (entry.mediaId) await removeMedia(entry.mediaId);
+          entry.mediaId = saved.id;
+          entry.url = '';
+          entry.fileName = `${saved.name} · ${formatSize(saved.size)}`;
+          if (!entry.label || entry.label === 'Klang') entry.label = 'Ansage';
+          ctx.save();
+          toast('Ansage aufgenommen — ein Tipp auf die Taste spielt sie ab.', 'success');
+        } catch (_) {
+          toast('Die Aufnahme konnte nicht gespeichert werden.', 'warn');
+        }
+        rerender();
+      });
+      recorder.start();
+      recording = {
+        entryId: entry.id,
+        recorder,
+        stream,
+        // Wird das Einstellungsfenster mitten in der Aufnahme geschlossen,
+        // gibt der Wächter das Mikrofon frei, statt heimlich weiterzunehmen.
+        guard: setInterval(() => {
+          if (!wrap.isConnected && recording) {
+            recording.closed = true;
+            stopRecording();
+          }
+        }, 1000),
+      };
+      rerender();
+    }
+
     async function chooseFile(entry) {
       const result = await pickMedia();
       if (!result) return;
@@ -220,6 +304,11 @@ export default {
             icon: 'upload', small: true, primary: !entry.mediaId && !entry.url,
             onClick: () => chooseFile(entry),
           }),
+          navigator.mediaDevices && window.MediaRecorder ? button(
+            recording && recording.entryId === entry.id ? '● Aufnahme beenden' : 'Aufnehmen', {
+              icon: 'mic', small: true, ghost: !(recording && recording.entryId === entry.id),
+              onClick: () => toggleRecording(entry),
+            }) : null,
           button('Link', {
             icon: 'share', small: true,
             onClick: () => {
@@ -345,6 +434,9 @@ export default {
           },
         }))));
 
+      wrap.appendChild(h('p', { class: 'muted small' },
+        'Mit „Aufnehmen“ sprichst du eine Ansage direkt in die App — sie wird wie eine Klangdatei gespeichert '
+        + 'und wandert beim Abgleich mit auf die anderen Geräte.'));
       wrap.appendChild(h('p', { class: 'muted small' },
         'Es gehen MP3, M4A, WAV, AAC und OGG. Die Auswahl zeigt bewusst alle Dateien an — iPadOS graut sonst '
         + 'MP3-Dateien aus iCloud Drive oder vom Netzlaufwerk aus. Titel aus der Musik-App sind systembedingt '

@@ -311,7 +311,10 @@ export function applyBackground() {
       preset.blobs.forEach((color, index) => layer.style.setProperty(`--blob-${index + 1}`, color));
     } else if (background.type === 'image' && background.value) {
       layer.classList.add('stage__bg--plain', 'stage__bg--image');
-      layer.style.background = `#0b1120 center/cover no-repeat url("${background.value}")`;
+      // Auf Wunsch abgedunkelt, damit sich Elemente und Schrift abheben.
+      const dim = clamp(Number(background.dim) || 0, 0, 0.8);
+      layer.style.background = `linear-gradient(rgba(2, 6, 23, ${dim}), rgba(2, 6, 23, ${dim})), `
+        + `url("${background.value}") center/cover no-repeat #0b1120`;
     } else if (background.type === 'gradient') {
       layer.classList.add('stage__bg--plain');
       layer.style.background = background.value;
@@ -626,7 +629,10 @@ function attachInteractions(el, widget) {
         if (wanderung <= 14 && finished.control.isConnected) {
           tap = null;
           if (event.pointerType !== 'mouse') armTapGuard(event);
-          if (typeof finished.control.click === 'function') finished.control.click();
+          // Trifft der Tipp das Symbol im Knopf (ein SVG ohne click-Methode),
+          // wird der umschließende Knopf ausgelöst.
+          const control = (finished.control.closest && finished.control.closest('[data-nodrag]')) || finished.control;
+          if (typeof control.click === 'function') control.click();
         }
       }
     } else if (finished && finished.type === 'pinch' && points.size < 2) {

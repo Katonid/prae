@@ -19,7 +19,7 @@ export default {
   defaultSize: { w: 460, h: 300 },
   minSize: { w: 260, h: 200 },
   createState() {
-    return { threshold: 55, sensitivity: 1, alarmSound: false, alarmCount: 0, title: 'Lautstärke' };
+    return { threshold: 55, sensitivity: 1, alarmSound: false, alarmCount: 0, title: 'Lautstärke', style: 'balken' };
   },
 
   mount(ctx) {
@@ -27,19 +27,70 @@ export default {
     const head = h('div', { class: 'w-noise__head' });
     const titleEl = h('span', { class: 'w-noise__title' });
     const valueEl = h('span', { class: 'w-noise__value' }, '–');
+    const display = h('div', { class: 'w-noise__display' });
     const meter = h('div', { class: 'w-noise__meter' });
     const statusEl = h('div', { class: 'w-noise__status' });
     const helpEl = h('p', { class: 'w-noise__help is-hidden' });
 
     head.append(titleEl, valueEl);
     // Bewusst ohne Knopf: Ein Tipp auf die Karte startet und beendet die Messung.
-    el.append(head, meter, statusEl, helpEl);
+    el.append(head, display, statusEl, helpEl);
 
     const segments = [];
     for (let i = 0; i < SEGMENTS; i += 1) {
       const segment = h('span', { class: 'w-noise__seg' });
       segments.push(segment);
       meter.appendChild(segment);
+    }
+
+    // Tacho: Halbkreis mit Zeiger, die Zone über der Grenze ist rot eingefärbt.
+    const gauge = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    gauge.setAttribute('viewBox', '0 0 120 72');
+    gauge.classList.add('w-noise__gauge');
+    gauge.innerHTML = '<path class="w-noise__gauge-track" d="M14 62 A46 46 0 0 1 106 62"/>'
+      + '<path class="w-noise__gauge-hot" d=""/>'
+      + '<line class="w-noise__gauge-needle" x1="60" y1="62" x2="60" y2="22"/>'
+      + '<circle class="w-noise__gauge-hub" cx="60" cy="62" r="4"/>';
+    const needle = gauge.querySelector('.w-noise__gauge-needle');
+    const hotZone = gauge.querySelector('.w-noise__gauge-hot');
+
+    // Lampe: eine große runde Leuchte — grün, gelb oder rot.
+    const lamp = h('div', { class: 'w-noise__lamp' }, h('span', { class: 'w-noise__lamp-value' }, '–'));
+    const lampValue = lamp.querySelector('.w-noise__lamp-value');
+
+    display.append(meter, gauge, lamp);
+
+    function noiseStyle() {
+      const style = ctx.widget.state.style;
+      return style === 'tacho' || style === 'lampe' ? style : 'balken';
+    }
+
+    function gaugePoint(value) {
+      const t = clamp(value, 0, 100) / 100;
+      const x = 60 + 46 * Math.cos(Math.PI * (1 - t));
+      const y = 62 - 46 * Math.sin(Math.PI * (1 - t));
+      return `${x.toFixed(1)} ${y.toFixed(1)}`;
+    }
+
+    /** Die gewählte Anzeige mit dem aktuellen Pegel füllen. */
+    function setDisplay(value) {
+      const style = noiseStyle();
+      const threshold = ctx.widget.state.threshold || 55;
+      meter.classList.toggle('is-hidden', style !== 'balken');
+      gauge.classList.toggle('is-hidden', style !== 'tacho');
+      lamp.classList.toggle('is-hidden', style !== 'lampe');
+      if (style === 'balken') {
+        setSegments(value);
+      } else if (style === 'tacho') {
+        needle.style.transform = `rotate(${((clamp(value, 0, 100) / 100) * 180 - 90).toFixed(1)}deg)`;
+        hotZone.setAttribute('d', `M ${gaugePoint(threshold)} A 46 46 0 0 1 106 62`);
+      } else {
+        const running = mode === 'running';
+        lampValue.textContent = running ? String(Math.round(value)) : '–';
+        lamp.classList.toggle('is-over', running && value > threshold);
+        lamp.classList.toggle('is-near', running && value <= threshold && value > threshold * 0.72);
+        lamp.classList.toggle('is-ok', running && value <= threshold * 0.72);
+      }
     }
 
     let mode = 'off'; // off | starting | running | paused | denied | unsupported
@@ -89,7 +140,8 @@ export default {
         statusEl.textContent = 'Mikrofon hier nicht verfügbar.';
         helpEl.textContent = 'Die Messung braucht eine sichere Verbindung (https) und ein Gerät mit Mikrofon.';
       }
-      if (mode !== 'running') setSegments(0);
+      if (mode !== 'running') setDisplay(0);
+      else setDisplay(level);
     }
 
     function loop() {
@@ -126,7 +178,7 @@ export default {
         ? 'Zu laut!'
         : level > threshold * 0.72 ? 'Grenze fast erreicht' : 'Gute Arbeitslautstärke';
       valueEl.textContent = String(Math.round(level));
-      setSegments(level);
+      setDisplay(level);
       raf = requestAnimationFrame(loop);
     }
 
@@ -300,6 +352,24 @@ export default {
 
     function build() {
       const state = ctx.widget.state;
+      const style = state.style === 'tacho' || state.style === 'lampe' ? state.style : 'balken';
+      wrap.appendChild(section('Anzeige',
+        h('div', { class: 'segmented' },
+          [['balken', 'Balken'], ['tacho', 'Tacho'], ['lampe', 'Lampe']].map(([value, label]) => h('button', {
+            class: 'segmented__item' + (style === value ? ' is-active' : ''),
+            onclick: () => {
+              ctx.widget.state.style = value;
+              ctx.save();
+              rerender();
+            },
+          }, label))),
+        h('p', { class: 'muted small' },
+          style === 'tacho'
+            ? 'Ein Halbkreis mit Zeiger — die rote Zone beginnt an der Grenze.'
+            : style === 'lampe'
+              ? 'Eine große Leuchte: grün ist gut, gelb wird knapp, rot ist zu laut — gut von hinten zu sehen.'
+              : 'Eine Reihe von Balken, die mit der Lautstärke wächst.')));
+
       wrap.appendChild(section('Grenze',
         field(`Alarm ab ${state.threshold || 55} von 100`, h('input', {
           class: 'input', type: 'range', min: '10', max: '95', step: '1', value: state.threshold || 55,
