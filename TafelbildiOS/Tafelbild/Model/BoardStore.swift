@@ -758,6 +758,58 @@ final class BoardStore: ObservableObject {
         }
     }
 
+    /// Legt eine Kopie der Liste an.
+    ///
+    /// Praktisch, wenn eine Klasse in zwei Fassungen gebraucht wird — die
+    /// ganze Klasse und dieselbe ohne die Kinder aus dem Förderunterricht,
+    /// oder ein Jahrgang, bei dem nur ein paar Namen abweichen.
+    ///
+    /// **Alles bekommt neue Kennungen**: die Liste selbst, jeder Name und
+    /// jedes Merkmal. Sonst zögen zwei Listen an denselben Einträgen, und
+    /// eine Ziehung wüsste nicht, welche gemeint ist.
+    @discardableResult
+    func duplicateNameList(_ list: NameList) -> NameList {
+        var kopie = list
+        kopie.id = UUID().uuidString
+        kopie.name = Self.naechsterKopiename(list.name, vorhanden: visibleNameLists.map(\.name))
+        kopie.owner = profileName
+        kopie.deleted = false
+        kopie.updatedAtMs = Date.nowMs
+
+        // Merkmale bekommen neue Kennungen; die Werte an den Namen wandern
+        // über diese Zuordnung mit.
+        var neueMerkmalIDs: [String: String] = [:]
+        for index in kopie.merkmale.indices {
+            let alt = kopie.merkmale[index].id
+            let neu = UUID().uuidString
+            neueMerkmalIDs[alt] = neu
+            kopie.merkmale[index].id = neu
+        }
+        for index in kopie.entries.indices {
+            kopie.entries[index].id = UUID().uuidString
+            var werte: [String: String] = [:]
+            for (merkmalID, wert) in kopie.entries[index].merkmale {
+                guard let neu = neueMerkmalIDs[merkmalID] else { continue }
+                werte[neu] = wert
+            }
+            kopie.entries[index].merkmale = werte
+        }
+
+        nameLists.append(kopie)
+        scheduleSave()
+        engine.enqueue(kind: .nameList, entityId: kopie.id)
+        return kopie
+    }
+
+    /// „Klasse 3b" → „Klasse 3b (Kopie)" → „Klasse 3b (Kopie 2)" …
+    private static func naechsterKopiename(_ name: String, vorhanden: [String]) -> String {
+        let erste = name + " (Kopie)"
+        guard vorhanden.contains(erste) else { return erste }
+        var nummer = 2
+        while vorhanden.contains("\(name) (Kopie \(nummer))") { nummer += 1 }
+        return "\(name) (Kopie \(nummer))"
+    }
+
     func deleteNameList(_ list: NameList) {
         var updated = list
         updated.deleted = true

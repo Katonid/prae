@@ -8,6 +8,16 @@ struct NameListsSheet: View {
     @State private var newListName = ""
     @State private var showNew = false
 
+    private func untertitel(_ list: NameList) -> String {
+        var teile = ["\(list.entries.count) Namen"]
+        if list.entries.contains(where: \.paused) { teile.append("einige pausiert") }
+        if !list.merkmale.isEmpty {
+            teile.append(list.merkmale.count == 1 ? "1 Merkmal"
+                                                  : "\(list.merkmale.count) Merkmale")
+        }
+        return teile.joined(separator: " · ")
+    }
+
     var body: some View {
         NavigationStack {
             List {
@@ -19,10 +29,26 @@ struct NameListsSheet: View {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(list.name)
                                     .font(Theme.font(17, weight: .semibold))
-                                Text("\(list.entries.count) Namen"
-                                     + (list.entries.contains(where: \.paused) ? " · einige pausiert" : ""))
+                                Text(untertitel(list))
                                     .font(.footnote)
                                     .foregroundStyle(.secondary)
+                            }
+                        }
+                        .swipeActions(edge: .leading) {
+                            Button {
+                                store.duplicateNameList(list)
+                                Haptics.success()
+                            } label: {
+                                Label("Duplizieren", systemImage: "plus.square.on.square")
+                            }
+                            .tint(Theme.accent)
+                        }
+                        .contextMenu {
+                            Button {
+                                store.duplicateNameList(list)
+                                Haptics.success()
+                            } label: {
+                                Label("Liste duplizieren", systemImage: "plus.square.on.square")
                             }
                         }
                     }
@@ -32,7 +58,10 @@ struct NameListsSheet: View {
                         }
                     }
                 } footer: {
-                    Text("Tipp: Eine Liste kann in mehreren Tafeln benutzt werden — zum Beispiel dieselbe Klasse in „Deutsch“ und „Mathe“.")
+                    Text("Eine Liste kann in mehreren Tafeln benutzt werden — dieselbe Klasse "
+                         + "in „Deutsch“ und „Mathe“. Zum Duplizieren nach rechts wischen "
+                         + "oder lange darauf drücken; die Kopie ist von der Vorlage "
+                         + "unabhängig.")
                 }
 
                 Section {
@@ -177,6 +206,19 @@ struct NameListEditor: View {
             }
 
             merkmalsAbschnitt
+
+            Section {
+                Button {
+                    let kopie = store.duplicateNameList(list)
+                    Haptics.success()
+                    store.showStatus("„\(kopie.name)\u{201C} angelegt.")
+                } label: {
+                    Label("Diese Liste duplizieren", systemImage: "plus.square.on.square")
+                }
+            } footer: {
+                Text("Die Kopie ist von dieser Liste unabhängig: Namen und Merkmale "
+                     + "lassen sich darin ändern, ohne dass hier etwas passiert.")
+            }
         }
         .navigationTitle(list.name)
         .navigationBarTitleDisplayMode(.inline)
