@@ -1,6 +1,6 @@
 /* Service Worker: App-Dateien offline verfügbar halten — und zuverlässig aktualisieren. */
 
-const VERSION = 'v29';
+const VERSION = 'v30';
 const CACHE = `klassenraum-${VERSION}`;
 const ASSETS = [
   './',

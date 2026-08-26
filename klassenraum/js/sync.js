@@ -600,16 +600,34 @@ export function initSync() {
 
   // Sobald Konten aktiv sind, findet ein neues Gerät den Bereich über die Anmeldung.
   onAccountChanged(async (account) => {
-    if (!account || syncSettings().spaceId) return;
-    const remembered = await spaceOfAccount().catch(() => null);
-    if (!remembered) return;
+    if (!account) return;
     const current = syncSettings();
-    current.spaceId = remembered;
-    current.pushed = {};
-    await saveNow();
-    const payload = await fetchSpace(remembered).catch(() => null);
-    if (payload) mergeSpace(payload);
-    connect(remembered);
+    const remembered = await spaceOfAccount().catch(() => null);
+
+    if (!current.spaceId) {
+      if (!remembered) return;
+      current.spaceId = remembered;
+      current.pushed = {};
+      await saveNow();
+      const payload = await fetchSpace(remembered).catch(() => null);
+      if (payload) mergeSpace(payload);
+      connect(remembered);
+      return;
+    }
+
+    // Dieses Gerät hat schon einen Bereich. Kennt das Konto noch keinen,
+    // merkt es sich diesen — so finden weitere Geräte über die Anmeldung her.
+    if (!remembered) {
+      await rememberSpaceForAccount(current.spaceId).catch(() => {});
+      return;
+    }
+
+    // Konto und Gerät zeigen auf VERSCHIEDENE Bereiche — die häufigste Ursache
+    // für „gleicht nicht ab, obwohl ich überall angemeldet bin". Die Oberfläche
+    // fragt nach, ob dieses Gerät in den Bereich des Kontos wechseln soll.
+    if (remembered !== current.spaceId) {
+      emit('sync-space-conflict', { remembered });
+    }
   });
 
   const settings = syncSettings();

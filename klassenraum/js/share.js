@@ -107,6 +107,24 @@ export function initSharing() {
   onStore('board-switch', () => syncFollow());
   syncFollow();
 
+  // Konto und Gerät zeigen auf verschiedene Abgleich-Bereiche: nachfragen,
+  // ob dieses Gerät in den Bereich des Kontos wechseln soll.
+  onStore('sync-space-conflict', async (payload) => {
+    if (!payload || !payload.remembered) return;
+    const ok = await confirmDialog('Anderen Abgleich-Bereich übernehmen?',
+      'Dein Konto ist mit einem anderen Abgleich-Bereich verbunden als dieses Gerät — deshalb gleichen die Geräte '
+      + 'aneinander vorbei. Soll dieses Gerät dem Bereich des Kontos beitreten? Die Tafeln dieses Geräts werden dabei zusammengeführt.',
+      'Beitreten');
+    if (!ok) return;
+    try {
+      await adoptSpace(payload.remembered, { keepLocal: true });
+      renderBoard();
+      toast('Mit dem Bereich deines Kontos verbunden — Tafeln werden abgeglichen.', 'success');
+    } catch (error) {
+      toast('Wechseln nicht möglich — Internetverbindung prüfen.', 'warn');
+    }
+  });
+
   const params = new URLSearchParams(window.location.search);
   const code = params.get('code');
   const syncParam = params.get('sync');
@@ -457,8 +475,15 @@ export function openSharePanel(prefillCode = '', prefillSyncCode = '') {
     }
 
     // append(null) würde „null" als Text einfügen — deshalb erst filtern.
+    const kennung = info.spaceId ? `${info.spaceId.slice(0, 8)}…${info.spaceId.slice(-4)}` : '—';
     box.append(...[
       h('p', { class: `sync-status is-${info.status}` }, statusText(info)),
+      // Zum Vergleichen zwischen den Geräten: Nur Geräte mit derselben Kennung
+      // gleichen miteinander ab — alles andere sind getrennte Bereiche.
+      h('p', { class: 'muted small' },
+        `Bereichskennung: ${kennung} — auf allen Geräten muss hier dieselbe Kennung stehen. `
+        + 'Steht woanders eine andere, gleichen die Geräte aneinander vorbei: Dann dort unten den Tafel-Link '
+        + 'dieses Geräts öffnen (oder per Code verbinden).'),
       toggleRow('Automatisch abgleichen', info.auto, (value) => {
         setAutoSync(value);
         render();
