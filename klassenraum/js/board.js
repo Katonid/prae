@@ -29,6 +29,13 @@ const viewListeners = new Set();
 let mode = 'edit';
 let armedId = null;
 
+// Manche Chromium-Browser auf interaktiven Tafeln (IR-Touchrahmen) brechen
+// laufende Zieh-Gesten ab, wenn touchmove nicht ausdrücklich beansprucht wird.
+// Safari (iPad/iPhone) ist das Gegenteil: Fängt man dort touchmove ab, versiegt
+// der Zeigerstrom und das Ziehen friert ein — deshalb gilt der Zusatzgriff nur
+// für Chromium; Safari respektiert touch-action: none von allein.
+const CLAIM_TOUCHMOVE = /Chrome|Chromium|CriOS|Edg|SamsungBrowser|Android/.test(navigator.userAgent);
+
 export function configureBoard(options) {
   hooks = Object.assign(hooks, options || {});
 }
@@ -226,9 +233,11 @@ export function initBoard(elements) {
   }
   // Auch das Verschieben/Zoomen der Fläche vor dem Browser schützen (s. u.
   // bei den Elementen: manche Touch-Rahmen brechen Gesten sonst ab).
-  stageEl.addEventListener('touchmove', (event) => {
-    if (stageGesture) event.preventDefault();
-  }, { passive: false });
+  if (CLAIM_TOUCHMOVE) {
+    stageEl.addEventListener('touchmove', (event) => {
+      if (stageGesture) event.preventDefault();
+    }, { passive: false });
+  }
 
   stageEl.addEventListener('wheel', (event) => {
     // Nur mit gedrückter Steuerungstaste zoomen — sonst bliebe die Tafel unruhig.
@@ -680,10 +689,13 @@ function attachInteractions(el, widget) {
   // Gürtel und Hosenträger für widerspenstige Touch-Rahmen (interaktive
   // Tafeln): Solange eine Geste läuft, dem Browser die Berührung ausdrücklich
   // wegnehmen — sonst bricht er sie mit pointercancel ab, und das Element
-  // lässt sich nicht verschieben.
-  el.addEventListener('touchmove', (event) => {
-    if (gesture) event.preventDefault();
-  }, { passive: false });
+  // lässt sich nicht verschieben. Nur in Chromium — Safari friert sonst ein
+  // (siehe CLAIM_TOUCHMOVE oben).
+  if (CLAIM_TOUCHMOVE) {
+    el.addEventListener('touchmove', (event) => {
+      if (gesture) event.preventDefault();
+    }, { passive: false });
+  }
 }
 
 /** Ziehen an einem Eck-Anfasser des Auswahlrahmens. */
