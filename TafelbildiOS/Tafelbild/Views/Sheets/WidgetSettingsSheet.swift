@@ -45,11 +45,21 @@ struct WidgetSettingsSheet: View {
                         KameraSettings(content: bindKamera(value))
                     }
 
-                    Section("Auf der Tafel") {
-                        Toggle("Karte zeigen", isOn: Binding(
-                            get: { !(store.widget(widgetID, in: boardID)?.bare ?? false) },
+                    Section {
+                        Picker("Karte", selection: Binding(
+                            get: { store.widget(widgetID, in: boardID)?.karte ?? .tafel },
+                            set: { wert in
+                                store.updateWidget(widgetID, in: boardID) { $0.karte = wert }
+                            }
+                        )) {
+                            ForEach(WidgetLabelRegel.allCases) { Text($0.title).tag($0) }
+                        }
+                        .pickerStyle(.inline)
+
+                        Toggle("Nur für mich ausblenden", isOn: Binding(
+                            get: { store.widget(widgetID, in: boardID)?.versteckt ?? false },
                             set: { value in
-                                store.updateWidget(widgetID, in: boardID) { $0.bare = !value }
+                                store.updateWidget(widgetID, in: boardID) { $0.versteckt = value }
                             }
                         ))
                         Toggle("Position festecken", isOn: Binding(
@@ -58,6 +68,15 @@ struct WidgetSettingsSheet: View {
                                 store.updateWidget(widgetID, in: boardID) { $0.locked = value }
                             }
                         ))
+                    } header: {
+                        Text("Auf der Tafel")
+                    } footer: {
+                        Text("Die Karte ist die helle Fläche unter dem Element. Ohne sie steht "
+                             + "der Inhalt unmittelbar auf dem Hintergrund — größer, ruhiger, "
+                             + "aber ohne Abgrenzung. „Wie die Tafel“ folgt der Einstellung "
+                             + "„Rahmen“ unter „Aussehen“; „Immer“ und „Nie“ setzen sich "
+                             + "darüber hinweg.\n\nAusgeblendet heißt: nur für mich. Auf einer "
+                             + "geteilten Tafel bleibt das Element für die anderen stehen.")
                     }
 
                     Section {
@@ -428,6 +447,9 @@ private struct TimerSettings: View {
     @State private var seconds = 0
 
     var body: some View {
+        // Alle Abschnitte in einer Klammer: So hängt `onAppear` am Ganzen und
+        // nicht am letzten Abschnitt.
+        Group {
         Section("Timer") {
             Picker("Modus", selection: $content.mode) {
                 ForEach(TimerContent.TimerMode.allCases) { Text($0.title).tag($0) }
@@ -454,6 +476,75 @@ private struct TimerSettings: View {
             Toggle("Signal am Ende", isOn: $content.soundOnEnd)
             Toggle("Bedienknöpfe zeigen", isOn: $content.knoepfe)
         }
+
+        Section {
+            Picker("Darstellung", selection: $content.darstellung) {
+                ForEach(TimerDarstellung.allCases) { Text($0.title).tag($0) }
+            }
+            .pickerStyle(.segmented)
+        } footer: {
+            Text("Der Ring zeigt die Zeit als Zahl. Die Scheibe zeigt sie als "
+                 + "Fläche, die kleiner wird — so wie die Uhren, die in vielen "
+                 + "Klassenzimmern stehen. Dafür muss niemand die Uhr lesen "
+                 + "können.")
+        }
+
+        if content.darstellung == .scheibe {
+            Section {
+                Picker("Ziffernblatt fasst", selection: $content.skalaMinuten) {
+                    Text("Passend zur Dauer").tag(0)
+                    ForEach(TimerContent.skalen, id: \.self) { Text("\($0) Minuten").tag($0) }
+                }
+                Picker("Ziffernblatt", selection: $content.ziffernblatt) {
+                    ForEach(Timerblatt.allCases) { Text($0.title).tag($0) }
+                }
+                .pickerStyle(.segmented)
+                Toggle("Zeiger zeigen", isOn: $content.zeiger)
+                Toggle("Zeit als Zahl darunter", isOn: $content.zeitZeigen)
+            } header: {
+                Text("Scheibe")
+            } footer: {
+                Text("„Passend zur Dauer“ nimmt die nächste übliche Marke oberhalb "
+                     + "der eingestellten Zeit — bei 20 Minuten also ein "
+                     + "20-Minuten-Blatt. Ein festes Blatt lohnt sich, wenn immer "
+                     + "dieselbe Scheibe zu sehen sein soll.")
+            }
+
+            Section("Farbe der Fläche") {
+                Verlaufwahl(titel: "Farbe", von: $content.scheibeHex, bis: $content.scheibeHex2)
+            }
+
+            Section {
+                ColorPicker("Ziffernblatt", selection: $content.blattHex.asColor,
+                            supportsOpacity: false)
+                HStack(spacing: 10) {
+                    ForEach(TimerSettings.blattvorlagen, id: \.self) { hex in
+                        Button {
+                            content.blattHex = hex
+                            Haptics.tap()
+                        } label: {
+                            Circle()
+                                .fill(Color(hex: hex))
+                                .frame(width: 30, height: 30)
+                                .overlay {
+                                    Circle().strokeBorder(
+                                        content.blattHex.lowercased() == hex
+                                            ? Theme.accent : Color.secondary.opacity(0.35),
+                                        lineWidth: content.blattHex.lowercased() == hex ? 3 : 1)
+                                }
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    Spacer(minLength: 0)
+                }
+            } header: {
+                Text("Grundfarbe")
+            } footer: {
+                Text("Striche und Zahlen richten sich von selbst danach: auf hellem "
+                     + "Blatt dunkel, auf dunklem hell.")
+            }
+        }
+        }
         .onAppear {
             minutes = Int(content.duration) / 60
             seconds = Int(content.duration) % 60
@@ -465,6 +556,10 @@ private struct TimerSettings: View {
         content.endsAtMs = nil
         content.pausedValue = nil
     }
+
+    /// Ein paar Ziffernblätter zum Antippen — von Papierweiß bis Schiefer.
+    static let blattvorlagen = ["#f8fafc", "#fde68a", "#bbf7d0", "#bfdbfe",
+                                "#1f2937", "#0f172a"]
 }
 
 // MARK: - Ampel

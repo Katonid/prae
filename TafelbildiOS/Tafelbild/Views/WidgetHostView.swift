@@ -117,13 +117,15 @@ struct WidgetHostView: View {
         return adjusted
     }
 
-    /// Jedes Element steht auf einer Karte — außer es ist ausdrücklich
-    /// rahmenlos gestellt oder die Tafel blendet die Rahmen gerade aus.
-    /// (In der Web-App gilt genau diese Regel: `.widget` trägt die Karte,
-    /// `.widget--bare` nimmt sie weg — auch bei Text und Bild.)
+    /// Trägt dieses Element eine Karte?
+    ///
+    /// Die Tafelregel unter „Aussehen“ ist nur die Vorgabe; jedes Element
+    /// darf sie überstimmen. Vorher galt allein die Tafelregel: Stand sie
+    /// auf „Nie“, blieb der Schalter am Element wirkungslos.
+    /// (In der Web-App trägt `.widget` die Karte, `.widget--bare` nimmt sie
+    /// weg — auch bei Text und Bild.)
     private var usesCard: Bool {
-        if widget.bare { return false }
-        return frames.applies(editing: store.editing)
+        widget.karte.gilt(tafel: frames.applies(editing: store.editing))
     }
 
     // MARK: - Inhalt

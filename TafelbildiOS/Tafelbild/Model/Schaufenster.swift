@@ -46,9 +46,11 @@ enum Schaufenster {
     static let liste: NameList = {
         var liste = NameList(
             name: "Klasse 3b",
-            entries: NameList.parse("Ada, Ben, Charlotte, David, Emma, Finn, Greta, "
-                                    + "Hannes, Ida, Jonas, Klara, Lina, Mika, Noah, "
-                                    + "Ole, Pia, Rosa, Samuel, Tara, Yusuf"),
+            entries: NameList.parse("Adam, Betullah, Charlotte, Deniz, Erdem, Frida, "
+                                    + "Giacomo, Hannah, Ilkay, Joel, Krystina, Liam, "
+                                    + "Mia, Nesrin, Ophelia, Paul, Quentin, Ramazan, "
+                                    + "Stine, Tallulah, Umut, Viktor, Weronika, Xenia, "
+                                    + "Yesim, Zacharias"),
             owner: "")
         liste.id = listenID
         return liste
@@ -71,14 +73,14 @@ enum Schaufenster {
 
         var text = element(x: 80, y: 40, w: 620, h: 170, z: 0,
                            inhalt: .text(TextContent(text: "Guten Morgen!", fontSize: 92)))
-        text.bare = true
+        text.karte = .nie
 
         var ziehung = NamePickerContent()
         ziehung.listID = listenID
         ziehung.title = "Wer liest vor?"
         ziehung.reveal = .instant
         ziehung.currentID = kennung("Charlotte")
-        ziehung.drawnIDs = [kennung("Ben"), kennung("Ida"), kennung("Charlotte")]
+        ziehung.drawnIDs = [kennung("Paul"), kennung("Nesrin"), kennung("Charlotte")]
         let name = element(x: 80, y: 240, w: 620, h: 430, z: 1, inhalt: .namePicker(ziehung))
 
         var ablauf = ChecklistContent()
@@ -123,9 +125,9 @@ enum Schaufenster {
         ziehung.listID = listenID
         ziehung.title = "Wer ist dran?"
         ziehung.reveal = .mosaik
-        ziehung.currentID = kennung("Jonas")
-        ziehung.drawnIDs = [kennung("Ada"), kennung("Mika"), kennung("Rosa"),
-                            kennung("Ben"), kennung("Jonas")]
+        ziehung.currentID = kennung("Giacomo")
+        ziehung.drawnIDs = [kennung("Adam"), kennung("Mia"), kennung("Stine"),
+                            kennung("Umut"), kennung("Giacomo")]
         // Halb aufgedeckt: Genau der Moment, in dem die Klasse miträt.
         ziehung.revealParts = [0, 3, 4, 7, 8, 11, 12, 15]
         let name = element(x: 120, y: 80, w: 900, h: 700, z: 0, inhalt: .namePicker(ziehung))
@@ -144,7 +146,7 @@ enum Schaufenster {
         var hinweis = TextContent(text: "Erst antippen, dann ziehen.", fontSize: 46)
         hinweis.bold = false
         var zettel = element(x: 120, y: 820, w: 900, h: 130, z: 3, inhalt: .text(hinweis))
-        zettel.bare = true
+        zettel.karte = .nie
 
         board.widgets = [name, klaenge, symbol, zettel]
         return board
@@ -176,7 +178,7 @@ enum Schaufenster {
         var auftrag = TextContent(text: "Stillarbeit: Seite 42, Nr. 1–4", fontSize: 54)
         auftrag.bold = true
         var zettel = element(x: 100, y: 790, w: 1400, h: 150, z: 4, inhalt: .text(auftrag))
-        zettel.bare = true
+        zettel.karte = .nie
 
         board.widgets = [timer, lautstaerke, symbol, licht, zettel]
         return board

@@ -22,7 +22,8 @@ struct TimerWidgetView: View {
             // Der Ring füllt den Platz zwischen Aufschrift und Knöpfen.
             let side = max(70, min(geo.size.width, geo.size.height
                                    - (content.knoepfe ? metrics.em(3.5) + 6 : 0)
-                                   - (style.showLabels ? metrics.em(1.2) : 0)))
+                                   - (style.showLabels ? metrics.em(1.2) : 0)
+                                   - (zeitUnterScheibe ? metrics.em(2.4) : 0)))
             // Im SVG der Web-App: viewBox 120, Kreisradius 52, Strich 8.
             let ring = side * (104.0 / 120.0)
             let lineWidth = side * (8.0 / 120.0)
@@ -36,31 +37,48 @@ struct TimerWidgetView: View {
                         .foregroundStyle(style.inkSoft)
                 }
 
-                ZStack {
-                    Circle()
-                        .stroke(style.wash, lineWidth: lineWidth)
-                        .frame(width: ring, height: ring)
-                    Circle()
-                        .trim(from: 0, to: max(0.0001, progress))
-                        .stroke(ringStyle(value: value),
-                                style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
-                        .rotationEffect(.degrees(-90))
-                        .shadow(color: style.accent.opacity(0.55), radius: 6)
-                        .frame(width: ring, height: ring)
-                        .animation(.linear(duration: 0.2), value: progress)
+                Group {
+                    if content.darstellung == .scheibe {
+                        TimerScheibe(content: content, restSekunden: value, seite: side)
+                    } else {
+                        ZStack {
+                            Circle()
+                                .stroke(style.wash, lineWidth: lineWidth)
+                                .frame(width: ring, height: ring)
+                            Circle()
+                                .trim(from: 0, to: max(0.0001, progress))
+                                .stroke(ringStyle(value: value),
+                                        style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
+                                .rotationEffect(.degrees(-90))
+                                .shadow(color: style.accent.opacity(0.55), radius: 6)
+                                .frame(width: ring, height: ring)
+                                .animation(.linear(duration: 0.2), value: progress)
 
-                    // `.w-timer__time`: max(26, min(Breite, Höhe) * 0.24).
-                    Text(formatDuration(value))
-                        .font(Theme.font(timeSize(geo.size), weight: .heavy))
-                        .monospacedDigit()
-                        .tracking(-timeSize(geo.size) * 0.02)
-                        .minimumScaleFactor(0.4)
-                        .lineLimit(1)
-                        .foregroundStyle(timeColor(value: value))
-                        .padding(.horizontal, side * 0.14)
+                            // `.w-timer__time`: max(26, min(Breite, Höhe) * 0.24).
+                            Text(formatDuration(value))
+                                .font(Theme.font(timeSize(geo.size), weight: .heavy))
+                                .monospacedDigit()
+                                .tracking(-timeSize(geo.size) * 0.02)
+                                .minimumScaleFactor(0.4)
+                                .lineLimit(1)
+                                .foregroundStyle(timeColor(value: value))
+                                .padding(.horizontal, side * 0.14)
+                        }
+                    }
                 }
                 .frame(width: side, height: side)
                 .scaleEffect(flashing ? 1.04 : 1.0)
+
+                // Bei der Scheibe steht die Zahl unter dem Blatt — in der
+                // Mitte käme sie dem Zeiger in die Quere.
+                if zeitUnterScheibe {
+                    Text(formatDuration(value))
+                        .font(Theme.font(metrics.em(1.7), weight: .heavy))
+                        .monospacedDigit()
+                        .minimumScaleFactor(0.4)
+                        .lineLimit(1)
+                        .foregroundStyle(timeColor(value: value))
+                }
 
                 if content.knoepfe {
                     controls
@@ -87,6 +105,11 @@ struct TimerWidgetView: View {
         .sheet(isPresented: $showDurationPicker) {
             DurationPickerSheet(duration: $content.duration)
         }
+    }
+
+    /// Zeigt die Scheibe die Zeit zusätzlich als Zahl?
+    private var zeitUnterScheibe: Bool {
+        content.darstellung == .scheibe && content.zeitZeigen
     }
 
     // MARK: - Bedienung durch Antippen
@@ -289,5 +312,182 @@ struct DurationPickerSheet: View {
             seconds = Int(duration) % 60
         }
         .presentationDetents([.height(340)])
+    }
+}
+
+// MARK: - Ablaufende Scheibe
+
+/// Die ablaufende Farbfläche auf einem Ziffernblatt.
+///
+/// Das Vorbild steht in vielen Klassenzimmern. Sein Kunstgriff: Das Blatt
+/// ist **gegen** den Uhrzeigersinn beschriftet — 0 oben, dann 5, 10, 15 nach
+/// links herum. Dadurch wandert der Zeiger im Uhrzeigersinn auf die 0 zu und
+/// die Farbfläche schrumpft mit ihm. Wer noch keine Uhr lesen kann, sieht
+/// trotzdem sofort, wie viel Zeit übrig ist: als Fläche, nicht als Zahl.
+struct TimerScheibe: View {
+    let content: TimerContent
+    /// Anzuzeigender Wert in Sekunden — Rest beim Countdown, gelaufene Zeit
+    /// bei der Stoppuhr.
+    let restSekunden: Double
+    /// Kantenlänge des Quadrats, in das die Scheibe passen muss.
+    let seite: Double
+
+    private var skala: Double { max(1, content.skala) }
+    private var radius: Double { seite / 2 }
+
+    /// Anteil des vollen Kreises, den die Farbfläche bedeckt (0 … 1).
+    ///
+    /// Ist die eingestellte Dauer größer als das Blatt fasst, steht die
+    /// Fläche zunächst voll und beginnt erst zu schrumpfen, wenn die
+    /// Restzeit auf die Skala gefallen ist — genau wie beim Vorbild.
+    private var anteil: Double {
+        let minuten = max(0, restSekunden) / 60
+        if content.mode == .stopwatch {
+            // Stoppuhr: eine Umdrehung je Skalenlänge, dann von vorn.
+            return minuten.truncatingRemainder(dividingBy: skala) / skala
+        }
+        return min(1, minuten / skala)
+    }
+
+    /// Die Farbfläche bleibt innerhalb des Ziffernkranzes.
+    private var flaeche: Double {
+        radius * (content.ziffernblatt.zeigtZahlen ? 0.70 : 0.88)
+    }
+
+    private var kranz: Double { radius * 0.94 }
+
+    private var strichfarbe: Color {
+        Fuellung.istHell(content.blattHex) ? Color(hex: "#0f172a") : Color(hex: "#f8fafc")
+    }
+
+    /// Abstand der beschrifteten Striche, damit die Zahlen aufgehen.
+    private var grosserSchritt: Int {
+        switch Int(skala) {
+        case ...5:  return 1
+        case ...10: return 2
+        case ...60: return 5
+        default:    return 15
+        }
+    }
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .fill(Color(hex: content.blattHex))
+                .overlay {
+                    Circle().strokeBorder(strichfarbe.opacity(0.16),
+                                          lineWidth: max(1, seite * 0.012))
+                }
+                .shadow(color: .black.opacity(0.3), radius: seite * 0.04, y: seite * 0.012)
+
+            Sektor(anteil: anteil)
+                .fill(Fuellung.stil(content.scheibeHex, content.scheibeHex2))
+                .frame(width: flaeche * 2, height: flaeche * 2)
+                .animation(.linear(duration: 0.25), value: anteil)
+
+            if content.ziffernblatt.zeigtStriche { striche }
+            if content.ziffernblatt.zeigtZahlen { zahlen }
+            if content.zeiger { zeiger }
+        }
+        .frame(width: seite, height: seite)
+    }
+
+    // MARK: Ziffernblatt
+
+    private var marken: [Int] {
+        Array(stride(from: 0, to: Int(skala), by: grosserSchritt))
+    }
+
+    private var striche: some View {
+        ZStack {
+            // Feine Striche je Minute — nur, solange sie nicht ineinander
+            // laufen. Bei 120 Minuten auf einem Blatt wäre das ein Filz.
+            if skala <= 60 {
+                ForEach(Array(0..<Int(skala)), id: \.self) { minute in
+                    if minute % grosserSchritt != 0 {
+                        strich(minute, laenge: radius * 0.045,
+                               dicke: max(1, seite * 0.006),
+                               farbe: strichfarbe.opacity(0.4))
+                    }
+                }
+            }
+            ForEach(marken, id: \.self) { minute in
+                strich(minute, laenge: radius * 0.085,
+                       dicke: max(1.5, seite * 0.013),
+                       farbe: strichfarbe.opacity(0.85))
+            }
+        }
+    }
+
+    private func strich(_ minute: Int, laenge: Double, dicke: Double, farbe: Color) -> some View {
+        Capsule()
+            .fill(farbe)
+            .frame(width: dicke, height: laenge)
+            .offset(y: -(kranz - laenge / 2))
+            .rotationEffect(lage(Double(minute)))
+    }
+
+    private var zahlen: some View {
+        ForEach(marken, id: \.self) { minute in
+            Text("\(minute)")
+                .font(Theme.font(seite * 0.105, weight: .heavy))
+                .foregroundStyle(strichfarbe)
+                .offset(stelle(Double(minute), abstand: radius * 0.80))
+        }
+    }
+
+    private var zeiger: some View {
+        ZStack {
+            Capsule()
+                .fill(strichfarbe)
+                .frame(width: max(2, seite * 0.024), height: radius * 0.76)
+                .offset(y: -radius * 0.38)
+                .rotationEffect(.degrees(-anteil * 360))
+            Circle()
+                .fill(strichfarbe)
+                .frame(width: seite * 0.08, height: seite * 0.08)
+        }
+        .shadow(color: .black.opacity(0.25), radius: seite * 0.012)
+        .animation(.linear(duration: 0.25), value: anteil)
+    }
+
+    // MARK: Lage auf dem Blatt
+
+    /// Wo eine Minutenmarke sitzt — gegen den Uhrzeigersinn ab 12 Uhr.
+    private func lage(_ minute: Double) -> Angle {
+        .degrees(-(minute / skala) * 360)
+    }
+
+    /// Dasselbe als Versatz, für aufrecht stehende Zahlen.
+    private func stelle(_ minute: Double, abstand: Double) -> CGSize {
+        let winkel = -Double.pi / 2 - (minute / skala) * 2 * .pi
+        return CGSize(width: cos(winkel) * abstand, height: sin(winkel) * abstand)
+    }
+}
+
+/// Kreisausschnitt von der Zeigerstellung im Uhrzeigersinn zurück zur 0.
+private struct Sektor: Shape {
+    /// 0 … 1 des vollen Kreises.
+    var anteil: Double
+
+    var animatableData: Double {
+        get { anteil }
+        set { anteil = newValue }
+    }
+
+    func path(in rect: CGRect) -> Path {
+        var pfad = Path()
+        let wert = min(max(anteil, 0), 1)
+        guard wert > 0.0005 else { return pfad }
+        let mitte = CGPoint(x: rect.midX, y: rect.midY)
+        let r = min(rect.width, rect.height) / 2
+        // 12 Uhr liegt bei -90°; von dort aus rückwärts um den nicht mehr
+        // gefüllten Teil, dann im Uhrzeigersinn wieder bis 12 Uhr.
+        let start = Angle.degrees(-90 + (1 - wert) * 360)
+        pfad.move(to: mitte)
+        pfad.addArc(center: mitte, radius: r, startAngle: start,
+                    endAngle: .degrees(270), clockwise: false)
+        pfad.closeSubpath()
+        return pfad
     }
 }
