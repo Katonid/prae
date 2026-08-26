@@ -157,8 +157,14 @@ enum Schaufenster {
         var board = grundgeruest(name: "Klasse 3b", emoji: "🤫")
         board.accent = "wald"
 
+        // Die Scheibe statt des Rings: Sie ist das, was Lehrerinnen aus dem
+        // Klassenzimmer kennen, und auf einem Bild sofort zu verstehen.
+        // Volles 60-Minuten-Blatt bei 15 Minuten Restzeit — der klassische
+        // Anblick.
         var wecker = TimerContent()
         wecker.duration = 900
+        wecker.darstellung = .scheibe
+        wecker.skalaMinuten = 60
         let timer = element(x: 100, y: 120, w: 620, h: 620, z: 0, inhalt: .timer(wecker))
 
         var pegel = NoiseContent()
