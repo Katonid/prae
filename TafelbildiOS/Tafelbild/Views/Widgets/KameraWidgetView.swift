@@ -24,6 +24,8 @@ struct KameraWidgetView: View {
     /// Dieses Element hat die Kamera angefordert (für ein sauberes Freigeben).
     @State private var angemeldet = false
     @State private var arbeitet = false
+    /// Größe der Vorschau — sie bestimmt den Zuschnitt des Standbilds.
+    @State private var vorschau: CGSize = .zero
 
     private var eingefroren: Bool { content.eingefroren != nil }
 
@@ -87,6 +89,16 @@ struct KameraWidgetView: View {
             ZStack {
                 Kameravorschau(sitzung: kamera.sitzung)
                 if !kamera.laeuft { hinweis("Kamera startet …", symbol: "camera") }
+            }
+            // Was der Sucher zeigt, ist ein Ausschnitt aus dem Sensorbild.
+            // Damit das Standbild genau dieser Ausschnitt wird, muss die
+            // Aufnahme wissen, wie breit und hoch das Fenster gerade ist.
+            .background {
+                GeometryReader { geo in
+                    Color.clear
+                        .onAppear { vorschau = geo.size }
+                        .onChange(of: geo.size) { _, neu in vorschau = neu }
+                }
             }
         } else {
             hinweis(kamera.erlaubnis == .verweigert
@@ -176,7 +188,8 @@ struct KameraWidgetView: View {
     private func einfrieren() {
         guard !arbeitet else { return }
         arbeitet = true
-        kamera.friereEin { bild in
+        let verhaeltnis = vorschau.height > 0 ? vorschau.width / vorschau.height : 0
+        kamera.friereEin(verhaeltnis: verhaeltnis, winkel: Videolage.jetzt) { bild in
             defer { arbeitet = false }
             guard let bild, let daten = bild.jpegData(compressionQuality: 0.85),
                   let name = onSichern(daten)

@@ -8,10 +8,6 @@ on:
     paths:
       - 'TafelbildiOS/**'
       - '.github/workflows/tafelbild-build.yml'
-  pull_request:
-    paths:
-      - 'TafelbildiOS/**'
-      - '.github/workflows/tafelbild-build.yml'
   workflow_dispatch:
 
 concurrency:

@@ -245,6 +245,25 @@ struct TimerContent: Codable, Equatable {
     /// „nie ausgewählt“ — der alte Wert war nie eine Entscheidung.
     var knoepfe: Bool = false
 
+    // MARK: Aussehen
+
+    /// Ring mit Zahl (bisher) oder ablaufende Scheibe wie beim Time Timer.
+    var darstellung: TimerDarstellung = .ring
+    /// Wie viele Minuten der volle Kreis der Scheibe fasst. 0 = automatisch:
+    /// die nächstgrößere übliche Marke oberhalb der eingestellten Dauer.
+    var skalaMinuten: Int = 0
+    /// Was auf dem Ziffernblatt steht.
+    var ziffernblatt: Timerblatt = .zahlen
+    /// Farbe der ablaufenden Fläche (zweite Farbe leer = einfarbig).
+    var scheibeHex: String = "#e11d48"
+    var scheibeHex2: String = ""
+    /// Grundfarbe des Ziffernblatts.
+    var blattHex: String = "#f8fafc"
+    /// Zeiger auf der Scheibe.
+    var zeiger: Bool = true
+    /// Die Zeit zusätzlich als Zahl unter der Scheibe.
+    var zeitZeigen: Bool = true
+
     enum TimerMode: String, Codable, CaseIterable, Identifiable {
         case countdown, stopwatch
         var id: String { rawValue }
@@ -257,6 +276,55 @@ struct TimerContent: Codable, Equatable {
     }
 
     var isRunning: Bool { endsAtMs != nil || startedAtMs != nil }
+
+    /// Übliche Marken für das Ziffernblatt.
+    static let skalen = [5, 10, 15, 20, 30, 45, 60, 90, 120]
+
+    /// Wie viele Minuten der volle Kreis fasst — auch bei „automatisch“.
+    var skala: Double {
+        if skalaMinuten > 0 { return Double(skalaMinuten) }
+        let minuten = duration / 60
+        return Double(TimerContent.skalen.first { Double($0) >= minuten - 0.001 } ?? 60)
+    }
+}
+
+/// Wie ein Timer aussieht.
+enum TimerDarstellung: String, Codable, CaseIterable, Identifiable {
+    /// Ring mit der Zeit in der Mitte — die bisherige Darstellung.
+    case ring
+    /// Ablaufende Farbfläche auf einem Ziffernblatt, wie die Uhren, die in
+    /// vielen Klassenzimmern stehen. Kinder sehen daran ohne Rechnen, wie
+    /// viel Zeit noch übrig ist.
+    case scheibe
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .ring:    return "Ring"
+        case .scheibe: return "Scheibe"
+        }
+    }
+}
+
+/// Was auf dem Ziffernblatt der Scheibe steht.
+enum Timerblatt: String, Codable, CaseIterable, Identifiable {
+    case zahlen
+    case striche
+    case ohne
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .zahlen:  return "Zahlen"
+        case .striche: return "Nur Striche"
+        case .ohne:    return "Ohne"
+        }
+    }
+
+    var zeigtStriche: Bool { self != .ohne }
+    var zeigtZahlen: Bool { self == .zahlen }
 }
 
 struct TrafficLightContent: Codable, Equatable {
@@ -677,7 +745,20 @@ struct BoardWidget: Codable, Identifiable, Equatable {
     /// Festgesteckt: lässt sich nicht mehr aus Versehen verschieben.
     var locked: Bool = false
     /// Ohne Karte — das Element steht frei auf der Tafel.
+    ///
+    /// Altfeld: Was wirklich gilt, steht in `karte`. Es wird weiter
+    /// mitgeschrieben, damit ein Geraet mit aelterer Fassung die Tafel noch
+    /// richtig zeichnet.
     var bare: Bool = false
+    /// Traegt dieses Element eine Karte?
+    ///
+    /// Frueher entschied das allein die Tafelregel unter „Aussehen“ — stand
+    /// sie auf „Nie“, blieb der Schalter am Element wirkungslos. Jetzt gilt
+    /// dieselbe Ordnung wie bei den Beschriftungen: „Wie die Tafel“ ist die
+    /// Vorgabe, „Immer“ und „Nie“ setzen sich darueber hinweg.
+    var karte: WidgetLabelRegel = .tafel {
+        didSet { bare = (karte == .nie) }
+    }
     /// Auf welcher Seite das Element liegt. **Leer heißt: erste Seite** —
     /// so gehören alle Elemente älterer Tafeln von selbst auf Seite 1.
     var pageID: String = ""
@@ -1137,7 +1218,14 @@ enum StarterContent {
     static func makeNameList(owner: String) -> NameList {
         NameList(
             name: "Beispielklasse",
-            entries: NameList.parse("Ada, Ben, Charlotte, David, Emma, Finn, Greta, Hannes, Ida, Jonas"),
+            // Von A bis Z, damit beim ersten Ziehen sichtbar wird, dass die
+            // Liste wirklich gemischt wird — und mit Namen, wie sie in einer
+            // Klasse tatsaechlich nebeneinandersitzen.
+            entries: NameList.parse("Adam, Betullah, Charlotte, Deniz, Erdem, Frida, "
+                                    + "Giacomo, Hannah, Ilkay, Joel, Krystina, Liam, "
+                                    + "Mia, Nesrin, Ophelia, Paul, Quentin, Ramazan, "
+                                    + "Stine, Tallulah, Umut, Viktor, Weronika, Xenia, "
+                                    + "Yesim, Zacharias"),
             owner: owner
         )
     }
@@ -1216,7 +1304,7 @@ extension NameEntry {
 
 extension BoardWidget {
     enum WidgetKeys: String, CodingKey {
-        case id, x, y, width, height, z, locked, bare, pageID, versteckt, content
+        case id, x, y, width, height, z, locked, bare, karte, pageID, versteckt, content
         case labels, labelSize
     }
 
@@ -1233,7 +1321,9 @@ extension BoardWidget {
         z = c.wert(.z, 0)
         locked = c.wert(.locked, false)
         pageID = c.wert(.pageID, "")
-        bare = c.wert(.bare, false)
+        // Altbestand: Wer nur `bare` kennt, meinte damit „nie eine Karte".
+        let ohneKarte = c.wert(.bare, false)
+        karte = c.wert(.karte, ohneKarte ? WidgetLabelRegel.nie : .tafel)
         versteckt = c.wert(.versteckt, false)
         labels = c.wert(.labels, WidgetLabelRegel.tafel)
         labelSize = c.wert(.labelSize, 1)
@@ -1301,6 +1391,8 @@ extension TimerContent {
     enum TimerKeys: String, CodingKey {
         case mode, duration, endsAtMs, startedAtMs, pausedValue, soundOnEnd, accentHex
         case showControls, knoepfe
+        case darstellung, skalaMinuten, ziffernblatt, scheibeHex, scheibeHex2, blattHex
+        case zeiger, zeitZeigen
     }
 
     init(from decoder: Decoder) throws {
@@ -1317,6 +1409,14 @@ extension TimerContent {
         // Diese Knöpfe hatte nie jemand ausgewählt, sie waren nur da.
         showControls = c.wert(.showControls, true)
         knoepfe = c.wert(.knoepfe, false)
+        darstellung = c.wert(.darstellung, TimerDarstellung.ring)
+        skalaMinuten = c.wert(.skalaMinuten, 0)
+        ziffernblatt = c.wert(.ziffernblatt, Timerblatt.zahlen)
+        scheibeHex = c.wert(.scheibeHex, "#e11d48")
+        scheibeHex2 = c.wert(.scheibeHex2, "")
+        blattHex = c.wert(.blattHex, "#f8fafc")
+        zeiger = c.wert(.zeiger, true)
+        zeitZeigen = c.wert(.zeitZeigen, true)
     }
 }
 

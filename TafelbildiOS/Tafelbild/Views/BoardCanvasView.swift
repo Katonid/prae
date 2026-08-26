@@ -354,10 +354,24 @@ private struct SelectionChrome: View {
             }
             button("minus.magnifyingglass", label: "Kleiner") { resize(by: 0.88) }
             button("plus.magnifyingglass", label: "Größer") { resize(by: 1.14) }
-            button(widget.bare ? "square.dashed" : "square.on.square",
-                   label: widget.bare ? "Karte zeigen" : "Karte ausblenden",
-                   tint: widget.bare ? Theme.mint : .white) {
-                store.updateWidget(widget.id, in: boardID) { $0.bare.toggle() }
+            button(karteAn ? "square.on.square" : "square.dashed",
+                   label: karteAn ? "Karte ausblenden" : "Karte zeigen",
+                   tint: karteAn ? .white : Theme.mint) {
+                let neu: WidgetLabelRegel = karteAn ? .nie : .immer
+                store.updateWidget(widget.id, in: boardID) { $0.karte = neu }
+            }
+            // Beschriftungen dieses Elements — unabhängig von der Tafelregel.
+            button(beschriftungAn ? "tag.fill" : "tag.slash",
+                   label: beschriftungAn ? "Beschriftung ausblenden" : "Beschriftung zeigen",
+                   tint: beschriftungAn ? .white : Theme.mint) {
+                let neu: WidgetLabelRegel = beschriftungAn ? .nie : .immer
+                store.updateWidget(widget.id, in: boardID) { $0.labels = neu }
+            }
+            // Ausblenden gilt nur für mich; auf einer geteilten Tafel bleibt
+            // das Element für die anderen stehen. Zurückholen geht über
+            // „Aussehen“ → „Ausgeblendete Elemente“.
+            button("eye.slash", label: "Nur für mich ausblenden") {
+                store.verstecke(widget.id, in: boardID)
             }
             button(widget.locked ? "lock.fill" : "lock.open",
                    label: widget.locked ? "Entsperren" : "Festecken",
@@ -388,15 +402,6 @@ private struct SelectionChrome: View {
                     Label("Standardgröße", systemImage: "arrow.up.left.and.arrow.down.right")
                 }
                 Divider()
-                // Ausblenden statt löschen: Auf einer geteilten Tafel bleibt
-                // das Element für die anderen stehen. Zurückholen geht unter
-                // „Aussehen“.
-                Button {
-                    store.verstecke(widget.id, in: boardID)
-                    Haptics.tap()
-                } label: {
-                    Label("Nur für mich ausblenden", systemImage: "eye.slash")
-                }
                 Button(role: .destructive) {
                     store.removeWidget(widget.id, from: boardID)
                 } label: {
@@ -416,6 +421,19 @@ private struct SelectionChrome: View {
         .frame(height: 46)
         .chromeBar(corner: 23)
         .fixedSize()
+    }
+
+    /// Die Tafel, auf der das Element liegt — für die Vorgaberegeln.
+    private var tafel: Board? { store.board(boardID) }
+
+    /// Trägt das Element gerade eine Karte? (Tafelregel plus eigene Wahl.)
+    private var karteAn: Bool {
+        widget.karte.gilt(tafel: tafel?.frames.applies(editing: store.editing) ?? true)
+    }
+
+    /// Zeigt das Element gerade seine Beschriftungen?
+    private var beschriftungAn: Bool {
+        widget.labels.gilt(tafel: tafel?.labels.applies(editing: store.editing) ?? true)
     }
 
     /// Der Name, der gerade noch verdeckt ist — sonst nil.

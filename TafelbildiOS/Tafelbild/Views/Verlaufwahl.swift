@@ -58,6 +58,18 @@ enum Fuellung {
         return ((wert >> 16) & 0xFF, (wert >> 8) & 0xFF, wert & 0xFF)
     }
 
+    /// Ist die Farbe hell genug, dass dunkle Schrift darauf gehört?
+    ///
+    /// Wahrgenommene Helligkeit nach Rec. 601 — für die Frage „heller oder
+    /// dunkler Grund" genügt das; eine Farbmetrik braucht es dafür nicht.
+    static func istHell(_ hex: String) -> Bool {
+        guard let teile = zerlegt(hex) else { return true }
+        let helligkeit = (0.299 * Double(teile.0)
+                          + 0.587 * Double(teile.1)
+                          + 0.114 * Double(teile.2)) / 255
+        return helligkeit > 0.6
+    }
+
     /// Mischt eine Hex-Farbe anteilig mit Schwarz.
     static func abgedunkelt(_ hex: String, um anteil: Double) -> String {
         let sauber = hex.replacingOccurrences(of: "#", with: "")

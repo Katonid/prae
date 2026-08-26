@@ -54,6 +54,8 @@ WAS DRIN IST
   mit. Der Name lässt sich Stück für Stück aufdecken, damit die Klasse
   mitraten darf.
 • Timer und Stoppuhr — ein Tipp startet, ein Doppeltipp setzt zurück.
+  Wahlweise als Ring mit Zahl oder als ablaufende Scheibe auf einem
+  Ziffernblatt, für die niemand die Uhr lesen können muss.
 • Uhr — analog mit Lernziffernblatt oder digital, wahlweise mit Datum.
 • Ampel und Arbeitssymbole — zeigen groß, was gerade gilt.
 • Lautstärkemesser — misst den Pegel im Raum, mit Schwellen für Stillarbeit,

@@ -40,6 +40,8 @@ final class Kameraquelle: NSObject, ObservableObject {
     private var kunden = 0
     private let werkbank = DispatchQueue(label: "de.familie.tafelbild.kamera")
     private var abschluss: ((UIImage?) -> Void)?
+    /// Seitenverhältnis, auf das das nächste Standbild zugeschnitten wird.
+    private var zuschnitt: Double = 0
 
     private override init() {
         super.init()
@@ -183,11 +185,33 @@ final class Kameraquelle: NSObject, ObservableObject {
     // MARK: - Einfrieren
 
     /// Nimmt ein Standbild auf. Der Rückruf kommt auf dem Hauptfaden.
-    func friereEin(_ fertig: @escaping (UIImage?) -> Void) {
+    ///
+    /// - Parameters:
+    ///   - verhaeltnis: Breite geteilt durch Höhe der Vorschau. Das Standbild
+    ///     wird genau darauf zugeschnitten, damit es zeigt, was eben noch im
+    ///     Sucher stand — die Vorschau füllt ihre Fläche, die Aufnahme kommt
+    ///     aber im Seitenverhältnis des Sensors.
+    ///   - winkel: Drehwinkel passend zur Lage des Geräts (`Videolage.jetzt`).
+    func friereEin(verhaeltnis: Double, winkel: CGFloat,
+                   fertig: @escaping (UIImage?) -> Void) {
         guard laeuft else { fertig(nil); return }
+        zuschnitt = verhaeltnis
         abschluss = fertig
         werkbank.async { [weak self] in
             guard let self else { return }
+            if let verbindung = self.bilder.connection(with: .video) {
+                if verbindung.isVideoRotationAngleSupported(winkel) {
+                    verbindung.videoRotationAngle = winkel
+                }
+                // Die Vorschau spiegelt die Frontkamera von selbst. Ohne
+                // dieselbe Spiegelung stünde auf dem Standbild plötzlich
+                // alles seitenverkehrt.
+                let gespiegelt = self.eingang?.device.position == .front
+                if verbindung.isVideoMirroringSupported {
+                    verbindung.automaticallyAdjustsVideoMirroring = false
+                    verbindung.isVideoMirrored = gespiegelt
+                }
+            }
             let einstellung = AVCapturePhotoSettings()
             einstellung.flashMode = .off
             self.bilder.capturePhoto(with: einstellung, delegate: self)
@@ -199,11 +223,14 @@ extension Kameraquelle: AVCapturePhotoCaptureDelegate {
     func photoOutput(_ output: AVCapturePhotoOutput,
                      didFinishProcessingPhoto photo: AVCapturePhoto,
                      error: Error?) {
-        let bild = photo.fileDataRepresentation().flatMap { UIImage(data: $0) }
+        let roh = photo.fileDataRepresentation().flatMap { UIImage(data: $0) }
+        let verhaeltnis = zuschnitt
+        let bild = verhaeltnis > 0 ? roh?.zugeschnitten(auf: verhaeltnis) : roh
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
             let rueckruf = self.abschluss
             self.abschluss = nil
+            self.zuschnitt = 0
             rueckruf?(bild)
         }
     }
@@ -236,5 +263,113 @@ struct Kameravorschau: UIViewRepresentable {
             // Sicher: layerClass oben legt genau diese Ebene fest.
             layer as! AVCaptureVideoPreviewLayer
         }
+
+        private var beobachter: NSObjectProtocol?
+
+        /// Nicht jede Drehung ändert die Größe dieser Ansicht — auf einer
+        /// quadratischen Kachel bliebe sie gleich, und `layoutSubviews`
+        /// liefe nie. Deshalb zusätzlich auf die Drehung selbst hören.
+        override func didMoveToWindow() {
+            super.didMoveToWindow()
+            guard beobachter == nil else { return }
+            beobachter = NotificationCenter.default.addObserver(
+                forName: UIDevice.orientationDidChangeNotification,
+                object: nil, queue: .main) { [weak self] _ in
+                self?.setNeedsLayout()
+            }
+        }
+
+        deinit {
+            if let beobachter { NotificationCenter.default.removeObserver(beobachter) }
+        }
+
+        /// Das Bild muss sich mitdrehen, wenn das Gerät sich dreht.
+        ///
+        /// Ohne diese Zeilen bleibt die Verbindung auf der Vorgabe stehen —
+        /// Hochformat, egal wie das iPad liegt. Ein Heft im Querformat war
+        /// dann hochkant und beschnitten. `layoutSubviews` ist die richtige
+        /// Stelle: Es läuft bei jeder Drehung und bei jeder Größenänderung
+        /// des Elements.
+        /// Maßgeblich ist die Lage des iPads, nicht die des Fensters: Auf
+        /// dem Beamer liegt dieselbe Vorschau noch einmal, und dessen Szene
+        /// kennt gar keine Lage.
+        override func layoutSubviews() {
+            super.layoutSubviews()
+            let winkel = Videolage.jetzt
+            if let verbindung = ebene.connection,
+               verbindung.isVideoRotationAngleSupported(winkel),
+               verbindung.videoRotationAngle != winkel {
+                verbindung.videoRotationAngle = winkel
+            }
+        }
+    }
+}
+
+// MARK: - Lage
+
+/// Rechnet die Lage der Bedienoberfläche in einen Drehwinkel für Video um.
+///
+/// AVFoundation zählt den Winkel im Uhrzeigersinn, gemessen von der Lage
+/// „Gerät quer, Ladebuchse rechts": 0° ist quer, 90° hochkant. Genau diese
+/// Zuordnung braucht sowohl die Vorschau als auch die Aufnahme — sonst
+/// zeigen beide etwas Verschiedenes.
+enum Videolage {
+    static func winkel(fuer lage: UIInterfaceOrientation) -> CGFloat {
+        switch lage {
+        case .portrait:           return 90
+        case .portraitUpsideDown: return 270
+        case .landscapeLeft:      return 180
+        case .landscapeRight:     return 0
+        default:                  return 90
+        }
+    }
+
+    /// Der Winkel, der gerade gilt. Nur vom Hauptfaden aufzurufen.
+    @MainActor
+    static var jetzt: CGFloat {
+        let szenen = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        let szene = szenen.first { $0.activationState == .foregroundActive } ?? szenen.first
+        return winkel(fuer: szene?.interfaceOrientation ?? .portrait)
+    }
+}
+
+// MARK: - Zuschnitt
+
+extension UIImage {
+    /// Zeichnet das Bild in seiner sichtbaren Lage neu.
+    ///
+    /// Eine Aufnahme trägt ihre Drehung in `imageOrientation` — sichtbar
+    /// richtig, in den Bilddaten aber gedreht. Ein Zuschnitt auf der
+    /// CGImage-Ebene übersähe das und schnitte an der falschen Kante.
+    func aufrecht() -> UIImage {
+        guard imageOrientation != .up else { return self }
+        let format = UIGraphicsImageRendererFormat.default()
+        format.scale = scale
+        format.opaque = true
+        return UIGraphicsImageRenderer(size: size, format: format).image { _ in
+            draw(in: CGRect(origin: .zero, size: size))
+        }
+    }
+
+    /// Schneidet mittig auf ein Seitenverhältnis zu — dasselbe, was die
+    /// Vorschau mit `resizeAspectFill` zeigt.
+    func zugeschnitten(auf verhaeltnis: Double) -> UIImage {
+        let gerade = aufrecht()
+        guard verhaeltnis > 0, let cg = gerade.cgImage else { return gerade }
+        let breite = Double(cg.width), hoehe = Double(cg.height)
+        guard breite > 0, hoehe > 0 else { return gerade }
+        let ist = breite / hoehe
+        var ausschnitt = CGRect(x: 0, y: 0, width: breite, height: hoehe)
+        if ist > verhaeltnis + 0.001 {
+            let neueBreite = hoehe * verhaeltnis
+            ausschnitt = CGRect(x: (breite - neueBreite) / 2, y: 0,
+                                width: neueBreite, height: hoehe)
+        } else if ist < verhaeltnis - 0.001 {
+            let neueHoehe = breite / verhaeltnis
+            ausschnitt = CGRect(x: 0, y: (hoehe - neueHoehe) / 2,
+                                width: breite, height: neueHoehe)
+        }
+        guard let teil = cg.cropping(to: ausschnitt.integral) else { return gerade }
+        return UIImage(cgImage: teil, scale: gerade.scale, orientation: .up)
     }
 }
