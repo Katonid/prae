@@ -34,7 +34,7 @@ struct WidgetHostView: View {
             .environment(\.boardStyle, contentStyle)
             .environment(\.widgetMetrics, metrics)
             .frame(width: widget.width, height: widget.height)
-            .background { if usesCard { Color.clear.widgetCard(style: style) } }
+            .background { kartenflaeche }
             // Ohne Karte steht der Inhalt unmittelbar auf dem Hintergrund.
             // Zwei Schatten, die Verschiedenes leisten:
             //
@@ -66,6 +66,25 @@ struct WidgetHostView: View {
                             .font(.system(size: 15, weight: .bold))
                             .foregroundStyle(Theme.amber)
                             .padding(9)
+                    }
+                }
+                // Ausgeblendet heißt: im Unterricht weg, beim Bearbeiten
+                // blass. Sonst wäre der Knopf dasselbe wie Löschen — und
+                // niemand käme von der Tafel aus wieder an das Element.
+                .opacity(widget.versteckt ? 0.32 : 1)
+                .overlay(alignment: .topLeading) {
+                    if widget.versteckt {
+                        HStack(spacing: 5) {
+                            Image(systemName: "eye.slash.fill")
+                                .font(.system(size: 12, weight: .bold))
+                            Text("Ausgeblendet")
+                                .font(Theme.font(12, weight: .bold))
+                        }
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 9)
+                        .frame(height: 24)
+                        .background { Capsule().fill(Color.black.opacity(0.6)) }
+                        .padding(9)
                     }
                 }
                 .contentShape(Rectangle())
@@ -117,15 +136,35 @@ struct WidgetHostView: View {
         return adjusted
     }
 
-    /// Trägt dieses Element eine Karte?
+    /// Wie das Element steht — Karte, nur Rahmen oder frei.
     ///
     /// Die Tafelregel unter „Aussehen“ ist nur die Vorgabe; jedes Element
     /// darf sie überstimmen. Vorher galt allein die Tafelregel: Stand sie
     /// auf „Nie“, blieb der Schalter am Element wirkungslos.
     /// (In der Web-App trägt `.widget` die Karte, `.widget--bare` nimmt sie
     /// weg — auch bei Text und Bild.)
-    private var usesCard: Bool {
+    private var kartenstil: WidgetKarte {
         widget.karte.gilt(tafel: frames.applies(editing: store.editing))
+    }
+
+    private var usesCard: Bool { kartenstil == .immer }
+
+    /// Was hinter dem Inhalt liegt.
+    @ViewBuilder
+    private var kartenflaeche: some View {
+        switch kartenstil {
+        case .immer:
+            Color.clear.widgetCard(style: style)
+        case .rahmen:
+            // Nur der Rand: Der Hintergrund der Tafel bleibt zu sehen, das
+            // Element bekommt trotzdem eine Grenze. Weiß mit dunklem Saum,
+            // damit der Rand auch auf einem hellen Bild noch steht.
+            RoundedRectangle(cornerRadius: Theme.widgetCorner, style: .continuous)
+                .strokeBorder(Color.white.opacity(0.7), lineWidth: 3)
+                .shadow(color: Color(hex: "#020617").opacity(0.55), radius: 4)
+        case .tafel, .nie:
+            EmptyView()
+        }
     }
 
     // MARK: - Inhalt

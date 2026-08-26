@@ -52,7 +52,7 @@ struct WidgetSettingsSheet: View {
                                 store.updateWidget(widgetID, in: boardID) { $0.karte = wert }
                             }
                         )) {
-                            ForEach(WidgetLabelRegel.allCases) { Text($0.title).tag($0) }
+                            ForEach(WidgetKarte.allCases) { Text($0.title).tag($0) }
                         }
                         .pickerStyle(.inline)
 
@@ -71,12 +71,14 @@ struct WidgetSettingsSheet: View {
                     } header: {
                         Text("Auf der Tafel")
                     } footer: {
-                        Text("Die Karte ist die helle Fläche unter dem Element. Ohne sie steht "
-                             + "der Inhalt unmittelbar auf dem Hintergrund — größer, ruhiger, "
-                             + "aber ohne Abgrenzung. „Wie die Tafel“ folgt der Einstellung "
-                             + "„Rahmen“ unter „Aussehen“; „Immer“ und „Nie“ setzen sich "
-                             + "darüber hinweg.\n\nAusgeblendet heißt: nur für mich. Auf einer "
-                             + "geteilten Tafel bleibt das Element für die anderen stehen.")
+                        Text("Die Karte ist die helle Fläche unter dem Element. „Nur Rahmen“ "
+                             + "zeichnet bloß die Grenze, der Tafelhintergrund bleibt zu sehen; "
+                             + "„Ohne“ stellt den Inhalt frei auf die Tafel. „Wie die Tafel“ "
+                             + "folgt der Einstellung „Rahmen“ unter „Aussehen“, die anderen "
+                             + "setzen sich darüber hinweg.\n\nAusgeblendet heißt: nur für mich, "
+                             + "und nur im Unterricht. Beim Bearbeiten bleibt das Element blass "
+                             + "stehen, damit es zurückzuholen ist. Auf einer geteilten Tafel "
+                             + "sehen es die anderen weiterhin.")
                     }
 
                     Section {

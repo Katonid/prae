@@ -733,6 +733,55 @@ enum WidgetLabelRegel: String, Codable, CaseIterable, Identifiable {
     }
 }
 
+/// Wie ein Element auf der Tafel steht.
+///
+/// „Wie die Tafel“ folgt der Regel unter „Aussehen“ → „Rahmen“; die drei
+/// anderen setzen sich darüber hinweg. Die Werte `tafel`, `immer` und `nie`
+/// heißen absichtlich wie bei den Beschriftungen: Tafeln, die vor dieser
+/// Fassung gespeichert wurden, lesen sich damit unverändert.
+enum WidgetKarte: String, Codable, CaseIterable, Identifiable {
+    case tafel
+    /// Volle Karte — helle Fläche mit Rand.
+    case immer
+    /// Nur ein Rand; der Hintergrund der Tafel bleibt zu sehen.
+    case rahmen
+    /// Nichts — der Inhalt steht frei auf der Tafel.
+    case nie
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .tafel:  return "Wie die Tafel"
+        case .immer:  return "Karte"
+        case .rahmen: return "Nur Rahmen"
+        case .nie:    return "Ohne"
+        }
+    }
+
+    /// Was tatsächlich gilt, wenn die Tafelregel bekannt ist.
+    func gilt(tafel: Bool) -> WidgetKarte {
+        self == .tafel ? (tafel ? .immer : .nie) : self
+    }
+
+    var symbol: String {
+        switch self {
+        case .tafel, .immer: return "square.on.square"
+        case .rahmen:        return "square"
+        case .nie:           return "square.slash"
+        }
+    }
+
+    /// Reihenfolge beim Durchtippen in der Werkzeugleiste.
+    var naechste: WidgetKarte {
+        switch self {
+        case .tafel, .immer: return .rahmen
+        case .rahmen:        return .nie
+        case .nie:           return .immer
+        }
+    }
+}
+
 struct BoardWidget: Codable, Identifiable, Equatable {
     var id: String = UUID().uuidString
     /// Lage in Tafelpunkten (0…1600 / 0…1000).
@@ -756,8 +805,8 @@ struct BoardWidget: Codable, Identifiable, Equatable {
     /// sie auf „Nie“, blieb der Schalter am Element wirkungslos. Jetzt gilt
     /// dieselbe Ordnung wie bei den Beschriftungen: „Wie die Tafel“ ist die
     /// Vorgabe, „Immer“ und „Nie“ setzen sich darueber hinweg.
-    var karte: WidgetLabelRegel = .tafel {
-        didSet { bare = (karte == .nie) }
+    var karte: WidgetKarte = .tafel {
+        didSet { bare = (karte != .immer && karte != .tafel) }
     }
     /// Auf welcher Seite das Element liegt. **Leer heißt: erste Seite** —
     /// so gehören alle Elemente älterer Tafeln von selbst auf Seite 1.
@@ -1126,8 +1175,14 @@ struct Board: Codable, Identifiable, Equatable {
     }
 
     /// Elemente einer Seite, von hinten nach vorn.
-    func widgets(auf seite: String) -> [BoardWidget] {
-        sortedWidgets.filter { !$0.versteckt && liegtAuf($0, seite: seite) }
+    /// - Parameter mitVersteckten: Beim Bearbeiten gehören die
+    ///   ausgeblendeten Elemente dazu — sonst wären sie von der Tafel aus
+    ///   nicht mehr zurückzuholen, und „ausblenden“ wäre dasselbe wie
+    ///   löschen. Im Unterricht sind sie weg.
+    func widgets(auf seite: String, mitVersteckten: Bool = false) -> [BoardWidget] {
+        sortedWidgets.filter {
+            (mitVersteckten || !$0.versteckt) && liegtAuf($0, seite: seite)
+        }
     }
 
     /// Elemente, die diese Person für sich ausgeblendet hat.
@@ -1323,7 +1378,7 @@ extension BoardWidget {
         pageID = c.wert(.pageID, "")
         // Altbestand: Wer nur `bare` kennt, meinte damit „nie eine Karte".
         let ohneKarte = c.wert(.bare, false)
-        karte = c.wert(.karte, ohneKarte ? WidgetLabelRegel.nie : .tafel)
+        karte = c.wert(.karte, ohneKarte ? WidgetKarte.nie : .tafel)
         versteckt = c.wert(.versteckt, false)
         labels = c.wert(.labels, WidgetLabelRegel.tafel)
         labelSize = c.wert(.labelSize, 1)

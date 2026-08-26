@@ -193,7 +193,7 @@ struct BoardCanvasView: View {
                     .frame(width: Layout.canvas.width, height: Layout.canvas.height)
             }
 
-            ForEach(board.widgets(auf: sichtbareSeite)) { widget in
+            ForEach(board.widgets(auf: sichtbareSeite, mitVersteckten: store.editing)) { widget in
                 WidgetHostView(boardID: board.id, widget: widget, scale: scale,
                                frames: board.frames)
                     .offset(x: widget.x, y: widget.y)
@@ -226,7 +226,7 @@ struct BoardCanvasView: View {
     private var selectedWidget: BoardWidget? {
         guard let id = store.selectedWidgetID,
               let treffer = board.widgets.first(where: { $0.id == id }),
-              !treffer.versteckt,
+              (store.editing || !treffer.versteckt),
               board.liegtAuf(treffer, seite: sichtbareSeite)
         else { return nil }
         return treffer
@@ -354,10 +354,10 @@ private struct SelectionChrome: View {
             }
             button("minus.magnifyingglass", label: "Kleiner") { resize(by: 0.88) }
             button("plus.magnifyingglass", label: "Größer") { resize(by: 1.14) }
-            button(karteAn ? "square.on.square" : "square.dashed",
-                   label: karteAn ? "Karte ausblenden" : "Karte zeigen",
-                   tint: karteAn ? .white : Theme.mint) {
-                let neu: WidgetLabelRegel = karteAn ? .nie : .immer
+            // Durchtippen: Karte → nur Rahmen → ohne → Karte.
+            button(kartenstil.symbol, label: "Karte: \(kartenstil.title)",
+                   tint: kartenstil == .immer ? .white : Theme.mint) {
+                let neu = kartenstil.naechste
                 store.updateWidget(widget.id, in: boardID) { $0.karte = neu }
             }
             // Beschriftungen dieses Elements — unabhängig von der Tafelregel.
@@ -368,10 +368,14 @@ private struct SelectionChrome: View {
                 store.updateWidget(widget.id, in: boardID) { $0.labels = neu }
             }
             // Ausblenden gilt nur für mich; auf einer geteilten Tafel bleibt
-            // das Element für die anderen stehen. Zurückholen geht über
-            // „Aussehen“ → „Ausgeblendete Elemente“.
-            button("eye.slash", label: "Nur für mich ausblenden") {
-                store.verstecke(widget.id, in: boardID)
+            // das Element für die anderen stehen. Beim Bearbeiten steht es
+            // weiterhin blass auf der Tafel — sonst wäre der Knopf dasselbe
+            // wie Löschen.
+            button(widget.versteckt ? "eye" : "eye.slash",
+                   label: widget.versteckt ? "Wieder zeigen" : "Nur für mich ausblenden",
+                   tint: widget.versteckt ? Theme.mint : .white) {
+                let neu = !widget.versteckt
+                store.updateWidget(widget.id, in: boardID) { $0.versteckt = neu }
             }
             button(widget.locked ? "lock.fill" : "lock.open",
                    label: widget.locked ? "Entsperren" : "Festecken",
@@ -426,8 +430,8 @@ private struct SelectionChrome: View {
     /// Die Tafel, auf der das Element liegt — für die Vorgaberegeln.
     private var tafel: Board? { store.board(boardID) }
 
-    /// Trägt das Element gerade eine Karte? (Tafelregel plus eigene Wahl.)
-    private var karteAn: Bool {
+    /// Wie das Element gerade steht (Tafelregel plus eigene Wahl).
+    private var kartenstil: WidgetKarte {
         widget.karte.gilt(tafel: tafel?.frames.applies(editing: store.editing) ?? true)
     }
 
@@ -602,7 +606,8 @@ struct BoardStackView: View {
                 let width = geo.size.width - 24
                 ScrollView {
                     VStack(spacing: 16) {
-                        ForEach(board.widgets(auf: sichtbareSeite)) { widget in
+                        ForEach(board.widgets(auf: sichtbareSeite,
+                                              mitVersteckten: store.editing)) { widget in
                             let scale = width / CGFloat(widget.width)
                             VStack(spacing: 6) {
                                 if store.editing {
