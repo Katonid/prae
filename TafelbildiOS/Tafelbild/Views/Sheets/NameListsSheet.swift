@@ -88,7 +88,7 @@ struct NameListEditor: View {
 
             Section {
                 ForEach(list.entries) { entry in
-                    HStack {
+                    HStack(spacing: 8) {
                         TextField("Name", text: Binding(
                             get: { entry.text },
                             set: { value in
@@ -103,6 +103,31 @@ struct NameListEditor: View {
                         if entry.paused {
                             Image(systemName: "pause.circle")
                                 .foregroundStyle(.secondary)
+                        }
+                        // Je Merkmal ein kleiner Knopf mit dem Wert. „–“ heißt:
+                        // für diesen Namen nichts angegeben.
+                        ForEach(list.merkmale) { merkmal in
+                            Menu {
+                                ForEach(merkmal.werte, id: \.self) { wert in
+                                    Button(wert) { setze(merkmal, wert, fuer: entry) }
+                                }
+                                Divider()
+                                Button("Ohne Angabe") { setze(merkmal, "", fuer: entry) }
+                            } label: {
+                                Text(entry.wert(merkmal.id) ?? "–")
+                                    .font(Theme.font(14, weight: .bold))
+                                    .monospaced()
+                                    .foregroundStyle(entry.wert(merkmal.id) == nil
+                                                     ? Color.secondary : Color.white)
+                                    .frame(minWidth: 30, minHeight: 30)
+                                    .background {
+                                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                            .fill(entry.wert(merkmal.id) == nil
+                                                  ? Color.secondary.opacity(0.15)
+                                                  : Theme.accent)
+                                    }
+                            }
+                            .buttonStyle(.plain)
                         }
                     }
                     .swipeActions(edge: .leading) {
@@ -150,6 +175,8 @@ struct NameListEditor: View {
                     Label("Mehrere Namen einfügen", systemImage: "text.badge.plus")
                 }
             }
+
+            merkmalsAbschnitt
         }
         .navigationTitle(list.name)
         .navigationBarTitleDisplayMode(.inline)
@@ -185,6 +212,118 @@ struct NameListEditor: View {
                 }
             }
         }
+    }
+
+    // MARK: - Merkmale
+
+    @ViewBuilder
+    private var merkmalsAbschnitt: some View {
+        Section {
+            ForEach(list.merkmale) { merkmal in
+                VStack(alignment: .leading, spacing: 8) {
+                    TextField("Name des Merkmals", text: Binding(
+                        get: { merkmal.name },
+                        set: { wert in aendere(merkmal) { $0.name = wert } }
+                    ))
+                    .font(Theme.font(16, weight: .semibold))
+
+                    TextField("Werte, mit Komma getrennt", text: Binding(
+                        get: { merkmal.werte.joined(separator: ", ") },
+                        set: { text in
+                            let werte = text.split(separator: ",")
+                                .map { String($0).trimmed }
+                                .filter { !$0.isEmpty }
+                            aendere(merkmal) { $0.werte = werte }
+                        }
+                    ))
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+
+                    // Wie viele Namen welchen Wert tragen — so ist auf einen
+                    // Blick zu sehen, ob noch etwas fehlt.
+                    let verteilung = list.verteilung(merkmal.id)
+                    HStack(spacing: 6) {
+                        ForEach(merkmal.werte, id: \.self) { wert in
+                            zaehlerPille(wert, verteilung[wert] ?? 0, fehlend: false)
+                        }
+                        if let ohne = verteilung[""], ohne > 0 {
+                            zaehlerPille("ohne", ohne, fehlend: true)
+                        }
+                        Spacer(minLength: 0)
+                    }
+                }
+                .padding(.vertical, 4)
+            }
+            .onDelete { offsets in
+                var updated = list
+                let entfernt = offsets.map { updated.merkmale[$0].id }
+                updated.merkmale.remove(atOffsets: offsets)
+                // Die Werte an den Namen gleich mit wegräumen — sonst bliebe
+                // unsichtbarer Ballast in der Liste stehen.
+                for index in updated.entries.indices {
+                    for id in entfernt { updated.entries[index].merkmale[id] = nil }
+                }
+                store.updateNameList(updated)
+            }
+
+            Menu {
+                ForEach(Merkmal.vorlagen) { vorlage in
+                    Button(vorlage.name + " (" + vorlage.werte.joined(separator: "/") + ")") {
+                        var neu = vorlage
+                        neu.id = UUID().uuidString
+                        var updated = list
+                        updated.merkmale.append(neu)
+                        store.updateNameList(updated)
+                    }
+                }
+                Divider()
+                Button("Eigenes Merkmal") {
+                    var updated = list
+                    updated.merkmale.append(Merkmal())
+                    store.updateNameList(updated)
+                }
+            } label: {
+                Label("Merkmal hinzufügen", systemImage: "plus")
+            }
+        } header: {
+            Text("Merkmale")
+        } footer: {
+            Text("Ein Merkmal ist etwas, wonach sich die Namen sortieren lassen — "
+                 + "am häufigsten Jungen und Mädchen. Der Wert steht als kurzes "
+                 + "Zeichen hinter jedem Namen und lässt sich dort antippen. "
+                 + "Gebraucht wird er beim Auslosen von Gruppen: Dann kann die "
+                 + "Ziehung darauf achten, dass die Gruppen gemischt sind.")
+        }
+    }
+
+    private func zaehlerPille(_ text: String, _ anzahl: Int, fehlend: Bool) -> some View {
+        Text("\(text) \(anzahl)")
+            .font(Theme.font(13, weight: .semibold))
+            .foregroundStyle(fehlend ? Color.orange : Color.secondary)
+            .padding(.horizontal, 8)
+            .frame(height: 24)
+            .background {
+                Capsule().fill((fehlend ? Color.orange : Color.secondary).opacity(0.15))
+            }
+    }
+
+    private func aendere(_ merkmal: Merkmal, _ change: (inout Merkmal) -> Void) {
+        var updated = list
+        guard let index = updated.merkmale.firstIndex(where: { $0.id == merkmal.id }) else { return }
+        change(&updated.merkmale[index])
+        store.updateNameList(updated)
+    }
+
+    private func setze(_ merkmal: Merkmal, _ wert: String, fuer entry: NameEntry) {
+        var updated = list
+        guard let index = updated.entries.firstIndex(where: { $0.id == entry.id }) else { return }
+        if wert.isEmpty {
+            updated.entries[index].merkmale[merkmal.id] = nil
+        } else {
+            updated.entries[index].merkmale[merkmal.id] = wert
+        }
+        store.updateNameList(updated)
+        Haptics.tap()
     }
 
     private func addName() {
