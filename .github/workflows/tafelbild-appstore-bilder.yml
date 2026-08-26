@@ -4,8 +4,15 @@
 # Apple nimmt nur Bilder an, deren Maße auf den Punkt stimmen. Die bekommt
 # man ausschließlich aus einem Simulator der passenden Geräteklasse:
 #
-#   iPhone 6,5"   1284 × 2778  (iPhone 14 Plus, 13 Pro Max, 12 Pro Max)
+#   iPhone 6,9"   1320 × 2868  (iPhone 17/16 Pro Max)
+#   iPhone 6,7"   1290 × 2796  (iPhone 15 Pro Max)
+#   iPad 13"      2064 × 2752  (iPad Pro 13", iPad Air 13")
 #   iPad 12,9"    2048 × 2732  (iPad Pro 12,9")
+#
+# Welche Geräte ein Läufer hat, entscheidet der Xcode-Stand — und der
+# wandert. Deshalb steht je Klasse eine Reihe von Kandidaten und eine Reihe
+# erlaubter Maße; genommen wird das erste Gerät, das da ist, und angenommen
+# jedes Bild, dessen Maß in der Reihe steht (auch quer).
 #
 # Die App wird dafür mit `-schaufenster <n>` gestartet. Dann zeigt sie eine
 # fertig eingerichtete Tafel statt des eigenen Bestands (siehe
@@ -25,7 +32,7 @@ concurrency:
 
 jobs:
   bilder:
-    name: ${{ matrix.name }} (${{ matrix.breite }}×${{ matrix.hoehe }})
+    name: ${{ matrix.name }}
     runs-on: macos-latest
     timeout-minutes: 45
     strategy:
@@ -35,15 +42,11 @@ jobs:
           # Die Reihenfolge der Namen ist die Reihenfolge der Versuche: Was
           # auf dem Läufer installiert ist, entscheidet der Xcode-Stand.
           - name: iPhone
-            geraete: "iPhone 14 Plus|iPhone 13 Pro Max|iPhone 12 Pro Max|iPhone 11 Pro Max"
-            breite: 1284
-            hoehe: 2778
-            ausrichtung: hochkant
+            geraete: "iPhone 17 Pro Max|iPhone 16 Pro Max|iPhone 15 Pro Max|iPhone 14 Plus|iPhone 13 Pro Max"
+            masse: "1320x2868 1290x2796 1284x2778 1242x2688"
           - name: iPad
-            geraete: "iPad Pro (12.9-inch) (6th generation)|iPad Pro (12.9-inch) (5th generation)|iPad Pro 13-inch (M4)"
-            breite: 2048
-            hoehe: 2732
-            ausrichtung: quer
+            geraete: "iPad Pro 13-inch (M5)|iPad Pro 13-inch (M4)|iPad Pro (12.9-inch) (6th generation)|iPad Air 13-inch (M4)|iPad Air 13-inch (M3)"
+            masse: "2064x2752 2048x2732"
 
     steps:
       - name: Quelltext holen
@@ -109,8 +112,7 @@ jobs:
       - name: Szenen fotografieren
         run: |
           UDID="${{ steps.sim.outputs.udid }}"
-          BREITE=${{ matrix.breite }}
-          HOEHE=${{ matrix.hoehe }}
+          MASSE="${{ matrix.masse }}"
           ORDNER="appstore/${{ matrix.name }}"
           mkdir -p "$ORDNER"
           mit_grenze() { perl -e 'alarm shift; exec @ARGV' "$@"; }
@@ -137,11 +139,20 @@ jobs:
           for BILD in "$ORDNER"/*.png; do
             W=$(sips -g pixelWidth "$BILD" | awk '/pixelWidth/ {print $2}')
             H=$(sips -g pixelHeight "$BILD" | awk '/pixelHeight/ {print $2}')
-            if { [ "$W" = "$BREITE" ] && [ "$H" = "$HOEHE" ]; } \
-               || { [ "$W" = "$HOEHE" ] && [ "$H" = "$BREITE" ]; }; then
+            TREFFER=0
+            for MASS in $MASSE; do
+              B=${MASS%x*}
+              O=${MASS#*x}
+              if { [ "$W" = "$B" ] && [ "$H" = "$O" ]; } \
+                 || { [ "$W" = "$O" ] && [ "$H" = "$B" ]; }; then
+                TREFFER=1
+                break
+              fi
+            done
+            if [ "$TREFFER" = "1" ]; then
               echo "ok   $(basename "$BILD")  ${W}×${H}"
             else
-              echo "::error::$(basename "$BILD") hat ${W}×${H}, gebraucht wird ${BREITE}×${HOEHE} oder ${HOEHE}×${BREITE}"
+              echo "::error::$(basename "$BILD") hat ${W}×${H}; erlaubt sind: $MASSE (auch quer)"
               FEHLER=1
             fi
           done

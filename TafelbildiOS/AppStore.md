@@ -109,13 +109,20 @@ stimmen — und das Feld sagt genau, welche es will:
 
 | Feld | Erlaubte Maße | Simulator |
 |---|---|---|
-| iPhone 6,5" | 1284 × 2778 oder 1242 × 2688 (auch quer) | iPhone 14 Plus, 13/12 Pro Max, 11 Pro Max |
-| iPhone 6,7"/6,9" | 1290 × 2796 (auch quer) | iPhone 15/16 Pro Max |
-| iPad 12,9"/13" | 2048 × 2732 (auch quer) | iPad Pro 12,9" |
+| iPhone 6,9" | 1320 × 2868 oder 1290 × 2796 (auch quer) | iPhone 17/16 Pro Max |
+| iPhone 6,7" | 1290 × 2796 (auch quer) | iPhone 15 Pro Max |
+| iPhone 6,5" | 1284 × 2778 oder 1242 × 2688 (auch quer) | iPhone 14 Plus, 13/12 Pro Max |
+| iPad 13" | 2064 × 2752 oder 2048 × 2732 (auch quer) | iPad Pro 13", iPad Air 13" |
 
 Verlangt wird nur die jeweils größte iPhone- und iPad-Größe; die kleineren
 rechnet Apple daraus ab. Ein Satz iPhone-Bilder und ein Satz iPad-Bilder
 reichen also.
+
+**Welche Geräte es gibt, wandert mit dem Xcode-Stand.** Die Läufer von
+GitHub hatten im August 2026 nur noch iOS-26-Simulatoren: iPhone 17 Pro Max
+und iPad Pro 13" statt iPhone 14 Plus und iPad Pro 12,9". Der Arbeitsablauf
+nennt deshalb je Klasse mehrere Kandidaten und lässt jedes Maß aus einer
+Reihe gelten; wer ihn anpasst, ändert beides zusammen.
 
 **Erzeugen lassen statt von Hand knipsen:** Der Arbeitsablauf
 `tafelbild-appstore-bilder.yml` macht die Bilder selbst — Actions →
