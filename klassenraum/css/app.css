@@ -972,6 +972,9 @@ p.muted { margin: 0; }
 .chip-name:hover { background: rgba(225, 29, 72, 0.12); color: var(--danger); }
 .chip-name:active { transform: scale(0.93); }
 .chip-name__x { display: grid; place-items: center; opacity: 0.6; }
+/* Pausierte Namen: bleiben in der Liste, werden aber nicht gezogen. */
+.chip-name.is-paused { opacity: 0.5; }
+.chip-name.is-paused span { text-decoration: line-through; }
 
 .swatches { display: flex; flex-wrap: wrap; gap: 9px; }
 .swatch {
@@ -1524,7 +1527,43 @@ body[data-cards="dark"] .w-random__tile {
 .w-noise__head { display: flex; justify-content: space-between; align-items: baseline; }
 .w-noise__title { font-weight: 700; font-size: 1em; }
 .w-noise__value { font-size: 2em; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+.w-noise__display { flex: 1; display: flex; min-height: 46px; min-width: 0; }
 .w-noise__meter { flex: 1; display: flex; gap: 3px; align-items: stretch; min-height: 46px; }
+.w-noise__meter.is-hidden, .w-noise__gauge.is-hidden, .w-noise__lamp.is-hidden { display: none; }
+
+/* Tacho: Halbkreis mit Zeiger */
+.w-noise__gauge { flex: 1; width: 100%; height: 100%; min-height: 0; }
+.w-noise__gauge-track { fill: none; stroke: var(--surface-soft-2); stroke-width: 9; stroke-linecap: round; }
+.w-noise__gauge-hot { fill: none; stroke: rgba(244, 63, 94, 0.8); stroke-width: 9; stroke-linecap: round; }
+.w-noise__gauge-needle {
+  stroke: var(--card-ink);
+  stroke-width: 3.2;
+  stroke-linecap: round;
+  transform-origin: 60px 62px;
+  transition: transform 0.12s linear;
+}
+.w-noise__gauge-hub { fill: var(--card-ink); }
+
+/* Lampe: eine große Leuchte, gut von hinten zu sehen */
+.w-noise__lamp {
+  flex: 1;
+  align-self: center;
+  aspect-ratio: 1;
+  max-width: 100%;
+  max-height: 100%;
+  margin: 0 auto;
+  border-radius: 50%;
+  background: var(--surface-soft);
+  display: grid;
+  place-items: center;
+  transition: background 0.25s ease, box-shadow 0.25s ease;
+}
+.w-noise__lamp-value { font-size: 2.6em; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--card-ink); }
+.w-noise__lamp.is-ok { background: #22c55e; box-shadow: 0 0 34px -6px rgba(34, 197, 94, 0.8); }
+.w-noise__lamp.is-near { background: #facc15; box-shadow: 0 0 34px -6px rgba(250, 204, 21, 0.8); }
+.w-noise__lamp.is-over { background: #ef4444; box-shadow: 0 0 40px -4px rgba(239, 68, 68, 0.9); }
+.w-noise__lamp.is-ok .w-noise__lamp-value, .w-noise__lamp.is-over .w-noise__lamp-value { color: #fff; }
+.w-noise__lamp.is-near .w-noise__lamp-value { color: #1f2937; }
 .w-noise__seg {
   flex: 1;
   border-radius: 5px;
@@ -1644,6 +1683,52 @@ body[data-cards="dark"] .w-random__tile {
 /* Symbol-Auswahl in den Einstellungen des Tonfeldes */
 .chip--symbol { font-size: 1.15em; padding: 0.25em 0.5em; }
 .input--symbol { width: 3.4em; text-align: center; padding: 0.3em 0.4em; }
+
+/* ---------- Element: Dokumentenkamera ---------- */
+
+.w-camera { display: flex; padding: 10px; }
+.w-camera__stage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  border-radius: 16px;
+  background: #0b1120;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+}
+.w-camera__video, .w-camera__still { width: 100%; height: 100%; object-fit: contain; grid-area: 1 / 1; }
+.w-camera__video.is-mirrored { transform: scaleX(-1); }
+.w-camera__video.is-hidden, .w-camera__still.is-hidden, .w-camera__empty.is-hidden { display: none; }
+.w-camera__empty {
+  grid-area: 1 / 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5em;
+  padding: 1em 1.4em;
+  color: rgba(248, 250, 252, 0.85);
+  text-align: center;
+}
+.w-camera__status { font-size: 0.9em; line-height: 1.35; }
+.w-camera__controls { position: absolute; right: 8px; bottom: 8px; display: flex; gap: 6px; }
+.w-camera__button {
+  width: 2.4em;
+  height: 2.4em;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.65);
+  color: #f8fafc;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+.w-camera__button:hover { background: rgba(30, 41, 59, 0.85); }
+.w-camera__button.is-hidden { display: none; }
+/* Ein feiner Rand zeigt, dass das Bild gerade eingefroren ist. */
+.w-camera.is-frozen .w-camera__stage { box-shadow: inset 0 0 0 3px rgba(129, 140, 248, 0.75); }
 
 /* ---------- Element: Video ---------- */
 

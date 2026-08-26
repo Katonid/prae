@@ -376,6 +376,34 @@ function openBackgroundPanel() {
       }),
       field('Eigene Farbe', custom)));
 
+    // Eigener Verlauf aus zwei frei gewählten Farben (wie in der iOS-App).
+    const ownGradient = (() => {
+      const current = background.type === 'gradient' ? String(background.value || '') : '';
+      const match = /linear-gradient\(135deg,\s*(#[0-9a-fA-F]{6}),\s*(#[0-9a-fA-F]{6})\)/.exec(current) || [];
+      let from = match[1] || '#1e3a8a';
+      let to = match[2] || '#0f766e';
+      const apply = () => {
+        board.background = { type: 'gradient', value: `linear-gradient(135deg, ${from}, ${to})` };
+        touch();
+        applyBackground();
+      };
+      return h('div', { class: 'row' },
+        field('Eigener Verlauf von', h('input', {
+          class: 'input input--color', type: 'color', value: from,
+          oninput: (event) => {
+            from = event.target.value;
+            apply();
+          },
+        })),
+        field('nach', h('input', {
+          class: 'input input--color', type: 'color', value: to,
+          oninput: (event) => {
+            to = event.target.value;
+            apply();
+          },
+        })));
+    })();
+
     container.appendChild(section('Farbverlauf',
       h('div', { class: 'bg-grid' }, BACKGROUND_GRADIENTS.map((gradient) => h('button', {
         class: 'bg-card' + (background.value === gradient ? ' is-active' : ''),
@@ -386,7 +414,8 @@ function openBackgroundPanel() {
           applyBackground();
           render();
         },
-      })))));
+      }))),
+      ownGradient));
 
     container.appendChild(section('Hintergrundbild',
       button('Bild vom Gerät wählen', {
@@ -411,6 +440,15 @@ function openBackgroundPanel() {
           input.click();
         },
       }),
+      background.type === 'image' ? field(`Abdunkeln ${Math.round((background.dim || 0) * 100)} %`, h('input', {
+        class: 'input', type: 'range', min: '0', max: '0.7', step: '0.05', value: background.dim || 0,
+        oninput: (event) => {
+          board.background.dim = Number(event.target.value);
+          touch();
+          applyBackground();
+        },
+        onchange: () => render(),
+      }), 'Dunkler heißt: Elemente und Schrift heben sich besser vom Foto ab.') : null,
       background.type === 'image' ? button('Bild entfernen', {
         icon: 'trash', ghost: true, full: true,
         onClick: () => {
@@ -558,15 +596,22 @@ function openHelp() {
         + 'Kartenmischen, Trommelwirbel, Glücksrad oder ohne Ton. Ein Tipp auf die Auswahl spielt den Klang zur Probe.'),
       h('p', null, h('strong', null, 'Zufälliger Name: '), 'Liste wählen, „Ohne Zurücklegen“ verhindert Wiederholungen. '
         + 'Gezogene Namen lassen sich antippen, um sie zurückzulegen; einzelne Namen können auch von Hand als gezogen markiert werden. '
-        + 'Eine neue Runde startest du beim Bearbeiten über „Zurücksetzen“ oder im Zahnrad.'),
-      h('p', null, h('strong', null, 'Lautstärke: '), 'Ein Tipp auf die Karte startet die Messung, der nächste beendet sie. '
+        + 'Eine neue Runde startest du beim Bearbeiten über „Zurücksetzen“ oder im Zahnrad. '
+        + 'In den Namenslisten lässt sich jeder Name pausieren (z. B. bei Krankheit) — er bleibt in der Liste, wird aber nicht gezogen.'),
+      h('p', null, h('strong', null, 'Kamera: '), 'Das Element „Kamera“ zeigt das Livebild der Gerätekamera — als Dokumentenkamera fürs Heft '
+        + 'unter dem iPad-Ständer. Ein Tipp friert das Bild ein (die Kamera geht dabei aus), der nächste taut es auf. '
+        + 'Das Standbild bleibt auf der Tafel stehen und lässt sich über das Bildsymbol als eigenes Bild ablegen. '
+        + 'Das Livebild verlässt das Gerät nie.'),
+      h('p', null, h('strong', null, 'Lautstärke: '), 'Drei Anzeigen im Zahnrad: Balken, Tacho oder eine große Lampe (grün/gelb/rot). '
+        + 'Ein Tipp auf die Karte startet die Messung, der nächste beendet sie. '
         + 'Beim ersten Start fragt das Gerät nach dem Mikrofon — einmal erlauben. '
         + 'Das Mikrofon ist nur an, solange die Seite im Vordergrund ist: Beim Wechsel in eine andere App wird es freigegeben, beim Zurückkommen misst die Karte weiter.'),
       h('p', null, h('strong', null, 'Text: '), 'Doppeltippen zum Schreiben oder den Stift in der kleinen Leiste nutzen.'),
       h('p', null, h('strong', null, 'Schreiben: '), 'Der Stift oben rechts schaltet das Schreiben ein — mit Apple Pencil, Finger oder Maus. '
         + 'Marker zum Hervorheben, Radierer entfernt einzelne Striche, „nur Stift“ schützt vor dem Handballen. '
         + 'Die Striche gehören zur Tafel und bleiben erhalten.'),
-      h('p', null, h('strong', null, 'Klang & Video: '), 'Element „Klang“ oder „Video“ ablegen, im Zahnrad eine Datei vom Gerät oder einen Link wählen. '
+      h('p', null, h('strong', null, 'Klang & Video: '), 'Element „Klang“ oder „Video“ ablegen, im Zahnrad eine Datei vom Gerät oder einen Link wählen — '
+        + 'oder mit „Aufnehmen“ eine Ansage direkt einsprechen. '
         + 'Ein Tipp auf die Taste spielt ab; ein Fortschrittsbalken auf der Taste zeigt, wann die Datei endet. '
         + 'Jede Klangtaste kann im Zahnrad ein Symbol (Emoji) bekommen, das groß auf der Taste steht — '
         + 'dazu jede beliebige Farbe (Farbwähler) oder einen Farbverlauf aus zwei Farben.'),
@@ -585,9 +630,9 @@ function openHelp() {
         + 'mit einem Finger auf der freien Fläche verschieben, Doppeltippen zeigt wieder alles. Der Knopf über der Elementleiste blendet diese aus.'),
       h('p', null, h('strong', null, 'Schrift: '), 'Unter „Aussehen“ → „Schrift“ stehen vier Schriften mit dem runden „a“ zur Wahl, '
         + 'wie es in der Grundschule geschrieben wird — dazu die Systemschrift. Die Auswahl gilt für die ganze App.'),
-      h('p', null, h('strong', null, 'Aussehen: '), '„Aussehen“ bietet bewegte Hintergründe, eigene Farben und Bilder, '
-        + 'sechs Farbschemata (auch einfarbig statt Verlauf), drei Kartenstile und die Rahmen-Einstellung — '
-        + 'ohne Rahmen stehen die Elemente frei auf der Tafel.'),
+      h('p', null, h('strong', null, 'Aussehen: '), '„Aussehen“ bietet bewegte Hintergründe, eigene Farben, eigene Farbverläufe aus zwei Farben '
+        + 'und Bilder (mit stufenlosem Abdunkeln), sechs Farbschemata (auch einfarbig statt Verlauf), drei Kartenstile und die Rahmen-Einstellung — '
+        + 'ohne Rahmen stehen die Elemente frei auf der Tafel. Der Tagesablauf kann sich auf Wunsch jeden Tag von selbst zurücksetzen (Zahnrad).'),
       h('p', null, h('strong', null, 'Teilen: '), 'Menü → „Teilen & Konto“ → Code erstellen. Andere geben den Code ein und laden eine Kopie oder folgen live.'),
       h('p', null, h('strong', null, 'Auf dem Homescreen: '), 'In Safari „Teilen“ → „Zum Home-Bildschirm“ — dann startet die App im Vollbild.')),
     actions: [{ label: 'Alles klar', primary: true }],

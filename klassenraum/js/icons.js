@@ -45,6 +45,9 @@ const paths = {
   eye: '<path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
   sparkle: '<path d="M12 3l1.8 4.7L18.5 9.5 13.8 11.3 12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"/><path d="M18 15l.9 2.3 2.3.9-2.3.9L18 21.4l-.9-2.3-2.3-.9 2.3-.9z"/>',
   download: '<path d="M12 4v11"/><path d="M8 12l4 4 4-4"/><path d="M5 20h14"/>',
+  camera: '<path d="M4 8h3l2-2.5h6L17 8h3a1.5 1.5 0 0 1 1.5 1.5V18a2 2 0 0 1-2 2H4.5a2 2 0 0 1-2-2V9.5A1.5 1.5 0 0 1 4 8z"/><circle cx="12" cy="13.5" r="3.5"/>',
+  mic: '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M6 11a6 6 0 0 0 12 0"/><path d="M12 17v4"/><path d="M9 21h6"/>',
+  flip: '<path d="M4 9a8 8 0 0 1 14-3"/><path d="M18 2v4h-4"/><path d="M20 15a8 8 0 0 1-14 3"/><path d="M6 22v-4h4"/>',
   upload: '<path d="M12 20V9"/><path d="M8 12l4-4 4 4"/><path d="M5 4h14"/>',
 };
 

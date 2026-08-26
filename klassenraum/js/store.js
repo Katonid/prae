@@ -282,6 +282,8 @@ function normalizeState(loaded) {
     id: list.id || uid('list'),
     name: list.name || 'Liste',
     names: Array.isArray(list.names) ? list.names : [],
+    // Pausierte Namen (z. B. krank) bleiben in der Liste, werden aber nicht gezogen.
+    paused: Array.isArray(list.paused) ? list.paused : [],
     updatedAt: list.updatedAt || Date.now(),
   }));
   return next;
@@ -555,6 +557,7 @@ export function upsertList(raw) {
     id: raw.id || uid('list'),
     name: raw.name || 'Liste',
     names: Array.isArray(raw.names) ? raw.names : [],
+    paused: Array.isArray(raw.paused) ? raw.paused : [],
     updatedAt: raw.updatedAt || Date.now(),
   };
   const index = state.lists.findIndex((list) => list.id === clean.id);
@@ -613,7 +616,7 @@ export function getList(listId) {
 }
 
 export function addList(name, names) {
-  const list = { id: uid('list'), name: name || 'Neue Liste', names: names || [], updatedAt: Date.now() };
+  const list = { id: uid('list'), name: name || 'Neue Liste', names: names || [], paused: [], updatedAt: Date.now() };
   state.lists.push(list);
   touch({ board: false, reason: 'list-add' });
   emit('lists-changed', state.lists);

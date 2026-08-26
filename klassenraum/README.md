@@ -14,18 +14,21 @@ funktioniert auch am Telefon.
 | **Timer / Stoppuhr** | Ein Tipp startet, der nächste hält an — ganz ohne Knöpfe; Doppeltippen setzt zurück. Voreinstellungen von 1 bis 45 Minuten, ±1 Minute auch im Lauf (Zahnrad). Wahlweise **analog als Scheibe** wie die bekannte Zeituhr: Auf dem 60-Minuten-Zifferblatt zeigt die farbige Fläche die restlichen Minuten. Als **Klang am Ende** stehen Dreiklang, Gong, Glocke und Xylophon zur Wahl (im Gerät erzeugt, offline) — oder eine **eigene Klangdatei** vom Gerät, die beim Abgleich mitwandert. |
 | **Uhr** | Analog in vier Zifferblättern — **Modern** (Vorgabe: alle Zahlen und Minutenstriche, schlanke Zeiger, gleitender Sekundenzeiger), **Klassisch** (Wanduhr-Optik), **Lernuhr** (blaue Stunden-, orange Minutenzahlen mit farbgleichen Zeigern) und **Minimal** (nur 12/3/6/9) — oder digital, jeweils mit Datum. |
 | **Ampel** | Drei Lichter, antippen oder doppeltippen zum Weiterschalten, mit eigenen Beschriftungen. |
-| **Tagesablauf** | Checkliste mit Fortschrittsbalken, Punkte abhaken, sortieren, schnell erfassen. |
+| **Tagesablauf** | Checkliste mit Fortschrittsbalken, Punkte abhaken, sortieren, schnell erfassen. Auf Wunsch **setzt sich die Liste jeden Tag von selbst zurück** — morgens sind alle Haken wieder gelöst. |
 | **Text** | Doppeltippen zum Schreiben, Schriftgröße passt sich automatisch an. |
 | **Bild** | Bild vom Gerät, wird beim Einfügen verkleinert. |
-| **Lautstärke** | Misst über das Mikrofon die Lautstärke im Raum, mit einstellbarer Grenze und optionalem Signalton. Ein Tipp auf die Karte startet die Messung, der nächste beendet sie — Knöpfe gibt es keine. Beim ersten Start fragt das Gerät nach der Erlaubnis; wird sie verweigert, erklärt die Karte den Weg zurück. Das Mikrofon läuft nur im Vordergrund (siehe unten). |
-| **Klang** | Tasten, die auf Tippen eine Klangdatei abspielen — Datei vom Gerät oder Link. Ein **Fortschrittsbalken** auf der laufenden Taste zeigt, wann die Datei endet. Mehrere Tasten je Element, mit Beschriftung und wählbarem **Symbol** (Emoji). Farbe frei über den **Farbwähler**, wahlweise als **Farbverlauf** aus zwei Farben; jede Taste hat eine eingebaute Schattierung und wirkt dadurch leicht gewölbt. Jede Beschriftung wird automatisch so groß gesetzt, dass sie ihre Taste ausfüllt; sehr lange Beschriftungen brechen um. |
+| **Lautstärke** | Misst über das Mikrofon die Lautstärke im Raum, mit einstellbarer Grenze und optionalem Signalton. Drei Anzeigen: **Balken**, **Tacho** (Halbkreis mit Zeiger, rote Zone ab der Grenze) oder **Lampe** (große grüne/gelbe/rote Leuchte — gut von hinten zu sehen). Ein Tipp auf die Karte startet die Messung, der nächste beendet sie — Knöpfe gibt es keine. Beim ersten Start fragt das Gerät nach der Erlaubnis; wird sie verweigert, erklärt die Karte den Weg zurück. Das Mikrofon läuft nur im Vordergrund (siehe unten). |
+| **Klang** | Tasten, die auf Tippen eine Klangdatei abspielen — Datei vom Gerät, Link oder eine **direkt in der App aufgenommene Ansage** („Aufnehmen“ im Zahnrad). Ein **Fortschrittsbalken** auf der laufenden Taste zeigt, wann die Datei endet. Mehrere Tasten je Element, mit Beschriftung und wählbarem **Symbol** (Emoji). Farbe frei über den **Farbwähler**, wahlweise als **Farbverlauf** aus zwei Farben; jede Taste hat eine eingebaute Schattierung und wirkt dadurch leicht gewölbt. Jede Beschriftung wird automatisch so groß gesetzt, dass sie ihre Taste ausfüllt; sehr lange Beschriftungen brechen um. |
 | **Video** | Video vom Gerät oder per Link, mit Bedienleiste, Schleife und Vollbild. |
+| **Kamera** | **Dokumentenkamera**: Das Livebild der Gerätekamera steht auf der Tafel — iPad auf den Ständer, Heft darunter, alle sehen es. Ein Tipp **friert das Bild ein** (die Kamera geht aus), der nächste taut es auf. Das Standbild gehört zur Tafel: Es bleibt nach dem Schließen stehen, wandert über den Abgleich mit und lässt sich **als eigenes Bildelement ablegen**, während die Kamera weiterläuft. Die Kamera läuft nur im Vordergrund; das Livebild verlässt das Gerät nie. |
 | **Arbeitssymbol** | Einzel-, Partner-, Gruppenarbeit, Stillarbeit, Melden, Zuhören, Aufräumen. |
 
 Dazu kommen: **mehrere Klassenräume** (eine eigene Tafel pro Klasse), **mehrere
 Seiten je Tafel** (siehe unten), **Namenslisten**, die in allen Klassenräumen
-verfügbar sind, ein **Präsentationsmodus** ohne Bedienleisten und die Möglichkeit,
-alles **als Datei zu sichern**.
+verfügbar sind — mit der Möglichkeit, einzelne Namen zu **pausieren** (z. B. bei
+Krankheit: der Name bleibt in der Liste, wird aber nicht gezogen) —, ein
+**Präsentationsmodus** ohne Bedienleisten und die Möglichkeit, alles **als Datei
+zu sichern**.
 
 ## Seiten
 
@@ -64,7 +67,9 @@ Klassenzimmer umblättern.
   (36 px), unabhängig davon, wie stark die Tafel gerade skaliert ist.
 * **Bewegte Hintergründe** („Nordlicht“, „Sonnenaufgang“, „Waldgrün“, „Beere“, „Tafelgrün“,
   „Kreide hell“) mit langsam wandernden Farbschleiern — dazu einfarbige Hintergründe,
-  Farbverläufe oder ein eigenes Bild.
+  Farbverläufe (Vorlagen oder ein **eigener Verlauf aus zwei frei gewählten Farben**)
+  oder ein eigenes Bild mit **stufenlosem Abdunkeln**, damit Elemente und Schrift
+  lesbar bleiben.
 * **Drei Kartenstile:** Glas (durchscheinend), Hell (maximaler Kontrast) und Dunkel
   (abends angenehm) — pro Klassenraum einstellbar.
 * **Schrift für die Grundschule** (siehe unten): vier Schriften mit rundem „a“,

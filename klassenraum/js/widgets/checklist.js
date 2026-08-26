@@ -13,11 +13,27 @@ export default {
   defaultSize: { w: 480, h: 380 },
   minSize: { w: 260, h: 200 },
   createState() {
-    return { title: 'Tagesablauf', items: [], showProgress: true, strikeDone: true };
+    return { title: 'Tagesablauf', items: [], showProgress: true, strikeDone: true, resetDaily: false, lastResetDay: '' };
   },
 
   mount(ctx) {
     const el = h('div', { class: 'w-check' });
+
+    /**
+     * Auf Wunsch löst die Liste ihre Haken an jedem neuen Tag von selbst —
+     * der Tagesablauf ist morgens wieder frisch, ohne dass jemand zurücksetzt.
+     */
+    function maybeDailyReset() {
+      const state = ctx.widget.state;
+      if (!state.resetDaily) return false;
+      const today = new Date().toISOString().slice(0, 10);
+      if (state.lastResetDay === today) return false;
+      state.lastResetDay = today;
+      const hadDone = (state.items || []).some((item) => item.done);
+      (state.items || []).forEach((item) => { item.done = false; });
+      ctx.save();
+      return hadDone;
+    }
     const titleEl = h('div', { class: 'w-check__title' });
     const progressEl = h('div', { class: 'w-check__progress' }, h('span', { class: 'w-check__bar' }));
     const listEl = h('div', { class: 'w-check__list', 'data-nodrag': '' });
@@ -25,6 +41,7 @@ export default {
     el.append(titleEl, progressEl, listEl, addRow);
 
     function render() {
+      maybeDailyReset();
       const state = ctx.widget.state;
       const items = state.items || [];
       titleEl.textContent = state.title || 'Tagesablauf';
@@ -117,7 +134,18 @@ export default {
     render();
     // Nach dem Laden der Schriften stimmen die Maße — noch einmal anpassen.
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => fitWidth()).catch(() => {});
-    return { el, refresh: render, onResize: refit };
+    // Bleibt die Tafel über Nacht offen, greift das tägliche Zurücksetzen trotzdem.
+    const dayTimer = setInterval(() => {
+      if (maybeDailyReset()) render();
+    }, 60000);
+    return {
+      el,
+      refresh: render,
+      onResize: refit,
+      destroy() {
+        clearInterval(dayTimer);
+      },
+    };
   },
 
   settings(ctx) {
@@ -231,7 +259,14 @@ export default {
           ctx.widget.state.strikeDone = value;
           ctx.save();
           ctx.refresh();
-        })));
+        }),
+        toggleRow('Jeden Tag von selbst zurücksetzen', Boolean(state.resetDaily), (value) => {
+          ctx.widget.state.resetDaily = value;
+          // Der heutige Stand bleibt stehen — zurückgesetzt wird ab morgen.
+          ctx.widget.state.lastResetDay = value ? new Date().toISOString().slice(0, 10) : '';
+          ctx.save();
+          ctx.refresh();
+        }, 'Beim ersten Öffnen an einem neuen Tag sind alle Haken wieder gelöst.')));
     }
 
     build();

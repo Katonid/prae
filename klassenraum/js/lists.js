@@ -79,9 +79,41 @@ export function openListsPanel(initialListId = null) {
     const counter = h('p', { class: 'muted small' }, `${list.names.length} Namen`);
     area.addEventListener('input', () => {
       const names = parseNames(area.value);
-      updateList(list.id, { names });
+      // Wer aus der Liste verschwindet, verschwindet auch aus den Pausierten.
+      const paused = (list.paused || []).filter((name) => names.includes(name));
+      updateList(list.id, { names, paused });
       counter.textContent = `${names.length} Namen`;
+      renderPause();
     });
+
+    // Pausierte Namen (z. B. krank) bleiben in der Liste, werden aber nicht gezogen.
+    const pauseBox = h('div', { class: 'stack' });
+    function renderPause() {
+      clear(pauseBox);
+      const current = getState().lists.find((entry) => entry.id === editingId);
+      if (!current || !current.names.length) {
+        pauseBox.appendChild(h('p', { class: 'muted small' }, 'Erst Namen eintragen — dann lässt sich hier pausieren.'));
+        return;
+      }
+      const paused = current.paused || [];
+      pauseBox.append(
+        h('p', { class: 'muted small' },
+          paused.length
+            ? `${paused.length} Name(n) pausiert — sie werden nicht gezogen. Tippen schaltet um.`
+            : 'Antippen pausiert einen Namen (z. B. bei Krankheit) — er wird dann nicht gezogen.'),
+        h('div', { class: 'chips' }, current.names.map((name) => h('button', {
+          class: 'chip-name' + (paused.includes(name) ? ' is-paused' : ''),
+          title: paused.includes(name) ? 'Wieder mitziehen' : 'Pausieren (wird nicht gezogen)',
+          onclick: () => {
+            const next = paused.includes(name)
+              ? paused.filter((entry) => entry !== name)
+              : paused.concat(name);
+            updateList(current.id, { paused: next });
+            renderPause();
+          },
+        }, h('span', null, name)))));
+    }
+    renderPause();
 
     container.append(
       buttonRow(button('Zurück zur Übersicht', {
@@ -93,6 +125,7 @@ export function openListsPanel(initialListId = null) {
       })),
       section('Name der Liste', field('z. B. Klasse 4a', nameInput)),
       section('Namen', area, counter),
+      section('Pausieren', pauseBox),
       buttonRow(
         button('Alphabetisch sortieren', {
           icon: 'layers', small: true,
@@ -101,15 +134,17 @@ export function openListsPanel(initialListId = null) {
             updateList(list.id, { names });
             area.value = names.join('\n');
             counter.textContent = `${names.length} Namen`;
+            renderPause();
           },
         }),
         button('Doppelte entfernen', {
           icon: 'check', small: true,
           onClick: () => {
             const names = Array.from(new Set(parseNames(area.value)));
-            updateList(list.id, { names });
+            updateList(list.id, { names, paused: (list.paused || []).filter((name) => names.includes(name)) });
             area.value = names.join('\n');
             counter.textContent = `${names.length} Namen`;
+            renderPause();
             toast('Doppelte Einträge entfernt.', 'success');
           },
         }),
@@ -117,9 +152,10 @@ export function openListsPanel(initialListId = null) {
           icon: 'plus', small: true,
           onClick: () => {
             const names = Array.from({ length: 30 }, (_, index) => String(index + 1));
-            updateList(list.id, { names });
+            updateList(list.id, { names, paused: [] });
             area.value = names.join('\n');
             counter.textContent = `${names.length} Namen`;
+            renderPause();
           },
         })));
   }
