@@ -425,7 +425,7 @@ export default {
             }, 'Eigene Datei')),
           state.sound === false ? null : h('p', { class: 'muted small' },
             chosen === 'datei'
-              ? 'Eine eigene Klangdatei vom Gerät — sie wandert beim Abgleich mit (bis 25 MB). Zum Anhören auf die Auswahl tippen.'
+              ? 'Eine eigene Klangdatei vom Gerät — sie wandert beim Abgleich mit. Zum Anhören auf die Auswahl tippen.'
               : `${endSoundById(chosen).hint} Wird im Gerät erzeugt und funktioniert offline. Zum Anhören auf die Auswahl tippen.`),
           state.sound === false || chosen !== 'datei' ? null : h('div', { class: 'stack' },
             h('p', { class: 'muted small' }, state.fileName

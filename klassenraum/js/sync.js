@@ -23,8 +23,10 @@ import { usedMediaIds } from './media.js';
 import { renderBoard } from './board.js';
 
 const PUSH_DELAY = 2200;
-// Nur Dateien bis zu dieser Größe wandern mit — größere bleiben auf dem Gerät.
-export const MEDIA_SYNC_LIMIT = 25 * 1024 * 1024;
+// Dateien bis zu dieser Größe wandern mit — das entspricht allem, was die App
+// überhaupt annimmt (60 MB). Früher lag die Grenze bei 25 MB; damals als
+// „zu groß" übersprungene Dateien werden bei jedem Senden neu geprüft.
+export const MEDIA_SYNC_LIMIT = 60 * 1024 * 1024;
 
 let unsubscribeSpace = null;
 let activeSpaceId = null;
@@ -120,7 +122,16 @@ async function pushChanges() {
     await saveNow();
     announce('ok');
   } catch (error) {
-    announce('error', 'Senden nicht möglich');
+    const message = String((error && error.message) || '');
+    if (message.startsWith('MEDIEN:')) {
+      // Die Tafeln selbst sind angekommen — nur Dateien hängen. Der häufigste
+      // Grund: Die Datenbankregeln kennen den Zweig „media" noch nicht.
+      announce('error', /401|permission/i.test(message)
+        ? 'Dateien abgelehnt — Datenbankregeln in der Firebase-Konsole aktualisieren'
+        : 'Dateien konnten nicht gesendet werden');
+    } else {
+      announce('error', 'Senden nicht möglich');
+    }
   }
 }
 
@@ -140,41 +151,59 @@ async function base64ToBlob(data, type) {
   return response.blob();
 }
 
-/** Alle benutzten Dateien hochladen, die der Bereich noch nicht kennt. */
+/**
+ * Alle benutzten Dateien hochladen, die der Bereich noch nicht kennt.
+ * Jede Datei einzeln: Scheitert eine (z. B. zu alt eingespielte
+ * Datenbankregeln, Netz weg), werden die übrigen trotzdem versucht.
+ */
 async function pushMedia() {
   const settings = syncSettings();
-  if (!settings.spaceId) return;
+  if (!settings.spaceId) return { sent: 0, failed: 0 };
   const used = usedMediaIds();
+  let sent = 0;
+  let failed = 0;
+  let firstError = null;
   for (const mediaId of used) {
-    if (settings.pushedMedia[mediaId]) continue;
+    // Nur „wirklich hochgeladen" zählt — alte „zu-gross"-Merker werden neu
+    // geprüft, seit die Grenze angehoben wurde.
+    if (settings.pushedMedia[mediaId] === true) continue;
     const record = await mediaGet(mediaId).catch(() => null);
     if (!record || !record.blob) continue;
-    if (record.size > MEDIA_SYNC_LIMIT) {
-      // Zu groß fürs Mitschicken — merken, damit es nicht jedes Mal geprüft wird.
-      settings.pushedMedia[mediaId] = 'zu-gross';
-      continue;
+    if (record.size > MEDIA_SYNC_LIMIT) continue;
+    try {
+      const data = await blobToBase64(record.blob);
+      await putMediaRecord(settings.spaceId, mediaId, {
+        name: record.name || 'Datei',
+        type: record.type || '',
+        size: record.size || 0,
+        updatedAt: record.savedAt || Date.now(),
+        by: settings.deviceId,
+        data,
+      });
+      settings.pushedMedia[mediaId] = true;
+      sent += 1;
+    } catch (error) {
+      failed += 1;
+      if (!firstError) firstError = error;
     }
-    const data = await blobToBase64(record.blob);
-    await putMediaRecord(settings.spaceId, mediaId, {
-      name: record.name || 'Datei',
-      type: record.type || '',
-      size: record.size || 0,
-      updatedAt: record.savedAt || Date.now(),
-      by: settings.deviceId,
-      data,
-    });
-    settings.pushedMedia[mediaId] = true;
   }
+  if (firstError) {
+    const wrapped = new Error(`MEDIEN: ${firstError.message || firstError}`);
+    wrapped.sent = sent;
+    wrapped.failed = failed;
+    throw wrapped;
+  }
+  return { sent, failed };
 }
 
 /** Dateien holen, auf die Tafeln zeigen, die aber lokal fehlen. */
 async function pullMissingMedia() {
   const settings = syncSettings();
-  if (!settings.spaceId) return false;
+  if (!settings.spaceId) return 0;
   const used = usedMediaIds();
-  if (!used.size) return false;
+  if (!used.size) return 0;
   const local = new Set(await mediaKeys().catch(() => []));
-  let fetched = false;
+  let fetched = 0;
   for (const mediaId of used) {
     if (local.has(mediaId)) continue;
     const record = await fetchMediaRecord(settings.spaceId, mediaId).catch(() => null);
@@ -189,7 +218,7 @@ async function pullMissingMedia() {
       savedAt: record.updatedAt || Date.now(),
     });
     settings.pushedMedia[mediaId] = true;
-    fetched = true;
+    fetched += 1;
   }
   if (fetched) {
     // Klang- und Videokarten zeigen die Datei erst nach einem Neuaufbau an.
@@ -197,6 +226,59 @@ async function pullMissingMedia() {
     emit('media-synced');
   }
   return fetched;
+}
+
+/**
+ * Stand der Dateien für die Teilen-Ansicht: Wie viele hängen noch —
+ * auf diesem Gerät zum Senden, oder im Bereich zum Holen?
+ */
+export async function mediaSyncStatus() {
+  const settings = syncSettings();
+  const used = usedMediaIds();
+  if (!settings.spaceId || !used.size) return { total: used.size, open: 0 };
+  const local = new Set(await mediaKeys().catch(() => []));
+  let open = 0;
+  for (const mediaId of used) {
+    if (!local.has(mediaId)) open += 1; // fehlt hier — müsste geholt werden
+    else if (settings.pushedMedia[mediaId] !== true) open += 1; // noch nicht gesendet
+  }
+  return { total: used.size, open };
+}
+
+/**
+ * Dateien von Hand abgleichen: erst holen, dann senden — mit ehrlicher
+ * Rückmeldung, woran es hakt (z. B. fehlende Datenbankregeln für `media`).
+ */
+export async function syncMediaNow() {
+  const settings = syncSettings();
+  if (!settings.spaceId) return { pulled: 0, sent: 0, error: null };
+  announce('busy');
+  let pulled = 0;
+  let sent = 0;
+  let error = null;
+  try {
+    pulled = await pullMissingMedia();
+  } catch (fetchError) {
+    error = fetchError;
+  }
+  try {
+    const result = await pushMedia();
+    sent = result.sent;
+    await saveNow();
+  } catch (pushError) {
+    sent = pushError.sent || 0;
+    error = error || pushError;
+  }
+  announce(error ? 'error' : 'ok', error ? 'Datei-Abgleich unvollständig' : '');
+  const message = error ? String(error.message || error) : '';
+  return {
+    pulled,
+    sent,
+    error: error ? message : null,
+    // 401/Permission denied heißt fast immer: Die Datenbankregeln in der
+    // Firebase-Konsole kennen den Zweig „media" noch nicht.
+    rulesProblem: /401|permission/i.test(message),
+  };
 }
 
 const pullMediaSoon = debounce(() => {
