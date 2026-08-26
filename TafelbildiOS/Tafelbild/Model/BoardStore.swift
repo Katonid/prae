@@ -692,6 +692,38 @@ final class BoardStore: ObservableObject {
         updateWidget(widgetID, in: boardID) { $0.z = top }
     }
 
+    /// Verschiebt ein Element in der Reihenfolge um einen Platz.
+    ///
+    /// Gedacht für die Listenansicht, wo die Elemente untereinander stehen
+    /// und die Reihenfolge das ist, was man sieht. Geordnet wird nach `z` —
+    /// derselben Zahl, die auf der Tafel entscheidet, was vorn liegt. Ein
+    /// Zug in der Liste ist deshalb zugleich ein Zug nach vorn oder hinten;
+    /// es gibt nur eine Reihenfolge, und das soll auch so bleiben.
+    ///
+    /// Vor dem Tausch bekommt die Seite lückenlose Nummern. Sonst liefe der
+    /// Tausch dort ins Leere, wo zwei Elemente dieselbe Zahl tragen — bei
+    /// Tafeln aus früheren Fassungen kommt das vor.
+    func verschiebe(_ widgetID: String, in boardID: String, umEinen richtung: Int) {
+        guard richtung != 0,
+              let boardIndex = boards.firstIndex(where: { $0.id == boardID }),
+              let widget = boards[boardIndex].widgets.first(where: { $0.id == widgetID })
+        else { return }
+
+        let seite = widget.pageID.isEmpty ? boards[boardIndex].ersteSeitenID : widget.pageID
+        var reihe = boards[boardIndex].widgets(auf: seite, mitVersteckten: true)
+        guard let stelle = reihe.firstIndex(where: { $0.id == widgetID }) else { return }
+        let ziel = stelle + richtung
+        guard ziel >= 0, ziel < reihe.count else { return }
+
+        reihe.swapAt(stelle, ziel)
+        for (nummer, element) in reihe.enumerated() {
+            guard let index = boards[boardIndex].widgets.firstIndex(where: { $0.id == element.id })
+            else { continue }
+            boards[boardIndex].widgets[index].z = nummer
+        }
+        touch(boardID)
+    }
+
     func sendToBack(_ widgetID: String, in boardID: String) {
         guard let boardIndex = boards.firstIndex(where: { $0.id == boardID }) else { return }
         let bottom = (boards[boardIndex].widgets.map(\.z).min() ?? 0) - 1

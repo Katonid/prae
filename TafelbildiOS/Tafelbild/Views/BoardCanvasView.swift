@@ -604,10 +604,10 @@ struct BoardStackView: View {
 
             GeometryReader { geo in
                 let width = geo.size.width - 24
+                let liste = board.widgets(auf: sichtbareSeite, mitVersteckten: store.editing)
                 ScrollView {
                     VStack(spacing: 16) {
-                        ForEach(board.widgets(auf: sichtbareSeite,
-                                              mitVersteckten: store.editing)) { widget in
+                        ForEach(Array(liste.enumerated()), id: \.element.id) { stelle, widget in
                             let scale = width / CGFloat(widget.width)
                             VStack(spacing: 6) {
                                 if store.editing {
@@ -616,6 +616,28 @@ struct BoardStackView: View {
                                             .font(Theme.font(15, weight: .semibold))
                                             .foregroundStyle(.white.opacity(0.7))
                                         Spacer()
+                                        // Reihenfolge ändern. Die Liste ordnet
+                                        // nach derselben Zahl wie die Tafel:
+                                        // Wer hier nach oben rückt, liegt dort
+                                        // weiter hinten.
+                                        Button {
+                                            Haptics.tap()
+                                            store.verschiebe(widget.id, in: board.id, umEinen: -1)
+                                        } label: {
+                                            Image(systemName: "arrow.up")
+                                        }
+                                        .disabled(stelle == 0)
+                                        .opacity(stelle == 0 ? 0.3 : 1)
+                                        .accessibilityLabel("Nach oben")
+                                        Button {
+                                            Haptics.tap()
+                                            store.verschiebe(widget.id, in: board.id, umEinen: 1)
+                                        } label: {
+                                            Image(systemName: "arrow.down")
+                                        }
+                                        .disabled(stelle == liste.count - 1)
+                                        .opacity(stelle == liste.count - 1 ? 0.3 : 1)
+                                        .accessibilityLabel("Nach unten")
                                         Button {
                                             store.settingsWidgetID = widget.id
                                         } label: {
@@ -640,6 +662,7 @@ struct BoardStackView: View {
                             }
                         }
                     }
+                    .animation(.easeInOut(duration: 0.22), value: liste.map(\.id))
                     .padding(12)
                     .padding(.top, 70)
                     .padding(.bottom, 40)
