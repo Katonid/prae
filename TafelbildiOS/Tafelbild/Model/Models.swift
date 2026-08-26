@@ -1208,11 +1208,44 @@ struct Board: Codable, Identifiable, Equatable {
 
 // MARK: - Namenslisten
 
+/// Ein Merkmal einer Namensliste — etwas, wonach beim Auslosen gemischt
+/// werden kann.
+///
+/// Das häufigste ist „Jungen und Mädchen“, aber es gibt mehr davon:
+/// Tischgruppen, Lesestufen, wer schon zusammen gearbeitet hat. Deshalb
+/// steht hier kein festes Feld „Geschlecht“, sondern ein Merkmal mit
+/// eigenem Namen und eigenen Werten.
+///
+/// Die Werte sind bewusst kurze Zeichen („J“, „M“) — sie stehen später
+/// klein an den Namenskärtchen.
+struct Merkmal: Codable, Equatable, Identifiable {
+    var id: String = UUID().uuidString
+    var name: String = ""
+    /// Die möglichen Werte, in der Reihenfolge, in der sie angeboten werden.
+    var werte: [String] = []
+
+    /// Merkmale, die sich mit einem Tipp anlegen lassen.
+    static let vorlagen: [Merkmal] = [
+        Merkmal(name: "Jungen und Mädchen", werte: ["J", "M"]),
+        Merkmal(name: "Tischgruppe", werte: ["1", "2", "3", "4", "5", "6"]),
+        Merkmal(name: "Lesestufe", werte: ["A", "B", "C"])
+    ]
+}
+
 struct NameEntry: Codable, Equatable, Identifiable {
     var id: String = UUID().uuidString
     var text: String = ""
     /// Vorübergehend ausgeschlossen (z. B. krank) — wird nicht gezogen.
     var paused: Bool = false
+    /// Wert je Merkmal (Kennung des Merkmals → Wert).
+    ///
+    /// Fehlt ein Eintrag, hat dieser Name das Merkmal nicht. Beim Auslosen
+    /// zählt er dann als eigener Topf „ohne Angabe“ — nichts wird geraten.
+    var merkmale: [String: String] = [:]
+
+    func wert(_ merkmalID: String) -> String? {
+        merkmale[merkmalID]?.nonEmpty
+    }
 }
 
 struct NameList: Codable, Identifiable, Equatable {
@@ -1223,7 +1256,25 @@ struct NameList: Codable, Identifiable, Equatable {
     var updatedAtMs: Int64 = Date.nowMs
     var deleted: Bool = false
 
+    /// Merkmale, nach denen sich die Namen sortieren lassen.
+    var merkmale: [Merkmal] = []
+
     var activeEntries: [NameEntry] { entries.filter { !$0.paused } }
+
+    func merkmal(_ id: String?) -> Merkmal? {
+        guard let id else { return nil }
+        return merkmale.first { $0.id == id }
+    }
+
+    /// Wie oft jeder Wert eines Merkmals unter den aktiven Namen vorkommt.
+    /// Namen ohne Angabe zählen unter dem leeren Schlüssel.
+    func verteilung(_ merkmalID: String) -> [String: Int] {
+        var zaehler: [String: Int] = [:]
+        for eintrag in activeEntries {
+            zaehler[eintrag.wert(merkmalID) ?? "", default: 0] += 1
+        }
+        return zaehler
+    }
 
     /// Zerlegt eine eingefügte Liste (Zeilen oder Kommas) in Einträge.
     static func parse(_ raw: String) -> [NameEntry] {
@@ -1330,7 +1381,7 @@ extension Board {
 
 extension NameList {
     enum ListKeys: String, CodingKey {
-        case id, name, entries, owner, updatedAtMs, deleted
+        case id, name, entries, owner, updatedAtMs, deleted, merkmale
     }
 
     init(from decoder: Decoder) throws {
@@ -1339,14 +1390,27 @@ extension NameList {
         id = c.wert(.id, UUID().uuidString)
         name = c.wert(.name, "Liste")
         entries = c.wert(.entries, [NameEntry]())
+        merkmale = c.wert(.merkmale, [Merkmal]())
         owner = c.wert(.owner, "")
         updatedAtMs = c.wert(.updatedAtMs, Date.nowMs)
         deleted = c.wert(.deleted, false)
     }
 }
 
+extension Merkmal {
+    enum MerkmalKeys: String, CodingKey { case id, name, werte }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: MerkmalKeys.self)
+        self.init()
+        id = c.wert(.id, UUID().uuidString)
+        name = c.wert(.name, "")
+        werte = c.wert(.werte, [String]())
+    }
+}
+
 extension NameEntry {
-    enum EntryKeys: String, CodingKey { case id, text, paused }
+    enum EntryKeys: String, CodingKey { case id, text, paused, merkmale }
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: EntryKeys.self)
@@ -1354,6 +1418,7 @@ extension NameEntry {
         id = c.wert(.id, UUID().uuidString)
         text = c.wert(.text, "")
         paused = c.wert(.paused, false)
+        merkmale = c.wert(.merkmale, [String: String]())
     }
 }
 
