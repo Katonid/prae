@@ -118,13 +118,27 @@ struct WidgetSettingsSheet: View {
                                 Text("größer").font(.caption2).foregroundStyle(.secondary)
                             }
                         }
+
+                        Schriftfarbwahl(automatikTitel: "Wie die Tafel",
+                                        hex: Binding(
+                                            get: { store.widget(widgetID, in: boardID)?.schriftfarbe ?? "" },
+                                            set: { wert in
+                                                store.updateWidget(widgetID, in: boardID) {
+                                                    $0.schriftfarbe = wert
+                                                }
+                                            }
+                                        ))
                     } header: {
-                        Text("Beschriftung dieses Elements")
+                        Text("Beschriftung und Farbe")
                     } footer: {
                         Text("Gilt nur für dieses Element — unabhängig davon, was unter "
-                             + "„Aussehen“ für die ganze Tafel eingestellt ist. Betroffen sind "
-                             + "Überschriften und Hinweise, nicht der Inhalt: Der gezogene Name, "
-                             + "die Zeit und das Datum bleiben in jedem Fall stehen.")
+                             + "„Aussehen“ für die ganze Tafel eingestellt ist. Ein- und "
+                             + "ausschalten betrifft Überschriften und Hinweise, nicht den "
+                             + "Inhalt: Der gezogene Name, die Zeit und das Datum bleiben in "
+                             + "jedem Fall stehen.\n\nDie Schriftfarbe färbt beides — "
+                             + "Beschriftung und Inhalt. „Wie die Tafel“ folgt der Vorgabe "
+                             + "unter „Aussehen“; jede andere Wahl bleibt hier stehen, auch "
+                             + "wenn die Tafel später umgestellt wird.")
                     }
 
                     Section {

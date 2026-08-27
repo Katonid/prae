@@ -1157,6 +1157,10 @@ struct BoardWidget: Codable, Identifiable, Equatable {
     /// Überschriften sind für die letzte Reihe gedacht; wie groß sie sein
     /// müssen, hängt vom Raum ab. Deshalb je Element einstellbar.
     var labelSize: Double = 1
+    /// Eigene Schriftfarbe dieses Elements (Hex). **Leer heißt: wie die
+    /// Tafel** — dann gilt `Board.schriftfarbe`, und ist auch die leer, die
+    /// automatische Farbe.
+    var schriftfarbe: String = ""
     /// Nur für mich ausgeblendet.
     ///
     /// Gehört zur Anordnung, nicht zum Inhalt: Auf einer geteilten Tafel
@@ -1349,6 +1353,14 @@ struct Board: Codable, Identifiable, Equatable {
     var frames: ShowRule = .always
     /// Wann Überschriften und Hinweise in den Elementen zu sehen sind.
     var labels: ShowRule = .always
+    /// Schriftfarbe für alle Elemente dieser Tafel (Hex). **Leer heißt:
+    /// automatisch** — dann ergibt sich die Farbe wie bisher aus Kartenstil
+    /// und Hintergrund (hell auf dunkel, dunkel auf hell).
+    ///
+    /// Nötig, seit Tafeln auch hell sein dürfen: Auf hellem Grund ging die
+    /// weiße Schrift freistehender Elemente unter. Ein Element darf die
+    /// Vorgabe mit `BoardWidget.schriftfarbe` überstimmen.
+    var schriftfarbe: String = ""
     var widgets: [BoardWidget] = []
     /// Seiten der Tafel. Leer bedeutet: eine einzige Seite (siehe `BoardPage`).
     var pages: [BoardPage] = []
@@ -1717,7 +1729,7 @@ enum StarterContent {
 extension Board {
     enum BoardKeys: String, CodingKey {
         case id, name, emoji, background, accent, accentVon, accentBis, gradient, cardStyle
-        case format, frames, labels
+        case format, frames, labels, schriftfarbe
         case zuletztVon
         case widgets, pages, drawing, members, ownerUserID
         case memberUserIDs, joinCode, owner, createdAtMs, updatedAtMs, deleted
@@ -1740,6 +1752,7 @@ extension Board {
         format = c.wert(.format, Tafelformat.breit)
         frames = c.wert(.frames, ShowRule.always)
         labels = c.wert(.labels, ShowRule.always)
+        schriftfarbe = c.wert(.schriftfarbe, "")
         widgets = c.wert(.widgets, [BoardWidget]())
         pages = c.wert(.pages, [BoardPage]())
         drawing = c.wert(.drawing, "")
@@ -1816,7 +1829,7 @@ extension NameEntry {
 extension BoardWidget {
     enum WidgetKeys: String, CodingKey {
         case id, x, y, width, height, z, locked, bare, karte, pageID, versteckt, content
-        case labels, labelSize
+        case labels, labelSize, schriftfarbe
     }
 
     init(from decoder: Decoder) throws {
@@ -1838,6 +1851,7 @@ extension BoardWidget {
         versteckt = c.wert(.versteckt, false)
         labels = c.wert(.labels, WidgetLabelRegel.tafel)
         labelSize = c.wert(.labelSize, 1)
+        schriftfarbe = c.wert(.schriftfarbe, "")
     }
 }
 

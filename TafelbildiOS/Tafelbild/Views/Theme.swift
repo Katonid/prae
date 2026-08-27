@@ -50,6 +50,13 @@ struct BoardStyle: Equatable {
     /// andere Farben: helle Schrift statt dunkler, weil der Hintergrund
     /// einer Tafel fast immer dunkel ist.
     var bare: Bool = false
+    /// Eigene Schriftfarbe für Beschriftungen, Hinweise und den Inhalt.
+    ///
+    /// `nil` heißt: wie bisher — die Farbe ergibt sich aus Kartenstil und
+    /// Hintergrund. Gesetzt wird sie für die ganze Tafel (`Board.schriftfarbe`)
+    /// oder am einzelnen Element (`BoardWidget.schriftfarbe`), das die Vorgabe
+    /// der Tafel überstimmt.
+    var schriftfarbe: Color? = nil
     /// Hinter der Tafel liegt ein Bild.
     ///
     /// Eine Farbe oder ein Verlauf ist ruhig; ein Foto hat helle und dunkle
@@ -62,13 +69,14 @@ struct BoardStyle: Equatable {
 
     init(scheme: AccentScheme = AccentSchemes.all[0], useGradient: Bool = true,
          card: CardStyle = .glass, showLabels: Bool = true, bare: Bool = false,
-         unruhigerGrund: Bool = false) {
+         unruhigerGrund: Bool = false, schriftfarbe: Color? = nil) {
         self.scheme = scheme
         self.useGradient = useGradient
         self.card = card
         self.showLabels = showLabels
         self.bare = bare
         self.unruhigerGrund = unruhigerGrund
+        self.schriftfarbe = schriftfarbe
     }
 
     init(board: Board, editing: Bool) {
@@ -78,7 +86,8 @@ struct BoardStyle: Equatable {
                   useGradient: board.gradient,
                   card: board.cardStyle,
                   showLabels: board.labels.applies(editing: editing),
-                  unruhigerGrund: bildDahinter)
+                  unruhigerGrund: bildDahinter,
+                  schriftfarbe: board.schriftfarbe.nonEmpty.map { Color(hex: $0) })
     }
 
     /// Eigene Farben schlagen das gewählte Schema. Die Mittelfarbe des
@@ -112,13 +121,20 @@ struct BoardStyle: Equatable {
     // Kartenfarben
     var isDarkCard: Bool { card == .dark }
 
-    /// Schriftfarbe auf einer Karte — ohne Karte immer hell.
-    var ink: Color {
+    /// Schriftfarbe, wenn keine eigene gewählt ist — ohne Karte immer hell.
+    private var standardInk: Color {
         if bare { return Color(hex: "#f8fafc") }
         return isDarkCard ? Color(hex: "#f8fafc") : Color(hex: "#0f172a")
     }
+
+    /// Schriftfarbe auf einer Karte — ohne Karte immer hell.
+    var ink: Color { schriftfarbe ?? standardInk }
+
     /// Schriftfarbe für Nebensächliches (Überschriften, Hinweise).
     var inkSoft: Color {
+        // Eine gewählte Farbe gilt auch hier, nur etwas zurückgenommen —
+        // sonst stünde die Überschrift wieder in der alten Farbe da.
+        if let schriftfarbe { return schriftfarbe.opacity(0.78) }
         if bare { return Color(hex: "#f8fafc").opacity(0.75) }
         return isDarkCard ? Color(hex: "#a5b0c2") : Color(hex: "#64748b")
     }
@@ -132,7 +148,9 @@ struct BoardStyle: Equatable {
     /// Ruhige Füllung innerhalb einer Karte (Fortschritt, leere Felder).
     var wash: Color {
         if bare { return Color.white.opacity(0.16) }
-        return ink.opacity(isDarkCard ? 0.10 : 0.07)
+        // Bewusst `standardInk`: Das ist eine Fläche, kein Text — sie soll
+        // sich nicht mitfärben, wenn jemand eine Schriftfarbe wählt.
+        return standardInk.opacity(isDarkCard ? 0.10 : 0.07)
     }
 
     /// Kräftigere Füllung (`--surface-soft-2`) — Ränder von Kästchen und
@@ -146,7 +164,10 @@ struct BoardStyle: Equatable {
     /// Farbverlauf der Tafel; ohne Karte einfarbig hell, weil ein dunkles
     /// Schema auf dunklem Grund sonst verschwindet (so macht es die Web-App).
     var bigText: AnyShapeStyle {
-        bare ? AnyShapeStyle(ink) : AnyShapeStyle(accentGradient)
+        // Eine gewählte Schriftfarbe schlägt den Farbverlauf: Wer die Farbe
+        // einstellt, meint die Schrift — den gezogenen Namen zuerst.
+        if let schriftfarbe { return AnyShapeStyle(schriftfarbe) }
+        return bare ? AnyShapeStyle(ink) : AnyShapeStyle(accentGradient)
     }
 
     /// Größe einer Überschrift, schon mit dem Maßstab des Elements

@@ -127,3 +127,53 @@ struct Verlaufwahl: View {
         }
     }
 }
+
+/// Zeilen für die Wahl einer Schriftfarbe — für die ganze Tafel wie für ein
+/// einzelnes Element. Leerer Hex-Wert heißt „automatisch" bzw. „wie die
+/// Tafel"; die beiden Festwerte sind dieselben, die die App sonst selbst
+/// wählt (siehe `BoardStyle.standardInk`).
+///
+/// Wird innerhalb eines `Section` verwendet und liefert mehrere Zeilen.
+struct Schriftfarbwahl: View {
+    /// Beschriftung der ersten Wahl — „Automatisch" auf der Tafel,
+    /// „Wie die Tafel" an einem Element.
+    let automatikTitel: String
+    @Binding var hex: String
+
+    static let dunkel = "#0f172a"
+    static let hell = "#f8fafc"
+
+    private enum Wahl: Hashable { case automatisch, dunkel, hell, eigen }
+
+    private var wahl: Wahl {
+        switch hex.lowercased() {
+        case "": return .automatisch
+        case Schriftfarbwahl.dunkel: return .dunkel
+        case Schriftfarbwahl.hell: return .hell
+        default: return .eigen
+        }
+    }
+
+    var body: some View {
+        Picker("Schriftfarbe", selection: Binding(
+            get: { wahl },
+            set: { neu in
+                switch neu {
+                case .automatisch: hex = ""
+                case .dunkel: hex = Schriftfarbwahl.dunkel
+                case .hell: hex = Schriftfarbwahl.hell
+                case .eigen: if hex.isEmpty || wahl != .eigen { hex = "#0f9b8e" }
+                }
+            }
+        )) {
+            Text(automatikTitel).tag(Wahl.automatisch)
+            Text("Dunkel").tag(Wahl.dunkel)
+            Text("Hell").tag(Wahl.hell)
+            Text("Eigene Farbe").tag(Wahl.eigen)
+        }
+
+        if wahl == .eigen {
+            ColorPicker("Farbe", selection: $hex.asColor, supportsOpacity: false)
+        }
+    }
+}
