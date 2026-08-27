@@ -42,6 +42,24 @@ export async function mediaInfo(mediaId) {
   return { name: record.name, type: record.type, size: record.size };
 }
 
+/**
+ * Datei unter neuer Kennung ablegen — für kopierte Elemente: Original und
+ * Kopie dürfen nicht an derselben Datei hängen (sonst löscht „Andere Datei"
+ * im einen den Klang des anderen).
+ */
+export async function duplicateMedia(mediaId) {
+  if (!mediaId) return null;
+  try {
+    const record = await mediaGet(mediaId);
+    if (!record || !record.blob) return null;
+    const id = uid('media');
+    await mediaPut(id, Object.assign({}, record, { savedAt: Date.now() }));
+    return id;
+  } catch (_) {
+    return null;
+  }
+}
+
 export async function removeMedia(mediaId) {
   if (!mediaId) return;
   if (urls.has(mediaId)) {
