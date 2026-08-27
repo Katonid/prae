@@ -69,35 +69,52 @@ struct GruppenAnsicht: View {
     // MARK: - Kopf
 
     private var kopfzeile: some View {
-        HStack(spacing: 8) {
+        // Die Überschrift steht mittig über dem Element — sie gehört zum
+        // Ganzen, nicht an den linken Rand. Das Schloss liegt darüber statt
+        // daneben: So bleibt die Überschrift auch dann in der Mitte, wenn
+        // es erscheint oder verschwindet.
+        let zeigtSchloss = interactive && !content.ergebnis.isEmpty
+        return Text(kopfText)
             // Die Überschrift hängt nicht an der Tafelregel: Wer sie
             // einträgt, will wissen, worum es geht.
-            Text(kopfText)
-                .font(Theme.font(metrics.em(style.kopf(1.05)), weight: .bold))
-                .foregroundStyle(style.ink)
-                .lineLimit(1)
-                .minimumScaleFactor(0.6)
-            Spacer(minLength: 0)
-            if interactive && !content.ergebnis.isEmpty {
-                Button {
-                    content.festgehalten.toggle()
-                    frage = nil
-                    Haptics.tap()
-                } label: {
-                    Image(systemName: content.festgehalten ? "lock.fill" : "lock.open")
-                        .font(.system(size: metrics.em(0.95), weight: .bold))
-                        .foregroundStyle(content.festgehalten ? Theme.amber : style.inkSoft)
-                        .frame(width: metrics.em(1.9), height: metrics.em(1.9))
-                        .background { Circle().fill(style.wash) }
-                        .rotationEffect(.degrees(wackelt ? 14 : 0))
-                        .scaleEffect(wackelt ? 1.12 : 1)
+            .font(Theme.font(metrics.em(style.kopf(1.05)), weight: .bold))
+            .foregroundStyle(style.ink)
+            .lineLimit(1)
+            .minimumScaleFactor(0.6)
+            .padding(.horizontal, zeigtSchloss ? metrics.em(2.8) : 0)
+            .frame(maxWidth: .infinity)
+            .overlay(alignment: .trailing) {
+                if zeigtSchloss {
+                    Button {
+                        content.festgehalten.toggle()
+                        frage = nil
+                        Haptics.tap()
+                    } label: {
+                        // Größer als vorher: Das war als Knopf kaum zu
+                        // erkennen, geschweige denn zu treffen.
+                        Image(systemName: content.festgehalten ? "lock.fill" : "lock.open")
+                            .font(.system(size: metrics.em(1.15), weight: .bold))
+                            .foregroundStyle(content.festgehalten ? Theme.amber : style.inkSoft)
+                            .frame(width: metrics.em(2.3), height: metrics.em(2.3))
+                            .background {
+                                Circle().fill(content.festgehalten
+                                              ? AnyShapeStyle(Theme.amber.opacity(0.18))
+                                              : AnyShapeStyle(style.wash))
+                            }
+                            .overlay {
+                                Circle().strokeBorder(
+                                    content.festgehalten ? Theme.amber.opacity(0.55) : style.line,
+                                    lineWidth: 1)
+                            }
+                            .rotationEffect(.degrees(wackelt ? 14 : 0))
+                            .scaleEffect(wackelt ? 1.12 : 1)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(content.festgehalten ? "Ergebnis freigeben"
+                                                             : "Ergebnis festhalten")
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel(content.festgehalten ? "Ergebnis freigeben"
-                                                         : "Ergebnis festhalten")
             }
-        }
-        .opacity(kopfText.isEmpty && content.ergebnis.isEmpty ? 0 : 1)
+            .opacity(kopfText.isEmpty && content.ergebnis.isEmpty ? 0 : 1)
     }
 
     // MARK: - Ergebnis
@@ -199,24 +216,44 @@ struct GruppenAnsicht: View {
     private func flaeche(offen: Bool, frisch: Bool) -> some View {
         let ecke = metrics.em(0.5)
         return RoundedRectangle(cornerRadius: ecke, style: .continuous)
-            .fill(kartenfuellung)
+            .fill(offen ? laufendeFuellung : kartenfuellung)
             .overlay {
+                // Der Glanz gehört zum liegenden Kärtchen. Solange es läuft,
+                // liegt es noch nicht — dann bleibt die Fläche flach.
                 RoundedRectangle(cornerRadius: ecke, style: .continuous)
                     .fill(LinearGradient(colors: [.white.opacity(0.20),
                                                   .white.opacity(0.04),
                                                   .black.opacity(0.10)],
                                          startPoint: .top, endPoint: .bottom))
+                    .opacity(offen ? 0 : 1)
             }
             .overlay {
                 RoundedRectangle(cornerRadius: ecke, style: .continuous)
-                    .strokeBorder(randfarbe, lineWidth: max(1, metrics.em(0.05)))
+                    .strokeBorder(offen ? Color.clear : randfarbe,
+                                  lineWidth: max(1, metrics.em(0.05)))
             }
             .overlay {
+                // Gestrichelt, solange es läuft: eine Grenze, die noch nicht
+                // gilt. Durchgezogen wäre sie eine Zusage.
                 RoundedRectangle(cornerRadius: ecke, style: .continuous)
-                    .strokeBorder(style.accent.opacity(offen ? 0.7 : 0), lineWidth: 2)
+                    .strokeBorder(style.accent.opacity(offen ? 0.55 : 0),
+                                  style: StrokeStyle(lineWidth: 2,
+                                                     dash: [metrics.em(0.45),
+                                                            metrics.em(0.32)]))
             }
-            .shadow(color: .black.opacity(0.28), radius: metrics.em(0.3), y: metrics.em(0.12))
+            // Nur was liegt, wirft einen Schatten.
+            .shadow(color: .black.opacity(offen ? 0 : 0.28),
+                    radius: metrics.em(0.3), y: metrics.em(0.12))
             .shadow(color: style.accent.opacity(frisch ? 0.55 : 0), radius: metrics.em(0.9))
+    }
+
+    /// Fläche eines Kärtchens, das noch läuft.
+    ///
+    /// Deutlich blasser und ohne die eigene Farbe: Auf einen Blick soll zu
+    /// sehen sein, was schon steht und was noch gemischt wird — gerade auf
+    /// dem Beamer, aus der letzten Reihe.
+    private var laufendeFuellung: AnyShapeStyle {
+        AnyShapeStyle(style.wash.opacity(0.45))
     }
 
     /// Feiner Rand: auf eigener Farbe eine Lichtkante, sonst die ruhige
@@ -230,8 +267,9 @@ struct GruppenAnsicht: View {
         let offen = fertigBis.map { stelle >= $0 } ?? false
         let stand = content.zaehler[id] ?? 0
         return Text(offen ? wirbelName(stelle) : nameZu(id))
-            .font(Theme.font(schrift, weight: .bold))
-            .foregroundStyle(kartenschrift)
+            .font(Theme.font(schrift, weight: offen ? .semibold : .bold))
+            // Der laufende Name ist noch keine Aussage — er tritt zurück.
+            .foregroundStyle(offen ? style.inkSoft.opacity(0.7) : kartenschrift)
             .lineLimit(2)
             .minimumScaleFactor(0.35)
             .multilineTextAlignment(.center)
@@ -253,7 +291,7 @@ struct GruppenAnsicht: View {
                         .padding(.trailing, schrift * 0.3)
                 }
             }
-            .opacity(blass ? 0.3 : 1)
+            .opacity(blass ? 0.3 : (offen ? 0.7 : 1))
             .scaleEffect(zuletzt == stelle ? 1.07 : 1)
             .contentShape(Rectangle())
             .onTapGesture { tippeKarte(stelle, id: id) }
@@ -307,9 +345,21 @@ struct GruppenAnsicht: View {
                         withAnimation(.easeOut(duration: 0.15)) { frage = 0 }
                     }
                 } else {
-                    Text("Ergebnis festgehalten")
-                        .font(Theme.font(metrics.em(0.82), weight: .semibold))
-                        .foregroundStyle(Theme.amber)
+                    // Als Schild, nicht als Kleingedrucktes: Es sagt, warum
+                    // gerade nichts passiert, wenn jemand tippt.
+                    HStack(spacing: 6) {
+                        Image(systemName: "lock.fill")
+                            .font(.system(size: metrics.em(0.8), weight: .bold))
+                        Text("Ergebnis festgehalten")
+                            .font(Theme.font(metrics.em(0.85), weight: .bold))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.6)
+                    }
+                    .foregroundStyle(Theme.amber)
+                    .padding(.horizontal, metrics.em(0.7))
+                    .frame(height: metrics.em(2.1))
+                    .background { Capsule().fill(Theme.amber.opacity(0.16)) }
+                    .overlay { Capsule().strokeBorder(Theme.amber.opacity(0.5), lineWidth: 1) }
                 }
             }
         }
@@ -357,6 +407,9 @@ struct GruppenAnsicht: View {
         if content.anzeige == .zaehlen {
             content.zaehler[id] = (content.zaehler[id] ?? 0) + 1
             Haptics.tap()
+            // „Ohne Ton" am Element gilt auch hier — wer die Ziehung still
+            // haben will, will keine Kasse klingeln hören.
+            if content.spinSound != .aus { Ziehklang.shared.zaehlerKlang(hoch: true) }
             return
         }
         guard !content.festgehalten else {
@@ -389,6 +442,7 @@ struct GruppenAnsicht: View {
         guard stand > 0 else { return }
         if stand == 1 { content.zaehler[id] = nil } else { content.zaehler[id] = stand - 1 }
         Haptics.tap()
+        if content.spinSound != .aus { Ziehklang.shared.zaehlerKlang(hoch: false) }
     }
 
     private func zeigeHinweis(_ text: String) {
@@ -495,6 +549,12 @@ struct GruppenAnsicht: View {
         // Augenblick, in dem es stehen bleibt (siehe Ziehklang.swift).
         ueberspringen = false
         fertigBis = fest.count
+        // Der Klang wird vorausgeplant, nicht im Takt der Bildschleife
+        // angestoßen: Ein Anschlag fällt damit auf die Millisekunde genau
+        // auf das Einrasten, und der Ratschenlauf des Glücksrads läuft
+        // rechtzeitig davor an (siehe Ziehklang.swift).
+        Ziehklang.shared.kartenSchlag(content.spinSound,
+                                      landetIn: Gruppenlauf.proKarte, betont: offene == 1)
 
         Task { @MainActor in
             var verstrichen = 0.0
@@ -506,18 +566,29 @@ struct GruppenAnsicht: View {
                     + min(offene, Int((verstrichen / Gruppenlauf.proKarte).rounded(.down)))
                 if fertig > (fertigBis ?? fest.count) {
                     // Jedes Kärtchen, das stehen bleibt, gibt einen kleinen
-                    // Ruck und seinen eigenen Klang — Bild, Ton und Griff
-                    // fallen damit auf denselben Augenblick.
+                    // Ruck — Bild, Ton und Griff fallen auf denselben
+                    // Augenblick.
                     Haptics.tap()
-                    Ziehklang.shared.kartenSchlag(content.spinSound,
-                                                  betont: fertig == fest.count + offene)
                     withAnimation(.spring(response: 0.28, dampingFraction: 0.55)) {
                         zuletzt = fertig - 1
+                    }
+                    let gelandet = fertig - fest.count
+                    if gelandet < offene {
+                        // Zeit bis zum nächsten Einrasten, gemessen am Plan
+                        // und nicht am Takt — sonst schleppt sich der Ton
+                        // mit jedem Kärtchen weiter nach hinten.
+                        let naechste = Double(gelandet + 1) * Gruppenlauf.proKarte - verstrichen
+                        Ziehklang.shared.kartenSchlag(content.spinSound,
+                                                      landetIn: max(0, naechste),
+                                                      betont: gelandet + 1 == offene)
                     }
                 }
                 fertigBis = fertig
             }
-            if ueberspringen { Ziehklang.shared.stoppe() }
+            if ueberspringen {
+                Ziehklang.shared.stoppe()
+                Ziehklang.shared.stoppeKaertchen()
+            }
             fertigBis = nil
             withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) { zuletzt = nil }
             ueberspringen = false

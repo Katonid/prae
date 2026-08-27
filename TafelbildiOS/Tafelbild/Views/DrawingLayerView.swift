@@ -46,6 +46,7 @@ struct DrawingLayerView: UIViewRepresentable {
         canvas.tool = PKInkingTool(.pen, color: .black, width: 12)
         context.coordinator.canvas = canvas
         context.coordinator.letzterStand = drawing
+        context.coordinator.gesetzterStand = Self.encode(canvas.drawing)
         return canvas
     }
 
@@ -68,12 +69,20 @@ struct DrawingLayerView: UIViewRepresentable {
         if !context.coordinator.writing, drawing != context.coordinator.letzterStand {
             context.coordinator.letzterStand = drawing
             canvas.drawing = Self.decode(drawing)
+            // Was PencilKit daraus zurückschreibt, ist nicht Byte für Byte
+            // derselbe Text. Ohne diese Notiz hielte die Ebene ihren eigenen,
+            // gleich aussehenden Stand für eine Änderung und schöbe ihn in
+            // die Cloud — hin und her zwischen den Geräten.
+            context.coordinator.gesetzterStand = Self.encode(canvas.drawing)
         }
 
         context.coordinator.showTools(active)
     }
 
     static func dismantleUIView(_ canvas: PKCanvasView, coordinator: Coordinator) {
+        // Beim Seiten- oder Tafelwechsel darf nichts verlorengehen, was noch
+        // auf seine Sicherung wartet.
+        coordinator.sichereJetzt()
         coordinator.showTools(false)
     }
 
@@ -96,6 +105,11 @@ struct DrawingLayerView: UIViewRepresentable {
         var writing = false
         /// Der Stand, den diese Ebene zuletzt gelesen oder geschrieben hat.
         var letzterStand: String = ""
+        /// Was PencilKit unmittelbar nach einem Übernehmen von außen
+        /// zurückliefert — das ist keine eigene Änderung.
+        var gesetzterStand: String = ""
+        /// Zählt die geplanten Sicherungen; nur die jüngste zählt.
+        private var sicherungsNummer = 0
         private var toolsVisible = false
         private var beobachtet = false
         /// Eigene Werkzeugauswahl — die geteilte ist seit iOS 16 abgelöst.
@@ -107,15 +121,55 @@ struct DrawingLayerView: UIViewRepresentable {
 
         func canvasViewDidBeginUsingTool(_ canvasView: PKCanvasView) {
             writing = true
+            sicherungsNummer &+= 1
         }
 
-        /// Erst am Ende eines Strichs sichern — sonst schriebe jede Bewegung
-        /// einen neuen Stand in die Cloud.
         func canvasViewDidEndUsingTool(_ canvasView: PKCanvasView) {
             writing = false
+            plane(canvasView)
+        }
+
+        /// **Der eigentliche Auslöser zum Sichern.**
+        ///
+        /// Vorher wurde nur am Ende eines Strichs gesichert — und genau da
+        /// lag der Fehler beim Radieren: PencilKit trägt das Löschen zum
+        /// Teil erst NACH `canvasViewDidEndUsingTool` in die Zeichnung ein.
+        /// Gesichert wurde also der Stand von vorher. Auf dem Bildschirm war
+        /// das Weggewischte weg, im Speicher stand es weiter — und kam beim
+        /// nächsten Abgleich oder Seitenwechsel zurück. Genauso ging es dem
+        /// Rückgängig-Knopf der Werkzeugauswahl, der gar keinen Strich
+        /// beendet.
+        ///
+        /// `canvasViewDrawingDidChange` meldet jede Änderung, auch diese
+        /// späten. Gesichert wird mit kurzem Abstand, damit ein Strich nicht
+        /// zehnmal in die Cloud wandert.
+        func canvasViewDrawingDidChange(_ canvasView: PKCanvasView) {
+            guard !writing else { return }
+            plane(canvasView)
+        }
+
+        private func plane(_ canvasView: PKCanvasView) {
+            sicherungsNummer &+= 1
+            let meine = sicherungsNummer
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                [weak self, weak canvasView] in
+                guard let self, let canvasView, self.sicherungsNummer == meine else { return }
+                self.sichere(canvasView)
+            }
+        }
+
+        private func sichere(_ canvasView: PKCanvasView) {
             let neu = DrawingLayerView.encode(canvasView.drawing)
+            guard neu != letzterStand, neu != gesetzterStand else { return }
             letzterStand = neu
             parent.drawing = neu
+        }
+
+        /// Alles Wartende sofort sichern — beim Verlassen der Seite.
+        func sichereJetzt() {
+            sicherungsNummer &+= 1
+            guard let canvas else { return }
+            sichere(canvas)
         }
 
         /// Blendet die Werkzeugauswahl von iOS ein oder aus (Farben, Stifte,

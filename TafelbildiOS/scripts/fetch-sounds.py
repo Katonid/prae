@@ -54,7 +54,7 @@ QUELLEN = {
     },
     "trommel": {
         "titel": "Trommelwirbel",
-        "url": "https://upload.wikimedia.org/wikipedia/commons/c/c4/Drum_Roll_Intro.ogg",
+        "url": "https://commons.wikimedia.org/wiki/Special:FilePath/Drum_Roll_Intro.ogg",
         "urheber": "Iwan Sounds and DIY",
         "lizenz": "CC0 1.0",
         "nachweis": "https://commons.wikimedia.org/wiki/File:Drum_Roll_Intro.ogg",
@@ -98,6 +98,12 @@ KARTENQUELLEN = {
         "titel": "Kärtchen legt sich (Rad)",
         "url": QUELLEN["rad"]["url"],
         "im_archiv": [f"Audio/tick_{i:03d}.ogg" for i in (1, 2, 4)],
+        # Ein einzelner Klick klingt nach Bedienoberfläche, nicht nach
+        # Glücksrad. Ein Rad klackt mehrfach und wird dabei langsamer.
+        # Deshalb hier ein kurzer Ratschenlauf je Kärtchen, der mit dem
+        # letzten Klick endet — die App legt ihn so, dass dieser Klick auf
+        # den Augenblick des Einrastens fällt (siehe Ziehklang.swift).
+        "ratsche": [(7, 55, 150), (8, 48, 135), (6, 62, 165)],
         "urheber": "Kenney Vleugels (kenney.nl), Paket „Interface Sounds“",
         "lizenz": "CC0 1.0",
         "nachweis": "https://kenney.nl/assets/interface-sounds",
@@ -115,10 +121,35 @@ KARTENQUELLEN = {
 }
 
 
+# Der Zähler in der Zählansicht („Kinder des Tages"): hoch wie die Glocke
+# einer Registrierkasse, runter wie ein Wisch über die Tafel.
+ZAEHLERDAUER = 1.4
+
+ZAEHLERQUELLEN = {
+    "hoch": {
+        "titel": "Zähler hoch (Kassenglocke)",
+        "url": "https://commons.wikimedia.org/wiki/Special:FilePath/Cash_register.ogg",
+        "urheber": "SoundBible (über Wikimedia Commons)",
+        "lizenz": "gemeinfrei",
+        "nachweis": "https://commons.wikimedia.org/wiki/File:Cash_register.ogg",
+    },
+    "runter": {
+        "titel": "Zähler runter (Auswischen)",
+        "url": QUELLEN["rad"]["url"],
+        "im_archiv": "Audio/scratch_002.ogg",
+        "urheber": "Kenney Vleugels (kenney.nl), Paket „Interface Sounds“",
+        "lizenz": "CC0 1.0",
+        "nachweis": "https://kenney.nl/assets/interface-sounds",
+    },
+}
+
+
 def hole(url: str) -> bytes:
     """Herunterladen — mit Zwischenspeicher.
 
     Wikimedia bremst wiederholte Zugriffe aus (HTTP 429), und das zu Recht.
+    Deshalb führen die Adressen über `Special:FilePath` statt direkt auf
+    `upload.wikimedia.org` — der Weg wird spürbar seltener abgewiesen.
     Wer das Skript mehrfach laufen lässt, soll die Server nicht jedes Mal
     behelligen: Einmal geholt, liegt die Datei unter `.klang-zwischenlager/`
     (nicht im Repo) und wird von dort genommen.
@@ -200,8 +231,8 @@ def reihe(klick, rate):
     return spur
 
 
-def kurz(mono, rate, vom_ende=False):
-    """Ein kurzer Einzelklang: Stille weg, dann höchstens KARTENDAUER."""
+def kurz(mono, rate, vom_ende=False, fenster=None):
+    """Ein kurzer Einzelklang: Stille weg, dann höchstens `fenster`."""
     schwelle = max(abs(v) for v in mono) * 0.02
     anfang, ende = 0, len(mono)
     for i, v in enumerate(mono):
@@ -212,7 +243,7 @@ def kurz(mono, rate, vom_ende=False):
         if abs(mono[i]) > schwelle:
             ende = min(len(mono), i + int(0.03 * rate))
             break
-    fenster = int(KARTENDAUER * rate)
+    fenster = int((fenster or KARTENDAUER) * rate)
     if ende - anfang > fenster:
         # Beim Trommelwirbel zählt der Schluss, sonst der Einsatz.
         if vom_ende:
@@ -220,6 +251,29 @@ def kurz(mono, rate, vom_ende=False):
         else:
             ende = anfang + fenster
     return mono[anfang:ende]
+
+
+def ratsche(klick, rate, klicks, von_ms, bis_ms):
+    """Ein kurzer Ratschenlauf, der langsamer wird.
+
+    Der **letzte Klick liegt am Ende** der Datei: Die App startet den Lauf
+    so früh, dass er genau dann ausklingt, wenn das Kärtchen einrastet.
+    """
+    zeiten, t = [], 0.0
+    for i in range(klicks):
+        zeiten.append(t)
+        p = i / max(1, klicks - 1)
+        t += (von_ms + p ** 2.2 * (bis_ms - von_ms)) / 1000
+    gesamt = int(zeiten[-1] * rate) + len(klick)
+    spur = [0.0] * gesamt
+    for nummer, wann in enumerate(zeiten):
+        ab = int(wann * rate)
+        # Der letzte Klick ist der kräftigste — dort rastet es ein.
+        pegel = 0.55 + 0.45 * (nummer / max(1, klicks - 1))
+        for i, v in enumerate(klick):
+            if ab + i < gesamt:
+                spur[ab + i] += v * pegel
+    return spur
 
 
 def blende(stueck, rate):
@@ -230,6 +284,18 @@ def blende(stueck, rate):
         stueck[i] *= i / ein
     for i in range(min(aus, n)):
         stueck[n - 1 - i] *= i / aus
+    return stueck
+
+
+def nachblende(stueck, rate, sekunden):
+    """Wie `blende`, aber mit sehr kurzem Ausklang."""
+    ein = int(0.002 * rate)
+    aus = int(sekunden * rate)
+    n = len(stueck)
+    for i in range(min(ein, n)):
+        stueck[i] *= i / max(1, ein)
+    for i in range(min(aus, n)):
+        stueck[n - 1 - i] *= i / max(1, aus)
     return stueck
 
 
@@ -267,8 +333,15 @@ def main():
                     teil = archiv.read(im_archiv)
             daten, rate = sf.read(io.BytesIO(teil), always_2d=True)
             mono = [sum(rahmen) / len(rahmen) for rahmen in daten]
-            stueck = normiere(blende(kurz(mono, rate, quelle.get("vom_ende", False)), rate),
-                              ziel=0.9)
+            stueck = kurz(mono, rate, quelle.get("vom_ende", False))
+            if "ratsche" in quelle:
+                klicks, von_ms, bis_ms = quelle["ratsche"][nummer - 1]
+                stueck = ratsche(stueck, rate, klicks, von_ms, bis_ms)
+                # Nur ganz kurz ausblenden: Der letzte Klick soll stehen
+                # bleiben, er ist der Einrastpunkt.
+                stueck = normiere(nachblende(stueck, rate, 0.004), ziel=0.9)
+            else:
+                stueck = normiere(blende(stueck, rate), ziel=0.9)
             pfad = os.path.join(ordner, f"karte-{name}-{nummer}.wav")
             sf.write(pfad, stueck, rate, subtype="PCM_16")
             groesse = os.path.getsize(pfad) // 1024
@@ -277,11 +350,29 @@ def main():
         zeilen.append(f"| {quelle['titel']} | `karte-{name}-*.wav` | {quelle['urheber']} | "
                       f"{quelle['lizenz']} | {quelle['nachweis']} |")
 
+    for name, quelle in ZAEHLERQUELLEN.items():
+        roh = hole(quelle["url"])
+        if "im_archiv" in quelle:
+            with zipfile.ZipFile(io.BytesIO(roh)) as archiv:
+                roh = archiv.read(quelle["im_archiv"])
+        daten, rate = sf.read(io.BytesIO(roh), always_2d=True)
+        mono = [sum(rahmen) / len(rahmen) for rahmen in daten]
+        stueck = kurz(mono, rate, False, fenster=ZAEHLERDAUER)
+        stueck = normiere(blende(stueck, rate), ziel=0.85)
+        pfad = os.path.join(ordner, f"zaehler-{name}.wav")
+        sf.write(pfad, stueck, rate, subtype="PCM_16")
+        groesse = os.path.getsize(pfad) // 1024
+        print(f"{quelle['titel']:28} {len(stueck)/rate:4.2f} s  {groesse:4} kB"
+              f"  -> {os.path.basename(pfad)}")
+        zeilen.append(f"| {quelle['titel']} | `zaehler-{name}.wav` | {quelle['urheber']} | "
+                      f"{quelle['lizenz']} | {quelle['nachweis']} |")
+
     with open(os.path.join(ordner, "Klaenge-Lizenz.md"), "w", encoding="utf-8") as datei:
         datei.write(
             "# Klänge beim Ziehen\n\n"
-            "Echte Aufnahmen, keine Synthese. Alle Quellen stehen unter **CC0 1.0** —\n"
-            "gemeinfrei, auch kommerziell nutzbar, ohne Pflicht zur Namensnennung.\n"
+            "Echte Aufnahmen, keine Synthese. Alle Quellen sind **gemeinfrei**\n"
+            "(CC0 1.0 bzw. Public Domain) — auch kommerziell nutzbar, ohne Pflicht\n"
+            "zur Namensnennung.\n"
             "Genannt werden sie hier trotzdem; das gehört sich.\n\n"
             "| Klang | Datei | Urheber | Lizenz | Nachweis |\n"
             "|---|---|---|---|---|\n" + "\n".join(zeilen) + "\n\n"

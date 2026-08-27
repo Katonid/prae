@@ -37,22 +37,20 @@ struct KameraWidgetView: View {
             inhalt
                 .clipShape(RoundedRectangle(cornerRadius: Theme.widgetCorner, style: .continuous))
 
-            // Aufschrift oben links, wenn eine gesetzt ist — sie sagt, was
-            // da liegt („Merlins Heft“). Wie bei den Klangfeldern hängt sie
+            // Aufschrift oben, wenn eine gesetzt ist — sie sagt, was da
+            // liegt („Merlins Heft“). Wie bei den Klangfeldern hängt sie
             // nicht an der Tafelregel: Wer sie einträgt, will sie sehen.
             if let text = content.caption.nonEmpty {
                 VStack {
-                    HStack {
-                        Text(text)
-                            .font(Theme.font(metrics.em(style.kopf(0.94)), weight: .bold))
-                            .foregroundStyle(.white)
-                            .padding(.horizontal, 12)
-                            .frame(height: 30)
-                            .background { Capsule().fill(Color.black.opacity(0.45)) }
-                        Spacer(minLength: 0)
-                    }
+                    Text(text)
+                        .font(Theme.font(metrics.em(style.kopf(0.94)), weight: .bold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 12)
+                        .frame(height: 30)
+                        .background { Capsule().fill(Color.black.opacity(0.45)) }
                     Spacer(minLength: 0)
                 }
+                .frame(maxWidth: .infinity)
                 .padding(12)
             }
 

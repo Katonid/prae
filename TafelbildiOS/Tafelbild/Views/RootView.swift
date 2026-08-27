@@ -11,6 +11,8 @@ struct RootView: View {
     /// Welche Seite gerade umbenannt wird — nil, wenn keine.
     @State private var seiteUmbenennen: String?
     @State private var seiteNeuerName = ""
+    /// Sicherheitsfrage vor dem Schwamm über die Tafel.
+    @State private var wegwischen = false
 
     /// Die Schrift der App. Sie steht hier nur, damit ein Wechsel sofort
     /// sichtbar wird: `Theme.font` liest den Wert direkt aus den
@@ -80,11 +82,15 @@ struct RootView: View {
                     Spacer()
                     leisteSchalter
                     if !leisteAus {
-                        WidgetDock { kind in
+                        WidgetDock(onPick: { kind in
                             if let board = store.activeBoard {
                                 store.addWidget(kind: kind, to: board.id)
                             }
-                        }
+                        }, ablage: store.ablageName, onPaste: {
+                            if let board = store.activeBoard {
+                                store.fuegeEin(in: board.id)
+                            }
+                        })
                         .environment(\.boardStyle, style)
                         .transition(.move(edge: .bottom).combined(with: .opacity))
                     }
@@ -179,6 +185,21 @@ struct RootView: View {
                 }
             }
         }
+        .alert("Alles wegwischen?", isPresented: $wegwischen) {
+            Button("Wegwischen", role: .destructive) {
+                if let tafel = store.activeBoard {
+                    store.wischeSeiteFrei(boardID: tafel.id)
+                    Haptics.heavy()
+                }
+            }
+            Button("Abbrechen", role: .cancel) { }
+        } message: {
+            Text("Alles Geschriebene dieser Seite verschwindet — auf allen Geräten, "
+                 + "die die Tafel sehen. Die Elemente bleiben stehen.\n\nEinzelne "
+                 + "Stellen gehen mit dem Radierer weg; für einen größeren Bereich "
+                 + "hilft das Lasso in der Werkzeugauswahl: den Bereich umkreisen, "
+                 + "antippen, „Löschen“.")
+        }
         .onOpenURL { url in
             // tafelbild://join/ABC123
             guard url.scheme == "tafelbild" else { return }
@@ -265,6 +286,15 @@ struct RootView: View {
                         store.editing = false
                         store.selectedWidgetID = nil
                     }
+                }
+            }
+
+            // Der Schwamm — nur beim Schreiben, und nur, wenn etwas dasteht.
+            // Einzeln wegzuradieren ist mühsam, wenn die Tafel voll ist.
+            if store.drawing, let tafel = store.activeBoard,
+               store.hatHandschrift(boardID: tafel.id) {
+                ChromeButton(systemImage: "trash", tint: Theme.danger) {
+                    wegwischen = true
                 }
             }
 

@@ -5,13 +5,26 @@ import SwiftUI
 /// Unterricht ruhig bleibt.
 struct WidgetDock: View {
     var onPick: (WidgetKind) -> Void
+    /// Name des Kopierten — leer heißt: nichts in der Zwischenablage.
+    var ablage: String = ""
+    var onPaste: () -> Void = {}
 
     @Environment(\.boardStyle) private var style
     @State private var pressed: WidgetKind?
+    @State private var eingefuegt = false
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 4) {
+                // Ganz vorn, solange etwas kopiert ist: Wer kopiert hat,
+                // sucht das Einfügen dort, wo Elemente herkommen.
+                if !ablage.isEmpty {
+                    einfuegen
+                    Rectangle()
+                        .fill(Color.white.opacity(0.14))
+                        .frame(width: 1, height: 46)
+                        .padding(.horizontal, 4)
+                }
                 ForEach(WidgetKind.allCases) { kind in
                     item(kind)
                 }
@@ -24,6 +37,42 @@ struct WidgetDock: View {
         .chromeGlass(corner: 26)
         .padding(.horizontal, 12)
         .padding(.bottom, 12)
+    }
+
+    private var einfuegen: some View {
+        Button {
+            Haptics.tap()
+            eingefuegt = true
+            onPaste()
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(420))
+                eingefuegt = false
+            }
+        } label: {
+            VStack(spacing: 5) {
+                Image(systemName: "doc.on.clipboard")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: 40, height: 40)
+                    .background {
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .fill(style.accentGradient)
+                            .opacity(eingefuegt ? 1 : 0.85)
+                            .shadow(color: style.accentGlow, radius: eingefuegt ? 16 : 8, y: 6)
+                    }
+                Text("Einfügen")
+                    .font(Theme.font(11, weight: .bold))
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+            }
+            .frame(minWidth: 76)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 9)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .animation(.easeOut(duration: 0.18), value: eingefuegt)
+        .accessibilityLabel("\(ablage) einfügen")
     }
 
     private func item(_ kind: WidgetKind) -> some View {

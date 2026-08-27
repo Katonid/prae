@@ -84,6 +84,7 @@ final class BoardStore: ObservableObject {
         pencilOnly = defaults.bool(forKey: "tafelbild.pencilOnly")
         profileName = defaults.string(forKey: "profileName") ?? ""
         activeBoardID = defaults.string(forKey: "activeBoardID") ?? ""
+        ladeAblage()
 
         boards = Self.loadJSON([Board].self, from: Self.boardsURL) ?? []
         nameLists = Self.loadJSON([NameList].self, from: Self.nameListsURL) ?? []
@@ -559,6 +560,77 @@ final class BoardStore: ObservableObject {
         return neue.id
     }
 
+    // MARK: - Zwischenablage
+
+    /// Was zuletzt kopiert wurde.
+    ///
+    /// Bewusst eine echte Zwischenablage und nicht nur „Duplizieren": Wer
+    /// ein Element woanders haben will, denkt in Kopieren und Einfügen — auf
+    /// einer anderen Seite, auf einer anderen Tafel, auch Tage später. Sie
+    /// übersteht deshalb den Neustart (JSON in den Einstellungen des Geräts).
+    ///
+    /// Sie liegt **auf dem Gerät**, nicht in iCloud. Der Weg zu einer
+    /// Kollegin führt über eine geteilte Tafel: dort einfügen, sie kopiert
+    /// es von da aus auf ihre eigene.
+    @Published private(set) var ablage: BoardWidget?
+
+    /// Wie das Kopierte heißt — für die Leiste und die Rückmeldung.
+    var ablageName: String { ablage?.kind.title ?? "" }
+
+    private func ladeAblage() {
+        guard let daten = defaults.data(forKey: "ablageWidget") else { return }
+        ablage = try? JSONDecoder().decode(BoardWidget.self, from: daten)
+    }
+
+    /// Ein Element in die Zwischenablage legen. Das Element bleibt stehen.
+    func kopiereWidget(_ widgetID: String, in boardID: String) {
+        guard let widget = board(boardID)?.widgets.first(where: { $0.id == widgetID })
+        else { return }
+        ablage = widget
+        defaults.set(try? JSONEncoder().encode(widget), forKey: "ablageWidget")
+        showStatus("„\(ablageName)“ kopiert — unten in der Leiste steht jetzt „Einfügen“.")
+    }
+
+    /// Das Kopierte auf der Seite ablegen, die gerade zu sehen ist.
+    ///
+    /// Was dazugehört, kommt mit: Namenslisten liegen ohnehin neben den
+    /// Tafeln, und Klang-, Bild- und Kameradateien stellt die Zieltafel neu
+    /// in die Warteschlange zum Hochladen (`ladeMedienNach`).
+    @discardableResult
+    func fuegeEin(in boardID: String) -> BoardWidget? {
+        guard var neu = ablage,
+              let index = boards.firstIndex(where: { $0.id == boardID })
+        else { return nil }
+        stelleSeitenSicher(index)
+        let seite = boards[index].seiten.contains { $0.id == aktiveSeitenID }
+            ? aktiveSeitenID : boards[index].ersteSeitenID
+
+        neu.id = UUID().uuidString
+        neu.pageID = seite
+        // Ausgeblendet oder festgesteckt einzufügen wäre eine Falle: Das
+        // Element wäre da, ließe sich aber nicht bewegen oder gar nicht
+        // sehen — und niemand wüsste, warum.
+        neu.versteckt = false
+        neu.locked = false
+        neu.z = (boards[index].widgets.map(\.z).max() ?? 0) + 1
+        let platz = freeSpot(for: CGSize(width: neu.width, height: neu.height),
+                             on: boards[index], seite: seite)
+        neu.x = platz.x
+        neu.y = platz.y
+        neu.clampToCanvas(hoehe: boards[index].hoehe)
+        boards[index].widgets.append(neu)
+        selectedWidgetID = neu.id
+        touch(boardID)
+        ladeMedienNach(boardID)
+        return neu
+    }
+
+    /// Zwischenablage leeren.
+    func leereAblage() {
+        ablage = nil
+        defaults.removeObject(forKey: "ablageWidget")
+    }
+
     // MARK: - Auf eine andere Tafel übertragen
 
     /// Legt ein Element auf einer anderen Tafel ab.
@@ -682,6 +754,27 @@ final class BoardStore: ObservableObject {
             boards[index].drawing = text
         }
         touch(boardID)
+    }
+
+    /// Die Handschrift der Seite, die gerade zu sehen ist, ganz entfernen.
+    ///
+    /// Einzeln wegzuradieren ist mühsam, wenn die Tafel voll ist. Gedacht
+    /// als „Schwamm über die Tafel" am Ende der Stunde — deshalb fragt die
+    /// Ansicht vorher nach.
+    func wischeSeiteFrei(boardID: String) {
+        guard let tafel = board(boardID) else { return }
+        let seite = tafel.seiten.contains { $0.id == aktiveSeitenID }
+            ? aktiveSeitenID : tafel.ersteSeitenID
+        setzeHandschrift("", seite: seite, boardID: boardID)
+    }
+
+    /// Ist auf der Seite, die gerade zu sehen ist, überhaupt etwas
+    /// geschrieben?
+    func hatHandschrift(boardID: String) -> Bool {
+        guard let tafel = board(boardID) else { return false }
+        let seite = tafel.seiten.contains { $0.id == aktiveSeitenID }
+            ? aktiveSeitenID : tafel.ersteSeitenID
+        return !tafel.handschrift(auf: seite).isEmpty
     }
 
     /// In welche Richtung zuletzt geblättert wurde: 1 = vorwärts,

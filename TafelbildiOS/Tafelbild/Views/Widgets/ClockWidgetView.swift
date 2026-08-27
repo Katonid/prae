@@ -90,10 +90,10 @@ struct ClockWidgetView: View {
             ticks(side: side)
             numbers(side: side)
 
-            hand(length: unit(isLearning ? 42 : 46, side), width: unit(isLearning ? 8 : 7, side),
+            hand(length: unit(isLearning ? 38 : 46, side), width: unit(isLearning ? 8 : 7, side),
                  color: isLearning ? Self.hourBlue : faceInk,
                  angle: (hour + minute / 60) / 12 * 360)
-            hand(length: unit(isLearning ? 74 : 71, side), width: unit(isLearning ? 5.5 : 4.8, side),
+            hand(length: unit(isLearning ? 70 : 71, side), width: unit(isLearning ? 5.5 : 4.8, side),
                  color: isLearning ? Self.minuteOrange : faceInk,
                  angle: (minute + second / 60) / 60 * 360)
             if content.showSeconds {
@@ -143,7 +143,13 @@ struct ClockWidgetView: View {
     @ViewBuilder
     private func ticks(side: CGFloat) -> some View {
         // „Minimal" zeigt nur die Fünf-Minuten-Striche.
-        let outer: Double = isLearning ? 79 : 88
+        //
+        // Die Lernuhr trägt zwei Ringe übereinander: außen die orangen
+        // Minutenzahlen, darunter die orange Skala, innen die blauen
+        // Stundenzahlen. Die Maße sind so gewählt, dass zwischen den drei
+        // Ringen jeweils Luft bleibt — vorher stießen die Zahlen an die
+        // Skala und die Minutenzahlen über den blauen Rand hinaus.
+        let outer: Double = isLearning ? 78 : 88
         let innenGross = outer - (face == .minimal ? 9 : 8)
         let grosse = Array(stride(from: 0, to: 60, by: 5)).map { Double($0) * 6 }
         // Die Skala steht in 200er-Einheiten, `Skalenstriche` rechnet in
@@ -172,20 +178,21 @@ struct ClockWidgetView: View {
         } else {
             ForEach(1...12, id: \.self) { number in
                 Text("\(number)")
-                    .font(Theme.font(Double(unit(face == .modern ? 21 : 23, side)),
+                    .font(Theme.font(Double(unit(isLearning ? 20 : (face == .modern ? 21 : 23),
+                                                 side)),
                                      weight: face == .modern ? .semibold : .bold))
                     .foregroundStyle(isLearning ? Self.hourBlue : faceInk.opacity(0.85))
                     .offset(Rundblatt.versatz(Double(number) * 30,
-                                              radius: Double(unit(isLearning ? 60 : 66, side))))
+                                              radius: Double(unit(isLearning ? 55 : 66, side))))
             }
             if isLearning {
                 // Außen die Minutenzahlen 5, 10, 15 … in Orange.
                 ForEach(Array(stride(from: 5, through: 60, by: 5)), id: \.self) { value in
                     Text("\(value == 60 ? 0 : value)")
-                        .font(Theme.font(Double(unit(11, side)), weight: .bold))
+                        .font(Theme.font(Double(unit(9.5, side)), weight: .bold))
                         .foregroundStyle(Self.minuteOrange)
                         .offset(Rundblatt.versatz(Double(value) * 6,
-                                                  radius: Double(unit(89, side))))
+                                                  radius: Double(unit(86, side))))
                 }
             }
         }

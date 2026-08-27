@@ -148,12 +148,37 @@ struct WidgetSettingsSheet: View {
                         } label: {
                             Label("Element duplizieren", systemImage: "plus.square.on.square")
                         }
+                        Button {
+                            store.kopiereWidget(widgetID, in: boardID)
+                            dismiss()
+                        } label: {
+                            Label("Element kopieren", systemImage: "doc.on.doc")
+                        }
+                        Button {
+                            // Erst schließen, dann das nächste Blatt — zwei
+                            // Blätter gleichzeitig zeigt iOS nicht.
+                            let id = widgetID
+                            dismiss()
+                            Task { @MainActor in
+                                try? await Task.sleep(for: .milliseconds(350))
+                                store.uebertragenWidgetID = id
+                            }
+                        } label: {
+                            Label("Verschieben oder kopieren …",
+                                  systemImage: "arrow.right.square")
+                        }
                         Button(role: .destructive) {
                             store.removeWidget(widgetID, from: boardID)
                             dismiss()
                         } label: {
                             Label("Element entfernen", systemImage: "trash")
                         }
+                    } footer: {
+                        Text("Duplizieren legt sofort eine Kopie daneben. Kopieren merkt "
+                             + "sich das Element: Auf jeder anderen Seite und jeder anderen "
+                             + "Tafel steht dann beim Anordnen unten in der Leiste "
+                             + "„Einfügen“ — auch morgen noch. „Verschieben oder kopieren“ "
+                             + "geht den Weg in einem Schritt, mit Auswahl des Ziels.")
                     }
                 }
             }
