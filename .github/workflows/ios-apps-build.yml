@@ -33,6 +33,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          - { ordner: AnstossiOS,        app: Anstoss }
           - { ordner: CadUsdEuriOS,      app: CadUsdEur }
           - { ordner: Canada2026iOS,     app: Canada2026 }
           - { ordner: FlightMateiOS,     app: FlightMate }
