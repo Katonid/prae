@@ -87,6 +87,15 @@ export function currentAccount() {
   return { uid: account.uid, email: account.email, name: account.name };
 }
 
+/** Liegt eine gespeicherte Anmeldung vor? Billig prüfbar, ohne initCloud. */
+export function hasStoredAccount() {
+  try {
+    return Boolean(window.localStorage.getItem(AUTH_STORAGE));
+  } catch (_) {
+    return false;
+  }
+}
+
 export function onAccountChanged(listener) {
   listeners.add(listener);
   listener(currentAccount());

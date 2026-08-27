@@ -1336,12 +1336,14 @@ p.muted { margin: 0; }
 .w-random__groups {
   display: grid;
   width: 100%;
-  gap: 12px 8px;
-  align-content: safe center;
+  gap: 8px 8px;
+  /* Bewusst „start" statt „safe center": Safari kennt das safe-Schlüsselwort
+     nicht und würde bei Überlauf oben UND unten abschneiden. */
+  align-content: start;
   overflow-y: auto;
   flex: 1;
   min-height: 0;
-  padding: 4px 2px;
+  padding: 2px;
   touch-action: pan-y;
 }
 
@@ -1350,7 +1352,7 @@ p.muted { margin: 0; }
   align-items: center;
   justify-content: center;
   min-width: 0;
-  padding: 0.42em 0.5em;
+  padding: 0.26em 0.4em;
   border: 0;
   border-radius: 0.55em;
   background: color-mix(in srgb, var(--card-ink) 9%, transparent);

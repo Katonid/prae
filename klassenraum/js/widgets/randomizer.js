@@ -436,12 +436,15 @@ export default {
       render();
     }
 
-    /** Schriftgröße so wählen, dass alle Kärtchen gleich groß bleiben und passen. */
-    function fitGroups(size, rows, maxLen) {
-      const cardWidth = Math.max(90, (ctx.widget.w - 70) / size - 16);
-      const cardHeight = rows > 0 ? Math.max(34, (ctx.widget.h - 170) / rows - 10) : 40;
+    /**
+     * Schriftgröße so wählen, dass alle Kärtchen gleich groß sind und ALLE
+     * Reihen in die Kachel passen — so groß wie möglich, der Rand gibt nach.
+     */
+    function fitGroups(size, rows, maxLen, checklist) {
+      const cardWidth = Math.max(80, (ctx.widget.w - 40 - (checklist ? 46 : 0)) / size - 10);
+      const cardHeight = rows > 0 ? Math.max(30, (ctx.widget.h - 118) / rows - 8) : 40;
       const byWidth = cardWidth / (Math.max(3, maxLen) * 0.58);
-      const value = Math.max(13, Math.min(byWidth, cardHeight * 0.52, 44));
+      const value = Math.max(13, Math.min(byWidth, cardHeight * 0.58, 64));
       groupsBox.style.fontSize = `${value}px`;
     }
 
@@ -456,7 +459,8 @@ export default {
       const checklist = state.groupView === 'abhaken';
       const done = new Set(shown && Array.isArray(shown.done) ? shown.done : []);
       groupsBox.style.gridTemplateColumns = (checklist ? 'auto ' : '') + `repeat(${size}, minmax(0, 1fr))`;
-      fitGroups(size, Math.ceil(flat.length / size) || 1, flat.reduce((acc, name) => Math.max(acc, name.length), 4));
+      fitGroups(size, Math.ceil(flat.length / size) || 1,
+        flat.reduce((acc, name) => Math.max(acc, name.length), 4), checklist);
       const animateOk = state.animate !== false && !reducedMotion() && animateFrom < flat.length;
       const sound = spinSoundById(state.spinSound).id;
       flat.forEach((name, index) => {
