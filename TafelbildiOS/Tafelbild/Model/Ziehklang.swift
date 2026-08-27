@@ -233,6 +233,23 @@ final class Ziehklang {
         }
     }
 
+    /// Der Zähler in der Zählansicht.
+    ///
+    /// Hoch die Glocke einer Registrierkasse, runter der Wisch über die
+    /// Tafel. Beides sind Handgriffe im Unterricht, die man nicht ansieht —
+    /// wer auf ein Kärtchen tippt, schaut die Klasse an, nicht das iPad.
+    /// Der Ton sagt, dass es angekommen ist.
+    func zaehlerKlang(hoch: Bool) {
+        AudioSessionCenter.configure(recording: AudioSessionCenter.isRecording)
+        guard let spieler = freierSpieler(hoch ? "zaehler-hoch" : "zaehler-runter")
+        else { return }
+        spieler.currentTime = 0
+        spieler.enableRate = true
+        spieler.rate = 1
+        spieler.volume = hoch ? 0.9 : 0.8
+        spieler.play()
+    }
+
     /// Bricht die vorausgeplanten Kärtchen-Klänge ab — beim Überspringen
     /// soll nichts nachklappern.
     func stoppeKaertchen() {

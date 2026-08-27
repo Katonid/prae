@@ -407,6 +407,9 @@ struct GruppenAnsicht: View {
         if content.anzeige == .zaehlen {
             content.zaehler[id] = (content.zaehler[id] ?? 0) + 1
             Haptics.tap()
+            // „Ohne Ton" am Element gilt auch hier — wer die Ziehung still
+            // haben will, will keine Kasse klingeln hören.
+            if content.spinSound != .aus { Ziehklang.shared.zaehlerKlang(hoch: true) }
             return
         }
         guard !content.festgehalten else {
@@ -439,6 +442,7 @@ struct GruppenAnsicht: View {
         guard stand > 0 else { return }
         if stand == 1 { content.zaehler[id] = nil } else { content.zaehler[id] = stand - 1 }
         Haptics.tap()
+        if content.spinSound != .aus { Ziehklang.shared.zaehlerKlang(hoch: false) }
     }
 
     private func zeigeHinweis(_ text: String) {

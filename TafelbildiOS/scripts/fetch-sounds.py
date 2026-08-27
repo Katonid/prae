@@ -54,7 +54,7 @@ QUELLEN = {
     },
     "trommel": {
         "titel": "Trommelwirbel",
-        "url": "https://upload.wikimedia.org/wikipedia/commons/c/c4/Drum_Roll_Intro.ogg",
+        "url": "https://commons.wikimedia.org/wiki/Special:FilePath/Drum_Roll_Intro.ogg",
         "urheber": "Iwan Sounds and DIY",
         "lizenz": "CC0 1.0",
         "nachweis": "https://commons.wikimedia.org/wiki/File:Drum_Roll_Intro.ogg",
@@ -121,10 +121,35 @@ KARTENQUELLEN = {
 }
 
 
+# Der Zähler in der Zählansicht („Kinder des Tages"): hoch wie die Glocke
+# einer Registrierkasse, runter wie ein Wisch über die Tafel.
+ZAEHLERDAUER = 1.4
+
+ZAEHLERQUELLEN = {
+    "hoch": {
+        "titel": "Zähler hoch (Kassenglocke)",
+        "url": "https://commons.wikimedia.org/wiki/Special:FilePath/Cash_register.ogg",
+        "urheber": "SoundBible (über Wikimedia Commons)",
+        "lizenz": "gemeinfrei",
+        "nachweis": "https://commons.wikimedia.org/wiki/File:Cash_register.ogg",
+    },
+    "runter": {
+        "titel": "Zähler runter (Auswischen)",
+        "url": QUELLEN["rad"]["url"],
+        "im_archiv": "Audio/scratch_002.ogg",
+        "urheber": "Kenney Vleugels (kenney.nl), Paket „Interface Sounds“",
+        "lizenz": "CC0 1.0",
+        "nachweis": "https://kenney.nl/assets/interface-sounds",
+    },
+}
+
+
 def hole(url: str) -> bytes:
     """Herunterladen — mit Zwischenspeicher.
 
     Wikimedia bremst wiederholte Zugriffe aus (HTTP 429), und das zu Recht.
+    Deshalb führen die Adressen über `Special:FilePath` statt direkt auf
+    `upload.wikimedia.org` — der Weg wird spürbar seltener abgewiesen.
     Wer das Skript mehrfach laufen lässt, soll die Server nicht jedes Mal
     behelligen: Einmal geholt, liegt die Datei unter `.klang-zwischenlager/`
     (nicht im Repo) und wird von dort genommen.
@@ -206,8 +231,8 @@ def reihe(klick, rate):
     return spur
 
 
-def kurz(mono, rate, vom_ende=False):
-    """Ein kurzer Einzelklang: Stille weg, dann höchstens KARTENDAUER."""
+def kurz(mono, rate, vom_ende=False, fenster=None):
+    """Ein kurzer Einzelklang: Stille weg, dann höchstens `fenster`."""
     schwelle = max(abs(v) for v in mono) * 0.02
     anfang, ende = 0, len(mono)
     for i, v in enumerate(mono):
@@ -218,7 +243,7 @@ def kurz(mono, rate, vom_ende=False):
         if abs(mono[i]) > schwelle:
             ende = min(len(mono), i + int(0.03 * rate))
             break
-    fenster = int(KARTENDAUER * rate)
+    fenster = int((fenster or KARTENDAUER) * rate)
     if ende - anfang > fenster:
         # Beim Trommelwirbel zählt der Schluss, sonst der Einsatz.
         if vom_ende:
@@ -325,11 +350,29 @@ def main():
         zeilen.append(f"| {quelle['titel']} | `karte-{name}-*.wav` | {quelle['urheber']} | "
                       f"{quelle['lizenz']} | {quelle['nachweis']} |")
 
+    for name, quelle in ZAEHLERQUELLEN.items():
+        roh = hole(quelle["url"])
+        if "im_archiv" in quelle:
+            with zipfile.ZipFile(io.BytesIO(roh)) as archiv:
+                roh = archiv.read(quelle["im_archiv"])
+        daten, rate = sf.read(io.BytesIO(roh), always_2d=True)
+        mono = [sum(rahmen) / len(rahmen) for rahmen in daten]
+        stueck = kurz(mono, rate, False, fenster=ZAEHLERDAUER)
+        stueck = normiere(blende(stueck, rate), ziel=0.85)
+        pfad = os.path.join(ordner, f"zaehler-{name}.wav")
+        sf.write(pfad, stueck, rate, subtype="PCM_16")
+        groesse = os.path.getsize(pfad) // 1024
+        print(f"{quelle['titel']:28} {len(stueck)/rate:4.2f} s  {groesse:4} kB"
+              f"  -> {os.path.basename(pfad)}")
+        zeilen.append(f"| {quelle['titel']} | `zaehler-{name}.wav` | {quelle['urheber']} | "
+                      f"{quelle['lizenz']} | {quelle['nachweis']} |")
+
     with open(os.path.join(ordner, "Klaenge-Lizenz.md"), "w", encoding="utf-8") as datei:
         datei.write(
             "# Klänge beim Ziehen\n\n"
-            "Echte Aufnahmen, keine Synthese. Alle Quellen stehen unter **CC0 1.0** —\n"
-            "gemeinfrei, auch kommerziell nutzbar, ohne Pflicht zur Namensnennung.\n"
+            "Echte Aufnahmen, keine Synthese. Alle Quellen sind **gemeinfrei**\n"
+            "(CC0 1.0 bzw. Public Domain) — auch kommerziell nutzbar, ohne Pflicht\n"
+            "zur Namensnennung.\n"
             "Genannt werden sie hier trotzdem; das gehört sich.\n\n"
             "| Klang | Datei | Urheber | Lizenz | Nachweis |\n"
             "|---|---|---|---|---|\n" + "\n".join(zeilen) + "\n\n"
