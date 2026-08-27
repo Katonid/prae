@@ -36,6 +36,10 @@ struct GruppenAnsicht: View {
     @State private var hinweis: String?
     /// Lässt das Schloss kurz wackeln, damit klar ist, wo der Schutz sitzt.
     @State private var wackelt = false
+    /// Welches Kärtchen gerade stehen geblieben ist — es bekommt einen Stups.
+    @State private var zuletzt: Int?
+    /// Ein Tipp während der Auslosung bringt sie sofort zu Ende.
+    @State private var ueberspringen = false
 
     private var laeuft: Bool { fertigBis != nil }
 
@@ -200,6 +204,7 @@ struct GruppenAnsicht: View {
                 }
             }
             .opacity(blass ? 0.3 : 1)
+            .scaleEffect(zuletzt == stelle ? 1.07 : 1)
             .contentShape(Rectangle())
             .onTapGesture { tippeKarte(stelle, id: id) }
             .onLongPressGesture(minimumDuration: 0.45) { langerDruck(id) }
@@ -288,7 +293,13 @@ struct GruppenAnsicht: View {
     /// In der Zählansicht zählt er stattdessen hoch — dort ist das die
     /// eigentliche Arbeit, und neu ausgelost wird ohnehin nur über den Knopf.
     private func tippeKarte(_ stelle: Int, id: String) {
-        guard interactive, !laeuft else { return }
+        guard interactive else { return }
+        // Während es läuft, ist jeder Tipp ein „schneller jetzt" — eine
+        // Stunde hat nicht immer eine halbe Minute übrig.
+        if laeuft {
+            ueberspringen = true
+            return
+        }
         if content.anzeige == .zaehlen {
             content.zaehler[id] = (content.zaehler[id] ?? 0) + 1
             Haptics.tap()
@@ -400,16 +411,39 @@ struct GruppenAnsicht: View {
         }
 
         content.ergebnis = neu
-        Ziehklang.shared.starte(content.spinSound)
-        let ziel = neu.count
+
+        // Ein Kärtchen je Sekunde. Bis dahin laufen die noch offenen Namen
+        // weiter durch — sie werden alle neun Hundertstel neu gemischt, und
+        // eines nach dem anderen bleibt stehen. Ein Sitzplan für eine ganze
+        // Klasse dauert damit eine halbe Minute; das ist gewollt.
+        let offene = max(1, neu.count - fest.count)
+        let gesamt = Gruppenlauf.dauer(kaertchen: offene)
+        Ziehklang.shared.starte(content.spinSound, dauer: gesamt)
+        ueberspringen = false
+        fertigBis = fest.count
+
         Task { @MainActor in
-            for schritt in 0..<ZiehLauf.schritte {
-                let anteil = Double(schritt + 1) / Double(ZiehLauf.schritte)
-                fertigBis = fest.count + Int((Double(ziel - fest.count) * anteil).rounded(.down))
+            var verstrichen = 0.0
+            while verstrichen < gesamt && !ueberspringen {
+                try? await Task.sleep(for: .seconds(Gruppenlauf.taktrate))
+                verstrichen += Gruppenlauf.taktrate
                 wirbel &+= 7
-                try? await Task.sleep(for: .seconds(ZiehLauf.pause(schritt: schritt)))
+                let fertig = fest.count
+                    + min(offene, Int((verstrichen / Gruppenlauf.proKarte).rounded(.down)))
+                if fertig > (fertigBis ?? fest.count) {
+                    // Jedes Kärtchen, das stehen bleibt, gibt einen kleinen
+                    // Ruck — so ist der Fortschritt auch zu spüren.
+                    Haptics.tap()
+                    withAnimation(.spring(response: 0.28, dampingFraction: 0.55)) {
+                        zuletzt = fertig - 1
+                    }
+                }
+                fertigBis = fertig
             }
+            if ueberspringen { Ziehklang.shared.stoppe() }
             fertigBis = nil
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) { zuletzt = nil }
+            ueberspringen = false
             Haptics.success()
         }
     }
