@@ -1056,7 +1056,11 @@ export default {
       if (event.target === groupsBox) groupTap();
     });
 
-    const off = onStore('lists-changed', () => render());
+    // Während der Auslosungs-Zeremonie nicht neu bauen — sie liefe sonst
+    // durch jede Listen-Änderung (z. B. Gedächtnis-Zählung) ins Leere.
+    const off = onStore('lists-changed', () => {
+      if (!dealing) render();
+    });
     render();
 
     return {
@@ -1078,7 +1082,19 @@ export default {
       },
       onArmedChange(value) {
         armed = value;
-        render();
+        // Bewusst KEIN kompletter Neuaufbau: Der erste Tipp auf einen Knopf
+        // (Schloss, „Auslosen", Kärtchen) macht die Karte erst scharf — würde
+        // dabei alles neu gebaut, verschwände der gedrückte Knopf mitten in
+        // der Berührung und der Tipp verpuffte („reagiert nicht").
+        const state = ctx.widget.state;
+        if (isGroupMode(state)) return;
+        const all = namesOf(state);
+        const name = state.current;
+        if (!all.length || (name && !isRevealed(state, name))) return;
+        if (state.mode !== 'repeat' && remainingOf(state).length === 0) return;
+        hintEl.textContent = armed
+          ? 'Bereit — der nächste Tipp zieht'
+          : 'Antippen, dann nochmal tippen zum Ziehen';
       },
       destroy() {
         stopSpin();
