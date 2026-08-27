@@ -31,6 +31,10 @@ struct GruppenAnsicht: View {
     @State private var fertigBis: Int?
     /// Wechselt bei jedem Schritt und mischt die durchlaufenden Namen.
     @State private var wirbel = 0
+    /// Kurzer Hinweis unten — etwa, warum gerade nichts passiert ist.
+    @State private var hinweis: String?
+    /// Lässt das Schloss kurz wackeln, damit klar ist, wo der Schutz sitzt.
+    @State private var wackelt = false
 
     private var laeuft: Bool { fertigBis != nil }
 
@@ -77,6 +81,8 @@ struct GruppenAnsicht: View {
                         .foregroundStyle(content.festgehalten ? Theme.amber : style.inkSoft)
                         .frame(width: metrics.em(1.9), height: metrics.em(1.9))
                         .background { Circle().fill(style.wash) }
+                        .rotationEffect(.degrees(wackelt ? 14 : 0))
+                        .scaleEffect(wackelt ? 1.12 : 1)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(content.festgehalten ? "Ergebnis freigeben"
@@ -174,7 +180,14 @@ struct GruppenAnsicht: View {
 
     @ViewBuilder
     private var fusszeile: some View {
-        if let stelle = frage {
+        if let hinweis {
+            Text(hinweis)
+                .font(Theme.font(metrics.em(0.82), weight: .semibold))
+                .foregroundStyle(Theme.amber)
+                .multilineTextAlignment(.center)
+                .lineLimit(2)
+                .minimumScaleFactor(0.7)
+        } else if let stelle = frage {
             HStack(spacing: metrics.em(0.35)) {
                 knopf(stelle == 0 ? "Alles neu auslosen" : "Ab hier neu auslosen",
                       symbol: "shuffle", betont: true) {
@@ -233,6 +246,12 @@ struct GruppenAnsicht: View {
     private func tippeKarte(_ stelle: Int) {
         guard interactive, !laeuft else { return }
         guard !content.festgehalten else {
+            // Nicht einfach nichts tun: Wer hier tippt, will etwas ändern
+            // und soll erfahren, warum es nicht geht — und wo der Schutz
+            // sitzt. Deshalb wackelt das Schloss dazu.
+            zeigeHinweis("Das Ergebnis ist festgehalten. Zum Ändern oben rechts "
+                         + "das Schloss antippen.")
+            wackle()
             Haptics.tap()
             return
         }
@@ -240,6 +259,24 @@ struct GruppenAnsicht: View {
             frage = (frage == stelle) ? nil : stelle
         }
         Haptics.tap()
+    }
+
+    private func zeigeHinweis(_ text: String) {
+        withAnimation(.easeOut(duration: 0.15)) { hinweis = text }
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(3.5))
+            withAnimation(.easeOut(duration: 0.2)) { hinweis = nil }
+        }
+    }
+
+    private func wackle() {
+        withAnimation(.easeInOut(duration: 0.09).repeatCount(5, autoreverses: true)) {
+            wackelt = true
+        }
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(0.55))
+            wackelt = false
+        }
     }
 
     private func hakeAb(_ schluessel: String) {
@@ -258,6 +295,7 @@ struct GruppenAnsicht: View {
             onOpenSettings()
             return
         }
+        hinweis = nil
         let fest = Array(content.ergebnis.prefix(stelle))
         let neu: [String]
         switch content.modus {
@@ -266,7 +304,9 @@ struct GruppenAnsicht: View {
                                     vergangenheit: list?.paare ?? [:])
         default:
             neu = Auslosung.gruppen(namen, groesse: content.gruppenGroesse,
-                                    merkmal: content.mischMerkmalID, fest: fest,
+                                    merkmal: content.merkmal(in: list),
+                                    gleich: content.merkmalsvorgabe == .gleich,
+                                    fest: fest,
                                     vergangenheit: list?.paare ?? [:])
         }
         guard !neu.isEmpty else { return }

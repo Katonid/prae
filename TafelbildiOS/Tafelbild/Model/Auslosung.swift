@@ -8,11 +8,14 @@ import Foundation
 //
 // Zwei Wünsche wirken gleichzeitig:
 //
-//  1. **Gemischt.** Ist ein Merkmal gewählt (etwa „J“/„M“), soll in jeder
-//     Gruppe möglichst von jedem Wert etwas stehen — solange die Gesamtzahl
-//     es hergibt. Sind zwölf Mädchen und sechs Jungen da, bekommen die
-//     ersten sechs Gruppen je einen Jungen und die übrigen keinen. Anders
-//     geht es nicht, und die App tut auch nicht so, als ginge es.
+//  1. **Merkmale.** Ist ein Merkmal gewählt (etwa „J“/„M“), gibt es zwei
+//     Richtungen. **Unterschiedlich**: In jeder Gruppe soll möglichst von
+//     jedem Wert etwas stehen — solange die Gesamtzahl es hergibt. Sind
+//     zwölf Mädchen und sechs Jungen da, bekommen die ersten sechs Gruppen
+//     je einen Jungen und die übrigen keinen; anders geht es nicht, und die
+//     App tut auch nicht so, als ginge es. **Gleich**: Jede Gruppe soll
+//     möglichst nur einen Wert enthalten — reine Jungen- und
+//     Mädchengruppen, gleiche Lesestufen.
 //
 //  2. **Nicht schon wieder dieselben.** Wer mit wem bereits zusammen war,
 //     steht in `vergangenheit`. Paarungen, die es schon gab, werden
@@ -36,8 +39,10 @@ enum Auslosung {
     ///   - eintraege: die Namen, die gezogen werden dürfen (bereits ohne
     ///     pausierte).
     ///   - groesse: wie viele in eine Gruppe gehören (1 … 15).
-    ///   - merkmal: Kennung des Merkmals, nach dem gemischt wird. nil oder
-    ///     leer heißt: nicht mischen.
+    ///   - merkmal: Kennung des Merkmals, nach dem sortiert wird. nil oder
+    ///     leer heißt: Merkmale spielen keine Rolle.
+    ///   - gleich: `true` sucht gleiche Merkmale in einer Gruppe, `false`
+    ///     unterschiedliche.
     ///   - fest: Kennungen, die vorn stehen bleiben. So lässt sich **ab
     ///     einer Stelle** neu auslosen, ohne das Vorherige anzutasten.
     ///   - vergangenheit: wie oft zwei Namen schon zusammen waren, unter dem
@@ -45,7 +50,8 @@ enum Auslosung {
     /// - Returns: alle Kennungen in Ziehreihenfolge. Die Gruppen ergeben
     ///   sich, indem je `groesse` Stück zusammengefasst werden.
     static func gruppen(_ eintraege: [NameEntry], groesse: Int,
-                        merkmal: String? = nil, fest: [String] = [],
+                        merkmal: String? = nil, gleich: Bool = false,
+                        fest: [String] = [],
                         vergangenheit: [String: Int] = [:]) -> [String] {
         let breite = max(1, min(groesse, 15))
         let nachID = Dictionary(eintraege.map { ($0.id, $0) }, uniquingKeysWith: { erster, _ in erster })
@@ -78,7 +84,12 @@ enum Auslosung {
                 var wert = 0
                 if let merkmalID {
                     let meiner = eintrag.wert(merkmalID) ?? ""
-                    wert += (belegt[meiner] ?? 0) * merkmalsgewicht
+                    let meinesgleichen = belegt[meiner] ?? 0
+                    // „Unterschiedlich": Wer schon vertreten ist, wird nach
+                    // hinten gereiht. „Gleich": umgekehrt — schlecht ist,
+                    // wer NICHT zu den bisherigen passt.
+                    wert += (gleich ? gruppe.count - meinesgleichen : meinesgleichen)
+                        * merkmalsgewicht
                 }
                 for id in gruppe {
                     wert += vergangenheit[paar(id, eintrag.id)] ?? 0

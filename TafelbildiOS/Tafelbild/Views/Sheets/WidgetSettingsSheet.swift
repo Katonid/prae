@@ -986,13 +986,21 @@ private struct NamePickerSettings: View {
                     ForEach(NamePickerContent.DrawMode.allCases) { Text($0.title).tag($0) }
                 }
             } else {
-                Picker("Mischen nach", selection: $content.mischMerkmalID) {
-                    Text("Nicht mischen").tag("")
-                    ForEach(list?.merkmale ?? []) { merkmal in
-                        Text(merkmal.name.nonEmpty ?? "Merkmal").tag(merkmal.id)
+                Picker("Merkmale in der Gruppe", selection: $content.merkmalsvorgabe) {
+                    ForEach(Merkmalsvorgabe.allCases) { Text($0.title).tag($0) }
+                }
+                .pickerStyle(.segmented)
+                .disabled((list?.merkmale ?? []).isEmpty)
+
+                // Welches Merkmal gemeint ist, muss nur gefragt werden, wenn
+                // es mehr als eines gibt.
+                if content.merkmalsvorgabe != .egal, (list?.merkmale.count ?? 0) > 1 {
+                    Picker("Welches Merkmal", selection: $content.mischMerkmalID) {
+                        ForEach(list?.merkmale ?? []) { merkmal in
+                            Text(merkmal.name.nonEmpty ?? "Merkmal").tag(merkmal.id)
+                        }
                     }
                 }
-                .disabled((list?.merkmale ?? []).isEmpty)
             }
 
             Toggle("Namen durchlaufen lassen", isOn: $content.animate)
@@ -1016,17 +1024,33 @@ private struct NamePickerSettings: View {
         }
         guard let list, !list.merkmale.isEmpty else {
             return "Merkmale legst du in der Namensliste an — zum Beispiel „J“ und „M“. "
-                + "Dann kann die Ziehung darauf achten, dass in jeder Gruppe von beidem "
-                + "etwas steht."
+                + "Dann kann die Ziehung darauf achten, wie die Gruppen zusammengesetzt "
+                + "sind."
         }
-        let name = list.merkmal(content.mischMerkmalID.nonEmpty)?.name.nonEmpty
-        guard let name else {
-            return "Ohne Mischen entscheidet allein der Zufall. "
-                + "Wähle ein Merkmal, damit die Gruppen gemischt werden."
+        var text = content.merkmalsvorgabe.erklaerung
+        if let merkmalID = content.merkmal(in: list),
+           let merkmal = list.merkmal(merkmalID) {
+            let name = merkmal.name.nonEmpty ?? "Merkmal"
+            text += "\n\nGewählt ist „\(name)“ — " + verteilungstext(list, merkmalID)
+            text += "\n\nReicht die Zahl der Namen nicht aus, geht es so weit auf, "
+                + "wie es geht; die App tut nicht so, als ginge mehr."
         }
-        return "In jeder Gruppe soll möglichst von jedem Wert des Merkmals „\(name)“ "
-            + "etwas stehen — solange die Zahl der Namen es hergibt. Reicht sie nicht, "
-            + "bekommen die ersten Gruppen den selteneren Wert."
+        return text
+    }
+
+    /// „J 12 · M 14 · ohne Angabe 2" — auf einen Blick, ob noch etwas fehlt.
+    private func verteilungstext(_ list: NameList, _ merkmalID: String) -> String {
+        let verteilung = list.verteilung(merkmalID)
+        guard let merkmal = list.merkmal(merkmalID) else { return "" }
+        var teile: [String] = []
+        for wert in merkmal.werte {
+            teile.append("\(wert) \(verteilung[wert] ?? 0)")
+        }
+        if let ohne = verteilung[""], ohne > 0 {
+            teile.append("ohne Angabe \(ohne)")
+        }
+        return teile.isEmpty ? "noch keine Werte vergeben."
+                             : teile.joined(separator: " · ") + "."
     }
 
     // MARK: 4. Was schon war
