@@ -232,6 +232,21 @@ struct BoardSettingsSheet: View {
                          + "die Tafel wirkt aufgeräumter, die Bedienung bleibt gleich.")
                 }
 
+                Section {
+                    Schriftfarbwahl(automatikTitel: "Automatisch",
+                                    hex: bindung(\.schriftfarbe))
+                } header: {
+                    Text("Schriftfarbe")
+                } footer: {
+                    Text("Gilt für alle Elemente dieser Tafel: Überschriften, Hinweise und "
+                         + "den Inhalt — den gezogenen Namen, die Uhrzeit, den Pegel. "
+                         + "„Automatisch“ ist die bisherige Regel: helle Schrift auf dunklem "
+                         + "Grund, dunkle auf hellem. Bei einem hellen Tafelhintergrund lohnt "
+                         + "„Dunkel“.\n\nEinzelne Elemente dürfen abweichen — in ihren "
+                         + "Einstellungen unter „Schriftfarbe“. Was dort steht, bleibt "
+                         + "stehen, auch wenn hier später etwas anderes gewählt wird.")
+                }
+
                 Section("Farbverlauf") {
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 70), spacing: 10)], spacing: 10) {
                         ForEach(Array(BackgroundPreset.gradients.enumerated()), id: \.offset) { item in

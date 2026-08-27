@@ -118,13 +118,27 @@ struct WidgetSettingsSheet: View {
                                 Text("größer").font(.caption2).foregroundStyle(.secondary)
                             }
                         }
+
+                        Schriftfarbwahl(automatikTitel: "Wie die Tafel",
+                                        hex: Binding(
+                                            get: { store.widget(widgetID, in: boardID)?.schriftfarbe ?? "" },
+                                            set: { wert in
+                                                store.updateWidget(widgetID, in: boardID) {
+                                                    $0.schriftfarbe = wert
+                                                }
+                                            }
+                                        ))
                     } header: {
-                        Text("Beschriftung dieses Elements")
+                        Text("Beschriftung und Farbe")
                     } footer: {
                         Text("Gilt nur für dieses Element — unabhängig davon, was unter "
-                             + "„Aussehen“ für die ganze Tafel eingestellt ist. Betroffen sind "
-                             + "Überschriften und Hinweise, nicht der Inhalt: Der gezogene Name, "
-                             + "die Zeit und das Datum bleiben in jedem Fall stehen.")
+                             + "„Aussehen“ für die ganze Tafel eingestellt ist. Ein- und "
+                             + "ausschalten betrifft Überschriften und Hinweise, nicht den "
+                             + "Inhalt: Der gezogene Name, die Zeit und das Datum bleiben in "
+                             + "jedem Fall stehen.\n\nDie Schriftfarbe färbt beides — "
+                             + "Beschriftung und Inhalt. „Wie die Tafel“ folgt der Vorgabe "
+                             + "unter „Aussehen“; jede andere Wahl bleibt hier stehen, auch "
+                             + "wenn die Tafel später umgestellt wird.")
                     }
 
                     Section {
@@ -953,11 +967,11 @@ private struct NamePickerSettings: View {
                     Picker("Gezogene Namen zeigen", selection: $content.showDrawn) {
                         ForEach(ShowRule.allCases) { Text($0.title).tag($0) }
                     }
+                    kaertchenfarbe
                 } header: {
                     Text("Wie es aussieht")
                 } footer: {
-                    Text("Bei „Beim Bearbeiten“ bleibt die Liste im Unterricht verborgen — "
-                         + "so lässt sich nicht ablesen, wer noch fehlt.")
+                    Text(fussZuEinzel)
                 }
             } else {
                 Section {
@@ -976,6 +990,8 @@ private struct NamePickerSettings: View {
                     }
 
                     Toggle("Ergebnis festhalten", isOn: $content.festgehalten)
+
+                    kaertchenfarbe
                 } header: {
                     Text("Wie es aussieht")
                 } footer: {
@@ -983,6 +999,37 @@ private struct NamePickerSettings: View {
                 }
             }
         }
+    }
+
+    /// Farbe der Namenskärtchen — dieselben Zeilen in beiden Ansichten.
+    ///
+    /// Aus heißt: wie bisher, eine ruhige Aufhellung des Untergrunds. Erst
+    /// der Schalter macht daraus eine feste Farbe; nur so bleibt die Vorgabe
+    /// erkennbar von einer bewussten Wahl unterschieden.
+    @ViewBuilder
+    private var kaertchenfarbe: some View {
+        Toggle("Eigene Farbe der Kärtchen", isOn: Binding(
+            get: { !content.kartenfarbe.isEmpty },
+            set: { an in
+                content.kartenfarbe = an ? "#0f9b8e" : ""
+                if !an { content.kartenfarbe2 = "" }
+            }
+        ))
+        if !content.kartenfarbe.isEmpty {
+            Verlaufwahl(titel: "Farbe der Kärtchen",
+                        von: $content.kartenfarbe, bis: $content.kartenfarbe2)
+        }
+    }
+
+    private var fussZuEinzel: String {
+        "Bei „Beim Bearbeiten“ bleibt die Liste im Unterricht verborgen — so lässt "
+        + "sich nicht ablesen, wer noch fehlt.\n\n" + fussZuKartenfarbe
+    }
+
+    private var fussZuKartenfarbe: String {
+        "Die Kärtchen sind ab Werk nur eine leichte Aufhellung des Untergrunds. "
+        + "Eine eigene Farbe macht sie kräftig; die Schrift darauf stellt sich "
+        + "auf hell oder dunkel ein, solange keine eigene Schriftfarbe gewählt ist."
     }
 
     /// Als eigene Größe, damit der Übersetzer nicht über einem
@@ -997,6 +1044,7 @@ private struct NamePickerSettings: View {
             text += "\n\nIn der Zählansicht löst ein Tipp auf ein Kärtchen keine "
                 + "Neuauslosung mehr aus — dafür ist der Knopf unten da."
         }
+        text += "\n\n" + fussZuKartenfarbe
         return text
     }
 

@@ -170,13 +170,32 @@ struct GruppenAnsicht: View {
         .opacity(erledigt ? 0.45 : 1)
     }
 
+    /// Fläche eines Namenskärtchens — eigene Farbe, sonst wie bisher eine
+    /// ruhige Aufhellung des Untergrunds.
+    private var kartenfuellung: AnyShapeStyle {
+        guard let von = content.kartenfarbe.nonEmpty else { return AnyShapeStyle(style.wash) }
+        return Fuellung.stil(von, content.kartenfarbe2)
+    }
+
+    /// Schrift auf dem Kärtchen.
+    ///
+    /// Reihenfolge mit Absicht: Eine ausdrücklich gewählte Schriftfarbe gilt
+    /// immer. Sonst richtet sich die Schrift nach der Kartenfarbe — wer die
+    /// Kärtchen dunkel einfärbt, will nicht auch noch die Schrift nachziehen
+    /// müssen.
+    private var kartenschrift: Color {
+        if let eigene = style.schriftfarbe { return eigene }
+        guard let von = content.kartenfarbe.nonEmpty else { return style.ink }
+        return Fuellung.istHell(von) ? Color(hex: "#0b1020") : .white
+    }
+
     private func kaertchen(_ id: String, stelle: Int, schrift: Double) -> some View {
         let blass = frage.map { stelle >= $0 } ?? false
         let offen = fertigBis.map { stelle >= $0 } ?? false
         let stand = content.zaehler[id] ?? 0
         return Text(offen ? wirbelName(stelle) : nameZu(id))
             .font(Theme.font(schrift, weight: .bold))
-            .foregroundStyle(style.ink)
+            .foregroundStyle(kartenschrift)
             .lineLimit(2)
             .minimumScaleFactor(0.35)
             .multilineTextAlignment(.center)
@@ -184,7 +203,7 @@ struct GruppenAnsicht: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background {
                 RoundedRectangle(cornerRadius: metrics.em(0.5), style: .continuous)
-                    .fill(style.wash)
+                    .fill(kartenfuellung)
                     .overlay {
                         RoundedRectangle(cornerRadius: metrics.em(0.5), style: .continuous)
                             .strokeBorder(offen ? style.accent.opacity(0.7) : .clear,
