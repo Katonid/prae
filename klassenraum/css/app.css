@@ -407,6 +407,13 @@ body.is-stacked .dock-toggle { display: none; }
 .stage__bg--plain::after,
 .stage__bg--plain > i { display: none; }
 
+/* Auf einfarbigen Flächen fällt die Vignette schneller auf — dort dezenter. */
+.stage__bg--plain > b {
+  background:
+    radial-gradient(120% 85% at 50% -10%, rgba(255, 255, 255, 0.09), transparent 55%),
+    radial-gradient(140% 120% at 50% 115%, rgba(2, 6, 23, 0.16), transparent 55%);
+}
+
 .stage__bg--image { background-size: cover; background-position: center; }
 
 @keyframes drift-a {
@@ -515,6 +522,10 @@ body[data-labels="never"] .w-symbol__label { display: none; }
   box-shadow: none;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
+  /* Der Schlagschatten des Inhalts darf über die (unsichtbare) Kachelgrenze
+     hinauslaufen — sonst wird er dort hart abgeschnitten und auf hellen
+     Hintergründen sind rechteckige Schattenkanten zu sehen. */
+  overflow: visible;
   --card-ink: #f8fafc;
   --card-ink-soft: rgba(248, 250, 252, 0.75);
   --card-line: rgba(255, 255, 255, 0.22);
@@ -524,7 +535,7 @@ body[data-labels="never"] .w-symbol__label { display: none; }
 }
 
 .widget--bare::after { box-shadow: none; }
-.widget--bare .widget__inner { filter: drop-shadow(0 10px 22px rgba(2, 6, 23, 0.6)); }
+.widget--bare .widget__inner { filter: drop-shadow(0 10px 22px rgba(2, 6, 23, 0.45)); }
 .widget--bare .w-text { background: transparent !important; }
 
 /* Das Zifferblatt bleibt eine helle Scheibe — Zahlen und Zeiger darauf dunkel. */
@@ -550,7 +561,15 @@ body.is-light-board .widget--bare {
   --surface-soft-2: rgba(15, 23, 42, 0.16);
 }
 
-body.is-light-board .widget--bare .widget__inner { filter: drop-shadow(0 10px 20px rgba(15, 23, 42, 0.32)); }
+body.is-light-board .widget--bare .widget__inner { filter: drop-shadow(0 10px 20px rgba(15, 23, 42, 0.26)); }
+
+/* Klangtasten und Arbeitssymbole bringen ihre eigenen Schatten mit — der
+   zusätzliche Schlagschatten des Rahmenlos-Stils würde diese Schatten noch
+   einmal schattieren (fleckige Doppelkanten, s. iPad-Rückmeldung 08/2026). */
+.widget--bare .widget__inner:has(.w-sound),
+.widget--bare .widget__inner:has(.w-symbol),
+body.is-light-board .widget--bare .widget__inner:has(.w-sound),
+body.is-light-board .widget--bare .widget__inner:has(.w-symbol) { filter: none; }
 
 .tool-button.is-on { background: rgba(255, 255, 255, 0.2); color: #fff; }
 
