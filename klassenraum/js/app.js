@@ -24,6 +24,7 @@ import { SCHEMES } from './theme.js';
 import { FONTS, applyFont, currentFontId, setFont } from './fonts.js';
 import { initSharing, openSharePanel, isFollowing } from './share.js';
 import { initSync, onSyncChanged } from './sync.js';
+import { initCoupling } from './couple.js';
 import {
   openPanel, closePanel, section, field, button, buttonRow, toggleRow, toast,
   confirmDialog, promptDialog, colorSwatches, modal,
@@ -1024,6 +1025,7 @@ async function boot() {
   wireChrome();
   initSharing();
   initSync();
+  initCoupling();
   // Den Browser bitten, den Speicher nicht von selbst zu leeren (hilft auf
   // Whiteboards und iPads, deren System sonst nach Tagen aufräumt).
   if (navigator.storage && navigator.storage.persist) {

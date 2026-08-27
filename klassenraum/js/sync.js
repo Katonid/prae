@@ -158,7 +158,7 @@ async function pushChanges() {
 
 /* ---------- Dateien (Klänge, Videos) ---------- */
 
-function blobToBase64(blob) {
+export function blobToBase64(blob) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(String(reader.result).split(',')[1] || '');
@@ -167,7 +167,7 @@ function blobToBase64(blob) {
   });
 }
 
-async function base64ToBlob(data, type) {
+export async function base64ToBlob(data, type) {
   const response = await fetch(`data:${type || 'application/octet-stream'};base64,${data}`);
   return response.blob();
 }
@@ -636,7 +636,15 @@ export function initSync() {
     const remembered = await spaceOfAccount().catch(() => null);
 
     if (!current.spaceId) {
-      if (!remembered) return;
+      if (!remembered) {
+        // Konto ganz neu und Gerät ohne Bereich: Abgleich automatisch
+        // einrichten — „gleiche Anmeldung = gleiche Inhalte" soll ohne
+        // weiteren Handgriff gelten. startSync merkt den Bereich am Konto.
+        try {
+          await startSync();
+        } catch (_) { /* ohne Netz beim nächsten Mal */ }
+        return;
+      }
       current.spaceId = remembered;
       current.pushed = {};
       await saveNow();

@@ -17,6 +17,7 @@ import {
 import { isFreshStart } from './store.js';
 import { openPanel, section, field, button, buttonRow, toggleRow, toast, confirmDialog } from './ui.js';
 import { renderBoard } from './board.js';
+import { coupleNow } from './couple.js';
 
 let applyingRemote = false;
 let unsubscribeFollow = null;
@@ -223,7 +224,24 @@ export function openSharePanel(prefillCode = '', prefillSyncCode = '') {
 
     /* --- eigenen Klassenraum teilen --- */
     const shareBox = h('div', { class: 'stack' });
-    if (entry && entry.code && !entry.follow) {
+    if (entry && entry.code && entry.coupled && !entry.follow) {
+      shareBox.append(
+        h('p', { class: 'muted small' },
+          `Dieser Klassenraum ist über den Code ${entry.code} gekoppelt: Auslosungs- und Klangfelder samt `
+          + 'ausgelosten und abgehakten Namen bleiben auf allen verknüpften Geräten gleich; neue solche Felder der '
+          + 'teilenden Person erscheinen auch hier (und dürfen gelöscht werden — sie kommen nicht zurück). '
+          + 'Anordnung, Hintergrund und alles andere bleiben unabhängig.'),
+        buttonRow(button('Kopplung beenden', {
+          icon: 'close', small: true,
+          onClick: () => {
+            delete getState().cloud.shares[board.id];
+            saveNow();
+            coupleNow();
+            render();
+            toast('Kopplung beendet — dieser Klassenraum ist jetzt eigenständig.', 'success');
+          },
+        })));
+    } else if (entry && entry.code && !entry.follow) {
       shareBox.append(
         h('div', { class: 'code-display' },
           h('span', { class: 'code-display__label' }, 'Teilen-Code'),
@@ -300,6 +318,7 @@ export function openSharePanel(prefillCode = '', prefillSyncCode = '') {
               const created = await publishBoard(board, {});
               getState().cloud.shares[board.id] = Object.assign({ autoPush: true, follow: false }, created);
               saveNow();
+              coupleNow();
               render();
               toast('Code erstellt.', 'success');
             } catch (error) {
@@ -329,6 +348,15 @@ export function openSharePanel(prefillCode = '', prefillSyncCode = '') {
           return;
         }
         const incoming = JSON.parse(JSON.stringify(payload.board));
+        // Auslosungs- und Klangfelder behalten ihre Herkunfts-Kennung —
+        // darüber bleiben sie nach dem Laden mit dem Code gekoppelt.
+        for (const page of incoming.pages || [{ widgets: incoming.widgets || [] }]) {
+          for (const widget of page.widgets || []) {
+            if (widget && (widget.type === 'randomizer' || widget.type === 'sound') && !widget.originId) {
+              widget.originId = widget.id;
+            }
+          }
+        }
         if (!follow) {
           const taken = getState().boards.some((entry) => entry.name === incoming.name);
           if (taken) incoming.name = `${incoming.name} (Kopie)`;
@@ -336,12 +364,19 @@ export function openSharePanel(prefillCode = '', prefillSyncCode = '') {
         const created = importBoard(incoming);
         if (follow) {
           getState().cloud.shares[created.id] = { code: value, follow: true, autoPush: false };
+        } else {
+          // Kopie bleibt gekoppelt: Auslosungs-/Klangfelder und deren Stand
+          // wandern weiter zwischen allen Geräten mit diesem Code.
+          getState().cloud.shares[created.id] = { code: value, coupled: true, follow: false, autoPush: false };
         }
         saveNow();
         renderBoard();
         syncFollow();
+        coupleNow();
         render();
-        toast(follow ? 'Klassenraum geladen — folgt jetzt live.' : 'Kopie geladen.', 'success');
+        toast(follow
+          ? 'Klassenraum geladen — folgt jetzt live.'
+          : 'Kopie geladen — Auslosungen und Klangfelder bleiben über den Code verbunden.', 'success');
       } catch (error) {
         toast('Laden nicht möglich — Internetverbindung prüfen.', 'warn');
       }
