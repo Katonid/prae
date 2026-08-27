@@ -462,7 +462,7 @@ final class BoardStore: ObservableObject {
             content.listID = visibleNameLists.first?.id
             widget.content = .namePicker(content)
         }
-        widget.clampToCanvas()
+        widget.clampToCanvas(hoehe: boards[boardIndex].hoehe)
         // Auf der Seite anlegen, die gerade zu sehen ist.
         widget.pageID = aktiveSeitenID
         boards[boardIndex].widgets.append(widget)
@@ -593,7 +593,7 @@ final class BoardStore: ObservableObject {
         // Ausgeblendetes wäre auf der neuen Tafel unsichtbar und niemand
         // wüsste, dass es da ist.
         neu.versteckt = false
-        neu.clampToCanvas()
+        neu.clampToCanvas(hoehe: boards[zielIndex].hoehe)
         boards[zielIndex].widgets.append(neu)
 
         if !kopieren {
@@ -705,7 +705,7 @@ final class BoardStore: ObservableObject {
         var best = CGPoint(x: 60, y: 60)
         var bestOverlap = Double.greatestFiniteMagnitude
         var y = 40.0
-        while y + boxHeight <= Layout.canvasHeight - 40 {
+        while y + boxHeight <= board.hoehe - 40 {
             var x = 40.0
             while x + boxWidth <= Layout.canvasWidth - 40 {
                 let candidate = CGRect(x: x, y: y, width: boxWidth, height: boxHeight)
@@ -786,8 +786,8 @@ final class BoardStore: ObservableObject {
         else { return }
         var copy = source
         copy.id = UUID().uuidString
-        copy.x = min(source.x + 40, Layout.canvas.width - source.width)
-        copy.y = min(source.y + 40, Layout.canvas.height - source.height)
+        copy.x = min(source.x + 40, Layout.canvasWidth - source.width)
+        copy.y = min(source.y + 40, boards[boardIndex].hoehe - source.height)
         copy.z = (boards[boardIndex].widgets.map(\.z).max() ?? 0) + 1
         boards[boardIndex].widgets.append(copy)
         selectedWidgetID = copy.id
@@ -798,6 +798,20 @@ final class BoardStore: ObservableObject {
         guard let boardIndex = boards.firstIndex(where: { $0.id == boardID }) else { return }
         let top = (boards[boardIndex].widgets.map(\.z).max() ?? 0) + 1
         updateWidget(widgetID, in: boardID) { $0.z = top }
+    }
+
+    /// Wechselt das Seitenverhältnis der Tafel.
+    ///
+    /// Die Breite bleibt bei 1600 Punkten; nur die Höhe ändert sich. Wer
+    /// beim Wechsel auf ein flacheres Format unten überstand, rückt herein —
+    /// besser, als unsichtbar zu werden.
+    func setzeFormat(_ format: Tafelformat, boardID: String) {
+        guard let index = boards.firstIndex(where: { $0.id == boardID }),
+              boards[index].format != format
+        else { return }
+        boards[index].format = format
+        boards[index].passeElementeAn()
+        touch(boardID)
     }
 
     /// Verschiebt ein Element in der Reihenfolge um einen Platz.

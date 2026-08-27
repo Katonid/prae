@@ -97,8 +97,9 @@ struct BeamerTafelView: View {
         // deshalb den ganzen Bildschirm, die Elemente sitzen mittig darauf —
         // so entstehen keine schwarzen Balken.
         let seite = sichtbareSeite(board)
+        let hoehe = board.hoehe
         let scale = min(flaeche.width / Layout.canvasWidth,
-                        flaeche.height / Layout.canvasHeight)
+                        flaeche.height / hoehe)
         return ZStack {
             BoardBackgroundView(background: board.background)
                 .ignoresSafeArea()
@@ -123,13 +124,13 @@ struct BeamerTafelView: View {
                 DrawingLayerView(drawing: .constant(board.handschrift(auf: seite)),
                                  active: false, pencilOnly: false,
                                  dunklerGrund: board.background.wirktDunkel)
-                    .frame(width: Layout.canvasWidth, height: Layout.canvasHeight)
+                    .frame(width: Layout.canvasWidth, height: hoehe)
                     .allowsHitTesting(false)
             }
-            .frame(width: Layout.canvasWidth, height: Layout.canvasHeight,
+            .frame(width: Layout.canvasWidth, height: hoehe,
                    alignment: .topLeading)
             .scaleEffect(scale)
-            .frame(width: Layout.canvasWidth * scale, height: Layout.canvasHeight * scale)
+            .frame(width: Layout.canvasWidth * scale, height: hoehe * scale)
         }
         .environment(\.boardStyle, BoardStyle(board: board, editing: false))
     }
