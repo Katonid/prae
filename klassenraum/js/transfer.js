@@ -68,6 +68,52 @@ export async function transferWidget(widgetId, targetBoardId, { move = false, ta
   return true;
 }
 
+/* ---------- Zwischenablage (aus der Tafelbild-App) ---------- */
+
+/**
+ * Ein Element merken. Liegt in den Geräte-Einstellungen (übersteht den
+ * Neustart, wandert nicht in den Abgleich) — auf jeder Seite und jeder Tafel
+ * steht danach vorn in der Elementleiste „Einfügen".
+ */
+export function copyWidgetToClipboard(widgetId) {
+  const board = getActiveBoard();
+  const page = board && (board.pages || []).find((entry) => (entry.widgets || []).some((w) => w.id === widgetId));
+  const widget = page && page.widgets.find((w) => w.id === widgetId);
+  if (!widget) return false;
+  const data = JSON.parse(JSON.stringify(widget));
+  delete data.id;
+  // Die Kopie löst sich von der Kopplung — sonst hingen zwei Elemente
+  // an demselben gekoppelten Stand.
+  delete data.originId;
+  getState().settings.clipboard = { at: Date.now(), widget: data };
+  touch({ board: false, reason: 'clipboard' });
+  return true;
+}
+
+/** Der gemerkte Inhalt der Zwischenablage — oder null. */
+export function clipboardWidget() {
+  const clip = getState().settings.clipboard;
+  return clip && clip.widget && clip.widget.type ? clip : null;
+}
+
+/** Das gemerkte Element auf der aufgeschlagenen Seite einfügen. */
+export async function pasteWidgetFromClipboard() {
+  const clip = clipboardWidget();
+  const board = getActiveBoard();
+  const page = getActivePage(board);
+  if (!clip || !board || !page) return null;
+  const copy = await cloneWidget(clip.widget, { copyMedia: true });
+  // Leicht versetzt, damit mehrmaliges Einfügen nicht deckungsgleich stapelt.
+  const cascade = (page.widgets || []).length % 6;
+  copy.x = (Number(copy.x) || 100) + cascade * 26;
+  copy.y = (Number(copy.y) || 100) + cascade * 20;
+  clampToBoard(copy, board);
+  copy.z = Math.max(0, ...page.widgets.map((w) => w.z || 1)) + 1;
+  page.widgets.push(copy);
+  touch({ reason: 'widget-add' });
+  return copy;
+}
+
 /** Eine ganze Seite (Elemente + Zeichnungen) in einen anderen Klassenraum übertragen. */
 export async function transferPage(pageId, targetBoardId, { move = false } = {}) {
   const source = getActiveBoard();

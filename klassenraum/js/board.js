@@ -1,6 +1,6 @@
 // Die Tafelfläche: Elemente anzeigen, verschieben, vergrößern, auswählen.
 
-import { h, clear, clamp, armTapGuard } from './util.js';
+import { h, clear, clamp, armTapGuard, reducedMotion } from './util.js';
 import { icon } from './icons.js';
 import { getWidgetType } from './widgets/index.js';
 import {
@@ -8,7 +8,7 @@ import {
   duplicateWidget, nextZ, on as onStore, setActivePage,
 } from './store.js';
 import { openPanel, closePanel, confirmDialog, field, button, buttonRow, toast } from './ui.js';
-import { transferWidget } from './transfer.js';
+import { transferWidget, copyWidgetToClipboard } from './transfer.js';
 import { applyScheme } from './theme.js';
 
 const instances = new Map();
@@ -455,10 +455,33 @@ function isLight(background) {
   return (0.299 * r + 0.587 * g + 0.114 * b) > 165;
 }
 
+// Zuletzt gezeigte Seite — daraus ergibt sich die Blätter-Richtung fürs
+// Hereingleiten der neuen Seite (wie in der Tafelbild-App).
+let lastShownPage = null;
+
+function slideCanvas(direction) {
+  if (!canvasEl || !direction || stackMode || reducedMotion()) return;
+  canvasEl.classList.remove('is-slide-vor', 'is-slide-zurueck');
+  void canvasEl.offsetWidth;
+  canvasEl.classList.add(direction > 0 ? 'is-slide-vor' : 'is-slide-zurueck');
+  setTimeout(() => {
+    if (canvasEl) canvasEl.classList.remove('is-slide-vor', 'is-slide-zurueck');
+  }, 400);
+}
+
 export function renderBoard() {
   const board = getActiveBoard();
   if (!board || !canvasEl) return;
   applyBackground();
+
+  // Umgeblättert? Dann gleitet die neue Seite aus der Richtung herein, in
+  // die geblättert wird — egal ob per Wisch, Leiste, Seiten-Panel oder Abgleich.
+  const pageIndex = (board.pages || []).findIndex((page) => page.id === board.activePageId);
+  let slide = 0;
+  if (lastShownPage && lastShownPage.board === board.id && lastShownPage.page !== board.activePageId) {
+    slide = Math.sign(pageIndex - lastShownPage.index) || 0;
+  }
+  lastShownPage = { board: board.id, page: board.activePageId, index: pageIndex };
 
   const seen = new Set();
   for (const widget of widgetsOf(board)) {
@@ -487,6 +510,7 @@ export function renderBoard() {
   updateScale();
   layout();
   renderSelection();
+  if (slide) slideCanvas(slide);
 }
 
 function makeContext(widget) {
@@ -1045,6 +1069,14 @@ function renderSelection() {
       class: 'tool-button', title: 'Duplizieren',
       onclick: () => duplicateWidget(widget.id),
       html: icon('copy', 18),
+    }),
+    h('button', {
+      class: 'tool-button', title: 'Kopieren — zum Einfügen auf einer anderen Seite oder Tafel',
+      onclick: () => {
+        if (!copyWidgetToClipboard(widget.id)) return;
+        toast('Gemerkt — „Einfügen“ steht jetzt vorn in der Elementleiste.', 'success');
+      },
+      html: icon('download', 18),
     }),
     h('button', {
       class: 'tool-button' + (widget.bare ? ' is-on' : ''), title: widget.bare ? 'Rahmen zeigen' : 'Rahmen ausblenden',

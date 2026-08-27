@@ -105,9 +105,22 @@ function drumTick(progress = 0, delay = 0) {
 }
 
 /** Glücksrad: trockenes Klacken einer Ratsche. */
-function wheelTick(delay = 0) {
-  noiseBurst({ duration: 0.02, gain: 0.42, frequency: 3200, q: 3.5, delay });
-  tone({ frequency: 900, duration: 0.02, gain: 0.1, type: 'square', bend: -260, delay });
+function wheelTick(delay = 0, gain = 0.42) {
+  noiseBurst({ duration: 0.02, gain, frequency: 3200, q: 3.5, delay });
+  tone({ frequency: 900, duration: 0.02, gain: gain * 0.24, type: 'square', bend: -260, delay });
+}
+
+/**
+ * Kurzer Ratschenlauf (wie in der Tafelbild-App): mehrere Klicks, die
+ * langsamer werden — der letzte fällt genau auf das Einrasten des Kärtchens.
+ * `lead` ist die Gesamtdauer in Sekunden; der Aufruf erfolgt so früh vorher.
+ */
+export function wheelRun(lead = 0.32) {
+  const steps = [0, 0.14, 0.3, 0.48, 0.72, 1];
+  steps.forEach((fraction, index) => {
+    const last = index === steps.length - 1;
+    wheelTick(fraction * lead, last ? 0.45 : 0.2 + fraction * 0.14);
+  });
 }
 
 export const SPIN_SOUNDS = [
@@ -147,6 +160,20 @@ export function spinEnd(soundId, delay = 0) {
   // Karten: zwei kurze Stöße — der Stapel wird auf dem Tisch gerade geklopft.
   noiseBurst({ duration: 0.07, gain: 0.34, frequency: 900, q: 0.9, delay });
   noiseBurst({ duration: 0.09, gain: 0.26, frequency: 700, q: 0.9, delay: delay + 0.085 });
+}
+
+/* ---------- Zählansicht (aus der Tafelbild-App) ---------- */
+
+/** Kassenglocke beim Hochzählen: heller Doppelklang mit kurzem Anschlag. */
+export function countUp(delay = 0) {
+  noiseBurst({ duration: 0.025, gain: 0.1, frequency: 5200, q: 1.1, delay });
+  tone({ frequency: 1568, duration: 0.34, gain: 0.16, type: 'sine', delay });
+  tone({ frequency: 2349, duration: 0.26, gain: 0.09, type: 'sine', delay: delay + 0.012 });
+}
+
+/** Wisch beim Zurücknehmen: kurzes, abfallendes Kratzen. */
+export function countDown(delay = 0) {
+  noiseBurst({ duration: 0.16, gain: 0.2, frequency: 2100, q: 0.7, sweep: -1400, delay });
 }
 
 /* ---------- Benachrichtigungsklänge (z. B. Timer-Ende) ---------- */
