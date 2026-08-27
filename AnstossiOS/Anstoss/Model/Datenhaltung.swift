@@ -24,19 +24,20 @@ final class Datenhaltung: ObservableObject {
     @Published private(set) var tickerFehler: String?
     @Published private(set) var letzterAbruf: Date?
 
+    @Published private(set) var nachrichten: [Nachricht] = []
+    @Published private(set) var nachrichtenLaeuft = false
+
     @Published private(set) var spieltage: [Liga: [Int: [Spiel]]] = [:]
     @Published private(set) var tabellen: [Liga: Tabelle] = [:]
     @Published private(set) var laufenderSpieltag: [Liga: Int] = [:]
     @Published private(set) var ligaFehler: [Liga: String] = [:]
     @Published private(set) var ligaLaedt: Set<Liga> = []
 
-    private var letzterStand: [Int: Spiel] = [:]
     private var abrufzeit: [String: Date] = [:]
     /// Was gerade schon unterwegs ist. Ohne das laufen zwei gleiche
     /// Abfragen nebeneinander — bei zehn Abfragen je Minute zählt jede.
     private var imFlug: Set<String> = []
     private static let beispielSchluessel = "beispielmodus"
-    private static let tickerGrenze = 250
 
     var schluesselVorhanden: Bool { !schluessel.isEmpty }
     /// Ob die App gerade echte Daten holen kann.
@@ -50,6 +51,7 @@ final class Datenhaltung: ObservableObject {
         schluessel = Schluesselbund.lesen()
         beispielmodus = UserDefaults.standard.bool(forKey: Self.beispielSchluessel)
         ticker = Tickerspeicher.laden()
+        nachrichten = Nachrichtenspeicher.laden()
     }
 
     func schluesselSetzen(_ neu: String) {
@@ -73,12 +75,34 @@ final class Datenhaltung: ObservableObject {
         ligaFehler = [:]
         abrufzeit = [:]
         imFlug = []
-        letzterStand = [:]
+        Standspeicher.leeren()
         liveSpiele = []
         ticker = []
         Tickerspeicher.sichern([])
         letzterAbruf = nil
         tickerFehler = nil
+    }
+
+    // MARK: Nachrichten rund um die Ligen
+
+    /// Holt die Ligameldungen. Ohne `erzwingen` nur, wenn seit dem letzten
+    /// Abruf genug Zeit vergangen ist — die Quellen sollen nicht bei jedem
+    /// Blick auf die Liste erneut behelligt werden.
+    func nachrichtenLaden(wunsch: Meldungswunsch, erzwingen: Bool = false) async {
+        guard wunsch.willNachrichten else {
+            nachrichten = []
+            return
+        }
+        guard !nachrichtenLaeuft else { return }
+        nachrichtenLaeuft = true
+        defer { nachrichtenLaeuft = false }
+        nachrichten = await Nachrichtenpflege.durchgang(wunsch: wunsch, erzwingen: erzwingen)
+    }
+
+    func nachrichtenLeeren() {
+        nachrichten = []
+        Nachrichtenspeicher.leeren()
+        Nachrichtenpflege.zeitVergessen()
     }
 
     // MARK: Liveticker
@@ -106,6 +130,7 @@ final class Datenhaltung: ObservableObject {
                 frisch = try await dienst.spieleHeute()
             }
             meldungenAblegen(frisch)
+            Vereinsverzeichnis.merken(spiele: frisch)
             liveSpiele = frisch.sorted(by: Self.reihenfolge)
             letzterAbruf = Date()
             tickerFehler = nil
@@ -114,121 +139,34 @@ final class Datenhaltung: ObservableObject {
         }
     }
 
-    /// Vergleicht den neuen Stand mit dem letzten und schreibt daraus die
-    /// Tickermeldungen. So entsteht ein echter Ticker, auch wenn der Dienst
-    /// selbst keine Ereignisse liefert.
+    /// Vergleicht den neuen Stand mit dem gesicherten, schreibt die Meldungen
+    /// in den Ticker und schickt sie — soweit freigeschaltet — als Mitteilung
+    /// auf den Sperrbildschirm. Die Rechnung selbst steckt im `Tickerwerk`,
+    /// damit der Hintergrundlauf dieselbe macht.
     private func meldungenAblegen(_ frisch: [Spiel]) {
-        var neue: [Tickermeldung] = []
+        let vorher = Standspeicher.laden()
+        let neue = Tickerwerk.meldungen(frisch: frisch, vorher: vorher)
 
-        /// Meldungen bekommen die Spielzeit als Zeitstempel, nicht den
-        /// Augenblick des Abrufs — so stehen sie auch dann in der richtigen
-        /// Reihenfolge, wenn mehrere auf einmal hereinkommen.
-        func zeitpunkt(_ spiel: Spiel, _ minute: Int?) -> Date {
-            guard let minute else { return Date() }
-            return spiel.anstoss.addingTimeInterval(TimeInterval(minute * 60))
-        }
-
-        for spiel in frisch {
-            let vorher = letzterStand[spiel.id]
-            let paarung = "\(spiel.heim.anzeige) – \(spiel.gast.anzeige)"
-
-            // Zustandswechsel
-            if vorher?.status != spiel.status {
-                switch spiel.status {
-                case .laeuft where vorher == nil || vorher?.status == .geplant:
-                    neue.append(Tickermeldung(id: "\(spiel.id)-anpfiff",
-                                              zeitpunkt: spiel.anstoss,
-                                              liga: spiel.liga,
-                                              spielID: spiel.id,
-                                              art: .anpfiff,
-                                              paarung: paarung,
-                                              stand: spiel.standtext,
-                                              zusatz: "Anpfiff",
-                                              minute: nil))
-                case .pause:
-                    neue.append(Tickermeldung(id: "\(spiel.id)-halbzeit",
-                                              zeitpunkt: zeitpunkt(spiel, 45),
-                                              liga: spiel.liga,
-                                              spielID: spiel.id,
-                                              art: .halbzeit,
-                                              paarung: paarung,
-                                              stand: spiel.standtext,
-                                              zusatz: "Halbzeit",
-                                              minute: 45))
-                case .beendet:
-                    neue.append(Tickermeldung(id: "\(spiel.id)-abpfiff",
-                                              zeitpunkt: zeitpunkt(spiel, 105),
-                                              liga: spiel.liga,
-                                              spielID: spiel.id,
-                                              art: .abpfiff,
-                                              paarung: paarung,
-                                              stand: spiel.standtext,
-                                              zusatz: "Abpfiff",
-                                              minute: nil))
-                default:
-                    break
-                }
-            }
-
-            // Tore: bevorzugt aus der Torliste des Dienstes, sonst aus dem
-            // Sprung im Spielstand.
-            if !spiel.tore.isEmpty {
-                for tor in spiel.tore {
-                    let stand = tor.standHeim != nil && tor.standGast != nil
-                        ? "\(tor.standHeim ?? 0):\(tor.standGast ?? 0)"
-                        : spiel.standtext
-                    neue.append(Tickermeldung(id: "\(spiel.id)-tor-\(tor.id)",
-                                              zeitpunkt: zeitpunkt(spiel, tor.minute),
-                                              liga: spiel.liga,
-                                              spielID: spiel.id,
-                                              art: .tor,
-                                              paarung: paarung,
-                                              stand: stand,
-                                              zusatz: "\(tor.schuetze) (\(tor.fuerHeim ? spiel.heim.anzeige : spiel.gast.anzeige))",
-                                              minute: tor.minute))
-                }
-            } else if let vorher, vorher.hatStand, spiel.hatStand {
-                let alteHeim = vorher.toreHeim ?? 0
-                let alteGast = vorher.toreGast ?? 0
-                let neueHeim = spiel.toreHeim ?? 0
-                let neueGast = spiel.toreGast ?? 0
-                if neueHeim > alteHeim {
-                    neue.append(torMeldung(spiel: spiel, paarung: paarung, fuerHeim: true, nummer: neueHeim))
-                }
-                if neueGast > alteGast {
-                    neue.append(torMeldung(spiel: spiel, paarung: paarung, fuerHeim: false, nummer: neueGast))
-                }
-            }
-
-            letzterStand[spiel.id] = spiel
-        }
+        var stand = vorher
+        for spiel in frisch { stand[spiel.id] = spiel }
+        Standspeicher.sichern(stand)
 
         guard !neue.isEmpty else { return }
-        var bekannt = Set(ticker.map(\.id))
-        var zusammen = ticker
-        for meldung in neue where !bekannt.contains(meldung.id) {
-            bekannt.insert(meldung.id)
-            zusammen.append(meldung)
-        }
-        zusammen.sort { links, rechts in
-            if links.zeitpunkt != rechts.zeitpunkt { return links.zeitpunkt > rechts.zeitpunkt }
-            return (links.minute ?? 0) > (rechts.minute ?? 0)
-        }
-        ticker = Array(zusammen.prefix(Self.tickerGrenze))
-        Tickerspeicher.sichern(ticker)
+        ticker = Tickerspeicher.anhaengen(neue)
+        Benachrichtiger.melden(neue, wunsch: Meldungswunsch.gesichert())
     }
 
-    private func torMeldung(spiel: Spiel, paarung: String, fuerHeim: Bool, nummer: Int) -> Tickermeldung {
-        let elf = fuerHeim ? spiel.heim : spiel.gast
-        return Tickermeldung(id: "\(spiel.id)-stand-\(spiel.standtext)-\(fuerHeim ? "h" : "g")-\(nummer)",
-                             zeitpunkt: Date(),
-                             liga: spiel.liga,
-                             spielID: spiel.id,
-                             art: .tor,
-                             paarung: paarung,
-                             stand: spiel.standtext,
-                             zusatz: "Tor für \(elf.anzeige)",
-                             minute: spiel.minute)
+    /// Stellt die Anpfiff-Wecker neu — aus allem, was die App gerade kennt:
+    /// heutige Spiele, geladene Spieltage und der gesicherte Stand.
+    func erinnerungenPflegen(wunsch: Meldungswunsch) async {
+        var eindeutig: [Int: Spiel] = Standspeicher.laden()
+        for spiel in liveSpiele { eindeutig[spiel.id] = spiel }
+        for (_, tage) in spieltage {
+            for (_, spiele) in tage {
+                for spiel in spiele { eindeutig[spiel.id] = spiel }
+            }
+        }
+        await Benachrichtiger.anstosserinnerungenPlanen(spiele: Array(eindeutig.values), wunsch: wunsch)
     }
 
     func tickerLeeren() {
@@ -261,6 +199,7 @@ final class Datenhaltung: ObservableObject {
             } else {
                 liste = try await dienst.spiele(liga: liga, spieltag: nummer)
             }
+            Vereinsverzeichnis.merken(spiele: liste)
             var tage = spieltage[liga] ?? [:]
             tage[nummer] = liste.sorted(by: Self.reihenfolge)
             spieltage[liga] = tage
@@ -291,6 +230,7 @@ final class Datenhaltung: ObservableObject {
                 tafel = try await dienst.tabelle(liga: liga)
             }
             tabellen[liga] = tafel
+            Vereinsverzeichnis.merken(tafel.zeilen.map(\.mannschaft), liga: liga)
             if laufenderSpieltag[liga] == nil, tafel.spieltag > 0 {
                 laufenderSpieltag[liga] = min(tafel.spieltag, liga.spieltage)
             }
@@ -354,6 +294,8 @@ final class Datenhaltung: ObservableObject {
 /// Der Ticker soll einen Programmstart überleben, aber nicht ewig
 /// wachsen: gesichert werden die letzten Meldungen der vergangenen Tage.
 enum Tickerspeicher {
+    private static let grenze = 250
+
     private static var ort: URL? {
         let ordner = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
         return ordner?.appendingPathComponent("ticker.json")
@@ -364,6 +306,25 @@ enum Tickerspeicher {
         let alle = (try? JSONDecoder().decode([Tickermeldung].self, from: daten)) ?? []
         let grenze = Date().addingTimeInterval(-60 * 60 * 30)
         return alle.filter { $0.zeitpunkt > grenze }
+    }
+
+    /// Fügt neue Meldungen hinzu, wirft Doppelte weg, sortiert und kürzt.
+    /// Gibt die neue Liste zurück, damit der Aufrufer sie anzeigen kann.
+    @discardableResult
+    static func anhaengen(_ neue: [Tickermeldung]) -> [Tickermeldung] {
+        var bekannt = Set<String>()
+        var zusammen: [Tickermeldung] = []
+        for meldung in laden() + neue where !bekannt.contains(meldung.id) {
+            bekannt.insert(meldung.id)
+            zusammen.append(meldung)
+        }
+        zusammen.sort { links, rechts in
+            if links.zeitpunkt != rechts.zeitpunkt { return links.zeitpunkt > rechts.zeitpunkt }
+            return (links.minute ?? 0) > (rechts.minute ?? 0)
+        }
+        let gekuerzt = Array(zusammen.prefix(grenze))
+        sichern(gekuerzt)
+        return gekuerzt
     }
 
     static func sichern(_ meldungen: [Tickermeldung]) {

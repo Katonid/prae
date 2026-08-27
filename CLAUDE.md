@@ -30,6 +30,32 @@ noch Commits auf denselben PR gepusht wurden — die hingen dann fest
   Antwort mit dem nächsten Link abwarten.** Ein bereits gemergter PR
   ist nie ein Problem; alles Weitere kommt automatisch als neuer PR.
 
+## iOS-Apps — zwei Dinge bei JEDER App, ohne Nachfrage
+
+Gilt für alle iOS-Projekte dieses Repos, auch für künftige neue Apps
+(Ansage des Nutzers, 08/2026). Beides einmal beim Anlegen setzen und
+danach bei jeder Arbeitseinheit mitziehen:
+
+1. **Keine eigene Verschlüsselung angeben.** In jedes Target gehört
+   `ITSAppUsesNonExemptEncryption = NO` — als Build-Einstellung
+   `INFOPLIST_KEY_ITSAppUsesNonExemptEncryption` (bei
+   `GENERATE_INFOPLIST_FILE = YES`) oder als Schlüssel in der
+   `Config/Info.plist`, je nachdem, wie das Projekt gebaut ist. Ohne
+   das fragt App Store Connect bei **jedem** TestFlight-Build nach der
+   Export-Compliance. Nie entfernen.
+2. **Build-Nummer bei jeder neuen Fassung um eins hochsetzen.**
+   Zusammen mit der Patch-Nummer, ohne Nachfrage, als Teil des PRs:
+   `MARKETING_VERSION` +1 in der letzten Stelle und
+   `CURRENT_PROJECT_VERSION` +1 — an allen Stellen im pbxproj (Debug
+   und Release, und bei mehreren Targets in allen). Hintergrund: App
+   Store Connect nimmt keinen Build an, dessen Nummer nicht höher ist
+   als die des vorherigen.
+
+   **Ausnahme:** Tagesspur und Tafelbild vergeben die Build-Nummer über
+   die Skript-Bauphase „Build-Nummer setzen" (Anzahl der Git-Commits).
+   Dort nur die Patch-Nummer heben und `CURRENT_PROJECT_VERSION` in
+   Ruhe lassen.
+
 ## Projekt Tagesspur — Versionierung
 
 - App-Code: `TagesspuriOS/` (vier Targets: App, Widgets, Watch,
@@ -114,18 +140,46 @@ noch Commits auf denselben PR gepusht wurden — die hingen dann fest
 - Der freie Zugang liefert nicht zu jedem Spiel Torschützen. Fehlen
   sie, baut `Datenhaltung.meldungenAblegen` die Tormeldungen aus dem
   Sprung im Spielstand — diesen Rückfall nicht entfernen.
-- `MARKETING_VERSION` steht an zwei Stellen im pbxproj (Debug +
-  Release). **Jede Arbeitseinheit (= jeder PR mit App-Änderungen) hebt
-  die Patch-Nummer um +1 an** — ohne Nachfrage, als Teil des PRs
-  (1.0.1 → 1.0.2 → 1.0.3 …). Größere Sprünge nur auf ausdrückliche
-  Ansage des Nutzers.
-- `ITSAppUsesNonExemptEncryption = NO` steht als Build-Einstellung
-  `INFOPLIST_KEY_ITSAppUsesNonExemptEncryption` — nicht entfernen.
+- `MARKETING_VERSION` und `CURRENT_PROJECT_VERSION` stehen an je zwei
+  Stellen im pbxproj (Debug + Release) — es gibt KEINE Skript-Bauphase,
+  beide Werte werden im Repo gepflegt. **Jede Arbeitseinheit (= jeder
+  PR mit App-Änderungen) hebt die Patch-Nummer UND die Build-Nummer um
+  je +1 an** — ohne Nachfrage, als Teil des PRs. Zählung ab 08/2026:
+  1.0.6 (Build 4), dann 1.0.7 (Build 5) usw. Größere Sprünge nur auf
+  ausdrückliche Ansage des Nutzers.
+- `ITSAppUsesNonExemptEncryption = NO` steht in `Config/Info.plist` UND
+  als Build-Einstellung `INFOPLIST_KEY_ITSAppUsesNonExemptEncryption` —
+  nicht entfernen, erspart die Export-Compliance-Frage bei jedem
+  TestFlight-Build.
+- **Mitteilungen sind örtlich, nicht Push.** Die App hat keinen Server.
+  `Tickerwerk` vergleicht den Stand, `Benachrichtiger` schickt die
+  Mitteilung, `Hintergrundpflege` holt den Stand nach, wenn iOS eine
+  Auffrischung gewährt (Kennung `de.familie.anstoss.spielstand`, muss
+  haargenau zu `Config/Info.plist` passen). Verlässlich auf die Minute
+  ist nur die Erinnerung vor dem Anpfiff. Wer hier „echte"
+  Push-Nachrichten verspricht, verspricht etwas, das ohne Server nicht
+  geht.
+- **Ligameldungen (Transfer, Gerüchte) kommen NICHT von
+  football-data.org** — der Dienst kennt nur Spieldaten. Sie kommen aus
+  freien RSS-Ausgaben (kicker, Transfermarkt) über
+  `Nachrichtendienst.swift`; die Einteilung in Transfer/Gerücht/
+  Verletzung schätzt `Nachrichtensieb` aus der Wortwahl, die Liga
+  kommt aus den Schlagworten der Quelle oder dem
+  `Vereinsverzeichnis`, das sich aus den geladenen Tabellen selbst
+  füllt. Keine gepflegte Vereinsliste in den Quelltext schreiben — die
+  veraltet jeden Sommer. Gelesen werden nur Überschrift und Anriss,
+  nie ganze Texte; abgefragt höchstens alle zehn Minuten.
 - Das App-Symbol erzeugt `scripts/anstoss-icon.py` (reines Python,
   ohne fremde Bibliotheken) — nicht von Hand bearbeiten.
 - Übersetzt wird in GitHub Actions: `.github/workflows/ios-apps-build.yml`
   baut die App bei jedem Push mit. **Erst pushen, Bau abwarten, Fehler
   beheben — den PR-Link erst herausgeben, wenn der Bau grün ist.**
+
+## Projekt Canada 2026 — entfernt
+
+Der Ordner `Canada2026iOS/` wurde vom Nutzer aus `main` gelöscht (08/2026).
+Die App wird nicht weiterentwickelt. **Nicht wiederherstellen**, keine
+Vorschläge dazu, und den Eintrag im Bau-Arbeitsablauf nicht zurückholen.
 
 ## Projekt Klassenraum (Web-App)
 

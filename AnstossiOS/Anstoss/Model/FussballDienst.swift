@@ -268,6 +268,13 @@ private struct RohSpiel: Decodable {
         let fullTime: Stand?
         let halfTime: Stand?
     }
+    struct RohKarte: Decodable {
+        struct Spieler: Decodable { let name: String? }
+        let minute: Int?
+        let team: RohMannschaft?
+        let player: Spieler?
+        let card: String?
+    }
     struct RohTor: Decodable {
         struct Spieler: Decodable { let name: String? }
         struct Stand: Decodable {
@@ -292,6 +299,7 @@ private struct RohSpiel: Decodable {
     let awayTeam: RohMannschaft?
     let score: Ergebnis?
     let goals: [RohTor]?
+    let bookings: [RohKarte]?
 
     func spiel(fallback: Liga?) -> Spiel? {
         guard let id,
@@ -313,6 +321,14 @@ private struct RohSpiel: Decodable {
                        standGast: roh.score?.away)
         }
 
+        let kartenliste: [Karte] = (bookings ?? []).enumerated().map { platz, roh in
+            Karte(id: "\(id)-karte-\(platz)",
+                  minute: roh.minute,
+                  farbe: Karte.Farbe(rohwert: roh.card ?? ""),
+                  spieler: roh.player?.name ?? "unbekannt",
+                  fuerHeim: roh.team?.id == heim.id)
+        }
+
         return Spiel(id: id,
                      liga: liga,
                      spieltag: matchday ?? 0,
@@ -325,6 +341,7 @@ private struct RohSpiel: Decodable {
                      toreGast: score?.fullTime?.away,
                      halbzeitHeim: score?.halfTime?.home,
                      halbzeitGast: score?.halfTime?.away,
-                     tore: torliste)
+                     tore: torliste,
+                     karten: kartenliste)
     }
 }

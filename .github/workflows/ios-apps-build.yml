@@ -35,7 +35,6 @@ jobs:
         include:
           - { ordner: AnstossiOS,        app: Anstoss }
           - { ordner: CadUsdEuriOS,      app: CadUsdEur }
-          - { ordner: Canada2026iOS,     app: Canada2026 }
           - { ordner: FlightMateiOS,     app: FlightMate }
           - { ordner: HimmelskompassiOS, app: Himmelskompass }
           - { ordner: KartenwalletiOS,   app: Kartenwallet }

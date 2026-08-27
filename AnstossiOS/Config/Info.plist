@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+
+	<!-- Ohne diesen Eintrag weist iOS die Hintergrundaufgabe beim Anmelden
+	     zurück. Die Kennung muss haargenau der in Hintergrundpflege.swift
+	     entsprechen. -->
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>de.familie.anstoss.spielstand</string>
+	</array>
+
+	<!-- "fetch" erlaubt der App, den Spielstand nachzuholen, während sie
+	     geschlossen ist. WANN das geschieht, entscheidet iOS allein — die App
+	     darf nur einen Wunsch anmelden. Kein "remote-notification": Es gibt
+	     keinen Server, der Push-Nachrichten schickte. -->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>fetch</string>
+	</array>
+</dict>
+</plist>

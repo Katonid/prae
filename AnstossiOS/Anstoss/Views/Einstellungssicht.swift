@@ -4,6 +4,7 @@ import SwiftUI
 /// Daten.
 struct Einstellungssicht: View {
     @EnvironmentObject private var daten: Datenhaltung
+    @EnvironmentObject private var meldungen: Meldungsverwaltung
     @State private var eingabe = ""
     @State private var loeschfrage = false
 
@@ -11,11 +12,18 @@ struct Einstellungssicht: View {
         NavigationStack {
             Form {
                 zugang
+                mitteilungen
+                ligameldungen
                 anzeige
                 herkunft
                 ueber
             }
             .navigationTitle("Einstellungen")
+            .navigationDestination(for: Ziel.self) { ziel in
+                switch ziel {
+                case .mitteilungen: Meldungssicht()
+                }
+            }
         }
     }
 
@@ -76,6 +84,38 @@ struct Einstellungssicht: View {
         return String(text.prefix(4)) + String(repeating: "•", count: 6) + String(text.suffix(2))
     }
 
+    // MARK: Mitteilungen
+
+    enum Ziel: Hashable {
+        case mitteilungen
+    }
+
+    private var mitteilungen: some View {
+        Section {
+            NavigationLink(value: Ziel.mitteilungen) {
+                HStack {
+                    Label("Mitteilungen", systemImage: "bell.badge")
+                    Spacer()
+                    Text(mitteilungsstand)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        } footer: {
+            Text("Welche Ereignisse gemeldet werden und für welche Spiele. Die Glocke für eine einzelne Begegnung sitzt in der Spielansicht.")
+        }
+    }
+
+    private var mitteilungsstand: String {
+        let wunsch = meldungen.wunsch
+        var teile: [String] = []
+        if !wunsch.ganzeLigen.isEmpty { teile.append("\(wunsch.ganzeLigen.count) Ligen") }
+        if !wunsch.einzelneSpiele.isEmpty { teile.append("\(wunsch.einzelneSpiele.count) Spiele") }
+        if !wunsch.nachrichtenarten.isEmpty { teile.append("Ligameldungen") }
+        if teile.isEmpty { return "aus" }
+        return teile.joined(separator: ", ")
+    }
+
     // MARK: Anzeige
 
     private var anzeige: some View {
@@ -89,6 +129,29 @@ struct Einstellungssicht: View {
             Text("Anzeige")
         } footer: {
             Text("Beispieldaten sind erfunden. Sie zeigen, wie Spieltage, Tabelle und Ticker aussehen — ohne Zugang und ohne Netz.")
+        }
+    }
+
+    // MARK: Ligameldungen
+
+    private var ligameldungen: some View {
+        Section {
+            HStack {
+                Label("Gesammelte Meldungen", systemImage: "newspaper")
+                Spacer()
+                Text("\(daten.nachrichten.count)")
+                    .foregroundStyle(.secondary)
+            }
+            Button(role: .destructive) {
+                daten.nachrichtenLeeren()
+            } label: {
+                Label("Ligameldungen löschen", systemImage: "trash")
+            }
+            .disabled(daten.nachrichten.isEmpty)
+        } header: {
+            Text("Ligameldungen")
+        } footer: {
+            Text("Transfers und Gerüchte kommen nicht von football-data.org, sondern aus freien RSS-Ausgaben von kicker und Transfermarkt. Welche Quellen gelesen werden, steht unter Mitteilungen.")
         }
     }
 

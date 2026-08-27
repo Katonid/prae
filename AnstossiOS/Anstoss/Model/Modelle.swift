@@ -83,6 +83,44 @@ struct Tor: Identifiable, Hashable, Codable {
     }
 }
 
+// MARK: - Karte
+
+struct Karte: Identifiable, Hashable, Codable {
+    enum Farbe: String, Codable, Hashable {
+        case gelb, gelbRot, rot
+
+        init(rohwert: String) {
+            switch rohwert.uppercased() {
+            case "RED": self = .rot
+            case "YELLOW_RED", "SECOND_YELLOW": self = .gelbRot
+            default: self = .gelb
+            }
+        }
+
+        var name: String {
+            switch self {
+            case .gelb: return "Gelbe Karte"
+            case .gelbRot: return "Gelb-Rot"
+            case .rot: return "Rote Karte"
+            }
+        }
+
+        /// Nur Platzverweise sind eine Meldung wert.
+        var istPlatzverweis: Bool { self != .gelb }
+    }
+
+    let id: String
+    let minute: Int?
+    let farbe: Farbe
+    let spieler: String
+    let fuerHeim: Bool
+
+    var minutentext: String {
+        guard let minute else { return "" }
+        return "\(minute)'"
+    }
+}
+
 // MARK: - Spiel
 
 struct Spiel: Identifiable, Hashable, Codable {
@@ -99,6 +137,7 @@ struct Spiel: Identifiable, Hashable, Codable {
     let halbzeitHeim: Int?
     let halbzeitGast: Int?
     var tore: [Tor]
+    var karten: [Karte]
 
     var hatStand: Bool { toreHeim != nil && toreGast != nil }
 
@@ -163,20 +202,49 @@ struct Tabelle: Hashable, Codable {
 // MARK: - Ticker
 
 struct Tickermeldung: Identifiable, Hashable, Codable {
-    enum Art: String, Codable, Hashable {
+    enum Art: String, Codable, Hashable, CaseIterable, Identifiable {
         case anpfiff
         case tor
+        case roteKarte
         case halbzeit
         case abpfiff
+
+        var id: String { rawValue }
 
         var symbol: String {
             switch self {
             case .anpfiff: return "flag.checkered"
             case .tor: return "soccerball"
+            case .roteKarte: return "rectangle.portrait.fill"
             case .halbzeit: return "pause.circle"
             case .abpfiff: return "flag.checkered.circle"
             }
         }
+
+        var name: String {
+            switch self {
+            case .anpfiff: return "Anpfiff"
+            case .tor: return "Tor"
+            case .roteKarte: return "Platzverweis"
+            case .halbzeit: return "Halbzeit"
+            case .abpfiff: return "Abpfiff"
+            }
+        }
+
+        var beschreibung: String {
+            switch self {
+            case .anpfiff: return "Das Spiel hat begonnen."
+            case .tor: return "Sobald sich der Spielstand ändert."
+            case .roteKarte: return "Rot und Gelb-Rot, sobald der Dienst sie mitschickt."
+            case .halbzeit: return "Der Stand zur Pause."
+            case .abpfiff: return "Der Endstand."
+            }
+        }
+
+        /// Der freie Zugang von football-data.org liefert Karten in der Regel
+        /// nicht mit. Der Schalter bleibt trotzdem da: Kommen die Daten
+        /// eines Tages, greift er sofort.
+        var vomFreienZugangGedeckt: Bool { self != .roteKarte }
     }
 
     let id: String
