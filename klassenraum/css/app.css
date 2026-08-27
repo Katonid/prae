@@ -356,6 +356,16 @@ body.is-stacked .dock-toggle { display: none; }
   background: var(--bg-base, #33415c);
 }
 
+/* Sanftes Oberlicht + Vignette: gibt der Tafel spürbar mehr Tiefe. */
+.stage__bg > b {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(120% 85% at 50% -10%, rgba(255, 255, 255, 0.14), transparent 55%),
+    radial-gradient(140% 120% at 50% 115%, rgba(2, 6, 23, 0.35), transparent 55%);
+}
+
 .stage__bg::before,
 .stage__bg::after,
 .stage__bg > i {
@@ -365,7 +375,7 @@ body.is-stacked .dock-toggle { display: none; }
   height: 62vmax;
   border-radius: 50%;
   filter: blur(70px);
-  opacity: 0.75;
+  opacity: 0.82;
   will-change: transform;
 }
 
@@ -389,7 +399,7 @@ body.is-stacked .dock-toggle { display: none; }
   left: 42%;
   width: 44vmax;
   height: 44vmax;
-  opacity: 0.55;
+  opacity: 0.62;
   animation: drift-c 38s ease-in-out infinite alternate;
 }
 
@@ -471,7 +481,7 @@ body[data-cards="dark"] .widget::after { box-shadow: inset 0 1px 0 rgba(255, 255
 .widget.is-locked.is-selected { box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.5), var(--card-shadow); }
 
 .widget { font-size: calc(15px * var(--w-scale, 1)); }
-.widget__inner { width: 100%; height: 100%; display: flex; position: relative; z-index: 1; }
+.widget__inner { width: 100%; height: 100%; display: flex; position: relative; z-index: 1; text-shadow: var(--ink-shadow, none); }
 
 /* Beschriftungen der Elemente ausblenden */
 body[data-labels="never"] .w-random__head,
@@ -725,6 +735,24 @@ body:not(.is-using):not(.is-stacked) .canvas .w-random__drawn { touch-action: no
   border-color: transparent;
   color: #fff;
 }
+
+/* Jedes Werkzeug bekommt seine eigene Farbe — wie App-Symbole auf dem iPad.
+   Das macht die Leiste auf den ersten Blick lebendig und wiedererkennbar. */
+.dock__item .dock__icon { color: #fff; border-color: rgba(255, 255, 255, 0.18); }
+.dock__item[data-type="randomizer"] .dock__icon { background: linear-gradient(150deg, #6366f1, #8b5cf6); }
+.dock__item[data-type="timer"] .dock__icon { background: linear-gradient(150deg, #f59e0b, #f97316); }
+.dock__item[data-type="clock"] .dock__icon { background: linear-gradient(150deg, #0ea5e9, #06b6d4); }
+.dock__item[data-type="traffic"] .dock__icon { background: linear-gradient(150deg, #ef4444, #f59e0b); }
+.dock__item[data-type="checklist"] .dock__icon { background: linear-gradient(150deg, #10b981, #14b8a6); }
+.dock__item[data-type="noise"] .dock__icon { background: linear-gradient(150deg, #ec4899, #f472b6); }
+.dock__item[data-type="sound"] .dock__icon { background: linear-gradient(150deg, #a855f7, #d946ef); }
+.dock__item[data-type="text"] .dock__icon { background: linear-gradient(150deg, #475569, #64748b); }
+.dock__item[data-type="image"] .dock__icon { background: linear-gradient(150deg, #14b8a6, #22d3ee); }
+.dock__item[data-type="video"] .dock__icon { background: linear-gradient(150deg, #e11d48, #f43f5e); }
+.dock__item[data-type="camera"] .dock__icon { background: linear-gradient(150deg, #0891b2, #38bdf8); }
+.dock__item[data-type="symbols"] .dock__icon { background: linear-gradient(150deg, #eab308, #fbbf24); }
+.dock__item .dock__icon { box-shadow: 0 6px 16px -8px rgba(2, 6, 23, 0.9), inset 0 1px 0 rgba(255, 255, 255, 0.25); }
+.dock__item:hover .dock__icon { box-shadow: var(--accent-glow), inset 0 1px 0 rgba(255, 255, 255, 0.3); }
 
 .dock__label { font-size: 11px; font-weight: 600; opacity: 0.9; white-space: nowrap; letter-spacing: 0.01em; }
 
@@ -1365,8 +1393,8 @@ p.muted { margin: 0; }
   padding: 0.22em 0.4em;
   border: 0;
   border-radius: 0.55em;
-  background: color-mix(in srgb, var(--card-ink) 9%, transparent);
-  color: var(--card-ink);
+  background: var(--gcard-bg, color-mix(in srgb, var(--card-ink) 9%, transparent));
+  color: var(--gcard-ink, var(--card-ink));
   font: inherit;
   font-weight: 750;
   line-height: 1.15;
@@ -1375,7 +1403,7 @@ p.muted { margin: 0; }
   transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
-.w-random__gcard.is-alt { background: color-mix(in srgb, var(--card-ink) 16%, transparent); }
+.w-random__gcard.is-alt { background: var(--gcard-bg-alt, color-mix(in srgb, var(--card-ink) 16%, transparent)); }
 .w-random__gcard:active { transform: scale(0.96); }
 .w-random__gcard-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 

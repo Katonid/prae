@@ -90,6 +90,7 @@ function renderDock() {
   for (const definition of WIDGETS) {
     dom.dock.appendChild(h('button', {
       class: 'dock__item',
+      'data-type': definition.type,
       title: definition.label,
       onclick: () => {
         const descriptor = addWidgetOfType(definition.type);
@@ -407,11 +408,21 @@ function openBackgroundPanel() {
           renderBoard();
         },
       })),
+      field('Schatten hinter der Schrift', h('div', { class: 'segmented' },
+        [['none', 'Ohne'], ['soft', 'Weich'], ['strong', 'Kräftig']].map(([value, label]) => h('button', {
+          class: 'segmented__item' + ((board.textShadow || 'none') === value ? ' is-active' : ''),
+          onclick: () => {
+            board.textShadow = value;
+            touch();
+            renderBoard();
+            render();
+          },
+        }, label)))),
       h('p', { class: 'muted small' },
         'Gilt für die Beschriftungen aller Elemente dieser Tafel — praktisch, wenn der Hintergrund '
-        + 'heller oder dunkler gestellt wurde. Einzelne Karten können in ihren Einstellungen unter '
-        + '„Schriftfarbe dieses Elements“ eine eigene Farbe wählen; erst dann gilt dort die eigene. '
-        + 'Reine Textfelder behalten ihre eigene Farbwahl.')));
+        + 'heller oder dunkler gestellt wurde. Der Schatten hebt die Schrift zusätzlich vom Hintergrund ab. '
+        + 'Einzelne Karten können in ihren Einstellungen unter „Schriftfarbe dieses Elements“ eigene Werte '
+        + 'wählen; erst dann gelten dort die eigenen. Reine Textfelder behalten ihre eigene Farbwahl.')));
 
     container.appendChild(section('Bewegter Hintergrund', auroraGrid,
       h('p', { class: 'muted small' }, 'Sanft wandernde Farbschleier — ruhig genug für den Unterricht.')));
