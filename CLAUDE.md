@@ -129,16 +129,6 @@ danach bei jeder Arbeitseinheit mitziehen:
   (Meine Apps → +), nicht über Xcodes „Create App Record": Xcode
   schlägt dort den Anzeigenamen vor und läuft damit erneut in den
   Namenskonflikt. Steht der Eintrag, lädt Distribute in ihn hinein.
-- **Namen im App Store** (Ansage des Nutzers, 08/2026, weil „Anstoß"
-  allein schon vergeben ist — App Record Creation Error):
-  - Name: `Anstoß – Liveticker` (19 Zeichen, Grenze ist 30)
-  - Untertitel: `Top-Ligen unter Beobachtung` (27 Zeichen, Grenze 30)
-  Auf dem **Homescreen** heißt die App weiterhin schlicht **Anstoß**
-  (`INFOPLIST_KEY_CFBundleDisplayName`) — iOS schneidet dort nach rund
-  zwölf Zeichen ab. Der App-Eintrag wird in App Store Connect **von
-  Hand** angelegt (Meine Apps → +), nicht über Xcodes „Create App
-  Record": Xcode schlägt dort den Anzeigenamen vor und läuft erneut in
-  den Namenskonflikt.
 - Daten von **football-data.org (v4)**. Der kostenlose Zugang deckt
   genau diese fünf Ligen ab; der Schlüssel gehört dem Nutzer und liegt
   im Schlüsselbund (`Schluesselbund.swift`) — nie im Repo, nie in den
@@ -155,7 +145,7 @@ danach bei jeder Arbeitseinheit mitziehen:
   beide Werte werden im Repo gepflegt. **Jede Arbeitseinheit (= jeder
   PR mit App-Änderungen) hebt die Patch-Nummer UND die Build-Nummer um
   je +1 an** — ohne Nachfrage, als Teil des PRs. Zählung ab 08/2026:
-  1.0.5 (Build 3), dann 1.0.6 (Build 4) usw. Größere Sprünge nur auf
+  1.0.6 (Build 4), dann 1.0.7 (Build 5) usw. Größere Sprünge nur auf
   ausdrückliche Ansage des Nutzers.
 - `ITSAppUsesNonExemptEncryption = NO` steht in `Config/Info.plist` UND
   als Build-Einstellung `INFOPLIST_KEY_ITSAppUsesNonExemptEncryption` —
@@ -169,6 +159,16 @@ danach bei jeder Arbeitseinheit mitziehen:
   ist nur die Erinnerung vor dem Anpfiff. Wer hier „echte"
   Push-Nachrichten verspricht, verspricht etwas, das ohne Server nicht
   geht.
+- **Ligameldungen (Transfer, Gerüchte) kommen NICHT von
+  football-data.org** — der Dienst kennt nur Spieldaten. Sie kommen aus
+  freien RSS-Ausgaben (kicker, Transfermarkt) über
+  `Nachrichtendienst.swift`; die Einteilung in Transfer/Gerücht/
+  Verletzung schätzt `Nachrichtensieb` aus der Wortwahl, die Liga
+  kommt aus den Schlagworten der Quelle oder dem
+  `Vereinsverzeichnis`, das sich aus den geladenen Tabellen selbst
+  füllt. Keine gepflegte Vereinsliste in den Quelltext schreiben — die
+  veraltet jeden Sommer. Gelesen werden nur Überschrift und Anriss,
+  nie ganze Texte; abgefragt höchstens alle zehn Minuten.
 - Das App-Symbol erzeugt `scripts/anstoss-icon.py` (reines Python,
   ohne fremde Bibliotheken) — nicht von Hand bearbeiten.
 - Übersetzt wird in GitHub Actions: `.github/workflows/ios-apps-build.yml`

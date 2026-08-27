@@ -20,8 +20,9 @@ struct AnstossApp: App {
         }
         .onChange(of: lebenslage) { _, lage in
             guard lage == .background else { return }
-            // Beim Weglegen den nächsten Blick auf den Spielstand erbitten.
-            if !meldungen.wunsch.istStumm {
+            // Beim Weglegen den nächsten Blick erbitten — auf den Spielstand
+            // oder, wenn nur die Ligameldungen gewünscht sind, eben auf die.
+            if !meldungen.wunsch.istStumm || !meldungen.wunsch.nachrichtenStumm {
                 Hintergrundpflege.planen()
             } else {
                 Hintergrundpflege.abbestellen()

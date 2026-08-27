@@ -67,6 +67,37 @@ enum Benachrichtiger {
         return teile.joined(separator: " · ")
     }
 
+    // MARK: Nachrichten rund um die Ligen
+
+    /// Meldet Transfers, Gerüchte und dergleichen. Anders als beim Ticker
+    /// gibt es hier eine Obergrenze je Durchgang: Eine Quelle, die zwanzig
+    /// Meldungen auf einmal nachliefert, soll nicht zwanzig Mal klingeln.
+    static func meldenNachrichten(_ nachrichten: [Nachricht], wunsch: Meldungswunsch) {
+        let passend = nachrichten.filter(wunsch.meldetFuer)
+        guard !passend.isEmpty else { return }
+
+        let zentrale = UNUserNotificationCenter.current()
+        for nachricht in passend.sorted(by: { $0.zeitpunkt > $1.zeitpunkt }).prefix(4) {
+            let inhalt = UNMutableNotificationContent()
+            let vorsatz = nachricht.liga.map { $0.flagge + " " } ?? ""
+            inhalt.title = vorsatz + nachricht.art.name
+            inhalt.subtitle = nachricht.titel
+            inhalt.body = nachricht.anriss.isEmpty ? nachricht.quellenname
+                : nachricht.anriss + " · " + nachricht.quellenname
+            inhalt.sound = nil
+            inhalt.interruptionLevel = .passive
+            inhalt.threadIdentifier = "nachrichten"
+            if let adresse = nachricht.adresse {
+                inhalt.userInfo = ["adresse": adresse.absoluteString]
+            }
+
+            let auftrag = UNNotificationRequest(identifier: "nachricht-" + nachricht.id,
+                                                content: inhalt,
+                                                trigger: nil)
+            zentrale.add(auftrag)
+        }
+    }
+
     // MARK: Erinnerung an den Anpfiff
 
     /// Stellt für jedes freigeschaltete Spiel einen Wecker. Alte Wecker

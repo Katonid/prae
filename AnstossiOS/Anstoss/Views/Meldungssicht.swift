@@ -15,6 +15,9 @@ struct Meldungssicht: View {
             erinnerungsTeil
             ligenTeil
             spieleTeil
+            nachrichtenartenTeil
+            nachrichtenligenTeil
+            quellenTeil
             erklaerungsTeil
         }
         .navigationTitle("Mitteilungen")
@@ -214,6 +217,118 @@ struct Meldungssicht: View {
             .sorted { $0.anstoss < $1.anstoss }
     }
 
+    // MARK: Ligameldungen — welche Arten
+
+    private var nachrichtenartenTeil: some View {
+        Section {
+            ForEach(Nachrichtenart.allCases) { art in
+                Toggle(isOn: nachrichtenartBinding(art)) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Label(art.name, systemImage: art.symbol)
+                        Text(art.beschreibung)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .tint(Gestaltung.rasen)
+            }
+        } header: {
+            Text("Ligameldungen")
+        } footer: {
+            Text("Transfers und Gerüchte stehen nicht im Spieldatendienst — sie kommen aus den Nachrichtenquellen weiter unten. Welche Art eine Meldung hat, schätzt die App anhand der Wortwahl in Überschrift und Anriss. Das trifft meistens, aber nicht immer.")
+        }
+    }
+
+    private func nachrichtenartBinding(_ art: Nachrichtenart) -> Binding<Bool> {
+        Binding(
+            get: { meldungen.wunsch.nachrichtenarten.contains(art) },
+            set: { an in
+                if an {
+                    meldungen.wunsch.nachrichtenarten.insert(art)
+                } else {
+                    meldungen.wunsch.nachrichtenarten.remove(art)
+                }
+            }
+        )
+    }
+
+    // MARK: Ligameldungen — welche Ligen
+
+    private var nachrichtenligenTeil: some View {
+        Section {
+            ForEach(Liga.allCases) { liga in
+                Toggle(isOn: nachrichtenligaBinding(liga)) {
+                    HStack(spacing: 10) {
+                        Text(liga.flagge)
+                        Text(liga.name)
+                    }
+                }
+                .tint(Gestaltung.rasen)
+            }
+            Toggle(isOn: $meldungen.wunsch.nachrichtenOhneLiga) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Auch ohne erkennbare Liga")
+                    Text("Sonst fällt weg, was sich keiner der fünf Ligen zuordnen lässt.")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .tint(Gestaltung.rasen)
+        } header: {
+            Text("Ligameldungen — welche Ligen")
+        } footer: {
+            Text("Ist keine Liga angehakt, gelten alle fünf. Zugeordnet wird über die Schlagworte der Quelle und die Vereinsnamen, die die App aus den Tabellen kennt — je öfter du die Tabellen ansiehst, desto besser trifft das.")
+        }
+    }
+
+    private func nachrichtenligaBinding(_ liga: Liga) -> Binding<Bool> {
+        Binding(
+            get: { meldungen.wunsch.nachrichtenligen.contains(liga) },
+            set: { an in
+                if an {
+                    meldungen.wunsch.nachrichtenligen.insert(liga)
+                } else {
+                    meldungen.wunsch.nachrichtenligen.remove(liga)
+                }
+            }
+        )
+    }
+
+    // MARK: Quellen
+
+    private var quellenTeil: some View {
+        Section {
+            ForEach(Nachrichtenquelle.allCases) { quelle in
+                Toggle(isOn: quellenBinding(quelle)) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(quelle.name)
+                        Text(quelle.beschreibung)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .tint(Gestaltung.rasen)
+            }
+        } header: {
+            Text("Nachrichtenquellen")
+        } footer: {
+            Text("Frei zugängliche RSS-Ausgaben, kein Schlüssel nötig. Die App zeigt Überschrift und Anriss und verweist zum Lesen auf die Quelle; ganze Texte holt sie nicht. Abgefragt wird höchstens alle zehn Minuten.")
+        }
+    }
+
+    private func quellenBinding(_ quelle: Nachrichtenquelle) -> Binding<Bool> {
+        Binding(
+            get: { meldungen.wunsch.nachrichtenquellen.contains(quelle) },
+            set: { an in
+                if an {
+                    meldungen.wunsch.nachrichtenquellen.insert(quelle)
+                } else {
+                    meldungen.wunsch.nachrichtenquellen.remove(quelle)
+                }
+            }
+        )
+    }
+
     // MARK: Erklärung
 
     private var erklaerungsTeil: some View {
@@ -227,6 +342,7 @@ struct Meldungssicht: View {
                 punkt("Ist die Ticker-Ansicht offen, alle 45 Sekunden — praktisch sofort.")
                 punkt("Ist die App geschlossen, immer dann, wenn iOS ihr eine Auffrischung im Hintergrund gewährt. Das sind je nach Gewohnheit eine Viertelstunde bis mehrere Stunden.")
                 punkt("Nach dem Wegschieben aus dem App-Umschalter und im Stromsparmodus lässt iOS gar nichts zu.")
+                punkt("Ligameldungen holt die App höchstens alle zehn Minuten — beim Öffnen der Meldungsliste und bei jeder Auffrischung im Hintergrund.")
                 Text("Ein Tor kommt also verzögert an, nicht in dem Augenblick, in dem es fällt. Für den Anpfiff gilt das nicht — der wird als Wecker gestellt.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)

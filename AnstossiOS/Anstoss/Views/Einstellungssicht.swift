@@ -13,6 +13,7 @@ struct Einstellungssicht: View {
             Form {
                 zugang
                 mitteilungen
+                ligameldungen
                 anzeige
                 herkunft
                 ueber
@@ -107,10 +108,11 @@ struct Einstellungssicht: View {
 
     private var mitteilungsstand: String {
         let wunsch = meldungen.wunsch
-        if wunsch.istStumm { return "aus" }
         var teile: [String] = []
         if !wunsch.ganzeLigen.isEmpty { teile.append("\(wunsch.ganzeLigen.count) Ligen") }
         if !wunsch.einzelneSpiele.isEmpty { teile.append("\(wunsch.einzelneSpiele.count) Spiele") }
+        if !wunsch.nachrichtenarten.isEmpty { teile.append("Ligameldungen") }
+        if teile.isEmpty { return "aus" }
         return teile.joined(separator: ", ")
     }
 
@@ -127,6 +129,29 @@ struct Einstellungssicht: View {
             Text("Anzeige")
         } footer: {
             Text("Beispieldaten sind erfunden. Sie zeigen, wie Spieltage, Tabelle und Ticker aussehen — ohne Zugang und ohne Netz.")
+        }
+    }
+
+    // MARK: Ligameldungen
+
+    private var ligameldungen: some View {
+        Section {
+            HStack {
+                Label("Gesammelte Meldungen", systemImage: "newspaper")
+                Spacer()
+                Text("\(daten.nachrichten.count)")
+                    .foregroundStyle(.secondary)
+            }
+            Button(role: .destructive) {
+                daten.nachrichtenLeeren()
+            } label: {
+                Label("Ligameldungen löschen", systemImage: "trash")
+            }
+            .disabled(daten.nachrichten.isEmpty)
+        } header: {
+            Text("Ligameldungen")
+        } footer: {
+            Text("Transfers und Gerüchte kommen nicht von football-data.org, sondern aus freien RSS-Ausgaben von kicker und Transfermarkt. Welche Quellen gelesen werden, steht unter Mitteilungen.")
         }
     }
 

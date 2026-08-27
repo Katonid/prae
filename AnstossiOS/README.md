@@ -33,6 +33,8 @@ der Eintrag dagegen schon, lädt Distribute einfach in ihn hinein.
   Formkurve der letzten fünf Spiele.
 - **Spielansicht** — Anzeigetafel, Torfolge (soweit der Dienst sie
   hergibt), Halbzeitstand und Eckdaten.
+- **Ligameldungen** — Transfers, Gerüchte, Ausfälle und Vereinsthemen
+  aus freien Nachrichtenquellen, filterbar nach Art und Liga.
 
 ## Mitteilungen
 
@@ -59,6 +61,41 @@ Ereignis nicht zweimal auf dem Sperrbildschirm landen.
 
 Platzverweise sind vorbereitet, kommen aber nur an, wenn der Dienst Karten
 mitschickt — der freie Zugang tut das in der Regel nicht.
+
+## Ligameldungen (Transfer, Gerüchte, Ausfälle)
+
+football-data.org kennt nur Spieldaten — Transfers und Gerüchte stehen dort
+nirgends. Dafür liest die App zwei frei zugängliche RSS-Ausgaben:
+
+| Quelle | Adresse | Schwerpunkt |
+| --- | --- | --- |
+| kicker — Fußball | `newsfeed.kicker.de/news/fussball` | alles |
+| kicker — Bundesliga | `newsfeed.kicker.de/news/bundesliga` | Bundesliga, dichter |
+| Transfermarkt | `transfermarkt.de/rss/news` | Wechsel und Gerüchte |
+
+Kein Schlüssel, keine Anmeldung. Gelesen werden Überschrift, Anriss, Verweis,
+Zeit und Schlagworte — **keine ganzen Texte**; zum Lesen führt ein Tippen zur
+Quelle. Geholt wird höchstens alle zehn Minuten (`Nachrichtenpflege`), im
+Vordergrund beim Öffnen der Meldungsliste, im Hintergrund bei jeder
+Auffrischung.
+
+**Einteilung.** Die Art einer Meldung — Transfer, Gerücht, Verletzung &
+Sperre, Rund um den Verein, Sonstiges — schätzt `Nachrichtensieb` anhand der
+Wortwahl in Überschrift und Anriss. Die Reihenfolge zählt: Ein Gerücht ist
+auch ein Transfer, geht aber als Gerücht durch. Das trifft meistens, nicht
+immer — die App sagt das in der Oberfläche auch.
+
+**Ligazuordnung.** Zuerst über die Schlagworte der Quelle (der kicker liefert
+Wettbewerb und Verein mit), dann über den Text, zuletzt über das
+`Vereinsverzeichnis`. Das füllt sich von selbst aus den Tabellen und
+Spieltagen, die die App ohnehin lädt — dadurch braucht es keine Namensliste im
+Quelltext, die jeden Sommer veraltet. Ließ sich keine Liga erkennen, bleibt
+sie offen; gemeldet wird das nur, wenn „Auch ohne erkennbare Liga“ an ist
+(sonst käme jede Regionalligameldung durch).
+
+Der allererste Durchgang füllt nur den Bestand und meldet nichts — sonst
+kämen auf einen Schlag zwanzig Mitteilungen. Je Durchgang klingeln höchstens
+vier, und zwar lautlos (`interruptionLevel = .passive`).
 
 `Config/Info.plist` trägt dafür `BGTaskSchedulerPermittedIdentifiers` (Kennung
 muss zu `Hintergrundpflege.kennung` passen) und `UIBackgroundModes = fetch`.
@@ -104,10 +141,12 @@ Anstoss/
     Meldungen.swift         Wunsch: Arten, Ligen, einzelne Spiele
     Benachrichtiger.swift   örtliche Mitteilungen und Anpfiff-Wecker
     Tickerwerk.swift        Standvergleich + Standspeicher (geteilt)
+    Nachrichten.swift       Art, Quellen, Vereinsverzeichnis, Ablage
+    Nachrichtendienst.swift RSS lesen + ein Durchgang für beide Wege
     Hintergrundpflege.swift Nachsehen, während die App geschlossen ist
     Beispieldaten.swift     erfundene Daten für den Beispielmodus
   Views/
-    Startsicht.swift        drei Bereiche (Ticker, Ligen, Einstellungen)
+    Startsicht.swift        vier Bereiche (Ticker, Ligen, Meldungen, Einstellungen)
     Tickersicht.swift       Liveticker
     Ligensicht.swift        Menü der fünf Ligen
     Ligasicht.swift         Spieltag blättern / Tabelle
@@ -116,6 +155,7 @@ Anstoss/
     Spielzeile.swift        Begegnung als Listenzeile
     Willkommenssicht.swift  Einrichtung beim ersten Start
     Meldungssicht.swift     Einstellungen für Mitteilungen
+    Nachrichtensicht.swift  Ligameldungen mit Filter nach Art und Liga
     Einstellungssicht.swift Schlüssel, Beispielmodus, Auskunft
     Gestaltung.swift        Wappen, Ligazeichen, Formkurve
 ```
@@ -129,7 +169,7 @@ bearbeiten.
 Stellen im pbxproj (Debug + Release); es gibt keine Skript-Bauphase,
 beide Werte werden im Repo gepflegt. **Jede Arbeitseinheit hebt beide
 um +1 an** — Fassung und Build-Nummer. Zählung ab 08/2026: 1.0.4
-(Build 2), dann 1.0.5 (Build 3) usw.
+(Build 2), 1.0.5 (Build 3), 1.0.6 (Build 4) usw.
 
 Hintergrund: App Store Connect nimmt keinen Build an, dessen Nummer
 nicht höher ist als die des vorherigen.

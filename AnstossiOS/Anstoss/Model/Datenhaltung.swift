@@ -24,6 +24,9 @@ final class Datenhaltung: ObservableObject {
     @Published private(set) var tickerFehler: String?
     @Published private(set) var letzterAbruf: Date?
 
+    @Published private(set) var nachrichten: [Nachricht] = []
+    @Published private(set) var nachrichtenLaeuft = false
+
     @Published private(set) var spieltage: [Liga: [Int: [Spiel]]] = [:]
     @Published private(set) var tabellen: [Liga: Tabelle] = [:]
     @Published private(set) var laufenderSpieltag: [Liga: Int] = [:]
@@ -48,6 +51,7 @@ final class Datenhaltung: ObservableObject {
         schluessel = Schluesselbund.lesen()
         beispielmodus = UserDefaults.standard.bool(forKey: Self.beispielSchluessel)
         ticker = Tickerspeicher.laden()
+        nachrichten = Nachrichtenspeicher.laden()
     }
 
     func schluesselSetzen(_ neu: String) {
@@ -79,6 +83,28 @@ final class Datenhaltung: ObservableObject {
         tickerFehler = nil
     }
 
+    // MARK: Nachrichten rund um die Ligen
+
+    /// Holt die Ligameldungen. Ohne `erzwingen` nur, wenn seit dem letzten
+    /// Abruf genug Zeit vergangen ist — die Quellen sollen nicht bei jedem
+    /// Blick auf die Liste erneut behelligt werden.
+    func nachrichtenLaden(wunsch: Meldungswunsch, erzwingen: Bool = false) async {
+        guard wunsch.willNachrichten else {
+            nachrichten = []
+            return
+        }
+        guard !nachrichtenLaeuft else { return }
+        nachrichtenLaeuft = true
+        defer { nachrichtenLaeuft = false }
+        nachrichten = await Nachrichtenpflege.durchgang(wunsch: wunsch, erzwingen: erzwingen)
+    }
+
+    func nachrichtenLeeren() {
+        nachrichten = []
+        Nachrichtenspeicher.leeren()
+        Nachrichtenpflege.zeitVergessen()
+    }
+
     // MARK: Liveticker
 
     /// Läuft, solange die Ticker-Ansicht sichtbar ist. Wartet länger,
@@ -104,6 +130,7 @@ final class Datenhaltung: ObservableObject {
                 frisch = try await dienst.spieleHeute()
             }
             meldungenAblegen(frisch)
+            Vereinsverzeichnis.merken(spiele: frisch)
             liveSpiele = frisch.sorted(by: Self.reihenfolge)
             letzterAbruf = Date()
             tickerFehler = nil
@@ -172,6 +199,7 @@ final class Datenhaltung: ObservableObject {
             } else {
                 liste = try await dienst.spiele(liga: liga, spieltag: nummer)
             }
+            Vereinsverzeichnis.merken(spiele: liste)
             var tage = spieltage[liga] ?? [:]
             tage[nummer] = liste.sorted(by: Self.reihenfolge)
             spieltage[liga] = tage
@@ -202,6 +230,7 @@ final class Datenhaltung: ObservableObject {
                 tafel = try await dienst.tabelle(liga: liga)
             }
             tabellen[liga] = tafel
+            Vereinsverzeichnis.merken(tafel.zeilen.map(\.mannschaft), liga: liga)
             if laufenderSpieltag[liga] == nil, tafel.spieltag > 0 {
                 laufenderSpieltag[liga] = min(tafel.spieltag, liga.spieltage)
             }

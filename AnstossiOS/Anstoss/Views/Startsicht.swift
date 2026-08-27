@@ -1,13 +1,14 @@
 import SwiftUI
 
-/// Drei Bereiche: der Ticker, die Ligen und die Einstellungen.
+/// Vier Bereiche: der Ticker, die Ligen, die Ligameldungen und die
+/// Einstellungen.
 struct Startsicht: View {
     @EnvironmentObject private var daten: Datenhaltung
     @EnvironmentObject private var meldungen: Meldungsverwaltung
     @State private var bereich = Bereich.ticker
 
     enum Bereich: Hashable {
-        case ticker, ligen, einstellungen
+        case ticker, ligen, nachrichten, einstellungen
     }
 
     var body: some View {
@@ -23,6 +24,12 @@ struct Startsicht: View {
                     Label("Ligen", systemImage: "list.number")
                 }
                 .tag(Bereich.ligen)
+
+            Nachrichtensicht()
+                .tabItem {
+                    Label("Meldungen", systemImage: "newspaper.fill")
+                }
+                .tag(Bereich.nachrichten)
 
             Einstellungssicht()
                 .tabItem {

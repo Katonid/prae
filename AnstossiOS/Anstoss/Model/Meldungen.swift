@@ -13,6 +13,18 @@ struct Meldungswunsch: Codable, Equatable {
     var anstosserinnerung = true
     var vorlaufMinuten = 15
 
+    // MARK: Nachrichten rund um die Ligen
+
+    /// Welche Nachrichtenarten eine Mitteilung wert sind. Leer heißt: keine.
+    var nachrichtenarten: Set<Nachrichtenart> = []
+    /// Aus welchen Quellen gelesen wird — auch für die Liste in der App.
+    var nachrichtenquellen: Set<Nachrichtenquelle> = Nachrichtenquelle.voreinstellung
+    /// Ligen, deren Nachrichten gemeldet werden. Leer heißt: alle fünf.
+    var nachrichtenligen: Set<Liga> = []
+    /// Auch melden, wenn sich keine Liga zuordnen ließ. Standardmäßig nicht —
+    /// sonst käme jede Regionalligameldung des kicker durch.
+    var nachrichtenOhneLiga = false
+
     /// Ob für dieses Spiel überhaupt gemeldet werden soll.
     func meldetFuer(_ spiel: Spiel) -> Bool {
         einzelneSpiele.contains(spiel.id) || ganzeLigen.contains(spiel.liga)
@@ -24,6 +36,44 @@ struct Meldungswunsch: Codable, Equatable {
 
     var istStumm: Bool {
         arten.isEmpty || (ganzeLigen.isEmpty && einzelneSpiele.isEmpty)
+    }
+
+    /// Ob eine einzelne Nachricht gemeldet werden soll.
+    func meldetFuer(_ nachricht: Nachricht) -> Bool {
+        guard nachrichtenarten.contains(nachricht.art) else { return false }
+        guard let liga = nachricht.liga else { return nachrichtenOhneLiga }
+        return nachrichtenligen.isEmpty || nachrichtenligen.contains(liga)
+    }
+
+    /// Ob überhaupt Nachrichten geholt werden müssen.
+    var willNachrichten: Bool {
+        !nachrichtenquellen.isEmpty
+    }
+
+    var nachrichtenStumm: Bool {
+        nachrichtenarten.isEmpty || nachrichtenquellen.isEmpty
+    }
+
+    // MARK: Lesen älterer Ablagen
+
+    init() {}
+
+    /// Von Hand geschrieben, nicht von Swift erzeugt — und das mit Absicht:
+    /// Kommt später ein Feld dazu, scheitert der erzeugte Leser an den
+    /// bereits gesicherten Einstellungen und wirft sie stillschweigend weg.
+    /// Hier fehlt einfach ein Wert und der Standard greift.
+    init(from decoder: Decoder) throws {
+        let behaelter = try decoder.container(keyedBy: CodingKeys.self)
+        arten = try behaelter.decodeIfPresent(Set<Tickermeldung.Art>.self, forKey: .arten) ?? [.tor, .abpfiff]
+        ganzeLigen = try behaelter.decodeIfPresent(Set<Liga>.self, forKey: .ganzeLigen) ?? []
+        einzelneSpiele = try behaelter.decodeIfPresent(Set<Int>.self, forKey: .einzelneSpiele) ?? []
+        anstosserinnerung = try behaelter.decodeIfPresent(Bool.self, forKey: .anstosserinnerung) ?? true
+        vorlaufMinuten = try behaelter.decodeIfPresent(Int.self, forKey: .vorlaufMinuten) ?? 15
+        nachrichtenarten = try behaelter.decodeIfPresent(Set<Nachrichtenart>.self, forKey: .nachrichtenarten) ?? []
+        nachrichtenquellen = try behaelter.decodeIfPresent(Set<Nachrichtenquelle>.self, forKey: .nachrichtenquellen)
+            ?? Nachrichtenquelle.voreinstellung
+        nachrichtenligen = try behaelter.decodeIfPresent(Set<Liga>.self, forKey: .nachrichtenligen) ?? []
+        nachrichtenOhneLiga = try behaelter.decodeIfPresent(Bool.self, forKey: .nachrichtenOhneLiga) ?? false
     }
 
     // MARK: Ablage

@@ -63,6 +63,14 @@ enum Hintergrundpflege {
     @discardableResult
     static func nachsehen() async -> Bool {
         let wunsch = Meldungswunsch.gesichert()
+
+        // Die Ligameldungen hängen nicht am Schlüssel und nicht an
+        // freigeschalteten Spielen — sie kommen aus den RSS-Quellen und
+        // laufen deshalb auch dann, wenn zum Spielstand nichts zu tun ist.
+        if !wunsch.nachrichtenStumm {
+            await Nachrichtenpflege.durchgang(wunsch: wunsch)
+        }
+
         // Nichts freigeschaltet, nichts zu tun — dann auch keine Abfrage, die
         // vom knappen Kontingent des freien Zugangs abginge.
         guard !wunsch.istStumm else { return true }
@@ -82,6 +90,7 @@ enum Hintergrundpflege {
 
         Tickerspeicher.anhaengen(neue)
         Benachrichtiger.melden(neue, wunsch: wunsch)
+        Vereinsverzeichnis.merken(spiele: frisch)
         return true
     }
 }
