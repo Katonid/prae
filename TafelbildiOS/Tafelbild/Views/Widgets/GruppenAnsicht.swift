@@ -69,35 +69,41 @@ struct GruppenAnsicht: View {
     // MARK: - Kopf
 
     private var kopfzeile: some View {
-        HStack(spacing: 8) {
+        // Die Überschrift steht mittig über dem Element — sie gehört zum
+        // Ganzen, nicht an den linken Rand. Das Schloss liegt darüber statt
+        // daneben: So bleibt die Überschrift auch dann in der Mitte, wenn
+        // es erscheint oder verschwindet.
+        let zeigtSchloss = interactive && !content.ergebnis.isEmpty
+        return Text(kopfText)
             // Die Überschrift hängt nicht an der Tafelregel: Wer sie
             // einträgt, will wissen, worum es geht.
-            Text(kopfText)
-                .font(Theme.font(metrics.em(style.kopf(1.05)), weight: .bold))
-                .foregroundStyle(style.ink)
-                .lineLimit(1)
-                .minimumScaleFactor(0.6)
-            Spacer(minLength: 0)
-            if interactive && !content.ergebnis.isEmpty {
-                Button {
-                    content.festgehalten.toggle()
-                    frage = nil
-                    Haptics.tap()
-                } label: {
-                    Image(systemName: content.festgehalten ? "lock.fill" : "lock.open")
-                        .font(.system(size: metrics.em(0.95), weight: .bold))
-                        .foregroundStyle(content.festgehalten ? Theme.amber : style.inkSoft)
-                        .frame(width: metrics.em(1.9), height: metrics.em(1.9))
-                        .background { Circle().fill(style.wash) }
-                        .rotationEffect(.degrees(wackelt ? 14 : 0))
-                        .scaleEffect(wackelt ? 1.12 : 1)
+            .font(Theme.font(metrics.em(style.kopf(1.05)), weight: .bold))
+            .foregroundStyle(style.ink)
+            .lineLimit(1)
+            .minimumScaleFactor(0.6)
+            .padding(.horizontal, zeigtSchloss ? metrics.em(2.2) : 0)
+            .frame(maxWidth: .infinity)
+            .overlay(alignment: .trailing) {
+                if zeigtSchloss {
+                    Button {
+                        content.festgehalten.toggle()
+                        frage = nil
+                        Haptics.tap()
+                    } label: {
+                        Image(systemName: content.festgehalten ? "lock.fill" : "lock.open")
+                            .font(.system(size: metrics.em(0.95), weight: .bold))
+                            .foregroundStyle(content.festgehalten ? Theme.amber : style.inkSoft)
+                            .frame(width: metrics.em(1.9), height: metrics.em(1.9))
+                            .background { Circle().fill(style.wash) }
+                            .rotationEffect(.degrees(wackelt ? 14 : 0))
+                            .scaleEffect(wackelt ? 1.12 : 1)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(content.festgehalten ? "Ergebnis freigeben"
+                                                             : "Ergebnis festhalten")
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel(content.festgehalten ? "Ergebnis freigeben"
-                                                         : "Ergebnis festhalten")
             }
-        }
-        .opacity(kopfText.isEmpty && content.ergebnis.isEmpty ? 0 : 1)
+            .opacity(kopfText.isEmpty && content.ergebnis.isEmpty ? 0 : 1)
     }
 
     // MARK: - Ergebnis

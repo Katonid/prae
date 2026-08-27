@@ -440,6 +440,12 @@ private struct SelectionChrome: View {
             button("plus.square.on.square", label: "Duplizieren") {
                 store.duplicateWidget(widget.id, in: boardID)
             }
+            // Kopieren steht als eigener Knopf da, nicht im Menü: Es ist der
+            // Weg auf eine andere Seite oder Tafel, und danach hatte gesucht,
+            // wer „Duplizieren" fand und trotzdem nicht weiterkam.
+            button("doc.on.doc", label: "Kopieren") {
+                store.kopiereWidget(widget.id, in: boardID)
+            }
             Menu {
                 Button {
                     store.bringToFront(widget.id, in: boardID)
@@ -462,9 +468,14 @@ private struct SelectionChrome: View {
                 }
                 Divider()
                 Button {
+                    store.kopiereWidget(widget.id, in: boardID)
+                } label: {
+                    Label("Kopieren", systemImage: "doc.on.doc")
+                }
+                Button {
                     store.uebertragenWidgetID = widget.id
                 } label: {
-                    Label("Auf eine andere Tafel …", systemImage: "arrow.right.square")
+                    Label("Verschieben oder kopieren …", systemImage: "arrow.right.square")
                 }
                 Divider()
                 Button(role: .destructive) {

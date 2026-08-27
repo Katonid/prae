@@ -24,21 +24,26 @@ struct ChecklistWidgetView: View {
 
             VStack(alignment: .leading, spacing: metrics.em(0.6)) {
                 if !content.title.isEmpty && style.showLabels {
-                    HStack(alignment: .firstTextBaseline) {
-                        Text(content.title)
-                            .font(Theme.font(titleSize, weight: .heavy))
-                            .tracking(-titleSize * 0.01)
-                            .foregroundStyle(style.ink)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.6)
-                        Spacer()
-                        if content.showProgress && !content.items.isEmpty {
-                            Text("\(doneCount)/\(content.items.count)")
-                                .font(Theme.font(titleSize * 0.62, weight: .semibold))
-                                .foregroundStyle(style.inkSoft)
-                                .monospacedDigit()
+                    // Überschrift mittig, der Zähler liegt rechts darüber —
+                    // so steht die Überschrift immer an derselben Stelle,
+                    // ob der Zähler nun zu sehen ist oder nicht.
+                    let zeigtZaehler = content.showProgress && !content.items.isEmpty
+                    Text(content.title)
+                        .font(Theme.font(titleSize, weight: .heavy))
+                        .tracking(-titleSize * 0.01)
+                        .foregroundStyle(style.ink)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
+                        .padding(.horizontal, zeigtZaehler ? titleSize * 1.8 : 0)
+                        .frame(maxWidth: .infinity)
+                        .overlay(alignment: .trailing) {
+                            if zeigtZaehler {
+                                Text("\(doneCount)/\(content.items.count)")
+                                    .font(Theme.font(titleSize * 0.62, weight: .semibold))
+                                    .foregroundStyle(style.inkSoft)
+                                    .monospacedDigit()
+                            }
                         }
-                    }
                 }
 
                 if content.showProgress && !content.items.isEmpty {

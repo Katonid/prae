@@ -80,11 +80,15 @@ struct RootView: View {
                     Spacer()
                     leisteSchalter
                     if !leisteAus {
-                        WidgetDock { kind in
+                        WidgetDock(onPick: { kind in
                             if let board = store.activeBoard {
                                 store.addWidget(kind: kind, to: board.id)
                             }
-                        }
+                        }, ablage: store.ablageName, onPaste: {
+                            if let board = store.activeBoard {
+                                store.fuegeEin(in: board.id)
+                            }
+                        })
                         .environment(\.boardStyle, style)
                         .transition(.move(edge: .bottom).combined(with: .opacity))
                     }
