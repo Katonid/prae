@@ -298,6 +298,57 @@ enum Beispieldaten {
 
     // MARK: Ticker
 
+    // MARK: Torjäger
+
+    /// Erfundene Torjägerliste, aus denselben Würfeln wie alles andere —
+    /// damit sie zu den Beispieltabellen passt und sich nicht bei jedem
+    /// Aufruf ändert.
+    static func torjaeger(_ liga: Liga) -> [Torjaeger] {
+        let elf = mannschaften(liga)
+        guard !elf.isEmpty else { return [] }
+        let bisher = max(laufenderSpieltag(liga) - 1, 1)
+
+        var liste: [Torjaeger] = []
+        for platz in 0 ..< 20 {
+            let mannschaft = elf[wuerfel(liga.kennzahl, platz, 71) % elf.count]
+            let tore = max(bisher * 2 - platz - wuerfel(liga.kennzahl, platz, 13) % 3, 1)
+            liste.append(Torjaeger(id: liga.kennzahl * 10_000 + platz,
+                                   platz: 0,
+                                   name: spielername(liga: liga, platz: platz),
+                                   mannschaft: mannschaft,
+                                   tore: tore,
+                                   vorlagen: wuerfel(liga.kennzahl, platz, 29) % 6,
+                                   elfmeter: wuerfel(liga.kennzahl, platz, 37) % 3,
+                                   spiele: bisher))
+        }
+        return liste
+            .sorted { $0.tore > $1.tore }
+            .enumerated()
+            .map { platz, eintrag in
+                Torjaeger(id: eintrag.id,
+                          platz: platz + 1,
+                          name: eintrag.name,
+                          mannschaft: eintrag.mannschaft,
+                          tore: eintrag.tore,
+                          vorlagen: eintrag.vorlagen,
+                          elfmeter: eintrag.elfmeter,
+                          spiele: eintrag.spiele)
+            }
+    }
+
+    private static func spielername(liga: Liga, platz: Int) -> String {
+        let vornamen = ["Jonas", "Luca", "Marco", "Erik", "Tobias", "Pablo", "Enzo",
+                        "Rafael", "Milan", "Noah", "Elias", "Samuel", "Leon", "Nico",
+                        "Adrian", "Fabio", "Kai", "Dennis", "Timo", "Robin"]
+        let nachnamen = ["Wagner", "Brandt", "Keller", "Lindner", "Sanchez", "Moreau",
+                         "Rossi", "Novak", "Berger", "Falk", "Hartmann", "Duarte",
+                         "Petrov", "Larsen", "Vidal", "Kraus", "Mertens", "Olsen",
+                         "Ferrari", "Baumann"]
+        let v = vornamen[wuerfel(liga.kennzahl, platz, 5) % vornamen.count]
+        let n = nachnamen[wuerfel(liga.kennzahl, platz, 91) % nachnamen.count]
+        return v + " " + n
+    }
+
     static func spieleHeute() -> [Spiel] {
         Liga.allCases.flatMap { liga in
             spiele(liga: liga, spieltag: laufenderSpieltag(liga))

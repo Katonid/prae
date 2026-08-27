@@ -29,6 +29,7 @@ final class Datenhaltung: ObservableObject {
 
     @Published private(set) var spieltage: [Liga: [Int: [Spiel]]] = [:]
     @Published private(set) var tabellen: [Liga: Tabelle] = [:]
+    @Published private(set) var torjaeger: [Liga: [Torjaeger]] = [:]
     @Published private(set) var laufenderSpieltag: [Liga: Int] = [:]
     @Published private(set) var ligaFehler: [Liga: String] = [:]
     @Published private(set) var ligaLaedt: Set<Liga> = []
@@ -71,6 +72,7 @@ final class Datenhaltung: ObservableObject {
     private func leeren() {
         spieltage = [:]
         tabellen = [:]
+        torjaeger = [:]
         laufenderSpieltag = [:]
         ligaFehler = [:]
         abrufzeit = [:]
@@ -284,6 +286,46 @@ final class Datenhaltung: ObservableObject {
     /// ist. Nur zum Anzeigen — es wird dafür nichts nachgefordert.
     func tabellenzeile(_ mannschaft: Mannschaft, liga: Liga) -> Tabellenzeile? {
         tabellen[liga]?.zeilen.first { $0.mannschaft.id == mannschaft.id }
+    }
+
+    /// Holt den direkten Vergleich. Das ist eine eigene Unterabfrage und
+    /// wird deshalb nur beim Öffnen einer einzelnen Begegnung gestellt.
+    func vergleichLaden(_ spiel: Spiel) async -> Vergleich? {
+        guard !beispielmodus, schluesselVorhanden else { return nil }
+        let marke = "vergleich-\(spiel.id)"
+        guard !imFlug.contains(marke) else { return nil }
+        imFlug.insert(marke)
+        defer { imFlug.remove(marke) }
+        return await dienst.vergleich(spielID: spiel.id)
+    }
+
+    // MARK: Torjäger
+
+    func torjaegerLaden(liga: Liga, erzwingen: Bool = false) async {
+        let marke = "\(liga.rawValue)-torjaeger"
+        if !erzwingen, torjaeger[liga] != nil, frisch(marke, sekunden: 600) { return }
+        guard einsatzbereit, !imFlug.contains(marke) else { return }
+
+        imFlug.insert(marke)
+        ligaLaedt.insert(liga)
+        defer {
+            imFlug.remove(marke)
+            ligaLaedt.remove(liga)
+        }
+
+        do {
+            let liste: [Torjaeger]
+            if beispielmodus {
+                liste = Beispieldaten.torjaeger(liga)
+            } else {
+                liste = try await dienst.torjaeger(liga: liga)
+            }
+            torjaeger[liga] = liste
+            abrufzeit[marke] = Date()
+            ligaFehler[liga] = nil
+        } catch {
+            ligaFehler[liga] = (error as? DienstFehler)?.errorDescription ?? error.localizedDescription
+        }
     }
 
     // MARK: Hilfen

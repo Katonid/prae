@@ -13,6 +13,7 @@ struct Ligasicht: View {
     enum Ansicht: String, CaseIterable, Identifiable {
         case spieltag = "Spieltag"
         case tabelle = "Tabelle"
+        case torjaeger = "Torjäger"
         var id: String { rawValue }
     }
 
@@ -33,10 +34,10 @@ struct Ligasicht: View {
             }
 
             Group {
-                if ansicht == .spieltag {
-                    spieltagsliste
-                } else {
-                    Tabellensicht(liga: liga)
+                switch ansicht {
+                case .spieltag: spieltagsliste
+                case .tabelle: Tabellensicht(liga: liga)
+                case .torjaeger: Torjaegersicht(liga: liga)
                 }
             }
         }
@@ -51,6 +52,12 @@ struct Ligasicht: View {
         }
         .onChange(of: spieltag) { _, _ in
             Task { await laden() }
+        }
+        .onChange(of: ansicht) { _, neu in
+            // Die Torjägerliste ist eine eigene Abfrage — erst holen, wenn
+            // sie wirklich angesehen wird.
+            guard neu == .torjaeger else { return }
+            Task { await daten.torjaegerLaden(liga: liga) }
         }
     }
 

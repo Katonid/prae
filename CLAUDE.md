@@ -146,6 +146,15 @@ danach bei jeder Arbeitseinheit mitziehen:
   ordnet über vereinfachte Vereinsnamen zu; beide Mannschaften müssen
   passen, sonst wird nichts ergänzt. Für die vier anderen Ligen gibt es
   keine vergleichbare freie Quelle.
+- **`head2head` ist eine eigene Unterabfrage** (`/v4/matches/{id}/head2head`),
+  KEIN Feld der Spielantwort — in 1.0.7 stand es falsch im Code, deshalb
+  erschien der direkte Vergleich nie. Sie kostet eine Abfrage und wird nur
+  beim Öffnen einer einzelnen Begegnung gestellt.
+- **Die Tabellenantwort trägt HOME und AWAY mit.** Heim- und
+  Auswärtsbilanz kosten deshalb nichts extra — nicht als eigene Abfrage
+  nachbauen.
+- **Torjägerliste**: `/v4/competitions/{code}/scorers` gibt der freie
+  Zugang her. Das ist das Einzige an Spielerdaten — Aufstellungen NICHT.
 - **Was der freie Zugang NICHT hergibt** (Stand 08/2026, geprüft):
   Aufstellungen, Auswechslungen und Karten. Sie gehören bei
   football-data.org zu den kostenpflichtigen Stufen. Freie Alternativen
@@ -158,7 +167,7 @@ danach bei jeder Arbeitseinheit mitziehen:
   beide Werte werden im Repo gepflegt. **Jede Arbeitseinheit (= jeder
   PR mit App-Änderungen) hebt die Patch-Nummer UND die Build-Nummer um
   je +1 an** — ohne Nachfrage, als Teil des PRs. Zählung ab 08/2026:
-  1.0.7 (Build 5), dann 1.0.8 (Build 6) usw. Größere Sprünge nur auf
+  1.0.8 (Build 6), dann 1.0.9 (Build 7) usw. Größere Sprünge nur auf
   ausdrückliche Ansage des Nutzers.
 - `ITSAppUsesNonExemptEncryption = NO` steht in `Config/Info.plist` UND
   als Build-Einstellung `INFOPLIST_KEY_ITSAppUsesNonExemptEncryption` —

@@ -6,6 +6,7 @@ struct Spielsicht: View {
     @EnvironmentObject private var daten: Datenhaltung
     @EnvironmentObject private var meldungen: Meldungsverwaltung
     @State private var geladen: Spiel?
+    @State private var bilanz: Vergleich?
 
     private var gezeigt: Spiel { geladen ?? spiel }
 
@@ -43,6 +44,8 @@ struct Spielsicht: View {
             if let frisch = await daten.spielNachladen(spiel) {
                 geladen = frisch
             }
+            // Eigene Unterabfrage — deshalb erst hier und nur einmal.
+            bilanz = await daten.vergleichLaden(spiel)
         }
     }
 
@@ -199,9 +202,19 @@ struct Spielsicht: View {
             VStack(alignment: .leading, spacing: 12) {
                 Text("So stehen sie da")
                     .font(.headline)
-                if let heim { tabellenzeile(heim, elf: gezeigt.heim) }
+                if let heim {
+                    tabellenzeile(heim, elf: gezeigt.heim)
+                    if let daheim = daten.tabellen[gezeigt.liga]?.heim(gezeigt.heim) {
+                        nebenzeile("zu Hause", daheim)
+                    }
+                }
                 if heim != nil && gast != nil { Divider() }
-                if let gast { tabellenzeile(gast, elf: gezeigt.gast) }
+                if let gast {
+                    tabellenzeile(gast, elf: gezeigt.gast)
+                    if let draussen = daten.tabellen[gezeigt.liga]?.auswaerts(gezeigt.gast) {
+                        nebenzeile("auswärts", draussen)
+                    }
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding()
@@ -225,8 +238,7 @@ struct Spielsicht: View {
                     .font(.subheadline.weight(.semibold).monospacedDigit())
             }
             HStack(spacing: 10) {
-                Text("\(zeile.spiele) Spiele · \(zeile.siege)-\(zeile.unentschieden)-\(zeile.niederlagen) · "
-                     + "\(zeile.toreFuer):\(zeile.toreGegen)")
+                Text(zeile.bilanztext)
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Spacer(minLength: 4)
@@ -237,11 +249,28 @@ struct Spielsicht: View {
         }
     }
 
+    /// Die Heim- beziehungsweise Auswärtsbilanz — sie steckt in derselben
+    /// Tabellenantwort und kostet deshalb keine zusätzliche Abfrage.
+    private func nebenzeile(_ titel: String, _ zeile: Tabellenzeile) -> some View {
+        HStack(spacing: 8) {
+            Text(titel)
+                .font(.caption2.weight(.semibold))
+                .padding(.horizontal, 7)
+                .padding(.vertical, 2)
+                .background(Color.secondary.opacity(0.14), in: Capsule())
+            Text("\(zeile.platz). · " + zeile.bilanztext)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+            Spacer(minLength: 0)
+        }
+        .padding(.leading, 38)
+    }
+
     // MARK: Direkter Vergleich
 
     @ViewBuilder
     private var direkterVergleich: some View {
-        if let bilanz = gezeigt.vergleich, bilanz.hatInhalt {
+        if let bilanz, bilanz.hatInhalt {
             VStack(alignment: .leading, spacing: 10) {
                 Text("Direkter Vergleich")
                     .font(.headline)
@@ -275,19 +304,29 @@ struct Spielsicht: View {
 
     // MARK: Woher die Angaben stammen
 
+    private var hatHinweis: Bool {
+        gezeigt.torfolgeQuelle != nil
+            || (gezeigt.tore.isEmpty && gezeigt.status == .beendet)
+            || gezeigt.status == .geplant
+    }
+
     @ViewBuilder
     private var datenhinweis: some View {
+        if hatHinweis {
         VStack(alignment: .leading, spacing: 6) {
             if let quelle = gezeigt.torfolgeQuelle {
                 hinweiszeile("Die Torfolge stammt von \(quelle) — der freie Zugang von football-data.org liefert sie für dieses Spiel nicht mit.")
             } else if gezeigt.tore.isEmpty && gezeigt.status == .beendet {
                 hinweiszeile("Zu dieser Begegnung liefert der freie Zugang keine Torschützen. Für die Bundesliga springt OpenLigaDB ein, für die anderen vier Ligen gibt es keine freie Quelle.")
             }
-            hinweiszeile("Aufstellungen, Auswechslungen und Karten gehören bei football-data.org zu den kostenpflichtigen Stufen und fehlen deshalb. Was dazu bekannt wird, steht unter Meldungen.")
+            if gezeigt.status == .geplant {
+                hinweiszeile("Vor dem Anpfiff gibt der freie Zugang nur Tabellenstand und Bilanz her — keine Aufstellungen. Was dazu bekannt wird, steht unter Meldungen in der Art \u{201E}Aufstellung & Vorbericht\u{201C}.")
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding()
         .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: Gestaltung.ecke))
+        }
     }
 
     private func hinweiszeile(_ text: String) -> some View {
