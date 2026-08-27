@@ -7,6 +7,7 @@ struct Spielsicht: View {
     @EnvironmentObject private var meldungen: Meldungsverwaltung
     @State private var geladen: Spiel?
     @State private var bilanz: Vergleich?
+    @State private var elf: Aufstellungen?
 
     private var gezeigt: Spiel { geladen ?? spiel }
 
@@ -21,6 +22,7 @@ struct Spielsicht: View {
                     torfolge
                 }
                 spielverlauf
+                aufstellungen
                 tabellenstand
                 direkterVergleich
                 eckdaten
@@ -47,6 +49,7 @@ struct Spielsicht: View {
             }
             // Eigene Unterabfrage — deshalb erst hier und nur einmal.
             bilanz = await daten.vergleichLaden(spiel)
+            elf = await daten.aufstellungLaden(spiel)
         }
     }
 
@@ -191,6 +194,103 @@ struct Spielsicht: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding()
         .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: Gestaltung.ecke))
+    }
+
+    // MARK: Aufstellungen
+
+    @ViewBuilder
+    private var aufstellungen: some View {
+        if let elf, elf.hatInhalt {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack {
+                    Text("Aufstellungen")
+                        .font(.headline)
+                    Spacer()
+                    Text(Aufstellungsdienst.quellenname)
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                }
+                if elf.heim.hatInhalt { mannschaftself(elf.heim, wappen: gezeigt.heim) }
+                if elf.heim.hatInhalt && elf.gast.hatInhalt { Divider() }
+                if elf.gast.hatInhalt { mannschaftself(elf.gast, wappen: gezeigt.gast) }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding()
+            .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: Gestaltung.ecke))
+        } else if daten.aufstellungsschluesselVorhanden, gezeigt.status == .geplant {
+            HStack(alignment: .top, spacing: 8) {
+                Image(systemName: "person.3")
+                    .foregroundStyle(.secondary)
+                    .font(.caption)
+                Text("Die Aufstellung steht noch nicht fest. Sie kommt üblicherweise etwa eine Stunde vor dem Anpfiff.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Spacer(minLength: 0)
+            }
+            .padding()
+            .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: Gestaltung.ecke))
+        }
+    }
+
+    private func mannschaftself(_ aufstellung: Aufstellung, wappen: Mannschaft) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                Wappen(mannschaft: wappen, groesse: 24)
+                Text(wappen.anzeige)
+                    .font(.subheadline.weight(.semibold))
+                Spacer(minLength: 4)
+                if let formation = aufstellung.formation, !formation.isEmpty {
+                    Text(formation)
+                        .font(.caption.weight(.bold).monospacedDigit())
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(Gestaltung.rasen.opacity(0.15), in: Capsule())
+                        .foregroundStyle(Gestaltung.rasen)
+                }
+            }
+
+            ForEach(aufstellung.startelf) { posten in
+                spielerzeile(posten)
+            }
+
+            if let trainer = aufstellung.trainer, !trainer.isEmpty {
+                Text("Trainer: " + trainer)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .padding(.top, 2)
+            }
+
+            if !aufstellung.bank.isEmpty {
+                DisclosureGroup("Ersatzbank (\(aufstellung.bank.count))") {
+                    VStack(alignment: .leading, spacing: 6) {
+                        ForEach(aufstellung.bank) { posten in
+                            spielerzeile(posten)
+                        }
+                    }
+                    .padding(.top, 4)
+                }
+                .font(.caption.weight(.semibold))
+                .tint(.secondary)
+            }
+        }
+    }
+
+    private func spielerzeile(_ posten: Spielerposten) -> some View {
+        HStack(spacing: 10) {
+            Text(posten.nummer.map(String.init) ?? "–")
+                .font(.caption.weight(.semibold).monospacedDigit())
+                .foregroundStyle(.secondary)
+                .frame(width: 24, alignment: .trailing)
+            Text(posten.name)
+                .font(.subheadline)
+                .lineLimit(1)
+            Spacer(minLength: 4)
+            if let position = posten.positionstext {
+                Text(position)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+        }
     }
 
     // MARK: Spielverlauf aus dem eigenen Mitschnitt
@@ -350,7 +450,7 @@ struct Spielsicht: View {
         gezeigt.torfolgeQuelle != nil
             || gezeigt.torfolgeUnvollstaendig
             || (gezeigt.tore.isEmpty && gezeigt.status == .beendet)
-            || gezeigt.status == .geplant
+            || (gezeigt.status == .geplant && !daten.aufstellungsschluesselVorhanden)
     }
 
     @ViewBuilder
@@ -366,8 +466,8 @@ struct Spielsicht: View {
             } else if gezeigt.tore.isEmpty && gezeigt.status == .beendet {
                 hinweiszeile("Zu dieser Begegnung liefert der freie Zugang keine Torschützen. Für die Bundesliga springt OpenLigaDB ein, für die anderen vier Ligen gibt es keine freie Quelle.")
             }
-            if gezeigt.status == .geplant {
-                hinweiszeile("Vor dem Anpfiff gibt der freie Zugang nur Tabellenstand und Bilanz her — keine Aufstellungen. Was dazu bekannt wird, steht unter Meldungen in der Art \u{201E}Aufstellung & Vorbericht\u{201C}.")
+            if gezeigt.status == .geplant, !daten.aufstellungsschluesselVorhanden {
+                hinweiszeile("Aufstellungen liefert football-data.org im freien Zugang nicht. Sie lassen sich über einen zweiten, ebenfalls kostenlosen Schlüssel nachrüsten — siehe Einstellungen. Ohne ihn steht Vorbereitendes unter Meldungen in der Art \u{201E}Aufstellung & Vorbericht\u{201C}.")
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)

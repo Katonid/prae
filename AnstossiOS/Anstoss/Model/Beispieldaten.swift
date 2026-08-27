@@ -349,6 +349,39 @@ enum Beispieldaten {
         return v + " " + n
     }
 
+    // MARK: Aufstellungen
+
+    /// Erfundene Aufstellungen für den Beispielmodus — damit sich der
+    /// Abschnitt ansehen lässt, ohne einen zweiten Schlüssel anzulegen.
+    static func aufstellungen(_ spiel: Spiel) -> Aufstellungen {
+        Aufstellungen(heim: elf(spiel.heim, streuung: spiel.id),
+                      gast: elf(spiel.gast, streuung: spiel.id &+ 7))
+    }
+
+    private static func elf(_ mannschaft: Mannschaft, streuung: Int) -> Aufstellung {
+        let formationen = ["4-2-3-1", "4-3-3", "3-4-2-1", "4-4-2", "3-5-2"]
+        let positionen = ["G"] + Array(repeating: "D", count: 4)
+            + Array(repeating: "M", count: 4) + Array(repeating: "F", count: 2)
+
+        var startelf: [Spielerposten] = []
+        for platz in 0 ..< 11 {
+            startelf.append(Spielerposten(name: spielername(liga: .bundesliga, platz: streuung &+ platz),
+                                          nummer: platz + 1,
+                                          position: positionen[platz]))
+        }
+        var bank: [Spielerposten] = []
+        for platz in 0 ..< 7 {
+            bank.append(Spielerposten(name: spielername(liga: .laLiga, platz: streuung &+ platz &+ 40),
+                                      nummer: platz + 12,
+                                      position: positionen[(platz + 3) % positionen.count]))
+        }
+        return Aufstellung(mannschaft: mannschaft.anzeige,
+                           formation: formationen[wuerfel(streuung, 3) % formationen.count],
+                           trainer: spielername(liga: .serieA, platz: streuung &+ 99),
+                           startelf: startelf,
+                           bank: bank)
+    }
+
     static func spieleHeute() -> [Spiel] {
         Liga.allCases.flatMap { liga in
             spiele(liga: liga, spieltag: laufenderSpieltag(liga))

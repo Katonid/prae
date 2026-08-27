@@ -215,6 +215,46 @@ struct Tabelle: Hashable, Codable {
     }
 }
 
+// MARK: - Aufstellung
+
+/// Ein Platz in der Aufstellung. Nummer und Position liefert der Dienst
+/// nicht immer mit — deshalb wahlfrei.
+struct Spielerposten: Identifiable, Hashable, Codable {
+    var id: String { (nummer.map(String.init) ?? "") + name }
+    let name: String
+    let nummer: Int?
+    let position: String?
+
+    /// Die Kürzel des Dienstes auf Deutsch. Unbekanntes bleibt, wie es ist.
+    var positionstext: String? {
+        switch (position ?? "").uppercased() {
+        case "G": return "Tor"
+        case "D": return "Abwehr"
+        case "M": return "Mittelfeld"
+        case "F": return "Angriff"
+        case "": return nil
+        default: return position
+        }
+    }
+}
+
+struct Aufstellung: Hashable, Codable {
+    let mannschaft: String
+    let formation: String?
+    let trainer: String?
+    let startelf: [Spielerposten]
+    let bank: [Spielerposten]
+
+    var hatInhalt: Bool { !startelf.isEmpty }
+}
+
+struct Aufstellungen: Hashable, Codable {
+    let heim: Aufstellung
+    let gast: Aufstellung
+
+    var hatInhalt: Bool { heim.hatInhalt || gast.hatInhalt }
+}
+
 // MARK: - Torjäger
 
 /// Ein Eintrag der Torjägerliste. Das Einzige an Spielerdaten, das der

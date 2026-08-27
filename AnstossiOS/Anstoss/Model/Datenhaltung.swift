@@ -57,14 +57,14 @@ final class Datenhaltung: ObservableObject {
 
     func schluesselSetzen(_ neu: String) {
         let sauber = neu.trimmingCharacters(in: .whitespacesAndNewlines)
-        Schluesselbund.schreiben(sauber)
+        Schluesselbund.schreiben(sauber, fuer: .fussballdaten)
         schluessel = sauber
         if !sauber.isEmpty { beispielmodus = false }
         leeren()
     }
 
     func schluesselLoeschen() {
-        Schluesselbund.loeschen()
+        Schluesselbund.loeschen(.fussballdaten)
         schluessel = ""
         leeren()
     }
@@ -308,6 +308,26 @@ final class Datenhaltung: ObservableObject {
     /// ist. Nur zum Anzeigen — es wird dafür nichts nachgefordert.
     func tabellenzeile(_ mannschaft: Mannschaft, liga: Liga) -> Tabellenzeile? {
         tabellen[liga]?.zeilen.first { $0.mannschaft.id == mannschaft.id }
+    }
+
+    /// Holt die Aufstellungen, sofern ein Schlüssel für api-football
+    /// hinterlegt ist. Ohne ihn passiert nichts.
+    func aufstellungLaden(_ spiel: Spiel) async -> Aufstellungen? {
+        guard !beispielmodus else { return Beispieldaten.aufstellungen(spiel) }
+        return await Aufstellungsdienst.aufstellung(zu: spiel)
+    }
+
+    var aufstellungsschluesselVorhanden: Bool { Aufstellungsdienst.schluesselVorhanden }
+
+    func aufstellungsschluesselSetzen(_ neu: String) {
+        Schluesselbund.schreiben(neu.trimmingCharacters(in: .whitespacesAndNewlines),
+                                 fuer: .aufstellungen)
+        objectWillChange.send()
+    }
+
+    func aufstellungsschluesselLoeschen() {
+        Schluesselbund.loeschen(.aufstellungen)
+        objectWillChange.send()
     }
 
     /// Holt den direkten Vergleich. Das ist eine eigene Unterabfrage und
