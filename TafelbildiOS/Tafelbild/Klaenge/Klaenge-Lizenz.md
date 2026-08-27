@@ -10,9 +10,9 @@ Genannt werden sie hier trotzdem; das gehört sich.
 | Kartenmischen | `zieh-karten.wav` | Kenney Vleugels (kenney.nl), Paket „Casino Audio“ | CC0 1.0 | https://kenney.nl/assets/casino-audio |
 | Trommelwirbel | `zieh-trommel.wav` | Iwan Sounds and DIY | CC0 1.0 | https://commons.wikimedia.org/wiki/File:Drum_Roll_Intro.ogg |
 | Glücksrad | `zieh-rad.wav` | Kenney Vleugels (kenney.nl), Paket „Interface Sounds“ | CC0 1.0 | https://kenney.nl/assets/interface-sounds |
-| Kärtchen legt sich (Karten) | `karte-karten-*.wav` | Kenney Vleugels (kenney.nl), Paket „Casino Audio“ | CC0 1.0 | https://kenney.nl/assets/casino-audio |
-| Kärtchen legt sich (Rad) | `karte-rad-*.wav` | Kenney Vleugels (kenney.nl), Paket „Interface Sounds“ | CC0 1.0 | https://kenney.nl/assets/interface-sounds |
-| Kärtchen legt sich (Trommel) | `karte-trommel-*.wav` | Iwan Sounds and DIY | CC0 1.0 | https://commons.wikimedia.org/wiki/File:Drum_Roll_Intro.ogg |
+| Kärtchen rastet ein (Karten) | `karte-karten-*.wav` | Kenney Vleugels (kenney.nl), Paket „Casino Audio“ | CC0 1.0 | https://kenney.nl/assets/casino-audio |
+| Kärtchen rastet ein (Rad) | `karte-rad-*.wav` | Wikimedia Commons, „Tools Ratchet“ | CC0 1.0 | https://commons.wikimedia.org/wiki/File:Tools_Ratchet.ogg |
+| Kärtchen rastet ein (Trommel) | `karte-trommel-*.wav` | Iwan Sounds and DIY | CC0 1.0 | https://commons.wikimedia.org/wiki/File:Drum_Roll_Intro.ogg |
 | Zähler hoch (Kassenglocke) | `zaehler-hoch.wav` | SoundBible (über Wikimedia Commons) | gemeinfrei | https://commons.wikimedia.org/wiki/File:Cash_register.ogg |
 | Zähler runter (Auswischen) | `zaehler-runter.wav` | Kenney Vleugels (kenney.nl), Paket „Interface Sounds“ | CC0 1.0 | https://kenney.nl/assets/interface-sounds |
 

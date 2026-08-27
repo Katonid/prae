@@ -27,6 +27,7 @@ Ergebnis: `TafelbildiOS/Tafelbild/Klaenge/*.wav`. Nicht von Hand bearbeiten.
 from __future__ import annotations
 
 import io
+import math
 import os
 import urllib.request
 import zipfile
@@ -76,44 +77,57 @@ QUELLEN = {
 }
 
 
-# Ein Kärtchen legt sich hin: die kurzen Klänge beim Auslosen von Gruppen.
+# Ein Kärtchen rastet ein: die kurzen Klänge beim Auslosen von Gruppen.
 #
-# Der lange Mitschnitt taugt dafür nicht. Ein Sitzplan dauert eine halbe
-# Minute, die Aufnahme 1,72 s — sie 17-mal zu wiederholen ist genau das, was
-# künstlich klingt. Stattdessen bekommt JEDES Kärtchen seinen eigenen kurzen
-# Klang, im Augenblick, in dem es stehen bleibt. Mehrere Fassungen je Klang,
-# damit sich nichts wiederholt; die Tonhöhe streut die App zusätzlich.
+# **Zweiter Anlauf.** Der erste nahm einzelne Anschläge — ein Kartenklaps,
+# ein Klick, das Ende des Trommelwirbels. Auf dem iPad war davon nichts zu
+# erkennen. Nachgemessen liegt der Grund offen: Diese Aufnahmen bringen
+# −27 bis −29 dBFS, die Kassenglocke und der Wisch, die beide gut ankamen,
+# −14 bzw. −11 dBFS. Das sind 15 dB Unterschied, also ein Viertel der
+# empfundenen Lautstärke — und ein trockener Klick von 20 Millisekunden hat
+# ohnehin keine Substanz.
+#
+# Zwei Schlüsse, beide hier umgesetzt:
+#
+# 1. **Nicht auf den Spitzenwert normieren, sondern auf die Lautheit**
+#    (`laut`). Alle kurzen Klänge kommen damit auf dieselbe empfundene
+#    Stärke wie die Kassenglocke.
+# 2. **Keine Anschläge, sondern Ausschnitte aus echten Vorgängen.** Karten
+#    werden gemischt, ein Rad ratscht, eine Trommel wirbelt — das sind
+#    Abläufe, keine Schläge. Jedes Kärtchen bekommt einen kurzen Ausschnitt
+#    daraus, und der endet genau dann, wenn das Kärtchen einrastet. Die
+#    Ausschnitte liegen an verschiedenen Stellen der Aufnahme, also klingt
+#    keiner wie der vorige.
 KARTENDAUER = 0.5
 
 KARTENQUELLEN = {
     "karten": {
-        "titel": "Kärtchen legt sich (Karten)",
+        "titel": "Kärtchen rastet ein (Karten)",
         "url": QUELLEN["karten"]["url"],
-        "im_archiv": [f"Audio/card-place-{i}.ogg" for i in (1, 2, 3, 4)],
+        "im_archiv": "Audio/card-shuffle.ogg",
+        # Sekunden: je ein Durchlauf des Stapels durch die Finger.
+        "ausschnitte": [(0.08, 0.34), (0.48, 0.80), (1.28, 1.62), (2.68, 3.00)],
         "urheber": "Kenney Vleugels (kenney.nl), Paket „Casino Audio“",
         "lizenz": "CC0 1.0",
         "nachweis": "https://kenney.nl/assets/casino-audio",
     },
     "rad": {
-        "titel": "Kärtchen legt sich (Rad)",
-        "url": QUELLEN["rad"]["url"],
-        "im_archiv": [f"Audio/tick_{i:03d}.ogg" for i in (1, 2, 4)],
-        # Ein einzelner Klick klingt nach Bedienoberfläche, nicht nach
-        # Glücksrad. Ein Rad klackt mehrfach und wird dabei langsamer.
-        # Deshalb hier ein kurzer Ratschenlauf je Kärtchen, der mit dem
-        # letzten Klick endet — die App legt ihn so, dass dieser Klick auf
-        # den Augenblick des Einrastens fällt (siehe Ziehklang.swift).
-        "ratsche": [(7, 55, 150), (8, 48, 135), (6, 62, 165)],
-        "urheber": "Kenney Vleugels (kenney.nl), Paket „Interface Sounds“",
+        "titel": "Kärtchen rastet ein (Rad)",
+        "url": "https://commons.wikimedia.org/wiki/Special:FilePath/Tools_Ratchet.ogg",
+        # Eine echte Ratsche — genau das Klacken, das ein Glücksrad macht.
+        # Der erste Anlauf reihte stattdessen einen Oberflächen-Klick
+        # aneinander; das klang nach Bedienung, nicht nach Rad.
+        "ausschnitte": [(0.15, 0.66), (1.25, 1.72), (2.25, 2.72)],
+        "urheber": "Wikimedia Commons, „Tools Ratchet“",
         "lizenz": "CC0 1.0",
-        "nachweis": "https://kenney.nl/assets/interface-sounds",
+        "nachweis": "https://commons.wikimedia.org/wiki/File:Tools_Ratchet.ogg",
     },
     "trommel": {
-        "titel": "Kärtchen legt sich (Trommel)",
+        "titel": "Kärtchen rastet ein (Trommel)",
         "url": QUELLEN["trommel"]["url"],
-        # Kein eigener Mitschnitt: der Schlag, mit dem der Wirbel endet.
-        "im_archiv": [None],
-        "vom_ende": True,
+        # Ausschnitte aus dem Wirbel selbst. Das Ende des Wirbels taugte
+        # nicht: Er läuft aus, statt mit einem Schlag zu enden.
+        "ausschnitte": [(1.95, 2.45), (2.85, 3.35), (3.10, 3.58)],
         "urheber": "Iwan Sounds and DIY",
         "lizenz": "CC0 1.0",
         "nachweis": "https://commons.wikimedia.org/wiki/File:Drum_Roll_Intro.ogg",
@@ -122,7 +136,8 @@ KARTENQUELLEN = {
 
 
 # Der Zähler in der Zählansicht („Kinder des Tages"): hoch wie die Glocke
-# einer Registrierkasse, runter wie ein Wisch über die Tafel.
+# einer Registrierkasse, runter wie ein Wisch über die Tafel. Diese beiden
+# kamen im Unterricht auf Anhieb an — an ihrer Lautheit misst sich der Rest.
 ZAEHLERDAUER = 1.4
 
 ZAEHLERQUELLEN = {
@@ -253,29 +268,6 @@ def kurz(mono, rate, vom_ende=False, fenster=None):
     return mono[anfang:ende]
 
 
-def ratsche(klick, rate, klicks, von_ms, bis_ms):
-    """Ein kurzer Ratschenlauf, der langsamer wird.
-
-    Der **letzte Klick liegt am Ende** der Datei: Die App startet den Lauf
-    so früh, dass er genau dann ausklingt, wenn das Kärtchen einrastet.
-    """
-    zeiten, t = [], 0.0
-    for i in range(klicks):
-        zeiten.append(t)
-        p = i / max(1, klicks - 1)
-        t += (von_ms + p ** 2.2 * (bis_ms - von_ms)) / 1000
-    gesamt = int(zeiten[-1] * rate) + len(klick)
-    spur = [0.0] * gesamt
-    for nummer, wann in enumerate(zeiten):
-        ab = int(wann * rate)
-        # Der letzte Klick ist der kräftigste — dort rastet es ein.
-        pegel = 0.55 + 0.45 * (nummer / max(1, klicks - 1))
-        for i, v in enumerate(klick):
-            if ab + i < gesamt:
-                spur[ab + i] += v * pegel
-    return spur
-
-
 def blende(stueck, rate):
     ein = int(0.004 * rate)
     aus = int(0.05 * rate)
@@ -287,22 +279,50 @@ def blende(stueck, rate):
     return stueck
 
 
-def nachblende(stueck, rate, sekunden):
-    """Wie `blende`, aber mit sehr kurzem Ausklang."""
-    ein = int(0.002 * rate)
-    aus = int(sekunden * rate)
-    n = len(stueck)
-    for i in range(min(ein, n)):
-        stueck[i] *= i / max(1, ein)
-    for i in range(min(aus, n)):
-        stueck[n - 1 - i] *= i / max(1, aus)
-    return stueck
+def laut(stueck, ziel=0.20):
+    """Auf **Lautheit** bringen, nicht auf den Spitzenwert.
+
+    Der Spitzenwert sagt nichts darüber, wie laut etwas ankommt: Ein
+    trockener Klick hat eine hohe Spitze und fast keine Energie, eine
+    Glocke umgekehrt. Genau daran scheiterte der erste Anlauf — alle
+    Dateien standen auf Spitze 0,9 und waren trotzdem 15 dB
+    auseinander.
+
+    Deshalb: erst auf einen gemeinsamen Effektivwert (RMS) bringen, dann
+    die Spitzen weich begrenzen. Das Begrenzen hebt leise Stellen
+    zusätzlich an — erwünscht, ein Kärtchenklang soll aus der letzten
+    Reihe zu hören sein.
+
+    0,20 ist der gemessene Wert der Kassenglocke, die im Unterricht gut
+    ankam.
+    """
+    def bearbeitet(faktor):
+        # tanh läuft gegen 1, der Höchstwert bleibt also bei 0,95 — nichts
+        # übersteuert. Leise Stellen kommen fast ungebremst durch
+        # (tanh(x) ≈ x), laute werden weich zusammengedrückt.
+        return [0.95 * math.tanh(v * faktor * 1.15) for v in stueck]
+
+    def effektivwert(werte):
+        n = len(werte) or 1
+        return math.sqrt(sum(v * v for v in werte) / n) or 1e-9
+
+    faktor = ziel / effektivwert(stueck)
+    ergebnis = bearbeitet(faktor)
+    # Das Begrenzen verschiebt den Effektivwert. Einmal nachziehen genügt,
+    # damit alle Dateien wirklich gleich laut sind — nachgemessen liegen sie
+    # danach innerhalb eines halben Dezibels beieinander.
+    for _ in range(3):
+        ist = effektivwert(ergebnis)
+        if abs(20 * math.log10(ist / ziel)) < 0.1:
+            break
+        faktor *= ziel / ist
+        ergebnis = bearbeitet(faktor)
+    return ergebnis
 
 
-def normiere(stueck, ziel=0.82):
-    spitze = max(abs(v) for v in stueck) or 1.0
-    faktor = ziel / spitze
-    return [v * faktor for v in stueck]
+def ausschnitt(mono, rate, von, bis):
+    """Ein Stück aus der Aufnahme, in Sekunden."""
+    return list(mono[int(von * rate):int(bis * rate)])
 
 
 def main():
@@ -314,9 +334,9 @@ def main():
     for name, quelle in QUELLEN.items():
         mono, rate = lade(quelle)
         if quelle.get("reihung"):
-            stueck = normiere(blende(reihe(schneide(mono, rate), rate), rate))
+            stueck = laut(blende(reihe(schneide(mono, rate), rate), rate))
         else:
-            stueck = normiere(blende(schneide(mono, rate), rate))
+            stueck = laut(blende(schneide(mono, rate), rate))
         pfad = os.path.join(ordner, f"zieh-{name}.wav")
         sf.write(pfad, stueck, rate, subtype="PCM_16")
         groesse = os.path.getsize(pfad) // 1024
@@ -326,22 +346,13 @@ def main():
 
     for name, quelle in KARTENQUELLEN.items():
         roh = hole(quelle["url"])
-        for nummer, im_archiv in enumerate(quelle["im_archiv"], start=1):
-            teil = roh
-            if im_archiv:
-                with zipfile.ZipFile(io.BytesIO(roh)) as archiv:
-                    teil = archiv.read(im_archiv)
-            daten, rate = sf.read(io.BytesIO(teil), always_2d=True)
-            mono = [sum(rahmen) / len(rahmen) for rahmen in daten]
-            stueck = kurz(mono, rate, quelle.get("vom_ende", False))
-            if "ratsche" in quelle:
-                klicks, von_ms, bis_ms = quelle["ratsche"][nummer - 1]
-                stueck = ratsche(stueck, rate, klicks, von_ms, bis_ms)
-                # Nur ganz kurz ausblenden: Der letzte Klick soll stehen
-                # bleiben, er ist der Einrastpunkt.
-                stueck = normiere(nachblende(stueck, rate, 0.004), ziel=0.9)
-            else:
-                stueck = normiere(blende(stueck, rate), ziel=0.9)
+        if "im_archiv" in quelle:
+            with zipfile.ZipFile(io.BytesIO(roh)) as archiv:
+                roh = archiv.read(quelle["im_archiv"])
+        daten, rate = sf.read(io.BytesIO(roh), always_2d=True)
+        mono = [sum(rahmen) / len(rahmen) for rahmen in daten]
+        for nummer, (von, bis) in enumerate(quelle["ausschnitte"], start=1):
+            stueck = laut(blende(ausschnitt(mono, rate, von, bis), rate))
             pfad = os.path.join(ordner, f"karte-{name}-{nummer}.wav")
             sf.write(pfad, stueck, rate, subtype="PCM_16")
             groesse = os.path.getsize(pfad) // 1024
@@ -358,7 +369,7 @@ def main():
         daten, rate = sf.read(io.BytesIO(roh), always_2d=True)
         mono = [sum(rahmen) / len(rahmen) for rahmen in daten]
         stueck = kurz(mono, rate, False, fenster=ZAEHLERDAUER)
-        stueck = normiere(blende(stueck, rate), ziel=0.85)
+        stueck = laut(blende(stueck, rate))
         pfad = os.path.join(ordner, f"zaehler-{name}.wav")
         sf.write(pfad, stueck, rate, subtype="PCM_16")
         groesse = os.path.getsize(pfad) // 1024

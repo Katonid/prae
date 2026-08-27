@@ -20,13 +20,25 @@ import AVFoundation
 // Ende des Zuges ausklingt — der Trommelschlag am Schluss fällt auf den
 // Augenblick, in dem der Name steht.
 //
-// **Gruppen.** Hier lief früher dieselbe Aufnahme in Schleife über den ganzen
-// Zug. Ein Sitzplan für eine Klasse dauert eine halbe Minute; das waren
-// siebzehn Wiederholungen desselben Mitschnitts, und genau diese Wiederholung
-// klang künstlich — außerdem hatte sie mit dem Bild nichts zu tun. Jetzt
-// bekommt **jedes Kärtchen seinen eigenen kurzen Klang, genau dann, wenn es
-// stehen bleibt** (`kartenSchlag`): mehrere Fassungen im Wechsel, Tonhöhe und
-// Pegel leicht gestreut. Das letzte Kärtchen bekommt den vollen Pegel.
+// **Gruppen.** Jedes Kärtchen bekommt seinen eigenen kurzen Klang
+// (`kartenSchlag`), und zwar einen **Ausschnitt aus dem Vorgang selbst**, der
+// genau dann endet, wenn das Kärtchen einrastet: ein Durchlauf des
+// Kartenstapels, ein Ratschen, ein Stück Wirbel. Mehrere Ausschnitte im
+// Wechsel, damit keiner wie der vorige klingt; das letzte Kärtchen bekommt
+// den vollen Pegel.
+//
+// Zwei Anläufe davor gingen daneben, beide aus demselben Grund:
+//
+// * Eine Aufnahme von 1,72 s siebzehnmal in Schleife über den ganzen Zug —
+//   die Wiederholung klang künstlich und hatte mit dem Bild nichts zu tun.
+// * Einzelne Anschläge (Kartenklaps, Klick, Wirbelende) — auf dem iPad war
+//   davon nichts zu erkennen. Nachgemessen lagen diese Aufnahmen bei −27 bis
+//   −29 dBFS, die Kassenglocke und der Wisch, die beide ankamen, bei −14 und
+//   −11. Fünfzehn Dezibel sind ein Viertel der empfundenen Lautstärke.
+//
+// Deshalb werden jetzt **alle** Dateien auf dieselbe Lautheit gebracht
+// (−14 dBFS, nachgemessen) statt auf denselben Spitzenwert. Der Spitzenwert
+// sagt nichts darüber, wie laut etwas ankommt.
 
 /// Klang beim Ziehen — dieselben vier Möglichkeiten wie in der Web-App.
 enum SpinSound: String, Codable, CaseIterable, Identifiable {
@@ -50,14 +62,13 @@ enum SpinSound: String, Codable, CaseIterable, Identifiable {
         switch self {
         case .karten:
             return "Ein echter Kartenstapel, der durch die Finger läuft. "
-                 + "Bei Gruppen legt sich jedes Kärtchen mit einem Kartenschlag."
+                 + "Bei Gruppen läuft er vor jedem Kärtchen kurz durch."
         case .trommel:
-            return "Ein Wirbel auf der kleinen Trommel, mit Schlag am Ende. "
-                 + "Bei Gruppen fällt der Schlag auf jedes Kärtchen."
+            return "Ein Wirbel auf der kleinen Trommel. Bei Gruppen wirbelt "
+                 + "es vor jedem Kärtchen kurz an."
         case .rad:
-            return "Das Klacken einer Ratsche, das mit dem Rad langsamer wird. "
-                 + "Bei Gruppen läuft vor jedem Kärtchen ein kurzer Ratschenlauf "
-                 + "an, dessen letzter Klick auf das Einrasten fällt."
+            return "Das Klacken einer echten Ratsche. Bei Gruppen ratscht es "
+                 + "vor jedem Kärtchen, bis es einrastet."
         case .aus:
             return "Beim Ziehen bleibt es still."
         }
@@ -82,22 +93,19 @@ enum SpinSound: String, Codable, CaseIterable, Identifiable {
         }
     }
 
-    /// Ist der kurze Klang ein **Anlauf**, der mit dem Einrasten endet?
-    ///
-    /// Beim Glücksrad ja: Ein Rad klackt mehrfach und wird langsamer, der
-    /// letzte Klick ist der Augenblick des Anhaltens. Die Aufnahme wird
-    /// deshalb so früh begonnen, dass sie genau dann ausklingt. Karten und
-    /// Trommel sind dagegen ein Anschlag — der fällt auf das Einrasten.
-    var istAnlauf: Bool { self == .rad }
-
-    /// Kurze Klänge für „ein Kärtchen legt sich hin" — mehrere Fassungen,
+    /// Kurze Klänge für „ein Kärtchen rastet ein" — mehrere Fassungen,
     /// damit sich nichts wiederholt.
+    ///
+    /// **Alle drei sind Ausschnitte aus einem Vorgang, kein Anschlag.**
+    /// Karten werden gemischt, ein Rad ratscht, eine Trommel wirbelt — das
+    /// sind Abläufe. Jeder Ausschnitt endet genau dann, wenn das Kärtchen
+    /// einrastet; der Ton läuft also auf das Bild zu und hört mit ihm auf.
     var kartenDateien: [String] {
         switch self {
         case .aus:     return []
         case .karten:  return (1...4).map { "karte-karten-\($0)" }
         case .rad:     return (1...3).map { "karte-rad-\($0)" }
-        case .trommel: return ["karte-trommel-1"]
+        case .trommel: return (1...3).map { "karte-trommel-\($0)" }
         }
     }
 }
@@ -208,10 +216,9 @@ final class Ziehklang {
     /// Hauch Streuung in Tonhöhe und Pegel — so klingt kein Anschlag wie
     /// der vorige.
     /// - Parameter landetIn: In wie vielen Sekunden das Kärtchen einrastet.
-    ///   Ein Anschlag (Karten, Trommel) wird auf diesen Augenblick gelegt,
-    ///   ein Anlauf (Glücksrad) so früh begonnen, dass sein letzter Klick
-    ///   darauf fällt. Vorausgeplant statt im Takt der Bildschleife
-    ///   angestoßen — dadurch sitzt der Ton auf die Millisekunde.
+    ///   Der Ausschnitt wird so früh begonnen, dass er genau dann endet.
+    ///   Vorausgeplant statt im Takt der Bildschleife angestoßen — dadurch
+    ///   sitzt der Ton auf die Millisekunde.
     func kartenSchlag(_ klang: SpinSound, landetIn: Double = 0, betont: Bool = false) {
         let dateien = klang.kartenDateien
         guard !dateien.isEmpty else { return }
@@ -221,10 +228,13 @@ final class Ziehklang {
         guard let spieler = freierSpieler(name) else { return }
         spieler.currentTime = 0
         spieler.enableRate = true
-        spieler.rate = Float.random(in: 0.94...1.07)
-        spieler.volume = betont ? 1.0 : Float.random(in: 0.72...0.92)
+        // Nur ein Hauch Streuung: Die Aufnahmen sind auf gleiche Lautheit
+        // gebracht (siehe fetch-sounds.py), da soll nichts mehr leise
+        // untergehen — hörbar sein war das ganze Problem.
+        spieler.rate = Float.random(in: 0.97...1.04)
+        spieler.volume = betont ? 1.0 : Float.random(in: 0.9...1.0)
 
-        let vorlauf = klang.istAnlauf ? spieler.duration / Double(spieler.rate) : 0
+        let vorlauf = spieler.duration / Double(spieler.rate)
         let wartezeit = max(0, landetIn - vorlauf)
         if wartezeit > 0.01 {
             spieler.play(atTime: spieler.deviceCurrentTime + wartezeit)
