@@ -439,14 +439,26 @@ struct NamePickerContent: Codable, Equatable {
     var mischMerkmalID: String = ""
     /// Wie die Merkmale in einer Gruppe stehen sollen.
     var merkmalsvorgabe: Merkmalsvorgabe = .unterschiedlich
-    /// Das Ergebnis als Checkliste zum Abhaken zeigen.
+    /// Altfeld: „als Checkliste zeigen". Was gilt, steht in `anzeige`.
     var alsCheckliste: Bool = false
+    /// Wie das Ergebnis gezeigt wird.
+    var anzeige: Ergebnisanzeige = .normal {
+        didSet { alsCheckliste = (anzeige == .abhaken) }
+    }
+    /// Zählerstand je Name (Kennung → Anzahl). Nur in der Zählansicht.
+    var zaehler: [String: Int] = [:]
     /// Ergebnis festgehalten: Es löst nichts mehr neu aus, abhaken geht.
     var festgehalten: Bool = false
     /// Das Ergebnis der letzten Auslosung, in Ziehreihenfolge.
     var ergebnis: [String] = []
     /// Abgehakte Zeilen — die Kennung des ersten Namens der Zeile.
     var erledigt: [String] = []
+    /// Kennung des Archiveintrags, zu dem das aktuelle Ergebnis gehört.
+    ///
+    /// Solange sie steht, gilt jede weitere Auslosung ab einer Stelle als
+    /// **Korrektur desselben Vorgangs** — der Eintrag wird fortgeschrieben,
+    /// nicht ein zweiter angelegt. „Neu auslosen" beginnt einen neuen.
+    var ziehungID: String = ""
 
     /// Überschrift, die zum gewählten Modus gehört.
     var ueberschrift: String {
@@ -557,6 +569,37 @@ enum Tafelformat: String, Codable, CaseIterable, Identifiable {
             return "Das Format der meisten Beamer und Bildschirme. Am Beamer bleiben damit keine Balken."
         case .klassisch:
             return "Hoch und kompakt — für ältere Beamer und viele fest verbaute Tafeln."
+        }
+    }
+}
+
+/// Wie das Ergebnis einer Ziehung gezeigt wird.
+enum Ergebnisanzeige: String, Codable, CaseIterable, Identifiable {
+    /// Nur die Namen.
+    case normal
+    /// Je Zeile ein Haken — welche Gruppe ist fertig?
+    case abhaken
+    /// Je Name ein Zähler — wie oft hat sich das Kind beteiligt?
+    case zaehlen
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .normal:  return "Nur Namen"
+        case .abhaken: return "Abhaken"
+        case .zaehlen: return "Zählen"
+        }
+    }
+
+    var erklaerung: String {
+        switch self {
+        case .normal:
+            return "Nur die Namen — nichts zum Antippen."
+        case .abhaken:
+            return "Jede Zeile bekommt einen Haken. So lässt sich festhalten, welche Gruppe eine Aufgabe schon erledigt hat."
+        case .zaehlen:
+            return "Jeder Name bekommt einen Zähler: Ein Tipp zählt eine Stufe hoch, langes Drücken wieder herunter. So lässt sich mitschreiben, wie oft sich jedes Kind beteiligt hat."
         }
     }
 }
@@ -1892,6 +1935,7 @@ extension NamePickerContent {
              reveal, revealParts
         case modus, titelGruppen, titelTagesgruppe, gruppenGroesse, tagesgruppeAnzahl
         case mischMerkmalID, merkmalsvorgabe, alsCheckliste, festgehalten, ergebnis, erledigt
+        case ziehungID, anzeige, zaehler
     }
 
     init(from decoder: Decoder) throws {
@@ -1919,10 +1963,14 @@ extension NamePickerContent {
         // keines gewählt hatte, meinte „egal“.
         merkmalsvorgabe = c.wert(.merkmalsvorgabe,
                                  mischMerkmalID.isEmpty ? Merkmalsvorgabe.egal : .unterschiedlich)
-        alsCheckliste = c.wert(.alsCheckliste, false)
+        // Altstände kannten nur „Checkliste ja/nein".
+        let alteCheckliste = c.wert(.alsCheckliste, false)
+        anzeige = c.wert(.anzeige, alteCheckliste ? Ergebnisanzeige.abhaken : .normal)
+        zaehler = c.wert(.zaehler, [String: Int]())
         festgehalten = c.wert(.festgehalten, false)
         ergebnis = c.wert(.ergebnis, [String]())
         erledigt = c.wert(.erledigt, [String]())
+        ziehungID = c.wert(.ziehungID, "")
     }
 }
 

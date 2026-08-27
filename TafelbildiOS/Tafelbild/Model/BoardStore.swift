@@ -579,16 +579,20 @@ final class BoardStore: ObservableObject {
     @discardableResult
     func uebertrageWidget(_ widgetID: String, von quelle: String, nach ziel: String,
                           seite: String? = nil, kopieren: Bool) -> Bool {
-        guard quelle != ziel,
-              let quellIndex = boards.firstIndex(where: { $0.id == quelle }),
+        guard let quellIndex = boards.firstIndex(where: { $0.id == quelle }),
               let zielIndex = boards.firstIndex(where: { $0.id == ziel }),
               let widget = boards[quellIndex].widgets.first(where: { $0.id == widgetID })
         else { return false }
 
         stelleSeitenSicher(zielIndex)
+        let zielSeite = seite ?? boards[zielIndex].ersteSeitenID
+        // Auf dieselbe Seite derselben Tafel gibt es nichts zu übertragen —
+        // dafür ist „Duplizieren" da.
+        guard quelle != ziel || zielSeite != widget.pageID else { return false }
+
         var neu = widget
         neu.id = UUID().uuidString
-        neu.pageID = seite ?? boards[zielIndex].ersteSeitenID
+        neu.pageID = zielSeite
         neu.z = (boards[zielIndex].widgets.map(\.z).max() ?? 0) + 1
         // Ausgeblendetes wäre auf der neuen Tafel unsichtbar und niemand
         // wüsste, dass es da ist.
@@ -963,38 +967,81 @@ final class BoardStore: ObservableObject {
     /// ein Schuljahr voller Auslosungen und liefe nie auf. Die einfache
     /// Regel „am liebsten jemanden, mit dem du noch nicht zusammen warst“
     /// ergibt in der Praxis dasselbe: jedes Mal andere Gruppen.
-    func merkeZiehung(_ ids: [String], listID: String?, modus: Ziehmodus,
-                      proZeile: Int, titel: String) {
-        guard let listID, var liste = nameList(listID), !ids.isEmpty else { return }
+    /// Schreibt das Ergebnis einer Auslosung fort.
+    ///
+    /// **Ein Vorgang, ein Eintrag.** Wer ab einer Stelle neu auslost, hat
+    /// den Sitzplan korrigiert, nicht zweimal ausgelost — der erste Entwurf
+    /// ist nie zustande gekommen, und weder das Archiv noch das Gedächtnis
+    /// sollen ihn kennen. Deshalb wird bei einer Korrektur der bisherige
+    /// Eintrag ersetzt und seine Paarzählung zurückgenommen.
+    ///
+    /// - Parameters:
+    ///   - ids: das Ergebnis, das jetzt gilt. Leer heißt: Der Vorgang wird
+    ///     verworfen.
+    ///   - vorher: das Ergebnis, das dadurch abgelöst wird — es wird aus dem
+    ///     Gedächtnis herausgerechnet.
+    ///   - ersetzt: Kennung des Eintrags, der fortgeschrieben wird.
+    ///     nil = neuer Vorgang.
+    /// - Returns: Kennung des Eintrags, der jetzt gilt (leer, wenn keiner).
+    @discardableResult
+    func merkeZiehung(_ ids: [String], vorher: [String] = [], ersetzt: String? = nil,
+                      listID: String?, modus: Ziehmodus,
+                      proZeile: Int, titel: String) -> String {
+        guard let listID, var liste = nameList(listID) else { return "" }
 
-        var eintrag = Ziehung()
-        eintrag.modus = modus.rawValue
-        eintrag.proZeile = max(1, proZeile)
-        eintrag.titel = titel
-        eintrag.texte = ids.map { id in
-            liste.entries.first { $0.id == id }?.text ?? "—"
+        if !vorher.isEmpty {
+            zaehle(vorher, in: &liste, modus: modus, proZeile: proZeile, richtung: -1)
         }
-        liste.ziehungen.insert(eintrag, at: 0)
-        if liste.ziehungen.count > NameList.archivGrenze {
-            liste.ziehungen = Array(liste.ziehungen.prefix(NameList.archivGrenze))
+        if let ersetzt, !ersetzt.isEmpty {
+            liste.ziehungen.removeAll { $0.id == ersetzt }
+        }
+
+        var neueID = ""
+        if !ids.isEmpty {
+            var eintrag = Ziehung()
+            // Kennung behalten: Es ist derselbe Vorgang, nur berichtigt.
+            if let ersetzt, !ersetzt.isEmpty { eintrag.id = ersetzt }
+            eintrag.modus = modus.rawValue
+            eintrag.proZeile = max(1, proZeile)
+            eintrag.titel = titel
+            eintrag.texte = ids.map { id in
+                liste.entries.first { $0.id == id }?.text ?? "—"
+            }
+            liste.ziehungen.insert(eintrag, at: 0)
+            if liste.ziehungen.count > NameList.archivGrenze {
+                liste.ziehungen = Array(liste.ziehungen.prefix(NameList.archivGrenze))
+            }
+            zaehle(ids, in: &liste, modus: modus, proZeile: proZeile, richtung: 1)
+            neueID = eintrag.id
+        }
+
+        updateNameList(liste)
+        return neueID
+    }
+
+    /// Zählt die Paarungen einer Ziehung hinauf (`richtung` 1) oder wieder
+    /// herunter (−1). Bei null verschwindet der Eintrag: Eine Tabelle voller
+    /// Nullen wandert sonst bei jedem Abgleich mit.
+    private func zaehle(_ ids: [String], in liste: inout NameList, modus: Ziehmodus,
+                        proZeile: Int, richtung: Int) {
+        func aendere(_ schluessel: String) {
+            let neu = max(0, (liste.paare[schluessel] ?? 0) + richtung)
+            if neu == 0 { liste.paare[schluessel] = nil } else { liste.paare[schluessel] = neu }
         }
 
         if modus == .tagesgruppe {
-            for id in ids { liste.paare[Auslosung.einzel(id), default: 0] += 1 }
-        } else {
-            let breite = max(1, proZeile)
-            var anfang = 0
-            while anfang < ids.count {
-                let gruppe = Array(ids[anfang..<min(anfang + breite, ids.count)])
-                for (stelle, a) in gruppe.enumerated() {
-                    for b in gruppe.dropFirst(stelle + 1) {
-                        liste.paare[Auslosung.paar(a, b), default: 0] += 1
-                    }
-                }
-                anfang += breite
-            }
+            for id in ids { aendere(Auslosung.einzel(id)) }
+            return
         }
-        updateNameList(liste)
+        let breite = max(1, proZeile)
+        var anfang = 0
+        while anfang < ids.count {
+            let gruppe = Array(ids[anfang..<min(anfang + breite, ids.count)])
+            for (stelle, a) in gruppe.enumerated() {
+                for b in gruppe.dropFirst(stelle + 1) { aendere(Auslosung.paar(a, b)) }
+            }
+            anfang += breite
+        }
     }
 
     /// Archiv und Gedächtnis leeren — danach fängt die Liste von vorn an.

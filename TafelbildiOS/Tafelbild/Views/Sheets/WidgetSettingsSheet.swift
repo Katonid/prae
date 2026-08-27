@@ -54,7 +54,6 @@ struct WidgetSettingsSheet: View {
                         )) {
                             ForEach(WidgetKarte.allCases) { Text($0.title).tag($0) }
                         }
-                        .pickerStyle(.inline)
 
                         Toggle("Nur für mich ausblenden", isOn: Binding(
                             get: { store.widget(widgetID, in: boardID)?.versteckt ?? false },
@@ -90,7 +89,6 @@ struct WidgetSettingsSheet: View {
                         )) {
                             ForEach(WidgetLabelRegel.allCases) { Text($0.title).tag($0) }
                         }
-                        .pickerStyle(.inline)
 
                         VStack(alignment: .leading, spacing: 6) {
                             HStack {
@@ -961,20 +959,43 @@ private struct NamePickerSettings: View {
                 }
             } else {
                 Section {
-                    Toggle("Als Checkliste zum Abhaken", isOn: $content.alsCheckliste)
+                    Picker("Ergebnis zeigen als", selection: $content.anzeige) {
+                        ForEach(Ergebnisanzeige.allCases) { Text($0.title).tag($0) }
+                    }
+                    .pickerStyle(.segmented)
+
+                    if content.anzeige == .zaehlen, !content.zaehler.isEmpty {
+                        Button(role: .destructive) {
+                            content.zaehler = [:]
+                            Haptics.tap()
+                        } label: {
+                            Label("Zähler zurücksetzen", systemImage: "arrow.counterclockwise")
+                        }
+                    }
+
                     Toggle("Ergebnis festhalten", isOn: $content.festgehalten)
                 } header: {
                     Text("Wie es aussieht")
                 } footer: {
-                    Text("Als Checkliste bekommt jede Zeile einen Haken — so lässt sich "
-                         + "festhalten, wer eine Aufgabe schon erledigt hat.\n\n"
-                         + "Festgehalten heißt: Es löst nichts mehr neu aus, weder der "
-                         + "Knopf noch ein Tipp auf ein Kärtchen. Abhaken geht weiterhin. "
-                         + "Derselbe Schalter sitzt als Schloss oben rechts auf dem "
-                         + "Element, damit er im Unterricht erreichbar ist.")
+                    Text(fussZuAnzeige)
                 }
             }
         }
+    }
+
+    /// Als eigene Größe, damit der Übersetzer nicht über einem
+    /// verschachtelten Text-Ausdruck aufgibt.
+    private var fussZuAnzeige: String {
+        var text = content.anzeige.erklaerung
+        text += "\n\nFestgehalten heißt: Es löst nichts mehr neu aus, weder der "
+            + "Knopf noch ein Tipp auf ein Kärtchen. Abhaken und Zählen gehen "
+            + "weiterhin. Derselbe Schalter sitzt als Schloss oben rechts auf dem "
+            + "Element, damit er im Unterricht erreichbar ist."
+        if content.anzeige == .zaehlen {
+            text += "\n\nIn der Zählansicht löst ein Tipp auf ein Kärtchen keine "
+                + "Neuauslosung mehr aus — dafür ist der Knopf unten da."
+        }
+        return text
     }
 
     // MARK: 3. Wie gezogen wird
@@ -1062,9 +1083,12 @@ private struct NamePickerSettings: View {
         var text = "Die App merkt sich, wer schon mit wem zusammen war, und zieht "
             + "bevorzugt Paarungen, die es noch nicht gab. Das gehört zur "
             + "Namensliste und gilt für alle Tafeln, die sie benutzen."
+        text += "\n\nEin Vorgang, ein Eintrag: „Neu auslosen“ beginnt einen neuen, "
+            + "ein Tipp auf ein Kärtchen berichtigt den laufenden. Was nur ein "
+            + "Zwischenschritt war, steht später nirgends."
         if !content.ergebnis.isEmpty {
-            text += "\n\n„Ergebnis verwerfen“ betrifft nur dieses Element: "
-                + "Danach steht es wieder auf „Noch nicht ausgelost“."
+            text += "\n\n„Ergebnis verwerfen“ nimmt den laufenden Vorgang ganz "
+                + "heraus — auch aus Archiv und Gedächtnis. Er hat ja nie gegolten."
         }
         return text
     }
@@ -1092,8 +1116,16 @@ private struct NamePickerSettings: View {
                     }
                     if !content.ergebnis.isEmpty {
                         Button(role: .destructive) {
+                            // Auch aus Archiv und Gedächtnis nehmen: Dieser
+                            // Sitzplan hat nie gegolten.
+                            store.merkeZiehung([], vorher: content.ergebnis,
+                                               ersetzt: content.ziehungID,
+                                               listID: content.listID,
+                                               modus: content.modus,
+                                               proZeile: content.proZeile, titel: "")
                             content.ergebnis = []
                             content.erledigt = []
+                            content.ziehungID = ""
                             content.festgehalten = false
                             Haptics.tap()
                         } label: {
