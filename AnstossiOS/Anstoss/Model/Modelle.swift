@@ -107,8 +107,15 @@ struct Spiel: Identifiable, Hashable, Codable {
     /// Woher die Torfolge stammt, wenn nicht von football-data.org. Steht
     /// hier etwas, sagt die Spielansicht es auch dazu.
     var torfolgeQuelle: String?
+    /// Wahr, wenn die Quelle weniger Tore nennt, als der Spielstand sagt —
+    /// bei TheSportsDB deckelt die freie Stufe die Ereignisliste.
+    var torfolgeUnvollstaendig = false
 
     var hatStand: Bool { toreHeim != nil && toreGast != nil }
+
+    /// Wie viele Tore insgesamt gefallen sind — daran misst sich, ob eine
+    /// nachgeladene Torfolge vollständig ist.
+    var toreGesamt: Int { (toreHeim ?? 0) + (toreGast ?? 0) }
 
     var standtext: String {
         guard let toreHeim, let toreGast else { return "–:–" }

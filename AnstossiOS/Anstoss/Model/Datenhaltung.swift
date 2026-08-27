@@ -131,10 +131,10 @@ final class Datenhaltung: ObservableObject {
             } else {
                 frisch = try await dienst.spieleHeute()
             }
-            // Fuer die Bundesliga die fehlende Torfolge nachziehen, BEVOR
-            // verglichen wird — sonst entstuenden Tormeldungen ohne Namen,
-            // die sich hinterher nicht mehr nachbessern lassen.
-            let vollstaendig = beispielmodus ? frisch : await Torschuetzendienst.torfolgeErgaenzen(frisch)
+            // Die fehlende Torfolge nachziehen, BEVOR verglichen wird — sonst
+            // entstuenden Tormeldungen ohne Namen, die sich hinterher nicht
+            // mehr nachbessern lassen.
+            let vollstaendig = beispielmodus ? frisch : await Self.torfolgeNachziehen(frisch)
             meldungenAblegen(vollstaendig)
             Vereinsverzeichnis.merken(spiele: vollstaendig)
             liveSpiele = vollstaendig.sorted(by: Self.reihenfolge)
@@ -162,6 +162,16 @@ final class Datenhaltung: ObservableObject {
         Benachrichtiger.melden(neue, wunsch: Meldungswunsch.gesichert())
     }
 
+    /// Zwei freie Quellen nacheinander, beide mit eigenem Kontingent:
+    /// **OpenLigaDB** kennt nur die Bundesliga, gibt dafür die vollständige
+    /// Torfolge her — deshalb zuerst. **TheSportsDB** deckt alle fünf Ligen
+    /// ab, gibt aber je Spiel nur die ersten fünf Ereignisse heraus. Beide
+    /// ergänzen nur, was football-data.org offenlässt.
+    nonisolated static func torfolgeNachziehen(_ spiele: [Spiel]) async -> [Spiel] {
+        let nachOpenLigaDB = await Torschuetzendienst.torfolgeErgaenzen(spiele)
+        return await Spielereignisdienst.torfolgeErgaenzen(nachOpenLigaDB)
+    }
+
     /// Stellt die Anpfiff-Wecker neu — aus allem, was die App gerade kennt:
     /// heutige Spiele, geladene Spieltage und der gesicherte Stand.
     func erinnerungenPflegen(wunsch: Meldungswunsch) async {
@@ -173,6 +183,18 @@ final class Datenhaltung: ObservableObject {
             }
         }
         await Benachrichtiger.anstosserinnerungenPlanen(spiele: Array(eindeutig.values), wunsch: wunsch)
+    }
+
+    /// Die eigenen Aufzeichnungen zu einer Begegnung, älteste zuerst.
+    /// Der Ticker schreibt sie mit, sobald sich der Stand ändert — deshalb
+    /// gibt es einen Verlauf auch ohne Torschützen von außen.
+    func verlauf(zu spielID: Int) -> [Tickermeldung] {
+        ticker
+            .filter { $0.spielID == spielID }
+            .sorted { links, rechts in
+                if links.zeitpunkt != rechts.zeitpunkt { return links.zeitpunkt < rechts.zeitpunkt }
+                return (links.minute ?? 0) < (rechts.minute ?? 0)
+            }
     }
 
     func tickerLeeren() {
@@ -205,7 +227,7 @@ final class Datenhaltung: ObservableObject {
             } else {
                 liste = try await dienst.spiele(liga: liga, spieltag: nummer)
             }
-            let vollstaendig = beispielmodus ? liste : await Torschuetzendienst.torfolgeErgaenzen(liste)
+            let vollstaendig = beispielmodus ? liste : await Self.torfolgeNachziehen(liste)
             Vereinsverzeichnis.merken(spiele: vollstaendig)
             var tage = spieltage[liga] ?? [:]
             tage[nummer] = vollstaendig.sorted(by: Self.reihenfolge)
@@ -279,7 +301,7 @@ final class Datenhaltung: ObservableObject {
         guard !beispielmodus else { return spiel }
         guard schluesselVorhanden else { return nil }
         guard let frisch = try? await dienst.spiel(id: spiel.id) else { return nil }
-        return await Torschuetzendienst.torfolgeErgaenzen([frisch]).first ?? frisch
+        return await Self.torfolgeNachziehen([frisch]).first ?? frisch
     }
 
     /// Die Tabellenzeile einer Mannschaft, falls die Tabelle schon geladen
@@ -296,7 +318,7 @@ final class Datenhaltung: ObservableObject {
         guard !imFlug.contains(marke) else { return nil }
         imFlug.insert(marke)
         defer { imFlug.remove(marke) }
-        return await dienst.vergleich(spielID: spiel.id)
+        return await dienst.vergleich(spielID: spiel.id, heimID: spiel.heim.id)
     }
 
     // MARK: Torjäger

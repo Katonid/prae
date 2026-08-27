@@ -146,6 +146,10 @@ danach bei jeder Arbeitseinheit mitziehen:
   ordnet über vereinfachte Vereinsnamen zu; beide Mannschaften müssen
   passen, sonst wird nichts ergänzt. Für die vier anderen Ligen gibt es
   keine vergleichbare freie Quelle.
+- **Der direkte Vergleich wird aus den mitgelieferten Einzelspielen
+  gerechnet**, nicht aus `aggregates` — dessen Zahlen gingen in 1.0.8
+  nicht auf (10 Begegnungen, aber 0 + 2 + 0). Der Rückfall auf
+  `aggregates` prüft, ob die Summe stimmt.
 - **`head2head` ist eine eigene Unterabfrage** (`/v4/matches/{id}/head2head`),
   KEIN Feld der Spielantwort — in 1.0.7 stand es falsch im Code, deshalb
   erschien der direkte Vergleich nie. Sie kostet eine Abfrage und wird nur
@@ -155,19 +159,32 @@ danach bei jeder Arbeitseinheit mitziehen:
   nachbauen.
 - **Torjägerliste**: `/v4/competitions/{code}/scorers` gibt der freie
   Zugang her. Das ist das Einzige an Spielerdaten — Aufstellungen NICHT.
-- **Was der freie Zugang NICHT hergibt** (Stand 08/2026, geprüft):
-  Aufstellungen, Auswechslungen und Karten. Sie gehören bei
-  football-data.org zu den kostenpflichtigen Stufen. Freie Alternativen
-  dafür gibt es nicht — OpenLigaDB und TheSportsDB führen keine Karten.
-  Deshalb wurden Karten in 1.0.7 wieder ausgebaut: **nichts einbauen,
-  was nicht ankommt.** Was dazu bekannt wird, läuft über die
-  Ligameldungen (Art „Spielbericht & Analyse").
+- **Zweite Torschützenquelle: TheSportsDB** (`Spielereignisdienst.swift`,
+  schlüssellos über die freie Kennung `123`, 30 Abfragen je Minute,
+  eigenes Kontingent). Deckt ALLE fünf Ligen ab und liefert schon
+  während des Spiels. **Deckel beachten:** Die freie Stufe gibt je
+  Spiel nur die ERSTEN FÜNF Ereignisse heraus (Karten zählen mit) —
+  späte Tore fehlen. Deshalb ergänzt sie nur Namen; die Torfolge selbst
+  baut weiter die App aus dem Sprung im Spielstand.
+  Reihenfolge: OpenLigaDB zuerst (nur Bundesliga, dafür vollständig),
+  dann TheSportsDB. Zugeordnet wird über Tagesplan + Vereinsnamen,
+  beide Mannschaften müssen passen.
+- **Aufstellungen gibt es nirgends frei** (Stand 08/2026, geprüft):
+  football-data.org führt sie in den kostenpflichtigen Stufen,
+  OpenLigaDB und TheSportsDB haben sie nicht. Nichts einbauen, was
+  nicht ankommt — was dazu bekannt wird, läuft über die Ligameldungen
+  (Art „Aufstellung & Vorbericht").
+- **Karten sind bei TheSportsDB doch vorhanden** (Gelb und Rot, in der
+  Zeitleiste). In 1.0.7 stand hier, es gebe sie nirgends frei — das war
+  falsch. Wieder eingebaut wurden sie trotzdem nicht: Der Fünf-Ereignis-
+  Deckel macht sie unzuverlässig, und der Nutzer hatte sie ausdrücklich
+  ausbauen lassen. Vor einem Wiedereinbau nachfragen.
 - `MARKETING_VERSION` und `CURRENT_PROJECT_VERSION` stehen an je zwei
   Stellen im pbxproj (Debug + Release) — es gibt KEINE Skript-Bauphase,
   beide Werte werden im Repo gepflegt. **Jede Arbeitseinheit (= jeder
   PR mit App-Änderungen) hebt die Patch-Nummer UND die Build-Nummer um
   je +1 an** — ohne Nachfrage, als Teil des PRs. Zählung ab 08/2026:
-  1.0.8 (Build 6), dann 1.0.9 (Build 7) usw. Größere Sprünge nur auf
+  1.0.9 (Build 7), dann 1.0.10 (Build 8) usw. Größere Sprünge nur auf
   ausdrückliche Ansage des Nutzers.
 - `ITSAppUsesNonExemptEncryption = NO` steht in `Config/Info.plist` UND
   als Build-Einstellung `INFOPLIST_KEY_ITSAppUsesNonExemptEncryption` —

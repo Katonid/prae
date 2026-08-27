@@ -140,7 +140,7 @@ struct FussballDienst {
     /// zum Spiel. Sie wird nur beim Öffnen einer einzelnen Begegnung
     /// gestellt. Antwortet der Dienst nicht oder deckt der freie Zugang sie
     /// nicht, gibt es eben keinen Vergleich — deshalb wirft sie nicht.
-    func vergleich(spielID: Int) async -> Vergleich? {
+    func vergleich(spielID: Int, heimID: Int) async -> Vergleich? {
         var teile = URLComponents(url: Self.basis.appendingPathComponent("matches/\(spielID)/head2head"),
                                   resolvingAgainstBaseURL: false)!
         teile.queryItems = [URLQueryItem(name: "limit", value: "10")]
@@ -149,7 +149,7 @@ struct FussballDienst {
               let antwort = try? JSONDecoder().decode(VergleichsAntwort.self, from: daten) else {
             return nil
         }
-        return antwort.vergleich()
+        return antwort.vergleich(heimID: heimID)
     }
 
     /// Die Torjägerliste einer Liga. Der freie Zugang gibt sie her — und
@@ -242,6 +242,7 @@ private struct TabellenAntwort: Decodable {
 private struct VergleichsAntwort: Decodable {
     struct Zahlen: Decodable {
         struct Seite: Decodable {
+            let id: Int?
             let wins: Int?
             let draws: Int?
             let losses: Int?
@@ -252,17 +253,52 @@ private struct VergleichsAntwort: Decodable {
         let awayTeam: Seite?
     }
     let aggregates: Zahlen?
+    let matches: [RohSpiel]?
 
-    func vergleich() -> Vergleich? {
+    /// Gerechnet wird aus den mitgelieferten Einzelspielen, nicht aus
+    /// `aggregates`: Dessen Sieg- und Remiszahlen gingen in 1.0.8 nicht auf
+    /// (10 Begegnungen, aber 0 + 2 + 0). Die Einzelspiele stimmen immer,
+    /// weil sie den Spielstand mitbringen. Nur wenn sie fehlen, wird auf
+    /// `aggregates` zurückgefallen — und dann geprüft, ob es aufgeht.
+    func vergleich(heimID: Int) -> Vergleich? {
+        if let gerechnet = ausSpielen(heimID: heimID) { return gerechnet }
         guard let zahlen = aggregates, let anzahl = zahlen.numberOfMatches, anzahl > 0 else { return nil }
         let siegeHeim = zahlen.homeTeam?.wins ?? 0
         let siegeGast = zahlen.awayTeam?.wins ?? 0
-        let remis = zahlen.homeTeam?.draws ?? max(anzahl - siegeHeim - siegeGast, 0)
+        let remis = zahlen.homeTeam?.draws ?? 0
+        guard siegeHeim + siegeGast + remis == anzahl else { return nil }
         return Vergleich(spiele: anzahl,
                          siegeHeim: siegeHeim,
                          siegeGast: siegeGast,
                          unentschieden: remis,
                          toreGesamt: zahlen.totalGoals ?? 0)
+    }
+
+    private func ausSpielen(heimID: Int) -> Vergleich? {
+        let gespielt = (matches ?? []).filter { $0.hatEndstand }
+        guard !gespielt.isEmpty else { return nil }
+
+        var siegeHeim = 0, siegeGast = 0, remis = 0, tore = 0
+        for partie in gespielt {
+            guard let daheim = partie.toreDaheim, let auswaerts = partie.toreAuswaerts else { continue }
+            tore += daheim + auswaerts
+            // Wer damals daheim spielte, wechselt von Begegnung zu Begegnung —
+            // gezaehlt wird deshalb je Mannschaft, nicht je Platz.
+            let heimSpielteDaheim = partie.homeTeamID == heimID
+            if daheim == auswaerts {
+                remis += 1
+            } else if (daheim > auswaerts) == heimSpielteDaheim {
+                siegeHeim += 1
+            } else {
+                siegeGast += 1
+            }
+        }
+        guard siegeHeim + siegeGast + remis > 0 else { return nil }
+        return Vergleich(spiele: siegeHeim + siegeGast + remis,
+                         siegeHeim: siegeHeim,
+                         siegeGast: siegeGast,
+                         unentschieden: remis,
+                         toreGesamt: tore)
     }
 }
 
@@ -392,6 +428,11 @@ private struct RohSpiel: Decodable {
     let goals: [RohTor]?
     let venue: String?
     let referees: [RohSchiedsrichter]?
+
+    var homeTeamID: Int? { homeTeam?.id }
+    var toreDaheim: Int? { score?.fullTime?.home }
+    var toreAuswaerts: Int? { score?.fullTime?.away }
+    var hatEndstand: Bool { toreDaheim != nil && toreAuswaerts != nil }
 
     func spiel(fallback: Liga?) -> Spiel? {
         guard let id,

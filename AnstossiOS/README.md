@@ -63,12 +63,18 @@ Ereignis nicht zweimal auf dem Sperrbildschirm landen.
 
 ### Was es bewusst NICHT gibt
 
-**Platzverweise.** In 1.0.5/1.0.6 stand dafür ein Schalter, der nie etwas
-auslöste: Karten gehören bei football-data.org zu den kostenpflichtigen
-Stufen. Geprüft wurde, ob eine freie Quelle einspringen kann — OpenLigaDB
-führt keine Karten, TheSportsDB ebenso wenig. Also ist der Schalter in 1.0.7
-wieder raus. Was zu einem Platzverweis bekannt wird, läuft über die
-Ligameldungen (Art „Spielbericht & Analyse").
+**Aufstellungen.** Gibt es nirgends frei: football-data.org führt sie in den
+kostenpflichtigen Stufen, OpenLigaDB und TheSportsDB haben sie gar nicht.
+Was dazu bekannt wird, läuft über die Ligameldungen (Art „Aufstellung &
+Vorbericht").
+
+**Platzverweise.** Der Schalter dafür war bis 1.0.6 da und löste nie etwas
+aus; in 1.0.7 ist er raus. Nachtrag zur Begründung: Dort stand, es gebe
+Karten nirgends frei — **das war falsch**, TheSportsDB führt sie in seiner
+Zeitleiste. Wieder eingebaut sind sie trotzdem nicht, denn der
+Fünf-Ereignis-Deckel derselben Quelle macht sie unzuverlässig. Was zu einem
+Platzverweis bekannt wird, läuft über die Ligameldungen (Art „Spielbericht
+& Analyse").
 
 ## Ligameldungen (Transfer, Gerüchte, Ausfälle)
 
@@ -115,7 +121,8 @@ muss zu `Hintergrundpflege.kennung` passen) und `UIBackgroundModes = fetch`.
 | Angabe | Herkunft |
 | --- | --- |
 | Spielstand, Halbzeit, Minute, Zustand | football-data.org |
-| Torfolge mit Schütze und Minute | football-data.org; für die **Bundesliga** ersatzweise **OpenLigaDB** |
+| Torfolge mit Schütze und Minute | football-data.org; ersatzweise **OpenLigaDB** (Bundesliga) und **TheSportsDB** (alle fünf Ligen) |
+| Spielverlauf mit Minute und Stand | aus dem **eigenen Mitschnitt** — funktioniert immer, auch ohne Namen |
 | Tabellenplatz, Bilanz und Formkurve beider Mannschaften | aus der geladenen Tabelle — kostet keine zusätzliche Abfrage |
 | Heim- bzw. Auswärtsbilanz der jeweiligen Mannschaft | steckt in derselben Tabellenantwort — kostet nichts extra |
 | Direkter Vergleich (Begegnungen, Siege, Remis, Tore) | **eigene** Unterabfrage `/matches/{id}/head2head`, nur beim Öffnen einer Begegnung |
@@ -125,7 +132,32 @@ muss zu `Hintergrundpflege.kennung` passen) und `UIBackgroundModes = fetch`.
 
 Die Spielansicht sagt selbst dazu, woher die Torfolge stammt und was fehlt.
 
-### Torschützen für die Bundesliga: OpenLigaDB
+### Torschützen: zwei freie Quellen nacheinander
+
+**OpenLigaDB** zuerst — kennt nur die Bundesliga, gibt dafür die
+vollständige Torfolge her. Danach **TheSportsDB** für alles Übrige.
+
+TheSportsDB (`Spielereignisdienst.swift`, freie Kennung `123`, 30 Abfragen
+je Minute, eigenes Kontingent) deckt **alle fünf Ligen** ab und liefert
+schon während das Spiel läuft — Schütze, Vorlage, Minute und Seite.
+
+**Der Deckel gehört dazu:** Die freie Stufe gibt je Spiel nur die **ersten
+fünf Ereignisse** heraus, und Karten zählen mit. Fällt das vierte Tor spät,
+steht es nicht in der Liste. Deshalb ergänzt diese Quelle nur *Namen*; wann
+welches Tor fiel, weiß die App aus dem eigenen Mitschnitt ohnehin. Sagt der
+Spielstand mehr Tore, als Namen vorliegen, schreibt die Spielansicht das
+dazu.
+
+### Spielverlauf aus dem eigenen Mitschnitt
+
+Unabhängig von allen Quellen führt die App Buch: Jeder Abruf wird mit dem
+vorigen verglichen, jede Standänderung wandert in den Ticker. Die
+Spielansicht zeigt daraus den Verlauf mit Minute und Zwischenstand — das
+funktioniert auch dann, wenn niemand den Torschützen nennt. Wie fein er
+ausfällt, hängt davon ab, wie oft die App nachsehen durfte; das sagt sie
+auch dazu.
+
+### Zur alten Bundesliga-Quelle: OpenLigaDB
 
 Weil der freie Zugang die Torfolge oft nicht mitliefert, fragt
 `Torschuetzendienst.swift` bei fehlender Torfolge **OpenLigaDB** —
@@ -181,6 +213,7 @@ Anstoss/
     Benachrichtiger.swift   örtliche Mitteilungen und Anpfiff-Wecker
     Tickerwerk.swift        Standvergleich + Standspeicher (geteilt)
     Torschuetzendienst.swift Torschützen der Bundesliga von OpenLigaDB
+    Spielereignisdienst.swift Torschützen aller fünf Ligen von TheSportsDB
     Nachrichten.swift       Art, Quellen, Vereinsverzeichnis, Ablage
     Nachrichtendienst.swift RSS lesen + ein Durchgang für beide Wege
     Hintergrundpflege.swift Nachsehen, während die App geschlossen ist
@@ -211,7 +244,7 @@ Stellen im pbxproj (Debug + Release); es gibt keine Skript-Bauphase,
 beide Werte werden im Repo gepflegt. **Jede Arbeitseinheit hebt beide
 um +1 an** — Fassung und Build-Nummer. Zählung ab 08/2026: 1.0.4
 (Build 2), 1.0.5 (Build 3), 1.0.6 (Build 4), 1.0.7 (Build 5),
-1.0.8 (Build 6) usw.
+1.0.8 (Build 6), 1.0.9 (Build 7) usw.
 
 Hintergrund: App Store Connect nimmt keinen Build an, dessen Nummer
 nicht höher ist als die des vorherigen.

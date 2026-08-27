@@ -44,6 +44,7 @@ enum Torschuetzendienst {
             var ergaenzt = spiel
             ergaenzt.tore = treffer.tore(spielID: spiel.id)
             ergaenzt.torfolgeQuelle = ergaenzt.tore.isEmpty ? nil : quellenname
+            ergaenzt.torfolgeUnvollstaendig = false
             return ergaenzt
         }
     }

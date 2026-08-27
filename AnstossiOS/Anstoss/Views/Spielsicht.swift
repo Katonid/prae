@@ -20,6 +20,7 @@ struct Spielsicht: View {
                 if !gezeigt.tore.isEmpty {
                     torfolge
                 }
+                spielverlauf
                 tabellenstand
                 direkterVergleich
                 eckdaten
@@ -192,6 +193,47 @@ struct Spielsicht: View {
         .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: Gestaltung.ecke))
     }
 
+    // MARK: Spielverlauf aus dem eigenen Mitschnitt
+
+    /// Was die App selbst gesehen hat: jede Standänderung, jeder Anpfiff,
+    /// jede Halbzeit — mit Minute. Das gibt es auch dann, wenn keine Quelle
+    /// den Torschützen nennt, denn der Ticker liest es am Spielstand ab.
+    @ViewBuilder
+    private var spielverlauf: some View {
+        let schritte = daten.verlauf(zu: gezeigt.id)
+        if schritte.count > 1 || (schritte.count == 1 && gezeigt.tore.isEmpty) {
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Spielverlauf")
+                    .font(.headline)
+                ForEach(schritte) { meldung in
+                    HStack(spacing: 10) {
+                        Text(meldung.minutentext.isEmpty ? "–" : meldung.minutentext)
+                            .font(.caption.weight(.semibold).monospacedDigit())
+                            .foregroundStyle(.secondary)
+                            .frame(width: 38, alignment: .trailing)
+                        Image(systemName: meldung.art.symbol)
+                            .font(.caption)
+                            .foregroundStyle(meldung.art == .tor ? Gestaltung.rasen : .secondary)
+                            .frame(width: 18)
+                        Text(meldung.art == .tor && !meldung.zusatz.isEmpty ? meldung.zusatz : meldung.art.name)
+                            .font(.subheadline)
+                        Spacer(minLength: 4)
+                        if !meldung.stand.isEmpty {
+                            Text(meldung.stand)
+                                .font(.subheadline.weight(.semibold).monospacedDigit())
+                        }
+                    }
+                }
+                Text("Aus dem eigenen Mitschnitt: Die App vergleicht jeden Abruf mit dem vorigen. Wie fein der Verlauf ausfällt, hängt davon ab, wie oft sie nachsehen durfte.")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding()
+            .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: Gestaltung.ecke))
+        }
+    }
+
     // MARK: Tabellenstand beider Mannschaften
 
     @ViewBuilder
@@ -306,6 +348,7 @@ struct Spielsicht: View {
 
     private var hatHinweis: Bool {
         gezeigt.torfolgeQuelle != nil
+            || gezeigt.torfolgeUnvollstaendig
             || (gezeigt.tore.isEmpty && gezeigt.status == .beendet)
             || gezeigt.status == .geplant
     }
@@ -315,7 +358,11 @@ struct Spielsicht: View {
         if hatHinweis {
         VStack(alignment: .leading, spacing: 6) {
             if let quelle = gezeigt.torfolgeQuelle {
-                hinweiszeile("Die Torfolge stammt von \(quelle) — der freie Zugang von football-data.org liefert sie für dieses Spiel nicht mit.")
+                if gezeigt.torfolgeUnvollstaendig {
+                    hinweiszeile("Die Torschützen stammen von \(quelle), weil football-data.org sie hier nicht mitliefert. Die freie Stufe dort gibt je Spiel nur die ersten fünf Ereignisse heraus — deshalb fehlen späte Tore in dieser Liste. Der Spielverlauf oben ist vollständig, er stammt aus dem eigenen Mitschnitt.")
+                } else {
+                    hinweiszeile("Die Torfolge stammt von \(quelle) — der freie Zugang von football-data.org liefert sie für dieses Spiel nicht mit.")
+                }
             } else if gezeigt.tore.isEmpty && gezeigt.status == .beendet {
                 hinweiszeile("Zu dieser Begegnung liefert der freie Zugang keine Torschützen. Für die Bundesliga springt OpenLigaDB ein, für die anderen vier Ligen gibt es keine freie Quelle.")
             }
