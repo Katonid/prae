@@ -24,7 +24,32 @@ struct UebertragenSheet: View {
     @State private var kopieren = false
 
     private var tafel: Board? { store.board(quelle) }
-    private var ziele: [Board] { store.visibleBoards.filter { $0.id != quelle } }
+
+    /// Wohin es gehen kann.
+    ///
+    /// Bei einem Element gehört **die eigene Tafel dazu**: Ihre anderen
+    /// Seiten sind das häufigste Ziel überhaupt. Eine ganze Seite auf
+    /// dieselbe Tafel zu legen ist dagegen „Seite kopieren“ und steht in der
+    /// Seitenverwaltung.
+    private var ziele: [Board] {
+        switch gut {
+        case .element:
+            guard let tafel, tafel.seiten.count > 1 else {
+                return store.visibleBoards.filter { $0.id != quelle }
+            }
+            return [tafel] + store.visibleBoards.filter { $0.id != quelle }
+        case .seite:
+            return store.visibleBoards.filter { $0.id != quelle }
+        }
+    }
+
+    /// Auf welcher Seite das Element gerade liegt.
+    private var eigeneSeite: String? {
+        guard case .element(let id) = gut, let tafel,
+              let widget = tafel.widgets.first(where: { $0.id == id })
+        else { return nil }
+        return widget.pageID.nonEmpty ?? tafel.ersteSeitenID
+    }
 
     /// Die letzte Seite einer Tafel darf nur kopiert werden — eine Tafel
     /// ohne Seite gibt es nicht.
@@ -55,8 +80,10 @@ struct UebertragenSheet: View {
 
             if ziele.isEmpty {
                 Section {
-                    Text("Es gibt keine zweite Tafel. Lege erst eine an — oben links "
-                         + "über den Tafelnamen.")
+                    Text("Es gibt nichts, wohin es gehen könnte: keine zweite Tafel "
+                         + "und keine zweite Seite. Eine neue Tafel legst du oben links "
+                         + "über den Tafelnamen an, eine neue Seite unter Menü → "
+                         + "„Seiten verwalten“.")
                         .foregroundStyle(.secondary)
                 }
             } else {
@@ -68,7 +95,9 @@ struct UebertragenSheet: View {
                     Text("Wohin?")
                 } footer: {
                     Text("Namenslisten, Klänge und Bilder, die dazugehören, kommen "
-                         + "von selbst mit.")
+                         + "von selbst mit.\n\nAuf einer geteilten Tafel kann auch die "
+                         + "Kollegin ein Element von dort auf ihre eigene Tafel "
+                         + "übernehmen — derselbe Weg, an ihrem Gerät.")
                 }
             }
         }
@@ -119,7 +148,7 @@ struct UebertragenSheet: View {
             Text(ziel.emoji)
                 .font(.system(size: 20))
             VStack(alignment: .leading, spacing: 2) {
-                Text(ziel.name)
+                Text(ziel.id == quelle ? ziel.name + " (diese Tafel)" : ziel.name)
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(.primary)
                 Text(untertitel(ziel))
@@ -139,9 +168,11 @@ struct UebertragenSheet: View {
     }
 
     private func seitenwahl(_ ziel: Board) -> some View {
-        List {
+        // Die Seite, auf der das Element schon liegt, steht nicht zur Wahl.
+        let seiten = ziel.seiten.filter { !($0.id == eigeneSeite && ziel.id == quelle) }
+        return List {
             Section {
-                ForEach(ziel.seiten) { seite in
+                ForEach(seiten) { seite in
                     Button {
                         fuehreAus(ziel: ziel.id, seite: seite.id)
                     } label: {

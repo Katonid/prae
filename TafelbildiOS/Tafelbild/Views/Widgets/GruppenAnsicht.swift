@@ -16,9 +16,10 @@ struct GruppenAnsicht: View {
     var interactive: Bool
     var list: NameList?
     var onOpenSettings: () -> Void
-    /// Schreibt eine fertige Auslosung ins Archiv und ins Gedächtnis.
-    var onZiehung: (_ ids: [String], _ modus: Ziehmodus,
-                    _ proZeile: Int, _ titel: String) -> Void
+    /// Schreibt eine fertige Auslosung ins Archiv und ins Gedächtnis und
+    /// liefert die Kennung des Eintrags zurück.
+    var onZiehung: (_ ids: [String], _ vorher: [String], _ ersetzt: String?,
+                    _ modus: Ziehmodus, _ proZeile: Int, _ titel: String) -> String
 
     @Environment(\.boardStyle) private var style
     @Environment(\.widgetMetrics) private var metrics
@@ -97,27 +98,50 @@ struct GruppenAnsicht: View {
     private var zeilenAnsicht: some View {
         let zeilen = content.zeilen
         let breite = content.proZeile
-        return VStack(spacing: metrics.em(0.3)) {
-            ForEach(Array(zeilen.enumerated()), id: \.offset) { nummer, zeile in
-                zeilenReihe(zeile, nummer: nummer, breite: breite)
+        return GeometryReader { geo in
+            // Die Schrift richtet sich nach der Höhe eines Kärtchens, nicht
+            // nach der Größe des Elements. Sonst standen fünf Namen winzig
+            // auf handtellergroßen Feldern — der Platz war da, die Schrift
+            // wuchs nur nicht mit.
+            let hoehe = (geo.size.height - metrics.em(0.3) * Double(max(0, zeilen.count - 1)))
+                / Double(max(1, zeilen.count))
+            VStack(spacing: metrics.em(0.3)) {
+                ForEach(Array(zeilen.enumerated()), id: \.offset) { nummer, zeile in
+                    zeilenReihe(zeile, nummer: nummer, breite: breite,
+                                schrift: schriftgroesse(hoehe: hoehe, breite: breite,
+                                                        platz: geo.size.width))
+                }
             }
+            .frame(width: geo.size.width, height: geo.size.height)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .animation(.easeInOut(duration: 0.25), value: content.ergebnis)
     }
 
-    private func zeilenReihe(_ zeile: [String], nummer: Int, breite: Int) -> some View {
+    /// Wie groß ein Name auf einem Kärtchen steht.
+    ///
+    /// Zwei Grenzen: die Höhe des Kärtchens und seine Breite. Ohne die
+    /// Breitengrenze würde ein einzelner langer Name in einer flachen,
+    /// schmalen Zeile über den Rand laufen und dann doch wieder
+    /// zusammengestaucht — das sieht unruhig aus.
+    private func schriftgroesse(hoehe: Double, breite: Int, platz: Double) -> Double {
+        let kartenbreite = platz / Double(max(1, breite))
+        return max(13, min(hoehe * 0.5, kartenbreite * 0.22))
+    }
+
+    private func zeilenReihe(_ zeile: [String], nummer: Int, breite: Int,
+                             schrift: Double) -> some View {
         let schluessel = NamePickerContent.zeilenSchluessel(zeile)
         let erledigt = content.erledigt.contains(schluessel)
         let anfang = nummer * breite
 
         return HStack(spacing: metrics.em(0.3)) {
-            if content.alsCheckliste {
+            if content.anzeige == .abhaken {
                 Button {
                     hakeAb(schluessel)
                 } label: {
                     Image(systemName: erledigt ? "checkmark.circle.fill" : "circle")
-                        .font(.system(size: metrics.em(1.3), weight: .semibold))
+                        .font(.system(size: schrift, weight: .semibold))
                         .foregroundStyle(erledigt ? Theme.mint : style.inkSoft)
                 }
                 .buttonStyle(.plain)
@@ -125,7 +149,7 @@ struct GruppenAnsicht: View {
             }
 
             ForEach(Array(zeile.enumerated()), id: \.offset) { spalte, id in
-                kaertchen(id, stelle: anfang + spalte)
+                kaertchen(id, stelle: anfang + spalte, schrift: schrift)
             }
             // Die letzte Gruppe darf unvollständig sein — die Kärtchen
             // bleiben trotzdem so breit wie überall.
@@ -139,14 +163,15 @@ struct GruppenAnsicht: View {
         .opacity(erledigt ? 0.45 : 1)
     }
 
-    private func kaertchen(_ id: String, stelle: Int) -> some View {
+    private func kaertchen(_ id: String, stelle: Int, schrift: Double) -> some View {
         let blass = frage.map { stelle >= $0 } ?? false
         let offen = fertigBis.map { stelle >= $0 } ?? false
+        let stand = content.zaehler[id] ?? 0
         return Text(offen ? wirbelName(stelle) : nameZu(id))
-            .font(Theme.font(metrics.em(1.15), weight: .bold))
+            .font(Theme.font(schrift, weight: .bold))
             .foregroundStyle(style.ink)
             .lineLimit(2)
-            .minimumScaleFactor(0.4)
+            .minimumScaleFactor(0.35)
             .multilineTextAlignment(.center)
             .padding(.horizontal, metrics.em(0.25))
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -159,9 +184,25 @@ struct GruppenAnsicht: View {
                                           lineWidth: 2)
                     }
             }
+            .overlay(alignment: .trailing) {
+                if content.anzeige == .zaehlen && !offen {
+                    Text("\(stand)")
+                        .font(Theme.font(schrift * 0.8, weight: .heavy))
+                        .monospacedDigit()
+                        .foregroundStyle(stand > 0 ? .white : style.inkSoft)
+                        .padding(.horizontal, schrift * 0.35)
+                        .frame(minWidth: schrift * 1.5, minHeight: schrift * 1.5)
+                        .background {
+                            Capsule().fill(stand > 0 ? AnyShapeStyle(style.accentGradient)
+                                                     : AnyShapeStyle(style.washStrong))
+                        }
+                        .padding(.trailing, schrift * 0.3)
+                }
+            }
             .opacity(blass ? 0.3 : 1)
             .contentShape(Rectangle())
-            .onTapGesture { tippeKarte(stelle) }
+            .onTapGesture { tippeKarte(stelle, id: id) }
+            .onLongPressGesture(minimumDuration: 0.45) { langerDruck(id) }
     }
 
     private var leerHinweis: some View {
@@ -243,8 +284,16 @@ struct GruppenAnsicht: View {
     // MARK: - Bedienung
 
     /// Ein Tipp auf ein Kärtchen fragt nach, statt sofort neu auszulosen.
-    private func tippeKarte(_ stelle: Int) {
+    ///
+    /// In der Zählansicht zählt er stattdessen hoch — dort ist das die
+    /// eigentliche Arbeit, und neu ausgelost wird ohnehin nur über den Knopf.
+    private func tippeKarte(_ stelle: Int, id: String) {
         guard interactive, !laeuft else { return }
+        if content.anzeige == .zaehlen {
+            content.zaehler[id] = (content.zaehler[id] ?? 0) + 1
+            Haptics.tap()
+            return
+        }
         guard !content.festgehalten else {
             // Nicht einfach nichts tun: Wer hier tippt, will etwas ändern
             // und soll erfahren, warum es nicht geht — und wo der Schutz
@@ -258,6 +307,16 @@ struct GruppenAnsicht: View {
         withAnimation(.easeOut(duration: 0.18)) {
             frage = (frage == stelle) ? nil : stelle
         }
+        Haptics.tap()
+    }
+
+    /// Langes Drücken nimmt eine Stufe zurück — sonst wäre ein Vertippen
+    /// nicht mehr gutzumachen.
+    private func langerDruck(_ id: String) {
+        guard interactive, !laeuft, content.anzeige == .zaehlen else { return }
+        let stand = content.zaehler[id] ?? 0
+        guard stand > 0 else { return }
+        if stand == 1 { content.zaehler[id] = nil } else { content.zaehler[id] = stand - 1 }
         Haptics.tap()
     }
 
@@ -324,8 +383,16 @@ struct GruppenAnsicht: View {
         content.erledigt = content.erledigt.filter { bleibende.contains($0) }
 
         Haptics.heavy()
-        onZiehung(neu, content.modus, content.proZeile,
-                  content.ueberschrift.nonEmpty ?? content.modus.standardUeberschrift)
+        // Ab einer Stelle neu auslosen ist eine **Korrektur**: Der Sitzplan,
+        // den ich eben verworfen habe, ist nie zustande gekommen. Also
+        // derselbe Eintrag, und die alte Paarzählung wird zurückgenommen.
+        // „Alles neu auslosen" (stelle 0) beginnt dagegen einen neuen
+        // Vorgang.
+        let korrektur = stelle > 0 && !content.ziehungID.isEmpty
+        content.ziehungID = onZiehung(
+            neu, content.ergebnis, korrektur ? content.ziehungID : nil,
+            content.modus, content.proZeile,
+            content.ueberschrift.nonEmpty ?? content.modus.standardUeberschrift)
 
         guard content.animate, neu.count > fest.count else {
             content.ergebnis = neu

@@ -23,8 +23,9 @@ struct NamePickerWidgetView: View {
     /// Löscht einen Eintrag dauerhaft aus der Namensliste.
     var onDeleteEntry: (NameEntry) -> Void
     /// Schreibt eine fertige Gruppenziehung ins Archiv und ins Gedächtnis.
-    var onZiehung: (_ ids: [String], _ modus: Ziehmodus,
-                    _ proZeile: Int, _ titel: String) -> Void = { _, _, _, _ in }
+    var onZiehung: (_ ids: [String], _ vorher: [String], _ ersetzt: String?,
+                    _ modus: Ziehmodus, _ proZeile: Int,
+                    _ titel: String) -> String = { _, _, _, _, _, _ in "" }
 
     @Environment(\.boardStyle) private var style
     @Environment(\.widgetMetrics) private var metrics

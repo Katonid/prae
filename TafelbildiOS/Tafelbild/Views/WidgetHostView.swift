@@ -186,8 +186,9 @@ struct WidgetHostView: View {
                     list.entries.removeAll { $0.id == entry.id }
                     store.updateNameList(list)
                 },
-                onZiehung: { ids, modus, proZeile, titel in
-                    store.merkeZiehung(ids, listID: value.listID, modus: modus,
+                onZiehung: { ids, vorher, ersetzt, modus, proZeile, titel in
+                    store.merkeZiehung(ids, vorher: vorher, ersetzt: ersetzt,
+                                       listID: value.listID, modus: modus,
                                        proZeile: proZeile, titel: titel)
                 }
             )
