@@ -911,11 +911,8 @@ final class BoardStore: ObservableObject {
             neueMerkmalIDs[alt] = neu
             kopie.merkmale[index].id = neu
         }
-        var neueEintragIDs: [String: String] = [:]
         for index in kopie.entries.indices {
-            let alteID = kopie.entries[index].id
             kopie.entries[index].id = UUID().uuidString
-            neueEintragIDs[alteID] = kopie.entries[index].id
             var werte: [String: String] = [:]
             for (merkmalID, wert) in kopie.entries[index].merkmale {
                 guard let neu = neueMerkmalIDs[merkmalID] else { continue }
@@ -923,25 +920,6 @@ final class BoardStore: ObservableObject {
             }
             kopie.entries[index].merkmale = werte
         }
-
-        // Das Gedächtnis zeigt auf Kennungen — die sind eben alle neu
-        // geworden. Was sich nicht übersetzen lässt, fällt weg; das Archiv
-        // besteht aus Text und bleibt lesbar.
-        var paare: [String: Int] = [:]
-        for (schluessel, anzahl) in kopie.paare {
-            let teile = schluessel.split(separator: "|", omittingEmptySubsequences: false)
-                .map(String.init)
-            guard teile.count == 2 else { continue }
-            if teile[0] == "*" {
-                guard let neu = neueEintragIDs[teile[1]] else { continue }
-                paare[Auslosung.einzel(neu)] = anzahl
-            } else {
-                guard let a = neueEintragIDs[teile[0]],
-                      let b = neueEintragIDs[teile[1]] else { continue }
-                paare[Auslosung.paar(a, b)] = anzahl
-            }
-        }
-        kopie.paare = paare
 
         nameLists.append(kopie)
         scheduleSave()
@@ -956,100 +934,6 @@ final class BoardStore: ObservableObject {
         var nummer = 2
         while vorhanden.contains("\(name) (Kopie \(nummer))") { nummer += 1 }
         return "\(name) (Kopie \(nummer))"
-    }
-
-    // MARK: - Gedächtnis und Archiv der Ziehungen
-
-    /// Schreibt eine Auslosung mit: ins Archiv und ins Gedächtnis.
-    ///
-    /// Das Gedächtnis ist bewusst schlicht — es zählt, **wer schon mit wem**
-    /// zusammen war. Alle Kombinationen durchzuzählen wäre bei 26 Kindern
-    /// ein Schuljahr voller Auslosungen und liefe nie auf. Die einfache
-    /// Regel „am liebsten jemanden, mit dem du noch nicht zusammen warst“
-    /// ergibt in der Praxis dasselbe: jedes Mal andere Gruppen.
-    /// Schreibt das Ergebnis einer Auslosung fort.
-    ///
-    /// **Ein Vorgang, ein Eintrag.** Wer ab einer Stelle neu auslost, hat
-    /// den Sitzplan korrigiert, nicht zweimal ausgelost — der erste Entwurf
-    /// ist nie zustande gekommen, und weder das Archiv noch das Gedächtnis
-    /// sollen ihn kennen. Deshalb wird bei einer Korrektur der bisherige
-    /// Eintrag ersetzt und seine Paarzählung zurückgenommen.
-    ///
-    /// - Parameters:
-    ///   - ids: das Ergebnis, das jetzt gilt. Leer heißt: Der Vorgang wird
-    ///     verworfen.
-    ///   - vorher: das Ergebnis, das dadurch abgelöst wird — es wird aus dem
-    ///     Gedächtnis herausgerechnet.
-    ///   - ersetzt: Kennung des Eintrags, der fortgeschrieben wird.
-    ///     nil = neuer Vorgang.
-    /// - Returns: Kennung des Eintrags, der jetzt gilt (leer, wenn keiner).
-    @discardableResult
-    func merkeZiehung(_ ids: [String], vorher: [String] = [], ersetzt: String? = nil,
-                      listID: String?, modus: Ziehmodus,
-                      proZeile: Int, titel: String) -> String {
-        guard let listID, var liste = nameList(listID) else { return "" }
-
-        if !vorher.isEmpty {
-            zaehle(vorher, in: &liste, modus: modus, proZeile: proZeile, richtung: -1)
-        }
-        if let ersetzt, !ersetzt.isEmpty {
-            liste.ziehungen.removeAll { $0.id == ersetzt }
-        }
-
-        var neueID = ""
-        if !ids.isEmpty {
-            var eintrag = Ziehung()
-            // Kennung behalten: Es ist derselbe Vorgang, nur berichtigt.
-            if let ersetzt, !ersetzt.isEmpty { eintrag.id = ersetzt }
-            eintrag.modus = modus.rawValue
-            eintrag.proZeile = max(1, proZeile)
-            eintrag.titel = titel
-            eintrag.texte = ids.map { id in
-                liste.entries.first { $0.id == id }?.text ?? "—"
-            }
-            liste.ziehungen.insert(eintrag, at: 0)
-            if liste.ziehungen.count > NameList.archivGrenze {
-                liste.ziehungen = Array(liste.ziehungen.prefix(NameList.archivGrenze))
-            }
-            zaehle(ids, in: &liste, modus: modus, proZeile: proZeile, richtung: 1)
-            neueID = eintrag.id
-        }
-
-        updateNameList(liste)
-        return neueID
-    }
-
-    /// Zählt die Paarungen einer Ziehung hinauf (`richtung` 1) oder wieder
-    /// herunter (−1). Bei null verschwindet der Eintrag: Eine Tabelle voller
-    /// Nullen wandert sonst bei jedem Abgleich mit.
-    private func zaehle(_ ids: [String], in liste: inout NameList, modus: Ziehmodus,
-                        proZeile: Int, richtung: Int) {
-        func aendere(_ schluessel: String) {
-            let neu = max(0, (liste.paare[schluessel] ?? 0) + richtung)
-            if neu == 0 { liste.paare[schluessel] = nil } else { liste.paare[schluessel] = neu }
-        }
-
-        if modus == .tagesgruppe {
-            for id in ids { aendere(Auslosung.einzel(id)) }
-            return
-        }
-        let breite = max(1, proZeile)
-        var anfang = 0
-        while anfang < ids.count {
-            let gruppe = Array(ids[anfang..<min(anfang + breite, ids.count)])
-            for (stelle, a) in gruppe.enumerated() {
-                for b in gruppe.dropFirst(stelle + 1) { aendere(Auslosung.paar(a, b)) }
-            }
-            anfang += breite
-        }
-    }
-
-    /// Archiv und Gedächtnis leeren — danach fängt die Liste von vorn an.
-    func setzeZiehungenZurueck(listID: String?) {
-        guard let listID, var liste = nameList(listID) else { return }
-        liste.ziehungen = []
-        liste.paare = [:]
-        updateNameList(liste)
     }
 
     func deleteNameList(_ list: NameList) {

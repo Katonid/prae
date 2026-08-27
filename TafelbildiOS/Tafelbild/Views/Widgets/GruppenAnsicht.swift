@@ -16,10 +16,6 @@ struct GruppenAnsicht: View {
     var interactive: Bool
     var list: NameList?
     var onOpenSettings: () -> Void
-    /// Schreibt eine fertige Auslosung ins Archiv und ins Gedächtnis und
-    /// liefert die Kennung des Eintrags zurück.
-    var onZiehung: (_ ids: [String], _ vorher: [String], _ ersetzt: String?,
-                    _ modus: Ziehmodus, _ proZeile: Int, _ titel: String) -> String
 
     @Environment(\.boardStyle) private var style
     @Environment(\.widgetMetrics) private var metrics
@@ -400,13 +396,13 @@ struct GruppenAnsicht: View {
         switch content.modus {
         case .tagesgruppe:
             neu = Auslosung.auswahl(namen, anzahl: content.tagesgruppeAnzahl, fest: fest,
-                                    vergangenheit: list?.paare ?? [:])
+                                    vergangenheit: content.paare)
         default:
             neu = Auslosung.gruppen(namen, groesse: content.gruppenGroesse,
                                     merkmal: content.merkmal(in: list),
                                     gleich: content.merkmalsvorgabe == .gleich,
                                     fest: fest,
-                                    vergangenheit: list?.paare ?? [:])
+                                    vergangenheit: content.paare)
         }
         guard !neu.isEmpty else { return }
 
@@ -427,11 +423,13 @@ struct GruppenAnsicht: View {
         // ich eben verworfen habe, ist nie zustande gekommen. Also derselbe
         // Eintrag, und die alte Paarzählung wird zurückgenommen. Nur der
         // Knopf „Neu auslosen" beginnt einen neuen Vorgang.
+        //
+        // Gebucht wird am Element selbst: Zwei Kacheln mit derselben
+        // Namensliste führen getrennt Buch.
         let korrektur = !neuerVorgang && !content.ziehungID.isEmpty
-        content.ziehungID = onZiehung(
-            neu, content.ergebnis, korrektur ? content.ziehungID : nil,
-            content.modus, content.proZeile,
-            content.ueberschrift.nonEmpty ?? content.modus.standardUeberschrift)
+        content.ziehungID = content.merkeZiehung(
+            neu, vorher: content.ergebnis,
+            ersetzt: korrektur ? content.ziehungID : nil, liste: list)
 
         guard content.animate, neu.count > fest.count else {
             content.ergebnis = neu
