@@ -57,7 +57,7 @@ struct Spielzeile: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.75)
             Spacer(minLength: 6)
-            Text(tore.map(String.init) ?? "–")
+            Text(tore.map { String($0) } ?? "–")
                 .font(.subheadline.weight(.bold).monospacedDigit())
                 .foregroundStyle(tore == nil ? .secondary : .primary)
         }

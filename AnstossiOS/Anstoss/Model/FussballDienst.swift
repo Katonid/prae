@@ -93,16 +93,24 @@ struct FussballDienst {
     /// Alle heutigen Spiele der fuenf Ligen in einer einzigen Anfrage —
     /// das ist die Grundlage des Livetickers.
     func spieleHeute() async throws -> [Spiel] {
-        let heute = Zeitformate.tagesschluessel.string(from: Date())
+        // Der Dienst rechnet in UTC, die App im Kalender des Nutzers. Ein
+        // Fenster von gestern bis morgen deckt beides ab; ausgesiebt wird
+        // danach hier.
+        let kalender = Calendar.current
+        let gestern = kalender.date(byAdding: .day, value: -1, to: Date()) ?? Date()
+        let morgen = kalender.date(byAdding: .day, value: 1, to: Date()) ?? Date()
+
         var teile = URLComponents(url: Self.basis.appendingPathComponent("matches"),
                                   resolvingAgainstBaseURL: false)!
         teile.queryItems = [
             URLQueryItem(name: "competitions", value: Liga.allCases.map(\.rawValue).joined(separator: ",")),
-            URLQueryItem(name: "dateFrom", value: heute),
-            URLQueryItem(name: "dateTo", value: heute),
+            URLQueryItem(name: "dateFrom", value: Zeitformate.tagesschluessel.string(from: gestern)),
+            URLQueryItem(name: "dateTo", value: Zeitformate.tagesschluessel.string(from: morgen)),
         ]
         let antwort: SpieleAntwort = try await holen(teile.url!)
-        return antwort.matches.compactMap { $0.spiel(fallback: nil) }
+        return antwort.matches
+            .compactMap { $0.spiel(fallback: nil) }
+            .filter { $0.istHeute || $0.status.laeuftGerade }
     }
 
     /// Ein einzelnes Spiel mit Torschuetzen, soweit der Zugang sie hergibt.

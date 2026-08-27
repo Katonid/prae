@@ -83,12 +83,12 @@ struct Formreihe: View {
 
     var body: some View {
         HStack(spacing: 2) {
-            ForEach(Array(form.enumerated()), id: \.offset) { _, zeichen in
-                Text(zeichen)
+            ForEach(form.indices, id: \.self) { platz in
+                Text(form[platz])
                     .font(.system(size: 9, weight: .bold))
                     .foregroundStyle(.white)
                     .frame(width: 14, height: 14)
-                    .background(farbe(zeichen), in: RoundedRectangle(cornerRadius: 3))
+                    .background(farbe(form[platz]), in: RoundedRectangle(cornerRadius: 3))
             }
         }
     }
