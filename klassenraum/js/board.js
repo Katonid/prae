@@ -721,13 +721,21 @@ function attachInteractions(el, mounted) {
       // ausgelöst. So bleibt jeder Knopf ein Griff UND ein Knopf.
       if (finished.type === 'maybe-drag' && finished.control) {
         const wanderung = Math.abs(event.clientX - finished.start.x) + Math.abs(event.clientY - finished.start.y);
-        if (wanderung <= 14 && finished.control.isConnected) {
+        if (wanderung <= 14) {
           tap = null;
           if (event.pointerType !== 'mouse') armTapGuard(event);
           // Trifft der Tipp das Symbol im Knopf (ein SVG ohne click-Methode),
-          // wird der umschließende Knopf ausgelöst.
-          const control = (finished.control.closest && finished.control.closest('[data-nodrag]')) || finished.control;
-          if (typeof control.click === 'function') control.click();
+          // wird der umschließende Knopf ausgelöst. Wurde der Knopf während
+          // der Berührung ersetzt (Neuaufbau der Karte), springt das Element
+          // ein, das jetzt an derselben Stelle liegt.
+          let control = finished.control.isConnected
+            ? ((finished.control.closest && finished.control.closest('[data-nodrag]')) || finished.control)
+            : null;
+          if (!control) {
+            const hit = document.elementFromPoint(event.clientX, event.clientY);
+            control = hit && hit.closest ? hit.closest('[data-nodrag]') : null;
+          }
+          if (control && typeof control.click === 'function') control.click();
         }
       }
     } else if (finished && finished.type === 'pinch' && points.size < 2) {
