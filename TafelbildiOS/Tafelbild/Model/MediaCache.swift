@@ -44,16 +44,65 @@ final class MediaCache {
         cache.removeObject(forKey: fileName as NSString)
     }
 
-    /// Verkleinert ein Bild auf eine sinnvolle Tafelgröße und liefert JPEG-Daten.
-    static func prepareForBoard(_ image: UIImage, maxEdge: CGFloat = 2000) -> Data? {
+    /// Verkleinert ein Bild auf eine sinnvolle Tafelgröße.
+    ///
+    /// Liefert die Daten **samt Dateiendung**: Bilder mit durchsichtigen
+    /// Stellen werden als PNG gesichert, alle anderen als JPEG. JPEG kennt
+    /// keinen Alphakanal — ein freigestelltes Bild bekäme dort einen weißen
+    /// Grund, und genau das soll auf der Tafel nicht passieren.
+    static func prepareForBoard(_ image: UIImage,
+                                maxEdge: CGFloat = 2000) -> (daten: Data, endung: String)? {
+        let durchsichtig = hatDurchsichtigeStellen(image)
         let size = image.size
         let scale = min(1, maxEdge / max(size.width, size.height))
-        guard scale < 1 else { return image.jpegData(compressionQuality: 0.9) }
-        let target = CGSize(width: size.width * scale, height: size.height * scale)
-        let renderer = UIGraphicsImageRenderer(size: target)
-        let resized = renderer.image { _ in
-            image.draw(in: CGRect(origin: .zero, size: target))
+        let fertig: UIImage
+        if scale < 1 {
+            let target = CGSize(width: size.width * scale, height: size.height * scale)
+            let format = UIGraphicsImageRendererFormat.default()
+            format.opaque = !durchsichtig
+            format.scale = 1
+            let renderer = UIGraphicsImageRenderer(size: target, format: format)
+            fertig = renderer.image { _ in
+                image.draw(in: CGRect(origin: .zero, size: target))
+            }
+        } else {
+            fertig = image
         }
-        return resized.jpegData(compressionQuality: 0.9)
+        if durchsichtig {
+            guard let daten = fertig.pngData() else { return nil }
+            return (daten, "png")
+        }
+        guard let daten = fertig.jpegData(compressionQuality: 0.9) else { return nil }
+        return (daten, "jpg")
+    }
+
+    /// Kommen wirklich durchsichtige Bildpunkte vor?
+    ///
+    /// Der Alphakanal allein sagt das nicht: Bildschirmfotos und viele PNG
+    /// führen einen mit, ohne ihn zu nutzen. Die dürfen weiter als JPEG
+    /// gespeichert werden, sonst wachsen die Dateien ohne Grund — sie gehen
+    /// ja auch durch den iCloud-Abgleich. Geprüft wird an einer kleinen
+    /// Abschrift; ein durchsichtiger Hintergrund überlebt das Verkleinern.
+    static func hatDurchsichtigeStellen(_ image: UIImage) -> Bool {
+        guard let cg = image.cgImage else { return false }
+        switch cg.alphaInfo {
+        case .none, .noneSkipFirst, .noneSkipLast: return false
+        default: break
+        }
+        let kante = 160
+        // Speicher legt CGContext selbst an (data: nil) — er gehört dann dem
+        // Kontext und lebt genau so lange wie er.
+        guard let ctx = CGContext(data: nil, width: kante, height: kante,
+                                  bitsPerComponent: 8, bytesPerRow: kante * 4,
+                                  space: CGColorSpaceCreateDeviceRGB(),
+                                  bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
+        else { return true }
+        ctx.draw(cg, in: CGRect(x: 0, y: 0, width: kante, height: kante))
+        guard let daten = ctx.data else { return true }
+        let bytes = daten.bindMemory(to: UInt8.self, capacity: kante * kante * 4)
+        for i in stride(from: 3, to: kante * kante * 4, by: 4) where bytes[i] < 250 {
+            return true
+        }
+        return false
     }
 }
