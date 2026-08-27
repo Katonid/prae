@@ -867,6 +867,11 @@ function updateSelectionFrame() {
  * sonst die globale der Tafel, sonst Automatik (Karten-Schema). Gesetzt wird
  * direkt am Element — so gewinnt sie auch gegen die Bare-/Hell-Heuristiken.
  */
+const INK_SHADOWS = {
+  soft: '0 1px 3px rgba(2, 6, 23, 0.55)',
+  strong: '0 2px 5px rgba(2, 6, 23, 0.75), 0 0 14px rgba(2, 6, 23, 0.45)',
+};
+
 function applyInk(el, widget, board) {
   const ink = (typeof widget.textColor === 'string' && widget.textColor)
     ? widget.textColor
@@ -878,6 +883,10 @@ function applyInk(el, widget, board) {
     el.style.removeProperty('--card-ink');
     el.style.removeProperty('--card-ink-soft');
   }
+  // Schatten hinter der Schrift: eigener Wert der Karte vor dem der Tafel.
+  const shadow = widget.textShadow || board.textShadow || 'none';
+  if (INK_SHADOWS[shadow]) el.style.setProperty('--ink-shadow', INK_SHADOWS[shadow]);
+  else el.style.removeProperty('--ink-shadow');
 }
 
 function layout() {
@@ -1127,6 +1136,17 @@ function inkFold(widgetId, definition) {
           layout();
         },
       })),
+      field('Schatten hinter der Schrift', h('div', { class: 'segmented' },
+        [[undefined, 'Wie Tafel'], ['none', 'Ohne'], ['soft', 'Weich'], ['strong', 'Kräftig']].map(([value, label]) => h('button', {
+          class: 'segmented__item' + ((widget.textShadow || undefined) === value ? ' is-active' : ''),
+          onclick: () => {
+            if (value) widget.textShadow = value;
+            else delete widget.textShadow;
+            touch({ reason: 'widget-ink' });
+            layout();
+            renderInk();
+          },
+        }, label)))),
       h('p', { class: 'muted small' }, current
         ? 'Dieses Element nutzt seine eigene Farbe — „A“ kehrt zur globalen Einstellung der Tafel zurück.'
         : 'Automatisch: Es gilt die globale Schriftfarbe der Tafel (Menü → Aussehen → Schriftfarbe der Elemente).'));

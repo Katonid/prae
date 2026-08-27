@@ -110,6 +110,14 @@ function pairKeysOf(flat, size) {
   return keys;
 }
 
+/** Gut lesbare Schriftfarbe (hell oder dunkel) auf einer gegebenen Farbe. */
+function inkAuf(hex) {
+  const match = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex || '');
+  if (!match) return '#0f172a';
+  const [r, g, b] = [match[1], match[2], match[3]].map((part) => parseInt(part, 16) / 255);
+  return (0.2126 * r + 0.7152 * g + 0.0722 * b) > 0.55 ? '#0f172a' : '#ffffff';
+}
+
 /**
  * Gedächtnis der Auslosungen — es gehört ausdrücklich zu DIESEM Element:
  * Zwei Felder mit derselben Auslosungsfunktion (auch mit derselben
@@ -335,8 +343,10 @@ export default {
       groups: null,
       history: [],
       modeNames: {},
-      // Anzeige des Ergebnisses: 'karten' oder 'abhaken' (Checkliste).
+      // Anzeige des Ergebnisses: 'karten', 'abhaken' (Checkliste) oder 'zaehlen'.
       groupView: 'karten',
+      // Farbe der Namenskarten (null = automatisch passend zum Karten-Schema).
+      cardColor: null,
       // Nach jeder Auslosung geschützt — erst das Schloss öffnen, dann neu losen.
       locked: false,
     };
@@ -583,6 +593,18 @@ export default {
       const zaehlen = state.groupView === 'zaehlen';
       if (!state.tally || typeof state.tally !== 'object') state.tally = {};
       const done = new Set(shown && Array.isArray(shown.done) ? shown.done : []);
+      // Eigene Kartenfarbe: als Variablen am Raster, Alt-Karten leicht abgedunkelt,
+      // Schrift automatisch hell oder dunkel — je nachdem, was lesbar ist.
+      const cardColor = typeof state.cardColor === 'string' && state.cardColor ? state.cardColor : null;
+      if (cardColor) {
+        groupsBox.style.setProperty('--gcard-bg', cardColor);
+        groupsBox.style.setProperty('--gcard-bg-alt', `color-mix(in srgb, ${cardColor} 82%, #0f172a)`);
+        groupsBox.style.setProperty('--gcard-ink', inkAuf(cardColor));
+      } else {
+        groupsBox.style.removeProperty('--gcard-bg');
+        groupsBox.style.removeProperty('--gcard-bg-alt');
+        groupsBox.style.removeProperty('--gcard-ink');
+      }
       groupsBox.style.gridTemplateColumns = (checklist ? 'auto ' : '') + `repeat(${size}, minmax(0, 1fr))`;
       fitGroups(size, Math.ceil(flat.length / size) || 1,
         flat.reduce((acc, name) => Math.max(acc, name.length), 4), checklist);
@@ -1262,6 +1284,35 @@ export default {
         '„Abhaken“: Ein Tipp hakt eine Gruppe ab — z. B. wer die Aufgabe erledigt hat. '
         + '„Zählen“: Ein Tipp auf ein Kärtchen zählt +1 (z. B. Punkte), langes Drücken nimmt eins zurück. '
         + 'Auch nach der Auslosung jederzeit umschaltbar (auch über das Listensymbol oben auf der Karte).'));
+        // Farbe der Namenskarten: Automatisch (A), Farbfelder oder eigene Farbe.
+        const kartenFarbe = typeof state.cardColor === 'string' && state.cardColor ? state.cardColor : null;
+        const setKartenFarbe = (color) => {
+          ctx.widget.state.cardColor = color || null;
+          ctx.save();
+          rerender();
+        };
+        parts.push(field('Farbe der Namenskarten', h('div', { class: 'swatches' },
+          h('button', {
+            class: 'swatch swatch--small swatch--auto' + (!kartenFarbe ? ' is-active' : ''),
+            title: 'Automatisch — passend zum Karten-Schema',
+            onclick: () => setKartenFarbe(null),
+          }, 'A'),
+          ['#ffffff', '#fde047', '#86efac', '#93c5fd', '#f9a8d4', '#1e293b'].map((color) => h('button', {
+            class: 'swatch swatch--small' + (kartenFarbe === color ? ' is-active' : ''),
+            style: { background: color },
+            title: color,
+            onclick: () => setKartenFarbe(color),
+          })),
+          h('input', {
+            class: 'input input--color', type: 'color',
+            value: kartenFarbe || '#ffffff',
+            title: 'Eigene Farbe',
+            oninput: (event) => {
+              ctx.widget.state.cardColor = event.target.value;
+              ctx.save();
+              render();
+            },
+          }))));
         parts.push(toggleRow('Mit Animation auslosen', state.animate !== false, (value) => {
           ctx.widget.state.animate = value;
           ctx.save();
