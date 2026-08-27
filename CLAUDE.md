@@ -84,6 +84,35 @@ noch Commits auf denselben PR gepusht wurden — die hingen dann fest
   es folgt 1.3.2 (Build 5) usw. Größere Sprünge (z. B. 1.4) nur
   auf ausdrückliche Ansage des Nutzers.
 
+## Projekt Anstoß (Fußball-Liveticker, native iOS-App)
+
+- App-Code: `AnstossiOS/` (ein Target: App, iPhone + iPad, iOS 17).
+  Spieltage, Tabellen und Liveticker der fünf großen Ligen
+  (Bundesliga, Premier League, La Liga, Serie A, Ligue 1).
+- Daten von **football-data.org (v4)**. Der kostenlose Zugang deckt
+  genau diese fünf Ligen ab; der Schlüssel gehört dem Nutzer und liegt
+  im Schlüsselbund (`Schluesselbund.swift`) — nie im Repo, nie in den
+  Voreinstellungen.
+- **Zehn Abfragen je Minute** sind das Limit des freien Zugangs. Die
+  `Anfragenbremse` in `FussballDienst.swift` hält es selbst ein — beim
+  Erweitern nicht umgehen. Der Ticker holt alle fünf Ligen mit EINER
+  Abfrage (`/v4/matches?competitions=…`).
+- Der freie Zugang liefert nicht zu jedem Spiel Torschützen. Fehlen
+  sie, baut `Datenhaltung.meldungenAblegen` die Tormeldungen aus dem
+  Sprung im Spielstand — diesen Rückfall nicht entfernen.
+- `MARKETING_VERSION` steht an zwei Stellen im pbxproj (Debug +
+  Release). **Jede Arbeitseinheit (= jeder PR mit App-Änderungen) hebt
+  die Patch-Nummer um +1 an** — ohne Nachfrage, als Teil des PRs
+  (1.0.1 → 1.0.2 → 1.0.3 …). Größere Sprünge nur auf ausdrückliche
+  Ansage des Nutzers.
+- `ITSAppUsesNonExemptEncryption = NO` steht als Build-Einstellung
+  `INFOPLIST_KEY_ITSAppUsesNonExemptEncryption` — nicht entfernen.
+- Das App-Symbol erzeugt `scripts/anstoss-icon.py` (reines Python,
+  ohne fremde Bibliotheken) — nicht von Hand bearbeiten.
+- Übersetzt wird in GitHub Actions: `.github/workflows/ios-apps-build.yml`
+  baut die App bei jedem Push mit. **Erst pushen, Bau abwarten, Fehler
+  beheben — den PR-Link erst herausgeben, wenn der Bau grün ist.**
+
 ## Projekt Klassenraum (Web-App)
 
 - Code: `klassenraum/` — statische Web-App ohne Build-Schritt (ES-Module,
