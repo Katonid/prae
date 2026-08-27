@@ -71,6 +71,13 @@ function dayCountOf(state) {
   return Math.max(1, Math.min(30, Math.round(raw)));
 }
 
+/** Merkmal-Vorgabe fürs Gruppen-Auslosen: 'mix', 'gleich' oder 'egal'. */
+function markModeOf(state) {
+  if (['mix', 'gleich', 'egal'].includes(state.markMode)) return state.markMode;
+  // Älterer Stand: Schalter „Merkmale mischen" (an/aus).
+  return state.mixMarks === false ? 'egal' : 'mix';
+}
+
 function shuffled(list) {
   const copy = list.slice();
   for (let i = copy.length - 1; i > 0; i -= 1) {
@@ -112,7 +119,7 @@ function pastPairCounts(history) {
  * werden die restlichen Namen so verteilt, dass jede Gruppe möglichst
  * verschiedene Merkmale mischt (z. B. ein Junge und ein Mädchen).
  */
-function arrangeOnce(pool, marks, size, prefix) {
+function arrangeOnce(pool, marks, size, prefix, mode) {
   const buckets = new Map();
   for (const name of shuffled(pool)) {
     const mark = marks[name] || '';
@@ -125,11 +132,16 @@ function arrangeOnce(pool, marks, size, prefix) {
     const posInGroup = flat.length % size;
     const groupStart = flat.length - posInGroup;
     const groupMarks = new Set(flat.slice(groupStart).map((name) => marks[name] || ''));
-    // Bevorzugt ein Merkmal, das in der Gruppe noch fehlt — aus dem vollsten
-    // Topf, damit die Merkmale bis zum Schluss reichen.
-    let candidates = Array.from(buckets.values()).filter((list) => list.length)
-      .filter((list) => !groupMarks.has(marks[list[list.length - 1]] || ''));
-    if (!candidates.length) candidates = Array.from(buckets.values()).filter((list) => list.length);
+    const filled = Array.from(buckets.values()).filter((list) => list.length);
+    // „mix": bevorzugt ein Merkmal, das in der Gruppe noch fehlt.
+    // „gleich": bevorzugt dasselbe Merkmal wie die bisherigen der Gruppe.
+    let candidates = filled;
+    if (mode === 'mix') {
+      candidates = filled.filter((list) => !groupMarks.has(marks[list[list.length - 1]] || ''));
+    } else if (mode === 'gleich' && posInGroup > 0) {
+      candidates = filled.filter((list) => groupMarks.has(marks[list[list.length - 1]] || ''));
+    }
+    if (!candidates.length) candidates = filled;
     const most = Math.max(...candidates.map((list) => list.length));
     const top = candidates.filter((list) => list.length === most);
     flat.push(top[randomInt(top.length)].pop());
@@ -137,30 +149,37 @@ function arrangeOnce(pool, marks, size, prefix) {
   return flat;
 }
 
-function scoreArrangement(flat, size, marks, pairCounts) {
+function scoreArrangement(flat, size, marks, pairCounts, mode) {
   let score = 0;
   for (const group of chunk(flat, size)) {
     for (let i = 0; i < group.length; i += 1) {
       for (let j = i + 1; j < group.length; j += 1) {
         // Frühere Paarungen möglichst vermeiden …
         score += pairCounts.get(pairKey(group[i], group[j])) || 0;
-        // … aber gleiche Merkmale in einer Gruppe wiegen deutlich schwerer.
+        // … aber die Merkmal-Vorgabe wiegt deutlich schwerer.
         const a = marks[group[i]] || '';
-        if (a && a === (marks[group[j]] || '')) score += 100;
+        const b = marks[group[j]] || '';
+        if (mode === 'mix' && a && a === b) score += 100;
+        if (mode === 'gleich' && a !== b) score += 100;
       }
     }
   }
   return score;
 }
 
-/** Beste von mehreren zufälligen Anordnungen — mischt Merkmale und meidet alte Paare. */
-function drawArrangement(pool, marks, size, history, prefix = []) {
+/**
+ * Beste von mehreren zufälligen Anordnungen — meidet alte Paare und setzt die
+ * Merkmal-Vorgabe um: 'mix' (unterschiedliche Merkmale je Gruppe), 'gleich'
+ * (gleiche Merkmale je Gruppe) oder 'egal' (Merkmale spielen keine Rolle).
+ */
+function drawArrangement(pool, marks, size, history, prefix = [], mode = 'mix') {
   const pairCounts = pastPairCounts(history);
+  const useMarks = mode === 'egal' ? {} : marks;
   let best = null;
   let bestScore = Infinity;
   for (let attempt = 0; attempt < 40; attempt += 1) {
-    const flat = arrangeOnce(pool, marks, size, prefix);
-    const score = scoreArrangement(flat, size, marks, pairCounts);
+    const flat = arrangeOnce(pool, useMarks, size, prefix, mode);
+    const score = scoreArrangement(flat, size, useMarks, pairCounts, mode);
     if (score < bestScore) {
       bestScore = score;
       best = flat;
@@ -284,7 +303,7 @@ export default {
       // Gruppen & Tagesgruppe
       groupSize: 2,
       dayCount: 3,
-      mixMarks: true,
+      markMode: 'mix',
       groups: null,
       history: [],
       modeNames: {},
@@ -375,9 +394,7 @@ export default {
         const count = Math.min(dayCountOf(state), all.length);
         flat = prefix.concat(drawDayGroup(pool, count - prefix.length, state.history));
       } else {
-        // Merkmale mischen lässt sich abwählen — dann wird rein zufällig verteilt.
-        const marks = state.mixMarks === false ? {} : marksOf(state);
-        flat = drawArrangement(pool, marks, size, state.history, prefix);
+        flat = drawArrangement(pool, marksOf(state), size, state.history, prefix, markModeOf(state));
       }
       if (!Array.isArray(state.history)) state.history = [];
       if (fromIndex > 0 && state.groups && state.groups.at) {
@@ -930,15 +947,24 @@ export default {
             if (marks[name]) counts[marks[name]] = (counts[marks[name]] || 0) + 1;
           }
           const kinds = Object.entries(counts).map(([mark, count]) => `${mark}: ${count}`);
-          parts.push(toggleRow('Merkmale mischen', state.mixMarks !== false, (value) => {
-            ctx.widget.state.mixMarks = value;
-            ctx.save();
-            rerender();
-          }, kinds.length
-            ? `Vergebene Merkmale in dieser Liste — ${kinds.join(', ')}. Jede Gruppe wird nach Möglichkeit gemischt `
-              + '(z. B. ein Junge und ein Mädchen), solange die Gesamtzahl es erlaubt. Gilt ab der nächsten Auslosung.'
-            : 'Diese Liste hat noch keine Merkmale. Vergeben unter „Listen“ → Liste öffnen → „Merkmale (für Gruppen)“ — '
-              + 'z. B. „J“/„M“ je Name; dann kommt nach Möglichkeit ein Junge und ein Mädchen in jede Gruppe.'));
+          const markMode = markModeOf(state);
+          parts.push(field('Merkmale in der Gruppe', h('div', { class: 'segmented' },
+            [['egal', 'Egal'], ['mix', 'Unterschiedlich'], ['gleich', 'Gleich']].map(([value, label]) => h('button', {
+              class: 'segmented__item' + (markMode === value ? ' is-active' : ''),
+              onclick: () => {
+                ctx.widget.state.markMode = value;
+                ctx.save();
+                rerender();
+              },
+            }, label))),
+          {
+            egal: 'Merkmale spielen keine Rolle — es wird rein zufällig verteilt.',
+            mix: 'Jede Gruppe mischt die Merkmale nach Möglichkeit — z. B. ein Junge und ein Mädchen zusammen.',
+            gleich: 'Jede Gruppe besteht nach Möglichkeit aus gleichen Merkmalen — z. B. reine Jungen- und Mädchengruppen oder gleiche Lesestufen.',
+          }[markMode] + ' Gilt ab der nächsten Auslosung.'));
+          parts.push(h('p', { class: 'muted small' }, kinds.length
+            ? `Vergebene Merkmale in dieser Liste — ${kinds.join(', ')}.`
+            : 'Diese Liste hat noch keine Merkmale. Vergeben unter „Listen“ → Liste öffnen → „Merkmale (für Gruppen)“ — z. B. „J“/„M“ je Name.'));
           parts.push(h('p', { class: 'muted small' },
             'Frühere Zusammensetzungen werden automatisch gemieden, bis alle Kombinationen durch sind.'));
         } else {
