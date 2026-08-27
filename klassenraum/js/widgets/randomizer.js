@@ -362,8 +362,13 @@ export default {
       dealing = false;
     }
 
-    /** Gruppen oder Tagesgruppe auslosen — ab `fromIndex` bleibt alles davor stehen. */
-    function drawGroupsNow(fromIndex = 0) {
+    /**
+     * Gruppen oder Tagesgruppe auslosen — ab `fromIndex` bleibt alles davor
+     * stehen. `correct` = Berichtigung des laufenden Durchgangs (Tipp auf
+     * einen Namen): Der Verlaufseintrag wird ERSETZT, nicht ergänzt — im
+     * Nachhinein zählt nur das Endergebnis, nicht der Weg dorthin.
+     */
+    function drawGroupsNow(fromIndex = 0, correct = false) {
       if (dealing || spinning) return;
       const state = ctx.widget.state;
       const all = namesOf(state);
@@ -397,7 +402,7 @@ export default {
         flat = drawArrangement(pool, marksOf(state), size, state.history, prefix, markModeOf(state));
       }
       if (!Array.isArray(state.history)) state.history = [];
-      if (fromIndex > 0 && state.groups && state.groups.at) {
+      if ((correct || fromIndex > 0) && state.groups && state.groups.at) {
         // Neuauslosung ab einer Stelle berichtigt den laufenden Durchgang —
         // es entsteht kein neuer Verlaufseintrag. Haken bleiben nur für
         // Gruppen, die ganz vor der Stelle liegen.
@@ -479,7 +484,8 @@ export default {
           title: checklist ? 'Gruppe abhaken' : 'Ab hier neu auslosen (alles davor bleibt)',
         }, h('span', { class: 'w-random__gcard-text' }, name)), () => {
           if (checklist) toggleDone(groupIndex);
-          else drawGroupsNow(index);
+          // Tipp auf einen Namen = Berichtigung des laufenden Durchgangs.
+          else drawGroupsNow(index, true);
         });
         if (animateOk && index >= animateFrom) {
           card.classList.add('is-waiting');

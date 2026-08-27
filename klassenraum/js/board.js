@@ -1052,33 +1052,60 @@ export function openWidgetSettings(widgetId) {
   });
 }
 
-/** Eingeklappter Bereich unter jedem Element: in einen anderen Klassenraum übertragen. */
+/** Eingeklappter Bereich unter jedem Element: auf eine andere Seite oder in einen anderen Klassenraum übertragen. */
 function transferFold(widgetId, definition) {
   const board = getActiveBoard();
-  const others = getState().boards.filter((entry) => entry.id !== (board && board.id));
-  if (!others.length) return null;
-  const select = h('select', { class: 'input' },
+  if (!board) return null;
+  const others = getState().boards.filter((entry) => entry.id !== board.id);
+  const ownPages = (board.pages || []).length > 1;
+  if (!others.length && !ownPages) return null;
+
+  const boardSelect = h('select', { class: 'input' },
+    ownPages ? h('option', { value: board.id }, `${board.name} (andere Seite)`) : null,
     others.map((entry) => h('option', { value: entry.id }, entry.name)));
+
+  const pageWrap = h('div');
+  let pageSelect = null;
+  const buildPages = () => {
+    clear(pageWrap);
+    const target = getState().boards.find((entry) => entry.id === boardSelect.value);
+    if (!target) return;
+    const pages = (target.pages || []).filter((page) => !(target.id === board.id && page.id === board.activePageId));
+    pageSelect = h('select', { class: 'input' }, pages.map((page) => h('option', { value: page.id },
+      page.name || `Seite ${(target.pages || []).indexOf(page) + 1}`)));
+    if (target.id !== board.id && pages.some((page) => page.id === target.activePageId)) {
+      pageSelect.value = target.activePageId;
+    }
+    pageWrap.appendChild(field('Ziel-Seite', pageSelect));
+  };
+  boardSelect.addEventListener('change', buildPages);
+  buildPages();
+
   const run = async (move) => {
-    const target = others.find((entry) => entry.id === select.value) || others[0];
-    const ok = await transferWidget(widgetId, target.id, { move });
+    const target = getState().boards.find((entry) => entry.id === boardSelect.value);
+    if (!target) return;
+    const ok = await transferWidget(widgetId, target.id, {
+      move,
+      targetPageId: pageSelect ? pageSelect.value : null,
+    });
     if (!ok) return;
-    toast(`„${definition.label}“ nach „${target.name}“ ${move ? 'verschoben' : 'kopiert'} — dort auf die aufgeschlagene Seite.`, 'success');
+    const where = target.id === board.id ? 'auf die gewählte Seite' : `nach „${target.name}“`;
+    toast(`„${definition.label}“ ${where} ${move ? 'verschoben' : 'kopiert'}.`, 'success');
     if (move) {
       closePanel();
       renderBoard();
     }
   };
   return h('details', { class: 'fold' },
-    h('summary', { class: 'fold__head' }, 'In anderen Klassenraum übertragen'),
+    h('summary', { class: 'fold__head' }, 'Auf andere Seite / in anderen Klassenraum übertragen'),
     h('div', { class: 'stack fold__body' },
-      field('Ziel-Klassenraum', select),
+      field('Ziel-Klassenraum', boardSelect),
+      pageWrap,
       buttonRow(
         button('Kopieren', { icon: 'copy', small: true, onClick: () => run(false) }),
         button('Verschieben', { icon: 'share', small: true, onClick: () => run(true) })),
       h('p', { class: 'muted small' },
-        'Landet dort auf der aufgeschlagenen Seite. Verknüpfte Klang- und Videodateien wandern automatisch mit; '
-        + 'Namenslisten gelten ohnehin in allen Klassenräumen.')));
+        'Verknüpfte Klang- und Videodateien wandern automatisch mit; Namenslisten gelten ohnehin in allen Klassenräumen.')));
 }
 
 export function addWidgetOfType(type) {

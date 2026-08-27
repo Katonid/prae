@@ -40,17 +40,26 @@ function clampToBoard(widget, board) {
   widget.y = Math.max(0, Math.min(widget.y, height - widget.h));
 }
 
-/** Ein Element auf die aufgeschlagene Seite eines anderen Klassenraums übertragen. */
-export async function transferWidget(widgetId, targetBoardId, { move = false } = {}) {
+/**
+ * Ein Element übertragen — in einen anderen Klassenraum oder (mit
+ * `targetPageId`) auf eine andere Seite, auch desselben Klassenraums.
+ * Ohne `targetPageId` landet es auf der dort aufgeschlagenen Seite.
+ */
+export async function transferWidget(widgetId, targetBoardId, { move = false, targetPageId = null } = {}) {
   const source = getActiveBoard();
   const target = targetOf(targetBoardId);
-  if (!source || !target || source.id === target.id) return false;
+  if (!source || !target) return false;
   const page = (source.pages || []).find((entry) => (entry.widgets || []).some((w) => w.id === widgetId));
   const widget = page && page.widgets.find((w) => w.id === widgetId);
   if (!widget) return false;
+  const targetPage = (target.pages || []).find((entry) => entry.id === targetPageId) || getActivePage(target);
+  if (!targetPage || (target.id === source.id && targetPage.id === page.id)) return false;
   const copy = await cloneWidget(widget, { copyMedia: !move });
+  // Eine KOPIE löst sich von der Kopplung (Herkunfts-Kennung) — sonst hingen
+  // zwei Elemente an demselben gekoppelten Stand. Beim Verschieben wandert
+  // die Kennung mit, es bleibt ja dasselbe Element.
+  if (!move) delete copy.originId;
   clampToBoard(copy, target);
-  const targetPage = getActivePage(target);
   copy.z = Math.max(0, ...targetPage.widgets.map((w) => w.z || 1)) + 1;
   targetPage.widgets.push(copy);
   if (move) page.widgets = page.widgets.filter((w) => w.id !== widgetId);
