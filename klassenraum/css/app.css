@@ -1421,6 +1421,26 @@ p.muted { margin: 0; }
 .w-random__gcheck.is-done { background: #16a34a; border-color: #16a34a; color: #fff; }
 .w-random__gcheck svg { width: 0.95em; height: 0.95em; }
 .w-random__gcard.is-done { opacity: 0.55; }
+
+/* Zähl-Anzeige: kleines Zähler-Abzeichen am Kärtchen. */
+.w-random__gcard { position: relative; }
+
+.w-random__gcount {
+  position: absolute;
+  top: -0.4em;
+  right: -0.25em;
+  min-width: 1.5em;
+  height: 1.5em;
+  padding: 0 0.3em;
+  border-radius: 999px;
+  background: var(--accent, #6366f1);
+  color: #fff;
+  font-size: 0.62em;
+  font-weight: 800;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 2px 5px rgba(2, 6, 23, 0.25);
+}
 .w-random__gcard.is-done .w-random__gcard-text { text-decoration: line-through; }
 
 /* Kleine Knöpfe in der Kopfzeile: Anzeige umschalten und Schloss. */
