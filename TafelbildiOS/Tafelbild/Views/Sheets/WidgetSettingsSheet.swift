@@ -1031,6 +1031,20 @@ private struct NamePickerSettings: View {
 
     // MARK: 4. Was schon war
 
+    /// Als eigene Größe, nicht in der Ansicht zusammengesetzt: Der Übersetzer
+    /// bricht sonst über einem verschachtelten Text-Ausdruck ab
+    /// („unable to type-check this expression in reasonable time“).
+    private var fussZuArchiv: String {
+        var text = "Die App merkt sich, wer schon mit wem zusammen war, und zieht "
+            + "bevorzugt Paarungen, die es noch nicht gab. Das gehört zur "
+            + "Namensliste und gilt für alle Tafeln, die sie benutzen."
+        if !content.ergebnis.isEmpty {
+            text += "\n\n„Ergebnis verwerfen“ betrifft nur dieses Element: "
+                + "Danach steht es wieder auf „Noch nicht ausgelost“."
+        }
+        return text
+    }
+
     private var wasSchonWar: some View {
         Group {
             if content.modus == .einzel {
@@ -1065,12 +1079,7 @@ private struct NamePickerSettings: View {
                 } header: {
                     Text("Was schon war")
                 } footer: {
-                    Text("Die App merkt sich, wer schon mit wem zusammen war, und zieht "
-                         + "bevorzugt Paarungen, die es noch nicht gab. Das gehört zur "
-                         + "Namensliste und gilt für alle Tafeln, die sie benutzen."
-                         + (content.ergebnis.isEmpty ? ""
-                            : "\n\n„Ergebnis verwerfen“ betrifft nur dieses Element: "
-                              + "Danach steht es wieder auf „Noch nicht ausgelost“."))
+                    Text(fussZuArchiv)
                 }
             }
         }
