@@ -1357,6 +1357,35 @@ struct NameEntry: Codable, Equatable, Identifiable {
     }
 }
 
+/// Eine gespeicherte Auslosung — für „Was war letzte Woche?“.
+///
+/// Gemerkt werden die **Namen als Text**, nicht als Kennung: Der Bestand
+/// ändert sich, Kinder kommen und gehen, und ein Archiv, in dem nachträglich
+/// Striche stehen, hilft niemandem.
+struct Ziehung: Codable, Equatable, Identifiable {
+    var id: String = UUID().uuidString
+    var zeitMs: Int64 = Date.nowMs
+    /// Rohwert eines `Ziehmodus`.
+    var modus: String = Ziehmodus.gruppen.rawValue
+    /// Wie viele Namen in eine Zeile gehörten.
+    var proZeile: Int = 2
+    /// Die Namen in Ziehreihenfolge, so wie sie damals hießen.
+    var texte: [String] = []
+    /// Überschrift des Elements — damit sich die Ziehung wiedererkennen lässt.
+    var titel: String = ""
+
+    var zeitpunkt: Date { Date(timeIntervalSince1970: Double(zeitMs) / 1000) }
+
+    /// Die Namen in Zeilen zerlegt.
+    var zeilen: [[String]] {
+        let breite = max(1, proZeile)
+        guard !texte.isEmpty else { return [] }
+        return stride(from: 0, to: texte.count, by: breite).map { anfang in
+            Array(texte[anfang..<min(anfang + breite, texte.count)])
+        }
+    }
+}
+
 struct NameList: Codable, Identifiable, Equatable {
     var id: String = UUID().uuidString
     var name: String = "Neue Liste"
@@ -1367,6 +1396,17 @@ struct NameList: Codable, Identifiable, Equatable {
 
     /// Merkmale, nach denen sich die Namen sortieren lassen.
     var merkmale: [Merkmal] = []
+    /// Die letzten Auslosungen, neueste zuerst.
+    var ziehungen: [Ziehung] = []
+    /// Wie oft zwei Namen schon zusammen waren (Schlüssel aus
+    /// `Auslosung.paar`), bzw. wie oft jemand einzeln gezogen wurde
+    /// (`Auslosung.einzel`). Danach richtet sich, wen die nächste Ziehung
+    /// bevorzugt — am liebsten jemanden, mit dem du noch nicht zusammen warst.
+    var paare: [String: Int] = [:]
+
+    /// So viele Auslosungen bleiben stehen. Danach fällt die älteste heraus:
+    /// Ein Archiv, das ewig wächst, wandert bei jedem Abgleich mit.
+    static let archivGrenze = 60
 
     var activeEntries: [NameEntry] { entries.filter { !$0.paused } }
 
@@ -1490,7 +1530,7 @@ extension Board {
 
 extension NameList {
     enum ListKeys: String, CodingKey {
-        case id, name, entries, owner, updatedAtMs, deleted, merkmale
+        case id, name, entries, owner, updatedAtMs, deleted, merkmale, ziehungen, paare
     }
 
     init(from decoder: Decoder) throws {
@@ -1500,9 +1540,26 @@ extension NameList {
         name = c.wert(.name, "Liste")
         entries = c.wert(.entries, [NameEntry]())
         merkmale = c.wert(.merkmale, [Merkmal]())
+        ziehungen = c.wert(.ziehungen, [Ziehung]())
+        paare = c.wert(.paare, [String: Int]())
         owner = c.wert(.owner, "")
         updatedAtMs = c.wert(.updatedAtMs, Date.nowMs)
         deleted = c.wert(.deleted, false)
+    }
+}
+
+extension Ziehung {
+    enum ZiehungKeys: String, CodingKey { case id, zeitMs, modus, proZeile, texte, titel }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: ZiehungKeys.self)
+        self.init()
+        id = c.wert(.id, UUID().uuidString)
+        zeitMs = c.wert(.zeitMs, Date.nowMs)
+        modus = c.wert(.modus, Ziehmodus.gruppen.rawValue)
+        proZeile = c.wert(.proZeile, 2)
+        texte = c.wert(.texte, [String]())
+        titel = c.wert(.titel, "")
     }
 }
 

@@ -1031,6 +1031,20 @@ private struct NamePickerSettings: View {
 
     // MARK: 4. Was schon war
 
+    /// Als eigene Größe, nicht in der Ansicht zusammengesetzt: Der Übersetzer
+    /// bricht sonst über einem verschachtelten Text-Ausdruck ab
+    /// („unable to type-check this expression in reasonable time“).
+    private var fussZuArchiv: String {
+        var text = "Die App merkt sich, wer schon mit wem zusammen war, und zieht "
+            + "bevorzugt Paarungen, die es noch nicht gab. Das gehört zur "
+            + "Namensliste und gilt für alle Tafeln, die sie benutzen."
+        if !content.ergebnis.isEmpty {
+            text += "\n\n„Ergebnis verwerfen“ betrifft nur dieses Element: "
+                + "Danach steht es wieder auf „Noch nicht ausgelost“."
+        }
+        return text
+    }
+
     private var wasSchonWar: some View {
         Group {
             if content.modus == .einzel {
@@ -1044,20 +1058,28 @@ private struct NamePickerSettings: View {
                 } header: {
                     Text("Was schon war")
                 }
-            } else if !content.ergebnis.isEmpty {
+            } else {
                 Section {
-                    Button(role: .destructive) {
-                        content.ergebnis = []
-                        content.erledigt = []
-                        content.festgehalten = false
-                        Haptics.tap()
+                    NavigationLink {
+                        ZiehungenSeite(listID: content.listID)
                     } label: {
-                        Label("Ergebnis verwerfen", systemImage: "trash")
+                        LabeledContent("Vergangene Ziehungen",
+                                       value: "\(list?.ziehungen.count ?? 0)")
+                    }
+                    if !content.ergebnis.isEmpty {
+                        Button(role: .destructive) {
+                            content.ergebnis = []
+                            content.erledigt = []
+                            content.festgehalten = false
+                            Haptics.tap()
+                        } label: {
+                            Label("Ergebnis verwerfen", systemImage: "trash")
+                        }
                     }
                 } header: {
                     Text("Was schon war")
                 } footer: {
-                    Text("Danach steht das Element wieder auf „Noch nicht ausgelost“.")
+                    Text(fussZuArchiv)
                 }
             }
         }
@@ -1140,6 +1162,74 @@ private struct KlangSeite: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+    }
+}
+
+/// Die vergangenen Auslosungen einer Namensliste.
+private struct ZiehungenSeite: View {
+    @EnvironmentObject private var store: BoardStore
+    let listID: String?
+
+    @State private var fragtNach = false
+
+    private var liste: NameList? { store.nameList(listID) }
+
+    var body: some View {
+        List {
+            if let liste, !liste.ziehungen.isEmpty {
+                ForEach(liste.ziehungen) { ziehung in
+                    Section {
+                        ForEach(Array(ziehung.zeilen.enumerated()), id: \.offset) { _, zeile in
+                            Text(zeile.joined(separator: "  ·  "))
+                                .font(.system(size: 15))
+                        }
+                    } header: {
+                        Text(kopf(ziehung))
+                    }
+                }
+
+                Section {
+                    Button(role: .destructive) {
+                        fragtNach = true
+                    } label: {
+                        Label("Alles zurücksetzen", systemImage: "arrow.counterclockwise")
+                    }
+                } footer: {
+                    Text("Löscht die vergangenen Ziehungen und das Gedächtnis: "
+                         + "Danach darf wieder jeder mit jedem, als wäre nichts gewesen.")
+                }
+            } else {
+                Section {
+                    Text("Noch keine Ziehung gespeichert.")
+                        .foregroundStyle(.secondary)
+                } footer: {
+                    Text("Sobald du Gruppen oder eine Tagesgruppe auslost, steht sie "
+                         + "hier — mit Datum und Wochentag. Es bleiben die letzten "
+                         + "\(NameList.archivGrenze) stehen.")
+                }
+            }
+        }
+        .navigationTitle("Vergangene Ziehungen")
+        .navigationBarTitleDisplayMode(.inline)
+        .alert("Alles zurücksetzen?", isPresented: $fragtNach) {
+            Button("Zurücksetzen", role: .destructive) {
+                store.setzeZiehungenZurueck(listID: listID)
+                Haptics.success()
+            }
+            Button("Abbrechen", role: .cancel) { }
+        } message: {
+            Text("Die vergangenen Ziehungen werden gelöscht, und die App vergisst, "
+                 + "wer schon mit wem zusammen war. Das lässt sich nicht rückgängig "
+                 + "machen.")
+        }
+    }
+
+    private func kopf(_ ziehung: Ziehung) -> String {
+        var teile = [ClockWidgetView.dateText(ziehung.zeitpunkt)]
+        teile.append(ClockWidgetView.timeText(ziehung.zeitpunkt, showSeconds: false,
+                                              twentyFour: true))
+        if let titel = ziehung.titel.nonEmpty { teile.append(titel) }
+        return teile.joined(separator: " · ")
     }
 }
 

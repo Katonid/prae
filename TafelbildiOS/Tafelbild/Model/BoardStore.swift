@@ -893,8 +893,11 @@ final class BoardStore: ObservableObject {
             neueMerkmalIDs[alt] = neu
             kopie.merkmale[index].id = neu
         }
+        var neueEintragIDs: [String: String] = [:]
         for index in kopie.entries.indices {
+            let alteID = kopie.entries[index].id
             kopie.entries[index].id = UUID().uuidString
+            neueEintragIDs[alteID] = kopie.entries[index].id
             var werte: [String: String] = [:]
             for (merkmalID, wert) in kopie.entries[index].merkmale {
                 guard let neu = neueMerkmalIDs[merkmalID] else { continue }
@@ -902,6 +905,25 @@ final class BoardStore: ObservableObject {
             }
             kopie.entries[index].merkmale = werte
         }
+
+        // Das Gedächtnis zeigt auf Kennungen — die sind eben alle neu
+        // geworden. Was sich nicht übersetzen lässt, fällt weg; das Archiv
+        // besteht aus Text und bleibt lesbar.
+        var paare: [String: Int] = [:]
+        for (schluessel, anzahl) in kopie.paare {
+            let teile = schluessel.split(separator: "|", omittingEmptySubsequences: false)
+                .map(String.init)
+            guard teile.count == 2 else { continue }
+            if teile[0] == "*" {
+                guard let neu = neueEintragIDs[teile[1]] else { continue }
+                paare[Auslosung.einzel(neu)] = anzahl
+            } else {
+                guard let a = neueEintragIDs[teile[0]],
+                      let b = neueEintragIDs[teile[1]] else { continue }
+                paare[Auslosung.paar(a, b)] = anzahl
+            }
+        }
+        kopie.paare = paare
 
         nameLists.append(kopie)
         scheduleSave()
@@ -916,6 +938,57 @@ final class BoardStore: ObservableObject {
         var nummer = 2
         while vorhanden.contains("\(name) (Kopie \(nummer))") { nummer += 1 }
         return "\(name) (Kopie \(nummer))"
+    }
+
+    // MARK: - Gedächtnis und Archiv der Ziehungen
+
+    /// Schreibt eine Auslosung mit: ins Archiv und ins Gedächtnis.
+    ///
+    /// Das Gedächtnis ist bewusst schlicht — es zählt, **wer schon mit wem**
+    /// zusammen war. Alle Kombinationen durchzuzählen wäre bei 26 Kindern
+    /// ein Schuljahr voller Auslosungen und liefe nie auf. Die einfache
+    /// Regel „am liebsten jemanden, mit dem du noch nicht zusammen warst“
+    /// ergibt in der Praxis dasselbe: jedes Mal andere Gruppen.
+    func merkeZiehung(_ ids: [String], listID: String?, modus: Ziehmodus,
+                      proZeile: Int, titel: String) {
+        guard let listID, var liste = nameList(listID), !ids.isEmpty else { return }
+
+        var eintrag = Ziehung()
+        eintrag.modus = modus.rawValue
+        eintrag.proZeile = max(1, proZeile)
+        eintrag.titel = titel
+        eintrag.texte = ids.map { id in
+            liste.entries.first { $0.id == id }?.text ?? "—"
+        }
+        liste.ziehungen.insert(eintrag, at: 0)
+        if liste.ziehungen.count > NameList.archivGrenze {
+            liste.ziehungen = Array(liste.ziehungen.prefix(NameList.archivGrenze))
+        }
+
+        if modus == .tagesgruppe {
+            for id in ids { liste.paare[Auslosung.einzel(id), default: 0] += 1 }
+        } else {
+            let breite = max(1, proZeile)
+            var anfang = 0
+            while anfang < ids.count {
+                let gruppe = Array(ids[anfang..<min(anfang + breite, ids.count)])
+                for (stelle, a) in gruppe.enumerated() {
+                    for b in gruppe.dropFirst(stelle + 1) {
+                        liste.paare[Auslosung.paar(a, b), default: 0] += 1
+                    }
+                }
+                anfang += breite
+            }
+        }
+        updateNameList(liste)
+    }
+
+    /// Archiv und Gedächtnis leeren — danach fängt die Liste von vorn an.
+    func setzeZiehungenZurueck(listID: String?) {
+        guard let listID, var liste = nameList(listID) else { return }
+        liste.ziehungen = []
+        liste.paare = [:]
+        updateNameList(liste)
     }
 
     func deleteNameList(_ list: NameList) {

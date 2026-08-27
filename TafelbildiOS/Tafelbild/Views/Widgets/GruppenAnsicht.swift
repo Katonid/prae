@@ -16,6 +16,9 @@ struct GruppenAnsicht: View {
     var interactive: Bool
     var list: NameList?
     var onOpenSettings: () -> Void
+    /// Schreibt eine fertige Auslosung ins Archiv und ins Gedächtnis.
+    var onZiehung: (_ ids: [String], _ modus: Ziehmodus,
+                    _ proZeile: Int, _ titel: String) -> Void
 
     @Environment(\.boardStyle) private var style
     @Environment(\.widgetMetrics) private var metrics
@@ -259,10 +262,12 @@ struct GruppenAnsicht: View {
         let neu: [String]
         switch content.modus {
         case .tagesgruppe:
-            neu = Auslosung.auswahl(namen, anzahl: content.tagesgruppeAnzahl, fest: fest)
+            neu = Auslosung.auswahl(namen, anzahl: content.tagesgruppeAnzahl, fest: fest,
+                                    vergangenheit: list?.paare ?? [:])
         default:
             neu = Auslosung.gruppen(namen, groesse: content.gruppenGroesse,
-                                    merkmal: content.mischMerkmalID, fest: fest)
+                                    merkmal: content.mischMerkmalID, fest: fest,
+                                    vergangenheit: list?.paare ?? [:])
         }
         guard !neu.isEmpty else { return }
 
@@ -279,6 +284,9 @@ struct GruppenAnsicht: View {
         content.erledigt = content.erledigt.filter { bleibende.contains($0) }
 
         Haptics.heavy()
+        onZiehung(neu, content.modus, content.proZeile,
+                  content.ueberschrift.nonEmpty ?? content.modus.standardUeberschrift)
+
         guard content.animate, neu.count > fest.count else {
             content.ergebnis = neu
             return

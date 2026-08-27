@@ -22,6 +22,9 @@ struct NamePickerWidgetView: View {
     var onOpenSettings: () -> Void
     /// Löscht einen Eintrag dauerhaft aus der Namensliste.
     var onDeleteEntry: (NameEntry) -> Void
+    /// Schreibt eine fertige Gruppenziehung ins Archiv und ins Gedächtnis.
+    var onZiehung: (_ ids: [String], _ modus: Ziehmodus,
+                    _ proZeile: Int, _ titel: String) -> Void = { _, _, _, _ in }
 
     @Environment(\.boardStyle) private var style
     @Environment(\.widgetMetrics) private var metrics
@@ -40,7 +43,8 @@ struct NamePickerWidgetView: View {
             einzelAnsicht
         case .gruppen, .tagesgruppe:
             GruppenAnsicht(content: $content, interactive: interactive,
-                           list: list, onOpenSettings: onOpenSettings)
+                           list: list, onOpenSettings: onOpenSettings,
+                           onZiehung: onZiehung)
         }
     }
 
