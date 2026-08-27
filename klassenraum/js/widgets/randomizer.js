@@ -284,6 +284,7 @@ export default {
       // Gruppen & Tagesgruppe
       groupSize: 2,
       dayCount: 3,
+      mixMarks: true,
       groups: null,
       history: [],
       modeNames: {},
@@ -354,7 +355,14 @@ export default {
       const hasResult = state.groups && state.groups.mode === state.mode && Array.isArray(state.groups.flat);
       // Schutz: Ein bestehendes Ergebnis wird nie aus Versehen überlost.
       if (hasResult && state.locked) {
-        toast('Ergebnis ist geschützt — zum Neuauslosen erst das Schloss oben öffnen.', 'warn');
+        toast('Das Ergebnis ist geschützt. Oben das Schloss antippen — danach lost ein Tipp auf einen Namen ab dort neu.', 'warn');
+        // Das Schloss kurz wackeln lassen, damit klar ist, wo es sitzt.
+        const lockBtn = el.querySelector('.w-random__headbtn--lock');
+        if (lockBtn) {
+          lockBtn.classList.remove('is-attention');
+          void lockBtn.offsetWidth;
+          lockBtn.classList.add('is-attention');
+        }
         return;
       }
       const isDay = state.mode === 'tagesgruppe';
@@ -367,7 +375,9 @@ export default {
         const count = Math.min(dayCountOf(state), all.length);
         flat = prefix.concat(drawDayGroup(pool, count - prefix.length, state.history));
       } else {
-        flat = drawArrangement(pool, marksOf(state), size, state.history, prefix);
+        // Merkmale mischen lässt sich abwählen — dann wird rein zufällig verteilt.
+        const marks = state.mixMarks === false ? {} : marksOf(state);
+        flat = drawArrangement(pool, marks, size, state.history, prefix);
       }
       if (!Array.isArray(state.history)) state.history = [];
       if (fromIndex > 0 && state.groups && state.groups.at) {
@@ -693,7 +703,7 @@ export default {
             render();
           }),
           onTap(h('button', {
-            class: 'w-random__headbtn' + (state.locked ? ' is-on' : ''), 'data-nodrag': '',
+            class: 'w-random__headbtn w-random__headbtn--lock' + (state.locked ? ' is-on' : ''), 'data-nodrag': '',
             title: state.locked
               ? 'Geschützt — antippen zum Entsperren (dann ist Neuauslosen möglich)'
               : 'Ungeschützt — antippen schützt das Ergebnis vor Neuauslosung',
@@ -912,9 +922,25 @@ export default {
               ctx.refresh();
             },
           }), 'Die letzte Gruppe kann kleiner ausfallen, wenn die Gesamtzahl nicht aufgeht. Gilt ab der nächsten Auslosung.'));
+          // Merkmale der gewählten Liste zusammenzählen — so ist sichtbar,
+          // ob das Mischen überhaupt greifen kann.
+          const marks = marksOf(state);
+          const counts = {};
+          for (const name of namesOf(state)) {
+            if (marks[name]) counts[marks[name]] = (counts[marks[name]] || 0) + 1;
+          }
+          const kinds = Object.entries(counts).map(([mark, count]) => `${mark}: ${count}`);
+          parts.push(toggleRow('Merkmale mischen', state.mixMarks !== false, (value) => {
+            ctx.widget.state.mixMarks = value;
+            ctx.save();
+            rerender();
+          }, kinds.length
+            ? `Vergebene Merkmale in dieser Liste — ${kinds.join(', ')}. Jede Gruppe wird nach Möglichkeit gemischt `
+              + '(z. B. ein Junge und ein Mädchen), solange die Gesamtzahl es erlaubt. Gilt ab der nächsten Auslosung.'
+            : 'Diese Liste hat noch keine Merkmale. Vergeben unter „Listen“ → Liste öffnen → „Merkmale (für Gruppen)“ — '
+              + 'z. B. „J“/„M“ je Name; dann kommt nach Möglichkeit ein Junge und ein Mädchen in jede Gruppe.'));
           parts.push(h('p', { class: 'muted small' },
-            'Sind in der Namensliste Merkmale vergeben (z. B. „J“/„M“), wird jede Gruppe nach Möglichkeit gemischt. '
-            + 'Frühere Zusammensetzungen werden gemieden, bis alle Kombinationen durch sind.'));
+            'Frühere Zusammensetzungen werden automatisch gemieden, bis alle Kombinationen durch sind.'));
         } else {
           parts.push(field('Anzahl Kinder (1–30)', h('input', {
             class: 'input input--small', type: 'number', min: '1', max: '30', value: String(dayCountOf(state)),

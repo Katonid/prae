@@ -1406,6 +1406,18 @@ p.muted { margin: 0; }
 
 .w-random__headbtn.is-on { background: color-mix(in srgb, var(--card-ink) 22%, transparent); color: var(--card-ink); }
 
+/* Tippt jemand auf einen Namen, obwohl das Ergebnis geschützt ist, wackelt
+   das Schloss — so findet man den Weg zum Entsperren. */
+.w-random__headbtn.is-attention { animation: lock-wiggle 0.7s ease; }
+
+@keyframes lock-wiggle {
+  0%, 100% { transform: none; }
+  15% { transform: rotate(-14deg) scale(1.25); }
+  35% { transform: rotate(12deg) scale(1.25); }
+  55% { transform: rotate(-9deg) scale(1.2); }
+  75% { transform: rotate(6deg) scale(1.1); }
+}
+
 @keyframes gcard-in {
   0% { opacity: 0; transform: scale(0.5) translateY(16px) rotate(-4deg); }
   100% { opacity: 1; transform: none; }
