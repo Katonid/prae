@@ -2102,9 +2102,9 @@ body.is-using .draw-toolbar { bottom: calc(22px + env(safe-area-inset-bottom)); 
   .view-controls__button { min-width: 38px; height: 38px; font-size: 16px; }
   .tool-button { padding: 7px; }
   .dock-toggle { font-size: 10.5px; padding: 4px 12px; }
-  /* Die Eck-Anfasser wären hier größer als halbe Elemente und verdecken die
-     Nachbarn — Größe ändern geht am Telefon über −/+ und die Zwei-Finger-Geste. */
-  .selection-frame .handle { display: none; }
+  /* Am Telefon bleiben die Eck-Anfasser sichtbar (Wunsch des Nutzers),
+     nur etwas kleiner, damit sie keine halben Elemente verdecken. */
+  .selection-frame { --handle: calc(clamp(18px, 5.5vw, 26px) / var(--board-scale, 1)); }
 }
 
 @media (max-width: 760px) {
