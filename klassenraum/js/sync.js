@@ -16,7 +16,7 @@ import {
 import {
   initCloud, createSpace, fetchSpace, putRecord, subscribeSpace, createLinkCode, resolveLinkCode,
   putMediaRecord, fetchMediaRecord, listMediaRecords, deleteMediaRecord,
-  rememberSpaceForAccount, spaceOfAccount, onAccountChanged,
+  rememberSpaceForAccount, spaceOfAccount, onAccountChanged, hasStoredAccount,
 } from './cloud.js';
 import { mediaGet, mediaPut, mediaKeys } from './store.js';
 import { usedMediaIds } from './media.js';
@@ -672,4 +672,13 @@ export function initSync() {
   const settings = syncSettings();
   if (settings.spaceId) connect(settings.spaceId);
   else announce('off');
+
+  // Wichtig: Liegt eine gespeicherte Anmeldung vor, initCloud auch OHNE
+  // eingerichteten Bereich anstoßen. Es stellt das Konto wieder her und
+  // meldet es den Zuhörern — erst dadurch greift „gleiche Anmeldung =
+  // gleiche Inhalte" auch auf Geräten, die sich früher einmal angemeldet
+  // haben und seitdem nur die App öffnen. Ohne Konto bleibt der Start offline.
+  if (hasStoredAccount()) {
+    initCloud().catch(() => { /* ohne Netz beim nächsten Start erneut */ });
+  }
 }
