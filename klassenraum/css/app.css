@@ -1352,7 +1352,7 @@ p.muted { margin: 0; }
   align-items: center;
   justify-content: center;
   min-width: 0;
-  padding: 0.26em 0.4em;
+  padding: 0.22em 0.4em;
   border: 0;
   border-radius: 0.55em;
   background: color-mix(in srgb, var(--card-ink) 9%, transparent);
@@ -1371,6 +1371,19 @@ p.muted { margin: 0; }
 
 .w-random__gcard.is-waiting { opacity: 0; }
 .w-random__gcard.is-fading { opacity: 0.35; }
+
+/* Während der Auslosungs-Zeremonie wirbeln die offenen Kärtchen sichtbar. */
+.w-random__gcard.is-shuffling .w-random__gcard-text {
+  opacity: 0.5;
+  filter: blur(1.2px);
+}
+
+.w-random__gcard.is-shuffling { animation: gcard-shimmer 0.9s ease-in-out infinite; }
+
+@keyframes gcard-shimmer {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(0.985); }
+}
 
 /* Knopfzeile unter den Kärtchen: Auslosen / Neu auslosen / Rückfrage. */
 .w-random__actions { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; padding: 2px 0; }
