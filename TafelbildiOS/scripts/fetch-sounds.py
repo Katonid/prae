@@ -76,6 +76,45 @@ QUELLEN = {
 }
 
 
+# Ein Kärtchen legt sich hin: die kurzen Klänge beim Auslosen von Gruppen.
+#
+# Der lange Mitschnitt taugt dafür nicht. Ein Sitzplan dauert eine halbe
+# Minute, die Aufnahme 1,72 s — sie 17-mal zu wiederholen ist genau das, was
+# künstlich klingt. Stattdessen bekommt JEDES Kärtchen seinen eigenen kurzen
+# Klang, im Augenblick, in dem es stehen bleibt. Mehrere Fassungen je Klang,
+# damit sich nichts wiederholt; die Tonhöhe streut die App zusätzlich.
+KARTENDAUER = 0.5
+
+KARTENQUELLEN = {
+    "karten": {
+        "titel": "Kärtchen legt sich (Karten)",
+        "url": QUELLEN["karten"]["url"],
+        "im_archiv": [f"Audio/card-place-{i}.ogg" for i in (1, 2, 3, 4)],
+        "urheber": "Kenney Vleugels (kenney.nl), Paket „Casino Audio“",
+        "lizenz": "CC0 1.0",
+        "nachweis": "https://kenney.nl/assets/casino-audio",
+    },
+    "rad": {
+        "titel": "Kärtchen legt sich (Rad)",
+        "url": QUELLEN["rad"]["url"],
+        "im_archiv": [f"Audio/tick_{i:03d}.ogg" for i in (1, 2, 4)],
+        "urheber": "Kenney Vleugels (kenney.nl), Paket „Interface Sounds“",
+        "lizenz": "CC0 1.0",
+        "nachweis": "https://kenney.nl/assets/interface-sounds",
+    },
+    "trommel": {
+        "titel": "Kärtchen legt sich (Trommel)",
+        "url": QUELLEN["trommel"]["url"],
+        # Kein eigener Mitschnitt: der Schlag, mit dem der Wirbel endet.
+        "im_archiv": [None],
+        "vom_ende": True,
+        "urheber": "Iwan Sounds and DIY",
+        "lizenz": "CC0 1.0",
+        "nachweis": "https://commons.wikimedia.org/wiki/File:Drum_Roll_Intro.ogg",
+    },
+}
+
+
 def hole(url: str) -> bytes:
     """Herunterladen — mit Zwischenspeicher.
 
@@ -161,6 +200,28 @@ def reihe(klick, rate):
     return spur
 
 
+def kurz(mono, rate, vom_ende=False):
+    """Ein kurzer Einzelklang: Stille weg, dann höchstens KARTENDAUER."""
+    schwelle = max(abs(v) for v in mono) * 0.02
+    anfang, ende = 0, len(mono)
+    for i, v in enumerate(mono):
+        if abs(v) > schwelle:
+            anfang = max(0, i - int(0.003 * rate))
+            break
+    for i in range(len(mono) - 1, anfang, -1):
+        if abs(mono[i]) > schwelle:
+            ende = min(len(mono), i + int(0.03 * rate))
+            break
+    fenster = int(KARTENDAUER * rate)
+    if ende - anfang > fenster:
+        # Beim Trommelwirbel zählt der Schluss, sonst der Einsatz.
+        if vom_ende:
+            anfang = ende - fenster
+        else:
+            ende = anfang + fenster
+    return mono[anfang:ende]
+
+
 def blende(stueck, rate):
     ein = int(0.004 * rate)
     aus = int(0.05 * rate)
@@ -197,6 +258,25 @@ def main():
         zeilen.append(f"| {quelle['titel']} | `zieh-{name}.wav` | {quelle['urheber']} | "
                       f"{quelle['lizenz']} | {quelle['nachweis']} |")
 
+    for name, quelle in KARTENQUELLEN.items():
+        roh = hole(quelle["url"])
+        for nummer, im_archiv in enumerate(quelle["im_archiv"], start=1):
+            teil = roh
+            if im_archiv:
+                with zipfile.ZipFile(io.BytesIO(roh)) as archiv:
+                    teil = archiv.read(im_archiv)
+            daten, rate = sf.read(io.BytesIO(teil), always_2d=True)
+            mono = [sum(rahmen) / len(rahmen) for rahmen in daten]
+            stueck = normiere(blende(kurz(mono, rate, quelle.get("vom_ende", False)), rate),
+                              ziel=0.9)
+            pfad = os.path.join(ordner, f"karte-{name}-{nummer}.wav")
+            sf.write(pfad, stueck, rate, subtype="PCM_16")
+            groesse = os.path.getsize(pfad) // 1024
+            print(f"{quelle['titel']:28} {len(stueck)/rate:4.2f} s  {groesse:4} kB"
+                  f"  -> {os.path.basename(pfad)}")
+        zeilen.append(f"| {quelle['titel']} | `karte-{name}-*.wav` | {quelle['urheber']} | "
+                      f"{quelle['lizenz']} | {quelle['nachweis']} |")
+
     with open(os.path.join(ordner, "Klaenge-Lizenz.md"), "w", encoding="utf-8") as datei:
         datei.write(
             "# Klänge beim Ziehen\n\n"
@@ -205,8 +285,11 @@ def main():
             "Genannt werden sie hier trotzdem; das gehört sich.\n\n"
             "| Klang | Datei | Urheber | Lizenz | Nachweis |\n"
             "|---|---|---|---|---|\n" + "\n".join(zeilen) + "\n\n"
-            "Die Dateien sind auf einen Kanal gemischt, auf die Länge eines Zuges\n"
-            "(1,72 s plus Nachklang) zugeschnitten und auf gleichen Pegel gebracht.\n\n"
+            "Die `zieh-*.wav` sind auf einen Kanal gemischt, auf die Länge eines\n"
+            "Zuges (1,72 s plus Nachklang) zugeschnitten und auf gleichen Pegel\n"
+            "gebracht. Die `karte-*.wav` sind kurze Einzelklänge (höchstens 0,5 s):\n"
+            "Beim Auslosen von Gruppen bekommt jedes Kärtchen einen davon, in dem\n"
+            "Augenblick, in dem es stehen bleibt.\n\n"
             "**Nicht von Hand bearbeiten** — `TafelbildiOS/scripts/fetch-sounds.py`\n"
             "holt und erzeugt sie.\n")
     print("\nHerkunft und Lizenz stehen in Klaenge/Klaenge-Lizenz.md")
