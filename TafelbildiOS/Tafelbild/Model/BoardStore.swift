@@ -684,12 +684,37 @@ final class BoardStore: ObservableObject {
         touch(boardID)
     }
 
+    /// In welche Richtung zuletzt geblättert wurde: 1 = vorwärts,
+    /// -1 = zurück. Die Tafel wandert dadurch dorthin, wo die neue Seite
+    /// herkommt — beim Wischen wie beim Tippen auf die Leiste.
+    @Published var seitenRichtung = 1
+
     /// Auf eine Seite wechseln.
     func zeigeSeite(_ seite: String) {
         guard aktiveSeitenID != seite else { return }
-        aktiveSeitenID = seite
+        if let seiten = activeBoard?.seiten {
+            let alt = seiten.firstIndex { $0.id == aktiveSeitenID } ?? 0
+            let neu = seiten.firstIndex { $0.id == seite } ?? alt
+            seitenRichtung = neu >= alt ? 1 : -1
+        }
         selectedWidgetID = nil
+        withAnimation(.easeInOut(duration: 0.3)) {
+            aktiveSeitenID = seite
+        }
         Haptics.tap()
+    }
+
+    /// Eine Seite weiter (1) oder zurück (-1).
+    ///
+    /// Ohne Umlauf: Am Anfang zurück oder am Ende weiter passiert nichts.
+    /// Wer wischt, soll wissen, wo er ist — ein Sprung von der letzten auf
+    /// die erste Seite überrascht mitten im Unterricht.
+    func blaettere(_ richtung: Int, boardID: String) {
+        guard let seiten = board(boardID)?.seiten, seiten.count > 1 else { return }
+        let jetzt = seiten.firstIndex { $0.id == aktiveSeitenID } ?? 0
+        let ziel = jetzt + richtung
+        guard seiten.indices.contains(ziel) else { return }
+        zeigeSeite(seiten[ziel].id)
     }
 
     /// Beim Tafelwechsel auf deren erste Seite stellen.

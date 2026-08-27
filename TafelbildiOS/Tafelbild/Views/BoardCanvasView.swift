@@ -61,6 +61,15 @@ struct BoardCanvasView: View {
 
                 canvas(scale: scale)
                     .offset(x: panX, y: panY)
+                    // Die Seite hat eine eigene Kennung — dadurch wandert
+                    // beim Blättern die alte Seite hinaus und die neue
+                    // herein, statt dass der Inhalt springt.
+                    .id(sichtbareSeite)
+                    .transition(.asymmetric(
+                        insertion: .move(edge: store.seitenRichtung > 0 ? .trailing : .leading)
+                            .combined(with: .opacity),
+                        removal: .move(edge: store.seitenRichtung > 0 ? .leading : .trailing)
+                            .combined(with: .opacity)))
 
                 // Am Telefon sitzt die Werkzeugleiste des gewählten Elements
                 // fest unten, nicht über dem Element.
@@ -78,10 +87,43 @@ struct BoardCanvasView: View {
                 }
             }
             .frame(width: geo.size.width, height: geo.size.height)
+            // Wischen blättert. Nur im Unterricht und nur bei ganzer Tafel:
+            // Beim Bearbeiten zieht dieselbe Bewegung ein Element, beim
+            // Schreiben den Stift, und hineingezoomt verschiebt sie den
+            // Ausschnitt. `simultaneousGesture` lässt Tippen unberührt —
+            // ein Name lässt sich also weiterhin ziehen, ohne dass die
+            // Seite wechselt.
+            .simultaneousGesture(seitenWisch,
+                                 including: wischErlaubt ? .all : .subviews)
             .coordinateSpace(name: Self.space)
             .environment(\.boardStyle, style)
             .onChange(of: geo.size) { _, _ in begrenze(geo) }
         }
+    }
+
+    // MARK: - Blättern
+
+    /// Wischen ist nur dann das Naheliegende, wenn die Bewegung sonst nichts
+    /// zu tun hat.
+    private var wischErlaubt: Bool {
+        !store.editing && !store.drawing && zoom < Self.zoomMin + 0.01
+    }
+
+    /// Waagerecht wischen wechselt die Seite.
+    ///
+    /// Die Schwellen sind bewusst deutlich: 70 Punkte Weg und doppelt so
+    /// waagerecht wie senkrecht. Wer auf ein Kärtchen tippt oder mit dem
+    /// Finger etwas nach unten wischt, soll nicht aus Versehen blättern.
+    private var seitenWisch: some Gesture {
+        DragGesture(minimumDistance: 30)
+            .onEnded { wert in
+                blaettereWenn(wert.translation)
+            }
+    }
+
+    private func blaettereWenn(_ weg: CGSize) {
+        guard abs(weg.width) > 70, abs(weg.width) > abs(weg.height) * 2 else { return }
+        store.blaettere(weg.width < 0 ? 1 : -1, boardID: board.id)
     }
 
     // MARK: - Hineinzoomen und verschieben
@@ -101,7 +143,17 @@ struct BoardCanvasView: View {
                 letzteVerschiebung = wert.translation
                 begrenze(geo)
             }
-            .onEnded { _ in letzteVerschiebung = .zero }
+            .onEnded { wert in
+                letzteVerschiebung = .zero
+                // Auf der freien Fläche blättert dasselbe Wischen auch beim
+                // Bearbeiten — dort ist es kein Verschieben, solange die
+                // ganze Tafel im Bild ist. Nur beim Bearbeiten: Im Unterricht
+                // hört schon die Geste auf der ganzen Fläche zu, und beides
+                // zusammen blätterte zwei Seiten weit.
+                if store.editing, zoom < Self.zoomMin + 0.01 {
+                    blaettereWenn(wert.translation)
+                }
+            }
 
         let lupe = MagnifyGesture()
             .onChanged { wert in
