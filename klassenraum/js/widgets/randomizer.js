@@ -16,10 +16,12 @@ const MOSAIC_STEPS = 12;
 const MOSAIC_PER_TAP = Math.ceil(MOSAIC_TILES / MOSAIC_STEPS);
 const BLUR_STEPS = 10;
 
-// Das Auslosen läuft wie ein Glücksrad aus: erst schnell, dann immer langsamer.
-const SPIN_STEPS = 18;
+// Das Auslosen läuft wie ein Glücksrad aus: erst schnell, dann immer
+// langsamer — insgesamt rund zwei Sekunden, ehe der Name (bzw. seine
+// Verdeckung) dasteht. Das gehört zelebriert.
+const SPIN_STEPS = 20;
 const SPIN_FAST = 45;
-const SPIN_SLOW = 210;
+const SPIN_SLOW = 260;
 
 function spinDelay(step) {
   const progress = step / (SPIN_STEPS - 1);
@@ -338,6 +340,8 @@ export default {
     let unveilTimer = 0;
     let dealTimers = [];
     let dealing = false;
+    // Bricht eine laufende Auslosungs-Zeremonie sofort zum Endstand ab.
+    let finishDealNow = null;
     // Offene Rückfrage vor dem Neuauslosen: ab welcher Stelle, und ob es eine
     // Berichtigung (Tipp auf einen Namen) oder eine ganz neue Auslosung ist.
     let pendingFrom = null;
@@ -362,9 +366,13 @@ export default {
     }
 
     function stopDeal() {
-      for (const timer of dealTimers) clearTimeout(timer);
+      for (const timer of dealTimers) {
+        clearTimeout(timer);
+        clearInterval(timer);
+      }
       dealTimers = [];
       dealing = false;
+      finishDealNow = null;
     }
 
     /**
@@ -488,12 +496,25 @@ export default {
      * Schriftgröße so wählen, dass alle Kärtchen gleich groß sind und ALLE
      * Reihen in die Kachel passen — so groß wie möglich, der Rand gibt nach.
      */
+    let lastFit = null;
     function fitGroups(size, rows, maxLen, checklist) {
-      const cardWidth = Math.max(80, (ctx.widget.w - 40 - (checklist ? 46 : 0)) / size - 10);
-      const cardHeight = rows > 0 ? Math.max(30, (ctx.widget.h - 118) / rows - 8) : 40;
+      lastFit = [size, rows, maxLen, checklist];
+      // Die tatsächliche Fläche messen — Überschrift, Hinweiszeile und Knöpfe
+      // nehmen je nach Inhalt unterschiedlich viel Höhe weg.
+      const boxW = groupsBox.clientWidth || (ctx.widget.w - 40);
+      const boxH = groupsBox.clientHeight || (ctx.widget.h - 160);
+      const cardWidth = Math.max(60, (boxW - 8 * (size - 1) - (checklist ? 46 : 0)) / size - 4);
+      const cardHeight = rows > 0 ? Math.max(24, (boxH - 8 * (rows - 1) - 6) / rows) : 40;
       const byWidth = cardWidth / (Math.max(3, maxLen) * 0.58);
-      const value = Math.max(13, Math.min(byWidth, cardHeight * 0.58, 64));
+      const value = Math.max(12, Math.min(byWidth, cardHeight * 0.6, 64));
       groupsBox.style.fontSize = `${value}px`;
+    }
+
+    /** Nach Sichtbarwerden der Fläche noch einmal mit echten Maßen messen. */
+    function refitGroupsSoon() {
+      window.requestAnimationFrame(() => {
+        if (lastFit && !groupsBox.classList.contains('is-hidden')) fitGroups(...lastFit);
+      });
     }
 
     function renderGroups(animateFrom = Infinity) {
@@ -511,6 +532,8 @@ export default {
         flat.reduce((acc, name) => Math.max(acc, name.length), 4), checklist);
       const animateOk = state.animate !== false && !reducedMotion() && animateFrom < flat.length;
       const sound = spinSoundById(state.spinSound).id;
+      const pool = namesOf(state);
+      const pendingCards = [];
       flat.forEach((name, index) => {
         const groupIndex = Math.floor(index / size);
         if (checklist && index % size === 0) {
@@ -526,6 +549,10 @@ export default {
           'data-nodrag': '',
           title: checklist ? 'Gruppe abhaken' : 'Ab hier neu auslosen (alles davor bleibt)',
         }, h('span', { class: 'w-random__gcard-text' }, name)), () => {
+          if (dealing) {
+            if (finishDealNow) finishDealNow();
+            return;
+          }
           if (checklist) {
             toggleDone(groupIndex);
           } else if (state.locked) {
@@ -540,22 +567,54 @@ export default {
         });
         if (pendingFrom !== null && index >= pendingFrom) card.classList.add('is-fading');
         if (animateOk && index >= animateFrom) {
-          card.classList.add('is-waiting');
-          const stepIndex = index - animateFrom;
-          dealing = true;
-          dealTimers.push(setTimeout(() => {
-            card.classList.remove('is-waiting');
-            card.classList.add('is-dealt');
-            spinTick(sound, flat.length > animateFrom + 1 ? stepIndex / (flat.length - animateFrom - 1) : 1);
-            if (index === flat.length - 1) {
-              dealing = false;
-              spinEnd(sound);
-              if (animateFrom === 0) confetti(display);
-            }
-          }, 140 + stepIndex * 110));
+          // Noch nicht festgelegte Kärtchen wirbeln sichtbar durch die Namen.
+          card.classList.add('is-shuffling');
+          card.querySelector('.w-random__gcard-text').textContent = pickRandom(pool) || name;
+          pendingCards.push({ card, name });
         }
         groupsBox.appendChild(card);
       });
+
+      // Zelebrierte Auslosung: pro Kärtchen etwa eine Sekunde. Bis ein Kärtchen
+      // an der Reihe ist, mischt es sichtbar weiter — dann bleibt es mit einem
+      // kleinen Stups und Klang stehen. Ein Tipp beendet alles sofort.
+      if (animateOk && pendingCards.length) {
+        dealing = true;
+        const settle = (entry, stepIndex) => {
+          entry.card.classList.remove('is-shuffling');
+          entry.card.classList.add('is-dealt');
+          entry.card.querySelector('.w-random__gcard-text').textContent = entry.name;
+          spinTick(sound, pendingCards.length > 1 ? stepIndex / (pendingCards.length - 1) : 1);
+        };
+        const wirbel = setInterval(() => {
+          for (const entry of pendingCards) {
+            if (!entry.card.classList.contains('is-shuffling')) continue;
+            entry.card.querySelector('.w-random__gcard-text').textContent = pickRandom(pool) || entry.name;
+          }
+        }, 130);
+        dealTimers.push(wirbel);
+        const finishAll = () => {
+          stopDeal();
+          pendingCards.forEach((entry, stepIndex) => {
+            if (entry.card.classList.contains('is-shuffling')) settle(entry, stepIndex);
+          });
+          spinEnd(sound);
+          if (animateFrom === 0) confetti(display);
+        };
+        finishDealNow = finishAll;
+        pendingCards.forEach((entry, stepIndex) => {
+          dealTimers.push(setTimeout(() => {
+            settle(entry, stepIndex);
+            if (stepIndex === pendingCards.length - 1) {
+              clearInterval(wirbel);
+              dealing = false;
+              finishDealNow = null;
+              spinEnd(sound);
+              if (animateFrom === 0) confetti(display);
+            }
+          }, (stepIndex + 1) * 1000));
+        });
+      }
     }
 
     function draw() {
@@ -621,6 +680,10 @@ export default {
 
     /** Tipp auf die Karte (nicht auf einen Namen) im Gruppen-Modus. */
     function groupTap() {
+      if (dealing) {
+        if (finishDealNow) finishDealNow();
+        return;
+      }
       const state = ctx.widget.state;
       const shown = state.groups && state.groups.mode === state.mode && Array.isArray(state.groups.flat);
       if (!shown || state.locked) {
@@ -825,6 +888,8 @@ export default {
         // Ohne Kärtchen bleibt die Fläche weg — sonst schluckt sie als
         // Bedienfläche (data-nodrag) den Tipp, der auslosen soll.
         groupsBox.classList.toggle('is-hidden', groupsBox.childElementCount === 0);
+        // Erst jetzt hat die Fläche ihre echten Maße — Schrift nachmessen.
+        refitGroupsSoon();
         shieldName(false);
         renderActions(shown, all.length > 0);
         if (!all.length) {
