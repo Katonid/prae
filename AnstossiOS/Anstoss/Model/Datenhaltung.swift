@@ -32,6 +32,9 @@ final class Datenhaltung: ObservableObject {
 
     private var letzterStand: [Int: Spiel] = [:]
     private var abrufzeit: [String: Date] = [:]
+    /// Was gerade schon unterwegs ist. Ohne das laufen zwei gleiche
+    /// Abfragen nebeneinander — bei zehn Abfragen je Minute zaehlt jede.
+    private var imFlug: Set<String> = []
     private static let beispielSchluessel = "beispielmodus"
     private static let tickerGrenze = 250
 
@@ -69,6 +72,7 @@ final class Datenhaltung: ObservableObject {
         laufenderSpieltag = [:]
         ligaFehler = [:]
         abrufzeit = [:]
+        imFlug = []
         letzterStand = [:]
         liveSpiele = []
         ticker = []
@@ -241,10 +245,14 @@ final class Datenhaltung: ObservableObject {
     func spieltagLaden(liga: Liga, nummer: Int, erzwingen: Bool = false) async {
         let marke = "\(liga.rawValue)-\(nummer)"
         if !erzwingen, spieltag(liga, nummer) != nil, frisch(marke, sekunden: 60) { return }
-        guard einsatzbereit else { return }
+        guard einsatzbereit, !imFlug.contains(marke) else { return }
 
+        imFlug.insert(marke)
         ligaLaedt.insert(liga)
-        defer { ligaLaedt.remove(liga) }
+        defer {
+            imFlug.remove(marke)
+            ligaLaedt.remove(liga)
+        }
 
         do {
             let liste: [Spiel]
@@ -266,10 +274,14 @@ final class Datenhaltung: ObservableObject {
     func tabelleLaden(liga: Liga, erzwingen: Bool = false) async {
         let marke = "\(liga.rawValue)-tabelle"
         if !erzwingen, tabellen[liga] != nil, frisch(marke, sekunden: 120) { return }
-        guard einsatzbereit else { return }
+        guard einsatzbereit, !imFlug.contains(marke) else { return }
 
+        imFlug.insert(marke)
         ligaLaedt.insert(liga)
-        defer { ligaLaedt.remove(liga) }
+        defer {
+            imFlug.remove(marke)
+            ligaLaedt.remove(liga)
+        }
 
         do {
             let tafel: Tabelle
