@@ -630,7 +630,9 @@ function openHelp() {
         + '(Größe 1–15) — Partner nebeneinander, Gruppen untereinander. Ein Tipp auf einen Namen lost ab dieser Stelle neu, alles davor bleibt. '
         + 'Mit Merkmalen aus der Namensliste (z. B. „J“/„M“) wird jede Gruppe nach Möglichkeit gemischt, und frühere Zusammensetzungen werden '
         + 'gemieden, bis alle Kombinationen durch waren. „Tagesgruppe“ lost eine kleine Auswahl aus — wer selten dran war, kommt bevorzugt dran. '
-        + 'Beide merken sich alle Auslosungen mit Datum (im Zahnrad einsehbar, bis zum Reset), und jeder Modus lässt sich umbenennen.'),
+        + 'Beide merken sich alle Auslosungen mit Datum (im Zahnrad einsehbar, bis zum Reset), und jeder Modus lässt sich umbenennen. '
+        + 'Nach jeder Auslosung ist das Ergebnis vor versehentlichem Neuauslosen geschützt — das Schloss oben auf der Karte gibt es wieder frei. '
+        + 'Über das Listensymbol daneben wird das Ergebnis zur Checkliste: Ein Tipp hakt eine Gruppe ab, z. B. wer die Aufgabe schon erledigt hat.'),
       h('p', null, h('strong', null, 'Kamera: '), 'Das Element „Kamera“ zeigt das Livebild der Gerätekamera — als Dokumentenkamera fürs Heft '
         + 'unter dem iPad-Ständer. Ein Tipp friert das Bild ein (die Kamera geht dabei aus), der nächste taut es auf. '
         + 'Das Standbild bleibt auf der Tafel stehen und lässt sich über das Bildsymbol als eigenes Bild ablegen. '
