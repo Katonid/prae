@@ -433,8 +433,10 @@ struct NamePickerContent: Codable, Equatable {
     var gruppenGroesse: Int = 2
     /// Wie viele Namen die Tagesgruppe umfasst.
     var tagesgruppeAnzahl: Int = 1
-    /// Merkmal, nach dem gemischt wird — leer heißt: nicht mischen.
+    /// Merkmal, nach dem sortiert wird. Leer heißt: das erste der Liste.
     var mischMerkmalID: String = ""
+    /// Wie die Merkmale in einer Gruppe stehen sollen.
+    var merkmalsvorgabe: Merkmalsvorgabe = .unterschiedlich
     /// Das Ergebnis als Checkliste zum Abhaken zeigen.
     var alsCheckliste: Bool = false
     /// Ergebnis festgehalten: Es löst nichts mehr neu aus, abhaken geht.
@@ -476,6 +478,18 @@ struct NamePickerContent: Codable, Equatable {
         }
     }
 
+    /// Nach welchem Merkmal wirklich sortiert wird — nil heißt: nach keinem.
+    ///
+    /// Hat die Liste genau ein Merkmal, braucht niemand es auszuwählen.
+    func merkmal(in liste: NameList?) -> String? {
+        guard merkmalsvorgabe != .egal, let liste, !liste.merkmale.isEmpty else { return nil }
+        if let gewaehlt = mischMerkmalID.nonEmpty,
+           liste.merkmale.contains(where: { $0.id == gewaehlt }) {
+            return gewaehlt
+        }
+        return liste.merkmale.first?.id
+    }
+
     /// Schlüssel, unter dem eine Zeile als erledigt vermerkt wird.
     static func zeilenSchluessel(_ zeile: [String]) -> String { zeile.first ?? "" }
 
@@ -498,6 +512,38 @@ struct NamePickerContent: Codable, Equatable {
             case .withReplacement:
                 return "Bei jedem Zug stehen alle Namen der Liste zur Verfügung."
             }
+        }
+    }
+}
+
+/// Wie die Merkmale innerhalb einer Gruppe stehen sollen.
+enum Merkmalsvorgabe: String, Codable, CaseIterable, Identifiable {
+    /// Merkmale spielen keine Rolle.
+    case egal
+    /// Jede Gruppe mischt — ein Junge und ein Mädchen zusammen.
+    case unterschiedlich
+    /// Jede Gruppe besteht möglichst aus gleichen Merkmalen — reine
+    /// Jungen- und Mädchengruppen, gleiche Lesestufen.
+    case gleich
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .egal:            return "Egal"
+        case .unterschiedlich: return "Unterschiedlich"
+        case .gleich:          return "Gleich"
+        }
+    }
+
+    var erklaerung: String {
+        switch self {
+        case .egal:
+            return "Merkmale spielen beim Auslosen keine Rolle."
+        case .unterschiedlich:
+            return "Jede Gruppe mischt die Merkmale — zum Beispiel ein Junge und ein Mädchen zusammen."
+        case .gleich:
+            return "Jede Gruppe besteht nach Möglichkeit aus gleichen Merkmalen — zum Beispiel reine Jungen- und Mädchengruppen oder gleiche Lesestufen."
         }
     }
 }
@@ -1788,7 +1834,7 @@ extension NamePickerContent {
         case title, listID, mode, drawnIDs, currentID, showHistory, showDrawn, animate, spinSound,
              reveal, revealParts
         case modus, titelGruppen, titelTagesgruppe, gruppenGroesse, tagesgruppeAnzahl
-        case mischMerkmalID, alsCheckliste, festgehalten, ergebnis, erledigt
+        case mischMerkmalID, merkmalsvorgabe, alsCheckliste, festgehalten, ergebnis, erledigt
     }
 
     init(from decoder: Decoder) throws {
@@ -1812,6 +1858,10 @@ extension NamePickerContent {
         gruppenGroesse = c.wert(.gruppenGroesse, 2)
         tagesgruppeAnzahl = c.wert(.tagesgruppeAnzahl, 1)
         mischMerkmalID = c.wert(.mischMerkmalID, "")
+        // Alte Stände kannten nur „nach diesem Merkmal mischen“. Wer damals
+        // keines gewählt hatte, meinte „egal“.
+        merkmalsvorgabe = c.wert(.merkmalsvorgabe,
+                                 mischMerkmalID.isEmpty ? Merkmalsvorgabe.egal : .unterschiedlich)
         alsCheckliste = c.wert(.alsCheckliste, false)
         festgehalten = c.wert(.festgehalten, false)
         ergebnis = c.wert(.ergebnis, [String]())
