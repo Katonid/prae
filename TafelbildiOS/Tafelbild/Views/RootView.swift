@@ -168,6 +168,17 @@ struct RootView: View {
                 WidgetSettingsSheet(boardID: board.id, widgetID: reference.id)
             }
         }
+        .sheet(item: Binding(
+            get: { store.uebertragenWidgetID.map { WidgetReference(id: $0) } },
+            set: { store.uebertragenWidgetID = $0?.id }
+        )) { reference in
+            if let board = store.activeBoard {
+                NavigationStack {
+                    UebertragenSheet(quelle: board.id, gut: .element(reference.id),
+                                     alsBlatt: true)
+                }
+            }
+        }
         .onOpenURL { url in
             // tafelbild://join/ABC123
             guard url.scheme == "tafelbild" else { return }

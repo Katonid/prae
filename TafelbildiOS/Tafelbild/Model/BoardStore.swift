@@ -62,6 +62,8 @@ final class BoardStore: ObservableObject {
     }
     /// Element, dessen Einstellungsblatt gerade offen ist.
     @Published var settingsWidgetID: String?
+    /// Element, für das gerade „Auf eine andere Tafel“ offen ist.
+    @Published var uebertragenWidgetID: String?
 
     let engine = CloudSyncEngine()
 
@@ -555,6 +557,112 @@ final class BoardStore: ObservableObject {
         selectedWidgetID = nil
         touch(boardID)
         return neue.id
+    }
+
+    // MARK: - Auf eine andere Tafel übertragen
+
+    /// Legt ein Element auf einer anderen Tafel ab.
+    ///
+    /// Was das Element braucht, kommt von selbst mit:
+    ///
+    /// * **Namenslisten** liegen ohnehin neben den Tafeln und gelten für
+    ///   alle. Beim Hochladen nimmt jede Tafel Kopien der Listen mit, die
+    ///   ihre Elemente benutzen (siehe `payload`) — die Zieltafel ist damit
+    ///   auch für Kolleginnen vollständig.
+    /// * **Klang-, Bild- und Kameradateien** liegen unter ihrem Namen im
+    ///   Ordner der App; das Element trägt nur den Namen. Neu ist, dass die
+    ///   Zieltafel sie jetzt auch braucht — deshalb wandern sie hier in die
+    ///   Warteschlange zum Hochladen.
+    ///
+    /// - Parameter kopieren: `true` lässt das Element stehen, `false`
+    ///   verschiebt es.
+    @discardableResult
+    func uebertrageWidget(_ widgetID: String, von quelle: String, nach ziel: String,
+                          seite: String? = nil, kopieren: Bool) -> Bool {
+        guard quelle != ziel,
+              let quellIndex = boards.firstIndex(where: { $0.id == quelle }),
+              let zielIndex = boards.firstIndex(where: { $0.id == ziel }),
+              let widget = boards[quellIndex].widgets.first(where: { $0.id == widgetID })
+        else { return false }
+
+        stelleSeitenSicher(zielIndex)
+        var neu = widget
+        neu.id = UUID().uuidString
+        neu.pageID = seite ?? boards[zielIndex].ersteSeitenID
+        neu.z = (boards[zielIndex].widgets.map(\.z).max() ?? 0) + 1
+        // Ausgeblendetes wäre auf der neuen Tafel unsichtbar und niemand
+        // wüsste, dass es da ist.
+        neu.versteckt = false
+        neu.clampToCanvas()
+        boards[zielIndex].widgets.append(neu)
+
+        if !kopieren {
+            boards[quellIndex].widgets.removeAll { $0.id == widgetID }
+            if selectedWidgetID == widgetID { selectedWidgetID = nil }
+            touch(quelle)
+        }
+        touch(ziel)
+        ladeMedienNach(ziel)
+        return true
+    }
+
+    /// Legt eine ganze Seite auf einer anderen Tafel ab — samt ihrer
+    /// Elemente und ihrer Handschrift.
+    ///
+    /// Die letzte Seite einer Tafel lässt sich nur kopieren, nicht
+    /// verschieben: Eine Tafel ohne Seite gibt es nicht.
+    @discardableResult
+    func uebertrageSeite(_ seite: String, von quelle: String, nach ziel: String,
+                         kopieren: Bool) -> Bool {
+        guard quelle != ziel,
+              let quellIndex = boards.firstIndex(where: { $0.id == quelle }),
+              let zielIndex = boards.firstIndex(where: { $0.id == ziel })
+        else { return false }
+        stelleSeitenSicher(quellIndex)
+        stelleSeitenSicher(zielIndex)
+        guard let vorlage = boards[quellIndex].pages.first(where: { $0.id == seite })
+        else { return false }
+        let darfWeg = kopieren || boards[quellIndex].pages.count > 1
+        guard darfWeg else { return false }
+
+        var neueSeite = vorlage
+        neueSeite.id = UUID().uuidString
+        if neueSeite.name.isEmpty {
+            neueSeite.name = boards[quellIndex].seitenName(seite)
+        }
+        var hoechstes = boards[zielIndex].widgets.map(\.z).max() ?? 0
+        let kopien = boards[quellIndex].widgets(auf: seite, mitVersteckten: true).map {
+            alt -> BoardWidget in
+            var neu = alt
+            neu.id = UUID().uuidString
+            neu.pageID = neueSeite.id
+            hoechstes += 1
+            neu.z = hoechstes
+            return neu
+        }
+        boards[zielIndex].pages.append(neueSeite)
+        boards[zielIndex].widgets.append(contentsOf: kopien)
+
+        if !kopieren {
+            boards[quellIndex].widgets.removeAll { $0.pageID == seite }
+            boards[quellIndex].pages.removeAll { $0.id == seite }
+            if aktiveSeitenID == seite {
+                aktiveSeitenID = boards[quellIndex].ersteSeitenID
+            }
+            selectedWidgetID = nil
+            touch(quelle)
+        }
+        touch(ziel)
+        ladeMedienNach(ziel)
+        return true
+    }
+
+    /// Stellt die Dateien einer Tafel wieder in die Warteschlange.
+    private func ladeMedienNach(_ boardID: String) {
+        guard let index = boards.firstIndex(where: { $0.id == boardID }) else { return }
+        for name in boards[index].syncedMedia where hasMedia(name) {
+            engine.enqueue(kind: .media, entityId: name)
+        }
     }
 
     /// Handschrift einer Seite sichern.

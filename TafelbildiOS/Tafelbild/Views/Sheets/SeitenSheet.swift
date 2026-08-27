@@ -12,6 +12,8 @@ struct SeitenSheet: View {
     /// Welche Seite gerade umbenannt wird — nil, wenn keine.
     @State private var umbenennen: String?
     @State private var neuerName: String = ""
+    /// Welche Seite gerade auf eine andere Tafel gelegt wird.
+    @State private var uebertragen: String?
 
     private var board: Board { store.board(boardID) ?? Board() }
 
@@ -30,7 +32,10 @@ struct SeitenSheet: View {
                 } footer: {
                     Text("Jede Seite hat eigene Elemente und eine eigene Handschrift. "
                          + "Hintergrund, Farbschema und Namenslisten gelten für die ganze "
-                         + "Tafel. Gewechselt wird unten auf der Tafel.")
+                         + "Tafel. Gewechselt wird unten auf der Tafel.\n\n"
+                         + "Die Pfeile ändern die Reihenfolge, der Stift benennt um. "
+                         + "Langes Drücken bietet an, die Seite auf eine andere Tafel "
+                         + "zu legen.")
                 }
 
                 Section {
@@ -44,6 +49,9 @@ struct SeitenSheet: View {
             }
             .navigationTitle("Seiten")
             .navigationBarTitleDisplayMode(.inline)
+            .navigationDestination(item: $uebertragen) { seite in
+                UebertragenSheet(quelle: boardID, gut: .seite(seite))
+            }
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) { EditButton() }
                 ToolbarItem(placement: .confirmationAction) {
@@ -72,6 +80,8 @@ struct SeitenSheet: View {
         let anzahl = board.widgets(auf: seite.id).count
         let aktiv = seite.id == store.aktiveSeitenID
             || (store.aktiveSeitenID.isEmpty && seite.id == board.ersteSeitenID)
+        let stelle = board.seiten.firstIndex { $0.id == seite.id } ?? 0
+        let letzte = board.seiten.count - 1
         return HStack(spacing: 12) {
             Image(systemName: aktiv ? "doc.fill" : "doc")
                 .foregroundStyle(aktiv ? Theme.accent : .secondary)
@@ -83,19 +93,21 @@ struct SeitenSheet: View {
                     .foregroundStyle(.secondary)
             }
             Spacer(minLength: 0)
-            // Sichtbarer Knopf statt nur einer Wischgeste: Umbenennen ist
-            // das, wofür diese Ansicht am häufigsten geöffnet wird.
-            Button {
+            // Sichtbare Knöpfe statt nur Wischgesten und „Bearbeiten“:
+            // Umbenennen und Umsortieren sind das, wofür diese Ansicht am
+            // häufigsten geöffnet wird.
+            zeilenKnopf("chevron.up", aus: stelle == 0, label: "Nach oben") {
+                store.seitenVerschieben(from: IndexSet(integer: stelle),
+                                        to: stelle - 1, boardID: boardID)
+            }
+            zeilenKnopf("chevron.down", aus: stelle == letzte, label: "Nach unten") {
+                store.seitenVerschieben(from: IndexSet(integer: stelle),
+                                        to: stelle + 2, boardID: boardID)
+            }
+            zeilenKnopf("pencil", aus: false, label: "Umbenennen") {
                 neuerName = seite.name
                 umbenennen = seite.id
-            } label: {
-                Image(systemName: "pencil")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(Theme.accent)
-                    .frame(width: 34, height: 34)
-                    .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
         }
         .contentShape(Rectangle())
         .onTapGesture {
@@ -127,5 +139,41 @@ struct SeitenSheet: View {
             }
             .tint(Theme.mint)
         }
+        .contextMenu {
+            Button {
+                uebertragen = seite.id
+            } label: {
+                Label("Auf eine andere Tafel …", systemImage: "arrow.right.square")
+            }
+            Button {
+                store.seiteDuplizieren(seite.id, boardID: boardID)
+            } label: {
+                Label("Seite kopieren", systemImage: "plus.square.on.square")
+            }
+            Button {
+                neuerName = seite.name
+                umbenennen = seite.id
+            } label: {
+                Label("Umbenennen", systemImage: "pencil")
+            }
+        }
+    }
+
+    private func zeilenKnopf(_ symbol: String, aus: Bool, label: String,
+                             aktion: @escaping () -> Void) -> some View {
+        Button {
+            Haptics.tap()
+            aktion()
+        } label: {
+            Image(systemName: symbol)
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(Theme.accent)
+                .frame(width: 32, height: 34)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(aus)
+        .opacity(aus ? 0.3 : 1)
+        .accessibilityLabel(label)
     }
 }
