@@ -7,7 +7,8 @@ import {
   BOARD_WIDTH, boardHeight, AURORA, getActiveBoard, getActivePage, getState, touch, removeWidget,
   duplicateWidget, nextZ, on as onStore,
 } from './store.js';
-import { openPanel, closePanel, confirmDialog } from './ui.js';
+import { openPanel, closePanel, confirmDialog, field, button, buttonRow, toast } from './ui.js';
+import { transferWidget } from './transfer.js';
 import { applyScheme } from './theme.js';
 
 const instances = new Map();
@@ -1041,11 +1042,43 @@ export function openWidgetSettings(widgetId) {
   if (!instance) return;
   const definition = instance.definition;
   if (!definition.settings) return;
+  const content = h('div', { class: 'stack' },
+    definition.settings(instance.ctx),
+    transferFold(widgetId, definition));
   openPanel({
     title: definition.label,
     subtitle: 'Einstellungen für dieses Element',
-    content: definition.settings(instance.ctx),
+    content,
   });
+}
+
+/** Eingeklappter Bereich unter jedem Element: in einen anderen Klassenraum übertragen. */
+function transferFold(widgetId, definition) {
+  const board = getActiveBoard();
+  const others = getState().boards.filter((entry) => entry.id !== (board && board.id));
+  if (!others.length) return null;
+  const select = h('select', { class: 'input' },
+    others.map((entry) => h('option', { value: entry.id }, entry.name)));
+  const run = async (move) => {
+    const target = others.find((entry) => entry.id === select.value) || others[0];
+    const ok = await transferWidget(widgetId, target.id, { move });
+    if (!ok) return;
+    toast(`„${definition.label}“ nach „${target.name}“ ${move ? 'verschoben' : 'kopiert'} — dort auf die aufgeschlagene Seite.`, 'success');
+    if (move) {
+      closePanel();
+      renderBoard();
+    }
+  };
+  return h('details', { class: 'fold' },
+    h('summary', { class: 'fold__head' }, 'In anderen Klassenraum übertragen'),
+    h('div', { class: 'stack fold__body' },
+      field('Ziel-Klassenraum', select),
+      buttonRow(
+        button('Kopieren', { icon: 'copy', small: true, onClick: () => run(false) }),
+        button('Verschieben', { icon: 'share', small: true, onClick: () => run(true) })),
+      h('p', { class: 'muted small' },
+        'Landet dort auf der aufgeschlagenen Seite. Verknüpfte Klang- und Videodateien wandern automatisch mit; '
+        + 'Namenslisten gelten ohnehin in allen Klassenräumen.')));
 }
 
 export function addWidgetOfType(type) {

@@ -6,8 +6,10 @@ import {
   loadState, getState, getActiveBoard, setActiveBoard, addBoard, duplicateBoard, removeBoard,
   addWidget, touch, touchBoard, saveNow, on as onStore, importBoard, AURORA,
   getActivePage, setActivePage, addPage, removePage, allWidgetsOf, emptyPage,
+  renamePage, movePageBy,
   BOARD_FORMATS, setBoardFormat,
 } from './store.js';
+import { transferPage } from './transfer.js';
 import { WIDGETS } from './widgets/index.js';
 import {
   initBoard, renderBoard, configureBoard, addWidgetOfType, select, updateScale,
@@ -653,7 +655,10 @@ function openHelp() {
       h('p', null, h('strong', null, 'Seiten: '), 'Jede Tafel kann mehrere Seiten haben — unten rechts blättern die Pfeile ‹ und › durch. '
         + 'Beim Bearbeiten legt + eine neue Seite an, ✕ löscht die aufgeschlagene (die letzte Seite bleibt immer). '
         + 'Jede Seite hat ihre eigenen Elemente und Striche; Aussehen und Hintergrund gelten für die ganze Tafel. '
-        + 'Beim Abgleich blättern verbundene Geräte mit — so lässt sich die große Tafel vom iPad aus umblättern.'),
+        + 'Beim Abgleich blättern verbundene Geräte mit — so lässt sich die große Tafel vom iPad aus umblättern. '
+        + 'Ein Tipp auf die Seitenzahl öffnet die Seiten-Verwaltung: Seiten umbenennen, in der Reihenfolge tauschen, löschen '
+        + 'oder in einen anderen Klassenraum kopieren bzw. verschieben. Einzelne Elemente wandern über ihr Zahnrad '
+        + '(„In anderen Klassenraum übertragen“) — verknüpfte Klang- und Videodateien kommen automatisch mit.'),
       h('p', null, h('strong', null, 'Angemeldet bleiben: '), 'Vergisst ein Gerät (z. B. ein Whiteboard) regelmäßig alles, '
         + 'unter „Teilen“ → Abgleich den „Tafel-Link“ kopieren und diesen Link dort als Lesezeichen oder Web-App speichern — '
         + 'beim Öffnen verbindet sich die Tafel von selbst wieder.'),
@@ -731,10 +736,151 @@ function renderPager() {
   controls.classList.toggle('is-hidden', hidden);
   if (hidden) return;
   const index = Math.max(0, pages.findIndex((page) => page.id === board.activePageId));
-  document.getElementById('page-label').textContent = `${index + 1} / ${pages.length}`;
+  const page = pages[index];
+  const name = page && page.name ? page.name : '';
+  document.getElementById('page-label').textContent = name
+    ? `${name} · ${index + 1}/${pages.length}`
+    : `${index + 1} / ${pages.length}`;
   document.getElementById('btn-page-prev').disabled = index === 0;
   document.getElementById('btn-page-next').disabled = index >= pages.length - 1;
   document.getElementById('btn-page-remove').disabled = pages.length <= 1;
+}
+
+/** Seiten verwalten: umbenennen, vertauschen, übertragen, löschen. */
+function openPagesPanel() {
+  const container = h('div', { class: 'stack' });
+
+  function refreshAllViews() {
+    renderBoard();
+    redrawDrawing();
+    renderPager();
+  }
+
+  function renderList() {
+    clear(container);
+    const board = getActiveBoard();
+    if (!board) return;
+    const pages = board.pages || [];
+    const rows = h('div', { class: 'stack stack--tight' });
+    pages.forEach((page, index) => {
+      rows.appendChild(h('div', { class: 'page-row' + (page.id === board.activePageId ? ' is-active' : '') },
+        h('button', {
+          class: 'page-row__number', title: 'Diese Seite aufschlagen',
+          onclick: () => {
+            setActivePage(page.id);
+            refreshAllViews();
+            renderList();
+          },
+        }, String(index + 1)),
+        h('input', {
+          class: 'input page-row__name', type: 'text', value: page.name || '',
+          placeholder: `Seite ${index + 1}`,
+          oninput: (event) => {
+            renamePage(page.id, event.target.value);
+            renderPager();
+          },
+        }),
+        h('button', {
+          class: 'icon-button', title: 'Nach vorn tauschen', disabled: index === 0,
+          onclick: () => {
+            movePageBy(page.id, -1);
+            refreshAllViews();
+            renderList();
+          },
+        }, '↑'),
+        h('button', {
+          class: 'icon-button', title: 'Nach hinten tauschen', disabled: index >= pages.length - 1,
+          onclick: () => {
+            movePageBy(page.id, 1);
+            refreshAllViews();
+            renderList();
+          },
+        }, '↓'),
+        h('button', {
+          class: 'icon-button', title: 'In anderen Klassenraum übertragen …',
+          onclick: () => renderTransfer(page, index),
+          html: icon('share', 17),
+        }),
+        h('button', {
+          class: 'icon-button icon-button--danger', title: 'Seite löschen', disabled: pages.length <= 1,
+          onclick: async () => {
+            const count = (page.widgets || []).length;
+            const ok = await confirmDialog('Seite löschen?',
+              count
+                ? `„${page.name || `Seite ${index + 1}`}“ mit ${count} Element(en) wird dauerhaft entfernt.`
+                : 'Diese leere Seite wird entfernt.',
+              'Löschen');
+            if (!ok) return;
+            removePage(page.id);
+            refreshAllViews();
+            renderList();
+          },
+          html: icon('trash', 17),
+        })));
+    });
+
+    container.append(
+      section(`Seiten von „${board.name}“`, rows),
+      buttonRow(button('Neue Seite', {
+        icon: 'plus', small: true, primary: true,
+        onClick: () => {
+          addPage();
+          refreshAllViews();
+          renderList();
+        },
+      })),
+      h('p', { class: 'muted small' },
+        'Die Nummer vorne schlägt die Seite auf. Der Name erscheint unten am Blätterknopf. '
+        + 'Mit den Pfeilen wird die Reihenfolge getauscht.'));
+  }
+
+  function renderTransfer(page, index) {
+    clear(container);
+    const board = getActiveBoard();
+    const others = getState().boards.filter((entry) => entry.id !== board.id);
+    let mode = 'copy';
+    const label = page.name || `Seite ${index + 1}`;
+
+    const modeSeg = () => h('div', { class: 'segmented' },
+      [['copy', 'Kopieren'], ['move', 'Verschieben']].map(([value, text]) => h('button', {
+        class: 'segmented__item' + (mode === value ? ' is-active' : ''),
+        onclick: (event) => {
+          mode = value;
+          const seg = event.target.closest('.segmented');
+          for (const child of seg.children) child.classList.remove('is-active');
+          event.target.classList.add('is-active');
+        },
+      }, text)));
+
+    container.append(
+      buttonRow(button('Zurück', { icon: 'back', ghost: true, small: true, onClick: renderList })),
+      section(`„${label}“ übertragen`,
+        modeSeg(),
+        h('p', { class: 'muted small' },
+          '„Kopieren“ lässt die Seite hier bestehen; „Verschieben“ nimmt sie mit. '
+          + 'Verknüpfte Klang- und Videodateien wandern automatisch mit; Namenslisten gelten ohnehin in allen Klassenräumen.'),
+        others.length
+          ? h('div', { class: 'stack stack--tight' }, others.map((target) => h('button', {
+            class: 'list-row__main',
+            onclick: async () => {
+              const ok = await transferPage(page.id, target.id, { move: mode === 'move' });
+              if (!ok) return;
+              toast(`„${label}“ nach „${target.name}“ ${mode === 'move' ? 'verschoben' : 'kopiert'}.`, 'success');
+              refreshAllViews();
+              renderList();
+            },
+          },
+          h('strong', null, target.name),
+          h('small', { class: 'muted' }, `${(target.pages || []).length} Seite(n) · ${allWidgetsOf(target).length} Element(e)`))))
+          : h('p', { class: 'muted small' }, 'Es gibt noch keinen weiteren Klassenraum — zuerst oben links einen anlegen.')));
+  }
+
+  renderList();
+  openPanel({
+    title: 'Seiten',
+    subtitle: 'Umbenennen, tauschen, übertragen',
+    content: container,
+  });
 }
 
 function flipPage(step) {
@@ -789,6 +935,7 @@ function wireChrome() {
   document.getElementById('btn-zoom-in').addEventListener('click', () => zoomBy(1.35));
   document.getElementById('btn-zoom-out').addEventListener('click', () => zoomBy(1 / 1.35));
   document.getElementById('btn-zoom-fit').addEventListener('click', () => resetView());
+  document.getElementById('page-label').addEventListener('click', openPagesPanel);
   document.getElementById('btn-page-prev').addEventListener('click', () => flipPage(-1));
   document.getElementById('btn-page-next').addEventListener('click', () => flipPage(1));
   document.getElementById('btn-page-add').addEventListener('click', () => addPage());

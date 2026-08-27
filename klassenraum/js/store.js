@@ -151,7 +151,7 @@ export const PALETTE = [
 
 /** Eine leere Seite einer Tafel — jede Tafel hat mindestens eine. */
 export function emptyPage() {
-  return { id: uid('page'), widgets: [], drawing: [] };
+  return { id: uid('page'), name: '', widgets: [], drawing: [] };
 }
 
 export function defaultBoard(name = 'Neuer Klassenraum') {
@@ -336,6 +336,7 @@ function normalizePages(board) {
     : [{ id: board.activePageId, widgets: board.widgets, drawing: board.drawing }];
   return raw.map((page) => ({
     id: page.id || uid('page'),
+    name: typeof page.name === 'string' ? page.name : '',
     widgets: Array.isArray(page.widgets) ? page.widgets.map(normalizeWidget) : [],
     drawing: Array.isArray(page.drawing) ? page.drawing : [],
   }));
@@ -481,6 +482,29 @@ export function removePage(pageId) {
     board.activePageId = board.pages[Math.max(0, index - 1)].id;
   }
   touch({ reason: 'page-remove' });
+  emit('page-switch', board.activePageId);
+  return true;
+}
+
+/** Seite umbenennen — ohne Namen zeigt die App „Seite N". */
+export function renamePage(pageId, name) {
+  const board = getActiveBoard();
+  const page = board && (board.pages || []).find((entry) => entry.id === pageId);
+  if (!page) return;
+  page.name = String(name || '').trim();
+  touch({ reason: 'page-rename' });
+}
+
+/** Seite in der Reihenfolge verschieben (step -1 = nach vorn, +1 = nach hinten). */
+export function movePageBy(pageId, step) {
+  const board = getActiveBoard();
+  if (!board) return false;
+  const index = board.pages.findIndex((page) => page.id === pageId);
+  const target = index + step;
+  if (index < 0 || target < 0 || target >= board.pages.length) return false;
+  const [page] = board.pages.splice(index, 1);
+  board.pages.splice(target, 0, page);
+  touch({ reason: 'page-move' });
   emit('page-switch', board.activePageId);
   return true;
 }
