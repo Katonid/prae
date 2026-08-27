@@ -59,8 +59,14 @@ Hintergrund gleich; verglichen wird gegen den gesicherten `Standspeicher`.
 Weil die Kennung einer Mitteilung die der Tickermeldung ist, kann dasselbe
 Ereignis nicht zweimal auf dem Sperrbildschirm landen.
 
-Platzverweise sind vorbereitet, kommen aber nur an, wenn der Dienst Karten
-mitschickt — der freie Zugang tut das in der Regel nicht.
+### Was es bewusst NICHT gibt
+
+**Platzverweise.** In 1.0.5/1.0.6 stand dafür ein Schalter, der nie etwas
+auslöste: Karten gehören bei football-data.org zu den kostenpflichtigen
+Stufen. Geprüft wurde, ob eine freie Quelle einspringen kann — OpenLigaDB
+führt keine Karten, TheSportsDB ebenso wenig. Also ist der Schalter in 1.0.7
+wieder raus. Was zu einem Platzverweis bekannt wird, läuft über die
+Ligameldungen (Art „Spielbericht & Analyse").
 
 ## Ligameldungen (Transfer, Gerüchte, Ausfälle)
 
@@ -71,6 +77,7 @@ nirgends. Dafür liest die App zwei frei zugängliche RSS-Ausgaben:
 | --- | --- | --- |
 | kicker — Fußball | `newsfeed.kicker.de/news/fussball` | alles |
 | kicker — Bundesliga | `newsfeed.kicker.de/news/bundesliga` | Bundesliga, dichter |
+| kicker — Champions League | `newsfeed.kicker.de/news/champions-league` | Europapokal |
 | Transfermarkt | `transfermarkt.de/rss/news` | Wechsel und Gerüchte |
 
 Kein Schlüssel, keine Anmeldung. Gelesen werden Überschrift, Anriss, Verweis,
@@ -79,8 +86,9 @@ Quelle. Geholt wird höchstens alle zehn Minuten (`Nachrichtenpflege`), im
 Vordergrund beim Öffnen der Meldungsliste, im Hintergrund bei jeder
 Auffrischung.
 
-**Einteilung.** Die Art einer Meldung — Transfer, Gerücht, Verletzung &
-Sperre, Rund um den Verein, Sonstiges — schätzt `Nachrichtensieb` anhand der
+**Einteilung.** Die Art einer Meldung — Aufstellung & Vorbericht, Transfer,
+Gerücht, Verletzung & Sperre, Spielbericht & Analyse, Rund um den Verein,
+Sonstiges — schätzt `Nachrichtensieb` anhand der
 Wortwahl in Überschrift und Anriss. Die Reihenfolge zählt: Ein Gerücht ist
 auch ein Transfer, geht aber als Gerücht durch. Das trifft meistens, nicht
 immer — die App sagt das in der Oberfläche auch.
@@ -99,6 +107,33 @@ vier, und zwar lautlos (`interruptionLevel = .passive`).
 
 `Config/Info.plist` trägt dafür `BGTaskSchedulerPermittedIdentifiers` (Kennung
 muss zu `Hintergrundpflege.kennung` passen) und `UIBackgroundModes = fetch`.
+
+## Was zu einem Spiel angezeigt wird
+
+| Angabe | Herkunft |
+| --- | --- |
+| Spielstand, Halbzeit, Minute, Zustand | football-data.org |
+| Torfolge mit Schütze und Minute | football-data.org; für die **Bundesliga** ersatzweise **OpenLigaDB** |
+| Tabellenplatz, Bilanz und Formkurve beider Mannschaften | aus der geladenen Tabelle — kostet keine zusätzliche Abfrage |
+| Direkter Vergleich (Begegnungen, Siege, Remis, Tore) | kommt mit der Abfrage zum einzelnen Spiel mit |
+| Spielort, Schiedsrichter | football-data.org, soweit vorhanden |
+| Aufstellung, Auswechslungen, Karten | **gibt es nicht** — kostenpflichtige Stufen |
+
+Die Spielansicht sagt selbst dazu, woher die Torfolge stammt und was fehlt.
+
+### Torschützen für die Bundesliga: OpenLigaDB
+
+Weil der freie Zugang die Torfolge oft nicht mitliefert, fragt
+`Torschuetzendienst.swift` bei fehlender Torfolge **OpenLigaDB** —
+schlüssellos, mit eigenem Kontingent, das **nicht** gegen die zehn Abfragen
+je Minute von football-data.org zählt. Geliefert werden Schütze, Minute,
+Elfmeter und Eigentor.
+
+Zugeordnet wird über vereinfachte Vereinsnamen (klein, ohne Umlaut­besonder­
+heiten, ohne Kürzel wie „FC"): **beide** Mannschaften müssen passen. Ein
+falsch zugeordneter Torschütze wäre schlimmer als gar keiner. Für die vier
+anderen Ligen ist keine vergleichbare freie Quelle bekannt — dort bleibt es
+beim Rückfall aus dem Sprung im Spielstand.
 
 ## Woher die Daten kommen
 
@@ -141,6 +176,7 @@ Anstoss/
     Meldungen.swift         Wunsch: Arten, Ligen, einzelne Spiele
     Benachrichtiger.swift   örtliche Mitteilungen und Anpfiff-Wecker
     Tickerwerk.swift        Standvergleich + Standspeicher (geteilt)
+    Torschuetzendienst.swift Torschützen der Bundesliga von OpenLigaDB
     Nachrichten.swift       Art, Quellen, Vereinsverzeichnis, Ablage
     Nachrichtendienst.swift RSS lesen + ein Durchgang für beide Wege
     Hintergrundpflege.swift Nachsehen, während die App geschlossen ist
@@ -169,7 +205,7 @@ bearbeiten.
 Stellen im pbxproj (Debug + Release); es gibt keine Skript-Bauphase,
 beide Werte werden im Repo gepflegt. **Jede Arbeitseinheit hebt beide
 um +1 an** — Fassung und Build-Nummer. Zählung ab 08/2026: 1.0.4
-(Build 2), 1.0.5 (Build 3), 1.0.6 (Build 4) usw.
+(Build 2), 1.0.5 (Build 3), 1.0.6 (Build 4), 1.0.7 (Build 5) usw.
 
 Hintergrund: App Store Connect nimmt keinen Build an, dessen Nummer
 nicht höher ist als die des vorherigen.

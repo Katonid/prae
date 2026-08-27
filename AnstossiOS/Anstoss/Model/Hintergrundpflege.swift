@@ -79,7 +79,10 @@ enum Hintergrundpflege {
         guard !schluessel.isEmpty else { return true }
 
         let dienst = FussballDienst(schluessel: schluessel)
-        guard let frisch = try? await dienst.spieleHeute() else { return false }
+        guard let geholt = try? await dienst.spieleHeute() else { return false }
+        // Wie im Vordergrund: erst die Torfolge der Bundesliga nachziehen,
+        // dann vergleichen — sonst meldet der Hintergrund Tore ohne Namen.
+        let frisch = await Torschuetzendienst.torfolgeErgaenzen(geholt)
 
         let vorher = Standspeicher.laden()
         let neue = Tickerwerk.meldungen(frisch: frisch, vorher: vorher)

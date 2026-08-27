@@ -219,9 +219,11 @@ struct Nachrichtenzeile: View {
 
     private var farbe: Color {
         switch nachricht.art {
+        case .aufstellung: return Color(red: 0.45, green: 0.30, blue: 0.62)
         case .transfer: return Gestaltung.rasen
         case .geruecht: return Color(red: 0.85, green: 0.55, blue: 0.05)
         case .verletzung: return Color(red: 0.75, green: 0.18, blue: 0.18)
+        case .spielbericht: return Color(red: 0.10, green: 0.45, blue: 0.60)
         case .verein: return Color(red: 0.25, green: 0.35, blue: 0.65)
         case .sonstiges: return .secondary
         }

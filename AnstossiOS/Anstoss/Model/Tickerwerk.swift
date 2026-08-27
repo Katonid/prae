@@ -18,7 +18,6 @@ enum Tickerwerk {
 
             neue.append(contentsOf: zustandswechsel(spiel, alt: alt, paarung: paarung))
             neue.append(contentsOf: tore(spiel, alt: alt, paarung: paarung))
-            neue.append(contentsOf: platzverweise(spiel, alt: alt, paarung: paarung))
         }
         return neue
     }
@@ -124,24 +123,27 @@ enum Tickerwerk {
                              minute: spiel.minute)
     }
 
-    // MARK: Platzverweise
+}
 
-    private static func platzverweise(_ spiel: Spiel, alt: Spiel?, paarung: String) -> [Tickermeldung] {
-        let bekannt = Set((alt?.karten ?? []).map(\.id))
-        return spiel.karten
-            .filter { $0.farbe.istPlatzverweis && !bekannt.contains($0.id) }
-            .map { karte in
-                let elf = karte.fuerHeim ? spiel.heim.anzeige : spiel.gast.anzeige
-                return Tickermeldung(id: "\(spiel.id)-karte-\(karte.id)",
-                                     zeitpunkt: zeitpunkt(spiel, karte.minute),
-                                     liga: spiel.liga,
-                                     spielID: spiel.id,
-                                     art: .roteKarte,
-                                     paarung: paarung,
-                                     stand: spiel.standtext,
-                                     zusatz: "\(karte.farbe.name): \(karte.spieler) (\(elf))",
-                                     minute: karte.minute)
-            }
+/// Liest eine Liste, ohne an einem einzelnen faulen Eintrag zu scheitern.
+///
+/// Gebraucht, sobald sich die Modelle ändern: Fällt eine Meldungsart weg —
+/// wie der Platzverweis in 1.0.7 —, würde der erzeugte Leser über den alten
+/// Eintrag stolpern und die GANZE gesicherte Liste verwerfen. So fällt nur
+/// der eine Eintrag weg.
+struct Nachsichtig<Inhalt: Decodable>: Decodable {
+    let wert: Inhalt?
+
+    init(from decoder: Decoder) throws {
+        wert = try? Inhalt(from: decoder)
+    }
+}
+
+extension JSONDecoder {
+    /// Wie `decode([Inhalt].self, from:)`, nur eintragsweise nachsichtig.
+    func nachsichtigeListe<Inhalt: Decodable>(_ art: Inhalt.Type, aus daten: Data) -> [Inhalt] {
+        let liste = (try? decode([Nachsichtig<Inhalt>].self, from: daten)) ?? []
+        return liste.compactMap(\.wert)
     }
 }
 

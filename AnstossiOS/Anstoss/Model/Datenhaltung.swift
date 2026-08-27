@@ -129,9 +129,13 @@ final class Datenhaltung: ObservableObject {
             } else {
                 frisch = try await dienst.spieleHeute()
             }
-            meldungenAblegen(frisch)
-            Vereinsverzeichnis.merken(spiele: frisch)
-            liveSpiele = frisch.sorted(by: Self.reihenfolge)
+            // Fuer die Bundesliga die fehlende Torfolge nachziehen, BEVOR
+            // verglichen wird — sonst entstuenden Tormeldungen ohne Namen,
+            // die sich hinterher nicht mehr nachbessern lassen.
+            let vollstaendig = beispielmodus ? frisch : await Torschuetzendienst.torfolgeErgaenzen(frisch)
+            meldungenAblegen(vollstaendig)
+            Vereinsverzeichnis.merken(spiele: vollstaendig)
+            liveSpiele = vollstaendig.sorted(by: Self.reihenfolge)
             letzterAbruf = Date()
             tickerFehler = nil
         } catch {
@@ -199,9 +203,10 @@ final class Datenhaltung: ObservableObject {
             } else {
                 liste = try await dienst.spiele(liga: liga, spieltag: nummer)
             }
-            Vereinsverzeichnis.merken(spiele: liste)
+            let vollstaendig = beispielmodus ? liste : await Torschuetzendienst.torfolgeErgaenzen(liste)
+            Vereinsverzeichnis.merken(spiele: vollstaendig)
             var tage = spieltage[liga] ?? [:]
-            tage[nummer] = liste.sorted(by: Self.reihenfolge)
+            tage[nummer] = vollstaendig.sorted(by: Self.reihenfolge)
             spieltage[liga] = tage
             abrufzeit[marke] = Date()
             ligaFehler[liga] = nil
@@ -271,7 +276,14 @@ final class Datenhaltung: ObservableObject {
     func spielNachladen(_ spiel: Spiel) async -> Spiel? {
         guard !beispielmodus else { return spiel }
         guard schluesselVorhanden else { return nil }
-        return try? await dienst.spiel(id: spiel.id)
+        guard let frisch = try? await dienst.spiel(id: spiel.id) else { return nil }
+        return await Torschuetzendienst.torfolgeErgaenzen([frisch]).first ?? frisch
+    }
+
+    /// Die Tabellenzeile einer Mannschaft, falls die Tabelle schon geladen
+    /// ist. Nur zum Anzeigen — es wird dafür nichts nachgefordert.
+    func tabellenzeile(_ mannschaft: Mannschaft, liga: Liga) -> Tabellenzeile? {
+        tabellen[liga]?.zeilen.first { $0.mannschaft.id == mannschaft.id }
     }
 
     // MARK: Hilfen
@@ -303,7 +315,7 @@ enum Tickerspeicher {
 
     static func laden() -> [Tickermeldung] {
         guard let ort, let daten = try? Data(contentsOf: ort) else { return [] }
-        let alle = (try? JSONDecoder().decode([Tickermeldung].self, from: daten)) ?? []
+        let alle = JSONDecoder().nachsichtigeListe(Tickermeldung.self, aus: daten)
         let grenze = Date().addingTimeInterval(-60 * 60 * 30)
         return alle.filter { $0.zeitpunkt > grenze }
     }

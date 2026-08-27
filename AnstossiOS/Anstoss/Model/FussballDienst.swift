@@ -268,12 +268,22 @@ private struct RohSpiel: Decodable {
         let fullTime: Stand?
         let halfTime: Stand?
     }
-    struct RohKarte: Decodable {
-        struct Spieler: Decodable { let name: String? }
-        let minute: Int?
-        let team: RohMannschaft?
-        let player: Spieler?
-        let card: String?
+    struct RohSchiedsrichter: Decodable {
+        let name: String?
+        let type: String?
+    }
+    /// Der direkte Vergleich, wie ihn die Abfrage zum einzelnen Spiel
+    /// mitschickt. Kommt er nicht mit, bleibt er eben leer.
+    struct RohVergleich: Decodable {
+        struct Seite: Decodable {
+            let wins: Int?
+            let draws: Int?
+            let losses: Int?
+        }
+        let numberOfMatches: Int?
+        let totalGoals: Int?
+        let homeTeam: Seite?
+        let awayTeam: Seite?
     }
     struct RohTor: Decodable {
         struct Spieler: Decodable { let name: String? }
@@ -299,7 +309,9 @@ private struct RohSpiel: Decodable {
     let awayTeam: RohMannschaft?
     let score: Ergebnis?
     let goals: [RohTor]?
-    let bookings: [RohKarte]?
+    let venue: String?
+    let referees: [RohSchiedsrichter]?
+    let head2head: RohVergleich?
 
     func spiel(fallback: Liga?) -> Spiel? {
         guard let id,
@@ -321,12 +333,24 @@ private struct RohSpiel: Decodable {
                        standGast: roh.score?.away)
         }
 
-        let kartenliste: [Karte] = (bookings ?? []).enumerated().map { platz, roh in
-            Karte(id: "\(id)-karte-\(platz)",
-                  minute: roh.minute,
-                  farbe: Karte.Farbe(rohwert: roh.card ?? ""),
-                  spieler: roh.player?.name ?? "unbekannt",
-                  fuerHeim: roh.team?.id == heim.id)
+        // Der Dienst schickt das ganze Gespann; auf dem Bildschirm steht nur
+        // der Unparteiische selbst.
+        let hauptschiedsrichter: String? = (referees ?? [])
+            .first { ($0.type ?? "").uppercased().contains("REFEREE") && !($0.type ?? "").uppercased().contains("ASSISTANT") }?
+            .name ?? (referees ?? []).first?.name
+
+        // Beim direkten Vergleich nennt der Dienst Siege, Unentschieden und
+        // Niederlagen je Seite sowie die Gesamtzahl der Tore. Mehr wird hier
+        // nicht behauptet, als tatsächlich ankommt.
+        var bilanz: Vergleich?
+        if let roh = head2head, let anzahl = roh.numberOfMatches, anzahl > 0 {
+            let siegeHeim = roh.homeTeam?.wins ?? 0
+            let siegeGast = roh.awayTeam?.wins ?? 0
+            bilanz = Vergleich(spiele: anzahl,
+                               siegeHeim: siegeHeim,
+                               siegeGast: siegeGast,
+                               unentschieden: roh.homeTeam?.draws ?? max(anzahl - siegeHeim - siegeGast, 0),
+                               toreGesamt: roh.totalGoals ?? 0)
         }
 
         return Spiel(id: id,
@@ -342,6 +366,8 @@ private struct RohSpiel: Decodable {
                      halbzeitHeim: score?.halfTime?.home,
                      halbzeitGast: score?.halfTime?.away,
                      tore: torliste,
-                     karten: kartenliste)
+                     spielort: venue?.trimmingCharacters(in: .whitespacesAndNewlines),
+                     schiedsrichter: hauptschiedsrichter,
+                     vergleich: bilanz)
     }
 }

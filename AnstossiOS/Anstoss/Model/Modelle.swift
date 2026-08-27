@@ -83,44 +83,6 @@ struct Tor: Identifiable, Hashable, Codable {
     }
 }
 
-// MARK: - Karte
-
-struct Karte: Identifiable, Hashable, Codable {
-    enum Farbe: String, Codable, Hashable {
-        case gelb, gelbRot, rot
-
-        init(rohwert: String) {
-            switch rohwert.uppercased() {
-            case "RED": self = .rot
-            case "YELLOW_RED", "SECOND_YELLOW": self = .gelbRot
-            default: self = .gelb
-            }
-        }
-
-        var name: String {
-            switch self {
-            case .gelb: return "Gelbe Karte"
-            case .gelbRot: return "Gelb-Rot"
-            case .rot: return "Rote Karte"
-            }
-        }
-
-        /// Nur Platzverweise sind eine Meldung wert.
-        var istPlatzverweis: Bool { self != .gelb }
-    }
-
-    let id: String
-    let minute: Int?
-    let farbe: Farbe
-    let spieler: String
-    let fuerHeim: Bool
-
-    var minutentext: String {
-        guard let minute else { return "" }
-        return "\(minute)'"
-    }
-}
-
 // MARK: - Spiel
 
 struct Spiel: Identifiable, Hashable, Codable {
@@ -137,7 +99,15 @@ struct Spiel: Identifiable, Hashable, Codable {
     let halbzeitHeim: Int?
     let halbzeitGast: Int?
     var tore: [Tor]
-    var karten: [Karte]
+    /// Beides liefert der Dienst nicht zu jeder Begegnung — deshalb wahlfrei.
+    /// Wahlfrei heißt zugleich: Ein gesicherter Spielstand aus einer älteren
+    /// Fassung lässt sich weiterhin lesen.
+    var spielort: String?
+    var schiedsrichter: String?
+    var vergleich: Vergleich?
+    /// Woher die Torfolge stammt, wenn nicht von football-data.org. Steht
+    /// hier etwas, sagt die Spielansicht es auch dazu.
+    var torfolgeQuelle: String?
 
     var hatStand: Bool { toreHeim != nil && toreGast != nil }
 
@@ -174,6 +144,23 @@ struct Spiel: Identifiable, Hashable, Codable {
     var istHeute: Bool { Calendar.current.isDateInToday(anstoss) }
 }
 
+// MARK: - Direkter Vergleich
+
+/// Die bisherige Bilanz zweier Mannschaften gegeneinander. Der Dienst
+/// schickt sie mit der Abfrage zum einzelnen Spiel mit — sie kostet also
+/// keine zusätzliche Anfrage aus dem knappen Kontingent.
+struct Vergleich: Hashable, Codable {
+    let spiele: Int
+    let siegeHeim: Int
+    let siegeGast: Int
+    let unentschieden: Int
+    /// Der Dienst nennt nur die Gesamtzahl der Tore beider Seiten, nicht
+    /// die Aufteilung — also steht hier auch nur die.
+    let toreGesamt: Int
+
+    var hatInhalt: Bool { spiele > 0 }
+}
+
 // MARK: - Tabelle
 
 struct Tabellenzeile: Identifiable, Hashable, Codable {
@@ -205,7 +192,6 @@ struct Tickermeldung: Identifiable, Hashable, Codable {
     enum Art: String, Codable, Hashable, CaseIterable, Identifiable {
         case anpfiff
         case tor
-        case roteKarte
         case halbzeit
         case abpfiff
 
@@ -215,7 +201,6 @@ struct Tickermeldung: Identifiable, Hashable, Codable {
             switch self {
             case .anpfiff: return "flag.checkered"
             case .tor: return "soccerball"
-            case .roteKarte: return "rectangle.portrait.fill"
             case .halbzeit: return "pause.circle"
             case .abpfiff: return "flag.checkered.circle"
             }
@@ -225,7 +210,6 @@ struct Tickermeldung: Identifiable, Hashable, Codable {
             switch self {
             case .anpfiff: return "Anpfiff"
             case .tor: return "Tor"
-            case .roteKarte: return "Platzverweis"
             case .halbzeit: return "Halbzeit"
             case .abpfiff: return "Abpfiff"
             }
@@ -235,16 +219,10 @@ struct Tickermeldung: Identifiable, Hashable, Codable {
             switch self {
             case .anpfiff: return "Das Spiel hat begonnen."
             case .tor: return "Sobald sich der Spielstand ändert."
-            case .roteKarte: return "Rot und Gelb-Rot, sobald der Dienst sie mitschickt."
             case .halbzeit: return "Der Stand zur Pause."
             case .abpfiff: return "Der Endstand."
             }
         }
-
-        /// Der freie Zugang von football-data.org liefert Karten in der Regel
-        /// nicht mit. Der Schalter bleibt trotzdem da: Kommen die Daten
-        /// eines Tages, greift er sofort.
-        var vomFreienZugangGedeckt: Bool { self != .roteKarte }
     }
 
     let id: String
