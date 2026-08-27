@@ -228,9 +228,9 @@ export function openSharePanel(prefillCode = '', prefillSyncCode = '') {
       shareBox.append(
         h('p', { class: 'muted small' },
           `Dieser Klassenraum ist über den Code ${entry.code} gekoppelt: Auslosungs- und Klangfelder samt `
-          + 'ausgelosten und abgehakten Namen bleiben auf allen verknüpften Geräten gleich; neue solche Felder der '
-          + 'teilenden Person erscheinen auch hier (und dürfen gelöscht werden — sie kommen nicht zurück). '
-          + 'Anordnung, Hintergrund und alles andere bleiben unabhängig.'),
+          + 'ausgelosten und abgehakten Namen bleiben auf allen verknüpften Geräten gleich. Neue solche Felder '
+          + 'erscheinen in BEIDE Richtungen — auch was du hier anlegst, kommt bei der teilenden Person an. '
+          + 'Gelöschte Felder kommen auf diesem Gerät nicht zurück. Anordnung, Hintergrund und alles andere bleiben unabhängig.'),
         buttonRow(button('Kopplung beenden', {
           icon: 'close', small: true,
           onClick: () => {
@@ -266,6 +266,9 @@ export function openSharePanel(prefillCode = '', prefillSyncCode = '') {
           touch({ board: false });
           if (value) pushSoon();
         }, 'Andere sehen deine Änderungen dann beim nächsten Laden bzw. live.'),
+        h('p', { class: 'muted small' },
+          'Geräte, die den Code als Kopie geladen haben, bleiben gekoppelt: Auslosungs- und Klangfelder samt '
+          + 'ausgelosten/abgehakten Namen bleiben gemeinsam — in beide Richtungen, auch neue Felder von dort erscheinen hier.'),
         buttonRow(
           button('Jetzt senden', {
             icon: 'upload', primary: true, small: true,
