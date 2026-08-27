@@ -3,6 +3,24 @@
 Native iOS-App (SwiftUI, iOS 17, keine fremden Abhängigkeiten) für
 Bundesliga, Premier League, La Liga, Serie A und Ligue 1.
 
+## Namen
+
+| wo | Name |
+| --- | --- |
+| Homescreen (`INFOPLIST_KEY_CFBundleDisplayName`) | **Anstoß** |
+| App Store, Feld „Name" (max. 30 Zeichen) | **Anstoß – Liveticker** |
+| App Store, Feld „Untertitel" (max. 30 Zeichen) | **Top-Ligen unter Beobachtung** |
+| Ordner, Target, Bundle-Id, Schlüsselbund | `Anstoss` / `de.familie.anstoss` |
+
+„Anstoß" allein ist im App Store schon vergeben — deshalb der Zusatz im
+Store-Namen. Auf dem Homescreen bleibt es beim kurzen Wort, weil iOS
+dort nach rund zwölf Zeichen abschneidet.
+
+Der App-Eintrag wird in App Store Connect **von Hand** angelegt (Meine
+Apps → +). Xcodes „Create App Record" im Distribute-Ablauf schlägt den
+Anzeigenamen vor und läuft damit erneut in den Namenskonflikt; steht
+der Eintrag dagegen schon, lädt Distribute einfach in ihn hinein.
+
 ## Was die App kann
 
 - **Liveticker** — alle heutigen Begegnungen der fünf Ligen auf einem

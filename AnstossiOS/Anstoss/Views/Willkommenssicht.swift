@@ -25,7 +25,7 @@ struct Willkommenssicht: View {
             Image(systemName: "soccerball")
                 .font(.system(size: 46))
                 .foregroundStyle(Gestaltung.rasen)
-            Text("Alle fünf großen Ligen")
+            Text("Top-Ligen unter Beobachtung")
                 .font(.title2.weight(.bold))
                 .multilineTextAlignment(.center)
             Text("Bundesliga, Premier League, La Liga, Serie A und Ligue 1 — Spieltage, Tabellen und ein Liveticker.")
