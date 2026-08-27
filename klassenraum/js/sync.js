@@ -158,6 +158,8 @@ async function pushChanges() {
     announce('ok');
   } catch (error) {
     const message = String((error && error.message) || '');
+    // Für die Fehlersuche: die volle Ursache landet in der Konsole.
+    console.warn('Abgleich: Senden fehlgeschlagen —', message || error);
     if (message.startsWith('MEDIEN:')) {
       // Die Tafeln selbst sind angekommen — nur Dateien hängen. Der häufigste
       // Grund: Die Datenbankregeln kennen den Zweig „media" noch nicht.
@@ -165,9 +167,28 @@ async function pushChanges() {
         ? 'Dateien abgelehnt — Datenbankregeln in der Firebase-Konsole aktualisieren'
         : 'Dateien konnten nicht gesendet werden');
     } else {
-      announce('error', 'Senden nicht möglich');
+      announce('error', beschreibeSendefehler(message));
     }
   }
+}
+
+/**
+ * Statt eines pauschalen „Senden nicht möglich" die echte Ursache nennen —
+ * sonst lässt sich von außen nicht erkennen, woran es hakt.
+ */
+function beschreibeSendefehler(message) {
+  if (message === 'ZEITUEBERSCHREITUNG') {
+    return 'Übertragung dauert zu lange (Zeitüberschreitung) — oft ein sehr großes Bild auf einer Tafel oder sehr langsames WLAN; wird erneut versucht';
+  }
+  if (/Server meldet 401|permission/i.test(message)) {
+    return 'Datenbank lehnt das Senden ab (401) — Datenbankregeln in der Firebase-Konsole prüfen';
+  }
+  const server = /Server meldet \d+/.exec(message);
+  if (server) return `Senden nicht möglich — ${message.slice(0, 140)}`;
+  if (/fetch|load failed|network/i.test(message)) {
+    return 'Keine Verbindung zur Datenbank — WLAN prüfen (Schulnetz/Inhaltsfilter blockieren manchmal firebasedatabase.app)';
+  }
+  return message ? `Senden nicht möglich (${message.slice(0, 100)})` : 'Senden nicht möglich';
 }
 
 /* ---------- Dateien (Klänge, Videos) ---------- */
@@ -498,7 +519,10 @@ async function connect(spaceId) {
     await pushChanges();
     announce('ok');
   } catch (error) {
-    announce('error', 'Keine Verbindung');
+    const message = String((error && error.message) || '');
+    console.warn('Abgleich: Verbinden fehlgeschlagen —', message || error);
+    const grund = beschreibeSendefehler(message);
+    announce('error', grund === 'Senden nicht möglich' ? 'Keine Verbindung' : grund);
   }
 }
 
@@ -593,9 +617,10 @@ export async function syncNow() {
     announce('ok');
     return true;
   } catch (error) {
-    announce('error', String((error && error.message) || '') === 'ZEITUEBERSCHREITUNG'
-      ? 'Verbindung zu langsam — wird erneut versucht'
-      : 'Abgleich nicht möglich');
+    const message = String((error && error.message) || '');
+    console.warn('Abgleich: fehlgeschlagen —', message || error);
+    const grund = beschreibeSendefehler(message);
+    announce('error', grund === 'Senden nicht möglich' ? 'Abgleich nicht möglich' : grund);
     return false;
   } finally {
     syncNowRunning = false;
