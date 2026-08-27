@@ -202,12 +202,16 @@ enum Vereinsverzeichnis {
 
     static func merken(_ mannschaften: [Mannschaft], liga: Liga) {
         guard !mannschaften.isEmpty else { return }
-        var verzeichnis = lesen()
+        let vorher = lesen()
+        var verzeichnis = vorher
         for mannschaft in mannschaften {
             for name in namen(mannschaft) {
                 verzeichnis[name] = liga.rawValue
             }
         }
+        // Der Ticker ruft das alle 45 Sekunden auf — geschrieben wird nur,
+        // wenn wirklich ein Name dazugekommen oder umgezogen ist.
+        guard verzeichnis != vorher else { return }
         UserDefaults.standard.set(verzeichnis, forKey: ablageSchluessel)
     }
 
@@ -251,8 +255,8 @@ enum Vereinsverzeichnis {
     /// ohne Rechtsform-Beiwerk ("FC", "SV", "AC", "1899" …).
     private static func namen(_ mannschaft: Mannschaft) -> [String] {
         var liste = [mannschaft.name, mannschaft.kurzname]
-        if let kern = kern(mannschaft.name) { liste.append(kern) }
-        if let kern = kern(mannschaft.kurzname) { liste.append(kern) }
+        if let ausLang = kern(mannschaft.name) { liste.append(ausLang) }
+        if let ausKurz = kern(mannschaft.kurzname) { liste.append(ausKurz) }
         return liste
             .map { vereinfachen($0) }
             .filter { $0.count >= 4 }
