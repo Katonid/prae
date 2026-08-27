@@ -756,6 +756,27 @@ final class BoardStore: ObservableObject {
         touch(boardID)
     }
 
+    /// Die Handschrift der Seite, die gerade zu sehen ist, ganz entfernen.
+    ///
+    /// Einzeln wegzuradieren ist mühsam, wenn die Tafel voll ist. Gedacht
+    /// als „Schwamm über die Tafel" am Ende der Stunde — deshalb fragt die
+    /// Ansicht vorher nach.
+    func wischeSeiteFrei(boardID: String) {
+        guard let tafel = board(boardID) else { return }
+        let seite = tafel.seiten.contains { $0.id == aktiveSeitenID }
+            ? aktiveSeitenID : tafel.ersteSeitenID
+        setzeHandschrift("", seite: seite, boardID: boardID)
+    }
+
+    /// Ist auf der Seite, die gerade zu sehen ist, überhaupt etwas
+    /// geschrieben?
+    func hatHandschrift(boardID: String) -> Bool {
+        guard let tafel = board(boardID) else { return false }
+        let seite = tafel.seiten.contains { $0.id == aktiveSeitenID }
+            ? aktiveSeitenID : tafel.ersteSeitenID
+        return !tafel.handschrift(auf: seite).isEmpty
+    }
+
     /// In welche Richtung zuletzt geblättert wurde: 1 = vorwärts,
     /// -1 = zurück. Die Tafel wandert dadurch dorthin, wo die neue Seite
     /// herkommt — beim Wischen wie beim Tippen auf die Leiste.
