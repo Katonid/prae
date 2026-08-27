@@ -418,6 +418,67 @@ struct NamePickerContent: Codable, Equatable {
     /// Bereits aufgedeckte Teile des aktuellen Namens.
     var revealParts: [Int] = []
 
+    // MARK: Gruppen und Tagesgruppe
+
+    /// Was dieses Element auslost.
+    var modus: Ziehmodus = .einzel
+    /// Eigene Überschrift der Gruppenziehung (leer = Vorgabe des Modus).
+    ///
+    /// Je Modus eine eigene: Wer bei „Gruppen“ „Partnerarbeit“ schreibt und
+    /// bei „Tagesgruppe“ „Klassendienst“, bekommt beim Umschalten den
+    /// jeweils passenden Namen zurück.
+    var titelGruppen: String = ""
+    var titelTagesgruppe: String = ""
+    /// Wie viele Namen in eine Gruppe gehören (1 … 15).
+    var gruppenGroesse: Int = 2
+    /// Wie viele Namen die Tagesgruppe umfasst.
+    var tagesgruppeAnzahl: Int = 1
+    /// Merkmal, nach dem gemischt wird — leer heißt: nicht mischen.
+    var mischMerkmalID: String = ""
+    /// Das Ergebnis als Checkliste zum Abhaken zeigen.
+    var alsCheckliste: Bool = false
+    /// Ergebnis festgehalten: Es löst nichts mehr neu aus, abhaken geht.
+    var festgehalten: Bool = false
+    /// Das Ergebnis der letzten Auslosung, in Ziehreihenfolge.
+    var ergebnis: [String] = []
+    /// Abgehakte Zeilen — die Kennung des ersten Namens der Zeile.
+    var erledigt: [String] = []
+
+    /// Überschrift, die zum gewählten Modus gehört.
+    var ueberschrift: String {
+        get {
+            switch modus {
+            case .einzel:      return title
+            case .gruppen:     return titelGruppen
+            case .tagesgruppe: return titelTagesgruppe
+            }
+        }
+        set {
+            switch modus {
+            case .einzel:      title = newValue
+            case .gruppen:     titelGruppen = newValue
+            case .tagesgruppe: titelTagesgruppe = newValue
+            }
+        }
+    }
+
+    /// Wie viele Namen nebeneinander stehen.
+    var proZeile: Int {
+        modus == .tagesgruppe ? 1 : max(1, min(gruppenGroesse, 15))
+    }
+
+    /// Das Ergebnis in Zeilen zerlegt — die letzte darf unvollständig sein.
+    var zeilen: [[String]] {
+        let breite = proZeile
+        guard !ergebnis.isEmpty else { return [] }
+        return stride(from: 0, to: ergebnis.count, by: breite).map { anfang in
+            Array(ergebnis[anfang..<min(anfang + breite, ergebnis.count)])
+        }
+    }
+
+    /// Schlüssel, unter dem eine Zeile als erledigt vermerkt wird.
+    static func zeilenSchluessel(_ zeile: [String]) -> String { zeile.first ?? "" }
+
     enum DrawMode: String, Codable, CaseIterable, Identifiable {
         /// Gezogene Namen kommen erst zurück, wenn die Liste durch ist.
         case withoutRepeat
@@ -437,6 +498,54 @@ struct NamePickerContent: Codable, Equatable {
             case .withReplacement:
                 return "Bei jedem Zug stehen alle Namen der Liste zur Verfügung."
             }
+        }
+    }
+}
+
+/// Was ein Zufallsgenerator auslost.
+enum Ziehmodus: String, Codable, CaseIterable, Identifiable {
+    /// Ein Name, wie bisher — mit Aufdecken und Raten.
+    case einzel
+    /// Alle Namen auf Gruppen verteilt.
+    case gruppen
+    /// Eine Handvoll Namen für heute — Dienste, Helferinnen, Vorleser.
+    case tagesgruppe
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .einzel:      return "Einzelner Name"
+        case .gruppen:     return "Gruppen"
+        case .tagesgruppe: return "Tagesgruppe"
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .einzel:      return "person.fill"
+        case .gruppen:     return "person.2.fill"
+        case .tagesgruppe: return "person.3.fill"
+        }
+    }
+
+    var erklaerung: String {
+        switch self {
+        case .einzel:
+            return "Ein Name aus der Liste. Er lässt sich Stück für Stück aufdecken, damit die Klasse mitraten darf."
+        case .gruppen:
+            return "Alle Namen werden auf Gruppen verteilt und stehen als gleich große Kärtchen nebeneinander."
+        case .tagesgruppe:
+            return "Ein paar Namen für heute — untereinander, zum Beispiel für die Dienste."
+        }
+    }
+
+    /// Was über dem Ergebnis steht, solange nichts Eigenes eingetragen ist.
+    var standardUeberschrift: String {
+        switch self {
+        case .einzel:      return ""
+        case .gruppen:     return "Gruppen"
+        case .tagesgruppe: return "Heute dran"
         }
     }
 }
@@ -1621,6 +1730,8 @@ extension NamePickerContent {
     enum PickerKeys: String, CodingKey {
         case title, listID, mode, drawnIDs, currentID, showHistory, showDrawn, animate, spinSound,
              reveal, revealParts
+        case modus, titelGruppen, titelTagesgruppe, gruppenGroesse, tagesgruppeAnzahl
+        case mischMerkmalID, alsCheckliste, festgehalten, ergebnis, erledigt
     }
 
     init(from decoder: Decoder) throws {
@@ -1638,6 +1749,16 @@ extension NamePickerContent {
         spinSound = c.wert(.spinSound, SpinSound.karten)
         reveal = c.wert(.reveal, RevealMode.mosaik)
         revealParts = c.wert(.revealParts, [Int]())
+        modus = c.wert(.modus, Ziehmodus.einzel)
+        titelGruppen = c.wert(.titelGruppen, "")
+        titelTagesgruppe = c.wert(.titelTagesgruppe, "")
+        gruppenGroesse = c.wert(.gruppenGroesse, 2)
+        tagesgruppeAnzahl = c.wert(.tagesgruppeAnzahl, 1)
+        mischMerkmalID = c.wert(.mischMerkmalID, "")
+        alsCheckliste = c.wert(.alsCheckliste, false)
+        festgehalten = c.wert(.festgehalten, false)
+        ergebnis = c.wert(.ergebnis, [String]())
+        erledigt = c.wert(.erledigt, [String]())
     }
 }
 

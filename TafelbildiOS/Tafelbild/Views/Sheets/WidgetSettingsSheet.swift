@@ -816,130 +816,299 @@ private struct NamePickerSettings: View {
 
     private var list: NameList? { store.nameList(content.listID) }
 
+    // Vier Blöcke, immer in derselben Reihenfolge — und in jedem steht nur,
+    // was zum gewählten Modus gehört. „Aufdecken“ gibt es nur beim
+    // Einzelnamen, „Gruppengröße“ nur bei Gruppen. Was lang wird (Klänge,
+    // die Liste der Gezogenen), liegt auf einer eigenen Seite; die Zeile
+    // zeigt die aktuelle Wahl, das genügt zum Nachsehen.
     var body: some View {
-        Section {
-            TextField("Überschrift (z. B. „Wer liest vor?“)", text: $content.title)
-        } header: {
-            Text("Überschrift")
-        } footer: {
-            Text("Steht über dem Namen und benennt die Ziehung — hilfreich, wenn "
-                 + "mehrere auf einer Tafel liegen. Sie bleibt auch dann sichtbar, "
-                 + "wenn die Tafel unter „Aussehen“ keine Beschriftungen zeigt. "
-                 + "Ohne eigene Überschrift steht dort der Name der Liste.")
-        }
-
-        Section("Namensliste") {
-            Picker("Liste", selection: Binding(
-                get: { content.listID ?? "" },
-                set: { content.listID = $0.isEmpty ? nil : $0 }
-            )) {
-                Text("Keine Liste").tag("")
-                ForEach(store.visibleNameLists) { list in
-                    Text(list.name).tag(list.id)
-                }
-            }
-            if let list {
-                NavigationLink {
-                    NameListEditor(listID: list.id)
-                } label: {
-                    Label("Liste bearbeiten (\(list.entries.count) Namen)", systemImage: "pencil")
-                }
-            }
-        }
-
-        Section {
-            Picker("Ziehweise", selection: $content.mode) {
-                ForEach(NamePickerContent.DrawMode.allCases) { Text($0.title).tag($0) }
-            }
-            .pickerStyle(.inline)
-        } header: {
-            Text("Ziehweise")
-        } footer: {
-            Text(content.mode.explanation)
-        }
-
-        Section {
-            Picker("Aufdecken", selection: $content.reveal) {
-                ForEach(RevealMode.allCases) { Text($0.title).tag($0) }
-            }
-            .pickerStyle(.inline)
-        } header: {
-            Text("Aufdecken")
-        } footer: {
-            Text(content.reveal.explanation
-                 + (content.reveal == .instant ? ""
-                    : " Jeder Tipp auf die Karte deckt einen Schritt auf; das Auge zeigt sofort alles."))
-        }
-
-        Section {
-            Picker("Gezogene Namen zeigen", selection: $content.showDrawn) {
-                ForEach(ShowRule.allCases) { Text($0.title).tag($0) }
-            }
-            // Wortlaut wie im Web: Der Schalter steuert das Durchlaufen,
-            // nicht nur eine Verzierung.
-            Toggle("Namen durchlaufen lassen", isOn: $content.animate)
-        } header: {
-            Text("Anzeige")
-        } footer: {
-            Text("Bei „Beim Bearbeiten“ bleibt die Liste im Unterricht verborgen — "
-                 + "so lässt sich nicht ablesen, wer noch fehlt. Ohne Durchlaufen "
-                 + "steht der Name sofort da; dann gibt es auch keinen Klang.")
-        }
-
-        Section {
-            ForEach(SpinSound.allCases) { klang in
-                klangZeile(klang)
-            }
-        } header: {
-            Text("Klang beim Ziehen")
-        } footer: {
-            Text("Alle Klänge entstehen im Gerät — es wird nichts nachgeladen, "
-                 + "und sie funktionieren ohne Netz. Ein Tipp spielt den Klang "
-                 + "gleich zur Probe ab.")
-        }
-
-        Section {
-            if let list {
-                ForEach(list.entries) { entry in
-                    let drawn = content.drawnIDs.contains(entry.id)
-                    Button {
-                        if drawn {
-                            content.drawnIDs.removeAll { $0 == entry.id }
-                            if content.currentID == entry.id { content.currentID = nil }
-                        } else {
-                            content.drawnIDs.append(entry.id)
-                        }
-                    } label: {
-                        HStack {
-                            Image(systemName: drawn ? "checkmark.circle.fill" : "circle")
-                                .foregroundStyle(drawn ? Theme.accent : .secondary)
-                            Text(entry.text)
-                                .foregroundStyle(.primary)
-                            if entry.paused {
-                                Spacer()
-                                Text("pausiert")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                    }
-                }
-            }
-            Button {
-                content.drawnIDs = []
-                content.currentID = nil
-            } label: {
-                Label("Alle zurücklegen", systemImage: "arrow.counterclockwise")
-            }
-        } header: {
-            Text("Bereits gezogen")
-        } footer: {
-            Text("Antippen schaltet um: So lässt sich jemand nachträglich als gezogen markieren oder wieder in den Topf legen.")
+        Group {
+            wasGezogenWird
+            wieEsAussieht
+            wieGezogenWird
+            wasSchonWar
         }
     }
 
-    /// Ein Ziehklang zur Auswahl. Der Tipp wählt ihn und spielt ihn gleich
-    /// zur Probe ab — hören ist hier aussagekräftiger als jede Beschreibung.
+    // MARK: 1. Was gezogen wird
+
+    private var wasGezogenWird: some View {
+        Group {
+            Section {
+                ForEach(Ziehmodus.allCases) { modus in
+                    modusZeile(modus)
+                }
+            } header: {
+                Text("Was gezogen wird")
+            }
+
+            Section {
+                TextField(ueberschriftPlatzhalter, text: Binding(
+                    get: { content.ueberschrift },
+                    set: { content.ueberschrift = $0 }
+                ))
+
+                Picker("Namensliste", selection: Binding(
+                    get: { content.listID ?? "" },
+                    set: { content.listID = $0.isEmpty ? nil : $0 }
+                )) {
+                    Text("Keine Liste").tag("")
+                    ForEach(store.visibleNameLists) { liste in
+                        Text(liste.name).tag(liste.id)
+                    }
+                }
+
+                if let list {
+                    NavigationLink {
+                        NameListEditor(listID: list.id)
+                    } label: {
+                        Label("Liste bearbeiten (\(list.entries.count) Namen)",
+                              systemImage: "pencil")
+                    }
+                }
+
+                if content.modus == .gruppen {
+                    Stepper(value: $content.gruppenGroesse, in: 1...15) {
+                        LabeledContent("Gruppengröße", value: "\(content.gruppenGroesse)")
+                    }
+                }
+                if content.modus == .tagesgruppe {
+                    Stepper(value: $content.tagesgruppeAnzahl, in: 1...30) {
+                        LabeledContent("Wie viele Namen",
+                                       value: "\(content.tagesgruppeAnzahl)")
+                    }
+                }
+            } footer: {
+                Text(fussZuGezogen)
+            }
+        }
+    }
+
+    private func modusZeile(_ modus: Ziehmodus) -> some View {
+        let gewaehlt = content.modus == modus
+        return Button {
+            content.modus = modus
+            Haptics.tap()
+        } label: {
+            HStack(spacing: 13) {
+                Image(systemName: modus.symbol)
+                    .font(.system(size: 18))
+                    .foregroundStyle(gewaehlt ? Theme.accent : .secondary)
+                    .frame(width: 28)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(modus.title)
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(.primary)
+                    Text(modus.erklaerung)
+                        .font(.system(size: 13))
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 0)
+                if gewaehlt {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundStyle(Theme.accent)
+                }
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var ueberschriftPlatzhalter: String {
+        switch content.modus {
+        case .einzel:      return "Überschrift (z. B. „Wer liest vor?“)"
+        case .gruppen:     return "Überschrift (z. B. „Partnerarbeit“)"
+        case .tagesgruppe: return "Überschrift (z. B. „Klassendienst“)"
+        }
+    }
+
+    private var fussZuGezogen: String {
+        let gemeinsam = "Die Überschrift gehört zum Modus: Beim Umschalten kommt die "
+            + "jeweils passende zurück. Sie bleibt auch dann sichtbar, wenn die Tafel "
+            + "unter „Aussehen“ keine Beschriftungen zeigt."
+        switch content.modus {
+        case .einzel:
+            return gemeinsam + " Ohne eigene Überschrift steht dort der Name der Liste."
+        case .gruppen:
+            return gemeinsam + " Die letzte Gruppe darf unvollständig bleiben — "
+                + "das hängt an der Zahl der Namen, nicht an der Einstellung."
+        case .tagesgruppe:
+            return gemeinsam
+        }
+    }
+
+    // MARK: 2. Wie es aussieht
+
+    private var wieEsAussieht: some View {
+        Group {
+            if content.modus == .einzel {
+                Section {
+                    NavigationLink {
+                        AufdeckenSeite(content: $content)
+                    } label: {
+                        LabeledContent("Aufdecken", value: content.reveal.title)
+                    }
+                    Picker("Gezogene Namen zeigen", selection: $content.showDrawn) {
+                        ForEach(ShowRule.allCases) { Text($0.title).tag($0) }
+                    }
+                } header: {
+                    Text("Wie es aussieht")
+                } footer: {
+                    Text("Bei „Beim Bearbeiten“ bleibt die Liste im Unterricht verborgen — "
+                         + "so lässt sich nicht ablesen, wer noch fehlt.")
+                }
+            } else {
+                Section {
+                    Toggle("Als Checkliste zum Abhaken", isOn: $content.alsCheckliste)
+                    Toggle("Ergebnis festhalten", isOn: $content.festgehalten)
+                } header: {
+                    Text("Wie es aussieht")
+                } footer: {
+                    Text("Als Checkliste bekommt jede Zeile einen Haken — so lässt sich "
+                         + "festhalten, wer eine Aufgabe schon erledigt hat.\n\n"
+                         + "Festgehalten heißt: Es löst nichts mehr neu aus, weder der "
+                         + "Knopf noch ein Tipp auf ein Kärtchen. Abhaken geht weiterhin. "
+                         + "Derselbe Schalter sitzt als Schloss oben rechts auf dem "
+                         + "Element, damit er im Unterricht erreichbar ist.")
+                }
+            }
+        }
+    }
+
+    // MARK: 3. Wie gezogen wird
+
+    private var wieGezogenWird: some View {
+        Section {
+            if content.modus == .einzel {
+                Picker("Ziehweise", selection: $content.mode) {
+                    ForEach(NamePickerContent.DrawMode.allCases) { Text($0.title).tag($0) }
+                }
+            } else {
+                Picker("Mischen nach", selection: $content.mischMerkmalID) {
+                    Text("Nicht mischen").tag("")
+                    ForEach(list?.merkmale ?? []) { merkmal in
+                        Text(merkmal.name.nonEmpty ?? "Merkmal").tag(merkmal.id)
+                    }
+                }
+                .disabled((list?.merkmale ?? []).isEmpty)
+            }
+
+            Toggle("Namen durchlaufen lassen", isOn: $content.animate)
+
+            NavigationLink {
+                KlangSeite(content: $content)
+            } label: {
+                LabeledContent("Klang beim Ziehen", value: content.spinSound.title)
+            }
+        } header: {
+            Text("Wie gezogen wird")
+        } footer: {
+            Text(fussZuZiehen)
+        }
+    }
+
+    private var fussZuZiehen: String {
+        if content.modus == .einzel {
+            return content.mode.explanation
+                + " Ohne Durchlaufen steht der Name sofort da; dann gibt es auch keinen Klang."
+        }
+        guard let list, !list.merkmale.isEmpty else {
+            return "Merkmale legst du in der Namensliste an — zum Beispiel „J“ und „M“. "
+                + "Dann kann die Ziehung darauf achten, dass in jeder Gruppe von beidem "
+                + "etwas steht."
+        }
+        let name = list.merkmal(content.mischMerkmalID.nonEmpty)?.name.nonEmpty
+        guard let name else {
+            return "Ohne Mischen entscheidet allein der Zufall. "
+                + "Wähle ein Merkmal, damit die Gruppen gemischt werden."
+        }
+        return "In jeder Gruppe soll möglichst von jedem Wert des Merkmals „\(name)“ "
+            + "etwas stehen — solange die Zahl der Namen es hergibt. Reicht sie nicht, "
+            + "bekommen die ersten Gruppen den selteneren Wert."
+    }
+
+    // MARK: 4. Was schon war
+
+    private var wasSchonWar: some View {
+        Group {
+            if content.modus == .einzel {
+                Section {
+                    NavigationLink {
+                        BereitsGezogenSeite(content: $content, list: list)
+                    } label: {
+                        LabeledContent("Bereits gezogen",
+                                       value: "\(content.drawnIDs.count) von \(list?.entries.count ?? 0)")
+                    }
+                } header: {
+                    Text("Was schon war")
+                }
+            } else if !content.ergebnis.isEmpty {
+                Section {
+                    Button(role: .destructive) {
+                        content.ergebnis = []
+                        content.erledigt = []
+                        content.festgehalten = false
+                        Haptics.tap()
+                    } label: {
+                        Label("Ergebnis verwerfen", systemImage: "trash")
+                    }
+                } header: {
+                    Text("Was schon war")
+                } footer: {
+                    Text("Danach steht das Element wieder auf „Noch nicht ausgelost“.")
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Unterseiten der Ziehung
+
+private struct AufdeckenSeite: View {
+    @Binding var content: NamePickerContent
+
+    var body: some View {
+        List {
+            Section {
+                Picker("Aufdecken", selection: $content.reveal) {
+                    ForEach(RevealMode.allCases) { Text($0.title).tag($0) }
+                }
+                .pickerStyle(.inline)
+            } footer: {
+                Text(content.reveal.explanation
+                     + (content.reveal == .instant ? ""
+                        : " Jeder Tipp auf die Karte deckt einen Schritt auf; "
+                        + "das Auge zeigt sofort alles."))
+            }
+        }
+        .navigationTitle("Aufdecken")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+private struct KlangSeite: View {
+    @Binding var content: NamePickerContent
+
+    var body: some View {
+        List {
+            Section {
+                ForEach(SpinSound.allCases) { klang in
+                    klangZeile(klang)
+                }
+            } footer: {
+                Text("Alle Klänge entstehen im Gerät — es wird nichts nachgeladen, "
+                     + "und sie funktionieren ohne Netz. Ein Tipp spielt den Klang "
+                     + "gleich zur Probe ab.")
+            }
+        }
+        .navigationTitle("Klang beim Ziehen")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    /// Der Tipp wählt den Klang und spielt ihn gleich ab — hören ist hier
+    /// aussagekräftiger als jede Beschreibung.
     private func klangZeile(_ klang: SpinSound) -> some View {
         let gewaehlt = content.spinSound == klang
         return Button {
@@ -971,6 +1140,53 @@ private struct NamePickerSettings: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+    }
+}
+
+private struct BereitsGezogenSeite: View {
+    @Binding var content: NamePickerContent
+    let list: NameList?
+
+    var body: some View {
+        List {
+            Section {
+                ForEach(list?.entries ?? []) { entry in
+                    let drawn = content.drawnIDs.contains(entry.id)
+                    Button {
+                        if drawn {
+                            content.drawnIDs.removeAll { $0 == entry.id }
+                            if content.currentID == entry.id { content.currentID = nil }
+                        } else {
+                            content.drawnIDs.append(entry.id)
+                        }
+                    } label: {
+                        HStack {
+                            Image(systemName: drawn ? "checkmark.circle.fill" : "circle")
+                                .foregroundStyle(drawn ? Theme.accent : .secondary)
+                            Text(entry.text)
+                                .foregroundStyle(.primary)
+                            if entry.paused {
+                                Spacer()
+                                Text("pausiert")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                }
+                Button {
+                    content.drawnIDs = []
+                    content.currentID = nil
+                } label: {
+                    Label("Alle zurücklegen", systemImage: "arrow.counterclockwise")
+                }
+            } footer: {
+                Text("Antippen schaltet um: So lässt sich jemand nachträglich als "
+                     + "gezogen markieren oder wieder in den Topf legen.")
+            }
+        }
+        .navigationTitle("Bereits gezogen")
+        .navigationBarTitleDisplayMode(.inline)
     }
 }
 
