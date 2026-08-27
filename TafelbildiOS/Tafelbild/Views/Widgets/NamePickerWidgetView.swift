@@ -460,9 +460,10 @@ struct NamePickerWidgetView: View {
         // langsamer — Schrittzahl und Kurve stehen in `ZiehLauf`, damit die
         // Zeiten mit dem Klang zusammenpassen.
         // Der Klang ist eine durchgehende Aufnahme über den ganzen Zug,
-        // nicht mehr ein Ton je Schritt. Beide dauern 1,72 s, also endet er
-        // genau dann, wenn der Name steht.
-        Ziehklang.shared.starte(content.spinSound)
+        // nicht mehr ein Ton je Schritt. Er beginnt so spät, dass er mit dem
+        // Zug ausklingt — der Trommelschlag fällt auf den Augenblick, in dem
+        // der Name steht.
+        Ziehklang.shared.starte(content.spinSound, dauer: ZiehLauf.gesamt)
         // Im Durchlauf erscheint jeder Name AUSSER dem gezogenen.
         //
         // Vorher wurde blind aus allen gewürfelt — mal stand der Gewinner
