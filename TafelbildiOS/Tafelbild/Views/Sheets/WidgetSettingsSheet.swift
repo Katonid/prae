@@ -385,7 +385,8 @@ private struct ImageSettings: View {
                 guard let data = try? await item.loadTransferable(type: Data.self),
                       let image = UIImage(data: data),
                       let prepared = MediaCache.prepareForBoard(image),
-                      let fileName = store.saveMedia(data: prepared, fileExtension: "jpg")
+                      let fileName = store.saveMedia(data: prepared.daten,
+                                                     fileExtension: prepared.endung)
                 else { return }
                 content.fileName = fileName
                 photo = nil
@@ -398,7 +399,8 @@ private struct ImageSettings: View {
             guard let data = try? Data(contentsOf: url),
                   let image = UIImage(data: data),
                   let prepared = MediaCache.prepareForBoard(image),
-                  let fileName = store.saveMedia(data: prepared, fileExtension: "jpg")
+                  let fileName = store.saveMedia(data: prepared.daten,
+                                                 fileExtension: prepared.endung)
             else { return }
             content.fileName = fileName
         }

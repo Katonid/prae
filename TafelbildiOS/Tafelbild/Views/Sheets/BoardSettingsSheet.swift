@@ -342,7 +342,8 @@ struct BoardSettingsSheet: View {
                     guard let data = try? await item.loadTransferable(type: Data.self),
                           let image = UIImage(data: data),
                           let prepared = MediaCache.prepareForBoard(image),
-                          let fileName = store.saveMedia(data: prepared, fileExtension: "jpg")
+                          let fileName = store.saveMedia(data: prepared.daten,
+                                                         fileExtension: prepared.endung)
                     else { return }
                     apply(.image(fileName, dim))
                     photo = nil
@@ -376,7 +377,8 @@ struct BoardSettingsSheet: View {
             return
         }
         guard let fertig = MediaCache.prepareForBoard(bild),
-              let dateiname = store.saveMedia(data: fertig, fileExtension: "jpg")
+              let dateiname = store.saveMedia(data: fertig.daten,
+                                              fileExtension: fertig.endung)
         else { return }
         apply(.image(dateiname, dim))
     }
