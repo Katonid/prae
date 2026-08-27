@@ -26,6 +26,9 @@ struct WidgetHostView: View {
     /// beider Finger wandert), und das Element liefe sonst davon.
     @State private var aufziehen = false
 
+    /// Höhe der Tafelfläche — sie hängt am Format der Tafel (16:10/16:9/4:3).
+    private var tafelHoehe: Double { store.board(boardID)?.hoehe ?? Layout.canvasHeight }
+
     private var editing: Bool { store.editing && editable }
     private var selected: Bool { store.selectedWidgetID == widget.id }
 
@@ -237,7 +240,7 @@ struct WidgetHostView: View {
                 store.updateWidget(widget.id, in: boardID, transient: true) { moved in
                     moved.x = Double(start.x) + dx
                     moved.y = Double(start.y) + dy
-                    moved.clampToCanvas()
+                    moved.clampToCanvas(hoehe: tafelHoehe)
                 }
             }
             .onEnded { _ in
@@ -245,7 +248,7 @@ struct WidgetHostView: View {
                 store.updateWidget(widget.id, in: boardID, transient: true) { moved in
                     moved.x = (moved.x / Layout.grid).rounded() * Layout.grid
                     moved.y = (moved.y / Layout.grid).rounded() * Layout.grid
-                    moved.clampToCanvas()
+                    moved.clampToCanvas(hoehe: tafelHoehe)
                 }
                 store.commitLayout(boardID: boardID)
                 Haptics.tap()
@@ -277,10 +280,10 @@ struct WidgetHostView: View {
                     item.width = spanne(Double(start.width) * faktor,
                                         klein: Layout.minWidth, gross: Layout.canvasWidth)
                     item.height = spanne(Double(start.height) * faktor,
-                                         klein: Layout.minHeight, gross: Layout.canvasHeight)
+                                         klein: Layout.minHeight, gross: tafelHoehe)
                     item.x = mitteX - item.width / 2
                     item.y = mitteY - item.height / 2
-                    item.clampToCanvas()
+                    item.clampToCanvas(hoehe: tafelHoehe)
                 }
             }
             .onEnded { _ in
@@ -294,7 +297,7 @@ struct WidgetHostView: View {
                     item.height = (item.height / Layout.grid).rounded() * Layout.grid
                     item.x = (item.x / Layout.grid).rounded() * Layout.grid
                     item.y = (item.y / Layout.grid).rounded() * Layout.grid
-                    item.clampToCanvas()
+                    item.clampToCanvas(hoehe: tafelHoehe)
                 }
                 store.commitLayout(boardID: boardID)
                 Haptics.tap()

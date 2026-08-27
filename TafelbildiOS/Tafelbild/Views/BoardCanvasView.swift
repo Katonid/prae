@@ -40,6 +40,9 @@ struct BoardCanvasView: View {
 
     private var style: BoardStyle { BoardStyle(board: board, editing: store.editing) }
 
+    /// Höhe der Tafelfläche — sie hängt am gewählten Format (16:10/16:9/4:3).
+    private var hoehe: Double { board.hoehe }
+
     var body: some View {
         GeometryReader { geo in
             let passend = anpassung(geo)
@@ -85,8 +88,8 @@ struct BoardCanvasView: View {
 
     /// Maßstab, bei dem die ganze Tafel ins Bild passt (Web: `fit`).
     private func anpassung(_ geo: GeometryProxy) -> Double {
-        min(geo.size.width / Layout.canvas.width,
-            geo.size.height / Layout.canvas.height)
+        min(geo.size.width / Layout.canvasWidth,
+            geo.size.height / hoehe)
     }
 
     /// Ein Finger auf der freien Fläche verschiebt, zwei Finger zoomen.
@@ -130,8 +133,8 @@ struct BoardCanvasView: View {
     /// Der Ausschnitt darf nicht über den Tafelrand hinauslaufen.
     private func begrenze(_ geo: GeometryProxy) {
         let scale = anpassung(geo) * zoom
-        let ueberX = max(0, (Layout.canvas.width * scale - geo.size.width) / 2)
-        let ueberY = max(0, (Layout.canvas.height * scale - geo.size.height) / 2)
+        let ueberX = max(0, (Layout.canvasWidth * scale - geo.size.width) / 2)
+        let ueberY = max(0, (hoehe * scale - geo.size.height) / 2)
         panX = min(max(panX, -ueberX), ueberX)
         panY = min(max(panY, -ueberY), ueberY)
     }
@@ -190,7 +193,7 @@ struct BoardCanvasView: View {
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
                     .strokeBorder(Color.white.opacity(0.18),
                                   style: StrokeStyle(lineWidth: 2 / scale, dash: [10 / scale, 8 / scale]))
-                    .frame(width: Layout.canvas.width, height: Layout.canvas.height)
+                    .frame(width: Layout.canvasWidth, height: hoehe)
             }
 
             ForEach(board.widgets(auf: sichtbareSeite, mitVersteckten: store.editing)) { widget in
@@ -204,7 +207,7 @@ struct BoardCanvasView: View {
             DrawingLayerView(drawing: drawingBinding, active: store.drawing,
                              pencilOnly: store.pencilOnly,
                              dunklerGrund: board.background.wirktDunkel)
-                .frame(width: Layout.canvas.width, height: Layout.canvas.height)
+                .frame(width: Layout.canvasWidth, height: hoehe)
                 .allowsHitTesting(store.drawing)
 
             // Auf breiten Bildschirmen schwebt die Leiste über dem Element;
@@ -216,9 +219,9 @@ struct BoardCanvasView: View {
                                 mindestKante: schmal ? Self.anfasserPlatz : 0)
             }
         }
-        .frame(width: Layout.canvas.width, height: Layout.canvas.height, alignment: .topLeading)
+        .frame(width: Layout.canvasWidth, height: hoehe, alignment: .topLeading)
         .scaleEffect(scale)
-        .frame(width: Layout.canvas.width * scale, height: Layout.canvas.height * scale)
+        .frame(width: Layout.canvasWidth * scale, height: hoehe * scale)
     }
 
     private var schmal: Bool { horizontalSizeClass == .compact }
@@ -311,7 +314,7 @@ private struct SelectionChrome: View {
                     }
                 }
             }
-            .frame(width: Layout.canvas.width, height: Layout.canvas.height)
+            .frame(width: Layout.canvasWidth, height: hoehe)
         }
     }
 
@@ -400,7 +403,7 @@ private struct SelectionChrome: View {
                     store.updateWidget(widget.id, in: boardID) { item in
                         item.width = item.kind.defaultSize.width
                         item.height = item.kind.defaultSize.height
-                        item.clampToCanvas()
+                        item.clampToCanvas(hoehe: hoehe)
                     }
                 } label: {
                     Label("Standardgröße", systemImage: "arrow.up.left.and.arrow.down.right")
@@ -436,6 +439,9 @@ private struct SelectionChrome: View {
     /// Die Tafel, auf der das Element liegt — für die Vorgaberegeln.
     private var tafel: Board? { store.board(boardID) }
 
+    /// Höhe der Tafelfläche (16:10, 16:9 oder 4:3).
+    private var hoehe: Double { tafel?.hoehe ?? Layout.canvasHeight }
+
     /// Wie das Element gerade steht (Tafelregel plus eigene Wahl).
     private var kartenstil: WidgetKarte {
         widget.karte.gilt(tafel: tafel?.frames.applies(editing: store.editing) ?? true)
@@ -470,10 +476,10 @@ private struct SelectionChrome: View {
             let centerX = item.x + item.width / 2
             let centerY = item.y + item.height / 2
             item.width = min(max(item.width * amount, Layout.minWidth), Layout.canvasWidth)
-            item.height = min(max(item.height * amount, Layout.minHeight), Layout.canvasHeight)
+            item.height = min(max(item.height * amount, Layout.minHeight), hoehe)
             item.x = centerX - item.width / 2
             item.y = centerY - item.height / 2
-            item.clampToCanvas()
+            item.clampToCanvas(hoehe: hoehe)
         }
         Haptics.tap()
     }
@@ -553,9 +559,9 @@ private struct SelectionChrome: View {
             item.height = bottom - item.y
         } else {
             item.y = top
-            item.height = max(Layout.minHeight, min(bottom + dy, Layout.canvasHeight) - top)
+            item.height = max(Layout.minHeight, min(bottom + dy, hoehe) - top)
         }
-        item.clampToCanvas()
+        item.clampToCanvas(hoehe: hoehe)
     }
 }
 

@@ -71,6 +71,7 @@ WAS DRIN IST
 FÜR DEN ALLTAG GEBAUT
 
 Mehrere Tafeln, mehrere Seiten je Tafel — eine je Stunde oder je Fach.
+Das Format der Tafel passt sich dem Beamer an: 16:10, 16:9 oder 4:3.
 Hintergründe, Farbverläufe mit eigenen Farben, Schriften mit dem runden a
 der Grundschulschrift. Alles lässt sich so groß stellen, dass es aus der
 letzten Reihe zu lesen ist.

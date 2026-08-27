@@ -13,6 +13,8 @@ enum Layout {
     /// Feste Arbeitsfläche einer Tafel (16:10) — als Double für die
     /// Modellrechnung und als CGSize für die Ansicht.
     static let canvasWidth: Double = 1600
+    /// Höhe der Vorgabe 16:10. Wo eine Tafel bekannt ist, gilt `Board.hoehe`;
+    /// dieser Wert ist der Rückfall für Stellen ohne Tafel.
     static let canvasHeight: Double = 1000
     static let canvas = CGSize(width: canvasWidth, height: canvasHeight)
     /// Fangraster beim Verschieben und beim Ändern der Größe.
@@ -516,6 +518,49 @@ struct NamePickerContent: Codable, Equatable {
     }
 }
 
+/// Seitenverhältnis der Tafelfläche.
+///
+/// Die **Breite bleibt bei 1600 Punkten**, nur die Höhe ändert sich. Dadurch
+/// behalten alle Elemente ihre Lage, wenn das Format gewechselt wird — nur
+/// wer unten überstand, rückt herein.
+enum Tafelformat: String, Codable, CaseIterable, Identifiable {
+    /// 16:10 — die bisherige Fläche.
+    case breit
+    /// 16:9 — das Format der meisten Beamer und Bildschirme.
+    case kino
+    /// 4:3 — ältere Beamer und viele fest verbaute Tafeln.
+    case klassisch
+
+    var id: String { rawValue }
+
+    var hoehe: Double {
+        switch self {
+        case .breit:     return 1000
+        case .kino:      return 900
+        case .klassisch: return 1200
+        }
+    }
+
+    var title: String {
+        switch self {
+        case .breit:     return "16:10"
+        case .kino:      return "16:9"
+        case .klassisch: return "4:3"
+        }
+    }
+
+    var erklaerung: String {
+        switch self {
+        case .breit:
+            return "Etwas höher als ein Beamerbild — die bisherige Fläche."
+        case .kino:
+            return "Das Format der meisten Beamer und Bildschirme. Am Beamer bleiben damit keine Balken."
+        case .klassisch:
+            return "Hoch und kompakt — für ältere Beamer und viele fest verbaute Tafeln."
+        }
+    }
+}
+
 /// Wie die Merkmale innerhalb einer Gruppe stehen sollen.
 enum Merkmalsvorgabe: String, Codable, CaseIterable, Identifiable {
     /// Merkmale spielen keine Rolle.
@@ -998,11 +1043,11 @@ struct BoardWidget: Codable, Identifiable, Equatable {
     }
 
     /// Hält das Element vollständig auf der Tafel.
-    mutating func clampToCanvas() {
+    mutating func clampToCanvas(hoehe: Double = Layout.canvasHeight) {
         width = min(max(width, Layout.minWidth), Layout.canvasWidth)
-        height = min(max(height, Layout.minHeight), Layout.canvasHeight)
+        height = min(max(height, Layout.minHeight), hoehe)
         x = min(max(x, 0), Layout.canvasWidth - width)
-        y = min(max(y, 0), Layout.canvasHeight - height)
+        y = min(max(y, 0), hoehe - height)
     }
 }
 
@@ -1163,6 +1208,8 @@ struct Board: Codable, Identifiable, Equatable {
     /// Akzentfarbe als Verlauf (aus) oder als eine Farbe (an → aus).
     var gradient: Bool = true
     var cardStyle: CardStyle = .glass
+    /// Seitenverhältnis der Tafelfläche.
+    var format: Tafelformat = .breit
     /// Wann Rahmen um die Elemente zu sehen sind.
     var frames: ShowRule = .always
     /// Wann Überschriften und Hinweise in den Elementen zu sehen sind.
@@ -1320,6 +1367,14 @@ struct Board: Codable, Identifiable, Equatable {
     var hatMehrereSeiten: Bool { pages.count > 1 }
 
     /// Kennung der ersten Seite. Elemente ohne eigene Angabe gehören dorthin.
+    /// Höhe der Tafelfläche in Tafelpunkten. Die Breite ist immer 1600.
+    var hoehe: Double { format.hoehe }
+
+    /// Nach einem Formatwechsel: alles wieder auf die Fläche holen.
+    mutating func passeElementeAn() {
+        for index in widgets.indices { widgets[index].clampToCanvas(hoehe: hoehe) }
+    }
+
     var ersteSeitenID: String { pages.first?.id ?? "" }
 
     /// Gehört das Element auf diese Seite? Ein leeres `pageID` zählt zur
@@ -1537,7 +1592,8 @@ enum StarterContent {
 
 extension Board {
     enum BoardKeys: String, CodingKey {
-        case id, name, emoji, background, accent, accentVon, accentBis, gradient, cardStyle, frames, labels
+        case id, name, emoji, background, accent, accentVon, accentBis, gradient, cardStyle
+        case format, frames, labels
         case zuletztVon
         case widgets, pages, drawing, members, ownerUserID
         case memberUserIDs, joinCode, owner, createdAtMs, updatedAtMs, deleted
@@ -1557,6 +1613,7 @@ extension Board {
         accentBis = c.wert(.accentBis, "")
         gradient = c.wert(.gradient, true)
         cardStyle = c.wert(.cardStyle, CardStyle.glass)
+        format = c.wert(.format, Tafelformat.breit)
         frames = c.wert(.frames, ShowRule.always)
         labels = c.wert(.labels, ShowRule.always)
         widgets = c.wert(.widgets, [BoardWidget]())

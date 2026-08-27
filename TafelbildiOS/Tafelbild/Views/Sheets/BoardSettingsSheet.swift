@@ -169,6 +169,23 @@ struct BoardSettingsSheet: View {
                 }
 
                 Section {
+                    Picker("Format", selection: Binding(
+                        get: { board.format },
+                        set: { wert in store.setzeFormat(wert, boardID: board.id) }
+                    )) {
+                        ForEach(Tafelformat.allCases) { Text($0.title).tag($0) }
+                    }
+                    .pickerStyle(.segmented)
+                } header: {
+                    Text("Format der Tafel")
+                } footer: {
+                    Text(board.format.erklaerung
+                         + " Die Breite bleibt gleich, nur die Höhe ändert sich — die "
+                         + "Elemente behalten also ihre Lage. Wer beim Wechsel auf ein "
+                         + "flacheres Format unten überstand, rückt herein.")
+                }
+
+                Section {
                     Picker("Karten", selection: Binding(
                         get: { board.cardStyle },
                         set: { value in
