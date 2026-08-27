@@ -34,6 +34,35 @@ der Eintrag dagegen schon, lädt Distribute einfach in ihn hinein.
 - **Spielansicht** — Anzeigetafel, Torfolge (soweit der Dienst sie
   hergibt), Halbzeitstand und Eckdaten.
 
+## Mitteilungen
+
+Pro Begegnung freischaltbar (Glocke in der Spielansicht) oder gleich für eine
+ganze Liga. Welche Ereignisse gemeldet werden, ist einzeln einstellbar:
+Anpfiff, Tor, Platzverweis, Halbzeit, Abpfiff — dazu eine Erinnerung vor dem
+Anpfiff mit wählbarem Vorlauf.
+
+**Es sind örtliche Mitteilungen, keine echten Push-Nachrichten.** Die App hat
+keinen Server; sie fragt football-data.org mit dem Schlüssel des Nutzers.
+Mitteilungen entstehen deshalb dort, wo die App den Spielstand vergleicht:
+
+| Lage | Wie schnell |
+| --- | --- |
+| Ticker-Ansicht offen | alle 45 Sekunden — praktisch sofort |
+| App geschlossen | wenn iOS eine Hintergrund-Auffrischung gewährt: eine Viertelstunde bis mehrere Stunden |
+| aus dem App-Umschalter geschoben, Stromsparmodus | gar nicht |
+| Erinnerung vor dem Anpfiff | auf die Minute — iOS stellt den Wecker, die Anstoßzeit steht vorher fest |
+
+Die Rechnung selbst steckt im `Tickerwerk` und läuft im Vorder- wie im
+Hintergrund gleich; verglichen wird gegen den gesicherten `Standspeicher`.
+Weil die Kennung einer Mitteilung die der Tickermeldung ist, kann dasselbe
+Ereignis nicht zweimal auf dem Sperrbildschirm landen.
+
+Platzverweise sind vorbereitet, kommen aber nur an, wenn der Dienst Karten
+mitschickt — der freie Zugang tut das in der Regel nicht.
+
+`Config/Info.plist` trägt dafür `BGTaskSchedulerPermittedIdentifiers` (Kennung
+muss zu `Hintergrundpflege.kennung` passen) und `UIBackgroundModes = fetch`.
+
 ## Woher die Daten kommen
 
 Die App fragt **football-data.org** (Fassung v4). Der kostenlose Zugang
@@ -72,6 +101,10 @@ Anstoss/
     FussballDienst.swift    Zugriff auf football-data.org v4 + Bremse
     Datenhaltung.swift      Zwischenspeicher, Ticker-Erkennung, Abruf
     Schluesselbund.swift    Zugangsschlüssel im Keychain
+    Meldungen.swift         Wunsch: Arten, Ligen, einzelne Spiele
+    Benachrichtiger.swift   örtliche Mitteilungen und Anpfiff-Wecker
+    Tickerwerk.swift        Standvergleich + Standspeicher (geteilt)
+    Hintergrundpflege.swift Nachsehen, während die App geschlossen ist
     Beispieldaten.swift     erfundene Daten für den Beispielmodus
   Views/
     Startsicht.swift        drei Bereiche (Ticker, Ligen, Einstellungen)
@@ -82,6 +115,7 @@ Anstoss/
     Spielsicht.swift        einzelne Begegnung
     Spielzeile.swift        Begegnung als Listenzeile
     Willkommenssicht.swift  Einrichtung beim ersten Start
+    Meldungssicht.swift     Einstellungen für Mitteilungen
     Einstellungssicht.swift Schlüssel, Beispielmodus, Auskunft
     Gestaltung.swift        Wappen, Ligazeichen, Formkurve
 ```
@@ -91,5 +125,18 @@ bearbeiten.
 
 ## Versionierung
 
-`MARKETING_VERSION` steht an zwei Stellen im pbxproj (Debug + Release).
-Jede Arbeitseinheit hebt die Patch-Nummer um +1 an.
+`MARKETING_VERSION` und `CURRENT_PROJECT_VERSION` stehen an je zwei
+Stellen im pbxproj (Debug + Release); es gibt keine Skript-Bauphase,
+beide Werte werden im Repo gepflegt. **Jede Arbeitseinheit hebt beide
+um +1 an** — Fassung und Build-Nummer. Zählung ab 08/2026: 1.0.4
+(Build 2), dann 1.0.5 (Build 3) usw.
+
+Hintergrund: App Store Connect nimmt keinen Build an, dessen Nummer
+nicht höher ist als die des vorherigen.
+
+## Export-Compliance
+
+`INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO` steht in beiden
+Konfigurationen. Die App bringt keine eigene Verschlüsselung mit; ohne
+diesen Eintrag fragt App Store Connect bei jedem TestFlight-Build
+danach. Nicht entfernen.

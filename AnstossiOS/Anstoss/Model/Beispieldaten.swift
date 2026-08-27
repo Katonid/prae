@@ -155,7 +155,8 @@ enum Beispieldaten {
                          toreGast: sichtbarGast,
                          halbzeitHeim: zustand == .geplant ? nil : max(0, toreHeim - toreHeim / 2),
                          halbzeitGast: zustand == .geplant ? nil : toreGast / 2,
-                         tore: torliste)
+                         tore: torliste,
+                         karten: [])
         }
     }
 

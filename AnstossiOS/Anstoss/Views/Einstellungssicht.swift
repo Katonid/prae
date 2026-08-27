@@ -4,6 +4,7 @@ import SwiftUI
 /// Daten.
 struct Einstellungssicht: View {
     @EnvironmentObject private var daten: Datenhaltung
+    @EnvironmentObject private var meldungen: Meldungsverwaltung
     @State private var eingabe = ""
     @State private var loeschfrage = false
 
@@ -11,11 +12,17 @@ struct Einstellungssicht: View {
         NavigationStack {
             Form {
                 zugang
+                mitteilungen
                 anzeige
                 herkunft
                 ueber
             }
             .navigationTitle("Einstellungen")
+            .navigationDestination(for: Ziel.self) { ziel in
+                switch ziel {
+                case .mitteilungen: Meldungssicht()
+                }
+            }
         }
     }
 
@@ -74,6 +81,37 @@ struct Einstellungssicht: View {
         let text = daten.schluessel
         guard text.count > 6 else { return String(repeating: "•", count: max(text.count, 4)) }
         return String(text.prefix(4)) + String(repeating: "•", count: 6) + String(text.suffix(2))
+    }
+
+    // MARK: Mitteilungen
+
+    enum Ziel: Hashable {
+        case mitteilungen
+    }
+
+    private var mitteilungen: some View {
+        Section {
+            NavigationLink(value: Ziel.mitteilungen) {
+                HStack {
+                    Label("Mitteilungen", systemImage: "bell.badge")
+                    Spacer()
+                    Text(mitteilungsstand)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        } footer: {
+            Text("Welche Ereignisse gemeldet werden und für welche Spiele. Die Glocke für eine einzelne Begegnung sitzt in der Spielansicht.")
+        }
+    }
+
+    private var mitteilungsstand: String {
+        let wunsch = meldungen.wunsch
+        if wunsch.istStumm { return "aus" }
+        var teile: [String] = []
+        if !wunsch.ganzeLigen.isEmpty { teile.append("\(wunsch.ganzeLigen.count) Ligen") }
+        if !wunsch.einzelneSpiele.isEmpty { teile.append("\(wunsch.einzelneSpiele.count) Spiele") }
+        return teile.joined(separator: ", ")
     }
 
     // MARK: Anzeige

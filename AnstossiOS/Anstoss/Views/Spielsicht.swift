@@ -4,6 +4,7 @@ import SwiftUI
 struct Spielsicht: View {
     let spiel: Spiel
     @EnvironmentObject private var daten: Datenhaltung
+    @EnvironmentObject private var meldungen: Meldungsverwaltung
     @State private var geladen: Spiel?
 
     private var gezeigt: Spiel { geladen ?? spiel }
@@ -12,6 +13,9 @@ struct Spielsicht: View {
         ScrollView {
             VStack(spacing: 18) {
                 anzeigetafel
+                if freigeschaltet {
+                    freigabehinweis
+                }
                 if !gezeigt.tore.isEmpty {
                     torfolge
                 }
@@ -22,11 +26,42 @@ struct Spielsicht: View {
         .background(Color(.systemGroupedBackground))
         .navigationTitle("\(spiel.heim.zeichen) – \(spiel.gast.zeichen)")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                glocke
+            }
+        }
         .task {
             if let frisch = await daten.spielNachladen(spiel) {
                 geladen = frisch
             }
         }
+    }
+
+    // MARK: Freischalten
+
+    /// Schaltet Mitteilungen für genau diese Begegnung frei.
+    private var glocke: some View {
+        Button {
+            meldungen.umschalten(spiel)
+            // Merken, damit die Einstellungen später einen Namen zur
+            // Kennung haben und der Anpfiff-Wecker gestellt werden kann.
+            Standspeicher.merken(spiel)
+            Task {
+                if meldungen.erlaubnis == .notDetermined {
+                    await meldungen.erlaubnisAnfragen()
+                }
+                await daten.erinnerungenPflegen(wunsch: meldungen.wunsch)
+            }
+        } label: {
+            Label(freigeschaltet ? "Mitteilungen aus" : "Mitteilungen an",
+                  systemImage: freigeschaltet ? "bell.fill" : "bell")
+        }
+        .tint(freigeschaltet ? Gestaltung.rasen : .secondary)
+    }
+
+    private var freigeschaltet: Bool {
+        meldungen.istFreigeschaltet(spiel)
     }
 
     // MARK: Tafel
@@ -97,6 +132,24 @@ struct Spielsicht: View {
         case .abgesagt:
             return "abgesagt"
         }
+    }
+
+    private var freigabehinweis: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "bell.fill")
+                .foregroundStyle(Gestaltung.rasen)
+            Text(meldungen.wunsch.arten.isEmpty
+                 ? "Freigeschaltet — aber unter Mitteilungen ist keine Art angehakt."
+                 : "Freigeschaltet: " + meldungen.wunsch.arten
+                    .sorted { $0.rawValue < $1.rawValue }
+                    .map(\.name)
+                    .joined(separator: ", "))
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+            Spacer(minLength: 0)
+        }
+        .padding()
+        .background(Gestaltung.rasen.opacity(0.10), in: RoundedRectangle(cornerRadius: Gestaltung.ecke))
     }
 
     // MARK: Tore
