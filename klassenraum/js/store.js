@@ -361,6 +361,9 @@ function normalizeWidget(rawWidget) {
   const widget = migrateWidgetState(rawWidget);
   return {
     id: widget.id || uid('w'),
+    // Herkunfts-Kennung für per Code gekoppelte Elemente (Auslosung/Klang):
+    // darüber finden sich dasselbe Feld auf verschiedenen Geräten wieder.
+    originId: typeof widget.originId === 'string' && widget.originId ? widget.originId : undefined,
     type: widget.type,
     x: Number.isFinite(widget.x) ? widget.x : 100,
     y: Number.isFinite(widget.y) ? widget.y : 100,

@@ -171,8 +171,11 @@ export async function publishBoard(board, existing = {}) {
     owner: account ? account.uid : null,
     ownerName: (account && account.name) || existing.ownerName || '',
   };
+  // PATCH statt PUT: Unter shares/<CODE>/state liegen die gekoppelten
+  // Auslosungs-Stände aller Geräte — die dürfen beim Senden nicht mit
+  // weggewischt werden.
   await dbRequest(`${ROOT}/shares/${code}`, {
-    method: 'PUT',
+    method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   });
@@ -181,6 +184,16 @@ export async function publishBoard(board, existing = {}) {
 
 export async function fetchShare(code) {
   return dbRequest(`${ROOT}/shares/${normalizeCode(code)}`);
+}
+
+/** Gekoppelten Elementstand ablegen: shares/<CODE>/state/<Herkunfts-Kennung>. */
+export async function putShareState(code, originId, record) {
+  await initCloud();
+  return dbRequest(`${ROOT}/shares/${normalizeCode(code)}/state/${originId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(record),
+  });
 }
 
 export async function removeShare(code) {
