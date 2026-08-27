@@ -6,7 +6,7 @@ import { h, clear, pickRandom, parseNames, beep, onTap, confetti, reducedMotion,
 import { icon } from '../icons.js';
 import { getState, getList, on as onStore, addList } from '../store.js';
 import { section, field, toggleRow, button, buttonRow, toast } from '../ui.js';
-import { SPIN_SOUNDS, spinSoundById, spinTick, spinEnd, previewSpinSound } from '../sfx.js';
+import { SPIN_SOUNDS, spinSoundById, spinTick, spinEnd, previewSpinSound, wheelRun, countUp, countDown } from '../sfx.js';
 
 // Feines Raster: viele kleine Kacheln geben pro Tipp wenig preis.
 const MOSAIC_COLS = 28;
@@ -644,8 +644,9 @@ export default {
           }
           if (zaehlen) {
             // Zählen statt neu auslosen — z. B. Punkte oder Meldungen.
+            // Klingt wie eine Registrierkasse; „Ohne Ton" am Element gilt auch hier.
             state.tally[name] = (Number(state.tally[name]) || 0) + 1;
-            beep({ frequency: 760, duration: 0.07, gain: 0.08 });
+            if (state.spinSound !== 'aus') countUp();
             ctx.save();
             render();
           } else if (checklist) {
@@ -678,7 +679,7 @@ export default {
               longFired = true;
               if (current <= 1) delete state.tally[name];
               else state.tally[name] = current - 1;
-              beep({ frequency: 420, duration: 0.07, gain: 0.08 });
+              if (state.spinSound !== 'aus') countDown();
               ctx.save();
               // Kein Neuaufbau mitten in der Berührung — sonst landet der
               // folgende Klick auf einem frischen Kärtchen und zählt +1.
@@ -705,11 +706,15 @@ export default {
       // kleinen Stups und Klang stehen. Ein Tipp beendet alles sofort.
       if (animateOk && pendingCards.length) {
         dealing = true;
-        const settle = (entry, stepIndex) => {
+        const settle = (entry, stepIndex, mitKlang = true) => {
           entry.card.classList.remove('is-shuffling');
           entry.card.classList.add('is-dealt');
           entry.card.querySelector('.w-random__gcard-text').textContent = entry.name;
-          spinTick(sound, pendingCards.length > 1 ? stepIndex / (pendingCards.length - 1) : 1);
+          // Das Rad bekommt seinen Klang als vorausgeplanten Ratschenlauf,
+          // dessen letzter Klick genau auf das Einrasten fällt (s. unten).
+          if (mitKlang && sound !== 'rad') {
+            spinTick(sound, pendingCards.length > 1 ? stepIndex / (pendingCards.length - 1) : 1);
+          }
         };
         const wirbel = setInterval(() => {
           for (const entry of pendingCards) {
@@ -728,6 +733,12 @@ export default {
         };
         finishDealNow = finishAll;
         pendingCards.forEach((entry, stepIndex) => {
+          const settleAt = (stepIndex + 1) * 1000;
+          if (sound === 'rad') {
+            // Ratschenlauf: startet kurz vor dem Einrasten, der letzte Klick
+            // fällt mit dem Bild zusammen (Vorausplanen statt Bildschleife).
+            dealTimers.push(setTimeout(() => wheelRun(0.32), settleAt - 320));
+          }
           dealTimers.push(setTimeout(() => {
             settle(entry, stepIndex);
             if (stepIndex === pendingCards.length - 1) {
@@ -737,7 +748,7 @@ export default {
               spinEnd(sound);
               if (animateFrom === 0) confetti(display);
             }
-          }, (stepIndex + 1) * 1000));
+          }, settleAt));
         });
       }
     }

@@ -9,7 +9,7 @@ import {
   renamePage, movePageBy, uniqueBoardName,
   BOARD_FORMATS, setBoardFormat,
 } from './store.js';
-import { transferPage } from './transfer.js';
+import { transferPage, clipboardWidget, pasteWidgetFromClipboard } from './transfer.js';
 import { WIDGETS } from './widgets/index.js';
 import {
   initBoard, renderBoard, configureBoard, addWidgetOfType, select, updateScale,
@@ -85,8 +85,30 @@ function toggleMode() {
   applyMode(getMode() === 'edit' ? 'use' : 'edit');
 }
 
+let dockHasPaste = false;
+
 function renderDock() {
   clear(dom.dock);
+  // Zwischenablage: Ist ein Element gemerkt, steht „Einfügen" ganz vorn —
+  // auf jeder Seite und jeder Tafel (aus der Tafelbild-App übernommen).
+  const clip = clipboardWidget();
+  dockHasPaste = Boolean(clip);
+  if (clip) {
+    const definition = WIDGETS.find((entry) => entry.type === clip.widget.type);
+    dom.dock.appendChild(h('button', {
+      class: 'dock__item dock__item--paste',
+      'data-type': 'einfuegen',
+      title: `Gemerktes Element einfügen (${definition ? definition.label : 'Element'})`,
+      onclick: async () => {
+        const widget = await pasteWidgetFromClipboard();
+        if (!widget) return;
+        renderBoard();
+        select(widget.id);
+      },
+    },
+    h('span', { class: 'dock__icon', html: icon('download', 26) }),
+    h('span', { class: 'dock__label' }, 'Einfügen')));
+  }
   for (const definition of WIDGETS) {
     dom.dock.appendChild(h('button', {
       class: 'dock__item',
@@ -1012,6 +1034,8 @@ function wireChrome() {
   onStore('change', () => {
     renderTopbar();
     renderPager();
+    // „Einfügen" in der Elementleiste erscheint/verschwindet mit der Zwischenablage.
+    if (Boolean(clipboardWidget()) !== dockHasPaste) renderDock();
   });
 }
 
