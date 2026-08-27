@@ -319,6 +319,8 @@ function normalizeState(loaded) {
     names: Array.isArray(list.names) ? list.names : [],
     // Pausierte Namen (z. B. krank) bleiben in der Liste, werden aber nicht gezogen.
     paused: Array.isArray(list.paused) ? list.paused : [],
+    // Merkmale je Name (z. B. „J“/„M“) — fürs Mischen beim Gruppen-Auslosen.
+    marks: list.marks && typeof list.marks === 'object' ? list.marks : {},
     updatedAt: list.updatedAt || Date.now(),
   }));
   return next;
@@ -593,6 +595,7 @@ export function upsertList(raw) {
     name: raw.name || 'Liste',
     names: Array.isArray(raw.names) ? raw.names : [],
     paused: Array.isArray(raw.paused) ? raw.paused : [],
+    marks: raw.marks && typeof raw.marks === 'object' ? raw.marks : {},
     updatedAt: raw.updatedAt || Date.now(),
   };
   const index = state.lists.findIndex((list) => list.id === clean.id);
