@@ -395,6 +395,8 @@ export async function loadState() {
   }
   freshStart = !loaded;
   state = normalizeState(loaded);
+  // Altbestand aufräumen: gleichnamige Tafeln deterministisch unterscheiden.
+  enforceUniqueBoardNames();
   ready = true;
   emit('loaded', state);
   return state;
@@ -403,6 +405,55 @@ export async function loadState() {
 /** Lag beim Start nichts im Speicher? (Gerät neu oder Speicher geleert.) */
 export function isFreshStart() {
   return freshStart;
+}
+
+// Wurde in dieser Sitzung schon inhaltlich gearbeitet? (Unterscheidet ein
+// unberührtes frisches Gerät von einem, auf dem bereits etwas entstand.)
+let contentTouched = false;
+
+export function boardsTouched() {
+  return contentTouched;
+}
+
+/** Eindeutigen Tafel-Namen finden — hängt notfalls „(2)", „(3)" … an. */
+export function uniqueBoardName(base, ignoreId = null) {
+  const wanted = String(base || '').trim() || 'Klassenraum';
+  const taken = (name) => state.boards.some((board) => board.id !== ignoreId && board.name === name);
+  if (!taken(wanted)) return wanted;
+  let n = 2;
+  while (taken(`${wanted} (${n})`)) n += 1;
+  return `${wanted} (${n})`;
+}
+
+/**
+ * Gleichnamige Tafeln deterministisch auseinanderhalten: je Namensgruppe
+ * behält die Tafel mit der kleinsten Kennung den Namen, die übrigen bekommen
+ * „(2)", „(3)" … — auf jedem Gerät dieselbe Zuordnung, bewusst OHNE neuen
+ * Zeitstempel (reine Aufbereitung, kein Abgleich-Ping-Pong).
+ */
+export function enforceUniqueBoardNames() {
+  const groups = new Map();
+  for (const board of state.boards) {
+    const key = (board.name || '').trim() || 'Klassenraum';
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(board);
+  }
+  let changed = false;
+  for (const [name, boards] of groups) {
+    if (boards.length < 2) continue;
+    const sorted = boards.slice().sort((a, b) => (a.id < b.id ? -1 : 1));
+    for (let index = 1; index < sorted.length; index += 1) {
+      let n = index + 1;
+      let candidate = `${name} (${n})`;
+      while (state.boards.some((other) => other !== sorted[index] && other.name === candidate)) {
+        n += 1;
+        candidate = `${name} (${n})`;
+      }
+      sorted[index].name = candidate;
+      changed = true;
+    }
+  }
+  return changed;
 }
 
 async function persist() {
@@ -424,7 +475,10 @@ const persistSoon = debounce(persist, 400);
 /** Änderungen melden: markiert das aktive Board als geändert und speichert verzögert. */
 export function touch(options = {}) {
   const board = getActiveBoard();
-  if (board && options.board !== false) board.updatedAt = Date.now();
+  if (board && options.board !== false) {
+    board.updatedAt = Date.now();
+    contentTouched = true;
+  }
   persistSoon();
   emit('change', { reason: options.reason || 'update' });
 }
@@ -432,7 +486,10 @@ export function touch(options = {}) {
 /** Änderung an einer bestimmten Tafel melden (z. B. Umbenennen aus der Liste). */
 export function touchBoard(boardId, options = {}) {
   const board = state.boards.find((entry) => entry.id === boardId);
-  if (board) board.updatedAt = Date.now();
+  if (board) {
+    board.updatedAt = Date.now();
+    contentTouched = true;
+  }
   persistSoon();
   emit('change', { reason: options.reason || 'board-update' });
 }
@@ -531,7 +588,8 @@ export function setActiveBoard(boardId) {
 }
 
 export function addBoard(name) {
-  const board = defaultBoard(name || `Klassenraum ${state.boards.length + 1}`);
+  // Gleiche Namen sind tabu — sonst lassen sich Klassenräume nicht unterscheiden.
+  const board = defaultBoard(uniqueBoardName(name || `Klassenraum ${state.boards.length + 1}`));
   state.boards.push(board);
   state.activeBoardId = board.id;
   touch({ board: false, reason: 'board-add' });
@@ -544,7 +602,7 @@ export function duplicateBoard(boardId) {
   if (!source) return null;
   const copy = JSON.parse(JSON.stringify(source));
   copy.id = uid('board');
-  copy.name = `${source.name} (Kopie)`;
+  copy.name = uniqueBoardName(`${source.name} (Kopie)`);
   copy.updatedAt = Date.now();
   const activeIndex = Math.max(0, copy.pages.findIndex((page) => page.id === copy.activePageId));
   copy.pages = copy.pages.map((page) => Object.assign({}, page, {
@@ -597,6 +655,7 @@ export function pruneTombstones(maxAgeMs = 60 * 24 * 3600 * 1000) {
 export function importBoard(board, { activate = true } = {}) {
   const clean = normalizeState({ boards: [board], activeBoardId: board.id }).boards[0];
   clean.id = uid('board');
+  clean.name = uniqueBoardName(clean.name, clean.id);
   for (const page of clean.pages) {
     page.widgets = page.widgets.map((widget) => Object.assign({}, widget, { id: uid('w') }));
   }

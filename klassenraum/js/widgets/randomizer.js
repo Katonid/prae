@@ -325,9 +325,10 @@ export default {
     const hintEl = h('div', { class: 'w-random__hint' });
     const drawnBox = h('div', { class: 'w-random__drawn', 'data-nodrag': '' });
     const groupsBox = h('div', { class: 'w-random__groups', 'data-nodrag': '' });
+    const actionRow = h('div', { class: 'w-random__actions is-hidden', 'data-nodrag': '' });
 
     nameBox.append(nameEl, maskEl);
-    display.append(nameBox, groupsBox, hintEl);
+    display.append(nameBox, groupsBox, actionRow, hintEl);
     // Bewusst ohne Knöpfe: Gezogen und aufgedeckt wird durch Tippen auf die Karte.
     el.append(head, titleEl, display, drawnBox);
 
@@ -337,6 +338,10 @@ export default {
     let unveilTimer = 0;
     let dealTimers = [];
     let dealing = false;
+    // Offene Rückfrage vor dem Neuauslosen: ab welcher Stelle, und ob es eine
+    // Berichtigung (Tipp auf einen Namen) oder eine ganz neue Auslosung ist.
+    let pendingFrom = null;
+    let pendingCorrect = false;
     // Zum Ausmessen der Schriftbreite (für das Strecken verdeckter Namen).
     const meter = document.createElement('canvas').getContext('2d');
 
@@ -426,6 +431,44 @@ export default {
       render(prefix.length);
     }
 
+    /** Knopfzeile unter den Kärtchen — wie in der Tafelbild-App. */
+    function renderActions(shown, hasNames) {
+      clear(actionRow);
+      const state = ctx.widget.state;
+      const abtn = (label, primary, run) => onTap(h('button', {
+        class: 'w-random__abtn' + (primary ? ' w-random__abtn--primary' : ''), 'data-nodrag': '',
+      }, label), run);
+      if (!hasNames || dealing) {
+        actionRow.classList.add('is-hidden');
+        return;
+      }
+      if (!shown) {
+        actionRow.append(abtn('Auslosen', true, () => drawGroupsNow(0)));
+      } else if (pendingFrom !== null) {
+        actionRow.append(
+          abtn(pendingFrom > 0 ? 'Ab hier neu auslosen' : 'Alles neu auslosen', true, () => {
+            const from = pendingFrom;
+            const correct = pendingCorrect;
+            pendingFrom = null;
+            drawGroupsNow(from, correct);
+          }),
+          abtn('Abbrechen', false, () => {
+            pendingFrom = null;
+            render();
+          }));
+      } else if (!state.locked) {
+        actionRow.append(abtn('Neu auslosen', false, () => {
+          pendingFrom = 0;
+          pendingCorrect = false;
+          render();
+        }));
+      } else {
+        actionRow.classList.add('is-hidden');
+        return;
+      }
+      actionRow.classList.remove('is-hidden');
+    }
+
     /** Haken einer Gruppe umschalten (Checklisten-Anzeige). */
     function toggleDone(groupIndex) {
       const state = ctx.widget.state;
@@ -483,10 +526,19 @@ export default {
           'data-nodrag': '',
           title: checklist ? 'Gruppe abhaken' : 'Ab hier neu auslosen (alles davor bleibt)',
         }, h('span', { class: 'w-random__gcard-text' }, name)), () => {
-          if (checklist) toggleDone(groupIndex);
-          // Tipp auf einen Namen = Berichtigung des laufenden Durchgangs.
-          else drawGroupsNow(index, true);
+          if (checklist) {
+            toggleDone(groupIndex);
+          } else if (state.locked) {
+            // Löst nur den Schutz-Hinweis samt Schloss-Wackeln aus.
+            drawGroupsNow(index, true);
+          } else {
+            // Tipp auf einen Namen = Berichtigung ab hier — erst nachfragen.
+            pendingFrom = index;
+            pendingCorrect = true;
+            render();
+          }
         });
+        if (pendingFrom !== null && index >= pendingFrom) card.classList.add('is-fading');
         if (animateOk && index >= animateFrom) {
           card.classList.add('is-waiting');
           const stepIndex = index - animateFrom;
@@ -567,10 +619,24 @@ export default {
       stepOnce(0);
     }
 
+    /** Tipp auf die Karte (nicht auf einen Namen) im Gruppen-Modus. */
+    function groupTap() {
+      const state = ctx.widget.state;
+      const shown = state.groups && state.groups.mode === state.mode && Array.isArray(state.groups.flat);
+      if (!shown || state.locked) {
+        // Erste Auslosung sofort; geschützt zeigt der Aufruf den Hinweis.
+        drawGroupsNow(0);
+        return;
+      }
+      pendingFrom = 0;
+      pendingCorrect = false;
+      render();
+    }
+
     function step() {
       const state = ctx.widget.state;
       if (isGroupMode(state)) {
-        drawGroupsNow(0);
+        groupTap();
         return;
       }
       if (!state.current || isRevealed(state, state.current)) {
@@ -752,33 +818,39 @@ export default {
       nameBox.classList.toggle('is-hidden', groupMode);
 
       if (groupMode) {
+        const shown = state.groups && state.groups.mode === state.mode && Array.isArray(state.groups.flat);
+        // Offene Rückfrage verfällt, sobald es nichts (mehr) zu fragen gibt.
+        if (pendingFrom !== null && (!shown || state.locked)) pendingFrom = null;
         renderGroups(animateFrom);
         // Ohne Kärtchen bleibt die Fläche weg — sonst schluckt sie als
         // Bedienfläche (data-nodrag) den Tipp, der auslosen soll.
         groupsBox.classList.toggle('is-hidden', groupsBox.childElementCount === 0);
         shieldName(false);
-        const shown = state.groups && state.groups.mode === state.mode && Array.isArray(state.groups.flat);
+        renderActions(shown, all.length > 0);
         if (!all.length) {
           hintEl.textContent = 'Einstellungen öffnen und Namen eintragen.';
         } else if (!shown) {
-          hintEl.textContent = armed
-            ? 'Bereit — der nächste Tipp lost aus'
-            : 'Antippen, dann nochmal tippen zum Auslosen';
+          hintEl.textContent = '';
         } else {
           const latest = Array.isArray(state.history) && state.history[0] && state.history[0].at === state.groups.at;
           if (!latest) {
             hintEl.textContent = `Frühere Auslosung: ${stampLabel(state.groups.at)}`;
+          } else if (pendingFrom !== null) {
+            hintEl.textContent = pendingFrom > 0
+              ? 'Alles ab der hellen Stelle wird neu gelost — alles davor bleibt.'
+              : 'Das ganze Ergebnis wird ersetzt.';
           } else if (state.groupView === 'abhaken') {
             hintEl.textContent = 'Tipp auf eine Gruppe hakt sie ab — z. B. wer die Aufgabe erledigt hat.';
           } else if (state.locked) {
             hintEl.textContent = 'Geschützt — zum Neuauslosen das Schloss oben öffnen.';
           } else {
-            hintEl.textContent = 'Tipp auf einen Namen lost ab dort neu — alles davor bleibt. Tipp daneben lost alles neu.';
+            hintEl.textContent = 'Tipp auf einen Namen lost ab dort neu — alles davor bleibt.';
           }
         }
         drawnBox.classList.add('is-hidden');
         return;
       }
+      actionRow.classList.add('is-hidden');
 
       groupsBox.classList.add('is-hidden');
       nameEl.classList.toggle('is-empty', !name);
@@ -849,9 +921,9 @@ export default {
       render();
     }
 
-    // Tipp neben die Kärtchen (auf die freie Fläche) lost alles neu aus.
+    // Tipp neben die Kärtchen (auf die freie Fläche) — wie ein Karten-Tipp.
     groupsBox.addEventListener('click', (event) => {
-      if (event.target === groupsBox) drawGroupsNow(0);
+      if (event.target === groupsBox) groupTap();
     });
 
     const off = onStore('lists-changed', () => render());
