@@ -588,7 +588,7 @@ final class BoardStore: ObservableObject {
         else { return }
         ablage = widget
         defaults.set(try? JSONEncoder().encode(widget), forKey: "ablageWidget")
-        showStatus("„\(ablageName)" kopiert — unten in der Leiste steht jetzt „Einfügen".")
+        showStatus("„\(ablageName)“ kopiert — unten in der Leiste steht jetzt „Einfügen“.")
     }
 
     /// Das Kopierte auf der Seite ablegen, die gerade zu sehen ist.
