@@ -185,11 +185,6 @@ struct WidgetHostView: View {
                     guard var list = store.nameList(value.listID) else { return }
                     list.entries.removeAll { $0.id == entry.id }
                     store.updateNameList(list)
-                },
-                onZiehung: { ids, vorher, ersetzt, modus, proZeile, titel in
-                    store.merkeZiehung(ids, vorher: vorher, ersetzt: ersetzt,
-                                       listID: value.listID, modus: modus,
-                                       proZeile: proZeile, titel: titel)
                 }
             )
         case .timer(let value):

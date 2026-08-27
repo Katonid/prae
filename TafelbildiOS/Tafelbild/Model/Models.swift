@@ -453,6 +453,24 @@ struct NamePickerContent: Codable, Equatable {
     var ergebnis: [String] = []
     /// Abgehakte Zeilen — die Kennung des ersten Namens der Zeile.
     var erledigt: [String] = []
+    /// Die letzten Auslosungen dieses Elements, neueste zuerst.
+    ///
+    /// Bewusst **am Element**, nicht an der Namensliste: „Sitzplätze" und
+    /// „Kinder des Tages" ziehen aus derselben Klasse, sind aber zwei
+    /// verschiedene Dinge. Lägen Archiv und Gedächtnis bei der Liste,
+    /// schwappten die Ziehungen der einen Kachel in die andere.
+    var ziehungen: [Ziehung] = []
+    /// Wie oft zwei Namen in **diesem Element** schon zusammen waren
+    /// (Schlüssel aus `Auslosung.paar`), bzw. wie oft jemand einzeln gezogen
+    /// wurde (`Auslosung.einzel`). Danach richtet sich, wen die nächste
+    /// Ziehung bevorzugt.
+    var paare: [String: Int] = [:]
+
+    /// So viele Auslosungen bleiben stehen. Danach fällt die älteste heraus:
+    /// Ein Archiv, das ewig wächst, wandert bei jedem Abgleich mit — und es
+    /// hängt jetzt an der Tafel, nicht an der Namensliste.
+    static let archivGrenze = 40
+
     /// Kennung des Archiveintrags, zu dem das aktuelle Ergebnis gehört.
     ///
     /// Solange sie steht, gilt jede weitere Auslosung ab einer Stelle als
@@ -506,6 +524,80 @@ struct NamePickerContent: Codable, Equatable {
 
     /// Schlüssel, unter dem eine Zeile als erledigt vermerkt wird.
     static func zeilenSchluessel(_ zeile: [String]) -> String { zeile.first ?? "" }
+
+    // MARK: Buchführung
+
+    /// Schreibt das Ergebnis einer Auslosung fort — Archiv und Gedächtnis.
+    ///
+    /// **Ein Vorgang, ein Eintrag.** Wer ab einer Stelle neu auslost, hat
+    /// berichtigt, nicht zweimal ausgelost: Der erste Entwurf ist nie
+    /// zustande gekommen, und weder das Archiv noch das Gedächtnis sollen
+    /// ihn kennen. Deshalb wird bei einer Berichtigung der bisherige Eintrag
+    /// ersetzt und seine Paarzählung zurückgenommen.
+    ///
+    /// - Parameters:
+    ///   - ids: das Ergebnis, das jetzt gilt. Leer heißt: Der Vorgang wird
+    ///     verworfen.
+    ///   - vorher: das Ergebnis, das dadurch abgelöst wird — es wird aus dem
+    ///     Gedächtnis herausgerechnet.
+    ///   - ersetzt: Kennung des Eintrags, der fortgeschrieben wird.
+    ///     nil = neuer Vorgang.
+    ///   - liste: für die Namen, die ins Archiv geschrieben werden.
+    /// - Returns: Kennung des Eintrags, der jetzt gilt (leer, wenn keiner).
+    @discardableResult
+    mutating func merkeZiehung(_ ids: [String], vorher: [String] = [],
+                               ersetzt: String? = nil, liste: NameList?) -> String {
+        if !vorher.isEmpty { zaehle(vorher, richtung: -1) }
+        if let ersetzt, !ersetzt.isEmpty { ziehungen.removeAll { $0.id == ersetzt } }
+
+        guard !ids.isEmpty else { return "" }
+
+        var eintrag = Ziehung()
+        // Kennung behalten: Es ist derselbe Vorgang, nur berichtigt.
+        if let ersetzt, !ersetzt.isEmpty { eintrag.id = ersetzt }
+        eintrag.modus = modus.rawValue
+        eintrag.proZeile = max(1, proZeile)
+        eintrag.titel = ueberschrift.nonEmpty ?? modus.standardUeberschrift
+        eintrag.texte = ids.map { id in
+            liste?.entries.first { $0.id == id }?.text ?? "—"
+        }
+        ziehungen.insert(eintrag, at: 0)
+        if ziehungen.count > NamePickerContent.archivGrenze {
+            ziehungen = Array(ziehungen.prefix(NamePickerContent.archivGrenze))
+        }
+        zaehle(ids, richtung: 1)
+        return eintrag.id
+    }
+
+    /// Archiv und Gedächtnis dieses Elements leeren.
+    mutating func setzeZiehungenZurueck() {
+        ziehungen = []
+        paare = [:]
+    }
+
+    /// Zählt die Paarungen einer Ziehung hinauf (`richtung` 1) oder wieder
+    /// herunter (−1). Bei null verschwindet der Eintrag: Eine Tabelle voller
+    /// Nullen wandert sonst bei jedem Abgleich mit.
+    private mutating func zaehle(_ ids: [String], richtung: Int) {
+        func aendere(_ schluessel: String) {
+            let neu = max(0, (paare[schluessel] ?? 0) + richtung)
+            if neu == 0 { paare[schluessel] = nil } else { paare[schluessel] = neu }
+        }
+
+        if modus == .tagesgruppe {
+            for id in ids { aendere(Auslosung.einzel(id)) }
+            return
+        }
+        let breite = max(1, proZeile)
+        var anfang = 0
+        while anfang < ids.count {
+            let gruppe = Array(ids[anfang..<min(anfang + breite, ids.count)])
+            for (stelle, a) in gruppe.enumerated() {
+                for b in gruppe.dropFirst(stelle + 1) { aendere(Auslosung.paar(a, b)) }
+            }
+            anfang += breite
+        }
+    }
 
     enum DrawMode: String, Codable, CaseIterable, Identifiable {
         /// Gezogene Namen kommen erst zurück, wenn die Liste durch ist.
@@ -1540,17 +1632,6 @@ struct NameList: Codable, Identifiable, Equatable {
 
     /// Merkmale, nach denen sich die Namen sortieren lassen.
     var merkmale: [Merkmal] = []
-    /// Die letzten Auslosungen, neueste zuerst.
-    var ziehungen: [Ziehung] = []
-    /// Wie oft zwei Namen schon zusammen waren (Schlüssel aus
-    /// `Auslosung.paar`), bzw. wie oft jemand einzeln gezogen wurde
-    /// (`Auslosung.einzel`). Danach richtet sich, wen die nächste Ziehung
-    /// bevorzugt — am liebsten jemanden, mit dem du noch nicht zusammen warst.
-    var paare: [String: Int] = [:]
-
-    /// So viele Auslosungen bleiben stehen. Danach fällt die älteste heraus:
-    /// Ein Archiv, das ewig wächst, wandert bei jedem Abgleich mit.
-    static let archivGrenze = 60
 
     var activeEntries: [NameEntry] { entries.filter { !$0.paused } }
 
@@ -1676,7 +1757,7 @@ extension Board {
 
 extension NameList {
     enum ListKeys: String, CodingKey {
-        case id, name, entries, owner, updatedAtMs, deleted, merkmale, ziehungen, paare
+        case id, name, entries, owner, updatedAtMs, deleted, merkmale
     }
 
     init(from decoder: Decoder) throws {
@@ -1686,8 +1767,6 @@ extension NameList {
         name = c.wert(.name, "Liste")
         entries = c.wert(.entries, [NameEntry]())
         merkmale = c.wert(.merkmale, [Merkmal]())
-        ziehungen = c.wert(.ziehungen, [Ziehung]())
-        paare = c.wert(.paare, [String: Int]())
         owner = c.wert(.owner, "")
         updatedAtMs = c.wert(.updatedAtMs, Date.nowMs)
         deleted = c.wert(.deleted, false)
@@ -1935,7 +2014,7 @@ extension NamePickerContent {
              reveal, revealParts
         case modus, titelGruppen, titelTagesgruppe, gruppenGroesse, tagesgruppeAnzahl
         case mischMerkmalID, merkmalsvorgabe, alsCheckliste, festgehalten, ergebnis, erledigt
-        case ziehungID, anzeige, zaehler
+        case ziehungID, anzeige, zaehler, ziehungen, paare
     }
 
     init(from decoder: Decoder) throws {
@@ -1971,6 +2050,8 @@ extension NamePickerContent {
         ergebnis = c.wert(.ergebnis, [String]())
         erledigt = c.wert(.erledigt, [String]())
         ziehungID = c.wert(.ziehungID, "")
+        ziehungen = c.wert(.ziehungen, [Ziehung]())
+        paare = c.wert(.paare, [String: Int]())
     }
 }
 

@@ -1081,8 +1081,9 @@ private struct NamePickerSettings: View {
     /// („unable to type-check this expression in reasonable time“).
     private var fussZuArchiv: String {
         var text = "Die App merkt sich, wer schon mit wem zusammen war, und zieht "
-            + "bevorzugt Paarungen, die es noch nicht gab. Das gehört zur "
-            + "Namensliste und gilt für alle Tafeln, die sie benutzen."
+            + "bevorzugt Paarungen, die es noch nicht gab. Beides gehört zu "
+            + "DIESEM Element: Zwei Kacheln mit derselben Namensliste — etwa "
+            + "„Sitzplätze“ und „Kinder des Tages“ — führen getrennt Buch."
         text += "\n\nEin Vorgang, ein Eintrag: „Neu auslosen“ beginnt einen neuen, "
             + "ein Tipp auf ein Kärtchen berichtigt den laufenden. Was nur ein "
             + "Zwischenschritt war, steht später nirgends."
@@ -1109,20 +1110,17 @@ private struct NamePickerSettings: View {
             } else {
                 Section {
                     NavigationLink {
-                        ZiehungenSeite(listID: content.listID)
+                        ZiehungenSeite(content: $content)
                     } label: {
                         LabeledContent("Vergangene Ziehungen",
-                                       value: "\(list?.ziehungen.count ?? 0)")
+                                       value: "\(content.ziehungen.count)")
                     }
                     if !content.ergebnis.isEmpty {
                         Button(role: .destructive) {
                             // Auch aus Archiv und Gedächtnis nehmen: Dieser
                             // Sitzplan hat nie gegolten.
-                            store.merkeZiehung([], vorher: content.ergebnis,
-                                               ersetzt: content.ziehungID,
-                                               listID: content.listID,
-                                               modus: content.modus,
-                                               proZeile: content.proZeile, titel: "")
+                            content.merkeZiehung([], vorher: content.ergebnis,
+                                                 ersetzt: content.ziehungID, liste: list)
                             content.ergebnis = []
                             content.erledigt = []
                             content.ziehungID = ""
@@ -1221,19 +1219,16 @@ private struct KlangSeite: View {
     }
 }
 
-/// Die vergangenen Auslosungen einer Namensliste.
+/// Die vergangenen Auslosungen **dieses Elements**.
 private struct ZiehungenSeite: View {
-    @EnvironmentObject private var store: BoardStore
-    let listID: String?
+    @Binding var content: NamePickerContent
 
     @State private var fragtNach = false
 
-    private var liste: NameList? { store.nameList(listID) }
-
     var body: some View {
         List {
-            if let liste, !liste.ziehungen.isEmpty {
-                ForEach(liste.ziehungen) { ziehung in
+            if !content.ziehungen.isEmpty {
+                ForEach(content.ziehungen) { ziehung in
                     Section {
                         ForEach(Array(ziehung.zeilen.enumerated()), id: \.offset) { _, zeile in
                             Text(zeile.joined(separator: "  ·  "))
@@ -1251,17 +1246,18 @@ private struct ZiehungenSeite: View {
                         Label("Alles zurücksetzen", systemImage: "arrow.counterclockwise")
                     }
                 } footer: {
-                    Text("Löscht die vergangenen Ziehungen und das Gedächtnis: "
-                         + "Danach darf wieder jeder mit jedem, als wäre nichts gewesen.")
+                    Text("Löscht die vergangenen Ziehungen und das Gedächtnis dieses "
+                         + "Elements: Danach darf wieder jeder mit jedem, als wäre "
+                         + "nichts gewesen. Andere Kacheln bleiben unberührt.")
                 }
             } else {
                 Section {
                     Text("Noch keine Ziehung gespeichert.")
                         .foregroundStyle(.secondary)
                 } footer: {
-                    Text("Sobald du Gruppen oder eine Tagesgruppe auslost, steht sie "
-                         + "hier — mit Datum und Wochentag. Es bleiben die letzten "
-                         + "\(NameList.archivGrenze) stehen.")
+                    Text("Sobald du auf dieser Kachel Gruppen oder eine Tagesgruppe "
+                         + "auslost, steht sie hier — mit Datum und Wochentag. Es "
+                         + "bleiben die letzten \(NamePickerContent.archivGrenze) stehen.")
                 }
             }
         }
@@ -1269,14 +1265,14 @@ private struct ZiehungenSeite: View {
         .navigationBarTitleDisplayMode(.inline)
         .alert("Alles zurücksetzen?", isPresented: $fragtNach) {
             Button("Zurücksetzen", role: .destructive) {
-                store.setzeZiehungenZurueck(listID: listID)
+                content.setzeZiehungenZurueck()
                 Haptics.success()
             }
             Button("Abbrechen", role: .cancel) { }
         } message: {
-            Text("Die vergangenen Ziehungen werden gelöscht, und die App vergisst, "
-                 + "wer schon mit wem zusammen war. Das lässt sich nicht rückgängig "
-                 + "machen.")
+            Text("Die vergangenen Ziehungen dieser Kachel werden gelöscht, und die "
+                 + "App vergisst, wer dort schon mit wem zusammen war. Das lässt sich "
+                 + "nicht rückgängig machen.")
         }
     }
 
