@@ -56,7 +56,8 @@ enum SpinSound: String, Codable, CaseIterable, Identifiable {
                  + "Bei Gruppen fällt der Schlag auf jedes Kärtchen."
         case .rad:
             return "Das Klacken einer Ratsche, das mit dem Rad langsamer wird. "
-                 + "Bei Gruppen klackt es, sobald ein Kärtchen einrastet."
+                 + "Bei Gruppen läuft vor jedem Kärtchen ein kurzer Ratschenlauf "
+                 + "an, dessen letzter Klick auf das Einrasten fällt."
         case .aus:
             return "Beim Ziehen bleibt es still."
         }
@@ -80,6 +81,14 @@ enum SpinSound: String, Codable, CaseIterable, Identifiable {
         case .rad:     return "zieh-rad"
         }
     }
+
+    /// Ist der kurze Klang ein **Anlauf**, der mit dem Einrasten endet?
+    ///
+    /// Beim Glücksrad ja: Ein Rad klackt mehrfach und wird langsamer, der
+    /// letzte Klick ist der Augenblick des Anhaltens. Die Aufnahme wird
+    /// deshalb so früh begonnen, dass sie genau dann ausklingt. Karten und
+    /// Trommel sind dagegen ein Anschlag — der fällt auf das Einrasten.
+    var istAnlauf: Bool { self == .rad }
 
     /// Kurze Klänge für „ein Kärtchen legt sich hin" — mehrere Fassungen,
     /// damit sich nichts wiederholt.
@@ -198,7 +207,12 @@ final class Ziehklang {
     /// bleibt, seinen eigenen kurzen Klang: wechselnde Fassungen, dazu ein
     /// Hauch Streuung in Tonhöhe und Pegel — so klingt kein Anschlag wie
     /// der vorige.
-    func kartenSchlag(_ klang: SpinSound, betont: Bool = false) {
+    /// - Parameter landetIn: In wie vielen Sekunden das Kärtchen einrastet.
+    ///   Ein Anschlag (Karten, Trommel) wird auf diesen Augenblick gelegt,
+    ///   ein Anlauf (Glücksrad) so früh begonnen, dass sein letzter Klick
+    ///   darauf fällt. Vorausgeplant statt im Takt der Bildschleife
+    ///   angestoßen — dadurch sitzt der Ton auf die Millisekunde.
+    func kartenSchlag(_ klang: SpinSound, landetIn: Double = 0, betont: Bool = false) {
         let dateien = klang.kartenDateien
         guard !dateien.isEmpty else { return }
         AudioSessionCenter.configure(recording: AudioSessionCenter.isRecording)
@@ -209,7 +223,20 @@ final class Ziehklang {
         spieler.enableRate = true
         spieler.rate = Float.random(in: 0.94...1.07)
         spieler.volume = betont ? 1.0 : Float.random(in: 0.72...0.92)
-        spieler.play()
+
+        let vorlauf = klang.istAnlauf ? spieler.duration / Double(spieler.rate) : 0
+        let wartezeit = max(0, landetIn - vorlauf)
+        if wartezeit > 0.01 {
+            spieler.play(atTime: spieler.deviceCurrentTime + wartezeit)
+        } else {
+            spieler.play()
+        }
+    }
+
+    /// Bricht die vorausgeplanten Kärtchen-Klänge ab — beim Überspringen
+    /// soll nichts nachklappern.
+    func stoppeKaertchen() {
+        for spieler in kartenLager.values.flatMap({ $0 }) { spieler.stop() }
     }
 
     /// Hörprobe in den Einstellungen — die Aufnahme, einmal.

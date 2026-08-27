@@ -98,6 +98,12 @@ KARTENQUELLEN = {
         "titel": "Kärtchen legt sich (Rad)",
         "url": QUELLEN["rad"]["url"],
         "im_archiv": [f"Audio/tick_{i:03d}.ogg" for i in (1, 2, 4)],
+        # Ein einzelner Klick klingt nach Bedienoberfläche, nicht nach
+        # Glücksrad. Ein Rad klackt mehrfach und wird dabei langsamer.
+        # Deshalb hier ein kurzer Ratschenlauf je Kärtchen, der mit dem
+        # letzten Klick endet — die App legt ihn so, dass dieser Klick auf
+        # den Augenblick des Einrastens fällt (siehe Ziehklang.swift).
+        "ratsche": [(7, 55, 150), (8, 48, 135), (6, 62, 165)],
         "urheber": "Kenney Vleugels (kenney.nl), Paket „Interface Sounds“",
         "lizenz": "CC0 1.0",
         "nachweis": "https://kenney.nl/assets/interface-sounds",
@@ -222,6 +228,29 @@ def kurz(mono, rate, vom_ende=False):
     return mono[anfang:ende]
 
 
+def ratsche(klick, rate, klicks, von_ms, bis_ms):
+    """Ein kurzer Ratschenlauf, der langsamer wird.
+
+    Der **letzte Klick liegt am Ende** der Datei: Die App startet den Lauf
+    so früh, dass er genau dann ausklingt, wenn das Kärtchen einrastet.
+    """
+    zeiten, t = [], 0.0
+    for i in range(klicks):
+        zeiten.append(t)
+        p = i / max(1, klicks - 1)
+        t += (von_ms + p ** 2.2 * (bis_ms - von_ms)) / 1000
+    gesamt = int(zeiten[-1] * rate) + len(klick)
+    spur = [0.0] * gesamt
+    for nummer, wann in enumerate(zeiten):
+        ab = int(wann * rate)
+        # Der letzte Klick ist der kräftigste — dort rastet es ein.
+        pegel = 0.55 + 0.45 * (nummer / max(1, klicks - 1))
+        for i, v in enumerate(klick):
+            if ab + i < gesamt:
+                spur[ab + i] += v * pegel
+    return spur
+
+
 def blende(stueck, rate):
     ein = int(0.004 * rate)
     aus = int(0.05 * rate)
@@ -230,6 +259,18 @@ def blende(stueck, rate):
         stueck[i] *= i / ein
     for i in range(min(aus, n)):
         stueck[n - 1 - i] *= i / aus
+    return stueck
+
+
+def nachblende(stueck, rate, sekunden):
+    """Wie `blende`, aber mit sehr kurzem Ausklang."""
+    ein = int(0.002 * rate)
+    aus = int(sekunden * rate)
+    n = len(stueck)
+    for i in range(min(ein, n)):
+        stueck[i] *= i / max(1, ein)
+    for i in range(min(aus, n)):
+        stueck[n - 1 - i] *= i / max(1, aus)
     return stueck
 
 
@@ -267,8 +308,15 @@ def main():
                     teil = archiv.read(im_archiv)
             daten, rate = sf.read(io.BytesIO(teil), always_2d=True)
             mono = [sum(rahmen) / len(rahmen) for rahmen in daten]
-            stueck = normiere(blende(kurz(mono, rate, quelle.get("vom_ende", False)), rate),
-                              ziel=0.9)
+            stueck = kurz(mono, rate, quelle.get("vom_ende", False))
+            if "ratsche" in quelle:
+                klicks, von_ms, bis_ms = quelle["ratsche"][nummer - 1]
+                stueck = ratsche(stueck, rate, klicks, von_ms, bis_ms)
+                # Nur ganz kurz ausblenden: Der letzte Klick soll stehen
+                # bleiben, er ist der Einrastpunkt.
+                stueck = normiere(nachblende(stueck, rate, 0.004), ziel=0.9)
+            else:
+                stueck = normiere(blende(stueck, rate), ziel=0.9)
             pfad = os.path.join(ordner, f"karte-{name}-{nummer}.wav")
             sf.write(pfad, stueck, rate, subtype="PCM_16")
             groesse = os.path.getsize(pfad) // 1024
