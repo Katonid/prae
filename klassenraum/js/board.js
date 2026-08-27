@@ -5,7 +5,7 @@ import { icon } from './icons.js';
 import { getWidgetType } from './widgets/index.js';
 import {
   BOARD_WIDTH, boardHeight, AURORA, getActiveBoard, getActivePage, getState, touch, removeWidget,
-  duplicateWidget, nextZ, on as onStore,
+  duplicateWidget, nextZ, on as onStore, setActivePage,
 } from './store.js';
 import { openPanel, closePanel, confirmDialog, field, button, buttonRow, toast } from './ui.js';
 import { transferWidget } from './transfer.js';
@@ -120,7 +120,13 @@ function startStageGesture(event) {
   }
   stagePoints.set(event.pointerId, { x: event.clientX, y: event.clientY });
   if (stagePoints.size === 1) {
-    stageGesture = { type: 'pan', last: { x: event.clientX, y: event.clientY }, moved: false };
+    stageGesture = {
+      type: 'pan',
+      last: { x: event.clientX, y: event.clientY },
+      moved: false,
+      // Startpunkt und -zeit für die Wisch-Erkennung (Umblättern).
+      start: { x: event.clientX, y: event.clientY, at: Date.now() },
+    };
     return;
   }
   if (stagePoints.size === 2) {
@@ -160,11 +166,34 @@ function endStageGesture(event) {
   if (stagePoints.size === 0) {
     // Nur speichern, wenn wirklich verschoben wurde — ein Tipp ins Leere nicht.
     if (stageGesture && (stageGesture.type === 'pinch' || stageGesture.moved)) storeView();
+    // Wisch-Geste auf der freien Fläche: schnell und klar waagerecht gewischt
+    // blättert zur Nachbarseite. Nur in der Übersicht (nicht hineingezoomt) —
+    // hineingezoomt verschiebt ein Finger weiterhin den Ausschnitt.
+    if (stageGesture && stageGesture.type === 'pan' && stageGesture.start && zoom <= 1.02) {
+      const dx = event.clientX - stageGesture.start.x;
+      const dy = event.clientY - stageGesture.start.y;
+      const dt = Date.now() - stageGesture.start.at;
+      // Großzügige Zeitspanne: An der großen Tafel wird auch gemütlich gewischt.
+      if (dt < 1200 && Math.abs(dx) >= 90 && Math.abs(dx) > 1.8 * Math.abs(dy)) {
+        flipPageBy(dx < 0 ? 1 : -1);
+      }
+    }
     stageGesture = null;
   } else if (stagePoints.size === 1) {
     const [only] = Array.from(stagePoints.values());
+    // Nach einer Zwei-Finger-Geste zählt der Rest-Finger nicht als Wisch.
     stageGesture = { type: 'pan', last: { x: only.x, y: only.y }, moved: false };
   }
+}
+
+/** Eine Seite vor (1) oder zurück (-1) blättern — Anzeige folgt über „page-switch". */
+function flipPageBy(step) {
+  const board = getActiveBoard();
+  if (!board) return;
+  const pages = board.pages || [];
+  const index = pages.findIndex((page) => page.id === board.activePageId);
+  const next = pages[index + step];
+  if (next) setActivePage(next.id);
 }
 
 export function getZoom() {
