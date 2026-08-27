@@ -323,6 +323,10 @@ function normalizeState(loaded) {
     paused: Array.isArray(list.paused) ? list.paused : [],
     // Merkmale je Name (z. B. „J“/„M“) — fürs Mischen beim Gruppen-Auslosen.
     marks: list.marks && typeof list.marks === 'object' ? list.marks : {},
+    // Gedächtnis der Auslosungen — gehört zur Liste (gilt über alle Tafeln):
+    // paare zählt, wer mit wem zusammen war; dran, wer schon Tagesgruppe war.
+    paare: list.paare && typeof list.paare === 'object' ? list.paare : {},
+    dran: list.dran && typeof list.dran === 'object' ? list.dran : {},
     updatedAt: list.updatedAt || Date.now(),
   }));
   return next;
@@ -687,6 +691,8 @@ export function upsertList(raw) {
     names: Array.isArray(raw.names) ? raw.names : [],
     paused: Array.isArray(raw.paused) ? raw.paused : [],
     marks: raw.marks && typeof raw.marks === 'object' ? raw.marks : {},
+    paare: raw.paare && typeof raw.paare === 'object' ? raw.paare : {},
+    dran: raw.dran && typeof raw.dran === 'object' ? raw.dran : {},
     updatedAt: raw.updatedAt || Date.now(),
   };
   const index = state.lists.findIndex((list) => list.id === clean.id);
