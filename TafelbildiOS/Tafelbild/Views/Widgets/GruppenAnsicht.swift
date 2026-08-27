@@ -27,6 +27,13 @@ struct GruppenAnsicht: View {
     /// Ab welcher Stelle neu ausgelost werden soll, sobald bestätigt wird.
     /// nil = keine Rückfrage offen.
     @State private var frage: Int?
+    /// Ist die offene Rückfrage ein **neuer Vorgang** oder eine Berichtigung?
+    ///
+    /// An der Stelle allein lässt sich das nicht ablesen: Ein Tipp auf das
+    /// erste Kärtchen und der Knopf „Neu auslosen" fangen beide bei null an.
+    /// Gemeint ist aber Verschiedenes — der Tipp berichtigt den laufenden
+    /// Durchgang, der Knopf beginnt einen neuen.
+    @State private var frageIstNeu = false
     /// Wie viele Kärtchen schon feststehen, solange die Auslosung läuft.
     /// nil = es läuft gerade keine.
     @State private var fertigBis: Int?
@@ -235,10 +242,11 @@ struct GruppenAnsicht: View {
                 .minimumScaleFactor(0.7)
         } else if let stelle = frage {
             HStack(spacing: metrics.em(0.35)) {
-                knopf(stelle == 0 ? "Alles neu auslosen" : "Ab hier neu auslosen",
+                knopf(beschriftungDerFrage(stelle),
                       symbol: "shuffle", betont: true) {
+                    let neuerVorgang = frageIstNeu
                     frage = nil
-                    loseAus(ab: stelle)
+                    loseAus(ab: stelle, neuerVorgang: neuerVorgang)
                 }
                 knopf("Abbrechen", symbol: "xmark", betont: false) {
                     withAnimation(.easeOut(duration: 0.15)) { frage = nil }
@@ -247,9 +255,12 @@ struct GruppenAnsicht: View {
         } else if interactive && !laeuft {
             HStack(spacing: metrics.em(0.35)) {
                 if content.ergebnis.isEmpty {
-                    knopf("Auslosen", symbol: "shuffle", betont: true) { loseAus(ab: 0) }
+                    knopf("Auslosen", symbol: "shuffle", betont: true) {
+                        loseAus(ab: 0, neuerVorgang: true)
+                    }
                 } else if !content.festgehalten {
                     knopf("Neu auslosen", symbol: "shuffle", betont: false) {
+                        frageIstNeu = true
                         withAnimation(.easeOut(duration: 0.15)) { frage = 0 }
                     }
                 } else {
@@ -316,7 +327,13 @@ struct GruppenAnsicht: View {
             return
         }
         withAnimation(.easeOut(duration: 0.18)) {
-            frage = (frage == stelle) ? nil : stelle
+            if frage == stelle && !frageIstNeu {
+                frage = nil
+            } else {
+                frage = stelle
+                // Ein Tipp auf ein Kärtchen berichtigt — auch auf das erste.
+                frageIstNeu = false
+            }
         }
         Haptics.tap()
     }
@@ -359,8 +376,20 @@ struct GruppenAnsicht: View {
         Haptics.tap()
     }
 
+    /// Beschriftung der Rückfrage — sie sagt, was wirklich passiert.
+    private func beschriftungDerFrage(_ stelle: Int) -> String {
+        if frageIstNeu { return "Alles neu auslosen" }
+        return stelle == 0 ? "Alle Namen neu mischen" : "Ab hier neu auslosen"
+    }
+
     /// Lost neu aus — alles ab `stelle`, davor bleibt stehen.
-    private func loseAus(ab stelle: Int) {
+    ///
+    /// - Parameter neuerVorgang: `true` beginnt eine neue Auslosung mit
+    ///   eigenem Eintrag im Archiv. `false` berichtigt die laufende: Der
+    ///   Eintrag wird fortgeschrieben, und die Paarzählung des verworfenen
+    ///   Zwischenstands wird zurückgenommen. Ein Tipp auf ein Kärtchen ist
+    ///   immer eine Berichtigung — auch auf das erste.
+    private func loseAus(ab stelle: Int, neuerVorgang: Bool) {
         guard !namen.isEmpty else {
             onOpenSettings()
             return
@@ -394,12 +423,11 @@ struct GruppenAnsicht: View {
         content.erledigt = content.erledigt.filter { bleibende.contains($0) }
 
         Haptics.heavy()
-        // Ab einer Stelle neu auslosen ist eine **Korrektur**: Der Sitzplan,
-        // den ich eben verworfen habe, ist nie zustande gekommen. Also
-        // derselbe Eintrag, und die alte Paarzählung wird zurückgenommen.
-        // „Alles neu auslosen" (stelle 0) beginnt dagegen einen neuen
-        // Vorgang.
-        let korrektur = stelle > 0 && !content.ziehungID.isEmpty
+        // Eine Berichtigung ist keine zweite Auslosung: Der Sitzplan, den
+        // ich eben verworfen habe, ist nie zustande gekommen. Also derselbe
+        // Eintrag, und die alte Paarzählung wird zurückgenommen. Nur der
+        // Knopf „Neu auslosen" beginnt einen neuen Vorgang.
+        let korrektur = !neuerVorgang && !content.ziehungID.isEmpty
         content.ziehungID = onZiehung(
             neu, content.ergebnis, korrektur ? content.ziehungID : nil,
             content.modus, content.proZeile,
