@@ -306,6 +306,8 @@ function normalizeState(loaded) {
       pages,
       activePageId: pages.some((page) => page.id === board.activePageId) ? board.activePageId : pages[0].id,
       updatedAt: board.updatedAt || Date.now(),
+      // Wann zuletzt umgeblättert wurde — eigener Stempel NEBEN updatedAt.
+      viewedAt: Number(board.viewedAt) || 0,
     };
   });
   if (!next.boards.some((board) => board.id === next.activeBoardId)) {
@@ -457,9 +459,12 @@ export function setActivePage(pageId) {
   if (!board || !board.pages.some((page) => page.id === pageId)) return;
   if (board.activePageId === pageId) return;
   board.activePageId = pageId;
-  // Die aufgeschlagene Seite wandert mit über den Abgleich — so kann ein
-  // iPad in der Hand die Seite an der großen Tafel umblättern.
-  touch({ reason: 'page-switch' });
+  // Die aufgeschlagene Seite wandert über den Abgleich mit (eigener
+  // „view"-Datensatz mit viewedAt) — aber sie stempelt NICHT den Inhalt:
+  // Sonst machte bloßes Umblättern eine alte Tafel zur „neueren" und
+  // blockierte im Abgleich echte Änderungen anderer Geräte („neuer gewinnt").
+  board.viewedAt = Date.now();
+  touch({ board: false, reason: 'page-switch' });
   emit('page-switch', pageId);
 }
 

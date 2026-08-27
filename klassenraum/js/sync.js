@@ -119,6 +119,19 @@ async function pushChanges() {
     if (settings.pushed[board.id] === stamp) continue;
     jobs.push({ kind: 'boards', id: board.id, record: boardRecord(board, settings.deviceId), stamp });
   }
+  // Die aufgeschlagene Seite wandert als eigener kleiner Datensatz mit —
+  // bewusst getrennt vom Inhalt, damit Umblättern keine Inhalte „neuer" macht.
+  for (const board of state.boards) {
+    const stamp = board.viewedAt || 0;
+    if (!stamp || settings.pushed[`view:${board.id}`] === stamp) continue;
+    jobs.push({
+      kind: 'views',
+      id: board.id,
+      key: `view:${board.id}`,
+      record: { updatedAt: stamp, by: settings.deviceId, kind: 'view', activePageId: board.activePageId },
+      stamp,
+    });
+  }
   for (const list of state.lists) {
     const stamp = list.updatedAt || 0;
     if (settings.pushed[list.id] === stamp) continue;
@@ -136,7 +149,7 @@ async function pushChanges() {
   try {
     for (const job of jobs) {
       await putRecord(settings.spaceId, job.kind, job.id, job.record);
-      settings.pushed[job.id] = job.stamp;
+      settings.pushed[job.key || job.id] = job.stamp;
     }
     await pushMedia();
     settings.lastSyncAt = Date.now();
@@ -384,6 +397,21 @@ function mergeListRecord(id, record) {
   return true;
 }
 
+/** Aufgeschlagene Seite eines anderen Geräts übernehmen (eigener „view"-Datensatz). */
+function mergeViewRecord(id, record) {
+  if (!record || !record.activePageId || !record.updatedAt) return false;
+  const board = getState().boards.find((entry) => entry.id === id);
+  if (!board) return false;
+  if ((board.viewedAt || 0) >= record.updatedAt) return false;
+  board.viewedAt = record.updatedAt;
+  if (board.activePageId === record.activePageId) return false;
+  if (!(board.pages || []).some((page) => page.id === record.activePageId)) return false;
+  board.activePageId = record.activePageId;
+  syncSettings().pushed[`view:${id}`] = record.updatedAt;
+  emit('page-switch', record.activePageId);
+  return true;
+}
+
 /** Übernimmt einen ganzen Bereich (Erststart, Neuladen, Nachfragen ohne Ereignisstrom). */
 function mergeSpace(payload) {
   if (!payload) return false;
@@ -395,6 +423,9 @@ function mergeSpace(payload) {
   }
   for (const [id, record] of Object.entries(payload.lists || {})) {
     if (mergeListRecord(id, record)) changed = true;
+  }
+  for (const [id, record] of Object.entries(payload.views || {})) {
+    if (mergeViewRecord(id, record)) changed = true;
   }
   applying = false;
   if (changed) afterMerge(activeBefore);
@@ -410,6 +441,7 @@ function mergeEvent(detail) {
   let changed = false;
   if (parts.length === 2 && parts[0] === 'boards') changed = mergeBoardRecord(parts[1], detail.data);
   else if (parts.length === 2 && parts[0] === 'lists') changed = mergeListRecord(parts[1], detail.data);
+  else if (parts.length === 2 && parts[0] === 'views') changed = mergeViewRecord(parts[1], detail.data);
   else if (parts.length === 1 && parts[0] === 'boards') {
     for (const [id, record] of Object.entries(detail.data || {})) {
       if (mergeBoardRecord(id, record)) changed = true;
@@ -417,6 +449,10 @@ function mergeEvent(detail) {
   } else if (parts.length === 1 && parts[0] === 'lists') {
     for (const [id, record] of Object.entries(detail.data || {})) {
       if (mergeListRecord(id, record)) changed = true;
+    }
+  } else if (parts.length === 1 && parts[0] === 'views') {
+    for (const [id, record] of Object.entries(detail.data || {})) {
+      if (mergeViewRecord(id, record)) changed = true;
     }
   }
   applying = false;
