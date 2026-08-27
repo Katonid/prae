@@ -9,10 +9,10 @@ struct Mannschaft: Identifiable, Hashable, Codable {
     let kuerzel: String
     let wappen: URL?
 
-    /// Kurzer Name fuer schmale Zeilen, mit Rueckfall auf den langen.
+    /// Kurzer Name für schmale Zeilen, mit Rückfall auf den langen.
     var anzeige: String { kurzname.isEmpty ? name : kurzname }
 
-    /// Drei Buchstaben fuer das Ersatzwappen.
+    /// Drei Buchstaben für das Ersatzwappen.
     var zeichen: String {
         if !kuerzel.isEmpty { return kuerzel }
         let woerter = name.split(separator: " ")
@@ -56,7 +56,7 @@ enum Spielstatus: String, Codable, Hashable {
     var beschriftung: String {
         switch self {
         case .geplant: return "geplant"
-        case .laeuft: return "laeuft"
+        case .laeuft: return "läuft"
         case .pause: return "Halbzeit"
         case .beendet: return "Endstand"
         case .verschoben: return "verlegt"
@@ -113,14 +113,14 @@ struct Spiel: Identifiable, Hashable, Codable {
     }
 
     /// Was in der Zeile rechts steht: Uhrzeit vor dem Anpfiff, Minute
-    /// waehrend des Spiels, sonst der Zustand.
+    /// während des Spiels, sonst der Zustand.
     var zeittext: String {
         switch status {
         case .geplant:
             return Zeitformate.uhrzeit.string(from: anstoss)
         case .laeuft:
             if let minute { return "\(minute)'" }
-            return "laeuft"
+            return "läuft"
         case .pause:
             return "HZ"
         case .beendet:

@@ -89,7 +89,7 @@ struct Tickersicht: View {
         let liste = gefilterteMeldungen
         Section("Meldungen") {
             if liste.isEmpty {
-                Text(daten.tickerLaeuft ? "Wird geladen …" : "Noch keine Meldungen. Sobald ein Tor faellt, steht es hier.")
+                Text(daten.tickerLaeuft ? "Wird geladen …" : "Noch keine Meldungen. Sobald ein Tor fällt, steht es hier.")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .padding(.vertical, 6)
@@ -135,7 +135,7 @@ struct Tickersicht: View {
                 Button(role: .destructive) {
                     daten.tickerLeeren()
                 } label: {
-                    Label("Meldungen loeschen", systemImage: "trash")
+                    Label("Meldungen löschen", systemImage: "trash")
                 }
             } label: {
                 Label("Filter", systemImage: filter == nil ? "line.3.horizontal.decrease.circle" : "line.3.horizontal.decrease.circle.fill")

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Erzeugt das App-Symbol fuer Anstoss ohne fremde Bibliotheken.
+"""Erzeugt das App-Symbol für Anstoß ohne fremde Bibliotheken.
 
-Gezeichnet wird ein dunkelgruener Rasenhintergrund mit Mittellinie und
-Anstosskreis, darauf ein Fussball. Aufruf:
+Gezeichnet wird ein dunkelgrüner Rasenhintergrund mit Mittellinie und
+Anstoßkreis, darauf ein Fußball. Aufruf:
 
     python3 scripts/anstoss-icon.py
 

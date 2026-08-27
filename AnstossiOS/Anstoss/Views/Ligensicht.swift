@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Das Menue der fuenf Ligen. Von hier geht es in Spieltage und Tabelle.
+/// Das Menü der fünf Ligen. Von hier geht es in Spieltage und Tabelle.
 struct Ligensicht: View {
     @EnvironmentObject private var daten: Datenhaltung
 
@@ -26,7 +26,7 @@ struct Ligensicht: View {
                     }
                 }
             } footer: {
-                Text("Spieltage und Tabelle der fuenf grossen Ligen.")
+                Text("Spieltage und Tabelle der fünf großen Ligen.")
             }
         }
         .navigationDestination(for: Liga.self) { liga in

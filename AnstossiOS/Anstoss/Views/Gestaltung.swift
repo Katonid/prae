@@ -1,13 +1,13 @@
 import SwiftUI
 
-/// Kleine, oft gebrauchte Bausteine der Oberflaeche.
+/// Kleine, oft gebrauchte Bausteine der Oberfläche.
 enum Gestaltung {
     static let rasen = Color(red: 0.06, green: 0.42, blue: 0.27)
     static let ecke: CGFloat = 14
 }
 
 /// Wappen einer Mannschaft. Der Dienst liefert manche Wappen als SVG —
-/// die kann iOS nicht zeichnen, dafuer gibt es das Buchstabenzeichen.
+/// die kann iOS nicht zeichnen, dafür gibt es das Buchstabenzeichen.
 struct Wappen: View {
     let mannschaft: Mannschaft
     var groesse: CGFloat = 26

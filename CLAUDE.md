@@ -89,6 +89,20 @@ noch Commits auf denselben PR gepusht wurden — die hingen dann fest
 - App-Code: `AnstossiOS/` (ein Target: App, iPhone + iPad, iOS 17).
   Spieltage, Tabellen und Liveticker der fünf großen Ligen
   (Bundesliga, Premier League, La Liga, Serie A, Ligue 1).
+- **Namen im App Store** (Ansage des Nutzers, 08/2026, weil „Anstoß"
+  allein schon vergeben ist — App Record Creation Error):
+  - Name: `Anstoß – Liveticker` (19 Zeichen, Grenze ist 30)
+  - Untertitel: `Top-Ligen unter Beobachtung` (27 Zeichen, Grenze 30)
+  Auf dem **Homescreen** heißt die App weiterhin schlicht **Anstoß**
+  (`INFOPLIST_KEY_CFBundleDisplayName`) — iOS schneidet dort nach rund
+  zwölf Zeichen ab. Store-Name und Anzeigename sind getrennte Felder
+  und dürfen auseinandergehen. Projektordner, Target, Bundle-Id
+  (`de.familie.anstoss`) und der Schlüsselbund-Dienst bleiben
+  „Anstoss" — nach dem ersten Signieren nicht mehr ändern.
+- Der App-Eintrag wird in App Store Connect **von Hand** angelegt
+  (Meine Apps → +), nicht über Xcodes „Create App Record": Xcode
+  schlägt dort den Anzeigenamen vor und läuft damit erneut in den
+  Namenskonflikt. Steht der Eintrag, lädt Distribute in ihn hinein.
 - Daten von **football-data.org (v4)**. Der kostenlose Zugang deckt
   genau diese fünf Ligen ab; der Schlüssel gehört dem Nutzer und liegt
   im Schlüsselbund (`Schluesselbund.swift`) — nie im Repo, nie in den

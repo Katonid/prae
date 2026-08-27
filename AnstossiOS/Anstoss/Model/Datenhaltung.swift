@@ -1,7 +1,7 @@
 import Foundation
 import SwiftUI
 
-/// Haelt alles zusammen: Zugangsschluessel, Zwischenspeicher der
+/// Hält alles zusammen: Zugangsschlüssel, Zwischenspeicher der
 /// Spieltage und Tabellen sowie den Liveticker.
 @MainActor
 final class Datenhaltung: ObservableObject {
@@ -33,7 +33,7 @@ final class Datenhaltung: ObservableObject {
     private var letzterStand: [Int: Spiel] = [:]
     private var abrufzeit: [String: Date] = [:]
     /// Was gerade schon unterwegs ist. Ohne das laufen zwei gleiche
-    /// Abfragen nebeneinander — bei zehn Abfragen je Minute zaehlt jede.
+    /// Abfragen nebeneinander — bei zehn Abfragen je Minute zählt jede.
     private var imFlug: Set<String> = []
     private static let beispielSchluessel = "beispielmodus"
     private static let tickerGrenze = 250
@@ -83,8 +83,8 @@ final class Datenhaltung: ObservableObject {
 
     // MARK: Liveticker
 
-    /// Laeuft, solange die Ticker-Ansicht sichtbar ist. Wartet laenger,
-    /// wenn gerade kein Spiel laeuft — der freie Zugang ist knapp bemessen.
+    /// Läuft, solange die Ticker-Ansicht sichtbar ist. Wartet länger,
+    /// wenn gerade kein Spiel läuft — der freie Zugang ist knapp bemessen.
     func tickerBeobachten() async {
         while !Task.isCancelled {
             await tickerAktualisieren()
@@ -227,7 +227,7 @@ final class Datenhaltung: ObservableObject {
                              art: .tor,
                              paarung: paarung,
                              stand: spiel.standtext,
-                             zusatz: "Tor fuer \(elf.anzeige)",
+                             zusatz: "Tor für \(elf.anzeige)",
                              minute: spiel.minute)
     }
 
@@ -301,7 +301,7 @@ final class Datenhaltung: ObservableObject {
         }
     }
 
-    /// Ermittelt den Spieltag, der gerade laeuft. Die Tabelle liefert ihn
+    /// Ermittelt den Spieltag, der gerade läuft. Die Tabelle liefert ihn
     /// mit; nur wenn die noch nicht geladen ist, wird eigens gefragt.
     @discardableResult
     func spieltagErmitteln(liga: Liga) async -> Int {
@@ -327,7 +327,7 @@ final class Datenhaltung: ObservableObject {
         }
     }
 
-    /// Holt Torschuetzen zu einem einzelnen Spiel nach.
+    /// Holt Torschützen zu einem einzelnen Spiel nach.
     func spielNachladen(_ spiel: Spiel) async -> Spiel? {
         guard !beispielmodus else { return spiel }
         guard schluesselVorhanden else { return nil }
@@ -341,7 +341,7 @@ final class Datenhaltung: ObservableObject {
         return Date().timeIntervalSince(zeit) < sekunden
     }
 
-    /// Laufende Spiele zuerst, danach nach Anstoss und Paarung.
+    /// Laufende Spiele zuerst, danach nach Anstoß und Paarung.
     static func reihenfolge(_ a: Spiel, _ b: Spiel) -> Bool {
         if a.status.laeuftGerade != b.status.laeuftGerade { return a.status.laeuftGerade }
         if a.anstoss != b.anstoss { return a.anstoss < b.anstoss }
@@ -351,7 +351,7 @@ final class Datenhaltung: ObservableObject {
 
 // MARK: - Ticker auf der Platte
 
-/// Der Ticker soll einen Programmstart ueberleben, aber nicht ewig
+/// Der Ticker soll einen Programmstart überleben, aber nicht ewig
 /// wachsen: gesichert werden die letzten Meldungen der vergangenen Tage.
 enum Tickerspeicher {
     private static var ort: URL? {
