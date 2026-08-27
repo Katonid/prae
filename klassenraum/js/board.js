@@ -862,6 +862,24 @@ function updateSelectionFrame() {
   selectionFrame.style.zIndex = String((widget.z || 1) + 500);
 }
 
+/**
+ * Schriftfarbe der Element-Beschriftungen: erst die eigene Farbe der Karte,
+ * sonst die globale der Tafel, sonst Automatik (Karten-Schema). Gesetzt wird
+ * direkt am Element — so gewinnt sie auch gegen die Bare-/Hell-Heuristiken.
+ */
+function applyInk(el, widget, board) {
+  const ink = (typeof widget.textColor === 'string' && widget.textColor)
+    ? widget.textColor
+    : (typeof board.textColor === 'string' && board.textColor ? board.textColor : null);
+  if (ink) {
+    el.style.setProperty('--card-ink', ink);
+    el.style.setProperty('--card-ink-soft', `color-mix(in srgb, ${ink} 65%, transparent)`);
+  } else {
+    el.style.removeProperty('--card-ink');
+    el.style.removeProperty('--card-ink-soft');
+  }
+}
+
 function layout() {
   const board = getActiveBoard();
   if (!board) return;
@@ -887,6 +905,7 @@ function layout() {
     el.classList.toggle('is-selected', widget.id === selectedId);
     el.classList.toggle('widget--bare', isBare(widget, board));
     el.style.setProperty('--w-scale', contentScale(widget).toFixed(3));
+    applyInk(el, widget, board);
   }
   if (stackMode) {
     for (const [, instance] of instances) {
@@ -1052,12 +1071,70 @@ export function openWidgetSettings(widgetId) {
   if (!definition.settings) return;
   const content = h('div', { class: 'stack' },
     definition.settings(instance.ctx),
+    inkFold(widgetId, definition),
     transferFold(widgetId, definition));
   openPanel({
     title: definition.label,
     subtitle: 'Einstellungen für dieses Element',
     content,
   });
+}
+
+/** Farbauswahl für die Beschriftungen — dieselbe Palette wie beim Textfeld. */
+export const INK_COLORS = ['#0f172a', '#ffffff', '#facc15', '#1d4ed8', '#b91c1c', '#15803d'];
+
+/**
+ * Eingeklappter Bereich unter jedem Element: eigene Schriftfarbe der Karte.
+ * Sie überstimmt die globale Einstellung der Tafel (Menü → Aussehen) — greift
+ * also erst, wenn hier bewusst eine Farbe gewählt wurde.
+ */
+function inkFold(widgetId, definition) {
+  // Das Textfeld hat seine eigene Schrift-Farbwahl in den Einstellungen.
+  if (definition.type === 'text') return null;
+  const board = getActiveBoard();
+  const widget = board ? widgetsOf(board).find((entry) => entry.id === widgetId) : null;
+  if (!widget) return null;
+  const wrap = h('div', { class: 'stack fold__body' });
+  const renderInk = () => {
+    clear(wrap);
+    const current = typeof widget.textColor === 'string' && widget.textColor ? widget.textColor : null;
+    const set = (color) => {
+      if (color) widget.textColor = color;
+      else delete widget.textColor;
+      touch({ reason: 'widget-ink' });
+      layout();
+      renderInk();
+    };
+    wrap.append(
+      field('Schriftfarbe', h('div', { class: 'swatches' },
+        h('button', {
+          class: 'swatch swatch--auto' + (!current ? ' is-active' : ''),
+          title: 'Automatisch — es gilt die globale Einstellung der Tafel',
+          onclick: () => set(null),
+        }, 'A'),
+        INK_COLORS.map((color) => h('button', {
+          class: 'swatch' + (current === color ? ' is-active' : ''),
+          style: { background: color },
+          title: color,
+          onclick: () => set(color),
+        })))),
+      field('Eigene Farbe', h('input', {
+        class: 'input input--color', type: 'color',
+        value: current || '#0f172a',
+        oninput: (event) => {
+          widget.textColor = event.target.value;
+          touch({ reason: 'widget-ink' });
+          layout();
+        },
+      })),
+      h('p', { class: 'muted small' }, current
+        ? 'Dieses Element nutzt seine eigene Farbe — „A“ kehrt zur globalen Einstellung der Tafel zurück.'
+        : 'Automatisch: Es gilt die globale Schriftfarbe der Tafel (Menü → Aussehen → Schriftfarbe der Elemente).'));
+  };
+  renderInk();
+  return h('details', { class: 'fold' },
+    h('summary', { class: 'fold__head' }, 'Schriftfarbe dieses Elements'),
+    wrap);
 }
 
 /** Eingeklappter Bereich unter jedem Element: auf eine andere Seite oder in einen anderen Klassenraum übertragen. */

@@ -14,7 +14,7 @@ import { WIDGETS } from './widgets/index.js';
 import {
   initBoard, renderBoard, configureBoard, addWidgetOfType, select, updateScale,
   setStackMode, isStackMode, applyBackground, openWidgetSettings, setMode, getMode, refreshAll,
-  zoomBy, resetView, onViewChanged, togglePointerDebug,
+  zoomBy, resetView, onViewChanged, togglePointerDebug, INK_COLORS,
 } from './board.js';
 import { openListsPanel } from './lists.js';
 import { initDrawing, setDrawActive, isDrawActive, redraw as redrawDrawing } from './draw.js';
@@ -375,6 +375,43 @@ function openBackgroundPanel() {
         'Betrifft die kleinen Aufschriften der Elemente — Listenname und Zähler beim Zufallsnamen, '
         + '„Timer“, „Lautstärke“, Überschrift des Tagesablaufs, Datum unter der Uhr und Bildunterschriften. '
         + 'Ohne Rahmen wirkt die Tafel damit deutlich ruhiger.')));
+
+    // Globale Schriftfarbe der Element-Beschriftungen — einzelne Karten können
+    // in ihren Einstellungen eine eigene Farbe wählen, die dann dort gewinnt.
+    const inkCurrent = typeof board.textColor === 'string' && board.textColor ? board.textColor : null;
+    const setInk = (color) => {
+      board.textColor = color || null;
+      touch();
+      renderBoard();
+      render();
+    };
+    container.appendChild(section('Schriftfarbe der Elemente',
+      h('div', { class: 'swatches' },
+        h('button', {
+          class: 'swatch swatch--auto' + (!inkCurrent ? ' is-active' : ''),
+          title: 'Automatisch — passend zum Karten-Schema',
+          onclick: () => setInk(null),
+        }, 'A'),
+        INK_COLORS.map((color) => h('button', {
+          class: 'swatch' + (inkCurrent === color ? ' is-active' : ''),
+          style: { background: color },
+          title: color,
+          onclick: () => setInk(color),
+        }))),
+      field('Eigene Farbe', h('input', {
+        class: 'input input--color', type: 'color',
+        value: inkCurrent || '#0f172a',
+        oninput: (event) => {
+          board.textColor = event.target.value;
+          touch();
+          renderBoard();
+        },
+      })),
+      h('p', { class: 'muted small' },
+        'Gilt für die Beschriftungen aller Elemente dieser Tafel — praktisch, wenn der Hintergrund '
+        + 'heller oder dunkler gestellt wurde. Einzelne Karten können in ihren Einstellungen unter '
+        + '„Schriftfarbe dieses Elements“ eine eigene Farbe wählen; erst dann gilt dort die eigene. '
+        + 'Reine Textfelder behalten ihre eigene Farbwahl.')));
 
     container.appendChild(section('Bewegter Hintergrund', auroraGrid,
       h('p', { class: 'muted small' }, 'Sanft wandernde Farbschleier — ruhig genug für den Unterricht.')));

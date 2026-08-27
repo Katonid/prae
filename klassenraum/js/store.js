@@ -165,6 +165,7 @@ export function defaultBoard(name = 'Neuer Klassenraum') {
     gradient: true,
     frames: 'always',
     labels: 'always',
+    textColor: null,
     format: '16:10',
     pages: [page],
     activePageId: page.id,
@@ -302,6 +303,8 @@ function normalizeState(loaded) {
       gradient: board.gradient !== false,
       frames: board.frames || 'always',
       labels: board.labels || 'always',
+      // Globale Schriftfarbe der Element-Beschriftungen (null = automatisch).
+      textColor: typeof board.textColor === 'string' && board.textColor ? board.textColor : null,
       format: BOARD_FORMATS.some((format) => format.id === board.format) ? board.format : '16:10',
       pages,
       activePageId: pages.some((page) => page.id === board.activePageId) ? board.activePageId : pages[0].id,
@@ -374,6 +377,8 @@ function normalizeWidget(rawWidget) {
     z: Number.isFinite(widget.z) ? widget.z : 1,
     locked: Boolean(widget.locked),
     bare: Boolean(widget.bare),
+    // Eigene Schriftfarbe dieses Elements — überstimmt die globale der Tafel.
+    textColor: typeof widget.textColor === 'string' && widget.textColor ? widget.textColor : undefined,
     state: widget.state && typeof widget.state === 'object' ? widget.state : {},
   };
 }

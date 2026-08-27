@@ -1043,6 +1043,16 @@ p.muted { margin: 0; }
 .swatch:hover { transform: translateY(-2px) scale(1.04); }
 .swatch.is-active { border-color: var(--accent); box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.18); }
 
+/* „Automatisch“-Feld in der Schriftfarben-Wahl: A auf neutralem Grund. */
+.swatch--auto {
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, #f1f5f9, #e2e8f0);
+  color: #475569;
+  font-weight: 800;
+  font-size: 15px;
+}
+
 .bg-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
 
 .scheme-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; }
