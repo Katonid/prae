@@ -406,6 +406,12 @@ private struct SelectionChrome: View {
                     Label("Standardgröße", systemImage: "arrow.up.left.and.arrow.down.right")
                 }
                 Divider()
+                Button {
+                    store.uebertragenWidgetID = widget.id
+                } label: {
+                    Label("Auf eine andere Tafel …", systemImage: "arrow.right.square")
+                }
+                Divider()
                 Button(role: .destructive) {
                     store.removeWidget(widget.id, from: boardID)
                 } label: {
