@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Zugangsschluessel, Beispielmodus und Auskunft ueber die Herkunft der
+/// Zugangsschlüssel, Beispielmodus und Auskunft über die Herkunft der
 /// Daten.
 struct Einstellungssicht: View {
     @EnvironmentObject private var daten: Datenhaltung
@@ -25,7 +25,7 @@ struct Einstellungssicht: View {
         Section {
             if daten.schluesselVorhanden {
                 HStack {
-                    Label("Schluessel hinterlegt", systemImage: "checkmark.seal.fill")
+                    Label("Schlüssel hinterlegt", systemImage: "checkmark.seal.fill")
                         .foregroundStyle(Gestaltung.rasen)
                     Spacer()
                     Text(verdeckt)
@@ -35,20 +35,20 @@ struct Einstellungssicht: View {
                 Button(role: .destructive) {
                     loeschfrage = true
                 } label: {
-                    Label("Schluessel entfernen", systemImage: "trash")
+                    Label("Schlüssel entfernen", systemImage: "trash")
                 }
             } else {
-                Text("Ohne Schluessel zeigt die App nur Beispieldaten.")
+                Text("Ohne Schlüssel zeigt die App nur Beispieldaten.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
 
-            TextField(daten.schluesselVorhanden ? "Neuen Schluessel einsetzen" : "Zugangsschluessel", text: $eingabe)
+            TextField(daten.schluesselVorhanden ? "Neuen Schlüssel einsetzen" : "Zugangsschlüssel", text: $eingabe)
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
                 .font(.body.monospaced())
 
-            Button("Schluessel sichern") {
+            Button("Schlüssel sichern") {
                 daten.schluesselSetzen(eingabe)
                 eingabe = ""
             }
@@ -60,9 +60,9 @@ struct Einstellungssicht: View {
         } header: {
             Text("Zugang zu football-data.org")
         } footer: {
-            Text("Der freie Zugang erlaubt zehn Abfragen je Minute. Die App haelt sich daran und frischt laufende Spiele etwa alle 45 Sekunden auf.")
+            Text("Der freie Zugang erlaubt zehn Abfragen je Minute. Die App hält sich daran und frischt laufende Spiele etwa alle 45 Sekunden auf.")
         }
-        .alert("Schluessel entfernen?", isPresented: $loeschfrage) {
+        .alert("Schlüssel entfernen?", isPresented: $loeschfrage) {
             Button("Entfernen", role: .destructive) { daten.schluesselLoeschen() }
             Button("Abbrechen", role: .cancel) { }
         } message: {
@@ -119,7 +119,7 @@ struct Einstellungssicht: View {
         }
     }
 
-    // MARK: Ueber
+    // MARK: Über
 
     private var ueber: some View {
         Section {
@@ -133,9 +133,9 @@ struct Einstellungssicht: View {
                 Label("Daten von football-data.org", systemImage: "globe")
             }
         } header: {
-            Text("Ueber die App")
+            Text("Über die App")
         } footer: {
-            Text("Anstoss speichert nichts ausser dem Zugangsschluessel und den zuletzt gesehenen Meldungen — beides bleibt auf dem Geraet.")
+            Text("Anstoß speichert nichts außer dem Zugangsschlüssel und den zuletzt gesehenen Meldungen — beides bleibt auf dem Gerät.")
         }
     }
 

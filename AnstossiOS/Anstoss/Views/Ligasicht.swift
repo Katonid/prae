@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Eine Liga: umschalten zwischen Spieltag und Tabelle, dazu die Leiste
-/// zum Blaettern durch die Spieltage.
+/// zum Blättern durch die Spieltage.
 struct Ligasicht: View {
     let liga: Liga
     @EnvironmentObject private var daten: Datenhaltung
@@ -112,7 +112,7 @@ struct Ligasicht: View {
             }
             if let spiele = daten.spieltag(liga, spieltag) {
                 if spiele.isEmpty {
-                    Text("Fuer diesen Spieltag liegen keine Begegnungen vor.")
+                    Text("Für diesen Spieltag liegen keine Begegnungen vor.")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 } else {
@@ -141,7 +141,7 @@ struct Ligasicht: View {
         }
     }
 
-    /// Begegnungen nach Kalendertag buendeln — so liest sich ein Spieltag
+    /// Begegnungen nach Kalendertag bündeln — so liest sich ein Spieltag
     /// wie im Spielplan.
     private func tage(_ spiele: [Spiel]) -> [Spieltagsgruppe] {
         let kalender = Calendar.current

@@ -1,8 +1,8 @@
 import Foundation
 
-/// Erfundene, aber in sich stimmige Daten. Damit laesst sich die App
-/// ansehen und bedienen, bevor ein Zugangsschluessel eingetragen ist —
-/// klar gekennzeichnet, damit niemand sie fuer echte Ergebnisse haelt.
+/// Erfundene, aber in sich stimmige Daten. Damit lässt sich die App
+/// ansehen und bedienen, bevor ein Zugangsschlüssel eingetragen ist —
+/// klar gekennzeichnet, damit niemand sie für echte Ergebnisse hält.
 enum Beispieldaten {
 
     // MARK: Mannschaften
@@ -66,8 +66,8 @@ enum Beispieldaten {
 
     // MARK: Zufall mit fester Folge
 
-    /// Immer dieselbe Zahl fuer dieselbe Frage — die Beispieldaten sollen
-    /// sich beim Blaettern nicht veraendern.
+    /// Immer dieselbe Zahl für dieselbe Frage — die Beispieldaten sollen
+    /// sich beim Blättern nicht verändern.
     private static func wuerfel(_ teile: Int...) -> Int {
         var wert = 2166136261
         for teil in teile {
@@ -79,8 +79,8 @@ enum Beispieldaten {
 
     // MARK: Spielplan
 
-    /// Kreisverfahren: Mannschaft 0 bleibt stehen, die uebrigen rotieren.
-    /// So entsteht ein vollstaendiger, doppelfreier Spielplan.
+    /// Kreisverfahren: Mannschaft 0 bleibt stehen, die übrigen rotieren.
+    /// So entsteht ein vollständiger, doppelfreier Spielplan.
     static func paarungen(_ liga: Liga, spieltag: Int) -> [(heim: Int, gast: Int)] {
         let anzahl = namen(liga).count
         let runden = anzahl - 1
@@ -211,7 +211,7 @@ enum Beispieldaten {
 
     // MARK: Spieltag und Tabelle
 
-    /// Ein fester, plausibler Spieltag — die Beispieldaten haengen nicht am
+    /// Ein fester, plausibler Spieltag — die Beispieldaten hängen nicht am
     /// echten Kalender.
     static func laufenderSpieltag(_ liga: Liga) -> Int {
         switch liga {

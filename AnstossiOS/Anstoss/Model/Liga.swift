@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Die fuenf grossen europaeischen Ligen. Der Rohwert ist zugleich der
+/// Die fünf großen europäischen Ligen. Der Rohwert ist zugleich der
 /// Wettbewerbscode von football-data.org, damit keine zweite Tabelle
 /// gepflegt werden muss.
 enum Liga: String, CaseIterable, Identifiable, Codable, Hashable {
@@ -12,8 +12,8 @@ enum Liga: String, CaseIterable, Identifiable, Codable, Hashable {
 
     var id: String { rawValue }
 
-    /// Feste, kleine Kennzahl. Anders als `hashValue` bleibt sie ueber
-    /// Programmstarts hinweg gleich — die Beispieldaten haengen daran.
+    /// Feste, kleine Kennzahl. Anders als `hashValue` bleibt sie über
+    /// Programmstarts hinweg gleich — die Beispieldaten hängen daran.
     var kennzahl: Int {
         switch self {
         case .bundesliga: return 1
@@ -65,7 +65,7 @@ enum Liga: String, CaseIterable, Identifiable, Codable, Hashable {
         }
     }
 
-    /// Anzahl der Spieltage einer vollstaendigen Saison. Dient nur der
+    /// Anzahl der Spieltage einer vollständigen Saison. Dient nur der
     /// Bedienung (Auswahlliste); die echten Spieltage kommen vom Dienst.
     var spieltage: Int {
         switch self {
@@ -74,10 +74,10 @@ enum Liga: String, CaseIterable, Identifiable, Codable, Hashable {
         }
     }
 
-    /// Wie viele Mannschaften am Ende absteigen — faerbt die Tabelle ein.
+    /// Wie viele Mannschaften am Ende absteigen — färbt die Tabelle ein.
     var abstiegsplaetze: Int { 3 }
 
-    /// Plaetze, die direkt in die Champions League fuehren (Naeherung; die
+    /// Plätze, die direkt in die Champions League führen (Näherung; die
     /// Feinheiten der UEFA-Rangliste bildet die App bewusst nicht nach).
     var championsLeaguePlaetze: Int { 4 }
 }

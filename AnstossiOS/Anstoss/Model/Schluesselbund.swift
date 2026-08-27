@@ -1,8 +1,8 @@
 import Foundation
 import Security
 
-/// Legt den Zugangsschluessel im Schluesselbund ab statt in den
-/// Voreinstellungen — er gehoert dem Nutzer, nicht der Sicherung.
+/// Legt den Zugangsschlüssel im Schlüsselbund ab statt in den
+/// Voreinstellungen — er gehört dem Nutzer, nicht der Sicherung.
 enum Schluesselbund {
     private static let dienst = "de.familie.anstoss"
     private static let konto = "football-data-token"

@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Wird gezeigt, solange weder ein Zugangsschluessel noch der
+/// Wird gezeigt, solange weder ein Zugangsschlüssel noch der
 /// Beispielmodus eingerichtet ist.
 struct Willkommenssicht: View {
     @EnvironmentObject private var daten: Datenhaltung
@@ -25,7 +25,7 @@ struct Willkommenssicht: View {
             Image(systemName: "soccerball")
                 .font(.system(size: 46))
                 .foregroundStyle(Gestaltung.rasen)
-            Text("Alle fuenf grossen Ligen")
+            Text("Alle fünf großen Ligen")
                 .font(.title2.weight(.bold))
                 .multilineTextAlignment(.center)
             Text("Bundesliga, Premier League, La Liga, Serie A und Ligue 1 — Spieltage, Tabellen und ein Liveticker.")
@@ -40,9 +40,9 @@ struct Willkommenssicht: View {
         VStack(alignment: .leading, spacing: 14) {
             Text("Einmal einrichten")
                 .font(.headline)
-            schritt(1, "Kostenlosen Zugang bei football-data.org anlegen — Name und E-Mail genuegen.")
-            schritt(2, "Der Schluessel kommt per E-Mail. Er ist kostenlos und deckt genau diese fuenf Ligen ab.")
-            schritt(3, "Schluessel unten einsetzen. Er bleibt im Schluesselbund des Geraets.")
+            schritt(1, "Kostenlosen Zugang bei football-data.org anlegen — Name und E-Mail genügen.")
+            schritt(2, "Der Schlüssel kommt per E-Mail. Er ist kostenlos und deckt genau diese fünf Ligen ab.")
+            schritt(3, "Schlüssel unten einsetzen. Er bleibt im Schlüsselbund des Geräts.")
             Link(destination: URL(string: "https://www.football-data.org/client/register")!) {
                 Label("Zugang anlegen", systemImage: "arrow.up.right.square")
                     .font(.subheadline.weight(.semibold))
@@ -68,7 +68,7 @@ struct Willkommenssicht: View {
 
     private var eingabefeld: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Zugangsschluessel")
+            Text("Zugangsschlüssel")
                 .font(.headline)
             TextField("z. B. 8a4c1f…", text: $eingabe)
                 .textFieldStyle(.roundedBorder)
@@ -83,7 +83,7 @@ struct Willkommenssicht: View {
             Button {
                 sichern()
             } label: {
-                Text("Schluessel sichern")
+                Text("Schlüssel sichern")
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(.borderedProminent)
@@ -116,7 +116,7 @@ struct Willkommenssicht: View {
     private func sichern() {
         let sauber = eingabe.trimmingCharacters(in: .whitespacesAndNewlines)
         guard sauber.count >= 8 else {
-            meldung = "Der Schluessel wirkt zu kurz. Bitte vollstaendig einsetzen."
+            meldung = "Der Schlüssel wirkt zu kurz. Bitte vollständig einsetzen."
             return
         }
         meldung = nil

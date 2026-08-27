@@ -85,9 +85,9 @@ struct Spielsicht: View {
     private var zustandstext: String {
         switch gezeigt.status {
         case .geplant:
-            return "Anstoss \(Zeitformate.uhrzeit.string(from: gezeigt.anstoss)) Uhr"
+            return "Anstoß \(Zeitformate.uhrzeit.string(from: gezeigt.anstoss)) Uhr"
         case .laeuft:
-            return gezeigt.minute.map { "\($0). Minute" } ?? "laeuft"
+            return gezeigt.minute.map { "\($0). Minute" } ?? "läuft"
         case .pause:
             return "Halbzeit"
         case .beendet:
@@ -132,7 +132,7 @@ struct Spielsicht: View {
 
     private var eckdaten: some View {
         VStack(spacing: 0) {
-            zeile("Anstoss", Zeitformate.wochentagDatum.string(from: gezeigt.anstoss)
+            zeile("Anstoß", Zeitformate.wochentagDatum.string(from: gezeigt.anstoss)
                   + ", " + Zeitformate.uhrzeit.string(from: gezeigt.anstoss) + " Uhr")
             if let halbzeit = gezeigt.halbzeittext {
                 Divider()

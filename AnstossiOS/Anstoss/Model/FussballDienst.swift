@@ -13,9 +13,9 @@ enum DienstFehler: LocalizedError, Equatable {
     var errorDescription: String? {
         switch self {
         case .keinSchluessel:
-            return "Es ist noch kein Zugangsschluessel hinterlegt."
+            return "Es ist noch kein Zugangsschlüssel hinterlegt."
         case .schluesselAbgelehnt:
-            return "Der Zugangsschluessel wurde abgelehnt. Bitte in den Einstellungen pruefen."
+            return "Der Zugangsschlüssel wurde abgelehnt. Bitte in den Einstellungen prüfen."
         case .limitErreicht:
             return "Der freie Zugang erlaubt nur zehn Abfragen je Minute. Gleich geht es weiter."
         case .nichtGefunden:
@@ -31,7 +31,7 @@ enum DienstFehler: LocalizedError, Equatable {
 }
 
 /// Der freie Zugang von football-data.org erlaubt zehn Anfragen je Minute.
-/// Diese Bremse haelt das ein, statt sich auf Fehler 429 zu verlassen.
+/// Diese Bremse hält das ein, statt sich auf Fehler 429 zu verlassen.
 actor Anfragenbremse {
     private let grenze: Int
     private let fenster: TimeInterval = 60
@@ -57,7 +57,7 @@ actor Anfragenbremse {
 }
 
 /// Zugriff auf football-data.org (Fassung v4). Der Dienst ist im freien
-/// Zugang auf die fuenf grossen Ligen zugeschnitten — genau das, was diese
+/// Zugang auf die fünf großen Ligen zugeschnitten — genau das, was diese
 /// App braucht.
 struct FussballDienst {
     let schluessel: String
@@ -90,7 +90,7 @@ struct FussballDienst {
                        stand: Date())
     }
 
-    /// Alle heutigen Spiele der fuenf Ligen in einer einzigen Anfrage —
+    /// Alle heutigen Spiele der fünf Ligen in einer einzigen Anfrage —
     /// das ist die Grundlage des Livetickers.
     func spieleHeute() async throws -> [Spiel] {
         // Der Dienst rechnet in UTC, die App im Kalender des Nutzers. Ein
@@ -113,9 +113,9 @@ struct FussballDienst {
             .filter { $0.istHeute || $0.status.laeuftGerade }
     }
 
-    /// Ein einzelnes Spiel mit Torschuetzen, soweit der Zugang sie hergibt.
+    /// Ein einzelnes Spiel mit Torschützen, soweit der Zugang sie hergibt.
     /// Der Dienst liefert das Spiel je nach Fassung entweder unmittelbar
-    /// oder in eine Huelle gepackt — beides wird versucht.
+    /// oder in eine Hülle gepackt — beides wird versucht.
     func spiel(id: Int) async throws -> Spiel? {
         let url = Self.basis.appendingPathComponent("matches/\(id)")
         let daten = try await rohdaten(url)
@@ -128,7 +128,7 @@ struct FussballDienst {
         throw DienstFehler.antwortUnleserlich
     }
 
-    /// Der Spieltag, der gerade laeuft.
+    /// Der Spieltag, der gerade läuft.
     func laufenderSpieltag(liga: Liga) async throws -> Int {
         let url = Self.basis.appendingPathComponent("competitions/\(liga.rawValue)")
         let antwort: WettbewerbAntwort = try await holen(url)
