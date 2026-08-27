@@ -33,6 +33,18 @@ struct NamePickerWidgetView: View {
     @State private var armed = false
 
     var body: some View {
+        // Der Modus entscheidet, was zu sehen ist. Die Einzelziehung ist die
+        // alte Ansicht; Gruppen und Tagesgruppe teilen sich eine eigene.
+        switch content.modus {
+        case .einzel:
+            einzelAnsicht
+        case .gruppen, .tagesgruppe:
+            GruppenAnsicht(content: $content, interactive: interactive,
+                           list: list, onOpenSettings: onOpenSettings)
+        }
+    }
+
+    private var einzelAnsicht: some View {
         GeometryReader { geo in
             VStack(spacing: metrics.em(0.55)) {
                 // `.w-random__display` — Überschrift, Name und Hinweis
