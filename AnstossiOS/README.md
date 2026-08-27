@@ -27,6 +27,8 @@ der Eintrag dagegen schon, lädt Distribute einfach in ihn hinein.
   Blatt. Laufende Spiele stehen oben, darunter laufen die Meldungen
   (Anpfiff, Tor, Halbzeit, Abpfiff) in zeitlicher Reihenfolge. Filter je
   Liga, zum Aufräumen ein „Meldungen löschen“.
+- **Torjäger** — Liste je Liga mit Toren, Spielen, Vorlagen und
+  Elfmetern. Das Einzige an Spielerdaten, das der freie Zugang hergibt.
 - **Ligen** — jede Liga mit einer Leiste zum Blättern durch alle
   Spieltage (Pfeile links/rechts oder Auswahlmenü) und mit Umschalter
   zur **Tabelle** samt Platzierung, Spielen, Tordifferenz, Punkten und
@@ -115,7 +117,9 @@ muss zu `Hintergrundpflege.kennung` passen) und `UIBackgroundModes = fetch`.
 | Spielstand, Halbzeit, Minute, Zustand | football-data.org |
 | Torfolge mit Schütze und Minute | football-data.org; für die **Bundesliga** ersatzweise **OpenLigaDB** |
 | Tabellenplatz, Bilanz und Formkurve beider Mannschaften | aus der geladenen Tabelle — kostet keine zusätzliche Abfrage |
-| Direkter Vergleich (Begegnungen, Siege, Remis, Tore) | kommt mit der Abfrage zum einzelnen Spiel mit |
+| Heim- bzw. Auswärtsbilanz der jeweiligen Mannschaft | steckt in derselben Tabellenantwort — kostet nichts extra |
+| Direkter Vergleich (Begegnungen, Siege, Remis, Tore) | **eigene** Unterabfrage `/matches/{id}/head2head`, nur beim Öffnen einer Begegnung |
+| Torjägerliste je Liga | `/competitions/{code}/scorers`, erst beim Ansehen |
 | Spielort, Schiedsrichter | football-data.org, soweit vorhanden |
 | Aufstellung, Auswechslungen, Karten | **gibt es nicht** — kostenpflichtige Stufen |
 
@@ -187,6 +191,7 @@ Anstoss/
     Ligensicht.swift        Menü der fünf Ligen
     Ligasicht.swift         Spieltag blättern / Tabelle
     Tabellensicht.swift     Tabelle
+    Torjaegersicht.swift    Torjägerliste einer Liga
     Spielsicht.swift        einzelne Begegnung
     Spielzeile.swift        Begegnung als Listenzeile
     Willkommenssicht.swift  Einrichtung beim ersten Start
@@ -205,7 +210,8 @@ bearbeiten.
 Stellen im pbxproj (Debug + Release); es gibt keine Skript-Bauphase,
 beide Werte werden im Repo gepflegt. **Jede Arbeitseinheit hebt beide
 um +1 an** — Fassung und Build-Nummer. Zählung ab 08/2026: 1.0.4
-(Build 2), 1.0.5 (Build 3), 1.0.6 (Build 4), 1.0.7 (Build 5) usw.
+(Build 2), 1.0.5 (Build 3), 1.0.6 (Build 4), 1.0.7 (Build 5),
+1.0.8 (Build 6) usw.
 
 Hintergrund: App Store Connect nimmt keinen Build an, dessen Nummer
 nicht höher ist als die des vorherigen.

@@ -104,7 +104,6 @@ struct Spiel: Identifiable, Hashable, Codable {
     /// Fassung lässt sich weiterhin lesen.
     var spielort: String?
     var schiedsrichter: String?
-    var vergleich: Vergleich?
     /// Woher die Torfolge stammt, wenn nicht von football-data.org. Steht
     /// hier etwas, sagt die Spielansicht es auch dazu.
     var torfolgeQuelle: String?
@@ -146,9 +145,13 @@ struct Spiel: Identifiable, Hashable, Codable {
 
 // MARK: - Direkter Vergleich
 
-/// Die bisherige Bilanz zweier Mannschaften gegeneinander. Der Dienst
-/// schickt sie mit der Abfrage zum einzelnen Spiel mit — sie kostet also
-/// keine zusätzliche Anfrage aus dem knappen Kontingent.
+/// Die bisherige Bilanz zweier Mannschaften gegeneinander.
+///
+/// Achtung: Das ist eine **eigene** Unterabfrage (`/matches/{id}/head2head`)
+/// und keine Beigabe zur Spielabfrage — in 1.0.7 stand das falsch im Code,
+/// weshalb der Vergleich nie erschien. Sie wird nur beim Öffnen einer
+/// einzelnen Begegnung gestellt und geht dann von den zehn Abfragen je
+/// Minute ab; bleibt sie ohne Antwort, entfällt der Abschnitt einfach.
 struct Vergleich: Hashable, Codable {
     let spiele: Int
     let siegeHeim: Int
@@ -177,6 +180,12 @@ struct Tabellenzeile: Identifiable, Hashable, Codable {
     let punkte: Int
     /// Die letzten Ergebnisse, neuestes zuletzt: "S", "U" oder "N".
     let form: [String]
+
+    /// „1 Spiel" statt „1 Spiele" — und ausgeschrieben statt „0-1-0".
+    var bilanztext: String {
+        let partien = spiele == 1 ? "1 Spiel" : "\(spiele) Spiele"
+        return "\(partien) · \(siege) S, \(unentschieden) U, \(niederlagen) N · \(toreFuer):\(toreGegen) Tore"
+    }
 }
 
 struct Tabelle: Hashable, Codable {
@@ -184,6 +193,50 @@ struct Tabelle: Hashable, Codable {
     let spieltag: Int
     let zeilen: [Tabellenzeile]
     let stand: Date
+    /// Der Dienst schickt zur Gesamttabelle auch eine Heim- und eine
+    /// Auswärtstabelle mit — in derselben Antwort, also ohne zusätzliche
+    /// Abfrage. Liefert er sie nicht, bleiben sie leer.
+    var heimzeilen: [Tabellenzeile] = []
+    var auswaertszeilen: [Tabellenzeile] = []
+
+    func heim(_ mannschaft: Mannschaft) -> Tabellenzeile? {
+        heimzeilen.first { $0.mannschaft.id == mannschaft.id }
+    }
+
+    func auswaerts(_ mannschaft: Mannschaft) -> Tabellenzeile? {
+        auswaertszeilen.first { $0.mannschaft.id == mannschaft.id }
+    }
+}
+
+// MARK: - Torjäger
+
+/// Ein Eintrag der Torjägerliste. Das Einzige an Spielerdaten, das der
+/// freie Zugang hergibt — Aufstellungen gehören nicht dazu.
+struct Torjaeger: Identifiable, Hashable, Codable {
+    let id: Int
+    let platz: Int
+    let name: String
+    let mannschaft: Mannschaft?
+    let tore: Int
+    let vorlagen: Int?
+    let elfmeter: Int?
+    let spiele: Int?
+
+    /// „12 Tore in 8 Spielen, davon 2 Elfmeter" — aber nur mit dem, was
+    /// wirklich mitkam.
+    var beitext: String {
+        var teile: [String] = []
+        if let spiele, spiele > 0 {
+            teile.append(spiele == 1 ? "1 Spiel" : "\(spiele) Spiele")
+        }
+        if let vorlagen, vorlagen > 0 {
+            teile.append(vorlagen == 1 ? "1 Vorlage" : "\(vorlagen) Vorlagen")
+        }
+        if let elfmeter, elfmeter > 0 {
+            teile.append(elfmeter == 1 ? "1 Elfmeter" : "\(elfmeter) Elfmeter")
+        }
+        return teile.joined(separator: " · ")
+    }
 }
 
 // MARK: - Ticker

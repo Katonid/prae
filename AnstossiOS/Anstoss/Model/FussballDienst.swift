@@ -84,10 +84,16 @@ struct FussballDienst {
         let antwort: TabellenAntwort = try await holen(url)
         let gesamt = antwort.standings.first { $0.type == "TOTAL" } ?? antwort.standings.first
         let zeilen = (gesamt?.table ?? []).map { $0.zeile() }
+        // Dieselbe Antwort trägt meist noch eine Heim- und eine
+        // Auswärtstabelle. Kostenlos mitgenommen, was da ist.
+        let daheim = (antwort.standings.first { $0.type == "HOME" }?.table ?? []).map { $0.zeile() }
+        let auswaerts = (antwort.standings.first { $0.type == "AWAY" }?.table ?? []).map { $0.zeile() }
         return Tabelle(liga: liga,
                        spieltag: antwort.season?.currentMatchday ?? 1,
                        zeilen: zeilen,
-                       stand: Date())
+                       stand: Date(),
+                       heimzeilen: daheim,
+                       auswaertszeilen: auswaerts)
     }
 
     /// Alle heutigen Spiele der fünf Ligen in einer einzigen Anfrage —
@@ -126,6 +132,34 @@ struct FussballDienst {
             return huelle.match?.spiel(fallback: nil)
         }
         throw DienstFehler.antwortUnleserlich
+    }
+
+    /// Der direkte Vergleich zweier Mannschaften.
+    ///
+    /// Eine **eigene** Unterabfrage: `head2head` liegt nicht in der Antwort
+    /// zum Spiel. Sie wird nur beim Öffnen einer einzelnen Begegnung
+    /// gestellt. Antwortet der Dienst nicht oder deckt der freie Zugang sie
+    /// nicht, gibt es eben keinen Vergleich — deshalb wirft sie nicht.
+    func vergleich(spielID: Int) async -> Vergleich? {
+        var teile = URLComponents(url: Self.basis.appendingPathComponent("matches/\(spielID)/head2head"),
+                                  resolvingAgainstBaseURL: false)!
+        teile.queryItems = [URLQueryItem(name: "limit", value: "10")]
+        guard let url = teile.url,
+              let daten = try? await rohdaten(url),
+              let antwort = try? JSONDecoder().decode(VergleichsAntwort.self, from: daten) else {
+            return nil
+        }
+        return antwort.vergleich()
+    }
+
+    /// Die Torjägerliste einer Liga. Der freie Zugang gibt sie her — und
+    /// sie ist das Einzige an Spielerdaten, das er hergibt.
+    func torjaeger(liga: Liga, anzahl: Int = 25) async throws -> [Torjaeger] {
+        var teile = URLComponents(url: Self.basis.appendingPathComponent("competitions/\(liga.rawValue)/scorers"),
+                                  resolvingAgainstBaseURL: false)!
+        teile.queryItems = [URLQueryItem(name: "limit", value: String(anzahl))]
+        let antwort: TorjaegerAntwort = try await holen(teile.url!)
+        return antwort.scorers.enumerated().compactMap { platz, roh in roh.torjaeger(platz: platz + 1) }
     }
 
     /// Der Spieltag, der gerade läuft.
@@ -202,6 +236,66 @@ private struct TabellenAntwort: Decodable {
     let standings: [Gruppe]
 }
 
+/// Antwort auf `/matches/{id}/head2head`. Der Dienst legt die Zahlen unter
+/// `aggregates` ab, die Einzelspiele daneben — gebraucht werden hier nur die
+/// Zahlen.
+private struct VergleichsAntwort: Decodable {
+    struct Zahlen: Decodable {
+        struct Seite: Decodable {
+            let wins: Int?
+            let draws: Int?
+            let losses: Int?
+        }
+        let numberOfMatches: Int?
+        let totalGoals: Int?
+        let homeTeam: Seite?
+        let awayTeam: Seite?
+    }
+    let aggregates: Zahlen?
+
+    func vergleich() -> Vergleich? {
+        guard let zahlen = aggregates, let anzahl = zahlen.numberOfMatches, anzahl > 0 else { return nil }
+        let siegeHeim = zahlen.homeTeam?.wins ?? 0
+        let siegeGast = zahlen.awayTeam?.wins ?? 0
+        let remis = zahlen.homeTeam?.draws ?? max(anzahl - siegeHeim - siegeGast, 0)
+        return Vergleich(spiele: anzahl,
+                         siegeHeim: siegeHeim,
+                         siegeGast: siegeGast,
+                         unentschieden: remis,
+                         toreGesamt: zahlen.totalGoals ?? 0)
+    }
+}
+
+private struct TorjaegerAntwort: Decodable {
+    struct Eintrag: Decodable {
+        struct Person: Decodable {
+            let id: Int?
+            let name: String?
+            let nationality: String?
+            let position: String?
+        }
+        let player: Person?
+        let team: RohMannschaft?
+        let goals: Int?
+        let assists: Int?
+        let penalties: Int?
+        let playedMatches: Int?
+
+        func torjaeger(platz: Int) -> Torjaeger? {
+            guard let name = player?.name, let tore = goals else { return nil }
+            return Torjaeger(id: player?.id ?? platz,
+                             platz: platz,
+                             name: name,
+                             mannschaft: team?.mannschaft(),
+                             tore: tore,
+                             vorlagen: assists,
+                             elfmeter: penalties,
+                             spiele: playedMatches)
+        }
+    }
+    let scorers: [Eintrag]
+}
+
 private struct RohMannschaft: Decodable {
     let id: Int?
     let name: String?
@@ -272,19 +366,6 @@ private struct RohSpiel: Decodable {
         let name: String?
         let type: String?
     }
-    /// Der direkte Vergleich, wie ihn die Abfrage zum einzelnen Spiel
-    /// mitschickt. Kommt er nicht mit, bleibt er eben leer.
-    struct RohVergleich: Decodable {
-        struct Seite: Decodable {
-            let wins: Int?
-            let draws: Int?
-            let losses: Int?
-        }
-        let numberOfMatches: Int?
-        let totalGoals: Int?
-        let homeTeam: Seite?
-        let awayTeam: Seite?
-    }
     struct RohTor: Decodable {
         struct Spieler: Decodable { let name: String? }
         struct Stand: Decodable {
@@ -311,7 +392,6 @@ private struct RohSpiel: Decodable {
     let goals: [RohTor]?
     let venue: String?
     let referees: [RohSchiedsrichter]?
-    let head2head: RohVergleich?
 
     func spiel(fallback: Liga?) -> Spiel? {
         guard let id,
@@ -339,20 +419,6 @@ private struct RohSpiel: Decodable {
             .first { ($0.type ?? "").uppercased().contains("REFEREE") && !($0.type ?? "").uppercased().contains("ASSISTANT") }?
             .name ?? (referees ?? []).first?.name
 
-        // Beim direkten Vergleich nennt der Dienst Siege, Unentschieden und
-        // Niederlagen je Seite sowie die Gesamtzahl der Tore. Mehr wird hier
-        // nicht behauptet, als tatsächlich ankommt.
-        var bilanz: Vergleich?
-        if let roh = head2head, let anzahl = roh.numberOfMatches, anzahl > 0 {
-            let siegeHeim = roh.homeTeam?.wins ?? 0
-            let siegeGast = roh.awayTeam?.wins ?? 0
-            bilanz = Vergleich(spiele: anzahl,
-                               siegeHeim: siegeHeim,
-                               siegeGast: siegeGast,
-                               unentschieden: roh.homeTeam?.draws ?? max(anzahl - siegeHeim - siegeGast, 0),
-                               toreGesamt: roh.totalGoals ?? 0)
-        }
-
         return Spiel(id: id,
                      liga: liga,
                      spieltag: matchday ?? 0,
@@ -367,7 +433,6 @@ private struct RohSpiel: Decodable {
                      halbzeitGast: score?.halfTime?.away,
                      tore: torliste,
                      spielort: venue?.trimmingCharacters(in: .whitespacesAndNewlines),
-                     schiedsrichter: hauptschiedsrichter,
-                     vergleich: bilanz)
+                     schiedsrichter: hauptschiedsrichter)
     }
 }
