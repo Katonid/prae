@@ -631,7 +631,8 @@ function openHelp() {
         + 'In den Namenslisten lässt sich jeder Name pausieren (z. B. bei Krankheit) — er bleibt in der Liste, wird aber nicht gezogen.'),
       h('p', null, h('strong', null, 'Gruppen & Tagesgruppe: '), 'Der Auswahlmodus „Gruppen“ lost die ganze Liste in Gruppen aus '
         + '(Größe 1–15) — Partner nebeneinander, Gruppen untereinander. Ein Tipp auf einen Namen lost ab dieser Stelle neu, alles davor bleibt. '
-        + 'Mit Merkmalen aus der Namensliste (z. B. „J“/„M“) wird jede Gruppe nach Möglichkeit gemischt, und frühere Zusammensetzungen werden '
+        + 'Mit Merkmalen aus der Namensliste (z. B. „J“/„M“) lässt sich wählen, ob Gruppen aus unterschiedlichen Merkmalen bestehen '
+        + '(ein Junge + ein Mädchen), aus gleichen (reine Jungen-/Mädchengruppen) oder ob Merkmale egal sind; frühere Zusammensetzungen werden '
         + 'gemieden, bis alle Kombinationen durch waren. „Tagesgruppe“ lost eine kleine Auswahl aus — wer selten dran war, kommt bevorzugt dran. '
         + 'Beide merken sich alle Auslosungen mit Datum (im Zahnrad einsehbar, bis zum Reset), und jeder Modus lässt sich umbenennen. '
         + 'Nach jeder Auslosung ist das Ergebnis vor versehentlichem Neuauslosen geschützt — das Schloss oben auf der Karte gibt es wieder frei. '
