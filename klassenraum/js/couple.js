@@ -142,7 +142,7 @@ async function applyPayload(board, entry, payload) {
   let changed = false;
 
   // 1) Neue Auslosungs-/Klangfelder der teilenden Person übernehmen —
-  //    nur auf der Kopie-Seite (die teilende Person besitzt das Original).
+  //    auf der Kopie-Seite direkt aus deren Tafel-Stand.
   if (entry.coupled && payload.board) {
     const pages = Array.isArray(payload.board.pages) ? payload.board.pages : [];
     for (const page of pages) {
@@ -153,13 +153,41 @@ async function applyPayload(board, entry, payload) {
         const clone = adoptWidget(board, origin);
         known.set(key, clone);
         keeper.hashes[key] = stateHash(clone.state);
+        await pullCoupleMedia(entry.code, clone.state);
         changed = true;
       }
     }
   }
 
-  // 2) Stände zusammenführen — je Feld gewinnt der neuere.
   const records = payload.state && typeof payload.state === 'object' ? payload.state : {};
+
+  // 2) Auch andersherum: Legt eine TEILNEHMENDE Person ein Auslosungs- oder
+  //    Klangfeld an, kennt es hier noch niemand — die Stand-Datensätze tragen
+  //    dafür Art und Maße mit, sodass jedes Gerät (auch der Besitzer) das
+  //    Feld daraus übernehmen kann.
+  for (const [key, record] of Object.entries(records)) {
+    if (!record || typeof record !== 'object' || !record.state) continue;
+    if (!COUPLE_TYPES.includes(record.type)) continue;
+    if (known.has(key) || keeper.dismissed.includes(key)) continue;
+    const clone = adoptWidget(board, {
+      id: key,
+      originId: key,
+      type: record.type,
+      x: Number.isFinite(record.x) ? record.x : 100,
+      y: Number.isFinite(record.y) ? record.y : 100,
+      w: Number.isFinite(record.w) ? record.w : 360,
+      h: Number.isFinite(record.h) ? record.h : 260,
+      z: 1,
+      state: record.state,
+    });
+    known.set(key, clone);
+    keeper.hashes[key] = stateHash(clone.state);
+    keeper.stamps[key] = record.updatedAt || 0;
+    await pullCoupleMedia(entry.code, clone.state);
+    changed = true;
+  }
+
+  // 3) Stände zusammenführen — je Feld gewinnt der neuere.
   for (const [key, record] of Object.entries(records)) {
     if (!record || typeof record !== 'object' || !record.state) continue;
     const widget = known.get(key);
@@ -193,16 +221,14 @@ async function pushChanges() {
     const keeper = bookkeeping(entry);
     const widgets = coupledWidgetsOf(board);
 
-    // Gelöschte Felder merken (nur Kopie-Seite): einmal weg heißt weg —
-    // sonst käme das Feld mit dem nächsten Stand sofort zurück.
-    if (entry.coupled) {
-      const present = new Set(widgets.map((widget) => originIdOf(widget)));
-      for (const key of Object.keys(keeper.hashes)) {
-        if (!present.has(key) && !keeper.dismissed.includes(key)) {
-          keeper.dismissed.push(key);
-          delete keeper.hashes[key];
-          delete keeper.stamps[key];
-        }
+    // Gelöschte Felder merken — auf jeder Seite, auch beim Besitzer: einmal
+    // weg heißt weg, sonst käme das Feld mit dem nächsten Stand sofort zurück.
+    const present = new Set(widgets.map((widget) => originIdOf(widget)));
+    for (const key of Object.keys(keeper.hashes)) {
+      if (!present.has(key) && !keeper.dismissed.includes(key)) {
+        keeper.dismissed.push(key);
+        delete keeper.hashes[key];
+        delete keeper.stamps[key];
       }
     }
 
@@ -213,9 +239,15 @@ async function pushChanges() {
       const stamp = Date.now();
       try {
         await pushCoupleMedia(entry.code, keeper, widget.state);
+        // Art und Maße wandern mit, damit andere Geräte (auch der Besitzer)
+        // ein hier neu angelegtes Feld daraus übernehmen können.
         await putShareState(entry.code, key, {
           updatedAt: stamp,
           type: widget.type,
+          x: widget.x,
+          y: widget.y,
+          w: widget.w,
+          h: widget.h,
           state: JSON.parse(JSON.stringify(widget.state)),
         });
         keeper.hashes[key] = hash;
