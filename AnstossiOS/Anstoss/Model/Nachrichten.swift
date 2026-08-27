@@ -9,9 +9,11 @@ import Foundation
 /// Überschrift und Anriss. Das ist eine Schätzung, keine Wissenschaft, und
 /// die App sagt das an der entsprechenden Stelle auch.
 enum Nachrichtenart: String, Codable, Hashable, CaseIterable, Identifiable {
+    case aufstellung
     case transfer
     case geruecht
     case verletzung
+    case spielbericht
     case verein
     case sonstiges
 
@@ -19,9 +21,11 @@ enum Nachrichtenart: String, Codable, Hashable, CaseIterable, Identifiable {
 
     var name: String {
         switch self {
+        case .aufstellung: return "Aufstellung & Vorbericht"
         case .transfer: return "Transfer"
         case .geruecht: return "Gerücht"
         case .verletzung: return "Verletzung & Sperre"
+        case .spielbericht: return "Spielbericht & Analyse"
         case .verein: return "Rund um den Verein"
         case .sonstiges: return "Sonstiges"
         }
@@ -29,9 +33,11 @@ enum Nachrichtenart: String, Codable, Hashable, CaseIterable, Identifiable {
 
     var beschreibung: String {
         switch self {
+        case .aufstellung: return "Startelf, Personal und Vorschau auf die Partie."
         case .transfer: return "Wechsel, Unterschriften, Leihen, Abgänge."
         case .geruecht: return "Was angeblich, offenbar oder womöglich ansteht."
         case .verletzung: return "Ausfälle, Sperren, Rückkehr nach Verletzung."
+        case .spielbericht: return "Nachbericht, Analyse, Noten, Stimmen — hier stehen auch Platzverweise."
         case .verein: return "Trainer, Vorstand, Vertrag, Stadion."
         case .sonstiges: return "Alles Übrige aus den Quellen."
         }
@@ -39,9 +45,11 @@ enum Nachrichtenart: String, Codable, Hashable, CaseIterable, Identifiable {
 
     var symbol: String {
         switch self {
+        case .aufstellung: return "person.3.fill"
         case .transfer: return "arrow.left.arrow.right.circle.fill"
         case .geruecht: return "questionmark.bubble.fill"
         case .verletzung: return "cross.case.fill"
+        case .spielbericht: return "text.magnifyingglass"
         case .verein: return "building.columns.fill"
         case .sonstiges: return "newspaper.fill"
         }
@@ -56,6 +64,7 @@ enum Nachrichtenart: String, Codable, Hashable, CaseIterable, Identifiable {
 enum Nachrichtenquelle: String, Codable, Hashable, CaseIterable, Identifiable {
     case kicker
     case kickerBundesliga
+    case kickerChampionsLeague
     case transfermarkt
 
     var id: String { rawValue }
@@ -64,6 +73,7 @@ enum Nachrichtenquelle: String, Codable, Hashable, CaseIterable, Identifiable {
         switch self {
         case .kicker: return "kicker — Fußball"
         case .kickerBundesliga: return "kicker — Bundesliga"
+        case .kickerChampionsLeague: return "kicker — Champions League"
         case .transfermarkt: return "Transfermarkt"
         }
     }
@@ -72,6 +82,7 @@ enum Nachrichtenquelle: String, Codable, Hashable, CaseIterable, Identifiable {
         switch self {
         case .kicker: return "Alle Fußballmeldungen des kicker."
         case .kickerBundesliga: return "Nur die Bundesliga, dafür dichter."
+        case .kickerChampionsLeague: return "Europapokal — dort spielen dieselben Vereine."
         case .transfermarkt: return "Schwerpunkt Wechsel und Gerüchte."
         }
     }
@@ -80,6 +91,7 @@ enum Nachrichtenquelle: String, Codable, Hashable, CaseIterable, Identifiable {
         switch self {
         case .kicker: return URL(string: "https://newsfeed.kicker.de/news/fussball")
         case .kickerBundesliga: return URL(string: "https://newsfeed.kicker.de/news/bundesliga")
+        case .kickerChampionsLeague: return URL(string: "https://newsfeed.kicker.de/news/champions-league")
         case .transfermarkt: return URL(string: "https://www.transfermarkt.de/rss/news")
         }
     }
@@ -121,6 +133,23 @@ enum Nachrichtensieb {
         "wohl vor", "beschäftigt sich mit", "erwägt"
     ]
 
+    private static let elf = [
+        "aufstellung", "startelf", "startformation", "voraussichtlich",
+        "so könnte", "so koennte", "so spielt", "vorbericht", "vorschau",
+        "personalsorgen", "personallage", "wer spielt", "diese elf",
+        "rückt in die", "rueckt in die", "ansetzung", "angesetzt",
+        "das spiel im überblick", "vor dem spiel", "in den kader", "kader nominiert",
+        "kader zurück", "kader zurueck"
+    ]
+
+    private static let bericht = [
+        "spielbericht", "nachbericht", "einzelkritik", "die noten",
+        "pressestimmen", "stimmen zum spiel", "die stimmen", "so lief",
+        "analyse", "fazit", "statistik zum spiel", "zusammenfassung",
+        "rote karte", "platzverweis", "gelb-rot", "glatt rot",
+        "des tages", "spieler des spiels"
+    ]
+
     private static let wechsel = [
         "transfer", "wechsel", "wechselt", "unterschreibt", "unterschrieben",
         "verpflichtet", "verpflichtung", "leihe", "ausgeliehen", "leiht",
@@ -133,7 +162,8 @@ enum Nachrichtensieb {
     private static let blessur = [
         "verletzt", "verletzung", "ausfall", "fällt aus", "faellt aus",
         "operation", "operiert", "kreuzband", "muskelbündelriss", "muskelfaserriss",
-        "sperre", "gesperrt", "rotsperre", "reha", "comeback", "rückkehr nach",
+        "sperre", "gesperrt", "rotsperre", "reha", "rückkehr nach",
+        "comeback nach", "verletzungscomeback", "wieder im training",
         "angeschlagen", "bänderriss", "baenderriss", "adduktoren", "trainingsrückkehr"
     ]
 
@@ -147,9 +177,14 @@ enum Nachrichtensieb {
 
     static func art(titel: String, anriss: String) -> Nachrichtenart {
         let text = (titel + " " + anriss).lowercased()
+        // Die Reihenfolge ist die Aussage: Ein Gerücht ist auch ein Transfer,
+        // soll aber als Gerücht durchgehen; ein Spielbericht nennt fast immer
+        // den Trainer, ist deshalb aber keine Vereinsmeldung.
         if unsicher.contains(where: { text.contains($0) }) { return .geruecht }
+        if elf.contains(where: { text.contains($0) }) { return .aufstellung }
         if wechsel.contains(where: { text.contains($0) }) { return .transfer }
         if blessur.contains(where: { text.contains($0) }) { return .verletzung }
+        if bericht.contains(where: { text.contains($0) }) { return .spielbericht }
         if vereinssache.contains(where: { text.contains($0) }) { return .verein }
         return .sonstiges
     }
@@ -310,7 +345,7 @@ enum Nachrichtenspeicher {
 
     static func laden() -> [Nachricht] {
         guard let ort, let daten = try? Data(contentsOf: ort) else { return [] }
-        let alle = (try? JSONDecoder().decode([Nachricht].self, from: daten)) ?? []
+        let alle = JSONDecoder().nachsichtigeListe(Nachricht.self, aus: daten)
         let grenze = Date().addingTimeInterval(-60 * 60 * 24 * 5)
         return alle.filter { $0.zeitpunkt > grenze }
     }

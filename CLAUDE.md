@@ -140,12 +140,25 @@ danach bei jeder Arbeitseinheit mitziehen:
 - Der freie Zugang liefert nicht zu jedem Spiel Torschützen. Fehlen
   sie, baut `Datenhaltung.meldungenAblegen` die Tormeldungen aus dem
   Sprung im Spielstand — diesen Rückfall nicht entfernen.
+- **Für die Bundesliga springt OpenLigaDB ein** (`Torschuetzendienst.swift`,
+  schlüssellos, eigenes Kontingent — zählt NICHT gegen die zehn Abfragen
+  je Minute). Es ergänzt nur, was football-data.org offenlässt, und
+  ordnet über vereinfachte Vereinsnamen zu; beide Mannschaften müssen
+  passen, sonst wird nichts ergänzt. Für die vier anderen Ligen gibt es
+  keine vergleichbare freie Quelle.
+- **Was der freie Zugang NICHT hergibt** (Stand 08/2026, geprüft):
+  Aufstellungen, Auswechslungen und Karten. Sie gehören bei
+  football-data.org zu den kostenpflichtigen Stufen. Freie Alternativen
+  dafür gibt es nicht — OpenLigaDB und TheSportsDB führen keine Karten.
+  Deshalb wurden Karten in 1.0.7 wieder ausgebaut: **nichts einbauen,
+  was nicht ankommt.** Was dazu bekannt wird, läuft über die
+  Ligameldungen (Art „Spielbericht & Analyse").
 - `MARKETING_VERSION` und `CURRENT_PROJECT_VERSION` stehen an je zwei
   Stellen im pbxproj (Debug + Release) — es gibt KEINE Skript-Bauphase,
   beide Werte werden im Repo gepflegt. **Jede Arbeitseinheit (= jeder
   PR mit App-Änderungen) hebt die Patch-Nummer UND die Build-Nummer um
   je +1 an** — ohne Nachfrage, als Teil des PRs. Zählung ab 08/2026:
-  1.0.6 (Build 4), dann 1.0.7 (Build 5) usw. Größere Sprünge nur auf
+  1.0.7 (Build 5), dann 1.0.8 (Build 6) usw. Größere Sprünge nur auf
   ausdrückliche Ansage des Nutzers.
 - `ITSAppUsesNonExemptEncryption = NO` steht in `Config/Info.plist` UND
   als Build-Einstellung `INFOPLIST_KEY_ITSAppUsesNonExemptEncryption` —
@@ -169,6 +182,11 @@ danach bei jeder Arbeitseinheit mitziehen:
   füllt. Keine gepflegte Vereinsliste in den Quelltext schreiben — die
   veraltet jeden Sommer. Gelesen werden nur Überschrift und Anriss,
   nie ganze Texte; abgefragt höchstens alle zehn Minuten.
+- **Ablagen müssen Modelländerungen überleben.** `Meldungswunsch` liest
+  seine Aufzählungen über die Rohwerte (unbekannte werden überlesen),
+  Ticker und Nachrichten über `JSONDecoder.nachsichtigeListe`. Fällt
+  eine Aufzählung weg, verwirft der erzeugte Leser sonst stillschweigend
+  die ganze gesicherte Ablage — samt aller Einstellungen des Nutzers.
 - Das App-Symbol erzeugt `scripts/anstoss-icon.py` (reines Python,
   ohne fremde Bibliotheken) — nicht von Hand bearbeiten.
 - Übersetzt wird in GitHub Actions: `.github/workflows/ios-apps-build.yml`

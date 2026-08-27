@@ -64,16 +64,35 @@ struct Meldungswunsch: Codable, Equatable {
     /// Hier fehlt einfach ein Wert und der Standard greift.
     init(from decoder: Decoder) throws {
         let behaelter = try decoder.container(keyedBy: CodingKeys.self)
-        arten = try behaelter.decodeIfPresent(Set<Tickermeldung.Art>.self, forKey: .arten) ?? [.tor, .abpfiff]
+        // Bewusst über die Rohwerte: Fällt eine Art weg — wie der Platzverweis
+        // in 1.0.7 —, wird sie überlesen, statt die ganze Ablage zu verwerfen.
+        arten = Self.arten(aus: try behaelter.decodeIfPresent([String].self, forKey: .arten))
+            ?? [.tor, .abpfiff]
         ganzeLigen = try behaelter.decodeIfPresent(Set<Liga>.self, forKey: .ganzeLigen) ?? []
         einzelneSpiele = try behaelter.decodeIfPresent(Set<Int>.self, forKey: .einzelneSpiele) ?? []
         anstosserinnerung = try behaelter.decodeIfPresent(Bool.self, forKey: .anstosserinnerung) ?? true
         vorlaufMinuten = try behaelter.decodeIfPresent(Int.self, forKey: .vorlaufMinuten) ?? 15
-        nachrichtenarten = try behaelter.decodeIfPresent(Set<Nachrichtenart>.self, forKey: .nachrichtenarten) ?? []
-        nachrichtenquellen = try behaelter.decodeIfPresent(Set<Nachrichtenquelle>.self, forKey: .nachrichtenquellen)
+        nachrichtenarten = Self.nachrichtenarten(aus: try behaelter.decodeIfPresent([String].self, forKey: .nachrichtenarten))
+            ?? []
+        nachrichtenquellen = Self.quellen(aus: try behaelter.decodeIfPresent([String].self, forKey: .nachrichtenquellen))
             ?? Nachrichtenquelle.voreinstellung
         nachrichtenligen = try behaelter.decodeIfPresent(Set<Liga>.self, forKey: .nachrichtenligen) ?? []
         nachrichtenOhneLiga = try behaelter.decodeIfPresent(Bool.self, forKey: .nachrichtenOhneLiga) ?? false
+    }
+
+    private static func arten(aus rohwerte: [String]?) -> Set<Tickermeldung.Art>? {
+        guard let rohwerte else { return nil }
+        return Set(rohwerte.compactMap { Tickermeldung.Art(rawValue: $0) })
+    }
+
+    private static func nachrichtenarten(aus rohwerte: [String]?) -> Set<Nachrichtenart>? {
+        guard let rohwerte else { return nil }
+        return Set(rohwerte.compactMap { Nachrichtenart(rawValue: $0) })
+    }
+
+    private static func quellen(aus rohwerte: [String]?) -> Set<Nachrichtenquelle>? {
+        guard let rohwerte else { return nil }
+        return Set(rohwerte.compactMap { Nachrichtenquelle(rawValue: $0) })
     }
 
     // MARK: Ablage

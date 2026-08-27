@@ -19,7 +19,10 @@ struct Spielsicht: View {
                 if !gezeigt.tore.isEmpty {
                     torfolge
                 }
+                tabellenstand
+                direkterVergleich
                 eckdaten
+                datenhinweis
             }
             .padding()
         }
@@ -32,6 +35,11 @@ struct Spielsicht: View {
             }
         }
         .task {
+            // Die Tabelle steht meist schon im Zwischenspeicher; ist sie es
+            // nicht, wird sie einmal geholt — Platz und Formkurve beider
+            // Mannschaften sind vor dem Anpfiff das Nützlichste, was der
+            // freie Zugang hergibt.
+            await daten.tabelleLaden(liga: spiel.liga)
             if let frisch = await daten.spielNachladen(spiel) {
                 geladen = frisch
             }
@@ -181,6 +189,119 @@ struct Spielsicht: View {
         .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: Gestaltung.ecke))
     }
 
+    // MARK: Tabellenstand beider Mannschaften
+
+    @ViewBuilder
+    private var tabellenstand: some View {
+        let heim = daten.tabellenzeile(gezeigt.heim, liga: gezeigt.liga)
+        let gast = daten.tabellenzeile(gezeigt.gast, liga: gezeigt.liga)
+        if heim != nil || gast != nil {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("So stehen sie da")
+                    .font(.headline)
+                if let heim { tabellenzeile(heim, elf: gezeigt.heim) }
+                if heim != nil && gast != nil { Divider() }
+                if let gast { tabellenzeile(gast, elf: gezeigt.gast) }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding()
+            .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: Gestaltung.ecke))
+        }
+    }
+
+    private func tabellenzeile(_ zeile: Tabellenzeile, elf: Mannschaft) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 10) {
+                Text("\(zeile.platz).")
+                    .font(.subheadline.weight(.bold).monospacedDigit())
+                    .foregroundStyle(.secondary)
+                    .frame(width: 28, alignment: .trailing)
+                Wappen(mannschaft: elf, groesse: 22)
+                Text(elf.anzeige)
+                    .font(.subheadline.weight(.medium))
+                    .lineLimit(1)
+                Spacer(minLength: 4)
+                Text("\(zeile.punkte) Pkt.")
+                    .font(.subheadline.weight(.semibold).monospacedDigit())
+            }
+            HStack(spacing: 10) {
+                Text("\(zeile.spiele) Spiele · \(zeile.siege)-\(zeile.unentschieden)-\(zeile.niederlagen) · "
+                     + "\(zeile.toreFuer):\(zeile.toreGegen)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Spacer(minLength: 4)
+                if !zeile.form.isEmpty {
+                    Formreihe(form: zeile.form)
+                }
+            }
+        }
+    }
+
+    // MARK: Direkter Vergleich
+
+    @ViewBuilder
+    private var direkterVergleich: some View {
+        if let bilanz = gezeigt.vergleich, bilanz.hatInhalt {
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Direkter Vergleich")
+                    .font(.headline)
+                Text("\(bilanz.spiele) Begegnungen, \(bilanz.toreGesamt) Tore")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                HStack(spacing: 0) {
+                    bilanzteil(bilanz.siegeHeim, "Siege " + gezeigt.heim.zeichen, Gestaltung.rasen)
+                    bilanzteil(bilanz.unentschieden, "Remis", .gray)
+                    bilanzteil(bilanz.siegeGast, "Siege " + gezeigt.gast.zeichen, Color(red: 0.25, green: 0.35, blue: 0.65))
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding()
+            .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: Gestaltung.ecke))
+        }
+    }
+
+    private func bilanzteil(_ zahl: Int, _ titel: String, _ farbe: Color) -> some View {
+        VStack(spacing: 4) {
+            Text("\(zahl)")
+                .font(.title2.weight(.bold).monospacedDigit())
+                .foregroundStyle(farbe)
+            Text(titel)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    // MARK: Woher die Angaben stammen
+
+    @ViewBuilder
+    private var datenhinweis: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            if let quelle = gezeigt.torfolgeQuelle {
+                hinweiszeile("Die Torfolge stammt von \(quelle) — der freie Zugang von football-data.org liefert sie für dieses Spiel nicht mit.")
+            } else if gezeigt.tore.isEmpty && gezeigt.status == .beendet {
+                hinweiszeile("Zu dieser Begegnung liefert der freie Zugang keine Torschützen. Für die Bundesliga springt OpenLigaDB ein, für die anderen vier Ligen gibt es keine freie Quelle.")
+            }
+            hinweiszeile("Aufstellungen, Auswechslungen und Karten gehören bei football-data.org zu den kostenpflichtigen Stufen und fehlen deshalb. Was dazu bekannt wird, steht unter Meldungen.")
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding()
+        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: Gestaltung.ecke))
+    }
+
+    private func hinweiszeile(_ text: String) -> some View {
+        HStack(alignment: .top, spacing: 8) {
+            Image(systemName: "info.circle")
+                .foregroundStyle(.secondary)
+                .font(.caption)
+            Text(text)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
     // MARK: Eckdaten
 
     private var eckdaten: some View {
@@ -195,6 +316,14 @@ struct Spielsicht: View {
             zeile("Wettbewerb", gezeigt.liga.name)
             Divider()
             zeile("Zustand", gezeigt.status.beschriftung)
+            if let ort = gezeigt.spielort, !ort.isEmpty {
+                Divider()
+                zeile("Spielort", ort)
+            }
+            if let pfeife = gezeigt.schiedsrichter, !pfeife.isEmpty {
+                Divider()
+                zeile("Schiedsrichter", pfeife)
+            }
         }
         .padding(.horizontal)
         .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: Gestaltung.ecke))

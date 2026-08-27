@@ -47,8 +47,6 @@ enum Benachrichtiger {
         switch meldung.art {
         case .tor:
             return "\(meldung.liga.flagge) Tor — \(meldung.stand)"
-        case .roteKarte:
-            return "\(meldung.liga.flagge) Platzverweis"
         case .anpfiff:
             return "\(meldung.liga.flagge) Anpfiff"
         case .halbzeit:
@@ -61,7 +59,7 @@ enum Benachrichtiger {
     private static func text(_ meldung: Tickermeldung) -> String {
         var teile = [meldung.paarung]
         if !meldung.minutentext.isEmpty { teile.append(meldung.minutentext) }
-        if !meldung.zusatz.isEmpty, meldung.art == .tor || meldung.art == .roteKarte {
+        if !meldung.zusatz.isEmpty, meldung.art == .tor {
             teile.append(meldung.zusatz)
         }
         return teile.joined(separator: " · ")
