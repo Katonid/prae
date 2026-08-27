@@ -4,7 +4,7 @@
 
 import { h, clear, pickRandom, parseNames, beep, onTap, confetti, reducedMotion, randomInt } from '../util.js';
 import { icon } from '../icons.js';
-import { getState, getList, on as onStore, addList, updateList } from '../store.js';
+import { getState, getList, on as onStore, addList } from '../store.js';
 import { section, field, toggleRow, button, buttonRow, toast } from '../ui.js';
 import { SPIN_SOUNDS, spinSoundById, spinTick, spinEnd, previewSpinSound } from '../sfx.js';
 
@@ -111,22 +111,11 @@ function pairKeysOf(flat, size) {
 }
 
 /**
- * Gedächtnis der Auslosungen — wie in der Tafelbild-App gehört es zur
- * NAMENSLISTE (es geht um die Kinder und gilt über alle Tafeln und Felder,
- * die dieselbe Liste nutzen; über den Abgleich auch auf allen Geräten).
- * Nur eine eigene Liste im Feld führt ihr Gedächtnis im Feld selbst.
+ * Gedächtnis der Auslosungen — es gehört ausdrücklich zu DIESEM Element:
+ * Zwei Felder mit derselben Auslosungsfunktion (auch mit derselben
+ * Namensliste) führen ihre Buchführung getrennt; nichts schwappt hinüber.
  */
 function memoryOf(state, saveWidget) {
-  const list = state.listId ? getList(state.listId) : null;
-  if (list) {
-    return {
-      paare: Object.assign({}, list.paare || {}),
-      dran: Object.assign({}, list.dran || {}),
-      save(paare, dran) {
-        updateList(list.id, { paare, dran });
-      },
-    };
-  }
   return {
     paare: Object.assign({}, state.paare || {}),
     dran: Object.assign({}, state.dran || {}),
@@ -591,6 +580,8 @@ export default {
       const flat = shown ? shown.flat : [];
       const size = state.mode === 'tagesgruppe' ? 1 : (shown ? shown.size : groupSizeOf(state));
       const checklist = state.groupView === 'abhaken';
+      const zaehlen = state.groupView === 'zaehlen';
+      if (!state.tally || typeof state.tally !== 'object') state.tally = {};
       const done = new Set(shown && Array.isArray(shown.done) ? shown.done : []);
       groupsBox.style.gridTemplateColumns = (checklist ? 'auto ' : '') + `repeat(${size}, minmax(0, 1fr))`;
       fitGroups(size, Math.ceil(flat.length / size) || 1,
@@ -609,16 +600,33 @@ export default {
             html: icon('check', 18),
           }), () => toggleDone(groupIndex)));
         }
+        const stand = Number(state.tally[name]) || 0;
+        let longFired = false;
+        let pressTimer = 0;
         const card = onTap(h('button', {
           class: 'w-random__gcard' + (groupIndex % 2 ? ' is-alt' : '') + (checklist && done.has(groupIndex) ? ' is-done' : ''),
           'data-nodrag': '',
-          title: checklist ? 'Gruppe abhaken' : 'Ab hier neu auslosen (alles davor bleibt)',
-        }, h('span', { class: 'w-random__gcard-text' }, name)), () => {
+          title: checklist ? 'Gruppe abhaken'
+            : (zaehlen ? 'Tipp zählt +1 — langes Drücken nimmt eins zurück'
+              : 'Ab hier neu auslosen (alles davor bleibt)'),
+        },
+        h('span', { class: 'w-random__gcard-text' }, name),
+        zaehlen && stand > 0 ? h('span', { class: 'w-random__gcount' }, String(stand)) : null), () => {
           if (dealing) {
             if (finishDealNow) finishDealNow();
             return;
           }
-          if (checklist) {
+          if (longFired) {
+            longFired = false;
+            return;
+          }
+          if (zaehlen) {
+            // Zählen statt neu auslosen — z. B. Punkte oder Meldungen.
+            state.tally[name] = (Number(state.tally[name]) || 0) + 1;
+            beep({ frequency: 760, duration: 0.07, gain: 0.08 });
+            ctx.save();
+            render();
+          } else if (checklist) {
             toggleDone(groupIndex);
           } else if (state.locked) {
             // Löst nur den Schutz-Hinweis samt Schloss-Wackeln aus.
@@ -630,6 +638,36 @@ export default {
             render();
           }
         });
+        if (zaehlen) {
+          // Langes Drücken nimmt eine Stufe zurück — ein Vertippen wäre sonst
+          // nicht gutzumachen (wie in der Tafelbild-App).
+          card.addEventListener('pointerdown', () => {
+            longFired = false;
+            clearTimeout(pressTimer);
+            // Losgelassen wird am Dokument abgefangen: Die Tafel fängt den
+            // Zeiger beim Drücken ein (Pointer Capture fürs Verschieben),
+            // dadurch erreicht pointerup das Kärtchen selbst nie.
+            const stop = () => clearTimeout(pressTimer);
+            document.addEventListener('pointerup', stop, { once: true });
+            document.addEventListener('pointercancel', stop, { once: true });
+            pressTimer = setTimeout(() => {
+              const current = Number(state.tally[name]) || 0;
+              if (!current) return;
+              longFired = true;
+              if (current <= 1) delete state.tally[name];
+              else state.tally[name] = current - 1;
+              beep({ frequency: 420, duration: 0.07, gain: 0.08 });
+              ctx.save();
+              // Kein Neuaufbau mitten in der Berührung — sonst landet der
+              // folgende Klick auf einem frischen Kärtchen und zählt +1.
+              // Stattdessen nur das Abzeichen an Ort und Stelle anpassen.
+              const badge = card.querySelector('.w-random__gcount');
+              const now = Number(state.tally[name]) || 0;
+              if (badge && now > 0) badge.textContent = String(now);
+              else if (badge) badge.remove();
+            }, 600);
+          });
+        }
         if (pendingFrom !== null && index >= pendingFrom) card.classList.add('is-fading');
         if (animateOk && index >= animateFrom) {
           // Noch nicht festgelegte Kärtchen wirbeln sichtbar durch die Namen.
@@ -912,14 +950,18 @@ export default {
         // Zwei kleine Knöpfe direkt am Ergebnis: Anzeige umschalten und Schutz.
         // Sie stehen VOR dem Zähler, damit sie beim Bearbeiten nicht unter dem
         // Eck-Anfasser des Auswahlrahmens liegen.
-        const checklist = state.groupView === 'abhaken';
+        const view = ['karten', 'abhaken', 'zaehlen'].includes(state.groupView) ? state.groupView : 'karten';
         head.append(
           onTap(h('button', {
-            class: 'w-random__headbtn' + (checklist ? ' is-on' : ''), 'data-nodrag': '',
-            title: checklist ? 'Als Kärtchen anzeigen' : 'Als Checkliste zum Abhaken anzeigen',
+            class: 'w-random__headbtn' + (view !== 'karten' ? ' is-on' : ''), 'data-nodrag': '',
+            title: {
+              karten: 'Anzeige wechseln: erst Abhaken, dann Zählen',
+              abhaken: 'Anzeige wechseln: Zählen (Tipp zählt +1)',
+              zaehlen: 'Anzeige wechseln: zurück zu Kärtchen',
+            }[view],
             html: icon('checklist', 16),
           }), () => {
-            ctx.widget.state.groupView = checklist ? 'karten' : 'abhaken';
+            ctx.widget.state.groupView = { karten: 'abhaken', abhaken: 'zaehlen', zaehlen: 'karten' }[view];
             ctx.save();
             render();
           }),
@@ -971,6 +1013,8 @@ export default {
               : 'Das ganze Ergebnis wird ersetzt.';
           } else if (state.groupView === 'abhaken') {
             hintEl.textContent = 'Tipp auf eine Gruppe hakt sie ab — z. B. wer die Aufgabe erledigt hat.';
+          } else if (state.groupView === 'zaehlen') {
+            hintEl.textContent = 'Tipp auf ein Kärtchen zählt +1 (z. B. Punkte) — langes Drücken nimmt eins zurück.';
           } else if (state.locked) {
             hintEl.textContent = 'Geschützt — zum Neuauslosen das Schloss oben öffnen.';
           } else {
@@ -1155,7 +1199,7 @@ export default {
 
       // 2) Nur die Einstellungen des gewählten Modus.
       if (groupMode) {
-        const viewValue = state.groupView === 'abhaken' ? 'abhaken' : 'karten';
+        const viewValue = ['karten', 'abhaken', 'zaehlen'].includes(state.groupView) ? state.groupView : 'karten';
         const parts = [];
         if (activeMode === 'gruppen') {
           parts.push(field('Gruppengröße (1–15)', h('input', {
@@ -1207,7 +1251,7 @@ export default {
           }), 'Gilt ab der nächsten Auslosung.'));
         }
         parts.push(field('Ergebnis anzeigen als', h('div', { class: 'segmented' },
-          [['karten', 'Kärtchen'], ['abhaken', 'Zum Abhaken']].map(([value, label]) => h('button', {
+          [['karten', 'Kärtchen'], ['abhaken', 'Abhaken'], ['zaehlen', 'Zählen']].map(([value, label]) => h('button', {
             class: 'segmented__item' + (viewValue === value ? ' is-active' : ''),
             onclick: () => {
               ctx.widget.state.groupView = value;
@@ -1215,7 +1259,8 @@ export default {
               rerender();
             },
           }, label))),
-        '„Zum Abhaken“: Ein Tipp auf eine Gruppe hakt sie ab — z. B. wer die Aufgabe schon erledigt hat. '
+        '„Abhaken“: Ein Tipp hakt eine Gruppe ab — z. B. wer die Aufgabe erledigt hat. '
+        + '„Zählen“: Ein Tipp auf ein Kärtchen zählt +1 (z. B. Punkte), langes Drücken nimmt eins zurück. '
         + 'Auch nach der Auslosung jederzeit umschaltbar (auch über das Listensymbol oben auf der Karte).'));
         parts.push(toggleRow('Mit Animation auslosen', state.animate !== false, (value) => {
           ctx.widget.state.animate = value;
@@ -1312,10 +1357,11 @@ export default {
           onClick: () => {
             ctx.widget.state.history = (ctx.widget.state.history || []).filter((entry) => entry.mode !== activeMode);
             ctx.widget.state.groups = null;
-            // Auch das Gedächtnis dieses Modus leeren — es lebt an der Liste.
+            // Auch das Gedächtnis dieses Modus leeren — es gehört zu diesem Element.
             const memory = memoryOf(ctx.widget.state, () => ctx.save());
             if (activeMode === 'gruppen') memory.save({}, memory.dran);
             else memory.save(memory.paare, {});
+            ctx.widget.state.tally = {};
             ctx.save();
             rerender();
             toast('Verlauf und Gedächtnis gelöscht — alle Kombinationen sind wieder möglich.', 'success');
@@ -1335,9 +1381,7 @@ export default {
               : 'So oft war jedes Kind schon dran (wer selten dran war, kommt zuerst): ') + memoryRows.join(' · '))
             : h('p', { class: 'muted small' }, 'Noch nichts gemerkt — die erste Auslosung füllt das Gedächtnis.'),
           h('p', { class: 'muted small' },
-            state.listId
-              ? 'Das Gedächtnis gehört zur Namensliste: Es gilt für alle Tafeln und Felder mit dieser Liste und wandert über den Abgleich mit. „Verlauf löschen“ leert es.'
-              : 'Tipp: Mit einer gespeicherten Namensliste gilt das Gedächtnis für alle Tafeln und Felder mit dieser Liste.')));
+            'Das Gedächtnis gehört zu DIESEM Element — ein zweites Feld mit derselben Liste zählt getrennt. „Verlauf löschen“ leert es.')));
         wrap.appendChild(section(`Frühere Auslosungen (${history.length})`, historyBox));
       }
 
