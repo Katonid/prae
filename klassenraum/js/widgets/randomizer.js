@@ -4,7 +4,7 @@
 
 import { h, clear, pickRandom, parseNames, beep, onTap, confetti, reducedMotion, randomInt } from '../util.js';
 import { icon } from '../icons.js';
-import { getState, getList, on as onStore, addList } from '../store.js';
+import { getState, getList, on as onStore, addList, updateList } from '../store.js';
 import { section, field, toggleRow, button, buttonRow, toast } from '../ui.js';
 import { SPIN_SOUNDS, spinSoundById, spinTick, spinEnd, previewSpinSound } from '../sfx.js';
 
@@ -99,21 +99,63 @@ function pairKey(a, b) {
   return a < b ? `${a}|${b}` : `${b}|${a}`;
 }
 
-/** Wie oft standen zwei Namen in der Vergangenheit schon zusammen in einer Gruppe? */
-function pastPairCounts(history) {
-  const counts = new Map();
-  for (const entry of history || []) {
-    if (entry.mode !== 'gruppen') continue;
-    for (const group of chunk(entry.flat || [], entry.size || 2)) {
-      for (let i = 0; i < group.length; i += 1) {
-        for (let j = i + 1; j < group.length; j += 1) {
-          const key = pairKey(group[i], group[j]);
-          counts.set(key, (counts.get(key) || 0) + 1);
-        }
-      }
+/** Alle Paar-Schlüssel eines Durchgangs (je Gruppe alle Zweier-Paare). */
+function pairKeysOf(flat, size) {
+  const keys = [];
+  for (const group of chunk(flat || [], size || 2)) {
+    for (let i = 0; i < group.length; i += 1) {
+      for (let j = i + 1; j < group.length; j += 1) keys.push(pairKey(group[i], group[j]));
     }
   }
-  return counts;
+  return keys;
+}
+
+/**
+ * Gedächtnis der Auslosungen — wie in der Tafelbild-App gehört es zur
+ * NAMENSLISTE (es geht um die Kinder und gilt über alle Tafeln und Felder,
+ * die dieselbe Liste nutzen; über den Abgleich auch auf allen Geräten).
+ * Nur eine eigene Liste im Feld führt ihr Gedächtnis im Feld selbst.
+ */
+function memoryOf(state, saveWidget) {
+  const list = state.listId ? getList(state.listId) : null;
+  if (list) {
+    return {
+      paare: Object.assign({}, list.paare || {}),
+      dran: Object.assign({}, list.dran || {}),
+      save(paare, dran) {
+        updateList(list.id, { paare, dran });
+      },
+    };
+  }
+  return {
+    paare: Object.assign({}, state.paare || {}),
+    dran: Object.assign({}, state.dran || {}),
+    save(paare, dran) {
+      state.paare = paare;
+      state.dran = dran;
+      if (saveWidget) saveWidget();
+    },
+  };
+}
+
+/** Einen Durchgang im Gedächtnis verbuchen (+1) oder zurücknehmen (-1). */
+function adjustMemory(state, saveWidget, entry, delta) {
+  if (!entry || !Array.isArray(entry.flat) || !entry.flat.length) return;
+  const memory = memoryOf(state, saveWidget);
+  if (entry.mode === 'gruppen') {
+    for (const key of pairKeysOf(entry.flat, entry.size)) {
+      const next = (memory.paare[key] || 0) + delta;
+      if (next > 0) memory.paare[key] = next;
+      else delete memory.paare[key];
+    }
+  } else {
+    for (const name of entry.flat) {
+      const next = (memory.dran[name] || 0) + delta;
+      if (next > 0) memory.dran[name] = next;
+      else delete memory.dran[name];
+    }
+  }
+  memory.save(memory.paare, memory.dran);
 }
 
 /**
@@ -174,8 +216,7 @@ function scoreArrangement(flat, size, marks, pairCounts, mode) {
  * Merkmal-Vorgabe um: 'mix' (unterschiedliche Merkmale je Gruppe), 'gleich'
  * (gleiche Merkmale je Gruppe) oder 'egal' (Merkmale spielen keine Rolle).
  */
-function drawArrangement(pool, marks, size, history, prefix = [], mode = 'mix') {
-  const pairCounts = pastPairCounts(history);
+function drawArrangement(pool, marks, size, pairCounts, prefix = [], mode = 'mix') {
   const useMarks = mode === 'egal' ? {} : marks;
   let best = null;
   let bestScore = Infinity;
@@ -192,13 +233,9 @@ function drawArrangement(pool, marks, size, history, prefix = [], mode = 'mix') 
 }
 
 /** Tagesgruppe: Wer bisher am seltensten dran war, kommt bevorzugt dran. */
-function drawDayGroup(pool, count, history) {
-  const used = new Map();
-  for (const entry of history || []) {
-    if (entry.mode !== 'tagesgruppe') continue;
-    for (const name of entry.flat || []) used.set(name, (used.get(name) || 0) + 1);
-  }
-  const ranked = shuffled(pool).sort((a, b) => (used.get(a) || 0) - (used.get(b) || 0));
+function drawDayGroup(pool, count, dran) {
+  const used = dran || {};
+  const ranked = shuffled(pool).sort((a, b) => (used[a] || 0) - (used[b] || 0));
   return shuffled(ranked.slice(0, Math.max(0, Math.min(count, ranked.length))));
 }
 
@@ -407,15 +444,23 @@ export default {
       const shown = hasResult ? state.groups.flat : [];
       const prefix = fromIndex > 0 ? shown.slice(0, fromIndex).filter((name) => all.includes(name)) : [];
       const pool = all.filter((name) => !prefix.includes(name));
+      const saveWidget = () => ctx.save();
+      const memory = memoryOf(state, saveWidget);
       let flat;
       if (isDay) {
         const count = Math.min(dayCountOf(state), all.length);
-        flat = prefix.concat(drawDayGroup(pool, count - prefix.length, state.history));
+        flat = prefix.concat(drawDayGroup(pool, count - prefix.length, memory.dran));
       } else {
-        flat = drawArrangement(pool, marksOf(state), size, state.history, prefix, markModeOf(state));
+        const pairCounts = new Map(Object.entries(memory.paare));
+        flat = drawArrangement(pool, marksOf(state), size, pairCounts, prefix, markModeOf(state));
       }
       if (!Array.isArray(state.history)) state.history = [];
       if ((correct || fromIndex > 0) && state.groups && state.groups.at) {
+        // Der verworfene Entwurf war nie ein Ergebnis — seine Zählung wird
+        // zurückgenommen, ehe der berichtigte Stand verbucht wird.
+        adjustMemory(state, saveWidget, {
+          mode: state.groups.mode, size: state.groups.size, flat: state.groups.flat,
+        }, -1);
         // Neuauslosung ab einer Stelle berichtigt den laufenden Durchgang —
         // es entsteht kein neuer Verlaufseintrag. Haken bleiben nur für
         // Gruppen, die ganz vor der Stelle liegen.
@@ -428,11 +473,13 @@ export default {
           entry.size = size;
           entry.done = done.slice();
         }
+        adjustMemory(state, saveWidget, { mode: state.mode, size, flat }, 1);
       } else {
         const entry = { at: Date.now(), mode: state.mode, size, flat: flat.slice(), done: [] };
         state.history.unshift(entry);
         if (state.history.length > HISTORY_MAX) state.history.length = HISTORY_MAX;
         state.groups = { at: entry.at, mode: state.mode, size, flat, done: [] };
+        adjustMemory(state, saveWidget, entry, 1);
       }
       state.locked = true;
       ctx.save();
@@ -465,16 +512,34 @@ export default {
             render();
           }));
       } else if (!state.locked) {
+        const latest = Array.isArray(state.history) && state.history[0]
+          && state.groups && state.history[0].at === state.groups.at;
         actionRow.append(abtn('Neu auslosen', false, () => {
           pendingFrom = 0;
           pendingCorrect = false;
           render();
         }));
+        if (latest) actionRow.append(abtn('Verwerfen', false, discardCurrent));
       } else {
         actionRow.classList.add('is-hidden');
         return;
       }
       actionRow.classList.remove('is-hidden');
+    }
+
+    /** Laufenden Durchgang komplett verwerfen — Eintrag raus, Zählung zurück. */
+    function discardCurrent() {
+      const state = ctx.widget.state;
+      if (!state.groups || !Array.isArray(state.groups.flat)) return;
+      adjustMemory(state, () => ctx.save(), {
+        mode: state.groups.mode, size: state.groups.size, flat: state.groups.flat,
+      }, -1);
+      state.history = (state.history || []).filter((item) => item.at !== state.groups.at);
+      state.groups = null;
+      state.locked = false;
+      ctx.save();
+      render();
+      toast('Ergebnis verworfen — es zählt nicht im Gedächtnis.', 'success');
     }
 
     /** Haken einer Gruppe umschalten (Checklisten-Anzeige). */
@@ -1231,11 +1296,32 @@ export default {
           onClick: () => {
             ctx.widget.state.history = (ctx.widget.state.history || []).filter((entry) => entry.mode !== activeMode);
             ctx.widget.state.groups = null;
+            // Auch das Gedächtnis dieses Modus leeren — es lebt an der Liste.
+            const memory = memoryOf(ctx.widget.state, () => ctx.save());
+            if (activeMode === 'gruppen') memory.save({}, memory.dran);
+            else memory.save(memory.paare, {});
             ctx.save();
             rerender();
-            toast('Verlauf gelöscht — alle Kombinationen sind wieder möglich.', 'success');
+            toast('Verlauf und Gedächtnis gelöscht — alle Kombinationen sind wieder möglich.', 'success');
           },
         })));
+        // Gedächtnis sichtbar machen: Wer war mit wem zusammen / wer schon dran?
+        const memory = memoryOf(state, () => ctx.save());
+        const memoryRows = activeMode === 'gruppen'
+          ? Object.entries(memory.paare).sort((a, b) => b[1] - a[1]).slice(0, 12)
+            .map(([key, count]) => `${key.split('|').join(' + ')} ×${count}`)
+          : Object.entries(memory.dran).sort((a, b) => b[1] - a[1]).slice(0, 20)
+            .map(([name, count]) => `${name} ×${count}`);
+        wrap.appendChild(section('Gedächtnis',
+          memoryRows.length
+            ? h('p', { class: 'muted small' }, (activeMode === 'gruppen'
+              ? 'Diese Paarungen gab es schon (werden gemieden): '
+              : 'So oft war jedes Kind schon dran (wer selten dran war, kommt zuerst): ') + memoryRows.join(' · '))
+            : h('p', { class: 'muted small' }, 'Noch nichts gemerkt — die erste Auslosung füllt das Gedächtnis.'),
+          h('p', { class: 'muted small' },
+            state.listId
+              ? 'Das Gedächtnis gehört zur Namensliste: Es gilt für alle Tafeln und Felder mit dieser Liste und wandert über den Abgleich mit. „Verlauf löschen“ leert es.'
+              : 'Tipp: Mit einer gespeicherten Namensliste gilt das Gedächtnis für alle Tafeln und Felder mit dieser Liste.')));
         wrap.appendChild(section(`Frühere Auslosungen (${history.length})`, historyBox));
       }
 
