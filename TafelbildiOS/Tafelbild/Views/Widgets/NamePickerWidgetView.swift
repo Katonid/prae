@@ -32,6 +32,21 @@ struct NamePickerWidgetView: View {
     /// Erster Tipp macht scharf, zweiter zieht.
     @State private var armed = false
 
+    /// Fläche der Namenskärtchen unter dem gezogenen Namen — eigene Farbe,
+    /// sonst wie bisher eine ruhige Aufhellung des Untergrunds.
+    private var kartenfuellung: AnyShapeStyle {
+        guard let von = content.kartenfarbe.nonEmpty else { return AnyShapeStyle(style.wash) }
+        return Fuellung.stil(von, content.kartenfarbe2)
+    }
+
+    /// Schrift darauf: gewählte Schriftfarbe zuerst, sonst nach der
+    /// Kartenfarbe (siehe GruppenAnsicht).
+    private var kartenschrift: Color {
+        if let eigene = style.schriftfarbe { return eigene }
+        guard let von = content.kartenfarbe.nonEmpty else { return style.ink }
+        return Fuellung.istHell(von) ? Color(hex: "#0b1020") : .white
+    }
+
     var body: some View {
         // Der Modus entscheidet, was zu sehen ist. Die Einzelziehung ist die
         // alte Ansicht; Gruppen und Tagesgruppe teilen sich eine eigene.
@@ -324,14 +339,14 @@ struct NamePickerWidgetView: View {
                             let current = entry.id == content.currentID
                             Text(entry.text)
                                 .font(Theme.font(metrics.em(0.84), weight: .semibold))
-                                .foregroundStyle(current ? Color.white : style.ink)
+                                .foregroundStyle(current ? Color.white : kartenschrift)
                                 .lineLimit(1)
                                 .padding(.horizontal, metrics.em(0.7))
                                 .padding(.vertical, metrics.em(0.32))
                                 .background {
                                     Capsule().fill(current
                                                    ? AnyShapeStyle(style.accentGradient)
-                                                   : AnyShapeStyle(style.wash))
+                                                   : kartenfuellung)
                                 }
                         }
                         .disabled(!interactive)

@@ -447,6 +447,11 @@ struct NamePickerContent: Codable, Equatable {
     }
     /// Zählerstand je Name (Kennung → Anzahl). Nur in der Zählansicht.
     var zaehler: [String: Int] = [:]
+    /// Farbe der Namenskärtchen. **Leer heißt: wie bisher** — eine ruhige
+    /// Aufhellung des Untergrunds. `kartenfarbe2` gefüllt ergibt einen
+    /// Verlauf (siehe `Fuellung`).
+    var kartenfarbe: String = ""
+    var kartenfarbe2: String = ""
     /// Ergebnis festgehalten: Es löst nichts mehr neu aus, abhaken geht.
     var festgehalten: Bool = false
     /// Das Ergebnis der letzten Auslosung, in Ziehreihenfolge.
@@ -2029,6 +2034,7 @@ extension NamePickerContent {
         case modus, titelGruppen, titelTagesgruppe, gruppenGroesse, tagesgruppeAnzahl
         case mischMerkmalID, merkmalsvorgabe, alsCheckliste, festgehalten, ergebnis, erledigt
         case ziehungID, anzeige, zaehler, ziehungen, paare
+        case kartenfarbe, kartenfarbe2
     }
 
     init(from decoder: Decoder) throws {
@@ -2060,6 +2066,8 @@ extension NamePickerContent {
         let alteCheckliste = c.wert(.alsCheckliste, false)
         anzeige = c.wert(.anzeige, alteCheckliste ? Ergebnisanzeige.abhaken : .normal)
         zaehler = c.wert(.zaehler, [String: Int]())
+        kartenfarbe = c.wert(.kartenfarbe, "")
+        kartenfarbe2 = c.wert(.kartenfarbe2, "")
         festgehalten = c.wert(.festgehalten, false)
         ergebnis = c.wert(.ergebnis, [String]())
         erledigt = c.wert(.erledigt, [String]())
