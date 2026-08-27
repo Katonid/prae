@@ -406,33 +406,27 @@ struct TimerScheibe: View {
         Array(stride(from: 0, to: Int(skala), by: grosserSchritt))
     }
 
+    /// Die Skala als zwei Pfade statt vieler gedrehter Kapseln — gedrehte
+    /// Ebenen werden neu abgetastet und wirken weich (siehe Rundblatt.swift).
+    @ViewBuilder
     private var striche: some View {
-        ZStack {
-            // Feine Striche je Minute — nur, solange sie nicht ineinander
-            // laufen. Bei 120 Minuten auf einem Blatt wäre das ein Filz.
-            if skala <= 60 {
-                ForEach(Array(0..<Int(skala)), id: \.self) { minute in
-                    if minute % grosserSchritt != 0 {
-                        strich(minute, laenge: radius * 0.035,
-                               dicke: max(1, seite * 0.006),
-                               farbe: strichfarbe.opacity(0.4))
-                    }
-                }
-            }
-            ForEach(marken, id: \.self) { minute in
-                strich(minute, laenge: radius * 0.06,
-                       dicke: max(1.5, seite * 0.013),
-                       farbe: strichfarbe.opacity(0.85))
-            }
+        let halbe = seite / 2
+        // Feine Striche je Minute — nur, solange sie nicht ineinander
+        // laufen. Bei 120 Minuten auf einem Blatt wäre das ein Filz.
+        if skala <= 60 {
+            let feine = (0..<Int(skala)).filter { $0 % grosserSchritt != 0 }
+                .map { lage(Double($0)).degrees }
+            Skalenstriche(winkel: feine,
+                          aussen: kranz / halbe,
+                          innen: (kranz - radius * 0.035) / halbe,
+                          staerke: max(1, seite * 0.006), rund: true)
+                .fill(strichfarbe.opacity(0.4))
         }
-    }
-
-    private func strich(_ minute: Int, laenge: Double, dicke: Double, farbe: Color) -> some View {
-        Capsule()
-            .fill(farbe)
-            .frame(width: dicke, height: laenge)
-            .offset(y: -(kranz - laenge / 2))
-            .rotationEffect(lage(Double(minute)))
+        Skalenstriche(winkel: marken.map { lage(Double($0)).degrees },
+                      aussen: kranz / halbe,
+                      innen: (kranz - radius * 0.06) / halbe,
+                      staerke: max(1.5, seite * 0.013), rund: true)
+            .fill(strichfarbe.opacity(0.85))
     }
 
     private var zahlen: some View {
@@ -446,11 +440,9 @@ struct TimerScheibe: View {
 
     private var zeiger: some View {
         ZStack {
-            Capsule()
+            Zeigerstrich(winkel: -anteil * 360, laenge: radius * 0.68,
+                         staerke: max(2, seite * 0.024))
                 .fill(strichfarbe)
-                .frame(width: max(2, seite * 0.024), height: radius * 0.68)
-                .offset(y: -radius * 0.34)
-                .rotationEffect(.degrees(-anteil * 360))
             Circle()
                 .fill(strichfarbe)
                 .frame(width: seite * 0.08, height: seite * 0.08)

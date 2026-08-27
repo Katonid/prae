@@ -13,18 +13,20 @@ import AVFoundation
 // CC0 — Herkunft und Lizenz stehen in `Klaenge/Klaenge-Lizenz.md`. Geholt und
 // zugeschnitten werden sie von `TafelbildiOS/scripts/fetch-sounds.py`.
 //
-// Damit ändert sich auch, WANN gespielt wird: Früher stieß die App bei jedem
-// der 18 Schritte einen kurzen Ton an. Ein Mischgeräusch ist aber
-// zusammenhängend — jetzt läuft eine Aufnahme über den ganzen Zug.
+// Zwei Fälle, zwei Arten von Klang:
 //
-// Die Aufnahmen sind rund 1,72 s lang, ein Zug dauert aber verschieden lang:
-// zwei Sekunden beim einzelnen Namen, eine Sekunde je Kärtchen beim Auslosen
-// von Gruppen — bei einer ganzen Klasse also eine halbe Minute. Deshalb
-// nimmt `starte` die gewünschte Dauer entgegen, wiederholt die Aufnahme so
-// oft, wie sie hineinpasst, und **schiebt den Beginn so weit nach hinten,
-// dass der letzte Durchlauf genau am Ende des Zuges ausklingt**. Der
-// Trommelschlag am Schluss fällt damit auf den Augenblick, in dem der Name
-// steht.
+// **Einzelner Name.** Ein Zug dauert zwei Sekunden, die Aufnahme rund 1,72 s.
+// `starte` schiebt den Beginn so weit nach hinten, dass die Aufnahme genau am
+// Ende des Zuges ausklingt — der Trommelschlag am Schluss fällt auf den
+// Augenblick, in dem der Name steht.
+//
+// **Gruppen.** Hier lief früher dieselbe Aufnahme in Schleife über den ganzen
+// Zug. Ein Sitzplan für eine Klasse dauert eine halbe Minute; das waren
+// siebzehn Wiederholungen desselben Mitschnitts, und genau diese Wiederholung
+// klang künstlich — außerdem hatte sie mit dem Bild nichts zu tun. Jetzt
+// bekommt **jedes Kärtchen seinen eigenen kurzen Klang, genau dann, wenn es
+// stehen bleibt** (`kartenSchlag`): mehrere Fassungen im Wechsel, Tonhöhe und
+// Pegel leicht gestreut. Das letzte Kärtchen bekommt den vollen Pegel.
 
 /// Klang beim Ziehen — dieselben vier Möglichkeiten wie in der Web-App.
 enum SpinSound: String, Codable, CaseIterable, Identifiable {
@@ -47,11 +49,14 @@ enum SpinSound: String, Codable, CaseIterable, Identifiable {
     var hint: String {
         switch self {
         case .karten:
-            return "Ein echter Kartenstapel, der durch die Finger läuft."
+            return "Ein echter Kartenstapel, der durch die Finger läuft. "
+                 + "Bei Gruppen legt sich jedes Kärtchen mit einem Kartenschlag."
         case .trommel:
-            return "Ein Wirbel auf der kleinen Trommel, mit Schlag am Ende."
+            return "Ein Wirbel auf der kleinen Trommel, mit Schlag am Ende. "
+                 + "Bei Gruppen fällt der Schlag auf jedes Kärtchen."
         case .rad:
-            return "Das Klacken einer Ratsche, das mit dem Rad langsamer wird."
+            return "Das Klacken einer Ratsche, das mit dem Rad langsamer wird. "
+                 + "Bei Gruppen klackt es, sobald ein Kärtchen einrastet."
         case .aus:
             return "Beim Ziehen bleibt es still."
         }
@@ -73,6 +78,17 @@ enum SpinSound: String, Codable, CaseIterable, Identifiable {
         case .karten:  return "zieh-karten"
         case .trommel: return "zieh-trommel"
         case .rad:     return "zieh-rad"
+        }
+    }
+
+    /// Kurze Klänge für „ein Kärtchen legt sich hin" — mehrere Fassungen,
+    /// damit sich nichts wiederholt.
+    var kartenDateien: [String] {
+        switch self {
+        case .aus:     return []
+        case .karten:  return (1...4).map { "karte-karten-\($0)" }
+        case .rad:     return (1...3).map { "karte-rad-\($0)" }
+        case .trommel: return ["karte-trommel-1"]
         }
     }
 }
@@ -139,6 +155,9 @@ final class Ziehklang {
     /// Einmal geladene Dateien bleiben liegen — beim Ziehen soll der Ton
     /// sofort kommen, nicht erst nach dem Einlesen von der Platte.
     private var lager: [SpinSound: AVAudioPlayer] = [:]
+    /// Kurze Klänge je Datei, zwei Spieler, damit sie sich überlappen dürfen.
+    private var kartenLager: [String: [AVAudioPlayer]] = [:]
+    private var kartenZaehler = 0
 
     private init() {}
 
@@ -170,6 +189,29 @@ final class Ziehklang {
         self.spieler = spieler
     }
 
+    /// Ein Kärtchen bleibt stehen.
+    ///
+    /// Beim Auslosen von Gruppen läuft **kein** langer Mitschnitt mehr.
+    /// Eine Aufnahme von 1,72 s siebzehnmal hintereinander ist genau das,
+    /// was künstlich klingt — und sie hat mit dem Bild nichts zu tun.
+    /// Stattdessen bekommt jedes Kärtchen im Augenblick, in dem es stehen
+    /// bleibt, seinen eigenen kurzen Klang: wechselnde Fassungen, dazu ein
+    /// Hauch Streuung in Tonhöhe und Pegel — so klingt kein Anschlag wie
+    /// der vorige.
+    func kartenSchlag(_ klang: SpinSound, betont: Bool = false) {
+        let dateien = klang.kartenDateien
+        guard !dateien.isEmpty else { return }
+        AudioSessionCenter.configure(recording: AudioSessionCenter.isRecording)
+        let name = dateien[kartenZaehler % dateien.count]
+        kartenZaehler &+= 1
+        guard let spieler = freierSpieler(name) else { return }
+        spieler.currentTime = 0
+        spieler.enableRate = true
+        spieler.rate = Float.random(in: 0.94...1.07)
+        spieler.volume = betont ? 1.0 : Float.random(in: 0.72...0.92)
+        spieler.play()
+    }
+
     /// Hörprobe in den Einstellungen — die Aufnahme, einmal.
     func probe(_ klang: SpinSound) { starte(klang) }
 
@@ -177,6 +219,26 @@ final class Ziehklang {
     func stoppe() {
         spieler?.stop()
         spieler = nil
+    }
+
+    /// Ein Spieler, der gerade nicht läuft. Zwei je Datei genügen: Die
+    /// Kärtchen liegen eine Sekunde auseinander, die Klänge sind kürzer —
+    /// nur beim Neuauslosen ab einer Stelle kann sich etwas überlappen.
+    private func freierSpieler(_ name: String) -> AVAudioPlayer? {
+        if let vorhanden = kartenLager[name] {
+            return vorhanden.first { !$0.isPlaying } ?? vorhanden.first
+        }
+        guard let adresse = Bundle.main.url(forResource: name, withExtension: "wav")
+        else { return nil }
+        let neue = (0..<2).compactMap { _ -> AVAudioPlayer? in
+            guard let spieler = try? AVAudioPlayer(contentsOf: adresse) else { return nil }
+            spieler.enableRate = true
+            spieler.prepareToPlay()
+            return spieler
+        }
+        guard !neue.isEmpty else { return nil }
+        kartenLager[name] = neue
+        return neue[0]
     }
 
     private func hole(_ klang: SpinSound) -> AVAudioPlayer? {

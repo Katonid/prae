@@ -189,6 +189,42 @@ struct GruppenAnsicht: View {
         return Fuellung.istHell(von) ? Color(hex: "#0b1020") : .white
     }
 
+    /// Die Fläche unter einem Namen.
+    ///
+    /// Ein Kärtchen soll auf der Tafel liegen, nicht in ihr kleben: eine
+    /// Lichtkante oben, ein Hauch Schatten unten, ein feiner Rand und ein
+    /// weicher Fall darunter. Wer gerade eingerastet ist, bekommt für einen
+    /// Augenblick ein Leuchten im Farbton der Tafel — das ist der Auftritt,
+    /// auf den die Klasse wartet.
+    private func flaeche(offen: Bool, frisch: Bool) -> some View {
+        let ecke = metrics.em(0.5)
+        return RoundedRectangle(cornerRadius: ecke, style: .continuous)
+            .fill(kartenfuellung)
+            .overlay {
+                RoundedRectangle(cornerRadius: ecke, style: .continuous)
+                    .fill(LinearGradient(colors: [.white.opacity(0.20),
+                                                  .white.opacity(0.04),
+                                                  .black.opacity(0.10)],
+                                         startPoint: .top, endPoint: .bottom))
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: ecke, style: .continuous)
+                    .strokeBorder(randfarbe, lineWidth: max(1, metrics.em(0.05)))
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: ecke, style: .continuous)
+                    .strokeBorder(style.accent.opacity(offen ? 0.7 : 0), lineWidth: 2)
+            }
+            .shadow(color: .black.opacity(0.28), radius: metrics.em(0.3), y: metrics.em(0.12))
+            .shadow(color: style.accent.opacity(frisch ? 0.55 : 0), radius: metrics.em(0.9))
+    }
+
+    /// Feiner Rand: auf eigener Farbe eine Lichtkante, sonst die ruhige
+    /// Linie der Tafel.
+    private var randfarbe: Color {
+        content.kartenfarbe.isEmpty ? style.line : Color.white.opacity(0.3)
+    }
+
     private func kaertchen(_ id: String, stelle: Int, schrift: Double) -> some View {
         let blass = frage.map { stelle >= $0 } ?? false
         let offen = fertigBis.map { stelle >= $0 } ?? false
@@ -201,15 +237,7 @@ struct GruppenAnsicht: View {
             .multilineTextAlignment(.center)
             .padding(.horizontal, metrics.em(0.25))
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background {
-                RoundedRectangle(cornerRadius: metrics.em(0.5), style: .continuous)
-                    .fill(kartenfuellung)
-                    .overlay {
-                        RoundedRectangle(cornerRadius: metrics.em(0.5), style: .continuous)
-                            .strokeBorder(offen ? style.accent.opacity(0.7) : .clear,
-                                          lineWidth: 2)
-                    }
-            }
+            .background { flaeche(offen: offen, frisch: zuletzt == stelle) }
             .overlay(alignment: .trailing) {
                 if content.anzeige == .zaehlen && !offen {
                     Text("\(stand)")
@@ -463,7 +491,8 @@ struct GruppenAnsicht: View {
         // Klasse dauert damit eine halbe Minute; das ist gewollt.
         let offene = max(1, neu.count - fest.count)
         let gesamt = Gruppenlauf.dauer(kaertchen: offene)
-        Ziehklang.shared.starte(content.spinSound, dauer: gesamt)
+        // Kein langer Mitschnitt mehr: Jedes Kärtchen klingt für sich, in dem
+        // Augenblick, in dem es stehen bleibt (siehe Ziehklang.swift).
         ueberspringen = false
         fertigBis = fest.count
 
@@ -477,8 +506,11 @@ struct GruppenAnsicht: View {
                     + min(offene, Int((verstrichen / Gruppenlauf.proKarte).rounded(.down)))
                 if fertig > (fertigBis ?? fest.count) {
                     // Jedes Kärtchen, das stehen bleibt, gibt einen kleinen
-                    // Ruck — so ist der Fortschritt auch zu spüren.
+                    // Ruck und seinen eigenen Klang — Bild, Ton und Griff
+                    // fallen damit auf denselben Augenblick.
                     Haptics.tap()
+                    Ziehklang.shared.kartenSchlag(content.spinSound,
+                                                  betont: fertig == fest.count + offene)
                     withAnimation(.spring(response: 0.28, dampingFraction: 0.55)) {
                         zuletzt = fertig - 1
                     }

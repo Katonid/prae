@@ -135,20 +135,27 @@ struct ClockWidgetView: View {
         }
     }
 
+    /// Die Skala — zwei Pfade statt sechzig gedrehter Rechtecke.
+    ///
+    /// Gedrehte Ebenen werden beim Zeichnen neu abgetastet; genau daran lag
+    /// es, dass das Zifferblatt weich wirkte. Ein Pfad trägt die Drehung in
+    /// seinen Koordinaten und bleibt scharf (siehe Rundblatt.swift).
+    @ViewBuilder
     private func ticks(side: CGFloat) -> some View {
         // „Minimal" zeigt nur die Fünf-Minuten-Striche.
-        let indexes = face == .minimal ? Array(stride(from: 0, to: 60, by: 5)) : Array(0..<60)
         let outer: Double = isLearning ? 79 : 88
-        return ForEach(indexes, id: \.self) { index in
-            let major = index % 5 == 0
-            let inner = major ? outer - (face == .minimal ? 9 : 8) : outer - 4
-            let length = outer - inner
-            Rectangle()
-                .fill(tickColor.opacity(major ? 1 : 0.4))
-                .frame(width: unit(major ? (face == .modern ? 3.2 : 3) : 1.4, side),
-                       height: unit(length, side))
-                .offset(y: -unit((outer + inner) / 2, side))
-                .rotationEffect(.degrees(Double(index) * 6))
+        let innenGross = outer - (face == .minimal ? 9 : 8)
+        let grosse = Array(stride(from: 0, to: 60, by: 5)).map { Double($0) * 6 }
+        // Die Skala steht in 200er-Einheiten, `Skalenstriche` rechnet in
+        // Anteilen des halben Blatts — also durch 100.
+        Skalenstriche(winkel: grosse, aussen: outer / 100, innen: innenGross / 100,
+                      staerke: unit(face == .modern ? 3.2 : 3, side))
+            .fill(tickColor)
+        if face != .minimal {
+            let kleine = (0..<60).filter { $0 % 5 != 0 }.map { Double($0) * 6 }
+            Skalenstriche(winkel: kleine, aussen: outer / 100, innen: (outer - 4) / 100,
+                          staerke: unit(1.4, side))
+                .fill(tickColor.opacity(0.4))
         }
     }
 
@@ -159,9 +166,8 @@ struct ClockWidgetView: View {
                 Text("\(number)")
                     .font(Theme.font(Double(unit(19, side)), weight: .semibold))
                     .foregroundStyle(faceInk.opacity(0.5))
-                    .rotationEffect(.degrees(-Double(number) * 30))
-                    .offset(y: -unit(68, side))
-                    .rotationEffect(.degrees(Double(number) * 30))
+                    .offset(Rundblatt.versatz(Double(number) * 30,
+                                              radius: Double(unit(68, side))))
             }
         } else {
             ForEach(1...12, id: \.self) { number in
@@ -169,9 +175,8 @@ struct ClockWidgetView: View {
                     .font(Theme.font(Double(unit(face == .modern ? 21 : 23, side)),
                                      weight: face == .modern ? .semibold : .bold))
                     .foregroundStyle(isLearning ? Self.hourBlue : faceInk.opacity(0.85))
-                    .rotationEffect(.degrees(-Double(number) * 30))
-                    .offset(y: -unit(isLearning ? 60 : 66, side))
-                    .rotationEffect(.degrees(Double(number) * 30))
+                    .offset(Rundblatt.versatz(Double(number) * 30,
+                                              radius: Double(unit(isLearning ? 60 : 66, side))))
             }
             if isLearning {
                 // Außen die Minutenzahlen 5, 10, 15 … in Orange.
@@ -179,21 +184,21 @@ struct ClockWidgetView: View {
                     Text("\(value == 60 ? 0 : value)")
                         .font(Theme.font(Double(unit(11, side)), weight: .bold))
                         .foregroundStyle(Self.minuteOrange)
-                        .rotationEffect(.degrees(-Double(value) * 6))
-                        .offset(y: -unit(89, side))
-                        .rotationEffect(.degrees(Double(value) * 6))
+                        .offset(Rundblatt.versatz(Double(value) * 6,
+                                                  radius: Double(unit(89, side))))
                 }
             }
         }
     }
 
     /// Zeiger: Drehpunkt liegt im Mittelpunkt des Zifferblatts.
+    ///
+    /// Als Pfad, nicht als gedrehte Kapsel — aus demselben Grund wie bei der
+    /// Skala: Eine gedrehte Ebene wird neu abgetastet und bekommt weiche
+    /// Kanten, ein Pfad nicht.
     private func hand(length: CGFloat, width: CGFloat, color: Color, angle: Double) -> some View {
-        Capsule()
+        Zeigerstrich(winkel: angle, laenge: Double(length), staerke: Double(width))
             .fill(color)
-            .frame(width: width, height: length)
-            .offset(y: -length / 2)
-            .rotationEffect(.degrees(angle))
     }
 
     // MARK: - Digital
