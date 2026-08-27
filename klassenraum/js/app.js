@@ -6,7 +6,7 @@ import {
   loadState, getState, getActiveBoard, setActiveBoard, addBoard, duplicateBoard, removeBoard,
   addWidget, touch, touchBoard, saveNow, on as onStore, importBoard, AURORA,
   getActivePage, setActivePage, addPage, removePage, allWidgetsOf, emptyPage,
-  renamePage, movePageBy,
+  renamePage, movePageBy, uniqueBoardName,
   BOARD_FORMATS, setBoardFormat,
 } from './store.js';
 import { transferPage } from './transfer.js';
@@ -134,7 +134,8 @@ function openBoardsPanel() {
           onclick: async () => {
             const name = await promptDialog('Klassenraum umbenennen', 'Name', board.name);
             if (!name) return;
-            board.name = name;
+            // Gleiche Namen sind tabu — notfalls wird „(2)" angehängt.
+            board.name = uniqueBoardName(name, board.id);
             touchBoard(board.id, { reason: 'board-rename' });
             renderTopbar();
             render();

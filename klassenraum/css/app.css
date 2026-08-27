@@ -1370,6 +1370,24 @@ p.muted { margin: 0; }
 .w-random__gcard-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .w-random__gcard.is-waiting { opacity: 0; }
+.w-random__gcard.is-fading { opacity: 0.35; }
+
+/* Knopfzeile unter den Kärtchen: Auslosen / Neu auslosen / Rückfrage. */
+.w-random__actions { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; padding: 2px 0; }
+
+.w-random__abtn {
+  border: 0;
+  border-radius: 999px;
+  padding: 8px 16px;
+  font-size: 14.5px;
+  font-weight: 750;
+  cursor: pointer;
+  background: color-mix(in srgb, var(--card-ink) 12%, transparent);
+  color: var(--card-ink);
+}
+
+.w-random__abtn--primary { background: var(--accent, #6366f1); color: #fff; }
+.w-random__abtn:active { transform: scale(0.96); }
 .w-random__gcard.is-dealt { animation: gcard-in 0.4s var(--spring, cubic-bezier(0.34, 1.56, 0.64, 1)) both; }
 
 /* Checklisten-Anzeige: Abhak-Knopf vor jeder Gruppe, erledigte Gruppen gedimmt. */

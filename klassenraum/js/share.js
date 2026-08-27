@@ -14,7 +14,7 @@ import {
   syncInfo, startSync, joinSync, adoptSpace, spaceFromCookie, linkCode, syncNow, stopSync,
   setAutoSync, onSyncChanged, mediaSyncStatus, syncMediaNow,
 } from './sync.js';
-import { isFreshStart } from './store.js';
+import { isFreshStart, boardsTouched } from './store.js';
 import { openPanel, section, field, button, buttonRow, toggleRow, toast, confirmDialog } from './ui.js';
 import { renderBoard } from './board.js';
 import { coupleNow } from './couple.js';
@@ -215,7 +215,9 @@ export function openSharePanel(prefillCode = '', prefillSyncCode = '') {
   // Zuletzt erzeugter Kopplungscode, damit er im Panel stehen bleibt.
   let pendingLink = null;
   // Beim Verbinden: eigene Tafeln mitnehmen oder nur den anderen Stand übernehmen?
-  let keepLocal = true;
+  // Ein unberührtes frisches Gerät übernimmt beim Verbinden nur den Bereich —
+  // sonst brächte jedes neue Gerät seine Beispieltafel „Klasse 4a" mit.
+  let keepLocal = !(isFreshStart() && !boardsTouched());
 
   function render() {
     clear(container);

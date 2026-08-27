@@ -12,6 +12,7 @@ import { uid, debounce } from './util.js';
 import {
   getState, saveNow, emit, on as onStore, upsertBoard, upsertList, removeBoard, removeList,
   markDeleted, getTombstones, pruneTombstones, getActiveBoard, addBoard,
+  isFreshStart, boardsTouched, enforceUniqueBoardNames,
 } from './store.js';
 import {
   initCloud, createSpace, fetchSpace, putRecord, subscribeSpace, createLinkCode, resolveLinkCode,
@@ -462,6 +463,8 @@ function mergeEvent(detail) {
 function afterMerge(activeBefore) {
   const settings = syncSettings();
   const state = getState();
+  // Frisch angekommene Tafeln dürfen keine Namensdoppel erzeugen.
+  enforceUniqueBoardNames();
   if (!state.boards.some((board) => board.id === state.activeBoardId)) {
     state.activeBoardId = state.boards[0] ? state.boards[0].id : null;
     emit('board-switch', state.activeBoardId);
@@ -671,6 +674,10 @@ export function initSync() {
     const current = syncSettings();
     const remembered = await spaceOfAccount().catch(() => null);
 
+    // Ein unberührtes frisches Gerät bringt seine Beispieltafel NICHT mit in
+    // den Bereich — sonst entsteht mit jedem neuen Gerät eine weitere
+    // „Klasse 4a" samt Beispielklasse.
+    const untouched = isFreshStart() && !boardsTouched();
     if (!current.spaceId) {
       if (!remembered) {
         // Konto ganz neu und Gerät ohne Bereich: Abgleich automatisch
@@ -685,6 +692,11 @@ export function initSync() {
       current.pushed = {};
       await saveNow();
       const payload = await fetchSpace(remembered).catch(() => null);
+      if (payload && untouched && payload.boards && Object.keys(payload.boards).length) {
+        const state = getState();
+        state.boards = [];
+        state.lists = [];
+      }
       if (payload) mergeSpace(payload);
       connect(remembered);
       return;
