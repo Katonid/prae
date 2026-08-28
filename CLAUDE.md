@@ -225,6 +225,32 @@ Der Ordner `Canada2026iOS/` wurde vom Nutzer aus `main` gelöscht (08/2026).
 Die App wird nicht weiterentwickelt. **Nicht wiederherstellen**, keine
 Vorschläge dazu, und den Eintrag im Bau-Arbeitsablauf nicht zurückholen.
 
+## Projekt Klassenraum (iOS) — Versuchsfassung, NICHT die Store-App
+
+- Code: `KlassenraumiOS/` — eine **Kopie** von `TafelbildiOS/` (Stand 1.0.57)
+  mit eigener Bundle-ID `de.familie.klassenraum` und dem Anzeigenamen
+  „Klassenraum". Einziger Zweck: den Abgleich von der **öffentlichen** auf
+  die **private** iCloud-Datenbank umbauen (Weg A: private Datenbank plus
+  `CKShare`), ohne die veröffentlichte App anzufassen.
+- **Nicht verwechseln** mit `klassenraum/` (kleingeschrieben) — das ist die
+  Web-App gleichen Namens und hat damit nichts zu tun.
+- **Niemals zur Prüfung einreichen.** Zwei fast gleiche Apps desselben
+  Entwicklers sind nach Apples Regel 4.3 eine Dublette. Diese Fassung lebt
+  nur in TestFlight bei **internen** Testern; dafür findet keine Prüfung
+  statt.
+- **Der iCloud-Bereich ist mit Absicht derselbe** wie bei Tafelbild
+  (`iCloud.de.familie.tafelbild`): Weg A schreibt nur in die private, die
+  veröffentlichte App nur in die öffentliche Datenbank — sie stören einander
+  nicht, und die Versuchsfassung kann den vorhandenen Bestand lesen, um den
+  Umzug an echten Tafeln zu üben.
+- **Hier passiert nur der Abgleichs-Umbau.** Alle sonstigen Verbesserungen
+  gehen weiter allein nach `TafelbildiOS/`; diese Kopie bleibt bei den
+  Funktionen bewusst zurück. Steht der Umbau, wandert nur die
+  Abgleichsschicht zurück nach `TafelbildiOS/`, und der Ordner wird gelöscht.
+- Version beginnt bei `0.1.0` (zwei Stellen im pbxproj); die Build-Nummer
+  vergibt dieselbe Skript-Bauphase wie bei Tafelbild.
+- Gebaut wird von `.github/workflows/klassenraum-ios-build.yml`.
+
 ## Projekt Klassenraum (Web-App)
 
 - Code: `klassenraum/` — statische Web-App ohne Build-Schritt (ES-Module,
