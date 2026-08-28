@@ -116,13 +116,6 @@ final class CloudSyncEngine {
         }
     }
 
-    /// Abfrageart: `true` = Delta über `updatedAtMs` (braucht den Index),
-    /// `false` = alles holen (kommt mit dem Standardindex aus).
-    /// Bewusst nur für die laufende Sitzung gemerkt: Wird der Index später in
-    /// der CloudKit-Konsole angelegt, versucht es die App beim nächsten Start
-    /// von selbst wieder mit der sparsamen Delta-Abfrage.
-    private var deltaQueryWorks = true
-
     /// Beim ersten Abgleich nach dem Start wird alles geholt, nicht nur die
     /// Änderungen seit dem letzten Mal. Grund: Ein Datensatz kann später
     /// hochgeladen werden, als sein Zeitstempel sagt (z. B. wenn er lange in
@@ -392,111 +385,196 @@ final class CloudSyncEngine {
 
     // MARK: - Pull
 
+    /// Holt Änderungen — über **Änderungsmarken je Datenbereich**, nicht mehr
+    /// über eine Abfrage auf `updatedAtMs`.
+    ///
+    /// Drei Gründe für den Wechsel:
+    ///
+    /// 1. **Geteilte Tafeln liegen in eigenen Bereichen**, und zwar in der
+    ///    iCloud derjenigen, die sie teilt. Eine Abfrage auf den eigenen
+    ///    Bereich fände sie nie. Erst damit wird Stufe 3 möglich.
+    /// 2. CloudKit sagt von sich aus, was sich seit der letzten Marke geändert
+    ///    hat — **auch, was gelöscht wurde**. Das kann eine Abfrage nicht.
+    /// 3. Es braucht **keinen Index** in der CloudKit-Konsole mehr. Der
+    ///    Rückfall auf „alles holen" entfällt damit ersatzlos.
     private func pullChanges(completion: @escaping () -> Void) {
-        // Beim ersten Mal nach dem Start alles holen (siehe needsFullPull).
-        let since = needsFullPull ? 0 : max(0, lastSyncMs - 5_000)
-        pullChanges(useDelta: deltaQueryWorks, since: since) { [weak self] in
-            self?.needsFullPull = false
+        var gesammelt: [RemoteEntity] = []
+        let gruppe = DispatchGroup()
+        let sperre = NSLock()
+
+        for datenbank in [container.privateCloudDatabase, container.sharedCloudDatabase] {
+            gruppe.enter()
+            holeBereiche(in: datenbank) { [weak self] bereiche in
+                guard let self, !bereiche.isEmpty else { gruppe.leave(); return }
+                self.holeAenderungen(in: datenbank, bereiche: bereiche) { teil in
+                    sperre.lock()
+                    gesammelt.append(contentsOf: teil)
+                    sperre.unlock()
+                    gruppe.leave()
+                }
+            }
+        }
+
+        gruppe.notify(queue: queue) { [weak self] in
+            guard let self else { completion(); return }
+            if !gesammelt.isEmpty {
+                let changes = gesammelt
+                DispatchQueue.main.async { self.onRemoteChanges?(changes) }
+            }
+            self.needsFullPull = false
+            self.lastSyncMs = Date.nowMs
             completion()
         }
     }
 
     /// Holt beim nächsten Abgleich wieder den kompletten Bestand.
+    ///
+    /// Dazu werden alle Marken verworfen; CloudKit liefert dann von vorn.
     func requestFullPull() {
         queue.async {
             self.needsFullPull = true
             self.lastSyncMs = 0
+            for schluessel in self.defaults.dictionaryRepresentation().keys
+            where schluessel.hasPrefix("sync.zonenMarke.") || schluessel.hasPrefix("sync.dbMarke.") {
+                self.defaults.removeObject(forKey: schluessel)
+            }
         }
     }
 
-    /// Holt Änderungen aus der Cloud.
-    ///
-    /// Bevorzugt wird der Delta-Abgleich über `updatedAtMs` — der braucht in der
-    /// CloudKit-Konsole einen Index (queryable + sortable). Fehlt der, fällt die
-    /// Abfrage automatisch auf „alles holen" zurück, was mit dem Standardindex
-    /// auskommt. Bei der Datenmenge dieser App (ein paar Tafeln) ist das
-    /// unproblematisch, und die App läuft ohne Handarbeit in der Konsole.
-    private func pullChanges(useDelta: Bool, since: Int64, completion: @escaping () -> Void) {
-        let query: CKQuery
-        if useDelta {
-            // Bewusst ohne Sortierung: Die Reihenfolge spielt keine Rolle (jede
-            // Änderung trägt ihren Zeitstempel), und so genügt in der
-            // CloudKit-Konsole ein Index vom Typ QUERYABLE — SORTABLE entfällt.
-            let predicate = NSPredicate(format: "updatedAtMs > %@", NSNumber(value: since))
-            query = CKQuery(recordType: Self.recordType, predicate: predicate)
-        } else {
-            query = CKQuery(recordType: Self.recordType, predicate: NSPredicate(value: true))
+    /// Welche Bereiche einer Datenbank sich seit der letzten Marke geändert
+    /// haben. Ohne Marke — beim ersten Mal — sind das alle.
+    private func holeBereiche(in datenbank: CKDatabase,
+                              completion: @escaping ([CKRecordZone.ID]) -> Void) {
+        let schluessel = Self.datenbankMarke(datenbank)
+        let vorher = needsFullPull ? nil : marke(schluessel)
+        let operation = CKFetchDatabaseChangesOperation(previousServerChangeToken: vorher)
+        operation.qualityOfService = .userInitiated
+
+        var geaendert: [CKRecordZone.ID] = []
+        operation.recordZoneWithIDChangedBlock = { geaendert.append($0) }
+        operation.recordZoneWithIDWasDeletedBlock = { [weak self] zone in
+            // Ein Bereich verschwindet, wenn eine Freigabe endet. Dann ist
+            // auch seine Marke wertlos.
+            self?.setzeMarke(nil, key: Self.bereichsMarke(zone))
+        }
+        operation.fetchDatabaseChangesResultBlock = { [weak self] ergebnis in
+            guard let self else { completion([]); return }
+            switch ergebnis {
+            case .success(let (token, _)):
+                self.setzeMarke(token, key: schluessel)
+                completion(geaendert)
+            case .failure(let fehler):
+                if (fehler as? CKError)?.code == .changeTokenExpired {
+                    // Marke zu alt: einmal von vorn.
+                    self.setzeMarke(nil, key: schluessel)
+                    self.holeBereiche(in: datenbank, completion: completion)
+                    return
+                }
+                // Eine leere geteilte Datenbank ist kein Fehler.
+                if !Self.istLeererBereich(fehler) {
+                    self.queue.async { self.status = .error(Self.describe(fehler)) }
+                }
+                completion([])
+            }
+        }
+        datenbank.add(operation)
+    }
+
+    /// Die eigentlichen Änderungen aus den genannten Bereichen.
+    private func holeAenderungen(in datenbank: CKDatabase, bereiche: [CKRecordZone.ID],
+                                 completion: @escaping ([RemoteEntity]) -> Void) {
+        var einstellungen: [CKRecordZone.ID: CKFetchRecordZoneChangesOperation.ZoneConfiguration] = [:]
+        for bereich in bereiche {
+            let konfiguration = CKFetchRecordZoneChangesOperation.ZoneConfiguration()
+            konfiguration.previousServerChangeToken = needsFullPull ? nil : marke(Self.bereichsMarke(bereich))
+            // Ohne "asset": Der Abgleich lädt keine Mediendateien mit.
+            konfiguration.desiredKeys = ["kind", "entityId", "payload", "updatedAtMs", "author"]
+            einstellungen[bereich] = konfiguration
         }
 
-        var collected: [RemoteEntity] = []
-        var maxMs = lastSyncMs
+        let operation = CKFetchRecordZoneChangesOperation(recordZoneIDs: bereiche,
+                                                         configurationsByRecordZoneID: einstellungen)
+        operation.qualityOfService = .userInitiated
+        operation.fetchAllChanges = true
 
-        func handleRecord(_ record: CKRecord) {
-            guard
-                let kindRaw = record["kind"] as? String,
-                let kind = EntityKind(rawValue: kindRaw),
-                let entityId = record["entityId"] as? String
+        var gefunden: [RemoteEntity] = []
+        var abgelaufen: [CKRecordZone.ID] = []
+
+        operation.recordWasChangedBlock = { _, ergebnis in
+            guard case .success(let record) = ergebnis,
+                  let rohArt = record["kind"] as? String,
+                  let art = EntityKind(rawValue: rohArt),
+                  let kennung = record["entityId"] as? String
             else { return }
-            let updatedAtMs = (record["updatedAtMs"] as? NSNumber)?.int64Value ?? 0
-            maxMs = max(maxMs, updatedAtMs)
-            collected.append(RemoteEntity(
-                kind: kind,
-                entityId: entityId,
+            gefunden.append(RemoteEntity(
+                kind: art,
+                entityId: kennung,
                 payloadJSON: record["payload"] as? String ?? "",
-                updatedAtMs: updatedAtMs
+                updatedAtMs: (record["updatedAtMs"] as? NSNumber)?.int64Value ?? 0
             ))
         }
 
-        func run(_ operation: CKQueryOperation) {
-            // Nur die eigene Zone — ohne das durchsucht CloudKit alle Zonen
-            // der privaten Datenbank.
-            operation.zoneID = zoneID
-            // Ohne "asset": Der Abgleich lädt keine Mediendateien mit.
-            operation.desiredKeys = ["kind", "entityId", "payload", "updatedAtMs", "author"]
-            operation.recordMatchedBlock = { _, result in
-                if case .success(let record) = result { handleRecord(record) }
-            }
-            operation.queryResultBlock = { [weak self] result in
-                guard let self else { return }
-                switch result {
-                case .success(let cursor):
-                    if let cursor {
-                        run(CKQueryOperation(cursor: cursor))
-                    } else {
-                        self.queue.async {
-                            if useDelta { self.deltaQueryWorks = true }
-                            if !collected.isEmpty {
-                                let changes = collected
-                                DispatchQueue.main.async { self.onRemoteChanges?(changes) }
-                            }
-                            self.lastSyncMs = maxMs
-                            completion()
-                        }
-                    }
-                case .failure(let error):
-                    self.queue.async {
-                        // Fehlender Index: einmal ohne Delta erneut versuchen.
-                        if useDelta, Self.isIndexProblem(error) {
-                            self.deltaQueryWorks = false
-                            self.pullChanges(useDelta: false, since: since, completion: completion)
-                            return
-                        }
-                        self.status = .error(Self.describe(error))
-                        completion()
-                    }
+        operation.recordZoneFetchResultBlock = { [weak self] bereich, ergebnis in
+            guard let self else { return }
+            switch ergebnis {
+            case .success(let (token, _, _)):
+                self.setzeMarke(token, key: Self.bereichsMarke(bereich))
+            case .failure(let fehler):
+                if (fehler as? CKError)?.code == .changeTokenExpired {
+                    self.setzeMarke(nil, key: Self.bereichsMarke(bereich))
+                    abgelaufen.append(bereich)
                 }
             }
-            operation.qualityOfService = .userInitiated
-            self.database.add(operation)
         }
 
-        run(CKQueryOperation(query: query))
+        operation.fetchRecordZoneChangesResultBlock = { [weak self] ergebnis in
+            guard let self else { completion(gefunden); return }
+            if case .failure(let fehler) = ergebnis, !Self.istLeererBereich(fehler) {
+                self.queue.async { self.status = .error(Self.describe(fehler)) }
+            }
+            // Abgelaufene Marken: diese Bereiche einmal von vorn holen.
+            guard !abgelaufen.isEmpty else { completion(gefunden); return }
+            let nochmal = abgelaufen
+            self.holeAenderungen(in: datenbank, bereiche: nochmal) { nachtrag in
+                completion(gefunden + nachtrag)
+            }
+        }
+        datenbank.add(operation)
     }
 
-    /// Fehlt in der CloudKit-Konsole ein Index, meldet CloudKit „invalidArguments".
-    private static func isIndexProblem(_ error: Error) -> Bool {
-        guard let ckError = error as? CKError else { return false }
-        return ckError.code == .invalidArguments
+    // MARK: Marken
+
+    private static func datenbankMarke(_ datenbank: CKDatabase) -> String {
+        datenbank.databaseScope == .shared ? "sync.dbMarke.geteilt" : "sync.dbMarke.privat"
+    }
+
+    private static func bereichsMarke(_ bereich: CKRecordZone.ID) -> String {
+        "sync.zonenMarke.\(bereich.zoneName)|\(bereich.ownerName)"
+    }
+
+    private func marke(_ schluessel: String) -> CKServerChangeToken? {
+        guard let daten = defaults.data(forKey: schluessel) else { return nil }
+        return try? NSKeyedUnarchiver.unarchivedObject(ofClass: CKServerChangeToken.self, from: daten)
+    }
+
+    private func setzeMarke(_ token: CKServerChangeToken?, key schluessel: String) {
+        guard let token,
+              let daten = try? NSKeyedArchiver.archivedData(withRootObject: token,
+                                                            requiringSecureCoding: true)
+        else {
+            defaults.removeObject(forKey: schluessel)
+            return
+        }
+        defaults.set(daten, forKey: schluessel)
+    }
+
+    /// „Gibt es (noch) nicht" ist kein Fehler: Die geteilte Datenbank ist
+    /// leer, solange niemand etwas mit einem geteilt hat, und der eigene
+    /// Bereich entsteht erst beim ersten Hochladen.
+    private static func istLeererBereich(_ fehler: Error) -> Bool {
+        guard let ck = fehler as? CKError else { return false }
+        return ck.code == .zoneNotFound || ck.code == .userDeletedZone
+            || ck.code == .unknownItem
     }
 
     // MARK: - Medien gezielt nachladen
@@ -532,67 +610,6 @@ final class CloudSyncEngine {
         }
     }
 
-    /// Holt alle Tafeln aus der Cloud — wird beim Beitritt per Code gebraucht,
-    /// damit der Code auch ohne vorherigen Abgleich sofort funktioniert.
-    /// Bewusst ohne Filter auf `kind`: So braucht es keinen weiteren Index.
-    func fetchBoards(completion: @escaping ([RemoteEntity]) -> Void) {
-        guard enabled else {
-            completion([])
-            return
-        }
-        var collected: [RemoteEntity] = []
-
-        func makeQuery(useDelta: Bool) -> CKQuery {
-            // Erst über updatedAtMs (derselbe Index wie beim Abgleich), sonst
-            // über alle Datensätze — dann genügt der Index auf recordName.
-            useDelta
-                ? CKQuery(recordType: Self.recordType,
-                          predicate: NSPredicate(format: "updatedAtMs > %@", NSNumber(value: 0)))
-                : CKQuery(recordType: Self.recordType, predicate: NSPredicate(value: true))
-        }
-
-        func run(_ operation: CKQueryOperation, useDelta: Bool) {
-            operation.zoneID = zoneID
-            operation.desiredKeys = ["kind", "entityId", "payload", "updatedAtMs", "author"]
-            operation.recordMatchedBlock = { _, result in
-                guard case .success(let record) = result,
-                      let kindRaw = record["kind"] as? String,
-                      let kind = EntityKind(rawValue: kindRaw),
-                      let entityId = record["entityId"] as? String,
-                      let payload = record["payload"] as? String else { return }
-                guard kind == .board || kind == .nameList else { return }
-                collected.append(RemoteEntity(
-                    kind: kind,
-                    entityId: entityId,
-                    payloadJSON: payload,
-                    updatedAtMs: (record["updatedAtMs"] as? NSNumber)?.int64Value ?? 0
-                ))
-            }
-            operation.queryResultBlock = { [weak self] result in
-                switch result {
-                case .success(let cursor):
-                    if let cursor {
-                        run(CKQueryOperation(cursor: cursor), useDelta: useDelta)
-                    } else {
-                        let changes = collected
-                        DispatchQueue.main.async { completion(changes) }
-                    }
-                case .failure(let error):
-                    if useDelta, Self.isIndexProblem(error) {
-                        run(CKQueryOperation(query: makeQuery(useDelta: false)), useDelta: false)
-                        return
-                    }
-                    self?.status = .error(Self.describe(error))
-                    DispatchQueue.main.async { completion([]) }
-                }
-            }
-            operation.qualityOfService = .userInitiated
-            self.database.add(operation)
-        }
-
-        run(CKQueryOperation(query: makeQuery(useDelta: deltaQueryWorks)), useDelta: deltaQueryWorks)
-    }
-
     /// Holt einzelne Datensätze **gezielt über ihre Kennung** — ohne Abfrage
     /// und damit ohne jeden Index. Damit lässt sich eine Namensliste
     /// nachladen, auf die eine Tafel verweist, die aber (noch) fehlt.
@@ -626,42 +643,67 @@ final class CloudSyncEngine {
         }
     }
 
-    /// Zählt, was tatsächlich in der iCloud-Datenbank liegt — für die Diagnose.
+    /// Zählt, was tatsächlich in der iCloud liegt — für die Diagnose.
+    ///
+    /// Bewusst ohne Abfrage und ohne die gemerkten Marken: Gezählt wird immer
+    /// der ganze Bestand beider Datenbanken (eigene und geteilte), und die
+    /// dabei erhaltenen Marken werden weggeworfen. Sonst würde die Diagnose
+    /// den nächsten echten Abgleich um seine Änderungen bringen.
     func countCloudEntities() async -> [EntityKind: Int] {
         guard enabled else { return [:] }
         var zaehler: [EntityKind: Int] = [:]
 
-        return await withCheckedContinuation { continuation in
-            let box = ResumeOnce()
-
-            func run(_ operation: CKQueryOperation) {
-                operation.zoneID = self.zoneID
-                operation.desiredKeys = ["kind"]
-                operation.qualityOfService = .userInitiated
-                operation.recordMatchedBlock = { _, result in
-                    guard case .success(let record) = result,
-                          let raw = record["kind"] as? String,
-                          let kind = EntityKind(rawValue: raw) else { return }
-                    zaehler[kind, default: 0] += 1
-                }
-                operation.queryResultBlock = { result in
-                    switch result {
-                    case .success(let cursor):
-                        if let cursor {
-                            run(CKQueryOperation(cursor: cursor))
-                        } else {
-                            box.finish { continuation.resume(returning: zaehler) }
-                        }
-                    case .failure:
-                        box.finish { continuation.resume(returning: zaehler) }
-                    }
-                }
-                database.add(operation)
+        for datenbank in [container.privateCloudDatabase, container.sharedCloudDatabase] {
+            let bereiche = await bereicheOhneMarke(in: datenbank)
+            guard !bereiche.isEmpty else { continue }
+            for (art, anzahl) in await zaehleBereiche(in: datenbank, bereiche: bereiche) {
+                zaehler[art, default: 0] += anzahl
             }
+        }
+        return zaehler
+    }
 
-            let query = CKQuery(recordType: Self.recordType,
-                                predicate: NSPredicate(format: "updatedAtMs > %@", NSNumber(value: 0)))
-            run(CKQueryOperation(query: query))
+    /// Alle Bereiche einer Datenbank — ohne Marke, also vollständig.
+    private func bereicheOhneMarke(in datenbank: CKDatabase) async -> [CKRecordZone.ID] {
+        await withCheckedContinuation { fortsetzung in
+            let box = ResumeOnce()
+            let operation = CKFetchDatabaseChangesOperation(previousServerChangeToken: nil)
+            operation.qualityOfService = .userInitiated
+            var gefunden: [CKRecordZone.ID] = []
+            operation.recordZoneWithIDChangedBlock = { gefunden.append($0) }
+            operation.fetchDatabaseChangesResultBlock = { _ in
+                box.finish { fortsetzung.resume(returning: gefunden) }
+            }
+            datenbank.add(operation)
+        }
+    }
+
+    /// Zählt die Datensätze der genannten Bereiche nach Art.
+    private func zaehleBereiche(in datenbank: CKDatabase,
+                                bereiche: [CKRecordZone.ID]) async -> [EntityKind: Int] {
+        var einstellungen: [CKRecordZone.ID: CKFetchRecordZoneChangesOperation.ZoneConfiguration] = [:]
+        for bereich in bereiche {
+            let konfiguration = CKFetchRecordZoneChangesOperation.ZoneConfiguration()
+            konfiguration.desiredKeys = ["kind"]
+            einstellungen[bereich] = konfiguration
+        }
+        return await withCheckedContinuation { fortsetzung in
+            let box = ResumeOnce()
+            var zaehler: [EntityKind: Int] = [:]
+            let operation = CKFetchRecordZoneChangesOperation(recordZoneIDs: bereiche,
+                                                             configurationsByRecordZoneID: einstellungen)
+            operation.qualityOfService = .userInitiated
+            operation.fetchAllChanges = true
+            operation.recordWasChangedBlock = { _, ergebnis in
+                guard case .success(let record) = ergebnis,
+                      let roh = record["kind"] as? String,
+                      let art = EntityKind(rawValue: roh) else { return }
+                zaehler[art, default: 0] += 1
+            }
+            operation.fetchRecordZoneChangesResultBlock = { _ in
+                box.finish { fortsetzung.resume(returning: zaehler) }
+            }
+            datenbank.add(operation)
         }
     }
 
@@ -751,63 +793,37 @@ final class CloudSyncEngine {
             title: "Schreiben",
             ok: writeError == nil,
             detail: writeError.map { Self.describe($0) } ?? "Testeintrag gespeichert",
-            remedy: writeError.map { Self.remedy(for: $0, reading: false) }
+            remedy: writeError.map { Self.remedy(for: $0) }
         ))
 
-        // 4. Lesen (erst Delta, dann vollständig)
-        let readResult: (Bool, String, Bool) = await withCheckedContinuation { continuation in
-            let box = ResumeOnce()
-            let query = CKQuery(recordType: Self.recordType,
-                                predicate: NSPredicate(format: "updatedAtMs > %@", NSNumber(value: 0)))
-            var count = 0
-            let operation = CKQueryOperation(query: query)
-            operation.zoneID = self.zoneID
-            operation.desiredKeys = ["kind", "entityId"]
-            operation.resultsLimit = 20
-            operation.recordMatchedBlock = { _, result in
-                if case .success = result { count += 1 }
-            }
-            operation.queryResultBlock = { result in
-                switch result {
-                case .success:
-                    box.finish { continuation.resume(returning: (true, "\(count) Datensätze gelesen (Delta-Abfrage)", true)) }
-                case .failure(let error):
-                    if Self.isIndexProblem(error) {
-                        // Ohne Index noch einmal vollständig versuchen.
-                        var all = 0
-                        let fallback = CKQueryOperation(
-                            query: CKQuery(recordType: Self.recordType, predicate: NSPredicate(value: true))
-                        )
-                        fallback.zoneID = self.zoneID
-                        fallback.desiredKeys = ["kind", "entityId"]
-                        fallback.resultsLimit = 20
-                        fallback.recordMatchedBlock = { _, result in
-                            if case .success = result { all += 1 }
-                        }
-                        fallback.queryResultBlock = { second in
-                            switch second {
-                            case .success:
-                                box.finish { continuation.resume(returning: (true, "\(all) Datensätze gelesen (vollständige Abfrage, kein Index nötig)", false)) }
-                            case .failure(let secondError):
-                                box.finish { continuation.resume(returning: (false, Self.describe(secondError), false)) }
-                            }
-                        }
-                        fallback.qualityOfService = .userInitiated
-                        self.database.add(fallback)
-                    } else {
-                        box.finish { continuation.resume(returning: (false, Self.describe(error), false)) }
-                    }
-                }
-            }
-            operation.qualityOfService = .userInitiated
-            database.add(operation)
-        }
-        queue.async { self.deltaQueryWorks = readResult.2 }
+        // 4. Lesen — über Bereichsänderungen, nicht über eine Abfrage.
+        // In der privaten Datenbank braucht das keinen Index in der
+        // CloudKit-Konsole; es zeigt zugleich, ob die eigene Zone steht.
+        let eigene = await bereicheOhneMarke(in: container.privateCloudDatabase)
+        let gelesen = eigene.isEmpty
+            ? [:]
+            : await zaehleBereiche(in: container.privateCloudDatabase, bereiche: eigene)
+        let summe = gelesen.values.reduce(0, +)
         steps.append(DiagnoseStep(
             title: "Lesen",
-            ok: readResult.0,
-            detail: readResult.1,
-            remedy: readResult.0 ? nil : "In der CloudKit-Konsole beim Record-Typ „Entity“ einen Index auf recordName (queryable) anlegen — oder das Schema in die Production-Umgebung übertragen."
+            ok: !eigene.isEmpty,
+            detail: eigene.isEmpty
+                ? "Noch kein eigener Bereich in der iCloud"
+                : "\(summe) Datensätze in \(eigene.count) Bereich(en) gelesen",
+            remedy: eigene.isEmpty
+                ? "Einmal „Jetzt abgleichen“ antippen — dabei legt die App ihren Bereich in deiner privaten iCloud an."
+                : nil
+        ))
+
+        // 5. Geteilte Tafeln
+        let geteilte = await bereicheOhneMarke(in: container.sharedCloudDatabase)
+        steps.append(DiagnoseStep(
+            title: "Geteilte Tafeln",
+            ok: true,
+            detail: geteilte.isEmpty
+                ? "keine — es hat gerade niemand eine Tafel mit dir geteilt"
+                : "\(geteilte.count) Freigabe(n) empfangen",
+            remedy: nil
         ))
 
         return steps
@@ -849,13 +865,13 @@ final class CloudSyncEngine {
         try? FileManager.default.removeItem(at: probe)
 
         if let error {
-            return "Fehlgeschlagen: " + Self.describe(error) + "\n" + Self.remedy(for: error, reading: false)
+            return "Fehlgeschlagen: " + Self.describe(error) + "\n" + Self.remedy(for: error)
         }
-        return "Der Datensatz „Entity“ ist jetzt mit allen Feldern angelegt. Weiter in der CloudKit-Konsole: Indizes setzen, Security Roles prüfen, danach „Deploy Schema Changes to Production“."
+        return "Der Datensatz „Entity“ ist jetzt mit allen Feldern angelegt. Es bleibt nur noch ein Schritt in der CloudKit-Konsole: „Deploy Schema Changes to Production“. Indizes und Security Roles braucht diese Fassung nicht mehr — sie liest über Änderungsmarken aus der privaten Datenbank."
     }
 
     /// Klartext-Abhilfe zu einem CloudKit-Fehler.
-    static func remedy(for error: Error, reading: Bool) -> String {
+    static func remedy(for error: Error) -> String {
         guard let ckError = error as? CKError else { return "Unbekannter Fehler — später erneut versuchen." }
         switch ckError.code {
         case .notAuthenticated:
@@ -863,13 +879,11 @@ final class CloudSyncEngine {
         case .networkUnavailable, .networkFailure:
             return "Keine Verbindung — im WLAN erneut versuchen."
         case .permissionFailure:
-            return "In der CloudKit-Konsole unter „Security Roles“ dem Eintrag Entity für die Rolle _icloud Lese- UND Schreibrecht geben. Ohne das dürfen andere Personen geteilte Tafeln nicht ändern."
+            return "Für diese Tafel fehlt das Recht. Bei einer geteilten Tafel kann die Freigabe zurückgenommen worden sein — dann bitte die Besitzerin um eine neue Einladung."
         case .unknownItem:
             return "Der Record-Typ „Entity“ fehlt in dieser Umgebung. In der CloudKit-Konsole „Deploy Schema Changes to Production“ ausführen."
         case .invalidArguments:
-            return reading
-                ? "Es fehlt ein Index. In der CloudKit-Konsole: Schema → Indexes → + → Record Type Entity, Field updatedAtMs, Type QUERYABLE."
-                : "CloudKit hat den Datensatz abgelehnt — bitte Fehlertext melden."
+            return "CloudKit hat den Datensatz abgelehnt — bitte Fehlertext melden."
         case .quotaExceeded:
             return "Der iCloud-Speicher des Containers ist voll."
         default:
@@ -889,11 +903,11 @@ final class CloudSyncEngine {
         case .quotaExceeded:
             return "iCloud-Speicher voll"
         case .invalidArguments:
-            return "CloudKit-Index fehlt (siehe README: updatedAtMs und kind abfragbar machen)"
+            return "CloudKit hat die Anfrage abgelehnt"
         case .unknownItem:
             return "CloudKit-Schema noch nicht angelegt (erste Synchronisation ausführen)"
         case .permissionFailure:
-            return "Keine CloudKit-Berechtigung (Security Roles im CloudKit-Dashboard prüfen)"
+            return "Keine Berechtigung für diesen Datensatz"
         default:
             return ckError.localizedDescription
         }
