@@ -2,6 +2,36 @@ import SwiftUI
 import PhotosUI
 import UniformTypeIdentifiers
 
+/// Wofür gerade eine Datei gesucht wird.
+///
+/// **In einem Blatt darf es nur EINEN `.fileImporter` geben.** Zwei davon im
+/// selben Blatt streiten sich: Einer gewinnt, der andere tut still gar nichts.
+/// Genau das passierte in 0.1.9 — der neue Wähler an der Wurzel verdrängte
+/// die eigenen von Bild und Video. Vorher fiel es nie auf, weil immer nur ein
+/// Elementtyp gleichzeitig im Formular steht.
+///
+/// Deshalb steht hier ein einziger Wähler, und dieser Wert sagt ihm, für wen
+/// er öffnet und wohin das Ergebnis gehört.
+private enum Dateiwunsch: Equatable {
+    /// Tondatei für ein Klangfeld (dessen Kennung).
+    case klang(String)
+    case bild
+    case video
+
+    /// Was der Wähler anbieten darf.
+    var arten: [UTType] {
+        switch self {
+        case .bild:
+            return [.image]
+        case .klang, .video:
+            // Bewusst ohne Filter: iPadOS blendet sonst Dateien aus, deren
+            // Art der Anbieter nicht mitliefert — bei MP3s in iCloud Drive
+            // und auf Netzlaufwerken passiert genau das.
+            return [.item]
+        }
+    }
+}
+
 /// Einstellungen eines Elements — je nach Typ mit eigenem Abschnitt.
 struct WidgetSettingsSheet: View {
     @EnvironmentObject private var store: BoardStore
@@ -14,9 +44,22 @@ struct WidgetSettingsSheet: View {
 
     private var kopfGroesse: Double { widget?.labelSize ?? 1 }
 
-    /// Für welches Klangfeld gerade eine Tondatei gesucht wird — nil, wenn
-    /// keine. Der Dateiwähler dafür hängt weiter unten am `Form`.
-    @State private var klangZiel: String?
+    /// Wofür der Wähler geöffnet wurde. **Bewusst getrennt vom Schalter
+    /// darunter:** Hingen beide am selben Wert, löschte das Schließen des
+    /// Wählers das Ziel, bevor die Auswahl ausgewertet war — die Datei landete
+    /// dann nirgends, ohne jede Meldung. Genau dieser Fehler war in 0.1.9
+    /// zurück, weil ich beides zu einem Wert zusammengezogen hatte.
+    @State private var wunsch: Dateiwunsch?
+    @State private var zeigtWahl = false
+    /// Was der Wähler anbietet — wird beim Öffnen aus dem Wunsch gesetzt.
+    @State private var arten: [UTType] = [.item]
+
+    /// Öffnet den einen Wähler des Blattes für den genannten Zweck.
+    private func frageNachDatei(_ neu: Dateiwunsch) {
+        wunsch = neu
+        arten = neu.arten
+        zeigtWahl = true
+    }
 
     var body: some View {
         NavigationStack {
@@ -26,7 +69,8 @@ struct WidgetSettingsSheet: View {
                     case .text(let value):
                         TextSettings(content: bindText(value))
                     case .image(let value):
-                        ImageSettings(content: bindImage(value))
+                        ImageSettings(content: bindImage(value),
+                                      anfordern: { frageNachDatei(.bild) })
                     case .clock(let value):
                         ClockSettings(content: bindClock(value))
                     case .timer(let value):
@@ -40,11 +84,13 @@ struct WidgetSettingsSheet: View {
                     case .namePicker(let value):
                         NamePickerSettings(content: bindNamePicker(value))
                     case .sounds(let value):
-                        SoundsSettings(content: bindSounds(value), dateiwunsch: $klangZiel)
+                        SoundsSettings(content: bindSounds(value),
+                                       anfordern: { frageNachDatei(.klang($0)) })
                     case .symbols(let value):
                         SymbolSettings(content: bindSymbol(value))
                     case .video(let value):
-                        VideoSettings(content: bindVideo(value))
+                        VideoSettings(content: bindVideo(value),
+                                      anfordern: { frageNachDatei(.video) })
                     case .kamera(let value):
                         KameraSettings(content: bindKamera(value))
                     }
@@ -186,33 +232,22 @@ struct WidgetSettingsSheet: View {
                     }
                 }
             }
-            // Der Dateiwähler für Tondateien hängt HIER am Formular — nicht
-            // unten bei den Klangfeldern.
+            // DER EINE DATEIWÄHLER DES BLATTES. Zwei Dinge stecken darin,
+            // beide bezahlt:
             //
-            // Vorher saß er an dem Abschnitt mit „Feld hinzufügen", also an
-            // einer Zeile MITTEN IN DER LISTE. Ein `Form` ist eine `List`,
-            // und die baut ihre Zeilen erst auf, wenn sie in Sichtweite
-            // kommen. Sobald über den Klangfeldern genug stand, war die Zeile
-            // beim Tippen auf „Tondatei wählen" noch gar nicht da — und mit
-            // ihr auch der Wähler nicht. Der Schalter sprang um, es passierte
-            // nichts, und es sah aus wie ein hängender Dateimanager.
-            //
-            // Bild und Video waren nie betroffen: Deren Wähler hängen an der
-            // Group beziehungsweise an einem festen Abschnitt ohne `ForEach`
-            // darüber. Genau daran war der Fehler zu erkennen.
-            //
-            // Merksatz: Ein Wähler oder Blatt gehört an einen Halter, den es
-            // immer gibt — nicht an eine Zeile, die weggerollt werden kann.
-            .fileImporter(isPresented: Binding(
-                get: { klangZiel != nil },
-                set: { if !$0 { klangZiel = nil } }
-            ),
-            // Bewusst ohne Filter: iPadOS blendet sonst Dateien aus, deren
-            // Art der Anbieter nicht mitliefert — bei MP3s in iCloud Drive
-            // und auf Netzlaufwerken passiert genau das. Passt die Datei
-            // nicht, sagen wir es hinterher.
-                          allowedContentTypes: [.item]) { ergebnis in
-                nimmKlangdatei(ergebnis)
+            // 1. Er hängt HIER am Formular, nicht unten bei den Abschnitten.
+            //    Ein `Form` ist eine `List`, und die baut ihre Zeilen erst
+            //    auf, wenn sie in Sichtweite kommen. Hing der Wähler an einer
+            //    Zeile mitten in der Liste, war er beim Tippen oft noch gar
+            //    nicht da — der Schalter sprang um, nichts passierte.
+            // 2. Es gibt ihn nur EINMAL. Bild, Video und Klang hatten je
+            //    einen eigenen; zusammen mit diesem hier waren es zwei im
+            //    selben Blatt, und zwei streiten sich: Einer gewinnt, der
+            //    andere schweigt. Deshalb sagt `wunsch`, für wen geöffnet
+            //    wurde und wohin das Ergebnis gehört.
+            .fileImporter(isPresented: $zeigtWahl,
+                          allowedContentTypes: arten) { ergebnis in
+                nimmDatei(ergebnis)
             }
             .navigationTitle(widget?.kind.title ?? "Element")
             .navigationBarTitleDisplayMode(.inline)
@@ -224,50 +259,97 @@ struct WidgetSettingsSheet: View {
         }
     }
 
-    /// Gewählte Tondatei in das Klangfeld legen, für das gefragt wurde.
+    /// Die gewählte Datei dorthin legen, wofür der Wähler geöffnet wurde.
     ///
     /// Gelesen wird abseits des Hauptfadens: Liegt die Datei in iCloud oder
     /// auf einem Netzlaufwerk, lädt `Data(contentsOf:)` sie erst herunter —
     /// auf dem Hauptfaden stünde so lange die ganze App.
-    private func nimmKlangdatei(_ ergebnis: Result<URL, Error>) {
-        let ziel = klangZiel
-        klangZiel = nil
+    private func nimmDatei(_ ergebnis: Result<URL, Error>) {
+        // Den Wunsch ZUERST sichern, dann löschen: Das Schließen des Wählers
+        // setzt den Schalter zurück, und was daran hängt, ist gleich weg.
+        let zweck = wunsch
+        wunsch = nil
         // Abbrechen ist kein Fehler — nur echte Fehler melden.
-        guard let ziel, case .success(let url) = ergebnis else { return }
+        guard let zweck, case .success(let url) = ergebnis else { return }
 
         Task { @MainActor in
-            let daten = await Task.detached(priority: .userInitiated) { () -> Data? in
-                let scoped = url.startAccessingSecurityScopedResource()
-                defer { if scoped { url.stopAccessingSecurityScopedResource() } }
-                return try? Data(contentsOf: url)
-            }.value
-
-            guard let daten, !daten.isEmpty else {
-                store.showStatus("Die Datei ließ sich nicht lesen. Liegt sie in iCloud, "
-                                 + "muss sie erst geladen werden.")
-                return
-            }
-            let endung = url.pathExtension.isEmpty ? "m4a" : url.pathExtension.lowercased()
-            guard let dateiname = store.saveMedia(data: daten, fileExtension: endung) else {
-                return  // saveMedia meldet den Fehler selbst
-            }
-            guard case .sounds(var inhalt)? = store.widget(widgetID, in: boardID)?.content,
-                  let stelle = inhalt.buttons.firstIndex(where: { $0.id == ziel }) else {
-                store.showStatus("Das Klangfeld gibt es nicht mehr.")
-                return
-            }
-            inhalt.buttons[stelle].fileName = dateiname
-            if inhalt.buttons[stelle].label.isEmpty || inhalt.buttons[stelle].label == "Klang" {
-                inhalt.buttons[stelle].label = url.deletingPathExtension().lastPathComponent
-            }
-            store.setContent(.sounds(inhalt), widgetID: widgetID, boardID: boardID)
-
-            let bekannt = ["mp3", "m4a", "wav", "aac", "aif", "aiff", "caf", "ogg"]
-            if !bekannt.contains(endung) {
-                store.showStatus("„\(url.lastPathComponent)“ ist vielleicht keine Tondatei — "
-                                 + "sie ist trotzdem hinterlegt.")
+            switch zweck {
+            case .klang(let ziel):   await legeKlang(url, in: ziel)
+            case .bild:              await legeBild(url)
+            case .video:             legeVideo(url)
             }
         }
+    }
+
+    /// Datei einlesen, ohne den Hauptfaden anzuhalten.
+    private func lies(_ url: URL) async -> Data? {
+        await Task.detached(priority: .userInitiated) { () -> Data? in
+            let scoped = url.startAccessingSecurityScopedResource()
+            defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+            return try? Data(contentsOf: url)
+        }.value
+    }
+
+    private func legeKlang(_ url: URL, in ziel: String) async {
+        guard let daten = await lies(url), !daten.isEmpty else {
+            store.showStatus("Die Datei ließ sich nicht lesen. Liegt sie in iCloud, "
+                             + "muss sie erst geladen werden.")
+            return
+        }
+        let endung = url.pathExtension.isEmpty ? "m4a" : url.pathExtension.lowercased()
+        guard let dateiname = store.saveMedia(data: daten, fileExtension: endung) else {
+            return  // saveMedia meldet den Fehler selbst
+        }
+        guard case .sounds(var inhalt)? = store.widget(widgetID, in: boardID)?.content,
+              let stelle = inhalt.buttons.firstIndex(where: { $0.id == ziel }) else {
+            store.showStatus("Das Klangfeld gibt es nicht mehr.")
+            return
+        }
+        inhalt.buttons[stelle].fileName = dateiname
+        if inhalt.buttons[stelle].label.isEmpty || inhalt.buttons[stelle].label == "Klang" {
+            inhalt.buttons[stelle].label = url.deletingPathExtension().lastPathComponent
+        }
+        store.setContent(.sounds(inhalt), widgetID: widgetID, boardID: boardID)
+
+        let bekannt = ["mp3", "m4a", "wav", "aac", "aif", "aiff", "caf", "ogg"]
+        if !bekannt.contains(endung) {
+            store.showStatus("„\(url.lastPathComponent)“ ist vielleicht keine Tondatei — "
+                             + "sie ist trotzdem hinterlegt.")
+        }
+    }
+
+    private func legeBild(_ url: URL) async {
+        let vorbereitet = await Task.detached(priority: .userInitiated) {
+            () -> (daten: Data, endung: String)? in
+            let scoped = url.startAccessingSecurityScopedResource()
+            defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+            guard let data = try? Data(contentsOf: url),
+                  let image = UIImage(data: data) else { return nil }
+            return MediaCache.prepareForBoard(image)
+        }.value
+        guard let vorbereitet,
+              let dateiname = store.saveMedia(data: vorbereitet.daten,
+                                              fileExtension: vorbereitet.endung) else {
+            store.showStatus("Das Bild ließ sich nicht lesen.")
+            return
+        }
+        guard case .image(var inhalt)? = store.widget(widgetID, in: boardID)?.content else { return }
+        inhalt.fileName = dateiname
+        store.setContent(.image(inhalt), widgetID: widgetID, boardID: boardID)
+    }
+
+    /// Videos werden NICHT eingelesen, sondern nur an ihren Platz kopiert —
+    /// sie sind schnell mehrere hundert Megabyte groß.
+    private func legeVideo(_ url: URL) {
+        let endung = url.pathExtension.isEmpty ? "mp4" : url.pathExtension
+        guard let dateiname = store.saveLocalMedia(from: url, fileExtension: endung) else {
+            store.showStatus("Das Video ließ sich nicht übernehmen.")
+            return
+        }
+        guard case .video(var inhalt)? = store.widget(widgetID, in: boardID)?.content else { return }
+        inhalt.fileName = dateiname
+        inhalt.sourceLabel = url.lastPathComponent
+        store.setContent(.video(inhalt), widgetID: widgetID, boardID: boardID)
     }
 
     // Bindungen auf den Inhalt des Elements im Speicher — bewusst je Typ
@@ -460,8 +542,10 @@ private struct TextSettings: View {
 private struct ImageSettings: View {
     @EnvironmentObject private var store: BoardStore
     @Binding var content: ImageContent
+    /// Bittet das Blatt, den Dateiwähler zu öffnen — es gibt nur einen,
+    /// und er hängt oben an der Wurzel (siehe `Dateiwunsch`).
+    let anfordern: () -> Void
     @State private var photo: PhotosPickerItem?
-    @State private var showFiles = false
 
     var body: some View {
         Group {
@@ -471,7 +555,7 @@ private struct ImageSettings: View {
                       systemImage: "photo.on.rectangle")
             }
             Button {
-                showFiles = true
+                anfordern()
             } label: {
                 Label("Aus Dateien wählen", systemImage: "folder")
             }
@@ -507,27 +591,6 @@ private struct ImageSettings: View {
                 else { return }
                 content.fileName = fileName
                 photo = nil
-            }
-        }
-        // Schalter zuerst zurücksetzen und abseits des Hauptfadens lesen —
-        // aus denselben zwei Gründen wie beim Klang (siehe SoundsSettings).
-        .fileImporter(isPresented: $showFiles, allowedContentTypes: [.image]) { result in
-            showFiles = false
-            guard case .success(let url) = result else { return }
-            Task { @MainActor in
-                let vorbereitet = await Task.detached(priority: .userInitiated) {
-                    () -> (daten: Data, endung: String)? in
-                    let scoped = url.startAccessingSecurityScopedResource()
-                    defer { if scoped { url.stopAccessingSecurityScopedResource() } }
-                    guard let data = try? Data(contentsOf: url),
-                          let image = UIImage(data: data) else { return nil }
-                    return MediaCache.prepareForBoard(image)
-                }.value
-                guard let vorbereitet,
-                      let fileName = store.saveMedia(data: vorbereitet.daten,
-                                                     fileExtension: vorbereitet.endung)
-                else { return }
-                content.fileName = fileName
             }
         }
     }
@@ -1499,11 +1562,9 @@ private struct BereitsGezogenSeite: View {
 private struct SoundsSettings: View {
     @EnvironmentObject private var store: BoardStore
     @Binding var content: SoundsContent
-    /// Für welches Klangfeld eine Datei gesucht wird.
-    ///
-    /// Der Dateiwähler selbst hängt **nicht** hier, sondern oben am Formular
-    /// (`WidgetSettingsSheet`). Warum, steht dort.
-    @Binding var dateiwunsch: String?
+    /// Bittet das Blatt, den Dateiwähler für dieses Klangfeld zu öffnen —
+    /// es gibt nur einen, und er hängt oben an der Wurzel.
+    let anfordern: (String) -> Void
 
     @StateObject private var recorder = VoiceRecorder()
     @State private var recordingFor: String?
@@ -1547,7 +1608,7 @@ private struct SoundsSettings: View {
                 }
 
                 Button {
-                    dateiwunsch = button.id
+                    anfordern(button.id)
                 } label: {
                     Label("Tondatei wählen", systemImage: "folder")
                 }
@@ -1718,8 +1779,10 @@ private struct SymbolSettings: View {
 private struct VideoSettings: View {
     @EnvironmentObject private var store: BoardStore
     @Binding var content: VideoContent
+    /// Bittet das Blatt, den Dateiwähler zu öffnen — es gibt nur einen,
+    /// und er hängt oben an der Wurzel (siehe `Dateiwunsch`).
+    let anfordern: () -> Void
 
-    @State private var showFiles = false
     @State private var video: PhotosPickerItem?
 
     var body: some View {
@@ -1735,7 +1798,7 @@ private struct VideoSettings: View {
                 Label("Video aus Fotos wählen", systemImage: "photo.on.rectangle")
             }
             Button {
-                showFiles = true
+                anfordern()
             } label: {
                 Label("Video aus Dateien wählen", systemImage: "folder")
             }
@@ -1776,19 +1839,6 @@ private struct VideoSettings: View {
             Toggle("In Schleife wiederholen", isOn: $content.loop)
             Toggle("Ohne Ton starten", isOn: $content.muted)
             TextField("Beschriftung", text: $content.caption)
-        }
-        // Ohne Filter, aus demselben Grund wie beim Klang: iPadOS blendet
-        // Dateien aus, deren Art der Anbieter nicht mitliefert.
-        .fileImporter(isPresented: $showFiles, allowedContentTypes: [.item]) { result in
-            // Schalter zuerst zurücksetzen, sonst tut der zweite Versuch
-            // nichts mehr (siehe SoundsSettings).
-            showFiles = false
-            guard case .success(let url) = result else { return }
-            let ext = url.pathExtension.isEmpty ? "mp4" : url.pathExtension
-            if let fileName = store.saveLocalMedia(from: url, fileExtension: ext) {
-                content.fileName = fileName
-                content.sourceLabel = url.lastPathComponent
-            }
         }
         .onChange(of: video) { _, item in
             guard let item else { return }
