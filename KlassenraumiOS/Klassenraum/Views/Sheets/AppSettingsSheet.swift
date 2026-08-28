@@ -34,7 +34,8 @@ struct AppSettingsSheet: View {
                 } header: {
                     Text("Mein Name")
                 } footer: {
-                    Text("Der Name steht in geteilten Tafeln — daran erkennen deine Kolleginnen, wer die Tafel angelegt hat. Er sorgt außerdem dafür, dass deine Tafeln nach einer Neuinstallation wieder auftauchen.")
+                    Text("Der Name steht in geteilten Tafeln — daran erkennen deine Kolleginnen, "
+                         + "wer die Tafel angelegt hat, und du siehst, wer mitmacht.")
                 }
 
                 Section {
@@ -76,7 +77,11 @@ struct AppSettingsSheet: View {
                 } header: {
                     Text("iCloud")
                 } footer: {
-                    Text("Tafeln und Namenslisten erscheinen automatisch auf allen Geräten mit derselben Apple-ID. Zum Teilen mit Kolleginnen genügt der Einladungscode — dafür braucht niemand dieselbe Apple-ID. Ohne Abgleich bleibt alles auf diesem Gerät.")
+                    Text("Tafeln und Namenslisten liegen in deiner privaten iCloud und "
+                         + "erscheinen automatisch auf allen Geräten mit derselben Apple-ID. "
+                         + "Mit Kolleginnen teilst du eine Tafel über einen Einladungslink — "
+                         + "dafür braucht niemand dieselbe Apple-ID. Ohne Abgleich bleibt "
+                         + "alles auf diesem Gerät.")
                 }
 
                 Section {

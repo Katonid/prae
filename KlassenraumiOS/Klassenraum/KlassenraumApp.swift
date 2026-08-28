@@ -15,6 +15,29 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         return true
     }
 
+    /// Hängt an die gewöhnliche App-Szene einen eigenen Delegaten.
+    ///
+    /// Nur dafür: `windowScene(_:userDidAcceptCloudKitShareWith:)` gibt es
+    /// ausschließlich am Szenen-Delegaten. Ohne ihn öffnete ein Freigabe-Link
+    /// zwar die App, käme aber nirgends an. Das Fenster richtet weiterhin
+    /// SwiftUI ein — der Delegat unten fasst es bewusst nicht an.
+    func application(
+        _ application: UIApplication,
+        configurationForConnecting verbindung: UISceneSession,
+        options: UIScene.ConnectionOptions
+    ) -> UISceneConfiguration {
+        guard verbindung.role == .windowApplication else {
+            // Alles andere bleibt, wie es in Config/Info.plist steht — vor
+            // allem die Beamer-Szene für den zweiten Bildschirm. Ohne diesen
+            // Zweig verdrängte die Rückgabe hier ihren Delegaten, und der
+            // Beamer bliebe schwarz.
+            return UISceneConfiguration(name: "Beamer", sessionRole: verbindung.role)
+        }
+        let konfiguration = UISceneConfiguration(name: nil, sessionRole: verbindung.role)
+        konfiguration.delegateClass = FreigabeSceneDelegate.self
+        return konfiguration
+    }
+
     func application(
         _ application: UIApplication,
         didReceiveRemoteNotification userInfo: [AnyHashable: Any],
@@ -25,6 +48,18 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
             BoardStore.shared.syncNow()
         }
         completionHandler(isCloudKitNotification ? .newData : .noData)
+    }
+}
+
+/// Nimmt Einladungen zu geteilten Tafeln entgegen.
+///
+/// Wichtig: Dieser Delegat legt **kein** Fenster an und beantwortet
+/// `scene(_:willConnectTo:options:)` nicht. Täte er es, verdrängte er die
+/// `WindowGroup` von SwiftUI und die App startete ins Schwarze.
+final class FreigabeSceneDelegate: UIResponder, UIWindowSceneDelegate {
+    func windowScene(_ windowScene: UIWindowScene,
+                     userDidAcceptCloudKitShareWith metadaten: CKShare.Metadata) {
+        BoardStore.shared.nimmFreigabeAn(metadaten)
     }
 }
 
