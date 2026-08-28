@@ -5,23 +5,14 @@ import UniformTypeIdentifiers
 
 /// Wofür gerade eine Datei gesucht wird.
 ///
-/// Der Wunsch ist zugleich die Kennung der Präsentation (`sheet(item:)`):
-/// Er entsteht mit dem Tippen, trägt Ziel und Dateiarten in sich und
-/// verschwindet erst, wenn ausgewertet ist. Damit gibt es keinen Schalter,
-/// der getrennt vom Ziel verlorengehen könnte.
-private enum Dateiwunsch: Identifiable, Equatable {
+/// Der Wunsch ist kein Zustand der Ansicht, sondern reist im Rückruf des
+/// Wählers mit (siehe `Dateiwahl`). Damit kann er weder zu früh gelöscht
+/// werden noch beim Neuzeichnen verlorengehen.
+private enum Dateiwunsch: Equatable {
     /// Tondatei für ein Klangfeld (dessen Kennung).
     case klang(String)
     case bild
     case video
-
-    var id: String {
-        switch self {
-        case .klang(let feld): return "klang-" + feld
-        case .bild: return "bild"
-        case .video: return "video"
-        }
-    }
 
     /// Was der Wähler anbieten darf.
     var arten: [UTType] {
@@ -37,48 +28,71 @@ private enum Dateiwunsch: Identifiable, Equatable {
     }
 }
 
-/// Der Dateiwähler von iOS, selbst gezeigt.
+/// Zeigt den Dateiwähler von iOS — **an SwiftUI vorbei**.
 ///
-/// **Warum nicht `.fileImporter`?** Er nimmt die erlaubten Dateiarten und
-/// einen Schalter als Ansichtswerte entgegen und baut die Präsentation neu
-/// auf, sobald sich daran etwas rührt. In 0.1.10 blitzte der Wähler deshalb
-/// nur auf und schloss sich sofort wieder: Beim Öffnen wechselten die Arten
-/// von der Vorgabe auf die des Wunsches — mitten in der Präsentation.
+/// Das ist der Kern der Sache, und er ist teuer bezahlt:
 ///
-/// Hier entstehen die Arten EINMAL, beim Anlegen des Wählers, und danach
-/// rührt sie niemand mehr an. Das Ergebnis kommt über den Delegaten zurück,
-/// nicht über einen Ansichtswert.
+/// Jede Präsentation, die an einem Ansichtswert hängt (`.fileImporter`,
+/// `.sheet`), lebt nur so lange, wie die Ansicht darunter unverändert steht.
+/// Wird das Formular neu gezeichnet — und das tut es hier bei jeder
+/// Änderung am Speicher, also auch bei jedem Abgleich —, räumt SwiftUI die
+/// Präsentation ab. Der Schalter bleibt dabei stehen. Im nächsten Durchgang
+/// geht der Wähler deshalb wieder auf, wird wieder abgeräumt, und so fort:
+/// genau das Flackern, das gemeldet wurde (0.1.10 und 0.1.11 — der Wechsel
+/// des Mechanismus half nicht, weil beide an einem Ansichtswert hingen).
 ///
-/// `asCopy: true`: iOS legt eine Kopie im eigenen Ordner ab. Damit braucht es
-/// keinen Zugriff auf fremde Ordner, und die Datei bleibt lesbar, auch wenn
-/// der Wähler längst zu ist.
-private struct Dateiwaehler: UIViewControllerRepresentable {
-    let arten: [UTType]
-    let fertig: (URL?) -> Void
+/// Hier gibt es keinen solchen Wert. Der Wähler wird von UIKit gezeigt und
+/// von UIKit geschlossen; das Ziel reist in der Rückrufkette mit, nicht im
+/// Zustand der Ansicht. Ein Neuzeichnen kann ihm damit nichts anhaben.
+///
+/// `asCopy: true`: iOS legt eine Kopie im eigenen Ordner ab. Damit braucht
+/// es keinen Zugriff auf fremde Ordner, und die Datei bleibt lesbar, auch
+/// wenn der Wähler längst zu ist.
+///
+/// Bewusst **ohne** `@MainActor`: Der Wert wird in einer Eigenschaft der
+/// Ansicht angelegt, und das ist kein Ort, an dem der Hauptfaden zugesichert
+/// ist. Gerufen wird ohnehin nur von dort — aus einem Knopf und aus den
+/// Rückrufen von UIKit.
+private final class Dateiwahl: NSObject, UIDocumentPickerDelegate {
+    private var fertig: ((URL?) -> Void)?
+    /// Läuft gerade einer? Ein zweiter Tipp soll keinen zweiten öffnen.
+    private var offen = false
 
-    func makeUIViewController(context: Context) -> UIDocumentPickerViewController {
-        let waehler = UIDocumentPickerViewController(forOpeningContentTypes: arten, asCopy: true)
+    func oeffne(arten: [UTType], fertig: @escaping (URL?) -> Void) {
+        guard !offen, let halter = Self.obersterHalter() else { return }
+        offen = true
+        self.fertig = fertig
+        let waehler = UIDocumentPickerViewController(forOpeningContentTypes: arten,
+                                                     asCopy: true)
         waehler.allowsMultipleSelection = false
-        waehler.delegate = context.coordinator
-        return waehler
+        waehler.delegate = self
+        halter.present(waehler, animated: true)
     }
 
-    func updateUIViewController(_ waehler: UIDocumentPickerViewController, context: Context) { }
+    func documentPicker(_ controller: UIDocumentPickerViewController,
+                        didPickDocumentsAt urls: [URL]) {
+        melde(urls.first)
+    }
 
-    func makeCoordinator() -> Koordinator { Koordinator(fertig: fertig) }
+    func documentPickerWasCancelled(_ controller: UIDocumentPickerViewController) {
+        melde(nil)
+    }
 
-    final class Koordinator: NSObject, UIDocumentPickerDelegate {
-        private let fertig: (URL?) -> Void
-        init(fertig: @escaping (URL?) -> Void) { self.fertig = fertig }
+    private func melde(_ url: URL?) {
+        offen = false
+        let rueckruf = fertig
+        fertig = nil
+        rueckruf?(url)
+    }
 
-        func documentPicker(_ controller: UIDocumentPickerViewController,
-                            didPickDocumentsAt urls: [URL]) {
-            fertig(urls.first)
-        }
-
-        func documentPickerWasCancelled(_ controller: UIDocumentPickerViewController) {
-            fertig(nil)
-        }
+    /// Das oberste gerade gezeigte Blatt — von dort aus wird gezeigt.
+    private static func obersterHalter() -> UIViewController? {
+        let szenen = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        let szene = szenen.first { $0.activationState == .foregroundActive } ?? szenen.first
+        guard var halter = szene?.windows.first(where: { $0.isKeyWindow })?.rootViewController
+                ?? szene?.windows.first?.rootViewController else { return nil }
+        while let naechster = halter.presentedViewController { halter = naechster }
+        return halter
     }
 }
 
@@ -94,17 +108,17 @@ struct WidgetSettingsSheet: View {
 
     private var kopfGroesse: Double { widget?.labelSize ?? 1 }
 
-    /// Wofür der Wähler geöffnet wurde — und zugleich, DASS er offen ist.
-    ///
-    /// Ein Wert statt zweier: Vorher gab es einen Schalter und daneben das
-    /// Ziel. Hingen beide zusammen, löschte das Schließen das Ziel zu früh;
-    /// hingen sie auseinander, gerieten sie aus dem Tritt. Als `sheet(item:)`
-    /// ist beides dasselbe und kann nicht mehr auseinanderlaufen.
-    @State private var wunsch: Dateiwunsch?
+    /// Der Wähler des Blattes. Bewusst ein Objekt und kein Ansichtswert:
+    /// Was hier passiert, soll ein Neuzeichnen des Formulars nicht anfassen
+    /// können (siehe `Dateiwahl`).
+    @State private var wahl = Dateiwahl()
 
-    /// Öffnet den einen Wähler des Blattes für den genannten Zweck.
-    private func frageNachDatei(_ neu: Dateiwunsch) {
-        wunsch = neu
+    /// Öffnet den Wähler für den genannten Zweck. Das Ziel reist im Rückruf
+    /// mit — es kann deshalb nicht zu früh verlorengehen.
+    private func frageNachDatei(_ zweck: Dateiwunsch) {
+        wahl.oeffne(arten: zweck.arten) { url in
+            nimmDatei(url, fuer: zweck)
+        }
     }
 
     var body: some View {
@@ -277,26 +291,6 @@ struct WidgetSettingsSheet: View {
                              + "geht den Weg in einem Schritt, mit Auswahl des Ziels.")
                     }
                 }
-            }
-            // DER EINE DATEIWÄHLER DES BLATTES. Drei Dinge stecken darin,
-            // alle drei bezahlt:
-            //
-            // 1. Es gibt ihn nur EINMAL. Bild, Video und Klang hatten je
-            //    einen eigenen; zwei im selben Blatt streiten sich, einer
-            //    gewinnt und der andere schweigt (0.1.9).
-            // 2. Er hängt HIER an der Wurzel, nicht an einem Abschnitt. Ein
-            //    `Form` ist eine `List` und baut ihre Zeilen erst auf, wenn
-            //    sie in Sichtweite kommen — an einer Zeile mitten in der
-            //    Liste war er beim Tippen oft noch gar nicht da (0.1.8).
-            // 3. Der Wunsch IST die Präsentation. Kein Schalter daneben, der
-            //    zu früh zurückspringt (0.1.9) und keine Dateiarten, die sich
-            //    mitten im Öffnen ändern (0.1.10 — daher das Aufblitzen).
-            .sheet(item: $wunsch) { zweck in
-                Dateiwaehler(arten: zweck.arten) { url in
-                    wunsch = nil
-                    nimmDatei(url, fuer: zweck)
-                }
-                .ignoresSafeArea()
             }
             .navigationTitle(widget?.kind.title ?? "Element")
             .navigationBarTitleDisplayMode(.inline)
@@ -586,7 +580,7 @@ private struct ImageSettings: View {
     @EnvironmentObject private var store: BoardStore
     @Binding var content: ImageContent
     /// Bittet das Blatt, den Dateiwähler zu öffnen — es gibt nur einen,
-    /// und er hängt oben an der Wurzel (siehe `Dateiwunsch`).
+    /// und er wird an SwiftUI vorbei gezeigt (siehe `Dateiwahl`).
     let anfordern: () -> Void
     @State private var photo: PhotosPickerItem?
 
@@ -1823,7 +1817,7 @@ private struct VideoSettings: View {
     @EnvironmentObject private var store: BoardStore
     @Binding var content: VideoContent
     /// Bittet das Blatt, den Dateiwähler zu öffnen — es gibt nur einen,
-    /// und er hängt oben an der Wurzel (siehe `Dateiwunsch`).
+    /// und er wird an SwiftUI vorbei gezeigt (siehe `Dateiwahl`).
     let anfordern: () -> Void
 
     @State private var video: PhotosPickerItem?
