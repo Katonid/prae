@@ -55,6 +55,8 @@ struct RemoteEntity {
 
 final class CloudSyncEngine {
     static let recordType = "Entity"
+    /// Name der eigenen Zone in der privaten Datenbank.
+    static let zoneName = "Tafeln"
     static let containerID = "iCloud.de.familie.tafelbild"
 
     /// Wird für jede empfangene Remote-Änderung aufgerufen (auf dem Main-Thread).
@@ -78,6 +80,12 @@ final class CloudSyncEngine {
 
     private let container: CKContainer
     private let database: CKDatabase
+    /// Die Zone, in der alles liegt. Alle Datensätze tragen sie in ihrer
+    /// Kennung; alle Abfragen bekommen sie mit.
+    private let zoneID = CKRecordZone.ID(zoneName: CloudSyncEngine.zoneName,
+                                         ownerName: CKCurrentUserDefaultName)
+    /// Wurde die Zone in dieser Sitzung schon angelegt oder vorgefunden?
+    private var zoneBereit = false
     private let defaults = UserDefaults.standard
     private let queue = DispatchQueue(label: "tafelbild.cloudsync")
     private var syncing = false
@@ -116,7 +124,16 @@ final class CloudSyncEngine {
 
     init() {
         container = CKContainer(identifier: Self.containerID)
-        database = container.publicCloudDatabase
+        // **Der Umbau (Weg A), Stufe 1.** Vorher: `publicCloudDatabase` — ein
+        // gemeinsamer Bereich, in dem der Entwickler jeden Datensatz einsehen
+        // konnte. Jetzt die PRIVATE Datenbank: Die Daten liegen in der iCloud
+        // der Nutzerin, niemand sonst kommt heran.
+        //
+        // Dazu eine eigene Zone statt der Standardzone. Zwei Gründe: Nur
+        // eigene Zonen lassen sich später mit `CKShare` teilen (Stufe 3), und
+        // nur für sie gibt es Änderungsmarken, mit denen der Abgleich ohne
+        // Index in der CloudKit-Konsole auskommt (Stufe 2).
+        database = container.privateCloudDatabase
         userID = defaults.string(forKey: "sync.userID")
     }
 
@@ -195,6 +212,7 @@ final class CloudSyncEngine {
             }
             // Kennung bestimmt, welche Tafeln zu diesem Konto gehören.
             self.refreshUserID { _ in
+              self.stelleZoneSicher {
                 self.pushPending {
                     self.pullChanges {
                         self.queue.async {
@@ -204,8 +222,49 @@ final class CloudSyncEngine {
                         }
                     }
                 }
+              }
             }
         }
+    }
+
+    /// Legt die eigene Zone an, falls es sie noch nicht gibt.
+    ///
+    /// In der Standardzone entstehen Datensätze einfach; eine eigene Zone muss
+    /// erst existieren, sonst scheitert der erste Push mit „zone not found".
+    /// Einmal je Start genügt — danach steht sie.
+    private func stelleZoneSicher(completion: @escaping () -> Void) {
+        guard !zoneBereit else { completion(); return }
+        let zone = CKRecordZone(zoneID: zoneID)
+        let operation = CKModifyRecordZonesOperation(recordZonesToSave: [zone],
+                                                     recordZoneIDsToDelete: nil)
+        operation.qualityOfService = .userInitiated
+        operation.modifyRecordZonesResultBlock = { [weak self] result in
+            guard let self else { return }
+            self.queue.async {
+                if case .failure(let error) = result {
+                    // Gibt es sie schon, ist das kein Fehler.
+                    if !Self.istBereitsVorhanden(error) {
+                        self.status = .error(Self.describe(error))
+                        completion()
+                        return
+                    }
+                }
+                self.zoneBereit = true
+                completion()
+            }
+        }
+        database.add(operation)
+    }
+
+    /// „Gibt es schon" ist bei einer Zone kein Fehler, sondern der Normalfall.
+    private static func istBereitsVorhanden(_ error: Error) -> Bool {
+        guard let ck = error as? CKError else { return false }
+        if ck.code == .serverRecordChanged { return true }
+        if ck.code == .partialFailure {
+            let teile = ck.partialErrorsByItemID?.values.compactMap { $0 as? CKError } ?? []
+            return teile.allSatisfy { $0.code == .serverRecordChanged }
+        }
+        return false
     }
 
     private func checkAccount(completion: @escaping (Bool, String) -> Void) {
@@ -239,7 +298,7 @@ final class CloudSyncEngine {
         var hash: UInt64 = 5381
         for byte in entityId.utf8 { hash = (hash &* 33) &+ UInt64(byte) }
         let name = "e-\(kind.rawValue)-\(String(sanitized).prefix(160))-\(String(hash, radix: 16))"
-        return CKRecord.ID(recordName: String(name.prefix(250)))
+        return CKRecord.ID(recordName: String(name.prefix(250)), zoneID: zoneID)
     }
 
     private func makeRecord(kind: EntityKind, entityId: String,
@@ -375,6 +434,9 @@ final class CloudSyncEngine {
         }
 
         func run(_ operation: CKQueryOperation) {
+            // Nur die eigene Zone — ohne das durchsucht CloudKit alle Zonen
+            // der privaten Datenbank.
+            operation.zoneID = zoneID
             // Ohne "asset": Der Abgleich lädt keine Mediendateien mit.
             operation.desiredKeys = ["kind", "entityId", "payload", "updatedAtMs", "author"]
             operation.recordMatchedBlock = { _, result in
@@ -476,6 +538,7 @@ final class CloudSyncEngine {
         }
 
         func run(_ operation: CKQueryOperation, useDelta: Bool) {
+            operation.zoneID = zoneID
             operation.desiredKeys = ["kind", "entityId", "payload", "updatedAtMs", "author"]
             operation.recordMatchedBlock = { _, result in
                 guard case .success(let record) = result,
@@ -558,6 +621,7 @@ final class CloudSyncEngine {
             let box = ResumeOnce()
 
             func run(_ operation: CKQueryOperation) {
+                operation.zoneID = self.zoneID
                 operation.desiredKeys = ["kind"]
                 operation.qualityOfService = .userInitiated
                 operation.recordMatchedBlock = { _, result in
@@ -590,19 +654,19 @@ final class CloudSyncEngine {
     // MARK: - Subscription für stille Push-Updates
 
     func ensureSubscription() {
-        guard enabled, !defaults.bool(forKey: "sync.subscriptionCreated") else { return }
-        let subscription = CKQuerySubscription(
-            recordType: Self.recordType,
-            predicate: NSPredicate(value: true),
-            subscriptionID: "tafelbild-entity-changes",
-            options: [.firesOnRecordCreation, .firesOnRecordUpdate]
+        guard enabled, !defaults.bool(forKey: "sync.zonenAbo") else { return }
+        // Zonen- statt Abfrage-Abonnement: In einer eigenen Zone meldet
+        // CloudKit jede Änderung, ohne dass ein Index nötig wäre.
+        let subscription = CKRecordZoneSubscription(
+            zoneID: zoneID,
+            subscriptionID: "klassenraum-zonen-changes"
         )
         let info = CKSubscription.NotificationInfo()
         info.shouldSendContentAvailable = true
         subscription.notificationInfo = info
         database.save(subscription) { [weak self] _, error in
             if error == nil {
-                self?.defaults.set(true, forKey: "sync.subscriptionCreated")
+                self?.defaults.set(true, forKey: "sync.zonenAbo")
             }
         }
     }
@@ -683,6 +747,7 @@ final class CloudSyncEngine {
                                 predicate: NSPredicate(format: "updatedAtMs > %@", NSNumber(value: 0)))
             var count = 0
             let operation = CKQueryOperation(query: query)
+            operation.zoneID = self.zoneID
             operation.desiredKeys = ["kind", "entityId"]
             operation.resultsLimit = 20
             operation.recordMatchedBlock = { _, result in
@@ -699,6 +764,7 @@ final class CloudSyncEngine {
                         let fallback = CKQueryOperation(
                             query: CKQuery(recordType: Self.recordType, predicate: NSPredicate(value: true))
                         )
+                        fallback.zoneID = self.zoneID
                         fallback.desiredKeys = ["kind", "entityId"]
                         fallback.resultsLimit = 20
                         fallback.recordMatchedBlock = { _, result in
