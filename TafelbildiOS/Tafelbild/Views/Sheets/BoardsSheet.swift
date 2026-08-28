@@ -1,12 +1,12 @@
 import SwiftUI
 import UIKit
+import CloudKit
 
-/// Übersicht aller Tafeln: wechseln, anlegen, duplizieren, beitreten.
+/// Übersicht aller Tafeln: wechseln, anlegen, duplizieren, umbenennen.
 struct BoardsSheet: View {
     @EnvironmentObject private var store: BoardStore
     @Environment(\.dismiss) private var dismiss
 
-    @State private var showJoin = false
     @State private var newName = ""
     @State private var showNew = false
     /// Welche Tafel gerade umbenannt wird — nil, wenn keine.
@@ -94,11 +94,6 @@ struct BoardsSheet: View {
                     } label: {
                         Label("Neue Tafel", systemImage: "plus")
                     }
-                    Button {
-                        showJoin = true
-                    } label: {
-                        Label("Tafel beitreten (Code)", systemImage: "person.badge.plus")
-                    }
                 }
             }
             .navigationTitle("Tafeln")
@@ -134,158 +129,107 @@ struct BoardsSheet: View {
             } message: {
                 Text("Das Symbol der Tafel ändert sich unter „Aussehen“.")
             }
-            .sheet(isPresented: $showJoin) {
-                JoinBoardSheet()
-            }
         }
     }
 
     private func subtitle(for board: Board) -> String {
         var parts = ["\(board.widgets.count) Elemente"]
-        if board.members.count > 1 {
-            parts.append("geteilt mit \(board.members.count - 1)")
+        if store.istGast(board) {
+            parts.append("von \(board.owner.nonEmpty ?? "jemand anderem")")
+        } else if board.geteilt {
+            parts.append(board.members.count > 1
+                         ? "freigegeben für \(board.members.count - 1)"
+                         : "freigegeben")
         }
         return parts.joined(separator: " · ")
     }
 }
 
-/// Beitritt zu einer geteilten Tafel per Einladungscode.
-struct JoinBoardSheet: View {
-    @EnvironmentObject private var store: BoardStore
-    @Environment(\.dismiss) private var dismiss
-
-    @State private var code = ""
-    @State private var working = false
-    @State private var failed = false
-
-    var body: some View {
-        NavigationStack {
-            Form {
-                Section {
-                    TextField("z. B. K7M2QX", text: $code)
-                        .textInputAutocapitalization(.characters)
-                        .autocorrectionDisabled()
-                        .font(.system(.title2, design: .monospaced))
-                } header: {
-                    Text("Einladungscode")
-                } footer: {
-                    Text("Den Code findest du auf dem Gerät deiner Kollegin unter „Tafel teilen“. Der Abgleich läuft über iCloud — dafür muss auf beiden Geräten ein iCloud-Konto angemeldet sein.")
-                }
-
-                if failed {
-                    Text("Zu diesem Code wurde keine Tafel gefunden. Wurde die Tafel schon einmal synchronisiert?")
-                        .foregroundStyle(Theme.danger)
-                }
-
-                Section {
-                    Button {
-                        working = true
-                        failed = false
-                        store.joinBoard(code: code) { success in
-                            working = false
-                            if success { dismiss() } else { failed = true }
-                        }
-                    } label: {
-                        HStack {
-                            Text("Beitreten")
-                            if working {
-                                Spacer()
-                                ProgressView()
-                            }
-                        }
-                    }
-                    .disabled(code.trimmed.count < 4 || working)
-                }
-            }
-            .navigationTitle("Tafel beitreten")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Abbrechen") { dismiss() }
-                }
-            }
-        }
-    }
-}
-
-/// Tafel mit Kolleginnen und Kollegen teilen.
+/// Tafel mit Kolleginnen und Kollegen teilen — über eine echte
+/// iCloud-Freigabe (`CKShare`).
+///
+/// Der Einladungscode von früher ist weg. Er konnte nur funktionieren,
+/// solange alle Tafeln im selben öffentlichen Bereich lagen und jeder darin
+/// suchen durfte. Seit die Tafeln in der privaten iCloud liegen, gibt es
+/// stattdessen einen Link: Wer ihn öffnet, ist eingeladen — und niemand
+/// sonst kommt heran.
 struct ShareSheet: View {
     @EnvironmentObject private var store: BoardStore
     @Environment(\.dismiss) private var dismiss
     let boardID: String
 
-    private var board: Board { store.board(boardID) ?? Board() }
+    private var board: Board? { store.board(boardID) }
 
-    @State private var newMember = ""
+    @State private var laeuft = false
+    @State private var share: CKShare?
+    @State private var zeigtEinladung = false
+    @State private var fehler: String?
+    @State private var fragtWiderruf = false
+    @State private var fragtVerlassen = false
+    @State private var fragtUebernahme = false
 
     var body: some View {
         NavigationStack {
             Form {
-                Section {
-                    HStack {
-                        Text(board.joinCode)
-                            .font(.system(size: 34, weight: .bold, design: .monospaced))
-                            .frame(maxWidth: .infinity)
+                if let board {
+                    if store.istGast(board) {
+                        gastAbschnitt(board)
+                    } else {
+                        besitzAbschnitt(board)
                     }
-                    .padding(.vertical, 6)
-                    ShareLink(item: store.shareText(for: board)) {
-                        Label("Einladung senden", systemImage: "square.and.arrow.up")
-                    }
-                    Button {
-                        UIPasteboard.general.string = board.joinCode
-                        store.showStatus("Code kopiert.")
-                    } label: {
-                        Label("Code kopieren", systemImage: "doc.on.doc")
-                    }
-                } header: {
-                    Text("Einladungscode")
-                } footer: {
-                    Text("Deine Kollegin öffnet Tafelbild → Tafeln → „Tafel beitreten“ und gibt "
-                         + "den Code ein. Sie sieht die Tafel dann zunächst genau so, wie du sie "
-                         + "eingerichtet hast.\n\n"
-                         + "Danach gilt: Was auf der Tafel steht, gehört euch gemeinsam — "
-                         + "Namenslisten samt gezogener Namen, Texte, Tagesablauf, Klänge. "
-                         + "Wie es aussieht und wo es liegt, entscheidet jede für sich: "
-                         + "Anordnung, Größen, Farben und Ausgeblendetes bleiben auf dem "
-                         + "eigenen Gerät. Zwischen deinen eigenen Geräten gleicht sich "
-                         + "dagegen alles ab, auch das Umräumen.")
+                    teilnehmerAbschnitt(board)
                 }
-
-                Section {
-                    ForEach(board.members, id: \.self) { member in
-                        HStack {
-                            Image(systemName: "person.circle")
-                            Text(member)
-                            if member.lowercased() == board.owner.lowercased() {
-                                Text("· Besitzerin")
-                                    .font(.footnote)
-                                    .foregroundStyle(.secondary)
-                            }
+                if let fehler {
+                    Section {
+                        Text(fehler).foregroundStyle(Theme.danger)
+                    }
+                }
+            }
+            .alert("Freigabe zurücknehmen?", isPresented: $fragtWiderruf) {
+                Button("Zurücknehmen", role: .destructive) {
+                    guard let board else { return }
+                    Task {
+                        laeuft = true
+                        let geklappt = await store.freigabeWiderrufen(fuer: board)
+                        laeuft = false
+                        if geklappt {
+                            share = nil
+                        } else {
+                            fehler = "Die Freigabe ließ sich nicht zurücknehmen."
                         }
                     }
-                    .onDelete { offsets in
-                        var updated = board
-                        updated.members.remove(atOffsets: offsets)
-                        store.updateBoard(updated)
-                    }
-                    HStack {
-                        TextField("Name eintragen", text: $newMember)
-                        Button("Hinzufügen") {
-                            guard let name = newMember.nonEmpty else { return }
-                            var updated = board
-                            if !updated.members.contains(where: { $0.lowercased() == name.lowercased() }) {
-                                updated.members.append(name)
-                                store.updateBoard(updated)
-                            }
-                            newMember = ""
-                        }
-                        .disabled(newMember.trimmed.isEmpty)
-                    }
-                } header: {
-                    Text("Sieht diese Tafel")
-                } footer: {
-                    Text("Wer beitritt, trägt sich automatisch selbst ein. Namen hier eintragen ist nur nötig, wenn du jemanden vorab freischalten möchtest.")
                 }
+                Button("Abbrechen", role: .cancel) { }
+            } message: {
+                Text("Die Tafel verschwindet danach bei allen anderen. Wer sie "
+                     + "vorher als eigene übernommen hat, behält seine Kopie.")
+            }
+            .alert("Als eigene Tafel übernehmen?", isPresented: $fragtUebernahme) {
+                Button("Übernehmen") {
+                    guard let board else { return }
+                    store.alsEigeneUebernehmen(board)
+                    dismiss()
+                }
+                Button("Abbrechen", role: .cancel) { }
+            } message: {
+                Text("Es entsteht eine Kopie, die nur dir gehört. Die geteilte "
+                     + "Tafel bleibt daneben bestehen — beende die Teilnahme, "
+                     + "wenn du sie nicht mehr brauchst.")
+            }
+            .alert("Teilnahme beenden?", isPresented: $fragtVerlassen) {
+                Button("Beenden", role: .destructive) {
+                    guard let board else { return }
+                    Task {
+                        laeuft = true
+                        let geklappt = await store.freigabeVerlassen(fuer: board)
+                        laeuft = false
+                        if geklappt { dismiss() } else { fehler = "Das hat nicht geklappt." }
+                    }
+                }
+                Button("Abbrechen", role: .cancel) { }
+            } message: {
+                Text("Die Tafel verschwindet von diesem Konto. Bei deiner "
+                     + "Kollegin bleibt sie stehen.")
             }
             .navigationTitle("Tafel teilen")
             .navigationBarTitleDisplayMode(.inline)
@@ -294,6 +238,180 @@ struct ShareSheet: View {
                     Button("Fertig") { dismiss() }
                 }
             }
+            .task {
+                guard let board, !store.istGast(board), board.geteilt else { return }
+                share = await store.engine.vorhandeneFreigabe(fuer: boardID)
+            }
+            .sheet(isPresented: $zeigtEinladung) {
+                if let share, let board {
+                    Einladungsblatt(share: share, titel: board.name)
+                        .ignoresSafeArea()
+                }
+            }
+        }
+    }
+
+    // MARK: Meine eigene Tafel
+
+    @ViewBuilder
+    private func besitzAbschnitt(_ board: Board) -> some View {
+        Section {
+            Button {
+                Task { await freigeben(board) }
+            } label: {
+                HStack {
+                    Label(board.geteilt ? "Weitere Person einladen" : "Tafel freigeben",
+                          systemImage: "person.crop.circle.badge.plus")
+                    if laeuft {
+                        Spacer()
+                        ProgressView()
+                    }
+                }
+            }
+            .disabled(laeuft)
+            if board.geteilt {
+                Button(role: .destructive) {
+                    fragtWiderruf = true
+                } label: {
+                    Label("Freigabe zurücknehmen", systemImage: "person.crop.circle.badge.xmark")
+                }
+                .disabled(laeuft)
+            }
+        } header: {
+            Text("Freigabe")
+        } footer: {
+            Text("Du verschickst einen Link — über Nachrichten, Mail oder was "
+                 + "sonst zur Hand ist. Wer ihn öffnet, sieht die Tafel sofort "
+                 + "und darf gleich "
+                 + "mitschreiben; eine Rückfrage nach Rechten gibt es bewusst "
+                 + "nicht. Nur-Zuschauen hätte hier wenig Sinn: Von einer "
+                 + "Auslosung, die man nicht auslösen kann, hat niemand etwas.\n\n"
+
+                 + "Was auf der Tafel steht, gehört euch dann gemeinsam — "
+                 + "Namenslisten samt gezogener Namen, Texte, Tagesablauf, "
+                 + "Bilder und Klänge. Wie es aussieht und wo es liegt, "
+                 + "entscheidet jede für sich: Anordnung, Größen, Farben und "
+                 + "Ausgeblendetes bleiben auf dem eigenen Gerät. Zwischen "
+                 + "deinen eigenen Geräten gleicht sich dagegen alles ab.\n\n"
+                 + "„Zurücknehmen“ beendet die Freigabe für alle auf einmal. "
+                 + "Deine Tafel bleibt dabei unangetastet stehen.")
+        }
+    }
+
+    // MARK: Tafel von jemand anderem
+
+    @ViewBuilder
+    private func gastAbschnitt(_ board: Board) -> some View {
+        Section {
+            Label("Diese Tafel gehört \(board.owner.nonEmpty ?? "jemand anderem")",
+                  systemImage: "person.crop.circle")
+            Button {
+                fragtUebernahme = true
+            } label: {
+                Label("Als eigene Tafel übernehmen", systemImage: "square.on.square.dashed")
+            }
+            Button(role: .destructive) {
+                fragtVerlassen = true
+            } label: {
+                Label("Teilnahme beenden", systemImage: "rectangle.portrait.and.arrow.right")
+            }
+        } header: {
+            Text("Geteilte Tafel")
+        } footer: {
+            Text("Du arbeitest hier an der Tafel deiner Kollegin mit: Was du "
+                 + "änderst, sieht sie auch.\n\n"
+                 + "„Als eigene übernehmen“ macht daraus eine Kopie, die nur "
+                 + "dir gehört — mit eigenen Namenslisten, damit deine Klasse "
+                 + "nicht in ihrer landet. Danach geht ihr getrennte Wege: "
+                 + "Änderungen wandern nicht mehr hin und her. So gibt man "
+                 + "eine vorbereitete Tafel an andere Klassen weiter.\n\n"
+                 + "„Teilnahme beenden“ nimmt die Tafel von diesem Konto "
+                 + "herunter. Bei deiner Kollegin bleibt sie stehen.")
+        }
+    }
+
+    // MARK: Wer mitmacht
+
+    @ViewBuilder
+    private func teilnehmerAbschnitt(_ board: Board) -> some View {
+        Section {
+            ForEach(board.members, id: \.self) { member in
+                HStack {
+                    Image(systemName: "person.circle")
+                    Text(member)
+                    if member.lowercased() == board.owner.lowercased() {
+                        Text("· Besitzerin")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+        } header: {
+            Text("Macht mit")
+        } footer: {
+            Text("Wer eine Einladung annimmt, trägt sich selbst ein — mit dem "
+                 + "Namen aus seinen Einstellungen.")
+        }
+    }
+
+    private func freigeben(_ board: Board) async {
+        laeuft = true
+        fehler = nil
+        let ergebnis = await store.freigabeAnlegen(fuer: board)
+        laeuft = false
+        switch ergebnis {
+        case .success(let neue):
+            share = neue
+            zeigtEinladung = true
+        case .failure(let grund):
+            fehler = grund.errorDescription
+        }
+    }
+}
+
+/// Apples eigenes Blatt zum Verschicken der Einladung.
+///
+/// Es zeigt zugleich, wer teilnimmt, und lässt einzelne Personen wieder
+/// entfernen — deshalb baut die App das nicht nach.
+struct Einladungsblatt: UIViewControllerRepresentable {
+    let share: CKShare
+    let titel: String
+
+    func makeUIViewController(context: Context) -> UICloudSharingController {
+        let controller = UICloudSharingController(
+            share: share,
+            container: CKContainer(identifier: CloudSyncEngine.containerID)
+        )
+        // Nur-Lesen gibt es hier bewusst nicht (siehe Hinweistext im Blatt).
+        controller.availablePermissions = [.allowPublic, .allowReadWrite]
+        controller.delegate = context.coordinator
+        return controller
+    }
+
+    func updateUIViewController(_ controller: UICloudSharingController, context: Context) { }
+
+    func makeCoordinator() -> Koordinator { Koordinator(titel: titel) }
+
+    final class Koordinator: NSObject, UICloudSharingControllerDelegate {
+        private let titel: String
+        init(titel: String) { self.titel = titel }
+
+        func itemTitle(for controller: UICloudSharingController) -> String? { titel }
+
+        func cloudSharingController(_ controller: UICloudSharingController,
+                                    failedToSaveShareWithError error: Error) {
+            Task { @MainActor in
+                BoardStore.shared.showStatus("Die Einladung ließ sich nicht anlegen: "
+                                             + error.localizedDescription)
+            }
+        }
+
+        func cloudSharingControllerDidSaveShare(_ controller: UICloudSharingController) {
+            Task { @MainActor in BoardStore.shared.syncNow() }
+        }
+
+        func cloudSharingControllerDidStopSharing(_ controller: UICloudSharingController) {
+            Task { @MainActor in BoardStore.shared.syncNow() }
         }
     }
 }

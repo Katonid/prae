@@ -34,7 +34,8 @@ struct AppSettingsSheet: View {
                 } header: {
                     Text("Mein Name")
                 } footer: {
-                    Text("Der Name steht in geteilten Tafeln — daran erkennen deine Kolleginnen, wer die Tafel angelegt hat. Er sorgt außerdem dafür, dass deine Tafeln nach einer Neuinstallation wieder auftauchen.")
+                    Text("Der Name steht in geteilten Tafeln — daran erkennen deine Kolleginnen, "
+                         + "wer die Tafel angelegt hat, und du siehst, wer mitmacht.")
                 }
 
                 Section {
@@ -76,7 +77,11 @@ struct AppSettingsSheet: View {
                 } header: {
                     Text("iCloud")
                 } footer: {
-                    Text("Tafeln und Namenslisten erscheinen automatisch auf allen Geräten mit derselben Apple-ID. Zum Teilen mit Kolleginnen genügt der Einladungscode — dafür braucht niemand dieselbe Apple-ID. Ohne Abgleich bleibt alles auf diesem Gerät.")
+                    Text("Tafeln und Namenslisten liegen in deiner privaten iCloud und "
+                         + "erscheinen automatisch auf allen Geräten mit derselben Apple-ID. "
+                         + "Mit Kolleginnen teilst du eine Tafel über einen Einladungslink — "
+                         + "dafür braucht niemand dieselbe Apple-ID. Ohne Abgleich bleibt "
+                         + "alles auf diesem Gerät.")
                 }
 
                 Section {
@@ -188,10 +193,25 @@ struct AppSettingsSheet: View {
                 } header: {
                     Text("Sichern und übertragen")
                 } footer: {
-                    Text("Die Sicherung enthält alle Tafeln und Namenslisten als eine Datei — "
-                         + "gut für ein Backup oder den Wechsel auf ein anderes Gerät. Beim "
-                         + "Einlesen kommen die Tafeln zu den vorhandenen dazu; es wird nichts "
-                         + "überschrieben.")
+                    Text("Die Sicherung enthält alle Tafeln, Namenslisten und die "
+                         + "hinterlegten Bilder und Klänge als eine Datei — gut für ein "
+                         + "Backup oder den Wechsel auf ein anderes Gerät. Sie kann dadurch "
+                         + "groß werden; die App sagt beim Erstellen, wie groß.\n\n"
+                         + "Videos sind nicht dabei: Die liegen dort, wo du sie ausgewählt "
+                         + "hast, und die App kennt nur ihren Namen.\n\n"
+                         + "Beim Einlesen kommen die Tafeln zu den vorhandenen dazu; es "
+                         + "wird nichts überschrieben.")
+                }
+
+                Section {
+                    NavigationLink {
+                        DatenschutzView()
+                    } label: {
+                        Label("Datenschutz", systemImage: "hand.raised")
+                    }
+                } footer: {
+                    Text("Wo die Daten liegen, was geteilt wird und was beim "
+                         + "Löschen geschieht — in Klartext.")
                 }
 
                 Section {
@@ -201,7 +221,7 @@ struct AppSettingsSheet: View {
                         Text(version).foregroundStyle(.secondary)
                     }
                 } footer: {
-                    Text("Tafelbild — die Tafel für den Unterricht. Ohne Abo, ohne Werbung, ohne fremde Server.")
+                    Text("Tafelbild — die Tafel für den Unterricht. Ohne Abo, ohne Werbung, ohne fremde Server. Alles liegt auf dem Gerät und in deiner privaten iCloud.")
                 }
             }
             .navigationTitle("Einstellungen")

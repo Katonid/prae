@@ -78,17 +78,20 @@ letzten Reihe zu lesen ist.
 
 GEMEINSAM ARBEITEN
 
-Eine Tafel lässt sich per Einladungscode teilen. Inhalte gehören danach
-allen — Namenslisten samt gezogener Namen, Texte, Tagesablauf. Anordnung,
-Farben und ausgeblendete Elemente bleiben bei jeder Person persönlich.
-Zwischen den eigenen Geräten gleicht sich alles ab.
+Eine Tafel lässt sich per Einladungslink freigeben. Wer ihn annimmt, darf
+gleich mitarbeiten: Namenslisten samt gezogener Namen, Texte und Tagesablauf
+gehören danach beiden. Anordnung, Farben und ausgeblendete Elemente bleiben
+bei jeder Person persönlich. Die Freigabe lässt sich jederzeit zurücknehmen,
+und wer eine vorbereitete Tafel bekommt, kann sie als eigene übernehmen —
+gut, um Vorbereitetes an andere Klassen weiterzugeben. Zwischen den eigenen
+Geräten gleicht sich alles ab.
 
 DATENSCHUTZ
 
 Kein Konto beim Entwickler, keine Werbung, kein Tracking, keine Analyse.
-Alles liegt auf dem Gerät und im eigenen iCloud-Bereich. Der
-Lautstärkemesser rechnet nur einen Pegel aus; die Kamera nimmt nur auf, was
-selbst eingefroren wird.
+Alles liegt auf dem Gerät und in der eigenen, privaten iCloud — der
+Entwickler kann nichts davon einsehen. Der Lautstärkemesser rechnet nur
+einen Pegel aus; die Kamera nimmt nur auf, was selbst eingefroren wird.
 ```
 
 ### Schlagwörter (max. 100 Zeichen, mit Komma getrennt)
@@ -143,11 +146,17 @@ Auf die Frage „Erfasst diese App Daten?" lautet die Antwort:
 
 > **Nein, wir erfassen keine Daten aus dieser App.**
 
-Begründung, falls die Prüfung nachfragt: Kamera-, Mikrofon- und
-Fotozugriffe finden ausschließlich auf dem Gerät statt. Der Abgleich läuft
-über CloudKit im Container der App; die Datensätze sind an die iCloud-Kennung
-der Nutzerin gebunden, der Entwickler hat keinen Zugriff darauf und erhält
-keine Kopie. Ein Konto beim Entwickler gibt es nicht.
+Begründung, falls die Prüfung nachfragt: Die App hat keinen Server und kein
+Nutzerkonto. Der Abgleich läuft über CloudKit in die **private** Datenbank
+der Nutzerin, die an ihre Apple-ID gebunden ist; der Entwickler hat darauf
+keinen Zugriff und erhält keine Kopie. Eine geteilte Tafel bleibt in der
+privaten iCloud derjenigen, die sie geteilt hat, und ist nur für die
+eingeladenen Personen sichtbar (`CKShare`). Kamera- und Mikrofonzugriffe
+werden ausschließlich auf dem Gerät ausgewertet; aufgezeichnet wird nichts.
+
+Das deckt sich mit `Tafelbild/PrivacyInfo.xcprivacy`, wo
+`NSPrivacyCollectedDataTypes` leer steht — die ausführliche Begründung steht
+im Kopf jener Datei.
 
 ### Export-Compliance
 
@@ -165,16 +174,24 @@ Dokumentenkamera). Zeigt das Livebild, ein Tipp friert es ein.
 
 Mikrofon: Element „Lautstärke". Misst nur den Pegel, nimmt nichts auf.
 
-iCloud: Der Abgleich läuft über CloudKit im öffentlichen Bereich des
-eigenen Containers, ohne Nutzerkonto beim Entwickler. Er lässt sich in den
-Einstellungen abschalten.
+iCloud: Der Abgleich läuft über CloudKit in die private Datenbank der
+Nutzerin, ohne Nutzerkonto beim Entwickler. Er lässt sich in den
+Einstellungen abschalten (Einstellungen → iCloud).
+
+Teilen: Tafel-Menü → „Tafel teilen" → „Tafel freigeben". Es entsteht ein
+Einladungslink über Apples Freigabe (CKShare); die Tafel bleibt in der
+iCloud dessen, der sie freigibt.
+
+Datenschutz in der App nachzulesen: Einstellungen → Datenschutz.
 ```
 
 ## Vor dem Hochladen prüfen
 
 1. In Xcode das Ziel auf „Any iOS Device" stellen, `Product → Archive`.
 2. Im Organizer „Distribute App" → „App Store Connect".
-3. Version und Build: `MARKETING_VERSION` steht im Projekt, die Build-Nummer
-   vergibt die Bauphase „Build-Nummer setzen" automatisch.
+3. Version und Build: `MARKETING_VERSION` steht im Projekt (derzeit 1.0.58),
+   die Build-Nummer vergibt die Bauphase „Build-Nummer setzen" automatisch.
+   In App Store Connect muss die Version des Eintrags dazu passen — die neue
+   Fassung dort als eigene Version anlegen, nicht die alte weiterverwenden.
 4. Nach dem Upload in App Store Connect die oben genannten Felder füllen und
    zur Prüfung einreichen.

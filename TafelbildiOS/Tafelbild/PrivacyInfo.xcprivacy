@@ -5,18 +5,40 @@
 
   Zwei Dinge stehen darin:
 
-  1. Welche Daten die App erhebt. Bei Tafelbild: keine. Kein Konto beim
-     Entwickler, keine Werbung, keine Analyse, kein Tracking. Alles bleibt
-     auf dem Gerät oder im privaten iCloud-Bereich der Nutzerin.
+  1. WELCHE DATEN DIE APP ERHEBT: keine. NSPrivacyCollectedDataTypes bleibt
+     bewusst leer, und seit dem Umbau auf die private iCloud-Datenbank
+     stimmt das auch.
 
-  2. Warum die App bestimmte Schnittstellen benutzt, die Apple ohne Begründung
-     nicht mehr erlaubt („required reason APIs"). Hier werden nur die drei
-     angegeben, die wirklich vorkommen — jede zusätzliche Angabe wäre falsch:
+     Apple erklärt „erheben" so: Daten so vom Gerät zu schicken, dass DU
+     ODER DEINE PARTNER länger darauf zugreifen können, als der Vorgang es
+     erfordert. Der Zugriff ist der Kern des Satzes — nicht das Verschicken.
+     Genau daran hat sich etwas geändert:
+
+     * Vorher (öffentliche Datenbank): Jeder Datensatz stand in einem
+       gemeinsamen Bereich, den der Entwickler in der CloudKit-Konsole
+       einsehen konnte. Das war eine Erhebung, und „keine Daten" war falsch.
+     * Jetzt (private Datenbank): Alles liegt in der iCloud der Nutzerin,
+       an ihrer Apple-ID. Der Entwickler kommt nicht heran — auch eine
+       geteilte Tafel bleibt in der iCloud derjenigen, die sie geteilt hat,
+       und ist nur für die Eingeladenen sichtbar.
+
+     Wer den Abgleich je wieder auf die öffentliche Datenbank umstellt, muss
+     diesen Eintrag füllen UND die Angaben in App Store Connect ändern.
+     Beides muss zusammenpassen.
+
+     Unverändert richtig bleibt: kein Konto beim Entwickler, keine Werbung,
+     keine Analyse, kein Tracking.
+
+  2. WARUM DIE APP BESTIMMTE SCHNITTSTELLEN BENUTZT, die Apple ohne
+     Begründung nicht mehr erlaubt („required reason APIs"). Angegeben sind
+     nur die drei, die wirklich vorkommen — jede zusätzliche Angabe wäre
+     falsch:
 
      * UserDefaults (CA92.1): Einstellungen der App, die nur sie selbst liest —
        Schrift, Zoomstand, Abgleich an/aus, Feinabgleich des Mikrofons.
      * Dateizeitstempel (C617.1): Beim Aufräumen alter Klang- und Bilddateien
-       im eigenen Ordner wird deren Anlagedatum gelesen (BoardStore).
+       im eigenen Ordner wird deren Anlagedatum gelesen (BoardStore,
+       `creationDateKey`). Die Dateigröße daneben zählt nicht dazu.
      * Aktive Tastaturen (54BD.1): Das Feld für ein Symbol öffnet die
        Emoji-Tastatur (EmojiField). Dafür muss es wissen, ob es sie gibt.
 

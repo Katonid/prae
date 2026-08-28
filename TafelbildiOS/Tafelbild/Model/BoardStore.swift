@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import CloudKit
 
 // Zentraler Zustand der App: Tafeln, Namenslisten, Mediendateien,
 // Persistenz (JSON im Documents-Ordner) und die CloudKit-Anbindung.
@@ -7,7 +8,7 @@ import SwiftUI
 // Sichtbar ist eine Tafel, wenn der eigene Anzeigename in ihrer
 // Mitgliederliste steht oder sie auf diesem Gerät angelegt wurde. Dadurch
 // funktioniert die App auch ohne eingetragenen Namen, und geteilte Tafeln
-// tauchen nach dem Beitritt per Einladungscode automatisch auf.
+// tauchen auf, sobald ein Einladungslink angenommen wurde.
 
 @MainActor
 final class BoardStore: ObservableObject {
@@ -195,6 +196,24 @@ final class BoardStore: ObservableObject {
         }
         engine.onUserIDChange = { [weak self] userID in
             MainActor.assumeIsolated { self?.adoptUserID(userID) }
+        }
+        // Zu welcher geteilten Tafel eine Mediendatei gehört. Nur was an der
+        // Tafel hängt, reist mit einer Freigabe mit — sonst käme die Tafel bei
+        // der Kollegin an, aber alle Bildrahmen blieben leer.
+        engine.elternProvider = { [weak self] datei in
+            guard let self else { return nil }
+            let suche: () -> String? = {
+                MainActor.assumeIsolated {
+                    self.boards.first {
+                        !$0.deleted && $0.geteilt && $0.syncedMedia.contains(datei)
+                    }?.id
+                }
+            }
+            if Thread.isMainThread { return suche() }
+            return DispatchQueue.main.sync(execute: suche)
+        }
+        engine.onFreigabenAenderung = { [weak self] in
+            MainActor.assumeIsolated { self?.syncNow() }
         }
         engine.payloadProvider = { [weak self] kind, entityId in
             guard let self else { return nil }
@@ -1060,62 +1079,149 @@ final class BoardStore: ObservableObject {
         updateNameList(updated)
     }
 
-    // MARK: - Teilen
+    // MARK: - Freigabe
 
-    /// Beitritt per Einladungscode. Sucht zuerst lokal, dann in der Cloud.
-    func joinBoard(code: String, completion: @escaping (Bool) -> Void) {
-        let normalized = code.uppercased().trimmed
-        guard normalized.count >= 4 else {
-            completion(false)
-            return
-        }
-        if adoptBoard(withCode: normalized) {
-            completion(true)
-            return
-        }
-        engine.fetchBoards { [weak self] remote in
-            guard let self else { return }
-            MainActor.assumeIsolated {
-                self.applyRemote(remote)
-                completion(self.adoptBoard(withCode: normalized))
-            }
-        }
+    /// Gehört die Tafel jemand anderem? Dann bin ich hier zu Gast.
+    func istGast(_ board: Board) -> Bool {
+        engine.istFremd(boardID: board.id)
     }
 
-    private func adoptBoard(withCode code: String) -> Bool {
-        guard let index = boards.firstIndex(where: { $0.joinCode.uppercased() == code && !$0.deleted }) else {
-            return false
+    /// Legt die iCloud-Freigabe an (oder liefert die vorhandene) und merkt
+    /// sich am Board, dass es geteilt ist — daran hängen sich die Bilder und
+    /// Klänge, damit sie mitreisen.
+    func freigabeAnlegen(fuer board: Board) async -> Result<CKShare, CloudSyncEngine.Freigabefehler> {
+        // Erst sicherstellen, dass die Tafel überhaupt oben ist: Eine
+        // Freigabe braucht einen Datensatz, den sie als Wurzel nehmen kann.
+        if let stelle = boards.firstIndex(where: { $0.id == board.id }), !boards[stelle].geteilt {
+            boards[stelle].geteilt = true
+            touch(board.id)
         }
+        await engine.pushJetzt()
+
+        // Jetzt erst die Dateien: Sie hängen sich an den Datensatz der Tafel,
+        // und den muss es dafür schon geben — sonst weist CloudKit den
+        // Verweis ab. Erst danach reisen Bilder und Klänge mit der Freigabe.
+        if let stelle = boards.firstIndex(where: { $0.id == board.id }) {
+            for datei in boards[stelle].syncedMedia where hasMedia(datei) {
+                engine.enqueue(kind: .media, entityId: datei)
+            }
+        }
+
+        let ergebnis = await engine.freigabe(fuer: board.id, titel: board.name)
+        if case .failure = ergebnis, let stelle = boards.firstIndex(where: { $0.id == board.id }) {
+            boards[stelle].geteilt = false
+            touch(board.id)
+        }
+        return ergebnis
+    }
+
+    /// Nimmt die Freigabe zurück: Die Tafel verschwindet bei allen anderen,
+    /// bleibt hier aber unangetastet stehen.
+    func freigabeWiderrufen(fuer board: Board) async -> Bool {
+        let geklappt = await engine.widerrufeFreigabe(fuer: board.id)
+        if geklappt, let stelle = boards.firstIndex(where: { $0.id == board.id }) {
+            boards[stelle].geteilt = false
+            boards[stelle].memberUserIDs = []
+            if let name = profileName.nonEmpty {
+                boards[stelle].members = [name]
+            } else {
+                boards[stelle].members = []
+            }
+            touch(board.id)
+            showStatus("Freigabe zurückgenommen.")
+        }
+        return geklappt
+    }
+
+    /// Beendet die eigene Teilnahme an einer fremden Tafel.
+    func freigabeVerlassen(fuer board: Board) async -> Bool {
+        let geklappt = await engine.verlasseFreigabe(fuer: board.id)
+        guard geklappt else { return false }
+        boards.removeAll { $0.id == board.id }
         var ids = ownBoardIDs
-        ids.insert(boards[index].id)
+        ids.remove(board.id)
         ownBoardIDs = ids
-        var changed = false
-        if let me = myUserID, !me.isEmpty,
-           boards[index].ownerUserID != me,
-           !boards[index].memberUserIDs.contains(me) {
-            boards[index].memberUserIDs.append(me)
-            changed = true
-        }
-        if let name = profileName.nonEmpty,
-           !boards[index].members.contains(where: { $0.trimmed.lowercased() == name.lowercased() }) {
-            boards[index].members.append(name)
-            changed = true
-        }
-        if changed { touch(boards[index].id) } else { scheduleSave() }
-        activeBoardID = boards[index].id
-        Task { await ensureMediaForVisibleBoards() }
-        showStatus("Tafel „\(boards[index].name)“ hinzugefügt.")
+        if activeBoardID == board.id { activeBoardID = visibleBoards.first?.id ?? "" }
+        saveNow()
+        showStatus("Du nimmst an dieser Tafel nicht mehr teil.")
         return true
     }
 
-    func shareText(for board: Board) -> String {
-        """
-        Ich teile die Tafel „\(board.name)“ aus der App Tafelbild mit dir.
-        Einladungscode: \(board.joinCode)
+    /// Macht aus einer geteilten Tafel eine eigene — vollständig abgekoppelt.
+    ///
+    /// Das ist der Weg, um eine vorbereitete Tafel weiterzugeben: Die Kollegin
+    /// übernimmt sie einmal und arbeitet danach für sich. Deshalb bekommt
+    /// **alles** neue Kennungen — die Tafel, ihre Elemente und, wichtig, auch
+    /// die Namenslisten. Ohne neue Listen-Kennungen zeigten beide Tafeln
+    /// weiter auf dieselbe Liste, und die Namen der einen Klasse stünden in
+    /// der anderen.
+    @discardableResult
+    func alsEigeneUebernehmen(_ board: Board) -> Board {
+        var kopie = board
+        kopie.id = UUID().uuidString
+        kopie.joinCode = Board.makeJoinCode()
+        kopie.geteilt = false
+        kopie.owner = profileName
+        kopie.ownerUserID = myUserID ?? ""
+        kopie.members = profileName.nonEmpty.map { [$0] } ?? []
+        kopie.memberUserIDs = []
+        kopie.zuletztVon = myUserID ?? ""
+        kopie.createdAtMs = Date.nowMs
+        kopie.updatedAtMs = Date.nowMs
+        kopie.embeddedLists = []
 
-        In der App: Tafel-Menü → „Tafel beitreten“ → Code eingeben.
-        Oder diesen Link auf dem iPad öffnen: tafelbild://join/\(board.joinCode)
-        """
+        // Die Namenslisten mitkopieren, jede unter neuer Kennung.
+        var listenkarte: [String: String] = [:]
+        for alteID in board.referencedListIDs {
+            guard let vorlage = nameLists.first(where: { $0.id == alteID && !$0.deleted }) else { continue }
+            var neue = vorlage
+            neue.id = UUID().uuidString
+            neue.owner = profileName
+            neue.updatedAtMs = Date.nowMs
+            nameLists.append(neue)
+            listenkarte[alteID] = neue.id
+            engine.enqueue(kind: .nameList, entityId: neue.id)
+        }
+
+        kopie.widgets = board.widgets.map { element in
+            var neu = element
+            neu.id = UUID().uuidString
+            if case .namePicker(var inhalt) = neu.content {
+                if let alt = inhalt.listID, let ersatz = listenkarte[alt] { inhalt.listID = ersatz }
+                neu.content = .namePicker(inhalt)
+            }
+            return neu
+        }
+
+        boards.append(kopie)
+        var ids = ownBoardIDs
+        ids.insert(kopie.id)
+        ownBoardIDs = ids
+        activeBoardID = kopie.id
+        touch(kopie.id)
+        // Die Dateien liegen schon auf dem Gerät (sie kamen mit der Freigabe),
+        // gehören jetzt aber auch in die eigene iCloud.
+        for datei in kopie.syncedMedia where hasMedia(datei) {
+            engine.enqueue(kind: .media, entityId: datei)
+        }
+        showStatus("„\(kopie.name)“ ist jetzt deine eigene Tafel.")
+        return kopie
+    }
+
+    /// Eine Einladung ist angekommen (iOS hat den Freigabe-Link geöffnet).
+    func nimmFreigabeAn(_ metadaten: CKShare.Metadata...) {
+        engine.nimmAn(metadaten) { [weak self] geklappt in
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                if geklappt {
+                    self.showStatus("Einladung angenommen — die Tafel wird geladen.")
+                    self.syncNow()
+                } else {
+                    self.showStatus("Die Einladung ließ sich nicht annehmen. "
+                                    + "Ist auf diesem Gerät ein iCloud-Konto angemeldet?")
+                }
+            }
+        }
     }
 
     // MARK: - Sicherungsdatei
@@ -1124,23 +1230,58 @@ final class BoardStore: ObservableObject {
     /// den Wechsel auf ein anderes Gerät.
     struct BackupFile: Codable {
         var app: String = "tafelbild"
-        var version: Int = 1
+        /// 1 = nur Tafeln und Listen, 2 = mit Dateien.
+        var version: Int = 2
         var createdAt: String = ""
         var boards: [Board] = []
         var lists: [NameList] = []
+        /// Bilder, Klänge und Kamerabilder — Dateiname → Inhalt als Base64.
+        ///
+        /// Bewusst in derselben Datei: Eine Sicherung, die stillschweigend
+        /// die Bilder verliert, ist eine Falle. Ein Archiv aus mehreren
+        /// Dateien wäre kleiner, aber iOS bringt kein Auspacken mit — eine
+        /// Sicherung, die sich nicht überall einlesen lässt, taugt nichts.
+        ///
+        /// **Optional**, damit ältere Sicherungen (Fassung 1) weiter gelesen
+        /// werden: Der erzeugte Leser wirft sonst bei einem fehlenden
+        /// Schlüssel, auch wenn ein Vorgabewert dasteht.
+        var medien: [String: String]?
     }
 
     /// Schreibt die Sicherung in eine Datei und gibt deren Adresse zurück.
+    ///
+    /// **Mit Dateien** (Fassung 2). Vorher enthielt sie nur Tafeln und
+    /// Listen; wer damit auf ein anderes Gerät zog, stand dort vor leeren
+    /// Bildrahmen und stummen Klangfeldern, ohne dass die App etwas gesagt
+    /// hätte.
     func writeBackup() -> URL? {
         var file = BackupFile()
         file.createdAt = ISO8601DateFormatter().string(from: Date())
         file.boards = visibleBoards
         file.lists = visibleNameLists
+
+        // Alle Dateien, auf die die gesicherten Tafeln zeigen. Videos sind
+        // nicht dabei: Die liegen dort, wo sie ausgewählt wurden, und die
+        // App hat nur ihren Namen (siehe `syncedMedia`).
+        var medien: [String: String] = [:]
+        var bytes = 0
+        for name in Set(visibleBoards.flatMap { $0.syncedMedia }) {
+            guard let daten = try? Data(contentsOf: MediaStore.url(name)) else { continue }
+            medien[name] = daten.base64EncodedString()
+            bytes += daten.count
+        }
+        file.medien = medien.isEmpty ? nil : medien
+
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         guard let data = try? encoder.encode(file) else {
             showStatus("Die Sicherung konnte nicht erstellt werden.")
             return nil
+        }
+        if !medien.isEmpty {
+            let mb = Double(bytes) / 1_048_576
+            showStatus(String(format: "Sicherung mit %d Datei(en), rund %.1f MB.",
+                              medien.count, mb))
         }
         let name = "Tafelbild-Sicherung-" + Self.dayStamp() + ".json"
         let url = FileManager.default.temporaryDirectory.appendingPathComponent(name)
@@ -1163,6 +1304,18 @@ final class BoardStore: ObservableObject {
               let file = try? JSONDecoder().decode(BackupFile.self, from: data) else {
             showStatus("Die Datei konnte nicht gelesen werden.")
             return nil
+        }
+
+        // Dateien zuerst wegschreiben: Die Tafeln zeigen mit ihrem Namen
+        // darauf, und der bleibt beim Einlesen unverändert. Liegt eine Datei
+        // schon da, bleibt sie — die Namen sind Zufallskennungen, gleicher
+        // Name heißt gleiche Datei.
+        var neueDateien = 0
+        for (name, base64) in file.medien ?? [:] {
+            guard !MediaStore.exists(name), let daten = Data(base64Encoded: base64) else { continue }
+            guard (try? daten.write(to: MediaStore.url(name), options: .atomic)) != nil else { continue }
+            engine.enqueue(kind: .media, entityId: name)
+            neueDateien += 1
         }
 
         // Namenslisten zuerst: Die Tafeln zeigen auf ihre Kennungen.
@@ -1206,7 +1359,8 @@ final class BoardStore: ObservableObject {
 
         saveNow()
         if activeBoard == nil { activeBoardID = visibleBoards.first?.id ?? "" }
-        showStatus("\(neueTafeln) Tafeln und \(neueListen) Listen eingelesen.")
+        let dateien = neueDateien > 0 ? ", \(neueDateien) Datei(en)" : ""
+        showStatus("\(neueTafeln) Tafeln und \(neueListen) Listen eingelesen\(dateien).")
         return (neueTafeln, neueListen)
     }
 
@@ -1490,6 +1644,36 @@ final class BoardStore: ObservableObject {
                     // gedacht ist — mit Anordnung, Farben und allem.
                     boards.append(board)
                     changed = true
+                }
+                // Aus einer Freigabe? Dann gehört sie jemand anderem, und
+                // weder meine iCloud-Kennung noch mein Name stehen darin —
+                // ohne diesen Vermerk bliebe sie unsichtbar. Zugleich trage
+                // ich mich ein, damit die Besitzerin sieht, wer mitmacht.
+                if engine.istFremd(boardID: board.id) {
+                    var ids = ownBoardIDs
+                    if !ids.contains(board.id) {
+                        ids.insert(board.id)
+                        ownBoardIDs = ids
+                    }
+                    if let stelle = boards.firstIndex(where: { $0.id == board.id }) {
+                        var eingetragen = false
+                        if let me = myUserID, !me.isEmpty,
+                           boards[stelle].ownerUserID != me,
+                           !boards[stelle].memberUserIDs.contains(me) {
+                            boards[stelle].memberUserIDs.append(me)
+                            eingetragen = true
+                        }
+                        if let name = profileName.nonEmpty,
+                           !boards[stelle].members.contains(where: { $0.trimmed.lowercased() == name.lowercased() }) {
+                            boards[stelle].members.append(name)
+                            eingetragen = true
+                        }
+                        if eingetragen {
+                            boards[stelle].updatedAtMs = Date.nowMs
+                            engine.enqueue(kind: .board, entityId: board.id)
+                            changed = true
+                        }
+                    }
                 }
             case .nameList:
                 guard let incoming = try? decoder.decode(NameList.self, from: data) else { continue }

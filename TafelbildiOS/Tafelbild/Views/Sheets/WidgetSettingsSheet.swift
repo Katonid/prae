@@ -1,6 +1,100 @@
 import SwiftUI
+import UIKit
 import PhotosUI
 import UniformTypeIdentifiers
+
+/// Wofür gerade eine Datei gesucht wird.
+///
+/// Der Wunsch ist kein Zustand der Ansicht, sondern reist im Rückruf des
+/// Wählers mit (siehe `Dateiwahl`). Damit kann er weder zu früh gelöscht
+/// werden noch beim Neuzeichnen verlorengehen.
+private enum Dateiwunsch: Equatable {
+    /// Tondatei für ein Klangfeld (dessen Kennung).
+    case klang(String)
+    case bild
+    case video
+
+    /// Was der Wähler anbieten darf.
+    var arten: [UTType] {
+        switch self {
+        case .bild:
+            return [.image]
+        case .klang, .video:
+            // Bewusst ohne Filter: iPadOS blendet sonst Dateien aus, deren
+            // Art der Anbieter nicht mitliefert — bei MP3s in iCloud Drive
+            // und auf Netzlaufwerken passiert genau das.
+            return [.item]
+        }
+    }
+}
+
+/// Zeigt den Dateiwähler von iOS — **an SwiftUI vorbei**.
+///
+/// Das ist der Kern der Sache, und er ist teuer bezahlt:
+///
+/// Jede Präsentation, die an einem Ansichtswert hängt (`.fileImporter`,
+/// `.sheet`), lebt nur so lange, wie die Ansicht darunter unverändert steht.
+/// Wird das Formular neu gezeichnet — und das tut es hier bei jeder
+/// Änderung am Speicher, also auch bei jedem Abgleich —, räumt SwiftUI die
+/// Präsentation ab. Der Schalter bleibt dabei stehen. Im nächsten Durchgang
+/// geht der Wähler deshalb wieder auf, wird wieder abgeräumt, und so fort:
+/// genau das Flackern, das gemeldet wurde (0.1.10 und 0.1.11 — der Wechsel
+/// des Mechanismus half nicht, weil beide an einem Ansichtswert hingen).
+///
+/// Hier gibt es keinen solchen Wert. Der Wähler wird von UIKit gezeigt und
+/// von UIKit geschlossen; das Ziel reist in der Rückrufkette mit, nicht im
+/// Zustand der Ansicht. Ein Neuzeichnen kann ihm damit nichts anhaben.
+///
+/// `asCopy: true`: iOS legt eine Kopie im eigenen Ordner ab. Damit braucht
+/// es keinen Zugriff auf fremde Ordner, und die Datei bleibt lesbar, auch
+/// wenn der Wähler längst zu ist.
+///
+/// Bewusst **ohne** `@MainActor`: Der Wert wird in einer Eigenschaft der
+/// Ansicht angelegt, und das ist kein Ort, an dem der Hauptfaden zugesichert
+/// ist. Gerufen wird ohnehin nur von dort — aus einem Knopf und aus den
+/// Rückrufen von UIKit.
+private final class Dateiwahl: NSObject, UIDocumentPickerDelegate {
+    private var fertig: ((URL?) -> Void)?
+    /// Läuft gerade einer? Ein zweiter Tipp soll keinen zweiten öffnen.
+    private var offen = false
+
+    func oeffne(arten: [UTType], fertig: @escaping (URL?) -> Void) {
+        guard !offen, let halter = Self.obersterHalter() else { return }
+        offen = true
+        self.fertig = fertig
+        let waehler = UIDocumentPickerViewController(forOpeningContentTypes: arten,
+                                                     asCopy: true)
+        waehler.allowsMultipleSelection = false
+        waehler.delegate = self
+        halter.present(waehler, animated: true)
+    }
+
+    func documentPicker(_ controller: UIDocumentPickerViewController,
+                        didPickDocumentsAt urls: [URL]) {
+        melde(urls.first)
+    }
+
+    func documentPickerWasCancelled(_ controller: UIDocumentPickerViewController) {
+        melde(nil)
+    }
+
+    private func melde(_ url: URL?) {
+        offen = false
+        let rueckruf = fertig
+        fertig = nil
+        rueckruf?(url)
+    }
+
+    /// Das oberste gerade gezeigte Blatt — von dort aus wird gezeigt.
+    private static func obersterHalter() -> UIViewController? {
+        let szenen = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        let szene = szenen.first { $0.activationState == .foregroundActive } ?? szenen.first
+        guard var halter = szene?.windows.first(where: { $0.isKeyWindow })?.rootViewController
+                ?? szene?.windows.first?.rootViewController else { return nil }
+        while let naechster = halter.presentedViewController { halter = naechster }
+        return halter
+    }
+}
 
 /// Einstellungen eines Elements — je nach Typ mit eigenem Abschnitt.
 struct WidgetSettingsSheet: View {
@@ -14,6 +108,19 @@ struct WidgetSettingsSheet: View {
 
     private var kopfGroesse: Double { widget?.labelSize ?? 1 }
 
+    /// Der Wähler des Blattes. Bewusst ein Objekt und kein Ansichtswert:
+    /// Was hier passiert, soll ein Neuzeichnen des Formulars nicht anfassen
+    /// können (siehe `Dateiwahl`).
+    @State private var wahl = Dateiwahl()
+
+    /// Öffnet den Wähler für den genannten Zweck. Das Ziel reist im Rückruf
+    /// mit — es kann deshalb nicht zu früh verlorengehen.
+    private func frageNachDatei(_ zweck: Dateiwunsch) {
+        wahl.oeffne(arten: zweck.arten) { url in
+            nimmDatei(url, fuer: zweck)
+        }
+    }
+
     var body: some View {
         NavigationStack {
             Form {
@@ -22,7 +129,8 @@ struct WidgetSettingsSheet: View {
                     case .text(let value):
                         TextSettings(content: bindText(value))
                     case .image(let value):
-                        ImageSettings(content: bindImage(value))
+                        ImageSettings(content: bindImage(value),
+                                      anfordern: { frageNachDatei(.bild) })
                     case .clock(let value):
                         ClockSettings(content: bindClock(value))
                     case .timer(let value):
@@ -36,11 +144,13 @@ struct WidgetSettingsSheet: View {
                     case .namePicker(let value):
                         NamePickerSettings(content: bindNamePicker(value))
                     case .sounds(let value):
-                        SoundsSettings(content: bindSounds(value))
+                        SoundsSettings(content: bindSounds(value),
+                                       anfordern: { frageNachDatei(.klang($0)) })
                     case .symbols(let value):
                         SymbolSettings(content: bindSymbol(value))
                     case .video(let value):
-                        VideoSettings(content: bindVideo(value))
+                        VideoSettings(content: bindVideo(value),
+                                      anfordern: { frageNachDatei(.video) })
                     case .kamera(let value):
                         KameraSettings(content: bindKamera(value))
                     }
@@ -190,6 +300,93 @@ struct WidgetSettingsSheet: View {
                 }
             }
         }
+    }
+
+    /// Die gewählte Datei dorthin legen, wofür der Wähler geöffnet wurde.
+    ///
+    /// Gelesen wird abseits des Hauptfadens: Liegt die Datei in iCloud oder
+    /// auf einem Netzlaufwerk, lädt `Data(contentsOf:)` sie erst herunter —
+    /// auf dem Hauptfaden stünde so lange die ganze App.
+    private func nimmDatei(_ url: URL?, fuer zweck: Dateiwunsch) {
+        // Abgebrochen — kein Fehler, keine Meldung.
+        guard let url else { return }
+
+        Task { @MainActor in
+            switch zweck {
+            case .klang(let ziel):   await legeKlang(url, in: ziel)
+            case .bild:              await legeBild(url)
+            case .video:             legeVideo(url)
+            }
+        }
+    }
+
+    /// Datei einlesen, ohne den Hauptfaden anzuhalten.
+    ///
+    /// Der Wähler übergibt eine Kopie im eigenen Ordner (`asCopy: true`) —
+    /// deshalb braucht es hier keinen Zugriff auf fremde Ordner mehr. Liegt
+    /// das Original in iCloud, hat iOS es für die Kopie schon geladen.
+    private func lies(_ url: URL) async -> Data? {
+        await Task.detached(priority: .userInitiated) { try? Data(contentsOf: url) }.value
+    }
+
+    private func legeKlang(_ url: URL, in ziel: String) async {
+        guard let daten = await lies(url), !daten.isEmpty else {
+            store.showStatus("Die Datei ließ sich nicht lesen. Liegt sie in iCloud, "
+                             + "muss sie erst geladen werden.")
+            return
+        }
+        let endung = url.pathExtension.isEmpty ? "m4a" : url.pathExtension.lowercased()
+        guard let dateiname = store.saveMedia(data: daten, fileExtension: endung) else {
+            return  // saveMedia meldet den Fehler selbst
+        }
+        guard case .sounds(var inhalt)? = store.widget(widgetID, in: boardID)?.content,
+              let stelle = inhalt.buttons.firstIndex(where: { $0.id == ziel }) else {
+            store.showStatus("Das Klangfeld gibt es nicht mehr.")
+            return
+        }
+        inhalt.buttons[stelle].fileName = dateiname
+        if inhalt.buttons[stelle].label.isEmpty || inhalt.buttons[stelle].label == "Klang" {
+            inhalt.buttons[stelle].label = url.deletingPathExtension().lastPathComponent
+        }
+        store.setContent(.sounds(inhalt), widgetID: widgetID, boardID: boardID)
+
+        let bekannt = ["mp3", "m4a", "wav", "aac", "aif", "aiff", "caf", "ogg"]
+        if !bekannt.contains(endung) {
+            store.showStatus("„\(url.lastPathComponent)“ ist vielleicht keine Tondatei — "
+                             + "sie ist trotzdem hinterlegt.")
+        }
+    }
+
+    private func legeBild(_ url: URL) async {
+        let vorbereitet = await Task.detached(priority: .userInitiated) {
+            () -> (daten: Data, endung: String)? in
+            guard let data = try? Data(contentsOf: url),
+                  let image = UIImage(data: data) else { return nil }
+            return MediaCache.prepareForBoard(image)
+        }.value
+        guard let vorbereitet,
+              let dateiname = store.saveMedia(data: vorbereitet.daten,
+                                              fileExtension: vorbereitet.endung) else {
+            store.showStatus("Das Bild ließ sich nicht lesen.")
+            return
+        }
+        guard case .image(var inhalt)? = store.widget(widgetID, in: boardID)?.content else { return }
+        inhalt.fileName = dateiname
+        store.setContent(.image(inhalt), widgetID: widgetID, boardID: boardID)
+    }
+
+    /// Videos werden NICHT eingelesen, sondern nur an ihren Platz kopiert —
+    /// sie sind schnell mehrere hundert Megabyte groß.
+    private func legeVideo(_ url: URL) {
+        let endung = url.pathExtension.isEmpty ? "mp4" : url.pathExtension
+        guard let dateiname = store.saveLocalMedia(from: url, fileExtension: endung) else {
+            store.showStatus("Das Video ließ sich nicht übernehmen.")
+            return
+        }
+        guard case .video(var inhalt)? = store.widget(widgetID, in: boardID)?.content else { return }
+        inhalt.fileName = dateiname
+        inhalt.sourceLabel = url.lastPathComponent
+        store.setContent(.video(inhalt), widgetID: widgetID, boardID: boardID)
     }
 
     // Bindungen auf den Inhalt des Elements im Speicher — bewusst je Typ
@@ -382,8 +579,10 @@ private struct TextSettings: View {
 private struct ImageSettings: View {
     @EnvironmentObject private var store: BoardStore
     @Binding var content: ImageContent
+    /// Bittet das Blatt, den Dateiwähler zu öffnen — es gibt nur einen,
+    /// und er wird an SwiftUI vorbei gezeigt (siehe `Dateiwahl`).
+    let anfordern: () -> Void
     @State private var photo: PhotosPickerItem?
-    @State private var showFiles = false
 
     var body: some View {
         Group {
@@ -393,7 +592,7 @@ private struct ImageSettings: View {
                       systemImage: "photo.on.rectangle")
             }
             Button {
-                showFiles = true
+                anfordern()
             } label: {
                 Label("Aus Dateien wählen", systemImage: "folder")
             }
@@ -430,18 +629,6 @@ private struct ImageSettings: View {
                 content.fileName = fileName
                 photo = nil
             }
-        }
-        .fileImporter(isPresented: $showFiles, allowedContentTypes: [.image]) { result in
-            guard case .success(let url) = result else { return }
-            let scoped = url.startAccessingSecurityScopedResource()
-            defer { if scoped { url.stopAccessingSecurityScopedResource() } }
-            guard let data = try? Data(contentsOf: url),
-                  let image = UIImage(data: data),
-                  let prepared = MediaCache.prepareForBoard(image),
-                  let fileName = store.saveMedia(data: prepared.daten,
-                                                 fileExtension: prepared.endung)
-            else { return }
-            content.fileName = fileName
         }
     }
 }
@@ -1412,15 +1599,11 @@ private struct BereitsGezogenSeite: View {
 private struct SoundsSettings: View {
     @EnvironmentObject private var store: BoardStore
     @Binding var content: SoundsContent
+    /// Bittet das Blatt, den Dateiwähler für dieses Klangfeld zu öffnen —
+    /// es gibt nur einen, und er hängt oben an der Wurzel.
+    let anfordern: (String) -> Void
 
     @StateObject private var recorder = VoiceRecorder()
-    /// Für welches Feld gerade eine Datei gesucht wird. Bewusst getrennt
-    /// vom Schalter unten: Hingen beide am selben Wert, löschte das
-    /// Schließen des Blattes das Ziel, bevor die Auswahl ausgewertet war —
-    /// die Datei landete dann nirgends und die Karte sagte weiter
-    /// „Kein Ton hinterlegt".
-    @State private var importingFor: String?
-    @State private var zeigtDateiwahl = false
     @State private var recordingFor: String?
 
     var body: some View {
@@ -1462,8 +1645,7 @@ private struct SoundsSettings: View {
                 }
 
                 Button {
-                    importingFor = button.id
-                    zeigtDateiwahl = true
+                    anfordern(button.id)
                 } label: {
                     Label("Tondatei wählen", systemImage: "folder")
                 }
@@ -1525,58 +1707,6 @@ private struct SoundsSettings: View {
                 Label("Feld hinzufügen", systemImage: "plus")
             }
         }
-        // Der Dateiwähler hängt an genau EINEM Abschnitt. Läge er an der
-        // Group, legte SwiftUI ihn an jedes Kind an — es gäbe so viele
-        // Wähler wie Abschnitte, alle am selben Schalter.
-        .fileImporter(isPresented: $zeigtDateiwahl,
-                      // Bewusst ohne Filter: iPadOS blendet sonst Dateien
-                      // aus, deren Art der Anbieter nicht mitliefert — bei
-                      // MP3s in iCloud Drive und auf Netzlaufwerken passiert
-                      // genau das (dieselbe Erfahrung wie in der Web-App).
-                      // Passt die Datei nicht, sagen wir es hinterher.
-                      allowedContentTypes: [.item]) { ergebnis in
-            uebernimmDatei(ergebnis)
-        }
-        }
-    }
-
-    /// Gewählte Datei in das Feld legen, für das der Wähler geöffnet wurde.
-    private func uebernimmDatei(_ ergebnis: Result<URL, Error>) {
-        let ziel = importingFor
-        importingFor = nil
-        guard let ziel else { return }
-
-        switch ergebnis {
-        case .failure:
-            // Abbrechen ist kein Fehler — nur echte Fehler melden.
-            return
-        case .success(let url):
-            let scoped = url.startAccessingSecurityScopedResource()
-            defer { if scoped { url.stopAccessingSecurityScopedResource() } }
-
-            guard let data = try? Data(contentsOf: url), !data.isEmpty else {
-                store.showStatus("Die Datei ließ sich nicht lesen. Liegt sie in iCloud, "
-                                 + "muss sie erst geladen werden.")
-                return
-            }
-            let endung = url.pathExtension.isEmpty ? "m4a" : url.pathExtension.lowercased()
-            guard let dateiname = store.saveMedia(data: data, fileExtension: endung) else {
-                return  // saveMedia meldet den Fehler selbst
-            }
-            guard let index = content.buttons.firstIndex(where: { $0.id == ziel }) else {
-                store.showStatus("Das Klangfeld gibt es nicht mehr.")
-                return
-            }
-            content.buttons[index].fileName = dateiname
-            if content.buttons[index].label.isEmpty
-                || content.buttons[index].label == "Klang" {
-                content.buttons[index].label = url.deletingPathExtension().lastPathComponent
-            }
-            let bekannt = ["mp3", "m4a", "wav", "aac", "aif", "aiff", "caf", "ogg"]
-            if !bekannt.contains(endung) {
-                store.showStatus("„\(url.lastPathComponent)“ ist vielleicht keine Tondatei — "
-                                 + "sie ist trotzdem hinterlegt.")
-            }
         }
     }
 }
@@ -1686,8 +1816,10 @@ private struct SymbolSettings: View {
 private struct VideoSettings: View {
     @EnvironmentObject private var store: BoardStore
     @Binding var content: VideoContent
+    /// Bittet das Blatt, den Dateiwähler zu öffnen — es gibt nur einen,
+    /// und er wird an SwiftUI vorbei gezeigt (siehe `Dateiwahl`).
+    let anfordern: () -> Void
 
-    @State private var showFiles = false
     @State private var video: PhotosPickerItem?
 
     var body: some View {
@@ -1703,7 +1835,7 @@ private struct VideoSettings: View {
                 Label("Video aus Fotos wählen", systemImage: "photo.on.rectangle")
             }
             Button {
-                showFiles = true
+                anfordern()
             } label: {
                 Label("Video aus Dateien wählen", systemImage: "folder")
             }
@@ -1744,16 +1876,6 @@ private struct VideoSettings: View {
             Toggle("In Schleife wiederholen", isOn: $content.loop)
             Toggle("Ohne Ton starten", isOn: $content.muted)
             TextField("Beschriftung", text: $content.caption)
-        }
-        // Ohne Filter, aus demselben Grund wie beim Klang: iPadOS blendet
-        // Dateien aus, deren Art der Anbieter nicht mitliefert.
-        .fileImporter(isPresented: $showFiles, allowedContentTypes: [.item]) { result in
-            guard case .success(let url) = result else { return }
-            let ext = url.pathExtension.isEmpty ? "mp4" : url.pathExtension
-            if let fileName = store.saveLocalMedia(from: url, fileExtension: ext) {
-                content.fileName = fileName
-                content.sourceLabel = url.lastPathComponent
-            }
         }
         .onChange(of: video) { _, item in
             guard let item else { return }

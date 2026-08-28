@@ -225,72 +225,17 @@ Der Ordner `Canada2026iOS/` wurde vom Nutzer aus `main` gelöscht (08/2026).
 Die App wird nicht weiterentwickelt. **Nicht wiederherstellen**, keine
 Vorschläge dazu, und den Eintrag im Bau-Arbeitsablauf nicht zurückholen.
 
-## Projekt Klassenraum (iOS) — Versuchsfassung, NICHT die Store-App
+## Klassenraum (iOS-Versuchsfassung) — abgeschlossen und gelöscht
 
-- Code: `KlassenraumiOS/` — eine **Kopie** von `TafelbildiOS/` (Stand 1.0.57)
-  mit eigener Bundle-ID `de.familie.klassenraum` und dem Anzeigenamen
-  „Klassenraum". Einziger Zweck: den Abgleich von der **öffentlichen** auf
-  die **private** iCloud-Datenbank umbauen (Weg A: private Datenbank plus
-  `CKShare`), ohne die veröffentlichte App anzufassen.
-- **Nicht verwechseln** mit `klassenraum/` (kleingeschrieben) — das ist die
-  Web-App gleichen Namens und hat damit nichts zu tun.
-- **Niemals zur Prüfung einreichen.** Zwei fast gleiche Apps desselben
-  Entwicklers sind nach Apples Regel 4.3 eine Dublette. Diese Fassung lebt
-  nur in TestFlight bei **internen** Testern; dafür findet keine Prüfung
-  statt.
-- **Der iCloud-Bereich ist mit Absicht derselbe** wie bei Tafelbild
-  (`iCloud.de.familie.tafelbild`): Weg A schreibt nur in die private, die
-  veröffentlichte App nur in die öffentliche Datenbank — sie stören einander
-  nicht, und die Versuchsfassung kann den vorhandenen Bestand lesen, um den
-  Umzug an echten Tafeln zu üben.
-- **Hier passiert nur der Abgleichs-Umbau.** Alle sonstigen Verbesserungen
-  gehen weiter allein nach `TafelbildiOS/`; diese Kopie bleibt bei den
-  Funktionen bewusst zurück. Steht der Umbau, wandert nur die
-  Abgleichsschicht zurück nach `TafelbildiOS/`, und der Ordner wird gelöscht.
-- Version beginnt bei `0.1.0` (zwei Stellen im pbxproj); die Build-Nummer
-  vergibt dieselbe Skript-Bauphase wie bei Tafelbild.
-- Gebaut wird von `.github/workflows/klassenraum-ios-build.yml`.
-- **Ein Blatt, ein Dateiwähler — an der Wurzel.** Zwei Regeln, beide
-  teuer gelernt (`WidgetSettingsSheet`, `Dateiwunsch`):
-  1. Der Wähler gehört an einen Halter, den es immer gibt. Ein `Form`
-     ist eine `List` und baut ihre Zeilen erst auf, wenn sie in
-     Sichtweite kommen. Hängt der Wähler an einer Zeile mitten in der
-     Liste, ist er beim Tippen oft noch gar nicht da: Der Schalter
-     springt um, nichts passiert (0.1.9, Klangfelder).
-  2. **Es darf nur EINEN je Blatt geben.** Zwei streiten sich — einer
-     gewinnt, der andere schweigt. In 0.1.9 verdrängte der neue Wähler
-     an der Wurzel die eigenen von Bild und Video. Seit 0.1.10 gibt es
-     genau einen; `Dateiwunsch` sagt ihm, für wen er öffnet.
-  3. **Der Wunsch IST die Präsentation** (`sheet(item:)` mit einem
-     `Identifiable`-Wert, der Ziel und Dateiarten trägt). Ein Schalter
-     neben dem Ziel läuft aus dem Tritt: Hängen beide am selben Wert,
-     ist das Ziel beim Auswerten schon gelöscht; hängen sie
-     auseinander, springt einer zu früh zurück.
-  4. **Der Wähler wird an SwiftUI vorbei gezeigt** (`Dateiwahl`):
-     UIKit präsentiert ihn, UIKit schließt ihn, das Ziel reist im
-     Rückruf mit. Jede Präsentation, die an einem Ansichtswert hängt
-     (`.fileImporter`, `.sheet`), räumt SwiftUI beim Neuzeichnen des
-     Formulars ab — der Schalter bleibt dabei stehen, und im nächsten
-     Durchgang geht sie wieder auf: das Flackern aus 0.1.10/0.1.11.
-     Der Wechsel des Mechanismus half nicht, weil beide an einem
-     Ansichtswert hingen; erst der Verzicht darauf half.
-     `asCopy: true` spart obendrein den Zugriff auf fremde Ordner.
-- **Nicht dem Szenen-Delegaten anlasten.** In 0.1.8 hatte ich ihn dafür
-  verantwortlich gemacht und ausgebaut; das war falsch. Er ist seit
-  0.1.9 wieder da (mit `var window: UIWindow?`, wie
-  `BeamerSceneDelegate`) und nimmt Freigabe-Einladungen entgegen. Wenn
-  ein Wähler schweigt: erst prüfen, ob ANDERE Wähler auch schweigen —
-  gehen sie, liegt es an der Stelle, an der dieser eine hängt.
-- **Der Umbau ist durch** (0.1.7): private Datenbank mit eigener Zone,
-  Abgleich über Änderungsmarken aus privater UND geteilter Datenbank,
-  Teilen/Widerrufen/Übernehmen über `CKShare`. Der Einladungscode ist
-  ersatzlos entfallen. Einzelheiten in `KlassenraumiOS/README.md`.
-- **Beim Rückbau nach Tafelbild sind vier Angaben nachzuziehen** —
-  App-Datenschutz in App Store Connect, `PrivacyInfo.xcprivacy`,
-  `docs/tafelbild/datenschutz.html` und der Werbetext. Sie stehen samt
-  fertiger Formulierungen in `KlassenraumiOS/AppStore.md`. **Vorher
-  nichts davon ändern:** Solange Tafelbild in die öffentliche Datenbank
-  schreibt, ist der heutige Wortlaut dort der richtige.
+Der Ordner `KlassenraumiOS/` war eine Kopie von Tafelbild 1.0.57, allein
+dafür da, den Abgleich von der öffentlichen auf die **private**
+iCloud-Datenbank umzubauen, ohne die veröffentlichte App anzufassen. Der
+Umbau ist durch und mit **Tafelbild 1.0.58** zurückgewandert; der Ordner
+und sein Bau-Arbeitsablauf sind gelöscht. **Nicht wiederherstellen.**
+
+Was daraus bleibt, steht unten beim Projekt Tafelbild. Nicht verwechseln
+mit `klassenraum/` (kleingeschrieben) — das ist die Web-App gleichen
+Namens und lebt weiter.
 
 ## Projekt Klassenraum (Web-App)
 
@@ -335,7 +280,7 @@ Vorschläge dazu, und den Eintrag im Bau-Arbeitsablauf nicht zurückholen.
 - App-Code: `TafelbildiOS/` (ein Target: App, iPhone + iPad, iOS 17).
   Native Ersatz-App für „Classroomscreen": frei anzuordnende Elemente
   (Zufälliger Name, Timer, Uhr, Ampel, Lautstärke, Tagesablauf, Text,
-  Bild, Klänge) auf mehreren Tafeln, teilbar per Einladungscode.
+  Bild, Klänge) auf mehreren Tafeln, teilbar per Einladungslink.
   (Nicht verwechseln mit der Web-App `klassenraum/` — beide existieren
   nebeneinander.)
 - `MARKETING_VERSION` steht an zwei Stellen im pbxproj (Debug +
@@ -352,18 +297,68 @@ Vorschläge dazu, und den Eintrag im Bau-Arbeitsablauf nicht zurückholen.
   `Config/Info.plist` und als Build-Einstellung
   `INFOPLIST_KEY_ITSAppUsesNonExemptEncryption` — nicht entfernen,
   erspart die Export-Compliance-Frage bei jedem TestFlight-Build.
-- Datenhaltung wie in der Reisekasse: generische `Entity`-Records in der
-  öffentlichen CloudKit-Datenbank. **Sichtbarkeit hängt an der
-  iCloud-Kennung** (`ownerUserID` / `memberUserIDs`, aus
-  `CKContainer.fetchUserRecordID`) — nicht am Anzeigenamen; nur so
-  erscheinen eigene Tafeln auf allen Geräten derselben Apple-ID.
-- In der CloudKit-Konsole genügt **ein** Index: `Entity` → Feld
-  `updatedAtMs` → QUERYABLE (die App sortiert selbst, SORTABLE entfällt).
-  Fehlt er, fällt die Abfrage automatisch auf „alles holen" zurück, was
-  einen Index auf `recordName` braucht.
-  Pflicht ist dagegen die Sicherheitsrolle: `Entity` → `_icloud` braucht
-  Read **und** Write, sonst dürfen Kolleginnen geteilte Tafeln nicht
-  ändern.
+### Abgleich (seit 1.0.58 private Datenbank)
+
+- Generische `Entity`-Records in der **privaten** CloudKit-Datenbank, in
+  einer eigenen Zone `Tafeln`. Vorher war es die öffentliche — dort konnte
+  der Entwickler jeden Datensatz einsehen. **Nicht zurückdrehen:** Daran
+  hängen die Datenschutzangaben, `PrivacyInfo.xcprivacy` und
+  `docs/tafelbild/datenschutz.html`.
+- Gelesen wird über **Änderungsmarken** (`CKFetchDatabaseChangesOperation` +
+  `CKFetchRecordZoneChangesOperation`) aus **beiden** Datenbanken, der
+  privaten und der geteilten. Eine geteilte Tafel liegt im Bereich
+  derjenigen, die sie geteilt hat — eine Abfrage auf den eigenen Bereich
+  fände sie nie.
+- **Kein Index und keine Sicherheitsrolle** in der CloudKit-Konsole nötig;
+  beides galt nur für die öffentliche Datenbank. Nötig bleibt einmalig
+  „Deploy Schema Changes to Production".
+- **Herkunft:** Die Engine merkt sich je Datensatz den Bereich
+  (`sync.herkunft`) und schickt Änderungen über die richtige Datenbank
+  zurück. Ein Push-Paket geht immer in genau einen Bereich.
+- **Dateien hängen an der Tafel** (`parent`), sonst reisen sie bei einer
+  Freigabe nicht mit. Erst die Tafel hochladen, dann die Dateien — ein
+  Verweis auf einen Datensatz, den es noch nicht gibt, wird abgewiesen.
+- Geteilt wird über `CKShare` mit `publicPermission = .readWrite`:
+  Einladungslink, Schreibrecht sofort, keine Rechteabfrage (Ansage des
+  Nutzers, 08/2026). Dazu Widerrufen, Teilnahme beenden und „Als eigene
+  Tafel übernehmen" — eine abgekoppelte Kopie samt KOPIEN der
+  Namenslisten unter neuen Kennungen. Der Einladungscode ist ersatzlos
+  entfallen.
+- Einladungen nimmt `FreigabeSceneDelegate` entgegen
+  (`windowScene(_:userDidAcceptCloudKitShareWith:)`) — den Rückruf gibt es
+  nur an der Szene. Er trägt `var window: UIWindow?`, beantwortet aber
+  `scene(_:willConnectTo:options:)` NICHT: Wer das tut, verdrängt die
+  `WindowGroup` von SwiftUI. Für andere Szenen-Rollen gibt
+  `configurationForConnecting` die Konfiguration aus der `Info.plist`
+  zurück, sonst bliebe der Beamer schwarz. Dazu `CKSharingSupported`.
+- **Sichtbarkeit** hängt an der iCloud-Kennung (`ownerUserID` /
+  `memberUserIDs`) — nicht am Anzeigenamen. Eine empfangene Tafel trägt
+  keine davon; sie wird beim Ankommen in `ownBoardIDs` eingetragen, sonst
+  bliebe sie unsichtbar.
+
+### Ein Blatt, ein Dateiwähler — an der Wurzel, an SwiftUI vorbei
+
+Vier Regeln, jede einmal teuer gelernt (`WidgetSettingsSheet`,
+`Dateiwunsch`, `Dateiwahl`):
+
+1. **Einer je Blatt.** Zwei streiten sich; einer gewinnt, der andere
+   schweigt.
+2. **An der Wurzel.** Ein `Form` ist eine `List` und baut ihre Zeilen erst
+   auf, wenn sie in Sichtweite kommen — an einer Zeile mitten in der Liste
+   ist der Wähler beim Tippen oft noch gar nicht da.
+3. **Der Wunsch trägt das Ziel**, kein Schalter daneben. Zusammengezogen
+   ist das Ziel beim Auswerten schon gelöscht; getrennt springt einer zu
+   früh zurück.
+4. **An SwiftUI vorbei zeigen** (`Dateiwahl`): UIKit präsentiert, UIKit
+   schließt, das Ziel reist im Rückruf mit. Jede Präsentation, die an
+   einem Ansichtswert hängt (`.fileImporter`, `.sheet`), räumt SwiftUI
+   beim Neuzeichnen des Formulars ab — der Schalter bleibt stehen, im
+   nächsten Durchgang geht sie wieder auf: ein Flackern ohne Ende.
+   `asCopy: true` spart zugleich den Zugriff auf fremde Ordner.
+
+Wenn ein Wähler schweigt: **erst prüfen, ob die ANDEREN auch schweigen.**
+Gehen sie, liegt es an der Stelle, an der dieser eine hängt — nicht an
+etwas Großem, das zuletzt geändert wurde.
 - Development (Xcode) und Production (TestFlight) sind getrennte
   CloudKit-Umgebungen — Geräte gleichen nur innerhalb derselben ab. Die
   Ansicht „Abgleich prüfen" in den Einstellungen zeigt, welche gilt.

@@ -53,7 +53,7 @@ struct RootView: View {
                 .onAppear { store.stelleSeiteAufAnfang(board) }
                 .onChange(of: board.id) { _, _ in store.stelleSeiteAufAnfang(board) }
             } else {
-                EmptyBoardView(onCreate: { store.createBoard() }, onJoin: { sheet = .boards })
+                EmptyBoardView(onCreate: { store.createBoard() })
             }
 
             if store.presenting {
@@ -199,14 +199,6 @@ struct RootView: View {
                  + "Stellen gehen mit dem Radierer weg; für einen größeren Bereich "
                  + "hilft das Lasso in der Werkzeugauswahl: den Bereich umkreisen, "
                  + "antippen, „Löschen“.")
-        }
-        .onOpenURL { url in
-            // tafelbild://join/ABC123
-            guard url.scheme == "tafelbild" else { return }
-            let code = url.lastPathComponent
-            store.joinBoard(code: code) { success in
-                if !success { store.showStatus("Zu diesem Code wurde keine Tafel gefunden.") }
-            }
         }
     }
 
@@ -517,7 +509,6 @@ struct WidgetReference: Identifiable, Equatable {
 
 struct EmptyBoardView: View {
     var onCreate: () -> Void
-    var onJoin: () -> Void
 
     var body: some View {
         ZStack {
@@ -530,7 +521,7 @@ struct EmptyBoardView: View {
                 Text("Noch keine Tafel")
                     .font(Theme.font(30, weight: .bold))
                     .foregroundStyle(.white)
-                Text("Lege eine Tafel für deine Klasse an — oder tritt der Tafel einer Kollegin mit dem Einladungscode bei.")
+                Text("Lege eine Tafel für deine Klasse an. Die Tafel einer Kollegin kommt von selbst dazu, sobald du ihren Einladungslink öffnest.")
                     .font(Theme.font(18, weight: .medium))
                     .foregroundStyle(.white.opacity(0.7))
                     .multilineTextAlignment(.center)
@@ -543,15 +534,6 @@ struct EmptyBoardView: View {
                             .padding(.horizontal, 22)
                             .frame(height: 50)
                             .background { Capsule().fill(Color.white) }
-                    }
-                    .buttonStyle(.plain)
-                    Button(action: onJoin) {
-                        Label("Beitreten", systemImage: "person.badge.plus")
-                            .font(Theme.font(17, weight: .bold))
-                            .foregroundStyle(.white)
-                            .padding(.horizontal, 22)
-                            .frame(height: 50)
-                            .background { Capsule().fill(Color.white.opacity(0.14)) }
                     }
                     .buttonStyle(.plain)
                 }

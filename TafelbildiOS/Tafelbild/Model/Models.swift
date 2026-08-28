@@ -1383,7 +1383,18 @@ struct Board: Codable, Identifiable, Equatable {
     /// wird beim Beitritt per Code ergänzt.
     var memberUserIDs: [String] = []
     /// Sechsstelliger Einladungscode zum Teilen.
+    ///
+    /// Aus der Zeit der öffentlichen Datenbank. Seit die Tafeln privat liegen,
+    /// wird nicht mehr über den Code geteilt, sondern über eine echte
+    /// iCloud-Freigabe (`CKShare`). Das Feld bleibt, damit alte Stände weiter
+    /// lesbar sind.
     var joinCode: String = Board.makeJoinCode()
+    /// Ist für diese Tafel eine iCloud-Freigabe angelegt?
+    ///
+    /// Nur ein Merkzettel für die Anzeige und dafür, dass Bilder und Klänge
+    /// sich an die Tafel hängen. Maßgeblich ist immer die Freigabe in der
+    /// iCloud selbst.
+    var geteilt: Bool = false
     var owner: String = ""
     var createdAtMs: Int64 = Date.nowMs
     var updatedAtMs: Int64 = Date.nowMs
@@ -1495,6 +1506,7 @@ struct Board: Codable, Identifiable, Equatable {
         leer.name = ""
         leer.emoji = ""
         leer.joinCode = ""
+        leer.geteilt = false
         leer.widgets = []
         leer.pages = []
         leer.drawing = ""
@@ -1784,7 +1796,7 @@ extension Board {
         case format, frames, labels, schriftfarbe
         case zuletztVon
         case widgets, pages, drawing, members, ownerUserID
-        case memberUserIDs, joinCode, owner, createdAtMs, updatedAtMs, deleted
+        case memberUserIDs, joinCode, geteilt, owner, createdAtMs, updatedAtMs, deleted
         case embeddedLists
     }
 
@@ -1812,6 +1824,7 @@ extension Board {
         ownerUserID = c.wert(.ownerUserID, "")
         memberUserIDs = c.wert(.memberUserIDs, [String]())
         joinCode = c.wert(.joinCode, Board.makeJoinCode())
+        geteilt = c.wert(.geteilt, false)
         owner = c.wert(.owner, "")
         createdAtMs = c.wert(.createdAtMs, Date.nowMs)
         updatedAtMs = c.wert(.updatedAtMs, Date.nowMs)
