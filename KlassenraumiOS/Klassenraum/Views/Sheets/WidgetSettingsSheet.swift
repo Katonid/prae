@@ -14,6 +14,10 @@ struct WidgetSettingsSheet: View {
 
     private var kopfGroesse: Double { widget?.labelSize ?? 1 }
 
+    /// Für welches Klangfeld gerade eine Tondatei gesucht wird — nil, wenn
+    /// keine. Der Dateiwähler dafür hängt weiter unten am `Form`.
+    @State private var klangZiel: String?
+
     var body: some View {
         NavigationStack {
             Form {
@@ -36,7 +40,7 @@ struct WidgetSettingsSheet: View {
                     case .namePicker(let value):
                         NamePickerSettings(content: bindNamePicker(value))
                     case .sounds(let value):
-                        SoundsSettings(content: bindSounds(value))
+                        SoundsSettings(content: bindSounds(value), dateiwunsch: $klangZiel)
                     case .symbols(let value):
                         SymbolSettings(content: bindSymbol(value))
                     case .video(let value):
@@ -182,12 +186,86 @@ struct WidgetSettingsSheet: View {
                     }
                 }
             }
+            // Der Dateiwähler für Tondateien hängt HIER am Formular — nicht
+            // unten bei den Klangfeldern.
+            //
+            // Vorher saß er an dem Abschnitt mit „Feld hinzufügen", also an
+            // einer Zeile MITTEN IN DER LISTE. Ein `Form` ist eine `List`,
+            // und die baut ihre Zeilen erst auf, wenn sie in Sichtweite
+            // kommen. Sobald über den Klangfeldern genug stand, war die Zeile
+            // beim Tippen auf „Tondatei wählen" noch gar nicht da — und mit
+            // ihr auch der Wähler nicht. Der Schalter sprang um, es passierte
+            // nichts, und es sah aus wie ein hängender Dateimanager.
+            //
+            // Bild und Video waren nie betroffen: Deren Wähler hängen an der
+            // Group beziehungsweise an einem festen Abschnitt ohne `ForEach`
+            // darüber. Genau daran war der Fehler zu erkennen.
+            //
+            // Merksatz: Ein Wähler oder Blatt gehört an einen Halter, den es
+            // immer gibt — nicht an eine Zeile, die weggerollt werden kann.
+            .fileImporter(isPresented: Binding(
+                get: { klangZiel != nil },
+                set: { if !$0 { klangZiel = nil } }
+            ),
+            // Bewusst ohne Filter: iPadOS blendet sonst Dateien aus, deren
+            // Art der Anbieter nicht mitliefert — bei MP3s in iCloud Drive
+            // und auf Netzlaufwerken passiert genau das. Passt die Datei
+            // nicht, sagen wir es hinterher.
+                          allowedContentTypes: [.item]) { ergebnis in
+                nimmKlangdatei(ergebnis)
+            }
             .navigationTitle(widget?.kind.title ?? "Element")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Fertig") { dismiss() }
                 }
+            }
+        }
+    }
+
+    /// Gewählte Tondatei in das Klangfeld legen, für das gefragt wurde.
+    ///
+    /// Gelesen wird abseits des Hauptfadens: Liegt die Datei in iCloud oder
+    /// auf einem Netzlaufwerk, lädt `Data(contentsOf:)` sie erst herunter —
+    /// auf dem Hauptfaden stünde so lange die ganze App.
+    private func nimmKlangdatei(_ ergebnis: Result<URL, Error>) {
+        let ziel = klangZiel
+        klangZiel = nil
+        // Abbrechen ist kein Fehler — nur echte Fehler melden.
+        guard let ziel, case .success(let url) = ergebnis else { return }
+
+        Task { @MainActor in
+            let daten = await Task.detached(priority: .userInitiated) { () -> Data? in
+                let scoped = url.startAccessingSecurityScopedResource()
+                defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+                return try? Data(contentsOf: url)
+            }.value
+
+            guard let daten, !daten.isEmpty else {
+                store.showStatus("Die Datei ließ sich nicht lesen. Liegt sie in iCloud, "
+                                 + "muss sie erst geladen werden.")
+                return
+            }
+            let endung = url.pathExtension.isEmpty ? "m4a" : url.pathExtension.lowercased()
+            guard let dateiname = store.saveMedia(data: daten, fileExtension: endung) else {
+                return  // saveMedia meldet den Fehler selbst
+            }
+            guard case .sounds(var inhalt)? = store.widget(widgetID, in: boardID)?.content,
+                  let stelle = inhalt.buttons.firstIndex(where: { $0.id == ziel }) else {
+                store.showStatus("Das Klangfeld gibt es nicht mehr.")
+                return
+            }
+            inhalt.buttons[stelle].fileName = dateiname
+            if inhalt.buttons[stelle].label.isEmpty || inhalt.buttons[stelle].label == "Klang" {
+                inhalt.buttons[stelle].label = url.deletingPathExtension().lastPathComponent
+            }
+            store.setContent(.sounds(inhalt), widgetID: widgetID, boardID: boardID)
+
+            let bekannt = ["mp3", "m4a", "wav", "aac", "aif", "aiff", "caf", "ogg"]
+            if !bekannt.contains(endung) {
+                store.showStatus("„\(url.lastPathComponent)“ ist vielleicht keine Tondatei — "
+                                 + "sie ist trotzdem hinterlegt.")
             }
         }
     }
@@ -1421,15 +1499,13 @@ private struct BereitsGezogenSeite: View {
 private struct SoundsSettings: View {
     @EnvironmentObject private var store: BoardStore
     @Binding var content: SoundsContent
+    /// Für welches Klangfeld eine Datei gesucht wird.
+    ///
+    /// Der Dateiwähler selbst hängt **nicht** hier, sondern oben am Formular
+    /// (`WidgetSettingsSheet`). Warum, steht dort.
+    @Binding var dateiwunsch: String?
 
     @StateObject private var recorder = VoiceRecorder()
-    /// Für welches Feld gerade eine Datei gesucht wird. Bewusst getrennt
-    /// vom Schalter unten: Hingen beide am selben Wert, löschte das
-    /// Schließen des Blattes das Ziel, bevor die Auswahl ausgewertet war —
-    /// die Datei landete dann nirgends und die Karte sagte weiter
-    /// „Kein Ton hinterlegt".
-    @State private var importingFor: String?
-    @State private var zeigtDateiwahl = false
     @State private var recordingFor: String?
 
     var body: some View {
@@ -1471,8 +1547,7 @@ private struct SoundsSettings: View {
                 }
 
                 Button {
-                    importingFor = button.id
-                    zeigtDateiwahl = true
+                    dateiwunsch = button.id
                 } label: {
                     Label("Tondatei wählen", systemImage: "folder")
                 }
@@ -1534,70 +1609,6 @@ private struct SoundsSettings: View {
                 Label("Feld hinzufügen", systemImage: "plus")
             }
         }
-        // Der Dateiwähler hängt an genau EINEM Abschnitt. Läge er an der
-        // Group, legte SwiftUI ihn an jedes Kind an — es gäbe so viele
-        // Wähler wie Abschnitte, alle am selben Schalter.
-        .fileImporter(isPresented: $zeigtDateiwahl,
-                      // Bewusst ohne Filter: iPadOS blendet sonst Dateien
-                      // aus, deren Art der Anbieter nicht mitliefert — bei
-                      // MP3s in iCloud Drive und auf Netzlaufwerken passiert
-                      // genau das (dieselbe Erfahrung wie in der Web-App).
-                      // Passt die Datei nicht, sagen wir es hinterher.
-                      allowedContentTypes: [.item]) { ergebnis in
-            uebernimmDatei(ergebnis)
-        }
-        }
-    }
-
-    /// Gewählte Datei in das Feld legen, für das der Wähler geöffnet wurde.
-    ///
-    /// Zwei Dinge sind hier wichtig, beide gegen ein Hängenbleiben:
-    ///
-    /// 1. **Der Schalter wird zuerst zurückgesetzt.** Vorher schloss den
-    ///    Wähler erst das Neuzeichnen, das die Zuweisung weiter unten
-    ///    auslöst — und dabei ging das Schließen gelegentlich verloren. Der
-    ///    Schalter blieb dann innerlich auf „offen", und ein zweiter Tipp auf
-    ///    „Tondatei wählen" tat gar nichts mehr. Genau der gemeldete Fehler.
-    /// 2. **Gelesen wird abseits des Hauptfadens.** Liegt die Datei in iCloud
-    ///    oder auf einem Netzlaufwerk, lädt `Data(contentsOf:)` sie erst
-    ///    herunter. Auf dem Hauptfaden stünde so lange die ganze App.
-    private func uebernimmDatei(_ ergebnis: Result<URL, Error>) {
-        zeigtDateiwahl = false
-        let ziel = importingFor
-        importingFor = nil
-        // Abbrechen ist kein Fehler — nur echte Fehler melden.
-        guard let ziel, case .success(let url) = ergebnis else { return }
-
-        Task { @MainActor in
-            let daten = await Task.detached(priority: .userInitiated) { () -> Data? in
-                let scoped = url.startAccessingSecurityScopedResource()
-                defer { if scoped { url.stopAccessingSecurityScopedResource() } }
-                return try? Data(contentsOf: url)
-            }.value
-
-            guard let daten, !daten.isEmpty else {
-                store.showStatus("Die Datei ließ sich nicht lesen. Liegt sie in iCloud, "
-                                 + "muss sie erst geladen werden.")
-                return
-            }
-            let endung = url.pathExtension.isEmpty ? "m4a" : url.pathExtension.lowercased()
-            guard let dateiname = store.saveMedia(data: daten, fileExtension: endung) else {
-                return  // saveMedia meldet den Fehler selbst
-            }
-            guard let index = content.buttons.firstIndex(where: { $0.id == ziel }) else {
-                store.showStatus("Das Klangfeld gibt es nicht mehr.")
-                return
-            }
-            content.buttons[index].fileName = dateiname
-            if content.buttons[index].label.isEmpty
-                || content.buttons[index].label == "Klang" {
-                content.buttons[index].label = url.deletingPathExtension().lastPathComponent
-            }
-            let bekannt = ["mp3", "m4a", "wav", "aac", "aif", "aiff", "caf", "ogg"]
-            if !bekannt.contains(endung) {
-                store.showStatus("„\(url.lastPathComponent)“ ist vielleicht keine Tondatei — "
-                                 + "sie ist trotzdem hinterlegt.")
-            }
         }
     }
 }
