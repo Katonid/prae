@@ -1132,23 +1132,58 @@ final class BoardStore: ObservableObject {
     /// den Wechsel auf ein anderes Gerät.
     struct BackupFile: Codable {
         var app: String = "tafelbild"
-        var version: Int = 1
+        /// 1 = nur Tafeln und Listen, 2 = mit Dateien.
+        var version: Int = 2
         var createdAt: String = ""
         var boards: [Board] = []
         var lists: [NameList] = []
+        /// Bilder, Klänge und Kamerabilder — Dateiname → Inhalt als Base64.
+        ///
+        /// Bewusst in derselben Datei: Eine Sicherung, die stillschweigend
+        /// die Bilder verliert, ist eine Falle. Ein Archiv aus mehreren
+        /// Dateien wäre kleiner, aber iOS bringt kein Auspacken mit — eine
+        /// Sicherung, die sich nicht überall einlesen lässt, taugt nichts.
+        ///
+        /// **Optional**, damit ältere Sicherungen (Fassung 1) weiter gelesen
+        /// werden: Der erzeugte Leser wirft sonst bei einem fehlenden
+        /// Schlüssel, auch wenn ein Vorgabewert dasteht.
+        var medien: [String: String]?
     }
 
     /// Schreibt die Sicherung in eine Datei und gibt deren Adresse zurück.
+    ///
+    /// **Mit Dateien** (Fassung 2). Vorher enthielt sie nur Tafeln und
+    /// Listen; wer damit auf ein anderes Gerät zog, stand dort vor leeren
+    /// Bildrahmen und stummen Klangfeldern, ohne dass die App etwas gesagt
+    /// hätte.
     func writeBackup() -> URL? {
         var file = BackupFile()
         file.createdAt = ISO8601DateFormatter().string(from: Date())
         file.boards = visibleBoards
         file.lists = visibleNameLists
+
+        // Alle Dateien, auf die die gesicherten Tafeln zeigen. Videos sind
+        // nicht dabei: Die liegen dort, wo sie ausgewählt wurden, und die
+        // App hat nur ihren Namen (siehe `syncedMedia`).
+        var medien: [String: String] = [:]
+        var bytes = 0
+        for name in Set(visibleBoards.flatMap { $0.syncedMedia }) {
+            guard let daten = try? Data(contentsOf: MediaStore.url(name)) else { continue }
+            medien[name] = daten.base64EncodedString()
+            bytes += daten.count
+        }
+        file.medien = medien.isEmpty ? nil : medien
+
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         guard let data = try? encoder.encode(file) else {
             showStatus("Die Sicherung konnte nicht erstellt werden.")
             return nil
+        }
+        if !medien.isEmpty {
+            let mb = Double(bytes) / 1_048_576
+            showStatus(String(format: "Sicherung mit %d Datei(en), rund %.1f MB.",
+                              medien.count, mb))
         }
         let name = "Klassenraum-Sicherung-" + Self.dayStamp() + ".json"
         let url = FileManager.default.temporaryDirectory.appendingPathComponent(name)
@@ -1171,6 +1206,18 @@ final class BoardStore: ObservableObject {
               let file = try? JSONDecoder().decode(BackupFile.self, from: data) else {
             showStatus("Die Datei konnte nicht gelesen werden.")
             return nil
+        }
+
+        // Dateien zuerst wegschreiben: Die Tafeln zeigen mit ihrem Namen
+        // darauf, und der bleibt beim Einlesen unverändert. Liegt eine Datei
+        // schon da, bleibt sie — die Namen sind Zufallskennungen, gleicher
+        // Name heißt gleiche Datei.
+        var neueDateien = 0
+        for (name, base64) in file.medien ?? [:] {
+            guard !MediaStore.exists(name), let daten = Data(base64Encoded: base64) else { continue }
+            guard (try? daten.write(to: MediaStore.url(name), options: .atomic)) != nil else { continue }
+            engine.enqueue(kind: .media, entityId: name)
+            neueDateien += 1
         }
 
         // Namenslisten zuerst: Die Tafeln zeigen auf ihre Kennungen.
@@ -1214,7 +1261,8 @@ final class BoardStore: ObservableObject {
 
         saveNow()
         if activeBoard == nil { activeBoardID = visibleBoards.first?.id ?? "" }
-        showStatus("\(neueTafeln) Tafeln und \(neueListen) Listen eingelesen.")
+        let dateien = neueDateien > 0 ? ", \(neueDateien) Datei(en)" : ""
+        showStatus("\(neueTafeln) Tafeln und \(neueListen) Listen eingelesen\(dateien).")
         return (neueTafeln, neueListen)
     }
 
