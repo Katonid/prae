@@ -889,27 +889,59 @@ final class CloudSyncEngine: @unchecked Sendable {
         // zweite anzulegen lehnt CloudKit ab, und der alte Link soll gelten.
         if let vorhandene = wurzel.share,
            let share = await einzelnerDatensatz(vorhandene.recordID, aus: database) as? CKShare {
-            return .success(share)
+            return mitLink(share)
         }
 
-        let share = CKShare(rootRecord: wurzel)
-        share[CKShare.SystemFieldKey.title] = titel as CKRecordValue
-        share.publicPermission = .readWrite
+        let neue = CKShare(rootRecord: wurzel)
+        neue[CKShare.SystemFieldKey.title] = titel as CKRecordValue
+        neue.publicPermission = .readWrite
 
-        return await withCheckedContinuation { fortsetzung in
+        let gesichert: Result<CKShare, Freigabefehler> = await withCheckedContinuation { fortsetzung in
             let box = ResumeOnce()
-            let operation = CKModifyRecordsOperation(recordsToSave: [wurzel, share], recordIDsToDelete: nil)
+            // **Die Antwort des Servers zählt, nicht das, was hingeschickt
+            // wurde.** Die Adresse der Freigabe (`url`) vergibt iCloud; das
+            // örtliche Objekt kennt sie nicht. Wer es trotzdem weiterreicht,
+            // bekommt ein Teilen-Blatt, dessen „Link kopieren" nichts
+            // kopiert — genau so gemeldet.
+            var antwort: CKShare?
+            let operation = CKModifyRecordsOperation(recordsToSave: [wurzel, neue],
+                                                     recordIDsToDelete: nil)
             operation.qualityOfService = .userInitiated
+            operation.perRecordSaveBlock = { _, ergebnis in
+                if case .success(let record) = ergebnis, let geteilt = record as? CKShare {
+                    antwort = geteilt
+                }
+            }
             operation.modifyRecordsResultBlock = { ergebnis in
                 switch ergebnis {
                 case .success:
-                    box.finish { fortsetzung.resume(returning: .success(share)) }
+                    box.finish { fortsetzung.resume(returning: .success(antwort ?? neue)) }
                 case .failure(let fehler):
                     box.finish { fortsetzung.resume(returning: .failure(.cloud(Self.describe(fehler)))) }
                 }
             }
             self.database.add(operation)
         }
+
+        guard case .success(let fertig) = gesichert else { return gesichert }
+        // Sicherheitsnetz: Kam die Adresse nicht mit, den Datensatz einmal
+        // frisch holen — ein gespeicherter Freigabe-Datensatz trägt sie.
+        if fertig.url == nil,
+           let nachgeladen = await einzelnerDatensatz(neue.recordID, aus: database) as? CKShare {
+            return mitLink(nachgeladen)
+        }
+        return mitLink(fertig)
+    }
+
+    /// Eine Freigabe ohne Adresse ist zum Verschicken nutzlos — dann lieber
+    /// sagen, was los ist, als ein Blatt zu zeigen, das nichts kopiert.
+    private func mitLink(_ share: CKShare) -> Result<CKShare, Freigabefehler> {
+        guard share.url != nil else {
+            return .failure(.cloud("Die Freigabe ist angelegt, aber iCloud hat noch "
+                                   + "keinen Link dazu geliefert. In einem Moment "
+                                   + "noch einmal versuchen."))
+        }
+        return .success(share)
     }
 
     /// Die bestehende Freigabe einer Tafel — nil, wenn sie nicht geteilt ist.
