@@ -188,10 +188,14 @@ struct AppSettingsSheet: View {
                 } header: {
                     Text("Sichern und übertragen")
                 } footer: {
-                    Text("Die Sicherung enthält alle Tafeln und Namenslisten als eine Datei — "
-                         + "gut für ein Backup oder den Wechsel auf ein anderes Gerät. Beim "
-                         + "Einlesen kommen die Tafeln zu den vorhandenen dazu; es wird nichts "
-                         + "überschrieben.")
+                    Text("Die Sicherung enthält alle Tafeln, Namenslisten und die "
+                         + "hinterlegten Bilder und Klänge als eine Datei — gut für ein "
+                         + "Backup oder den Wechsel auf ein anderes Gerät. Sie kann dadurch "
+                         + "groß werden; die App sagt beim Erstellen, wie groß.\n\n"
+                         + "Videos sind nicht dabei: Die liegen dort, wo du sie ausgewählt "
+                         + "hast, und die App kennt nur ihren Namen.\n\n"
+                         + "Beim Einlesen kommen die Tafeln zu den vorhandenen dazu; es "
+                         + "wird nichts überschrieben.")
                 }
 
                 Section {
