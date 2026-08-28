@@ -1,22 +1,27 @@
 import SwiftUI
+import UIKit
 import PhotosUI
 import UniformTypeIdentifiers
 
 /// Wofür gerade eine Datei gesucht wird.
 ///
-/// **In einem Blatt darf es nur EINEN `.fileImporter` geben.** Zwei davon im
-/// selben Blatt streiten sich: Einer gewinnt, der andere tut still gar nichts.
-/// Genau das passierte in 0.1.9 — der neue Wähler an der Wurzel verdrängte
-/// die eigenen von Bild und Video. Vorher fiel es nie auf, weil immer nur ein
-/// Elementtyp gleichzeitig im Formular steht.
-///
-/// Deshalb steht hier ein einziger Wähler, und dieser Wert sagt ihm, für wen
-/// er öffnet und wohin das Ergebnis gehört.
-private enum Dateiwunsch: Equatable {
+/// Der Wunsch ist zugleich die Kennung der Präsentation (`sheet(item:)`):
+/// Er entsteht mit dem Tippen, trägt Ziel und Dateiarten in sich und
+/// verschwindet erst, wenn ausgewertet ist. Damit gibt es keinen Schalter,
+/// der getrennt vom Ziel verlorengehen könnte.
+private enum Dateiwunsch: Identifiable, Equatable {
     /// Tondatei für ein Klangfeld (dessen Kennung).
     case klang(String)
     case bild
     case video
+
+    var id: String {
+        switch self {
+        case .klang(let feld): return "klang-" + feld
+        case .bild: return "bild"
+        case .video: return "video"
+        }
+    }
 
     /// Was der Wähler anbieten darf.
     var arten: [UTType] {
@@ -28,6 +33,51 @@ private enum Dateiwunsch: Equatable {
             // Art der Anbieter nicht mitliefert — bei MP3s in iCloud Drive
             // und auf Netzlaufwerken passiert genau das.
             return [.item]
+        }
+    }
+}
+
+/// Der Dateiwähler von iOS, selbst gezeigt.
+///
+/// **Warum nicht `.fileImporter`?** Er nimmt die erlaubten Dateiarten und
+/// einen Schalter als Ansichtswerte entgegen und baut die Präsentation neu
+/// auf, sobald sich daran etwas rührt. In 0.1.10 blitzte der Wähler deshalb
+/// nur auf und schloss sich sofort wieder: Beim Öffnen wechselten die Arten
+/// von der Vorgabe auf die des Wunsches — mitten in der Präsentation.
+///
+/// Hier entstehen die Arten EINMAL, beim Anlegen des Wählers, und danach
+/// rührt sie niemand mehr an. Das Ergebnis kommt über den Delegaten zurück,
+/// nicht über einen Ansichtswert.
+///
+/// `asCopy: true`: iOS legt eine Kopie im eigenen Ordner ab. Damit braucht es
+/// keinen Zugriff auf fremde Ordner, und die Datei bleibt lesbar, auch wenn
+/// der Wähler längst zu ist.
+private struct Dateiwaehler: UIViewControllerRepresentable {
+    let arten: [UTType]
+    let fertig: (URL?) -> Void
+
+    func makeUIViewController(context: Context) -> UIDocumentPickerViewController {
+        let waehler = UIDocumentPickerViewController(forOpeningContentTypes: arten, asCopy: true)
+        waehler.allowsMultipleSelection = false
+        waehler.delegate = context.coordinator
+        return waehler
+    }
+
+    func updateUIViewController(_ waehler: UIDocumentPickerViewController, context: Context) { }
+
+    func makeCoordinator() -> Koordinator { Koordinator(fertig: fertig) }
+
+    final class Koordinator: NSObject, UIDocumentPickerDelegate {
+        private let fertig: (URL?) -> Void
+        init(fertig: @escaping (URL?) -> Void) { self.fertig = fertig }
+
+        func documentPicker(_ controller: UIDocumentPickerViewController,
+                            didPickDocumentsAt urls: [URL]) {
+            fertig(urls.first)
+        }
+
+        func documentPickerWasCancelled(_ controller: UIDocumentPickerViewController) {
+            fertig(nil)
         }
     }
 }
@@ -44,21 +94,17 @@ struct WidgetSettingsSheet: View {
 
     private var kopfGroesse: Double { widget?.labelSize ?? 1 }
 
-    /// Wofür der Wähler geöffnet wurde. **Bewusst getrennt vom Schalter
-    /// darunter:** Hingen beide am selben Wert, löschte das Schließen des
-    /// Wählers das Ziel, bevor die Auswahl ausgewertet war — die Datei landete
-    /// dann nirgends, ohne jede Meldung. Genau dieser Fehler war in 0.1.9
-    /// zurück, weil ich beides zu einem Wert zusammengezogen hatte.
+    /// Wofür der Wähler geöffnet wurde — und zugleich, DASS er offen ist.
+    ///
+    /// Ein Wert statt zweier: Vorher gab es einen Schalter und daneben das
+    /// Ziel. Hingen beide zusammen, löschte das Schließen das Ziel zu früh;
+    /// hingen sie auseinander, gerieten sie aus dem Tritt. Als `sheet(item:)`
+    /// ist beides dasselbe und kann nicht mehr auseinanderlaufen.
     @State private var wunsch: Dateiwunsch?
-    @State private var zeigtWahl = false
-    /// Was der Wähler anbietet — wird beim Öffnen aus dem Wunsch gesetzt.
-    @State private var arten: [UTType] = [.item]
 
     /// Öffnet den einen Wähler des Blattes für den genannten Zweck.
     private func frageNachDatei(_ neu: Dateiwunsch) {
         wunsch = neu
-        arten = neu.arten
-        zeigtWahl = true
     }
 
     var body: some View {
@@ -232,22 +278,25 @@ struct WidgetSettingsSheet: View {
                     }
                 }
             }
-            // DER EINE DATEIWÄHLER DES BLATTES. Zwei Dinge stecken darin,
-            // beide bezahlt:
+            // DER EINE DATEIWÄHLER DES BLATTES. Drei Dinge stecken darin,
+            // alle drei bezahlt:
             //
-            // 1. Er hängt HIER am Formular, nicht unten bei den Abschnitten.
-            //    Ein `Form` ist eine `List`, und die baut ihre Zeilen erst
-            //    auf, wenn sie in Sichtweite kommen. Hing der Wähler an einer
-            //    Zeile mitten in der Liste, war er beim Tippen oft noch gar
-            //    nicht da — der Schalter sprang um, nichts passierte.
-            // 2. Es gibt ihn nur EINMAL. Bild, Video und Klang hatten je
-            //    einen eigenen; zusammen mit diesem hier waren es zwei im
-            //    selben Blatt, und zwei streiten sich: Einer gewinnt, der
-            //    andere schweigt. Deshalb sagt `wunsch`, für wen geöffnet
-            //    wurde und wohin das Ergebnis gehört.
-            .fileImporter(isPresented: $zeigtWahl,
-                          allowedContentTypes: arten) { ergebnis in
-                nimmDatei(ergebnis)
+            // 1. Es gibt ihn nur EINMAL. Bild, Video und Klang hatten je
+            //    einen eigenen; zwei im selben Blatt streiten sich, einer
+            //    gewinnt und der andere schweigt (0.1.9).
+            // 2. Er hängt HIER an der Wurzel, nicht an einem Abschnitt. Ein
+            //    `Form` ist eine `List` und baut ihre Zeilen erst auf, wenn
+            //    sie in Sichtweite kommen — an einer Zeile mitten in der
+            //    Liste war er beim Tippen oft noch gar nicht da (0.1.8).
+            // 3. Der Wunsch IST die Präsentation. Kein Schalter daneben, der
+            //    zu früh zurückspringt (0.1.9) und keine Dateiarten, die sich
+            //    mitten im Öffnen ändern (0.1.10 — daher das Aufblitzen).
+            .sheet(item: $wunsch) { zweck in
+                Dateiwaehler(arten: zweck.arten) { url in
+                    wunsch = nil
+                    nimmDatei(url, fuer: zweck)
+                }
+                .ignoresSafeArea()
             }
             .navigationTitle(widget?.kind.title ?? "Element")
             .navigationBarTitleDisplayMode(.inline)
@@ -264,13 +313,9 @@ struct WidgetSettingsSheet: View {
     /// Gelesen wird abseits des Hauptfadens: Liegt die Datei in iCloud oder
     /// auf einem Netzlaufwerk, lädt `Data(contentsOf:)` sie erst herunter —
     /// auf dem Hauptfaden stünde so lange die ganze App.
-    private func nimmDatei(_ ergebnis: Result<URL, Error>) {
-        // Den Wunsch ZUERST sichern, dann löschen: Das Schließen des Wählers
-        // setzt den Schalter zurück, und was daran hängt, ist gleich weg.
-        let zweck = wunsch
-        wunsch = nil
-        // Abbrechen ist kein Fehler — nur echte Fehler melden.
-        guard let zweck, case .success(let url) = ergebnis else { return }
+    private func nimmDatei(_ url: URL?, fuer zweck: Dateiwunsch) {
+        // Abgebrochen — kein Fehler, keine Meldung.
+        guard let url else { return }
 
         Task { @MainActor in
             switch zweck {
@@ -282,12 +327,12 @@ struct WidgetSettingsSheet: View {
     }
 
     /// Datei einlesen, ohne den Hauptfaden anzuhalten.
+    ///
+    /// Der Wähler übergibt eine Kopie im eigenen Ordner (`asCopy: true`) —
+    /// deshalb braucht es hier keinen Zugriff auf fremde Ordner mehr. Liegt
+    /// das Original in iCloud, hat iOS es für die Kopie schon geladen.
     private func lies(_ url: URL) async -> Data? {
-        await Task.detached(priority: .userInitiated) { () -> Data? in
-            let scoped = url.startAccessingSecurityScopedResource()
-            defer { if scoped { url.stopAccessingSecurityScopedResource() } }
-            return try? Data(contentsOf: url)
-        }.value
+        await Task.detached(priority: .userInitiated) { try? Data(contentsOf: url) }.value
     }
 
     private func legeKlang(_ url: URL, in ziel: String) async {
@@ -321,8 +366,6 @@ struct WidgetSettingsSheet: View {
     private func legeBild(_ url: URL) async {
         let vorbereitet = await Task.detached(priority: .userInitiated) {
             () -> (daten: Data, endung: String)? in
-            let scoped = url.startAccessingSecurityScopedResource()
-            defer { if scoped { url.stopAccessingSecurityScopedResource() } }
             guard let data = try? Data(contentsOf: url),
                   let image = UIImage(data: data) else { return nil }
             return MediaCache.prepareForBoard(image)

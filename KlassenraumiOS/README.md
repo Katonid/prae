@@ -100,12 +100,27 @@ Szenen-Rollen gibt `configurationForConnecting` die Konfiguration aus der
 `Info.plist` zurück, sonst bliebe der Beamer schwarz. Dazu
 `CKSharingSupported`, damit iOS den Link überhaupt an die App gibt.
 
-**Dateiwähler:** Es gibt genau **einen** je Blatt, und er hängt an der Wurzel
-des Formulars (`WidgetSettingsSheet`, `Dateiwunsch`). Zwei `.fileImporter` im
-selben Blatt streiten sich — einer gewinnt, der andere schweigt. Und ein
-Wähler an einer Zeile mitten in einer `List` ist beim Tippen oft noch gar
-nicht aufgebaut. Schalter und Ziel bleiben getrennte Werte, sonst ist das
-Ziel beim Auswerten schon gelöscht.
+**Dateiwähler** (`WidgetSettingsSheet`, `Dateiwunsch`, `Dateiwaehler`) — vier
+Regeln, jede einmal teuer gelernt:
+
+1. **Einer je Blatt.** Zwei streiten sich; einer gewinnt, der andere
+   schweigt (0.1.9: Bild und Video gingen nicht mehr auf).
+2. **An der Wurzel.** Ein `Form` ist eine `List` und baut ihre Zeilen erst
+   auf, wenn sie in Sichtweite kommen — an einer Zeile mitten in der Liste
+   ist der Wähler beim Tippen oft noch gar nicht da (0.1.8: Ton schwieg).
+3. **Der Wunsch IST die Präsentation** (`sheet(item:)`). Ein Schalter neben
+   dem Ziel läuft aus dem Tritt: zusammengezogen ist das Ziel beim Auswerten
+   schon gelöscht (0.1.9: Datei landete nirgends), getrennt springt einer zu
+   früh zurück.
+4. **`UIDocumentPickerViewController` selbst zeigen**, nicht `.fileImporter`.
+   Der nimmt Dateiarten und Schalter als Ansichtswerte und baut die
+   Präsentation neu auf, sobald sich daran etwas rührt — in 0.1.10 blitzte
+   der Wähler deshalb nur auf und schloss sich sofort wieder. `asCopy: true`
+   spart zugleich den Zugriff auf fremde Ordner.
+
+`AppSettingsSheet` (Sicherung) und `BoardSettingsSheet` (Tafelhintergrund)
+haben je einen eigenen `.fileImporter` an ihrer Wurzel. Die laufen — nicht
+anfassen, ohne dass es einen Grund gibt.
 
 **Ein Irrweg, damit er nicht wiederholt wird:** In 0.1.8 war dieser Delegat
 ausgebaut — ich hatte ihn für einen stummen Dateiwähler verantwortlich
