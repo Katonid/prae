@@ -250,6 +250,16 @@ Vorschläge dazu, und den Eintrag im Bau-Arbeitsablauf nicht zurückholen.
 - Version beginnt bei `0.1.0` (zwei Stellen im pbxproj); die Build-Nummer
   vergibt dieselbe Skript-Bauphase wie bei Tafelbild.
 - Gebaut wird von `.github/workflows/klassenraum-ios-build.yml`.
+- **Der Umbau ist durch** (0.1.7): private Datenbank mit eigener Zone,
+  Abgleich über Änderungsmarken aus privater UND geteilter Datenbank,
+  Teilen/Widerrufen/Übernehmen über `CKShare`. Der Einladungscode ist
+  ersatzlos entfallen. Einzelheiten in `KlassenraumiOS/README.md`.
+- **Beim Rückbau nach Tafelbild sind vier Angaben nachzuziehen** —
+  App-Datenschutz in App Store Connect, `PrivacyInfo.xcprivacy`,
+  `docs/tafelbild/datenschutz.html` und der Werbetext. Sie stehen samt
+  fertiger Formulierungen in `KlassenraumiOS/AppStore.md`. **Vorher
+  nichts davon ändern:** Solange Tafelbild in die öffentliche Datenbank
+  schreibt, ist der heutige Wortlaut dort der richtige.
 
 ## Projekt Klassenraum (Web-App)
 

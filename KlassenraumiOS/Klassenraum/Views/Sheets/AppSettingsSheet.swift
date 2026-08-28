@@ -204,13 +204,24 @@ struct AppSettingsSheet: View {
                 }
 
                 Section {
+                    NavigationLink {
+                        DatenschutzView()
+                    } label: {
+                        Label("Datenschutz", systemImage: "hand.raised")
+                    }
+                } footer: {
+                    Text("Wo die Daten liegen, was geteilt wird und was beim "
+                         + "Löschen geschieht — in Klartext.")
+                }
+
+                Section {
                     HStack {
                         Text("Version")
                         Spacer()
                         Text(version).foregroundStyle(.secondary)
                     }
                 } footer: {
-                    Text("Klassenraum — die Tafel für den Unterricht. Ohne Abo, ohne Werbung, ohne fremde Server.")
+                    Text("Klassenraum — die Tafel für den Unterricht. Ohne Abo, ohne Werbung, ohne fremde Server. Alles liegt auf dem Gerät und in deiner privaten iCloud.")
                 }
             }
             .navigationTitle("Einstellungen")

@@ -45,31 +45,94 @@ einer leeren Tafelliste.
 | Stufe | Was | Stand |
 |---|---|---|
 | 1 | Private Datenbank mit eigener Zone `Tafeln` | **fertig** (0.1.1) |
-| 2 | Bestand aus dem öffentlichen Bereich einmalig übernehmen | offen |
-| 3 | Teilen über `CKShare` statt Einladungscode | offen |
-| 4 | Texte, Datenschutzangaben, Manifest nachziehen | offen |
+| 2 | Bestand aus dem öffentlichen Bereich übernehmen | **entfällt** |
+| 3a | Abgleich über Änderungsmarken statt Abfrage | **fertig** (0.1.5) |
+| 3b/3c | Teilen, Widerrufen und Übernehmen über `CKShare` | **fertig** (0.1.6) |
+| 4 | Texte, Datenschutzangaben, Manifest | **fertig** (0.1.7) |
 
-**Was seit Stufe 1 gilt:** Alles liegt in der privaten iCloud der Nutzerin —
-der Entwickler kann nichts mehr einsehen. Der Abgleich zwischen den **eigenen**
-Geräten funktioniert wie gewohnt.
+Stufe 2 hat sich erledigt: Der Nutzer ist über Sicherung → Einlesen umgezogen,
+und seit 0.1.4 nimmt die Sicherung die Bilder und Klänge mit. Ein eigener
+Übernahmeweg aus dem öffentlichen Bereich hätte nur einmal gebraucht und
+danach nie wieder.
 
-**Was noch nicht geht:** Teilen und Beitreten. Der Code suchte die Tafel im
-gemeinsamen öffentlichen Bereich; den gibt es hier nicht mehr. Die Wege
-dorthin sind deshalb **ausgeblendet** statt ins Leere zu führen — geschaltet
-über `Umbau.teilenRuht` in `CloudSync.swift`. Stufe 3 setzt das Kennzeichen
-auf `false` und ersetzt den Code durch eine echte iCloud-Freigabe.
+## Wie es jetzt funktioniert
+
+**Alles liegt in der privaten iCloud der Nutzerin.** Der Entwickler kann
+nichts einsehen. Zwischen den eigenen Geräten gleicht sich alles ab wie
+gewohnt, auch das Umräumen.
+
+**Geteilt wird über einen Link, nicht über einen Code.** Der Einladungscode
+ist ersatzlos entfallen — er konnte nur funktionieren, solange alle Tafeln im
+selben öffentlichen Bereich lagen und jeder darin suchen durfte. An seine
+Stelle tritt `CKShare` mit `publicPermission = .readWrite`: Wer den Link
+öffnet, ist eingeladen und darf sofort mitschreiben. Eine Rechteabfrage gibt
+es bewusst nicht (Ansage des Nutzers, 08/2026) — von einer Auslosung, die man
+nicht auslösen kann, hat niemand etwas.
+
+Dazu: Freigabe zurücknehmen, Teilnahme beenden und **„Als eigene Tafel
+übernehmen"** — eine abgekoppelte Kopie samt Kopien der Namenslisten unter
+neuen Kennungen. Ohne die zeigten beide Tafeln weiter auf dieselbe Liste, und
+die Namen der einen Klasse stünden in der anderen.
+
+**Drei Dinge tragen das unter der Oberfläche** (`CloudSync.swift`):
+
+1. **Herkunft.** Eine geteilte Tafel liegt in der iCloud derjenigen, die sie
+   geteilt hat. Die Engine merkt sich beim Empfangen je Datensatz den Bereich
+   (`sync.herkunft`) und schickt Änderungen über die richtige Datenbank
+   zurück. Ein Push-Paket geht immer in genau einen Bereich.
+2. **Dateien hängen an der Tafel.** Eine Freigabe reicht den ganzen Baum unter
+   dem Wurzel-Datensatz weiter, deshalb bekommen Bilder und Klänge die Tafel
+   als `parent` (`elternProvider`). Erst die Tafel hochladen, dann die
+   Dateien — ein Verweis auf einen Datensatz, den es noch nicht gibt, wird
+   abgewiesen.
+3. **Sichtbarkeit.** In einer empfangenen Tafel steht weder die eigene
+   iCloud-Kennung noch der eigene Name. Sie wird beim Ankommen in
+   `ownBoardIDs` eingetragen, sonst bliebe sie unsichtbar.
+
+**Einladungen nimmt ein Szenen-Delegat entgegen**
+(`FreigabeSceneDelegate`, `windowScene(_:userDidAcceptCloudKitShareWith:)`).
+Den gibt es nur an der Szene, nicht am App-Delegaten. Er legt bewusst kein
+Fenster an, sonst verdrängte er die `WindowGroup` von SwiftUI. Für alle
+anderen Szenen-Rollen gibt `configurationForConnecting` die Konfiguration aus
+der `Info.plist` zurück — sonst bliebe der Beamer schwarz. Dazu
+`CKSharingSupported`, damit iOS den Link überhaupt an die App gibt.
+
+**Kein Index, keine Security Role.** Beides galt nur für die öffentliche
+Datenbank. Der Abgleich liest über Änderungsmarken
+(`CKFetchDatabaseChangesOperation` + `CKFetchRecordZoneChangesOperation`) aus
+**beiden** Datenbanken, der privaten und der geteilten.
 
 **Eigenes URL-Schema:** `klassenraum://` statt `tafelbild://`. Beide Apps
 liegen auf demselben Gerät; registrierten beide dasselbe Schema, entschiede
-iOS willkürlich, welche einen Link öffnet.
+iOS willkürlich, welche einen Link öffnet. (Der Pfad `join/` darin ist mit dem
+Einladungscode entfallen.)
 
-**Die Sicherungsdatei nimmt keine Dateien mit** — sie enthält nur Tafeln und
-Namenslisten als JSON. Wer über Export/Import umzieht, muss Bilder, Videos und
-Klänge neu einsetzen. Das gilt genauso in Tafelbild und ist dort schon lange
-so; behoben ist es nirgends.
+## Datenschutz — was jetzt stimmt und was noch zu tun ist
 
-**Und die Tafelliste ist leer** — die App hat eine eigene Bundle-ID und damit
-einen eigenen örtlichen Bestand. Das behebt Stufe 2.
+Seit dem Umbau ist **„keine Datenerfassung" richtig**. Apple erklärt
+„erheben" so: Daten so vom Gerät zu schicken, dass der Entwickler oder seine
+Partner länger darauf zugreifen können, als der Vorgang es erfordert. Der
+**Zugriff** ist der Kern — und den gibt es bei der privaten Datenbank nicht
+mehr. `NSPrivacyCollectedDataTypes` bleibt deshalb leer; die Begründung steht
+ausführlich im Kopf von `Klassenraum/PrivacyInfo.xcprivacy`.
+
+In der App gibt es dazu eine Ansicht **Einstellungen → Datenschutz**
+(`DatenschutzView.swift`): wo die Daten liegen, was bei einer Freigabe
+sichtbar wird, was beim Löschen zurückbleibt.
+
+**Offen bleibt — und zwar in Tafelbild, nicht hier:**
+
+* `TafelbildiOS/Tafelbild/PrivacyInfo.xcprivacy` behauptet ebenfalls „keine
+  Daten". Solange Tafelbild in der **öffentlichen** Datenbank schreibt, ist
+  das falsch. Es wird richtig, sobald die Abgleichsschicht von hier
+  zurückwandert — vorher nicht.
+* `docs/tafelbild/datenschutz.html` beschreibt bewusst den heutigen Stand der
+  veröffentlichten App (öffentliche Datenbank, Einsicht durch den
+  Entwickler, gelöschte Datensätze bleiben stehen). **Nicht vorab ändern.**
+  Beim Rückbau wird daraus: private Datenbank, keine Einsicht, Freigabe per
+  Link.
+* Die Antworten unter „App-Datenschutz" in App Store Connect gehören zum
+  selben Schritt.
 
 ## Nicht verwechseln
 
