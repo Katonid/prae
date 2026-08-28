@@ -330,10 +330,13 @@ Namens und lebt weiter.
   Xcode setzt sonst „en", und weil die App keine Sprachdateien mitbringt,
   zeigt iOS ALLES Systemeigene englisch: Teilen-Blatt, Dateiwähler,
   „Abbrechen"/„Fertig" (gefunden 1.0.59). Nicht entfernen.
-- **Die Adresse der Freigabe (`CKShare.url`) vergibt der Server.** Nach dem
-  Sichern zählt die Antwort aus `perRecordSaveBlock`, nicht das hingeschickte
-  Objekt: Wer Letzteres an `UICloudSharingController` weiterreicht, bekommt
-  ein Blatt, dessen „Link kopieren" nichts kopiert (1.0.58, gemeldet).
+- **Die Freigabe legt Apples Blatt selbst an**, über den
+  Vorbereitungs-Rückruf von `UICloudSharingController` — nicht die App
+  vorab. Die Adresse (`CKShare.url`) entsteht erst beim Sichern und lag
+  vorab noch nicht vor; ein Blatt mit fertig übergebenem Objekt kopierte
+  deshalb beim „Link kopieren" nichts (1.0.58 und 1.0.59, beide gemeldet).
+  Fehler werden dabei **roh** durchgereicht: Das Blatt zeigt Apples
+  Wortlaut, der die bessere Spur ist als eine eigene Übersetzung.
 - Einladungen nimmt `FreigabeSceneDelegate` entgegen
   (`windowScene(_:userDidAcceptCloudKitShareWith:)`) — den Rückruf gibt es
   nur an der Szene. Er trägt `var window: UIWindow?`, beantwortet aber

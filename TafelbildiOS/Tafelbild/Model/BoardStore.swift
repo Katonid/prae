@@ -1089,7 +1089,9 @@ final class BoardStore: ObservableObject {
     /// Legt die iCloud-Freigabe an (oder liefert die vorhandene) und merkt
     /// sich am Board, dass es geteilt ist — daran hängen sich die Bilder und
     /// Klänge, damit sie mitreisen.
-    func freigabeAnlegen(fuer board: Board) async -> Result<CKShare, CloudSyncEngine.Freigabefehler> {
+    /// Bereitet die Freigabe vor — gerufen von Apples Teilen-Blatt, nicht
+    /// vorab (siehe `CloudSyncEngine.bereiteFreigabeVor`).
+    func bereiteFreigabeVor(fuer board: Board) async -> Result<CKShare, Error> {
         // Erst sicherstellen, dass die Tafel überhaupt oben ist: Eine
         // Freigabe braucht einen Datensatz, den sie als Wurzel nehmen kann.
         if let stelle = boards.firstIndex(where: { $0.id == board.id }), !boards[stelle].geteilt {
@@ -1107,7 +1109,7 @@ final class BoardStore: ObservableObject {
             }
         }
 
-        let ergebnis = await engine.freigabe(fuer: board.id, titel: board.name)
+        let ergebnis = await engine.bereiteFreigabeVor(fuer: board.id, titel: board.name)
         if case .failure = ergebnis, let stelle = boards.firstIndex(where: { $0.id == board.id }) {
             boards[stelle].geteilt = false
             touch(board.id)
