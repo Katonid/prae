@@ -201,8 +201,9 @@ struct RootView: View {
                  + "antippen, „Löschen“.")
         }
         .onOpenURL { url in
-            // tafelbild://join/ABC123
-            guard url.scheme == "tafelbild" else { return }
+            // klassenraum://join/ABC123 — eigenes Schema, damit sich die
+            // beiden Apps auf demselben Gerät nicht in die Quere kommen.
+            guard url.scheme == "klassenraum" else { return }
             let code = url.lastPathComponent
             store.joinBoard(code: code) { success in
                 if !success { store.showStatus("Zu diesem Code wurde keine Tafel gefunden.") }
@@ -545,15 +546,17 @@ struct EmptyBoardView: View {
                             .background { Capsule().fill(Color.white) }
                     }
                     .buttonStyle(.plain)
-                    Button(action: onJoin) {
+                    if !Umbau.teilenRuht {
+                        Button(action: onJoin) {
                         Label("Beitreten", systemImage: "person.badge.plus")
                             .font(Theme.font(17, weight: .bold))
                             .foregroundStyle(.white)
                             .padding(.horizontal, 22)
                             .frame(height: 50)
                             .background { Capsule().fill(Color.white.opacity(0.14)) }
+                        }
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
                 }
             }
             .padding(30)

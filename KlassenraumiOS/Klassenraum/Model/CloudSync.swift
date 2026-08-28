@@ -53,6 +53,20 @@ struct RemoteEntity {
     let updatedAtMs: Int64
 }
 
+/// Was am Umbau (Weg A) gerade nicht geht.
+///
+/// Solange das Teilen umgebaut wird, blendet die App die Wege dorthin aus,
+/// statt Knöpfe anzubieten, die ins Leere führen. **Stufe 3 setzt das auf
+/// `false` und ersetzt den Einladungscode durch eine echte iCloud-Freigabe
+/// (`CKShare`).**
+///
+/// Der Grund steckt in der Bauweise: Der Code suchte die Tafel im gemeinsamen
+/// öffentlichen Bereich. Seit die Tafeln in der privaten Datenbank liegen,
+/// kann niemand mehr fremde Tafeln finden — und genau das ist der Sinn.
+enum Umbau {
+    static let teilenRuht = true
+}
+
 final class CloudSyncEngine {
     static let recordType = "Entity"
     /// Name der eigenen Zone in der privaten Datenbank.
