@@ -324,6 +324,10 @@ Namens und lebt weiter.
   Tafel übernehmen" — eine abgekoppelte Kopie samt KOPIEN der
   Namenslisten unter neuen Kennungen. Der Einladungscode ist ersatzlos
   entfallen.
+- **Die Adresse der Freigabe (`CKShare.url`) vergibt der Server.** Nach dem
+  Sichern zählt die Antwort aus `perRecordSaveBlock`, nicht das hingeschickte
+  Objekt: Wer Letzteres an `UICloudSharingController` weiterreicht, bekommt
+  ein Blatt, dessen „Link kopieren" nichts kopiert (1.0.58, gemeldet).
 - Einladungen nimmt `FreigabeSceneDelegate` entgegen
   (`windowScene(_:userDidAcceptCloudKitShareWith:)`) — den Rückruf gibt es
   nur an der Szene. Er trägt `var window: UIWindow?`, beantwortet aber
