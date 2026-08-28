@@ -261,9 +261,17 @@ Vorschläge dazu, und den Eintrag im Bau-Arbeitsablauf nicht zurückholen.
      gewinnt, der andere schweigt. In 0.1.9 verdrängte der neue Wähler
      an der Wurzel die eigenen von Bild und Video. Seit 0.1.10 gibt es
      genau einen; `Dateiwunsch` sagt ihm, für wen er öffnet.
-  3. **Schalter und Ziel bleiben getrennt.** Hängen beide am selben
-     Wert, löscht das Schließen des Wählers das Ziel, bevor die Auswahl
-     ausgewertet ist — die Datei landet nirgends, ohne jede Meldung.
+  3. **Der Wunsch IST die Präsentation** (`sheet(item:)` mit einem
+     `Identifiable`-Wert, der Ziel und Dateiarten trägt). Ein Schalter
+     neben dem Ziel läuft aus dem Tritt: Hängen beide am selben Wert,
+     ist das Ziel beim Auswerten schon gelöscht; hängen sie
+     auseinander, springt einer zu früh zurück.
+  4. **Gezeigt wird `UIDocumentPickerViewController` selbst**
+     (`Dateiwaehler`), nicht `.fileImporter`. Der nimmt Dateiarten und
+     Schalter als Ansichtswerte und baut die Präsentation neu auf,
+     sobald sich daran etwas rührt — in 0.1.10 blitzte der Wähler
+     deshalb nur auf und schloss sich sofort wieder. `asCopy: true`
+     spart obendrein den Zugriff auf fremde Ordner.
 - **Nicht dem Szenen-Delegaten anlasten.** In 0.1.8 hatte ich ihn dafür
   verantwortlich gemacht und ausgebaut; das war falsch. Er ist seit
   0.1.9 wieder da (mit `var window: UIWindow?`, wie
