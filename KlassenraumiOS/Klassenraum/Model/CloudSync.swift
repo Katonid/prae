@@ -53,7 +53,14 @@ struct RemoteEntity {
     let updatedAtMs: Int64
 }
 
-final class CloudSyncEngine {
+/// `@unchecked Sendable`, weil die Engine zwischen Threads gereicht wird:
+/// CloudKit meldet auf eigenen Threads zurück, die Oberfläche ruft vom
+/// Hauptfaden. Der veränderliche Zustand liegt entweder auf der eigenen
+/// seriellen `queue` (Warteschlange, Status, Marken) oder hinter einer
+/// Sperre (`herkunftSperre`); die Rückrufe werden einmal beim Start gesetzt
+/// und danach nicht mehr angefasst. Der Übersetzer kann das nicht sehen,
+/// deshalb steht es hier.
+final class CloudSyncEngine: @unchecked Sendable {
     static let recordType = "Entity"
     /// Name der eigenen Zone in der privaten Datenbank.
     static let zoneName = "Tafeln"
@@ -832,10 +839,8 @@ final class CloudSyncEngine {
         guard enabled else { return }
         await withCheckedContinuation { fortsetzung in
             let box = ResumeOnce()
-            queue.async { [weak self] in
-                guard let self else { box.finish { fortsetzung.resume() }; return }
-                self.stelleZoneSicher { [weak self] in
-                    guard let self else { box.finish { fortsetzung.resume() }; return }
+            queue.async {
+                self.stelleZoneSicher {
                     self.pushPending { box.finish { fortsetzung.resume() } }
                 }
             }
