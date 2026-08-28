@@ -266,12 +266,15 @@ Vorschläge dazu, und den Eintrag im Bau-Arbeitsablauf nicht zurückholen.
      neben dem Ziel läuft aus dem Tritt: Hängen beide am selben Wert,
      ist das Ziel beim Auswerten schon gelöscht; hängen sie
      auseinander, springt einer zu früh zurück.
-  4. **Gezeigt wird `UIDocumentPickerViewController` selbst**
-     (`Dateiwaehler`), nicht `.fileImporter`. Der nimmt Dateiarten und
-     Schalter als Ansichtswerte und baut die Präsentation neu auf,
-     sobald sich daran etwas rührt — in 0.1.10 blitzte der Wähler
-     deshalb nur auf und schloss sich sofort wieder. `asCopy: true`
-     spart obendrein den Zugriff auf fremde Ordner.
+  4. **Der Wähler wird an SwiftUI vorbei gezeigt** (`Dateiwahl`):
+     UIKit präsentiert ihn, UIKit schließt ihn, das Ziel reist im
+     Rückruf mit. Jede Präsentation, die an einem Ansichtswert hängt
+     (`.fileImporter`, `.sheet`), räumt SwiftUI beim Neuzeichnen des
+     Formulars ab — der Schalter bleibt dabei stehen, und im nächsten
+     Durchgang geht sie wieder auf: das Flackern aus 0.1.10/0.1.11.
+     Der Wechsel des Mechanismus half nicht, weil beide an einem
+     Ansichtswert hingen; erst der Verzicht darauf half.
+     `asCopy: true` spart obendrein den Zugriff auf fremde Ordner.
 - **Nicht dem Szenen-Delegaten anlasten.** In 0.1.8 hatte ich ihn dafür
   verantwortlich gemacht und ausgebaut; das war falsch. Er ist seit
   0.1.9 wieder da (mit `var window: UIWindow?`, wie

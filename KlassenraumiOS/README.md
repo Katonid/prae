@@ -112,11 +112,13 @@ Regeln, jede einmal teuer gelernt:
    dem Ziel läuft aus dem Tritt: zusammengezogen ist das Ziel beim Auswerten
    schon gelöscht (0.1.9: Datei landete nirgends), getrennt springt einer zu
    früh zurück.
-4. **`UIDocumentPickerViewController` selbst zeigen**, nicht `.fileImporter`.
-   Der nimmt Dateiarten und Schalter als Ansichtswerte und baut die
-   Präsentation neu auf, sobald sich daran etwas rührt — in 0.1.10 blitzte
-   der Wähler deshalb nur auf und schloss sich sofort wieder. `asCopy: true`
-   spart zugleich den Zugriff auf fremde Ordner.
+4. **An SwiftUI vorbei zeigen** (`Dateiwahl`): UIKit präsentiert, UIKit
+   schließt, das Ziel reist im Rückruf mit. Jede Präsentation, die an einem
+   Ansichtswert hängt (`.fileImporter`, `.sheet`), räumt SwiftUI beim
+   Neuzeichnen des Formulars ab — der Schalter bleibt stehen, im nächsten
+   Durchgang geht sie wieder auf: das Flackern aus 0.1.10/0.1.11. Der
+   Wechsel des Mechanismus half nicht, weil beide an einem Ansichtswert
+   hingen. `asCopy: true` spart zugleich den Zugriff auf fremde Ordner.
 
 `AppSettingsSheet` (Sicherung) und `BoardSettingsSheet` (Tafelhintergrund)
 haben je einen eigenen `.fileImporter` an ihrer Wurzel. Die laufen — nicht
