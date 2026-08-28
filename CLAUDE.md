@@ -250,16 +250,20 @@ Vorschläge dazu, und den Eintrag im Bau-Arbeitsablauf nicht zurückholen.
 - Version beginnt bei `0.1.0` (zwei Stellen im pbxproj); die Build-Nummer
   vergibt dieselbe Skript-Bauphase wie bei Tafelbild.
 - Gebaut wird von `.github/workflows/klassenraum-ios-build.yml`.
-- **Ein Dateiwähler gehört an einen Halter, den es immer gibt.** Der
-  Wähler für Tondateien hing an dem Abschnitt mit „Feld hinzufügen" —
-  also an einer Zeile mitten in der Liste. Ein `Form` ist eine `List`,
-  und die baut ihre Zeilen erst auf, wenn sie in Sichtweite kommen: Stand
-  über den Klangfeldern genug, war die Zeile beim Tippen noch gar nicht
-  da, und mit ihr der Wähler nicht. Der Schalter sprang um, nichts
-  passierte. Seit 0.1.9 hängt er an der Wurzel des Formulars
-  (`WidgetSettingsSheet`), das Ziel wird als Bindung hinuntergereicht.
-  Bild und Video waren nie betroffen — deren Wähler hängen an der Group
-  bzw. an einem festen Abschnitt ohne `ForEach` darüber.
+- **Ein Blatt, ein Dateiwähler — an der Wurzel.** Zwei Regeln, beide
+  teuer gelernt (`WidgetSettingsSheet`, `Dateiwunsch`):
+  1. Der Wähler gehört an einen Halter, den es immer gibt. Ein `Form`
+     ist eine `List` und baut ihre Zeilen erst auf, wenn sie in
+     Sichtweite kommen. Hängt der Wähler an einer Zeile mitten in der
+     Liste, ist er beim Tippen oft noch gar nicht da: Der Schalter
+     springt um, nichts passiert (0.1.9, Klangfelder).
+  2. **Es darf nur EINEN je Blatt geben.** Zwei streiten sich — einer
+     gewinnt, der andere schweigt. In 0.1.9 verdrängte der neue Wähler
+     an der Wurzel die eigenen von Bild und Video. Seit 0.1.10 gibt es
+     genau einen; `Dateiwunsch` sagt ihm, für wen er öffnet.
+  3. **Schalter und Ziel bleiben getrennt.** Hängen beide am selben
+     Wert, löscht das Schließen des Wählers das Ziel, bevor die Auswahl
+     ausgewertet ist — die Datei landet nirgends, ohne jede Meldung.
 - **Nicht dem Szenen-Delegaten anlasten.** In 0.1.8 hatte ich ihn dafür
   verantwortlich gemacht und ausgebaut; das war falsch. Er ist seit
   0.1.9 wieder da (mit `var window: UIWindow?`, wie
