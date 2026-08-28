@@ -178,6 +178,10 @@
 			</array>
 		</dict>
 	</dict>
+	<!-- Freigabe-Links (iCloud.com) sollen in dieser App landen, nicht im
+	     Browser. Ohne diesen Schlüssel öffnet iOS sie nirgends. -->
+	<key>CKSharingSupported</key>
+	<true/>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>

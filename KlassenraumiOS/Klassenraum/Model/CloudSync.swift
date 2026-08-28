@@ -53,21 +53,14 @@ struct RemoteEntity {
     let updatedAtMs: Int64
 }
 
-/// Was am Umbau (Weg A) gerade nicht geht.
-///
-/// Solange das Teilen umgebaut wird, blendet die App die Wege dorthin aus,
-/// statt Knöpfe anzubieten, die ins Leere führen. **Stufe 3 setzt das auf
-/// `false` und ersetzt den Einladungscode durch eine echte iCloud-Freigabe
-/// (`CKShare`).**
-///
-/// Der Grund steckt in der Bauweise: Der Code suchte die Tafel im gemeinsamen
-/// öffentlichen Bereich. Seit die Tafeln in der privaten Datenbank liegen,
-/// kann niemand mehr fremde Tafeln finden — und genau das ist der Sinn.
-enum Umbau {
-    static let teilenRuht = true
-}
-
-final class CloudSyncEngine {
+/// `@unchecked Sendable`, weil die Engine zwischen Threads gereicht wird:
+/// CloudKit meldet auf eigenen Threads zurück, die Oberfläche ruft vom
+/// Hauptfaden. Der veränderliche Zustand liegt entweder auf der eigenen
+/// seriellen `queue` (Warteschlange, Status, Marken) oder hinter einer
+/// Sperre (`herkunftSperre`); die Rückrufe werden einmal beim Start gesetzt
+/// und danach nicht mehr angefasst. Der Übersetzer kann das nicht sehen,
+/// deshalb steht es hier.
+final class CloudSyncEngine: @unchecked Sendable {
     static let recordType = "Entity"
     /// Name der eigenen Zone in der privaten Datenbank.
     static let zoneName = "Tafeln"
@@ -83,6 +76,11 @@ final class CloudSyncEngine {
     var onSyncFinished: (() -> Void)?
     /// Wird gerufen, sobald die iCloud-Kennung des Geräts feststeht.
     var onUserIDChange: ((String) -> Void)?
+    /// Zu welcher geteilten Tafel eine Mediendatei gehört — nil, wenn zu
+    /// keiner. Nur so reisen Bilder und Klänge mit einer Freigabe mit.
+    var elternProvider: ((String) -> String?)?
+    /// Eine Freigabe ist angekommen oder weggefallen: neu einlesen.
+    var onFreigabenAenderung: (() -> Void)?
 
     /// Schalter aus den Einstellungen: false = nichts verlässt das Gerät.
     var enabled: Bool = true {
@@ -93,6 +91,8 @@ final class CloudSyncEngine {
     }
 
     private let container: CKContainer
+    /// Die eigene private Datenbank. Für geteilte Tafeln ist sie die falsche
+    /// Adresse — dafür gibt es `datenbank(fuer:)`.
     private let database: CKDatabase
     /// Die Zone, in der alles liegt. Alle Datensätze tragen sie in ihrer
     /// Kennung; alle Abfragen bekommen sie mit.
@@ -100,6 +100,19 @@ final class CloudSyncEngine {
                                          ownerName: CKCurrentUserDefaultName)
     /// Wurde die Zone in dieser Sitzung schon angelegt oder vorgefunden?
     private var zoneBereit = false
+
+    /// Wo welcher Datensatz liegt.
+    ///
+    /// Eine geteilte Tafel liegt **nicht** in meiner iCloud, sondern im
+    /// Bereich derjenigen, die sie geteilt hat. Ändere ich sie, muss die
+    /// Änderung genau dorthin zurück — in ihren Bereich, über die geteilte
+    /// Datenbank. Ohne dieses Verzeichnis landete sie in meiner eigenen Zone,
+    /// und niemand sonst bekäme sie je zu sehen.
+    ///
+    /// Gefüllt wird es beim Empfangen; gemerkt wird es dauerhaft, damit es
+    /// auch nach einem Neustart noch stimmt.
+    private var herkunftCache: [String: String]?
+    private let herkunftSperre = NSLock()
     private let defaults = UserDefaults.standard
     private let queue = DispatchQueue(label: "tafelbild.cloudsync")
     private var syncing = false
@@ -293,6 +306,82 @@ final class CloudSyncEngine {
         }
     }
 
+    // MARK: - Herkunft der Datensätze
+
+    private static func herkunftsSchluessel(_ kind: EntityKind, _ entityId: String) -> String {
+        "\(kind.rawValue)|\(entityId)"
+    }
+
+    /// In welchem Bereich ein Datensatz liegt — die eigene Zone, wenn nichts
+    /// anderes bekannt ist.
+    private func zone(fuer kind: EntityKind, entityId: String) -> CKRecordZone.ID {
+        herkunftSperre.lock()
+        defer { herkunftSperre.unlock() }
+        if herkunftCache == nil {
+            herkunftCache = defaults.dictionary(forKey: "sync.herkunft") as? [String: String] ?? [:]
+        }
+        guard let roh = herkunftCache?[Self.herkunftsSchluessel(kind, entityId)] else { return zoneID }
+        let teile = roh.split(separator: "|", maxSplits: 1).map(String.init)
+        guard teile.count == 2 else { return zoneID }
+        return CKRecordZone.ID(zoneName: teile[0], ownerName: teile[1])
+    }
+
+    /// Merkt sich, wo ein empfangener Datensatz herkommt.
+    private func merkeHerkunft(_ bereich: CKRecordZone.ID, kind: EntityKind, entityId: String) {
+        let schluessel = Self.herkunftsSchluessel(kind, entityId)
+        let wert = "\(bereich.zoneName)|\(bereich.ownerName)"
+        herkunftSperre.lock()
+        if herkunftCache == nil {
+            herkunftCache = defaults.dictionary(forKey: "sync.herkunft") as? [String: String] ?? [:]
+        }
+        let neu = herkunftCache?[schluessel] != wert
+        if neu { herkunftCache?[schluessel] = wert }
+        let stand = herkunftCache
+        herkunftSperre.unlock()
+        if neu, let stand { defaults.set(stand, forKey: "sync.herkunft") }
+    }
+
+    /// Streicht den Vermerk — nötig, wenn eine Freigabe endet und die Tafel
+    /// wieder in die eigene Zone gehört.
+    private func vergissHerkunft(kind: EntityKind, entityId: String) {
+        let schluessel = Self.herkunftsSchluessel(kind, entityId)
+        herkunftSperre.lock()
+        if herkunftCache == nil {
+            herkunftCache = defaults.dictionary(forKey: "sync.herkunft") as? [String: String] ?? [:]
+        }
+        herkunftCache?.removeValue(forKey: schluessel)
+        let stand = herkunftCache
+        herkunftSperre.unlock()
+        if let stand { defaults.set(stand, forKey: "sync.herkunft") }
+    }
+
+    /// Streicht alle Vermerke eines Bereichs — er ist weggefallen, weil eine
+    /// Freigabe endete.
+    private func vergissBereich(_ bereich: CKRecordZone.ID) {
+        let wert = "\(bereich.zoneName)|\(bereich.ownerName)"
+        herkunftSperre.lock()
+        if herkunftCache == nil {
+            herkunftCache = defaults.dictionary(forKey: "sync.herkunft") as? [String: String] ?? [:]
+        }
+        herkunftCache = herkunftCache?.filter { $0.value != wert }
+        let stand = herkunftCache
+        herkunftSperre.unlock()
+        if let stand { defaults.set(stand, forKey: "sync.herkunft") }
+    }
+
+    /// Zu welcher Datenbank ein Bereich gehört: die eigene oder die geteilte.
+    private func datenbank(fuer bereich: CKRecordZone.ID) -> CKDatabase {
+        bereich.ownerName == CKCurrentUserDefaultName
+            ? container.privateCloudDatabase
+            : container.sharedCloudDatabase
+    }
+
+    /// Gehört die Tafel jemand anderem? Dann liegt sie in der geteilten
+    /// Datenbank, und ich bin dort zu Gast.
+    func istFremd(boardID: String) -> Bool {
+        zone(fuer: .board, entityId: boardID).ownerName != CKCurrentUserDefaultName
+    }
+
     // MARK: - Push
 
     private func recordID(kind: EntityKind, entityId: String) -> CKRecord.ID {
@@ -305,7 +394,8 @@ final class CloudSyncEngine {
         var hash: UInt64 = 5381
         for byte in entityId.utf8 { hash = (hash &* 33) &+ UInt64(byte) }
         let name = "e-\(kind.rawValue)-\(String(sanitized).prefix(160))-\(String(hash, radix: 16))"
-        return CKRecord.ID(recordName: String(name.prefix(250)), zoneID: zoneID)
+        return CKRecord.ID(recordName: String(name.prefix(250)),
+                           zoneID: zone(fuer: kind, entityId: entityId))
     }
 
     private func makeRecord(kind: EntityKind, entityId: String,
@@ -319,6 +409,13 @@ final class CloudSyncEngine {
         if let assetURL = payload.assetURL, FileManager.default.fileExists(atPath: assetURL.path) {
             record["asset"] = CKAsset(fileURL: assetURL)
         }
+        // Bilder und Klänge einer geteilten Tafel hängen sich an sie: Eine
+        // Freigabe reicht immer den ganzen Baum unter dem Wurzel-Datensatz
+        // weiter. Ohne das käme die Tafel an, aber alle Rahmen blieben leer.
+        if kind == .media, let tafel = elternProvider?(entityId) {
+            record.parent = CKRecord.Reference(
+                recordID: recordID(kind: .board, entityId: tafel), action: .none)
+        }
         return record
     }
 
@@ -330,9 +427,13 @@ final class CloudSyncEngine {
         }
 
         // Medien einzeln hochladen (große Dateien), alles andere in Paketen.
+        // Ein Paket geht immer in EINEN Bereich: Eine geteilte Tafel liegt in
+        // der iCloud derjenigen, die sie geteilt hat — was dorthin gehört,
+        // lässt sich nicht zusammen mit Eigenem verschicken.
         let batch = Array(keys.prefix(50))
         var records: [CKRecord] = []
         var resolvedKeys: [String] = []
+        var zielBereich: CKRecordZone.ID?
         var bytes = 0
 
         for key in batch {
@@ -345,14 +446,17 @@ final class CloudSyncEngine {
                 resolvedKeys.append(key)
                 continue
             }
+            let bereich = zone(fuer: kind, entityId: parts[1])
+            if let zielBereich, zielBereich != bereich { break }
             if kind == .media, !records.isEmpty { break }
+            zielBereich = bereich
             records.append(makeRecord(kind: kind, entityId: parts[1], payload: payload))
             resolvedKeys.append(key)
             bytes += payload.payloadJSON.utf8.count
             if kind == .media || bytes > 400_000 { break }
         }
 
-        guard !records.isEmpty else {
+        guard !records.isEmpty, let zielBereich else {
             queue.async {
                 self.pendingKeys = self.pendingKeys.filter { !resolvedKeys.contains($0) }
                 completion()
@@ -380,7 +484,7 @@ final class CloudSyncEngine {
                 }
             }
         }
-        database.add(operation)
+        datenbank(fuer: zielBereich).add(operation)
     }
 
     // MARK: - Pull
@@ -453,9 +557,11 @@ final class CloudSyncEngine {
         var geaendert: [CKRecordZone.ID] = []
         operation.recordZoneWithIDChangedBlock = { geaendert.append($0) }
         operation.recordZoneWithIDWasDeletedBlock = { [weak self] zone in
-            // Ein Bereich verschwindet, wenn eine Freigabe endet. Dann ist
-            // auch seine Marke wertlos.
+            // Ein Bereich verschwindet, wenn eine Freigabe endet. Dann sind
+            // seine Marke und alle Herkunftsvermerke wertlos.
             self?.setzeMarke(nil, key: Self.bereichsMarke(zone))
+            self?.vergissBereich(zone)
+            DispatchQueue.main.async { self?.onFreigabenAenderung?() }
         }
         operation.fetchDatabaseChangesResultBlock = { [weak self] ergebnis in
             guard let self else { completion([]); return }
@@ -500,12 +606,15 @@ final class CloudSyncEngine {
         var gefunden: [RemoteEntity] = []
         var abgelaufen: [CKRecordZone.ID] = []
 
-        operation.recordWasChangedBlock = { _, ergebnis in
+        operation.recordWasChangedBlock = { [weak self] _, ergebnis in
             guard case .success(let record) = ergebnis,
                   let rohArt = record["kind"] as? String,
                   let art = EntityKind(rawValue: rohArt),
                   let kennung = record["entityId"] as? String
             else { return }
+            // Merken, wo der Datensatz liegt — sonst ginge eine Änderung
+            // daran später in die eigene Zone statt zurück zur Besitzerin.
+            self?.merkeHerkunft(record.recordID.zoneID, kind: art, entityId: kennung)
             gefunden.append(RemoteEntity(
                 kind: art,
                 entityId: kennung,
@@ -583,6 +692,7 @@ final class CloudSyncEngine {
     func fetchMedia(fileName: String, to target: URL) async -> Bool {
         guard enabled else { return false }
         let id = recordID(kind: .media, entityId: fileName)
+        let ziel = datenbank(fuer: id.zoneID)
         let box = ResumeOnce()
         let record: CKRecord? = await withCheckedContinuation { continuation in
             let operation = CKFetchRecordsOperation(recordIDs: [id])
@@ -596,7 +706,7 @@ final class CloudSyncEngine {
             operation.fetchRecordsResultBlock = { _ in
                 box.finish { continuation.resume(returning: nil) }
             }
-            database.add(operation)
+            ziel.add(operation)
         }
         guard let asset = record?["asset"] as? CKAsset, let source = asset.fileURL else { return false }
         do {
@@ -615,9 +725,23 @@ final class CloudSyncEngine {
     /// nachladen, auf die eine Tafel verweist, die aber (noch) fehlt.
     func fetchEntities(kind: EntityKind, ids: [String]) async -> [RemoteEntity] {
         guard enabled, !ids.isEmpty else { return [] }
-        let recordIDs = ids.map { recordID(kind: kind, entityId: $0) }
+        // Nach Datenbank getrennt: Was zu einer geteilten Tafel gehört, liegt
+        // nicht in der eigenen iCloud und wäre dort nicht zu finden.
+        let alle = ids.map { recordID(kind: kind, entityId: $0) }
+        let eigene = alle.filter { $0.zoneID.ownerName == CKCurrentUserDefaultName }
+        let fremde = alle.filter { $0.zoneID.ownerName != CKCurrentUserDefaultName }
+        var ergebnis: [RemoteEntity] = []
+        if !eigene.isEmpty {
+            ergebnis += await hole(recordIDs: eigene, aus: container.privateCloudDatabase)
+        }
+        if !fremde.isEmpty {
+            ergebnis += await hole(recordIDs: fremde, aus: container.sharedCloudDatabase)
+        }
+        return ergebnis
+    }
 
-        return await withCheckedContinuation { continuation in
+    private func hole(recordIDs: [CKRecord.ID], aus datenbank: CKDatabase) async -> [RemoteEntity] {
+        await withCheckedContinuation { continuation in
             let box = ResumeOnce()
             var gefunden: [RemoteEntity] = []
             let operation = CKFetchRecordsOperation(recordIDs: recordIDs)
@@ -639,7 +763,7 @@ final class CloudSyncEngine {
             operation.fetchRecordsResultBlock = { _ in
                 box.finish { continuation.resume(returning: gefunden) }
             }
-            database.add(operation)
+            datenbank.add(operation)
         }
     }
 
@@ -702,6 +826,173 @@ final class CloudSyncEngine {
             }
             operation.fetchRecordZoneChangesResultBlock = { _ in
                 box.finish { fortsetzung.resume(returning: zaehler) }
+            }
+            datenbank.add(operation)
+        }
+    }
+
+    /// Schickt alles Wartende hoch und wartet, bis es oben ist.
+    ///
+    /// Nötig vor dem Anlegen einer Freigabe: Ohne den Datensatz der Tafel in
+    /// der iCloud gibt es nichts, was sich als Wurzel teilen ließe.
+    func pushJetzt() async {
+        guard enabled else { return }
+        await withCheckedContinuation { fortsetzung in
+            let box = ResumeOnce()
+            queue.async {
+                self.stelleZoneSicher {
+                    self.pushPending { box.finish { fortsetzung.resume() } }
+                }
+            }
+        }
+    }
+
+    // MARK: - Freigabe (CKShare)
+
+    /// Fehler beim Teilen — als Klartext, wie ihn die App anzeigen kann.
+    enum Freigabefehler: LocalizedError {
+        case tafelFehlt
+        case nichtMeine
+        case cloud(String)
+
+        var errorDescription: String? {
+            switch self {
+            case .tafelFehlt:
+                return "Diese Tafel liegt noch nicht in der iCloud. Einmal „Jetzt abgleichen“ antippen und es erneut versuchen."
+            case .nichtMeine:
+                return "Diese Tafel gehört jemand anderem. Weitergeben kann sie nur, wer sie angelegt hat."
+            case .cloud(let text):
+                return text
+            }
+        }
+    }
+
+    /// Legt die Freigabe für eine Tafel an — oder gibt die vorhandene zurück.
+    ///
+    /// Geteilt wird der Datensatz der Tafel als **Wurzel**; alles, was daran
+    /// hängt (die Bilder und Klänge), reist mit. Die Namenslisten stecken
+    /// ohnehin in der Tafel selbst.
+    ///
+    /// `publicPermission = .readWrite`: Wer den Link öffnet, darf sofort
+    /// mitschreiben. Es gibt bewusst keine Rechteabfrage — eine Kollegin, die
+    /// nur zuschauen darf, hätte von den Zufallsgeneratoren nichts.
+    func freigabe(fuer boardID: String, titel: String) async -> Result<CKShare, Freigabefehler> {
+        guard enabled else { return .failure(.cloud("Der Abgleich über iCloud ist ausgeschaltet.")) }
+        guard !istFremd(boardID: boardID) else { return .failure(.nichtMeine) }
+
+        let wurzelID = recordID(kind: .board, entityId: boardID)
+        guard let wurzel = await einzelnerDatensatz(wurzelID, aus: database) else {
+            return .failure(.tafelFehlt)
+        }
+
+        // Schon geteilt? Dann die bestehende Freigabe weiterreichen — eine
+        // zweite anzulegen lehnt CloudKit ab, und der alte Link soll gelten.
+        if let vorhandene = wurzel.share,
+           let share = await einzelnerDatensatz(vorhandene.recordID, aus: database) as? CKShare {
+            return .success(share)
+        }
+
+        let share = CKShare(rootRecord: wurzel)
+        share[CKShare.SystemFieldKey.title] = titel as CKRecordValue
+        share.publicPermission = .readWrite
+
+        return await withCheckedContinuation { fortsetzung in
+            let box = ResumeOnce()
+            let operation = CKModifyRecordsOperation(recordsToSave: [wurzel, share], recordIDsToDelete: nil)
+            operation.qualityOfService = .userInitiated
+            operation.modifyRecordsResultBlock = { ergebnis in
+                switch ergebnis {
+                case .success:
+                    box.finish { fortsetzung.resume(returning: .success(share)) }
+                case .failure(let fehler):
+                    box.finish { fortsetzung.resume(returning: .failure(.cloud(Self.describe(fehler)))) }
+                }
+            }
+            self.database.add(operation)
+        }
+    }
+
+    /// Die bestehende Freigabe einer Tafel — nil, wenn sie nicht geteilt ist.
+    func vorhandeneFreigabe(fuer boardID: String) async -> CKShare? {
+        guard enabled, !istFremd(boardID: boardID) else { return nil }
+        let wurzelID = recordID(kind: .board, entityId: boardID)
+        guard let wurzel = await einzelnerDatensatz(wurzelID, aus: database),
+              let verweis = wurzel.share else { return nil }
+        return await einzelnerDatensatz(verweis.recordID, aus: database) as? CKShare
+    }
+
+    /// Nimmt die Freigabe zurück. Danach verschwindet die Tafel bei allen
+    /// anderen — die Tafel selbst bleibt unangetastet.
+    func widerrufeFreigabe(fuer boardID: String) async -> Bool {
+        guard enabled, !istFremd(boardID: boardID) else { return false }
+        guard let share = await vorhandeneFreigabe(fuer: boardID) else { return true }
+        return await loesche(share.recordID, aus: database)
+    }
+
+    /// Beendet die eigene Teilnahme an einer fremden Tafel.
+    ///
+    /// Gäste löschen dazu die Freigabe aus ihrer geteilten Datenbank — die
+    /// Tafel selbst gehört ihnen nicht und bleibt bei der Besitzerin stehen.
+    func verlasseFreigabe(fuer boardID: String) async -> Bool {
+        guard enabled, istFremd(boardID: boardID) else { return false }
+        let wurzelID = recordID(kind: .board, entityId: boardID)
+        let geteilte = container.sharedCloudDatabase
+        guard let wurzel = await einzelnerDatensatz(wurzelID, aus: geteilte),
+              let verweis = wurzel.share else { return false }
+        let geklappt = await loesche(verweis.recordID, aus: geteilte)
+        if geklappt { vergissHerkunft(kind: .board, entityId: boardID) }
+        return geklappt
+    }
+
+    /// Nimmt eine Einladung an — gerufen, wenn iOS einen Freigabe-Link öffnet.
+    func nimmAn(_ metadaten: [CKShare.Metadata], completion: @escaping (Bool) -> Void) {
+        guard !metadaten.isEmpty else { completion(false); return }
+        let operation = CKAcceptSharesOperation(shareMetadatas: metadaten)
+        operation.qualityOfService = .userInitiated
+        operation.acceptSharesResultBlock = { [weak self] ergebnis in
+            let geklappt: Bool
+            switch ergebnis {
+            case .success:
+                geklappt = true
+            case .failure(let fehler):
+                self?.queue.async { self?.status = .error(Self.describe(fehler)) }
+                geklappt = false
+            }
+            // Die neue Tafel liegt in einem Bereich, den es hier noch nie
+            // gab — die Marken kennen ihn nicht. Einmal alles holen.
+            if geklappt { self?.requestFullPull() }
+            DispatchQueue.main.async { completion(geklappt) }
+        }
+        container.add(operation)
+    }
+
+    private func einzelnerDatensatz(_ id: CKRecord.ID, aus datenbank: CKDatabase) async -> CKRecord? {
+        await withCheckedContinuation { fortsetzung in
+            let box = ResumeOnce()
+            let operation = CKFetchRecordsOperation(recordIDs: [id])
+            operation.qualityOfService = .userInitiated
+            var treffer: CKRecord?
+            operation.perRecordResultBlock = { _, ergebnis in
+                if case .success(let record) = ergebnis { treffer = record }
+            }
+            operation.fetchRecordsResultBlock = { _ in
+                box.finish { fortsetzung.resume(returning: treffer) }
+            }
+            datenbank.add(operation)
+        }
+    }
+
+    private func loesche(_ id: CKRecord.ID, aus datenbank: CKDatabase) async -> Bool {
+        await withCheckedContinuation { fortsetzung in
+            let box = ResumeOnce()
+            let operation = CKModifyRecordsOperation(recordsToSave: nil, recordIDsToDelete: [id])
+            operation.qualityOfService = .userInitiated
+            operation.modifyRecordsResultBlock = { ergebnis in
+                if case .failure = ergebnis {
+                    box.finish { fortsetzung.resume(returning: false) }
+                } else {
+                    box.finish { fortsetzung.resume(returning: true) }
+                }
             }
             datenbank.add(operation)
         }
