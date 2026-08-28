@@ -49,6 +49,7 @@ einer leeren Tafelliste.
 | 3a | Abgleich über Änderungsmarken statt Abfrage | **fertig** (0.1.5) |
 | 3b/3c | Teilen, Widerrufen und Übernehmen über `CKShare` | **fertig** (0.1.6) |
 | 4 | Texte, Datenschutzangaben, Manifest | **fertig** (0.1.7) |
+| — | Einladung annehmen (Szenen-Delegat) | **offen**, siehe unten (0.1.8) |
 
 Stufe 2 hat sich erledigt: Der Nutzer ist über Sicherung → Einlesen umgezogen,
 und seit 0.1.4 nimmt die Sicherung die Bilder und Klänge mit. Ein eigener
@@ -89,13 +90,23 @@ die Namen der einen Klasse stünden in der anderen.
    iCloud-Kennung noch der eigene Name. Sie wird beim Ankommen in
    `ownBoardIDs` eingetragen, sonst bliebe sie unsichtbar.
 
-**Einladungen nimmt ein Szenen-Delegat entgegen**
-(`FreigabeSceneDelegate`, `windowScene(_:userDidAcceptCloudKitShareWith:)`).
-Den gibt es nur an der Szene, nicht am App-Delegaten. Er legt bewusst kein
-Fenster an, sonst verdrängte er die `WindowGroup` von SwiftUI. Für alle
-anderen Szenen-Rollen gibt `configurationForConnecting` die Konfiguration aus
-der `Info.plist` zurück — sonst bliebe der Beamer schwarz. Dazu
-`CKSharingSupported`, damit iOS den Link überhaupt an die App gibt.
+**Einladungen annehmen geht gerade nicht** (seit 0.1.8 ausgebaut). Den
+Rückruf dafür gibt es nur an einem eigenen Szenen-Delegaten — und der hat in
+0.1.6 jeden `.fileImporter` der App lahmgelegt: Wer aus
+`application(_:configurationForConnecting:options:)` eine eigene
+`UISceneConfiguration` mit eigenem `delegateClass` zurückgibt, setzt den
+Szenen-Delegaten von SwiftUI ab. Die App läuft weiter, aber der Dateiwähler
+findet keinen Halter mehr und tut still gar nichts. Gemeldet wurde es für
+Tondateien; betroffen waren auch Bild, Video, Tafelhintergrund und
+„Sicherung einlesen".
+
+Die Begründung steht ausführlich im Kopf von `KlassenraumApp.swift`. Beim
+Wiedereinbau: derselbe Delegat, aber mit `var window: UIWindow?` — so wie
+`BeamerSceneDelegate` es hat. **Gegenprobe zuerst am Dateiwähler, nicht am
+Teilen.** `CKSharingSupported` bleibt in der `Info.plist` stehen; es wird
+dann wieder gebraucht.
+
+Freigeben, Widerrufen und Übernehmen sind davon nicht betroffen.
 
 **Kein Index, keine Security Role.** Beides galt nur für die öffentliche
 Datenbank. Der Abgleich liest über Änderungsmarken
