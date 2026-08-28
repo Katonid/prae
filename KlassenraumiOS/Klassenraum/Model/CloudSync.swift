@@ -832,8 +832,10 @@ final class CloudSyncEngine {
         guard enabled else { return }
         await withCheckedContinuation { fortsetzung in
             let box = ResumeOnce()
-            queue.async {
-                self.stelleZoneSicher {
+            queue.async { [weak self] in
+                guard let self else { box.finish { fortsetzung.resume() }; return }
+                self.stelleZoneSicher { [weak self] in
+                    guard let self else { box.finish { fortsetzung.resume() }; return }
                     self.pushPending { box.finish { fortsetzung.resume() } }
                 }
             }
