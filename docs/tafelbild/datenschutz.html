@@ -41,29 +41,31 @@ gespeichert. Auf diesen lokalen Bestand hat der Entwickler keinen Zugriff.</p>
 <h2>3. Abgleich über iCloud</h2>
 <p>Die App gleicht ihre Inhalte über Apples Dienst CloudKit ab, damit dieselbe
 Tafel auf allen Geräten derselben Apple-ID erscheint und geteilte Tafeln bei
-Kolleginnen und Kollegen ankommen. Genutzt wird dabei die <strong>öffentliche
-Datenbank des App-Bereichs</strong>. Das ist der technisch entscheidende
-Punkt, und deshalb steht er hier so deutlich:</p>
+Kolleginnen und Kollegen ankommen. Genutzt wird dabei die <strong>private
+Datenbank der Nutzerin</strong>. Das ist der technisch entscheidende Punkt,
+und deshalb steht er hier so deutlich:</p>
 <ul>
-<li>Die Daten liegen auf Servern von Apple, aber in einem Bereich, der dem
-    Entwickler zugeordnet ist. <strong>Der Entwickler kann die Datensätze
-    dort einsehen</strong> – anders als bei Daten, die in der privaten iCloud
-    einer Nutzerin liegen.</li>
-<li>Er tut das nicht, um Inhalte zu lesen, sondern allenfalls zur
-    Fehlersuche. Es findet keine Auswertung statt, die Daten werden nicht an
-    Dritte weitergegeben und nicht für andere Zwecke verwendet.</li>
-<li>Weil die Datenbank für alle angemeldeten Nutzerinnen und Nutzer der App
-    lesbar sein muss, damit geteilte Tafeln funktionieren, kann technisch
-    versiert auch von außen auf Datensätze zugegriffen werden. Die Zuordnung,
-    wer welche Tafel sieht, trifft die App auf dem Gerät.</li>
+<li>Die Daten liegen auf Servern von Apple, und zwar in der iCloud, die zur
+    <strong>Apple-ID der Nutzerin</strong> gehört. <strong>Der Entwickler der
+    App kann sie nicht einsehen</strong> – weder einzelne Tafeln noch Namen
+    noch Bilder.</li>
+<li>Es gibt kein Konto beim Entwickler, keine Werbung, keine Auswertung, kein
+    Tracking und keinen weiteren Server. Die App spricht ausschließlich mit
+    iCloud.</li>
+<li>Wird eine Tafel freigegeben, bleibt sie in der iCloud derjenigen, die sie
+    freigegeben hat, und wird <strong>nur für die eingeladenen Personen</strong>
+    sichtbar (Apples Freigabe-Verfahren, <em>CKShare</em>). Siehe Abschnitt 6.</li>
 </ul>
+<p>Bis einschließlich Fassung 1.0.57 lag der Abgleich in der öffentlichen
+Datenbank des App-Bereichs, in die der Entwickler Einsicht hatte. Diese
+Fassung wurde nie im App Store verbreitet; mit Fassung 1.0.58 ist der Abgleich
+auf die private Datenbank umgestellt.</p>
 <p><strong>Der Abgleich lässt sich in den Einstellungen der App abschalten.</strong>
 Danach bleibt alles auf dem Gerät, und die App funktioniert vollständig ohne
-Netz. Bereits übertragene Datensätze verschwinden dadurch nicht von selbst;
-siehe Abschnitt 5.</p>
+Netz.</p>
 
 <h2>4. Welche Daten übertragen werden</h2>
-<p>Bei eingeschaltetem Abgleich wandern mit:</p>
+<p>Bei eingeschaltetem Abgleich wandern in die private iCloud der Nutzerin:</p>
 <ul>
 <li><strong>Der gesamte Inhalt einer Tafel</strong> – Name der Tafel, Seiten,
     alle Elemente mit ihren Texten und Überschriften, Tagesabläufe,
@@ -72,36 +74,42 @@ siehe Abschnitt 5.</p>
     Kindern</strong>, dazu die vergebenen Merkmale und die Ergebnisse der
     letzten Auslosungen.</li>
 <li><strong>Dateien</strong>, die auf einer Tafel liegen: Bilder aus der
-    Fotomediathek, eingefrorene Kamerabilder, Videos und selbst aufgenommene
-    Töne.</li>
+    Fotomediathek, eingefrorene Kamerabilder und Töne. Videos bleiben dort,
+    wo sie ausgewählt wurden; die App kennt nur ihren Namen.</li>
 <li><strong>Der in den Einstellungen eingetragene Anzeigename</strong>
-    (z. B. „Frau Meyer“) und die Anzeigenamen der Personen, mit denen eine
-    Tafel geteilt wurde.</li>
+    (z. B. „Frau Meyer“) und die Anzeigenamen der Personen, die an einer
+    geteilten Tafel mitarbeiten.</li>
 <li><strong>Die iCloud-Kennung</strong> der beteiligten Geräte. Daran erkennt
-    die App, wem eine Tafel gehört und wer sie sehen darf. Es ist eine von
-    Apple vergebene Zeichenfolge, kein Name und keine E-Mail-Adresse.</li>
+    die App, wem eine Tafel gehört. Es ist eine von Apple vergebene
+    Zeichenfolge, kein Name und keine E-Mail-Adresse.</li>
 </ul>
 <p>Nicht übertragen werden: der Standort, das Adressbuch, die übrige
 Fotomediathek, Nutzungsstatistiken oder Absturzberichte an den Entwickler.</p>
 
 <h2>5. Aufbewahrung und Löschung</h2>
 <p>Wer eine Tafel oder eine Namensliste in der App löscht, entfernt sie damit
-auf allen beteiligten Geräten. <strong>Der zugehörige Datensatz im
-iCloud-Bereich der App bleibt jedoch bestehen</strong> – er trägt dann einen
-Löschvermerk, damit die anderen Geräte vom Löschen erfahren. Er wird nicht
-mehr angezeigt, ist aber weiterhin vorhanden.</p>
-<p>Wer möchte, dass die Datensätze endgültig entfernt werden, schreibt an die
-oben genannte Adresse. Zum Auffinden genügt der Einladungscode der Tafel oder
-die eigene iCloud-Kennung; beides steht in der App unter Einstellungen →
-„Abgleich prüfen“. Die Löschung erfolgt ohne Kosten und ohne Angabe von
-Gründen.</p>
+auf allen beteiligten Geräten. In der iCloud bleibt ein <strong>leerer
+Vermerk</strong> stehen: die Kennung, das Löschzeichen und der Zeitpunkt.
+Ohne ihn brächten die anderen Geräte den Eintrag beim nächsten Abgleich
+zurück. Inhalt steht in diesem Vermerk keiner mehr – kein Name, kein Text,
+kein Bild.</p>
+<p>Alles restlos zu entfernen liegt in der Hand der Nutzerin, denn die Daten
+liegen in ihrer eigenen iCloud: Abgleich ausschalten, App löschen, und in den
+iOS-Einstellungen unter Apple-ID → iCloud → Speicher verwalten die Daten der
+App entfernen. Ein Antrag beim Entwickler ist dafür nicht nötig und wäre auch
+wirkungslos – er hat keinen Zugriff.</p>
 
 <h2>6. Geteilte Tafeln</h2>
-<p>Wer eine Tafel über einen Einladungscode teilt, macht deren Inhalt für die
-eingeladenen Personen sichtbar – also Elemente, Namenslisten, Texte,
-Bilder, Töne und Handschrift. Anordnung, Farben und ausgeblendete Elemente
-bleiben bei jeder Person persönlich. Über den Code hinaus werden keine
-Kontaktdaten ausgetauscht.</p>
+<p>Wer eine Tafel freigibt, verschickt einen Einladungslink. Wer ihn annimmt,
+sieht den Inhalt der Tafel – Elemente, Namenslisten, Texte, Bilder, Töne und
+Handschrift – und darf ihn auch ändern. Anordnung, Farben und ausgeblendete
+Elemente bleiben bei jeder Person persönlich. Über die Freigabe hinaus werden
+keine Kontaktdaten ausgetauscht.</p>
+<p>Die Tafel bleibt dabei in der iCloud derjenigen, die sie freigegeben hat.
+<strong>Die Freigabe lässt sich jederzeit zurücknehmen</strong>; danach endet
+der Zugriff der anderen sofort. Wer eine freigegebene Tafel dauerhaft behalten
+möchte, kann sie als eigene übernehmen – dabei entsteht eine Kopie in der
+eigenen iCloud, die von der ursprünglichen Tafel abgekoppelt ist.</p>
 <p>Namenslisten enthalten in der Regel Vornamen von Kindern: Sie sollten
 sparsam gefüllt und Tafeln nur mit Personen geteilt werden, die diese Namen
 ohnehin kennen dürfen. Wer sichergehen will, verwendet Kürzel oder Vornamen
@@ -138,20 +146,22 @@ schaltet ihn in den Einstellungen ab; die App bleibt vollständig nutzbar.</p>
 (Art. 16), Löschung (Art. 17), Einschränkung (Art. 18), Datenübertragbarkeit
 (Art. 20) und Widerspruch (Art. 21) sowie das Beschwerderecht bei einer
 Datenschutzaufsichtsbehörde.</p>
-<p>Für Auskunft und Löschung genügt eine formlose Nachricht an
-<strong>tafelbild@apps.dblern.de</strong> mit dem Einladungscode der Tafel
-oder der eigenen iCloud-Kennung (Einstellungen → „Abgleich prüfen“). Alle
-Inhalte lassen sich außerdem jederzeit in der App selbst entfernen; zur
-endgültigen Entfernung der Datensätze im iCloud-Bereich siehe Abschnitt 5.</p>
+<p>Diese Rechte lassen sich hier unmittelbar selbst ausüben, denn die Daten
+liegen in Ihrer eigenen iCloud: Alle Inhalte sind jederzeit in der App
+einzusehen, zu ändern, zu exportieren (Einstellungen → „Sicherung erstellen“)
+und zu löschen; zur restlosen Entfernung siehe Abschnitt 5. Der Entwickler
+hat keinen Zugriff auf diese Daten und kann deshalb weder Auskunft erteilen
+noch löschen. Für Fragen zur App selbst:
+<strong>tafelbild@apps.dblern.de</strong>.</p>
 
 <h2>12. Einsatz in der Schule</h2>
 <p>Wird die App dienstlich genutzt, ist die Schule bzw. der Schulträger für die
 Verarbeitung der dort eingegebenen Daten verantwortlich. Bevor Namen von
 Kindern eingetragen werden, sollte geklärt sein, ob das nach den Vorgaben der
 zuständigen Schulbehörde zulässig ist – insbesondere, weil die Daten bei
-eingeschaltetem Abgleich an Apple und in den Bereich des Entwicklers
-übertragen werden. Im Zweifel: Abgleich ausschalten oder Kürzel statt
-vollständiger Namen verwenden.</p>
+eingeschaltetem Abgleich an Apple übertragen werden (in die private iCloud
+der Nutzerin; der Entwickler erhält sie nicht). Im Zweifel: Abgleich
+ausschalten oder Kürzel statt vollständiger Namen verwenden.</p>
 
 <h2>13. Änderungen</h2>
 <p>Diese Datenschutzerklärung wird bei Bedarf an neue Funktionen der App

@@ -349,6 +349,9 @@ struct BoardSettingsSheet: View {
             // Video: iPadOS blendet sonst Dateien aus, deren Art der Anbieter
             // nicht mitliefert. Passt sie nicht, sagen wir es hinterher.
             .fileImporter(isPresented: $zeigtDateiwahl, allowedContentTypes: [.item]) { ergebnis in
+                // Schalter zuerst zurücksetzen, sonst tut der zweite Versuch
+                // nichts mehr (siehe SoundsSettings in WidgetSettingsSheet).
+                zeigtDateiwahl = false
                 uebernimmHintergrund(ergebnis)
             }
             .onChange(of: photo) { _, item in

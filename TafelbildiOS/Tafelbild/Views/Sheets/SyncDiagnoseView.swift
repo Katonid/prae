@@ -112,7 +112,7 @@ struct SyncDiagnoseView: View {
             Section {
                 DisclosureGroup("Record-Typ „Entity“ von Hand anlegen") {
                     VStack(alignment: .leading, spacing: 10) {
-                        Text("Steht in der CloudKit-Konsole unter „Add Index“ nur „Users“ zur Auswahl, fehlt der Record-Typ. Er lässt sich im Browser anlegen — auch vom iPad aus:")
+                        Text("Meldet der Abgleich, der Record-Typ fehle, lässt er sich in der CloudKit-Konsole im Browser anlegen — auch vom iPad aus:")
                             .font(.footnote)
                         Text("Schema → Record Types → + → Name: Entity. Danach diese Felder anlegen:")
                             .font(.footnote)
@@ -123,9 +123,9 @@ struct SyncDiagnoseView: View {
                                 Text(feld.1).font(.footnote).foregroundStyle(.secondary)
                             }
                         }
-                        Text("Danach: Indexes → + → Record Type „Entity“, Field „updatedAtMs“, Type QUERYABLE. Das ist der einzige Pflicht-Index; „Name“ ist nur eine Bezeichnung, „Field“ die eigentliche Auswahl.")
+                        Text("Zum Schluss „Deploy Schema Changes to Production“ — sonst gilt alles nur für Installationen aus Xcode.")
                             .font(.footnote)
-                        Text("Dann Security Roles → Entity → Rolle _icloud: Read und Write ankreuzen. Zum Schluss „Deploy Schema Changes to Production“ — sonst gilt alles nur für Installationen aus Xcode.")
+                        Text("Indizes und Security Roles braucht diese Fassung nicht: Die Tafeln liegen in der privaten iCloud und werden über Änderungsmarken gelesen, nicht über Abfragen.")
                             .font(.footnote)
                     }
                     .padding(.vertical, 4)
