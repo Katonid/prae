@@ -49,7 +49,7 @@ einer leeren Tafelliste.
 | 3a | Abgleich über Änderungsmarken statt Abfrage | **fertig** (0.1.5) |
 | 3b/3c | Teilen, Widerrufen und Übernehmen über `CKShare` | **fertig** (0.1.6) |
 | 4 | Texte, Datenschutzangaben, Manifest | **fertig** (0.1.7) |
-| — | Einladung annehmen (Szenen-Delegat) | **offen**, siehe unten (0.1.8) |
+| — | Einladung annehmen (Szenen-Delegat) | **fertig** (0.1.9) |
 
 Stufe 2 hat sich erledigt: Der Nutzer ist über Sicherung → Einlesen umgezogen,
 und seit 0.1.4 nimmt die Sicherung die Bilder und Klänge mit. Ein eigener
@@ -90,21 +90,23 @@ die Namen der einen Klasse stünden in der anderen.
    iCloud-Kennung noch der eigene Name. Sie wird beim Ankommen in
    `ownBoardIDs` eingetragen, sonst bliebe sie unsichtbar.
 
-**Einladungen annehmen geht gerade nicht** (seit 0.1.8 ausgebaut). Den
-Rückruf dafür gibt es nur an einem eigenen Szenen-Delegaten — und der hat in
-0.1.6 jeden `.fileImporter` der App lahmgelegt: Wer aus
-`application(_:configurationForConnecting:options:)` eine eigene
-`UISceneConfiguration` mit eigenem `delegateClass` zurückgibt, setzt den
-Szenen-Delegaten von SwiftUI ab. Die App läuft weiter, aber der Dateiwähler
-findet keinen Halter mehr und tut still gar nichts. Gemeldet wurde es für
-Tondateien; betroffen waren auch Bild, Video, Tafelhintergrund und
-„Sicherung einlesen".
+**Einladungen nimmt ein Szenen-Delegat entgegen**
+(`FreigabeSceneDelegate`, `windowScene(_:userDidAcceptCloudKitShareWith:)`).
+Den Rückruf gibt es nur an der Szene, nicht am App-Delegaten. Der Delegat
+trägt `var window: UIWindow?` — so wie `BeamerSceneDelegate` — beantwortet
+aber `scene(_:willConnectTo:options:)` NICHT: Wer das tut, verdrängt die
+`WindowGroup` von SwiftUI und die App startet ins Schwarze. Für alle anderen
+Szenen-Rollen gibt `configurationForConnecting` die Konfiguration aus der
+`Info.plist` zurück, sonst bliebe der Beamer schwarz. Dazu
+`CKSharingSupported`, damit iOS den Link überhaupt an die App gibt.
 
-Die Begründung steht ausführlich im Kopf von `KlassenraumApp.swift`. Beim
-Wiedereinbau: derselbe Delegat, aber mit `var window: UIWindow?` — so wie
-`BeamerSceneDelegate` es hat. **Gegenprobe zuerst am Dateiwähler, nicht am
-Teilen.** `CKSharingSupported` bleibt in der `Info.plist` stehen; es wird
-dann wieder gebraucht.
+**Ein Irrweg, damit er nicht wiederholt wird:** In 0.1.8 war dieser Delegat
+ausgebaut — ich hatte ihn für einen stummen Dateiwähler verantwortlich
+gemacht. Falsch. Bild und Video ließen sich die ganze Zeit auswählen, nur der
+Ton nicht, und das schließt eine Ursache in der Szene aus. Sie lag im
+Klang-Abschnitt selbst: Der Wähler hing an einer Zeile mitten in der Liste,
+die noch nicht aufgebaut war. Merksatz: Wenn ein Wähler schweigt, zuerst
+prüfen, ob die anderen auch schweigen.
 
 Freigeben, Widerrufen und Übernehmen sind davon nicht betroffen.
 
