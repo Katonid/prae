@@ -9,6 +9,7 @@
          max-width: 720px; margin: 0 auto; padding: 24px 16px 64px; line-height: 1.6;
          color: #1b1b1f; background: #fafafa; }
   h1 { font-size: 1.6em; } h2 { font-size: 1.15em; margin-top: 1.8em; }
+  ul { padding-left: 1.2em; }
   footer { margin-top: 3em; font-size: 0.85em; color: #666; }
   @media (prefers-color-scheme: dark) {
     body { background: #111; color: #e6e6e6; } footer { color: #999; }
@@ -18,9 +19,15 @@
 <body>
 <h1>Datenschutzerklärung für die App „Tafelbild“</h1>
 
-<p><strong>Kurzfassung: Die App erhebt, speichert und überträgt keine
-personenbezogenen Daten an den Entwickler.</strong> Es gibt kein Konto beim
-Entwickler, keine Werbung, kein Tracking und keine Analyse-Werkzeuge.</p>
+<p><strong>Kurzfassung:</strong> Es gibt kein Konto beim Entwickler, keine
+Werbung, kein Tracking, keine Analyse-Werkzeuge und keine Bausteine fremder
+Anbieter. Solange der Abgleich ausgeschaltet ist, verlässt kein Inhalt das
+Gerät. <strong>Ist der Abgleich eingeschaltet – und das ist er ab Werk –,
+werden die Inhalte der Tafeln in den iCloud-Bereich der App übertragen. Dieser
+Bereich gehört dem Entwickler; er kann die dort abgelegten Datensätze
+technisch einsehen.</strong> Ausgewertet wird nichts; die Übertragung dient
+allein dazu, dass eigene Geräte denselben Stand zeigen und geteilte Tafeln bei
+den eingeladenen Personen ankommen.</p>
 
 <h2>1. Verantwortlicher</h2>
 <p>Verantwortlich für diese App ist der private Entwickler Andreas Jerosch.<br>
@@ -29,59 +36,124 @@ Kontakt: <strong>tafelbild@apps.dblern.de</strong></p>
 <h2>2. Lokale Datenspeicherung</h2>
 <p>Alle Inhalte der App – Tafeln, Seiten, Elemente, Namenslisten, Farben,
 Handschrift, eingefügte Bilder und Tondateien – werden auf dem Gerät
-gespeichert. Der Entwickler hat darauf keinen Zugriff.</p>
+gespeichert. Auf diesen lokalen Bestand hat der Entwickler keinen Zugriff.</p>
 
-<h2>3. iCloud-Abgleich</h2>
-<p>Die App gleicht ihre Inhalte über iCloud zwischen den Geräten ab. Die Daten
-liegen dabei im iCloud-Bereich der App bei Apple; der Entwickler hat keinen
-Zugriff darauf. Es gelten die Datenschutzbestimmungen von Apple. Der Abgleich
-lässt sich in den Einstellungen der App abschalten; die App funktioniert dann
-vollständig ohne Netz.</p>
+<h2>3. Abgleich über iCloud</h2>
+<p>Die App gleicht ihre Inhalte über Apples Dienst CloudKit ab, damit dieselbe
+Tafel auf allen Geräten derselben Apple-ID erscheint und geteilte Tafeln bei
+Kolleginnen und Kollegen ankommen. Genutzt wird dabei die <strong>öffentliche
+Datenbank des App-Bereichs</strong>. Das ist der technisch entscheidende
+Punkt, und deshalb steht er hier so deutlich:</p>
+<ul>
+<li>Die Daten liegen auf Servern von Apple, aber in einem Bereich, der dem
+    Entwickler zugeordnet ist. <strong>Der Entwickler kann die Datensätze
+    dort einsehen</strong> – anders als bei Daten, die in der privaten iCloud
+    einer Nutzerin liegen.</li>
+<li>Er tut das nicht, um Inhalte zu lesen, sondern allenfalls zur
+    Fehlersuche. Es findet keine Auswertung statt, die Daten werden nicht an
+    Dritte weitergegeben und nicht für andere Zwecke verwendet.</li>
+<li>Weil die Datenbank für alle angemeldeten Nutzerinnen und Nutzer der App
+    lesbar sein muss, damit geteilte Tafeln funktionieren, kann technisch
+    versiert auch von außen auf Datensätze zugegriffen werden. Die Zuordnung,
+    wer welche Tafel sieht, trifft die App auf dem Gerät.</li>
+</ul>
+<p><strong>Der Abgleich lässt sich in den Einstellungen der App abschalten.</strong>
+Danach bleibt alles auf dem Gerät, und die App funktioniert vollständig ohne
+Netz. Bereits übertragene Datensätze verschwinden dadurch nicht von selbst;
+siehe Abschnitt 5.</p>
 
-<h2>4. Geteilte Tafeln</h2>
+<h2>4. Welche Daten übertragen werden</h2>
+<p>Bei eingeschaltetem Abgleich wandern mit:</p>
+<ul>
+<li><strong>Der gesamte Inhalt einer Tafel</strong> – Name der Tafel, Seiten,
+    alle Elemente mit ihren Texten und Überschriften, Tagesabläufe,
+    Checklisten und die Handschrift.</li>
+<li><strong>Namenslisten</strong>, also in der Regel <strong>die Vornamen von
+    Kindern</strong>, dazu die vergebenen Merkmale und die Ergebnisse der
+    letzten Auslosungen.</li>
+<li><strong>Dateien</strong>, die auf einer Tafel liegen: Bilder aus der
+    Fotomediathek, eingefrorene Kamerabilder, Videos und selbst aufgenommene
+    Töne.</li>
+<li><strong>Der in den Einstellungen eingetragene Anzeigename</strong>
+    (z. B. „Frau Meyer“) und die Anzeigenamen der Personen, mit denen eine
+    Tafel geteilt wurde.</li>
+<li><strong>Die iCloud-Kennung</strong> der beteiligten Geräte. Daran erkennt
+    die App, wem eine Tafel gehört und wer sie sehen darf. Es ist eine von
+    Apple vergebene Zeichenfolge, kein Name und keine E-Mail-Adresse.</li>
+</ul>
+<p>Nicht übertragen werden: der Standort, das Adressbuch, die übrige
+Fotomediathek, Nutzungsstatistiken oder Absturzberichte an den Entwickler.</p>
+
+<h2>5. Aufbewahrung und Löschung</h2>
+<p>Wer eine Tafel oder eine Namensliste in der App löscht, entfernt sie damit
+auf allen beteiligten Geräten. <strong>Der zugehörige Datensatz im
+iCloud-Bereich der App bleibt jedoch bestehen</strong> – er trägt dann einen
+Löschvermerk, damit die anderen Geräte vom Löschen erfahren. Er wird nicht
+mehr angezeigt, ist aber weiterhin vorhanden.</p>
+<p>Wer möchte, dass die Datensätze endgültig entfernt werden, schreibt an die
+oben genannte Adresse. Zum Auffinden genügt der Einladungscode der Tafel oder
+die eigene iCloud-Kennung; beides steht in der App unter Einstellungen →
+„Abgleich prüfen“. Die Löschung erfolgt ohne Kosten und ohne Angabe von
+Gründen.</p>
+
+<h2>6. Geteilte Tafeln</h2>
 <p>Wer eine Tafel über einen Einladungscode teilt, macht deren Inhalt für die
-eingeladenen Personen sichtbar – also Elemente, Namenslisten, Texte und
-Handschrift. Anordnung, Farben und ausgeblendete Elemente bleiben bei jeder
-Person persönlich. Über den Code hinaus werden keine Kontaktdaten
-ausgetauscht. Namenslisten enthalten in der Regel Vornamen von Kindern:
-Sie sollten sparsam gefüllt und Tafeln nur mit Personen geteilt werden, die
-diese Namen ohnehin kennen dürfen.</p>
+eingeladenen Personen sichtbar – also Elemente, Namenslisten, Texte,
+Bilder, Töne und Handschrift. Anordnung, Farben und ausgeblendete Elemente
+bleiben bei jeder Person persönlich. Über den Code hinaus werden keine
+Kontaktdaten ausgetauscht.</p>
+<p>Namenslisten enthalten in der Regel Vornamen von Kindern: Sie sollten
+sparsam gefüllt und Tafeln nur mit Personen geteilt werden, die diese Namen
+ohnehin kennen dürfen. Wer sichergehen will, verwendet Kürzel oder Vornamen
+mit Anfangsbuchstaben statt vollständiger Namen.</p>
 
-<h2>5. Mikrofon</h2>
+<h2>7. Mikrofon</h2>
 <p>Der Lautstärkemesser braucht das Mikrofon, um den Geräuschpegel im Raum zu
 bestimmen. <strong>Es wird nichts aufgezeichnet und nichts übertragen</strong>
 – aus dem Signal wird nur eine Zahl berechnet, die sofort wieder verworfen
 wird. Eine Ausnahme ist die Funktion „Selbst aufnehmen“ für ein Klangfeld:
 Dabei entsteht eine Tondatei, die wie jede andere Datei der App auf dem Gerät
-liegt und über iCloud mitwandert.</p>
+liegt und beim Abgleich mitwandert.</p>
 
-<h2>6. Kamera</h2>
+<h2>8. Kamera</h2>
 <p>Die Dokumentenkamera zeigt das Bild der Gerätekamera auf der Tafel. Das Bild
 läuft nur, solange das Element sichtbar und nicht eingefroren ist.
 <strong>Aufgenommen wird ausschließlich das Standbild, das selbst eingefroren
-wird</strong>; es liegt danach als gewöhnliche Bilddatei auf der Tafel.</p>
+wird</strong>; es liegt danach als gewöhnliche Bilddatei auf der Tafel und
+wandert beim Abgleich mit.</p>
 
-<h2>7. Fotomediathek und Dateien</h2>
+<h2>9. Fotomediathek und Dateien</h2>
 <p>Bilder für Elemente oder als Hintergrund lassen sich aus der Fotomediathek
 oder der Dateien-App wählen. Die App liest dabei nur die ausgewählte Datei;
 ein Zugriff auf die übrige Mediathek findet nicht statt.</p>
 
-<h2>8. Ihre Rechte</h2>
-<p>Da die App keine personenbezogenen Daten an den Entwickler überträgt, liegen
-beim Entwickler keine Daten vor, über die Auskunft erteilt werden könnte oder
-die berichtigt oder gelöscht werden müssten. Sämtliche Inhalte lassen sich
-jederzeit in der App oder durch Löschen der App entfernen. Unabhängig davon
-stehen Ihnen die Rechte aus der DSGVO (Art. 15–21) sowie das Beschwerderecht
-bei einer Datenschutzaufsichtsbehörde zu.</p>
+<h2>10. Rechtsgrundlage</h2>
+<p>Die Verarbeitung im Rahmen des Abgleichs erfolgt zur Erfüllung des
+Nutzungsverhältnisses und im berechtigten Interesse an einer funktionierenden
+App (Art. 6 Abs. 1 lit. b und f DSGVO). Wer den Abgleich nicht möchte,
+schaltet ihn in den Einstellungen ab; die App bleibt vollständig nutzbar.</p>
 
-<h2>9. Einsatz in der Schule</h2>
+<h2>11. Ihre Rechte</h2>
+<p>Ihnen stehen die Rechte aus der DSGVO zu: Auskunft (Art. 15), Berichtigung
+(Art. 16), Löschung (Art. 17), Einschränkung (Art. 18), Datenübertragbarkeit
+(Art. 20) und Widerspruch (Art. 21) sowie das Beschwerderecht bei einer
+Datenschutzaufsichtsbehörde.</p>
+<p>Für Auskunft und Löschung genügt eine formlose Nachricht an
+<strong>tafelbild@apps.dblern.de</strong> mit dem Einladungscode der Tafel
+oder der eigenen iCloud-Kennung (Einstellungen → „Abgleich prüfen“). Alle
+Inhalte lassen sich außerdem jederzeit in der App selbst entfernen; zur
+endgültigen Entfernung der Datensätze im iCloud-Bereich siehe Abschnitt 5.</p>
+
+<h2>12. Einsatz in der Schule</h2>
 <p>Wird die App dienstlich genutzt, ist die Schule bzw. der Schulträger für die
-Verarbeitung der dort eingegebenen Daten verantwortlich. Die App speichert
-diese Daten im iCloud-Konto des jeweiligen Geräts. Für dienstliche
-Namenslisten gelten die Vorgaben der jeweiligen Schulbehörde; im Zweifel
-Kürzel statt vollständiger Namen verwenden.</p>
+Verarbeitung der dort eingegebenen Daten verantwortlich. Bevor Namen von
+Kindern eingetragen werden, sollte geklärt sein, ob das nach den Vorgaben der
+zuständigen Schulbehörde zulässig ist – insbesondere, weil die Daten bei
+eingeschaltetem Abgleich an Apple und in den Bereich des Entwicklers
+übertragen werden. Im Zweifel: Abgleich ausschalten oder Kürzel statt
+vollständiger Namen verwenden.</p>
 
-<h2>10. Änderungen</h2>
+<h2>13. Änderungen</h2>
 <p>Diese Datenschutzerklärung wird bei Bedarf an neue Funktionen der App
 angepasst. Die jeweils aktuelle Fassung ist unter dieser Adresse abrufbar.</p>
 
