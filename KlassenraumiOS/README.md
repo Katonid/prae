@@ -40,6 +40,27 @@ einer leeren Tafelliste.
 3. **Steht der Umbau, wandert nur die Abgleichsschicht zurück** nach
    `TafelbildiOS/`. Danach wird dieser Ordner gelöscht.
 
+## Stand des Umbaus
+
+| Stufe | Was | Stand |
+|---|---|---|
+| 1 | Private Datenbank mit eigener Zone `Tafeln` | **fertig** (0.1.1) |
+| 2 | Bestand aus dem öffentlichen Bereich einmalig übernehmen | offen |
+| 3 | Teilen über `CKShare` statt Einladungscode | offen |
+| 4 | Texte, Datenschutzangaben, Manifest nachziehen | offen |
+
+**Was seit Stufe 1 gilt:** Alles liegt in der privaten iCloud der Nutzerin —
+der Entwickler kann nichts mehr einsehen. Der Abgleich zwischen den **eigenen**
+Geräten funktioniert wie gewohnt.
+
+**Was noch nicht geht:** Einer fremden Tafel per Code beitreten. Der Code
+suchte die Tafel im gemeinsamen öffentlichen Bereich; den gibt es hier nicht
+mehr. Die App sagt das beim Versuch. Eine Tafel, die schon auf dem Gerät
+liegt, lässt sich weiterhin über ihren Code holen.
+
+**Und die Tafelliste ist leer** — die App hat eine eigene Bundle-ID und damit
+einen eigenen örtlichen Bestand. Das behebt Stufe 2.
+
 ## Nicht verwechseln
 
 `klassenraum/` (kleingeschrieben, im Wurzelverzeichnis) ist die **Web-App**

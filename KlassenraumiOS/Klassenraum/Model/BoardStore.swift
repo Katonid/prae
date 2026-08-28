@@ -1063,6 +1063,17 @@ final class BoardStore: ObservableObject {
     // MARK: - Teilen
 
     /// Beitritt per Einladungscode. Sucht zuerst lokal, dann in der Cloud.
+    /// Einer Tafel per Einladungscode beitreten.
+    ///
+    /// **Beim Umbau (Weg A) vorübergehend nur örtlich.** Der Code suchte die
+    /// Tafel bisher im gemeinsamen öffentlichen Bereich. Seit Stufe 1 liegen
+    /// die Tafeln in der privaten Datenbank — dort kann niemand fremde Tafeln
+    /// finden, und genau das ist der Sinn. Der Weg zur Kollegin entsteht in
+    /// Stufe 3 über eine echte iCloud-Freigabe (`CKShare`) statt über einen
+    /// Code.
+    ///
+    /// Eine Tafel, die schon auf diesem Gerät liegt, lässt sich weiterhin
+    /// über ihren Code holen — dafür braucht es die Cloud nicht.
     func joinBoard(code: String, completion: @escaping (Bool) -> Void) {
         let normalized = code.uppercased().trimmed
         guard normalized.count >= 4 else {
@@ -1073,13 +1084,10 @@ final class BoardStore: ObservableObject {
             completion(true)
             return
         }
-        engine.fetchBoards { [weak self] remote in
-            guard let self else { return }
-            MainActor.assumeIsolated {
-                self.applyRemote(remote)
-                completion(self.adoptBoard(withCode: normalized))
-            }
-        }
+        showStatus("Beitreten per Code ruht gerade: Die Tafeln liegen jetzt in "
+                   + "deiner privaten iCloud. Das Teilen wird auf eine echte "
+                   + "iCloud-Freigabe umgebaut.")
+        completion(false)
     }
 
     private func adoptBoard(withCode code: String) -> Bool {
