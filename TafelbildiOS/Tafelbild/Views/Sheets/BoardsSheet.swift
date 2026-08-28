@@ -161,7 +161,6 @@ struct ShareSheet: View {
     private var board: Board? { store.board(boardID) }
 
     @State private var laeuft = false
-    @State private var share: CKShare?
     @State private var zeigtEinladung = false
     @State private var fehler: String?
     @State private var fragtWiderruf = false
@@ -192,9 +191,7 @@ struct ShareSheet: View {
                         laeuft = true
                         let geklappt = await store.freigabeWiderrufen(fuer: board)
                         laeuft = false
-                        if geklappt {
-                            share = nil
-                        } else {
+                        if !geklappt {
                             fehler = "Die Freigabe ließ sich nicht zurücknehmen."
                         }
                     }
@@ -238,13 +235,9 @@ struct ShareSheet: View {
                     Button("Fertig") { dismiss() }
                 }
             }
-            .task {
-                guard let board, !store.istGast(board), board.geteilt else { return }
-                share = await store.engine.vorhandeneFreigabe(fuer: boardID)
-            }
             .sheet(isPresented: $zeigtEinladung) {
-                if let share, let board {
-                    Einladungsblatt(share: share, titel: board.name)
+                if let board {
+                    Einladungsblatt(boardID: board.id, titel: board.name)
                         .ignoresSafeArea()
                 }
             }
@@ -257,7 +250,10 @@ struct ShareSheet: View {
     private func besitzAbschnitt(_ board: Board) -> some View {
         Section {
             Button {
-                Task { await freigeben(board) }
+                // Das Blatt legt die Freigabe selbst an — hier wird nur
+                // geöffnet. Warum, steht bei `Einladungsblatt`.
+                fehler = nil
+                zeigtEinladung = true
             } label: {
                 HStack {
                     Label(board.geteilt ? "Weitere Person einladen" : "Tafel freigeben",
@@ -354,19 +350,6 @@ struct ShareSheet: View {
         }
     }
 
-    private func freigeben(_ board: Board) async {
-        laeuft = true
-        fehler = nil
-        let ergebnis = await store.freigabeAnlegen(fuer: board)
-        laeuft = false
-        switch ergebnis {
-        case .success(let neue):
-            share = neue
-            zeigtEinladung = true
-        case .failure(let grund):
-            fehler = grund.errorDescription
-        }
-    }
 }
 
 /// Apples eigenes Blatt zum Verschicken der Einladung.
@@ -374,14 +357,30 @@ struct ShareSheet: View {
 /// Es zeigt zugleich, wer teilnimmt, und lässt einzelne Personen wieder
 /// entfernen — deshalb baut die App das nicht nach.
 struct Einladungsblatt: UIViewControllerRepresentable {
-    let share: CKShare
+    let boardID: String
     let titel: String
 
     func makeUIViewController(context: Context) -> UICloudSharingController {
-        let controller = UICloudSharingController(
-            share: share,
-            container: CKContainer(identifier: CloudSyncEngine.containerID)
-        )
+        // **Das Blatt legt die Freigabe selbst an.** Vorher tat die App das
+        // vorab und reichte ein fertiges Objekt herüber — dessen Adresse
+        // (`CKShare.url`) entsteht aber erst beim Sichern und lag dann noch
+        // nicht vor. Ergebnis: ein Blatt, dessen „Link kopieren" nichts
+        // kopierte. Über diesen Rückruf holt sich das Blatt die Adresse
+        // selbst, so wie Apple es vorsieht.
+        let controller = UICloudSharingController { _, fertig in
+            Task { @MainActor in
+                guard let board = BoardStore.shared.board(boardID) else {
+                    fertig(nil, nil, CloudSyncEngine.Freigabefehler.tafelFehlt)
+                    return
+                }
+                switch await BoardStore.shared.bereiteFreigabeVor(fuer: board) {
+                case .success(let share):
+                    fertig(share, CKContainer(identifier: CloudSyncEngine.containerID), nil)
+                case .failure(let fehler):
+                    fertig(nil, nil, fehler)
+                }
+            }
+        }
         // Nur-Lesen gibt es hier bewusst nicht (siehe Hinweistext im Blatt).
         controller.availablePermissions = [.allowPublic, .allowReadWrite]
         controller.delegate = context.coordinator
