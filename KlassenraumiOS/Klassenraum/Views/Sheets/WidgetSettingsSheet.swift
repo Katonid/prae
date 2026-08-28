@@ -431,17 +431,26 @@ private struct ImageSettings: View {
                 photo = nil
             }
         }
+        // Schalter zuerst zurücksetzen und abseits des Hauptfadens lesen —
+        // aus denselben zwei Gründen wie beim Klang (siehe SoundsSettings).
         .fileImporter(isPresented: $showFiles, allowedContentTypes: [.image]) { result in
+            showFiles = false
             guard case .success(let url) = result else { return }
-            let scoped = url.startAccessingSecurityScopedResource()
-            defer { if scoped { url.stopAccessingSecurityScopedResource() } }
-            guard let data = try? Data(contentsOf: url),
-                  let image = UIImage(data: data),
-                  let prepared = MediaCache.prepareForBoard(image),
-                  let fileName = store.saveMedia(data: prepared.daten,
-                                                 fileExtension: prepared.endung)
-            else { return }
-            content.fileName = fileName
+            Task { @MainActor in
+                let vorbereitet = await Task.detached(priority: .userInitiated) {
+                    () -> (daten: Data, endung: String)? in
+                    let scoped = url.startAccessingSecurityScopedResource()
+                    defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+                    guard let data = try? Data(contentsOf: url),
+                          let image = UIImage(data: data) else { return nil }
+                    return MediaCache.prepareForBoard(image)
+                }.value
+                guard let vorbereitet,
+                      let fileName = store.saveMedia(data: vorbereitet.daten,
+                                                     fileExtension: vorbereitet.endung)
+                else { return }
+                content.fileName = fileName
+            }
         }
     }
 }
@@ -1541,26 +1550,38 @@ private struct SoundsSettings: View {
     }
 
     /// Gewählte Datei in das Feld legen, für das der Wähler geöffnet wurde.
+    ///
+    /// Zwei Dinge sind hier wichtig, beide gegen ein Hängenbleiben:
+    ///
+    /// 1. **Der Schalter wird zuerst zurückgesetzt.** Vorher schloss den
+    ///    Wähler erst das Neuzeichnen, das die Zuweisung weiter unten
+    ///    auslöst — und dabei ging das Schließen gelegentlich verloren. Der
+    ///    Schalter blieb dann innerlich auf „offen", und ein zweiter Tipp auf
+    ///    „Tondatei wählen" tat gar nichts mehr. Genau der gemeldete Fehler.
+    /// 2. **Gelesen wird abseits des Hauptfadens.** Liegt die Datei in iCloud
+    ///    oder auf einem Netzlaufwerk, lädt `Data(contentsOf:)` sie erst
+    ///    herunter. Auf dem Hauptfaden stünde so lange die ganze App.
     private func uebernimmDatei(_ ergebnis: Result<URL, Error>) {
+        zeigtDateiwahl = false
         let ziel = importingFor
         importingFor = nil
-        guard let ziel else { return }
+        // Abbrechen ist kein Fehler — nur echte Fehler melden.
+        guard let ziel, case .success(let url) = ergebnis else { return }
 
-        switch ergebnis {
-        case .failure:
-            // Abbrechen ist kein Fehler — nur echte Fehler melden.
-            return
-        case .success(let url):
-            let scoped = url.startAccessingSecurityScopedResource()
-            defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+        Task { @MainActor in
+            let daten = await Task.detached(priority: .userInitiated) { () -> Data? in
+                let scoped = url.startAccessingSecurityScopedResource()
+                defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+                return try? Data(contentsOf: url)
+            }.value
 
-            guard let data = try? Data(contentsOf: url), !data.isEmpty else {
+            guard let daten, !daten.isEmpty else {
                 store.showStatus("Die Datei ließ sich nicht lesen. Liegt sie in iCloud, "
                                  + "muss sie erst geladen werden.")
                 return
             }
             let endung = url.pathExtension.isEmpty ? "m4a" : url.pathExtension.lowercased()
-            guard let dateiname = store.saveMedia(data: data, fileExtension: endung) else {
+            guard let dateiname = store.saveMedia(data: daten, fileExtension: endung) else {
                 return  // saveMedia meldet den Fehler selbst
             }
             guard let index = content.buttons.firstIndex(where: { $0.id == ziel }) else {
@@ -1748,6 +1769,9 @@ private struct VideoSettings: View {
         // Ohne Filter, aus demselben Grund wie beim Klang: iPadOS blendet
         // Dateien aus, deren Art der Anbieter nicht mitliefert.
         .fileImporter(isPresented: $showFiles, allowedContentTypes: [.item]) { result in
+            // Schalter zuerst zurücksetzen, sonst tut der zweite Versuch
+            // nichts mehr (siehe SoundsSettings).
+            showFiles = false
             guard case .success(let url) = result else { return }
             let ext = url.pathExtension.isEmpty ? "mp4" : url.pathExtension
             if let fileName = store.saveLocalMedia(from: url, fileExtension: ext) {
