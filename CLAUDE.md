@@ -324,6 +324,12 @@ Namens und lebt weiter.
   Tafel übernehmen" — eine abgekoppelte Kopie samt KOPIEN der
   Namenslisten unter neuen Kennungen. Der Einladungscode ist ersatzlos
   entfallen.
+- **Die App muss sich als deutsch ausweisen.** `DEVELOPMENT_LANGUAGE = de`
+  im pbxproj sowie `CFBundleDevelopmentRegion` und `CFBundleLocalizations`
+  in `Config/Info.plist`. `developmentRegion = de` allein genügt nicht —
+  Xcode setzt sonst „en", und weil die App keine Sprachdateien mitbringt,
+  zeigt iOS ALLES Systemeigene englisch: Teilen-Blatt, Dateiwähler,
+  „Abbrechen"/„Fertig" (gefunden 1.0.59). Nicht entfernen.
 - **Die Adresse der Freigabe (`CKShare.url`) vergibt der Server.** Nach dem
   Sichern zählt die Antwort aus `perRecordSaveBlock`, nicht das hingeschickte
   Objekt: Wer Letzteres an `UICloudSharingController` weiterreicht, bekommt

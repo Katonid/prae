@@ -180,6 +180,19 @@
 	</dict>
 	<!-- Freigabe-Links (iCloud.com) sollen in dieser App landen, nicht im
 	     Browser. Ohne diesen Schlüssel öffnet iOS sie nirgends. -->
+	<!-- Die App ist deutsch, und zwar ausschliesslich. Ohne diese Angabe
+	     haelt iOS sie fuer eine englische App (Vorgabe von
+	     CFBundleDevelopmentRegion ist "en", und Sprachdateien bringt die
+	     App keine mit) — und zeigt dann ALLES, was das System beisteuert,
+	     auf Englisch: Apples Teilen-Blatt, den Dateiwaehler, „Abbrechen"
+	     und „Fertig" in Systemdialogen. Dazu gehoert die Bau-Einstellung
+	     DEVELOPMENT_LANGUAGE = de im pbxproj. -->
+	<key>CFBundleDevelopmentRegion</key>
+	<string>de</string>
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>de</string>
+	</array>
 	<key>CKSharingSupported</key>
 	<true/>
 	<key>CFBundleURLTypes</key>
