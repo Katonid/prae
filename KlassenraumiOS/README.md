@@ -53,10 +53,20 @@ einer leeren Tafelliste.
 der Entwickler kann nichts mehr einsehen. Der Abgleich zwischen den **eigenen**
 Geräten funktioniert wie gewohnt.
 
-**Was noch nicht geht:** Einer fremden Tafel per Code beitreten. Der Code
-suchte die Tafel im gemeinsamen öffentlichen Bereich; den gibt es hier nicht
-mehr. Die App sagt das beim Versuch. Eine Tafel, die schon auf dem Gerät
-liegt, lässt sich weiterhin über ihren Code holen.
+**Was noch nicht geht:** Teilen und Beitreten. Der Code suchte die Tafel im
+gemeinsamen öffentlichen Bereich; den gibt es hier nicht mehr. Die Wege
+dorthin sind deshalb **ausgeblendet** statt ins Leere zu führen — geschaltet
+über `Umbau.teilenRuht` in `CloudSync.swift`. Stufe 3 setzt das Kennzeichen
+auf `false` und ersetzt den Code durch eine echte iCloud-Freigabe.
+
+**Eigenes URL-Schema:** `klassenraum://` statt `tafelbild://`. Beide Apps
+liegen auf demselben Gerät; registrierten beide dasselbe Schema, entschiede
+iOS willkürlich, welche einen Link öffnet.
+
+**Die Sicherungsdatei nimmt keine Dateien mit** — sie enthält nur Tafeln und
+Namenslisten als JSON. Wer über Export/Import umzieht, muss Bilder, Videos und
+Klänge neu einsetzen. Das gilt genauso in Tafelbild und ist dort schon lange
+so; behoben ist es nirgends.
 
 **Und die Tafelliste ist leer** — die App hat eine eigene Bundle-ID und damit
 einen eigenen örtlichen Bestand. Das behebt Stufe 2.

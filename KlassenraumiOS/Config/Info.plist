@@ -182,10 +182,13 @@
 	<array>
 		<dict>
 			<key>CFBundleURLName</key>
-			<string>de.familie.tafelbild</string>
+			<string>de.familie.klassenraum</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>tafelbild</string>
+				<!-- Eigenes Schema, nicht "tafelbild": Beide Apps liegen auf
+				     demselben Gerät. Registrierten beide dasselbe Schema,
+				     entschiede iOS willkürlich, welche einen Link öffnet. -->
+				<string>klassenraum</string>
 			</array>
 		</dict>
 	</array>

@@ -94,10 +94,12 @@ struct BoardsSheet: View {
                     } label: {
                         Label("Neue Tafel", systemImage: "plus")
                     }
-                    Button {
-                        showJoin = true
-                    } label: {
-                        Label("Tafel beitreten (Code)", systemImage: "person.badge.plus")
+                    if !Umbau.teilenRuht {
+                        Button {
+                            showJoin = true
+                        } label: {
+                            Label("Tafel beitreten (Code)", systemImage: "person.badge.plus")
+                        }
                     }
                 }
             }
@@ -209,6 +211,10 @@ struct JoinBoardSheet: View {
 }
 
 /// Tafel mit Kolleginnen und Kollegen teilen.
+///
+/// Solange der Umbau läuft (`Umbau.teilenRuht`), steht hier statt des
+/// Einladungscodes die Erklärung, warum es gerade nicht geht — ein Code, den
+/// niemand einlösen kann, wäre schlimmer als kein Code.
 struct ShareSheet: View {
     @EnvironmentObject private var store: BoardStore
     @Environment(\.dismiss) private var dismiss
@@ -221,25 +227,40 @@ struct ShareSheet: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section {
-                    HStack {
-                        Text(board.joinCode)
-                            .font(.system(size: 34, weight: .bold, design: .monospaced))
-                            .frame(maxWidth: .infinity)
+                if Umbau.teilenRuht {
+                    Section {
+                        Label("Teilen wird gerade umgebaut", systemImage: "hammer")
+                            .font(.headline)
+                    } footer: {
+                        Text("Diese Fassung legt die Tafeln in deiner privaten iCloud ab. "
+                             + "Dort kann sie niemand sonst finden — auch nicht mit einem "
+                             + "Einladungscode. Genau darum geht es bei dem Umbau.\n\n"
+                             + "An die Stelle des Codes tritt eine echte iCloud-Freigabe: "
+                             + "Du verschickst einen Link, siehst, wer teilnimmt, kannst "
+                             + "jemanden auch wieder herausnehmen und Nur-Lesen vergeben. "
+                             + "Bis dahin bleibt jede Tafel auf deinen eigenen Geräten — "
+                             + "dort gleicht sie sich wie gewohnt ab.")
                     }
-                    .padding(.vertical, 6)
-                    ShareLink(item: store.shareText(for: board)) {
-                        Label("Einladung senden", systemImage: "square.and.arrow.up")
-                    }
-                    Button {
-                        UIPasteboard.general.string = board.joinCode
-                        store.showStatus("Code kopiert.")
-                    } label: {
-                        Label("Code kopieren", systemImage: "doc.on.doc")
-                    }
-                } header: {
-                    Text("Einladungscode")
-                } footer: {
+                } else {
+                    Section {
+                        HStack {
+                            Text(board.joinCode)
+                                .font(.system(size: 34, weight: .bold, design: .monospaced))
+                                .frame(maxWidth: .infinity)
+                        }
+                        .padding(.vertical, 6)
+                        ShareLink(item: store.shareText(for: board)) {
+                            Label("Einladung senden", systemImage: "square.and.arrow.up")
+                        }
+                        Button {
+                            UIPasteboard.general.string = board.joinCode
+                            store.showStatus("Code kopiert.")
+                        } label: {
+                            Label("Code kopieren", systemImage: "doc.on.doc")
+                        }
+                    } header: {
+                        Text("Einladungscode")
+                    } footer: {
                     Text("Deine Kollegin öffnet Klassenraum → Tafeln → „Tafel beitreten“ und gibt "
                          + "den Code ein. Sie sieht die Tafel dann zunächst genau so, wie du sie "
                          + "eingerichtet hast.\n\n"
@@ -249,6 +270,7 @@ struct ShareSheet: View {
                          + "Anordnung, Größen, Farben und Ausgeblendetes bleiben auf dem "
                          + "eigenen Gerät. Zwischen deinen eigenen Geräten gleicht sich "
                          + "dagegen alles ab, auch das Umräumen.")
+                    }
                 }
 
                 Section {

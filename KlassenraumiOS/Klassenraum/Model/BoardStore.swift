@@ -1122,7 +1122,7 @@ final class BoardStore: ObservableObject {
         Einladungscode: \(board.joinCode)
 
         In der App: Tafel-Menü → „Tafel beitreten“ → Code eingeben.
-        Oder diesen Link auf dem iPad öffnen: tafelbild://join/\(board.joinCode)
+        Oder diesen Link auf dem iPad öffnen: klassenraum://join/\(board.joinCode)
         """
     }
 
