@@ -250,6 +250,15 @@ Vorschläge dazu, und den Eintrag im Bau-Arbeitsablauf nicht zurückholen.
 - Version beginnt bei `0.1.0` (zwei Stellen im pbxproj); die Build-Nummer
   vergibt dieselbe Skript-Bauphase wie bei Tafelbild.
 - Gebaut wird von `.github/workflows/klassenraum-ios-build.yml`.
+- **Ein eigener Szenen-Delegat legt den Dateiwähler lahm.** In 0.1.6 hing
+  einer in `KlassenraumApp.swift`, um Freigabe-Einladungen anzunehmen;
+  danach tat JEDER `.fileImporter` der App still gar nichts (Ton, Bild,
+  Video, Tafelhintergrund, „Sicherung einlesen"). Wer aus
+  `application(_:configurationForConnecting:options:)` eine eigene
+  `UISceneConfiguration` mit `delegateClass` zurückgibt, setzt damit den
+  Szenen-Delegaten von SwiftUI ab. In 0.1.8 wieder ausgebaut. Beim
+  Wiedereinbau `var window: UIWindow?` mitgeben — und **zuerst den
+  Dateiwähler gegenprüfen**, nicht das Teilen.
 - **Der Umbau ist durch** (0.1.7): private Datenbank mit eigener Zone,
   Abgleich über Änderungsmarken aus privater UND geteilter Datenbank,
   Teilen/Widerrufen/Übernehmen über `CKShare`. Der Einladungscode ist
