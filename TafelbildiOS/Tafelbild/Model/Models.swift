@@ -1474,6 +1474,39 @@ struct Board: Codable, Identifiable, Equatable {
     /// Elemente, die die fremde Fassung nicht kennt, verschwinden: Löschen
     /// gilt für alle. Neue kommen so an, wie sie gedacht sind — nur nicht
     /// ausgeblendet, denn das war die Entscheidung des anderen.
+    /// Was von einer gelöschten Tafel noch hochgeladen wird.
+    ///
+    /// Ein Löschvermerk und nichts weiter: Kennung, Löschzeichen und die
+    /// beiden Zeitstempel, an denen die anderen Geräte erkennen, dass dieser
+    /// Stand der neuere ist. Kein Name, keine Elemente, keine Namensliste,
+    /// keine Handschrift, keine Mitglieder, keine iCloud-Kennung.
+    ///
+    /// Vorher ging die Tafel beim Löschen mit allem Inhalt erneut hinaus und
+    /// blieb so mit den Vornamen der Kinder im Bereich der App stehen. Für
+    /// das Durchreichen des Löschens war davon nie etwas nötig: Empfänger
+    /// übernehmen `deleted` und blenden die Tafel aus (siehe
+    /// `mitFremdemInhalt` und `BoardStore.visibleBoards`).
+    func grabstein() -> Board {
+        var leer = Board()
+        leer.id = id
+        leer.deleted = true
+        leer.createdAtMs = createdAtMs
+        leer.updatedAtMs = updatedAtMs
+        leer.name = ""
+        leer.emoji = ""
+        leer.joinCode = ""
+        leer.widgets = []
+        leer.pages = []
+        leer.drawing = ""
+        leer.members = []
+        leer.memberUserIDs = []
+        leer.ownerUserID = ""
+        leer.owner = ""
+        leer.zuletztVon = ""
+        leer.embeddedLists = []
+        return leer
+    }
+
     func mitFremdemInhalt(_ fremd: Board) -> Board {
         var neu = self
 
@@ -1651,6 +1684,20 @@ struct NameList: Codable, Identifiable, Equatable {
     var merkmale: [Merkmal] = []
 
     var activeEntries: [NameEntry] { entries.filter { !$0.paused } }
+
+    /// Was von einer gelöschten Liste noch hochgeladen wird — ein leerer
+    /// Vermerk, ohne die Namen (siehe `Board.grabstein`).
+    func grabstein() -> NameList {
+        var leer = NameList()
+        leer.id = id
+        leer.deleted = true
+        leer.updatedAtMs = updatedAtMs
+        leer.name = ""
+        leer.entries = []
+        leer.merkmale = []
+        leer.owner = ""
+        return leer
+    }
 
     func merkmal(_ id: String?) -> Merkmal? {
         guard let id else { return nil }

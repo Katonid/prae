@@ -1401,19 +1401,30 @@ final class BoardStore: ObservableObject {
         switch kind {
         case .board:
             guard var board = boards.first(where: { $0.id == entityId }) else { return nil }
-            // Die Tafel nimmt Kopien ihrer Namenslisten mit — so ist sie beim
-            // Empfänger sofort vollständig, ganz gleich, was sonst ankommt.
-            board.embeddedLists = board.referencedListIDs.compactMap { listID in
-                nameLists.first { $0.id == listID && !$0.deleted }
+            // Gelöscht heißt gelöscht: Dann geht nur noch ein leerer Vermerk
+            // hinaus. Bisher wurde die Tafel mit allem Inhalt erneut
+            // hochgeladen — samt Namensliste — und blieb so für immer im
+            // Bereich der App stehen. Der Vermerk trägt nur, was die anderen
+            // Geräte zum Verstehen brauchen: Kennung, Löschzeichen, Zeit.
+            if board.deleted {
+                board = board.grabstein()
+            } else {
+                // Die Tafel nimmt Kopien ihrer Namenslisten mit — so ist sie
+                // beim Empfänger sofort vollständig, ganz gleich, was sonst
+                // ankommt.
+                board.embeddedLists = board.referencedListIDs.compactMap { listID in
+                    nameLists.first { $0.id == listID && !$0.deleted }
+                }
             }
             guard let data = try? encoder.encode(board),
                   let json = String(data: data, encoding: .utf8) else { return nil }
-            return (json, board.updatedAtMs, profileName, nil)
+            return (json, board.updatedAtMs, board.deleted ? "" : profileName, nil)
         case .nameList:
-            guard let list = nameLists.first(where: { $0.id == entityId }),
-                  let data = try? encoder.encode(list),
+            guard var list = nameLists.first(where: { $0.id == entityId }) else { return nil }
+            if list.deleted { list = list.grabstein() }
+            guard let data = try? encoder.encode(list),
                   let json = String(data: data, encoding: .utf8) else { return nil }
-            return (json, list.updatedAtMs, profileName, nil)
+            return (json, list.updatedAtMs, list.deleted ? "" : profileName, nil)
         case .media:
             let url = MediaStore.url(entityId)
             guard FileManager.default.fileExists(atPath: url.path) else { return nil }
