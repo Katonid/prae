@@ -40,6 +40,12 @@ final class BoardStore: ObservableObject {
 
     /// Kurze Rückmeldung am oberen Rand (verschwindet von selbst).
     @Published var statusMessage: String?
+    /// Was beim Teilen zuletzt schiefging — im Teilen-Blatt nachzulesen.
+    ///
+    /// Bewusst nicht als flüchtiger Hinweis: Apples Blatt zeigt bei einem
+    /// Fehler nur „Es konnte kein Link zum Teilen erstellt werden" und
+    /// verschluckt damit die Auskunft von iCloud, auf die es ankommt.
+    @Published var freigabefehler: String?
 
     /// Kennung des angemeldeten iCloud-Kontos. Sie ist auf allen Geräten
     /// derselben Apple-ID gleich und entscheidet, welche Tafeln mir gehören.
