@@ -710,6 +710,7 @@ private struct TimerSettings: View {
     @State private var minutes = 5
     @State private var seconds = 0
     @StateObject private var recorder = VoiceRecorder()
+    @ObservedObject private var weckdienst = Weckdienst.shared
 
     /// Der eingestellte Klang, aus dem gespeicherten Rohwert gelesen.
     private var klang: Endklang { Endklang.aus(content.endklang) }
@@ -860,15 +861,28 @@ private struct TimerSettings: View {
                 }
 
                 if klang == .eigener { eigenerKlang }
+
+                if weckdienst.erlaubnis == .verweigert {
+                    Label("Mitteilungen sind ausgeschaltet — der Timer meldet "
+                          + "sich dann nur, solange die App vorn ist. "
+                          + "Einstellungen › Tafelbild › Mitteilungen.",
+                          systemImage: "bell.slash")
+                        .font(.footnote)
+                        .foregroundStyle(Theme.danger)
+                }
             }
         } header: {
             Text("Signal")
         } footer: {
             Text("Der Klang gehört zu diesem Timer — mehrere Timer auf einer "
-                 + "Tafel dürfen sich verschieden melden. Läuft die App im "
-                 + "Hintergrund, meldet sich der Timer erst beim Zurückkommen: "
-                 + "Die App hat keinen Server und darf im Hintergrund keinen "
-                 + "Ton abspielen.")
+                 + "Tafel dürfen sich verschieden melden.\n\n"
+
+                 + "Der Timer meldet sich auch dann, wenn die App im "
+                 + "Hintergrund ist oder der Bildschirm schläft: Beim Starten "
+                 + "wird die Meldung bei iOS auf die Endzeit vorgemerkt. Sie "
+                 + "liegt auf dem Gerät und geht nirgendwohin — die App hat "
+                 + "keinen Server. Steht die Tafel vorn, gibt es kein Banner; "
+                 + "dann klingt es einfach.")
         }
     }
 

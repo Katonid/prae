@@ -12,6 +12,10 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         // Eine Tafel steht oft eine ganze Stunde am Beamer: Der Bildschirm
         // darf sich dabei nicht abschalten.
         application.isIdleTimerDisabled = true
+        // Der Weckdienst muss früh stehen: Er ist der Delegat des
+        // Mitteilungsdienstes, und den setzt iOS nur einmal beim Start
+        // zuverlässig aus.
+        Task { @MainActor in Weckdienst.shared.pruefeErlaubnis() }
         return true
     }
 
@@ -93,6 +97,10 @@ struct TafelbildApp: App {
             case .active:
                 UIApplication.shared.isIdleTimerDisabled = true
                 store.appBecameActive()
+                // Nachsehen, welche Timer sich gemeldet haben, während die
+                // App weg war — sonst klänge ihr Klang gleich noch einmal.
+                Weckdienst.shared.sammleZugestellte()
+                Weckdienst.shared.pruefeErlaubnis()
             default:
                 UIApplication.shared.isIdleTimerDisabled = false
                 store.stopAutoRefresh()
