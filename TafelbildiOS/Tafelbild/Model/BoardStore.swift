@@ -40,6 +40,12 @@ final class BoardStore: ObservableObject {
 
     /// Kurze Rückmeldung am oberen Rand (verschwindet von selbst).
     @Published var statusMessage: String?
+    /// Was beim Teilen zuletzt schiefging — im Teilen-Blatt nachzulesen.
+    ///
+    /// Bewusst nicht als flüchtiger Hinweis: Apples Blatt zeigt bei einem
+    /// Fehler nur „Es konnte kein Link zum Teilen erstellt werden" und
+    /// verschluckt damit die Auskunft von iCloud, auf die es ankommt.
+    @Published var freigabefehler: String?
 
     /// Kennung des angemeldeten iCloud-Kontos. Sie ist auf allen Geräten
     /// derselben Apple-ID gleich und entscheidet, welche Tafeln mir gehören.
@@ -1091,9 +1097,18 @@ final class BoardStore: ObservableObject {
     /// Klänge, damit sie mitreisen.
     /// Bereitet die Freigabe vor — gerufen von Apples Teilen-Blatt, nicht
     /// vorab (siehe `CloudSyncEngine.bereiteFreigabeVor`).
-    func bereiteFreigabeVor(fuer board: Board) async -> Result<CKShare, Error> {
-        // Erst sicherstellen, dass die Tafel überhaupt oben ist: Eine
-        // Freigabe braucht einen Datensatz, den sie als Wurzel nehmen kann.
+    /// Bringt die Tafel in die iCloud — **bevor** das Teilen-Blatt aufgeht.
+    ///
+    /// Das gehört hierher und nicht in den Vorbereitungs-Rückruf des Blattes.
+    /// Der Rückruf hat es eilig: Nachrichten und Mail warten darauf, dass die
+    /// Freigabe fertig wird, und zeigen so lange eine Sanduhr. Wer dort erst
+    /// noch alles Wartende hochlädt — bei Bildern und Klängen schnell etliche
+    /// Sekunden —, überzieht die Geduld und bekommt „Es konnte kein Link zum
+    /// Teilen erstellt werden" (gemeldet in 1.0.61).
+    ///
+    /// Also: Hier wird gewartet, mit Fortschrittsanzeige im Blatt. Danach hat
+    /// der Rückruf nur noch die Freigabe selbst anzulegen.
+    func tafelHochladen(_ board: Board) async {
         if let stelle = boards.firstIndex(where: { $0.id == board.id }), !boards[stelle].geteilt {
             boards[stelle].geteilt = true
             touch(board.id)
@@ -1108,7 +1123,12 @@ final class BoardStore: ObservableObject {
                 engine.enqueue(kind: .media, entityId: datei)
             }
         }
+        await engine.pushJetzt()
+    }
 
+    /// Legt die Freigabe an — gerufen aus dem Rückruf des Teilen-Blattes.
+    /// Hält sich kurz: Alles Langsame ist in `tafelHochladen` schon erledigt.
+    func bereiteFreigabeVor(fuer board: Board) async -> Result<CKShare, Error> {
         let ergebnis = await engine.bereiteFreigabeVor(fuer: board.id, titel: board.name)
         if case .failure = ergebnis, let stelle = boards.firstIndex(where: { $0.id == board.id }) {
             boards[stelle].geteilt = false

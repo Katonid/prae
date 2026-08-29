@@ -893,11 +893,29 @@ final class CloudSyncEngine: @unchecked Sendable {
 
         // Schon geteilt? Dann die bestehende Freigabe weiterreichen — eine
         // zweite anzulegen lehnt CloudKit ab, und der alte Link soll gelten.
-        if let vorhandene = wurzel.share,
-           let share = await einzelnerDatensatz(vorhandene.recordID, aus: database) as? CKShare {
-            return .success(share)
+        //
+        // **Aber nur, wenn sie eine Adresse hat.** Die Fassungen 1.0.58 bis
+        // 1.0.60 haben Freigaben angelegt, die nie zu einem Link kamen. Ein
+        // solcher Rest bleibt an der Tafel hängen und wird von hier an bei
+        // JEDEM weiteren Versuch zurückgegeben — das Teilen wäre dauerhaft
+        // kaputt. Also: prüfen, und wenn nichts dahinter steckt, wegräumen
+        // und neu anlegen.
+        if let vorhandene = wurzel.share {
+            if let share = await einzelnerDatensatz(vorhandene.recordID, aus: database) as? CKShare,
+               share.url != nil {
+                return .success(share)
+            }
+            _ = await loesche(vorhandene.recordID, aus: database)
+            guard let frisch = await einzelnerDatensatz(wurzelID, aus: database) else {
+                return .failure(Freigabefehler.tafelFehlt)
+            }
+            return await legeFreigabeAn(wurzel: frisch, titel: titel)
         }
 
+        return await legeFreigabeAn(wurzel: wurzel, titel: titel)
+    }
+
+    private func legeFreigabeAn(wurzel: CKRecord, titel: String) async -> Result<CKShare, Error> {
         let neue = CKShare(rootRecord: wurzel)
         neue[CKShare.SystemFieldKey.title] = titel as CKRecordValue
         neue.publicPermission = .readWrite

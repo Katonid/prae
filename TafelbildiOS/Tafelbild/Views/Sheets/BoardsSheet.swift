@@ -185,6 +185,20 @@ struct ShareSheet: View {
                         Text(fehler).foregroundStyle(Theme.danger)
                     }
                 }
+                if let grund = store.freigabefehler {
+                    Section {
+                        Text(grund)
+                            .font(.footnote)
+                            .foregroundStyle(Theme.danger)
+                            .textSelection(.enabled)
+                        Button("Meldung ausblenden") { store.freigabefehler = nil }
+                    } header: {
+                        Text("Das sagt iCloud")
+                    } footer: {
+                        Text("Der Wortlaut kommt von iCloud, nicht von dieser App. "
+                             + "Er lässt sich markieren und kopieren.")
+                    }
+                }
             }
             .alert("Freigabe zurücknehmen?", isPresented: $fragtWiderruf) {
                 Button("Zurücknehmen", role: .destructive) {
@@ -246,10 +260,17 @@ struct ShareSheet: View {
     private func besitzAbschnitt(_ board: Board) -> some View {
         Section {
             Button {
-                // Das Blatt legt die Freigabe selbst an — hier wird nur
-                // geöffnet. Warum, steht bei `Freigabewahl`.
+                // Erst die Tafel hochladen, dann das Blatt öffnen. Der
+                // Vorbereitungs-Rückruf des Blattes darf nicht lange
+                // brauchen — siehe `BoardStore.tafelHochladen`.
                 fehler = nil
-                freigabewahl.oeffne(boardID: board.id, titel: board.name)
+                store.freigabefehler = nil
+                Task {
+                    laeuft = true
+                    await store.tafelHochladen(board)
+                    laeuft = false
+                    freigabewahl.oeffne(boardID: board.id, titel: board.name)
+                }
             } label: {
                 HStack {
                     Label(board.geteilt ? "Weitere Person einladen" : "Tafel freigeben",
@@ -383,6 +404,10 @@ final class Freigabewahl: NSObject, UICloudSharingControllerDelegate {
                 case .success(let share):
                     fertig(share, CKContainer(identifier: CloudSyncEngine.containerID), nil)
                 case .failure(let fehler):
+                    // Auch hier festhalten: Reicht man den Fehler nur an das
+                    // Blatt weiter, zeigt es seinen allgemeinen Satz und die
+                    // Auskunft von iCloud ist weg.
+                    BoardStore.shared.freigabefehler = Self.klartext(fehler)
                     fertig(nil, nil, fehler)
                 }
             }
@@ -400,9 +425,20 @@ final class Freigabewahl: NSObject, UICloudSharingControllerDelegate {
                                 failedToSaveShareWithError error: Error) {
         offen = false
         Task { @MainActor in
-            BoardStore.shared.showStatus("Die Einladung ließ sich nicht anlegen: "
-                                         + error.localizedDescription)
+            BoardStore.shared.freigabefehler = Self.klartext(error)
         }
+    }
+
+    /// Der Fehler von iCloud, so genau wie er zu bekommen ist — samt Nummer.
+    /// Apples Blatt zeigt nur einen allgemeinen Satz; ohne die Nummer ist
+    /// nicht zu unterscheiden, woran es liegt.
+    static func klartext(_ fehler: Error) -> String {
+        guard let ck = fehler as? CKError else { return fehler.localizedDescription }
+        var text = "iCloud-Fehler \(ck.errorCode): \(ck.localizedDescription)"
+        if let grund = ck.userInfo[NSUnderlyingErrorKey] as? Error {
+            text += "\n\n" + grund.localizedDescription
+        }
+        return text
     }
 
     func cloudSharingControllerDidSaveShare(_ controller: UICloudSharingController) {
