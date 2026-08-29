@@ -12,6 +12,8 @@ struct SyncDiagnoseView: View {
     @State private var counting = false
     @State private var bestand: [EntityKind: Int]?
     @State private var schemaHinweis: String?
+    @State private var teilschritte: [CloudSyncEngine.DiagnoseStep] = []
+    @State private var teilenLaeuft = false
 
     /// Felder des Record-Typs „Entity“ — genau so heißen sie in der App.
     private static let schemaFelder: [(String, String)] = [
@@ -107,6 +109,49 @@ struct SyncDiagnoseView: View {
                 Text("Bestand")
             } footer: {
                 Text("Fehlt auf dem einen Gerät etwas, das auf dem anderen da ist: Dort „Alles neu hochladen“ antippen, hier „Alles neu laden“.")
+            }
+
+            Section {
+                Button {
+                    teilenLaeuft = true
+                    teilschritte = []
+                    Task { @MainActor in
+                        teilschritte = await store.engine.pruefeTeilen()
+                        teilenLaeuft = false
+                    }
+                } label: {
+                    HStack {
+                        Label("Teilen prüfen", systemImage: "person.2.badge.gearshape")
+                        if teilenLaeuft {
+                            Spacer()
+                            ProgressView()
+                        }
+                    }
+                }
+                .disabled(teilenLaeuft || !store.syncEnabled)
+
+                ForEach(teilschritte) { schritt in
+                    VStack(alignment: .leading, spacing: 3) {
+                        HStack(alignment: .firstTextBaseline, spacing: 8) {
+                            Image(systemName: schritt.ok ? "checkmark.circle.fill" : "xmark.circle.fill")
+                                .foregroundStyle(schritt.ok ? Theme.mint : Theme.danger)
+                            Text(schritt.title).font(Theme.font(16, weight: .semibold))
+                        }
+                        Text(schritt.detail)
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                            .textSelection(.enabled)
+                    }
+                    .padding(.vertical, 2)
+                }
+            } header: {
+                Text("Teilen prüfen")
+            } footer: {
+                Text("Legt einen eigenen Probe-Datensatz an, versucht ihn zu teilen — "
+                     + "einmal mit öffentlichem Link und, falls das nichts wird, einmal "
+                     + "ohne — und räumt ihn wieder weg. Deine Tafeln werden dabei nicht "
+                     + "angefasst.\n\nDie Zeilen lassen sich markieren und kopieren. "
+                     + "Der Wortlaut kommt von iCloud.")
             }
 
             Section {

@@ -1030,6 +1030,133 @@ final class CloudSyncEngine: @unchecked Sendable {
         }
     }
 
+    // MARK: - Teilen prüfen
+
+    /// Misst Schritt für Schritt, woran das Teilen scheitert.
+    ///
+    /// **Das ist kein Reparaturversuch, sondern ein Messgerät.** Apples
+    /// Teilen-Blatt meldet jeden Fehlschlag mit demselben Satz („Es konnte
+    /// kein Link zum Teilen erstellt werden") und verschluckt die Auskunft
+    /// von iCloud. Ohne die ist jede weitere Fassung geraten.
+    ///
+    /// Gearbeitet wird auf einem **eigenen Probe-Datensatz**, nicht auf einer
+    /// Tafel des Nutzers: Es wird nichts angefasst, was ihm gehört, und am
+    /// Ende ist die Probe wieder weg.
+    ///
+    /// Geprüft werden beide Arten der Freigabe — mit öffentlichem Link
+    /// (`publicPermission = .readWrite`, so macht es die App) und ohne. Wenn
+    /// nur die zweite gelingt, liegt es am öffentlichen Link und nicht am
+    /// Teilen überhaupt.
+    func pruefeTeilen() async -> [DiagnoseStep] {
+        var schritte: [DiagnoseStep] = []
+        guard enabled else {
+            return [DiagnoseStep(title: "Abgleich", ok: false,
+                                 detail: "ist ausgeschaltet",
+                                 remedy: "In den Einstellungen einschalten.")]
+        }
+
+        // 1. Zone
+        await withCheckedContinuation { (fortsetzung: CheckedContinuation<Void, Never>) in
+            let box = ResumeOnce()
+            queue.async { self.stelleZoneSicher { box.finish { fortsetzung.resume() } } }
+        }
+        schritte.append(DiagnoseStep(title: "Bereich „\(Self.zoneName)“", ok: zoneBereit,
+                                     detail: zoneBereit ? "steht" : "ließ sich nicht anlegen",
+                                     remedy: zoneBereit ? nil : "Netz prüfen und erneut versuchen."))
+        guard zoneBereit else { return schritte }
+
+        // 2. Probe-Datensatz anlegen
+        let probeID = CKRecord.ID(recordName: "teilen-probe-\(UUID().uuidString)", zoneID: zoneID)
+        let probe = CKRecord(recordType: Self.recordType, recordID: probeID)
+        probe["kind"] = "diagnose" as CKRecordValue
+        probe["entityId"] = "teilen-probe" as CKRecordValue
+        probe["payload"] = "{}" as CKRecordValue
+        probe["updatedAtMs"] = NSNumber(value: Date.nowMs)
+        probe["author"] = "Diagnose" as CKRecordValue
+
+        let angelegt = await sichere([probe])
+        schritte.append(DiagnoseStep(title: "Probe-Datensatz", ok: angelegt.fehler == nil,
+                                     detail: angelegt.fehler.map(Self.roh) ?? "angelegt",
+                                     remedy: nil))
+        guard angelegt.fehler == nil, let wurzel = angelegt.gesichert.first else {
+            return schritte
+        }
+
+        // 3. Freigabe MIT öffentlichem Link — so macht es die App
+        let mitLink = CKShare(rootRecord: wurzel)
+        mitLink[CKShare.SystemFieldKey.title] = "Probe" as CKRecordValue
+        mitLink.publicPermission = .readWrite
+        let a = await sichere([wurzel, mitLink])
+        let shareA = a.gesichert.compactMap { $0 as? CKShare }.first
+        schritte.append(DiagnoseStep(
+            title: "Freigabe mit öffentlichem Link",
+            ok: a.fehler == nil && shareA?.url != nil,
+            detail: a.fehler.map(Self.roh)
+                ?? (shareA?.url != nil ? "Link erzeugt" : "gesichert, aber OHNE Link"),
+            remedy: nil))
+
+        // 4. Wenn das nichts wurde: dasselbe ohne öffentlichen Link
+        if a.fehler != nil || shareA?.url == nil {
+            _ = await loesche(mitLink.recordID, aus: database)
+            guard let frisch = await einzelnerDatensatz(probeID, aus: database) else {
+                _ = await loesche(probeID, aus: database)
+                return schritte
+            }
+            let ohneLink = CKShare(rootRecord: frisch)
+            ohneLink[CKShare.SystemFieldKey.title] = "Probe" as CKRecordValue
+            let b = await sichere([frisch, ohneLink])
+            let shareB = b.gesichert.compactMap { $0 as? CKShare }.first
+            schritte.append(DiagnoseStep(
+                title: "Freigabe ohne öffentlichen Link",
+                ok: b.fehler == nil && shareB?.url != nil,
+                detail: b.fehler.map(Self.roh)
+                    ?? (shareB?.url != nil ? "Link erzeugt" : "gesichert, aber OHNE Link"),
+                remedy: nil))
+            _ = await loesche(ohneLink.recordID, aus: database)
+        } else {
+            _ = await loesche(mitLink.recordID, aus: database)
+        }
+
+        // 5. Aufräumen
+        _ = await loesche(probeID, aus: database)
+        schritte.append(DiagnoseStep(title: "Aufgeräumt", ok: true,
+                                     detail: "Die Probe ist wieder entfernt", remedy: nil))
+        return schritte
+    }
+
+    /// Sichert Datensätze und gibt zurück, was der Server daraus gemacht hat.
+    private func sichere(_ records: [CKRecord]) async
+        -> (gesichert: [CKRecord], fehler: Error?) {
+        await withCheckedContinuation { fortsetzung in
+            let box = ResumeOnce()
+            var zurueck: [CKRecord] = []
+            let operation = CKModifyRecordsOperation(recordsToSave: records, recordIDsToDelete: nil)
+            operation.qualityOfService = .userInitiated
+            operation.perRecordSaveBlock = { _, ergebnis in
+                if case .success(let record) = ergebnis { zurueck.append(record) }
+            }
+            operation.modifyRecordsResultBlock = { ergebnis in
+                switch ergebnis {
+                case .success:
+                    box.finish { fortsetzung.resume(returning: (zurueck, nil)) }
+                case .failure(let fehler):
+                    box.finish { fortsetzung.resume(returning: (zurueck, fehler)) }
+                }
+            }
+            self.database.add(operation)
+        }
+    }
+
+    /// Der Fehler von iCloud, ungeschönt — samt Nummer.
+    static func roh(_ fehler: Error) -> String {
+        guard let ck = fehler as? CKError else { return fehler.localizedDescription }
+        var text = "Fehler \(ck.errorCode): \(ck.localizedDescription)"
+        if let teil = ck.partialErrorsByItemID?.values.first {
+            text += "\n" + teil.localizedDescription
+        }
+        return text
+    }
+
     // MARK: - Subscription für stille Push-Updates
 
     func ensureSubscription() {
