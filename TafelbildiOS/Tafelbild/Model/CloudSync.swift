@@ -1101,12 +1101,18 @@ final class CloudSyncEngine: @unchecked Sendable {
         if a.fehler == nil {
             try? await Task.sleep(for: .seconds(2))
             let nachgeladen = await einzelnerDatensatz(mitLink.recordID, aus: database) as? CKShare
-            let rechte: String
-            switch nachgeladen?.publicPermission {
-            case .readWrite: rechte = "öffentlich: lesen und schreiben"
-            case .readOnly: rechte = "öffentlich: nur lesen"
-            case .none: rechte = "nicht öffentlich"
-            default: rechte = "unbekannt"
+            // Bewusst über den ausgepackten Wert: Bei einem Optional läse
+            // Swift `.none` als „nichts vorhanden" statt als die Rechtestufe
+            // gleichen Namens — die Messung zeigte dann Unsinn an.
+            var rechte = "unbekannt"
+            if let laden = nachgeladen {
+                switch laden.publicPermission {
+                case .readWrite: rechte = "öffentlich: lesen und schreiben"
+                case .readOnly: rechte = "öffentlich: nur lesen"
+                case .none: rechte = "nicht öffentlich"
+                case .unknown: rechte = "unbestimmt"
+                @unknown default: rechte = "unbekannt"
+                }
             }
             schritte.append(DiagnoseStep(
                 title: "Nachgeladen nach 2 Sekunden",
