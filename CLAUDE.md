@@ -56,6 +56,32 @@ danach bei jeder Arbeitseinheit mitziehen:
    Dort nur die Patch-Nummer heben und `CURRENT_PROJECT_VERSION` in
    Ruhe lassen.
 
+## Bau in GitHub Actions — nur bauen, was sich geändert hat
+
+`.github/workflows/ios-apps-build.yml` baut **nicht mehr alle Apps bei
+jedem Push** (Ansage des Nutzers, 08/2026). Vorher horchte er auf
+`**/*.swift` und ließ eine Tafelbild-Änderung zehn fertige Apps neu
+übersetzen — jede auf einem eigenen macOS-Läufer, von denen nur wenige
+gleichzeitig laufen dürfen. Gemessen: 2,7 bis 5,7 Minuten Wartezeit je
+Auftrag, für Bauten, die niemand angefordert hatte.
+
+- Die Auswahl trifft `.github/scripts/welche-apps.py` in einem
+  **Linux**-Auftrag (Sekunden, belegt keinen macOS-Läufer). Die Liste
+  der Apps steht dort und NUR dort — eine neue App wird in `APPS`
+  eingetragen und in die `options` des Arbeitsablaufs.
+- **Alles gebaut wird trotzdem**, wenn sich der Arbeitsablauf selbst,
+  das Auswahlskript oder `scripts/swift-quelltext-pruefen.py` ändert —
+  und immer dann, wenn sich nicht feststellen lässt, was sich geändert
+  hat (frischer Zweig, gekürzte Historie). Ein Bau zu viel ist harmlos,
+  ein Bau zu wenig nicht.
+- Von Hand: Reiter „Actions" → „iOS-Apps bauen" → „Run workflow" → App
+  auswählen (oder „alle").
+- **Beim Warten auf einen Bau den richtigen AUFTRAG beobachten, nicht
+  den ganzen Lauf.** In `tafelbild-build.yml` ist „Übersetzen
+  (iOS-Simulator)" nach gut einer Minute fertig; „Starten (Simulator)"
+  läuft danach noch fünf bis sieben Minuten und sagt über
+  Compiler-Fehler nichts aus.
+
 ## Projekt Tagesspur — Versionierung
 
 - App-Code: `TagesspuriOS/` (vier Targets: App, Widgets, Watch,

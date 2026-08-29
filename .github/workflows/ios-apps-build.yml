@@ -1,6 +1,20 @@
-# Übersetzt alle iOS-Apps dieses Repos auf macOS-Läufern. Jede App läuft in
-# einem eigenen Auftrag (fail-fast: false), damit ein Fehler in einer App die
-# anderen nicht verdeckt.
+# Übersetzt die iOS-Apps dieses Repos auf macOS-Läufern.
+#
+# **Gebaut wird nur, was sich geändert hat.** Vorher horchte dieser Ablauf
+# auf `**/*.swift` und baute daraufhin ALLE elf Apps — eine Änderung an
+# Tafelbild ließ also zehn fertige Apps sinnlos neu übersetzen, jede auf
+# einem eigenen macOS-Läufer. Weil nur wenige davon gleichzeitig laufen
+# dürfen, warteten die Aufträge aufeinander (gemessen 2,7 bis 5,7 Minuten
+# je Auftrag), und der Bau, auf den es ankam, stand hinten an.
+#
+# Welche Apps gemeint sind, entscheidet `.github/scripts/welche-apps.py` —
+# dort steht auch, wann trotzdem alles gebaut wird.
+#
+# Von Hand bauen: Reiter „Actions" → „iOS-Apps bauen" → „Run workflow" →
+# App auswählen (oder „alle").
+#
+# Jede App läuft in einem eigenen Auftrag (fail-fast: false), damit ein
+# Fehler in einer App die anderen nicht verdeckt.
 name: iOS-Apps bauen
 
 on:
@@ -11,6 +25,7 @@ on:
       - '**/*.plist'
       - '**/*.entitlements'
       - '.github/workflows/ios-apps-build.yml'
+      - '.github/scripts/welche-apps.py'
   pull_request:
     paths:
       - '**/*.xcodeproj/**'
@@ -18,32 +33,77 @@ on:
       - '**/*.plist'
       - '**/*.entitlements'
       - '.github/workflows/ios-apps-build.yml'
+      - '.github/scripts/welche-apps.py'
   workflow_dispatch:
+    inputs:
+      app:
+        description: 'Welche App bauen?'
+        type: choice
+        default: alle
+        options:
+          - alle
+          - Anstoss
+          - CadUsdEur
+          - FlightMate
+          - Himmelskompass
+          - Kartenwallet
+          - PhotoSpotRadar
+          - Reisekasse
+          - Soundboard
+          - Tafelbild
+          - Tagesspur
+          - Tankbuch
 
 concurrency:
   group: ios-apps-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
+  vorbereiten:
+    name: Welche Apps?
+    # Läuft auf Linux: Diese Auswahl kostet Sekunden und soll keinen
+    # macOS-Läufer belegen, von denen es nur wenige gibt.
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      matrix: ${{ steps.waehlen.outputs.matrix }}
+      anzahl: ${{ steps.waehlen.outputs.anzahl }}
+      grund: ${{ steps.waehlen.outputs.grund }}
+    steps:
+      - name: Quelltext holen
+        uses: actions/checkout@v4
+        with:
+          # Vollständige Historie: Ohne sie lässt sich nicht vergleichen,
+          # was dieser Anstoß geändert hat.
+          fetch-depth: 0
+
+      - name: Auswählen
+        id: waehlen
+        env:
+          EREIGNIS: ${{ github.event_name }}
+          WUNSCH: ${{ inputs.app }}
+          VORHER: ${{ github.event.before }}
+          BASIS: ${{ github.event.pull_request.base.sha }}
+          SHA: ${{ github.sha }}
+        run: python3 .github/scripts/welche-apps.py >> "$GITHUB_OUTPUT"
+
+      - name: Ergebnis anzeigen
+        run: |
+          echo "### ${{ steps.waehlen.outputs.grund }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Aufträge auf macOS: ${{ steps.waehlen.outputs.anzahl }}" >> "$GITHUB_STEP_SUMMARY"
+
   build:
     name: ${{ matrix.app }}
+    needs: vorbereiten
+    # Ohne diesen Riegel scheitert der Auftrag an einer leeren Matrix,
+    # statt einfach ausgelassen zu werden.
+    if: needs.vorbereiten.outputs.anzahl != '0'
     runs-on: macos-latest
     timeout-minutes: 45
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - { ordner: AnstossiOS,        app: Anstoss }
-          - { ordner: CadUsdEuriOS,      app: CadUsdEur }
-          - { ordner: FlightMateiOS,     app: FlightMate }
-          - { ordner: HimmelskompassiOS, app: Himmelskompass }
-          - { ordner: KartenwalletiOS,   app: Kartenwallet }
-          - { ordner: PhotoSpotRadariOS, app: PhotoSpotRadar }
-          - { ordner: ReisekasseiOS,     app: Reisekasse }
-          - { ordner: SoundboardiOS,     app: Soundboard }
-          - { ordner: TafelbildiOS,      app: Tafelbild }
-          - { ordner: TagesspuriOS,      app: Tagesspur }
-          - { ordner: TankbuchiOS,       app: Tankbuch }
+      matrix: ${{ fromJSON(needs.vorbereiten.outputs.matrix) }}
 
     steps:
       - name: Quelltext holen
