@@ -253,7 +253,7 @@ struct TimerWidgetView: View {
         guard Double(endsAtMs) / 1000 <= Date().timeIntervalSince1970 else { return }
         content.endsAtMs = nil
         content.pausedValue = 0
-        if content.soundOnEnd { SoundPlayer.playAlarm() }
+        if content.soundOnEnd { SoundPlayer.shared.spieleEndklang(content) }
         Haptics.success()
         withAnimation(.easeInOut(duration: 0.4).repeatCount(6, autoreverses: true)) {
             flashing = true

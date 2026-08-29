@@ -26,6 +26,11 @@ struct KameraWidgetView: View {
     @State private var arbeitet = false
     /// Größe der Vorschau — sie bestimmt den Zuschnitt des Standbilds.
     @State private var vorschau: CGSize = .zero
+    /// Vergrößerung beim Ansetzen der Kneifgeste.
+    @State private var zoomBeginn: Double = 1
+    /// Das Zuschnittblatt. Ein Objekt, kein Ansichtswert: Es wird von UIKit
+    /// gezeigt, nicht von SwiftUI (siehe `Zuschnittwahl`).
+    @State private var zuschnitt = Zuschnittwahl()
 
     private var eingefroren: Bool { content.eingefroren != nil }
 
@@ -87,7 +92,12 @@ struct KameraWidgetView: View {
             ZStack {
                 Kameravorschau(sitzung: kamera.sitzung)
                 if !kamera.laeuft { hinweis("Kamera startet …", symbol: "camera") }
+                if interactive { zoomanzeige }
             }
+            // Zwei Finger vergrößern das Livebild. Die Vergrößerung sitzt im
+            // Gerät, nicht in der Vorschau — was hier eingestellt ist, wird
+            // beim Einfrieren genau so festgehalten.
+            .gesture(kneifen)
             // Was der Sucher zeigt, ist ein Ausschnitt aus dem Sensorbild.
             // Damit das Standbild genau dieser Ausschnitt wird, muss die
             // Aufnahme wissen, wie breit und hoch das Fenster gerade ist.
@@ -125,6 +135,7 @@ struct KameraWidgetView: View {
         HStack(spacing: 8) {
             if eingefroren {
                 knopf("play.fill", titel: "Weiter") { auftauen() }
+                knopf("crop", titel: "Zuschneiden") { zuschneiden() }
                 knopf("square.and.arrow.down", titel: "Als Bild ablegen") { ablegen() }
             } else if kamera.erlaubnis == .erlaubt {
                 knopf("camera.fill", titel: "Einfrieren", betont: true) { einfrieren() }
@@ -166,6 +177,72 @@ struct KameraWidgetView: View {
         .buttonStyle(.plain)
     }
 
+    // MARK: - Vergrößern
+
+    private var kneifen: some Gesture {
+        MagnifyGesture()
+            .onChanged { wert in
+                kamera.setzeZoom(zoomBeginn * Double(wert.magnification))
+            }
+            .onEnded { _ in
+                zoomBeginn = kamera.zoom
+            }
+    }
+
+    /// Zeigt die eingestellte Vergrößerung — und stellt sie mit einem Tipp
+    /// zurück. Ohne diese Anzeige merkt niemand, warum das Bild plötzlich
+    /// einen Ausschnitt zeigt.
+    @ViewBuilder
+    private var zoomanzeige: some View {
+        if kamera.zoom > 1.02 {
+            VStack {
+                HStack {
+                    Button {
+                        Haptics.tap()
+                        kamera.zoomZurueck()
+                        zoomBeginn = 1
+                    } label: {
+                        HStack(spacing: 5) {
+                            Image(systemName: "minus.magnifyingglass")
+                                .font(.system(size: 13, weight: .semibold))
+                            Text(String(format: "%.1f×", kamera.zoom))
+                                .font(Theme.font(14, weight: .bold))
+                                .monospacedDigit()
+                        }
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 11)
+                        .frame(height: 30)
+                        .background { Capsule().fill(Color.black.opacity(0.5)) }
+                    }
+                    .buttonStyle(.plain)
+                    Spacer(minLength: 0)
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(12)
+        }
+    }
+
+    // MARK: - Zuschneiden
+
+    /// Aus dem Standbild einen Ausschnitt nehmen.
+    ///
+    /// Das Ergebnis wird als **neue** Datei gesichert, nicht über die alte
+    /// geschrieben: Dieselbe Datei mit neuem Inhalt käme auf den anderen
+    /// Geräten nicht an — sie haben sie ja schon und laden nichts nach.
+    private func zuschneiden() {
+        guard let datei = content.eingefroren,
+              let bild = MediaCache.shared.image(datei) else { return }
+        zuschnitt.oeffne(bild: bild) { ergebnis in
+            // nil heißt: abgebrochen oder nichts verändert.
+            guard let ergebnis,
+                  let daten = ergebnis.jpegData(compressionQuality: 0.9),
+                  let name = onSichern(daten) else { return }
+            content.eingefroren = name
+            Haptics.success()
+        }
+    }
+
     // MARK: - Einfrieren und auftauen
 
     /// Ein Tipp auf die Fläche: einfrieren, wenn das Bild läuft — sonst
@@ -199,6 +276,7 @@ struct KameraWidgetView: View {
 
     private func auftauen() {
         content.eingefroren = nil
+        zoomBeginn = kamera.zoom
         Haptics.tap()
     }
 

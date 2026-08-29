@@ -1,14 +1,21 @@
 # Baut die Tafelbild-App, startet sie in einem iPad-Simulator und legt
 # Bildschirmfotos als Anhang ab. Damit lässt sich das Aussehen der App
 # prüfen, ohne einen Mac zur Hand zu haben.
+#
+# **Nur auf Knopfdruck** (Ansage des Nutzers, 08/2026). Vorher lief das
+# bei jeder Änderung unter `Views/` — also bei fast jedem Push — und
+# belegte dabei zwei weitere macOS-Läufer für Bilder, die niemand ansah.
+# Ob der Quelltext übersetzt, sagt ohnehin `tafelbild-build.yml`; hier
+# geht es allein ums Aussehen, und das will man dann sehen, wenn man
+# danach fragt.
+#
+# Starten: Reiter „Actions" → „Tafelbild ansehen" → „Run workflow" →
+# Zweig wählen → „Run workflow". Die Bilder liegen danach unten beim Lauf
+# unter „Artifacts".
 name: Tafelbild ansehen
 
 on:
   workflow_dispatch:
-  push:
-    paths:
-      - 'TafelbildiOS/Tafelbild/Views/**'
-      - '.github/workflows/tafelbild-ansicht.yml'
 
 concurrency:
   group: tafelbild-ansicht-${{ github.ref }}

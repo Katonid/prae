@@ -56,6 +56,40 @@ danach bei jeder Arbeitseinheit mitziehen:
    Dort nur die Patch-Nummer heben und `CURRENT_PROJECT_VERSION` in
    Ruhe lassen.
 
+## Bau in GitHub Actions — nur bauen, was sich geändert hat
+
+`.github/workflows/ios-apps-build.yml` baut **nicht mehr alle Apps bei
+jedem Push** (Ansage des Nutzers, 08/2026). Vorher horchte er auf
+`**/*.swift` und ließ eine Tafelbild-Änderung zehn fertige Apps neu
+übersetzen — jede auf einem eigenen macOS-Läufer, von denen nur wenige
+gleichzeitig laufen dürfen. Gemessen: 2,7 bis 5,7 Minuten Wartezeit je
+Auftrag, für Bauten, die niemand angefordert hatte.
+
+- Die Auswahl trifft `.github/scripts/welche-apps.py` in einem
+  **Linux**-Auftrag (Sekunden, belegt keinen macOS-Läufer). Die Liste
+  der Apps steht dort und NUR dort — eine neue App wird in `APPS`
+  eingetragen und in die `options` des Arbeitsablaufs.
+- **Alles gebaut wird trotzdem**, wenn sich der Arbeitsablauf selbst,
+  das Auswahlskript oder `scripts/swift-quelltext-pruefen.py` ändert —
+  und immer dann, wenn sich nicht feststellen lässt, was sich geändert
+  hat (gekürzte Historie). Ein Bau zu viel ist harmlos, ein Bau zu wenig
+  nicht. Beim ersten Push eines neuen Zweiges gibt es keinen Vorgänger;
+  dann wird gegen `main` verglichen — sonst wäre der Rundumbau der
+  Regelfall, denn Arbeit beginnt hier fast immer auf einem frischen
+  Zweig.
+- Von Hand: Reiter „Actions" → „iOS-Apps bauen" → „Run workflow" → App
+  auswählen (oder „alle").
+- **`tafelbild-ansicht.yml` läuft nur auf Knopfdruck** (Ansage des
+  Nutzers, 08/2026). Es macht Bildschirmfotos in zwei Simulatoren und
+  kostete damit zwei weitere macOS-Aufträge bei jeder Änderung unter
+  `Views/` — für Bilder, die niemand ansah. Ob der Quelltext übersetzt,
+  sagt `tafelbild-build.yml`. Nicht wieder an `push` hängen.
+- **Beim Warten auf einen Bau den richtigen AUFTRAG beobachten, nicht
+  den ganzen Lauf.** In `tafelbild-build.yml` ist „Übersetzen
+  (iOS-Simulator)" nach gut einer Minute fertig; „Starten (Simulator)"
+  läuft danach noch fünf bis sieben Minuten und sagt über
+  Compiler-Fehler nichts aus.
+
 ## Projekt Tagesspur — Versionierung
 
 - App-Code: `TagesspuriOS/` (vier Targets: App, Widgets, Watch,
@@ -291,6 +325,20 @@ Namens und lebt weiter.
 - **1.1.0 ist die Fassung für den App Store** (Ansage des Nutzers,
   08/2026): erste Fassung mit Freigabe per Einladungslink und privatem
   iCloud-Abgleich. Danach zählt es wie gewohnt weiter — 1.1.1, 1.1.2 …
+- **Klänge: zwei Wege, mit Absicht.** Die Ziehklänge sind echte
+  Aufnahmen (`TafelbildiOS/scripts/fetch-sounds.py`, CC0) — Synthese klang dort
+  synthetisch, weil Kartenmischen und Ratsche Vorgänge aus hundert
+  Zufälligkeiten sind. Die **Endklänge des Timers** (`endklang-*.wav`)
+  rechnet dagegen `TafelbildiOS/scripts/make-endklaenge.py` aus, ohne fremde Dateien
+  und ohne Netz: Ein angeschlagenes Metall IST eine Summe abklingender
+  Teiltöne auf seinen Eigenfrequenzen. Beide Ordner nicht von Hand
+  bearbeiten.
+- **`TimerContent` hat einen eigenen Leser** (`extension TimerContent`
+  in `Models.swift`). Ein neues Feld muss dort in `TimerKeys` UND in
+  `init(from:)` eingetragen werden, sonst wird es nie gelesen — der
+  Schreiber wird erzeugt und merkt davon nichts. Der gewählte Endklang
+  steht als **Rohwert** (Zeichenkette) darin, nicht als Aufzählung: So
+  übersteht eine Tafel einen Klang, den diese Fassung noch nicht kennt.
 - Die **Build-Nummer vergibt die Skript-Bauphase „Build-Nummer setzen"**
   automatisch (Anzahl der Git-Commits, sonst Datumsstempel) — wie in
   Tagesspur, nie von Hand pflegen. Damit ist jeder TestFlight-Upload
@@ -361,6 +409,18 @@ Namens und lebt weiter.
   `WindowGroup` von SwiftUI. Für andere Szenen-Rollen gibt
   `configurationForConnecting` die Konfiguration aus der `Info.plist`
   zurück, sonst bliebe der Beamer schwarz. Dazu `CKSharingSupported`.
+- **Löschrecht auf geteilten Tafeln** (`Loeschrecht`, ab 1.1.4): Vorgabe
+  ist „jede löscht nur Eigenes". Dafür trägt jedes Element `erstelltVon`
+  (iCloud-Kennung); **leer heißt „vor 1.1.4 angelegt" und zählt der
+  Besitzerin** — die vorsichtige Richtung, es geht nichts verloren.
+  Durchgesetzt wird es an DREI Stellen, und die dritte ist die
+  entscheidende: in der Oberfläche (Knopf weg), in
+  `BoardStore.removeWidget`/`seiteLoeschen` (Meldung statt Tat) und in
+  `Board.mitFremdemInhalt` — dort bleiben Elemente stehen, die die
+  schreibende Person nicht löschen durfte, und der Stand geht zurück.
+  Nur so hält die Regel auch gegen ein Gerät mit älterem Stand, das sie
+  gar nicht kennt. Die Regel selbst gehört der Besitzerin
+  (`zusammengefuehrt` stellt sie auf deren Gerät wieder her).
 - **Sichtbarkeit** hängt an der iCloud-Kennung (`ownerUserID` /
   `memberUserIDs`) — nicht am Anzeigenamen. Eine empfangene Tafel trägt
   keine davon; sie wird beim Ankommen in `ownBoardIDs` eingetragen, sonst
