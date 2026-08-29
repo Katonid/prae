@@ -271,7 +271,7 @@ struct WidgetSettingsSheet: View {
                             Label("Verschieben oder kopieren …",
                                   systemImage: "arrow.right.square")
                         }
-                        if let widget, store.darfLoeschen(widget, in: boardID) {
+                        if store.darfLoeschen(widget, in: boardID) {
                             Button(role: .destructive) {
                                 store.removeWidget(widgetID, from: boardID)
                                 dismiss()
