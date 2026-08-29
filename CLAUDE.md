@@ -72,8 +72,11 @@ Auftrag, für Bauten, die niemand angefordert hatte.
 - **Alles gebaut wird trotzdem**, wenn sich der Arbeitsablauf selbst,
   das Auswahlskript oder `scripts/swift-quelltext-pruefen.py` ändert —
   und immer dann, wenn sich nicht feststellen lässt, was sich geändert
-  hat (frischer Zweig, gekürzte Historie). Ein Bau zu viel ist harmlos,
-  ein Bau zu wenig nicht.
+  hat (gekürzte Historie). Ein Bau zu viel ist harmlos, ein Bau zu wenig
+  nicht. Beim ersten Push eines neuen Zweiges gibt es keinen Vorgänger;
+  dann wird gegen `main` verglichen — sonst wäre der Rundumbau der
+  Regelfall, denn Arbeit beginnt hier fast immer auf einem frischen
+  Zweig.
 - Von Hand: Reiter „Actions" → „iOS-Apps bauen" → „Run workflow" → App
   auswählen (oder „alle").
 - **`tafelbild-ansicht.yml` läuft nur auf Knopfdruck** (Ansage des

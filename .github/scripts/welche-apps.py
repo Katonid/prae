@@ -28,9 +28,14 @@ Vorprüfung, dann laufen alle Apps. Eine Änderung am Bauwerkzeug will man
 überall geprüft haben — sonst fällt sie erst Wochen später bei einer App
 auf, die gerade niemand anfasst.
 
-Im Zweifel wird ebenfalls alles gebaut: Lässt sich nicht feststellen, was
-sich geändert hat (ein frischer Zweig ohne Vorgänger, eine flache Kopie),
-ist ein Bau zu viel harmlos — ein Bau zu wenig nicht.
+Beim **ersten Push eines neuen Zweiges** gibt es keinen Vorgänger, gegen
+den sich vergleichen ließe. Dann wird gegen den Hauptzweig verglichen —
+das ist genau das, was dieser Zweig bisher geändert hat. Ohne diesen Weg
+wäre der Rundumbau der Regelfall statt der Ausnahme, denn Arbeit beginnt
+hier fast immer auf einem frischen Zweig.
+
+Bleibt selbst das erfolglos (eine flache Kopie ohne Historie), wird alles
+gebaut: Ein Bau zu viel ist harmlos — ein Bau zu wenig nicht.
 """
 
 from __future__ import annotations
@@ -89,16 +94,35 @@ def geaenderte_dateien() -> list[str] | None:
             return None
 
     vorher = os.environ.get("VORHER", "")
-    if not vorher or vorher == LEER:
-        # Erster Push eines neuen Zweiges: Es gibt keinen Vorgänger, gegen
-        # den sich vergleichen ließe.
-        return None
-    try:
-        return git("diff", "--name-only", vorher, sha)
-    except RuntimeError:
-        # Der Vorgänger liegt nicht mehr vor (Zweig neu geschrieben,
-        # Historie gekürzt).
-        return None
+    if vorher and vorher != LEER:
+        try:
+            return git("diff", "--name-only", vorher, sha)
+        except RuntimeError:
+            # Der Vorgänger liegt nicht mehr vor (Zweig neu geschrieben,
+            # Historie gekürzt) — weiter unten gegen den Hauptzweig.
+            pass
+
+    # Erster Push eines neuen Zweiges: Es gibt keinen Vorgänger. Dann gegen
+    # den Hauptzweig vergleichen — das ist genau das, was dieser Zweig
+    # bisher geändert hat.
+    #
+    # Ohne diesen Weg baute der allererste Push eines Zweiges jedes Mal
+    # alle elf Apps, und da Arbeit hier fast immer auf einem frischen Zweig
+    # beginnt, wäre das der Regelfall statt der Ausnahme gewesen.
+    haupt = os.environ.get("HAUPTZWEIG", "main")
+    for verweis in (f"origin/{haupt}", haupt):
+        try:
+            basis = git("merge-base", verweis, sha)[0]
+        except (RuntimeError, IndexError):
+            continue
+        if basis == sha:
+            # Der Zweig ist noch nicht weiter als der Hauptzweig.
+            return []
+        try:
+            return git("diff", "--name-only", basis, sha)
+        except RuntimeError:
+            continue
+    return None
 
 
 def auswahl() -> tuple[list[dict[str, str]], str]:
