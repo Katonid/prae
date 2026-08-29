@@ -161,7 +161,9 @@ struct ShareSheet: View {
     private var board: Board? { store.board(boardID) }
 
     @State private var laeuft = false
-    @State private var zeigtEinladung = false
+    /// Das Teilen-Blatt. Ein Objekt, kein Ansichtswert: Es wird von UIKit
+    /// gezeigt, nicht von SwiftUI (siehe `Freigabewahl`).
+    @State private var freigabewahl = Freigabewahl()
     @State private var fehler: String?
     @State private var fragtWiderruf = false
     @State private var fragtVerlassen = false
@@ -235,12 +237,6 @@ struct ShareSheet: View {
                     Button("Fertig") { dismiss() }
                 }
             }
-            .sheet(isPresented: $zeigtEinladung) {
-                if let board {
-                    Einladungsblatt(boardID: board.id, titel: board.name)
-                        .ignoresSafeArea()
-                }
-            }
         }
     }
 
@@ -251,9 +247,9 @@ struct ShareSheet: View {
         Section {
             Button {
                 // Das Blatt legt die Freigabe selbst an — hier wird nur
-                // geöffnet. Warum, steht bei `Einladungsblatt`.
+                // geöffnet. Warum, steht bei `Freigabewahl`.
                 fehler = nil
-                zeigtEinladung = true
+                freigabewahl.oeffne(boardID: board.id, titel: board.name)
             } label: {
                 HStack {
                     Label(board.geteilt ? "Weitere Person einladen" : "Tafel freigeben",
@@ -352,22 +348,32 @@ struct ShareSheet: View {
 
 }
 
-/// Apples eigenes Blatt zum Verschicken der Einladung.
+/// Zeigt Apples Teilen-Blatt — **an SwiftUI vorbei**.
 ///
 /// Es zeigt zugleich, wer teilnimmt, und lässt einzelne Personen wieder
-/// entfernen — deshalb baut die App das nicht nach.
-struct Einladungsblatt: UIViewControllerRepresentable {
-    let boardID: String
-    let titel: String
+/// entfernen; deshalb baut die App das nicht nach.
+///
+/// **Präsentieren, nicht einbetten.** In 1.0.60 steckte dieses Blatt in einem
+/// SwiftUI-`.sheet` und erschien als schwarzes Rechteck mitten auf der Tafel.
+/// `UICloudSharingController` ist das Fenster eines fremden Dienstes — wie
+/// der Dateiwähler. Beide wollen von UIKit gezeigt werden. Dieselbe Regel,
+/// zweimal gelernt (siehe `Oberflaeche`).
+///
+/// **Die Freigabe legt das Blatt selbst an**, über den Vorbereitungs-Rückruf.
+/// Die Adresse (`CKShare.url`) entsteht erst beim Sichern; wer ein fertiges
+/// Objekt hereinreicht, hat sie noch nicht, und „Link kopieren" kopiert
+/// nichts (1.0.58 und 1.0.59). Fehler werden roh durchgereicht: Das Blatt
+/// zeigt Apples Wortlaut, und der ist die bessere Spur.
+final class Freigabewahl: NSObject, UICloudSharingControllerDelegate {
+    private var titel = ""
+    private var offen = false
 
-    func makeUIViewController(context: Context) -> UICloudSharingController {
-        // **Das Blatt legt die Freigabe selbst an.** Vorher tat die App das
-        // vorab und reichte ein fertiges Objekt herüber — dessen Adresse
-        // (`CKShare.url`) entsteht aber erst beim Sichern und lag dann noch
-        // nicht vor. Ergebnis: ein Blatt, dessen „Link kopieren" nichts
-        // kopierte. Über diesen Rückruf holt sich das Blatt die Adresse
-        // selbst, so wie Apple es vorsieht.
-        let controller = UICloudSharingController { _, fertig in
+    func oeffne(boardID: String, titel: String) {
+        guard !offen, let halter = Oberflaeche.obersterHalter() else { return }
+        offen = true
+        self.titel = titel
+
+        let blatt = UICloudSharingController { _, fertig in
             Task { @MainActor in
                 guard let board = BoardStore.shared.board(boardID) else {
                     fertig(nil, nil, CloudSyncEngine.Freigabefehler.tafelFehlt)
@@ -382,35 +388,30 @@ struct Einladungsblatt: UIViewControllerRepresentable {
             }
         }
         // Nur-Lesen gibt es hier bewusst nicht (siehe Hinweistext im Blatt).
-        controller.availablePermissions = [.allowPublic, .allowReadWrite]
-        controller.delegate = context.coordinator
-        return controller
+        blatt.availablePermissions = [.allowPublic, .allowReadWrite]
+        blatt.delegate = self
+        Oberflaeche.ausMitte(blatt, in: halter)
+        halter.present(blatt, animated: true)
     }
 
-    func updateUIViewController(_ controller: UICloudSharingController, context: Context) { }
+    func itemTitle(for controller: UICloudSharingController) -> String? { titel }
 
-    func makeCoordinator() -> Koordinator { Koordinator(titel: titel) }
-
-    final class Koordinator: NSObject, UICloudSharingControllerDelegate {
-        private let titel: String
-        init(titel: String) { self.titel = titel }
-
-        func itemTitle(for controller: UICloudSharingController) -> String? { titel }
-
-        func cloudSharingController(_ controller: UICloudSharingController,
-                                    failedToSaveShareWithError error: Error) {
-            Task { @MainActor in
-                BoardStore.shared.showStatus("Die Einladung ließ sich nicht anlegen: "
-                                             + error.localizedDescription)
-            }
+    func cloudSharingController(_ controller: UICloudSharingController,
+                                failedToSaveShareWithError error: Error) {
+        offen = false
+        Task { @MainActor in
+            BoardStore.shared.showStatus("Die Einladung ließ sich nicht anlegen: "
+                                         + error.localizedDescription)
         }
+    }
 
-        func cloudSharingControllerDidSaveShare(_ controller: UICloudSharingController) {
-            Task { @MainActor in BoardStore.shared.syncNow() }
-        }
+    func cloudSharingControllerDidSaveShare(_ controller: UICloudSharingController) {
+        offen = false
+        Task { @MainActor in BoardStore.shared.syncNow() }
+    }
 
-        func cloudSharingControllerDidStopSharing(_ controller: UICloudSharingController) {
-            Task { @MainActor in BoardStore.shared.syncNow() }
-        }
+    func cloudSharingControllerDidStopSharing(_ controller: UICloudSharingController) {
+        offen = false
+        Task { @MainActor in BoardStore.shared.syncNow() }
     }
 }

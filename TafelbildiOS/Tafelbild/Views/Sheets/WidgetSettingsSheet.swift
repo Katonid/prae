@@ -59,13 +59,14 @@ private final class Dateiwahl: NSObject, UIDocumentPickerDelegate {
     private var offen = false
 
     func oeffne(arten: [UTType], fertig: @escaping (URL?) -> Void) {
-        guard !offen, let halter = Self.obersterHalter() else { return }
+        guard !offen, let halter = Oberflaeche.obersterHalter() else { return }
         offen = true
         self.fertig = fertig
         let waehler = UIDocumentPickerViewController(forOpeningContentTypes: arten,
                                                      asCopy: true)
         waehler.allowsMultipleSelection = false
         waehler.delegate = self
+        Oberflaeche.ausMitte(waehler, in: halter)
         halter.present(waehler, animated: true)
     }
 
@@ -83,16 +84,6 @@ private final class Dateiwahl: NSObject, UIDocumentPickerDelegate {
         let rueckruf = fertig
         fertig = nil
         rueckruf?(url)
-    }
-
-    /// Das oberste gerade gezeigte Blatt — von dort aus wird gezeigt.
-    private static func obersterHalter() -> UIViewController? {
-        let szenen = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
-        let szene = szenen.first { $0.activationState == .foregroundActive } ?? szenen.first
-        guard var halter = szene?.windows.first(where: { $0.isKeyWindow })?.rootViewController
-                ?? szene?.windows.first?.rootViewController else { return nil }
-        while let naechster = halter.presentedViewController { halter = naechster }
-        return halter
     }
 }
 
