@@ -421,6 +421,19 @@ Namens und lebt weiter.
   Nur so hält die Regel auch gegen ein Gerät mit älterem Stand, das sie
   gar nicht kennt. Die Regel selbst gehört der Besitzerin
   (`zusammengefuehrt` stellt sie auf deren Gerät wieder her).
+- **Mitteilungstöne nur aus `Library/Sounds`** (`Weckdienst`, ab 1.1.6).
+  `UNNotificationSound(named:)` sucht an genau zwei Stellen: ganz oben im
+  App-Bündel und in `Library/Sounds`. Wo eine Datei im Bündel landet,
+  entscheidet bei einem synchronisierten Ordner aber Xcode — liegt sie in
+  einem Unterordner, spielt iOS **gar nichts**, ohne Fehlermeldung (so
+  war 1.1.5 stumm). Die App kopiert die Klänge deshalb selbst dorthin.
+  Kein `interruptionLevel = .timeSensitive`: Das braucht eine eigene
+  Berechtigung im Profil.
+- **Ob die Tafel beim Zurückkommen noch klingt, entscheidet ein
+  Zeitvergleich**, keine Liste zugestellter Meldungen: Was vor
+  `Weckdienst.aktivSeit` ablief, hat iOS gemeldet. Die Liste kam über
+  einen Rückruf und war langsamer als der Zeittakt der Tafel — der Klang
+  lief doppelt.
 - **Sichtbarkeit** hängt an der iCloud-Kennung (`ownerUserID` /
   `memberUserIDs`) — nicht am Anzeigenamen. Eine empfangene Tafel trägt
   keine davon; sie wird beim Ankommen in `ownBoardIDs` eingetragen, sonst
