@@ -76,6 +76,11 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   ein Bau zu wenig nicht.
 - Von Hand: Reiter „Actions" → „iOS-Apps bauen" → „Run workflow" → App
   auswählen (oder „alle").
+- **`tafelbild-ansicht.yml` läuft nur auf Knopfdruck** (Ansage des
+  Nutzers, 08/2026). Es macht Bildschirmfotos in zwei Simulatoren und
+  kostete damit zwei weitere macOS-Aufträge bei jeder Änderung unter
+  `Views/` — für Bilder, die niemand ansah. Ob der Quelltext übersetzt,
+  sagt `tafelbild-build.yml`. Nicht wieder an `push` hängen.
 - **Beim Warten auf einen Bau den richtigen AUFTRAG beobachten, nicht
   den ganzen Lauf.** In `tafelbild-build.yml` ist „Übersetzen
   (iOS-Simulator)" nach gut einer Minute fertig; „Starten (Simulator)"
