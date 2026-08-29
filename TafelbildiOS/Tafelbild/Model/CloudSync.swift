@@ -869,13 +869,18 @@ final class CloudSyncEngine: @unchecked Sendable {
 
     /// Legt die Freigabe für eine Tafel an — oder liefert die vorhandene.
     ///
-    /// **Gerufen wird das aus dem Vorbereitungs-Rückruf von
-    /// `UICloudSharingController`, nicht vorab.** Das ist der von Apple
-    /// vorgesehene Weg, und es ist der Unterschied, an dem die vorige Fassung
-    /// scheiterte: Die Adresse der Freigabe (`CKShare.url`) entsteht erst
-    /// beim Sichern, und das Blatt holt sie sich selbst. Wer die Freigabe
-    /// vorher anlegt und dem Blatt ein fertiges Objekt reicht, hat sie unter
-    /// Umständen noch nicht — dann kopiert „Link kopieren" nichts.
+    /// **Gerufen wird das, bevor das Teilen-Blatt aufgeht**, und das Ergebnis
+    /// wird dem Blatt fertig gereicht. Bis 1.1.0 lief es andersherum, über den
+    /// Vorbereitungs-Rückruf von `UICloudSharingController` — den gibt es seit
+    /// iOS 17 nur noch als veralteten Weg.
+    ///
+    /// Dass ein vorab angelegtes Objekt früher ohne Adresse blieb (1.0.58,
+    /// 1.0.59: „Link kopieren" kopierte nichts), lag an zwei anderen Dingen,
+    /// die inzwischen behoben sind: Der Record-Typ `cloudkit.share` fehlte im
+    /// Schema, und hier wurde das hingeschickte statt des zurückgemeldeten
+    /// Objekts weitergereicht. Deshalb prüft `legeFreigabeAn` die Adresse
+    /// jetzt ausdrücklich, statt stillschweigend etwas Halbfertiges
+    /// herauszugeben.
     ///
     /// Der Fehler wird **roh** durchgereicht, nicht in eigene Worte gefasst:
     /// Das Blatt zeigt ihn selbst an, und im Zweifel ist Apples Wortlaut die
@@ -935,7 +940,22 @@ final class CloudSyncEngine: @unchecked Sendable {
             operation.modifyRecordsResultBlock = { ergebnis in
                 switch ergebnis {
                 case .success:
-                    box.finish { fortsetzung.resume(returning: .success(antwort ?? neue)) }
+                    // Ohne Adresse ist die Freigabe nichts wert: Das Blatt
+                    // zeigte dann ein „Link kopieren", das nichts kopiert
+                    // (1.0.58, 1.0.59). Lieber hier ehrlich scheitern — der
+                    // Rest bleibt liegen und wird beim nächsten Versuch von
+                    // `bereiteFreigabeVor` weggeräumt.
+                    if let fertig = antwort, fertig.url != nil {
+                        box.finish { fortsetzung.resume(returning: .success(fertig)) }
+                    } else {
+                        box.finish {
+                            fortsetzung.resume(returning: .failure(Freigabefehler.cloud(
+                                "iCloud hat die Freigabe gesichert, aber keinen Link dazu "
+                                + "geliefert. Meist fehlt der Datensatz „cloudkit.share“ in "
+                                + "dieser Umgebung — dann in der CloudKit-Konsole das Schema "
+                                + "nach Production übertragen.")))
+                        }
+                    }
                 case .failure(let fehler):
                     box.finish { fortsetzung.resume(returning: .failure(fehler)) }
                 }

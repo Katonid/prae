@@ -1092,11 +1092,6 @@ final class BoardStore: ObservableObject {
         engine.istFremd(boardID: board.id)
     }
 
-    /// Legt die iCloud-Freigabe an (oder liefert die vorhandene) und merkt
-    /// sich am Board, dass es geteilt ist — daran hängen sich die Bilder und
-    /// Klänge, damit sie mitreisen.
-    /// Bereitet die Freigabe vor — gerufen von Apples Teilen-Blatt, nicht
-    /// vorab (siehe `CloudSyncEngine.bereiteFreigabeVor`).
     /// Bringt die Tafel in die iCloud — **bevor** das Teilen-Blatt aufgeht.
     ///
     /// Das gehört hierher und nicht in den Vorbereitungs-Rückruf des Blattes.
@@ -1106,8 +1101,8 @@ final class BoardStore: ObservableObject {
     /// Sekunden —, überzieht die Geduld und bekommt „Es konnte kein Link zum
     /// Teilen erstellt werden" (gemeldet in 1.0.61).
     ///
-    /// Also: Hier wird gewartet, mit Fortschrittsanzeige im Blatt. Danach hat
-    /// der Rückruf nur noch die Freigabe selbst anzulegen.
+    /// Also: Hier wird gewartet, mit Fortschrittsanzeige im Blatt. Danach ist
+    /// nur noch die Freigabe selbst anzulegen.
     func tafelHochladen(_ board: Board) async {
         if let stelle = boards.firstIndex(where: { $0.id == board.id }), !boards[stelle].geteilt {
             boards[stelle].geteilt = true
@@ -1126,8 +1121,13 @@ final class BoardStore: ObservableObject {
         await engine.pushJetzt()
     }
 
-    /// Legt die Freigabe an — gerufen aus dem Rückruf des Teilen-Blattes.
-    /// Hält sich kurz: Alles Langsame ist in `tafelHochladen` schon erledigt.
+    /// Legt die Freigabe an (oder liefert die vorhandene) und merkt sich am
+    /// Board, dass es geteilt ist — daran hängen sich Bilder und Klänge,
+    /// damit sie mitreisen.
+    ///
+    /// Gerufen, bevor das Teilen-Blatt aufgeht; das Ergebnis wird ihm fertig
+    /// gereicht. Hält sich kurz: Alles Langsame ist in `tafelHochladen` schon
+    /// erledigt.
     func bereiteFreigabeVor(fuer board: Board) async -> Result<CKShare, Error> {
         let ergebnis = await engine.bereiteFreigabeVor(fuer: board.id, titel: board.name)
         if case .failure = ergebnis, let stelle = boards.firstIndex(where: { $0.id == board.id }) {

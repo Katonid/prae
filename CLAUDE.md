@@ -338,13 +338,22 @@ Namens und lebt weiter.
   dort erst noch alles Wartende hochlädt, bekommt „Es konnte kein Link zum
   Teilen erstellt werden". Das Hochladen gehört vor das Öffnen des Blattes
   (`BoardStore.tafelHochladen`), der Rückruf legt nur noch die Freigabe an.
-- **Die Freigabe legt Apples Blatt selbst an**, über den
-  Vorbereitungs-Rückruf von `UICloudSharingController` — nicht die App
-  vorab. Die Adresse (`CKShare.url`) entsteht erst beim Sichern und lag
-  vorab noch nicht vor; ein Blatt mit fertig übergebenem Objekt kopierte
-  deshalb beim „Link kopieren" nichts (1.0.58 und 1.0.59, beide gemeldet).
-  Fehler werden dabei **roh** durchgereicht: Das Blatt zeigt Apples
-  Wortlaut, der die bessere Spur ist als eine eigene Übersetzung.
+- **Die Freigabe steht, bevor Apples Blatt aufgeht** (seit 1.1.1): erst
+  `bereiteFreigabeVor`, dann `UICloudSharingController(share:container:)`.
+  Der Erzeuger mit Vorbereitungs-Rückruf, den 1.0.61 bis 1.1.0 nutzten,
+  ist seit iOS 17 veraltet.
+  Dass ein vorab angelegtes Objekt in 1.0.58/1.0.59 ohne Adresse blieb
+  („Link kopieren" kopierte nichts), lag NICHT am Vorab-Anlegen, sondern
+  an zwei anderen Dingen: Der Record-Typ `cloudkit.share` fehlte im
+  Schema, und weitergereicht wurde das hingeschickte statt des
+  zurückgemeldeten Objekts. Beides ist behoben; `legeFreigabeAn` gibt
+  seither nichts mehr heraus, was keine `url` hat.
+  Fehler werden **roh** durchgereicht: Das Blatt zeigt Apples Wortlaut,
+  der die bessere Spur ist als eine eigene Übersetzung.
+- **Kein „offen"-Merker für ein fremdes Blatt.** `UICloudSharingController`
+  meldet das Sichern und das Beenden der Freigabe, aber nicht das
+  Zumachen. Ein Flag bleibt danach hängen und der Knopf tut nichts mehr.
+  Stattdessen schwach halten und `presentingViewController` prüfen.
 - Einladungen nimmt `FreigabeSceneDelegate` entgegen
   (`windowScene(_:userDidAcceptCloudKitShareWith:)`) — den Rückruf gibt es
   nur an der Szene. Er trägt `var window: UIWindow?`, beantwortet aber
