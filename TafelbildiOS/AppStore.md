@@ -100,11 +100,29 @@ einen Pegel aus; die Kamera nimmt nur auf, was selbst eingefroren wird.
 Unterricht,Schule,Grundschule,Tafel,Timer,Zufallsname,Lautstärke,Klasse,Lehrer,Ampel,Tagesablauf
 ```
 
-### Neue Funktionen (bei der ersten Fassung)
+### Neue Funktionen („What's New")
+
+Für 1.1.0 — die erste Fassung mit Freigabe und privatem iCloud-Abgleich:
 
 ```
-Erste Fassung.
+Gemeinsam arbeiten: Eine Tafel lässt sich jetzt per Einladungslink
+freigeben. Wer den Link annimmt, darf sofort mitarbeiten — Namenslisten
+samt gezogener Namen, Texte und Tagesablauf gehören danach beiden.
+Anordnung, Farben und ausgeblendete Elemente bleiben persönlich.
+
+Die Freigabe lässt sich jederzeit zurücknehmen, eine erhaltene Tafel als
+eigene übernehmen — gut, um Vorbereitetes an andere Klassen weiterzugeben.
+
+Der Abgleich läuft nun über die private iCloud-Datenbank: Die Daten sind
+an die eigene Apple-ID gebunden, der Entwickler kann nichts davon einsehen.
+
+Dazu viele Kleinigkeiten: Die Dateiauswahl für Klänge, Bilder und Videos
+öffnet zuverlässig, das Teilen-Blatt erzeugt den Link sofort, und alle
+Systemfenster erscheinen auf Deutsch.
 ```
+
+Ist es der allererste Eintrag im App Store, gibt es dieses Feld noch nicht
+— dann entfällt der Text.
 
 ### Bildschirmfotos
 
@@ -189,7 +207,7 @@ Datenschutz in der App nachzulesen: Einstellungen → Datenschutz.
 
 1. In Xcode das Ziel auf „Any iOS Device" stellen, `Product → Archive`.
 2. Im Organizer „Distribute App" → „App Store Connect".
-3. Version und Build: `MARKETING_VERSION` steht im Projekt (derzeit 1.0.58),
+3. Version und Build: `MARKETING_VERSION` steht im Projekt (derzeit 1.1.0),
    die Build-Nummer vergibt die Bauphase „Build-Nummer setzen" automatisch.
    In App Store Connect muss die Version des Eintrags dazu passen — die neue
    Fassung dort als eigene Version anlegen, nicht die alte weiterverwenden.
