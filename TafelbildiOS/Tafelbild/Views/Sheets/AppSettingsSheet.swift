@@ -133,7 +133,11 @@ struct AppSettingsSheet: View {
                 } header: {
                     Text("Ansicht")
                 } footer: {
-                    Text("Vorgabe ist überall die Tafel — auch am Telefon. Sie lässt sich dort "
+                    Text("Umschalten geht auch schnell: über die drei Punkte oben "
+                         + "rechts, gleich der "
+                         + "erste Eintrag.\n\n"
+
+                         + "Vorgabe ist überall die Tafel — auch am Telefon. Sie lässt sich dort "
                          + "mit zwei Fingern vergrößern und mit einem verschieben; Doppeltippen "
                          + "zeigt wieder die ganze Tafel. Wer lieber untereinander liest, "
                          + "schaltet auf Listenansicht. Die Elementleiste lässt sich auch mit "

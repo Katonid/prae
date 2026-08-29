@@ -311,6 +311,19 @@ struct RootView: View {
             }
 
             Menu {
+                // Ganz oben, weil man das mitten in der Stunde umschaltet und
+                // nicht einmal einrichtet. In den Einstellungen steht der
+                // Schalter weiterhin — dort mit der Erklärung dazu; hier
+                // zählt der kurze Weg.
+                Button {
+                    withAnimation(.easeInOut(duration: 0.2)) { listenansicht.toggle() }
+                    Haptics.tap()
+                } label: {
+                    Label(listenansicht ? "Tafelansicht" : "Listenansicht",
+                          systemImage: listenansicht ? "rectangle.on.rectangle"
+                                                     : "list.bullet")
+                }
+                Divider()
                 Button {
                     sheet = .nameLists
                 } label: {
