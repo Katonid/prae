@@ -362,8 +362,12 @@ Vier Regeln, jede einmal teuer gelernt (`WidgetSettingsSheet`,
 3. **Der Wunsch trägt das Ziel**, kein Schalter daneben. Zusammengezogen
    ist das Ziel beim Auswerten schon gelöscht; getrennt springt einer zu
    früh zurück.
-4. **An SwiftUI vorbei zeigen** (`Dateiwahl`): UIKit präsentiert, UIKit
-   schließt, das Ziel reist im Rückruf mit. Jede Präsentation, die an
+4. **An SwiftUI vorbei zeigen** (`Dateiwahl`, `Freigabewahl`, `Oberflaeche`):
+   UIKit präsentiert, UIKit schließt, das Ziel reist im Rückruf mit. **Das
+   gilt für jedes Fenster eines fremden Dienstes** — den Dateiwähler UND
+   Apples Teilen-Blatt (`UICloudSharingController`). Eingebettet in ein
+   SwiftUI-`.sheet` bleibt das Teilen-Blatt schwarz (1.0.60, gemeldet);
+   der Dateiwähler flackert. Jede Präsentation, die an
    einem Ansichtswert hängt (`.fileImporter`, `.sheet`), räumt SwiftUI
    beim Neuzeichnen des Formulars ab — der Schalter bleibt stehen, im
    nächsten Durchgang geht sie wieder auf: ein Flackern ohne Ende.
