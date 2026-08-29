@@ -288,6 +288,9 @@ Namens und lebt weiter.
   die Patch-Nummer um +1 an** — ohne Nachfrage, als Teil des PRs
   (1.0.1 → 1.0.2 → 1.0.3 …). Größere Sprünge nur auf ausdrückliche
   Ansage des Nutzers.
+- **1.1.0 ist die Fassung für den App Store** (Ansage des Nutzers,
+  08/2026): erste Fassung mit Freigabe per Einladungslink und privatem
+  iCloud-Abgleich. Danach zählt es wie gewohnt weiter — 1.1.1, 1.1.2 …
 - Die **Build-Nummer vergibt die Skript-Bauphase „Build-Nummer setzen"**
   automatisch (Anzahl der Git-Commits, sonst Datumsstempel) — wie in
   Tagesspur, nie von Hand pflegen. Damit ist jeder TestFlight-Upload
