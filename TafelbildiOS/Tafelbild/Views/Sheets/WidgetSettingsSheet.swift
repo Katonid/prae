@@ -271,11 +271,17 @@ struct WidgetSettingsSheet: View {
                             Label("Verschieben oder kopieren …",
                                   systemImage: "arrow.right.square")
                         }
-                        Button(role: .destructive) {
-                            store.removeWidget(widgetID, from: boardID)
-                            dismiss()
-                        } label: {
-                            Label("Element entfernen", systemImage: "trash")
+                        if let widget, store.darfLoeschen(widget, in: boardID) {
+                            Button(role: .destructive) {
+                                store.removeWidget(widgetID, from: boardID)
+                                dismiss()
+                            } label: {
+                                Label("Element entfernen", systemImage: "trash")
+                            }
+                        } else {
+                            Label("Löschen darf nur, wer es angelegt hat",
+                                  systemImage: "lock")
+                                .foregroundStyle(.secondary)
                         }
                     } footer: {
                         Text("Duplizieren legt sofort eine Kopie daneben. Kopieren merkt "

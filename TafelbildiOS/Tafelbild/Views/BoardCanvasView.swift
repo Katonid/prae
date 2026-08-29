@@ -478,10 +478,21 @@ private struct SelectionChrome: View {
                     Label("Verschieben oder kopieren …", systemImage: "arrow.right.square")
                 }
                 Divider()
-                Button(role: .destructive) {
-                    store.removeWidget(widget.id, from: boardID)
-                } label: {
-                    Label("Für alle entfernen", systemImage: "trash")
+                if store.darfLoeschen(widget, in: boardID) {
+                    Button(role: .destructive) {
+                        store.removeWidget(widget.id, from: boardID)
+                    } label: {
+                        Label("Für alle entfernen", systemImage: "trash")
+                    }
+                } else {
+                    // Nicht einfach weglassen: Wer den Eintrag sucht, soll
+                    // lesen, warum er fehlt — sonst sieht es nach einem
+                    // Fehler aus.
+                    Button { } label: {
+                        Label("Löschen darf nur, wer es angelegt hat",
+                              systemImage: "lock")
+                    }
+                    .disabled(true)
                 }
             } label: {
                 Image(systemName: "square.3.layers.3d")
@@ -489,8 +500,14 @@ private struct SelectionChrome: View {
                     .foregroundStyle(.white)
                     .frame(width: 40, height: 40)
             }
-            button("trash.fill", label: "Löschen", tint: Theme.danger) {
-                store.removeWidget(widget.id, from: boardID)
+            // Auf einer geteilten Tafel steht der Papierkorb nur da, wenn er
+            // auch etwas bewirkt. „Nur für mich ausblenden" links davon
+            // bleibt jedem — das ist der Weg, fremde Elemente loszuwerden,
+            // ohne sie anderen wegzunehmen.
+            if store.darfLoeschen(widget, in: boardID) {
+                button("trash.fill", label: "Löschen", tint: Theme.danger) {
+                    store.removeWidget(widget.id, from: boardID)
+                }
             }
         }
         .padding(.horizontal, 6)
@@ -718,10 +735,12 @@ struct BoardStackView: View {
                                         } label: {
                                             Image(systemName: "gearshape.fill")
                                         }
-                                        Button(role: .destructive) {
-                                            store.removeWidget(widget.id, from: board.id)
-                                        } label: {
-                                            Image(systemName: "trash.fill")
+                                        if store.darfLoeschen(widget, in: board.id) {
+                                            Button(role: .destructive) {
+                                                store.removeWidget(widget.id, from: board.id)
+                                            } label: {
+                                                Image(systemName: "trash.fill")
+                                            }
                                         }
                                     }
                                     .font(.system(size: 16, weight: .semibold))

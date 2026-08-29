@@ -375,6 +375,18 @@ Namens und lebt weiter.
   `WindowGroup` von SwiftUI. Für andere Szenen-Rollen gibt
   `configurationForConnecting` die Konfiguration aus der `Info.plist`
   zurück, sonst bliebe der Beamer schwarz. Dazu `CKSharingSupported`.
+- **Löschrecht auf geteilten Tafeln** (`Loeschrecht`, ab 1.1.4): Vorgabe
+  ist „jede löscht nur Eigenes". Dafür trägt jedes Element `erstelltVon`
+  (iCloud-Kennung); **leer heißt „vor 1.1.4 angelegt" und zählt der
+  Besitzerin** — die vorsichtige Richtung, es geht nichts verloren.
+  Durchgesetzt wird es an DREI Stellen, und die dritte ist die
+  entscheidende: in der Oberfläche (Knopf weg), in
+  `BoardStore.removeWidget`/`seiteLoeschen` (Meldung statt Tat) und in
+  `Board.mitFremdemInhalt` — dort bleiben Elemente stehen, die die
+  schreibende Person nicht löschen durfte, und der Stand geht zurück.
+  Nur so hält die Regel auch gegen ein Gerät mit älterem Stand, das sie
+  gar nicht kennt. Die Regel selbst gehört der Besitzerin
+  (`zusammengefuehrt` stellt sie auf deren Gerät wieder her).
 - **Sichtbarkeit** hängt an der iCloud-Kennung (`ownerUserID` /
   `memberUserIDs`) — nicht am Anzeigenamen. Eine empfangene Tafel trägt
   keine davon; sie wird beim Ankommen in `ownBoardIDs` eingetragen, sonst

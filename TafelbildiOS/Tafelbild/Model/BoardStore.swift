@@ -491,6 +491,9 @@ final class BoardStore: ObservableObject {
         widget.clampToCanvas(hoehe: boards[boardIndex].hoehe)
         // Auf der Seite anlegen, die gerade zu sehen ist.
         widget.pageID = aktiveSeitenID
+        // Wer es angelegt hat — daran hängt auf geteilten Tafeln das
+        // Löschrecht (siehe `Loeschrecht`).
+        widget.erstelltVon = myUserID ?? ""
         boards[boardIndex].widgets.append(widget)
         selectedWidgetID = widget.id
         touch(boardID)
@@ -545,6 +548,16 @@ final class BoardStore: ObservableObject {
         guard boards[index].pages.count > 1,
               let seitenIndex = boards[index].pages.firstIndex(where: { $0.id == seite })
         else { return }
+        // Eine Seite zu löschen heißt, alles darauf zu löschen — also gilt
+        // dieselbe Regel. Sonst wäre der Umweg über die Seite ein Schlupfloch.
+        let ich = myUserID ?? ""
+        let darauf = boards[index].widgets.filter { boards[index].liegtAuf($0, seite: seite) }
+        let fremdes = darauf.filter { !boards[index].darfLoeschen($0, wer: ich) }
+        guard fremdes.isEmpty else {
+            showStatus("Auf dieser Seite liegen \(fremdes.count) Element(e), die jemand "
+                       + "anderes angelegt hat. Die Seite lässt sich deshalb nicht löschen.")
+            return
+        }
         boards[index].widgets.removeAll { $0.pageID == seite }
         boards[index].pages.remove(at: seitenIndex)
         // Auf die benachbarte Seite wechseln, nicht ins Leere.
@@ -574,6 +587,9 @@ final class BoardStore: ObservableObject {
         let kopien = boards[index].widgets(auf: seite).map { alt -> BoardWidget in
             var neu = alt
             neu.id = UUID().uuidString
+            // Neue Kennung heißt: neues Element. Es gehört dem, der es hier
+            // anlegt (siehe `Loeschrecht`).
+            neu.erstelltVon = myUserID ?? ""
             neu.pageID = neue.id
             return neu
         }
@@ -631,6 +647,7 @@ final class BoardStore: ObservableObject {
             ? aktiveSeitenID : boards[index].ersteSeitenID
 
         neu.id = UUID().uuidString
+        neu.erstelltVon = myUserID ?? ""
         neu.pageID = seite
         // Ausgeblendet oder festgesteckt einzufügen wäre eine Falle: Das
         // Element wäre da, ließe sich aber nicht bewegen oder gar nicht
@@ -689,6 +706,7 @@ final class BoardStore: ObservableObject {
 
         var neu = widget
         neu.id = UUID().uuidString
+        neu.erstelltVon = myUserID ?? ""
         neu.pageID = zielSeite
         neu.z = (boards[zielIndex].widgets.map(\.z).max() ?? 0) + 1
         // Ausgeblendetes wäre auf der neuen Tafel unsichtbar und niemand
@@ -736,6 +754,9 @@ final class BoardStore: ObservableObject {
             alt -> BoardWidget in
             var neu = alt
             neu.id = UUID().uuidString
+            // Neue Kennung heißt: neues Element. Es gehört dem, der es hier
+            // anlegt (siehe `Loeschrecht`).
+            neu.erstelltVon = myUserID ?? ""
             neu.pageID = neueSeite.id
             hoechstes += 1
             neu.z = hoechstes
@@ -920,8 +941,25 @@ final class BoardStore: ObservableObject {
         touch(boardID)
     }
 
+    /// Darf ich dieses Element löschen? Für die Oberfläche — der Knopf soll
+    /// gar nicht erst dastehen, wenn er nichts bewirkt.
+    func darfLoeschen(_ widget: BoardWidget, in boardID: String) -> Bool {
+        guard let board = board(boardID) else { return false }
+        return board.darfLoeschen(widget, wer: myUserID ?? "")
+    }
+
     func removeWidget(_ widgetID: String, from boardID: String) {
-        guard let boardIndex = boards.firstIndex(where: { $0.id == boardID }) else { return }
+        guard let boardIndex = boards.firstIndex(where: { $0.id == boardID }),
+              let widget = boards[boardIndex].widgets.first(where: { $0.id == widgetID })
+        else { return }
+        // Auch hier prüfen und nicht nur in der Oberfläche: Sonst
+        // verschwände das Element auf diesem Gerät und käme beim nächsten
+        // Abgleich wieder — das sähe nach einem Fehler aus.
+        guard boards[boardIndex].darfLoeschen(widget, wer: myUserID ?? "") else {
+            showStatus("Dieses Element hat jemand anderes angelegt. Ausblenden geht, "
+                       + "löschen nicht.")
+            return
+        }
         boards[boardIndex].widgets.removeAll { $0.id == widgetID }
         if selectedWidgetID == widgetID { selectedWidgetID = nil }
         touch(boardID)
@@ -933,6 +971,9 @@ final class BoardStore: ObservableObject {
         else { return }
         var copy = source
         copy.id = UUID().uuidString
+        // Eine Kopie gehört dem, der sie macht — nicht dem Urheber des
+        // Originals. Sonst könnte man sie hinterher nicht mehr loswerden.
+        copy.erstelltVon = myUserID ?? ""
         copy.x = min(source.x + 40, Layout.canvasWidth - source.width)
         copy.y = min(source.y + 40, boards[boardIndex].hoehe - source.height)
         copy.z = (boards[boardIndex].widgets.map(\.z).max() ?? 0) + 1
@@ -1628,7 +1669,14 @@ final class BoardStore: ObservableObject {
            fremd.ownerUserID == (myUserID ?? "") {
             return fremd
         }
-        return vorhanden.mitFremdemInhalt(fremd)
+        var vereint = vorhanden.mitFremdemInhalt(fremd)
+        // Die Löschregel gehört der Besitzerin. Ein Gerät mit älterem Stand
+        // kennt das Feld gar nicht und schickte sonst stillschweigend die
+        // Vorgabe zurück — die Einstellung spränge dann immer wieder um.
+        if let ich = myUserID, !ich.isEmpty, vereint.ownerUserID == ich {
+            vereint.loeschrecht = vorhanden.loeschrecht
+        }
+        return vereint
     }
 
     private func applyRemote(_ changes: [RemoteEntity]) {
@@ -1658,7 +1706,17 @@ final class BoardStore: ObservableObject {
                 board.embeddedLists = []
                 if let index = boards.firstIndex(where: { $0.id == board.id }) {
                     if board.updatedAtMs > boards[index].updatedAtMs {
-                        boards[index] = zusammengefuehrt(vorhanden: boards[index], fremd: board)
+                        let vereint = zusammengefuehrt(vorhanden: boards[index], fremd: board)
+                        // Sind Elemente stehen geblieben, die die Gegenseite
+                        // gelöscht hatte, kennt sie diesen Stand nicht — er
+                        // muss zurück, sonst bleiben die Geräte auseinander.
+                        let gerettet = vereint.widgets.count > board.widgets.count
+                        boards[index] = vereint
+                        if gerettet {
+                            boards[index].updatedAtMs = Date.nowMs
+                            boards[index].zuletztVon = myUserID ?? ""
+                            engine.enqueue(kind: .board, entityId: board.id)
+                        }
                         changed = true
                     }
                 } else {

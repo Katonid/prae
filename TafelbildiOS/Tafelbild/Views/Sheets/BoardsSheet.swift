@@ -309,6 +309,53 @@ struct ShareSheet: View {
                  + "„Zurücknehmen“ beendet die Freigabe für alle auf einmal. "
                  + "Deine Tafel bleibt dabei unangetastet stehen.")
         }
+
+        loeschrechtAbschnitt(board)
+    }
+
+    /// Wer auf dieser Tafel löschen darf — nur die Besitzerin stellt das ein.
+    ///
+    /// Steht bewusst hier und nicht unter „Aussehen": Es ist eine Frage des
+    /// Zusammenarbeitens, keine der Gestaltung, und gesucht wird sie genau
+    /// dann, wenn man gerade jemanden einlädt.
+    @ViewBuilder
+    private func loeschrechtAbschnitt(_ board: Board) -> some View {
+        let gewaehlt = Loeschrecht.aus(board.loeschrecht)
+        Section {
+            Picker("Löschen dürfen", selection: Binding(
+                get: { gewaehlt },
+                set: { neu in
+                    var geaendert = board
+                    geaendert.loeschrecht = neu.rawValue
+                    store.updateBoard(geaendert)
+                }
+            )) {
+                ForEach(Loeschrecht.allCases) { moeglichkeit in
+                    Label(moeglichkeit.titel, systemImage: moeglichkeit.symbol)
+                        .tag(moeglichkeit)
+                }
+            }
+            .pickerStyle(.inline)
+
+            Text(gewaehlt.hinweis)
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+        } header: {
+            Text("Löschen")
+        } footer: {
+            Text("Anlegen, verschieben und Inhalte ändern dürfen immer alle — "
+                 + "hier geht es nur ums Löschen, weil das der einzige Schritt "
+                 + "ist, der sich nicht zurücknehmen lässt.\n\n"
+
+                 + "Dir gehört die Tafel: Du darfst in jedem Fall alles löschen. "
+                 + "Elemente, die vor dieser Fassung angelegt wurden, tragen "
+                 + "keinen Vermerk, wer sie angelegt hat — sie zählen als "
+                 + "deine.\n\n"
+
+                 + "Wer ein fremdes Element nicht mehr sehen mag, blendet es "
+                 + "über die Leiste am Element nur für sich aus. Bei den "
+                 + "anderen bleibt es stehen.")
+        }
     }
 
     // MARK: Tafel von jemand anderem

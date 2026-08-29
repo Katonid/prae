@@ -1158,6 +1158,14 @@ struct BoardWidget: Codable, Identifiable, Equatable {
     var karte: WidgetKarte = .tafel {
         didSet { bare = (karte != .immer && karte != .tafel) }
     }
+    /// iCloud-Kennung derjenigen, die dieses Element angelegt hat.
+    ///
+    /// Daran hängt das Löschrecht auf geteilten Tafeln (siehe
+    /// `Loeschrecht`). **Leer heißt: vor dieser Fassung angelegt** — solche
+    /// Elemente werden der Besitzerin zugerechnet. Das ist die vorsichtige
+    /// Richtung: Es geht dabei nichts verloren, und die Besitzerin kann sie
+    /// weiterhin löschen.
+    var erstelltVon: String = ""
     /// Auf welcher Seite das Element liegt. **Leer heißt: erste Seite** —
     /// so gehören alle Elemente älterer Tafeln von selbst auf Seite 1.
     var pageID: String = ""
@@ -1342,6 +1350,68 @@ struct BoardPage: Codable, Equatable, Identifiable {
     var drawing: String = ""
 }
 
+/// Wer auf einer geteilten Tafel Elemente löschen darf.
+///
+/// Entstanden aus einer Beobachtung im Betrieb: Eine Kollegin, mit der man
+/// eine Tafel teilt, konnte darauf alles löschen — auch, was man selbst
+/// mühsam eingerichtet hatte, und es verschwand dann bei allen. Für
+/// gemeinsames Arbeiten ist das zu viel Zugriff.
+///
+/// Der Rest der Tafel bleibt gemeinsam: Wer darf, darf weiterhin anlegen,
+/// verschieben und Inhalte ändern. Es geht allein ums Löschen — das ist der
+/// einzige Schritt, der sich nicht zurücknehmen lässt.
+///
+/// Eingestellt wird das von der Person, der die Tafel gehört. **Der
+/// Besitzerin gehört die Tafel, sie darf immer alles löschen.**
+enum Loeschrecht: String, CaseIterable, Identifiable {
+    /// Wie früher: Wer die Tafel sieht, darf sie auch aufräumen.
+    case jeder
+    /// Jede Person löscht nur, was sie selbst angelegt hat. **Vorgabe.**
+    case eigene
+    /// Nur die Besitzerin löscht. Die anderen dürfen anlegen und ändern.
+    case nurBesitzer
+
+    static let vorgabe: Loeschrecht = .eigene
+
+    /// Aus dem gespeicherten Rohwert. Unbekanntes wird zur Vorgabe.
+    static func aus(_ rohwert: String) -> Loeschrecht {
+        Loeschrecht(rawValue: rohwert) ?? .vorgabe
+    }
+
+    var id: String { rawValue }
+
+    var titel: String {
+        switch self {
+        case .jeder:       return "Alle dürfen alles löschen"
+        case .eigene:      return "Jede löscht nur Eigenes"
+        case .nurBesitzer: return "Nur ich darf löschen"
+        }
+    }
+
+    var hinweis: String {
+        switch self {
+        case .jeder:
+            return "Wie eine Tafel im Lehrerzimmer: Wer sie sieht, darf sie "
+                 + "auch abwischen."
+        case .eigene:
+            return "Was du angelegt hast, kann nur von dir gelöscht werden — "
+                 + "und umgekehrt. Anlegen, verschieben und ändern dürfen "
+                 + "weiterhin alle."
+        case .nurBesitzer:
+            return "Die anderen dürfen anlegen und ändern, aber nichts "
+                 + "löschen — auch nicht das Eigene."
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .jeder:       return "person.2"
+        case .eigene:      return "person.crop.circle.badge.checkmark"
+        case .nurBesitzer: return "lock"
+        }
+    }
+}
+
 struct Board: Codable, Identifiable, Equatable {
     var id: String = UUID().uuidString
     var name: String = "Neue Tafel"
@@ -1392,6 +1462,14 @@ struct Board: Codable, Identifiable, Equatable {
     /// iCloud-Kennungen aller Personen, die die Tafel sehen dürfen —
     /// wird beim Beitritt per Code ergänzt.
     var memberUserIDs: [String] = []
+    /// Wer hier Elemente löschen darf — **Rohwert** eines `Loeschrecht`.
+    ///
+    /// Als Zeichenkette gespeichert, nicht als Aufzählung: Eine Tafel von
+    /// einem neueren Gerät darf eine Regel nennen, die diese Fassung noch
+    /// nicht kennt; sie bekommt dann die Vorgabe statt eines verworfenen
+    /// Datensatzes.
+    var loeschrecht: String = Loeschrecht.vorgabe.rawValue
+
     /// Sechsstelliger Einladungscode zum Teilen.
     ///
     /// Aus der Zeit der öffentlichen Datenbank. Seit die Tafeln privat liegen,
@@ -1533,6 +1611,30 @@ struct Board: Codable, Identifiable, Equatable {
         return leer
     }
 
+    /// Darf diese Person dieses Element löschen?
+    ///
+    /// Der Besitzerin gehört die Tafel — sie darf immer. Für alle anderen
+    /// gilt, was unter `loeschrecht` eingestellt ist.
+    ///
+    /// **Ohne Kennungen wird nicht eingeschränkt.** Eine Tafel aus einem
+    /// alten Stand hat keine `ownerUserID`, und ohne die ließe sich nicht
+    /// einmal sagen, wem sie gehört. Dann gilt wie früher: Wer sie sieht,
+    /// darf sie auch aufräumen.
+    func darfLoeschen(_ widget: BoardWidget, wer kennung: String) -> Bool {
+        guard !ownerUserID.isEmpty, !kennung.isEmpty else { return true }
+        if kennung == ownerUserID { return true }
+        switch Loeschrecht.aus(loeschrecht) {
+        case .jeder:
+            return true
+        case .eigene:
+            // Elemente ohne Vermerk stammen aus der Zeit vor dieser Fassung
+            // und gehören damit der Besitzerin — nicht dieser Person hier.
+            return !widget.erstelltVon.isEmpty && widget.erstelltVon == kennung
+        case .nurBesitzer:
+            return false
+        }
+    }
+
     func mitFremdemInhalt(_ fremd: Board) -> Board {
         var neu = self
 
@@ -1551,6 +1653,8 @@ struct Board: Codable, Identifiable, Equatable {
         neu.zuletztVon = fremd.zuletztVon
         neu.embeddedLists = []
 
+        neu.loeschrecht = fremd.loeschrecht
+
         neu.widgets = fremd.widgets.map { fremdes in
             guard var meines = widgets.first(where: { $0.id == fremdes.id }) else {
                 var neues = fremdes
@@ -1558,8 +1662,26 @@ struct Board: Codable, Identifiable, Equatable {
                 return neues
             }
             meines.content = fremdes.content
+            // Wer es angelegt hat, steht ein für alle Mal fest. Es aus der
+            // fremden Fassung zu übernehmen hieße, dass ein Gerät mit
+            // älterem Stand den Vermerk beim Weiterreichen ausradiert.
+            if meines.erstelltVon.isEmpty { meines.erstelltVon = fremdes.erstelltVon }
             return meines
         }
+
+        // Was die fremde Fassung nicht mehr kennt, ist dort gelöscht worden.
+        // Übernommen wird das nur, wenn die schreibende Person es auch
+        // durfte — sonst bleibt das Element stehen.
+        //
+        // Das ist der eigentliche Riegel, nicht der ausgegraute Knopf drüben:
+        // Ein Gerät mit älterem Stand kennt die Regel gar nicht und löscht
+        // munter weiter. Hier kommt es trotzdem nicht durch.
+        let bekannt = Set(fremd.widgets.map(\.id))
+        let gerettet = widgets.filter {
+            !bekannt.contains($0.id) && !neu.darfLoeschen($0, wer: fremd.zuletztVon)
+        }
+        neu.widgets.append(contentsOf: gerettet)
+
         return neu
     }
 
@@ -1809,7 +1931,7 @@ extension Board {
         case id, name, emoji, background, accent, accentVon, accentBis, gradient, cardStyle
         case format, frames, labels, schriftfarbe
         case zuletztVon
-        case widgets, pages, drawing, members, ownerUserID
+        case widgets, pages, drawing, members, ownerUserID, loeschrecht
         case memberUserIDs, joinCode, geteilt, owner, createdAtMs, updatedAtMs, deleted
         case embeddedLists
     }
@@ -1836,6 +1958,7 @@ extension Board {
         drawing = c.wert(.drawing, "")
         members = c.wert(.members, [String]())
         ownerUserID = c.wert(.ownerUserID, "")
+        loeschrecht = c.wert(.loeschrecht, Loeschrecht.vorgabe.rawValue)
         memberUserIDs = c.wert(.memberUserIDs, [String]())
         joinCode = c.wert(.joinCode, Board.makeJoinCode())
         geteilt = c.wert(.geteilt, false)
@@ -1908,7 +2031,7 @@ extension NameEntry {
 extension BoardWidget {
     enum WidgetKeys: String, CodingKey {
         case id, x, y, width, height, z, locked, bare, karte, pageID, versteckt, content
-        case labels, labelSize, schriftfarbe
+        case labels, labelSize, schriftfarbe, erstelltVon
     }
 
     init(from decoder: Decoder) throws {
@@ -1917,6 +2040,7 @@ extension BoardWidget {
         let inhalt = try c.decode(WidgetContent.self, forKey: .content)
         self.init(content: inhalt)
         id = c.wert(.id, UUID().uuidString)
+        erstelltVon = c.wert(.erstelltVon, "")
         x = c.wert(.x, 100)
         y = c.wert(.y, 100)
         width = c.wert(.width, 400)
