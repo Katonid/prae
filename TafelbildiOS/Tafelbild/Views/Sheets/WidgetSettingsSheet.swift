@@ -85,10 +85,6 @@ private final class Dateiwahl: NSObject, UIDocumentPickerDelegate {
         fertig = nil
         rueckruf?(url)
     }
-
-}
-        return halter
-    }
 }
 
 /// Einstellungen eines Elements — je nach Typ mit eigenem Abschnitt.
