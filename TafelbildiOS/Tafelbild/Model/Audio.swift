@@ -346,32 +346,37 @@ final class SoundPlayer: NSObject, ObservableObject {
     func spieleEndklang(_ inhalt: TimerContent) {
         let klang = Endklang.aus(inhalt.endklang)
 
+        let lautstaerke = Float(min(max(inhalt.endklangLautstaerke, 0), 1))
+
         if klang == .eigener, let name = inhalt.endklangDatei {
             let adresse = MediaStore.url(name)
             if FileManager.default.fileExists(atPath: adresse.path),
-               starte(adresse) {
+               starte(adresse, lautstaerke: lautstaerke) {
                 return
             }
         }
 
         if let datei = klang.datei,
            let adresse = Bundle.main.url(forResource: datei, withExtension: "wav"),
-           starte(adresse) {
+           starte(adresse, lautstaerke: lautstaerke) {
             return
         }
 
+        // Der Systemton lässt sich nicht in der Lautstärke stellen — er ist
+        // ohnehin nur der letzte Rückfall, wenn keine Datei zu finden war.
         Self.systemton()
     }
 
     /// Hörprobe in den Einstellungen.
     func probeEndklang(_ inhalt: TimerContent) { spieleEndklang(inhalt) }
 
-    private func starte(_ adresse: URL) -> Bool {
+    private func starte(_ adresse: URL, lautstaerke: Float) -> Bool {
         if !AudioSessionCenter.isRecording {
             AudioSessionCenter.configure(recording: false)
         }
         guard let spieler = try? AVAudioPlayer(contentsOf: adresse) else { return false }
         wecker?.stop()
+        spieler.volume = lautstaerke
         spieler.prepareToPlay()
         guard spieler.play() else { return false }
         wecker = spieler

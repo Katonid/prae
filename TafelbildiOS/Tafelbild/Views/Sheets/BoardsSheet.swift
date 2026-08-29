@@ -166,6 +166,12 @@ struct ShareSheet: View {
     @State private var freigabewahl = Freigabewahl()
     @State private var fehler: String?
     @State private var fragtWiderruf = false
+    /// Die echten Teilnehmer aus der Freigabe. Leer, solange noch geladen
+    /// wird oder die Tafel nicht geteilt ist.
+    @State private var teilnehmer: [CloudSyncEngine.Teilnehmer] = []
+    @State private var ladeTeilnehmer = false
+    /// Wen die Rückfrage gerade betrifft.
+    @State private var fragtEntfernen: CloudSyncEngine.Teilnehmer?
     @State private var fragtVerlassen = false
     @State private var fragtUebernahme = false
 
@@ -228,6 +234,30 @@ struct ShareSheet: View {
                 Text("Es entsteht eine Kopie, die nur dir gehört. Die geteilte "
                      + "Tafel bleibt daneben bestehen — beende die Teilnahme, "
                      + "wenn du sie nicht mehr brauchst.")
+            }
+            .alert("Zugriff entziehen?", isPresented: Binding(
+                get: { fragtEntfernen != nil },
+                set: { if !$0 { fragtEntfernen = nil } }
+            ), presenting: fragtEntfernen) { person in
+                Button("Entfernen", role: .destructive) {
+                    guard let board else { return }
+                    Task {
+                        laeuft = true
+                        let geklappt = await store.teilnehmerEntfernen(person.id, von: board)
+                        laeuft = false
+                        if geklappt {
+                            ladeTeilnehmerNeu(board)
+                        } else {
+                            fehler = "Das hat nicht geklappt. Entfernen darf nur, "
+                                   + "wem die Tafel gehört."
+                        }
+                    }
+                }
+                Button("Abbrechen", role: .cancel) { }
+            } message: { person in
+                Text("\(person.name) sieht die Tafel danach nicht mehr. Alle "
+                     + "anderen behalten sie. Wer sie vorher als eigene "
+                     + "übernommen hat, behält seine Kopie.")
             }
             .alert("Teilnahme beenden?", isPresented: $fragtVerlassen) {
                 Button("Beenden", role: .destructive) {
@@ -395,22 +425,72 @@ struct ShareSheet: View {
     @ViewBuilder
     private func teilnehmerAbschnitt(_ board: Board) -> some View {
         Section {
-            ForEach(board.members, id: \.self) { member in
-                HStack {
-                    Image(systemName: "person.circle")
-                    Text(member)
-                    if member.lowercased() == board.owner.lowercased() {
-                        Text("· Besitzerin")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
+            if ladeTeilnehmer && teilnehmer.isEmpty {
+                HStack(spacing: 10) {
+                    ProgressView()
+                    Text("Wird aus iCloud geholt …").foregroundStyle(.secondary)
+                }
+            } else if teilnehmer.isEmpty {
+                Text(board.geteilt ? "Noch niemand — der Link ist unterwegs."
+                                   : "Diese Tafel ist nicht geteilt.")
+                    .foregroundStyle(.secondary)
+            } else {
+                ForEach(teilnehmer) { person in
+                    HStack(spacing: 10) {
+                        Image(systemName: person.istBesitzer ? "crown"
+                              : (person.hatAngenommen ? "person.circle.fill"
+                                                      : "person.crop.circle.badge.clock"))
+                            .foregroundStyle(person.hatAngenommen ? Theme.mint : .secondary)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(person.binIchSelbst ? "\(person.name) (du)" : person.name)
+                            Text(person.kennzeichen)
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .swipeActions(edge: .trailing) {
+                        // Die Besitzerin lässt sich nicht entfernen — ihr
+                        // gehört die Tafel. Und wer selbst Gast ist, beendet
+                        // die eigene Teilnahme über den Knopf oben.
+                        if !person.istBesitzer, !store.istGast(board) {
+                            Button(role: .destructive) {
+                                fragtEntfernen = person
+                            } label: {
+                                Label("Entfernen", systemImage: "person.badge.minus")
+                            }
+                        }
                     }
                 }
             }
         } header: {
-            Text("Macht mit")
+            HStack {
+                Text("Macht mit")
+                Spacer()
+                Button {
+                    ladeTeilnehmerNeu(board)
+                } label: {
+                    Image(systemName: "arrow.clockwise")
+                }
+                .disabled(ladeTeilnehmer)
+            }
         } footer: {
-            Text("Wer eine Einladung annimmt, trägt sich selbst ein — mit dem "
-                 + "Namen aus seinen Einstellungen.")
+            Text(store.istGast(board)
+                 ? "Wer hier steht, kommt aus der Freigabe von iCloud. Ändern "
+                   + "kann das nur, wem die Tafel gehört."
+                 : "Nach links wischen entfernt eine Person einzeln — die "
+                   + "anderen behalten die Tafel. Wer eine Einladung noch "
+                   + "nicht angenommen hat, ist iCloud oft nur als Adresse "
+                   + "bekannt; dann steht die statt eines Namens.")
+        }
+        .task(id: board.id) { ladeTeilnehmerNeu(board) }
+    }
+
+    private func ladeTeilnehmerNeu(_ board: Board) {
+        guard !ladeTeilnehmer else { return }
+        ladeTeilnehmer = true
+        Task {
+            teilnehmer = await store.teilnehmer(fuer: board)
+            ladeTeilnehmer = false
         }
     }
 

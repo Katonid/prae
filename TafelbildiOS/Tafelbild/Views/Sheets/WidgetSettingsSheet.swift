@@ -860,6 +860,19 @@ private struct TimerSettings: View {
                     .disabled(klang == .eigener && content.endklangDatei == nil)
                 }
 
+                HStack(spacing: 12) {
+                    Image(systemName: "speaker.fill")
+                        .foregroundStyle(.secondary)
+                    Slider(value: $content.endklangLautstaerke, in: 0...1)
+                    Image(systemName: "speaker.wave.3.fill")
+                        .foregroundStyle(.secondary)
+                    Text("\(Int((content.endklangLautstaerke * 100).rounded())) %")
+                        .font(Theme.font(14, weight: .semibold))
+                        .monospacedDigit()
+                        .foregroundStyle(.secondary)
+                        .frame(width: 46, alignment: .trailing)
+                }
+
                 if klang == .eigener { eigenerKlang }
 
                 if weckdienst.erlaubnis == .verweigert {
@@ -882,7 +895,12 @@ private struct TimerSettings: View {
                  + "wird die Meldung bei iOS auf die Endzeit vorgemerkt. Sie "
                  + "liegt auf dem Gerät und geht nirgendwohin — die App hat "
                  + "keinen Server. Steht die Tafel vorn, gibt es kein Banner; "
-                 + "dann klingt es einfach.")
+                 + "dann klingt es einfach.\n\n"
+
+                 + "Die Lautstärke gilt für den Klang, den die App spielt — "
+                 + "also im Unterricht, wenn die Tafel vorn steht. Kommt der "
+                 + "Timer aus dem Hintergrund als Mitteilung, bestimmt die "
+                 + "Lautstärke des Geräts; daran kommt keine App heran.")
         }
     }
 

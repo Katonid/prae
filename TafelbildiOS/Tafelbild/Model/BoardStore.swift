@@ -1178,6 +1178,25 @@ final class BoardStore: ObservableObject {
         return ergebnis
     }
 
+    /// Wer diese Tafel sehen darf — aus der Freigabe gelesen, nicht aus
+    /// `Board.members` (siehe `CloudSyncEngine.Teilnehmer`).
+    func teilnehmer(fuer board: Board) async -> [CloudSyncEngine.Teilnehmer] {
+        await engine.teilnehmer(fuer: board.id)
+    }
+
+    /// Nimmt einer einzelnen Person den Zugriff. Für alle anderen bleibt die
+    /// Freigabe bestehen.
+    func teilnehmerEntfernen(_ kennung: String, von board: Board) async -> Bool {
+        let geklappt = await engine.entferneTeilnehmer(kennung, von: board.id)
+        guard geklappt, let stelle = boards.firstIndex(where: { $0.id == board.id })
+        else { return geklappt }
+        // Die Anzeigeliste mitziehen, damit die Tafel nicht weiter jemanden
+        // nennt, der gar nicht mehr herankommt.
+        boards[stelle].memberUserIDs.removeAll { $0 == kennung }
+        touch(board.id)
+        return true
+    }
+
     /// Nimmt die Freigabe zurück: Die Tafel verschwindet bei allen anderen,
     /// bleibt hier aber unangetastet stehen.
     func freigabeWiderrufen(fuer board: Board) async -> Bool {
