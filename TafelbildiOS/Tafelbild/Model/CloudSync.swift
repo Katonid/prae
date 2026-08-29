@@ -1095,6 +1095,30 @@ final class CloudSyncEngine: @unchecked Sendable {
                 ?? (shareA?.url != nil ? "Link erzeugt" : "gesichert, aber OHNE Link"),
             remedy: nil))
 
+        // Kommt die Adresse vielleicht nur verzögert? Nach zwei Sekunden
+        // noch einmal frisch holen und nachsehen, was der Server WIRKLICH
+        // gespeichert hat — samt Rechten und Teilnehmerzahl.
+        if a.fehler == nil {
+            try? await Task.sleep(for: .seconds(2))
+            let nachgeladen = await einzelnerDatensatz(mitLink.recordID, aus: database) as? CKShare
+            let rechte: String
+            switch nachgeladen?.publicPermission {
+            case .readWrite: rechte = "öffentlich: lesen und schreiben"
+            case .readOnly: rechte = "öffentlich: nur lesen"
+            case .none: rechte = "nicht öffentlich"
+            default: rechte = "unbekannt"
+            }
+            schritte.append(DiagnoseStep(
+                title: "Nachgeladen nach 2 Sekunden",
+                ok: nachgeladen?.url != nil,
+                detail: nachgeladen == nil
+                    ? "Die Freigabe war nicht mehr zu finden"
+                    : (nachgeladen?.url?.absoluteString
+                       ?? "immer noch ohne Link — \(rechte), "
+                          + "\(nachgeladen?.participants.count ?? 0) Teilnehmer"),
+                remedy: nil))
+        }
+
         // 4. Wenn das nichts wurde: dasselbe ohne öffentlichen Link
         if a.fehler != nil || shareA?.url == nil {
             _ = await loesche(mitLink.recordID, aus: database)
@@ -1117,11 +1141,70 @@ final class CloudSyncEngine: @unchecked Sendable {
             _ = await loesche(mitLink.recordID, aus: database)
         }
 
-        // 5. Aufräumen
         _ = await loesche(probeID, aus: database)
+
+        // 5. Der ANDERE Mechanismus: einen ganzen Bereich teilen statt eines
+        //    Datensatzes samt Anhängseln. Das ist ein eigener Weg in iCloud.
+        //    Klappt er, liegt es an der Art, wie diese App teilt — und der
+        //    Umbau lohnt. Klappt er auch nicht, kann dieses Konto in diesem
+        //    Bereich überhaupt keine Einladungslinks erzeugen, und dann ist
+        //    es nichts, was sich im Quelltext beheben ließe.
+        schritte.append(contentsOf: await pruefeBereichsfreigabe())
+
         schritte.append(DiagnoseStep(title: "Aufgeräumt", ok: true,
-                                     detail: "Die Probe ist wieder entfernt", remedy: nil))
+                                     detail: "Alle Proben sind wieder entfernt", remedy: nil))
         return schritte
+    }
+
+    /// Zweiter Weg: einen eigenen Bereich anlegen und DEN teilen.
+    private func pruefeBereichsfreigabe() async -> [DiagnoseStep] {
+        let name = "Probe-" + UUID().uuidString.prefix(8)
+        let probeZone = CKRecordZone(zoneID: CKRecordZone.ID(zoneName: String(name),
+                                                            ownerName: CKCurrentUserDefaultName))
+
+        let angelegt: Error? = await withCheckedContinuation { fortsetzung in
+            let box = ResumeOnce()
+            let operation = CKModifyRecordZonesOperation(recordZonesToSave: [probeZone],
+                                                         recordZoneIDsToDelete: nil)
+            operation.qualityOfService = .userInitiated
+            operation.modifyRecordZonesResultBlock = { ergebnis in
+                if case .failure(let fehler) = ergebnis {
+                    box.finish { fortsetzung.resume(returning: fehler) }
+                } else {
+                    box.finish { fortsetzung.resume(returning: nil) }
+                }
+            }
+            database.add(operation)
+        }
+        if let angelegt {
+            return [DiagnoseStep(title: "Probe-Bereich", ok: false,
+                                 detail: Self.roh(angelegt), remedy: nil)]
+        }
+
+        let bereichsfreigabe = CKShare(recordZoneID: probeZone.zoneID)
+        bereichsfreigabe.publicPermission = .readWrite
+        let ergebnis = await sichere([bereichsfreigabe])
+        let share = ergebnis.gesichert.compactMap { $0 as? CKShare }.first
+
+        let schritt = DiagnoseStep(
+            title: "Ganzen Bereich teilen",
+            ok: ergebnis.fehler == nil && share?.url != nil,
+            detail: ergebnis.fehler.map(Self.roh)
+                ?? (share?.url?.absoluteString ?? "gesichert, aber OHNE Link"),
+            remedy: nil)
+
+        // Bereich wieder weg — er nimmt die Freigabe mit.
+        await withCheckedContinuation { (fortsetzung: CheckedContinuation<Void, Never>) in
+            let box = ResumeOnce()
+            let operation = CKModifyRecordZonesOperation(recordZonesToSave: nil,
+                                                         recordZoneIDsToDelete: [probeZone.zoneID])
+            operation.qualityOfService = .userInitiated
+            operation.modifyRecordZonesResultBlock = { _ in
+                box.finish { fortsetzung.resume() }
+            }
+            database.add(operation)
+        }
+        return [schritt]
     }
 
     /// Sichert Datensätze und gibt zurück, was der Server daraus gemacht hat.
