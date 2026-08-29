@@ -409,6 +409,12 @@ Namens und lebt weiter.
   `WindowGroup` von SwiftUI. Für andere Szenen-Rollen gibt
   `configurationForConnecting` die Konfiguration aus der `Info.plist`
   zurück, sonst bliebe der Beamer schwarz. Dazu `CKSharingSupported`.
+- **Teilnehmer kommen aus der Freigabe, nicht aus `Board.members`**
+  (`CloudSyncEngine.teilnehmer`, ab 1.1.7). In `members` tragen sich die
+  Beteiligten mit dem Namen aus ihren Einstellungen selbst ein — das ist
+  eine Anzeige, keine Liste von Rechten. Wer wirklich Zugriff hat, weiß
+  nur iCloud. Einzeln entziehen geht über `share.removeParticipant` und
+  Sichern der Freigabe; die Besitzerin lässt sich nicht entfernen.
 - **Löschrecht auf geteilten Tafeln** (`Loeschrecht`, ab 1.1.4): Vorgabe
   ist „jede löscht nur Eigenes". Dafür trägt jedes Element `erstelltVon`
   (iCloud-Kennung); **leer heißt „vor 1.1.4 angelegt" und zählt der

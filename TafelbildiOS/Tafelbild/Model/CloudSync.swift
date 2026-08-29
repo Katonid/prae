@@ -973,6 +973,96 @@ final class CloudSyncEngine: @unchecked Sendable {
         return await einzelnerDatensatz(verweis.recordID, aus: database) as? CKShare
     }
 
+    /// Eine Person, mit der eine Tafel geteilt ist.
+    ///
+    /// Bewusst aus der Freigabe gelesen und nicht aus `Board.members`: Dort
+    /// tragen sich die Beteiligten mit dem Namen aus ihren Einstellungen
+    /// selbst ein — das ist eine Anzeige, keine Liste von Rechten. Wer
+    /// wirklich Zugriff hat, weiß nur iCloud.
+    struct Teilnehmer: Identifiable, Equatable {
+        let id: String
+        let name: String
+        let kennzeichen: String
+        let istBesitzer: Bool
+        let hatAngenommen: Bool
+        let binIchSelbst: Bool
+    }
+
+    /// Wer diese Tafel sehen darf — direkt aus der Freigabe.
+    func teilnehmer(fuer boardID: String) async -> [Teilnehmer] {
+        guard let share = await vorhandeneFreigabe(fuer: boardID) else { return [] }
+        let ich = await eigeneKennung()
+        return share.participants.compactMap { person in
+            guard let kennung = person.userIdentity.userRecordID?.recordName else { return nil }
+            // Entfernte Personen stehen noch eine Weile in der Freigabe.
+            guard person.acceptanceStatus != .removed else { return nil }
+            return Teilnehmer(
+                id: kennung,
+                name: Self.name(von: person),
+                kennzeichen: Self.kennzeichen(von: person),
+                istBesitzer: person.role == .owner,
+                hatAngenommen: person.acceptanceStatus == .accepted,
+                binIchSelbst: kennung == ich)
+        }
+        .sorted { links, rechts in
+            if links.istBesitzer != rechts.istBesitzer { return links.istBesitzer }
+            return links.name.localizedCaseInsensitiveCompare(rechts.name) == .orderedAscending
+        }
+    }
+
+    /// Nimmt einer einzelnen Person den Zugriff — die Freigabe bleibt für
+    /// alle anderen bestehen.
+    ///
+    /// Das darf nur die Besitzerin, und iCloud setzt das auch durch. Die
+    /// Tafel verschwindet danach beim Gerät der entfernten Person.
+    func entferneTeilnehmer(_ kennung: String, von boardID: String) async -> Bool {
+        guard enabled, !istFremd(boardID: boardID) else { return false }
+        guard let share = await vorhandeneFreigabe(fuer: boardID) else { return false }
+        guard let person = share.participants.first(where: {
+            $0.userIdentity.userRecordID?.recordName == kennung
+        }), person.role != .owner else { return false }
+
+        share.removeParticipant(person)
+        let ergebnis = await sichere([share])
+        return ergebnis.fehler == nil
+    }
+
+    /// Der Anzeigename einer Person — so vollständig, wie iCloud ihn hergibt.
+    ///
+    /// Wer eine Einladung noch nicht angenommen hat, ist iCloud oft nur als
+    /// Adresse bekannt. Dann steht die dort statt eines Namens; „Unbekannt"
+    /// hülfe niemandem beim Wiedererkennen.
+    private static func name(von person: CKShare.Participant) -> String {
+        if let teile = person.userIdentity.nameComponents {
+            let name = PersonNameComponentsFormatter.localizedString(from: teile,
+                                                                    style: .default)
+            if !name.trimmed.isEmpty { return name }
+        }
+        if let adresse = person.userIdentity.lookupInfo?.emailAddress { return adresse }
+        if let nummer = person.userIdentity.lookupInfo?.phoneNumber { return nummer }
+        return "Eingeladene Person"
+    }
+
+    /// Ein Wort zum Stand: Besitzerin, dabei, oder noch nicht angenommen.
+    private static func kennzeichen(von person: CKShare.Participant) -> String {
+        if person.role == .owner { return "Besitzerin" }
+        switch person.acceptanceStatus {
+        case .accepted: return "macht mit"
+        case .pending:  return "eingeladen, noch nicht angenommen"
+        default:        return "unbekannt"
+        }
+    }
+
+    /// Die eigene iCloud-Kennung, für „das bin ich" in der Liste.
+    private func eigeneKennung() async -> String? {
+        await withCheckedContinuation { fortsetzung in
+            let box = ResumeOnce()
+            container.fetchUserRecordID { kennung, _ in
+                box.finish { fortsetzung.resume(returning: kennung?.recordName) }
+            }
+        }
+    }
+
     /// Nimmt die Freigabe zurück. Danach verschwindet die Tafel bei allen
     /// anderen — die Tafel selbst bleibt unangetastet.
     func widerrufeFreigabe(fuer boardID: String) async -> Bool {

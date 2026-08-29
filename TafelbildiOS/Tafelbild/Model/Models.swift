@@ -244,6 +244,12 @@ struct TimerContent: Codable, Equatable {
     var endklang: String = Endklang.vorgabe.rawValue
     /// Dateiname unter Documents/Media/ — gilt nur bei `Endklang.eigener`.
     var endklangDatei: String? = nil
+    /// Lautstärke des Endklangs, 0 … 1.
+    ///
+    /// Gilt für den Klang, den die **App** spielt. Meldet sich der Timer aus
+    /// dem Hintergrund über eine Mitteilung, bestimmt die Lautstärke des
+    /// Systems — daran kommt keine App heran.
+    var endklangLautstaerke: Double = 1.0
     var accentHex: String = "#2dd4bf"
     /// Alte Einstellung „Bedienknöpfe zeigen“. Wird nicht mehr gelesen;
     /// sie stand bei allen auf „an“, weil das die Vorgabe war.
@@ -2118,7 +2124,7 @@ extension ClockContent {
 extension TimerContent {
     enum TimerKeys: String, CodingKey {
         case mode, duration, endsAtMs, startedAtMs, pausedValue, soundOnEnd, accentHex
-        case endklang, endklangDatei
+        case endklang, endklangDatei, endklangLautstaerke
         case showControls, knoepfe
         case darstellung, skalaMinuten, ziffernblatt, scheibeHex, scheibeHex2, blattHex
         case zeiger, zeitZeigen
@@ -2139,6 +2145,7 @@ extension TimerContent {
         // Tafel zu verwerfen.
         endklang = c.wert(.endklang, Endklang.vorgabe.rawValue)
         endklangDatei = c.optional(.endklangDatei, String.self)
+        endklangLautstaerke = min(max(c.wert(.endklangLautstaerke, 1.0), 0), 1)
         accentHex = c.wert(.accentHex, "#2dd4bf")
         // Stand dort noch der alte Vorgabewert „an", gilt die neue Vorgabe:
         // Diese Knöpfe hatte nie jemand ausgewählt, sie waren nur da.
