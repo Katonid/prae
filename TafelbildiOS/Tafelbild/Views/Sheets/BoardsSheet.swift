@@ -380,50 +380,80 @@ struct ShareSheet: View {
 /// der Dateiwähler. Beide wollen von UIKit gezeigt werden. Dieselbe Regel,
 /// zweimal gelernt (siehe `Oberflaeche`).
 ///
-/// **Die Freigabe legt das Blatt selbst an**, über den Vorbereitungs-Rückruf.
-/// Die Adresse (`CKShare.url`) entsteht erst beim Sichern; wer ein fertiges
-/// Objekt hereinreicht, hat sie noch nicht, und „Link kopieren" kopiert
-/// nichts (1.0.58 und 1.0.59). Fehler werden roh durchgereicht: Das Blatt
-/// zeigt Apples Wortlaut, und der ist die bessere Spur.
+/// **Die Freigabe steht, bevor das Blatt aufgeht.** Bis 1.1.0 legte das Blatt
+/// sie selbst an, über seinen Vorbereitungs-Rückruf — den zugehörigen
+/// Erzeuger hat Apple mit iOS 17 für veraltet erklärt. Genommen wird jetzt
+/// `init(share:container:)`: Die Freigabe wird vorher angelegt und fertig
+/// hereingereicht.
+///
+/// Dass genau das früher schiefging (1.0.58, 1.0.59: „Link kopieren" kopierte
+/// nichts), lag nicht am Vorab-Anlegen. Es fehlte der Record-Typ
+/// `cloudkit.share` im Schema, und weitergereicht wurde das hingeschickte
+/// statt des zurückgemeldeten Objekts. Beides ist behoben, und
+/// `legeFreigabeAn` gibt seit 1.1.1 nichts mehr heraus, was keine Adresse
+/// hat — ein Blatt ohne Link kann so gar nicht mehr entstehen.
+///
+/// Fehler werden roh durchgereicht: Das Blatt zeigt Apples Wortlaut, und der
+/// ist die bessere Spur.
 final class Freigabewahl: NSObject, UICloudSharingControllerDelegate {
     private var titel = ""
-    private var offen = false
+
+    /// Läuft gerade die Vorbereitung? Sie dauert einen Augenblick, und in
+    /// dieser Lücke soll ein zweiter Tipp nichts auslösen.
+    private var bereitetVor = false
+
+    /// Das gezeigte Blatt. **Schwach und über den Präsentierenden geprüft,
+    /// nicht als Merker.** Ein einfaches „offen"-Flag blieb hängen, wenn der
+    /// Nutzer das Blatt schlicht wieder zumachte: Es meldet das Schließen
+    /// nicht, nur das Sichern und das Beenden der Freigabe. Danach tat
+    /// „Tafel freigeben" gar nichts mehr.
+    private weak var blatt: UICloudSharingController?
+
+    private var laeuft: Bool {
+        bereitetVor || blatt?.presentingViewController != nil
+    }
 
     func oeffne(boardID: String, titel: String) {
-        guard !offen, let halter = Oberflaeche.obersterHalter() else { return }
-        offen = true
+        guard !laeuft else { return }
+        bereitetVor = true
         self.titel = titel
 
-        let blatt = UICloudSharingController { _, fertig in
-            Task { @MainActor in
-                guard let board = BoardStore.shared.board(boardID) else {
-                    fertig(nil, nil, CloudSyncEngine.Freigabefehler.tafelFehlt)
-                    return
-                }
-                switch await BoardStore.shared.bereiteFreigabeVor(fuer: board) {
-                case .success(let share):
-                    fertig(share, CKContainer(identifier: CloudSyncEngine.containerID), nil)
-                case .failure(let fehler):
-                    // Auch hier festhalten: Reicht man den Fehler nur an das
-                    // Blatt weiter, zeigt es seinen allgemeinen Satz und die
-                    // Auskunft von iCloud ist weg.
-                    BoardStore.shared.freigabefehler = Self.klartext(fehler)
-                    fertig(nil, nil, fehler)
-                }
+        Task { @MainActor in
+            defer { self.bereitetVor = false }
+            guard let board = BoardStore.shared.board(boardID) else {
+                BoardStore.shared.freigabefehler =
+                    CloudSyncEngine.Freigabefehler.tafelFehlt.localizedDescription
+                return
+            }
+            switch await BoardStore.shared.bereiteFreigabeVor(fuer: board) {
+            case .success(let share):
+                self.zeige(share)
+            case .failure(let fehler):
+                // Festhalten, nicht nur weiterreichen: Sonst bliebe von der
+                // Auskunft aus iCloud nichts übrig.
+                BoardStore.shared.freigabefehler = Self.klartext(fehler)
             }
         }
+    }
+
+    /// Das Blatt — erst hier, mit einer Freigabe, die eine Adresse hat.
+    private func zeige(_ share: CKShare) {
+        guard let halter = Oberflaeche.obersterHalter() else { return }
+        let neues = UICloudSharingController(
+            share: share,
+            container: CKContainer(identifier: CloudSyncEngine.containerID))
         // Nur-Lesen gibt es hier bewusst nicht (siehe Hinweistext im Blatt).
-        blatt.availablePermissions = [.allowPublic, .allowReadWrite]
-        blatt.delegate = self
-        Oberflaeche.ausMitte(blatt, in: halter)
-        halter.present(blatt, animated: true)
+        neues.availablePermissions = [.allowPublic, .allowReadWrite]
+        neues.delegate = self
+        blatt = neues
+        Oberflaeche.ausMitte(neues, in: halter)
+        halter.present(neues, animated: true)
     }
 
     func itemTitle(for controller: UICloudSharingController) -> String? { titel }
 
     func cloudSharingController(_ controller: UICloudSharingController,
                                 failedToSaveShareWithError error: Error) {
-        offen = false
         Task { @MainActor in
             BoardStore.shared.freigabefehler = Self.klartext(error)
         }
@@ -442,12 +472,10 @@ final class Freigabewahl: NSObject, UICloudSharingControllerDelegate {
     }
 
     func cloudSharingControllerDidSaveShare(_ controller: UICloudSharingController) {
-        offen = false
         Task { @MainActor in BoardStore.shared.syncNow() }
     }
 
     func cloudSharingControllerDidStopSharing(_ controller: UICloudSharingController) {
-        offen = false
         Task { @MainActor in BoardStore.shared.syncNow() }
     }
 }
