@@ -1,4 +1,10 @@
-# Klänge beim Ziehen
+# Klänge der App
+
+Zwei Gruppen, auf zwei verschiedenen Wegen entstanden: Die Klänge beim
+Ziehen sind echte Aufnahmen, die Endklänge des Timers sind gerechnet.
+Warum das kein Widerspruch ist, steht weiter unten.
+
+## Klänge beim Ziehen
 
 Echte Aufnahmen, keine Synthese. Alle Quellen sind **gemeinfrei**
 (CC0 1.0 bzw. Public Domain) — auch kommerziell nutzbar, ohne Pflicht
@@ -24,3 +30,34 @@ Augenblick, in dem es stehen bleibt.
 
 **Nicht von Hand bearbeiten** — `TafelbildiOS/scripts/fetch-sounds.py`
 holt und erzeugt sie.
+
+## Endklänge des Timers
+
+`endklang-*.wav` — **im Gerät gerechnet**, keine fremden Dateien, keine
+Lizenzfragen. Erzeugt von `TafelbildiOS/scripts/make-endklaenge.py`.
+
+| Klang | Datei | Grundlage |
+|---|---|---|
+| Handglocke | `endklang-glocke.wav` | Teiltöne einer Glocke: Hum, Prime, Terz, Quinte, Nominal |
+| Glockenspiel | `endklang-glockenspiel.wav` | Frei schwingender Stab, drei Töne aufwärts (c''' e''' g''') |
+| Triangel | `endklang-triangel.wav` | Gebogener Stab — unharmonische Moden ohne Tonhöhe |
+| Klangschale | `endklang-klangschale.wav` | Aufgespaltene Moden, daher das Schweben |
+| Gong | `endklang-gong.wav` | Platte mit vielen dichten Moden, lange Abklingzeit |
+| Klingel | `endklang-wecker.wav` | Kleine Glocke, elf Schläge in der Sekunde |
+| Piepton | `endklang-piep.wav` | Drei reine Töne mit weicher Hülle |
+
+**Warum hier gerechnet und dort aufgenommen wird.** Bei den Ziehklängen
+steht oben das Gegenteil — Synthese klang synthetisch. Das galt für
+Kartenmischen, Trommelwirbel und Ratsche: Vorgänge aus hundert kleinen
+Zufälligkeiten, die sich nicht nachrechnen lassen.
+
+Ein angeschlagenes Metall ist das Gegenteil davon. Sein Klang **ist**
+eine Summe exponentiell abklingender Teiltöne auf den Eigenfrequenzen
+des Körpers; die Frequenzverhältnisse einer Glocke sind seit
+Jahrhunderten vermessen, die eines Stabes stehen in jeder
+Akustik-Formelsammlung. Wer sie richtig addiert, bekommt keinen Ersatz
+für eine Aufnahme, sondern denselben Vorgang.
+
+Alle Dateien sind Mono, 44,1 kHz, 16 Bit und auf gleiche **Lautheit**
+gebracht (gemessen im lautesten Fenster von 300 ms, nicht am
+Spitzenwert). **Nicht von Hand bearbeiten.**

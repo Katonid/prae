@@ -11,6 +11,8 @@ import UniformTypeIdentifiers
 private enum Dateiwunsch: Equatable {
     /// Tondatei für ein Klangfeld (dessen Kennung).
     case klang(String)
+    /// Tondatei für das Signal am Ende eines Timers.
+    case endklang
     case bild
     case video
 
@@ -19,7 +21,7 @@ private enum Dateiwunsch: Equatable {
         switch self {
         case .bild:
             return [.image]
-        case .klang, .video:
+        case .klang, .endklang, .video:
             // Bewusst ohne Filter: iPadOS blendet sonst Dateien aus, deren
             // Art der Anbieter nicht mitliefert — bei MP3s in iCloud Drive
             // und auf Netzlaufwerken passiert genau das.
@@ -125,7 +127,8 @@ struct WidgetSettingsSheet: View {
                     case .clock(let value):
                         ClockSettings(content: bindClock(value))
                     case .timer(let value):
-                        TimerSettings(content: bindTimer(value))
+                        TimerSettings(content: bindTimer(value),
+                                      anfordern: { frageNachDatei(.endklang) })
                     case .trafficLight(let value):
                         TrafficLightSettings(content: bindTrafficLight(value))
                     case .noise(let value):
@@ -305,6 +308,7 @@ struct WidgetSettingsSheet: View {
         Task { @MainActor in
             switch zweck {
             case .klang(let ziel):   await legeKlang(url, in: ziel)
+            case .endklang:          await legeEndklang(url)
             case .bild:              await legeBild(url)
             case .video:             legeVideo(url)
             }
@@ -340,6 +344,37 @@ struct WidgetSettingsSheet: View {
             inhalt.buttons[stelle].label = url.deletingPathExtension().lastPathComponent
         }
         store.setContent(.sounds(inhalt), widgetID: widgetID, boardID: boardID)
+
+        let bekannt = ["mp3", "m4a", "wav", "aac", "aif", "aiff", "caf", "ogg"]
+        if !bekannt.contains(endung) {
+            store.showStatus("„\(url.lastPathComponent)“ ist vielleicht keine Tondatei — "
+                             + "sie ist trotzdem hinterlegt.")
+        }
+    }
+
+    /// Eigener Endklang für den Timer.
+    ///
+    /// Bewusst dieselben Schritte wie bei einem Klangfeld — nur das Ziel ist
+    /// ein anderes. Die Datei landet unter Documents/Media/ und reist über
+    /// `Board.syncedMedia` mit der Tafel an die anderen Geräte.
+    private func legeEndklang(_ url: URL) async {
+        guard let daten = await lies(url), !daten.isEmpty else {
+            store.showStatus("Die Datei ließ sich nicht lesen. Liegt sie in iCloud, "
+                             + "muss sie erst geladen werden.")
+            return
+        }
+        let endung = url.pathExtension.isEmpty ? "m4a" : url.pathExtension.lowercased()
+        guard let dateiname = store.saveMedia(data: daten, fileExtension: endung) else {
+            return  // saveMedia meldet den Fehler selbst
+        }
+        guard case .timer(var inhalt)? = store.widget(widgetID, in: boardID)?.content else {
+            store.showStatus("Den Timer gibt es nicht mehr.")
+            return
+        }
+        inhalt.endklangDatei = dateiname
+        inhalt.endklang = Endklang.eigener.rawValue
+        inhalt.soundOnEnd = true
+        store.setContent(.timer(inhalt), widgetID: widgetID, boardID: boardID)
 
         let bekannt = ["mp3", "m4a", "wav", "aac", "aif", "aiff", "caf", "ogg"]
         if !bekannt.contains(endung) {
@@ -661,9 +696,21 @@ private struct ClockSettings: View {
 // MARK: - Timer
 
 private struct TimerSettings: View {
+    @EnvironmentObject private var store: BoardStore
     @Binding var content: TimerContent
+    /// Bittet das Blatt, den Dateiwähler zu öffnen — es gibt nur einen,
+    /// und er wird an SwiftUI vorbei gezeigt (siehe `Dateiwahl`).
+    let anfordern: () -> Void
     @State private var minutes = 5
     @State private var seconds = 0
+    @StateObject private var recorder = VoiceRecorder()
+
+    /// Der eingestellte Klang, aus dem gespeicherten Rohwert gelesen.
+    private var klang: Endklang { Endklang.aus(content.endklang) }
+
+    private var klangwahl: Binding<Endklang> {
+        Binding(get: { klang }, set: { content.endklang = $0.rawValue })
+    }
 
     var body: some View {
         // Alle Abschnitte in einer Klammer: So hängt `onAppear` am Ganzen und
@@ -692,9 +739,10 @@ private struct TimerSettings: View {
                 .onChange(of: seconds) { _, _ in applyDuration() }
             }
 
-            Toggle("Signal am Ende", isOn: $content.soundOnEnd)
             Toggle("Bedienknöpfe zeigen", isOn: $content.knoepfe)
         }
+
+        signalAbschnitt
 
         Section {
             Picker("Darstellung", selection: $content.darstellung) {
@@ -767,6 +815,90 @@ private struct TimerSettings: View {
         .onAppear {
             minutes = Int(content.duration) / 60
             seconds = Int(content.duration) % 60
+        }
+    }
+
+    // MARK: Signal am Ende
+
+    /// Womit sich der Timer meldet.
+    ///
+    /// Ein eigener Abschnitt und nicht bloß ein Schalter im Timer-Abschnitt:
+    /// Sobald es etwas auszuwählen gibt, gehört Hörprobe und Dateiwahl
+    /// beieinander. Ohne Signal bleibt nur die eine Zeile stehen.
+    @ViewBuilder
+    private var signalAbschnitt: some View {
+        Section {
+            Toggle("Signal am Ende", isOn: $content.soundOnEnd)
+
+            if content.soundOnEnd {
+                Picker("Klang", selection: klangwahl) {
+                    ForEach(Endklang.allCases) { moeglichkeit in
+                        Label(moeglichkeit.titel, systemImage: moeglichkeit.symbol)
+                            .tag(moeglichkeit)
+                    }
+                }
+
+                HStack(alignment: .top, spacing: 10) {
+                    Text(klang.hinweis)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                    Spacer(minLength: 0)
+                    Button {
+                        SoundPlayer.shared.probeEndklang(content)
+                    } label: {
+                        Image(systemName: "play.circle.fill")
+                            .font(.title2)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(klang == .eigener && content.endklangDatei == nil)
+                }
+
+                if klang == .eigener { eigenerKlang }
+            }
+        } header: {
+            Text("Signal")
+        } footer: {
+            Text("Der Klang gehört zu diesem Timer — mehrere Timer auf einer "
+                 + "Tafel dürfen sich verschieden melden. Läuft die App im "
+                 + "Hintergrund, meldet sich der Timer erst beim Zurückkommen: "
+                 + "Die App hat keinen Server und darf im Hintergrund keinen "
+                 + "Ton abspielen.")
+        }
+    }
+
+    /// Eigene Aufnahme oder eigene Datei.
+    @ViewBuilder
+    private var eigenerKlang: some View {
+        HStack {
+            Image(systemName: content.endklangDatei != nil ? "waveform" : "waveform.slash")
+                .foregroundStyle(content.endklangDatei != nil ? Theme.mint : .secondary)
+            Text(content.endklangDatei != nil ? "Eigener Klang hinterlegt"
+                                              : "Noch kein Klang hinterlegt")
+                .foregroundStyle(.secondary)
+        }
+
+        Button {
+            anfordern()
+        } label: {
+            Label("Tondatei wählen", systemImage: "folder")
+        }
+
+        if recorder.recording {
+            Button(role: .destructive) {
+                if let daten = recorder.stop(),
+                   let name = store.saveMedia(data: daten, fileExtension: "m4a") {
+                    content.endklangDatei = name
+                }
+            } label: {
+                Label("Aufnahme beenden (\(String(format: "%.0f", recorder.seconds)) s)",
+                      systemImage: "stop.circle.fill")
+            }
+        } else {
+            Button {
+                recorder.start()
+            } label: {
+                Label("Selbst aufnehmen", systemImage: "mic.circle")
+            }
         }
     }
 

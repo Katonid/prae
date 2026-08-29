@@ -332,8 +332,54 @@ final class SoundPlayer: NSObject, ObservableObject {
 
     func isPlaying(_ buttonID: String) -> Bool { playingIDs.contains(buttonID) }
 
-    /// Signal am Ende eines Timers.
-    static func playAlarm() {
+    // MARK: Signal am Ende eines Timers
+
+    /// Der laufende Endklang. Muss festgehalten werden: Ein `AVAudioPlayer`,
+    /// den niemand hält, wird abgeräumt und verstummt mitten im Ton.
+    private var wecker: AVAudioPlayer?
+
+    /// Signal am Ende eines Timers — der eingestellte Klang.
+    ///
+    /// Drei Stufen, jede mit einem Rückfall auf die nächste: die eigene
+    /// Datei, der mitgelieferte Klang, zuletzt der Systemton. Ton ist
+    /// Beiwerk; fehlt eine Datei, soll der Timer trotzdem Bescheid geben.
+    func spieleEndklang(_ inhalt: TimerContent) {
+        let klang = Endklang.aus(inhalt.endklang)
+
+        if klang == .eigener, let name = inhalt.endklangDatei {
+            let adresse = MediaStore.url(name)
+            if FileManager.default.fileExists(atPath: adresse.path),
+               starte(adresse) {
+                return
+            }
+        }
+
+        if let datei = klang.datei,
+           let adresse = Bundle.main.url(forResource: datei, withExtension: "wav"),
+           starte(adresse) {
+            return
+        }
+
+        Self.systemton()
+    }
+
+    /// Hörprobe in den Einstellungen.
+    func probeEndklang(_ inhalt: TimerContent) { spieleEndklang(inhalt) }
+
+    private func starte(_ adresse: URL) -> Bool {
+        if !AudioSessionCenter.isRecording {
+            AudioSessionCenter.configure(recording: false)
+        }
+        guard let spieler = try? AVAudioPlayer(contentsOf: adresse) else { return false }
+        wecker?.stop()
+        spieler.prepareToPlay()
+        guard spieler.play() else { return false }
+        wecker = spieler
+        return true
+    }
+
+    /// Der Systemton von früher — jetzt nur noch als letzter Rückfall.
+    private static func systemton() {
         AudioServicesPlaySystemSound(1005)
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) {
             AudioServicesPlaySystemSound(1005)

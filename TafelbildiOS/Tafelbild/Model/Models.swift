@@ -234,6 +234,16 @@ struct TimerContent: Codable, Equatable {
     /// Restzeit bei Pause (Countdown) bzw. gelaufene Zeit (Stoppuhr).
     var pausedValue: Double? = nil
     var soundOnEnd: Bool = true
+
+    /// Welcher Klang am Ende erklingt — der **Rohwert** eines `Endklang`.
+    ///
+    /// Bewusst als Zeichenkette und nicht als Aufzählung gespeichert:
+    /// Verschwindet hier je ein Fall, liest eine alte Tafel weiter und
+    /// bekommt die Vorgabe. Ein erzeugter Leser würde stattdessen die ganze
+    /// Tafel verwerfen — samt allem, was sonst noch darauf steht.
+    var endklang: String = Endklang.vorgabe.rawValue
+    /// Dateiname unter Documents/Media/ — gilt nur bei `Endklang.eigener`.
+    var endklangDatei: String? = nil
     var accentHex: String = "#2dd4bf"
     /// Alte Einstellung „Bedienknöpfe zeigen“. Wird nicht mehr gelesen;
     /// sie stand bei allen auf „an“, weil das die Vorgabe war.
@@ -1456,6 +1466,10 @@ struct Board: Codable, Identifiable, Equatable {
                 }
             case .kamera(let content):
                 if let file = content.eingefroren { names.insert(file) }
+            case .timer(let content):
+                // Der eigene Endklang reist mit: Sonst bliebe die Tafel auf
+                // dem zweiten Gerät stumm, obwohl sie ihn eingestellt zeigt.
+                if let file = content.endklangDatei { names.insert(file) }
             default:
                 break
             }
@@ -1980,6 +1994,7 @@ extension ClockContent {
 extension TimerContent {
     enum TimerKeys: String, CodingKey {
         case mode, duration, endsAtMs, startedAtMs, pausedValue, soundOnEnd, accentHex
+        case endklang, endklangDatei
         case showControls, knoepfe
         case darstellung, skalaMinuten, ziffernblatt, scheibeHex, scheibeHex2, blattHex
         case zeiger, zeitZeigen
@@ -1994,6 +2009,12 @@ extension TimerContent {
         startedAtMs = c.optional(.startedAtMs, Int64.self)
         pausedValue = c.optional(.pausedValue, Double.self)
         soundOnEnd = c.wert(.soundOnEnd, true)
+        // Als Zeichenkette gelesen, nicht als Aufzählung: Eine Tafel von
+        // einem neueren Gerät darf einen Klang nennen, den diese Fassung
+        // noch nicht kennt — sie nimmt dann die Vorgabe, statt die ganze
+        // Tafel zu verwerfen.
+        endklang = c.wert(.endklang, Endklang.vorgabe.rawValue)
+        endklangDatei = c.optional(.endklangDatei, String.self)
         accentHex = c.wert(.accentHex, "#2dd4bf")
         // Stand dort noch der alte Vorgabewert „an", gilt die neue Vorgabe:
         // Diese Knöpfe hatte nie jemand ausgewählt, sie waren nur da.

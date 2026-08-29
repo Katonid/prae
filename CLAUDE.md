@@ -291,6 +291,20 @@ Namens und lebt weiter.
 - **1.1.0 ist die Fassung für den App Store** (Ansage des Nutzers,
   08/2026): erste Fassung mit Freigabe per Einladungslink und privatem
   iCloud-Abgleich. Danach zählt es wie gewohnt weiter — 1.1.1, 1.1.2 …
+- **Klänge: zwei Wege, mit Absicht.** Die Ziehklänge sind echte
+  Aufnahmen (`TafelbildiOS/scripts/fetch-sounds.py`, CC0) — Synthese klang dort
+  synthetisch, weil Kartenmischen und Ratsche Vorgänge aus hundert
+  Zufälligkeiten sind. Die **Endklänge des Timers** (`endklang-*.wav`)
+  rechnet dagegen `TafelbildiOS/scripts/make-endklaenge.py` aus, ohne fremde Dateien
+  und ohne Netz: Ein angeschlagenes Metall IST eine Summe abklingender
+  Teiltöne auf seinen Eigenfrequenzen. Beide Ordner nicht von Hand
+  bearbeiten.
+- **`TimerContent` hat einen eigenen Leser** (`extension TimerContent`
+  in `Models.swift`). Ein neues Feld muss dort in `TimerKeys` UND in
+  `init(from:)` eingetragen werden, sonst wird es nie gelesen — der
+  Schreiber wird erzeugt und merkt davon nichts. Der gewählte Endklang
+  steht als **Rohwert** (Zeichenkette) darin, nicht als Aufzählung: So
+  übersteht eine Tafel einen Klang, den diese Fassung noch nicht kennt.
 - Die **Build-Nummer vergibt die Skript-Bauphase „Build-Nummer setzen"**
   automatisch (Anzahl der Git-Commits, sonst Datumsstempel) — wie in
   Tagesspur, nie von Hand pflegen. Damit ist jeder TestFlight-Upload
