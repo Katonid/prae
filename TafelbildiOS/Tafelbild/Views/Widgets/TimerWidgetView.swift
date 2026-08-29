@@ -272,13 +272,14 @@ struct TimerWidgetView: View {
     /// Countdown abgelaufen: Signal geben und den Rahmen kurz pulsieren lassen.
     private func checkFinished() {
         guard content.mode == .countdown, let endsAtMs = content.endsAtMs else { return }
-        guard Double(endsAtMs) / 1000 <= Date().timeIntervalSince1970 else { return }
+        let ablauf = Date(timeIntervalSince1970: Double(endsAtMs) / 1000)
+        guard ablauf <= Date() else { return }
         content.endsAtMs = nil
         content.pausedValue = 0
-        // Hat die Meldung von iOS schon geklungen, während die App weg war,
-        // dann nicht ein zweites Mal — die Tafel sieht den abgelaufenen
-        // Timer ja erst beim Zurückkommen.
-        let schonGemeldet = Weckdienst.shared.hatGemeldet(widgetID)
+        // Lief der Timer ab, während die App weg war, hat iOS ihn schon
+        // gemeldet — dann nicht ein zweites Mal klingen. Die Tafel sieht den
+        // abgelaufenen Timer ja erst beim Zurückkommen.
+        let schonGemeldet = Weckdienst.shared.hatGemeldet(ablauf: ablauf)
         Weckdienst.shared.nimmZurueck(timerID: widgetID)
         if content.soundOnEnd, !schonGemeldet {
             SoundPlayer.shared.spieleEndklang(content)

@@ -28,10 +28,15 @@ final class Weckdienst: NSObject, ObservableObject {
 
     @Published private(set) var erlaubnis: Erlaubnis = .unbekannt
 
-    /// Timer, deren Mitteilung wirklich geklungen hat, während die App weg
-    /// war. Ohne diese Liste klänge der Klang beim Zurückkommen ein zweites
-    /// Mal — die Tafel sieht den abgelaufenen Timer ja erst dann.
-    private var gemeldet: Set<String> = []
+    /// Seit wann die App vorn ist.
+    ///
+    /// Daran entscheidet sich, ob die Tafel beim Zurückkommen noch klingen
+    /// soll: Was **vorher** ablief, hat iOS schon gemeldet. Vorher wurde
+    /// dafür beim Aktivwerden nachgesehen, welche Meldungen zugestellt
+    /// wurden — das war ein Wettlauf. Die Antwort kam über einen Rückruf,
+    /// der Zeittakt der Tafel war schneller, und der Klang lief doppelt.
+    /// Ein Vergleich zweier Zeitpunkte kann nicht zu spät kommen.
+    private var aktivSeit = Date()
 
     private static let vorsilbe = "timer-"
 
@@ -109,13 +114,10 @@ final class Weckdienst: NSObject, ObservableObject {
         // von null gar nicht erst an.
         guard rest > 1 else { return }
 
-        gemeldet.remove(timerID)
-
         let text = UNMutableNotificationContent()
         text.title = aufschrift.nonEmpty ?? "Timer"
         text.body = "Die Zeit ist um."
         text.sound = klang(fuer: inhalt)
-        text.interruptionLevel = .timeSensitive
 
         let anstoss = UNTimeIntervalNotificationTrigger(timeInterval: rest, repeats: false)
         let auftrag = UNNotificationRequest(identifier: Self.vorsilbe + timerID,
@@ -131,41 +133,36 @@ final class Weckdienst: NSObject, ObservableObject {
             .removePendingNotificationRequests(withIdentifiers: [kennung])
         UNUserNotificationCenter.current()
             .removeDeliveredNotifications(withIdentifiers: [kennung])
-        gemeldet.remove(timerID)
     }
 
-    /// Hat dieser Timer schon von selbst geklungen? Fragt die Tafel, bevor
-    /// sie den Klang beim Zurückkommen noch einmal abspielt. Die Antwort
-    /// gilt nur einmal.
-    func hatGemeldet(_ timerID: String) -> Bool {
-        gemeldet.remove(timerID) != nil
+    /// Die App ist wieder vorn.
+    func wurdeAktiv() {
+        aktivSeit = Date()
+        pruefeErlaubnis()
     }
 
-    /// Beim Zurückkommen nachsehen, welche Meldungen iOS zugestellt hat.
+    /// Hat iOS diesen Ablauf schon gemeldet?
     ///
-    /// Nur was hier ankommt, hat auch wirklich geklungen. Sich beim
-    /// Vormerken schon zu merken „das wird klingen" wäre falsch: Der Timer
-    /// kann angehalten worden sein, und ein Gerät im Flugzeugmodus meldet
-    /// trotzdem — ein Gerät mit stummgeschaltetem Ton aber nicht hörbar.
-    func sammleZugestellte() {
-        UNUserNotificationCenter.current().getDeliveredNotifications { meldungen in
-            let ids = meldungen
-                .map(\.request.identifier)
-                .filter { $0.hasPrefix(Self.vorsilbe) }
-                .map { String($0.dropFirst(Self.vorsilbe.count)) }
-            guard !ids.isEmpty else { return }
-            Task { @MainActor in self.gemeldet.formUnion(ids) }
-        }
+    /// Ja, wenn er zu einer Zeit lag, als die App nicht vorn war — dann hat
+    /// die vorgemerkte Meldung geklungen, und die Tafel schweigt beim
+    /// Zurückkommen. Sind Mitteilungen nicht erlaubt, kann nichts geklungen
+    /// haben; dann klingt die Tafel wie früher nach.
+    func hatGemeldet(ablauf: Date) -> Bool {
+        erlaubnis == .erlaubt && ablauf < aktivSeit
     }
 
     // MARK: - Klang der Meldung
 
     /// Welchen Ton iOS spielen soll.
     ///
-    /// Die mitgelieferten Klänge liegen als WAV im Bündel und dürfen direkt
-    /// genannt werden. Ein selbst aufgenommener Klang ist eine m4a-Datei —
-    /// die nimmt iOS für Mitteilungen nicht an, also wird sie einmal
-    /// umgewandelt (siehe `alsMitteilungsklang`).
+    /// **Alles geht über `Library/Sounds`, auch die mitgelieferten Klänge.**
+    /// `UNNotificationSound(named:)` sucht nur an zwei Stellen: ganz oben im
+    /// App-Bündel und in `Library/Sounds`. Wo im Bündel eine Datei landet,
+    /// entscheidet bei einem synchronisierten Ordner aber Xcode — liegt sie
+    /// in einem Unterordner, findet iOS sie nicht und spielt **gar nichts**,
+    /// ohne Fehlermeldung. Genau das war in 1.1.5 der Fall: Die Meldung kam,
+    /// blieb aber stumm. Ein Ordner, den die App selbst füllt, ist die
+    /// einzige Ablage, auf die Verlass ist.
     private func klang(fuer inhalt: TimerContent) -> UNNotificationSound {
         let gewaehlt = Endklang.aus(inhalt.endklang)
 
@@ -173,10 +170,38 @@ final class Weckdienst: NSObject, ObservableObject {
            let name = Self.alsMitteilungsklang(datei) {
             return UNNotificationSound(named: UNNotificationSoundName(name))
         }
-        if let datei = gewaehlt.datei {
-            return UNNotificationSound(named: UNNotificationSoundName(datei + ".wav"))
+        if let datei = gewaehlt.datei, let name = Self.ausDemBuendel(datei) {
+            return UNNotificationSound(named: UNNotificationSoundName(name))
         }
         return .default
+    }
+
+    /// Der Ordner, aus dem iOS Mitteilungstöne nimmt. Wird angelegt, wenn es
+    /// ihn noch nicht gibt.
+    private static func klangordner() -> URL? {
+        guard let bibliothek = try? FileManager.default.url(
+            for: .libraryDirectory, in: .userDomainMask,
+            appropriateFor: nil, create: true) else { return nil }
+        let ordner = bibliothek.appendingPathComponent("Sounds")
+        try? FileManager.default.createDirectory(at: ordner, withIntermediateDirectories: true)
+        return ordner
+    }
+
+    /// Legt einen mitgelieferten Klang einmalig in `Library/Sounds` ab und
+    /// gibt seinen Namen zurück. Beim nächsten Mal steht er schon da.
+    private static func ausDemBuendel(_ datei: String) -> String? {
+        let name = datei + ".wav"
+        guard let ordner = klangordner() else { return nil }
+        let ziel = ordner.appendingPathComponent(name)
+        if FileManager.default.fileExists(atPath: ziel.path) { return name }
+        guard let quelle = Bundle.main.url(forResource: datei, withExtension: "wav")
+        else { return nil }
+        do {
+            try FileManager.default.copyItem(at: quelle, to: ziel)
+            return name
+        } catch {
+            return nil
+        }
     }
 
     /// Legt einen eigenen Klang als Mitteilungston ab und gibt seinen Namen
@@ -195,11 +220,7 @@ final class Weckdienst: NSObject, ObservableObject {
         let quelle = MediaStore.url(dateiname)
         guard FileManager.default.fileExists(atPath: quelle.path) else { return nil }
 
-        guard let ordner = try? FileManager.default.url(
-            for: .libraryDirectory, in: .userDomainMask,
-            appropriateFor: nil, create: true).appendingPathComponent("Sounds")
-        else { return nil }
-        try? FileManager.default.createDirectory(at: ordner, withIntermediateDirectories: true)
+        guard let ordner = klangordner() else { return nil }
 
         let name = (dateiname as NSString).deletingPathExtension + ".caf"
         let ziel = ordner.appendingPathComponent(name)

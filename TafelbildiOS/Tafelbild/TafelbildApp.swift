@@ -97,10 +97,10 @@ struct TafelbildApp: App {
             case .active:
                 UIApplication.shared.isIdleTimerDisabled = true
                 store.appBecameActive()
-                // Nachsehen, welche Timer sich gemeldet haben, während die
-                // App weg war — sonst klänge ihr Klang gleich noch einmal.
-                Weckdienst.shared.sammleZugestellte()
-                Weckdienst.shared.pruefeErlaubnis()
+                // Merken, ab wann die App wieder vorn ist: Alles, was
+                // vorher ablief, hat iOS schon gemeldet und darf nicht
+                // gleich noch einmal klingen.
+                Weckdienst.shared.wurdeAktiv()
             default:
                 UIApplication.shared.isIdleTimerDisabled = false
                 store.stopAutoRefresh()
