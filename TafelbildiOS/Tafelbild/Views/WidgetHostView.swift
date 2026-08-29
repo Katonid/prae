@@ -193,7 +193,12 @@ struct WidgetHostView: View {
                 }
             )
         case .timer(let value):
-            TimerWidgetView(content: bindTimer(value), interactive: !editing)
+            TimerWidgetView(content: bindTimer(value), interactive: !editing,
+                            widgetID: widget.id,
+                            // Der Name der Tafel als Überschrift der Meldung:
+                            // Auf dem Sperrbildschirm sieht man sonst nur
+                            // „Timer" und weiß nicht, welcher gemeint ist.
+                            aufschrift: store.board(boardID)?.name ?? "Tafelbild")
         case .clock(let value):
             ClockWidgetView(content: value)
         case .trafficLight(let value):

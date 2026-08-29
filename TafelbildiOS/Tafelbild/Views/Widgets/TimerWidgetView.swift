@@ -6,6 +6,12 @@ import Combine
 struct TimerWidgetView: View {
     @Binding var content: TimerContent
     var interactive: Bool
+    /// Kennung des Elements — sie ist zugleich die Kennung der vorgemerkten
+    /// Meldung, damit sich beide immer treffen (siehe `Weckdienst`).
+    var widgetID: String = ""
+    /// Überschrift der Meldung, damit auf dem Sperrbildschirm erkennbar ist,
+    /// welche Tafel sich meldet.
+    var aufschrift: String = ""
 
     @Environment(\.boardStyle) private var style
     @Environment(\.widgetMetrics) private var metrics
@@ -212,6 +218,7 @@ struct TimerWidgetView: View {
             guard remaining > 0.2 else { return }
             content.endsAtMs = Int64((Date().timeIntervalSince1970 + remaining) * 1000)
             content.pausedValue = nil
+            merkeVor()
         } else {
             content.startedAtMs = Date.nowMs
         }
@@ -222,6 +229,7 @@ struct TimerWidgetView: View {
         content.pausedValue = value
         content.endsAtMs = nil
         content.startedAtMs = nil
+        Weckdienst.shared.nimmZurueck(timerID: widgetID)
     }
 
     private func reset() {
@@ -229,6 +237,19 @@ struct TimerWidgetView: View {
         content.startedAtMs = nil
         content.pausedValue = nil
         flashing = false
+        Weckdienst.shared.nimmZurueck(timerID: widgetID)
+    }
+
+    /// Die Meldung auf das aktuelle Ende vormerken. Eine schon vorgemerkte
+    /// wird dabei ersetzt — deshalb genügt derselbe Aufruf, wenn jemand
+    /// mitten im Lauf eine Minute zulegt.
+    private func merkeVor() {
+        guard !widgetID.isEmpty, let endsAtMs = content.endsAtMs else { return }
+        Weckdienst.shared.merkeVor(
+            timerID: widgetID,
+            endet: Date(timeIntervalSince1970: Double(endsAtMs) / 1000),
+            inhalt: content,
+            aufschrift: aufschrift)
     }
 
     /// Eine Minute mehr oder weniger — auch während der Timer läuft.
@@ -237,6 +258,7 @@ struct TimerWidgetView: View {
         if content.mode == .countdown {
             if let endsAtMs = content.endsAtMs {
                 content.endsAtMs = max(Date.nowMs, endsAtMs + Int64(step * 1000))
+                merkeVor()
             } else if let paused = content.pausedValue {
                 content.pausedValue = max(0, paused + step)
             } else {
@@ -253,7 +275,14 @@ struct TimerWidgetView: View {
         guard Double(endsAtMs) / 1000 <= Date().timeIntervalSince1970 else { return }
         content.endsAtMs = nil
         content.pausedValue = 0
-        if content.soundOnEnd { SoundPlayer.shared.spieleEndklang(content) }
+        // Hat die Meldung von iOS schon geklungen, während die App weg war,
+        // dann nicht ein zweites Mal — die Tafel sieht den abgelaufenen
+        // Timer ja erst beim Zurückkommen.
+        let schonGemeldet = Weckdienst.shared.hatGemeldet(widgetID)
+        Weckdienst.shared.nimmZurueck(timerID: widgetID)
+        if content.soundOnEnd, !schonGemeldet {
+            SoundPlayer.shared.spieleEndklang(content)
+        }
         Haptics.success()
         withAnimation(.easeInOut(duration: 0.4).repeatCount(6, autoreverses: true)) {
             flashing = true
