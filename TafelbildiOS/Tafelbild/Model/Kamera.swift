@@ -33,6 +33,20 @@ final class Kameraquelle: NSObject, ObservableObject {
     /// Kann das Gerät überhaupt leuchten? (iPads oft nicht.)
     @Published private(set) var lichtMoeglich = false
 
+    /// Eingestellte Vergrößerung, 1 = ganzes Bild.
+    ///
+    /// Das ist eine Einstellung des **Geräts**, nicht der Tafel: Sie wird
+    /// nicht mitgespeichert und nicht geteilt. Ein Dokumentenprojektor wird
+    /// im Unterricht ständig nachgestellt — eine Vergrößerung, die beim
+    /// nächsten Öffnen der Tafel wieder dastünde, wäre im Weg.
+    @Published private(set) var zoom: Double = 1
+    /// Was dieses Gerät hergibt. Nach oben gedeckelt: Was darüber liegt, ist
+    /// reine Rechnerei und auf einem Heft nur noch Matsch.
+    @Published private(set) var zoomMax: Double = 1
+
+    /// Weiter als das wird nicht vergrößert, auch wenn das Gerät mehr könnte.
+    static let zoomDeckel: Double = 6
+
     let sitzung = AVCaptureSession()
 
     private let bilder = AVCapturePhotoOutput()
@@ -145,6 +159,31 @@ final class Kameraquelle: NSObject, ObservableObject {
         }
     }
 
+    // MARK: - Vergrößern
+
+    /// Stellt die Vergrößerung ein. Werte außerhalb des Möglichen werden
+    /// eingefangen, nicht abgewiesen — die Geste soll am Anschlag stehen
+    /// bleiben und nicht springen.
+    ///
+    /// Was hier eingestellt ist, gilt auch für das Standbild: Die
+    /// Vergrößerung sitzt im Gerät, nicht in der Vorschau. Eingefroren wird
+    /// deshalb genau das, was im Sucher steht.
+    func setzeZoom(_ faktor: Double) {
+        werkbank.async { [weak self] in
+            guard let self, let geraet = self.eingang?.device else { return }
+            let unten = Double(geraet.minAvailableVideoZoomFactor)
+            let oben = min(Double(geraet.maxAvailableVideoZoomFactor), Self.zoomDeckel)
+            let sauber = min(max(faktor, unten), max(oben, unten))
+            guard (try? geraet.lockForConfiguration()) != nil else { return }
+            geraet.videoZoomFactor = CGFloat(sauber)
+            geraet.unlockForConfiguration()
+            DispatchQueue.main.async { self.zoom = sauber }
+        }
+    }
+
+    /// Zurück auf das ganze Bild.
+    func zoomZurueck() { setzeZoom(1) }
+
     private static func geraet(vorne: Bool) -> AVCaptureDevice? {
         let suche = AVCaptureDevice.DiscoverySession(
             deviceTypes: [.builtInWideAngleCamera],
@@ -178,8 +217,18 @@ final class Kameraquelle: NSObject, ObservableObject {
         }
         geraet.unlockForConfiguration()
 
+        // Jede Kamera bringt ihre eigenen Grenzen mit, und die vorige
+        // Vergrößerung passt nicht dazu. Beim Wechsel also zurück auf das
+        // ganze Bild — sonst stünde man plötzlich in einem Ausschnitt, den
+        // man nicht eingestellt hat.
+        geraet.videoZoomFactor = 1
         let hatLicht = geraet.hasTorch
-        DispatchQueue.main.async { [weak self] in self?.lichtMoeglich = hatLicht }
+        let obergrenze = min(Double(geraet.maxAvailableVideoZoomFactor), Self.zoomDeckel)
+        DispatchQueue.main.async { [weak self] in
+            self?.lichtMoeglich = hatLicht
+            self?.zoomMax = obergrenze
+            self?.zoom = 1
+        }
     }
 
     // MARK: - Einfrieren
@@ -349,6 +398,29 @@ extension UIImage {
         return UIGraphicsImageRenderer(size: size, format: format).image { _ in
             draw(in: CGRect(origin: .zero, size: size))
         }
+    }
+
+    /// Schneidet auf einen Ausschnitt in **Einheitskoordinaten** zu
+    /// (0 … 1, Ursprung links oben) — so, wie ihn das Zuschnittblatt führt.
+    ///
+    /// Gerechnet wird auf dem aufrecht gezeichneten Bild: Eine Aufnahme
+    /// trägt ihre Drehung in `imageOrientation`, und ein Zuschnitt auf der
+    /// CGImage-Ebene schnitte sonst an der falschen Kante.
+    func zugeschnitten(auf ausschnitt: CGRect) -> UIImage? {
+        let gerade = aufrecht()
+        guard let cg = gerade.cgImage else { return nil }
+        let breite = CGFloat(cg.width), hoehe = CGFloat(cg.height)
+        guard breite > 0, hoehe > 0 else { return nil }
+
+        let bereich = CGRect(x: ausschnitt.minX * breite,
+                             y: ausschnitt.minY * hoehe,
+                             width: ausschnitt.width * breite,
+                             height: ausschnitt.height * hoehe)
+            .intersection(CGRect(x: 0, y: 0, width: breite, height: hoehe))
+            .integral
+        guard bereich.width >= 1, bereich.height >= 1,
+              let teil = cg.cropping(to: bereich) else { return nil }
+        return UIImage(cgImage: teil, scale: gerade.scale, orientation: .up)
     }
 
     /// Schneidet mittig auf ein Seitenverhältnis zu — dasselbe, was die

@@ -10,6 +10,11 @@ import UIKit
 ///
 /// Beide Male teuer gelernt: der Dateiwähler in 1.0.57, das Teilen-Blatt in
 /// 1.0.60 — dort war es ein schwarzes Rechteck mitten auf der Tafel.
+///
+/// **Aus demselben Grund auch eigene Vollbilder** (`Zuschnittwahl`): Eine
+/// Präsentation, die an einem Ansichtswert hängt, räumt SwiftUI beim
+/// Neuzeichnen ab — und die Tafel zeichnet sich bei jedem Abgleich neu. Der
+/// Zuschnitt eines Bildes dauert länger als ein Abgleich.
 enum Oberflaeche {
     /// Das oberste gerade gezeigte Blatt.
     static func obersterHalter() -> UIViewController? {
