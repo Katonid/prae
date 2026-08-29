@@ -330,6 +330,11 @@ Namens und lebt weiter.
   Xcode setzt sonst „en", und weil die App keine Sprachdateien mitbringt,
   zeigt iOS ALLES Systemeigene englisch: Teilen-Blatt, Dateiwähler,
   „Abbrechen"/„Fertig" (gefunden 1.0.59). Nicht entfernen.
+- **Der Vorbereitungs-Rückruf des Teilen-Blattes muss schnell sein.**
+  Nachrichten und Mail warten darauf und zeigen so lange eine Sanduhr; wer
+  dort erst noch alles Wartende hochlädt, bekommt „Es konnte kein Link zum
+  Teilen erstellt werden". Das Hochladen gehört vor das Öffnen des Blattes
+  (`BoardStore.tafelHochladen`), der Rückruf legt nur noch die Freigabe an.
 - **Die Freigabe legt Apples Blatt selbst an**, über den
   Vorbereitungs-Rückruf von `UICloudSharingController` — nicht die App
   vorab. Die Adresse (`CKShare.url`) entsteht erst beim Sichern und lag

@@ -260,11 +260,17 @@ struct ShareSheet: View {
     private func besitzAbschnitt(_ board: Board) -> some View {
         Section {
             Button {
-                // Das Blatt legt die Freigabe selbst an — hier wird nur
-                // geöffnet. Warum, steht bei `Freigabewahl`.
+                // Erst die Tafel hochladen, dann das Blatt öffnen. Der
+                // Vorbereitungs-Rückruf des Blattes darf nicht lange
+                // brauchen — siehe `BoardStore.tafelHochladen`.
                 fehler = nil
                 store.freigabefehler = nil
-                freigabewahl.oeffne(boardID: board.id, titel: board.name)
+                Task {
+                    laeuft = true
+                    await store.tafelHochladen(board)
+                    laeuft = false
+                    freigabewahl.oeffne(boardID: board.id, titel: board.name)
+                }
             } label: {
                 HStack {
                     Label(board.geteilt ? "Weitere Person einladen" : "Tafel freigeben",
