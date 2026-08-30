@@ -471,10 +471,9 @@ struct Sitzplaneditor: View {
 
         if raster {
             let andere = content.plaetze.filter { $0.id != platz.id }
-            x = Sitzraster.achse(x, unter: andere.map(\.x))
-                ?? Sitzraster.punkt(x, schritt: Sitzraster.laengs)
-            y = Sitzraster.achse(y, unter: andere.map(\.y))
-                ?? Sitzraster.punkt(y, schritt: Sitzraster.quer)
+            let ziel = Sitzraster.gefangen(platz, nach: CGPoint(x: x, y: y), andere: andere)
+            x = ziel.x
+            y = ziel.y
         }
         if fangen { zugStart[platz.id] = nil }
 
@@ -828,8 +827,8 @@ struct SitzarchivSeite: View {
                     .foregroundStyle(.secondary)
             } else {
                 ForEach(content.archiv) { eintrag in
-                    Button {
-                        hole(eintrag)
+                    NavigationLink {
+                        SitzarchivAnsicht(content: $content, eintrag: eintrag)
                     } label: {
                         VStack(alignment: .leading, spacing: 3) {
                             Text(eintrag.titel.nonEmpty ?? "Ohne Bezeichnung")
@@ -854,13 +853,147 @@ struct SitzarchivSeite: View {
         .toolbar { EditButton() }
     }
 
+    // `hole` liegt jetzt in `SitzarchivAnsicht` — von dort aus sieht man,
+    // was man zurückholt.
+}
+
+/// Eine gesicherte Sitzordnung ansehen.
+///
+/// **Ohne diese Seite wäre das Archiv wertlos.** Gesichert wurde, damit man
+/// im November nachsehen kann, wie die Klasse im September saß — und dafür
+/// muss man es sehen können, nicht bloß zurückholen (gemeldet 08/2026: „Ich
+/// habe noch nicht die Möglichkeit gefunden, sie mir wieder anzusehen.").
+///
+/// Gezeigt wird der **heutige Grundriss** mit den Namen von damals. Die
+/// Tische dürfen inzwischen anders stehen; Plätze, die es damals nicht gab,
+/// bleiben leer, und Namen, deren Platz weg ist, stehen unter dem Plan.
+struct SitzarchivAnsicht: View {
+    @EnvironmentObject private var store: BoardStore
+    @Binding var content: SitzplanContent
+    let eintrag: Sitzarchiv
+    @Environment(\.dismiss) private var dismiss
+
+    private var raum: Raumform { content.raumform }
+
+    /// Namen, für die es den Platz von damals nicht mehr gibt.
+    private var heimatlos: [String] {
+        let vorhanden = Set(content.plaetze.map(\.id))
+        return eintrag.belegung
+            .filter { !vorhanden.contains($0.key) }
+            .map(\.value)
+            .sorted()
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            GeometryReader { geo in
+                bild(in: geo.size)
+            }
+            .background(Color(.secondarySystemBackground))
+
+            fuss
+        }
+        .navigationTitle(eintrag.titel.nonEmpty ?? "Sitzordnung")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private func bild(in groesse: CGSize) -> some View {
+        // Aus der Sicht der Kinder, wie auf der Tafel — sonst suchte man
+        // beim Vergleichen erst einmal, wo vorne ist.
+        let feld = Sitzflaeche(plaetze: content.plaetze,
+                               bereich: content.ausschnitt(raum: raum,
+                                                           tafel: content.tafelseite),
+                               raum: raum, tafel: content.tafelseite,
+                               drehung: content.tafelseite.drehungFuerKinder,
+                               flaeche: CGSize(width: groesse.width - 20,
+                                               height: groesse.height - 20))
+        let bandRaum = content.tafelseite.band(in: raum.masse, tiefe: raum.tafeltiefe)
+        let bandMasse = feld.groesse(bandRaum)
+
+        return ZStack(alignment: .topLeading) {
+            // Bestimmt die Größe des Stapels — siehe `Sitzplaneditor`.
+            Color.clear
+
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(Color(.systemBackground))
+                .frame(width: feld.breit, height: feld.hoch)
+                .offset(x: feld.links + 10, y: feld.oben + 10)
+
+            RoundedRectangle(cornerRadius: min(bandMasse.width, bandMasse.height) * 0.45,
+                             style: .continuous)
+                .fill(.tertiary)
+                .frame(width: bandMasse.width, height: bandMasse.height)
+                .overlay { Text("Tafel").font(.caption2.bold()).foregroundStyle(.secondary) }
+                .offset(x: feld.ecke(bandRaum).x + 10, y: feld.ecke(bandRaum).y + 10)
+
+            ForEach(content.plaetze) { platz in
+                let mitte = feld.stelle(platz.mitte)
+                let w = platz.breite * feld.mass
+                let h = platz.hoehe * feld.mass
+                let name = eintrag.belegung[platz.id]
+                ZStack {
+                    RoundedRectangle(cornerRadius: min(w, h) * 0.18, style: .continuous)
+                        .fill(name == nil ? Color.secondary.opacity(0.15)
+                                          : Color.accentColor.opacity(0.85))
+                    if let name {
+                        Text(name)
+                            .font(.system(size: max(7, min(w * 0.4, h * 0.66)), weight: .bold))
+                            .foregroundStyle(.white)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.25)
+                            .padding(.horizontal, w * 0.03)
+                            .rotationEffect(.degrees(-gesamt(platz)))
+                    }
+                }
+                .frame(width: w, height: h)
+                .rotationEffect(.degrees(gesamt(platz)))
+                .offset(x: mitte.x - w / 2 + 10, y: mitte.y - h / 2 + 10)
+            }
+        }
+    }
+
+    /// Wie im Element: Tischwinkel plus Blickwinkel.
+    private func gesamt(_ platz: Sitzplatz) -> Double {
+        platz.winkel + Double(content.tafelseite.drehungFuerKinder)
+    }
+
+    private var fuss: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 10) {
+                Text(eintrag.datum.formatted(date: .long, time: .shortened))
+                Text("\(eintrag.belegung.count) Kinder")
+            }
+            .font(.footnote)
+            .foregroundStyle(.secondary)
+
+            if !heimatlos.isEmpty {
+                Text("Ohne Platz im heutigen Grundriss: "
+                     + heimatlos.joined(separator: ", "))
+                    .font(.caption)
+                    .foregroundStyle(Color.orange)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Button {
+                hole()
+                dismiss()
+            } label: {
+                Label("Wieder auf die Tafel legen", systemImage: "arrow.uturn.backward")
+            }
+            .buttonStyle(.borderedProminent)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding()
+        .background(.bar)
+    }
+
     /// Eine gesicherte Ordnung wieder auf die Tafel legen.
     ///
     /// Die Namen stehen im Archiv als Text. Für die Anzeige braucht es
     /// Kennungen, also werden welche erfunden — sie zeigen auf nichts und
     /// müssen das auch nicht: Der Plan ist ein Bild von damals, keine
-    /// lebende Zuordnung.
-    private func hole(_ eintrag: Sitzarchiv) {
+    /// lebende Zuordnung. Nur die Belegung wird gesetzt, nie der Grundriss.
+    private func hole() {
         var belegung: [String: String] = [:]
         var namen: [String: String] = [:]
         for (platz, name) in eintrag.belegung {

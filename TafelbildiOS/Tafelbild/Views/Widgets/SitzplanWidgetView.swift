@@ -178,27 +178,21 @@ struct SitzplanWidgetView: View {
         // **Gezeigt wird der Ausschnitt, nicht der ganze Raum.** Leere
         // Ecken kosten genau dort Platz, wo die Namen gebraucht werden —
         // von Weitem soll man den Plan lesen können (gemeldet 08/2026).
-        let feldRaum = blick.rechteck(content.ausschnitt(raum: raum,
-                                                         tafel: content.tafelseite))
         // Seitenverhältnis halten: Ein gestauchter Grundriss verzerrt die
-        // Abstände, um die es hier gerade geht.
-        let mass = min(flaeche.width / feldRaum.width, flaeche.height / feldRaum.height)
-        let breit = feldRaum.width * mass
-        let hoch = feldRaum.height * mass
-        let links = (flaeche.width - breit) / 2
-        let oben = (flaeche.height - hoch) / 2
-        let band = blick.rechteck(content.tafelseite.band(in: raum.masse,
-                                                          tiefe: raum.tafeltiefe))
-
-        /// Von Raumkoordinaten auf die Fläche.
-        func stelle(_ feld: CGRect) -> CGPoint {
-            CGPoint(x: links + (feld.minX - feldRaum.minX) * mass,
-                    y: oben + (feld.minY - feldRaum.minY) * mass)
-        }
-        func stelle(_ punkt: CGPoint) -> CGPoint {
-            CGPoint(x: links + (punkt.x - feldRaum.minX) * mass,
-                    y: oben + (punkt.y - feldRaum.minY) * mass)
-        }
+        // Abstände, um die es hier gerade geht. Die Rechnung teilt sich das
+        // Element mit der Ansicht gesicherter Ordnungen (`Sitzflaeche`).
+        let feld = Sitzflaeche(plaetze: content.plaetze,
+                               bereich: content.ausschnitt(raum: raum,
+                                                           tafel: content.tafelseite),
+                               raum: raum, tafel: content.tafelseite,
+                               drehung: blick.drehung, flaeche: flaeche)
+        let mass = feld.mass
+        let breit = feld.breit
+        let hoch = feld.hoch
+        let links = feld.links
+        let oben = feld.oben
+        let bandRaum = content.tafelseite.band(in: raum.masse, tiefe: raum.tafeltiefe)
+        let band = blick.rechteck(bandRaum)
 
         return ZStack(alignment: .topLeading) {
             // Bestimmt die Größe des Stapels — siehe `Sitzplaneditor`.
@@ -216,12 +210,12 @@ struct SitzplanWidgetView: View {
             // Die Tafel — nach dem Drehen immer oben. Sie ist der Grund,
             // warum „vorne" und „hinten" überhaupt eine Bedeutung haben.
             tafelband(band, mass: mass)
-                .offset(x: stelle(band).x, y: stelle(band).y)
+                .offset(x: feld.ecke(bandRaum).x, y: feld.ecke(bandRaum).y)
 
             ForEach(content.plaetze) { platz in
                 // Über die Mitte gesetzt und dann gedreht — der Umweg über
                 // eine gedrehte Ecke ginge bei schrägen Tischen schief.
-                let mitte = stelle(blick.punkt(platz.mitte))
+                let mitte = feld.stelle(platz.mitte)
                 platzkachel(platz, mass: mass)
                     .offset(x: mitte.x - platz.breite * mass / 2,
                             y: mitte.y - platz.hoehe * mass / 2)

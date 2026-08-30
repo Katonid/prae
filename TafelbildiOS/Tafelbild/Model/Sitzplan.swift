@@ -218,6 +218,53 @@ struct Blickwinkel {
     }
 }
 
+/// Rechnet einen Grundriss auf eine Zeichenfläche um.
+///
+/// Dieselbe Rechnung braucht die Tafel und die Ansicht einer gesicherten
+/// Sitzordnung. Einmal hier, damit beide denselben Ausschnitt und denselben
+/// Maßstab zeigen — zwei Fassungen liefen mit Sicherheit auseinander.
+struct Sitzflaeche {
+    let blick: Blickwinkel
+    /// Der gezeigte Bereich, schon gedreht.
+    let ausschnitt: CGRect
+    let mass: Double
+    let links: Double
+    let oben: Double
+
+    init(plaetze: [Sitzplatz], bereich: CGRect, raum: Raumform,
+         tafel: Tafelseite, drehung: Int, flaeche: CGSize) {
+        blick = Blickwinkel(raum: raum.masse, drehung: drehung)
+        let gedreht = blick.rechteck(bereich)
+        ausschnitt = gedreht
+        mass = min(flaeche.width / max(1, gedreht.width),
+                   flaeche.height / max(1, gedreht.height))
+        links = (flaeche.width - gedreht.width * mass) / 2
+        oben = (flaeche.height - gedreht.height * mass) / 2
+    }
+
+    var breit: Double { ausschnitt.width * mass }
+    var hoch: Double { ausschnitt.height * mass }
+
+    /// Ein Punkt des Raumes auf der Fläche.
+    func stelle(_ punkt: CGPoint) -> CGPoint {
+        let gedreht = blick.punkt(punkt)
+        return CGPoint(x: links + (gedreht.x - ausschnitt.minX) * mass,
+                       y: oben + (gedreht.y - ausschnitt.minY) * mass)
+    }
+
+    /// Die linke obere Ecke eines Rechtecks auf der Fläche.
+    func ecke(_ feld: CGRect) -> CGPoint {
+        let gedreht = blick.rechteck(feld)
+        return CGPoint(x: links + (gedreht.minX - ausschnitt.minX) * mass,
+                       y: oben + (gedreht.minY - ausschnitt.minY) * mass)
+    }
+
+    func groesse(_ feld: CGRect) -> CGSize {
+        let gedreht = blick.rechteck(feld)
+        return CGSize(width: gedreht.width * mass, height: gedreht.height * mass)
+    }
+}
+
 // MARK: - Ein Platz
 
 /// Ein Sitzplatz im Grundriss.
@@ -288,29 +335,110 @@ enum Sitzraster {
     static let laengs: Double = Sitzmasse.breit / 2
     static let quer: Double = Sitzmasse.tief / 2
 
-    /// Wie nah ein Platz an der Achse eines anderen liegen muss, damit er
-    /// dorthin springt. Etwas weniger als ein halber Rasterschritt — sonst
-    /// zöge jede Achse jeden Platz an.
-    static let fang: Double = 1.6
+    /// Wie nah ein Platz an einem Fangpunkt liegen muss, damit er dorthin
+    /// springt.
+    static let fang: Double = 2.0
 
     /// Der nächste Rasterpunkt.
     static func punkt(_ wert: Double, schritt: Double) -> Double {
         (wert / schritt).rounded() * schritt
     }
 
-    /// Die Achse eines anderen Platzes, wenn eine nah genug liegt.
+    /// Wohin ein gezogener Platz einrastet.
     ///
-    /// Das ist der Teil, der eine Reihe zur Reihe macht: Auch wenn ein
-    /// Tisch bewusst neben dem Raster steht, sollen die nächsten sich an
-    /// ihm ausrichten können.
-    static func achse(_ wert: Double, unter achsen: [Double]) -> Double? {
-        var beste: Double? = nil
-        var kleinster = fang
-        for achse in achsen {
-            let abstand = abs(achse - wert)
-            if abstand < kleinster { kleinster = abstand; beste = achse }
+    /// **Was die erste Fassung falsch machte.** Sie kannte nur zwei
+    /// Fangpunkte: das Raster und die *Mittelachse* eines anderen Tisches.
+    /// Beides zusammen ergab genau die beiden gemeldeten Fehler — die
+    /// Mittelachse zog zwei Tische übereinander, und das Raster half nicht
+    /// weiter, weil die vorgeschlagene Anordnung selbst gar nicht auf ihm
+    /// liegt: Zwischen zwei Tischen blieb dann eine krumme Lücke.
+    ///
+    /// Jetzt sind die **Kanten** der anderen Tische Fangpunkte: Ein Tisch
+    /// rastet dort ein, wo er bündig anschließt. Und es wird geprüft, ob
+    /// die Stelle frei ist — eine Lage, die einen anderen Tisch
+    /// überdeckte, wird gar nicht erst angeboten.
+    static func gefangen(_ platz: Sitzplatz, nach ziel: CGPoint,
+                         andere: [Sitzplatz]) -> CGPoint {
+        let eigen = platz.umriss.size
+        var xWerte: [Double] = [punkt(ziel.x, schritt: laengs)]
+        var yWerte: [Double] = [punkt(ziel.y, schritt: quer)]
+
+        for nachbar in andere {
+            let fremd = nachbar.umriss.size
+            // Bündig links, bündig rechts, oder auf derselben Achse.
+            let dx = (eigen.width + fremd.width) / 2
+            let dy = (eigen.height + fremd.height) / 2
+            for wert in [nachbar.x, nachbar.x - dx, nachbar.x + dx]
+            where abs(wert - ziel.x) <= fang { xWerte.append(wert) }
+            for wert in [nachbar.y, nachbar.y - dy, nachbar.y + dy]
+            where abs(wert - ziel.y) <= fang { yWerte.append(wert) }
         }
-        return beste
+
+        xWerte = einmalig(xWerte).sorted { abs($0 - ziel.x) < abs($1 - ziel.x) }
+        yWerte = einmalig(yWerte).sorted { abs($0 - ziel.y) < abs($1 - ziel.y) }
+
+        // Die Paare der Reihe nach durchgehen, das nächstgelegene freie
+        // gewinnt. Sechs mal sechs sind sechsunddreißig Proben — das ist
+        // für einen Zug pro Bildaufbau nichts.
+        var vorschlaege: [(stelle: CGPoint, weite: Double)] = []
+        for x in xWerte.prefix(6) {
+            for y in yWerte.prefix(6) {
+                vorschlaege.append((CGPoint(x: x, y: y),
+                                    abs(x - ziel.x) + abs(y - ziel.y)))
+            }
+        }
+        vorschlaege.sort { $0.weite < $1.weite }
+        for vorschlag in vorschlaege where frei(platz, an: vorschlag.stelle, andere: andere) {
+            return vorschlag.stelle
+        }
+
+        // Nichts Freies in Reichweite — der Finger liegt auf einem
+        // Nachbarn. Dann wird ohne Fangbreite gesucht: bündig an irgendeine
+        // Kante, so nah am Finger wie möglich. Den Tisch einfach dort
+        // liegen zu lassen hieße, ihn übereinanderzuschieben, und genau
+        // das soll nicht gehen.
+        var kanten: [(stelle: CGPoint, weite: Double)] = []
+        for nachbar in andere {
+            let fremd = nachbar.umriss.size
+            let dx = (eigen.width + fremd.width) / 2
+            let dy = (eigen.height + fremd.height) / 2
+            for stelle in [CGPoint(x: nachbar.x - dx, y: nachbar.y),
+                           CGPoint(x: nachbar.x + dx, y: nachbar.y),
+                           CGPoint(x: nachbar.x, y: nachbar.y - dy),
+                           CGPoint(x: nachbar.x, y: nachbar.y + dy)] {
+                kanten.append((stelle, abs(stelle.x - ziel.x) + abs(stelle.y - ziel.y)))
+            }
+        }
+        kanten.sort { $0.weite < $1.weite }
+        for kante in kanten where frei(platz, an: kante.stelle, andere: andere) {
+            return kante.stelle
+        }
+        return ziel
+    }
+
+    /// Liegt an dieser Stelle kein anderer Tisch?
+    ///
+    /// Ein Hauch Einzug, damit **bündig** nicht als Überschneidung zählt —
+    /// genau das soll ja möglich sein.
+    private static func frei(_ platz: Sitzplatz, an stelle: CGPoint,
+                             andere: [Sitzplatz]) -> Bool {
+        var probe = platz
+        probe.x = stelle.x
+        probe.y = stelle.y
+        let eigen = probe.umriss.insetBy(dx: 0.05, dy: 0.05)
+        return !andere.contains { eigen.intersects($0.umriss.insetBy(dx: 0.05, dy: 0.05)) }
+    }
+
+    /// Doppelte Fangpunkte fallen weg — auf ein Hundertstel gerundet,
+    /// sonst gelten 12,0 und 12,000000001 als zwei.
+    private static func einmalig(_ werte: [Double]) -> [Double] {
+        var gesehen = Set<Int>()
+        var ergebnis: [Double] = []
+        for wert in werte {
+            let schluessel = Int((wert * 100).rounded())
+            if gesehen.insert(schluessel).inserted { ergebnis.append(wert) }
+        }
+        return ergebnis
     }
 }
 

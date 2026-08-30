@@ -546,12 +546,16 @@ Namens und lebt weiter.
   08/2026). Nicht entfernen.
 - **Tische rasten ein, während sie gezogen werden** (`Sitzraster`, ab
   1.3.8), nicht erst beim Loslassen — sonst sieht es aus wie ein Sprung am
-  Ende und man zielt doch von Hand. Zwei Stufen in dieser Reihenfolge:
-  erst an die **Achsen der anderen Tische**, dann aufs Raster. Nur die
-  erste macht aus einer Reihe eine Reihe, wenn ein Tisch bewusst neben dem
-  Raster steht. Schrittweite ist ein halber Tisch, damit zwei Tische
-  entweder bündig stehen oder mit halber Tischbreite Luft. Abschaltbar
+  Ende und man zielt doch von Hand. Abschaltbar
   (`@AppStorage("sitzplanRaster")`) — dann frei setzbar.
+- **Fangpunkte sind die KANTEN der anderen Tische** (ab 1.3.12), nicht nur
+  deren Mittelachsen. Die erste Fassung kannte nur Raster und Mittelachse
+  und erzeugte damit genau die beiden gemeldeten Fehler: Die Mittelachse
+  zog zwei Tische übereinander, und das Raster half nicht, weil
+  `Sitzordnung.vorschlag` selbst nicht auf ihm liegt — dazwischen blieb
+  eine krumme Lücke. Zusätzlich wird jede Lage auf **Freiheit** geprüft;
+  was einen anderen Tisch überdeckte, wird nicht angeboten, und findet
+  sich nichts, weicht der Tisch auf die nächste freie Kante aus.
 - **`Sitzplatz.winkel` ist frei** (ab 1.3.8); `quer` bleibt als Altfeld
   daneben stehen und wird über `didSet` gespiegelt, sonst stünden auf
   älteren Geräten alle Tische wieder gerade. `breite`/`hoehe` sind immer
@@ -584,6 +588,13 @@ Namens und lebt weiter.
   Gesichert werden **Namen als Text**, nicht Kennungen — wie bei
   `Ziehung`. Beim Zurückholen wird nur die Belegung gesetzt, nie der
   Grundriss.
+- **Ein Archiv ohne Ansicht ist wertlos** (`SitzarchivAnsicht`, ab 1.3.12).
+  Gesichert wird, um im November nachzusehen, wie die Klasse im September
+  saß — dafür muss man es *sehen* können, nicht bloß zurückholen. Gezeigt
+  wird der heutige Grundriss mit den Namen von damals; Namen, deren Platz
+  es nicht mehr gibt, stehen unter dem Plan. Die Umrechnung auf die Fläche
+  teilen sich Element und Ansicht (`Sitzflaeche`) — zwei Fassungen liefen
+  mit Sicherheit auseinander.
 - **Der Sitzplan feiert nicht.** Am Ende der Auslosung lief bis 1.3.5
   `Feierklang.spiele(.konfetti)` — Applaus und Geburtstagslied, aus dem
   Geburtstagsteil übernommen. Eine Sitzordnung ist kein Geburtstag; hier
