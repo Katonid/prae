@@ -450,6 +450,37 @@ Namens und lebt weiter.
   keine davon; sie wird beim Ankommen in `ownBoardIDs` eingetragen, sonst
   bliebe sie unsichtbar.
 
+### Geburtstagsritual (ab 1.3.11)
+
+- Ein Tipp führt durch **drei Stationen**: Feier → drei Gratulanten →
+  zwei Fragen; der vierte fängt von vorn an und zieht alles neu. Kein
+  Knopf, kein Menü — die Lehrkraft steht vor der Klasse und hat eine Hand
+  frei.
+- Die Gratulanten treten **ohne eigenen Tipp** direkt nach der Feier auf:
+  Sie gehören dazu, nicht dahinter.
+- **Drei Kinder, drei Rollen** (Kompliment / Erinnerung / Wunsch) — die
+  Rollen werden *gemischt*, nicht je Kind gewürfelt. Bei drei unabhängigen
+  Würfen käme regelmäßig dreimal „Wunsch" heraus.
+- Gezogen wird aus `activeEntries` **ohne das Geburtstagskind**; Pausierte
+  bleiben draußen (wer krank ist, kann nichts sagen).
+- Stand und Auslosung stehen im **Inhalt** (`ritual`, `gratulanten`,
+  `rollen`, `fragen`), nicht in der Ansicht: Die Seite läuft auf dem
+  Beamer, ein kurzes Verlassen darf nicht zurücksetzen, und ein zweites
+  Gerät zeigt dasselbe. Namen und Fragen als **Text**, wie im
+  Sitzplanarchiv.
+- **Fragenkataloge liegen an der TAFEL** (`Board.fragenkataloge`), nicht
+  in der App: Eine Klassenstufe gehört zur Klasse, und weil Tafeln ohnehin
+  abgleichen, reisen sie zur Kollegin mit — ohne eigene Art von Datensatz.
+  In `mitFremdemInhalt` mit übernommen (Inhalt gehört allen); der
+  *gewählte* Katalog bleibt wie die übrigen Geburtstagseinstellungen
+  örtlich. Vier Vorlagen (1. bis 4. Klasse) werden beim ersten Öffnen
+  hineinkopiert — erst dann, damit eine Tafel ohne Ritual keine
+  hundertvierzig Fragen mitschleppt.
+- Der Fundus steht in `Model/Geburtstagsfragen.swift` (80 Fragen, vom
+  Nutzer für die 4. Klasse zusammengestellt). **Zwei** zur Auswahl, nicht
+  eine (das wäre eine Prüfungsfrage) und nicht drei (dann wird aus dem
+  Aussuchen ein Abwägen).
+
 ### Nachfeiern (ab 1.3.9)
 
 - Der Dienst sieht **immer nur den heutigen Tag** an — daran nichts ändern.
@@ -523,12 +554,16 @@ Namens und lebt weiter.
   08/2026). Nicht entfernen.
 - **Tische rasten ein, während sie gezogen werden** (`Sitzraster`, ab
   1.3.8), nicht erst beim Loslassen — sonst sieht es aus wie ein Sprung am
-  Ende und man zielt doch von Hand. Zwei Stufen in dieser Reihenfolge:
-  erst an die **Achsen der anderen Tische**, dann aufs Raster. Nur die
-  erste macht aus einer Reihe eine Reihe, wenn ein Tisch bewusst neben dem
-  Raster steht. Schrittweite ist ein halber Tisch, damit zwei Tische
-  entweder bündig stehen oder mit halber Tischbreite Luft. Abschaltbar
+  Ende und man zielt doch von Hand. Abschaltbar
   (`@AppStorage("sitzplanRaster")`) — dann frei setzbar.
+- **Fangpunkte sind die KANTEN der anderen Tische** (ab 1.3.12), nicht nur
+  deren Mittelachsen. Die erste Fassung kannte nur Raster und Mittelachse
+  und erzeugte damit genau die beiden gemeldeten Fehler: Die Mittelachse
+  zog zwei Tische übereinander, und das Raster half nicht, weil
+  `Sitzordnung.vorschlag` selbst nicht auf ihm liegt — dazwischen blieb
+  eine krumme Lücke. Zusätzlich wird jede Lage auf **Freiheit** geprüft;
+  was einen anderen Tisch überdeckte, wird nicht angeboten, und findet
+  sich nichts, weicht der Tisch auf die nächste freie Kante aus.
 - **`Sitzplatz.winkel` ist frei** (ab 1.3.8); `quer` bleibt als Altfeld
   daneben stehen und wird über `didSet` gespiegelt, sonst stünden auf
   älteren Geräten alle Tische wieder gerade. `breite`/`hoehe` sind immer
@@ -555,12 +590,33 @@ Namens und lebt weiter.
   still. Solange Leerstand nichts kostet, ist das dem Suchlauf egal; mit
   dem Gewicht hört der Viererblock vorne von selbst auf, eine gute Idee zu
   sein.
+- **Gesichert wird von selbst** (ab 1.3.13, Ansage des Nutzers: „Ich habe
+  Angst, dass ich bei manueller Speicherung diese häufiger vergessen
+  werde."). Jede Auslosung legt sofort einen Eintrag an (`beginneArchiv`,
+  Titel „KW 35 – 30.08.2026"), jeder Tausch schreibt ihn fort
+  (`schreibeArchivFort`), erst die nächste Auslosung beginnt einen neuen.
+  So entsteht je Sitzordnung genau ein Eintrag und nicht je Handgriff
+  einer. Umbenennen geht in der Archivansicht.
 - **Schloss und Archiv** (`gesperrt`, `archiv`): Eine fertige Sitzordnung
   steht wochenlang auf der Tafel; ohne Schloss wäre sie mit einem
   Fingerzeig neu ausgelost. Beim Sichern geht das Schloss von selbst zu.
   Gesichert werden **Namen als Text**, nicht Kennungen — wie bei
   `Ziehung`. Beim Zurückholen wird nur die Belegung gesetzt, nie der
   Grundriss.
+- **Ein Archiv ohne Ansicht ist wertlos** (`SitzarchivAnsicht`, ab 1.3.12).
+  Gesichert wird, um im November nachzusehen, wie die Klasse im September
+  saß — dafür muss man es *sehen* können, nicht bloß zurückholen. Gezeigt
+  wird der heutige Grundriss mit den Namen von damals; Namen, deren Platz
+  es nicht mehr gibt, stehen unter dem Plan. Die Umrechnung auf die Fläche
+  teilen sich Element und Ansicht (`Sitzflaeche`) — zwei Fassungen liefen
+  mit Sicherheit auseinander.
+- **Die Kerzen sind so viele, wie das Kind alt wird** (ab 1.3.14). Bis
+  acht in einer Reihe, darüber zweireihig und nach hinten gestaffelt —
+  sonst stehen sie Schulter an Schulter, und eine Klasse *zählt* sie.
+  Gedeckelt bei 18.
+- **„Namen tauschen" ist ein Knopf, keine graue Zeile.** In der ersten
+  Fassung stand dort nur beschriftete Schrift und wurde übersehen
+  (gemeldet 08/2026). Im Tauschmodus steht daneben, was zu tun ist.
 - **Der Sitzplan feiert nicht.** Am Ende der Auslosung lief bis 1.3.5
   `Feierklang.spiele(.konfetti)` — Applaus und Geburtstagslied, aus dem
   Geburtstagsteil übernommen. Eine Sitzordnung ist kein Geburtstag; hier

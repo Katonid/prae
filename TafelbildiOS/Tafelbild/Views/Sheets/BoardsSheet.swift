@@ -398,6 +398,19 @@ struct ShareSheet: View {
                 }
 
                 NavigationLink {
+                    FragenkatalogeSeite(boardID: board.id)
+                } label: {
+                    LabeledContent {
+                        Text(board.fragenkataloge.first { $0.id == board.fragenkatalog }?
+                            .name.nonEmpty
+                            ?? board.fragenkataloge.first?.name.nonEmpty
+                            ?? "4. Klasse")
+                    } label: {
+                        Label("Fragenkatalog", systemImage: "text.book.closed")
+                    }
+                }
+
+                NavigationLink {
                     NachfeiernSheet(boardID: board.id)
                 } label: {
                     Label("Nachfeiern", systemImage: "calendar.badge.clock")

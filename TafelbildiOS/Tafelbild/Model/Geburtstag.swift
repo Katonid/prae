@@ -39,6 +39,24 @@ struct GeburtstagContent: Codable, Equatable {
     /// erste. Wird beim Anlegen abgewechselt, damit zwei Kinder am selben
     /// Tag nicht dieselbe bekommen.
     var fanfare: String = ""
+    /// Wie weit das Ritual ist: 0 nichts, 1 die drei Gratulanten, 2 die
+    /// Fragen. Ein weiterer Tipp fängt wieder von vorn an.
+    ///
+    /// **Im Inhalt und nicht in der Ansicht.** Die Seite steht auf dem
+    /// Beamer; wer sie beim Aufräumen kurz verlässt, soll nicht wieder bei
+    /// null anfangen. Und auf einem zweiten Gerät sieht die Kollegin
+    /// dasselbe.
+    var ritual: Int = 0
+    /// Die drei ausgelosten Kinder — **als Text**, wie im Sitzplanarchiv:
+    /// Was auf der Seite steht, soll lesbar bleiben, auch wenn jemand die
+    /// Liste ändert.
+    var gratulanten: [String] = []
+    /// Die Rollen dazu, in derselben Reihenfolge (Rohwerte von
+    /// `Gratulantenrolle`).
+    var rollen: [String] = []
+    /// Die beiden gezogenen Fragen, ebenfalls als Text.
+    var fragen: [String] = []
+
     /// Nachgefeiert: Der Geburtstag war schon, gefeiert wird er heute.
     ///
     /// Dann steht auf der Seite zusätzlich, **wann** er war — sonst
@@ -79,7 +97,7 @@ struct GeburtstagContent: Codable, Equatable {
 extension GeburtstagContent {
     private enum GeburtstagKeys: String, CodingKey {
         case eintragID, name, geburtstag, jahr, hinweis, zielSeite, feier, fanfare,
-             nachgefeiert
+             nachgefeiert, ritual, gratulanten, rollen, fragen
     }
 
     init(from decoder: Decoder) throws {
@@ -94,6 +112,10 @@ extension GeburtstagContent {
         feier = c.wert(.feier, "")
         fanfare = c.wert(.fanfare, "")
         nachgefeiert = c.wert(.nachgefeiert, false)
+        ritual = c.wert(.ritual, 0)
+        gratulanten = c.wert(.gratulanten, [String]())
+        rollen = c.wert(.rollen, [String]())
+        fragen = c.wert(.fragen, [String]())
     }
 }
 

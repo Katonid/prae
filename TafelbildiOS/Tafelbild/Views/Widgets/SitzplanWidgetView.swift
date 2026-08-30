@@ -28,7 +28,7 @@ struct SitzplanWidgetView: View {
     @State private var ersteWahl: String?
 
     enum Blattwunsch: String, Identifiable {
-        case bericht, sichern
+        case bericht
         var id: String { rawValue }
     }
 
@@ -50,8 +50,6 @@ struct SitzplanWidgetView: View {
             switch wunsch {
             case .bericht:
                 SitzberichtSheet(zeilen: content.bericht)
-            case .sichern:
-                SitzSichernSheet(content: $content)
             }
         }
     }
@@ -99,28 +97,39 @@ struct SitzplanWidgetView: View {
             // Plan schiebt: Vor dem Sichern soll ja noch getauscht werden
             // können, und dabei muss man den Plan sehen.
             HStack(spacing: metrics.em(0.5)) {
+                // **Als Knopf erkennbar, nicht als graue Zeile.** In der
+                // ersten Fassung stand hier nur beschriftete Schrift — und
+                // wurde übersehen (gemeldet 08/2026: „Ich habe noch nicht
+                // entdecken können, wie ich eine ausgeloste Sitzordnung
+                // nachträglich verschieben kann.").
                 Button {
                     tauschen.toggle()
                     ersteWahl = nil
                     Haptics.tap()
                 } label: {
-                    Label(tauschen ? "Fertig getauscht" : "Tauschen",
+                    Label(tauschen ? "Fertig" : "Namen tauschen",
                           systemImage: "arrow.left.arrow.right")
-                        .font(Theme.font(metrics.em(0.78), weight: .semibold))
-                        .foregroundStyle(tauschen ? Color(hex: "#38bdf8")
-                                                  : style.ink.opacity(0.55))
+                        .font(Theme.font(metrics.em(0.8), weight: .bold))
+                        .foregroundStyle(tauschen ? Color(hex: "#0b1020") : .white)
+                        .padding(.horizontal, metrics.em(0.7))
+                        .padding(.vertical, metrics.em(0.32))
+                        .background {
+                            Capsule().fill(tauschen ? Color(hex: "#38bdf8") : style.accent)
+                        }
                 }
                 .buttonStyle(.plain)
 
-                Button {
-                    blatt = .sichern
-                    Haptics.tap()
-                } label: {
-                    Label("Sichern", systemImage: "tray.and.arrow.down")
-                        .font(Theme.font(metrics.em(0.78), weight: .bold))
-                        .foregroundStyle(style.accent)
+                if tauschen {
+                    Text(ersteWahl == nil
+                         ? "Ersten Platz antippen"
+                         : "Jetzt den zweiten Platz antippen")
+                        .font(Theme.font(metrics.em(0.78), weight: .semibold))
+                        .foregroundStyle(Color(hex: "#38bdf8"))
+                } else if let titel = content.laufenderTitel {
+                    Label(titel, systemImage: "checkmark.circle.fill")
+                        .font(Theme.font(metrics.em(0.78), weight: .semibold))
+                        .foregroundStyle(style.ink.opacity(0.5))
                 }
-                .buttonStyle(.plain)
 
                 Spacer(minLength: 0)
 
@@ -178,27 +187,21 @@ struct SitzplanWidgetView: View {
         // **Gezeigt wird der Ausschnitt, nicht der ganze Raum.** Leere
         // Ecken kosten genau dort Platz, wo die Namen gebraucht werden —
         // von Weitem soll man den Plan lesen können (gemeldet 08/2026).
-        let feldRaum = blick.rechteck(content.ausschnitt(raum: raum,
-                                                         tafel: content.tafelseite))
         // Seitenverhältnis halten: Ein gestauchter Grundriss verzerrt die
-        // Abstände, um die es hier gerade geht.
-        let mass = min(flaeche.width / feldRaum.width, flaeche.height / feldRaum.height)
-        let breit = feldRaum.width * mass
-        let hoch = feldRaum.height * mass
-        let links = (flaeche.width - breit) / 2
-        let oben = (flaeche.height - hoch) / 2
-        let band = blick.rechteck(content.tafelseite.band(in: raum.masse,
-                                                          tiefe: raum.tafeltiefe))
-
-        /// Von Raumkoordinaten auf die Fläche.
-        func stelle(_ feld: CGRect) -> CGPoint {
-            CGPoint(x: links + (feld.minX - feldRaum.minX) * mass,
-                    y: oben + (feld.minY - feldRaum.minY) * mass)
-        }
-        func stelle(_ punkt: CGPoint) -> CGPoint {
-            CGPoint(x: links + (punkt.x - feldRaum.minX) * mass,
-                    y: oben + (punkt.y - feldRaum.minY) * mass)
-        }
+        // Abstände, um die es hier gerade geht. Die Rechnung teilt sich das
+        // Element mit der Ansicht gesicherter Ordnungen (`Sitzflaeche`).
+        let feld = Sitzflaeche(plaetze: content.plaetze,
+                               bereich: content.ausschnitt(raum: raum,
+                                                           tafel: content.tafelseite),
+                               raum: raum, tafel: content.tafelseite,
+                               drehung: blick.drehung, flaeche: flaeche)
+        let mass = feld.mass
+        let breit = feld.breit
+        let hoch = feld.hoch
+        let links = feld.links
+        let oben = feld.oben
+        let bandRaum = content.tafelseite.band(in: raum.masse, tiefe: raum.tafeltiefe)
+        let band = blick.rechteck(bandRaum)
 
         return ZStack(alignment: .topLeading) {
             // Bestimmt die Größe des Stapels — siehe `Sitzplaneditor`.
@@ -216,12 +219,12 @@ struct SitzplanWidgetView: View {
             // Die Tafel — nach dem Drehen immer oben. Sie ist der Grund,
             // warum „vorne" und „hinten" überhaupt eine Bedeutung haben.
             tafelband(band, mass: mass)
-                .offset(x: stelle(band).x, y: stelle(band).y)
+                .offset(x: feld.ecke(bandRaum).x, y: feld.ecke(bandRaum).y)
 
             ForEach(content.plaetze) { platz in
                 // Über die Mitte gesetzt und dann gedreht — der Umweg über
                 // eine gedrehte Ecke ginge bei schrägen Tischen schief.
-                let mitte = stelle(blick.punkt(platz.mitte))
+                let mitte = feld.stelle(platz.mitte)
                 platzkachel(platz, mass: mass)
                     .offset(x: mitte.x - platz.breite * mass / 2,
                             y: mitte.y - platz.hoehe * mass / 2)
@@ -330,6 +333,9 @@ struct SitzplanWidgetView: View {
             content.belegung[platz.id] = a
             if content.belegung[erster] == nil { content.belegung.removeValue(forKey: erster) }
             if content.belegung[platz.id] == nil { content.belegung.removeValue(forKey: platz.id) }
+            // Der laufende Eintrag zieht mit: Was auf der Tafel steht, ist
+            // auch das, was im Archiv steht.
+            content.schreibeArchivFort()
         }
         ersteWahl = nil
     }
@@ -428,6 +434,10 @@ struct SitzplanWidgetView: View {
         neu.namen = namen
         neu.reihenfolge = Array(ergebnis.belegung.keys).shuffled()
         neu.aufgedeckt = 0
+        // **Sofort sichern, nicht auf einen Knopf warten.** Wer die
+        // Sitzordnung Wochen später nachschlagen will, hat sonst nur das,
+        // woran er im Trubel gedacht hat.
+        neu.beginneArchiv()
         content = neu
 
         guard content.mitAuftritt else {
@@ -497,84 +507,5 @@ struct SitzberichtSheet: View {
                 }
             }
         }
-    }
-}
-
-/// Die Aufforderung zum Sichern.
-///
-/// **Warum überhaupt sichern.** Eine Sitzordnung gilt Wochen. Wer im
-/// November nachsehen will, wie die Klasse im September saß, hat sonst
-/// nichts in der Hand — die nächste Auslosung überschreibt die vorige
-/// spurlos. Vorbelegt ist deshalb die Kalenderwoche: Genau daran hängt die
-/// Frage „wann war das?".
-struct SitzSichernSheet: View {
-    @Binding var content: SitzplanContent
-    @Environment(\.dismiss) private var dismiss
-    @State private var titel = ""
-
-    var body: some View {
-        NavigationStack {
-            Form {
-                Section {
-                    TextField("Bezeichnung", text: $titel, prompt: Text(vorschlag))
-                } header: {
-                    Text("Sitzordnung sichern")
-                } footer: {
-                    Text("Gesichert werden die Namen auf ihren Plätzen, nicht "
-                         + "der Grundriss — der gehört dem Element und darf sich "
-                         + "ändern. Die Bezeichnung ist frei; vorbelegt ist die "
-                         + "Kalenderwoche.")
-                }
-
-                if !content.archiv.isEmpty {
-                    Section {
-                        ForEach(content.archiv) { eintrag in
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(eintrag.titel.nonEmpty ?? "Ohne Bezeichnung")
-                                Text(eintrag.datum.formatted(date: .abbreviated, time: .shortened))
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                    } header: {
-                        Text("Schon gesichert")
-                    }
-                }
-            }
-            .navigationTitle("Sichern")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Abbrechen") { dismiss() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Sichern") { sichere() }
-                }
-            }
-        }
-    }
-
-    private var vorschlag: String {
-        let woche = Calendar.current.component(.weekOfYear, from: Date())
-        return "KW \(woche)"
-    }
-
-    private func sichere() {
-        var eintrag = Sitzarchiv()
-        eintrag.titel = titel.nonEmpty ?? vorschlag
-        // Die Namen als Text, nicht die Kennungen: Ein Archiv, in dem
-        // nachträglich Lücken entstehen, hilft niemandem.
-        var belegt: [String: String] = [:]
-        for (platz, kind) in content.belegung {
-            belegt[platz] = content.namen[kind] ?? "—"
-        }
-        eintrag.belegung = belegt
-        content.archiv.insert(eintrag, at: 0)
-        if content.archiv.count > 40 { content.archiv.removeLast() }
-        // Gesichert heißt fertig: Damit ein Fingerzeig sie nicht gleich
-        // wieder auslost, geht das Schloss zu.
-        content.gesperrt = true
-        Haptics.success()
-        dismiss()
     }
 }
