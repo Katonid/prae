@@ -127,9 +127,21 @@ struct GeburtstagWidgetView: View {
                 .umrandet()
 
             if let alter = content.alter {
-                Text("wird \(alter)")
+                // Nachgefeiert heißt: Der Tag war schon. Dann „wurde" statt
+                // „wird" — und das Datum dazu, sonst steht ein Tag im Kopf
+                // der Klasse und ein anderer an der Wand.
+                Text(content.nachgefeiert ? "wurde \(alter)" : "wird \(alter)")
                     .font(Theme.font(metrics.em(laeuft ? 1.5 : 1.7), weight: .bold))
                     .foregroundStyle(Color(hex: "#fde68a"))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.5)
+                    .umrandet()
+            }
+
+            if content.nachgefeiert, let tag = content.tagDesGeburtstags {
+                Text("Geburtstag war am \(tag)")
+                    .font(Theme.font(metrics.em(laeuft ? 0.95 : 1.05), weight: .semibold))
+                    .foregroundStyle(.white.opacity(0.85))
                     .lineLimit(1)
                     .minimumScaleFactor(0.5)
                     .umrandet()

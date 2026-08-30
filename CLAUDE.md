@@ -445,6 +445,22 @@ Namens und lebt weiter.
   keine davon; sie wird beim Ankommen in `ownBoardIDs` eingetragen, sonst
   bliebe sie unsichtbar.
 
+### Nachfeiern (ab 1.3.9)
+
+- Der Dienst sieht **immer nur den heutigen Tag** an — daran nichts ändern.
+  Ein iPad, das sechs Wochen im Schrank stand, bekäme beim Einschalten
+  sonst zwanzig Seiten auf einmal, darunter Kinder, die längst weg sind.
+- Ferien-Geburtstage holt deshalb ein Mensch nach: `NachfeiernSheet`
+  (Tafeleinstellungen → Geburtstage → „Nachfeiern"), Zeitraum vorbelegt
+  mit sechs Wochen, Auswahl je Kind.
+- **Das Jahr kommt vom tatsächlichen Geburtstag**, nicht von heute
+  (`Geburtstage.Vergangen.jahr`). Ein Kind, das im Dezember sieben wurde
+  und im Januar nachfeiert, wäre sonst acht.
+- Eine Nachfeier nimmt den Merker aus `geburtstagWeg` zurück — wer sie
+  ausdrücklich noch einmal wählt, will sie auch sehen.
+- `GeburtstagContent.nachgefeiert` schaltet auf der Seite „wird" auf
+  „wurde" um und blendet den tatsächlichen Tag ein.
+
 ### Sitzplan (ab 1.3.0)
 
 - Eigener Elementtyp, **nicht** ein Modus des Zufälligen Namens. Auslosen

@@ -397,6 +397,12 @@ struct ShareSheet: View {
                     }
                 }
 
+                NavigationLink {
+                    NachfeiernSheet(boardID: board.id)
+                } label: {
+                    Label("Nachfeiern", systemImage: "calendar.badge.clock")
+                }
+
                 if !board.geburtstagWeg.isEmpty {
                     Button {
                         store.geburtstageWiederAnlegen(boardID: board.id)
@@ -442,7 +448,10 @@ struct ShareSheet: View {
                  + "Die Seiten bleiben stehen, bis du sie löschst — und dann "
                  + "bleiben sie weg. Auch am Geburtstag selbst: Gelöschtes wird "
                  + "nicht noch einmal angelegt. Versehentlich? Dann hilft "
-                 + "„Weggeräumte wieder anlegen“, solange der Tag läuft.")
+                 + "„Weggeräumte wieder anlegen“, solange der Tag läuft.\n\n"
+
+                 + "Waren Geburtstage in den Ferien, holt „Nachfeiern“ sie "
+                 + "am ersten Schultag nach — du wählst aus, wer dran ist.")
         }
     }
 

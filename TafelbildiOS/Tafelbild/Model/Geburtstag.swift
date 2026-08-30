@@ -39,6 +39,25 @@ struct GeburtstagContent: Codable, Equatable {
     /// erste. Wird beim Anlegen abgewechselt, damit zwei Kinder am selben
     /// Tag nicht dieselbe bekommen.
     var fanfare: String = ""
+    /// Nachgefeiert: Der Geburtstag war schon, gefeiert wird er heute.
+    ///
+    /// Dann steht auf der Seite zusätzlich, **wann** er war — sonst
+    /// stünde da ein Datum im Kopf der Klasse und ein anderes an der Wand.
+    var nachgefeiert: Bool = false
+
+    /// Der Tag, an dem gefeiert wurde — ausgeschrieben, für die Seite.
+    ///
+    /// Zusammengesetzt aus dem gespeicherten Jahr und dem Geburtsdatum:
+    /// Das Element weiß, welchen Geburtstag es meint, und daraus ergibt
+    /// sich der Tag ohne ein zweites Feld, das auseinanderlaufen könnte.
+    var tagDesGeburtstags: String? {
+        guard jahr > 0, let geboren = Geburtstage.datum(geburtstag) else { return nil }
+        var stuecke = Calendar.current.dateComponents([.month, .day], from: geboren)
+        stuecke.year = jahr
+        stuecke.hour = 12
+        guard let tag = Calendar.current.date(from: stuecke) else { return nil }
+        return tag.formatted(.dateTime.day().month(.wide))
+    }
 
     /// Wie alt geworden? nil, wenn sich das nicht ausrechnen lässt.
     var alter: Int? {
@@ -59,7 +78,8 @@ struct GeburtstagContent: Codable, Equatable {
 /// allen anderen.
 extension GeburtstagContent {
     private enum GeburtstagKeys: String, CodingKey {
-        case eintragID, name, geburtstag, jahr, hinweis, zielSeite, feier, fanfare
+        case eintragID, name, geburtstag, jahr, hinweis, zielSeite, feier, fanfare,
+             nachgefeiert
     }
 
     init(from decoder: Decoder) throws {
@@ -73,6 +93,7 @@ extension GeburtstagContent {
         zielSeite = c.wert(.zielSeite, "")
         feier = c.wert(.feier, "")
         fanfare = c.wert(.fanfare, "")
+        nachgefeiert = c.wert(.nachgefeiert, false)
     }
 }
 
@@ -118,6 +139,55 @@ enum Geburtstage {
         // Auch pausierte Namen zählen: Wer krank ist, hat trotzdem
         // Geburtstag, und die Klasse soll es erfahren.
         liste.entries.filter { feiert($0, am: tag) }
+    }
+
+    /// Der **letzte** Geburtstag dieses Eintrags, heute eingeschlossen.
+    ///
+    /// Für das Nachfeiern nach den Ferien: Gesucht ist nicht der nächste
+    /// Geburtstag, sondern der, der schon war. Gerechnet über den Kalender
+    /// und nicht mit „minus ein Jahr", damit der 29. Februar nicht
+    /// heimlich auf den 1. März rutscht.
+    static func letzter(_ eintrag: NameEntry, bis heute: Date = Date()) -> Date? {
+        guard let geboren = datum(eintrag.geburtstag) else { return nil }
+        let kalender = Calendar.current
+        var stuecke = kalender.dateComponents([.month, .day], from: geboren)
+        stuecke.hour = 12
+        // Vom Ende des heutigen Tages aus rückwärts suchen, damit ein
+        // Geburtstag von heute mitzählt.
+        let ende = kalender.date(byAdding: .day, value: 1,
+                                 to: kalender.startOfDay(for: heute)) ?? heute
+        guard let tag = kalender.nextDate(after: ende, matching: stuecke,
+                                          matchingPolicy: .nextTimePreservingSmallerComponents,
+                                          direction: .backward)
+        else { return nil }
+        // Nicht vor der Geburt: Ein Kind, das im Mai geboren wurde, hatte
+        // im März davor keinen Geburtstag.
+        return tag >= kalender.startOfDay(for: geboren) ? tag : nil
+    }
+
+    /// Ein Geburtstag, der schon war — mit dem Tag, an dem er war.
+    struct Vergangen: Identifiable {
+        var eintrag: NameEntry
+        var tag: Date
+        var id: String { eintrag.id }
+
+        /// Wie alt geworden — gerechnet am tatsächlichen Geburtstag, nicht
+        /// am Tag des Nachfeierns. Sonst wäre ein Kind, das im Dezember
+        /// feierte und im Januar nachfeiert, ein Jahr zu alt.
+        var jahr: Int { Calendar.current.component(.year, from: tag) }
+    }
+
+    /// Wer zwischen `seit` und `bis` gefeiert hat, der älteste zuerst.
+    static func vergangene(in liste: NameList, seit: Date,
+                           bis heute: Date = Date()) -> [Vergangen] {
+        let kalender = Calendar.current
+        let anfang = kalender.startOfDay(for: seit)
+        var ergebnis: [Vergangen] = []
+        for eintrag in liste.entries {
+            guard let tag = letzter(eintrag, bis: heute), tag >= anfang else { continue }
+            ergebnis.append(Vergangen(eintrag: eintrag, tag: tag))
+        }
+        return ergebnis.sorted { $0.tag < $1.tag }
     }
 
     /// Der nächste Geburtstag dieses Eintrags, von heute an gerechnet.
