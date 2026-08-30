@@ -205,9 +205,31 @@ final class BoardStore: ObservableObject {
     private func nimmVerwaisteAn() {
         var ids = ownBoardIDs
         var geaendert = false
-        for board in boards where !board.deleted {
-            guard !ids.contains(board.id), !istGast(board) else { continue }
-            ids.insert(board.id)
+        for stelle in boards.indices where !boards[stelle].deleted {
+            let tafel = boards[stelle]
+            guard !istGast(tafel) else { continue }
+            if !ids.contains(tafel.id) {
+                ids.insert(tafel.id)
+                geaendert = true
+            }
+            // **Die Kennung gleich mit richtigstellen.**
+            //
+            // Sichtbarkeit allein reicht nicht: An `ownerUserID` hängen
+            // auch das Löschrecht der Tafel und das der einzelnen
+            // Elemente. Solange dort eine fremde Kennung steht, ist die
+            // Tafel zwar zu sehen, aber halb gelähmt. Was in der eigenen
+            // privaten iCloud liegt, gehört mir — also wird es auch so
+            // vermerkt, einmal, und über den Abgleich auch auf dem zweiten
+            // Gerät.
+            guard let ich = myUserID, !ich.isEmpty, tafel.ownerUserID != ich
+            else { continue }
+            boards[stelle].ownerUserID = ich
+            if boards[stelle].owner.isEmpty, let name = profileName.nonEmpty {
+                boards[stelle].owner = name
+            }
+            boards[stelle].updatedAtMs = Date.nowMs
+            boards[stelle].zuletztVon = ich
+            engine.enqueue(kind: .board, entityId: tafel.id)
             geaendert = true
         }
         guard geaendert else { return }
@@ -418,6 +440,9 @@ final class BoardStore: ObservableObject {
             }
         }
         if changed { scheduleSave() }
+        // Beim ersten Start ist die Kennung noch unbekannt, wenn
+        // `nimmVerwaisteAn` läuft — jetzt steht sie, also noch einmal.
+        nimmVerwaisteAn()
         if activeBoard == nil { activeBoardID = visibleBoards.first?.id ?? "" }
     }
 
@@ -605,11 +630,18 @@ final class BoardStore: ObservableObject {
     /// kommt, kann keiner anderen Person gehören.
     func deleteBoard(_ board: Board) {
         guard let index = boards.firstIndex(where: { $0.id == board.id }) else { return }
-        let ohneKennung = boards[index].ownerUserID.isEmpty
-        let mine = ohneKennung
-            ? (!engine.istFremd(boardID: board.id)
-               || boards[index].owner.trimmed.lowercased() == profileName.trimmed.lowercased())
-            : boards[index].ownerUserID == (myUserID ?? "")
+        // **Die Herkunft entscheidet, nicht die Besitzerkennung.**
+        //
+        // 1.3.29 fragte die Herkunft nur, wenn `ownerUserID` LEER war.
+        // Trägt sie dagegen eine Kennung, die es auf diesem Gerät nicht
+        // mehr gibt — etwa nach einem Wechsel der CloudKit-Umgebung —,
+        // galt die eigene Tafel weiter als fremde: Es wurde nur die
+        // Mitgliedschaft beendet, und weil `nimmVerwaisteAn` sie kurz
+        // darauf wieder annimmt, stand sie nach einem Augenblick erneut da
+        // (gemeldet 08/2026: „Wenn man es tut, ist die Tafel nach einem
+        // kurzen Moment wieder da.").
+        let mine = !istGast(board)
+            || boards[index].ownerUserID == (myUserID ?? "")
         if mine {
             boards[index].deleted = true
         } else {

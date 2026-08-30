@@ -456,6 +456,18 @@ Namens und lebt weiter.
   unsichtbar** (nachgewiesen 08/2026 an „Meine Klasse", 12 Elemente).
   Das ist zugleich die wahrscheinlichste Wurzel doppelter Tafeln: Was man
   auf dem zweiten Gerät nicht sieht, legt man dort noch einmal an.
+- **Die Herkunft entscheidet, nicht die Besitzerkennung** (ab 1.3.31).
+  1.3.29 fragte die Herkunft nur, wenn `ownerUserID` **leer** war. Trägt sie
+  dagegen eine Kennung, die es auf diesem Gerät nicht mehr gibt — nach einem
+  Wechsel der CloudKit-Umgebung —, galt die eigene Tafel weiter als fremde:
+  Löschen beendete nur die Mitgliedschaft, und `nimmVerwaisteAn` nahm sie
+  einen Augenblick später wieder an. Die Tafel kam also immer zurück
+  (gemeldet 08/2026). `deleteBoard` prüft jetzt `istGast`.
+- **`nimmVerwaisteAn` stellt `ownerUserID` gleich mit richtig.** Sichtbarkeit
+  allein reicht nicht: An der Kennung hängen auch das Löschrecht der Tafel
+  und das der einzelnen Elemente. Mit fremder Kennung ist eine Tafel zwar zu
+  sehen, aber halb gelähmt. Der Vermerk reist über `mitFremdemInhalt` zum
+  zweiten Gerät und heilt es mit.
 - **Auch schon vorhandene Tafeln werden angenommen** (`nimmVerwaisteAn`, ab
   1.3.30). 1.3.28 trägt jede *ankommende* Tafel als eigene ein — eine, die
   längst auf der Platte liegt und nie mehr über den Abgleich hereinkommt,
