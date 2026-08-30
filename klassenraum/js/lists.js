@@ -82,15 +82,20 @@ export function openListsPanel(initialListId = null) {
       // Wer aus der Liste verschwindet, verschwindet auch aus den Pausierten
       // und verliert sein Merkmal.
       const paused = (list.paused || []).filter((name) => names.includes(name));
-      const old = (getState().lists.find((entry) => entry.id === editingId) || {}).marks || {};
+      const fresh = getState().lists.find((entry) => entry.id === editingId) || {};
+      const old = fresh.marks || {};
+      const oldBirthdays = fresh.birthdays || {};
       const marks = {};
+      const birthdays = {};
       for (const name of names) {
         if (old[name]) marks[name] = old[name];
+        if (oldBirthdays[name]) birthdays[name] = oldBirthdays[name];
       }
-      updateList(list.id, { names, paused, marks });
+      updateList(list.id, { names, paused, marks, birthdays });
       counter.textContent = `${names.length} Namen`;
       renderPause();
       renderMarks();
+      renderBirthdays();
     });
 
     // Pausierte Namen (z. B. krank) bleiben in der Liste, werden aber nicht gezogen.
@@ -161,6 +166,42 @@ export function openListsPanel(initialListId = null) {
     }
     renderMarks();
 
+    // Geburtstage je Name — daraus entstehen die Geburtstagsseiten
+    // (Menü → Geburtstage), übernommen aus der Tafelbild-App.
+    const birthdayBox = h('div', { class: 'stack' });
+    function renderBirthdays() {
+      clear(birthdayBox);
+      const current = getState().lists.find((entry) => entry.id === editingId);
+      if (!current || !current.names.length) {
+        birthdayBox.appendChild(h('p', { class: 'muted small' }, 'Erst Namen eintragen — dann lassen sich hier Geburtstage eintragen.'));
+        return;
+      }
+      const birthdays = current.birthdays || {};
+      const eingetragen = current.names.filter((name) => birthdays[name]).length;
+      birthdayBox.append(
+        h('p', { class: 'muted small' },
+          'Mit Datum entsteht am Geburtstag von selbst eine Feierseite — wenn die Tafel es möchte '
+          + '(Menü → Geburtstage). Leer lassen = kein Geburtstag hinterlegt.'),
+        h('div', { class: 'marks-grid' }, current.names.map((name) => {
+          const input = h('input', {
+            class: 'input input--birthday', type: 'date',
+            value: birthdays[name] || '',
+            oninput: (event) => {
+              const fresh = getState().lists.find((entry) => entry.id === editingId);
+              if (!fresh) return;
+              const next = Object.assign({}, fresh.birthdays || {});
+              const value = event.target.value;
+              if (value) next[name] = value;
+              else delete next[name];
+              updateList(fresh.id, { birthdays: next });
+            },
+          });
+          return h('label', { class: 'marks-row' }, h('span', { class: 'marks-row__name' }, name), input);
+        })),
+        eingetragen ? h('p', { class: 'muted small' }, `${eingetragen} von ${current.names.length} Geburtstagen eingetragen.`) : null);
+    }
+    renderBirthdays();
+
     container.append(
       buttonRow(button('Zurück zur Übersicht', {
         icon: 'back', ghost: true, small: true,
@@ -173,6 +214,7 @@ export function openListsPanel(initialListId = null) {
       section('Namen', area, counter),
       section('Pausieren', pauseBox),
       section('Merkmale (für Gruppen)', marksBox),
+      section('Geburtstage', birthdayBox),
       buttonRow(
         button('Alphabetisch sortieren', {
           icon: 'layers', small: true,

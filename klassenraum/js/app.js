@@ -1,6 +1,6 @@
 // Klassenraum — Start, Bedienleisten, Klassenraum-Verwaltung.
 
-import { h, clear, readImageFile } from './util.js';
+import { h, clear, readImageFile, uid } from './util.js';
 import { icon } from './icons.js';
 import {
   loadState, getState, getActiveBoard, setActiveBoard, addBoard, duplicateBoard, removeBoard,
@@ -10,6 +10,11 @@ import {
   BOARD_FORMATS, setBoardFormat,
 } from './store.js';
 import { transferPage, clipboardWidget, pasteWidgetFromClipboard } from './transfer.js';
+import {
+  pruefeGeburtstage, legeNachfeierAn, geburtstageWiederAnlegen, vergangene,
+  einstellungen as geburtstagsEinstellungen, setzeEinstellungen as setzeGeburtstagsEinstellungen,
+  katalogeVon, katalogVorlagen, alterIm,
+} from './geburtstage.js';
 import { WIDGETS } from './widgets/index.js';
 import {
   initBoard, renderBoard, configureBoard, addWidgetOfType, select, updateScale,
@@ -110,6 +115,9 @@ function renderDock() {
     h('span', { class: 'dock__label' }, 'Einfügen')));
   }
   for (const definition of WIDGETS) {
+    // Manche Elemente legt die App selbst an (Geburtstagsseiten) — die
+    // gehören nicht in die Leiste.
+    if (definition.hidden) continue;
     dom.dock.appendChild(h('button', {
       class: 'dock__item',
       'data-type': definition.type,
@@ -570,6 +578,208 @@ function openBackgroundPanel() {
   render();
 }
 
+/**
+ * Geburtstage einrichten — übernommen aus der Tafelbild-App: Die Tafel
+ * beobachtet eine Namensliste und legt am Geburtstag von selbst eine
+ * Feierseite samt Hinweis an. Ob DIESES Gerät das tut und welcher
+ * Fragenkatalog gilt, bleibt örtlich; Kataloge und Seiten liegen an der
+ * Tafel und reisen über den Abgleich mit.
+ */
+function openGeburtstagePanel() {
+  const container = h('div', { class: 'stack' });
+
+  function render() {
+    clear(container);
+    const board = getActiveBoard();
+    if (!board) return;
+    const regel = geburtstagsEinstellungen(board.id);
+    const lists = getState().lists;
+
+    const listSelect = h('select', { class: 'input' },
+      h('option', { value: '' }, '— Liste wählen —'),
+      lists.map((list) => {
+        const eingetragen = Object.keys(list.birthdays || {}).length;
+        return h('option', { value: list.id }, `${list.name} (${eingetragen} Geburtstage)`);
+      }));
+    listSelect.value = regel.listId || '';
+    listSelect.addEventListener('change', () => {
+      setzeGeburtstagsEinstellungen(board.id, { listId: listSelect.value || null });
+      pruefeGeburtstage();
+      render();
+    });
+
+    container.appendChild(section('Geburtstage auf dieser Tafel',
+      toggleRow('Geburtstagsseiten anlegen', regel.enabled === true, (value) => {
+        setzeGeburtstagsEinstellungen(board.id, { enabled: value });
+        if (value) {
+          const angelegt = pruefeGeburtstage();
+          if (angelegt) toast('Heute wird gefeiert — die Seite steht schon da.', 'success');
+        }
+        render();
+      }, 'Am Geburtstag entsteht von selbst eine Feierseite samt Hinweis auf der ersten Seite. Angelegte Seiten bleiben stehen, bis sie jemand löscht.'),
+      field('Namensliste mit den Geburtstagen', listSelect),
+      h('p', { class: 'muted small' },
+        'Die Daten stehen in der Namensliste (Menü → Namenslisten → Geburtstage). '
+        + 'Diese Einstellung gilt nur für dieses Gerät — so legt nicht jedes Gerät im Abgleich dieselben Seiten doppelt an.'),
+      buttonRow(button('Weggeräumte wieder anlegen', {
+        icon: 'reset', small: true, ghost: true,
+        onClick: () => {
+          geburtstageWiederAnlegen(board);
+          renderBoard();
+          toast('Alles Weggeräumte darf wiederkommen — solange der Tag läuft.', 'success');
+          render();
+        },
+      }))));
+
+    // Fragenkataloge: vier Vorlagen nach Klassenstufe, alle bearbeitbar.
+    const kataloge = katalogeVon(board);
+    const katalogSelect = h('select', { class: 'input' },
+      kataloge.map((katalog) => h('option', { value: katalog.id },
+        `${katalog.name} (${katalog.fragen.length} Fragen)`)));
+    const aktiv = kataloge.find((entry) => entry.id === regel.katalogId) || kataloge[3] || kataloge[0];
+    if (aktiv) katalogSelect.value = aktiv.id;
+    katalogSelect.addEventListener('change', () => {
+      setzeGeburtstagsEinstellungen(board.id, { katalogId: katalogSelect.value });
+      render();
+    });
+
+    const katalogBox = h('div', { class: 'stack' });
+    if (aktiv) {
+      const nameInput = h('input', {
+        class: 'input', type: 'text', value: aktiv.name,
+        oninput: (event) => {
+          aktiv.name = event.target.value;
+          touch();
+        },
+      });
+      const fragenArea = h('textarea', {
+        class: 'input input--area', rows: 8, value: aktiv.fragen.join('\n'),
+        placeholder: 'Eine Frage pro Zeile',
+      });
+      fragenArea.addEventListener('input', () => {
+        aktiv.fragen = fragenArea.value.split('\n').map((zeile) => zeile.trim()).filter(Boolean);
+        touch();
+      });
+      katalogBox.append(
+        field('Katalog', katalogSelect),
+        field('Name des Katalogs', nameInput),
+        field(`Fragen (${aktiv.fragen.length})`, fragenArea),
+        buttonRow(
+          button('Neuer Katalog', {
+            icon: 'plus', small: true,
+            onClick: () => {
+              const neu = { id: uid('kat'), name: 'Eigener Katalog', fragen: [] };
+              board.fragenkataloge.push(neu);
+              setzeGeburtstagsEinstellungen(board.id, { katalogId: neu.id });
+              touch();
+              render();
+            },
+          }),
+          button('Katalog löschen', {
+            icon: 'trash', small: true, ghost: true,
+            onClick: async () => {
+              if (board.fragenkataloge.length <= 1) {
+                toast('Der letzte Katalog bleibt.', 'warn');
+                return;
+              }
+              const ok = await confirmDialog('Katalog löschen?', `„${aktiv.name}“ wird von dieser Tafel entfernt.`);
+              if (!ok) return;
+              board.fragenkataloge = board.fragenkataloge.filter((entry) => entry.id !== aktiv.id);
+              setzeGeburtstagsEinstellungen(board.id, { katalogId: null });
+              touch();
+              render();
+            },
+          }),
+          button('Vorlagen zurückholen', {
+            icon: 'reset', small: true, ghost: true,
+            onClick: () => {
+              board.fragenkataloge = board.fragenkataloge.concat(
+                katalogVorlagen().filter((vorlage) => !board.fragenkataloge.some((k) => k.name === vorlage.name)));
+              touch();
+              render();
+            },
+          })));
+    }
+    container.appendChild(section('Fragenkataloge (fürs Ritual)', katalogBox,
+      h('p', { class: 'muted small' },
+        'Nach der Feier treten drei ausgeloste Gratulanten auf, dann darf sich das Geburtstagskind '
+        + 'eine von zwei Fragen aussuchen. Die vier Kataloge nach Klassenstufe sind Vorlagen — '
+        + 'umbenennen, ergänzen, löschen ist ausdrücklich erlaubt. Sie liegen an der Tafel und wandern über den Abgleich mit.')));
+
+    // Nachfeiern: Geburtstage aus den Ferien ausdrücklich nachholen.
+    const nachfeierBox = h('div', { class: 'stack' });
+    const liste = lists.find((entry) => entry.id === regel.listId);
+    if (regel.enabled && liste) {
+      let wochen = 6;
+      const gewaehlt = new Set();
+      const treffenBox = h('div', { class: 'stack stack--tight' });
+      const baueTreffen = () => {
+        clear(treffenBox);
+        const seit = new Date(Date.now() - wochen * 7 * 24 * 3600 * 1000);
+        const faelle = vergangene(liste, seit).map((fall) => Object.assign(fall, {
+          geburtstag: (liste.birthdays || {})[fall.name],
+        }));
+        if (!faelle.length) {
+          treffenBox.appendChild(h('p', { class: 'muted small' }, 'In diesem Zeitraum hat niemand gefeiert.'));
+          return;
+        }
+        gewaehlt.clear();
+        const heute = new Date();
+        for (const fall of faelle) {
+          const schonDa = (board.pages || []).some((page) => (page.widgets || []).some((w) => w.type === 'birthday'
+            && !(w.state || {}).hinweis && (w.state || {}).name === fall.name && (w.state || {}).jahr === fall.jahr));
+          const heuteSelbst = fall.tag.getDate() === heute.getDate() && fall.tag.getMonth() === heute.getMonth();
+          // Vorbelegt sind die, für die noch keine Seite steht.
+          if (!schonDa && !heuteSelbst) gewaehlt.add(fall.name + ':' + fall.jahr);
+          treffenBox.appendChild(toggleRow(
+            `${fall.name} — ${fall.tag.getDate()}.${fall.tag.getMonth() + 1}. (wurde ${fall.alter ?? '?'})${schonDa ? ' · Seite steht schon' : ''}`,
+            gewaehlt.has(fall.name + ':' + fall.jahr),
+            (value) => {
+              if (value) gewaehlt.add(fall.name + ':' + fall.jahr);
+              else gewaehlt.delete(fall.name + ':' + fall.jahr);
+            }));
+        }
+        treffenBox.appendChild(buttonRow(button('Ausgewählte nachfeiern', {
+          icon: 'sparkle', primary: true, small: true,
+          onClick: () => {
+            const wen = faelle.filter((fall) => gewaehlt.has(fall.name + ':' + fall.jahr));
+            if (!wen.length) {
+              toast('Niemand ausgewählt.', 'warn');
+              return;
+            }
+            legeNachfeierAn(board, wen);
+            renderBoard();
+            toast(`${wen.length} Seite(n) angelegt — „wurde" statt „wird", mit dem Tag des Geburtstags.`, 'success');
+            render();
+          },
+        })));
+      };
+      const wochenInput = h('input', {
+        class: 'input', type: 'number', min: '1', max: '26', value: String(wochen),
+        oninput: (event) => {
+          wochen = Math.max(1, Math.min(26, Number(event.target.value) || 6));
+          baueTreffen();
+        },
+      });
+      nachfeierBox.append(
+        field('Zeitraum (Wochen zurück)', wochenInput),
+        treffenBox);
+      baueTreffen();
+    } else {
+      nachfeierBox.appendChild(h('p', { class: 'muted small' },
+        'Erst oben Geburtstagsseiten einschalten und eine Liste wählen.'));
+    }
+    container.appendChild(section('Nachfeiern (z. B. nach den Ferien)', nachfeierBox,
+      h('p', { class: 'muted small' },
+        'Von selbst passiert das mit Absicht nicht — sonst bekäme ein Gerät, das sechs Wochen aus war, '
+        + 'zwanzig Seiten auf einmal. Hier entscheidet ein Mensch, wer nachfeiert. '
+        + 'Das Alter kommt vom tatsächlichen Geburtstag, nicht von heute.')));
+  }
+
+  openPanel({ title: 'Geburtstage', subtitle: `Für „${getActiveBoard().name}"`, content: container, wide: true });
+  render();
+}
+
 function openMenuPanel() {
   const container = h('div', { class: 'stack' });
   const state = getState();
@@ -582,6 +792,8 @@ function openMenuPanel() {
         button('Aussehen', { icon: 'palette', full: true, onClick: () => { closePanel(); openBackgroundPanel(); } })),
       buttonRow(
         button('Klassenräume', { icon: 'home', full: true, onClick: () => { closePanel(); openBoardsPanel(); } })),
+      buttonRow(
+        button('Geburtstage', { icon: 'sparkle', full: true, onClick: () => { closePanel(); openGeburtstagePanel(); } })),
       buttonRow(
         button('Teilen & Konto', { icon: 'share', full: true, onClick: () => { closePanel(); openSharePanel(); } }))),
     section('Ansicht',
@@ -1116,6 +1328,19 @@ async function boot() {
   document.body.classList.remove('is-loading');
 
   registerServiceWorker();
+
+  // Geburtstagsdienst: beim Start, beim Zurückkommen und stündlich
+  // nachsehen, ob heute jemand feiert (gerechnet, nicht vorgemerkt).
+  const geburtstagsBlick = () => {
+    try {
+      if (pruefeGeburtstage()) renderBoard();
+    } catch (_) { /* der Dienst darf den Start nie aufhalten */ }
+  };
+  geburtstagsBlick();
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) geburtstagsBlick();
+  });
+  setInterval(geburtstagsBlick, 60 * 60 * 1000);
 }
 
 boot();

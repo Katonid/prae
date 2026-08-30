@@ -167,6 +167,8 @@ export function defaultBoard(name = 'Neuer Klassenraum') {
     labels: 'always',
     textColor: null,
     textShadow: 'none',
+    geburtstagWeg: [],
+    fragenkataloge: [],
     format: '16:10',
     pages: [page],
     activePageId: page.id,
@@ -308,6 +310,12 @@ function normalizeState(loaded) {
       textColor: typeof board.textColor === 'string' && board.textColor ? board.textColor : null,
       // Globaler Schatten hinter der Schrift ('none' | 'soft' | 'strong').
       textShadow: ['soft', 'strong'].includes(board.textShadow) ? board.textShadow : 'none',
+      // Von Hand weggeräumte Geburtstagsseiten (je Kind und Jahr) — sie
+      // werden vom Geburtstagsdienst nicht wieder angelegt.
+      geburtstagWeg: Array.isArray(board.geburtstagWeg) ? board.geburtstagWeg : [],
+      // Fragenkataloge fürs Geburtstagsritual — liegen an der Tafel und
+      // reisen über den Abgleich mit.
+      fragenkataloge: Array.isArray(board.fragenkataloge) ? board.fragenkataloge : [],
       format: BOARD_FORMATS.some((format) => format.id === board.format) ? board.format : '16:10',
       pages,
       activePageId: pages.some((page) => page.id === board.activePageId) ? board.activePageId : pages[0].id,
@@ -329,6 +337,8 @@ function normalizeState(loaded) {
     paused: Array.isArray(list.paused) ? list.paused : [],
     // Merkmale je Name (z. B. „J“/„M“) — fürs Mischen beim Gruppen-Auslosen.
     marks: list.marks && typeof list.marks === 'object' ? list.marks : {},
+    // Geburtstage je Name als „JJJJ-MM-TT“ — für die Geburtstagsseiten.
+    birthdays: list.birthdays && typeof list.birthdays === 'object' ? list.birthdays : {},
     updatedAt: list.updatedAt || Date.now(),
   }));
   return next;
@@ -552,7 +562,14 @@ export function removePage(pageId) {
   if (!board || board.pages.length <= 1) return false;
   const index = board.pages.findIndex((page) => page.id === pageId);
   if (index < 0) return false;
+  for (const widget of board.pages[index].widgets || []) merkeGeburtstagWeg(board, widget);
   board.pages.splice(index, 1);
+  // Hinweise, die auf die gelöschte Seite zeigten, gleich mit wegräumen —
+  // sie führten sonst ins Leere.
+  for (const page of board.pages) {
+    page.widgets = (page.widgets || []).filter((widget) => !(widget.type === 'birthday'
+      && (widget.state || {}).hinweis && (widget.state || {}).zielSeite === pageId));
+  }
   if (board.activePageId === pageId) {
     board.activePageId = board.pages[Math.max(0, index - 1)].id;
   }
@@ -728,9 +745,29 @@ export function removeWidget(widgetId) {
   if (!page) return;
   const index = page.widgets.findIndex((widget) => widget.id === widgetId);
   if (index < 0) return;
+  merkeGeburtstagWeg(board, page.widgets[index]);
   page.widgets.splice(index, 1);
   touch({ reason: 'widget-remove' });
   emit('widgets-changed', board);
+}
+
+/**
+ * Ein gelöschtes Geburtstags-Element bleibt weg: Der Geburtstagsdienst
+ * rechnet bei jedem Aktivwerden neu und legte es sonst wieder an. Gemerkt
+ * wird je Kind und Jahr; wer die Feier löscht, ist den Hinweis gleich mit
+ * los (er zeigte danach ins Leere).
+ */
+function merkeGeburtstagWeg(board, widget) {
+  if (!board || !widget || widget.type !== 'birthday') return;
+  const state = widget.state || {};
+  if (!state.name || !state.jahr) return;
+  if (!Array.isArray(board.geburtstagWeg)) board.geburtstagWeg = [];
+  const merker = state.hinweis
+    ? [`hinweis-${state.name}-${state.jahr}`]
+    : [`feier-${state.name}-${state.jahr}`, `hinweis-${state.name}-${state.jahr}`];
+  for (const eintrag of merker) {
+    if (!board.geburtstagWeg.includes(eintrag)) board.geburtstagWeg.push(eintrag);
+  }
 }
 
 export function duplicateWidget(widgetId) {
