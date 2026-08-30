@@ -392,11 +392,38 @@ private struct SelectionChrome: View {
         min(max(widget.x + widget.width / 2, 280), Layout.canvasWidth - 280)
     }
 
-    /// Oberhalb des Elements — außer es klebt am oberen Rand.
+    /// Was oben die Kopfleiste und unten die Seitenreiter beanspruchen —
+    /// in Tafelpunkten, also durch den Maßstab geteilt.
+    ///
+    /// Beides schwebt über der Tafel und gehört nicht zu ihr; die Leiste
+    /// des gewählten Elements muss ihm ausweichen.
+    /// Oben genügen 90 — der Wert stand hier schon und hat sich bewährt.
+    /// Unten muss mehr frei bleiben: Seitenreiter (rund 40) plus „Leiste"
+    /// (rund 35) plus Abstand, und die Leiste wird über ihrer Mitte
+    /// gesetzt, hängt also noch gut 20 tiefer als der Wert sagt.
+    private var obererSaum: Double { 90 / factor }
+    private var untererSaum: Double { 190 / factor }
+
+    /// Wo die Werkzeugleiste steht.
+    ///
+    /// **Drei Lagen, in dieser Reihenfolge** (gemeldet 08/2026: „Die
+    /// Menüleiste eines angetippten Feldes kommt regelmäßig der
+    /// Seitenleiste ins Gehege."):
+    ///
+    /// 1. **Darüber.** Der Regelfall — sie verdeckt nichts vom Element.
+    /// 2. **Darunter**, wenn das Element am oberen Rand klebt. Aber nur,
+    ///    solange sie dort nicht in die Seitenreiter läuft. Genau das
+    ///    passierte bei einem hohen Element, das oben anfängt und unten
+    ///    aufhört — beim Sitzplan also fast immer.
+    /// 3. **Auf dem oberen Rand des Elements**, wenn beides nicht geht.
+    ///    Dann ist ein Streifen des Elements verdeckt. Das ist der
+    ///    geringste Schaden: Man sieht die Leiste ganz, man trifft ihre
+    ///    Knöpfe, und man reißt sich nicht am Seitenwechsler.
     private var toolbarY: Double {
-        widget.y > 90 / factor
-            ? widget.y - 34 / factor
-            : widget.y + widget.height + 34 / factor
+        if widget.y > obererSaum { return widget.y - 34 / factor }
+        let unten = widget.y + widget.height + 34 / factor
+        if unten < hoehe - untererSaum { return unten }
+        return max(widget.y + 34 / factor, obererSaum + 34 / factor)
     }
 
     private var toolbar: some View {

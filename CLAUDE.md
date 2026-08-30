@@ -450,6 +450,20 @@ Namens und lebt weiter.
   keine davon; sie wird beim Ankommen in `ownBoardIDs` eingetragen, sonst
   bliebe sie unsichtbar.
 
+### Die Werkzeugleiste am gewählten Element (ab 1.3.25)
+
+- Drei Lagen, in dieser Reihenfolge: **darüber** (Regelfall), **darunter**
+  (wenn das Element oben klebt), **auf dem oberen Rand des Elements** (wenn
+  beides nicht geht).
+- Die dritte Lage ist neu. Ein hohes Element, das oben anfängt und unten
+  aufhört — der Sitzplan also fast immer —, schob die Leiste nach unten,
+  und dort standen die Seitenreiter (gemeldet 08/2026). Ein verdeckter
+  Streifen des Elements ist der geringere Schaden als eine Leiste, die mit
+  dem Seitenwechsler um dieselben Fingerbreiten ringt.
+- `obererSaum` und `untererSaum` sind **Bildschirmpunkte durch den
+  Maßstab**, keine Tafelpunkte: Kopfleiste und Seitenreiter schweben über
+  der Tafel und werden beim Hineinzoomen nicht größer.
+
 ### Seiten ausblenden (ab 1.3.23)
 
 - `BoardPage.versteckt`, **nur für dieses Gerät** — genau wie
