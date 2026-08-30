@@ -118,7 +118,7 @@ struct Feierbild: View {
     // MARK: - Geschenk
 
     private func geschenk(_ zeichnung: GraphicsContext, _ groesse: CGSize) {
-        var ctx = zeichnung
+        let ctx = zeichnung
         let mitte = CGPoint(x: groesse.width / 2, y: groesse.height * 0.62)
         let kante = min(groesse.width, groesse.height) * 0.26
 

@@ -160,9 +160,14 @@ extension BoardStore {
     /// geplant — es muss also nicht das ganze Jahr im Voraus stehen.
     func planeGeburtstagsmeldungen(heute: Date = Date()) {
         let zentrale = UNUserNotificationCenter.current()
+        // Die Zentrale im Rückruf frisch holen statt sie einzufangen: Sie
+        // ist nicht als über Fäden hinweg sicher gekennzeichnet, und
+        // `current()` gibt ohnehin immer dieselbe zurück.
         zentrale.getPendingNotificationRequests { offen in
             let alte = offen.map(\.identifier).filter { $0.hasPrefix("geburtstag-") }
-            zentrale.removePendingNotificationRequests(withIdentifiers: alte)
+            guard !alte.isEmpty else { return }
+            UNUserNotificationCenter.current()
+                .removePendingNotificationRequests(withIdentifiers: alte)
         }
 
         guard Weckdienst.shared.erlaubnis == .erlaubt else { return }
