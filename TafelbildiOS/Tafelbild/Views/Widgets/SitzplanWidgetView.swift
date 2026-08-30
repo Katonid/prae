@@ -92,8 +92,17 @@ struct SitzplanWidgetView: View {
 
     // MARK: - Der Grundriss
 
+    /// Aus wessen Sicht gezeichnet wird: **aus der der Kinder**.
+    ///
+    /// Auf der Tafel schauen sie auf den Plan, und für sie liegt die
+    /// Tafelwand vorne — also oben. Eingerichtet wird dagegen aus der
+    /// eigenen Sicht, von der Tafel in die Klasse (siehe `Blickwinkel`).
+    private var blick: Blickwinkel {
+        Blickwinkel(raum: raum.masse, drehung: content.tafelseite.drehungFuerKinder)
+    }
+
     private func grundriss(in flaeche: CGSize) -> some View {
-        let masse = raum.masse
+        let masse = blick.masse
         // Seitenverhältnis halten: Ein gestauchter Grundriss verzerrt die
         // Abstände, um die es hier gerade geht.
         let mass = min(flaeche.width / masse.width, flaeche.height / masse.height)
@@ -101,6 +110,8 @@ struct SitzplanWidgetView: View {
         let hoch = masse.height * mass
         let links = (flaeche.width - breit) / 2
         let oben = (flaeche.height - hoch) / 2
+        let band = blick.rechteck(content.tafelseite.band(in: raum.masse,
+                                                          tiefe: raum.tafeltiefe))
 
         return ZStack(alignment: .topLeading) {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
@@ -112,23 +123,21 @@ struct SitzplanWidgetView: View {
                 .frame(width: breit, height: hoch)
                 .offset(x: links, y: oben)
 
-            // Die Tafel ganz vorne. Sie ist der Grund, warum „vorne" und
-            // „hinten" überhaupt eine Bedeutung haben — ohne sie wäre der
-            // Grundriss ein Rechteck ohne Richtung.
-            tafelband(mass: mass)
-                .offset(x: links, y: oben)
+            // Die Tafel — nach dem Drehen immer oben. Sie ist der Grund,
+            // warum „vorne" und „hinten" überhaupt eine Bedeutung haben.
+            tafelband(band, mass: mass)
+                .offset(x: links + band.minX * mass, y: oben + band.minY * mass)
 
             ForEach(content.plaetze) { platz in
-                platzkachel(platz, mass: mass)
-                    .offset(x: links + (platz.x - platz.breite / 2) * mass,
-                            y: oben + (platz.y - platz.hoehe / 2) * mass)
+                let feld = blick.rechteck(platz.rahmen)
+                platzkachel(platz, feld: feld, mass: mass)
+                    .offset(x: links + feld.minX * mass, y: oben + feld.minY * mass)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
-    private func tafelband(mass: Double) -> some View {
-        let band = content.tafelseite.band(in: raum.masse, tiefe: raum.tafeltiefe)
+    private func tafelband(_ band: CGRect, mass: Double) -> some View {
         let breit = band.width * mass
         let hoch = band.height * mass
         let dick = min(breit, hoch)
@@ -141,15 +150,16 @@ struct SitzplanWidgetView: View {
                     .foregroundStyle(style.ink.opacity(0.5))
                     .lineLimit(1)
                     .minimumScaleFactor(0.4)
-                    .rotationEffect(.degrees(content.tafelseite.senkrecht ? -90 : 0))
+                    // Nur die Schrift kippen, nicht der Grundriss: Namen
+                    // sollen auf keinen Fall auf dem Kopf stehen.
+                    .rotationEffect(.degrees(breit < hoch ? -90 : 0))
             }
-            .offset(x: band.minX * mass, y: band.minY * mass)
     }
 
     @ViewBuilder
-    private func platzkachel(_ platz: Sitzplatz, mass: Double) -> some View {
-        let w = platz.breite * mass
-        let h = platz.hoehe * mass
+    private func platzkachel(_ platz: Sitzplatz, feld: CGRect, mass: Double) -> some View {
+        let w = feld.width * mass
+        let h = feld.height * mass
         let offen = content.sichtbar(platz.id)
         let name = offen ? content.name(auf: platz.id) : nil
         let neu = frisch == platz.id
@@ -163,7 +173,7 @@ struct SitzplanWidgetView: View {
 
             if let name {
                 Text(name)
-                    .font(.system(size: max(6, h * 0.34), weight: .bold))
+                    .font(.system(size: max(6, min(w, h) * 0.42), weight: .bold))
                     .foregroundStyle(schrift)
                     .lineLimit(1)
                     .minimumScaleFactor(0.35)
@@ -171,7 +181,7 @@ struct SitzplanWidgetView: View {
                     .transition(.scale.combined(with: .opacity))
             } else if platz.gesperrt {
                 Image(systemName: "xmark")
-                    .font(.system(size: max(6, h * 0.34), weight: .bold))
+                    .font(.system(size: max(6, min(w, h) * 0.42), weight: .bold))
                     .foregroundStyle(style.ink.opacity(0.28))
             }
         }

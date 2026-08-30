@@ -146,6 +146,72 @@ enum Tafelseite: String, CaseIterable, Identifiable {
     }
 }
 
+extension Tafelseite {
+    /// Wie weit der Grundriss gedreht werden muss, damit die Tafelwand
+    /// oben liegt — im Uhrzeigersinn, in Grad.
+    ///
+    /// Im Uhrzeigersinn wandert die linke Wand nach oben, die untere nach
+    /// rechts. Um die **linke** Wand nach oben zu bringen, sind es also 90
+    /// Grad; um die **rechte**, 270.
+    var drehungFuerKinder: Int {
+        switch self {
+        case .oben:   return 0
+        case .links:  return 90
+        case .unten:  return 180
+        case .rechts: return 270
+        }
+    }
+}
+
+/// Aus wessen Sicht der Grundriss gezeichnet wird.
+///
+/// **Zwei Blickwinkel, ein Raum.** Beim Einrichten hängt die Tafel dort,
+/// wo sie im Raum hängt — meist unten, denn so schaut man von der Tafel in
+/// die Klasse. Auf der Tafel selbst schauen aber die *Kinder* auf den Plan,
+/// und die sitzen andersherum: Für sie liegt die Tafel vorne, also oben.
+/// Deshalb wird der Grundriss beim Anzeigen gedreht, bis die Tafelwand oben
+/// steht (Ansage des Nutzers, 08/2026).
+///
+/// **Dass dabei links und rechts tauschen, ist kein Fehler, sondern der
+/// Sinn der Sache.** Wer nach Süden schaut, hat Osten zur Linken. Ein Kind,
+/// das seinen Platz sucht, findet ihn nur dann dort, wo es ihn erwartet.
+///
+/// Gedreht werden die **Koordinaten**, nicht die Ansicht: Eine gedrehte
+/// Ansicht stellte auch die Namen auf den Kopf, und die soll man lesen
+/// können.
+struct Blickwinkel {
+    let raum: CGSize
+    /// 0, 90, 180 oder 270 Grad im Uhrzeigersinn.
+    let drehung: Int
+
+    /// Der Raum, wie er nach dem Drehen dasteht — bei 90 und 270 Grad
+    /// stehen Breite und Höhe getauscht.
+    var masse: CGSize {
+        drehung % 180 == 0 ? raum : CGSize(width: raum.height, height: raum.width)
+    }
+
+    func punkt(_ stelle: CGPoint) -> CGPoint {
+        switch drehung {
+        case 90:  return CGPoint(x: raum.height - stelle.y, y: stelle.x)
+        case 180: return CGPoint(x: raum.width - stelle.x, y: raum.height - stelle.y)
+        case 270: return CGPoint(x: stelle.y, y: raum.width - stelle.x)
+        default:  return stelle
+        }
+    }
+
+    func groesse(_ masse: CGSize) -> CGSize {
+        drehung % 180 == 0 ? masse
+                           : CGSize(width: masse.height, height: masse.width)
+    }
+
+    func rechteck(_ feld: CGRect) -> CGRect {
+        let mitte = punkt(CGPoint(x: feld.midX, y: feld.midY))
+        let masse = groesse(feld.size)
+        return CGRect(x: mitte.x - masse.width / 2, y: mitte.y - masse.height / 2,
+                      width: masse.width, height: masse.height)
+    }
+}
+
 // MARK: - Ein Platz
 
 /// Ein Sitzplatz im Grundriss.

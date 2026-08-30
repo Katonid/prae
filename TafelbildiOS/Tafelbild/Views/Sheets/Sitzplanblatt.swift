@@ -75,7 +75,15 @@ struct SitzplanSettings: View {
                 Text("An der Tafelwand hängt, was „vorne“ heißt. Ohne sie "
                      + "wäre der Grundriss ein Rechteck ohne Richtung, und "
                      + "die Wünsche „möglichst vorne“ und „möglichst hinten“ "
-                     + "hätten keinen Bezug.")
+                     + "hätten keinen Bezug.\n\n"
+
+                     + "Beim Einrichten hängt die Tafel dort, wo sie im Raum "
+                     + "hängt — du schaust von ihr aus in die Klasse. **Auf "
+                     + "der Tafel selbst wird der Plan gedreht, bis die "
+                     + "Tafelwand oben liegt**: Dort schauen die Kinder "
+                     + "darauf, und für sie ist vorne oben. Dass dabei links "
+                     + "und rechts tauschen, gehört dazu — nur so findet ein "
+                     + "Kind seinen Platz da, wo es ihn erwartet.")
             }
 
             Section {
@@ -501,7 +509,9 @@ struct Sitzplaneditor: View {
             .font(.footnote)
 
             Text(gewaehlt == nil
-                 ? "Platz antippen: zeigt, welche Plätze als „nah“ gelten. Ziehen verschiebt."
+                 ? "Platz antippen: zeigt, welche Plätze als „nah“ gelten. Ziehen "
+                   + "verschiebt. Hier siehst du den Raum aus deiner Sicht; auf der "
+                   + "Tafel steht er aus der Sicht der Kinder."
                  : "Orange sind die Plätze, die zu diesem als nah zählen.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
