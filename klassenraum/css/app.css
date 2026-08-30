@@ -2192,6 +2192,121 @@ body.is-using .draw-toolbar { bottom: calc(22px + env(safe-area-inset-bottom)); 
 
 @keyframes symbol-in { from { opacity: 0; transform: scale(0.85); } to { opacity: 1; transform: none; } }
 
+/* ---------- Geburtstag (aus der Tafelbild-App) ---------- */
+
+.w-birthday {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  border-radius: inherit;
+  overflow: hidden;
+  background: linear-gradient(180deg, #1e1b4b, #4c1d95);
+  cursor: pointer;
+}
+
+.w-birthday__canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+
+.w-birthday__text {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.28em;
+  padding: 1em;
+  pointer-events: none;
+  text-align: center;
+  /* Kontur statt Schlagschatten: drei enge Schatten legen sich ringsum. */
+  text-shadow: 0 0 3px rgba(0, 0, 0, 0.9), 0 0 6px rgba(0, 0, 0, 0.85), 0 0 16px rgba(0, 0, 0, 0.6);
+  transition: justify-content 0.3s;
+}
+
+/* Während der Feier rückt der Name nach oben und macht der Mitte Platz. */
+.w-birthday__text.is-oben { justify-content: flex-start; }
+
+.w-birthday__name { font-size: 3em; font-weight: 800; color: #fff; line-height: 1.1; }
+.w-birthday__text.is-oben .w-birthday__name { font-size: 2.7em; }
+.w-birthday__alter { font-size: 1.7em; font-weight: 800; color: #fde68a; }
+.w-birthday__text.is-oben .w-birthday__alter { font-size: 1.5em; }
+.w-birthday__wann { font-size: 1.05em; font-weight: 650; color: rgba(255, 255, 255, 0.85); }
+.w-birthday__tipp { font-size: 0.95em; font-weight: 650; color: rgba(255, 255, 255, 0.7); margin-top: 0.4em; }
+.w-birthday__wunsch { font-size: 1.2em; font-weight: 650; color: #fff; margin-top: 0.3em; }
+
+/* Das Ritual: Gratulanten und Fragen über einer dunklen Fläche. */
+.w-birthday__ritual {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.8em;
+  padding: 1.6em;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  overflow-y: auto;
+}
+
+.w-birthday__ritual.is-hidden { display: none; }
+.w-birthday__rtitel { font-size: 1.9em; font-weight: 800; text-align: center; }
+.w-birthday__rtipp { font-size: 0.95em; font-weight: 600; color: rgba(255, 255, 255, 0.6); text-align: center; }
+
+.w-birthday__gratulant {
+  display: flex;
+  align-items: center;
+  gap: 0.9em;
+  padding: 0.7em 0.9em;
+  border-radius: 0.9em;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.w-birthday__gzeichen { font-size: 1.9em; }
+.w-birthday__gtext { display: flex; flex-direction: column; gap: 0.1em; min-width: 0; }
+.w-birthday__gtext strong { font-size: 1.4em; }
+.w-birthday__grolle { margin-left: 0.6em; font-weight: 800; font-size: 1.05em; }
+.w-birthday__gtext small { color: rgba(255, 255, 255, 0.85); font-size: 0.95em; }
+
+.w-birthday__frage {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.8em;
+  padding: 0.9em 1em;
+  border-radius: 1em;
+  background: rgba(255, 255, 255, 0.1);
+  font-size: 1.25em;
+  font-weight: 650;
+}
+
+.w-birthday__fnummer { color: #fde68a; font-weight: 800; }
+
+/* Der kleine Hinweis auf der ersten Seite. */
+.w-birthday--hinweis { background: none; overflow: visible; }
+
+.w-birthday__hcard {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.7em;
+  padding: 0 1em;
+  border: 0;
+  border-radius: 22px;
+  background: linear-gradient(135deg, #c026d3, #f59e0b);
+  color: #fff;
+  cursor: pointer;
+  font: inherit;
+  box-shadow: 0 14px 30px -16px rgba(192, 38, 211, 0.9);
+  min-width: 0;
+}
+
+.w-birthday__hkuchen { font-size: 2.6em; }
+.w-birthday__htext { display: flex; flex-direction: column; align-items: flex-start; min-width: 0; }
+.w-birthday__htext small { font-weight: 650; opacity: 0.88; font-size: 0.9em; }
+.w-birthday__htext strong { font-size: 1.6em; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.w-birthday__hpfeil { margin-left: auto; opacity: 0.75; }
+
+.segmented--wrap { flex-wrap: wrap; }
+
 /* ---------- kleinere Bildschirme ---------- */
 
 @media (max-width: 620px) {

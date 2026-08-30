@@ -1,6 +1,6 @@
 /* Service Worker: App-Dateien offline verfügbar halten — und zuverlässig aktualisieren. */
 
-const VERSION = 'v58';
+const VERSION = 'v59';
 const CACHE = `klassenraum-${VERSION}`;
 const ASSETS = [
   './',
@@ -29,7 +29,10 @@ const ASSETS = [
   './js/theme.js',
   './js/media.js',
   './js/draw.js',
+  './js/geburtstage.js',
+  './js/feierbild.js',
   './js/widgets/index.js',
+  './js/widgets/birthday.js',
   './js/widgets/randomizer.js',
   './js/widgets/timer.js',
   './js/widgets/clock.js',
