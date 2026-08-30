@@ -59,12 +59,17 @@ enum Feierart: String, CaseIterable, Identifiable {
     /// Der Tusch kommt sofort, der Applaus erst, wenn das Bild seinen
     /// Höhepunkt hat — ein Beifall, der vor der Pointe einsetzt, wirkt
     /// nicht.
+    ///
+    /// **Die Luftrüssel-Aufnahme ist raus** (gemeldet: klingt gequält).
+    /// Ein Klang, der schlecht klingt, ist schlechter als keiner —
+    /// besonders bei etwas, das Freude machen soll. Ersetzt durch Tusch
+    /// und Applaus, die beide von echten Aufnahmen kommen.
     var klaenge: [(datei: String, nach: Double)] {
         switch self {
         case .geschenk:
             return [("geburtstag-tusch", 0), ("geburtstag-applaus", 1.6)]
         case .rakete:
-            return [("geburtstag-truete", 0), ("geburtstag-tusch", 0.9)]
+            return [("geburtstag-tusch", 0), ("geburtstag-applaus", 2.6)]
         case .ballons:
             return [("geburtstag-lied", 0)]
         case .feuerwerk:
@@ -72,7 +77,7 @@ enum Feierart: String, CaseIterable, Identifiable {
         case .torte:
             return [("geburtstag-lied", 0), ("geburtstag-applaus", 12.6)]
         case .konfetti:
-            return [("geburtstag-truete", 0), ("geburtstag-applaus", 0.5)]
+            return [("geburtstag-applaus", 0), ("geburtstag-lied", 0.4)]
         }
     }
 
