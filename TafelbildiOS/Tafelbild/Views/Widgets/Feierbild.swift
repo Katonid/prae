@@ -238,9 +238,15 @@ struct Feierbild: View {
             if let quelle {
                 // Aus einem Punkt heraus: erst schnell nach oben und zur
                 // Seite, dann zieht die Schwere sie herunter.
-                let winkel = -Double.pi / 2 + (seite - 0.5) * 2.2
-                let schwung = (0.35 + streu(nummer, 4) * 0.5) * groesse.height
-                x = quelle.x + cos(winkel) * schwung * eigen * 1.6
+                //
+                // **Das Tempo streut weit** (0,35 bis 1,9). Vorher lagen
+                // alle Geschwindigkeiten dicht beieinander; die Plaettchen
+                // blieben dadurch in einer Reihe und bildeten auf dem Bild
+                // saubere Boegen statt eines Schwarms.
+                let winkel = -Double.pi / 2 + (seite - 0.5) * 2.6
+                let eile = 0.35 + streu(nummer, 8) * 1.55
+                let schwung = (0.3 + streu(nummer, 4) * 0.65) * groesse.height * eile
+                x = quelle.x + cos(winkel) * schwung * eigen * 1.5
                 y = quelle.y + sin(winkel) * schwung * eigen
                     + groesse.height * 1.5 * eigen * eigen * tempo * 0.5
             } else {
@@ -269,8 +275,11 @@ struct Feierbild: View {
     /// Aufgehen, und aus dem offenen Kasten schießt Licht.
     private func geschenk(_ zeichnung: GraphicsContext, _ groesse: CGSize) {
         let ctx = zeichnung
-        let kante = min(groesse.width, groesse.height) * 0.28
-        let boden = groesse.height * 0.74
+        // Groesser als vorher: Auf dem Foto fuellte das Paket kaum ein
+        // Viertel der Karte und wirkte verloren. Und tiefer, damit oben die
+        // Schrift Platz hat und der Deckel Luft zum Wegfliegen.
+        let kante = min(groesse.width, groesse.height) * 0.42
+        let boden = groesse.height * 0.88
         let mitteX = groesse.width / 2
 
         // Wippen vor dem Aufgehen: dreimal anheben, immer höher.
@@ -338,6 +347,15 @@ struct Feierbild: View {
                              width: kante * 0.15, height: kante)), with: .color(band))
         ctx.fill(Path(CGRect(x: kasten.minX, y: oben + kante * 0.44,
                              width: kante, height: kante * 0.15)), with: .color(band))
+
+        // Die Schleife sitzt auf dem geschlossenen Paket — vorher tauchte
+        // sie erst auf dem wegfliegenden Deckel auf, und bis dahin war das
+        // Paket ein nacktes Rechteck mit zwei Streifen.
+        if auf < 0.05 {
+            var ruhend = ctx
+            schleife(&ruhend, mitte: CGPoint(x: mitteX, y: kasten.minY - tiefe * 0.3),
+                     kante: kante)
+        }
 
         // Der Deckel: klappt auf, dreht sich und fliegt fort.
         var deckel = ctx
@@ -598,8 +616,11 @@ struct Feierbild: View {
             let hoehe = breite * 1.22
             let x = (0.08 + streu(nummer, 63) * 0.84) * groesse.width
                   + sin(eigen * 3 + streu(nummer, 64) * 6.28) * groesse.width * 0.05
-            let y = groesse.height + hoehe - eigen * (groesse.height + hoehe * 3.2)
-                  * (0.7 + streu(nummer, 65) * 0.6)
+            // Schneller und weiter: Auf dem Foto haingen fast alle Ballons
+            // noch am unteren Rand, halb abgeschnitten. Jetzt steigen sie
+            // in der Zeit der Feier sicher durch das ganze Bild.
+            let y = groesse.height + hoehe * 1.4
+                  - eigen * (groesse.height + hoehe * 3.4) * (1.15 + streu(nummer, 65) * 0.7)
             guard y > -hoehe * 2, y < groesse.height + hoehe * 2 else { continue }
 
             let kippen = sin(eigen * 3 + streu(nummer, 64) * 6.28) * 0.16
