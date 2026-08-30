@@ -397,6 +397,15 @@ struct ShareSheet: View {
                     }
                 }
 
+                if !board.geburtstagWeg.isEmpty {
+                    Button {
+                        store.geburtstageWiederAnlegen(boardID: board.id)
+                    } label: {
+                        Label("Weggeräumte wieder anlegen",
+                              systemImage: "arrow.uturn.backward")
+                    }
+                }
+
                 if regel != .aus {
                     DatePicker("Uhrzeit", selection: Binding(
                         get: { uhrzeit(regel == .amVortag ? board.geburtstagsZeitVortag
@@ -430,7 +439,10 @@ struct ShareSheet: View {
                  + "jede bekommt eine andere Feier. Auf der ersten Seite steht "
                  + "oben rechts ein Hinweis, der dorthin führt.\n\n"
 
-                 + "Die Seiten bleiben stehen, bis du sie löschst.")
+                 + "Die Seiten bleiben stehen, bis du sie löschst — und dann "
+                 + "bleiben sie weg. Auch am Geburtstag selbst: Gelöschtes wird "
+                 + "nicht noch einmal angelegt. Versehentlich? Dann hilft "
+                 + "„Weggeräumte wieder anlegen“, solange der Tag läuft.")
         }
     }
 

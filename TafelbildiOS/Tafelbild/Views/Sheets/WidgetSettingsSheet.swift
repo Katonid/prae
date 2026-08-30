@@ -2108,12 +2108,21 @@ private struct GeburtstagSettings: View {
                     Text(art.titel).tag(art)
                 }
             }
+            Picker("Fanfare", selection: Binding(
+                get: { Fanfare.aus(content.fanfare) },
+                set: { content.fanfare = $0.rawValue }
+            )) {
+                ForEach(Fanfare.allCases) { klang in
+                    Text(klang.titel).tag(klang)
+                }
+            }
         } header: {
             Text("Geburtstag")
         } footer: {
             Text("Die Feier wird beim Anlegen der Seite ausgewürfelt, damit "
                  + "nicht bei jedem Kind dasselbe passiert. Hier lässt sie sich "
-                 + "von Hand ändern.\n\n"
+                 + "von Hand ändern. Die Fanfare wechselt sich ab — zwei "
+                 + "Kinder am selben Tag bekommen nicht dieselbe.\n\n"
 
                  + "Die Seite bleibt stehen, bis du sie löschst — über die "
                  + "Seitenverwaltung.")

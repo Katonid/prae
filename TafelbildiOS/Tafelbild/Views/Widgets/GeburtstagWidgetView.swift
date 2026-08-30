@@ -208,7 +208,7 @@ struct GeburtstagWidgetView: View {
         einzug = 0.7
         withAnimation(.spring(response: 0.5, dampingFraction: 0.48)) { einzug = 1 }
         Haptics.success()
-        Feierklang.spiele(feier)
+        Feierklang.spiele(feier, fanfare: Fanfare.aus(content.fanfare))
 
         // Nach dem Auftritt zurück in den ruhigen Zustand — die Seite
         // bleibt ja stehen und soll nicht endlos flackern.

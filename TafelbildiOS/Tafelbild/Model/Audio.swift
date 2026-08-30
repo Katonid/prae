@@ -481,12 +481,12 @@ enum Feierklang {
     private static var spieler: [AVAudioPlayer] = []
     private static var geplant: [Task<Void, Never>] = []
 
-    static func spiele(_ art: Feierart) {
+    static func spiele(_ art: Feierart, fanfare: Fanfare = .tusch) {
         stoppe()
         if !AudioSessionCenter.isRecording {
             AudioSessionCenter.configure(recording: false)
         }
-        for klang in art.klaenge {
+        for klang in art.klaenge(fanfare: fanfare) {
             if klang.nach <= 0 {
                 starte(klang.datei)
             } else {
