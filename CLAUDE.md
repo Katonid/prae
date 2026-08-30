@@ -468,6 +468,14 @@ Namens und lebt weiter.
   Beamer, ein kurzes Verlassen darf nicht zurücksetzen, und ein zweites
   Gerät zeigt dasselbe. Namen und Fragen als **Text**, wie im
   Sitzplanarchiv.
+- **Fragenkataloge liegen an der TAFEL** (`Board.fragenkataloge`), nicht
+  in der App: Eine Klassenstufe gehört zur Klasse, und weil Tafeln ohnehin
+  abgleichen, reisen sie zur Kollegin mit — ohne eigene Art von Datensatz.
+  In `mitFremdemInhalt` mit übernommen (Inhalt gehört allen); der
+  *gewählte* Katalog bleibt wie die übrigen Geburtstagseinstellungen
+  örtlich. Vier Vorlagen (1. bis 4. Klasse) werden beim ersten Öffnen
+  hineinkopiert — erst dann, damit eine Tafel ohne Ritual keine
+  hundertvierzig Fragen mitschleppt.
 - Der Fundus steht in `Model/Geburtstagsfragen.swift` (80 Fragen, vom
   Nutzer für die 4. Klasse zusammengestellt). **Zwei** zur Auswahl, nicht
   eine (das wäre eine Prüfungsfrage) und nicht drei (dann wird aus dem
@@ -582,6 +590,13 @@ Namens und lebt weiter.
   still. Solange Leerstand nichts kostet, ist das dem Suchlauf egal; mit
   dem Gewicht hört der Viererblock vorne von selbst auf, eine gute Idee zu
   sein.
+- **Gesichert wird von selbst** (ab 1.3.13, Ansage des Nutzers: „Ich habe
+  Angst, dass ich bei manueller Speicherung diese häufiger vergessen
+  werde."). Jede Auslosung legt sofort einen Eintrag an (`beginneArchiv`,
+  Titel „KW 35 – 30.08.2026"), jeder Tausch schreibt ihn fort
+  (`schreibeArchivFort`), erst die nächste Auslosung beginnt einen neuen.
+  So entsteht je Sitzordnung genau ein Eintrag und nicht je Handgriff
+  einer. Umbenennen geht in der Archivansicht.
 - **Schloss und Archiv** (`gesperrt`, `archiv`): Eine fertige Sitzordnung
   steht wochenlang auf der Tafel; ohne Schloss wäre sie mit einem
   Fingerzeig neu ausgelost. Beim Sichern geht das Schloss von selbst zu.

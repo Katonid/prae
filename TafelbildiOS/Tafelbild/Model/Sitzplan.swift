@@ -573,6 +573,17 @@ struct Sitzarchiv: Codable, Equatable, Identifiable {
     var belegung: [String: String] = [:]
 
     var datum: Date { Date(timeIntervalSince1970: Double(zeitMs) / 1000) }
+
+    /// Kalenderwoche und Tag der Auslosung.
+    ///
+    /// Beides, nicht nur eines: Die Woche ist das, wonach man sucht („wie
+    /// saßen sie in KW 35?"), der Tag das, was zwei Auslosungen derselben
+    /// Woche auseinanderhält.
+    static func standardtitel(am zeitpunkt: Date = Date()) -> String {
+        let woche = Calendar.current.component(.weekOfYear, from: zeitpunkt)
+        return "KW \(woche) – " + zeitpunkt.formatted(.dateTime.day().month(.twoDigits)
+                                                        .year())
+    }
 }
 
 extension Sitzarchiv {
@@ -650,6 +661,15 @@ struct SitzplanContent: Codable, Equatable {
     var gesperrt: Bool = false
     /// Gesicherte Sitzordnungen, die neueste zuerst.
     var archiv: [Sitzarchiv] = []
+    /// Der Eintrag, der zur laufenden Auslosung gehört.
+    ///
+    /// **Gesichert wird von selbst** (Ansage des Nutzers, 08/2026: „Ich
+    /// habe Angst, dass ich bei manueller Speicherung diese häufiger
+    /// vergessen werde."). Jede Auslosung legt sofort einen Eintrag an;
+    /// jeder Tausch danach schreibt ihn fort. Erst die nächste Auslosung
+    /// beginnt einen neuen — so entsteht je Sitzordnung genau ein Eintrag
+    /// und nicht je Handgriff einer.
+    var laufenderEintrag: String = ""
 
     var mitKlang: Bool = true
     /// Beim Verteilen einen Auftritt zeigen — oder still hinlegen.
@@ -696,6 +716,38 @@ struct SitzplanContent: Codable, Equatable {
         return weit.isNull || weit.isEmpty ? ganzer : weit
     }
 
+    /// Die aktuelle Belegung als Namen — so, wie das Archiv sie führt.
+    var belegungAlsNamen: [String: String] {
+        var aus: [String: String] = [:]
+        for (platz, kind) in belegung { aus[platz] = namen[kind] ?? "—" }
+        return aus
+    }
+
+    /// Einen neuen Archiveintrag für eine frische Auslosung anlegen.
+    mutating func beginneArchiv(am zeitpunkt: Date = Date()) {
+        var eintrag = Sitzarchiv()
+        eintrag.zeitMs = Int64(zeitpunkt.timeIntervalSince1970 * 1000)
+        eintrag.titel = Sitzarchiv.standardtitel(am: zeitpunkt)
+        eintrag.belegung = belegungAlsNamen
+        archiv.insert(eintrag, at: 0)
+        if archiv.count > Self.archivGrenze { archiv.removeLast() }
+        laufenderEintrag = eintrag.id
+    }
+
+    /// Den laufenden Eintrag auf Stand halten — nach jedem Tausch.
+    mutating func schreibeArchivFort() {
+        guard let stelle = archiv.firstIndex(where: { $0.id == laufenderEintrag })
+        else { return }
+        archiv[stelle].belegung = belegungAlsNamen
+    }
+
+    /// Der Eintrag, in den gerade geschrieben wird.
+    var laufenderTitel: String? {
+        archiv.first { $0.id == laufenderEintrag }?.titel.nonEmpty
+    }
+
+    static let archivGrenze = 40
+
     /// Steht der Platz schon offen?
     func sichtbar(_ platzID: String) -> Bool {
         guard let stelle = reihenfolge.firstIndex(of: platzID) else {
@@ -711,7 +763,7 @@ extension SitzplanContent {
     private enum SitzplanKeys: String, CodingKey {
         case titel, listID, plaetze, raum, tafel, naehe, belegung, namen,
              reihenfolge, aufgedeckt, bericht, mitKlang, mitAuftritt,
-             merkmalID, merkmalsregel, gesperrt, archiv, masstab
+             merkmalID, merkmalsregel, gesperrt, archiv, masstab, laufenderEintrag
     }
 
     init(from decoder: Decoder) throws {
@@ -745,6 +797,7 @@ extension SitzplanContent {
         bericht = c.wert(.bericht, [String]())
         gesperrt = c.wert(.gesperrt, false)
         archiv = c.wert(.archiv, [Sitzarchiv]())
+        laufenderEintrag = c.wert(.laufenderEintrag, "")
         mitKlang = c.wert(.mitKlang, true)
         mitAuftritt = c.wert(.mitAuftritt, true)
     }

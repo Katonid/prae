@@ -28,7 +28,7 @@ struct SitzplanWidgetView: View {
     @State private var ersteWahl: String?
 
     enum Blattwunsch: String, Identifiable {
-        case bericht, sichern
+        case bericht
         var id: String { rawValue }
     }
 
@@ -50,8 +50,6 @@ struct SitzplanWidgetView: View {
             switch wunsch {
             case .bericht:
                 SitzberichtSheet(zeilen: content.bericht)
-            case .sichern:
-                SitzSichernSheet(content: $content)
             }
         }
     }
@@ -112,15 +110,11 @@ struct SitzplanWidgetView: View {
                 }
                 .buttonStyle(.plain)
 
-                Button {
-                    blatt = .sichern
-                    Haptics.tap()
-                } label: {
-                    Label("Sichern", systemImage: "tray.and.arrow.down")
-                        .font(Theme.font(metrics.em(0.78), weight: .bold))
-                        .foregroundStyle(style.accent)
+                if let titel = content.laufenderTitel {
+                    Label(titel, systemImage: "checkmark.circle.fill")
+                        .font(Theme.font(metrics.em(0.78), weight: .semibold))
+                        .foregroundStyle(style.ink.opacity(0.5))
                 }
-                .buttonStyle(.plain)
 
                 Spacer(minLength: 0)
 
@@ -324,6 +318,9 @@ struct SitzplanWidgetView: View {
             content.belegung[platz.id] = a
             if content.belegung[erster] == nil { content.belegung.removeValue(forKey: erster) }
             if content.belegung[platz.id] == nil { content.belegung.removeValue(forKey: platz.id) }
+            // Der laufende Eintrag zieht mit: Was auf der Tafel steht, ist
+            // auch das, was im Archiv steht.
+            content.schreibeArchivFort()
         }
         ersteWahl = nil
     }
@@ -422,6 +419,10 @@ struct SitzplanWidgetView: View {
         neu.namen = namen
         neu.reihenfolge = Array(ergebnis.belegung.keys).shuffled()
         neu.aufgedeckt = 0
+        // **Sofort sichern, nicht auf einen Knopf warten.** Wer die
+        // Sitzordnung Wochen später nachschlagen will, hat sonst nur das,
+        // woran er im Trubel gedacht hat.
+        neu.beginneArchiv()
         content = neu
 
         guard content.mitAuftritt else {
@@ -491,84 +492,5 @@ struct SitzberichtSheet: View {
                 }
             }
         }
-    }
-}
-
-/// Die Aufforderung zum Sichern.
-///
-/// **Warum überhaupt sichern.** Eine Sitzordnung gilt Wochen. Wer im
-/// November nachsehen will, wie die Klasse im September saß, hat sonst
-/// nichts in der Hand — die nächste Auslosung überschreibt die vorige
-/// spurlos. Vorbelegt ist deshalb die Kalenderwoche: Genau daran hängt die
-/// Frage „wann war das?".
-struct SitzSichernSheet: View {
-    @Binding var content: SitzplanContent
-    @Environment(\.dismiss) private var dismiss
-    @State private var titel = ""
-
-    var body: some View {
-        NavigationStack {
-            Form {
-                Section {
-                    TextField("Bezeichnung", text: $titel, prompt: Text(vorschlag))
-                } header: {
-                    Text("Sitzordnung sichern")
-                } footer: {
-                    Text("Gesichert werden die Namen auf ihren Plätzen, nicht "
-                         + "der Grundriss — der gehört dem Element und darf sich "
-                         + "ändern. Die Bezeichnung ist frei; vorbelegt ist die "
-                         + "Kalenderwoche.")
-                }
-
-                if !content.archiv.isEmpty {
-                    Section {
-                        ForEach(content.archiv) { eintrag in
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(eintrag.titel.nonEmpty ?? "Ohne Bezeichnung")
-                                Text(eintrag.datum.formatted(date: .abbreviated, time: .shortened))
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                    } header: {
-                        Text("Schon gesichert")
-                    }
-                }
-            }
-            .navigationTitle("Sichern")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Abbrechen") { dismiss() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Sichern") { sichere() }
-                }
-            }
-        }
-    }
-
-    private var vorschlag: String {
-        let woche = Calendar.current.component(.weekOfYear, from: Date())
-        return "KW \(woche)"
-    }
-
-    private func sichere() {
-        var eintrag = Sitzarchiv()
-        eintrag.titel = titel.nonEmpty ?? vorschlag
-        // Die Namen als Text, nicht die Kennungen: Ein Archiv, in dem
-        // nachträglich Lücken entstehen, hilft niemandem.
-        var belegt: [String: String] = [:]
-        for (platz, kind) in content.belegung {
-            belegt[platz] = content.namen[kind] ?? "—"
-        }
-        eintrag.belegung = belegt
-        content.archiv.insert(eintrag, at: 0)
-        if content.archiv.count > 40 { content.archiv.removeLast() }
-        // Gesichert heißt fertig: Damit ein Fingerzeig sie nicht gleich
-        // wieder auslost, geht das Schloss zu.
-        content.gesperrt = true
-        Haptics.success()
-        dismiss()
     }
 }

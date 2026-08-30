@@ -225,6 +225,8 @@ struct WidgetHostView: View {
             GeburtstagWidgetView(content: bindGeburtstag(value), interactive: !editing,
                                  list: store.nameList(store.board(boardID)?
                                      .geburtstagslisteID(vorhanden: store.nameLists)),
+                                 fundus: store.board(boardID)?.geburtstagsfragen
+                                     ?? Geburtstagsfragen.klasse4,
                                  onSpringen: { seite in
                                      store.zeigeSeite(seite, auf: boardID)
                                  })

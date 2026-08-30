@@ -75,7 +75,121 @@ enum Geburtstagsfragen {
     /// Aussuchen ein Abwägen, und der Schwung ist weg.
     static let anzahl = 2
 
-    static let alle: [String] = [
+    /// Erste Klasse: kurze Fragen, nichts, was Erinnerung an ein
+    /// ganzes Jahr voraussetzt.
+    static let klasse1: [String] = [
+        "Was ist deine Lieblingsfarbe?",
+        "Welches Tier magst du besonders gern?",
+        "Welches Tier wärst du gerne für einen Tag?",
+        "Was ist dein Lieblingseis?",
+        "Was isst du besonders gerne?",
+        "Was spielst du gerne?",
+        "Was machst du gerne auf dem Schulhof?",
+        "Was ist dein Lieblingsfach?",
+        "Malst du lieber oder baust du lieber?",
+        "Was findest du schöner: Sommer oder Winter?",
+        "Magst du lieber Hunde oder Katzen?",
+        "Würdest du lieber fliegen oder unter Wasser atmen können?",
+        "Wenn du zaubern könntest – was würdest du zaubern?",
+        "Welche Superkraft hättest du gerne?",
+        "Wenn du einen Drachen hättest – wie würde er heißen?",
+        "Welche Farbe hätte dein Drache?",
+        "Wenn du ein Haustier aussuchen dürftest – welches?",
+        "Wenn du auf einer Wolke sitzen könntest – wohin würdest du fliegen?",
+        "Wenn du eine Riesenrutsche bauen könntest – wo sollte sie enden?",
+        "Wenn dein Bett fliegen könnte – wohin würdest du nachts reisen?",
+        "Was würdest du gerne einmal ausprobieren?",
+        "Was macht dir gute Laune?",
+        "Was kannst du schon richtig gut?",
+        "Was machst du gerne mit anderen Kindern?",
+        "Was ist dein Lieblingsspiel?",
+        "Was würdest du gerne einmal in der Schule machen?",
+        "Wenn du einen Tag lang Lehrer oder Lehrerin wärst – was würdest du machen?",
+        "Welches Tier wäre ein guter Lehrer?",
+        "Wenn Tiere sprechen könnten – mit welchem würdest du reden?",
+        "Was wünschst du dir für deinen Geburtstag, das man nicht kaufen kann?"
+    ]
+
+    /// Zweite Klasse.
+    static let klasse2: [String] = [
+        "Was machst du nach der Schule besonders gerne?",
+        "Was ist dein Lieblingsort?",
+        "Welche Jahreszeit gefällt dir am besten – und warum?",
+        "Was kannst du besonders gut?",
+        "Was würdest du gerne richtig gut können?",
+        "Was macht dich meistens fröhlich?",
+        "Was bringt dich zum Lachen?",
+        "Welche Sache macht mit Freunden mehr Spaß als allein?",
+        "Was ist dein Lieblingsspiel in der Pause?",
+        "Was würdest du gerne einmal mit unserer Klasse machen?",
+        "Wenn du ein neues Schulfach erfinden könntest – welches?",
+        "Wenn du einen Tag keine Schule hättest – was würdest du machen?",
+        "Wenn du einen Roboter hättest – wobei sollte er dir helfen?",
+        "Wie würde dein Roboter heißen?",
+        "Wenn du ein Baumhaus hättest – was müsste darin sein?",
+        "Wenn du eine geheime Tür entdecken würdest – wohin sollte sie führen?",
+        "Wenn du eine Schatzkarte findest – welchen Schatz würdest du gerne entdecken?",
+        "Wenn du eine eigene Insel hättest – wie würde sie heißen?",
+        "Wenn du ein neues Tier erfinden könntest – wie sähe es aus?",
+        "Welches Tier wäre vermutlich besonders gut in Mathe?",
+        "Welches Tier wäre der Klassenclown?",
+        "Welche Figur aus einem Film oder Buch würdest du gerne treffen?",
+        "Wenn du in einer Geschichte leben könntest – in welcher?",
+        "Würdest du lieber auf dem Mond oder unter dem Meer leben?",
+        "Würdest du lieber mit Tieren sprechen oder fliegen können?",
+        "Wenn du eine neue Eissorte erfinden könntest – welche?",
+        "Wie würde deine perfekte Pizza aussehen?",
+        "Wenn du einen Freizeitpark bauen würdest – was müsste es dort geben?",
+        "Was sollte unbedingt einmal erfunden werden?",
+        "Was wünschst du dir für dein neues Lebensjahr?"
+    ]
+
+    /// Dritte Klasse: schon mit Rückblick und Vorhaben.
+    static let klasse3: [String] = [
+        "Was kannst du heute besser als vor einem Jahr?",
+        "Was hast du einmal geschafft, obwohl es zuerst schwierig war?",
+        "Was möchtest du gerne noch lernen?",
+        "Worauf bist du ein bisschen stolz?",
+        "Was macht einen richtig guten Tag für dich aus?",
+        "Was macht dir fast immer gute Laune?",
+        "Was findest du an Schule richtig gut?",
+        "Was würdest du an Schule gerne verändern?",
+        "Wenn du ein neues Schulfach erfinden könntest – worum würde es gehen?",
+        "Was würdest du als Schulleiter oder Schulleiterin verändern?",
+        "Was sollte unsere Klasse unbedingt einmal gemeinsam machen?",
+        "Was macht eine gute Klasse aus?",
+        "Welche Sache kannst du anderen Kindern vielleicht besonders gut erklären?",
+        "Welche Eigenschaft findest du bei anderen Menschen besonders wichtig?",
+        "Was findest du mutig?",
+        "Was ist schöner: etwas alleine schaffen oder gemeinsam?",
+        "Welchen Beruf würdest du gerne einmal ausprobieren?",
+        "Wenn du eine Sache sofort perfekt können könntest – welche?",
+        "Welche Sprache würdest du gerne sofort sprechen können?",
+        "Welches Instrument würdest du gerne perfekt spielen?",
+        "Wenn du für einen Tag berühmt sein könntest – wofür?",
+        "Welche Person aus einem Buch oder Film würdest du gerne treffen?",
+        "Wenn du einen Tag in einer anderen Zeit verbringen könntest – wann?",
+        "Wie stellst du dir Schule in 100 Jahren vor?",
+        "Welche Erfindung fehlt der Welt noch?",
+        "Wenn du eine App erfinden könntest – was könnte sie?",
+        "Wenn du einen eigenen Planeten hättest – wie sähe er aus?",
+        "Wenn du drei Dinge auf eine einsame Insel mitnehmen dürftest – welche?",
+        "Welchen Ort auf der Welt würdest du gerne einmal sehen?",
+        "Was würdest du gerne einmal erleben?",
+        "Wenn du eine Woche lang eine Superkraft hättest – welche?",
+        "Was würdest du machen, wenn du einen Tag unsichtbar wärst?",
+        "Was wäre besser: fliegen können oder jede Sprache verstehen?",
+        "Wenn du einen eigenen Freizeitpark hättest – was wäre die Hauptattraktion?",
+        "Wenn du ein Restaurant eröffnen würdest – was gäbe es dort?",
+        "Wenn du einen Feiertag erfinden könntest – was würde man feiern?",
+        "Wenn du einen zusätzlichen Wochentag hättest – wofür würdest du ihn nutzen?",
+        "Was war bisher ein schöner Moment in unserer Klasse?",
+        "Was möchtest du bis zum Ende dieses Schuljahres noch erleben oder schaffen?",
+        "Was wünschst du dir für dein neues Lebensjahr, das man nicht kaufen kann?"
+    ]
+
+    /// Vierte Klasse — der Katalog, mit dem alles anfing.
+    static let klasse4: [String] = [
         "Wenn du morgen irgendwo auf der Welt aufwachen könntest – wo wäre das?",
         "Welches Tier wärst du gerne für einen Tag?",
         "Wenn du eine Superkraft haben könntest – welche?",
@@ -164,8 +278,47 @@ enum Geburtstagsfragen {
         "Was wünschst du dir für dein neues Lebensjahr – etwas, das man nicht kaufen kann?"
     ]
 
-    /// Zwei verschiedene Fragen, zufällig gezogen.
-    static func auswahl(_ wieviele: Int = anzahl) -> [String] {
-        Array(alle.shuffled().prefix(max(1, min(wieviele, alle.count))))
+    /// Zwei verschiedene Fragen aus einem Fundus, zufällig gezogen.
+    static func auswahl(aus fundus: [String], _ wieviele: Int = anzahl) -> [String] {
+        Array(fundus.shuffled().prefix(max(1, min(wieviele, fundus.count))))
+    }
+
+    /// Die mitgelieferten Kataloge.
+    ///
+    /// **Vier, nach Klassenstufe.** Eine Frage wie „Was kannst du heute
+    /// besser als vor einem Jahr?" geht in der ersten Klasse ins Leere,
+    /// und „Was ist deine Lieblingsfarbe?" ist in der vierten keine Frage
+    /// mehr. Alle vier sind Vorlagen, keine Vorschrift: Sie werden beim
+    /// ersten Öffnen in die Tafel kopiert und lassen sich dort ändern,
+    /// erweitern und löschen.
+    static func vorlagen() -> [Fragenkatalog] {
+        [Fragenkatalog(name: "1. Klasse", fragen: klasse1),
+         Fragenkatalog(name: "2. Klasse", fragen: klasse2),
+         Fragenkatalog(name: "3. Klasse", fragen: klasse3),
+         Fragenkatalog(name: "4. Klasse", fragen: klasse4)]
+    }
+}
+
+/// Ein Fragenkatalog — ein Name und seine Fragen.
+///
+/// **Liegt an der Tafel, nicht in der App.** Eine Klassenstufe gehört zu
+/// der Klasse, mit der man arbeitet; wer zwei Tafeln für zwei Lerngruppen
+/// führt, braucht zwei Kataloge. Und weil Tafeln ohnehin abgleichen,
+/// reisen die Kataloge zur Kollegin mit, ohne dass es dafür eine eigene
+/// Art von Datensatz braucht.
+struct Fragenkatalog: Codable, Equatable, Identifiable {
+    var id: String = UUID().uuidString
+    var name: String = ""
+    var fragen: [String] = []
+}
+
+extension Fragenkatalog {
+    private enum KatalogKeys: String, CodingKey { case id, name, fragen }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: KatalogKeys.self)
+        id = c.wert(.id, UUID().uuidString)
+        name = c.wert(.name, "")
+        fragen = c.wert(.fragen, [String]())
     }
 }

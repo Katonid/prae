@@ -1506,6 +1506,20 @@ struct Board: Codable, Identifiable, Equatable {
     var geburtstagsZeit: Int = 8 * 60
     /// Uhrzeit am Vortag. Vorgabe 15:00 — nach dem Unterricht.
     var geburtstagsZeitVortag: Int = 15 * 60
+    /// Die Fragenkataloge dieser Tafel und der gewählte.
+    ///
+    /// **An der Tafel, nicht in der App.** Eine Klassenstufe gehört zu der
+    /// Klasse, mit der man arbeitet; wer zwei Tafeln für zwei Lerngruppen
+    /// führt, braucht zwei Kataloge. Und weil Tafeln ohnehin abgleichen,
+    /// reisen sie zur Kollegin mit, ohne dass es dafür eine eigene Art von
+    /// Datensatz bräuchte.
+    ///
+    /// Leer heißt: noch nicht eingerichtet — dann werden beim ersten
+    /// Öffnen die Vorlagen hineinkopiert (`Geburtstagsfragen.vorlagen`).
+    var fragenkataloge: [Fragenkatalog] = []
+    /// Kennung des gewählten Katalogs. Leer = der erste.
+    var fragenkatalog: String = ""
+
     /// Was von Hand weggeräumt wurde und nicht wiederkommen soll.
     ///
     /// Merker der Form `feier-<Eintrag>-<Jahr>` bzw. `hinweis-…` (siehe
@@ -1579,6 +1593,18 @@ struct Board: Codable, Identifiable, Equatable {
     /// Ist keine ausgewählt, gilt die erste, die ein Zufallsnamen-Element
     /// benutzt — das ist fast immer die Klassenliste, und niemand muss
     /// etwas einstellen, damit es losgeht.
+    /// Die Fragen, aus denen das Geburtstagsritual zieht.
+    ///
+    /// Ohne eingerichtete Kataloge die Vorlage der vierten Klasse — damit
+    /// nie eine leere Seite dasteht.
+    var geburtstagsfragen: [String] {
+        guard !fragenkataloge.isEmpty else { return Geburtstagsfragen.klasse4 }
+        if let gewaehlt = fragenkataloge.first(where: { $0.id == fragenkatalog }) {
+            return gewaehlt.fragen
+        }
+        return fragenkataloge.first?.fragen ?? Geburtstagsfragen.klasse4
+    }
+
     func geburtstagslisteID(vorhanden: [NameList]) -> String? {
         if let gewaehlt = geburtstagsliste.nonEmpty,
            vorhanden.contains(where: { $0.id == gewaehlt }) {
@@ -1740,6 +1766,9 @@ struct Board: Codable, Identifiable, Equatable {
         neu.embeddedLists = []
 
         neu.loeschrecht = fremd.loeschrecht
+        // Kataloge sind Inhalt, nicht Einstellung: Wer eine Frage
+        // hinzufügt, tut das für alle, die auf diese Tafel schauen.
+        neu.fragenkataloge = fremd.fragenkataloge
 
         neu.widgets = fremd.widgets.map { fremdes in
             guard var meines = widgets.first(where: { $0.id == fremdes.id }) else {
@@ -2052,6 +2081,7 @@ extension Board {
         case widgets, pages, drawing, members, ownerUserID, loeschrecht
         case geburtstage, geburtstagsliste, geburtstagsErinnerung
         case geburtstagsZeit, geburtstagsZeitVortag, geburtstagWeg
+        case fragenkataloge, fragenkatalog
         case memberUserIDs, joinCode, geteilt, owner, createdAtMs, updatedAtMs, deleted
         case embeddedLists
     }
@@ -2082,6 +2112,8 @@ extension Board {
         geburtstage = c.wert(.geburtstage, false)
         geburtstagsliste = c.wert(.geburtstagsliste, "")
         geburtstagWeg = c.wert(.geburtstagWeg, [String]())
+        fragenkataloge = c.wert(.fragenkataloge, [Fragenkatalog]())
+        fragenkatalog = c.wert(.fragenkatalog, "")
         geburtstagsErinnerung = c.wert(.geburtstagsErinnerung,
                                        Geburtstagserinnerung.vorgabe.rawValue)
         geburtstagsZeit = c.wert(.geburtstagsZeit, 8 * 60)

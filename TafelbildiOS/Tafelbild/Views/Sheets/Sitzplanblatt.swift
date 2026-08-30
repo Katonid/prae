@@ -966,6 +966,19 @@ struct SitzarchivAnsicht: View {
             .font(.footnote)
             .foregroundStyle(.secondary)
 
+            // Der Name entsteht beim Auslosen von selbst (Kalenderwoche und
+            // Tag). Umbenennen geht hier — „Nach den Ferien" sagt manchmal
+            // mehr als „KW 35".
+            TextField("Bezeichnung", text: Binding(
+                get: { content.archiv.first { $0.id == eintrag.id }?.titel ?? "" },
+                set: { neu in
+                    guard let stelle = content.archiv.firstIndex(where: { $0.id == eintrag.id })
+                    else { return }
+                    content.archiv[stelle].titel = neu
+                }
+            ))
+            .textFieldStyle(.roundedBorder)
+
             if !heimatlos.isEmpty {
                 Text("Ohne Platz im heutigen Grundriss: "
                      + heimatlos.joined(separator: ", "))

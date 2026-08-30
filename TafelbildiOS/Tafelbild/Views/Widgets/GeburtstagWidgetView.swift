@@ -17,6 +17,8 @@ struct GeburtstagWidgetView: View {
     var interactive: Bool
     /// Die Klassenliste — daraus werden die drei Gratulanten gezogen.
     var list: NameList?
+    /// Der Fragenkatalog dieser Tafel.
+    var fundus: [String] = Geburtstagsfragen.klasse4
     /// Springt zur Seite, auf der gefeiert wird (nur beim Hinweis).
     var onSpringen: (String) -> Void
 
@@ -359,7 +361,10 @@ struct GeburtstagWidgetView: View {
             feiere()
         case 1:
             withAnimation(.easeInOut(duration: 0.3)) {
-                content.fragen = Geburtstagsfragen.auswahl()
+                // Leere Fragen überspringen: Wer eine hinzufügt und noch
+                // nicht getippt hat, soll keine leere Karte bekommen.
+                content.fragen = Geburtstagsfragen.auswahl(
+                    aus: fundus.compactMap { $0.nonEmpty })
                 content.ritual = 2
             }
             Haptics.tap()
