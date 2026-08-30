@@ -609,6 +609,13 @@ Namens und lebt weiter.
   (`schreibeArchivFort`), erst die nächste Auslosung beginnt einen neuen.
   So entsteht je Sitzordnung genau ein Eintrag und nicht je Handgriff
   einer. Umbenennen geht in der Archivansicht.
+- **Das Schloss gehört in die Ansicht** (ab 1.3.16). Es sitzt oben rechts
+  in der Kopfzeile — und wenn die Beschriftung der Kachel abgeschaltet ist,
+  als Überlagerung in der Ecke des Grundrisses. Bis 1.3.15 hing die ganze
+  Kopfzeile an `style.showLabels`; wer die Beschriftung abschaltete, kam
+  nur noch über die Einstellungen an das Schloss (gemeldet 08/2026). Titel
+  und Zähler sind Beschriftung und dürfen verschwinden, ein Bedienelement
+  nicht. Der Hinweis „Gesperrt" in der Fußzeile öffnet es ebenfalls.
 - **Schloss und Archiv** (`gesperrt`, `archiv`): Eine fertige Sitzordnung
   steht wochenlang auf der Tafel; ohne Schloss wäre sie mit einem
   Fingerzeig neu ausgelost. Beim Sichern geht das Schloss von selbst zu.
