@@ -349,6 +349,35 @@ enum Sitzwunsch: String, CaseIterable, Identifiable {
     }
 }
 
+/// Eine gesicherte Sitzordnung.
+///
+/// **Die Namen stehen als Text darin, nicht als Kennung.** Der Bestand
+/// ändert sich — Kinder kommen und gehen —, und ein Archiv, in dem
+/// nachträglich Lücken entstehen, hilft niemandem. Dasselbe Muster wie bei
+/// `Ziehung`.
+struct Sitzarchiv: Codable, Equatable, Identifiable {
+    var id: String = UUID().uuidString
+    var zeitMs: Int64 = Date.nowMs
+    /// Frei wählbar; vorbelegt mit der Kalenderwoche.
+    var titel: String = ""
+    /// Platzkennung → Name.
+    var belegung: [String: String] = [:]
+
+    var datum: Date { Date(timeIntervalSince1970: Double(zeitMs) / 1000) }
+}
+
+extension Sitzarchiv {
+    private enum ArchivKeys: String, CodingKey { case id, zeitMs, titel, belegung }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: ArchivKeys.self)
+        id = c.wert(.id, UUID().uuidString)
+        zeitMs = c.wert(.zeitMs, Date.nowMs)
+        titel = c.wert(.titel, "")
+        belegung = c.wert(.belegung, [String: String]())
+    }
+}
+
 // MARK: - Der Inhalt des Elements
 
 struct SitzplanContent: Codable, Equatable {
@@ -392,6 +421,15 @@ struct SitzplanContent: Codable, Equatable {
     /// ging auf.
     var bericht: [String] = []
 
+    /// Gesperrt: Ein Tipp löst dann keine neue Auslosung mehr aus.
+    ///
+    /// Eine fertige Sitzordnung steht wochenlang auf der Tafel und wird
+    /// dabei hundertmal gestreift. Ohne Schloss wäre die Arbeit eines
+    /// Nachmittags mit einem Fingerzeig weg (gemeldet 08/2026).
+    var gesperrt: Bool = false
+    /// Gesicherte Sitzordnungen, die neueste zuerst.
+    var archiv: [Sitzarchiv] = []
+
     var mitKlang: Bool = true
     /// Beim Verteilen einen Auftritt zeigen — oder still hinlegen.
     var mitAuftritt: Bool = true
@@ -416,6 +454,27 @@ struct SitzplanContent: Codable, Equatable {
         return namen[eintrag]
     }
 
+    /// Der Ausschnitt, der gezeigt wird — in Raumeinheiten.
+    ///
+    /// **Nicht der ganze Raum.** Ein Grundriss hat fast immer leere Ecken;
+    /// wer sie mitzeigt, verschenkt genau dort Platz, wo die Namen
+    /// gebraucht werden. Gezeigt wird deshalb, was belegt ist: alle
+    /// Plätze, die Tafel, und ein Rand von einer halben Tischbreite. Auf
+    /// den Raum begrenzt, damit nie über die Wände hinaus gezoomt wird.
+    func ausschnitt(raum: Raumform, tafel: Tafelseite) -> CGRect {
+        let ganzer = CGRect(origin: .zero, size: raum.masse)
+        var feld: CGRect? = nil
+        for platz in plaetze {
+            feld = feld.map { $0.union(platz.rahmen) } ?? platz.rahmen
+        }
+        let band = tafel.band(in: raum.masse, tiefe: raum.tafeltiefe)
+        feld = feld.map { $0.union(band) } ?? band
+        guard let roh = feld else { return ganzer }
+        let rand = Sitzmasse.breit * 0.45
+        let weit = roh.insetBy(dx: -rand, dy: -rand).intersection(ganzer)
+        return weit.isNull || weit.isEmpty ? ganzer : weit
+    }
+
     /// Steht der Platz schon offen?
     func sichtbar(_ platzID: String) -> Bool {
         guard let stelle = reihenfolge.firstIndex(of: platzID) else {
@@ -431,7 +490,7 @@ extension SitzplanContent {
     private enum SitzplanKeys: String, CodingKey {
         case titel, listID, plaetze, raum, tafel, naehe, belegung, namen,
              reihenfolge, aufgedeckt, bericht, mitKlang, mitAuftritt,
-             merkmalID, merkmalsregel
+             merkmalID, merkmalsregel, gesperrt, archiv
     }
 
     init(from decoder: Decoder) throws {
@@ -449,6 +508,8 @@ extension SitzplanContent {
         reihenfolge = c.wert(.reihenfolge, [String]())
         aufgedeckt = c.wert(.aufgedeckt, 0)
         bericht = c.wert(.bericht, [String]())
+        gesperrt = c.wert(.gesperrt, false)
+        archiv = c.wert(.archiv, [Sitzarchiv]())
         mitKlang = c.wert(.mitKlang, true)
         mitAuftritt = c.wert(.mitAuftritt, true)
     }

@@ -156,6 +156,25 @@ struct SitzplanSettings: View {
             }
 
             Section {
+                Toggle("Gesperrt", isOn: $content.gesperrt)
+                NavigationLink {
+                    SitzarchivSeite(content: $content)
+                } label: {
+                    LabeledContent("Gesicherte Sitzordnungen",
+                                   value: "\(content.archiv.count)")
+                }
+            } header: {
+                Text("Festhalten")
+            } footer: {
+                Text("Gesperrt heißt: Ein Tipp auf die Tafel löst keine neue "
+                     + "Auslosung mehr aus. Eine fertige Sitzordnung steht "
+                     + "wochenlang da und wird dabei hundertmal gestreift — "
+                     + "ohne Schloss wäre die Arbeit eines Nachmittags mit "
+                     + "einem Fingerzeig weg. Beim Sichern geht es von "
+                     + "selbst zu.")
+            }
+
+            Section {
                 Toggle("Namen nacheinander aufdecken", isOn: $content.mitAuftritt)
                 Toggle("Mit Klang", isOn: $content.mitKlang)
                 if content.verteilt {
@@ -740,5 +759,74 @@ struct NeueSitzregelSheet: View {
         kopie.sitzregeln.append(Sitzregel(a: a, b: b, art: art.rawValue))
         store.updateNameList(kopie)
         dismiss()
+    }
+}
+
+// MARK: - Gesicherte Sitzordnungen
+
+/// Das Archiv: welche Klasse wann wie saß.
+///
+/// **Zurückgeholt wird nur die Belegung, nicht der Grundriss.** Die Tische
+/// dürfen inzwischen anders stehen; wer eine alte Ordnung ansieht, will
+/// wissen, wer wo saß — und Plätze, die es nicht mehr gibt, bleiben eben
+/// leer. Alles andere hieße, den Raum rückwärts umzubauen.
+struct SitzarchivSeite: View {
+    @Binding var content: SitzplanContent
+
+    var body: some View {
+        List {
+            if content.archiv.isEmpty {
+                Text("Noch nichts gesichert. Nach einer Auslosung steht auf "
+                     + "der Tafel „Sichern“.")
+                    .foregroundStyle(.secondary)
+            } else {
+                ForEach(content.archiv) { eintrag in
+                    Button {
+                        hole(eintrag)
+                    } label: {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(eintrag.titel.nonEmpty ?? "Ohne Bezeichnung")
+                                .font(.body.weight(.medium))
+                            HStack(spacing: 8) {
+                                Text(eintrag.datum.formatted(date: .abbreviated,
+                                                             time: .shortened))
+                                Text("\(eintrag.belegung.count) Kinder")
+                            }
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+                .onDelete { stellen in
+                    content.archiv.remove(atOffsets: stellen)
+                }
+            }
+        }
+        .navigationTitle("Gesicherte Sitzordnungen")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar { EditButton() }
+    }
+
+    /// Eine gesicherte Ordnung wieder auf die Tafel legen.
+    ///
+    /// Die Namen stehen im Archiv als Text. Für die Anzeige braucht es
+    /// Kennungen, also werden welche erfunden — sie zeigen auf nichts und
+    /// müssen das auch nicht: Der Plan ist ein Bild von damals, keine
+    /// lebende Zuordnung.
+    private func hole(_ eintrag: Sitzarchiv) {
+        var belegung: [String: String] = [:]
+        var namen: [String: String] = [:]
+        for (platz, name) in eintrag.belegung {
+            let kennung = "archiv-\(eintrag.id)-\(platz)"
+            belegung[platz] = kennung
+            namen[kennung] = name
+        }
+        content.belegung = belegung
+        content.namen = namen
+        content.reihenfolge = Array(belegung.keys)
+        content.aufgedeckt = content.reihenfolge.count
+        content.bericht = []
+        content.gesperrt = true
+        Haptics.success()
     }
 }

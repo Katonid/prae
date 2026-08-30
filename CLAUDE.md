@@ -500,6 +500,23 @@ Namens und lebt weiter.
   und was dort nicht hineinfällt, erreicht das Kind nie. In 1.3.5 waren
   dadurch alle Plätze rechts der Raumbreite unverschiebbar (gemeldet
   08/2026). Nicht entfernen.
+- **Gezeigt wird der Ausschnitt, nicht der ganze Raum** (ab 1.3.7):
+  Plätze plus Tafel plus eine halbe Tischbreite Rand, auf den Raum
+  begrenzt. Leere Ecken kosten sonst genau dort Platz, wo die Namen
+  gebraucht werden — der Plan hängt an der Wand und wird aus zehn Metern
+  gelesen.
+- **Leere Plätze gehören nach hinten** (`gewichtLeer`). Das ist mehr als
+  Kosmetik: „Platz daneben frei" heißt gemessen, also auch *gegenüber*.
+  Ein solches Kind in einen Viererblock zu setzen legt dort drei Plätze
+  still. Solange Leerstand nichts kostet, ist das dem Suchlauf egal; mit
+  dem Gewicht hört der Viererblock vorne von selbst auf, eine gute Idee zu
+  sein.
+- **Schloss und Archiv** (`gesperrt`, `archiv`): Eine fertige Sitzordnung
+  steht wochenlang auf der Tafel; ohne Schloss wäre sie mit einem
+  Fingerzeig neu ausgelost. Beim Sichern geht das Schloss von selbst zu.
+  Gesichert werden **Namen als Text**, nicht Kennungen — wie bei
+  `Ziehung`. Beim Zurückholen wird nur die Belegung gesetzt, nie der
+  Grundriss.
 - **Der Sitzplan feiert nicht.** Am Ende der Auslosung lief bis 1.3.5
   `Feierklang.spiele(.konfetti)` — Applaus und Geburtstagslied, aus dem
   Geburtstagsteil übernommen. Eine Sitzordnung ist kein Geburtstag; hier
