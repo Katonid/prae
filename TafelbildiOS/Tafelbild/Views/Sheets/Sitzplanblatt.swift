@@ -77,13 +77,14 @@ struct SitzplanSettings: View {
                      + "die Wünsche „möglichst vorne“ und „möglichst hinten“ "
                      + "hätten keinen Bezug.\n\n"
 
-                     + "Beim Einrichten hängt die Tafel dort, wo sie im Raum "
-                     + "hängt — du schaust von ihr aus in die Klasse. **Auf "
-                     + "der Tafel selbst wird der Plan gedreht, bis die "
-                     + "Tafelwand oben liegt**: Dort schauen die Kinder "
-                     + "darauf, und für sie ist vorne oben. Dass dabei links "
-                     + "und rechts tauschen, gehört dazu — nur so findet ein "
-                     + "Kind seinen Platz da, wo es ihn erwartet.")
+                     + "Der Plan dreht sich von selbst: **Beim Bearbeiten** "
+                     + "liegt die Tafelwand dort, wo sie im Raum hängt — du "
+                     + "schaust von ihr aus in die Klasse. **Sobald du fertig "
+                     + "bist**, dreht er sich, bis die Tafelwand oben liegt: "
+                     + "Dann schaut die Klasse darauf, und für sie ist vorne "
+                     + "oben. Dass dabei links und rechts tauschen, gehört "
+                     + "dazu — nur so findet ein Kind seinen Platz da, wo es "
+                     + "ihn erwartet.")
             }
 
             Section {
@@ -510,8 +511,8 @@ struct Sitzplaneditor: View {
 
             Text(gewaehlt == nil
                  ? "Platz antippen: zeigt, welche Plätze als „nah“ gelten. Ziehen "
-                   + "verschiebt. Hier siehst du den Raum aus deiner Sicht; auf der "
-                   + "Tafel steht er aus der Sicht der Kinder."
+                   + "verschiebt. Hier siehst du den Raum aus deiner Sicht — auf der "
+                   + "fertigen Tafel dreht er sich in die Sicht der Kinder."
                  : "Orange sind die Plätze, die zu diesem als nah zählen.")
                 .font(.caption)
                 .foregroundStyle(.secondary)

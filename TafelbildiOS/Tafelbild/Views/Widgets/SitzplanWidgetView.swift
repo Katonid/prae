@@ -92,13 +92,23 @@ struct SitzplanWidgetView: View {
 
     // MARK: - Der Grundriss
 
-    /// Aus wessen Sicht gezeichnet wird: **aus der der Kinder**.
+    /// Aus wessen Sicht gezeichnet wird — und das entscheidet die App
+    /// selbst, ohne Schalter.
     ///
-    /// Auf der Tafel schauen sie auf den Plan, und für sie liegt die
-    /// Tafelwand vorne — also oben. Eingerichtet wird dagegen aus der
-    /// eigenen Sicht, von der Tafel in die Klasse (siehe `Blickwinkel`).
+    /// **Beim Bearbeiten deine Sicht.** Wer Elemente anordnet, steht an
+    /// der Tafel und schaut in die Klasse; der Plan liegt dann so da, wie
+    /// er eingerichtet wurde — Tafelwand unten, wenn sie unten hängt.
+    ///
+    /// **Sonst die Sicht der Kinder.** Fertig heißt: Die Klasse schaut auf
+    /// die Tafel. Für sie liegt die Tafelwand vorne, also oben, und der
+    /// Grundriss wird dorthin gedreht (siehe `Blickwinkel`).
+    ///
+    /// `interactive` ist genau dieses Signal — es ist `false`, solange der
+    /// Bearbeitungsmodus läuft. Ein eigener Schalter wäre eine Frage mehr
+    /// an eine Person, die die Antwort ohnehin nie anders gibt.
     private var blick: Blickwinkel {
-        Blickwinkel(raum: raum.masse, drehung: content.tafelseite.drehungFuerKinder)
+        Blickwinkel(raum: raum.masse,
+                    drehung: interactive ? content.tafelseite.drehungFuerKinder : 0)
     }
 
     private func grundriss(in flaeche: CGSize) -> some View {
@@ -135,6 +145,10 @@ struct SitzplanWidgetView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        // Beim Wechsel zwischen den Blickwinkeln schwenken die Plätze
+        // hinüber, statt zu springen — so ist zu sehen, dass es derselbe
+        // Raum ist und nicht ein anderer.
+        .animation(.easeInOut(duration: 0.45), value: blick.drehung)
     }
 
     private func tafelband(_ band: CGRect, mass: Double) -> some View {

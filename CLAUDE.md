@@ -483,11 +483,13 @@ Namens und lebt weiter.
   `Sitzordnung.vorschlag` rechnet deshalb im Bezug zur Tafel („längs" /
   „weg") und dreht das erst zum Schluss auf x und y — vier Wände, eine
   Formel.
-- **Zwei Blickwinkel, ein Raum** (`Blickwinkel`, ab 1.3.4). Eingerichtet
-  wird aus der Sicht der Lehrkraft — Tafel dort, wo sie hängt, Vorgabe
-  unten. **Auf der Tafel wird der Grundriss gedreht, bis die Tafelwand
-  oben liegt**, denn dort schauen die Kinder darauf und für sie ist vorne
-  oben. Dass links und rechts dabei tauschen, ist der Sinn der Sache: Wer
+- **Zwei Blickwinkel, ein Raum** (`Blickwinkel`, ab 1.3.4). Umgeschaltet
+  wird am **Bearbeitungsmodus**, nicht an einem Schalter (Ansage des
+  Nutzers, 08/2026): Solange bearbeitet wird (`interactive == false`),
+  liegt die Tafelwand dort, wo sie im Raum hängt — man steht an der Tafel
+  und schaut in die Klasse. Ist es fertig, **dreht sich der Grundriss, bis
+  die Tafelwand oben liegt**, denn dann schaut die Klasse darauf und für
+  sie ist vorne oben. Dass links und rechts dabei tauschen, ist der Sinn der Sache: Wer
   nach Süden schaut, hat Osten zur Linken. Gedreht werden die
   **Koordinaten**, nicht die Ansicht — eine gedrehte Ansicht stellte auch
   die Namen auf den Kopf.
