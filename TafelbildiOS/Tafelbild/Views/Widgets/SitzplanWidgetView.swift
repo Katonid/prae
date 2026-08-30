@@ -41,6 +41,12 @@ struct SitzplanWidgetView: View {
                 grundriss(in: geo.size)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
+            .overlay(alignment: .topTrailing) {
+                // Ist die Beschriftung abgeschaltet, gibt es keine
+                // Kopfzeile — das Schloss legt sich dann über den Plan,
+                // statt eine eigene Zeile zu verlangen.
+                if interactive && !style.showLabels { schlossknopf }
+            }
             fusszeile
         }
         .padding(metrics.em(0.7))
@@ -56,6 +62,22 @@ struct SitzplanWidgetView: View {
 
     // MARK: - Kopf und Fuß
 
+    /// **Das Schloss ist ein Bedienelement, keine Beschriftung.**
+    ///
+    /// Bis 1.3.15 hing die ganze Kopfzeile an `style.showLabels` — wer die
+    /// Beschriftung der Kachel abschaltete, verlor damit auch das Schloss
+    /// und kam nur noch über die Einstellungen daran (gemeldet 08/2026:
+    /// „Es wäre schön, wenn ich das Schloss direkt in der Ansicht betätigen
+    /// könnte."). Titel und Zähler sind Beschriftung und dürfen
+    /// verschwinden; das Schloss nicht.
+    ///
+    /// Ohne Beschriftung sitzt es deshalb in der **Ecke des Grundrisses**
+    /// und nicht in einer eigenen Zeile: Eine Zeile kostete Höhe, und der
+    /// Plan hängt an der Wand und wird aus zehn Metern gelesen.
+    ///
+    /// Es trägt außerdem einen eigenen Untergrund. Ein graues Symbol ohne
+    /// Fläche sieht aus wie eine Anzeige — und wonach man nicht tippt, das
+    /// findet man nicht.
     @ViewBuilder
     private var kopfzeile: some View {
         if style.showLabels {
@@ -70,24 +92,34 @@ struct SitzplanWidgetView: View {
                     .font(Theme.font(metrics.em(0.8), weight: .semibold))
                     .foregroundStyle(style.ink.opacity(0.55))
                     .monospacedDigit()
-                if interactive {
-                    Button {
-                        content.gesperrt.toggle()
-                        tauschen = false
-                        ersteWahl = nil
-                        Haptics.tap()
-                    } label: {
-                        Image(systemName: content.gesperrt ? "lock.fill" : "lock.open")
-                            .font(.system(size: metrics.em(0.85), weight: .semibold))
-                            .foregroundStyle(content.gesperrt
-                                             ? Color(hex: "#f59e0b")
-                                             : style.ink.opacity(0.4))
-                            .padding(metrics.em(0.2))
-                    }
-                    .buttonStyle(.plain)
-                }
+                if interactive { schlossknopf }
             }
         }
+    }
+
+    /// Das Schloss — zu, damit ein Fingerzeig die fertige Sitzordnung nicht
+    /// neu auslost.
+    private var schlossknopf: some View {
+        Button {
+            content.gesperrt.toggle()
+            tauschen = false
+            ersteWahl = nil
+            Haptics.tap()
+        } label: {
+            Image(systemName: content.gesperrt ? "lock.fill" : "lock.open")
+                .font(.system(size: metrics.em(0.85), weight: .semibold))
+                .foregroundStyle(content.gesperrt
+                                 ? Color(hex: "#0b1020")
+                                 : style.ink.opacity(0.55))
+                .frame(width: metrics.em(1.5), height: metrics.em(1.5))
+                .background {
+                    Circle().fill(content.gesperrt
+                                  ? Color(hex: "#f59e0b")
+                                  : style.ink.opacity(0.1))
+                }
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(content.gesperrt ? "Sitzplan entsperren" : "Sitzplan sperren")
     }
 
     @ViewBuilder
@@ -149,10 +181,19 @@ struct SitzplanWidgetView: View {
             .lineLimit(1)
             .minimumScaleFactor(0.6)
         } else if content.gesperrt && style.showLabels {
-            Label("Gesperrt", systemImage: "lock.fill")
-                .font(Theme.font(metrics.em(0.78), weight: .semibold))
-                .foregroundStyle(style.ink.opacity(0.45))
-                .lineLimit(1)
+            // Auch der Hinweis öffnet das Schloss. Wer liest, dass etwas
+            // gesperrt ist, tippt genau dorthin.
+            Button {
+                content.gesperrt = false
+                Haptics.tap()
+            } label: {
+                Label("Gesperrt — antippen zum Öffnen", systemImage: "lock.fill")
+                    .font(Theme.font(metrics.em(0.78), weight: .semibold))
+                    .foregroundStyle(style.ink.opacity(0.45))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+            }
+            .buttonStyle(.plain)
         } else if interactive && !laeuft && style.showLabels {
             Text(content.verteilt ? "Antippen für eine neue Auslosung" : "Antippen zum Auslosen")
                 .font(Theme.font(metrics.em(0.78), weight: .semibold))
@@ -225,9 +266,10 @@ struct SitzplanWidgetView: View {
                 // Über die Mitte gesetzt und dann gedreht — der Umweg über
                 // eine gedrehte Ecke ginge bei schrägen Tischen schief.
                 let mitte = feld.stelle(platz.mitte)
+                let masse = platz.kachelmasse
                 platzkachel(platz, mass: mass)
-                    .offset(x: mitte.x - platz.breite * mass / 2,
-                            y: mitte.y - platz.hoehe * mass / 2)
+                    .offset(x: mitte.x - masse.width * mass / 2,
+                            y: mitte.y - masse.height * mass / 2)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -258,8 +300,11 @@ struct SitzplanWidgetView: View {
 
     @ViewBuilder
     private func platzkachel(_ platz: Sitzplatz, mass: Double) -> some View {
-        let w = platz.breite * mass
-        let h = platz.hoehe * mass
+        // Die Kachel ist um die Fuge kleiner als der Tisch — sonst
+        // berühren sich bündig gestellte Tische auf den Punkt genau und
+        // sehen aus, als lägen sie übereinander (siehe `Sitzmasse.fuge`).
+        let w = platz.kachelmasse.width * mass
+        let h = platz.kachelmasse.height * mass
         let offen = content.sichtbar(platz.id)
         let name = offen ? content.name(auf: platz.id) : nil
         let neu = frisch == platz.id

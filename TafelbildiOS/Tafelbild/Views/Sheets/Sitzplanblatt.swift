@@ -387,8 +387,8 @@ struct Sitzplaneditor: View {
                 // Über die Mitte gesetzt, nicht über die Ecke: Beim Drehen
                 // soll der Tisch stehen bleiben, wo er steht.
                 kachel(platz, mass: mass, nah: nachbarn.contains(platz.id))
-                    .offset(x: links + (platz.x - platz.breite / 2) * mass,
-                            y: oben + (platz.y - platz.hoehe / 2) * mass)
+                    .offset(x: links + (platz.x - platz.kachelmasse.width / 2) * mass,
+                            y: oben + (platz.y - platz.kachelmasse.height / 2) * mass)
                     .gesture(zug(platz, mass: mass))
             }
         }
@@ -397,8 +397,10 @@ struct Sitzplaneditor: View {
     }
 
     private func kachel(_ platz: Sitzplatz, mass: Double, nah: Bool) -> some View {
-        let w = platz.breite * mass
-        let h = platz.hoehe * mass
+        // Um die Fuge kleiner als der Tisch — hier genauso wie auf der
+        // Tafel, sonst sähe der Editor anders aus als das Ergebnis.
+        let w = platz.kachelmasse.width * mass
+        let h = platz.kachelmasse.height * mass
         let aktiv = gewaehlt == platz.id
         return ZStack {
             RoundedRectangle(cornerRadius: min(w, h) * 0.2, style: .continuous)
@@ -928,8 +930,8 @@ struct SitzarchivAnsicht: View {
 
             ForEach(content.plaetze) { platz in
                 let mitte = feld.stelle(platz.mitte)
-                let w = platz.breite * feld.mass
-                let h = platz.hoehe * feld.mass
+                let w = platz.kachelmasse.width * feld.mass
+                let h = platz.kachelmasse.height * feld.mass
                 let name = eintrag.belegung[platz.id]
                 ZStack {
                     RoundedRectangle(cornerRadius: min(w, h) * 0.18, style: .continuous)

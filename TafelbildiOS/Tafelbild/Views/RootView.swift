@@ -156,6 +156,10 @@ struct RootView: View {
                 if let board = store.activeBoard {
                     ShareSheet(boardID: board.id)
                 }
+            case .geburtstage:
+                if let board = store.activeBoard {
+                    GeburtstagsSheet(boardID: board.id)
+                }
             case .seiten:
                 if let board = store.activeBoard {
                     SeitenSheet(boardID: board.id)
@@ -349,6 +353,11 @@ struct RootView: View {
                 } label: {
                     Label("Aussehen", systemImage: "paintbrush")
                 }
+                Button {
+                    sheet = .geburtstage
+                } label: {
+                    Label("Geburtstage", systemImage: "birthday.cake")
+                }
                 Divider()
                 Button {
                     sheet = .seiten
@@ -519,7 +528,8 @@ struct RootView: View {
 
 /// Blätter der Hauptansicht.
 enum RootSheet: String, Identifiable {
-    case boards, addWidget, boardSettings, nameLists, share, seiten, settings, diagnose
+    case boards, addWidget, boardSettings, nameLists, share, geburtstage, seiten
+    case settings, diagnose
     var id: String { rawValue }
 }
 

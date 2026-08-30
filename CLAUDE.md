@@ -450,14 +450,43 @@ Namens und lebt weiter.
   keine davon; sie wird beim Ankommen in `ownBoardIDs` eingetragen, sonst
   bliebe sie unsichtbar.
 
+### Wo die Geburtstage wohnen (ab 1.3.15)
+
+- **Eigener Menüpunkt „Geburtstage"** (⋯ → Geburtstage), Blatt
+  `Views/Sheets/Geburtstagsblatt.swift`. Bis 1.3.14 hing der Abschnitt
+  hinten an „Tafel teilen" — historisch gewachsen, weil er zusammen mit
+  dem Löschrecht entstand. Das Löschrecht gehört dorthin (es ist eine
+  Frage des Zusammenarbeitens), die Geburtstage nicht: Der Nutzer fand
+  den Fragenkatalog nicht (gemeldet 08/2026). Nicht zurückverlegen.
+- Darunter liegt alles Geburtstägliche: Namensliste, Erinnerung samt
+  Uhrzeit, **Fragenkatalog**, **Nachfeiern** und „Weggeräumte wieder
+  anlegen".
+
 ### Geburtstagsritual (ab 1.3.11)
 
 - Ein Tipp führt durch **drei Stationen**: Feier → drei Gratulanten →
   zwei Fragen; der vierte fängt von vorn an und zieht alles neu. Kein
   Knopf, kein Menü — die Lehrkraft steht vor der Klasse und hat eine Hand
   frei.
-- Die Gratulanten treten **ohne eigenen Tipp** direkt nach der Feier auf:
-  Sie gehören dazu, nicht dahinter.
+- **Jede Station braucht ihren eigenen Tipp** (ab 1.3.18). Bis 1.3.17
+  traten die Gratulanten von selbst auf, sobald die Feier ausgelaufen war
+  — sie gehörten dazu, war die Überlegung. In der Klasse ist das falsch
+  herum: Nach der Torte wird geklatscht, gelacht und geredet, und mitten
+  hinein schob sich die nächste Tafel (Ansage des Nutzers, 08/2026). Wann
+  es weitergeht, entscheidet die Lehrkraft. `content.ritual` zählt
+  seither 0 = noch nichts, 1 = Feier gelaufen, 2 = Gratulanten,
+  3 = Fragen.
+- **Gezogen wird erst beim Tipp** auf die Station, nicht schon am Ende der
+  Feier: Sonst stünde die Auslosung minutenlang fest, während die Klasse
+  noch die Torte ansieht. Gibt die Liste niemanden her, wird die Station
+  übersprungen — eine leere Tafel „Drei für dich" wäre schlimmer als
+  keine.
+- **Die Erinnerung verlangt nichts Schönes** (ab 1.3.17). „Erzähl von
+  etwas Schönem, das ihr zusammen erlebt habt" war eine Hürde: Wer mit dem
+  Geburtstagskind wenig zu tun hat, steht vor der Klasse und hat nichts zu
+  sagen. Gefragt wird nur noch, was die beiden zusammen *gemacht* haben —
+  und das hat man in einer Klasse immer. „Gemacht", nicht „erlebt": Ein
+  Erlebnis ist ein Begriff, etwas gemacht zu haben ist eine Erinnerung.
 - **Drei Kinder, drei Rollen** (Kompliment / Erinnerung / Wunsch) — die
   Rollen werden *gemischt*, nicht je Kind gewürfelt. Bei drei unabhängigen
   Würfen käme regelmäßig dreimal „Wunsch" heraus.
@@ -556,6 +585,16 @@ Namens und lebt weiter.
   1.3.8), nicht erst beim Loslassen — sonst sieht es aus wie ein Sprung am
   Ende und man zielt doch von Hand. Abschaltbar
   (`@AppStorage("sitzplanRaster")`) — dann frei setzbar.
+- **Die Kachel ist kleiner als der Tisch** (`Sitzmasse.fuge`, ab 1.3.19).
+  Das Raster fängt Tische Kante an Kante; gezeichnet berührten sich zwei
+  solche Kacheln dann auf den Punkt genau, und zwei helle Flächen mit
+  gemeinsamer Kante liest das Auge als einen Stapel, nicht als zwei Tische
+  (gemeldet 08/2026). Gezeichnet wird deshalb ringsum ein Viertel einer
+  Raumeinheit kleiner — an allen drei Stellen gleich (Element, Editor,
+  Archivansicht), sonst sähe der Editor anders aus als das Ergebnis. Der
+  Mittelpunkt bleibt, wo er ist: Abstände, Nähe, Einrasten und
+  Freiheitsprüfung rechnen unverändert mit dem ganzen Tisch. Wer zeichnet,
+  nimmt `kachelmasse`; wer rechnet, `breite`/`hoehe`.
 - **Fangpunkte sind die KANTEN der anderen Tische** (ab 1.3.12), nicht nur
   deren Mittelachsen. Die erste Fassung kannte nur Raster und Mittelachse
   und erzeugte damit genau die beiden gemeldeten Fehler: Die Mittelachse
@@ -597,6 +636,13 @@ Namens und lebt weiter.
   (`schreibeArchivFort`), erst die nächste Auslosung beginnt einen neuen.
   So entsteht je Sitzordnung genau ein Eintrag und nicht je Handgriff
   einer. Umbenennen geht in der Archivansicht.
+- **Das Schloss gehört in die Ansicht** (ab 1.3.16). Es sitzt oben rechts
+  in der Kopfzeile — und wenn die Beschriftung der Kachel abgeschaltet ist,
+  als Überlagerung in der Ecke des Grundrisses. Bis 1.3.15 hing die ganze
+  Kopfzeile an `style.showLabels`; wer die Beschriftung abschaltete, kam
+  nur noch über die Einstellungen an das Schloss (gemeldet 08/2026). Titel
+  und Zähler sind Beschriftung und dürfen verschwinden, ein Bedienelement
+  nicht. Der Hinweis „Gesperrt" in der Fußzeile öffnet es ebenfalls.
 - **Schloss und Archiv** (`gesperrt`, `archiv`): Eine fertige Sitzordnung
   steht wochenlang auf der Tafel; ohne Schloss wäre sie mit einem
   Fingerzeig neu ausgelost. Beim Sichern geht das Schloss von selbst zu.

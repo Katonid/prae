@@ -29,6 +29,23 @@ enum Sitzmasse {
     /// braucht. Etwas mehr als eine Tischbreite, damit auch der schräg
     /// gegenüberliegende Platz zählt.
     static let neben: Double = 1.45
+
+    /// Die Fuge zwischen zwei bündig stehenden Tischen — **nur beim
+    /// Zeichnen**, nie in der Rechnung.
+    ///
+    /// Das Raster fängt Tische an den Kanten der anderen, also Kante an
+    /// Kante. Gezeichnet berühren sich zwei solche Kacheln dann auf den
+    /// Punkt genau — und zwei helle Flächen mit einer gemeinsamen Kante
+    /// liest das Auge nicht als zwei Tische nebeneinander, sondern als
+    /// einen Stapel, der übereinanderliegt (gemeldet 08/2026: „wirken
+    /// dann auf der gültigen Ansicht doch leicht überlappend").
+    ///
+    /// Die Kachel wird deshalb ringsum ein Stück kleiner gezeichnet als
+    /// der Tisch groß ist. Der Mittelpunkt bleibt, wo er ist; Abstände,
+    /// Nähe, Einrasten und Freiheitsprüfung rechnen unverändert mit dem
+    /// ganzen Tisch. Ein halbes Zehntel der Tischbreite je Seite reicht:
+    /// genug für eine sichtbare Fuge, zu wenig, um Platz zu verschenken.
+    static let fuge: Double = 0.25
 }
 
 /// Der Zuschnitt des Raumes.
@@ -294,6 +311,13 @@ struct Sitzplatz: Codable, Equatable, Identifiable {
     var breite: Double { Sitzmasse.breit }
     var hoehe: Double { Sitzmasse.tief }
     var mitte: CGPoint { CGPoint(x: x, y: y) }
+
+    /// Die Maße der **gezeichneten** Kachel — der Tisch minus der Fuge.
+    /// Wer rechnet, nimmt `breite`/`hoehe`; wer zeichnet, nimmt dies.
+    var kachelmasse: CGSize {
+        CGSize(width: max(1, breite - Sitzmasse.fuge * 2),
+               height: max(1, hoehe - Sitzmasse.fuge * 2))
+    }
 
     /// Der ungedrehte Tisch um seinen Mittelpunkt.
     var rahmen: CGRect {
