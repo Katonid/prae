@@ -1238,6 +1238,9 @@ p.muted { margin: 0; }
 .marks-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .marks-row__name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
 .input--mark { width: 64px; flex: 0 0 auto; text-align: center; padding: 6px 6px; }
+/* Ohne feste Breite gilt .input { width: 100% } — das Datumsfeld füllte die
+   Zeile und quetschte den Namen daneben auf null (gemeldet 08/2026). */
+.input--birthday { width: 132px; flex: 0 0 auto; text-align: center; padding: 6px 8px; min-height: 34px; }
 .input--small { width: 110px; }
 .segmented--wrap { flex-wrap: wrap; }
 .segmented--wrap .segmented__item { flex: 1 1 40%; }
