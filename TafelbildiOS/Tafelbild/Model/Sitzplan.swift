@@ -58,11 +58,17 @@ enum Raumform: String, CaseIterable, Identifiable {
     }
 
     /// Die Größe des Raumes in Raumeinheiten.
+    ///
+    /// **Seit 1.3.10 ein Viertel kleiner** (Ansage des Nutzers, 08/2026:
+    /// die Tische seien zu klein). Ein Tisch misst unverändert 8 × 6; in
+    /// einem kleineren Raum füllt er damit mehr Fläche und ist von Weitem
+    /// zu lesen. Bestehende Pläne werden beim Einlesen mitgerechnet —
+    /// siehe `SitzplanContent.masstab`.
     var masse: CGSize {
         switch self {
-        case .quer:  return CGSize(width: 160, height: 120)
-        case .breit: return CGSize(width: 200, height: 120)
-        case .tief:  return CGSize(width: 120, height: 160)
+        case .quer:  return CGSize(width: 120, height: 90)
+        case .breit: return CGSize(width: 150, height: 90)
+        case .tief:  return CGSize(width: 90, height: 120)
         }
     }
 
@@ -462,6 +468,18 @@ struct SitzplanContent: Codable, Equatable {
     var listID: String? = nil
     /// Der Grundriss.
     var plaetze: [Sitzplatz] = []
+    /// Welcher Raumgröße die gespeicherten Plätze folgen.
+    ///
+    /// 0 (oder gar nicht da) heißt: der große Raum vor 1.3.10. Beim
+    /// Einlesen werden solche Pläne umgerechnet — Plätze **und** die
+    /// Nähe-Schwelle mit demselben Faktor, damit „nah" genau dasselbe
+    /// bedeutet wie vorher. Ohne das Mitziehen der Schwelle rückte jede
+    /// Regel um ein Viertel enger.
+    var masstab: Int = Self.masstabJetzt
+    static let masstabJetzt = 1
+    /// wie stark der Raum in 1.3.10 geschrumpft ist.
+    static let schrumpf: Double = 0.75
+
     /// Rohwert einer `Raumform`.
     var raum: String = Raumform.quer.rawValue
     /// An welcher Wand die Tafel hängt — Rohwert einer `Tafelseite`.
@@ -565,7 +583,7 @@ extension SitzplanContent {
     private enum SitzplanKeys: String, CodingKey {
         case titel, listID, plaetze, raum, tafel, naehe, belegung, namen,
              reihenfolge, aufgedeckt, bericht, mitKlang, mitAuftritt,
-             merkmalID, merkmalsregel, gesperrt, archiv
+             merkmalID, merkmalsregel, gesperrt, archiv, masstab
     }
 
     init(from decoder: Decoder) throws {
@@ -578,6 +596,20 @@ extension SitzplanContent {
         naehe = c.wert(.naehe, 1.6)
         merkmalID = c.wert(.merkmalID, "")
         merkmalsregel = c.wert(.merkmalsregel, Merkmalsvorgabe.egal.rawValue)
+
+        // Ein Plan aus einer Fassung vor 1.3.10 liegt in einem Raum, den es
+        // nicht mehr gibt. Umrechnen statt stehenlassen: Sonst klebten
+        // alle Tische am Rand, weil sie ausserhalb der neuen Wände lägen.
+        masstab = c.wert(.masstab, 0)
+        if masstab < Self.masstabJetzt {
+            let faktor = Self.schrumpf
+            for stelle in plaetze.indices {
+                plaetze[stelle].x *= faktor
+                plaetze[stelle].y *= faktor
+            }
+            naehe *= faktor
+            masstab = Self.masstabJetzt
+        }
         belegung = c.wert(.belegung, [String: String]())
         namen = c.wert(.namen, [String: String]())
         reihenfolge = c.wert(.reihenfolge, [String]())

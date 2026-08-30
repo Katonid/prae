@@ -219,11 +219,15 @@ extension BoardStore {
         inhalt.zielSeite = zielSeite
 
         var element = BoardWidget(content: .geburtstag(inhalt))
-        element.width = 380
+        // Schmaler als früher (380): Auf dem Kärtchen steht ein Vorname
+        // und zwei Wörter, mehr nicht — und mit der neuen Schrift, die die
+        // Karte füllt, war die alte Breite deutlich zu viel (gemeldet
+        // 08/2026). Größer ziehen geht ja jederzeit.
+        element.width = 280
         element.height = 110
         // Oben rechts, wo sonst nichts steht — und wo es auffällt, ohne
         // etwas zu verdecken.
-        element.x = Layout.canvasWidth - 380 - 40
+        element.x = Layout.canvasWidth - 280 - 40
         // Untereinander, wenn mehrere Kinder feiern.
         let schonHinweise = tafel.widgets.filter { widget in
             if case .geburtstag(let i) = widget.content { return i.hinweis }

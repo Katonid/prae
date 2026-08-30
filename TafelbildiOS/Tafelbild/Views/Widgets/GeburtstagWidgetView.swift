@@ -41,38 +41,51 @@ struct GeburtstagWidgetView: View {
     // MARK: - Klein: der Hinweis auf der ersten Seite
 
     private var hinweisFassung: some View {
-        Button {
-            guard interactive else { return }
-            Haptics.tap()
-            onSpringen(content.zielSeite)
-        } label: {
-            HStack(spacing: metrics.em(0.6)) {
-                Text("🎂")
-                    .font(.system(size: metrics.em(2.2)))
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Heute Geburtstag")
-                        .font(Theme.font(metrics.em(0.72), weight: .semibold))
-                        .foregroundStyle(.white.opacity(0.85))
-                    Text(content.name.nonEmpty ?? "Jemand")
-                        .font(Theme.font(metrics.em(1.15), weight: .bold))
-                        .foregroundStyle(.white)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.5)
+        // **Nicht mit `metrics.em` rechnen.** Das Maß kommt von der
+        // vorgesehenen Größe des Elementtyps — und die ist die der großen
+        // Feierseite (820 × 560). Ein Hinweiskärtchen ist 280 × 110, also
+        // rechnete `em` mit einem Fünftel und machte Symbol und Schrift
+        // winzig, egal wie groß die Karte war (gemeldet 08/2026).
+        //
+        // Gemessen wird deshalb die Karte selbst: Was darauf steht, wächst
+        // mit ihr und füllt sie.
+        GeometryReader { geo in
+            let h = geo.size.height
+            Button {
+                guard interactive else { return }
+                Haptics.tap()
+                onSpringen(content.zielSeite)
+            } label: {
+                HStack(spacing: h * 0.12) {
+                    Text("🎂")
+                        .font(.system(size: h * 0.56))
+                    VStack(alignment: .leading, spacing: h * 0.02) {
+                        Text("Heute Geburtstag")
+                            .font(Theme.font(h * 0.21, weight: .semibold))
+                            .foregroundStyle(.white.opacity(0.88))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.5)
+                        Text(content.name.nonEmpty ?? "Jemand")
+                            .font(Theme.font(h * 0.38, weight: .heavy))
+                            .foregroundStyle(.white)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.4)
+                    }
+                    Spacer(minLength: 0)
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: h * 0.24, weight: .bold))
+                        .foregroundStyle(.white.opacity(0.75))
                 }
-                Spacer(minLength: 0)
-                Image(systemName: "chevron.right")
-                    .font(.system(size: metrics.em(0.8), weight: .bold))
-                    .foregroundStyle(.white.opacity(0.7))
+                .padding(.horizontal, h * 0.16)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background {
+                    RoundedRectangle(cornerRadius: Theme.widgetCorner, style: .continuous)
+                        .fill(LinearGradient(colors: [Color(hex: "#c026d3"), Color(hex: "#f59e0b")],
+                                             startPoint: .topLeading, endPoint: .bottomTrailing))
+                }
             }
-            .padding(.horizontal, metrics.em(0.8))
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background {
-                RoundedRectangle(cornerRadius: Theme.widgetCorner, style: .continuous)
-                    .fill(LinearGradient(colors: [Color(hex: "#c026d3"), Color(hex: "#f59e0b")],
-                                         startPoint: .topLeading, endPoint: .bottomTrailing))
-            }
+            .buttonStyle(.plain)
         }
-        .buttonStyle(.plain)
     }
 
     // MARK: - Groß: die Feier
