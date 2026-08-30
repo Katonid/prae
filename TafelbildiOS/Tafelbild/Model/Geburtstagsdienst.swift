@@ -13,6 +13,12 @@ import UserNotifications
 // **Angelegtes bleibt.** Eine Seite, die einmal steht, wird nie automatisch
 // entfernt — Ansage des Nutzers. Sie ist danach eine gewöhnliche Seite: Sie
 // lässt sich bearbeiten, beschreiben und irgendwann von Hand löschen.
+//
+// **Weggeräumtes bleibt weg.** Umgekehrt gilt dasselbe: Wer eine Seite
+// löscht, hat sie gelöscht. Ohne einen Merker wäre das folgenlos, solange
+// der Geburtstag noch läuft — der Dienst sähe beim nächsten Aktivwerden
+// nach, fände die Seite nicht und legte sie wieder an. Genau das ist
+// aufgefallen (Nutzer, 08/2026). Deshalb `Board.geburtstagWeg`.
 
 extension BoardStore {
 
@@ -55,6 +61,14 @@ extension BoardStore {
                 if case .geburtstag(let inhalt) = widget.content { return inhalt.feier }
                 return nil
             }
+            // Dasselbe für die Fanfare: Zwei Kinder am selben Tag sollen
+            // nicht dieselbe bekommen.
+            var bisherigeFanfaren = tafel.widgets.compactMap { widget -> String? in
+                if case .geburtstag(let inhalt) = widget.content, !inhalt.hinweis {
+                    return inhalt.fanfare
+                }
+                return nil
+            }
 
             for eintrag in feiernde {
                 // Steht die Seite für dieses Kind und dieses Jahr schon?
@@ -63,9 +77,16 @@ extension BoardStore {
                     return inhalt.eintragID == eintrag.id && inhalt.jahr == jahr && !inhalt.hinweis
                 }
                 if schonDa { continue }
+                // Von Hand weggeräumt heißt weggeräumt — auch am
+                // Geburtstag selbst.
+                if tafel.geburtstagWeg.contains(Geburtstagsmerker.feier(eintrag.id, jahr)) {
+                    continue
+                }
 
                 let art = Feierart.naechste(nach: bisher)
                 bisher.append(art.rawValue)
+                let klang = Fanfare.naechste(nach: bisherigeFanfaren)
+                bisherigeFanfaren.append(klang.rawValue)
 
                 var seite = BoardPage()
                 seite.name = "🎂 " + (eintrag.text.nonEmpty ?? "Geburtstag")
@@ -77,6 +98,7 @@ extension BoardStore {
                 inhalt.geburtstag = eintrag.geburtstag
                 inhalt.jahr = jahr
                 inhalt.feier = art.rawValue
+                inhalt.fanfare = klang.rawValue
 
                 var element = BoardWidget(content: .geburtstag(inhalt))
                 let masse = WidgetKind.geburtstag.defaultSize
@@ -112,6 +134,8 @@ extension BoardStore {
             return inhalt.hinweis && inhalt.eintragID == eintrag.id && inhalt.jahr == jahr
         }
         guard !schonDa else { return }
+        guard !tafel.geburtstagWeg.contains(Geburtstagsmerker.hinweis(eintrag.id, jahr))
+        else { return }
 
         var inhalt = GeburtstagContent()
         inhalt.eintragID = eintrag.id
@@ -139,6 +163,19 @@ extension BoardStore {
         element.karte = .nie
         element.clampToCanvas(hoehe: tafel.hoehe)
         tafel.widgets.append(element)
+    }
+
+    /// Nimmt alle Merker zurück und sieht sofort neu nach.
+    ///
+    /// Der Rückweg zum Löschen: Wer eine Seite versehentlich weggeräumt
+    /// hat, bekommt sie damit zurück — aber nur, wenn der Geburtstag noch
+    /// läuft. Ein Geburtstag von gestern kommt auch so nicht wieder; die
+    /// Seite war ab dem Tag danach eine gewöhnliche Seite und ist es
+    /// geblieben.
+    func geburtstageWiederAnlegen(boardID: String) {
+        aendere(boardID) { tafel in tafel.geburtstagWeg = [] }
+        touch(boardID)
+        legeGeburtstagsseitenAn(boardID: boardID)
     }
 
     /// Zeigt eine Seite — der Hinweis springt damit zur Feier.

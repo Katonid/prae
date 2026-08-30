@@ -69,6 +69,10 @@ enum Sitzverteilung {
                          kinder: [NameEntry],
                          regeln: [Sitzregel],
                          naehe: Double,
+                         raum: Raumform = .quer,
+                         tafel: Tafelseite = .unten,
+                         merkmalID: String = "",
+                         vorgabe: Merkmalsvorgabe = .egal,
                          versuche: Int = 14) -> Ergebnis {
         let offen = plaetze.filter { !$0.gesperrt }
         guard !offen.isEmpty, !kinder.isEmpty else { return Ergebnis() }
@@ -87,11 +91,30 @@ enum Sitzverteilung {
             }
         }
 
-        // Wie weit hinten ein Platz liegt, 0 (ganz vorne) bis 1.
-        let obenY = offen.map(\.y).min() ?? 0
-        let untenY = offen.map(\.y).max() ?? 1
-        let spanne = max(0.001, untenY - obenY)
-        let tiefe = offen.map { ($0.y - obenY) / spanne }
+        // Wie weit hinten ein Platz liegt, 0 (direkt vor der Tafel) bis 1.
+        //
+        // Gemessen zur Tafelwand, nicht schlicht an y: Hängt die Tafel
+        // unten oder an der Seite, wäre „vorne" sonst genau verkehrt herum.
+        // Und normiert über die tatsächlich belegten Plätze, nicht über den
+        // Raum — sonst hinge „vorne" an den Wänden statt an den Tischen.
+        let feld = raum.masse
+        let roh = offen.map { tafel.abstandZurTafel($0.mitte, in: feld) }
+        let nah = roh.min() ?? 0
+        let fern = roh.max() ?? 1
+        let spanne = max(0.001, fern - nah)
+        let tiefe = roh.map { ($0 - nah) / spanne }
+
+        // Welche Plätze überhaupt Nachbarn sind — einmal ausgerechnet.
+        //
+        // Ohne diese Liste müsste jede Bewertung alle Paare durchgehen
+        // (900 bei dreißig Plätzen), und bewertet wird zehntausendfach.
+        // Nachbarschaften gibt es dagegen nur ein paar Dutzend.
+        var nachbarpaare: [(Int, Int)] = []
+        for i in 0..<anzahlPlaetze {
+            for j in (i + 1)..<anzahlPlaetze where strecke[i][j] <= naehe {
+                nachbarpaare.append((i, j))
+            }
+        }
 
         // Kinder auf Zahlen abbilden.
         var stelleVon = [String: Int]()
@@ -99,6 +122,13 @@ enum Sitzverteilung {
 
         let wuensche = kinder.map { Sitzwunsch.aus($0.sitzwunsch) }
         let alleine = kinder.map(\.alleine)
+        // Der Merkmalswert je Kind. `nil` heißt „nicht eingetragen" — und
+        // das zählt weder als passend noch als unpassend: Es wird nichts
+        // geraten (siehe `NameEntry.merkmale`).
+        let merkmalswerte: [String?] = merkmalID.isEmpty
+            ? Array(repeating: nil, count: anzahlKinder)
+            : kinder.map { $0.wert(merkmalID) }
+        let merkmalZaehlt = !merkmalID.isEmpty && vorgabe != .egal
 
         // Regeln in Zahlen übersetzen; was auf niemanden zeigt, fällt weg.
         struct Bedingung {
@@ -121,6 +151,12 @@ enum Sitzverteilung {
         let gewichtZusammen = 160.0
         let gewichtAlleine = 700.0
         let gewichtRichtung = 150.0
+        // Das Merkmal wiegt als **Anteil**, nicht je Nachbarschaft: Sonst
+        // summierten sich vierzig kleine Verstöße zu mehr als eine harte
+        // Trennung, und die Auslosung setzte zwei Kinder nebeneinander,
+        // die nicht nebeneinander dürfen, um dafür die Jungen sauber zu
+        // sortieren. So bleibt der Beitrag nach oben begrenzt.
+        let gewichtMerkmal = 420.0
 
         func bewerte(_ belegung: [Int]) -> Double {
             var platzVon = [Int](repeating: -1, count: anzahlKinder)
@@ -159,6 +195,15 @@ enum Sitzverteilung {
                 case .vorne:  summe += gewichtRichtung * tiefe[platz]
                 case .hinten: summe += gewichtRichtung * (1 - tiefe[platz])
                 case .egal:   break
+                }
+            }
+
+            if merkmalZaehlt {
+                let (passend, unpassend) = merkmalsbilanz(belegung, nachbarpaare,
+                                                          merkmalswerte, vorgabe)
+                let gesamt = passend + unpassend
+                if gesamt > 0 {
+                    summe += gewichtMerkmal * Double(unpassend) / Double(gesamt)
                 }
             }
             return summe
@@ -244,6 +289,22 @@ enum Sitzverteilung {
             }
         }
 
+        if merkmalZaehlt {
+            let (passend, unpassend) = merkmalsbilanz(bestes, nachbarpaare,
+                                                      merkmalswerte, vorgabe)
+            let gesamt = passend + unpassend
+            // Nur melden, wenn es deutlich danebenliegt. Ein Merkmal ist
+            // ein Wunsch über viele Nachbarschaften; hundert Prozent gibt
+            // es fast nie, und eine Meldung bei jedem Rest wäre nur Lärm.
+            if gesamt > 0, Double(passend) / Double(gesamt) < 0.75 {
+                let wort = vorgabe == .gleich ? "gleich" : "gemischt"
+                ergebnis.bericht.append(
+                    "Von \(gesamt) Nachbarschaften sitzen \(passend) wie gewünscht "
+                    + "(\(wort)), \(unpassend) nicht. Mehr Plätze oder weniger "
+                    + "Paarregeln schaffen hier Luft.")
+            }
+        }
+
         for kind in 0..<anzahlKinder where alleine[kind] {
             let platz = platzVon[kind]
             guard platz >= 0 else { continue }
@@ -274,6 +335,28 @@ enum Sitzverteilung {
         }
 
         return ergebnis
+    }
+
+    /// Wie viele Nachbarschaften zur Merkmalsvorgabe passen — und wie
+    /// viele nicht.
+    ///
+    /// Gezählt werden nur Paare, bei denen **beide** Kinder einen Wert
+    /// haben. Wer keinen eingetragen hat, macht nichts anders.
+    private static func merkmalsbilanz(_ belegung: [Int],
+                                       _ nachbarpaare: [(Int, Int)],
+                                       _ werte: [String?],
+                                       _ vorgabe: Merkmalsvorgabe) -> (Int, Int) {
+        var passend = 0
+        var unpassend = 0
+        for (i, j) in nachbarpaare {
+            let a = belegung[i]
+            let b = belegung[j]
+            guard a >= 0, b >= 0,
+                  let wa = werte[a], let wb = werte[b] else { continue }
+            let gleich = (wa == wb)
+            if gleich == (vorgabe == .gleich) { passend += 1 } else { unpassend += 1 }
+        }
+        return (passend, unpassend)
     }
 
     /// Eine Zahl, wie man sie vorliest: „1,5" statt „1.4999999".

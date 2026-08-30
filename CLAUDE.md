@@ -476,6 +476,36 @@ Namens und lebt weiter.
   Anfänge, von jedem aus tauschen, solange es besser wird. Erwünschter
   Nebeneffekt — es bleibt eine Auslosung. Gewichte: Trennen 1000,
   Alleinsitzen 700, Zusammensitzen 160, Richtungswunsch 150.
+- **Die Tafel hängt an einer wählbaren Wand**, Vorgabe **unten** (Ansage
+  des Nutzers, 08/2026). An ihr hängt, was „vorne" heißt: `Sitzverteilung`
+  misst die Tiefe als Abstand zur Tafelwand, nicht an `y`. Sonst wären
+  „möglichst vorne" und „hinten" bei einer Tafel unten verkehrt herum.
+  `Sitzordnung.vorschlag` rechnet deshalb im Bezug zur Tafel („längs" /
+  „weg") und dreht das erst zum Schluss auf x und y — vier Wände, eine
+  Formel.
+- **Zwei Blickwinkel, ein Raum** (`Blickwinkel`, ab 1.3.4). Umgeschaltet
+  wird am **Bearbeitungsmodus**, nicht an einem Schalter (Ansage des
+  Nutzers, 08/2026): Solange bearbeitet wird (`interactive == false`),
+  liegt die Tafelwand dort, wo sie im Raum hängt — man steht an der Tafel
+  und schaut in die Klasse. Ist es fertig, **dreht sich der Grundriss, bis
+  die Tafelwand oben liegt**, denn dann schaut die Klasse darauf und für
+  sie ist vorne oben. Dass links und rechts dabei tauschen, ist der Sinn der Sache: Wer
+  nach Süden schaut, hat Osten zur Linken. Gedreht werden die
+  **Koordinaten**, nicht die Ansicht — eine gedrehte Ansicht stellte auch
+  die Namen auf den Kopf.
+- **Der Platz-Editor liegt als Vollbild an der Wurzel**
+  (`BoardStore.sitzplanWidgetID`, präsentiert in `RootView`), nicht als
+  Unterseite des Einstellungsblattes. Ein Blatt ist auf dem iPad ein
+  Kärtchen in der Bildschirmmitte; der Grundriss bekam darin ein Drittel
+  der Höhe und ein Fünftel der Breite (gemeldet 08/2026). Nicht
+  zurückverlegen.
+- **Merkmale** (`merkmalID` + `merkmalsregel`) stehen am **Element**, nicht
+  an der Liste — anders als die Paarregeln. Ob Jungen und Mädchen gemischt
+  sitzen, ist eine Entscheidung für *diese* Sitzordnung; „Anna und Ben
+  nicht nebeneinander" gilt überall. Dasselbe Muster wie
+  `NamePickerContent.mischMerkmalID`. Das Merkmal wiegt als **Anteil**
+  der unpassenden Nachbarschaften, nicht je Nachbarschaft: Sonst
+  summierten sich vierzig kleine Verstöße zu mehr als eine harte Trennung.
 - **Was nicht aufgeht, steht hinterher im Bericht**, im Klartext mit
   Namen und Zahlen. Diesen Rückweg nie stillschweigend entfernen: Ein
   Plan, der eine Trennung bricht, ohne es zu sagen, ist schlimmer als

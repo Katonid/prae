@@ -66,8 +66,150 @@ enum Raumform: String, CaseIterable, Identifiable {
         }
     }
 
-    /// Wie tief das Feld für die Tafel ganz vorne ist.
-    var tafeltiefe: Double { masse.height * 0.09 }
+    /// Wie tief der Streifen ist, auf dem die Tafel liegt.
+    ///
+    /// An der kürzeren Kante gemessen, damit er bei einer Tafel an der
+    /// Seitenwand nicht den halben Raum verschluckt.
+    var tafeltiefe: Double { min(masse.width, masse.height) * 0.09 }
+}
+
+/// An welcher Wand die Tafel hängt.
+///
+/// **Vorgabe ist unten** (Ansage des Nutzers, 08/2026). Von dort schaut
+/// man auf einen Grundriss wie auf den Raum selbst, wenn man in der Tür
+/// steht — die Tafel im Rücken der Betrachtung wäre verdreht.
+///
+/// Die Seite ist mehr als Zierrat: An ihr hängt, was „vorne" heißt. Ohne
+/// sie wäre ein Grundriss ein Rechteck ohne Richtung, und die Wünsche
+/// „möglichst vorne" und „möglichst hinten" hätten keinen Bezug.
+enum Tafelseite: String, CaseIterable, Identifiable {
+    case unten
+    case oben
+    case links
+    case rechts
+
+    var id: String { rawValue }
+
+    static func aus(_ rohwert: String) -> Tafelseite {
+        Tafelseite(rawValue: rohwert) ?? .unten
+    }
+
+    var titel: String {
+        switch self {
+        case .unten:  return "Unten"
+        case .oben:   return "Oben"
+        case .links:  return "Links"
+        case .rechts: return "Rechts"
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .unten:  return "rectangle.bottomthird.inset.filled"
+        case .oben:   return "rectangle.topthird.inset.filled"
+        case .links:  return "rectangle.leadingthird.inset.filled"
+        case .rechts: return "rectangle.trailingthird.inset.filled"
+        }
+    }
+
+    /// Liegt die Tafel an einer senkrechten Wand?
+    var senkrecht: Bool { self == .links || self == .rechts }
+
+    /// Wie weit ein Punkt von der Tafel weg ist, in Raumeinheiten.
+    ///
+    /// Roh, nicht auf zwischen null und eins gebracht: Das übernimmt die
+    /// Verteilung, und zwar über die tatsächlich belegten Plätze — sonst
+    /// hinge „vorne" an den Wänden statt an den Tischen.
+    func abstandZurTafel(_ punkt: CGPoint, in raum: CGSize) -> Double {
+        switch self {
+        case .oben:   return punkt.y
+        case .unten:  return raum.height - punkt.y
+        case .links:  return punkt.x
+        case .rechts: return raum.width - punkt.x
+        }
+    }
+
+    /// Wo das Tafelband liegt — Mitte der langen Wand, gut die halbe Breite.
+    func band(in raum: CGSize, tiefe: Double) -> CGRect {
+        let dick = tiefe * 0.62
+        let luft = tiefe * 0.25
+        if senkrecht {
+            let lang = raum.height * 0.52
+            let y = (raum.height - lang) / 2
+            let x = self == .links ? luft : raum.width - luft - dick
+            return CGRect(x: x, y: y, width: dick, height: lang)
+        }
+        let lang = raum.width * 0.52
+        let x = (raum.width - lang) / 2
+        let y = self == .oben ? luft : raum.height - luft - dick
+        return CGRect(x: x, y: y, width: lang, height: dick)
+    }
+}
+
+extension Tafelseite {
+    /// Wie weit der Grundriss gedreht werden muss, damit die Tafelwand
+    /// oben liegt — im Uhrzeigersinn, in Grad.
+    ///
+    /// Im Uhrzeigersinn wandert die linke Wand nach oben, die untere nach
+    /// rechts. Um die **linke** Wand nach oben zu bringen, sind es also 90
+    /// Grad; um die **rechte**, 270.
+    var drehungFuerKinder: Int {
+        switch self {
+        case .oben:   return 0
+        case .links:  return 90
+        case .unten:  return 180
+        case .rechts: return 270
+        }
+    }
+}
+
+/// Aus wessen Sicht der Grundriss gezeichnet wird.
+///
+/// **Zwei Blickwinkel, ein Raum.** Beim Einrichten hängt die Tafel dort,
+/// wo sie im Raum hängt — meist unten, denn so schaut man von der Tafel in
+/// die Klasse. Auf der Tafel selbst schauen aber die *Kinder* auf den Plan,
+/// und die sitzen andersherum: Für sie liegt die Tafel vorne, also oben.
+/// Deshalb wird der Grundriss beim Anzeigen gedreht, bis die Tafelwand oben
+/// steht (Ansage des Nutzers, 08/2026).
+///
+/// **Dass dabei links und rechts tauschen, ist kein Fehler, sondern der
+/// Sinn der Sache.** Wer nach Süden schaut, hat Osten zur Linken. Ein Kind,
+/// das seinen Platz sucht, findet ihn nur dann dort, wo es ihn erwartet.
+///
+/// Gedreht werden die **Koordinaten**, nicht die Ansicht: Eine gedrehte
+/// Ansicht stellte auch die Namen auf den Kopf, und die soll man lesen
+/// können.
+struct Blickwinkel {
+    let raum: CGSize
+    /// 0, 90, 180 oder 270 Grad im Uhrzeigersinn.
+    let drehung: Int
+
+    /// Der Raum, wie er nach dem Drehen dasteht — bei 90 und 270 Grad
+    /// stehen Breite und Höhe getauscht.
+    var masse: CGSize {
+        drehung % 180 == 0 ? raum : CGSize(width: raum.height, height: raum.width)
+    }
+
+    func punkt(_ stelle: CGPoint) -> CGPoint {
+        switch drehung {
+        case 90:  return CGPoint(x: raum.height - stelle.y, y: stelle.x)
+        case 180: return CGPoint(x: raum.width - stelle.x, y: raum.height - stelle.y)
+        case 270: return CGPoint(x: stelle.y, y: raum.width - stelle.x)
+        default:  return stelle
+        }
+    }
+
+    func groesse(_ masse: CGSize) -> CGSize {
+        drehung % 180 == 0 ? masse
+                           : CGSize(width: masse.height, height: masse.width)
+    }
+
+    func rechteck(_ feld: CGRect) -> CGRect {
+        let mitte = punkt(CGPoint(x: feld.midX, y: feld.midY))
+        let masse = groesse(feld.size)
+        return CGRect(x: mitte.x - masse.width / 2, y: mitte.y - masse.height / 2,
+                      width: masse.width, height: masse.height)
+    }
 }
 
 // MARK: - Ein Platz
@@ -218,10 +360,23 @@ struct SitzplanContent: Codable, Equatable {
     var plaetze: [Sitzplatz] = []
     /// Rohwert einer `Raumform`.
     var raum: String = Raumform.quer.rawValue
+    /// An welcher Wand die Tafel hängt — Rohwert einer `Tafelseite`.
+    var tafel: String = Tafelseite.unten.rawValue
     /// Was „nah" bedeutet, wenn eine Regel nichts anderes sagt — in
     /// Tischbreiten. 1,0 ist Schulter an Schulter, 1,4 auch schräg
     /// gegenüber, 2,0 der übernächste Platz.
     var naehe: Double = 1.6
+    /// Kennung des Merkmals, nach dem zusätzlich sortiert wird. Leer heißt:
+    /// keines.
+    ///
+    /// **Am Element, nicht an der Liste** — anders als die Paarregeln. Ob
+    /// Jungen und Mädchen gemischt sitzen sollen, ist eine Entscheidung für
+    /// *diese* Sitzordnung; dieselbe Klasse kann im Nachmittagsraum anders
+    /// sitzen. „Anna und Ben nicht nebeneinander" gilt dagegen überall.
+    /// Dasselbe Muster wie `NamePickerContent.mischMerkmalID`.
+    var merkmalID: String = ""
+    /// Rohwert einer `Merkmalsvorgabe`: egal, unterschiedlich oder gleich.
+    var merkmalsregel: String = Merkmalsvorgabe.egal.rawValue
 
     /// Die letzte Verteilung: Platzkennung → Eintragskennung.
     var belegung: [String: String] = [:]
@@ -242,6 +397,10 @@ struct SitzplanContent: Codable, Equatable {
     var mitAuftritt: Bool = true
 
     var raumform: Raumform { Raumform.aus(raum) }
+    var tafelseite: Tafelseite { Tafelseite.aus(tafel) }
+    /// Über den Rohwert gelesen, damit ein unbekannter Wert nicht die
+    /// ganze Tafel unlesbar macht.
+    var vorgabe: Merkmalsvorgabe { Merkmalsvorgabe(rawValue: merkmalsregel) ?? .egal }
 
     /// Die Plätze, auf die verteilt werden darf.
     var offenePlaetze: [Sitzplatz] { plaetze.filter { !$0.gesperrt } }
@@ -270,8 +429,9 @@ struct SitzplanContent: Codable, Equatable {
 
 extension SitzplanContent {
     private enum SitzplanKeys: String, CodingKey {
-        case titel, listID, plaetze, raum, naehe, belegung, namen,
-             reihenfolge, aufgedeckt, bericht, mitKlang, mitAuftritt
+        case titel, listID, plaetze, raum, tafel, naehe, belegung, namen,
+             reihenfolge, aufgedeckt, bericht, mitKlang, mitAuftritt,
+             merkmalID, merkmalsregel
     }
 
     init(from decoder: Decoder) throws {
@@ -280,7 +440,10 @@ extension SitzplanContent {
         listID = c.optional(.listID, String.self)
         plaetze = c.wert(.plaetze, [Sitzplatz]())
         raum = c.wert(.raum, Raumform.quer.rawValue)
+        tafel = c.wert(.tafel, Tafelseite.unten.rawValue)
         naehe = c.wert(.naehe, 1.6)
+        merkmalID = c.wert(.merkmalID, "")
+        merkmalsregel = c.wert(.merkmalsregel, Merkmalsvorgabe.egal.rawValue)
         belegung = c.wert(.belegung, [String: String]())
         namen = c.wert(.namen, [String: String]())
         reihenfolge = c.wert(.reihenfolge, [String]())
@@ -294,39 +457,48 @@ extension SitzplanContent {
 // MARK: - Plätze automatisch hinlegen
 
 enum Sitzordnung {
-    /// Ein Vorschlag für `anzahl` Plätze im Raum: Tische paarweise, in
-    /// Reihen, zur Tafel ausgerichtet.
+    /// Ein Vorschlag für `anzahl` Plätze: Tische paarweise, in Reihen, zur
+    /// Tafel ausgerichtet.
     ///
     /// Das ist nur ein Anfang — geschoben wird von Hand. Aber niemand soll
     /// dreißig Rechtecke einzeln aus einer Ecke ziehen müssen.
-    static func vorschlag(anzahl: Int, raum: Raumform) -> [Sitzplatz] {
+    ///
+    /// **Gerechnet wird im Bezug zur Tafel**, nicht in x und y: „längs"
+    /// heißt parallel zur Tafelwand, „weg" heißt von ihr fort. Erst ganz
+    /// zum Schluss wird das auf den Raum gedreht. Sonst bräuchte jede der
+    /// vier Wände ihre eigene Rechnung — vier Gelegenheiten, dieselbe
+    /// Formel unterschiedlich falsch aufzuschreiben.
+    static func vorschlag(anzahl: Int, raum: Raumform,
+                          tafel: Tafelseite = .unten) -> [Sitzplatz] {
         guard anzahl > 0 else { return [] }
         let feld = raum.masse
-        let obenFrei = raum.tafeltiefe + Sitzmasse.tief * 0.8
-        let rand = Sitzmasse.breit * 0.4
+        let laengs = tafel.senkrecht ? feld.height : feld.width
+        let weg = tafel.senkrecht ? feld.width : feld.height
 
-        // Waagerecht: zwei Tische bilden ein Paar, zwischen den Paaren ein
-        // Gang. So sieht ein Klassenraum aus, und es entstehen von selbst
-        // die Nachbarschaften, um die es später geht.
+        // Zwei Tische bilden ein Paar, zwischen den Paaren ein Gang. So
+        // sieht ein Klassenraum aus, und es entstehen von selbst die
+        // Nachbarschaften, um die es später geht.
         let paarLuecke = Sitzmasse.breit * 0.12
         let gang = Sitzmasse.breit * 0.6
         let paarBreite = Sitzmasse.breit * 2 + paarLuecke
-        let nutzbar = feld.width - rand * 2
+        let rand = Sitzmasse.breit * 0.4
+        let nutzbar = laengs - rand * 2
         let paareProReihe = max(1, Int((nutzbar + gang) / (paarBreite + gang)))
         let spaltenProReihe = paareProReihe * 2
 
+        let ersteReihe = raum.tafeltiefe + Sitzmasse.tief * 0.8
         let reihenAbstand = Sitzmasse.tief * 1.75
         let reihen = Int(ceil(Double(anzahl) / Double(spaltenProReihe)))
-        // Passt die letzte Reihe nicht mehr in den Raum, rücken alle
-        // Reihen zusammen, statt unten herauszulaufen.
-        let platzTiefe = feld.height - obenFrei - Sitzmasse.tief
+        // Passt die letzte Reihe nicht mehr in den Raum, rücken alle Reihen
+        // zusammen, statt hinten herauszulaufen.
+        let raumTiefe = weg - ersteReihe - Sitzmasse.tief
         let schritt = reihen > 1
-            ? min(reihenAbstand, platzTiefe / Double(reihen - 1))
+            ? min(reihenAbstand, raumTiefe / Double(reihen - 1))
             : reihenAbstand
 
-        let gesamtBreite = Double(paareProReihe) * paarBreite
-                         + Double(max(0, paareProReihe - 1)) * gang
-        let links = (feld.width - gesamtBreite) / 2 + Sitzmasse.breit / 2
+        let gesamt = Double(paareProReihe) * paarBreite
+                   + Double(max(0, paareProReihe - 1)) * gang
+        let start = (laengs - gesamt) / 2 + Sitzmasse.breit / 2
 
         var ergebnis: [Sitzplatz] = []
         for nummer in 0..<anzahl {
@@ -334,25 +506,38 @@ enum Sitzordnung {
             let spalte = nummer % spaltenProReihe
             let paar = spalte / 2
             let inPaar = spalte % 2
-            let x = links
-                  + Double(paar) * (paarBreite + gang)
+            let l = start + Double(paar) * (paarBreite + gang)
                   + Double(inPaar) * (Sitzmasse.breit + paarLuecke)
-            let y = obenFrei + Double(reihe) * schritt
-            ergebnis.append(Sitzplatz(x: x, y: y))
+            let w = ersteReihe + Double(reihe) * schritt
+            ergebnis.append(gedreht(laengs: l, weg: w, tafel: tafel, feld: feld))
         }
         return ergebnis
     }
 
+    /// Aus „längs und weg von der Tafel" wird x und y.
+    private static func gedreht(laengs: Double, weg: Double,
+                                tafel: Tafelseite, feld: CGSize) -> Sitzplatz {
+        switch tafel {
+        case .oben:   return Sitzplatz(x: laengs, y: weg)
+        case .unten:  return Sitzplatz(x: laengs, y: feld.height - weg)
+        // An einer Seitenwand steht der Tisch quer — sonst säße die Klasse
+        // im Profil zur Tafel.
+        case .links:  return Sitzplatz(x: weg, y: laengs, quer: true)
+        case .rechts: return Sitzplatz(x: feld.width - weg, y: laengs, quer: true)
+        }
+    }
+
     /// Einen einzelnen Platz irgendwo hinlegen, wo noch nichts liegt.
-    static func freierPlatz(in plaetze: [Sitzplatz], raum: Raumform) -> Sitzplatz {
+    static func freierPlatz(in plaetze: [Sitzplatz], raum: Raumform,
+                            tafel: Tafelseite = .unten) -> Sitzplatz {
         let feld = raum.masse
-        let obenFrei = raum.tafeltiefe + Sitzmasse.tief * 0.8
-        var y = obenFrei
-        while y < feld.height - Sitzmasse.tief / 2 {
+        let sperr = tafel.band(in: feld, tiefe: raum.tafeltiefe).insetBy(dx: -2, dy: -2)
+        var y = Sitzmasse.tief * 0.6
+        while y < feld.height - Sitzmasse.tief * 0.6 {
             var x = Sitzmasse.breit * 0.6
             while x < feld.width - Sitzmasse.breit * 0.6 {
                 let kandidat = Sitzplatz(x: x, y: y)
-                let frei = !plaetze.contains { andere in
+                let frei = !sperr.intersects(kandidat.rahmen) && !plaetze.contains { andere in
                     andere.rahmen.insetBy(dx: -1, dy: -1).intersects(kandidat.rahmen)
                 }
                 if frei { return kandidat }

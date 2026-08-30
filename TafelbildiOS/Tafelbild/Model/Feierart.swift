@@ -64,16 +64,17 @@ enum Feierart: String, CaseIterable, Identifiable {
     /// Ein Klang, der schlecht klingt, ist schlechter als keiner —
     /// besonders bei etwas, das Freude machen soll. Ersetzt durch Tusch
     /// und Applaus, die beide von echten Aufnahmen kommen.
-    var klaenge: [(datei: String, nach: Double)] {
+    func klaenge(fanfare: Fanfare = .tusch) -> [(datei: String, nach: Double)] {
+        let tusch = fanfare.datei
         switch self {
         case .geschenk:
-            return [("geburtstag-tusch", 0), ("geburtstag-applaus", 1.6)]
+            return [(tusch, 0), ("geburtstag-applaus", 1.6)]
         case .rakete:
-            return [("geburtstag-tusch", 0), ("geburtstag-applaus", 2.6)]
+            return [(tusch, 0), ("geburtstag-applaus", 2.6)]
         case .ballons:
             return [("geburtstag-lied", 0)]
         case .feuerwerk:
-            return [("geburtstag-tusch", 0), ("geburtstag-applaus", 2.2)]
+            return [(tusch, 0), ("geburtstag-applaus", 2.2)]
         case .torte:
             return [("geburtstag-lied", 0), ("geburtstag-applaus", 12.6)]
         case .konfetti:
@@ -90,6 +91,53 @@ enum Feierart: String, CaseIterable, Identifiable {
         case .feuerwerk: return 7.5
         case .torte:     return 14.5
         case .konfetti:  return 6.0
+        }
+    }
+}
+
+/// Welche Fanfare den Auftritt eröffnet.
+///
+/// Zwei Aufnahmen, beide Militärkapelle, beide gemeinfrei, beide auf
+/// dieselbe Lautheit gebracht (gemessen im lautesten 300-ms-Fenster:
+/// −13,23 und −13,00 dBFS — beim Wechseln ist kein Sprung zu hören).
+///
+/// Gewünscht war ausdrücklich eine **ähnliche** Alternative, keine andere
+/// Machart: Tusch und Applaus waren das, was gefiel (Nutzer, 08/2026).
+/// Deshalb wieder eine Blaskapelle und nicht etwa ein Gong.
+///
+/// Als Rohwert gespeichert, damit eine Tafel eine Fanfare übersteht, die
+/// ihre Fassung noch nicht kennt.
+enum Fanfare: String, CaseIterable, Identifiable {
+    /// US Air Force Heritage of America Band, „Ceremonial Fanfare".
+    case tusch
+    /// US Navy Band, „Jubilant Fanfare" — die erste Phrase.
+    case jubel
+
+    var id: String { rawValue }
+
+    static func aus(_ rohwert: String) -> Fanfare {
+        Fanfare(rawValue: rohwert) ?? .tusch
+    }
+
+    /// Abwechseln, statt zu würfeln: Bei zwei Möglichkeiten fiele der
+    /// Zufall in der Hälfte der Fälle auf dieselbe — und genau das sollte
+    /// er nicht.
+    static func naechste(nach vorige: [String]) -> Fanfare {
+        guard let letzte = vorige.last.map(aus) else { return .tusch }
+        return letzte == .tusch ? .jubel : .tusch
+    }
+
+    var titel: String {
+        switch self {
+        case .tusch: return "Tusch (Air Force)"
+        case .jubel: return "Fanfare (Navy)"
+        }
+    }
+
+    var datei: String {
+        switch self {
+        case .tusch: return "geburtstag-tusch"
+        case .jubel: return "geburtstag-tusch2"
         }
     }
 }

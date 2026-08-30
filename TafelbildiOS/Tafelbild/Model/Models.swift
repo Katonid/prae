@@ -1506,6 +1506,17 @@ struct Board: Codable, Identifiable, Equatable {
     var geburtstagsZeit: Int = 8 * 60
     /// Uhrzeit am Vortag. Vorgabe 15:00 — nach dem Unterricht.
     var geburtstagsZeitVortag: Int = 15 * 60
+    /// Was von Hand weggeräumt wurde und nicht wiederkommen soll.
+    ///
+    /// Merker der Form `feier-<Eintrag>-<Jahr>` bzw. `hinweis-…` (siehe
+    /// `Geburtstagsmerker`). **Ohne diese Liste wäre Löschen folgenlos:**
+    /// Der Dienst sieht bei jedem Aktivwerden nach, wer heute feiert, und
+    /// legt an, was fehlt — eine am Vormittag weggeräumte Seite stünde
+    /// nach der Pause wieder da. Gemeldet vom Nutzer, 08/2026.
+    ///
+    /// Sie wächst nur um einen Eintrag je Kind und Jahr und wird nie
+    /// aufgeräumt: Ein Merker, der verschwindet, holt die Seite zurück.
+    var geburtstagWeg: [String] = []
 
     /// Wer hier Elemente löschen darf — **Rohwert** eines `Loeschrecht`.
     ///
@@ -2040,7 +2051,7 @@ extension Board {
         case zuletztVon
         case widgets, pages, drawing, members, ownerUserID, loeschrecht
         case geburtstage, geburtstagsliste, geburtstagsErinnerung
-        case geburtstagsZeit, geburtstagsZeitVortag
+        case geburtstagsZeit, geburtstagsZeitVortag, geburtstagWeg
         case memberUserIDs, joinCode, geteilt, owner, createdAtMs, updatedAtMs, deleted
         case embeddedLists
     }
@@ -2070,6 +2081,7 @@ extension Board {
         loeschrecht = c.wert(.loeschrecht, Loeschrecht.vorgabe.rawValue)
         geburtstage = c.wert(.geburtstage, false)
         geburtstagsliste = c.wert(.geburtstagsliste, "")
+        geburtstagWeg = c.wert(.geburtstagWeg, [String]())
         geburtstagsErinnerung = c.wert(.geburtstagsErinnerung,
                                        Geburtstagserinnerung.vorgabe.rawValue)
         geburtstagsZeit = c.wert(.geburtstagsZeit, 8 * 60)

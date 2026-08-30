@@ -89,6 +89,21 @@ QUELLEN = {
         # Der Anfang ist der Auftritt — mehr braucht eine Klasse nicht.
         "dauer": 7.0,
     },
+    # Eine zweite Fanfare als Abwechslung (Wunsch des Nutzers, 08/2026:
+    # „Applaus und Fanfare finde ich nach wie vor am besten … es wäre
+    # schön, wenn man noch eine ähnliche als Alternative hätte").
+    # Wieder eine Militärkapelle, wieder gemeinfrei — und wieder nur der
+    # Anfang: Die Aufnahme läuft 40 Sekunden, die erste Phrase endet nach
+    # rund sieben. Genau dort wird geschnitten, in der Atempause bei 7,1 s.
+    "tusch2": {
+        "titel": "Fanfare",
+        "urls": ["https://upload.wikimedia.org/wikipedia/commons/8/86/"
+                 "Jubilant_Fanfare.mp3"],
+        "urheber": "United States Navy Band",
+        "lizenz": "gemeinfrei (Werk der US-Regierung)",
+        "nachweis": "https://commons.wikimedia.org/wiki/File:Jubilant_Fanfare.mp3",
+        "dauer": 6.9,
+    },
     "applaus": {
         "titel": "Applaus und Hurra",
         # WAV und MP3, nicht Ogg: Die Applaus-Aufnahmen auf Commons liegen

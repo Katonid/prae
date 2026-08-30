@@ -35,6 +35,10 @@ struct GeburtstagContent: Codable, Equatable {
     /// Welche Feier abläuft — Rohwert eines `Feierart`. Wird beim Anlegen
     /// ausgewürfelt, damit nicht bei jedem Kind dasselbe passiert.
     var feier: String = ""
+    /// Welche Fanfare erklingt — Rohwert einer `Fanfare`. Leer heißt: die
+    /// erste. Wird beim Anlegen abgewechselt, damit zwei Kinder am selben
+    /// Tag nicht dieselbe bekommen.
+    var fanfare: String = ""
 
     /// Wie alt geworden? nil, wenn sich das nicht ausrechnen lässt.
     var alter: Int? {
@@ -42,6 +46,33 @@ struct GeburtstagContent: Codable, Equatable {
         let jahrgang = Calendar.current.component(.year, from: geboren)
         let gewordenes = jahr - jahrgang
         return (1...130).contains(gewordenes) ? gewordenes : nil
+    }
+}
+
+/// Nachsichtiger Leser — nachgereicht.
+///
+/// `GeburtstagContent` war das einzige Inhaltsmodell ohne eigenen Leser.
+/// Das ging gut, solange sich nichts änderte: Der erzeugte Leser verlangt
+/// **jeden** Schlüssel, weil er Vorgabewerte nicht kennt. Mit dem neuen
+/// Feld `fanfare` wäre jede von 1.2.x gespeicherte Seite unlesbar geworden
+/// — und mit ihr die ganze Tafel. Deshalb hier derselbe Leser wie bei
+/// allen anderen.
+extension GeburtstagContent {
+    private enum GeburtstagKeys: String, CodingKey {
+        case eintragID, name, geburtstag, jahr, hinweis, zielSeite, feier, fanfare
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: GeburtstagKeys.self)
+        self.init()
+        eintragID = c.wert(.eintragID, "")
+        name = c.wert(.name, "")
+        geburtstag = c.wert(.geburtstag, "")
+        jahr = c.wert(.jahr, 0)
+        hinweis = c.wert(.hinweis, false)
+        zielSeite = c.wert(.zielSeite, "")
+        feier = c.wert(.feier, "")
+        fanfare = c.wert(.fanfare, "")
     }
 }
 
@@ -146,5 +177,36 @@ enum Geburtstagserinnerung: String, CaseIterable, Identifiable {
         case .amVortag: return 1
         default:        return 0
         }
+    }
+}
+
+/// Merker für weggeräumte Geburtstage.
+///
+/// **Warum es sie braucht.** Der Dienst rechnet bei jedem Aktivwerden neu
+/// aus, wer heute feiert, und legt an, was fehlt — das ist richtig so
+/// (siehe `Geburtstagsdienst`), macht das Löschen am Geburtstag selbst
+/// aber folgenlos: Was am Vormittag weggeräumt wurde, stand nach der Pause
+/// wieder da. Gemeldet vom Nutzer, 08/2026.
+///
+/// **Warum je Kind und Jahr.** Nicht je Seite oder Element: Deren
+/// Kennungen sind neu, sobald etwas neu angelegt wird, und ein Merker, der
+/// ins Leere zeigt, hält nichts auf. Kind und Jahr sind dagegen genau das,
+/// was die Seite meint.
+///
+/// **Warum Feier und Hinweis getrennt.** Wer nur den kleinen Hinweis auf
+/// der ersten Seite wegräumt, will die Feier behalten — und umgekehrt.
+enum Geburtstagsmerker {
+    static func feier(_ eintragID: String, _ jahr: Int) -> String {
+        "feier-\(eintragID)-\(jahr)"
+    }
+
+    static func hinweis(_ eintragID: String, _ jahr: Int) -> String {
+        "hinweis-\(eintragID)-\(jahr)"
+    }
+
+    /// Der Merker, der zu diesem Element gehört.
+    static func fuer(_ inhalt: GeburtstagContent) -> String {
+        inhalt.hinweis ? hinweis(inhalt.eintragID, inhalt.jahr)
+                       : feier(inhalt.eintragID, inhalt.jahr)
     }
 }

@@ -69,6 +69,14 @@ final class BoardStore: ObservableObject {
     }
     /// Element, dessen Einstellungsblatt gerade offen ist.
     @Published var settingsWidgetID: String?
+    /// Der Sitzplan, dessen Plätze gerade angeordnet werden.
+    ///
+    /// An der Wurzel und nicht im Einstellungsblatt: Ein Blatt auf dem iPad
+    /// ist ein Kärtchen in der Bildschirmmitte, und der Grundriss bekam
+    /// darin ein Drittel der Höhe und ein Fünftel der Breite — zu wenig,
+    /// um dreißig Tische mit dem Finger zu treffen (gemeldet 08/2026).
+    /// Von hier aus geht er über die ganze Fläche.
+    @Published var sitzplanWidgetID: String?
     /// Element, für das gerade „Auf eine andere Tafel“ offen ist.
     @Published var uebertragenWidgetID: String?
 
@@ -578,6 +586,7 @@ final class BoardStore: ObservableObject {
                        + "anderes angelegt hat. Die Seite lässt sich deshalb nicht löschen.")
             return
         }
+        for element in darauf { merkeGeburtstagWeg(element, boardIndex: index) }
         boards[index].widgets.removeAll { $0.pageID == seite }
         boards[index].pages.remove(at: seitenIndex)
         // Auf die benachbarte Seite wechseln, nicht ins Leere.
@@ -980,9 +989,35 @@ final class BoardStore: ObservableObject {
                        + "löschen nicht.")
             return
         }
+        merkeGeburtstagWeg(widget, boardIndex: boardIndex)
         boards[boardIndex].widgets.removeAll { $0.id == widgetID }
         if selectedWidgetID == widgetID { selectedWidgetID = nil }
         touch(boardID)
+    }
+
+    /// Hält fest, dass eine Geburtstagsseite oder ihr Hinweis weggeräumt
+    /// wurde — sonst legt der Dienst sie beim nächsten Aktivwerden wieder
+    /// an, solange der Geburtstag läuft.
+    ///
+    /// Wird die **Feier** gelöscht, geht der kleine Hinweis auf der ersten
+    /// Seite gleich mit: Er zeigte danach auf eine Seite, die es nicht
+    /// mehr gibt, und ein Knopf, der ins Leere führt, ist schlimmer als
+    /// keiner.
+    private func merkeGeburtstagWeg(_ widget: BoardWidget, boardIndex: Int) {
+        guard case .geburtstag(let inhalt) = widget.content else { return }
+        var merker = boards[boardIndex].geburtstagWeg
+        func vormerken(_ eintrag: String) {
+            if !merker.contains(eintrag) { merker.append(eintrag) }
+        }
+        vormerken(Geburtstagsmerker.fuer(inhalt))
+        if !inhalt.hinweis {
+            vormerken(Geburtstagsmerker.hinweis(inhalt.eintragID, inhalt.jahr))
+            boards[boardIndex].widgets.removeAll { anderes in
+                guard case .geburtstag(let i) = anderes.content else { return false }
+                return i.hinweis && i.eintragID == inhalt.eintragID && i.jahr == inhalt.jahr
+            }
+        }
+        boards[boardIndex].geburtstagWeg = merker
     }
 
     func duplicateWidget(_ widgetID: String, in boardID: String) {
