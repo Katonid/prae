@@ -88,9 +88,16 @@ struct SeitenSheet: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(board.seitenName(seite.id))
                     .font(.system(size: 16, weight: aktiv ? .semibold : .regular))
-                Text(anzahl == 1 ? "1 Element" : "\(anzahl) Elemente")
-                    .font(.system(size: 13))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(seite.versteckt ? .secondary : .primary)
+                HStack(spacing: 6) {
+                    Text(anzahl == 1 ? "1 Element" : "\(anzahl) Elemente")
+                    if seite.versteckt {
+                        Label("Ausgeblendet", systemImage: "eye.slash.fill")
+                            .foregroundStyle(Color(hex: "#f59e0b"))
+                    }
+                }
+                .font(.system(size: 13))
+                .foregroundStyle(.secondary)
             }
             Spacer(minLength: 0)
             // Sichtbare Knöpfe statt nur Wischgesten und „Bearbeiten“:
@@ -103,6 +110,13 @@ struct SeitenSheet: View {
             zeilenKnopf("chevron.down", aus: stelle == letzte, label: "Nach unten") {
                 store.seitenVerschieben(from: IndexSet(integer: stelle),
                                         to: stelle + 2, boardID: boardID)
+            }
+            zeilenKnopf(seite.versteckt ? "eye.slash.fill" : "eye",
+                        aus: false,
+                        label: seite.versteckt ? "Wieder zeigen"
+                                               : "Nur für mich ausblenden") {
+                store.seiteVerstecken(seite.id, boardID: boardID,
+                                      versteckt: !seite.versteckt)
             }
             zeilenKnopf("pencil", aus: false, label: "Umbenennen") {
                 neuerName = seite.name
@@ -155,6 +169,13 @@ struct SeitenSheet: View {
                 umbenennen = seite.id
             } label: {
                 Label("Umbenennen", systemImage: "pencil")
+            }
+            Button {
+                store.seiteVerstecken(seite.id, boardID: boardID,
+                                      versteckt: !seite.versteckt)
+            } label: {
+                Label(seite.versteckt ? "Wieder zeigen" : "Nur für mich ausblenden",
+                      systemImage: seite.versteckt ? "eye" : "eye.slash")
             }
         }
     }

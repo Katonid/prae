@@ -430,8 +430,10 @@ struct RootView: View {
     /// noch gibt.
     private var aktiveSeite: String? {
         guard let board = store.activeBoard else { return nil }
-        return board.seiten.contains { $0.id == store.aktiveSeitenID }
-            ? store.aktiveSeitenID : board.ersteSeitenID
+        let seiten = board.seiten(mitVersteckten: store.editing,
+                                  dazu: store.aktiveSeitenID)
+        return seiten.contains { $0.id == store.aktiveSeitenID }
+            ? store.aktiveSeitenID : (seiten.first?.id ?? board.ersteSeitenID)
     }
 
     /// Wie viele Elemente dieser Tafel gerade etwas Benutztes tragen.
@@ -451,9 +453,12 @@ struct RootView: View {
     }
 
     private func seitenWechsler(_ board: Board) -> some View {
-        let seiten = board.seiten
+        // Beim Bearbeiten stehen die ausgeblendeten Seiten blass mit da —
+        // sonst wären sie nicht mehr zurückzuholen.
+        let seiten = board.seiten(mitVersteckten: store.editing,
+                                  dazu: store.aktiveSeitenID)
         let aktiv = seiten.contains { $0.id == store.aktiveSeitenID }
-            ? store.aktiveSeitenID : board.ersteSeitenID
+            ? store.aktiveSeitenID : (seiten.first?.id ?? board.ersteSeitenID)
         return HStack(spacing: 4) {
             ForEach(Array(seiten.enumerated()), id: \.element.id) { paar in
                 let seite = paar.element
@@ -461,10 +466,17 @@ struct RootView: View {
                 Button {
                     store.zeigeSeite(seite.id)
                 } label: {
-                    Text(board.seitenName(seite.id))
-                        .font(Theme.font(13, weight: gewaehlt ? .bold : .semibold))
-                        .foregroundStyle(gewaehlt ? Color.white : .white.opacity(0.6))
-                        .lineLimit(1)
+                    HStack(spacing: 4) {
+                        if seite.versteckt {
+                            Image(systemName: "eye.slash.fill")
+                                .font(.system(size: 10, weight: .bold))
+                        }
+                        Text(board.seitenName(seite.id))
+                            .font(Theme.font(13, weight: gewaehlt ? .bold : .semibold))
+                            .lineLimit(1)
+                    }
+                        .foregroundStyle(gewaehlt ? Color.white
+                                         : .white.opacity(seite.versteckt ? 0.35 : 0.6))
                         .padding(.horizontal, 13)
                         .frame(height: 32)
                         .background {
@@ -487,6 +499,14 @@ struct RootView: View {
                         store.seiteDuplizieren(seite.id, boardID: board.id)
                     } label: {
                         Label("Kopie anlegen", systemImage: "plus.square.on.square")
+                    }
+                    Button {
+                        store.seiteVerstecken(seite.id, boardID: board.id,
+                                              versteckt: !seite.versteckt)
+                    } label: {
+                        Label(seite.versteckt ? "Wieder zeigen"
+                                              : "Nur für mich ausblenden",
+                              systemImage: seite.versteckt ? "eye" : "eye.slash")
                     }
                     if seiten.count > 1 {
                         Button(role: .destructive) {

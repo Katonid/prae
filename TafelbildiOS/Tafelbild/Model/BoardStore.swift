@@ -568,6 +568,42 @@ final class BoardStore: ObservableObject {
         touch(boardID)
     }
 
+    /// Eine Seite nur für mich ausblenden — oder wieder zeigen.
+    ///
+    /// **Nur für mich**, wie beim Ausblenden eines Elements: Auf einer
+    /// geteilten Tafel darf jede für sich entscheiden, welche Seiten im
+    /// Reiter stehen, ohne sie den anderen wegzunehmen. Der Wert reist
+    /// deshalb nicht mit (siehe `Board.mitFremdemInhalt`).
+    ///
+    /// Die letzte sichtbare Seite lässt sich nicht ausblenden: Der Reiter
+    /// wäre leer, und die Tafel zeigte nichts mehr.
+    func seiteVerstecken(_ seite: String, boardID: String, versteckt: Bool) {
+        guard let index = boards.firstIndex(where: { $0.id == boardID }) else { return }
+        stelleSeitenSicher(index)
+        guard let seitenIndex = boards[index].pages.firstIndex(where: { $0.id == seite })
+        else { return }
+        if versteckt {
+            let offen = boards[index].pages.filter { !$0.versteckt }.count
+            guard offen > 1 else {
+                showStatus("Die letzte sichtbare Seite kann nicht ausgeblendet werden.")
+                return
+            }
+        }
+        boards[index].pages[seitenIndex].versteckt = versteckt
+        // Steht man gerade auf der Seite, die verschwindet, wandert man
+        // auf die erste sichtbare — sonst bliebe eine leere Tafel stehen.
+        if versteckt, aktiveSeitenID == seite,
+           let erste = boards[index].pages.first(where: { !$0.versteckt }) {
+            aktiveSeitenID = erste.id
+        }
+        // **Kein `touch`.** Ausgeblendet ist eine Entscheidung dieses
+        // Geräts; der Inhalt der Tafel hat sich nicht geändert. Ein
+        // Zeitstempel beanspruchte beim Abgleich einen Vorrang, den es hier
+        // nicht gibt — und lüde die Tafel obendrein hoch. Gesichert wird
+        // trotzdem, sonst wäre die Entscheidung beim nächsten Start weg.
+        scheduleSave()
+    }
+
     /// Löscht eine Seite samt ihrer Elemente. Die letzte bleibt stehen —
     /// eine Tafel ohne Seite gibt es nicht.
     func seiteLoeschen(_ seite: String, boardID: String) {

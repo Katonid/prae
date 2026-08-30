@@ -450,6 +450,22 @@ Namens und lebt weiter.
   keine davon; sie wird beim Ankommen in `ownBoardIDs` eingetragen, sonst
   bliebe sie unsichtbar.
 
+### Seiten ausblenden (ab 1.3.23)
+
+- `BoardPage.versteckt`, **nur für dieses Gerät** — genau wie
+  `BoardWidget.versteckt`. In `mitFremdemInhalt` wird der eigene Wert
+  behalten, nicht der fremde übernommen; `seiteVerstecken` ruft **kein**
+  `touch`, sondern nur `scheduleSave` (sonst beanspruchte die Tafel beim
+  Abgleich einen Vorrang, den es nicht gibt, und lüde sich obendrein hoch).
+- **`BoardPage` hat seit 1.3.23 einen eigenen Leser.** Der erzeugte
+  verlangt jeden Schlüssel; ohne ihn scheiterte jede vorher gesicherte
+  Tafel samt aller Seiten.
+- Beim Bearbeiten stehen ausgeblendete Seiten blass im Reiter (sonst wären
+  sie nicht zurückzuholen), im Unterricht sind sie weg — dieselbe Regel wie
+  bei den Elementen. Die gerade gezeigte Seite bleibt immer im Reiter
+  (`seiten(mitVersteckten:dazu:)`), auch wenn sie ausgeblendet ist.
+- Die **letzte sichtbare** Seite lässt sich nicht ausblenden.
+
 ### Zurücksetzen auf „unbenutzt" (ab 1.3.21)
 
 - Alles, was auf der Tafel abläuft, bleibt danach stehen — gezogener Name,
