@@ -6,7 +6,7 @@ import SwiftUI
 /// **Geschoben wird nicht hier.** Ein Zug auf der Tafel verschiebt das
 /// Element selbst — die beiden Gesten kämen sich in die Quere. Die Plätze
 /// werden deshalb in den Einstellungen angeordnet, wo der ganze Raum zur
-/// Verfügung steht (`Sitzplaneditor`).
+/// Verfügung steht (`Sitzplaneditor`, im Vollbild).
 struct SitzplanWidgetView: View {
     @Binding var content: SitzplanContent
     var interactive: Bool
@@ -128,18 +128,22 @@ struct SitzplanWidgetView: View {
     }
 
     private func tafelband(mass: Double) -> some View {
-        let masse = raum.masse
-        let hoehe = raum.tafeltiefe * mass
-        return RoundedRectangle(cornerRadius: hoehe * 0.28, style: .continuous)
+        let band = content.tafelseite.band(in: raum.masse, tiefe: raum.tafeltiefe)
+        let breit = band.width * mass
+        let hoch = band.height * mass
+        let dick = min(breit, hoch)
+        return RoundedRectangle(cornerRadius: dick * 0.45, style: .continuous)
             .fill(style.ink.opacity(0.16))
-            .frame(width: masse.width * mass * 0.52, height: hoehe * 0.62)
+            .frame(width: breit, height: hoch)
             .overlay {
                 Text("Tafel")
-                    .font(.system(size: max(7, hoehe * 0.4), weight: .bold))
+                    .font(.system(size: max(6, dick * 0.62), weight: .bold))
                     .foregroundStyle(style.ink.opacity(0.5))
-                    .minimumScaleFactor(0.5)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.4)
+                    .rotationEffect(.degrees(content.tafelseite.senkrecht ? -90 : 0))
             }
-            .offset(x: masse.width * mass * 0.24, y: hoehe * 0.25)
+            .offset(x: band.minX * mass, y: band.minY * mass)
     }
 
     @ViewBuilder
@@ -223,7 +227,9 @@ struct SitzplanWidgetView: View {
         let ergebnis = Sitzverteilung.verteile(plaetze: content.plaetze,
                                                kinder: kinder,
                                                regeln: liste.gueltigeSitzregeln(),
-                                               naehe: content.naehe)
+                                               naehe: content.naehe,
+                                               raum: raum,
+                                               tafel: content.tafelseite)
 
         var neu = content
         neu.belegung = ergebnis.belegung

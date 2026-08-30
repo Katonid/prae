@@ -69,6 +69,8 @@ enum Sitzverteilung {
                          kinder: [NameEntry],
                          regeln: [Sitzregel],
                          naehe: Double,
+                         raum: Raumform = .quer,
+                         tafel: Tafelseite = .unten,
                          versuche: Int = 14) -> Ergebnis {
         let offen = plaetze.filter { !$0.gesperrt }
         guard !offen.isEmpty, !kinder.isEmpty else { return Ergebnis() }
@@ -87,11 +89,18 @@ enum Sitzverteilung {
             }
         }
 
-        // Wie weit hinten ein Platz liegt, 0 (ganz vorne) bis 1.
-        let obenY = offen.map(\.y).min() ?? 0
-        let untenY = offen.map(\.y).max() ?? 1
-        let spanne = max(0.001, untenY - obenY)
-        let tiefe = offen.map { ($0.y - obenY) / spanne }
+        // Wie weit hinten ein Platz liegt, 0 (direkt vor der Tafel) bis 1.
+        //
+        // Gemessen zur Tafelwand, nicht schlicht an y: Hängt die Tafel
+        // unten oder an der Seite, wäre „vorne" sonst genau verkehrt herum.
+        // Und normiert über die tatsächlich belegten Plätze, nicht über den
+        // Raum — sonst hinge „vorne" an den Wänden statt an den Tischen.
+        let feld = raum.masse
+        let roh = offen.map { tafel.abstandZurTafel($0.mitte, in: feld) }
+        let nah = roh.min() ?? 0
+        let fern = roh.max() ?? 1
+        let spanne = max(0.001, fern - nah)
+        let tiefe = roh.map { ($0 - nah) / spanne }
 
         // Kinder auf Zahlen abbilden.
         var stelleVon = [String: Int]()

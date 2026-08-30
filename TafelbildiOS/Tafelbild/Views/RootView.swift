@@ -166,6 +166,16 @@ struct RootView: View {
                 NavigationStack { SyncDiagnoseView() }
             }
         }
+        // Der Platz-Editor über die ganze Fläche — siehe
+        // `BoardStore.sitzplanWidgetID`.
+        .fullScreenCover(item: Binding(
+            get: { store.sitzplanWidgetID.map { WidgetReference(id: $0) } },
+            set: { store.sitzplanWidgetID = $0?.id }
+        )) { reference in
+            if let board = store.activeBoard {
+                SitzplaneditorBlatt(boardID: board.id, widgetID: reference.id)
+            }
+        }
         .sheet(item: Binding(
             get: { store.settingsWidgetID.map { WidgetReference(id: $0) } },
             set: { store.settingsWidgetID = $0?.id }

@@ -69,6 +69,14 @@ final class BoardStore: ObservableObject {
     }
     /// Element, dessen Einstellungsblatt gerade offen ist.
     @Published var settingsWidgetID: String?
+    /// Der Sitzplan, dessen Plätze gerade angeordnet werden.
+    ///
+    /// An der Wurzel und nicht im Einstellungsblatt: Ein Blatt auf dem iPad
+    /// ist ein Kärtchen in der Bildschirmmitte, und der Grundriss bekam
+    /// darin ein Drittel der Höhe und ein Fünftel der Breite — zu wenig,
+    /// um dreißig Tische mit dem Finger zu treffen (gemeldet 08/2026).
+    /// Von hier aus geht er über die ganze Fläche.
+    @Published var sitzplanWidgetID: String?
     /// Element, für das gerade „Auf eine andere Tafel“ offen ist.
     @Published var uebertragenWidgetID: String?
 

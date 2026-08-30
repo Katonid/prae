@@ -41,11 +41,24 @@ struct SitzplanSettings: View {
             }
 
             Section {
-                NavigationLink {
-                    Sitzplaneditor(content: $content)
+                Button {
+                    // Erst das Einstellungsblatt zu, dann der Editor über
+                    // die ganze Fläche (siehe `BoardStore.sitzplanWidgetID`).
+                    let ziel = store.settingsWidgetID
+                    store.settingsWidgetID = nil
+                    store.sitzplanWidgetID = ziel
                 } label: {
                     LabeledContent("Plätze anordnen",
                                    value: "\(content.plaetze.count)")
+                }
+
+                Picker("Tafel hängt", selection: Binding(
+                    get: { content.tafelseite },
+                    set: { content.tafel = $0.rawValue }
+                )) {
+                    ForEach(Tafelseite.allCases) { seite in
+                        Text(seite.titel).tag(seite)
+                    }
                 }
 
                 Picker("Raum", selection: Binding(
@@ -58,6 +71,11 @@ struct SitzplanSettings: View {
                 }
             } header: {
                 Text("Der Raum")
+            } footer: {
+                Text("An der Tafelwand hängt, was „vorne“ heißt. Ohne sie "
+                     + "wäre der Grundriss ein Rechteck ohne Richtung, und "
+                     + "die Wünsche „möglichst vorne“ und „möglichst hinten“ "
+                     + "hätten keinen Bezug.")
             }
 
             Section {
@@ -135,8 +153,38 @@ struct SitzplanSettings: View {
 
 // MARK: - Plätze anordnen
 
+/// Hülle für den Vollbild-Editor: holt sich das Element aus dem Speicher
+/// und macht daraus eine Bindung.
+struct SitzplaneditorBlatt: View {
+    @EnvironmentObject private var store: BoardStore
+    let boardID: String
+    let widgetID: String
+
+    var body: some View {
+        if case .sitzplan(let wert)? = store.widget(widgetID, in: boardID)?.content {
+            Sitzplaneditor(content: Binding(
+                get: {
+                    if case .sitzplan(let jetzt)? = store.widget(widgetID, in: boardID)?.content {
+                        return jetzt
+                    }
+                    return wert
+                },
+                set: { store.setContent(.sitzplan($0), widgetID: widgetID, boardID: boardID) }
+            ))
+        } else {
+            Text("Der Sitzplan ist nicht mehr da.")
+                .foregroundStyle(.secondary)
+        }
+    }
+}
+
 /// Der Grundriss zum Anfassen: Plätze schieben, drehen, sperren, dazu die
-/// Anzahl einstellen.
+/// Anzahl und die Tafelwand.
+///
+/// **Über die ganze Fläche.** In einem Blatt bekam der Grundriss auf dem
+/// iPad ein Drittel der Höhe und ein Fünftel der Breite — dreißig Tische
+/// darin mit dem Finger zu treffen war Fummelei (gemeldet 08/2026). Der
+/// Editor liegt deshalb als Vollbild an der Wurzel.
 ///
 /// **Antippen zeigt die Nachbarschaft.** Wer einen Platz antippt, sieht
 /// alle Plätze aufleuchten, die nach der aktuellen Einstellung als „nah"
@@ -144,33 +192,44 @@ struct SitzplanSettings: View {
 /// an dieser Rechnung, und niemand soll ihr glauben müssen.
 struct Sitzplaneditor: View {
     @Binding var content: SitzplanContent
+    @Environment(\.dismiss) private var dismiss
     @State private var gewaehlt: String?
     @State private var anzahlWunsch: Double = 30
     @State private var frageNeuOrdnen = false
+    @State private var zugStart: [String: CGPoint] = [:]
 
     private var raum: Raumform { content.raumform }
+    private var tafel: Tafelseite { content.tafelseite }
 
     var body: some View {
-        VStack(spacing: 0) {
-            GeometryReader { geo in
-                flaeche(in: geo.size)
-            }
-            .background(Color(.secondarySystemBackground))
+        NavigationStack {
+            VStack(spacing: 0) {
+                GeometryReader { geo in
+                    flaeche(in: geo.size)
+                }
+                .background(Color(.secondarySystemBackground))
 
-            werkzeuge
-        }
-        .navigationTitle("Plätze anordnen")
-        .navigationBarTitleDisplayMode(.inline)
-        .onAppear { anzahlWunsch = Double(max(1, content.plaetze.count)) }
-        .alert("Plätze neu anordnen?", isPresented: $frageNeuOrdnen) {
-            Button("Neu anordnen", role: .destructive) {
-                content.plaetze = Sitzordnung.vorschlag(anzahl: Int(anzahlWunsch), raum: raum)
-                gewaehlt = nil
+                werkzeuge
             }
-            Button("Abbrechen", role: .cancel) {}
-        } message: {
-            Text("Alle Plätze werden paarweise in Reihen gelegt. "
-                 + "Was du von Hand geschoben hast, geht dabei verloren.")
+            .navigationTitle("Plätze anordnen")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Fertig") { dismiss() }
+                }
+            }
+            .onAppear { anzahlWunsch = Double(max(1, content.plaetze.count)) }
+            .alert("Plätze neu anordnen?", isPresented: $frageNeuOrdnen) {
+                Button("Neu anordnen", role: .destructive) {
+                    content.plaetze = Sitzordnung.vorschlag(anzahl: Int(anzahlWunsch),
+                                                            raum: raum, tafel: tafel)
+                    gewaehlt = nil
+                }
+                Button("Abbrechen", role: .cancel) {}
+            } message: {
+                Text("Alle Plätze werden paarweise in Reihen zur Tafel gelegt. "
+                     + "Was du von Hand geschoben hast, geht dabei verloren.")
+            }
         }
     }
 
@@ -178,13 +237,14 @@ struct Sitzplaneditor: View {
 
     private func flaeche(in groesse: CGSize) -> some View {
         let masse = raum.masse
-        let rand: Double = 12
+        let rand: Double = 10
         let mass = min((groesse.width - rand * 2) / masse.width,
                        (groesse.height - rand * 2) / masse.height)
         let breit = masse.width * mass
         let hoch = masse.height * mass
         let links = (groesse.width - breit) / 2
         let oben = (groesse.height - hoch) / 2
+        let band = tafel.band(in: masse, tiefe: raum.tafeltiefe)
 
         let nachbarn: Set<String> = {
             guard let id = gewaehlt,
@@ -203,11 +263,19 @@ struct Sitzplaneditor: View {
                 .frame(width: breit, height: hoch)
                 .offset(x: links, y: oben)
 
-            RoundedRectangle(cornerRadius: 6, style: .continuous)
+            RoundedRectangle(cornerRadius: min(band.width, band.height) * mass * 0.45,
+                             style: .continuous)
                 .fill(.tertiary)
-                .frame(width: breit * 0.52, height: raum.tafeltiefe * mass * 0.62)
-                .overlay { Text("Tafel").font(.caption2.bold()).foregroundStyle(.secondary) }
-                .offset(x: links + breit * 0.24, y: oben + raum.tafeltiefe * mass * 0.25)
+                .frame(width: band.width * mass, height: band.height * mass)
+                .overlay {
+                    Text("Tafel")
+                        .font(.caption2.bold())
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.4)
+                        .rotationEffect(.degrees(tafel.senkrecht ? -90 : 0))
+                }
+                .offset(x: links + band.minX * mass, y: oben + band.minY * mass)
 
             ForEach(content.plaetze) { platz in
                 kachel(platz, mass: mass, nah: nachbarn.contains(platz.id))
@@ -266,14 +334,13 @@ struct Sitzplaneditor: View {
                 else { return }
                 if abs(wert.translation.width) < 3 && abs(wert.translation.height) < 3 {
                     // Ein Tipp, kein Zug: nur auswählen und die Nachbarn zeigen.
+                    zugStart[platz.id] = nil
                     Haptics.tap()
                     return
                 }
                 verschiebe(stelle, um: wert.translation, mass: mass, fangen: true)
             }
     }
-
-    @State private var zugStart: [String: CGPoint] = [:]
 
     private func verschiebe(_ stelle: Int, um versatz: CGSize, mass: Double, fangen: Bool) {
         let platz = content.plaetze[stelle]
@@ -329,15 +396,28 @@ struct Sitzplaneditor: View {
                 .font(.footnote)
             }
 
-            HStack {
+            HStack(spacing: 14) {
                 Button {
-                    let neu = Sitzordnung.freierPlatz(in: content.plaetze, raum: raum)
+                    let neu = Sitzordnung.freierPlatz(in: content.plaetze,
+                                                      raum: raum, tafel: tafel)
                     content.plaetze.append(neu)
                     gewaehlt = neu.id
                     Haptics.tap()
                 } label: {
                     Label("Platz dazu", systemImage: "plus")
                 }
+
+                Picker("Tafel", selection: Binding(
+                    get: { tafel },
+                    set: { content.tafel = $0.rawValue }
+                )) {
+                    ForEach(Tafelseite.allCases) { seite in
+                        Image(systemName: seite.symbol).tag(seite)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .frame(maxWidth: 220)
+
                 Spacer(minLength: 0)
                 Button {
                     frageNeuOrdnen = true
