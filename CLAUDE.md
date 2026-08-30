@@ -450,6 +450,26 @@ Namens und lebt weiter.
   keine davon; sie wird beim Ankommen in `ownBoardIDs` eingetragen, sonst
   bliebe sie unsichtbar.
 
+### Zurücksetzen auf „unbenutzt" (ab 1.3.21)
+
+- Alles, was auf der Tafel abläuft, bleibt danach stehen — gezogener Name,
+  Sitzordnung, gelaufene Feier, abgehakte Punkte. Im Unterricht ist das
+  richtig; am nächsten Morgen nicht (Ansage des Nutzers, 08/2026).
+- Die Regel steht **einmal** in `Model/Zuruecksetzen.swift`
+  (`WidgetContent.benutzt` / `.unbenutzt`) und wird von beiden Menüs
+  benutzt. Ein neuer Elementtyp mit Ablauf gehört dort eingetragen —
+  sonst lässt er sich nie zurücksetzen.
+- **Zurückgesetzt wird der Ablauf, nie die Einrichtung** (Namensliste,
+  Grundriss, Dauer, Farben) und **nie ein Archiv**: `ziehungen` und
+  `Sitzplan.archiv` sind ein Nachweis, kein Zustand.
+- Das **Gedächtnis** des Zufälligen Namens (`zaehler`, `paare`) zählt zum
+  Gebrauch und geht mit — es ist die Spur der letzten Wochen.
+- Zwei Wege: ⋯ → „Auf unbenutzt zurücksetzen" fragt nach dem Umfang
+  (diese Seite / ganze Tafel), das Elementmenü setzt eines zurück. Beide
+  sind ausgegraut, wenn nichts zu vergessen ist.
+- Gefiltert wird über `Board.liegtAuf`, nicht über einen Vergleich der
+  Kennung: Ein leeres `pageID` gehört zur ersten Seite.
+
 ### Wo die Geburtstage wohnen (ab 1.3.15)
 
 - **Eigener Menüpunkt „Geburtstage"** (⋯ → Geburtstage), Blatt

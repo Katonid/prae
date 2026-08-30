@@ -478,6 +478,19 @@ private struct SelectionChrome: View {
                     Label("Verschieben oder kopieren …", systemImage: "arrow.right.square")
                 }
                 Divider()
+                // Zurücksetzen steht hier und nicht bei den Einstellungen:
+                // Es ist kein Einrichten, sondern ein Handgriff zwischen
+                // zwei Stunden. Ausgegraut, wenn nichts zu vergessen ist —
+                // ein Knopf, der nichts tut, ist schlimmer als keiner.
+                Button {
+                    store.setzeZurueck(widget.id, in: boardID)
+                    Haptics.tap()
+                } label: {
+                    Label("Auf unbenutzt zurücksetzen",
+                          systemImage: "arrow.counterclockwise")
+                }
+                .disabled(!widget.content.benutzt)
+                Divider()
                 if store.darfLoeschen(widget, in: boardID) {
                     Button(role: .destructive) {
                         store.removeWidget(widget.id, from: boardID)
