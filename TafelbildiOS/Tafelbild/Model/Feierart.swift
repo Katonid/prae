@@ -93,6 +93,34 @@ enum Feierart: String, CaseIterable, Identifiable {
         case .konfetti:  return 6.0
         }
     }
+
+    /// Der Augenblick, bei dem das Bild stehen bleibt, wenn die Feier
+    /// gelaufen ist (0 bis 1).
+    ///
+    /// **Nicht das letzte Bild.** Bis 1.3.19 verschwand die Feier am Ende
+    /// und ließ eine leere Fläche zurück; gewünscht ist, dass sie stehen
+    /// bleibt und noch wirkt (Ansage des Nutzers, 08/2026). Der letzte
+    /// Zeitpunkt taugt dafür aber nicht: Zum Schluss blendet fast alles
+    /// aus, die Kerzen sind gelöscht und das Konfetti liegt am Boden. Was
+    /// stehen bleiben soll, ist der **volle** Augenblick — deshalb je Art
+    /// ein eigener Wert, abgelesen an den Zeitmarken in `Feierbild`:
+    ///
+    /// - Geschenk: der Deckel ist ab 0,5 offen, das Konfetti steigt ab 0,6.
+    /// - Rakete: sie steigt bis 0,42, der Knall entfaltet sich danach.
+    /// - Ballons: sie steigen die ganze Zeit; spät stehen die meisten im Bild.
+    /// - Feuerwerk: mehrere Bälle nacheinander, in der zweiten Hälfte am dichtesten.
+    /// - Torte: die Kerzen gehen ab 0,58 aus — davor bleiben, sonst raucht es nur.
+    /// - Konfetti: der Regen setzt bei 0,6 ein.
+    var standbild: Double {
+        switch self {
+        case .geschenk:  return 0.62
+        case .rakete:    return 0.66
+        case .ballons:   return 0.74
+        case .feuerwerk: return 0.72
+        case .torte:     return 0.52
+        case .konfetti:  return 0.72
+        }
+    }
 }
 
 /// Welche Fanfare den Auftritt eröffnet.
@@ -151,7 +179,7 @@ enum Gluecksatz {
         "Herzlichen Glückwunsch!",
         "Alles Gute zum Geburtstag!",
         "Hoch sollst du leben!",
-        "Ein wunderschöner Tag für dich!",
+        "Heute ist dein Tag!",
         "Wir freuen uns mit dir!",
         "Auf ein tolles neues Jahr!",
         "Feier schön!",
