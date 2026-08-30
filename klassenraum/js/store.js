@@ -339,6 +339,12 @@ function normalizeState(loaded) {
     marks: list.marks && typeof list.marks === 'object' ? list.marks : {},
     // Geburtstage je Name als „JJJJ-MM-TT“ — für die Geburtstagsseiten.
     birthdays: list.birthdays && typeof list.birthdays === 'object' ? list.birthdays : {},
+    // Sitzplan: Paarregeln (getrennt/zusammen), Sitzwunsch (vorne/hinten)
+    // und „Platz daneben frei“ je Name. An der Liste, nicht am Element —
+    // „Anna und Ben nicht nebeneinander“ gilt überall.
+    sitzregeln: Array.isArray(list.sitzregeln) ? list.sitzregeln : [],
+    sitzwunsch: list.sitzwunsch && typeof list.sitzwunsch === 'object' ? list.sitzwunsch : {},
+    alleine: Array.isArray(list.alleine) ? list.alleine : [],
     updatedAt: list.updatedAt || Date.now(),
   }));
   return next;

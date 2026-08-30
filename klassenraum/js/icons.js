@@ -7,6 +7,7 @@ const paths = {
   traffic: '<rect x="7" y="2" width="10" height="20" rx="5"/><circle cx="12" cy="7" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="17" r="1.6"/>',
   checklist: '<path d="M4 6l2 2 3.5-3.5"/><path d="M4 14l2 2 3.5-3.5"/><path d="M13 6h7"/><path d="M13 15h7"/>',
   text: '<path d="M5 6V4h14v2"/><path d="M12 4v16"/><path d="M9 20h6"/>',
+  seating: '<rect x="3" y="4" width="7" height="5" rx="1"/><rect x="14" y="4" width="7" height="5" rx="1"/><rect x="3" y="12" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="5" rx="1"/><path d="M6 21h12"/>',
   image: '<rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="8.5" cy="9.5" r="1.8"/><path d="M4 17l5-5 4 4 3-2.5L20 17"/>',
   noise: '<path d="M11 5L6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/>',
   symbols: '<circle cx="8" cy="8" r="3"/><circle cx="17" cy="9" r="2.4"/><path d="M3 19c0-3 2.2-5 5-5s5 2 5 5"/><path d="M14 19c0-2.2 1.4-4 3.2-4S21 16.8 21 19"/>',

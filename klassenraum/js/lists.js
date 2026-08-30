@@ -87,15 +87,20 @@ export function openListsPanel(initialListId = null) {
       const oldBirthdays = fresh.birthdays || {};
       const marks = {};
       const birthdays = {};
+      const wunsch = {};
       for (const name of names) {
         if (old[name]) marks[name] = old[name];
         if (oldBirthdays[name]) birthdays[name] = oldBirthdays[name];
+        if ((fresh.sitzwunsch || {})[name]) wunsch[name] = fresh.sitzwunsch[name];
       }
-      updateList(list.id, { names, paused, marks, birthdays });
+      const sitzregeln = (fresh.sitzregeln || []).filter((regel) => names.includes(regel.a) && names.includes(regel.b));
+      const alleine = (fresh.alleine || []).filter((name) => names.includes(name));
+      updateList(list.id, { names, paused, marks, birthdays, sitzregeln, sitzwunsch: wunsch, alleine });
       counter.textContent = `${names.length} Namen`;
       renderPause();
       renderMarks();
       renderBirthdays();
+      renderSeating();
     });
 
     // Pausierte Namen (z. B. krank) bleiben in der Liste, werden aber nicht gezogen.
@@ -202,6 +207,100 @@ export function openListsPanel(initialListId = null) {
     }
     renderBirthdays();
 
+    // Sitzplan-Regeln — an der Liste, nicht am Element: „Anna und Ben nicht
+    // nebeneinander" gilt überall, egal wie die Tische stehen.
+    const seatBox = h('div', { class: 'stack' });
+    function renderSeating() {
+      clear(seatBox);
+      const current = getState().lists.find((entry) => entry.id === editingId);
+      if (!current || current.names.length < 2) {
+        seatBox.appendChild(h('p', { class: 'muted small' }, 'Erst Namen eintragen — dann lassen sich hier Sitzplan-Regeln festlegen.'));
+        return;
+      }
+      const regeln = current.sitzregeln || [];
+      const namenWahl = (wert) => {
+        const select = h('select', { class: 'input input--klein' },
+          current.names.map((name) => h('option', { value: name }, name)));
+        select.value = wert;
+        return select;
+      };
+      const regelBox = h('div', { class: 'stack stack--tight' });
+      for (const regel of regeln) {
+        const zeile = h('div', { class: 'seat-rule' });
+        const a = namenWahl(regel.a);
+        const b = namenWahl(regel.b);
+        a.addEventListener('change', () => { regel.a = a.value; updateList(current.id, { sitzregeln: regeln }); });
+        b.addEventListener('change', () => { regel.b = b.value; updateList(current.id, { sitzregeln: regeln }); });
+        zeile.append(a,
+          h('div', { class: 'segmented segmented--klein' },
+            [['getrennt', 'getrennt'], ['zusammen', 'zusammen']].map(([value, label]) => h('button', {
+              class: 'segmented__item' + ((regel.art || 'getrennt') === value ? ' is-active' : ''),
+              onclick: () => {
+                regel.art = value;
+                updateList(current.id, { sitzregeln: regeln });
+                renderSeating();
+              },
+            }, label))),
+          b,
+          h('button', {
+            class: 'icon-button icon-button--danger', title: 'Regel löschen',
+            onclick: () => {
+              updateList(current.id, { sitzregeln: regeln.filter((entry) => entry.id !== regel.id) });
+              renderSeating();
+            },
+            html: icon('trash', 16),
+          }));
+        regelBox.appendChild(zeile);
+      }
+      const wunsch = current.sitzwunsch || {};
+      const alleine = current.alleine || [];
+      seatBox.append(
+        h('p', { class: 'muted small' },
+          'Paarregeln: Wer soll nicht nah beieinander sitzen — und wer gern zusammen? '
+          + '„Nah" bestimmt die Nähe-Einstellung des Sitzplans.'),
+        regelBox,
+        buttonRow(button('Regel hinzufügen', {
+          icon: 'plus', small: true,
+          onClick: () => {
+            regeln.push({ id: uid('regel'), a: current.names[0], b: current.names[1] || current.names[0], art: 'getrennt', abstand: 0 });
+            updateList(current.id, { sitzregeln: regeln });
+            renderSeating();
+          },
+        })),
+        h('p', { class: 'muted small' },
+          'Je Kind: Wo im Raum — und braucht es einen freien Platz daneben?'),
+        h('div', { class: 'stack stack--tight' }, current.names.map((name) => {
+          const select = h('select', { class: 'input input--klein' },
+            [['egal', 'Egal'], ['vorne', 'Möglichst vorne'], ['hinten', 'Möglichst hinten']]
+              .map(([value, label]) => h('option', { value }, label)));
+          select.value = wunsch[name] || 'egal';
+          select.addEventListener('change', () => {
+            const fresh = getState().lists.find((entry) => entry.id === editingId);
+            if (!fresh) return;
+            const next = Object.assign({}, fresh.sitzwunsch || {});
+            if (select.value === 'egal') delete next[name];
+            else next[name] = select.value;
+            updateList(fresh.id, { sitzwunsch: next });
+          });
+          const frei = h('button', {
+            class: 'chip-name' + (alleine.includes(name) ? ' is-paused' : ''),
+            title: 'Platz daneben frei lassen',
+            onclick: () => {
+              const fresh = getState().lists.find((entry) => entry.id === editingId);
+              if (!fresh) return;
+              const menge = new Set(fresh.alleine || []);
+              if (menge.has(name)) menge.delete(name);
+              else menge.add(name);
+              updateList(fresh.id, { alleine: Array.from(menge) });
+              renderSeating();
+            },
+          }, 'frei daneben');
+          return h('div', { class: 'seat-rule' },
+            h('span', { class: 'marks-row__name' }, name), select, frei);
+        })));
+    }
+    renderSeating();
+
     container.append(
       buttonRow(button('Zurück zur Übersicht', {
         icon: 'back', ghost: true, small: true,
@@ -215,6 +314,7 @@ export function openListsPanel(initialListId = null) {
       section('Pausieren', pauseBox),
       section('Merkmale (für Gruppen)', marksBox),
       section('Geburtstage', birthdayBox),
+      section('Sitzplan (Regeln)', seatBox),
       buttonRow(
         button('Alphabetisch sortieren', {
           icon: 'layers', small: true,
