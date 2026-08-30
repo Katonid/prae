@@ -183,40 +183,101 @@ export const END_SOUNDS = [
   { id: 'gong', label: 'Gong', hint: 'Ein tiefer, ruhig ausklingender Schlag.' },
   { id: 'glocke', label: 'Glocke', hint: 'Drei helle Glockenschläge.' },
   { id: 'xylophon', label: 'Xylophon', hint: 'Eine kurze, aufsteigende Tonfolge.' },
+  // Die sieben Klänge der Tafelbild-App (WAV, dort gerechnet — von sehr
+  // leise bis sehr deutlich): Eine Stillarbeit endet man mit der
+  // Klangschale, eine laute Gruppenarbeit braucht die Klingel.
+  { id: 'handglocke', label: 'Handglocke', datei: 'endklang-glocke', hint: 'Eine kräftige Handglocke — deutlich hörbar.' },
+  { id: 'glockenspiel', label: 'Glockenspiel', datei: 'endklang-glockenspiel', hint: 'Drei Töne aufwärts auf dem Glockenspiel.' },
+  { id: 'triangel', label: 'Triangel', datei: 'endklang-triangel', hint: 'Heller Triangelschlag ohne feste Tonhöhe.' },
+  { id: 'klangschale', label: 'Klangschale', datei: 'endklang-klangschale', hint: 'Sehr leise und schwebend — für die Stillarbeit.' },
+  { id: 'tiefergong', label: 'Tiefer Gong', datei: 'endklang-gong', hint: 'Eine Platte mit langem Ausklang.' },
+  { id: 'klingel', label: 'Klingel', datei: 'endklang-wecker', hint: 'Der Wecker — für die laute Gruppenarbeit.' },
+  { id: 'piep', label: 'Piepton', datei: 'endklang-piep', hint: 'Drei reine Töne mit weicher Hülle.' },
 ];
 
 export function endSoundById(id) {
   return END_SOUNDS.find((entry) => entry.id === id) || END_SOUNDS[0];
 }
 
-/** Benachrichtigungsklang abspielen — vollständig im Gerät erzeugt. */
-export function playEndSound(id, delay = 0) {
+/* Klangdateien (sounds/) — geladen beim ersten Abspielen, danach im
+   Zwischenspeicher; der Netz-Zwischenspeicher des Service Workers hält sie
+   auch offline vor. */
+const wavPuffer = new Map();
+
+async function ladeWav(name) {
+  if (wavPuffer.has(name)) return wavPuffer.get(name);
+  const ctx = audio();
+  if (!ctx) return null;
+  try {
+    const antwort = await fetch(`sounds/${name}.wav`);
+    if (!antwort.ok) throw new Error(String(antwort.status));
+    const puffer = await ctx.decodeAudioData(await antwort.arrayBuffer());
+    wavPuffer.set(name, puffer);
+    return puffer;
+  } catch (_) {
+    wavPuffer.set(name, null);
+    return null;
+  }
+}
+
+/** Eine Klangdatei abspielen. Liefert false, wenn sie (noch) fehlt. */
+async function spieleWav(name, { delay = 0, volume = 1 } = {}) {
+  const ctx = audio();
+  const puffer = await ladeWav(name);
+  if (!ctx || !puffer) return false;
+  try {
+    const quelle = ctx.createBufferSource();
+    quelle.buffer = puffer;
+    const amp = ctx.createGain();
+    amp.gain.value = Math.max(0.05, Math.min(1, volume));
+    quelle.connect(amp).connect(ctx.destination);
+    quelle.start(ctx.currentTime + delay);
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+/** Benachrichtigungsklang abspielen — erzeugte Klänge und die Klangdateien
+ *  der Tafelbild-App. `volume` regelt die Lautstärke (0–1, nur der Klang
+ *  der App — die Gerätelautstärke bleibt Sache des Geräts). */
+export function playEndSound(id, delay = 0, volume = 1) {
+  const eintrag = endSoundById(id);
+  if (eintrag.datei) {
+    // Fehlt die Datei (offline vor dem ersten Laden), springt der
+    // vertraute Dreiklang ein — der Timer darf nie stumm enden.
+    spieleWav(eintrag.datei, { delay, volume }).then((ok) => {
+      if (!ok) playEndSound('dreiklang', 0, volume);
+    });
+    return;
+  }
+  const v = Math.max(0.05, Math.min(1, volume));
   if (id === 'gong') {
-    noiseBurst({ duration: 0.12, gain: 0.16, frequency: 480, q: 0.7, delay });
-    tone({ frequency: 165, duration: 1.9, gain: 0.26, type: 'sine', delay });
-    tone({ frequency: 221, duration: 1.5, gain: 0.12, type: 'sine', delay: delay + 0.012 });
-    tone({ frequency: 87, duration: 2.1, gain: 0.18, type: 'triangle', delay });
+    noiseBurst({ duration: 0.12, gain: 0.16 * v, frequency: 480, q: 0.7, delay });
+    tone({ frequency: 165, duration: 1.9, gain: 0.26 * v, type: 'sine', delay });
+    tone({ frequency: 221, duration: 1.5, gain: 0.12 * v, type: 'sine', delay: delay + 0.012 });
+    tone({ frequency: 87, duration: 2.1, gain: 0.18 * v, type: 'triangle', delay });
     return;
   }
   if (id === 'glocke') {
     for (let i = 0; i < 3; i += 1) {
       const when = delay + i * 0.5;
-      tone({ frequency: 880, duration: 0.9, gain: 0.2, type: 'sine', delay: when });
-      tone({ frequency: 1760, duration: 0.5, gain: 0.08, type: 'sine', delay: when });
-      tone({ frequency: 2637, duration: 0.28, gain: 0.05, type: 'sine', delay: when });
+      tone({ frequency: 880, duration: 0.9, gain: 0.2 * v, type: 'sine', delay: when });
+      tone({ frequency: 1760, duration: 0.5, gain: 0.08 * v, type: 'sine', delay: when });
+      tone({ frequency: 2637, duration: 0.28, gain: 0.05 * v, type: 'sine', delay: when });
     }
     return;
   }
   if (id === 'xylophon') {
     [523, 659, 784, 1047].forEach((frequency, index) => {
-      tone({ frequency, duration: 0.3, gain: 0.2, type: 'triangle', delay: delay + index * 0.16 });
-      tone({ frequency: frequency * 3, duration: 0.08, gain: 0.05, type: 'sine', delay: delay + index * 0.16 });
+      tone({ frequency, duration: 0.3, gain: 0.2 * v, type: 'triangle', delay: delay + index * 0.16 });
+      tone({ frequency: frequency * 3, duration: 0.08, gain: 0.05 * v, type: 'sine', delay: delay + index * 0.16 });
     });
     return;
   }
   // Dreiklang (Vorgabe) — wie der bisherige Signalton.
   for (let i = 0; i < 4; i += 1) {
-    tone({ frequency: i % 2 === 0 ? 880 : 1180, duration: 0.24, gain: 0.22, type: 'sine', delay: delay + i * 0.32 });
+    tone({ frequency: i % 2 === 0 ? 880 : 1180, duration: 0.24, gain: 0.22 * v, type: 'sine', delay: delay + i * 0.32 });
   }
 }
 
