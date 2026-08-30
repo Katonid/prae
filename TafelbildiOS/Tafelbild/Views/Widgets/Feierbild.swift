@@ -518,46 +518,67 @@ struct Feierbild: View {
         let reichweite = min(groesse.width, groesse.height) * 0.42 * weite
 
         // Der Blitz im Augenblick des Platzens.
-        if t < 0.22 {
+        if t < 0.34 {
             var blitz = ctx
-            blitz.opacity = (1 - t / 0.22) * 0.9
-            let r = reichweite * 0.5 * (t / 0.22 + 0.2)
+            blitz.opacity = (1 - t / 0.34) * 0.95
+            let r = reichweite * 0.95 * (t / 0.34 + 0.25)
             blitz.fill(Path(ellipseIn: CGRect(x: mitte.x - r, y: mitte.y - r,
                                               width: r * 2, height: r * 2)),
                        with: .radialGradient(Gradient(colors: [.white, Color(hex: "#fcd34d").opacity(0.6), .clear]),
                                              center: mitte, startRadius: 0, endRadius: r))
         }
 
-        let anzahl = 46
-        for i in 0..<anzahl {
-            let nummer = i &+ saat &* 97
-            let winkel = Double(i) / Double(anzahl) * 2 * .pi + streu(nummer, 51) * 0.14
-            // Die Funken bremsen aus und fallen dann — wie echte Glut.
-            let bremse = 1 - pow(1 - min(1, t), 2.4)
-            let strecke = reichweite * (0.55 + streu(nummer, 52) * 0.6) * bremse
-            let fall = groesse.height * 0.3 * pow(max(0, t - 0.35), 2)
-            let px = mitte.x + cos(winkel) * strecke
-            let py = mitte.y + sin(winkel) * strecke + fall
-            let leben = max(0, 1 - t / 1.2)
-            guard leben > 0.02 else { continue }
+        // Zwei Schalen: eine schnelle äußere, eine langsamere innere. Eine
+        // einzelne Schale liest sich als Kreis aus Punkten — auf den
+        // Bildschirmfotos war genau das zu sehen. Erst die zweite Lage und
+        // die langen Schweife machen daraus eine Explosion.
+        for schale in 0..<2 {
+            let anzahl = schale == 0 ? 44 : 30
+            let schalenweite = schale == 0 ? 1.0 : 0.58
+            for i in 0..<anzahl {
+                let nummer = i &+ saat &* 97 &+ schale &* 613
+                let winkel = Double(i) / Double(anzahl) * 2 * .pi
+                           + streu(nummer, 51) * 0.5 + Double(schale) * 0.7
+                // Die Funken bremsen aus und fallen dann — wie echte Glut.
+                let bremse = 1 - pow(1 - min(1, t), 2.4)
+                // Weit gestreute Reichweiten: Liegen alle Funken auf
+                // demselben Radius, entsteht ein Ring statt eines Balls.
+                let eigenweite = 0.3 + streu(nummer, 52) * 0.95
+                let voll = reichweite * eigenweite * schalenweite
+                let strecke = voll * bremse
+                let fall = groesse.height * 0.3 * pow(max(0, t - 0.35), 2)
+                let px = mitte.x + cos(winkel) * strecke
+                let py = mitte.y + sin(winkel) * strecke + fall
+                let leben = max(0, 1 - t / 1.2)
+                guard leben > 0.02 else { continue }
 
-            // Der Schweif: eine Linie zurück zur letzten Lage.
-            let vorher = reichweite * (0.55 + streu(nummer, 52) * 0.6)
-                       * (1 - pow(1 - max(0, min(1, t - 0.06)), 2.4))
-            var schweif = Path()
-            schweif.move(to: CGPoint(x: mitte.x + cos(winkel) * vorher,
-                                     y: mitte.y + sin(winkel) * vorher + fall * 0.8))
-            schweif.addLine(to: CGPoint(x: px, y: py))
-            ctx.opacity = leben * 0.75
-            ctx.stroke(schweif, with: .color(farbe(nummer)),
-                       style: StrokeStyle(lineWidth: 3.2, lineCap: .round))
+                // Der Schweif reicht weit zurück — ein Komet, keine Kerbe.
+                let zurueck = strecke * (0.45 + streu(nummer, 55) * 0.2)
+                var schweif = Path()
+                schweif.move(to: CGPoint(x: mitte.x + cos(winkel) * zurueck,
+                                         y: mitte.y + sin(winkel) * zurueck + fall * 0.5))
+                schweif.addLine(to: CGPoint(x: px, y: py))
+                ctx.opacity = leben * 0.5
+                ctx.stroke(schweif, with: .linearGradient(
+                    Gradient(colors: [farbe(nummer).opacity(0), farbe(nummer)]),
+                    startPoint: CGPoint(x: mitte.x + cos(winkel) * zurueck,
+                                        y: mitte.y + sin(winkel) * zurueck),
+                    endPoint: CGPoint(x: px, y: py)),
+                    style: StrokeStyle(lineWidth: 5 * leben, lineCap: .round))
 
-            // Der Funke selbst, mit einem Knistern in der Helligkeit.
-            let knistern = 0.65 + 0.35 * sin(t * 40 + streu(nummer, 53) * 6.28)
-            ctx.opacity = leben * knistern
-            let r = 2.6 + streu(nummer, 54) * 2.4
-            ctx.fill(Path(ellipseIn: CGRect(x: px - r, y: py - r, width: r * 2, height: r * 2)),
-                     with: .color(i % 4 == 0 ? Color(hex: "#fffbeb") : farbe(nummer)))
+                // Der Funke selbst, mit einem Knistern in der Helligkeit.
+                let knistern = 0.65 + 0.35 * sin(t * 40 + streu(nummer, 53) * 6.28)
+                ctx.opacity = leben * knistern
+                let r = 3.4 + streu(nummer, 54) * 3.4
+                // Ein weicher Hof macht aus dem Punkt einen Funken.
+                ctx.fill(Path(ellipseIn: CGRect(x: px - r * 2.4, y: py - r * 2.4,
+                                                width: r * 4.8, height: r * 4.8)),
+                         with: .radialGradient(
+                            Gradient(colors: [farbe(nummer).opacity(0.55), .clear]),
+                            center: CGPoint(x: px, y: py), startRadius: 0, endRadius: r * 2.4))
+                ctx.fill(Path(ellipseIn: CGRect(x: px - r, y: py - r, width: r * 2, height: r * 2)),
+                         with: .color(i % 3 == 0 ? Color(hex: "#fffbeb") : farbe(nummer)))
+            }
         }
     }
 

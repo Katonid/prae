@@ -104,10 +104,14 @@ struct GeburtstagWidgetView: View {
     private func beschriftung(in flaeche: CGSize) -> some View {
         // Während der Feier rückt der Name nach oben und macht der Mitte
         // Platz — sonst liefe alles hinter der Schrift ab.
+        //
+        // **Ohne Abstandhalter.** Vorher standen hier oben und unten
+        // `Spacer`, dazu `alignment: .top`. Beides zusammen hebt sich auf:
+        // Die Abstandhalter schieben von beiden Seiten und rücken den Text
+        // genau in die Mitte — also dorthin, wo die Feier läuft. Auf den
+        // Bildschirmfotos lief die Rakete quer durch „Alma wird 5".
         let laeuft = begonnen != nil
         VStack(spacing: metrics.em(0.25)) {
-            if laeuft { Spacer(minLength: 0) }
-
             Text(content.name.nonEmpty ?? "Herzlichen Glückwunsch")
                 .font(Theme.font(metrics.em(laeuft ? 1.9 : 2.4), weight: .bold))
                 .foregroundStyle(.white)
@@ -131,7 +135,17 @@ struct GeburtstagWidgetView: View {
                     .padding(.top, metrics.em(0.4))
             }
 
-            if laeuft { Spacer(minLength: 0) }
+        }
+        .padding(.horizontal, metrics.em(0.9))
+        .padding(.vertical, metrics.em(0.55))
+        // Ein weicher dunkler Grund hinter der Schrift: Konfetti und Funken
+        // laufen darüber hinweg, und ohne ihn wird der Name unlesbar.
+        .background {
+            if laeuft {
+                RoundedRectangle(cornerRadius: metrics.em(0.9), style: .continuous)
+                    .fill(Color.black.opacity(0.28))
+                    .blur(radius: metrics.em(0.5))
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity,
                alignment: laeuft ? .top : .center)
