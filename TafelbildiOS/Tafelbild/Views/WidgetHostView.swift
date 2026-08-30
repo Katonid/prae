@@ -220,7 +220,11 @@ struct WidgetHostView: View {
             VideoWidgetView(content: value, interactive: !editing,
                             onOpenSettings: { store.settingsWidgetID = widget.id })
         case .geburtstag(let value):
+            // Die Klassenliste kommt mit: Aus ihr werden die drei
+            // Gratulanten gezogen (siehe `Gratulantenrolle`).
             GeburtstagWidgetView(content: bindGeburtstag(value), interactive: !editing,
+                                 list: store.nameList(store.board(boardID)?
+                                     .geburtstagslisteID(vorhanden: store.nameLists)),
                                  onSpringen: { seite in
                                      store.zeigeSeite(seite, auf: boardID)
                                  })

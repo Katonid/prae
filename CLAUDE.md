@@ -450,6 +450,29 @@ Namens und lebt weiter.
   keine davon; sie wird beim Ankommen in `ownBoardIDs` eingetragen, sonst
   bliebe sie unsichtbar.
 
+### Geburtstagsritual (ab 1.3.11)
+
+- Ein Tipp führt durch **drei Stationen**: Feier → drei Gratulanten →
+  zwei Fragen; der vierte fängt von vorn an und zieht alles neu. Kein
+  Knopf, kein Menü — die Lehrkraft steht vor der Klasse und hat eine Hand
+  frei.
+- Die Gratulanten treten **ohne eigenen Tipp** direkt nach der Feier auf:
+  Sie gehören dazu, nicht dahinter.
+- **Drei Kinder, drei Rollen** (Kompliment / Erinnerung / Wunsch) — die
+  Rollen werden *gemischt*, nicht je Kind gewürfelt. Bei drei unabhängigen
+  Würfen käme regelmäßig dreimal „Wunsch" heraus.
+- Gezogen wird aus `activeEntries` **ohne das Geburtstagskind**; Pausierte
+  bleiben draußen (wer krank ist, kann nichts sagen).
+- Stand und Auslosung stehen im **Inhalt** (`ritual`, `gratulanten`,
+  `rollen`, `fragen`), nicht in der Ansicht: Die Seite läuft auf dem
+  Beamer, ein kurzes Verlassen darf nicht zurücksetzen, und ein zweites
+  Gerät zeigt dasselbe. Namen und Fragen als **Text**, wie im
+  Sitzplanarchiv.
+- Der Fundus steht in `Model/Geburtstagsfragen.swift` (80 Fragen, vom
+  Nutzer für die 4. Klasse zusammengestellt). **Zwei** zur Auswahl, nicht
+  eine (das wäre eine Prüfungsfrage) und nicht drei (dann wird aus dem
+  Aussuchen ein Abwägen).
+
 ### Nachfeiern (ab 1.3.9)
 
 - Der Dienst sieht **immer nur den heutigen Tag** an — daran nichts ändern.

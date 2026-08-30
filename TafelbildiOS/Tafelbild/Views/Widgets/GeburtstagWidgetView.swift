@@ -15,6 +15,8 @@ import SwiftUI
 struct GeburtstagWidgetView: View {
     @Binding var content: GeburtstagContent
     var interactive: Bool
+    /// Die Klassenliste — daraus werden die drei Gratulanten gezogen.
+    var list: NameList?
     /// Springt zur Seite, auf der gefeiert wird (nur beim Hinweis).
     var onSpringen: (String) -> Void
 
@@ -111,6 +113,9 @@ struct GeburtstagWidgetView: View {
                         }
                     }
                     beschriftung(in: geo.size)
+                    if content.ritual > 0 && begonnen == nil {
+                        ritualbild(in: geo.size)
+                    }
                 }
             }
         }
@@ -224,10 +229,149 @@ struct GeburtstagWidgetView: View {
         }
     }
 
+    // MARK: - Das Ritual
+
+    /// Was nach der Feier kommt: erst die drei Gratulanten, dann die
+    /// beiden Fragen.
+    ///
+    /// **Der Tipp führt durch drei Stationen** — Feier, Gratulanten,
+    /// Fragen —, und der vierte fängt von vorn an. Kein Knopf, kein Menü:
+    /// Die Lehrkraft steht vor der Klasse und hat eine Hand frei.
+    @ViewBuilder
+    private func ritualbild(in flaeche: CGSize) -> some View {
+        let mass = min(flaeche.width / 820, flaeche.height / 560)
+        VStack(spacing: 22 * mass) {
+            if content.ritual == 1 {
+                gratulantenbild(mass: mass)
+            } else {
+                fragenbild(mass: mass)
+            }
+        }
+        .padding(28 * mass)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background {
+            // Der Auftritt darunter soll nicht durchblitzen, während die
+            // Klasse liest.
+            RoundedRectangle(cornerRadius: Theme.widgetCorner, style: .continuous)
+                .fill(Color.black.opacity(0.55))
+        }
+        .transition(.opacity)
+    }
+
+    @ViewBuilder
+    private func gratulantenbild(mass: Double) -> some View {
+        Text("Drei für \(content.name.nonEmpty ?? "dich")")
+            .font(Theme.font(34 * mass, weight: .heavy))
+            .foregroundStyle(.white)
+            .lineLimit(1)
+            .minimumScaleFactor(0.4)
+            .umrandet()
+
+        VStack(spacing: 14 * mass) {
+            ForEach(Array(content.gratulanten.enumerated()), id: \.offset) { stelle, name in
+                let rolle = Gratulantenrolle.aus(
+                    stelle < content.rollen.count ? content.rollen[stelle] : "")
+                HStack(spacing: 16 * mass) {
+                    Image(systemName: rolle.symbol)
+                        .font(.system(size: 34 * mass, weight: .semibold))
+                        .foregroundStyle(Color(hex: rolle.farbe))
+                        .frame(width: 46 * mass)
+                    VStack(alignment: .leading, spacing: 2 * mass) {
+                        HStack(spacing: 10 * mass) {
+                            Text(name)
+                                .font(Theme.font(28 * mass, weight: .bold))
+                                .foregroundStyle(.white)
+                            Text(rolle.titel)
+                                .font(Theme.font(20 * mass, weight: .heavy))
+                                .foregroundStyle(Color(hex: rolle.farbe))
+                        }
+                        Text(rolle.auftrag)
+                            .font(Theme.font(18 * mass, weight: .medium))
+                            .foregroundStyle(.white.opacity(0.85))
+                    }
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.4)
+                    Spacer(minLength: 0)
+                }
+                .padding(.horizontal, 16 * mass)
+                .padding(.vertical, 12 * mass)
+                .background {
+                    RoundedRectangle(cornerRadius: 16 * mass, style: .continuous)
+                        .fill(.white.opacity(0.1))
+                }
+            }
+        }
+
+        if interactive {
+            Text("Antippen für die Fragen")
+                .font(Theme.font(18 * mass, weight: .semibold))
+                .foregroundStyle(.white.opacity(0.6))
+        }
+    }
+
+    @ViewBuilder
+    private func fragenbild(mass: Double) -> some View {
+        // Der Name gehört auch hierhin: Die Ritualfläche deckt die
+        // Beschriftung darunter zu, und ohne ihn stünde die Frage im Raum,
+        // ohne dass jemand wüsste, wer gemeint ist.
+        Text("Such dir eine Frage aus, \(content.name.nonEmpty ?? "du")")
+            .font(Theme.font(32 * mass, weight: .heavy))
+            .foregroundStyle(.white)
+            .lineLimit(1)
+            .minimumScaleFactor(0.4)
+            .umrandet()
+
+        VStack(spacing: 16 * mass) {
+            ForEach(Array(content.fragen.enumerated()), id: \.offset) { stelle, frage in
+                HStack(alignment: .top, spacing: 14 * mass) {
+                    Text("\(stelle + 1)")
+                        .font(Theme.font(26 * mass, weight: .heavy))
+                        .foregroundStyle(Color(hex: "#fde68a"))
+                        .frame(width: 34 * mass)
+                    Text(frage)
+                        .font(Theme.font(24 * mass, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .padding(18 * mass)
+                .background {
+                    RoundedRectangle(cornerRadius: 18 * mass, style: .continuous)
+                        .fill(.white.opacity(0.1))
+                }
+            }
+        }
+
+        if interactive {
+            Text("Antippen: noch einmal von vorn")
+                .font(Theme.font(18 * mass, weight: .semibold))
+                .foregroundStyle(.white.opacity(0.6))
+        }
+    }
+
     // MARK: - Losgehen
 
+    /// Ein Tipp — je nachdem, wo das Ritual gerade steht.
     private func starte() {
         guard interactive, begonnen == nil else { return }
+        switch content.ritual {
+        case 0:
+            feiere()
+        case 1:
+            withAnimation(.easeInOut(duration: 0.3)) {
+                content.fragen = Geburtstagsfragen.auswahl()
+                content.ritual = 2
+            }
+            Haptics.tap()
+        default:
+            // Von vorn: Die Feier läuft noch einmal, und alles wird neu
+            // gezogen. Zwei Runden sollen nicht gleich aussehen.
+            withAnimation(.easeInOut(duration: 0.3)) { content.ritual = 0 }
+            feiere()
+        }
+    }
+
+    private func feiere() {
         wuensche = Gluecksatz.auswahl()
         begonnen = Date()
         einzug = 0.7
@@ -236,12 +380,38 @@ struct GeburtstagWidgetView: View {
         Feierklang.spiele(feier, fanfare: Fanfare.aus(content.fanfare))
 
         // Nach dem Auftritt zurück in den ruhigen Zustand — die Seite
-        // bleibt ja stehen und soll nicht endlos flackern.
+        // bleibt ja stehen und soll nicht endlos flackern —, und die drei
+        // Gratulanten treten auf. Sie brauchen keinen eigenen Tipp: Sie
+        // gehören zur Feier, nicht dahinter.
         let dauer = feier.dauer
         Task { @MainActor in
             try? await Task.sleep(for: .seconds(dauer + 0.4))
-            withAnimation(.easeOut(duration: 0.5)) { begonnen = nil; einzug = 1 }
+            let gezogen = zieheGratulanten()
+            withAnimation(.easeOut(duration: 0.5)) {
+                begonnen = nil
+                einzug = 1
+                if !gezogen.namen.isEmpty {
+                    content.gratulanten = gezogen.namen
+                    content.rollen = gezogen.rollen
+                    content.ritual = 1
+                }
+            }
         }
+    }
+
+    /// Drei Kinder aus der Klasse — **ohne das Geburtstagskind**, und
+    /// wirklich gezogen, nicht der Reihe nach.
+    ///
+    /// Pausierte Namen bleiben draußen: Wer krank ist, kann nichts sagen.
+    private func zieheGratulanten() -> (namen: [String], rollen: [String]) {
+        guard let liste = list else { return ([], []) }
+        let andere = liste.activeEntries
+            .filter { $0.id != content.eintragID }
+            .compactMap { $0.text.nonEmpty }
+        guard !andere.isEmpty else { return ([], []) }
+        let gezogen = Array(andere.shuffled().prefix(3))
+        let rollen = Gratulantenrolle.verteilung().prefix(gezogen.count).map(\.rawValue)
+        return (gezogen, Array(rollen))
     }
 }
 
