@@ -64,7 +64,18 @@ struct GeburtstagWidgetView: View {
                     Text("🎂")
                         .font(.system(size: h * 0.56))
                     VStack(alignment: .leading, spacing: h * 0.02) {
-                        Text("Heute Geburtstag")
+                        // Bei einer Nachfeier war der Geburtstag längst —
+                        // „Heute Geburtstag" wäre schlicht falsch (gemeldet
+                        // 08/2026).
+                        //
+                        // Ohne das Datum: Auf 280 Punkten steht neben Torte
+                        // und Pfeil eine Zeile von rund 160 Punkten Breite.
+                        // „Wir feiern nach" füllt sie; mit angehängtem Tag
+                        // schrumpfte die Schrift auf gut die Hälfte — und zu
+                        // kleine Schrift auf diesem Kärtchen war schon
+                        // einmal die Beschwerde. Wann der Tag war, steht auf
+                        // der Seite dahinter.
+                        Text(content.nachgefeiert ? "Wir feiern nach" : "Heute Geburtstag")
                             .font(Theme.font(h * 0.21, weight: .semibold))
                             .foregroundStyle(.white.opacity(0.88))
                             .lineLimit(1)

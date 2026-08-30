@@ -555,6 +555,13 @@ Namens und lebt weiter.
 - Ferien-Geburtstage holt deshalb ein Mensch nach: `NachfeiernSheet`
   (Tafeleinstellungen → Geburtstage → „Nachfeiern"), Zeitraum vorbelegt
   mit sechs Wochen, Auswahl je Kind.
+- **Das Hinweiskärtchen sagt „Wir feiern nach"** (ab 1.3.22). Bis 1.3.21
+  trug es `nachgefeiert` gar nicht mit und behauptete „Heute Geburtstag"
+  über einem Kind, dessen Tag im Juli war (gemeldet 08/2026). Schon
+  stehende Kärtchen bessert `richteHinweiseAus` bei jedem Nachsehen aus —
+  was gilt, weiß die zugehörige Feierseite. Ohne Datum auf dem Kärtchen:
+  Neben Torte und Pfeil bleiben rund 160 Punkte, und zu kleine Schrift war
+  dort schon einmal die Beschwerde.
 - **Das Jahr kommt vom tatsächlichen Geburtstag**, nicht von heute
   (`Geburtstage.Vergangen.jahr`). Ein Kind, das im Dezember sieben wurde
   und im Januar nachfeiert, wäre sonst acht.

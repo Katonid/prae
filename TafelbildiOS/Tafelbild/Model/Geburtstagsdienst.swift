@@ -31,6 +31,13 @@ extension BoardStore {
     func pruefeGeburtstage(heute: Date = Date()) {
         for board in boards where board.geburtstage && !board.deleted {
             legeGeburtstagsseitenAn(boardID: board.id, heute: heute)
+            // Auch dann, wenn nichts Neues anzulegen war: Alte Kärtchen
+            // sollen aufhören, das Falsche zu behaupten.
+            var korrigiert = false
+            aendere(board.id) { tafel in
+                korrigiert = Self.richteHinweiseAus(auf: &tafel)
+            }
+            if korrigiert { touch(board.id) }
         }
         planeGeburtstagsmeldungen()
     }
@@ -133,7 +140,7 @@ extension BoardStore {
         tafel.widgets.append(element)
 
         setzeHinweis(auf: &tafel, eintrag: eintrag, jahr: jahr,
-                     zielSeite: seite.id, ich: ich)
+                     nachgefeiert: nachgefeiert, zielSeite: seite.id, ich: ich)
     }
 
     // MARK: - Nachfeiern
@@ -194,13 +201,43 @@ extension BoardStore {
         touch(boardID)
     }
 
+    /// Bringt schon stehende Hinweiskärtchen mit ihrer Feierseite in
+    /// Einklang.
+    ///
+    /// Kärtchen, die vor 1.3.22 entstanden sind, kennen `nachgefeiert`
+    /// nicht und behaupten deshalb „Heute Geburtstag", auch wenn der Tag
+    /// im Juli war. Was gilt, weiß die zugehörige Feierseite — von dort
+    /// wird es übernommen. Das ist billig (ein Durchlauf über die
+    /// Elemente) und passiert bei jedem Nachsehen, also von selbst.
+    static func richteHinweiseAus(auf tafel: inout Board) -> Bool {
+        var wahrheit: [String: Bool] = [:]
+        for widget in tafel.widgets {
+            guard case .geburtstag(let inhalt) = widget.content, !inhalt.hinweis
+            else { continue }
+            wahrheit["\(inhalt.eintragID)|\(inhalt.jahr)"] = inhalt.nachgefeiert
+        }
+        var geaendert = false
+        for stelle in tafel.widgets.indices {
+            guard case .geburtstag(var inhalt) = tafel.widgets[stelle].content,
+                  inhalt.hinweis,
+                  let gilt = wahrheit["\(inhalt.eintragID)|\(inhalt.jahr)"],
+                  inhalt.nachgefeiert != gilt
+            else { continue }
+            inhalt.nachgefeiert = gilt
+            tafel.widgets[stelle].content = .geburtstag(inhalt)
+            geaendert = true
+        }
+        return geaendert
+    }
+
     /// Der kleine Hinweis auf der ersten Seite, der zur Feier führt.
     ///
     /// `static` und mit `inout`: Er läuft innerhalb von `aendere`, und dort
     /// ist die Tafel schon ausgeliehen — ein zweiter Zugriff über `boards`
     /// wäre ein Zugriff auf denselben Wert.
     private static func setzeHinweis(auf tafel: inout Board, eintrag: NameEntry,
-                                     jahr: Int, zielSeite: String, ich: String) {
+                                     jahr: Int, nachgefeiert: Bool,
+                                     zielSeite: String, ich: String) {
         let ersteSeite = tafel.ersteSeitenID
         let schonDa = tafel.widgets.contains { widget in
             guard case .geburtstag(let inhalt) = widget.content else { return false }
@@ -216,6 +253,10 @@ extension BoardStore {
         inhalt.geburtstag = eintrag.geburtstag
         inhalt.jahr = jahr
         inhalt.hinweis = true
+        // **Das Kärtchen muss wissen, ob nachgefeiert wird.** Sonst steht
+        // dort „Heute Geburtstag" über einem Kind, dessen Geburtstag im
+        // Juli war (gemeldet 08/2026).
+        inhalt.nachgefeiert = nachgefeiert
         inhalt.zielSeite = zielSeite
 
         var element = BoardWidget(content: .geburtstag(inhalt))
