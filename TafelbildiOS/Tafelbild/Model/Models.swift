@@ -77,6 +77,7 @@ enum WidgetKind: String, Codable, CaseIterable, Identifiable {
     case video
     case kamera
     case geburtstag
+    case sitzplan
 
     var id: String { rawValue }
 
@@ -95,6 +96,7 @@ enum WidgetKind: String, Codable, CaseIterable, Identifiable {
         case .video:        return "Video"
         case .kamera:       return "Dokumentenkamera"
         case .geburtstag:   return "Geburtstag"
+        case .sitzplan:     return "Sitzplan"
         }
     }
 
@@ -113,6 +115,7 @@ enum WidgetKind: String, Codable, CaseIterable, Identifiable {
         case .video:        return "Film vom Gerät oder aus dem Netz"
         case .kamera:       return "Heft oder Blatt zeigen"
         case .geburtstag:   return "Wer heute feiert"
+        case .sitzplan:     return "Wer wo sitzt — ausgelost nach Regeln"
         }
     }
 
@@ -131,6 +134,7 @@ enum WidgetKind: String, Codable, CaseIterable, Identifiable {
         case .video:        return "play.rectangle"
         case .kamera:       return "doc.viewfinder"
         case .geburtstag:   return "gift"
+        case .sitzplan:     return "square.grid.3x3"
         }
     }
 
@@ -977,6 +981,7 @@ enum WidgetContent: Equatable {
     case video(VideoContent)
     case kamera(KameraContent)
     case geburtstag(GeburtstagContent)
+    case sitzplan(SitzplanContent)
 
     var kind: WidgetKind {
         switch self {
@@ -993,6 +998,7 @@ enum WidgetContent: Equatable {
         case .video:        return .video
         case .kamera:       return .kamera
         case .geburtstag:   return .geburtstag
+        case .sitzplan:     return .sitzplan
         }
     }
 
@@ -1022,6 +1028,10 @@ enum WidgetContent: Equatable {
         ]))
         case .kamera:       return .kamera(KameraContent())
         case .geburtstag:   return .geburtstag(GeburtstagContent())
+        // Dreißig Plätze als Anfang, paarweise in Reihen. Wer sie
+        // einzeln aus einer Ecke ziehen müsste, gäbe vorher auf.
+        case .sitzplan:     return .sitzplan(SitzplanContent(
+            plaetze: Sitzordnung.vorschlag(anzahl: 30, raum: .quer)))
         }
     }
 }
@@ -1048,6 +1058,7 @@ extension WidgetContent: Codable {
         case .video:        self = .video(try container.decode(VideoContent.self, forKey: .data))
         case .kamera:       self = .kamera(try container.decode(KameraContent.self, forKey: .data))
         case .geburtstag:   self = .geburtstag(try container.decode(GeburtstagContent.self, forKey: .data))
+        case .sitzplan:     self = .sitzplan(try container.decode(SitzplanContent.self, forKey: .data))
         }
     }
 
@@ -1068,6 +1079,7 @@ extension WidgetContent: Codable {
         case .video(let value):        try container.encode(value, forKey: .data)
         case .kamera(let value):       try container.encode(value, forKey: .data)
         case .geburtstag(let value):   try container.encode(value, forKey: .data)
+        case .sitzplan(let value):     try container.encode(value, forKey: .data)
         }
     }
 }
@@ -1537,6 +1549,12 @@ struct Board: Codable, Identifiable, Equatable {
             if case .namePicker(let content) = widget.content, let listID = content.listID {
                 ids.insert(listID)
             }
+            // Der Sitzplan hängt genauso an einer Liste — ohne diese Zeile
+            // reiste sie beim Teilen nicht mit, und die Kollegin sähe einen
+            // Plan ohne Namen.
+            if case .sitzplan(let content) = widget.content, let listID = content.listID {
+                ids.insert(listID)
+            }
         }
         // Die Geburtstagsliste gehört dazu, auch ohne Zufallsnamen-Element:
         // An dieser Menge hängt, was beim Teilen mitreist. Ohne sie sähe
@@ -1850,6 +1868,11 @@ struct NameEntry: Codable, Equatable, Identifiable {
     /// jeder Zeitzonenwechsel um einen Tag — genau der Fehler, der einem
     /// Kind den Geburtstag am falschen Tag feiert.
     var geburtstag: String = ""
+    /// Wo im Raum dieses Kind sitzen soll — Rohwert eines `Sitzwunsch`.
+    /// Leer heißt „egal", und das ist der Regelfall.
+    var sitzwunsch: String = ""
+    /// Braucht einen freien Platz neben sich.
+    var alleine: Bool = false
 
     func wert(_ merkmalID: String) -> String? {
         merkmale[merkmalID]?.nonEmpty
@@ -1896,7 +1919,25 @@ struct NameList: Codable, Identifiable, Equatable {
     /// Merkmale, nach denen sich die Namen sortieren lassen.
     var merkmale: [Merkmal] = []
 
+    /// Wer nicht nebeneinander soll und wer gern zusammen — für den
+    /// Sitzplan. Steht an der Liste und nicht am Element, weil es eine
+    /// Eigenschaft der Kinder ist und nicht eine des Raumes: Dieselbe
+    /// Klasse behält ihre Regeln, auch wenn die Tische umgestellt werden.
+    var sitzregeln: [Sitzregel] = []
+
     var activeEntries: [NameEntry] { entries.filter { !$0.paused } }
+
+    /// Alle Regeln, die diesen Eintrag betreffen.
+    func sitzregeln(zu eintragID: String) -> [Sitzregel] {
+        sitzregeln.filter { $0.betrifft(eintragID) }
+    }
+
+    /// Regeln, deren Partner es nicht mehr gibt, fallen weg — sonst
+    /// verhindert eine unsichtbare Regel eine Verteilung.
+    func gueltigeSitzregeln() -> [Sitzregel] {
+        let vorhanden = Set(entries.map(\.id))
+        return sitzregeln.filter { vorhanden.contains($0.a) && vorhanden.contains($0.b) && $0.a != $0.b }
+    }
 
     /// Was von einer gelöschten Liste noch hochgeladen wird — ein leerer
     /// Vermerk, ohne die Namen (siehe `Board.grabstein`).
@@ -1908,6 +1949,7 @@ struct NameList: Codable, Identifiable, Equatable {
         leer.name = ""
         leer.entries = []
         leer.merkmale = []
+        leer.sitzregeln = []
         leer.owner = ""
         return leer
     }
@@ -2045,7 +2087,7 @@ extension Board {
 
 extension NameList {
     enum ListKeys: String, CodingKey {
-        case id, name, entries, owner, updatedAtMs, deleted, merkmale
+        case id, name, entries, owner, updatedAtMs, deleted, merkmale, sitzregeln
     }
 
     init(from decoder: Decoder) throws {
@@ -2055,6 +2097,7 @@ extension NameList {
         name = c.wert(.name, "Liste")
         entries = c.wert(.entries, [NameEntry]())
         merkmale = c.wert(.merkmale, [Merkmal]())
+        sitzregeln = c.wert(.sitzregeln, [Sitzregel]())
         owner = c.wert(.owner, "")
         updatedAtMs = c.wert(.updatedAtMs, Date.nowMs)
         deleted = c.wert(.deleted, false)
@@ -2089,7 +2132,9 @@ extension Merkmal {
 }
 
 extension NameEntry {
-    enum EntryKeys: String, CodingKey { case id, text, paused, merkmale, geburtstag }
+    enum EntryKeys: String, CodingKey {
+        case id, text, paused, merkmale, geburtstag, sitzwunsch, alleine
+    }
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: EntryKeys.self)
@@ -2099,6 +2144,8 @@ extension NameEntry {
         paused = c.wert(.paused, false)
         merkmale = c.wert(.merkmale, [String: String]())
         geburtstag = c.wert(.geburtstag, "")
+        sitzwunsch = c.wert(.sitzwunsch, "")
+        alleine = c.wert(.alleine, false)
     }
 }
 
