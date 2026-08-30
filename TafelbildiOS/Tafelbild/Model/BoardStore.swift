@@ -913,8 +913,14 @@ final class BoardStore: ObservableObject {
     /// Ohne Umlauf: Am Anfang zurück oder am Ende weiter passiert nichts.
     /// Wer wischt, soll wissen, wo er ist — ein Sprung von der letzten auf
     /// die erste Seite überrascht mitten im Unterricht.
+    /// **Ausgeblendete Seiten werden übersprungen.** Bis 1.3.25 blätterte
+    /// der Wisch durch `seiten` und damit auch durch das, was gerade nicht
+    /// im Reiter steht (gemeldet 08/2026). Beim Bearbeiten gehören sie
+    /// dazu — dort stehen sie ja auch im Reiter.
     func blaettere(_ richtung: Int, boardID: String) {
-        guard let seiten = board(boardID)?.seiten, seiten.count > 1 else { return }
+        guard let seiten = board(boardID)?.seiten(mitVersteckten: editing,
+                                                  dazu: aktiveSeitenID),
+              seiten.count > 1 else { return }
         let jetzt = seiten.firstIndex { $0.id == aktiveSeitenID } ?? 0
         let ziel = jetzt + richtung
         guard seiten.indices.contains(ziel) else { return }

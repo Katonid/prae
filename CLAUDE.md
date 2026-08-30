@@ -504,6 +504,11 @@ Namens und lebt weiter.
   `Sitzplan.archiv` sind ein Nachweis, kein Zustand.
 - Das **Gedächtnis** des Zufälligen Namens (`zaehler`, `paare`) zählt zum
   Gebrauch und geht mit — es ist die Spur der letzten Wochen.
+- **Drei Wege, und der Einstellungsweg ist der, den man findet** (ab
+  1.3.26): Elementeinstellungen → Abschnitt „Zurücksetzen", das Menü des
+  Elements, und ⋯ für Seite oder Tafel. 1.3.21 hatte nur die beiden Menüs
+  — und der Nutzer fand es nicht (gemeldet 08/2026). Wer etwas an einem
+  Element sucht, öffnet dessen Einstellungen.
 - Zwei Wege: ⋯ → „Auf unbenutzt zurücksetzen" fragt nach dem Umfang
   (diese Seite / ganze Tafel), das Elementmenü setzt eines zurück. Beide
   sind ausgegraut, wenn nichts zu vergessen ist.

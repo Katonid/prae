@@ -99,6 +99,51 @@ struct WidgetSettingsSheet: View {
 
     private var widget: BoardWidget? { store.widget(widgetID, in: boardID) }
 
+    /// Der Text unter dem Abschnitt „Auf der Tafel".
+    ///
+    /// Aus demselben Grund ausgelagert wie `ruecksetzhinweis` — er ist
+    /// beim Erklären des Sperrens noch einmal länger geworden, und lange
+    /// `+`-Ketten bringen den Übersetzer an seine Zeitgrenze.
+    private static let tafelhinweis: String = {
+        var text = "Die Karte ist die helle Fläche unter dem Element. „Nur Rahmen“ "
+        text += "zeichnet bloß die Grenze, der Tafelhintergrund bleibt zu sehen; "
+        text += "„Ohne“ stellt den Inhalt frei auf die Tafel. „Wie die Tafel“ "
+        text += "folgt der Einstellung „Rahmen“ unter „Aussehen“, die anderen "
+        text += "setzen sich darüber hinweg.\n\n"
+        text += "Ausgeblendet heißt: nur für mich, und nur im Unterricht. Beim "
+        text += "Bearbeiten bleibt das Element blass stehen, damit es "
+        text += "zurückzuholen ist. Auf einer geteilten Tafel sehen es die "
+        text += "anderen weiterhin.\n\n"
+        text += "Gesperrt heißt: Das Element lässt sich nicht mehr verschieben "
+        text += "und nicht in der Größe ändern, und die Anfasser an den Ecken "
+        text += "verschwinden. Bedienen lässt es sich weiter — ein gesperrter "
+        text += "Timer läuft, ein gesperrter Zufallsname zieht. Es geht nur "
+        text += "darum, dass beim Zeigen an der Tafel nichts aus Versehen "
+        text += "verrutscht."
+        return text
+    }()
+
+    /// Der Text unter dem Abschnitt „Zurücksetzen".
+    ///
+    /// **Ausgelagert, nicht der Schönheit wegen.** Zusammengesetzt im
+    /// `Text(...)` scheiterte der Übersetzer daran, den Ausdruck in
+    /// vertretbarer Zeit zu prüfen („unable to type-check this expression
+    /// in reasonable time") — eine Zeichenkette aus einem Dutzend `+` mit
+    /// einem Bedingungsausdruck darin ist für ihn ein Suchbaum. Als
+    /// gewöhnliche Funktion mit `String` als Rückgabewert ist es eindeutig.
+    private static func ruecksetzhinweis(fuer art: WidgetKind) -> String {
+        var text = "Setzt zurück, was abgelaufen ist — den gezogenen Namen, die "
+        text += "ausgeloste Sitzordnung, die gelaufene Feier, die Haken, den "
+        text += "laufenden Timer. Eingerichtet bleibt alles: Namensliste, "
+        text += "Grundriss, Zeiten, Farben. Archive bleiben ebenfalls stehen."
+        guard art == .namePicker else { return text }
+        text += "\n\nWer schon gezogen wurde, bleibt gemerkt — die Kachel "
+        text += "zeigt nur wieder die Ansicht vor der Auslosung. Erst der "
+        text += "zweite Knopf löscht auch das Gedächtnis; danach kann "
+        text += "dasselbe Kind sofort wieder drankommen."
+        return text
+    }
+
     private var kopfGroesse: Double { widget?.labelSize ?? 1 }
 
     /// Der Wähler des Blattes. Bewusst ein Objekt und kein Ansichtswert:
@@ -169,7 +214,13 @@ struct WidgetSettingsSheet: View {
                                 store.updateWidget(widgetID, in: boardID) { $0.versteckt = value }
                             }
                         ))
-                        Toggle("Position festecken", isOn: Binding(
+                        // Hieß bis 1.3.26 „Position festecken" — ein
+                        // Tippfehler („feststecken"), und selbst richtig
+                        // geschrieben sagte es nicht, was passiert
+                        // (gefragt 08/2026: „Was soll ‚festecken' heißen?
+                        // Und was soll es bewirken?"). Jetzt steht da, was
+                        // es tut.
+                        Toggle("Gegen Verschieben sperren", isOn: Binding(
                             get: { store.widget(widgetID, in: boardID)?.locked ?? false },
                             set: { value in
                                 store.updateWidget(widgetID, in: boardID) { $0.locked = value }
@@ -178,14 +229,7 @@ struct WidgetSettingsSheet: View {
                     } header: {
                         Text("Auf der Tafel")
                     } footer: {
-                        Text("Die Karte ist die helle Fläche unter dem Element. „Nur Rahmen“ "
-                             + "zeichnet bloß die Grenze, der Tafelhintergrund bleibt zu sehen; "
-                             + "„Ohne“ stellt den Inhalt frei auf die Tafel. „Wie die Tafel“ "
-                             + "folgt der Einstellung „Rahmen“ unter „Aussehen“, die anderen "
-                             + "setzen sich darüber hinweg.\n\nAusgeblendet heißt: nur für mich, "
-                             + "und nur im Unterricht. Beim Bearbeiten bleibt das Element blass "
-                             + "stehen, damit es zurückzuholen ist. Auf einer geteilten Tafel "
-                             + "sehen es die anderen weiterhin.")
+                        Text(Self.tafelhinweis)
                     }
 
                     Section {
@@ -247,6 +291,38 @@ struct WidgetSettingsSheet: View {
                              + "Beschriftung und Inhalt. „Wie die Tafel“ folgt der Vorgabe "
                              + "unter „Aussehen“; jede andere Wahl bleibt hier stehen, auch "
                              + "wenn die Tafel später umgestellt wird.")
+                    }
+
+                    // **Zurücksetzen gehört auch hierher.** Es stand seit
+                    // 1.3.21 nur im Menü des Elements und im Tafelmenü —
+                    // und wurde dort nicht gefunden (gemeldet 08/2026:
+                    // „Wo soll das Zurücksetzen sein? Ich finde es
+                    // nicht."). Wer etwas an einem Element sucht, öffnet
+                    // dessen Einstellungen.
+                    Section {
+                        Button {
+                            store.setzeZurueck(widgetID, in: boardID, tiefe: .ergebnis)
+                            Haptics.tap()
+                        } label: {
+                            Label("Auf unbenutzt zurücksetzen",
+                                  systemImage: "arrow.counterclockwise")
+                        }
+                        .disabled(!widget.content.benutzt(.ergebnis))
+
+                        if widget.kind == .namePicker {
+                            Button {
+                                store.setzeZurueck(widgetID, in: boardID, tiefe: .alles)
+                                Haptics.tap()
+                            } label: {
+                                Label("… auch die gezogenen Namen",
+                                      systemImage: "arrow.counterclockwise.circle")
+                            }
+                            .disabled(!widget.content.benutzt(.alles))
+                        }
+                    } header: {
+                        Text("Zurücksetzen")
+                    } footer: {
+                        Text(Self.ruecksetzhinweis(fuer: widget.kind))
                     }
 
                     Section {
