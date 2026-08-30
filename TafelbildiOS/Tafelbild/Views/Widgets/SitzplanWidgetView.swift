@@ -97,20 +97,35 @@ struct SitzplanWidgetView: View {
             // Plan schiebt: Vor dem Sichern soll ja noch getauscht werden
             // können, und dabei muss man den Plan sehen.
             HStack(spacing: metrics.em(0.5)) {
+                // **Als Knopf erkennbar, nicht als graue Zeile.** In der
+                // ersten Fassung stand hier nur beschriftete Schrift — und
+                // wurde übersehen (gemeldet 08/2026: „Ich habe noch nicht
+                // entdecken können, wie ich eine ausgeloste Sitzordnung
+                // nachträglich verschieben kann.").
                 Button {
                     tauschen.toggle()
                     ersteWahl = nil
                     Haptics.tap()
                 } label: {
-                    Label(tauschen ? "Fertig getauscht" : "Tauschen",
+                    Label(tauschen ? "Fertig" : "Namen tauschen",
                           systemImage: "arrow.left.arrow.right")
-                        .font(Theme.font(metrics.em(0.78), weight: .semibold))
-                        .foregroundStyle(tauschen ? Color(hex: "#38bdf8")
-                                                  : style.ink.opacity(0.55))
+                        .font(Theme.font(metrics.em(0.8), weight: .bold))
+                        .foregroundStyle(tauschen ? Color(hex: "#0b1020") : .white)
+                        .padding(.horizontal, metrics.em(0.7))
+                        .padding(.vertical, metrics.em(0.32))
+                        .background {
+                            Capsule().fill(tauschen ? Color(hex: "#38bdf8") : style.accent)
+                        }
                 }
                 .buttonStyle(.plain)
 
-                if let titel = content.laufenderTitel {
+                if tauschen {
+                    Text(ersteWahl == nil
+                         ? "Ersten Platz antippen"
+                         : "Jetzt den zweiten Platz antippen")
+                        .font(Theme.font(metrics.em(0.78), weight: .semibold))
+                        .foregroundStyle(Color(hex: "#38bdf8"))
+                } else if let titel = content.laufenderTitel {
                     Label(titel, systemImage: "checkmark.circle.fill")
                         .font(Theme.font(metrics.em(0.78), weight: .semibold))
                         .foregroundStyle(style.ink.opacity(0.5))

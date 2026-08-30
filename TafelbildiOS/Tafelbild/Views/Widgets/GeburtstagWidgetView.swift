@@ -109,7 +109,8 @@ struct GeburtstagWidgetView: View {
                             // beim Start auf und sinkt zum Schluss zurück.
                             // Ohne das steht das Bild still im Rahmen, egal
                             // wie viel sich darin bewegt.
-                            Feierbild(art: feier, fortschritt: t, flaeche: geo.size)
+                            Feierbild(art: feier, fortschritt: t, flaeche: geo.size,
+                                      kerzen: content.alter ?? 0)
                                 .scaleEffect(1 + sin(min(1, t * 1.25) * .pi) * 0.045)
                                 .allowsHitTesting(false)
                         }

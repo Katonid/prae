@@ -23,6 +23,15 @@ struct Feierbild: View {
     let art: Feierart
     let fortschritt: Double
     let flaeche: CGSize
+    /// Wie viele Kerzen auf der Torte stehen — so viele, wie das Kind alt
+    /// wird. 0 heißt: unbekannt, dann fünf wie bisher.
+    ///
+    /// Bei mehr als acht wird zweireihig gesteckt; nach hinten gestaffelt,
+    /// damit die vordere Reihe die hintere nicht verdeckt. Nach oben
+    /// begrenzt, weil eine Torte mit dreißig Kerzen keine Torte mehr ist,
+    /// sondern ein Lagerfeuer — für eine Grundschule reicht der Bereich
+    /// allemal.
+    var kerzen: Int = 0
 
     /// Die Farben der Feier — kräftig genug für einen Beamer im hellen Raum.
     private static let farben: [Color] = [
@@ -1002,14 +1011,29 @@ struct Feierbild: View {
         // als Gitter, nicht als Kerzen. Jetzt gut fünf zu eins, mit
         // Schrägstreifen und schwarzem Docht.
         let kerzenOben = boden - etage * 3
-        let anzahlKerzen = 5
+        let anzahlKerzen = max(1, min(kerzen > 0 ? kerzen : 5, 18))
+        // Bis acht in einer Reihe, darüber in zweien — sonst stehen sie
+        // Schulter an Schulter und man kann sie nicht zählen. Und zählen
+        // wird eine Klasse sie.
+        let reihen = anzahlKerzen > 8 ? 2 : 1
+        let proReihe = Int(ceil(Double(anzahlKerzen) / Double(reihen)))
         let aus = min(1, max(0, (fortschritt - 0.58) / 0.22))
         for nummer in 0..<anzahlKerzen {
-            let anteil = (Double(nummer) + 0.5) / Double(anzahlKerzen)
+            let reihe = nummer / proReihe
+            let inReihe = nummer % proReihe
+            // Die letzte Reihe ist womöglich kürzer und wird eigens
+            // mittig gesetzt, damit sie nicht links klebt.
+            let inDieser = reihe == reihen - 1
+                ? anzahlKerzen - reihe * proReihe : proReihe
+            let anteil = (Double(inReihe) + 0.5) / Double(max(1, inDieser))
             let kx = mitteX - breite * 0.26 + anteil * breite * 0.52
-            let hoehe = etage * 0.8
-            let dick = etage * 0.15
-            let kerze = Path(roundedRect: CGRect(x: kx - dick / 2, y: kerzenOben - hoehe,
+            // Die hintere Reihe steht höher und schmaler — so schaut sie
+            // über die vordere hinweg.
+            let hinten = Double(reihen - 1 - reihe)
+            let hoehe = etage * (0.8 + hinten * 0.22)
+            let dick = etage * (0.15 - Double(reihen - 1) * 0.03)
+            let fuss = kerzenOben - hinten * etage * 0.1
+            let kerze = Path(roundedRect: CGRect(x: kx - dick / 2, y: fuss - hoehe,
                                                  width: dick, height: hoehe),
                              cornerRadius: dick * 0.35)
             ctx.fill(kerze, with: .color(Color(hex: "#fdfdfd")))
@@ -1020,8 +1044,8 @@ struct Feierbild: View {
             var band = 0.0
             while band < hoehe + dick * 2 {
                 var linie = Path()
-                linie.move(to: CGPoint(x: kx - dick, y: kerzenOben - hoehe + band))
-                linie.addLine(to: CGPoint(x: kx + dick, y: kerzenOben - hoehe + band - dick * 1.1))
+                linie.move(to: CGPoint(x: kx - dick, y: fuss - hoehe + band))
+                linie.addLine(to: CGPoint(x: kx + dick, y: fuss - hoehe + band - dick * 1.1))
                 streifen.stroke(linie, with: .color(farbe(nummer &* 2 &+ 1).opacity(0.85)),
                                 lineWidth: dick * 0.3)
                 band += dick * 0.72
@@ -1032,7 +1056,7 @@ struct Feierbild: View {
                 startPoint: CGPoint(x: kx - dick / 2, y: 0),
                 endPoint: CGPoint(x: kx + dick / 2, y: 0)))
 
-            let docht = CGPoint(x: kx, y: kerzenOben - hoehe)
+            let docht = CGPoint(x: kx, y: fuss - hoehe)
             var faden = Path()
             faden.move(to: CGPoint(x: docht.x, y: docht.y + dick * 0.2))
             faden.addQuadCurve(to: CGPoint(x: docht.x + dick * 0.22, y: docht.y - dick * 0.5),

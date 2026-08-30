@@ -610,6 +610,13 @@ Namens und lebt weiter.
   es nicht mehr gibt, stehen unter dem Plan. Die Umrechnung auf die Fläche
   teilen sich Element und Ansicht (`Sitzflaeche`) — zwei Fassungen liefen
   mit Sicherheit auseinander.
+- **Die Kerzen sind so viele, wie das Kind alt wird** (ab 1.3.14). Bis
+  acht in einer Reihe, darüber zweireihig und nach hinten gestaffelt —
+  sonst stehen sie Schulter an Schulter, und eine Klasse *zählt* sie.
+  Gedeckelt bei 18.
+- **„Namen tauschen" ist ein Knopf, keine graue Zeile.** In der ersten
+  Fassung stand dort nur beschriftete Schrift und wurde übersehen
+  (gemeldet 08/2026). Im Tauschmodus steht daneben, was zu tun ist.
 - **Der Sitzplan feiert nicht.** Am Ende der Auslosung lief bis 1.3.5
   `Feierklang.spiele(.konfetti)` — Applaus und Geburtstagslied, aus dem
   Geburtstagsteil übernommen. Eine Sitzordnung ist kein Geburtstag; hier
