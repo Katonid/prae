@@ -33,8 +33,11 @@ struct Feierbild: View {
 
     var body: some View {
         Canvas { zeichnung, groesse in
-            // Der Schein liegt unter allem und gibt dem Bild eine Mitte.
+            // Unter allem ein Himmel, der sich bewegt — dann der Schein,
+            // der dem Bild eine Mitte gibt.
+            himmel(zeichnung, groesse)
             schein(zeichnung, groesse)
+            druckwelle(zeichnung, groesse)
 
             switch art {
             case .geschenk:  geschenk(zeichnung, groesse)
@@ -48,6 +51,10 @@ struct Feierbild: View {
             // Funkeln liegt über allem — es soll auch auf dem Geschenk
             // blitzen, nicht dahinter verschwinden.
             funkeln(zeichnung, groesse)
+            goldregen(zeichnung, groesse)
+            // Der Blitz zuletzt: Er soll das fertige Bild überstrahlen,
+            // nicht darunter liegen.
+            anfangsblitz(zeichnung, groesse)
         }
     }
 
@@ -113,6 +120,140 @@ struct Feierbild: View {
     /// Weiches Ein- und Ausblenden am Rand eines Abschnitts.
     private func blende(_ wert: Double, ein: Double = 0.08, aus: Double = 0.12) -> Double {
         min(1, min(wert / max(ein, 0.001), (1 - wert) / max(aus, 0.001)))
+    }
+
+    // MARK: - Licht
+
+    /// Alles, was leuchten soll, zweimal zeichnen: weichgezeichnet und
+    /// additiv darunter, scharf darüber.
+    ///
+    /// Das ist der Unterschied zwischen einer Form *in* einer hellen Farbe
+    /// und einer Form, die Licht *abgibt*. Ohne diese Schicht bleibt ein
+    /// Feuerwerk ein Haufen bunter Punkte — gemeldet als „solide, aber
+    /// kein Wow". Additiv heißt: Wo sich zwei Funken überlagern, wird es
+    /// heller statt nur bunter. Genau das macht echtes Licht.
+    ///
+    /// Der Hof kostet einen zweiten Durchgang. Deshalb bekommt ihn nur,
+    /// was wirklich glüht — Funkeln und Explosionen —, nicht jede Form.
+    private func leuchten(_ zeichnung: GraphicsContext, weich: Double,
+                          _ inhalt: (inout GraphicsContext) -> Void) {
+        zeichnung.drawLayer { hof in
+            hof.addFilter(.blur(radius: weich))
+            hof.blendMode = .plusLighter
+            hof.opacity = 0.8
+            inhalt(&hof)
+        }
+        var scharf = zeichnung
+        inhalt(&scharf)
+    }
+
+    /// Ein Himmel, der wandert.
+    ///
+    /// Der Grund der Kachel ist ein fester Verlauf — und ein fester Grund
+    /// macht jede Bewegung darüber zu einer Bewegung *vor* einem Bild.
+    /// Zwei große, weiche Farbwolken, die auf verschiedenen Bahnen
+    /// kreisen, geben der Fläche selbst Leben. Additiv und schwach, damit
+    /// sie den Grund aufhellen, statt ihn zuzukleistern.
+    private func himmel(_ zeichnung: GraphicsContext, _ groesse: CGSize) {
+        var ctx = zeichnung
+        ctx.blendMode = .plusLighter
+        ctx.opacity = blende(fortschritt, ein: 0.06, aus: 0.2) * 0.5
+        guard ctx.opacity > 0.01 else { return }
+        let weit = max(groesse.width, groesse.height) * 0.75
+        for (nummer, ton) in [Color(hex: "#7c3aed"), Color(hex: "#0ea5e9"),
+                              Color(hex: "#db2777")].enumerated() {
+            let phase = fortschritt * (0.7 + Double(nummer) * 0.35)
+                      + streu(nummer, 91) * 6.28
+            let mx = groesse.width * (0.5 + cos(phase) * 0.36)
+            let my = groesse.height * (0.5 + sin(phase * 1.3) * 0.34)
+            ctx.fill(Path(ellipseIn: CGRect(x: mx - weit, y: my - weit,
+                                            width: weit * 2, height: weit * 2)),
+                     with: .radialGradient(
+                        Gradient(colors: [ton.opacity(0.5), ton.opacity(0.12), .clear]),
+                        center: CGPoint(x: mx, y: my),
+                        startRadius: 0, endRadius: weit))
+        }
+    }
+
+    /// Ein heller Blitz im Augenblick des Antippens.
+    ///
+    /// Er dauert keine halbe Sekunde und ist der Grund, warum der Auftritt
+    /// *anfängt*, statt einfach da zu sein. Ohne ihn beginnt jede Feier
+    /// mit einem zaghaften Einblenden.
+    private func anfangsblitz(_ zeichnung: GraphicsContext, _ groesse: CGSize) {
+        let dauer = 0.075
+        guard fortschritt < dauer else { return }
+        var ctx = zeichnung
+        ctx.blendMode = .plusLighter
+        ctx.opacity = pow(1 - fortschritt / dauer, 1.8) * 0.8
+        let mitte = CGPoint(x: groesse.width / 2, y: groesse.height / 2)
+        ctx.fill(Path(CGRect(origin: .zero, size: groesse)),
+                 with: .radialGradient(
+                    Gradient(colors: [.white,
+                                      Color(hex: "#fde68a").opacity(0.4), .clear]),
+                    center: mitte, startRadius: 0,
+                    endRadius: max(groesse.width, groesse.height) * 0.8))
+    }
+
+    /// Zwei Druckwellen, die vom Mittelpunkt nach außen laufen.
+    ///
+    /// Ein Ring, der schnell größer und dabei dünner wird, liest sich als
+    /// Wucht — dasselbe Mittel, mit dem jeder Film eine Explosion größer
+    /// macht, als sie ist.
+    private func druckwelle(_ zeichnung: GraphicsContext, _ groesse: CGSize) {
+        let mitte = CGPoint(x: groesse.width / 2, y: groesse.height / 2)
+        let weit = max(groesse.width, groesse.height) * 0.62
+        for (nummer, start) in [0.0, 0.11].enumerated() {
+            guard fortschritt > start else { continue }
+            let t = (fortschritt - start) / 0.4
+            guard t < 1 else { continue }
+            var ctx = zeichnung
+            ctx.blendMode = .plusLighter
+            ctx.opacity = pow(1 - t, 2.1) * 0.55
+            let r = weit * (0.05 + t * (1.05 + Double(nummer) * 0.25))
+            ctx.stroke(Path(ellipseIn: CGRect(x: mitte.x - r, y: mitte.y - r,
+                                              width: r * 2, height: r * 2)),
+                       with: .color(nummer == 0 ? Color(hex: "#fffbeb")
+                                                : Color(hex: "#fcd34d")),
+                       lineWidth: max(1, 16 * (1 - t)))
+        }
+    }
+
+    /// Goldregen zum Schluss.
+    ///
+    /// Eine Feier, die einfach aufhört, wirkt abgebrochen. Das letzte
+    /// Drittel bekommt deshalb eine eigene Schicht: feiner, heller
+    /// Flitter, der additiv über allem liegt und mit dem Bild ausblendet —
+    /// ein Schluss statt eines Endes.
+    private func goldregen(_ zeichnung: GraphicsContext, _ groesse: CGSize) {
+        let ab = 0.6
+        guard fortschritt > ab else { return }
+        let t = (fortschritt - ab) / (1 - ab)
+        var ctx = zeichnung
+        ctx.blendMode = .plusLighter
+        ctx.opacity = sin(min(1, t * 1.15) * .pi) * 0.9
+        guard ctx.opacity > 0.02 else { return }
+        let anzahl = 64
+        for nummer in 0..<anzahl {
+            let versatz = fach(nummer, anzahl, 81, weite: 0.55)
+            let eigen = (t - versatz) / max(0.001, 1 - versatz)
+            guard eigen > 0 else { continue }
+            let x = fach(versetzt(nummer, anzahl), anzahl, 82, weite: 1) * groesse.width
+                  + sin(eigen * 7 + streu(nummer, 83) * 6.28) * groesse.width * 0.03
+            let tempo = 0.7 + streu(nummer, 84) * 0.9
+            let y = -24 + eigen * tempo * (groesse.height + 48)
+            guard y < groesse.height + 24 else { continue }
+            let lang = 9 + streu(nummer, 85) * 24
+            var strich = Path()
+            strich.move(to: CGPoint(x: x, y: y))
+            strich.addLine(to: CGPoint(x: x, y: y - lang))
+            ctx.stroke(strich, with: .linearGradient(
+                Gradient(colors: [Color(hex: "#fde68a"), .clear]),
+                startPoint: CGPoint(x: x, y: y),
+                endPoint: CGPoint(x: x, y: y - lang)),
+                style: StrokeStyle(lineWidth: 1.4 + streu(nummer, 86) * 1.8,
+                                   lineCap: .round))
+        }
     }
 
     // MARK: - Schichten, die überall liegen
@@ -187,9 +328,9 @@ struct Feierbild: View {
         teil.fill(form, with: .color(farbe))
     }
 
-    /// Blitzendes Funkeln, über die ganze Fläche verteilt.
+    /// Blitzendes Funkeln, über die ganze Fläche verteilt — mit Lichthof.
     private func funkeln(_ zeichnung: GraphicsContext, _ groesse: CGSize) {
-        var ctx = zeichnung
+        leuchten(zeichnung, weich: min(groesse.width, groesse.height) * 0.022) { ctx in
         for nummer in 0..<26 {
             // Jedes Funkeln blitzt mehrmals, jedes zu seiner eigenen Zeit.
             let takt = 0.22 + streu(nummer, 21) * 0.3
@@ -203,6 +344,7 @@ struct Feierbild: View {
             stern(&ctx, mitte: CGPoint(x: x, y: y), radius: gross,
                   farbe: nummer % 3 == 0 ? farbe(nummer) : Color(hex: "#fffbeb"),
                   deckung: hell * 0.85 * blende(fortschritt, ein: 0.05, aus: 0.15))
+        }
         }
     }
 
@@ -577,6 +719,14 @@ struct Feierbild: View {
     private func burst(_ zeichnung: GraphicsContext, _ groesse: CGSize,
                        mitte: CGPoint, ab: Double, nummer saat: Int, weite: Double) {
         guard fortschritt > ab else { return }
+        // Der Lichthof macht aus bunten Punkten glühende Funken.
+        leuchten(zeichnung, weich: min(groesse.width, groesse.height) * 0.03) { ctx in
+            burstRumpf(&ctx, groesse, mitte: mitte, ab: ab, nummer: saat, weite: weite)
+        }
+    }
+
+    private func burstRumpf(_ zeichnung: inout GraphicsContext, _ groesse: CGSize,
+                            mitte: CGPoint, ab: Double, nummer saat: Int, weite: Double) {
         let t = min(1.4, (fortschritt - ab) / 0.42)
         var ctx = zeichnung
         let reichweite = min(groesse.width, groesse.height) * 0.42 * weite

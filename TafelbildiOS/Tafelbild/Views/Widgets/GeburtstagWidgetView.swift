@@ -25,6 +25,8 @@ struct GeburtstagWidgetView: View {
     @State private var begonnen: Date?
     /// Die Glückwünsche dieser Runde, beim Start gemischt.
     @State private var wuensche: [String] = Gluecksatz.auswahl()
+    /// Der Sprung der Schrift beim Start.
+    @State private var einzug: Double = 1
 
     private var feier: Feierart { Feierart.aus(content.feier) }
 
@@ -86,7 +88,12 @@ struct GeburtstagWidgetView: View {
                     if let begonnen {
                         TimelineView(.animation) { takt in
                             let t = min(1, max(0, takt.date.timeIntervalSince(begonnen) / feier.dauer))
+                            // Ein leichtes Atmen der ganzen Szene: Sie geht
+                            // beim Start auf und sinkt zum Schluss zurück.
+                            // Ohne das steht das Bild still im Rahmen, egal
+                            // wie viel sich darin bewegt.
                             Feierbild(art: feier, fortschritt: t, flaeche: geo.size)
+                                .scaleEffect(1 + sin(min(1, t * 1.25) * .pi) * 0.045)
                                 .allowsHitTesting(false)
                         }
                     }
@@ -97,7 +104,7 @@ struct GeburtstagWidgetView: View {
         .clipShape(RoundedRectangle(cornerRadius: Theme.widgetCorner, style: .continuous))
         .contentShape(Rectangle())
         .onTapGesture { starte() }
-        .onDisappear { begonnen = nil }
+        .onDisappear { begonnen = nil; einzug = 1 }
     }
 
     @ViewBuilder
@@ -111,42 +118,61 @@ struct GeburtstagWidgetView: View {
         // genau in die Mitte — also dorthin, wo die Feier läuft. Auf den
         // Bildschirmfotos lief die Rakete quer durch „Alma wird 5".
         let laeuft = begonnen != nil
-        VStack(spacing: metrics.em(0.25)) {
+        VStack(spacing: metrics.em(0.28)) {
             Text(content.name.nonEmpty ?? "Herzlichen Glückwunsch")
-                .font(Theme.font(metrics.em(laeuft ? 1.9 : 2.4), weight: .bold))
+                .font(Theme.font(metrics.em(laeuft ? 2.7 : 3.0), weight: .bold))
                 .foregroundStyle(.white)
-                .shadow(color: .black.opacity(0.5), radius: 8)
                 .lineLimit(1)
-                .minimumScaleFactor(0.4)
+                .minimumScaleFactor(0.35)
+                .umrandet()
 
             if let alter = content.alter {
                 Text("wird \(alter)")
-                    .font(Theme.font(metrics.em(laeuft ? 1.1 : 1.4), weight: .semibold))
-                    .foregroundStyle(Color(hex: "#fcd34d"))
-                    .shadow(color: .black.opacity(0.5), radius: 6)
+                    .font(Theme.font(metrics.em(laeuft ? 1.5 : 1.7), weight: .bold))
+                    .foregroundStyle(Color(hex: "#fde68a"))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.5)
+                    .umrandet()
             }
 
             if laeuft {
                 wunschzeile
             } else if interactive {
                 Text("Antippen")
-                    .font(Theme.font(metrics.em(0.8), weight: .semibold))
-                    .foregroundStyle(.white.opacity(0.6))
+                    .font(Theme.font(metrics.em(0.95), weight: .semibold))
+                    .foregroundStyle(.white.opacity(0.7))
                     .padding(.top, metrics.em(0.4))
+                    .umrandet()
             }
 
         }
-        .padding(.horizontal, metrics.em(0.9))
-        .padding(.vertical, metrics.em(0.55))
-        // Ein weicher dunkler Grund hinter der Schrift: Konfetti und Funken
-        // laufen darüber hinweg, und ohne ihn wird der Name unlesbar.
+        .padding(.horizontal, metrics.em(1.1))
+        .padding(.vertical, metrics.em(0.7))
+        // Ein Grund, der wirklich trägt.
+        //
+        // Gemeldet: „der Text ist oftmals gar nicht zu erkennen, weil er
+        // sich nicht vom Hintergrund oder zum Beispiel der Torte abhebt."
+        // Ein Schlagschatten allein reicht dagegen nicht — er hilft nur
+        // gegen Helles hinter dunkler Schrift, nicht gegen eine rosa
+        // Torte hinter weißer. Deshalb drei Lagen: ein weit gestreuter
+        // dunkler Hof, eine feste Platte darauf und eine helle Kante,
+        // damit die Platte nicht wie ein Loch aussieht.
         .background {
             if laeuft {
-                RoundedRectangle(cornerRadius: metrics.em(0.9), style: .continuous)
-                    .fill(Color.black.opacity(0.28))
-                    .blur(radius: metrics.em(0.5))
+                ZStack {
+                    RoundedRectangle(cornerRadius: metrics.em(1.1), style: .continuous)
+                        .fill(Color.black.opacity(0.55))
+                        .blur(radius: metrics.em(0.7))
+                        .scaleEffect(1.14)
+                    RoundedRectangle(cornerRadius: metrics.em(1.1), style: .continuous)
+                        .fill(Color.black.opacity(0.45))
+                    RoundedRectangle(cornerRadius: metrics.em(1.1), style: .continuous)
+                        .strokeBorder(Color.white.opacity(0.18), lineWidth: 1)
+                }
             }
         }
+        // Der Name springt beim Start heran — ein Auftritt, kein Einblenden.
+        .scaleEffect(einzug)
         .frame(maxWidth: .infinity, maxHeight: .infinity,
                alignment: laeuft ? .top : .center)
         .padding(metrics.em(0.8))
@@ -161,9 +187,11 @@ struct GeburtstagWidgetView: View {
                 let stelle = min(wuensche.count - 1,
                                  max(0, Int(vergangen / (feier.dauer / Double(wuensche.count)))))
                 Text(wuensche[stelle])
-                    .font(Theme.font(metrics.em(0.95), weight: .semibold))
-                    .foregroundStyle(.white.opacity(0.9))
-                    .shadow(color: .black.opacity(0.5), radius: 6)
+                    .font(Theme.font(metrics.em(1.2), weight: .semibold))
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.5)
+                    .umrandet()
                     .id(stelle)
                     .transition(.opacity)
                     .padding(.top, metrics.em(0.3))
@@ -177,6 +205,8 @@ struct GeburtstagWidgetView: View {
         guard interactive, begonnen == nil else { return }
         wuensche = Gluecksatz.auswahl()
         begonnen = Date()
+        einzug = 0.7
+        withAnimation(.spring(response: 0.5, dampingFraction: 0.48)) { einzug = 1 }
         Haptics.success()
         Feierklang.spiele(feier)
 
@@ -185,7 +215,23 @@ struct GeburtstagWidgetView: View {
         let dauer = feier.dauer
         Task { @MainActor in
             try? await Task.sleep(for: .seconds(dauer + 0.4))
-            withAnimation(.easeOut(duration: 0.5)) { begonnen = nil }
+            withAnimation(.easeOut(duration: 0.5)) { begonnen = nil; einzug = 1 }
         }
+    }
+}
+
+/// Eine dunkle Kontur um die Schrift.
+///
+/// Gemeldet: Der Text verschwand vor hellen Stellen — vor der Torte, vor
+/// den Ballons. Ein einzelner Schlagschatten hilft dagegen wenig, weil er
+/// versetzt liegt und die Kante nur auf einer Seite abdunkelt. Drei enge
+/// Schatten übereinander legen sich ringsum und wirken wie eine gezogene
+/// Kontur — ohne eine zweite Textebene, die bei jedem Neuzeichnen doppelt
+/// gesetzt werden müsste.
+private extension View {
+    func umrandet() -> some View {
+        self.shadow(color: .black.opacity(0.9), radius: 1.5)
+            .shadow(color: .black.opacity(0.85), radius: 3)
+            .shadow(color: .black.opacity(0.6), radius: 8)
     }
 }
