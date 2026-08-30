@@ -449,7 +449,11 @@ final class BoardStore: ObservableObject {
             if geloescht { teile.append("gelöscht") }
             if !sichtbar { teile.append("unsichtbar") }
             if ohneBesitzerkennung { teile.append("ohne Besitzerkennung") }
-            teile.append(geaendert.formatted(.dateTime.day().month().hour().minute()))
+            // **Mit Sekunden.** Ohne sie sahen zwei Stände gleich alt aus,
+            // die es nicht waren — und der Zeitstempel entscheidet beim
+            // Abgleich darüber, welcher gewinnt.
+            teile.append(geaendert.formatted(
+                .dateTime.day().month().hour().minute().second()))
             return teile.joined(separator: " · ")
         }
     }
@@ -548,10 +552,26 @@ final class BoardStore: ObservableObject {
         touch(board.id)
     }
 
+    /// **Eine Tafel ohne Besitzerkennung gehört mir, wenn sie in meiner
+    /// eigenen iCloud liegt.**
+    ///
+    /// Vorher entschied bei fehlender Kennung allein der Vergleich des
+    /// Anzeigenamens. Ist auch der leer — und das ist er, solange niemand
+    /// einen eingetragen hat —, galt die eigene Tafel als fremd: Statt sie
+    /// zu löschen, beendete die App nur die eigene Mitgliedschaft. Die
+    /// Tafel verschwand aus der Liste, blieb aber auf allen Geräten und in
+    /// iCloud bestehen, ohne dass man je wieder an sie herankam
+    /// (nachgewiesen 08/2026: „Meine Klasse", 12 Elemente, auf beiden
+    /// Geräten unsichtbar und nicht gelöscht).
+    ///
+    /// Die private CloudKit-Datenbank enthält nur Eigenes; was von dort
+    /// kommt, kann keiner anderen Person gehören.
     func deleteBoard(_ board: Board) {
         guard let index = boards.firstIndex(where: { $0.id == board.id }) else { return }
-        let mine = boards[index].ownerUserID.isEmpty
-            ? boards[index].owner.trimmed.lowercased() == profileName.trimmed.lowercased()
+        let ohneKennung = boards[index].ownerUserID.isEmpty
+        let mine = ohneKennung
+            ? (!engine.istFremd(boardID: board.id)
+               || boards[index].owner.trimmed.lowercased() == profileName.trimmed.lowercased())
             : boards[index].ownerUserID == (myUserID ?? "")
         if mine {
             boards[index].deleted = true
@@ -1997,7 +2017,26 @@ final class BoardStore: ObservableObject {
                 var board = incoming
                 board.embeddedLists = []
                 if let index = boards.firstIndex(where: { $0.id == board.id }) {
-                    if board.updatedAtMs > boards[index].updatedAtMs {
+                    // **Gleichstand mit Inhalt gegen Leere geht an den
+                    // Inhalt.**
+                    //
+                    // Sonst entscheidet der Zeitstempel, und zwar streng:
+                    // Bei Gleichstand bleibt der hiesige Stand stehen. Zwei
+                    // Geräte, die auf dieselbe Millisekunde kommen, hängen
+                    // damit für immer auseinander — der eine mit den
+                    // Elementen, der andere ohne, und kein Abgleich holt
+                    // das je ein.
+                    //
+                    // Eng gefasst und deshalb ungefährlich: Es wird nur
+                    // Nichts durch Etwas ersetzt, nie umgekehrt. Eine Tafel
+                    // ohne ein einziges Element ist kein Stand, den es zu
+                    // verteidigen lohnt — und eine gelöschte kommt als
+                    // Grabstein mit `deleted`, nicht hierüber.
+                    let gleichstand = board.updatedAtMs == boards[index].updatedAtMs
+                        && !board.deleted
+                        && boards[index].widgets.isEmpty
+                        && !board.widgets.isEmpty
+                    if board.updatedAtMs > boards[index].updatedAtMs || gleichstand {
                         let vereint = zusammengefuehrt(vorhanden: boards[index], fremd: board)
                         // Sind Elemente stehen geblieben, die die Gegenseite
                         // gelöscht hatte, kennt sie diesen Stand nicht — er
