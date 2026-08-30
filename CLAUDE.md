@@ -493,6 +493,17 @@ Namens und lebt weiter.
   nach Süden schaut, hat Osten zur Linken. Gedreht werden die
   **Koordinaten**, nicht die Ansicht — eine gedrehte Ansicht stellte auch
   die Namen auf den Kopf.
+- **Der Grundriss-Stapel braucht `Color.clear` als erstes Kind.** Sonst
+  ist der `ZStack` nur so groß wie sein größtes Kind (der Raum), und der
+  liegt eingerückt. Was weiter rechts steht, wird gezeichnet, liegt aber
+  ausserhalb der Grenzen — SwiftUI prüft beim Antippen erst den Elternteil,
+  und was dort nicht hineinfällt, erreicht das Kind nie. In 1.3.5 waren
+  dadurch alle Plätze rechts der Raumbreite unverschiebbar (gemeldet
+  08/2026). Nicht entfernen.
+- **Der Sitzplan feiert nicht.** Am Ende der Auslosung lief bis 1.3.5
+  `Feierklang.spiele(.konfetti)` — Applaus und Geburtstagslied, aus dem
+  Geburtstagsteil übernommen. Eine Sitzordnung ist kein Geburtstag; hier
+  gehört ein betonter Kartenschlag hin und sonst nichts.
 - **Der Platz-Editor liegt als Vollbild an der Wurzel**
   (`BoardStore.sitzplanWidgetID`, präsentiert in `RootView`), nicht als
   Unterseite des Einstellungsblattes. Ein Blatt ist auf dem iPad ein
