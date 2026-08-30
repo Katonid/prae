@@ -103,14 +103,6 @@ QUELLEN = {
                     "clapping-then-leaving.mp3",
         "dauer": 5.0,
     },
-    "truete": {
-        "titel": "Luftrüssel",
-        "urls": ["https://upload.wikimedia.org/wikipedia/commons/e/e0/Luftr%C3%BCssel.ogg"],
-        "urheber": "Wikimedia Commons",
-        "lizenz": "gemeinfrei",
-        "nachweis": "https://commons.wikimedia.org/wiki/File:Luftr%C3%BCssel.ogg",
-        "dauer": 3.5,
-    },
 }
 
 
@@ -201,25 +193,63 @@ def schreibe(name: str, signal: np.ndarray) -> None:
 # Das Geburtstagslied — gerechnet, auf einem Glockenspiel
 # ---------------------------------------------------------------------------
 
-def glockenspielton(frequenz: float, dauer: float, staerke: float = 1.0) -> np.ndarray:
-    """Ein angeschlagener Metallstab.
+def aWichtung(frequenz: float) -> float:
+    """Wie laut das Ohr eine Frequenz empfindet, in dB (A-Bewertung).
 
-    Die Teiltöne eines frei schwingenden Stabes liegen beim 2,76-, 5,40-
-    und 8,93-fachen der Grundfrequenz — unharmonisch, und genau daher
-    kommt das Glitzern. Höhere Teiltöne klingen schneller ab.
+    Bei 1 kHz ist das Gehör rund 10 dB empfindlicher als bei 350 Hz.
+    Deshalb sagt der gemessene Pegel eines Obertons nichts darüber, wie
+    laut er ANKOMMT — genau daran ist die erste Fassung dieses Liedes
+    gescheitert: Der Grundton lag 14 dB über dem Oberton und war trotzdem
+    kaum durchzuhören.
+    """
+    f2 = frequenz ** 2
+    oben = (12194.0 ** 2) * f2 ** 2
+    unten = ((f2 + 20.6 ** 2)
+             * np.sqrt((f2 + 107.7 ** 2) * (f2 + 737.9 ** 2))
+             * (f2 + 12194.0 ** 2))
+    return 20 * np.log10(oben / unten) + 2.0
+
+
+def glockenspielton(frequenz: float, dauer: float, staerke: float = 1.0) -> np.ndarray:
+    """Ein angeschlagenes Metall — mit HARMONISCHEN Teiltönen.
+
+    Die erste Fassung nahm die Teiltöne eines frei schwingenden Stabes
+    (2,76 / 5,40 / 8,93 mal die Grundfrequenz). Physikalisch richtig für
+    ein Glockenspiel — und genau deshalb falsch für ein Lied: 2,76 ist
+    weder Oktave noch Quinte, sondern liegt dazwischen. Das Ohr sucht
+    sich daraus eine Tonhöhe, die nicht die gespielte ist, und die
+    Tonart wird unklar (vom Nutzer gemeldet).
+
+    Jetzt liegen die Teiltöne auf Oktave, Duodezime und Doppeloktave —
+    ganzzahlige Vielfache. Die stützen die Tonhöhe, statt gegen sie zu
+    arbeiten. Das Ergebnis klingt nach Celesta oder Spieldose statt nach
+    Glockenspiel; für ein Geburtstagslied ist das kein Verlust.
+
+    Die Anteile werden zusätzlich nach dem **Gehör** gedämpft (siehe
+    `aWichtung`): Ein Oberton bei 1 kHz muss leiser angesetzt werden als
+    ein Grundton bei 350 Hz, damit beide gleich laut ankommen.
     """
     t = np.arange(int(dauer * RATE)) / RATE
     klang = np.zeros_like(t)
-    for faktor, abkling, anteil in [(1.00, 2.2, 0.60),
-                                    (2.76, 1.1, 0.20),
-                                    (5.40, 0.6, 0.09),
-                                    (8.93, 0.3, 0.04)]:
+    grundgehoer = aWichtung(frequenz)
+    for faktor, abkling, anteil in [(1.0, 2.4, 1.00),
+                                    (2.0, 1.3, 0.16),
+                                    (3.0, 0.7, 0.05),
+                                    (4.0, 0.4, 0.02)]:
+        teilfrequenz = frequenz * faktor
+        # Ausgleich: Was das Ohr lauter hört, wird leiser angesetzt.
+        ausgleich = 10 ** ((grundgehoer - aWichtung(teilfrequenz)) / 20)
         huelle = np.exp(-6.9078 * t / abkling)
-        klang += anteil * huelle * np.sin(2 * np.pi * frequenz * faktor * t)
-    # Der Anschlag selbst: ein sehr kurzer heller Stoß.
-    n = int(0.006 * RATE)
+        klang += anteil * min(1.0, ausgleich) * huelle * np.sin(2 * np.pi * teilfrequenz * t)
+
+    # Der Anschlag: ein sehr kurzer Stoß mit etwas Unharmonischem darin.
+    # Er gibt dem Ton seinen Beginn, ist aber nach 60 ms vorbei und kann
+    # der Tonhöhe deshalb nichts mehr anhaben.
+    n = int(0.06 * RATE)
+    abfall = np.exp(-np.arange(n) / (0.012 * RATE))
     rauschen = np.random.default_rng(1877).standard_normal(n)
-    klang[:n] += 0.05 * rauschen * np.linspace(1, 0, n)
+    klang[:n] += 0.035 * rauschen * abfall
+    klang[:n] += 0.05 * abfall * np.sin(2 * np.pi * frequenz * 2.76 * t[:n])
     return staerke * klang
 
 
