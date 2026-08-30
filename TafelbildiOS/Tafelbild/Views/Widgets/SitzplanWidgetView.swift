@@ -272,26 +272,26 @@ struct SitzplanWidgetView: View {
 
             if let name {
                 Text(name)
-                    // Deutlich größer als vorher: Der Plan hängt an der
-                    // Wand und wird aus zehn Metern gelesen, nicht aus
-                    // vierzig Zentimetern.
-                    .font(.system(size: max(7, min(w * 0.30, h * 0.56)), weight: .bold))
+                    // Der Plan hängt an der Wand und wird aus zehn Metern
+                    // gelesen, nicht aus vierzig Zentimetern.
+                    .font(.system(size: max(8, min(w * 0.40, h * 0.66)), weight: .bold))
                     .foregroundStyle(schrift)
                     .lineLimit(1)
-                    .minimumScaleFactor(0.3)
-                    .padding(.horizontal, w * 0.05)
+                    .minimumScaleFactor(0.25)
+                    .padding(.horizontal, w * 0.03)
+                    // Zurückgedreht, bis er lesbar steht.
+                    .rotationEffect(.degrees(lesbar(gesamtwinkel(platz)) - gesamtwinkel(platz)))
                     .transition(.scale.combined(with: .opacity))
             } else if platz.gesperrt {
                 Image(systemName: "xmark")
-                    .font(.system(size: max(6, min(w, h) * 0.42), weight: .bold))
+                    .font(.system(size: max(6, min(w, h) * 0.5), weight: .bold))
                     .foregroundStyle(style.ink.opacity(0.28))
             }
         }
         .frame(width: w, height: h)
         // Der Tisch steht, wie er im Raum steht — plus die Drehung des
-        // Blickwinkels. Die Namen kippen mit; das ist richtig so, denn ein
-        // schräger Tisch trägt eine schräge Beschriftung.
-        .rotationEffect(.degrees(platz.winkel + Double(blick.drehung)))
+        // Blickwinkels. Die **Schrift** dreht innen gegen (siehe `lesbar`).
+        .rotationEffect(.degrees(gesamtwinkel(platz)))
         // Der frisch gesetzte Platz bekommt einen kurzen Auftritt: größer,
         // heller, mit Schein. Das ist es, was die Klasse anschauen soll.
         .scaleEffect(neu ? 1.16 : (gewaehlt ? 1.08 : 1))
@@ -332,6 +332,34 @@ struct SitzplanWidgetView: View {
             if content.belegung[platz.id] == nil { content.belegung.removeValue(forKey: platz.id) }
         }
         ersteWahl = nil
+    }
+
+    /// Wie der Tisch auf dem Bild steht: seine eigene Drehung plus die
+    /// des Blickwinkels.
+    private func gesamtwinkel(_ platz: Sitzplatz) -> Double {
+        platz.winkel + Double(blick.drehung)
+    }
+
+    /// Der nächstgelegene Winkel, in dem Schrift noch lesbar ist.
+    ///
+    /// **Der Fehler aus 1.3.8**: Ich hatte die Kachel samt Namen um den
+    /// Blickwinkel gedreht und im Kommentar behauptet, das sei richtig so,
+    /// weil ein schräger Tisch eine schräge Beschriftung trägt. Für die
+    /// Drehung des *Tisches* stimmt das. Für die Drehung der *Ansicht*
+    /// stimmt es nicht: Hängt die Tafel unten, dreht sich der Grundriss um
+    /// 180 Grad — und dann standen sämtliche Namen auf dem Kopf (gemeldet
+    /// 08/2026).
+    ///
+    /// Gedreht wird deshalb weiter die Kachel, die Schrift aber nur so
+    /// weit, wie sie lesbar bleibt: alles zwischen −90 und +90 Grad. Ein
+    /// Tisch an der Seitenwand behält damit seine Beschriftung längs der
+    /// Tischkante, ein auf den Kopf gestellter Raum nicht.
+    private func lesbar(_ winkel: Double) -> Double {
+        var wert = winkel.truncatingRemainder(dividingBy: 360)
+        if wert < 0 { wert += 360 }
+        if wert > 90 && wert <= 270 { wert -= 180 }
+        if wert > 270 { wert -= 360 }
+        return wert
     }
 
     private func fuellung(_ platz: Sitzplatz, belegt: Bool) -> Color {

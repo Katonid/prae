@@ -427,6 +427,11 @@ Namens und lebt weiter.
   Nur so hält die Regel auch gegen ein Gerät mit älterem Stand, das sie
   gar nicht kennt. Die Regel selbst gehört der Besitzerin
   (`zusammengefuehrt` stellt sie auf deren Gerät wieder her).
+- **Das Geburtstags-Hinweiskärtchen rechnet nicht mit `metrics.em`.** Das
+  Maß kommt von der vorgesehenen Größe des Elementtyps, und die ist die der
+  großen Feierseite (820 × 560); ein Kärtchen ist 280 × 110, also rechnete
+  `em` mit einem Fünftel und machte Symbol und Schrift winzig. Gemessen
+  wird die Karte selbst, damit sie gefüllt ist.
 - **Mitteilungstöne nur aus `Library/Sounds`** (`Weckdienst`, ab 1.1.6).
   `UNNotificationSound(named:)` sucht an genau zwei Stellen: ganz oben im
   App-Bündel und in `Library/Sounds`. Wo eine Datei im Bündel landet,
@@ -530,6 +535,15 @@ Namens und lebt weiter.
   8 × 6 — gedreht wird beim Zeichnen. Wer mit Fläche rechnet (Ausschnitt,
   freier Fleck), nimmt `umriss`; der Abstand zweier Plätze geht von Mitte
   zu Mitte und weiß vom Winkel nichts.
+- **Der Raum ist seit 1.3.10 ein Viertel kleiner** (120×90 / 150×90 /
+  90×120), der Tisch weiter 8 × 6 — so füllt er mehr Fläche und ist von
+  Weitem zu lesen. Ältere Pläne rechnet der Leser um
+  (`SitzplanContent.masstab`), **Plätze und `naehe` mit demselben Faktor**:
+  Ohne das Mitziehen der Schwelle rückte jede Regel um ein Viertel enger.
+- **Die Schrift auf einer Kachel dreht gegen** (`lesbar`). Die Kachel folgt
+  Tischwinkel plus Blickwinkel; die Schrift nur so weit, wie sie lesbar
+  bleibt (−90…+90 Grad). In 1.3.8 drehte sie voll mit — bei einer Tafel
+  unten standen dadurch sämtliche Namen auf dem Kopf.
 - **Gezeigt wird der Ausschnitt, nicht der ganze Raum** (ab 1.3.7):
   Plätze plus Tafel plus eine halbe Tischbreite Rand, auf den Raum
   begrenzt. Leere Ecken kosten sonst genau dort Platz, wo die Namen
