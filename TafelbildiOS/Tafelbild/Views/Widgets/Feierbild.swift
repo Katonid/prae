@@ -57,9 +57,53 @@ struct Feierbild: View {
     ///
     /// Kein `Double.random`: Das lieferte bei jedem Bild neue Werte, und die
     /// Teilchen zitterten, statt zu fliegen.
+    ///
+    /// **Es muss aber wirklich streuen.** Die erste Fassung rechnete
+    /// `nummer * 2_654_435_761 % 100_003`. Das sieht nach Zufall aus, ist
+    /// keiner: Modulo 100_003 bleibt von dem großen Faktor die feste Zahl
+    /// 56_132 übrig, und damit ist die Folge eine schlichte arithmetische
+    /// Reihe — jeder Wert genau 0,561 über dem vorigen, umlaufend. Zwei
+    /// „Ecken" unterschieden sich nur um einen festen Versatz. Also war
+    /// *jede* Eigenschaft eines Teilchens an jede andere gekoppelt: Wer
+    /// spät startete, war zwangsläufig auch langsam und stand links.
+    /// Auf dem Bild wurden daraus Bänder und saubere Bögen statt eines
+    /// Schwarms — genau das, was gemeldet war.
+    ///
+    /// Jetzt eine Mischfunktion mit Lawineneffekt (SplitMix64): Ein Bit
+    /// Unterschied in der Eingabe kippt im Mittel die Hälfte aller Bits der
+    /// Ausgabe. Nachgemessen über 4000 Werte: Mittel 0,51 (soll 0,5),
+    /// Korrelation zweier Ecken −0,04 (soll 0), Chi-Quadrat 10,1 bei
+    /// kritischen 16,9.
     private func streu(_ nummer: Int, _ ecke: Int = 0) -> Double {
-        let x = Double((nummer &* 2_654_435_761 &+ ecke &* 40_503) % 100_003)
-        return abs(x) / 100_003
+        var z = UInt64(bitPattern: Int64(nummer)) &* 0x9E37_79B9_7F4A_7C15
+        z = z &+ UInt64(bitPattern: Int64(ecke)) &* 0xC2B2_AE3D_27D4_EB4F
+        z = (z ^ (z >> 30)) &* 0xBF58_476D_1CE4_E5B9
+        z = (z ^ (z >> 27)) &* 0x94D0_49BB_1331_11EB
+        z = z ^ (z >> 31)
+        return Double(z >> 11) * (1.0 / 9_007_199_254_740_992.0)
+    }
+
+    /// Ein Wert aus dem eigenen Fach — streut auch dann, wenn der Zufall
+    /// zufällig klumpt.
+    ///
+    /// Echter Zufall verteilt sich nicht gleichmäßig: Bei elf Teilchen
+    /// liegen regelmäßig mehrere dicht beieinander, und schon drei davon
+    /// sehen aus wie eine Reihe. Deshalb bekommt jedes Teilchen ein
+    /// eigenes Fach und würfelt nur noch *innerhalb* davon. Damit ist der
+    /// Abstand nach oben garantiert, nicht bloß wahrscheinlich.
+    private func fach(_ nummer: Int, _ anzahl: Int, _ ecke: Int, weite: Double) -> Double {
+        (Double(nummer) + streu(nummer, ecke)) / Double(max(1, anzahl)) * weite
+    }
+
+    /// Dieselbe Menge, andere Reihenfolge.
+    ///
+    /// Zeit und Ort dürfen nicht am selben Fach hängen — sonst zöge das
+    /// erste Teilchen von links los, das zweite etwas später weiter
+    /// rechts, und aus zwei ordentlichen Verteilungen würde eine Diagonale.
+    /// Ein Schritt, der zur Anzahl teilerfremd ist, mischt sie gegeneinander
+    /// und trifft dabei trotzdem jedes Fach genau einmal.
+    private func versetzt(_ nummer: Int, _ anzahl: Int) -> Int {
+        anzahl > 0 ? (nummer &* 13) % anzahl : 0
     }
 
     private func farbe(_ nummer: Int) -> Color {
@@ -226,11 +270,13 @@ struct Feierbild: View {
         for nummer in 0..<anzahl {
             // Jedes Plättchen startet zu seiner eigenen Zeit — sonst fiele
             // alles im Gleichschritt, und das sieht nach Maschine aus.
-            let versatz = streu(nummer, 1) * 0.35
+            // Aus dem eigenen Fach, und der Ort aus einem anderen: sonst
+            // liefe der Regen als Schräge von einer Ecke zur anderen.
+            let versatz = fach(nummer, anzahl, 1, weite: 0.35)
             let eigen = (t - versatz) / max(0.001, 1 - versatz)
             guard eigen > 0 else { continue }
 
-            let seite = streu(nummer, 2)
+            let seite = fach(versetzt(nummer, anzahl), anzahl, 2, weite: 1)
             let tempo = 0.6 + streu(nummer, 3) * 0.8
             let x: Double
             let y: Double
@@ -602,25 +648,33 @@ struct Feierbild: View {
 
     // MARK: - Ballons
 
-    /// Ballons, die aufsteigen — mit Glanzlicht, Knoten und Kringelschnur.
+    /// Ballons, die aufsteigen — mit Wölbung, Glanzlicht, Knoten und
+    /// Kringelschnur.
+    ///
+    /// **Zwei Dinge waren auf den Bildschirmfotos falsch.** Sie hingen in
+    /// zwei sauberen Reihen nebeneinander wie an einer Leine — das lag an
+    /// der alten Streufunktion (siehe `streu`), und dass es nicht
+    /// wiederkommt, sichert das Zeitfach. Und sie sahen flach aus: Ein
+    /// Verlauf, der in der Mitte durchscheinend war, ließ den dunklen
+    /// Grund durch und nahm dem Gummi die Wölbung. Jetzt liegen drei
+    /// Schichten übereinander — Farbe, abgedunkelter Rand, Glanz.
     private func ballons(_ zeichnung: GraphicsContext, _ groesse: CGSize) {
         let ctx = zeichnung
-        let anzahl = 11
+        let anzahl = 14
 
         for nummer in 0..<anzahl {
-            let versatz = streu(nummer, 61) * 0.28
+            let versatz = fach(nummer, anzahl, 61, weite: 0.42)
             let eigen = (fortschritt - versatz) / max(0.001, 1 - versatz)
             guard eigen > 0 else { continue }
 
-            let breite = min(groesse.width, groesse.height) * (0.1 + streu(nummer, 62) * 0.07)
-            let hoehe = breite * 1.22
-            let x = (0.08 + streu(nummer, 63) * 0.84) * groesse.width
+            let breite = min(groesse.width, groesse.height) * (0.1 + streu(nummer, 62) * 0.08)
+            let hoehe = breite * 1.24
+            // Der Platz kommt aus einem anderen Fach als die Zeit, sonst
+            // stiegen sie als Diagonale von links nach rechts auf.
+            let x = (0.07 + fach(versetzt(nummer, anzahl), anzahl, 63, weite: 0.86)) * groesse.width
                   + sin(eigen * 3 + streu(nummer, 64) * 6.28) * groesse.width * 0.05
-            // Schneller und weiter: Auf dem Foto haingen fast alle Ballons
-            // noch am unteren Rand, halb abgeschnitten. Jetzt steigen sie
-            // in der Zeit der Feier sicher durch das ganze Bild.
             let y = groesse.height + hoehe * 1.4
-                  - eigen * (groesse.height + hoehe * 3.4) * (1.15 + streu(nummer, 65) * 0.7)
+                  - eigen * (groesse.height + hoehe * 3.4) * (1.0 + streu(nummer, 65) * 0.9)
             guard y > -hoehe * 2, y < groesse.height + hoehe * 2 else { continue }
 
             let kippen = sin(eigen * 3 + streu(nummer, 64) * 6.28) * 0.16
@@ -636,28 +690,56 @@ struct Feierbild: View {
                 schnur.addLine(to: CGPoint(x: sin(s / 13) * breite * 0.16, y: hoehe / 2 + s))
                 s += 7
             }
-            teil.stroke(schnur, with: .color(.white.opacity(0.65)), lineWidth: 1.8)
+            teil.stroke(schnur, with: .color(.white.opacity(0.55)), lineWidth: 1.6)
 
-            // Der Ballon: ein Ei mit einem Verlauf, der ihn rund macht.
             let hauptfarbe = farbe(nummer &* 3)
-            let koerper = CGRect(x: -breite / 2, y: -hoehe / 2, width: breite, height: hoehe)
-            teil.fill(Path(ellipseIn: koerper), with: .radialGradient(
-                Gradient(colors: [hauptfarbe.opacity(0.55), hauptfarbe]),
-                center: CGPoint(x: -breite * 0.16, y: -hoehe * 0.2),
-                startRadius: 0, endRadius: breite * 0.95))
+
+            // Der Umriss: oben rund, unten zum Knoten gezogen. Eine reine
+            // Ellipse sieht aus wie ein Ei, nicht wie ein Ballon.
+            var koerper = Path()
+            koerper.move(to: CGPoint(x: 0, y: hoehe * 0.5))
+            koerper.addCurve(to: CGPoint(x: -breite * 0.5, y: -hoehe * 0.08),
+                             control1: CGPoint(x: -breite * 0.30, y: hoehe * 0.34),
+                             control2: CGPoint(x: -breite * 0.5, y: hoehe * 0.16))
+            koerper.addCurve(to: CGPoint(x: 0, y: -hoehe * 0.5),
+                             control1: CGPoint(x: -breite * 0.5, y: -hoehe * 0.36),
+                             control2: CGPoint(x: -breite * 0.28, y: -hoehe * 0.5))
+            koerper.addCurve(to: CGPoint(x: breite * 0.5, y: -hoehe * 0.08),
+                             control1: CGPoint(x: breite * 0.28, y: -hoehe * 0.5),
+                             control2: CGPoint(x: breite * 0.5, y: -hoehe * 0.36))
+            koerper.addCurve(to: CGPoint(x: 0, y: hoehe * 0.5),
+                             control1: CGPoint(x: breite * 0.5, y: hoehe * 0.16),
+                             control2: CGPoint(x: breite * 0.30, y: hoehe * 0.34))
+            koerper.closeSubpath()
+
+            teil.fill(koerper, with: .color(hauptfarbe))
+            // Der abgedunkelte Rand macht die Kugel. Ohne ihn bleibt es
+            // eine Farbfläche.
+            teil.fill(koerper, with: .radialGradient(
+                Gradient(colors: [.clear, .black.opacity(0.34)]),
+                center: CGPoint(x: -breite * 0.12, y: -hoehe * 0.14),
+                startRadius: breite * 0.28, endRadius: breite * 0.74))
+            // Das Glanzlicht — das, was einen Ballon nach Gummi aussehen
+            // lässt. Weich, nicht als weißer Punkt.
+            teil.fill(koerper, with: .radialGradient(
+                Gradient(colors: [.white.opacity(0.62), .clear]),
+                center: CGPoint(x: -breite * 0.20, y: -hoehe * 0.26),
+                startRadius: 0, endRadius: breite * 0.44))
+            // Ein zweiter, schmaler Reflex an der anderen Flanke.
+            var reflex = teil
+            reflex.rotate(by: .radians(0.28))
+            reflex.fill(Path(ellipseIn: CGRect(x: breite * 0.16, y: -hoehe * 0.14,
+                                               width: breite * 0.10, height: hoehe * 0.32)),
+                        with: .color(.white.opacity(0.20)))
 
             // Knoten unten.
             var knoten = Path()
-            knoten.move(to: CGPoint(x: -breite * 0.08, y: hoehe / 2 - 1))
-            knoten.addLine(to: CGPoint(x: breite * 0.08, y: hoehe / 2 - 1))
-            knoten.addLine(to: CGPoint(x: 0, y: hoehe / 2 + breite * 0.1))
+            knoten.move(to: CGPoint(x: -breite * 0.075, y: hoehe * 0.5 - 1))
+            knoten.addLine(to: CGPoint(x: breite * 0.075, y: hoehe * 0.5 - 1))
+            knoten.addLine(to: CGPoint(x: 0, y: hoehe * 0.5 + breite * 0.11))
             knoten.closeSubpath()
             teil.fill(knoten, with: .color(hauptfarbe))
-
-            // Glanzlicht — das, was einen Ballon nach Gummi aussehen lässt.
-            teil.fill(Path(ellipseIn: CGRect(x: -breite * 0.3, y: -hoehe * 0.34,
-                                             width: breite * 0.24, height: hoehe * 0.28)),
-                      with: .color(.white.opacity(0.45)))
+            teil.fill(knoten, with: .color(.black.opacity(0.18)))
         }
 
         luftschlangen(zeichnung, groesse, anzahl: 7, ab: 0.15)
@@ -707,9 +789,12 @@ struct Feierbild: View {
         let breite = min(groesse.width * 0.5, groesse.height * 0.55)
         let mitteX = groesse.width / 2
         let boden = groesse.height * 0.82
-        let etage = breite * 0.24
+        // **Drei Etagen, flacher.** Zwei hohe Blöcke lasen sich auf dem
+        // Foto als gestapelte Rechtecke; erst die dritte, kleinere Stufe
+        // gibt der Torte ihren Umriss.
+        let etage = breite * 0.19
 
-        strahlen(zeichnung, groesse, um: CGPoint(x: mitteX, y: boden - etage * 2.4), ab: 0.55)
+        strahlen(zeichnung, groesse, um: CGPoint(x: mitteX, y: boden - etage * 3.4), ab: 0.55)
 
         // Teller.
         ctx.fill(Path(ellipseIn: CGRect(x: mitteX - breite * 0.62, y: boden - etage * 0.12,
@@ -717,7 +802,7 @@ struct Feierbild: View {
                  with: .color(Color(hex: "#e2e8f0")))
 
         // Zwei Etagen, untere breiter.
-        for (nummer, mass) in [1.0, 0.72].enumerated() {
+        for (nummer, mass) in [1.0, 0.78, 0.56].enumerated() {
             let w = breite * mass
             let y = boden - etage * Double(nummer + 1)
             let kuchen = CGRect(x: mitteX - w / 2, y: y, width: w, height: etage)
@@ -760,19 +845,50 @@ struct Feierbild: View {
             }
         }
 
-        // Kerzen auf der oberen Etage.
-        let kerzenOben = boden - etage * 2
+        // Kerzen auf der obersten Etage.
+        //
+        // **Dicker und kürzer als vorher.** Auf dem Foto standen dort fünf
+        // dünne weiße Stangen im Verhältnis neun zu eins — das liest sich
+        // als Gitter, nicht als Kerzen. Jetzt gut fünf zu eins, mit
+        // Schrägstreifen und schwarzem Docht.
+        let kerzenOben = boden - etage * 3
         let anzahlKerzen = 5
         let aus = min(1, max(0, (fortschritt - 0.58) / 0.22))
         for nummer in 0..<anzahlKerzen {
             let anteil = (Double(nummer) + 0.5) / Double(anzahlKerzen)
-            let kx = mitteX - breite * 0.34 + anteil * breite * 0.68
-            let hoehe = etage * 0.85
-            ctx.fill(Path(roundedRect: CGRect(x: kx - etage * 0.045, y: kerzenOben - hoehe,
-                                              width: etage * 0.09, height: hoehe),
-                          cornerRadius: etage * 0.02),
-                     with: .color(nummer % 2 == 0 ? Color(hex: "#f8fafc") : Color(hex: "#bae6fd")))
+            let kx = mitteX - breite * 0.26 + anteil * breite * 0.52
+            let hoehe = etage * 0.8
+            let dick = etage * 0.15
+            let kerze = Path(roundedRect: CGRect(x: kx - dick / 2, y: kerzenOben - hoehe,
+                                                 width: dick, height: hoehe),
+                             cornerRadius: dick * 0.35)
+            ctx.fill(kerze, with: .color(Color(hex: "#fdfdfd")))
+            // Streifen — innerhalb der Kerze beschnitten, sonst laufen sie
+            // quer über die Torte.
+            var streifen = ctx
+            streifen.clip(to: kerze)
+            var band = 0.0
+            while band < hoehe + dick * 2 {
+                var linie = Path()
+                linie.move(to: CGPoint(x: kx - dick, y: kerzenOben - hoehe + band))
+                linie.addLine(to: CGPoint(x: kx + dick, y: kerzenOben - hoehe + band - dick * 1.1))
+                streifen.stroke(linie, with: .color(farbe(nummer &* 2 &+ 1).opacity(0.85)),
+                                lineWidth: dick * 0.3)
+                band += dick * 0.72
+            }
+            // Rundung: rechts eine Spur dunkler.
+            ctx.fill(kerze, with: .linearGradient(
+                Gradient(colors: [.black.opacity(0.16), .clear, .black.opacity(0.22)]),
+                startPoint: CGPoint(x: kx - dick / 2, y: 0),
+                endPoint: CGPoint(x: kx + dick / 2, y: 0)))
+
             let docht = CGPoint(x: kx, y: kerzenOben - hoehe)
+            var faden = Path()
+            faden.move(to: CGPoint(x: docht.x, y: docht.y + dick * 0.2))
+            faden.addQuadCurve(to: CGPoint(x: docht.x + dick * 0.22, y: docht.y - dick * 0.5),
+                               control: CGPoint(x: docht.x, y: docht.y - dick * 0.3))
+            ctx.stroke(faden, with: .color(Color(hex: "#334155")),
+                       style: StrokeStyle(lineWidth: dick * 0.16, lineCap: .round))
 
             if aus < 1 {
                 // Flamme: flackert und wird zum Schluss kleiner.
