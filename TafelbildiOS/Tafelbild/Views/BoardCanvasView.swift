@@ -460,7 +460,7 @@ private struct SelectionChrome: View {
                 store.updateWidget(widget.id, in: boardID) { $0.versteckt = neu }
             }
             button(widget.locked ? "lock.fill" : "lock.open",
-                   label: widget.locked ? "Entsperren" : "Festecken",
+                   label: widget.locked ? "Entsperren" : "Gegen Verschieben sperren",
                    tint: widget.locked ? Theme.amber : .white) {
                 store.updateWidget(widget.id, in: boardID) { $0.locked.toggle() }
             }

@@ -169,7 +169,13 @@ struct WidgetSettingsSheet: View {
                                 store.updateWidget(widgetID, in: boardID) { $0.versteckt = value }
                             }
                         ))
-                        Toggle("Position festecken", isOn: Binding(
+                        // Hieß bis 1.3.26 „Position festecken" — ein
+                        // Tippfehler („feststecken"), und selbst richtig
+                        // geschrieben sagte es nicht, was passiert
+                        // (gefragt 08/2026: „Was soll ‚festecken' heißen?
+                        // Und was soll es bewirken?"). Jetzt steht da, was
+                        // es tut.
+                        Toggle("Gegen Verschieben sperren", isOn: Binding(
                             get: { store.widget(widgetID, in: boardID)?.locked ?? false },
                             set: { value in
                                 store.updateWidget(widgetID, in: boardID) { $0.locked = value }
@@ -185,7 +191,12 @@ struct WidgetSettingsSheet: View {
                              + "setzen sich darüber hinweg.\n\nAusgeblendet heißt: nur für mich, "
                              + "und nur im Unterricht. Beim Bearbeiten bleibt das Element blass "
                              + "stehen, damit es zurückzuholen ist. Auf einer geteilten Tafel "
-                             + "sehen es die anderen weiterhin.")
+                             + "sehen es die anderen weiterhin.\n\nGesperrt heißt: Das Element "
+                             + "lässt sich nicht mehr verschieben und nicht in der Größe "
+                             + "ändern, und die Anfasser an den Ecken verschwinden. Bedienen "
+                             + "lässt es sich weiter — ein gesperrter Timer läuft, ein "
+                             + "gesperrter Zufallsname zieht. Es geht nur darum, dass beim "
+                             + "Zeigen an der Tafel nichts aus Versehen verrutscht.")
                     }
 
                     Section {
@@ -247,6 +258,47 @@ struct WidgetSettingsSheet: View {
                              + "Beschriftung und Inhalt. „Wie die Tafel“ folgt der Vorgabe "
                              + "unter „Aussehen“; jede andere Wahl bleibt hier stehen, auch "
                              + "wenn die Tafel später umgestellt wird.")
+                    }
+
+                    // **Zurücksetzen gehört auch hierher.** Es stand seit
+                    // 1.3.21 nur im Menü des Elements und im Tafelmenü —
+                    // und wurde dort nicht gefunden (gemeldet 08/2026:
+                    // „Wo soll das Zurücksetzen sein? Ich finde es
+                    // nicht."). Wer etwas an einem Element sucht, öffnet
+                    // dessen Einstellungen.
+                    Section {
+                        Button {
+                            store.setzeZurueck(widgetID, in: boardID, tiefe: .ergebnis)
+                            Haptics.tap()
+                        } label: {
+                            Label("Auf unbenutzt zurücksetzen",
+                                  systemImage: "arrow.counterclockwise")
+                        }
+                        .disabled(!widget.content.benutzt(.ergebnis))
+
+                        if widget.kind == .namePicker {
+                            Button {
+                                store.setzeZurueck(widgetID, in: boardID, tiefe: .alles)
+                                Haptics.tap()
+                            } label: {
+                                Label("… auch die gezogenen Namen",
+                                      systemImage: "arrow.counterclockwise.circle")
+                            }
+                            .disabled(!widget.content.benutzt(.alles))
+                        }
+                    } header: {
+                        Text("Zurücksetzen")
+                    } footer: {
+                        Text("Setzt zurück, was abgelaufen ist — den gezogenen Namen, die "
+                             + "ausgeloste Sitzordnung, die gelaufene Feier, die Haken, den "
+                             + "laufenden Timer. Eingerichtet bleibt alles: Namensliste, "
+                             + "Grundriss, Zeiten, Farben. Archive bleiben ebenfalls stehen."
+                             + (widget.kind == .namePicker
+                                ? "\n\nWer schon gezogen wurde, bleibt gemerkt — die Kachel "
+                                  + "zeigt nur wieder die Ansicht vor der Auslosung. Erst der "
+                                  + "zweite Knopf löscht auch das Gedächtnis; danach kann "
+                                  + "dasselbe Kind sofort wieder drankommen."
+                                : ""))
                     }
 
                     Section {
