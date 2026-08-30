@@ -114,8 +114,25 @@ struct GeburtstagWidgetView: View {
                                 .scaleEffect(1 + sin(min(1, t * 1.25) * .pi) * 0.045)
                                 .allowsHitTesting(false)
                         }
+                    } else if content.ritual > 0 {
+                        // **Die Feier bleibt stehen.** Vorher verschwand sie
+                        // am Ende und ließ eine leere Fläche zurück — die
+                        // Seite sah aus, als wäre nichts gewesen. Jetzt hält
+                        // sie ihren vollsten Augenblick (`standbild`), damit
+                        // sie nachwirkt, solange die Klasse noch redet.
+                        Feierbild(art: feier, fortschritt: feier.standbild,
+                                  flaeche: geo.size, kerzen: content.alter ?? 0)
+                            .allowsHitTesting(false)
+                            .transition(.opacity)
                     }
-                    beschriftung(in: geo.size)
+                    // Ist eine Ritualtafel offen, hat sie den Namen selbst in
+                    // der Überschrift. Die Beschriftung darunter schiene sonst
+                    // durch und legte sich quer über die Karten (gemeldet
+                    // 08/2026: der Name stand „mitten drin").
+                    if content.ritual <= 1 {
+                        beschriftung(in: geo.size)
+                        hinweisUnten
+                    }
                     if content.ritual > 1 && begonnen == nil {
                         ritualbild(in: geo.size)
                     }
@@ -139,9 +156,13 @@ struct GeburtstagWidgetView: View {
         // genau in die Mitte — also dorthin, wo die Feier läuft. Auf den
         // Bildschirmfotos lief die Rakete quer durch „Alma wird 5".
         let laeuft = begonnen != nil
+        // Sobald ein Feierbild im Rahmen steht — laufend oder stehen
+        // geblieben —, rückt die Beschriftung nach oben und macht der
+        // Mitte Platz.
+        let zeigtFeier = laeuft || content.ritual > 0
         VStack(spacing: metrics.em(0.28)) {
             Text(content.name.nonEmpty ?? "Herzlichen Glückwunsch")
-                .font(Theme.font(metrics.em(laeuft ? 2.7 : 3.0), weight: .bold))
+                .font(Theme.font(metrics.em(zeigtFeier ? 2.7 : 3.0), weight: .bold))
                 .foregroundStyle(.white)
                 .lineLimit(1)
                 .minimumScaleFactor(0.35)
@@ -152,7 +173,7 @@ struct GeburtstagWidgetView: View {
                 // „wird" — und das Datum dazu, sonst steht ein Tag im Kopf
                 // der Klasse und ein anderer an der Wand.
                 Text(content.nachgefeiert ? "wurde \(alter)" : "wird \(alter)")
-                    .font(Theme.font(metrics.em(laeuft ? 1.5 : 1.7), weight: .bold))
+                    .font(Theme.font(metrics.em(zeigtFeier ? 1.5 : 1.7), weight: .bold))
                     .foregroundStyle(Color(hex: "#fde68a"))
                     .lineLimit(1)
                     .minimumScaleFactor(0.5)
@@ -161,7 +182,7 @@ struct GeburtstagWidgetView: View {
 
             if content.nachgefeiert, let tag = content.tagDesGeburtstags {
                 Text("Geburtstag war am \(tag)")
-                    .font(Theme.font(metrics.em(laeuft ? 0.95 : 1.05), weight: .semibold))
+                    .font(Theme.font(metrics.em(zeigtFeier ? 0.95 : 1.05), weight: .semibold))
                     .foregroundStyle(.white.opacity(0.85))
                     .lineLimit(1)
                     .minimumScaleFactor(0.5)
@@ -170,15 +191,14 @@ struct GeburtstagWidgetView: View {
 
             if laeuft {
                 wunschzeile
-            } else if interactive {
-                // Nach der Feier steht die Seite still und wartet. Ohne
-                // einen Hinweis sähe sie aus, als wäre alles vorbei.
-                Text(content.ritual == 1 ? "Antippen für die Gratulanten" : "Antippen")
+            } else if interactive && !zeigtFeier {
+                // Vor der ersten Feier steht der Hinweis direkt unter dem
+                // Namen — dort ist sonst nichts. Steht ein Feierbild im
+                // Rahmen, gehört er darunter: siehe `hinweisUnten`.
+                Text("Antippen")
                     .font(Theme.font(metrics.em(0.95), weight: .semibold))
                     .foregroundStyle(.white.opacity(0.7))
                     .padding(.top, metrics.em(0.4))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.5)
                     .umrandet()
             }
 
@@ -195,7 +215,7 @@ struct GeburtstagWidgetView: View {
         // dunkler Hof, eine feste Platte darauf und eine helle Kante,
         // damit die Platte nicht wie ein Loch aussieht.
         .background {
-            if laeuft {
+            if zeigtFeier {
                 ZStack {
                     RoundedRectangle(cornerRadius: metrics.em(1.1), style: .continuous)
                         .fill(Color.black.opacity(0.55))
@@ -211,8 +231,34 @@ struct GeburtstagWidgetView: View {
         // Der Name springt beim Start heran — ein Auftritt, kein Einblenden.
         .scaleEffect(einzug)
         .frame(maxWidth: .infinity, maxHeight: .infinity,
-               alignment: laeuft ? .top : .center)
+               alignment: zeigtFeier ? .top : .center)
         .padding(metrics.em(0.8))
+    }
+
+    /// Der Hinweis **unter** dem stehen gebliebenen Feierbild.
+    ///
+    /// Gewünscht: „Das ‚Antippen für die Gratulanten' soll nicht separat,
+    /// sondern unterhalb der abgelaufenen Animation erscheinen."
+    /// Oben steht der Name, in der Mitte die Feier, unten der Hinweis —
+    /// so liegt nichts übereinander.
+    @ViewBuilder
+    private var hinweisUnten: some View {
+        if interactive, begonnen == nil, content.ritual == 1 {
+            Text("Antippen für die Gratulanten")
+                .font(Theme.font(metrics.em(1.0), weight: .semibold))
+                .foregroundStyle(.white.opacity(0.85))
+                .lineLimit(1)
+                .minimumScaleFactor(0.5)
+                .padding(.horizontal, metrics.em(0.9))
+                .padding(.vertical, metrics.em(0.4))
+                .background {
+                    Capsule().fill(Color.black.opacity(0.5))
+                }
+                .umrandet()
+                .padding(.bottom, metrics.em(1.0))
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+                .transition(.opacity)
+        }
     }
 
     /// Die Glückwünsche wechseln während der Feier durch.
@@ -258,9 +304,11 @@ struct GeburtstagWidgetView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background {
             // Der Auftritt darunter soll nicht durchblitzen, während die
-            // Klasse liest.
+            // Klasse liest. Deckend genug, dass auch das stehen gebliebene
+            // Feierbild dahinter zurücktritt — durchscheinend legte es sich
+            // quer über die Karten.
             RoundedRectangle(cornerRadius: Theme.widgetCorner, style: .continuous)
-                .fill(Color.black.opacity(0.55))
+                .fill(Color.black.opacity(0.86))
         }
         .transition(.opacity)
     }

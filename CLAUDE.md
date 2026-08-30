@@ -476,6 +476,23 @@ Namens und lebt weiter.
   es weitergeht, entscheidet die Lehrkraft. `content.ritual` zählt
   seither 0 = noch nichts, 1 = Feier gelaufen, 2 = Gratulanten,
   3 = Fragen.
+- **Die Feier bleibt stehen** (ab 1.3.20). Bis 1.3.19 verschwand sie am
+  Ende und ließ eine leere Fläche zurück — die Seite sah aus, als wäre
+  nichts gewesen. Gehalten wird aber **nicht das letzte Bild**
+  (`Feierart.standbild`): Zum Schluss blendet fast alles aus, die Kerzen
+  sind gelöscht und das Konfetti liegt am Boden. Je Art ein eigener Wert,
+  abgelesen an den Zeitmarken in `Feierbild` — bei der Torte **vor** 0,58,
+  sonst raucht es nur.
+- **Oben der Name, in der Mitte die Feier, unten der Hinweis.** Der Hinweis
+  „Antippen für die Gratulanten" steht unter dem stehen gebliebenen Bild
+  (`hinweisUnten`), nicht auf einer eigenen leeren Seite. Solange ein
+  Feierbild im Rahmen steht — laufend oder stehend —, rückt die
+  Beschriftung nach oben (`zeigtFeier`, nicht `laeuft`).
+- **Bei offener Ritualtafel wird die Beschriftung gar nicht gezeichnet.**
+  Der Name steht in der Überschrift der Tafel selbst („Drei für …", „Such
+  dir eine Frage aus, …"); die Beschriftung darunter schien sonst durch und
+  legte sich quer über die Karten (gemeldet 08/2026). Der Grund der Tafel
+  deckt zusätzlich mit 0,86 statt 0,55 ab.
 - **Gezogen wird erst beim Tipp** auf die Station, nicht schon am Ende der
   Feier: Sonst stünde die Auslosung minutenlang fest, während die Klasse
   noch die Torte ansieht. Gibt die Liste niemanden her, wird die Station
