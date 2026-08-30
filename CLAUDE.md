@@ -585,6 +585,16 @@ Namens und lebt weiter.
   1.3.8), nicht erst beim Loslassen — sonst sieht es aus wie ein Sprung am
   Ende und man zielt doch von Hand. Abschaltbar
   (`@AppStorage("sitzplanRaster")`) — dann frei setzbar.
+- **Die Kachel ist kleiner als der Tisch** (`Sitzmasse.fuge`, ab 1.3.19).
+  Das Raster fängt Tische Kante an Kante; gezeichnet berührten sich zwei
+  solche Kacheln dann auf den Punkt genau, und zwei helle Flächen mit
+  gemeinsamer Kante liest das Auge als einen Stapel, nicht als zwei Tische
+  (gemeldet 08/2026). Gezeichnet wird deshalb ringsum ein Viertel einer
+  Raumeinheit kleiner — an allen drei Stellen gleich (Element, Editor,
+  Archivansicht), sonst sähe der Editor anders aus als das Ergebnis. Der
+  Mittelpunkt bleibt, wo er ist: Abstände, Nähe, Einrasten und
+  Freiheitsprüfung rechnen unverändert mit dem ganzen Tisch. Wer zeichnet,
+  nimmt `kachelmasse`; wer rechnet, `breite`/`hoehe`.
 - **Fangpunkte sind die KANTEN der anderen Tische** (ab 1.3.12), nicht nur
   deren Mittelachsen. Die erste Fassung kannte nur Raster und Mittelachse
   und erzeugte damit genau die beiden gemeldeten Fehler: Die Mittelachse

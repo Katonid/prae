@@ -266,9 +266,10 @@ struct SitzplanWidgetView: View {
                 // Über die Mitte gesetzt und dann gedreht — der Umweg über
                 // eine gedrehte Ecke ginge bei schrägen Tischen schief.
                 let mitte = feld.stelle(platz.mitte)
+                let masse = platz.kachelmasse
                 platzkachel(platz, mass: mass)
-                    .offset(x: mitte.x - platz.breite * mass / 2,
-                            y: mitte.y - platz.hoehe * mass / 2)
+                    .offset(x: mitte.x - masse.width * mass / 2,
+                            y: mitte.y - masse.height * mass / 2)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -299,8 +300,11 @@ struct SitzplanWidgetView: View {
 
     @ViewBuilder
     private func platzkachel(_ platz: Sitzplatz, mass: Double) -> some View {
-        let w = platz.breite * mass
-        let h = platz.hoehe * mass
+        // Die Kachel ist um die Fuge kleiner als der Tisch — sonst
+        // berühren sich bündig gestellte Tische auf den Punkt genau und
+        // sehen aus, als lägen sie übereinander (siehe `Sitzmasse.fuge`).
+        let w = platz.kachelmasse.width * mass
+        let h = platz.kachelmasse.height * mass
         let offen = content.sichtbar(platz.id)
         let name = offen ? content.name(auf: platz.id) : nil
         let neu = frisch == platz.id
