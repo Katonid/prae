@@ -428,6 +428,10 @@ final class BoardStore: ObservableObject {
         let sichtbar: Bool
         let besitzer: String
         let mitglieder: Int
+        /// Trägt die Tafel überhaupt eine iCloud-Kennung ihrer Besitzerin?
+        /// Ohne sie entscheidet nur `ownBoardIDs` und der Anzeigename über
+        /// die Sichtbarkeit — genau daran lag „Meine Klasse".
+        let ohneBesitzerkennung: Bool
         let angelegt: Date
         let geaendert: Date
 
@@ -444,7 +448,12 @@ final class BoardStore: ObservableObject {
             if eigene { teile.append("eigene") }
             if geloescht { teile.append("gelöscht") }
             if !sichtbar { teile.append("unsichtbar") }
-            teile.append(geaendert.formatted(.dateTime.day().month().hour().minute()))
+            if ohneBesitzerkennung { teile.append("ohne Besitzerkennung") }
+            // **Mit Sekunden.** Ohne sie sahen zwei Stände gleich alt aus,
+            // die es nicht waren — und der Zeitstempel entscheidet beim
+            // Abgleich darüber, welcher gewinnt.
+            teile.append(geaendert.formatted(
+                .dateTime.day().month().hour().minute().second()))
             return teile.joined(separator: " · ")
         }
     }
@@ -468,6 +477,7 @@ final class BoardStore: ObservableObject {
                             sichtbar: visibleBoards.contains { $0.id == tafel.id },
                             besitzer: tafel.owner,
                             mitglieder: tafel.members.count,
+                            ohneBesitzerkennung: tafel.ownerUserID.isEmpty,
                             angelegt: Date(timeIntervalSince1970: Double(tafel.createdAtMs) / 1000),
                             geaendert: Date(timeIntervalSince1970: Double(tafel.updatedAtMs) / 1000))
             }
@@ -542,10 +552,26 @@ final class BoardStore: ObservableObject {
         touch(board.id)
     }
 
+    /// **Eine Tafel ohne Besitzerkennung gehört mir, wenn sie in meiner
+    /// eigenen iCloud liegt.**
+    ///
+    /// Vorher entschied bei fehlender Kennung allein der Vergleich des
+    /// Anzeigenamens. Ist auch der leer — und das ist er, solange niemand
+    /// einen eingetragen hat —, galt die eigene Tafel als fremd: Statt sie
+    /// zu löschen, beendete die App nur die eigene Mitgliedschaft. Die
+    /// Tafel verschwand aus der Liste, blieb aber auf allen Geräten und in
+    /// iCloud bestehen, ohne dass man je wieder an sie herankam
+    /// (nachgewiesen 08/2026: „Meine Klasse", 12 Elemente, auf beiden
+    /// Geräten unsichtbar und nicht gelöscht).
+    ///
+    /// Die private CloudKit-Datenbank enthält nur Eigenes; was von dort
+    /// kommt, kann keiner anderen Person gehören.
     func deleteBoard(_ board: Board) {
         guard let index = boards.firstIndex(where: { $0.id == board.id }) else { return }
-        let mine = boards[index].ownerUserID.isEmpty
-            ? boards[index].owner.trimmed.lowercased() == profileName.trimmed.lowercased()
+        let ohneKennung = boards[index].ownerUserID.isEmpty
+        let mine = ohneKennung
+            ? (!engine.istFremd(boardID: board.id)
+               || boards[index].owner.trimmed.lowercased() == profileName.trimmed.lowercased())
             : boards[index].ownerUserID == (myUserID ?? "")
         if mine {
             boards[index].deleted = true
@@ -1991,7 +2017,26 @@ final class BoardStore: ObservableObject {
                 var board = incoming
                 board.embeddedLists = []
                 if let index = boards.firstIndex(where: { $0.id == board.id }) {
-                    if board.updatedAtMs > boards[index].updatedAtMs {
+                    // **Gleichstand mit Inhalt gegen Leere geht an den
+                    // Inhalt.**
+                    //
+                    // Sonst entscheidet der Zeitstempel, und zwar streng:
+                    // Bei Gleichstand bleibt der hiesige Stand stehen. Zwei
+                    // Geräte, die auf dieselbe Millisekunde kommen, hängen
+                    // damit für immer auseinander — der eine mit den
+                    // Elementen, der andere ohne, und kein Abgleich holt
+                    // das je ein.
+                    //
+                    // Eng gefasst und deshalb ungefährlich: Es wird nur
+                    // Nichts durch Etwas ersetzt, nie umgekehrt. Eine Tafel
+                    // ohne ein einziges Element ist kein Stand, den es zu
+                    // verteidigen lohnt — und eine gelöschte kommt als
+                    // Grabstein mit `deleted`, nicht hierüber.
+                    let gleichstand = board.updatedAtMs == boards[index].updatedAtMs
+                        && !board.deleted
+                        && boards[index].widgets.isEmpty
+                        && !board.widgets.isEmpty
+                    if board.updatedAtMs > boards[index].updatedAtMs || gleichstand {
                         let vereint = zusammengefuehrt(vorhanden: boards[index], fremd: board)
                         // Sind Elemente stehen geblieben, die die Gegenseite
                         // gelöscht hatte, kennt sie diesen Stand nicht — er
@@ -2011,11 +2056,34 @@ final class BoardStore: ObservableObject {
                     boards.append(board)
                     changed = true
                 }
-                // Aus einer Freigabe? Dann gehört sie jemand anderem, und
-                // weder meine iCloud-Kennung noch mein Name stehen darin —
-                // ohne diesen Vermerk bliebe sie unsichtbar. Zugleich trage
-                // ich mich ein, damit die Besitzerin sieht, wer mitmacht.
-                if engine.istFremd(boardID: board.id) {
+                // **Jede angekommene Tafel wird als sichtbar vermerkt** —
+                // aus zwei verschiedenen Gründen, je nachdem, woher sie
+                // kommt. Bei einer fremden trage ich mich zusätzlich als
+                // Teilnehmerin ein, damit die Besitzerin sieht, wer
+                // mitmacht.
+                if !engine.istFremd(boardID: board.id) {
+                    // **Aus der eigenen iCloud — also meine.**
+                    //
+                    // Die private Datenbank enthält ausschließlich, was
+                    // diesem Konto gehört; eine Tafel, die von dort kommt,
+                    // kann keiner anderen Person gehören. Ohne diesen
+                    // Eintrag entscheidet `isMember` allein über
+                    // `ownerUserID`, `memberUserIDs` und den Anzeigenamen —
+                    // und die sind bei einer Tafel leer, die angelegt
+                    // wurde, bevor die iCloud-Kennung feststand oder bevor
+                    // ein Name eingetragen war. Auf dem zweiten Gerät blieb
+                    // sie damit für immer unsichtbar (nachgewiesen 08/2026:
+                    // „Meine Klasse", 12 Elemente, unsichtbar).
+                    //
+                    // Das ist zugleich die wahrscheinlichste Wurzel der
+                    // doppelten Tafeln: Was man auf dem zweiten Gerät nicht
+                    // sieht, legt man dort noch einmal an.
+                    var ids = ownBoardIDs
+                    if !ids.contains(board.id) {
+                        ids.insert(board.id)
+                        ownBoardIDs = ids
+                    }
+                } else {
                     var ids = ownBoardIDs
                     if !ids.contains(board.id) {
                         ids.insert(board.id)
