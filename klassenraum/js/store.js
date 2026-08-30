@@ -333,6 +333,12 @@ function normalizeState(loaded) {
     id: list.id || uid('list'),
     name: list.name || 'Liste',
     names: Array.isArray(list.names) ? list.names : [],
+    // Kennungen je Name (Ansage des Nutzers, 08/2026): Jede Zeile der Liste
+    // hat eine feste Kennung, an der beim Umbenennen alles hängen bleibt —
+    // Merkmal, Geburtstag, Pausiert, Sitzplan-Regeln. Die Kennungen werden
+    // hier mit den Namen in Deckung gebracht (fehlende ergänzt, verwaiste
+    // entfernt), damit auch Altbestände und fremde Stände sie bekommen.
+    entries: alignEntries(list.entries, Array.isArray(list.names) ? list.names : []),
     // Pausierte Namen (z. B. krank) bleiben in der Liste, werden aber nicht gezogen.
     paused: Array.isArray(list.paused) ? list.paused : [],
     // Merkmale je Name (z. B. „J“/„M“) — fürs Mischen beim Gruppen-Auslosen.
@@ -379,6 +385,26 @@ function migrateWidgetState(widget) {
     if (!Array.isArray(widget.state.revealParts)) widget.state.revealParts = [];
   }
   return widget;
+}
+
+/**
+ * Kennungen und Namen einer Liste in Deckung bringen: Jeder Name bekommt
+ * seine Kennung — erst über gleiche Namen, dann der Reihe nach, der Rest
+ * frisch. Verwaiste Kennungen fallen weg.
+ */
+function alignEntries(rawEntries, names) {
+  const uebrig = (Array.isArray(rawEntries) ? rawEntries : [])
+    .filter((entry) => entry && typeof entry.name === 'string' && entry.id)
+    .map((entry) => ({ id: entry.id, name: entry.name }));
+  const ergebnis = new Array(names.length).fill(null);
+  names.forEach((name, stelle) => {
+    const treffer = uebrig.findIndex((entry) => entry.name === name);
+    if (treffer >= 0) ergebnis[stelle] = uebrig.splice(treffer, 1)[0];
+  });
+  names.forEach((name, stelle) => {
+    if (!ergebnis[stelle]) ergebnis[stelle] = { id: uid('kind'), name };
+  });
+  return ergebnis;
 }
 
 function normalizeWidget(rawWidget) {
@@ -718,8 +744,13 @@ export function upsertList(raw) {
     id: raw.id || uid('list'),
     name: raw.name || 'Liste',
     names: Array.isArray(raw.names) ? raw.names : [],
+    entries: alignEntries(raw.entries, Array.isArray(raw.names) ? raw.names : []),
     paused: Array.isArray(raw.paused) ? raw.paused : [],
     marks: raw.marks && typeof raw.marks === 'object' ? raw.marks : {},
+    birthdays: raw.birthdays && typeof raw.birthdays === 'object' ? raw.birthdays : {},
+    sitzregeln: Array.isArray(raw.sitzregeln) ? raw.sitzregeln : [],
+    sitzwunsch: raw.sitzwunsch && typeof raw.sitzwunsch === 'object' ? raw.sitzwunsch : {},
+    alleine: Array.isArray(raw.alleine) ? raw.alleine : [],
     updatedAt: raw.updatedAt || Date.now(),
   };
   const index = state.lists.findIndex((list) => list.id === clean.id);

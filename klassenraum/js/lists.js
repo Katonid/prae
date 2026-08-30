@@ -77,25 +77,62 @@ export function openListsPanel(initialListId = null) {
       value: list.names.join('\n'),
     });
     const counter = h('p', { class: 'muted small' }, `${list.names.length} Namen`);
+    /**
+     * Neue Namen übernehmen — mit Kennungen (Ansage des Nutzers, 08/2026).
+     *
+     * Jede Zeile hat eine feste Kennung. Beim Übernehmen wird zuerst über
+     * gleiche Namen zugeordnet; was übrig bleibt, gilt der Reihe nach als
+     * UMBENENNUNG — und dann wandern Merkmal, Geburtstag, Pausiert und
+     * die Sitzplan-Regeln zum neuen Namen mit, statt verloren zu gehen.
+     * Wer wirklich aus der Liste verschwindet, nimmt seine Angaben mit.
+     */
+    function uebernimmNamen(names) {
+      const fresh = getState().lists.find((entry) => entry.id === editingId) || {};
+      const uebrig = (fresh.entries || (fresh.names || []).map((name) => ({ id: uid('kind'), name })))
+        .map((entry) => ({ id: entry.id, name: entry.name }));
+      const entries = new Array(names.length).fill(null);
+      names.forEach((name, stelle) => {
+        const treffer = uebrig.findIndex((entry) => entry.name === name);
+        if (treffer >= 0) entries[stelle] = uebrig.splice(treffer, 1)[0];
+      });
+      const umbenannt = {};
+      names.forEach((name, stelle) => {
+        if (entries[stelle]) return;
+        const alt = uebrig.shift();
+        if (alt) {
+          umbenannt[alt.name] = name;
+          entries[stelle] = { id: alt.id, name };
+        } else {
+          entries[stelle] = { id: uid('kind'), name };
+        }
+      });
+      const mapUm = (obj) => {
+        const aus = {};
+        for (const [schluessel, wert] of Object.entries(obj || {})) {
+          const neu = umbenannt[schluessel] || schluessel;
+          if (names.includes(neu)) aus[neu] = wert;
+        }
+        return aus;
+      };
+      const listeUm = (arr) => (arr || []).map((name) => umbenannt[name] || name).filter((name) => names.includes(name));
+      const sitzregeln = (fresh.sitzregeln || [])
+        .map((regel) => Object.assign({}, regel, { a: umbenannt[regel.a] || regel.a, b: umbenannt[regel.b] || regel.b }))
+        .filter((regel) => names.includes(regel.a) && names.includes(regel.b));
+      updateList(list.id, {
+        names,
+        entries,
+        paused: listeUm(fresh.paused),
+        marks: mapUm(fresh.marks),
+        birthdays: mapUm(fresh.birthdays),
+        sitzwunsch: mapUm(fresh.sitzwunsch),
+        alleine: listeUm(fresh.alleine),
+        sitzregeln,
+      });
+    }
+
     area.addEventListener('input', () => {
       const names = parseNames(area.value);
-      // Wer aus der Liste verschwindet, verschwindet auch aus den Pausierten
-      // und verliert sein Merkmal.
-      const paused = (list.paused || []).filter((name) => names.includes(name));
-      const fresh = getState().lists.find((entry) => entry.id === editingId) || {};
-      const old = fresh.marks || {};
-      const oldBirthdays = fresh.birthdays || {};
-      const marks = {};
-      const birthdays = {};
-      const wunsch = {};
-      for (const name of names) {
-        if (old[name]) marks[name] = old[name];
-        if (oldBirthdays[name]) birthdays[name] = oldBirthdays[name];
-        if ((fresh.sitzwunsch || {})[name]) wunsch[name] = fresh.sitzwunsch[name];
-      }
-      const sitzregeln = (fresh.sitzregeln || []).filter((regel) => names.includes(regel.a) && names.includes(regel.b));
-      const alleine = (fresh.alleine || []).filter((name) => names.includes(name));
-      updateList(list.id, { names, paused, marks, birthdays, sitzregeln, sitzwunsch: wunsch, alleine });
+      uebernimmNamen(names);
       counter.textContent = `${names.length} Namen`;
       renderPause();
       renderMarks();
@@ -320,22 +357,26 @@ export function openListsPanel(initialListId = null) {
           icon: 'layers', small: true,
           onClick: () => {
             const names = parseNames(area.value).sort((a, b) => a.localeCompare(b, 'de'));
-            updateList(list.id, { names });
+            uebernimmNamen(names);
             area.value = names.join('\n');
             counter.textContent = `${names.length} Namen`;
             renderPause();
             renderMarks();
+            renderBirthdays();
+            renderSeating();
           },
         }),
         button('Doppelte entfernen', {
           icon: 'check', small: true,
           onClick: () => {
             const names = Array.from(new Set(parseNames(area.value)));
-            updateList(list.id, { names, paused: (list.paused || []).filter((name) => names.includes(name)) });
+            uebernimmNamen(names);
             area.value = names.join('\n');
             counter.textContent = `${names.length} Namen`;
             renderPause();
             renderMarks();
+            renderBirthdays();
+            renderSeating();
             toast('Doppelte Einträge entfernt.', 'success');
           },
         }),
@@ -343,7 +384,11 @@ export function openListsPanel(initialListId = null) {
           icon: 'plus', small: true,
           onClick: () => {
             const names = Array.from({ length: 30 }, (_, index) => String(index + 1));
-            updateList(list.id, { names, paused: [], marks: {} });
+            updateList(list.id, {
+              names,
+              entries: names.map((name) => ({ id: uid('kind'), name })),
+              paused: [], marks: {}, birthdays: {}, sitzwunsch: {}, alleine: [], sitzregeln: [],
+            });
             area.value = names.join('\n');
             counter.textContent = `${names.length} Namen`;
             renderPause();
