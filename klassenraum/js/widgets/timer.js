@@ -15,21 +15,26 @@ const endPlayer = typeof Audio !== 'undefined' ? new Audio() : null;
 
 /** Abschlussklang des Timers abspielen: eigene Datei oder erzeugter Klang. */
 async function playEndFor(state) {
+  // Die Lautstärke gilt für den Klang, den die APP spielt. Was das Gerät
+  // insgesamt kann (Stummschalter, Systemlautstärke), bleibt Sache des
+  // Geräts — daran kommt keine Web-App heran.
+  const volume = Math.max(0.1, Math.min(1, Number(state.endVolume) || 1));
   if (state.endSound === 'datei' && state.mediaId && endPlayer) {
     try {
       const source = await mediaUrl({ mediaId: state.mediaId });
       if (source) {
         endPlayer.src = source;
         endPlayer.currentTime = 0;
+        endPlayer.volume = volume;
         await endPlayer.play();
         return;
       }
     } catch (_) { /* dann eben der erzeugte Klang */ }
     // Datei (noch) nicht auf diesem Gerät — der vertraute Klang springt ein.
-    playEndSound('dreiklang');
+    playEndSound('dreiklang', 0, volume);
     return;
   }
-  playEndSound(state.endSound);
+  playEndSound(state.endSound, 0, volume);
 }
 
 export default {
@@ -410,7 +415,7 @@ export default {
                 ctx.widget.state.endSound = entry.id;
                 ctx.save();
                 // Direkt zum Anhören — so lässt sich vergleichen.
-                playEndSound(entry.id);
+                playEndSound(entry.id, 0, Math.max(0.1, Math.min(1, Number(ctx.widget.state.endVolume) || 1)));
                 rerender();
               },
             }, entry.label)),
@@ -426,7 +431,21 @@ export default {
           state.sound === false ? null : h('p', { class: 'muted small' },
             chosen === 'datei'
               ? 'Eine eigene Klangdatei vom Gerät — sie wandert beim Abgleich mit. Zum Anhören auf die Auswahl tippen.'
-              : `${endSoundById(chosen).hint} Wird im Gerät erzeugt und funktioniert offline. Zum Anhören auf die Auswahl tippen.`),
+              : `${endSoundById(chosen).hint} Zum Anhören auf die Auswahl tippen.`),
+          state.sound === false ? null : field(`Lautstärke: ${Math.round((Number(state.endVolume) || 1) * 100)} %`, h('input', {
+            class: 'input', type: 'range', min: '0.1', max: '1', step: '0.05',
+            value: String(Number(state.endVolume) || 1),
+            oninput: (event) => {
+              ctx.widget.state.endVolume = Number(event.target.value) || 1;
+              ctx.save();
+            },
+            onchange: () => {
+              playEndFor(ctx.widget.state);
+              rerender();
+            },
+          })),
+          state.sound === false ? null : h('p', { class: 'muted small' },
+            'Gilt für den Klang, den die App spielt. Die Gerätelautstärke und der Stummschalter bleiben Sache des Geräts.'),
           state.sound === false || chosen !== 'datei' ? null : h('div', { class: 'stack' },
             h('p', { class: 'muted small' }, state.fileName
               ? `Datei: ${state.fileName}`
