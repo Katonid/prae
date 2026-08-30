@@ -147,6 +147,8 @@ struct WidgetSettingsSheet: View {
                                       anfordern: { frageNachDatei(.video) })
                     case .kamera(let value):
                         KameraSettings(content: bindKamera(value))
+                    case .geburtstag(let value):
+                        GeburtstagSettings(content: bindGeburtstag(value))
                     }
 
                     Section {
@@ -431,6 +433,16 @@ struct WidgetSettingsSheet: View {
                 return fallback
             },
             set: { store.setContent(.text($0), widgetID: widgetID, boardID: boardID) }
+        )
+    }
+
+    private func bindGeburtstag(_ fallback: GeburtstagContent) -> Binding<GeburtstagContent> {
+        Binding(
+            get: {
+                if case .geburtstag(let value)? = store.widget(widgetID, in: boardID)?.content { return value }
+                return fallback
+            },
+            set: { store.setContent(.geburtstag($0), widgetID: widgetID, boardID: boardID) }
         )
     }
 
@@ -2062,5 +2074,37 @@ private struct VideoSettings: View {
         }
         if let link = content.url.nonEmpty { return "Link: " + link }
         return "Noch kein Video ausgewählt."
+    }
+}
+
+// MARK: - Geburtstag
+
+private struct GeburtstagSettings: View {
+    @Binding var content: GeburtstagContent
+
+    var body: some View {
+        Section {
+            TextField("Name", text: $content.name)
+            if let alter = content.alter {
+                LabeledContent("Wird", value: "\(alter)")
+            }
+            Picker("Feier", selection: Binding(
+                get: { Feierart.aus(content.feier) },
+                set: { content.feier = $0.rawValue }
+            )) {
+                ForEach(Feierart.allCases) { art in
+                    Text(art.titel).tag(art)
+                }
+            }
+        } header: {
+            Text("Geburtstag")
+        } footer: {
+            Text("Die Feier wird beim Anlegen der Seite ausgewürfelt, damit "
+                 + "nicht bei jedem Kind dasselbe passiert. Hier lässt sie sich "
+                 + "von Hand ändern.\n\n"
+
+                 + "Die Seite bleibt stehen, bis du sie löschst — über die "
+                 + "Seitenverwaltung.")
+        }
     }
 }

@@ -456,7 +456,9 @@ final class BoardStore: ObservableObject {
     }
 
     /// Merkt eine Änderung an einer Tafel vor: Zeitstempel, Speichern, Hochladen.
-    private func touch(_ boardID: String, sync: Bool = true) {
+    /// Nicht `private`: Der Geburtstagsdienst liegt in einer eigenen Datei
+    /// und käme sonst nicht heran (`private` gilt in Swift dateiweit).
+    func touch(_ boardID: String, sync: Bool = true) {
         guard let index = boards.firstIndex(where: { $0.id == boardID }) else { return }
         boards[index].updatedAtMs = Date.nowMs
         // Wer zuletzt geschrieben hat, entscheidet beim Empfänger darüber,
@@ -510,7 +512,8 @@ final class BoardStore: ObservableObject {
     /// **alle** Elemente eine ausdrückliche Seitenzugehörigkeit: Sonst würden
     /// sie beim späteren Löschen der ersten Seite auf die dann erste springen,
     /// weil „leer" ja „erste Seite" bedeutet.
-    private func stelleSeitenSicher(_ index: Int) {
+    /// Siehe `touch` — auch das braucht der Geburtstagsdienst.
+    func stelleSeitenSicher(_ index: Int) {
         guard boards[index].pages.isEmpty else { return }
         let erste = BoardPage(name: "", drawing: boards[index].drawing)
         boards[index].pages = [erste]

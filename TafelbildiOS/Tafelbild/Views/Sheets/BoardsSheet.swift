@@ -341,6 +341,108 @@ struct ShareSheet: View {
         }
 
         loeschrechtAbschnitt(board)
+        geburtstagsAbschnitt(board)
+    }
+
+    /// Geburtstage — gehört zur Tafel, nicht zur Namensliste.
+    ///
+    /// Eine Liste kann auf mehreren Tafeln liegen; wäre die Einstellung
+    /// dort, tauchten die Seiten überall auf. Die gewählte Liste reist beim
+    /// Teilen mit (siehe `Board.referencedListIDs`).
+    @ViewBuilder
+    private func geburtstagsAbschnitt(_ board: Board) -> some View {
+        let regel = Geburtstagserinnerung.aus(board.geburtstagsErinnerung)
+        Section {
+            Toggle("Geburtstage feiern", isOn: Binding(
+                get: { board.geburtstage },
+                set: { an in
+                    var neu = board
+                    neu.geburtstage = an
+                    if an, neu.geburtstagsliste.isEmpty,
+                       let vorschlag = neu.geburtstagslisteID(vorhanden: store.visibleNameLists) {
+                        neu.geburtstagsliste = vorschlag
+                    }
+                    store.updateBoard(neu)
+                    store.pruefeGeburtstage()
+                }
+            ))
+
+            if board.geburtstage {
+                Picker("Namensliste", selection: Binding(
+                    get: { board.geburtstagslisteID(vorhanden: store.visibleNameLists) ?? "" },
+                    set: { neueListe in
+                        var neu = board
+                        neu.geburtstagsliste = neueListe
+                        store.updateBoard(neu)
+                        store.pruefeGeburtstage()
+                    }
+                )) {
+                    Text("Keine").tag("")
+                    ForEach(store.visibleNameLists) { liste in
+                        Text(liste.name).tag(liste.id)
+                    }
+                }
+
+                Picker("Erinnern", selection: Binding(
+                    get: { regel },
+                    set: { neueRegel in
+                        var neu = board
+                        neu.geburtstagsErinnerung = neueRegel.rawValue
+                        store.updateBoard(neu)
+                        store.planeGeburtstagsmeldungen()
+                    }
+                )) {
+                    ForEach(Geburtstagserinnerung.allCases) { moeglichkeit in
+                        Text(moeglichkeit.titel).tag(moeglichkeit)
+                    }
+                }
+
+                if regel != .aus {
+                    DatePicker("Uhrzeit", selection: Binding(
+                        get: { uhrzeit(regel == .amVortag ? board.geburtstagsZeitVortag
+                                                          : board.geburtstagsZeit) },
+                        set: { zeit in
+                            var neu = board
+                            let minuten = minutenAusUhrzeit(zeit)
+                            if regel == .amVortag { neu.geburtstagsZeitVortag = minuten }
+                            else { neu.geburtstagsZeit = minuten }
+                            store.updateBoard(neu)
+                            store.planeGeburtstagsmeldungen()
+                        }
+                    ), displayedComponents: .hourAndMinute)
+
+                    Text(regel.hinweis)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        } header: {
+            Text("Geburtstage")
+        } footer: {
+            Text("Trage die Geburtstage bei den Namen ein — in den "
+                 + "Namenslisten, je Name der kleine Kalenderknopf. "
+                 + "Wer keinen hat, macht "
+                 + "nichts anders.\n\n"
+
+                 + "Am Geburtstag entsteht von selbst eine Seite mit dem Namen, "
+                 + "dem Alter und einer Feier zum Antippen. Feiern mehrere am "
+                 + "selben Tag, entsteht für jedes Kind eine eigene Seite, und "
+                 + "jede bekommt eine andere Feier. Auf der ersten Seite steht "
+                 + "oben rechts ein Hinweis, der dorthin führt.\n\n"
+
+                 + "Die Seiten bleiben stehen, bis du sie löschst.")
+        }
+    }
+
+    private func uhrzeit(_ minuten: Int) -> Date {
+        let kalender = Calendar.current
+        return kalender.date(bySettingHour: minuten / 60, minute: minuten % 60,
+                             second: 0, of: Date()) ?? Date()
+    }
+
+    private func minutenAusUhrzeit(_ zeit: Date) -> Int {
+        let s = Calendar.current.dateComponents([.hour, .minute], from: zeit)
+        return (s.hour ?? 8) * 60 + (s.minute ?? 0)
     }
 
     /// Wer auf dieser Tafel löschen darf — nur die Besitzerin stellt das ein.

@@ -466,6 +466,55 @@ final class VoiceRecorder: ObservableObject {
     }
 }
 
+// MARK: - Klang einer Feier
+
+/// Spielt die Klänge einer Geburtstagsfeier — mehrere nacheinander, mit
+/// Verzögerung.
+///
+/// Eigene Spieler je Klang, weil sie sich überlappen sollen: Der Applaus
+/// setzt ein, während der Tusch noch ausklingt. Ein einzelner Spieler
+/// schnitte den vorigen ab.
+@MainActor
+enum Feierklang {
+    /// Was gerade läuft — festgehalten, damit die Spieler nicht mitten im
+    /// Ton abgeräumt werden.
+    private static var spieler: [AVAudioPlayer] = []
+    private static var geplant: [Task<Void, Never>] = []
+
+    static func spiele(_ art: Feierart) {
+        stoppe()
+        if !AudioSessionCenter.isRecording {
+            AudioSessionCenter.configure(recording: false)
+        }
+        for klang in art.klaenge {
+            if klang.nach <= 0 {
+                starte(klang.datei)
+            } else {
+                geplant.append(Task { @MainActor in
+                    try? await Task.sleep(for: .seconds(klang.nach))
+                    guard !Task.isCancelled else { return }
+                    starte(klang.datei)
+                })
+            }
+        }
+    }
+
+    static func stoppe() {
+        for auftrag in geplant { auftrag.cancel() }
+        geplant.removeAll()
+        for wer in spieler { wer.stop() }
+        spieler.removeAll()
+    }
+
+    private static func starte(_ datei: String) {
+        guard let adresse = Bundle.main.url(forResource: datei, withExtension: "wav"),
+              let wer = try? AVAudioPlayer(contentsOf: adresse) else { return }
+        wer.prepareToPlay()
+        wer.play()
+        spieler.append(wer)
+    }
+}
+
 // MARK: - Maßstab der Lautstärkemessung
 
 /// Was in einer Grundschulklasse laut ist — und ab wann es zu laut wird.
