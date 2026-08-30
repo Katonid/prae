@@ -61,3 +61,30 @@ für eine Aufnahme, sondern denselben Vorgang.
 Alle Dateien sind Mono, 44,1 kHz, 16 Bit und auf gleiche **Lautheit**
 gebracht (gemessen im lautesten Fenster von 300 ms, nicht am
 Spitzenwert). **Nicht von Hand bearbeiten.**
+
+## Geburtstag
+
+`geburtstag-*.wav` — drei echte Aufnahmen und ein gerechnetes Lied.
+Erzeugt von `TafelbildiOS/scripts/fetch-geburtstag.py`.
+
+| Klang | Datei | Urheber | Lizenz | Nachweis |
+|---|---|---|---|---|
+| Tusch | `geburtstag-tusch.wav` | United States Air Force Heritage of America Band | gemeinfrei (Werk der US-Regierung) | https://commons.wikimedia.org/wiki/File:Ceremonial_Fanfare_-_Concert_Band_-_United_States_Air_Force_Heritage_of_America_Band.mp3 |
+| Applaus | `geburtstag-applaus.wav` | mrrap4food | CC0 1.0 | https://commons.wikimedia.org/wiki/File:619016_mrrap4food_clapping-then-leaving.mp3 |
+| Luftrüssel | `geburtstag-truete.wav` | Wikimedia Commons | gemeinfrei | https://commons.wikimedia.org/wiki/File:Luftr%C3%BCssel.ogg |
+| Geburtstagslied | `geburtstag-lied.wav` | gerechnet (Glockenspiel) | Melodie gemeinfrei | siehe unten |
+
+**Warum der Tusch eine Aufnahme ist und das Lied gerechnet.** Ein
+Blasorchester lässt sich nicht nachrechnen — Blech lebt von Atem, Ansatz
+und Saal, und der Versuch klänge genau so blechern, wie es niemand will.
+Ein angeschlagenes Glockenspiel dagegen IST eine Summe abklingender
+Teiltöne (siehe „Endklänge des Timers" oben), und die Melodie („Zum
+Geburtstag viel Glück", ursprünglich „Good Morning to All" von Mildred
+Hill, † 1916) ist in der EU seit 1987 gemeinfrei. Eine brauchbare freie
+Aufnahme davon gibt es nicht, eine überzeugende Rechnung schon.
+
+Die Tonfolge ist nachgemessen: f f g f b a | f f g f c b | f f f' d b a g
+| es es d b c b — 25 von 25 Tönen auf der erwarteten Höhe (±40 Cent).
+
+**Nicht von Hand bearbeiten.** Das Skript überspringt Dateien, die schon
+da sind; zum Erneuern die Datei löschen.

@@ -99,6 +99,8 @@ struct NameListEditor: View {
     @State private var newName = ""
     @State private var bulkText = ""
     @State private var showBulk = false
+    /// Für wen gerade ein Geburtstag gewählt wird.
+    @State private var geburtstagFuer: String?
 
     private var list: NameList { store.nameList(listID) ?? NameList() }
 
@@ -158,6 +160,40 @@ struct NameListEditor: View {
                             }
                             .buttonStyle(.plain)
                         }
+
+                        // Geburtstag: ein Knopf, der die Kalenderauswahl
+                        // öffnet. Leer heißt „nicht eingetragen" — niemand
+                        // muss ihn angeben.
+                        Menu {
+                            if entry.geburtstag.nonEmpty != nil {
+                                Button(role: .destructive) {
+                                    setzeGeburtstag("", fuer: entry)
+                                } label: {
+                                    Label("Geburtstag entfernen", systemImage: "trash")
+                                }
+                            }
+                            Button {
+                                geburtstagFuer = entry.id
+                            } label: {
+                                Label(entry.geburtstag.nonEmpty == nil
+                                      ? "Geburtstag eintragen" : "Geburtstag ändern",
+                                      systemImage: "calendar")
+                            }
+                        } label: {
+                            Image(systemName: entry.geburtstag.nonEmpty == nil
+                                  ? "calendar.badge.plus" : "birthday.cake.fill")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundStyle(entry.geburtstag.nonEmpty == nil
+                                                 ? Color.secondary : Color.white)
+                                .frame(minWidth: 30, minHeight: 30)
+                                .background {
+                                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                        .fill(entry.geburtstag.nonEmpty == nil
+                                              ? Color.secondary.opacity(0.15)
+                                              : Color(hex: "#c026d3"))
+                                }
+                        }
+                        .buttonStyle(.plain)
                     }
                     .swipeActions(edge: .leading) {
                         Button {
@@ -223,6 +259,21 @@ struct NameListEditor: View {
         .navigationTitle(list.name)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar { EditButton() }
+        .sheet(item: Binding(
+            get: { geburtstagFuer.map { Kennung(id: $0) } },
+            set: { if $0 == nil { geburtstagFuer = nil } }
+        )) { wahl in
+            Geburtstagswahl(
+                anfang: list.entries.first(where: { $0.id == wahl.id })
+                    .flatMap { Geburtstage.datum($0.geburtstag) },
+                name: list.entries.first(where: { $0.id == wahl.id })?.text ?? "",
+                fertig: { datum in
+                    if let datum, let eintrag = list.entries.first(where: { $0.id == wahl.id }) {
+                        setzeGeburtstag(Geburtstage.text(datum), fuer: eintrag)
+                    }
+                    geburtstagFuer = nil
+                })
+        }
         .sheet(isPresented: $showBulk) {
             NavigationStack {
                 VStack(alignment: .leading) {
@@ -356,6 +407,16 @@ struct NameListEditor: View {
         store.updateNameList(updated)
     }
 
+    private func setzeGeburtstag(_ text: String, fuer entry: NameEntry) {
+        var updated = list
+        guard let index = updated.entries.firstIndex(where: { $0.id == entry.id }) else { return }
+        updated.entries[index].geburtstag = text
+        store.updateNameList(updated)
+        // Die Meldungen neu planen: Ein geänderter Geburtstag soll nicht
+        // erst beim nächsten Start ankommen.
+        store.planeGeburtstagsmeldungen()
+    }
+
     private func setze(_ merkmal: Merkmal, _ wert: String, fuer entry: NameEntry) {
         var updated = list
         guard let index = updated.entries.firstIndex(where: { $0.id == entry.id }) else { return }
@@ -374,5 +435,55 @@ struct NameListEditor: View {
         updated.entries.append(NameEntry(text: text))
         store.updateNameList(updated)
         newName = ""
+    }
+}
+
+/// Eine Kennung, die sich als `item` eines Blattes reichen lässt.
+private struct Kennung: Identifiable { let id: String }
+
+/// Geburtstag wählen.
+///
+/// Ein eigenes Blatt statt eines `DatePicker` in der Zeile: In einer Liste
+/// mit zwanzig Namen wäre ein aufklappender Kalender je Zeile nicht zu
+/// bedienen, und die Jahreszahl braucht Platz.
+private struct Geburtstagswahl: View {
+    let anfang: Date?
+    let name: String
+    let fertig: (Date?) -> Void
+
+    @State private var datum = Date()
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    DatePicker("Geburtstag", selection: $datum,
+                               in: ...Date(), displayedComponents: .date)
+                        .datePickerStyle(.graphical)
+                } footer: {
+                    Text("Aus dem Jahr rechnet die App aus, wie alt das Kind "
+                         + "wird. Gespeichert wird der Tag, nicht die Uhrzeit — "
+                         + "eine Reise in eine andere Zeitzone verschiebt den "
+                         + "Geburtstag also nicht.")
+                }
+            }
+            .navigationTitle(name.nonEmpty ?? "Geburtstag")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Abbrechen") { fertig(nil) }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Sichern") { fertig(datum) }
+                }
+            }
+            .onAppear {
+                // Ohne Vorgabe auf einen plausiblen Jahrgang stellen: Vom
+                // heutigen Datum aus wäre es zwanzig Wischer bis in die
+                // Grundschulzeit.
+                datum = anfang ?? Calendar.current.date(byAdding: .year, value: -8,
+                                                        to: Date()) ?? Date()
+            }
+        }
     }
 }

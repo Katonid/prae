@@ -76,6 +76,7 @@ enum WidgetKind: String, Codable, CaseIterable, Identifiable {
     case symbols
     case video
     case kamera
+    case geburtstag
 
     var id: String { rawValue }
 
@@ -93,6 +94,7 @@ enum WidgetKind: String, Codable, CaseIterable, Identifiable {
         case .symbols:      return "Arbeitssymbol"
         case .video:        return "Video"
         case .kamera:       return "Dokumentenkamera"
+        case .geburtstag:   return "Geburtstag"
         }
     }
 
@@ -110,6 +112,7 @@ enum WidgetKind: String, Codable, CaseIterable, Identifiable {
         case .symbols:      return "Arbeitsform groß anzeigen"
         case .video:        return "Film vom Gerät oder aus dem Netz"
         case .kamera:       return "Heft oder Blatt zeigen"
+        case .geburtstag:   return "Wer heute feiert"
         }
     }
 
@@ -127,6 +130,7 @@ enum WidgetKind: String, Codable, CaseIterable, Identifiable {
         case .symbols:      return "person.2"
         case .video:        return "play.rectangle"
         case .kamera:       return "doc.viewfinder"
+        case .geburtstag:   return "gift"
         }
     }
 
@@ -972,6 +976,7 @@ enum WidgetContent: Equatable {
     case symbols(SymbolContent)
     case video(VideoContent)
     case kamera(KameraContent)
+    case geburtstag(GeburtstagContent)
 
     var kind: WidgetKind {
         switch self {
@@ -987,6 +992,7 @@ enum WidgetContent: Equatable {
         case .symbols:      return .symbols
         case .video:        return .video
         case .kamera:       return .kamera
+        case .geburtstag:   return .geburtstag
         }
     }
 
@@ -1015,6 +1021,7 @@ enum WidgetContent: Equatable {
             SoundButton(label: "Klang", emoji: "🔔", colorHex: "#0f9b8e")
         ]))
         case .kamera:       return .kamera(KameraContent())
+        case .geburtstag:   return .geburtstag(GeburtstagContent())
         }
     }
 }
@@ -1040,6 +1047,7 @@ extension WidgetContent: Codable {
         case .symbols:      self = .symbols(try container.decode(SymbolContent.self, forKey: .data))
         case .video:        self = .video(try container.decode(VideoContent.self, forKey: .data))
         case .kamera:       self = .kamera(try container.decode(KameraContent.self, forKey: .data))
+        case .geburtstag:   self = .geburtstag(try container.decode(GeburtstagContent.self, forKey: .data))
         }
     }
 
@@ -1059,6 +1067,7 @@ extension WidgetContent: Codable {
         case .symbols(let value):      try container.encode(value, forKey: .data)
         case .video(let value):        try container.encode(value, forKey: .data)
         case .kamera(let value):       try container.encode(value, forKey: .data)
+        case .geburtstag(let value):   try container.encode(value, forKey: .data)
         }
     }
 }
@@ -1468,6 +1477,24 @@ struct Board: Codable, Identifiable, Equatable {
     /// iCloud-Kennungen aller Personen, die die Tafel sehen dürfen —
     /// wird beim Beitritt per Code ergänzt.
     var memberUserIDs: [String] = []
+    // MARK: Geburtstage
+
+    /// Beobachtet diese Tafel Geburtstage?
+    ///
+    /// Bewusst je Tafel und nicht je Namensliste: Eine Liste kann auf
+    /// mehreren Tafeln liegen, und sonst tauchten die Seiten überall auf.
+    var geburtstage: Bool = false
+    /// Kennung der Namensliste, deren Geburtstage gelten. Leer = die erste
+    /// Liste, die ein Zufallsnamen-Element dieser Tafel benutzt.
+    var geburtstagsliste: String = ""
+    /// Rohwert einer `Geburtstagserinnerung`.
+    var geburtstagsErinnerung: String = Geburtstagserinnerung.vorgabe.rawValue
+    /// Uhrzeit der Erinnerung, in Minuten seit Mitternacht. Vorgabe 8:00;
+    /// beim Vortag greift stattdessen `geburtstagsZeitVortag`.
+    var geburtstagsZeit: Int = 8 * 60
+    /// Uhrzeit am Vortag. Vorgabe 15:00 — nach dem Unterricht.
+    var geburtstagsZeitVortag: Int = 15 * 60
+
     /// Wer hier Elemente löschen darf — **Rohwert** eines `Loeschrecht`.
     ///
     /// Als Zeichenkette gespeichert, nicht als Aufzählung: Eine Tafel von
@@ -1511,7 +1538,31 @@ struct Board: Codable, Identifiable, Equatable {
                 ids.insert(listID)
             }
         }
+        // Die Geburtstagsliste gehört dazu, auch ohne Zufallsnamen-Element:
+        // An dieser Menge hängt, was beim Teilen mitreist. Ohne sie sähe
+        // die Kollegin die Geburtstagsseiten nie.
+        if geburtstage, let liste = geburtstagsliste.nonEmpty { ids.insert(liste) }
         return ids
+    }
+
+    /// Die Liste, deren Geburtstage für diese Tafel gelten.
+    ///
+    /// Ist keine ausgewählt, gilt die erste, die ein Zufallsnamen-Element
+    /// benutzt — das ist fast immer die Klassenliste, und niemand muss
+    /// etwas einstellen, damit es losgeht.
+    func geburtstagslisteID(vorhanden: [NameList]) -> String? {
+        if let gewaehlt = geburtstagsliste.nonEmpty,
+           vorhanden.contains(where: { $0.id == gewaehlt }) {
+            return gewaehlt
+        }
+        for widget in sortedWidgets {
+            if case .namePicker(let inhalt) = widget.content,
+               let listID = inhalt.listID,
+               vorhanden.contains(where: { $0.id == listID }) {
+                return listID
+            }
+        }
+        return nil
     }
 
     static func makeJoinCode() -> String {
@@ -1791,6 +1842,14 @@ struct NameEntry: Codable, Equatable, Identifiable {
     /// Fehlt ein Eintrag, hat dieser Name das Merkmal nicht. Beim Auslosen
     /// zählt er dann als eigener Topf „ohne Angabe“ — nichts wird geraten.
     var merkmale: [String: String] = [:]
+    /// Geburtstag als `JJJJ-MM-TT`. **Leer heißt: nicht eingetragen** —
+    /// niemand muss ihn angeben, und ohne ihn passiert schlicht nichts.
+    ///
+    /// Bewusst als Zeichenkette und nicht als `Date`: Ein Geburtstag ist ein
+    /// Kalendertag, kein Zeitpunkt. Als `Date` gespeichert verschöbe ihn
+    /// jeder Zeitzonenwechsel um einen Tag — genau der Fehler, der einem
+    /// Kind den Geburtstag am falschen Tag feiert.
+    var geburtstag: String = ""
 
     func wert(_ merkmalID: String) -> String? {
         merkmale[merkmalID]?.nonEmpty
@@ -1938,6 +1997,8 @@ extension Board {
         case format, frames, labels, schriftfarbe
         case zuletztVon
         case widgets, pages, drawing, members, ownerUserID, loeschrecht
+        case geburtstage, geburtstagsliste, geburtstagsErinnerung
+        case geburtstagsZeit, geburtstagsZeitVortag
         case memberUserIDs, joinCode, geteilt, owner, createdAtMs, updatedAtMs, deleted
         case embeddedLists
     }
@@ -1965,6 +2026,12 @@ extension Board {
         members = c.wert(.members, [String]())
         ownerUserID = c.wert(.ownerUserID, "")
         loeschrecht = c.wert(.loeschrecht, Loeschrecht.vorgabe.rawValue)
+        geburtstage = c.wert(.geburtstage, false)
+        geburtstagsliste = c.wert(.geburtstagsliste, "")
+        geburtstagsErinnerung = c.wert(.geburtstagsErinnerung,
+                                       Geburtstagserinnerung.vorgabe.rawValue)
+        geburtstagsZeit = c.wert(.geburtstagsZeit, 8 * 60)
+        geburtstagsZeitVortag = c.wert(.geburtstagsZeitVortag, 15 * 60)
         memberUserIDs = c.wert(.memberUserIDs, [String]())
         joinCode = c.wert(.joinCode, Board.makeJoinCode())
         geteilt = c.wert(.geteilt, false)
@@ -2022,7 +2089,7 @@ extension Merkmal {
 }
 
 extension NameEntry {
-    enum EntryKeys: String, CodingKey { case id, text, paused, merkmale }
+    enum EntryKeys: String, CodingKey { case id, text, paused, merkmale, geburtstag }
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: EntryKeys.self)
@@ -2031,6 +2098,7 @@ extension NameEntry {
         text = c.wert(.text, "")
         paused = c.wert(.paused, false)
         merkmale = c.wert(.merkmale, [String: String]())
+        geburtstag = c.wert(.geburtstag, "")
     }
 }
 

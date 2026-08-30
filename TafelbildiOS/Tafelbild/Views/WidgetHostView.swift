@@ -219,6 +219,11 @@ struct WidgetHostView: View {
         case .video(let value):
             VideoWidgetView(content: value, interactive: !editing,
                             onOpenSettings: { store.settingsWidgetID = widget.id })
+        case .geburtstag(let value):
+            GeburtstagWidgetView(content: bindGeburtstag(value), interactive: !editing,
+                                 onSpringen: { seite in
+                                     store.zeigeSeite(seite, auf: boardID)
+                                 })
         case .kamera(let value):
             KameraWidgetView(content: bindKamera(value), interactive: !editing,
                              onAblegen: { datei in
@@ -363,6 +368,16 @@ struct WidgetHostView: View {
                 return fallback
             },
             set: { store.setContent(.symbols($0), widgetID: widget.id, boardID: boardID) }
+        )
+    }
+
+    private func bindGeburtstag(_ fallback: GeburtstagContent) -> Binding<GeburtstagContent> {
+        Binding(
+            get: {
+                if case .geburtstag(let value)? = store.widget(widget.id, in: boardID)?.content { return value }
+                return fallback
+            },
+            set: { store.setContent(.geburtstag($0), widgetID: widget.id, boardID: boardID) }
         )
     }
 

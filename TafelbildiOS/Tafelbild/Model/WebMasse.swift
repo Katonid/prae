@@ -30,6 +30,9 @@ extension WidgetKind {
         // Wie ein Dokumentenprojektor: groß genug, dass eine Heftseite von
         // hinten zu lesen ist. 4:3, weil Hefte und Blätter hochkant sind.
         case .kamera:       return CGSize(width: 640, height: 480)
+        // Der Auftritt gehört auf die halbe Tafel: Ein Geburtstag ist
+        // kein Nebenbei-Element, und die Animation braucht Platz.
+        case .geburtstag:   return CGSize(width: 820, height: 560)
         }
     }
 }

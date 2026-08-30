@@ -101,6 +101,9 @@ struct TafelbildApp: App {
                 // vorher ablief, hat iOS schon gemeldet und darf nicht
                 // gleich noch einmal klingen.
                 Weckdienst.shared.wurdeAktiv()
+                // Feiert heute jemand? Die Seiten entstehen beim Aktivwerden,
+                // nicht auf Vorrat — siehe Geburtstagsdienst.
+                store.pruefeGeburtstage()
             default:
                 UIApplication.shared.isIdleTimerDisabled = false
                 store.stopAutoRefresh()
