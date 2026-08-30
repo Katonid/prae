@@ -13,6 +13,7 @@ struct RootView: View {
     @State private var seiteNeuerName = ""
     /// Sicherheitsfrage vor dem Schwamm über die Tafel.
     @State private var wegwischen = false
+    @State private var zuruecksetzen = false
 
     /// Die Schrift der App. Sie steht hier nur, damit ein Wechsel sofort
     /// sichtbar wird: `Theme.font` liest den Wert direkt aus den
@@ -199,6 +200,25 @@ struct RootView: View {
                 }
             }
         }
+        // **Zurücksetzen fragt nach, weil es zwei Umfänge hat.**
+        // „Diese Seite" ist der Regelfall zwischen zwei Stunden; „Ganze
+        // Tafel" der Morgen danach. Ein einzelner Menüpunkt müsste sich für
+        // einen von beiden entscheiden und läge in der Hälfte der Fälle
+        // falsch.
+        .confirmationDialog("Auf unbenutzt zurücksetzen?",
+                            isPresented: $zuruecksetzen, titleVisibility: .visible) {
+            Button("Diese Seite zurücksetzen") { setzeZurueck(nurSeite: true) }
+            Button("Ganze Tafel zurücksetzen") { setzeZurueck(nurSeite: false) }
+            Button("Abbrechen", role: .cancel) { }
+        } message: {
+            Text("Gezogene Namen, ausgeloste Sitzordnungen, gelaufene "
+                 + "Geburtstagsfeiern, abgehakte Punkte, laufende Timer und "
+                 + "festgehaltene Kamerabilder gehen zurück auf Anfang.\n\n"
+                 + "Eingerichtet bleibt alles: Namenslisten, Grundrisse, "
+                 + "Zeiten, Farben. Die gesicherten Ziehungen und "
+                 + "Sitzordnungen bleiben ebenfalls stehen — sie sind ein "
+                 + "Nachweis, kein Zustand.")
+        }
         .alert("Alles wegwischen?", isPresented: $wegwischen) {
             Button("Wegwischen", role: .destructive) {
                 if let tafel = store.activeBoard {
@@ -370,6 +390,13 @@ struct RootView: View {
                     Label("Element hinzufügen", systemImage: "plus")
                 }
                 Button {
+                    zuruecksetzen = true
+                } label: {
+                    Label("Auf unbenutzt zurücksetzen",
+                          systemImage: "arrow.counterclockwise")
+                }
+                .disabled(benutzteElemente == 0)
+                Button {
                     guard var board = store.activeBoard else { return }
                     board.drawing = ""
                     store.updateBoard(board)
@@ -398,10 +425,40 @@ struct RootView: View {
 
     /// Reihe der Seiten. Ein Tipp wechselt, „+" legt eine an (nur beim
     /// Bearbeiten), langes Drücken öffnet die Verwaltung.
+    /// Die Seite, die gerade vorn liegt — dieselbe Auflösung wie im
+    /// Seitenwechsler: Was der Store meldet, gilt nur, wenn es die Seite
+    /// noch gibt.
+    private var aktiveSeite: String? {
+        guard let board = store.activeBoard else { return nil }
+        let seiten = board.seiten(mitVersteckten: store.editing,
+                                  dazu: store.aktiveSeitenID)
+        return seiten.contains { $0.id == store.aktiveSeitenID }
+            ? store.aktiveSeitenID : (seiten.first?.id ?? board.ersteSeitenID)
+    }
+
+    /// Wie viele Elemente dieser Tafel gerade etwas Benutztes tragen.
+    private var benutzteElemente: Int {
+        guard let board = store.activeBoard else { return 0 }
+        return store.benutzteElemente(boardID: board.id)
+    }
+
+    private func setzeZurueck(nurSeite: Bool) {
+        guard let board = store.activeBoard else { return }
+        let anzahl = store.setzeZurueck(boardID: board.id,
+                                        pageID: nurSeite ? aktiveSeite : nil)
+        Haptics.success()
+        store.showStatus(anzahl == 1
+                         ? "Ein Element steht wieder auf unbenutzt."
+                         : "\(anzahl) Elemente stehen wieder auf unbenutzt.")
+    }
+
     private func seitenWechsler(_ board: Board) -> some View {
-        let seiten = board.seiten
+        // Beim Bearbeiten stehen die ausgeblendeten Seiten blass mit da —
+        // sonst wären sie nicht mehr zurückzuholen.
+        let seiten = board.seiten(mitVersteckten: store.editing,
+                                  dazu: store.aktiveSeitenID)
         let aktiv = seiten.contains { $0.id == store.aktiveSeitenID }
-            ? store.aktiveSeitenID : board.ersteSeitenID
+            ? store.aktiveSeitenID : (seiten.first?.id ?? board.ersteSeitenID)
         return HStack(spacing: 4) {
             ForEach(Array(seiten.enumerated()), id: \.element.id) { paar in
                 let seite = paar.element
@@ -409,10 +466,17 @@ struct RootView: View {
                 Button {
                     store.zeigeSeite(seite.id)
                 } label: {
-                    Text(board.seitenName(seite.id))
-                        .font(Theme.font(13, weight: gewaehlt ? .bold : .semibold))
-                        .foregroundStyle(gewaehlt ? Color.white : .white.opacity(0.6))
-                        .lineLimit(1)
+                    HStack(spacing: 4) {
+                        if seite.versteckt {
+                            Image(systemName: "eye.slash.fill")
+                                .font(.system(size: 10, weight: .bold))
+                        }
+                        Text(board.seitenName(seite.id))
+                            .font(Theme.font(13, weight: gewaehlt ? .bold : .semibold))
+                            .lineLimit(1)
+                    }
+                        .foregroundStyle(gewaehlt ? Color.white
+                                         : .white.opacity(seite.versteckt ? 0.35 : 0.6))
                         .padding(.horizontal, 13)
                         .frame(height: 32)
                         .background {
@@ -435,6 +499,14 @@ struct RootView: View {
                         store.seiteDuplizieren(seite.id, boardID: board.id)
                     } label: {
                         Label("Kopie anlegen", systemImage: "plus.square.on.square")
+                    }
+                    Button {
+                        store.seiteVerstecken(seite.id, boardID: board.id,
+                                              versteckt: !seite.versteckt)
+                    } label: {
+                        Label(seite.versteckt ? "Wieder zeigen"
+                                              : "Nur für mich ausblenden",
+                              systemImage: seite.versteckt ? "eye" : "eye.slash")
                     }
                     if seiten.count > 1 {
                         Button(role: .destructive) {

@@ -1375,6 +1375,35 @@ struct BoardPage: Codable, Equatable, Identifiable {
     var name: String = ""
     /// Handschrift dieser Seite (PencilKit, Base64).
     var drawing: String = ""
+    /// Nur für mich ausgeblendet — wie `BoardWidget.versteckt`.
+    ///
+    /// Gehört zur Anordnung, nicht zum Inhalt: Auf einer geteilten Tafel
+    /// darf jede für sich entscheiden, welche Seiten sie im Reiter haben
+    /// will, ohne sie den anderen wegzunehmen. Deshalb wird der Wert in
+    /// `mitFremdemInhalt` nicht übernommen, sondern behalten.
+    var versteckt: Bool = false
+
+    // **Eigener Leser.** Der erzeugte verlangt jeden Schlüssel; eine Tafel,
+    // die vor 1.3.23 gesichert wurde, kennt `versteckt` nicht — und
+    // scheiterte damit samt aller Seiten. Vorgaben helfen dagegen nicht,
+    // der erzeugte Leser übergeht sie (siehe CLAUDE.md).
+    private enum SeitenKeys: String, CodingKey { case id, name, drawing, versteckt }
+
+    init(id: String = UUID().uuidString, name: String = "",
+         drawing: String = "", versteckt: Bool = false) {
+        self.id = id
+        self.name = name
+        self.drawing = drawing
+        self.versteckt = versteckt
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: SeitenKeys.self)
+        id = c.wert(.id, UUID().uuidString)
+        name = c.wert(.name, "")
+        drawing = c.wert(.drawing, "")
+        versteckt = c.wert(.versteckt, false)
+    }
 }
 
 /// Wer auf einer geteilten Tafel Elemente löschen darf.
@@ -1752,7 +1781,14 @@ struct Board: Codable, Identifiable, Equatable {
 
         neu.name = fremd.name
         neu.emoji = fremd.emoji
-        neu.pages = fremd.pages
+        // Ausgeblendet ist eine Entscheidung dieses Geräts, kein Inhalt —
+        // genau wie bei den Elementen. Eine Seite, die die Kollegin
+        // ausblendet, soll hier stehen bleiben.
+        neu.pages = fremd.pages.map { fremde in
+            var meine = fremde
+            meine.versteckt = pages.first { $0.id == fremde.id }?.versteckt ?? false
+            return meine
+        }
         neu.drawing = fremd.drawing
         neu.members = fremd.members
         neu.memberUserIDs = fremd.memberUserIDs
@@ -1813,6 +1849,30 @@ struct Board: Codable, Identifiable, Equatable {
     }
 
     var hatMehrereSeiten: Bool { pages.count > 1 }
+
+    /// Seiten für den Reiter.
+    ///
+    /// **Beim Bearbeiten sind die ausgeblendeten dabei** — sonst käme man
+    /// nie wieder an sie heran, und „ausblenden" wäre dasselbe wie
+    /// löschen. Im Unterricht sind sie weg. Dieselbe Regel wie bei den
+    /// Elementen (`widgets(auf:mitVersteckten:)`).
+    ///
+    /// Die letzte sichtbare Seite bleibt immer stehen: Eine Tafel ohne
+    /// Seite gäbe es sonst, und der Reiter wäre leer.
+    /// - Parameter dazu: Eine Seite, die auf jeden Fall dabei sein soll —
+    ///   die gerade gezeigte. Wer sie über die Seitenverwaltung öffnet,
+    ///   obwohl sie ausgeblendet ist, soll sie im Reiter wiederfinden;
+    ///   sonst stünde der Reiter ohne Auswahl da, während die Tafel sie
+    ///   zeigt.
+    func seiten(mitVersteckten: Bool, dazu aktive: String? = nil) -> [BoardPage] {
+        let alle = seiten
+        if mitVersteckten { return alle }
+        let offen = alle.filter { !$0.versteckt || $0.id == aktive }
+        return offen.isEmpty ? Array(alle.prefix(1)) : offen
+    }
+
+    /// Seiten, die diese Person für sich ausgeblendet hat.
+    var versteckteSeiten: [BoardPage] { seiten.filter(\.versteckt) }
 
     /// Kennung der ersten Seite. Elemente ohne eigene Angabe gehören dorthin.
     /// Höhe der Tafelfläche in Tafelpunkten. Die Breite ist immer 1600.

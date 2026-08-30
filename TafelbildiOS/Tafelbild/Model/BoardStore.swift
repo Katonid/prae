@@ -568,6 +568,42 @@ final class BoardStore: ObservableObject {
         touch(boardID)
     }
 
+    /// Eine Seite nur für mich ausblenden — oder wieder zeigen.
+    ///
+    /// **Nur für mich**, wie beim Ausblenden eines Elements: Auf einer
+    /// geteilten Tafel darf jede für sich entscheiden, welche Seiten im
+    /// Reiter stehen, ohne sie den anderen wegzunehmen. Der Wert reist
+    /// deshalb nicht mit (siehe `Board.mitFremdemInhalt`).
+    ///
+    /// Die letzte sichtbare Seite lässt sich nicht ausblenden: Der Reiter
+    /// wäre leer, und die Tafel zeigte nichts mehr.
+    func seiteVerstecken(_ seite: String, boardID: String, versteckt: Bool) {
+        guard let index = boards.firstIndex(where: { $0.id == boardID }) else { return }
+        stelleSeitenSicher(index)
+        guard let seitenIndex = boards[index].pages.firstIndex(where: { $0.id == seite })
+        else { return }
+        if versteckt {
+            let offen = boards[index].pages.filter { !$0.versteckt }.count
+            guard offen > 1 else {
+                showStatus("Die letzte sichtbare Seite kann nicht ausgeblendet werden.")
+                return
+            }
+        }
+        boards[index].pages[seitenIndex].versteckt = versteckt
+        // Steht man gerade auf der Seite, die verschwindet, wandert man
+        // auf die erste sichtbare — sonst bliebe eine leere Tafel stehen.
+        if versteckt, aktiveSeitenID == seite,
+           let erste = boards[index].pages.first(where: { !$0.versteckt }) {
+            aktiveSeitenID = erste.id
+        }
+        // **Kein `touch`.** Ausgeblendet ist eine Entscheidung dieses
+        // Geräts; der Inhalt der Tafel hat sich nicht geändert. Ein
+        // Zeitstempel beanspruchte beim Abgleich einen Vorrang, den es hier
+        // nicht gibt — und lüde die Tafel obendrein hoch. Gesichert wird
+        // trotzdem, sonst wäre die Entscheidung beim nächsten Start weg.
+        scheduleSave()
+    }
+
     /// Löscht eine Seite samt ihrer Elemente. Die letzte bleibt stehen —
     /// eine Tafel ohne Seite gibt es nicht.
     func seiteLoeschen(_ seite: String, boardID: String) {
@@ -975,6 +1011,58 @@ final class BoardStore: ObservableObject {
     func darfLoeschen(_ widget: BoardWidget, in boardID: String) -> Bool {
         guard let board = board(boardID) else { return false }
         return board.darfLoeschen(widget, wer: myUserID ?? "")
+    }
+
+    // MARK: - Zurücksetzen
+
+    /// Ein Element wieder auf „unbenutzt" stellen.
+    ///
+    /// Was dabei verschwindet, steht in `WidgetContent.unbenutzt`: der
+    /// Ablauf, nie die Einrichtung und nie ein Archiv.
+    @discardableResult
+    func setzeZurueck(_ widgetID: String, in boardID: String) -> Bool {
+        guard let boardIndex = boards.firstIndex(where: { $0.id == boardID }),
+              let stelle = boards[boardIndex].widgets.firstIndex(where: { $0.id == widgetID }),
+              boards[boardIndex].widgets[stelle].content.benutzt
+        else { return false }
+        boards[boardIndex].widgets[stelle].content =
+            boards[boardIndex].widgets[stelle].content.unbenutzt
+        touch(boardID)
+        return true
+    }
+
+    /// Alle Elemente einer Seite — oder der ganzen Tafel, wenn `pageID`
+    /// leer bleibt.
+    ///
+    /// Gibt zurück, wie viele tatsächlich etwas zu vergessen hatten. Die
+    /// Zahl steht hinterher in der Statusmeldung: Wer zurücksetzt, will
+    /// wissen, ob etwas passiert ist.
+    @discardableResult
+    func setzeZurueck(boardID: String, pageID: String? = nil) -> Int {
+        guard let boardIndex = boards.firstIndex(where: { $0.id == boardID })
+        else { return 0 }
+        var anzahl = 0
+        let tafel = boards[boardIndex]
+        for stelle in boards[boardIndex].widgets.indices {
+            let widget = boards[boardIndex].widgets[stelle]
+            // Über `liegtAuf` und nicht über einen Vergleich der Kennung:
+            // Ein leeres `pageID` gehört zur ersten Seite.
+            if let pageID, !tafel.liegtAuf(widget, seite: pageID) { continue }
+            guard widget.content.benutzt else { continue }
+            boards[boardIndex].widgets[stelle].content = widget.content.unbenutzt
+            anzahl += 1
+        }
+        if anzahl > 0 { touch(boardID) }
+        return anzahl
+    }
+
+    /// Wie viele Elemente hier gerade etwas Benutztes tragen.
+    func benutzteElemente(boardID: String, pageID: String? = nil) -> Int {
+        guard let board = board(boardID) else { return 0 }
+        return board.widgets.filter { widget in
+            if let pageID, !board.liegtAuf(widget, seite: pageID) { return false }
+            return widget.content.benutzt
+        }.count
     }
 
     func removeWidget(_ widgetID: String, from boardID: String) {

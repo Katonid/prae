@@ -450,6 +450,42 @@ Namens und lebt weiter.
   keine davon; sie wird beim Ankommen in `ownBoardIDs` eingetragen, sonst
   bliebe sie unsichtbar.
 
+### Seiten ausblenden (ab 1.3.23)
+
+- `BoardPage.versteckt`, **nur für dieses Gerät** — genau wie
+  `BoardWidget.versteckt`. In `mitFremdemInhalt` wird der eigene Wert
+  behalten, nicht der fremde übernommen; `seiteVerstecken` ruft **kein**
+  `touch`, sondern nur `scheduleSave` (sonst beanspruchte die Tafel beim
+  Abgleich einen Vorrang, den es nicht gibt, und lüde sich obendrein hoch).
+- **`BoardPage` hat seit 1.3.23 einen eigenen Leser.** Der erzeugte
+  verlangt jeden Schlüssel; ohne ihn scheiterte jede vorher gesicherte
+  Tafel samt aller Seiten.
+- Beim Bearbeiten stehen ausgeblendete Seiten blass im Reiter (sonst wären
+  sie nicht zurückzuholen), im Unterricht sind sie weg — dieselbe Regel wie
+  bei den Elementen. Die gerade gezeigte Seite bleibt immer im Reiter
+  (`seiten(mitVersteckten:dazu:)`), auch wenn sie ausgeblendet ist.
+- Die **letzte sichtbare** Seite lässt sich nicht ausblenden.
+
+### Zurücksetzen auf „unbenutzt" (ab 1.3.21)
+
+- Alles, was auf der Tafel abläuft, bleibt danach stehen — gezogener Name,
+  Sitzordnung, gelaufene Feier, abgehakte Punkte. Im Unterricht ist das
+  richtig; am nächsten Morgen nicht (Ansage des Nutzers, 08/2026).
+- Die Regel steht **einmal** in `Model/Zuruecksetzen.swift`
+  (`WidgetContent.benutzt` / `.unbenutzt`) und wird von beiden Menüs
+  benutzt. Ein neuer Elementtyp mit Ablauf gehört dort eingetragen —
+  sonst lässt er sich nie zurücksetzen.
+- **Zurückgesetzt wird der Ablauf, nie die Einrichtung** (Namensliste,
+  Grundriss, Dauer, Farben) und **nie ein Archiv**: `ziehungen` und
+  `Sitzplan.archiv` sind ein Nachweis, kein Zustand.
+- Das **Gedächtnis** des Zufälligen Namens (`zaehler`, `paare`) zählt zum
+  Gebrauch und geht mit — es ist die Spur der letzten Wochen.
+- Zwei Wege: ⋯ → „Auf unbenutzt zurücksetzen" fragt nach dem Umfang
+  (diese Seite / ganze Tafel), das Elementmenü setzt eines zurück. Beide
+  sind ausgegraut, wenn nichts zu vergessen ist.
+- Gefiltert wird über `Board.liegtAuf`, nicht über einen Vergleich der
+  Kennung: Ein leeres `pageID` gehört zur ersten Seite.
+
 ### Wo die Geburtstage wohnen (ab 1.3.15)
 
 - **Eigener Menüpunkt „Geburtstage"** (⋯ → Geburtstage), Blatt
@@ -535,6 +571,13 @@ Namens und lebt weiter.
 - Ferien-Geburtstage holt deshalb ein Mensch nach: `NachfeiernSheet`
   (Tafeleinstellungen → Geburtstage → „Nachfeiern"), Zeitraum vorbelegt
   mit sechs Wochen, Auswahl je Kind.
+- **Das Hinweiskärtchen sagt „Wir feiern nach"** (ab 1.3.22). Bis 1.3.21
+  trug es `nachgefeiert` gar nicht mit und behauptete „Heute Geburtstag"
+  über einem Kind, dessen Tag im Juli war (gemeldet 08/2026). Schon
+  stehende Kärtchen bessert `richteHinweiseAus` bei jedem Nachsehen aus —
+  was gilt, weiß die zugehörige Feierseite. Ohne Datum auf dem Kärtchen:
+  Neben Torte und Pfeil bleiben rund 160 Punkte, und zu kleine Schrift war
+  dort schon einmal die Beschwerde.
 - **Das Jahr kommt vom tatsächlichen Geburtstag**, nicht von heute
   (`Geburtstage.Vergangen.jahr`). Ein Kind, das im Dezember sieben wurde
   und im Januar nachfeiert, wäre sonst acht.
