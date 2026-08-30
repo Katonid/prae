@@ -450,6 +450,26 @@ Namens und lebt weiter.
   keine davon; sie wird beim Ankommen in `ownBoardIDs` eingetragen, sonst
   bliebe sie unsichtbar.
 
+### Doppelte Tafeln — Bestandsaufnahme statt Vermutung (ab 1.3.27)
+
+- Gemeldet 08/2026: Auf einem Gerät standen **zwei Tafeln desselben
+  Namens** — eine mit Inhalt und wenigen Seiten, eine mit allen Seiten und
+  ohne Inhalt, dazu eine dritte, leere. Am Quelltext allein war nicht zu
+  entscheiden, welcher Weg die zweite angelegt hat: `applyRemote` legt eine
+  Tafel nur an, wenn ihre **Kennung** unbekannt ist, und alle Wege, die
+  eine Kopie anlegen (`duplicateBoard`, `alsEigeneUebernehmen`,
+  Sicherung einlesen), vergeben neue Kennungen.
+- Deshalb zeigt „Abgleich prüfen" jetzt **jede lokale Tafel mit Kennung,
+  Elementen, Seiten, Herkunft und Zeitstempel** (`BoardStore.tafelbefunde`)
+  samt „Liste kopieren". Ohne diese Angaben bleibt jede Erklärung eine
+  Vermutung — und wer im Nebel die falsche Tafel löscht, löscht sie auf
+  allen Geräten und in iCloud.
+- `BoardStore.entdoppelt` legt beim Laden Tafeln mit **derselben** Kennung
+  zusammen (neuerer Zeitstempel gewinnt, bei Gleichstand mehr Inhalt).
+  Vorbeugend: Ein solcher Fall wurde nicht nachgewiesen, aber nur die erste
+  Tafel einer Kennung bekäme je eine Änderung ab — jede Suche geht über
+  `firstIndex`. Der Schaden wäre still und dauerhaft.
+
 ### Die Werkzeugleiste am gewählten Element (ab 1.3.25)
 
 - Drei Lagen, in dieser Reihenfolge: **darüber** (Regelfall), **darunter**
