@@ -468,8 +468,19 @@ Namens und lebt weiter.
   zwei Fragen; der vierte fängt von vorn an und zieht alles neu. Kein
   Knopf, kein Menü — die Lehrkraft steht vor der Klasse und hat eine Hand
   frei.
-- Die Gratulanten treten **ohne eigenen Tipp** direkt nach der Feier auf:
-  Sie gehören dazu, nicht dahinter.
+- **Jede Station braucht ihren eigenen Tipp** (ab 1.3.18). Bis 1.3.17
+  traten die Gratulanten von selbst auf, sobald die Feier ausgelaufen war
+  — sie gehörten dazu, war die Überlegung. In der Klasse ist das falsch
+  herum: Nach der Torte wird geklatscht, gelacht und geredet, und mitten
+  hinein schob sich die nächste Tafel (Ansage des Nutzers, 08/2026). Wann
+  es weitergeht, entscheidet die Lehrkraft. `content.ritual` zählt
+  seither 0 = noch nichts, 1 = Feier gelaufen, 2 = Gratulanten,
+  3 = Fragen.
+- **Gezogen wird erst beim Tipp** auf die Station, nicht schon am Ende der
+  Feier: Sonst stünde die Auslosung minutenlang fest, während die Klasse
+  noch die Torte ansieht. Gibt die Liste niemanden her, wird die Station
+  übersprungen — eine leere Tafel „Drei für dich" wäre schlimmer als
+  keine.
 - **Die Erinnerung verlangt nichts Schönes** (ab 1.3.17). „Erzähl von
   etwas Schönem, das ihr zusammen erlebt habt" war eine Hürde: Wer mit dem
   Geburtstagskind wenig zu tun hat, steht vor der Klasse und hat nichts zu

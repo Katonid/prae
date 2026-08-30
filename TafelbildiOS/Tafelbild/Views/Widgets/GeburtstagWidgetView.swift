@@ -116,7 +116,7 @@ struct GeburtstagWidgetView: View {
                         }
                     }
                     beschriftung(in: geo.size)
-                    if content.ritual > 0 && begonnen == nil {
+                    if content.ritual > 1 && begonnen == nil {
                         ritualbild(in: geo.size)
                     }
                 }
@@ -171,10 +171,14 @@ struct GeburtstagWidgetView: View {
             if laeuft {
                 wunschzeile
             } else if interactive {
-                Text("Antippen")
+                // Nach der Feier steht die Seite still und wartet. Ohne
+                // einen Hinweis sähe sie aus, als wäre alles vorbei.
+                Text(content.ritual == 1 ? "Antippen für die Gratulanten" : "Antippen")
                     .font(Theme.font(metrics.em(0.95), weight: .semibold))
                     .foregroundStyle(.white.opacity(0.7))
                     .padding(.top, metrics.em(0.4))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.5)
                     .umrandet()
             }
 
@@ -244,7 +248,7 @@ struct GeburtstagWidgetView: View {
     private func ritualbild(in flaeche: CGSize) -> some View {
         let mass = min(flaeche.width / 820, flaeche.height / 560)
         VStack(spacing: 22 * mass) {
-            if content.ritual == 1 {
+            if content.ritual == 2 {
                 gratulantenbild(mass: mass)
             } else {
                 fragenbild(mass: mass)
@@ -355,26 +359,61 @@ struct GeburtstagWidgetView: View {
     // MARK: - Losgehen
 
     /// Ein Tipp — je nachdem, wo das Ritual gerade steht.
+    ///
+    /// **Jede Station braucht ihren eigenen Tipp** (ab 1.3.18). Bis 1.3.17
+    /// traten die Gratulanten von selbst auf, sobald die Feier ausgelaufen
+    /// war — sie gehörten dazu, war die Überlegung. In der Klasse ist das
+    /// falsch herum: Nach der Torte wird geklatscht, gelacht und geredet,
+    /// und mitten hinein schob sich die nächste Tafel (Ansage des Nutzers,
+    /// 08/2026). Wann es weitergeht, entscheidet die Lehrkraft.
+    ///
+    /// `content.ritual` zählt deshalb: 0 = noch nichts, 1 = Feier gelaufen,
+    /// 2 = Gratulanten, 3 = Fragen.
     private func starte() {
         guard interactive, begonnen == nil else { return }
         switch content.ritual {
         case 0:
             feiere()
         case 1:
-            withAnimation(.easeInOut(duration: 0.3)) {
-                // Leere Fragen überspringen: Wer eine hinzufügt und noch
-                // nicht getippt hat, soll keine leere Karte bekommen.
-                content.fragen = Geburtstagsfragen.auswahl(
-                    aus: fundus.compactMap { $0.nonEmpty })
-                content.ritual = 2
-            }
-            Haptics.tap()
+            zeigeGratulanten()
+        case 2:
+            zeigeFragen()
         default:
             // Von vorn: Die Feier läuft noch einmal, und alles wird neu
             // gezogen. Zwei Runden sollen nicht gleich aussehen.
             withAnimation(.easeInOut(duration: 0.3)) { content.ritual = 0 }
             feiere()
         }
+    }
+
+    /// Station zwei: die drei Gratulanten. Gezogen wird erst jetzt — so
+    /// steht die Auslosung nicht schon minutenlang fest, während die
+    /// Klasse noch die Torte ansieht.
+    ///
+    /// Gibt die Liste niemanden her (eine Klasse aus einem Kind, alle
+    /// pausiert), wird die Station übersprungen. Eine leere Tafel mit der
+    /// Überschrift „Drei für dich" wäre schlimmer als keine.
+    private func zeigeGratulanten() {
+        let gezogen = zieheGratulanten()
+        guard !gezogen.namen.isEmpty else { zeigeFragen(); return }
+        withAnimation(.easeInOut(duration: 0.3)) {
+            content.gratulanten = gezogen.namen
+            content.rollen = gezogen.rollen
+            content.ritual = 2
+        }
+        Haptics.tap()
+    }
+
+    /// Station drei: zwei Fragen zur Auswahl.
+    private func zeigeFragen() {
+        withAnimation(.easeInOut(duration: 0.3)) {
+            // Leere Fragen überspringen: Wer eine hinzufügt und noch
+            // nicht getippt hat, soll keine leere Karte bekommen.
+            content.fragen = Geburtstagsfragen.auswahl(
+                aus: fundus.compactMap { $0.nonEmpty })
+            content.ritual = 3
+        }
+        Haptics.tap()
     }
 
     private func feiere() {
@@ -386,21 +425,15 @@ struct GeburtstagWidgetView: View {
         Feierklang.spiele(feier, fanfare: Fanfare.aus(content.fanfare))
 
         // Nach dem Auftritt zurück in den ruhigen Zustand — die Seite
-        // bleibt ja stehen und soll nicht endlos flackern —, und die drei
-        // Gratulanten treten auf. Sie brauchen keinen eigenen Tipp: Sie
-        // gehören zur Feier, nicht dahinter.
+        // bleibt ja stehen und soll nicht endlos flackern. Hier endet die
+        // erste Station: Die Gratulanten warten auf den nächsten Tipp.
         let dauer = feier.dauer
         Task { @MainActor in
             try? await Task.sleep(for: .seconds(dauer + 0.4))
-            let gezogen = zieheGratulanten()
             withAnimation(.easeOut(duration: 0.5)) {
                 begonnen = nil
                 einzug = 1
-                if !gezogen.namen.isEmpty {
-                    content.gratulanten = gezogen.namen
-                    content.rollen = gezogen.rollen
-                    content.ritual = 1
-                }
+                content.ritual = 1
             }
         }
     }
