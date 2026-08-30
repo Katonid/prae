@@ -222,31 +222,106 @@ struct Sitzplatz: Codable, Equatable, Identifiable {
     /// verschiebt.
     var x: Double = 0
     var y: Double = 0
-    /// Um 90 Grad gedreht — ein Tisch an der Seitenwand.
+    /// Wie der Tisch steht, in Grad im Uhrzeigersinn.
+    ///
+    /// Frei wählbar: Nicht jeder Raum hat rechte Winkel, und ein Tisch in
+    /// der Ecke oder in einer Runde steht eben schräg (Wunsch des Nutzers,
+    /// 08/2026).
+    var winkel: Double = 0 { didSet { quer = Sitzplatz.istQuer(winkel) } }
+    /// **Altfeld**, gespiegelt aus `winkel`. Fassungen vor 1.3.8 kennen
+    /// nur „quer oder nicht"; ohne diesen Wert stünden dort alle Tische
+    /// wieder gerade. Nicht entfernen, nicht von Hand setzen.
     var quer: Bool = false
     /// Bleibt frei. Für den kaputten Stuhl, den Platz am Waschbecken oder
     /// einen, den jemand fest hat.
     var gesperrt: Bool = false
 
-    var breite: Double { quer ? Sitzmasse.tief : Sitzmasse.breit }
-    var hoehe: Double { quer ? Sitzmasse.breit : Sitzmasse.tief }
+    /// Der Tisch selbst — immer acht zu sechs. Wie er im Raum steht, sagt
+    /// `winkel`; gedreht wird beim Zeichnen, nicht in den Maßen.
+    var breite: Double { Sitzmasse.breit }
+    var hoehe: Double { Sitzmasse.tief }
     var mitte: CGPoint { CGPoint(x: x, y: y) }
 
+    /// Der ungedrehte Tisch um seinen Mittelpunkt.
     var rahmen: CGRect {
         CGRect(x: x - breite / 2, y: y - hoehe / 2, width: breite, height: hoehe)
+    }
+
+    /// Der Platzbedarf **nach** dem Drehen — das kleinste achsenparallele
+    /// Rechteck, das den gedrehten Tisch enthält.
+    ///
+    /// Gebraucht für alles, was mit Fläche rechnet: der gezeigte
+    /// Ausschnitt und die Suche nach einem freien Fleck. Der Abstand
+    /// zweier Plätze braucht ihn nicht — der geht von Mitte zu Mitte und
+    /// weiß vom Winkel nichts.
+    var umriss: CGRect {
+        let bogen = winkel * .pi / 180
+        let c = abs(cos(bogen))
+        let s = abs(sin(bogen))
+        let w = breite * c + hoehe * s
+        let h = breite * s + hoehe * c
+        return CGRect(x: x - w / 2, y: y - h / 2, width: w, height: h)
+    }
+
+    static func istQuer(_ winkel: Double) -> Bool {
+        let gerade = ((winkel.truncatingRemainder(dividingBy: 360)) + 360)
+            .truncatingRemainder(dividingBy: 360)
+        return (45..<135).contains(gerade) || (225..<315).contains(gerade)
+    }
+}
+
+/// Das Raster, an dem Tische einrasten.
+///
+/// **Warum überhaupt eines.** Eine Tischreihe von Hand auszurichten ist
+/// Fummelei — ein halber Punkt daneben, und die Reihe sieht schief aus
+/// (gemeldet 08/2026). Die Schrittweite ist deshalb kein runder Wert,
+/// sondern ein halber Tisch: So stehen zwei Tische entweder bündig
+/// aneinander oder mit genau einer halben Tischbreite Luft, und nichts
+/// dazwischen.
+enum Sitzraster {
+    static let laengs: Double = Sitzmasse.breit / 2
+    static let quer: Double = Sitzmasse.tief / 2
+
+    /// Wie nah ein Platz an der Achse eines anderen liegen muss, damit er
+    /// dorthin springt. Etwas weniger als ein halber Rasterschritt — sonst
+    /// zöge jede Achse jeden Platz an.
+    static let fang: Double = 1.6
+
+    /// Der nächste Rasterpunkt.
+    static func punkt(_ wert: Double, schritt: Double) -> Double {
+        (wert / schritt).rounded() * schritt
+    }
+
+    /// Die Achse eines anderen Platzes, wenn eine nah genug liegt.
+    ///
+    /// Das ist der Teil, der eine Reihe zur Reihe macht: Auch wenn ein
+    /// Tisch bewusst neben dem Raster steht, sollen die nächsten sich an
+    /// ihm ausrichten können.
+    static func achse(_ wert: Double, unter achsen: [Double]) -> Double? {
+        var beste: Double? = nil
+        var kleinster = fang
+        for achse in achsen {
+            let abstand = abs(achse - wert)
+            if abstand < kleinster { kleinster = abstand; beste = achse }
+        }
+        return beste
     }
 }
 
 extension Sitzplatz {
-    private enum PlatzKeys: String, CodingKey { case id, x, y, quer, gesperrt }
+    private enum PlatzKeys: String, CodingKey { case id, x, y, quer, winkel, gesperrt }
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: PlatzKeys.self)
         id = c.wert(.id, UUID().uuidString)
         x = c.wert(.x, 0)
         y = c.wert(.y, 0)
-        quer = c.wert(.quer, false)
         gesperrt = c.wert(.gesperrt, false)
+        // Erst der alte Wert, dann der neue: Eine Tafel von vor 1.3.8 hat
+        // nur `quer`, und daraus werden neunzig Grad. Steht ein `winkel`
+        // da, gilt er — auch wenn `quer` etwas anderes behauptet.
+        let altQuer = c.wert(.quer, false)
+        winkel = c.wert(.winkel, altQuer ? 90 : 0)
     }
 }
 
@@ -349,6 +424,35 @@ enum Sitzwunsch: String, CaseIterable, Identifiable {
     }
 }
 
+/// Eine gesicherte Sitzordnung.
+///
+/// **Die Namen stehen als Text darin, nicht als Kennung.** Der Bestand
+/// ändert sich — Kinder kommen und gehen —, und ein Archiv, in dem
+/// nachträglich Lücken entstehen, hilft niemandem. Dasselbe Muster wie bei
+/// `Ziehung`.
+struct Sitzarchiv: Codable, Equatable, Identifiable {
+    var id: String = UUID().uuidString
+    var zeitMs: Int64 = Date.nowMs
+    /// Frei wählbar; vorbelegt mit der Kalenderwoche.
+    var titel: String = ""
+    /// Platzkennung → Name.
+    var belegung: [String: String] = [:]
+
+    var datum: Date { Date(timeIntervalSince1970: Double(zeitMs) / 1000) }
+}
+
+extension Sitzarchiv {
+    private enum ArchivKeys: String, CodingKey { case id, zeitMs, titel, belegung }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: ArchivKeys.self)
+        id = c.wert(.id, UUID().uuidString)
+        zeitMs = c.wert(.zeitMs, Date.nowMs)
+        titel = c.wert(.titel, "")
+        belegung = c.wert(.belegung, [String: String]())
+    }
+}
+
 // MARK: - Der Inhalt des Elements
 
 struct SitzplanContent: Codable, Equatable {
@@ -392,6 +496,15 @@ struct SitzplanContent: Codable, Equatable {
     /// ging auf.
     var bericht: [String] = []
 
+    /// Gesperrt: Ein Tipp löst dann keine neue Auslosung mehr aus.
+    ///
+    /// Eine fertige Sitzordnung steht wochenlang auf der Tafel und wird
+    /// dabei hundertmal gestreift. Ohne Schloss wäre die Arbeit eines
+    /// Nachmittags mit einem Fingerzeig weg (gemeldet 08/2026).
+    var gesperrt: Bool = false
+    /// Gesicherte Sitzordnungen, die neueste zuerst.
+    var archiv: [Sitzarchiv] = []
+
     var mitKlang: Bool = true
     /// Beim Verteilen einen Auftritt zeigen — oder still hinlegen.
     var mitAuftritt: Bool = true
@@ -416,6 +529,27 @@ struct SitzplanContent: Codable, Equatable {
         return namen[eintrag]
     }
 
+    /// Der Ausschnitt, der gezeigt wird — in Raumeinheiten.
+    ///
+    /// **Nicht der ganze Raum.** Ein Grundriss hat fast immer leere Ecken;
+    /// wer sie mitzeigt, verschenkt genau dort Platz, wo die Namen
+    /// gebraucht werden. Gezeigt wird deshalb, was belegt ist: alle
+    /// Plätze, die Tafel, und ein Rand von einer halben Tischbreite. Auf
+    /// den Raum begrenzt, damit nie über die Wände hinaus gezoomt wird.
+    func ausschnitt(raum: Raumform, tafel: Tafelseite) -> CGRect {
+        let ganzer = CGRect(origin: .zero, size: raum.masse)
+        var feld: CGRect? = nil
+        for platz in plaetze {
+            feld = feld.map { $0.union(platz.umriss) } ?? platz.umriss
+        }
+        let band = tafel.band(in: raum.masse, tiefe: raum.tafeltiefe)
+        feld = feld.map { $0.union(band) } ?? band
+        guard let roh = feld else { return ganzer }
+        let rand = Sitzmasse.breit * 0.45
+        let weit = roh.insetBy(dx: -rand, dy: -rand).intersection(ganzer)
+        return weit.isNull || weit.isEmpty ? ganzer : weit
+    }
+
     /// Steht der Platz schon offen?
     func sichtbar(_ platzID: String) -> Bool {
         guard let stelle = reihenfolge.firstIndex(of: platzID) else {
@@ -431,7 +565,7 @@ extension SitzplanContent {
     private enum SitzplanKeys: String, CodingKey {
         case titel, listID, plaetze, raum, tafel, naehe, belegung, namen,
              reihenfolge, aufgedeckt, bericht, mitKlang, mitAuftritt,
-             merkmalID, merkmalsregel
+             merkmalID, merkmalsregel, gesperrt, archiv
     }
 
     init(from decoder: Decoder) throws {
@@ -449,6 +583,8 @@ extension SitzplanContent {
         reihenfolge = c.wert(.reihenfolge, [String]())
         aufgedeckt = c.wert(.aufgedeckt, 0)
         bericht = c.wert(.bericht, [String]())
+        gesperrt = c.wert(.gesperrt, false)
+        archiv = c.wert(.archiv, [Sitzarchiv]())
         mitKlang = c.wert(.mitKlang, true)
         mitAuftritt = c.wert(.mitAuftritt, true)
     }
@@ -522,8 +658,8 @@ enum Sitzordnung {
         case .unten:  return Sitzplatz(x: laengs, y: feld.height - weg)
         // An einer Seitenwand steht der Tisch quer — sonst säße die Klasse
         // im Profil zur Tafel.
-        case .links:  return Sitzplatz(x: weg, y: laengs, quer: true)
-        case .rechts: return Sitzplatz(x: feld.width - weg, y: laengs, quer: true)
+        case .links:  return Sitzplatz(x: weg, y: laengs, winkel: 90, quer: true)
+        case .rechts: return Sitzplatz(x: feld.width - weg, y: laengs, winkel: 90, quer: true)
         }
     }
 
@@ -537,8 +673,8 @@ enum Sitzordnung {
             var x = Sitzmasse.breit * 0.6
             while x < feld.width - Sitzmasse.breit * 0.6 {
                 let kandidat = Sitzplatz(x: x, y: y)
-                let frei = !sperr.intersects(kandidat.rahmen) && !plaetze.contains { andere in
-                    andere.rahmen.insetBy(dx: -1, dy: -1).intersects(kandidat.rahmen)
+                let frei = !sperr.intersects(kandidat.umriss) && !plaetze.contains { andere in
+                    andere.umriss.insetBy(dx: -1, dy: -1).intersects(kandidat.umriss)
                 }
                 if frei { return kandidat }
                 x += Sitzmasse.breit * 0.5

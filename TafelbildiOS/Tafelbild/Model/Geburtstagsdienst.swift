@@ -83,42 +83,115 @@ extension BoardStore {
                     continue
                 }
 
-                let art = Feierart.naechste(nach: bisher)
-                bisher.append(art.rawValue)
-                let klang = Fanfare.naechste(nach: bisherigeFanfaren)
-                bisherigeFanfaren.append(klang.rawValue)
-
-                var seite = BoardPage()
-                seite.name = "🎂 " + (eintrag.text.nonEmpty ?? "Geburtstag")
-                tafel.pages.append(seite)
-
-                var inhalt = GeburtstagContent()
-                inhalt.eintragID = eintrag.id
-                inhalt.name = eintrag.text
-                inhalt.geburtstag = eintrag.geburtstag
-                inhalt.jahr = jahr
-                inhalt.feier = art.rawValue
-                inhalt.fanfare = klang.rawValue
-
-                var element = BoardWidget(content: .geburtstag(inhalt))
-                let masse = WidgetKind.geburtstag.defaultSize
-                element.width = masse.width
-                element.height = masse.height
-                element.x = (Layout.canvasWidth - masse.width) / 2
-                element.y = (tafel.hoehe - masse.height) / 2
-                element.z = (tafel.widgets.map(\.z).max() ?? 0) + 1
-                element.pageID = seite.id
-                element.erstelltVon = ich
-                element.clampToCanvas(hoehe: tafel.hoehe)
-                tafel.widgets.append(element)
-
-                Self.setzeHinweis(auf: &tafel, eintrag: eintrag, jahr: jahr,
-                                  zielSeite: seite.id, ich: ich)
+                Self.legeSeiteAn(auf: &tafel, eintrag: eintrag, jahr: jahr,
+                                 nachgefeiert: false, bisher: &bisher,
+                                 fanfaren: &bisherigeFanfaren, ich: ich)
                 etwasGetan = true
             }
         }
 
         if etwasGetan { touch(boardID) }
+    }
+
+    /// Eine Geburtstagsseite anlegen — für heute oder nachträglich.
+    ///
+    /// `static` und mit `inout`, aus demselben Grund wie `setzeHinweis`:
+    /// Sie läuft innerhalb von `aendere`, und dort ist die Tafel schon
+    /// ausgeliehen.
+    private static func legeSeiteAn(auf tafel: inout Board, eintrag: NameEntry,
+                                    jahr: Int, nachgefeiert: Bool,
+                                    bisher: inout [String], fanfaren: inout [String],
+                                    ich: String) {
+        let art = Feierart.naechste(nach: bisher)
+        bisher.append(art.rawValue)
+        let klang = Fanfare.naechste(nach: fanfaren)
+        fanfaren.append(klang.rawValue)
+
+        var seite = BoardPage()
+        seite.name = "🎂 " + (eintrag.text.nonEmpty ?? "Geburtstag")
+        tafel.pages.append(seite)
+
+        var inhalt = GeburtstagContent()
+        inhalt.eintragID = eintrag.id
+        inhalt.name = eintrag.text
+        inhalt.geburtstag = eintrag.geburtstag
+        inhalt.jahr = jahr
+        inhalt.feier = art.rawValue
+        inhalt.fanfare = klang.rawValue
+        inhalt.nachgefeiert = nachgefeiert
+
+        var element = BoardWidget(content: .geburtstag(inhalt))
+        let masse = WidgetKind.geburtstag.defaultSize
+        element.width = masse.width
+        element.height = masse.height
+        element.x = (Layout.canvasWidth - masse.width) / 2
+        element.y = (tafel.hoehe - masse.height) / 2
+        element.z = (tafel.widgets.map(\.z).max() ?? 0) + 1
+        element.pageID = seite.id
+        element.erstelltVon = ich
+        element.clampToCanvas(hoehe: tafel.hoehe)
+        tafel.widgets.append(element)
+
+        setzeHinweis(auf: &tafel, eintrag: eintrag, jahr: jahr,
+                     zielSeite: seite.id, ich: ich)
+    }
+
+    // MARK: - Nachfeiern
+
+    /// Legt Seiten für Geburtstage an, die schon waren.
+    ///
+    /// **Der Fall aus dem echten Leben**: Nach sechs Wochen Ferien hatte
+    /// die halbe Klasse Geburtstag, und am ersten Schultag soll das
+    /// nachgeholt werden. Von selbst passiert das nicht — der Dienst sieht
+    /// immer nur den heutigen Tag an, und das ist auch richtig so: Sonst
+    /// bekäme ein iPad, das drei Wochen im Schrank stand, beim Einschalten
+    /// zwanzig Seiten auf einmal.
+    ///
+    /// Deshalb wird ausdrücklich gewählt, wer nachfeiert.
+    ///
+    /// **Das Jahr kommt vom tatsächlichen Geburtstag**, nicht von heute.
+    /// Ein Kind, das im Dezember sieben wurde und im Januar nachfeiert,
+    /// wird sonst acht.
+    func legeNachfeierAn(boardID: String, wen: [Geburtstage.Vergangen]) {
+        guard !wen.isEmpty, let stand = board(boardID), stand.geburtstage else { return }
+        let ich = myUserID ?? ""
+
+        aendere(boardID) { tafel in
+            if tafel.pages.isEmpty {
+                tafel.pages = [BoardPage(name: "", drawing: tafel.drawing)]
+            }
+            var bisher = tafel.widgets.compactMap { widget -> String? in
+                if case .geburtstag(let inhalt) = widget.content { return inhalt.feier }
+                return nil
+            }
+            var fanfaren = tafel.widgets.compactMap { widget -> String? in
+                if case .geburtstag(let inhalt) = widget.content, !inhalt.hinweis {
+                    return inhalt.fanfare
+                }
+                return nil
+            }
+
+            for fall in wen {
+                let schonDa = tafel.widgets.contains { widget in
+                    guard case .geburtstag(let inhalt) = widget.content else { return false }
+                    return inhalt.eintragID == fall.eintrag.id
+                        && inhalt.jahr == fall.jahr && !inhalt.hinweis
+                }
+                if schonDa { continue }
+                // Ein von Hand weggeräumter Geburtstag kommt auch hier
+                // nicht zurück — es sei denn, er wird ausdrücklich noch
+                // einmal gewählt. Genau das tut diese Liste, also wird der
+                // Merker zurückgenommen.
+                tafel.geburtstagWeg.removeAll {
+                    $0 == Geburtstagsmerker.feier(fall.eintrag.id, fall.jahr)
+                        || $0 == Geburtstagsmerker.hinweis(fall.eintrag.id, fall.jahr)
+                }
+                Self.legeSeiteAn(auf: &tafel, eintrag: fall.eintrag, jahr: fall.jahr,
+                                 nachgefeiert: true, bisher: &bisher,
+                                 fanfaren: &fanfaren, ich: ich)
+            }
+        }
+        touch(boardID)
     }
 
     /// Der kleine Hinweis auf der ersten Seite, der zur Feier führt.

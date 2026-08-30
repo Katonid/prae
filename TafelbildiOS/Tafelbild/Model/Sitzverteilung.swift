@@ -157,6 +157,18 @@ enum Sitzverteilung {
         // die nicht nebeneinander dürfen, um dafür die Jungen sauber zu
         // sortieren. So bleibt der Beitrag nach oben begrenzt.
         let gewichtMerkmal = 420.0
+        // Leere Plätze gehören nach hinten.
+        //
+        // Das ist mehr als Kosmetik. Wer einen freien Platz neben sich
+        // braucht, macht damit Nachbarplätze frei — und „neben" heißt
+        // gemessen, also auch **gegenüber**. Setzt man so ein Kind in einen
+        // Viererblock, bleiben dort zwangsläufig drei Plätze leer, und das
+        // Kind gegenüber hätte seinerseits Ruhe, die niemand angefordert
+        // hat. Solange Leerstand nichts kostet, ist dem Suchlauf das egal.
+        // Mit diesem Gewicht wird ein leerer Platz vorne teuer, und der
+        // Viererblock in der ersten Reihe hört von selbst auf, eine gute
+        // Idee zu sein.
+        let gewichtLeer = 110.0
 
         func bewerte(_ belegung: [Int]) -> Double {
             var platzVon = [Int](repeating: -1, count: anzahlKinder)
@@ -196,6 +208,10 @@ enum Sitzverteilung {
                 case .hinten: summe += gewichtRichtung * (1 - tiefe[platz])
                 case .egal:   break
                 }
+            }
+
+            for (platz, wer) in belegung.enumerated() where wer < 0 {
+                summe += gewichtLeer * (1 - tiefe[platz])
             }
 
             if merkmalZaehlt {

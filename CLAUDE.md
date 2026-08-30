@@ -445,6 +445,22 @@ Namens und lebt weiter.
   keine davon; sie wird beim Ankommen in `ownBoardIDs` eingetragen, sonst
   bliebe sie unsichtbar.
 
+### Nachfeiern (ab 1.3.9)
+
+- Der Dienst sieht **immer nur den heutigen Tag** an — daran nichts ändern.
+  Ein iPad, das sechs Wochen im Schrank stand, bekäme beim Einschalten
+  sonst zwanzig Seiten auf einmal, darunter Kinder, die längst weg sind.
+- Ferien-Geburtstage holt deshalb ein Mensch nach: `NachfeiernSheet`
+  (Tafeleinstellungen → Geburtstage → „Nachfeiern"), Zeitraum vorbelegt
+  mit sechs Wochen, Auswahl je Kind.
+- **Das Jahr kommt vom tatsächlichen Geburtstag**, nicht von heute
+  (`Geburtstage.Vergangen.jahr`). Ein Kind, das im Dezember sieben wurde
+  und im Januar nachfeiert, wäre sonst acht.
+- Eine Nachfeier nimmt den Merker aus `geburtstagWeg` zurück — wer sie
+  ausdrücklich noch einmal wählt, will sie auch sehen.
+- `GeburtstagContent.nachgefeiert` schaltet auf der Seite „wird" auf
+  „wurde" um und blendet den tatsächlichen Tag ein.
+
 ### Sitzplan (ab 1.3.0)
 
 - Eigener Elementtyp, **nicht** ein Modus des Zufälligen Namens. Auslosen
@@ -500,6 +516,37 @@ Namens und lebt weiter.
   und was dort nicht hineinfällt, erreicht das Kind nie. In 1.3.5 waren
   dadurch alle Plätze rechts der Raumbreite unverschiebbar (gemeldet
   08/2026). Nicht entfernen.
+- **Tische rasten ein, während sie gezogen werden** (`Sitzraster`, ab
+  1.3.8), nicht erst beim Loslassen — sonst sieht es aus wie ein Sprung am
+  Ende und man zielt doch von Hand. Zwei Stufen in dieser Reihenfolge:
+  erst an die **Achsen der anderen Tische**, dann aufs Raster. Nur die
+  erste macht aus einer Reihe eine Reihe, wenn ein Tisch bewusst neben dem
+  Raster steht. Schrittweite ist ein halber Tisch, damit zwei Tische
+  entweder bündig stehen oder mit halber Tischbreite Luft. Abschaltbar
+  (`@AppStorage("sitzplanRaster")`) — dann frei setzbar.
+- **`Sitzplatz.winkel` ist frei** (ab 1.3.8); `quer` bleibt als Altfeld
+  daneben stehen und wird über `didSet` gespiegelt, sonst stünden auf
+  älteren Geräten alle Tische wieder gerade. `breite`/`hoehe` sind immer
+  8 × 6 — gedreht wird beim Zeichnen. Wer mit Fläche rechnet (Ausschnitt,
+  freier Fleck), nimmt `umriss`; der Abstand zweier Plätze geht von Mitte
+  zu Mitte und weiß vom Winkel nichts.
+- **Gezeigt wird der Ausschnitt, nicht der ganze Raum** (ab 1.3.7):
+  Plätze plus Tafel plus eine halbe Tischbreite Rand, auf den Raum
+  begrenzt. Leere Ecken kosten sonst genau dort Platz, wo die Namen
+  gebraucht werden — der Plan hängt an der Wand und wird aus zehn Metern
+  gelesen.
+- **Leere Plätze gehören nach hinten** (`gewichtLeer`). Das ist mehr als
+  Kosmetik: „Platz daneben frei" heißt gemessen, also auch *gegenüber*.
+  Ein solches Kind in einen Viererblock zu setzen legt dort drei Plätze
+  still. Solange Leerstand nichts kostet, ist das dem Suchlauf egal; mit
+  dem Gewicht hört der Viererblock vorne von selbst auf, eine gute Idee zu
+  sein.
+- **Schloss und Archiv** (`gesperrt`, `archiv`): Eine fertige Sitzordnung
+  steht wochenlang auf der Tafel; ohne Schloss wäre sie mit einem
+  Fingerzeig neu ausgelost. Beim Sichern geht das Schloss von selbst zu.
+  Gesichert werden **Namen als Text**, nicht Kennungen — wie bei
+  `Ziehung`. Beim Zurückholen wird nur die Belegung gesetzt, nie der
+  Grundriss.
 - **Der Sitzplan feiert nicht.** Am Ende der Auslosung lief bis 1.3.5
   `Feierklang.spiele(.konfetti)` — Applaus und Geburtstagslied, aus dem
   Geburtstagsteil übernommen. Eine Sitzordnung ist kein Geburtstag; hier

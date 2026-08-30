@@ -156,6 +156,25 @@ struct SitzplanSettings: View {
             }
 
             Section {
+                Toggle("Gesperrt", isOn: $content.gesperrt)
+                NavigationLink {
+                    SitzarchivSeite(content: $content)
+                } label: {
+                    LabeledContent("Gesicherte Sitzordnungen",
+                                   value: "\(content.archiv.count)")
+                }
+            } header: {
+                Text("Festhalten")
+            } footer: {
+                Text("Gesperrt heißt: Ein Tipp auf die Tafel löst keine neue "
+                     + "Auslosung mehr aus. Eine fertige Sitzordnung steht "
+                     + "wochenlang da und wird dabei hundertmal gestreift — "
+                     + "ohne Schloss wäre die Arbeit eines Nachmittags mit "
+                     + "einem Fingerzeig weg. Beim Sichern geht es von "
+                     + "selbst zu.")
+            }
+
+            Section {
                 Toggle("Namen nacheinander aufdecken", isOn: $content.mitAuftritt)
                 Toggle("Mit Klang", isOn: $content.mitKlang)
                 if content.verteilt {
@@ -269,6 +288,9 @@ struct Sitzplaneditor: View {
     @State private var anzahlWunsch: Double = 30
     @State private var frageNeuOrdnen = false
     @State private var zugStart: [String: CGPoint] = [:]
+    /// Einrasten an- oder ausgeschaltet. Werkzeugeinstellung, keine
+    /// Eigenschaft der Tafel — deshalb hier und nicht im Inhalt.
+    @AppStorage("sitzplanRaster") private var raster = true
 
     private var raum: Raumform { content.raumform }
     private var tafel: Tafelseite { content.tafelseite }
@@ -362,6 +384,8 @@ struct Sitzplaneditor: View {
                 .offset(x: links + band.minX * mass, y: oben + band.minY * mass)
 
             ForEach(content.plaetze) { platz in
+                // Über die Mitte gesetzt, nicht über die Ecke: Beim Drehen
+                // soll der Tisch stehen bleiben, wo er steht.
                 kachel(platz, mass: mass, nah: nachbarn.contains(platz.id))
                     .offset(x: links + (platz.x - platz.breite / 2) * mass,
                             y: oben + (platz.y - platz.hoehe / 2) * mass)
@@ -393,6 +417,7 @@ struct Sitzplaneditor: View {
             }
         }
         .frame(width: w, height: h)
+        .rotationEffect(.degrees(platz.winkel))
         .shadow(color: aktiv ? .accentColor.opacity(0.5) : .clear, radius: 8)
     }
 
@@ -426,6 +451,16 @@ struct Sitzplaneditor: View {
             }
     }
 
+    /// Verschieben — und dabei **schon während des Zuges** einrasten.
+    ///
+    /// Erst auf Loslassen zu fangen sah aus wie ein Sprung am Ende; man
+    /// zielt dann doch wieder von Hand. Wer schon beim Ziehen spürt, wo
+    /// der Tisch landet, muss nicht zielen.
+    ///
+    /// Zwei Stufen, in dieser Reihenfolge: **erst an den Achsen der
+    /// anderen Tische**, dann aufs Raster. Das ist der Teil, der eine
+    /// Reihe zur Reihe macht — auch dann, wenn ein Tisch bewusst neben dem
+    /// Raster steht und die anderen sich an ihm ausrichten sollen.
     private func verschiebe(_ stelle: Int, um versatz: CGSize, mass: Double, fangen: Bool) {
         let platz = content.plaetze[stelle]
         let start = zugStart[platz.id] ?? CGPoint(x: platz.x, y: platz.y)
@@ -433,15 +468,21 @@ struct Sitzplaneditor: View {
 
         var x = start.x + versatz.width / mass
         var y = start.y + versatz.height / mass
-        if fangen {
-            let raster = Sitzmasse.tief / 3
-            x = (x / raster).rounded() * raster
-            y = (y / raster).rounded() * raster
-            zugStart[platz.id] = nil
+
+        if raster {
+            let andere = content.plaetze.filter { $0.id != platz.id }
+            x = Sitzraster.achse(x, unter: andere.map(\.x))
+                ?? Sitzraster.punkt(x, schritt: Sitzraster.laengs)
+            y = Sitzraster.achse(y, unter: andere.map(\.y))
+                ?? Sitzraster.punkt(y, schritt: Sitzraster.quer)
         }
+        if fangen { zugStart[platz.id] = nil }
+
         let masse = raum.masse
-        x = min(max(platz.breite / 2, x), masse.width - platz.breite / 2)
-        y = min(max(platz.hoehe / 2, y), masse.height - platz.hoehe / 2)
+        let halbBreit = platz.umriss.width / 2
+        let halbHoch = platz.umriss.height / 2
+        x = min(max(halbBreit, x), masse.width - halbBreit)
+        y = min(max(halbHoch, y), masse.height - halbHoch)
         content.plaetze[stelle].x = x
         content.plaetze[stelle].y = y
     }
@@ -454,7 +495,12 @@ struct Sitzplaneditor: View {
                let stelle = content.plaetze.firstIndex(where: { $0.id == id }) {
                 HStack(spacing: 14) {
                     Button {
-                        content.plaetze[stelle].quer.toggle()
+                        // Der schnelle Weg für den Regelfall: hochkant oder
+                        // quer. Alles dazwischen macht der Regler darunter.
+                        let jetzt = content.plaetze[stelle].winkel
+                        let naechste = (jetzt / 90).rounded(.down) * 90 + 90
+                        content.plaetze[stelle].winkel =
+                            naechste.truncatingRemainder(dividingBy: 360)
                         Haptics.tap()
                     } label: {
                         Label("Drehen", systemImage: "rotate.right")
@@ -477,6 +523,18 @@ struct Sitzplaneditor: View {
                     }
                 }
                 .buttonStyle(.bordered)
+                .font(.footnote)
+
+                HStack {
+                    Image(systemName: "rotate.right")
+                    Slider(value: Binding(
+                        get: { content.plaetze[stelle].winkel },
+                        set: { content.plaetze[stelle].winkel = $0 }
+                    ), in: 0...345, step: 5)
+                    Text("\(Int(content.plaetze[stelle].winkel))°")
+                        .monospacedDigit()
+                        .frame(width: 44, alignment: .trailing)
+                }
                 .font(.footnote)
             }
 
@@ -502,6 +560,11 @@ struct Sitzplaneditor: View {
                 .pickerStyle(.segmented)
                 .frame(maxWidth: 220)
 
+                Toggle(isOn: $raster) {
+                    Label("Raster", systemImage: "grid")
+                }
+                .toggleStyle(.button)
+
                 Spacer(minLength: 0)
                 Button {
                     frageNeuOrdnen = true
@@ -522,9 +585,12 @@ struct Sitzplaneditor: View {
             .font(.footnote)
 
             Text(gewaehlt == nil
-                 ? "Platz antippen: zeigt, welche Plätze als „nah“ gelten. Ziehen "
-                   + "verschiebt. Hier siehst du den Raum aus deiner Sicht — auf der "
-                   + "fertigen Tafel dreht er sich in die Sicht der Kinder."
+                 ? (raster
+                    ? "Ziehen verschiebt; die Tische rasten am Raster und an den "
+                      + "Achsen der anderen ein. Antippen zeigt, welche Plätze als "
+                      + "„nah“ gelten."
+                    : "Raster aus: Die Tische lassen sich frei setzen. Antippen "
+                      + "zeigt, welche Plätze als „nah“ gelten.")
                  : "Orange sind die Plätze, die zu diesem als nah zählen.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -740,5 +806,74 @@ struct NeueSitzregelSheet: View {
         kopie.sitzregeln.append(Sitzregel(a: a, b: b, art: art.rawValue))
         store.updateNameList(kopie)
         dismiss()
+    }
+}
+
+// MARK: - Gesicherte Sitzordnungen
+
+/// Das Archiv: welche Klasse wann wie saß.
+///
+/// **Zurückgeholt wird nur die Belegung, nicht der Grundriss.** Die Tische
+/// dürfen inzwischen anders stehen; wer eine alte Ordnung ansieht, will
+/// wissen, wer wo saß — und Plätze, die es nicht mehr gibt, bleiben eben
+/// leer. Alles andere hieße, den Raum rückwärts umzubauen.
+struct SitzarchivSeite: View {
+    @Binding var content: SitzplanContent
+
+    var body: some View {
+        List {
+            if content.archiv.isEmpty {
+                Text("Noch nichts gesichert. Nach einer Auslosung steht auf "
+                     + "der Tafel „Sichern“.")
+                    .foregroundStyle(.secondary)
+            } else {
+                ForEach(content.archiv) { eintrag in
+                    Button {
+                        hole(eintrag)
+                    } label: {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(eintrag.titel.nonEmpty ?? "Ohne Bezeichnung")
+                                .font(.body.weight(.medium))
+                            HStack(spacing: 8) {
+                                Text(eintrag.datum.formatted(date: .abbreviated,
+                                                             time: .shortened))
+                                Text("\(eintrag.belegung.count) Kinder")
+                            }
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+                .onDelete { stellen in
+                    content.archiv.remove(atOffsets: stellen)
+                }
+            }
+        }
+        .navigationTitle("Gesicherte Sitzordnungen")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar { EditButton() }
+    }
+
+    /// Eine gesicherte Ordnung wieder auf die Tafel legen.
+    ///
+    /// Die Namen stehen im Archiv als Text. Für die Anzeige braucht es
+    /// Kennungen, also werden welche erfunden — sie zeigen auf nichts und
+    /// müssen das auch nicht: Der Plan ist ein Bild von damals, keine
+    /// lebende Zuordnung.
+    private func hole(_ eintrag: Sitzarchiv) {
+        var belegung: [String: String] = [:]
+        var namen: [String: String] = [:]
+        for (platz, name) in eintrag.belegung {
+            let kennung = "archiv-\(eintrag.id)-\(platz)"
+            belegung[platz] = kennung
+            namen[kennung] = name
+        }
+        content.belegung = belegung
+        content.namen = namen
+        content.reihenfolge = Array(belegung.keys)
+        content.aufgedeckt = content.reihenfolge.count
+        content.bericht = []
+        content.gesperrt = true
+        Haptics.success()
     }
 }
