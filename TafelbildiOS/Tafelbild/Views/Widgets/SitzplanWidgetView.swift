@@ -124,6 +124,9 @@ struct SitzplanWidgetView: View {
                                                           tiefe: raum.tafeltiefe))
 
         return ZStack(alignment: .topLeading) {
+            // Bestimmt die Größe des Stapels — siehe `Sitzplaneditor`.
+            Color.clear
+
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .fill(style.wash)
                 .overlay {
@@ -272,7 +275,7 @@ struct SitzplanWidgetView: View {
         guard content.mitAuftritt else {
             content.aufgedeckt = content.reihenfolge.count
             laeuft = false
-            if content.mitKlang { Feierklang.spiele(.konfetti) }
+            Haptics.success()
             return
         }
 
@@ -291,8 +294,16 @@ struct SitzplanWidgetView: View {
                 try? await Task.sleep(for: .seconds(takt))
             }
             frisch = nil
+            // Zum Schluss ein betonter Kartenschlag, sonst nichts.
+            //
+            // Hier lief bis 1.3.5 `Feierklang.spiele(.konfetti)` — also
+            // Applaus und Geburtstagslied. Das war aus dem Geburtstagsteil
+            // übernommen und hier schlicht falsch: Eine Sitzordnung ist
+            // kein Geburtstag, und „Zum Geburtstag viel Glück" unter einem
+            // Sitzplan ist zum Fremdschämen. Gemeldet 08/2026.
+            if content.mitKlang { klang.kartenSchlag(.karten, betont: true) }
+            try? await Task.sleep(for: .seconds(0.35))
             klang.stoppe()
-            if content.mitKlang { Feierklang.spiele(.konfetti) }
             Haptics.success()
             laeuft = false
         }

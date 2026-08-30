@@ -326,6 +326,18 @@ struct Sitzplaneditor: View {
         }()
 
         return ZStack(alignment: .topLeading) {
+            // **Diese leere Farbfläche ist kein Zierrat.** Ohne sie ist der
+            // Stapel nur so groß wie sein größtes Kind — der Grundriss —,
+            // und der liegt um `links` eingerückt. Alles, was weiter rechts
+            // steht, wird zwar gezeichnet, liegt aber AUSSERHALB der
+            // Grenzen des Stapels: SwiftUI prüft beim Antippen erst den
+            // Elternteil, und was dort nicht hineinfällt, erreicht das Kind
+            // nie. Auf dem Bildschirmfoto war genau das zu sehen — die
+            // Plätze links liessen sich schieben, die rechts waren tot
+            // (gemeldet 08/2026). `Color.clear` nimmt den ganzen
+            // angebotenen Platz ein und zieht die Grenzen mit.
+            Color.clear
+
             RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .fill(Color(.systemBackground))
                 .overlay {
