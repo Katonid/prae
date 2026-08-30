@@ -450,6 +450,18 @@ Namens und lebt weiter.
   keine davon; sie wird beim Ankommen in `ownBoardIDs` eingetragen, sonst
   bliebe sie unsichtbar.
 
+### Wo die Geburtstage wohnen (ab 1.3.15)
+
+- **Eigener Menüpunkt „Geburtstage"** (⋯ → Geburtstage), Blatt
+  `Views/Sheets/Geburtstagsblatt.swift`. Bis 1.3.14 hing der Abschnitt
+  hinten an „Tafel teilen" — historisch gewachsen, weil er zusammen mit
+  dem Löschrecht entstand. Das Löschrecht gehört dorthin (es ist eine
+  Frage des Zusammenarbeitens), die Geburtstage nicht: Der Nutzer fand
+  den Fragenkatalog nicht (gemeldet 08/2026). Nicht zurückverlegen.
+- Darunter liegt alles Geburtstägliche: Namensliste, Erinnerung samt
+  Uhrzeit, **Fragenkatalog**, **Nachfeiern** und „Weggeräumte wieder
+  anlegen".
+
 ### Geburtstagsritual (ab 1.3.11)
 
 - Ein Tipp führt durch **drei Stationen**: Feier → drei Gratulanten →
