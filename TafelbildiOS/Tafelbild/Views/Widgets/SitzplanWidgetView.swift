@@ -195,6 +195,10 @@ struct SitzplanWidgetView: View {
             CGPoint(x: links + (feld.minX - feldRaum.minX) * mass,
                     y: oben + (feld.minY - feldRaum.minY) * mass)
         }
+        func stelle(_ punkt: CGPoint) -> CGPoint {
+            CGPoint(x: links + (punkt.x - feldRaum.minX) * mass,
+                    y: oben + (punkt.y - feldRaum.minY) * mass)
+        }
 
         return ZStack(alignment: .topLeading) {
             // Bestimmt die Größe des Stapels — siehe `Sitzplaneditor`.
@@ -215,9 +219,12 @@ struct SitzplanWidgetView: View {
                 .offset(x: stelle(band).x, y: stelle(band).y)
 
             ForEach(content.plaetze) { platz in
-                let feld = blick.rechteck(platz.rahmen)
-                platzkachel(platz, feld: feld, mass: mass)
-                    .offset(x: stelle(feld).x, y: stelle(feld).y)
+                // Über die Mitte gesetzt und dann gedreht — der Umweg über
+                // eine gedrehte Ecke ginge bei schrägen Tischen schief.
+                let mitte = stelle(blick.punkt(platz.mitte))
+                platzkachel(platz, mass: mass)
+                    .offset(x: mitte.x - platz.breite * mass / 2,
+                            y: mitte.y - platz.hoehe * mass / 2)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -247,9 +254,9 @@ struct SitzplanWidgetView: View {
     }
 
     @ViewBuilder
-    private func platzkachel(_ platz: Sitzplatz, feld: CGRect, mass: Double) -> some View {
-        let w = feld.width * mass
-        let h = feld.height * mass
+    private func platzkachel(_ platz: Sitzplatz, mass: Double) -> some View {
+        let w = platz.breite * mass
+        let h = platz.hoehe * mass
         let offen = content.sichtbar(platz.id)
         let name = offen ? content.name(auf: platz.id) : nil
         let neu = frisch == platz.id
@@ -281,6 +288,10 @@ struct SitzplanWidgetView: View {
             }
         }
         .frame(width: w, height: h)
+        // Der Tisch steht, wie er im Raum steht — plus die Drehung des
+        // Blickwinkels. Die Namen kippen mit; das ist richtig so, denn ein
+        // schräger Tisch trägt eine schräge Beschriftung.
+        .rotationEffect(.degrees(platz.winkel + Double(blick.drehung)))
         // Der frisch gesetzte Platz bekommt einen kurzen Auftritt: größer,
         // heller, mit Schein. Das ist es, was die Klasse anschauen soll.
         .scaleEffect(neu ? 1.16 : (gewaehlt ? 1.08 : 1))

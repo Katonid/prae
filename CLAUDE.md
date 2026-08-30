@@ -500,6 +500,20 @@ Namens und lebt weiter.
   und was dort nicht hineinfällt, erreicht das Kind nie. In 1.3.5 waren
   dadurch alle Plätze rechts der Raumbreite unverschiebbar (gemeldet
   08/2026). Nicht entfernen.
+- **Tische rasten ein, während sie gezogen werden** (`Sitzraster`, ab
+  1.3.8), nicht erst beim Loslassen — sonst sieht es aus wie ein Sprung am
+  Ende und man zielt doch von Hand. Zwei Stufen in dieser Reihenfolge:
+  erst an die **Achsen der anderen Tische**, dann aufs Raster. Nur die
+  erste macht aus einer Reihe eine Reihe, wenn ein Tisch bewusst neben dem
+  Raster steht. Schrittweite ist ein halber Tisch, damit zwei Tische
+  entweder bündig stehen oder mit halber Tischbreite Luft. Abschaltbar
+  (`@AppStorage("sitzplanRaster")`) — dann frei setzbar.
+- **`Sitzplatz.winkel` ist frei** (ab 1.3.8); `quer` bleibt als Altfeld
+  daneben stehen und wird über `didSet` gespiegelt, sonst stünden auf
+  älteren Geräten alle Tische wieder gerade. `breite`/`hoehe` sind immer
+  8 × 6 — gedreht wird beim Zeichnen. Wer mit Fläche rechnet (Ausschnitt,
+  freier Fleck), nimmt `umriss`; der Abstand zweier Plätze geht von Mitte
+  zu Mitte und weiß vom Winkel nichts.
 - **Gezeigt wird der Ausschnitt, nicht der ganze Raum** (ab 1.3.7):
   Plätze plus Tafel plus eine halbe Tischbreite Rand, auf den Raum
   begrenzt. Leere Ecken kosten sonst genau dort Platz, wo die Namen
