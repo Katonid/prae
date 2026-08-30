@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 /// Prüft die iCloud-Verbindung Schritt für Schritt und sagt im Klartext,
 /// woran es hakt — damit man bei Problemen nicht raten muss.
@@ -47,6 +48,35 @@ struct SyncDiagnoseView: View {
                 Text("Dieses Gerät")
             } footer: {
                 Text("Beide Geräte müssen dieselbe Umgebung nutzen: Zwei Xcode-Installationen sprechen miteinander, eine Xcode- und eine TestFlight-Installation nicht.")
+            }
+
+            // **Was hier wirklich liegt.** Ohne diese Liste bleibt bei einer
+            // doppelten Tafel jede Erklärung eine Vermutung — und wer im
+            // Nebel die falsche löscht, löscht sie auf allen Geräten.
+            Section {
+                ForEach(store.tafelbefunde) { befund in
+                    Text(befund.zeile)
+                        .font(.system(size: 13, design: .monospaced))
+                        .textSelection(.enabled)
+                        .foregroundStyle(befund.sichtbar ? .primary : .secondary)
+                }
+                Button {
+                    UIPasteboard.general.string = store.tafelbefunde
+                        .map(\.zeile).joined(separator: "\n")
+                    Haptics.tap()
+                } label: {
+                    Label("Liste kopieren", systemImage: "doc.on.doc")
+                }
+            } header: {
+                Text("Tafeln auf diesem Gerät")
+            } footer: {
+                Text("Je Zeile: Name, die ersten acht Zeichen der Kennung, "
+                     + "Elemente, Seiten, dann was sonst gilt — geteilt, Gast, "
+                     + "eigene, gelöscht — und wann sie zuletzt geändert "
+                     + "wurde.\n\nZwei Zeilen mit demselben Namen, aber "
+                     + "verschiedenen Kennungen sind zwei verschiedene "
+                     + "Tafeln. Löschen wirkt auf allen Geräten und in "
+                     + "iCloud; vergleiche vorher beide Geräte.")
             }
 
             if !steps.isEmpty {

@@ -101,7 +101,7 @@ final class BoardStore: ObservableObject {
         activeBoardID = defaults.string(forKey: "activeBoardID") ?? ""
         ladeAblage()
 
-        boards = Self.loadJSON([Board].self, from: Self.boardsURL) ?? []
+        boards = Self.entdoppelt(Self.loadJSON([Board].self, from: Self.boardsURL) ?? [])
         nameLists = Self.loadJSON([NameList].self, from: Self.nameListsURL) ?? []
 
         myUserID = defaults.string(forKey: "sync.userID")
@@ -147,6 +147,35 @@ final class BoardStore: ObservableObject {
         for list in nameLists where !list.deleted {
             engine.enqueue(kind: .nameList, entityId: list.id)
         }
+    }
+
+    /// Zwei Tafeln mit derselben Kennung darf es nicht geben.
+    ///
+    /// Passiert es doch, bekäme nur die erste je eine Änderung ab — jede
+    /// Suche geht über `firstIndex`. Die zweite bliebe für immer stehen,
+    /// sähe aber aus wie eine eigene Tafel. Beim Laden wird deshalb
+    /// zusammengelegt: Es gewinnt die mit dem neueren Zeitstempel, bei
+    /// Gleichstand die mit mehr Inhalt.
+    ///
+    /// Vorbeugend, nicht als Heilmittel für einen bekannten Fehler —
+    /// gefunden wurde bisher keiner. Aber der Schaden wäre still und
+    /// dauerhaft, und die Prüfung kostet einen Durchlauf beim Start.
+    static func entdoppelt(_ tafeln: [Board]) -> [Board] {
+        var gesehen: [String: Int] = [:]
+        var aus: [Board] = []
+        for tafel in tafeln {
+            guard let stelle = gesehen[tafel.id] else {
+                gesehen[tafel.id] = aus.count
+                aus.append(tafel)
+                continue
+            }
+            let bisher = aus[stelle]
+            let neuer = tafel.updatedAtMs > bisher.updatedAtMs
+                || (tafel.updatedAtMs == bisher.updatedAtMs
+                    && tafel.widgets.count > bisher.widgets.count)
+            if neuer { aus[stelle] = tafel }
+        }
+        return aus
     }
 
     /// Legt die Beispieltafel samt Namensliste an (erster Start).
@@ -371,6 +400,78 @@ final class BoardStore: ObservableObject {
 
     /// Anzahl aller (auch fremder) Tafeln im lokalen Bestand — für die Diagnose.
     var allBoardsCount: Int { boards.filter { !$0.deleted }.count }
+
+    // MARK: - Bestandsaufnahme
+
+    /// Was von einer Tafel auf diesem Gerät bekannt ist — für „Abgleich
+    /// prüfen".
+    ///
+    /// **Warum es das gibt.** Gemeldet 08/2026: Auf einem Gerät standen
+    /// zwei Tafeln desselben Namens, eine mit Inhalt und wenigen Seiten,
+    /// eine mit allen Seiten und ohne Inhalt. Am Quelltext allein ließ sich
+    /// nicht entscheiden, welcher Weg die zweite angelegt hat — die
+    /// Kennungen, Zeitstempel und Herkünfte liegen auf dem Gerät. Ohne sie
+    /// bleibt jede Erklärung eine Vermutung, und wer im Nebel die falsche
+    /// Tafel löscht, löscht sie auf allen Geräten.
+    struct Tafelbefund: Identifiable {
+        let id: String
+        let name: String
+        let emoji: String
+        let elemente: Int
+        let seiten: Int
+        let listen: Int
+        let geteilt: Bool
+        let gast: Bool
+        let fremd: Bool
+        let eigene: Bool
+        let geloescht: Bool
+        let sichtbar: Bool
+        let besitzer: String
+        let mitglieder: Int
+        let angelegt: Date
+        let geaendert: Date
+
+        /// Eine Zeile zum Weitergeben — kurz genug für einen Bildschirm.
+        var zeile: String {
+            var teile = ["\(emoji)\(name.nonEmpty ?? "ohne Namen")"]
+            teile.append("#" + String(id.prefix(8)))
+            teile.append("\(elemente) El.")
+            teile.append("\(seiten) S.")
+            if listen > 0 { teile.append("\(listen) Listen") }
+            if geteilt { teile.append("geteilt") }
+            if gast { teile.append("Gast von \(besitzer.nonEmpty ?? "?")") }
+            if fremd { teile.append("fremder Bereich") }
+            if eigene { teile.append("eigene") }
+            if geloescht { teile.append("gelöscht") }
+            if !sichtbar { teile.append("unsichtbar") }
+            teile.append(geaendert.formatted(.dateTime.day().month().hour().minute()))
+            return teile.joined(separator: " · ")
+        }
+    }
+
+    var tafelbefunde: [Tafelbefund] {
+        let meine = ownBoardIDs
+        return boards
+            .sorted { $0.createdAtMs < $1.createdAtMs }
+            .map { tafel in
+                Tafelbefund(id: tafel.id,
+                            name: tafel.name,
+                            emoji: tafel.emoji.nonEmpty.map { $0 + " " } ?? "",
+                            elemente: tafel.widgets.count,
+                            seiten: tafel.seiten.count,
+                            listen: tafel.referencedListIDs.count,
+                            geteilt: tafel.geteilt,
+                            gast: istGast(tafel),
+                            fremd: engine.istFremd(boardID: tafel.id),
+                            eigene: meine.contains(tafel.id),
+                            geloescht: tafel.deleted,
+                            sichtbar: visibleBoards.contains { $0.id == tafel.id },
+                            besitzer: tafel.owner,
+                            mitglieder: tafel.members.count,
+                            angelegt: Date(timeIntervalSince1970: Double(tafel.createdAtMs) / 1000),
+                            geaendert: Date(timeIntervalSince1970: Double(tafel.updatedAtMs) / 1000))
+            }
+    }
 
     func board(_ id: String) -> Board? { boards.first { $0.id == id } }
     func nameList(_ id: String?) -> NameList? {
