@@ -229,7 +229,9 @@ struct SitzplanWidgetView: View {
                                                regeln: liste.gueltigeSitzregeln(),
                                                naehe: content.naehe,
                                                raum: raum,
-                                               tafel: content.tafelseite)
+                                               tafel: content.tafelseite,
+                                               merkmalID: content.merkmalID,
+                                               vorgabe: content.vorgabe)
 
         var neu = content
         neu.belegung = ergebnis.belegung

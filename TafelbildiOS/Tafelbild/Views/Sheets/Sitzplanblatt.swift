@@ -95,6 +95,36 @@ struct SitzplanSettings: View {
                      + "sagen.")
             }
 
+            if let liste = list, !liste.merkmale.isEmpty {
+                Section {
+                    Picker("Merkmal", selection: Binding(
+                        get: { content.merkmalID },
+                        set: { content.merkmalID = $0 }
+                    )) {
+                        Text("Keines").tag("")
+                        ForEach(liste.merkmale) { merkmal in
+                            Text(merkmal.name).tag(merkmal.id)
+                        }
+                    }
+                    if !content.merkmalID.isEmpty {
+                        Picker("Nachbarn", selection: Binding(
+                            get: { content.vorgabe },
+                            set: { content.merkmalsregel = $0.rawValue }
+                        )) {
+                            ForEach(Merkmalsvorgabe.allCases) { wahl in
+                                Text(wahl.title).tag(wahl)
+                            }
+                        }
+                        .pickerStyle(.inline)
+                        .labelsHidden()
+                    }
+                } header: {
+                    Text("Nach Merkmal sortieren")
+                } footer: {
+                    Text(merkmalstext)
+                }
+            }
+
             Section {
                 if let liste = list {
                     NavigationLink {
@@ -137,6 +167,39 @@ struct SitzplanSettings: View {
                      + "Regeln geben deshalb verschiedene, gleich gute Pläne — "
                      + "es bleibt eine Auslosung.")
             }
+        }
+    }
+
+    /// Was die gewählte Regel für Sitznachbarn bedeutet.
+    ///
+    /// Eigene Texte statt `Merkmalsvorgabe.erklaerung`: Dort ist von
+    /// Gruppen die Rede, hier geht es um Nachbarschaften — dieselbe
+    /// Aufzählung, ein anderer Zusammenhang.
+    private var merkmalstext: String {
+        guard !content.merkmalID.isEmpty else {
+            return "Zum Beispiel „Jungen und Mädchen“ oder „Lesestufe“. "
+                 + "Gepflegt werden die Merkmale in der Namensliste."
+        }
+        switch content.vorgabe {
+        case .egal:
+            return "Das Merkmal spielt beim Verteilen keine Rolle."
+        case .unterschiedlich:
+            return "Nachbarn sollen sich möglichst unterscheiden — Jungen "
+                 + "neben Mädchen, verschiedene Lesestufen nebeneinander.\n\n"
+                 + "Als „Nachbarn“ zählt, was der Regler oben als nah "
+                 + "bestimmt. Wer kein Merkmal eingetragen hat, macht nichts "
+                 + "anders — es wird nichts geraten.\n\n"
+                 + "Das ist ein Wunsch, keine Regel: Er tritt zurück, wenn "
+                 + "sonst eine Trennung bräche."
+        case .gleich:
+            return "Nachbarn sollen möglichst gleich sein — Jungen neben "
+                 + "Jungen, Mädchen neben Mädchen, gleiche Lesestufen "
+                 + "beieinander.\n\n"
+                 + "Als „Nachbarn“ zählt, was der Regler oben als nah "
+                 + "bestimmt. Wer kein Merkmal eingetragen hat, macht nichts "
+                 + "anders — es wird nichts geraten.\n\n"
+                 + "Das ist ein Wunsch, keine Regel: Er tritt zurück, wenn "
+                 + "sonst eine Trennung bräche."
         }
     }
 

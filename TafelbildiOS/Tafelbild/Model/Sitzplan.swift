@@ -300,6 +300,17 @@ struct SitzplanContent: Codable, Equatable {
     /// Tischbreiten. 1,0 ist Schulter an Schulter, 1,4 auch schräg
     /// gegenüber, 2,0 der übernächste Platz.
     var naehe: Double = 1.6
+    /// Kennung des Merkmals, nach dem zusätzlich sortiert wird. Leer heißt:
+    /// keines.
+    ///
+    /// **Am Element, nicht an der Liste** — anders als die Paarregeln. Ob
+    /// Jungen und Mädchen gemischt sitzen sollen, ist eine Entscheidung für
+    /// *diese* Sitzordnung; dieselbe Klasse kann im Nachmittagsraum anders
+    /// sitzen. „Anna und Ben nicht nebeneinander" gilt dagegen überall.
+    /// Dasselbe Muster wie `NamePickerContent.mischMerkmalID`.
+    var merkmalID: String = ""
+    /// Rohwert einer `Merkmalsvorgabe`: egal, unterschiedlich oder gleich.
+    var merkmalsregel: String = Merkmalsvorgabe.egal.rawValue
 
     /// Die letzte Verteilung: Platzkennung → Eintragskennung.
     var belegung: [String: String] = [:]
@@ -321,6 +332,9 @@ struct SitzplanContent: Codable, Equatable {
 
     var raumform: Raumform { Raumform.aus(raum) }
     var tafelseite: Tafelseite { Tafelseite.aus(tafel) }
+    /// Über den Rohwert gelesen, damit ein unbekannter Wert nicht die
+    /// ganze Tafel unlesbar macht.
+    var vorgabe: Merkmalsvorgabe { Merkmalsvorgabe(rawValue: merkmalsregel) ?? .egal }
 
     /// Die Plätze, auf die verteilt werden darf.
     var offenePlaetze: [Sitzplatz] { plaetze.filter { !$0.gesperrt } }
@@ -350,7 +364,8 @@ struct SitzplanContent: Codable, Equatable {
 extension SitzplanContent {
     private enum SitzplanKeys: String, CodingKey {
         case titel, listID, plaetze, raum, tafel, naehe, belegung, namen,
-             reihenfolge, aufgedeckt, bericht, mitKlang, mitAuftritt
+             reihenfolge, aufgedeckt, bericht, mitKlang, mitAuftritt,
+             merkmalID, merkmalsregel
     }
 
     init(from decoder: Decoder) throws {
@@ -361,6 +376,8 @@ extension SitzplanContent {
         raum = c.wert(.raum, Raumform.quer.rawValue)
         tafel = c.wert(.tafel, Tafelseite.unten.rawValue)
         naehe = c.wert(.naehe, 1.6)
+        merkmalID = c.wert(.merkmalID, "")
+        merkmalsregel = c.wert(.merkmalsregel, Merkmalsvorgabe.egal.rawValue)
         belegung = c.wert(.belegung, [String: String]())
         namen = c.wert(.namen, [String: String]())
         reihenfolge = c.wert(.reihenfolge, [String]())
