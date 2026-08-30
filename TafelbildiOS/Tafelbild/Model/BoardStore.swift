@@ -1017,16 +1017,18 @@ final class BoardStore: ObservableObject {
 
     /// Ein Element wieder auf „unbenutzt" stellen.
     ///
-    /// Was dabei verschwindet, steht in `WidgetContent.unbenutzt`: der
-    /// Ablauf, nie die Einrichtung und nie ein Archiv.
+    /// Was dabei verschwindet, steht in `WidgetContent.unbenutzt(_:)`: der
+    /// Ablauf, nie die Einrichtung und nie ein Archiv. Die Vorgabe
+    /// `.ergebnis` lässt beim Zufälligen Namen das Gedächtnis stehen.
     @discardableResult
-    func setzeZurueck(_ widgetID: String, in boardID: String) -> Bool {
+    func setzeZurueck(_ widgetID: String, in boardID: String,
+                      tiefe: Ruecksetztiefe = .ergebnis) -> Bool {
         guard let boardIndex = boards.firstIndex(where: { $0.id == boardID }),
               let stelle = boards[boardIndex].widgets.firstIndex(where: { $0.id == widgetID }),
-              boards[boardIndex].widgets[stelle].content.benutzt
+              boards[boardIndex].widgets[stelle].content.benutzt(tiefe)
         else { return false }
         boards[boardIndex].widgets[stelle].content =
-            boards[boardIndex].widgets[stelle].content.unbenutzt
+            boards[boardIndex].widgets[stelle].content.unbenutzt(tiefe)
         touch(boardID)
         return true
     }
@@ -1038,7 +1040,8 @@ final class BoardStore: ObservableObject {
     /// Zahl steht hinterher in der Statusmeldung: Wer zurücksetzt, will
     /// wissen, ob etwas passiert ist.
     @discardableResult
-    func setzeZurueck(boardID: String, pageID: String? = nil) -> Int {
+    func setzeZurueck(boardID: String, pageID: String? = nil,
+                      tiefe: Ruecksetztiefe = .ergebnis) -> Int {
         guard let boardIndex = boards.firstIndex(where: { $0.id == boardID })
         else { return 0 }
         var anzahl = 0
@@ -1048,8 +1051,8 @@ final class BoardStore: ObservableObject {
             // Über `liegtAuf` und nicht über einen Vergleich der Kennung:
             // Ein leeres `pageID` gehört zur ersten Seite.
             if let pageID, !tafel.liegtAuf(widget, seite: pageID) { continue }
-            guard widget.content.benutzt else { continue }
-            boards[boardIndex].widgets[stelle].content = widget.content.unbenutzt
+            guard widget.content.benutzt(tiefe) else { continue }
+            boards[boardIndex].widgets[stelle].content = widget.content.unbenutzt(tiefe)
             anzahl += 1
         }
         if anzahl > 0 { touch(boardID) }
@@ -1057,11 +1060,12 @@ final class BoardStore: ObservableObject {
     }
 
     /// Wie viele Elemente hier gerade etwas Benutztes tragen.
-    func benutzteElemente(boardID: String, pageID: String? = nil) -> Int {
+    func benutzteElemente(boardID: String, pageID: String? = nil,
+                          tiefe: Ruecksetztiefe = .ergebnis) -> Int {
         guard let board = board(boardID) else { return 0 }
         return board.widgets.filter { widget in
             if let pageID, !board.liegtAuf(widget, seite: pageID) { return false }
-            return widget.content.benutzt
+            return widget.content.benutzt(tiefe)
         }.count
     }
 

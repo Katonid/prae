@@ -450,6 +450,20 @@ Namens und lebt weiter.
   keine davon; sie wird beim Ankommen in `ownBoardIDs` eingetragen, sonst
   bliebe sie unsichtbar.
 
+### Die Werkzeugleiste am gewählten Element (ab 1.3.25)
+
+- Drei Lagen, in dieser Reihenfolge: **darüber** (Regelfall), **darunter**
+  (wenn das Element oben klebt), **auf dem oberen Rand des Elements** (wenn
+  beides nicht geht).
+- Die dritte Lage ist neu. Ein hohes Element, das oben anfängt und unten
+  aufhört — der Sitzplan also fast immer —, schob die Leiste nach unten,
+  und dort standen die Seitenreiter (gemeldet 08/2026). Ein verdeckter
+  Streifen des Elements ist der geringere Schaden als eine Leiste, die mit
+  dem Seitenwechsler um dieselben Fingerbreiten ringt.
+- `obererSaum` und `untererSaum` sind **Bildschirmpunkte durch den
+  Maßstab**, keine Tafelpunkte: Kopfleiste und Seitenreiter schweben über
+  der Tafel und werden beim Hineinzoomen nicht größer.
+
 ### Seiten ausblenden (ab 1.3.23)
 
 - `BoardPage.versteckt`, **nur für dieses Gerät** — genau wie
@@ -475,6 +489,16 @@ Namens und lebt weiter.
   (`WidgetContent.benutzt` / `.unbenutzt`) und wird von beiden Menüs
   benutzt. Ein neuer Elementtyp mit Ablauf gehört dort eingetragen —
   sonst lässt er sich nie zurücksetzen.
+- **Zwei Tiefen** (`Ruecksetztiefe`, ab 1.3.24). „Nur die Ergebnisse" ist
+  die Vorgabe und lässt beim Zufälligen Namen `drawnIDs`, `zaehler` und
+  `paare` stehen; „auch die gezogenen Namen" räumt sie mit weg. Ansage des
+  Nutzers, 08/2026: „In der Regel möchte ich nur eine Grundansicht vor der
+  Auslosung zeigen, aber trotzdem im Hinterkopf behalten, welche Namen
+  bereits gezogen wurden." Für alle anderen Elementarten sind beide Tiefen
+  dasselbe — dort gibt es kein Gedächtnis, nur einen Ablauf.
+- Die tiefe Stufe steht im Tafelmenü **nur für die ganze Tafel** (sie ist
+  der Neuanfang eines Halbjahres) und im Elementmenü nur beim Zufälligen
+  Namen. Zwei gleichbedeutende Punkte im Menü sind schlimmer als einer.
 - **Zurückgesetzt wird der Ablauf, nie die Einrichtung** (Namensliste,
   Grundriss, Dauer, Farben) und **nie ein Archiv**: `ziehungen` und
   `Sitzplan.archiv` sind ein Nachweis, kein Zustand.
