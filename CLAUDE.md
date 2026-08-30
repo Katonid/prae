@@ -456,6 +456,17 @@ Namens und lebt weiter.
   unsichtbar** (nachgewiesen 08/2026 an „Meine Klasse", 12 Elemente).
   Das ist zugleich die wahrscheinlichste Wurzel doppelter Tafeln: Was man
   auf dem zweiten Gerät nicht sieht, legt man dort noch einmal an.
+- **Auch schon vorhandene Tafeln werden angenommen** (`nimmVerwaisteAn`, ab
+  1.3.30). 1.3.28 trägt jede *ankommende* Tafel als eigene ein — eine, die
+  längst auf der Platte liegt und nie mehr über den Abgleich hereinkommt,
+  erreicht diese Stelle nie. „Meine Klasse" blieb deshalb auch nach 1.3.28
+  unsichtbar. Beim Start gilt jetzt dieselbe Regel für den Bestand.
+- **Der häufigste Grund für eine verwaiste Tafel ist der Umgebungswechsel.**
+  Über Xcode installiert läuft die App gegen *Development*, über TestFlight
+  gegen *Production* — und die Konto-Kennung ist in beiden eine andere. Was
+  in der einen angelegt wurde, sieht in der anderen aus wie fremdes
+  Eigentum. Deshalb darf `ownerUserID` allein nie über Sichtbarkeit oder
+  Löschrecht entscheiden.
 - **Löschen setzt eine Tafel ohne Besitzerkennung nicht mehr nur ab** (ab
   1.3.29). `deleteBoard` hielt eine Tafel ohne `ownerUserID` für fremd,
   sobald auch der Anzeigename nicht passte — und beendete dann nur die

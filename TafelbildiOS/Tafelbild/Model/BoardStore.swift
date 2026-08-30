@@ -117,6 +117,10 @@ final class BoardStore: ObservableObject {
             }
         }
 
+        // Vor der ersten Sichtbarkeitsprüfung: Sonst stünde die App auf
+        // einer Tafel, die gleich darauf sichtbar wird.
+        nimmVerwaisteAn()
+
         if activeBoard == nil { activeBoardID = visibleBoards.first?.id ?? "" }
 
         let abgleich = syncEnabled
@@ -176,6 +180,39 @@ final class BoardStore: ObservableObject {
             if neuer { aus[stelle] = tafel }
         }
         return aus
+    }
+
+    /// Holt Tafeln zurück, die niemandem mehr zu gehören scheinen.
+    ///
+    /// **Warum das nötig ist.** 1.3.28 trägt jede *ankommende* Tafel als
+    /// eigene ein. Eine Tafel, die schon auf der Platte liegt und nie mehr
+    /// über den Abgleich hereinkommt, erreicht diese Stelle nie — sie
+    /// bleibt unsichtbar (nachgewiesen 08/2026: „Meine Klasse", 12
+    /// Elemente, auch nach 1.3.28 noch unsichtbar).
+    ///
+    /// So etwas entsteht, wenn `ownerUserID` eine Kennung trägt, die es auf
+    /// diesem Gerät nicht mehr gibt. Der häufigste Fall ist der Wechsel der
+    /// CloudKit-Umgebung: Über Xcode installiert läuft die App gegen
+    /// *Development*, über TestFlight gegen *Production*, und die
+    /// Konto-Kennung ist in beiden eine andere. Was in der einen angelegt
+    /// wurde, sieht in der anderen aus wie fremdes Eigentum.
+    ///
+    /// Dieselbe Regel wie überall: Was **nicht** aus einem fremden Bereich
+    /// stammt, liegt in der eigenen privaten iCloud und gehört damit mir.
+    /// Eine Tafel, an der ich zu Gast bin, hat einen fremden Bereich und
+    /// bleibt unberührt — sonst würde ein „Teilnahme beenden" wieder
+    /// rückgängig gemacht.
+    private func nimmVerwaisteAn() {
+        var ids = ownBoardIDs
+        var geaendert = false
+        for board in boards where !board.deleted {
+            guard !ids.contains(board.id), !istGast(board) else { continue }
+            ids.insert(board.id)
+            geaendert = true
+        }
+        guard geaendert else { return }
+        ownBoardIDs = ids
+        scheduleSave()
     }
 
     /// Legt die Beispieltafel samt Namensliste an (erster Start).

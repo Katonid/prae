@@ -76,7 +76,12 @@ struct SyncDiagnoseView: View {
                      + "wurde.\n\nZwei Zeilen mit demselben Namen, aber "
                      + "verschiedenen Kennungen sind zwei verschiedene "
                      + "Tafeln. Löschen wirkt auf allen Geräten und in "
-                     + "iCloud; vergleiche vorher beide Geräte.")
+                     + "iCloud; vergleiche vorher beide Geräte.\n\n"
+                     + "Zeilen mit „gelöscht“ sind kein Rest, den man noch "
+                     + "aufräumen müsste: Eine gelöschte Tafel hinterlässt "
+                     + "einen leeren Vermerk, damit sie nicht von einem "
+                     + "anderen Gerät wiederkommt. Sie ist nirgends zu "
+                     + "sehen und trägt nichts mehr in sich.")
             }
 
             if !steps.isEmpty {
