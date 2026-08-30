@@ -17,18 +17,42 @@ import Foundation
 /// gesicherten Ziehungen und die gesicherten Sitzordnungen sind ein
 /// Nachweis, kein Zustand. Wer sie loswerden will, löscht sie dort, wo sie
 /// stehen.
+/// Wie tief zurückgesetzt wird.
+///
+/// **Zwei Tiefen, weil zwei Dinge gemeint sein können** (Ansage des
+/// Nutzers, 08/2026): „In der Regel möchte ich nur eine Grundansicht vor
+/// der Auslosung zeigen, aber trotzdem im Hinterkopf behalten, welche
+/// Namen bereits gezogen wurden."
+///
+/// Genau daran hängt beim Zufälligen Namen alles: Wer die gezogenen Namen
+/// mitlöscht, fängt die Woche von vorn an und zieht womöglich dreimal
+/// dasselbe Kind. Deshalb ist `ergebnis` die Vorgabe und `alles` der
+/// ausdrückliche Griff.
+///
+/// Für alle anderen Elementarten sind beide Tiefen dasselbe — dort gibt es
+/// kein Gedächtnis, nur einen Ablauf.
+enum Ruecksetztiefe {
+    /// Nur, was zu sehen ist: das Ergebnis, der Auftritt, das Schloss.
+    case ergebnis
+    /// Dazu das Gedächtnis: die gezogenen Namen und die Zähler.
+    case alles
+}
+
 extension WidgetContent {
 
-    /// Steht an diesem Element etwas, das ein Zurücksetzen entfernen würde?
+    /// Steht an diesem Element etwas, das ein Zurücksetzen dieser Tiefe
+    /// entfernen würde?
     ///
     /// Danach richtet sich, ob der Menüpunkt überhaupt etwas bewirkt — ein
     /// Knopf, der nichts tut, ist schlimmer als keiner.
-    var benutzt: Bool {
+    func benutzt(_ tiefe: Ruecksetztiefe = .ergebnis) -> Bool {
         switch self {
         case .namePicker(let c):
-            return c.currentID != nil || !c.drawnIDs.isEmpty || !c.ergebnis.isEmpty
+            let sichtbar = c.currentID != nil || !c.ergebnis.isEmpty
                 || !c.erledigt.isEmpty || !c.revealParts.isEmpty || c.festgehalten
-                || !c.zaehler.isEmpty || !c.paare.isEmpty
+            guard tiefe == .alles else { return sichtbar }
+            return sichtbar || !c.drawnIDs.isEmpty || !c.zaehler.isEmpty
+                || !c.paare.isEmpty
         case .timer(let c):
             return c.endsAtMs != nil || c.startedAtMs != nil || c.pausedValue != nil
         case .trafficLight(let c):
@@ -50,21 +74,25 @@ extension WidgetContent {
     }
 
     /// Dasselbe Element im unbenutzten Zustand.
-    var unbenutzt: WidgetContent {
+    func unbenutzt(_ tiefe: Ruecksetztiefe = .ergebnis) -> WidgetContent {
         switch self {
         case .namePicker(var c):
             c.currentID = nil
-            c.drawnIDs = []
             c.ergebnis = []
             c.erledigt = []
             c.revealParts = []
             c.festgehalten = false
-            // Das Gedächtnis gehört zum Gebrauch: Wer wie oft gezogen wurde
-            // und wer mit wem in einer Gruppe war, ist die Spur der letzten
-            // Wochen. `ziehungen` bleibt — das ist das Archiv.
-            c.zaehler = [:]
-            c.paare = [:]
             c.ziehungID = ""
+            if tiefe == .alles {
+                // Erst hier: Die gezogenen Namen sind kein Ergebnis,
+                // sondern das Gedächtnis. Wer sie mitlöscht, fängt die
+                // Woche von vorn an — und zieht womöglich dreimal
+                // dasselbe Kind. `ziehungen` bleibt in beiden Tiefen,
+                // das ist das Archiv.
+                c.drawnIDs = []
+                c.zaehler = [:]
+                c.paare = [:]
+            }
             return .namePicker(c)
 
         case .timer(var c):

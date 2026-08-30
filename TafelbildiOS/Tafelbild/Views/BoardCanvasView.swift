@@ -483,13 +483,27 @@ private struct SelectionChrome: View {
                 // zwei Stunden. Ausgegraut, wenn nichts zu vergessen ist —
                 // ein Knopf, der nichts tut, ist schlimmer als keiner.
                 Button {
-                    store.setzeZurueck(widget.id, in: boardID)
+                    store.setzeZurueck(widget.id, in: boardID, tiefe: .ergebnis)
                     Haptics.tap()
                 } label: {
                     Label("Auf unbenutzt zurücksetzen",
                           systemImage: "arrow.counterclockwise")
                 }
-                .disabled(!widget.content.benutzt)
+                .disabled(!widget.content.benutzt(.ergebnis))
+                // Die tiefere Stufe steht nur da, wo es ein Gedächtnis
+                // gibt — beim Zufälligen Namen. Überall sonst wären beide
+                // Punkte dasselbe, und zwei gleiche Punkte im Menü sind
+                // schlimmer als einer.
+                if widget.kind == .namePicker {
+                    Button {
+                        store.setzeZurueck(widget.id, in: boardID, tiefe: .alles)
+                        Haptics.tap()
+                    } label: {
+                        Label("… auch die gezogenen Namen",
+                              systemImage: "arrow.counterclockwise.circle")
+                    }
+                    .disabled(!widget.content.benutzt(.alles))
+                }
                 Divider()
                 if store.darfLoeschen(widget, in: boardID) {
                     Button(role: .destructive) {

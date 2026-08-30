@@ -475,6 +475,16 @@ Namens und lebt weiter.
   (`WidgetContent.benutzt` / `.unbenutzt`) und wird von beiden Menüs
   benutzt. Ein neuer Elementtyp mit Ablauf gehört dort eingetragen —
   sonst lässt er sich nie zurücksetzen.
+- **Zwei Tiefen** (`Ruecksetztiefe`, ab 1.3.24). „Nur die Ergebnisse" ist
+  die Vorgabe und lässt beim Zufälligen Namen `drawnIDs`, `zaehler` und
+  `paare` stehen; „auch die gezogenen Namen" räumt sie mit weg. Ansage des
+  Nutzers, 08/2026: „In der Regel möchte ich nur eine Grundansicht vor der
+  Auslosung zeigen, aber trotzdem im Hinterkopf behalten, welche Namen
+  bereits gezogen wurden." Für alle anderen Elementarten sind beide Tiefen
+  dasselbe — dort gibt es kein Gedächtnis, nur einen Ablauf.
+- Die tiefe Stufe steht im Tafelmenü **nur für die ganze Tafel** (sie ist
+  der Neuanfang eines Halbjahres) und im Elementmenü nur beim Zufälligen
+  Namen. Zwei gleichbedeutende Punkte im Menü sind schlimmer als einer.
 - **Zurückgesetzt wird der Ablauf, nie die Einrichtung** (Namensliste,
   Grundriss, Dauer, Farben) und **nie ein Archiv**: `ziehungen` und
   `Sitzplan.archiv` sind ein Nachweis, kein Zustand.

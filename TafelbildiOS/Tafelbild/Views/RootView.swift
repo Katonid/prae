@@ -207,13 +207,24 @@ struct RootView: View {
         // falsch.
         .confirmationDialog("Auf unbenutzt zurücksetzen?",
                             isPresented: $zuruecksetzen, titleVisibility: .visible) {
-            Button("Diese Seite zurücksetzen") { setzeZurueck(nurSeite: true) }
-            Button("Ganze Tafel zurücksetzen") { setzeZurueck(nurSeite: false) }
+            Button("Diese Seite") { setzeZurueck(nurSeite: true, tiefe: .ergebnis) }
+            Button("Ganze Tafel") { setzeZurueck(nurSeite: false, tiefe: .ergebnis) }
+            // Die tiefe Stufe nur für die ganze Tafel: Sie ist der
+            // Neuanfang eines Halbjahres, nicht der Griff zwischen zwei
+            // Stunden. Für eine einzelne Liste steht sie im Menü des
+            // Elements.
+            Button("Ganze Tafel — auch die gezogenen Namen", role: .destructive) {
+                setzeZurueck(nurSeite: false, tiefe: .alles)
+            }
             Button("Abbrechen", role: .cancel) { }
         } message: {
-            Text("Gezogene Namen, ausgeloste Sitzordnungen, gelaufene "
+            Text("Gezogene Ergebnisse, ausgeloste Sitzordnungen, gelaufene "
                  + "Geburtstagsfeiern, abgehakte Punkte, laufende Timer und "
                  + "festgehaltene Kamerabilder gehen zurück auf Anfang.\n\n"
+                 + "Wer schon gezogen wurde, bleibt gemerkt — die Tafel "
+                 + "zeigt nur wieder die Ansicht vor der Auslosung. Erst der "
+                 + "dritte Knopf löscht auch das Gedächtnis; danach kann "
+                 + "dasselbe Kind sofort wieder drankommen.\n\n"
                  + "Eingerichtet bleibt alles: Namenslisten, Grundrisse, "
                  + "Zeiten, Farben. Die gesicherten Ziehungen und "
                  + "Sitzordnungen bleiben ebenfalls stehen — sie sind ein "
@@ -439,17 +450,21 @@ struct RootView: View {
     /// Wie viele Elemente dieser Tafel gerade etwas Benutztes tragen.
     private var benutzteElemente: Int {
         guard let board = store.activeBoard else { return 0 }
-        return store.benutzteElemente(boardID: board.id)
+        // Die tiefe Stufe: Der Menüpunkt soll auch dann noch aufgehen,
+        // wenn nur noch das Gedächtnis etwas zu vergessen hat.
+        return store.benutzteElemente(boardID: board.id, tiefe: .alles)
     }
 
-    private func setzeZurueck(nurSeite: Bool) {
+    private func setzeZurueck(nurSeite: Bool, tiefe: Ruecksetztiefe) {
         guard let board = store.activeBoard else { return }
         let anzahl = store.setzeZurueck(boardID: board.id,
-                                        pageID: nurSeite ? aktiveSeite : nil)
+                                        pageID: nurSeite ? aktiveSeite : nil,
+                                        tiefe: tiefe)
         Haptics.success()
-        store.showStatus(anzahl == 1
-                         ? "Ein Element steht wieder auf unbenutzt."
-                         : "\(anzahl) Elemente stehen wieder auf unbenutzt.")
+        let nachsatz = tiefe == .alles ? " Auch die gezogenen Namen sind weg." : ""
+        store.showStatus((anzahl == 1
+                          ? "Ein Element steht wieder auf unbenutzt."
+                          : "\(anzahl) Elemente stehen wieder auf unbenutzt.") + nachsatz)
     }
 
     private func seitenWechsler(_ board: Board) -> some View {
