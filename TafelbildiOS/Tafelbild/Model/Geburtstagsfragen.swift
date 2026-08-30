@@ -27,10 +27,21 @@ enum Gratulantenrolle: String, CaseIterable, Identifiable {
 
     /// Was das Kind tun soll — in der Sprache, in der man es der Klasse
     /// sagt, nicht in der eines Formulars.
+    ///
+    /// **Die Erinnerung verlangt nichts Schönes.** Bis 1.3.16 stand hier
+    /// „Erzähl von etwas Schönem, das ihr zusammen erlebt habt" — und das
+    /// ist eine Hürde: Wer mit dem Geburtstagskind wenig zu tun hat oder
+    /// sich gerade an nichts Schönes erinnert, steht vor der Klasse und
+    /// hat nichts zu sagen (Ansage des Nutzers, 08/2026). Gefragt ist
+    /// jetzt nur noch, was die beiden zusammen gemacht haben — und
+    /// zusammen gemacht hat man in einer Klasse immer etwas.
+    ///
+    /// „Gemacht", nicht „erlebt": Ein Erlebnis ist ein Begriff, etwas
+    /// gemacht zu haben ist eine Erinnerung.
     var auftrag: String {
         switch self {
         case .kompliment: return "Sag etwas, das du an ihr oder ihm magst."
-        case .erinnerung: return "Erzähl von etwas Schönem, das ihr zusammen erlebt habt."
+        case .erinnerung: return "Erzähl von etwas, das ihr zusammen gemacht habt."
         case .wunsch:     return "Wünsch etwas für das neue Lebensjahr."
         }
     }

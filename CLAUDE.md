@@ -470,6 +470,12 @@ Namens und lebt weiter.
   frei.
 - Die Gratulanten treten **ohne eigenen Tipp** direkt nach der Feier auf:
   Sie gehören dazu, nicht dahinter.
+- **Die Erinnerung verlangt nichts Schönes** (ab 1.3.17). „Erzähl von
+  etwas Schönem, das ihr zusammen erlebt habt" war eine Hürde: Wer mit dem
+  Geburtstagskind wenig zu tun hat, steht vor der Klasse und hat nichts zu
+  sagen. Gefragt wird nur noch, was die beiden zusammen *gemacht* haben —
+  und das hat man in einer Klasse immer. „Gemacht", nicht „erlebt": Ein
+  Erlebnis ist ein Begriff, etwas gemacht zu haben ist eine Erinnerung.
 - **Drei Kinder, drei Rollen** (Kompliment / Erinnerung / Wunsch) — die
   Rollen werden *gemischt*, nicht je Kind gewürfelt. Bei drei unabhängigen
   Würfen käme regelmäßig dreimal „Wunsch" heraus.
