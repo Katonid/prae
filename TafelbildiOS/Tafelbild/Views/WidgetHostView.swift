@@ -224,6 +224,10 @@ struct WidgetHostView: View {
                                  onSpringen: { seite in
                                      store.zeigeSeite(seite, auf: boardID)
                                  })
+        case .sitzplan(let value):
+            SitzplanWidgetView(content: bindSitzplan(value), interactive: !editing,
+                               list: store.nameList(value.listID),
+                               onOpenSettings: { store.settingsWidgetID = widget.id })
         case .kamera(let value):
             KameraWidgetView(content: bindKamera(value), interactive: !editing,
                              onAblegen: { datei in
@@ -378,6 +382,16 @@ struct WidgetHostView: View {
                 return fallback
             },
             set: { store.setContent(.geburtstag($0), widgetID: widget.id, boardID: boardID) }
+        )
+    }
+
+    private func bindSitzplan(_ fallback: SitzplanContent) -> Binding<SitzplanContent> {
+        Binding(
+            get: {
+                if case .sitzplan(let value)? = store.widget(widget.id, in: boardID)?.content { return value }
+                return fallback
+            },
+            set: { store.setContent(.sitzplan($0), widgetID: widget.id, boardID: boardID) }
         )
     }
 

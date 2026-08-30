@@ -149,6 +149,8 @@ struct WidgetSettingsSheet: View {
                         KameraSettings(content: bindKamera(value))
                     case .geburtstag(let value):
                         GeburtstagSettings(content: bindGeburtstag(value))
+                    case .sitzplan(let value):
+                        SitzplanSettings(content: bindSitzplan(value))
                     }
 
                     Section {
@@ -443,6 +445,16 @@ struct WidgetSettingsSheet: View {
                 return fallback
             },
             set: { store.setContent(.geburtstag($0), widgetID: widgetID, boardID: boardID) }
+        )
+    }
+
+    private func bindSitzplan(_ fallback: SitzplanContent) -> Binding<SitzplanContent> {
+        Binding(
+            get: {
+                if case .sitzplan(let value)? = store.widget(widgetID, in: boardID)?.content { return value }
+                return fallback
+            },
+            set: { store.setContent(.sitzplan($0), widgetID: widgetID, boardID: boardID) }
         )
     }
 

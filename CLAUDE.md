@@ -445,6 +445,48 @@ Namens und lebt weiter.
   keine davon; sie wird beim Ankommen in `ownBoardIDs` eingetragen, sonst
   bliebe sie unsichtbar.
 
+### Sitzplan (ab 1.3.0)
+
+- Eigener Elementtyp, **nicht** ein Modus des Zufälligen Namens. Auslosen
+  zieht aus einer Menge; der Sitzplan bildet eine Menge auf **Orte** ab,
+  die zueinander in Beziehung stehen. Der Zufällige Name bleibt
+  unangetastet (Ansage des Nutzers, 08/2026).
+- Dateien: `Model/Sitzplan.swift` (Grundriss, Regeln, Content),
+  `Model/Sitzverteilung.swift` (reine Rechnung, wie `Auslosung.swift`),
+  `Views/Widgets/SitzplanWidgetView.swift`,
+  `Views/Sheets/Sitzplanblatt.swift` (Einstellungen, Platz-Editor,
+  Regelseite).
+- **„Nah" ist der Abstand zweier Tischmitten in Tischbreiten** — die
+  einzige Größe, die Nachbar (~1,0), gegenüber (1,0–1,5), schräg (~1,4),
+  übernächster (2,0) und drei Plätze dazwischen (~4,0) ohne Sonderregeln
+  abdeckt. Reihen und Spalten zu erkennen wäre die Alternative; das
+  bräche, sobald die Tische nicht im Raster stehen — und genau das sollen
+  sie dürfen. Ein Platz misst 8 × 6 Raumeinheiten (Vorgabe des Nutzers).
+- **Die Rechnung wird sichtbar gemacht.** Ein Tipp auf einen Platz im
+  Editor lässt alle Plätze aufleuchten, die als nah gelten. Nicht
+  entfernen: Die ganze Verteilung hängt an dieser einen Zahl, und niemand
+  soll ihr blind glauben müssen.
+- **Regeln gehören der Namensliste** (`NameList.sitzregeln`), nicht dem
+  Element: Dieselben Kinder sollen nicht nebeneinandersitzen, egal wie die
+  Tische stehen. Je Kind stehen `sitzwunsch` und `alleine` am `NameEntry`.
+- **Geschoben wird nur im Einstellungsblatt.** Auf der Tafel verschöbe
+  dieselbe Ziehgeste das Element selbst.
+- Verteilt wird durch **Suchen**, nicht Rechnen (Zuordnungsproblem mit
+  Paarbedingungen, allgemein nicht exakt lösbar): mehrere zufällige
+  Anfänge, von jedem aus tauschen, solange es besser wird. Erwünschter
+  Nebeneffekt — es bleibt eine Auslosung. Gewichte: Trennen 1000,
+  Alleinsitzen 700, Zusammensitzen 160, Richtungswunsch 150.
+- **Was nicht aufgeht, steht hinterher im Bericht**, im Klartext mit
+  Namen und Zahlen. Diesen Rückweg nie stillschweigend entfernen: Ein
+  Plan, der eine Trennung bricht, ohne es zu sagen, ist schlimmer als
+  gar keiner.
+- Der Sitzplan hängt wie der Zufällige Name an einer Liste. Deshalb steht
+  er in `Board.referencedListIDs` **und** an den vier Stellen im
+  `BoardStore`, die Listenkennungen mitführen (Vorbelegung beim Anlegen,
+  Übernehmen einer fremden Tafel, Einlesen einer Sicherung,
+  `fetchMissingNameLists`). Fehlt eine davon, reist die Liste beim Teilen
+  nicht mit und die Kollegin sieht einen Plan ohne Namen.
+
 ### Ein Blatt, ein Dateiwähler — an der Wurzel, an SwiftUI vorbei
 
 Vier Regeln, jede einmal teuer gelernt (`WidgetSettingsSheet`,

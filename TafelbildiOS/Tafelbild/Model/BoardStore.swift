@@ -501,6 +501,12 @@ final class BoardStore: ObservableObject {
             content.listID = visibleNameLists.first?.id
             widget.content = .namePicker(content)
         }
+        // Ein Sitzplan ohne Liste zeigt leere Kästchen — auch er bekommt
+        // gleich die erste.
+        if case .sitzplan(var content) = widget.content, content.listID == nil {
+            content.listID = visibleNameLists.first?.id
+            widget.content = .sitzplan(content)
+        }
         widget.clampToCanvas(hoehe: boards[boardIndex].hoehe)
         // Auf der Seite anlegen, die gerade zu sehen ist.
         widget.pageID = aktiveSeitenID
@@ -1286,6 +1292,10 @@ final class BoardStore: ObservableObject {
                 if let alt = inhalt.listID, let ersatz = listenkarte[alt] { inhalt.listID = ersatz }
                 neu.content = .namePicker(inhalt)
             }
+            if case .sitzplan(var inhalt) = neu.content {
+                if let alt = inhalt.listID, let ersatz = listenkarte[alt] { inhalt.listID = ersatz }
+                neu.content = .sitzplan(inhalt)
+            }
             return neu
         }
 
@@ -1446,6 +1456,10 @@ final class BoardStore: ObservableObject {
                     if let alt = content.listID, let neu = listMap[alt] { content.listID = neu }
                     board.widgets[index].content = .namePicker(content)
                 }
+                if case .sitzplan(var content) = board.widgets[index].content {
+                    if let alt = content.listID, let neu = listMap[alt] { content.listID = neu }
+                    board.widgets[index].content = .sitzplan(content)
+                }
             }
             boards.append(board)
             ownBoardIDs.insert(board.id)
@@ -1555,6 +1569,11 @@ final class BoardStore: ObservableObject {
         for board in visibleBoards {
             for widget in board.widgets {
                 if case .namePicker(let content) = widget.content,
+                   let listID = content.listID,
+                   nameList(listID) == nil {
+                    gesucht.insert(listID)
+                }
+                if case .sitzplan(let content) = widget.content,
                    let listID = content.listID,
                    nameList(listID) == nil {
                     gesucht.insert(listID)

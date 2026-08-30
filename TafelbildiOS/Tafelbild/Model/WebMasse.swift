@@ -33,6 +33,9 @@ extension WidgetKind {
         // Der Auftritt gehört auf die halbe Tafel: Ein Geburtstag ist
         // kein Nebenbei-Element, und die Animation braucht Platz.
         case .geburtstag:   return CGSize(width: 820, height: 560)
+        // Ein Grundriss braucht Fläche: Bei dreißig Plätzen bleibt sonst je
+        // Tisch weniger Platz, als ein Name breit ist.
+        case .sitzplan:     return CGSize(width: 900, height: 620)
         }
     }
 }
