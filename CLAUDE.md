@@ -445,6 +445,17 @@ Namens und lebt weiter.
   `Weckdienst.aktivSeit` ablief, hat iOS gemeldet. Die Liste kam über
   einen Rückruf und war langsamer als der Zeittakt der Tafel — der Klang
   lief doppelt.
+- **Was aus der eigenen privaten Datenbank kommt, gehört mir** (ab 1.3.28).
+  `applyRemote` trägt jede angekommene Tafel in `ownBoardIDs` ein — bei
+  einer fremden, weil sie sonst unsichtbar bliebe; bei einer eigenen, weil
+  die private Datenbank ausschließlich Eigenes enthält.
+  Vorher entschied bei einer eigenen Tafel allein `ownerUserID`,
+  `memberUserIDs` und der Anzeigename. Alle drei sind leer, wenn die Tafel
+  angelegt wurde, bevor die iCloud-Kennung feststand oder ein Name
+  eingetragen war — und dann blieb sie auf dem **zweiten Gerät für immer
+  unsichtbar** (nachgewiesen 08/2026 an „Meine Klasse", 12 Elemente).
+  Das ist zugleich die wahrscheinlichste Wurzel doppelter Tafeln: Was man
+  auf dem zweiten Gerät nicht sieht, legt man dort noch einmal an.
 - **Sichtbarkeit** hängt an der iCloud-Kennung (`ownerUserID` /
   `memberUserIDs`) — nicht am Anzeigenamen. Eine empfangene Tafel trägt
   keine davon; sie wird beim Ankommen in `ownBoardIDs` eingetragen, sonst

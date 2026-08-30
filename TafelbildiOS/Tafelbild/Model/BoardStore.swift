@@ -428,6 +428,10 @@ final class BoardStore: ObservableObject {
         let sichtbar: Bool
         let besitzer: String
         let mitglieder: Int
+        /// Trägt die Tafel überhaupt eine iCloud-Kennung ihrer Besitzerin?
+        /// Ohne sie entscheidet nur `ownBoardIDs` und der Anzeigename über
+        /// die Sichtbarkeit — genau daran lag „Meine Klasse".
+        let ohneBesitzerkennung: Bool
         let angelegt: Date
         let geaendert: Date
 
@@ -444,6 +448,7 @@ final class BoardStore: ObservableObject {
             if eigene { teile.append("eigene") }
             if geloescht { teile.append("gelöscht") }
             if !sichtbar { teile.append("unsichtbar") }
+            if ohneBesitzerkennung { teile.append("ohne Besitzerkennung") }
             teile.append(geaendert.formatted(.dateTime.day().month().hour().minute()))
             return teile.joined(separator: " · ")
         }
@@ -468,6 +473,7 @@ final class BoardStore: ObservableObject {
                             sichtbar: visibleBoards.contains { $0.id == tafel.id },
                             besitzer: tafel.owner,
                             mitglieder: tafel.members.count,
+                            ohneBesitzerkennung: tafel.ownerUserID.isEmpty,
                             angelegt: Date(timeIntervalSince1970: Double(tafel.createdAtMs) / 1000),
                             geaendert: Date(timeIntervalSince1970: Double(tafel.updatedAtMs) / 1000))
             }
@@ -2011,11 +2017,34 @@ final class BoardStore: ObservableObject {
                     boards.append(board)
                     changed = true
                 }
-                // Aus einer Freigabe? Dann gehört sie jemand anderem, und
-                // weder meine iCloud-Kennung noch mein Name stehen darin —
-                // ohne diesen Vermerk bliebe sie unsichtbar. Zugleich trage
-                // ich mich ein, damit die Besitzerin sieht, wer mitmacht.
-                if engine.istFremd(boardID: board.id) {
+                // **Jede angekommene Tafel wird als sichtbar vermerkt** —
+                // aus zwei verschiedenen Gründen, je nachdem, woher sie
+                // kommt. Bei einer fremden trage ich mich zusätzlich als
+                // Teilnehmerin ein, damit die Besitzerin sieht, wer
+                // mitmacht.
+                if !engine.istFremd(boardID: board.id) {
+                    // **Aus der eigenen iCloud — also meine.**
+                    //
+                    // Die private Datenbank enthält ausschließlich, was
+                    // diesem Konto gehört; eine Tafel, die von dort kommt,
+                    // kann keiner anderen Person gehören. Ohne diesen
+                    // Eintrag entscheidet `isMember` allein über
+                    // `ownerUserID`, `memberUserIDs` und den Anzeigenamen —
+                    // und die sind bei einer Tafel leer, die angelegt
+                    // wurde, bevor die iCloud-Kennung feststand oder bevor
+                    // ein Name eingetragen war. Auf dem zweiten Gerät blieb
+                    // sie damit für immer unsichtbar (nachgewiesen 08/2026:
+                    // „Meine Klasse", 12 Elemente, unsichtbar).
+                    //
+                    // Das ist zugleich die wahrscheinlichste Wurzel der
+                    // doppelten Tafeln: Was man auf dem zweiten Gerät nicht
+                    // sieht, legt man dort noch einmal an.
+                    var ids = ownBoardIDs
+                    if !ids.contains(board.id) {
+                        ids.insert(board.id)
+                        ownBoardIDs = ids
+                    }
+                } else {
                     var ids = ownBoardIDs
                     if !ids.contains(board.id) {
                         ids.insert(board.id)
