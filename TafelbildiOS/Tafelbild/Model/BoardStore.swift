@@ -456,6 +456,17 @@ final class BoardStore: ObservableObject {
     }
 
     /// Merkt eine Änderung an einer Tafel vor: Zeitstempel, Speichern, Hochladen.
+    /// Eine Tafel ändern — der einzige Weg von außerhalb dieser Datei.
+    ///
+    /// `boards` hat einen dateiprivaten Setter, damit niemand daran vorbei
+    /// schreibt und den Zeitstempel vergisst. Erweiterungen in anderen
+    /// Dateien (der Geburtstagsdienst) brauchen trotzdem Zugriff — sie
+    /// bekommen ihn hier, mit `touch` in der eigenen Hand.
+    func aendere(_ boardID: String, _ arbeit: (inout Board) -> Void) {
+        guard let index = boards.firstIndex(where: { $0.id == boardID }) else { return }
+        arbeit(&boards[index])
+    }
+
     /// Nicht `private`: Der Geburtstagsdienst liegt in einer eigenen Datei
     /// und käme sonst nicht heran (`private` gilt in Swift dateiweit).
     func touch(_ boardID: String, sync: Bool = true) {

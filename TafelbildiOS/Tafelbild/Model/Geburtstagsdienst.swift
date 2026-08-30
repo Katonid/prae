@@ -32,69 +32,82 @@ extension BoardStore {
     /// Legt für jedes Kind, das heute feiert, eine Seite an — falls sie
     /// nicht schon steht.
     func legeGeburtstagsseitenAn(boardID: String, heute: Date = Date()) {
-        guard let stelle = boards.firstIndex(where: { $0.id == boardID }) else { return }
-        guard boards[stelle].geburtstage else { return }
-        guard let listeID = boards[stelle].geburtstagslisteID(vorhanden: nameLists),
+        guard let stand = board(boardID), stand.geburtstage else { return }
+        guard let listeID = stand.geburtstagslisteID(vorhanden: nameLists),
               let liste = nameLists.first(where: { $0.id == listeID }) else { return }
 
         let jahr = Calendar.current.component(.year, from: heute)
         let feiernde = Geburtstage.feiernde(in: liste, am: heute)
         guard !feiernde.isEmpty else { return }
 
-        stelleSeitenSicher(stelle)
+        let ich = myUserID ?? ""
         var etwasGetan = false
-        // Welche Feiern zuletzt liefen — damit sich nicht zwei Kinder am
-        // selben Tag dasselbe teilen.
-        var bisher = boards[stelle].widgets.compactMap { widget -> String? in
-            if case .geburtstag(let inhalt) = widget.content { return inhalt.feier }
-            return nil
-        }
 
-        for eintrag in feiernde {
-            // Steht die Seite für dieses Kind und dieses Jahr schon?
-            let schonDa = boards[stelle].widgets.contains { widget in
-                guard case .geburtstag(let inhalt) = widget.content else { return false }
-                return inhalt.eintragID == eintrag.id && inhalt.jahr == jahr && !inhalt.hinweis
+        aendere(boardID) { tafel in
+            // Eine Tafel ohne ausdrückliche Seiten hat genau eine — die muss
+            // stehen, bevor eine zweite dazukommt.
+            if tafel.pages.isEmpty {
+                tafel.pages = [BoardPage(name: "", drawing: tafel.drawing)]
             }
-            if schonDa { continue }
+            // Welche Feiern zuletzt liefen — damit sich nicht zwei Kinder am
+            // selben Tag dasselbe teilen.
+            var bisher = tafel.widgets.compactMap { widget -> String? in
+                if case .geburtstag(let inhalt) = widget.content { return inhalt.feier }
+                return nil
+            }
 
-            let art = Feierart.naechste(nach: bisher)
-            bisher.append(art.rawValue)
+            for eintrag in feiernde {
+                // Steht die Seite für dieses Kind und dieses Jahr schon?
+                let schonDa = tafel.widgets.contains { widget in
+                    guard case .geburtstag(let inhalt) = widget.content else { return false }
+                    return inhalt.eintragID == eintrag.id && inhalt.jahr == jahr && !inhalt.hinweis
+                }
+                if schonDa { continue }
 
-            var seite = BoardPage()
-            seite.name = "🎂 " + (eintrag.text.nonEmpty ?? "Geburtstag")
-            boards[stelle].pages.append(seite)
+                let art = Feierart.naechste(nach: bisher)
+                bisher.append(art.rawValue)
 
-            var inhalt = GeburtstagContent()
-            inhalt.eintragID = eintrag.id
-            inhalt.name = eintrag.text
-            inhalt.geburtstag = eintrag.geburtstag
-            inhalt.jahr = jahr
-            inhalt.feier = art.rawValue
+                var seite = BoardPage()
+                seite.name = "🎂 " + (eintrag.text.nonEmpty ?? "Geburtstag")
+                tafel.pages.append(seite)
 
-            var element = BoardWidget(content: .geburtstag(inhalt))
-            let masse = WidgetKind.geburtstag.defaultSize
-            element.width = masse.width
-            element.height = masse.height
-            element.x = (Layout.canvasWidth - masse.width) / 2
-            element.y = (boards[stelle].hoehe - masse.height) / 2
-            element.z = (boards[stelle].widgets.map(\.z).max() ?? 0) + 1
-            element.pageID = seite.id
-            element.erstelltVon = myUserID ?? ""
-            element.clampToCanvas(hoehe: boards[stelle].hoehe)
-            boards[stelle].widgets.append(element)
+                var inhalt = GeburtstagContent()
+                inhalt.eintragID = eintrag.id
+                inhalt.name = eintrag.text
+                inhalt.geburtstag = eintrag.geburtstag
+                inhalt.jahr = jahr
+                inhalt.feier = art.rawValue
 
-            setzeHinweis(stelle: stelle, eintrag: eintrag, jahr: jahr, zielSeite: seite.id)
-            etwasGetan = true
+                var element = BoardWidget(content: .geburtstag(inhalt))
+                let masse = WidgetKind.geburtstag.defaultSize
+                element.width = masse.width
+                element.height = masse.height
+                element.x = (Layout.canvasWidth - masse.width) / 2
+                element.y = (tafel.hoehe - masse.height) / 2
+                element.z = (tafel.widgets.map(\.z).max() ?? 0) + 1
+                element.pageID = seite.id
+                element.erstelltVon = ich
+                element.clampToCanvas(hoehe: tafel.hoehe)
+                tafel.widgets.append(element)
+
+                Self.setzeHinweis(auf: &tafel, eintrag: eintrag, jahr: jahr,
+                                  zielSeite: seite.id, ich: ich)
+                etwasGetan = true
+            }
         }
 
         if etwasGetan { touch(boardID) }
     }
 
     /// Der kleine Hinweis auf der ersten Seite, der zur Feier führt.
-    private func setzeHinweis(stelle: Int, eintrag: NameEntry, jahr: Int, zielSeite: String) {
-        let ersteSeite = boards[stelle].ersteSeitenID
-        let schonDa = boards[stelle].widgets.contains { widget in
+    ///
+    /// `static` und mit `inout`: Er läuft innerhalb von `aendere`, und dort
+    /// ist die Tafel schon ausgeliehen — ein zweiter Zugriff über `boards`
+    /// wäre ein Zugriff auf denselben Wert.
+    private static func setzeHinweis(auf tafel: inout Board, eintrag: NameEntry,
+                                     jahr: Int, zielSeite: String, ich: String) {
+        let ersteSeite = tafel.ersteSeitenID
+        let schonDa = tafel.widgets.contains { widget in
             guard case .geburtstag(let inhalt) = widget.content else { return false }
             return inhalt.hinweis && inhalt.eintragID == eintrag.id && inhalt.jahr == jahr
         }
@@ -115,17 +128,17 @@ extension BoardStore {
         // etwas zu verdecken.
         element.x = Layout.canvasWidth - 380 - 40
         // Untereinander, wenn mehrere Kinder feiern.
-        let schonHinweise = boards[stelle].widgets.filter { widget in
+        let schonHinweise = tafel.widgets.filter { widget in
             if case .geburtstag(let i) = widget.content { return i.hinweis }
             return false
         }.count
         element.y = 40 + Double(schonHinweise) * 126
-        element.z = (boards[stelle].widgets.map(\.z).max() ?? 0) + 1
+        element.z = (tafel.widgets.map(\.z).max() ?? 0) + 1
         element.pageID = ersteSeite
-        element.erstelltVon = myUserID ?? ""
+        element.erstelltVon = ich
         element.karte = .nie
-        element.clampToCanvas(hoehe: boards[stelle].hoehe)
-        boards[stelle].widgets.append(element)
+        element.clampToCanvas(hoehe: tafel.hoehe)
+        tafel.widgets.append(element)
     }
 
     /// Zeigt eine Seite — der Hinweis springt damit zur Feier.
