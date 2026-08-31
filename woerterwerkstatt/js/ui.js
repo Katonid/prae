@@ -167,7 +167,10 @@ export function auswahl(werte, aktuell, beiWahl) {
         knopf.setAttribute('aria-checked', 'true');
         beiWahl(wert.id);
       },
-    }, wert.emoji ? h('span', { class: 'auswahl__emoji' }, wert.emoji) : null, wert.label);
+    },
+    wert.emoji ? h('span', { class: 'auswahl__emoji' }, wert.emoji) : null,
+    wert.probe ? h('i', { class: 'auswahl__probe', style: { background: wert.probe } }) : null,
+    wert.label);
     gruppe.appendChild(knopf);
   }
   return gruppe;

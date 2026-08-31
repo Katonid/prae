@@ -19,14 +19,18 @@ HIER = Path(__file__).resolve().parent
 AUS = HIER.parent / 'icons'
 UEBER = 3  # Überabtastung je Achse
 
-# Farben (0–255)
-GRUND_OBEN = (99, 102, 241)
-GRUND_UNTEN = (236, 72, 153)
+# Farben (0–255) — Blau, Orange, Gelb.
+# Der Grund läuft von Dunkelblau nach Himmelblau und NICHT von Blau nach
+# Orange: Die beiden liegen auf dem Farbkreis gegenüber, ein Verlauf zwischen
+# ihnen ist auf halbem Weg schmutziggrau. Orange kommt über die Buchstaben-
+# kästchen ins Bild, Gelb über den Stift.
+GRUND_OBEN = (29, 78, 216)
+GRUND_UNTEN = (14, 165, 233)
 BLATT = (255, 255, 255)
 BLATT_RAND = (226, 232, 240)
 LINIE = (203, 213, 225)
-KASTEN = (20, 184, 166)
-KASTEN_GROSS = (13, 148, 136)
+KASTEN = (249, 115, 22)
+KASTEN_GROSS = (234, 88, 12)
 STIFT_HOLZ = (250, 204, 21)
 STIFT_SPITZE = (120, 53, 15)
 
@@ -148,8 +152,8 @@ SVG = '''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img
      aria-label="Wörterwerkstatt">
   <defs>
     <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#6366f1"/>
-      <stop offset="1" stop-color="#ec4899"/>
+      <stop offset="0" stop-color="#1d4ed8"/>
+      <stop offset="1" stop-color="#0ea5e9"/>
     </linearGradient>
   </defs>
   <rect width="512" height="512" rx="112" fill="url(#g)"/>
@@ -168,7 +172,7 @@ def svg_schreiben(pfad):
         for y in LINIEN_Y)
     kaesten = '\n  '.join(
         f'<rect x="{x0}" y="{y0}" width="{x1 - x0}" height="{y1 - y0}" rx="8" '
-        + (f'fill="#0d9488"/>' if gross else 'fill="rgba(20,184,166,.3)" stroke="#0d9488" stroke-width="6"/>')
+        + ('fill="#ea580c"/>' if gross else 'fill="rgba(249,115,22,.28)" stroke="#ea580c" stroke-width="6"/>')
         for x0, x1, y0, y1, gross in KAESTCHEN)
     pfad.write_text(SVG.format(linien=linien, kaesten=kaesten), encoding='utf-8')
     print(f'{pfad.name}')
@@ -193,7 +197,7 @@ def main():
             stelle = int(x * 512 / innen) * 4
             zeile += quelle[stelle:stelle + 4]
         verkleinert.append(bytes(zeile))
-    grundfarbe = bytes((99, 102, 241, 255))
+    grundfarbe = bytes((29, 78, 216, 255))
     voll = []
     for y in range(512):
         if y < rand or y >= 512 - rand:

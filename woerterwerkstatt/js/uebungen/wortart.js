@@ -30,7 +30,7 @@ export const UEBUNG = {
   name: 'Wortart',
   kurz: 'Nomen, Verb oder Adjektiv?',
   emoji: '🧩',
-  farbe: '#f59e0b',
+  farbe: '#f97316',
   beschreibung: 'Erkenne die Wortart — und schreibe dann die passenden Formen auf.',
 
   aufbauen({ eintrag, aufFertig }) {
@@ -76,11 +76,11 @@ export const UEBUNG = {
         if (richtige) richtige.classList.add('is-loesung');
         sfx.falsch();
         rueckmeldung.className = 'wortarten__antwort is-falsch';
-        rueckmeldung.textContent = `Es ist ein ${WORTARTEN[eintrag.art].name}. ${WORTARTEN[eintrag.art].hilfe}`;
+        rueckmeldung.textContent = `✗ Es ist ein ${WORTARTEN[eintrag.art].name}. ${WORTARTEN[eintrag.art].hilfe}`;
       } else {
         sfx.richtig();
         rueckmeldung.className = 'wortarten__antwort is-richtig';
-        rueckmeldung.textContent = `Stimmt — ein ${WORTARTEN[eintrag.art].name}.`;
+        rueckmeldung.textContent = `✓ Stimmt — ein ${WORTARTEN[eintrag.art].name}.`;
       }
       await warte(700);
       formenSchreiben();

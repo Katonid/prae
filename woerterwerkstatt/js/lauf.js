@@ -189,7 +189,7 @@ function dauerText(dauer) {
  * Bei „Bewegung reduzieren“ passiert gar nichts (siehe Aufrufer).
  */
 function konfetti(platz) {
-  const farben = ['#f43f5e', '#f59e0b', '#22c55e', '#0ea5e9', '#a855f7'];
+  const farben = ['#2563eb', '#38bdf8', '#f97316', '#facc15', '#dc2626'];
   const feld = h('div', { class: 'konfetti', 'aria-hidden': 'true' });
   for (let i = 0; i < 30; i += 1) {
     feld.appendChild(h('i', {

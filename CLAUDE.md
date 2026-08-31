@@ -324,6 +324,20 @@ Namens und lebt weiter.
   die eine native Hülle bedienen müsste; wer irgendwo direkt
   `speechSynthesis` aufruft, verschiebt die Portierungsarbeit von einer Datei
   auf alle. Der Weg zu einer iOS-App steht in `docs/woerterwerkstatt/ios.md`.
+- **Blau, Orange, Gelb — kein Grün, kein Lila** (Ansage des Nutzers, 08/2026).
+  Blau ist die Arbeitsfarbe (Knöpfe, Fokus, Wortbild), Orange und Gelb sind
+  die Belohnung (Sterne, Fortschritt, Auftrag der Woche, Konfetti). Die fünf
+  Stufen laufen kühl → warm mit; Nomen blau, Verben orange, Adjektive gelb.
+  Zwei Fallen dabei:
+  - **Nie einen Verlauf von Blau nach Orange.** Die liegen auf dem Farbkreis
+    gegenüber und treffen sich in schmutzigem Grau. Deshalb trägt jedes Schema
+    in `SCHEMATA` (`js/store.js`) seinen Verlauf ausgeschrieben, statt ihn aus
+    `von/mitte/bis` zu rechnen: Die drei sind die Hintergrundwolken (dort
+    dürfen Blau und Orange nebeneinander), `verlauf` und `warm` bleiben je in
+    EINER Farbfamilie. `theme.js` reicht beide nur durch.
+  - **„Richtig" ist blau statt grün** — deshalb steht vor jeder Rückmeldung ein
+    Zeichen (✓ / ↻ / ✗). Die Farbe darf die Antwort begleiten, tragen muss sie
+    das Zeichen und der Wortlaut. Nicht wieder entfernen.
 - Schriften liegen als woff2 in `woerterwerkstatt/fonts/` (Andika, Lexend,
   Quicksand — alle mit einstöckigem a und g) und werden **nie** von fremden
   Servern geladen. Die App-Icons erzeugt `scripts/generate-icons.py`.

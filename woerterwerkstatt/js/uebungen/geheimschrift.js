@@ -28,7 +28,7 @@ export const UEBUNG = {
   name: 'Geheimschrift',
   kurz: 'Lies das Wortbild',
   emoji: '🔎',
-  farbe: '#14b8a6',
+  farbe: '#eab308',
   beschreibung: 'Nur die Gestalt des Wortes ist zu sehen: groß oder klein, Dach, Mitte oder Keller.',
 
   aufbauen({ eintrag, bereich, aufFertig }) {

@@ -25,7 +25,7 @@ import { angemeldet, bereicheHochladen, bereicheHolen } from './cloud.js';
 import { PAKETGROESSE } from './paket.js';
 
 const EMOJIS = ['📗', '🍎', '🌳', '🚂', '⭐', '🐬', '🎵', '🧁', '🏰', '🦕', '🌍', '🎨', '⚽', '🚀', '🐝', '🎪'];
-const FARBEN = ['#6366f1', '#0ea5e9', '#14b8a6', '#22c55e', '#eab308', '#f97316', '#ef4444', '#ec4899', '#a855f7'];
+const FARBEN = ['#2563eb', '#0ea5e9', '#38bdf8', '#0369a1', '#f97316', '#ea580c', '#f59e0b', '#eab308', '#dc2626'];
 
 /**
  * Ein Vorschlag für die Formen — bewusst zurückhaltend.
@@ -313,7 +313,7 @@ export function bereicheVerwalten(beiAenderung) {
     for (const bereich of eigene) {
       liste.appendChild(h('button', {
         class: 'bereichsliste__eintrag', type: 'button',
-        style: { '--bereichsfarbe': bereich.farbe || '#6366f1' },
+        style: { '--bereichsfarbe': bereich.farbe || '#2563eb' },
         onclick: () => bereichBearbeiten(bereich, () => { zeichnen(); if (beiAenderung) beiAenderung(); }),
       },
         h('span', { class: 'bereichsliste__emoji' }, bereich.emoji || '📗'),

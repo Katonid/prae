@@ -118,6 +118,31 @@ Konten brauchen außerdem eine einmalige Freischaltung (Authentication →
 E-Mail/Passwort). Ohne sie zeigt die App einen Hinweis; alles Üben läuft
 trotzdem.
 
+## Farben
+
+Blau, Orange und Gelb — kein Grün, kein Lila (Ansage des Nutzers, 08/2026).
+
+* **Blau ist die Arbeitsfarbe**: Knöpfe, Fokus, Zahlen, das Wortbild der
+  Geheimschrift.
+* **Orange und Gelb sind die Belohnungsfarben**: Sterne, Fortschrittsbalken,
+  der Auftrag der Woche, Konfetti.
+* Die fünf Stufen laufen von kühl nach warm mit — Blau, Hellblau, Gelb,
+  Orange, Rot —, so wie sie schwerer werden. Dieselbe Ordnung tragen die
+  Wortarten: Nomen blau, Verben orange, Adjektive gelb.
+
+Zwei Dinge, die man beim Ändern wissen muss:
+
+1. **Kein Verlauf von Blau nach Orange.** Die beiden liegen auf dem Farbkreis
+   gegenüber; ein Verlauf zwischen ihnen ist auf halbem Weg schmutziggrau.
+   Deshalb hat jedes Farbschema (`js/store.js`, `SCHEMATA`) seinen Verlauf
+   ausgeschrieben stehen, statt ihn aus `von/mitte/bis` zu rechnen: Diese drei
+   sind die weit auseinanderliegenden Farbwolken im Hintergrund, `verlauf` und
+   `warm` bleiben je in einer Farbfamilie.
+2. **„Richtig" ist blau, nicht grün.** Damit die Rückmeldung nicht allein an
+   der Farbe hängt — was sie ohnehin nie sollte, weder für ein
+   farbfehlsichtiges Kind noch auf einem ausgeblichenen Beamer —, steht vor
+   jeder Antwort ein Zeichen: ✓ richtig, ↻ noch einmal, ✗ falsch.
+
 ## Aufbau
 
 ```

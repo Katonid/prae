@@ -47,7 +47,7 @@ export const UEBUNG = {
   name: 'Diktat',
   kurz: 'Schreibe nach Gehör',
   emoji: '🎧',
-  farbe: '#e11d48',
+  farbe: '#dc2626',
   beschreibung: 'Das Wort wird vorgelesen — schreib es auf, ohne es zu sehen.',
 
   aufbauen({ eintrag, aufFertig }) {

@@ -21,7 +21,11 @@ export function anwenden() {
   stil.setProperty('--akzent', e.von);
   stil.setProperty('--akzent-2', e.mitte);
   stil.setProperty('--akzent-3', e.bis);
-  stil.setProperty('--akzent-verlauf', `linear-gradient(135deg, ${e.von} 0%, ${e.mitte} 55%, ${e.bis} 100%)`);
+  // Warum der Verlauf aus dem Schema kommt und nicht aus von/mitte/bis
+  // gerechnet wird, steht bei SCHEMATA in store.js: Blau nach Orange läuft
+  // durch Grau.
+  stil.setProperty('--akzent-verlauf', e.verlauf);
+  stil.setProperty('--warm-verlauf', e.warm);
   stil.setProperty('--akzent-schein', `0 16px 38px -14px rgba(${e.schein}, 0.9)`);
   stil.setProperty('--akzent-zart', `rgba(${e.schein}, 0.14)`);
   stil.setProperty('--schrift-lern', f.stack);

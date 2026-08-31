@@ -56,7 +56,11 @@ export function einstellungenZeigen() {
         probe),
 
       abschnitt('Farben',
-        auswahl(SCHEMATA.map((s) => ({ id: s.id, label: s.label })), e.schema, (id) => {
+        auswahl(SCHEMATA.map((s) => ({
+          id: s.id,
+          label: s.label,
+          probe: `linear-gradient(90deg, ${s.von} 0%, ${s.mitte} 50%, ${s.bis} 100%)`,
+        })), e.schema, (id) => {
           setzeEinstellung('schema', id);
           anwenden();
         })),
