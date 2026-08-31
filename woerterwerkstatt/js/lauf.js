@@ -15,10 +15,47 @@
 import { h, leeren, gemischt, warte, wenigBewegung } from './util.js';
 import { paket, paketzahl } from './paket.js';
 import { uebungNachId } from './uebungen/index.js';
-import { ergebnisMerken, merkeBereich, protokollMerken } from './store.js';
+import {
+  ergebnisMerken, merkeBereich, protokollMerken, laufMerken, laufStand, laufVergessen,
+} from './store.js';
 import { sterne as sterneAnzeige, balken } from './ui.js';
 import { bleibWach } from './plattform.js';
 import * as sfx from './sfx.js';
+
+/**
+ * Einen gemerkten Stand wieder zu Wörtern machen — oder verwerfen.
+ *
+ * Gemerkt sind nur Kennungen (`bereichId:wort`). Zwischen zwei Sitzungen kann
+ * sich das Päckchen geändert haben: Eine Lehrkraft hat ihren eigenen Bereich
+ * bearbeitet, ein Wort ist dazugekommen oder weggefallen. Dann passt der
+ * Stand nicht mehr, und weiterzumachen hieße, mit halb falschen Zahlen zu
+ * rechnen. In dem Fall wird lieber von vorn begonnen — ein verlorener halber
+ * Durchgang ist ärgerlich, ein falscher Zähler ist schlimmer.
+ *
+ * Geprüft wird deshalb streng: Jede Kennung muss im Päckchen vorkommen, und
+ * jedes Wort muss genau einmal entweder offen oder erledigt sein.
+ */
+function aufgenommen(stand, woerter) {
+  if (!stand || !Array.isArray(stand.warteschlange) || !Array.isArray(stand.merkzettel)) return null;
+  const nachId = new Map(woerter.map((e) => [e.id, e]));
+  const finde = (ids) => {
+    const gefunden = ids.map((id) => nachId.get(id));
+    return gefunden.some((e) => !e) ? null : gefunden;
+  };
+  const warteschlange = finde(stand.warteschlange);
+  const nachzuegler = finde(stand.nachzuegler || []);
+  if (!warteschlange || !nachzuegler) return null;
+  if (stand.merkzettel.some((m) => !nachId.has(m.id))) return null;
+  if (warteschlange.length + stand.merkzettel.length !== woerter.length) return null;
+  // Nichts mehr offen? Dann war der Durchgang in Wahrheit fertig.
+  if (!warteschlange.length && !nachzuegler.length) return null;
+  return {
+    warteschlange,
+    nachzuegler,
+    merkzettel: stand.merkzettel.map((m) => ({ id: m.id, wort: m.wort, richtig: !!m.richtig })),
+    dauer: Number(stand.dauer) || 0,
+  };
+}
 
 /**
  * Startet einen Durchgang und hängt ihn in `platz`.
@@ -34,30 +71,58 @@ export function laufStarten({ platz, bereich, paketNummer, stufeId, aufEnde, auf
     return () => {};
   }
 
+  const gesamt = woerter.length;
+
+  // Ein abgebrochener Durchgang von vorhin wird fortgesetzt — im Unterricht
+  // ist das der Regelfall, nicht die Ausnahme. Gemerkt sind nur Kennungen;
+  // die Wörter selbst kommen frisch aus dem Päckchen.
+  const gemerkt = aufgenommen(laufStand(bereich.id, paketNummer, stufeId), woerter);
+
   // Die Reihenfolge wird gemischt: Sonst lernt ein Kind beim vierten Durchgang
   // die Reihenfolge statt der Wörter.
-  let warteschlange = gemischt(woerter.slice());
-  const gesamt = woerter.length;
-  const begonnen = Date.now();
-  let erledigt = 0;
-  let richtig = 0;
+  let warteschlange = gemerkt ? gemerkt.warteschlange : gemischt(woerter.slice());
+  let begonnen = Date.now();
+  let vorherigeDauer = gemerkt ? gemerkt.dauer : 0;
   let laufend = true;
-  const nachzuegler = [];
-  const merkzettel = [];
+  const nachzuegler = gemerkt ? gemerkt.nachzuegler : [];
+  const merkzettel = gemerkt ? gemerkt.merkzettel : [];
+  // Das Wort, das gerade auf dem Tisch liegt. Es ist aus der Warteschlange
+  // heraus, aber noch nicht beantwortet — beim Sichern muss es wieder vorn
+  // hinein, sonst fiele es bei einem Abbruch zwischen die Stühle.
+  let aktuell = null;
+  let erledigt = merkzettel.length;
+  let richtig = merkzettel.filter((m) => m.richtig).length;
 
   bleibWach(true);
 
   const fortschrittsbalken = balken(0, 'Fortschritt im Päckchen');
   const zaehler = h('span', { class: 'lauf__zaehler' });
   const abbrechen = h('button', { class: 'lauf__zu', type: 'button', title: 'Übung beenden', 'aria-label': 'Übung beenden' }, '✕');
+  // Nur beim Fortsetzen: Wer lieber noch einmal ganz von vorn anfängt, soll
+  // das können, ohne den Stand irgendwo suchen zu müssen.
+  const vonVorn = gemerkt
+    ? h('button', { class: 'lauf__vonvorn', type: 'button', title: 'Diesen Durchgang von vorn beginnen' }, '⟲ Von vorn')
+    : null;
   const kopf = h('header', { class: 'lauf__kopf' },
     abbrechen,
     h('div', { class: 'lauf__titel' },
       h('span', { class: 'lauf__stufe' }, `${uebung.emoji} ${uebung.name}`),
       h('span', { class: 'lauf__bereich' }, `${bereich.emoji || '📗'} ${bereich.name} · Päckchen ${paketNummer + 1}`)),
+    vonVorn,
     zaehler);
   const buehne = h('div', { class: 'lauf__buehne' });
-  const wurzel = h('div', { class: 'lauf' }, kopf, fortschrittsbalken, buehne);
+  // Eine Notiz über der Bühne — NICHT darin: `naechstes()` räumt die Bühne
+  // für jede Karte leer. Bis 1.7.0 stand „Und jetzt noch einmal die Wörter,
+  // die schwer waren" mitten darin und war im selben Augenblick wieder weg,
+  // in dem sie erschien. Niemand hat sie je gelesen.
+  const laufhinweis = h('p', { class: 'lauf__runde is-versteckt' });
+  const wurzel = h('div', { class: 'lauf' }, kopf, fortschrittsbalken, laufhinweis, buehne);
+
+  const hinweisSagen = (text) => {
+    laufhinweis.textContent = text;
+    laufhinweis.classList.remove('is-versteckt');
+  };
+  const hinweisWeg = () => laufhinweis.classList.add('is-versteckt');
 
   leeren(platz).appendChild(wurzel);
 
@@ -66,13 +131,58 @@ export function laufStarten({ platz, bereich, paketNummer, stufeId, aufEnde, auf
     const { frage } = await import('./ui.js');
     const ja = await frage({
       titel: 'Übung beenden?',
-      text: erledigt ? `Du hast ${erledigt} von ${gesamt} Wörtern geschafft. Der Durchgang wird nicht gewertet.` : 'Du hast noch nichts geschafft — der Durchgang wird nicht gewertet.',
+      // Kein Drohsatz mehr: Der Stand bleibt liegen, und das ist die
+      // wichtigste Auskunft für ein Kind, dem es gerade klingelt.
+      text: erledigt
+        ? `Du hast ${erledigt} von ${gesamt} Wörtern geschafft. Dein Stand bleibt gespeichert — `
+          + 'beim nächsten Mal geht es hier weiter. Gewertet wird erst das ganze Päckchen.'
+        : 'Du hast noch nichts geschafft. Beim nächsten Mal fängst du hier wieder an.',
       ja: 'Beenden',
       nein: 'Weitermachen',
-      gefahr: true,
     });
     if (ja) beenden(true);
   });
+
+  if (vonVorn) {
+    vonVorn.addEventListener('click', async () => {
+      if (!laufend) return;
+      const { frage } = await import('./ui.js');
+      const ja = await frage({
+        titel: 'Von vorn beginnen?',
+        text: `Die ${erledigt} schon bearbeiteten Wörter kommen noch einmal dran.`,
+        ja: 'Von vorn',
+        nein: 'Weiter wie bisher',
+      });
+      if (!ja) return;
+      laufVergessen(bereich.id, paketNummer, stufeId);
+      warteschlange = gemischt(woerter.slice());
+      nachzuegler.length = 0;
+      merkzettel.length = 0;
+      erledigt = 0;
+      richtig = 0;
+      aktuell = null;
+      vorherigeDauer = 0;
+      begonnen = Date.now();
+      vonVorn.remove();
+      naechstes();
+    });
+  }
+
+  /** Den Stand sichern — nach jedem Wort und beim Abbrechen. */
+  function standSichern() {
+    laufMerken({
+      bereichId: bereich.id,
+      paket: paketNummer,
+      stufe: stufeId,
+      bereichName: bereich.name,
+      bereichEmoji: bereich.emoji || '',
+      gesamt,
+      warteschlange: (aktuell ? [aktuell, ...warteschlange] : warteschlange).map((e) => e.id),
+      nachzuegler: nachzuegler.map((e) => e.id),
+      merkzettel,
+      dauer: vorherigeDauer + (Date.now() - begonnen),
+    });
+  }
 
   function standZeigen() {
     zaehler.textContent = `${Math.min(erledigt + 1, gesamt)} / ${gesamt}`;
@@ -83,15 +193,19 @@ export function laufStarten({ platz, bereich, paketNummer, stufeId, aufEnde, auf
 
   function naechstes() {
     if (!laufend) return;
+    let neueRunde = false;
     if (!warteschlange.length && nachzuegler.length) {
       // Die Wörter, die beim ersten Mal danebengingen, kommen noch einmal —
       // aber sie sind schon gewertet.
       warteschlange = nachzuegler.splice(0, nachzuegler.length);
-      buehne.appendChild(h('p', { class: 'lauf__runde' }, 'Und jetzt noch einmal die Wörter, die schwer waren.'));
+      neueRunde = true;
     }
     if (!warteschlange.length) { beenden(false); return; }
 
+    // Die Notiz vom vorigen Wort ist überholt.
+    hinweisWeg();
     const eintrag = warteschlange.shift();
+    aktuell = eintrag;
     standZeigen();
 
     const karte = h('div', { class: 'lauf__karte' });
@@ -107,6 +221,7 @@ export function laufStarten({ platz, bereich, paketNummer, stufeId, aufEnde, auf
     });
     karte.appendChild(inhalt);
     leeren(buehne).appendChild(karte);
+    if (neueRunde) hinweisSagen('Und jetzt noch einmal die Wörter, die schwer waren.');
     requestAnimationFrame(() => karte.classList.add('is-da'));
   }
 
@@ -129,6 +244,8 @@ export function laufStarten({ platz, bereich, paketNummer, stufeId, aufEnde, auf
       else nachzuegler.push(eintrag);
       merkzettel.push({ id: eintrag.id, wort: eintrag.wort, richtig: Boolean(ergebnis.richtig) });
     }
+    aktuell = null;
+    standSichern();
     standZeigen();
     karte.classList.add(ergebnis.richtig ? 'is-geschafft' : 'is-daneben');
     karte.dispatchEvent(new CustomEvent('uebung-ende', { bubbles: true }));
@@ -145,11 +262,15 @@ export function laufStarten({ platz, bereich, paketNummer, stufeId, aufEnde, auf
     bleibWach(false);
     buehne.querySelectorAll('.lauf__karte').forEach((k) => k.dispatchEvent(new CustomEvent('uebung-ende', { bubbles: true })));
     if (abgebrochen) {
+      // Der Stand bleibt liegen — beim nächsten Öffnen geht es hier weiter.
+      standSichern();
       if (aufAbbruch) aufAbbruch();
       else aufEnde({ richtig, gesamt, sterne: 0, abgebrochen: true });
       return;
     }
-    const dauer = Date.now() - begonnen;
+    // Durchgezogen: Der gemerkte Stand hat seinen Zweck erfüllt und geht weg.
+    laufVergessen(bereich.id, paketNummer, stufeId);
+    const dauer = vorherigeDauer + (Date.now() - begonnen);
     const stand = ergebnisMerken(bereich.id, paketNummer, stufeId, { richtig, gesamt, dauer });
     merkeBereich(bereich.id);
     zeigeErgebnis(stand, dauer);
@@ -187,6 +308,11 @@ export function laufStarten({ platz, bereich, paketNummer, stufeId, aufEnde, auf
   }
 
   naechstes();
+  // Nach `naechstes()`, nicht davor: Sonst räumte es die Notiz gleich wieder
+  // weg. Sie bleibt bis zum nächsten Wort stehen.
+  if (gemerkt) {
+    hinweisSagen(`Weiter geht’s — ${erledigt} von ${gesamt} Wörtern hast du schon geschafft.`);
+  }
 
   return () => { laufend = false; bleibWach(false); };
 }

@@ -214,6 +214,36 @@ button { cursor: pointer; }
 .auftrag__text { flex: 1; font-size: 18px; font-weight: 700; }
 .auftrag__pfeil { font-size: 22px; opacity: 0.7; }
 
+/* „Weitermachen" — der angefangene Durchgang. Ruhiger als der Auftrag der
+   Woche: Der kommt von der Lehrkraft und darf leuchten, dieser hier ist ein
+   Lesezeichen und soll ihm nicht die Schau stehlen. */
+.weiter {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  margin-bottom: 20px;
+  padding: 14px 18px;
+  border: 1px solid var(--glas-kante);
+  border-radius: var(--rund-karte);
+  background: var(--glas);
+  backdrop-filter: blur(var(--glas-unscharf)) saturate(150%);
+  -webkit-backdrop-filter: blur(var(--glas-unscharf)) saturate(150%);
+  text-align: left;
+  box-shadow: var(--schatten);
+  transition: transform 0.18s var(--feder);
+}
+
+.weiter:hover { transform: translateY(-2px); }
+.weiter__marke { font-size: 12px; text-transform: uppercase; letter-spacing: 0.12em; font-weight: 700; color: var(--akzent); }
+.weiter__text { flex: 1; font-size: 16px; font-weight: 700; }
+.weiter__stand { font-size: 13px; color: var(--tinte-zart); font-variant-numeric: tabular-nums; }
+
+@media (max-width: 560px) {
+  .weiter { flex-wrap: wrap; }
+  .weiter__marke { width: 100%; }
+}
+
 @media (max-width: 560px) {
   .auftrag { flex-wrap: wrap; }
   .auftrag__marke { width: 100%; }
@@ -367,6 +397,18 @@ button { cursor: pointer; }
 }
 
 .stufe__emoji { font-size: 24px; }
+
+/* Ein angefangener Durchgang — an der Kachel zu sehen, bevor man tippt. */
+.stufe__offen {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--akzent);
+  background: var(--akzent-zart);
+  border-radius: 999px;
+  padding: 3px 9px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
 .stufe__text { display: grid; gap: 2px; }
 .stufe__text strong { font-size: 17px; }
 .stufe__text span { font-size: 13px; color: var(--tinte-zart); }
@@ -433,6 +475,18 @@ button { cursor: pointer; }
 .lauf__stufe { font-weight: 800; font-size: 17px; }
 .lauf__bereich { font-size: 13px; color: var(--tinte-zart); }
 .lauf__zaehler { font-weight: 800; font-size: 16px; color: var(--akzent); font-variant-numeric: tabular-nums; }
+
+/* Steht nur da, wenn ein angefangener Durchgang fortgesetzt wird. */
+.lauf__vonvorn {
+  flex: none;
+  border: 1px solid var(--linie);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.8);
+  padding: 7px 13px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--tinte-zart);
+}
 
 .lauf__buehne { margin-top: 18px; }
 

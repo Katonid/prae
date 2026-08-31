@@ -99,6 +99,8 @@ function leererZustand() {
     // Eintrag klein, und ein neuer Bereich taucht nicht ungefragt auf.
     sichtbareBereiche: {},
     fortschritt: {},
+    // Angefangene, nicht beendete Durchgänge — siehe `laufMerken`.
+    laeufe: {},
     protokoll: {},
     nutzer: null,
     klassen: [],
@@ -170,6 +172,7 @@ function zusammen(gelesen) {
     eigeneBereiche: Array.isArray(gelesen.eigeneBereiche) ? gelesen.eigeneBereiche : [],
     sichtbareBereiche: (gelesen.sichtbareBereiche && typeof gelesen.sichtbareBereiche === 'object') ? gelesen.sichtbareBereiche : {},
     fortschritt: (gelesen.fortschritt && typeof gelesen.fortschritt === 'object') ? gelesen.fortschritt : {},
+    laeufe: (gelesen.laeufe && typeof gelesen.laeufe === 'object') ? gelesen.laeufe : {},
     protokoll: (gelesen.protokoll && typeof gelesen.protokoll === 'object') ? gelesen.protokoll : {},
     nutzer: gelesen.nutzer || null,
     klassen: Array.isArray(gelesen.klassen) ? gelesen.klassen : [],
@@ -316,6 +319,59 @@ export function fortschritt(bereichId, paket, stufe) {
  * letzte: Wer ein Päckchen zur Übung noch einmal halb durchklickt, soll seine
  * drei Sterne nicht verlieren.
  */
+/* ---------- Angefangene Durchgänge ---------- */
+
+/*
+ * Im Unterricht kommt ein Kind selten bis zum Ende eines Päckchens — es
+ * klingelt, der Bus fährt, die Stunde ist um (Ansage des Nutzers, 08/2026).
+ * Bis 1.6.0 war ein abgebrochener Durchgang restlos weg; beim nächsten Mal
+ * fing dasselbe Kind wieder bei Wort eins an.
+ *
+ * Gemerkt wird deshalb der STAND: welche Wörter noch offen sind, welche schon
+ * saßen, wie lange gearbeitet wurde. Beim nächsten Öffnen derselben Stufe geht
+ * es dort weiter.
+ *
+ * Aufgehoben werden bis zu acht solcher Stände (`LAEUFE_HOECHSTENS`) — mehr
+ * Baustellen hat kein Kind gleichzeitig, und wer die neunte anfängt, verliert
+ * die älteste. Sie gehören zum Gerät und reisen NICHT in die Wolke: In der
+ * Klassenansicht zählen Sterne, kein halber Durchgang.
+ */
+const LAEUFE_HOECHSTENS = 8;
+
+function laufschluessel(bereichId, paket, stufe) {
+  return `${bereichId}#${paket}#${stufe}`;
+}
+
+export function laufMerken(stand) {
+  const schluessel = laufschluessel(stand.bereichId, stand.paket, stand.stufe);
+  zustand.laeufe[schluessel] = Object.assign({}, stand, { zuletzt: Date.now() });
+  const alle = Object.keys(zustand.laeufe);
+  if (alle.length > LAEUFE_HOECHSTENS) {
+    alle.sort((a, b) => (zustand.laeufe[a].zuletzt || 0) - (zustand.laeufe[b].zuletzt || 0))
+      .slice(0, alle.length - LAEUFE_HOECHSTENS)
+      .forEach((weg) => delete zustand.laeufe[weg]);
+  }
+  sichere();
+}
+
+export function laufStand(bereichId, paket, stufe) {
+  return zustand.laeufe[laufschluessel(bereichId, paket, stufe)] || null;
+}
+
+export function laufVergessen(bereichId, paket, stufe) {
+  const schluessel = laufschluessel(bereichId, paket, stufe);
+  if (!zustand.laeufe[schluessel]) return;
+  delete zustand.laeufe[schluessel];
+  sichere();
+}
+
+/** Der zuletzt angefangene Durchgang — für die Karte „Weitermachen". */
+export function letzterOffenerLauf() {
+  const alle = Object.values(zustand.laeufe);
+  if (!alle.length) return null;
+  return alle.slice().sort((a, b) => (b.zuletzt || 0) - (a.zuletzt || 0))[0];
+}
+
 export function ergebnisMerken(bereichId, paket, stufe, { richtig, gesamt, dauer = 0 }) {
   const schluessel = fortschrittsschluessel(bereichId, paket, stufe);
   const alt = zustand.fortschritt[schluessel] || { bestRichtig: 0, gesamt: 0, durchgaenge: 0 };
