@@ -177,7 +177,13 @@ button { cursor: pointer; }
 .seite__kopf { margin-bottom: 20px; }
 .seite__titel { margin: 0 0 6px; font-size: clamp(26px, 5vw, 38px); letter-spacing: -0.02em; }
 .seite__untertitel { margin: 0; color: var(--tinte-zart); font-size: 16px; max-width: 62ch; }
-.seite__abschnitt { margin: 26px 0 12px; font-size: 15px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--tinte-zart); }
+/* Überschriften werden NICHT von CSS großgeschrieben.
+   `text-transform: uppercase` macht aus „Saß auf Anhieb" ein „SASS AUF
+   ANHIEB" — die Großschreibregel für ß ist SS, und der Browser wendet sie
+   an. In einer Rechtschreib-App ist das ein Fehler wie jeder andere: Ein
+   Kind liest dort ein falsch geschriebenes Wort. Die Überschriften tragen
+   ihre Auszeichnung deshalb über Farbe, Gewicht und Sperrung. */
+.seite__abschnitt { margin: 26px 0 12px; font-size: 15px; font-weight: 700; letter-spacing: 0.04em; color: var(--tinte-zart); }
 
 .zurueck {
   border: 0;
@@ -1061,7 +1067,7 @@ a.knopf { text-decoration: none; display: inline-flex; align-items: center; }
 /* ---------- Formulare ---------- */
 
 .abschnitt { margin-bottom: 22px; }
-.abschnitt__titel { margin: 0 0 10px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--tinte-zart); }
+.abschnitt__titel { margin: 0 0 10px; font-size: 13px; font-weight: 700; letter-spacing: 0.04em; color: var(--tinte-zart); }
 .abschnitt__notiz { margin: 8px 0 0; font-size: 13px; color: var(--tinte-zart); }
 
 .zeile { display: flex; align-items: center; gap: 14px; padding: 10px 0; border-bottom: 1px solid var(--linie); flex-wrap: wrap; }
@@ -1192,7 +1198,7 @@ a.knopf { text-decoration: none; display: inline-flex; align-items: center; }
 .wortzeile__wort { flex: 1; min-width: 0; padding: 10px 13px; border-radius: 12px; border: 1px solid var(--linie); background: #fff; font-family: var(--schrift-lern); font-size: 18px; }
 .wortzeile__weg { width: 38px; flex: none; border: 1px solid var(--linie); border-radius: 12px; background: rgba(220, 38, 38, 0.08); color: var(--schlecht); }
 .wortzeile__formen { display: flex; gap: 10px; flex-wrap: wrap; }
-.wortzeile__formfeld { display: grid; gap: 3px; flex: 1; min-width: 130px; font-size: 11px; color: var(--tinte-zart); text-transform: uppercase; letter-spacing: 0.06em; }
+.wortzeile__formfeld { display: grid; gap: 3px; flex: 1; min-width: 130px; font-size: 11px; color: var(--tinte-zart); font-weight: 600; letter-spacing: 0.04em; }
 .wortzeile__form { padding: 8px 11px; border-radius: 10px; border: 1px solid var(--linie); background: #fff; font-family: var(--schrift-lern); font-size: 15px; text-transform: none; letter-spacing: 0; }
 .wortzeile__form--kurz { max-width: 90px; }
 .wortzeile__notiz { font-size: 12px; color: var(--tinte-zart); }

@@ -519,10 +519,24 @@ Namens und lebt weiter.
     📋, gepunktete Unterstreichung, dazu ein Satz über der Liste (ab 1.5.3).
     Bis dahin war er nur eingefärbt, und der Nutzer fragte, ob es die
     Einzelansicht überhaupt gibt (08/2026), obwohl sie seit 1.0.5 steht.
+  - **Gezeigt werden nur die Wörter, die danebengingen** (ab 1.7.1). Die
+    vollständige Liste „Saß auf Anhieb" darunter war gut gemeint und im Weg:
+    Wer nachsieht, sucht Fehler (Ansage des Nutzers, 08/2026). Was gesessen
+    hat, sagt eine Zeile. Dieselbe Regel gilt für die Klassenübersicht — und
+    die Kopfzeile nennt die Zahl der GEZEIGTEN Wörter, nicht die aller.
   - Das Kind sieht seine eigene Liste unter „?" → „Deine schweren Wörter". Wer
     die Daten erzeugt, darf sie sehen.
 - **Sterne gehen weiterhin an die Klasse**, und keine Rangliste zwischen
   Kindern, nirgends.
+- **CSS schreibt keine deutschen Wörter groß** (ab 1.7.1). `text-transform:
+  uppercase` macht aus „Saß auf Anhieb" ein „SASS AUF ANHIEB" — die
+  Großschreibregel für ß ist SS, und der Browser wendet sie an. In einer
+  Rechtschreib-App ist das ein Fehler wie jeder andere: Ein Kind liest dort
+  ein falsch geschriebenes Wort (gemeldet 08/2026: „geht gar nicht!").
+  `seite__abschnitt`, `abschnitt__titel` und `wortzeile__formfeld` zeichnen
+  sich deshalb über Gewicht, Farbe und Sperrung aus. Die kleinen festen
+  Marken („GESCHRIEBEN ALS") dürfen bleiben — dort steht nie ein ß, und wer
+  eine neue anlegt, prüft genau das.
 - **Kein `alert`, `confirm` oder `prompt`** — in einer späteren WKWebView-Hülle
   passiert dabei schlicht nichts. Für Ja/Nein gibt es `frage()`, für eine
   Eingabe `eingabe()`, beide in `js/ui.js`.

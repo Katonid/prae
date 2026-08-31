@@ -236,12 +236,17 @@ Zwei Ansichten in der Klasse:
   schwersten zuerst, mit den tatsächlichen Falschschreibungen und der Zahl der
   betroffenen Kinder. Das ist die Ansicht, für die das Ganze da ist: Sie sagt
   in fünf Sekunden, was am Montag noch einmal an die Tafel gehört.
-* **Ein Kind antippen** — seine Wörter einzeln, getrennt nach „schwer
-  gefallen“ und „saß auf Anhieb“, je Stufe aufgeschlüsselt, mit den
-  tatsächlichen Falschschreibungen. Der Name IST der Weg dorthin; damit man
-  das sieht, trägt er seit 1.5.3 ein 📋 und eine gepunktete Unterstreichung,
-  und über der Liste steht ein Satz dazu. Vorher war er nur eingefärbt — und
-  wurde übersehen.
+* **Ein Kind antippen** — seine Wörter einzeln, je Stufe aufgeschlüsselt, mit
+  den tatsächlichen Falschschreibungen. Der Name IST der Weg dorthin; damit
+  man das sieht, trägt er seit 1.5.3 ein 📋 und eine gepunktete
+  Unterstreichung, und über der Liste steht ein Satz dazu. Vorher war er nur
+  eingefärbt — und wurde übersehen.
+
+Gezeigt werden dort **nur die Wörter, die danebengingen** (ab 1.7.1). Bis dahin
+stand darunter die vollständige Liste der Wörter, die auf Anhieb saßen — gut
+gemeint und im Weg: Wer nachsieht, sucht Fehler und musste dafür an fünfzehn
+tadellosen Wörtern vorbeiscrollen (Ansage des Nutzers, 08/2026). Was gesessen
+hat, sagt jetzt eine Zeile.
 
 Gemeldet wird, wenn ein Kind ein Päckchen zu Ende gebracht hat — während der
 Übung noch nicht. Steht unter einem Namen keine Wortzahl, sagt die App seit

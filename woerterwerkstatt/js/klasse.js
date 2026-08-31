@@ -389,10 +389,19 @@ function wortzeile(wort, mitKind = '') {
 }
 
 /** Alle Wörter EINES Kindes, die schwersten zuerst. */
+/**
+ * Die Wörter EINES Kindes — und zwar nur die, an denen etwas dran ist.
+ *
+ * Bis 1.7.0 stand darunter noch die vollständige Liste „Saß auf Anhieb". Sie
+ * war gut gemeint und im Weg: Wer nachsieht, sucht Fehler, und musste dafür
+ * an fünfzehn tadellosen Wörtern vorbeiscrollen (Ansage des Nutzers, 08/2026).
+ * Was gesessen hat, sagt jetzt eine Zeile — die Zahl ist die Auskunft, die
+ * Liste war es nicht.
+ */
 function kindprotokoll(kind) {
   const woerter = (kind.woerter || []).slice().sort((a, b) => (b.f - a.f) || (b.z - a.z));
   const schwer = woerter.filter((w) => w.f > 0);
-  const sicher = woerter.filter((w) => w.f === 0);
+  const sicher = woerter.length - schwer.length;
   return blatt({
     titel: kind.name,
     breit: true,
@@ -403,8 +412,14 @@ function kindprotokoll(kind) {
       schwer.length
         ? abschnitt(`Schwer gefallen (${schwer.length})`, ...schwer.map((w) => wortzeile(w)))
         : h('p', { class: 'blatt__gut' }, 'Kein Wort ging daneben.'),
-      sicher.length
-        ? abschnitt(`Saß auf Anhieb (${sicher.length})`, ...sicher.map((w) => wortzeile(w)))
+      // „…weitere…" nur, wenn es auch etwas gab, wovon sie weitere sind. Ohne
+      // Fehler steht oben schon „Kein Wort ging daneben" — eine zweite Zeile
+      // mit derselben Aussage ist Füllsel.
+      (schwer.length && sicher)
+        ? h('p', { class: 'blatt__fussnote' },
+          sicher === 1
+            ? 'Ein weiteres Wort saß gleich beim ersten Versuch.'
+            : `${sicher} weitere Wörter saßen gleich beim ersten Versuch.`)
         : null),
   });
 }
@@ -439,9 +454,12 @@ function klassenprotokoll(code, kinder) {
     breit: true,
     inhalt: h('div', {},
       h('p', { class: 'blatt__text' },
+        // Gezeigt werden nur die Wörter, die danebengingen — dann muss die
+        // Zeile darüber auch DIESE Zahl nennen. „15 verschiedene Wörter" über
+        // fünf Kärtchen war eine Rechnung, die nicht aufging.
         kinder.length
-          ? `${alle.length} verschiedene Wörter von ${kinder.length} ${kinder.length === 1 ? 'Kind' : 'Kindern'}.`
-            + ' Die schwersten zuerst.'
+          ? `${schwer.length} von ${alle.length} geübten Wörtern gingen daneben`
+            + ` (${kinder.length} ${kinder.length === 1 ? 'Kind' : 'Kinder'}). Die schwersten zuerst.`
           : 'Noch hat niemand geübt.'),
       ...schwer.slice(0, 60).map((wort) => wortzeile(
         { w: wort.w, v: wort.v, r: wort.r, f: wort.f, e: wort.e.slice(0, 8) },
