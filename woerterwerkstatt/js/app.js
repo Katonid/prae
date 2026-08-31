@@ -18,10 +18,11 @@ import {
 import { anwenden as themaAnwenden } from './theme.js';
 import { BEREICHE } from './woerter.js';
 import { RECHTSCHREIBUNG } from './rechtschreibung.js';
+import { RECHTSCHREIBUNG1 } from './rechtschreibung1.js';
 import { RECHTSCHREIBUNG2 } from './rechtschreibung2.js';
 import { RECHTSCHREIBUNG3 } from './rechtschreibung3.js';
 import { pakete, paketzahl, PAKETGROESSE, paketspanne } from './paket.js';
-import { UEBUNGEN, STUFEN_IDS, uebungNachId } from './uebungen/index.js';
+import { UEBUNGEN, uebungNachId, stufenFuer, stufenIdsFuer } from './uebungen/index.js';
 import { laufStarten } from './lauf.js';
 import { einstellungenZeigen } from './einstellungen.js';
 import { bereicheVerwalten } from './bereiche.js';
@@ -33,6 +34,9 @@ import { angemeldet, wolkeStarten, abmelden, beiKontoWechsel } from './cloud.js'
 import { alsApp } from './plattform.js';
 import * as sfx from './sfx.js';
 import { FASSUNG } from './version.js';
+
+// „Die 4 Stufen" liest ein Zweitklässler stockend. Bis fünf reicht das Wort.
+const ZAHLWORT = ['keine', 'eine', 'zwei', 'drei', 'vier', 'fünf'];
 
 const buehne = () => document.getElementById('buehne');
 let laufAbbrechen = null;
@@ -46,7 +50,8 @@ let laufAbbrechen = null;
  * muss ihn öffnen können, auch wenn er nicht auf der Startseite steht.
  */
 function alleBereiche() {
-  return BEREICHE.concat(RECHTSCHREIBUNG2, RECHTSCHREIBUNG3, RECHTSCHREIBUNG, eigeneBereiche());
+  return BEREICHE.concat(
+    RECHTSCHREIBUNG1, RECHTSCHREIBUNG2, RECHTSCHREIBUNG3, RECHTSCHREIBUNG, eigeneBereiche());
 }
 
 
@@ -60,12 +65,17 @@ function bereicheZeigen() {
   const gitter = h('div', { class: 'bereiche' });
   const eigene = eigeneBereiche();
   const themen = BEREICHE.filter(bereichSichtbar);
-  const bloecke = RECHTSCHREIBUNG2.concat(RECHTSCHREIBUNG3, RECHTSCHREIBUNG).filter(bereichSichtbar);
+  const bloecke = RECHTSCHREIBUNG1
+    .concat(RECHTSCHREIBUNG2, RECHTSCHREIBUNG3, RECHTSCHREIBUNG).filter(bereichSichtbar);
 
   const karte = (bereich, eigen) => {
     const anzahl = paketzahl(bereich);
-    const moeglich = anzahl * STUFEN_IDS.length * 3;
-    const erreicht = sterneImBereich(bereich.id, anzahl, STUFEN_IDS);
+    // Nicht jeder Bereich übt alle fünf Stufen — die 1. Klasse lässt die
+    // Wortart weg. Sonst stünde dort für immer „0 von 120", obwohl alles
+    // geschafft ist.
+    const stufenIds = stufenIdsFuer(bereich);
+    const moeglich = anzahl * stufenIds.length * 3;
+    const erreicht = sterneImBereich(bereich.id, anzahl, stufenIds);
     return h('button', {
       class: `bereichskarte${eigen ? ' is-eigen' : ''}`,
       type: 'button',
@@ -92,8 +102,8 @@ function bereicheZeigen() {
     h('div', { class: 'seite__kopf' },
       h('h1', { class: 'seite__titel' }, 'Wörterwerkstatt'),
       h('p', { class: 'seite__untertitel' },
-        'Such dir einen Bereich aus. Jedes Trainingspäckchen hat '
-        + `${PAKETGROESSE} Lernwörter und fünf Stufen.`)),
+        'Such dir einen Bereich aus. Ein Trainingspäckchen hat höchstens '
+        + `${PAKETGROESSE} Lernwörter und bis zu fünf Stufen.`)),
     eigene.length ? h('h2', { class: 'seite__abschnitt' }, 'Von deiner Lehrerin oder deinem Lehrer') : null,
     gitter,
     bloecke.length ? h('h2', { class: 'seite__abschnitt' }, 'Rechtschreibung') : null,
@@ -134,11 +144,12 @@ function paketeZeigen(bereichId, offenesPaket = 0) {
   if (!bereich) { gehZu('#/'); return; }
   const alle = pakete(bereich);
   const gewaehlt = Math.min(Math.max(0, offenesPaket), alle.length - 1);
+  const stufenliste = stufenFuer(bereich);
 
   const reiter = h('div', { class: 'paketreiter', role: 'tablist' });
   alle.forEach((liste, nummer) => {
-    const erreicht = STUFEN_IDS.reduce((summe, stufe) => {
-      const stand = fortschritt(bereich.id, nummer, stufe);
+    const erreicht = stufenliste.reduce((summe, uebung) => {
+      const stand = fortschritt(bereich.id, nummer, uebung.id);
       return summe + (stand ? stand.sterne || 0 : 0);
     }, 0);
     reiter.appendChild(h('button', {
@@ -157,20 +168,22 @@ function paketeZeigen(bereichId, offenesPaket = 0) {
   }
 
   const stufen = h('div', { class: 'stufen' });
-  for (const uebung of UEBUNGEN) {
+  // Durchgezählt wird, was dieser Bereich übt — nicht die feste Nummer der
+  // Übung. Sonst stünde in der 1. Klasse „1 2 3 5" auf den Kacheln.
+  stufenliste.forEach((uebung, stelle) => {
     const stand = fortschritt(bereich.id, gewaehlt, uebung.id);
     stufen.appendChild(h('button', {
       class: 'stufe', type: 'button',
       style: { '--stufenfarbe': uebung.farbe },
       onclick: () => { sfx.tipp(); gehZu(`#/ueben/${bereich.id}/${gewaehlt}/${uebung.id}`); },
     },
-      h('span', { class: 'stufe__nummer' }, uebung.nummer),
+      h('span', { class: 'stufe__nummer' }, stelle + 1),
       h('span', { class: 'stufe__emoji' }, uebung.emoji),
       h('span', { class: 'stufe__text' },
         h('strong', {}, uebung.name),
         h('span', {}, uebung.beschreibung)),
       h('span', { class: 'stufe__sterne' }, sterneAnzeige(stand ? stand.sterne || 0 : 0))));
-  }
+  });
 
   leeren(buehne()).appendChild(h('div', { class: 'seite' },
     h('div', { class: 'seite__kopf' },
@@ -182,7 +195,7 @@ function paketeZeigen(bereichId, offenesPaket = 0) {
       h('h2', { class: 'paketkarte__titel' }, `Päckchen ${gewaehlt + 1}`),
       h('p', { class: 'paketkarte__spanne' }, paketspanne(alle[gewaehlt])),
       woerter),
-    h('h2', { class: 'seite__abschnitt' }, 'Die fünf Stufen'),
+    h('h2', { class: 'seite__abschnitt' }, `Die ${ZAHLWORT[stufenliste.length] || stufenliste.length} Stufen`),
     stufen));
 }
 
@@ -192,6 +205,9 @@ function uebenZeigen(bereichId, paketNummer, stufeId) {
   const bereich = bereichNachId(bereichId);
   const uebung = uebungNachId(stufeId);
   if (!bereich || !uebung) { gehZu('#/'); return; }
+  // Eine Stufe, die dieser Bereich nicht übt, ist auch über die Adresse nicht
+  // zu erreichen — ein alter Auftrag oder ein Lesezeichen käme sonst dorthin.
+  if (!stufenIdsFuer(bereich).includes(stufeId)) { gehZu(`#/bereich/${bereich.id}/${paketNummer}`); return; }
   document.body.classList.add('is-uebend');
   laufAbbrechen = laufStarten({
     platz: buehne(),
@@ -208,13 +224,14 @@ function uebenZeigen(bereichId, paketNummer, stufeId) {
       if (!ergebnis.weiter) { gehZu(`#/bereich/${bereich.id}/${paketNummer}`); return; }
       if (ergebnis.sterne === 3) {
         // Geschafft — die nächste Stufe, oder das nächste Päckchen.
-        const stelle = STUFEN_IDS.indexOf(stufeId);
-        if (stelle + 1 < STUFEN_IDS.length) {
-          gehZu(`#/ueben/${bereich.id}/${paketNummer}/${STUFEN_IDS[stelle + 1]}`);
+        const ids = stufenIdsFuer(bereich);
+        const stelle = ids.indexOf(stufeId);
+        if (stelle + 1 < ids.length) {
+          gehZu(`#/ueben/${bereich.id}/${paketNummer}/${ids[stelle + 1]}`);
           return;
         }
         if (paketNummer + 1 < paketzahl(bereich)) {
-          gehZu(`#/ueben/${bereich.id}/${paketNummer + 1}/${STUFEN_IDS[0]}`);
+          gehZu(`#/ueben/${bereich.id}/${paketNummer + 1}/${ids[0]}`);
           return;
         }
         gehZu(`#/bereich/${bereich.id}/${paketNummer}`);

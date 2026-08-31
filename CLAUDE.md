@@ -281,21 +281,32 @@ Namens und lebt weiter.
 - **Fünf Stufen je Lernwort**, die immer weniger zeigen: Abschreiben →
   Buchstabensalat → Geheimschrift → Wortart samt Formen → Diktat. Eine sechste
   Übung wird in `js/uebungen/index.js` eingetragen — sonst nirgends.
+- **Ein Bereich darf weniger als fünf Stufen üben** (Feld `stufen`, ab 1.4.0).
+  Die Blöcke der 1. Klasse lassen die Wortart weg — Nomen, Verb und Adjektiv
+  sind dort noch kein Stoff (Ansage des Nutzers, 08/2026). Gelesen wird das an
+  EINER Stelle, `stufenFuer(bereich)` in `js/uebungen/index.js`; danach richten
+  sich Kacheln, Sternhöchstzahl, Adressprüfung, der Weiterweg nach drei Sternen
+  und die Stufenliste im Auftrag der Woche. Ein festes `STUFEN_IDS` gibt es
+  nicht mehr — wer es wieder einführt, zeigt der 1. Klasse „0 von 15 Sternen"
+  bei vollem Heft. Gezählt wird auf den Kacheln die Stelle IM BEREICH (1 2 3 4),
+  nicht die feste Nummer der Übung (1 2 3 5).
 - **Trainingspäckchen zu 15 Wörtern.** Verteilt wird REIHUM über die Wortarten
   (`paket.js`), nicht der Reihe nach: Sonst bestünde Päckchen 1 aus lauter
   Nomen und die Wortart-Stufe wäre darin sinnlos. Die Verteilung ist gerechnet
   und nicht gespeichert — „Päckchen 2" ist auf jedem Gerät dasselbe.
-- **Vier Sorten Bereiche.** `woerter.js` = 20 Themenbereiche à 30 Wörter (nach
-  Inhalt, von Haus aus sichtbar). Dazu drei Rechtschreiblisten nach
-  Rechtschreibstelle, alle von Haus aus AUSGEBLENDET: `rechtschreibung2.js`
-  (28 Blöcke à 10 Wörter, 2. Schuljahr), `rechtschreibung3.js` (25 à 15,
-  3. Schuljahr), `rechtschreibung.js` (27 à 15, 4. Schuljahr). Zusammen 1660
-  Wörter in 100 Bereichen. Eine neue Liste wird an vier Stellen eingetragen:
-  `app.js` (`alleBereiche`, `bereicheZeigen`), `bereiche.js` (Wähler)
-  und `sw.js`.
+- **Fünf Sorten Bereiche.** `woerter.js` = 20 Themenbereiche à 30 Wörter (nach
+  Inhalt, von Haus aus sichtbar). Dazu vier Rechtschreiblisten nach
+  Rechtschreibstelle, alle von Haus aus AUSGEBLENDET: `rechtschreibung1.js`
+  (23 Blöcke à 8 Wörter, 1. Schuljahr, ohne Wortart-Stufe),
+  `rechtschreibung2.js` (28 à 10, 2. Schuljahr), `rechtschreibung3.js`
+  (25 à 15, 3. Schuljahr), `rechtschreibung.js` (27 à 15, 4. Schuljahr).
+  Zusammen 1844 Wörter in 123 Bereichen. Eine neue Liste wird an vier Stellen
+  eingetragen: `app.js` (`alleBereiche`, `bereicheZeigen`), `bereiche.js`
+  (Wähler), `klasse.js` (Auftrag der Woche) und `sw.js`.
 - **Ein Päckchen ist so groß wie sein Bereich**, höchstens aber
-  `PAKETGROESSE` (15). Die Klasse-2-Blöcke haben zehn Wörter — nirgends eine
-  feste Zahl hineinschreiben, `pakete()` rechnet mit der tatsächlichen.
+  `PAKETGROESSE` (15). Die Klasse-1-Blöcke haben acht Wörter, die der
+  2. Klasse zehn — nirgends eine feste Zahl hineinschreiben, `pakete()`
+  rechnet mit der tatsächlichen.
 - **Dieselben Wörter in mehreren Klassenstufen sind Absicht**, kein Versehen:
   getrennte Sätze für getrennte Jahrgänge, freigeschaltet wird nur einer. Die
   Mehrzahl der Wochentage steht erst in Klasse 3; in Klasse 2 geht es um den
@@ -418,6 +429,13 @@ Namens und lebt weiter.
 - Schriften liegen als woff2 in `woerterwerkstatt/fonts/` (Andika, Lexend,
   Quicksand — alle mit einstöckigem a und g) und werden **nie** von fremden
   Servern geladen. Die App-Icons erzeugt `scripts/generate-icons.py`.
+- **Das Homescreen-Icon braucht PNG ohne Alphakanal** (Farbtyp 2, ab 1.4.0).
+  Mit Alphakanal legt iOS das Icon auf Schwarz, und mancher Android-Starter
+  zeigt gar keins. Erzeugt werden sie von `scripts/generate-icons.py`
+  (dreizehn Größen plus zwei maskierbare) — nie von Hand. Im Manifest stehen
+  die PNGs VOR dem SVG: Ein SVG mit `"sizes": "any"` gewinnt sonst die Auswahl
+  und wird beim Installieren nicht gerastert. iOS liest kein Manifest, es
+  braucht `apple-touch-icon` im `index.html`, mit `sizes` je Größe.
 - Die Fassungsnummer steht in `js/version.js` UND in `sw.js` (`FASSUNG`) — der
   Service Worker lädt keine Module. Beide bei jeder neuen Fassung hochsetzen,
   sonst bleibt der alte Zwischenspeicher stehen.
