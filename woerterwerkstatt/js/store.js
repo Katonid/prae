@@ -93,6 +93,11 @@ function leererZustand() {
       diktatTempo: 0.85,
     },
     eigeneBereiche: [],
+    // Welche mitgelieferten Bereiche sichtbar sind: { id: true|false }. Was
+    // hier NICHT steht, richtet sich nach der Vorgabe der Gruppe — die
+    // Themenbereiche sind an, die Rechtschreibblöcke aus. So bleibt der
+    // Eintrag klein, und ein neuer Bereich taucht nicht ungefragt auf.
+    sichtbareBereiche: {},
     fortschritt: {},
     protokoll: {},
     nutzer: null,
@@ -163,6 +168,7 @@ function zusammen(gelesen) {
     version: 1,
     einstellungen: Object.assign(frisch.einstellungen, gelesen.einstellungen || {}),
     eigeneBereiche: Array.isArray(gelesen.eigeneBereiche) ? gelesen.eigeneBereiche : [],
+    sichtbareBereiche: (gelesen.sichtbareBereiche && typeof gelesen.sichtbareBereiche === 'object') ? gelesen.sichtbareBereiche : {},
     fortschritt: (gelesen.fortschritt && typeof gelesen.fortschritt === 'object') ? gelesen.fortschritt : {},
     protokoll: (gelesen.protokoll && typeof gelesen.protokoll === 'object') ? gelesen.protokoll : {},
     nutzer: gelesen.nutzer || null,
@@ -214,6 +220,42 @@ export function horch(ereignis, fn) {
 export function melde(ereignis, nutzlast) {
   const menge = horcher.get(ereignis);
   if (menge) menge.forEach((fn) => fn(nutzlast));
+}
+
+/* ---------- Welche Bereiche sichtbar sind ---------- */
+
+/**
+ * Ist dieser Bereich zu sehen?
+ *
+ * Ohne ausdrückliche Wahl entscheidet die Gruppe: Themenbereiche sind an,
+ * Rechtschreibblöcke aus. Siebenundzwanzig zusätzliche Karten auf der
+ * Startseite wären für ein Kind, das eine Woche lang einen einzigen Block
+ * übt, nur Gestrüpp — die Lehrkraft schaltet frei, was gerade dran ist.
+ */
+export function bereichSichtbar(bereich) {
+  if (!bereich) return false;
+  if (bereich.eigen) return true;
+  const gewaehlt = zustand.sichtbareBereiche[bereich.id];
+  if (typeof gewaehlt === 'boolean') return gewaehlt;
+  return bereich.gruppe !== 'rechtschreibung';
+}
+
+export function setzeBereichSichtbar(id, an) {
+  zustand.sichtbareBereiche[id] = Boolean(an);
+  sichere();
+  melde('sichtbarkeit', zustand.sichtbareBereiche);
+}
+
+/** Die ganze Auswahl auf einmal setzen — so kommt sie aus einer Klasse an. */
+export function setzeSichtbareBereiche(auswahl) {
+  if (!auswahl || typeof auswahl !== 'object') return;
+  zustand.sichtbareBereiche = Object.assign({}, auswahl);
+  sichere();
+  melde('sichtbarkeit', zustand.sichtbareBereiche);
+}
+
+export function sichtbareBereiche() {
+  return zustand.sichtbareBereiche;
 }
 
 /* ---------- Eigene Bereiche ---------- */

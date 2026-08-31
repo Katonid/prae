@@ -20,9 +20,14 @@
 import { h, leeren, kennung } from './util.js';
 import { blatt, abschnitt, zeile, frage, auswahl, meldung } from './ui.js';
 import { WORTARTEN, eintragAusZeile, zeileAusEintrag } from './grammatik.js';
-import { eigeneBereiche, bereichSichern, bereichLoeschen } from './store.js';
+import {
+  eigeneBereiche, bereichSichern, bereichLoeschen,
+  bereichSichtbar, setzeBereichSichtbar, sichtbareBereiche,
+} from './store.js';
 import { angemeldet, bereicheHochladen, bereicheHolen } from './cloud.js';
 import { PAKETGROESSE } from './paket.js';
+import { BEREICHE } from './woerter.js';
+import { RECHTSCHREIBUNG } from './rechtschreibung.js';
 
 const EMOJIS = ['📗', '🍎', '🌳', '🚂', '⭐', '🐬', '🎵', '🧁', '🏰', '🦕', '🌍', '🎨', '⚽', '🚀', '🐝', '🎪'];
 const FARBEN = ['#2563eb', '#0ea5e9', '#38bdf8', '#0369a1', '#f97316', '#ea580c', '#f59e0b', '#eab308', '#dc2626'];
@@ -359,4 +364,64 @@ export function bereicheVerwalten(beiAenderung) {
 
   zeichnen();
   return dialog;
+}
+
+/* ---------- Welche Bereiche sichtbar sind ---------- */
+
+/**
+ * Die Auswahl, welche mitgelieferten Bereiche erscheinen.
+ *
+ * Von Haus aus sind die zwanzig Themenbereiche an und die siebenundzwanzig
+ * Rechtschreibblöcke aus. Eine Lehrkraft schaltet frei, was gerade dran ist —
+ * und blendet aus, was ihre Klasse nicht braucht. Beides in derselben Liste,
+ * denn es ist dieselbe Frage.
+ *
+ * `beiWahl` bekommt die vollständige Auswahl gemeldet; die Klassenansicht
+ * nutzt das, um sie an die Kinder weiterzugeben.
+ */
+export function bereichswahl({ titel = 'Bereiche wählen', hinweis = '', beiWahl = null } = {}) {
+  function gruppe(ueberschrift, liste, erklaerung) {
+    if (!liste.length) return null;
+    const kasten = h('div', { class: 'bereichswahl' });
+    for (const bereich of liste) {
+      const an = bereichSichtbar(bereich);
+      kasten.appendChild(h('label', { class: `bereichswahl__zeile${an ? ' is-an' : ''}` },
+        h('input', {
+          type: 'checkbox',
+          checked: an,
+          onchange: (ereignis) => {
+            setzeBereichSichtbar(bereich.id, ereignis.target.checked);
+            ereignis.target.closest('.bereichswahl__zeile').classList.toggle('is-an', ereignis.target.checked);
+            if (beiWahl) beiWahl(sichtbareBereiche());
+          },
+        }),
+        h('span', { class: 'bereichswahl__emoji' }, bereich.emoji || '📗'),
+        h('span', { class: 'bereichswahl__name' }, bereich.name),
+        h('span', { class: 'bereichswahl__zahl' }, `${bereich.woerter.length} Wörter`)));
+    }
+    const alleSchalten = (an) => {
+      for (const bereich of liste) setzeBereichSichtbar(bereich.id, an);
+      kasten.querySelectorAll('input').forEach((feld) => { feld.checked = an; });
+      kasten.querySelectorAll('.bereichswahl__zeile').forEach((zeile) => zeile.classList.toggle('is-an', an));
+      if (beiWahl) beiWahl(sichtbareBereiche());
+    };
+    return abschnitt(ueberschrift,
+      erklaerung ? h('p', { class: 'abschnitt__notiz' }, erklaerung) : null,
+      h('div', { class: 'blatt__knopfreihe' },
+        h('button', { class: 'knopf knopf--still knopf--klein', type: 'button', onclick: () => alleSchalten(true) }, 'Alle an'),
+        h('button', { class: 'knopf knopf--still knopf--klein', type: 'button', onclick: () => alleSchalten(false) }, 'Alle aus')),
+      kasten);
+  }
+
+  return blatt({
+    titel,
+    breit: true,
+    inhalt: h('div', {},
+      hinweis ? h('p', { class: 'blatt__text' }, hinweis) : null,
+      gruppe('Themenbereiche', BEREICHE,
+        'Grundwortschatz nach Inhalt — Schule, Tiere, Wetter. Von Haus aus alle an.'),
+      gruppe('Rechtschreibung (4. Schuljahr)', RECHTSCHREIBUNG,
+        'Nach Rechtschreibstelle sortiert: alle Wörter eines Blocks tragen dasselbe Problem. '
+        + 'Von Haus aus alle aus — schalte frei, was diese Woche dran ist.')),
+  });
 }

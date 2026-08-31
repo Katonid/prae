@@ -12,6 +12,7 @@ import {
 } from './store.js';
 import { anwenden } from './theme.js';
 import { wortbild } from './wortbild.js';
+import { bereichswahl } from './bereiche.js';
 import { kannSprechen, sprich } from './plattform.js';
 import * as sfx from './sfx.js';
 
@@ -41,6 +42,15 @@ export function einstellungenZeigen() {
     titel: 'Einstellungen',
     breit: true,
     inhalt: h('div', {},
+      abschnitt('Bereiche',
+        h('p', { class: 'abschnitt__notiz' },
+          'Zwanzig Themenbereiche und siebenundzwanzig Rechtschreibblöcke fürs 4. Schuljahr. '
+          + 'Die Blöcke sind von Haus aus ausgeblendet — schalte frei, was gerade dran ist.'),
+        h('button', {
+          class: 'knopf knopf--voll', type: 'button',
+          onclick: () => bereichswahl(),
+        }, '📚 Bereiche wählen')),
+
       abschnitt('Klang und Bewegung',
         zeile('Klangeffekte', schalter(e.klang !== false, (an) => { setzeEinstellung('klang', an); if (an) sfx.richtig(); }),
           'Kurze Töne bei richtig, falsch und geschafft. Vibrieren, wo das Gerät es kann.')),

@@ -9,7 +9,7 @@
  * bleibt der alte Zwischenspeicher stehen.
  */
 
-const FASSUNG = 'v7';
+const FASSUNG = 'v8';
 const SPEICHER = `woerterwerkstatt-${FASSUNG}`;
 
 const DATEIEN = [
@@ -35,6 +35,7 @@ const DATEIEN = [
   './js/plattform.js',
   './js/version.js',
   './js/woerter.js',
+  './js/rechtschreibung.js',
   './js/grammatik.js',
   './js/wortbild.js',
   './js/paket.js',

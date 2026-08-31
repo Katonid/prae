@@ -1126,6 +1126,38 @@ button { cursor: pointer; }
 .qr-kasten { flex: none; width: min(230px, 100%); padding: 12px; border-radius: var(--rund); background: #fff; box-shadow: var(--schatten); }
 .qr { display: block; width: 100%; height: auto; }
 
+/* ---------- Bereichswahl ---------- */
+
+.bereichswahl { display: grid; gap: 4px; max-height: 340px; overflow-y: auto; padding-right: 4px; }
+
+.bereichswahl__zeile {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--linie);
+  background: rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+}
+
+/* Angehakt hebt sich ab — bei siebenundzwanzig Zeilen sieht man sonst nicht,
+   was an ist, ohne jedes Kästchen einzeln anzusehen. */
+.bereichswahl__zeile.is-an { background: var(--akzent-zart); border-color: rgba(37, 99, 235, 0.3); }
+.bereichswahl__emoji { font-size: 18px; }
+.bereichswahl__name { flex: 1; font-weight: 600; font-size: 15px; }
+.bereichswahl__zahl { font-size: 12px; color: var(--tinte-zart); }
+
+.feld--code {
+  text-transform: uppercase;
+  letter-spacing: 0.28em;
+  text-align: center;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 28px;
+}
+
+.kopf__knopf--voll { background: var(--akzent-verlauf); color: #fff; border-color: transparent; box-shadow: var(--akzent-schein); }
+
 /* ---------- Wortbefunde (was die Kinder geschrieben haben) ---------- */
 
 .wortbefund {
@@ -1305,7 +1337,8 @@ body.is-uebend .kopf { opacity: 0.55; }
   .balken, .sterne__stern { background-color: rgba(255, 255, 255, 0.12); }
   .qr-kasten { background: #fff; }
   .blatt__zu { background: rgba(255, 255, 255, 0.1); }
-  .wortbefund { background: rgba(30, 41, 59, 0.7); }
+  .wortbefund, .bereichswahl__zeile { background: rgba(30, 41, 59, 0.7); }
+  .bereichswahl__zeile.is-an { background: rgba(37, 99, 235, 0.25); }
   .einrichthinweis { background: rgba(249, 115, 22, 0.12); border-color: rgba(249, 115, 22, 0.4); }
   .einrichthinweis__titel { color: #fdba74; }
   .einrichthinweis code { background: rgba(255, 255, 255, 0.12); }

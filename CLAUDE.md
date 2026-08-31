@@ -285,8 +285,29 @@ Namens und lebt weiter.
   (`paket.js`), nicht der Reihe nach: Sonst bestünde Päckchen 1 aus lauter
   Nomen und die Wortart-Stufe wäre darin sinnlos. Die Verteilung ist gerechnet
   und nicht gespeichert — „Päckchen 2" ist auf jedem Gerät dasselbe.
+- **Zwei Sorten Bereiche.** `woerter.js` = 20 Themenbereiche à 30 Wörter (nach
+  Inhalt, von Haus aus sichtbar). `rechtschreibung.js` = 27 Blöcke à 15 Wörter
+  fürs 4. Schuljahr (nach Rechtschreibstelle, von Haus aus AUSGEBLENDET, die
+  Lehrkraft schaltet frei). Sichtbarkeit steht in `store.sichtbareBereiche`;
+  was dort fehlt, richtet sich nach `bereich.gruppe`. Ein ausgeblendeter
+  Bereich bleibt über die Adresse erreichbar — ein Auftrag der Woche darf auf
+  ihn zeigen. Die Auswahl der Lehrkraft reist über `klasse.bereicheAn` zu den
+  Kindern (`klasseAuffrischen` beim Start).
+  - In den Blöcken steht die **Grundform** als Lernwort, wo die
+    Rechtschreibstelle erst in der abgeleiteten Form steckt (`Baum|n|der|Bäume`
+    im Block „ä/äu ableiten"). Der Block heißt „ableiten"; abgeleitet wird in
+    Stufe 4. Nicht auf die abgeleitete Form umstellen.
+  - Nicht steigerbare Adjektive: leere Felder (`wahr|a||`), dann fragt Stufe 4
+    sie nicht ab. Wortgruppen sind `x`.
+- **Drei Wege hinein für Kinder**: QR-Code, Link, oder Code abtippen („👋
+  Mitmachen" in der Kopfzeile). Der dritte ist der wichtigste — ohne ihn kommt
+  ein Kind auf einem frischen Gerät gar nicht hinein. Die **Anmeldung ohne
+  PIN** ist je Klasse zuschaltbar (`klasse.ohnePin`), aus als Vorgabe: Wer den
+  Code hat, käme sonst als jedes Kind hinein. Ein NEUES Kind braucht immer eine
+  PIN. Der Klassencode kennt kein I, O, 0 oder 1 — deshalb wird bei der Eingabe
+  NICHT geraten und umgewandelt, sondern nur großgeschrieben.
 - **Wortformen stehen in den Daten, sie werden NIE gerechnet** (`woerter.js`,
-  600 Wörter in 20 Bereichen). Die deutsche Mehrzahl ist nicht regelmäßig
+  600 Wörter in 20 Bereichen; `rechtschreibung.js`, 405 in 27 Blöcken). Die deutsche Mehrzahl ist nicht regelmäßig
   (Baum → Bäume, aber Wort → Wörter und Ort → Orte). Eine erfundene Form, die
   die App als richtig ausgibt, lehrt das Falsche, und niemand merkt es. Beim
   Anlegen eigener Bereiche schlägt `bereiche.js` deshalb nur Verbformen und
