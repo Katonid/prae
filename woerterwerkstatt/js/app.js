@@ -13,7 +13,7 @@ import { sterne as sterneAnzeige, balken, blatt, frage } from './ui.js';
 import {
   ladeZustand, eigeneBereiche, fortschritt, sterneImBereich,
   nutzer, setzeNutzer, klassen, horch, schwereWoerter, protokollLeeren,
-  bereichSichtbar,
+  bereichSichtbar, laufStand, letzterOffenerLauf,
 } from './store.js';
 import { anwenden as themaAnwenden } from './theme.js';
 import { BEREICHE } from './woerter.js';
@@ -91,6 +91,7 @@ function bereicheZeigen() {
   };
 
   const auftragskarte = auftragZeigen();
+  const weiterkarte = weitermachenZeigen();
 
   for (const bereich of eigene) gitter.appendChild(karte(bereich, true));
   for (const bereich of themen) gitter.appendChild(karte(bereich, false));
@@ -100,6 +101,7 @@ function bereicheZeigen() {
 
   leeren(buehne()).appendChild(h('div', { class: 'seite' },
     auftragskarte,
+    weiterkarte,
     h('div', { class: 'seite__kopf' },
       h('h1', { class: 'seite__titel' }, 'Wörterwerkstatt'),
       h('p', { class: 'seite__untertitel' },
@@ -113,6 +115,31 @@ function bereicheZeigen() {
       ? h('p', { class: 'seite__untertitel' },
         'Zurzeit ist kein Bereich freigeschaltet. Unter ⚙︎ → „Bereiche wählen" lässt sich das ändern.')
       : null));
+}
+
+/**
+ * „Weitermachen" — der angefangene Durchgang von vorhin.
+ *
+ * Im Unterricht kommt ein Kind selten bis zum Ende eines Päckchens. Ohne
+ * diese Karte müsste es sich merken, wo es war, und sich dreimal durchtippen;
+ * mit ihr ist es ein Tipp (Ansage des Nutzers, 08/2026).
+ */
+function weitermachenZeigen() {
+  const stand = letzterOffenerLauf();
+  if (!stand) return null;
+  const bereich = bereichNachId(stand.bereichId);
+  const uebung = uebungNachId(stand.stufe);
+  if (!bereich || !uebung) return null;
+  const geschafft = (stand.merkzettel || []).length;
+  return h('button', {
+    class: 'weiter', type: 'button',
+    onclick: () => { sfx.tipp(); gehZu(`#/ueben/${stand.bereichId}/${stand.paket}/${stand.stufe}`); },
+  },
+    h('span', { class: 'weiter__marke' }, 'Angefangen'),
+    h('span', { class: 'weiter__text' },
+      `${bereich.emoji || '📗'} ${bereich.name} · Päckchen ${(stand.paket || 0) + 1} · ${uebung.emoji} ${uebung.name}`),
+    h('span', { class: 'weiter__stand' }, `${geschafft} von ${stand.gesamt || '?'} Wörtern`),
+    h('span', { class: 'auftrag__pfeil' }, '→'));
 }
 
 /** Der Auftrag der Woche, falls die Lehrkraft einen gesetzt hat. */
@@ -173,6 +200,7 @@ function paketeZeigen(bereichId, offenesPaket = 0) {
   // Übung. Sonst stünde in der 1. Klasse „1 2 3 5" auf den Kacheln.
   stufenliste.forEach((uebung, stelle) => {
     const stand = fortschritt(bereich.id, gewaehlt, uebung.id);
+    const offen = laufStand(bereich.id, gewaehlt, uebung.id);
     stufen.appendChild(h('button', {
       class: 'stufe', type: 'button',
       style: { '--stufenfarbe': uebung.farbe },
@@ -183,7 +211,10 @@ function paketeZeigen(bereichId, offenesPaket = 0) {
       h('span', { class: 'stufe__text' },
         h('strong', {}, uebung.name),
         h('span', {}, uebung.beschreibung)),
-      h('span', { class: 'stufe__sterne' }, sterneAnzeige(stand ? stand.sterne || 0 : 0))));
+      h('span', { class: 'stufe__sterne' }, sterneAnzeige(stand ? stand.sterne || 0 : 0)),
+      // Ein angefangener Durchgang muss an der Kachel zu sehen sein — sonst
+      // wüsste ein Kind erst nach dem Tippen, dass es weitergeht.
+      offen ? h('span', { class: 'stufe__offen' }, `▸ ${(offen.merkzettel || []).length} / ${offen.gesamt}`) : null));
   });
 
   leeren(buehne()).appendChild(h('div', { class: 'seite' },

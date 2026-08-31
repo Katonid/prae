@@ -93,7 +93,16 @@ export function formen(eintrag) {
   if (eintrag.art === 'v') {
     const liste = [{ frage: 'Grundform', hinweis: 'so steht das Verb im Wörterbuch', loesung: eintrag.wort }];
     if (eintrag.duForm) {
-      liste.push({ frage: '2. Person Einzahl', hinweis: 'du …', loesung: `du ${eintrag.duForm}` });
+      // „2. Person Einzahl" stand hier bis 1.7.0 als Überschrift — und im
+      // 2. Schuljahr kennt das niemand (Ansage des Nutzers, 08/2026). Gefragt
+      // wird jetzt nach der „du-Form"; der Fachbegriff steht dahinter, damit
+      // er nicht verloren geht: Im 4. Schuljahr ist er Stoff, und ein Kind,
+      // das ihn schon einmal gelesen hat, erkennt ihn später wieder.
+      liste.push({
+        frage: 'Die du-Form',
+        hinweis: 'Was machst du? Schreib das „du“ mit dazu — das ist die 2. Person Einzahl.',
+        loesung: `du ${eintrag.duForm}`,
+      });
     }
     return liste;
   }

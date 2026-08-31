@@ -290,6 +290,23 @@ Namens und lebt weiter.
   nicht mehr — wer es wieder einführt, zeigt der 1. Klasse „0 von 15 Sternen"
   bei vollem Heft. Gezählt wird auf den Kacheln die Stelle IM BEREICH (1 2 3 4),
   nicht die feste Nummer der Übung (1 2 3 5).
+- **Ein abgebrochener Durchgang geht weiter** (ab 1.7.0, Ansage des Nutzers,
+  08/2026: „Im Unterricht ist es oft so, dass die Kinder einen ganzen
+  Übungssatz nicht zu Ende bekommen."). Der Stand liegt in `store.laeufe`
+  (höchstens acht, je Bereich+Päckchen+Stufe), gesichert nach JEDEM Wort und
+  beim Abbrechen. Gemerkt werden nur Kennungen; passt der Stand nicht mehr
+  zum Päckchen, wird er verworfen statt halb falsch fortgesetzt
+  (`aufgenommen` in `lauf.js`). Er gehört zum Gerät und reist NICHT in die
+  Wolke — in der Klassenansicht zählen Sterne, kein halber Durchgang.
+- **Eine Notiz im Durchgang gehört ÜBER die Bühne, nicht hinein.**
+  `naechstes()` räumt die Bühne für jede Karte leer. Bis 1.7.0 stand „Und
+  jetzt noch einmal die Wörter, die schwer waren" mitten darin — und war im
+  selben Augenblick wieder weg, in dem sie erschien. Dafür gibt es jetzt
+  `laufhinweis` mit `hinweisSagen`/`hinweisWeg`.
+- **Kein Fachwort ohne Erklärung.** Stufe 4 fragte nach der „2. Person
+  Einzahl"; im 2. Schuljahr kennt das niemand (Ansage des Nutzers, 08/2026).
+  Gefragt wird nach der „du-Form", der Fachbegriff steht im Hinweis dahinter —
+  im 4. Schuljahr ist er Stoff und soll nicht verschwinden.
 - **Trainingspäckchen zu 15 Wörtern.** Verteilt wird REIHUM über die Wortarten
   (`paket.js`), nicht der Reihe nach: Sonst bestünde Päckchen 1 aus lauter
   Nomen und die Wortart-Stufe wäre darin sinnlos. Die Verteilung ist gerechnet
