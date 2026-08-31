@@ -473,6 +473,12 @@ Namens und lebt weiter.
   - **Abschaltbar je Klasse** (`klasse.protokoll === false`) und löschbar
     (Knopf in der Klassenansicht). Das sind Leistungsdaten namentlich
     genannter Kinder — beides nicht wegrationalisieren.
+  - **Zwei Ansichten, und die zweite hängt am Namen des Kindes**: „Was der
+    Klasse schwerfällt" (Knopf) fasst alle zusammen, ein Tipp auf den NAMEN
+    zeigt das einzelne Kind. Der Name muss deshalb wie ein Knopf aussehen —
+    📋, gepunktete Unterstreichung, dazu ein Satz über der Liste (ab 1.5.3).
+    Bis dahin war er nur eingefärbt, und der Nutzer fragte, ob es die
+    Einzelansicht überhaupt gibt (08/2026), obwohl sie seit 1.0.5 steht.
   - Das Kind sieht seine eigene Liste unter „?" → „Deine schweren Wörter". Wer
     die Daten erzeugt, darf sie sehen.
 - **Sterne gehen weiterhin an die Klasse**, und keine Rangliste zwischen
