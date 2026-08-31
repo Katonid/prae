@@ -447,6 +447,17 @@ Namens und lebt weiter.
   - **Es liegt in `protokoll/<CODE>/<Kind>`, nicht unter `klassen/`.** Dort
     darf lesen, wer den Code hat — das sind alle Kinder der Klasse. Schreiben
     darf jedes Kind, lesen nur die angemeldete Besitzerin. Nicht verschieben.
+  - **Die Leseerlaubnis gehört an den `$code`, nicht an das `$kind`** (ab
+    1.5.0). Die Klassenansicht liest `protokoll/<CODE>` in einem Zug; eine
+    Erlaubnis, die nur am einzelnen Kind steht, deckt das nicht — RTDB-Regeln
+    reichen nach UNTEN durch, nicht nach oben. Von 1.0.5 bis 1.4.0 schrieben
+    die Kinder deshalb brav mit, und die Lehrkraft bekam den Zweig nie zu
+    sehen (gemeldet 08/2026 als „da wurde wohl nichts übertragen").
+  - **Und die App schwieg dazu**: `protokollDerKlasse(...).catch(() => [])`
+    machte aus „darf nicht" ein „noch nichts da". Seit 1.5.2 steht bei
+    NICHT_ERLAUBT ein stehender Kasten mit den drei Schritten, und die
+    Fälle „abgeschaltet" und „noch niemand hat geübt" sagen sich getrennt.
+    Kein `catch`, der einen Rechtefehler in Leere verwandelt.
   - Gedeckelt auf sechs Falschschreibungen je Wort und 500 Wörter je Kind
     (`store.js`). Mehr sagt nichts Neues und lädt bei jedem Päckchen mit hoch.
   - **Abschaltbar je Klasse** (`klasse.protokoll === false`) und löschbar
