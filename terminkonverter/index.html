@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Terminkonverter — Excel zu iCal</title>
+    <meta name="description" content="Wandelt eine Excel-Tabelle mit Datum und Beschreibung in eine .ics-Datei für den Kalender um. Läuft ganz im Browser." />
+    <meta name="color-scheme" content="light dark" />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='3' y='6' width='26' height='23' rx='4' fill='%232b5bd7'/%3E%3Crect x='3' y='6' width='26' height='7' rx='4' fill='%231b3fa0'/%3E%3Crect x='9' y='3' width='3' height='6' rx='1.5' fill='%23fff'/%3E%3Crect x='20' y='3' width='3' height='6' rx='1.5' fill='%23fff'/%3E%3Cpath d='M11 21l4 4 7-8' stroke='%23fff' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
+    <link rel="stylesheet" href="./css/style.css" />
+  </head>
+  <body>
+    <header class="kopf">
+      <h1>Terminkonverter</h1>
+      <p>Excel-Tabelle rein, Kalenderdatei raus. Zwei Spalten genügen: <strong>Datum</strong> und <strong>Beschreibung</strong>.</p>
+    </header>
+
+    <main>
+      <section class="feld" id="ablage" aria-label="Datei auswählen">
+        <p class="feld__zeichen" aria-hidden="true">🗓️</p>
+        <p class="feld__text">Datei hierher ziehen — oder auswählen.</p>
+        <button type="button" id="waehlen">Datei auswählen</button>
+        <input type="file" id="datei" accept=".xlsx,.xlsm,.csv,.txt" hidden />
+        <p class="feld__klein">.xlsx, .xlsm oder .csv · Die Datei bleibt auf diesem Gerät.</p>
+      </section>
+
+      <p class="meldung" id="meldung" role="status" aria-live="polite"></p>
+
+      <section class="karte" id="einstellungen" hidden>
+        <h2>Einstellungen</h2>
+        <div class="raster">
+          <label>
+            <span>Name des Kalenders</span>
+            <input type="text" id="kalendername" value="Termine" maxlength="60" />
+          </label>
+          <label>
+            <span>Erinnerung</span>
+            <select id="erinnerung">
+              <option value="keine" selected>keine</option>
+              <option value="zeitpunkt">15 Minuten vorher (ganztägig: 8 Uhr früh)</option>
+              <option value="vortag">einen Tag vorher</option>
+            </select>
+          </label>
+          <label>
+            <span>Dauer ohne Endzeit</span>
+            <select id="dauer">
+              <option value="30">30 Minuten</option>
+              <option value="45">45 Minuten</option>
+              <option value="60" selected>1 Stunde</option>
+              <option value="90">1,5 Stunden</option>
+              <option value="120">2 Stunden</option>
+            </select>
+          </label>
+          <label>
+            <span>Jahr, wenn keines dabeisteht</span>
+            <input type="number" id="jahr" min="1900" max="2999" step="1" />
+          </label>
+        </div>
+      </section>
+
+      <section class="karte" id="vorschau" hidden>
+        <div class="karte__kopf">
+          <h2>Gefundene Termine <span class="zaehler" id="zaehler"></span></h2>
+          <div class="knopfreihe">
+            <button type="button" id="alle" class="still">Alle</button>
+            <button type="button" id="keine" class="still">Keinen</button>
+          </div>
+        </div>
+        <div class="tabelle-huelle">
+          <table>
+            <thead>
+              <tr><th class="schmal">Mit</th><th>Wann</th><th>Was</th><th class="schmal">Zeile</th></tr>
+            </thead>
+            <tbody id="zeilen"></tbody>
+          </table>
+        </div>
+        <div class="fuss">
+          <button type="button" id="laden" class="haupt">Kalenderdatei herunterladen</button>
+          <span id="ergebnis" class="fuss__text"></span>
+        </div>
+      </section>
+
+      <section class="karte hinweise" id="hinweiskarte" hidden>
+        <h2>Übergangene Zeilen</h2>
+        <p class="feld__klein">Diese Zeilen wandern nicht in den Kalender — meist steckt dort eine Überschrift, eine Leerzeile oder ein Datum in ungewohnter Schreibweise.</p>
+        <ul id="hinweisliste"></ul>
+      </section>
+
+      <section class="karte hilfe">
+        <h2>So sieht die Tabelle aus</h2>
+        <table class="beispiel">
+          <thead><tr><th>Datum</th><th>Beschreibung</th></tr></thead>
+          <tbody>
+            <tr><td>01.09.2026</td><td>Erster Schultag</td></tr>
+            <tr><td>14.09.2026 19:30</td><td>Elternabend</td></tr>
+            <tr><td>05.01.2027 – 07.01.2027</td><td>Skifreizeit</td></tr>
+            <tr><td>3. März 2027 9:00-10:30</td><td>Zeugniskonferenz</td></tr>
+          </tbody>
+        </table>
+        <ul class="liste">
+          <li>Ein echtes Excel-Datum wird erkannt, ebenso <em>01.09.2026</em>, <em>1.9.26</em>, <em>2026-09-01</em> und <em>1. September 2026</em>.</li>
+          <li>Steht eine Uhrzeit dabei, bekommt der Termin eine Uhrzeit — sonst wird er ganztägig.</li>
+          <li>Zwei Daten in einer Zelle ergeben einen mehrtägigen Termin.</li>
+          <li>Welche Spalte links steht, ist gleich: Gesucht wird die Zelle mit dem Datum, der Rest wird zur Beschreibung.</li>
+          <li>Eine Überschriftenzeile darf stehen bleiben.</li>
+        </ul>
+        <p class="feld__klein">Die Umwandlung läuft vollständig im Browser: Es wird nichts hochgeladen, nichts gespeichert, nichts mitgezählt.</p>
+      </section>
+    </main>
+
+    <footer class="fusszeile">
+      Terminkonverter · ohne Anmeldung, ohne Server, ohne fremde Bibliothek.
+    </footer>
+
+    <script type="module" src="./js/app.js"></script>
+  </body>
+</html>

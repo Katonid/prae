@@ -1,0 +1,132 @@
+:root {
+  color-scheme: light dark;
+  --grund: #f4f6fb;
+  --karte: #ffffff;
+  --schrift: #15243a;
+  --leise: #5a6b85;
+  --rand: #d9e0ee;
+  --blau: #2b5bd7;
+  --blau-hell: #eaf0ff;
+  --warn: #8a5a00;
+  --warn-grund: #fff5e0;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --grund: #10141d;
+    --karte: #171d29;
+    --schrift: #e8edf7;
+    --leise: #a2aec4;
+    --rand: #2a3346;
+    --blau: #7ea2ff;
+    --blau-hell: #1b2540;
+    --warn: #ffcf7a;
+    --warn-grund: #2c2415;
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  padding: 0 1rem 3rem;
+  background: var(--grund);
+  color: var(--schrift);
+  font: 16px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+}
+
+main, .kopf, .fusszeile { max-width: 52rem; margin: 0 auto; }
+
+.kopf { padding: 2.5rem 0 1.5rem; }
+.kopf h1 { margin: 0 0 .4rem; font-size: 1.9rem; letter-spacing: -.01em; }
+.kopf p { margin: 0; color: var(--leise); }
+
+h2 { margin: 0 0 .8rem; font-size: 1.1rem; }
+
+.karte, .feld {
+  background: var(--karte);
+  border: 1px solid var(--rand);
+  border-radius: 14px;
+  padding: 1.25rem;
+  margin-bottom: 1rem;
+}
+
+.feld {
+  border-style: dashed;
+  border-width: 2px;
+  text-align: center;
+  padding: 2rem 1.25rem;
+  transition: background .15s, border-color .15s;
+}
+.feld.bereit { border-color: var(--blau); background: var(--blau-hell); }
+.feld__zeichen { font-size: 2.2rem; margin: 0 0 .4rem; }
+.feld__text { margin: 0 0 .9rem; font-weight: 600; }
+.feld__klein { margin: .8rem 0 0; color: var(--leise); font-size: .85rem; }
+
+button {
+  font: inherit;
+  border: 1px solid var(--rand);
+  background: var(--karte);
+  color: var(--schrift);
+  border-radius: 10px;
+  padding: .55rem 1.1rem;
+  cursor: pointer;
+}
+button:hover { border-color: var(--blau); }
+button.haupt {
+  background: var(--blau);
+  border-color: var(--blau);
+  color: #fff;
+  font-weight: 600;
+  padding: .7rem 1.4rem;
+}
+@media (prefers-color-scheme: dark) { button.haupt { color: #0f1626; } }
+button.still { padding: .35rem .8rem; font-size: .85rem; }
+button:focus-visible, input:focus-visible, select:focus-visible {
+  outline: 3px solid var(--blau); outline-offset: 2px;
+}
+
+.raster { display: grid; gap: .9rem; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); }
+label { display: flex; flex-direction: column; gap: .3rem; font-size: .9rem; color: var(--leise); }
+input[type="text"], input[type="number"], select {
+  font: inherit;
+  color: var(--schrift);
+  background: var(--grund);
+  border: 1px solid var(--rand);
+  border-radius: 9px;
+  padding: .5rem .6rem;
+}
+
+.karte__kopf { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+.knopfreihe { display: flex; gap: .4rem; }
+.zaehler { color: var(--leise); font-weight: 400; }
+
+.tabelle-huelle { overflow-x: auto; border: 1px solid var(--rand); border-radius: 10px; }
+table { border-collapse: collapse; width: 100%; font-size: .92rem; }
+th, td { text-align: left; padding: .5rem .7rem; border-bottom: 1px solid var(--rand); vertical-align: top; }
+th { background: var(--grund); font-size: .82rem; color: var(--leise); text-transform: uppercase; letter-spacing: .04em; }
+tbody tr:last-child td { border-bottom: 0; }
+td.wann { white-space: nowrap; }
+.schmal { width: 1%; white-space: nowrap; }
+tr.aus td { opacity: .45; text-decoration: line-through; }
+tr.aus td:first-child { text-decoration: none; opacity: 1; }
+
+.fuss { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; margin-top: 1rem; }
+.fuss__text { color: var(--leise); font-size: .9rem; }
+
+.meldung { margin: 0 0 1rem; min-height: 1.2em; font-size: .95rem; }
+.meldung.fehler { color: #b3261e; font-weight: 600; }
+@media (prefers-color-scheme: dark) { .meldung.fehler { color: #ffb4ab; } }
+
+.hinweise { background: var(--warn-grund); border-color: var(--warn); }
+.hinweise h2 { color: var(--warn); }
+.hinweise ul { margin: .6rem 0 0; padding-left: 1.2rem; font-size: .9rem; }
+.hinweise li { margin-bottom: .25rem; }
+
+.hilfe .beispiel { margin-bottom: 1rem; }
+.liste { padding-left: 1.2rem; margin: 0 0 .4rem; color: var(--leise); font-size: .92rem; }
+.liste li { margin-bottom: .3rem; }
+.liste em { color: var(--schrift); font-style: normal; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .9em; }
+
+.fusszeile { padding-top: 1rem; font-size: .85rem; }
+.fusszeile a { color: var(--leise); }
