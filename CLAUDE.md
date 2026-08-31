@@ -318,6 +318,12 @@ Namens und lebt weiter.
   Wörterwerkstatt dazukam: Ihr Zweig fehlte, die Datenbank wies dort alles ab,
   und es ließ sich keine Klasse anlegen. Die Dateien in `klassenraum/` und
   `woerterwerkstatt/` sind nur noch Einzelfassungen zum Nachschlagen.
+- **In die Regeldateien gehört NICHTS außer Regeln.** Der Editor kennt oben nur
+  `rules`, als Regelarten nur `.read`, `.write`, `.validate`, `.indexOn` und als
+  deren Werte nur `true`/`false`/Text. Ein erklärender Schlüssel oder ein Array
+  lässt das Einfügen mit einem Syntaxfehler scheitern — die Dateien trugen
+  kurzzeitig `_hinweis`-Schlüssel und wären so nicht einzufügen gewesen. Die
+  Erläuterung steht in `firebase-rules.md` daneben.
 - **Ein Einrichtungsfehler muss sich erklären.** Die App meldete den Fall oben
   als „NICHT_ERLAUBT" in einem Streifen, der nach vier Sekunden verschwand —
   das ist keine Meldung, das ist ein Rätsel. Seit 1.0.2 prüft

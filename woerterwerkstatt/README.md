@@ -120,7 +120,8 @@ Kind beizutreten. Alles Üben lief weiter, weil es das Netz nicht braucht.
 
 `woerterwerkstatt/firebase-rules.json` und `klassenraum/firebase-rules.json`
 sind die Einzelfassungen zum Nachschlagen; maßgeblich ist die Datei im
-Wurzelverzeichnis.
+Wurzelverzeichnis. Was die einzelnen Regeln tun und warum in der JSON-Datei
+keine Kommentare stehen dürfen, erklärt `../firebase-rules.md`.
 
 Seit 1.0.2 sagt die App selbst Bescheid: Wer „Meine Klassen“ öffnet, während
 der Zweig gesperrt ist, bekommt keinen leeren Kasten und keine Meldung, die

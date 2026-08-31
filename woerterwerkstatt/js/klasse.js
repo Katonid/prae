@@ -58,7 +58,8 @@ function regelhinweis() {
     h('ol', { class: 'einrichthinweis__schritte' },
       h('li', {}, 'Firebase-Konsole öffnen → Realtime Database → Reiter „Regeln“.'),
       h('li', {}, 'Den gesamten Inhalt der Datei ', h('code', {}, 'firebase-rules.json'),
-        ' aus dem Wurzelverzeichnis des Repos hineinkopieren — sie enthält BEIDE Zweige.'),
+        ' aus dem Wurzelverzeichnis des Repos hineinkopieren — sie enthält BEIDE Zweige '
+        + 'und nichts sonst (der Regeleditor weist erklärende Zusätze ab).'),
       h('li', {}, 'Auf „Veröffentlichen“ tippen, dann hier neu laden.')),
     h('p', { class: 'einrichthinweis__warnung' },
       'Wichtig: Die Konsole ersetzt beim Veröffentlichen die kompletten Regeln. '
