@@ -459,7 +459,7 @@ ${svg}
  * nicht immer, was von beidem es gerade ist. Die App probiert die Anmeldung
  * und bietet das Anlegen erst an, wenn es den Namen noch nicht gibt.
  */
-export function beitreten(code, beiFertig) {
+export function beitreten(code, beiFertig, beimSchliessen = null) {
   const gross = String(code).toUpperCase();
   const nameFeld = h('input', {
     class: 'feld feld--gross', type: 'text', placeholder: 'Dein Name',
@@ -533,6 +533,10 @@ export function beitreten(code, beiFertig) {
 
   const dialog = blatt({
     titel: 'Mitmachen',
+    // Der Wegweiser merkt sich, für welchen Code ein Blatt offen ist, und muss
+    // erfahren, wenn es wieder zu ist — sonst ließe sich derselbe Code danach
+    // nie wieder öffnen.
+    beimSchliessen,
     inhalt: h('div', {},
       klassenname,
       h('p', { class: 'blatt__text' },

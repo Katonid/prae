@@ -220,8 +220,29 @@ export function eigeneBereiche() {
   return zustand.eigeneBereiche;
 }
 
+/** Alles außer dem Zeitstempel — daran wird gemessen, ob sich etwas geändert hat. */
+function bereichsinhalt(bereich) {
+  if (!bereich) return '';
+  const ohneZeit = Object.assign({}, bereich);
+  delete ohneZeit.geaendertAm;
+  return JSON.stringify(ohneZeit);
+}
+
+/**
+ * Einen Bereich sichern.
+ *
+ * Ist er inhaltlich unverändert, passiert NICHTS — kein Schreiben, keine
+ * Meldung. Das spart nicht nur Schreibvorgänge: Ein Beitritt zu einer Klasse
+ * sichert deren mitgegebene Bereiche bei jedem Öffnen, und wer daraufhin
+ * meldet, weckt jeden Horcher. Aus einer solchen Rückkopplung wurde einmal
+ * eine Schleife ohne Boden (siehe app.js). Eine Meldung nur bei echter
+ * Änderung schneidet diese Klasse von Fehlern an der Wurzel ab.
+ */
 export function bereichSichern(bereich) {
   const stelle = zustand.eigeneBereiche.findIndex((b) => b.id === bereich.id);
+  if (stelle >= 0 && bereichsinhalt(zustand.eigeneBereiche[stelle]) === bereichsinhalt(bereich)) {
+    return zustand.eigeneBereiche[stelle];
+  }
   const eintrag = Object.assign({}, bereich, { geaendertAm: Date.now() });
   if (stelle >= 0) zustand.eigeneBereiche[stelle] = eintrag;
   else zustand.eigeneBereiche.push(eintrag);
