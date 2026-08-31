@@ -406,11 +406,26 @@ Klassen, zu denen es keine Lehrkraft mehr gibt. Von dort aus lässt sich
 
 * eine Lehrkraft **anlegen** (E-Mail, Name, erstes Kennwort) — die eigene
   Anmeldung bleibt dabei stehen,
-* umbenennen, ihr eine **Mail zum Zurücksetzen des Kennworts** schicken, ihr
-  das Verwaltungsrecht geben oder nehmen,
+* umbenennen, ihr das Verwaltungsrecht geben oder nehmen,
+* ihr eine **Mail zum Zurücksetzen des Kennworts** schicken (der häufigste
+  Fall im Alltag: „✉️ Kennwort zurücksetzen“ im Konto der Kollegin). Sie
+  bekommt einen Link von Firebase und setzt das neue Kennwort selbst; das
+  alte gilt so lange weiter. Ein Kennwort direkt zu setzen kann die
+  Verwaltung nicht — und sollte es auch nicht: Ein Kennwort, das die
+  Verwaltung kennt, ist keines. Steht zu einem Konto keine Adresse im
+  Verzeichnis, geht es über **„✉️ Kennwort-Mail“** in der Übersicht an eine
+  frei eingetippte Adresse,
 * samt allen Klassen, Kindern, PINs und Protokollen **löschen**,
 * und jede Klasse in der gewohnten Klassenansicht öffnen — dort werden Kinder
   angelegt, umbenannt, mit neuer PIN versehen und entfernt.
+
+Die **E-Mail im Verzeichnis** trägt sich bei jeder Anmeldung nach (ab 1.8.1).
+Vorher schrieb nur das *Anlegen* eines Kontos ein Profil — wer sich vor dieser
+Fassung angemeldet hatte oder bei wem der Schreibvorgang damals durchfiel,
+stand ohne E-Mail da, und der Knopf zum Zurücksetzen war ausgerechnet für die
+Kolleginnen grau, um die es geht. Der **Name** wird dabei bewusst nicht
+mitgeschrieben: Hat die Verwaltung ihn geändert, überschriebe ihn sonst die
+nächste Anmeldung der Lehrkraft.
 
 **Wer verwalten darf, entscheiden die Datenbankregeln, nicht die App.** Die App
 probiert schlicht, ob sie `woerterwerkstatt/users` auflisten darf. Damit stehen

@@ -46,6 +46,39 @@ function konsolenknopf(text, bereich = 'authentication/users') {
   }, text);
 }
 
+/**
+ * Die Kennwort-Mail — der einzige Weg zu einem fremden Zugang.
+ *
+ * Ein Kennwort SETZEN kann die Verwaltung nicht: Das verlangt das Zeichen des
+ * betroffenen Kontos, und das hat niemand außer der Lehrkraft selbst. Der Weg
+ * über die Mail ist dafür nicht bloß ein Notbehelf — ein Kennwort, das die
+ * Verwaltung kennt, ist keines.
+ *
+ * Was die Kollegin bekommt, steht in der Rückfrage: eine Mail von Firebase mit
+ * einem Link, über den sie selbst ein neues Kennwort setzt. Bis dahin gilt das
+ * alte weiter; es wird also nichts kaputtgemacht, wenn die Mail liegen bleibt.
+ */
+async function kennwortmail(email, name = '') {
+  const sicher = await frage({
+    titel: 'Kennwort-Mail schicken?',
+    text: `An ${email} geht eine Mail mit einem Link, über den ${name || 'die Lehrkraft'} `
+      + 'selbst ein neues Kennwort setzt. Das bisherige gilt so lange weiter — es geht '
+      + 'also nichts verloren, wenn die Mail liegen bleibt. Ein Kennwort direkt zu '
+      + 'setzen kann die Verwaltung nicht, und sie sollte es auch nicht können.',
+    ja: 'Mail schicken',
+  });
+  if (!sicher) return false;
+  try {
+    await zugangsmailSenden(email);
+    meldung(`Die Mail ist an ${email} unterwegs. Sag Bescheid, dass sie auch im `
+      + 'Spam-Ordner nachsehen soll — der Absender ist Firebase, nicht die Schule.', 'gut', 9000);
+    return true;
+  } catch (problem) {
+    meldung(klartext(problem), 'warnung', 6000);
+    return false;
+  }
+}
+
 /* ---------- Eine einzelne Lehrkraft ---------- */
 
 function lehrkraftZeigen(lehrkraft, beiAenderung) {
@@ -74,6 +107,8 @@ function lehrkraftZeigen(lehrkraft, beiAenderung) {
         zeile('E-Mail', h('span', { class: 'blatt__wert' }, lehrkraft.email || '— unbekannt —')),
         zeile('Angelegt', h('span', { class: 'blatt__wert' },
           lehrkraft.angelegtAm ? datum(lehrkraft.angelegtAm) : '— vor der Erfassung —')),
+        zeile('Zuletzt angemeldet', h('span', { class: 'blatt__wert' },
+          lehrkraft.zuletztAngemeldet ? datum(lehrkraft.zuletztAngemeldet) : '— noch nicht erfasst —')),
         zeile('Eigene Bereiche', h('span', { class: 'blatt__wert' }, String(lehrkraft.bereiche))),
         h('div', { class: 'blatt__knopfreihe' },
           h('button', {
@@ -96,24 +131,19 @@ function lehrkraftZeigen(lehrkraft, beiAenderung) {
             },
           }, '✏️ Name ändern'),
           h('button', {
-            class: 'knopf knopf--still knopf--klein', type: 'button',
+            class: 'knopf knopf--voll knopf--klein', type: 'button',
             disabled: !lehrkraft.email,
-            onclick: async () => {
-              const sicher = await frage({
-                titel: 'Neues Kennwort anfordern?',
-                text: `An ${lehrkraft.email} geht eine Mail von Firebase, mit der sich `
-                  + 'ein neues Kennwort setzen lässt. Das bisherige bleibt gültig, bis das '
-                  + 'geschehen ist. Ein Kennwort direkt zu setzen ist nicht möglich — und '
-                  + 'wäre auch keins mehr, wenn die Verwaltung es kennt.',
-                ja: 'Mail schicken',
-              });
-              if (!sicher) return;
-              try {
-                await zugangsmailSenden(lehrkraft.email);
-                meldung('Die Mail ist unterwegs.', 'gut', 4000);
-              } catch (problem) { meldung(klartext(problem), 'warnung', 5000); }
-            },
-          }, '✉️ Kennwort zurücksetzen'))),
+            onclick: () => kennwortmail(lehrkraft.email, wer(lehrkraft)),
+          }, '✉️ Kennwort zurücksetzen')),
+        lehrkraft.email
+          ? null
+          // Ohne hinterlegte Adresse geht es nicht — und dann muss dastehen,
+          // warum der Knopf grau ist und was hilft.
+          : h('p', { class: 'abschnitt__notiz' },
+            'Zu diesem Konto ist keine E-Mail hinterlegt, deshalb lässt sich von hier aus '
+            + 'keine Mail schicken. Sie trägt sich nach, sobald die Lehrkraft sich einmal '
+            + 'anmeldet — oder du schickst die Mail über „✉️ Kennwort-Mail" in der '
+            + 'Übersicht direkt an ihre Adresse.')),
 
       abschnitt('Rechte',
         h('p', { class: 'blatt__text' },
@@ -323,10 +353,31 @@ export function schulverwaltung() {
         + 'auch die Lehrkraft findet.'),
 
       abschnitt('Lehrkräfte', liste,
+        h('p', { class: 'abschnitt__notiz' },
+          'Ein Tipp auf einen Namen öffnet das Konto — dort lässt sich umbenennen, das '
+          + 'Kennwort zurücksetzen und das Verwaltungsrecht vergeben.'),
         h('div', { class: 'blatt__knopfreihe' },
           h('button', {
             class: 'knopf knopf--voll', type: 'button', onclick: () => neueLehrkraft(zeichnen),
-          }, '+ Neue Lehrkraft'))),
+          }, '+ Neue Lehrkraft'),
+          // Der Weg für den Fall, dass zu einem Konto keine Adresse im
+          // Verzeichnis steht — dann ist der Knopf im Konto grau, die Kollegin
+          // hat aber trotzdem eine Mailadresse.
+          h('button', {
+            class: 'knopf knopf--still', type: 'button',
+            onclick: async () => {
+              const adresse = await eingabe({
+                titel: 'Kennwort-Mail schicken',
+                text: 'Die E-Mail-Adresse, mit der sich die Kollegin anmeldet. Gibt es zu '
+                  + 'dieser Adresse kein Konto, sagt es die App.',
+                platzhalter: 'name@schule.de',
+                pruefung: (wert) => (/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(wert) ? null : 'Das sieht nicht nach einer E-Mail-Adresse aus.'),
+                ja: 'Weiter',
+              });
+              if (!adresse) return;
+              await kennwortmail(adresse);
+            },
+          }, '✉️ Kennwort-Mail'))),
 
       abschnitt('Alle Klassen',
         h('p', { class: 'abschnitt__notiz' },

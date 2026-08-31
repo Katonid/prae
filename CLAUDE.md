@@ -436,6 +436,20 @@ Namens und lebt weiter.
 - **Kinder verwaltet die Schulverwaltung NICHT selbst**, sie öffnet die
   gewohnte Klassenansicht. Zwei Oberflächen für dieselbe Aufgabe liefen mit
   Sicherheit auseinander.
+- **Kennwort vergessen: Mail statt Setzen.** `zugangsmailSenden` schickt über
+  `sendOobCode` (PASSWORD_RESET) einen Link an die hinterlegte Adresse; die
+  Kollegin setzt selbst neu, das alte gilt bis dahin weiter. Ein Kennwort
+  direkt zu setzen verlangt das Zeichen des betroffenen Kontos — und ein
+  Kennwort, das die Verwaltung kennt, ist keines. Zwei Wege in der App: im
+  Konto der Lehrkraft und, falls dort keine Adresse steht, „✉️ Kennwort-Mail"
+  in der Übersicht an eine frei eingetippte Adresse.
+- **Die E-Mail im Verzeichnis trägt sich beim ANMELDEN nach** (ab 1.8.1). Bis
+  dahin schrieb nur `kontoAnlegen` ein Profil — wer sich vorher angemeldet
+  hatte oder bei wem der Schreibvorgang durchfiel, stand ohne E-Mail da, und
+  der Knopf zum Zurücksetzen war ausgerechnet für die Kolleginnen grau, um die
+  es geht. `anmelden` schreibt deshalb `profil/email` per PATCH nach — den
+  NAMEN aber nicht: Hat die Verwaltung ihn geändert, überschriebe ihn sonst
+  die nächste Anmeldung der Lehrkraft.
 - **Ein fremdes Firebase-Konto zu löschen geht vom Browser aus nicht** — das
   verlangt das Admin-SDK mit Dienstschlüssel, und der wäre in einer Web-App der
   Generalschlüssel zur Datenbank, mitgeliefert auf jedem Kindergerät. Die App
