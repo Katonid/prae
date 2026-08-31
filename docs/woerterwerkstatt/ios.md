@@ -16,13 +16,115 @@ Drei Dinge kann eine Web-App auf einem iPad nicht oder nur halb:
    lässt ihn oft gar nicht zu.
 2. **Über das MDM der Schule verteilt werden.** Das geht nur mit einer App aus
    dem App Store oder Apple School Manager. Für viele Schulen ist genau das der
-   Unterschied zwischen „benutzen wir“ und „benutzen wir nicht“.
+   Unterschied zwischen „benutzen wir“ und „benutzen wir nicht“. (Halb stimmt
+   das nicht — ein MDM kann auch einen Web Clip verteilen. Siehe den nächsten
+   Abschnitt.)
 3. **Verlässlich vorlesen.** `speechSynthesis` gibt es in Safari, aber die
    Stimmenauswahl ist unberechenbar und die erste Ausgabe braucht eine
    Berührung. `AVSpeechSynthesizer` ist verlässlich.
 
 Alles andere — Offline-Betrieb, Fortschritt, Klassen per QR-Code — funktioniert
 im Browser bereits vollständig.
+
+## Wenn die Kinder nur eine schulische Apple-ID haben
+
+Nachgesehen 08/2026 auf Frage des Nutzers. **Kurz: Ja, der Umbau ist möglich —
+die schulische Apple-ID verbietet nichts. Sie legt aber den Verteilweg fest,
+und der entscheidet hier mehr als der Quelltext.**
+
+### Was eine schulische Apple-ID kann und was nicht
+
+Eine schulische Apple-ID („Managed Apple Account“ aus dem Apple School
+Manager) ist kein gewöhnliches Apple-Konto:
+
+* **Kein Laden aus dem App Store.** Der Handel ist abgeschaltet — ein Kind
+  kann sich eine App nicht selbst holen, auch keine kostenlose.
+* **Apps kommen von der Schule**, über „Apps und Bücher“ im Apple School
+  Manager und ein MDM. Zugewiesen wird entweder an das **Gerät** — dann
+  braucht das iPad überhaupt keine Apple-ID — oder an das Konto.
+* **TestFlight geht seit 10/2025 mit schulischen Apple-IDs, aber nicht für
+  die Rolle „Schüler“.** Ein Kind kann also keine Testfassung bekommen.
+* Die Schule darf private Apple-IDs auf ihren Geräten ganz sperren.
+
+Die App wird auf einem Kinder-iPad also genau dann sichtbar, wenn die Schule
+sie verteilt — nie, weil ein Kind sie sich holt.
+
+### Die Wörterwerkstatt selbst verlangt keine Apple-ID
+
+Am Quelltext geprüft (08/2026): kein iCloud, kein „Anmelden mit Apple“, kein
+Kauf in der App, kein Game Center — nichts davon steht irgendwo im Ordner.
+Die Kinder melden sich mit **Klassencode, Namen und vierstelliger PIN** an
+(`js/cloud.js`); gespeichert wird örtlich (IndexedDB) und in der
+Firebase-Datenbank. Die einzigen fremden Adressen im ganzen Ordner gehören
+Firebase. Nach außen spricht die App über Google, nie über Apple.
+
+Es gibt damit **keine Stelle, an der eine schulische Apple-ID etwas
+verhindert**, was die App tut. Sie ist an genau zwei Stellen wichtig: beim
+Installieren und beim Testen.
+
+### Die eigentliche Bedingung: Hat die Schule ein MDM?
+
+Ohne MDM und Apple School Manager kommt eine native App auf ein verwaltetes
+iPad **gar nicht** — es gibt keinen zweiten Weg. Dann ist die heutige Web-App
+nicht der bequemere, sondern der einzige. Diese Frage gehört vor die erste
+Zeile Swift.
+
+Hat die Schule ein MDM, folgt daraus zugleich das Gegenargument: Dann kann sie
+auch einen **Web Clip** verteilen (Nutzlast `com.apple.webClip.managed`,
+Anzeige „Vollbild“). Das bringt ohne jeden Umbau ein Symbol auf dem
+Homescreen, ohne Browserleiste, über dasselbe MDM verteilt — ohne App Store,
+ohne Apple-ID, ohne Prüfung durch Apple, sofort. Die Punkte 1 und 2 aus
+„Warum die Frage überhaupt aufkommt“ sind damit erledigt, und beide waren die
+Hauptgründe.
+
+### Was der Umbau dann noch bringt
+
+Bleiben die Gründe, die ein Web Clip nicht abdeckt:
+
+* **Vorlesen.** Ein Web Clip ist Safari, also bleibt es bei
+  `speechSynthesis` samt unberechenbarer Stimmenwahl. Die Diktatstufe steht
+  und fällt damit — das ist das stärkste verbliebene Argument.
+* **Safari-Sperren.** Wo die Schule Safari abschaltet oder einen
+  Inhaltsfilter setzt, fällt der Web Clip mit aus. Eine eigene App mit
+  `WKWebView` ist davon unberührt. (Den Netzfilter umgeht sie nicht: Die
+  Firebase-Adresse muss durch, sonst gibt es keine Klassen.)
+* **Speicher, den niemand wegräumt.** Safari räumt den Speicher von Seiten
+  auf, die sieben Tage nicht benutzt wurden; für vom Homescreen gestartete
+  Web-Apps soll das nicht gelten. Darauf verlassen möchte man sich bei sechs
+  Wochen Sommerferien nicht. Im Bündel einer App stellt sich die Frage nicht.
+* **QR-Scanner** für den Klassenbeitritt (siehe unten, Punkt 1).
+
+### Was beim App-Store-Weg zusätzlich zu tun ist
+
+1. **Verfügbarkeit für Apple School Manager anhaken.** Ohne diese Freigabe
+   des Entwicklers taucht die App in „Apps und Bücher“ nicht auf — auch eine
+   kostenlose nicht. Die Schule kann sie dann nicht beziehen, obwohl sie im
+   App Store steht.
+2. **Oder als „Custom App“** nur für diese eine Schule (Organisations-Kennung
+   aus deren Apple School Manager). Nicht öffentlich gelistet, aber von Apple
+   genauso geprüft — Richtlinie 4.2 gilt dort ebenso.
+3. **Nicht die Kinder-Kategorie wählen**, sondern „Bildung“ mit Altersfreigabe
+   4+. Die Kinder-Kategorie verbietet, personenbezogene Daten an Dritte zu
+   geben — und genau das ist Firebase. Wer sie einmal gewählt hat, muss ihre
+   Regeln auch in allen künftigen Fassungen einhalten.
+4. **Datenschutz.** Namen, Sterne und das Wortprotokoll von Kindern liegen bei
+   Google. Für die Schule heißt das ein Auftragsverarbeitungsvertrag — das
+   gilt schon heute für die Web-App, fällt beim App Store aber jemandem auf.
+5. **Testen ohne Kinder.** Der Nutzer selbst und Lehrkräfte können per
+   TestFlight prüfen, Kinder nicht. Was in die Klasse geht, muss vorher
+   woanders fertig geprüft sein.
+
+### Empfehlung in dieser Reihenfolge
+
+1. Bei der Schule fragen, ob sie MDM und Apple School Manager hat. **Nein →
+   die Web-App bleibt, und der Umbau erübrigt sich**, denn eine App käme auf
+   die Geräte nicht drauf.
+2. **Ja → zuerst einen Web Clip verteilen lassen.** Kostet nichts, dauert eine
+   Viertelstunde und bringt Homescreen-Symbol und Verteilung sofort.
+3. Erst wenn danach noch etwas fehlt — verlässliches Vorlesen, ein Scanner,
+   oder Safari ist gesperrt —, lohnt Weg A. Die schulische Apple-ID ist dann
+   kein Hindernis mehr, sondern nur noch der Grund, warum gerätebasiert
+   zugewiesen wird.
 
 ## Was heute schon dafür getan ist
 

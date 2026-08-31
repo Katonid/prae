@@ -439,6 +439,16 @@ Namens und lebt weiter.
 - Die Fassungsnummer steht in `js/version.js` UND in `sw.js` (`FASSUNG`) — der
   Service Worker lädt keine Module. Beide bei jeder neuen Fassung hochsetzen,
   sonst bleibt der alte Zwischenspeicher stehen.
+- **Native iOS-App?** Die Wegbeschreibung steht in `docs/woerterwerkstatt/ios.md`
+  — samt der Frage nach schulischen Apple-IDs (nachgesehen 08/2026). Kurz: Die
+  App selbst braucht keine Apple-ID (kein iCloud, kein „Anmelden mit Apple“,
+  kein Kauf); Kinder mit einer schulischen Apple-ID können aber nichts aus dem
+  App Store laden und kein TestFlight nutzen — verteilt wird über MDM und Apple
+  School Manager. Deshalb **erst klären, ob die Schule ein MDM hat**: hat sie
+  keins, kommt gar keine App auf die Geräte; hat sie eins, leistet ein **Web
+  Clip** Homescreen und Verteilung sofort und ohne Umbau. Der native Weg lohnt
+  danach nur noch für verlässliches Vorlesen, den QR-Scanner und gesperrtes
+  Safari.
 
 ## Projekt Klassenraum (Web-App)
 
