@@ -9,7 +9,7 @@
  * bleibt der alte Zwischenspeicher stehen.
  */
 
-const FASSUNG = 'v10';
+const FASSUNG = 'v11';
 const SPEICHER = `woerterwerkstatt-${FASSUNG}`;
 
 const DATEIEN = [
@@ -24,8 +24,15 @@ const DATEIEN = [
   './fonts/lexend-latin.woff2',
   './fonts/quicksand-latin.woff2',
   './icons/icon.svg',
+  './icons/icon-32.png',
+  './icons/icon-120.png',
+  './icons/icon-152.png',
+  './icons/icon-167.png',
+  './icons/icon-180.png',
   './icons/icon-192.png',
   './icons/icon-512.png',
+  './icons/icon-192-maskable.png',
+  './icons/icon-512-maskable.png',
   './js/app.js',
   './js/util.js',
   './js/ui.js',
@@ -36,6 +43,7 @@ const DATEIEN = [
   './js/version.js',
   './js/woerter.js',
   './js/rechtschreibung.js',
+  './js/rechtschreibung1.js',
   './js/rechtschreibung2.js',
   './js/rechtschreibung3.js',
   './js/grammatik.js',

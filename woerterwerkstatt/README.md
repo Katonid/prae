@@ -58,23 +58,33 @@ nicht gespeichert — „Päckchen 2“ ist deshalb auf jedem Gerät dasselbe P�
 Sterne: drei, wenn jedes Wort gleich beim ersten Versuch saß; zwei ab 80 %,
 einer ab 60 %. Gemerkt wird der **beste** Durchgang.
 
-## Bereiche: zwanzig Themen, siebenundzwanzig Rechtschreibblöcke
+**Nicht jeder Bereich übt alle fünf.** Ein Bereich darf über das Feld `stufen`
+weniger verlangen — die Blöcke der 1. Klasse lassen die Wortart-Stufe weg, denn
+ob ein Wort Nomen, Verb oder Adjektiv ist, ist dort noch kein Stoff (Ansage des
+Nutzers). Wer das liest, ist `stufenFuer(bereich)` in `js/uebungen/index.js`;
+danach richten sich die Kacheln, die Sternhöchstzahl, der Weiterweg nach drei
+Sternen und die Stufenliste im Auftrag der Woche. Fehlt das Feld, gelten alle
+fünf. Gezählt wird auf den Kacheln, was der Bereich übt (1 2 3 4), nicht die
+feste Nummer der Übung (1 2 3 5).
 
-Zwei Sorten, in zwei Dateien:
+## Bereiche: zwanzig Themen, hundertdrei Rechtschreibblöcke
+
+Zwei Sorten, in fünf Dateien:
 
 | Datei | sortiert nach | Stufe | Umfang | von Haus aus |
 |---|---|---|---|---|
 | `js/woerter.js` | **Inhalt** (Schule, Tiere, Wetter) | — | 20 × 30 Wörter (2 Päckchen) | **sichtbar** |
+| `js/rechtschreibung1.js` | **Rechtschreibstelle** | 1. Schuljahr | 23 × 8 Wörter | ausgeblendet |
 | `js/rechtschreibung2.js` | **Rechtschreibstelle** | 2. Schuljahr | 28 × 10 Wörter | ausgeblendet |
 | `js/rechtschreibung3.js` | **Rechtschreibstelle** | 3. Schuljahr | 25 × 15 Wörter | ausgeblendet |
 | `js/rechtschreibung.js` | **Rechtschreibstelle** | 4. Schuljahr | 27 × 15 Wörter | ausgeblendet |
 
-Zusammen **1660 Wörter in 100 Bereichen**. Die Rechtschreibpäckchen sind
-ausgeblendet, weil achtzig zusätzliche Karten für ein Kind, das eine Woche
+Zusammen **1844 Wörter in 123 Bereichen**. Die Rechtschreibpäckchen sind
+ausgeblendet, weil hundert zusätzliche Karten für ein Kind, das eine Woche
 lang ein einziges Päckchen übt, nur Gestrüpp wären.
 
-**Ein Päckchen ist so groß wie sein Bereich.** Die Klasse-2-Blöcke haben zehn
-Wörter, die anderen fünfzehn; gerechnet wird mit der tatsächlichen Zahl, nicht
+**Ein Päckchen ist so groß wie sein Bereich.** Die Klasse-1-Blöcke haben acht
+Wörter, die der 2. Klasse zehn, die anderen fünfzehn; gerechnet wird mit der tatsächlichen Zahl, nicht
 mit einer festen. Ein Bereich mit mehr als fünfzehn Wörtern wird in mehrere
 Päckchen geteilt (die Themenbereiche in zwei). Die Lehrkraft schaltet unter
 **⚙︎ → Bereiche wählen** frei, was gerade dran ist — und kann dort auch
@@ -295,7 +305,8 @@ index.html          Gerüst; die drei Ebenen entstehen im JavaScript
 css/app.css         Oberfläche (Glas, Schatten, sparsame Bewegung, dunkle Umgebung)
 css/fonts.css       Andika, Lexend, Quicksand — alle mit einstöckigem a und g
 js/app.js           Wegweiser (#/bereich/… , #/ueben/… , #/beitreten/…)
-js/woerter.js       die 600 Lernwörter
+js/woerter.js       die 600 Lernwörter der Themenbereiche
+js/rechtschreibung*.js  die Rechtschreibblöcke der Klassen 1 bis 4
 js/grammatik.js     Wortarten und Wortformen
 js/paket.js         Trainingspäckchen
 js/wortbild.js      Buchstabenhaus und Wortumriss (SVG)

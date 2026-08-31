@@ -129,7 +129,6 @@ def bild(groesse):
                         summe[i] += farbe[i]
             teiler = UEBER * UEBER
             zeile += bytes(int(round(summe[i] / teiler)) for i in range(3))
-            zeile += b'\xff'
         zeilen.append(bytes(zeile))
     return zeilen
 
@@ -139,7 +138,10 @@ def png_schreiben(pfad, groesse, zeilen):
     def stueck(art, daten):
         return (struct.pack('>I', len(daten)) + art + daten
                 + struct.pack('>I', zlib.crc32(art + daten) & 0xffffffff))
-    kopf = struct.pack('>IIBBBBB', groesse, groesse, 8, 6, 0, 0, 0)
+    # Farbtyp 2 = RGB OHNE Alphakanal. Mit Alpha legt iOS ein Homescreen-Icon
+    # auf Schwarz, und manche Android-Starter zeigen dann gar keines. Das
+    # Motiv ist ohnehin randlos deckend — der Kanal trug nur Risiko.
+    kopf = struct.pack('>IIBBBBB', groesse, groesse, 8, 2, 0, 0, 0)
     pfad.write_bytes(
         b'\x89PNG\r\n\x1a\n'
         + stueck(b'IHDR', kopf)
@@ -178,33 +180,52 @@ def svg_schreiben(pfad):
     print(f'{pfad.name}')
 
 
+def maskierbar(groesse, rand_anteil=0.125):
+    """Dasselbe Motiv mit Luft am Rand.
+
+    Ein maskierbares Icon wird je nach Android-Starter zum Kreis, zum Quadrat
+    oder zum Tropfen beschnitten. Ohne den Rand fehlten dem Blatt die Ecken.
+    """
+    gross = bild(groesse)
+    rand = int(groesse * rand_anteil)
+    innen = groesse - 2 * rand
+    verkleinert = []
+    for y in range(innen):
+        quelle = gross[int(y * groesse / innen)]
+        zeile = bytearray()
+        for x in range(innen):
+            stelle = int(x * groesse / innen) * 3
+            zeile += quelle[stelle:stelle + 3]
+        verkleinert.append(bytes(zeile))
+    grundfarbe = bytes(GRUND_OBEN)
+    voll = []
+    for y in range(groesse):
+        if y < rand or y >= groesse - rand:
+            voll.append(grundfarbe * groesse)
+        else:
+            voll.append(grundfarbe * rand + verkleinert[y - rand] + grundfarbe * rand)
+    return voll
+
+
+# Welche Größen gebraucht werden und wofür:
+#
+#   16/32            Reiterleiste im Browser.
+#   120/152/167/180  iOS. Für den Homescreen liest iOS das Manifest NICHT
+#                    zuverlässig — es nimmt `apple-touch-icon`. Fehlt ein
+#                    passendes, zeigt es einen Schnappschuss der Seite statt
+#                    eines Icons.
+#   192/512          das Mindestmaß, das Chrome für „Installieren" verlangt.
+#   144/256/384      damit Android-Starter nicht hochskalieren müssen.
+GROESSEN = (16, 32, 120, 144, 152, 167, 180, 192, 256, 384, 512)
+
+
 def main():
     AUS.mkdir(parents=True, exist_ok=True)
     svg_schreiben(AUS / 'icon.svg')
-    for groesse, name in ((180, 'icon-180.png'), (192, 'icon-192.png'), (512, 'icon-512.png')):
-        png_schreiben(AUS / name, groesse, bild(groesse))
-    # Maskierbar: dasselbe Motiv, aber mit Luft am Rand, damit Android nichts
-    # Wichtiges abschneidet.
-    print('icon-512-maskable.png wird aus icon-512 mit Rand gebaut …')
-    gross = bild(512)
-    rand = 64
-    innen = 512 - 2 * rand
-    verkleinert = []
-    for y in range(innen):
-        quelle = gross[int(y * 512 / innen)]
-        zeile = bytearray()
-        for x in range(innen):
-            stelle = int(x * 512 / innen) * 4
-            zeile += quelle[stelle:stelle + 4]
-        verkleinert.append(bytes(zeile))
-    grundfarbe = bytes((29, 78, 216, 255))
-    voll = []
-    for y in range(512):
-        if y < rand or y >= 512 - rand:
-            voll.append(grundfarbe * 512)
-        else:
-            voll.append(grundfarbe * rand + verkleinert[y - rand] + grundfarbe * rand)
-    png_schreiben(AUS / 'icon-512-maskable.png', 512, voll)
+    for groesse in GROESSEN:
+        png_schreiben(AUS / f'icon-{groesse}.png', groesse, bild(groesse))
+    for groesse in (192, 512):
+        png_schreiben(AUS / f'icon-{groesse}-maskable.png', groesse, maskierbar(groesse))
 
 
 if __name__ == '__main__':

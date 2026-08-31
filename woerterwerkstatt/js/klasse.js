@@ -33,7 +33,11 @@ import {
   setzeSichtbareBereiche,
 } from './store.js';
 import { BEREICHE } from './woerter.js';
-import { UEBUNGEN } from './uebungen/index.js';
+import { RECHTSCHREIBUNG } from './rechtschreibung.js';
+import { RECHTSCHREIBUNG1 } from './rechtschreibung1.js';
+import { RECHTSCHREIBUNG2 } from './rechtschreibung2.js';
+import { RECHTSCHREIBUNG3 } from './rechtschreibung3.js';
+import { UEBUNGEN, stufenFuer } from './uebungen/index.js';
 import { paketzahl } from './paket.js';
 import { bereichswahl } from './bereiche.js';
 
@@ -437,18 +441,37 @@ export function klasseZeigen(code, beiAenderung, frischAngelegt = false) {
     }
 
     /* Auftrag: „Diese Woche Päckchen 2, Stufe Diktat“ — freiwillig. */
-    const alleBereiche = BEREICHE.concat(Object.values(klasse.bereiche || {}));
-    const bereichswahl = h('select', { class: 'feld' },
+    // Nicht `bereichswahl` nennen: So heißt das eingeführte Blatt aus
+    // `bereiche.js`, und ein gleichnamiges Feld verdeckt es im ganzen Block —
+    // der Knopf „Bereiche für die Klasse" weiter unten rief dann ein
+    // <select> auf.
+    const gruppen = [
+      ['Eigene Bereiche', Object.values(klasse.bereiche || {})],
+      ['Themenbereiche', BEREICHE],
+      ['Rechtschreibung — 1. Schuljahr', RECHTSCHREIBUNG1],
+      ['Rechtschreibung — 2. Schuljahr', RECHTSCHREIBUNG2],
+      ['Rechtschreibung — 3. Schuljahr', RECHTSCHREIBUNG3],
+      ['Rechtschreibung — 4. Schuljahr', RECHTSCHREIBUNG],
+    ].filter(([, liste]) => liste.length);
+    const alleBereiche = gruppen.flatMap(([, liste]) => liste);
+    const bereichsfeld = h('select', { class: 'feld' },
       h('option', { value: '' }, '— kein Auftrag —'),
-      ...alleBereiche.map((b) => h('option', { value: b.id }, `${b.emoji || '📗'} ${b.name}`)));
+      ...gruppen.map(([name, liste]) => h('optgroup', { label: name },
+        ...liste.map((b) => h('option', { value: b.id }, `${b.emoji || '📗'} ${b.name}`)))));
     const paketwahl = h('select', { class: 'feld' });
-    const stufenwahl = h('select', { class: 'feld' },
-      h('option', { value: '' }, 'alle Stufen'),
-      ...UEBUNGEN.map((u) => h('option', { value: u.id }, `${u.emoji} Stufe ${u.nummer}: ${u.name}`)));
+    const stufenwahl = h('select', { class: 'feld' });
 
     function paketeZeichnen() {
-      const bereich = alleBereiche.find((b) => b.id === bereichswahl.value);
+      const bereich = alleBereiche.find((b) => b.id === bereichsfeld.value);
       leeren(paketwahl);
+      leeren(stufenwahl);
+      stufenwahl.appendChild(h('option', { value: '' }, 'alle Stufen'));
+      // Nur die Stufen, die dieser Bereich wirklich übt — die Blöcke der
+      // 1. Klasse haben keine Wortart-Stufe, und ein Auftrag dorthin liefe
+      // ins Leere.
+      stufenFuer(bereich).forEach((u, stelle) => {
+        stufenwahl.appendChild(h('option', { value: u.id }, `${u.emoji} Stufe ${stelle + 1}: ${u.name}`));
+      });
       if (!bereich) {
         // Ein leerer Wähler sieht aus wie ein Fehler. Lieber sagt er, worauf
         // er wartet.
@@ -461,9 +484,9 @@ export function klasseZeigen(code, beiAenderung, frischAngelegt = false) {
         paketwahl.appendChild(h('option', { value: String(i) }, `Päckchen ${i + 1}`));
       }
     }
-    bereichswahl.addEventListener('change', paketeZeichnen);
+    bereichsfeld.addEventListener('change', paketeZeichnen);
     if (klasse.auftrag) {
-      bereichswahl.value = klasse.auftrag.bereichId || '';
+      bereichsfeld.value = klasse.auftrag.bereichId || '';
       paketeZeichnen();
       paketwahl.value = String(klasse.auftrag.paket || 0);
       stufenwahl.value = klasse.auftrag.stufe || '';
@@ -491,14 +514,14 @@ export function klasseZeigen(code, beiAenderung, frischAngelegt = false) {
               }, 'Groß zeigen & drucken'))))),
       abschnitt('Auftrag für diese Woche',
         h('p', { class: 'blatt__text' }, 'Was hier steht, sehen die Kinder beim Öffnen ganz oben. Alles andere lässt sich trotzdem weiter üben.'),
-        zeile('Bereich', bereichswahl),
+        zeile('Bereich', bereichsfeld),
         zeile('Päckchen', paketwahl),
         zeile('Stufe', stufenwahl),
         h('button', {
           class: 'knopf knopf--voll', type: 'button',
           onclick: async () => {
-            const auftrag = bereichswahl.value
-              ? { bereichId: bereichswahl.value, paket: Number(paketwahl.value || 0), stufe: stufenwahl.value || '' }
+            const auftrag = bereichsfeld.value
+              ? { bereichId: bereichsfeld.value, paket: Number(paketwahl.value || 0), stufe: stufenwahl.value || '' }
               : null;
             try {
               await klasseAendern(code, { auftrag });
