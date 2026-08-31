@@ -1,0 +1,49 @@
+{
+  "_hinweis": [
+    "Diese Regeln gehören in die Firebase-Konsole (Realtime Database → Regeln).",
+    "Sie beschreiben NUR den Zweig 'woerterwerkstatt'. Liegt im selben Projekt",
+    "auch der Klassenraum, müssen beide Zweige nebeneinander unter 'rules'",
+    "stehen — die Konsole ersetzt sonst die vorhandenen Regeln.",
+    "Ohne diese Regeln ist die Datenbank offen (Firebase-Voreinstellung): Dann",
+    "kann jeder die PIN-Abdrücke der Kinder lesen, und der Schutz ist keiner.",
+    "Diese Zeile darf stehen bleiben — Firebase überliest Schlüssel mit _."
+  ],
+  "rules": {
+    "woerterwerkstatt": {
+      "klassen": {
+        "$code": {
+          "._hinweis": "Wer den sechsstelligen Code hat, darf lesen und schreiben — genau das ist der Sinn des QR-Codes. Die PIN-Abdrücke liegen NICHT hier.",
+          ".read": true,
+          ".write": true,
+          ".validate": "newData.hasChildren(['name']) || !newData.exists()"
+        }
+      },
+      "geheim": {
+        "$code": {
+          "$kind": {
+            "._hinweis": "Der SHA-256-Abdruck aus Code, Name und PIN. Niemand darf ihn lesen. Schreiben darf ihn, wer ihn anlegt (einmalig) — und die angemeldete Lehrkraft, die die Klasse besitzt (PIN vergessen).",
+            ".read": false,
+            ".write": "!data.exists() || (auth != null && auth.uid === root.child('woerterwerkstatt/klassen/' + $code + '/besitzer').val())",
+            ".validate": "newData.isString() && newData.val().length == 64"
+          }
+        }
+      },
+      "anmeldung": {
+        "$code": {
+          "$kind": {
+            "._hinweis": "Der Anmeldeversuch. Die Regel nimmt den Schreibvorgang nur an, wenn der mitgeschickte Abdruck mit dem hinterlegten übereinstimmt — so lässt sich die PIN prüfen, ohne dass irgendwer den hinterlegten Abdruck lesen kann.",
+            ".read": false,
+            ".write": "newData.val() === root.child('woerterwerkstatt/geheim/' + $code + '/' + $kind).val()"
+          }
+        }
+      },
+      "users": {
+        "$uid": {
+          "._hinweis": "Eigene Bereiche und Klassenliste einer Lehrkraft — nur für sie selbst.",
+          ".read": "auth != null && auth.uid === $uid",
+          ".write": "auth != null && auth.uid === $uid"
+        }
+      }
+    }
+  }
+}

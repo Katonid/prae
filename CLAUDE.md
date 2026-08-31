@@ -271,6 +271,66 @@ Was daraus bleibt, steht unten beim Projekt Tafelbild. Nicht verwechseln
 mit `klassenraum/` (kleingeschrieben) — das ist die Web-App gleichen
 Namens und lebt weiter.
 
+## Projekt Wörterwerkstatt (Web-App, Rechtschreibung)
+
+- Code: `woerterwerkstatt/` — statische Web-App ohne Bauschritt (ES-Module,
+  kein Framework, keine fremde Bibliothek), wird vom Pages-Workflow mit
+  ausgeliefert: https://katonid.github.io/prae/woerterwerkstatt/
+  Nicht verwechseln mit `klassenraum/` (die Tafel) — das hier ist das
+  Übungsheft. Ausführlich: `woerterwerkstatt/README.md`.
+- **Fünf Stufen je Lernwort**, die immer weniger zeigen: Abschreiben →
+  Buchstabensalat → Geheimschrift → Wortart samt Formen → Diktat. Eine sechste
+  Übung wird in `js/uebungen/index.js` eingetragen — sonst nirgends.
+- **Trainingspäckchen zu 15 Wörtern.** Verteilt wird REIHUM über die Wortarten
+  (`paket.js`), nicht der Reihe nach: Sonst bestünde Päckchen 1 aus lauter
+  Nomen und die Wortart-Stufe wäre darin sinnlos. Die Verteilung ist gerechnet
+  und nicht gespeichert — „Päckchen 2" ist auf jedem Gerät dasselbe.
+- **Wortformen stehen in den Daten, sie werden NIE gerechnet** (`woerter.js`,
+  600 Wörter in 20 Bereichen). Die deutsche Mehrzahl ist nicht regelmäßig
+  (Baum → Bäume, aber Wort → Wörter und Ort → Orte). Eine erfundene Form, die
+  die App als richtig ausgibt, lehrt das Falsche, und niemand merkt es. Beim
+  Anlegen eigener Bereiche schlägt `bereiche.js` deshalb nur Verbformen und
+  Steigerungen vor — nie eine Mehrzahl.
+- **Die Geheimschrift ist das Buchstabenhaus** (Dach: b d f h k l t ß und alle
+  großen; Mitte: alle; Keller: g j p q y), gezeichnet als SVG in
+  `js/wortbild.js`. Fertige Wortbildschriften der Schulbuchverlage gibt es,
+  aber sie sind lizenzpflichtig und müssten nachgeladen werden — das bricht
+  Offline-Betrieb und Datensparsamkeit. Nicht durch eine Schrift ersetzen.
+- **Groß und klein wird beim Prüfen verglichen** (`uebungen/schreibfeld.js`).
+  Das IST der halbe Rechtschreibstoff der Grundschule. Zwei Versuche, dann
+  steht die Lösung da und wird abgeschrieben; für die Wertung zählt nur der
+  erste Versuch. Nicht „großzügiger" machen.
+- **Der QR-Code wird selbst gerechnet** (`js/qr.js`, Byte-Modus, Stufe L/M,
+  Fassungen 1–10). Geprüft wird mit `scripts/qr-pruefen.py` gegen OpenCV
+  (Rücklesen) und segno (feste Muster) — beides nur zum Prüfen, nicht im Repo.
+  **Nach jeder Änderung an qr.js laufen lassen:** Ein Code, bei dem ein
+  einziges Modul falsch sitzt, sieht tadellos aus und wird von keiner Kamera
+  gelesen. Genau das ist beim Bau zweimal passiert (Format-Information um
+  90 Grad verdreht, beide Ausfertigungen einzeln).
+- **Die PIN eines Kindes liegt nirgends lesbar.** Gespeichert wird ein
+  SHA-256-Abdruck über Code, Name und PIN, in einem Zweig ohne Leserecht;
+  angemeldet wird durch einen Schreibversuch, den die Datenbankregel nur bei
+  Übereinstimmung annimmt (`cloud.js`, `firebase-rules.json`). Die Regeln
+  müssen in der Firebase-Konsole eingefügt werden — Standard ist offen, und
+  dann ist der Schutz keiner. Liegen Klassenraum und Wörterwerkstatt im selben
+  Projekt, müssen BEIDE Zweige nebeneinander unter `rules` stehen.
+- **Hochgeladen werden nur Sterne**, nie einzelne Eingaben. Was ein Kind falsch
+  getippt hat, bleibt auf seinem Gerät.
+- **Kein `alert`, `confirm` oder `prompt`** — in einer späteren WKWebView-Hülle
+  passiert dabei schlicht nichts. Für Ja/Nein gibt es `frage()`, für eine
+  Eingabe `eingabe()`, beide in `js/ui.js`.
+- **Alles Plattformnahe läuft über `js/plattform.js`** — Sprachausgabe, Haptik,
+  Zwischenablage, Bildschirm wach halten, Vollbild. Das ist die einzige Datei,
+  die eine native Hülle bedienen müsste; wer irgendwo direkt
+  `speechSynthesis` aufruft, verschiebt die Portierungsarbeit von einer Datei
+  auf alle. Der Weg zu einer iOS-App steht in `docs/woerterwerkstatt/ios.md`.
+- Schriften liegen als woff2 in `woerterwerkstatt/fonts/` (Andika, Lexend,
+  Quicksand — alle mit einstöckigem a und g) und werden **nie** von fremden
+  Servern geladen. Die App-Icons erzeugt `scripts/generate-icons.py`.
+- Die Fassungsnummer steht in `js/version.js` UND in `sw.js` (`FASSUNG`) — der
+  Service Worker lädt keine Module. Beide bei jeder neuen Fassung hochsetzen,
+  sonst bleibt der alte Zwischenspeicher stehen.
+
 ## Projekt Klassenraum (Web-App)
 
 - Code: `klassenraum/` — statische Web-App ohne Build-Schritt (ES-Module,
