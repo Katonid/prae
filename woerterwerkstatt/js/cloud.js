@@ -236,7 +236,21 @@ export async function kontoAnlegen(email, passwort, name) {
 
 export async function anmelden(email, passwort) {
   const daten = await kontoAnfrage('signInWithPassword', { email, password: passwort });
-  return sitzungMerken(daten, daten.displayName);
+  const sitzung = sitzungMerken(daten, daten.displayName);
+  // Das Verzeichnis nachziehen. Nur beim ANLEGEN eines Kontos wurde bisher
+  // ein Profil geschrieben — wer sich vor dieser Fassung angemeldet hat oder
+  // bei wem der Schreibvorgang damals durchfiel, stand für die
+  // Schulverwaltung ohne E-Mail da. Und ohne E-Mail lässt sich keine
+  // Kennwort-Mail schicken: Der Knopf war ausgerechnet für die Kolleginnen
+  // grau, um die es geht.
+  //
+  // Der Name wird bewusst NICHT mitgeschrieben: Hat die Verwaltung ihn
+  // geändert, überschriebe ihn sonst die nächste Anmeldung der Lehrkraft.
+  await schreiben(`${WURZEL}/users/${sitzung.uid}/profil`, {
+    email: sitzung.email,
+    zuletztAngemeldet: Date.now(),
+  }, 'PATCH').catch(() => {});
+  return sitzung;
 }
 
 export function abmelden() {
@@ -651,6 +665,7 @@ export async function alleLehrkraefte() {
       email: profil.email || '',
       name: profil.name || '',
       angelegtAm: profil.angelegtAm || 0,
+      zuletztAngemeldet: profil.zuletztAngemeldet || 0,
       klassen,
       bereiche: Object.keys((eintrag && eintrag.bereiche) || {}).length,
       verwaltung: !!(verwaltungen && verwaltungen[uid]),
