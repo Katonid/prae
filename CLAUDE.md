@@ -363,6 +363,19 @@ Namens und lebt weiter.
   Verwaltung keine neue Fassung der App. Berechtigt sind die in den Regeln
   genannte E-Mail (der Einstieg, sonst gäbe es ein Henne-Ei-Problem) und alle
   unter `admins/<uid>`.
+- **`users/<uid>/klassen` ist nur ein VERZEICHNIS, keine Wahrheit** (ab 1.5.1).
+  Die Klasse selbst steht unter `klassen/<CODE>`; das Anlegen schreibt beides,
+  aber es sind ZWEI Schreibvorgänge. Bricht der zweite ab, ist die Klasse auf
+  jedem anderen Gerät unsichtbar — obwohl der QR-Code gilt und die Kinder
+  weiter üben (genau so gemeldet, 08/2026). „Meine Klassen" führt deshalb
+  Wolke und Gerät ZUSAMMEN (vorher entweder/oder), trägt fehlende Einträge
+  über `klasseWiederEintragen` nach und bietet „Klasse per Code holen" für den
+  Fall, dass ein Gerät gar nichts mehr weiß. Angenommen wird nur, was
+  `besitzer === konto.uid` trägt — den Code haben alle Kinder der Klasse.
+- **Eine misslungene Netzabfrage darf nicht als leere Liste erscheinen.** Bis
+  1.5.0 fiel „Meine Klassen" bei jedem Fehler stumm auf die Geräteliste
+  zurück; wer nichts sah, konnte „es gibt keine" und „ich durfte nicht
+  nachsehen" nicht unterscheiden.
 - **Kinder verwaltet die Schulverwaltung NICHT selbst**, sie öffnet die
   gewohnte Klassenansicht. Zwei Oberflächen für dieselbe Aufgabe liefen mit
   Sicherheit auseinander.

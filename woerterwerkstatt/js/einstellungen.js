@@ -44,7 +44,7 @@ export function einstellungenZeigen() {
     inhalt: h('div', {},
       abschnitt('Bereiche',
         h('p', { class: 'abschnitt__notiz' },
-          'Zwanzig Themenbereiche und siebenundzwanzig Rechtschreibblöcke fürs 4. Schuljahr. '
+          'Zwanzig Themenbereiche und hundertdrei Rechtschreibblöcke für die Klassen 1 bis 4. '
           + 'Die Blöcke sind von Haus aus ausgeblendet — schalte frei, was gerade dran ist.'),
         h('button', {
           class: 'knopf knopf--voll', type: 'button',

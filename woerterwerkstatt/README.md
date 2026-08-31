@@ -252,6 +252,28 @@ Konten brauchen außerdem eine einmalige Freischaltung (Authentication →
 E-Mail/Passwort). Ohne sie zeigt die App einen Hinweis; alles Üben läuft
 trotzdem.
 
+### Wenn eine Klasse auf einem Gerät fehlt
+
+`users/<uid>/klassen` ist nur ein **Verzeichnis**; die Klasse selbst steht
+unter `klassen/<CODE>`. Beim Anlegen wird beides geschrieben — aber in zwei
+Schritten. Kommt der zweite nicht durch (Netz weg im Schulhaus, Tab zu),
+existiert die Klasse, ohne im Verzeichnis zu stehen: Auf dem Gerät, das sie
+angelegt hat, ist sie da; auf jedem anderen fehlt sie, obwohl der QR-Code gilt
+und die Kinder weiter üben.
+
+Deshalb seit 1.5.1:
+
+* **„Meine Klassen“ führt beide Quellen zusammen** — das Verzeichnis aus der
+  Wolke und das, was dieses Gerät weiß. Vorher galt entweder/oder.
+* **Fehlende Einträge werden nachgetragen.** Was dieses Gerät kennt und dem
+  angemeldeten Konto gehört, kommt beim Öffnen zurück ins Verzeichnis — und
+  taucht damit auch auf dem anderen Gerät auf. Eine Klasse, die es in der
+  Wolke nicht mehr gibt, wird umgekehrt vom Gerät vergessen.
+* **„Klasse per Code holen“** für den Fall, dass ein Gerät gar nichts weiß.
+  Der Code steht auf dem QR-Zettel. Angenommen wird nur, was dem eigenen Konto
+  gehört — den Code haben schließlich alle Kinder der Klasse.
+* Ein **Fehler beim Abrufen** wird gesagt, statt als leere Liste zu erscheinen.
+
 ### Schulverwaltung
 
 Ein Konto, dem die Regeln das Verzeichnis aller Lehrkräfte öffnen, bekommt in
