@@ -1126,6 +1126,59 @@ button { cursor: pointer; }
 .qr-kasten { flex: none; width: min(230px, 100%); padding: 12px; border-radius: var(--rund); background: #fff; box-shadow: var(--schatten); }
 .qr { display: block; width: 100%; height: auto; }
 
+/* ---------- Wortbefunde (was die Kinder geschrieben haben) ---------- */
+
+.wortbefund {
+  display: grid;
+  gap: 6px;
+  padding: 12px 14px;
+  margin-bottom: 8px;
+  border-radius: var(--rund);
+  border: 1px solid var(--linie);
+  border-left: 4px solid var(--schlecht);
+  background: rgba(255, 255, 255, 0.72);
+}
+
+/* Ein Wort, das immer saß, braucht keinen roten Balken — es steht hier nur
+   der Vollständigkeit halber. */
+.wortbefund.is-sicher { border-left-color: var(--gut); opacity: 0.75; }
+
+.wortbefund__kopf { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.wortbefund__wort { font-family: var(--schrift-lern); font-size: 19px; }
+.wortbefund__kind { font-size: 12px; font-weight: 700; color: var(--akzent); background: var(--akzent-zart); padding: 2px 8px; border-radius: 999px; }
+.wortbefund__zahlen { margin-left: auto; font-size: 12px; color: var(--tinte-zart); }
+.wortbefund__eingaben { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.wortbefund__marke { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--tinte-zart); }
+
+/* So, wie das Kind es geschrieben hat. Durchgestrichen wäre hier falsch: Es
+   ist kein Fehler zum Wegwerfen, sondern die Auskunft, worauf man schauen
+   muss. */
+.wortbefund__falsch {
+  font-family: var(--schrift-lern);
+  font-size: 15px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--schlecht-zart);
+  border: 1px solid rgba(220, 38, 38, 0.28);
+}
+
+.wortbefund__lob { font-size: 12px; color: var(--tinte-zart); }
+.wortbefund__stufen { display: flex; gap: 10px; flex-wrap: wrap; font-size: 12px; color: var(--tinte-zart); }
+
+.kinderliste__name--klickbar {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  border: 0;
+  background: none;
+  padding: 0;
+  text-align: left;
+  color: var(--akzent);
+}
+
+.kinderliste__woerter { font-size: 11px; font-weight: 600; color: var(--tinte-zart); }
+
 /* ---------- Einrichtungshinweis ---------- */
 
 /* Der Kasten, der erklärt, warum gerade nichts geht. Warm eingefasst, damit er
@@ -1252,6 +1305,7 @@ body.is-uebend .kopf { opacity: 0.55; }
   .balken, .sterne__stern { background-color: rgba(255, 255, 255, 0.12); }
   .qr-kasten { background: #fff; }
   .blatt__zu { background: rgba(255, 255, 255, 0.1); }
+  .wortbefund { background: rgba(30, 41, 59, 0.7); }
   .einrichthinweis { background: rgba(249, 115, 22, 0.12); border-color: rgba(249, 115, 22, 0.4); }
   .einrichthinweis__titel { color: #fdba74; }
   .einrichthinweis code { background: rgba(255, 255, 255, 0.12); }

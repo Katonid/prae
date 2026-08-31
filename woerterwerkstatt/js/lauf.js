@@ -15,7 +15,7 @@
 import { h, leeren, gemischt, warte, wenigBewegung } from './util.js';
 import { paket, paketzahl } from './paket.js';
 import { uebungNachId } from './uebungen/index.js';
-import { ergebnisMerken, merkeBereich } from './store.js';
+import { ergebnisMerken, merkeBereich, protokollMerken } from './store.js';
 import { sterne as sterneAnzeige, balken } from './ui.js';
 import { bleibWach } from './plattform.js';
 import * as sfx from './sfx.js';
@@ -107,6 +107,16 @@ export function laufStarten({ platz, bereich, paketNummer, stufeId, aufEnde, auf
 
   async function aufgabeFertig(eintrag, ergebnis, karte) {
     if (!laufend) return;
+    // Jede bearbeitete Aufgabe wandert ins Wortprotokoll — auch die im
+    // zweiten Durchgang: Dass ein Wort zweimal drankam und beim zweiten Mal
+    // saß, ist für die Lehrkraft eine Auskunft und keine Doppelzählung.
+    protokollMerken({
+      bereich,
+      eintrag,
+      stufeId,
+      richtig: Boolean(ergebnis.richtig),
+      fehlversuche: ergebnis.fehlversuche || [],
+    });
     const zumErstenMal = !merkzettel.some((m) => m.id === eintrag.id);
     if (zumErstenMal) {
       erledigt += 1;

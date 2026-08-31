@@ -36,6 +36,7 @@ export const UEBUNG = {
   aufbauen({ eintrag, aufFertig }) {
     let artRichtig = false;
     let entschieden = false;
+    let falscheArt = '';
 
     const wortkasten = h('div', { class: 'vorlage vorlage--wort' },
       h('span', { class: 'vorlage__wort' }, eintrag.art === 'n' ? schreibform(eintrag) : eintrag.wort));
@@ -72,6 +73,7 @@ export const UEBUNG = {
       knoepfe.querySelectorAll('.wortarten__knopf').forEach((k) => { k.disabled = true; });
       knopf.classList.add(artRichtig ? 'is-richtig' : 'is-falsch');
       if (!artRichtig) {
+        falscheArt = WORTARTEN[gewaehlt].name;
         const richtige = knoepfe.querySelector(`.wortarten__knopf--${eintrag.art}`);
         if (richtige) richtige.classList.add('is-loesung');
         sfx.falsch();
@@ -90,10 +92,16 @@ export const UEBUNG = {
       const liste = formen(eintrag);
       formenplatz.appendChild(h('p', { class: 'uebung__frage' },
         liste.length > 1 ? 'Und jetzt die Formen:' : 'Und jetzt das Wort:'));
-      formenplatz.appendChild(schreibkette(liste, ({ richtig }) => {
+      formenplatz.appendChild(schreibkette(liste, ({ richtig, fehlversuche }) => {
         // Als richtig zählt die Aufgabe nur, wenn BEIDES saß: die Wortart und
         // jede Form im ersten Versuch.
-        aufFertig({ richtig: artRichtig && richtig, artRichtig });
+        //
+        // Die falsch geratene Wortart wandert mit ins Protokoll — für eine
+        // Lehrkraft ist „hielt Verb für Nomen" eine andere Auskunft als ein
+        // Rechtschreibfehler und gehört nicht darin versteckt.
+        const daneben = fehlversuche.slice();
+        if (falscheArt) daneben.unshift(`Wortart: ${falscheArt}`);
+        aufFertig({ richtig: artRichtig && richtig, artRichtig, fehlversuche: daneben });
       }));
       formenplatz.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     }

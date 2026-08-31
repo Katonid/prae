@@ -17,7 +17,7 @@
 // im Klartext irgendwo liegt, in cloud.js.
 
 import { h, leeren, datum } from './util.js';
-import { blatt, abschnitt, zeile, frage, eingabe, ladeplatz, meldung } from './ui.js';
+import { blatt, abschnitt, zeile, schalter, frage, eingabe, ladeplatz, meldung } from './ui.js';
 import { qrSvg } from './qr.js';
 import { inZwischenablage } from './plattform.js';
 import {
@@ -25,10 +25,11 @@ import {
   klasseAnlegen, klasseHolen, klasseLoeschen, klassenDerLehrkraft, klasseAendern,
   kindAnlegen, kindAnmelden, kindEntfernen, pinNeuSetzen,
   fortschrittDerKlasse, fortschrittMelden,
+  protokollMelden, protokollDerKlasse, protokollLoeschen,
 } from './cloud.js';
 import {
   eigeneBereiche, bereichSichern, klassen, klasseMerken, klasseVergessen,
-  setzeNutzer, nutzer, daten,
+  setzeNutzer, nutzer, daten, protokoll,
 } from './store.js';
 import { BEREICHE } from './woerter.js';
 import { UEBUNGEN } from './uebungen/index.js';
@@ -243,6 +244,93 @@ function neueKlasse(beiFertig) {
   return dialog;
 }
 
+/* ---------- Was die Kinder geschrieben haben ---------- */
+
+/** Ein Wort als Zeile: wie oft, wie sicher, und was danebenging. */
+function wortzeile(wort, mitKind = '') {
+  const quote = wort.v ? Math.round((wort.r / wort.v) * 100) : 0;
+  const sicher = wort.f === 0;
+  return h('div', { class: `wortbefund${sicher ? ' is-sicher' : ''}` },
+    h('div', { class: 'wortbefund__kopf' },
+      h('strong', { class: 'wortbefund__wort' }, wort.w || wort.wort),
+      mitKind ? h('span', { class: 'wortbefund__kind' }, mitKind) : null,
+      h('span', { class: 'wortbefund__zahlen' },
+        `${wort.r} von ${wort.v} gleich richtig · ${quote} %`)),
+    (wort.e && wort.e.length)
+      ? h('div', { class: 'wortbefund__eingaben' },
+        h('span', { class: 'wortbefund__marke' }, 'geschrieben als'),
+        ...wort.e.map((eingabe) => h('span', { class: 'wortbefund__falsch' }, eingabe)))
+      : h('span', { class: 'wortbefund__lob' }, sicher ? 'immer richtig' : 'kein Tippfehler festgehalten'),
+    wort.s ? h('div', { class: 'wortbefund__stufen' },
+      ...UEBUNGEN.filter((u) => wort.s[u.id]).map((u) => h('span', { class: 'wortbefund__stufe' },
+        `${u.emoji} ${wort.s[u.id].r}✓ ${wort.s[u.id].f}✗`))) : null);
+}
+
+/** Alle Wörter EINES Kindes, die schwersten zuerst. */
+function kindprotokoll(kind) {
+  const woerter = (kind.woerter || []).slice().sort((a, b) => (b.f - a.f) || (b.z - a.z));
+  const schwer = woerter.filter((w) => w.f > 0);
+  const sicher = woerter.filter((w) => w.f === 0);
+  return blatt({
+    titel: kind.name,
+    breit: true,
+    inhalt: h('div', {},
+      h('p', { class: 'blatt__text' },
+        `${woerter.length} ${woerter.length === 1 ? 'Wort' : 'Wörter'} bearbeitet`
+        + ` · zuletzt am ${kind.aktualisiert ? datum(kind.aktualisiert) : '—'}`),
+      schwer.length
+        ? abschnitt(`Schwer gefallen (${schwer.length})`, ...schwer.map((w) => wortzeile(w)))
+        : h('p', { class: 'blatt__gut' }, 'Kein Wort ging daneben.'),
+      sicher.length
+        ? abschnitt(`Saß auf Anhieb (${sicher.length})`, ...sicher.map((w) => wortzeile(w)))
+        : null),
+  });
+}
+
+/**
+ * Die Wörter der ganzen Klasse, nach Fehlern sortiert.
+ *
+ * Das ist die Ansicht, für die das Protokoll überhaupt da ist: Sie sagt
+ * einer Lehrkraft in fünf Sekunden, welche Wörter am Montag noch einmal an
+ * die Tafel gehören — und wie die Klasse sie schreibt.
+ */
+function klassenprotokoll(code, kinder) {
+  const nachWort = new Map();
+  for (const kind of kinder) {
+    for (const wort of kind.woerter || []) {
+      const schluessel = `${wort.b}|${wort.w}`;
+      const stand = nachWort.get(schluessel) || { w: wort.w, b: wort.b, v: 0, r: 0, f: 0, z: 0, e: [], kinder: new Set() };
+      stand.v += wort.v || 0;
+      stand.r += wort.r || 0;
+      stand.f += wort.f || 0;
+      stand.z = Math.max(stand.z, wort.z || 0);
+      if (wort.f > 0) stand.kinder.add(kind.name);
+      for (const eingabe of wort.e || []) if (!stand.e.includes(eingabe)) stand.e.push(eingabe);
+      nachWort.set(schluessel, stand);
+    }
+  }
+  const alle = Array.from(nachWort.values());
+  const schwer = alle.filter((w) => w.f > 0).sort((a, b) => (b.f - a.f) || (b.kinder.size - a.kinder.size));
+
+  return blatt({
+    titel: 'Was der Klasse schwerfällt',
+    breit: true,
+    inhalt: h('div', {},
+      h('p', { class: 'blatt__text' },
+        kinder.length
+          ? `${alle.length} verschiedene Wörter von ${kinder.length} ${kinder.length === 1 ? 'Kind' : 'Kindern'}.`
+            + ' Die schwersten zuerst.'
+          : 'Noch hat niemand geübt.'),
+      ...schwer.slice(0, 60).map((wort) => wortzeile(
+        { w: wort.w, v: wort.v, r: wort.r, f: wort.f, e: wort.e.slice(0, 8) },
+        `${wort.kinder.size} ${wort.kinder.size === 1 ? 'Kind' : 'Kinder'}`,
+      )),
+      (!schwer.length && alle.length)
+        ? h('p', { class: 'blatt__gut' }, 'Kein einziges Wort ging daneben.')
+        : null),
+  });
+}
+
 /** Die Klassenansicht: QR-Code, Auftrag, Kinder und ihre Sterne. */
 export function klasseZeigen(code, beiAenderung, frischAngelegt = false) {
   const platz = h('div', {}, ladeplatz('Klasse wird geholt …'));
@@ -272,6 +360,7 @@ export function klasseZeigen(code, beiAenderung, frischAngelegt = false) {
     }
 
     const kinderplatz = h('div', { class: 'kinderliste' }, ladeplatz('Kinder werden geholt …'));
+    let protokolle = [];
 
     async function kinderZeichnen() {
       let stand = [];
@@ -281,6 +370,13 @@ export function klasseZeigen(code, beiAenderung, frischAngelegt = false) {
         leeren(kinderplatz).appendChild(h('p', { class: 'blatt__fehler' }, 'Die Liste war nicht erreichbar.'));
         return;
       }
+      // Das Wortprotokoll liegt in einem eigenen Zweig, den nur die Lehrkraft
+      // lesen darf. Scheitert das (Regeln älter als 1.0.5, oder das
+      // Mitschreiben ist abgeschaltet), bleibt die Liste stehen — die Sterne
+      // hängen nicht daran.
+      protokolle = await protokollDerKlasse(code).catch(() => []);
+      const protokollNach = new Map(protokolle.map((p) => [p.schluessel, p]));
+
       leeren(kinderplatz);
       if (!stand.length) {
         kinderplatz.appendChild(h('p', { class: 'blatt__text' },
@@ -290,8 +386,18 @@ export function klasseZeigen(code, beiAenderung, frischAngelegt = false) {
       stand.sort((a, b) => String(a.name).localeCompare(String(b.name), 'de'));
       for (const kind of stand) {
         const summe = Object.values(kind.fortschritt || {}).reduce((s, e) => s + (e.sterne || 0), 0);
+        const eigenes = protokollNach.get(kind.schluessel);
+        const schwer = eigenes ? (eigenes.woerter || []).filter((w) => w.f > 0).length : 0;
         kinderplatz.appendChild(h('div', { class: 'kinderliste__eintrag' },
-          h('span', { class: 'kinderliste__name' }, kind.name),
+          eigenes
+            ? h('button', {
+              class: 'kinderliste__name kinderliste__name--klickbar', type: 'button',
+              title: 'Zeigen, welche Wörter dieses Kind bearbeitet hat',
+              onclick: () => kindprotokoll(eigenes),
+            }, kind.name, h('span', { class: 'kinderliste__woerter' },
+              `${(eigenes.woerter || []).length} ${(eigenes.woerter || []).length === 1 ? 'Wort' : 'Wörter'}`
+              + (schwer ? ` · ${schwer} schwer` : '')))
+            : h('span', { class: 'kinderliste__name' }, kind.name),
           h('span', { class: 'kinderliste__sterne' }, `${summe} ★`),
           h('span', { class: 'kinderliste__zeit' }, kind.zuletzt ? datum(kind.zuletzt) : ''),
           h('button', {
@@ -399,7 +505,47 @@ export function klasseZeigen(code, beiAenderung, frischAngelegt = false) {
           },
         }, 'Auftrag sichern')),
       abschnitt('Kinder', kinderplatz,
-        h('button', { class: 'knopf knopf--still knopf--klein', type: 'button', onclick: () => kinderZeichnen() }, '↻ Neu laden')),
+        h('div', { class: 'blatt__knopfreihe' },
+          h('button', {
+            class: 'knopf knopf--voll knopf--klein', type: 'button',
+            onclick: () => klassenprotokoll(code, protokolle),
+          }, '📋 Was der Klasse schwerfällt'),
+          h('button', { class: 'knopf knopf--still knopf--klein', type: 'button', onclick: () => kinderZeichnen() }, '↻ Neu laden'))),
+      abschnitt('Wörter und Fehler mitschreiben',
+        zeile('Mitschreiben',
+          schalter(klasse.protokoll !== false, async (an) => {
+            try {
+              await klasseAendern(code, { protokoll: an });
+              klasse.protokoll = an;
+              meldung(an
+                ? 'Die Kinder schreiben ihre Wörter jetzt mit.'
+                : 'Es wird nichts mehr mitgeschrieben. Bereits Gemeldetes bleibt, bis du es löschst.', 'gut', 5000);
+            } catch (problem) {
+              meldung(klartext(problem), 'warnung', 5000);
+            }
+          }),
+          'Welche Wörter die Kinder bearbeitet haben und wie sie sie geschrieben haben. Lesen kannst nur du — die Kinder sehen die Fehler der anderen nicht.'),
+        h('p', { class: 'abschnitt__notiz' },
+          'Das sind Leistungsdaten einzelner Kinder. Sie liegen so lange in der Datenbank, bis du sie löschst.'),
+        h('button', {
+          class: 'knopf knopf--gefahr knopf--klein', type: 'button',
+          onclick: async () => {
+            const ja = await frage({
+              titel: 'Alle Wörter und Fehler löschen?',
+              text: 'Das Protokoll der ganzen Klasse wird entfernt. Die Sterne bleiben.',
+              ja: 'Löschen', gefahr: true,
+            });
+            if (!ja) return;
+            try {
+              await protokollLoeschen(code);
+              protokolle = [];
+              meldung('Protokoll gelöscht.', 'gut');
+              kinderZeichnen();
+            } catch (problem) {
+              meldung(klartext(problem), 'warnung', 5000);
+            }
+          },
+        }, 'Protokoll der Klasse löschen')),
       abschnitt('Klasse',
         h('button', {
           class: 'knopf knopf--gefahr', type: 'button',
@@ -495,7 +641,11 @@ export function beitreten(code, beiFertig, beimSchliessen = null) {
     for (const bereich of Object.values(klasse.bereiche || {})) {
       bereichSichern(Object.assign({}, bereich, { ausKlasse: gross }));
     }
-    klasseMerken({ code: gross, name: klasse.name, rolle: 'kind', auftrag: klasse.auftrag || null });
+    klasseMerken({
+      code: gross, name: klasse.name, rolle: 'kind',
+      auftrag: klasse.auftrag || null,
+      protokoll: klasse.protokoll !== false,
+    });
   }
 
   machen.addEventListener('click', async () => {
@@ -559,4 +709,16 @@ export async function fortschrittHochladen() {
     if (stand && stand.sterne) knapp[schluessel.replace(/[.#$/[\]]/g, '_')] = { sterne: stand.sterne, zuletzt: stand.zuletzt || 0 };
   }
   await fortschrittMelden(angemeldetesKind.klasse, angemeldetesKind.schluessel, knapp).catch(() => {});
+
+  // Das Wortprotokoll nur, wenn die Lehrkraft es für diese Klasse zulässt.
+  // Der Merker kommt beim Beitreten und bei jedem Öffnen mit; fehlt er (alte
+  // Klasse), gilt es als erlaubt — die Lehrkraft hat den Schalter.
+  const klasse = klassen().find((k) => k.code === angemeldetesKind.klasse);
+  if (klasse && klasse.protokoll === false) return;
+  await protokollMelden(
+    angemeldetesKind.klasse,
+    angemeldetesKind.schluessel,
+    angemeldetesKind.name,
+    protokoll(),
+  ).catch(() => {});
 }

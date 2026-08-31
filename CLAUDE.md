@@ -342,8 +342,25 @@ Namens und lebt weiter.
   Wegweiser merkt sich den offenen Beitrittscode und öffnet kein zweites
   Blatt; `bereichSichern` meldet nur bei echter Änderung. Wer einen neuen
   Horcher anlegt, ruft darin nie den Wegweiser.
-- **Hochgeladen werden nur Sterne**, nie einzelne Eingaben. Was ein Kind falsch
-  getippt hat, bleibt auf seinem Gerät.
+- **Das Wortprotokoll ist die Ausnahme von der Datensparsamkeit** (ab 1.0.5,
+  Ansage des Nutzers: „als Lehrer möchte ich nachsehen können, welche Wörter
+  die Kinder bearbeitet haben und welche Fehler sie gemacht haben"). Gemeldet
+  wird je Wort, wie oft es drankam, wie oft es beim ersten Versuch saß, in
+  welchen Stufen — und WIE das Kind es geschrieben hat. Letzteres ist der
+  Zweck: „Federmape" sagt einer Lehrkraft, was falsch gemerkt wurde; eine
+  Fehlerzahl sagt es nicht.
+  - **Es liegt in `protokoll/<CODE>/<Kind>`, nicht unter `klassen/`.** Dort
+    darf lesen, wer den Code hat — das sind alle Kinder der Klasse. Schreiben
+    darf jedes Kind, lesen nur die angemeldete Besitzerin. Nicht verschieben.
+  - Gedeckelt auf sechs Falschschreibungen je Wort und 500 Wörter je Kind
+    (`store.js`). Mehr sagt nichts Neues und lädt bei jedem Päckchen mit hoch.
+  - **Abschaltbar je Klasse** (`klasse.protokoll === false`) und löschbar
+    (Knopf in der Klassenansicht). Das sind Leistungsdaten namentlich
+    genannter Kinder — beides nicht wegrationalisieren.
+  - Das Kind sieht seine eigene Liste unter „?" → „Deine schweren Wörter". Wer
+    die Daten erzeugt, darf sie sehen.
+- **Sterne gehen weiterhin an die Klasse**, und keine Rangliste zwischen
+  Kindern, nirgends.
 - **Kein `alert`, `confirm` oder `prompt`** — in einer späteren WKWebView-Hülle
   passiert dabei schlicht nichts. Für Ja/Nein gibt es `frage()`, für eine
   Eingabe `eingabe()`, beide in `js/ui.js`.

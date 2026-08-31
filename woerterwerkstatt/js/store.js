@@ -94,6 +94,7 @@ function leererZustand() {
     },
     eigeneBereiche: [],
     fortschritt: {},
+    protokoll: {},
     nutzer: null,
     klassen: [],
     zuletztBereich: '',
@@ -163,6 +164,7 @@ function zusammen(gelesen) {
     einstellungen: Object.assign(frisch.einstellungen, gelesen.einstellungen || {}),
     eigeneBereiche: Array.isArray(gelesen.eigeneBereiche) ? gelesen.eigeneBereiche : [],
     fortschritt: (gelesen.fortschritt && typeof gelesen.fortschritt === 'object') ? gelesen.fortschritt : {},
+    protokoll: (gelesen.protokoll && typeof gelesen.protokoll === 'object') ? gelesen.protokoll : {},
     nutzer: gelesen.nutzer || null,
     klassen: Array.isArray(gelesen.klassen) ? gelesen.klassen : [],
     zuletztBereich: gelesen.zuletztBereich || '',
@@ -309,6 +311,89 @@ export function sterneImBereich(bereichId, pakete, stufen) {
     }
   }
   return summe;
+}
+
+/* ---------- Wortprotokoll ---------- */
+
+// Wie viele Falschschreibungen je Wort aufgehoben werden. Sechs reichen: Die
+// siebte sagt einer Lehrkraft nichts Neues mehr, und jede weitere ist ein
+// Datum über ein Kind, das ohne Nutzen herumliegt.
+const EINGABEN_JE_WORT = 6;
+
+// Obergrenze über alle Wörter. Ein Schuljahr mit vielen Bereichen kommt sonst
+// auf Tausende Einträge, die bei jedem Päckchen mit hochgeladen würden.
+const WOERTER_HOECHSTENS = 500;
+
+function protokollschluessel(bereichId, wort) {
+  return `${bereichId}|${wort}`;
+}
+
+/**
+ * Ein bearbeitetes Wort ins Protokoll schreiben.
+ *
+ * Gemerkt wird je Wort: wie oft es drankam, wie oft es beim ersten Versuch
+ * saß, in welchen Stufen — und wie das Kind es geschrieben hat, wenn es
+ * danebenlag. Das Letzte ist der eigentliche Zweck: „Federmape" statt
+ * „Federmappe" zeigt, WAS falsch gemerkt wurde.
+ */
+export function protokollMerken({ bereich, eintrag, stufeId, richtig, fehlversuche = [] }) {
+  if (!bereich || !eintrag) return null;
+  const schluessel = protokollschluessel(bereich.id, eintrag.wort);
+  const alt = zustand.protokoll[schluessel];
+  const stand = alt || {
+    wort: eintrag.wort,
+    bereichId: bereich.id,
+    bereichName: bereich.name,
+    art: eintrag.art,
+    versuche: 0,
+    richtig: 0,
+    fehler: 0,
+    stufen: {},
+    eingaben: [],
+    zuletzt: 0,
+  };
+  stand.versuche += 1;
+  if (richtig) stand.richtig += 1; else stand.fehler += 1;
+  stand.zuletzt = Date.now();
+  const stufe = stand.stufen[stufeId] || { r: 0, f: 0 };
+  if (richtig) stufe.r += 1; else stufe.f += 1;
+  stand.stufen[stufeId] = stufe;
+  for (const versuch of fehlversuche) {
+    if (!versuch) continue;
+    // Dieselbe Falschschreibung nicht zehnmal aufheben — sie ist einmal
+    // aufschlussreich und danach nur noch Ballast.
+    if (!stand.eingaben.includes(versuch)) stand.eingaben.unshift(versuch);
+  }
+  stand.eingaben = stand.eingaben.slice(0, EINGABEN_JE_WORT);
+  zustand.protokoll[schluessel] = stand;
+
+  const schluesselAlle = Object.keys(zustand.protokoll);
+  if (schluesselAlle.length > WOERTER_HOECHSTENS) {
+    schluesselAlle
+      .sort((a, b) => (zustand.protokoll[a].zuletzt || 0) - (zustand.protokoll[b].zuletzt || 0))
+      .slice(0, schluesselAlle.length - WOERTER_HOECHSTENS)
+      .forEach((weg) => delete zustand.protokoll[weg]);
+  }
+  sichere();
+  return stand;
+}
+
+export function protokoll() {
+  return zustand.protokoll;
+}
+
+/** Die schwersten Wörter zuerst — für die eigene Rückschau und für die Klasse. */
+export function schwereWoerter(hoechstens = 20) {
+  return Object.values(zustand.protokoll)
+    .filter((w) => w.fehler > 0)
+    .sort((a, b) => (b.fehler - a.fehler) || (b.zuletzt - a.zuletzt))
+    .slice(0, hoechstens);
+}
+
+export function protokollLeeren() {
+  zustand.protokoll = {};
+  sichere();
+  melde('protokoll', zustand.protokoll);
 }
 
 /* ---------- Anmeldung ---------- */

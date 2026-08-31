@@ -92,6 +92,41 @@ Zum Üben braucht es keine Anmeldung. Mit einem Konto (Firebase, dieselbe
   laufen in die Klassenansicht zurück.
 * einen **Auftrag der Woche** setzen („Päckchen 2, Stufe Diktat“) — er steht
   bei den Kindern ganz oben.
+* **nachsehen, welche Wörter die Kinder bearbeitet haben und wie sie sie
+  geschrieben haben** (siehe unten).
+
+### Was die Kinder geschrieben haben
+
+Zwei Ansichten in der Klasse:
+
+* **„Was der Klasse schwerfällt“** — alle Wörter über alle Kinder, die
+  schwersten zuerst, mit den tatsächlichen Falschschreibungen und der Zahl der
+  betroffenen Kinder. Das ist die Ansicht, für die das Ganze da ist: Sie sagt
+  in fünf Sekunden, was am Montag noch einmal an die Tafel gehört.
+* **Ein Kind antippen** — seine Wörter einzeln, getrennt nach „schwer
+  gefallen“ und „saß auf Anhieb“, je Stufe aufgeschlüsselt.
+
+Festgehalten wird je Wort: wie oft es drankam, wie oft es beim ersten Versuch
+saß, in welchen Stufen — und **wie das Kind es geschrieben hat**, wenn es
+danebenlag. Letzteres ist der eigentliche Wert: „Federmape“ statt
+„Federmappe“ zeigt, *was* falsch gemerkt wurde. Bei Stufe 4 wandert auch eine
+falsch geratene Wortart mit hinein („hielt Verb für Nomen“) — das ist eine
+andere Auskunft als ein Rechtschreibfehler.
+
+Gedeckelt auf sechs Falschschreibungen je Wort und 500 Wörter je Kind; die
+siebte sagt nichts Neues mehr, und jedes weitere Datum über ein Kind, das ohne
+Nutzen herumliegt, ist eins zu viel.
+
+**Wer darf das sehen:** nur die Lehrkraft, der die Klasse gehört. Das
+Protokoll liegt in einem eigenen Zweig (`protokoll/<CODE>/<Kind>`), in den
+jedes Kind schreiben, aber nur die angemeldete Besitzerin lesen darf — unter
+`klassen/` läge es für alle Kinder offen. Das Kind selbst sieht seine eigene
+Liste unter „?“ → „Deine schweren Wörter“.
+
+**Abschaltbar und löschbar:** In der Klassenansicht gibt es einen Schalter
+„Mitschreiben“ und einen Knopf, der das Protokoll der ganzen Klasse löscht.
+Das sind Leistungsdaten namentlich genannter Kinder — sie liegen in der
+Datenbank, bis jemand sie löscht.
 
 ### Wie die PIN geschützt ist
 
@@ -226,6 +261,6 @@ die einzige Datei, die eine native Hülle bedienen muss.
   angezeigt. Rechtschreibung lernt man nicht auf Zeit.
 * **Keine Bestenliste zwischen Kindern.** Die Lehrkraft sieht die Sterne ihrer
   Klasse; die Kinder sehen ihre eigenen.
-* **Kein Protokoll der Tippfehler.** Was ein Kind falsch geschrieben hat, steht
-  auf seinem Gerät und geht sonst niemanden etwas an — hochgeladen werden nur
-  die Sterne.
+* **Keine Bestenliste der Fehler.** Das Wortprotokoll gibt es (die Lehrkraft
+  braucht es), aber es taucht nirgends als Rangliste zwischen Kindern auf, und
+  kein Kind sieht die Fehler eines anderen.

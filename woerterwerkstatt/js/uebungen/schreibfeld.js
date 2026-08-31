@@ -28,8 +28,15 @@ import { einstellungen } from '../store.js';
 /**
  * schreibfeld({ loesung, platzhalter, hinweis, gross, aufFertig })
  *
- * aufFertig({ richtig, versuche, eingabe }) wird genau einmal gerufen, wenn
- * die Aufgabe erledigt ist — richtig gelöst oder richtig abgeschrieben.
+ * aufFertig({ richtig, versuche, eingabe, fehlversuche }) wird genau einmal
+ * gerufen, wenn die Aufgabe erledigt ist — richtig gelöst oder richtig
+ * abgeschrieben.
+ *
+ * `fehlversuche` sind die Wörter, wie das Kind sie geschrieben hat, bevor es
+ * stimmte. Sie sind das Wertvollste, was hier entsteht: „Federmape" statt
+ * „Federmappe" sagt einer Lehrkraft mehr als jede Fehlerzahl — man sieht, WAS
+ * das Kind sich falsch gemerkt hat. Wohin sie gehen und wer sie sehen darf,
+ * entscheidet nicht diese Datei (siehe lauf.js und store.js).
  */
 export function schreibfeld({
   loesung,
@@ -44,6 +51,7 @@ export function schreibfeld({
   let ersterVersuchRichtig = false;
   let abgeschlossen = false;
   let abschreibmodus = false;
+  const fehlversuche = [];
 
   const feld = h('input', {
     class: 'schreibfeld__eingabe',
@@ -91,7 +99,9 @@ export function schreibfeld({
     abgeschlossen = true;
     feld.disabled = true;
     knopf.disabled = true;
-    if (aufFertig) aufFertig({ richtig, versuche, eingabe: geputzt(entglaettet(feld.value)) });
+    if (aufFertig) {
+      aufFertig({ richtig, versuche, eingabe: geputzt(entglaettet(feld.value)), fehlversuche: fehlversuche.slice() });
+    }
   }
 
   function pruefen() {
@@ -120,6 +130,7 @@ export function schreibfeld({
     }
 
     versuche += 1;
+    fehlversuche.push(eingabe);
     if (aufVersuch) aufVersuch({ eingabe, versuche });
     markiere('is-falsch');
     sfx.falsch();
@@ -167,10 +178,11 @@ export function schreibkette(formen, aufFertig) {
   const wurzel = h('div', { class: 'schreibkette' });
   let stelle = 0;
   let allesRichtig = true;
+  const fehlversuche = [];
 
   function naechste() {
     if (stelle >= formen.length) {
-      if (aufFertig) aufFertig({ richtig: allesRichtig });
+      if (aufFertig) aufFertig({ richtig: allesRichtig, fehlversuche });
       return;
     }
     const form = formen[stelle];
@@ -182,8 +194,11 @@ export function schreibkette(formen, aufFertig) {
       loesung: form.loesung,
       hinweis: form.hinweis,
       platzhalter: form.frage,
-      aufFertig: ({ richtig }) => {
+      aufFertig: ({ richtig, fehlversuche: daneben }) => {
         if (!richtig) allesRichtig = false;
+        // Mit der Frage davor, sonst steht später „läufst" im Protokoll und
+        // niemand weiß mehr, wonach gefragt war.
+        for (const versuch of daneben || []) fehlversuche.push(`${form.frage}: ${versuch}`);
         stelle += 1;
         setTimeout(naechste, 520);
       },
