@@ -28,6 +28,7 @@ import { angemeldet, bereicheHochladen, bereicheHolen } from './cloud.js';
 import { PAKETGROESSE } from './paket.js';
 import { BEREICHE } from './woerter.js';
 import { RECHTSCHREIBUNG } from './rechtschreibung.js';
+import { RECHTSCHREIBUNG3 } from './rechtschreibung3.js';
 
 const EMOJIS = ['📗', '🍎', '🌳', '🚂', '⭐', '🐬', '🎵', '🧁', '🏰', '🦕', '🌍', '🎨', '⚽', '🚀', '🐝', '🎪'];
 const FARBEN = ['#2563eb', '#0ea5e9', '#38bdf8', '#0369a1', '#f97316', '#ea580c', '#f59e0b', '#eab308', '#dc2626'];
@@ -420,8 +421,11 @@ export function bereichswahl({ titel = 'Bereiche wählen', hinweis = '', beiWahl
       hinweis ? h('p', { class: 'blatt__text' }, hinweis) : null,
       gruppe('Themenbereiche', BEREICHE,
         'Grundwortschatz nach Inhalt — Schule, Tiere, Wetter. Von Haus aus alle an.'),
-      gruppe('Rechtschreibung (4. Schuljahr)', RECHTSCHREIBUNG,
-        'Nach Rechtschreibstelle sortiert: alle Wörter eines Blocks tragen dasselbe Problem. '
-        + 'Von Haus aus alle aus — schalte frei, was diese Woche dran ist.')),
+      gruppe('Rechtschreibung — 3. Schuljahr', RECHTSCHREIBUNG3,
+        'Fünfundzwanzig Päckchen, nach Rechtschreibstelle sortiert: alle Wörter eines '
+        + 'Päckchens tragen dasselbe Problem. Von Haus aus alle aus.'),
+      gruppe('Rechtschreibung — 4. Schuljahr', RECHTSCHREIBUNG,
+        'Siebenundzwanzig Blöcke, ebenso aufgebaut. Von Haus aus alle aus — schalte '
+        + 'frei, was diese Woche dran ist.')),
   });
 }

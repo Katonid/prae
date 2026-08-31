@@ -18,6 +18,7 @@ import {
 import { anwenden as themaAnwenden } from './theme.js';
 import { BEREICHE } from './woerter.js';
 import { RECHTSCHREIBUNG } from './rechtschreibung.js';
+import { RECHTSCHREIBUNG3 } from './rechtschreibung3.js';
 import { pakete, paketzahl, PAKETGROESSE, paketspanne } from './paket.js';
 import { UEBUNGEN, STUFEN_IDS, uebungNachId } from './uebungen/index.js';
 import { laufStarten } from './lauf.js';
@@ -44,7 +45,7 @@ let laufAbbrechen = null;
  * muss ihn öffnen können, auch wenn er nicht auf der Startseite steht.
  */
 function alleBereiche() {
-  return BEREICHE.concat(RECHTSCHREIBUNG, eigeneBereiche());
+  return BEREICHE.concat(RECHTSCHREIBUNG3, RECHTSCHREIBUNG, eigeneBereiche());
 }
 
 
@@ -58,7 +59,7 @@ function bereicheZeigen() {
   const gitter = h('div', { class: 'bereiche' });
   const eigene = eigeneBereiche();
   const themen = BEREICHE.filter(bereichSichtbar);
-  const bloecke = RECHTSCHREIBUNG.filter(bereichSichtbar);
+  const bloecke = RECHTSCHREIBUNG3.concat(RECHTSCHREIBUNG).filter(bereichSichtbar);
 
   const karte = (bereich, eigen) => {
     const anzahl = paketzahl(bereich);

@@ -62,16 +62,17 @@ einer ab 60 %. Gemerkt wird der **beste** Durchgang.
 
 Zwei Sorten, in zwei Dateien:
 
-| | `js/woerter.js` | `js/rechtschreibung.js` |
-|---|---|---|
-| sortiert nach | **Inhalt** (Schule, Tiere, Wetter) | **Rechtschreibstelle** (ck, tz, Dehnungs-h) |
-| Umfang | 20 Bereiche × 30 Wörter | 27 Blöcke × 15 Wörter |
-| Päckchen je Bereich | 2 | 1 |
-| von Haus aus | **sichtbar** | **ausgeblendet** |
+| | `js/woerter.js` | `js/rechtschreibung3.js` | `js/rechtschreibung.js` |
+|---|---|---|---|
+| sortiert nach | **Inhalt** (Schule, Tiere, Wetter) | **Rechtschreibstelle** | **Rechtschreibstelle** |
+| Klassenstufe | — | 3. Schuljahr | 4. Schuljahr |
+| Umfang | 20 Bereiche × 30 Wörter | 25 Päckchen × 15 Wörter | 27 Blöcke × 15 Wörter |
+| Päckchen je Bereich | 2 | 1 | 1 |
+| von Haus aus | **sichtbar** | **ausgeblendet** | **ausgeblendet** |
 
-Die Rechtschreibblöcke sind für ein 4. Schuljahr gedacht und ausgeblendet,
-weil siebenundzwanzig zusätzliche Karten für ein Kind, das eine Woche lang
-einen einzigen Block übt, nur Gestrüpp wären. Die Lehrkraft schaltet unter
+Zusammen 1380 Wörter. Die Rechtschreibpäckchen sind ausgeblendet, weil
+zweiundfünfzig zusätzliche Karten für ein Kind, das eine Woche lang ein
+einziges Päckchen übt, nur Gestrüpp wären. Die Lehrkraft schaltet unter
 **⚙︎ → Bereiche wählen** frei, was gerade dran ist — und kann dort auch
 Themenbereiche abwählen. Hat sie eine Klasse, gibt sie ihre Auswahl über
 **Klasse → Bereiche für die Klasse** an die Kinder weiter; deren Geräte
@@ -81,7 +82,7 @@ Ein ausgeblendeter Bereich bleibt über die Adresse erreichbar. Das ist
 Absicht: Ein Auftrag der Woche darf auf einen Block zeigen, der nicht auf der
 Startseite steht.
 
-### Drei Entscheidungen in den Rechtschreibblöcken
+### Drei Entscheidungen in den Rechtschreibpäckchen
 
 1. **Wo die Rechtschreibstelle erst in der abgeleiteten Form steckt, steht die
    Grundform als Lernwort.** Im Block „ä/äu ableiten“ also `Baum` mit der
@@ -94,6 +95,11 @@ Startseite steht.
 3. **Wortgruppen sind „keines davon“** (`beim Essen|x`). Im Block
    „Großschreibung“ geht es um die Großschreibung, und die prüfen die Stufen
    1, 2, 3 und 5 ohnehin buchstabengenau.
+
+Dazu zwei Kleinigkeiten aus der Klasse-3-Liste: **Trennbare Verben** stehen
+mit der ganzen „du“-Form da (`anfangen|v|fängst an` → „du fängst an“), und
+**`gern`** ist streng genommen ein Adverb, steht aber in jedem Schulbuch bei
+der unregelmäßigen Steigerung und ist deshalb als Adjektiv eingetragen.
 
 ## Zwanzig mitgelieferte Bereiche
 

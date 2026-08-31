@@ -1,5 +1,8 @@
 // Die Rechtschreibblöcke für das 4. Schuljahr.
 //
+// Für das 3. Schuljahr gibt es `rechtschreibung3.js` — gleicher Aufbau,
+// eigene Wortliste, ebenfalls von Haus aus ausgeblendet.
+//
 // Anders als die zwanzig Themenbereiche in `woerter.js` sind diese nicht nach
 // Inhalt sortiert, sondern nach der **Rechtschreibstelle**: alle Wörter eines
 // Blocks tragen dasselbe Problem. Genau so stehen Lernwörter im Sprachbuch —
@@ -35,6 +38,7 @@ export const RECHTSCHREIBUNG = [
     emoji: '🔡',
     farbe: '#2563eb',
     gruppe: 'rechtschreibung',
+    klasse: 4,
     woerter: [
       'Mutter|n|die|Mütter',
       'Sommer|n|der|Sommer',
@@ -59,6 +63,7 @@ export const RECHTSCHREIBUNG = [
     emoji: '🔠',
     farbe: '#1d4ed8',
     gruppe: 'rechtschreibung',
+    klasse: 4,
     woerter: [
       'fallen|v|fällst',
       'sollen|v|sollst',
@@ -83,6 +88,7 @@ export const RECHTSCHREIBUNG = [
     emoji: '🧱',
     farbe: '#0ea5e9',
     gruppe: 'rechtschreibung',
+    klasse: 4,
     woerter: [
       'Rucksack|n|der|Rucksäcke',
       'Decke|n|die|Decken',
@@ -107,6 +113,7 @@ export const RECHTSCHREIBUNG = [
     emoji: '⚡',
     farbe: '#38bdf8',
     gruppe: 'rechtschreibung',
+    klasse: 4,
     woerter: [
       'sitzen|v|sitzt',
       'Platz|n|der|Plätze',
@@ -131,6 +138,7 @@ export const RECHTSCHREIBUNG = [
     emoji: '🐝',
     farbe: '#0284c7',
     gruppe: 'rechtschreibung',
+    klasse: 4,
     woerter: [
       'spielen|v|spielst',
       'Biene|n|die|Bienen',
@@ -155,6 +163,7 @@ export const RECHTSCHREIBUNG = [
     emoji: '🕰️',
     farbe: '#f97316',
     gruppe: 'rechtschreibung',
+    klasse: 4,
     woerter: [
       'fahren|v|fährst',
       'Fahrrad|n|das|Fahrräder',
@@ -179,6 +188,7 @@ export const RECHTSCHREIBUNG = [
     emoji: '🐄',
     farbe: '#ea580c',
     gruppe: 'rechtschreibung',
+    klasse: 4,
     woerter: [
       'Sohn|n|der|Söhne',
       'Kuh|n|die|Kühe',
@@ -203,6 +213,7 @@ export const RECHTSCHREIBUNG = [
     emoji: '🫖',
     farbe: '#f59e0b',
     gruppe: 'rechtschreibung',
+    klasse: 4,
     woerter: [
       'Haar|n|das|Haare',
       'Paar|n|das|Paare',
@@ -227,6 +238,7 @@ export const RECHTSCHREIBUNG = [
     emoji: '🦶',
     farbe: '#eab308',
     gruppe: 'rechtschreibung',
+    klasse: 4,
     woerter: [
       'groß|a|größer|am größten',
       'Fuß|n|der|Füße',
@@ -251,6 +263,7 @@ export const RECHTSCHREIBUNG = [
     emoji: '💧',
     farbe: '#facc15',
     gruppe: 'rechtschreibung',
+    klasse: 4,
     woerter: [
       'essen|v|isst',
       'Wasser|n|das|-',
@@ -275,6 +288,7 @@ export const RECHTSCHREIBUNG = [
     emoji: '🌳',
     farbe: '#2563eb',
     gruppe: 'rechtschreibung',
+    klasse: 4,
     // Hier steht mit Absicht die GRUNDFORM als Lernwort: Der Block heißt
     // „ableiten", und abgeleitet wird in Stufe 4 (Baum → die Bäume, laufen →
     // du läufst). Stünde „Bäume" als Lernwort da, gäbe es nichts abzuleiten.
@@ -302,6 +316,7 @@ export const RECHTSCHREIBUNG = [
     emoji: '🐕',
     farbe: '#0369a1',
     gruppe: 'rechtschreibung',
+    klasse: 4,
     woerter: [
       'Hund|n|der|Hunde',
       'Kind|n|das|Kinder',
@@ -326,6 +341,7 @@ export const RECHTSCHREIBUNG = [
     emoji: '🐦',
     farbe: '#1e40af',
     gruppe: 'rechtschreibung',
+    klasse: 4,
     woerter: [
       'Vater|n|der|Väter',
       'Vogel|n|der|Vögel',
@@ -350,6 +366,7 @@ export const RECHTSCHREIBUNG = [
     emoji: '🦊',
     farbe: '#c2410c',
     gruppe: 'rechtschreibung',
+    klasse: 4,
     woerter: [
       'Hexe|n|die|Hexen',
       'Text|n|der|Texte',
@@ -374,6 +391,7 @@ export const RECHTSCHREIBUNG = [
     emoji: '🪼',
     farbe: '#38bdf8',
     gruppe: 'rechtschreibung',
+    klasse: 4,
     woerter: [
       'Quelle|n|die|Quellen',
       'Qualle|n|die|Quallen',
@@ -398,6 +416,7 @@ export const RECHTSCHREIBUNG = [
     emoji: '🐯',
     farbe: '#f59e0b',
     gruppe: 'rechtschreibung',
+    klasse: 4,
     woerter: [
       'Tiger|n|der|Tiger',
       'Kino|n|das|Kinos',
@@ -422,6 +441,7 @@ export const RECHTSCHREIBUNG = [
     emoji: '🌸',
     farbe: '#0284c7',
     gruppe: 'rechtschreibung',
+    klasse: 4,
     // Wie beim Ableiten: Wo das h erst zwischen den Silben auftaucht, steht
     // die Grundform da (Schuh → die Schuhe, früh → früher).
     woerter: [
@@ -448,6 +468,7 @@ export const RECHTSCHREIBUNG = [
     emoji: '🔎',
     farbe: '#ea580c',
     gruppe: 'rechtschreibung',
+    klasse: 4,
     woerter: [
       'entdecken|v|entdeckst',
       'entschuldigen|v|entschuldigst',
@@ -472,6 +493,7 @@ export const RECHTSCHREIBUNG = [
     emoji: '🌈',
     farbe: '#eab308',
     gruppe: 'rechtschreibung',
+    klasse: 4,
     woerter: [
       'lustig|a|lustiger|am lustigsten',
       'traurig|a|trauriger|am traurigsten',
@@ -496,6 +518,7 @@ export const RECHTSCHREIBUNG = [
     emoji: '🏅',
     farbe: '#2563eb',
     gruppe: 'rechtschreibung',
+    klasse: 4,
     woerter: [
       'Zeugnis|n|das|Zeugnisse',
       'Ergebnis|n|das|Ergebnisse',
@@ -520,6 +543,7 @@ export const RECHTSCHREIBUNG = [
     emoji: '🔤',
     farbe: '#0369a1',
     gruppe: 'rechtschreibung',
+    klasse: 4,
     // Wortgruppen sind „keines davon". Worum es hier geht — die Großschreibung
     // — prüfen die Stufen 1, 2, 3 und 5 ohnehin buchstabengenau.
     woerter: [
@@ -546,6 +570,7 @@ export const RECHTSCHREIBUNG = [
     emoji: '🪨',
     farbe: '#dc2626',
     gruppe: 'rechtschreibung',
+    klasse: 4,
     woerter: [
       'das|x',
       'dass|x',
@@ -570,6 +595,7 @@ export const RECHTSCHREIBUNG = [
     emoji: '👻',
     farbe: '#f97316',
     gruppe: 'rechtschreibung',
+    klasse: 4,
     woerter: [
       'vielleicht|x',
       'plötzlich|a||',
@@ -594,6 +620,7 @@ export const RECHTSCHREIBUNG = [
     emoji: '🥕',
     farbe: '#eab308',
     gruppe: 'rechtschreibung',
+    klasse: 4,
     woerter: [
       'Herbst|n|der|Herbste',
       'Obst|n|das|-',
@@ -618,6 +645,7 @@ export const RECHTSCHREIBUNG = [
     emoji: '📅',
     farbe: '#0ea5e9',
     gruppe: 'rechtschreibung',
+    klasse: 4,
     woerter: [
       'Montag|n|der|Montage',
       'Dienstag|n|der|Dienstage',
@@ -642,6 +670,7 @@ export const RECHTSCHREIBUNG = [
     emoji: '🎄',
     farbe: '#dc2626',
     gruppe: 'rechtschreibung',
+    klasse: 4,
     woerter: [
       'Januar|n|der|-',
       'Februar|n|der|-',
@@ -666,6 +695,7 @@ export const RECHTSCHREIBUNG = [
     emoji: '🔢',
     farbe: '#1d4ed8',
     gruppe: 'rechtschreibung',
+    klasse: 4,
     // Zahlwörter sind in der Grundschulgrammatik weder Nomen noch Verb noch
     // Adjektiv. Stufe 4 hat in diesem Block also immer dieselbe Antwort —
     // und genau das ist die Lektion.
