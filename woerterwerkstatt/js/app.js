@@ -209,16 +209,42 @@ function gehZu(adresse, erzwingen = false) {
   window.location.hash = adresse;
 }
 
+function wegabschnitte() {
+  return (window.location.hash || '#/').replace(/^#\/?/, '').split('/').filter(Boolean);
+}
+
+/**
+ * Zeigt die aktuelle Adresse die Bereichsübersicht? Danach richtet sich, ob
+ * ein Datenereignis die Bühne neu zeichnen darf — mehr als neu zeichnen darf
+ * es nie (siehe start()).
+ */
+function zeigtBereiche() {
+  const teile = wegabschnitte();
+  return !teile.length || teile[0] === 'beitreten';
+}
+
+// Für welchen Klassencode gerade ein Beitrittsblatt offen ist. Ohne diesen
+// Merker öffnet jeder erneute Durchlauf des Wegweisers ein weiteres Blatt —
+// und weil ein Beitritt Bereiche sichert und das wiederum meldet, waren das
+// in vier Sekunden 279 gestapelte Blätter und ebenso viele Netzanfragen. Auf
+// dem Gerät heißt das: Das Eingabefeld liegt sofort unter dem nächsten Blatt,
+// und der Tab stirbt.
+let offenerBeitritt = null;
+
 function wegLesen() {
   if (laufAbbrechen) { laufAbbrechen(); laufAbbrechen = null; }
   document.body.classList.remove('is-uebend');
-  const teile = (window.location.hash || '#/').replace(/^#\/?/, '').split('/').filter(Boolean);
+  const teile = wegabschnitte();
 
   if (teile[0] === 'beitreten' && teile[1]) {
+    const code = teile[1].toUpperCase();
+    if (offenerBeitritt === code) return;
+    offenerBeitritt = code;
     bereicheZeigen();
-    beitreten(teile[1], () => { gehZu('#/'); kopfleisteZeichnen(); bereicheZeigen(); });
+    beitreten(code, () => { gehZu('#/'); kopfleisteZeichnen(); bereicheZeigen(); }, () => { offenerBeitritt = null; });
     return;
   }
+  offenerBeitritt = null;
   if (teile[0] === 'ueben' && teile[1] && teile[3]) {
     uebenZeigen(teile[1], Number(teile[2]) || 0, teile[3]);
     return;
@@ -317,7 +343,16 @@ async function start() {
   beiKontoWechsel(() => kopfleisteZeichnen());
 
   horch('fortschritt', () => { fortschrittHochladen(); });
-  horch('bereiche', () => { if (!document.body.classList.contains('is-uebend')) wegLesen(); });
+  // NIEMALS wegLesen() aus einem Datenereignis heraus aufrufen. Das Wegfinden
+  // hat Nebenwirkungen — es öffnet Blätter und stellt Netzanfragen —, und ein
+  // Beitritt sichert die mitgegebenen Bereiche, was genau dieses Ereignis
+  // auslöst. Daraus wurde eine Schleife ohne Boden. Ein Datenereignis darf
+  // hier nur eines: die Bühne neu zeichnen, und auch das nur, wenn sie
+  // gerade die Bereiche zeigt.
+  horch('bereiche', () => {
+    if (document.body.classList.contains('is-uebend')) return;
+    if (zeigtBereiche()) bereicheZeigen();
+  });
 
   window.addEventListener('hashchange', wegLesen);
   kopfleisteZeichnen();

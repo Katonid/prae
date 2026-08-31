@@ -120,7 +120,8 @@ Kind beizutreten. Alles Üben lief weiter, weil es das Netz nicht braucht.
 
 `woerterwerkstatt/firebase-rules.json` und `klassenraum/firebase-rules.json`
 sind die Einzelfassungen zum Nachschlagen; maßgeblich ist die Datei im
-Wurzelverzeichnis.
+Wurzelverzeichnis. Was die einzelnen Regeln tun und warum in der JSON-Datei
+keine Kommentare stehen dürfen, erklärt `../firebase-rules.md`.
 
 Seit 1.0.2 sagt die App selbst Bescheid: Wer „Meine Klassen“ öffnet, während
 der Zweig gesperrt ist, bekommt keinen leeren Kasten und keine Meldung, die
@@ -156,6 +157,27 @@ Zwei Dinge, die man beim Ändern wissen muss:
    der Farbe hängt — was sie ohnehin nie sollte, weder für ein
    farbfehlsichtiges Kind noch auf einem ausgeblichenen Beamer —, steht vor
    jeder Antwort ein Zeichen: ✓ richtig, ↻ noch einmal, ✗ falsch.
+
+## Eine Regel, die teuer gelernt ist
+
+**Der Wegweiser darf nie aus einem Datenereignis heraus laufen.**
+
+`wegLesen()` in `js/app.js` hat Nebenwirkungen: Es öffnet Blätter und stellt
+Netzanfragen. In 1.0.3 hing es an der Meldung „Bereiche geändert“ — und ein
+Kind, das einer Klasse beitritt, sichert genau dabei die mitgegebenen
+Bereiche. Daraus wurde eine Schleife ohne Boden: gemessen **277 Netzanfragen
+und 279 übereinandergestapelte Blätter in vier Sekunden**. Auf dem iPad ließ
+sich nichts eintippen, weil unter dem Finger sofort das nächste Blatt lag; auf
+dem Telefon starb der Tab mit „wiederholt ein Problem aufgetreten“.
+
+Seit 1.0.4 dreifach abgesichert:
+
+1. Ein Datenereignis darf nur die Bühne **neu zeichnen**, nie den Wegweiser
+   erneut ausführen.
+2. Der Wegweiser merkt sich, für welchen Klassencode ein Beitrittsblatt offen
+   ist, und öffnet kein zweites.
+3. `bereichSichern()` meldet nur bei **echter** Änderung — ein unveränderter
+   Bereich löst gar nichts mehr aus.
 
 ## Aufbau
 

@@ -58,7 +58,8 @@ function regelhinweis() {
     h('ol', { class: 'einrichthinweis__schritte' },
       h('li', {}, 'Firebase-Konsole öffnen → Realtime Database → Reiter „Regeln“.'),
       h('li', {}, 'Den gesamten Inhalt der Datei ', h('code', {}, 'firebase-rules.json'),
-        ' aus dem Wurzelverzeichnis des Repos hineinkopieren — sie enthält BEIDE Zweige.'),
+        ' aus dem Wurzelverzeichnis des Repos hineinkopieren — sie enthält BEIDE Zweige '
+        + 'und nichts sonst (der Regeleditor weist erklärende Zusätze ab).'),
       h('li', {}, 'Auf „Veröffentlichen“ tippen, dann hier neu laden.')),
     h('p', { class: 'einrichthinweis__warnung' },
       'Wichtig: Die Konsole ersetzt beim Veröffentlichen die kompletten Regeln. '
@@ -458,7 +459,7 @@ ${svg}
  * nicht immer, was von beidem es gerade ist. Die App probiert die Anmeldung
  * und bietet das Anlegen erst an, wenn es den Namen noch nicht gibt.
  */
-export function beitreten(code, beiFertig) {
+export function beitreten(code, beiFertig, beimSchliessen = null) {
   const gross = String(code).toUpperCase();
   const nameFeld = h('input', {
     class: 'feld feld--gross', type: 'text', placeholder: 'Dein Name',
@@ -532,6 +533,10 @@ export function beitreten(code, beiFertig) {
 
   const dialog = blatt({
     titel: 'Mitmachen',
+    // Der Wegweiser merkt sich, für welchen Code ein Blatt offen ist, und muss
+    // erfahren, wenn es wieder zu ist — sonst ließe sich derselbe Code danach
+    // nie wieder öffnen.
+    beimSchliessen,
     inhalt: h('div', {},
       klassenname,
       h('p', { class: 'blatt__text' },
