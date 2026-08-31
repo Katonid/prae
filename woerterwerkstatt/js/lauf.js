@@ -98,6 +98,11 @@ export function laufStarten({ platz, bereich, paketNummer, stufeId, aufEnde, auf
     const inhalt = uebung.aufbauen({
       eintrag,
       bereich,
+      // Das ganze Päckchen: Die Geheimschrift zeigt daraus die Wortliste. Ein
+      // Wortbild ohne Auswahl ist ein Gedächtnistest, kein Rechtschreibtest —
+      // niemand kann fünfzehn Wörter nach zweimal Üben an ihrer Silhouette
+      // erkennen (Ansage des Nutzers, 08/2026).
+      paket: woerter,
       aufFertig: (ergebnis) => aufgabeFertig(eintrag, ergebnis, karte),
     });
     karte.appendChild(inhalt);

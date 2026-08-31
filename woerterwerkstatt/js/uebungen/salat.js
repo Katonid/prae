@@ -70,6 +70,35 @@ export const UEBUNG = {
       loesung,
       platzhalter: 'Das richtige Wort',
       hinweis: eintrag.art === 'n' ? 'Nomen bitte mit Artikel: der, die oder das.' : '',
+      // Die Buchstaben liegen oben — dann kann die App auch sagen, welcher
+      // davon nicht dabei ist. „Bis „Som" stimmt es" hilft hier weniger als
+      // „ein r kommt oben gar nicht vor": Beim Salat ist der Vorrat die
+      // Aufgabe. Verglichen wird ohne Rücksicht auf groß und klein — die
+      // Großschreibung ist eine eigene Rückmeldung und hat Vorrang.
+      zusatzhinweis: (eingabe) => {
+        const kern = Array.from(eingabe.replace(/^(der|die|das)\s+/i, '').toLocaleLowerCase('de-DE'));
+        const vorrat = new Map();
+        for (const zeichen of buchstaben) {
+          const klein = zeichen.toLocaleLowerCase('de-DE');
+          vorrat.set(klein, (vorrat.get(klein) || 0) + 1);
+        }
+        for (const zeichen of kern) {
+          const da = vorrat.get(zeichen) || 0;
+          if (!da) {
+            // Der Schlüssel bleibt stehen, wenn der Vorrat aufgebraucht ist —
+            // daran hängt der Unterschied zwischen „gibt es nicht" und
+            // „schon zu oft benutzt".
+            return vorrat.has(zeichen)
+              ? `Den Buchstaben „${zeichen}“ hast du öfter benutzt, als er oben vorkommt.`
+              : `Der Buchstabe „${zeichen}“ kommt oben gar nicht vor.`;
+          }
+          vorrat.set(zeichen, da - 1);
+        }
+        if (kern.length !== buchstaben.length) {
+          return `Oben liegen ${buchstaben.length} Buchstaben — dein Wort hat ${kern.length}.`;
+        }
+        return null;
+      },
       aufFertig,
     });
     wurzel.appendChild(feld.wurzel);

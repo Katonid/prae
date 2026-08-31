@@ -74,6 +74,22 @@ export const UEBUNG = {
     const feld = schreibfeld({
       loesung: wort,
       platzhalter: 'Das Wort abschreiben',
+      // Nach einem Fehlversuch kommt das Wort im Blitzmodus noch einmal für
+      // zwei Sekunden zurück. Ohne das wäre der zweite Versuch geraten: Die
+      // Aufgabe heißt „schreib es ab", und abzuschreiben war nichts mehr da.
+      // Gezählt wird es wie ein Spicken.
+      aufVersuch: () => {
+        if (art !== 'blitz' || !wortkasten.classList.contains('is-weg')) return;
+        blicke += 1;
+        wortkasten.classList.remove('is-weg');
+        wortkasten.removeAttribute('aria-hidden');
+        sfx.tipp();
+        const zurueck = setTimeout(() => {
+          wortkasten.classList.add('is-weg');
+          wortkasten.setAttribute('aria-hidden', 'true');
+        }, 2000);
+        wurzel.addEventListener('uebung-ende', () => clearTimeout(zurueck), { once: true });
+      },
       aufFertig: (ergebnis) => aufFertig(Object.assign({}, ergebnis, { blicke })),
     });
     wurzel.appendChild(feld.wurzel);

@@ -84,14 +84,83 @@ export function schreibfeld({
     if (art) feld.classList.add(art);
   }
 
-  /** Zeigt, WO es auseinanderging — ohne die restliche Lösung zu verraten. */
-  function stelleZeigen(eingabe) {
+  /**
+   * Sagt, WAS nicht stimmt — ohne die Lösung zu verraten.
+   *
+   * Die Reihenfolge ist die Rangfolge: Zuerst die beiden Fehler, die ein
+   * Grundschulkind am häufigsten macht und die eine Stellenangabe ganz falsch
+   * beschreibt.
+   *
+   * * **Nur groß oder klein.** Wer „baum" schreibt, hat das Wort gekonnt.
+   *   „Schon der erste Buchstabe stimmt nicht" war dafür die schlechteste
+   *   aller Antworten — sie schickt das Kind auf die Suche nach einem Fehler,
+   *   den es nicht gemacht hat. Und die Großschreibung IST der halbe
+   *   Rechtschreibstoff der Grundschule; sie verdient einen eigenen Satz.
+   * * **Der Artikel.** Bei Nomen steht „der/die/das" mit in der Lösung. Fehlt
+   *   er, ist am Wort selbst nichts falsch.
+   *
+   * Erst danach kommt die Stelle, an der es auseinanderging.
+   */
+  const ARTIKEL = /^(der|die|das)\s+/i;
+  const zielHatArtikel = ARTIKEL.test(ziel);
+  const zielKern = ziel.replace(ARTIKEL, '');
+
+  /** Welche Richtung? Das entscheidet, welche Regel zu nennen ist. */
+  function grossOderKlein() {
+    return zielKern[0] === zielKern[0].toLocaleUpperCase('de-DE')
+      ? 'Das Wort schreibt man groß.'
+      : 'Das Wort schreibt man klein.';
+  }
+
+  function warumFalsch(eingabe) {
+    const eingabeKern = eingabe.replace(ARTIKEL, '');
+    const gleichbuchstabig = eingabeKern.toLocaleLowerCase('de-DE') === zielKern.toLocaleLowerCase('de-DE');
+
+    // 1. Alle Buchstaben stimmen, nur groß und klein nicht.
+    if (eingabe.toLocaleLowerCase('de-DE') === ziel.toLocaleLowerCase('de-DE')) {
+      return {
+        vorrang: true,
+        text: `Fast! Jeder Buchstabe sitzt richtig — nur groß und klein noch nicht. ${grossOderKlein()}`,
+      };
+    }
+    // 2. Das Wort stimmt, der Artikel fehlt oder passt nicht.
+    //    „Nur" darf nur dastehen, wenn es wirklich das Einzige ist — sonst
+    //    sucht das Kind einen Fehler und findet zwei.
+    if (zielHatArtikel && gleichbuchstabig) {
+      const auchGross = eingabeKern !== zielKern;
+      const fehlt = !ARTIKEL.test(eingabe);
+      if (auchGross) {
+        return {
+          vorrang: true,
+          text: `Zwei Kleinigkeiten: ${fehlt ? 'Der Artikel fehlt davor' : 'Der Artikel passt noch nicht'}`
+            + ` — der, die oder das? Und ${grossOderKlein().replace(/^Das Wort schreibt man/, 'das Wort schreibt man')}`,
+        };
+      }
+      return {
+        vorrang: true,
+        text: fehlt
+          ? 'Das Wort stimmt! Es fehlt nur der Artikel davor: der, die oder das.'
+          : 'Das Wort stimmt — nur der Artikel passt noch nicht. Der, die oder das?',
+      };
+    }
+    // 3. Die Stelle, an der es auseinanderging. Hier darf eine Übung, die
+    //    mehr über den Fehler weiß, vorgehen (`zusatzhinweis`).
     const stelle = ersteAbweichung(eingabe, ziel);
-    if (stelle < 0) return '';
-    if (stelle === 0) return 'Schon der erste Buchstabe stimmt nicht.';
-    if (stelle >= eingabe.length) return `Da fehlt noch etwas — nach „${eingabe.slice(0, stelle)}“ geht es weiter.`;
-    if (stelle >= ziel.length) return 'Das ist zu lang geworden.';
-    return `Bis „${eingabe.slice(0, stelle)}“ stimmt es. Danach schau noch einmal hin.`;
+    if (stelle < 0) return { vorrang: false, text: '' };
+    if (stelle >= eingabe.length) {
+      const fehlen = ziel.length - eingabe.length;
+      return {
+        vorrang: false,
+        text: `Da fehlt noch etwas — nach „${eingabe.slice(0, stelle)}“ geht es weiter`
+          + `${fehlen === 1 ? ' (ein Zeichen)' : ` (noch ${fehlen} Zeichen)`}.`,
+      };
+    }
+    if (stelle >= ziel.length) {
+      const zuviel = eingabe.length - ziel.length;
+      return { vorrang: false, text: `Das ist zu lang — ${zuviel === 1 ? 'ein Zeichen' : `${zuviel} Zeichen`} zu viel.` };
+    }
+    if (stelle === 0) return { vorrang: false, text: 'Schon der erste Buchstabe stimmt nicht.' };
+    return { vorrang: false, text: `Bis „${eingabe.slice(0, stelle)}“ stimmt es. Danach schau noch einmal hin.` };
   }
 
   function abschliessen(richtig) {
@@ -138,8 +207,17 @@ export function schreibfeld({
       // Manche Übungen wissen mehr über den Fehler als das Schreibfeld — die
       // Geheimschrift zum Beispiel sieht, ob die Eingabe überhaupt ins
       // Häuschen passt. Ein solcher Hinweis geht vor.
+      // Manche Übungen wissen mehr über den Fehler als das Schreibfeld — die
+      // Geheimschrift sieht, ob die Eingabe überhaupt ins Häuschen passt.
+      // Vorrang hat ein solcher Hinweis trotzdem nicht immer: Bei „nur groß
+      // und klein" und beim fehlenden Artikel wäre er falsch bis irreführend
+      // („passt nicht ins Häuschen", obwohl das Wort gekonnt ist).
+      const eigener = warumFalsch(eingabe);
       const zusatz = zusatzhinweis ? zusatzhinweis(eingabe) : null;
-      rueckmeldung.textContent = `↻ ${zusatz || stelleZeigen(eingabe) || 'Noch nicht ganz — versuch es noch einmal.'}`;
+      const text = eigener.vorrang
+        ? eigener.text
+        : (zusatz || eigener.text || 'Noch nicht ganz — versuch es noch einmal.');
+      rueckmeldung.textContent = `↻ ${text}`;
       rueckmeldung.className = 'schreibfeld__antwort is-fastrichtig';
       feld.focus();
       feld.select();
@@ -151,8 +229,17 @@ export function schreibfeld({
     loesungsband.classList.remove('is-versteckt');
     loesungsband.textContent = '';
     loesungsband.appendChild(h('span', { class: 'schreibfeld__loesung-marke' }, 'So ist es richtig'));
-    loesungsband.appendChild(h('strong', { class: 'schreibfeld__loesung-wort' }, ziel));
-    rueckmeldung.textContent = '✗ Schreib es jetzt genau so ab.';
+    // Nicht nur das Wort, sondern die STELLE, an der es auseinanderging.
+    // Abschreiben ohne Hinsehen lernt niemanden etwas; markiert wird deshalb
+    // genau der Buchstabe, der anders war als gedacht.
+    const stelle = ersteAbweichung(eingabe, ziel);
+    loesungsband.appendChild(stelle >= 0 && stelle < ziel.length
+      ? h('strong', { class: 'schreibfeld__loesung-wort' },
+        ziel.slice(0, stelle),
+        h('mark', { class: 'schreibfeld__stelle' }, ziel[stelle]),
+        ziel.slice(stelle + 1))
+      : h('strong', { class: 'schreibfeld__loesung-wort' }, ziel));
+    rueckmeldung.textContent = '✗ Schau auf die farbige Stelle und schreib es genau so ab.';
     rueckmeldung.className = 'schreibfeld__antwort is-falsch';
     feld.value = '';
     markiere(null);
