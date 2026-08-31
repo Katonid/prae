@@ -62,17 +62,21 @@ einer ab 60 %. Gemerkt wird der **beste** Durchgang.
 
 Zwei Sorten, in zwei Dateien:
 
-| | `js/woerter.js` | `js/rechtschreibung3.js` | `js/rechtschreibung.js` |
-|---|---|---|---|
-| sortiert nach | **Inhalt** (Schule, Tiere, Wetter) | **Rechtschreibstelle** | **Rechtschreibstelle** |
-| Klassenstufe | — | 3. Schuljahr | 4. Schuljahr |
-| Umfang | 20 Bereiche × 30 Wörter | 25 Päckchen × 15 Wörter | 27 Blöcke × 15 Wörter |
-| Päckchen je Bereich | 2 | 1 | 1 |
-| von Haus aus | **sichtbar** | **ausgeblendet** | **ausgeblendet** |
+| Datei | sortiert nach | Stufe | Umfang | von Haus aus |
+|---|---|---|---|---|
+| `js/woerter.js` | **Inhalt** (Schule, Tiere, Wetter) | — | 20 × 30 Wörter (2 Päckchen) | **sichtbar** |
+| `js/rechtschreibung2.js` | **Rechtschreibstelle** | 2. Schuljahr | 28 × 10 Wörter | ausgeblendet |
+| `js/rechtschreibung3.js` | **Rechtschreibstelle** | 3. Schuljahr | 25 × 15 Wörter | ausgeblendet |
+| `js/rechtschreibung.js` | **Rechtschreibstelle** | 4. Schuljahr | 27 × 15 Wörter | ausgeblendet |
 
-Zusammen 1380 Wörter. Die Rechtschreibpäckchen sind ausgeblendet, weil
-zweiundfünfzig zusätzliche Karten für ein Kind, das eine Woche lang ein
-einziges Päckchen übt, nur Gestrüpp wären. Die Lehrkraft schaltet unter
+Zusammen **1660 Wörter in 100 Bereichen**. Die Rechtschreibpäckchen sind
+ausgeblendet, weil achtzig zusätzliche Karten für ein Kind, das eine Woche
+lang ein einziges Päckchen übt, nur Gestrüpp wären.
+
+**Ein Päckchen ist so groß wie sein Bereich.** Die Klasse-2-Blöcke haben zehn
+Wörter, die anderen fünfzehn; gerechnet wird mit der tatsächlichen Zahl, nicht
+mit einer festen. Ein Bereich mit mehr als fünfzehn Wörtern wird in mehrere
+Päckchen geteilt (die Themenbereiche in zwei). Die Lehrkraft schaltet unter
 **⚙︎ → Bereiche wählen** frei, was gerade dran ist — und kann dort auch
 Themenbereiche abwählen. Hat sie eine Klasse, gibt sie ihre Auswahl über
 **Klasse → Bereiche für die Klasse** an die Kinder weiter; deren Geräte
@@ -96,10 +100,18 @@ Startseite steht.
    „Großschreibung“ geht es um die Großschreibung, und die prüfen die Stufen
    1, 2, 3 und 5 ohnehin buchstabengenau.
 
-Dazu zwei Kleinigkeiten aus der Klasse-3-Liste: **Trennbare Verben** stehen
-mit der ganzen „du“-Form da (`anfangen|v|fängst an` → „du fängst an“), und
-**`gern`** ist streng genommen ein Adverb, steht aber in jedem Schulbuch bei
-der unregelmäßigen Steigerung und ist deshalb als Adjektiv eingetragen.
+Dazu drei Kleinigkeiten: **Trennbare Verben** stehen mit der ganzen „du“-Form
+da (`anfangen|v|fängst an` → „du fängst an“). **`gern`** ist streng genommen
+ein Adverb, steht aber in jedem Schulbuch bei der unregelmäßigen Steigerung
+und ist deshalb als Adjektiv eingetragen. Und in Klasse 2 wird **nicht
+gesteigert**, wo es nicht Stoff ist — Farbwörter bleiben Adjektive mit leeren
+Steigerungsfeldern, statt zu „keines davon“ zu werden.
+
+**Dieselben Wörter kommen in mehreren Klassenstufen vor** (ck, tz, ie,
+Dehnungs-h). Das ist richtig so: Es sind getrennte Sätze für getrennte
+Jahrgänge, und freigeschaltet wird ohnehin nur einer. Die Mehrzahl der
+Wochentage steht deshalb erst in Klasse 3 — in Klasse 2 geht es um den
+Artikel.
 
 ## Zwanzig mitgelieferte Bereiche
 

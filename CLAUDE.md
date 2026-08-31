@@ -285,13 +285,21 @@ Namens und lebt weiter.
   (`paket.js`), nicht der Reihe nach: Sonst bestünde Päckchen 1 aus lauter
   Nomen und die Wortart-Stufe wäre darin sinnlos. Die Verteilung ist gerechnet
   und nicht gespeichert — „Päckchen 2" ist auf jedem Gerät dasselbe.
-- **Drei Sorten Bereiche.** `woerter.js` = 20 Themenbereiche à 30 Wörter (nach
-  Inhalt, von Haus aus sichtbar). `rechtschreibung3.js` = 25 Päckchen à 15
-  Wörter fürs 3. Schuljahr, `rechtschreibung.js` = 27 Blöcke à 15 Wörter fürs
-  4. Schuljahr (beide nach Rechtschreibstelle, von Haus aus AUSGEBLENDET, die
-  Lehrkraft schaltet frei). Zusammen 1380 Wörter. Eine neue Liste wird an vier
-  Stellen eingetragen: `app.js` (`alleBereiche`, `bereicheZeigen`),
-  `bereiche.js` (Wähler) und `sw.js`. Sichtbarkeit steht in `store.sichtbareBereiche`;
+- **Vier Sorten Bereiche.** `woerter.js` = 20 Themenbereiche à 30 Wörter (nach
+  Inhalt, von Haus aus sichtbar). Dazu drei Rechtschreiblisten nach
+  Rechtschreibstelle, alle von Haus aus AUSGEBLENDET: `rechtschreibung2.js`
+  (28 Blöcke à 10 Wörter, 2. Schuljahr), `rechtschreibung3.js` (25 à 15,
+  3. Schuljahr), `rechtschreibung.js` (27 à 15, 4. Schuljahr). Zusammen 1660
+  Wörter in 100 Bereichen. Eine neue Liste wird an vier Stellen eingetragen:
+  `app.js` (`alleBereiche`, `bereicheZeigen`), `bereiche.js` (Wähler)
+  und `sw.js`.
+- **Ein Päckchen ist so groß wie sein Bereich**, höchstens aber
+  `PAKETGROESSE` (15). Die Klasse-2-Blöcke haben zehn Wörter — nirgends eine
+  feste Zahl hineinschreiben, `pakete()` rechnet mit der tatsächlichen.
+- **Dieselben Wörter in mehreren Klassenstufen sind Absicht**, kein Versehen:
+  getrennte Sätze für getrennte Jahrgänge, freigeschaltet wird nur einer. Die
+  Mehrzahl der Wochentage steht erst in Klasse 3; in Klasse 2 geht es um den
+  Artikel. Sichtbarkeit steht in `store.sichtbareBereiche`;
   was dort fehlt, richtet sich nach `bereich.gruppe`. Ein ausgeblendeter
   Bereich bleibt über die Adresse erreichbar — ein Auftrag der Woche darf auf
   ihn zeigen. Die Auswahl der Lehrkraft reist über `klasse.bereicheAn` zu den
