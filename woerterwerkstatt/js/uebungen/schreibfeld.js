@@ -33,8 +33,8 @@ import { einstellungen } from '../store.js';
  * abgeschrieben.
  *
  * `fehlversuche` sind die Wörter, wie das Kind sie geschrieben hat, bevor es
- * stimmte. Sie sind das Wertvollste, was hier entsteht: „Federmape" statt
- * „Federmappe" sagt einer Lehrkraft mehr als jede Fehlerzahl — man sieht, WAS
+ * stimmte. Sie sind das Wertvollste, was hier entsteht: „Somer" statt
+ * „Sommer" sagt einer Lehrkraft mehr als jede Fehlerzahl — man sieht, WAS
  * das Kind sich falsch gemerkt hat. Wohin sie gehen und wer sie sehen darf,
  * entscheidet nicht diese Datei (siehe lauf.js und store.js).
  */

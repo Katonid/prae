@@ -13,9 +13,11 @@ import { sterne as sterneAnzeige, balken, blatt, frage } from './ui.js';
 import {
   ladeZustand, eigeneBereiche, fortschritt, sterneImBereich,
   nutzer, setzeNutzer, klassen, horch, schwereWoerter, protokollLeeren,
+  bereichSichtbar,
 } from './store.js';
 import { anwenden as themaAnwenden } from './theme.js';
 import { BEREICHE } from './woerter.js';
+import { RECHTSCHREIBUNG } from './rechtschreibung.js';
 import { pakete, paketzahl, PAKETGROESSE, paketspanne } from './paket.js';
 import { UEBUNGEN, STUFEN_IDS, uebungNachId } from './uebungen/index.js';
 import { laufStarten } from './lauf.js';
@@ -23,6 +25,7 @@ import { einstellungenZeigen } from './einstellungen.js';
 import { bereicheVerwalten } from './bereiche.js';
 import {
   lehrkraftAnmeldung, klassenVerwalten, beitreten, fortschrittHochladen,
+  anmeldenMitCode, klasseAuffrischen,
 } from './klasse.js';
 import { angemeldet, wolkeStarten, abmelden, beiKontoWechsel } from './cloud.js';
 import { alsApp } from './plattform.js';
@@ -34,9 +37,16 @@ let laufAbbrechen = null;
 
 /* ---------- Bereiche zusammenstellen ---------- */
 
+/**
+ * Alle Bereiche, die es gibt — auch die ausgeblendeten. Für den Wegweiser und
+ * die Auswahl. Was auf der Startseite erscheint, entscheidet
+ * `sichtbareBereiche()`: Ein Kind, das einen Auftrag für einen Block bekommt,
+ * muss ihn öffnen können, auch wenn er nicht auf der Startseite steht.
+ */
 function alleBereiche() {
-  return BEREICHE.concat(eigeneBereiche());
+  return BEREICHE.concat(RECHTSCHREIBUNG, eigeneBereiche());
 }
+
 
 function bereichNachId(id) {
   return alleBereiche().find((b) => b.id === id) || null;
@@ -47,6 +57,8 @@ function bereichNachId(id) {
 function bereicheZeigen() {
   const gitter = h('div', { class: 'bereiche' });
   const eigene = eigeneBereiche();
+  const themen = BEREICHE.filter(bereichSichtbar);
+  const bloecke = RECHTSCHREIBUNG.filter(bereichSichtbar);
 
   const karte = (bereich, eigen) => {
     const anzahl = paketzahl(bereich);
@@ -68,7 +80,10 @@ function bereicheZeigen() {
   const auftragskarte = auftragZeigen();
 
   for (const bereich of eigene) gitter.appendChild(karte(bereich, true));
-  for (const bereich of BEREICHE) gitter.appendChild(karte(bereich, false));
+  for (const bereich of themen) gitter.appendChild(karte(bereich, false));
+
+  const blockgitter = h('div', { class: 'bereiche' });
+  for (const bereich of bloecke) blockgitter.appendChild(karte(bereich, false));
 
   leeren(buehne()).appendChild(h('div', { class: 'seite' },
     auftragskarte,
@@ -78,7 +93,13 @@ function bereicheZeigen() {
         'Such dir einen Bereich aus. Jedes Trainingspäckchen hat '
         + `${PAKETGROESSE} Lernwörter und fünf Stufen.`)),
     eigene.length ? h('h2', { class: 'seite__abschnitt' }, 'Von deiner Lehrerin oder deinem Lehrer') : null,
-    gitter));
+    gitter,
+    bloecke.length ? h('h2', { class: 'seite__abschnitt' }, 'Rechtschreibung') : null,
+    bloecke.length ? blockgitter : null,
+    (!eigene.length && !themen.length && !bloecke.length)
+      ? h('p', { class: 'seite__untertitel' },
+        'Zurzeit ist kein Bereich freigeschaltet. Unter ⚙︎ → „Bereiche wählen" lässt sich das ändern.')
+      : null));
 }
 
 /** Der Auftrag der Woche, falls die Lehrkraft einen gesetzt hat. */
@@ -271,6 +292,12 @@ function kopfleisteZeichnen() {
   } else if (wer && wer.art === 'kind') {
     platz.appendChild(h('span', { class: 'kopf__wer' }, `👋 ${wer.name}`));
   } else {
+    // Ohne diesen Knopf kommt ein Kind auf einem frischen Gerät gar nicht
+    // hinein — es bräuchte den QR-Code, und der hängt nicht immer da.
+    platz.appendChild(h('button', {
+      class: 'kopf__knopf kopf__knopf--voll', type: 'button',
+      onclick: () => anmeldenMitCode(),
+    }, '👋 Mitmachen'));
     platz.appendChild(h('button', { class: 'kopf__knopf', type: 'button', onclick: () => lehrkraftAnmeldung(() => kopfleisteZeichnen()) }, 'Für Lehrkräfte'));
   }
 
@@ -387,7 +414,9 @@ async function start() {
 
   // Die Wolke im Hintergrund wecken: Sie wird nur für Konten und Klassen
   // gebraucht — scheitert sie, läuft alles andere weiter.
-  wolkeStarten().then(() => kopfleisteZeichnen()).catch(() => {});
+  wolkeStarten()
+    .then(() => { kopfleisteZeichnen(); return klasseAuffrischen(); })
+    .catch(() => {});
   beiKontoWechsel(() => kopfleisteZeichnen());
 
   horch('fortschritt', () => { fortschrittHochladen(); });
@@ -398,6 +427,10 @@ async function start() {
   // hier nur eines: die Bühne neu zeichnen, und auch das nur, wenn sie
   // gerade die Bereiche zeigt.
   horch('bereiche', () => {
+    if (document.body.classList.contains('is-uebend')) return;
+    if (zeigtBereiche()) bereicheZeigen();
+  });
+  horch('sichtbarkeit', () => {
     if (document.body.classList.contains('is-uebend')) return;
     if (zeigtBereiche()) bereicheZeigen();
   });

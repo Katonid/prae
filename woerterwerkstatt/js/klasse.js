@@ -30,10 +30,12 @@ import {
 import {
   eigeneBereiche, bereichSichern, klassen, klasseMerken, klasseVergessen,
   setzeNutzer, nutzer, daten, protokoll,
+  setzeSichtbareBereiche,
 } from './store.js';
 import { BEREICHE } from './woerter.js';
 import { UEBUNGEN } from './uebungen/index.js';
 import { paketzahl } from './paket.js';
+import { bereichswahl } from './bereiche.js';
 
 /** Die Adresse, die im QR-Code steht. */
 export function beitrittsadresse(code) {
@@ -341,6 +343,8 @@ export function klasseZeigen(code, beiAenderung, frischAngelegt = false) {
     inhalt: platz,
   });
 
+  let bereichsuhr = null;
+
   (async () => {
     let klasse;
     try {
@@ -511,6 +515,46 @@ export function klasseZeigen(code, beiAenderung, frischAngelegt = false) {
             onclick: () => klassenprotokoll(code, protokolle),
           }, '📋 Was der Klasse schwerfällt'),
           h('button', { class: 'knopf knopf--still knopf--klein', type: 'button', onclick: () => kinderZeichnen() }, '↻ Neu laden'))),
+      abschnitt('Bereiche für die Klasse',
+        h('p', { class: 'blatt__text' },
+          'Welche Bereiche die Kinder sehen. Deine Auswahl wird auf ihre Geräte übernommen, '
+          + 'sobald sie die App öffnen — auch die Rechtschreibblöcke, die von Haus aus ausgeblendet sind.'),
+        h('div', { class: 'blatt__knopfreihe' },
+          h('button', {
+            class: 'knopf knopf--voll', type: 'button',
+            onclick: () => bereichswahl({
+              titel: `Bereiche für ${klasse.name}`,
+              hinweis: 'Was du hier anhakst, sehen die Kinder dieser Klasse. Es gilt zugleich für dein eigenes Gerät.',
+              beiWahl: (auswahl) => {
+                // Nicht bei jedem Haken schreiben — sonst geht bei „Alle an"
+                // ein Schwall Anfragen los. Erst wenn es kurz ruhig ist.
+                clearTimeout(bereichsuhr);
+                bereichsuhr = setTimeout(() => {
+                  klasseAendern(code, { bereicheAn: auswahl })
+                    .then(() => { klasse.bereicheAn = auswahl; })
+                    .catch((problem) => meldung(klartext(problem), 'warnung', 5000));
+                }, 700);
+              },
+            }),
+          }, '📚 Bereiche wählen'))),
+
+      abschnitt('Anmeldung der Kinder',
+        zeile('Auch ohne PIN anmelden',
+          schalter(klasse.ohnePin === true, async (an) => {
+            try {
+              await klasseAendern(code, { ohnePin: an });
+              klasse.ohnePin = an;
+              meldung(an
+                ? 'Kinder kommen jetzt mit Name und Klassencode hinein.'
+                : 'Für die Anmeldung braucht es wieder die PIN.', 'gut', 5000);
+            } catch (problem) {
+              meldung(klartext(problem), 'warnung', 5000);
+            }
+          }),
+          'Praktisch, wenn PINs vergessen werden. Dann kann sich aber jedes Kind, das den Klassencode hat, als jedes andere anmelden.'),
+        h('p', { class: 'abschnitt__notiz' },
+          'Eine vergessene PIN lässt sich auch einzeln neu vergeben — der Knopf „PIN" steht bei jedem Kind.')),
+
       abschnitt('Wörter und Fehler mitschreiben',
         zeile('Mitschreiben',
           schalter(klasse.protokoll !== false, async (an) => {
@@ -607,6 +651,9 @@ ${svg}
  */
 export function beitreten(code, beiFertig, beimSchliessen = null) {
   const gross = String(code).toUpperCase();
+  // Ob diese Klasse die Anmeldung ohne PIN erlaubt, steht in der Klasse und
+  // ist erst nach dem Laden bekannt. Bis dahin gilt: PIN nötig.
+  let ohnePin = false;
   const nameFeld = h('input', {
     class: 'feld feld--gross', type: 'text', placeholder: 'Dein Name',
     autocomplete: 'username', autocapitalize: 'words', spellcheck: 'false',
@@ -618,11 +665,21 @@ export function beitreten(code, beiFertig, beimSchliessen = null) {
   const fehler = h('p', { class: 'blatt__fehler', 'aria-live': 'polite' });
   const machen = h('button', { class: 'knopf knopf--voll knopf--gross', type: 'button' }, 'Los geht’s');
   const klassenname = h('p', { class: 'blatt__text' }, `Klassencode ${gross}`);
+  const pinhinweis = h('p', { class: 'blatt__text is-versteckt' },
+    'Wenn du schon einmal hier warst, darfst du die PIN auch weglassen.');
 
   pinFeld.addEventListener('input', () => { pinFeld.value = pinFeld.value.replace(/\D/g, '').slice(0, 4); });
 
   klasseHolen(gross)
-    .then((klasse) => { klassenname.textContent = `${klasse.name} · Code ${gross}`; uebernehmen(klasse); })
+    .then((klasse) => {
+      klassenname.textContent = `${klasse.name} · Code ${gross}`;
+      ohnePin = klasse.ohnePin === true;
+      if (ohnePin) {
+        pinFeld.placeholder = '•••• (darfst du weglassen)';
+        pinhinweis.classList.remove('is-versteckt');
+      }
+      uebernehmen(klasse);
+    })
     .catch((problem) => {
       // Eine gesperrte Datenbank sieht von hier aus wie ein falscher Code —
       // und ein Kind, das daraufhin seinen Code sechsmal neu abtippt, sucht an
@@ -641,10 +698,12 @@ export function beitreten(code, beiFertig, beimSchliessen = null) {
     for (const bereich of Object.values(klasse.bereiche || {})) {
       bereichSichern(Object.assign({}, bereich, { ausKlasse: gross }));
     }
+    if (klasse.bereicheAn) setzeSichtbareBereiche(klasse.bereicheAn);
     klasseMerken({
       code: gross, name: klasse.name, rolle: 'kind',
       auftrag: klasse.auftrag || null,
       protokoll: klasse.protokoll !== false,
+      ohnePin: klasse.ohnePin === true,
     });
   }
 
@@ -653,14 +712,25 @@ export function beitreten(code, beiFertig, beimSchliessen = null) {
     const name = nameFeld.value.trim();
     const pin = pinFeld.value.trim();
     if (name.length < 2) { fehler.textContent = 'Schreib deinen Namen (mindestens zwei Buchstaben).'; return; }
-    if (!/^\d{4}$/.test(pin)) { fehler.textContent = 'Die PIN sind genau vier Ziffern.'; return; }
+    // Ohne PIN geht es nur, wenn die Lehrkraft es erlaubt hat UND das Kind
+    // schon angelegt ist. Beim ERSTEN Mal braucht es immer eine PIN — sonst
+    // hätte das Kind später keine, die man ihm sagen könnte.
+    if (!/^\d{4}$/.test(pin) && !(ohnePin && pin === '')) {
+      fehler.textContent = ohnePin
+        ? 'Die PIN sind genau vier Ziffern — oder lass sie ganz leer.'
+        : 'Die PIN sind genau vier Ziffern.';
+      return;
+    }
     machen.disabled = true;
     try {
       let kind;
       try {
-        kind = await kindAnmelden(gross, name, pin);
+        kind = await kindAnmelden(gross, name, pin, ohnePin);
       } catch (problem) {
         if (String(problem.message) === 'KIND_UNBEKANNT') {
+          if (!/^\d{4}$/.test(pin)) {
+            throw new Error('Dich gibt es hier noch nicht. Zum ersten Mal brauchst du eine PIN aus vier Ziffern.');
+          }
           kind = await kindAnlegen(gross, name, pin);
           meldung('Willkommen! Merk dir deinen Namen und deine PIN.', 'gut', 5000);
         } else {
@@ -691,10 +761,85 @@ export function beitreten(code, beiFertig, beimSchliessen = null) {
       klassenname,
       h('p', { class: 'blatt__text' },
         'Such dir einen Namen aus und eine PIN aus vier Ziffern. Merk sie dir gut — mit beidem kommst du wieder hinein.'),
-      nameFeld, pinFeld, fehler,
+      nameFeld, pinFeld, pinhinweis, fehler,
       h('div', { class: 'blatt__knopfreihe' }, machen)),
   });
   return dialog;
+}
+
+/**
+ * Anmelden ohne QR-Code: Klassencode abtippen.
+ *
+ * Ein Kind auf einem frischen Gerät hatte bisher keinen Weg hinein — es
+ * brauchte den Link. Der ist aber weg, sobald der Beamer aus ist oder das
+ * Tablet gewechselt wurde. Hier tippt es die sechs Zeichen ab und landet im
+ * gewohnten Blatt.
+ */
+export function anmeldenMitCode(beiFertig) {
+  const codefeld = h('input', {
+    class: 'feld feld--gross feld--code', type: 'text', placeholder: 'ABC234',
+    autocomplete: 'off', autocapitalize: 'characters', spellcheck: 'false', maxlength: 6,
+  });
+  const fehler = h('p', { class: 'blatt__fehler', 'aria-live': 'polite' });
+  // Kleinbuchstaben und Leerzeichen geradeziehen — mehr nicht. Der
+  // Klassencode kennt weder I noch O noch 0 oder 1 (siehe `beitrittscode` in
+  // util.js), gerade damit es hier nichts zu raten gibt. Wer eines davon
+  // tippt, hat sich verlesen, und das muss die App sagen statt es
+  // stillschweigend in ein anderes Zeichen zu verwandeln.
+  codefeld.addEventListener('input', () => {
+    codefeld.value = codefeld.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
+  });
+
+  const weiter = () => {
+    const code = codefeld.value.trim().toUpperCase();
+    if (code.length !== 6) { fehler.textContent = 'Der Klassencode hat genau sechs Zeichen.'; return; }
+    dialog.schliessen();
+    window.location.hash = `#/beitreten/${code}`;
+    if (beiFertig) beiFertig(code);
+  };
+  codefeld.addEventListener('keydown', (ereignis) => {
+    if (ereignis.key === 'Enter') { ereignis.preventDefault(); weiter(); }
+  });
+
+  const dialog = blatt({
+    titel: 'Mitmachen',
+    inhalt: h('div', {},
+      h('p', { class: 'blatt__text' },
+        'Tipp den Klassencode ein — die sechs Zeichen stehen unter dem QR-Code an der Tafel. '
+        + 'Danach kommen dein Name und deine PIN.'),
+      codefeld, fehler,
+      h('div', { class: 'blatt__knopfreihe' },
+        h('button', { class: 'knopf knopf--voll knopf--gross', type: 'button', onclick: weiter }, 'Weiter'))),
+  });
+  return dialog;
+}
+
+/**
+ * Was die Lehrkraft an der Klasse geändert hat, auf dieses Gerät holen:
+ * Auftrag der Woche, freigeschaltete Bereiche, mitgegebene eigene Bereiche.
+ *
+ * Läuft beim Start im Hintergrund. Scheitert es (kein Netz), bleibt alles so,
+ * wie es war — geübt wird ohnehin ohne Netz.
+ */
+export async function klasseAuffrischen() {
+  const wer = nutzer();
+  if (!wer || wer.art !== 'kind' || !wer.klasse) return;
+  let klasse;
+  try {
+    klasse = await klasseHolen(wer.klasse);
+  } catch (_) {
+    return;
+  }
+  for (const bereich of Object.values(klasse.bereiche || {})) {
+    bereichSichern(Object.assign({}, bereich, { ausKlasse: klasse.code }));
+  }
+  if (klasse.bereicheAn) setzeSichtbareBereiche(klasse.bereicheAn);
+  klasseMerken({
+    code: klasse.code, name: klasse.name, rolle: 'kind',
+    auftrag: klasse.auftrag || null,
+    protokoll: klasse.protokoll !== false,
+    ohnePin: klasse.ohnePin === true,
+  });
 }
 
 /**

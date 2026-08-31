@@ -20,7 +20,7 @@ export const WORTARTEN = {
 /**
  * Eine Datenzeile zu einem Eintrag machen.
  *
- * Nomen      Ranzen|n|der|Ranzen
+ * Nomen      Tornister|n|der|Tornister
  * Verb       laufen|v|läufst
  * Adjektiv   schnell|a|schneller|am schnellsten
  * Sonstiges  heute|x
@@ -108,7 +108,7 @@ export function formen(eintrag) {
 
 /**
  * Wie das Wort in den Schreibübungen erscheint. Nomen kommen mit Artikel —
- * „der Ranzen“ ist das, was das Kind lernen soll, nicht „Ranzen“.
+ * „der Tornister“ ist das, was das Kind lernen soll, nicht „Tornister“.
  */
 export function schreibform(eintrag) {
   return eintrag.art === 'n' ? mitArtikel(eintrag) : eintrag.wort;

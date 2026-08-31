@@ -406,11 +406,19 @@ export async function kindAnlegen(code, anzeigename, pin) {
  * nur dann annimmt, wenn er mit dem hinterlegten übereinstimmt. Kein Lesen des
  * Geheimnisses, nirgends.
  */
-export async function kindAnmelden(code, anzeigename, pin) {
+export async function kindAnmelden(code, anzeigename, pin, ohnePin = false) {
   const gross = String(code).toUpperCase();
   const schluessel = namensschluessel(anzeigename);
   const kind = await anfrage(`${WURZEL}/klassen/${gross}/kinder/${schluessel}`).catch(() => null);
   if (!kind) throw new Error('KIND_UNBEKANNT');
+  // Hat die Lehrkraft es für ihre Klasse erlaubt, genügen Name und
+  // Klassencode. Das ist bequem und ehrlich gesagt kein Schutz mehr: Wer den
+  // Code hat, kommt als jedes Kind hinein. Die Entscheidung gehört deshalb
+  // der Lehrkraft und steht in der Klasse, nicht hier.
+  if (ohnePin && !pin) {
+    await schreiben(`${WURZEL}/klassen/${gross}/kinder/${schluessel}/zuletzt`, Date.now()).catch(() => {});
+    return { schluessel, name: kind.name || anzeigename };
+  }
   const geheim = await abdruck(gross, schluessel, pin);
   try {
     await schreiben(`${WURZEL}/anmeldung/${gross}/${schluessel}`, geheim);
@@ -450,7 +458,7 @@ export async function fortschrittMelden(code, schluessel, fortschritt) {
 
 /**
  * Ein Schlüssel, den die Datenbank als Pfad annimmt. Firebase verbietet in
- * Schlüsseln . # $ / [ ] — „der Ranzen" ist erlaubt, „3,50 €/kg" wäre es
+ * Schlüsseln . # $ / [ ] — „der Tornister" ist erlaubt, „3,50 €/kg" wäre es
  * nicht. Ein eigener Bereich kann alles Mögliche enthalten, deshalb wird
  * hier gesäubert statt gehofft.
  */

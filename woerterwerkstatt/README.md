@@ -58,6 +58,43 @@ nicht gespeichert — „Päckchen 2“ ist deshalb auf jedem Gerät dasselbe P�
 Sterne: drei, wenn jedes Wort gleich beim ersten Versuch saß; zwei ab 80 %,
 einer ab 60 %. Gemerkt wird der **beste** Durchgang.
 
+## Bereiche: zwanzig Themen, siebenundzwanzig Rechtschreibblöcke
+
+Zwei Sorten, in zwei Dateien:
+
+| | `js/woerter.js` | `js/rechtschreibung.js` |
+|---|---|---|
+| sortiert nach | **Inhalt** (Schule, Tiere, Wetter) | **Rechtschreibstelle** (ck, tz, Dehnungs-h) |
+| Umfang | 20 Bereiche × 30 Wörter | 27 Blöcke × 15 Wörter |
+| Päckchen je Bereich | 2 | 1 |
+| von Haus aus | **sichtbar** | **ausgeblendet** |
+
+Die Rechtschreibblöcke sind für ein 4. Schuljahr gedacht und ausgeblendet,
+weil siebenundzwanzig zusätzliche Karten für ein Kind, das eine Woche lang
+einen einzigen Block übt, nur Gestrüpp wären. Die Lehrkraft schaltet unter
+**⚙︎ → Bereiche wählen** frei, was gerade dran ist — und kann dort auch
+Themenbereiche abwählen. Hat sie eine Klasse, gibt sie ihre Auswahl über
+**Klasse → Bereiche für die Klasse** an die Kinder weiter; deren Geräte
+übernehmen sie beim nächsten Öffnen.
+
+Ein ausgeblendeter Bereich bleibt über die Adresse erreichbar. Das ist
+Absicht: Ein Auftrag der Woche darf auf einen Block zeigen, der nicht auf der
+Startseite steht.
+
+### Drei Entscheidungen in den Rechtschreibblöcken
+
+1. **Wo die Rechtschreibstelle erst in der abgeleiteten Form steckt, steht die
+   Grundform als Lernwort.** Im Block „ä/äu ableiten“ also `Baum` mit der
+   Mehrzahl `Bäume`, nicht `Bäume` allein — der Block heißt „ableiten“, und
+   abgeleitet wird in Stufe 4. Dasselbe beim silbentrennenden h (`Schuh` →
+   `die Schuhe`, `früh` → `früher`).
+2. **Nicht steigerbare Adjektive haben leere Steigerungsfelder** (`wahr|a||`).
+   Stufe 4 fragt sie dann nicht ab, statt eine Form zu verlangen, die es nicht
+   gibt.
+3. **Wortgruppen sind „keines davon“** (`beim Essen|x`). Im Block
+   „Großschreibung“ geht es um die Großschreibung, und die prüfen die Stufen
+   1, 2, 3 und 5 ohnehin buchstabengenau.
+
 ## Zwanzig mitgelieferte Bereiche
 
 600 Wörter in `js/woerter.js`, je 30 pro Bereich (= zwei Päckchen), ausgewählt
@@ -67,7 +104,7 @@ Dehnungs-h, ck/tz, äu/eu, v/f und die Umlautbildung in der Mehrzahl.
 Format je Wort — ein Textstück mit senkrechten Strichen:
 
 ```
-Ranzen|n|der|Ranzen               Nomen:    Wort | n | Artikel | Mehrzahl („-“ = keine)
+Tornister|n|der|Tornister         Nomen:    Wort | n | Artikel | Mehrzahl („-“ = keine)
 laufen|v|läufst                   Verb:     Wort | v | 2. Person Einzahl
 schnell|a|schneller|am schnellsten Adjektiv: Wort | a | 1. Steigerung | 2. Steigerung
 heute|x                           sonst:    Wort | x
@@ -108,8 +145,8 @@ Zwei Ansichten in der Klasse:
 
 Festgehalten wird je Wort: wie oft es drankam, wie oft es beim ersten Versuch
 saß, in welchen Stufen — und **wie das Kind es geschrieben hat**, wenn es
-danebenlag. Letzteres ist der eigentliche Wert: „Federmape“ statt
-„Federmappe“ zeigt, *was* falsch gemerkt wurde. Bei Stufe 4 wandert auch eine
+danebenlag. Letzteres ist der eigentliche Wert: „Somer“ statt
+„Sommer“ zeigt, *was* falsch gemerkt wurde. Bei Stufe 4 wandert auch eine
 falsch geratene Wortart mit hinein („hielt Verb für Nomen“) — das ist eine
 andere Auskunft als ein Rechtschreibfehler.
 
@@ -127,6 +164,25 @@ Liste unter „?“ → „Deine schweren Wörter“.
 „Mitschreiben“ und einen Knopf, der das Protokoll der ganzen Klasse löscht.
 Das sind Leistungsdaten namentlich genannter Kinder — sie liegen in der
 Datenbank, bis jemand sie löscht.
+
+### Wie die Kinder hineinkommen
+
+Drei Wege, alle enden im selben Blatt:
+
+* **QR-Code scannen** — der Regelfall an der Tafel.
+* **Link antippen**, wenn die Lehrkraft ihn verschickt hat.
+* **Code abtippen** — Knopf „👋 Mitmachen“ in der Kopfzeile, dann die sechs
+  Zeichen. Für ein Kind auf einem frischen Gerät ohne QR-Code in Sichtweite;
+  ohne diesen Weg käme es gar nicht hinein.
+
+Beim ersten Mal sucht sich das Kind Namen und vierstellige PIN aus, danach
+meldet es sich damit wieder an. **Vergisst es die PIN**, gibt es zwei
+Auswege: Die Lehrkraft vergibt eine neue (Knopf „PIN“ bei jedem Kind), oder
+sie erlaubt für ihre Klasse die **Anmeldung ohne PIN** (Schalter in der
+Klassenansicht). Das ist bequem und ehrlich gesagt kein Schutz mehr — wer den
+Klassencode hat, kommt dann als jedes Kind hinein. Deshalb ist es aus und
+gehört der Entscheidung der Lehrkraft. Ein *neues* Kind braucht immer eine
+PIN, sonst hätte es später keine, die man ihm sagen könnte.
 
 ### Wie die PIN geschützt ist
 
