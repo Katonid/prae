@@ -332,6 +332,16 @@ Namens und lebt weiter.
   „Neue Klasse" ist so lange ausgegraut. `cloud.klartext()` übersetzt die
   Rohfehler — nie wieder eine Konstante in Großbuchstaben in die Oberfläche
   durchreichen.
+- **Der Wegweiser darf NIE aus einem Datenereignis heraus laufen.**
+  `wegLesen()` (app.js) öffnet Blätter und stellt Netzanfragen. In 1.0.3 hing
+  es an der Meldung „Bereiche geändert" — und ein Kind, das einer Klasse
+  beitritt, sichert genau dabei die mitgegebenen Bereiche. Gemessen: 277
+  Netzanfragen und 279 gestapelte Blätter in vier Sekunden; auf dem iPad war
+  nichts einzutippen, auf dem Telefon starb der Tab. Seit 1.0.4 dreifach
+  abgesichert: Ein Datenereignis zeichnet höchstens die Bühne neu; der
+  Wegweiser merkt sich den offenen Beitrittscode und öffnet kein zweites
+  Blatt; `bereichSichern` meldet nur bei echter Änderung. Wer einen neuen
+  Horcher anlegt, ruft darin nie den Wegweiser.
 - **Hochgeladen werden nur Sterne**, nie einzelne Eingaben. Was ein Kind falsch
   getippt hat, bleibt auf seinem Gerät.
 - **Kein `alert`, `confirm` oder `prompt`** — in einer späteren WKWebView-Hülle
