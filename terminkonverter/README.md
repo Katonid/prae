@@ -31,6 +31,17 @@ Adresse: https://katonid.github.io/prae/terminkonverter/
   Das alte Binärformat `.xls` nicht — das muss einmal als `.xlsx` gespeichert
   werden.
 
+## Die fertige Datei
+
+Der Knopf **„Kalenderdatei sichern (.ics)"** legt die Datei bei den Downloads
+ab — sie wird nicht sofort in den Kalender geschoben. Erst ein Doppelklick
+darauf fragt, in welchen Kalender die Termine sollen; vorher lässt sie sich
+weitergeben, aufheben oder ansehen („Text anzeigen").
+
+Auf iPhone und iPad steht daneben **„Teilen / In Dateien sichern"** — dort
+heißt Sichern so, und von dort geht die Datei auch per Mail oder AirDrop
+weiter.
+
 ## Wie es gebaut ist
 
 Statische Web-App, keine Abhängigkeit, kein Bauschritt, kein Server. Sie wird
@@ -51,6 +62,10 @@ Zwei Stellen, an denen es leicht schiefgeht:
 - **Gefaltet wird die `.ics` nach Oktetten, nicht nach Zeichen.** Ein Umlaut
   zählt zwei; eine mitten im Zeichen geteilte Zeile macht aus „für"
   Buchstabensalat.
+- **Der Blob heißt `application/octet-stream`, nicht `text/calendar`.** Bei
+  `text/calendar` reicht Safari die Datei sofort an die Kalender-App weiter,
+  statt sie zu sichern — und dann liegt sie nirgends. Was die Datei ist, sagt
+  die Endung.
 
 Zeiten stehen bewusst ohne Zeitzone („schwebend"): Ein Termin um 8 Uhr ist um
 8 Uhr, egal wie das Gerät gerade eingestellt ist.

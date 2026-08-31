@@ -458,6 +458,17 @@ Namens und lebt weiter.
 - **Die .ics wird nach OKTETTEN gefaltet, nicht nach Zeichen** (`falte` in
   `js/ics.js`). Ein Umlaut zählt zwei; eine mitten im Zeichen geteilte Zeile
   macht aus „für" Buchstabensalat.
+- **Die fertige Datei wird als `application/octet-stream` ausgegeben**, nicht
+  als `text/calendar` (`herunterladen` in `js/app.js`). Bei `text/calendar`
+  schiebt Safari die Termine sofort in die Kalender-App, und die Datei selbst
+  liegt nirgends — genau das war die Beschwerde (08/2026). Was die Datei ist,
+  sagt die Endung `.ics`; ein Doppelklick öffnet weiterhin den Kalender.
+  Daneben stehen zwei Auswege: „Teilen / In Dateien sichern" über
+  `navigator.share` (auf iPhone und iPad der einzige Weg zu „Sichern"; der
+  Knopf zeigt sich nur, wenn `navigator.canShare` Dateien annimmt) und „Text
+  anzeigen" zum Kopieren. **Kopiert wird der gemerkte Text, nicht der Inhalt
+  des Textfeldes** — ein Textfeld gibt seinen Wert mit `\n` zurück, in eine
+  `.ics` gehören `\r\n`.
 - **Zeiten stehen ohne Zeitzone** („schwebend"). Eine mitgelieferte
   VTIMEZONE brächte hier nichts und müsste bei jeder Zeitumstellung stimmen.
   Ganztägige Termine enden am ERSTEN Tag danach (so will es RFC 5545).

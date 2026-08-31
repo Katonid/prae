@@ -75,9 +75,24 @@
           </table>
         </div>
         <div class="fuss">
-          <button type="button" id="laden" class="haupt">Kalenderdatei herunterladen</button>
-          <span id="ergebnis" class="fuss__text"></span>
+          <button type="button" id="laden" class="haupt">Kalenderdatei sichern (.ics)</button>
+          <button type="button" id="teilen" hidden>Teilen / In Dateien sichern</button>
+          <button type="button" id="zeigen" class="still">Text anzeigen</button>
         </div>
+        <p id="ergebnis" class="fuss__text"></p>
+        <p class="feld__klein">Die Datei landet bei den Downloads. Ein Doppelklick darauf öffnet den Kalender und fragt, wohin die Termine sollen — vorher lässt sie sich weitergeben, sichern oder aufheben.</p>
+      </section>
+
+      <section class="karte" id="textkarte" hidden>
+        <div class="karte__kopf">
+          <h2>Der Inhalt der .ics-Datei</h2>
+          <div class="knopfreihe">
+            <button type="button" id="kopieren" class="still">Text kopieren</button>
+          </div>
+        </div>
+        <p class="feld__klein">Zum Nachsehen — oder wenn das Sichern klemmt: Text kopieren, in einen Texteditor einfügen und als <em>termine.ics</em> speichern.</p>
+        <textarea id="icstext" readonly rows="12" spellcheck="false"></textarea>
+        <p id="kopierstand" class="fuss__text"></p>
       </section>
 
       <section class="karte hinweise" id="hinweiskarte" hidden>
@@ -103,6 +118,13 @@
           <li>Zwei Daten in einer Zelle ergeben einen mehrtägigen Termin.</li>
           <li>Welche Spalte links steht, ist gleich: Gesucht wird die Zelle mit dem Datum, der Rest wird zur Beschreibung.</li>
           <li>Eine Überschriftenzeile darf stehen bleiben.</li>
+        </ul>
+        <h2>Und dann in den Kalender</h2>
+        <ul class="liste">
+          <li><strong>Mac:</strong> Doppelklick auf die gesicherte Datei → Kalender fragt, in welchen Kalender die Termine sollen. Wer sie sammeln will, legt vorher unter Ablage → Neuer Kalender einen eigenen an.</li>
+          <li><strong>iPhone/iPad:</strong> „Teilen / In Dateien sichern" nehmen — von dort lässt sich die Datei aufheben oder per Mail verschicken; Antippen in Dateien führt in den Kalender.</li>
+          <li><strong>Google Kalender:</strong> Einstellungen → Importieren und Exportieren → Datei auswählen.</li>
+          <li><strong>Outlook:</strong> Datei → Öffnen und exportieren → Importieren/Exportieren → iCalendar-Datei.</li>
         </ul>
         <p class="feld__klein">Die Umwandlung läuft vollständig im Browser: Es wird nichts hochgeladen, nichts gespeichert, nichts mitgezählt.</p>
       </section>

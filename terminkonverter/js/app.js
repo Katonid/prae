@@ -11,6 +11,9 @@ const meldung = teil('meldung');
 let termine = [];
 let dabei = [];
 let dateiname = 'termine';
+// Der zuletzt erzeugte Text wird gemerkt: Ein Textfeld gibt seinen Inhalt
+// mit \n zurück, in eine .ics gehören aber \r\n.
+let letzterText = '';
 
 teil('jahr').value = String(new Date().getFullYear());
 
@@ -63,7 +66,10 @@ function zaehlerSetzen() {
   const anzahl = dabei.filter(Boolean).length;
   teil('zaehler').textContent = `(${anzahl} von ${termine.length})`;
   teil('laden').disabled = anzahl === 0;
+  teil('teilen').disabled = anzahl === 0;
+  teil('zeigen').disabled = anzahl === 0;
   teil('ergebnis').textContent = '';
+  zeigen('textkarte', false);
 }
 
 function hinweiseZeichnen(hinweise) {
@@ -126,24 +132,77 @@ async function verarbeiten(datei) {
   }
 }
 
-function herunterladen() {
+function ausgabe() {
   const gewaehlt = termine.filter((_, i) => dabei[i]);
-  if (!gewaehlt.length) return;
+  if (!gewaehlt.length) return null;
   const text = icsBauen(gewaehlt, {
     name: teil('kalendername').value.trim() || 'Termine',
     erinnerung: teil('erinnerung').value,
     dauer: teil('dauer').value,
   });
-  const blob = new Blob([text], { type: 'text/calendar;charset=utf-8' });
+  return { text, anzahl: gewaehlt.length, name: `${dateiname}.ics` };
+}
+
+function gemeldet(ergebnis, was) {
+  teil('ergebnis').textContent =
+    `${ergebnis.anzahl} ${ergebnis.anzahl === 1 ? 'Termin' : 'Termine'} ${was}`;
+}
+
+// Der Typ ist mit Absicht „application/octet-stream" und nicht
+// „text/calendar": Safari reicht eine Kalenderdatei sonst sofort an die
+// Kalender-App weiter, statt sie zu sichern — und dann liegt sie nirgends.
+// Was die gesicherte Datei ist, sagt die Endung .ics; ein Doppelklick öffnet
+// weiterhin den Kalender.
+function herunterladen() {
+  const ergebnis = ausgabe();
+  if (!ergebnis) return;
+  const blob = new Blob([ergebnis.text], { type: 'application/octet-stream' });
   const adresse = URL.createObjectURL(blob);
   const verweis = document.createElement('a');
   verweis.href = adresse;
-  verweis.download = `${dateiname}.ics`;
+  verweis.download = ergebnis.name;
+  verweis.rel = 'noopener';
   document.body.append(verweis);
   verweis.click();
   verweis.remove();
   setTimeout(() => URL.revokeObjectURL(adresse), 10000);
-  teil('ergebnis').textContent = `${gewaehlt.length} ${gewaehlt.length === 1 ? 'Termin' : 'Termine'} in ${dateiname}.ics geschrieben.`;
+  gemeldet(ergebnis, `in ${ergebnis.name} gesichert — die Datei liegt bei den Downloads.`);
+}
+
+// Auf iPhone und iPad führt kein Weg an das Teilen-Blatt vorbei: Dort heißt
+// „speichern" „In Dateien sichern", und von dort geht die Datei auch per
+// Mail oder AirDrop weiter.
+async function teilen() {
+  const ergebnis = ausgabe();
+  if (!ergebnis) return;
+  const datei = new File([ergebnis.text], ergebnis.name, { type: 'text/calendar' });
+  try {
+    await navigator.share({ files: [datei], title: ergebnis.name });
+    gemeldet(ergebnis, 'weitergegeben.');
+  } catch (fehler) {
+    if (fehler && fehler.name === 'AbortError') return;
+    herunterladen();
+  }
+}
+
+function textZeigen() {
+  const ergebnis = ausgabe();
+  if (!ergebnis) return;
+  letzterText = ergebnis.text;
+  teil('icstext').value = ergebnis.text;
+  zeigen('textkarte', true);
+  teil('textkarte').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+async function kopieren() {
+  const text = letzterText || teil('icstext').value;
+  try {
+    await navigator.clipboard.writeText(text);
+    teil('kopierstand').textContent = 'Kopiert.';
+  } catch (fehler) {
+    teil('icstext').select();
+    teil('kopierstand').textContent = 'Bitte von Hand kopieren (der Text ist ausgewählt).';
+  }
 }
 
 teil('waehlen').addEventListener('click', () => teil('datei').click());
@@ -152,6 +211,14 @@ teil('datei').addEventListener('change', (e) => {
   e.target.value = '';
 });
 teil('laden').addEventListener('click', herunterladen);
+teil('teilen').addEventListener('click', teilen);
+teil('zeigen').addEventListener('click', textZeigen);
+teil('kopieren').addEventListener('click', kopieren);
+
+// Der Teilen-Knopf steht nur da, wo er auch etwas tut — auf dem Rechner
+// gibt es das Teilen-Blatt meist nicht.
+teil('teilen').hidden = !(navigator.canShare
+  && navigator.canShare({ files: [new File([''], 'probe.ics', { type: 'text/calendar' })] }));
 teil('alle').addEventListener('click', () => { dabei = termine.map(() => true); tabelleZeichnen(); });
 teil('keine').addEventListener('click', () => { dabei = termine.map(() => false); tabelleZeichnen(); });
 
