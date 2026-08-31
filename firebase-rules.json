@@ -1,0 +1,89 @@
+{
+  "_hinweis": [
+    "DIE Regeln dieses Firebase-Projekts — beide Web-Apps in einer Datei.",
+    "",
+    "Einfügen: Firebase-Konsole → Realtime Database → Reiter „Regeln“ →",
+    "alles markieren, diesen Inhalt hineinkopieren → „Veröffentlichen“.",
+    "",
+    "Warum beide zusammen in einer Datei stehen: Die Konsole ERSETZT beim",
+    "Veröffentlichen die kompletten Regeln. Wer nur den Zweig einer App",
+    "einfügt, sperrt damit die andere aus — genau das ist im August 2026",
+    "passiert, als die Wörterwerkstatt dazukam und ihr Zweig fehlte: Die",
+    "Datenbank wies dort jeden Lese- und Schreibversuch ab, und es ließ sich",
+    "keine Klasse mehr anlegen.",
+    "",
+    "Ohne Regeln ist eine Firebase-Datenbank entweder ganz offen oder ganz zu —",
+    "beides ist falsch. Schlüssel mit einem _ am Anfang überliest Firebase.",
+    "Die Einzelfassungen je App liegen in klassenraum/firebase-rules.json und",
+    "woerterwerkstatt/firebase-rules.json; maßgeblich ist diese Datei hier."
+  ],
+  "rules": {
+    "klassenraum": {
+      "shares": {
+        "$code": {
+          ".read": true,
+          ".write": true
+        }
+      },
+      "links": {
+        "$code": {
+          ".read": true,
+          ".write": true
+        }
+      },
+      "spaces": {
+        "$space": {
+          ".read": true,
+          ".write": true
+        }
+      },
+      "media": {
+        "$space": {
+          ".read": true,
+          ".write": true
+        }
+      },
+      "users": {
+        "$uid": {
+          ".read": "auth != null && auth.uid === $uid",
+          ".write": "auth != null && auth.uid === $uid"
+        }
+      }
+    },
+    "woerterwerkstatt": {
+      "klassen": {
+        "$code": {
+          "._hinweis": "Wer den sechsstelligen Code hat (per QR-Code oder abgetippt), darf lesen und schreiben — genau das ist der Sinn des Codes. Die PIN-Abdrücke liegen NICHT hier.",
+          ".read": true,
+          ".write": true
+        }
+      },
+      "geheim": {
+        "$code": {
+          "$kind": {
+            "._hinweis": "Der SHA-256-Abdruck aus Code, Name und PIN. Niemand darf ihn lesen. Schreiben darf ihn, wer ihn anlegt (einmalig) — und die angemeldete Lehrkraft, der die Klasse gehört (PIN vergessen).",
+            ".read": false,
+            ".write": "!data.exists() || (auth != null && auth.uid === root.child('woerterwerkstatt/klassen/' + $code + '/besitzer').val())",
+            ".validate": "newData.isString() && newData.val().length == 64"
+          }
+        }
+      },
+      "anmeldung": {
+        "$code": {
+          "$kind": {
+            "._hinweis": "Der Anmeldeversuch. Die Regel nimmt den Schreibvorgang nur an, wenn der mitgeschickte Abdruck mit dem hinterlegten übereinstimmt — so lässt sich die PIN prüfen, ohne dass irgendwer den hinterlegten Abdruck lesen kann.",
+            ".read": false,
+            ".write": "newData.val() === root.child('woerterwerkstatt/geheim/' + $code + '/' + $kind).val()"
+          }
+        }
+      },
+      "users": {
+        "$uid": {
+          "._hinweis": "Eigene Bereiche und Klassenliste einer Lehrkraft — nur für sie selbst.",
+          ".read": "auth != null && auth.uid === $uid",
+          ".write": "auth != null && auth.uid === $uid"
+        }
+      }
+    }
+  }
+}

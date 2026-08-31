@@ -1,11 +1,15 @@
 {
   "_hinweis": [
-    "Diese Regeln gehören in die Firebase-Konsole (Realtime Database → Regeln).",
-    "Sie beschreiben NUR den Zweig 'woerterwerkstatt'. Liegt im selben Projekt",
-    "auch der Klassenraum, müssen beide Zweige nebeneinander unter 'rules'",
-    "stehen — die Konsole ersetzt sonst die vorhandenen Regeln.",
-    "Ohne diese Regeln ist die Datenbank offen (Firebase-Voreinstellung): Dann",
-    "kann jeder die PIN-Abdrücke der Kinder lesen, und der Schutz ist keiner.",
+    "NUR der Zweig 'woerterwerkstatt' — zum Nachschlagen, nicht zum Einfügen.",
+    "",
+    "Zum Einfügen in die Firebase-Konsole gibt es ../firebase-rules.json im",
+    "Wurzelverzeichnis: Dort stehen die Zweige BEIDER Web-Apps zusammen. Die",
+    "Konsole ersetzt beim Veröffentlichen die kompletten Regeln — wer nur",
+    "diese Datei hier einfügt, sperrt den Klassenraum aus.",
+    "",
+    "Ohne Regeln weist die Datenbank in diesem Zweig alles ab: Es lässt sich",
+    "dann keine Klasse anlegen und kein Kind beitreten. Genau das ist im",
+    "August 2026 passiert, als die App neu war.",
     "Diese Zeile darf stehen bleiben — Firebase überliest Schlüssel mit _."
   ],
   "rules": {

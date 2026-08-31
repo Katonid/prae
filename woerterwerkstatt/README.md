@@ -106,13 +106,27 @@ jemanden, der sie durchprobiert, hilft ohne eigenen Server nichts. Es geht um
 Rechtschreibfortschritte einer Grundschulklasse. Wer mehr Schutz braucht, gibt
 den Kindern keinen Zugang, sondern übt am gemeinsamen Gerät.
 
-### Datenbankregeln
+### Datenbankregeln — ohne sie geht keine Klasse
 
-`firebase-rules.json` enthält die nötigen Regeln. Sie müssen in der
-Firebase-Konsole eingefügt werden — die Voreinstellung von Firebase ist eine
-offene Datenbank, und dann ist der PIN-Schutz keiner. Liegt im selben Projekt
-auch der Klassenraum, müssen **beide** Zweige nebeneinander unter `rules`
-stehen.
+**Einzufügen ist `firebase-rules.json` aus dem Wurzelverzeichnis des Repos**
+(Firebase-Konsole → Realtime Database → Reiter „Regeln“ → alles ersetzen →
+Veröffentlichen). Diese Datei enthält die Zweige **beider** Web-Apps.
+
+Warum beide zusammen: Die Konsole ersetzt beim Veröffentlichen die kompletten
+Regeln. Wer nur den Zweig einer App einfügt, sperrt die andere aus — genau das
+ist im August 2026 passiert, als die Wörterwerkstatt dazukam und ihr Zweig
+fehlte. Die Datenbank wies dort jeden Zugriff ab: keine Klasse anzulegen, kein
+Kind beizutreten. Alles Üben lief weiter, weil es das Netz nicht braucht.
+
+`woerterwerkstatt/firebase-rules.json` und `klassenraum/firebase-rules.json`
+sind die Einzelfassungen zum Nachschlagen; maßgeblich ist die Datei im
+Wurzelverzeichnis.
+
+Seit 1.0.2 sagt die App selbst Bescheid: Wer „Meine Klassen“ öffnet, während
+der Zweig gesperrt ist, bekommt keinen leeren Kasten und keine Meldung, die
+nach vier Sekunden verschwindet, sondern einen stehenden Hinweis mit den drei
+Schritten — und der Knopf „Neue Klasse“ ist so lange ausgegraut, statt etwas
+zu versprechen, das hinterher nicht geht.
 
 Konten brauchen außerdem eine einmalige Freischaltung (Authentication →
 E-Mail/Passwort). Ohne sie zeigt die App einen Hinweis; alles Üben läuft

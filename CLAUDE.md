@@ -310,10 +310,22 @@ Namens und lebt weiter.
 - **Die PIN eines Kindes liegt nirgends lesbar.** Gespeichert wird ein
   SHA-256-Abdruck über Code, Name und PIN, in einem Zweig ohne Leserecht;
   angemeldet wird durch einen Schreibversuch, den die Datenbankregel nur bei
-  Übereinstimmung annimmt (`cloud.js`, `firebase-rules.json`). Die Regeln
-  müssen in der Firebase-Konsole eingefügt werden — Standard ist offen, und
-  dann ist der Schutz keiner. Liegen Klassenraum und Wörterwerkstatt im selben
-  Projekt, müssen BEIDE Zweige nebeneinander unter `rules` stehen.
+  Übereinstimmung annimmt (`cloud.js`).
+- **Die Datenbankregeln stehen im Wurzelverzeichnis: `firebase-rules.json`**,
+  mit den Zweigen BEIDER Web-Apps in einer Datei. Die Firebase-Konsole ersetzt
+  beim Veröffentlichen die kompletten Regeln — wer nur einen Zweig einfügt,
+  sperrt die andere App aus. Genau das passierte 08/2026, als die
+  Wörterwerkstatt dazukam: Ihr Zweig fehlte, die Datenbank wies dort alles ab,
+  und es ließ sich keine Klasse anlegen. Die Dateien in `klassenraum/` und
+  `woerterwerkstatt/` sind nur noch Einzelfassungen zum Nachschlagen.
+- **Ein Einrichtungsfehler muss sich erklären.** Die App meldete den Fall oben
+  als „NICHT_ERLAUBT" in einem Streifen, der nach vier Sekunden verschwand —
+  das ist keine Meldung, das ist ein Rätsel. Seit 1.0.2 prüft
+  `cloud.regelnPruefen()` beim Öffnen von „Meine Klassen" einmal nach und
+  zeigt bei gesperrtem Zweig einen STEHENDEN Kasten mit den drei Schritten;
+  „Neue Klasse" ist so lange ausgegraut. `cloud.klartext()` übersetzt die
+  Rohfehler — nie wieder eine Konstante in Großbuchstaben in die Oberfläche
+  durchreichen.
 - **Hochgeladen werden nur Sterne**, nie einzelne Eingaben. Was ein Kind falsch
   getippt hat, bleibt auf seinem Gerät.
 - **Kein `alert`, `confirm` oder `prompt`** — in einer späteren WKWebView-Hülle

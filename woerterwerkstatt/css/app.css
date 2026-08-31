@@ -1126,6 +1126,31 @@ button { cursor: pointer; }
 .qr-kasten { flex: none; width: min(230px, 100%); padding: 12px; border-radius: var(--rund); background: #fff; box-shadow: var(--schatten); }
 .qr { display: block; width: 100%; height: auto; }
 
+/* ---------- Einrichtungshinweis ---------- */
+
+/* Der Kasten, der erklärt, warum gerade nichts geht. Warm eingefasst, damit er
+   nicht wie ein Absturz aussieht: Es ist kein Fehler der App, sondern ein
+   Schalter, der noch umzulegen ist. */
+.einrichthinweis {
+  padding: 16px 18px;
+  border-radius: var(--rund);
+  border: 1px solid rgba(234, 88, 12, 0.35);
+  background: rgba(249, 115, 22, 0.09);
+}
+
+.einrichthinweis__titel { margin: 0 0 8px; font-size: 16px; color: #9a3412; }
+.einrichthinweis p { margin: 0 0 10px; font-size: 14px; line-height: 1.55; }
+.einrichthinweis__schritte { margin: 0 0 10px; padding-left: 20px; font-size: 14px; line-height: 1.7; }
+.einrichthinweis__warnung { font-weight: 600; }
+
+.einrichthinweis code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13px;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: rgba(15, 23, 42, 0.08);
+}
+
 /* ---------- Meldungen ---------- */
 
 .meldung-wurzel {
@@ -1227,4 +1252,7 @@ body.is-uebend .kopf { opacity: 0.55; }
   .balken, .sterne__stern { background-color: rgba(255, 255, 255, 0.12); }
   .qr-kasten { background: #fff; }
   .blatt__zu { background: rgba(255, 255, 255, 0.1); }
+  .einrichthinweis { background: rgba(249, 115, 22, 0.12); border-color: rgba(249, 115, 22, 0.4); }
+  .einrichthinweis__titel { color: #fdba74; }
+  .einrichthinweis code { background: rgba(255, 255, 255, 0.12); }
 }

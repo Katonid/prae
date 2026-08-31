@@ -1,4 +1,11 @@
 {
+  "_hinweis": [
+    "NUR der Zweig 'klassenraum' — zum Nachschlagen, nicht zum Einfügen.",
+    "Zum Einfügen in die Firebase-Konsole gibt es ../firebase-rules.json im",
+    "Wurzelverzeichnis: Dort stehen die Zweige BEIDER Web-Apps zusammen. Die",
+    "Konsole ersetzt beim Veröffentlichen die kompletten Regeln — wer nur",
+    "diese Datei hier einfügt, sperrt die Wörterwerkstatt aus."
+  ],
   "rules": {
     "klassenraum": {
       "shares": {

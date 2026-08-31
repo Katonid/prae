@@ -21,7 +21,7 @@ import { blatt, abschnitt, zeile, frage, eingabe, ladeplatz, meldung } from './u
 import { qrSvg } from './qr.js';
 import { inZwischenablage } from './plattform.js';
 import {
-  kontenVerfuegbar, anmelden, kontoAnlegen,
+  kontenVerfuegbar, anmelden, kontoAnlegen, klartext, regelnPruefen,
   klasseAnlegen, klasseHolen, klasseLoeschen, klassenDerLehrkraft, klasseAendern,
   kindAnlegen, kindAnmelden, kindEntfernen, pinNeuSetzen,
   fortschrittDerKlasse, fortschrittMelden,
@@ -38,6 +38,32 @@ import { paketzahl } from './paket.js';
 export function beitrittsadresse(code) {
   const grund = `${window.location.origin}${window.location.pathname}`;
   return `${grund}#/beitreten/${String(code).toUpperCase()}`;
+}
+
+/**
+ * Der Kasten, der erklärt, warum gerade gar nichts geht.
+ *
+ * Er steht fest auf dem Blatt und verschwindet nicht nach vier Sekunden: Eine
+ * Meldung, die man verpasst hat, ist keine. Und er sagt nicht nur, DASS etwas
+ * nicht erlaubt ist, sondern wo der Schalter dafür sitzt — sonst sucht man an
+ * der App, während der Fehler in der Firebase-Konsole liegt.
+ */
+function regelhinweis() {
+  return h('div', { class: 'einrichthinweis' },
+    h('h3', { class: 'einrichthinweis__titel' }, '🔒 Die Datenbank ist für diese App noch gesperrt'),
+    h('p', {},
+      'Klassen brauchen Regeln in der Firebase-Konsole, und für den Zweig '
+      + '„woerterwerkstatt" fehlen sie noch. Solange das so ist, lässt sich keine Klasse '
+      + 'anlegen und kein Kind beitreten. Alles Üben funktioniert trotzdem.'),
+    h('ol', { class: 'einrichthinweis__schritte' },
+      h('li', {}, 'Firebase-Konsole öffnen → Realtime Database → Reiter „Regeln“.'),
+      h('li', {}, 'Den gesamten Inhalt der Datei ', h('code', {}, 'firebase-rules.json'),
+        ' aus dem Wurzelverzeichnis des Repos hineinkopieren — sie enthält BEIDE Zweige.'),
+      h('li', {}, 'Auf „Veröffentlichen“ tippen, dann hier neu laden.')),
+    h('p', { class: 'einrichthinweis__warnung' },
+      'Wichtig: Die Konsole ersetzt beim Veröffentlichen die kompletten Regeln. '
+      + 'Wer nur einen Zweig einfügt, sperrt die andere App aus — deshalb stehen beide '
+      + 'in derselben Datei.'));
 }
 
 /* ---------- Anmeldung der Lehrkraft ---------- */
@@ -73,10 +99,9 @@ export function lehrkraftAnmeldung(beiFertig) {
       meldung(`Angemeldet als ${sitzung.name || sitzung.email}.`, 'gut');
       if (beiFertig) beiFertig(sitzung);
     } catch (problem) {
-      const text = String(problem.message);
-      fehler.textContent = text === 'KONTEN_NICHT_AKTIV'
+      fehler.textContent = String(problem.message) === 'KONTEN_NICHT_AKTIV'
         ? 'In diesem Firebase-Projekt sind Konten noch nicht freigeschaltet (Authentication → E-Mail/Passwort). Ohne Konto lässt sich alles außer eigenen Bereichen und Klassen nutzen.'
-        : text;
+        : klartext(problem);
     } finally {
       machen.disabled = false;
     }
@@ -104,13 +129,29 @@ export function klassenVerwalten() {
 
   async function zeichnen() {
     leeren(liste).appendChild(ladeplatz('Klassen werden geholt …'));
+    // Erst nachsehen, ob die Datenbank überhaupt offensteht. Ohne das ist
+    // „keine Klassen vorhanden" nicht von „darf nicht nachsehen" zu
+    // unterscheiden — und der Knopf „Neue Klasse" verspricht etwas, das
+    // hinterher nicht geht.
+    const stand = await regelnPruefen();
+    leeren(liste);
+    if (stand === 'regeln-fehlen') {
+      liste.appendChild(regelhinweis());
+      neuknopf.disabled = true;
+      return;
+    }
+    neuknopf.disabled = false;
+    if (stand === 'kein-netz') {
+      liste.appendChild(h('p', { class: 'blatt__warnung' },
+        'Die Datenbank ist gerade nicht erreichbar. Ohne Netz lassen sich Klassen weder anlegen noch ansehen.'));
+      return;
+    }
     let gefunden = [];
     try {
       gefunden = await klassenDerLehrkraft();
     } catch (_) {
       gefunden = klassen();
     }
-    leeren(liste);
     if (!gefunden.length) {
       liste.appendChild(h('p', { class: 'blatt__text' },
         'Noch keine Klasse. Eine Klasse ist nichts weiter als ein Code, mit dem die Kinder in dieselben Bereiche kommen — und über den ihre Sterne zurücklaufen.'));
@@ -129,13 +170,14 @@ export function klassenVerwalten() {
     }
   }
 
+  const neuknopf = h('button', {
+    class: 'knopf knopf--voll', type: 'button', onclick: () => neueKlasse(zeichnen),
+  }, '+ Neue Klasse');
+
   const dialog = blatt({
     titel: 'Meine Klassen',
     breit: true,
-    inhalt: h('div', {},
-      liste,
-      h('div', { class: 'blatt__knopfreihe' },
-        h('button', { class: 'knopf knopf--voll', type: 'button', onclick: () => neueKlasse(zeichnen) }, '+ Neue Klasse'))),
+    inhalt: h('div', {}, liste, h('div', { class: 'blatt__knopfreihe' }, neuknopf)),
   });
   zeichnen();
   return dialog;
@@ -152,6 +194,12 @@ function neueKlasse(beiFertig) {
     auswahlliste.appendChild(kasten);
   }
 
+  // Ein Platz für den Fehlerfall, MITTEN im Blatt und dauerhaft. Vorher ging
+  // die Meldung als Streifen am unteren Rand auf und war nach vier Sekunden
+  // weg — wer in dem Moment auf den Knopf sah, bekam sie nie zu Gesicht und
+  // erlebte nur, dass „Anlegen" nichts tut.
+  const fehlerplatz = h('div', { class: 'is-versteckt' });
+
   const dialog = blatt({
     titel: 'Neue Klasse',
     inhalt: h('div', {},
@@ -160,6 +208,7 @@ function neueKlasse(beiFertig) {
         eigeneBereiche().length
           ? auswahlliste
           : h('p', { class: 'blatt__text' }, 'Du hast noch keine eigenen Bereiche. Die zwanzig mitgelieferten haben die Kinder ohnehin — mitgeben musst du nur, was du selbst angelegt hast.')),
+      fehlerplatz,
     ),
     fusszeile: [
       h('button', { class: 'knopf knopf--still', type: 'button', onclick: () => dialog.schliessen() }, 'Abbrechen'),
@@ -168,6 +217,7 @@ function neueKlasse(beiFertig) {
         onclick: async (ereignis) => {
           const knopf = ereignis.currentTarget;
           knopf.disabled = true;
+          leeren(fehlerplatz).classList.add('is-versteckt');
           try {
             const mit = eigeneBereiche().filter((b) => gewaehlt.has(b.id));
             const klasse = await klasseAnlegen({ name: name.value.trim() || 'Meine Klasse', bereiche: mit });
@@ -176,7 +226,13 @@ function neueKlasse(beiFertig) {
             if (beiFertig) beiFertig();
             klasseZeigen(klasse.code, beiFertig, true);
           } catch (problem) {
-            meldung(String(problem.message), 'warnung', 4000);
+            fehlerplatz.classList.remove('is-versteckt');
+            if (String(problem.message) === 'NICHT_ERLAUBT') {
+              fehlerplatz.appendChild(regelhinweis());
+            } else {
+              fehlerplatz.appendChild(h('p', { class: 'blatt__fehler' }, klartext(problem)));
+            }
+            fehlerplatz.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
             knopf.disabled = false;
           }
         },
@@ -200,8 +256,10 @@ export function klasseZeigen(code, beiAenderung, frischAngelegt = false) {
     let klasse;
     try {
       klasse = await klasseHolen(code);
-    } catch (_) {
-      leeren(platz).appendChild(h('p', { class: 'blatt__fehler' }, 'Diese Klasse ist gerade nicht erreichbar.'));
+    } catch (problem) {
+      leeren(platz).appendChild(String(problem.message) === 'NICHT_ERLAUBT'
+        ? regelhinweis()
+        : h('p', { class: 'blatt__fehler' }, klartext(problem)));
       return;
     }
     const adresse = beitrittsadresse(code);
@@ -248,8 +306,10 @@ export function klasseZeigen(code, beiAenderung, frischAngelegt = false) {
               try {
                 await pinNeuSetzen(code, kind.schluessel, neue);
                 meldung(`${kind.name} hat jetzt die PIN ${neue}.`, 'gut', 6000);
-              } catch (_) {
-                meldung('Das ging nicht — bist du als Besitzerin der Klasse angemeldet?', 'warnung', 4500);
+              } catch (problem) {
+                meldung(String(problem.message) === 'NICHT_ERLAUBT'
+                  ? 'Das darf nur, wem die Klasse gehört — und nur, wenn die Datenbankregeln eingespielt sind.'
+                  : klartext(problem), 'warnung', 5000);
               }
             },
           }, 'PIN'),
@@ -278,7 +338,13 @@ export function klasseZeigen(code, beiAenderung, frischAngelegt = false) {
     function paketeZeichnen() {
       const bereich = alleBereiche.find((b) => b.id === bereichswahl.value);
       leeren(paketwahl);
-      if (!bereich) { paketwahl.disabled = true; return; }
+      if (!bereich) {
+        // Ein leerer Wähler sieht aus wie ein Fehler. Lieber sagt er, worauf
+        // er wartet.
+        paketwahl.appendChild(h('option', {}, 'erst einen Bereich wählen'));
+        paketwahl.disabled = true;
+        return;
+      }
       paketwahl.disabled = false;
       for (let i = 0; i < paketzahl(bereich); i += 1) {
         paketwahl.appendChild(h('option', { value: String(i) }, `Päckchen ${i + 1}`));
@@ -410,7 +476,18 @@ export function beitreten(code, beiFertig) {
 
   klasseHolen(gross)
     .then((klasse) => { klassenname.textContent = `${klasse.name} · Code ${gross}`; uebernehmen(klasse); })
-    .catch(() => { fehler.textContent = 'Diesen Klassencode gibt es nicht (mehr). Stimmen alle sechs Zeichen?'; machen.disabled = true; });
+    .catch((problem) => {
+      // Eine gesperrte Datenbank sieht von hier aus wie ein falscher Code —
+      // und ein Kind, das daraufhin seinen Code sechsmal neu abtippt, sucht an
+      // der falschen Stelle.
+      const grund = String(problem.message);
+      fehler.textContent = grund === 'KLASSE_UNBEKANNT'
+        ? 'Diesen Klassencode gibt es nicht (mehr). Stimmen alle sechs Zeichen?'
+        : (grund === 'NICHT_ERLAUBT'
+          ? 'Das Mitmachen ist gerade nicht eingerichtet. Sag deiner Lehrerin oder deinem Lehrer Bescheid.'
+          : klartext(problem));
+      machen.disabled = true;
+    });
 
   /** Die Bereiche, die die Lehrkraft der Klasse mitgegeben hat, ins Gerät holen. */
   function uebernehmen(klasse) {
