@@ -394,6 +394,36 @@ export async function klassenDerLehrkraft() {
   return Object.entries(gelesen).map(([code, eintrag]) => Object.assign({ code }, eintrag));
 }
 
+/**
+ * Eine eigene Klasse (wieder) in die eigene Liste eintragen.
+ *
+ * `users/<uid>/klassen` ist nur ein VERZEICHNIS; die Klasse selbst steht unter
+ * `klassen/<CODE>`. Fehlt der Verzeichniseintrag, ist die Klasse auf jedem
+ * anderen Gerät unsichtbar — obwohl sie da ist, der QR-Code gilt und die
+ * Kinder weiter üben. Das Anlegen schreibt beides, aber es sind zwei
+ * Schreibvorgänge: Bricht der zweite ab (Netz weg im Schulhaus, Regeln noch
+ * nicht eingespielt, Tab zugemacht), steht die Klasse ohne Eintrag da.
+ *
+ * Rückgabe: { stand, klasse } mit stand aus
+ *   'eingetragen' | 'stand-schon-drin' | 'fremd' | 'unbekannt'
+ */
+export async function klasseWiederEintragen(code) {
+  if (!konto) throw new Error('Dafür braucht es das Konto der Lehrkraft.');
+  const gross = String(code).toUpperCase();
+  const klasse = await anfrage(`${WURZEL}/klassen/${gross}`);
+  if (!klasse) return { stand: 'unbekannt' };
+  // Ohne Besitzer wird nichts angenommen. Den Code haben alle Kinder der
+  // Klasse; er darf niemandem ein fremdes Klassenbuch in die Hand geben.
+  if (klasse.besitzer !== konto.uid) return { stand: 'fremd', klasse };
+  const drin = await anfrage(`${WURZEL}/users/${konto.uid}/klassen/${gross}`).catch(() => null);
+  if (drin) return { stand: 'stand-schon-drin', klasse };
+  await schreiben(`${WURZEL}/users/${konto.uid}/klassen/${gross}`, {
+    name: klasse.name || 'Klasse',
+    angelegtAm: klasse.angelegtAm || Date.now(),
+  });
+  return { stand: 'eingetragen', klasse };
+}
+
 /* ---------- Kinder ---------- */
 
 export async function kinderHolen(code) {

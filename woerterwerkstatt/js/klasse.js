@@ -21,8 +21,9 @@ import { blatt, abschnitt, zeile, schalter, frage, eingabe, ladeplatz, meldung }
 import { qrSvg } from './qr.js';
 import { inZwischenablage } from './plattform.js';
 import {
-  kontenVerfuegbar, anmelden, kontoAnlegen, klartext, regelnPruefen,
+  kontenVerfuegbar, anmelden, kontoAnlegen, klartext, regelnPruefen, angemeldet, verwaltungPruefen,
   klasseAnlegen, klasseHolen, klasseLoeschen, klassenDerLehrkraft, klasseAendern,
+  klasseWiederEintragen,
   kindAnlegen, kindAnmelden, kindEntfernen, pinNeuSetzen, kindUmbenennen, namensschluessel,
   fortschrittDerKlasse, fortschrittMelden,
   protokollMelden, protokollDerKlasse, protokollLoeschen,
@@ -154,11 +155,64 @@ export function klassenVerwalten() {
         'Die Datenbank ist gerade nicht erreichbar. Ohne Netz lassen sich Klassen weder anlegen noch ansehen.'));
       return;
     }
-    let gefunden = [];
+    // Zwei Quellen, und beide dürfen lückenhaft sein:
+    //
+    //   * das Verzeichnis in der Wolke (`users/<uid>/klassen`) — es gilt auf
+    //     allen Geräten, kann aber einen Eintrag verloren haben;
+    //   * was DIESES Gerät noch weiß — vollständig für die hier angelegten
+    //     Klassen, aber eben nur hier.
+    //
+    // Früher stand hier entweder/oder: Ging die Wolke, zählte nur sie; ging
+    // sie nicht, nur das Gerät. Damit verschwand eine Klasse, deren
+    // Verzeichniseintrag fehlte, auf jedem anderen Gerät spurlos — und auf
+    // dem eigenen sah alles in Ordnung aus. Jetzt wird zusammengeführt und
+    // repariert.
+    let ausDerWolke = null;
+    let stoerung = null;
     try {
-      gefunden = await klassenDerLehrkraft();
-    } catch (_) {
-      gefunden = klassen();
+      ausDerWolke = await klassenDerLehrkraft();
+    } catch (problem) {
+      stoerung = problem;
+    }
+
+    const nachCode = new Map();
+    for (const k of klassen().filter((k2) => k2.rolle === 'lehrkraft')) {
+      nachCode.set(k.code, { code: k.code, name: k.name, nurHier: true });
+    }
+    for (const k of ausDerWolke || []) {
+      nachCode.set(k.code, Object.assign({}, nachCode.get(k.code), k, { nurHier: false }));
+    }
+
+    // Fehlt ein Eintrag im Verzeichnis, wird er nachgetragen — dann taucht die
+    // Klasse beim nächsten Öffnen auch auf dem anderen Gerät auf. Nur wenn das
+    // Verzeichnis wirklich gelesen wurde; sonst wüsste man ja nicht, ob etwas
+    // fehlt.
+    if (ausDerWolke) {
+      for (const eintrag of Array.from(nachCode.values()).filter((k) => k.nurHier)) {
+        try {
+          const ergebnis = await klasseWiederEintragen(eintrag.code);
+          if (ergebnis.stand === 'unbekannt') {
+            // In der Wolke gelöscht — dann darf sie auch hier weg, sonst
+            // führt ein Tipp darauf ins Leere.
+            klasseVergessen(eintrag.code);
+            nachCode.delete(eintrag.code);
+          } else if (ergebnis.stand === 'fremd') {
+            nachCode.delete(eintrag.code);
+          } else {
+            nachCode.set(eintrag.code, Object.assign({}, eintrag, ergebnis.klasse, { nurHier: false }));
+          }
+        } catch (_) { /* dann bleibt der Eintrag stehen und wird als „nur hier" gezeigt */ }
+      }
+    }
+
+    const gefunden = Array.from(nachCode.values())
+      .sort((a, b) => (b.angelegtAm || 0) - (a.angelegtAm || 0));
+
+    if (stoerung) {
+      // Nicht stillschweigend die Geräteliste zeigen: Wer nichts sieht, muss
+      // erfahren, ob es keine Klasse gibt oder ob nur nicht nachzusehen war.
+      liste.appendChild(h('p', { class: 'blatt__warnung' },
+        `Die Klassenliste war nicht abzurufen (${klartext(stoerung)}). Was hier steht, weiß dieses Gerät.`));
     }
     if (!gefunden.length) {
       liste.appendChild(h('p', { class: 'blatt__text' },
@@ -173,8 +227,50 @@ export function klassenVerwalten() {
         h('span', { class: 'klassenliste__code' }, klasse.code),
         h('span', { class: 'klassenliste__text' },
           h('strong', {}, klasse.name || 'Klasse'),
-          h('span', {}, klasse.angelegtAm ? `angelegt am ${datum(klasse.angelegtAm)}` : '')),
+          h('span', {}, klasse.nurHier
+            ? 'nur auf diesem Gerät bekannt'
+            : (klasse.angelegtAm ? `angelegt am ${datum(klasse.angelegtAm)}` : ''))),
         h('span', { class: 'bereichsliste__pfeil' }, '›')));
+    }
+  }
+
+  /**
+   * Eine Klasse über ihren Code zurückholen.
+   *
+   * Der Weg für den Fall, dass eine Klasse auf einem Gerät fehlt: Der Code
+   * steht auf dem QR-Zettel und in der Klassenansicht des anderen Geräts.
+   * Gehört die Klasse diesem Konto, kommt sie zurück in die Liste — auf
+   * diesem Gerät und, weil das Verzeichnis mitgeschrieben wird, auf allen
+   * anderen gleich mit.
+   */
+  async function klasseHolenPerCode() {
+    const eingetippt = await eingabe({
+      titel: 'Klasse holen',
+      text: 'Der sechsstellige Code der Klasse. Du findest ihn auf dem QR-Zettel — '
+        + 'oder auf dem Gerät, auf dem die Klasse noch zu sehen ist.',
+      platzhalter: 'ABC234',
+      pruefung: (wert) => (wert.trim().length >= 4 ? null : 'Der Code hat sechs Zeichen.'),
+      ja: 'Holen',
+    });
+    if (!eingetippt) return;
+    const code = eingetippt.trim().toUpperCase();
+    try {
+      const ergebnis = await klasseWiederEintragen(code);
+      if (ergebnis.stand === 'unbekannt') {
+        meldung(`Zum Code ${code} gibt es keine Klasse. Vertippt?`, 'warnung', 5000);
+        return;
+      }
+      if (ergebnis.stand === 'fremd') {
+        meldung('Diese Klasse gehört nicht zu deinem Konto.', 'warnung', 5000);
+        return;
+      }
+      klasseMerken({ code, name: ergebnis.klasse.name || 'Klasse', rolle: 'lehrkraft' });
+      meldung(ergebnis.stand === 'eingetragen'
+        ? `„${ergebnis.klasse.name || 'Klasse'}" ist wieder in deiner Liste.`
+        : `„${ergebnis.klasse.name || 'Klasse'}" stand schon in deiner Liste.`, 'gut', 5000);
+      zeichnen();
+    } catch (problem) {
+      meldung(klartext(problem), 'warnung', 5000);
     }
   }
 
@@ -182,10 +278,30 @@ export function klassenVerwalten() {
     class: 'knopf knopf--voll', type: 'button', onclick: () => neueKlasse(zeichnen),
   }, '+ Neue Klasse');
 
+  const holknopf = h('button', {
+    class: 'knopf knopf--still', type: 'button', onclick: () => klasseHolenPerCode(),
+  }, '↓ Klasse per Code holen');
+
+  // Wozu dieses Konto berechtigt ist, sagt die Datenbank — nicht die App.
+  // Die Zeile beantwortet die Frage, die sonst niemand beantworten kann:
+  // „Warum sehe ich den Knopf ‚Schule‘ nicht?"
+  const rollenzeile = h('p', { class: 'blatt__fussnote' });
+  (async () => {
+    const ich = angemeldet();
+    if (!ich) return;
+    const darf = await verwaltungPruefen();
+    rollenzeile.textContent = `Angemeldet als ${ich.email || ich.name} · `
+      + (darf
+        ? 'Schulverwaltung (Knopf „🏫 Schule" in der Kopfzeile)'
+        : 'Lehrkraft — eigene Klassen und eigene Bereiche');
+  })();
+
   const dialog = blatt({
     titel: 'Meine Klassen',
     breit: true,
-    inhalt: h('div', {}, liste, h('div', { class: 'blatt__knopfreihe' }, neuknopf)),
+    inhalt: h('div', {}, liste,
+      h('div', { class: 'blatt__knopfreihe' }, neuknopf, holknopf),
+      rollenzeile),
   });
   zeichnen();
   return dialog;
