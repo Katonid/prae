@@ -412,6 +412,16 @@ Namens und lebt weiter.
   Erläuterung steht in `firebase-rules.md` daneben. Vor dem Einfügen prüft
   `woerterwerkstatt/scripts/regeln-pruefen.py` beides — Regelarten und
   Deckungsgleichheit mit den Einzelfassungen.
+- **Die Regeln IMMER als Text in die Antwort schreiben, nie als Dateiverweis**
+  (Ansage des Nutzers, 08/2026, wörtlich: „Bitte gib mir immer den verfluchten
+  Text für die Regeln so an, dass ich ihn hier kopieren kann. Ich habe auf dem
+  iPad keine große Möglichkeit, in eine dämliche JSON-Datei einzusehen."). Der
+  Nutzer arbeitet am iPad; „steht in `firebase-rules.json`" ist dort keine
+  Anweisung, sondern eine Sackgasse. Also: den vollständigen Inhalt in einen
+  Codeblock, vorher frisch aus `main` lesen und mit `regeln-pruefen.py`
+  prüfen. Das gilt bei JEDER Änderung an den Regeln und bei jeder Antwort, in
+  der das Einspielen vorkommt — ohne Nachfrage. Dasselbe gilt sinngemäß für
+  alles andere, was der Nutzer irgendwo einfügen soll.
 - **Nach jeder Änderung am JavaScript `module-pruefen.mjs` laufen lassen**
   (`node --experimental-vm-modules woerterwerkstatt/scripts/module-pruefen.mjs`).
   Die App hat keinen Bauschritt: Eine fehlende Klammer in einer verschachtelten
