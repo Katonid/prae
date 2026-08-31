@@ -13,18 +13,28 @@
   --schrift-ui: 'Quicksand', 'Lexend', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --schrift-lern: 'Andika', 'Lexend', sans-serif;
 
-  --akzent: #6366f1;
-  --akzent-2: #a855f7;
-  --akzent-3: #ec4899;
-  --akzent-verlauf: linear-gradient(135deg, #6366f1 0%, #a855f7 55%, #ec4899 100%);
-  --akzent-schein: 0 16px 38px -14px rgba(99, 102, 241, 0.9);
-  --akzent-zart: rgba(99, 102, 241, 0.14);
+  /* Blau, Orange, Gelb — kein Grün, kein Lila (Ansage des Nutzers, 08/2026).
+     Blau ist die Arbeitsfarbe (Knöpfe, Fokus, Zahlen), Orange und Gelb sind
+     die Belohnungsfarben (Sterne, Fortschritt, Auftrag der Woche). Beide
+     Verläufe bleiben je in EINER Farbfamilie — Blau nach Orange läuft auf
+     halbem Weg durch Grau. Die Werte hier sind die Vorgabe; das gewählte
+     Schema überschreibt sie in theme.js. */
+  --akzent: #2563eb;
+  --akzent-2: #f97316;
+  --akzent-3: #facc15;
+  --akzent-verlauf: linear-gradient(135deg, #1d4ed8 0%, #2563eb 45%, #38bdf8 100%);
+  --warm-verlauf: linear-gradient(135deg, #f97316 0%, #fbbf24 55%, #facc15 100%);
+  --akzent-schein: 0 16px 38px -14px rgba(37, 99, 235, 0.9);
+  --akzent-zart: rgba(37, 99, 235, 0.14);
 
-  --gut: #16a34a;
-  --gut-zart: rgba(22, 163, 74, 0.14);
-  --schlecht: #e11d48;
-  --schlecht-zart: rgba(225, 29, 72, 0.12);
-  --warnung: #f59e0b;
+  /* „Richtig" ist blau, nicht grün. Damit die Rückmeldung trotzdem nicht
+     allein an der Farbe hängt — was sie ohnehin nie sollte —, steht in jeder
+     Antwort ein Zeichen davor (✓ oder ✗) und der Wortlaut sagt es aus. */
+  --gut: #0284c7;
+  --gut-zart: rgba(2, 132, 199, 0.14);
+  --schlecht: #dc2626;
+  --schlecht-zart: rgba(220, 38, 38, 0.12);
+  --warnung: #ea580c;
 
   --tinte: #0f172a;
   --tinte-zart: #64748b;
@@ -51,7 +61,7 @@ html, body {
 body {
   font-family: var(--schrift-ui);
   color: var(--tinte);
-  background: #eef2ff;
+  background: #eff6ff;
   -webkit-tap-highlight-color: transparent;
   -webkit-text-size-adjust: 100%;
   overflow-x: hidden;
@@ -67,14 +77,17 @@ button { cursor: pointer; }
   inset: 0;
   z-index: -1;
   overflow: hidden;
-  background: linear-gradient(180deg, #f8fafc 0%, #eef2ff 45%, #fdf2f8 100%);
+  background: linear-gradient(180deg, #f8fafc 0%, #eff6ff 45%, #fffbeb 100%);
 }
 
 .himmel i, .himmel b, .himmel u {
   position: absolute;
   border-radius: 50%;
-  filter: blur(70px);
-  opacity: 0.5;
+  filter: blur(80px);
+  /* Zurückhaltender als bei den früheren Farben: Orange und Gelb leuchten
+     deutlich stärker als Indigo und Pink und nähmen den Karten sonst die
+     Ruhe. */
+  opacity: 0.4;
 }
 
 .himmel i { width: 46vmax; height: 46vmax; left: -14vmax; top: -16vmax; background: var(--akzent); }
@@ -187,17 +200,19 @@ button { cursor: pointer; }
   padding: 16px 18px;
   border: 0;
   border-radius: var(--rund-karte);
-  background: var(--akzent-verlauf);
-  color: #fff;
+  /* Warm statt blau: Der Auftrag ist das Freundlichste auf der Seite und soll
+     zwischen lauter blauen Karten sofort auffallen. */
+  background: var(--warm-verlauf);
+  color: #431407;
   text-align: left;
-  box-shadow: var(--akzent-schein);
+  box-shadow: 0 16px 38px -14px rgba(249, 115, 22, 0.85);
   transition: transform 0.18s var(--feder);
 }
 
 .auftrag:hover { transform: translateY(-2px); }
-.auftrag__marke { font-size: 12px; text-transform: uppercase; letter-spacing: 0.12em; opacity: 0.85; }
+.auftrag__marke { font-size: 12px; text-transform: uppercase; letter-spacing: 0.12em; opacity: 0.75; font-weight: 700; }
 .auftrag__text { flex: 1; font-size: 18px; font-weight: 700; }
-.auftrag__pfeil { font-size: 22px; }
+.auftrag__pfeil { font-size: 22px; opacity: 0.7; }
 
 @media (max-width: 560px) {
   .auftrag { flex-wrap: wrap; }
@@ -312,9 +327,9 @@ button { cursor: pointer; }
   border: 1px solid transparent;
 }
 
-.wortvorschau__wort--n { background: rgba(59, 130, 246, 0.13); }
-.wortvorschau__wort--v { background: rgba(34, 197, 94, 0.14); }
-.wortvorschau__wort--a { background: rgba(245, 158, 11, 0.16); }
+.wortvorschau__wort--n { background: rgba(37, 99, 235, 0.13); }
+.wortvorschau__wort--v { background: rgba(249, 115, 22, 0.16); }
+.wortvorschau__wort--a { background: rgba(234, 179, 8, 0.22); }
 .wortvorschau__wort--x { background: rgba(148, 163, 184, 0.2); }
 
 /* ---------- Stufen ---------- */
@@ -385,7 +400,7 @@ button { cursor: pointer; }
   display: block;
   height: 100%;
   border-radius: 999px;
-  background: var(--akzent-verlauf);
+  background: var(--warm-verlauf);
   transition: width 0.4s var(--feder);
 }
 
@@ -548,7 +563,7 @@ button { cursor: pointer; }
 
 /* Diktat */
 
-.vorlage--diktat { border-style: solid; background: rgba(225, 29, 72, 0.05); }
+.vorlage--diktat { border-style: solid; background: rgba(234, 88, 12, 0.06); }
 
 .diktat__knopf {
   position: relative;
@@ -559,9 +574,9 @@ button { cursor: pointer; }
   height: 130px;
   border: 0;
   border-radius: 26px;
-  background: linear-gradient(135deg, #f43f5e, #e11d48);
+  background: linear-gradient(135deg, #f97316, #dc2626);
   color: #fff;
-  box-shadow: 0 18px 34px -16px rgba(225, 29, 72, 0.9);
+  box-shadow: 0 18px 34px -16px rgba(234, 88, 12, 0.9);
   transition: transform 0.16s var(--feder);
 }
 
@@ -601,16 +616,16 @@ button { cursor: pointer; }
 
 /* ---------- Wortbild (Geheimschrift) ---------- */
 
-.vorlage--wortbild { background: rgba(20, 184, 166, 0.06); border-style: solid; }
+.vorlage--wortbild { background: rgba(37, 99, 235, 0.05); border-style: solid; }
 
 .wortbild { width: 100%; max-width: 620px; height: auto; max-height: 190px; }
 .wortbild__linie { stroke: rgba(15, 23, 42, 0.16); stroke-width: 0.5; }
 .wortbild__linie--mitte-oben, .wortbild__linie--mitte-unten { stroke-dasharray: 2 2; }
-.wortbild__kasten { fill: rgba(20, 184, 166, 0.22); stroke: #0d9488; stroke-width: 0.9; }
-.wortbild__kasten.is-gross { fill: #0d9488; stroke: #0f766e; }
-.wortbild__kontur { fill: rgba(20, 184, 166, 0.2); stroke: #0d9488; stroke-width: 1.1; stroke-linejoin: round; }
-.wortbild__gross-balken { fill: #0f766e; }
-.wortbild__punkt { fill: #0f766e; }
+.wortbild__kasten { fill: rgba(37, 99, 235, 0.2); stroke: #2563eb; stroke-width: 0.9; }
+.wortbild__kasten.is-gross { fill: #2563eb; stroke: #1d4ed8; }
+.wortbild__kontur { fill: rgba(37, 99, 235, 0.18); stroke: #2563eb; stroke-width: 1.1; stroke-linejoin: round; }
+.wortbild__gross-balken { fill: #1d4ed8; }
+.wortbild__punkt { fill: #1d4ed8; }
 .wortbild__stockwerk { font-size: 4px; fill: rgba(15, 23, 42, 0.4); font-family: var(--schrift-ui); }
 
 .wortbild-legende {
@@ -629,11 +644,11 @@ button { cursor: pointer; }
   display: inline-block;
   width: 9px;
   border-radius: 2px;
-  border: 1px solid #0d9488;
-  background: rgba(20, 184, 166, 0.25);
+  border: 1px solid #2563eb;
+  background: rgba(37, 99, 235, 0.22);
 }
 
-.wortbild-legende__probe.is-gross { height: 18px; background: #0d9488; }
+.wortbild-legende__probe.is-gross { height: 18px; background: #2563eb; }
 .wortbild-legende__probe.is-oben { height: 16px; }
 .wortbild-legende__probe.is-mitte { height: 10px; }
 .wortbild-legende__probe.is-unten { height: 15px; margin-top: 5px; }
@@ -658,6 +673,7 @@ button { cursor: pointer; }
 .wortarten { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; }
 
 .wortarten__knopf {
+  position: relative;
   display: grid;
   place-items: center;
   gap: 4px;
@@ -666,7 +682,19 @@ button { cursor: pointer; }
   border-radius: var(--rund);
   background: rgba(255, 255, 255, 0.8);
   box-shadow: 0 8px 18px -12px rgba(15, 23, 42, 0.55);
+  overflow: hidden;
   transition: transform 0.16s var(--feder), border-color 0.2s ease, background 0.2s ease;
+}
+
+/* Jede Wortart hat ihre Farbe — Nomen blau, Verben orange, Adjektive gelb.
+   Dieselbe Farbe trägt der Wortschnipsel in der Päckchenübersicht, damit sich
+   das Kind die Zuordnung merkt, statt sie jedes Mal neu zu lesen. */
+.wortarten__knopf::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 5px;
+  background: var(--art-farbe, var(--akzent));
 }
 
 .wortarten__knopf:hover:not(:disabled) { transform: translateY(-2px); border-color: var(--art-farbe); }
@@ -739,7 +767,7 @@ button { cursor: pointer; }
   padding: 12px 16px;
   border-radius: var(--rund);
   background: var(--gut-zart);
-  border: 1px solid rgba(22, 163, 74, 0.3);
+  border: 1px solid rgba(2, 132, 199, 0.32);
 }
 
 .schreibfeld__loesung.is-versteckt { display: none; }
@@ -815,7 +843,7 @@ button { cursor: pointer; }
   padding: 6px 12px;
   border-radius: 999px;
   background: var(--schlecht-zart);
-  border: 1px solid rgba(225, 29, 72, 0.25);
+  border: 1px solid rgba(220, 38, 38, 0.28);
 }
 
 .ergebnis__knoepfe { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-top: 18px; }
@@ -855,7 +883,7 @@ button { cursor: pointer; }
 .knopf--voll { background: var(--akzent-verlauf); color: #fff; box-shadow: var(--akzent-schein); }
 .knopf--still { background: rgba(255, 255, 255, 0.85); border-color: var(--linie); box-shadow: 0 6px 14px -10px rgba(15, 23, 42, 0.6); }
 .knopf--flach { background: none; border-color: transparent; color: var(--akzent); box-shadow: none; }
-.knopf--gefahr { background: rgba(225, 29, 72, 0.12); color: var(--schlecht); border-color: rgba(225, 29, 72, 0.3); }
+.knopf--gefahr { background: rgba(220, 38, 38, 0.12); color: var(--schlecht); border-color: rgba(220, 38, 38, 0.3); }
 .knopf--klein { padding: 8px 14px; font-size: 13px; }
 .knopf--gross { padding: 18px 28px; font-size: 19px; }
 
@@ -1004,6 +1032,16 @@ button { cursor: pointer; }
 .auswahl__knopf.is-aktiv { background: var(--akzent); color: #fff; border-color: transparent; box-shadow: var(--akzent-schein); }
 .auswahl__emoji { font-size: 15px; }
 
+/* Farbschemata zeigen sich selbst: Fünf gleich aussehende weiße Pillen zwingen
+   dazu, jedes Schema einmal anzutippen, um zu sehen, was es ist. */
+.auswahl__probe {
+  display: inline-block;
+  width: 30px;
+  height: 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(15, 23, 42, 0.15);
+}
+
 .schriftprobe { margin-top: 12px; padding: 14px 16px; border-radius: var(--rund); background: rgba(255, 255, 255, 0.7); border: 1px solid var(--linie); font-family: var(--schrift-lern); }
 .schriftprobe__satz { margin: 0 0 6px; font-size: 20px; }
 .schriftprobe__abc { margin: 0; font-size: 17px; color: var(--tinte-zart); letter-spacing: 0.04em; }
@@ -1053,7 +1091,7 @@ button { cursor: pointer; }
 .wortzeile { padding: 12px; border-radius: var(--rund); background: rgba(255, 255, 255, 0.72); border: 1px solid var(--linie); display: grid; gap: 10px; }
 .wortzeile__kopf { display: flex; gap: 8px; }
 .wortzeile__wort { flex: 1; min-width: 0; padding: 10px 13px; border-radius: 12px; border: 1px solid var(--linie); background: #fff; font-family: var(--schrift-lern); font-size: 18px; }
-.wortzeile__weg { width: 38px; flex: none; border: 1px solid var(--linie); border-radius: 12px; background: rgba(225, 29, 72, 0.08); color: var(--schlecht); }
+.wortzeile__weg { width: 38px; flex: none; border: 1px solid var(--linie); border-radius: 12px; background: rgba(220, 38, 38, 0.08); color: var(--schlecht); }
 .wortzeile__formen { display: flex; gap: 10px; flex-wrap: wrap; }
 .wortzeile__formfeld { display: grid; gap: 3px; flex: 1; min-width: 130px; font-size: 11px; color: var(--tinte-zart); text-transform: uppercase; letter-spacing: 0.06em; }
 .wortzeile__form { padding: 8px 11px; border-radius: 10px; border: 1px solid var(--linie); background: #fff; font-family: var(--schrift-lern); font-size: 15px; text-transform: none; letter-spacing: 0; }
@@ -1115,8 +1153,8 @@ button { cursor: pointer; }
   animation: meldungAuf 0.24s var(--feder) both;
 }
 
-.meldung--gut { background: #15803d; }
-.meldung--warnung { background: #b45309; }
+.meldung--gut { background: #0369a1; }
+.meldung--warnung { background: #c2410c; }
 .meldung.is-weg { animation: meldungAuf 0.3s ease reverse both; }
 
 @keyframes meldungAuf {
@@ -1168,7 +1206,7 @@ body.is-uebend .kopf { opacity: 0.55; }
   }
 
   body { background: #0b1120; }
-  .himmel { background: linear-gradient(180deg, #0b1120 0%, #111a33 50%, #1b1030 100%); }
+  .himmel { background: linear-gradient(180deg, #0b1120 0%, #101c38 50%, #2a1c08 100%); }
   .himmel i, .himmel b, .himmel u { opacity: 0.32; }
   .kopf { background: rgba(15, 23, 42, 0.7); border-bottom-color: rgba(255, 255, 255, 0.08); }
   .kopf__knopf, .knopf--still, .paketreiter__knopf, .auswahl__knopf,
@@ -1178,12 +1216,12 @@ body.is-uebend .kopf { opacity: 0.55; }
   .emojiwahl__knopf { background: #111827; border-color: rgba(255, 255, 255, 0.14); }
   .blatt { background: rgba(17, 24, 39, 0.95); }
   .vorlage { background: rgba(255, 255, 255, 0.04); border-color: rgba(255, 255, 255, 0.14); }
-  .vorlage--wortbild { background: rgba(20, 184, 166, 0.1); }
+  .vorlage--wortbild { background: rgba(56, 189, 248, 0.1); }
   .wortbild__linie { stroke: rgba(255, 255, 255, 0.22); }
-  .wortbild__kasten { fill: rgba(45, 212, 191, 0.28); stroke: #5eead4; }
-  .wortbild__kasten.is-gross { fill: #2dd4bf; stroke: #99f6e4; }
-  .wortbild__kontur { fill: rgba(45, 212, 191, 0.24); stroke: #5eead4; }
-  .wortbild__gross-balken, .wortbild__punkt { fill: #99f6e4; }
+  .wortbild__kasten { fill: rgba(56, 189, 248, 0.28); stroke: #7dd3fc; }
+  .wortbild__kasten.is-gross { fill: #38bdf8; stroke: #bae6fd; }
+  .wortbild__kontur { fill: rgba(56, 189, 248, 0.24); stroke: #7dd3fc; }
+  .wortbild__gross-balken, .wortbild__punkt { fill: #bae6fd; }
   .wortbild__stockwerk { fill: rgba(255, 255, 255, 0.45); }
   .wortarten__knopf { background: rgba(30, 41, 59, 0.85); }
   .balken, .sterne__stern { background-color: rgba(255, 255, 255, 0.12); }

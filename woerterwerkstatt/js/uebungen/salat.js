@@ -34,7 +34,7 @@ export const UEBUNG = {
   name: 'Buchstabensalat',
   kurz: 'Erkenne das Wort',
   emoji: '🔀',
-  farbe: '#a855f7',
+  farbe: '#38bdf8',
   beschreibung: 'Die Buchstaben sind durcheinander. Welches Wort ist es?',
 
   aufbauen({ eintrag, aufFertig }) {

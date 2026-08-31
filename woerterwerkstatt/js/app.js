@@ -55,7 +55,7 @@ function bereicheZeigen() {
     return h('button', {
       class: `bereichskarte${eigen ? ' is-eigen' : ''}`,
       type: 'button',
-      style: { '--bereichsfarbe': bereich.farbe || '#6366f1' },
+      style: { '--bereichsfarbe': bereich.farbe || '#2563eb' },
       onclick: () => { sfx.tipp(); gehZu(`#/bereich/${bereich.id}`); },
     },
       h('span', { class: 'bereichskarte__emoji' }, bereich.emoji || '📗'),

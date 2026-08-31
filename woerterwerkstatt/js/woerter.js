@@ -28,7 +28,7 @@ export const BEREICHE = [
     id: 'schule',
     name: 'Schule und Klasse',
     emoji: '🎒',
-    farbe: '#6366f1',
+    farbe: '#2563eb',
     woerter: [
       'Ranzen|n|der|Ranzen',
       'Tafel|n|die|Tafeln',
@@ -104,7 +104,7 @@ export const BEREICHE = [
     id: 'haustiere',
     name: 'Haustiere und Bauernhof',
     emoji: '🐄',
-    farbe: '#84cc16',
+    farbe: '#eab308',
     woerter: [
       'Katze|n|die|Katzen',
       'Hund|n|der|Hunde',
@@ -142,7 +142,7 @@ export const BEREICHE = [
     id: 'wildtiere',
     name: 'Wilde Tiere und Zoo',
     emoji: '🦁',
-    farbe: '#eab308',
+    farbe: '#ea580c',
     woerter: [
       'Löwe|n|der|Löwen',
       'Elefant|n|der|Elefanten',
@@ -180,7 +180,7 @@ export const BEREICHE = [
     id: 'wald',
     name: 'Wald und Bäume',
     emoji: '🌲',
-    farbe: '#16a34a',
+    farbe: '#0284c7',
     woerter: [
       'Wald|n|der|Wälder',
       'Baum|n|der|Bäume',
@@ -218,7 +218,7 @@ export const BEREICHE = [
     id: 'wetter',
     name: 'Wetter und Jahreszeiten',
     emoji: '🌦️',
-    farbe: '#0ea5e9',
+    farbe: '#38bdf8',
     woerter: [
       'Sonne|n|die|Sonnen',
       'Regen|n|der|-',
@@ -256,7 +256,7 @@ export const BEREICHE = [
     id: 'essen',
     name: 'Essen und Trinken',
     emoji: '🍎',
-    farbe: '#ef4444',
+    farbe: '#dc2626',
     woerter: [
       'Apfel|n|der|Äpfel',
       'Birne|n|die|Birnen',
@@ -294,7 +294,7 @@ export const BEREICHE = [
     id: 'kleidung',
     name: 'Kleidung',
     emoji: '🧥',
-    farbe: '#a855f7',
+    farbe: '#1d4ed8',
     woerter: [
       'Hose|n|die|Hosen',
       'Jacke|n|die|Jacken',
@@ -332,7 +332,7 @@ export const BEREICHE = [
     id: 'koerper',
     name: 'Körper und Gesundheit',
     emoji: '🩺',
-    farbe: '#f43f5e',
+    farbe: '#dc2626',
     woerter: [
       'Kopf|n|der|Köpfe',
       'Auge|n|das|Augen',
@@ -370,7 +370,7 @@ export const BEREICHE = [
     id: 'sport',
     name: 'Sport und Bewegung',
     emoji: '⚽',
-    farbe: '#22c55e',
+    farbe: '#0ea5e9',
     woerter: [
       'Sport|n|der|-',
       'Ball|n|der|Bälle',
@@ -408,7 +408,7 @@ export const BEREICHE = [
     id: 'verkehr',
     name: 'Verkehr und unterwegs',
     emoji: '🚌',
-    farbe: '#0891b2',
+    farbe: '#0369a1',
     woerter: [
       'Straße|n|die|Straßen',
       'Ampel|n|die|Ampeln',
@@ -446,7 +446,7 @@ export const BEREICHE = [
     id: 'stadt',
     name: 'Stadt und Einkaufen',
     emoji: '🏬',
-    farbe: '#8b5cf6',
+    farbe: '#f59e0b',
     woerter: [
       'Stadt|n|die|Städte',
       'Markt|n|der|Märkte',
@@ -484,7 +484,7 @@ export const BEREICHE = [
     id: 'farbenformen',
     name: 'Farben und Formen',
     emoji: '🎨',
-    farbe: '#ec4899',
+    farbe: '#facc15',
     woerter: [
       'Farbe|n|die|Farben',
       'Kreis|n|der|Kreise',
@@ -522,7 +522,7 @@ export const BEREICHE = [
     id: 'zahlen',
     name: 'Zahlen und Rechnen',
     emoji: '🔢',
-    farbe: '#14b8a6',
+    farbe: '#2563eb',
     woerter: [
       'Zahl|n|die|Zahlen',
       'Ziffer|n|die|Ziffern',
@@ -560,7 +560,7 @@ export const BEREICHE = [
     id: 'gefuehle',
     name: 'Gefühle und Miteinander',
     emoji: '💛',
-    farbe: '#f59e0b',
+    farbe: '#fbbf24',
     woerter: [
       'Freund|n|der|Freunde',
       'Freundin|n|die|Freundinnen',
@@ -598,7 +598,7 @@ export const BEREICHE = [
     id: 'spielen',
     name: 'Spielen und Freizeit',
     emoji: '🪁',
-    farbe: '#3b82f6',
+    farbe: '#38bdf8',
     woerter: [
       'Spiel|n|das|Spiele',
       'Puppe|n|die|Puppen',
@@ -636,7 +636,7 @@ export const BEREICHE = [
     id: 'musik',
     name: 'Musik und Instrumente',
     emoji: '🎺',
-    farbe: '#d946ef',
+    farbe: '#c2410c',
     woerter: [
       'Musik|n|die|-',
       'Lied|n|das|Lieder',
@@ -674,7 +674,7 @@ export const BEREICHE = [
     id: 'wasser',
     name: 'Wasser und Meer',
     emoji: '🌊',
-    farbe: '#06b6d4',
+    farbe: '#0284c7',
     woerter: [
       'Wasser|n|das|-',
       'Meer|n|das|Meere',
@@ -712,7 +712,7 @@ export const BEREICHE = [
     id: 'weltraum',
     name: 'Weltraum und Himmel',
     emoji: '🚀',
-    farbe: '#4f46e5',
+    farbe: '#1e40af',
     woerter: [
       'Himmel|n|der|Himmel',
       'Stern|n|der|Sterne',
@@ -750,7 +750,7 @@ export const BEREICHE = [
     id: 'feste',
     name: 'Feste und Feiern',
     emoji: '🎉',
-    farbe: '#e11d48',
+    farbe: '#eab308',
     woerter: [
       'Fest|n|das|Feste',
       'Geburtstag|n|der|Geburtstage',

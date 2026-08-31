@@ -15,6 +15,11 @@
 // 4. **Was die Tastatur von selbst verschlimmbessert, zählt nicht als Fehler.**
 //    Ein Gedankenstrich statt Bindestrich ist kein Rechtschreibfehler des
 //    Kindes, sondern eine Bequemlichkeit von iOS.
+// 5. **Vor jeder Antwort steht ein Zeichen: ✓, ↻ oder ✗.** Seit „richtig"
+//    blau ist und nicht mehr grün, ist der Unterschied zu „falsch" (rot) für
+//    ein farbfehlsichtiges Kind schwächer geworden — und auf einem
+//    ausgeblichenen Beamer für alle. Die Farbe darf die Antwort begleiten,
+//    tragen muss sie das Zeichen und der Wortlaut.
 
 import { h, geputzt, entglaettet, ersteAbweichung } from '../util.js';
 import * as sfx from '../sfx.js';
@@ -99,7 +104,7 @@ export function schreibfeld({
       if (abschreibmodus) {
         // Richtig abgeschrieben — die Aufgabe ist erledigt, aber schon als
         // Fehler gewertet.
-        rueckmeldung.textContent = 'Genau so wird es geschrieben. Merk es dir!';
+        rueckmeldung.textContent = '✓ Genau so wird es geschrieben. Merk es dir!';
         rueckmeldung.className = 'schreibfeld__antwort is-lob';
         sfx.tipp();
         abschliessen(false);
@@ -107,7 +112,7 @@ export function schreibfeld({
       }
       versuche += 1;
       ersterVersuchRichtig = versuche === 1;
-      rueckmeldung.textContent = versuche === 1 ? 'Richtig!' : 'Richtig — beim zweiten Anlauf.';
+      rueckmeldung.textContent = versuche === 1 ? '✓ Richtig!' : '✓ Richtig — beim zweiten Anlauf.';
       rueckmeldung.className = 'schreibfeld__antwort is-richtig';
       sfx.richtig();
       abschliessen(ersterVersuchRichtig);
@@ -123,7 +128,7 @@ export function schreibfeld({
       // Geheimschrift zum Beispiel sieht, ob die Eingabe überhaupt ins
       // Häuschen passt. Ein solcher Hinweis geht vor.
       const zusatz = zusatzhinweis ? zusatzhinweis(eingabe) : null;
-      rueckmeldung.textContent = zusatz || stelleZeigen(eingabe) || 'Noch nicht ganz — versuch es noch einmal.';
+      rueckmeldung.textContent = `↻ ${zusatz || stelleZeigen(eingabe) || 'Noch nicht ganz — versuch es noch einmal.'}`;
       rueckmeldung.className = 'schreibfeld__antwort is-fastrichtig';
       feld.focus();
       feld.select();
@@ -136,7 +141,7 @@ export function schreibfeld({
     loesungsband.textContent = '';
     loesungsband.appendChild(h('span', { class: 'schreibfeld__loesung-marke' }, 'So ist es richtig'));
     loesungsband.appendChild(h('strong', { class: 'schreibfeld__loesung-wort' }, ziel));
-    rueckmeldung.textContent = 'Schreib es jetzt genau so ab.';
+    rueckmeldung.textContent = '✗ Schreib es jetzt genau so ab.';
     rueckmeldung.className = 'schreibfeld__antwort is-falsch';
     feld.value = '';
     markiere(null);

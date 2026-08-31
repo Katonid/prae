@@ -11,9 +11,9 @@
 // selbst ein — dafür ist beim Anlegen eigener Bereiche Platz.
 
 export const WORTARTEN = {
-  n: { id: 'n', name: 'Nomen', kurz: 'Nomen', emoji: '🧱', farbe: '#3b82f6', hilfe: 'Nomen kann man anfassen oder sich vorstellen — und man schreibt sie groß.' },
-  v: { id: 'v', name: 'Verb', kurz: 'Verb', emoji: '🏃', farbe: '#22c55e', hilfe: 'Verben sagen, was jemand tut. „Was macht das Kind?“' },
-  a: { id: 'a', name: 'Adjektiv', kurz: 'Adjektiv', emoji: '🌈', farbe: '#f59e0b', hilfe: 'Adjektive sagen, WIE etwas ist. „Wie ist es?“' },
+  n: { id: 'n', name: 'Nomen', kurz: 'Nomen', emoji: '🧱', farbe: '#2563eb', hilfe: 'Nomen kann man anfassen oder sich vorstellen — und man schreibt sie groß.' },
+  v: { id: 'v', name: 'Verb', kurz: 'Verb', emoji: '🏃', farbe: '#f97316', hilfe: 'Verben sagen, was jemand tut. „Was macht das Kind?“' },
+  a: { id: 'a', name: 'Adjektiv', kurz: 'Adjektiv', emoji: '🌈', farbe: '#eab308', hilfe: 'Adjektive sagen, WIE etwas ist. „Wie ist es?“' },
   x: { id: 'x', name: 'keines davon', kurz: 'keines', emoji: '❔', farbe: '#94a3b8', hilfe: 'Manche Wörter sind nichts von alledem — zum Beispiel „heute“ oder „und“.' },
 };
 

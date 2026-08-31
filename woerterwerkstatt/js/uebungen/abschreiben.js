@@ -24,7 +24,7 @@ export const UEBUNG = {
   name: 'Abschreiben',
   kurz: 'Schreibe das Wort ab',
   emoji: '✏️',
-  farbe: '#3b82f6',
+  farbe: '#2563eb',
   beschreibung: 'Das Wort steht da — schreib es genau so noch einmal.',
 
   aufbauen({ eintrag, aufFertig }) {

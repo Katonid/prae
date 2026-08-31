@@ -18,12 +18,59 @@ export const SCHRIFTEN = [
   { id: 'quicksand', label: 'Quicksand', stack: "'Quicksand', 'Andika', sans-serif", hinweis: 'Rund und freundlich; gut für Überschriften.' },
 ];
 
+/**
+ * Die Farbschemata — alle aus Blau, Orange und Gelb (Ansage des Nutzers,
+ * 08/2026: kein Grün, kein Lila).
+ *
+ * Je Schema drei Dinge, und die drei sind mit Absicht getrennt:
+ *
+ * `von/mitte/bis`  die drei Farbwolken im Hintergrund. Hier dürfen Blau und
+ *                  Orange nebeneinanderstehen — sie liegen weit auseinander
+ *                  und mischen sich nur weich am Rand.
+ * `verlauf`        der Verlauf der gefüllten Knöpfe. Der wird NICHT aus
+ *                  von/mitte/bis gerechnet: Ein Verlauf von Blau nach Orange
+ *                  läuft auf halbem Weg durch ein schmutziges Grau, weil die
+ *                  beiden auf dem Farbkreis gegenüberliegen. Deshalb bleibt
+ *                  jeder Knopfverlauf in EINER Farbfamilie.
+ * `warm`           der zweite, warme Verlauf: Fortschrittsbalken, der Auftrag
+ *                  der Woche, alles, was Belohnung ist.
+ */
 export const SCHEMATA = [
-  { id: 'regenbogen', label: 'Regenbogen', von: '#6366f1', mitte: '#a855f7', bis: '#ec4899', schein: '99, 102, 241' },
-  { id: 'wiese', label: 'Wiese', von: '#16a34a', mitte: '#65a30d', bis: '#facc15', schein: '22, 163, 74' },
-  { id: 'meer', label: 'Meer', von: '#0ea5e9', mitte: '#06b6d4', bis: '#14b8a6', schein: '14, 165, 233' },
-  { id: 'sonne', label: 'Sonne', von: '#f59e0b', mitte: '#f97316', bis: '#e11d48', schein: '245, 158, 11' },
-  { id: 'nacht', label: 'Nacht', von: '#4f46e5', mitte: '#7c3aed', bis: '#0ea5e9', schein: '79, 70, 229' },
+  {
+    id: 'sonnemeer',
+    label: 'Sonne & Meer',
+    von: '#2563eb', mitte: '#f97316', bis: '#facc15', schein: '37, 99, 235',
+    verlauf: 'linear-gradient(135deg, #1d4ed8 0%, #2563eb 45%, #38bdf8 100%)',
+    warm: 'linear-gradient(135deg, #f97316 0%, #fbbf24 55%, #facc15 100%)',
+  },
+  {
+    id: 'meer',
+    label: 'Meer',
+    von: '#1d4ed8', mitte: '#0ea5e9', bis: '#7dd3fc', schein: '29, 78, 216',
+    verlauf: 'linear-gradient(135deg, #1e40af 0%, #0284c7 50%, #38bdf8 100%)',
+    warm: 'linear-gradient(135deg, #0284c7 0%, #38bdf8 55%, #7dd3fc 100%)',
+  },
+  {
+    id: 'sonne',
+    label: 'Sonne',
+    von: '#ea580c', mitte: '#f59e0b', bis: '#facc15', schein: '234, 88, 12',
+    verlauf: 'linear-gradient(135deg, #ea580c 0%, #f59e0b 55%, #facc15 100%)',
+    warm: 'linear-gradient(135deg, #f97316 0%, #fbbf24 55%, #fde68a 100%)',
+  },
+  {
+    id: 'abend',
+    label: 'Abend',
+    von: '#1e3a8a', mitte: '#c2410c', bis: '#f59e0b', schein: '30, 58, 138',
+    verlauf: 'linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 55%, #3b82f6 100%)',
+    warm: 'linear-gradient(135deg, #c2410c 0%, #ea580c 55%, #f59e0b 100%)',
+  },
+  {
+    id: 'sand',
+    label: 'Sand',
+    von: '#92400e', mitte: '#f59e0b', bis: '#fde68a', schein: '146, 64, 14',
+    verlauf: 'linear-gradient(135deg, #b45309 0%, #d97706 55%, #f59e0b 100%)',
+    warm: 'linear-gradient(135deg, #d97706 0%, #fbbf24 55%, #fde68a 100%)',
+  },
 ];
 
 export const ABSCHREIB_ARTEN = [
@@ -38,7 +85,7 @@ function leererZustand() {
     einstellungen: {
       klang: true,
       schrift: 'andika',
-      schema: 'regenbogen',
+      schema: 'sonnemeer',
       abschreiben: 'sichtbar',
       geheimschrift: 'haus',
       hilfslinien: true,
