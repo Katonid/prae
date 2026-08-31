@@ -171,6 +171,20 @@ Zwei Ansichten in der Klasse:
 * **Ein Kind antippen** — seine Wörter einzeln, getrennt nach „schwer
   gefallen“ und „saß auf Anhieb“, je Stufe aufgeschlüsselt.
 
+Gemeldet wird, wenn ein Kind ein Päckchen zu Ende gebracht hat — während der
+Übung noch nicht. Steht unter einem Namen keine Wortzahl, sagt die App seit
+1.5.2, warum: Die Regeln lassen das Nachsehen nicht zu, das Mitschreiben ist
+für diese Klasse abgeschaltet, oder es hat noch niemand geübt. Die drei sehen
+auf dem Bildschirm gleich aus und sind völlig verschieden — nur der erste ist
+ein Fehler, und ausgerechnet der sah bis dahin aus wie „noch nichts da“.
+
+**Die Leseerlaubnis gehört an den Klassencode, nicht an das einzelne Kind.**
+Die Klassenansicht liest `protokoll/<CODE>` in einem Zug; Firebase-Regeln
+reichen nach unten durch, nicht nach oben. Von 1.0.5 bis 1.4.0 stand sie am
+`$kind` — die Kinder schrieben mit, die Lehrkraft bekam den Zweig nie zu
+sehen. Behoben in der Regeldatei ab 1.5.0; wer eine ältere eingespielt hat,
+muss sie neu einsetzen (die Daten sind da und erscheinen dann).
+
 Festgehalten wird je Wort: wie oft es drankam, wie oft es beim ersten Versuch
 saß, in welchen Stufen — und **wie das Kind es geschrieben hat**, wenn es
 danebenlag. Letzteres ist der eigentliche Wert: „Somer“ statt

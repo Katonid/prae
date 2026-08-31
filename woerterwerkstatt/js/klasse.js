@@ -485,6 +485,51 @@ export function klasseZeigen(code, beiAenderung, frischAngelegt = false) {
 
     const kinderplatz = h('div', { class: 'kinderliste' }, ladeplatz('Kinder werden geholt …'));
     let protokolle = [];
+    let protokollsperre = null;
+    const protokollhinweis = h('div', { class: 'is-versteckt' });
+
+    /**
+     * Sagt, warum unter den Namen keine Wörter stehen.
+     *
+     * Drei Gründe sehen auf dem Bildschirm gleich aus und sind völlig
+     * verschieden: Die Regeln lassen das Nachsehen nicht zu; das Mitschreiben
+     * ist für diese Klasse abgeschaltet; es hat noch niemand geübt. Nur der
+     * erste ist ein Fehler — und ausgerechnet der sah bis 1.5.1 aus wie „noch
+     * nichts da".
+     */
+    function protokollhinweisZeichnen() {
+      leeren(protokollhinweis).classList.add('is-versteckt');
+      if (protokollsperre && String(protokollsperre.message) === 'NICHT_ERLAUBT') {
+        protokollhinweis.classList.remove('is-versteckt');
+        protokollhinweis.appendChild(h('div', { class: 'einrichthinweis' },
+          h('h3', { class: 'einrichthinweis__titel' }, '📋 Die Wortprotokolle sind noch nicht lesbar'),
+          h('p', {},
+            'Die Kinder schreiben mit — nur das Nachsehen weist die Datenbank ab. Bis zur '
+            + 'Fassung 1.5.0 stand die Leseerlaubnis im Zweig „protokoll" nur am einzelnen '
+            + 'Kind; diese Ansicht liest aber die ganze Klasse auf einmal. Es geht nichts '
+            + 'verloren: Was schon geübt wurde, erscheint, sobald die Regeln neu '
+            + 'eingespielt sind.'),
+          h('ol', { class: 'einrichthinweis__schritte' },
+            h('li', {}, 'Firebase-Konsole → Realtime Database → Reiter „Regeln“.'),
+            h('li', {}, 'Den gesamten Inhalt von ', h('code', {}, 'firebase-rules.json'),
+              ' aus dem Wurzelverzeichnis des Repos einsetzen (Fassung 1.5.0 oder neuer).'),
+            h('li', {}, 'Veröffentlichen, dann hier „↻ Neu laden“.'))));
+        return;
+      }
+      if (klasse.protokoll === false) {
+        protokollhinweis.classList.remove('is-versteckt');
+        protokollhinweis.appendChild(h('p', { class: 'abschnitt__notiz' },
+          'Das Mitschreiben ist für diese Klasse abgeschaltet (weiter unten). Solange das so '
+          + 'ist, kommen keine neuen Wörter dazu.'));
+        return;
+      }
+      if (!protokolle.length) {
+        protokollhinweis.classList.remove('is-versteckt');
+        protokollhinweis.appendChild(h('p', { class: 'abschnitt__notiz' },
+          'Noch keine Wörter. Sie kommen an, sobald ein Kind ein Päckchen zu Ende gebracht '
+          + 'hat — bei laufender Übung wird noch nichts gemeldet.'));
+      }
+    }
 
     async function kinderZeichnen() {
       let stand = [];
@@ -495,10 +540,20 @@ export function klasseZeigen(code, beiAenderung, frischAngelegt = false) {
         return;
       }
       // Das Wortprotokoll liegt in einem eigenen Zweig, den nur die Lehrkraft
-      // lesen darf. Scheitert das (Regeln älter als 1.0.5, oder das
-      // Mitschreiben ist abgeschaltet), bleibt die Liste stehen — die Sterne
-      // hängen nicht daran.
-      protokolle = await protokollDerKlasse(code).catch(() => []);
+      // lesen darf. Scheitert das, bleibt die Kinderliste stehen — die Sterne
+      // hängen nicht daran. Der GRUND wird aber gesagt: Bis 1.5.0 stand die
+      // Leseerlaubnis nur am einzelnen Kind, nicht am Klassencode, und die
+      // Klassenansicht liest den ganzen Code auf einmal. Ergebnis: Die Kinder
+      // schrieben brav mit, die Lehrkraft bekam den Zweig nie zu sehen — und
+      // die App schwieg dazu (gemeldet 08/2026).
+      try {
+        protokolle = await protokollDerKlasse(code);
+        protokollsperre = null;
+      } catch (problem) {
+        protokolle = [];
+        protokollsperre = problem;
+      }
+      protokollhinweisZeichnen();
       const protokollNach = new Map(protokolle.map((p) => [p.schluessel, p]));
 
       leeren(kinderplatz);
@@ -679,11 +734,13 @@ export function klasseZeigen(code, beiAenderung, frischAngelegt = false) {
             }
           },
         }, 'Auftrag sichern')),
-      abschnitt('Kinder', kinderplatz,
+      abschnitt('Kinder', kinderplatz, protokollhinweis,
         h('div', { class: 'blatt__knopfreihe' },
           h('button', {
             class: 'knopf knopf--voll knopf--klein', type: 'button',
-            onclick: () => klassenprotokoll(code, protokolle),
+            onclick: () => (protokolle.length
+              ? klassenprotokoll(code, protokolle)
+              : meldung('Noch keine Wörter zum Nachsehen.', 'info')),
           }, '📋 Was der Klasse schwerfällt'),
           h('button', { class: 'knopf knopf--still knopf--klein', type: 'button', onclick: () => kinderZeichnen() }, '↻ Neu laden'))),
       abschnitt('Bereiche für die Klasse',
