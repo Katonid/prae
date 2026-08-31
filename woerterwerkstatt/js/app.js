@@ -30,7 +30,8 @@ import {
   lehrkraftAnmeldung, klassenVerwalten, beitreten, fortschrittHochladen,
   anmeldenMitCode, klasseAuffrischen,
 } from './klasse.js';
-import { angemeldet, wolkeStarten, abmelden, beiKontoWechsel } from './cloud.js';
+import { angemeldet, wolkeStarten, abmelden, beiKontoWechsel, verwaltungPruefen } from './cloud.js';
+import { schulverwaltung } from './admin.js';
 import { alsApp } from './plattform.js';
 import * as sfx from './sfx.js';
 import { FASSUNG } from './version.js';
@@ -308,6 +309,20 @@ function kopfleisteZeichnen() {
   if (angemeldeteLehrkraft) {
     platz.appendChild(h('button', { class: 'kopf__knopf', type: 'button', title: 'Eigene Bereiche', onclick: () => bereicheVerwalten(() => wegLesen()) }, '📚 Bereiche'));
     platz.appendChild(h('button', { class: 'kopf__knopf', type: 'button', title: 'Meine Klassen', onclick: () => klassenVerwalten() }, '👩‍🏫 Klassen'));
+    // Die Schulverwaltung erscheint erst, wenn die Datenbank sie zulässt.
+    // Gefragt wird sie, nicht die App: `verwaltungPruefen` versucht schlicht,
+    // das Verzeichnis aller Lehrkräfte zu lesen. Die Antwort kommt aus dem
+    // Netz, deshalb wird der Knopf nachgereicht — und nur, wenn die Kopfleiste
+    // inzwischen nicht schon jemand anderem gehört.
+    verwaltungPruefen().then((darf) => {
+      if (!darf || !angemeldet() || !document.getElementById('kopf-rechts')) return;
+      if (platz.querySelector('.kopf__knopf--schule')) return;
+      const knopf = h('button', {
+        class: 'kopf__knopf kopf__knopf--schule', type: 'button', title: 'Schulverwaltung',
+        onclick: () => schulverwaltung(),
+      }, '🏫 Schule');
+      platz.insertBefore(knopf, platz.firstChild);
+    }).catch(() => {});
   } else if (wer && wer.art === 'kind') {
     platz.appendChild(h('span', { class: 'kopf__wer' }, `👋 ${wer.name}`));
   } else {

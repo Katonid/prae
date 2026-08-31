@@ -252,6 +252,37 @@ Konten brauchen außerdem eine einmalige Freischaltung (Authentication →
 E-Mail/Passwort). Ohne sie zeigt die App einen Hinweis; alles Üben läuft
 trotzdem.
 
+### Schulverwaltung
+
+Ein Konto, dem die Regeln das Verzeichnis aller Lehrkräfte öffnen, bekommt in
+der Kopfzeile den Knopf **🏫 Schule**: alle Lehrkräfte, alle Klassen, dazu
+Klassen, zu denen es keine Lehrkraft mehr gibt. Von dort aus lässt sich
+
+* eine Lehrkraft **anlegen** (E-Mail, Name, erstes Kennwort) — die eigene
+  Anmeldung bleibt dabei stehen,
+* umbenennen, ihr eine **Mail zum Zurücksetzen des Kennworts** schicken, ihr
+  das Verwaltungsrecht geben oder nehmen,
+* samt allen Klassen, Kindern, PINs und Protokollen **löschen**,
+* und jede Klasse in der gewohnten Klassenansicht öffnen — dort werden Kinder
+  angelegt, umbenannt, mit neuer PIN versehen und entfernt.
+
+**Wer verwalten darf, entscheiden die Datenbankregeln, nicht die App.** Die App
+probiert schlicht, ob sie `woerterwerkstatt/users` auflisten darf. Damit stehen
+die Rechte an genau einer Stelle, und eine weitere Verwaltung braucht keine
+neue Fassung der App. Wie man sie einträgt: `../firebase-rules.md`.
+
+Eine Grenze, die keine Bequemlichkeitsfrage ist: **Ein fremdes Firebase-Konto
+zu löschen oder seine E-Mail zu ändern, geht von hier aus nicht.** Das verlangt
+das Admin-SDK mit einem Dienstschlüssel — und der gehört auf einen Server, nicht
+in eine Web-App, die auf jedem Kindergerät liegt. Die App löscht deshalb alle
+**Daten** einer Lehrkraft und führt danach in die Firebase-Konsole, wo die
+Anmeldung selbst zu entfernen ist. Anlegen und Kennwort-Mail gehen dagegen
+ohne Umweg.
+
+Ein Kind umbenennen heißt: **neue PIN.** Der Name ist der Schlüssel und steckt
+zugleich im Abdruck (siehe unten) — der alte passt zum neuen Namen nicht mehr,
+und lesen lässt er sich nirgends. Sterne und Wortprotokoll ziehen mit um.
+
 ## Farben
 
 Blau, Orange und Gelb — kein Grün, kein Lila (Ansage des Nutzers, 08/2026).
@@ -315,6 +346,7 @@ js/lauf.js          ein Durchgang: fünfzehn Wörter, ein Ergebnis
 js/store.js         IndexedDB (Rückfall: localStorage)
 js/cloud.js         Firebase über REST — Konten, Klassen, Anmeldung der Kinder
 js/klasse.js        Klassenansicht, QR-Code, Beitreten
+js/admin.js         Schulverwaltung (nur für Konten, die die Regeln zulassen)
 js/bereiche.js      eigene Bereiche anlegen
 js/qr.js            QR-Code, selbst gerechnet
 js/plattform.js     die Brücke zur Plattform (siehe unten)
@@ -323,9 +355,17 @@ js/plattform.js     die Brücke zur Plattform (siehe unten)
 ## Werkzeuge
 
 ```
-python3 scripts/generate-icons.py    App-Icons erzeugen (reines Python)
-python3 scripts/qr-pruefen.py        QR-Code gegen OpenCV und segno prüfen
+python3 scripts/generate-icons.py      App-Icons erzeugen (reines Python)
+python3 scripts/qr-pruefen.py          QR-Code gegen OpenCV und segno prüfen
+python3 scripts/regeln-pruefen.py      Firebase-Regeln, bevor jemand sie einfügt
+node --experimental-vm-modules scripts/module-pruefen.mjs
+                                       Syntax, Importe, tote Ausfuhren
 ```
+
+`module-pruefen.mjs` nach jeder Änderung am JavaScript laufen lassen. Die App
+hat keinen Bauschritt — eine fehlende Klammer oder ein Import, den es nicht
+gibt, fällt sonst erst auf, wenn die Seite weiß bleibt. Beides ist beim Bau
+schon passiert.
 
 `qr-pruefen.py` braucht `pip install segno opencv-python-headless numpy` — die
 App selbst braucht davon nichts. Ein QR-Code, bei dem ein einziges Modul falsch

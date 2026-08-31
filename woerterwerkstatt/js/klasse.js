@@ -23,7 +23,7 @@ import { inZwischenablage } from './plattform.js';
 import {
   kontenVerfuegbar, anmelden, kontoAnlegen, klartext, regelnPruefen,
   klasseAnlegen, klasseHolen, klasseLoeschen, klassenDerLehrkraft, klasseAendern,
-  kindAnlegen, kindAnmelden, kindEntfernen, pinNeuSetzen,
+  kindAnlegen, kindAnmelden, kindEntfernen, pinNeuSetzen, kindUmbenennen, namensschluessel,
   fortschrittDerKlasse, fortschrittMelden,
   protokollMelden, protokollDerKlasse, protokollLoeschen,
 } from './cloud.js';
@@ -429,6 +429,38 @@ export function klasseZeigen(code, beiAenderung, frischAngelegt = false) {
             },
           }, 'PIN'),
           h('button', {
+            class: 'knopf knopf--flach knopf--klein', type: 'button', title: 'Kind umbenennen',
+            onclick: async () => {
+              const neuerName = await eingabe({
+                titel: `${kind.name} umbenennen`,
+                text: 'Der Name ist zugleich die Anmeldung — und er steckt im PIN-Abdruck. '
+                  + 'Wird er wirklich ein anderer, braucht das Kind darum eine neue PIN. '
+                  + 'Sterne und Wortprotokoll kommen mit.',
+                wert: kind.name, ja: 'Weiter',
+              });
+              if (!neuerName || neuerName === kind.name) return;
+              const gleich = namensschluessel(neuerName) === kind.schluessel;
+              const neuePin = gleich ? '0000' : await eingabe({
+                titel: `Neue PIN für ${neuerName}`,
+                text: 'Vier Ziffern. Sag sie dem Kind — nachsehen lässt sie sich später nicht.',
+                platzhalter: '••••', art: 'zahl',
+                pruefung: (wert) => (/^\d{4}$/.test(wert) ? null : 'Genau vier Ziffern, bitte.'),
+              });
+              if (!neuePin) return;
+              try {
+                await kindUmbenennen(code, kind.schluessel, neuerName, neuePin);
+                meldung(gleich
+                  ? `Heißt jetzt ${neuerName}. Die PIN bleibt.`
+                  : `${neuerName} meldet sich ab jetzt mit der PIN ${neuePin} an.`, 'gut', 6000);
+                kinderZeichnen();
+              } catch (problem) {
+                meldung(String(problem.message) === 'NAME_VERGEBEN'
+                  ? 'Diesen Namen gibt es in der Klasse schon.'
+                  : klartext(problem), 'warnung', 5000);
+              }
+            },
+          }, '✏️'),
+          h('button', {
             class: 'knopf knopf--flach knopf--klein', type: 'button', title: 'Kind entfernen',
             onclick: async () => {
               const ja = await frage({ titel: 'Kind entfernen?', text: `${kind.name} verliert den Zugang zu dieser Klasse. Die Sterne auf dem eigenen Gerät bleiben.`, ja: 'Entfernen', gefahr: true });
@@ -623,7 +655,10 @@ export function klasseZeigen(code, beiAenderung, frischAngelegt = false) {
               ja: 'Löschen', gefahr: true,
             });
             if (!ja) return;
-            await klasseLoeschen(code).catch(() => {});
+            // Der Besitzer wird mitgegeben: Öffnet die Schulverwaltung eine
+            // fremde Klasse, muss sie aus DEREN Liste verschwinden, nicht aus
+            // der eigenen.
+            await klasseLoeschen(code, klasse.besitzer).catch(() => {});
             klasseVergessen(code);
             dialog.schliessen();
             if (beiAenderung) beiAenderung();

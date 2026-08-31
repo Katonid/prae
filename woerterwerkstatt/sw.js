@@ -9,7 +9,7 @@
  * bleibt der alte Zwischenspeicher stehen.
  */
 
-const FASSUNG = 'v11';
+const FASSUNG = 'v12';
 const SPEICHER = `woerterwerkstatt-${FASSUNG}`;
 
 const DATEIEN = [
@@ -33,6 +33,7 @@ const DATEIEN = [
   './icons/icon-512.png',
   './icons/icon-192-maskable.png',
   './icons/icon-512-maskable.png',
+  './js/admin.js',
   './js/app.js',
   './js/util.js',
   './js/ui.js',
