@@ -285,10 +285,13 @@ Namens und lebt weiter.
   (`paket.js`), nicht der Reihe nach: Sonst bestünde Päckchen 1 aus lauter
   Nomen und die Wortart-Stufe wäre darin sinnlos. Die Verteilung ist gerechnet
   und nicht gespeichert — „Päckchen 2" ist auf jedem Gerät dasselbe.
-- **Zwei Sorten Bereiche.** `woerter.js` = 20 Themenbereiche à 30 Wörter (nach
-  Inhalt, von Haus aus sichtbar). `rechtschreibung.js` = 27 Blöcke à 15 Wörter
-  fürs 4. Schuljahr (nach Rechtschreibstelle, von Haus aus AUSGEBLENDET, die
-  Lehrkraft schaltet frei). Sichtbarkeit steht in `store.sichtbareBereiche`;
+- **Drei Sorten Bereiche.** `woerter.js` = 20 Themenbereiche à 30 Wörter (nach
+  Inhalt, von Haus aus sichtbar). `rechtschreibung3.js` = 25 Päckchen à 15
+  Wörter fürs 3. Schuljahr, `rechtschreibung.js` = 27 Blöcke à 15 Wörter fürs
+  4. Schuljahr (beide nach Rechtschreibstelle, von Haus aus AUSGEBLENDET, die
+  Lehrkraft schaltet frei). Zusammen 1380 Wörter. Eine neue Liste wird an vier
+  Stellen eingetragen: `app.js` (`alleBereiche`, `bereicheZeigen`),
+  `bereiche.js` (Wähler) und `sw.js`. Sichtbarkeit steht in `store.sichtbareBereiche`;
   was dort fehlt, richtet sich nach `bereich.gruppe`. Ein ausgeblendeter
   Bereich bleibt über die Adresse erreichbar — ein Auftrag der Woche darf auf
   ihn zeigen. Die Auswahl der Lehrkraft reist über `klasse.bereicheAn` zu den
