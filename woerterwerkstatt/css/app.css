@@ -774,6 +774,40 @@ button { cursor: pointer; }
 .schreibfeld__loesung-marke { font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--gut); font-weight: 700; }
 .schreibfeld__loesung-wort { font-family: var(--schrift-lern); font-size: clamp(22px, 5vw, 32px); }
 
+/* Der Buchstabe, an dem es auseinanderging. Nicht nur eingefärbt: Ein Kind,
+   das Farben schlecht unterscheidet, sieht sonst gar nichts — deshalb
+   zusätzlich unterlegt und unterstrichen. */
+.schreibfeld__stelle {
+  background: var(--akzent-3);
+  color: #422006;
+  border-radius: 5px;
+  padding: 0 2px;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+/* ---------- Wortbank (Geheimschrift) ---------- */
+
+.wortbank {
+  margin-top: 12px;
+  padding: 12px 14px;
+  border: 1px dashed var(--linie);
+  border-radius: var(--rund);
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.wortbank__woerter { display: flex; flex-wrap: wrap; gap: 7px; justify-content: center; }
+
+.wortbank__wort {
+  font-family: var(--schrift-lern);
+  font-size: 16px;
+  padding: 5px 11px;
+  border-radius: 999px;
+  background: var(--akzent-zart);
+  color: var(--akzent);
+  font-weight: 600;
+}
+
 .schreibkette { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
 
 .schreibkette__glied {

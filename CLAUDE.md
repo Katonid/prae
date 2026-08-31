@@ -339,10 +339,33 @@ Namens und lebt weiter.
   `js/wortbild.js`. Fertige Wortbildschriften der Schulbuchverlage gibt es,
   aber sie sind lizenzpflichtig und müssten nachgeladen werden — das bricht
   Offline-Betrieb und Datensparsamkeit. Nicht durch eine Schrift ersetzen.
+- **Zur Geheimschrift gehört die Wortliste des Päckchens** (ab 1.6.0, Ansage
+  des Nutzers 08/2026). Ohne sie prüft die Übung, ob ein Kind fünfzehn Wörter
+  auswendig kann — nicht, ob es das Wortbild gespeichert hat. Im Heft steht
+  die Liste daneben und man ordnet zu; das ist die Aufgabe. Die Liste zeigt
+  nur die Wortkerne (wie das Bild), alphabetisch, und ist wegschaltbar
+  (`einstellungen.geheimWortliste`). Dafür reicht `lauf.js` das ganze Päckchen
+  an `aufbauen` durch — nicht wieder herausnehmen.
 - **Groß und klein wird beim Prüfen verglichen** (`uebungen/schreibfeld.js`).
   Das IST der halbe Rechtschreibstoff der Grundschule. Zwei Versuche, dann
   steht die Lösung da und wird abgeschrieben; für die Wertung zählt nur der
   erste Versuch. Nicht „großzügiger" machen.
+- **Eine Rückmeldung muss den Fehler benennen, den das Kind gemacht hat**
+  (`warumFalsch` in `schreibfeld.js`, ab 1.6.0). „baum" statt „der Baum" war
+  bis dahin „Schon der erste Buchstabe stimmt nicht" — falsch beschrieben und
+  entmutigend: Das Kind konnte das Wort. Vor der Stellenangabe stehen deshalb
+  zwei Fälle mit **Vorrang** vor dem übungseigenen `zusatzhinweis`: nur groß
+  oder klein (mit der Regel dazu) und der fehlende oder falsche Artikel. Wer
+  eine neue Rückmeldung baut, prüft sie an genau diesen Eingaben.
+- **Nach dem zweiten Fehlversuch wird die Stelle markiert**, nicht bloß die
+  Lösung gezeigt. Abschreiben ohne Hinsehen lehrt niemanden etwas. Die Marke
+  ist unterlegt UND unterstrichen — Farbe allein sieht ein farbfehlsichtiges
+  Kind nicht.
+- **Jede Stufe hilft mit dem, was sie weiß**: Der Salat vergleicht den
+  Buchstabenvorrat („ein n kommt oben gar nicht vor"), die Geheimschrift das
+  Häuschen, das Abschreiben zeigt im Blitzmodus das Wort nach einem
+  Fehlversuch zwei Sekunden wieder (sonst wäre der zweite Versuch geraten —
+  die Aufgabe heißt „schreib es ab"). Das zählt wie ein Spicken.
 - **Der QR-Code wird selbst gerechnet** (`js/qr.js`, Byte-Modus, Stufe L/M,
   Fassungen 1–10). Geprüft wird mit `scripts/qr-pruefen.py` gegen OpenCV
   (Rücklesen) und segno (feste Muster) — beides nur zum Prüfen, nicht im Repo.

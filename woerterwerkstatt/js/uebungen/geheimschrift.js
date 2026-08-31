@@ -11,14 +11,24 @@
 // nicht aus Regeln.
 //
 // Damit die Übung lösbar bleibt, steht der Themenbereich als Hilfe darüber und
-// die Zahl der Buchstaben darunter. Wer gar nicht draufkommt, kann sich das
-// Wort einmal vorsagen lassen (dann ist es aber schon eine Diktatübung — und
-// wird als Hilfe gezählt).
+// die Zahl der Buchstaben darunter.
+//
+// Und darunter die WÖRTER DES PÄCKCHENS (ab 1.6.0, Ansage des Nutzers,
+// 08/2026: „Ich glaube nicht, dass die Kinder nach zweimal üben alle Wörter so
+// auswendig können, dass sie erkennen, welches Wort gemeint sein könnte.").
+// Er hat recht, und es ist keine Erleichterung, sondern die Wiederherstellung
+// der Aufgabe: Im Heft steht die Wortliste daneben und man ZUORDNET — ohne sie
+// prüft die Übung das Gedächtnis für fünfzehn Wörter, nicht das Wortbild.
+// Geschrieben werden muss trotzdem, und bei Nomen mit Artikel; die Liste zeigt
+// nur die Wortkerne, wie sie auch im Bild stehen.
+//
+// Wegschalten geht (Knopf), und die Entscheidung bleibt gespeichert: Wer die
+// Wörter dreimal geübt hat, darf es ohne Netz versuchen.
 
 import { h } from '../util.js';
 import { schreibform, wortkern } from '../grammatik.js';
 import { wortbild, buchstabenzahl, musterPasst } from '../wortbild.js';
-import { einstellungen } from '../store.js';
+import { einstellungen, setzeEinstellung } from '../store.js';
 import { schreibfeld } from './schreibfeld.js';
 import * as sfx from '../sfx.js';
 
@@ -31,7 +41,7 @@ export const UEBUNG = {
   farbe: '#eab308',
   beschreibung: 'Nur die Gestalt des Wortes ist zu sehen: groß oder klein, Dach, Mitte oder Keller.',
 
-  aufbauen({ eintrag, bereich, aufFertig }) {
+  aufbauen({ eintrag, bereich, paket = [], aufFertig }) {
     const wort = wortkern(eintrag);
     const loesung = schreibform(eintrag);
     const e = einstellungen();
@@ -60,13 +70,34 @@ export const UEBUNG = {
       h('span', { class: 'wortbild-legende__eintrag' }, h('i', { class: 'wortbild-legende__probe is-mitte' }), 'Mitte: a e i m n o …'),
       h('span', { class: 'wortbild-legende__eintrag' }, h('i', { class: 'wortbild-legende__probe is-unten' }), 'Keller: g j p q y'));
 
+    // Die Wörter des Päckchens, alphabetisch — die Reihenfolge im Päckchen
+    // würde sonst verraten, welches gerade dran ist. Doppelte fallen weg
+    // (ein Wort kann in zwei Formen vorkommen).
+    const bankwoerter = Array.from(new Set(paket.map(wortkern)))
+      .sort((a, b) => a.localeCompare(b, 'de'));
+    const bank = h('div', { class: 'wortbank__woerter' },
+      ...bankwoerter.map((w) => h('span', { class: 'wortbank__wort' }, w)));
+    let bankAn = e.geheimWortliste !== false;
+    const bankkasten = h('div', { class: `wortbank${bankAn ? '' : ' is-versteckt'}` }, bank);
+    const bankknopf = h('button', { class: 'knopf knopf--still knopf--klein', type: 'button' },
+      bankAn ? '📖 Wörter verbergen' : '📖 Wörter zeigen');
+    bankknopf.addEventListener('click', () => {
+      bankAn = !bankAn;
+      bankkasten.classList.toggle('is-versteckt', !bankAn);
+      bankknopf.textContent = bankAn ? '📖 Wörter verbergen' : '📖 Wörter zeigen';
+      setzeEinstellung('geheimWortliste', bankAn);
+      sfx.tipp();
+    });
+
     const wurzel = h('div', { class: 'uebung uebung--geheim' },
       bereich ? h('p', { class: 'uebung__spur' }, `Aus dem Bereich: ${bereich.emoji || ''} ${bereich.name}`) : null,
       bildplatz,
       h('div', { class: 'uebung__werkzeuge' },
         h('span', { class: 'uebung__zaehler' }, `${buchstabenzahl(wort)} Buchstaben`),
-        umschalter),
-      legende);
+        umschalter,
+        bankwoerter.length > 1 ? bankknopf : null),
+      legende,
+      bankwoerter.length > 1 ? bankkasten : null);
 
     const feld = schreibfeld({
       loesung,

@@ -47,6 +47,57 @@ brauchbar. Zwei Darstellungen: **Häuschen** (ein Kasten je Buchstabe, man kann
 sie zählen) und **Umriss** (die Kästen wachsen zu einer Kontur zusammen — die
 schwerere Fassung, wie beim „Wortbilder umranden“ im Heft).
 
+**Die Wörter des Päckchens stehen dabei mit auf dem Blatt** (ab 1.6.0). Das ist
+keine Erleichterung, sondern die Wiederherstellung der Aufgabe: Im Heft steht
+die Wortliste daneben, und man ordnet zu. Ohne sie prüft die Übung, ob ein Kind
+fünfzehn Wörter auswendig kann — nicht, ob es das Wortbild gespeichert hat
+(Ansage des Nutzers, 08/2026: „Ich glaube nicht, dass die Kinder nach zweimal
+üben alle Wörter so auswendig können, dass sie erkennen, welches Wort gemeint
+sein könnte.“). Geschrieben werden muss trotzdem, bei Nomen mit Artikel; die
+Liste zeigt nur die Wortkerne, alphabetisch, ohne zu verraten, welcher gerade
+dran ist. Ein Knopf blendet sie aus, und diese Entscheidung bleibt gespeichert
+— wer die Wörter dreimal geübt hat, darf es ohne Netz versuchen.
+
+## Hilfen, wenn etwas falsch war
+
+Zwei Versuche, dann steht die Lösung da (das bleibt so — wer dreimal raten
+darf, lernt das Raten). Was sich zwischen den beiden Versuchen sagen lässt,
+sagt die App aber so genau wie möglich:
+
+| Was das Kind schrieb | Was die App antwortet |
+|---|---|
+| `der baum` statt `der Baum` | Fast! Jeder Buchstabe sitzt richtig — nur groß und klein noch nicht. Das Wort schreibt man groß. |
+| `Laufen` statt `laufen` | … Das Wort schreibt man klein. |
+| `Baum` statt `der Baum` | Das Wort stimmt! Es fehlt nur der Artikel davor: der, die oder das. |
+| `die Baum` | Das Wort stimmt — nur der Artikel passt noch nicht. |
+| `der Som` statt `der Sommer` | Da fehlt noch etwas — nach „der Som“ geht es weiter (noch 3 Zeichen). |
+| `der Somer` | Bis „der Som“ stimmt es. Danach schau noch einmal hin. |
+
+Die ersten vier Zeilen sind der Grund für diese Tabelle: Sie waren vorher alle
+„Schon der erste Buchstabe stimmt nicht“ — eine Antwort, die das Kind auf die
+Suche nach einem Fehler schickt, den es nicht gemacht hat. Und die
+Großschreibung ist der halbe Rechtschreibstoff der Grundschule; sie verdient
+einen eigenen Satz.
+
+Dazu je Stufe, was die Stufe weiß:
+
+* **Abschreiben (Blitz):** Nach einem Fehlversuch kommt das Wort für zwei
+  Sekunden zurück. Die Aufgabe heißt „schreib es ab“ — abzuschreiben war sonst
+  nichts mehr da. Zählt wie ein Spicken.
+* **Buchstabensalat:** „Der Buchstabe „n“ kommt oben gar nicht vor“, „den hast
+  du öfter benutzt, als er oben vorkommt“, „oben liegen 6 Buchstaben — dein
+  Wort hat 4“. Beim Salat ist der Vorrat die Aufgabe.
+* **Geheimschrift:** ob die Eingabe überhaupt ins Häuschen passt — plus die
+  Wortliste oben.
+* **Wortart:** bei falscher Wortart die Probe („Nomen kann man anfassen …“),
+  danach geht es mit der richtigen weiter.
+* **Diktat:** beliebig oft vorlesen, im Satz vorlesen, und bei stummem Gerät
+  der Merkweg.
+
+Und nach dem **zweiten** Fehlversuch steht die Lösung nicht nur da, sondern mit
+**markierter Stelle** — genau der Buchstabe, der anders war als gedacht.
+Abschreiben ohne Hinsehen lehrt niemanden etwas.
+
 ## Trainingspäckchen
 
 Fünfzehn Lernwörter je Päckchen — die übliche Größe einer Wochenliste, und in
