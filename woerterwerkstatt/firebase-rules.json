@@ -1,7 +1,15 @@
 {
   "rules": {
     "woerterwerkstatt": {
+      "admins": {
+        ".read": "auth != null && (auth.token.email === 'jerosch@dbo.schulen-bochum.nrw' || root.child('woerterwerkstatt/admins').hasChild(auth.uid))",
+        ".write": "auth != null && (auth.token.email === 'jerosch@dbo.schulen-bochum.nrw' || root.child('woerterwerkstatt/admins').hasChild(auth.uid))",
+        "$uid": {
+          ".read": "auth != null && auth.uid === $uid"
+        }
+      },
       "klassen": {
+        ".read": "auth != null && (auth.token.email === 'jerosch@dbo.schulen-bochum.nrw' || root.child('woerterwerkstatt/admins').hasChild(auth.uid))",
         "$code": {
           ".read": true,
           ".write": true
@@ -9,15 +17,17 @@
       },
       "geheim": {
         "$code": {
+          ".write": "(auth != null && auth.uid === root.child('woerterwerkstatt/klassen/' + $code + '/besitzer').val()) || (auth != null && (auth.token.email === 'jerosch@dbo.schulen-bochum.nrw' || root.child('woerterwerkstatt/admins').hasChild(auth.uid)))",
           "$kind": {
             ".read": false,
-            ".write": "!data.exists() || (auth != null && auth.uid === root.child('woerterwerkstatt/klassen/' + $code + '/besitzer').val())",
+            ".write": "!data.exists()",
             ".validate": "newData.isString() && newData.val().length == 64"
           }
         }
       },
       "anmeldung": {
         "$code": {
+          ".write": "(auth != null && auth.uid === root.child('woerterwerkstatt/klassen/' + $code + '/besitzer').val()) || (auth != null && (auth.token.email === 'jerosch@dbo.schulen-bochum.nrw' || root.child('woerterwerkstatt/admins').hasChild(auth.uid)))",
           "$kind": {
             ".read": false,
             ".write": "newData.val() === root.child('woerterwerkstatt/geheim/' + $code + '/' + $kind).val()"
@@ -25,14 +35,18 @@
         }
       },
       "protokoll": {
+        ".read": "auth != null && (auth.token.email === 'jerosch@dbo.schulen-bochum.nrw' || root.child('woerterwerkstatt/admins').hasChild(auth.uid))",
         "$code": {
+          ".read": "(auth != null && auth.uid === root.child('woerterwerkstatt/klassen/' + $code + '/besitzer').val()) || (auth != null && (auth.token.email === 'jerosch@dbo.schulen-bochum.nrw' || root.child('woerterwerkstatt/admins').hasChild(auth.uid)))",
+          ".write": "(auth != null && auth.uid === root.child('woerterwerkstatt/klassen/' + $code + '/besitzer').val()) || (auth != null && (auth.token.email === 'jerosch@dbo.schulen-bochum.nrw' || root.child('woerterwerkstatt/admins').hasChild(auth.uid)))",
           "$kind": {
-            ".read": "auth != null && auth.uid === root.child('woerterwerkstatt/klassen/' + $code + '/besitzer').val()",
             ".write": true
           }
         }
       },
       "users": {
+        ".read": "auth != null && (auth.token.email === 'jerosch@dbo.schulen-bochum.nrw' || root.child('woerterwerkstatt/admins').hasChild(auth.uid))",
+        ".write": "auth != null && (auth.token.email === 'jerosch@dbo.schulen-bochum.nrw' || root.child('woerterwerkstatt/admins').hasChild(auth.uid))",
         "$uid": {
           ".read": "auth != null && auth.uid === $uid",
           ".write": "auth != null && auth.uid === $uid"

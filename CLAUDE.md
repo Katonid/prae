@@ -354,6 +354,36 @@ Namens und lebt weiter.
   SHA-256-Abdruck über Code, Name und PIN, in einem Zweig ohne Leserecht;
   angemeldet wird durch einen Schreibversuch, den die Datenbankregel nur bei
   Übereinstimmung annimmt (`cloud.js`).
+- **Die Schulverwaltung steht in den REGELN, nicht in der App** (`admin.js`, ab
+  1.5.0, Ansage des Nutzers 08/2026: „Ich möchte Admin-Befugnisse haben:
+  Andere Accounts (Lehrer u. Schüler) erstellen, ändern und löschen."). Die App
+  trägt weder eine Adresse noch eine Liste mit sich, sondern PROBIERT
+  (`verwaltungPruefen`): Wer `woerterwerkstatt/users` auflisten darf, ist
+  Verwaltung — nur dann erscheint „🏫 Schule". So braucht eine weitere
+  Verwaltung keine neue Fassung der App. Berechtigt sind die in den Regeln
+  genannte E-Mail (der Einstieg, sonst gäbe es ein Henne-Ei-Problem) und alle
+  unter `admins/<uid>`.
+- **Kinder verwaltet die Schulverwaltung NICHT selbst**, sie öffnet die
+  gewohnte Klassenansicht. Zwei Oberflächen für dieselbe Aufgabe liefen mit
+  Sicherheit auseinander.
+- **Ein fremdes Firebase-Konto zu löschen geht vom Browser aus nicht** — das
+  verlangt das Admin-SDK mit Dienstschlüssel, und der wäre in einer Web-App der
+  Generalschlüssel zur Datenbank, mitgeliefert auf jedem Kindergerät. Die App
+  löscht die DATEN einer Lehrkraft und führt für die Anmeldung in die
+  Firebase-Konsole. Nicht „lösen" wollen. Anlegen (`signUp`) und die Mail zum
+  Zurücksetzen (`sendOobCode`) gehen dagegen; beim Anlegen darf das
+  zurückgegebene Zeichen NICHT gesichert werden, sonst ist die Verwaltung
+  anschließend als die neue Lehrkraft unterwegs.
+- **Ein Kind umbenennen heißt neue PIN.** Der Name ist der Schlüssel und steckt
+  im Abdruck; lesen lässt der sich nirgends. `kindUmbenennen` legt deshalb erst
+  alles Neue an (Abdruck, Kind, Protokoll) und nimmt dann das Alte weg — bricht
+  es dazwischen ab, gibt es ein Kind zu viel, nie eines zu wenig.
+- **Beim Löschen einer Klasse zählt die Reihenfolge.** `geheim/<CODE>` fragt
+  nach `klassen/<CODE>/besitzer`; ist die Klasse zuerst weg, bleiben die
+  PIN-Abdrücke für immer liegen — unlesbar und unlöschbar. Erst `geheim`,
+  `anmeldung`, `protokoll`, dann die Klasse. Bis 1.4.0 blieben alle drei
+  stehen, und „Protokoll der Klasse löschen" scheiterte stillschweigend, weil
+  `.write` nur am `$kind` stand.
 - **Die Datenbankregeln stehen im Wurzelverzeichnis: `firebase-rules.json`**,
   mit den Zweigen BEIDER Web-Apps in einer Datei. Die Firebase-Konsole ersetzt
   beim Veröffentlichen die kompletten Regeln — wer nur einen Zweig einfügt,
@@ -366,7 +396,16 @@ Namens und lebt weiter.
   deren Werte nur `true`/`false`/Text. Ein erklärender Schlüssel oder ein Array
   lässt das Einfügen mit einem Syntaxfehler scheitern — die Dateien trugen
   kurzzeitig `_hinweis`-Schlüssel und wären so nicht einzufügen gewesen. Die
-  Erläuterung steht in `firebase-rules.md` daneben.
+  Erläuterung steht in `firebase-rules.md` daneben. Vor dem Einfügen prüft
+  `woerterwerkstatt/scripts/regeln-pruefen.py` beides — Regelarten und
+  Deckungsgleichheit mit den Einzelfassungen.
+- **Nach jeder Änderung am JavaScript `module-pruefen.mjs` laufen lassen**
+  (`node --experimental-vm-modules woerterwerkstatt/scripts/module-pruefen.mjs`).
+  Die App hat keinen Bauschritt: Eine fehlende Klammer in einer verschachtelten
+  `h(...)`-Reihe und ein Import, den es nicht gibt, sehen beide gleich aus —
+  die Seite bleibt weiß, und die Meldung steht nur in der Entwicklerkonsole.
+  Beides ist beim Bau passiert (`meldung` aus `util.js` statt `ui.js`; eine
+  Klammer zu wenig in `admin.js`).
 - **Ein Einrichtungsfehler muss sich erklären.** Die App meldete den Fall oben
   als „NICHT_ERLAUBT" in einem Streifen, der nach vier Sekunden verschwand —
   das ist keine Meldung, das ist ein Rätsel. Seit 1.0.2 prüft

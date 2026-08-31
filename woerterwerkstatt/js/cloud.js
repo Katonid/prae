@@ -40,6 +40,8 @@ let konfiguration = null;
 let start = null;
 let kontenMoeglich = null; // null = noch unbekannt
 let konto = null;
+let verwaltungsrecht = null; // Schulverwaltung: null = ungeprüft (siehe unten)
+let verwaltungsfrage = null; // die laufende Prüfung, damit nicht zwei losgehen
 const horcher = new Set();
 
 function konfigLaden() {
@@ -207,6 +209,11 @@ async function kontoAnfrage(punkt, koerper) {
 }
 
 function sitzungMerken(daten, name) {
+  // Ein anderes Konto, andere Rechte. Auf einem Lehrerrechner in der Schule
+  // wechseln sie mehrmals am Tag — ein gemerktes „darf verwalten" von vorhin
+  // wäre dann das Recht der Falschen.
+  verwaltungsrecht = null;
+  verwaltungsfrage = null;
   konto = {
     uid: daten.localId,
     email: daten.email,
@@ -234,6 +241,8 @@ export async function anmelden(email, passwort) {
 
 export function abmelden() {
   konto = null;
+  verwaltungsrecht = null;
+  verwaltungsfrage = null;
   kontoSichern();
 }
 
@@ -356,10 +365,26 @@ export async function klasseAendern(code, teile) {
   await schreiben(`${WURZEL}/klassen/${String(code).toUpperCase()}`, teile, 'PATCH');
 }
 
-export async function klasseLoeschen(code) {
+/**
+ * Eine Klasse löschen — samt allem, was an ihrem Code hängt.
+ *
+ * Zwei Dinge, die leicht schiefgehen:
+ *
+ * 1. **Die Reihenfolge.** Ob jemand `geheim/<CODE>` anfassen darf, liest die
+ *    Datenbank an `klassen/<CODE>/besitzer` ab. Ist die Klasse zuerst weg,
+ *    gibt es keinen Besitzer mehr — und die PIN-Abdrücke bleiben für immer
+ *    liegen. Also erst die Nebenzweige, dann die Klasse.
+ * 2. **Wessen Liste.** Löscht die Schulverwaltung, gehört die Klasse einer
+ *    anderen Lehrkraft; deren Eintrag muss weg, nicht der eigene.
+ */
+export async function klasseLoeschen(code, besitzer = null) {
   const gross = String(code).toUpperCase();
+  for (const zweig of ['geheim', 'anmeldung', 'protokoll']) {
+    await anfrage(`${WURZEL}/${zweig}/${gross}`, { method: 'DELETE' }).catch(() => {});
+  }
   await anfrage(`${WURZEL}/klassen/${gross}`, { method: 'DELETE' });
-  if (konto) await anfrage(`${WURZEL}/users/${konto.uid}/klassen/${gross}`, { method: 'DELETE' }).catch(() => {});
+  const wem = besitzer || (konto ? konto.uid : null);
+  if (wem) await anfrage(`${WURZEL}/users/${wem}/klassen/${gross}`, { method: 'DELETE' }).catch(() => {});
 }
 
 export async function klassenDerLehrkraft() {
@@ -524,4 +549,200 @@ export async function fortschrittDerKlasse(code) {
     zuletzt: kind.zuletzt || 0,
     fortschritt: kind.fortschritt || {},
   }));
+}
+
+/* ---------- Schulverwaltung ---------- */
+
+/*
+ * Wer verwalten darf, entscheiden die Datenbankregeln — nicht die App.
+ *
+ * Die App trägt deshalb weder eine Adresse noch eine Liste mit sich herum,
+ * sondern PROBIERT: Das Verzeichnis aller Lehrkräfte darf nur eine Verwaltung
+ * lesen. Geht der Griff durch, ist man Verwaltung. Damit stehen die Rechte an
+ * genau einer Stelle (`firebase-rules.json`), und eine weitere Verwaltung
+ * braucht keine neue Fassung der App.
+ *
+ * `shallow=true` holt dabei nur die Schlüssel — die Antwort bleibt ein paar
+ * Zeilen lang, gleichgültig wie groß das Kollegium ist.
+ *
+ * Der gemerkte Stand (`verwaltungsrecht`, oben bei `konto`) wird bei jedem
+ * Kontowechsel zurückgesetzt — sonst trüge die nächste Anmeldung die Rechte
+ * der vorigen mit sich.
+ */
+export async function verwaltungPruefen(erneut = false) {
+  if (!konto) { verwaltungsrecht = false; return false; }
+  if (verwaltungsrecht !== null && !erneut) return verwaltungsrecht;
+  // Die Kopfleiste wird beim Start zweimal gezeichnet (einmal beim Aufbau,
+  // einmal, sobald das Konto steht). Ohne dieses Versprechen ginge die Frage
+  // zweimal ins Netz — und bei einer Lehrkraft ohne Recht zweimal ins Leere.
+  if (verwaltungsfrage && !erneut) return verwaltungsfrage;
+  verwaltungsfrage = (async () => {
+    try {
+      await anfrage(`${WURZEL}/users`, {}, { shallow: 'true' }, 10000);
+      verwaltungsrecht = true;
+    } catch (fehler) {
+      // Nur ein klares Nein wird gemerkt. Bei Netzärger bleibt die Frage
+      // offen, sonst verschwände der Zugang nach einem Aussetzer bis zum
+      // Neuladen.
+      if (String(fehler.message) === 'NICHT_ERLAUBT') verwaltungsrecht = false;
+      return false;
+    } finally {
+      verwaltungsfrage = null;
+    }
+    return true;
+  })();
+  return verwaltungsfrage;
+}
+
+/** Die Adresse der Firebase-Konsole — für das, was von hier aus nicht geht. */
+export function konsolenadresse(bereich = 'authentication/users') {
+  const kennung = konfiguration && konfiguration.projectId;
+  return kennung ? `https://console.firebase.google.com/project/${kennung}/${bereich}` : null;
+}
+
+/**
+ * Alle Lehrkräfte mit ihren Klassen.
+ *
+ * Gelesen wird der ganze Zweig `users` — dort hängen neben dem Profil auch
+ * die eigenen Bereiche der Lehrkräfte. Bei einem Kollegium sind das ein paar
+ * Dutzend Kilobyte; für eine Ansicht, die man selten öffnet, ist eine Abfrage
+ * besser als vierzig.
+ */
+export async function alleLehrkraefte() {
+  const gelesen = await anfrage(`${WURZEL}/users`, {}, {}, 30000);
+  if (!gelesen) return [];
+  const verwaltungen = await anfrage(`${WURZEL}/admins`).catch(() => null);
+  return Object.entries(gelesen).map(([uid, eintrag]) => {
+    const profil = (eintrag && eintrag.profil) || {};
+    const klassen = Object.entries((eintrag && eintrag.klassen) || {})
+      .map(([code, k]) => Object.assign({ code }, k));
+    return {
+      uid,
+      email: profil.email || '',
+      name: profil.name || '',
+      angelegtAm: profil.angelegtAm || 0,
+      klassen,
+      bereiche: Object.keys((eintrag && eintrag.bereiche) || {}).length,
+      verwaltung: !!(verwaltungen && verwaltungen[uid]),
+      ichSelbst: !!konto && konto.uid === uid,
+    };
+  }).sort((a, b) => (a.name || a.email || a.uid).localeCompare(b.name || b.email || b.uid, 'de'));
+}
+
+/**
+ * Klassencodes, zu denen es keine Lehrkraft (mehr) gibt.
+ *
+ * Sie entstehen, wenn ein Konto in der Firebase-Konsole verschwindet, ohne
+ * dass die Klassen mitgingen. Über die Liste der Lehrkräfte wären sie nicht
+ * zu finden — und niemand käme je wieder an sie heran.
+ */
+export async function verwaisteKlassen(lehrkraefte) {
+  const alle = await anfrage(`${WURZEL}/klassen`, {}, { shallow: 'true' }, 20000);
+  if (!alle) return [];
+  const bekannt = new Set(lehrkraefte.flatMap((l) => l.klassen.map((k) => k.code)));
+  return Object.keys(alle).filter((code) => !bekannt.has(code) && code !== '__pruefung');
+}
+
+/**
+ * Eine Lehrkraft anlegen, ohne sich dabei selbst abzumelden.
+ *
+ * `signUp` gibt ein Zeichen für das NEUE Konto zurück. Würde es wie bei der
+ * eigenen Anmeldung gesichert, wäre die Verwaltung anschließend als die eben
+ * angelegte Lehrkraft unterwegs — und hätte keine Rechte mehr. Es wird
+ * deshalb nur für den Anzeigenamen benutzt und dann fallen gelassen; das
+ * Profil schreibt die Verwaltung mit ihrem eigenen Zeichen.
+ */
+export async function lehrkraftAnlegen(email, geheimwort, name) {
+  if (!konto) throw new Error('Dafür braucht es ein angemeldetes Konto.');
+  const daten = await kontoAnfrage('signUp', { email, password: geheimwort });
+  if (name) await kontoAnfrage('update', { idToken: daten.idToken, displayName: name }).catch(() => {});
+  await schreiben(`${WURZEL}/users/${daten.localId}/profil`, {
+    email,
+    name: name || '',
+    angelegtAm: Date.now(),
+    angelegtVon: konto.uid,
+  });
+  return { uid: daten.localId, email, name: name || '' };
+}
+
+/** Den angezeigten Namen einer Lehrkraft ändern. */
+export async function lehrkraftUmbenennen(uid, name) {
+  await schreiben(`${WURZEL}/users/${uid}/profil/name`, String(name).trim().slice(0, 60));
+}
+
+/**
+ * Eine Mail zum Zurücksetzen des Kennworts schicken.
+ *
+ * Das ist der einzige Weg zu einem fremden Zugang: Es zu SETZEN verlangt das
+ * Zeichen des betroffenen Kontos, und das hat niemand außer der Lehrkraft
+ * selbst. Der Umweg über die Mail ist dabei kein Notbehelf — ein Kennwort,
+ * das die Verwaltung kennt, ist keines.
+ */
+export async function zugangsmailSenden(email) {
+  await kontoAnfrage('sendOobCode', { requestType: 'PASSWORD_RESET', email });
+}
+
+/** Verwaltungsrecht geben oder nehmen. Steht in der Datenbank, nicht in der App. */
+export async function verwaltungsrechtSetzen(uid, an, name = '') {
+  if (an) await schreiben(`${WURZEL}/admins/${uid}`, { name, seit: Date.now() });
+  else await anfrage(`${WURZEL}/admins/${uid}`, { method: 'DELETE' });
+}
+
+/**
+ * Eine Lehrkraft samt allem, was ihr gehört, aus der Datenbank nehmen.
+ *
+ * Was hier NICHT verschwindet, ist die Anmeldung selbst: Ein fremdes
+ * Firebase-Konto entfernt nur das Admin-SDK auf einem Server oder ein Mensch
+ * in der Firebase-Konsole. Der Dienstschlüssel dafür wäre in einer Web-App
+ * der Generalschlüssel zur Datenbank, mitgeliefert auf jedem Kindergerät —
+ * schlimmer als das Problem. Diese Funktion räumt deshalb die Daten weg, und
+ * die Oberfläche schickt danach in die Konsole.
+ */
+export async function lehrkraftLoeschen(uid, klassen = []) {
+  for (const code of klassen) await klasseLoeschen(code, uid);
+  await verwaltungsrechtSetzen(uid, false).catch(() => {});
+  await anfrage(`${WURZEL}/users/${uid}`, { method: 'DELETE' });
+}
+
+/**
+ * Ein Kind umbenennen.
+ *
+ * Der Name IST der Schlüssel, und er steckt zugleich im PIN-Abdruck (siehe
+ * `abdruck`). Ein Umbenennen ohne neue PIN gibt es deshalb nicht — der alte
+ * Abdruck passt zum neuen Namen nicht mehr, und lesen lässt er sich nirgends.
+ * Mitgenommen werden Sterne und Wortprotokoll: Sie hängen am Kind, nicht am
+ * Namen, und wären sonst bei einem Tippfehler im Vornamen verloren.
+ */
+export async function kindUmbenennen(code, altSchluessel, neuerName, neuePin) {
+  const gross = String(code).toUpperCase();
+  const neu = namensschluessel(neuerName);
+  const angezeigt = String(neuerName).trim().slice(0, 30);
+  if (!neu) throw new Error('NAME_LEER');
+  if (!/^\d{4}$/.test(String(neuePin))) throw new Error('PIN_FORMAT');
+  // Nur anders geschrieben (Anna → anna): Dann bleibt der Schlüssel, und mit
+  // ihm die PIN. Ein neues Geheimnis wäre hier eine Schikane.
+  if (neu === altSchluessel) {
+    await schreiben(`${WURZEL}/klassen/${gross}/kinder/${neu}/name`, angezeigt);
+    return { schluessel: neu, pinNeu: false };
+  }
+  const belegt = await anfrage(`${WURZEL}/klassen/${gross}/kinder/${neu}/angelegtAm`).catch(() => null);
+  if (belegt) throw new Error('NAME_VERGEBEN');
+  const alt = await anfrage(`${WURZEL}/klassen/${gross}/kinder/${altSchluessel}`);
+  if (!alt) throw new Error('KIND_UNBEKANNT');
+
+  // Erst das Neue vollständig anlegen, dann das Alte wegnehmen: Bricht es
+  // dazwischen ab, gibt es ein Kind zu viel — nie eines zu wenig.
+  await schreiben(`${WURZEL}/geheim/${gross}/${neu}`, await abdruck(gross, neu, neuePin));
+  await schreiben(`${WURZEL}/klassen/${gross}/kinder/${neu}`, Object.assign({}, alt, {
+    name: angezeigt,
+    umbenanntAm: Date.now(),
+  }));
+  const protokoll = await anfrage(`${WURZEL}/protokoll/${gross}/${altSchluessel}`).catch(() => null);
+  if (protokoll) {
+    await schreiben(`${WURZEL}/protokoll/${gross}/${neu}`,
+      Object.assign({}, protokoll, { name: angezeigt })).catch(() => {});
+    await anfrage(`${WURZEL}/protokoll/${gross}/${altSchluessel}`, { method: 'DELETE' }).catch(() => {});
+  }
+  await kindEntfernen(gross, altSchluessel);
+  return { schluessel: neu, pinNeu: true };
 }
