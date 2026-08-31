@@ -23,7 +23,7 @@ es durch fünf Stufen, die immer weniger zeigen und immer mehr verlangen:
 | 5 | **Diktat** | nichts | nach Gehör schreiben |
 
 Stufe 4 fragt je nach Wortart andere Formen ab: Nomen in Ein- und Mehrzahl
-(mit Artikel), Verben in Grundform und 2. Person Einzahl, Adjektive in allen
+(mit Artikel), Verben in Grundform und du-Form, Adjektive in allen
 drei Steigerungsstufen. Wörter, die nichts davon sind („heute“, „zusammen“),
 gibt es auch — sonst wäre die Frage nach der Wortart keine.
 
@@ -90,7 +90,10 @@ Dazu je Stufe, was die Stufe weiß:
 * **Geheimschrift:** ob die Eingabe überhaupt ins Häuschen passt — plus die
   Wortliste oben.
 * **Wortart:** bei falscher Wortart die Probe („Nomen kann man anfassen …“),
-  danach geht es mit der richtigen weiter.
+  danach geht es mit der richtigen weiter. Gefragt wird nach der **du-Form**,
+  nicht nach der „2. Person Einzahl“ — den Fachbegriff kennt im 2. Schuljahr
+  niemand (Ansage des Nutzers, 08/2026). Er steht im Hinweis dahinter, damit
+  er nicht verloren geht: Im 4. Schuljahr ist er Stoff.
 * **Diktat:** beliebig oft vorlesen, im Satz vorlesen, und bei stummem Gerät
   der Merkweg.
 
@@ -108,6 +111,20 @@ nicht gespeichert — „Päckchen 2“ ist deshalb auf jedem Gerät dasselbe P�
 
 Sterne: drei, wenn jedes Wort gleich beim ersten Versuch saß; zwei ab 80 %,
 einer ab 60 %. Gemerkt wird der **beste** Durchgang.
+
+**Ein abgebrochener Durchgang geht weiter** (ab 1.7.0). Im Unterricht kommt ein
+Kind selten bis zum Ende eines Päckchens — es klingelt, der Bus fährt. Gemerkt
+wird deshalb der Stand: welche Wörter noch offen sind, welche schon saßen, wie
+lange gearbeitet wurde. Beim nächsten Öffnen derselben Stufe geht es dort
+weiter; die Startseite zeigt dafür eine Karte „Angefangen“, die Stufenkachel
+eine Marke `▸ 5 / 15`. Wer lieber neu anfängt, tippt im Durchgang auf
+„⟲ Von vorn“.
+
+Aufgehoben werden bis zu acht solcher Stände. Sie gehören zum Gerät und reisen
+**nicht** in die Wolke — in der Klassenansicht zählen Sterne, kein halber
+Durchgang. Hat sich das Päckchen zwischenzeitlich geändert (eine Lehrkraft hat
+ihren Bereich bearbeitet), wird der Stand verworfen und von vorn begonnen: ein
+verlorener halber Durchgang ist ärgerlich, ein falscher Zähler ist schlimmer.
 
 **Nicht jeder Bereich übt alle fünf.** Ein Bereich darf über das Feld `stufen`
 weniger verlangen — die Blöcke der 1. Klasse lassen die Wortart-Stufe weg, denn
@@ -184,7 +201,7 @@ Format je Wort — ein Textstück mit senkrechten Strichen:
 
 ```
 Tornister|n|der|Tornister         Nomen:    Wort | n | Artikel | Mehrzahl („-“ = keine)
-laufen|v|läufst                   Verb:     Wort | v | 2. Person Einzahl
+laufen|v|läufst                   Verb:     Wort | v | du-Form (2. Person Einzahl)
 schnell|a|schneller|am schnellsten Adjektiv: Wort | a | 1. Steigerung | 2. Steigerung
 heute|x                           sonst:    Wort | x
 ```
