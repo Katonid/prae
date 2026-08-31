@@ -252,6 +252,51 @@ export async function bereicheHolen() {
   return gelesen ? Object.values(gelesen) : [];
 }
 
+/**
+ * Was ist da schiefgegangen — in einem Satz, den man lesen kann.
+ *
+ * Der wichtigste Fall ist `NICHT_ERLAUBT`: Die Datenbank weist alles ab, weil
+ * die Regeln für den Zweig `woerterwerkstatt` in der Firebase-Konsole fehlen.
+ * Genau das ist im August 2026 passiert — es ließ sich keine Klasse anlegen,
+ * und die App meldete dazu „NICHT_ERLAUBT". Das ist keine Meldung, das ist
+ * ein Rätsel. Wer den Fehler sieht, muss erfahren, was zu tun ist.
+ */
+export function klartext(fehler) {
+  const meldung = String((fehler && fehler.message) || fehler || '');
+  if (meldung === 'NICHT_ERLAUBT') {
+    return 'Die Datenbank lässt das nicht zu. Sehr wahrscheinlich fehlen ihre Regeln: '
+      + 'In der Firebase-Konsole muss unter „Realtime Database → Regeln" der Inhalt von '
+      + 'firebase-rules.json stehen (beide Zweige, klassenraum UND woerterwerkstatt). '
+      + 'Ohne sie ist der Zweig dieser App gesperrt.';
+  }
+  if (meldung === 'KEINE_VERBINDUNG') return 'Keine Verbindung zur Datenbank. Ist das Gerät im Netz?';
+  if (meldung === 'ZEITUEBERSCHREITUNG') return 'Die Datenbank hat zu lange nicht geantwortet. Noch einmal versuchen?';
+  if (meldung === 'KONTEN_NICHT_AKTIV') {
+    return 'In diesem Firebase-Projekt sind Konten nicht freigeschaltet '
+      + '(Konsole → Authentication → Anmeldemethode → E-Mail/Passwort).';
+  }
+  return meldung || 'Unbekannter Fehler';
+}
+
+/**
+ * Steht der Zweig dieser App in der Datenbank offen?
+ *
+ * Ein einzelner Lesezugriff auf einen Pfad, den es nicht gibt. Sind die Regeln
+ * eingespielt, kommt `null` zurück; fehlen sie, weist die Datenbank ab. So
+ * lässt sich der häufigste Einrichtungsfehler zeigen, BEVOR jemand eine halbe
+ * Stunde lang rätselt, warum ein Knopf nichts tut.
+ *
+ * Rückgabe: 'ok' | 'regeln-fehlen' | 'kein-netz'
+ */
+export async function regelnPruefen() {
+  try {
+    await anfrage(`${WURZEL}/klassen/__pruefung`, {}, {}, 8000);
+    return 'ok';
+  } catch (fehler) {
+    return String(fehler.message) === 'NICHT_ERLAUBT' ? 'regeln-fehlen' : 'kein-netz';
+  }
+}
+
 /* ---------- Klassen ---------- */
 
 /** Aus PIN, Klassencode und Namen einen Abdruck rechnen (SHA-256, als Hex). */
@@ -279,8 +324,12 @@ export async function klasseAnlegen({ name, bereiche = [], auftrag = null }) {
   if (!konto) throw new Error('Zum Anlegen einer Klasse braucht es ein Konto.');
   let code = beitrittscode();
   // Im äußerst unwahrscheinlichen Fall einer Doppelvergabe: neu würfeln.
+  //
+  // Der Fehler wird hier NICHT mehr verschluckt. Vorher stand da ein
+  // `.catch(() => null)`, und damit lief eine gesperrte Datenbank stumm durch
+  // bis zum Schreibversuch — der Prüfblick, der den Grund kennt, warf ihn weg.
   for (let versuch = 0; versuch < 5; versuch += 1) {
-    const belegt = await anfrage(`${WURZEL}/klassen/${code}/angelegtAm`).catch(() => null);
+    const belegt = await anfrage(`${WURZEL}/klassen/${code}/angelegtAm`);
     if (!belegt) break;
     code = beitrittscode();
   }
