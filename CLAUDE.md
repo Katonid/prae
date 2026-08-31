@@ -440,6 +440,36 @@ Namens und lebt weiter.
   Service Worker lädt keine Module. Beide bei jeder neuen Fassung hochsetzen,
   sonst bleibt der alte Zwischenspeicher stehen.
 
+## Projekt Terminkonverter (Web-App, Excel → iCal)
+
+- Code: `terminkonverter/` — statische Web-App ohne Bauschritt (ES-Module,
+  kein Framework, keine fremde Bibliothek), wird vom Pages-Arbeitsablauf mit
+  ausgeliefert: https://katonid.github.io/prae/terminkonverter/
+  Nimmt eine Tabelle mit Datum und Beschreibung und gibt eine `.ics` aus.
+  Ausführlich: `terminkonverter/README.md`.
+- **Der xlsx-Leser ist selbst geschrieben** (`js/zip.js`, `js/xlsx.js`).
+  Entpackt wird mit `DecompressionStream('deflate-raw')`, wo der Browser es
+  mitbringt, sonst mit dem eigenen Inflate daneben — den Rückfall nicht
+  entfernen, sonst bleibt die App auf älteren Geräten stumm. Keine
+  Bibliothek nachladen: Das bräche Offlinebetrieb und Datensparsamkeit.
+- **Ob eine Zahl ein Datum meint, steht in .xlsx am ZAHLENFORMAT, nicht am
+  Wert.** Deshalb wird `styles.xml` mitgelesen (`DATUM_FORMATE` plus eigene
+  Formate mit d/m/y). Ohne das ist der 31.08.2026 einfach 46265.
+- **Die .ics wird nach OKTETTEN gefaltet, nicht nach Zeichen** (`falte` in
+  `js/ics.js`). Ein Umlaut zählt zwei; eine mitten im Zeichen geteilte Zeile
+  macht aus „für" Buchstabensalat.
+- **Zeiten stehen ohne Zeitzone** („schwebend"). Eine mitgelieferte
+  VTIMEZONE brächte hier nichts und müsste bei jeder Zeitumstellung stimmen.
+  Ganztägige Termine enden am ERSTEN Tag danach (so will es RFC 5545).
+- **Gesucht wird die Datumszelle, nicht die erste Spalte.** Welche Spalte
+  links steht, ist dadurch gleich. Zeilen ohne erkennbares Datum werden
+  nicht still verschluckt, sondern als „Übergangene Zeilen" angezeigt — eine
+  stillschweigend fehlende Zeile im Kalender fällt erst auf, wenn der Termin
+  vorbei ist.
+- Eine Uhrzeit in der Beschreibung wird nur mit Doppelpunkt oder dem Wort
+  „Uhr" übernommen. „3.45" in einem Text ist meist eine Zahl und keine
+  Viertel vor vier.
+
 ## Projekt Klassenraum (Web-App)
 
 - Code: `klassenraum/` — statische Web-App ohne Build-Schritt (ES-Module,
