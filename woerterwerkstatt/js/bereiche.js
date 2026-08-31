@@ -28,6 +28,7 @@ import { angemeldet, bereicheHochladen, bereicheHolen } from './cloud.js';
 import { PAKETGROESSE } from './paket.js';
 import { BEREICHE } from './woerter.js';
 import { RECHTSCHREIBUNG } from './rechtschreibung.js';
+import { RECHTSCHREIBUNG2 } from './rechtschreibung2.js';
 import { RECHTSCHREIBUNG3 } from './rechtschreibung3.js';
 
 const EMOJIS = ['📗', '🍎', '🌳', '🚂', '⭐', '🐬', '🎵', '🧁', '🏰', '🦕', '🌍', '🎨', '⚽', '🚀', '🐝', '🎪'];
@@ -421,6 +422,8 @@ export function bereichswahl({ titel = 'Bereiche wählen', hinweis = '', beiWahl
       hinweis ? h('p', { class: 'blatt__text' }, hinweis) : null,
       gruppe('Themenbereiche', BEREICHE,
         'Grundwortschatz nach Inhalt — Schule, Tiere, Wetter. Von Haus aus alle an.'),
+      gruppe('Rechtschreibung — 2. Schuljahr', RECHTSCHREIBUNG2,
+        'Achtundzwanzig Blöcke zu je zehn Wörtern. Von Haus aus alle aus.'),
       gruppe('Rechtschreibung — 3. Schuljahr', RECHTSCHREIBUNG3,
         'Fünfundzwanzig Päckchen, nach Rechtschreibstelle sortiert: alle Wörter eines '
         + 'Päckchens tragen dasselbe Problem. Von Haus aus alle aus.'),
