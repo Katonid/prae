@@ -65,7 +65,10 @@ export const UEBUNG = {
     });
 
     const legende = h('div', { class: 'wortbild-legende' },
-      h('span', { class: 'wortbild-legende__eintrag' }, h('i', { class: 'wortbild-legende__probe is-gross' }), 'großer Buchstabe'),
+      // „dicker Strich links" ist das Kennzeichen, auf das die Klasse trainiert
+      // ist — es unterscheidet den großen Buchstaben von b, d, f, h, k, l, t
+      // und ß, die auch ins Dach ragen. Die Legende muss es benennen.
+      h('span', { class: 'wortbild-legende__eintrag' }, h('i', { class: 'wortbild-legende__probe is-gross' }), 'groß: dicker Strich links'),
       h('span', { class: 'wortbild-legende__eintrag' }, h('i', { class: 'wortbild-legende__probe is-oben' }), 'Dach: b d f h k l t'),
       h('span', { class: 'wortbild-legende__eintrag' }, h('i', { class: 'wortbild-legende__probe is-mitte' }), 'Mitte: a e i m n o …'),
       h('span', { class: 'wortbild-legende__eintrag' }, h('i', { class: 'wortbild-legende__probe is-unten' }), 'Keller: g j p q y'));

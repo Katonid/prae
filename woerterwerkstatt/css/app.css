@@ -682,9 +682,12 @@ button { cursor: pointer; }
 .wortbild__linie { stroke: rgba(15, 23, 42, 0.16); stroke-width: 0.5; }
 .wortbild__linie--mitte-oben, .wortbild__linie--mitte-unten { stroke-dasharray: 2 2; }
 .wortbild__kasten { fill: rgba(37, 99, 235, 0.2); stroke: #2563eb; stroke-width: 0.9; }
-.wortbild__kasten.is-gross { fill: #2563eb; stroke: #1d4ed8; }
+/* Große Buchstaben: kein voll gefüllter Kasten mehr. Sie tragen jetzt den
+   dicken Strich links, so wie es die Kinder an der Tafel lernen — und der
+   wäre auf einer vollen Fläche nicht zu sehen. Die größere Höhe bleibt. */
+.wortbild__kasten.is-gross { fill: rgba(37, 99, 235, 0.28); stroke: #1d4ed8; }
+.wortbild__grossrand { stroke: #1d4ed8; stroke-width: 2.8; stroke-linecap: round; fill: none; }
 .wortbild__kontur { fill: rgba(37, 99, 235, 0.18); stroke: #2563eb; stroke-width: 1.1; stroke-linejoin: round; }
-.wortbild__gross-balken { fill: #1d4ed8; }
 .wortbild__punkt { fill: #1d4ed8; }
 .wortbild__stockwerk { font-size: 4px; fill: rgba(15, 23, 42, 0.4); font-family: var(--schrift-ui); }
 
@@ -708,7 +711,8 @@ button { cursor: pointer; }
   background: rgba(37, 99, 235, 0.22);
 }
 
-.wortbild-legende__probe.is-gross { height: 18px; background: #2563eb; }
+/* Die Legende zeigt dasselbe Zeichen wie das Bild: höher UND links dick. */
+.wortbild-legende__probe.is-gross { height: 18px; border-left-width: 3px; }
 .wortbild-legende__probe.is-oben { height: 16px; }
 .wortbild-legende__probe.is-mitte { height: 10px; }
 .wortbild-legende__probe.is-unten { height: 15px; margin-top: 5px; }
@@ -1445,9 +1449,10 @@ body.is-uebend .kopf { opacity: 0.55; }
   .vorlage--wortbild { background: rgba(56, 189, 248, 0.1); }
   .wortbild__linie { stroke: rgba(255, 255, 255, 0.22); }
   .wortbild__kasten { fill: rgba(56, 189, 248, 0.28); stroke: #7dd3fc; }
-  .wortbild__kasten.is-gross { fill: #38bdf8; stroke: #bae6fd; }
+  .wortbild__kasten.is-gross { fill: rgba(56, 189, 248, 0.38); stroke: #bae6fd; }
+  .wortbild__grossrand { stroke: #bae6fd; }
   .wortbild__kontur { fill: rgba(56, 189, 248, 0.24); stroke: #7dd3fc; }
-  .wortbild__gross-balken, .wortbild__punkt { fill: #bae6fd; }
+  .wortbild__punkt { fill: #bae6fd; }
   .wortbild__stockwerk { fill: rgba(255, 255, 255, 0.45); }
   .wortarten__knopf { background: rgba(30, 41, 59, 0.85); }
   .balken, .sterne__stern { background-color: rgba(255, 255, 255, 0.12); }

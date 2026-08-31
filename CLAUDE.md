@@ -363,6 +363,23 @@ Namens und lebt weiter.
   nur die Wortkerne (wie das Bild), alphabetisch, und ist wegschaltbar
   (`einstellungen.geheimWortliste`). Dafür reicht `lauf.js` das ganze Päckchen
   an `aufbauen` durch — nicht wieder herausnehmen.
+- **Ein Großbuchstabe hat im Wortbild links einen dicken Strich** (ab 1.8.0,
+  Ansage des Nutzers, 08/2026: „Die Kinder in meiner Klasse sind darauf
+  trainiert."). Das ist das einzige verlässliche Kennzeichen — b, d, f, h, k,
+  l, t und ß ragen ebenfalls ins Dachgeschoss. Die zusätzliche Höhe bleibt
+  daneben (ausdrücklich erlaubt), der gefüllte Kasten nicht: Auf einer vollen
+  Fläche wäre der Strich nicht zu sehen. `grossrand()` in `wortbild.js`,
+  gezeichnet in BEIDEN Darstellungen.
+- **Was die Sprachausgabe hergibt: Text, Stimme, Tempo, Tonhöhe — mehr nicht.**
+  Eine Betonung einzelner Silben verlangt SSML, und das nimmt keine
+  Browser-Sprachausgabe entgegen (gefragt 08/2026). Nicht versprechen. Was
+  hilft: langsameres Tempo (Vorgabe 0,7), Tonhöhe 1,0 statt 1,05, ein Punkt
+  am Ende (ein nacktes Wort wird als Bruchstück genuschelt) und die WAHL der
+  Stimme — welche deutschen Stimmen ein Gerät mitbringt und wie deutlich die
+  sind, kann die App nicht wissen, also entscheidet die Lehrkraft
+  (`einstellungen.diktatStimme`). Silben NICHT selbst trennen: Die deutsche
+  Silbentrennung ist nicht ableitbar, und eine falsche lehrt das Falsche —
+  dieselbe Regel wie bei den Wortformen.
 - **Groß und klein wird beim Prüfen verglichen** (`uebungen/schreibfeld.js`).
   Das IST der halbe Rechtschreibstoff der Grundschule. Zwei Versuche, dann
   steht die Lösung da und wird abgeschrieben; für die Wertung zählt nur der

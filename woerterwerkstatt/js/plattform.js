@@ -50,8 +50,31 @@ export function kannSprechen() {
   return true;
 }
 
-function deutscheStimme() {
+/** Alle deutschen Stimmen dieses Geräts — für die Auswahl in den Einstellungen. */
+export function deutscheStimmen() {
   const liste = stimmen.length ? stimmen : stimmenLaden();
+  return liste.filter((v) => String(v.lang).toLowerCase().startsWith('de'))
+    .map((v) => ({ name: v.name, lang: v.lang, oertlich: !!v.localService }));
+}
+
+/**
+ * Welche Stimme spricht?
+ *
+ * Welche deutschen Stimmen ein Gerät mitbringt, ist von Gerät zu Gerät völlig
+ * verschieden — von der guten iOS-Stimme bis zur blechernen Notlösung eines
+ * Linux-Browsers. Welche davon ein Kind versteht, kann die App nicht wissen;
+ * deshalb lässt sie die Lehrkraft wählen (Einstellungen → Sprechstimme) und
+ * merkt sich den Namen. Ohne Wahl gilt die alte Reihenfolge.
+ *
+ * `localService` zuerst: Eine Stimme aus dem Netz schweigt ohne Netz, und die
+ * App verspricht, ohne Netz zu laufen.
+ */
+function deutscheStimme(wunsch) {
+  const liste = stimmen.length ? stimmen : stimmenLaden();
+  if (wunsch) {
+    const gewaehlt = liste.find((v) => v.name === wunsch);
+    if (gewaehlt) return gewaehlt;
+  }
   return liste.find((v) => v.lang === 'de-DE' && v.localService)
     || liste.find((v) => v.lang === 'de-DE')
     || liste.find((v) => String(v.lang).startsWith('de'))
@@ -63,7 +86,7 @@ function deutscheStimme() {
  * ehrlich „Dieses Gerät kann nicht vorlesen“ sagen zu können, statt das Kind
  * auf eine Stille warten zu lassen.
  */
-export function sprich(text, { tempo = 0.85 } = {}) {
+export function sprich(text, { tempo = 0.7, stimme: wunsch = '' } = {}) {
   const b = bruecke();
   if (b && typeof b.sprich === 'function') {
     try { b.sprich(String(text), tempo); return true; } catch (_) { /* weiter zum Web-Weg */ }
@@ -71,11 +94,18 @@ export function sprich(text, { tempo = 0.85 } = {}) {
   if (!window.speechSynthesis) return false;
   try {
     window.speechSynthesis.cancel();
-    const spruch = new window.SpeechSynthesisUtterance(String(text));
+    // Mit Punkt am Ende. Ein nacktes Wort behandeln die meisten Stimmen als
+    // abgerissenes Bruchstück und nuscheln die letzte Silbe weg; mit
+    // Satzzeichen sprechen sie es zu Ende und lassen die Stimme fallen — so,
+    // wie eine Lehrkraft ein Diktatwort spricht.
+    const roh = String(text).trim();
+    const spruch = new window.SpeechSynthesisUtterance(/[.!?]$/.test(roh) ? roh : `${roh}.`);
     spruch.lang = 'de-DE';
     spruch.rate = tempo;
-    spruch.pitch = 1.05;
-    const stimme = deutscheStimme();
+    // Neutrale Tonhöhe. Die früheren 1.05 klangen dünner und undeutlicher —
+    // eine angehobene Stimme verliert gerade in den Vokalen an Fülle.
+    spruch.pitch = 1;
+    const stimme = deutscheStimme(wunsch);
     if (stimme) spruch.voice = stimme;
     window.speechSynthesis.speak(spruch);
     return true;

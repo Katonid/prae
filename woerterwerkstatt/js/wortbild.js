@@ -134,6 +134,31 @@ function konturPfad(gruppe) {
   return teile.join(' ');
 }
 
+/**
+ * Der dicke Strich links — das Zeichen für einen Großbuchstaben.
+ *
+ * So lernen es die Kinder an der Tafel (Ansage des Nutzers, 08/2026): Der
+ * Kasten eines großen Buchstabens hat links eine kräftigere Kante als oben,
+ * rechts und unten. Das ist der Unterschied zu einem kleinen Buchstaben, der
+ * ebenfalls bis ins Dachgeschoss ragt — b, d, f, h, k, l, t und ß.
+ *
+ * Die zusätzliche Höhe bleibt daneben bestehen; zwei Kennzeichen sind hier
+ * keine Verschwendung, sondern der Unterschied zwischen „gesehen" und
+ * „übersehen", wenn das Bild aus zehn Metern vom Beamer gelesen wird.
+ *
+ * Oben und unten ein wenig eingerückt, damit der Strich nicht über die
+ * abgerundeten Ecken hinausragt.
+ */
+function grossrand(kasten) {
+  return s('line', {
+    x1: kasten.x + 1.2,
+    x2: kasten.x + 1.2,
+    y1: kasten.oben + 1.4,
+    y2: kasten.unten - 1.4,
+    class: 'wortbild__grossrand',
+  });
+}
+
 function punkteFuer(kasten) {
   const mitte = (kasten.x + kasten.x2) / 2;
   const y = MITTE_OBEN - 5;
@@ -193,14 +218,12 @@ export function wortbild(wort, { modus = 'haus', linien = true, beschriftet = fa
       laufend.push(kasten);
     }
     abschliessen();
-    // Große Buchstaben bekommen zusätzlich einen Balken auf dem Dach: In einer
-    // durchgehenden Kontur wäre ein großes B von einem kleinen b sonst nur an
-    // drei Zeichenbreiten Höhenunterschied zu erkennen.
+    // Große Buchstaben: der dicke Strich links. In einer durchgehenden Kontur
+    // wäre ein großes B von einem kleinen b sonst nur an drei Zeichenbreiten
+    // Höhenunterschied zu erkennen.
     for (const kasten of liste) {
       if (kasten.luecke || !kasten.gross) continue;
-      gruppe.appendChild(s('rect', {
-        x: kasten.x + 1, y: DACH_OBEN - 4.5, width: BREITE - 2, height: 2.6, rx: 1.3, class: 'wortbild__gross-balken',
-      }));
+      gruppe.appendChild(grossrand(kasten));
     }
   } else {
     for (const kasten of liste) {
@@ -213,6 +236,7 @@ export function wortbild(wort, { modus = 'haus', linien = true, beschriftet = fa
         rx: 3,
         class: `wortbild__kasten ${kasten.gross ? 'is-gross' : 'is-klein'}`,
       }));
+      if (kasten.gross) gruppe.appendChild(grossrand(kasten));
     }
   }
 

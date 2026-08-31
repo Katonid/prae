@@ -90,7 +90,11 @@ function leererZustand() {
       geheimschrift: 'haus',
       hilfslinien: true,
       grossbuchstaben: false,
-      diktatTempo: 0.85,
+      // Langsamer als „normal": Ein Diktatwort wird gesprochen, damit ein
+      // Kind mitschreibt — nicht, damit es schnell vorbei ist (Ansage des
+      // Nutzers, 08/2026: „etwas zu schnell und nicht deutlich genug").
+      diktatTempo: 0.7,
+      diktatStimme: '',
     },
     eigeneBereiche: [],
     // Welche mitgelieferten Bereiche sichtbar sind: { id: true|false }. Was
