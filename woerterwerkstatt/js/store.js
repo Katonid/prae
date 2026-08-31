@@ -1,0 +1,279 @@
+// Alles, was das Gerät sich merkt: Einstellungen, eigene Bereiche, Fortschritt
+// und die Anmeldung. Gespeichert wird in IndexedDB, mit localStorage als
+// Rückfall — auf einem iPad im Privatmodus ist IndexedDB manchmal gesperrt,
+// und dann soll die App trotzdem laufen (nur eben ohne Gedächtnis über die
+// Sitzung hinaus).
+
+import { entprellt } from './util.js';
+
+const DB_NAME = 'woerterwerkstatt';
+const DB_VERSION = 1;
+const SPEICHER = 'kv';
+const SCHLUESSEL = 'zustand';
+const LS_KEY = 'woerterwerkstatt.zustand.v1';
+
+export const SCHRIFTEN = [
+  { id: 'andika', label: 'Andika', stack: "'Andika', 'Lexend', sans-serif", hinweis: 'Für Leseanfänger gemacht: einstöckiges a und g, klar getrennte l, I und 1.' },
+  { id: 'lexend', label: 'Lexend', stack: "'Lexend', 'Andika', sans-serif", hinweis: 'Weit gelaufen und ruhig — hilft beim flüssigen Lesen.' },
+  { id: 'quicksand', label: 'Quicksand', stack: "'Quicksand', 'Andika', sans-serif", hinweis: 'Rund und freundlich; gut für Überschriften.' },
+];
+
+export const SCHEMATA = [
+  { id: 'regenbogen', label: 'Regenbogen', von: '#6366f1', mitte: '#a855f7', bis: '#ec4899', schein: '99, 102, 241' },
+  { id: 'wiese', label: 'Wiese', von: '#16a34a', mitte: '#65a30d', bis: '#facc15', schein: '22, 163, 74' },
+  { id: 'meer', label: 'Meer', von: '#0ea5e9', mitte: '#06b6d4', bis: '#14b8a6', schein: '14, 165, 233' },
+  { id: 'sonne', label: 'Sonne', von: '#f59e0b', mitte: '#f97316', bis: '#e11d48', schein: '245, 158, 11' },
+  { id: 'nacht', label: 'Nacht', von: '#4f46e5', mitte: '#7c3aed', bis: '#0ea5e9', schein: '79, 70, 229' },
+];
+
+export const ABSCHREIB_ARTEN = [
+  { id: 'sichtbar', label: 'Wort bleibt stehen', hinweis: 'Zum Anfangen: Das Wort steht die ganze Zeit da.' },
+  { id: 'blitz', label: 'Wort verschwindet nach 3 Sekunden', hinweis: 'Erst schauen, merken — dann schreiben.' },
+  { id: 'verdeckt', label: 'Wort selbst aufdecken', hinweis: 'Das Kind darf so oft spicken, wie es mag — jedes Aufdecken wird gezählt.' },
+];
+
+function leererZustand() {
+  return {
+    version: 1,
+    einstellungen: {
+      klang: true,
+      schrift: 'andika',
+      schema: 'regenbogen',
+      abschreiben: 'sichtbar',
+      geheimschrift: 'haus',
+      hilfslinien: true,
+      grossbuchstaben: false,
+      diktatTempo: 0.85,
+    },
+    eigeneBereiche: [],
+    fortschritt: {},
+    nutzer: null,
+    klassen: [],
+    zuletztBereich: '',
+  };
+}
+
+let zustand = leererZustand();
+let dbPromise = null;
+const horcher = new Map();
+
+function db() {
+  if (dbPromise) return dbPromise;
+  dbPromise = new Promise((fertig, fehler) => {
+    if (!window.indexedDB) { fehler(new Error('IndexedDB fehlt')); return; }
+    const anfrage = window.indexedDB.open(DB_NAME, DB_VERSION);
+    anfrage.onupgradeneeded = () => {
+      const datenbank = anfrage.result;
+      if (!datenbank.objectStoreNames.contains(SPEICHER)) datenbank.createObjectStore(SPEICHER);
+    };
+    anfrage.onsuccess = () => fertig(anfrage.result);
+    anfrage.onerror = () => fehler(anfrage.error || new Error('IndexedDB'));
+  }).catch((error) => { dbPromise = null; throw error; });
+  return dbPromise;
+}
+
+async function ausDb() {
+  const datenbank = await db();
+  return new Promise((fertig, fehler) => {
+    const t = datenbank.transaction(SPEICHER, 'readonly');
+    const anfrage = t.objectStore(SPEICHER).get(SCHLUESSEL);
+    anfrage.onsuccess = () => fertig(anfrage.result || null);
+    anfrage.onerror = () => fehler(anfrage.error);
+  });
+}
+
+async function inDb(wert) {
+  const datenbank = await db();
+  return new Promise((fertig, fehler) => {
+    const t = datenbank.transaction(SPEICHER, 'readwrite');
+    t.objectStore(SPEICHER).put(wert, SCHLUESSEL);
+    t.oncomplete = () => fertig(true);
+    t.onerror = () => fehler(t.error);
+  });
+}
+
+function ausLokal() {
+  try {
+    const roh = window.localStorage.getItem(LS_KEY);
+    return roh ? JSON.parse(roh) : null;
+  } catch (_) { return null; }
+}
+
+function inLokal(wert) {
+  try { window.localStorage.setItem(LS_KEY, JSON.stringify(wert)); } catch (_) { /* voll oder gesperrt */ }
+}
+
+/**
+ * Zusammenführen statt ersetzen: Kommt eine Fassung mit neuen Einstellungen
+ * dazu, sollen die alten Werte des Kindes stehen bleiben und nur die neuen
+ * Schalter dazukommen.
+ */
+function zusammen(gelesen) {
+  const frisch = leererZustand();
+  if (!gelesen || typeof gelesen !== 'object') return frisch;
+  return {
+    version: 1,
+    einstellungen: Object.assign(frisch.einstellungen, gelesen.einstellungen || {}),
+    eigeneBereiche: Array.isArray(gelesen.eigeneBereiche) ? gelesen.eigeneBereiche : [],
+    fortschritt: (gelesen.fortschritt && typeof gelesen.fortschritt === 'object') ? gelesen.fortschritt : {},
+    nutzer: gelesen.nutzer || null,
+    klassen: Array.isArray(gelesen.klassen) ? gelesen.klassen : [],
+    zuletztBereich: gelesen.zuletztBereich || '',
+  };
+}
+
+export async function ladeZustand() {
+  let gelesen = null;
+  try { gelesen = await ausDb(); } catch (_) { gelesen = null; }
+  if (!gelesen) gelesen = ausLokal();
+  zustand = zusammen(gelesen);
+  return zustand;
+}
+
+const sichereGleich = entprellt(() => {
+  const kopie = JSON.parse(JSON.stringify(zustand));
+  inDb(kopie).catch(() => {});
+  inLokal(kopie);
+}, 400);
+
+export function sichere() {
+  sichereGleich();
+}
+
+export function daten() {
+  return zustand;
+}
+
+export function einstellungen() {
+  return zustand.einstellungen;
+}
+
+export function setzeEinstellung(name, wert) {
+  zustand.einstellungen[name] = wert;
+  sichere();
+  melde('einstellungen', zustand.einstellungen);
+}
+
+/* ---------- Horcher ---------- */
+
+export function horch(ereignis, fn) {
+  if (!horcher.has(ereignis)) horcher.set(ereignis, new Set());
+  horcher.get(ereignis).add(fn);
+  return () => horcher.get(ereignis).delete(fn);
+}
+
+export function melde(ereignis, nutzlast) {
+  const menge = horcher.get(ereignis);
+  if (menge) menge.forEach((fn) => fn(nutzlast));
+}
+
+/* ---------- Eigene Bereiche ---------- */
+
+export function eigeneBereiche() {
+  return zustand.eigeneBereiche;
+}
+
+export function bereichSichern(bereich) {
+  const stelle = zustand.eigeneBereiche.findIndex((b) => b.id === bereich.id);
+  const eintrag = Object.assign({}, bereich, { geaendertAm: Date.now() });
+  if (stelle >= 0) zustand.eigeneBereiche[stelle] = eintrag;
+  else zustand.eigeneBereiche.push(eintrag);
+  sichere();
+  melde('bereiche', zustand.eigeneBereiche);
+  return eintrag;
+}
+
+export function bereichLoeschen(id) {
+  zustand.eigeneBereiche = zustand.eigeneBereiche.filter((b) => b.id !== id);
+  sichere();
+  melde('bereiche', zustand.eigeneBereiche);
+}
+
+/* ---------- Fortschritt ---------- */
+
+function fortschrittsschluessel(bereichId, paket, stufe) {
+  return `${bereichId}#${paket}#${stufe}`;
+}
+
+export function fortschritt(bereichId, paket, stufe) {
+  return zustand.fortschritt[fortschrittsschluessel(bereichId, paket, stufe)] || null;
+}
+
+/**
+ * Ein abgeschlossener Durchgang. Gemerkt wird der BESTE Stand, nicht der
+ * letzte: Wer ein Päckchen zur Übung noch einmal halb durchklickt, soll seine
+ * drei Sterne nicht verlieren.
+ */
+export function ergebnisMerken(bereichId, paket, stufe, { richtig, gesamt, dauer = 0 }) {
+  const schluessel = fortschrittsschluessel(bereichId, paket, stufe);
+  const alt = zustand.fortschritt[schluessel] || { bestRichtig: 0, gesamt: 0, durchgaenge: 0 };
+  const neu = {
+    bestRichtig: Math.max(alt.bestRichtig || 0, richtig),
+    letzteRichtig: richtig,
+    gesamt,
+    durchgaenge: (alt.durchgaenge || 0) + 1,
+    zuletzt: Date.now(),
+    dauer,
+  };
+  neu.sterne = sterne(neu.bestRichtig, gesamt);
+  zustand.fortschritt[schluessel] = neu;
+  sichere();
+  melde('fortschritt', { bereichId, paket, stufe, stand: neu });
+  return neu;
+}
+
+/** Drei Sterne ab 100 %, zwei ab 80 %, einer ab 60 %. */
+export function sterne(richtig, gesamt) {
+  if (!gesamt) return 0;
+  const anteil = richtig / gesamt;
+  if (anteil >= 1) return 3;
+  if (anteil >= 0.8) return 2;
+  if (anteil >= 0.6) return 1;
+  return 0;
+}
+
+export function sterneImBereich(bereichId, pakete, stufen) {
+  let summe = 0;
+  for (let p = 0; p < pakete; p += 1) {
+    for (const stufe of stufen) {
+      const stand = fortschritt(bereichId, p, stufe);
+      if (stand) summe += stand.sterne || 0;
+    }
+  }
+  return summe;
+}
+
+/* ---------- Anmeldung ---------- */
+
+export function nutzer() {
+  return zustand.nutzer;
+}
+
+export function setzeNutzer(neu) {
+  zustand.nutzer = neu;
+  sichere();
+  melde('nutzer', neu);
+}
+
+export function klassen() {
+  return zustand.klassen;
+}
+
+export function klasseMerken(klasse) {
+  const stelle = zustand.klassen.findIndex((k) => k.code === klasse.code);
+  if (stelle >= 0) zustand.klassen[stelle] = Object.assign({}, zustand.klassen[stelle], klasse);
+  else zustand.klassen.push(klasse);
+  sichere();
+  melde('klassen', zustand.klassen);
+}
+
+export function klasseVergessen(code) {
+  zustand.klassen = zustand.klassen.filter((k) => k.code !== code);
+  sichere();
+  melde('klassen', zustand.klassen);
+}
+
+export function merkeBereich(id) {
+  zustand.zuletztBereich = id;
+  sichere();
+}

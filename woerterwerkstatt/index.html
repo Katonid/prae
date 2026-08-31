@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Wörterwerkstatt — Lernwörter üben</title>
+    <meta name="description" content="Rechtschreibung üben in der Grundschule: abschreiben, Buchstabensalat, Geheimschrift, Wortarten und Diktat — in Trainingspäckchen zu fünfzehn Lernwörtern." />
+    <meta name="theme-color" content="#6366f1" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Wörter" />
+    <meta name="format-detection" content="telephone=no" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="icon" href="./icons/icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="./icons/icon-180.png" />
+    <link rel="stylesheet" href="./css/fonts.css" />
+    <link rel="stylesheet" href="./css/app.css" />
+  </head>
+  <body class="is-ladend">
+    <div class="himmel" aria-hidden="true"><i></i><b></b><u></u></div>
+
+    <header class="kopf">
+      <a class="kopf__marke" href="#/">
+        <span class="kopf__zeichen" aria-hidden="true">✏️</span>
+        <span class="kopf__name">Wörterwerkstatt</span>
+      </a>
+      <div class="kopf__luecke"></div>
+      <div id="kopf-rechts" class="kopf__rechts"></div>
+    </header>
+
+    <main id="buehne" class="buehne">
+      <div class="ladeplatz"><span class="ladeplatz__kringel"></span>Einen Augenblick …</div>
+    </main>
+
+    <div id="blatt-wurzel"></div>
+    <div id="meldung-wurzel" class="meldung-wurzel" aria-live="polite"></div>
+
+    <noscript>
+      <p style="padding:24px">Diese App braucht JavaScript.</p>
+    </noscript>
+
+    <script type="module" src="./js/app.js"></script>
+  </body>
+</html>
