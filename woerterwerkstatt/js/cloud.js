@@ -446,6 +446,68 @@ export async function fortschrittMelden(code, schluessel, fortschritt) {
   await schreiben(`${WURZEL}/klassen/${gross}/kinder/${schluessel}/fortschritt`, fortschritt);
 }
 
+/* ---------- Wortprotokoll ---------- */
+
+/**
+ * Ein Schlüssel, den die Datenbank als Pfad annimmt. Firebase verbietet in
+ * Schlüsseln . # $ / [ ] — „der Ranzen" ist erlaubt, „3,50 €/kg" wäre es
+ * nicht. Ein eigener Bereich kann alles Mögliche enthalten, deshalb wird
+ * hier gesäubert statt gehofft.
+ */
+function pfadschluessel(text) {
+  return String(text).replace(/[.#$/[\]]/g, '_').slice(0, 120) || '_';
+}
+
+/**
+ * Das Wortprotokoll eines Kindes melden.
+ *
+ * Es liegt NICHT unter `klassen/<CODE>` — dort darf lesen, wer den Code hat,
+ * und das sind alle Kinder der Klasse. Was ein Kind falsch geschrieben hat,
+ * geht seine Mitschüler nichts an. Der Zweig `protokoll/<CODE>/<Kind>` ist
+ * deshalb so geregelt, dass jedes Kind hineinschreiben, aber nur die
+ * angemeldete Besitzerin der Klasse lesen darf.
+ */
+export async function protokollMelden(code, kind, name, woerter) {
+  const gross = String(code).toUpperCase();
+  const nutzlast = {};
+  for (const eintrag of Object.values(woerter || {})) {
+    if (!eintrag || !eintrag.wort) continue;
+    nutzlast[pfadschluessel(`${eintrag.bereichId}|${eintrag.wort}`)] = {
+      w: eintrag.wort,
+      b: eintrag.bereichName || '',
+      a: eintrag.art || '',
+      v: eintrag.versuche || 0,
+      r: eintrag.richtig || 0,
+      f: eintrag.fehler || 0,
+      z: eintrag.zuletzt || 0,
+      s: eintrag.stufen || {},
+      e: eintrag.eingaben || [],
+    };
+  }
+  await schreiben(`${WURZEL}/protokoll/${gross}/${kind}`, {
+    name: name || kind,
+    aktualisiert: Date.now(),
+    woerter: nutzlast,
+  });
+}
+
+/** Das Protokoll der ganzen Klasse. Lesen darf das nur die Lehrkraft. */
+export async function protokollDerKlasse(code) {
+  const gelesen = await anfrage(`${WURZEL}/protokoll/${String(code).toUpperCase()}`, {}, {}, 60000);
+  if (!gelesen) return [];
+  return Object.entries(gelesen).map(([schluessel, eintrag]) => ({
+    schluessel,
+    name: (eintrag && eintrag.name) || schluessel,
+    aktualisiert: (eintrag && eintrag.aktualisiert) || 0,
+    woerter: Object.values((eintrag && eintrag.woerter) || {}),
+  }));
+}
+
+export async function protokollLoeschen(code, kind = null) {
+  const gross = String(code).toUpperCase();
+  await anfrage(`${WURZEL}/protokoll/${gross}${kind ? `/${kind}` : ''}`, { method: 'DELETE' });
+}
+
 export async function fortschrittDerKlasse(code) {
   const kinder = await kinderHolen(code);
   return kinder.map((kind) => ({

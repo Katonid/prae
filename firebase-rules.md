@@ -46,11 +46,18 @@ Einfügen mit einem Syntaxfehler scheitern. Die Erklärungen stehen deshalb hier
 | `klassen/$code` | offen | Klasse samt Kindern und Sternen. Wer den Code hat (QR-Code), darf mitmachen — das ist der Sinn. PIN-Abdrücke liegen **nicht** hier. |
 | `geheim/$code/$kind` | **nicht lesbar**, einmal schreibbar | Der SHA-256-Abdruck aus Code, Name und PIN. Überschreiben darf ihn nur die angemeldete Lehrkraft, der die Klasse gehört (PIN vergessen). `.validate` verlangt 64 Hexzeichen. |
 | `anmeldung/$code/$kind` | Schreiben nur bei Übereinstimmung | Der Kniff: Die App schickt den errechneten Abdruck. Die Regel nimmt den Schreibvorgang nur an, wenn er mit dem hinterlegten übereinstimmt. So lässt sich die PIN prüfen, **ohne** dass irgendwer den hinterlegten Abdruck lesen kann. |
+| `protokoll/$code/$kind` | **schreiben alle, lesen nur die Lehrkraft** | Welche Wörter ein Kind bearbeitet hat und wie es sie geschrieben hat. Bewusst NICHT unter `klassen/` — dort darf lesen, wer den Code hat, und das sind alle Kinder der Klasse. Was ein Kind falsch geschrieben hat, geht seine Mitschüler nichts an. |
 | `users/$uid` | nur man selbst | Eigene Bereiche und Klassenliste einer Lehrkraft. |
 
 Ehrlich dazugesagt: Vier Ziffern sind zehntausend Möglichkeiten, und gegen
 jemanden, der sie alle durchprobiert, hilft ohne eigenen Server nichts. Es geht
 um Rechtschreibfortschritte einer Grundschulklasse.
+
+Zum Zweig `protokoll` gehört ein zweiter ehrlicher Satz: Das sind
+**Leistungsdaten einzelner, namentlich genannter Kinder**. Sie liegen in der
+Datenbank, bis die Lehrkraft sie löscht (Knopf in der Klassenansicht), und das
+Mitschreiben lässt sich je Klasse abschalten. Wer eine Klasse löscht, sollte
+das Protokoll gleich mitlöschen.
 
 ## Ist es eingespielt? Kurz nachsehen
 

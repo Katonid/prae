@@ -12,7 +12,7 @@ import { h, leeren } from './util.js';
 import { sterne as sterneAnzeige, balken, blatt, frage } from './ui.js';
 import {
   ladeZustand, eigeneBereiche, fortschritt, sterneImBereich,
-  nutzer, setzeNutzer, klassen, horch,
+  nutzer, setzeNutzer, klassen, horch, schwereWoerter, protokollLeeren,
 } from './store.js';
 import { anwenden as themaAnwenden } from './theme.js';
 import { BEREICHE } from './woerter.js';
@@ -284,6 +284,52 @@ function kopfleisteZeichnen() {
   }, '?'));
 }
 
+/**
+ * Die eigene Rückschau: Wörter, die danebengingen, mit dem, was man geschrieben
+ * hat. Wer die Daten erzeugt, soll sie auch sehen dürfen — und für ein Kind
+ * ist „diese sechs Wörter waren schwer für dich" die brauchbarste Auskunft,
+ * die die App geben kann.
+ */
+function meineWoerter() {
+  // Der Behälter zeichnet sich selbst neu, statt das ganze Blatt noch einmal
+  // zu öffnen — sonst stapeln sich Hilfe-Blätter übereinander.
+  const platz = h('div', {});
+  function zeichnen() {
+    leeren(platz);
+    const liste = schwereWoerter(12);
+    if (!liste.length) {
+      platz.appendChild(h('p', { class: 'blatt__text' },
+        'Noch nichts danebengegangen — oder du hast noch nicht geübt.'));
+      return;
+    }
+    for (const wort of liste) {
+      platz.appendChild(h('div', { class: 'wortbefund' },
+        h('div', { class: 'wortbefund__kopf' },
+          h('strong', { class: 'wortbefund__wort' }, wort.wort),
+          h('span', { class: 'wortbefund__zahlen' },
+            `${wort.richtig} von ${wort.versuche} gleich richtig`)),
+        wort.eingaben.length
+          ? h('div', { class: 'wortbefund__eingaben' },
+            h('span', { class: 'wortbefund__marke' }, 'du schriebst'),
+            ...wort.eingaben.map((e) => h('span', { class: 'wortbefund__falsch' }, e)))
+          : null));
+    }
+    platz.appendChild(h('button', {
+      class: 'knopf knopf--still knopf--klein', type: 'button',
+      onclick: async () => {
+        const ja = await frage({
+          titel: 'Alles vergessen?',
+          text: 'Die Liste deiner schweren Wörter wird geleert. Deine Sterne bleiben.',
+          ja: 'Leeren',
+        });
+        if (ja) { protokollLeeren(); zeichnen(); }
+      },
+    }, 'Liste leeren'));
+  }
+  zeichnen();
+  return platz;
+}
+
 function hilfeZeigen() {
   const wer = nutzer();
   return blatt({
@@ -305,6 +351,8 @@ function hilfeZeigen() {
         'Mit einem Konto lassen sich eigene Bereiche anlegen (die Lernwörter dieser Woche) und Klassen: '
         + 'Die App zeigt dann einen QR-Code, die Kinder scannen ihn, suchen sich Name und vierstellige PIN aus — '
         + 'und die Sterne laufen in die Klassenansicht zurück.'),
+      h('h3', {}, 'Deine schweren Wörter'),
+      meineWoerter(),
       h('h3', {}, 'Ohne Netz'),
       h('p', { class: 'blatt__text' },
         'Alles Üben läuft im Gerät. Netz braucht nur, was zwischen Lehrkraft und Klasse hin und her muss.'),
