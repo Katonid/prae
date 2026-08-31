@@ -347,7 +347,7 @@ Namens und lebt weiter.
   die Kinder bearbeitet haben und welche Fehler sie gemacht haben"). Gemeldet
   wird je Wort, wie oft es drankam, wie oft es beim ersten Versuch saß, in
   welchen Stufen — und WIE das Kind es geschrieben hat. Letzteres ist der
-  Zweck: „Federmape" sagt einer Lehrkraft, was falsch gemerkt wurde; eine
+  Zweck: „Somer" sagt einer Lehrkraft, was falsch gemerkt wurde; eine
   Fehlerzahl sagt es nicht.
   - **Es liegt in `protokoll/<CODE>/<Kind>`, nicht unter `klassen/`.** Dort
     darf lesen, wer den Code hat — das sind alle Kinder der Klasse. Schreiben

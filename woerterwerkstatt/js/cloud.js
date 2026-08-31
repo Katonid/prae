@@ -450,7 +450,7 @@ export async function fortschrittMelden(code, schluessel, fortschritt) {
 
 /**
  * Ein Schlüssel, den die Datenbank als Pfad annimmt. Firebase verbietet in
- * Schlüsseln . # $ / [ ] — „der Ranzen" ist erlaubt, „3,50 €/kg" wäre es
+ * Schlüsseln . # $ / [ ] — „der Tornister" ist erlaubt, „3,50 €/kg" wäre es
  * nicht. Ein eigener Bereich kann alles Mögliche enthalten, deshalb wird
  * hier gesäubert statt gehofft.
  */

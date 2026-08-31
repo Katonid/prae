@@ -333,8 +333,8 @@ function protokollschluessel(bereichId, wort) {
  *
  * Gemerkt wird je Wort: wie oft es drankam, wie oft es beim ersten Versuch
  * saß, in welchen Stufen — und wie das Kind es geschrieben hat, wenn es
- * danebenlag. Das Letzte ist der eigentliche Zweck: „Federmape" statt
- * „Federmappe" zeigt, WAS falsch gemerkt wurde.
+ * danebenlag. Das Letzte ist der eigentliche Zweck: „Somer" statt
+ * „Sommer" zeigt, WAS falsch gemerkt wurde.
  */
 export function protokollMerken({ bereich, eintrag, stufeId, richtig, fehlversuche = [] }) {
   if (!bereich || !eintrag) return null;

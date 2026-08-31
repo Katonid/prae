@@ -67,7 +67,7 @@ Dehnungs-h, ck/tz, äu/eu, v/f und die Umlautbildung in der Mehrzahl.
 Format je Wort — ein Textstück mit senkrechten Strichen:
 
 ```
-Ranzen|n|der|Ranzen               Nomen:    Wort | n | Artikel | Mehrzahl („-“ = keine)
+Tornister|n|der|Tornister         Nomen:    Wort | n | Artikel | Mehrzahl („-“ = keine)
 laufen|v|läufst                   Verb:     Wort | v | 2. Person Einzahl
 schnell|a|schneller|am schnellsten Adjektiv: Wort | a | 1. Steigerung | 2. Steigerung
 heute|x                           sonst:    Wort | x
@@ -108,8 +108,8 @@ Zwei Ansichten in der Klasse:
 
 Festgehalten wird je Wort: wie oft es drankam, wie oft es beim ersten Versuch
 saß, in welchen Stufen — und **wie das Kind es geschrieben hat**, wenn es
-danebenlag. Letzteres ist der eigentliche Wert: „Federmape“ statt
-„Federmappe“ zeigt, *was* falsch gemerkt wurde. Bei Stufe 4 wandert auch eine
+danebenlag. Letzteres ist der eigentliche Wert: „Somer“ statt
+„Sommer“ zeigt, *was* falsch gemerkt wurde. Bei Stufe 4 wandert auch eine
 falsch geratene Wortart mit hinein („hielt Verb für Nomen“) — das ist eine
 andere Auskunft als ein Rechtschreibfehler.
 

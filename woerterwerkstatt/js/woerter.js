@@ -12,7 +12,7 @@
 // Format je Wort — ein Textstück mit senkrechten Strichen, damit die Daten
 // lesbar bleiben und die Datei klein:
 //
-//   Nomen      Ranzen|n|der|Ranzen           Wort | n | Artikel | Mehrzahl
+//   Nomen      Tornister|n|der|Tornister     Wort | n | Artikel | Mehrzahl
 //   Verb       laufen|v|läufst               Wort | v | 2. Person Einzahl
 //   Adjektiv   schnell|a|schneller|am schnellsten
 //   Sonstiges  heute|x                       Wort | x  (weder noch)
@@ -30,10 +30,10 @@ export const BEREICHE = [
     emoji: '🎒',
     farbe: '#2563eb',
     woerter: [
-      'Ranzen|n|der|Ranzen',
+      'Tornister|n|der|Tornister',
       'Tafel|n|die|Tafeln',
       'Kreide|n|die|Kreiden',
-      'Federmappe|n|die|Federmappen',
+      'Etui|n|das|Etuis',
       'Schere|n|die|Scheren',
       'Lineal|n|das|Lineale',
       'Radiergummi|n|der|Radiergummis',
