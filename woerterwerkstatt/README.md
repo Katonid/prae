@@ -38,6 +38,14 @@ Erdgeschoss    a c e i m n o r s u v w x z ä ö ü   (hier wohnen alle)
 Keller         g j p q y
 ```
 
+**Ein Großbuchstabe hat links einen dickeren Strich** (ab 1.8.0). So lernen es
+die Kinder an der Tafel — und es ist das einzige verlässliche Kennzeichen:
+b, d, f, h, k, l, t und ß ragen ebenfalls ins Dachgeschoss. Die etwas größere
+Höhe bleibt daneben bestehen; zwei Kennzeichen sind der Unterschied zwischen
+„gesehen“ und „übersehen“, wenn das Bild aus zehn Metern vom Beamer gelesen
+wird. Der große Kasten ist dafür nicht mehr voll ausgefüllt — auf einer vollen
+Fläche wäre der Strich nicht zu sehen.
+
 Es gibt fertige Wortbild- und Konturschriften der Schulbuchverlage, aber sie
 sind fast durchweg kostenpflichtig lizenziert und müssten nachgeladen werden.
 Beides bricht die Zusagen dieser App (läuft ohne Netz, meldet nichts an
@@ -94,12 +102,37 @@ Dazu je Stufe, was die Stufe weiß:
   nicht nach der „2. Person Einzahl“ — den Fachbegriff kennt im 2. Schuljahr
   niemand (Ansage des Nutzers, 08/2026). Er steht im Hinweis dahinter, damit
   er nicht verloren geht: Im 4. Schuljahr ist er Stoff.
-* **Diktat:** beliebig oft vorlesen, im Satz vorlesen, und bei stummem Gerät
-  der Merkweg.
+* **Diktat:** beliebig oft vorlesen, im Satz vorlesen, „🐢 Langsam“, und bei
+  stummem Gerät der Merkweg.
 
 Und nach dem **zweiten** Fehlversuch steht die Lösung nicht nur da, sondern mit
 **markierter Stelle** — genau der Buchstabe, der anders war als gedacht.
 Abschreiben ohne Hinsehen lehrt niemanden etwas.
+
+### Was die Sprachausgabe hergibt — und was nicht
+
+Vorgelesen wird über die Sprachausgabe des Geräts (Web Speech API). Steuern
+lässt sich daran genau vier Dinge: **Text, Stimme, Tempo, Tonhöhe.** Eine
+Betonung einzelner Silben gibt es nicht — dafür bräuchte es SSML, und das nimmt
+keine Browser-Sprachausgabe entgegen. Was hilft (und ab 1.8.0 eingestellt ist):
+
+* **Tempo 0,7 als Vorgabe** statt 0,85. Ein Diktatwort wird gesprochen, damit
+  ein Kind mitschreibt, nicht damit es schnell vorbei ist. Nach unten geht es
+  bis 0,5, und im Diktat gibt es zusätzlich „🐢 Langsam“ (noch einmal −0,3).
+  Bei sehr kleinem Tempo trennen die meisten Stimmen die Silben von selbst
+  sauberer ab — das ist die einzige Annäherung an eine Silbenbetonung, die es
+  gibt.
+* **Tonhöhe 1,0** statt 1,05. Eine angehobene Stimme klingt dünner und verliert
+  gerade in den Vokalen an Fülle.
+* **Mit Punkt am Ende.** Ein nacktes Wort behandeln die meisten Stimmen als
+  abgerissenes Bruchstück und nuscheln die letzte Silbe weg; mit Satzzeichen
+  sprechen sie es zu Ende und lassen die Stimme fallen.
+* **Die Stimme ist wählbar** (Einstellungen → Sprechstimme). Welche deutschen
+  Stimmen ein Gerät mitbringt, ist von Gerät zu Gerät völlig verschieden — von
+  der guten iOS-Stimme bis zur blechernen Notlösung. Welche davon ein Kind
+  versteht, kann die App nicht wissen; sie legt die Wahl daneben und spricht
+  bei jedem Tippen zur Probe. Gibt es nur eine, erscheint die Zeile nicht.
+  Stimmen „aus dem Netz“ sind als solche gekennzeichnet: Sie schweigen offline.
 
 ## Trainingspäckchen
 
@@ -236,12 +269,17 @@ Zwei Ansichten in der Klasse:
   schwersten zuerst, mit den tatsächlichen Falschschreibungen und der Zahl der
   betroffenen Kinder. Das ist die Ansicht, für die das Ganze da ist: Sie sagt
   in fünf Sekunden, was am Montag noch einmal an die Tafel gehört.
-* **Ein Kind antippen** — seine Wörter einzeln, getrennt nach „schwer
-  gefallen“ und „saß auf Anhieb“, je Stufe aufgeschlüsselt, mit den
-  tatsächlichen Falschschreibungen. Der Name IST der Weg dorthin; damit man
-  das sieht, trägt er seit 1.5.3 ein 📋 und eine gepunktete Unterstreichung,
-  und über der Liste steht ein Satz dazu. Vorher war er nur eingefärbt — und
-  wurde übersehen.
+* **Ein Kind antippen** — seine Wörter einzeln, je Stufe aufgeschlüsselt, mit
+  den tatsächlichen Falschschreibungen. Der Name IST der Weg dorthin; damit
+  man das sieht, trägt er seit 1.5.3 ein 📋 und eine gepunktete
+  Unterstreichung, und über der Liste steht ein Satz dazu. Vorher war er nur
+  eingefärbt — und wurde übersehen.
+
+Gezeigt werden dort **nur die Wörter, die danebengingen** (ab 1.7.1). Bis dahin
+stand darunter die vollständige Liste der Wörter, die auf Anhieb saßen — gut
+gemeint und im Weg: Wer nachsieht, sucht Fehler und musste dafür an fünfzehn
+tadellosen Wörtern vorbeiscrollen (Ansage des Nutzers, 08/2026). Was gesessen
+hat, sagt jetzt eine Zeile.
 
 Gemeldet wird, wenn ein Kind ein Päckchen zu Ende gebracht hat — während der
 Übung noch nicht. Steht unter einem Namen keine Wortzahl, sagt die App seit

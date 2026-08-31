@@ -363,6 +363,23 @@ Namens und lebt weiter.
   nur die Wortkerne (wie das Bild), alphabetisch, und ist wegschaltbar
   (`einstellungen.geheimWortliste`). Dafür reicht `lauf.js` das ganze Päckchen
   an `aufbauen` durch — nicht wieder herausnehmen.
+- **Ein Großbuchstabe hat im Wortbild links einen dicken Strich** (ab 1.8.0,
+  Ansage des Nutzers, 08/2026: „Die Kinder in meiner Klasse sind darauf
+  trainiert."). Das ist das einzige verlässliche Kennzeichen — b, d, f, h, k,
+  l, t und ß ragen ebenfalls ins Dachgeschoss. Die zusätzliche Höhe bleibt
+  daneben (ausdrücklich erlaubt), der gefüllte Kasten nicht: Auf einer vollen
+  Fläche wäre der Strich nicht zu sehen. `grossrand()` in `wortbild.js`,
+  gezeichnet in BEIDEN Darstellungen.
+- **Was die Sprachausgabe hergibt: Text, Stimme, Tempo, Tonhöhe — mehr nicht.**
+  Eine Betonung einzelner Silben verlangt SSML, und das nimmt keine
+  Browser-Sprachausgabe entgegen (gefragt 08/2026). Nicht versprechen. Was
+  hilft: langsameres Tempo (Vorgabe 0,7), Tonhöhe 1,0 statt 1,05, ein Punkt
+  am Ende (ein nacktes Wort wird als Bruchstück genuschelt) und die WAHL der
+  Stimme — welche deutschen Stimmen ein Gerät mitbringt und wie deutlich die
+  sind, kann die App nicht wissen, also entscheidet die Lehrkraft
+  (`einstellungen.diktatStimme`). Silben NICHT selbst trennen: Die deutsche
+  Silbentrennung ist nicht ableitbar, und eine falsche lehrt das Falsche —
+  dieselbe Regel wie bei den Wortformen.
 - **Groß und klein wird beim Prüfen verglichen** (`uebungen/schreibfeld.js`).
   Das IST der halbe Rechtschreibstoff der Grundschule. Zwei Versuche, dann
   steht die Lösung da und wird abgeschrieben; für die Wertung zählt nur der
@@ -519,10 +536,24 @@ Namens und lebt weiter.
     📋, gepunktete Unterstreichung, dazu ein Satz über der Liste (ab 1.5.3).
     Bis dahin war er nur eingefärbt, und der Nutzer fragte, ob es die
     Einzelansicht überhaupt gibt (08/2026), obwohl sie seit 1.0.5 steht.
+  - **Gezeigt werden nur die Wörter, die danebengingen** (ab 1.7.1). Die
+    vollständige Liste „Saß auf Anhieb" darunter war gut gemeint und im Weg:
+    Wer nachsieht, sucht Fehler (Ansage des Nutzers, 08/2026). Was gesessen
+    hat, sagt eine Zeile. Dieselbe Regel gilt für die Klassenübersicht — und
+    die Kopfzeile nennt die Zahl der GEZEIGTEN Wörter, nicht die aller.
   - Das Kind sieht seine eigene Liste unter „?" → „Deine schweren Wörter". Wer
     die Daten erzeugt, darf sie sehen.
 - **Sterne gehen weiterhin an die Klasse**, und keine Rangliste zwischen
   Kindern, nirgends.
+- **CSS schreibt keine deutschen Wörter groß** (ab 1.7.1). `text-transform:
+  uppercase` macht aus „Saß auf Anhieb" ein „SASS AUF ANHIEB" — die
+  Großschreibregel für ß ist SS, und der Browser wendet sie an. In einer
+  Rechtschreib-App ist das ein Fehler wie jeder andere: Ein Kind liest dort
+  ein falsch geschriebenes Wort (gemeldet 08/2026: „geht gar nicht!").
+  `seite__abschnitt`, `abschnitt__titel` und `wortzeile__formfeld` zeichnen
+  sich deshalb über Gewicht, Farbe und Sperrung aus. Die kleinen festen
+  Marken („GESCHRIEBEN ALS") dürfen bleiben — dort steht nie ein ß, und wer
+  eine neue anlegt, prüft genau das.
 - **Kein `alert`, `confirm` oder `prompt`** — in einer späteren WKWebView-Hülle
   passiert dabei schlicht nichts. Für Ja/Nein gibt es `frage()`, für eine
   Eingabe `eingabe()`, beide in `js/ui.js`.

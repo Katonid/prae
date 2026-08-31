@@ -52,7 +52,8 @@ export const UEBUNG = {
 
   aufbauen({ eintrag, aufFertig }) {
     const loesung = schreibform(eintrag);
-    const tempo = einstellungen().diktatTempo || 0.85;
+    const tempo = einstellungen().diktatTempo || 0.7;
+    const stimme = einstellungen().diktatStimme || '';
     let gehoert = 0;
     let stummGemeldet = false;
 
@@ -74,7 +75,7 @@ export const UEBUNG = {
       gehoert += 1;
       hoerknopf.classList.add('is-spricht');
       setTimeout(() => hoerknopf.classList.remove('is-spricht'), 1400);
-      const ging = sprich(text, { tempo: geschwindigkeit });
+      const ging = sprich(text, { tempo: geschwindigkeit, stimme });
       if (!ging) zeigeNotausgang();
     }
 
@@ -111,7 +112,9 @@ export const UEBUNG = {
 
     hoerknopf.addEventListener('click', () => lesen(eintrag.wort, tempo));
     satzknopf.addEventListener('click', () => lesen(satz(eintrag), tempo));
-    langsam.addEventListener('click', () => lesen(eintrag.wort, Math.max(0.4, tempo - 0.3)));
+    // Deutlich langsamer, nicht nur ein bisschen: Bei sehr kleinem Tempo
+    // trennen die meisten Stimmen die Silben von selbst sauberer ab.
+    langsam.addEventListener('click', () => lesen(eintrag.wort, Math.max(0.35, Math.round((tempo - 0.3) * 100) / 100)));
 
     const feld = schreibfeld({
       loesung,

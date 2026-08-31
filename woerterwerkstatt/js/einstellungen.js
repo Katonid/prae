@@ -13,7 +13,7 @@ import {
 import { anwenden } from './theme.js';
 import { wortbild } from './wortbild.js';
 import { bereichswahl } from './bereiche.js';
-import { kannSprechen, sprich } from './plattform.js';
+import { kannSprechen, sprich, deutscheStimmen } from './plattform.js';
 import * as sfx from './sfx.js';
 
 export function einstellungenZeigen() {
@@ -96,21 +96,55 @@ export function einstellungenZeigen() {
           ? zeile('Vorlesen ausprobieren',
             h('button', {
               class: 'knopf knopf--still', type: 'button',
-              onclick: () => sprich('Der Regenbogen leuchtet über dem Schulhof.', { tempo: einstellungen().diktatTempo }),
+              onclick: () => sprich('Der Regenbogen leuchtet über dem Schulhof.',
+                { tempo: einstellungen().diktatTempo, stimme: einstellungen().diktatStimme }),
             }, '🔊 Hören'))
           : h('p', { class: 'blatt__warnung' },
             'Dieses Gerät hat keine Sprachausgabe. Die Diktatstufe zeigt das Wort dann kurz statt es vorzulesen.'),
-        zeile('Sprechtempo', tempowahl(e.diktatTempo), 'Langsamer hilft, wenn Kinder beim Schreiben mitsprechen.')),
+        zeile('Sprechtempo', tempowahl(e.diktatTempo),
+          'Langsamer hilft, wenn Kinder beim Schreiben mitsprechen. Im Diktat gibt es zusätzlich „🐢 Langsam".'),
+        stimmenwahl(e.diktatStimme)),
     ),
   });
 }
 
 function tempowahl(aktuell) {
+  // Die Vorgabe liegt bei 0,7 — für ein Diktat in der Grundschule ist „normal"
+  // zu schnell (Ansage des Nutzers, 08/2026). Nach unten gibt es deshalb mehr
+  // Luft als nach oben.
   const werte = [
-    { id: '0.6', label: 'sehr langsam' },
-    { id: '0.75', label: 'langsam' },
+    { id: '0.5', label: 'sehr langsam' },
+    { id: '0.6', label: 'langsam' },
+    { id: '0.7', label: 'ruhig' },
     { id: '0.85', label: 'normal' },
     { id: '1', label: 'zügig' },
   ];
-  return auswahl(werte, String(aktuell || 0.85), (id) => setzeEinstellung('diktatTempo', Number(id)));
+  return auswahl(werte, String(aktuell || 0.7), (id) => setzeEinstellung('diktatTempo', Number(id)));
+}
+
+/**
+ * Welche Stimme spricht.
+ *
+ * Welche deutschen Stimmen ein Gerät mitbringt, ist von Gerät zu Gerät völlig
+ * verschieden — und wie deutlich eine davon ist, hört man nur. Die App kann
+ * das nicht wissen und rät deshalb nicht, sondern legt die Wahl daneben: eine
+ * Liste und der Knopf „Hören" darüber. Gibt es nur eine Stimme, gibt es auch
+ * nichts zu wählen.
+ */
+function stimmenwahl(aktuell) {
+  const liste = deutscheStimmen();
+  if (liste.length < 2) return null;
+  const werte = [{ id: '', label: 'Vorgabe des Geräts' }].concat(liste.map((v) => ({
+    id: v.name,
+    label: v.name,
+    hinweis: `${v.lang}${v.oertlich ? ' · im Gerät' : ' · aus dem Netz'}`,
+  })));
+  return zeile('Sprechstimme',
+    auswahl(werte, String(aktuell || ''), (id) => {
+      setzeEinstellung('diktatStimme', id);
+      sprich('Der Regenbogen leuchtet über dem Schulhof.',
+        { tempo: einstellungen().diktatTempo, stimme: id });
+    }),
+    'Probier sie durch — sie klingen sehr verschieden. Eine Stimme „aus dem Netz" '
+    + 'schweigt, wenn das Gerät offline ist.');
 }
