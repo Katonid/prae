@@ -1208,6 +1208,9 @@ a.knopf { text-decoration: none; display: inline-flex; align-items: center; }
 .wortbefund__lob { font-size: 12px; color: var(--tinte-zart); }
 .wortbefund__stufen { display: flex; gap: 10px; flex-wrap: wrap; font-size: 12px; color: var(--tinte-zart); }
 
+/* Der Name eines Kindes führt zu seinen Wörtern. Damit man das sieht, bevor
+   man daraufgetippt hat: Akzentfarbe UND gepunktete Unterstreichung. Farbe
+   allein wird auf einem Beamer und bei dunkler Umgebung leicht übersehen. */
 .kinderliste__name--klickbar {
   display: flex;
   flex-direction: column;
@@ -1219,6 +1222,14 @@ a.knopf { text-decoration: none; display: inline-flex; align-items: center; }
   text-align: left;
   color: var(--akzent);
 }
+
+.kinderliste__name--klickbar .kinderliste__kindname {
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 3px;
+}
+
+.kinderliste__name--klickbar:hover .kinderliste__kindname { text-decoration-style: solid; }
 
 .kinderliste__woerter { font-size: 11px; font-weight: 600; color: var(--tinte-zart); }
 

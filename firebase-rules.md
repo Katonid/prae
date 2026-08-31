@@ -5,6 +5,13 @@ Einzufügen ist **`firebase-rules.json`** aus diesem Verzeichnis:
 > Firebase-Konsole → **Realtime Database** → Reiter **Regeln** → alles
 > markieren, Inhalt hineinkopieren → **Veröffentlichen**
 
+**Für Claude:** Der Nutzer arbeitet am iPad und kommt dort an eine Datei im
+Repo nicht heran. Ein Verweis auf diesen Dateinamen ist für ihn deshalb keine
+Anweisung, sondern eine Sackgasse. Bei jeder Änderung an den Regeln — und in
+jeder Antwort, in der das Einspielen vorkommt — gehört der **vollständige
+Inhalt der Datei als Codeblock in die Antwort**, frisch aus `main` gelesen und
+mit `regeln-pruefen.py` geprüft. Ohne Nachfrage.
+
 ## Warum beide Web-Apps in einer Datei stehen
 
 Die Konsole **ersetzt** beim Veröffentlichen die kompletten Regeln. Wer nur den

@@ -523,12 +523,20 @@ export function klasseZeigen(code, beiAenderung, frischAngelegt = false) {
           + 'ist, kommen keine neuen Wörter dazu.'));
         return;
       }
+      protokollhinweis.classList.remove('is-versteckt');
       if (!protokolle.length) {
-        protokollhinweis.classList.remove('is-versteckt');
         protokollhinweis.appendChild(h('p', { class: 'abschnitt__notiz' },
           'Noch keine Wörter. Sie kommen an, sobald ein Kind ein Päckchen zu Ende gebracht '
           + 'hat — bei laufender Übung wird noch nichts gemeldet.'));
+        return;
       }
+      // Der Weg zu den Fehlern EINES Kindes führt über seinen Namen. Ohne
+      // diesen Satz findet ihn niemand: Der Nutzer fragte, ob es die
+      // Einzelansicht überhaupt gibt (08/2026), obwohl sie seit 1.0.5 da ist.
+      protokollhinweis.appendChild(h('p', { class: 'abschnitt__notiz' },
+        'Tipp auf einen Namen: die Wörter dieses Kindes einzeln — getrennt nach „schwer '
+        + 'gefallen" und „saß auf Anhieb", je Stufe, und mit dem, was es geschrieben hat. '
+        + 'Der Knopf darunter fasst die ganze Klasse zusammen.'));
     }
 
     async function kinderZeichnen() {
@@ -568,12 +576,19 @@ export function klasseZeigen(code, beiAenderung, frischAngelegt = false) {
         const eigenes = protokollNach.get(kind.schluessel);
         const schwer = eigenes ? (eigenes.woerter || []).filter((w) => w.f > 0).length : 0;
         kinderplatz.appendChild(h('div', { class: 'kinderliste__eintrag' },
+          // Der Name IST der Weg zu den Wörtern dieses Kindes. Dass er
+          // anklickbar ist, muss man ihm ansehen: Bis 1.5.2 war er nur
+          // eingefärbt, und der Nutzer fragte, ob es die Einzelansicht
+          // überhaupt gibt (08/2026). Jetzt trägt er ein Klemmbrett, eine
+          // gepunktete Unterstreichung und rechts einen Pfeil.
           eigenes
             ? h('button', {
               class: 'kinderliste__name kinderliste__name--klickbar', type: 'button',
-              title: 'Zeigen, welche Wörter dieses Kind bearbeitet hat',
+              title: `Welche Wörter ${kind.name} bearbeitet hat — und wie sie geschrieben wurden`,
               onclick: () => kindprotokoll(eigenes),
-            }, kind.name, h('span', { class: 'kinderliste__woerter' },
+            },
+            h('span', { class: 'kinderliste__kindname' }, `📋 ${kind.name}`),
+            h('span', { class: 'kinderliste__woerter' },
               `${(eigenes.woerter || []).length} ${(eigenes.woerter || []).length === 1 ? 'Wort' : 'Wörter'}`
               + (schwer ? ` · ${schwer} schwer` : '')))
             : h('span', { class: 'kinderliste__name' }, kind.name),
