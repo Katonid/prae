@@ -435,6 +435,16 @@ final class AppModel: ObservableObject {
         await Tontest.starten()
     }
 
+    /// Spielt die Tondatei unmittelbar ab, an den Mitteilungen vorbei.
+    func spieleTonprobe() {
+        hinweis = Tonprobe.abspielen()
+    }
+
+    func haltTonprobeAn() {
+        Tonprobe.anhalten()
+        hinweis = nil
+    }
+
     func confirmTontest() {
         store.tontestBestanden = true
         Task { await rebuildChecklist() }
@@ -452,6 +462,30 @@ final class AppModel: ObservableObject {
                                text: apnsZustand,
                                befund: apnsZustand.hasPrefix("angemeldet")
                                    ? .gut : .schlecht))
+        // Die Erlaubnisse gehören in den Befund, nicht nur in die Prüfliste:
+        // Wer ihn weiterreicht, reicht sonst genau das nicht mit, woran es am
+        // häufigsten liegt.
+        let p = notifications.permissions
+        zeilen.append(Diagnose(id: "erl-mitteilungen", titel: "Mitteilungen erlaubt",
+                               text: p.authorization == .authorized ? "ja" : "NEIN",
+                               befund: p.authorization == .authorized ? .gut : .schlecht))
+        zeilen.append(Diagnose(id: "erl-ton", titel: "Ton erlaubt",
+                               text: p.soundEnabled ? "ja"
+                                   : "NEIN — dann bleibt jede Meldung stumm",
+                               befund: p.soundEnabled ? .gut : .schlecht))
+        zeilen.append(Diagnose(id: "erl-sperr", titel: "Auf dem Sperrbildschirm",
+                               text: p.lockScreenEnabled ? "ja" : "NEIN",
+                               befund: p.lockScreenEnabled ? .gut : .schlecht))
+        zeilen.append(Diagnose(id: "erl-zeit", titel: "Zeitkritisch erlaubt",
+                               text: p.timeSensitiveAllowed ? "ja"
+                                   : "NEIN — ein Fokus hält den Alarm dann zurück",
+                               befund: p.timeSensitiveAllowed ? .gut : .schlecht))
+        zeilen.append(Diagnose(id: "erl-krit", titel: "Kritische Hinweise",
+                               text: p.criticalAllowed
+                                   ? "erlaubt"
+                                   : "nicht erlaubt — bei stummem Gerät bleibt es "
+                                   + "deshalb still (Entitlement bei Apple beantragen)",
+                               befund: p.criticalAllowed ? .gut : .hinweis))
         zeilen.append(tonBefund())
         if let letzter = store.letzterPush {
             zeilen.append(Diagnose(id: "push", titel: "Zuletzt ein Push angekommen",

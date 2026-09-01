@@ -19,6 +19,7 @@
 //  ankommt. Das kann nur der Selbsttest, und ganz sicher nur ein zweites
 //  Gerät.
 
+import AVFoundation
 import UserNotifications
 
 @MainActor
@@ -60,5 +61,60 @@ enum Tontest {
         let zentrale = UNUserNotificationCenter.current()
         zentrale.removePendingNotificationRequests(withIdentifiers: [kennung])
         zentrale.removeDeliveredNotifications(withIdentifiers: [kennung])
+    }
+}
+
+
+/// Die Tondatei direkt abspielen — an den Mitteilungen vorbei.
+///
+/// Warum das nötig wurde: Der Tontest kam an, blieb aber stumm, obwohl die
+/// Datei nachweislich im App-Bündel lag. Damit standen drei Erklärungen
+/// nebeneinander, und keine ließ sich von den anderen trennen:
+///
+/// 1. iOS kann die Datei nicht lesen und ersetzt sie stillschweigend.
+/// 2. Das Gerät ist stumm (Schalter, Lautstärke) — dann macht auch eine
+///    zeitkritische Mitteilung keinen Ton.
+/// 3. Eine gekoppelte Apple Watch fängt die Mitteilung ab. iOS leitet sie
+///    ans Handgelenk, das iPhone bleibt still — und die Uhr spielt NIE den
+///    eigenen Ton einer App, sondern ihren Systemton.
+///
+/// Dieser Knopf schaltet Fall 1 aus. Er spielt die Datei über AVFoundation
+/// in der Kategorie `playback` — die klingt auch bei stumm geschaltetem
+/// Gerät. Hört man ihn, ist die Datei in Ordnung und das Problem liegt bei
+/// 2 oder 3. Hört man ihn nicht, ist es die Datei.
+@MainActor
+enum Tonprobe {
+
+    private static var spieler: AVAudioPlayer?
+
+    /// Gibt zurück, was passiert ist — im Klartext, für die Anzeige.
+    @discardableResult
+    static func abspielen() -> String {
+        let teile = PushAsset.alarmSound.split(separator: ".")
+        guard teile.count == 2,
+              let pfad = Bundle.main.url(forResource: String(teile[0]),
+                                         withExtension: String(teile[1])) else {
+            return "\(PushAsset.alarmSound) liegt nicht im App-Bündel."
+        }
+        do {
+            try AVAudioSession.sharedInstance().setCategory(.playback,
+                                                            options: [.duckOthers])
+            try AVAudioSession.sharedInstance().setActive(true)
+            let neuer = try AVAudioPlayer(contentsOf: pfad)
+            neuer.volume = 1
+            spieler = neuer
+            neuer.play()
+            return "Spielt … Hörst du den Alarmton, ist die Datei in Ordnung."
+        } catch {
+            // Der rohe Fehler: Genau hier stünde „unsupported file type",
+            // wenn das Format doch nicht taugt.
+            return "Ließ sich nicht abspielen: \(error.localizedDescription)"
+        }
+    }
+
+    static func anhalten() {
+        spieler?.stop()
+        spieler = nil
+        try? AVAudioSession.sharedInstance().setActive(false)
     }
 }

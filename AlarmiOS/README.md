@@ -71,6 +71,18 @@ Zwei Tests, und sie prüfen zwei verschiedene Dinge:
 Zuerst der Tontest. Klingt er nicht, ist über die Zustellung noch gar nicht
 nachzudenken — dann liegt es am Gerät, und die Prüfliste sagt woran.
 
+Kommt die Mitteilung, bleibt aber stumm, hilft **„Ton direkt abspielen"**:
+Das spielt dieselbe Datei an den Mitteilungen vorbei und auch bei stummem
+Gerät. Hörst du sie, ist die Datei in Ordnung, und es liegt an einem von
+zwei Dingen:
+
+* **Lautlos-Schalter.** Ohne die Berechtigung für kritische Hinweise macht
+  auch eine zeitkritische Meldung bei stummem Gerät keinen Ton.
+* **Eine gekoppelte Apple Watch.** Wird sie getragen, leitet iOS die
+  Mitteilung ans Handgelenk und das iPhone bleibt still — und die Uhr spielt
+  nie den eigenen Ton einer App, sondern ihren Systemton. Auf einem iPhone
+  mit Uhr lässt sich der Alarmton nicht prüfen. Nimm ein iPad.
+
 **Den Zustelltest kann ein Gerät nicht allein machen.** CloudKit stellt
 einem Gerät keine Meldung zu einem Datensatz zu, den es selbst geschrieben
 hat. Die Leitung schickt den Testalarm deshalb aus ihrer App an ein
