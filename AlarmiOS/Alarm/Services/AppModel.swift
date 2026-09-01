@@ -60,12 +60,16 @@ final class AppModel: ObservableObject {
         #endif
     }
 
+    /// `notifications` is optional rather than defaulted to a fresh instance:
+    /// a default argument is evaluated OUTSIDE the actor, and
+    /// `NotificationCenterService` is main-actor isolated. Built here in the
+    /// body, it is on the right actor.
     init(backend: any AlarmBackend,
-         notifications: NotificationCenterService = NotificationCenterService(),
+         notifications: NotificationCenterService? = nil,
          store: MembershipStore = MembershipStore(),
          managedConfiguration: ManagedAppConfiguration = .current()) {
         self.backend = backend
-        self.notifications = notifications
+        self.notifications = notifications ?? NotificationCenterService()
         self.store = store
         self.managedConfiguration = managedConfiguration
         self.onboardingDone = store.onboardingDone

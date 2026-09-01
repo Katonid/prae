@@ -18,7 +18,7 @@ enum BackgroundRefresh {
 
     /// Must be called before the app finishes launching — `BGTaskScheduler`
     /// rejects a registration afterwards, with a crash rather than an error.
-    static func register(handler: @escaping @Sendable () async -> Void) {
+    static func register(handler: @escaping () async -> Void) {
         BGTaskScheduler.shared.register(forTaskWithIdentifier: identifier,
                                         using: nil) { task in
             schedule()
