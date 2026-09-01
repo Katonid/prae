@@ -847,7 +847,7 @@ final class CloudKitBackend: AlarmBackend {
             } catch {
                 zeilen.append(Diagnose(id: "abfrage-\(typ)",
                                        titel: "Abfrage \(name)",
-                                       text: rohtext(error), befund: .schlecht))
+                                       text: CloudKitFehler.rohtext(error), befund: .schlecht))
             }
         }
 
@@ -873,7 +873,7 @@ final class CloudKitBackend: AlarmBackend {
             } catch {
                 zeilen.append(Diagnose(id: "praedikat-\(probe.kennung)",
                                        titel: "Prädikat \(probe.kennung)",
-                                       text: rohtext(error), befund: .schlecht))
+                                       text: CloudKitFehler.rohtext(error), befund: .schlecht))
             }
         }
 
@@ -883,7 +883,7 @@ final class CloudKitBackend: AlarmBackend {
             vorhanden = Set(try await database.allSubscriptions().map(\.subscriptionID))
         } catch {
             zeilen.append(Diagnose(id: "subs", titel: "Subscriptions",
-                                   text: "Nicht abfragbar: \(rohtext(error))",
+                                   text: "Nicht abfragbar: \(CloudKitFehler.rohtext(error))",
                                    befund: .schlecht))
             return zeilen
         }
@@ -904,7 +904,7 @@ final class CloudKitBackend: AlarmBackend {
                                        befund: .gut))
             } catch {
                 zeilen.append(Diagnose(id: "anlegen", titel: "Anlegen gescheitert",
-                                       text: rohtext(error), befund: .schlecht))
+                                       text: CloudKitFehler.rohtext(error), befund: .schlecht))
             }
         }
 
@@ -918,29 +918,6 @@ final class CloudKitBackend: AlarmBackend {
         }
 
         return zeilen
-    }
-
-    /// Der Wortlaut des Dienstes, nicht meiner.
-    ///
-    /// Packt Teilfehler aus. `modifySubscriptions` meldet ein Scheitern als
-    /// EINEN Fehler mit `partialErrorsByItemID` darin — welche der vier
-    /// Subscriptions woran gescheitert ist, steht ausschließlich dort. Ohne
-    /// das Auspacken liest man „Some items failed" und weiß nichts.
-    private func rohtext(_ error: Error) -> String {
-        guard let ck = error as? CKError else { return error.localizedDescription }
-        var teile = ["[\(ck.code.rawValue)] \(ck.localizedDescription)"]
-        if let grund = ck.userInfo[NSLocalizedFailureReasonErrorKey] as? String {
-            teile.append(grund)
-        }
-        if let teilfehler = ck.partialErrorsByItemID {
-            for (kennung, unterfehler) in teilfehler {
-                teile.append("→ \(kennung): \(rohtext(unterfehler))")
-            }
-        }
-        if let unten = ck.userInfo[NSUnderlyingErrorKey] as? Error {
-            teile.append("(\(rohtext(unten)))")
-        }
-        return teile.joined(separator: " ")
     }
 
     /// Eine Abfrage, die den Fehler ROH durchreicht.

@@ -52,10 +52,24 @@ public enum PushEventName {
 public enum SubscriptionID {
     public static let alarmCreated = "alarm-created-v1"
     public static let alarmCleared = "alarm-cleared-v1"
-    public static let pingCreated = "ping-created-v1"
     public static let selfTest = "selftest-created-v1"
+    /// Der Ping braucht ZWEI Abonnements, nicht eines.
+    ///
+    /// „an alle ODER an mich" wäre ein Prädikat mit `OR` — und **CloudKit
+    /// kennt kein `OR`**. Es lehnt so ein Prädikat mit „Invalid predicate:
+    /// Unexpected expression" ab, und zwar erst beim Anlegen, nicht beim
+    /// Übersetzen. Zwei Abonnements mit je einem `==` tun dasselbe und
+    /// benutzen nur, was CloudKit nachweislich versteht.
+    public static let pingAll = "ping-all-v2"
+    public static let pingMe = "ping-me-v2"
 
-    public static let all = [alarmCreated, alarmCleared, pingCreated, selfTest]
+    public static let all = [alarmCreated, alarmCleared, selfTest, pingAll, pingMe]
+
+    /// Ob eine Kennung zu einem Ping gehört — egal zu welchem der beiden.
+    public static func istPing(_ kennung: String?) -> Bool {
+        guard let kennung else { return false }
+        return kennung == pingAll || kennung == pingMe || kennung.hasPrefix("ping-")
+    }
 }
 
 /// Notification categories and sound file names.

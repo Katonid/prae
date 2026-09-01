@@ -107,7 +107,7 @@ public enum PushPayloadParser {
         let fields = (query["af"] as? [String: Any]) ?? [:]
         let recordName = query["rid"] as? String
 
-        if subscription == SubscriptionID.pingCreated {
+        if SubscriptionID.istPing(subscription) {
             return .success(.ping(PingPush(pingId: recordName,
                                            groupId: reference(fields[CloudFieldName.groupRef]),
                                            targetUserId: text(fields[CloudFieldName.targetUser]))))
