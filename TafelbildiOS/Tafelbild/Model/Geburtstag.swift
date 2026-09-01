@@ -77,6 +77,34 @@ struct GeburtstagContent: Codable, Equatable {
         return tag.formatted(.dateTime.day().month(.wide))
     }
 
+    /// Ist der Geburtstag, den diese Seite meint, **heute**?
+    ///
+    /// **Warum das nicht am Anlegen hängen darf.** Eine Seite entsteht am
+    /// Geburtstag und bleibt danach stehen — das ist so gewollt. „Heute
+    /// Geburtstag" und „wird 8" stimmen dann aber nur an diesem einen Tag;
+    /// am nächsten Morgen behauptet die Tafel etwas Falsches (gemeldet
+    /// 09/2026: „Toni hatte gestern Geburtstag"). Der Wortlaut richtet sich
+    /// deshalb nach dem Datum, nicht danach, wann die Seite entstand.
+    ///
+    /// Verglichen werden **Tag und Monat**, nicht das ganze Datum: Das Jahr
+    /// steht in `jahr` und meint den gefeierten Geburtstag, nicht das
+    /// Geburtsjahr.
+    func istHeute(am heute: Date = Date()) -> Bool {
+        guard let geboren = Geburtstage.datum(geburtstag) else { return false }
+        let kalender = Calendar.current
+        let seins = kalender.dateComponents([.month, .day], from: geboren)
+        let jetzt = kalender.dateComponents([.month, .day, .year], from: heute)
+        return seins.month == jetzt.month && seins.day == jetzt.day
+            && (jahr == 0 || jahr == jetzt.year)
+    }
+
+    /// Liegt der gefeierte Tag hinter uns? Dann steht alles in der
+    /// Vergangenheit — ob ausdrücklich nachgefeiert oder einfach, weil die
+    /// Seite von gestern stehen geblieben ist.
+    func istVorbei(am heute: Date = Date()) -> Bool {
+        nachgefeiert || !istHeute(am: heute)
+    }
+
     /// Wie alt geworden? nil, wenn sich das nicht ausrechnen lässt.
     var alter: Int? {
         guard let geboren = Geburtstage.datum(geburtstag), jahr > 0 else { return nil }
