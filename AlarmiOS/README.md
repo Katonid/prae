@@ -71,17 +71,26 @@ Zwei Tests, und sie prüfen zwei verschiedene Dinge:
 Zuerst der Tontest. Klingt er nicht, ist über die Zustellung noch gar nicht
 nachzudenken — dann liegt es am Gerät, und die Prüfliste sagt woran.
 
-Kommt die Mitteilung, bleibt aber stumm, hilft **„Ton direkt abspielen"**:
-Das spielt dieselbe Datei an den Mitteilungen vorbei und auch bei stummem
-Gerät. Hörst du sie, ist die Datei in Ordnung, und es liegt an einem von
-zwei Dingen:
+Kommt die Mitteilung, bleibt aber stumm, grenzen zwei Knöpfe die Ursache ein:
 
-* **Lautlos-Schalter.** Ohne die Berechtigung für kritische Hinweise macht
-  auch eine zeitkritische Meldung bei stummem Gerät keinen Ton.
-* **Eine gekoppelte Apple Watch.** Wird sie getragen, leitet iOS die
-  Mitteilung ans Handgelenk und das iPhone bleibt still — und die Uhr spielt
-  nie den eigenen Ton einer App, sondern ihren Systemton. Auf einem iPhone
-  mit Uhr lässt sich der Alarmton nicht prüfen. Nimm ein iPad.
+* **„Ton direkt abspielen"** spielt die Datei an den Mitteilungen vorbei und
+  auch bei stummem Gerät. Hörbar heißt: die Datei ist in Ordnung.
+* **„Tontest mit Standardton"** schickt dieselbe Mitteilung mit dem
+  System-Ton. Hörst du **diesen**, aber nicht den Alarmton, liegt es doch an
+  der Datei. Sind **beide** stumm, liegt es am Gerät.
+
+Am Gerät kommen dann drei Dinge in Frage, nach Häufigkeit:
+
+1. **Klingeltonlautstärke** — und die ist **nicht** die Medienlautstärke.
+   Die Lautstärketasten regeln die Medien, solange etwas spielt; genau das
+   tut „Ton direkt abspielen". Drücke die Tasten, wenn nichts läuft, oder
+   stelle sie unter Einstellungen → Töne & Haptik.
+2. **Eine gekoppelte Apple Watch.** Wird sie getragen, leitet iOS die
+   Mitteilung ans Handgelenk und das iPhone bleibt still — und die Uhr
+   spielt nie den eigenen Ton einer App, sondern ihren Systemton. Auf einem
+   iPhone mit Uhr lässt sich der Alarmton nicht prüfen. Nimm ein iPad.
+3. **Lautlos-Schalter.** Ohne die Berechtigung für kritische Hinweise macht
+   auch eine zeitkritische Meldung bei stummem Gerät keinen Ton.
 
 **Den Zustelltest kann ein Gerät nicht allein machen.** CloudKit stellt
 einem Gerät keine Meldung zu einem Datensatz zu, den es selbst geschrieben

@@ -131,6 +131,9 @@ struct OnboardingView: View {
     /// Zuerst der Ton, dann die Zustellung. Die Reihenfolge ist die
     /// Fehlersuche: Wer den Ton nicht hört, braucht über die Zustellung noch
     /// gar nicht nachzudenken.
+    /// Zuerst der Ton, dann die Zustellung. Die Reihenfolge ist die
+    /// Fehlersuche: Wer den Ton nicht hört, braucht über die Zustellung noch
+    /// gar nicht nachzudenken.
     @ViewBuilder
     private var tontestSection: some View {
         Section {
@@ -146,37 +149,49 @@ struct OnboardingView: View {
                 .foregroundStyle(.secondary)
             Button("Ich habe den Ton gehört") { model.confirmTontest() }
                 .fontWeight(.semibold)
+        } header: {
+            Text("1. Tontest — ohne Netz")
+        } footer: {
+            Text("Dieser Test läuft ganz auf dem Gerät. Er beweist, dass das iPad "
+                 + "laut werden DARF — nicht, dass ein Alarm von einer Kollegin "
+                 + "ankommt. Dafür ist der nächste da.")
+        }
 
-            Divider()
-
+        Section {
             Button {
                 model.spieleTonprobe()
             } label: {
                 Label("Ton direkt abspielen", systemImage: "waveform")
             }
             Button("Abspielen beenden") { model.haltTonprobeAn() }
-            Text("Kommt bei der Mitteilung kein Alarmton, sagt dieser Knopf, "
-                 + "woran es liegt: Er spielt dieselbe Datei unmittelbar ab, an "
-                 + "den Mitteilungen vorbei — und auch bei stummem Gerät. Hörst "
-                 + "du ihn, ist die Datei in Ordnung und es liegt am Gerät.")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
+            Button {
+                Task { await model.runTontest(mitStandardton: true) }
+            } label: {
+                Label("Tontest mit Standardton", systemImage: "bell")
+            }
         } header: {
-            Text("1. Tontest — ohne Netz")
+            Text("Wenn die Mitteilung kommt, aber stumm bleibt")
         } footer: {
-            Text("Dieser Test läuft ganz auf dem Gerät. Er beweist, dass das iPad "
-                 + "laut werden DARF — nicht, dass ein Alarm von einer Kollegin "
-                 + "ankommt. Dafür ist der nächste da.\n\n"
-                 + "Zwei Fallen, wenn die Mitteilung kommt, aber stumm bleibt:\n\n"
-                 + "• Der Lautlos-Schalter. Ohne die Berechtigung für "
-                 + "„kritische Hinweise“ macht auch eine zeitkritische Meldung "
-                 + "bei stummem Gerät keinen Ton.\n\n"
-                 + "• Eine gekoppelte Apple Watch. Wird sie getragen, leitet iOS "
-                 + "die Mitteilung ans Handgelenk und das iPhone bleibt still — "
-                 + "und die Uhr spielt NIE den eigenen Ton einer App, sondern "
-                 + "ihren Systemton. Auf einem iPhone mit Uhr lässt sich der "
-                 + "Alarmton so nicht prüfen; nimm ein iPad oder lege die Uhr ab.")
+            Text(tonHilfe)
         }
+    }
+
+    /// Die Reihenfolge ist nach Häufigkeit sortiert — und der erste Punkt ist
+    /// der, den fast alle übersehen.
+    private var tonHilfe: String {
+        """
+        Die beiden Knöpfe oben grenzen die Ursache ein:
+
+        • „Ton direkt abspielen" spielt die Datei an den Mitteilungen vorbei         und auch bei stummem Gerät. Hörbar heißt: Die Datei ist in Ordnung.
+
+        • „Tontest mit Standardton" schickt dieselbe Mitteilung mit dem         System-Ton. Hörst du DIESEN, aber nicht den Alarmton, liegt es doch         an der Datei. Sind BEIDE stumm, liegt es am Gerät — dann diese drei         Punkte in dieser Reihenfolge:
+
+        1. Klingeltonlautstärke. Sie ist NICHT dieselbe wie die         Medienlautstärke. Die Lautstärketasten regeln die Medien, solange         etwas spielt — genau das tut „Ton direkt abspielen". Drücke die         Tasten, wenn nichts läuft, oder stelle sie unter Einstellungen →         Töne & Haptik ein.
+
+        2. Eine gekoppelte Apple Watch. Wird sie getragen, leitet iOS die         Mitteilung ans Handgelenk und das iPhone bleibt still — und die Uhr         spielt nie den eigenen Ton einer App, sondern ihren Systemton. Lege         sie ab oder nimm ein iPad.
+
+        3. Der Lautlos-Schalter. Ohne die Berechtigung für kritische Hinweise         macht auch eine zeitkritische Meldung bei stummem Gerät keinen Ton.
+        """
     }
 
     @ViewBuilder

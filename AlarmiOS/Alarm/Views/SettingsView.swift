@@ -41,6 +41,9 @@ struct SettingsView: View {
                     Button("Tontest — das iPad weckt sich selbst") {
                         Task { await model.runTontest() }
                     }
+                    Button("Tontest mit Standardton") {
+                        Task { await model.runTontest(mitStandardton: true) }
+                    }
                     Button("Ton direkt abspielen") { model.spieleTonprobe() }
                     Button("Abspielen beenden") { model.haltTonprobeAn() }
                     NavigationLink {
@@ -51,8 +54,12 @@ struct SettingsView: View {
                 } header: {
                     Text("Prüfen")
                 } footer: {
-                    Text("Der Tontest kommt ohne Netz aus und beweist nur, dass "
-                         + "dieses iPad laut werden darf.\n\nDie Zustellung "
+                    Text("Bleibt die Mitteilung stumm: „Ton direkt abspielen“ "
+                         + "prüft die Datei, „Tontest mit Standardton“ prüft das "
+                         + "Gerät. Sind beide stumm, liegt es an der "
+                         + "Klingeltonlautstärke (nicht der Medienlautstärke), an "
+                         + "einer getragenen Apple Watch oder am "
+                         + "Lautlos-Schalter.\n\nDie Zustellung "
                          + "beweist nur ein zweites Gerät: Die Leitung schickt "
                          + "einen Testalarm hierher (Verwaltung → Mitglieder). "
                          + "„Zustellung prüfen“ zeigt, an welcher Stelle die Kette "
