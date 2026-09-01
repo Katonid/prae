@@ -146,12 +146,36 @@ struct OnboardingView: View {
                 .foregroundStyle(.secondary)
             Button("Ich habe den Ton gehört") { model.confirmTontest() }
                 .fontWeight(.semibold)
+
+            Divider()
+
+            Button {
+                model.spieleTonprobe()
+            } label: {
+                Label("Ton direkt abspielen", systemImage: "waveform")
+            }
+            Button("Abspielen beenden") { model.haltTonprobeAn() }
+            Text("Kommt bei der Mitteilung kein Alarmton, sagt dieser Knopf, "
+                 + "woran es liegt: Er spielt dieselbe Datei unmittelbar ab, an "
+                 + "den Mitteilungen vorbei — und auch bei stummem Gerät. Hörst "
+                 + "du ihn, ist die Datei in Ordnung und es liegt am Gerät.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
         } header: {
             Text("1. Tontest — ohne Netz")
         } footer: {
             Text("Dieser Test läuft ganz auf dem Gerät. Er beweist, dass das iPad "
                  + "laut werden DARF — nicht, dass ein Alarm von einer Kollegin "
-                 + "ankommt. Dafür ist der nächste da.")
+                 + "ankommt. Dafür ist der nächste da.\n\n"
+                 + "Zwei Fallen, wenn die Mitteilung kommt, aber stumm bleibt:\n\n"
+                 + "• Der Lautlos-Schalter. Ohne die Berechtigung für "
+                 + "„kritische Hinweise“ macht auch eine zeitkritische Meldung "
+                 + "bei stummem Gerät keinen Ton.\n\n"
+                 + "• Eine gekoppelte Apple Watch. Wird sie getragen, leitet iOS "
+                 + "die Mitteilung ans Handgelenk und das iPhone bleibt still — "
+                 + "und die Uhr spielt NIE den eigenen Ton einer App, sondern "
+                 + "ihren Systemton. Auf einem iPhone mit Uhr lässt sich der "
+                 + "Alarmton so nicht prüfen; nimm ein iPad oder lege die Uhr ab.")
         }
     }
 

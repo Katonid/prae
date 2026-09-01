@@ -257,6 +257,20 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   geprüft" setzt sich auf dem EMPFANGENDEN iPad von selbst, sobald dort ein
   Push eintrifft (`store.letzterPush`). Einen Knopf, der auf einem einzelnen
   Gerät nie funktionieren kann, darf diese App nicht anbieten.
+- **Eine gekoppelte Apple Watch fängt den Ton ab** (gefunden 09/2026). Wird
+  sie getragen, leitet iOS die Mitteilung ans Handgelenk und das iPhone
+  bleibt STILL — und die Uhr spielt nie den eigenen Ton einer App, sondern
+  ihren Systemton. Auf einem iPhone mit Uhr lässt sich der Alarmton deshalb
+  gar nicht prüfen. Die Dienst-iPads haben keine Uhr; für den Test gilt es
+  trotzdem. Zweite Falle daneben: der Lautlos-Schalter — ohne kritische
+  Hinweise bleibt auch eine zeitkritische Meldung stumm.
+- **Die Tonprobe spielt an den Mitteilungen vorbei** (`Tonprobe`, ab 1.0.8).
+  Sie spielt dieselbe Datei über AVFoundation in der Kategorie `playback` —
+  das klingt auch bei stummem Gerät. Damit trennt sich „iOS kann die Datei
+  nicht lesen" von „das Gerät darf gerade nicht laut werden"; ohne sie standen
+  drei Erklärungen nebeneinander und keine ließ sich ausschließen. Die
+  Berechtigungen stehen aus demselben Grund im kopierbaren Befund und nicht
+  nur in der Prüfliste.
 - **Töne sind WAV, nicht CAF.** Der von Hand geschriebene CAF-Container war
   formal in Ordnung (`file` erkannte ihn, `desc`- und `data`-Block stimmten)
   — iOS spielte trotzdem den Standardton. Was es nicht laden kann, ersetzt

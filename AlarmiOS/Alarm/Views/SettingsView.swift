@@ -41,6 +41,8 @@ struct SettingsView: View {
                     Button("Tontest — das iPad weckt sich selbst") {
                         Task { await model.runTontest() }
                     }
+                    Button("Ton direkt abspielen") { model.spieleTonprobe() }
+                    Button("Abspielen beenden") { model.haltTonprobeAn() }
                     NavigationLink {
                         DiagnoseView().environmentObject(model)
                     } label: {
