@@ -275,6 +275,15 @@ final class AppModel: ObservableObject {
         } catch {
             report(error)
         }
+
+        // Ein Zustelltest ist mit der Rückmeldung erledigt und räumt sich
+        // selbst weg. Bei einem ECHTEN Alarm passiert das ausdrücklich nicht:
+        // Dort beendet nur die Entwarnung den Alarm, und eine Rückmeldung
+        // heißt „ich habe es gesehen", nicht „es ist vorbei".
+        if alarm.istGezielterProbealarm, alarm.targetUserId == member?.userId {
+            try? await backend.clearAlarm(alarmId: alarm.id)
+            showsAlarmScreen = false
+        }
     }
 
     func hasAcknowledged(_ alarm: Alarm) -> Bool {
@@ -603,6 +612,28 @@ final class AppModel: ObservableObject {
     func loadDeviceStatuses() async {
         do { deviceStatuses = try await backend.fetchDeviceStatuses() }
         catch { report(error) }
+    }
+
+    /// Beendet alles, was gerade läuft — der Ausweg, wenn sich etwas
+    /// aufgestaut hat.
+    ///
+    /// Nur für die Leitung, und ausdrücklich getippt: Ein Knopf, der Alarme
+    /// beendet, darf nie nebenbei ausgelöst werden.
+    func beendeAlleLaufenden() async {
+        do {
+            let laufende = try await backend.fetchAlarmHistory(limit: 200)
+                .filter(\.isActive)
+            for alarm in laufende {
+                try await backend.clearAlarm(alarmId: alarm.id)
+            }
+            await AlarmReminder.cancelAll()
+            showsAlarmScreen = false
+            hinweis = laufende.isEmpty
+                ? "Es lief kein Alarm."
+                : "\(laufende.count) laufende(r) Alarm(e) beendet."
+        } catch {
+            report(error)
+        }
     }
 
     func pingAll() async {

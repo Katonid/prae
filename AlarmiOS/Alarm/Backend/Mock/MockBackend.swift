@@ -269,7 +269,10 @@ final class MockBackend: AlarmBackend {
 
     private func activeAlarm() -> Alarm? {
         lock.around {
-            alarms.first { $0.isActive && ($0.targetUserId == nil || $0.targetUserId == userId) }
+            alarms.first {
+                $0.isActive && ($0.targetUserId == nil || $0.targetUserId == userId)
+                    && $0.giltNoch()
+            }
         }
     }
 

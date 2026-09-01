@@ -124,6 +124,22 @@ queryable" — dann fehlen die Indizes; siehe „CloudKit einrichten" weiter
 unten. Die App kann das nicht selbst richten, ein Index ist keine Sache der
 App.
 
+## Rückmeldung und Entwarnung sind zweierlei
+
+„Gesehen – Klasse gesichert" heißt **ich weiß Bescheid**, nicht **es ist
+vorbei**. Ein Alarm läuft weiter, bis die Leitung (oder die auslösende
+Person) Entwarnung gibt. Das ist Absicht: Wer im Klassenraum sitzt, kann
+nicht beurteilen, ob die Lage im Haus vorbei ist.
+
+Genau eine Ausnahme: der **gezielte Probealarm** des Zustelltests. Der räumt
+sich mit der Rückmeldung selbst weg und verfällt ohnehin nach zehn Minuten.
+Ohne das bliebe jeder Test für immer „aktiv", und ein Stapel alter Tests
+würde der Reihe nach zum laufenden Alarm — das iPad klingelte dann immer
+wieder.
+
+Staut sich doch etwas auf: **Verwaltung → Nachbereitung → „Alle laufenden
+Alarme beenden"**.
+
 ## Der Aufbau in einem Absatz
 
 Alles, was mit einer Gegenstelle spricht, liegt hinter **einem** Protokoll:
