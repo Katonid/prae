@@ -46,7 +46,7 @@ enum OnboardingChecklist {
     static func items(permissions: NotificationCenterService.Permissions,
                       availability: BackendAvailability,
                       tontestPassed: Bool,
-                      selfTestPassed: Bool,
+                      zustellungGeprueft: Bool,
                       criticalAlertsBuilt: Bool) -> [ChecklistItem] {
         let settings = URL(string: UIApplication.openSettingsURLString)
 
@@ -127,14 +127,16 @@ enum OnboardingChecklist {
             settingsURL: nil))
 
         items.append(ChecklistItem(
-            id: "selftest",
-            title: "Selbsttest angekommen",
-            detail: selfTestPassed
-                ? "Ein Testalarm ist über CloudKit auf diesem Gerät angekommen."
-                : "Noch nicht geprüft. Erst ein angekommener Testalarm zeigt, dass "
-                + "die Zustellung wirklich funktioniert. Kommt er nicht, sagt "
-                + "„Zustellung prüfen“ in den Einstellungen, woran es liegt.",
-            state: selfTestPassed ? .ok : .missing,
+            id: "zustellung",
+            title: "Zustellung geprüft",
+            detail: zustellungGeprueft
+                ? "Auf diesem iPad ist mindestens eine Meldung über iCloud "
+                + "eingetroffen."
+                : "Noch nie ist hier eine Meldung eingetroffen. Der Haken setzt "
+                + "sich von selbst, sobald die Leitung einen Testalarm an dieses "
+                + "Gerät schickt — von einem ANDEREN iPad aus. Ein Gerät kann "
+                + "sich die Zustellung nicht selbst beweisen.",
+            state: zustellungGeprueft ? .ok : .missing,
             settingsURL: nil))
 
         return items

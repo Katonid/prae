@@ -22,7 +22,6 @@ final class MembershipStore {
         static let role = "alarm.role"
         static let lastLocation = "alarm.lastLocation"
         static let onboardingDone = "alarm.onboardingDone"
-        static let selfTestPassed = "alarm.selfTestPassed"
         static let acknowledgedAlarmIds = "alarm.acknowledgedAlarmIds"
         static let tontestBestanden = "alarm.tontestBestanden"
         static let letzterPush = "alarm.letzterPush"
@@ -68,14 +67,6 @@ final class MembershipStore {
         set { defaults.set(newValue, forKey: Key.onboardingDone) }
     }
 
-    /// Onboarding counts as finished only after a test alarm actually arrived.
-    /// A checklist of green ticks proves nothing; a delivered notification
-    /// does.
-    var selfTestPassed: Bool {
-        get { defaults.bool(forKey: Key.selfTestPassed) }
-        set { defaults.set(newValue, forKey: Key.selfTestPassed) }
-    }
-
     /// Auf diesem Gerät wurde ein Ton gehört. Sagt nichts über die
     /// Zustellung — nur darüber, dass das iPad laut werden darf.
     var tontestBestanden: Bool {
@@ -111,6 +102,5 @@ final class MembershipStore {
         memberId = nil
         role = .member
         onboardingDone = false
-        selfTestPassed = false
     }
 }

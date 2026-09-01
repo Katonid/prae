@@ -38,6 +38,9 @@ final class AppModel: ObservableObject {
     @Published private(set) var diagnose: [Diagnose] = []
     @Published private(set) var diagnoseLaeuft = false
 
+    /// Eine gelungene Rückmeldung. Anders als `problem` kein Fehler.
+    @Published var hinweis: String?
+
     /// Shown while an alarm is being retried. Not an error — the attempt is
     /// still running, and the difference matters to whoever is watching it.
     @Published var retryNotice: String?
@@ -369,10 +372,9 @@ final class AppModel: ObservableObject {
         case .ping:
             await reportDeviceStatus()
         case .selfTest:
-            // The self-test counts as passed the moment it ARRIVES, not when
-            // it was requested. That distinction is the whole point of the
-            // exercise: it proves the delivery path, not the send path.
-            store.selfTestPassed = true
+            // Angekommen ist angekommen — mehr beweist kein Knopf. Die
+            // Prüfliste liest ohnehin `letzterPush`; hier wird sie nur
+            // sofort neu gezeichnet, statt bis zum nächsten Start zu warten.
             await rebuildChecklist()
         case .alarm, .allClear:
             break
@@ -450,6 +452,7 @@ final class AppModel: ObservableObject {
                                text: apnsZustand,
                                befund: apnsZustand.hasPrefix("angemeldet")
                                    ? .gut : .schlecht))
+        zeilen.append(tonBefund())
         if let letzter = store.letzterPush {
             zeilen.append(Diagnose(id: "push", titel: "Zuletzt ein Push angekommen",
                                    text: Clock.dayAndTime.string(from: letzter),
@@ -474,19 +477,44 @@ final class AppModel: ObservableObject {
         await runDiagnose()
     }
 
-    func runSelfTest() async {
+    /// Liegt der Alarmton wirklich im App-Bündel?
+    ///
+    /// Findet iOS eine Tondatei nicht oder kann sie sie nicht lesen, spielt es
+    /// stillschweigend den Standardton — ohne Fehler, ohne Hinweis. „Es kommt
+    /// an, aber leise" sieht dann genauso aus wie ein falscher Dateiname.
+    func tonBefund() -> Diagnose {
+        let name = PushAsset.alarmSound
+        let teile = name.split(separator: ".")
+        guard teile.count == 2,
+              let pfad = Bundle.main.url(forResource: String(teile[0]),
+                                         withExtension: String(teile[1])) else {
+            return Diagnose(id: "ton", titel: "Alarmton im Bündel",
+                            text: "\(name) NICHT gefunden — iOS spielt dann den "
+                                + "Standardton, ohne es zu melden.",
+                            befund: .schlecht)
+        }
+        let groesse = (try? Data(contentsOf: pfad).count) ?? 0
+        return Diagnose(id: "ton", titel: "Alarmton im Bündel",
+                        text: "\(name), \(groesse / 1024) KiB",
+                        befund: groesse > 0 ? .gut : .schlecht)
+    }
+
+    /// Schickt einen Testalarm an ein anderes Gerät der Gruppe.
+    ///
+    /// Nicht an das eigene: CloudKit stellt einem Gerät die Meldung zu einem
+    /// Datensatz, den es selbst geschrieben hat, nicht zu. Der Haken in der
+    /// Prüfliste setzt sich deshalb auf dem EMPFANGENDEN iPad, von selbst,
+    /// sobald dort ein Push eintrifft — bestätigen muss ihn niemand.
+    func sendTestAlarm(to member: Member) async {
         isWorking = true
         defer { isWorking = false }
         do {
-            try await backend.requestSelfTest()
+            try await backend.sendTestAlarm(toUserId: member.userId)
+            hinweis = "Testalarm an \(member.displayName) gesendet. Der Haken "
+                + "„Zustellung geprüft“ setzt sich auf DEREN iPad."
         } catch {
             report(error)
         }
-    }
-
-    func confirmSelfTest() {
-        store.selfTestPassed = true
-        Task { await rebuildChecklist() }
     }
 
     func finishOnboarding() {
@@ -498,7 +526,7 @@ final class AppModel: ObservableObject {
         checklist = OnboardingChecklist.items(permissions: notifications.permissions,
                                               availability: availability,
                                               tontestPassed: store.tontestBestanden,
-                                              selfTestPassed: store.selfTestPassed,
+                                              zustellungGeprueft: store.letzterPush != nil,
                                               criticalAlertsBuilt: criticalAlertsBuilt)
         // Only the explicit "I am done" flag decides which screen the app is
         // on. A permission revoked months later shows the warning banner on

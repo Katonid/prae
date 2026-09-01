@@ -195,11 +195,11 @@ final class MockBackend: AlarmBackend {
 
     // MARK: - Checks and administration
 
-    func requestSelfTest() async throws {
+    func sendTestAlarm(toUserId zielUserId: String) async throws {
         let alarm = Alarm(id: UUID().uuidString, groupId: group.id, type: .test,
                           triggeredByUserId: userId, triggeredByName: "MÜ",
                           instruction: group.instruction(for: .test),
-                          targetUserId: userId)
+                          targetUserId: zielUserId)
         lock.around { alarms.insert(alarm, at: 0) }
         publishAlarm()
     }

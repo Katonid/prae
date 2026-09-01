@@ -22,7 +22,7 @@ enum PreviewModels {
         store.displayName = "MÜ"
         store.role = .admin
         store.onboardingDone = true
-        store.selfTestPassed = true
+        store.letzterPush = Date()
         store.lastLocation = "Aula"
         return AppModel(backend: MockBackend(withRunningAlarm: runningAlarm),
                         store: store,

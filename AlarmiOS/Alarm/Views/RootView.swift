@@ -21,6 +21,7 @@ struct RootView: View {
             .overlay(alignment: .top) {
                 VStack(spacing: 8) {
                     retryBanner
+                    hinweisBanner
                     problemBanner
                 }
             }
@@ -76,6 +77,32 @@ struct RootView: View {
             .padding(16)
             .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14))
             .overlay(RoundedRectangle(cornerRadius: 14).stroke(.blue.opacity(0.4)))
+            .padding(.horizontal, 20)
+            .padding(.top, 8)
+        }
+    }
+
+    /// Etwas hat geklappt. Verschwindet auf Tipp, nicht von selbst — auch
+    /// eine gute Nachricht will gelesen werden.
+    @ViewBuilder
+    private var hinweisBanner: some View {
+        if let hinweis = model.hinweis {
+            HStack(alignment: .top, spacing: 12) {
+                Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
+                Text(hinweis)
+                    .font(.callout)
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 0)
+                Button {
+                    model.hinweis = nil
+                } label: {
+                    Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(16)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14))
+            .overlay(RoundedRectangle(cornerRadius: 14).stroke(.green.opacity(0.4)))
             .padding(.horizontal, 20)
             .padding(.top, 8)
         }

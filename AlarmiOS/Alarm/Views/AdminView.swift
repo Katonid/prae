@@ -227,10 +227,18 @@ struct MembersView: View {
                                 .font(.caption).foregroundStyle(.secondary)
                         }
                         Spacer()
-                        Button(member.role == .admin ? "Rechte entziehen"
-                                                     : "Zur Leitung machen") {
-                            setzeRolle(member,
-                                       auf: member.role == .admin ? .member : .admin)
+                        VStack(alignment: .trailing, spacing: 6) {
+                            Button(member.role == .admin ? "Rechte entziehen"
+                                                         : "Zur Leitung machen") {
+                                setzeRolle(member,
+                                           auf: member.role == .admin ? .member : .admin)
+                            }
+                            if member.userId != model.member?.userId {
+                                Button("Testalarm senden") {
+                                    Task { await model.sendTestAlarm(to: member) }
+                                }
+                                .disabled(model.isWorking)
+                            }
                         }
                         .font(.caption)
                         .buttonStyle(.borderless)
@@ -247,7 +255,14 @@ struct MembersView: View {
                 }
             }
             } footer: {
-                Text("Mindestens zwei Personen sollten die Leitung haben. Sonst "
+                Text("„Testalarm senden“ schickt einen Probealarm an genau dieses "
+                     + "eine iPad — das Kollegium merkt nichts davon. Auf dem "
+                     + "Zielgerät setzt sich damit der Haken „Zustellung geprüft“.\n\n"
+                     + "An das eigene Gerät geht kein Test: CloudKit stellt einem "
+                     + "Gerät keine Meldung zu einem Datensatz zu, den es selbst "
+                     + "geschrieben hat. Die Zustellung beweist ein zweites iPad "
+                     + "oder gar nichts.\n\n"
+                     + "Mindestens zwei Personen sollten die Leitung haben. Sonst "
                      + "kann niemand mehr Codes vergeben, Standorte pflegen oder "
                      + "Entwarnung geben, sobald dieses eine iPad zurückgesetzt "
                      + "wird.")

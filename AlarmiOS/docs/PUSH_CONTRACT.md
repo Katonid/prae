@@ -19,7 +19,7 @@ selbstgeschriebener Sender gleichermaßen einigen.
 {
   "aps": {
     "alert": { "title": "AMOKALARM – Aula", "body": "Ausgelöst von MÜ um 09:14" },
-    "sound": "alarm.caf",
+    "sound": "alarm.wav",
     "mutable-content": 1,
     "category": "ALARM",
     "interruption-level": "time-sensitive"
@@ -80,7 +80,7 @@ er aber Text.
   Extension nicht**, und ohne die Erweiterung bleibt der Alarm auf
   `.active`: ein aktiver Fokus hält ihn zurück. Das ist der wichtigste
   Schlüssel im ganzen Paket.
-* `"sound"` — `alarm.caf` oder `allclear.caf`. Beide liegen im App-Bündel
+* `"sound"` — `alarm.wav` oder `allclear.wav`. Beide liegen im App-Bündel
   **und** in der Erweiterung.
 * `apns-collapse-id` (HTTP-Kopfzeile) auf die `alarmId` — sonst stapeln sich
   mehrere Zustellungen desselben Alarms als mehrere Banner.

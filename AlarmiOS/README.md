@@ -63,19 +63,27 @@ vergeben oder Entwarnung geben.
 
 Zwei Tests, und sie prüfen zwei verschiedene Dinge:
 
-| Test | Beweist | Braucht Netz |
+| Test | Beweist | Braucht |
 |---|---|---|
-| **Tontest** | Dieses iPad darf laut werden (Erlaubnis, Ton, Fokus, Lautlos-Schalter, Sperrbildschirm) | nein |
-| **Selbsttest** | Ein Alarm kommt über iCloud an | ja |
+| **Tontest** | Dieses iPad darf laut werden (Erlaubnis, Ton, Fokus, Lautlos-Schalter, Sperrbildschirm) | nichts |
+| **Zustelltest** | Ein Alarm kommt über iCloud an | ein ZWEITES Gerät |
 
 Zuerst der Tontest. Klingt er nicht, ist über die Zustellung noch gar nicht
 nachzudenken — dann liegt es am Gerät, und die Prüfliste sagt woran.
 
-Klingt der Tontest und der Selbsttest nicht, führt **Einstellungen →
-Zustellung prüfen** die Kette einzeln vor: Konto, je eine Probeabfrage pro
+**Den Zustelltest kann ein Gerät nicht allein machen.** CloudKit stellt
+einem Gerät keine Meldung zu einem Datensatz zu, den es selbst geschrieben
+hat. Die Leitung schickt den Testalarm deshalb aus ihrer App an ein
+bestimmtes Mitglied (Verwaltung → Mitglieder → „Testalarm senden"); auf
+dessen iPad setzt sich der Haken „Zustellung geprüft" von selbst, sobald der
+Push eintrifft. Ein Knopf, der auf einem einzelnen Gerät nie funktionieren
+könnte, steht deshalb nicht mehr in der App.
+
+Kommt nichts an, führt **Einstellungen → Zustellung prüfen** die Kette
+einzeln vor: Konto, je eine Probeabfrage pro
 Record-Typ, jede der vier Subscriptions, die APNs-Anmeldung, der letzte
-angekommene Push. Das erste rote Kreuz ist die Ursache. Der Befund lässt
-sich kopieren.
+angekommene Push — und ob der Alarmton überhaupt im App-Bündel liegt. Das
+erste rote Kreuz ist die Ursache. Der Befund lässt sich kopieren.
 
 Der häufigste Befund auf einem frischen Container ist „Field … is not marked
 queryable" — dann fehlen die Indizes; siehe „CloudKit einrichten" weiter
@@ -292,7 +300,7 @@ Töne und App-Symbol werden **gerechnet, nicht geladen** — reines Python,
 ohne fremde Bibliotheken, ohne Netz:
 
 ```
-python3 AlarmiOS/scripts/make-sounds.py    # alarm.caf (25 s), allclear.caf (3 s)
+python3 AlarmiOS/scripts/make-sounds.py    # alarm.wav (25 s), allclear.wav (3 s)
 python3 AlarmiOS/scripts/make-icon.py      # AppIcon.png (1024 × 1024)
 ```
 

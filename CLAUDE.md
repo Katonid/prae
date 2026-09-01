@@ -249,6 +249,21 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   `CloudKitSubscriptions` und werden von Subscription UND Diagnose benutzt;
   zwei Fassungen prüften garantiert etwas anderes, als die Zustellung
   braucht.
+- **CloudKit stellt dem SCHREIBENDEN Gerät nichts zu** (gefunden 09/2026).
+  Alle fünf Abonnements angelegt, alle Prädikate abfragbar, APNs angemeldet —
+  und der Selbsttest kam trotzdem nie an. Ein Gerät kann sich die Zustellung
+  nicht selbst beweisen. Der Testalarm geht deshalb an ein ANDERES Mitglied
+  (Verwaltung → Mitglieder → „Testalarm senden"), und der Haken „Zustellung
+  geprüft" setzt sich auf dem EMPFANGENDEN iPad von selbst, sobald dort ein
+  Push eintrifft (`store.letzterPush`). Einen Knopf, der auf einem einzelnen
+  Gerät nie funktionieren kann, darf diese App nicht anbieten.
+- **Töne sind WAV, nicht CAF.** Der von Hand geschriebene CAF-Container war
+  formal in Ordnung (`file` erkannte ihn, `desc`- und `data`-Block stimmten)
+  — iOS spielte trotzdem den Standardton. Was es nicht laden kann, ersetzt
+  es stillschweigend, ohne Fehler. Geschrieben wird jetzt mit Pythons
+  `wave`-Modul: kein fremdes Paket, aber auch nichts Selbstgebasteltes.
+  Und die Diagnose schlägt die Datei im Bündel nach und nennt ihre Größe —
+  „kommt an, aber leise" sieht sonst genauso aus wie ein falscher Dateiname.
 - **Höchstens DREI `desiredKeys` je Subscription.** Mit zehn lehnte CloudKit
   jedes Alarm-Abonnement ab („notification additional fields limit
   exceeded"), und ein Gerät ohne Abonnement ist für immer stumm — die
