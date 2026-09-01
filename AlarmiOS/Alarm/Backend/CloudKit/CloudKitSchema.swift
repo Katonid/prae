@@ -92,6 +92,46 @@ enum CloudConstant {
     static let instructionPushLimit = 180
 }
 
+/// Der Wortlaut des Dienstes, nicht unserer.
+///
+/// Liegt hier und nicht im Backend, weil `CloudKitSubscriptions` ihn ebenso
+/// braucht: Ein abgelehntes Anlegen ist genau die Stelle, an der ein
+/// aufgeräumter Satz die Spur vernichtet.
+enum CloudKitFehler {
+    static func rohtext(_ error: Error) -> String {
+        guard let ck = error as? CKError else { return error.localizedDescription }
+        var teile = ["[\(ck.code.rawValue)] \(ck.localizedDescription)"]
+        if let grund = ck.userInfo[NSLocalizedFailureReasonErrorKey] as? String {
+            teile.append(grund)
+        }
+        // Teilfehler: Bei `modifySubscriptions` steht ausschließlich hier,
+        // welche Subscription woran gescheitert ist.
+        if let teilfehler = ck.partialErrorsByItemID {
+            for (kennung, unterfehler) in teilfehler {
+                teile.append("→ \(kennung): \(rohtext(unterfehler))")
+            }
+        }
+        if let unten = ck.userInfo[NSUnderlyingErrorKey] as? Error {
+            teile.append("(\(rohtext(unten)))")
+        }
+        return teile.joined(separator: " ")
+    }
+}
+
+/// Was `modifySubscriptions` NICHT wirft.
+///
+/// Die Methode wirft nur, wenn der ganze Aufruf scheitert. Lehnt CloudKit
+/// einzelne Subscriptions ab, steht das in `saveResults` — und wer das
+/// Ergebnis mit `_ =` wegwirft, liest „ohne Fehler durchgelaufen", während
+/// kein einziges Abonnement entstanden ist. Genau so war es.
+struct SubscriptionAbgelehnt: LocalizedError {
+    let zeilen: [String]
+
+    var errorDescription: String? {
+        "CloudKit hat Subscriptions abgelehnt: " + zeilen.joined(separator: " | ")
+    }
+}
+
 extension CKRecord {
     /// Reads a field as a trimmed, non-empty string.
     func string(_ key: String) -> String? {

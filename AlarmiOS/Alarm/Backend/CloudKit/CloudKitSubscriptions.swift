@@ -36,7 +36,8 @@ enum CloudKitSubscriptions {
             alarmCreated(groupRecordID: groupRecordID),
             alarmCleared(groupRecordID: groupRecordID),
             selfTest(groupRecordID: groupRecordID, userId: userId),
-            pingCreated(groupRecordID: groupRecordID, userId: userId)
+            pingAll(groupRecordID: groupRecordID),
+            pingMe(groupRecordID: groupRecordID, userId: userId)
         ]
 
         // Subscriptions of a previous app version, whose predicate no longer
@@ -47,8 +48,21 @@ enum CloudKitSubscriptions {
         let missing = wanted.filter { !known.contains($0.subscriptionID) }
         guard !missing.isEmpty || !obsolete.isEmpty else { return }
 
-        _ = try await database.modifySubscriptions(saving: missing,
-                                                   deleting: Array(obsolete))
+        let ergebnis = try await database.modifySubscriptions(saving: missing,
+                                                             deleting: Array(obsolete))
+
+        // `modifySubscriptions` wirft NUR, wenn der ganze Aufruf scheitert.
+        // Lehnt CloudKit einzelne Abonnements ab — ein ungültiges Prädikat,
+        // ein fehlender Index —, steht das ausschließlich hier. Wer das
+        // Ergebnis wegwirft, liest „ohne Fehler durchgelaufen", während kein
+        // einziges Abonnement entstanden ist. Genau so war es bis 1.0.4.
+        let abgelehnt: [String] = ergebnis.saveResults.compactMap { kennung, ergebnis in
+            guard case .failure(let fehler) = ergebnis else { return nil }
+            return "\(kennung): \(CloudKitFehler.rohtext(fehler))"
+        }
+        guard abgelehnt.isEmpty else {
+            throw SubscriptionAbgelehnt(zeilen: abgelehnt.sorted())
+        }
     }
 
     // MARK: - Die Prädikate
@@ -80,11 +94,23 @@ enum CloudKitSubscriptions {
                     CloudField.targetUser, userId)
     }
 
-    static func pingPredicate(groupRecordID: CKRecord.ID, userId: String) -> NSPredicate {
-        NSPredicate(format: "%K == %@ AND (%K == %@ OR %K == %@)",
+    /// Ein Ping an alle.
+    ///
+    /// Es gibt zwei Ping-Prädikate statt eines mit `OR`, weil **CloudKit kein
+    /// `OR` kennt**: „Invalid predicate: Unexpected expression". Das fällt
+    /// erst beim Anlegen auf dem Gerät auf, nicht beim Übersetzen.
+    static func pingAllPredicate(groupRecordID: CKRecord.ID) -> NSPredicate {
+        NSPredicate(format: "%K == %@ AND %K == %@",
                     CloudField.groupRef,
                     CKRecord.Reference(recordID: groupRecordID, action: .none),
-                    CloudField.targetUser, CloudConstant.everyone,
+                    CloudField.targetUser, CloudConstant.everyone)
+    }
+
+    /// Ein Ping an genau dieses Gerät.
+    static func pingMePredicate(groupRecordID: CKRecord.ID, userId: String) -> NSPredicate {
+        NSPredicate(format: "%K == %@ AND %K == %@",
+                    CloudField.groupRef,
+                    CKRecord.Reference(recordID: groupRecordID, action: .none),
                     CloudField.targetUser, userId)
     }
 
@@ -98,8 +124,10 @@ enum CloudKitSubscriptions {
           allClearPredicate(groupRecordID: groupRecordID)),
          (SubscriptionID.selfTest, CloudRecordType.alarm,
           selfTestPredicate(groupRecordID: groupRecordID, userId: userId)),
-         (SubscriptionID.pingCreated, CloudRecordType.ping,
-          pingPredicate(groupRecordID: groupRecordID, userId: userId))]
+         (SubscriptionID.pingAll, CloudRecordType.ping,
+          pingAllPredicate(groupRecordID: groupRecordID)),
+         (SubscriptionID.pingMe, CloudRecordType.ping,
+          pingMePredicate(groupRecordID: groupRecordID, userId: userId))]
     }
 
     // MARK: - Die Subscriptions
@@ -140,11 +168,20 @@ enum CloudKitSubscriptions {
     }
 
     /// "Report your status." The only silent push this app has.
-    static func pingCreated(groupRecordID: CKRecord.ID, userId: String) -> CKQuerySubscription {
-        let predicate = pingPredicate(groupRecordID: groupRecordID, userId: userId)
+    static func pingAll(groupRecordID: CKRecord.ID) -> CKQuerySubscription {
+        ping(SubscriptionID.pingAll, pingAllPredicate(groupRecordID: groupRecordID))
+    }
+
+    static func pingMe(groupRecordID: CKRecord.ID, userId: String) -> CKQuerySubscription {
+        ping(SubscriptionID.pingMe,
+             pingMePredicate(groupRecordID: groupRecordID, userId: userId))
+    }
+
+    private static func ping(_ kennung: String,
+                             _ predicate: NSPredicate) -> CKQuerySubscription {
         let subscription = CKQuerySubscription(recordType: CloudRecordType.ping,
                                                predicate: predicate,
-                                               subscriptionID: SubscriptionID.pingCreated,
+                                               subscriptionID: kennung,
                                                options: [.firesOnRecordCreation])
         let info = CKSubscription.NotificationInfo()
         // Silent, and silent only. A ping asks a device to write a line about

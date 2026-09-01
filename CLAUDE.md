@@ -249,6 +249,18 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   `CloudKitSubscriptions` und werden von Subscription UND Diagnose benutzt;
   zwei Fassungen prüften garantiert etwas anderes, als die Zustellung
   braucht.
+- **CloudKit kennt kein `OR` im Prädikat** (gefunden 09/2026). „an alle ODER
+  an mich" wurde mit „Invalid predicate: Unexpected expression" abgelehnt —
+  und zwar erst beim Anlegen auf dem Gerät, nicht beim Übersetzen. Der Ping
+  hat deshalb ZWEI Subscriptions mit je einem `==` (`ping-all-v2`,
+  `ping-me-v2`). Nur `==`, `!=`, Vergleiche und `AND` sind hier belegt.
+- **`modifySubscriptions` wirft bei Einzelfehlern NICHT.** Es wirft nur, wenn
+  der ganze Aufruf scheitert; abgelehnte Abonnements stehen in
+  `saveResults`. Bis 1.0.4 warf `reconcile` das Ergebnis mit `_ =` weg — die
+  Diagnose meldete „ohne Fehler durchgelaufen", während kein einziges
+  Abonnement entstanden war. Dasselbe Muster wie bei `partialErrorsByItemID`,
+  eine Ebene höher: Wo CloudKit ein Ergebnis je Element zurückgibt, ist das
+  Ergebnis die Fehlermeldung.
 - **Teilfehler auspacken.** `modifySubscriptions` meldet ein Scheitern als
   EINEN Fehler mit `partialErrorsByItemID` darin. Ohne Auspacken liest man
   „Some items failed" und weiß nichts.
