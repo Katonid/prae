@@ -1,0 +1,50 @@
+/* Texte der Benachrichtigungen.
+
+   Diese Datei liegt in BEIDEN Zielen — in der App und in der
+   Benachrichtigungs-Erweiterung. Beide brauchen sie, aus verschiedenen
+   Gründen:
+
+   * Die Erweiterung baut Titel und Text selbst zusammen; `NSLocalizedString`
+     liest darin aus dem Bündel der Erweiterung.
+   * Kommt die Erweiterung nicht zum Zug (Erweiterung abgestürzt, Gerät unter
+     Last, iOS überspringt sie), zeigt iOS den Text, den APNs mitgebracht hat.
+     Der steht bei einer CloudKit-Subscription als `alertLocalizationKey` mit
+     `alertLocalizationArgs` darin — und den löst iOS im Bündel der APP auf.
+
+   Deshalb dieselbe Datei zweimal. Wer hier einen Schlüssel ändert, ändert ihn
+   für beide Wege gleichzeitig; das ist der Sinn der Sache. */
+
+/* --- Rückfalltext, von APNs mitgebracht (Typ, Ort, Kürzel) --------------- */
+"push.alarm.fallback" = "%@ – %@ – ausgelöst von %@";
+"push.allclear.fallback" = "Entwarnung – gegeben von %@";
+
+/* --- Von der Erweiterung gebaut ----------------------------------------- */
+"push.alarm.title" = "%1$@ – %2$@";
+"push.alarm.body" = "Ausgelöst von %1$@ um %2$@";
+"push.allclear.title" = "Entwarnung";
+"push.allclear.body" = "Gegeben von %1$@ um %2$@";
+"push.selftest.title" = "Selbsttest angekommen";
+"push.selftest.body" = "Die Zustellung funktioniert. Tippe hier, um den Test abzuschließen.";
+"push.stale.suffix" = "(veraltet)";
+"push.unknown.person" = "unbekannt";
+"push.unknown.location" = "ohne Ortsangabe";
+
+/* --- Alarmarten ---------------------------------------------------------- */
+"alarm.type.amok.title" = "AMOKALARM";
+"alarm.type.amok.short" = "Amok";
+"alarm.type.fire.title" = "FEUERALARM";
+"alarm.type.fire.short" = "Feuer";
+"alarm.type.medical.title" = "MEDIZINISCHER NOTFALL";
+"alarm.type.medical.short" = "Medizin";
+"alarm.type.test.title" = "PROBEALARM";
+"alarm.type.test.short" = "Probe";
+
+/* --- Örtliche Erinnerungen ----------------------------------------------- */
+"reminder.title" = "Alarm läuft noch";
+"reminder.body" = "Bitte rückmelden: „Gesehen“ antippen.";
+
+/* Ein Push, den die App nicht lesen konnte. Er wird NICHT verworfen — er wird
+   angezeigt, mit dem Grund im Text. Ein stillschweigend verschluckter Alarm
+   ist der schlimmste denkbare Fehler dieser App. */
+"push.unreadable.title" = "Meldung nicht lesbar";
+"push.unreadable.body" = "Die App konnte diese Meldung nicht auswerten (%@). Bitte App öffnen.";

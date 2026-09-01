@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+
+	<!-- Die Kamera wird an genau einer Stelle gebraucht: beim Scannen des
+	     Beitrittscodes. Es wird nichts aufgenommen und nichts gespeichert. -->
+	<key>NSCameraUsageDescription</key>
+	<string>Die Kamera wird nur zum Scannen des Beitrittscodes gebraucht. Es wird nichts aufgenommen und nichts gespeichert.</string>
+
+	<!-- „remote-notification“ für den stillen Ping, mit dem die Leitung den
+	     Zustand der Geräte abfragt. „fetch“ für den BGAppRefreshTask, der
+	     denselben Zustand von sich aus auffrischt. Mehr Hintergrundrechte
+	     nimmt die App nicht in Anspruch. -->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
+		<string>fetch</string>
+	</array>
+
+	<!-- Muss haargenau zu BackgroundRefresh.identifier passen; ein Tippfehler
+	     hier lässt die Registrierung stillschweigend ins Leere laufen. -->
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>de.dboschule.alarm.refresh</string>
+	</array>
+
+	<!-- Der zweite Bildschirm gehört der App, nicht der Spiegelung.
+
+	     Ohne diesen Eintrag spiegelt iOS den ganzen iPad-Bildschirm auf den
+	     Beamer — im Ernstfall also den Alarm, vor die ganze Klasse. Mit ihm
+	     legt iOS eine eigene Szene an, und die zeigt ein neutrales Bild
+	     (ExternalDisplaySceneDelegate in Views/ExternalDisplayScene.swift).
+
+	     Für die gewöhnliche App-Szene steht hier bewusst NICHTS: Die richtet
+	     SwiftUI selbst ein (WindowGroup). Ein eigener Eintrag dafür würde sie
+	     verdrängen, und die App startete ins Schwarze. -->
+	<key>UIApplicationSceneManifest</key>
+	<dict>
+		<key>UIApplicationSupportsMultipleScenes</key>
+		<true/>
+		<key>UISceneConfigurations</key>
+		<dict>
+			<key>UIWindowSceneSessionRoleExternalDisplayNonInteractive</key>
+			<array>
+				<dict>
+					<key>UISceneConfigurationName</key>
+					<string>Beamer</string>
+					<key>UISceneDelegateClassName</key>
+					<string>$(PRODUCT_MODULE_NAME).ExternalDisplaySceneDelegate</string>
+				</dict>
+			</array>
+		</dict>
+	</dict>
+
+	<!-- Die App ist deutsch, und zwar ausschliesslich. Ohne diese Angabe
+	     haelt iOS sie fuer eine englische App (Vorgabe von
+	     CFBundleDevelopmentRegion ist "en") und zeigt alles Systemeigene
+	     englisch — Dialoge, "Abbrechen", "Fertig". Dazu gehoert die
+	     Bau-Einstellung DEVELOPMENT_LANGUAGE = de im pbxproj. -->
+	<key>CFBundleDevelopmentRegion</key>
+	<string>de</string>
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>de</string>
+	</array>
+</dict>
+</plist>
