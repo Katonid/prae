@@ -117,6 +117,7 @@ Vor jeder neuen Fassung `versionCode` **und** `versionName` in
 ./gradlew assembleDebug
 ./gradlew testDebugUnitTest        # unter anderem der QR-Rechner
 python3 scripts/alarmtoene.py      # Alarmtöne neu erzeugen
+python3 scripts/toene-pruefen.py   # Töne gegen das Skript prüfen
 python3 scripts/qr-pruefen.py      # QR gegen segno und OpenCV gegenprüfen
 ```
 
@@ -187,6 +188,7 @@ backend/
                         selfTest, nightlyPing, cleanupOldAlarms
 scripts/
   alarmtoene.py         erzeugt die WAV-Dateien in res/raw
+  toene-pruefen.py      prüft, ob die WAV-Dateien noch zum Skript passen
   qr-pruefen.py         prüft den QR-Rechner gegen segno und OpenCV
 ```
 

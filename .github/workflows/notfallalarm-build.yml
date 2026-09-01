@@ -41,11 +41,12 @@ jobs:
       - name: Tests laufen lassen
         run: ./gradlew testDebugUnitTest
 
+      # Kein Byte-Vergleich: sin() und tanh() dürfen sich zwischen C-Bibliotheken
+      # im letzten Bit unterscheiden, und nach der Wandlung auf 16 Bit kann das
+      # einen einzelnen Wert um eins kippen. Ein Byte-Vergleich schlüge dann auf
+      # einer anderen Maschine ohne echten Grund fehl.
       - name: Alarmtöne gegenprüfen
-        run: |
-          python3 scripts/alarmtoene.py
-          git diff --exit-code -- app/src/main/res/raw \
-            || (echo "Die erzeugten Alarmtöne weichen vom Stand im Repo ab." && exit 1)
+        run: python3 scripts/toene-pruefen.py
 
       - name: Fehler und Warnungen zusammenfassen
         if: always()
