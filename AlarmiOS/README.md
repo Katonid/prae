@@ -246,6 +246,14 @@ gilt, entscheidet das Entitlement des App-Ziels.
 macht. Das Entitlement dafür vergibt Apple **nur auf schriftlichen Antrag**:
 <https://developer.apple.com/contact/request/notifications-critical-alerts-entitlement/>
 
+**Der fertige Antragstext steht in `docs/CRITICAL_ALERTS_ANTRAG.md`** — samt
+den Angaben zur App, einer deutschen Zusammenfassung dessen, was da
+eingereicht wird, und den drei Handgriffen nach der Bewilligung.
+
+Der Antrag läuft **unabhängig von der App-Prüfung** und sollte früh raus: Er
+hängt am Entwickler-Konto und an der App-Id, nicht an App Review, und er ist
+der lange Weg.
+
 Zu begründen ist, warum eine Verzögerung Menschen gefährdet — bei einem
 Amokalarm in einer Grundschule ist das kein rhetorischer Satz. Rechne mit
 mehreren Wochen.
@@ -355,3 +363,4 @@ eingestellt — siehe `docs/VERTEILUNG_JAMF_SCHOOL.md`.
 | `docs/MDM_APPCONFIG.md` | Die fertige plist für Jamf School |
 | `docs/VERTEILUNG_JAMF_SCHOOL.md` | Für die Jamf-Administration, Schritt für Schritt |
 | `docs/APP_REVIEW_NOTES.md` | Text für App Store Connect (englisch) |
+| `docs/CRITICAL_ALERTS_ANTRAG.md` | Fertiger Antragstext für kritische Hinweise |

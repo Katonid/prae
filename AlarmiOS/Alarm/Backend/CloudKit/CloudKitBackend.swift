@@ -594,8 +594,34 @@ final class CloudKitBackend: AlarmBackend {
         ping[CloudField.targetUser] = "schema"
         ping.setDate(Date(), forKey: CloudField.createdAt)
 
-        for record in [alarm, ping] {
+        let alarmRef = CKRecord.Reference(recordID: alarm.recordID, action: .none)
+
+        let ack = CKRecord(recordType: CloudRecordType.ack)
+        ack[CloudField.alarmRef] = alarmRef
+        ack[CloudField.groupRef] = reference
+        ack[CloudField.userId] = "schema"
+        ack[CloudField.displayName] = "Schema"
+        ack[CloudField.state] = AckState.secured.rawValue
+        ack[CloudField.location] = "Schema"
+        ack.setDate(Date(), forKey: CloudField.createdAt)
+
+        let message = CKRecord(recordType: CloudRecordType.message)
+        message[CloudField.alarmRef] = alarmRef
+        message[CloudField.groupRef] = reference
+        message[CloudField.senderUserId] = "schema"
+        message[CloudField.senderName] = "Schema"
+        message[CloudField.text] = "Schema"
+        message.setDate(Date(), forKey: CloudField.createdAt)
+
+        // Der Alarm zuerst — Ack und Message verweisen auf ihn, und eine
+        // Referenz auf einen Datensatz, den es noch nicht gibt, weist
+        // CloudKit ab. Gelöscht wird danach in umgekehrter Reihenfolge.
+        var geschrieben: [CKRecord] = []
+        for record in [alarm, ping, ack, message] {
             guard (try? await database.save(record)) != nil else { continue }
+            geschrieben.append(record)
+        }
+        for record in geschrieben.reversed() {
             _ = try? await database.deleteRecord(withID: record.recordID)
         }
     }
@@ -805,10 +831,19 @@ final class CloudKitBackend: AlarmBackend {
                             (CloudRecordType.ack, "Ack"),
                             (CloudRecordType.message, "Message")] {
             do {
-                _ = try await query(typ, predicate: groupPredicate(groupID), limit: 1)
+                try await rohAbfrage(typ, groupPredicate(groupID))
                 zeilen.append(Diagnose(id: "abfrage-\(typ)",
                                        titel: "Abfrage \(name)",
                                        text: "geht", befund: .gut))
+            } catch let fehler as CKError where fehler.code == .unknownItem {
+                // Kein Fehler: Den Record-Typ legt CloudKit an, sobald der
+                // erste Datensatz geschrieben wird. `Ack` und `Message`
+                // entstehen bei der ersten Rückmeldung.
+                zeilen.append(Diagnose(id: "abfrage-\(typ)",
+                                       titel: "Abfrage \(name)",
+                                       text: "Typ noch nicht im Schema — entsteht "
+                                           + "beim ersten Datensatz dieser Art",
+                                       befund: .hinweis))
             } catch {
                 zeilen.append(Diagnose(id: "abfrage-\(typ)",
                                        titel: "Abfrage \(name)",
@@ -816,34 +851,107 @@ final class CloudKitBackend: AlarmBackend {
             }
         }
 
-        // Ohne Subscription kommt kein Push. Punkt.
-        do {
-            let vorhanden = Set(try await database.allSubscriptions().map(\.subscriptionID))
-            for kennung in SubscriptionID.all {
-                let da = vorhanden.contains(kennung)
-                zeilen.append(Diagnose(id: "sub-\(kennung)",
-                                       titel: "Subscription \(kennung)",
-                                       text: da ? "angelegt"
-                                                : "FEHLT — ohne sie kommt kein Push an",
-                                       befund: da ? .gut : .schlecht))
+        // Die Prädikate der Subscriptions, einzeln als Abfrage gestellt.
+        //
+        // Der Punkt, an dem die bisherige Diagnose vorbeisah: Die Probeabfragen
+        // oben benutzen nur `groupRef`. Ein Subscription-Prädikat fragt
+        // zusätzlich nach `targetUser` und `status` — fehlt DORT der
+        // Queryable-Index, geht die Abfrage oben und die Subscription trotzdem
+        // nicht. Hier steht dann im Klartext, welches Feld gemeint ist.
+        for probe in CloudKitSubscriptions.proben(groupRecordID: groupID,
+                                                  userId: userId) {
+            do {
+                try await rohAbfrage(probe.typ, probe.predicate)
+                zeilen.append(Diagnose(id: "praedikat-\(probe.kennung)",
+                                       titel: "Prädikat \(probe.kennung)",
+                                       text: "abfragbar", befund: .gut))
+            } catch let fehler as CKError where fehler.code == .unknownItem {
+                zeilen.append(Diagnose(id: "praedikat-\(probe.kennung)",
+                                       titel: "Prädikat \(probe.kennung)",
+                                       text: "Record-Typ noch nicht im Schema",
+                                       befund: .hinweis))
+            } catch {
+                zeilen.append(Diagnose(id: "praedikat-\(probe.kennung)",
+                                       titel: "Prädikat \(probe.kennung)",
+                                       text: rohtext(error), befund: .schlecht))
             }
+        }
+
+        // Ohne Subscription kommt kein Push. Punkt.
+        var vorhanden: Set<String> = []
+        do {
+            vorhanden = Set(try await database.allSubscriptions().map(\.subscriptionID))
         } catch {
             zeilen.append(Diagnose(id: "subs", titel: "Subscriptions",
                                    text: "Nicht abfragbar: \(rohtext(error))",
                                    befund: .schlecht))
+            return zeilen
+        }
+
+        // Fehlt eine, wird sie GLEICH HIER angelegt und das Ergebnis
+        // hingeschrieben. Eine Diagnose, die „FEHLT" meldet und nicht sagt,
+        // woran es liegt, ist die Frage von vorhin noch einmal.
+        if !Set(SubscriptionID.all).isSubset(of: vorhanden) {
+            do {
+                await ensureSchema(groupID: groupID)
+                try await CloudKitSubscriptions.reconcile(in: database,
+                                                          groupRecordID: groupID,
+                                                          userId: userId)
+                vorhanden = Set((try? await database.allSubscriptions())?
+                    .map(\.subscriptionID) ?? [])
+                zeilen.append(Diagnose(id: "anlegen", titel: "Anlegen versucht",
+                                       text: "ohne Fehler durchgelaufen",
+                                       befund: .gut))
+            } catch {
+                zeilen.append(Diagnose(id: "anlegen", titel: "Anlegen gescheitert",
+                                       text: rohtext(error), befund: .schlecht))
+            }
+        }
+
+        for kennung in SubscriptionID.all {
+            let da = vorhanden.contains(kennung)
+            zeilen.append(Diagnose(id: "sub-\(kennung)",
+                                   titel: "Subscription \(kennung)",
+                                   text: da ? "angelegt"
+                                            : "FEHLT — ohne sie kommt kein Push an",
+                                   befund: da ? .gut : .schlecht))
         }
 
         return zeilen
     }
 
     /// Der Wortlaut des Dienstes, nicht meiner.
+    ///
+    /// Packt Teilfehler aus. `modifySubscriptions` meldet ein Scheitern als
+    /// EINEN Fehler mit `partialErrorsByItemID` darin — welche der vier
+    /// Subscriptions woran gescheitert ist, steht ausschließlich dort. Ohne
+    /// das Auspacken liest man „Some items failed" und weiß nichts.
     private func rohtext(_ error: Error) -> String {
         guard let ck = error as? CKError else { return error.localizedDescription }
-        var text = "\(ck.code.rawValue): \(ck.localizedDescription)"
+        var teile = ["[\(ck.code.rawValue)] \(ck.localizedDescription)"]
         if let grund = ck.userInfo[NSLocalizedFailureReasonErrorKey] as? String {
-            text += " — \(grund)"
+            teile.append(grund)
         }
-        return text
+        if let teilfehler = ck.partialErrorsByItemID {
+            for (kennung, unterfehler) in teilfehler {
+                teile.append("→ \(kennung): \(rohtext(unterfehler))")
+            }
+        }
+        if let unten = ck.userInfo[NSUnderlyingErrorKey] as? Error {
+            teile.append("(\(rohtext(unten)))")
+        }
+        return teile.joined(separator: " ")
+    }
+
+    /// Eine Abfrage, die den Fehler ROH durchreicht.
+    ///
+    /// `query(_:predicate:)` übersetzt jeden CloudKit-Fehler in eine
+    /// vorzeigbare `BackendError` — richtig für die Oberfläche, falsch für
+    /// eine Diagnose: „Der Datensatz wurde nicht gefunden" ist genau das,
+    /// was aus „unknown record type Ack" wurde, und damit war die Spur weg.
+    private func rohAbfrage(_ typ: String, _ predicate: NSPredicate) async throws {
+        let abfrage = CKQuery(recordType: typ, predicate: predicate)
+        _ = try await database.records(matching: abfrage, resultsLimit: 1)
     }
 
     // MARK: - Push

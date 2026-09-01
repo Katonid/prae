@@ -240,6 +240,24 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   und beweist die Zustellung. Der Selbsttest allein kann nicht sagen, an
   welcher Stelle die Kette reißt — deshalb sind es zwei Zeilen in der
   Prüfliste und nicht eine.
+- **Ein Prädikat fragt mehr Felder ab als die Probeabfrage** (ab 1.0.4).
+  Die Diagnose prüfte je Record-Typ nur `groupRef` — die Subscriptions
+  fragen zusätzlich nach `targetUser` und `status`. Fehlt DORT der
+  Queryable-Index, meldet die Probeabfrage „geht" und die Subscription
+  entsteht trotzdem nicht (gemeldet 09/2026: alle vier fehlten, alle
+  Abfragen grün). Die Prädikate stehen deshalb einmal in
+  `CloudKitSubscriptions` und werden von Subscription UND Diagnose benutzt;
+  zwei Fassungen prüften garantiert etwas anderes, als die Zustellung
+  braucht.
+- **Teilfehler auspacken.** `modifySubscriptions` meldet ein Scheitern als
+  EINEN Fehler mit `partialErrorsByItemID` darin. Ohne Auspacken liest man
+  „Some items failed" und weiß nichts.
+- **Die Diagnose legt fehlende Subscriptions gleich an** und schreibt das
+  Ergebnis hin. Eine Diagnose, die „FEHLT" meldet und den Grund
+  verschweigt, ist die Frage von vorhin noch einmal.
+- **`mapped()` gehört nicht in eine Diagnose.** Es macht aus „unknown record
+  type Ack" ein „Der Datensatz wurde nicht gefunden" — richtig für die
+  Oberfläche, tödlich für die Fehlersuche. Dafür gibt es `rohAbfrage`.
 - **„Zustellung prüfen" gibt den ROHEN Fehlertext aus** (`DiagnoseView`,
   `AlarmBackend.diagnose()`). Je Record-Typ eine Probeabfrage, dazu jede
   der vier Subscriptions einzeln, der Kontostatus, die APNs-Anmeldung und
