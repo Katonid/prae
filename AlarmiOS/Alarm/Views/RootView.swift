@@ -18,7 +18,12 @@ struct RootView: View {
                         .environmentObject(model)
                 }
             }
-            .overlay(alignment: .top) { problemBanner }
+            .overlay(alignment: .top) {
+                VStack(spacing: 8) {
+                    retryBanner
+                    problemBanner
+                }
+            }
             .task {
                 guard !started else { return }
                 started = true
@@ -50,6 +55,29 @@ struct RootView: View {
             OnboardingView()
         } else {
             HomeView()
+        }
+    }
+
+    /// The alarm has not gone through yet and the app is still trying.
+    ///
+    /// Deliberately not styled as an error: an error says "it failed", and
+    /// this says "it has not finished". Somebody who reads the first one walks
+    /// away; somebody who reads the second one waits the five seconds.
+    @ViewBuilder
+    private var retryBanner: some View {
+        if let notice = model.retryNotice {
+            HStack(alignment: .top, spacing: 12) {
+                ProgressView()
+                Text(notice)
+                    .font(.callout)
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 0)
+            }
+            .padding(16)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14))
+            .overlay(RoundedRectangle(cornerRadius: 14).stroke(.blue.opacity(0.4)))
+            .padding(.horizontal, 20)
+            .padding(.top, 8)
         }
     }
 

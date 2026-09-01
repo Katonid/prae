@@ -26,6 +26,10 @@ final class AppModel: ObservableObject {
     @Published private(set) var checklist: [ChecklistItem] = []
     @Published private(set) var isWorking = false
 
+    /// Shown while an alarm is being retried. Not an error — the attempt is
+    /// still running, and the difference matters to whoever is watching it.
+    @Published var retryNotice: String?
+
     /// The last thing that went wrong, in words a teacher can act on. Shown as
     /// a banner and cleared by hand — an error that fades out after four
     /// seconds is an error nobody read.
@@ -151,17 +155,50 @@ final class AppModel: ObservableObject {
 
     // MARK: - Raising and clearing
 
+    /// How long a failing alarm keeps being retried before the app gives up.
+    static let triggerRetryWindow: TimeInterval = 30
+    private static let triggerRetryPause: TimeInterval = 5
+
+    /// Raises the alarm — and keeps trying for half a minute if the network is
+    /// the problem.
+    ///
+    /// The retry is not politeness. A school corridor has dead spots, and the
+    /// moment somebody presses this button is exactly the moment they cannot
+    /// stand there tapping it again. Thirty seconds is the window: long enough
+    /// to ride out a roaming handover between two access points, short enough
+    /// that nobody waits on a lost cause instead of shouting down the hall.
+    ///
+    /// Retried is ONLY a network failure. A missing Apple ID will not fix
+    /// itself in thirty seconds, and pretending otherwise would cost the
+    /// person the half minute in which they could have done something that
+    /// works.
     func trigger(type: AlarmType, location: String?) async -> Alarm? {
         isWorking = true
-        defer { isWorking = false }
-        do {
-            let alarm = try await backend.triggerAlarm(type: type, location: location)
-            activeAlarm = alarm
-            showsAlarmScreen = true
-            return alarm
-        } catch {
-            report(error)
-            return nil
+        defer {
+            isWorking = false
+            retryNotice = nil
+        }
+
+        let deadline = Date().addingTimeInterval(Self.triggerRetryWindow)
+        while true {
+            do {
+                let alarm = try await backend.triggerAlarm(type: type, location: location)
+                activeAlarm = alarm
+                showsAlarmScreen = true
+                return alarm
+            } catch {
+                let retryable: Bool
+                if case BackendError.network = error { retryable = true } else { retryable = false }
+                guard retryable, Date() < deadline else {
+                    report(error)
+                    return nil
+                }
+                let seconds = max(0, Int(deadline.timeIntervalSinceNow))
+                retryNotice = "Keine Verbindung — der Alarm wird weiter versucht "
+                    + "(noch \(seconds) Sekunden). Bitte nicht weggehen."
+                try? await Task.sleep(
+                    nanoseconds: UInt64(Self.triggerRetryPause * 1_000_000_000))
+            }
         }
     }
 

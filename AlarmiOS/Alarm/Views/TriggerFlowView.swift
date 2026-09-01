@@ -21,6 +21,11 @@ struct TriggerFlowView: View {
         case type
         case location(AlarmType)
         case countdown(AlarmType, String?)
+        /// The countdown has run out and the alarm is on its way. A step of
+        /// its own because sending can take up to half a minute when the
+        /// network is poor (`AppModel.triggerRetryWindow`), and during that
+        /// half minute the person needs to see that something is happening.
+        case sending
     }
 
     @State private var step = Step.type
@@ -35,6 +40,7 @@ struct TriggerFlowView: View {
                     locationList(for: type)
                 case .countdown(let type, let location):
                     CountdownView(type: type, location: location) {
+                        step = .sending
                         Task {
                             if await model.trigger(type: type, location: location) != nil {
                                 dismiss()
@@ -45,6 +51,8 @@ struct TriggerFlowView: View {
                     } onCancel: {
                         step = .type
                     }
+                case .sending:
+                    sending
                 }
             }
             .navigationTitle(title)
@@ -60,9 +68,30 @@ struct TriggerFlowView: View {
         .interactiveDismissDisabled(isCountingDown)
     }
 
+    /// No way out while the countdown runs or the alarm is in flight. Swiping
+    /// the sheet away mid-send would leave the person unsure whether it went.
     private var isCountingDown: Bool {
-        if case .countdown = step { return true }
-        return false
+        switch step {
+        case .countdown, .sending: return true
+        case .type, .location: return false
+        }
+    }
+
+    private var sending: some View {
+        VStack(spacing: 22) {
+            Spacer()
+            ProgressView().scaleEffect(2)
+            Text("Alarm wird gesendet …")
+                .font(.system(size: 26, weight: .bold, design: .rounded))
+            if let notice = model.retryNotice {
+                Text(notice)
+                    .font(.headline)
+                    .multilineTextAlignment(.center)
+                    .foregroundStyle(.orange)
+                    .padding(.horizontal, 24)
+            }
+            Spacer()
+        }
     }
 
     private var title: String {
@@ -70,6 +99,7 @@ struct TriggerFlowView: View {
         case .type: return "Welche Art?"
         case .location: return "Wo?"
         case .countdown: return "Achtung"
+        case .sending: return "Wird gesendet"
         }
     }
 
