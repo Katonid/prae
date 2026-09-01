@@ -361,10 +361,21 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   Startbildschirm. **Was iOS nicht herausgibt, wird als Anleitung gezeigt
   und nicht als Häkchen** — ein grünes Häkchen für „nicht nachgesehen"
   wäre die teuerste Lüge, die diese App erzählen kann.
-- **Fertig eingerichtet ist erst, wenn ein Selbsttest ANGEKOMMEN ist.**
-  Nicht wenn er gesendet wurde: Der Test beweist den Zustellweg, nicht
-  den Sendeweg. Der Testalarm trägt `targetUser` und ist nur auf dem
-  eigenen Gerät zu sehen.
+- **Der Zustellnachweis darf die Einrichtung NICHT sperren** (ab 1.0.10).
+  Er war Bedingung für „Einrichtung abschließen" — und damit zirkulär: Der
+  Nachweis braucht einen Push von einem anderen Gerät, den schickt die
+  Leitung aus der Verwaltung, die Verwaltung liegt hinter dem
+  Startbildschirm, der lag hinter „Einrichtung abschließen". Niemand kam
+  mehr hinein, auch die Leitung nicht, die die Schule gerade angelegt hatte
+  (gemeldet 09/2026). Gesperrt wird nur noch, was dieses eine Gerät selbst
+  lösen kann (`ChecklistItem.blocksCompletion`); der Punkt bleibt rot, das
+  Warnband bleibt stehen, und das iPad gilt weiter als ungeprüft.
+  **Allgemein: Was ein zweites Gerät braucht, darf nie Bedingung für den
+  ersten Start sein.**
+- **Angekommen ist angekommen.** Der Haken „Zustellung geprüft" hängt an
+  `store.letzterPush` und setzt sich auf dem EMPFANGENDEN Gerät von selbst.
+  Bestätigen muss ihn niemand — ein Knopf „ist angekommen" wäre eine
+  Behauptung, der Zeitstempel ist eine Tatsache.
 - **Der Countdown vor dem Auslösen ist fünf Sekunden und bleibt.** Ein
   Fehlalarm kostet eine Schule mehr als die fünf Sekunden — beim nächsten
   echten Alarm zuckt niemand mehr.

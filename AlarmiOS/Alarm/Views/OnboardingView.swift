@@ -69,11 +69,17 @@ struct OnboardingView: View {
                     } label: {
                         Text("Einrichtung abschließen").fontWeight(.semibold)
                     }
-                    .disabled(!model.blockingItems.isEmpty)
+                    .disabled(!model.finishBlockers.isEmpty)
                 } footer: {
-                    if !model.blockingItems.isEmpty {
+                    if !model.finishBlockers.isEmpty {
                         Text("Noch offen: "
-                             + model.blockingItems.map(\.title).joined(separator: ", "))
+                             + model.finishBlockers.map(\.title).joined(separator: ", "))
+                    } else if model.letzterPush == nil {
+                        Text("Der Zustellnachweis steht noch aus — er braucht ein "
+                             + "zweites Gerät und hält die Einrichtung deshalb "
+                             + "nicht auf. Bis er erbracht ist, steht auf dem "
+                             + "Startbildschirm ein Warnband, und dieses iPad "
+                             + "gilt nicht als geprüft.")
                     }
                 }
             }
@@ -202,19 +208,38 @@ struct OnboardingView: View {
             } label: {
                 Label("Zustellung prüfen", systemImage: "stethoscope")
             }
+            Text(zustellHilfe)
+                .font(.footnote)
+                .foregroundStyle(.secondary)
         } header: {
             Text("2. Zustellung — über iCloud")
         } footer: {
-            Text("Diesen Haken setzt dieses iPad nicht selbst. Die Leitung "
-                 + "schickt aus IHRER App einen Testalarm an dieses Gerät "
-                 + "(Verwaltung → Mitglieder → „Testalarm senden“); sobald er "
-                 + "hier eintrifft, ist der Punkt erledigt.\n\nDass es so "
-                 + "herum sein muss, liegt an CloudKit: Einem Gerät wird keine "
-                 + "Meldung zu einem Datensatz zugestellt, den es selbst "
-                 + "geschrieben hat. Ein iPad kann sich die Zustellung nicht "
-                 + "selbst beweisen — und ein Knopf, der so täte, wäre in "
-                 + "dieser App das Letzte, was hier stehen dürfte.")
+            Text("Diesen Haken setzt dieses iPad nicht selbst: CloudKit stellt "
+                 + "einem Gerät keine Meldung zu einem Datensatz zu, den es "
+                 + "selbst geschrieben hat. Ein iPad kann sich die Zustellung "
+                 + "nicht selbst beweisen — und ein Knopf, der so täte, wäre in "
+                 + "dieser App das Letzte, was hier stehen dürfte.\n\n"
+                 + "Weil dafür ein zweites Gerät nötig ist, hält dieser Punkt "
+                 + "die Einrichtung nicht auf. Offen bleibt er trotzdem.")
         }
+    }
+
+    /// Wer was zu tun hat, hängt davon ab, wer man ist.
+    private var zustellHilfe: String {
+        if model.letzterPush != nil {
+            return "Auf diesem iPad ist bereits eine Meldung eingetroffen. Der "
+                + "Nachweis steht."
+        }
+        if model.isAdmin {
+            return """
+            Du bist die Leitung. Schicke aus Verwaltung → Mitglieder je einen             Testalarm an die iPads der Kolleginnen; auf deren Geräten setzt             sich der Haken damit von selbst.
+
+            Für dein EIGENES iPad braucht es jemand anderen: Mach unter             Verwaltung → Mitglieder eine zweite Person zur Leitung — sie             schickt dir dann den Testalarm zurück. Zwei Leitungen sollten es             ohnehin sein, damit die Schule nicht an einem einzigen Gerät hängt.
+            """
+        }
+        return "Bitte die Schulleitung, dir einen Testalarm zu schicken "
+            + "(Verwaltung → Mitglieder → „Testalarm senden“). Sobald er hier "
+            + "eintrifft, setzt sich der Haken von selbst."
     }
 }
 

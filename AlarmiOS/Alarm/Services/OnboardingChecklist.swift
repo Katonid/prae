@@ -37,7 +37,25 @@ struct ChecklistItem: Identifiable, Equatable {
     /// Where in the system settings this is fixed, when it can be jumped to.
     var settingsURL: URL?
 
+    /// Ob dieser Punkt den Abschluss der Einrichtung verhindern darf.
+    ///
+    /// Für alles, was dieses eine Gerät selbst in Ordnung bringen kann: ja.
+    /// Für den Zustellnachweis: **nein** — und das ist keine Nachlässigkeit,
+    /// sondern die Auflösung einer Sackgasse. Der Nachweis braucht einen Push
+    /// von einem ANDEREN Gerät; den schickt die Leitung aus der Verwaltung;
+    /// die Verwaltung liegt hinter dem Startbildschirm; der Startbildschirm
+    /// lag hinter „Einrichtung abschließen". Damit kam niemand mehr hinein —
+    /// auch die erste Leitung nicht, die die Schule gerade eingerichtet hatte.
+    ///
+    /// Der Punkt bleibt trotzdem rot und das Warnband auf dem Startbildschirm
+    /// stehen, bis wirklich etwas angekommen ist. Gesperrt wird nur, was sich
+    /// hier und jetzt auf diesem Gerät lösen lässt.
+    var blocksCompletion: Bool = true
+
     var isBlocking: Bool { state == .missing }
+
+    /// Hält diesen Punkt den Abschluss auf?
+    var blocksFinish: Bool { isBlocking && blocksCompletion }
 }
 
 enum OnboardingChecklist {
@@ -137,7 +155,8 @@ enum OnboardingChecklist {
                 + "Gerät schickt — von einem ANDEREN iPad aus. Ein Gerät kann "
                 + "sich die Zustellung nicht selbst beweisen.",
             state: zustellungGeprueft ? .ok : .missing,
-            settingsURL: nil))
+            settingsURL: nil,
+            blocksCompletion: false))
 
         return items
     }
