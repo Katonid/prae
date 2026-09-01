@@ -218,17 +218,24 @@ struct MembersView: View {
 
     var body: some View {
         List {
-            ForEach(members) { member in
-                HStack {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(member.displayName).font(.headline)
-                        Text(member.role.label).font(.caption).foregroundStyle(.secondary)
+            Section {
+                ForEach(members) { member in
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(member.displayName).font(.headline)
+                            Text(member.role.label)
+                                .font(.caption).foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Button(member.role == .admin ? "Rechte entziehen"
+                                                     : "Zur Leitung machen") {
+                            setzeRolle(member,
+                                       auf: member.role == .admin ? .member : .admin)
+                        }
+                        .font(.caption)
+                        .buttonStyle(.borderless)
                     }
-                    Spacer()
-                    Text(Clock.dayAndTime.string(from: member.joinedAt))
-                        .font(.caption2).foregroundStyle(.secondary)
                 }
-            }
             .onDelete { indexSet in
                 let doomed = indexSet.map { members[$0] }
                 Task {
@@ -239,12 +246,29 @@ struct MembersView: View {
                     await load()
                 }
             }
+            } footer: {
+                Text("Mindestens zwei Personen sollten die Leitung haben. Sonst "
+                     + "kann niemand mehr Codes vergeben, Standorte pflegen oder "
+                     + "Entwarnung geben, sobald dieses eine iPad zurückgesetzt "
+                     + "wird.")
+            }
         }
         .navigationTitle("Mitglieder")
         .task { await load() }
         .overlay {
             if members.isEmpty {
                 Text("Noch niemand beigetreten.").foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private func setzeRolle(_ member: Member, auf rolle: MemberRole) {
+        Task {
+            do {
+                try await model.backend.setRole(memberId: member.id, role: rolle)
+                await load()
+            } catch {
+                model.report(error)
             }
         }
     }

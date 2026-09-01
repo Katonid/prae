@@ -101,6 +101,61 @@ final class CloudKitBackend: AlarmBackend {
 
     // MARK: - Membership
 
+    func createGroup(name: String, displayName: String) async throws -> Membership {
+        guard let userId = await currentUserId() else {
+            throw BackendError.accountUnavailable(await availability())
+        }
+        let handle = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let schoolName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        // Order matters and is not interchangeable: the member record holds a
+        // reference to the group, and CloudKit rejects a reference to a record
+        // that does not exist yet.
+        let groupRecord = CKRecord(recordType: CloudRecordType.group,
+                                   recordID: CKRecord.ID(recordName: UUID().uuidString))
+        groupRecord[CloudField.name] = schoolName.isEmpty ? "Schule" : schoolName
+        groupRecord[CloudField.locations] = DefaultInstructions.locations
+        groupRecord[CloudField.instructionsJSON] =
+            CloudKitMapping.instructionsJSON(DefaultInstructions.byType)
+        groupRecord.setDate(Date(), forKey: CloudField.createdAt)
+        do {
+            _ = try await database.save(groupRecord)
+        } catch {
+            throw mapped(error)
+        }
+
+        let groupID = groupRecord.recordID
+        let memberName = CloudKitMapping.memberRecordName(groupId: groupID.recordName,
+                                                          userId: userId)
+        try await upsert(recordID: CKRecord.ID(recordName: memberName),
+                         type: CloudRecordType.member) { record in
+            record[CloudField.groupRef] = CKRecord.Reference(recordID: groupID, action: .none)
+            record[CloudField.userId] = userId
+            record[CloudField.displayName] = handle.isEmpty ? "?" : handle
+            record[CloudField.role] = MemberRole.admin.rawValue
+            record.setDate(Date(), forKey: CloudField.createdAt)
+        }
+
+        // Written to the store BEFORE the first invite code is made:
+        // `createInviteCode` asks `requireAdmin()`, and that reads the role
+        // from exactly here.
+        store.groupId = groupID.recordName
+        store.memberId = memberName
+        store.displayName = handle
+        store.role = .admin
+
+        // A group without a code is a group nobody else can reach, so the
+        // first one comes with it rather than as a step to remember.
+        _ = try? await createInviteCode(note: "Kollegium")
+
+        try await refreshSubscriptions()
+
+        let group = CloudKitMapping.group(from: groupRecord)
+        let member = Member(id: memberName, groupId: group.id, userId: userId,
+                            displayName: handle, role: .admin)
+        return Membership(group: group, member: member)
+    }
+
     func joinGroup(code: String, displayName: String) async throws -> Membership {
         let normalized = InviteCode.normalize(code)
         guard !normalized.isEmpty else { throw BackendError.codeUnknown }
@@ -574,6 +629,22 @@ final class CloudKitBackend: AlarmBackend {
         } catch {
             throw mapped(error)
         }
+    }
+
+    func setRole(memberId: String, role: MemberRole) async throws {
+        try requireAdmin()
+        do {
+            let record = try await database.record(for: CKRecord.ID(recordName: memberId))
+            record[CloudField.role] = role.rawValue
+            _ = try await database.save(record)
+        } catch let error as CKError where error.code == .unknownItem {
+            throw BackendError.server("Dieses Mitglied gibt es nicht mehr.")
+        } catch {
+            throw mapped(error)
+        }
+        // Changing one's own role has to reach the local store as well, or the
+        // app keeps offering buttons the server will refuse.
+        if memberId == store.memberId { store.role = role }
     }
 
     func fetchAlarmHistory(limit: Int) async throws -> [Alarm] {

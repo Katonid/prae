@@ -32,6 +32,32 @@ Das ist der wichtigste offene Punkt des Projekts. Alles andere hängt daran.
 
 ---
 
+## Der erste Start
+
+Eine Person richtet die Schule ein, alle anderen treten bei.
+
+1. **Eine Person** öffnet die App, wählt oben „Schule einrichten", trägt
+   Schulnamen und ihr Kürzel ein und tippt auf „Schule einrichten und Leitung
+   werden". Sie ist damit die Leitung.
+2. Der **Beitrittscode** erscheint sofort danach als Zahl und als QR-Code.
+   Wiederzufinden unter Verwaltung → Beitrittscodes.
+3. **Alle anderen** öffnen die App, bleiben auf „Beitreten", tragen ihr
+   Kürzel ein und tippen oder scannen den Code.
+4. Jedes Gerät geht die Prüfliste durch und löst einen **Selbsttest** aus.
+   Erst wenn der angekommen ist, gilt das iPad als eingerichtet.
+
+Kommt der Code über Jamf School mit der App mit
+(`docs/MDM_APPCONFIG.md`), entfällt Schritt 3 bis auf das Kürzel.
+
+**Nur eine Person darf einrichten.** Richtet eine zweite noch einmal ein,
+entsteht ein zweiter, getrennter Alarmkreis — die beiden sehen einander
+nicht, und im Ernstfall wird nur die halbe Schule laut.
+
+**Mindestens zwei Personen sollten die Leitung haben.** Verwaltung →
+Mitglieder → „Zur Leitung machen". Eine einzige Leitung ist ein
+Ausfallpunkt: Wird dieses iPad zurückgesetzt, kann niemand mehr Codes
+vergeben oder Entwarnung geben.
+
 ## Der Aufbau in einem Absatz
 
 Alles, was mit einer Gegenstelle spricht, liegt hinter **einem** Protokoll:

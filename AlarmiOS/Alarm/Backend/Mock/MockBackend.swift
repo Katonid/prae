@@ -77,6 +77,20 @@ final class MockBackend: AlarmBackend {
 
     // MARK: - Membership
 
+    func createGroup(name: String, displayName: String) async throws -> Membership {
+        lock.around {
+            group = AlarmGroup(id: "group-mock",
+                               name: name.isEmpty ? "Schule" : name,
+                               locations: DefaultInstructions.locations,
+                               instructions: DefaultInstructions.byType)
+        }
+        role = .admin
+        let member = Member(id: "m1", groupId: group.id, userId: userId,
+                            displayName: displayName, role: .admin)
+        lock.around { members = [member] }
+        return Membership(group: group, member: member)
+    }
+
     func joinGroup(code: String, displayName: String) async throws -> Membership {
         guard InviteCode.normalize(code) == "K7QX2M" else { throw BackendError.codeUnknown }
         let member = Member(id: "m1", groupId: group.id, userId: userId,
@@ -222,6 +236,13 @@ final class MockBackend: AlarmBackend {
 
     func removeMember(memberId: String) async throws {
         lock.around { members.removeAll { $0.id == memberId } }
+    }
+
+    func setRole(memberId: String, role newRole: MemberRole) async throws {
+        lock.around {
+            guard let index = members.firstIndex(where: { $0.id == memberId }) else { return }
+            members[index].role = newRole
+        }
     }
 
     func fetchAlarmHistory(limit: Int) async throws -> [Alarm] { Array(alarms.prefix(limit)) }
