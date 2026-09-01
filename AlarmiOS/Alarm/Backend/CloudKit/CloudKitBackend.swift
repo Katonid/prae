@@ -79,12 +79,15 @@ final class CloudKitBackend: AlarmBackend {
         guard let userId = await currentUserId() else {
             throw BackendError.accountUnavailable(await availability())
         }
-        let name = CloudKitMapping.deviceRecordName(groupId: groupID.recordName, userId: userId)
+        let name = CloudKitMapping.deviceRecordName(groupId: groupID.recordName,
+                                                   userId: userId,
+                                                   deviceId: draft.deviceId)
         try await upsert(recordID: CKRecord.ID(recordName: name),
                          type: CloudRecordType.deviceStatus) { record in
             record[CloudField.groupRef] = CKRecord.Reference(recordID: groupID, action: .none)
             record[CloudField.userId] = userId
             record[CloudField.displayName] = self.store.displayName ?? "?"
+            record[CloudField.deviceId] = draft.deviceId
             record[CloudField.deviceModel] = draft.deviceModel
             record[CloudField.appVersion] = draft.appVersion
             record.setBool(draft.notificationsAuthorized,
@@ -189,12 +192,20 @@ final class CloudKitBackend: AlarmBackend {
 
         let handle = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
         let memberName = CloudKitMapping.memberRecordName(groupId: group.id, userId: userId)
-        // The first person to join a fresh group becomes its admin — somebody
-        // has to be able to hand out codes, and a group whose only admin left
-        // the school would otherwise be unmanageable.
+        // **Wer beitritt, wird Mitglied. Nie Leitung.**
+        //
+        // Bis 1.0.12 wurde die erste Person einer noch leeren Gruppe
+        // automatisch zur Leitung — gedacht als Notausgang, tatsächlich eine
+        // Rechtevergabe, die niemand angeordnet hat. Leitung wird man auf
+        // genau zwei Wegen: indem man die Schule einrichtet, oder indem eine
+        // Leitung einen dazu ernennt.
+        //
+        // Die eine Ausnahme ist keine: Hat dieses Konto hier schon ein
+        // Mitglied, behält es seine Rolle. Sonst verlöre eine Leitung ihre
+        // Rechte, sobald sie die App neu installiert oder ein zweites iPad
+        // in Betrieb nimmt.
         let existingMembers = try await members(of: groupID)
-        let role: MemberRole = existingMembers.isEmpty ? .admin
-            : (existingMembers.first { $0.userId == userId }?.role ?? .member)
+        let role = existingMembers.first { $0.userId == userId }?.role ?? .member
 
         try await upsert(recordID: CKRecord.ID(recordName: memberName),
                          type: CloudRecordType.member) { record in
@@ -1075,6 +1086,12 @@ final class CloudKitBackend: AlarmBackend {
 
 /// What this device is, in two strings.
 enum DeviceFacts {
+    /// Stabile Kennung dieses Geräts. Ändert sich erst, wenn alle Apps
+    /// desselben Anbieters entfernt werden — für unseren Zweck stabil genug.
+    static var deviceId: String {
+        UIDevice.current.identifierForVendor?.uuidString ?? "unbekannt"
+    }
+
     static var model: String {
         UIDevice.current.model + " (" + UIDevice.current.systemName + " "
             + UIDevice.current.systemVersion + ")"

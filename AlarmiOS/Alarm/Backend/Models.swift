@@ -236,6 +236,14 @@ struct DeviceStatus: Codable, Identifiable, Equatable {
     var groupId: String
     var userId: String
     var displayName: String
+    /// Kennung dieses einen Geräts.
+    ///
+    /// Es gibt sie, weil ein Mitglied eine **Apple-ID** ist und kein iPad.
+    /// Sind zwei iPads mit derselben Apple-ID angemeldet, sind sie EIN
+    /// Mitglied mit EINER Rolle — und ohne diese Kennung überschrieben sie
+    /// gegenseitig ihre Statusmeldung, sodass die Leitung nie erführe, dass
+    /// es zwei sind.
+    var deviceId: String
     var deviceModel: String
     var appVersion: String
     var notificationsAuthorized: Bool
@@ -347,6 +355,7 @@ struct CleanupReport: Equatable {
 
 /// What a device reports about itself when it registers or answers a ping.
 struct DeviceStatusDraft: Equatable {
+    var deviceId: String
     var deviceModel: String
     var appVersion: String
     var notificationsAuthorized: Bool

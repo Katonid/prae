@@ -45,6 +45,7 @@ final class MockBackend: AlarmBackend {
         devices = members.map { member in
             DeviceStatus(id: "d-\(member.id)", groupId: group.id, userId: member.userId,
                          displayName: member.displayName,
+                         deviceId: "mock-\(member.id)",
                          deviceModel: "iPad (iOS 17.5)", appVersion: "1.0.0 (1)",
                          notificationsAuthorized: true, timeSensitiveAllowed: true,
                          criticalAllowed: false, iCloudAvailable: true,
@@ -93,8 +94,9 @@ final class MockBackend: AlarmBackend {
 
     func joinGroup(code: String, displayName: String) async throws -> Membership {
         guard InviteCode.normalize(code) == "K7QX2M" else { throw BackendError.codeUnknown }
+        // Wer beitritt, wird Mitglied — wie in der Wirklichkeit.
         let member = Member(id: "m1", groupId: group.id, userId: userId,
-                            displayName: displayName, role: role)
+                            displayName: displayName, role: .member)
         return Membership(group: group, member: member)
     }
 

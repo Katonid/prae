@@ -263,7 +263,15 @@ struct MembersView: View {
                 }
             }
             } footer: {
-                Text("„Testalarm senden“ schickt einen Probealarm an genau dieses "
+                Text("Ein Mitglied ist eine APPLE-ID, kein iPad. Wer beitritt, "
+                     + "wird Mitglied; Leitung wird man nur, indem eine Leitung "
+                     + "einen dazu ernennt — es dürfen beliebig viele sein.\n\n"
+                     + "Zwei iPads mit derselben Apple-ID sind EIN Mitglied mit "
+                     + "EINER Rolle. Die Geräteübersicht zeigt sie einzeln; die "
+                     + "Rückmeldung im Ernstfall kann sie nicht "
+                     + "auseinanderhalten. Jede Lehrkraft braucht deshalb eine "
+                     + "eigene Apple-ID.\n\n"
+                     + "„Testalarm senden“ schickt einen Probealarm an genau dieses "
                      + "eine iPad — das Kollegium merkt nichts davon. Auf dem "
                      + "Zielgerät setzt sich damit der Haken „Zustellung geprüft“.\n\n"
                      + "An das eigene Gerät geht kein Test: CloudKit stellt einem "

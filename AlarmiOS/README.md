@@ -124,11 +124,37 @@ queryable" — dann fehlen die Indizes; siehe „CloudKit einrichten" weiter
 unten. Die App kann das nicht selbst richten, ein Index ist keine Sache der
 App.
 
+## Rollen: wer wird was
+
+**Wer beitritt, wird Mitglied. Immer.** Leitung wird man auf genau zwei
+Wegen: indem man die Schule einrichtet, oder indem eine Leitung einen dazu
+ernennt (Verwaltung → Mitglieder → „Zur Leitung machen"). **Die Zahl der
+Leitungen ist unbegrenzt**, und mindestens zwei sollten es sein.
+
+**Ein Mitglied ist eine Apple-ID, kein iPad.** Das ist die Regel, an der
+sich die meisten Überraschungen erklären:
+
+* Zwei iPads mit **derselben** Apple-ID sind **ein** Mitglied mit **einer**
+  Rolle. Ernennt man das eine zur Leitung, ist es das andere auch.
+* Eine Rückmeldung im Ernstfall lässt sich diesen beiden nicht einzeln
+  zuordnen — sie schreiben in denselben Datensatz.
+* **Jede Lehrkraft braucht deshalb eine eigene Apple-ID** (Managed Apple ID
+  aus Apple School Manager oder eine private).
+
+Die Geräteübersicht macht den Fall sichtbar: Sie zählt die Geräte je Kürzel
+und warnt, wenn zwei unter einem stehen.
+
 ## Rückmeldung und Entwarnung sind zweierlei
 
 „Gesehen – Klasse gesichert" heißt **ich weiß Bescheid**, nicht **es ist
 vorbei**. Ein Alarm läuft weiter, bis die Leitung (oder die auslösende
-Person) Entwarnung gibt. Das ist Absicht: Wer im Klassenraum sitzt, kann
+Person) Entwarnung gibt.
+
+**Für das eigene iPad ist mit der Rückmeldung trotzdem Ruhe.** Sie bricht
+die Erinnerungsreihe ab — aus der App und ebenso, wenn man vom
+Sperrbildschirm aus antwortet. Der Alarm-Bildschirm bleibt stehen, solange
+der Alarm läuft, aber es piept nichts mehr. Wer trotzdem weiter erinnert
+wird, hat einen ZWEITEN Alarm bekommen; jeder hat seine eigene Reihe. Das ist Absicht: Wer im Klassenraum sitzt, kann
 nicht beurteilen, ob die Lage im Haus vorbei ist.
 
 Genau eine Ausnahme: der **gezielte Probealarm** des Zustelltests. Der räumt

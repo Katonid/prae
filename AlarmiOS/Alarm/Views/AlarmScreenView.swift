@@ -128,11 +128,15 @@ struct AlarmScreenView: View {
             let mine = model.acks.first { $0.userId == model.member?.userId }
             HStack(spacing: 12) {
                 Image(systemName: "checkmark.circle.fill").font(.title)
-                VStack(alignment: .leading) {
+                VStack(alignment: .leading, spacing: 2) {
                     Text("Deine Rückmeldung ist gesendet").font(.headline)
                     if let mine {
                         Text(mine.state.label).font(.subheadline).opacity(0.85)
                     }
+                    // Der Satz, auf den es ankommt: Wer zurückgemeldet hat,
+                    // will wissen, dass sein iPad jetzt schweigt.
+                    Text("Dieses iPad erinnert nicht mehr.")
+                        .font(.subheadline).opacity(0.85)
                 }
                 Spacer()
                 Button("Ändern") { isChangingAck = true }

@@ -600,6 +600,7 @@ final class AppModel: ObservableObject {
         guard isJoined else { return }
         let permissions = notifications.permissions
         let draft = DeviceStatusDraft(
+            deviceId: DeviceFacts.deviceId,
             deviceModel: DeviceFacts.model,
             appVersion: DeviceFacts.appVersion,
             notificationsAuthorized: permissions.authorization == .authorized,
