@@ -21,6 +21,9 @@ struct AlarmScreenView: View {
     @EnvironmentObject private var model: AppModel
     @Environment(\.horizontalSizeClass) private var sizeClass
     @State private var showsChat = false
+    /// Set by "Ändern", so the two buttons come back instead of the app
+    /// guessing which of the two states was meant.
+    @State private var isChangingAck = false
 
     private var isWide: Bool { sizeClass == .regular }
 
@@ -121,7 +124,7 @@ struct AlarmScreenView: View {
     /// and pressing again would be the only way to find out.
     @ViewBuilder
     private var acknowledgement: some View {
-        if model.hasAcknowledged(alarm) {
+        if model.hasAcknowledged(alarm), !isChangingAck {
             let mine = model.acks.first { $0.userId == model.member?.userId }
             HStack(spacing: 12) {
                 Image(systemName: "checkmark.circle.fill").font(.title)
@@ -132,7 +135,7 @@ struct AlarmScreenView: View {
                     }
                 }
                 Spacer()
-                Button("Ändern") { Task { await sendAck(.needsHelp) } }
+                Button("Ändern") { isChangingAck = true }
                     .buttonStyle(.bordered)
                     .tint(.white)
             }
@@ -168,6 +171,7 @@ struct AlarmScreenView: View {
     }
 
     private func sendAck(_ state: AckState) async {
+        isChangingAck = false
         await model.acknowledge(alarm, state: state, location: alarm.location)
     }
 

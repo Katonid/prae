@@ -22,6 +22,7 @@ public enum PushKey {
     public static let triggeredByName = "triggeredByName"
     public static let createdAt = "createdAt"
     public static let instruction = "instruction"
+    public static let clearedByName = "clearedByName"
     public static let groupId = "groupId"
     public static let targetUserId = "targetUserId"
     public static let pingId = "pingId"

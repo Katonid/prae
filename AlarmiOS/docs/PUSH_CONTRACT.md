@@ -49,9 +49,17 @@ selbstgeschriebener Sender gleichermaßen einigen.
 | `triggeredByName` | nein | Kürzel, kein voller Name |
 | `createdAt` | nein | **ISO 8601 als Text**, siehe unten |
 | `instruction` | nein | Handlungstext, gekürzt auf 180 Zeichen |
+| `clearedByName` | nur bei `allClear` | Wer die Entwarnung gegeben hat — **nicht** `triggeredByName` |
 | `groupId` | nein | Kennung der Gruppe |
 | `targetUserId` | nein | gesetzt = nur dieses Gerät ist gemeint |
 | `pingId` | nein | nur bei `ping` |
+
+### Warum `clearedByName` ein eigenes Feld ist
+
+Weil die Entwarnung fast nie von derselben Person kommt wie der Alarm. Ein
+Banner „Entwarnung durch MÜ", das in Wahrheit den Namen derjenigen zeigt, die
+den Alarm ausgelöst hat, ist auf einem Sperrbildschirm eine stille Lüge — und
+niemand käme auf die Idee, sie zu prüfen.
 
 ### Warum `createdAt` Text ist
 
@@ -108,7 +116,7 @@ versteht es zusätzlich:
       "af": { "type": "amok", "status": "active", "location": "Aula",
               "triggeredByName": "MÜ", "createdAt": "2026-09-01T09:14:02Z",
               "instructionShort": "Tür verschließen …", "headline": "AMOKALARM",
-              "targetUser": "*", "groupRef": "abc123" }
+              "targetUser": "*", "groupRef": "abc123", "clearedByName": null }
     }
   }
 }

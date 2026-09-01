@@ -18,6 +18,7 @@ struct HomeView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 24) {
+                    if let cleared = model.allClearNotice { allClear(cleared) }
                     if !model.blockingItems.isEmpty { warning }
                     triggerButton
                     if let alarm = model.activeAlarm, alarm.isActive { runningAlarm(alarm) }
@@ -102,6 +103,41 @@ struct HomeView: View {
             .background(alarm.type.tint, in: RoundedRectangle(cornerRadius: 20))
         }
         .buttonStyle(.plain)
+    }
+
+    /// "Entwarnung durch KL um 09:21" — and it stays until it is dismissed.
+    ///
+    /// Whoever was in a locked classroom needs to read this after looking up,
+    /// not four seconds after it appeared.
+    private func allClear(_ alarm: Alarm) -> some View {
+        HStack(alignment: .top, spacing: 14) {
+            Image(systemName: "bell.slash.fill")
+                .font(.title)
+                .foregroundStyle(.blue)
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Entwarnung").font(.headline)
+                Text(entwarnungstext(alarm))
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 0)
+            Button {
+                model.allClearNotice = nil
+            } label: {
+                Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain)
+        }
+        .card(.blue)
+    }
+
+    private func entwarnungstext(_ alarm: Alarm) -> String {
+        let zeit = Clock.time.string(from: alarm.clearedAt ?? Date())
+        guard let name = alarm.clearedByName else {
+            return "\(alarm.type.title) beendet um \(zeit)."
+        }
+        return "\(alarm.type.title) beendet durch \(name) um \(zeit)."
     }
 
     private var warning: some View {

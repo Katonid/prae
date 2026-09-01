@@ -87,9 +87,12 @@ final class NotificationService: UNNotificationServiceExtension {
 
         case .allClear(let push):
             content.title = localized(PushString.allClearTitle)
+            // `clearedByName`, not `triggeredByName`: the person who called
+            // the all-clear is usually not the one who raised the alarm, and
+            // naming the wrong one is a quiet lie on a lock screen.
             content.body = String(format: localized(PushString.allClearBodyFormat),
-                                  push.triggeredByName ?? localized(PushString.unknownPerson),
-                                  timeText(push.createdAt))
+                                  push.clearedByName ?? localized(PushString.unknownPerson),
+                                  timeText(Date()))
             content.subtitle = ""
             content.categoryIdentifier = PushAsset.allClearCategory
             content.interruptionLevel = .active

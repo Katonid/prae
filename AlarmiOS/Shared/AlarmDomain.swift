@@ -50,6 +50,11 @@ public struct AlarmPush: Codable, Equatable, Sendable {
     public var triggeredByName: String?
     public var createdAt: Date?
     public var instruction: String?
+    /// Who called the all-clear. Only an `allClear` event carries it — and it
+    /// is NOT the same person as `triggeredByName`, which is exactly why it
+    /// needs a field of its own: the banner "Entwarnung durch …" naming the
+    /// person who raised the alarm would be quietly wrong.
+    public var clearedByName: String?
 
     public init(alarmId: String,
                 type: AlarmType,
@@ -57,7 +62,8 @@ public struct AlarmPush: Codable, Equatable, Sendable {
                 location: String? = nil,
                 triggeredByName: String? = nil,
                 createdAt: Date? = nil,
-                instruction: String? = nil) {
+                instruction: String? = nil,
+                clearedByName: String? = nil) {
         self.alarmId = alarmId
         self.type = type
         self.groupId = groupId
@@ -65,6 +71,7 @@ public struct AlarmPush: Codable, Equatable, Sendable {
         self.triggeredByName = triggeredByName
         self.createdAt = createdAt
         self.instruction = instruction
+        self.clearedByName = clearedByName
     }
 
     /// How long ago the alarm was raised, or `nil` when it carries no time.

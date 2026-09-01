@@ -54,8 +54,8 @@ enum CloudField {
     static let location = CloudFieldName.location
     static let triggeredByUserId = "triggeredByUserId"
     static let triggeredByName = CloudFieldName.triggeredByName
-    static let clearedAt = "clearedAt"
-    static let clearedByName = "clearedByName"
+    static let clearedAt = CloudFieldName.clearedAt
+    static let clearedByName = CloudFieldName.clearedByName
     static let instruction = CloudFieldName.instruction
     static let instructionShort = CloudFieldName.instructionShort
     static let headline = "headline"

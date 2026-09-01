@@ -75,7 +75,8 @@ public enum PushPayloadParser {
                              location: text(info[PushKey.location]),
                              triggeredByName: text(info[PushKey.triggeredByName]),
                              createdAt: date(info[PushKey.createdAt]),
-                             instruction: text(info[PushKey.instruction]))
+                             instruction: text(info[PushKey.instruction]),
+                             clearedByName: text(info[PushKey.clearedByName]))
 
         switch name {
         case PushEventName.alarm: return .success(.alarm(push))
@@ -131,7 +132,8 @@ public enum PushPayloadParser {
                              triggeredByName: text(fields[CloudFieldName.triggeredByName]),
                              createdAt: date(fields[CloudFieldName.createdAt]),
                              instruction: text(fields[CloudFieldName.instructionShort])
-                                 ?? text(fields[CloudFieldName.instruction]))
+                                 ?? text(fields[CloudFieldName.instruction]),
+                             clearedByName: text(fields[CloudFieldName.clearedByName]))
 
         let status = text(fields[CloudFieldName.status]).flatMap(AlarmStatus.init(rawValue:))
         let hasTarget = text(fields[CloudFieldName.targetUser]) != nil
@@ -186,6 +188,7 @@ public enum PushPayloadParser {
         info[PushKey.location] = push.location
         info[PushKey.triggeredByName] = push.triggeredByName
         info[PushKey.instruction] = push.instruction
+        info[PushKey.clearedByName] = push.clearedByName
         info[PushKey.createdAt] = push.createdAt.map(iso.string(from:))
         return info
     }
@@ -262,4 +265,6 @@ public enum CloudFieldName {
     /// field takes the whole notification down with it.
     public static let instructionShort = "instructionShort"
     public static let targetUser = "targetUser"
+    public static let clearedByName = "clearedByName"
+    public static let clearedAt = "clearedAt"
 }

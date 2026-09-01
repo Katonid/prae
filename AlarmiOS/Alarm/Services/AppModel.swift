@@ -37,6 +37,12 @@ final class AppModel: ObservableObject {
     /// Set once the whole checklist is green and a self-test has arrived.
     @Published private(set) var onboardingDone = false
 
+    /// The alarm that was just called off, until somebody acknowledges the
+    /// notice. Without it the alarm screen would simply vanish, and nobody
+    /// standing in a corridor would know whether it was over or whether the
+    /// app had lost its connection.
+    @Published var allClearNotice: Alarm?
+
     let backend: any AlarmBackend
     let notifications: NotificationCenterService
     let store: MembershipStore
@@ -223,7 +229,10 @@ final class AppModel: ObservableObject {
             // The all-clear closes the screen — but only for an alarm that was
             // actually showing. Closing something that was never open would
             // yank the interface out from under whoever is using it.
-            if previous != nil { showsAlarmScreen = false }
+            if let previous {
+                showsAlarmScreen = false
+                await noteAllClear(for: previous)
+            }
             return
         }
 
@@ -235,6 +244,20 @@ final class AppModel: ObservableObject {
             remindingAbout = alarm.id
             await AlarmReminder.schedule(for: alarm)
         }
+    }
+
+    /// Fetches the finished alarm so the notice can name who called it off
+    /// and when.
+    ///
+    /// The stream only ever reports the RUNNING alarm, so by the time it
+    /// yields `nil` the interesting fields — `clearedAt`, `clearedByName` —
+    /// are no longer in hand. One small query gets them back; if it fails, the
+    /// notice still appears, just without the name.
+    private func noteAllClear(for previous: Alarm) async {
+        allClearNotice = previous
+        guard let finished = try? await backend.fetchAlarmHistory(limit: 20)
+            .first(where: { $0.id == previous.id }) else { return }
+        allClearNotice = finished
     }
 
     private func observeDetails(for alarm: Alarm?) {
@@ -354,7 +377,11 @@ final class AppModel: ObservableObject {
                                               availability: availability,
                                               selfTestPassed: store.selfTestPassed,
                                               criticalAlertsBuilt: criticalAlertsBuilt)
-        onboardingDone = store.onboardingDone && checklist.allSatisfy { !$0.isBlocking }
+        // Only the explicit "I am done" flag decides which screen the app is
+        // on. A permission revoked months later shows the warning banner on
+        // the home screen — it does NOT push a teacher back into the setup
+        // wizard, where the alarm button would be out of reach.
+        onboardingDone = store.onboardingDone
     }
 
     var blockingItems: [ChecklistItem] { checklist.filter(\.isBlocking) }

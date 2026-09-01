@@ -177,6 +177,7 @@ enum CloudKitSubscriptions {
         CloudField.instructionShort,
         CloudField.headline,
         CloudField.targetUser,
-        CloudField.groupRef
+        CloudField.groupRef,
+        CloudField.clearedByName
     ]
 }
