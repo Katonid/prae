@@ -43,9 +43,22 @@ Eine Person richtet die Schule ein, alle anderen treten bei.
    Wiederzufinden unter Verwaltung → Beitrittscodes.
 3. **Alle anderen** öffnen die App, bleiben auf „Beitreten", tragen ihr
    Kürzel ein und tippen oder scannen den Code.
-4. Jedes Gerät geht die Prüfliste durch, macht den **Tontest** (ohne Netz)
-   und danach den **Selbsttest** (über iCloud). Erst wenn beide durch sind,
-   gilt das iPad als eingerichtet.
+4. Jedes Gerät geht die Prüfliste durch und macht den **Tontest** (ohne
+   Netz). Danach lässt sich die Einrichtung abschließen.
+5. Den **Zustellnachweis** erbringt ein zweites Gerät: Die Leitung schickt
+   aus Verwaltung → Mitglieder einen Testalarm an das iPad; dort setzt sich
+   der Haken von selbst. Bis dahin steht auf dem Startbildschirm ein
+   Warnband — das iPad läuft, gilt aber nicht als geprüft.
+
+**Für das iPad der Leitung selbst braucht es eine zweite Leitung.** Unter
+Verwaltung → Mitglieder eine zweite Person dazu machen; sie schickt den
+Testalarm zurück.
+
+**Was ein zweites Gerät braucht, hält den ersten Start nicht auf.** Der
+Zustellnachweis war bis 1.0.9 Bedingung für „Einrichtung abschließen" — und
+damit zirkulär: Der Nachweis braucht einen Push von einem anderen Gerät, den
+schickt die Leitung aus der Verwaltung, die Verwaltung liegt hinter dem
+Startbildschirm. Niemand kam mehr hinein.
 
 Kommt der Code über Jamf School mit der App mit
 (`docs/MDM_APPCONFIG.md`), entfällt Schritt 3 bis auf das Kürzel.
