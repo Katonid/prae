@@ -3,8 +3,8 @@
 
     python3 AlarmiOS/scripts/make-sounds.py
 
-Ergebnis: ``AlarmiOS/Shared/Sounds/alarm.caf`` (25 s) und
-``AlarmiOS/Shared/Sounds/allclear.caf`` (3 s). Nicht von Hand bearbeiten.
+Ergebnis: ``AlarmiOS/Shared/Sounds/alarm.wav`` (25 s) und
+``AlarmiOS/Shared/Sounds/allclear.wav`` (3 s). Nicht von Hand bearbeiten.
 
 Warum gerechnet und nicht geladen
 ---------------------------------
@@ -14,30 +14,30 @@ Wechsel, harte Flanken, immer gleich. Genau das lässt sich ausrechnen —
 ohne fremde Dateien, ohne Lizenzfrage, ohne Netz beim Bauen. Dieselbe
 Überlegung wie bei den Endklängen in Tafelbild.
 
-Warum CAF und nicht WAV
+Warum WAV und nicht CAF
 -----------------------
 
-``UNNotificationSound(named:)`` nimmt AIFF, WAV und CAF, aber nur mit
-einem der Formate Linear PCM, MA4, µLaw oder aLaw und **höchstens 30
-Sekunden**. CAF mit Linear PCM ist davon das, was iOS am liebsten mag,
-und Apples eigene Anleitung nennt es zuerst.
+Zuerst war es CAF, von Hand geschrieben — der Container ist einfach genug
+dafür (Kopf, ``desc``-Block, ``data``-Block), und ``file`` erkannte das
+Ergebnis anstandslos. Auf dem Gerät spielte iOS trotzdem den
+Standard-Mitteilungston: Was es nicht laden kann, ersetzt es
+stillschweigend, ohne einen Fehler zu melden.
 
-Warum kein ``afconvert``
+Ein selbst geschriebener Container ist an dieser Stelle die falsche Sparsamkeit.
+WAV schreibt Pythons ``wave`` aus der Standardbibliothek — kein fremdes
+Paket, aber auch nichts, was ich selbst zusammengesetzt habe. ``UNNotificationSound``
+nimmt WAV genauso an wie CAF.
+
+Ob die Datei am Ende wirklich im App-Bündel liegt, sagt die Diagnose in der
+App („Zustellung prüfen"): Sie schlägt sie dort nach und nennt die Größe.
+Raten muss man das nicht.
+
+Warum 44 100 Hz und Mono
 ------------------------
 
-``afconvert`` gibt es nur auf macOS. Der Bau dieses Repos läuft aber auch
-auf Linux-Läufern, und die Töne sollen sich überall neu erzeugen lassen.
-CAF ist ein einfacher Container (Kopf, ``desc``-Block, ``data``-Block) —
-den schreibt dieses Skript selbst. Wer lieber ``afconvert`` nimmt: Das
-Ergebnis ist dasselbe.
-
-Warum 22 050 Hz und Mono
-------------------------
-
-Ein Warnton hat seine Energie zwischen 500 und 2 000 Hz; darüber trägt er
-nichts bei. Mono bei 22,05 kHz halbiert die Datei zweimal — sie liegt
-sowohl im App-Bündel als auch in der Erweiterung, also viermal auf dem
-Gerät. Hörbar ist der Unterschied bei einem Rechtecksignal nicht.
+Mono, weil ein Warnton keine Richtung braucht. 44,1 kHz, weil das die
+Abtastrate ist, mit der niemand streitet — bei einem Ton, der im Ernstfall
+funktionieren muss, ist das die zwei Megabyte wert.
 """
 
 from __future__ import annotations
@@ -45,8 +45,9 @@ from __future__ import annotations
 import math
 import os
 import struct
+import wave
 
-RATE = 22050            # Abtastrate in Hz
+RATE = 44100            # Abtastrate in Hz
 FLANKE = 0.004          # Sekunden Ein-/Ausblendung an jeder Tonkante
 
 HIER = os.path.dirname(os.path.abspath(__file__))
@@ -122,43 +123,31 @@ def normiert(werte, spitze: float = 0.92):
     return [w * faktor for w in werte]
 
 
-def schreibe_caf(pfad: str, werte) -> None:
-    """Schreibt Linear-PCM (16 Bit, mono, big endian) als CAF-Datei.
+def schreibe_wav(pfad: str, werte) -> None:
+    """Schreibt 16-Bit-Mono-PCM als WAV.
 
-    CAF ist von Haus aus big endian; ``mFormatFlags = 0`` heißt damit
-    „vorzeichenbehaftete Ganzzahl, big endian". Ein gesetztes Bit 0 wäre
-    Fließkomma, Bit 1 little endian — beides wollen wir hier nicht.
+    Über ``wave`` aus der Standardbibliothek: Der Kopf einer RIFF-Datei ist
+    zwar auch von Hand zu schreiben, aber genau das war der Fehler zuvor.
     """
-    roh = b"".join(struct.pack(">h", max(-32768, min(32767, int(w * 32767))))
+    roh = b"".join(struct.pack("<h", max(-32768, min(32767, int(w * 32767))))
                    for w in werte)
-
-    kopf = b"caff" + struct.pack(">HH", 1, 0)
-    desc = struct.pack(">d4sIIIII",
-                       float(RATE),      # mSampleRate
-                       b"lpcm",          # mFormatID
-                       0,                # mFormatFlags: ganzzahlig, big endian
-                       2,                # mBytesPerPacket
-                       1,                # mFramesPerPacket
-                       1,                # mChannelsPerFrame
-                       16)               # mBitsPerChannel
-    bloecke = (b"desc" + struct.pack(">q", len(desc)) + desc
-               + b"data" + struct.pack(">q", len(roh) + 4)
-               + struct.pack(">I", 0) + roh)
-
     os.makedirs(os.path.dirname(pfad), exist_ok=True)
-    with open(pfad, "wb") as datei:
-        datei.write(kopf + bloecke)
+    with wave.open(pfad, "wb") as datei:
+        datei.setnchannels(1)
+        datei.setsampwidth(2)
+        datei.setframerate(RATE)
+        datei.writeframes(roh)
     sekunden = len(werte) / RATE
     print(f"{pfad}: {sekunden:.1f} s, {os.path.getsize(pfad) // 1024} KiB")
 
 
 def main() -> None:
-    for name, werte in (("alarm.caf", alarmton()), ("allclear.caf", entwarnung())):
+    for name, werte in (("alarm.wav", alarmton()), ("allclear.wav", entwarnung())):
         sekunden = len(werte) / RATE
         # Über 30 Sekunden spielt iOS den Ton gar nicht ab — lieber hier
         # scheitern als auf dem Gerät schweigen.
         assert sekunden <= 30.0, f"{name} ist {sekunden:.1f} s lang, erlaubt sind 30"
-        schreibe_caf(os.path.join(ZIEL, name), normiert(werte))
+        schreibe_wav(os.path.join(ZIEL, name), normiert(werte))
 
 
 if __name__ == "__main__":

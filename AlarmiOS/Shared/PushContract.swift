@@ -76,8 +76,8 @@ public enum SubscriptionID {
 public enum PushAsset {
     public static let alarmCategory = "ALARM"
     public static let allClearCategory = "ALLCLEAR"
-    public static let alarmSound = "alarm.caf"
-    public static let allClearSound = "allclear.caf"
+    public static let alarmSound = "alarm.wav"
+    public static let allClearSound = "allclear.wav"
     /// Notifications older than this are no longer interruptive; see
     /// `NotificationService`.
     public static let staleAfter: TimeInterval = 180

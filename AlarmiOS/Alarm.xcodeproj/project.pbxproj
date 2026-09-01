@@ -10,14 +10,14 @@
 		A1A100000000000000000025 /* AlarmDomain.swift in Sources (App) */ = {isa = PBXBuildFile; fileRef = A1A10000000000000000001E /* AlarmDomain.swift */; };
 		A1A100000000000000000026 /* PushContract.swift in Sources (App) */ = {isa = PBXBuildFile; fileRef = A1A10000000000000000001F /* PushContract.swift */; };
 		A1A100000000000000000027 /* PushPayloadParser.swift in Sources (App) */ = {isa = PBXBuildFile; fileRef = A1A100000000000000000020 /* PushPayloadParser.swift */; };
-		A1A100000000000000000028 /* alarm.caf in Resources (App) */ = {isa = PBXBuildFile; fileRef = A1A100000000000000000021 /* alarm.caf */; };
-		A1A100000000000000000029 /* allclear.caf in Resources (App) */ = {isa = PBXBuildFile; fileRef = A1A100000000000000000022 /* allclear.caf */; };
+		A1A100000000000000000028 /* alarm.wav in Resources (App) */ = {isa = PBXBuildFile; fileRef = A1A100000000000000000021 /* alarm.wav */; };
+		A1A100000000000000000029 /* allclear.wav in Resources (App) */ = {isa = PBXBuildFile; fileRef = A1A100000000000000000022 /* allclear.wav */; };
 		A1A10000000000000000002A /* Localizable.strings in Resources (App) */ = {isa = PBXBuildFile; fileRef = A1A100000000000000000023 /* Localizable.strings */; };
 		A1A10000000000000000002B /* AlarmDomain.swift in Sources (Extension) */ = {isa = PBXBuildFile; fileRef = A1A10000000000000000001E /* AlarmDomain.swift */; };
 		A1A10000000000000000002C /* PushContract.swift in Sources (Extension) */ = {isa = PBXBuildFile; fileRef = A1A10000000000000000001F /* PushContract.swift */; };
 		A1A10000000000000000002D /* PushPayloadParser.swift in Sources (Extension) */ = {isa = PBXBuildFile; fileRef = A1A100000000000000000020 /* PushPayloadParser.swift */; };
-		A1A10000000000000000002E /* alarm.caf in Resources (Extension) */ = {isa = PBXBuildFile; fileRef = A1A100000000000000000021 /* alarm.caf */; };
-		A1A10000000000000000002F /* allclear.caf in Resources (Extension) */ = {isa = PBXBuildFile; fileRef = A1A100000000000000000022 /* allclear.caf */; };
+		A1A10000000000000000002E /* alarm.wav in Resources (Extension) */ = {isa = PBXBuildFile; fileRef = A1A100000000000000000021 /* alarm.wav */; };
+		A1A10000000000000000002F /* allclear.wav in Resources (Extension) */ = {isa = PBXBuildFile; fileRef = A1A100000000000000000022 /* allclear.wav */; };
 		A1A100000000000000000030 /* Localizable.strings in Resources (Extension) */ = {isa = PBXBuildFile; fileRef = A1A100000000000000000023 /* Localizable.strings */; };
 		A1A10000000000000000001A /* AlarmNotificationService.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = A1A100000000000000000011 /* AlarmNotificationService.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
@@ -52,8 +52,8 @@
 		A1A10000000000000000001E /* AlarmDomain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlarmDomain.swift; sourceTree = "<group>"; };
 		A1A10000000000000000001F /* PushContract.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PushContract.swift; sourceTree = "<group>"; };
 		A1A100000000000000000020 /* PushPayloadParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PushPayloadParser.swift; sourceTree = "<group>"; };
-		A1A100000000000000000021 /* alarm.caf */ = {isa = PBXFileReference; lastKnownFileType = audio.caf; path = alarm.caf; sourceTree = "<group>"; };
-		A1A100000000000000000022 /* allclear.caf */ = {isa = PBXFileReference; lastKnownFileType = audio.caf; path = allclear.caf; sourceTree = "<group>"; };
+		A1A100000000000000000021 /* alarm.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = alarm.wav; sourceTree = "<group>"; };
+		A1A100000000000000000022 /* allclear.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = allclear.wav; sourceTree = "<group>"; };
 		A1A100000000000000000024 /* de */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = de; path = de.lproj/Localizable.strings; sourceTree = "<group>"; };
 		A1A100000000000000000032 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		A1A100000000000000000033 /* Alarm.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Alarm.entitlements; sourceTree = "<group>"; };
@@ -126,8 +126,8 @@
 		A1A100000000000000000036 /* Sounds */ = {
 			isa = PBXGroup;
 			children = (
-				A1A100000000000000000021 /* alarm.caf */,
-				A1A100000000000000000022 /* allclear.caf */,
+				A1A100000000000000000021 /* alarm.wav */,
+				A1A100000000000000000022 /* allclear.wav */,
 			);
 			path = Sounds;
 			sourceTree = "<group>";
@@ -234,8 +234,8 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				A1A100000000000000000028 /* alarm.caf in Resources (App) */,
-				A1A100000000000000000029 /* allclear.caf in Resources (App) */,
+				A1A100000000000000000028 /* alarm.wav in Resources (App) */,
+				A1A100000000000000000029 /* allclear.wav in Resources (App) */,
 				A1A10000000000000000002A /* Localizable.strings in Resources (App) */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -244,8 +244,8 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				A1A10000000000000000002E /* alarm.caf in Resources (Extension) */,
-				A1A10000000000000000002F /* allclear.caf in Resources (Extension) */,
+				A1A10000000000000000002E /* alarm.wav in Resources (Extension) */,
+				A1A10000000000000000002F /* allclear.wav in Resources (Extension) */,
 				A1A100000000000000000030 /* Localizable.strings in Resources (Extension) */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -392,7 +392,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Config/Alarm.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 7;
+				CURRENT_PROJECT_VERSION = 8;
 				DEVELOPMENT_TEAM = F4989GSTWS;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -408,7 +408,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0.6;
+				MARKETING_VERSION = 1.0.7;
 				PRODUCT_BUNDLE_IDENTIFIER = "de.dboschule.alarm";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -424,7 +424,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Config/Alarm.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 7;
+				CURRENT_PROJECT_VERSION = 8;
 				DEVELOPMENT_TEAM = F4989GSTWS;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -440,7 +440,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0.6;
+				MARKETING_VERSION = 1.0.7;
 				PRODUCT_BUNDLE_IDENTIFIER = "de.dboschule.alarm";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -453,7 +453,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 7;
+				CURRENT_PROJECT_VERSION = 8;
 				DEVELOPMENT_TEAM = F4989GSTWS;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "Config/NotificationService-Info.plist";
@@ -465,7 +465,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 1.0.6;
+				MARKETING_VERSION = 1.0.7;
 				PRODUCT_BUNDLE_IDENTIFIER = "de.dboschule.alarm.notificationservice";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -479,7 +479,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 7;
+				CURRENT_PROJECT_VERSION = 8;
 				DEVELOPMENT_TEAM = F4989GSTWS;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "Config/NotificationService-Info.plist";
@@ -491,7 +491,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 1.0.6;
+				MARKETING_VERSION = 1.0.7;
 				PRODUCT_BUNDLE_IDENTIFIER = "de.dboschule.alarm.notificationservice";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;

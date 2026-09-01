@@ -497,8 +497,9 @@ final class CloudKitBackend: AlarmBackend {
 
     // MARK: - Checking that it works
 
-    func requestSelfTest() async throws {
+    func sendTestAlarm(toUserId zielUserId: String) async throws {
         let groupID = try requireGroupID()
+        try requireAdmin()
         guard let userId = await currentUserId() else {
             throw BackendError.accountUnavailable(await availability())
         }
@@ -510,7 +511,7 @@ final class CloudKitBackend: AlarmBackend {
                           triggeredByUserId: userId,
                           triggeredByName: store.displayName ?? "?",
                           instruction: group?.instruction(for: .test),
-                          targetUserId: userId)
+                          targetUserId: zielUserId)
         let record = CKRecord(recordType: CloudRecordType.alarm,
                               recordID: CKRecord.ID(recordName: alarm.id))
         CloudKitMapping.apply(alarm, to: record, groupRecordID: groupID)

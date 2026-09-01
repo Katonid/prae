@@ -158,37 +158,23 @@ struct OnboardingView: View {
     @ViewBuilder
     private var selfTestSection: some View {
         Section {
-            Button {
-                testRequestedAt = Date()
-                Task { await model.runSelfTest() }
-            } label: {
-                Label("Testalarm an dieses Gerät senden", systemImage: "bell.badge.waveform")
-            }
-            .disabled(model.isWorking)
-
-            if let testRequestedAt {
-                Text("Gesendet um \(Clock.timeWithSeconds.string(from: testRequestedAt)). "
-                     + "Er sollte binnen weniger Sekunden hörbar ankommen — notfalls "
-                     + "das iPad kurz sperren und warten.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                Button("Der Testalarm ist angekommen") {
-                    model.confirmSelfTest()
-                }
-                .fontWeight(.semibold)
-            }
             NavigationLink {
                 DiagnoseView().environmentObject(model)
             } label: {
                 Label("Zustellung prüfen", systemImage: "stethoscope")
             }
         } header: {
-            Text("2. Selbsttest — über iCloud")
+            Text("2. Zustellung — über iCloud")
         } footer: {
-            Text("Nur dieses Gerät bekommt den Testalarm; das Kollegium merkt "
-                 + "nichts davon. Kommt nach zehn Sekunden nichts, tippe auf "
-                 + "„Zustellung prüfen“ — dort steht, an welcher Stelle die Kette "
-                 + "reißt.")
+            Text("Diesen Haken setzt dieses iPad nicht selbst. Die Leitung "
+                 + "schickt aus IHRER App einen Testalarm an dieses Gerät "
+                 + "(Verwaltung → Mitglieder → „Testalarm senden“); sobald er "
+                 + "hier eintrifft, ist der Punkt erledigt.\n\nDass es so "
+                 + "herum sein muss, liegt an CloudKit: Einem Gerät wird keine "
+                 + "Meldung zu einem Datensatz zugestellt, den es selbst "
+                 + "geschrieben hat. Ein iPad kann sich die Zustellung nicht "
+                 + "selbst beweisen — und ein Knopf, der so täte, wäre in "
+                 + "dieser App das Letzte, was hier stehen dürfte.")
         }
     }
 }

@@ -41,10 +41,6 @@ struct SettingsView: View {
                     Button("Tontest — das iPad weckt sich selbst") {
                         Task { await model.runTontest() }
                     }
-                    Button("Testalarm an dieses Gerät senden") {
-                        Task { await model.runSelfTest() }
-                    }
-                    .disabled(model.isWorking)
                     NavigationLink {
                         DiagnoseView().environmentObject(model)
                     } label: {
@@ -54,10 +50,11 @@ struct SettingsView: View {
                     Text("Prüfen")
                 } footer: {
                     Text("Der Tontest kommt ohne Netz aus und beweist nur, dass "
-                         + "dieses iPad laut werden darf. Der Testalarm geht über "
-                         + "iCloud und beweist die Zustellung. Kommt der Testalarm "
-                         + "nicht, sagt „Zustellung prüfen“, an welcher Stelle die "
-                         + "Kette reißt.")
+                         + "dieses iPad laut werden darf.\n\nDie Zustellung "
+                         + "beweist nur ein zweites Gerät: Die Leitung schickt "
+                         + "einen Testalarm hierher (Verwaltung → Mitglieder). "
+                         + "„Zustellung prüfen“ zeigt, an welcher Stelle die Kette "
+                         + "reißt.")
                 }
 
                 Section("Dieses Gerät") {

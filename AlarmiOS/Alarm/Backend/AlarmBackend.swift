@@ -155,8 +155,17 @@ protocol AlarmBackend: AnyObject {
 
     // MARK: Checking that it works
 
-    /// Raises an alarm only this device can see. The last step of onboarding.
-    func requestSelfTest() async throws
+    /// Schickt einen Testalarm an GENAU EIN anderes Gerät.
+    ///
+    /// Nicht an das eigene, und das ist keine Bequemlichkeit: CloudKit stellt
+    /// eine Subscription-Meldung dem Gerät, das den Datensatz geschrieben hat,
+    /// nicht zu. Ein Selbsttest auf einem einzelnen Gerät kann deshalb nicht
+    /// funktionieren — er sah nur so aus, als könnte er. Die Zustellung
+    /// beweist ein zweites iPad oder gar nichts.
+    ///
+    /// Nur die Leitung darf ihn senden; er ist ein Probealarm und trägt alle
+    /// Kennzeichen eines solchen.
+    func sendTestAlarm(toUserId userId: String) async throws
 
     /// Asks every device in the group to refresh its `DeviceStatus`.
     func pingAllDevices() async throws
