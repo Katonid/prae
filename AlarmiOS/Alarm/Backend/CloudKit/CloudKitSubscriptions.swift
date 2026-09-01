@@ -51,13 +51,62 @@ enum CloudKitSubscriptions {
                                                    deleting: Array(obsolete))
     }
 
+    // MARK: - Die Prädikate
+
+    /// Einmal geschrieben, zweimal gebraucht: von der Subscription und von der
+    /// Probeabfrage der Diagnose. Zwei Fassungen liefen mit Sicherheit
+    /// auseinander, und dann prüfte die Diagnose etwas anderes als das, woran
+    /// die Zustellung hängt.
+    static func alarmPredicate(groupRecordID: CKRecord.ID) -> NSPredicate {
+        NSPredicate(format: "%K == %@ AND %K == %@",
+                    CloudField.groupRef,
+                    CKRecord.Reference(recordID: groupRecordID, action: .none),
+                    CloudField.targetUser, CloudConstant.everyone)
+    }
+
+    static func allClearPredicate(groupRecordID: CKRecord.ID) -> NSPredicate {
+        NSPredicate(format: "%K == %@ AND %K == %@ AND %K == %@",
+                    CloudField.groupRef,
+                    CKRecord.Reference(recordID: groupRecordID, action: .none),
+                    CloudField.targetUser, CloudConstant.everyone,
+                    CloudField.status, AlarmStatus.cleared.rawValue)
+    }
+
+    static func selfTestPredicate(groupRecordID: CKRecord.ID,
+                                  userId: String) -> NSPredicate {
+        NSPredicate(format: "%K == %@ AND %K == %@",
+                    CloudField.groupRef,
+                    CKRecord.Reference(recordID: groupRecordID, action: .none),
+                    CloudField.targetUser, userId)
+    }
+
+    static func pingPredicate(groupRecordID: CKRecord.ID, userId: String) -> NSPredicate {
+        NSPredicate(format: "%K == %@ AND (%K == %@ OR %K == %@)",
+                    CloudField.groupRef,
+                    CKRecord.Reference(recordID: groupRecordID, action: .none),
+                    CloudField.targetUser, CloudConstant.everyone,
+                    CloudField.targetUser, userId)
+    }
+
+    /// Was die Diagnose einzeln nachfragt: Kennung, Record-Typ, Prädikat.
+    static func proben(groupRecordID: CKRecord.ID,
+                       userId: String) -> [(kennung: String, typ: String,
+                                            predicate: NSPredicate)] {
+        [(SubscriptionID.alarmCreated, CloudRecordType.alarm,
+          alarmPredicate(groupRecordID: groupRecordID)),
+         (SubscriptionID.alarmCleared, CloudRecordType.alarm,
+          allClearPredicate(groupRecordID: groupRecordID)),
+         (SubscriptionID.selfTest, CloudRecordType.alarm,
+          selfTestPredicate(groupRecordID: groupRecordID, userId: userId)),
+         (SubscriptionID.pingCreated, CloudRecordType.ping,
+          pingPredicate(groupRecordID: groupRecordID, userId: userId))]
+    }
+
+    // MARK: - Die Subscriptions
+
     /// A real alarm, for everybody in the group.
     static func alarmCreated(groupRecordID: CKRecord.ID) -> CKQuerySubscription {
-        let predicate = NSPredicate(format: "%K == %@ AND %K == %@",
-                                    CloudField.groupRef,
-                                    CKRecord.Reference(recordID: groupRecordID, action: .none),
-                                    CloudField.targetUser,
-                                    CloudConstant.everyone)
+        let predicate = alarmPredicate(groupRecordID: groupRecordID)
         let subscription = CKQuerySubscription(recordType: CloudRecordType.alarm,
                                                predicate: predicate,
                                                subscriptionID: SubscriptionID.alarmCreated,
@@ -68,13 +117,7 @@ enum CloudKitSubscriptions {
 
     /// The same record, updated to `cleared`.
     static func alarmCleared(groupRecordID: CKRecord.ID) -> CKQuerySubscription {
-        let predicate = NSPredicate(format: "%K == %@ AND %K == %@ AND %K == %@",
-                                    CloudField.groupRef,
-                                    CKRecord.Reference(recordID: groupRecordID, action: .none),
-                                    CloudField.targetUser,
-                                    CloudConstant.everyone,
-                                    CloudField.status,
-                                    AlarmStatus.cleared.rawValue)
+        let predicate = allClearPredicate(groupRecordID: groupRecordID)
         let subscription = CKQuerySubscription(recordType: CloudRecordType.alarm,
                                                predicate: predicate,
                                                subscriptionID: SubscriptionID.alarmCleared,
@@ -86,11 +129,8 @@ enum CloudKitSubscriptions {
     /// A test alarm addressed to this device only, so that one person can
     /// check delivery without waking a staff room.
     static func selfTest(groupRecordID: CKRecord.ID, userId: String) -> CKQuerySubscription {
-        let predicate = NSPredicate(format: "%K == %@ AND %K == %@",
-                                    CloudField.groupRef,
-                                    CKRecord.Reference(recordID: groupRecordID, action: .none),
-                                    CloudField.targetUser,
-                                    userId)
+        let predicate = selfTestPredicate(groupRecordID: groupRecordID,
+                                          userId: userId)
         let subscription = CKQuerySubscription(recordType: CloudRecordType.alarm,
                                                predicate: predicate,
                                                subscriptionID: SubscriptionID.selfTest,
@@ -101,11 +141,7 @@ enum CloudKitSubscriptions {
 
     /// "Report your status." The only silent push this app has.
     static func pingCreated(groupRecordID: CKRecord.ID, userId: String) -> CKQuerySubscription {
-        let predicate = NSPredicate(format: "%K == %@ AND (%K == %@ OR %K == %@)",
-                                    CloudField.groupRef,
-                                    CKRecord.Reference(recordID: groupRecordID, action: .none),
-                                    CloudField.targetUser, CloudConstant.everyone,
-                                    CloudField.targetUser, userId)
+        let predicate = pingPredicate(groupRecordID: groupRecordID, userId: userId)
         let subscription = CKQuerySubscription(recordType: CloudRecordType.ping,
                                                predicate: predicate,
                                                subscriptionID: SubscriptionID.pingCreated,
