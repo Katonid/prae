@@ -81,6 +81,11 @@ struct AdminView: View {
             } label: {
                 Label("Alarm-Historie", systemImage: "clock.arrow.circlepath")
             }
+            Button {
+                Task { await model.beendeAlleLaufenden() }
+            } label: {
+                Label("Alle laufenden Alarme beenden", systemImage: "bell.slash")
+            }
             Button(action: cleanUp) {
                 Label("Aufräumen (älter als 90 Tage)", systemImage: "trash")
             }
@@ -90,8 +95,11 @@ struct AdminView: View {
         } header: {
             Text("Nachbereitung")
         } footer: {
-            Text("Läuft zusätzlich bei jedem Start einer Leitungs-App von "
-                 + "selbst. Alarme, Rückmeldungen und Nachrichten sind "
+            Text("„Alle laufenden Alarme beenden“ gibt Entwarnung für alles, "
+                 + "was gerade offen ist — der Ausweg, wenn sich etwas "
+                 + "aufgestaut hat.\n\n"
+                 + "Aufräumen läuft zusätzlich bei jedem Start einer "
+                 + "Leitungs-App von selbst. Alarme, Rückmeldungen und Nachrichten sind "
                  + "Leistungs- und Verhaltensdaten benannter Personen — sie "
                  + "bleiben nicht länger liegen als nötig.")
         }

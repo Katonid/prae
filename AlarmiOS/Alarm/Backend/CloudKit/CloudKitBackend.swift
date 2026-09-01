@@ -490,7 +490,12 @@ final class CloudKitBackend: AlarmBackend {
         let alarms = Self.nachAlterSortiert(records)
             .compactMap(CloudKitMapping.alarm(from:))
         return alarms.first { alarm in
-            alarm.targetUserId == nil || alarm.targetUserId == userId
+            guard alarm.targetUserId == nil || alarm.targetUserId == userId else {
+                return false
+            }
+            // Abgelaufene Probealarme übergehen — sonst wird ein Stapel alter
+            // Zustelltests der Reihe nach zum laufenden Alarm.
+            return alarm.giltNoch()
         }
     }
 

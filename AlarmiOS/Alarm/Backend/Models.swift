@@ -128,6 +128,28 @@ struct Alarm: Codable, Identifiable, Equatable {
 
     var isActive: Bool { status == .active }
 
+    /// Ein Probealarm an genau ein Gerät — der Zustelltest.
+    var istGezielterProbealarm: Bool { type == .test && targetUserId != nil }
+
+    /// Wie lange ein gezielter Probealarm überhaupt gelten kann.
+    ///
+    /// Er ist in Sekunden zu sehen oder gar nicht. Ein iPad, das erst eine
+    /// Stunde später aus dem Schrank kommt, soll deswegen nicht losgehen —
+    /// und vor allem sollen sich nicht mehrere Tests stapeln, von denen jeder
+    /// der Reihe nach zum „laufenden Alarm" wird. Genau das ist passiert
+    /// (gemeldet 09/2026: „schaltet sich nach ein paar Sekunden wieder an").
+    static let probealarmGiltFuer: TimeInterval = 10 * 60
+
+    /// Ist dieser Alarm einer, der jetzt noch jemanden angehen sollte?
+    ///
+    /// Für echte Alarme immer ja, solange sie laufen: Ein Amokalarm, den seit
+    /// zwei Stunden niemand entwarnt hat, ist zwei Stunden alt und trotzdem
+    /// gültig. Die Entwarnung beendet ihn, nicht die Uhr.
+    func giltNoch(now: Date = Date()) -> Bool {
+        guard istGezielterProbealarm else { return true }
+        return now.timeIntervalSince(createdAt) < Self.probealarmGiltFuer
+    }
+
     /// The German headline, stored on the record so that a fallback banner —
     /// one that iOS builds without the extension — can name the emergency.
     /// APNs localization arguments are raw field values; `"amok"` on a lock

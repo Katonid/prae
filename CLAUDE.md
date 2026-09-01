@@ -384,6 +384,19 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   `store.letzterPush` und setzt sich auf dem EMPFANGENDEN Gerät von selbst.
   Bestätigen muss ihn niemand — ein Knopf „ist angekommen" wäre eine
   Behauptung, der Zeitstempel ist eine Tatsache.
+- **Eine Rückmeldung beendet KEINEN Alarm** — das tut nur die Entwarnung.
+  „Gesehen" heißt „ich weiß Bescheid", nicht „es ist vorbei". Genau eine
+  Ausnahme: der gezielte Probealarm (Zustelltest). Der räumt sich mit der
+  Rückmeldung selbst weg, sonst bliebe jeder Test für immer „aktiv" — und
+  ein Stapel alter Tests wurde der Reihe nach zum laufenden Alarm, das iPad
+  klingelte immer wieder (gemeldet 09/2026). Zusätzlich verfällt ein
+  gezielter Probealarm nach zehn Minuten (`Alarm.giltNoch`): Er ist in
+  Sekunden zu sehen oder gar nicht. **Echte Alarme verfallen nie** — ein
+  Amokalarm, den seit zwei Stunden niemand entwarnt hat, ist gültig; die
+  Entwarnung beendet ihn, nicht die Uhr.
+- **„Alle laufenden Alarme beenden"** (Verwaltung → Nachbereitung) ist der
+  Ausweg, wenn sich doch etwas aufstaut. Nur die Leitung, nur ausdrücklich
+  getippt.
 - **Der Countdown vor dem Auslösen ist fünf Sekunden und bleibt.** Ein
   Fehlalarm kostet eine Schule mehr als die fünf Sekunden — beim nächsten
   echten Alarm zuckt niemand mehr.
