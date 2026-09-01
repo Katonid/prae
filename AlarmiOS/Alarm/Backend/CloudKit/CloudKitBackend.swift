@@ -547,12 +547,56 @@ final class CloudKitBackend: AlarmBackend {
         guard let userId = await currentUserId() else {
             throw BackendError.accountUnavailable(await availability())
         }
+        await ensureSchema(groupID: groupID)
         do {
             try await CloudKitSubscriptions.reconcile(in: database,
                                                       groupRecordID: groupID,
                                                       userId: userId)
         } catch {
             throw mapped(error)
+        }
+    }
+
+    /// Makes sure the record types a subscription talks about actually exist.
+    ///
+    /// A `CKQuerySubscription` names a record type, and CloudKit refuses one
+    /// for a type it has never seen. On a fresh container that is exactly the
+    /// situation right after the school is set up: `Group`, `Member` and
+    /// `InviteCode` have been written, `Alarm` and `Ping` have not — the first
+    /// alarm is still in the future. The subscriptions were therefore rejected,
+    /// and a device without subscriptions is silent for ever without saying so.
+    ///
+    /// One record of each type is written and deleted again. The record goes,
+    /// the type stays — that is all the schema needs.
+    private func ensureSchema(groupID: CKRecord.ID) async {
+        let reference = CKRecord.Reference(recordID: groupID, action: .none)
+
+        let alarm = CKRecord(recordType: CloudRecordType.alarm)
+        alarm[CloudField.groupRef] = reference
+        alarm[CloudField.type] = AlarmType.test.rawValue
+        // Never `active`, and addressed to nobody: should the delete below
+        // fail, this must not turn into an alarm screen on 30 iPads.
+        alarm[CloudField.status] = AlarmStatus.cleared.rawValue
+        alarm[CloudField.targetUser] = "schema"
+        alarm[CloudField.headline] = "Schema"
+        alarm[CloudField.location] = "Schema"
+        alarm[CloudField.triggeredByName] = "Schema"
+        alarm[CloudField.triggeredByUserId] = "schema"
+        alarm[CloudField.instructionShort] = "Schema"
+        alarm[CloudField.instruction] = "Schema"
+        alarm[CloudField.alarmId] = alarm.recordID.recordName
+        alarm.setDate(Date(), forKey: CloudField.createdAt)
+        alarm.setDate(Date(), forKey: CloudField.clearedAt)
+        alarm[CloudField.clearedByName] = "Schema"
+
+        let ping = CKRecord(recordType: CloudRecordType.ping)
+        ping[CloudField.groupRef] = reference
+        ping[CloudField.targetUser] = "schema"
+        ping.setDate(Date(), forKey: CloudField.createdAt)
+
+        for record in [alarm, ping] {
+            guard (try? await database.save(record)) != nil else { continue }
+            _ = try? await database.deleteRecord(withID: record.recordID)
         }
     }
 
@@ -712,6 +756,94 @@ final class CloudKitBackend: AlarmBackend {
             }
         }
         return report
+    }
+
+    // MARK: - Diagnosis
+
+    func diagnose() async -> [Diagnose] {
+        var zeilen: [Diagnose] = []
+
+        zeilen.append(Diagnose(id: "container",
+                               titel: "Container",
+                               text: container.containerIdentifier ?? "unbekannt",
+                               befund: .hinweis))
+
+        let konto = await availability()
+        zeilen.append(Diagnose(id: "konto",
+                               titel: "Apple-ID",
+                               text: konto.explanation,
+                               befund: konto.isReady ? .gut : .schlecht))
+
+        guard let userId = await currentUserId() else {
+            zeilen.append(Diagnose(id: "user", titel: "Konto-Kennung",
+                                   text: "Konnte nicht ermittelt werden. Ohne sie "
+                                       + "wird an dieses Gerät nichts zugestellt.",
+                                   befund: .schlecht))
+            return zeilen
+        }
+        zeilen.append(Diagnose(id: "user", titel: "Konto-Kennung",
+                               text: userId, befund: .gut))
+
+        guard let groupID = try? requireGroupID() else {
+            zeilen.append(Diagnose(id: "gruppe", titel: "Gruppe",
+                                   text: "Dieses Gerät gehört zu keiner Gruppe.",
+                                   befund: .schlecht))
+            return zeilen
+        }
+        zeilen.append(Diagnose(id: "gruppe", titel: "Gruppe",
+                               text: groupID.recordName, befund: .gut))
+        zeilen.append(Diagnose(id: "rolle", titel: "Rolle",
+                               text: store.role.label, befund: .hinweis))
+
+        // Die Probeabfragen. Sie sind der eigentliche Zweck dieser Ansicht:
+        // Auf einem frischen Container fehlen die Queryable-Indizes, und
+        // CloudKit sagt das im Klartext — aber nur, wenn jemand fragt.
+        for (typ, name) in [(CloudRecordType.alarm, "Alarm"),
+                            (CloudRecordType.ping, "Ping"),
+                            (CloudRecordType.member, "Member"),
+                            (CloudRecordType.deviceStatus, "DeviceStatus"),
+                            (CloudRecordType.ack, "Ack"),
+                            (CloudRecordType.message, "Message")] {
+            do {
+                _ = try await query(typ, predicate: groupPredicate(groupID), limit: 1)
+                zeilen.append(Diagnose(id: "abfrage-\(typ)",
+                                       titel: "Abfrage \(name)",
+                                       text: "geht", befund: .gut))
+            } catch {
+                zeilen.append(Diagnose(id: "abfrage-\(typ)",
+                                       titel: "Abfrage \(name)",
+                                       text: rohtext(error), befund: .schlecht))
+            }
+        }
+
+        // Ohne Subscription kommt kein Push. Punkt.
+        do {
+            let vorhanden = Set(try await database.allSubscriptions().map(\.subscriptionID))
+            for kennung in SubscriptionID.all {
+                let da = vorhanden.contains(kennung)
+                zeilen.append(Diagnose(id: "sub-\(kennung)",
+                                       titel: "Subscription \(kennung)",
+                                       text: da ? "angelegt"
+                                                : "FEHLT — ohne sie kommt kein Push an",
+                                       befund: da ? .gut : .schlecht))
+            }
+        } catch {
+            zeilen.append(Diagnose(id: "subs", titel: "Subscriptions",
+                                   text: "Nicht abfragbar: \(rohtext(error))",
+                                   befund: .schlecht))
+        }
+
+        return zeilen
+    }
+
+    /// Der Wortlaut des Dienstes, nicht meiner.
+    private func rohtext(_ error: Error) -> String {
+        guard let ck = error as? CKError else { return error.localizedDescription }
+        var text = "\(ck.code.rawValue): \(ck.localizedDescription)"
+        if let grund = ck.userInfo[NSLocalizedFailureReasonErrorKey] as? String {
+            text += " — \(grund)"
+        }
+        return text
     }
 
     // MARK: - Push

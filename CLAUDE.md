@@ -222,6 +222,31 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   Anlegen: Group, dann Member, dann Code — eine Referenz auf einen
   Datensatz, den es noch nicht gibt, weist CloudKit ab. Und `store.role`
   muss VOR `createInviteCode` stehen, denn das fragt `requireAdmin()`.
+- **Eine Subscription braucht den Record-Typ VORHER** (`ensureSchema`, ab
+  1.0.3). `CKQuerySubscription` nennt einen Record-Typ, und CloudKit lehnt
+  eine für einen Typ ab, den es nie gesehen hat. Genau das war die Lage
+  direkt nach dem Einrichten: `Group`, `Member` und `InviteCode` standen,
+  `Alarm` und `Ping` nicht — der erste Alarm liegt ja noch in der Zukunft.
+  Die Subscriptions wurden also abgewiesen, und ein Gerät ohne Subscription
+  ist für immer stumm, ohne es zu sagen. `ensureSchema` schreibt je einen
+  Datensatz und löscht ihn wieder; der Datensatz geht, der Typ bleibt. Der
+  Alarm-Platzhalter ist NIE `active` und trägt `targetUser = "schema"` —
+  scheitert das Löschen, darf daraus kein Alarmbildschirm auf 30 iPads
+  werden.
+- **Zwei Tests, weil es zwei Fehler sind** (ab 1.0.3). Der **Tontest**
+  (`Services/Tontest.swift`) weckt das Gerät örtlich, ohne einen Meter Netz:
+  Er beweist, dass das iPad laut werden DARF (Erlaubnis, Ton, Fokus,
+  Lautlos-Schalter, Sperrbildschirm). Der **Selbsttest** geht über CloudKit
+  und beweist die Zustellung. Der Selbsttest allein kann nicht sagen, an
+  welcher Stelle die Kette reißt — deshalb sind es zwei Zeilen in der
+  Prüfliste und nicht eine.
+- **„Zustellung prüfen" gibt den ROHEN Fehlertext aus** (`DiagnoseView`,
+  `AlarmBackend.diagnose()`). Je Record-Typ eine Probeabfrage, dazu jede
+  der vier Subscriptions einzeln, der Kontostatus, die APNs-Anmeldung und
+  der Zeitpunkt des letzten angekommenen Pushes. „Field 'groupRef' is not
+  marked queryable" ist für die Person, die es richten muss, mehr wert als
+  ein aufgeräumtes „Verbindung fehlgeschlagen". Kopierbar, weil der Nutzer
+  am iPad sitzt.
 - **Zwei Leitungen, nicht eine** (`setRole`). Eine einzige Leitung ist ein
   Ausfallpunkt: Wird dieses iPad im Sommer zurückgesetzt, kann niemand mehr
   Codes vergeben oder Entwarnung geben. Der Hinweis steht unter der

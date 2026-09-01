@@ -45,6 +45,7 @@ enum OnboardingChecklist {
     /// The checkable half.
     static func items(permissions: NotificationCenterService.Permissions,
                       availability: BackendAvailability,
+                      tontestPassed: Bool,
                       selfTestPassed: Bool,
                       criticalAlertsBuilt: Bool) -> [ChecklistItem] {
         let settings = URL(string: UIApplication.openSettingsURLString)
@@ -109,13 +110,30 @@ enum OnboardingChecklist {
             state: availability.isReady ? .ok : .missing,
             settingsURL: settings))
 
+        // Zwei Zeilen, weil es zwei verschiedene Behauptungen sind. „Das iPad
+        // darf laut werden" und „von einem anderen Gerät kommt etwas an" sind
+        // nicht dasselbe, und wenn nichts klingelt, ist die erste Frage, welche
+        // der beiden gerade nicht stimmt.
+        items.append(ChecklistItem(
+            id: "tontest",
+            title: "Ton auf diesem Gerät gehört",
+            detail: tontestPassed
+                ? "Das iPad wird laut — gesperrt, mit Ton, in der richtigen "
+                + "Dringlichkeitsstufe."
+                : "Noch nicht geprüft. Der Tontest weckt das iPad selbst, ohne "
+                + "Netz. Klingt er nicht, liegt es am Gerät und nicht an der "
+                + "Zustellung.",
+            state: tontestPassed ? .ok : .missing,
+            settingsURL: nil))
+
         items.append(ChecklistItem(
             id: "selftest",
             title: "Selbsttest angekommen",
             detail: selfTestPassed
-                ? "Ein Testalarm ist auf diesem Gerät angekommen und wurde bestätigt."
+                ? "Ein Testalarm ist über CloudKit auf diesem Gerät angekommen."
                 : "Noch nicht geprüft. Erst ein angekommener Testalarm zeigt, dass "
-                + "die Zustellung wirklich funktioniert.",
+                + "die Zustellung wirklich funktioniert. Kommt er nicht, sagt "
+                + "„Zustellung prüfen“ in den Einstellungen, woran es liegt.",
             state: selfTestPassed ? .ok : .missing,
             settingsURL: nil))
 

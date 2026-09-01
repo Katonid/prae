@@ -65,11 +65,22 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         }
     }
 
+    /// Ohne diese Anmeldung stellt Apple nichts zu — und bis 1.0.2 stand
+    /// nirgends, ob sie geklappt hat.
+    func application(_ application: UIApplication,
+                     didRegisterForRemoteNotificationsWithDeviceToken token: Data) {
+        let kurz = token.map { String(format: "%02x", $0) }.joined().suffix(8)
+        Task { @MainActor in
+            model.apnsZustand = "angemeldet (Kennung endet auf \(kurz))"
+        }
+    }
+
     func application(_ application: UIApplication,
                      didFailToRegisterForRemoteNotificationsWithError error: Error) {
         Task { @MainActor in
             // Worth saying out loud: without a registration nothing is
             // delivered, and the checklist would otherwise show all green.
+            model.apnsZustand = "gescheitert: \(error.localizedDescription)"
             model.problem = "Dieses Gerät konnte sich nicht für Mitteilungen "
                 + "anmelden: \(error.localizedDescription)"
         }

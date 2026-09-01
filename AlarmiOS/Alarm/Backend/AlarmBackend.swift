@@ -163,6 +163,12 @@ protocol AlarmBackend: AnyObject {
 
     func fetchDeviceStatuses() async throws -> [DeviceStatus]
 
+    /// Everything the backend knows about why a push might not arrive.
+    ///
+    /// Never throws: a diagnosis that fails to run is the least useful thing
+    /// imaginable. Each check reports its own outcome as a line.
+    func diagnose() async -> [Diagnose]
+
     /// Creates the push subscriptions if they are missing. Called at every
     /// start — a subscription can disappear (account switched, container
     /// reset), and a device without one is silently deaf.

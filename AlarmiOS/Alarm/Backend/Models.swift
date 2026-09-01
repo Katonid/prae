@@ -273,6 +273,35 @@ struct InviteCode: Codable, Identifiable, Equatable {
     }
 }
 
+/// One line of the delivery diagnosis.
+///
+/// The app cannot fix a CloudKit schema, and it cannot see into APNs. What it
+/// can do is stop the guessing: name every link of the chain, say which one
+/// answered and which one did not, and print the service's own error text
+/// rather than a tidy sentence of its own. „Field 'groupRef' is not marked
+/// queryable" is worth more to whoever has to fix it than „Verbindung
+/// fehlgeschlagen".
+struct Diagnose: Identifiable, Equatable {
+    enum Befund: Equatable {
+        case gut
+        case schlecht
+        case hinweis
+    }
+
+    var id: String
+    var titel: String
+    var text: String
+    var befund: Befund
+
+    var symbol: String {
+        switch befund {
+        case .gut: return "checkmark.circle.fill"
+        case .schlecht: return "xmark.octagon.fill"
+        case .hinweis: return "info.circle"
+        }
+    }
+}
+
 /// What `joinGroup` gives back.
 struct Membership: Equatable {
     var group: AlarmGroup

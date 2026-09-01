@@ -211,6 +211,12 @@ final class MockBackend: AlarmBackend {
     }
 
     func fetchDeviceStatuses() async throws -> [DeviceStatus] { devices }
+
+    func diagnose() async -> [Diagnose] {
+        [Diagnose(id: "mock", titel: "Testdaten",
+                  text: "Diese Fassung spricht mit keiner Gegenstelle.",
+                  befund: .hinweis)]
+    }
     func refreshSubscriptions() async throws {}
 
     func createInviteCode(note: String?) async throws -> InviteCode {
