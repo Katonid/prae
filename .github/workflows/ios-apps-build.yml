@@ -42,6 +42,7 @@ on:
         default: alle
         options:
           - alle
+          - Alarm
           - Anstoss
           - CadUsdEur
           - FlightMate

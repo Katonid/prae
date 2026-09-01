@@ -144,6 +144,150 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   es folgt 1.3.2 (Build 5) usw. Größere Sprünge (z. B. 1.4) nur
   auf ausdrückliche Ansage des Nutzers.
 
+## Projekt Schulalarm (Notfall- und Amokalarm, native iOS-App)
+
+- App-Code: `AlarmiOS/` (zwei Targets: App + `AlarmNotificationService`,
+  iPhone + iPad, iOS 16). Eine Lehrkraft löst aus, alle Dienst-iPads
+  eines Kollegiums werden laut, jede meldet mit einem Tipp zurück.
+  Verteilt als **Custom App** über Apple School Manager und Jamf School —
+  nicht im öffentlichen App Store. Bundle-Id `de.dboschule.alarm`.
+- **Diese App ersetzt keinen Notruf.** Der Satz steht auf dem
+  Alarm-Bildschirm, in den Einstellungen und in den Review-Notizen —
+  nicht wegrationalisieren.
+- **Alles Backend-Nahe liegt hinter EINEM Protokoll** (`AlarmBackend`).
+  CloudKit-Typen kommen ausschließlich in `Alarm/Backend/CloudKit/` vor;
+  Views und Services importieren CloudKit nie. Das ist kein Stilwunsch:
+  CloudKit stellt an Apple-Geräte zu und an sonst nichts, und sobald
+  Android dazukommt, soll der Wechsel eine Datei kosten. `MockBackend`
+  ist der laufende Beweis — steckte irgendwo ein `CKRecord`, ließe es
+  sich nicht übersetzen. Ausführlich: `AlarmiOS/docs/BACKEND_MIGRATION.md`.
+- **Die Notification Service Extension ist Pflicht, nicht Kür.** Eine
+  CloudKit-Subscription kann `interruptionLevel` nicht setzen; ohne die
+  Erweiterung bliebe jede Meldung auf `.active`, und ein aktiver Fokus
+  hielte den Alarm zurück. Sie hebt auf `.timeSensitive`, baut Titel und
+  Text und schreibt `userInfo` ins neutrale Format um. **Sie verwirft
+  nie etwas** — ein unlesbares Paket wird angezeigt, mit dem Grund im
+  Text. Ein stillschweigend verschluckter Alarm ist der schlimmste
+  denkbare Fehler dieser App.
+- **Der Push-Vertrag steht in `AlarmiOS/docs/PUSH_CONTRACT.md`** und wird
+  an genau einer Stelle gelesen (`Shared/PushPayloadParser.swift`). Wer
+  ihn ändert, ändert ihn dort und im Papier gleichzeitig.
+- **`Shared/` liegt in BEIDEN Zielen** und ist als einziger Ordner über
+  ausdrückliche Dateiverweise im pbxproj eingebunden, nicht über eine
+  synchronisierte Gruppe (die gehört immer genau einem Ziel). Wer dort
+  eine Datei anlegt, trägt sie in beide `Sources`-Phasen ein — sonst
+  fehlt sie der Erweiterung, und das fällt erst beim Übersetzen auf.
+- **Datum im Push ist ISO-8601-TEXT, keine Zahl.** CloudKit kodiert ein
+  `Date`-Feld als nackte Zahl, und ob die ab 1970 oder ab Apples
+  Bezugsdatum 2001 zählt, steht nirgends verlässlich. Ein falscher
+  Nullpunkt machte jeden Alarm 31 Jahre alt — und die App schaltet alte
+  Alarme (über drei Minuten) auf `.passive`. Der Fehler wäre nicht
+  sichtbar falsch, sondern still stumm.
+- **Das Feld `headline` ist Absicht.** Kommt die Erweiterung nicht zum
+  Zug, zeigt iOS den Rückfalltext aus `alertLocalizationKey` mit den
+  ROHEN Feldwerten als Argumenten — „amok" auf einem Sperrbildschirm
+  hilft niemandem. Deshalb steht die deutsche Überschrift als eigenes
+  Feld auf dem Datensatz. Aus demselben Grund wird `location` nie leer
+  geschrieben: Ein fehlendes Argument lässt iOS die ganze Meldung fallen.
+- **`instructionShort` statt `instruction` in den `desiredKeys`.** Ein
+  APNs-Paket ist auf 4 KB gedeckelt, und ein einziges zu großes Feld
+  nimmt die ganze Meldung mit. Der volle Text steht auf dem Datensatz und
+  ist eine Sekunde später auf dem Alarm-Bildschirm.
+- **`collapseIDKey` nennt ein FELD, nicht den Datensatznamen.** Darum
+  trägt der Alarm seinen eigenen Namen zusätzlich im Feld `alarmId`.
+  Ohne das stapeln sich mehrere Zustellungen desselben Alarms als
+  mehrere Banner.
+- **Öffentliche CloudKit-Datenbank — mit ehrlich benannten Grenzen.**
+  Sie unterscheidet nur „irgendein angemeldeter iCloud-Nutzer" und
+  „Ersteller". Sie kann NICHT „nur Mitglieder dieser Gruppe". Wer den
+  sechsstelligen Code hat und eine Apple-ID besitzt, kann in der Gruppe
+  schreiben. Die Schutzwirkung kommt aus der Verteilung nur an
+  Schul-iPads und aus Datensparsamkeit (Kürzel statt Namen). Das steht so
+  im README, in den Review-Notizen und in BACKEND_MIGRATION — nicht
+  schönreden.
+- **Indizes und Sicherheitsrolle sind hier NÖTIG** (anders als bei
+  Tafelbild, das privat abgleicht): Ohne Queryable-Index scheitert jede
+  Abfrage, ohne `_icloud`-Schreibrecht kann eine zweite Leitung nichts
+  pflegen. Die Tabelle steht im README unter „CloudKit einrichten", dazu
+  einmalig „Deploy Schema Changes to Production".
+- **Sortiert wird nach dem Systemfeld `creationDate`**, nicht nach dem
+  eigenen `createdAt`: Den Systemzeitstempel setzt der Server, ein Gerät
+  mit falscher Uhr kann ihn nicht verbiegen.
+- **Abgeleitete Datensatznamen gegen Doppel:** `member-<Gruppe>-<Nutzer>`,
+  `ack-<Alarm>-<Nutzer>`, `device-<Gruppe>-<Nutzer>`, und der
+  Beitrittscode IST der Name seines Datensatzes (kein Index, keine
+  Abfrage, kein Wettlauf). Ein zweiter Tipp auf „Gesehen" ist damit eine
+  Änderung und keine zweite Zeile — und die Zahl der Rückmeldungen ist
+  die eine Zahl, auf die im Ernstfall geschaut wird.
+- **Subscriptions werden abgeglichen, nicht neu angelegt** (`reconcile`).
+  Erst alles löschen und dann neu anlegen ließe das Gerät dazwischen taub
+  zurück — und dauerhaft taub, wenn die zweite Hälfte an einer schlechten
+  Verbindung scheitert. Das `-v1` in `SubscriptionID` ist dafür da, dass
+  ein geändertes Prädikat eine neue Kennung bekommt: Ein Prädikat lässt
+  sich nachträglich nicht ändern.
+- **Polling ist das Netz unter den Subscriptions, nicht der Weg:** fünf
+  Sekunden bei laufendem Alarm, dreißig sonst. Und: **Nur eine Abfrage,
+  die GELUNGEN ist und nichts fand, räumt den Alarm-Bildschirm.** Eine
+  abgerissene Verbindung darf nie wie eine Entwarnung aussehen.
+- **`NSLock.lock()` ist `noasync`** — in einer async-Funktion heute eine
+  Warnung, unter Swift 6 ein Fehler. Gesperrt wird deshalb ausschließlich
+  über `NSLock.around` (`Backend/Locked.swift`), einen synchronen
+  Abschluss: Darin kann nichts suspendieren.
+- **Die Prüfliste ist keine Einrichtungshilfe, sie bleibt für immer.**
+  Berechtigungen ändern sich hinter dem Rücken der App (Fokus-Ausnahme
+  weg, iOS-Update, jemand meldet sich von iCloud ab). Sie wird bei jedem
+  Start neu geprüft, und was fehlt, steht als Banner auf dem
+  Startbildschirm. **Was iOS nicht herausgibt, wird als Anleitung gezeigt
+  und nicht als Häkchen** — ein grünes Häkchen für „nicht nachgesehen"
+  wäre die teuerste Lüge, die diese App erzählen kann.
+- **Fertig eingerichtet ist erst, wenn ein Selbsttest ANGEKOMMEN ist.**
+  Nicht wenn er gesendet wurde: Der Test beweist den Zustellweg, nicht
+  den Sendeweg. Der Testalarm trägt `targetUser` und ist nur auf dem
+  eigenen Gerät zu sehen.
+- **Der Countdown vor dem Auslösen ist fünf Sekunden und bleibt.** Ein
+  Fehlalarm kostet eine Schule mehr als die fünf Sekunden — beim nächsten
+  echten Alarm zuckt niemand mehr.
+- **Der zweite Bildschirm zeigt NIE den Alarm** (eigene Szene in
+  `Config/Info.plist`, `ExternalDisplaySceneDelegate`). Sonst erführe die
+  Klasse die Bedrohungslage vor der Kollegin nebenan. Was die App nicht
+  kontrollieren kann, ist das System-Banner davor — das spiegelt iOS. Ob
+  die Sperrbildschirm-Vorschau den Alarmtext zeigt, entscheidet das
+  Krisenteam im Konfigurationsprofil, nicht die App.
+- **Kritische Hinweise sind AUS.** Das Entitlement vergibt Apple nur auf
+  schriftlichen Antrag, und eine Entitlements-Datei, die es ohne
+  Bewilligung nennt, lässt jedes Signieren scheitern. Der Code steht
+  fertig hinter der Compilerbedingung `CRITICAL_ALERTS` (drei Stellen).
+  Nicht vorher eintragen.
+- **Handlungstexte sind Platzhalter, die als solche zu erkennen sind.**
+  Was im Ernstfall dort steht, gehört mit Schulleitung, Polizei und
+  Feuerwehr abgestimmt; ein Text, der bloß amtlich klingt, ist schlimmer
+  als ein sichtbares Leerfeld.
+- **Töne und App-Symbol werden gerechnet, nicht geladen**
+  (`scripts/make-sounds.py`, `scripts/make-icon.py`, reines Python ohne
+  fremde Bibliotheken). Über 30 Sekunden spielt iOS einen Mitteilungston
+  gar nicht ab — das Skript bricht vorher ab, damit der Fehler beim
+  Erzeugen auffällt und nicht auf dem Gerät.
+- `MARKETING_VERSION` und `CURRENT_PROJECT_VERSION` stehen an **vier**
+  Stellen im pbxproj (App Debug+Release, Erweiterung Debug+Release) und
+  müssen überall gleich sein — eine Erweiterung mit abweichender Nummer
+  weist App Store Connect ab. Es gibt KEINE Skript-Bauphase. **Jede
+  Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne Nachfrage,
+  als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann 1.0.1
+  (Build 2) usw.
+- `ITSAppUsesNonExemptEncryption = NO` steht in beiden Info.plists und als
+  Build-Einstellung — nicht entfernen.
+- **Offen: der Zustellnachweis.** Ob der Alarm auf einem gesperrten iPad
+  mit aktivem Fokus binnen zehn Sekunden hörbar ankommt, lässt sich nur
+  auf zwei echten Geräten messen — nicht im Simulator, nicht in GitHub
+  Actions. Das Messprotokoll samt Abbruchkriterium steht in
+  `AlarmiOS/docs/ZUSTELLTEST.md`. Scheitert es, ist der Ersatz ein
+  winziger eigener APNs-Sender hinter demselben Protokoll, nicht ein
+  anderes Backend. **Diesen offenen Punkt nicht als erledigt darstellen.**
+- Übersetzt wird in GitHub Actions (`.github/workflows/ios-apps-build.yml`,
+  Eintrag `("AlarmiOS", "Alarm")` in `welche-apps.py`). **Erst pushen, Bau
+  abwarten, Fehler beheben — den PR-Link erst herausgeben, wenn der Bau
+  grün ist.**
+
 ## Projekt Anstoß (Fußball-Liveticker, native iOS-App)
 
 - App-Code: `AnstossiOS/` (ein Target: App, iPhone + iPad, iOS 17).

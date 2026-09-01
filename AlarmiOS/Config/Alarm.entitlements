@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>aps-environment</key>
+	<string>development</string>
+	<key>com.apple.developer.icloud-container-identifiers</key>
+	<array>
+		<string>iCloud.de.dboschule.alarm</string>
+	</array>
+	<key>com.apple.developer.icloud-services</key>
+	<array>
+		<string>CloudKit</string>
+	</array>
+	<!-- Zeitkritische Mitteilungen: die Fähigkeit, die den Alarm durch einen
+	     aktiven Fokus bringt. Sie braucht keinen Antrag bei Apple.
+
+	     Kritische Hinweise (com.apple.developer.usernotifications.critical-alerts)
+	     stehen hier bewusst NICHT: Das Entitlement vergibt Apple nur auf
+	     schriftlichen Antrag, und eine Datei, die es ohne Bewilligung nennt,
+	     lässt jedes Signieren scheitern. Der Weg dorthin steht im README;
+	     eingeschaltet wird der Zweig über das Build-Flag CRITICAL_ALERTS. -->
+	<key>com.apple.developer.usernotifications.time-sensitive</key>
+	<true/>
+</dict>
+</plist>

@@ -1,0 +1,770 @@
+//  CloudKitBackend.swift
+//  The only implementation of `AlarmBackend` that talks to a real service.
+//
+//  Design notes that are not obvious from the code:
+//
+//  * PUBLIC database. A private database is per-account and a shared database
+//    needs an explicit invitation per record — neither reaches 30 colleagues
+//    within seconds. The price is honest and documented in the README: the
+//    public database can only distinguish "any signed-in iCloud user" from
+//    "the record's creator". It cannot enforce "only members of this group".
+//  * Delivery runs on subscriptions (see `CloudKitSubscriptions`). Polling is
+//    the safety net, not the mechanism: five seconds while an alarm is
+//    running, half a minute otherwise. A missed push must not mean a missed
+//    alarm, and a device that polls every five seconds all day would be a
+//    battery complaint by Friday.
+//  * Every record carries `groupRef`. Every query filters on it. A school that
+//    shares the container with another school must never see its records.
+
+import CloudKit
+import Foundation
+import UIKit
+
+final class CloudKitBackend: AlarmBackend {
+
+    private let container: CKContainer
+    private var database: CKDatabase { container.publicCloudDatabase }
+    private let store: MembershipStore
+
+    /// Cached account identifier. Fetching it costs a round trip, and it is
+    /// needed on nearly every call.
+    private var cachedUserId: String?
+
+    // Watchers and their poll loop.
+    private let lock = NSLock()
+    private var alarmWatchers: [UUID: AsyncStream<Alarm?>.Continuation] = [:]
+    private var ackWatchers: [UUID: (alarmId: String, sink: AsyncStream<[Ack]>.Continuation)] = [:]
+    private var messageWatchers: [UUID: (alarmId: String,
+                                         sink: AsyncStream<[Message]>.Continuation)] = [:]
+    private var pollTask: Task<Void, Never>?
+    private var lastKnownAlarm: Alarm?
+
+    init(containerIdentifier: String, store: MembershipStore = MembershipStore()) {
+        self.container = CKContainer(identifier: containerIdentifier)
+        self.store = store
+    }
+
+    deinit { pollTask?.cancel() }
+
+    // MARK: - Account and device
+
+    func currentUserId() async -> String? {
+        if let cachedUserId { return cachedUserId }
+        do {
+            let id = try await container.userRecordID().recordName
+            cachedUserId = id
+            return id
+        } catch {
+            return nil
+        }
+    }
+
+    func availability() async -> BackendAvailability {
+        do {
+            switch try await container.accountStatus() {
+            case .available: return .ready
+            case .noAccount: return .noAccount
+            case .restricted: return .restricted
+            case .couldNotDetermine: return .networkUnavailable
+            case .temporarilyUnavailable: return .networkUnavailable
+            @unknown default: return .unknown("unbekannter Kontostatus")
+            }
+        } catch {
+            return .unknown(error.localizedDescription)
+        }
+    }
+
+    func registerDevice(_ draft: DeviceStatusDraft) async throws {
+        let groupID = try requireGroupID()
+        guard let userId = await currentUserId() else {
+            throw BackendError.accountUnavailable(await availability())
+        }
+        let name = CloudKitMapping.deviceRecordName(groupId: groupID.recordName, userId: userId)
+        try await upsert(recordID: CKRecord.ID(recordName: name),
+                         type: CloudRecordType.deviceStatus) { record in
+            record[CloudField.groupRef] = CKRecord.Reference(recordID: groupID, action: .none)
+            record[CloudField.userId] = userId
+            record[CloudField.displayName] = self.store.displayName ?? "?"
+            record[CloudField.deviceModel] = draft.deviceModel
+            record[CloudField.appVersion] = draft.appVersion
+            record.setBool(draft.notificationsAuthorized,
+                           forKey: CloudField.notificationsAuthorized)
+            record.setBool(draft.timeSensitiveAllowed, forKey: CloudField.timeSensitiveAllowed)
+            record.setBool(draft.criticalAllowed, forKey: CloudField.criticalAllowed)
+            record.setBool(draft.iCloudAvailable, forKey: CloudField.iCloudAvailable)
+            record.setDate(Date(), forKey: CloudField.lastSeen)
+            if record[CloudField.createdAt] == nil {
+                record.setDate(Date(), forKey: CloudField.createdAt)
+            }
+        }
+    }
+
+    // MARK: - Membership
+
+    func joinGroup(code: String, displayName: String) async throws -> Membership {
+        let normalized = InviteCode.normalize(code)
+        guard !normalized.isEmpty else { throw BackendError.codeUnknown }
+        guard let userId = await currentUserId() else {
+            throw BackendError.accountUnavailable(await availability())
+        }
+
+        // The invite code IS the record name. No query, no index, no race: a
+        // code either exists or it does not.
+        let codeRecord: CKRecord
+        do {
+            codeRecord = try await database.record(for: CKRecord.ID(recordName: normalized))
+        } catch let error as CKError where error.code == .unknownItem {
+            throw BackendError.codeUnknown
+        } catch {
+            throw mapped(error)
+        }
+        guard let invite = CloudKitMapping.inviteCode(from: codeRecord) else {
+            throw BackendError.codeUnknown
+        }
+        guard !invite.revoked else { throw BackendError.codeRevoked }
+
+        let groupID = CKRecord.ID(recordName: invite.groupId)
+        let groupRecord: CKRecord
+        do {
+            groupRecord = try await database.record(for: groupID)
+        } catch {
+            throw mapped(error)
+        }
+        let group = CloudKitMapping.group(from: groupRecord)
+
+        let handle = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let memberName = CloudKitMapping.memberRecordName(groupId: group.id, userId: userId)
+        // The first person to join a fresh group becomes its admin — somebody
+        // has to be able to hand out codes, and a group whose only admin left
+        // the school would otherwise be unmanageable.
+        let existingMembers = try await members(of: groupID)
+        let role: MemberRole = existingMembers.isEmpty ? .admin
+            : (existingMembers.first { $0.userId == userId }?.role ?? .member)
+
+        try await upsert(recordID: CKRecord.ID(recordName: memberName),
+                         type: CloudRecordType.member) { record in
+            record[CloudField.groupRef] = CKRecord.Reference(recordID: groupID, action: .none)
+            record[CloudField.userId] = userId
+            record[CloudField.displayName] = handle.isEmpty ? "?" : handle
+            record[CloudField.role] = role.rawValue
+            if record[CloudField.createdAt] == nil {
+                record.setDate(Date(), forKey: CloudField.createdAt)
+            }
+        }
+
+        store.groupId = group.id
+        store.memberId = memberName
+        store.displayName = handle
+        store.role = role
+
+        try await refreshSubscriptions()
+
+        let member = Member(id: memberName, groupId: group.id, userId: userId,
+                            displayName: handle, role: role)
+        return Membership(group: group, member: member)
+    }
+
+    func fetchGroup() async throws -> AlarmGroup? {
+        guard let groupId = store.groupId else { return nil }
+        do {
+            let record = try await database.record(for: CKRecord.ID(recordName: groupId))
+            return CloudKitMapping.group(from: record)
+        } catch let error as CKError where error.code == .unknownItem {
+            // The group was deleted out from under this device. Better to
+            // forget it than to keep pointing at a hole.
+            store.clearMembership()
+            return nil
+        } catch {
+            throw mapped(error)
+        }
+    }
+
+    func fetchMembers() async throws -> [Member] {
+        try await members(of: try requireGroupID())
+    }
+
+    func currentMember() async throws -> Member? {
+        guard let userId = await currentUserId() else { return nil }
+        return try await fetchMembers().first { $0.userId == userId }
+    }
+
+    private func members(of groupID: CKRecord.ID) async throws -> [Member] {
+        let records = try await query(CloudRecordType.member,
+                                      predicate: groupPredicate(groupID))
+        return records.compactMap(CloudKitMapping.member(from:))
+            .sorted { $0.displayName.localizedCaseInsensitiveCompare($1.displayName) == .orderedAscending }
+    }
+
+    // MARK: - The alarm path
+
+    func triggerAlarm(type: AlarmType, location: String?) async throws -> Alarm {
+        let groupID = try requireGroupID()
+        guard let userId = await currentUserId() else {
+            throw BackendError.accountUnavailable(await availability())
+        }
+        // Two alarms of the same kind at once would double every notification
+        // and split the acknowledgement list in half. A different kind is
+        // allowed: a fire during an intruder alarm is not a duplicate.
+        if let running = try await activeAlarm(in: groupID, userId: userId),
+           running.type == type {
+            throw BackendError.alarmAlreadyRunning(type)
+        }
+
+        let group = try await fetchGroup()
+        let alarm = Alarm(id: UUID().uuidString,
+                          groupId: groupID.recordName,
+                          type: type,
+                          location: location,
+                          triggeredByUserId: userId,
+                          triggeredByName: store.displayName ?? "?",
+                          instruction: group?.instruction(for: type))
+
+        let record = CKRecord(recordType: CloudRecordType.alarm,
+                              recordID: CKRecord.ID(recordName: alarm.id))
+        CloudKitMapping.apply(alarm, to: record, groupRecordID: groupID)
+        do {
+            _ = try await database.save(record)
+        } catch {
+            throw mapped(error)
+        }
+        store.lastLocation = location
+        nudge()
+        return alarm
+    }
+
+    func clearAlarm(alarmId: String) async throws {
+        do {
+            let record = try await database.record(for: CKRecord.ID(recordName: alarmId))
+            record[CloudField.status] = AlarmStatus.cleared.rawValue
+            record.setDate(Date(), forKey: CloudField.clearedAt)
+            record[CloudField.clearedByName] = store.displayName ?? "?"
+            _ = try await database.save(record)
+        } catch {
+            throw mapped(error)
+        }
+        nudge()
+    }
+
+    func sendAck(alarmId: String, state: AckState, location: String?) async throws {
+        let groupID = try requireGroupID()
+        guard let userId = await currentUserId() else {
+            throw BackendError.accountUnavailable(await availability())
+        }
+        let name = CloudKitMapping.ackRecordName(alarmId: alarmId, userId: userId)
+        try await upsert(recordID: CKRecord.ID(recordName: name),
+                         type: CloudRecordType.ack) { record in
+            record[CloudField.alarmRef] = CKRecord.Reference(
+                recordID: CKRecord.ID(recordName: alarmId), action: .none)
+            record[CloudField.groupRef] = CKRecord.Reference(recordID: groupID, action: .none)
+            record[CloudField.userId] = userId
+            record[CloudField.displayName] = self.store.displayName ?? "?"
+            record[CloudField.state] = state.rawValue
+            record[CloudField.location] = location
+            record.setDate(Date(), forKey: CloudField.createdAt)
+        }
+        store.markAcknowledged(alarmId)
+        nudge()
+    }
+
+    func sendMessage(alarmId: String, text: String) async throws {
+        let groupID = try requireGroupID()
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        guard let userId = await currentUserId() else {
+            throw BackendError.accountUnavailable(await availability())
+        }
+        let record = CKRecord(recordType: CloudRecordType.message)
+        record[CloudField.alarmRef] = CKRecord.Reference(
+            recordID: CKRecord.ID(recordName: alarmId), action: .none)
+        record[CloudField.groupRef] = CKRecord.Reference(recordID: groupID, action: .none)
+        record[CloudField.senderUserId] = userId
+        record[CloudField.senderName] = store.displayName ?? "?"
+        record[CloudField.text] = String(trimmed.prefix(500))
+        record.setDate(Date(), forKey: CloudField.createdAt)
+        do {
+            _ = try await database.save(record)
+        } catch {
+            throw mapped(error)
+        }
+        nudge()
+    }
+
+    // MARK: - Streams
+
+    func observeActiveAlarm() -> AsyncStream<Alarm?> {
+        AsyncStream { continuation in
+            let id = UUID()
+            let known = lock.around { () -> Alarm? in
+                alarmWatchers[id] = continuation
+                return lastKnownAlarm
+            }
+            continuation.yield(known)
+            continuation.onTermination = { [weak self] _ in
+                self?.removeWatcher(id)
+            }
+            startPolling()
+        }
+    }
+
+    func observeAcks(alarmId: String) -> AsyncStream<[Ack]> {
+        AsyncStream { continuation in
+            let id = UUID()
+            lock.around { ackWatchers[id] = (alarmId, continuation) }
+            continuation.onTermination = { [weak self] _ in
+                self?.removeWatcher(id)
+            }
+            startPolling()
+            nudge()
+        }
+    }
+
+    func observeMessages(alarmId: String) -> AsyncStream<[Message]> {
+        AsyncStream { continuation in
+            let id = UUID()
+            lock.around { messageWatchers[id] = (alarmId, continuation) }
+            continuation.onTermination = { [weak self] _ in
+                self?.removeWatcher(id)
+            }
+            startPolling()
+            nudge()
+        }
+    }
+
+    private func removeWatcher(_ id: UUID) {
+        let task: Task<Void, Never>? = lock.around {
+            alarmWatchers[id] = nil
+            ackWatchers[id] = nil
+            messageWatchers[id] = nil
+            let empty = alarmWatchers.isEmpty && ackWatchers.isEmpty && messageWatchers.isEmpty
+            guard empty else { return nil }
+            let running = pollTask
+            pollTask = nil
+            return running
+        }
+        task?.cancel()
+    }
+
+    /// The safety net under the subscriptions.
+    ///
+    /// Five seconds during a running alarm — that is the chat and the
+    /// acknowledgement counter, and both are read while people are standing
+    /// still and waiting. Thirty seconds otherwise, which is only there to
+    /// catch a push that never arrived.
+    private func startPolling() {
+        lock.around {
+            guard pollTask == nil else { return }
+            pollTask = Task { [weak self] in
+                while !Task.isCancelled {
+                    await self?.refreshWatchers()
+                    let seconds = (self?.hasRunningAlarm ?? false) ? 5.0 : 30.0
+                    try? await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
+                }
+            }
+        }
+    }
+
+    /// Poll right now instead of waiting out the interval. Called after every
+    /// local write and on every incoming push.
+    private func nudge() {
+        Task { [weak self] in await self?.refreshWatchers() }
+    }
+
+    private func refreshWatchers() async {
+        guard let groupID = try? requireGroupID() else { return }
+        let userId = await currentUserId()
+
+        do {
+            // Only a query that SUCCEEDED and found nothing clears the alarm
+            // screen. A failed one keeps the last known value: a dropped
+            // connection must never look like an all-clear.
+            deliverAlarm(try await activeAlarm(in: groupID, userId: userId))
+        } catch {
+            // Keep what we had.
+        }
+
+        // `around` instead of lock/unlock: see `Locked.swift`. Inside an
+        // `async` function a bare `NSLock.lock()` is a warning today and an
+        // error under Swift 6.
+        let ackTargets = lock.around { Set(ackWatchers.values.map(\.alarmId)) }
+        let messageTargets = lock.around { Set(messageWatchers.values.map(\.alarmId)) }
+
+        for alarmId in ackTargets {
+            guard let acks = try? await fetchAcks(alarmId: alarmId) else { continue }
+            ackSinks(for: alarmId).forEach { $0.yield(acks) }
+        }
+        for alarmId in messageTargets {
+            guard let messages = try? await fetchMessages(alarmId: alarmId) else { continue }
+            messageSinks(for: alarmId).forEach { $0.yield(messages) }
+        }
+    }
+
+    private func ackSinks(for alarmId: String) -> [AsyncStream<[Ack]>.Continuation] {
+        lock.around { ackWatchers.values.filter { $0.alarmId == alarmId }.map(\.sink) }
+    }
+
+    private func messageSinks(for alarmId: String) -> [AsyncStream<[Message]>.Continuation] {
+        lock.around { messageWatchers.values.filter { $0.alarmId == alarmId }.map(\.sink) }
+    }
+
+    private var hasRunningAlarm: Bool {
+        lock.around { lastKnownAlarm?.isActive ?? false }
+    }
+
+    private func deliverAlarm(_ alarm: Alarm?) {
+        let sinks: [AsyncStream<Alarm?>.Continuation] = lock.around {
+            guard alarm != lastKnownAlarm else { return [] }
+            lastKnownAlarm = alarm
+            return Array(alarmWatchers.values)
+        }
+        sinks.forEach { $0.yield(alarm) }
+    }
+
+    /// The alarm currently running for this device.
+    ///
+    /// "For this device" matters: a self-test carries a `targetUser`, and one
+    /// colleague testing delivery must not put the whole staff room on an
+    /// alarm screen.
+    private func activeAlarm(in groupID: CKRecord.ID, userId: String?) async throws -> Alarm? {
+        let predicate = NSPredicate(format: "%K == %@ AND %K == %@",
+                                    CloudField.groupRef,
+                                    CKRecord.Reference(recordID: groupID, action: .none),
+                                    CloudField.status, AlarmStatus.active.rawValue)
+        let records = try await query(CloudRecordType.alarm,
+                                      predicate: predicate,
+                                      sort: [NSSortDescriptor(key: "creationDate",
+                                                              ascending: false)],
+                                      limit: 20)
+        let alarms = records.compactMap(CloudKitMapping.alarm(from:))
+        return alarms.first { alarm in
+            alarm.targetUserId == nil || alarm.targetUserId == userId
+        }
+    }
+
+    // MARK: - Checking that it works
+
+    func requestSelfTest() async throws {
+        let groupID = try requireGroupID()
+        guard let userId = await currentUserId() else {
+            throw BackendError.accountUnavailable(await availability())
+        }
+        let group = try await fetchGroup()
+        let alarm = Alarm(id: UUID().uuidString,
+                          groupId: groupID.recordName,
+                          type: .test,
+                          location: store.lastLocation,
+                          triggeredByUserId: userId,
+                          triggeredByName: store.displayName ?? "?",
+                          instruction: group?.instruction(for: .test),
+                          targetUserId: userId)
+        let record = CKRecord(recordType: CloudRecordType.alarm,
+                              recordID: CKRecord.ID(recordName: alarm.id))
+        CloudKitMapping.apply(alarm, to: record, groupRecordID: groupID)
+        do {
+            _ = try await database.save(record)
+        } catch {
+            throw mapped(error)
+        }
+    }
+
+    func pingAllDevices() async throws {
+        let groupID = try requireGroupID()
+        let record = CKRecord(recordType: CloudRecordType.ping)
+        record[CloudField.groupRef] = CKRecord.Reference(recordID: groupID, action: .none)
+        record[CloudField.targetUser] = CloudConstant.everyone
+        record.setDate(Date(), forKey: CloudField.createdAt)
+        do {
+            _ = try await database.save(record)
+        } catch {
+            throw mapped(error)
+        }
+    }
+
+    func fetchDeviceStatuses() async throws -> [DeviceStatus] {
+        let groupID = try requireGroupID()
+        let records = try await query(CloudRecordType.deviceStatus,
+                                      predicate: groupPredicate(groupID))
+        return records.compactMap(CloudKitMapping.deviceStatus(from:))
+            .sorted { $0.displayName.localizedCaseInsensitiveCompare($1.displayName) == .orderedAscending }
+    }
+
+    func refreshSubscriptions() async throws {
+        let groupID = try requireGroupID()
+        guard let userId = await currentUserId() else {
+            throw BackendError.accountUnavailable(await availability())
+        }
+        do {
+            try await CloudKitSubscriptions.reconcile(in: database,
+                                                      groupRecordID: groupID,
+                                                      userId: userId)
+        } catch {
+            throw mapped(error)
+        }
+    }
+
+    // MARK: - Administration
+
+    func createInviteCode(note: String?) async throws -> InviteCode {
+        let groupID = try requireGroupID()
+        try requireAdmin()
+        // Retry on collision. Six characters out of a 32-symbol alphabet is
+        // about a billion codes; a school will never see a second attempt.
+        for _ in 0..<5 {
+            let code = InviteCode.random()
+            let record = CKRecord(recordType: CloudRecordType.inviteCode,
+                                  recordID: CKRecord.ID(recordName: code))
+            record[CloudField.groupRef] = CKRecord.Reference(recordID: groupID, action: .none)
+            record[CloudField.note] = note
+            record.setBool(false, forKey: CloudField.revoked)
+            record.setDate(Date(), forKey: CloudField.createdAt)
+            do {
+                _ = try await database.save(record)
+                return InviteCode(id: code, groupId: groupID.recordName, note: note)
+            } catch let error as CKError where error.code == .serverRecordChanged {
+                continue
+            } catch {
+                throw mapped(error)
+            }
+        }
+        throw BackendError.server("Es ließ sich kein freier Code finden.")
+    }
+
+    func revokeInviteCode(_ code: String) async throws {
+        try requireAdmin()
+        do {
+            let record = try await database.record(
+                for: CKRecord.ID(recordName: InviteCode.normalize(code)))
+            record.setBool(true, forKey: CloudField.revoked)
+            _ = try await database.save(record)
+        } catch let error as CKError where error.code == .unknownItem {
+            throw BackendError.codeUnknown
+        } catch {
+            throw mapped(error)
+        }
+    }
+
+    func fetchInviteCodes() async throws -> [InviteCode] {
+        let groupID = try requireGroupID()
+        let records = try await query(CloudRecordType.inviteCode,
+                                      predicate: groupPredicate(groupID))
+        return records.compactMap(CloudKitMapping.inviteCode(from:))
+            .sorted { $0.createdAt > $1.createdAt }
+    }
+
+    func updateLocations(_ locations: [String]) async throws {
+        try requireAdmin()
+        try await updateGroup { record in
+            record[CloudField.locations] = locations
+        }
+    }
+
+    func updateInstructions(_ instructions: [String: String]) async throws {
+        try requireAdmin()
+        try await updateGroup { record in
+            record[CloudField.instructionsJSON] =
+                CloudKitMapping.instructionsJSON(instructions)
+        }
+    }
+
+    func removeMember(memberId: String) async throws {
+        try requireAdmin()
+        do {
+            _ = try await database.deleteRecord(withID: CKRecord.ID(recordName: memberId))
+        } catch let error as CKError where error.code == .unknownItem {
+            return
+        } catch {
+            throw mapped(error)
+        }
+    }
+
+    func fetchAlarmHistory(limit: Int) async throws -> [Alarm] {
+        let groupID = try requireGroupID()
+        let records = try await query(CloudRecordType.alarm,
+                                      predicate: groupPredicate(groupID),
+                                      sort: [NSSortDescriptor(key: "creationDate",
+                                                              ascending: false)],
+                                      limit: limit)
+        return records.compactMap(CloudKitMapping.alarm(from:))
+    }
+
+    func fetchAcks(alarmId: String) async throws -> [Ack] {
+        let predicate = NSPredicate(format: "%K == %@", CloudField.alarmRef,
+                                    CKRecord.Reference(
+                                        recordID: CKRecord.ID(recordName: alarmId),
+                                        action: .none))
+        let records = try await query(CloudRecordType.ack, predicate: predicate)
+        return records.compactMap(CloudKitMapping.ack(from:))
+            .sorted { $0.createdAt < $1.createdAt }
+    }
+
+    func fetchMessages(alarmId: String) async throws -> [Message] {
+        let predicate = NSPredicate(format: "%K == %@", CloudField.alarmRef,
+                                    CKRecord.Reference(
+                                        recordID: CKRecord.ID(recordName: alarmId),
+                                        action: .none))
+        let records = try await query(CloudRecordType.message, predicate: predicate)
+        return records.compactMap(CloudKitMapping.message(from:))
+            .sorted { $0.createdAt < $1.createdAt }
+    }
+
+    @discardableResult
+    func cleanUp(olderThanDays days: Int) async throws -> CleanupReport {
+        let groupID = try requireGroupID()
+        let cutoff = Date().addingTimeInterval(-Double(days) * 24 * 60 * 60)
+
+        var report = CleanupReport(alarms: 0, acks: 0, messages: 0)
+        var doomed: [CKRecord.ID] = []
+
+        // Alarms first, so that a run interrupted halfway never leaves an
+        // acknowledgement pointing at an alarm that is already gone. Sorting
+        // in this direction costs nothing and saves a confusing history.
+        for type in [CloudRecordType.message, CloudRecordType.ack, CloudRecordType.alarm] {
+            let records = try await query(type, predicate: groupPredicate(groupID),
+                                          limit: 2000)
+            let old = records.filter { ($0.creationDate ?? Date()) < cutoff }
+            doomed += old.map(\.recordID)
+            switch type {
+            case CloudRecordType.message: report.messages = old.count
+            case CloudRecordType.ack: report.acks = old.count
+            default: report.alarms = old.count
+            }
+        }
+
+        guard !doomed.isEmpty else { return report }
+        // CloudKit takes at most 400 changes per request.
+        for chunk in stride(from: 0, to: doomed.count, by: 300).map({
+            Array(doomed[$0..<min($0 + 300, doomed.count)])
+        }) {
+            do {
+                _ = try await database.modifyRecords(saving: [], deleting: chunk)
+            } catch {
+                throw mapped(error)
+            }
+        }
+        return report
+    }
+
+    // MARK: - Push
+
+    func handle(event: AlarmEvent) async {
+        switch event {
+        case .ping:
+            // The app model answers a ping by writing a fresh DeviceStatus;
+            // nothing to fetch here.
+            break
+        case .alarm, .allClear, .selfTest:
+            await refreshWatchers()
+        }
+    }
+
+    // MARK: - Plumbing
+
+    private func requireGroupID() throws -> CKRecord.ID {
+        guard let groupId = store.groupId else { throw BackendError.notJoined }
+        return CKRecord.ID(recordName: groupId)
+    }
+
+    private func requireAdmin() throws {
+        guard store.role == .admin else { throw BackendError.notPermitted }
+    }
+
+    private func groupPredicate(_ groupID: CKRecord.ID) -> NSPredicate {
+        NSPredicate(format: "%K == %@", CloudField.groupRef,
+                    CKRecord.Reference(recordID: groupID, action: .none))
+    }
+
+    private func updateGroup(_ mutate: @escaping (CKRecord) -> Void) async throws {
+        let groupID = try requireGroupID()
+        do {
+            let record = try await database.record(for: groupID)
+            mutate(record)
+            _ = try await database.save(record)
+        } catch {
+            throw mapped(error)
+        }
+    }
+
+    /// Fetch-or-create, then mutate, then save.
+    ///
+    /// `save` on a freshly built record whose id already exists fails — which
+    /// is exactly what happens when somebody rejoins a group or taps
+    /// "acknowledge" a second time. Both are normal, so both have to work.
+    private func upsert(recordID: CKRecord.ID,
+                        type: String,
+                        mutate: @escaping (CKRecord) -> Void) async throws {
+        do {
+            let record: CKRecord
+            do {
+                record = try await database.record(for: recordID)
+            } catch let error as CKError where error.code == .unknownItem {
+                record = CKRecord(recordType: type, recordID: recordID)
+            }
+            mutate(record)
+            _ = try await database.save(record)
+        } catch {
+            throw mapped(error)
+        }
+    }
+
+    /// A query with paging.
+    ///
+    /// CloudKit hands back one page and a cursor; forgetting the cursor is the
+    /// classic way to build a device list that stops at 100 entries and never
+    /// says so.
+    private func query(_ recordType: String,
+                       predicate: NSPredicate,
+                       sort: [NSSortDescriptor] = [],
+                       limit: Int = 400) async throws -> [CKRecord] {
+        let query = CKQuery(recordType: recordType, predicate: predicate)
+        query.sortDescriptors = sort
+
+        var collected: [CKRecord] = []
+        do {
+            var page = try await database.records(matching: query, resultsLimit: limit)
+            while true {
+                collected += page.matchResults.compactMap { try? $0.1.get() }
+                guard collected.count < limit, let cursor = page.queryCursor else { break }
+                page = try await database.records(continuingMatchFrom: cursor,
+                                                  resultsLimit: limit - collected.count)
+            }
+        } catch {
+            throw mapped(error)
+        }
+        return Array(collected.prefix(limit))
+    }
+
+    /// Turns a CloudKit failure into something that can be shown to a teacher.
+    private func mapped(_ error: Error) -> BackendError {
+        guard let ck = error as? CKError else {
+            return .server(error.localizedDescription)
+        }
+        switch ck.code {
+        case .networkUnavailable, .networkFailure, .serviceUnavailable, .requestRateLimited:
+            return .network(ck.localizedDescription)
+        case .notAuthenticated:
+            return .accountUnavailable(.noAccount)
+        case .permissionFailure:
+            return .notPermitted
+        case .unknownItem:
+            return .server("Der Datensatz wurde nicht gefunden.")
+        case .quotaExceeded:
+            return .server("Das iCloud-Kontingent ist erschöpft.")
+        default:
+            return .server(ck.localizedDescription)
+        }
+    }
+}
+
+/// What this device is, in two strings.
+enum DeviceFacts {
+    static var model: String {
+        UIDevice.current.model + " (" + UIDevice.current.systemName + " "
+            + UIDevice.current.systemVersion + ")"
+    }
+
+    static var appVersion: String {
+        let info = Bundle.main.infoDictionary
+        let marketing = info?["CFBundleShortVersionString"] as? String ?? "?"
+        let build = info?["CFBundleVersion"] as? String ?? "?"
+        return "\(marketing) (\(build))"
+    }
+}
