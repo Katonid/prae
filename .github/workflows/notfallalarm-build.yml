@@ -2,15 +2,20 @@ name: Notfallalarm bauen
 
 # Läuft auf einem Linux-Läufer, nicht auf macOS: Android braucht keinen Mac, und
 # die knappen macOS-Läufer bleiben so für die iOS-Apps frei.
+# Nur auf push, NICHT zusätzlich auf pull_request: Beides zusammen baut jeden
+# Stand zweimal, weil ein Push auf einen Zweig mit offenem PR beide Auslöser
+# bedient. Der Push-Lauf erscheint am PR genauso.
 on:
   push:
     paths:
       - 'NotfallalarmAndroid/**'
       - '.github/workflows/notfallalarm-build.yml'
-  pull_request:
-    paths:
-      - 'NotfallalarmAndroid/**'
   workflow_dispatch:
+
+# Ein neuer Push macht den vorherigen Lauf desselben Zweiges überflüssig.
+concurrency:
+  group: notfallalarm-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   bauen:
