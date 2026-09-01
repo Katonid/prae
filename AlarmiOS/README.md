@@ -223,14 +223,20 @@ ist der häufigste Stolperstein beim ersten Aufsetzen.
 | alle acht | `recordName` | Queryable |
 | `Group`, `InviteCode`, `Member`, `Alarm`, `Ack`, `Message`, `DeviceStatus`, `Ping` | `groupRef` | Queryable |
 | `Alarm` | `status`, `targetUser` | Queryable |
-| `Alarm`, `Ack`, `Message` | `createdTimestamp` | Queryable **und** Sortable |
 | `Ack`, `Message` | `alarmRef` | Queryable |
 | `Ping` | `targetUser` | Queryable |
 
-`createdTimestamp` ist das Systemfeld; in einem `NSSortDescriptor` heißt es
-`creationDate`. Sortiert wird bewusst danach und nicht nach dem eigenen
-`createdAt`-Feld: Den Systemzeitstempel setzt der Server, ein Gerät mit
-falscher Uhr kann ihn nicht verbiegen.
+**Kein SORTABLE-Index nötig.** Sortiert wird in der App, nicht auf dem
+Server. Ein `NSSortDescriptor` auf `creationDate` verlangte einen
+SORTABLE-Index auf `___createTime`, und fehlte der, lehnte CloudKit die
+Abfrage ab — getroffen hätte es ausgerechnet die Suche nach dem laufenden
+Alarm, also das Auslösen und das Nachfassen (gemeldet 09/2026). Die
+wichtigste Abfrage dieser App darf nicht an einem Häkchen in einer
+Web-Oberfläche hängen.
+
+Sortiert wird trotzdem nach dem **Systemzeitstempel** und nicht nach dem
+eigenen `createdAt`-Feld: Den setzt der Server, ein Gerät mit falscher Uhr
+kann ihn nicht verbiegen. Nur das Sortieren selbst passiert in der App.
 
 ### 3. Sicherheitsrolle
 

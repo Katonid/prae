@@ -210,9 +210,17 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   Abfrage, ohne `_icloud`-Schreibrecht kann eine zweite Leitung nichts
   pflegen. Die Tabelle steht im README unter „CloudKit einrichten", dazu
   einmalig „Deploy Schema Changes to Production".
-- **Sortiert wird nach dem Systemfeld `creationDate`**, nicht nach dem
-  eigenen `createdAt`: Den Systemzeitstempel setzt der Server, ein Gerät
-  mit falscher Uhr kann ihn nicht verbiegen.
+- **Sortiert wird nach dem Systemzeitstempel, aber IN DER APP** (ab 1.0.11).
+  Nach `creationDate` und nicht nach dem eigenen `createdAt`, weil den der
+  Server setzt und ein Gerät mit falscher Uhr ihn nicht verbiegen kann. Aber
+  ohne `NSSortDescriptor`: Der verlangt einen SORTABLE-Index auf
+  `___createTime`, und fehlt der, lehnt CloudKit die Abfrage ab — getroffen
+  hätte es `activeAlarm`, also das AUSLÖSEN und den Nachfasslauf (gemeldet
+  09/2026: „Field '___createTime' is not marked sortable"). Damit war der
+  Alarm nicht auslösbar und das Netz unter den Subscriptions gerissen: Der
+  Nachfasslauf hätte den Testalarm auch ohne Push gefunden. Die wichtigste
+  Abfrage dieser App darf an keinem Häkchen in einer Web-Oberfläche hängen.
+  `query()` nimmt deshalb gar keine Sortierung mehr entgegen.
 - **Irgendwer muss anfangen: `createGroup`.** Bis 1.0.1 gab es nur
   `joinGroup` — das sucht einen Beitrittscode-Datensatz, der einen
   Group-Datensatz braucht, den nichts in der App je anlegte. Die App war

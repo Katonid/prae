@@ -486,10 +486,9 @@ final class CloudKitBackend: AlarmBackend {
                                     CloudField.status, AlarmStatus.active.rawValue)
         let records = try await query(CloudRecordType.alarm,
                                       predicate: predicate,
-                                      sort: [NSSortDescriptor(key: "creationDate",
-                                                              ascending: false)],
-                                      limit: 20)
-        let alarms = records.compactMap(CloudKitMapping.alarm(from:))
+                                      limit: 50)
+        let alarms = Self.nachAlterSortiert(records)
+            .compactMap(CloudKitMapping.alarm(from:))
         return alarms.first { alarm in
             alarm.targetUserId == nil || alarm.targetUserId == userId
         }
@@ -720,12 +719,15 @@ final class CloudKitBackend: AlarmBackend {
 
     func fetchAlarmHistory(limit: Int) async throws -> [Alarm] {
         let groupID = try requireGroupID()
+        // Großzügig holen, dann selbst sortieren und kürzen: Ohne
+        // serverseitige Sortierung schnitte ein knappes Limit sonst
+        // irgendwelche Datensätze ab statt der ältesten.
         let records = try await query(CloudRecordType.alarm,
                                       predicate: groupPredicate(groupID),
-                                      sort: [NSSortDescriptor(key: "creationDate",
-                                                              ascending: false)],
-                                      limit: limit)
-        return records.compactMap(CloudKitMapping.alarm(from:))
+                                      limit: max(limit, 400))
+        return Array(Self.nachAlterSortiert(records)
+            .compactMap(CloudKitMapping.alarm(from:))
+            .prefix(limit))
     }
 
     func fetchAcks(alarmId: String) async throws -> [Ack] {
@@ -994,17 +996,40 @@ final class CloudKitBackend: AlarmBackend {
         }
     }
 
+    /// Neueste zuerst — im App, nicht auf dem Server.
+    ///
+    /// **Warum nicht der Server sortiert:** Ein `NSSortDescriptor` auf
+    /// `creationDate` verlangt in der CloudKit-Konsole einen SORTABLE-Index
+    /// auf `___createTime`. Fehlt der, lehnt CloudKit die Abfrage ab — und
+    /// getroffen hätte es ausgerechnet `activeAlarm`, also das Auslösen eines
+    /// Alarms und das Nachfassen (gemeldet 09/2026: „Field '___createTime' is
+    /// not marked sortable"). Die wichtigste Abfrage dieser App darf nicht an
+    /// einem Häkchen in einer Web-Oberfläche hängen.
+    ///
+    /// Sortiert wird weiterhin nach dem **Systemzeitstempel** und nicht nach
+    /// dem eigenen `createdAt`-Feld: Den setzt der Server, ein Gerät mit
+    /// falscher Uhr kann ihn nicht verbiegen. Nur das Sortieren selbst
+    /// passiert hier — bei einer Handvoll Alarmen einer Schule kostet das
+    /// nichts.
+    private static func nachAlterSortiert(_ records: [CKRecord]) -> [CKRecord] {
+        records.sorted {
+            ($0.creationDate ?? .distantPast) > ($1.creationDate ?? .distantPast)
+        }
+    }
+
     /// A query with paging.
     ///
     /// CloudKit hands back one page and a cursor; forgetting the cursor is the
     /// classic way to build a device list that stops at 100 entries and never
     /// says so.
+    /// Ohne `sortDescriptors` — mit Absicht. Sortiert wird in der App
+    /// (`nachAlterSortiert`), damit keine Abfrage an einem SORTABLE-Index in
+    /// der CloudKit-Konsole hängt. Wer hier wieder einen Sortierer einbaut,
+    /// baut die Falle wieder ein.
     private func query(_ recordType: String,
                        predicate: NSPredicate,
-                       sort: [NSSortDescriptor] = [],
                        limit: Int = 400) async throws -> [CKRecord] {
         let query = CKQuery(recordType: recordType, predicate: predicate)
-        query.sortDescriptors = sort
 
         var collected: [CKRecord] = []
         do {
