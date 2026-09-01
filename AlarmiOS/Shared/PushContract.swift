@@ -50,9 +50,9 @@ public enum PushEventName {
 /// after the fact — a changed predicate means a new identifier and a one-time
 /// cleanup of the old one (`CloudKitSubscriptions.reconcile`).
 public enum SubscriptionID {
-    public static let alarmCreated = "alarm-created-v1"
-    public static let alarmCleared = "alarm-cleared-v1"
-    public static let selfTest = "selftest-created-v1"
+    public static let alarmCreated = "alarm-created-v2"
+    public static let alarmCleared = "alarm-cleared-v2"
+    public static let selfTest = "selftest-created-v2"
     /// Der Ping braucht ZWEI Abonnements, nicht eines.
     ///
     /// „an alle ODER an mich" wäre ein Prädikat mit `OR` — und **CloudKit
@@ -96,6 +96,7 @@ public enum PushString {
     public static let allClearFallback = "push.allclear.fallback"
     public static let alarmTitleFormat = "push.alarm.title"        // "%@ – %@"
     public static let alarmBodyFormat = "push.alarm.body"          // "Ort: %@ · ausgelöst von %@"
+    public static let alarmBodyShort = "push.alarm.body.short"
     public static let allClearTitle = "push.allclear.title"
     public static let allClearBodyFormat = "push.allclear.body"
     public static let selfTestTitle = "push.selftest.title"
