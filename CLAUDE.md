@@ -276,6 +276,21 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   (Build 2) usw.
 - `ITSAppUsesNonExemptEncryption = NO` steht in beiden Info.plists und als
   Build-Einstellung — nicht entfernen.
+- **Die Erweiterung hat KEINE Entitlements-Datei, und das bleibt so.**
+  `com.apple.developer.usernotifications.time-sensitive` gehört
+  ausschließlich an das App-Ziel. Beim ersten Signieren stand es auch in
+  der Erweiterung — mit der Folge „Entitlement … not found and could not be
+  included in profile": Für die App-Id einer Erweiterung gibt es diese
+  Fähigkeit nicht, Xcode bietet sie dort nicht einmal an, und die
+  automatische Signierung findet daraufhin gar kein Profil mehr. Gebraucht
+  wird sie dort auch nicht — die Mitteilung gehört der App, und an deren
+  Entitlement prüft iOS, ob `.timeSensitive` gilt. Wer der Erweiterung
+  wieder eine Entitlements-Datei gibt, macht das Projekt unsignierbar.
+- **Ein Bau in GitHub Actions beweist NICHT, dass sich signieren lässt.**
+  Er läuft mit `CODE_SIGNING_ALLOWED=NO` gegen den Simulator; Entitlements
+  werden dabei nie geprüft. Alles, was mit Profilen, App-Ids und
+  Fähigkeiten zu tun hat, fällt erst auf dem Mac des Nutzers auf. Einen
+  grünen Bau also nie als „signierbar" ausgeben.
 - **Offen: der Zustellnachweis.** Ob der Alarm auf einem gesperrten iPad
   mit aktivem Fokus binnen zehn Sekunden hörbar ankommt, lässt sich nur
   auf zwei echten Geräten messen — nicht im Simulator, nicht in GitHub

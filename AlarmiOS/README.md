@@ -171,10 +171,24 @@ steht.
 | Background Modes → Background fetch | `BGAppRefreshTask` frischt den eigenen Gerätestatus auf |
 | iCloud → CloudKit | Daten und Zustellung |
 
-Beide Ziele — App und Erweiterung — tragen
-`com.apple.developer.usernotifications.time-sensitive`. Fehlt es bei der
-Erweiterung, stuft iOS ihr `.timeSensitive` stillschweigend auf `.active`
-zurück, und der Fokus hält den Alarm wieder auf.
+**Alle fünf gehören an das APP-Ziel. Die Erweiterung bekommt gar keine
+Entitlements-Datei.**
+
+Das war zuerst anders und ließ das Signieren scheitern:
+
+> Entitlement `com.apple.developer.usernotifications.time-sensitive` not
+> found and could not be included in profile. This likely is not a valid
+> entitlement and should be removed from your entitlements file.
+
+„Time Sensitive Notifications" ist eine Fähigkeit, die es nur für eine App-Id
+gibt, nicht für die einer Erweiterung — Xcode bietet sie dort auch gar nicht
+zum Hinzufügen an. Steht sie trotzdem in der Entitlements-Datei der
+Erweiterung, findet die automatische Signierung kein passendes Profil und
+bricht ab.
+
+Gebraucht wird sie dort auch nicht: Die Mitteilung gehört der App, und iOS
+prüft die Berechtigung an ihr. Die Erweiterung setzt nur den Wert; dass er
+gilt, entscheidet das Entitlement des App-Ziels.
 
 ## Kritische Hinweise (Critical Alerts)
 
