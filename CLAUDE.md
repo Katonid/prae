@@ -600,6 +600,14 @@ Namens und lebt weiter.
   die PNGs VOR dem SVG: Ein SVG mit `"sizes": "any"` gewinnt sonst die Auswahl
   und wird beim Installieren nicht gerastert. iOS liest kein Manifest, es
   braucht `apple-touch-icon` im `index.html`, mit `sizes` je Größe.
+- **Der vorgeschlagene Name steht an ZWEI Stellen** (ab 1.8.2): iOS nimmt
+  `apple-mobile-web-app-title` aus dem `index.html`, Android `short_name` aus
+  dem Manifest. Beide sagen „Wörterwerkstatt" — bis 1.8.1 stand dort „Wörter",
+  und genau das schlug das iPad beim Ablegen vor (gemeldet 08/2026). Dass iOS
+  unter dem Symbol nach rund zwölf Zeichen abschneidet, ist in Kauf genommen:
+  Der Vorschlag soll die App benennen, nicht schon zurechtgestutzt sein —
+  ändern kann man ihn beim Ablegen ohnehin. Fehlt das Meta ganz, nimmt iOS den
+  `<title>`, und der trägt den Untertitel mit.
 - Die Fassungsnummer steht in `js/version.js` UND in `sw.js` (`FASSUNG`) — der
   Service Worker lädt keine Module. Beide bei jeder neuen Fassung hochsetzen,
   sonst bleibt der alte Zwischenspeicher stehen.

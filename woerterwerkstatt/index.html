@@ -9,7 +9,19 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <meta name="apple-mobile-web-app-title" content="Wörter" />
+    <!--
+      Der Name, den iOS beim „Zum Home-Bildschirm" vorschlägt. Er MUSS hier
+      stehen: Ohne dieses Meta nimmt iOS den `<title>`, und der ist mit
+      Untertitel viel zu lang. Android nimmt stattdessen `short_name` aus dem
+      Manifest — beide müssen also dasselbe sagen.
+
+      Auf dem Home-Bildschirm schneidet iOS nach rund zwölf Zeichen ab; unter
+      dem Symbol steht dann „Wörterwerk…". Das ist so gewollt (Ansage des
+      Nutzers, 08/2026): Der vorgeschlagene Name soll die App benennen, nicht
+      schon für die Kachel zurechtgestutzt sein — ändern kann man ihn beim
+      Ablegen ohnehin.
+    -->
+    <meta name="apple-mobile-web-app-title" content="Wörterwerkstatt" />
     <meta name="format-detection" content="telephone=no" />
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="icon" href="./icons/icon.svg" type="image/svg+xml" />

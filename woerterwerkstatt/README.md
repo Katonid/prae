@@ -533,6 +533,28 @@ App selbst braucht davon nichts. Ein QR-Code, bei dem ein einziges Modul falsch
 sitzt, sieht tadellos aus und wird von keiner Kamera gelesen; beim Bau dieser
 Datei ist genau das zweimal passiert.
 
+## Auf den Homescreen legen
+
+Die App ist eine PWA: „Teilen → Zum Home-Bildschirm“ (iOS) oder „Installieren“
+(Android/Chrome). Zwei Dinge müssen dafür an **zwei** Stellen stehen, weil die
+Systeme verschiedene lesen:
+
+| | iOS | Android/Chrome |
+|---|---|---|
+| Name | `apple-mobile-web-app-title` im `index.html` | `short_name` im Manifest |
+| Symbol | `apple-touch-icon` mit `sizes` je Größe | `icons` im Manifest |
+
+Beide Namen sagen **„Wörterwerkstatt“** (ab 1.8.2). Bis dahin stand dort
+„Wörter“, und genau das schlug das iPad beim Ablegen vor. Dass iOS unter dem
+Symbol nach rund zwölf Zeichen abschneidet, ist in Kauf genommen: Der Vorschlag
+soll die App benennen, nicht schon für die Kachel zurechtgestutzt sein — ändern
+lässt er sich beim Ablegen ohnehin. Fehlt das Meta ganz, nimmt iOS den
+`<title>`, und der trägt den Untertitel mit.
+
+Die PNG-Symbole brauchen **Farbtyp 2 (RGB ohne Alphakanal)**: Mit Alphakanal
+legt iOS das Icon auf Schwarz, und mancher Android-Starter zeigt gar keines.
+Erzeugt werden sie von `scripts/generate-icons.py` — nie von Hand.
+
 ## Später einmal eine iOS-App?
 
 Der Weg ist vorbereitet und in
