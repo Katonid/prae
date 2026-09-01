@@ -1,0 +1,223 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Notfallalarm</string>
+
+    <!-- Justification shown to the platform for the special-use foreground service.
+         Deliberately English: it is read by tooling, not by the staff room. -->
+    <string name="fgs_special_use_subtype" translatable="false">Emergency alarm signalling for school staff: plays the alarm tone and keeps the device awake while an alarm is active.</string>
+
+    <!-- Generic -->
+    <string name="ok">OK</string>
+    <string name="cancel">Abbrechen</string>
+    <string name="back">Zurück</string>
+    <string name="close">Schließen</string>
+    <string name="save">Sichern</string>
+    <string name="delete">Löschen</string>
+    <string name="add">Hinzufügen</string>
+    <string name="retry">Nochmal versuchen</string>
+    <string name="loading">Wird geladen …</string>
+
+    <!-- Firebase not configured -->
+    <string name="firebase_missing_title">Firebase ist nicht eingerichtet</string>
+    <string name="firebase_missing_text">In dieser Fassung steckt nur die Platzhalter-Datei google-services.json. Tragen Sie die Datei aus Ihrem eigenen Firebase-Projekt ein und bauen Sie die App neu.</string>
+
+    <!-- Setup -->
+    <string name="setup_title">Notfallalarm</string>
+    <string name="setup_intro">Diese App löst im Notfall einen Alarm bei allen Kolleginnen und Kollegen aus – auch wenn das Handy lautlos ist.</string>
+    <string name="setup_tab_join">Beitreten</string>
+    <string name="setup_tab_create">Gruppe anlegen</string>
+    <string name="setup_code_label">Einladungscode</string>
+    <string name="setup_name_label">Anzeigename</string>
+    <string name="setup_name_hint">z. B. Kürzel oder Vorname</string>
+    <string name="setup_join_button">Beitreten</string>
+    <string name="setup_group_name_label">Name der Schule</string>
+    <string name="setup_create_button">Gruppe anlegen</string>
+    <string name="setup_create_hint">Wer die Gruppe anlegt, wird ihr Admin und kann danach Einladungscodes für das Kollegium erzeugen.</string>
+    <string name="setup_error_code">Der Code stimmt nicht oder ist abgelaufen.</string>
+    <string name="setup_error_name">Bitte einen Anzeigenamen eintragen.</string>
+    <string name="setup_error_group_name">Bitte einen Namen für die Gruppe eintragen.</string>
+    <string name="setup_error_generic">Das hat nicht geklappt: %1$s</string>
+    <string name="setup_error_offline">Kein Netz. Bitte später noch einmal versuchen.</string>
+
+    <!-- Home -->
+    <string name="home_trigger">ALARM AUSLÖSEN</string>
+    <string name="home_group_label">Gruppe</string>
+    <string name="home_role_admin">Admin</string>
+    <string name="home_role_member">Mitglied</string>
+    <string name="home_active_alarm">Ein Alarm läuft</string>
+    <string name="home_open_alarm">Alarm anzeigen</string>
+    <string name="home_settings">Einstellungen</string>
+    <string name="home_admin">Verwaltung</string>
+    <string name="home_checklist_banner_action">Prüfen</string>
+
+    <!-- Trigger flow -->
+    <string name="trigger_title">Alarm auslösen</string>
+    <string name="trigger_choose_type">Welche Art von Alarm?</string>
+    <string name="trigger_choose_location">Wo sind Sie?</string>
+    <string name="trigger_location_unknown">Standort unbekannt</string>
+    <string name="trigger_countdown_title">Alarm wird gesendet</string>
+    <string name="trigger_countdown_cancel">ABBRECHEN</string>
+    <string name="trigger_sending">Alarm wird gesendet …</string>
+    <string name="trigger_sent">Alarm gesendet</string>
+    <string name="trigger_offline">Kein Netz – Alarm nicht gesendet</string>
+    <string name="trigger_retrying">Kein Netz – wird erneut versucht (%1$d s) …</string>
+    <string name="trigger_duplicate">Ein Alarm dieser Art läuft bereits.</string>
+
+    <!-- Alarm types -->
+    <string name="alarm_type_amok">Amokalarm</string>
+    <string name="alarm_type_fire">Feueralarm</string>
+    <string name="alarm_type_medical">Medizinischer Notfall</string>
+    <string name="alarm_type_test">Probealarm</string>
+
+    <!-- Alarm screen -->
+    <string name="alarm_test_banner">PROBEALARM – keine echte Gefahr</string>
+    <string name="alarm_triggered_by">Ausgelöst von %1$s</string>
+    <string name="alarm_at_location">Standort: %1$s</string>
+    <string name="alarm_at_time">Uhrzeit: %1$s</string>
+    <string name="alarm_instruction_title">Was jetzt zu tun ist</string>
+    <string name="alarm_ack_secured">Gesehen – Klasse gesichert</string>
+    <string name="alarm_ack_help">Gesehen – Hilfe nötig</string>
+    <string name="alarm_call_110">Notruf 110</string>
+    <string name="alarm_call_112">Notruf 112</string>
+    <string name="alarm_your_answer">Ihre Rückmeldung: %1$s</string>
+    <string name="alarm_clear_button">Entwarnung geben</string>
+    <string name="alarm_clear_confirm">Entwarnung wirklich an alle senden?</string>
+    <string name="alarm_cleared_title">Entwarnung</string>
+    <string name="alarm_cleared_by">Entwarnung durch %1$s um %2$s</string>
+    <string name="alarm_silence">Ton aus</string>
+    <string name="alarm_chat_title">Nachrichten</string>
+    <string name="alarm_chat_hint">Nachricht an alle</string>
+    <string name="alarm_chat_send">Senden</string>
+    <string name="ack_status_secured">gesichert</string>
+    <string name="ack_status_help_needed">braucht Hilfe</string>
+    <string name="ack_status_seen">gesehen</string>
+
+    <!-- Notifications -->
+    <string name="channel_alarm_name">Alarme</string>
+    <string name="channel_alarm_desc">Amok-, Feuer- und Notfallalarme. Diese Meldungen müssen jederzeit durchkommen.</string>
+    <string name="channel_quiet_name">Hinweise</string>
+    <string name="channel_quiet_desc">Stille Hinweise, etwa zur Bereitschaft des Geräts.</string>
+    <string name="notification_alarm_text">Antippen zum Öffnen</string>
+    <string name="notification_all_clear_title">Entwarnung</string>
+
+    <!-- Checklist -->
+    <string name="checklist_title">Ist Ihr Gerät bereit?</string>
+    <string name="checklist_intro">Damit der Alarm auch nachts und bei lautlosem Handy ankommt, braucht die App ein paar Freigaben. Jeder Punkt führt Sie direkt an die richtige Stelle.</string>
+    <string name="checklist_open_settings">Einstellung öffnen</string>
+    <string name="checklist_ok">Erledigt</string>
+    <string name="checklist_missing">Fehlt</string>
+    <string name="checklist_recommended">empfohlen</string>
+    <string name="checklist_required">nötig</string>
+    <string name="checklist_notifications">Benachrichtigungen erlauben</string>
+    <string name="checklist_notifications_desc">Ohne diese Freigabe zeigt Android gar keine Alarmmeldung an.</string>
+    <string name="checklist_fullscreen">Vollbild-Benachrichtigungen</string>
+    <string name="checklist_fullscreen_desc">Damit der Alarm den Bildschirm einschaltet, statt nur oben eine Zeile zu zeigen.</string>
+    <string name="checklist_battery">Akku-Optimierung ausschalten</string>
+    <string name="checklist_battery_desc">Sonst legt Android die App nach einiger Zeit schlafen und der Alarm kommt verspätet oder gar nicht.</string>
+    <string name="checklist_dnd">Zugriff auf „Nicht stören“</string>
+    <string name="checklist_dnd_desc">Damit der Alarmton auch dann zu hören ist, wenn „Nicht stören“ eingeschaltet ist.</string>
+    <string name="checklist_selftest">Selbsttest</string>
+    <string name="checklist_selftest_desc">Zum Schluss schickt die App sich selbst einen Testalarm. Erst wenn der wirklich ankommt, ist alles eingerichtet.</string>
+    <string name="checklist_selftest_start">Selbsttest starten</string>
+    <string name="checklist_selftest_waiting">Warte auf den Testalarm …</string>
+    <string name="checklist_selftest_ok">Der Testalarm ist angekommen.</string>
+    <string name="checklist_selftest_failed">Der Testalarm ist nicht angekommen. Gehen Sie die Punkte oben noch einmal durch.</string>
+    <string name="checklist_all_done">Alles erledigt – Ihr Gerät ist bereit.</string>
+    <string name="checklist_finish">Fertig</string>
+
+    <!-- Manufacturer hints -->
+    <string name="hint_samsung_title">Samsung: App nicht schlafen legen</string>
+    <string name="hint_samsung_text">Einstellungen → Akku → Nutzung im Hintergrund → „Apps im Ruhezustand“. Notfallalarm darf dort NICHT stehen. Zusätzlich unter „Nie schlafende Apps“ eintragen.</string>
+    <string name="hint_xiaomi_title">Xiaomi: Autostart und keine Einschränkungen</string>
+    <string name="hint_xiaomi_text">Einstellungen → Apps → Notfallalarm → „Autostart“ einschalten und unter „Energiesparen“ auf „Keine Einschränkungen“ stellen.</string>
+    <string name="hint_huawei_title">Huawei/Honor: App-Start selbst verwalten</string>
+    <string name="hint_huawei_text">Einstellungen → Akku → App-Start → Notfallalarm auf „Manuell verwalten“ stellen und alle drei Schalter (Autostart, Sekundärstart, im Hintergrund laufen) einschalten.</string>
+    <string name="hint_oppo_title">Oppo/OnePlus/Realme: Hintergrund erlauben</string>
+    <string name="hint_oppo_text">Einstellungen → Akku → Energieverbrauch der App → Notfallalarm → „Hintergrundaktivität zulassen“ und „Autostart“ einschalten.</string>
+    <string name="hint_vivo_title">Vivo: Hochverbrauch im Hintergrund erlauben</string>
+    <string name="hint_vivo_text">Einstellungen → Akku → Hintergrund-Energieverbrauch → Notfallalarm zulassen. Zusätzlich unter „Autostart“ einschalten.</string>
+    <string name="hint_generic_title">Zusätzliche Einstellung Ihres Herstellers</string>
+    <string name="hint_generic_text">Viele Hersteller legen Apps eigenmächtig schlafen. Suchen Sie in den Einstellungen nach „Akku“ oder „Autostart“ und nehmen Sie Notfallalarm von allen Einschränkungen aus.</string>
+    <string name="hint_done">Habe ich erledigt</string>
+
+    <!-- Settings -->
+    <string name="settings_title">Einstellungen</string>
+    <string name="settings_section_device">Gerät</string>
+    <string name="settings_section_signal">Signal</string>
+    <string name="settings_section_group">Gruppe</string>
+    <string name="settings_vibrate_only">Nur Vibration</string>
+    <string name="settings_vibrate_only_desc">Der Alarm rüttelt, spielt aber keinen Ton. Nur wählen, wenn Sie das Gerät immer bei sich tragen.</string>
+    <string name="settings_checklist">Bereitschaft prüfen</string>
+    <string name="settings_display_name">Anzeigename</string>
+    <string name="settings_leave_group">Gruppe verlassen</string>
+    <string name="settings_leave_confirm">Wirklich aus der Gruppe austreten? Sie bekommen danach keine Alarme mehr und brauchen einen neuen Einladungscode.</string>
+    <string name="settings_version">Fassung %1$s (%2$d)</string>
+    <string name="settings_privacy">Was gespeichert wird</string>
+    <string name="settings_privacy_text">Gespeichert werden nur Anzeigename, das Zustellzeichen Ihres Geräts, Gerätemodell, App-Fassung, der Stand der Freigaben oben sowie Alarme und Rückmeldungen. Kein Standort, keine Kontakte, keine Telefonnummer. Alarme und Nachrichten werden 90 Tage nach der Entwarnung gelöscht.</string>
+    <string name="settings_errorlog">Fehlerprotokoll</string>
+    <string name="settings_errorlog_empty">Keine Fehler aufgezeichnet.</string>
+
+    <!-- Update banner -->
+    <string name="update_title">Neue Fassung verfügbar</string>
+    <string name="update_text">Fassung %1$s ist da. Sie haben %2$s.</string>
+    <string name="update_button">Herunterladen</string>
+    <string name="update_later">Später</string>
+
+    <!-- Admin -->
+    <string name="admin_title">Verwaltung</string>
+    <string name="admin_devices">Geräteübersicht</string>
+    <string name="admin_codes">Einladungscodes</string>
+    <string name="admin_locations">Standorte</string>
+    <string name="admin_instructions">Handlungstexte</string>
+    <string name="admin_history">Alarm-Historie</string>
+    <string name="admin_test_alarm">Probealarm auslösen</string>
+    <string name="admin_ping_all">Alle pingen</string>
+    <string name="admin_ping_sent">Ping gesendet.</string>
+    <string name="admin_devices_stale">Seit über 48 Stunden nicht gemeldet</string>
+    <string name="admin_device_lastseen">Zuletzt gemeldet: %1$s</string>
+    <string name="admin_device_never">Noch nie gemeldet</string>
+    <string name="admin_device_version">Fassung %1$s</string>
+    <string name="admin_device_outdated">Alte Fassung</string>
+    <string name="admin_device_permissions_ok">Alle Freigaben erteilt</string>
+    <string name="admin_device_permissions_missing">Freigaben fehlen: %1$s</string>
+    <string name="admin_device_remove">Mitglied entfernen</string>
+    <string name="admin_device_remove_confirm">%1$s wirklich aus der Gruppe entfernen?</string>
+    <string name="admin_make_admin">Zum Admin machen</string>
+    <string name="admin_revoke_admin">Adminrecht entziehen</string>
+    <string name="admin_code_new">Neuen Code erzeugen</string>
+    <string name="admin_code_valid_until">Gültig bis %1$s</string>
+    <string name="admin_code_expired">Abgelaufen</string>
+    <string name="admin_code_revoke">Widerrufen</string>
+    <string name="admin_code_show_qr">Als QR anzeigen</string>
+    <string name="admin_code_qr_hint">Der QR-Code enthält denselben Einladungscode. Er lässt sich abfotografieren oder abtippen.</string>
+    <string name="admin_locations_hint">Diese Liste erscheint beim Auslösen. Halten Sie sie kurz und eindeutig, zum Beispiel „Gebäude A, 1. OG“.</string>
+    <string name="admin_location_new">Standort hinzufügen</string>
+    <string name="admin_instructions_hint">Diese Texte stehen auf dem Alarmbildschirm. Die mitgelieferten Texte sind Platzhalter – stimmen Sie sie mit Schulleitung und Polizei ab.</string>
+    <string name="admin_history_empty">Noch kein Alarm ausgelöst.</string>
+    <string name="admin_history_active">läuft</string>
+    <string name="admin_history_cleared">entwarnt um %1$s</string>
+    <string name="admin_not_admin">Für diesen Bereich brauchen Sie Adminrechte.</string>
+
+    <!-- Default instructions (placeholders, to be agreed with the school) -->
+    <string name="default_instruction_amok">Türen schließen und verriegeln. Fenster schließen, Jalousien herunter. Mit der Klasse außer Sicht gehen. Ruhe bewahren, Handys stumm. Warten, bis die Polizei die Tür öffnet.</string>
+    <string name="default_instruction_fire">Fenster schließen, Klassenbuch mitnehmen, geordnet über den bekannten Fluchtweg ins Freie. Sammelplatz aufsuchen und Vollständigkeit melden.</string>
+    <string name="default_instruction_medical">Ersthelfer verständigen. Wenn nötig 112 wählen. Eine Person zur Einweisung an den Eingang schicken.</string>
+    <string name="default_instruction_test">Dies ist ein Probealarm. Bitte nur die Rückmeldung geben, sonst nichts unternehmen.</string>
+
+    <plurals name="home_checklist_banner">
+        <item quantity="one">Ihr Gerät ist noch nicht bereit – ein Punkt ist offen.</item>
+        <item quantity="other">Ihr Gerät ist noch nicht bereit – %1$d Punkte sind offen.</item>
+    </plurals>
+    <plurals name="trigger_countdown_seconds">
+        <item quantity="one">in einer Sekunde</item>
+        <item quantity="other">in %1$d Sekunden</item>
+    </plurals>
+    <plurals name="alarm_responses">
+        <item quantity="one">%1$d von %2$d hat geantwortet</item>
+        <item quantity="other">%1$d von %2$d haben geantwortet</item>
+    </plurals>
+    <plurals name="alarm_help_needed_count">
+        <item quantity="one">Eine Person braucht Hilfe</item>
+        <item quantity="other">%1$d Personen brauchen Hilfe</item>
+    </plurals>
+</resources>

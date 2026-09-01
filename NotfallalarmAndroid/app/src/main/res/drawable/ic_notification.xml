@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Status bar icons are drawn as a silhouette, so this is a solid shape with the
+     exclamation mark punched out by drawing it in the same alpha-less style. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24"
+    android:tint="#FFFFFF">
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M12,2 L23,21 L1,21 Z M11,9 L11,15 L13,15 L13,9 Z M11,17 L11,19 L13,19 L13,17 Z"
+        android:fillType="evenOdd" />
+</vector>
