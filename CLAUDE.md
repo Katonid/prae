@@ -249,6 +249,17 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   `CloudKitSubscriptions` und werden von Subscription UND Diagnose benutzt;
   zwei Fassungen prüften garantiert etwas anderes, als die Zustellung
   braucht.
+- **Höchstens DREI `desiredKeys` je Subscription.** Mit zehn lehnte CloudKit
+  jedes Alarm-Abonnement ab („notification additional fields limit
+  exceeded"), und ein Gerät ohne Abonnement ist für immer stumm — die
+  Ping-Abonnements kamen durch, weil sie gar keine Felder mitschicken.
+  Es sind jetzt `type`, `location`, `triggeredByName` (bei der Entwarnung
+  `type`, `clearedByName`). `alertLocalizationArgs` nennt ebenfalls Felder
+  und bleibt deshalb leer; der Rückfalltext ist ein fester Satz. Damit
+  fällt bei CloudKit auch die Altersprüfung der Erweiterung aus (`createdAt`
+  reist nicht mehr mit) — ein zu laut gemeldeter alter Alarm ist der
+  kleinere Schaden als gar keiner. Für ein eigenes Backend gilt die Grenze
+  nicht; der Push-Vertrag bleibt vollständig.
 - **CloudKit kennt kein `OR` im Prädikat** (gefunden 09/2026). „an alle ODER
   an mich" wurde mit „Invalid predicate: Unexpected expression" abgelehnt —
   und zwar erst beim Anlegen auf dem Gerät, nicht beim Übersetzen. Der Ping

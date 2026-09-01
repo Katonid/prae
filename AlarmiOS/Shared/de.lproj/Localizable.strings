@@ -14,13 +14,21 @@
    Deshalb dieselbe Datei zweimal. Wer hier einen Schlüssel ändert, ändert ihn
    für beide Wege gleichzeitig; das ist der Sinn der Sache. */
 
-/* --- Rückfalltext, von APNs mitgebracht (Typ, Ort, Kürzel) --------------- */
-"push.alarm.fallback" = "%@ – %@ – ausgelöst von %@";
-"push.allclear.fallback" = "Entwarnung – gegeben von %@";
+/* --- Rückfalltext, von APNs mitgebracht -----------------------------------
+
+   OHNE Platzhalter, und das ist Absicht. Argumente eines solchen Textes sind
+   Record-Felder, und CloudKit deckelt die Zahl der mitgeschickten Felder auf
+   drei. Die drei sind für die Erweiterung reserviert, die daraus den
+   richtigen Text baut (was, wo, von wem). Kommt sie einmal nicht zum Zug,
+   bleibt dieser knappe Satz — deutlich besser als ein Abonnement, das wegen
+   zu vieler Felder gar nicht erst entsteht und für immer schweigt. */
+"push.alarm.fallback" = "ALARM – bitte App öffnen";
+"push.allclear.fallback" = "Entwarnung – bitte App öffnen";
 
 /* --- Von der Erweiterung gebaut ----------------------------------------- */
 "push.alarm.title" = "%1$@ – %2$@";
 "push.alarm.body" = "Ausgelöst von %1$@ um %2$@";
+"push.alarm.body.short" = "Ausgelöst von %@";
 "push.allclear.title" = "Entwarnung";
 "push.allclear.body" = "Gegeben von %1$@ um %2$@";
 "push.selftest.title" = "Selbsttest angekommen";

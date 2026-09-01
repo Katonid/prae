@@ -127,6 +127,38 @@ versteht es zusätzlich:
 * `rid` ist der Name des Datensatzes und damit die `alarmId`.
 * `af` sind die `desiredKeys`.
 
+### Höchstens DREI Felder
+
+CloudKit deckelt die Zahl der mitgeschickten Record-Felder. Mit zehn wurde
+jedes Alarm-Abonnement abgelehnt:
+
+> `Error saving record subscription with id alarm-created-v1 to server:`
+> `notification additional fields limit exceeded`
+
+Und ein Gerät ohne Abonnement ist für immer stumm. Es sind deshalb genau
+drei, und es sind die, ohne die auf einem gesperrten iPad nichts Brauchbares
+stünde:
+
+| Abonnement | Felder |
+|---|---|
+| `alarm-created-v2`, `selftest-created-v2` | `type`, `location`, `triggeredByName` |
+| `alarm-cleared-v2` | `type`, `clearedByName` |
+| `ping-all-v2`, `ping-me-v2` | keine |
+
+Der Datensatzname (`rid`, und damit die `alarmId`) reist ohnehin mit.
+`alertLocalizationArgs` nennt ebenfalls Record-Felder und bleibt deshalb
+leer; der Rückfalltext ist ein fester Satz ohne Platzhalter.
+
+Was nicht mehr mitreist: `status` und `targetUser` (die Kennung des
+Abonnements sagt es schon), `createdAt` (damit fällt die Altersprüfung der
+Erweiterung bei CloudKit aus — ein zu laut gemeldeter alter Alarm ist der
+kleinere Schaden als gar keiner) und `instructionShort` (der Handlungstext
+steht eine Sekunde später auf dem Alarm-Bildschirm).
+
+**Für ein anderes Backend gilt diese Grenze nicht.** Wer selbst sendet,
+schickt das vollständige neutrale Paket oben — samt `createdAt`, und dann
+greift die Altersprüfung wieder.
+
 Die Erweiterung schreibt dieses Paket ins neutrale Format um
 (`PushPayloadParser.normalized`) und setzt `normalized: true`. Die App
 bekommt danach nie wieder ein `ck` zu sehen.

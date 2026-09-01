@@ -160,10 +160,19 @@ final class NotificationService: UNNotificationServiceExtension {
         return stale ? text + " " + localized(PushString.staleSuffix) : text
     }
 
+    /// Ohne Zeitstempel kein „um " am Satzende.
+    ///
+    /// `createdAt` reist bei CloudKit nicht mehr mit — drei Felder sind das
+    /// Maximum, und die gehören dem Was, dem Wo und dem Wem. Ein Backend, das
+    /// den Zeitstempel schickt (siehe `docs/PUSH_CONTRACT.md`), bekommt die
+    /// Uhrzeit weiterhin angezeigt.
     private func body(triggeredBy name: String?, at date: Date?) -> String {
-        String(format: localized(PushString.alarmBodyFormat),
-               name ?? localized(PushString.unknownPerson),
-               timeText(date))
+        let person = name ?? localized(PushString.unknownPerson)
+        guard let date else {
+            return String(format: localized(PushString.alarmBodyShort), person)
+        }
+        return String(format: localized(PushString.alarmBodyFormat),
+                      person, timeText(date))
     }
 
     private func describe(_ failure: PushPayloadParser.Failure,

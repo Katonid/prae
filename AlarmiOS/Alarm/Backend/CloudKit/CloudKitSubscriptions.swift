@@ -201,18 +201,17 @@ enum CloudKitSubscriptions {
     /// CloudKit subscription cannot set that level itself — which is why this
     /// app cannot work without the extension.
     ///
-    /// The title text set here is the FALLBACK, for the case where the
-    /// extension does not get to run. It uses `alertLocalizationKey`, resolved
-    /// by iOS against the app bundle's `Localizable.strings`, with the record
-    /// fields as arguments. Note that `headline` is used rather than `type`:
-    /// the arguments are raw field values, and "amok" on a lock screen tells
-    /// nobody anything.
+    /// Der Text hier ist der RÜCKFALL — für den Fall, dass die Erweiterung
+    /// nicht zum Zug kommt. Er steht als `alertLocalizationKey` ohne
+    /// Argumente, und das ist Absicht: `alertLocalizationArgs` nennt
+    /// Record-Felder, und Felder sind hier streng gedeckelt. Lieber ein
+    /// knapper fester Satz als ein Abonnement, das gar nicht erst entsteht.
+    ///
+    /// Ein `alert` muss gesetzt sein. Ohne ihn wäre die Meldung still, und
+    /// stille Pushes drosselt iOS — für einen Alarm wäre das das Ende.
     private static func alarmNotificationInfo() -> CKSubscription.NotificationInfo {
         let info = CKSubscription.NotificationInfo()
         info.alertLocalizationKey = PushString.alarmFallback
-        info.alertLocalizationArgs = [CloudField.headline,
-                                      CloudField.location,
-                                      CloudField.triggeredByName]
         info.soundName = PushAsset.alarmSound
         info.shouldSendMutableContent = true
         info.category = PushAsset.alarmCategory
@@ -225,32 +224,44 @@ enum CloudKitSubscriptions {
     private static func allClearNotificationInfo() -> CKSubscription.NotificationInfo {
         let info = CKSubscription.NotificationInfo()
         info.alertLocalizationKey = PushString.allClearFallback
-        info.alertLocalizationArgs = [CloudField.clearedByName]
         info.soundName = PushAsset.allClearSound
         info.shouldSendMutableContent = true
         info.category = PushAsset.allClearCategory
         info.collapseIDKey = CloudField.alarmId
-        info.desiredKeys = desiredAlarmKeys
+        info.desiredKeys = desiredAllClearKeys
         return info
     }
 
-    /// The fields that ride along in the payload.
+    /// **Höchstens DREI.** Das ist keine Stilfrage, sondern die Obergrenze von
+    /// CloudKit: Mit zehn Feldern wurde jedes Alarm-Abonnement abgelehnt —
+    /// „notification additional fields limit exceeded" —, und ein Gerät ohne
+    /// Abonnement ist für immer stumm. Die beiden Ping-Abonnements kamen
+    /// durch, weil sie gar keine Felder mitschicken.
     ///
-    /// Everything the alarm screen needs to be complete BEFORE any network
-    /// call — because on a locked iPad with a dead Wi-Fi uplink there may not
-    /// be a network call. `instruction` is deliberately absent: its short form
-    /// is here instead, so one long text cannot burst the 4 KB APNs budget and
-    /// take the whole notification with it.
+    /// Die drei sind die, ohne die auf einem gesperrten iPad nichts Brauchbares
+    /// stünde: WAS ist los, WO, und von WEM. Der Datensatzname (und damit die
+    /// `alarmId`) reist ohnehin mit.
+    ///
+    /// Was nicht mehr mitkommt und warum das zu verschmerzen ist:
+    ///
+    /// * `status` und `targetUser` — die Kennung des Abonnements sagt schon,
+    ///   ob es ein Alarm, eine Entwarnung oder ein Selbsttest ist.
+    /// * `createdAt` — damit fällt die Altersprüfung der Erweiterung aus. Sie
+    ///   bleibt im Quelltext für ein späteres Backend, das den Zeitstempel
+    ///   mitschickt (siehe `docs/PUSH_CONTRACT.md`); bei CloudKit greift sie
+    ///   nicht mehr. Ein zu laut gemeldeter alter Alarm ist der kleinere
+    ///   Schaden als ein Alarm, der gar nicht kommt.
+    /// * `instructionShort` — der Handlungstext steht eine Sekunde später auf
+    ///   dem Alarm-Bildschirm.
     static let desiredAlarmKeys = [
         CloudField.type,
-        CloudField.status,
         CloudField.location,
-        CloudField.triggeredByName,
-        CloudField.createdAt,
-        CloudField.instructionShort,
-        CloudField.headline,
-        CloudField.targetUser,
-        CloudField.groupRef,
+        CloudField.triggeredByName
+    ]
+
+    /// Bei der Entwarnung zählt, WER sie gegeben hat — der Ort nicht.
+    static let desiredAllClearKeys = [
+        CloudField.type,
         CloudField.clearedByName
     ]
 }
