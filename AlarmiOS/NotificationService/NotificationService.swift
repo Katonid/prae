@@ -114,9 +114,12 @@ final class NotificationService: UNNotificationServiceExtension {
     /// entitlement, and Apple grants that on written request only. Without it a
     /// build that asks for critical alerts is rejected at signing time, so the
     /// whole branch hangs on the `CRITICAL_ALERTS` compilation condition and is
-    /// off by default. `.timeSensitive` needs no permission beyond the
-    /// `time-sensitive-notifications` capability and already breaks through
-    /// every Focus mode the user has not explicitly denied us.
+    /// off by default. `.timeSensitive` needs no permission beyond the Time
+    /// Sensitive Notifications capability — which belongs to the APP target
+    /// alone. This extension carries no entitlements file at all: the
+    /// capability does not exist for an extension's App ID, and putting it
+    /// there breaks automatic signing outright. The notification belongs to
+    /// the app, and that is where iOS checks.
     private func configureUrgency(_ content: UNMutableNotificationContent,
                                   sound: String,
                                   stale: Bool) {

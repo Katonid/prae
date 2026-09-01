@@ -15,6 +15,13 @@
 	<!-- Zeitkritische Mitteilungen: die Fähigkeit, die den Alarm durch einen
 	     aktiven Fokus bringt. Sie braucht keinen Antrag bei Apple.
 
+	     Sie gehört AUSSCHLIESSLICH hierher, an das App-Ziel. Die Erweiterung
+	     hat bewusst gar keine Entitlements-Datei: Für die App-Id einer
+	     Erweiterung gibt es diese Fähigkeit nicht, und dort eingetragen
+	     findet die automatische Signierung kein Profil mehr („could not be
+	     included in profile"). Gebraucht wird sie dort auch nicht — die
+	     Mitteilung gehört der App, und an ihr prüft iOS die Berechtigung.
+
 	     Kritische Hinweise (com.apple.developer.usernotifications.critical-alerts)
 	     stehen hier bewusst NICHT: Das Entitlement vergibt Apple nur auf
 	     schriftlichen Antrag, und eine Datei, die es ohne Bewilligung nennt,
