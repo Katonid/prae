@@ -1051,6 +1051,17 @@ Namens und lebt weiter.
 - Ferien-Geburtstage holt deshalb ein Mensch nach: `NachfeiernSheet`
   (Tafeleinstellungen → Geburtstage → „Nachfeiern"), Zeitraum vorbelegt
   mit sechs Wochen, Auswahl je Kind.
+- **Der Wortlaut richtet sich nach dem Datum, nicht nach dem Anlegen** (ab
+  1.3.32). Eine Seite entsteht am Geburtstag und bleibt danach stehen — das
+  ist gewollt. „Heute Geburtstag" und „wird 8" stimmten dann aber nur an
+  diesem einen Tag; am nächsten Morgen behauptete die Tafel etwas Falsches
+  (gemeldet 09/2026: „Toni hatte gestern Geburtstag"). `istHeute` vergleicht
+  Tag und Monat mit heute, `istVorbei` ist „nachgefeiert oder nicht heute".
+- Drei Zeilen auf dem Kärtchen: **„Wir feiern nach"** (ausdrückliche
+  Nachfeier), **„Heute Geburtstag"** (nur wirklich heute), **„Hatte
+  Geburtstag"** (die Seite von gestern steht noch). Auf der Seite selbst
+  wechselt „wird" zu „wurde", und der tatsächliche Tag wird eingeblendet —
+  beides jetzt auch ohne `nachgefeiert`.
 - **Das Hinweiskärtchen sagt „Wir feiern nach"** (ab 1.3.22). Bis 1.3.21
   trug es `nachgefeiert` gar nicht mit und behauptete „Heute Geburtstag"
   über einem Kind, dessen Tag im Juli war (gemeldet 08/2026). Schon

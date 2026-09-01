@@ -44,6 +44,25 @@ struct GeburtstagWidgetView: View {
 
     // MARK: - Klein: der Hinweis auf der ersten Seite
 
+    /// Die obere Zeile des Hinweiskärtchens.
+    ///
+    /// Drei Fälle, und keiner darf etwas behaupten, das nicht stimmt:
+    ///
+    /// - **„Wir feiern nach"** — der Tag war schon, und wir holen es
+    ///   ausdrücklich nach.
+    /// - **„Heute Geburtstag"** — nur wirklich heute.
+    /// - **„Hatte Geburtstag"** — die Seite von gestern steht noch. Sie
+    ///   bleibt ja stehen, bis jemand sie wegräumt; nur der Wortlaut geht
+    ///   mit dem Datum mit.
+    ///
+    /// Ohne Datum: Neben Torte und Pfeil bleibt eine Zeile von rund 160
+    /// Punkten, und zu kleine Schrift auf diesem Kärtchen war schon einmal
+    /// die Beschwerde. Wann der Tag war, steht auf der Seite dahinter.
+    private var hinweiszeile: String {
+        if content.nachgefeiert { return "Wir feiern nach" }
+        return content.istHeute() ? "Heute Geburtstag" : "Hatte Geburtstag"
+    }
+
     private var hinweisFassung: some View {
         // **Nicht mit `metrics.em` rechnen.** Das Maß kommt von der
         // vorgesehenen Größe des Elementtyps — und die ist die der großen
@@ -75,7 +94,7 @@ struct GeburtstagWidgetView: View {
                         // kleine Schrift auf diesem Kärtchen war schon
                         // einmal die Beschwerde. Wann der Tag war, steht auf
                         // der Seite dahinter.
-                        Text(content.nachgefeiert ? "Wir feiern nach" : "Heute Geburtstag")
+                        Text(hinweiszeile)
                             .font(Theme.font(h * 0.21, weight: .semibold))
                             .foregroundStyle(.white.opacity(0.88))
                             .lineLimit(1)
@@ -183,7 +202,7 @@ struct GeburtstagWidgetView: View {
                 // Nachgefeiert heißt: Der Tag war schon. Dann „wurde" statt
                 // „wird" — und das Datum dazu, sonst steht ein Tag im Kopf
                 // der Klasse und ein anderer an der Wand.
-                Text(content.nachgefeiert ? "wurde \(alter)" : "wird \(alter)")
+                Text(content.istVorbei() ? "wurde \(alter)" : "wird \(alter)")
                     .font(Theme.font(metrics.em(zeigtFeier ? 1.5 : 1.7), weight: .bold))
                     .foregroundStyle(Color(hex: "#fde68a"))
                     .lineLimit(1)
@@ -191,7 +210,7 @@ struct GeburtstagWidgetView: View {
                     .umrandet()
             }
 
-            if content.nachgefeiert, let tag = content.tagDesGeburtstags {
+            if content.istVorbei(), let tag = content.tagDesGeburtstags {
                 Text("Geburtstag war am \(tag)")
                     .font(Theme.font(metrics.em(zeigtFeier ? 0.95 : 1.05), weight: .semibold))
                     .foregroundStyle(.white.opacity(0.85))
