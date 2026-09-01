@@ -117,6 +117,15 @@ protocol AlarmBackend: AnyObject {
 
     // MARK: Membership
 
+    /// Creates a brand-new group and makes the caller its administrator.
+    ///
+    /// Somebody has to go first. Without this the app cannot be entered at
+    /// all: `joinGroup` needs an invite code, an invite code needs a group,
+    /// and a group needs a creator. The person who sets the school up is the
+    /// one who then hands out codes, edits the action texts and calls the
+    /// all-clear — so creating and being admin are the same act.
+    func createGroup(name: String, displayName: String) async throws -> Membership
+
     func joinGroup(code: String, displayName: String) async throws -> Membership
 
     /// The group this device belongs to, or `nil` when it belongs to none.
@@ -169,6 +178,14 @@ protocol AlarmBackend: AnyObject {
     func updateInstructions(_ instructions: [String: String]) async throws
 
     func removeMember(memberId: String) async throws
+
+    /// Promotes a colleague to the leadership, or takes it back.
+    ///
+    /// Needed because one administrator is a single point of failure: if that
+    /// one iPad is wiped over the summer, nobody can hand out a code, edit a
+    /// location or call an all-clear ever again. A deputy head with the same
+    /// rights costs nothing and removes the trap.
+    func setRole(memberId: String, role: MemberRole) async throws
 
     func fetchAlarmHistory(limit: Int) async throws -> [Alarm]
     func fetchAcks(alarmId: String) async throws -> [Ack]

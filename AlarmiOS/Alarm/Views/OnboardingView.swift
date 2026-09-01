@@ -17,6 +17,8 @@ struct OnboardingView: View {
     var body: some View {
         NavigationStack {
             List {
+                if let code = model.freshInviteCode { codeSection(code) }
+
                 Section {
                     Text("Dieses iPad muss laut werden können, auch wenn es "
                          + "gesperrt ist und ein Fokus läuft. Die folgenden Punkte "
@@ -77,6 +79,31 @@ struct OnboardingView: View {
             .navigationTitle("Einrichtung")
             .refreshable { await model.refresh() }
             .task { await model.rebuildChecklist() }
+        }
+    }
+
+    /// Der Code, mit dem das Kollegium hereinkommt — genau einmal, hier, wo
+    /// die einrichtende Person ohnehin steht.
+    ///
+    /// Ein Code, der nur unter „Verwaltung → Beitrittscodes" liegt, ist ein
+    /// Code, nach dem gefragt wird. Wiederzufinden ist er dort trotzdem.
+    private func codeSection(_ code: InviteCode) -> some View {
+        Section {
+            VStack(spacing: 14) {
+                Text(code.id)
+                    .font(.system(size: 42, weight: .bold, design: .monospaced))
+                QRCodeView(text: code.id, size: 180)
+                Text("Damit tritt das Kollegium bei: Code abtippen oder scannen. "
+                     + "Wiederzufinden unter Verwaltung → Beitrittscodes.")
+                    .font(.footnote)
+                    .multilineTextAlignment(.center)
+                    .foregroundStyle(.secondary)
+                Button("Verstanden") { model.freshInviteCode = nil }
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 8)
+        } header: {
+            Text("Die Schule ist eingerichtet")
         }
     }
 

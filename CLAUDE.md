@@ -213,6 +213,19 @@ Auftrag, für Bauten, die niemand angefordert hatte.
 - **Sortiert wird nach dem Systemfeld `creationDate`**, nicht nach dem
   eigenen `createdAt`: Den Systemzeitstempel setzt der Server, ein Gerät
   mit falscher Uhr kann ihn nicht verbiegen.
+- **Irgendwer muss anfangen: `createGroup`.** Bis 1.0.1 gab es nur
+  `joinGroup` — das sucht einen Beitrittscode-Datensatz, der einen
+  Group-Datensatz braucht, den nichts in der App je anlegte. Die App war
+  damit gar nicht zu betreten (gemeldet 09/2026). Wer die Schule
+  einrichtet, IST die Leitung; der erste Beitrittscode entsteht gleich mit
+  und wird auf dem Einrichtungsbildschirm gezeigt. Reihenfolge beim
+  Anlegen: Group, dann Member, dann Code — eine Referenz auf einen
+  Datensatz, den es noch nicht gibt, weist CloudKit ab. Und `store.role`
+  muss VOR `createInviteCode` stehen, denn das fragt `requireAdmin()`.
+- **Zwei Leitungen, nicht eine** (`setRole`). Eine einzige Leitung ist ein
+  Ausfallpunkt: Wird dieses iPad im Sommer zurückgesetzt, kann niemand mehr
+  Codes vergeben oder Entwarnung geben. Der Hinweis steht unter der
+  Mitgliederliste.
 - **Abgeleitete Datensatznamen gegen Doppel:** `member-<Gruppe>-<Nutzer>`,
   `ack-<Alarm>-<Nutzer>`, `device-<Gruppe>-<Nutzer>`, und der
   Beitrittscode IST der Name seines Datensatzes (kein Index, keine

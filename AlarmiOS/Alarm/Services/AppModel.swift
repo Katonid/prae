@@ -26,6 +26,10 @@ final class AppModel: ObservableObject {
     @Published private(set) var checklist: [ChecklistItem] = []
     @Published private(set) var isWorking = false
 
+    /// The invite code that came with a freshly created group. Shown once, on
+    /// the setup screen, and dismissible.
+    @Published var freshInviteCode: InviteCode?
+
     /// Shown while an alarm is being retried. Not an error — the attempt is
     /// still running, and the difference matters to whoever is watching it.
     @Published var retryNotice: String?
@@ -138,6 +142,32 @@ final class AppModel: ObservableObject {
             let membership = try await backend.joinGroup(code: code, displayName: displayName)
             group = membership.group
             member = membership.member
+            await reportDeviceStatus()
+            observeAlarm()
+            await rebuildChecklist()
+            return true
+        } catch {
+            report(error)
+            return false
+        }
+    }
+
+    /// Sets up a new school and makes this device the leadership.
+    ///
+    /// The first invite code is created along with it and lands in
+    /// `freshInviteCode`, so the setup screen can show it straight away. A
+    /// code that exists but has to be hunted down under Verwaltung is a code
+    /// that gets asked about by e-mail.
+    func createGroup(name: String, displayName: String) async -> Bool {
+        isWorking = true
+        defer { isWorking = false }
+        do {
+            let membership = try await backend.createGroup(name: name,
+                                                           displayName: displayName)
+            group = membership.group
+            member = membership.member
+            freshInviteCode = try? await backend.fetchInviteCodes()
+                .first(where: { !$0.revoked })
             await reportDeviceStatus()
             observeAlarm()
             await rebuildChecklist()
