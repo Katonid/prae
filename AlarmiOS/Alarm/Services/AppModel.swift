@@ -250,6 +250,11 @@ final class AppModel: ObservableObject {
     /// classrooms locked down for no reason.
     func mayClear(_ alarm: Alarm) -> Bool {
         if isAdmin { return true }
+        // Ein Probealarm, der nur an dieses eine Gerät ging, gehört auch
+        // diesem Gerät: Sonst bliebe die Kollegin auf einem Testbildschirm
+        // sitzen, bis die Leitung ihn wegräumt — und der Nachfasslauf holte
+        // ihn alle 30 Sekunden zurück.
+        if alarm.type == .test, alarm.targetUserId == member?.userId { return true }
         return alarm.triggeredByUserId == member?.userId
     }
 
