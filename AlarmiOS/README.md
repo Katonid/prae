@@ -43,8 +43,9 @@ Eine Person richtet die Schule ein, alle anderen treten bei.
    Wiederzufinden unter Verwaltung → Beitrittscodes.
 3. **Alle anderen** öffnen die App, bleiben auf „Beitreten", tragen ihr
    Kürzel ein und tippen oder scannen den Code.
-4. Jedes Gerät geht die Prüfliste durch und löst einen **Selbsttest** aus.
-   Erst wenn der angekommen ist, gilt das iPad als eingerichtet.
+4. Jedes Gerät geht die Prüfliste durch, macht den **Tontest** (ohne Netz)
+   und danach den **Selbsttest** (über iCloud). Erst wenn beide durch sind,
+   gilt das iPad als eingerichtet.
 
 Kommt der Code über Jamf School mit der App mit
 (`docs/MDM_APPCONFIG.md`), entfällt Schritt 3 bis auf das Kürzel.
@@ -57,6 +58,29 @@ nicht, und im Ernstfall wird nur die halbe Schule laut.
 Mitglieder → „Zur Leitung machen". Eine einzige Leitung ist ein
 Ausfallpunkt: Wird dieses iPad zurückgesetzt, kann niemand mehr Codes
 vergeben oder Entwarnung geben.
+
+## Wenn nichts ankommt
+
+Zwei Tests, und sie prüfen zwei verschiedene Dinge:
+
+| Test | Beweist | Braucht Netz |
+|---|---|---|
+| **Tontest** | Dieses iPad darf laut werden (Erlaubnis, Ton, Fokus, Lautlos-Schalter, Sperrbildschirm) | nein |
+| **Selbsttest** | Ein Alarm kommt über iCloud an | ja |
+
+Zuerst der Tontest. Klingt er nicht, ist über die Zustellung noch gar nicht
+nachzudenken — dann liegt es am Gerät, und die Prüfliste sagt woran.
+
+Klingt der Tontest und der Selbsttest nicht, führt **Einstellungen →
+Zustellung prüfen** die Kette einzeln vor: Konto, je eine Probeabfrage pro
+Record-Typ, jede der vier Subscriptions, die APNs-Anmeldung, der letzte
+angekommene Push. Das erste rote Kreuz ist die Ursache. Der Befund lässt
+sich kopieren.
+
+Der häufigste Befund auf einem frischen Container ist „Field … is not marked
+queryable" — dann fehlen die Indizes; siehe „CloudKit einrichten" weiter
+unten. Die App kann das nicht selbst richten, ein Index ist keine Sache der
+App.
 
 ## Der Aufbau in einem Absatz
 

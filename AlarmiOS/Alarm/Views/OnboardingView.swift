@@ -60,6 +60,7 @@ struct OnboardingView: View {
                          + "Häkchen, weil ein Häkchen ohne Prüfung eine Behauptung wäre.")
                 }
 
+                tontestSection
                 selfTestSection
 
                 Section {
@@ -127,6 +128,33 @@ struct OnboardingView: View {
         .padding(.vertical, 4)
     }
 
+    /// Zuerst der Ton, dann die Zustellung. Die Reihenfolge ist die
+    /// Fehlersuche: Wer den Ton nicht hört, braucht über die Zustellung noch
+    /// gar nicht nachzudenken.
+    @ViewBuilder
+    private var tontestSection: some View {
+        Section {
+            Button {
+                Task { await model.runTontest() }
+            } label: {
+                Label("Tontest starten", systemImage: "speaker.wave.3")
+            }
+            Text("Sperre das iPad jetzt und lege es hin. In \(Int(Tontest.vorlauf)) "
+                 + "Sekunden weckt es sich selbst — mit dem Alarmton, in der "
+                 + "Dringlichkeitsstufe des Ernstfalls.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+            Button("Ich habe den Ton gehört") { model.confirmTontest() }
+                .fontWeight(.semibold)
+        } header: {
+            Text("1. Tontest — ohne Netz")
+        } footer: {
+            Text("Dieser Test läuft ganz auf dem Gerät. Er beweist, dass das iPad "
+                 + "laut werden DARF — nicht, dass ein Alarm von einer Kollegin "
+                 + "ankommt. Dafür ist der nächste da.")
+        }
+    }
+
     @ViewBuilder
     private var selfTestSection: some View {
         Section {
@@ -149,11 +177,18 @@ struct OnboardingView: View {
                 }
                 .fontWeight(.semibold)
             }
+            NavigationLink {
+                DiagnoseView().environmentObject(model)
+            } label: {
+                Label("Zustellung prüfen", systemImage: "stethoscope")
+            }
         } header: {
-            Text("Selbsttest")
+            Text("2. Selbsttest — über iCloud")
         } footer: {
-            Text("Nur dieses Gerät bekommt den Testalarm — das Kollegium merkt "
-                 + "nichts davon.")
+            Text("Nur dieses Gerät bekommt den Testalarm; das Kollegium merkt "
+                 + "nichts davon. Kommt nach zehn Sekunden nichts, tippe auf "
+                 + "„Zustellung prüfen“ — dort steht, an welcher Stelle die Kette "
+                 + "reißt.")
         }
     }
 }

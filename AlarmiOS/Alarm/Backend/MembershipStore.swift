@@ -24,6 +24,8 @@ final class MembershipStore {
         static let onboardingDone = "alarm.onboardingDone"
         static let selfTestPassed = "alarm.selfTestPassed"
         static let acknowledgedAlarmIds = "alarm.acknowledgedAlarmIds"
+        static let tontestBestanden = "alarm.tontestBestanden"
+        static let letzterPush = "alarm.letzterPush"
     }
 
     private let defaults: UserDefaults
@@ -72,6 +74,20 @@ final class MembershipStore {
     var selfTestPassed: Bool {
         get { defaults.bool(forKey: Key.selfTestPassed) }
         set { defaults.set(newValue, forKey: Key.selfTestPassed) }
+    }
+
+    /// Auf diesem Gerät wurde ein Ton gehört. Sagt nichts über die
+    /// Zustellung — nur darüber, dass das iPad laut werden darf.
+    var tontestBestanden: Bool {
+        get { defaults.bool(forKey: Key.tontestBestanden) }
+        set { defaults.set(newValue, forKey: Key.tontestBestanden) }
+    }
+
+    /// Wann zuletzt überhaupt ein Push ankam. Die eine Zahl, die „es kommt
+    /// nichts an" von „es kam zuletzt vor drei Wochen etwas an" trennt.
+    var letzterPush: Date? {
+        get { defaults.object(forKey: Key.letzterPush) as? Date }
+        set { defaults.set(newValue, forKey: Key.letzterPush) }
     }
 
     /// Alarms this device has already answered — the local reminder loop stops

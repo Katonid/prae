@@ -30,6 +30,14 @@ final class AppModel: ObservableObject {
     /// the setup screen, and dismissible.
     @Published var freshInviteCode: InviteCode?
 
+    /// Was die Anmeldung bei APNs ergeben hat. Ohne sie kommt nichts an, und
+    /// bis 1.0.2 stand das nirgends.
+    @Published var apnsZustand = "noch nicht versucht"
+
+    /// Ergebnis der letzten Diagnose.
+    @Published private(set) var diagnose: [Diagnose] = []
+    @Published private(set) var diagnoseLaeuft = false
+
     /// Shown while an alarm is being retried. Not an error — the attempt is
     /// still running, and the difference matters to whoever is watching it.
     @Published var retryNotice: String?
@@ -354,6 +362,7 @@ final class AppModel: ObservableObject {
     /// A push landed. The event may already be on screen (the poll got there
     /// first) — everything here is written to survive that.
     func handle(event: AlarmEvent) async {
+        store.letzterPush = Date()
         await backend.handle(event: event)
 
         switch event {
@@ -419,6 +428,52 @@ final class AppModel: ObservableObject {
         await reportDeviceStatus()
     }
 
+    /// Der örtliche Tontest — beweist den Ton, nicht die Zustellung.
+    func runTontest() async {
+        await Tontest.starten()
+    }
+
+    func confirmTontest() {
+        store.tontestBestanden = true
+        Task { await rebuildChecklist() }
+    }
+
+    var letzterPush: Date? { store.letzterPush }
+
+    func runDiagnose() async {
+        diagnoseLaeuft = true
+        defer { diagnoseLaeuft = false }
+        var zeilen = await backend.diagnose()
+
+        // Was der Backend nicht wissen kann, weil es außerhalb von ihm passiert.
+        zeilen.append(Diagnose(id: "apns", titel: "Anmeldung bei Apple (APNs)",
+                               text: apnsZustand,
+                               befund: apnsZustand.hasPrefix("angemeldet")
+                                   ? .gut : .schlecht))
+        if let letzter = store.letzterPush {
+            zeilen.append(Diagnose(id: "push", titel: "Zuletzt ein Push angekommen",
+                                   text: Clock.dayAndTime.string(from: letzter),
+                                   befund: .gut))
+        } else {
+            zeilen.append(Diagnose(id: "push", titel: "Zuletzt ein Push angekommen",
+                                   text: "noch nie — auf diesem Gerät ist bisher "
+                                       + "keine Meldung eingetroffen",
+                                   befund: .schlecht))
+        }
+        diagnose = zeilen
+    }
+
+    /// Legt fehlende Subscriptions neu an und schreibt das Ergebnis in die
+    /// Diagnose — auch das Scheitern, im Wortlaut des Dienstes.
+    func subscriptionsErneuern() async {
+        do {
+            try await backend.refreshSubscriptions()
+        } catch {
+            report(error)
+        }
+        await runDiagnose()
+    }
+
     func runSelfTest() async {
         isWorking = true
         defer { isWorking = false }
@@ -442,6 +497,7 @@ final class AppModel: ObservableObject {
     func rebuildChecklist() async {
         checklist = OnboardingChecklist.items(permissions: notifications.permissions,
                                               availability: availability,
+                                              tontestPassed: store.tontestBestanden,
                                               selfTestPassed: store.selfTestPassed,
                                               criticalAlertsBuilt: criticalAlertsBuilt)
         // Only the explicit "I am done" flag decides which screen the app is
