@@ -569,7 +569,16 @@ final class AppModel: ObservableObject {
         onboardingDone = store.onboardingDone
     }
 
+    /// Was auf dem Startbildschirm als Warnband steht — alles Offene.
     var blockingItems: [ChecklistItem] { checklist.filter(\.isBlocking) }
+
+    /// Was den Abschluss der Einrichtung wirklich aufhält.
+    ///
+    /// Nur Punkte, die dieses Gerät allein lösen kann. Der Zustellnachweis
+    /// gehört nicht dazu: Er braucht ein zweites Gerät, und ihn zur Bedingung
+    /// zu machen sperrte die Einrichtung für alle aus (siehe
+    /// `ChecklistItem.blocksCompletion`).
+    var finishBlockers: [ChecklistItem] { checklist.filter(\.blocksFinish) }
 
     // MARK: - Devices
 
