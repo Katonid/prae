@@ -17,52 +17,9 @@ struct AdminView: View {
     var body: some View {
         NavigationStack {
             List {
-                Section("Kollegium") {
-                    NavigationLink { InviteCodesView().environmentObject(model) } label: {
-                        Label("Beitrittscodes", systemImage: "qrcode")
-                    }
-                    NavigationLink { MembersView().environmentObject(model) } label: {
-                        Label("Mitglieder", systemImage: "person.2")
-                    }
-                    NavigationLink { DeviceListView().environmentObject(model) } label: {
-                        Label("Geräteübersicht", systemImage: "ipad.and.iphone")
-                    }
-                }
-
-                Section("Gruppe") {
-                    NavigationLink { LocationsView().environmentObject(model) } label: {
-                        Label("Standorte", systemImage: "mappin.and.ellipse")
-                    }
-                    NavigationLink { InstructionsView().environmentObject(model) } label: {
-                        Label("Handlungstexte", systemImage: "text.book.closed")
-                    }
-                }
-
-                Section("Nachbereitung") {
-                    NavigationLink { AlarmHistoryView().environmentObject(model) } label: {
-                        Label("Alarm-Historie", systemImage: "clock.arrow.circlepath")
-                    }
-                    Button {
-                        Task {
-                            do {
-                                let report = try await model.backend.cleanUp(olderThanDays: 90)
-                                cleanupResult = report.summary
-                            } catch {
-                                model.report(error)
-                            }
-                        }
-                    } label: {
-                        Label("Aufräumen (älter als 90 Tage)", systemImage: "trash")
-                    }
-                    if let cleanupResult {
-                        Text(cleanupResult).font(.footnote).foregroundStyle(.secondary)
-                    }
-                } footer: {
-                    Text("Läuft zusätzlich bei jedem Start einer Leitungs-App von "
-                         + "selbst. Alarme, Rückmeldungen und Nachrichten sind "
-                         + "Leistungs- und Verhaltensdaten benannter Personen — sie "
-                         + "bleiben nicht länger liegen als nötig.")
-                }
+                staff
+                group
+                afterwards
             }
             .navigationTitle("Verwaltung")
             .navigationBarTitleDisplayMode(.inline)
@@ -70,6 +27,83 @@ struct AdminView: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Fertig") { dismiss() }
                 }
+            }
+        }
+    }
+
+    // The three sections are separate properties, not one long `List`.
+    //
+    // Not a matter of taste: as one expression the type checker gave up on it
+    // ("unable to type-check this expression in reasonable time"). Every
+    // `NavigationLink` with a trailing `label:` closure multiplies the number
+    // of overloads it has to consider, and a dozen of them in one builder is
+    // past the budget. Splitting gives each piece its own, small problem.
+
+    private var staff: some View {
+        Section("Kollegium") {
+            NavigationLink {
+                InviteCodesView().environmentObject(model)
+            } label: {
+                Label("Beitrittscodes", systemImage: "qrcode")
+            }
+            NavigationLink {
+                MembersView().environmentObject(model)
+            } label: {
+                Label("Mitglieder", systemImage: "person.2")
+            }
+            NavigationLink {
+                DeviceListView().environmentObject(model)
+            } label: {
+                Label("Geräteübersicht", systemImage: "ipad.and.iphone")
+            }
+        }
+    }
+
+    private var group: some View {
+        Section("Gruppe") {
+            NavigationLink {
+                LocationsView().environmentObject(model)
+            } label: {
+                Label("Standorte", systemImage: "mappin.and.ellipse")
+            }
+            NavigationLink {
+                InstructionsView().environmentObject(model)
+            } label: {
+                Label("Handlungstexte", systemImage: "text.book.closed")
+            }
+        }
+    }
+
+    private var afterwards: some View {
+        Section {
+            NavigationLink {
+                AlarmHistoryView().environmentObject(model)
+            } label: {
+                Label("Alarm-Historie", systemImage: "clock.arrow.circlepath")
+            }
+            Button(action: cleanUp) {
+                Label("Aufräumen (älter als 90 Tage)", systemImage: "trash")
+            }
+            if let cleanupResult {
+                Text(cleanupResult).font(.footnote).foregroundStyle(.secondary)
+            }
+        } header: {
+            Text("Nachbereitung")
+        } footer: {
+            Text("Läuft zusätzlich bei jedem Start einer Leitungs-App von "
+                 + "selbst. Alarme, Rückmeldungen und Nachrichten sind "
+                 + "Leistungs- und Verhaltensdaten benannter Personen — sie "
+                 + "bleiben nicht länger liegen als nötig.")
+        }
+    }
+
+    private func cleanUp() {
+        Task {
+            do {
+                let report = try await model.backend.cleanUp(olderThanDays: 90)
+                cleanupResult = report.summary
+            } catch {
+                model.report(error)
             }
         }
     }

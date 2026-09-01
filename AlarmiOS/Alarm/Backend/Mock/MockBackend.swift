@@ -98,51 +98,53 @@ final class MockBackend: AlarmBackend {
                           location: location, triggeredByUserId: userId,
                           triggeredByName: "MÜ",
                           instruction: group.instruction(for: type))
-        lock.lock(); alarms.insert(alarm, at: 0); lock.unlock()
+        lock.around { alarms.insert(alarm, at: 0) }
         publishAlarm()
         return alarm
     }
 
     func clearAlarm(alarmId: String) async throws {
-        lock.lock()
-        if let index = alarms.firstIndex(where: { $0.id == alarmId }) {
+        lock.around {
+            guard let index = alarms.firstIndex(where: { $0.id == alarmId }) else { return }
             alarms[index].status = .cleared
             alarms[index].clearedAt = Date()
             alarms[index].clearedByName = "MÜ"
         }
-        lock.unlock()
         publishAlarm()
     }
 
     func sendAck(alarmId: String, state: AckState, location: String?) async throws {
-        lock.lock()
-        acks.removeAll { $0.alarmId == alarmId && $0.userId == userId }
-        acks.append(Ack(id: UUID().uuidString, alarmId: alarmId, groupId: group.id,
-                        userId: userId, displayName: "MÜ", state: state, location: location))
-        let snapshot = acks.filter { $0.alarmId == alarmId }
-        let sinks = ackWatchers.values.filter { $0.alarmId == alarmId }.map(\.sink)
-        lock.unlock()
+        let (snapshot, sinks) = lock.around { () -> ([Ack], [AsyncStream<[Ack]>.Continuation]) in
+            acks.removeAll { $0.alarmId == alarmId && $0.userId == userId }
+            acks.append(Ack(id: UUID().uuidString, alarmId: alarmId, groupId: group.id,
+                            userId: userId, displayName: "MÜ",
+                            state: state, location: location))
+            return (acks.filter { $0.alarmId == alarmId },
+                    ackWatchers.values.filter { $0.alarmId == alarmId }.map(\.sink))
+        }
         sinks.forEach { $0.yield(snapshot) }
     }
 
     func sendMessage(alarmId: String, text: String) async throws {
-        lock.lock()
-        messages.append(Message(id: UUID().uuidString, alarmId: alarmId, groupId: group.id,
-                                senderUserId: userId, senderName: "MÜ", text: text))
-        let snapshot = messages.filter { $0.alarmId == alarmId }
-        let sinks = messageWatchers.values.filter { $0.alarmId == alarmId }.map(\.sink)
-        lock.unlock()
+        let (snapshot, sinks) = lock.around {
+            () -> ([Message], [AsyncStream<[Message]>.Continuation]) in
+            messages.append(Message(id: UUID().uuidString, alarmId: alarmId,
+                                    groupId: group.id, senderUserId: userId,
+                                    senderName: "MÜ", text: text))
+            return (messages.filter { $0.alarmId == alarmId },
+                    messageWatchers.values.filter { $0.alarmId == alarmId }.map(\.sink))
+        }
         sinks.forEach { $0.yield(snapshot) }
     }
 
     func observeActiveAlarm() -> AsyncStream<Alarm?> {
         AsyncStream { continuation in
             let id = UUID()
-            lock.lock(); alarmWatchers[id] = continuation; lock.unlock()
+            lock.around { alarmWatchers[id] = continuation }
             continuation.yield(activeAlarm())
             continuation.onTermination = { [weak self] _ in
                 guard let self else { return }
-                self.lock.lock(); self.alarmWatchers[id] = nil; self.lock.unlock()
+                self.lock.around { self.alarmWatchers[id] = nil }
             }
         }
     }
@@ -150,14 +152,14 @@ final class MockBackend: AlarmBackend {
     func observeAcks(alarmId: String) -> AsyncStream<[Ack]> {
         AsyncStream { continuation in
             let id = UUID()
-            lock.lock()
-            ackWatchers[id] = (alarmId, continuation)
-            let snapshot = acks.filter { $0.alarmId == alarmId }
-            lock.unlock()
+            let snapshot = lock.around { () -> [Ack] in
+                ackWatchers[id] = (alarmId, continuation)
+                return acks.filter { $0.alarmId == alarmId }
+            }
             continuation.yield(snapshot)
             continuation.onTermination = { [weak self] _ in
                 guard let self else { return }
-                self.lock.lock(); self.ackWatchers[id] = nil; self.lock.unlock()
+                self.lock.around { self.ackWatchers[id] = nil }
             }
         }
     }
@@ -165,14 +167,14 @@ final class MockBackend: AlarmBackend {
     func observeMessages(alarmId: String) -> AsyncStream<[Message]> {
         AsyncStream { continuation in
             let id = UUID()
-            lock.lock()
-            messageWatchers[id] = (alarmId, continuation)
-            let snapshot = messages.filter { $0.alarmId == alarmId }
-            lock.unlock()
+            let snapshot = lock.around { () -> [Message] in
+                messageWatchers[id] = (alarmId, continuation)
+                return messages.filter { $0.alarmId == alarmId }
+            }
             continuation.yield(snapshot)
             continuation.onTermination = { [weak self] _ in
                 guard let self else { return }
-                self.lock.lock(); self.messageWatchers[id] = nil; self.lock.unlock()
+                self.lock.around { self.messageWatchers[id] = nil }
             }
         }
     }
@@ -184,14 +186,14 @@ final class MockBackend: AlarmBackend {
                           triggeredByUserId: userId, triggeredByName: "MÜ",
                           instruction: group.instruction(for: .test),
                           targetUserId: userId)
-        lock.lock(); alarms.insert(alarm, at: 0); lock.unlock()
+        lock.around { alarms.insert(alarm, at: 0) }
         publishAlarm()
     }
 
     func pingAllDevices() async throws {
-        lock.lock()
-        devices = devices.map { var copy = $0; copy.lastSeen = Date(); return copy }
-        lock.unlock()
+        lock.around {
+            devices = devices.map { var copy = $0; copy.lastSeen = Date(); return copy }
+        }
     }
 
     func fetchDeviceStatuses() async throws -> [DeviceStatus] { devices }
@@ -199,14 +201,15 @@ final class MockBackend: AlarmBackend {
 
     func createInviteCode(note: String?) async throws -> InviteCode {
         let code = InviteCode(id: InviteCode.random(), groupId: group.id, note: note)
-        lock.lock(); codes.append(code); lock.unlock()
+        lock.around { codes.append(code) }
         return code
     }
 
     func revokeInviteCode(_ code: String) async throws {
-        lock.lock()
-        if let index = codes.firstIndex(where: { $0.id == code }) { codes[index].revoked = true }
-        lock.unlock()
+        lock.around {
+            guard let index = codes.firstIndex(where: { $0.id == code }) else { return }
+            codes[index].revoked = true
+        }
     }
 
     func fetchInviteCodes() async throws -> [InviteCode] { codes }
@@ -218,7 +221,7 @@ final class MockBackend: AlarmBackend {
     }
 
     func removeMember(memberId: String) async throws {
-        lock.lock(); members.removeAll { $0.id == memberId }; lock.unlock()
+        lock.around { members.removeAll { $0.id == memberId } }
     }
 
     func fetchAlarmHistory(limit: Int) async throws -> [Alarm] { Array(alarms.prefix(limit)) }
@@ -238,16 +241,13 @@ final class MockBackend: AlarmBackend {
     // MARK: - Helpers
 
     private func activeAlarm() -> Alarm? {
-        lock.lock()
-        defer { lock.unlock() }
-        return alarms.first { $0.isActive && ($0.targetUserId == nil || $0.targetUserId == userId) }
+        lock.around {
+            alarms.first { $0.isActive && ($0.targetUserId == nil || $0.targetUserId == userId) }
+        }
     }
 
     private func publishAlarm() {
         let alarm = activeAlarm()
-        lock.lock()
-        let sinks = Array(alarmWatchers.values)
-        lock.unlock()
-        sinks.forEach { $0.yield(alarm) }
+        lock.around { Array(alarmWatchers.values) }.forEach { $0.yield(alarm) }
     }
 }

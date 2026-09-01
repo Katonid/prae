@@ -294,10 +294,10 @@ final class CloudKitBackend: AlarmBackend {
     func observeActiveAlarm() -> AsyncStream<Alarm?> {
         AsyncStream { continuation in
             let id = UUID()
-            lock.lock()
-            alarmWatchers[id] = continuation
-            let known = lastKnownAlarm
-            lock.unlock()
+            let known = lock.around { () -> Alarm? in
+                alarmWatchers[id] = continuation
+                return lastKnownAlarm
+            }
             continuation.yield(known)
             continuation.onTermination = { [weak self] _ in
                 self?.removeWatcher(id)
@@ -309,9 +309,7 @@ final class CloudKitBackend: AlarmBackend {
     func observeAcks(alarmId: String) -> AsyncStream<[Ack]> {
         AsyncStream { continuation in
             let id = UUID()
-            lock.lock()
-            ackWatchers[id] = (alarmId, continuation)
-            lock.unlock()
+            lock.around { ackWatchers[id] = (alarmId, continuation) }
             continuation.onTermination = { [weak self] _ in
                 self?.removeWatcher(id)
             }
@@ -323,9 +321,7 @@ final class CloudKitBackend: AlarmBackend {
     func observeMessages(alarmId: String) -> AsyncStream<[Message]> {
         AsyncStream { continuation in
             let id = UUID()
-            lock.lock()
-            messageWatchers[id] = (alarmId, continuation)
-            lock.unlock()
+            lock.around { messageWatchers[id] = (alarmId, continuation) }
             continuation.onTermination = { [weak self] _ in
                 self?.removeWatcher(id)
             }
@@ -335,14 +331,16 @@ final class CloudKitBackend: AlarmBackend {
     }
 
     private func removeWatcher(_ id: UUID) {
-        lock.lock()
-        alarmWatchers[id] = nil
-        ackWatchers[id] = nil
-        messageWatchers[id] = nil
-        let empty = alarmWatchers.isEmpty && ackWatchers.isEmpty && messageWatchers.isEmpty
-        let task = empty ? pollTask : nil
-        if empty { pollTask = nil }
-        lock.unlock()
+        let task: Task<Void, Never>? = lock.around {
+            alarmWatchers[id] = nil
+            ackWatchers[id] = nil
+            messageWatchers[id] = nil
+            let empty = alarmWatchers.isEmpty && ackWatchers.isEmpty && messageWatchers.isEmpty
+            guard empty else { return nil }
+            let running = pollTask
+            pollTask = nil
+            return running
+        }
         task?.cancel()
     }
 
@@ -353,9 +351,8 @@ final class CloudKitBackend: AlarmBackend {
     /// still and waiting. Thirty seconds otherwise, which is only there to
     /// catch a push that never arrived.
     private func startPolling() {
-        lock.lock()
-        let alreadyRunning = pollTask != nil
-        if !alreadyRunning {
+        lock.around {
+            guard pollTask == nil else { return }
             pollTask = Task { [weak self] in
                 while !Task.isCancelled {
                     await self?.refreshWatchers()
@@ -364,7 +361,6 @@ final class CloudKitBackend: AlarmBackend {
                 }
             }
         }
-        lock.unlock()
     }
 
     /// Poll right now instead of waiting out the interval. Called after every
@@ -386,40 +382,40 @@ final class CloudKitBackend: AlarmBackend {
             // Keep what we had.
         }
 
-        lock.lock()
-        let ackTargets = Set(ackWatchers.values.map(\.alarmId))
-        let messageTargets = Set(messageWatchers.values.map(\.alarmId))
-        lock.unlock()
+        // `around` instead of lock/unlock: see `Locked.swift`. Inside an
+        // `async` function a bare `NSLock.lock()` is a warning today and an
+        // error under Swift 6.
+        let ackTargets = lock.around { Set(ackWatchers.values.map(\.alarmId)) }
+        let messageTargets = lock.around { Set(messageWatchers.values.map(\.alarmId)) }
 
         for alarmId in ackTargets {
             guard let acks = try? await fetchAcks(alarmId: alarmId) else { continue }
-            lock.lock()
-            let sinks = ackWatchers.values.filter { $0.alarmId == alarmId }.map(\.sink)
-            lock.unlock()
-            sinks.forEach { $0.yield(acks) }
+            ackSinks(for: alarmId).forEach { $0.yield(acks) }
         }
         for alarmId in messageTargets {
             guard let messages = try? await fetchMessages(alarmId: alarmId) else { continue }
-            lock.lock()
-            let sinks = messageWatchers.values.filter { $0.alarmId == alarmId }.map(\.sink)
-            lock.unlock()
-            sinks.forEach { $0.yield(messages) }
+            messageSinks(for: alarmId).forEach { $0.yield(messages) }
         }
     }
 
+    private func ackSinks(for alarmId: String) -> [AsyncStream<[Ack]>.Continuation] {
+        lock.around { ackWatchers.values.filter { $0.alarmId == alarmId }.map(\.sink) }
+    }
+
+    private func messageSinks(for alarmId: String) -> [AsyncStream<[Message]>.Continuation] {
+        lock.around { messageWatchers.values.filter { $0.alarmId == alarmId }.map(\.sink) }
+    }
+
     private var hasRunningAlarm: Bool {
-        lock.lock()
-        defer { lock.unlock() }
-        return lastKnownAlarm?.isActive ?? false
+        lock.around { lastKnownAlarm?.isActive ?? false }
     }
 
     private func deliverAlarm(_ alarm: Alarm?) {
-        lock.lock()
-        let changed = alarm != lastKnownAlarm
-        lastKnownAlarm = alarm
-        let sinks = Array(alarmWatchers.values)
-        lock.unlock()
-        guard changed else { return }
+        let sinks: [AsyncStream<Alarm?>.Continuation] = lock.around {
+            guard alarm != lastKnownAlarm else { return [] }
+            lastKnownAlarm = alarm
+            return Array(alarmWatchers.values)
+        }
         sinks.forEach { $0.yield(alarm) }
     }
 
