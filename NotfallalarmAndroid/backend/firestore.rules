@@ -1,0 +1,74 @@
+rules_version = '2';
+
+// Everything is scoped to one group. A member may read what their group produces and
+// write only their own answer; anything that has to be trustworthy - the alarm document
+// itself, the member list, the roles - is written by Cloud Functions with the Admin SDK,
+// which bypasses these rules. So "allow write: if false" below does not mean "nobody",
+// it means "only the backend".
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isMember(groupId) {
+      return signedIn() &&
+        exists(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid));
+    }
+
+    function isAdmin(groupId) {
+      return signedIn() &&
+        request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.adminIds;
+    }
+
+    match /groups/{groupId} {
+      allow get: if isMember(groupId);
+      // No listing: the group id is not a secret, but the list of all schools is.
+      allow list: if false;
+      // Locations, instructions, invite codes and roles are the admin's to change.
+      allow update: if isAdmin(groupId);
+      allow create, delete: if false;
+
+      match /members/{uid} {
+        allow read: if isMember(groupId);
+        // Joining goes through the joinGroup function, which checks the invite code.
+        allow create: if false;
+        // A device keeps its own token, version and permission state up to date.
+        allow update: if request.auth.uid == uid || isAdmin(groupId);
+        // Leaving on your own, or being removed by an admin.
+        allow delete: if request.auth.uid == uid || isAdmin(groupId);
+      }
+
+      match /alarms/{alarmId} {
+        allow read: if isMember(groupId);
+        allow write: if false;
+
+        match /acks/{uid} {
+          allow read: if isMember(groupId);
+          allow write: if isMember(groupId) && request.auth.uid == uid;
+        }
+
+        match /messages/{messageId} {
+          allow read: if isMember(groupId);
+          allow create: if isMember(groupId)
+            && request.resource.data.senderUid == request.auth.uid
+            && request.resource.data.text is string
+            && request.resource.data.text.size() > 0
+            && request.resource.data.text.size() <= 500;
+          allow update, delete: if false;
+        }
+      }
+    }
+
+    match /config/{document} {
+      allow read: if signedIn();
+      allow write: if false;
+    }
+
+    // Anything not named above stays closed.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

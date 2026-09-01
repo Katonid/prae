@@ -1,0 +1,61 @@
+name: Notfallalarm bauen
+
+# Läuft auf einem Linux-Läufer, nicht auf macOS: Android braucht keinen Mac, und
+# die knappen macOS-Läufer bleiben so für die iOS-Apps frei.
+on:
+  push:
+    paths:
+      - 'NotfallalarmAndroid/**'
+      - '.github/workflows/notfallalarm-build.yml'
+  pull_request:
+    paths:
+      - 'NotfallalarmAndroid/**'
+  workflow_dispatch:
+
+jobs:
+  bauen:
+    name: Übersetzen und prüfen
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: NotfallalarmAndroid
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: JDK einrichten
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Gradle einrichten
+        uses: gradle/actions/setup-gradle@v4
+
+      # google-services.json liegt nicht im Repo. Der Bau setzt von selbst die
+      # Platzhalter-Vorlage ein; die App zeigt damit zur Laufzeit einen roten
+      # Kasten, übersetzt aber vollständig.
+      - name: Debug-APK bauen
+        run: ./gradlew assembleDebug --stacktrace
+
+      - name: Tests laufen lassen
+        run: ./gradlew testDebugUnitTest
+
+      - name: Alarmtöne gegenprüfen
+        run: |
+          python3 scripts/alarmtoene.py
+          git diff --exit-code -- app/src/main/res/raw \
+            || (echo "Die erzeugten Alarmtöne weichen vom Stand im Repo ab." && exit 1)
+
+      - name: Fehler und Warnungen zusammenfassen
+        if: always()
+        run: |
+          echo "APK:"; ls -la app/build/outputs/apk/debug/ || true
+
+      - name: Debug-APK sichern
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: notfallalarm-debug-apk
+          path: NotfallalarmAndroid/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: warn
