@@ -431,8 +431,8 @@ final class AppModel: ObservableObject {
     }
 
     /// Der örtliche Tontest — beweist den Ton, nicht die Zustellung.
-    func runTontest() async {
-        await Tontest.starten()
+    func runTontest(mitStandardton: Bool = false) async {
+        await Tontest.starten(mitStandardton: mitStandardton)
     }
 
     /// Spielt die Tondatei unmittelbar ab, an den Mitteilungen vorbei.

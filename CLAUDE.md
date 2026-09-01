@@ -264,6 +264,19 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   gar nicht prüfen. Die Dienst-iPads haben keine Uhr; für den Test gilt es
   trotzdem. Zweite Falle daneben: der Lautlos-Schalter — ohne kritische
   Hinweise bleibt auch eine zeitkritische Meldung stumm.
+- **Klingeltonlautstärke ist NICHT Medienlautstärke** (gefunden 09/2026).
+  Ein Mitteilungston hängt an der Klingeltonlautstärke; die
+  Lautstärketasten regeln die Medien, solange etwas spielt — also auch
+  während der Tonprobe. „Ton direkt abspielen geht, die Mitteilung bleibt
+  stumm" ist damit kein Widerspruch, sondern der Normalfall bei
+  heruntergeregeltem Klingelton. Auslesen lässt sich der Wert nicht (keine
+  öffentliche API), deshalb steht er als erster Punkt in der Anleitung und
+  nicht als Häkchen.
+- **Der Tontest kann auch mit dem Standardton** (ab 1.0.9). Das ist der
+  Vergleich, der die letzte Zweideutigkeit auflöst: Standardton hörbar und
+  Alarmton nicht heißt, iOS mag die Datei als Mitteilungston nicht; beide
+  stumm heißt, es liegt am Gerät. Ohne diesen Vergleich stehen beide
+  Erklärungen nebeneinander und keine lässt sich aus der Ferne ausschließen.
 - **Die Tonprobe spielt an den Mitteilungen vorbei** (`Tonprobe`, ab 1.0.8).
   Sie spielt dieselbe Datei über AVFoundation in der Kategorie `playback` —
   das klingt auch bei stummem Gerät. Damit trennt sich „iOS kann die Datei

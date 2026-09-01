@@ -31,24 +31,45 @@ enum Tontest {
     /// über den Ernstfall.
     static let vorlauf: TimeInterval = 8
 
-    static func starten() async {
+    /// - Parameter mitStandardton: Spielt den System-Mitteilungston statt des
+    ///   eigenen. Damit lässt sich die letzte offene Frage beantworten, wenn
+    ///   die Mitteilung ankommt und stumm bleibt, die Datei sich aber direkt
+    ///   abspielen lässt:
+    ///
+    ///   * Standardton **hörbar**, Alarmton nicht → es liegt doch an der
+    ///     Datei; iOS mag sie als Mitteilungston nicht.
+    ///   * **Beide stumm** → es liegt am Gerät. Dann ist es die
+    ///     Klingeltonlautstärke, der Lautlos-Schalter oder eine getragene
+    ///     Apple Watch, die die Mitteilung abfängt.
+    ///
+    ///   Ohne diesen Vergleich stehen beide Erklärungen nebeneinander, und
+    ///   raten lässt sich das aus der Ferne nicht.
+    static func starten(mitStandardton: Bool = false) async {
         await abbrechen()
 
         let inhalt = UNMutableNotificationContent()
-        inhalt.title = "Tontest"
-        inhalt.body = "Wenn du das hörst, kann dieses iPad laut werden. "
-            + "Die Zustellung von einem anderen Gerät prüft der Selbsttest."
+        inhalt.title = mitStandardton ? "Tontest (Standardton)" : "Tontest"
+        inhalt.body = mitStandardton
+            ? "Das ist der System-Mitteilungston. Hörst du DIESEN, aber nicht "
+            + "den Alarmton, liegt es an der Tondatei."
+            : "Wenn du das hörst, kann dieses iPad laut werden. Die Zustellung "
+            + "von einem anderen Gerät prüft der Zustelltest."
         inhalt.categoryIdentifier = PushAsset.allClearCategory
 
-        #if CRITICAL_ALERTS
-        inhalt.interruptionLevel = .critical
-        inhalt.sound = UNNotificationSound.criticalSoundNamed(
-            UNNotificationSoundName(PushAsset.alarmSound), withAudioVolume: 1.0)
-        #else
-        inhalt.interruptionLevel = .timeSensitive
-        inhalt.sound = UNNotificationSound(named:
-            UNNotificationSoundName(PushAsset.alarmSound))
-        #endif
+        if mitStandardton {
+            inhalt.interruptionLevel = .timeSensitive
+            inhalt.sound = .default
+        } else {
+            #if CRITICAL_ALERTS
+            inhalt.interruptionLevel = .critical
+            inhalt.sound = UNNotificationSound.criticalSoundNamed(
+                UNNotificationSoundName(PushAsset.alarmSound), withAudioVolume: 1.0)
+            #else
+            inhalt.interruptionLevel = .timeSensitive
+            inhalt.sound = UNNotificationSound(named:
+                UNNotificationSoundName(PushAsset.alarmSound))
+            #endif
+        }
 
         let ausloeser = UNTimeIntervalNotificationTrigger(timeInterval: vorlauf,
                                                           repeats: false)
