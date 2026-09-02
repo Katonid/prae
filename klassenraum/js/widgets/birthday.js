@@ -12,6 +12,7 @@ import { getActiveBoard, getState, setActivePage } from '../store.js';
 import {
   FEIERARTEN, feierartById, FANFAREN, ROLLEN, rollenVerteilung, wuenscheZiehen,
   fundusVon, fragenZiehen, einstellungen, alterIm, geburtstagTeile,
+  istHeute, istVorbei,
   spieleFeierklang, stoppeFeierklang, ladeFeierklaenge,
 } from '../geburtstage.js';
 import { zeichneFeier } from '../feierbild.js';
@@ -53,6 +54,19 @@ export default {
     const canvas = h('canvas', { class: 'w-birthday__canvas' });
     const textBox = h('div', { class: 'w-birthday__text' });
     const ritualBox = h('div', { class: 'w-birthday__ritual' });
+    const hinweisUnten = h('div', { class: 'w-birthday__hunten is-hidden' },
+      'Antippen für die Gratulanten');
+
+    /** Die Feier bleibt nach dem Ablauf als Standbild stehen — ihr vollster
+     *  Augenblick, nicht das letzte Bild (da ist alles ausgeblendet). */
+    function maleStandbild() {
+      const state = ctx.widget.state;
+      const art = feierartById(state.feier);
+      passeCanvasAn();
+      const kerzen = alterIm(state.geburtstag, state.jahr) || 5;
+      zeichneFeier(canvas.getContext('2d'), art.id, art.standbild || 0.62,
+        canvas.width, canvas.height, kerzen);
+    }
 
     function stoppeBild() {
       if (rahmen) cancelAnimationFrame(rahmen);
@@ -71,28 +85,39 @@ export default {
     function renderText() {
       const state = ctx.widget.state;
       const laeuft = Boolean(begonnen);
+      // Sobald ein Feierbild im Rahmen steht — laufend oder stehen
+      // geblieben —, rückt die Beschriftung nach oben und macht der Mitte
+      // Platz. Ist eine Ritualtafel offen, trägt sie den Namen selbst in
+      // der Überschrift; die Beschriftung schiene sonst durch und legte
+      // sich quer über die Karten (Tafelbild 1.3.20).
+      const zeigtFeier = laeuft || state.ritual > 0;
+      const ritualOffen = !laeuft && state.ritual > 1;
       clear(textBox);
-      textBox.classList.toggle('is-oben', laeuft);
+      textBox.classList.toggle('is-hidden', ritualOffen);
+      textBox.classList.toggle('is-oben', zeigtFeier);
+      hinweisUnten.classList.toggle('is-hidden', laeuft || state.ritual !== 1);
+      if (ritualOffen) return;
       const alter = alterIm(state.geburtstag, state.jahr);
+      const vorbei = istVorbei(state);
       textBox.append(
         h('div', { class: 'w-birthday__name' }, state.name || 'Herzlichen Glückwunsch'),
         alter ? h('div', { class: 'w-birthday__alter' },
-          state.nachgefeiert ? `wurde ${alter}` : `wird ${alter}`) : null,
-        state.nachgefeiert && tagDesGeburtstags(state)
+          vorbei ? `wurde ${alter}` : `wird ${alter}`) : null,
+        vorbei && tagDesGeburtstags(state)
           ? h('div', { class: 'w-birthday__wann' }, `Geburtstag war am ${tagDesGeburtstags(state)}`)
           : null,
         laeuft
           ? h('div', { class: 'w-birthday__wunsch' }, wuensche[0])
-          : h('div', { class: 'w-birthday__tipp' }, 'Antippen'));
+          : (zeigtFeier ? null : h('div', { class: 'w-birthday__tipp' }, 'Antippen')));
     }
 
     function renderRitual() {
       const state = ctx.widget.state;
       clear(ritualBox);
-      const zeigen = state.ritual > 0 && !begonnen;
+      const zeigen = state.ritual > 1 && !begonnen;
       ritualBox.classList.toggle('is-hidden', !zeigen);
       if (!zeigen) return;
-      if (state.ritual === 1) {
+      if (state.ritual === 2) {
         ritualBox.append(h('div', { class: 'w-birthday__rtitel' }, `Drei für ${state.name || 'dich'}`));
         state.gratulanten.forEach((name, stelle) => {
           const rolle = ROLLEN[state.rollen[stelle]] || ROLLEN.kompliment;
@@ -149,21 +174,18 @@ export default {
         rahmen = requestAnimationFrame(bild);
       }
 
-      // Nach dem Auftritt zurück in den ruhigen Zustand — und die drei
-      // Gratulanten treten auf. Sie brauchen keinen eigenen Tipp: Sie
-      // gehören zur Feier, nicht dahinter.
+      // Nach dem Ablauf bleibt die Feier als Standbild stehen, und darunter
+      // steht „Antippen für die Gratulanten". Bis 1.3.17 (iOS) traten die
+      // drei von selbst auf — in der Klasse ist das falsch herum: Nach der
+      // Torte wird geklatscht und geredet, und mitten hinein schob sich die
+      // nächste Tafel. Wann es weitergeht, entscheidet die Lehrkraft.
       feierEnde = setTimeout(() => {
         begonnen = null;
         stoppeBild();
         el.classList.remove('is-feiernd');
-        canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
-        const gezogen = zieheGratulanten();
-        if (gezogen.namen.length) {
-          ctx.widget.state.gratulanten = gezogen.namen;
-          ctx.widget.state.rollen = gezogen.rollen;
-          ctx.widget.state.ritual = 1;
-          ctx.save();
-        }
+        ctx.widget.state.ritual = 1;
+        ctx.save();
+        maleStandbild();
         renderText();
         renderRitual();
       }, reducedMotion() ? 2500 : dauer + 400);
@@ -184,8 +206,19 @@ export default {
       return { namen, rollen: rollenVerteilung().slice(0, namen.length) };
     }
 
-    /** Ein Tipp führt durch drei Stationen: Feier, Gratulanten, Fragen —
-     *  der vierte fängt von vorn an und zieht alles neu. */
+    /** Station drei: zwei Fragen zur Auswahl — gezogen erst jetzt. */
+    function zeigeFragen() {
+      const state = ctx.widget.state;
+      state.fragen = fragenZiehen(fundusVon(getActiveBoard()));
+      state.ritual = 3;
+      ctx.save();
+      renderText();
+      renderRitual();
+    }
+
+    /** Jede Station braucht ihren eigenen Tipp (Tafelbild 1.3.18):
+     *  0 = noch nichts → Feier, 1 = Feier gelaufen → Gratulanten,
+     *  2 = Gratulanten → Fragen, 3 = Fragen → von vorn, alles neu. */
     function tippe() {
       const state = ctx.widget.state;
       if (state.hinweis) {
@@ -196,13 +229,27 @@ export default {
       }
       if (begonnen) return;
       if (state.ritual === 1) {
-        state.fragen = fragenZiehen(fundusVon(getActiveBoard()));
+        // Gezogen wird erst beim Tipp — sonst stünde die Auslosung
+        // minutenlang fest, während die Klasse noch die Torte ansieht.
+        // Gibt die Liste niemanden her, wird die Station übersprungen.
+        const gezogen = zieheGratulanten();
+        if (!gezogen.namen.length) {
+          zeigeFragen();
+          return;
+        }
+        state.gratulanten = gezogen.namen;
+        state.rollen = gezogen.rollen;
         state.ritual = 2;
         ctx.save();
+        renderText();
         renderRitual();
         return;
       }
-      if (state.ritual >= 2) {
+      if (state.ritual === 2) {
+        zeigeFragen();
+        return;
+      }
+      if (state.ritual >= 3) {
         state.ritual = 0;
         ctx.save();
       }
@@ -214,18 +261,24 @@ export default {
       clear(el);
       el.classList.toggle('w-birthday--hinweis', Boolean(state.hinweis));
       if (state.hinweis) {
+        // Drei Fälle, keiner behauptet etwas Falsches (Tafelbild 1.3.22/1.3.32):
+        // Nachfeier, wirklich heute, oder die stehen gebliebene Seite von gestern.
+        const zeile = state.nachgefeiert
+          ? 'Wir feiern nach'
+          : (istHeute(state) ? 'Heute Geburtstag' : 'Hatte Geburtstag');
         el.appendChild(onTap(h('button', { class: 'w-birthday__hcard', 'data-nodrag': '' },
           h('span', { class: 'w-birthday__hkuchen' }, '🎂'),
           h('span', { class: 'w-birthday__htext' },
-            h('small', null, 'Heute Geburtstag'),
+            h('small', null, zeile),
             h('strong', null, state.name || 'Jemand')),
           h('span', { class: 'w-birthday__hpfeil', html: icon('chevron', 20) })), tippe));
         return;
       }
-      el.append(canvas, textBox, ritualBox);
+      el.append(canvas, textBox, ritualBox, hinweisUnten);
       renderText();
       renderRitual();
       passeCanvasAn();
+      if (!begonnen && state.ritual > 0) maleStandbild();
       ladeFeierklaenge(state.feier, state.fanfare);
     }
 
@@ -234,7 +287,10 @@ export default {
       el,
       refresh: render,
       onTap: tippe,
-      onResize: passeCanvasAn,
+      onResize() {
+        passeCanvasAn();
+        if (!begonnen && ctx.widget.state.ritual > 0 && !ctx.widget.state.hinweis) maleStandbild();
+      },
       destroy() {
         stoppeBild();
         stoppeFeierklang();
@@ -279,9 +335,10 @@ export default {
           ctx.refresh();
         }, 'Zeigt zusätzlich, wann der Geburtstag war.'),
         h('p', { class: 'muted small' },
-          'Ein Tipp auf die Seite führt durch drei Stationen: Feier, drei Gratulanten '
-          + '(Kompliment, Erinnerung, Wunsch), zwei Fragen zum Aussuchen. '
-          + 'Der vierte Tipp fängt von vorn an und zieht alles neu. '
+          'Jede Station braucht ihren eigenen Tipp: erst die Feier (sie bleibt '
+          + 'danach als Bild stehen), dann drei Gratulanten (Kompliment, '
+          + 'Erinnerung, Wunsch), dann zwei Fragen zum Aussuchen. '
+          + 'Der nächste Tipp fängt von vorn an und zieht alles neu. '
           + 'Die Fragenkataloge stehen im Menü unter „Geburtstage".')));
     }
 
