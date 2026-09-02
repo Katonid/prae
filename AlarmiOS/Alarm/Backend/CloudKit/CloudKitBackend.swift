@@ -192,17 +192,17 @@ final class CloudKitBackend: AlarmBackend {
 
         let handle = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
         let memberName = CloudKitMapping.memberRecordName(groupId: group.id, userId: userId)
-        // **Wer beitritt, wird Mitglied. Nie Leitung.**
+        // **Wer beitritt, wird Mitglied. Nie Admin.**
         //
         // Bis 1.0.12 wurde die erste Person einer noch leeren Gruppe
-        // automatisch zur Leitung — gedacht als Notausgang, tatsächlich eine
-        // Rechtevergabe, die niemand angeordnet hat. Leitung wird man auf
-        // genau zwei Wegen: indem man die Schule einrichtet, oder indem eine
-        // Leitung einen dazu ernennt.
+        // automatisch zum Admin — gedacht als Notausgang, tatsächlich eine
+        // Rechtevergabe, die niemand angeordnet hat. Admin wird man auf
+        // genau zwei Wegen: indem man die Schule einrichtet, oder indem ein
+        // Admin einen dazu ernennt.
         //
         // Die eine Ausnahme ist keine: Hat dieses Konto hier schon ein
-        // Mitglied, behält es seine Rolle. Sonst verlöre eine Leitung ihre
-        // Rechte, sobald sie die App neu installiert oder ein zweites iPad
+        // Mitglied, behält es seine Rolle. Sonst verlöre ein Admin seine
+        // Rechte, sobald er die App neu installiert oder ein zweites iPad
         // in Betrieb nimmt.
         let existingMembers = try await members(of: groupID)
         let role = existingMembers.first { $0.userId == userId }?.role ?? .member

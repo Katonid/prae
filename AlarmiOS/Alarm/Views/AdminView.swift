@@ -99,7 +99,7 @@ struct AdminView: View {
                  + "was gerade offen ist — der Ausweg, wenn sich etwas "
                  + "aufgestaut hat.\n\n"
                  + "Aufräumen läuft zusätzlich bei jedem Start einer "
-                 + "Leitungs-App von selbst. Alarme, Rückmeldungen und Nachrichten sind "
+                 + "Admin-App von selbst. Alarme, Rückmeldungen und Nachrichten sind "
                  + "Leistungs- und Verhaltensdaten benannter Personen — sie "
                  + "bleiben nicht länger liegen als nötig.")
         }
@@ -237,7 +237,7 @@ struct MembersView: View {
                         Spacer()
                         VStack(alignment: .trailing, spacing: 6) {
                             Button(member.role == .admin ? "Rechte entziehen"
-                                                         : "Zur Leitung machen") {
+                                                         : "Zum Admin machen") {
                                 setzeRolle(member,
                                            auf: member.role == .admin ? .member : .admin)
                             }
@@ -264,7 +264,7 @@ struct MembersView: View {
             }
             } footer: {
                 Text("Ein Mitglied ist eine APPLE-ID, kein iPad. Wer beitritt, "
-                     + "wird Mitglied; Leitung wird man nur, indem eine Leitung "
+                     + "wird Mitglied; Admin wird man nur, indem ein Admin "
                      + "einen dazu ernennt — es dürfen beliebig viele sein.\n\n"
                      + "Zwei iPads mit derselben Apple-ID sind EIN Mitglied mit "
                      + "EINER Rolle. Die Geräteübersicht zeigt sie einzeln; die "
@@ -278,7 +278,7 @@ struct MembersView: View {
                      + "Gerät keine Meldung zu einem Datensatz zu, den es selbst "
                      + "geschrieben hat. Die Zustellung beweist ein zweites iPad "
                      + "oder gar nichts.\n\n"
-                     + "Mindestens zwei Personen sollten die Leitung haben. Sonst "
+                     + "Mindestens zwei Personen sollten Admin sein. Sonst "
                      + "kann niemand mehr Codes vergeben, Standorte pflegen oder "
                      + "Entwarnung geben, sobald dieses eine iPad zurückgesetzt "
                      + "wird.")

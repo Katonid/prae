@@ -118,7 +118,7 @@ struct TriggerFlowView: View {
                     Divider().padding(.vertical, 8)
                     typeButton(.test)
                 } else {
-                    Text("Einen Probealarm löst die Leitung aus.")
+                    Text("Einen Probealarm löst ein Admin aus.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
@@ -174,7 +174,7 @@ struct TriggerFlowView: View {
             } header: {
                 Text("Ort")
             } footer: {
-                Text("Die Liste pflegt die Leitung unter „Verwaltung“.")
+                Text("Die Liste pflegen die Admins unter „Verwaltung“.")
             }
 
             Section {

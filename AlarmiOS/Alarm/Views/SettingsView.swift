@@ -60,7 +60,7 @@ struct SettingsView: View {
                          + "Klingeltonlautstärke (nicht der Medienlautstärke), an "
                          + "einer getragenen Apple Watch oder am "
                          + "Lautlos-Schalter.\n\nDie Zustellung "
-                         + "beweist nur ein zweites Gerät: Die Leitung schickt "
+                         + "beweist nur ein zweites Gerät: Ein Admin schickt "
                          + "einen Testalarm hierher (Verwaltung → Mitglieder). "
                          + "„Zustellung prüfen“ zeigt, an welcher Stelle die Kette "
                          + "reißt.")
