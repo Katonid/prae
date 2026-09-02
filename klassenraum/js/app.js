@@ -22,6 +22,9 @@ import {
   zoomBy, resetView, onViewChanged, togglePointerDebug, INK_COLORS,
 } from './board.js';
 import { openListsPanel } from './lists.js';
+import {
+  seiteZuruecksetzen, tafelZuruecksetzen, seiteBenutzt, tafelBenutzt,
+} from './zuruecksetzen.js';
 import { initDrawing, setDrawActive, isDrawActive, redraw as redrawDrawing } from './draw.js';
 import { collectUnusedMedia, mediaUsage, formatSize } from './media.js';
 import { APP_VERSION, APP_DATE } from './version.js';
@@ -780,6 +783,55 @@ function openGeburtstagePanel() {
   render();
 }
 
+/**
+ * „Auf unbenutzt zurücksetzen" (aus Tafelbild 1.3.21/1.3.24): Der gezogene
+ * Name, die Sitzordnung, die gelaufene Feier bleiben während der Stunde mit
+ * Absicht stehen — am nächsten Morgen sind sie im Weg. Zwei Umfänge (Seite /
+ * Tafel) und beim Umfang „Tafel" eine dritte, tiefe Stufe: samt Gedächtnis
+ * der Zufallsnamen. Sie ist der Neuanfang eines Halbjahres, nicht der Griff
+ * zwischen zwei Stunden. Zurück geht nur der Gebrauch — Einrichtung, Listen
+ * und Archive bleiben.
+ */
+function openZuruecksetzenPanel() {
+  const board = getActiveBoard();
+  const page = getActivePage();
+  if (!board || !page) return;
+  const container = h('div', { class: 'stack' });
+
+  const done = (anzahl, was) => {
+    if (!anzahl) return;
+    touch({ reason: 'reset' });
+    renderBoard();
+    closePanel();
+    toast(`${was} zurückgesetzt (${anzahl} Element${anzahl === 1 ? '' : 'e'}).`, 'success');
+  };
+
+  container.append(
+    h('p', { class: 'muted small' },
+      'Setzt Elemente auf den Stand vor dem Gebrauch zurück: gezogene Namen, gelaufene Timer, '
+      + 'Haken, Standbilder, Feiern und Sitzordnungen. Einrichtung, Namenslisten und Archive bleiben.'),
+    buttonRow(button('Diese Seite', {
+      icon: 'reset', full: true, primary: true, disabled: !seiteBenutzt(page),
+      title: 'Der Regelfall zwischen zwei Stunden',
+      onClick: () => done(seiteZuruecksetzen(page), 'Seite'),
+    })),
+    buttonRow(button('Ganze Tafel', {
+      icon: 'reset', full: true, disabled: !tafelBenutzt(board),
+      title: 'Der Morgen danach',
+      onClick: () => done(tafelZuruecksetzen(board), 'Tafel'),
+    })),
+    buttonRow(button('Ganze Tafel samt Gedächtnis', {
+      icon: 'trash', full: true, ghost: true, disabled: !tafelBenutzt(board, 'alles'),
+      onClick: () => done(tafelZuruecksetzen(board, 'alles'), 'Tafel'),
+    })),
+    h('p', { class: 'muted small' },
+      'Die dritte Stufe vergisst zusätzlich, wer beim Zufälligen Namen schon dran war und wer '
+      + 'mit wem in einer Gruppe saß — der Neuanfang eines Halbjahres. Danach kann dasselbe '
+      + 'Kind sofort wieder drankommen.'));
+
+  openPanel({ title: 'Auf unbenutzt zurücksetzen', subtitle: `Für „${board.name}"`, content: container });
+}
+
 function openMenuPanel() {
   const container = h('div', { class: 'stack' });
   const state = getState();
@@ -795,7 +847,9 @@ function openMenuPanel() {
       buttonRow(
         button('Geburtstage', { icon: 'sparkle', full: true, onClick: () => { closePanel(); openGeburtstagePanel(); } })),
       buttonRow(
-        button('Teilen & Konto', { icon: 'share', full: true, onClick: () => { closePanel(); openSharePanel(); } }))),
+        button('Teilen & Konto', { icon: 'share', full: true, onClick: () => { closePanel(); openSharePanel(); } })),
+      buttonRow(
+        button('Auf unbenutzt zurücksetzen', { icon: 'reset', full: true, onClick: () => { closePanel(); openZuruecksetzenPanel(); } }))),
     section('Ansicht',
       toggleRow('Unterrichtsansicht (ohne Bearbeiten-Elemente)', getMode() === 'use', (value) => {
         applyMode(value ? 'use' : 'edit');

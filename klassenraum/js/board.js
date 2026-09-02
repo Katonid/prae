@@ -9,6 +9,7 @@ import {
 } from './store.js';
 import { openPanel, closePanel, confirmDialog, field, button, buttonRow, toast } from './ui.js';
 import { transferWidget, copyWidgetToClipboard } from './transfer.js';
+import { istBenutzt, hatGedaechtnis, setzeZurueck } from './zuruecksetzen.js';
 import { applyScheme } from './theme.js';
 
 const instances = new Map();
@@ -1089,7 +1090,10 @@ function renderSelection() {
       html: icon(widget.bare ? 'frameOff' : 'frameOn', 18),
     }),
     h('button', {
-      class: 'tool-button', title: widget.locked ? 'Entsperren' : 'Position sperren',
+      // „Gegen Verschieben sperren", nicht „Position sperren" (Tafelbild
+      // 1.3.26): Bedienen geht weiter — ein gesperrter Timer läuft, ein
+      // gesperrter Zufallsname zieht. Nur verrutschen kann nichts mehr.
+      class: 'tool-button', title: widget.locked ? 'Verschieben wieder erlauben' : 'Gegen Verschieben sperren',
       onclick: () => {
         widget.locked = !widget.locked;
         touch({ reason: 'widget-lock' });
@@ -1141,6 +1145,7 @@ export function openWidgetSettings(widgetId) {
   if (!definition.settings) return;
   const content = h('div', { class: 'stack' },
     definition.settings(instance.ctx),
+    resetFold(widgetId, definition),
     inkFold(widgetId, definition),
     transferFold(widgetId, definition));
   openPanel({
@@ -1158,6 +1163,57 @@ export const INK_COLORS = ['#0f172a', '#ffffff', '#facc15', '#1d4ed8', '#b91c1c'
  * Sie überstimmt die globale Einstellung der Tafel (Menü → Aussehen) — greift
  * also erst, wenn hier bewusst eine Farbe gewählt wurde.
  */
+/**
+ * „Auf unbenutzt zurücksetzen" in den Einstellungen des Elements — dort
+ * sucht man es (Tafelbild 1.3.26: „Wo soll das Zurücksetzen sein? Ich finde
+ * es nicht."). Zurück geht der Gebrauch, nie die Einrichtung und nie die
+ * Archive. Die zweite Tiefe (samt Gedächtnis) gibt es nur beim Zufälligen
+ * Namen — überall sonst wären beide Knöpfe dasselbe.
+ */
+function resetFold(widgetId, definition) {
+  const board = getActiveBoard();
+  const widget = board ? widgetsOf(board).find((entry) => entry.id === widgetId) : null;
+  if (!widget) return null;
+  // Elemente ohne Ablauf (Uhr, Text, Bild …) bekommen den Abschnitt gar
+  // nicht erst — ein Knopf, der nie etwas tut, ist schlimmer als keiner.
+  if (!istBenutzt(widget, 'alles') && !['randomizer', 'timer', 'traffic', 'checklist', 'camera', 'birthday', 'seating'].includes(widget.type)) return null;
+
+  const wrap = h('div', { class: 'stack fold__body' });
+  const renderReset = () => {
+    clear(wrap);
+    const done = (tiefe) => {
+      if (!setzeZurueck(widget, tiefe)) return;
+      touch({ reason: 'widget-reset' });
+      const instance = instances.get(widget.id);
+      if (instance && instance.api && instance.api.refresh) instance.api.refresh();
+      toast('Zurückgesetzt — die Einrichtung bleibt.', 'success');
+      renderReset();
+    };
+    wrap.append(
+      buttonRow(button('Auf unbenutzt zurücksetzen', {
+        icon: 'reset', small: true, disabled: !istBenutzt(widget, 'ergebnis'),
+        onClick: () => done('ergebnis'),
+      })),
+      hatGedaechtnis(widget)
+        ? buttonRow(button('Zurücksetzen samt Gedächtnis', {
+          icon: 'reset', small: true, disabled: !istBenutzt(widget, 'alles'),
+          onClick: () => done('alles'),
+        }))
+        : null,
+      h('p', { class: 'muted small' },
+        widget.type === 'randomizer'
+          ? 'Die erste Stufe nimmt den gezogenen Namen und das Ergebnis zurück — die Tafel '
+            + 'weiß aber weiter, wer schon dran war. Die zweite vergisst auch das; danach kann '
+            + 'dasselbe Kind sofort wieder drankommen. Einrichtung, Listen und der Verlauf bleiben.'
+          : 'Nimmt nur den Gebrauch zurück (Gelaufenes, Gesetztes, Ausgelostes). '
+            + 'Einrichtung und Archive bleiben.'));
+  };
+  renderReset();
+  return h('details', { class: 'fold' },
+    h('summary', { class: 'fold__head' }, 'Zurücksetzen'),
+    wrap);
+}
+
 function inkFold(widgetId, definition) {
   // Das Textfeld hat seine eigene Schrift-Farbwahl in den Einstellungen.
   if (definition.type === 'text') return null;

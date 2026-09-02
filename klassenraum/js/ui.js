@@ -163,6 +163,7 @@ export function button(label, options = {}) {
     title: options.title || '',
     onclick: options.onClick,
   });
+  if (options.disabled) el.disabled = true;
   if (options.icon) el.insertAdjacentHTML('afterbegin', icon(options.icon, options.small ? 16 : 18));
   if (label) el.appendChild(h('span', null, label));
   return el;
