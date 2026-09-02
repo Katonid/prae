@@ -199,6 +199,7 @@ enum CloudKitMapping {
                             groupId: groupId,
                             userId: userId,
                             displayName: record.string(CloudField.displayName) ?? "?",
+                            deviceId: record.string(CloudField.deviceId) ?? "?",
                             deviceModel: record.string(CloudField.deviceModel) ?? "?",
                             appVersion: record.string(CloudField.appVersion) ?? "?",
                             notificationsAuthorized:
@@ -210,8 +211,14 @@ enum CloudKitMapping {
                                 ?? record.modificationDate ?? Date.distantPast)
     }
 
-    static func deviceRecordName(groupId: String, userId: String) -> String {
-        "device-\(groupId)-\(userId)"
+    /// Ein Datensatz je GERÄT, nicht je Konto.
+    ///
+    /// Bis 1.0.12 hieß er nur `device-<Gruppe>-<Nutzer>` — zwei iPads
+    /// derselben Apple-ID überschrieben damit gegenseitig ihre Meldung, und
+    /// die Geräteübersicht zeigte eines, wo zwei standen.
+    static func deviceRecordName(groupId: String, userId: String,
+                                 deviceId: String) -> String {
+        "device-\(groupId)-\(userId)-\(deviceId)"
     }
 
     // MARK: - InviteCode

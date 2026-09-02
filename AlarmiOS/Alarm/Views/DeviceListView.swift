@@ -71,6 +71,16 @@ struct DeviceListView: View {
             }
             Text("\(status.deviceModel) · App \(status.appVersion)")
                 .font(.caption).foregroundStyle(.secondary)
+            if anzahlGeraete(status.userId) > 1 {
+                // Zwei iPads unter einem Kürzel heißt: eine Apple-ID auf
+                // beiden. Sie zählen als EIN Mitglied, und eine Rückmeldung
+                // lässt sich ihnen nicht einzeln zuordnen.
+                Label("\(anzahlGeraete(status.userId)) Geräte unter diesem "
+                      + "Kürzel — dieselbe Apple-ID",
+                      systemImage: "person.2.slash")
+                    .font(.caption2)
+                    .foregroundStyle(.orange)
+            }
             HStack(spacing: 10) {
                 flag("Mitteilungen", status.notificationsAuthorized)
                 flag("Zeitkritisch", status.timeSensitiveAllowed)
@@ -81,6 +91,10 @@ struct DeviceListView: View {
             }
         }
         .padding(.vertical, 4)
+    }
+
+    private func anzahlGeraete(_ userId: String) -> Int {
+        model.deviceStatuses.filter { $0.userId == userId }.count
     }
 
     private func flag(_ title: String, _ value: Bool) -> some View {

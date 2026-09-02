@@ -40,6 +40,7 @@ enum CloudField {
     static let userId = "userId"
     static let displayName = "displayName"
     static let role = "role"
+    static let deviceId = "deviceId"
     static let deviceModel = "deviceModel"
     static let appVersion = "appVersion"
     static let notificationsAuthorized = "notificationsAuthorized"

@@ -338,6 +338,23 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   marked queryable" ist für die Person, die es richten muss, mehr wert als
   ein aufgeräumtes „Verbindung fehlgeschlagen". Kopierbar, weil der Nutzer
   am iPad sitzt.
+- **Wer beitritt, wird MITGLIED — nie Leitung** (ab 1.0.13). Bis dahin
+  wurde die erste Person einer noch leeren Gruppe automatisch zur Leitung.
+  Gedacht als Notausgang, tatsächlich eine Rechtevergabe, die niemand
+  angeordnet hat (gemeldet 09/2026: „das andere Gerät wurde automatisch zu
+  einem Leitungs-Gerät, das will ich gar nicht"). Leitung wird man auf genau
+  zwei Wegen: die Schule einrichten, oder von einer Leitung ernannt werden.
+  Die Zahl der Leitungen ist unbegrenzt. Eine Ausnahme, die keine ist: Hat
+  das Konto hier schon ein Mitglied, behält es seine Rolle — sonst verlöre
+  eine Leitung ihre Rechte beim Neuinstallieren.
+- **Ein Mitglied ist eine APPLE-ID, kein iPad.** Zwei iPads mit derselben
+  Apple-ID sind EIN Mitglied mit EINER Rolle, und eine Rückmeldung lässt
+  sich ihnen nicht einzeln zuordnen (`ack-<Alarm>-<Nutzer>`). Jede Lehrkraft
+  braucht eine eigene Apple-ID. Sichtbar wird der Fall in der
+  Geräteübersicht: `DeviceStatus` heißt seit 1.0.13
+  `device-<Gruppe>-<Nutzer>-<Gerät>` und zählt die Geräte je Kürzel — vorher
+  überschrieben sich zwei iPads gegenseitig, und die Leitung erfuhr nie,
+  dass es zwei sind.
 - **Zwei Leitungen, nicht eine** (`setRole`). Eine einzige Leitung ist ein
   Ausfallpunkt: Wird dieses iPad im Sommer zurückgesetzt, kann niemand mehr
   Codes vergeben oder Entwarnung geben. Der Hinweis steht unter der
