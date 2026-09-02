@@ -37,13 +37,15 @@ enum CloudKitSubscriptions {
             alarmCleared(groupRecordID: groupRecordID),
             selfTest(groupRecordID: groupRecordID, userId: userId),
             pingAll(groupRecordID: groupRecordID),
-            pingMe(groupRecordID: groupRecordID, userId: userId)
+            pingMe(groupRecordID: groupRecordID, userId: userId),
+            messageCreated(groupRecordID: groupRecordID)
         ]
 
         // Subscriptions of a previous app version, whose predicate no longer
         // matches what we send. Left in place they would deliver duplicates.
         let obsolete = known.subtracting(SubscriptionID.all)
-            .filter { $0.hasPrefix("alarm-") || $0.hasPrefix("ping-") || $0.hasPrefix("selftest-") }
+            .filter { $0.hasPrefix("alarm-") || $0.hasPrefix("ping-")
+                || $0.hasPrefix("selftest-") || $0.hasPrefix("message-") }
 
         let missing = wanted.filter { !known.contains($0.subscriptionID) }
         guard !missing.isEmpty || !obsolete.isEmpty else { return }
@@ -114,6 +116,17 @@ enum CloudKitSubscriptions {
                     CloudField.targetUser, userId)
     }
 
+    /// Jede Nachricht der eigenen Gruppe.
+    ///
+    /// Nicht auf den laufenden Alarm eingeschränkt: Ein Prädikat lässt sich
+    /// nachträglich nicht ändern, ein Alarm wechselt aber ständig. Gefiltert
+    /// wird beim Anzeigen, nicht beim Zustellen.
+    static func messagePredicate(groupRecordID: CKRecord.ID) -> NSPredicate {
+        NSPredicate(format: "%K == %@",
+                    CloudField.groupRef,
+                    CKRecord.Reference(recordID: groupRecordID, action: .none))
+    }
+
     /// Was die Diagnose einzeln nachfragt: Kennung, Record-Typ, Prädikat.
     static func proben(groupRecordID: CKRecord.ID,
                        userId: String) -> [(kennung: String, typ: String,
@@ -127,7 +140,9 @@ enum CloudKitSubscriptions {
          (SubscriptionID.pingAll, CloudRecordType.ping,
           pingAllPredicate(groupRecordID: groupRecordID)),
          (SubscriptionID.pingMe, CloudRecordType.ping,
-          pingMePredicate(groupRecordID: groupRecordID, userId: userId))]
+          pingMePredicate(groupRecordID: groupRecordID, userId: userId)),
+         (SubscriptionID.messageCreated, CloudRecordType.message,
+          messagePredicate(groupRecordID: groupRecordID))]
     }
 
     // MARK: - Die Subscriptions
@@ -175,6 +190,30 @@ enum CloudKitSubscriptions {
     static func pingMe(groupRecordID: CKRecord.ID, userId: String) -> CKQuerySubscription {
         ping(SubscriptionID.pingMe,
              pingMePredicate(groupRecordID: groupRecordID, userId: userId))
+    }
+
+    /// Eine Nachricht, die jemand während eines Alarms geschrieben hat.
+    ///
+    /// Bewusst ein eigenes Abonnement mit eigener Meldung: Eine Nachricht ist
+    /// kein zweiter Alarm. Den Ton und die Dringlichkeit setzt die Erweiterung
+    /// (`.active`, Standardton); hier steht nur, was mitreisen muss.
+    ///
+    /// Drei `desiredKeys`, mehr sind nicht erlaubt — und alle drei werden
+    /// gebraucht: `senderName` fürs Kürzel im Titel, `text` für die Nachricht
+    /// selbst, `alarmId` damit ein Tipp im richtigen Alarm landet.
+    static func messageCreated(groupRecordID: CKRecord.ID) -> CKQuerySubscription {
+        let subscription = CKQuerySubscription(
+            recordType: CloudRecordType.message,
+            predicate: messagePredicate(groupRecordID: groupRecordID),
+            subscriptionID: SubscriptionID.messageCreated,
+            options: [.firesOnRecordCreation])
+        let info = CKSubscription.NotificationInfo()
+        info.alertLocalizationKey = PushString.messageFallback
+        info.shouldSendMutableContent = true
+        info.category = PushAsset.messageCategory
+        info.desiredKeys = [CloudField.senderName, CloudField.text, CloudField.alarmId]
+        subscription.notificationInfo = info
+        return subscription
     }
 
     private static func ping(_ kennung: String,

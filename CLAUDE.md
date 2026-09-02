@@ -498,6 +498,24 @@ Auftrag, für Bauten, die niemand angefordert hatte.
     also fünf Sekunden. Und er geht erst auf, NACHDEM jemand geantwortet hat:
     vorher wäre er eine Abkürzung an der einen Handlung vorbei, um die diese
     App gebaut ist. Ein neuer Alarm holt den Bildschirm immer zurück.
+- **Den Gruppenchat gab es seit der ersten Fassung — gefunden hat ihn niemand**
+  (Bitte des Nutzers 09/2026 um genau das, was schon da war). Der Knopf hieß
+  „Nachrichten zum Alarm", stand UNTER der Rückmeldeliste und war auf einem
+  vollen, scrollenden Alarm-Bildschirm unsichtbar. Seit 1.0.21 steht er direkt
+  unter Rückmeldung und Notruf, heißt „Nachricht an das Kollegium", ist gefüllt
+  gezeichnet und zählt ungelesene mit. Dieselbe Lehre wie beim Zurücksetzen in
+  Tafelbild: **Ein Knopf, den niemand findet, ist kein Knopf** — und eine Bitte
+  um etwas Vorhandenes ist ein Befund über die Oberfläche, keine Verwechslung.
+- **Nachrichten kommen jetzt auch an, wenn die App hinten liegt**
+  (`message-created-v1`, ab 1.0.21). Vorher holte sie nur der Nachfasslauf, und
+  der läuft nur, solange die App vorn ist: Wer das iPad weggelegt hatte, erfuhr
+  nichts. Das Abonnement ist bewusst ein eigenes und bewusst leiser — `.active`
+  statt `.timeSensitive`, Standardton statt Alarmton, KEIN `collapseID` (jede
+  Nachricht ist eine eigene und darf die vorherige nicht ersetzen; gruppiert
+  wird über `threadIdentifier`). Und es holt den Alarm-Bildschirm NICHT zurück:
+  Wer ihn zur Seite gelegt hat, hat das gemeint. Die drei `desiredKeys` sind
+  `senderName`, `text`, `alarmId` — Letzteres als NAME, weil eine Referenz im
+  Push als Wörterbuch ankommt und gegen die Dreiergrenze zählt.
 - **Eine Rückmeldung beendet KEINEN Alarm** — das tut nur die Entwarnung.
   „Gesehen" heißt „ich weiß Bescheid", nicht „es ist vorbei". Genau eine
   Ausnahme: der gezielte Probealarm (Zustelltest). Der räumt sich mit der

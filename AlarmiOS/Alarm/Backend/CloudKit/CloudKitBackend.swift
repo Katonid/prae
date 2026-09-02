@@ -346,6 +346,11 @@ final class CloudKitBackend: AlarmBackend {
         record[CloudField.senderUserId] = userId
         record[CloudField.senderName] = store.displayName ?? "?"
         record[CloudField.text] = String(trimmed.prefix(500))
+        // Der Alarm zusätzlich als NAME, nicht nur als Referenz: `desiredKeys`
+        // schickt eine Referenz als Wörterbuch mit, und es sind ohnehin nur
+        // drei Felder erlaubt. Ohne ihn wüsste ein Tipp auf die Meldung nicht,
+        // zu welchem Alarm sie gehört.
+        record[CloudField.alarmId] = alarmId
         record.setDate(Date(), forKey: CloudField.createdAt)
         do {
             _ = try await database.save(record)
@@ -631,6 +636,7 @@ final class CloudKitBackend: AlarmBackend {
         let message = CKRecord(recordType: CloudRecordType.message)
         message[CloudField.alarmRef] = alarmRef
         message[CloudField.groupRef] = reference
+        message[CloudField.alarmId] = alarm.recordID.recordName
         message[CloudField.senderUserId] = "schema"
         message[CloudField.senderName] = "Schema"
         message[CloudField.text] = "Schema"
@@ -1131,7 +1137,7 @@ final class CloudKitBackend: AlarmBackend {
             // The app model answers a ping by writing a fresh DeviceStatus;
             // nothing to fetch here.
             break
-        case .alarm, .allClear, .selfTest:
+        case .alarm, .allClear, .selfTest, .message:
             await refreshWatchers()
         }
     }

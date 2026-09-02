@@ -56,6 +56,15 @@ public enum PushPayloadParser {
             return .failure(.malformed("Feld „event\u{201C} ist kein Text"))
         }
 
+        if name == PushEventName.message {
+            return .success(.message(MessagePush(
+                messageId: text(info[PushKey.messageId]),
+                alarmId: text(info[PushKey.alarmId]),
+                groupId: text(info[PushKey.groupId]),
+                senderName: text(info[PushKey.senderName]),
+                text: text(info[PushKey.text]))))
+        }
+
         if name == PushEventName.ping {
             return .success(.ping(PingPush(pingId: info[PushKey.pingId] as? String,
                                            groupId: info[PushKey.groupId] as? String,
@@ -106,6 +115,15 @@ public enum PushPayloadParser {
         let subscription = query["sid"] as? String
         let fields = (query["af"] as? [String: Any]) ?? [:]
         let recordName = query["rid"] as? String
+
+        if subscription == SubscriptionID.messageCreated {
+            return .success(.message(MessagePush(
+                messageId: recordName,
+                alarmId: text(fields[CloudFieldName.alarmId]),
+                groupId: reference(fields[CloudFieldName.groupRef]),
+                senderName: text(fields[CloudFieldName.senderName]),
+                text: text(fields[CloudFieldName.text]))))
+        }
 
         if SubscriptionID.istPing(subscription) {
             return .success(.ping(PingPush(pingId: recordName,
@@ -176,6 +194,14 @@ public enum PushPayloadParser {
         case .selfTest(let push):
             info[PushKey.event] = PushEventName.selfTest
             return merge(push, into: info)
+        case .message(let push):
+            info[PushKey.event] = PushEventName.message
+            info[PushKey.messageId] = push.messageId
+            info[PushKey.alarmId] = push.alarmId
+            info[PushKey.groupId] = push.groupId
+            info[PushKey.senderName] = push.senderName
+            info[PushKey.text] = push.text
+            return info
         }
     }
 
@@ -267,4 +293,13 @@ public enum CloudFieldName {
     public static let targetUser = "targetUser"
     public static let clearedByName = "clearedByName"
     public static let clearedAt = "clearedAt"
+    /// Der Alarm als NAME, nicht als Referenz.
+    ///
+    /// Der Alarm-Datensatz trägt ihn für `collapseIDKey`; eine Nachricht trägt
+    /// ihn, damit ein Tipp auf die Meldung im richtigen Alarm landet — eine
+    /// Referenz kommt im Push als Wörterbuch an und zählt zudem gegen die drei
+    /// erlaubten Felder.
+    public static let alarmId = "alarmId"
+    public static let senderName = "senderName"
+    public static let text = "text"
 }

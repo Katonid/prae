@@ -26,6 +26,9 @@ public enum PushKey {
     public static let groupId = "groupId"
     public static let targetUserId = "targetUserId"
     public static let pingId = "pingId"
+    public static let messageId = "messageId"
+    public static let senderName = "senderName"
+    public static let text = "text"
     /// Set by the notification service extension once it has rewritten a
     /// CloudKit payload into the neutral format, so the app never has to look
     /// at `ck` again.
@@ -40,6 +43,7 @@ public enum PushEventName {
     public static let allClear = "allClear"
     public static let ping = "ping"
     public static let selfTest = "selfTest"
+    public static let message = "message"
 }
 
 /// Identifiers of the CloudKit subscriptions.
@@ -63,7 +67,17 @@ public enum SubscriptionID {
     public static let pingAll = "ping-all-v2"
     public static let pingMe = "ping-me-v2"
 
-    public static let all = [alarmCreated, alarmCleared, selfTest, pingAll, pingMe]
+    /// Nachrichten während eines Alarms (ab 1.0.21).
+    ///
+    /// Ein eigenes Abonnement, weil eine Nachricht etwas anderes ist als ein
+    /// Alarm: leiser Ton, `.active` statt `.timeSensitive`, und sie holt den
+    /// Alarm-Bildschirm nicht zurück. Ohne dieses Abonnement kamen Nachrichten
+    /// nur an, solange die App vorn war und der Nachfasslauf sie einsammelte —
+    /// wer das iPad weggelegt hatte, erfuhr nichts.
+    public static let messageCreated = "message-created-v1"
+
+    public static let all = [alarmCreated, alarmCleared, selfTest,
+                             pingAll, pingMe, messageCreated]
 
     /// Ob eine Kennung zu einem Ping gehört — egal zu welchem der beiden.
     public static func istPing(_ kennung: String?) -> Bool {
@@ -76,6 +90,7 @@ public enum SubscriptionID {
 public enum PushAsset {
     public static let alarmCategory = "ALARM"
     public static let allClearCategory = "ALLCLEAR"
+    public static let messageCategory = "MESSAGE"
     public static let alarmSound = "alarm.wav"
     public static let allClearSound = "allclear.wav"
     /// Notifications older than this are no longer interruptive; see
@@ -104,4 +119,7 @@ public enum PushString {
     public static let staleSuffix = "push.stale.suffix"
     public static let unknownPerson = "push.unknown.person"
     public static let unknownLocation = "push.unknown.location"
+    public static let messageFallback = "push.message.fallback"
+    public static let messageTitleFormat = "push.message.title"     // "Nachricht von %@"
+    public static let messageTitlePlain = "push.message.title.plain"
 }

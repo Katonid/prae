@@ -41,7 +41,7 @@ selbstgeschriebener Sender gleichermaßen einigen.
 
 | Schlüssel | Pflicht | Werte |
 |---|---|---|
-| `event` | ja | `alarm`, `allClear`, `ping`, `selfTest` |
+| `event` | ja | `alarm`, `allClear`, `ping`, `selfTest`, `message` |
 | `alarmId` | ja, außer bei `ping` | Kennung des Alarms, stabil über alle Pushes desselben Alarms |
 | `type` | ja, außer bei `ping` | `amok`, `fire`, `medical`, `test` |
 | `status` | nein | `active`, `cleared` |
@@ -53,6 +53,9 @@ selbstgeschriebener Sender gleichermaßen einigen.
 | `groupId` | nein | Kennung der Gruppe |
 | `targetUserId` | nein | gesetzt = nur dieses Gerät ist gemeint |
 | `pingId` | nein | nur bei `ping` |
+| `messageId` | nein | nur bei `message` |
+| `senderName` | nur bei `message` | Kürzel der schreibenden Person |
+| `text` | nur bei `message` | die Nachricht selbst, höchstens 500 Zeichen |
 
 ### Warum `clearedByName` ein eigenes Feld ist
 
@@ -144,6 +147,7 @@ stünde:
 | `alarm-created-v2`, `selftest-created-v2` | `type`, `location`, `triggeredByName` |
 | `alarm-cleared-v2` | `type`, `clearedByName` |
 | `ping-all-v2`, `ping-me-v2` | keine |
+| `message-created-v1` | `senderName`, `text`, `alarmId` |
 
 Der Datensatzname (`rid`, und damit die `alarmId`) reist ohnehin mit.
 `alertLocalizationArgs` nennt ebenfalls Record-Felder und bleibt deshalb
@@ -162,6 +166,24 @@ greift die Altersprüfung wieder.
 Die Erweiterung schreibt dieses Paket ins neutrale Format um
 (`PushPayloadParser.normalized`) und setzt `normalized: true`. Die App
 bekommt danach nie wieder ein `ck` zu sehen.
+
+## Die Nachricht ist kein Alarm
+
+`message` reist als eigenes Ereignis und wird bewusst anders behandelt:
+
+* **`.active` statt `.timeSensitive`**, Standardton statt Alarmton. Das Gerät
+  ist wegen des Alarms schon einmal laut geworden; eine Nachricht soll gehört
+  werden, aber sie ist kein zweiter Alarm.
+* **Kein `collapseID`.** Beim Alarm ist Zusammenfassen richtig — dieselbe Lage,
+  mehrfach zugestellt. Bei Nachrichten wäre es falsch: Jede ist eine eigene und
+  darf die vorherige nicht ersetzen. Zusammengehalten werden sie über
+  `threadIdentifier` (die Alarmkennung), das gruppiert ohne zu überschreiben.
+* **Sie holt den Alarm-Bildschirm nicht zurück.** Wer ihn zur Seite gelegt hat,
+  hat das gemeint; eine Nachricht ist kein Grund, ihm den Bildschirm wieder
+  vor die Nase zu setzen.
+* **`alarmId` reist als NAME mit, nicht als Referenz.** Eine CloudKit-Referenz
+  kommt im Push als Wörterbuch an und zählt gegen die drei erlaubten Felder.
+  Ohne sie wüsste ein Tipp auf die Meldung nicht, zu welchem Alarm sie gehört.
 
 ## Was ein neuer Sender liefern muss
 

@@ -37,6 +37,15 @@
 "push.unknown.person" = "unbekannt";
 "push.unknown.location" = "ohne Ortsangabe";
 
+/* --- Nachrichten während eines Alarms ------------------------------------
+
+   Der Rückfalltext steht ohne Platzhalter da, aus demselben Grund wie beim
+   Alarm: Argumente eines APNs-Rückfalltextes sind Record-Felder, und die drei
+   erlaubten gehören der Erweiterung. */
+"push.message.fallback" = "Neue Nachricht zum Alarm";
+"push.message.title" = "Nachricht von %@";
+"push.message.title.plain" = "Neue Nachricht";
+
 /* --- Alarmarten ---------------------------------------------------------- */
 "alarm.type.amok.title" = "AMOKALARM";
 "alarm.type.amok.short" = "Amok";
