@@ -14,13 +14,18 @@ import { noiseBurst } from './sfx.js';
 
 /* ---------- Feierarten und Fanfaren ---------- */
 
+// `standbild`: Bei welchem Fortschritt die Feier nach dem Ablauf stehen
+// bleibt. NICHT das letzte Bild — zum Schluss blendet fast alles aus, die
+// Kerzen sind gelöscht und das Konfetti liegt am Boden. Gehalten wird der
+// vollste Augenblick, je Art ein eigener Wert (bei der Torte vor 0,58,
+// sonst raucht es nur). Werte aus der Tafelbild-App (1.3.20).
 export const FEIERARTEN = [
-  { id: 'geschenk', label: 'Geschenk', dauer: 6.5 },
-  { id: 'rakete', label: 'Rakete', dauer: 6.0 },
-  { id: 'ballons', label: 'Luftballons', dauer: 9.0 },
-  { id: 'feuerwerk', label: 'Feuerwerk', dauer: 7.5 },
-  { id: 'torte', label: 'Torte', dauer: 14.5 },
-  { id: 'konfetti', label: 'Konfetti', dauer: 6.0 },
+  { id: 'geschenk', label: 'Geschenk', dauer: 6.5, standbild: 0.62 },
+  { id: 'rakete', label: 'Rakete', dauer: 6.0, standbild: 0.66 },
+  { id: 'ballons', label: 'Luftballons', dauer: 9.0, standbild: 0.74 },
+  { id: 'feuerwerk', label: 'Feuerwerk', dauer: 7.5, standbild: 0.72 },
+  { id: 'torte', label: 'Torte', dauer: 14.5, standbild: 0.52 },
+  { id: 'konfetti', label: 'Konfetti', dauer: 6.0, standbild: 0.72 },
 ];
 
 export function feierartById(id) {
@@ -71,7 +76,9 @@ export const GLUECKSAETZE = [
   'Herzlichen Glückwunsch!',
   'Alles Gute zum Geburtstag!',
   'Hoch sollst du leben!',
-  'Ein wunderschöner Tag für dich!',
+  // „Ein wunderschöner Tag für dich!" war ein Satzfragment von einer
+  // Grußkarte („Damit kann ich nicht viel anfangen", Tafelbild 1.3.20).
+  'Heute ist dein Tag!',
   'Wir freuen uns mit dir!',
   'Auf ein tolles neues Jahr!',
   'Feier schön!',
@@ -94,7 +101,10 @@ export const ROLLEN = {
   },
   erinnerung: {
     titel: 'Erinnerung', farbe: '#38bdf8', zeichen: '📷',
-    auftrag: 'Erzähl von etwas Schönem, das ihr zusammen erlebt habt.',
+    // Nicht „etwas Schönes … erlebt": Das stellt zwei Hürden auf einmal auf
+    // (es muss etwas Gemeinsames geben, und es muss schön gewesen sein).
+    // Zusammen GEMACHT hat man in einer Klasse immer etwas (Tafelbild 1.3.17).
+    auftrag: 'Erzähl von etwas, das ihr zusammen gemacht habt.',
   },
   wunsch: {
     titel: 'Wunsch', farbe: '#c084fc', zeichen: '✨',
@@ -355,6 +365,23 @@ export function feiertAm(geburtstag, datum = new Date()) {
   return Boolean(teile && teile.monat === datum.getMonth() + 1 && teile.tag === datum.getDate());
 }
 
+/**
+ * Meint eine Geburtstagsseite wirklich HEUTE? Der Wortlaut auf Kärtchen
+ * und Seite hängt daran, WELCHEN Tag die Seite meint — nicht daran, wie
+ * sie entstanden ist. Eine Seite entsteht am Geburtstag und bleibt danach
+ * stehen; nur der Satz darauf muss mit dem Datum mitgehen (Tafelbild 1.3.32).
+ */
+export function istHeute(state, heute = new Date()) {
+  if (!feiertAm(state.geburtstag, heute)) return false;
+  return !state.jahr || state.jahr === heute.getFullYear();
+}
+
+/** Liegt der gefeierte Tag hinter uns — ausdrücklich nachgefeiert oder
+ *  einfach, weil die Seite von gestern stehen geblieben ist? */
+export function istVorbei(state, heute = new Date()) {
+  return Boolean(state.nachgefeiert) || !istHeute(state, heute);
+}
+
 /** Wie alt das Kind im genannten Jahr wird. */
 export function alterIm(geburtstag, jahr) {
   const teile = geburtstagTeile(geburtstag);
@@ -496,6 +523,21 @@ export function pruefeGeburtstage(heute = new Date()) {
   let etwasGetan = false;
 
   for (const board of state.boards) {
+    // Schon stehende Hinweiskärtchen ausbessern: Was gilt, weiß die
+    // zugehörige Feierseite — ohne diesen Schritt behauptete ein Kärtchen
+    // von vor der Nachfeier weiter den falschen Stand (Tafelbild 1.3.22).
+    for (const hinweis of alleWidgets(board)) {
+      if (hinweis.type !== 'birthday' || !(hinweis.state || {}).hinweis) continue;
+      const seite = alleWidgets(board).find((w) => w.type === 'birthday'
+        && !(w.state || {}).hinweis && (w.state || {}).name === hinweis.state.name
+        && (w.state || {}).jahr === hinweis.state.jahr);
+      if (seite && Boolean(seite.state.nachgefeiert) !== Boolean(hinweis.state.nachgefeiert)) {
+        hinweis.state.nachgefeiert = Boolean(seite.state.nachgefeiert);
+        touchBoard(board.id, { reason: 'geburtstag' });
+        etwasGetan = true;
+      }
+    }
+
     const regel = einstellungen(board.id);
     if (!regel.enabled) continue;
     const liste = state.lists.find((entry) => entry.id === regel.listId);
