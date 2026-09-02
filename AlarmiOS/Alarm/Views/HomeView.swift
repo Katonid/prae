@@ -10,9 +10,9 @@ import SwiftUI
 struct HomeView: View {
 
     @EnvironmentObject private var model: AppModel
-    @State private var showsTrigger = false
-    @State private var showsSettings = false
-    @State private var showsAdmin = false
+    // Welches Blatt offen ist, weiß das Modell und nicht diese Ansicht: Im
+    // Alarmfall muss es jemand anderes zumachen können. Ein offenes Blatt und
+    // der Alarm-Bildschirm sind beide modal, und iOS zeigt davon nur eines.
 
     var body: some View {
         NavigationStack {
@@ -34,7 +34,7 @@ struct HomeView: View {
                 ToolbarItem(placement: .navigationBarLeading) {
                     if model.isAdmin {
                         Button {
-                            showsAdmin = true
+                            model.offenesBlatt = .verwaltung
                         } label: {
                             Label("Verwaltung", systemImage: "person.2.badge.gearshape")
                         }
@@ -42,15 +42,19 @@ struct HomeView: View {
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button {
-                        showsSettings = true
+                        model.offenesBlatt = .einstellungen
                     } label: {
                         Label("Einstellungen", systemImage: "gearshape")
                     }
                 }
             }
-            .sheet(isPresented: $showsTrigger) { TriggerFlowView() .environmentObject(model) }
-            .sheet(isPresented: $showsSettings) { SettingsView().environmentObject(model) }
-            .sheet(isPresented: $showsAdmin) { AdminView().environmentObject(model) }
+            .sheet(item: $model.offenesBlatt) { blatt in
+                switch blatt {
+                case .ausloesen: TriggerFlowView().environmentObject(model)
+                case .einstellungen: SettingsView().environmentObject(model)
+                case .verwaltung: AdminView().environmentObject(model)
+                }
+            }
         }
     }
 
@@ -61,7 +65,7 @@ struct HomeView: View {
     /// red appears one tap later, on the alarm type itself.
     private var triggerButton: some View {
         Button {
-            showsTrigger = true
+            model.offenesBlatt = .ausloesen
         } label: {
             VStack(spacing: 14) {
                 Image(systemName: "bell.and.waves.left.and.right.fill")
@@ -84,7 +88,7 @@ struct HomeView: View {
 
     private func runningAlarm(_ alarm: Alarm) -> some View {
         Button {
-            model.showsAlarmScreen = true
+            model.zeigeAlarmBildschirm(fuer: alarm.id)
         } label: {
             HStack(spacing: 14) {
                 Image(systemName: alarm.type.symbol).font(.title)
@@ -148,7 +152,7 @@ struct HomeView: View {
             ForEach(model.blockingItems) { item in
                 Text("• " + item.title).font(.subheadline)
             }
-            Button("Prüfliste öffnen") { showsSettings = true }
+            Button("Prüfliste öffnen") { model.offenesBlatt = .einstellungen }
                 .buttonStyle(.borderedProminent)
                 .padding(.top, 4)
         }
