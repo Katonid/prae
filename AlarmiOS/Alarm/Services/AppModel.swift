@@ -357,7 +357,13 @@ final class AppModel: ObservableObject {
         offenesBlatt = nil
         Task { @MainActor [weak self] in
             try? await Task.sleep(nanoseconds: 300_000_000)
-            self?.showsAlarmScreen = true
+            guard let self else { return }
+            // In diesen 300 ms kann die Entwarnung eingetroffen sein. Ohne
+            // diese Prüfung ginge danach ein LEERER Vollbildschirm auf — der
+            // Inhalt hängt an `activeAlarm`, und den Deckel schließt dann
+            // nichts mehr. Kein Absturz, aber von außen nicht zu unterscheiden.
+            guard self.activeAlarm?.isActive == true else { return }
+            self.showsAlarmScreen = true
         }
     }
 

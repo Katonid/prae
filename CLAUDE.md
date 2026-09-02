@@ -416,6 +416,21 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   Sekunden bei laufendem Alarm, dreißig sonst. Und: **Nur eine Abfrage,
   die GELUNGEN ist und nichts fand, räumt den Alarm-Bildschirm.** Eine
   abgerissene Verbindung darf nie wie eine Entwarnung aussehen.
+- **Was ein Hintergrundereignis beendet, gehört auf den HAUPTFADEN**
+  (`BackgroundRefresh`, behoben in 1.0.20). `BGTask.setTaskCompleted` und der
+  Rückruf von `didReceiveRemoteNotification` schließen für iOS ein
+  Hintergrundereignis ab; UIKit schreibt daraufhin den
+  Wiederherstellungsstand fort und macht ein Bildschirmfoto. Beides prüft den
+  Hauptfaden — und bricht sonst ab: `SIGABRT` aus
+  `_performBlockAfterCATransactionCommitSynchronizes:`. Ein nacktes `Task { }`
+  in einem nicht isolierten Rückruf erbt KEINEN Actor und landet im
+  Nebenläufigkeits-Pool; im Absturzprotokoll steht dann
+  `com.apple.root.user-initiated-qos.cooperative` statt `com.apple.main-thread`
+  (gemeldet 09/2026). Also: `using: .main` beim Anmelden, `Task { @MainActor in }`,
+  und ein Wächter, der genau EINMAL fertigmeldet — ein zweites
+  `setTaskCompleted` quittiert iOS ebenfalls mit einem Abbruch. Der Absturz
+  sah nach dem Alarm-Bildschirm aus und kam von der Auffrischung; die Zeile
+  mit der Warteschlange im Protokoll ist die, die es entscheidet.
 - **`NSLock.lock()` ist `noasync`** — in einer async-Funktion heute eine
   Warnung, unter Swift 6 ein Fehler. Gesperrt wird deshalb ausschließlich
   über `NSLock.around` (`Backend/Locked.swift`), einen synchronen
