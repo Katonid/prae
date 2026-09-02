@@ -37,7 +37,7 @@ Bis zur Bewilligung gilt: **Lautlos-Schalter auf den Dienst-iPads auf laut.**
 
 | Feld | Wert |
 |---|---|
-| App Name | Schulalarm |
+| App Name | Schulalarm (im Store: `Schulalarm - Der Warnmelder`) |
 | Bundle ID | `de.dboschule.alarm` |
 | Team ID | `F4989GSTWS` |
 | Distribution | Custom App über Apple School Manager, nicht im öffentlichen App Store |

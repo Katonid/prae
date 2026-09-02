@@ -503,9 +503,9 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   in use"). Xcode schlägt dort den Anzeigenamen vor, und `Schulalarm` ist
   vergeben — App-Namen sind bei Apple weltweit eindeutig, **auch für Custom
   Apps**, die nie im öffentlichen Laden auftauchen. Derselbe Fehler wie bei
-  Anstoß, dieselbe Lösung: freier Store-Name mit der Schule darin (z. B.
-  „Schulalarm DBO-Schule"), Eintrag von Hand, dann lädt Distribute über die
-  Bundle-Id hinein. **Store-Name und Homescreen-Name sind getrennte Felder**
+  Anstoß, dieselbe Lösung: freier Store-Name, Eintrag von Hand, dann lädt
+  Distribute über die Bundle-Id hinein. Vergeben ist seit 09/2026
+  **„Schulalarm - Der Warnmelder"** (Ansage des Nutzers). **Store-Name und Homescreen-Name sind getrennte Felder**
   und dürfen auseinandergehen; `INFOPLIST_KEY_CFBundleDisplayName` bleibt
   „Schulalarm", Ordner, Ziel, Bundle-Id und iCloud-Container bleiben ebenfalls.
   Das Archiv muss dafür nicht neu gebaut werden.

@@ -18,9 +18,9 @@ Namen. Steht der Eintrag, lädt „Distribute App" über die Bundle-Id in ihn
 hinein und fragt nicht mehr nach einem Namen. Der fertige Archiv-Eintrag muss
 dafür **nicht** neu gebaut werden.
 
-* **Name im Store:** ein freier Name mit der Schule darin, z. B.
-  `Schulalarm DBO-Schule` (21 Zeichen, Grenze 30). Ob einer frei ist, sagt
-  erst das Feld in App Store Connect — nicht raten, eintippen.
+* **Name im Store:** `Schulalarm - Der Warnmelder` (27 Zeichen, Grenze 30) —
+  vergeben 09/2026, nachdem `Schulalarm` allein abgelehnt wurde. Ob ein Name
+  frei ist, sagt erst das Feld in App Store Connect — nicht raten, eintippen.
 * **Untertitel:** `Alarm für das Kollegium` (23 Zeichen, Grenze 30)
 * **Bundle-ID:** `de.dboschule.alarm` (aus der Liste wählen)
 * **Primärsprache:** Deutsch
