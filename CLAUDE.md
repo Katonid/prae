@@ -322,6 +322,26 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   Abonnement entstanden war. Dasselbe Muster wie bei `partialErrorsByItemID`,
   eine Ebene höher: Wo CloudKit ein Ergebnis je Element zurückgibt, ist das
   Ergebnis die Fehlermeldung.
+- **„attempting to create a subscription in a production container"** ist ein
+  Fehler auf APPLES Seite, nicht in der App (FB22867235, getroffen 09/2026 beim
+  ersten TestFlight-Bau). Ein Abonnement, das in Development entsteht, wird in
+  Production abgewiesen — obwohl Record-Typen und Indizes dort längst stehen und
+  alle Probeabfragen grün sind. Abhilfe: in der CloudKit-Konsole „Deploy Schema
+  Changes to Production", **auch wenn die Oberfläche nichts zu übertragen
+  anzeigt**. Fällig nach jeder Prädikatsänderung, denn die vergibt neue
+  Kennungen (`-v2`, `-v3`), und das sind für Production neue Abonnements. Der
+  Satz steht seit 1.0.16 als Klartexthinweis unter dem Rohtext
+  (`CloudKitFehler.hinweis(zu:)`) — der Rohtext selbst wird nie ersetzt, er ist
+  die Spur.
+- **Development und Production trennen auch die DATEN, nicht nur die Indizes.**
+  Über Xcode installiert läuft die App gegen Development, über TestFlight gegen
+  Production. Eine über Xcode eingerichtete Schule gibt es in der
+  TestFlight-Fassung nicht — die App merkt sich Gruppe und Rolle aber ÖRTLICH
+  und übersteht damit die Neuinstallation: Sie sieht eingerichtet aus, während
+  in Production nichts steht. Prüfstein ist die Mitgliederliste. Deshalb nennt
+  die Diagnose seit 1.0.16 als zweite Zeile die vermutete Umgebung
+  (`umgebungsvermutung` — geraten am Beleg im Bündel, denn `CKContainer` gibt
+  sie nicht her).
 - **Teilfehler auspacken.** `modifySubscriptions` meldet ein Scheitern als
   EINEN Fehler mit `partialErrorsByItemID` darin. Ohne Auspacken liest man
   „Some items failed" und weiß nichts.

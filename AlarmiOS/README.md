@@ -124,6 +124,44 @@ queryable" — dann fehlen die Indizes; siehe „CloudKit einrichten" weiter
 unten. Die App kann das nicht selbst richten, ein Index ist keine Sache der
 App.
 
+### „attempting to create a subscription in a production container"
+
+Dieser Befund kommt beim **ersten TestFlight-Bau** und ist **kein Fehler
+dieser App**, sondern einer auf Apples Seite (FB22867235, Stand 2026): Ein
+Abonnement, das in Development einwandfrei entsteht, wird in Production
+abgewiesen — mit genau diesem Satz, obwohl Record-Typen und Indizes längst
+übertragen sind.
+
+Die Abhilfe liegt in der CloudKit-Konsole und ist dort unsichtbar:
+**icloud.developer.apple.com → Container `iCloud.de.dboschule.alarm` →
+Schema → „Deploy Schema Changes to Production"** — auch dann ausführen, wenn
+die Oberfläche NICHTS zu übertragen anzeigt. Ein paar Minuten warten, dann in
+der App noch einmal „Zustellung prüfen" tippen; die Diagnose legt die
+fehlenden Abonnements gleich mit an. Seit 1.0.16 steht dieser Satz auch in
+der Diagnose selbst unter dem Rohtext.
+
+**Nach jeder Änderung an einem Prädikat ist das fällig** — dann tragen die
+Abonnements neue Kennungen (`…-v2`, `…-v3`), und für Production sind das
+neue Abonnements.
+
+### Development und Production sind zwei Welten
+
+Über Xcode installiert läuft die App gegen **Development**, über TestFlight
+und aus dem Laden gegen **Production**. Getrennt sind dabei nicht nur die
+Indizes, sondern auch die **Daten**: Eine Schule, die über Xcode eingerichtet
+wurde, gibt es in der TestFlight-Fassung nicht — samt Gruppe, Mitgliedern und
+Beitrittscodes. Die App merkt sich Gruppe und Rolle örtlich und behält sie
+über die Neuinstallation hinweg; sie sieht deshalb eingerichtet aus, während
+in Production noch gar nichts steht.
+
+Der Prüfstein ist **Verwaltung → Mitglieder**: Ist die Liste leer, obwohl
+oben eine Gruppe steht, ist genau das passiert. Dann in der
+TestFlight-Fassung einmal neu „Schule einrichten" — es entsteht ein neuer
+Beitrittscode, und mit dem treten alle Geräte bei.
+
+Welche Umgebung gilt, steht seit 1.0.16 als eigene Zeile ganz oben in
+„Zustellung prüfen".
+
 ## Rollen: wer wird was
 
 **Wer beitritt, wird Mitglied. Immer.** Admin wird man auf genau zwei

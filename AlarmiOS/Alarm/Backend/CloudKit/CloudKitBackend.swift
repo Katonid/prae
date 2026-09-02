@@ -805,12 +805,53 @@ final class CloudKitBackend: AlarmBackend {
 
     // MARK: - Diagnosis
 
+    /// Welche CloudKit-Umgebung vermutlich gilt.
+    ///
+    /// **Vermutlich**, weil es dafür keine öffentliche Schnittstelle gibt: Ein
+    /// `CKContainer` sagt nicht, ob er gegen Development oder Production
+    /// spricht. Abgelesen wird deshalb, wie die App auf das Gerät kam — über
+    /// Xcode heißt Development, über TestFlight oder den Laden heißt
+    /// Production.
+    ///
+    /// Die Zeile steht in der Diagnose, weil sie die stille Voraussetzung
+    /// hinter jedem Befund darunter ist: Beide Umgebungen haben eigene Daten,
+    /// eigene Indizes UND eigene Abonnements. Eine Gruppe, die über Xcode
+    /// angelegt wurde, gibt es in der TestFlight-Fassung nicht — und ein Index,
+    /// der in Development gesetzt ist, gilt in Production noch lange nicht.
+    static var umgebungsvermutung: String {
+        #if DEBUG
+        return "vermutlich Development (über Xcode installiert)"
+        #else
+        guard let beleg = Bundle.main.appStoreReceiptURL?.lastPathComponent else {
+            return "unbekannt — vermutlich Development"
+        }
+        return beleg == "sandboxReceipt"
+            ? "Production (über TestFlight installiert)"
+            : "Production (aus dem Laden installiert)"
+        #endif
+    }
+
+    /// Rohtext zuerst, Klartext dahinter.
+    ///
+    /// Der Rohtext wird nie ersetzt — er ist die Spur, an der sich ein Fehler
+    /// nachschlagen lässt. Aber wo ein Wortlaut bekannt ist und die Lösung
+    /// woanders liegt (meist in der CloudKit-Konsole), gehört sie daneben.
+    private static func mitHinweis(_ fehler: Error) -> String {
+        let roh = CloudKitFehler.rohtext(fehler)
+        guard let hinweis = CloudKitFehler.hinweis(zu: roh) else { return roh }
+        return roh + "\n\n→ " + hinweis
+    }
+
     func diagnose() async -> [Diagnose] {
         var zeilen: [Diagnose] = []
 
         zeilen.append(Diagnose(id: "container",
                                titel: "Container",
                                text: container.containerIdentifier ?? "unbekannt",
+                               befund: .hinweis))
+        zeilen.append(Diagnose(id: "umgebung",
+                               titel: "Umgebung",
+                               text: Self.umgebungsvermutung,
                                befund: .hinweis))
 
         let konto = await availability()
@@ -866,7 +907,7 @@ final class CloudKitBackend: AlarmBackend {
             } catch {
                 zeilen.append(Diagnose(id: "abfrage-\(typ)",
                                        titel: "Abfrage \(name)",
-                                       text: CloudKitFehler.rohtext(error), befund: .schlecht))
+                                       text: Self.mitHinweis(error), befund: .schlecht))
             }
         }
 
@@ -892,7 +933,7 @@ final class CloudKitBackend: AlarmBackend {
             } catch {
                 zeilen.append(Diagnose(id: "praedikat-\(probe.kennung)",
                                        titel: "Prädikat \(probe.kennung)",
-                                       text: CloudKitFehler.rohtext(error), befund: .schlecht))
+                                       text: Self.mitHinweis(error), befund: .schlecht))
             }
         }
 
@@ -923,7 +964,7 @@ final class CloudKitBackend: AlarmBackend {
                                        befund: .gut))
             } catch {
                 zeilen.append(Diagnose(id: "anlegen", titel: "Anlegen gescheitert",
-                                       text: CloudKitFehler.rohtext(error), befund: .schlecht))
+                                       text: Self.mitHinweis(error), befund: .schlecht))
             }
         }
 
