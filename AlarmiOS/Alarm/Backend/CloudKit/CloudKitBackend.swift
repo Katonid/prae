@@ -584,7 +584,14 @@ final class CloudKitBackend: AlarmBackend {
     ///
     /// One record of each type is written and deleted again. The record goes,
     /// the type stays — that is all the schema needs.
-    private func ensureSchema(groupID: CKRecord.ID) async {
+    /// Gibt zurück, was beim Anlegen der Platzhalter schiefging.
+    ///
+    /// Bis 1.0.16 verschwand das im Nichts (`await ensureSchema(...)` ohne
+    /// `try`), und damit war ein blinder Fleck genau dort, wo die Zustellung
+    /// hängt: Fehlt ein Record-Typ in Production, lässt er sich dort NICHT
+    /// durch Schreiben anlegen — neue Typen entstehen nur in Development.
+    @discardableResult
+    private func ensureSchema(groupID: CKRecord.ID) async -> [String] {
         let reference = CKRecord.Reference(recordID: groupID, action: .none)
 
         let alarm = CKRecord(recordType: CloudRecordType.alarm)
@@ -633,13 +640,19 @@ final class CloudKitBackend: AlarmBackend {
         // Referenz auf einen Datensatz, den es noch nicht gibt, weist
         // CloudKit ab. Gelöscht wird danach in umgekehrter Reihenfolge.
         var geschrieben: [CKRecord] = []
+        var fehler: [String] = []
         for record in [alarm, ping, ack, message] {
-            guard (try? await database.save(record)) != nil else { continue }
-            geschrieben.append(record)
+            do {
+                _ = try await database.save(record)
+                geschrieben.append(record)
+            } catch {
+                fehler.append("\(record.recordType): \(CloudKitFehler.rohtext(error))")
+            }
         }
         for record in geschrieben.reversed() {
             _ = try? await database.deleteRecord(withID: record.recordID)
         }
+        return fehler
     }
 
     // MARK: - Administration
@@ -842,6 +855,54 @@ final class CloudKitBackend: AlarmBackend {
         return roh + "\n\n→ " + hinweis
     }
 
+    /// Wenn ALLE Abonnements abgelehnt werden: herausfinden, woran genau.
+    ///
+    /// Getroffen 09/2026 im ersten TestFlight-Bau — fünf Ablehnungen mit
+    /// „attempting to create a subscription in a production container“,
+    /// während jede Probeabfrage und jedes Prädikat grün war. Der Wortlaut
+    /// nennt die Umgebung; ob es wirklich daran liegt, sagt er nicht.
+    ///
+    /// Also drei Versuche, die sich um je EINE Sache unterscheiden, jeder mit
+    /// eigener Kennung und sofort wieder weggeräumt:
+    ///
+    /// 1. **schlicht** — derselbe Record-Typ, aber Prädikat „alles“ und eine
+    ///    nackte Meldung. Scheitert schon der, liegt es weder am Prädikat noch
+    ///    an den Feldern, sondern am Anlegen von Abonnements überhaupt.
+    /// 2. **mit Prädikat** — dasselbe plus das echte Alarm-Prädikat. Scheitert
+    ///    erst dieser, fehlt ein Index oder das Prädikat ist nicht erlaubt.
+    /// 3. **mit Meldung** — dasselbe plus `desiredKeys`, `collapseIDKey` und
+    ///    Rückfalltext. Scheitert erst dieser, liegt es an der Meldung.
+    ///
+    /// Ein Versuch, der gelingt, wird sofort gelöscht: Diese Probe darf nichts
+    /// hinterlassen, das später Pushes auslöst.
+    private func stufenprobe(groupID: CKRecord.ID) async -> [Diagnose] {
+        var zeilen: [Diagnose] = []
+        let stempel = String(UUID().uuidString.prefix(8))
+
+        for stufe in CloudKitSubscriptions.stufen(groupRecordID: groupID,
+                                                  stempel: stempel) {
+            do {
+                let ergebnis = try await database.modifySubscriptions(
+                    saving: [stufe.abo], deleting: [])
+                if case .failure(let fehler)? = ergebnis
+                    .saveResults[stufe.abo.subscriptionID] {
+                    throw fehler
+                }
+                zeilen.append(Diagnose(id: "stufe-\(stufe.name)",
+                                       titel: "Probe \(stufe.titel)",
+                                       text: "angenommen", befund: .gut))
+                _ = try? await database.modifySubscriptions(
+                    saving: [], deleting: [stufe.abo.subscriptionID])
+            } catch {
+                zeilen.append(Diagnose(id: "stufe-\(stufe.name)",
+                                       titel: "Probe \(stufe.titel)",
+                                       text: CloudKitFehler.rohtext(error),
+                                       befund: .schlecht))
+            }
+        }
+        return zeilen
+    }
+
     func diagnose() async -> [Diagnose] {
         var zeilen: [Diagnose] = []
 
@@ -952,8 +1013,13 @@ final class CloudKitBackend: AlarmBackend {
         // hingeschrieben. Eine Diagnose, die „FEHLT" meldet und nicht sagt,
         // woran es liegt, ist die Frage von vorhin noch einmal.
         if !Set(SubscriptionID.all).isSubset(of: vorhanden) {
+            let schemafehler = await ensureSchema(groupID: groupID)
+            if !schemafehler.isEmpty {
+                zeilen.append(Diagnose(id: "schema", titel: "Platzhalter schreiben",
+                                       text: schemafehler.joined(separator: " | "),
+                                       befund: .schlecht))
+            }
             do {
-                await ensureSchema(groupID: groupID)
                 try await CloudKitSubscriptions.reconcile(in: database,
                                                           groupRecordID: groupID,
                                                           userId: userId)
@@ -965,6 +1031,7 @@ final class CloudKitBackend: AlarmBackend {
             } catch {
                 zeilen.append(Diagnose(id: "anlegen", titel: "Anlegen gescheitert",
                                        text: Self.mitHinweis(error), befund: .schlecht))
+                zeilen.append(contentsOf: await stufenprobe(groupID: groupID))
             }
         }
 

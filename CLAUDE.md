@@ -326,13 +326,26 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   Fehler auf APPLES Seite, nicht in der App (FB22867235, getroffen 09/2026 beim
   ersten TestFlight-Bau). Ein Abonnement, das in Development entsteht, wird in
   Production abgewiesen — obwohl Record-Typen und Indizes dort längst stehen und
-  alle Probeabfragen grün sind. Abhilfe: in der CloudKit-Konsole „Deploy Schema
-  Changes to Production", **auch wenn die Oberfläche nichts zu übertragen
-  anzeigt**. Fällig nach jeder Prädikatsänderung, denn die vergibt neue
-  Kennungen (`-v2`, `-v3`), und das sind für Production neue Abonnements. Der
-  Satz steht seit 1.0.16 als Klartexthinweis unter dem Rohtext
-  (`CloudKitFehler.hinweis(zu:)`) — der Rohtext selbst wird nie ersetzt, er ist
-  die Spur.
+  alle Probeabfragen grün sind. Der verbreitete Rat — CloudKit-Konsole, „Deploy
+  Schema Changes to Production", auch wenn nichts zu übertragen angezeigt wird —
+  **hat hier NICHTS geändert** (nachgeprüft 09/2026). Er bleibt der erste
+  Versuch und ist nach jeder Prädikatsänderung ohnehin fällig (neue Kennungen
+  `-v2`, `-v3` sind für Production neue Abonnements), aber er ist nicht die
+  Antwort. **Nicht als gelöst darstellen, solange kein Gerät ein Abonnement in
+  Production angelegt hat.**
+- **Wo eine Fehlermeldung nur auf die Umgebung zeigt, muss eine PROBE
+  entscheiden** (`stufenprobe`, `CloudKitSubscriptions.stufen`, ab 1.0.17).
+  Scheitert das Anlegen, legt die Diagnose drei Abonnements an, die sich um je
+  EINE Sache unterscheiden — schlicht (TRUEPREDICATE, nackte Meldung), mit
+  Prädikat, mit Meldung —, und löscht jedes sofort wieder. Die erste rote Zeile
+  sagt, wovon der Fehler abhängt: von Abonnements überhaupt (dann ist es Apples
+  Sache), vom Prädikat (Index) oder von der Meldung (dann ist es unsere).
+  Dasselbe Muster wie bei den Prädikatsproben in 1.0.4: Eine Diagnose, die den
+  Fehler bloß wiedergibt, ist die Frage von vorhin noch einmal.
+- **`ensureSchema` verschluckte seine Fehler** (bis 1.0.16 `await` ohne `try`).
+  Es gibt sie jetzt zurück, und die Diagnose zeigt sie — ein blinder Fleck
+  genau dort, wo die Zustellung hängt: Ein Record-Typ, den es in Production
+  nicht gibt, lässt sich dort auch nicht durch Schreiben anlegen.
 - **Development und Production trennen auch die DATEN, nicht nur die Indizes.**
   Über Xcode installiert läuft die App gegen Development, über TestFlight gegen
   Production. Eine über Xcode eingerichtete Schule gibt es in der

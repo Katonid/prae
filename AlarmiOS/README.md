@@ -132,17 +132,27 @@ Abonnement, das in Development einwandfrei entsteht, wird in Production
 abgewiesen — mit genau diesem Satz, obwohl Record-Typen und Indizes längst
 übertragen sind.
 
-Die Abhilfe liegt in der CloudKit-Konsole und ist dort unsichtbar:
-**icloud.developer.apple.com → Container `iCloud.de.dboschule.alarm` →
-Schema → „Deploy Schema Changes to Production"** — auch dann ausführen, wenn
-die Oberfläche NICHTS zu übertragen anzeigt. Ein paar Minuten warten, dann in
-der App noch einmal „Zustellung prüfen" tippen; die Diagnose legt die
-fehlenden Abonnements gleich mit an. Seit 1.0.16 steht dieser Satz auch in
-der Diagnose selbst unter dem Rohtext.
+**Der verbreitete Rat hilft nicht immer.** Er lautet: CloudKit-Konsole →
+Container `iCloud.de.dboschule.alarm` → Schema → „Deploy Schema Changes to
+Production", auch wenn die Oberfläche nichts zu übertragen anzeigt. Das ist
+der erste Versuch, er kostet nichts, und nach jeder Prädikatsänderung ist er
+ohnehin fällig (geänderte Prädikate tragen neue Kennungen `…-v2`, `…-v3`, und
+das sind für Production neue Abonnements). **Bei uns hat er nichts geändert**
+(09/2026, fünfmal derselbe Befund nach dem Deploy).
 
-**Nach jeder Änderung an einem Prädikat ist das fällig** — dann tragen die
-Abonnements neue Kennungen (`…-v2`, `…-v3`), und für Production sind das
-neue Abonnements.
+**Deshalb fährt die Diagnose seit 1.0.17 eine Stufenprobe**, sobald das
+Anlegen scheitert. Drei Abonnements, die sich um je eine Sache unterscheiden,
+jedes sofort wieder gelöscht:
+
+| Zeile | Was sie bedeutet, wenn SIE die erste rote ist |
+|---|---|
+| Probe 1 schlicht | In dieser Umgebung lässt sich überhaupt kein Abonnement anlegen. Nichts an der App zu ändern — Fall für den Feedback Assistant, mit dem Befund als Anhang. |
+| Probe 2 mit Prädikat | Das Prädikat ist das Problem: ein Index, der in Production fehlt, oder eine Form, die dort nicht erlaubt ist. |
+| Probe 3 mit Meldung | Die Meldung ist das Problem: `desiredKeys`, `collapseIDKey` oder der Rückfalltext. Das lässt sich in der App ändern. |
+
+Sind alle drei grün und die echten fünf trotzdem rot, ist es etwas an der
+Kombination — dann ist die nächste Frage, welche der fünf sich einzeln
+anlegen lässt.
 
 ### Development und Production sind zwei Welten
 

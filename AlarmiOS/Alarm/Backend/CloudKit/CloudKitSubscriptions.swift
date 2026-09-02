@@ -209,6 +209,54 @@ enum CloudKitSubscriptions {
     ///
     /// Ein `alert` muss gesetzt sein. Ohne ihn wäre die Meldung still, und
     /// stille Pushes drosselt iOS — für einen Alarm wäre das das Ende.
+    // MARK: - Die Stufenprobe
+
+    /// Drei Abonnements, die sich um je EINE Sache unterscheiden.
+    ///
+    /// Sie werden nur gebaut, wenn die echten fünf abgelehnt wurden, und in
+    /// `CloudKitBackend.stufenprobe` einzeln angelegt und sofort wieder
+    /// gelöscht. Der Zweck ist, aus einer Fehlermeldung, die auf die Umgebung
+    /// zeigt, eine Aussage zu machen: Liegt es am Anlegen überhaupt, am
+    /// Prädikat oder an der Meldung?
+    ///
+    /// Die Kennungen tragen einen Stempel, damit sie nie mit einem echten
+    /// Abonnement zusammenfallen und ein liegen gebliebener Rest von gestern
+    /// den Versuch von heute nicht verfälscht.
+    static func stufen(groupRecordID: CKRecord.ID, stempel: String)
+        -> [(name: String, titel: String, abo: CKQuerySubscription)] {
+
+        func nackt() -> CKSubscription.NotificationInfo {
+            let info = CKSubscription.NotificationInfo()
+            info.shouldSendContentAvailable = true
+            return info
+        }
+
+        let schlicht = CKQuerySubscription(
+            recordType: CloudRecordType.alarm,
+            predicate: NSPredicate(value: true),
+            subscriptionID: "probe-schlicht-\(stempel)",
+            options: [.firesOnRecordCreation])
+        schlicht.notificationInfo = nackt()
+
+        let mitPraedikat = CKQuerySubscription(
+            recordType: CloudRecordType.alarm,
+            predicate: alarmPredicate(groupRecordID: groupRecordID),
+            subscriptionID: "probe-praedikat-\(stempel)",
+            options: [.firesOnRecordCreation])
+        mitPraedikat.notificationInfo = nackt()
+
+        let mitMeldung = CKQuerySubscription(
+            recordType: CloudRecordType.alarm,
+            predicate: alarmPredicate(groupRecordID: groupRecordID),
+            subscriptionID: "probe-meldung-\(stempel)",
+            options: [.firesOnRecordCreation])
+        mitMeldung.notificationInfo = alarmNotificationInfo()
+
+        return [("schlicht", "1 schlicht (ohne Prädikat, ohne Meldung)", schlicht),
+                ("praedikat", "2 mit Prädikat", mitPraedikat),
+                ("meldung", "3 mit Meldung", mitMeldung)]
+    }
+
     private static func alarmNotificationInfo() -> CKSubscription.NotificationInfo {
         let info = CKSubscription.NotificationInfo()
         info.alertLocalizationKey = PushString.alarmFallback

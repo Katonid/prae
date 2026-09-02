@@ -128,13 +128,16 @@ enum CloudKitFehler {
     static func hinweis(zu text: String) -> String? {
         let klein = text.lowercased()
         if klein.contains("subscription in a production container") {
-            return "Das ist ein bekannter Fehler auf Apples Seite und keiner "
-                + "dieser App: Ein geändertes Abonnement muss in der "
-                + "CloudKit-Konsole erst nach Production übertragen werden. "
-                + "icloud.developer.apple.com → Container wählen → Schema → "
-                + "„Deploy Schema Changes to Production“ — auch wenn dort NICHTS "
-                + "zu ändern angezeigt wird. Danach ein paar Minuten warten und "
-                + "hier noch einmal auf „Zustellung prüfen“ tippen."
+            return "Ein bekannter Fehler auf Apples Seite, nicht in dieser App. "
+                + "Erster Versuch: icloud.developer.apple.com → Container → "
+                + "Schema → „Deploy Schema Changes to Production“, auch wenn "
+                + "dort NICHTS zu ändern angezeigt wird; danach ein paar "
+                + "Minuten warten und hier noch einmal tippen. Hilft das nicht "
+                + "— getroffen 09/2026 —, sagen die Zeilen „Probe 1/2/3“ "
+                + "darunter, woran es liegt: Scheitert schon Probe 1, lässt "
+                + "sich in dieser Umgebung überhaupt kein Abonnement anlegen, "
+                + "und das ist ein Fall für Apples Support (Feedback Assistant "
+                + "mit diesem Befund)."
         }
         if klein.contains("not marked queryable") {
             return "In der CloudKit-Konsole fehlt ein Index: Beim genannten Feld "
