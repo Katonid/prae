@@ -124,6 +124,54 @@ queryable" — dann fehlen die Indizes; siehe „CloudKit einrichten" weiter
 unten. Die App kann das nicht selbst richten, ein Index ist keine Sache der
 App.
 
+### „attempting to create a subscription in a production container"
+
+Dieser Befund kommt beim **ersten TestFlight-Bau** und ist **kein Fehler
+dieser App**, sondern einer auf Apples Seite (FB22867235, Stand 2026): Ein
+Abonnement, das in Development einwandfrei entsteht, wird in Production
+abgewiesen — mit genau diesem Satz, obwohl Record-Typen und Indizes längst
+übertragen sind.
+
+**Der verbreitete Rat hilft nicht immer.** Er lautet: CloudKit-Konsole →
+Container `iCloud.de.dboschule.alarm` → Schema → „Deploy Schema Changes to
+Production", auch wenn die Oberfläche nichts zu übertragen anzeigt. Das ist
+der erste Versuch, er kostet nichts, und nach jeder Prädikatsänderung ist er
+ohnehin fällig (geänderte Prädikate tragen neue Kennungen `…-v2`, `…-v3`, und
+das sind für Production neue Abonnements). **Bei uns hat er nichts geändert**
+(09/2026, fünfmal derselbe Befund nach dem Deploy).
+
+**Deshalb fährt die Diagnose seit 1.0.17 eine Stufenprobe**, sobald das
+Anlegen scheitert. Drei Abonnements, die sich um je eine Sache unterscheiden,
+jedes sofort wieder gelöscht:
+
+| Zeile | Was sie bedeutet, wenn SIE die erste rote ist |
+|---|---|
+| Probe 1 schlicht | In dieser Umgebung lässt sich überhaupt kein Abonnement anlegen. Nichts an der App zu ändern — Fall für den Feedback Assistant, mit dem Befund als Anhang. |
+| Probe 2 mit Prädikat | Das Prädikat ist das Problem: ein Index, der in Production fehlt, oder eine Form, die dort nicht erlaubt ist. |
+| Probe 3 mit Meldung | Die Meldung ist das Problem: `desiredKeys`, `collapseIDKey` oder der Rückfalltext. Das lässt sich in der App ändern. |
+
+Sind alle drei grün und die echten fünf trotzdem rot, ist es etwas an der
+Kombination — dann ist die nächste Frage, welche der fünf sich einzeln
+anlegen lässt.
+
+### Development und Production sind zwei Welten
+
+Über Xcode installiert läuft die App gegen **Development**, über TestFlight
+und aus dem Laden gegen **Production**. Getrennt sind dabei nicht nur die
+Indizes, sondern auch die **Daten**: Eine Schule, die über Xcode eingerichtet
+wurde, gibt es in der TestFlight-Fassung nicht — samt Gruppe, Mitgliedern und
+Beitrittscodes. Die App merkt sich Gruppe und Rolle örtlich und behält sie
+über die Neuinstallation hinweg; sie sieht deshalb eingerichtet aus, während
+in Production noch gar nichts steht.
+
+Der Prüfstein ist **Verwaltung → Mitglieder**: Ist die Liste leer, obwohl
+oben eine Gruppe steht, ist genau das passiert. Dann in der
+TestFlight-Fassung einmal neu „Schule einrichten" — es entsteht ein neuer
+Beitrittscode, und mit dem treten alle Geräte bei.
+
+Welche Umgebung gilt, steht seit 1.0.16 als eigene Zeile ganz oben in
+„Zustellung prüfen".
+
 ## Rollen: wer wird was
 
 **Wer beitritt, wird Mitglied. Immer.** Admin wird man auf genau zwei

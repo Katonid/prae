@@ -117,6 +117,41 @@ enum CloudKitFehler {
         }
         return teile.joined(separator: " ")
     }
+
+    /// Was zu tun ist — für die Fehler, deren Wortlaut allein nicht weiterhilft.
+    ///
+    /// Der Rohtext bleibt stehen und wird nie ersetzt (siehe `rohtext`): Er ist
+    /// die Spur. Aber „attempting to create a subscription in a production
+    /// container" sagt einem Menschen nicht, dass die Lösung in einer
+    /// Web-Oberfläche liegt und dort obendrein unsichtbar ist. Genau dafür
+    /// steht hier ein Satz daneben.
+    static func hinweis(zu text: String) -> String? {
+        let klein = text.lowercased()
+        if klein.contains("subscription in a production container") {
+            return "Ein bekannter Fehler auf Apples Seite, nicht in dieser App. "
+                + "Erster Versuch: icloud.developer.apple.com → Container → "
+                + "Schema → „Deploy Schema Changes to Production“, auch wenn "
+                + "dort NICHTS zu ändern angezeigt wird; danach ein paar "
+                + "Minuten warten und hier noch einmal tippen. Hilft das nicht "
+                + "— getroffen 09/2026 —, sagen die Zeilen „Probe 1/2/3“ "
+                + "darunter, woran es liegt: Scheitert schon Probe 1, lässt "
+                + "sich in dieser Umgebung überhaupt kein Abonnement anlegen, "
+                + "und das ist ein Fall für Apples Support (Feedback Assistant "
+                + "mit diesem Befund)."
+        }
+        if klein.contains("not marked queryable") {
+            return "In der CloudKit-Konsole fehlt ein Index: Beim genannten Feld "
+                + "unter Indexes „Queryable“ setzen — und zwar in DERSELBEN "
+                + "Umgebung, die oben unter „Umgebung“ steht."
+        }
+        if klein.contains("not marked sortable") {
+            return "Hier darf gar nicht sortiert werden. Wenn diese Zeile "
+                + "auftaucht, ist irgendwo wieder ein NSSortDescriptor "
+                + "hineingeraten — das gehört in den Quelltext, nicht in die "
+                + "Konsole."
+        }
+        return nil
+    }
 }
 
 /// Was `modifySubscriptions` NICHT wirft.
