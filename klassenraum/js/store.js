@@ -239,6 +239,11 @@ export function defaultState() {
       stackModeManual: null,
       showGrid: false,
       mode: 'edit',
+      // Örtlich ausgeblendete Seiten je Tafel: { boardId: [pageId, …] }.
+      // Bewusst in den Einstellungen, nicht an der Tafel — auf einer
+      // geteilten Tafel entscheidet jede für sich, welche Seiten im
+      // Blätterer stehen, ohne sie den anderen wegzunehmen (Tafelbild 1.3.23).
+      hiddenPages: {},
     },
     cloud: {
       // Pro Board: { code, editKey, autoPush, followCode }
@@ -588,6 +593,67 @@ export function addPage() {
   return page;
 }
 
+/* ---------- Seiten örtlich ausblenden (aus Tafelbild 1.3.23) ---------- */
+
+/** Die auf DIESEM Gerät ausgeblendeten Seiten einer Tafel. */
+export function versteckteSeiten(boardId) {
+  const settings = state.settings || {};
+  const map = settings.hiddenPages || {};
+  return Array.isArray(map[boardId]) ? map[boardId] : [];
+}
+
+export function istSeiteVersteckt(boardId, pageId) {
+  return versteckteSeiten(boardId).includes(pageId);
+}
+
+/**
+ * Die Seiten, die der Blätterer zeigt: im Unterricht ohne die
+ * ausgeblendeten, beim Bearbeiten mit (sonst wären sie nicht
+ * zurückzuholen, und „ausblenden" wäre dasselbe wie Löschen). Sind alle
+ * versteckt (z. B. nach dem Löschen der letzten sichtbaren), zählt die
+ * ganze Liste — eine Tafel, die nichts mehr zeigt, gibt es nicht.
+ */
+export function sichtbareSeiten(board, mitVersteckten = false) {
+  const pages = (board && board.pages) || [];
+  if (mitVersteckten) return pages;
+  const weg = new Set(versteckteSeiten(board ? board.id : ''));
+  // Die gerade aufgeschlagene Seite zählt immer mit — wer eine
+  // ausgeblendete Seite über die Verwaltung öffnet, findet sie im
+  // Blätterer wieder; sonst zeigte die Tafel eine Seite, die er nicht kennt.
+  const offen = pages.filter((page) => !weg.has(page.id)
+    || (board && page.id === board.activePageId));
+  return offen.length ? offen : pages;
+}
+
+/**
+ * Eine Seite aus- oder wieder einblenden. Die letzte sichtbare lässt sich
+ * nicht ausblenden (Rückgabe false). Der Wert reist beim Abgleich NICHT
+ * mit — deshalb wird nur örtlich gesichert, ohne die Tafel anzufassen.
+ */
+export function seiteVerstecken(boardId, pageId, versteckt) {
+  const board = state.boards.find((entry) => entry.id === boardId);
+  if (!board) return false;
+  const bisher = versteckteSeiten(boardId);
+  if (versteckt) {
+    const sichtbar = (board.pages || []).filter((page) => !bisher.includes(page.id));
+    if (sichtbar.length <= 1) return false;
+    if (bisher.includes(pageId)) return true;
+    state.settings.hiddenPages = Object.assign({}, state.settings.hiddenPages,
+      { [boardId]: bisher.concat([pageId]) });
+  } else {
+    state.settings.hiddenPages = Object.assign({}, state.settings.hiddenPages,
+      { [boardId]: bisher.filter((id) => id !== pageId) });
+  }
+  touch({ board: false, reason: 'page-hidden' });
+  // Steht man gerade auf der Seite, die verschwindet, wandert man auf die
+  // erste sichtbare.
+  if (versteckt && board.activePageId === pageId) {
+    const offen = sichtbareSeiten(board);
+    if (offen.length) setActivePage(offen[0].id);
+  }
+  return true;
+}
+
 /** Seite entfernen — die letzte Seite einer Tafel bleibt immer bestehen. */
 export function removePage(pageId) {
   const board = getActiveBoard();
@@ -605,6 +671,8 @@ export function removePage(pageId) {
   if (board.activePageId === pageId) {
     board.activePageId = board.pages[Math.max(0, index - 1)].id;
   }
+  // Der örtliche Versteckt-Vermerk der gelöschten Seite geht mit.
+  if (istSeiteVersteckt(board.id, pageId)) seiteVerstecken(board.id, pageId, false);
   touch({ reason: 'page-remove' });
   emit('page-switch', board.activePageId);
   return true;

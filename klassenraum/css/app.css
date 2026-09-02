@@ -314,6 +314,10 @@ body.is-stacked .view-controls { display: none; }
 .page-row.is-active .page-row__number { background: var(--accent); color: #fff; }
 .page-row__name { flex: 1; min-width: 0; }
 .page-row .icon-button:disabled { opacity: 0.3; cursor: default; }
+/* Örtlich ausgeblendete Seite: blass, aber da — sonst wäre „ausblenden"
+   dasselbe wie Löschen (Tafelbild 1.3.23). */
+.page-row.is-versteckt { opacity: 0.55; }
+.page-row.is-versteckt .icon-button.is-on { opacity: 1; color: var(--accent); }
 
 /* Neue Seite anlegen und löschen nur beim Bearbeiten. */
 body.is-using .page-controls__button--edit,

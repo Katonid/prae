@@ -5,7 +5,7 @@ import { icon } from './icons.js';
 import { getWidgetType } from './widgets/index.js';
 import {
   BOARD_WIDTH, boardHeight, AURORA, getActiveBoard, getActivePage, getState, touch, removeWidget,
-  duplicateWidget, nextZ, on as onStore, setActivePage,
+  duplicateWidget, nextZ, on as onStore, setActivePage, sichtbareSeiten,
 } from './store.js';
 import { openPanel, closePanel, confirmDialog, field, button, buttonRow, toast } from './ui.js';
 import { transferWidget, copyWidgetToClipboard } from './transfer.js';
@@ -187,11 +187,13 @@ function endStageGesture(event) {
   }
 }
 
-/** Eine Seite vor (1) oder zurück (-1) blättern — Anzeige folgt über „page-switch". */
+/** Eine Seite vor (1) oder zurück (-1) blättern — Anzeige folgt über „page-switch".
+ *  Gewischt wird über dieselbe Liste, die der Blätterer zeigt: im Unterricht
+ *  ohne die ausgeblendeten Seiten (Tafelbild 1.3.26). */
 function flipPageBy(step) {
   const board = getActiveBoard();
   if (!board) return;
-  const pages = board.pages || [];
+  const pages = sichtbareSeiten(board, mode === 'edit');
   const index = pages.findIndex((page) => page.id === board.activePageId);
   const next = pages[index + step];
   if (next) setActivePage(next.id);

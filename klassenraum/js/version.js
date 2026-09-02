@@ -1,4 +1,4 @@
 // Fassung der App — steht im Menü unter „Über" und hilft beim Nachsehen,
 // ob auf dem Gerät wirklich die neueste Fassung läuft.
-export const APP_VERSION = '1.8.37';
+export const APP_VERSION = '1.8.38';
 export const APP_DATE = '30.08.2026';
