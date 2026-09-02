@@ -322,17 +322,20 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   Abonnement entstanden war. Dasselbe Muster wie bei `partialErrorsByItemID`,
   eine Ebene höher: Wo CloudKit ein Ergebnis je Element zurückgibt, ist das
   Ergebnis die Fehlermeldung.
-- **„attempting to create a subscription in a production container"** ist ein
-  Fehler auf APPLES Seite, nicht in der App (FB22867235, getroffen 09/2026 beim
-  ersten TestFlight-Bau). Ein Abonnement, das in Development entsteht, wird in
-  Production abgewiesen — obwohl Record-Typen und Indizes dort längst stehen und
-  alle Probeabfragen grün sind. Der verbreitete Rat — CloudKit-Konsole, „Deploy
-  Schema Changes to Production", auch wenn nichts zu übertragen angezeigt wird —
-  **hat hier NICHTS geändert** (nachgeprüft 09/2026). Er bleibt der erste
-  Versuch und ist nach jeder Prädikatsänderung ohnehin fällig (neue Kennungen
-  `-v2`, `-v3` sind für Production neue Abonnements), aber er ist nicht die
-  Antwort. **Nicht als gelöst darstellen, solange kein Gerät ein Abonnement in
-  Production angelegt hat.**
+- **`aps-environment` MUSS zur Umgebung passen — zwei Entitlements-Dateien**
+  (ab 1.0.18). `Config/Alarm.entitlements` (Debug) sagt `development`,
+  `Config/Alarm-Release.entitlements` (Release) sagt `production`; im pbxproj
+  zeigt jede Konfiguration auf ihre. Bis 1.0.17 stand `development` für beide,
+  und das kostete einen Abend: Über TestFlight ist der Container Production,
+  der Push-Client war Development, und CloudKit wies daraufhin JEDES Abonnement
+  ab — auch eines ohne Prädikat und ohne Meldung — mit „attempting to create a
+  subscription in a production container". **Die Meldung zeigt auf den
+  Container und meint das Profil.** Alle Abfragen waren grün, alle Prädikate
+  abfragbar; es sah nach einem Fehler bei Apple aus und war einer von uns.
+  Die Diagnose nennt deshalb seit 1.0.18 die APNs-Umgebung aus dem Profil im
+  Bündel und meldet ROT, wenn sie nicht zur Umgebung passt. Keine der beiden
+  Dateien darf die andere ersetzen: Ein Debug-Bau mit `production` meldet sich
+  bei der falschen APNs-Umgebung an.
 - **Wo eine Fehlermeldung nur auf die Umgebung zeigt, muss eine PROBE
   entscheiden** (`stufenprobe`, `CloudKitSubscriptions.stufen`, ab 1.0.17).
   Scheitert das Anlegen, legt die Diagnose drei Abonnements an, die sich um je
