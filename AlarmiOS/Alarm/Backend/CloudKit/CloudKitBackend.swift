@@ -844,45 +844,65 @@ final class CloudKitBackend: AlarmBackend {
         #endif
     }
 
-    /// Was im Signierprofil als `aps-environment` steht — und ob das zur
-    /// Umgebung passt.
+    /// Welche APNs-Umgebung dieser Bau benutzt — und ob das zur
+    /// CloudKit-Umgebung passt.
     ///
-    /// Diese Zeile gäbe es nicht, wenn sie nicht einen ganzen Abend gekostet
-    /// hätte. Steht dort `development`, während die App über TestFlight läuft,
-    /// dann ist der CloudKit-Container Production und der Push-Client
-    /// Development — und CloudKit weist JEDES Abonnement ab, auch eines ohne
+    /// Diese Zeile gäbe es nicht, wenn sie nicht einen Abend gekostet hätte:
+    /// Stand `aps-environment` auf `development`, während die App über
+    /// TestFlight lief, dann war der Container Production und der Push-Client
+    /// Development — und CloudKit wies JEDES Abonnement ab, auch eines ohne
     /// Prädikat und ohne Meldung, mit „attempting to create a subscription in
-    /// a production container". Die Meldung zeigt auf den Container und meint
-    /// das Profil.
+    /// a production container". **Die Meldung zeigt auf den Container und
+    /// meint das Profil.**
     ///
-    /// Gelesen wird das Profil im Bündel als Text und darin der Schlüssel
-    /// gesucht. Eine öffentliche Schnittstelle für die eigenen Entitlements
-    /// gibt es auf iOS nicht; im Simulator gibt es gar kein Profil.
+    /// Abgelesen wird auf zwei Wegen, und der zweite ist der Regelfall:
+    ///
+    /// * Liegt ein Signierprofil im Bündel (über Xcode oder Ad-hoc auf das
+    ///   Gerät gekommen), wird es als Text gelesen und der Schlüssel gesucht.
+    ///   Eine öffentliche Schnittstelle für die eigenen Entitlements gibt es
+    ///   auf iOS nicht.
+    /// * **Über TestFlight und aus dem Laden liegt gar kein Profil im
+    ///   Bündel** — Apple signiert dort neu und entfernt es. Dann bleibt die
+    ///   Bau-Konfiguration, und die ist eindeutig, seit Debug und Release je
+    ///   ihre eigene Entitlements-Datei haben: Debug `development`, Release
+    ///   `production`. Das ist eine Auskunft über den Bau und keine Messung —
+    ///   und steht deshalb auch so da.
     static var apnsUmgebungLautProfil: (text: String, befund: Diagnose.Befund) {
-        guard let url = Bundle.main.url(forResource: "embedded",
-                                        withExtension: "mobileprovision"),
-              let daten = try? Data(contentsOf: url),
-              let text = String(data: daten, encoding: .isoLatin1) else {
-            return ("nicht ablesbar — im Bündel liegt kein Profil "
-                    + "(Simulator oder unsignierter Bau)", .hinweis)
+        #if DEBUG
+        let ausBau = "development"
+        #else
+        let ausBau = "production"
+        #endif
+
+        let wert: String
+        let quelle: String
+        if let url = Bundle.main.url(forResource: "embedded",
+                                     withExtension: "mobileprovision"),
+           let daten = try? Data(contentsOf: url),
+           let text = String(data: daten, encoding: .isoLatin1),
+           let schluessel = text.range(of: "<key>aps-environment</key>"),
+           let auf = text.range(of: "<string>",
+                                range: schluessel.upperBound..<text.endIndex),
+           let zu = text.range(of: "</string>",
+                               range: auf.upperBound..<text.endIndex) {
+            wert = String(text[auf.upperBound..<zu.lowerBound])
+            quelle = "aus dem Profil im Bündel"
+        } else {
+            wert = ausBau
+            quelle = "laut Bau-Konfiguration — im Bündel liegt kein Profil, "
+                + "das ist über TestFlight und aus dem Laden normal"
         }
-        guard let bereich = text.range(of: "<key>aps-environment</key>"),
-              let auf = text.range(of: "<string>", range: bereich.upperBound..<text.endIndex),
-              let zu = text.range(of: "</string>", range: auf.upperBound..<text.endIndex) else {
-            return ("im Profil nicht gefunden", .hinweis)
-        }
-        let wert = String(text[auf.upperBound..<zu.lowerBound])
 
         // Der Vergleich ist der eigentliche Zweck: Ein Wert allein sagt nichts,
-        // erst das Paar aus Profil und Umgebung sagt etwas.
+        // erst das Paar aus Push-Umgebung und CloudKit-Umgebung sagt etwas.
         let produktiv = !umgebungsvermutung.hasPrefix("vermutlich Development")
         if produktiv && wert == "development" {
-            return (wert + " — PASST NICHT zu dieser Umgebung. Ein Bau, der "
-                    + "gegen den Production-Container spricht, muss "
+            return ("\(wert) (\(quelle)) — PASST NICHT zu dieser Umgebung. Ein "
+                    + "Bau, der gegen den Production-Container spricht, muss "
                     + "„production“ tragen; sonst weist CloudKit jedes "
                     + "Abonnement ab.", .schlecht)
         }
-        return (wert, .gut)
+        return ("\(wert) (\(quelle))", .gut)
     }
 
     /// Rohtext zuerst, Klartext dahinter.
