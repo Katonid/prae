@@ -210,6 +210,26 @@ sich die meisten Überraschungen erklären:
 Die Geräteübersicht macht den Fall sichtbar: Sie zählt die Geräte je Kürzel
 und warnt, wenn zwei unter einem stehen.
 
+## Nachrichten während eines Alarms
+
+Auf dem Alarm-Bildschirm steht direkt unter der Rückmeldung und dem Notruf der
+Knopf **„Nachricht an das Kollegium"**. Dahinter liegt ein Gruppenverlauf für
+diesen einen Alarm: Absender ist das **Kürzel**, alle in der Gruppe lesen alles,
+niemand hat einen eigenen Faden. Er ist für „Aula ist leer" und „zwei Kinder aus
+der 3b fehlen" gedacht — nicht für ein Gespräch.
+
+**Neue Nachrichten kommen als Mitteilung an** (`message-created-v1`), und zwar
+bewusst leiser als ein Alarm: `.active` statt zeitkritisch, Standardton statt
+Alarmton. Der Knopf färbt sich ein und zählt mit, solange der Verlauf zu ist.
+
+Was er **nicht** tut: den Alarm-Bildschirm zurückholen, wenn ihn jemand zur
+Seite gelegt hat. Eine Nachricht ist kein zweiter Alarm.
+
+Der Verlauf endet mit dem Alarm. Es gibt keine Geschichte über Alarme hinweg,
+keine privaten Fäden und keine Lesebestätigungen — alles davon würde ihn
+langsamer lesbar machen, und gelesen wird er unter Druck. Die Nachrichten
+werden wie Alarme und Rückmeldungen **nach 90 Tagen gelöscht**.
+
 ## Rückmeldung und Entwarnung sind zweierlei
 
 „Gesehen – Klasse gesichert" heißt **ich weiß Bescheid**, nicht **es ist

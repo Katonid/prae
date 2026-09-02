@@ -85,6 +85,26 @@ final class NotificationService: UNNotificationServiceExtension {
             content.categoryIdentifier = PushAsset.alarmCategory
             configureUrgency(content, sound: PushAsset.alarmSound, stale: isStale(push))
 
+        case .message(let push):
+            // Leiser als ein Alarm, und mit Absicht: Der Alarm hat das Gerät
+            // schon einmal laut gemacht. Eine Nachricht soll gehört werden,
+            // aber sie ist kein zweiter Alarm — `.active` statt
+            // `.timeSensitive`, Standardton statt Alarmton.
+            content.title = push.senderName.map {
+                String(format: localized(PushString.messageTitleFormat), $0)
+            } ?? localized(PushString.messageTitlePlain)
+            content.body = push.text ?? ""
+            content.subtitle = ""
+            content.categoryIdentifier = PushAsset.messageCategory
+            content.interruptionLevel = .active
+            content.sound = .default
+            // Alle Nachrichten eines Alarms in einem Strang — aber KEIN
+            // `collapseID`: Jede Nachricht ist eine eigene und darf die
+            // vorherige nicht ersetzen.
+            if let alarmId = push.alarmId { content.threadIdentifier = alarmId }
+            content.userInfo = info
+            return
+
         case .allClear(let push):
             content.title = localized(PushString.allClearTitle)
             // `clearedByName`, not `triggeredByName`: the person who called

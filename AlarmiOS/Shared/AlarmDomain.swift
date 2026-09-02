@@ -105,18 +105,51 @@ public enum AlarmEvent: Equatable, Sendable {
     case allClear(AlarmPush)
     case ping(PingPush)
     case selfTest(AlarmPush)
+    case message(MessagePush)
 
     /// The alarm payload, for the three cases that carry one.
     public var alarmPayload: AlarmPush? {
         switch self {
         case .alarm(let push), .allClear(let push), .selfTest(let push): return push
-        case .ping: return nil
+        case .ping, .message: return nil
         }
+    }
+
+    /// Zu welchem Alarm das Ereignis gehört — auch bei einer Nachricht.
+    public var alarmId: String? {
+        if case .message(let push) = self { return push.alarmId }
+        return alarmPayload?.alarmId
     }
 
     /// A ping is the only event that may stay invisible.
     public var isSilent: Bool {
         if case .ping = self { return true }
         return false
+    }
+}
+
+/// Eine Nachricht, die während eines Alarms geschrieben wurde.
+///
+/// Sie reist als eigenes Ereignis, nicht als Alarm: Der Ton ist ein anderer,
+/// die Dringlichkeit ist eine andere, und eine Nachricht darf den
+/// Alarm-Bildschirm nicht zurückholen, den jemand bewusst zur Seite gelegt
+/// hat.
+public struct MessagePush: Codable, Equatable, Sendable {
+    public var messageId: String?
+    public var alarmId: String?
+    public var groupId: String?
+    public var senderName: String?
+    public var text: String?
+
+    public init(messageId: String? = nil,
+                alarmId: String? = nil,
+                groupId: String? = nil,
+                senderName: String? = nil,
+                text: String? = nil) {
+        self.messageId = messageId
+        self.alarmId = alarmId
+        self.groupId = groupId
+        self.senderName = senderName
+        self.text = text
     }
 }

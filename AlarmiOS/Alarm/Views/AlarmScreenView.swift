@@ -38,8 +38,8 @@ struct AlarmScreenView: View {
                     if let instruction = alarm.instruction { instructionCard(instruction) }
                     acknowledgement
                     emergencyCall
-                    responses
                     chatButton
+                    responses
                     if model.mayClear(alarm) { allClearButton }
                     closeButton
                 }
@@ -51,6 +51,11 @@ struct AlarmScreenView: View {
         .preferredColorScheme(.dark)
         .sheet(isPresented: $showsChat) {
             AlarmChatView(alarm: alarm).environmentObject(model)
+        }
+        // Offen heißt gelesen: Solange der Verlauf auf dem Bildschirm ist,
+        // wäre eine Zahl daneben eine Lüge.
+        .onReceive(model.$messages) { _ in
+            if showsChat { model.nachrichtenGelesen() }
         }
     }
 
@@ -263,20 +268,40 @@ struct AlarmScreenView: View {
         .background(.white.opacity(0.14), in: RoundedRectangle(cornerRadius: 18))
     }
 
+    /// Der Draht zum Kollegium.
+    ///
+    /// Er steht bewusst weit oben — direkt unter der Rückmeldung und dem
+    /// Notruf — und trägt seine Zahl im Knopf. In der ersten Fassung hieß er
+    /// „Nachrichten zum Alarm", stand unter der Rückmeldeliste und war damit
+    /// auf einem vollen, scrollenden Alarm-Bildschirm praktisch unsichtbar:
+    /// Der Nutzer bat 09/2026 um einen Gruppenchat, den es seit der ersten
+    /// Fassung gab. Ein Knopf, den niemand findet, ist kein Knopf.
+    ///
+    /// Neue Nachrichten färben ihn ein. Das ist die einzige Stelle auf diesem
+    /// Bildschirm, die sich von selbst verändert — und genau deshalb fällt sie
+    /// auf.
     private var chatButton: some View {
         Button {
             showsChat = true
+            model.nachrichtenGelesen()
         } label: {
-            Label(model.messages.isEmpty
-                  ? "Nachrichten zum Alarm"
-                  : "Nachrichten zum Alarm (\(model.messages.count))",
-                  systemImage: "bubble.left.and.bubble.right.fill")
+            Label(chatBeschriftung, systemImage: "bubble.left.and.bubble.right.fill")
                 .font(.headline)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 16)
         }
-        .buttonStyle(.bordered)
-        .tint(.white)
+        .buttonStyle(.borderedProminent)
+        .tint(model.ungeleseneNachrichten > 0 ? .white : .white.opacity(0.22))
+        .foregroundStyle(model.ungeleseneNachrichten > 0 ? Color.black : .white)
+    }
+
+    private var chatBeschriftung: String {
+        if model.ungeleseneNachrichten == 1 { return "1 neue Nachricht" }
+        if model.ungeleseneNachrichten > 1 {
+            return "\(model.ungeleseneNachrichten) neue Nachrichten"
+        }
+        if model.messages.isEmpty { return "Nachricht an das Kollegium" }
+        return "Nachrichten an das Kollegium (\(model.messages.count))"
     }
 
     private var allClearButton: some View {

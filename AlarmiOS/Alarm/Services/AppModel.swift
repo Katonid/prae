@@ -29,7 +29,17 @@ final class AppModel: ObservableObject {
         }
     }
     @Published private(set) var acks: [Ack] = []
-    @Published private(set) var messages: [Message] = []
+    @Published private(set) var messages: [Message] = [] {
+        didSet { ungeleseneNachrichten = max(0, messages.count - gelesenBis) }
+    }
+
+    /// Wie viele Nachrichten seit dem letzten Öffnen des Verlaufs dazukamen.
+    ///
+    /// Der Alarm-Bildschirm ist voll und wird von jemandem gelesen, der
+    /// erschrocken ist. Eine Nachricht, die nur still in einer Liste landet,
+    /// erreicht dort niemanden — deshalb steht die Zahl am Knopf.
+    @Published private(set) var ungeleseneNachrichten = 0
+    private var gelesenBis = 0
     @Published private(set) var deviceStatuses: [DeviceStatus] = []
     @Published private(set) var availability: BackendAvailability = .ready
     @Published private(set) var checklist: [ChecklistItem] = []
@@ -382,6 +392,12 @@ final class AppModel: ObservableObject {
         zurueckgestellt.contains(alarm.id)
     }
 
+    /// Der Verlauf wurde geöffnet: alles bis hierher ist gesehen.
+    func nachrichtenGelesen() {
+        gelesenBis = messages.count
+        ungeleseneNachrichten = 0
+    }
+
     func hasAcknowledged(_ alarm: Alarm) -> Bool {
         store.hasAcknowledged(alarm.id)
     }
@@ -456,9 +472,11 @@ final class AppModel: ObservableObject {
         messageTask?.cancel()
         guard let alarm else {
             acks = []
+            gelesenBis = 0
             messages = []
             return
         }
+        gelesenBis = 0
         ackTask = Task { [weak self] in
             guard let self else { return }
             for await list in self.backend.observeAcks(alarmId: alarm.id) {
@@ -489,6 +507,13 @@ final class AppModel: ObservableObject {
             // Prüfliste liest ohnehin `letzterPush`; hier wird sie nur
             // sofort neu gezeichnet, statt bis zum nächsten Start zu warten.
             await rebuildChecklist()
+        case .message:
+            // Der Verlauf wird ohnehin abgefragt, solange ein Alarm läuft —
+            // hier geht es nur darum, ihn SOFORT zu holen statt beim nächsten
+            // Nachfasslauf. Der Alarm-Bildschirm wird bewusst nicht nach vorn
+            // geholt: Eine Nachricht ist kein Alarm, und wer den Bildschirm
+            // zur Seite gelegt hat, hat das gemeint.
+            await refresh()
         case .alarm, .allClear:
             break
         }
