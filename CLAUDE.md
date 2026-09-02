@@ -585,10 +585,19 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   Reihenfolge: OpenLigaDB zuerst (nur Bundesliga, dafür vollständig),
   dann TheSportsDB. Zugeordnet wird über Tagesplan + Vereinsnamen,
   beide Mannschaften müssen passen.
-- **Aufstellungen gibt es nirgends frei** (Stand 08/2026, geprüft):
-  football-data.org führt sie in den kostenpflichtigen Stufen,
-  OpenLigaDB und TheSportsDB haben sie nicht. Nichts einbauen, was
-  nicht ankommt — was dazu bekannt wird, läuft über die Ligameldungen
+- **Aufstellungen: zweiter, WAHLFREIER Schlüssel** (`Aufstellungsdienst.swift`,
+  api-football / API-Sports). Geprüft 08/2026: football-data.org führt sie
+  in den kostenpflichtigen Stufen, OpenLigaDB hat sie nicht, TheSportsDB
+  deckelt `lookuplineup.php` bei fünf Namen (die obendrein von einer Seite
+  kamen). api-football gibt sie im kostenlosen Tarif her — **100 Abfragen
+  am Tag**. Deshalb: nur beim Öffnen einer Begegnung fragen, jede Antwort
+  merken, Tageskontingent selbst mitzählen (`heuteUebrig`) und mit
+  Sicherheitsabstand vorher aufhören. **Ohne Schlüssel passiert gar
+  nichts** — die App bleibt genau so, wie sie ohne diesen Dienst wäre.
+  Der Schlüssel liegt im Schlüsselbund unter `Zugang.aufstellungen`, nie
+  im Repo. Ligakennungen sind fest hinterlegt; stimmt eine nicht, sieht
+  der Rückfall den ganzen Tag ohne Ligafilter durch und heilt sich selbst.
+  Was ohne diesen Zugang bekannt wird, läuft über die Ligameldungen
   (Art „Aufstellung & Vorbericht").
 - **Karten sind bei TheSportsDB doch vorhanden** (Gelb und Rot, in der
   Zeitleiste). In 1.0.7 stand hier, es gebe sie nirgends frei — das war
@@ -600,7 +609,7 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   beide Werte werden im Repo gepflegt. **Jede Arbeitseinheit (= jeder
   PR mit App-Änderungen) hebt die Patch-Nummer UND die Build-Nummer um
   je +1 an** — ohne Nachfrage, als Teil des PRs. Zählung ab 08/2026:
-  1.0.9 (Build 7), dann 1.0.10 (Build 8) usw. Größere Sprünge nur auf
+  1.0.10 (Build 8), dann 1.0.11 (Build 9) usw. Größere Sprünge nur auf
   ausdrückliche Ansage des Nutzers.
 - `ITSAppUsesNonExemptEncryption = NO` steht in `Config/Info.plist` UND
   als Build-Einstellung `INFOPLIST_KEY_ITSAppUsesNonExemptEncryption` —

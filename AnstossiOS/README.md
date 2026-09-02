@@ -63,10 +63,7 @@ Ereignis nicht zweimal auf dem Sperrbildschirm landen.
 
 ### Was es bewusst NICHT gibt
 
-**Aufstellungen.** Gibt es nirgends frei: football-data.org führt sie in den
-kostenpflichtigen Stufen, OpenLigaDB und TheSportsDB haben sie gar nicht.
-Was dazu bekannt wird, läuft über die Ligameldungen (Art „Aufstellung &
-Vorbericht").
+**Auswechslungen.** Kein freier Weg gefunden.
 
 **Platzverweise.** Der Schalter dafür war bis 1.0.6 da und löste nie etwas
 aus; in 1.0.7 ist er raus. Nachtrag zur Begründung: Dort stand, es gebe
@@ -128,7 +125,8 @@ muss zu `Hintergrundpflege.kennung` passen) und `UIBackgroundModes = fetch`.
 | Direkter Vergleich (Begegnungen, Siege, Remis, Tore) | **eigene** Unterabfrage `/matches/{id}/head2head`, nur beim Öffnen einer Begegnung |
 | Torjägerliste je Liga | `/competitions/{code}/scorers`, erst beim Ansehen |
 | Spielort, Schiedsrichter | football-data.org, soweit vorhanden |
-| Aufstellung, Auswechslungen, Karten | **gibt es nicht** — kostenpflichtige Stufen |
+| Aufstellung mit Formation, Bank und Trainer | **api-football**, zweiter und wahlfreier Schlüssel |
+| Auswechslungen, Karten | **gibt es nicht** — siehe unten |
 
 Die Spielansicht sagt selbst dazu, woher die Torfolge stammt und was fehlt.
 
@@ -171,6 +169,37 @@ falsch zugeordneter Torschütze wäre schlimmer als gar keiner. Für die vier
 anderen Ligen ist keine vergleichbare freie Quelle bekannt — dort bleibt es
 beim Rückfall aus dem Sprung im Spielstand.
 
+## Aufstellungen: der zweite, wahlfreie Schlüssel
+
+Aufstellungen stehen auf jeder Nachrichtenseite — weil die ihre Daten
+einkaufen (Opta, Sportradar, dpa). Frei zugänglich sind sie fast nirgends;
+geprüft 08/2026:
+
+| Quelle | Aufstellungen? |
+| --- | --- |
+| football-data.org, freier Zugang | nein — kostenpflichtige Stufe |
+| OpenLigaDB | nein, führt sie gar nicht |
+| TheSportsDB, freie Stufe | `lookuplineup.php` gibt **fünf** Namen heraus — im Test alle von derselben Mannschaft. Unbrauchbar. |
+| **api-football (API-Sports)** | **ja, im kostenlosen Tarif** — 100 Abfragen am Tag |
+
+Deshalb: ein **zweiter, wahlfreier** Schlüssel unter *Einstellungen →
+Aufstellungen*. Ist er hinterlegt, zeigt die Spielansicht Startelf mit
+Rückennummern und Positionen, Formation, Ersatzbank und Trainer. Ist er es
+nicht, **passiert gar nichts** — die App bleibt genau so, wie sie ohne
+diesen Dienst wäre.
+
+Weil 100 Abfragen am Tag knapp sind, ist der Dienst durchweg sparsam:
+
+- Gefragt wird **nur beim Öffnen einer Begegnung**, nie im Ticker.
+- Jede Antwort wird gemerkt — vor dem Anpfiff eine Viertelstunde (die
+  Aufstellung ändert sich noch), danach einen Tag.
+- Die App **zählt selbst mit**, wie viele Abfragen der Tag noch hergibt,
+  und hört mit Sicherheitsabstand vor der Grenze auf. Der Reststand steht
+  in den Einstellungen.
+
+Aufstellungen erscheinen üblicherweise etwa eine Stunde vor dem Anpfiff;
+vorher sagt die App das auch.
+
 ## Woher die Daten kommen
 
 Die App fragt **football-data.org** (Fassung v4). Der kostenlose Zugang
@@ -208,12 +237,13 @@ Anstoss/
     Modelle.swift           Spiel, Tabelle, Tickermeldung, Zeitformate
     FussballDienst.swift    Zugriff auf football-data.org v4 + Bremse
     Datenhaltung.swift      Zwischenspeicher, Ticker-Erkennung, Abruf
-    Schluesselbund.swift    Zugangsschlüssel im Keychain
+    Schluesselbund.swift    beide Zugangsschlüssel im Keychain
     Meldungen.swift         Wunsch: Arten, Ligen, einzelne Spiele
     Benachrichtiger.swift   örtliche Mitteilungen und Anpfiff-Wecker
     Tickerwerk.swift        Standvergleich + Standspeicher (geteilt)
     Torschuetzendienst.swift Torschützen der Bundesliga von OpenLigaDB
     Spielereignisdienst.swift Torschützen aller fünf Ligen von TheSportsDB
+    Aufstellungsdienst.swift Aufstellungen von api-football (wahlfrei)
     Nachrichten.swift       Art, Quellen, Vereinsverzeichnis, Ablage
     Nachrichtendienst.swift RSS lesen + ein Durchgang für beide Wege
     Hintergrundpflege.swift Nachsehen, während die App geschlossen ist
@@ -244,7 +274,7 @@ Stellen im pbxproj (Debug + Release); es gibt keine Skript-Bauphase,
 beide Werte werden im Repo gepflegt. **Jede Arbeitseinheit hebt beide
 um +1 an** — Fassung und Build-Nummer. Zählung ab 08/2026: 1.0.4
 (Build 2), 1.0.5 (Build 3), 1.0.6 (Build 4), 1.0.7 (Build 5),
-1.0.8 (Build 6), 1.0.9 (Build 7) usw.
+1.0.8 (Build 6), 1.0.9 (Build 7), 1.0.10 (Build 8) usw.
 
 Hintergrund: App Store Connect nimmt keinen Build an, dessen Nummer
 nicht höher ist als die des vorherigen.

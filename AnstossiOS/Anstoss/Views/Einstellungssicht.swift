@@ -6,12 +6,15 @@ struct Einstellungssicht: View {
     @EnvironmentObject private var daten: Datenhaltung
     @EnvironmentObject private var meldungen: Meldungsverwaltung
     @State private var eingabe = ""
+    @State private var elfEingabe = ""
     @State private var loeschfrage = false
+    @State private var elfLoeschfrage = false
 
     var body: some View {
         NavigationStack {
             Form {
                 zugang
+                aufstellungszugang
                 mitteilungen
                 ligameldungen
                 anzeige
@@ -82,6 +85,58 @@ struct Einstellungssicht: View {
         let text = daten.schluessel
         guard text.count > 6 else { return String(repeating: "•", count: max(text.count, 4)) }
         return String(text.prefix(4)) + String(repeating: "•", count: 6) + String(text.suffix(2))
+    }
+
+    // MARK: Zweiter Zugang für Aufstellungen
+
+    private var aufstellungszugang: some View {
+        Section {
+            if daten.aufstellungsschluesselVorhanden {
+                HStack {
+                    Label("Schlüssel hinterlegt", systemImage: "checkmark.seal.fill")
+                        .foregroundStyle(Gestaltung.rasen)
+                    Spacer()
+                    Text("\(Aufstellungsdienst.heuteUebrig) heute übrig")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Button(role: .destructive) {
+                    elfLoeschfrage = true
+                } label: {
+                    Label("Schlüssel entfernen", systemImage: "trash")
+                }
+            } else {
+                Text("Ohne diesen Schlüssel bleiben Aufstellungen aus. Alles Übrige funktioniert unverändert.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+
+            TextField(daten.aufstellungsschluesselVorhanden ? "Neuen Schlüssel einsetzen" : "Schlüssel von api-football",
+                      text: $elfEingabe)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .font(.body.monospaced())
+
+            Button("Schlüssel sichern") {
+                daten.aufstellungsschluesselSetzen(elfEingabe)
+                elfEingabe = ""
+            }
+            .disabled(elfEingabe.trimmingCharacters(in: .whitespacesAndNewlines).count < 8)
+
+            Link(destination: URL(string: "https://www.api-football.com/pricing")!) {
+                Label("Kostenlosen Zugang anlegen", systemImage: "arrow.up.right.square")
+            }
+        } header: {
+            Text("Aufstellungen (wahlfrei)")
+        } footer: {
+            Text("Aufstellungen stehen auf jeder Nachrichtenseite, weil die ihre Daten einkaufen. Frei gibt es sie fast nirgends: football-data.org führt sie in den kostenpflichtigen Stufen, OpenLigaDB hat sie nicht, TheSportsDB gibt nur fünf Namen je Spiel heraus. api-football gibt sie im kostenlosen Tarif her — dafür mit eigenem Schlüssel und 100 Abfragen am Tag. Die App fragt deshalb nur beim Öffnen einer Begegnung und merkt sich jede Antwort.")
+        }
+        .alert("Schlüssel entfernen?", isPresented: $elfLoeschfrage) {
+            Button("Entfernen", role: .destructive) { daten.aufstellungsschluesselLoeschen() }
+            Button("Abbrechen", role: .cancel) { }
+        } message: {
+            Text("Danach zeigt die App keine Aufstellungen mehr.")
+        }
     }
 
     // MARK: Mitteilungen
