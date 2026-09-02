@@ -10,6 +10,10 @@ Rückfall, falls Custom App an der Organisation scheitert.
 
 ## 1. In App Store Connect
 
+* Den App-Eintrag **von Hand** anlegen (Meine Apps → +), nicht über Xcodes
+  „Create App Record": Xcode schlägt dort den Anzeigenamen vor, und
+  `Schulalarm` ist vergeben. App-Namen sind weltweit eindeutig, auch für
+  Custom Apps. Einzelheiten samt freier Namensvorschläge in `../AppStore.md`.
 * Die App als **Custom App** anlegen (Vertrieb: „Custom App", nicht
   „öffentlicher App Store").
 * Unter *Preise und Verfügbarkeit* die Organisation freischalten, die die App

@@ -4,19 +4,37 @@ Die App geht **nicht** in den öffentlichen App Store. Sie wird als **Custom
 App** über Apple School Manager an eine einzelne Schule verteilt. Was
 trotzdem in App Store Connect ausgefüllt werden muss:
 
-## Der App-Eintrag
+## Der App-Eintrag wird VON HAND angelegt
 
-* **Name:** `Schulalarm` (11 Zeichen, Grenze 30)
+**Nicht über Xcodes „Create App Record"** im Distribute-Ablauf. Xcode schlägt
+dort den Anzeigenamen vor, und `Schulalarm` ist im App Store bereits vergeben
+— der Versuch endet mit „App Record Creation failed due to request containing
+an attribute already in use" (gemeldet 09/2026, derselbe Fehler wie zuvor bei
+Anstoß). App-Namen sind bei Apple **weltweit eindeutig, auch für Custom
+Apps**, die nie im öffentlichen Laden auftauchen.
+
+Also: App Store Connect → Meine Apps → **+** → Neue App, mit einem freien
+Namen. Steht der Eintrag, lädt „Distribute App" über die Bundle-Id in ihn
+hinein und fragt nicht mehr nach einem Namen. Der fertige Archiv-Eintrag muss
+dafür **nicht** neu gebaut werden.
+
+* **Name im Store:** `Schulalarm - Der Warnmelder` (27 Zeichen, Grenze 30) —
+  vergeben 09/2026, nachdem `Schulalarm` allein abgelehnt wurde. Ob ein Name
+  frei ist, sagt erst das Feld in App Store Connect — nicht raten, eintippen.
 * **Untertitel:** `Alarm für das Kollegium` (23 Zeichen, Grenze 30)
-* **Bundle-ID:** `de.dboschule.alarm`
+* **Bundle-ID:** `de.dboschule.alarm` (aus der Liste wählen)
+* **Primärsprache:** Deutsch
+* **SKU:** frei wählbar, z. B. `dboschule-alarm-001`
 * **Primäre Kategorie:** Bildung
 * **Vertrieb:** Custom App — Organisation über die Organisations-ID aus
   Apple School Manager freischalten (ASM → Einstellungen →
   Registrierungsinformationen).
 
-Auf dem Homescreen heißt die App ebenfalls **Schulalarm**
-(`INFOPLIST_KEY_CFBundleDisplayName`). iOS schneidet dort nach rund zwölf
-Zeichen ab — der Name passt.
+**Auf dem Homescreen heißt die App weiterhin `Schulalarm`**
+(`INFOPLIST_KEY_CFBundleDisplayName`). Store-Name und Anzeigename sind
+getrennte Felder und dürfen auseinandergehen; iOS schneidet unter dem Symbol
+ohnehin nach rund zwölf Zeichen ab. Am Projekt ändert der Store-Name nichts —
+Ordner, Ziel, Bundle-Id und iCloud-Container bleiben, wie sie sind.
 
 ## Altersfreigabe
 

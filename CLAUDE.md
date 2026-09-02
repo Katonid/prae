@@ -497,6 +497,18 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   wird sie dort auch nicht — die Mitteilung gehört der App, und an deren
   Entitlement prüft iOS, ob `.timeSensitive` gilt. Wer der Erweiterung
   wieder eine Entitlements-Datei gibt, macht das Projekt unsignierbar.
+- **Der App-Eintrag wird VON HAND in App Store Connect angelegt**, nie über
+  Xcodes „Create App Record" im Distribute-Ablauf (gemeldet 09/2026:
+  „App Record Creation failed due to request containing an attribute already
+  in use"). Xcode schlägt dort den Anzeigenamen vor, und `Schulalarm` ist
+  vergeben — App-Namen sind bei Apple weltweit eindeutig, **auch für Custom
+  Apps**, die nie im öffentlichen Laden auftauchen. Derselbe Fehler wie bei
+  Anstoß, dieselbe Lösung: freier Store-Name, Eintrag von Hand, dann lädt
+  Distribute über die Bundle-Id hinein. Vergeben ist seit 09/2026
+  **„Schulalarm - Der Warnmelder"** (Ansage des Nutzers). **Store-Name und Homescreen-Name sind getrennte Felder**
+  und dürfen auseinandergehen; `INFOPLIST_KEY_CFBundleDisplayName` bleibt
+  „Schulalarm", Ordner, Ziel, Bundle-Id und iCloud-Container bleiben ebenfalls.
+  Das Archiv muss dafür nicht neu gebaut werden.
 - **Ein Bau in GitHub Actions beweist NICHT, dass sich signieren lässt.**
   Er läuft mit `CODE_SIGNING_ALLOWED=NO` gegen den Simulator; Entitlements
   werden dabei nie geprüft. Alles, was mit Profilen, App-Ids und
