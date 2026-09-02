@@ -560,6 +560,14 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   läuft die App gar nicht** — auch nicht bei gerätebasierter Zuweisung über
   Jamf, die sonst ganz ohne Apple-ID installiert. Beim Vorbereiten eines Geräts
   ist das die erste Frage, nicht die letzte.
+- **Datenschutz- und Hilfeseite liegen in `docs/schulalarm/`** und werden vom
+  Pages-Ablauf mitgeliefert:
+  `https://katonid.github.io/prae/schulalarm/datenschutz.html` und
+  `.../support.html`. Die Datenschutz-URL ist **Pflichtfeld schon für eine
+  externe TestFlight-Gruppe**, nicht erst für den Laden. Die Seite benennt die
+  Grenzen der öffentlichen CloudKit-Datenbank ausdrücklich (der Entwickler kann
+  die Datensätze einsehen; wer den Beitrittscode hat, kommt in die Gruppe) —
+  dieselbe Ehrlichkeit wie im README, nicht schönreden.
 - **Für den Probelauf: externe TestFlight-Gruppe mit öffentlichem Link.** Die
   acht Zeichen hinter `testflight.apple.com/join/` sind ein Code, der sich in
   der TestFlight-App unter „Code einlösen" eintippen lässt — es braucht also

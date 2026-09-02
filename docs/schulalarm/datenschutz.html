@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Datenschutzerklärung – Schulalarm</title>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+         max-width: 720px; margin: 0 auto; padding: 24px 16px 64px; line-height: 1.6;
+         color: #1b1b1f; background: #fafafa; }
+  h1 { font-size: 1.6em; } h2 { font-size: 1.15em; margin-top: 1.8em; }
+  ul { padding-left: 1.2em; }
+  footer { margin-top: 3em; font-size: 0.85em; color: #666; }
+  @media (prefers-color-scheme: dark) {
+    body { background: #111; color: #e6e6e6; } footer { color: #999; }
+  }
+</style>
+</head>
+<body>
+<h1>Datenschutzerklärung für die App „Schulalarm“</h1>
+
+<p><strong>Kurzfassung:</strong> Schulalarm ist eine interne Alarm-App für das
+Kollegium einer einzelnen Schule. Es gibt kein Konto beim Entwickler, keine
+Werbung, kein Tracking, keine Analyse-Werkzeuge und keine Bausteine fremder
+Anbieter. Gespeichert wird ein selbstgewähltes <strong>Kürzel</strong>, nie ein
+voller Name. <strong>Die Daten liegen in der öffentlichen iCloud-Datenbank der
+App; dieser Bereich gehört dem Entwickler, der die dort abgelegten Datensätze
+technisch einsehen kann.</strong> Ausgewertet wird nichts. Alarme,
+Rückmeldungen und Nachrichten werden nach 90 Tagen gelöscht.</p>
+
+<h2>1. Verantwortlicher</h2>
+<p>Verantwortlich für diese App ist der private Entwickler Andreas Jerosch.<br>
+Kontakt: <strong>schulalarm@apps.dblern.de</strong></p>
+
+<h2>2. Was die App speichert</h2>
+<ul>
+  <li><strong>Kürzel</strong> (Anzeigename), das die Lehrkraft selbst wählt —
+      z. B. „MÜ“ oder „Kl. 3b“. Ein voller Name ist ausdrücklich nicht
+      vorgesehen.</li>
+  <li><strong>iCloud-Nutzerkennung</strong> der App (eine anonyme Zeichenkette,
+      die Apple je App und Konto vergibt). Daran erkennt die App, welches
+      Gerät zu welcher Person gehört, auch nach einer Neuinstallation.</li>
+  <li><strong>Gerätemodell, App-Version, Berechtigungsstatus für Mitteilungen
+      und iCloud-Status</strong> — damit ein Admin sieht, welches iPad
+      empfangsbereit ist.</li>
+  <li><strong>Die Alarme selbst</strong>: Art, Ort, Uhrzeit, auslösende Person,
+      Entwarnung.</li>
+  <li><strong>Rückmeldungen</strong> („Klasse gesichert“ / „Hilfe nötig“) und
+      die <strong>Nachrichten</strong>, die während eines Alarms geschrieben
+      werden.</li>
+</ul>
+
+<h2>3. Was die App NICHT speichert</h2>
+<p>Keinen Standort, keine Kontakte, keine Telefonnummern, keine Fotos, keine
+Nutzungsstatistik. Es gibt kein Analytics, kein Tracking, keine Werbe-Kennung
+und kein Software-Baustein eines fremden Anbieters. Nachzulesen ist das im
+Datenschutzbericht der App (<code>PrivacyInfo.xcprivacy</code>).</p>
+
+<p>Die <strong>Kamera</strong> wird an genau einer Stelle gebraucht: beim
+Einlesen des sechsstelligen Beitrittscodes von einem QR-Code. Es wird nichts
+aufgenommen und nichts gespeichert.</p>
+
+<h2>4. Wo die Daten liegen</h2>
+<p>Die App hat <strong>keinen eigenen Server</strong>. Alle Daten liegen in
+Apples iCloud (CloudKit), im Bereich der App beim Entwickler. Betreiber der
+Rechenzentren ist Apple; es gelten Apples Bedingungen zur Datenverarbeitung.
+Die Mitteilungen werden über Apples Push-Dienst (APNs) zugestellt.</p>
+
+<h2>5. Wer die Daten sehen kann — ehrlich benannt</h2>
+<p>Die App nutzt die <strong>öffentliche</strong> iCloud-Datenbank. Das hat zwei
+Folgen, die hier stehen sollen, statt schöngeredet zu werden:</p>
+<ul>
+  <li><strong>Der Entwickler kann die Datensätze technisch einsehen.</strong>
+      Er tut es nicht und wertet nichts aus, aber die Möglichkeit besteht —
+      genau deshalb speichert die App Kürzel und keine Namen.</li>
+  <li>Diese Datenbank kennt nur „irgendein angemeldetes iCloud-Konto“ und
+      „Ersteller“. Sie kann nicht „nur Mitglieder dieser Gruppe“. <strong>Wer
+      den sechsstelligen Beitrittscode besitzt und eine Apple-ID hat, kann der
+      Gruppe beitreten</strong> und dort mitlesen und schreiben. Die
+      Schutzwirkung kommt daraus, dass die App nur an Schul-Geräte verteilt und
+      der Code nur im Kollegium bekannt gemacht wird — und aus der
+      Datensparsamkeit.</li>
+</ul>
+
+<h2>6. Wer im Kollegium was sieht</h2>
+<p>Die <em>Zahl</em> der Rückmeldungen sieht jede Lehrkraft auf dem
+Alarm-Bildschirm. Die <em>Namen</em> dahinter sehen nur zwei: ein Admin und die
+Person, die den Alarm ausgelöst hat — sie steht am Ort und muss wissen, wer
+sich noch nicht gemeldet hat. Für alle anderen bleibt es bei der Zahl.</p>
+
+<h2>7. Löschung</h2>
+<p>Alarme, Rückmeldungen und Nachrichten sind Leistungs- und Verhaltensdaten
+benannter Personen. Sie werden <strong>nach 90 Tagen gelöscht</strong> — von
+Hand über Verwaltung → Aufräumen und automatisch bei jedem Start einer
+Admin-App. Weil es keinen Servercode gibt, heißt das auch: Öffnet ein halbes
+Jahr lang niemand mit Adminrechten die App, wird nicht aufgeräumt.</p>
+
+<p>Wer aus der Gruppe entfernt wird, verliert damit seinen Mitgliedseintrag.
+Auf Wunsch werden alle Daten einer Person früher gelöscht; eine Mail an die
+oben genannte Adresse genügt.</p>
+
+<h2>8. Rechte der betroffenen Personen</h2>
+<p>Es bestehen die Rechte auf Auskunft, Berichtigung, Löschung, Einschränkung
+der Verarbeitung, Datenübertragbarkeit und Widerspruch sowie das Recht, sich
+bei einer Aufsichtsbehörde zu beschweren. Für alles davon genügt eine Mail an
+die oben genannte Adresse.</p>
+
+<h2>9. Diese App ersetzt keinen Notruf</h2>
+<p>Das gehört zwar nicht in eine Datenschutzerklärung, ist aber zu wichtig, um
+es wegzulassen: Schulalarm benachrichtigt Kolleginnen und Kollegen im selben
+Gebäude. <strong>110 und 112 bleiben der Weg zu Polizei und Feuerwehr.</strong></p>
+
+<footer>Stand: September 2026</footer>
+</body>
+</html>

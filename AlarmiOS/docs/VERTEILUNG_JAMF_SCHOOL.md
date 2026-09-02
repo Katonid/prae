@@ -130,6 +130,11 @@ TestFlight-App unter „Code einlösen" eintippen.** Damit braucht niemand eine
 Einladungsmail. Praktisch für eine Konferenz: aus dem Link einen QR-Code
 machen und an die Wand werfen.
 
+**Pflichtfeld dabei:** Eine externe Gruppe verlangt eine
+**Datenschutzrichtlinie-URL**. Für Schulalarm ist das
+`https://katonid.github.io/prae/schulalarm/datenschutz.html` (Quelle:
+`docs/schulalarm/datenschutz.html` im Repo, ausgeliefert vom Pages-Ablauf).
+
 Zwei Bedingungen:
 
 * Den öffentlichen Link gibt es **nur für externe** Gruppen. Interne Tester

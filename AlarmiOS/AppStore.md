@@ -26,6 +26,9 @@ dafür **nicht** neu gebaut werden.
 * **Primärsprache:** Deutsch
 * **SKU:** frei wählbar, z. B. `dboschule-alarm-001`
 * **Primäre Kategorie:** Bildung
+* **Datenschutz-URL:** `https://katonid.github.io/prae/schulalarm/datenschutz.html`
+  (Pflichtfeld auch für eine **externe TestFlight-Gruppe**)
+* **Support-URL:** `https://katonid.github.io/prae/schulalarm/support.html`
 * **Vertrieb:** Custom App — Organisation über die Organisations-ID aus
   Apple School Manager freischalten (ASM → Einstellungen →
   Registrierungsinformationen).
