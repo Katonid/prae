@@ -181,6 +181,42 @@ ob ein iPad geklingelt hat. Ein Kürzel, das fehlt, heißt „hat noch nicht
 getippt" und nie „hat nichts bekommen". Der Satz steht deshalb auch unter
 der Liste in der App.
 
+## Im Alarmfall vorn — was geht und was nicht
+
+**iOS lässt keine App sich selbst in den Vordergrund holen.** Es gibt dafür
+keine Schnittstelle, für keine App und mit keiner Berechtigung: Was auf dem
+Bildschirm liegt, entscheidet allein die Person am Gerät. Ein Push kann eine
+App auch nicht starten. Wer etwas anderes verspricht, verspricht etwas, das
+das Betriebssystem nicht hergibt — und diese App verspricht es nicht.
+
+Nach vorn holt also die **Mitteilung**: zeitkritisch (`.timeSensitive`, geht
+durch einen Fokus), mit eigenem Ton, auf dem Sperrbildschirm, mit den beiden
+Rückmeldeknöpfen direkt darin. Ein Tipp darauf öffnet die App **direkt auf dem
+Alarm-Bildschirm** — auch aus dem kalten Start heraus.
+
+Was die App selbst leisten kann, fängt in dem Augenblick an, in dem sie vorne
+ist. Ab dann gilt:
+
+* **Der Alarm liegt oben, und nichts anderes.** War gerade ein Blatt offen
+  (Verwaltung, Einstellungen, Auslösen), macht es sich zu. Vorher blieb der
+  Alarm dahinter — ein offenes Blatt und der Alarm-Bildschirm sind beide
+  modal, und iOS zeigt davon zuverlässig nur eines. Wer die Mitgliederliste
+  offen hatte, sah beim Alarm weiter die Mitgliederliste.
+* **Der Bildschirm bleibt an.** Solange ein Alarm läuft, sperrt sich das iPad
+  nicht (`isIdleTimerDisabled`). Ein Gerät, das sich nach zwei Minuten
+  schwarz schaltet, nimmt den Alarm mit.
+* **Zur Seite legen geht erst nach der Rückmeldung** — und dann richtig. Bis
+  1.0.14 hieß der Knopf „Ansicht schließen", und der Nachfasslauf schob den
+  Bildschirm fünf Sekunden später zurück; er hielt also nicht, was er
+  versprach. Jetzt bleibt er liegen, bis ein NEUER Alarm kommt. Zurück führt
+  die Karte „Alarm läuft" auf dem Startbildschirm.
+
+**Soll ein iPad dauerhaft nichts anderes zeigen, ist das eine Sache des MDM,
+nicht der App.** Jamf School kann ein Gerät in den Einzel-App-Modus sperren
+(Single App Mode) — sinnvoll für ein festes Gerät im Sekretariat oder im
+Lehrerzimmer, unsinnig für das Arbeits-iPad einer Lehrkraft, das den ganzen
+Tag für Unterricht gebraucht wird. Siehe `docs/MDM_APPCONFIG.md`.
+
 ## Der Aufbau in einem Absatz
 
 Alles, was mit einer Gegenstelle spricht, liegt hinter **einem** Protokoll:

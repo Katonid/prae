@@ -415,6 +415,33 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   geantwortet hat, nicht, wer den Alarm bekommen hat. Eine
   Zustellbestätigung gibt CloudKit nicht her, und ein Kürzel, das fehlt,
   darf nie als „hat es nicht bekommen" gelesen werden.
+- **Keine iOS-App holt sich selbst in den Vordergrund** (Wunsch des Nutzers,
+  09/2026: „Im Alarmfall soll die App sichtbar im Vordergrund sein."). Es gibt
+  dafür keine Schnittstelle — nicht über kritische Hinweise, nicht über die
+  Custom-App-Verteilung, nicht über Jamf School; ein Push kann eine App weder
+  starten noch nach vorn bringen. Nach vorn kommt die MITTEILUNG, und ein Tipp
+  darauf öffnet die App direkt auf dem Alarm-Bildschirm. Das nie anders
+  darstellen. Was ein Gerät dauerhaft auf diese App festnagelt, ist der
+  Einzel-App-Modus des MDM — sinnvoll für ein festes Gerät, unsinnig für das
+  Arbeits-iPad einer Lehrkraft.
+- **Ab dem Augenblick, in dem die App vorne IST, liegt der Alarm oben** (ab
+  1.0.15). Drei Dinge dafür, und alle drei waren vorher falsch:
+  - **Ein offenes Blatt macht sich zu** (`AppModel.offenesBlatt`,
+    `zeigeAlarmBildschirm`). Ein Sheet und der `fullScreenCover` des
+    Alarm-Bildschirms sind beide modal, und iOS zeigt davon zuverlässig nur
+    das erste: Wer die Verwaltung offen hatte, sah beim Alarm weiter die
+    Mitgliederliste. Deshalb liegt der Zustand der drei Blätter im Modell und
+    nicht als `@State` in `HomeView` — im Alarmfall muss ihn jemand anderes
+    zumachen können. Die 300 ms danach sind die Umdrehung, die SwiftUI zum
+    Zumachen braucht; ohne sie verschluckt UIKit die zweite Darstellung.
+  - **Der Bildschirm bleibt an, solange ein Alarm läuft**
+    (`isIdleTimerDisabled` im `didSet` von `activeAlarm`). Ein iPad, das sich
+    nach zwei Minuten sperrt, nimmt den Alarm-Bildschirm mit.
+  - **„Zur Seite legen" bleibt liegen** (`zurueckgestellt`). Bis 1.0.14 setzte
+    jeder Nachfasslauf `showsAlarmScreen` wieder auf `true` — der Knopf hielt
+    also fünf Sekunden. Und er geht erst auf, NACHDEM jemand geantwortet hat:
+    vorher wäre er eine Abkürzung an der einen Handlung vorbei, um die diese
+    App gebaut ist. Ein neuer Alarm holt den Bildschirm immer zurück.
 - **Eine Rückmeldung beendet KEINEN Alarm** — das tut nur die Entwarnung.
   „Gesehen" heißt „ich weiß Bescheid", nicht „es ist vorbei". Genau eine
   Ausnahme: der gezielte Probealarm (Zustelltest). Der räumt sich mit der

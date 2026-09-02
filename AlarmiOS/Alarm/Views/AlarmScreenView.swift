@@ -293,13 +293,32 @@ struct AlarmScreenView: View {
     }
 
     /// Closing the screen does not end the alarm — and says so.
+    /// Der einzige Weg vom Alarm-Bildschirm zurück — und er geht erst auf,
+    /// wenn jemand geantwortet hat.
+    ///
+    /// Vorher wäre er eine Abkürzung an der einen Handlung vorbei, um die
+    /// diese App gebaut ist. Danach ist er nötig: Ein Admin muss an die
+    /// Verwaltung kommen, und wer den Alarm kennt, muss unterrichten können.
+    ///
+    /// Zur Seite gelegt heißt zur Seite gelegt: Bis 1.0.14 schob der
+    /// Nachfasslauf den Bildschirm nach fünf Sekunden zurück, der Knopf hielt
+    /// also nicht, was er versprach.
+    @ViewBuilder
     private var closeButton: some View {
-        Button("Ansicht schließen (Alarm läuft weiter)") {
-            model.showsAlarmScreen = false
+        if model.hasAcknowledged(alarm) {
+            Button("Ansicht zur Seite legen (Alarm läuft weiter)") {
+                model.alarmbildschirmZurueckstellen()
+            }
+            .font(.footnote)
+            .foregroundStyle(.white.opacity(0.7))
+            .padding(.top, 4)
+        } else {
+            Text("Der Alarm bleibt auf dem Bildschirm, bis du geantwortet hast.")
+                .font(.footnote)
+                .foregroundStyle(.white.opacity(0.6))
+                .multilineTextAlignment(.center)
+                .padding(.top, 4)
         }
-        .font(.footnote)
-        .foregroundStyle(.white.opacity(0.7))
-        .padding(.top, 4)
     }
 }
 

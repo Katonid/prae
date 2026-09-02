@@ -68,3 +68,38 @@ Ein zurückgezogener Code (Verwaltung → Beitrittscodes → „Zurückziehen")
 sperrt keine Geräte aus, die bereits beigetreten sind — er verhindert nur
 neue Beitritte. Wer den Code in der App-Konfiguration austauscht, muss also
 nichts weiter tun; die vorhandenen Geräte laufen weiter.
+
+## „Die App soll im Alarmfall vorne sein"
+
+Das ist der häufigste Wunsch, und die ehrliche Antwort steht zuerst:
+
+**Keine iOS-App kann sich selbst in den Vordergrund holen.** Es gibt dafür
+keine Schnittstelle — nicht mit kritischen Hinweisen, nicht mit einer
+Custom-App-Verteilung, nicht über das MDM. Ein Push kann eine App weder
+starten noch nach vorn bringen. Was auf dem Bildschirm liegt, entscheidet die
+Person am Gerät; das ist eine Grundentscheidung von iOS und keine fehlende
+Berechtigung.
+
+Was tatsächlich nach vorn kommt, ist die **Mitteilung**: zeitkritisch, mit
+eigenem Ton, auf dem Sperrbildschirm, mit den Rückmeldeknöpfen darin. Ein Tipp
+öffnet die App direkt auf dem Alarm-Bildschirm.
+
+Zwei Stellschrauben liegen beim MDM, und beide gehören ins
+Konfigurationsprofil, nicht in die App:
+
+1. **Mitteilungen vorschreiben.** Ein `com.apple.notificationsettings`-Payload
+   für `de.dboschule.alarm` mit erlaubten Mitteilungen, Ton an, Sperrbildschirm
+   an, Vorschau nach Vorgabe des Krisenteams, `CriticalAlertEnabled` sobald
+   Apple die Berechtigung erteilt hat. Damit kann niemand die Mitteilungen
+   versehentlich abschalten — und genau das ist der wahrscheinlichste Grund
+   für ein stummes iPad.
+2. **Fokus-Ausnahme und Lautlos** bleiben Sache des Geräts. Ohne kritische
+   Hinweise bleibt ein stumm geschaltetes iPad stumm; das ist der Grund für
+   den Antrag in `CRITICAL_ALERTS_ANTRAG.md`.
+
+**Einzel-App-Modus (Single App Mode)** ist der einzige Weg, ein iPad dauerhaft
+auf diese App festzunageln. Das ergibt Sinn für ein festes Gerät — Sekretariat,
+Lehrerzimmer, Hausmeisterei —, das sonst nichts tut. Für das Arbeits-iPad einer
+Lehrkraft ergibt es keinen Sinn: Es wird den ganzen Tag für Unterricht
+gebraucht, und ein Gerät, das nichts anderes kann, liegt am Ende im Schrank —
+und ein iPad im Schrank ist im Ernstfall genau so nützlich wie gar keins.

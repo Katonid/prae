@@ -18,7 +18,16 @@ final class AppModel: ObservableObject {
 
     @Published private(set) var group: AlarmGroup?
     @Published private(set) var member: Member?
-    @Published private(set) var activeAlarm: Alarm?
+    /// Solange einer läuft, bleibt der Bildschirm an (`isIdleTimerDisabled`).
+    ///
+    /// Ein iPad, das sich nach zwei Minuten sperrt, nimmt den Alarm-Bildschirm
+    /// mit — und wer dann hinsieht, sieht einen schwarzen Deckel. Der Alarm
+    /// steht auf dem Tisch, bis Entwarnung ist.
+    @Published private(set) var activeAlarm: Alarm? {
+        didSet {
+            UIApplication.shared.isIdleTimerDisabled = activeAlarm?.isActive == true
+        }
+    }
     @Published private(set) var acks: [Ack] = []
     @Published private(set) var messages: [Message] = []
     @Published private(set) var deviceStatuses: [DeviceStatus] = []
@@ -52,6 +61,27 @@ final class AppModel: ObservableObject {
 
     /// Whether the alarm screen is on top of everything.
     @Published var showsAlarmScreen = false
+
+    /// Welches Blatt gerade über dem Startbildschirm liegt.
+    ///
+    /// Der Zustand steht hier und nicht in `HomeView`, weil ihn im Alarmfall
+    /// jemand anderes zumachen muss: Ein offenes Blatt und der
+    /// Alarm-Bildschirm sind beide modale Darstellungen, und iOS zeigt
+    /// zuverlässig nur eine davon. Lag die Verwaltung offen, blieb der Alarm
+    /// dahinter — sichtbar war dann eine Mitgliederliste.
+    @Published var offenesBlatt: Blatt?
+
+    /// Alarme, deren Bildschirm ausdrücklich zur Seite gelegt wurde.
+    ///
+    /// Bis 1.0.14 setzte jeder Nachfasslauf `showsAlarmScreen` wieder auf
+    /// `true` — „Ansicht schließen" hielt also höchstens fünf Sekunden. Ein
+    /// Knopf, der sein Versprechen nicht hält, ist schlimmer als keiner.
+    private var zurueckgestellt: Set<String> = []
+
+    enum Blatt: String, Identifiable {
+        case ausloesen, einstellungen, verwaltung
+        var id: String { rawValue }
+    }
 
     /// Set once the whole checklist is green and a self-test has arrived.
     @Published private(set) var onboardingDone = false
@@ -225,7 +255,7 @@ final class AppModel: ObservableObject {
             do {
                 let alarm = try await backend.triggerAlarm(type: type, location: location)
                 activeAlarm = alarm
-                showsAlarmScreen = true
+                zeigeAlarmBildschirm(fuer: alarm.id)
                 return alarm
             } catch {
                 let retryable: Bool
@@ -299,6 +329,53 @@ final class AppModel: ObservableObject {
         }
     }
 
+    // MARK: - Der Alarm-Bildschirm nach vorn
+
+    /// Bringt den Alarm-Bildschirm nach vorn und räumt vorher weg, was im Weg
+    /// liegt.
+    ///
+    /// **iOS kann eine App nicht selbst in den Vordergrund holen.** Dafür gibt
+    /// es keine Schnittstelle, und es wird sie nicht geben — was auf dem
+    /// Bildschirm liegt, entscheidet die Person am Gerät. Nach vorn holt die
+    /// App also die Mitteilung, und was diese Methode leisten kann, fängt in
+    /// dem Augenblick an, in dem die App vorne IST: Dann liegt der Alarm oben
+    /// und nichts anderes.
+    ///
+    /// Das Wegräumen ist der eigentliche Punkt. Ein offenes Blatt (Verwaltung,
+    /// Einstellungen, Auslösen) und der Alarm-Bildschirm sind beide modale
+    /// Darstellungen; iOS zeigt zuverlässig nur die erste. Wer also gerade die
+    /// Mitgliederliste offen hatte, sah beim Alarm weiter die Mitgliederliste.
+    /// Das Blatt geht deshalb zu, und der Alarm kommt eine Umdrehung später —
+    /// die 300 ms sind die Zeit, die SwiftUI zum Zumachen braucht.
+    func zeigeAlarmBildschirm(fuer alarmId: String?) {
+        if let alarmId { zurueckgestellt.remove(alarmId) }
+        guard !showsAlarmScreen else { return }
+        guard offenesBlatt != nil else {
+            showsAlarmScreen = true
+            return
+        }
+        offenesBlatt = nil
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: 300_000_000)
+            self?.showsAlarmScreen = true
+        }
+    }
+
+    /// „Ansicht zur Seite legen" — und zwar so, dass sie liegen bleibt.
+    ///
+    /// Der Alarm läuft weiter, die Erinnerungen laufen weiter, auf dem
+    /// Startbildschirm steht die Karte „Alarm läuft". Nur der Nachfasslauf
+    /// schiebt den Bildschirm nicht mehr alle fünf Sekunden zurück.
+    func alarmbildschirmZurueckstellen() {
+        if let id = activeAlarm?.id { zurueckgestellt.insert(id) }
+        showsAlarmScreen = false
+    }
+
+    /// Ob dieser Alarm ausdrücklich zur Seite gelegt wurde.
+    func istZurueckgestellt(_ alarm: Alarm) -> Bool {
+        zurueckgestellt.contains(alarm.id)
+    }
+
     func hasAcknowledged(_ alarm: Alarm) -> Bool {
         store.hasAcknowledged(alarm.id)
     }
@@ -336,12 +413,15 @@ final class AppModel: ObservableObject {
             // yank the interface out from under whoever is using it.
             if let previous {
                 showsAlarmScreen = false
+                zurueckgestellt.remove(previous.id)
                 await noteAllClear(for: previous)
             }
             return
         }
 
-        showsAlarmScreen = true
+        // Zur Seite gelegte Alarme bleiben liegen — sonst wäre „Ansicht zur
+        // Seite legen" ein Knopf, den der nächste Nachfasslauf zurücknimmt.
+        if !zurueckgestellt.contains(alarm.id) { zeigeAlarmBildschirm(fuer: nil) }
         observeDetails(for: alarm)
 
         // Start nagging only once per alarm, and only while it is unanswered.
@@ -412,7 +492,9 @@ final class AppModel: ObservableObject {
             // round trip. On a locked iPad in a corridor there may not BE a
             // round trip.
             if case .alarm = event {
-                showsAlarmScreen = true
+                // Ein neu eingetroffener Alarm holt den Bildschirm auch dann
+                // zurück, wenn ein früherer zur Seite gelegt wurde.
+                zeigeAlarmBildschirm(fuer: payload.alarmId)
                 if activeAlarm?.id != payload.alarmId {
                     activeAlarm = Alarm(id: payload.alarmId,
                                         groupId: payload.groupId ?? store.groupId ?? "",
