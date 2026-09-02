@@ -550,6 +550,26 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   getrennten Gruppe — kein Beitrittscode, keine Berührung mit echten Daten.
   **Nach jeder Änderung an Rollen, Knöpfen oder Einrichtungsablauf gehören die
   Prüfhinweise mitgezogen.**
+- **iCloud-Konto und App-Store-Konto sind zwei Paar Schuhe** (festgehalten
+  09/2026 in `docs/VERTEILUNG_JAMF_SCHOOL.md`, Abschnitt 3b). Schulalarm hängt
+  am **iCloud**-Konto (Einstellungen → ganz oben) — daran erkennt CloudKit die
+  Lehrkraft, daran hängen Mitgliedschaft, Rolle und Rückmeldungen. TestFlight
+  hängt an **Medien & Käufe** (Einstellungen → App Store). Beide dürfen
+  verschieden sein, und oft ist das die einzige Aufteilung, die geht: schulische
+  Apple-ID für iCloud, eine andere für die Installation. **Ohne iCloud-Konto
+  läuft die App gar nicht** — auch nicht bei gerätebasierter Zuweisung über
+  Jamf, die sonst ganz ohne Apple-ID installiert. Beim Vorbereiten eines Geräts
+  ist das die erste Frage, nicht die letzte.
+- **Für den Probelauf: externe TestFlight-Gruppe mit öffentlichem Link.** Die
+  acht Zeichen hinter `testflight.apple.com/join/` sind ein Code, der sich in
+  der TestFlight-App unter „Code einlösen" eintippen lässt — es braucht also
+  KEINE Einladungsmail, was schulische Apple-IDs ohne Postfach sonst
+  ausschlösse. Den Link gibt es nur für externe Gruppen und erst nach
+  bestandener Beta App Review; einen Termin im Kollegium also danach ansetzen.
+  Ob eine Managed Apple ID TestFlight überhaupt darf, hängt an Rolle und
+  ASM-Einstellungen — an EINEM Gerät ausprobieren, bevor dreißig Leute
+  eingeladen werden. **Ein TestFlight-Bau läuft nach 90 Tagen ab**; für den
+  Dauerbetrieb einer Alarm-App taugt er deshalb nicht.
 - **Der App-Eintrag wird VON HAND in App Store Connect angelegt**, nie über
   Xcodes „Create App Record" im Distribute-Ablauf (gemeldet 09/2026:
   „App Record Creation failed due to request containing an attribute already
