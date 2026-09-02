@@ -89,6 +89,77 @@ diese App nicht abgeschaltet hat.** Das lässt sich per Profil nicht sicher
 erzwingen und steht deshalb in der Prüfliste der App, die jedes Gerät bei
 jedem Start neu prüft.
 
+## 3b. Vorher: der Probelauf über TestFlight
+
+Bevor die App als Custom App durch die volle Prüfung geht, gehört sie in die
+Hände des Kollegiums. Der Weg dafür ist eine **externe TestFlight-Gruppe** —
+und der klappt auch dann, wenn die schulischen Apple-IDs keine Mail empfangen
+können.
+
+### Zwei Apple-IDs, und sie dürfen verschieden sein
+
+Auf einem iPhone oder iPad sind zwei Konten getrennt einstellbar, und das ist
+hier die Rettung:
+
+| Wofür | Wo | Woran es hängt |
+|---|---|---|
+| **iCloud** | Einstellungen → ganz oben | **Schulalarm.** Die App erkennt jede Lehrkraft an ihrem iCloud-Konto; daran hängen Mitgliedschaft, Rolle und Rückmeldungen. |
+| **Medien & Käufe** | Einstellungen → App Store | **TestFlight.** Nur die Installation. |
+
+Eine schulische Apple-ID für iCloud und eine andere für Medien & Käufe ist
+also eine gültige Aufteilung — und oft die einzige, die geht.
+
+**Ohne angemeldetes iCloud-Konto läuft Schulalarm überhaupt nicht.** Kein
+Konto, kein Abonnement, kein Push; die App sagt das auf ihrem ersten
+Bildschirm. Das gilt auf jedem Verteilweg, auch bei gerätebasierter Zuweisung
+über Jamf, die die App sonst ganz ohne Apple-ID installiert. Wer die Geräte
+vorbereitet, prüft deshalb zuerst das iCloud-Konto und erst danach alles
+andere.
+
+### Der öffentliche Link — keine Einladungsmail nötig
+
+Eine externe Gruppe kann in App Store Connect einen **öffentlichen Link**
+bekommen:
+
+```
+https://testflight.apple.com/join/AB3XK9QP
+```
+
+Die acht Zeichen am Ende sind der Code, und **genau der lässt sich in der
+TestFlight-App unter „Code einlösen" eintippen.** Damit braucht niemand eine
+Einladungsmail. Praktisch für eine Konferenz: aus dem Link einen QR-Code
+machen und an die Wand werfen.
+
+Zwei Bedingungen:
+
+* Den öffentlichen Link gibt es **nur für externe** Gruppen. Interne Tester
+  müssten Benutzer des App-Store-Connect-Kontos werden — für ein Kollegium der
+  falsche Weg.
+* Er wird erst nutzbar, **wenn die Beta App Review durch ist**. Gruppe und Link
+  lassen sich vorher anlegen, aber es installiert sich nichts, bevor Apple den
+  Bau freigegeben hat. Den Termin im Kollegium also **nach** der Freigabe
+  ansetzen, nicht davor.
+
+### Was vorher zu prüfen ist
+
+**Ob eine Managed Apple ID aus Apple School Manager TestFlight benutzen darf,
+hängt von Rolle und ASM-Einstellungen ab.** Das entscheidet ein Versuch an
+EINEM Dienst-iPad, nicht eine Vermutung: TestFlight öffnen und sehen, ob sich
+ein Code eingeben lässt. Erst danach dreißig Leute einladen.
+
+Klappt es dort nicht, bleibt für die Dienstgeräte der Custom-App-Weg aus
+Abschnitt 1 bis 3; die privaten Geräte der Kolleginnen laufen weiter über den
+TestFlight-Link. Beide Wege nebeneinander sind unproblematisch — es ist
+dieselbe App und dieselbe Gruppe.
+
+### TestFlight ist der Probelauf, nicht der Betrieb
+
+**Ein TestFlight-Bau läuft nach 90 Tagen ab.** Für den Pilotbetrieb ist das in
+Ordnung. Für den Dauerbetrieb einer Alarm-App ist es das nicht: Eine
+abgelaufene App ist eine stumme App, und das fällt an dem Tag auf, an dem es
+darauf ankommt. Sobald der Zustelltest steht, gehört die App auf den
+Custom-App-Weg — dort gibt es kein Ablaufdatum und keine Einlöserei.
+
 ## 4. Die Reihenfolge auf dem Gerät
 
 1. iPad ist in Jamf School registriert und in der Gerätegruppe.
