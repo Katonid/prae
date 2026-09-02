@@ -46,7 +46,7 @@ enum MemberRole: String, Codable, CaseIterable {
     case admin
     case member
 
-    var label: String { self == .admin ? "Leitung" : "Kollegium" }
+    var label: String { self == .admin ? "Admin" : "Kollegium" }
 }
 
 /// One person in the group.
@@ -241,7 +241,7 @@ struct DeviceStatus: Codable, Identifiable, Equatable {
     /// Es gibt sie, weil ein Mitglied eine **Apple-ID** ist und kein iPad.
     /// Sind zwei iPads mit derselben Apple-ID angemeldet, sind sie EIN
     /// Mitglied mit EINER Rolle — und ohne diese Kennung überschrieben sie
-    /// gegenseitig ihre Statusmeldung, sodass die Leitung nie erführe, dass
+    /// gegenseitig ihre Statusmeldung, sodass der Admin nie erführe, dass
     /// es zwei sind.
     var deviceId: String
     var deviceModel: String

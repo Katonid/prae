@@ -37,27 +37,27 @@ Das ist der wichtigste offene Punkt des Projekts. Alles andere hängt daran.
 Eine Person richtet die Schule ein, alle anderen treten bei.
 
 1. **Eine Person** öffnet die App, wählt oben „Schule einrichten", trägt
-   Schulnamen und ihr Kürzel ein und tippt auf „Schule einrichten und Leitung
-   werden". Sie ist damit die Leitung.
+   Schulnamen und ihr Kürzel ein und tippt auf „Schule einrichten und Admin
+   werden". Sie ist damit der erste Admin.
 2. Der **Beitrittscode** erscheint sofort danach als Zahl und als QR-Code.
    Wiederzufinden unter Verwaltung → Beitrittscodes.
 3. **Alle anderen** öffnen die App, bleiben auf „Beitreten", tragen ihr
    Kürzel ein und tippen oder scannen den Code.
 4. Jedes Gerät geht die Prüfliste durch und macht den **Tontest** (ohne
    Netz). Danach lässt sich die Einrichtung abschließen.
-5. Den **Zustellnachweis** erbringt ein zweites Gerät: Die Leitung schickt
+5. Den **Zustellnachweis** erbringt ein zweites Gerät: Ein Admin schickt
    aus Verwaltung → Mitglieder einen Testalarm an das iPad; dort setzt sich
    der Haken von selbst. Bis dahin steht auf dem Startbildschirm ein
    Warnband — das iPad läuft, gilt aber nicht als geprüft.
 
-**Für das iPad der Leitung selbst braucht es eine zweite Leitung.** Unter
+**Für das iPad eines Admins selbst braucht es einen zweiten Admin.** Unter
 Verwaltung → Mitglieder eine zweite Person dazu machen; sie schickt den
 Testalarm zurück.
 
 **Was ein zweites Gerät braucht, hält den ersten Start nicht auf.** Der
 Zustellnachweis war bis 1.0.9 Bedingung für „Einrichtung abschließen" — und
 damit zirkulär: Der Nachweis braucht einen Push von einem anderen Gerät, den
-schickt die Leitung aus der Verwaltung, die Verwaltung liegt hinter dem
+schickt ein Admin aus der Verwaltung, die Verwaltung liegt hinter dem
 Startbildschirm. Niemand kam mehr hinein.
 
 Kommt der Code über Jamf School mit der App mit
@@ -67,8 +67,8 @@ Kommt der Code über Jamf School mit der App mit
 entsteht ein zweiter, getrennter Alarmkreis — die beiden sehen einander
 nicht, und im Ernstfall wird nur die halbe Schule laut.
 
-**Mindestens zwei Personen sollten die Leitung haben.** Verwaltung →
-Mitglieder → „Zur Leitung machen". Eine einzige Leitung ist ein
+**Mindestens zwei Personen sollten Admin sein.** Verwaltung →
+Mitglieder → „Zum Admin machen". Ein einziger Admin ist ein
 Ausfallpunkt: Wird dieses iPad zurückgesetzt, kann niemand mehr Codes
 vergeben oder Entwarnung geben.
 
@@ -107,7 +107,7 @@ Am Gerät kommen dann drei Dinge in Frage, nach Häufigkeit:
 
 **Den Zustelltest kann ein Gerät nicht allein machen.** CloudKit stellt
 einem Gerät keine Meldung zu einem Datensatz zu, den es selbst geschrieben
-hat. Die Leitung schickt den Testalarm deshalb aus ihrer App an ein
+hat. Ein Admin schickt den Testalarm deshalb aus seiner App an ein
 bestimmtes Mitglied (Verwaltung → Mitglieder → „Testalarm senden"); auf
 dessen iPad setzt sich der Haken „Zustellung geprüft" von selbst, sobald der
 Push eintrifft. Ein Knopf, der auf einem einzelnen Gerät nie funktionieren
@@ -126,16 +126,16 @@ App.
 
 ## Rollen: wer wird was
 
-**Wer beitritt, wird Mitglied. Immer.** Leitung wird man auf genau zwei
-Wegen: indem man die Schule einrichtet, oder indem eine Leitung einen dazu
-ernennt (Verwaltung → Mitglieder → „Zur Leitung machen"). **Die Zahl der
-Leitungen ist unbegrenzt**, und mindestens zwei sollten es sein.
+**Wer beitritt, wird Mitglied. Immer.** Admin wird man auf genau zwei
+Wegen: indem man die Schule einrichtet, oder indem ein Admin einen dazu
+ernennt (Verwaltung → Mitglieder → „Zum Admin machen"). **Die Zahl der
+Admins ist unbegrenzt**, und mindestens zwei sollten es sein.
 
 **Ein Mitglied ist eine Apple-ID, kein iPad.** Das ist die Regel, an der
 sich die meisten Überraschungen erklären:
 
 * Zwei iPads mit **derselben** Apple-ID sind **ein** Mitglied mit **einer**
-  Rolle. Ernennt man das eine zur Leitung, ist es das andere auch.
+  Rolle. Ernennt man das eine zum Admin, ist es das andere auch.
 * Eine Rückmeldung im Ernstfall lässt sich diesen beiden nicht einzeln
   zuordnen — sie schreiben in denselben Datensatz.
 * **Jede Lehrkraft braucht deshalb eine eigene Apple-ID** (Managed Apple ID
@@ -147,7 +147,7 @@ und warnt, wenn zwei unter einem stehen.
 ## Rückmeldung und Entwarnung sind zweierlei
 
 „Gesehen – Klasse gesichert" heißt **ich weiß Bescheid**, nicht **es ist
-vorbei**. Ein Alarm läuft weiter, bis die Leitung (oder die auslösende
+vorbei**. Ein Alarm läuft weiter, bis ein Admin (oder die auslösende
 Person) Entwarnung gibt.
 
 **Für das eigene iPad ist mit der Rückmeldung trotzdem Ruhe.** Sie bricht
@@ -165,6 +165,21 @@ wieder.
 
 Staut sich doch etwas auf: **Verwaltung → Nachbereitung → „Alle laufenden
 Alarme beenden"**.
+
+### Wer sieht, wer geantwortet hat
+
+Die **Zahl** der Rückmeldungen steht auf jedem Alarm-Bildschirm. Die
+**Namen** dahinter sehen zwei: jeder **Admin** und die **Person, die den
+Alarm ausgelöst hat**. Wer ausgelöst hat, steht am Ort und muss wissen, wer
+sich noch nicht gemeldet hat; auf ein fremdes iPad zu warten hilft dort
+niemandem. Für alle anderen bleibt es bei der Zahl — wer sich wann gemeldet
+hat, geht das Kollegium untereinander nichts an.
+
+**Die Liste zeigt, wer geantwortet hat — nicht, wer den Alarm bekommen
+hat.** Eine Zustellbestätigung gibt es nicht; niemand kann von außen sehen,
+ob ein iPad geklingelt hat. Ein Kürzel, das fehlt, heißt „hat noch nicht
+getippt" und nie „hat nichts bekommen". Der Satz steht deshalb auch unter
+der Liste in der App.
 
 ## Der Aufbau in einem Absatz
 
@@ -234,7 +249,7 @@ auslösen. Die Schutzwirkung kommt aus zwei anderen Richtungen:
 * **Datensparsamkeit.** Gespeichert wird ein Kürzel („MÜ", „Kl. 3b"), kein
   voller Name, keine Anschrift, keine Telefonnummer.
 
-Auch die Rollen sind so zu lesen: Dass nur die Leitung einen Probealarm
+Auch die Rollen sind so zu lesen: Dass nur ein Admin einen Probealarm
 auslöst oder Codes vergibt, prüft die App — nicht die Datenbank. Für ein
 Kollegium von 30 Personen ist das angemessen. Wer eine echte Durchsetzung
 braucht, braucht einen Server; siehe `docs/BACKEND_MIGRATION.md`.
@@ -283,7 +298,7 @@ kann ihn nicht verbiegen. Nur das Sortieren selbst passiert in der App.
 ### 3. Sicherheitsrolle
 
 `_icloud` (angemeldete Nutzer) braucht auf allen acht Record-Typen **Read,
-Write und Create**. Ohne Write kann eine zweite Leitung die Standorte nicht
+Write und Create**. Ohne Write kann ein zweiter Admin die Standorte nicht
 pflegen, die eine andere angelegt hat.
 
 ### 4. Ins Production-Environment übernehmen
@@ -423,9 +438,9 @@ Beitrittscodes. Es wird nichts aufgenommen.
 
 Alarme, Rückmeldungen und Nachrichten sind Leistungs- und Verhaltensdaten
 benannter Personen. Sie werden nach **90 Tagen gelöscht** — von Hand über
-Verwaltung → Aufräumen und automatisch bei jedem Start einer Leitungs-App.
+Verwaltung → Aufräumen und automatisch bei jedem Start einer Admin-App.
 Weil es keinen Servercode gibt, heißt das auch: Öffnet ein halbes Jahr lang
-niemand aus der Leitung die App, wird nicht aufgeräumt.
+niemand mit Adminrechten die App, wird nicht aufgeräumt.
 
 ---
 

@@ -232,12 +232,12 @@ struct OnboardingView: View {
         }
         if model.isAdmin {
             return """
-            Du bist die Leitung. Schicke aus Verwaltung → Mitglieder je einen             Testalarm an die iPads der Kolleginnen; auf deren Geräten setzt             sich der Haken damit von selbst.
+            Du bist Admin. Schicke aus Verwaltung → Mitglieder je einen             Testalarm an die iPads der Kolleginnen; auf deren Geräten setzt             sich der Haken damit von selbst.
 
-            Für dein EIGENES iPad braucht es jemand anderen: Mach unter             Verwaltung → Mitglieder eine zweite Person zur Leitung — sie             schickt dir dann den Testalarm zurück. Zwei Leitungen sollten es             ohnehin sein, damit die Schule nicht an einem einzigen Gerät hängt.
+            Für dein EIGENES iPad braucht es jemand anderen: Mach unter             Verwaltung → Mitglieder eine zweite Person zum Admin — sie             schickt dir dann den Testalarm zurück. Zwei Admins sollten es             ohnehin sein, damit die Schule nicht an einem einzigen Gerät hängt.
             """
         }
-        return "Bitte die Schulleitung, dir einen Testalarm zu schicken "
+        return "Bitte einen Admin, dir einen Testalarm zu schicken "
             + "(Verwaltung → Mitglieder → „Testalarm senden“). Sobald er hier "
             + "eintrifft, setzt sich der Haken von selbst."
     }

@@ -71,7 +71,7 @@ enum BackendError: LocalizedError, Equatable {
         case .notJoined:
             return "Dieses Gerät gehört noch zu keiner Gruppe."
         case .notPermitted:
-            return "Dafür fehlt die Berechtigung. Nur die Leitung darf das."
+            return "Dafür fehlt die Berechtigung. Nur ein Admin darf das."
         case .codeUnknown:
             return "Diesen Beitrittscode gibt es nicht."
         case .codeRevoked:
@@ -163,7 +163,7 @@ protocol AlarmBackend: AnyObject {
     /// funktionieren — er sah nur so aus, als könnte er. Die Zustellung
     /// beweist ein zweites iPad oder gar nichts.
     ///
-    /// Nur die Leitung darf ihn senden; er ist ein Probealarm und trägt alle
+    /// Nur ein Admin darf ihn senden; er ist ein Probealarm und trägt alle
     /// Kennzeichen eines solchen.
     func sendTestAlarm(toUserId userId: String) async throws
 

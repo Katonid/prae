@@ -207,7 +207,7 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   schönreden.
 - **Indizes und Sicherheitsrolle sind hier NÖTIG** (anders als bei
   Tafelbild, das privat abgleicht): Ohne Queryable-Index scheitert jede
-  Abfrage, ohne `_icloud`-Schreibrecht kann eine zweite Leitung nichts
+  Abfrage, ohne `_icloud`-Schreibrecht kann ein zweiter Admin nichts
   pflegen. Die Tabelle steht im README unter „CloudKit einrichten", dazu
   einmalig „Deploy Schema Changes to Production".
 - **Sortiert wird nach dem Systemzeitstempel, aber IN DER APP** (ab 1.0.11).
@@ -225,7 +225,7 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   `joinGroup` — das sucht einen Beitrittscode-Datensatz, der einen
   Group-Datensatz braucht, den nichts in der App je anlegte. Die App war
   damit gar nicht zu betreten (gemeldet 09/2026). Wer die Schule
-  einrichtet, IST die Leitung; der erste Beitrittscode entsteht gleich mit
+  einrichtet, IST der erste Admin; der erste Beitrittscode entsteht gleich mit
   und wird auf dem Einrichtungsbildschirm gezeigt. Reihenfolge beim
   Anlegen: Group, dann Member, dann Code — eine Referenz auf einen
   Datensatz, den es noch nicht gibt, weist CloudKit ab. Und `store.role`
@@ -338,24 +338,24 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   marked queryable" ist für die Person, die es richten muss, mehr wert als
   ein aufgeräumtes „Verbindung fehlgeschlagen". Kopierbar, weil der Nutzer
   am iPad sitzt.
-- **Wer beitritt, wird MITGLIED — nie Leitung** (ab 1.0.13). Bis dahin
-  wurde die erste Person einer noch leeren Gruppe automatisch zur Leitung.
+- **Wer beitritt, wird MITGLIED — nie Admin** (ab 1.0.13). Bis dahin
+  wurde die erste Person einer noch leeren Gruppe automatisch zum Admin.
   Gedacht als Notausgang, tatsächlich eine Rechtevergabe, die niemand
   angeordnet hat (gemeldet 09/2026: „das andere Gerät wurde automatisch zu
-  einem Leitungs-Gerät, das will ich gar nicht"). Leitung wird man auf genau
-  zwei Wegen: die Schule einrichten, oder von einer Leitung ernannt werden.
-  Die Zahl der Leitungen ist unbegrenzt. Eine Ausnahme, die keine ist: Hat
+  einem Leitungs-Gerät, das will ich gar nicht"). Admin wird man auf genau
+  zwei Wegen: die Schule einrichten, oder von einem Admin ernannt werden.
+  Die Zahl der Admins ist unbegrenzt. Eine Ausnahme, die keine ist: Hat
   das Konto hier schon ein Mitglied, behält es seine Rolle — sonst verlöre
-  eine Leitung ihre Rechte beim Neuinstallieren.
+  ein Admin seine Rechte beim Neuinstallieren.
 - **Ein Mitglied ist eine APPLE-ID, kein iPad.** Zwei iPads mit derselben
   Apple-ID sind EIN Mitglied mit EINER Rolle, und eine Rückmeldung lässt
   sich ihnen nicht einzeln zuordnen (`ack-<Alarm>-<Nutzer>`). Jede Lehrkraft
   braucht eine eigene Apple-ID. Sichtbar wird der Fall in der
   Geräteübersicht: `DeviceStatus` heißt seit 1.0.13
   `device-<Gruppe>-<Nutzer>-<Gerät>` und zählt die Geräte je Kürzel — vorher
-  überschrieben sich zwei iPads gegenseitig, und die Leitung erfuhr nie,
+  überschrieben sich zwei iPads gegenseitig, und der Admin erfuhr nie,
   dass es zwei sind.
-- **Zwei Leitungen, nicht eine** (`setRole`). Eine einzige Leitung ist ein
+- **Zwei Admins, nicht einer** (`setRole`). Ein einziger Admin ist ein
   Ausfallpunkt: Wird dieses iPad im Sommer zurückgesetzt, kann niemand mehr
   Codes vergeben oder Entwarnung geben. Der Hinweis steht unter der
   Mitgliederliste.
@@ -389,9 +389,9 @@ Auftrag, für Bauten, die niemand angefordert hatte.
 - **Der Zustellnachweis darf die Einrichtung NICHT sperren** (ab 1.0.10).
   Er war Bedingung für „Einrichtung abschließen" — und damit zirkulär: Der
   Nachweis braucht einen Push von einem anderen Gerät, den schickt die
-  Leitung aus der Verwaltung, die Verwaltung liegt hinter dem
+  ein Admin aus der Verwaltung, die Verwaltung liegt hinter dem
   Startbildschirm, der lag hinter „Einrichtung abschließen". Niemand kam
-  mehr hinein, auch die Leitung nicht, die die Schule gerade angelegt hatte
+  mehr hinein, auch der Admin nicht, der die Schule gerade angelegt hatte
   (gemeldet 09/2026). Gesperrt wird nur noch, was dieses eine Gerät selbst
   lösen kann (`ChecklistItem.blocksCompletion`); der Punkt bleibt rot, das
   Warnband bleibt stehen, und das iPad gilt weiter als ungeprüft.
@@ -401,6 +401,20 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   `store.letzterPush` und setzt sich auf dem EMPFANGENDEN Gerät von selbst.
   Bestätigen muss ihn niemand — ein Knopf „ist angekommen" wäre eine
   Behauptung, der Zeitstempel ist eine Tatsache.
+- **Die Rolle heißt „Admin", nicht „Leitung"** (ab 1.0.14, Ansage des Nutzers,
+  09/2026). Nur das Wort in der Oberfläche; der Rohwert der Aufzählung war
+  immer schon `admin` und bleibt es — an ihm hängen Datensätze, die auf den
+  Geräten liegen.
+- **Die Namen der Rückmeldungen sehen Admin UND auslösende Person** (ab
+  1.0.14, `AppModel.darfRueckmeldungenSehen`). Dieselbe Regel wie bei
+  `mayClear` und aus demselben Grund: Wer ausgelöst hat, steht am Ort und
+  muss wissen, wer sich noch nicht gemeldet hat — auf ein fremdes iPad zu
+  warten hilft dort niemandem. Für alle anderen bleibt es bei der blanken
+  Zahl; wer sich wann gemeldet hat, geht das Kollegium untereinander nichts
+  an. **Unter der Liste steht, was sie NICHT ist:** Sie zeigt, wer
+  geantwortet hat, nicht, wer den Alarm bekommen hat. Eine
+  Zustellbestätigung gibt CloudKit nicht her, und ein Kürzel, das fehlt,
+  darf nie als „hat es nicht bekommen" gelesen werden.
 - **Eine Rückmeldung beendet KEINEN Alarm** — das tut nur die Entwarnung.
   „Gesehen" heißt „ich weiß Bescheid", nicht „es ist vorbei". Genau eine
   Ausnahme: der gezielte Probealarm (Zustelltest). Der räumt sich mit der
@@ -412,7 +426,7 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   Amokalarm, den seit zwei Stunden niemand entwarnt hat, ist gültig; die
   Entwarnung beendet ihn, nicht die Uhr.
 - **„Alle laufenden Alarme beenden"** (Verwaltung → Nachbereitung) ist der
-  Ausweg, wenn sich doch etwas aufstaut. Nur die Leitung, nur ausdrücklich
+  Ausweg, wenn sich doch etwas aufstaut. Nur Admins, nur ausdrücklich
   getippt.
 - **Der Countdown vor dem Auslösen ist fünf Sekunden und bleibt.** Ein
   Fehlalarm kostet eine Schule mehr als die fünf Sekunden — beim nächsten

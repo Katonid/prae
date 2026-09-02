@@ -70,7 +70,7 @@ struct JoinView: View {
                     Text("Dein Kürzel")
                 } footer: {
                     Text("Kein voller Name. Das Kürzel steht in den Rückmeldungen, "
-                         + "die alle in der Leitung sehen — mehr braucht niemand.")
+                         + "die die Admins sehen — mehr braucht niemand.")
                 }
 
                 if weg == .anlegen { anlegen } else { beitreten }
@@ -134,7 +134,7 @@ struct JoinView: View {
         } footer: {
             Text(codeFromMDM
                  ? "Der Code kam mit der App von der Geräteverwaltung."
-                 : "Der Code kommt von der Schulleitung. Er enthält kein I, O, 0 "
+                 : "Der Code kommt von einem Admin. Er enthält kein I, O, 0 "
                  + "oder 1 — was danach aussieht, ist etwas anderes.")
         }
 
@@ -173,13 +173,13 @@ struct JoinView: View {
                 if model.isWorking {
                     ProgressView()
                 } else {
-                    Text("Schule einrichten und Leitung werden").fontWeight(.semibold)
+                    Text("Schule einrichten und Admin werden").fontWeight(.semibold)
                 }
             }
             .disabled(!canCreate)
         } footer: {
-            Text("Das macht genau EINE Person je Schule. Du wirst damit die "
-                 + "Leitung: Du vergibst die Beitrittscodes, pflegst Standorte und "
+            Text("Das macht genau EINE Person je Schule. Du wirst damit der "
+                 + "erste Admin: Du vergibst die Beitrittscodes, pflegst Standorte und "
                  + "Handlungstexte und darfst Entwarnung geben. Den Code für das "
                  + "Kollegium bekommst du gleich danach angezeigt.\n\nRichtet eine "
                  + "zweite Person noch einmal eine Schule ein, entsteht ein "

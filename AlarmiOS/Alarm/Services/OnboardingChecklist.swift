@@ -42,10 +42,10 @@ struct ChecklistItem: Identifiable, Equatable {
     /// Für alles, was dieses eine Gerät selbst in Ordnung bringen kann: ja.
     /// Für den Zustellnachweis: **nein** — und das ist keine Nachlässigkeit,
     /// sondern die Auflösung einer Sackgasse. Der Nachweis braucht einen Push
-    /// von einem ANDEREN Gerät; den schickt die Leitung aus der Verwaltung;
+    /// von einem ANDEREN Gerät; den schickt ein Admin aus der Verwaltung;
     /// die Verwaltung liegt hinter dem Startbildschirm; der Startbildschirm
     /// lag hinter „Einrichtung abschließen". Damit kam niemand mehr hinein —
-    /// auch die erste Leitung nicht, die die Schule gerade eingerichtet hatte.
+    /// auch der erste Admin nicht, der die Schule gerade eingerichtet hatte.
     ///
     /// Der Punkt bleibt trotzdem rot und das Warnband auf dem Startbildschirm
     /// stehen, bis wirklich etwas angekommen ist. Gesperrt wird nur, was sich
@@ -151,7 +151,7 @@ enum OnboardingChecklist {
                 ? "Auf diesem iPad ist mindestens eine Meldung über iCloud "
                 + "eingetroffen."
                 : "Noch nie ist hier eine Meldung eingetroffen. Der Haken setzt "
-                + "sich von selbst, sobald die Leitung einen Testalarm an dieses "
+                + "sich von selbst, sobald ein Admin einen Testalarm an dieses "
                 + "Gerät schickt — von einem ANDEREN iPad aus. Ein Gerät kann "
                 + "sich die Zustellung nicht selbst beweisen.",
             state: zustellungGeprueft ? .ok : .missing,

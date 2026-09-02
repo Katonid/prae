@@ -10,7 +10,7 @@
 	<key>NSCameraUsageDescription</key>
 	<string>Die Kamera wird nur zum Scannen des Beitrittscodes gebraucht. Es wird nichts aufgenommen und nichts gespeichert.</string>
 
-	<!-- „remote-notification“ für den stillen Ping, mit dem die Leitung den
+	<!-- „remote-notification“ für den stillen Ping, mit dem ein Admin den
 	     Zustand der Geräte abfragt. „fetch“ für den BGAppRefreshTask, der
 	     denselben Zustand von sich aus auffrischt. Mehr Hintergrundrechte
 	     nimmt die App nicht in Anspruch. -->

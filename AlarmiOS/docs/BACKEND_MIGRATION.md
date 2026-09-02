@@ -15,7 +15,7 @@ CloudKit als alleinige Gegenstelle erledigt. Nicht schlecht — erledigt.
 Der zweite Grund ist kleiner, aber echt: **es gibt keinen Servercode.** Es
 lässt sich nichts nachrechnen, nichts nachträglich abweisen, nichts
 protokollieren, was ein Gerät nicht selbst schreibt. Wer eine Regel wie
-„nur die Leitung darf einen Probealarm auslösen" hart durchsetzen will,
+„nur ein Admin darf einen Probealarm auslösen" hart durchsetzen will,
 braucht eine Stelle, die das ablehnen kann. CloudKit ist diese Stelle nicht
 (siehe „Was CloudKit nicht kann").
 
@@ -95,8 +95,8 @@ das Problem war.
 * **Keine Zustellung an Android.** Siehe oben. Der eigentliche Grund.
 * **Kein Servercode.** Keine Prüfung, kein Ableiten, keine Aufräumarbeit im
   Hintergrund. Das Aufräumen der alten Datensätze macht deshalb die App
-  einer Leitung beim Start — was heißt: Öffnet ein halbes Jahr lang niemand
-  aus der Leitung die App, wird nicht aufgeräumt.
+  eines Admins beim Start — was heißt: Öffnet ein halbes Jahr lang niemand
+  mit Adminrechten die App, wird nicht aufgeräumt.
 * **Rechte nur grob.** Die öffentliche Datenbank unterscheidet „irgendein
   angemeldeter iCloud-Nutzer" und „Ersteller des Datensatzes". Sie kann
   **nicht** „nur Mitglieder dieser Gruppe". Wer den sechsstelligen Code hat

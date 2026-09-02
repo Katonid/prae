@@ -223,7 +223,10 @@ struct AlarmScreenView: View {
                     .font(.system(size: 30, weight: .heavy, design: .rounded))
                     .monospacedDigit()
             }
-            if model.isAdmin {
+            // Die Namen sehen der Admin und die auslösende Person (siehe
+            // `AppModel.darfRueckmeldungenSehen`). Für alle anderen bleibt es
+            // bei der Zahl.
+            if model.darfRueckmeldungenSehen(alarm) {
                 if model.acks.isEmpty {
                     Text("Noch niemand.").font(.subheadline).opacity(0.8)
                 } else {
@@ -241,6 +244,17 @@ struct AlarmScreenView: View {
                         .font(.subheadline)
                     }
                 }
+                // Ehrlich bleiben: Hier steht, wer GEANTWORTET hat. Ob der
+                // Alarm auf einem iPad angekommen ist, das nichts angetippt
+                // hat, weiß die App nicht — eine Zustellbestätigung gibt es
+                // nicht. Wer hier fehlt, ist deshalb nachzufragen und nicht
+                // als „hat es nicht bekommen“ zu lesen.
+                Text("Hier steht, wer geantwortet hat. Wer fehlt, hat noch "
+                     + "nicht getippt — ob der Alarm dort angekommen ist, "
+                     + "kann die App nicht sagen.")
+                    .font(.footnote)
+                    .opacity(0.75)
+                    .padding(.top, 2)
             }
         }
         .foregroundStyle(.white)

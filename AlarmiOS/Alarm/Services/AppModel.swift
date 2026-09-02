@@ -252,9 +252,22 @@ final class AppModel: ObservableObject {
         if isAdmin { return true }
         // Ein Probealarm, der nur an dieses eine Gerät ging, gehört auch
         // diesem Gerät: Sonst bliebe die Kollegin auf einem Testbildschirm
-        // sitzen, bis die Leitung ihn wegräumt — und der Nachfasslauf holte
+        // sitzen, bis ein Admin ihn wegräumt — und der Nachfasslauf holte
         // ihn alle 30 Sekunden zurück.
         if alarm.type == .test, alarm.targetUserId == member?.userId { return true }
+        return alarm.triggeredByUserId == member?.userId
+    }
+
+    /// Who may see the list of names behind the response count: an admin, or
+    /// whoever raised this alarm.
+    ///
+    /// Dieselbe Regel wie bei `mayClear`, und aus demselben Grund: Wer den
+    /// Alarm ausgelöst hat, steht am Ort und muss wissen, wer sich schon
+    /// gemeldet hat und wer nicht — auf das iPad eines Admins zu warten hilft
+    /// dort niemandem. Für alle anderen bleibt es bei der blanken Zahl: Wer
+    /// sich wann gemeldet hat, geht das Kollegium untereinander nichts an.
+    func darfRueckmeldungenSehen(_ alarm: Alarm) -> Bool {
+        if isAdmin { return true }
         return alarm.triggeredByUserId == member?.userId
     }
 
@@ -618,7 +631,7 @@ final class AppModel: ObservableObject {
     /// Beendet alles, was gerade läuft — der Ausweg, wenn sich etwas
     /// aufgestaut hat.
     ///
-    /// Nur für die Leitung, und ausdrücklich getippt: Ein Knopf, der Alarme
+    /// Nur für Admins, und ausdrücklich getippt: Ein Knopf, der Alarme
     /// beendet, darf nie nebenbei ausgelöst werden.
     func beendeAlleLaufenden() async {
         do {
