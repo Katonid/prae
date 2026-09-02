@@ -2,8 +2,9 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<!-- NUR FÜR DEBUG. Die Release-Fassung steht in Alarm-Release.entitlements
-	     und sagt „production".
+	<!-- Die Release-Fassung. Für Debug gilt Alarm.entitlements mit
+	     „development"; dort steht auch, warum das auseinandergehalten
+	     werden muss.
 
 	     Der Wert ist kein Schönheitsfehler: Er entscheidet, ob sich das Gerät
 	     bei der Sandbox oder bei der echten APNs-Umgebung anmeldet. Steht hier
@@ -14,7 +15,7 @@
 	     ohne Meldung. Genau so getroffen 09/2026, und es sah lange nach einem
 	     Fehler bei Apple aus. -->
 	<key>aps-environment</key>
-	<string>development</string>
+	<string>production</string>
 	<key>com.apple.developer.icloud-container-identifiers</key>
 	<array>
 		<string>iCloud.de.dboschule.alarm</string>

@@ -844,6 +844,47 @@ final class CloudKitBackend: AlarmBackend {
         #endif
     }
 
+    /// Was im Signierprofil als `aps-environment` steht — und ob das zur
+    /// Umgebung passt.
+    ///
+    /// Diese Zeile gäbe es nicht, wenn sie nicht einen ganzen Abend gekostet
+    /// hätte. Steht dort `development`, während die App über TestFlight läuft,
+    /// dann ist der CloudKit-Container Production und der Push-Client
+    /// Development — und CloudKit weist JEDES Abonnement ab, auch eines ohne
+    /// Prädikat und ohne Meldung, mit „attempting to create a subscription in
+    /// a production container". Die Meldung zeigt auf den Container und meint
+    /// das Profil.
+    ///
+    /// Gelesen wird das Profil im Bündel als Text und darin der Schlüssel
+    /// gesucht. Eine öffentliche Schnittstelle für die eigenen Entitlements
+    /// gibt es auf iOS nicht; im Simulator gibt es gar kein Profil.
+    static var apnsUmgebungLautProfil: (text: String, befund: Diagnose.Befund) {
+        guard let url = Bundle.main.url(forResource: "embedded",
+                                        withExtension: "mobileprovision"),
+              let daten = try? Data(contentsOf: url),
+              let text = String(data: daten, encoding: .isoLatin1) else {
+            return ("nicht ablesbar — im Bündel liegt kein Profil "
+                    + "(Simulator oder unsignierter Bau)", .hinweis)
+        }
+        guard let bereich = text.range(of: "<key>aps-environment</key>"),
+              let auf = text.range(of: "<string>", range: bereich.upperBound..<text.endIndex),
+              let zu = text.range(of: "</string>", range: auf.upperBound..<text.endIndex) else {
+            return ("im Profil nicht gefunden", .hinweis)
+        }
+        let wert = String(text[auf.upperBound..<zu.lowerBound])
+
+        // Der Vergleich ist der eigentliche Zweck: Ein Wert allein sagt nichts,
+        // erst das Paar aus Profil und Umgebung sagt etwas.
+        let produktiv = !umgebungsvermutung.hasPrefix("vermutlich Development")
+        if produktiv && wert == "development" {
+            return (wert + " — PASST NICHT zu dieser Umgebung. Ein Bau, der "
+                    + "gegen den Production-Container spricht, muss "
+                    + "„production“ tragen; sonst weist CloudKit jedes "
+                    + "Abonnement ab.", .schlecht)
+        }
+        return (wert, .gut)
+    }
+
     /// Rohtext zuerst, Klartext dahinter.
     ///
     /// Der Rohtext wird nie ersetzt — er ist die Spur, an der sich ein Fehler
@@ -914,6 +955,10 @@ final class CloudKitBackend: AlarmBackend {
                                titel: "Umgebung",
                                text: Self.umgebungsvermutung,
                                befund: .hinweis))
+        let apns = Self.apnsUmgebungLautProfil
+        zeilen.append(Diagnose(id: "apns-umgebung",
+                               titel: "APNs-Umgebung im Profil",
+                               text: apns.text, befund: apns.befund))
 
         let konto = await availability()
         zeilen.append(Diagnose(id: "konto",

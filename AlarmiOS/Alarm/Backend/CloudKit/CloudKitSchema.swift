@@ -128,16 +128,19 @@ enum CloudKitFehler {
     static func hinweis(zu text: String) -> String? {
         let klein = text.lowercased()
         if klein.contains("subscription in a production container") {
-            return "Ein bekannter Fehler auf Apples Seite, nicht in dieser App. "
-                + "Erster Versuch: icloud.developer.apple.com → Container → "
-                + "Schema → „Deploy Schema Changes to Production“, auch wenn "
-                + "dort NICHTS zu ändern angezeigt wird; danach ein paar "
-                + "Minuten warten und hier noch einmal tippen. Hilft das nicht "
-                + "— getroffen 09/2026 —, sagen die Zeilen „Probe 1/2/3“ "
-                + "darunter, woran es liegt: Scheitert schon Probe 1, lässt "
-                + "sich in dieser Umgebung überhaupt kein Abonnement anlegen, "
-                + "und das ist ein Fall für Apples Support (Feedback Assistant "
-                + "mit diesem Befund)."
+            return "Sieh zuerst oben auf „APNs-Umgebung im Profil“. Steht dort "
+                + "„development“, während die Umgebung Production ist, ist das "
+                + "die Ursache: Der Container ist Production, der Push-Client "
+                + "aber Development, und CloudKit weist dann JEDES Abonnement "
+                + "ab — auch eines ohne Prädikat und ohne Meldung. Zu beheben "
+                + "im Bau, nicht in der Konsole (`aps-environment` = "
+                + "`production` in der Release-Entitlements-Datei), dann neu "
+                + "hochladen.\n\nPasst das Paar und es scheitert trotzdem: "
+                + "CloudKit-Konsole → Schema → den Knopf "
+                + "„Deploy Schema Changes to Production“ drücken, auch wenn "
+                + "dort nichts zu ändern angezeigt wird. "
+                + "Bleibt auch Probe 1 rot, ist es ein Fall für den Feedback "
+                + "Assistant."
         }
         if klein.contains("not marked queryable") {
             return "In der CloudKit-Konsole fehlt ein Index: Beim genannten Feld "

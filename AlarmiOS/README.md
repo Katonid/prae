@@ -126,33 +126,47 @@ App.
 
 ### „attempting to create a subscription in a production container"
 
-Dieser Befund kommt beim **ersten TestFlight-Bau** und ist **kein Fehler
-dieser App**, sondern einer auf Apples Seite (FB22867235, Stand 2026): Ein
-Abonnement, das in Development einwandfrei entsteht, wird in Production
-abgewiesen — mit genau diesem Satz, obwohl Record-Typen und Indizes längst
-übertragen sind.
+**Erste Frage: Was steht in der Diagnose unter „APNs-Umgebung im Profil"?**
 
-**Der verbreitete Rat hilft nicht immer.** Er lautet: CloudKit-Konsole →
-Container `iCloud.de.dboschule.alarm` → Schema → „Deploy Schema Changes to
-Production", auch wenn die Oberfläche nichts zu übertragen anzeigt. Das ist
-der erste Versuch, er kostet nichts, und nach jeder Prädikatsänderung ist er
-ohnehin fällig (geänderte Prädikate tragen neue Kennungen `…-v2`, `…-v3`, und
-das sind für Production neue Abonnements). **Bei uns hat er nichts geändert**
-(09/2026, fünfmal derselbe Befund nach dem Deploy).
+Steht dort `development`, während darüber `Production (über TestFlight
+installiert)` steht, ist das die Ursache — und sie liegt im Bau, nicht bei
+Apple und nicht in der Konsole. Der CloudKit-Container ist dann Production,
+der Push-Client aber Development, und CloudKit weist **jedes** Abonnement ab:
+auch eines ohne Prädikat und ohne Meldung. Die Fehlermeldung zeigt auf den
+Container und meint das Profil.
 
-**Deshalb fährt die Diagnose seit 1.0.17 eine Stufenprobe**, sobald das
-Anlegen scheitert. Drei Abonnements, die sich um je eine Sache unterscheiden,
-jedes sofort wieder gelöscht:
+Genau so getroffen 09/2026, und es sah lange nach einem Fehler bei Apple aus:
+Alle Abfragen grün, alle Prädikate abfragbar, alle fünf Abonnements abgewiesen
+— und die Stufenprobe scheiterte schon in Stufe 1.
 
-| Zeile | Was sie bedeutet, wenn SIE die erste rote ist |
+Der Grund war eine einzige Zeile: `aps-environment` stand fest auf
+`development`, für Debug **und** Release. Seit 1.0.18 gibt es deshalb zwei
+Dateien:
+
+| Konfiguration | Datei | `aps-environment` |
+|---|---|---|
+| Debug (Xcode aufs Gerät) | `Config/Alarm.entitlements` | `development` |
+| Release (Archiv, TestFlight, Laden) | `Config/Alarm-Release.entitlements` | `production` |
+
+**Beide müssen bleiben, und keine darf die andere ersetzen.** Ein Debug-Bau mit
+`production` meldet sich bei der falschen APNs-Umgebung an und bekommt
+umgekehrt nichts zugestellt.
+
+**Passt das Paar und es scheitert trotzdem**, ist der nächste Versuch die
+CloudKit-Konsole: Container → Schema → „Deploy Schema Changes to Production",
+auch wenn dort nichts zu übertragen angezeigt wird. Nach jeder
+Prädikatsänderung ist das ohnehin fällig — geänderte Prädikate tragen neue
+Kennungen (`…-v2`, `…-v3`), und das sind für Production neue Abonnements.
+
+**Und wenn auch das nichts ändert**, entscheidet die Stufenprobe, die seit
+1.0.17 automatisch läuft, sobald das Anlegen scheitert. Drei Abonnements, die
+sich um je eine Sache unterscheiden, jedes sofort wieder gelöscht:
+
+| Zeile | Was es bedeutet, wenn SIE die erste rote ist |
 |---|---|
-| Probe 1 schlicht | In dieser Umgebung lässt sich überhaupt kein Abonnement anlegen. Nichts an der App zu ändern — Fall für den Feedback Assistant, mit dem Befund als Anhang. |
-| Probe 2 mit Prädikat | Das Prädikat ist das Problem: ein Index, der in Production fehlt, oder eine Form, die dort nicht erlaubt ist. |
-| Probe 3 mit Meldung | Die Meldung ist das Problem: `desiredKeys`, `collapseIDKey` oder der Rückfalltext. Das lässt sich in der App ändern. |
-
-Sind alle drei grün und die echten fünf trotzdem rot, ist es etwas an der
-Kombination — dann ist die nächste Frage, welche der fünf sich einzeln
-anlegen lässt.
+| Probe 1 schlicht | Es liegt nicht am Prädikat und nicht an der Meldung. Erst recht auf die APNs-Umgebung oben schauen; passt die, ist es ein Fall für den Feedback Assistant. |
+| Probe 2 mit Prädikat | Ein Index fehlt in Production, oder das Prädikat ist dort nicht erlaubt. |
+| Probe 3 mit Meldung | `desiredKeys`, `collapseIDKey` oder der Rückfalltext. Das lässt sich in der App ändern. |
 
 ### Development und Production sind zwei Welten
 
