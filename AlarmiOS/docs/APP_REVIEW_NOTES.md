@@ -1,7 +1,9 @@
 # App Review Notes
 
 Zum Einfügen in App Store Connect → App-Prüfungsinformationen → Anmerkungen.
-Der Text ist bewusst englisch: Apples Prüfung liest englisch.
+Gilt genauso für die **Beta App Review** vor einer externen TestFlight-Gruppe
+(TestFlight → Testinformationen). Der Text ist bewusst englisch: Apples
+Prüfung liest englisch.
 
 ---
 
@@ -15,7 +17,8 @@ the public App Store.
 One teacher raises an alarm (intruder, fire, medical emergency, or a drill).
 Every colleague's school-issued iPad receives a time-sensitive notification
 with a sound, shows what happened and where, and offers two one-tap replies:
-"class secured" or "help needed". The head teacher sees who has answered.
+"class secured" or "help needed". An administrator and the person who
+raised the alarm see who has answered; everybody else sees only the count.
 
 ## This app does not replace the emergency services
 
@@ -55,23 +58,47 @@ older than 90 days are deleted. See `PrivacyInfo.xcprivacy`.
 
 ## How to test
 
-1. Open the app. It asks for a handle and a six-character join code.
-2. Join code for review: **`______`**
-   *(Fill in before submitting: App → Verwaltung → Beitrittscodes → create a
-   fresh code with the note "App Review", and revoke it after the review.)*
-3. Enter any handle, e.g. "TEST".
-4. Work through the setup checklist and allow notifications.
-5. Tap "Testalarm an dieses Gerät senden". A drill alarm arrives on **this
-   device only** — it is marked PROBEALARM (drill) in yellow and grey, and no
-   other device sees it.
-6. To see the full alarm screen: tap "Alarm auslösen", choose
-   "PROBEALARM", choose a location, and let the five-second countdown run.
-   The review account is an administrator, so it may raise and clear drills.
+**No test account or join code is needed.** The reviewer sets up their own
+school in the app; it is completely separate from any real school's data.
 
-**Please use the drill type (PROBEALARM) for testing.** The other three
-types would notify a real school's staff if the review device were joined to
-the production group; the review code above points to a separate test group,
-but the drill type is unmistakable either way.
+1. Open the app. Sign in to iCloud on the device first — the app stores
+   everything in CloudKit and says so on its first screen if no account is
+   present.
+2. Choose **"Schule einrichten"** (set up a school) at the top, not "Beitreten"
+   (join). Enter any school name and any short handle, e.g. "TEST", and tap
+   **"Schule einrichten und Admin werden"**.
+   *This is the important step: whoever sets up a school becomes its
+   administrator, and only an administrator may raise a drill. Somebody who
+   joins an existing school with a code is an ordinary member and will not see
+   the drill option.*
+3. A six-character join code is shown. Nothing needs to be done with it.
+4. Work through the setup checklist and allow notifications. The item
+   **"Zustellung geprüft"** (delivery verified) will stay red — see the next
+   section; it does not block anything. Tap "Einrichtung abschließen".
+5. To see the alarm screen: tap the large button **"Alarm auslösen"** (raise an
+   alarm), choose **"PROBEALARM"** (drill), pick a location, and let the
+   five-second countdown run. The drill alarm appears full-screen, marked as a
+   drill in grey and yellow and labelled PROBEALARM in three places.
+6. Acknowledge with "Gesehen – Klasse gesichert", then end it with
+   **"Entwarnung geben"** (all clear).
+7. Optional, and entirely local: Einstellungen → **"Tontest"** plays the alarm
+   as a real notification on this device, without any network, to verify that
+   the device is allowed to make a sound.
+
+**Please use the drill type (PROBEALARM).** The three real types exist for
+genuine emergencies. In a school of the reviewer's own making they would reach
+nobody, but the drill type is unmistakable either way.
+
+## What a single device cannot show
+
+CloudKit does not deliver a subscription notification to the device that wrote
+the record. **One device therefore cannot prove push delivery to itself**, and
+the app deliberately no longer offers a button that pretends otherwise. That is
+why the checklist item "Zustellung geprüft" stays red on a review device: it
+sets itself only when a push actually arrives, which requires a second device.
+
+Everything else — permissions, sound, the alarm screen, acknowledgements, the
+all-clear, administration — is fully testable on one device.
 
 ## Note on critical alerts
 
