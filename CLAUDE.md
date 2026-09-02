@@ -538,6 +538,18 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   wird sie dort auch nicht — die Mitteilung gehört der App, und an deren
   Entitlement prüft iOS, ob `.timeSensitive` gilt. Wer der Erweiterung
   wieder eine Entitlements-Datei gibt, macht das Projekt unsignierbar.
+- **Der Prüfer richtet seine EIGENE Schule ein, er tritt keiner bei**
+  (`docs/APP_REVIEW_NOTES.md`, ab 09/2026). Wer über einen Code beitritt, ist
+  seit 1.0.13 Mitglied und kein Admin — und ein Mitglied sieht die Auswahl
+  „PROBEALARM" gar nicht, weil Probealarme Admins vorbehalten sind. Die
+  Prüfhinweise verlangten aber genau das: mit Code beitreten und einen
+  Probealarm auslösen. Sie nannten obendrein einen Knopf („Testalarm an dieses
+  Gerät senden"), den es seit 1.0.12 nicht mehr gibt. Beides sind vermeidbare
+  Ablehnungsgründe: Findet ein Prüfer nicht, was die Notizen versprechen,
+  lehnt er ab. Mit „Schule einrichten" ist der Prüfer Admin seiner eigenen,
+  getrennten Gruppe — kein Beitrittscode, keine Berührung mit echten Daten.
+  **Nach jeder Änderung an Rollen, Knöpfen oder Einrichtungsablauf gehören die
+  Prüfhinweise mitgezogen.**
 - **Der App-Eintrag wird VON HAND in App Store Connect angelegt**, nie über
   Xcodes „Create App Record" im Distribute-Ablauf (gemeldet 09/2026:
   „App Record Creation failed due to request containing an attribute already
