@@ -18,17 +18,32 @@ enum BackgroundRefresh {
 
     /// Must be called before the app finishes launching — `BGTaskScheduler`
     /// rejects a registration afterwards, with a crash rather than an error.
+    ///
+    /// **`setTaskCompleted` gehört auf den Hauptfaden, und zwar zwingend.**
+    /// Damit endet für iOS ein Hintergrundereignis; UIKit schreibt daraufhin
+    /// den Wiederherstellungsstand fort und macht ein Bildschirmfoto der App.
+    /// Beides ist Oberfläche, beides prüft den Hauptfaden — und wenn er es
+    /// nicht ist, bricht die App ab: `SIGABRT` aus
+    /// `_performBlockAfterCATransactionCommitSynchronizes:`.
+    ///
+    /// Genau das ist passiert (Absturzprotokoll von einem iPad, 09/2026). Ein
+    /// nacktes `Task { }` erbt keinen Actor; es lief im Nebenläufigkeits-Pool
+    /// (`com.apple.root.user-initiated-qos.cooperative`, so stand es im
+    /// Protokoll) und meldete von dort die Aufgabe fertig. Der Absturz sah nach
+    /// dem Alarm aus, weil es danach am meisten Hintergrundarbeit gibt — kam
+    /// aber von der Auffrischung und war seit der ersten Fassung drin.
     static func register(handler: @escaping () async -> Void) {
         BGTaskScheduler.shared.register(forTaskWithIdentifier: identifier,
-                                        using: nil) { task in
+                                        using: .main) { task in
             schedule()
-            let work = Task {
+            let fertig = Fertigmelder(task: task)
+            let work = Task { @MainActor in
                 await handler()
-                task.setTaskCompleted(success: true)
+                fertig.melde(erfolg: true)
             }
             task.expirationHandler = {
                 work.cancel()
-                task.setTaskCompleted(success: false)
+                fertig.melde(erfolg: false)
             }
         }
     }
@@ -39,5 +54,39 @@ enum BackgroundRefresh {
         // iOS grant more; it only makes the request look impatient.
         request.earliestBeginDate = Date(timeIntervalSinceNow: 6 * 60 * 60)
         try? BGTaskScheduler.shared.submit(request)
+    }
+}
+
+/// Meldet eine Hintergrundaufgabe fertig — auf dem Hauptfaden und genau
+/// einmal.
+///
+/// Beides ist nötig. Der Hauptfaden, weil UIKit daran hängt (siehe oben). Und
+/// genau einmal, weil der Abschluss und der Ablauf-Rückruf sonst beide melden
+/// könnten: Ein zweites `setTaskCompleted` beantwortet iOS ebenfalls mit einem
+/// Abbruch. Der Ablauf-Rückruf kommt nicht zwingend auf dem Hauptfaden,
+/// deshalb der Umweg über `DispatchQueue.main` statt `MainActor.assumeIsolated`
+/// — das gibt es erst ab iOS 17, und diese App läuft ab iOS 16.
+private final class Fertigmelder {
+
+    private let task: BGTask
+    private let sperre = NSLock()
+    private var schonGemeldet = false
+
+    init(task: BGTask) { self.task = task }
+
+    func melde(erfolg: Bool) {
+        let zuerst: Bool = sperre.around {
+            guard !schonGemeldet else { return false }
+            schonGemeldet = true
+            return true
+        }
+        guard zuerst else { return }
+
+        if Thread.isMainThread {
+            task.setTaskCompleted(success: erfolg)
+        } else {
+            let aufgabe = task
+            DispatchQueue.main.async { aufgabe.setTaskCompleted(success: erfolg) }
+        }
     }
 }
