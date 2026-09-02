@@ -332,8 +332,13 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   subscription in a production container". **Die Meldung zeigt auf den
   Container und meint das Profil.** Alle Abfragen waren grün, alle Prädikate
   abfragbar; es sah nach einem Fehler bei Apple aus und war einer von uns.
-  Die Diagnose nennt deshalb seit 1.0.18 die APNs-Umgebung aus dem Profil im
-  Bündel und meldet ROT, wenn sie nicht zur Umgebung passt. Keine der beiden
+  Die Diagnose nennt deshalb seit 1.0.18 die APNs-Umgebung und meldet ROT, wenn
+  sie nicht zur Umgebung passt. **Über TestFlight und aus dem Laden liegt aber
+  gar kein Profil im Bündel** — Apple signiert dort neu und entfernt es (ab
+  1.0.19 abgefangen). Dann bleibt die Bau-Konfiguration als Quelle, und die
+  Zeile sagt dazu, woher ihr Wert stammt: gelesen oder erschlossen. Eine
+  Auskunft über den Bau als Messung auszugeben wäre genau die Art Lüge, die
+  diese Diagnose nicht erzählen darf. Keine der beiden
   Dateien darf die andere ersetzen: Ein Debug-Bau mit `production` meldet sich
   bei der falschen APNs-Umgebung an.
 - **Wo eine Fehlermeldung nur auf die Umgebung zeigt, muss eine PROBE

@@ -127,6 +127,10 @@ App.
 ### „attempting to create a subscription in a production container"
 
 **Erste Frage: Was steht in der Diagnose unter „APNs-Umgebung im Profil"?**
+Die Zeile sagt dazu, woher ihr Wert stammt. Über TestFlight und aus dem Laden
+liegt kein Signierprofil im Bündel — Apple signiert dort neu und entfernt es —,
+dann steht dort der Wert der Bau-Konfiguration und der Zusatz „laut
+Bau-Konfiguration". Das ist eine Auskunft über den Bau, keine Messung.
 
 Steht dort `development`, während darüber `Production (über TestFlight
 installiert)` steht, ist das die Ursache — und sie liegt im Bau, nicht bei
