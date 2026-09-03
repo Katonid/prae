@@ -268,8 +268,13 @@ Auftrag, für Bauten, die niemand angefordert hatte.
 - **Eine gekoppelte Apple Watch fängt den Ton ab** (gefunden 09/2026). Wird
   sie getragen, leitet iOS die Mitteilung ans Handgelenk und das iPhone
   bleibt STILL — und die Uhr spielt nie den eigenen Ton einer App, sondern
-  ihren Systemton. Auf einem iPhone mit Uhr lässt sich der Alarmton deshalb
-  gar nicht prüfen. Die Dienst-iPads haben keine Uhr; für den Test gilt es
+  ihren Systemton. **Abstellen lässt sich das pro App** (ab 1.0.24 in der
+  Prüfliste): App „Watch“ → Mitteilungen → „Mitteilungen von iPhone spiegeln“
+  → Schulalarm aus. Es ist eine Einstellung des GERÄTS: Eine App kann die
+  Spiegelung nicht selbst abschalten und auch nicht auslesen, ob sie aus ist.
+  Deshalb steht die Zeile auf iPhones als Anleitung mit `.unknown` da und
+  nicht als Häkchen — und auf einem iPad gar nicht, dort gibt es keine
+  Spiegelung. Die Dienst-iPads haben keine Uhr; für den Test gilt es
   trotzdem. Zweite Falle daneben: der Lautlos-Schalter — ohne kritische
   Hinweise bleibt auch eine zeitkritische Meldung stumm.
 - **Klingeltonlautstärke ist NICHT Medienlautstärke** (gefunden 09/2026).
@@ -344,8 +349,8 @@ Auftrag, für Bauten, die niemand angefordert hatte.
 - **Wo eine Fehlermeldung nur auf die Umgebung zeigt, muss eine PROBE
   entscheiden** (`stufenprobe`, `CloudKitSubscriptions.stufen`, ab 1.0.17).
   Scheitert das Anlegen, legt die Diagnose drei Abonnements an, die sich um je
-  EINE Sache unterscheiden — schlicht (TRUEPREDICATE, nackte Meldung), mit
-  Prädikat, mit Meldung —, und löscht jedes sofort wieder. Die erste rote Zeile
+  EINE Sache unterscheiden — schlicht (nur `groupRef`, nackte Meldung), mit
+  vollem Prädikat, mit Meldung —, und löscht jedes sofort wieder. Die erste rote Zeile
   sagt, wovon der Fehler abhängt: von Abonnements überhaupt (dann ist es Apples
   Sache), vom Prädikat (Index) oder von der Meldung (dann ist es unsere).
   Dasselbe Muster wie bei den Prädikatsproben in 1.0.4: Eine Diagnose, die den
@@ -354,6 +359,26 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   Es gibt sie jetzt zurück, und die Diagnose zeigt sie — ein blinder Fleck
   genau dort, wo die Zustellung hängt: Ein Record-Typ, den es in Production
   nicht gibt, lässt sich dort auch nicht durch Schreiben anlegen.
+- **Ein NEUES FELD braucht einen Deploy — in Production entsteht keines durch
+  Schreiben** (getroffen 09/2026 mit `alarmId` auf `Message`, eingeführt in
+  1.0.21). Der Befund war eindeutig, seit `ensureSchema` seine Fehler zurückgibt:
+  „Cannot create or modify field 'alarmId' in record 'Message' in production
+  schema", und daraufhin lehnte CloudKit das Abonnement ab, weil seine
+  `desiredKeys` ein Feld nennen, das Production nicht kennt („could not find
+  requested additional field"). **Nach jeder Fassung, die ein Feld oder einen
+  Record-Typ hinzufügt, gehört „Deploy Schema Changes to Production" dazu** —
+  in der Konsole, von Hand, und die App kann es nicht für einen erledigen. Die
+  Diagnose sagt diesen Satz seit 1.0.23 im Klartext unter dem Rohtext.
+- **`NSPredicate(value: true)` ist in Production verboten — und die Meldung
+  dazu lügt.** Ein Abonnement ohne Prädikat wird abgelehnt mit „attempting to
+  create a subscription in a production container", also mit demselben Satz,
+  der 1.0.18 einen Abend gekostet hat. Nachgewiesen 09/2026: Stufe 1 der
+  Stufenprobe rot, Stufen 2 und 3 im selben Durchgang angenommen. Damit war die
+  Probe selbst die Irreführung — sie war in Production IMMER rot. Stufe 1 fragt
+  seit 1.0.23 mit dem einfachsten GÜLTIGEN Prädikat (nur `groupRef`).
+  **Merke: Dieser eine Fehlertext hat mindestens zwei Ursachen** — ein
+  `aps-environment`, das nicht zur Umgebung passt, und ein Abonnement ohne
+  Prädikat. Er zeigt auf den Container und meint beide Male etwas anderes.
 - **Development und Production trennen auch die DATEN, nicht nur die Indizes.**
   Über Xcode installiert läuft die App gegen Development, über TestFlight gegen
   Production. Eine über Xcode eingerichtete Schule gibt es in der

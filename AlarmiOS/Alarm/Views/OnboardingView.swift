@@ -194,7 +194,7 @@ struct OnboardingView: View {
 
         1. Klingeltonlautstärke. Sie ist NICHT dieselbe wie die         Medienlautstärke. Die Lautstärketasten regeln die Medien, solange         etwas spielt — genau das tut „Ton direkt abspielen". Drücke die         Tasten, wenn nichts läuft, oder stelle sie unter Einstellungen →         Töne & Haptik ein.
 
-        2. Eine gekoppelte Apple Watch. Wird sie getragen, leitet iOS die         Mitteilung ans Handgelenk und das iPhone bleibt still — und die Uhr         spielt nie den eigenen Ton einer App, sondern ihren Systemton. Lege         sie ab oder nimm ein iPad.
+        2. Eine gekoppelte Apple Watch. Wird sie getragen, leitet iOS die         Mitteilung ans Handgelenk und das iPhone bleibt still — und die Uhr         spielt nie den eigenen Ton einer App, sondern ihren Systemton.         Dauerhaft abstellen: App „Watch“ → Mitteilungen → „Mitteilungen von         iPhone spiegeln“ → Schulalarm aus. Für den Augenblick reicht es, sie         abzulegen.
 
         3. Der Lautlos-Schalter. Ohne die Berechtigung für kritische Hinweise         macht auch eine zeitkritische Meldung bei stummem Gerät keinen Ton.
         """

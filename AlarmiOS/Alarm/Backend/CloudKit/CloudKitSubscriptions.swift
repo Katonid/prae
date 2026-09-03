@@ -116,15 +116,25 @@ enum CloudKitSubscriptions {
                     CloudField.targetUser, userId)
     }
 
+    /// Das einfachste gültige Prädikat: nur die eigene Gruppe.
+    ///
+    /// Es ist zugleich das Prädikat der Nachrichten und das der Stufenprobe.
+    /// Ein Abonnement ganz OHNE Prädikat gibt es hier bewusst nicht —
+    /// `NSPredicate(value: true)` lehnt CloudKit in einem Production-Container
+    /// ab, und zwar mit einer Meldung, die auf den Container zeigt.
+    static func nurGruppePredicate(groupRecordID: CKRecord.ID) -> NSPredicate {
+        NSPredicate(format: "%K == %@",
+                    CloudField.groupRef,
+                    CKRecord.Reference(recordID: groupRecordID, action: .none))
+    }
+
     /// Jede Nachricht der eigenen Gruppe.
     ///
     /// Nicht auf den laufenden Alarm eingeschränkt: Ein Prädikat lässt sich
     /// nachträglich nicht ändern, ein Alarm wechselt aber ständig. Gefiltert
     /// wird beim Anzeigen, nicht beim Zustellen.
     static func messagePredicate(groupRecordID: CKRecord.ID) -> NSPredicate {
-        NSPredicate(format: "%K == %@",
-                    CloudField.groupRef,
-                    CKRecord.Reference(recordID: groupRecordID, action: .none))
+        nurGruppePredicate(groupRecordID: groupRecordID)
     }
 
     /// Was die Diagnose einzeln nachfragt: Kennung, Record-Typ, Prädikat.
@@ -270,9 +280,20 @@ enum CloudKitSubscriptions {
             return info
         }
 
+        // **Kein TRUEPREDICATE.** Das war die erste Fassung dieser Probe, und
+        // sie hat in die Irre geführt: CloudKit lehnt ein Abonnement ohne
+        // Prädikat in einem Production-Container ab — mit ausgerechnet der
+        // Meldung „attempting to create a subscription in a production
+        // container". Stufe 1 war damit in Production IMMER rot und schickte
+        // den nächsten Leser auf die falsche Fährte (nachgewiesen 09/2026:
+        // Stufe 1 rot, Stufen 2 und 3 im selben Durchgang angenommen).
+        //
+        // Stufe 1 fragt deshalb mit dem einfachsten gültigen Prädikat, das es
+        // hier gibt — nur die Gruppe. Sie prüft weiterhin, was sie prüfen
+        // soll: ob sich überhaupt ein Abonnement anlegen lässt.
         let schlicht = CKQuerySubscription(
             recordType: CloudRecordType.alarm,
-            predicate: NSPredicate(value: true),
+            predicate: nurGruppePredicate(groupRecordID: groupRecordID),
             subscriptionID: "probe-schlicht-\(stempel)",
             options: [.firesOnRecordCreation])
         schlicht.notificationInfo = nackt()
@@ -291,7 +312,7 @@ enum CloudKitSubscriptions {
             options: [.firesOnRecordCreation])
         mitMeldung.notificationInfo = alarmNotificationInfo()
 
-        return [("schlicht", "1 schlicht (ohne Prädikat, ohne Meldung)", schlicht),
+        return [("schlicht", "1 schlicht (nur Gruppe, ohne Meldung)", schlicht),
                 ("praedikat", "2 mit Prädikat", mitPraedikat),
                 ("meldung", "3 mit Meldung", mitMeldung)]
     }

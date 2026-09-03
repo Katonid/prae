@@ -142,6 +142,16 @@ enum CloudKitFehler {
                 + "Bleibt auch Probe 1 rot, ist es ein Fall für den Feedback "
                 + "Assistant."
         }
+        if klein.contains("in production schema")
+            || klein.contains("could not find requested additional field") {
+            return "Ein neues Feld oder ein neuer Record-Typ ist noch nicht in "
+                + "Production. **In Production lassen sich neue Felder nicht "
+                + "durch Schreiben anlegen** — das geht nur in Development. "
+                + "Also: icloud.developer.apple.com → Container → Schema → den "
+                + "Knopf „Deploy Schema Changes to Production“ drücken, ein "
+                + "paar Minuten warten, hier noch einmal tippen. Das ist nach "
+                + "JEDER Fassung fällig, die ein Feld hinzufügt."
+        }
         if klein.contains("not marked queryable") {
             return "In der CloudKit-Konsole fehlt ein Index: Beim genannten Feld "
                 + "unter Indexes „Queryable“ setzen — und zwar in DERSELBEN "
