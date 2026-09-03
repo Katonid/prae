@@ -118,32 +118,59 @@ extension NotificationCenterService: UNUserNotificationCenterDelegate {
     /// duplication. On an iPad the app may be one of two windows, or a small
     /// pane beside a browser; the screen change alone can happen outside the
     /// user's field of view.
+    ///
+    /// **Bewusst die Fassung mit Rückruf, nicht die mit `async`.** Siehe
+    /// unten — es ist derselbe Grund, und er hat einen Absturz gekostet.
     nonisolated func userNotificationCenter(
         _ center: UNUserNotificationCenter,
-        willPresent notification: UNNotification
-    ) async -> UNNotificationPresentationOptions {
-        let userInfo = notification.request.content.userInfo
-        if case .success(let event) = PushPayloadParser.event(from: userInfo) {
-            await MainActor.run { self.pendingEvent = event }
-            if event.isSilent { return [] }
+        willPresent notification: UNNotification,
+        withCompletionHandler completionHandler:
+            @escaping (UNNotificationPresentationOptions) -> Void
+    ) {
+        let ergebnis = PushPayloadParser.event(from: notification.request.content.userInfo)
+        Task { @MainActor in
+            var optionen: UNNotificationPresentationOptions = [.banner, .sound, .list]
+            if case .success(let event) = ergebnis {
+                self.pendingEvent = event
+                if event.isSilent { optionen = [] }
+            }
+            completionHandler(optionen)
         }
-        return [.banner, .sound, .list]
     }
 
     /// Somebody tapped the notification, or one of its buttons.
+    ///
+    /// **Der Rückruf gehört auf den Hauptfaden — hier hing der Absturz.**
+    ///
+    /// Mit ihm endet für iOS ein Hintergrundereignis; UIKit schreibt daraufhin
+    /// den Wiederherstellungsstand fort und macht ein Bildschirmfoto. Beides
+    /// prüft den Hauptfaden und bricht sonst ab (`SIGABRT` aus
+    /// `_performBlockAfterCATransactionCommitSynchronizes:`).
+    ///
+    /// Bis 1.0.21 stand hier die `async`-Fassung dieser Methode. Die sieht
+    /// harmlos aus, ist aber die Falle: Swift baut daraus die Fassung mit
+    /// Rückruf, und der Rückruf wird auf dem Faden aufgerufen, auf dem die
+    /// async-Funktion ENDET — nach einem `await MainActor.run` also im
+    /// Nebenläufigkeits-Pool. Genau deshalb stürzte die App **nur beim Tippen
+    /// auf die Mitteilung** ab und nie beim Öffnen über das Symbol (gemeldet
+    /// 09/2026). Der Rückruf steht jetzt am Ende eines `@MainActor`-Tasks, und
+    /// damit ist der Faden garantiert der richtige.
     nonisolated func userNotificationCenter(
         _ center: UNUserNotificationCenter,
-        didReceive response: UNNotificationResponse
-    ) async {
-        let userInfo = response.notification.request.content.userInfo
-        guard case .success(let event) = PushPayloadParser.event(from: userInfo) else { return }
-
-        await MainActor.run {
-            self.pendingEvent = event
-            if let alarmId = event.alarmPayload?.alarmId,
-               let state = AckState(rawValue: response.actionIdentifier) {
-                self.pendingAck = (alarmId, state)
+        didReceive response: UNNotificationResponse,
+        withCompletionHandler completionHandler: @escaping () -> Void
+    ) {
+        let ergebnis = PushPayloadParser.event(from: response.notification.request.content.userInfo)
+        let aktion = response.actionIdentifier
+        Task { @MainActor in
+            if case .success(let event) = ergebnis {
+                self.pendingEvent = event
+                if let alarmId = event.alarmPayload?.alarmId,
+                   let state = AckState(rawValue: aktion) {
+                    self.pendingAck = (alarmId, state)
+                }
             }
+            completionHandler()
         }
     }
 }

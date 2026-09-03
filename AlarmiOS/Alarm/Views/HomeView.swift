@@ -86,6 +86,20 @@ struct HomeView: View {
         .accessibilityLabel("Alarm auslösen")
     }
 
+    /// Was auf der Karte steht, wenn der Alarm-Bildschirm zur Seite liegt.
+    ///
+    /// Die ungelesenen Nachrichten gehören hierher und nur hierher: Auf dem
+    /// Alarm-Bildschirm stehen sie offen da, hier ist es die einzige Spur.
+    private func laufzeile(_ alarm: Alarm) -> String {
+        var teile = ["Seit \(Clock.time.string(from: alarm.createdAt))",
+                     "\(model.acks.count) Rückmeldungen"]
+        if model.ungeleseneNachrichten == 1 { teile.append("1 neue Nachricht") }
+        if model.ungeleseneNachrichten > 1 {
+            teile.append("\(model.ungeleseneNachrichten) neue Nachrichten")
+        }
+        return teile.joined(separator: " · ")
+    }
+
     private func runningAlarm(_ alarm: Alarm) -> some View {
         Button {
             model.zeigeAlarmBildschirm(fuer: alarm.id)
@@ -94,8 +108,7 @@ struct HomeView: View {
                 Image(systemName: alarm.type.symbol).font(.title)
                 VStack(alignment: .leading, spacing: 4) {
                     Text("\(alarm.type.title) läuft").font(.headline)
-                    Text("Seit \(Clock.time.string(from: alarm.createdAt)) · "
-                         + "\(model.acks.count) Rückmeldungen")
+                    Text(laufzeile(alarm))
                         .font(.subheadline).opacity(0.8)
                 }
                 Spacer()

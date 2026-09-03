@@ -16,6 +16,8 @@ struct AlarmChatView: View {
     @EnvironmentObject private var model: AppModel
     @Environment(\.dismiss) private var dismiss
     @State private var draft = ""
+    /// „Fertig" hat schon zweimal eine Nachricht verschluckt.
+    @State private var fragtWegenEntwurf = false
 
     var body: some View {
         NavigationStack {
@@ -51,10 +53,34 @@ struct AlarmChatView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Fertig") { dismiss() }
+                    // NICHT „Fertig". „Fertig" liest sich wie „abschicken",
+                    // und genau so wurde es zweimal benutzt: Text eingetippt,
+                    // oben getippt, Blatt zu, Nachricht nie gesendet
+                    // (gemeldet 09/2026). Der Knopf heißt jetzt, was er tut.
+                    Button("Schließen") {
+                        if entwurfVorhanden { fragtWegenEntwurf = true } else { dismiss() }
+                    }
                 }
             }
+            .alert("Nachricht noch nicht gesendet", isPresented: $fragtWegenEntwurf) {
+                Button("Jetzt senden") { senden(); dismiss() }
+                Button("Verwerfen", role: .destructive) { draft = ""; dismiss() }
+                Button("Weiter schreiben", role: .cancel) { }
+            } message: {
+                Text("Im Feld steht Text, der noch niemanden erreicht hat.")
+            }
         }
+    }
+
+    private var entwurfVorhanden: Bool {
+        !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private func senden() {
+        let text = draft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return }
+        draft = ""
+        Task { await model.send(message: text, for: alarm) }
     }
 
     private func bubble(_ message: Message) -> some View {
@@ -72,19 +98,40 @@ struct AlarmChatView: View {
         .card(alarm.type.tint)
     }
 
+    /// Ein Pfeil ist kein Knopf, den jemand unter Druck sucht.
+    ///
+    /// Die erste Fassung hatte ein Feld und daneben ein Papierflieger-Symbol.
+    /// Beides zusammen sah aus wie in jeder Messenger-App und war trotzdem
+    /// falsch: Wer den Text eingetippt hatte, tippte oben auf „Fertig" und
+    /// hielt die Nachricht für gesendet. Zweimal passiert, und im Ernstfall
+    /// wäre es dreißigmal passiert.
+    ///
+    /// Deshalb: ein breiter Knopf mit dem Wort **Senden** darauf, die
+    /// Eingabetaste sendet ebenfalls, und solange etwas im Feld steht, sagt
+    /// eine Zeile darunter, dass es noch nicht gesendet ist.
     private var composer: some View {
-        HStack(spacing: 12) {
-            TextField("Nachricht", text: $draft, axis: .vertical)
+        VStack(spacing: 10) {
+            TextField("Nachricht an alle", text: $draft)
                 .textFieldStyle(.roundedBorder)
-                .lineLimit(1...4)
-            Button {
-                let text = draft
-                draft = ""
-                Task { await model.send(message: text, for: alarm) }
-            } label: {
-                Image(systemName: "paperplane.fill").font(.title2)
+                .submitLabel(.send)
+                .onSubmit(senden)
+
+            Button(action: senden) {
+                Label("Senden", systemImage: "paperplane.fill")
+                    .font(.headline)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
             }
-            .disabled(draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            .buttonStyle(.borderedProminent)
+            .disabled(!entwurfVorhanden)
+
+            if entwurfVorhanden {
+                Label("Noch nicht gesendet — auf „Senden“ tippen.",
+                      systemImage: "exclamationmark.circle.fill")
+                    .font(.footnote)
+                    .foregroundStyle(.orange)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
         }
         .padding(16)
     }
