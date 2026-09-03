@@ -391,15 +391,26 @@ enum Videolage {
     ///
     /// Gezählt werden deshalb nur Szenen der App selbst
     /// (`.windowApplication`), und nur solche mit einer gültigen Lage.
+    ///
+    /// Ausgeschrieben statt als Kette aus `compactMap` und `filter`: Der
+    /// Übersetzer konnte darin die Typen nicht mehr herleiten („cannot
+    /// infer type of closure parameter"). Eine Schleife mit `guard` ist an
+    /// jeder Stelle eindeutig.
     @MainActor
     static var jetzt: CGFloat {
-        let eigene = UIApplication.shared.connectedScenes
-            .compactMap { $0 as? UIWindowScene }
-            .filter { $0.session.role == .windowApplication
-                      && $0.interfaceOrientation.isValidInterfaceOrientation }
-        let szene = eigene.first { $0.activationState == .foregroundActive }
-            ?? eigene.first
-        return winkel(fuer: szene?.interfaceOrientation ?? .portrait)
+        var eigene: [UIWindowScene] = []
+        for szene in UIApplication.shared.connectedScenes {
+            guard let fenster = szene as? UIWindowScene else { continue }
+            guard fenster.session.role == UISceneSession.Role.windowApplication else { continue }
+            guard fenster.interfaceOrientation != UIInterfaceOrientation.unknown else { continue }
+            eigene.append(fenster)
+        }
+        var gewaehlt: UIWindowScene? = eigene.first
+        for fenster in eigene where fenster.activationState == UIScene.ActivationState.foregroundActive {
+            gewaehlt = fenster
+            break
+        }
+        return winkel(fuer: gewaehlt?.interfaceOrientation ?? UIInterfaceOrientation.portrait)
     }
 }
 
