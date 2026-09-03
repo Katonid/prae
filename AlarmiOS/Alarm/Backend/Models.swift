@@ -393,6 +393,18 @@ enum DefaultInstructions {
         """
     ]
 
-    static let locations = ["Sekretariat", "Lehrerzimmer", "Aula", "Turnhalle",
-                            "Schulhof", "Erdgeschoss", "1. Obergeschoss"]
+    /// Die Standorte der Schule, in der Reihenfolge des Auslöse-Bildschirms.
+    ///
+    /// Sie sind nur die VORLAGE. Was eine Gruppe wirklich benutzt, steht auf
+    /// ihrem Group-Datensatz und wird unter Verwaltung → Standorte gepflegt —
+    /// eine Änderung hier erreicht eine bereits eingerichtete Schule also
+    /// nicht von selbst. Dafür gibt es dort den Knopf „Vorlage einsetzen".
+    ///
+    /// Reihenfolge nach Ansage des Nutzers (09/2026): erst die Orte, an denen
+    /// jemand sitzt, dann die Räume, dann die Wege, zuletzt draußen.
+    static let locations = ["Sekretariat", "Lehrerzimmer",
+                            "Raum 1", "Raum 2", "Raum 3", "Raum 4",
+                            "Raum 5", "Raum 6", "Raum 7", "Raum 8",
+                            "Eingangshalle", "Keller", "Flur Obergeschoss",
+                            "Schulhof", "Turnhalle", "Betreuung"]
 }

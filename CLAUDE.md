@@ -431,6 +431,36 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   `setTaskCompleted` quittiert iOS ebenfalls mit einem Abbruch. Der Absturz
   sah nach dem Alarm-Bildschirm aus und kam von der Auffrischung; die Zeile
   mit der Warteschlange im Protokoll ist die, die es entscheidet.
+- **Ein `async`-Delegat von UserNotifications ist eine FALLE** (behoben in
+  1.0.22). `userNotificationCenter(_:didReceive:)` in der `async`-Fassung sieht
+  harmlos aus; Swift baut daraus die Fassung mit Rückruf, und der Rückruf läuft
+  auf dem Faden, auf dem die async-Funktion ENDET — nach einem
+  `await MainActor.run` also im Nebenläufigkeits-Pool. Mit dem Rückruf endet
+  für iOS ein Hintergrundereignis, UIKit macht Bildschirmfoto und
+  Wiederherstellungsstand, und beides bricht abseits des Hauptfadens ab.
+  Kennzeichen im Feld: **Absturz nur beim Tippen auf die Mitteilung, nie beim
+  Öffnen über das Symbol** (gemeldet 09/2026). Also immer die Fassung MIT
+  Rückruf schreiben und ihn am Ende eines `Task { @MainActor in }` aufrufen.
+  Dieselbe Wurzel wie `BackgroundRefresh` in 1.0.20 — wo ein Rückruf ein
+  Hintergrundereignis abschließt, gehört er auf den Hauptfaden.
+- **Ein Knopf, der „Fertig" heißt, verschluckt Nachrichten** (1.0.22). Im
+  Nachrichtenblatt stand oben „Fertig" und unten ein Papierflieger-Symbol; der
+  Nutzer tippte zweimal „Fertig" und hielt die Nachricht für gesendet. Jetzt
+  heißt der Knopf oben „Schließen", das Senden ist ein breiter Knopf mit dem
+  Wort **Senden**, die Eingabetaste sendet ebenfalls, ein Hinweis unter dem
+  Feld sagt „noch nicht gesendet", und beim Schließen mit Text im Feld fragt
+  die App nach. **Im Ernstfall wäre das dreißigmal passiert.**
+- **Die Nachrichten stehen OFFEN auf dem Alarm-Bildschirm** (ab 1.0.22), in
+  einer Karte wie die Rückmeldungen — nicht hinter einem Tipp. Wer diesen
+  Bildschirm liest, liest ihn unter Druck und tippt nicht auf Verdacht. Die
+  Zahl „ungelesen" gibt es deshalb nur noch auf der Karte „Alarm läuft" auf
+  dem Startbildschirm, also genau dann, wenn der Alarm-Bildschirm zur Seite
+  gelegt ist.
+- **`DefaultInstructions.locations` ist eine VORLAGE, kein Bestand.** Was eine
+  Schule benutzt, steht auf ihrem Group-Datensatz; eine neue Fassung der App
+  ändert das nie von selbst. Deshalb gibt es seit 1.0.22 unter Verwaltung →
+  Standorte den Knopf „Vorlage einsetzen" — sonst müsste jemand sechzehn
+  Einträge am iPad abtippen.
 - **`NSLock.lock()` ist `noasync`** — in einer async-Funktion heute eine
   Warnung, unter Swift 6 ein Fehler. Gesperrt wird deshalb ausschließlich
   über `NSLock.around` (`Backend/Locked.swift`), einen synchronen

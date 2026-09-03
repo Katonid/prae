@@ -317,6 +317,7 @@ struct LocationsView: View {
     @EnvironmentObject private var model: AppModel
     @State private var places: [String] = []
     @State private var newPlace = ""
+    @State private var fragtWegenVorlage = false
 
     var body: some View {
         List {
@@ -339,10 +340,30 @@ struct LocationsView: View {
                 Text("Die Reihenfolge ist die Reihenfolge auf dem Auslöse-Bildschirm. "
                      + "Was oben steht, wird am schnellsten getroffen.")
             }
+
+            Section {
+                Button("Vorlage einsetzen") { fragtWegenVorlage = true }
+            } footer: {
+                Text("Ersetzt die Liste durch die mitgelieferte Vorlage "
+                     + "(\(DefaultInstructions.locations.count) Einträge). "
+                     + "Gedacht für den Fall, dass die Vorlage sich geändert hat "
+                     + "— eine neue Fassung der App ändert eine bereits "
+                     + "gepflegte Liste nie von selbst.")
+            }
         }
         .navigationTitle("Standorte")
         .toolbar { EditButton() }
         .task { places = model.group?.locations ?? DefaultInstructions.locations }
+        .alert("Liste ersetzen?", isPresented: $fragtWegenVorlage) {
+            Button("Ersetzen", role: .destructive) {
+                places = DefaultInstructions.locations
+                save()
+            }
+            Button("Abbrechen", role: .cancel) { }
+        } message: {
+            Text("Die jetzige Liste wird verworfen. Laufende Alarme behalten "
+                 + "ihren Ort; er steht als Text auf dem Alarm.")
+        }
     }
 
     private func save() {
