@@ -8,7 +8,7 @@ import {
   getActivePage, setActivePage, addPage, removePage, allWidgetsOf, emptyPage,
   renamePage, movePageBy, uniqueBoardName,
   sichtbareSeiten, istSeiteVersteckt, seiteVerstecken,
-  BOARD_FORMATS, setBoardFormat,
+  BOARD_FORMATS, setBoardFormat, mediaPut,
 } from './store.js';
 import { transferPage, clipboardWidget, pasteWidgetFromClipboard } from './transfer.js';
 import {
@@ -273,9 +273,27 @@ function importFile() {
       try {
         const data = JSON.parse(String(reader.result));
         if (!data || !Array.isArray(data.boards)) throw new Error('Format');
+        const medien = data.media && typeof data.media === 'object' ? Object.entries(data.media) : [];
         const ok = await confirmDialog('Datei laden?',
-          `${data.boards.length} Klassenräume werden zu deinen bestehenden hinzugefügt.`, 'Laden');
+          `${data.boards.length} Klassenräume werden zu deinen bestehenden hinzugefügt.`
+          + (medien.length ? ` Dazu ${medien.length} Datei(en) (Klänge/Bilder).` : ''), 'Laden');
         if (!ok) return;
+        // Mitgebrachte Dateien (Klänge, Videos) in den Gerätespeicher legen —
+        // die Elemente verweisen über mediaId darauf. So kommt eine Sicherung
+        // aus der Tafelbild-App samt ihren Tönen an.
+        for (const [mediaId, eintrag] of medien) {
+          if (!eintrag || typeof eintrag.data !== 'string') continue;
+          try {
+            const bytes = Uint8Array.from(atob(eintrag.data), (zeichen) => zeichen.charCodeAt(0));
+            const blob = new Blob([bytes], { type: eintrag.type || '' });
+            await mediaPut(mediaId, {
+              blob, name: eintrag.name || 'Datei', type: eintrag.type || '',
+              size: blob.size, savedAt: Date.now(),
+            });
+          } catch (_) {
+            // Eine unlesbare Datei soll den übrigen Import nicht mitreißen.
+          }
+        }
         for (const board of data.boards) importBoard(board, { activate: false });
         if (Array.isArray(data.lists)) {
           const state = getState();
