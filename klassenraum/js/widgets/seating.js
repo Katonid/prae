@@ -126,9 +126,23 @@ function malePlan(box, state, breite, hoehe, {
     tile.style.left = `${mitte.x - kw / 2}px`;
     tile.style.top = `${mitte.y - kh / 2}px`;
     tile.style.transform = `rotate(${gesamtwinkel}deg)`;
-    tile.style.fontSize = `${Math.max(9, kw * 0.4 * 0.42)}px`;
+    // Der Plan hängt an der Wand und wird aus zehn Metern gelesen — dieselbe
+    // Größe wie in der iOS-App: 0,40 der Kachelbreite, gedeckelt an der Höhe.
+    tile.style.fontSize = `${Math.max(9, Math.min(kw * 0.40, kh * 0.66))}px`;
     if (beiTipp) onTap(tile, () => beiTipp(platz));
     box.appendChild(tile);
+  }
+  // Lange Namen schrumpfen, statt abgeschnitten zu werden (wie iOS
+  // minimumScaleFactor): erst einhängen, dann messen.
+  for (const span of box.querySelectorAll('.w-seating__name')) {
+    if (!span.textContent) continue;
+    const kachel = span.parentElement;
+    const platzBreite = parseFloat(kachel.style.width) * 0.94;
+    if (span.scrollWidth > platzBreite && platzBreite > 0) {
+      const grund = parseFloat(kachel.style.fontSize);
+      const faktor = Math.max(0.4, platzBreite / span.scrollWidth);
+      kachel.style.fontSize = `${Math.max(8, grund * faktor)}px`;
+    }
   }
   return flaeche;
 }
@@ -674,14 +688,21 @@ function zeigeArchiv(ctx, eintrag, zurueck) {
  * an den Achsen und Kanten der anderen Tische, der Rest aufs Raster.
  */
 function openPlatzEditor(ctx) {
-  const host = document.querySelector('.panel .stack');
-  if (!host) return;
+  // Vollbild statt Panel (aus Tafelbild 1.3.2): Im schmalen Einstellungsblatt
+  // bekam der Grundriss ein Fünftel der Breite — Kacheln, die man weder lesen
+  // noch treffen kann. Der Editor liegt jetzt als eigene Fläche über allem.
   const state = ctx.widget.state;
   let raster = true;
   let gewaehlt = null;
-  const wrap = h('div', { class: 'stack' });
   const flaecheBox = h('div', { class: 'w-seating__editor' });
   const werkzeug = h('div', { class: 'stack stack--tight' });
+  const seite = h('div', { class: 'seat-editor__seite stack' });
+  const overlay = h('div', { class: 'seat-editor' });
+
+  const schliesse = () => {
+    window.removeEventListener('resize', male);
+    overlay.remove();
+  };
 
   function speichere() {
     ctx.save();
@@ -691,9 +712,7 @@ function openPlatzEditor(ctx) {
   function male() {
     const rect = flaecheBox.getBoundingClientRect();
     const breite = Math.max(320, rect.width || 640);
-    const form = raumform(state.raum);
-    const hoehe = (breite * form.h) / form.w;
-    flaecheBox.style.height = `${hoehe}px`;
+    const hoehe = Math.max(240, rect.height || 480);
     const naheMenge = gewaehlt
       ? nahe(state.plaetze.find((platz) => platz.id === gewaehlt) || { id: '', x: -99, y: -99 }, state.plaetze, state.naehe)
       : new Set();
@@ -711,16 +730,22 @@ function openPlatzEditor(ctx) {
 
     // Ziehen mit Einrasten — schon während des Zuges, nicht erst beim
     // Loslassen: Wer spürt, wo der Tisch landet, muss nicht zielen.
+    //
+    // Die Zieh-Horcher hängen am FENSTER, nicht an der Kachel: male()
+    // zeichnet bei jeder Bewegung alle Kacheln neu, und mit der alten
+    // Kachel stürben ihre Horcher — der Zug brach nach wenigen Millimetern
+    // ab (gemeldet 09/2026: „nur um wenige Millimeter bewegen").
     for (const tile of flaecheBox.querySelectorAll('.w-seating__platz')) {
       const platzId = tile.dataset.platz;
       tile.addEventListener('pointerdown', (event) => {
         const platz = state.plaetze.find((entry) => entry.id === platzId);
         if (!platz) return;
         event.preventDefault();
-        try { tile.setPointerCapture(event.pointerId); } catch (_) { /* dann ohne */ }
         const start = { x: event.clientX, y: event.clientY, px: platz.x, py: platz.y };
+        const zeigerId = event.pointerId;
         let bewegt = false;
         const move = (ev) => {
+          if (ev.pointerId !== zeigerId) return;
           const dx = (ev.clientX - start.x) / flaeche.mass;
           const dy = (ev.clientY - start.y) / flaeche.mass;
           if (Math.abs(dx) + Math.abs(dy) > 0.3) bewegt = true;
@@ -732,10 +757,11 @@ function openPlatzEditor(ctx) {
           platz.y = Math.min(feld.h - 2, Math.max(2, stelle.y));
           male();
         };
-        const up = () => {
-          tile.removeEventListener('pointermove', move);
-          tile.removeEventListener('pointerup', up);
-          tile.removeEventListener('pointercancel', up);
+        const up = (ev) => {
+          if (ev.pointerId !== zeigerId) return;
+          window.removeEventListener('pointermove', move);
+          window.removeEventListener('pointerup', up);
+          window.removeEventListener('pointercancel', up);
           if (bewegt) speichere();
           else {
             gewaehlt = platz.id === gewaehlt ? null : platz.id;
@@ -743,9 +769,9 @@ function openPlatzEditor(ctx) {
             baueWerkzeug();
           }
         };
-        tile.addEventListener('pointermove', move);
-        tile.addEventListener('pointerup', up);
-        tile.addEventListener('pointercancel', up);
+        window.addEventListener('pointermove', move);
+        window.addEventListener('pointerup', up);
+        window.addEventListener('pointercancel', up);
       });
     }
   }
@@ -806,20 +832,10 @@ function openPlatzEditor(ctx) {
     value: String(state.plaetze.length || 24),
   });
 
-  wrap.append(
-    buttonRow(button('Zurück zu den Einstellungen', {
-      icon: 'back', ghost: true, small: true,
-      onClick: () => {
-        clear(host);
-        // Die Einstellungen frisch aufbauen (dynamisch, um keinen
-        // Importkreis board ↔ Widget einzubauen).
-        import('../board.js').then((board) => board.openWidgetSettings(ctx.widget.id));
-      },
-    })),
+  seite.append(
     h('p', { class: 'muted small' },
       'Sicht der Lehrkraft: Die Tafel hängt, wo sie im Raum hängt. Auf der Tafel selbst wird der '
       + 'Grundriss für die Kinder gedreht (Tafelwand oben).'),
-    flaecheBox,
     werkzeug,
     buttonRow(
       button('Platz hinzufügen', {
@@ -860,8 +876,14 @@ function openPlatzEditor(ctx) {
       },
     })));
 
-  clear(host);
-  host.appendChild(wrap);
+  overlay.append(
+    h('div', { class: 'seat-editor__kopf' },
+      h('strong', null, 'Plätze einrichten'),
+      button('Fertig', { primary: true, small: true, onClick: schliesse })),
+    h('div', { class: 'seat-editor__leib' }, flaecheBox, seite));
+
+  document.body.appendChild(overlay);
+  window.addEventListener('resize', male);
   requestAnimationFrame(() => {
     male();
     baueWerkzeug();
