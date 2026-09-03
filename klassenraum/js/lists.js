@@ -118,11 +118,15 @@ export function openListsPanel(initialListId = null) {
       const sitzregeln = (fresh.sitzregeln || [])
         .map((regel) => Object.assign({}, regel, { a: umbenannt[regel.a] || regel.a, b: umbenannt[regel.b] || regel.b }))
         .filter((regel) => names.includes(regel.a) && names.includes(regel.b));
+      const merkmalWerte = {};
+      for (const [merkmalID, werte] of Object.entries(fresh.merkmalWerte || {})) {
+        merkmalWerte[merkmalID] = mapUm(werte);
+      }
       updateList(list.id, {
         names,
         entries,
         paused: listeUm(fresh.paused),
-        marks: mapUm(fresh.marks),
+        merkmalWerte,
         birthdays: mapUm(fresh.birthdays),
         sitzwunsch: mapUm(fresh.sitzwunsch),
         alleine: listeUm(fresh.alleine),
@@ -169,42 +173,129 @@ export function openListsPanel(initialListId = null) {
     }
     renderPause();
 
-    // Merkmale je Name (z. B. „J“/„M“) — beim Gruppen-Auslosen wird nach
-    // Möglichkeit aus jedem Merkmal gemischt (ein Junge + ein Mädchen usw.).
+    // Merkmale — übernommen aus der Tafelbild-App: MEHRERE benannte
+    // Merkmale je Liste, jedes mit fester Werteliste (z. B. „Jungen und
+    // Mädchen" mit J/M). Der Wert steht als kurzes Zeichen hinter jedem
+    // Namen; gebraucht wird er beim Gruppen-Auslosen und im Sitzplan.
+    const MERKMAL_VORLAGEN = [
+      { name: 'Jungen und Mädchen', werte: ['J', 'M'] },
+      { name: 'Tischgruppe', werte: ['1', '2', '3', '4', '5', '6'] },
+      { name: 'Lesestufe', werte: ['A', 'B', 'C'] },
+    ];
     const marksBox = h('div', { class: 'stack' });
     function renderMarks() {
       clear(marksBox);
       const current = getState().lists.find((entry) => entry.id === editingId);
-      if (!current || !current.names.length) {
-        marksBox.appendChild(h('p', { class: 'muted small' }, 'Erst Namen eintragen — dann lassen sich hier Merkmale vergeben.'));
-        return;
+      if (!current) return;
+      const merkmale = current.merkmale || [];
+      const alleWerte = current.merkmalWerte || {};
+
+      // Verwaltung: je Merkmal Name, Werteliste, Verteilung und Löschen.
+      for (const merkmal of merkmale) {
+        const werteVon = alleWerte[merkmal.id] || {};
+        const verteilung = {};
+        for (const name of current.names) {
+          const wert = werteVon[name];
+          verteilung[wert || ''] = (verteilung[wert || ''] || 0) + 1;
+        }
+        marksBox.appendChild(h('div', { class: 'merkmal' },
+          h('div', { class: 'merkmal__kopf' },
+            h('input', {
+              class: 'input input--klein merkmal__name', type: 'text',
+              value: merkmal.name, placeholder: 'Name des Merkmals',
+              oninput: (event) => {
+                const fresh = getState().lists.find((entry) => entry.id === editingId);
+                if (!fresh) return;
+                updateList(fresh.id, {
+                  merkmale: (fresh.merkmale || []).map((m) => (m.id === merkmal.id
+                    ? Object.assign({}, m, { name: event.target.value }) : m)),
+                });
+              },
+            }),
+            h('input', {
+              class: 'input input--klein merkmal__werte', type: 'text',
+              value: merkmal.werte.join(', '), placeholder: 'Werte, mit Komma getrennt',
+              onchange: (event) => {
+                const fresh = getState().lists.find((entry) => entry.id === editingId);
+                if (!fresh) return;
+                const werte = event.target.value.split(',').map((w) => w.trim()).filter(Boolean);
+                updateList(fresh.id, {
+                  merkmale: (fresh.merkmale || []).map((m) => (m.id === merkmal.id
+                    ? Object.assign({}, m, { werte }) : m)),
+                });
+                renderMarks();
+              },
+            }),
+            h('button', {
+              class: 'icon-button icon-button--danger', title: 'Merkmal löschen (samt Werten an den Namen)',
+              onclick: () => {
+                const fresh = getState().lists.find((entry) => entry.id === editingId);
+                if (!fresh) return;
+                // Die Werte an den Namen gleich mit wegräumen — sonst
+                // bliebe unsichtbarer Ballast in der Liste stehen.
+                const naechste = Object.assign({}, fresh.merkmalWerte || {});
+                delete naechste[merkmal.id];
+                updateList(fresh.id, {
+                  merkmale: (fresh.merkmale || []).filter((m) => m.id !== merkmal.id),
+                  merkmalWerte: naechste,
+                });
+                renderMarks();
+              },
+              html: icon('trash', 16),
+            })),
+          // Wie viele Namen welchen Wert tragen — so ist auf einen Blick
+          // zu sehen, ob noch etwas fehlt. „ohne" steht warnfarben.
+          current.names.length ? h('div', { class: 'merkmal__pillen' },
+            merkmal.werte.map((wert) => h('span', { class: 'merkmal__pille' }, `${wert} ${verteilung[wert] || 0}`)),
+            verteilung[''] ? h('span', { class: 'merkmal__pille merkmal__pille--ohne' }, `ohne ${verteilung['']}`) : null) : null));
       }
-      const marks = current.marks || {};
-      const values = Array.from(new Set(Object.values(marks).filter(Boolean)));
-      marksBox.append(
-        h('p', { class: 'muted small' },
-          'Kurzes Merkmal je Name, z. B. „J“ und „M“ — beim Auslosen von Gruppen wird dann nach Möglichkeit '
-          + 'aus jedem Merkmal gemischt (ein Junge und ein Mädchen pro Gruppe). Auch eigene Merkmale sind möglich, '
-          + 'etwa Lesestufen „A“/„B“/„C“. Leer lassen = ohne Merkmal.'),
-        h('div', { class: 'marks-grid' }, current.names.map((name) => {
-          const input = h('input', {
-            class: 'input input--mark', type: 'text', maxlength: '6',
-            value: marks[name] || '', placeholder: '—',
-            oninput: (event) => {
+
+      // Merkmal hinzufügen: die drei Vorlagen aus der iOS-App, dazu Eigenes.
+      const lege = (vorlage) => {
+        const fresh = getState().lists.find((entry) => entry.id === editingId);
+        if (!fresh) return;
+        updateList(fresh.id, {
+          merkmale: (fresh.merkmale || []).concat([{ id: uid('mm'), name: vorlage.name, werte: vorlage.werte.slice() }]),
+        });
+        renderMarks();
+      };
+      marksBox.appendChild(h('div', { class: 'merkmal__neu' },
+        MERKMAL_VORLAGEN.map((vorlage) => button(`${vorlage.name} (${vorlage.werte.join('/')})`, {
+          icon: 'plus', small: true, ghost: true, onClick: () => lege(vorlage),
+        })),
+        button('Eigenes Merkmal', { icon: 'plus', small: true, onClick: () => lege({ name: '', werte: [] }) })));
+
+      // Werte je Name: für jedes Merkmal eine kleine Auswahl hinter dem Namen.
+      if (merkmale.length && current.names.length) {
+        marksBox.appendChild(h('div', { class: 'stack stack--tight' }, current.names.map((name) => h('div', { class: 'marks-row' },
+          h('span', { class: 'marks-row__name' }, name),
+          merkmale.map((merkmal) => h('select', {
+            class: 'input input--merkmalwert',
+            title: merkmal.name || 'Merkmal',
+            onchange: (event) => {
               const fresh = getState().lists.find((entry) => entry.id === editingId);
               if (!fresh) return;
-              const next = Object.assign({}, fresh.marks || {});
-              const value = event.target.value.trim();
-              if (value) next[name] = value;
-              else delete next[name];
-              updateList(fresh.id, { marks: next });
+              const naechste = Object.assign({}, fresh.merkmalWerte || {});
+              const map = Object.assign({}, naechste[merkmal.id] || {});
+              if (event.target.value) map[name] = event.target.value;
+              else delete map[name];
+              naechste[merkmal.id] = map;
+              updateList(fresh.id, { merkmalWerte: naechste });
+              renderMarks();
             },
-          });
-          return h('label', { class: 'marks-row' }, h('span', { class: 'marks-row__name' }, name), input);
-        })),
-        values.length > 1
-          ? h('p', { class: 'muted small' }, `Vergebene Merkmale: ${values.join(', ')}`)
-          : null);
+          },
+          h('option', { value: '', selected: !((alleWerte[merkmal.id] || {})[name]) }, '–'),
+          merkmal.werte.map((wert) => h('option', {
+            value: wert, selected: (alleWerte[merkmal.id] || {})[name] === wert,
+          }, wert))))))));
+      } else if (merkmale.length && !current.names.length) {
+        marksBox.appendChild(h('p', { class: 'muted small' }, 'Erst Namen eintragen — dann lassen sich hier die Werte vergeben.'));
+      }
+
+      marksBox.appendChild(h('p', { class: 'muted small' },
+        'Ein Merkmal ist etwas, wonach sich die Namen sortieren lassen — am häufigsten Jungen und '
+        + 'Mädchen. Gebraucht wird es beim Auslosen von Gruppen (gemischt oder beisammen) und im '
+        + 'Sitzplan. Namen ohne Angabe zählen als eigener Topf — nichts wird geraten.'));
     }
     renderMarks();
 
@@ -387,7 +478,7 @@ export function openListsPanel(initialListId = null) {
             updateList(list.id, {
               names,
               entries: names.map((name) => ({ id: uid('kind'), name })),
-              paused: [], marks: {}, birthdays: {}, sitzwunsch: {}, alleine: [], sitzregeln: [],
+              paused: [], merkmale: [], merkmalWerte: {}, birthdays: {}, sitzwunsch: {}, alleine: [], sitzregeln: [],
             });
             area.value = names.join('\n');
             counter.textContent = `${names.length} Namen`;

@@ -349,8 +349,9 @@ function normalizeState(loaded) {
     entries: alignEntries(list.entries, Array.isArray(list.names) ? list.names : []),
     // Pausierte Namen (z. B. krank) bleiben in der Liste, werden aber nicht gezogen.
     paused: Array.isArray(list.paused) ? list.paused : [],
-    // Merkmale je Name (z. B. „J“/„M“) — fürs Mischen beim Gruppen-Auslosen.
-    marks: list.marks && typeof list.marks === 'object' ? list.marks : {},
+    // Mehrere benannte Merkmale mit Wertelisten (aus Tafelbild) — samt
+    // Migration des alten Freitext-Merkmals und Spiegel in `marks`.
+    ...richteMerkmaleAus(list),
     // Geburtstage je Name als „JJJJ-MM-TT“ — für die Geburtstagsseiten.
     birthdays: list.birthdays && typeof list.birthdays === 'object' ? list.birthdays : {},
     // Sitzplan: Paarregeln (getrennt/zusammen), Sitzwunsch (vorne/hinten)
@@ -362,6 +363,51 @@ function normalizeState(loaded) {
     updatedAt: list.updatedAt || Date.now(),
   }));
   return next;
+}
+
+/**
+ * Merkmale einer Liste aufbereiten — übernommen aus der Tafelbild-App:
+ * MEHRERE benannte Merkmale je Liste, jedes mit einer festen Werteliste
+ * (z. B. „Jungen und Mädchen" mit J/M), und je Merkmal die Werte je Name.
+ *
+ * - `merkmale`: [{ id, name, werte: [] }]
+ * - `merkmalWerte`: { merkmalID: { name: wert } } — fehlt ein Name, hat er
+ *   das Merkmal nicht; beim Auslosen zählt er als eigener Topf „ohne
+ *   Angabe", nichts wird geraten (dieselbe Regel wie in der iOS-App).
+ *
+ * Ein Altbestand mit dem einen Freitext-Merkmal (`marks`) wird beim
+ * Einlesen zu einem Merkmal namens „Merkmal". Und `marks` bleibt als
+ * SPIEGEL des ersten Merkmals stehen: Ein Gerät mit älterem Stand liest
+ * dann weiter, was es kennt.
+ */
+function richteMerkmaleAus(list) {
+  let merkmale = Array.isArray(list.merkmale)
+    ? list.merkmale.filter((m) => m && m.id).map((m) => ({
+      id: m.id,
+      name: typeof m.name === 'string' ? m.name : '',
+      werte: Array.isArray(m.werte) ? m.werte.filter(Boolean).map(String) : [],
+    }))
+    : [];
+  const roh = list.merkmalWerte && typeof list.merkmalWerte === 'object' ? list.merkmalWerte : {};
+  const merkmalWerte = {};
+  for (const m of merkmale) {
+    merkmalWerte[m.id] = roh[m.id] && typeof roh[m.id] === 'object' ? roh[m.id] : {};
+  }
+  const marks = list.marks && typeof list.marks === 'object' ? list.marks : {};
+  // Migriert wird nur ein ECHTER Altbestand (merkmale nie gesetzt). Ein
+  // leeres Feld heißt: Alle Merkmale wurden bewusst gelöscht — dann darf
+  // der alte Spiegel sie nicht wieder heraufbeschwören.
+  if (!Array.isArray(list.merkmale) && !merkmale.length && Object.keys(marks).length) {
+    const werte = [];
+    for (const wert of Object.values(marks)) {
+      if (wert && !werte.includes(String(wert))) werte.push(String(wert));
+    }
+    const m = { id: uid('mm'), name: 'Merkmal', werte };
+    merkmale = [m];
+    merkmalWerte[m.id] = Object.assign({}, marks);
+  }
+  const spiegel = merkmale.length ? Object.assign({}, merkmalWerte[merkmale[0].id]) : {};
+  return { merkmale, merkmalWerte, marks: spiegel };
 }
 
 /**
@@ -817,7 +863,7 @@ export function upsertList(raw) {
     names: Array.isArray(raw.names) ? raw.names : [],
     entries: alignEntries(raw.entries, Array.isArray(raw.names) ? raw.names : []),
     paused: Array.isArray(raw.paused) ? raw.paused : [],
-    marks: raw.marks && typeof raw.marks === 'object' ? raw.marks : {},
+    ...richteMerkmaleAus(raw),
     birthdays: raw.birthdays && typeof raw.birthdays === 'object' ? raw.birthdays : {},
     sitzregeln: Array.isArray(raw.sitzregeln) ? raw.sitzregeln : [],
     sitzwunsch: raw.sitzwunsch && typeof raw.sitzwunsch === 'object' ? raw.sitzwunsch : {},
@@ -911,6 +957,11 @@ export function updateList(listId, patch) {
   const list = getList(listId);
   if (!list) return null;
   Object.assign(list, patch, { updatedAt: Date.now() });
+  // Der Spiegel `marks` (erstes Merkmal, für ältere Stände) zieht bei
+  // jeder Merkmal-Änderung mit — sonst liefe er auseinander.
+  if ('merkmale' in patch || 'merkmalWerte' in patch) {
+    Object.assign(list, richteMerkmaleAus(list));
+  }
   touch({ board: false, reason: 'list-update' });
   emit('lists-changed', state.lists);
   return list;
