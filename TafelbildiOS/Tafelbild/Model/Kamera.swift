@@ -374,10 +374,31 @@ enum Videolage {
     }
 
     /// Der Winkel, der gerade gilt. Nur vom Hauptfaden aufzurufen.
+    ///
+    /// **Die Szene des Beamers zählt nicht mit** (behoben in 1.4.1).
+    ///
+    /// Hängt ein zweiter Bildschirm am iPad, gibt es zwei `UIWindowScene`:
+    /// die des iPads und die des Beamers. Beide sind `.foregroundActive` —
+    /// die des Beamers ist ja sichtbar. `connectedScenes` ist aber ein
+    /// **Set** und damit ungeordnet, also griff `first { ... }` mal die
+    /// eine, mal die andere.
+    ///
+    /// Und ein externer Bildschirm hat gar keine Lage: Seine
+    /// `interfaceOrientation` ist `.unknown`, was in `winkel(fuer:)` in den
+    /// Vorgabefall läuft — 90 Grad, also Hochformat. Ein Heft im Querformat
+    /// stand damit hochkant und beschnitten auf der Tafel, sobald der
+    /// Beamer dranhing (gemeldet 09/2026).
+    ///
+    /// Gezählt werden deshalb nur Szenen der App selbst
+    /// (`.windowApplication`), und nur solche mit einer gültigen Lage.
     @MainActor
     static var jetzt: CGFloat {
-        let szenen = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
-        let szene = szenen.first { $0.activationState == .foregroundActive } ?? szenen.first
+        let eigene = UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .filter { $0.session.role == .windowApplication
+                      && $0.interfaceOrientation.isValidInterfaceOrientation }
+        let szene = eigene.first { $0.activationState == .foregroundActive }
+            ?? eigene.first
         return winkel(fuer: szene?.interfaceOrientation ?? .portrait)
     }
 }

@@ -1837,6 +1837,22 @@ Namens und lebt weiter.
   `fetchMissingNameLists`). Fehlt eine davon, reist die Liste beim Teilen
   nicht mit und die Kollegin sieht einen Plan ohne Namen.
 
+### Dokumentenkamera — die Lage kommt vom iPad, nicht vom Beamer
+
+- **Die Szene des Beamers zählt nicht mit** (`Videolage.jetzt`, behoben in
+  1.4.1). Hängt ein zweiter Bildschirm am iPad, gibt es zwei
+  `UIWindowScene`, und beide sind `.foregroundActive`. `connectedScenes`
+  ist ein **Set** und damit ungeordnet — `first { … }` griff mal die eine,
+  mal die andere.
+- Ein externer Bildschirm hat **keine Lage**: `interfaceOrientation` ist
+  `.unknown` und läuft in `winkel(fuer:)` in den Vorgabefall, also 90 Grad
+  = Hochformat. Ein Heft im Querformat stand damit hochkant und
+  beschnitten auf der Tafel, sobald der Beamer dranhing (gemeldet 09/2026).
+- Gezählt werden deshalb nur Szenen der App selbst
+  (`session.role == .windowApplication`) und nur solche mit gültiger Lage.
+  Die Absicht stand schon vorher im Kommentar über `layoutSubviews` — sie
+  war nur nicht umgesetzt.
+
 ### Ein Blatt, ein Dateiwähler — an der Wurzel, an SwiftUI vorbei
 
 Vier Regeln, jede einmal teuer gelernt (`WidgetSettingsSheet`,
