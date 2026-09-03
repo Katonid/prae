@@ -8,7 +8,7 @@ import {
   getActivePage, setActivePage, addPage, removePage, allWidgetsOf, emptyPage,
   renamePage, movePageBy, uniqueBoardName,
   sichtbareSeiten, istSeiteVersteckt, seiteVerstecken,
-  BOARD_FORMATS, setBoardFormat, mediaPut,
+  BOARD_FORMATS, setBoardFormat, mediaPut, updateList,
 } from './store.js';
 import { transferPage, clipboardWidget, pasteWidgetFromClipboard } from './transfer.js';
 import {
@@ -261,6 +261,75 @@ function exportFile() {
   setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
 
+/**
+ * Eine mitgebrachte Liste in eine BESTEHENDE gleichen Namens einarbeiten:
+ * Gleicher Name heißt dieselbe Klasse. Bis 1.8.41 wurde die mitgebrachte
+ * Liste schlicht verworfen — und mit ihr Geburtstage, Merkmale und
+ * Sitzregeln (gemeldet 09/2026: „die Geburtstage haben sich nicht
+ * übertragen"). Jetzt werden fehlende Angaben übernommen; was auf diesem
+ * Gerät schon steht, gewinnt IMMER. Namen, die es hier nicht gibt, werden
+ * nicht angelegt — die eigene Liste ist die Wahrheit über den Bestand.
+ * Liefert die Zahl der übernommenen Geburtstage.
+ */
+function ergaenzeListe(ziel, quelle) {
+  const namen = new Set(ziel.names || []);
+  const patch = {};
+  let geburtstage = 0;
+
+  const birthdays = Object.assign({}, ziel.birthdays || {});
+  for (const [name, datum] of Object.entries(quelle.birthdays || {})) {
+    if (namen.has(name) && datum && !birthdays[name]) {
+      birthdays[name] = datum;
+      geburtstage += 1;
+    }
+  }
+  if (geburtstage) patch.birthdays = birthdays;
+
+  const sitzwunsch = Object.assign({}, ziel.sitzwunsch || {});
+  let wuensche = 0;
+  for (const [name, wunsch] of Object.entries(quelle.sitzwunsch || {})) {
+    if (namen.has(name) && wunsch && !sitzwunsch[name]) {
+      sitzwunsch[name] = wunsch;
+      wuensche += 1;
+    }
+  }
+  if (wuensche) patch.sitzwunsch = sitzwunsch;
+
+  const alleine = (ziel.alleine || []).slice();
+  for (const name of quelle.alleine || []) {
+    if (namen.has(name) && !alleine.includes(name)) alleine.push(name);
+  }
+  if (alleine.length !== (ziel.alleine || []).length) patch.alleine = alleine;
+
+  // Merkmale nur übernehmen, wenn die Liste hier noch KEINE führt — zwei
+  // Merkmal-Verzeichnisse zu mischen erzeugte doppelte Spalten.
+  if (!(ziel.merkmale || []).length && (quelle.merkmale || []).length) {
+    patch.merkmale = quelle.merkmale;
+    const werte = {};
+    for (const [merkmalID, map] of Object.entries(quelle.merkmalWerte || {})) {
+      werte[merkmalID] = {};
+      for (const [name, wert] of Object.entries(map || {})) {
+        if (namen.has(name)) werte[merkmalID][name] = wert;
+      }
+    }
+    patch.merkmalWerte = werte;
+  }
+
+  const regeln = (ziel.sitzregeln || []).slice();
+  const schonDa = new Set(regeln.map((regel) => [regel.a, regel.b].sort().join('|') + '|' + regel.art));
+  for (const regel of quelle.sitzregeln || []) {
+    const kennung = [regel.a, regel.b].sort().join('|') + '|' + regel.art;
+    if (namen.has(regel.a) && namen.has(regel.b) && !schonDa.has(kennung)) {
+      regeln.push(regel);
+      schonDa.add(kennung);
+    }
+  }
+  if (regeln.length !== (ziel.sitzregeln || []).length) patch.sitzregeln = regeln;
+
+  if (Object.keys(patch).length) updateList(ziel.id, patch);
+  return geburtstage;
+}
+
 function importFile() {
   const input = h('input', { type: 'file', accept: 'application/json,.json', style: { display: 'none' } });
   document.body.appendChild(input);
@@ -294,18 +363,41 @@ function importFile() {
             // Eine unlesbare Datei soll den übrigen Import nicht mitreißen.
           }
         }
-        for (const board of data.boards) importBoard(board, { activate: false });
+        // Erst die Listen: Gleicher Name heißt dieselbe Klasse — fehlende
+        // Angaben (Geburtstage, Merkmale, Sitzregeln …) wandern in die
+        // bestehende Liste, statt verworfen zu werden. Die Kennungs-Karte
+        // lenkt danach die Elemente der mitgebrachten Tafeln auf die
+        // Liste, die hier wirklich gilt.
+        const listenKarte = {};
+        let geburtstage = 0;
         if (Array.isArray(data.lists)) {
           const state = getState();
-          const known = new Set(state.lists.map((list) => list.name));
           for (const list of data.lists) {
-            if (!known.has(list.name)) state.lists.push(list);
+            const vorhandene = state.lists.find((entry) => entry.name === list.name);
+            if (vorhandene) {
+              listenKarte[list.id] = vorhandene.id;
+              geburtstage += ergaenzeListe(vorhandene, list);
+            } else {
+              listenKarte[list.id] = list.id;
+              state.lists.push(list);
+            }
+          }
+        }
+        for (const board of data.boards) {
+          const clean = importBoard(board, { activate: false });
+          for (const page of clean.pages || []) {
+            for (const widget of page.widgets || []) {
+              const verweis = widget.state && widget.state.listId;
+              if (verweis && listenKarte[verweis]) widget.state.listId = listenKarte[verweis];
+            }
           }
         }
         saveNow();
         renderBoard();
         renderTopbar();
-        toast('Datei geladen.', 'success');
+        toast(geburtstage
+          ? `Datei geladen — ${geburtstage} Geburtstag(e) in die bestehende Liste übernommen.`
+          : 'Datei geladen.', 'success');
       } catch (error) {
         toast('Die Datei konnte nicht gelesen werden.', 'warn');
       }
