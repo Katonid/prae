@@ -1292,9 +1292,16 @@ Namens und lebt weiter.
   die Patch-Nummer um +1 an** — ohne Nachfrage, als Teil des PRs
   (1.0.1 → 1.0.2 → 1.0.3 …). Größere Sprünge nur auf ausdrückliche
   Ansage des Nutzers.
-- **1.1.0 ist die Fassung für den App Store** (Ansage des Nutzers,
-  08/2026): erste Fassung mit Freigabe per Einladungslink und privatem
-  iCloud-Abgleich. Danach zählt es wie gewohnt weiter — 1.1.1, 1.1.2 …
+- **1.1.0 war die erste Fassung im App Store** (eingereicht 08/2026,
+  freigegeben 09/2026): Freigabe per Einladungslink und privater
+  iCloud-Abgleich.
+- **1.4.0 ist die erste Aktualisierung** (Ansage des Nutzers, 09/2026).
+  Zwischen 1.1.0 und 1.4.0 liegen der Sitzplan als neue Elementart, die
+  Geburtstage samt Ritual und Fragenkatalogen, das Zurücksetzen auf
+  „unbenutzt“, das Ausblenden von Seiten und die Reparaturen am Abgleich.
+  Der Sprung auf 1.4 statt 1.3.32 war eine bewusste Entscheidung: Das ist
+  eine Funktionsfassung, keine Reihe von Nachbesserungen. Danach zählt es
+  wie gewohnt weiter — 1.4.1, 1.4.2 …
 - **Klänge: zwei Wege, mit Absicht.** Die Ziehklänge sind echte
   Aufnahmen (`TafelbildiOS/scripts/fetch-sounds.py`, CC0) — Synthese klang dort
   synthetisch, weil Kartenmischen und Ratsche Vorgänge aus hundert
