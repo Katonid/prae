@@ -144,6 +144,30 @@ enum OnboardingChecklist {
             state: tontestPassed ? .ok : .missing,
             settingsURL: nil))
 
+        // Nur auf dem iPhone, und bewusst OHNE Häkchen.
+        //
+        // Ob eine Uhr gekoppelt ist und ob die Spiegelung für diese App aus
+        // steht, verrät iOS einer App nicht — das Zweite gibt es als
+        // Schnittstelle überhaupt nicht. Ein grüner Haken wäre hier also
+        // geraten, und geraten wird in dieser Liste nichts. Auf einem iPad
+        // erscheint die Zeile gar nicht erst: Dort gibt es keine Spiegelung.
+        if UIDevice.current.userInterfaceIdiom == .phone {
+            items.append(ChecklistItem(
+                id: "watch",
+                title: "Apple Watch: Spiegelung aus",
+                detail: "Ist dieses iPhone mit einer Apple Watch gekoppelt und "
+                    + "wird sie getragen, leitet iOS die Meldung ans Handgelenk "
+                    + "und das iPhone bleibt STILL — und die Uhr spielt nie den "
+                    + "Alarmton dieser App, sondern ihren Systemton.\n\n"
+                    + "Abschalten: App „Watch“ → Mitteilungen → ganz unten "
+                    + "„Mitteilungen von iPhone spiegeln“ → Schulalarm aus. "
+                    + "Danach bleibt der Alarm auf dem iPhone, mit dem eigenen "
+                    + "Ton.\n\nOhne gekoppelte Uhr ist hier nichts zu tun.",
+                state: .unknown,
+                settingsURL: nil,
+                blocksCompletion: false))
+        }
+
         items.append(ChecklistItem(
             id: "zustellung",
             title: "Zustellung geprüft",

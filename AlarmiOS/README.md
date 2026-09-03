@@ -100,8 +100,18 @@ Am Gerät kommen dann drei Dinge in Frage, nach Häufigkeit:
    stelle sie unter Einstellungen → Töne & Haptik.
 2. **Eine gekoppelte Apple Watch.** Wird sie getragen, leitet iOS die
    Mitteilung ans Handgelenk und das iPhone bleibt still — und die Uhr
-   spielt nie den eigenen Ton einer App, sondern ihren Systemton. Auf einem
-   iPhone mit Uhr lässt sich der Alarmton nicht prüfen. Nimm ein iPad.
+   spielt nie den eigenen Ton einer App, sondern ihren Systemton.
+
+   **Das lässt sich abschalten, und zwar genau für diese App:** iPhone → App
+   **„Watch“** → **Mitteilungen** → ganz unten **„Mitteilungen von iPhone
+   spiegeln“** → **Schulalarm aus**. Danach behält das iPhone den Alarm bei
+   sich und spielt den eigenen Ton in der eingestellten
+   Klingeltonlautstärke; die Uhr bleibt außen vor.
+
+   Es ist eine Einstellung des Geräts, keine der App — **eine App kann die
+   Spiegelung nicht selbst abschalten**, es gibt dafür keine Schnittstelle.
+   Deshalb steht die Zeile auf iPhones in der Prüfliste als Anleitung und
+   nicht als Häkchen: Ob es getan wurde, kann die App nicht sehen.
 3. **Lautlos-Schalter.** Ohne die Berechtigung für kritische Hinweise macht
    auch eine zeitkritische Meldung bei stummem Gerät keinen Ton.
 

@@ -268,8 +268,13 @@ Auftrag, für Bauten, die niemand angefordert hatte.
 - **Eine gekoppelte Apple Watch fängt den Ton ab** (gefunden 09/2026). Wird
   sie getragen, leitet iOS die Mitteilung ans Handgelenk und das iPhone
   bleibt STILL — und die Uhr spielt nie den eigenen Ton einer App, sondern
-  ihren Systemton. Auf einem iPhone mit Uhr lässt sich der Alarmton deshalb
-  gar nicht prüfen. Die Dienst-iPads haben keine Uhr; für den Test gilt es
+  ihren Systemton. **Abstellen lässt sich das pro App** (ab 1.0.24 in der
+  Prüfliste): App „Watch“ → Mitteilungen → „Mitteilungen von iPhone spiegeln“
+  → Schulalarm aus. Es ist eine Einstellung des GERÄTS: Eine App kann die
+  Spiegelung nicht selbst abschalten und auch nicht auslesen, ob sie aus ist.
+  Deshalb steht die Zeile auf iPhones als Anleitung mit `.unknown` da und
+  nicht als Häkchen — und auf einem iPad gar nicht, dort gibt es keine
+  Spiegelung. Die Dienst-iPads haben keine Uhr; für den Test gilt es
   trotzdem. Zweite Falle daneben: der Lautlos-Schalter — ohne kritische
   Hinweise bleibt auch eine zeitkritische Meldung stumm.
 - **Klingeltonlautstärke ist NICHT Medienlautstärke** (gefunden 09/2026).
