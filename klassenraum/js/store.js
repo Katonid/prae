@@ -239,6 +239,9 @@ export function defaultState() {
       stackModeManual: null,
       showGrid: false,
       mode: 'edit',
+      // Menüleiste unten (Vorgabe): An der digitalen Tafel ist der obere
+      // Rand außer Reichweite (Ansage des Nutzers, 09/2026). false = oben.
+      leisteUnten: true,
       // Örtlich ausgeblendete Seiten je Tafel: { boardId: [pageId, …] }.
       // Bewusst in den Einstellungen, nicht an der Tafel — auf einer
       // geteilten Tafel entscheidet jede für sich, welche Seiten im

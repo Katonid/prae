@@ -874,6 +874,12 @@ function openMenuPanel() {
         touch({ board: false });
         applyDockPreference();
       }, 'Ausgeblendet bleibt mehr Platz für die Tafel; ein Knopf am unteren Rand holt sie zurück.'),
+      toggleRow('Menüleiste unten (für die digitale Tafel)', state.settings.leisteUnten !== false, (value) => {
+        state.settings.leisteUnten = value;
+        touch({ board: false });
+        applyLeistePreference();
+      }, 'An der Tafel ist der obere Rand außer Reichweite — unten ist alles greifbar. '
+        + 'Ausgeschaltet steht die Leiste oben. Gilt nur für dieses Gerät.'),
       buttonRow(button('Ganze Tafel zeigen', {
         icon: 'expand', full: true,
         onClick: () => {
@@ -1048,6 +1054,15 @@ function applyStackPreference() {
   // verschieben. Die Listenansicht bleibt als bewusste Wahl im Menü.
   const manual = getState().settings.stackModeManual;
   setStackMode(manual === true);
+}
+
+/**
+ * Menüleiste unten (Vorgabe, Ansage des Nutzers 09/2026): An der digitalen
+ * Tafel ist der obere Rand außer Reichweite — alles Bedienbare gehört nach
+ * unten. Je Gerät abschaltbar (Menü → Ansicht), z. B. am Telefon.
+ */
+function applyLeistePreference() {
+  document.body.classList.toggle('leiste-unten', getState().settings.leisteUnten !== false);
 }
 
 /** Elementleiste unten ein- oder ausblenden (bleibt gespeichert). */
@@ -1393,6 +1408,7 @@ async function boot() {
   renderDock();
   applyStackPreference();
   applyDockPreference();
+  applyLeistePreference();
   onViewChanged(renderViewControls);
   applyMode(getState().settings.mode === 'use' ? 'use' : 'edit', { save: false });
   renderBoard();

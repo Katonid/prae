@@ -88,6 +88,21 @@ button { font: inherit; color: inherit; }
 
 .topbar__spacer { flex: 1; }
 
+/* Die Menüleiste liegt als Vorgabe UNTEN (Ansage des Nutzers, 09/2026):
+   An der digitalen Tafel ist der obere Rand außer Reichweite. Reihenfolge
+   von oben: Tafelfläche, Elementleiste, Menüleiste — alles Greifbare
+   beieinander. Der Schalter „Menüleiste oben" (Menü → Ansicht) dreht es
+   je Gerät zurück. */
+body.leiste-unten .topbar {
+  order: 4;
+  padding: 4px 14px calc(10px + env(safe-area-inset-bottom));
+}
+body.leiste-unten .dock { margin-bottom: 4px; }
+body.leiste-unten[data-dock="off"] .dock-toggle { margin-bottom: 4px; }
+/* Am Telefon sitzt die angedockte Werkzeugleiste über dem ganzen unteren
+   Stapel — mit der Menüleiste unten ist der eine Zeile höher. */
+body.leiste-unten .selection-toolbar.is-docked { bottom: 112px; }
+
 .topbar__board,
 .topbar__button {
   border: 1px solid rgba(255, 255, 255, 0.14);
