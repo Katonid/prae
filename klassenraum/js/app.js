@@ -7,6 +7,7 @@ import {
   addWidget, touch, touchBoard, saveNow, on as onStore, importBoard, AURORA,
   getActivePage, setActivePage, addPage, removePage, allWidgetsOf, emptyPage,
   renamePage, movePageBy, uniqueBoardName,
+  sichtbareSeiten, istSeiteVersteckt, seiteVerstecken,
   BOARD_FORMATS, setBoardFormat,
 } from './store.js';
 import { transferPage, clipboardWidget, pasteWidgetFromClipboard } from './transfer.js';
@@ -84,6 +85,13 @@ function applyMode(next, { save = true } = {}) {
   if (save) {
     getState().settings.mode = next;
     touch({ board: false });
+  }
+  // In den Unterricht gewechselt, während eine ausgeblendete Seite
+  // aufgeschlagen war? Dann auf die erste sichtbare.
+  const board = getActiveBoard();
+  if (next === 'use' && board && istSeiteVersteckt(board.id, board.activePageId)) {
+    const offen = (board.pages || []).filter((page) => !istSeiteVersteckt(board.id, page.id));
+    if (offen.length) setActivePage(offen[0].id);
   }
   renderTopbar();
   renderPager();
@@ -1068,8 +1076,10 @@ function renderPager() {
   const controls = document.getElementById('page-controls');
   if (!controls) return;
   const board = getActiveBoard();
-  const pages = board ? board.pages || [] : [];
   const editing = getMode() === 'edit';
+  // Im Unterricht zählt der Blätterer nur die sichtbaren Seiten; beim
+  // Bearbeiten alle, sonst wären ausgeblendete nicht zurückzuholen.
+  const pages = board ? sichtbareSeiten(board, editing) : [];
   // Mit nur einer Seite gibt es außerhalb des Bearbeitens nichts zu blättern.
   const hidden = !board || isStackMode() || (pages.length <= 1 && !editing);
   controls.classList.toggle('is-hidden', hidden);
@@ -1077,12 +1087,13 @@ function renderPager() {
   const index = Math.max(0, pages.findIndex((page) => page.id === board.activePageId));
   const page = pages[index];
   const name = page && page.name ? page.name : '';
-  document.getElementById('page-label').textContent = name
+  const vermerk = editing && page && istSeiteVersteckt(board.id, page.id) ? ' · ausgeblendet' : '';
+  document.getElementById('page-label').textContent = (name
     ? `${name} · ${index + 1}/${pages.length}`
-    : `${index + 1} / ${pages.length}`;
+    : `${index + 1} / ${pages.length}`) + vermerk;
   document.getElementById('btn-page-prev').disabled = index === 0;
   document.getElementById('btn-page-next').disabled = index >= pages.length - 1;
-  document.getElementById('btn-page-remove').disabled = pages.length <= 1;
+  document.getElementById('btn-page-remove').disabled = (board.pages || []).length <= 1;
 }
 
 /** Seiten verwalten: umbenennen, vertauschen, übertragen, löschen. */
@@ -1102,7 +1113,11 @@ function openPagesPanel() {
     const pages = board.pages || [];
     const rows = h('div', { class: 'stack stack--tight' });
     pages.forEach((page, index) => {
-      rows.appendChild(h('div', { class: 'page-row' + (page.id === board.activePageId ? ' is-active' : '') },
+      const versteckt = istSeiteVersteckt(board.id, page.id);
+      rows.appendChild(h('div', {
+        class: 'page-row' + (page.id === board.activePageId ? ' is-active' : '')
+          + (versteckt ? ' is-versteckt' : ''),
+      },
         h('button', {
           class: 'page-row__number', title: 'Diese Seite aufschlagen',
           onclick: () => {
@@ -1135,6 +1150,22 @@ function openPagesPanel() {
             renderList();
           },
         }, '↓'),
+        h('button', {
+          class: 'icon-button' + (versteckt ? ' is-on' : ''),
+          title: versteckt
+            ? 'Wieder einblenden'
+            : 'Nur für mich ausblenden — im Unterricht überspringt der Blätterer diese Seite',
+          onclick: () => {
+            const ok = seiteVerstecken(board.id, page.id, !versteckt);
+            if (!ok) {
+              toast('Die letzte sichtbare Seite bleibt — eine Tafel, die nichts mehr zeigt, gibt es nicht.', 'error');
+              return;
+            }
+            refreshAllViews();
+            renderList();
+          },
+          html: icon(versteckt ? 'eyeOff' : 'eye', 17),
+        }),
         h('button', {
           class: 'icon-button', title: 'In anderen Klassenraum übertragen …',
           onclick: () => renderTransfer(page, index),
@@ -1170,7 +1201,9 @@ function openPagesPanel() {
       })),
       h('p', { class: 'muted small' },
         'Die Nummer vorne schlägt die Seite auf. Der Name erscheint unten am Blätterknopf. '
-        + 'Mit den Pfeilen wird die Reihenfolge getauscht.'));
+        + 'Mit den Pfeilen wird die Reihenfolge getauscht. Das Auge blendet eine Seite nur für '
+        + 'dieses Gerät aus: Im Unterricht überspringt der Blätterer sie, beim Bearbeiten bleibt '
+        + 'sie blass sichtbar — auf einer geteilten Tafel nimmt das den anderen nichts weg.'));
   }
 
   function renderTransfer(page, index) {
@@ -1225,7 +1258,10 @@ function openPagesPanel() {
 function flipPage(step) {
   const board = getActiveBoard();
   if (!board) return;
-  const pages = board.pages || [];
+  // Geblättert wird über dieselbe Liste, die auch der Blätterer zeigt:
+  // im Unterricht ohne die ausgeblendeten Seiten, beim Bearbeiten mit
+  // (Tafelbild 1.3.26).
+  const pages = sichtbareSeiten(board, getMode() === 'edit');
   const index = pages.findIndex((page) => page.id === board.activePageId);
   const next = pages[index + step];
   if (next) setActivePage(next.id);
