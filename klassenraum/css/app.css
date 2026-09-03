@@ -2513,9 +2513,34 @@ body.is-using .draw-toolbar { bottom: calc(22px + env(safe-area-inset-bottom)); 
   border-radius: 14px;
   background: var(--surface-soft);
   overflow: hidden;
+  /* Ohne das nimmt das iPad die Berührung als Blättern/Rollen — der Zug
+     eines Tisches brach nach wenigen Millimetern ab (gemeldet 09/2026). */
+  touch-action: none;
 }
 
-.w-seating__editor .w-seating__platz { font-size: 11px; }
+/* Der Platz-Editor als Vollbild (aus Tafelbild 1.3.2): Im schmalen
+   Einstellungsblatt war der Grundriss weder zu lesen noch zu treffen. */
+.seat-editor {
+  position: fixed;
+  inset: 0;
+  /* Über dem Einstellungs-Panel (100), unter Abfrage (120) und Meldung (150). */
+  z-index: 110;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: calc(10px + env(safe-area-inset-top)) 14px calc(12px + env(safe-area-inset-bottom));
+  background: #f5f7fb;
+  color: var(--ink);
+}
+.seat-editor__kopf { display: flex; align-items: center; justify-content: space-between; }
+.seat-editor__kopf strong { font-size: 19px; }
+.seat-editor__leib { flex: 1; min-height: 0; display: flex; gap: 14px; }
+.seat-editor__leib .w-seating__editor { flex: 1; min-width: 0; align-self: stretch; background: #fff; border: 1px solid var(--line); }
+.seat-editor__seite { flex: 0 0 300px; min-height: 0; overflow-y: auto; padding-right: 2px; }
+@media (max-width: 700px) {
+  .seat-editor__leib { flex-direction: column; }
+  .seat-editor__seite { flex: 0 0 auto; max-height: 42%; }
+}
 
 .w-seating__archivzeile { display: flex; align-items: center; gap: 8px; }
 .w-seating__archivzeile .input { flex: 1; min-width: 0; }
