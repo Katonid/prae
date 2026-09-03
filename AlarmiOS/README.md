@@ -169,8 +169,25 @@ sich um je eine Sache unterscheiden, jedes sofort wieder gelöscht:
 | Zeile | Was es bedeutet, wenn SIE die erste rote ist |
 |---|---|
 | Probe 1 schlicht | Es liegt nicht am Prädikat und nicht an der Meldung. Erst recht auf die APNs-Umgebung oben schauen; passt die, ist es ein Fall für den Feedback Assistant. |
+| — | *Bis 1.0.22 fragte Probe 1 ohne Prädikat und war damit in Production immer rot: CloudKit lehnt ein Abonnement ohne Prädikat dort ab, ausgerechnet mit derselben irreführenden Meldung. Seit 1.0.23 fragt sie mit dem einfachsten gültigen Prädikat.* |
 | Probe 2 mit Prädikat | Ein Index fehlt in Production, oder das Prädikat ist dort nicht erlaubt. |
 | Probe 3 mit Meldung | `desiredKeys`, `collapseIDKey` oder der Rückfalltext. Das lässt sich in der App ändern. |
+
+### „Cannot create or modify field … in production schema"
+
+Kommt nach einer Fassung, die ein **neues Feld** oder einen neuen Record-Typ
+mitbringt. In Production entsteht ein Feld **nicht durch Schreiben** — das geht
+nur in Development. Und ein Abonnement, dessen `desiredKeys` ein Feld nennen,
+das Production nicht kennt, wird gleich mit abgelehnt („could not find requested
+additional field").
+
+Abhilfe, einmal in der Konsole: **Container → Schema → „Deploy Schema Changes to
+Production"**, ein paar Minuten warten, in der App „Zustellung prüfen" tippen.
+
+**Das ist nach jeder Fassung fällig, die das Schema erweitert** — zuletzt bei
+1.0.21, die `alarmId` auf `Message` einführte, damit ein Tipp auf eine
+Nachrichten-Meldung im richtigen Alarm landet. Die App kann das nicht für
+jemanden erledigen; ein Schema ist keine Sache der App.
 
 ### Development und Production sind zwei Welten
 
