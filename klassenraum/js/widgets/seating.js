@@ -379,6 +379,20 @@ export default {
       }
       fuss.appendChild(actions);
 
+      // Der Hinweis „Gesperrt" ist selbst ein Knopf und öffnet das Schloss
+      // (Tafelbild 1.3.16): Wer liest, dass etwas gesperrt ist, tippt genau
+      // dorthin.
+      if (verteilt && state.gesperrt) {
+        fuss.appendChild(onTap(h('button', {
+          class: 'w-seating__gesperrt', 'data-nodrag': '',
+          html: `${icon('lock', 13)}<span>Gesperrt — Tipp entsperrt</span>`,
+        }), () => {
+          ctx.widget.state.gesperrt = false;
+          ctx.save();
+          render();
+        }));
+      }
+
       if (verteilt && state.bericht && state.bericht.length) {
         fuss.appendChild(h('details', { class: 'w-seating__bericht' },
           h('summary', null, `Was nicht aufging (${state.bericht.length})`),

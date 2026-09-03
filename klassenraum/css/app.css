@@ -2442,6 +2442,24 @@ body.is-using .draw-toolbar { bottom: calc(22px + env(safe-area-inset-bottom)); 
 .w-seating__fuss { flex: none; display: flex; flex-direction: column; gap: 6px; }
 .w-seating__hinweis { margin: 0; font-size: 0.84em; color: var(--card-ink-soft); text-align: center; }
 
+/* „Gesperrt" in der Fußzeile ist ein Knopf, keine Anzeige (Tafelbild 1.3.16):
+   bernsteinfarben wie das Schloss oben, ein Tipp öffnet es. */
+.w-seating__gesperrt {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 auto;
+  border: none;
+  border-radius: 999px;
+  padding: 4px 12px;
+  font: inherit;
+  font-size: 0.8em;
+  font-weight: 650;
+  cursor: pointer;
+  color: #92400e;
+  background: rgba(251, 191, 36, 0.32);
+}
+
 .w-seating__tauschen {
   background: var(--accent, #6366f1) !important;
   color: #fff !important;
