@@ -31,12 +31,23 @@ function listeVon(state) {
   return getState().lists.find((entry) => entry.id === state.listId) || null;
 }
 
-function kinderVon(liste) {
+/** Das Merkmal, auf das DIESE Sitzordnung achtet: das am Element gewählte,
+ *  sonst das erste der Liste — wie in der Tafelbild-App eine Entscheidung
+ *  des Elements, nicht der Liste. */
+function merkmalWerteVon(liste, merkmalID) {
+  if (!liste) return {};
+  const merkmale = Array.isArray(liste.merkmale) ? liste.merkmale : [];
+  const gewaehlt = merkmale.find((m) => m.id === merkmalID) || merkmale[0];
+  if (gewaehlt) return (liste.merkmalWerte || {})[gewaehlt.id] || {};
+  return liste.marks || {};
+}
+
+function kinderVon(liste, merkmalID) {
   if (!liste) return [];
   const pausiert = new Set(liste.paused || []);
   const wunsch = liste.sitzwunsch || {};
   const alleine = new Set(liste.alleine || []);
-  const marks = liste.marks || {};
+  const marks = merkmalWerteVon(liste, merkmalID);
   return (liste.names || []).filter((name) => !pausiert.has(name)).map((name) => ({
     name,
     wunsch: wunsch[name] || 'egal',
@@ -137,6 +148,7 @@ export default {
       tafel: 'unten',
       naehe: 1.6,
       merkmalRegel: 'egal',
+      merkmalID: '',
       belegung: {},
       reihenfolge: [],
       aufgedeckt: 0,
@@ -204,7 +216,7 @@ export default {
         return;
       }
       const liste = listeVon(state);
-      const kinder = kinderVon(liste);
+      const kinder = kinderVon(liste, state.merkmalID);
       if (!kinder.length) {
         toast('Erst in den Einstellungen eine Namensliste wählen.', 'warn');
         return;
@@ -505,6 +517,23 @@ export default {
         h('p', { class: 'muted small' },
           '1,0 ist Schulter an Schulter, 1,4 auch schräg gegenüber, 2,0 der übernächste Platz. '
           + 'Im Platz-Editor zeigt ein Tipp auf einen Platz, was danach als „nah" gilt.'),
+        // Hat die Liste mehrere Merkmale, wählt das Element, auf welches
+        // geachtet wird — dasselbe Muster wie beim Gruppen-Auslosen.
+        (() => {
+          const merkmale = (listeVon(state) || {}).merkmale || [];
+          if (merkmale.length <= 1) return null;
+          const aktiv = merkmale.find((m) => m.id === state.merkmalID) || merkmale[0];
+          return field('Welches Merkmal zählt', h('select', {
+            class: 'input',
+            onchange: (event) => {
+              ctx.widget.state.merkmalID = event.target.value;
+              ctx.save();
+              rerender();
+            },
+          }, merkmale.map((m) => h('option', {
+            value: m.id, selected: m.id === aktiv.id,
+          }, m.name || 'Merkmal'))));
+        })(),
         field('Merkmale der Liste (z. B. J/M)', h('div', { class: 'segmented' },
           [['egal', 'Egal'], ['mix', 'Unterschiedlich'], ['gleich', 'Gleich']].map(([value, label]) => h('button', {
             class: 'segmented__item' + ((state.merkmalRegel || 'egal') === value ? ' is-active' : ''),

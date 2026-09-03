@@ -55,12 +55,24 @@ function isGroupMode(state) {
   return state.mode === 'gruppen' || state.mode === 'tagesgruppe';
 }
 
+/** Die Merkmale der gewählten Liste — mehrere benannte je Liste (aus Tafelbild). */
+function merkmaleOf(state) {
+  if (!state.listId) return [];
+  const list = getList(state.listId);
+  return list && Array.isArray(list.merkmale) ? list.merkmale : [];
+}
+
+/** Das Merkmal, auf das diese Auslosung achtet: das gewählte, sonst das
+ *  erste der Liste. Rückgabe ist die Werte-Map { Name: Wert }. */
 function marksOf(state) {
-  if (state.listId) {
-    const list = getList(state.listId);
-    if (list && list.marks && typeof list.marks === 'object') return list.marks;
-  }
-  return {};
+  if (!state.listId) return {};
+  const list = getList(state.listId);
+  if (!list) return {};
+  const merkmale = Array.isArray(list.merkmale) ? list.merkmale : [];
+  const gewaehlt = merkmale.find((m) => m.id === state.mischMerkmalID) || merkmale[0];
+  if (gewaehlt) return (list.merkmalWerte || {})[gewaehlt.id] || {};
+  // Altbestand ohne Merkmal-Verzeichnis: das eine Freitext-Merkmal.
+  return list.marks && typeof list.marks === 'object' ? list.marks : {};
 }
 
 function groupSizeOf(state) {
@@ -340,6 +352,7 @@ export default {
       groupSize: 2,
       dayCount: 3,
       markMode: 'mix',
+      mischMerkmalID: '',
       groups: null,
       history: [],
       modeNames: {},
@@ -1253,6 +1266,22 @@ export default {
           }
           const kinds = Object.entries(counts).map(([mark, count]) => `${mark}: ${count}`);
           const markMode = markModeOf(state);
+          // Hat die Liste mehrere Merkmale, wählt das Element, auf welches
+          // die Ziehung achtet (wie in der Tafelbild-App).
+          const merkmale = merkmaleOf(state);
+          if (merkmale.length > 1) {
+            const aktiv = merkmale.find((m) => m.id === state.mischMerkmalID) || merkmale[0];
+            parts.push(field('Welches Merkmal zählt', h('select', {
+              class: 'input',
+              onchange: (event) => {
+                ctx.widget.state.mischMerkmalID = event.target.value;
+                ctx.save();
+                rerender();
+              },
+            }, merkmale.map((m) => h('option', {
+              value: m.id, selected: m.id === aktiv.id,
+            }, m.name || 'Merkmal')))));
+          }
           parts.push(field('Merkmale in der Gruppe', h('div', { class: 'segmented' },
             [['egal', 'Egal'], ['mix', 'Unterschiedlich'], ['gleich', 'Gleich']].map(([value, label]) => h('button', {
               class: 'segmented__item' + (markMode === value ? ' is-active' : ''),

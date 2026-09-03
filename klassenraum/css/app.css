@@ -1257,6 +1257,25 @@ p.muted { margin: 0; }
 .marks-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .marks-row__name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
 .input--mark { width: 64px; flex: 0 0 auto; text-align: center; padding: 6px 6px; }
+
+/* Merkmale (aus Tafelbild): Verwaltung mit Name, Werteliste und Verteilung. */
+.merkmal { display: grid; gap: 6px; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.merkmal__kopf { display: flex; gap: 6px; align-items: center; }
+.merkmal__name { flex: 1 1 40%; min-width: 0; font-weight: 650; }
+.merkmal__werte { flex: 1 1 60%; min-width: 0; }
+.merkmal__pillen { display: flex; flex-wrap: wrap; gap: 6px; }
+.merkmal__pille {
+  font-size: 12.5px;
+  font-weight: 650;
+  color: var(--muted);
+  background: rgba(100, 116, 139, 0.14);
+  border-radius: 999px;
+  padding: 3px 9px;
+}
+/* „ohne" warnt: Diesen Namen fehlt noch eine Angabe. */
+.merkmal__pille--ohne { color: #b45309; background: rgba(245, 158, 11, 0.18); }
+.merkmal__neu { display: flex; flex-wrap: wrap; gap: 6px; }
+.input--merkmalwert { width: 64px; flex: 0 0 auto; text-align: center; padding: 6px 4px; }
 /* Ohne feste Breite gilt .input { width: 100% } — das Datumsfeld füllte die
    Zeile und quetschte den Namen daneben auf null (gemeldet 08/2026). */
 .input--birthday { width: 132px; flex: 0 0 auto; text-align: center; padding: 6px 8px; min-height: 34px; }
