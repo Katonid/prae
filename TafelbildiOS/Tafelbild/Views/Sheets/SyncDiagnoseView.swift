@@ -26,11 +26,28 @@ struct SyncDiagnoseView: View {
         ("asset", "Asset")
     ]
 
+    /// Wie diese Fassung auf das Gerät kam — **nachgesehen**, nicht geraten.
+    ///
+    /// Bis 1.4.1 stand für jeden Release-Bau „über TestFlight installiert“ da,
+    /// auch wenn die App aus dem App Store kam (gemeldet 09/2026). Das ist
+    /// eine Auskunft über den BAU, ausgegeben als Messung — und wer einer
+    /// Freigabe nachgeht, folgt dann der falschen Spur. Der Kaufbeleg sagt es
+    /// wirklich: „sandboxReceipt“ heißt TestFlight, „receipt“ heißt App Store.
+    ///
+    /// An der CloudKit-Umgebung ändert das nichts: Beide sind Production.
+    /// Genau deshalb darf die Zeile es aber auch nicht behaupten.
     private var environmentName: String {
         #if DEBUG
         return "Development (über Xcode installiert)"
         #else
-        return "Production (über TestFlight installiert)"
+        switch Bundle.main.appStoreReceiptURL?.lastPathComponent {
+        case "sandboxReceipt":
+            return "Production (über TestFlight installiert)"
+        case "receipt":
+            return "Production (aus dem App Store installiert)"
+        default:
+            return "Production (Herkunft nicht feststellbar)"
+        }
         #endif
     }
 
@@ -47,7 +64,7 @@ struct SyncDiagnoseView: View {
             } header: {
                 Text("Dieses Gerät")
             } footer: {
-                Text("Beide Geräte müssen dieselbe Umgebung nutzen: Zwei Xcode-Installationen sprechen miteinander, eine Xcode- und eine TestFlight-Installation nicht.")
+                Text("Beide Geräte müssen dieselbe Umgebung nutzen: Zwei Xcode-Installationen sprechen miteinander, eine Xcode- und eine TestFlight-Installation nicht. Ob TestFlight oder App Store, macht dabei keinen Unterschied — beides ist Production.")
             }
 
             // **Was hier wirklich liegt.** Ohne diese Liste bleibt bei einer
