@@ -57,6 +57,60 @@ function kinderVon(liste, merkmalID) {
 }
 
 /**
+ * Leere Tiefe zusammenfalten (Ansage des Nutzers, 09/2026: Der Platz zwischen
+ * Tafel und erster Reihe und der hintere Bereich „müssen nicht maßstabsgetreu
+ * dargestellt werden" — sie kosteten die Kärtchen genau die Größe, die man
+ * aus zehn Metern zum Lesen braucht). Gefaltet wird NUR die Anzeige und nur
+ * senkrecht (die Tiefe des Raums, nach der Drehung): Waagerechte Gänge
+ * bleiben maßstabsgetreu, und innerhalb belegter Streifen bleibt die
+ * Abbildung starr — Kacheln und Tafelband verschieben sich als Ganzes,
+ * nichts wird verzerrt, nichts überlappt. Der Platz-Editor faltet NICHT
+ * (ganzerRaum): Wer einrichtet, braucht den Raum, wie er ist.
+ *
+ * Rückgabe: eine Abbildung y → gefaltetes y (vom oberen Rand des Ausschnitts
+ * aus gerechnet) und die gefaltete Gesamthöhe.
+ */
+function tiefeFalten(streifen, vonY, bisY) {
+  // Mehr als eine gute halbe Tischtiefe leere Tiefe wird auf sie gestaucht.
+  const LUECKE = SITZMASSE.tief * 0.6;
+  const zonen = [];
+  for (const [a, b] of streifen.slice().sort((p, q) => p[0] - q[0])) {
+    const von = Math.max(vonY, a);
+    const bis = Math.min(bisY, b);
+    if (bis <= von) continue;
+    const letzte = zonen[zonen.length - 1];
+    if (letzte && von <= letzte[1]) letzte[1] = Math.max(letzte[1], bis);
+    else zonen.push([von, bis]);
+  }
+  if (!zonen.length) return { falte: (y) => y - vonY, hoehe: bisY - vonY };
+  // Stückweise linear: in belegten Zonen Maßstab 1, in Lücken gestaucht.
+  const stuecke = [];
+  let quelle = vonY;
+  let ziel = 0;
+  const schiebe = (bis, faktor) => {
+    if (bis <= quelle) return;
+    stuecke.push({ von: quelle, bis, ziel, faktor });
+    ziel += (bis - quelle) * faktor;
+    quelle = bis;
+  };
+  for (const [a, b] of zonen) {
+    const luecke = a - quelle;
+    schiebe(a, luecke > LUECKE ? LUECKE / luecke : 1);
+    schiebe(b, 1);
+  }
+  const rest = bisY - quelle;
+  schiebe(bisY, rest > LUECKE ? LUECKE / rest : 1);
+  const hoehe = ziel;
+  const falte = (y) => {
+    for (const s of stuecke) {
+      if (y <= s.bis || s === stuecke[stuecke.length - 1]) return s.ziel + (y - s.von) * s.faktor;
+    }
+    return hoehe;
+  };
+  return { falte, hoehe };
+}
+
+/**
  * Rechnet den (gedrehten) Ausschnitt auf eine Fläche um — dieselbe Rechnung
  * für Tafel, Archiv-Ansicht und Editor, damit alle denselben Maßstab zeigen.
  */
@@ -66,15 +120,28 @@ function flaecheFuer(plaetze, state, breite, hoehe, { drehung = null, ganzerRaum
   const blick = blickwinkel(form, dreh);
   const bereich = ganzerRaum ? { x: 0, y: 0, w: form.w, h: form.h } : ausschnitt(plaetze, state.raum, state.tafel);
   const gedreht = blick.rechteck(bereich);
-  const mass = Math.min(breite / Math.max(1, gedreht.w), hoehe / Math.max(1, gedreht.h));
+  let falte = (y) => y - gedreht.y;
+  let tiefe = gedreht.h;
+  if (!ganzerRaum) {
+    const streifen = plaetze.map((platz) => {
+      const r = blick.rechteck(umriss(platz));
+      return [r.y, r.y + r.h];
+    });
+    const band = blick.rechteck(tafelband(state.tafel, form));
+    streifen.push([band.y, band.y + band.h]);
+    const gefaltet = tiefeFalten(streifen, gedreht.y, gedreht.y + gedreht.h);
+    falte = gefaltet.falte;
+    tiefe = gefaltet.hoehe;
+  }
+  const mass = Math.min(breite / Math.max(1, gedreht.w), hoehe / Math.max(1, tiefe));
   const links = (breite - gedreht.w * mass) / 2;
-  const oben = (hoehe - gedreht.h * mass) / 2;
+  const oben = (hoehe - tiefe * mass) / 2;
   return {
     blick,
     mass,
     stelle(punkt) {
       const p = blick.punkt(punkt);
-      return { x: links + (p.x - gedreht.x) * mass, y: oben + (p.y - gedreht.y) * mass };
+      return { x: links + (p.x - gedreht.x) * mass, y: oben + falte(p.y) * mass };
     },
   };
 }
