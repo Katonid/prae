@@ -241,6 +241,21 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   Alarm-Platzhalter ist NIE `active` und trägt `targetUser = "schema"` —
   scheitert das Löschen, darf daraus kein Alarmbildschirm auf 30 iPads
   werden.
+- **`ensureSchema` läuft NUR als Rückfall, nicht bei jedem Start** (ab 1.0.27).
+  Bis 1.0.26 schrieb `refreshSubscriptions` bei jedem Start vier Platzhalter —
+  darunter einen vom Typ `Message`. Seit 1.0.21 gibt es das Abonnement
+  `message-created-v1`, dessen Prädikat nur nach der Gruppe fragt: Jeder
+  Platzhalter löste also auf ALLEN anderen Geräten eine Mitteilung aus,
+  „Nachricht von Schema: Schema" (gemeldet 09/2026). Wer die App nur einmal
+  öffnete, ließ dreißig iPads piepen. Die anderen drei Platzhalter waren von
+  Anfang an harmlos, weil sie `targetUser = "schema"` tragen und die Alarm- und
+  Ping-Prädikate `"*"` oder die eigene Kennung verlangen — beim
+  Nachrichten-Abonnement gab es diesen Schutz nicht, und ein Prädikat lässt sich
+  nachträglich nicht ändern. **Merke: Wer ein Abonnement hinzufügt, prüft, ob
+  `ensureSchema` dessen Prädikat trifft.** Jetzt versucht `reconcile` es zuerst;
+  `reconcile` kehrt von selbst um, wenn nichts fehlt, und die Platzhalter werden
+  nur nach einem gescheiterten Anlegen geschrieben — also genau in dem Fall, für
+  den sie gedacht waren.
 - **Zwei Tests, weil es zwei Fehler sind** (ab 1.0.3). Der **Tontest**
   (`Services/Tontest.swift`) weckt das Gerät örtlich, ohne einen Meter Netz:
   Er beweist, dass das iPad laut werden DARF (Erlaubnis, Ton, Fokus,
