@@ -1988,6 +1988,21 @@ etwas Großem, das zuletzt geändert wurde.
   hängt es am öffentlichen Link — nicht am Teilen. Dasselbe Muster wie die
   Stufenprobe bei Schulalarm: **Wo eine Meldung nur auf die Umgebung zeigt,
   muss eine Probe entscheiden.**
+- **Der öffentliche Link ist nicht überall erlaubt — also gibt es einen
+  Rückfall** (ab 1.4.4). Gemessen 09/2026 mit „Teilen prüfen“: Auf einem
+  Konto kam JEDE Freigabe mit `publicPermission = .readWrite` ohne Adresse
+  zurück, dieselbe Freigabe ohne öffentlichen Link bekam sofort eine. CloudKit
+  meldet dazu keinen Fehler; es liefert nur die Adresse nicht. Damit war das
+  Teilen ganz tot, obwohl der Weg daneben offenstand. `legeFreigabeAn`
+  versucht deshalb erst den öffentlichen Link (Ansage des Nutzers, 08/2026:
+  Einladungslink, Schreibrecht sofort, keine Rechteabfrage) und weicht nur
+  aus, wenn keine Adresse kommt. Zwei Dinge gehören dazu: Der Rest ohne
+  Adresse muss WEG, sonst hält ihn `bereiteFreigabeVor` beim nächsten Mal für
+  die gültige Freigabe — und die Wurzel muss frisch geholt werden, denn das
+  Sichern hat ihr Etag verändert. Dazu richtet sich `availablePermissions` im
+  Teilen-Blatt nach der Freigabe, die WIRKLICH entstanden ist: Ein fest
+  eingetragenes `.allowPublic` böte sonst als einzige Möglichkeit genau die
+  an, die auf diesem Konto scheitert.
 - **Übersetzt wird in GitHub Actions**, nicht erst auf dem Mac: Der
   Arbeitsablauf `.github/workflows/tafelbild-build.yml` baut die App bei
   jedem Push auf `TafelbildiOS/` auf einem macOS-Läufer (xcodebuild,
