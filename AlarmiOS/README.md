@@ -237,6 +237,18 @@ sich die meisten Überraschungen erklären:
 Die Geräteübersicht macht den Fall sichtbar: Sie zählt die Geräte je Kürzel
 und warnt, wenn zwei unter einem stehen.
 
+**Ein Kürzel lässt sich berichtigen** (Verwaltung → Mitglieder → „Kürzel
+ändern“). Es wird beim Beitreten getippt, und dabei passiert alles: Tippfehler,
+zweimal dasselbe Kürzel, ein voller Name statt eines Kürzels. Weil es in jeder
+Rückmeldeliste und in jeder Nachricht steht, ist ein falsches Kürzel im
+Ernstfall eine Person, die niemand zuordnen kann.
+
+Die **Kennung** des Mitglieds ändert sich dabei nicht — sie ist aus Gruppe und
+Konto abgeleitet, und daran hängen Rückmeldungen und Geräte. **Schon
+geschriebene Rückmeldungen behalten das alte Kürzel**: Sie sind ein Nachweis und
+werden nicht rückwirkend umgeschrieben. Auf dem betroffenen Gerät kommt das neue
+Kürzel beim nächsten Öffnen der App an.
+
 ## Nachrichten während eines Alarms
 
 Auf dem Alarm-Bildschirm steht direkt unter der Rückmeldung und dem Notruf der

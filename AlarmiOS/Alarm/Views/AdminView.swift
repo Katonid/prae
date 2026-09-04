@@ -221,6 +221,16 @@ struct InviteCodesView: View {
 
 struct MembersView: View {
 
+    /// Wen der Admin gerade umbenennt.
+    ///
+    /// Das Kürzel wird beim Beitreten getippt, und dabei passiert alles:
+    /// Tippfehler, zweimal dasselbe Kürzel, ein voller Name statt eines
+    /// Kürzels. Es steht in jeder Rückmeldeliste und in jeder Nachricht — ein
+    /// falsches Kürzel ist im Ernstfall eine Person, die niemand zuordnen kann.
+    @State private var umzubenennen: Member?
+    @State private var neuesKuerzel = ""
+    @State private var zeigtUmbenennen = false
+
     @EnvironmentObject private var model: AppModel
     @State private var members: [Member] = []
 
@@ -240,6 +250,11 @@ struct MembersView: View {
                                                          : "Zum Admin machen") {
                                 setzeRolle(member,
                                            auf: member.role == .admin ? .member : .admin)
+                            }
+                            Button("Kürzel ändern") {
+                                umzubenennen = member
+                                neuesKuerzel = member.displayName
+                                zeigtUmbenennen = true
                             }
                             if member.userId != model.member?.userId {
                                 Button("Testalarm senden") {
@@ -263,7 +278,12 @@ struct MembersView: View {
                 }
             }
             } footer: {
-                Text("Ein Mitglied ist eine APPLE-ID, kein iPad. Wer beitritt, "
+                Text("„Kürzel ändern“ berichtigt einen Tippfehler oder ein "
+                     + "doppeltes Kürzel. Die Kennung des Mitglieds bleibt "
+                     + "dieselbe — Rückmeldungen und Geräte hängen daran. Auf "
+                     + "dem betroffenen iPad kommt das neue Kürzel beim "
+                     + "nächsten Öffnen der App an.\n\n"
+                     + "Ein Mitglied ist eine APPLE-ID, kein iPad. Wer beitritt, "
                      + "wird Mitglied; Admin wird man nur, indem ein Admin "
                      + "einen dazu ernennt — es dürfen beliebig viele sein.\n\n"
                      + "Zwei iPads mit derselben Apple-ID sind EIN Mitglied mit "
@@ -285,10 +305,38 @@ struct MembersView: View {
             }
         }
         .navigationTitle("Mitglieder")
+        .alert("Kürzel ändern", isPresented: $zeigtUmbenennen) {
+            TextField("Kürzel", text: $neuesKuerzel)
+                .textInputAutocapitalization(.characters)
+                .autocorrectionDisabled()
+            Button("Sichern") { umbenennen() }
+            Button("Abbrechen", role: .cancel) { umzubenennen = nil }
+        } message: {
+            Text("Kein voller Name. Das Kürzel steht in den Rückmeldungen und "
+                 + "in jeder Nachricht.\n\nSchon geschriebene Rückmeldungen "
+                 + "behalten das alte Kürzel — sie sind ein Nachweis und werden "
+                 + "nicht rückwirkend geändert.")
+        }
         .task { await load() }
         .overlay {
             if members.isEmpty {
                 Text("Noch niemand beigetreten.").foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private func umbenennen() {
+        guard let member = umzubenennen else { return }
+        let kuerzel = neuesKuerzel.trimmingCharacters(in: .whitespacesAndNewlines)
+        umzubenennen = nil
+        guard !kuerzel.isEmpty, kuerzel != member.displayName else { return }
+        Task {
+            do {
+                try await model.backend.setDisplayName(memberId: member.id, to: kuerzel)
+                model.hinweis = "Kürzel geändert: \(member.displayName) → \(kuerzel)"
+                await load()
+            } catch {
+                model.report(error)
             }
         }
     }

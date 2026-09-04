@@ -202,6 +202,20 @@ protocol AlarmBackend: AnyObject {
     /// rights costs nothing and removes the trap.
     func setRole(memberId: String, role: MemberRole) async throws
 
+    /// Ändert das Kürzel eines Mitglieds.
+    ///
+    /// Nötig, weil das Kürzel beim Beitreten getippt wird und dabei alles
+    /// passieren kann — Tippfehler, zwei gleiche Kürzel, ein Name statt eines
+    /// Kürzels. Es steht in jeder Rückmeldeliste und in jeder Nachricht; ein
+    /// falsches Kürzel ist im Ernstfall eine Person, die niemand zuordnen
+    /// kann.
+    ///
+    /// Die Kennung des Mitglieds ändert sich dabei NICHT: Sie ist aus Gruppe
+    /// und Konto abgeleitet, und daran hängen Rückmeldungen und Geräte. Alte
+    /// Rückmeldungen behalten das Kürzel von damals — sie sind ein Nachweis
+    /// und werden nicht rückwirkend umgeschrieben.
+    func setDisplayName(memberId: String, to name: String) async throws
+
     func fetchAlarmHistory(limit: Int) async throws -> [Alarm]
     func fetchAcks(alarmId: String) async throws -> [Ack]
     func fetchMessages(alarmId: String) async throws -> [Message]

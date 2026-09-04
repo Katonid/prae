@@ -413,6 +413,16 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   Die Zahl der Admins ist unbegrenzt. Eine Ausnahme, die keine ist: Hat
   das Konto hier schon ein Mitglied, behält es seine Rolle — sonst verlöre
   ein Admin seine Rechte beim Neuinstallieren.
+- **Ein Kürzel darf der Admin berichtigen** (`setDisplayName`, ab 1.0.25).
+  Getippt wird es beim Beitreten, und dabei passiert alles. Die Kennung des
+  Mitglieds bleibt dabei UNVERÄNDERT — sie ist abgeleitet
+  (`member-<Gruppe>-<Nutzer>`), und daran hängen Rückmeldungen und Geräte.
+  Alte Rückmeldungen behalten das Kürzel von damals: Sie sind ein Nachweis,
+  kein Zustand. Damit die Änderung auf dem betroffenen Gerät ankommt, übernimmt
+  `AppModel.uebernimmEigenesMitglied()` bei jedem Start und jeder Rückkehr in
+  den Vordergrund, was der Server über das eigene Konto sagt — Rolle UND
+  Kürzel. Ohne das schriebe das Gerät seine nächste Rückmeldung weiter unter
+  dem alten, und die Änderung wäre nur in der Mitgliederliste zu sehen.
 - **Ein Mitglied ist eine APPLE-ID, kein iPad.** Zwei iPads mit derselben
   Apple-ID sind EIN Mitglied mit EINER Rolle, und eine Rückmeldung lässt
   sich ihnen nicht einzeln zuordnen (`ack-<Alarm>-<Nutzer>`). Jede Lehrkraft
