@@ -114,6 +114,47 @@ Damit klar ist, was da eingereicht wird:
    Probealarme dreifach als solche gekennzeichnet; ersetzt keinen Notruf;
    nur Kürzel, keine Namen, kein Standort; jederzeit widerrufbar.
 
+## Woran man die Bewilligung merkt
+
+**Nicht an einer Mail.** Sie kommt oft, aber verlässlich ist sie nicht — und
+eine Empfangsbestätigung schickt Apple für dieses Formular gar nicht erst
+(nachgeprüft 09/2026: Vorgangsnummer auf dem Bildschirm, danach nie eine Mail,
+auch nicht im Spam).
+
+**Nachsehen lässt es sich selbst, und das ist der zuverlässige Weg:**
+
+1. developer.apple.com → **Certificates, Identifiers & Profiles**
+2. **Identifiers** → die App-Id `de.dboschule.alarm`
+3. In der Liste der Capabilities nach **„Critical Alerts"** suchen.
+
+**Steht der Eintrag dort, ist der Antrag bewilligt** — vorher taucht er gar
+nicht erst auf. Das ist der Mechanismus für alle Entitlements, die Apple
+einzeln freischaltet: Sie erscheinen als anhakbare Fähigkeit an der App-Id,
+sobald sie dem Konto zugeteilt sind.
+
+Derselbe Blick geht auch in Xcode: Ziel → **Signing & Capabilities** →
+**+ Capability** → nach „Critical Alerts" suchen. Wird sie nicht angeboten,
+ist sie nicht bewilligt.
+
+**Kein Eintrag heißt nicht abgelehnt**, sondern nur: noch nicht bewilligt. Für
+diese Anträge gibt es keine Statusseite, auf der „in Bearbeitung" stünde.
+
+### Wenn nach sechs Wochen nichts passiert ist
+
+* Prüfen, welche **E-Mail-Adresse am Entwickler-Konto** hinterlegt ist
+  (developer.apple.com → Account → Membership). Antworten gehen dorthin und
+  nicht zwangsläufig an die Adresse, die man täglich liest.
+* Über dasselbe Formular noch einmal schreiben, diesmal mit der
+  **Vorgangsnummer** aus dem Bildschirmfoto und dem Hinweis, dass es eine
+  Nachfrage zum bestehenden Antrag ist — nicht als neuer Antrag formuliert.
+* Alternativ Apple Developer Support über die Kontaktseite; dort lässt sich
+  eine Vorgangsnummer nachschlagen.
+
+**Warten blockiert nichts.** Ohne kritische Hinweise durchbricht der Alarm
+weiterhin jeden Fokus, erscheint auf dem Sperrbildschirm und klingt — auf einem
+Gerät, dessen Lautlos-Schalter auf laut steht. Die App geht auch so in die
+Verteilung; das Entitlement kommt später mit einem neuen Bau dazu.
+
 ## Nach der Bewilligung
 
 Drei Handgriffe, sonst nichts:
