@@ -341,11 +341,20 @@ struct MembersView: View {
         }
     }
 
+    /// Rolle setzen — und in beiden Ausgängen etwas sagen.
+    ///
+    /// Vorher meldete sich nur der Fehlerfall, und dessen Band lag unter dem
+    /// Blatt: Der Knopf sah aus, als täte er nichts (gemeldet 09/2026). Ein
+    /// Knopf, der schweigt, ist für den Menschen davor ein kaputter Knopf —
+    /// egal, was er innen tut.
     private func setzeRolle(_ member: Member, auf rolle: MemberRole) {
         Task {
             do {
                 try await model.backend.setRole(memberId: member.id, role: rolle)
                 await load()
+                model.hinweis = rolle == .admin
+                    ? "\(member.displayName) ist jetzt Admin."
+                    : "\(member.displayName) ist jetzt Mitglied."
             } catch {
                 model.report(error)
             }

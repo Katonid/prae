@@ -49,11 +49,18 @@ struct HomeView: View {
                 }
             }
             .sheet(item: $model.offenesBlatt) { blatt in
-                switch blatt {
-                case .ausloesen: TriggerFlowView().environmentObject(model)
-                case .einstellungen: SettingsView().environmentObject(model)
-                case .verwaltung: AdminView().environmentObject(model)
+                // `.meldungen` an JEDEM Blatt: Ein Fehlerband liegt sonst
+                // darunter und ist damit unsichtbar — genau daran scheiterte
+                // das Ernennen eines zweiten Admins, das wie ein toter Knopf
+                // aussah (gemeldet 09/2026).
+                Group {
+                    switch blatt {
+                    case .ausloesen: TriggerFlowView().environmentObject(model)
+                    case .einstellungen: SettingsView().environmentObject(model)
+                    case .verwaltung: AdminView().environmentObject(model)
+                    }
                 }
+                .meldungen(model)
             }
         }
     }

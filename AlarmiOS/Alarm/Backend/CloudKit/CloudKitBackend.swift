@@ -732,7 +732,7 @@ final class CloudKitBackend: AlarmBackend {
         } catch let error as CKError where error.code == .unknownItem {
             return
         } catch {
-            throw mapped(error)
+            throw mappedMitgliedsschreiben(error)
         }
     }
 
@@ -745,7 +745,7 @@ final class CloudKitBackend: AlarmBackend {
         } catch let error as CKError where error.code == .unknownItem {
             throw BackendError.server("Dieses Mitglied gibt es nicht mehr.")
         } catch {
-            throw mapped(error)
+            throw mappedMitgliedsschreiben(error)
         }
         // Changing one's own role has to reach the local store as well, or the
         // app keeps offering buttons the server will refuse.
@@ -765,7 +765,7 @@ final class CloudKitBackend: AlarmBackend {
         } catch let error as CKError where error.code == .unknownItem {
             throw BackendError.server("Dieses Mitglied gibt es nicht mehr.")
         } catch {
-            throw mapped(error)
+            throw mappedMitgliedsschreiben(error)
         }
         // Das eigene Kürzel muss auch örtlich ankommen, sonst schriebe dieses
         // Gerät seine nächste Rückmeldung wieder unter dem alten.
@@ -1262,6 +1262,30 @@ final class CloudKitBackend: AlarmBackend {
     }
 
     /// Turns a CloudKit failure into something that can be shown to a teacher.
+    /// Für Schreibvorgänge auf dem Datensatz einer ANDEREN Person.
+    ///
+    /// In der öffentlichen Datenbank gehört jeder Datensatz dem, der ihn
+    /// geschrieben hat. Ein Admin darf den Mitgliedseintrag einer Kollegin nur
+    /// ändern, wenn der Record-Typ `Member` der Rolle `_icloud` das Schreiben
+    /// erlaubt. Fehlt das Häkchen, lehnt CloudKit ab — und `mapped` machte
+    /// daraus „Dafür fehlt die Berechtigung. Nur ein Admin darf das", also
+    /// ausgerechnet den Satz, der hier nicht stimmt: Der Mensch IST Admin.
+    ///
+    /// Getroffen beim Ernennen eines zweiten Admins (09/2026).
+    private func mappedMitgliedsschreiben(_ error: Error) -> BackendError {
+        guard let ck = error as? CKError, ck.code == .permissionFailure else {
+            return mapped(error)
+        }
+        return .server("iCloud hat das Schreiben abgelehnt. In der öffentlichen "
+            + "Datenbank gehört ein Datensatz dem, der ihn angelegt hat — der "
+            + "Eintrag einer Kollegin gehört ihr.\n\nZu setzen ist das in der "
+            + "CloudKit-Konsole: Security Roles → _icloud → beim Record-Typ "
+            + "„Member“ die Häkchen bei READ, WRITE und CREATE, danach der Knopf "
+            + "„Deploy Schema Changes to Production“. Ohne WRITE kann kein Admin "
+            + "einen zweiten ernennen, ein Kürzel berichtigen oder ein Mitglied "
+            + "entfernen.")
+    }
+
     private func mapped(_ error: Error) -> BackendError {
         guard let ck = error as? CKError else {
             return .server(error.localizedDescription)

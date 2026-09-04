@@ -462,6 +462,14 @@ kann ihn nicht verbiegen. Nur das Sortieren selbst passiert in der App.
 Write und Create**. Ohne Write kann ein zweiter Admin die Standorte nicht
 pflegen, die eine andere angelegt hat.
 
+**Auf `Member` ist Write besonders leicht zu übersehen** und fällt erst spät
+auf: In der öffentlichen Datenbank gehört ein Datensatz dem, der ihn angelegt
+hat — der Mitgliedseintrag einer Kollegin gehört ihr. Fehlt das Häkchen, kann
+ein Admin **keinen zweiten ernennen, kein Kürzel berichtigen und niemanden
+entfernen**; CloudKit lehnt still ab. Die App nennt diesen Fall seit 1.0.26 im
+Klartext samt Weg durch die Konsole. **Nach dem Setzen: „Deploy Schema Changes
+to Production“.**
+
 ### 4. Ins Production-Environment übernehmen
 
 CloudKit-Konsole → **Deploy Schema Changes to Production**. Ohne diesen
