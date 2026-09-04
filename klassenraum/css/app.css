@@ -2500,6 +2500,14 @@ body.is-using .draw-toolbar { bottom: calc(22px + env(safe-area-inset-bottom)); 
   line-height: 1.1;
 }
 
+/* Namen mit Leerzeichen („Fritz W.") brechen auf zwei Zeilen um, statt bis
+ * zur Unlesbarkeit zu schrumpfen — gesetzt von malePlan (seating.js). */
+.w-seating__platz.is-zweizeilig .w-seating__name {
+  white-space: normal;
+  text-align: center;
+  line-height: 1.02;
+}
+
 .w-seating__fuss { flex: none; display: flex; flex-direction: column; gap: 6px; }
 .w-seating__hinweis { margin: 0; font-size: 0.84em; color: var(--card-ink-soft); text-align: center; }
 
