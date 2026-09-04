@@ -127,6 +127,25 @@ auch nicht im Spam).
 2. **Identifiers** → die App-Id `de.dboschule.alarm`
 3. In der Liste der Capabilities nach **„Critical Alerts"** suchen.
 
+### Nicht verwechseln: „Critical Messaging" ist etwas anderes
+
+In derselben Liste steht möglicherweise **„Critical Messaging"**. Das ist
+**nicht** die gesuchte Fähigkeit und hat mit Alarmtönen nichts zu tun:
+
+| | Entitlement | Wofür |
+|---|---|---|
+| **Critical Alerts** ← gesucht | `com.apple.developer.usernotifications.critical-alerts` | Mitteilungen, die Lautlos-Schalter und Fokus überhören |
+| Critical Messaging | `com.apple.developer.messages.critical-messaging` | **SMS aus dem Hintergrund verschicken**, mit Freigabe je Telefonnummer |
+
+**Nicht anhaken.** Es würde nichts an der Lautstärke ändern, verlangt einen
+eigenen Info.plist-Schlüssel (`NSCriticalMessagingUsageDescription`) und wäre
+ein Entitlement, das diese App weder braucht noch bewilligt bekommen hat — und
+eine Entitlements-Datei, die etwas Unbewilligtes nennt, lässt jedes Signieren
+scheitern.
+
+Dass „Critical Messaging" sichtbar ist, sagt über den eigenen Antrag also
+nichts.
+
 **Steht der Eintrag dort, ist der Antrag bewilligt** — vorher taucht er gar
 nicht erst auf. Das ist der Mechanismus für alle Entitlements, die Apple
 einzeln freischaltet: Sie erscheinen als anhakbare Fähigkeit an der App-Id,
