@@ -752,6 +752,26 @@ final class CloudKitBackend: AlarmBackend {
         if memberId == store.memberId { store.role = role }
     }
 
+    func setDisplayName(memberId: String, to name: String) async throws {
+        try requireAdmin()
+        let kuerzel = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !kuerzel.isEmpty else {
+            throw BackendError.server("Ein Kürzel darf nicht leer sein.")
+        }
+        do {
+            let record = try await database.record(for: CKRecord.ID(recordName: memberId))
+            record[CloudField.displayName] = String(kuerzel.prefix(20))
+            _ = try await database.save(record)
+        } catch let error as CKError where error.code == .unknownItem {
+            throw BackendError.server("Dieses Mitglied gibt es nicht mehr.")
+        } catch {
+            throw mapped(error)
+        }
+        // Das eigene Kürzel muss auch örtlich ankommen, sonst schriebe dieses
+        // Gerät seine nächste Rückmeldung wieder unter dem alten.
+        if memberId == store.memberId { store.displayName = String(kuerzel.prefix(20)) }
+    }
+
     func fetchAlarmHistory(limit: Int) async throws -> [Alarm] {
         let groupID = try requireGroupID()
         // Großzügig holen, dann selbst sortieren und kürzen: Ohne

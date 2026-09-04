@@ -155,7 +155,7 @@ final class AppModel: ObservableObject {
 
         group = try? await backend.fetchGroup()
         member = try? await backend.currentMember()
-        if let member { store.role = member.role }
+        uebernimmEigenesMitglied()
 
         // Subscriptions can go missing — an account switch, a container reset,
         // a restore from a backup. A device without them is deaf and does not
@@ -179,9 +179,25 @@ final class AppModel: ObservableObject {
         availability = await backend.availability()
         if isJoined {
             group = try? await backend.fetchGroup()
+            member = try? await backend.currentMember()
+            uebernimmEigenesMitglied()
             await reportDeviceStatus()
         }
         await rebuildChecklist()
+    }
+
+    /// Was der Server über dieses Konto sagt, gilt — Rolle wie Kürzel.
+    ///
+    /// Die Rolle war schon immer so gedacht. Das Kürzel kam mit 1.0.25 dazu:
+    /// Ein Admin darf es ändern, und ohne diese Zeile schriebe das betroffene
+    /// Gerät seine nächste Rückmeldung weiter unter dem alten — die Änderung
+    /// wäre in der Mitgliederliste zu sehen und sonst nirgends.
+    private func uebernimmEigenesMitglied() {
+        guard let member else { return }
+        store.role = member.role
+        if !member.displayName.isEmpty, member.displayName != store.displayName {
+            store.displayName = member.displayName
+        }
     }
 
     // MARK: - Joining

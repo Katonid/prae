@@ -253,6 +253,13 @@ final class MockBackend: AlarmBackend {
         }
     }
 
+    func setDisplayName(memberId: String, to name: String) async throws {
+        lock.around {
+            guard let index = members.firstIndex(where: { $0.id == memberId }) else { return }
+            members[index].displayName = name
+        }
+    }
+
     func fetchAlarmHistory(limit: Int) async throws -> [Alarm] { Array(alarms.prefix(limit)) }
     func fetchAcks(alarmId: String) async throws -> [Ack] { acks.filter { $0.alarmId == alarmId } }
 
