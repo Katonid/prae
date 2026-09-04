@@ -515,11 +515,11 @@ struct ShareSheet: View {
 /// hereingereicht.
 ///
 /// Dass genau das früher schiefging (1.0.58, 1.0.59: „Link kopieren" kopierte
-/// nichts), lag nicht am Vorab-Anlegen. Es fehlte der Record-Typ
-/// `cloudkit.share` im Schema, und weitergereicht wurde das hingeschickte
-/// statt des zurückgemeldeten Objekts. Beides ist behoben, und
-/// `legeFreigabeAn` gibt seit 1.1.1 nichts mehr heraus, was keine Adresse
-/// hat — ein Blatt ohne Link kann so gar nicht mehr entstehen.
+/// nichts), lag nicht am Vorab-Anlegen: Weitergereicht wurde das
+/// hingeschickte statt des zurückgemeldeten Objekts. `legeFreigabeAn` gibt
+/// seit 1.1.1 nichts mehr heraus, was keine Adresse hat — ein Blatt ohne Link
+/// kann so gar nicht mehr entstehen. Und seit 1.4.4 weicht es auf eine
+/// Freigabe ohne öffentlichen Link aus, wenn das Konto keinen vergeben darf.
 ///
 /// Fehler werden roh durchgereicht: Das Blatt zeigt Apples Wortlaut, und der
 /// ist die bessere Spur.
@@ -570,8 +570,19 @@ final class Freigabewahl: NSObject, UICloudSharingControllerDelegate {
         let neues = UICloudSharingController(
             share: share,
             container: CKContainer(identifier: CloudSyncEngine.containerID))
-        // Nur-Lesen gibt es hier bewusst nicht (siehe Hinweistext im Blatt).
-        neues.availablePermissions = [.allowPublic, .allowReadWrite]
+        // **Die Auswahl richtet sich nach der Freigabe, die wir bekommen
+        // haben** (ab 1.4.4). Bis dahin stand hier fest `.allowPublic` — und
+        // auf einem Konto, das keinen öffentlichen Link vergeben darf, böte
+        // das Blatt dann als einzige Möglichkeit genau die an, die scheitert.
+        // Nur-Lesen gibt es in beiden Fällen bewusst nicht.
+        var oeffentlich = false
+        switch share.publicPermission {
+        case .readWrite, .readOnly: oeffentlich = true
+        default: oeffentlich = false
+        }
+        neues.availablePermissions = oeffentlich
+            ? [.allowPublic, .allowReadWrite]
+            : [.allowPrivate, .allowReadWrite]
         neues.delegate = self
         blatt = neues
         Oberflaeche.ausMitte(neues, in: halter)

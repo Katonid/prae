@@ -920,10 +920,23 @@ final class CloudSyncEngine: @unchecked Sendable {
         return await legeFreigabeAn(wurzel: wurzel, titel: titel)
     }
 
-    private func legeFreigabeAn(wurzel: CKRecord, titel: String) async -> Result<CKShare, Error> {
+    /// Wie ein Versuch ausging, eine Freigabe zu sichern.
+    ///
+    /// „Gesichert, aber ohne Adresse" ist ein eigener Fall und kein Fehler:
+    /// CloudKit meldet nichts, der Rest bleibt liegen, und nur der Aufrufer
+    /// kann entscheiden, ob sich ein zweiter Versuch lohnt.
+    private enum Freigabeversuch {
+        case fertig(CKShare)
+        case ohneLink(CKRecord.ID)
+        case fehlgeschlagen(Error)
+    }
+
+    private func versucheFreigabe(wurzel: CKRecord,
+                                  titel: String,
+                                  oeffentlich: Bool) async -> Freigabeversuch {
         let neue = CKShare(rootRecord: wurzel)
         neue[CKShare.SystemFieldKey.title] = titel as CKRecordValue
-        neue.publicPermission = .readWrite
+        if oeffentlich { neue.publicPermission = .readWrite }
 
         return await withCheckedContinuation { fortsetzung in
             let box = ResumeOnce()
@@ -942,35 +955,64 @@ final class CloudSyncEngine: @unchecked Sendable {
                 case .success:
                     // Ohne Adresse ist die Freigabe nichts wert: Das Blatt
                     // zeigte dann ein „Link kopieren", das nichts kopiert
-                    // (1.0.58, 1.0.59). Lieber hier ehrlich scheitern — der
-                    // Rest bleibt liegen und wird beim nächsten Versuch von
-                    // `bereiteFreigabeVor` weggeräumt.
-                    //
-                    // **Der Text nennt keinen Grund mehr** (ab 1.4.3). Bis
-                    // dahin stand hier, meist fehle `cloudkit.share` in
-                    // dieser Umgebung — das war meine Vermutung aus 1.0.60,
-                    // ausgegeben wie ein Befund. Im Fall, der es 09/2026
-                    // wirklich traf, stand der Typ in Production, und die
-                    // Meldung schickte auf eine falsche Fährte. Für die
-                    // Antwort gibt es seit 1.0.63 ein Messgerät; die Meldung
-                    // führt jetzt dorthin, statt zu raten.
+                    // (1.0.58, 1.0.59).
                     if let fertig = antwort, fertig.url != nil {
-                        box.finish { fortsetzung.resume(returning: .success(fertig)) }
+                        box.finish { fortsetzung.resume(returning: .fertig(fertig)) }
                     } else {
-                        box.finish {
-                            fortsetzung.resume(returning: .failure(Freigabefehler.cloud(
-                                "iCloud hat die Freigabe gesichert, aber keinen Link dazu "
-                                + "geliefert. Woran es liegt, sagt „Teilen prüfen“ in "
-                                + "„Abgleich prüfen“: Das legt eine eigene Probe an und "
-                                + "trennt, ob es am öffentlichen Link hängt oder am Teilen "
-                                + "überhaupt.")))
-                        }
+                        box.finish { fortsetzung.resume(returning: .ohneLink(neue.recordID)) }
                     }
                 case .failure(let fehler):
-                    box.finish { fortsetzung.resume(returning: .failure(fehler)) }
+                    box.finish { fortsetzung.resume(returning: .fehlgeschlagen(fehler)) }
                 }
             }
             self.database.add(operation)
+        }
+    }
+
+    /// Legt die Freigabe an — erst mit öffentlichem Link, sonst ohne.
+    ///
+    /// **Der öffentliche Link bleibt der erste Versuch** (Ansage des Nutzers,
+    /// 08/2026: Einladungslink, Schreibrecht sofort, keine Rechteabfrage).
+    /// Wo er geht, ändert sich nichts.
+    ///
+    /// **Aber er geht nicht überall** (gemessen 09/2026 mit `pruefeTeilen`):
+    /// Auf einem Konto kam jede Freigabe mit `publicPermission = .readWrite`
+    /// ohne Adresse zurück — die gleiche Freigabe ohne öffentlichen Link
+    /// bekam sofort eine. CloudKit sagt dazu nichts; es meldet keinen Fehler,
+    /// es liefert nur die Adresse nicht. Bis 1.4.3 war das Teilen damit
+    /// **ganz** tot, obwohl der Weg daneben offenstand.
+    ///
+    /// Also zweiter Versuch ohne öffentlichen Link. Der Unterschied für die
+    /// Nutzerin: Die Kollegin wird im Teilen-Blatt eingeladen, statt einen
+    /// Link zu bekommen, der für jeden gilt. Das ist eine Umständlichkeit
+    /// mehr — und immer noch unendlich viel besser als „geht nicht".
+    private func legeFreigabeAn(wurzel: CKRecord, titel: String) async -> Result<CKShare, Error> {
+        switch await versucheFreigabe(wurzel: wurzel, titel: titel, oeffentlich: true) {
+        case .fertig(let share):
+            return .success(share)
+        case .fehlgeschlagen(let fehler):
+            return .failure(fehler)
+        case .ohneLink(let rest):
+            // Der Rest muss weg: `bereiteFreigabeVor` hielte ihn beim
+            // nächsten Mal für die gültige Freigabe. Und die Wurzel muss
+            // frisch geholt werden — das Sichern hat ihr Etag verändert,
+            // mit dem alten weist CloudKit den zweiten Versuch ab.
+            _ = await loesche(rest, aus: database)
+            guard let frisch = await einzelnerDatensatz(wurzel.recordID, aus: database) else {
+                return .failure(Freigabefehler.tafelFehlt)
+            }
+            switch await versucheFreigabe(wurzel: frisch, titel: titel, oeffentlich: false) {
+            case .fertig(let share):
+                return .success(share)
+            case .fehlgeschlagen(let fehler):
+                return .failure(fehler)
+            case .ohneLink(let zweiterRest):
+                _ = await loesche(zweiterRest, aus: database)
+                return .failure(Freigabefehler.cloud(
+                    "iCloud hat die Freigabe gesichert, aber keinen Link dazu "
+                    + "geliefert — auch nicht ohne öffentlichen Link. Was genau "
+                    + "scheitert, zeigt „Teilen prüfen“ in „Abgleich prüfen“."))
+            }
         }
     }
 
