@@ -563,12 +563,40 @@ final class CloudKitBackend: AlarmBackend {
             .sorted { $0.displayName.localizedCaseInsensitiveCompare($1.displayName) == .orderedAscending }
     }
 
+    /// **Erst abgleichen, `ensureSchema` nur als Rückfall.**
+    ///
+    /// Bis 1.0.26 stand es andersherum, und das schrieb bei JEDEM Start der App
+    /// vier Platzhalter-Datensätze — darunter einen vom Typ `Message`. Seit
+    /// 1.0.21 gibt es ein Abonnement auf neue Nachrichten, dessen Prädikat nur
+    /// nach der Gruppe fragt: Jeder Platzhalter löste also auf allen anderen
+    /// Geräten eine Mitteilung aus, „Nachricht von Schema: Schema" (gemeldet
+    /// 09/2026). Wer die App nur einmal öffnete, ließ dreißig iPads piepen.
+    ///
+    /// Die anderen drei Platzhalter waren von Anfang an harmlos, weil sie
+    /// `targetUser = "schema"` tragen und die Alarm- und Ping-Prädikate `"*"`
+    /// oder die eigene Kennung verlangen. Beim Nachrichten-Abonnement gab es
+    /// diesen Schutz nicht — und ein Prädikat lässt sich nachträglich nicht
+    /// ändern.
+    ///
+    /// `reconcile` kehrt von selbst um, wenn nichts fehlt. Im Regelfall wird
+    /// also gar nichts mehr geschrieben. Nur wenn das Anlegen scheitert — der
+    /// Fall, für den `ensureSchema` gedacht war: ein Record-Typ, den CloudKit
+    /// noch nie gesehen hat —, werden die Platzhalter geschrieben und es wird
+    /// ein zweites Mal versucht.
     func refreshSubscriptions() async throws {
         let groupID = try requireGroupID()
         guard let userId = await currentUserId() else {
             throw BackendError.accountUnavailable(await availability())
         }
-        await ensureSchema(groupID: groupID)
+        do {
+            try await CloudKitSubscriptions.reconcile(in: database,
+                                                      groupRecordID: groupID,
+                                                      userId: userId)
+            return
+        } catch {
+            // Zweiter Versuch, nachdem die Record-Typen angelegt wurden.
+            _ = await ensureSchema(groupID: groupID)
+        }
         do {
             try await CloudKitSubscriptions.reconcile(in: database,
                                                       groupRecordID: groupID,
@@ -638,8 +666,11 @@ final class CloudKitBackend: AlarmBackend {
         message[CloudField.groupRef] = reference
         message[CloudField.alarmId] = alarm.recordID.recordName
         message[CloudField.senderUserId] = "schema"
-        message[CloudField.senderName] = "Schema"
-        message[CloudField.text] = "Schema"
+        // Falls dieser Datensatz doch einmal eine Mitteilung auslöst, soll sie
+        // wenigstens erklären, was sie ist.
+        message[CloudField.senderName] = "Einrichtung"
+        message[CloudField.text] = "Automatischer Eintrag beim Einrichten — "
+            + "bitte ignorieren."
         message.setDate(Date(), forKey: CloudField.createdAt)
 
         // Der Alarm zuerst — Ack und Message verweisen auf ihn, und eine
