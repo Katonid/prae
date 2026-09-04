@@ -120,28 +120,40 @@ function flaecheFuer(plaetze, state, breite, hoehe, { drehung = null, ganzerRaum
   const blick = blickwinkel(form, dreh);
   const bereich = ganzerRaum ? { x: 0, y: 0, w: form.w, h: form.h } : ausschnitt(plaetze, state.raum, state.tafel);
   const gedreht = blick.rechteck(bereich);
-  let falte = (y) => y - gedreht.y;
+  let falteY = (y) => y - gedreht.y;
+  let falteX = (x) => x - gedreht.x;
   let tiefe = gedreht.h;
+  let weite = gedreht.w;
   if (!ganzerRaum) {
-    const streifen = plaetze.map((platz) => {
-      const r = blick.rechteck(umriss(platz));
-      return [r.y, r.y + r.h];
-    });
+    const rechtecke = plaetze.map((platz) => blick.rechteck(umriss(platz)));
     const band = blick.rechteck(tafelband(state.tafel, form));
-    streifen.push([band.y, band.y + band.h]);
-    const gefaltet = tiefeFalten(streifen, gedreht.y, gedreht.y + gedreht.h);
-    falte = gefaltet.falte;
-    tiefe = gefaltet.hoehe;
+    const senkrecht = tiefeFalten(
+      rechtecke.map((r) => [r.y, r.y + r.h]).concat([[band.y, band.y + band.h]]),
+      gedreht.y, gedreht.y + gedreht.h);
+    falteY = senkrecht.falte;
+    tiefe = senkrecht.hoehe;
+    // Auch die Gänge (waagerecht) falten — sie kosteten die Kärtchen zuletzt
+    // die Breite (gemeldet 09/2026: „Die Kärtchenbreite könnte größer sein").
+    // Das Tafelband zählt hier NICHT als belegt: Es spannt sich dekorativ
+    // über die halbe Raumbreite und hätte sonst jeden Gang überbrückt;
+    // gezeichnet wird es hinterher über der gefalteten Breite (malePlan).
+    const waagerecht = tiefeFalten(
+      rechtecke.map((r) => [r.x, r.x + r.w]),
+      gedreht.x, gedreht.x + gedreht.w);
+    falteX = waagerecht.falte;
+    weite = waagerecht.hoehe;
   }
-  const mass = Math.min(breite / Math.max(1, gedreht.w), hoehe / Math.max(1, tiefe));
-  const links = (breite - gedreht.w * mass) / 2;
+  const mass = Math.min(breite / Math.max(1, weite), hoehe / Math.max(1, tiefe));
+  const links = (breite - weite * mass) / 2;
   const oben = (hoehe - tiefe * mass) / 2;
   return {
     blick,
     mass,
+    // Die gefaltete Fläche in Bildschirmpunkten — daran hängt das Tafelband.
+    feld: { x: links, y: oben, w: weite * mass, h: tiefe * mass },
     stelle(punkt) {
       const p = blick.punkt(punkt);
-      return { x: links + (p.x - gedreht.x) * mass, y: oben + falte(p.y) * mass };
+      return { x: links + falteX(p.x) * mass, y: oben + falteY(p.y) * mass };
     },
   };
 }
@@ -165,11 +177,20 @@ function malePlan(box, state, breite, hoehe, {
   const bandBlick = flaeche.blick.rechteck(band);
   const bandEcke = flaeche.stelle({ x: band.x + band.w / 2, y: band.y + band.h / 2 });
   const bandEl = h('div', { class: 'w-seating__tafel' }, 'Tafel');
-  bandEl.style.width = `${bandBlick.w * flaeche.mass}px`;
+  let bandBreite = bandBlick.w * flaeche.mass;
+  let bandLinks = bandEcke.x - bandBreite / 2;
+  if (!ganzerRaum) {
+    // Gefaltet zählt das Band waagerecht nicht als belegt (flaecheFuer) —
+    // gezeichnet wird es deshalb über der GEFALTETEN Breite, mittig. Gedreht
+    // liegt die Tafelwand hier immer oben, das Band also immer waagerecht.
+    bandBreite = flaeche.feld.w * 0.55;
+    bandLinks = flaeche.feld.x + (flaeche.feld.w - bandBreite) / 2;
+  }
+  bandEl.style.width = `${bandBreite}px`;
   bandEl.style.height = `${bandBlick.h * flaeche.mass}px`;
-  bandEl.style.left = `${bandEcke.x - (bandBlick.w * flaeche.mass) / 2}px`;
+  bandEl.style.left = `${bandLinks}px`;
   bandEl.style.top = `${bandEcke.y - (bandBlick.h * flaeche.mass) / 2}px`;
-  if (bandBlick.h > bandBlick.w) bandEl.classList.add('is-senkrecht');
+  if (ganzerRaum && bandBlick.h > bandBlick.w) bandEl.classList.add('is-senkrecht');
   box.appendChild(bandEl);
 
   for (const platz of alle) {
@@ -199,13 +220,24 @@ function malePlan(box, state, breite, hoehe, {
     if (beiTipp) onTap(tile, () => beiTipp(platz));
     box.appendChild(tile);
   }
-  // Lange Namen schrumpfen, statt abgeschnitten zu werden (wie iOS
-  // minimumScaleFactor): erst einhängen, dann messen.
+  // Lange Namen: erst UMBRECHEN, dann schrumpfen (gemeldet 09/2026: „Ganz
+  // sicher muss doch nicht die Schrift abgeschnitten sein"). Ein Name mit
+  // Leerzeichen — „Fritz W.", „Ada K." — bricht auf zwei Zeilen, statt bis
+  // zur Unlesbarkeit zu schrumpfen; nur ein langes einzelnes Wort schrumpft
+  // weiter einzeilig (mitten im Namen trennt man nicht). Erst einhängen,
+  // dann messen — und nach dem Laden der Webschrift noch einmal (mount):
+  // Die Ersatzschrift ist schmaler, gemessen mit ihr schnitt Lexend ab.
   for (const span of box.querySelectorAll('.w-seating__name')) {
     if (!span.textContent) continue;
     const kachel = span.parentElement;
     const platzBreite = parseFloat(kachel.style.width) * 0.94;
-    if (span.scrollWidth > platzBreite && platzBreite > 0) {
+    if (platzBreite <= 0 || span.scrollWidth <= platzBreite) continue;
+    if (span.textContent.includes(' ')) {
+      kachel.classList.add('is-zweizeilig');
+      const hoch = parseFloat(kachel.style.height);
+      kachel.style.fontSize = `${Math.min(parseFloat(kachel.style.fontSize), hoch * 0.42)}px`;
+    }
+    if (span.scrollWidth > platzBreite) {
       const grund = parseFloat(kachel.style.fontSize);
       const faktor = Math.max(0.4, platzBreite / span.scrollWidth);
       kachel.style.fontSize = `${Math.max(8, grund * faktor)}px`;
@@ -424,9 +456,13 @@ export default {
           render();
         }));
 
-      const rect = planBox.getBoundingClientRect();
-      const breite = Math.max(160, rect.width || ctx.widget.w - 24);
-      const hoehe = Math.max(120, rect.height || ctx.widget.h - 110);
+      // clientWidth/-Height, NICHT getBoundingClientRect: Die Tafel ist per
+      // CSS-Transform verkleinert, das Rechteck kommt in Bildschirm-Pixeln —
+      // gezeichnet wird aber in lokalen. Mit dem Rechteck nutzte der Plan
+      // nur den Maßstabs-Bruchteil seiner Fläche, oben links verankert
+      // (gemeldet 09/2026: „unten wird immer noch viel Platz verschenkt").
+      const breite = Math.max(160, planBox.clientWidth || ctx.widget.w - 24);
+      const hoehe = Math.max(120, planBox.clientHeight || ctx.widget.h - 110);
       malePlan(planBox, state, breite, hoehe, {
         zeige: (platz) => (sichtbar(state, platz.id) ? state.belegung[platz.id] || null : null),
         beiTipp: tippePlatz,
@@ -501,6 +537,10 @@ export default {
     // Nach dem Einhängen noch einmal messen — beim ersten Aufbau ist die
     // Kachel oft noch nicht in der Seite.
     requestAnimationFrame(() => render());
+    // Und noch einmal nach dem Laden der Webschrift: Die Ersatzschrift ist
+    // schmaler — mit ihr gemessen schnitt Lexend die Namen hinterher ab
+    // (dieselbe Nachmessung wie beim Tagesablauf).
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => render()).catch(() => {});
     return {
       el,
       refresh: render,
