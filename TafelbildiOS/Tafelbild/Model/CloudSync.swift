@@ -945,15 +945,25 @@ final class CloudSyncEngine: @unchecked Sendable {
                     // (1.0.58, 1.0.59). Lieber hier ehrlich scheitern — der
                     // Rest bleibt liegen und wird beim nächsten Versuch von
                     // `bereiteFreigabeVor` weggeräumt.
+                    //
+                    // **Der Text nennt keinen Grund mehr** (ab 1.4.3). Bis
+                    // dahin stand hier, meist fehle `cloudkit.share` in
+                    // dieser Umgebung — das war meine Vermutung aus 1.0.60,
+                    // ausgegeben wie ein Befund. Im Fall, der es 09/2026
+                    // wirklich traf, stand der Typ in Production, und die
+                    // Meldung schickte auf eine falsche Fährte. Für die
+                    // Antwort gibt es seit 1.0.63 ein Messgerät; die Meldung
+                    // führt jetzt dorthin, statt zu raten.
                     if let fertig = antwort, fertig.url != nil {
                         box.finish { fortsetzung.resume(returning: .success(fertig)) }
                     } else {
                         box.finish {
                             fortsetzung.resume(returning: .failure(Freigabefehler.cloud(
                                 "iCloud hat die Freigabe gesichert, aber keinen Link dazu "
-                                + "geliefert. Meist fehlt der Datensatz „cloudkit.share“ in "
-                                + "dieser Umgebung — dann in der CloudKit-Konsole das Schema "
-                                + "nach Production übertragen.")))
+                                + "geliefert. Woran es liegt, sagt „Teilen prüfen“ in "
+                                + "„Abgleich prüfen“: Das legt eine eigene Probe an und "
+                                + "trennt, ob es am öffentlichen Link hängt oder am Teilen "
+                                + "überhaupt.")))
                         }
                     }
                 case .failure(let fehler):

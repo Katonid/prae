@@ -1946,14 +1946,20 @@ etwas Großem, das zuletzt geändert wurde.
   Kaufbeleg: `sandboxReceipt` = TestFlight, `receipt` = App Store, sonst
   „nicht feststellbar“. **An der CloudKit-Umgebung ändert das nichts** —
   beide Wege sind Production; genau deshalb darf die Zeile es nicht behaupten.
-- **`cloudkit.share` muss in Production stehen, sonst gibt es keinen Link.**
-  Die Freigabe wird gesichert und bleibt ohne Adresse — CloudKit meldet
-  keinen Fehler, die App fängt es ab (`legeFreigabeAn` prüft `url != nil`)
-  und nennt den Grund. In Development legt CloudKit den Typ beim ersten
-  Teilen selbst an; nach Production kommt er nur über „Deploy Schema Changes
-  to Production“. Wer das Schema überträgt, BEVOR je eine Freigabe angelegt
-  wurde, überträgt den Typ nicht mit — dann ist Teilen aus dem App Store
-  heraus tot, während es über Xcode tadellos läuft (gemeldet 09/2026).
+- **Eine Freigabe ohne Link: NICHT raten, messen** (`pruefeTeilen`, ab 1.0.63).
+  Die Freigabe wird gesichert und bleibt ohne Adresse — CloudKit meldet keinen
+  Fehler, die App fängt es ab (`legeFreigabeAn` prüft `url != nil`). Bis 1.4.2
+  nannte die Meldung dazu einen Grund: meist fehle `cloudkit.share` in dieser
+  Umgebung. Das war meine Vermutung aus 1.0.60, ausgegeben wie ein Befund —
+  und im Fall, der 09/2026 wirklich auftrat, stand der Typ in Production. Die
+  Meldung schickte also auf eine falsche Fährte, und zwar mich selbst zuerst.
+  Seit 1.4.3 nennt sie keinen Grund mehr, sondern führt zu „Teilen prüfen“ in
+  „Abgleich prüfen“: Das legt einen EIGENEN Probe-Datensatz an (nichts, was dem
+  Nutzer gehört), teilt ihn einmal MIT und einmal OHNE öffentlichen Link, lädt
+  nach zwei Sekunden nach und räumt alles wieder weg. Gelingt nur die zweite,
+  hängt es am öffentlichen Link — nicht am Teilen. Dasselbe Muster wie die
+  Stufenprobe bei Schulalarm: **Wo eine Meldung nur auf die Umgebung zeigt,
+  muss eine Probe entscheiden.**
 - **Übersetzt wird in GitHub Actions**, nicht erst auf dem Mac: Der
   Arbeitsablauf `.github/workflows/tafelbild-build.yml` baut die App bei
   jedem Push auf `TafelbildiOS/` auf einem macOS-Läufer (xcodebuild,
