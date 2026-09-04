@@ -138,11 +138,59 @@ async function dbUrl(path, params = {}) {
 }
 
 /**
+ * Firebase verbietet in SCHLÜSSELN die Zeichen . # $ / [ ] — unsere Listen
+ * führen Geburtstage, Merkmale und Sitzwünsche aber unter dem NAMEN des
+ * Kindes, und „Fritz W." trägt einen Punkt. Ohne Umschrift weist die
+ * Datenbank jede Sicherung und jeden Abgleich mit solchen Namen komplett ab
+ * (gemeldet 09/2026: „Sicherung fehlgeschlagen"). Deshalb werden beim
+ * Schreiben ALLE Schlüssel prozentkodiert (%2E für den Punkt usw., % selbst
+ * als %25) und beim Lesen zurückübersetzt — an genau dieser einen Stelle,
+ * damit Sicherung, Abgleich und Teilen dieselbe Regel haben. Alte,
+ * unkodierte Stände lesen sich unverändert: Ohne %-Folge ändert die
+ * Rückübersetzung nichts.
+ */
+function schluesselKodieren(wert) {
+  if (Array.isArray(wert)) return wert.map(schluesselKodieren);
+  if (wert && typeof wert === 'object') {
+    const aus = {};
+    for (const [schluessel, inhalt] of Object.entries(wert)) {
+      const sauber = schluessel.replace(/[%.#$/\[\]]/g,
+        (zeichen) => `%${zeichen.charCodeAt(0).toString(16).toUpperCase().padStart(2, '0')}`);
+      aus[sauber] = schluesselKodieren(inhalt);
+    }
+    return aus;
+  }
+  return wert;
+}
+
+function schluesselDekodieren(wert) {
+  if (Array.isArray(wert)) return wert.map(schluesselDekodieren);
+  if (wert && typeof wert === 'object') {
+    const aus = {};
+    for (const [schluessel, inhalt] of Object.entries(wert)) {
+      const klar = schluessel.replace(/%([0-9A-F]{2})/g,
+        (_, hex) => String.fromCharCode(parseInt(hex, 16)));
+      aus[klar] = schluesselDekodieren(inhalt);
+    }
+    return aus;
+  }
+  return wert;
+}
+
+/**
  * Anfrage an die Datenbank — immer mit Zeitlimit: Eine hängende Verbindung
  * (schwacher Mobilfunk, eingeschlafenes WLAN) darf den Abgleich nicht endlos
  * auf „Wird abgeglichen …" stehen lassen.
  */
 async function dbRequest(path, options = {}, params = {}, timeoutMs = 30000) {
+  // Schlüssel-Umschrift für den Weg HIN — die eine Stelle für alle Schreiber.
+  if (typeof options.body === 'string') {
+    try {
+      options = Object.assign({}, options, {
+        body: JSON.stringify(schluesselKodieren(JSON.parse(options.body))),
+      });
+    } catch (_) { /* kein JSON — unverändert lassen */ }
+  }
   const url = await dbUrl(path, params);
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -160,7 +208,7 @@ async function dbRequest(path, options = {}, params = {}, timeoutMs = 30000) {
     throw new Error(`Server meldet ${response.status}${text ? `: ${text.slice(0, 120)}` : ''}`);
   }
   const raw = await response.text();
-  return raw && raw !== 'null' ? JSON.parse(raw) : null;
+  return raw && raw !== 'null' ? schluesselDekodieren(JSON.parse(raw)) : null;
 }
 
 function normalizeCode(code) {
@@ -259,7 +307,9 @@ export async function subscribePath(path, handler, { granular = false } = {}) {
       detail = null;
     }
     if (granular && detail && typeof detail.path === 'string' && detail.path !== '/') {
-      if (!stopped) handler(null, detail);
+      // Der Ereignisstrom läuft an dbRequest vorbei — die Schlüssel-Umschrift
+      // gilt auch hier.
+      if (!stopped) handler(null, { path: detail.path, data: schluesselDekodieren(detail.data) });
       return;
     }
     if (pending) clearTimeout(pending);

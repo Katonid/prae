@@ -615,7 +615,9 @@ export function openSharePanel(prefillCode = '', prefillSyncCode = '') {
                 await pushBackup(getState());
                 toast('Alle Klassenräume gesichert.', 'success');
               } catch (error) {
-                toast('Sicherung fehlgeschlagen.', 'warn');
+                // Der rohe Wortlaut ist die bessere Spur als ein aufgeräumtes
+                // „fehlgeschlagen" (dieselbe Regel wie in der Tafelbild-App).
+                toast(`Sicherung fehlgeschlagen: ${(error && error.message) || error}`, 'warn');
               }
             },
           }),
@@ -636,7 +638,7 @@ export function openSharePanel(prefillCode = '', prefillSyncCode = '') {
                 renderBoard();
                 toast('Sicherung geladen.', 'success');
               } catch (error) {
-                toast('Laden fehlgeschlagen.', 'warn');
+                toast(`Laden fehlgeschlagen: ${(error && error.message) || error}`, 'warn');
               }
             },
           }),
