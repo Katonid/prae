@@ -18,13 +18,10 @@ struct RootView: View {
                         .environmentObject(model)
                 }
             }
-            .overlay(alignment: .top) {
-                VStack(spacing: 8) {
-                    retryBanner
-                    hinweisBanner
-                    problemBanner
-                }
-            }
+            // Die Bänder liegen in `Meldungen.swift`, weil sie auch über den
+            // Blättern gebraucht werden — ein Fehler unter einem offenen Blatt
+            // ist ein Fehler, den niemand sieht.
+            .meldungen(model)
             .task {
                 guard !started else { return }
                 started = true
@@ -59,85 +56,6 @@ struct RootView: View {
         }
     }
 
-    /// The alarm has not gone through yet and the app is still trying.
-    ///
-    /// Deliberately not styled as an error: an error says "it failed", and
-    /// this says "it has not finished". Somebody who reads the first one walks
-    /// away; somebody who reads the second one waits the five seconds.
-    @ViewBuilder
-    private var retryBanner: some View {
-        if let notice = model.retryNotice {
-            HStack(alignment: .top, spacing: 12) {
-                ProgressView()
-                Text(notice)
-                    .font(.callout)
-                    .fixedSize(horizontal: false, vertical: true)
-                Spacer(minLength: 0)
-            }
-            .padding(16)
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14))
-            .overlay(RoundedRectangle(cornerRadius: 14).stroke(.blue.opacity(0.4)))
-            .padding(.horizontal, 20)
-            .padding(.top, 8)
-        }
-    }
-
-    /// Etwas hat geklappt. Verschwindet auf Tipp, nicht von selbst — auch
-    /// eine gute Nachricht will gelesen werden.
-    @ViewBuilder
-    private var hinweisBanner: some View {
-        if let hinweis = model.hinweis {
-            HStack(alignment: .top, spacing: 12) {
-                Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
-                Text(hinweis)
-                    .font(.callout)
-                    .fixedSize(horizontal: false, vertical: true)
-                Spacer(minLength: 0)
-                Button {
-                    model.hinweis = nil
-                } label: {
-                    Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
-                }
-                .buttonStyle(.plain)
-            }
-            .padding(16)
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14))
-            .overlay(RoundedRectangle(cornerRadius: 14).stroke(.green.opacity(0.4)))
-            .padding(.horizontal, 20)
-            .padding(.top, 8)
-        }
-    }
-
-    /// A problem stays until it is dismissed.
-    ///
-    /// The usual four-second toast is wrong here: the messages this banner
-    /// carries are things like "no Apple ID on this iPad", and that is exactly
-    /// the message somebody has to still be able to read after looking up.
-    @ViewBuilder
-    private var problemBanner: some View {
-        if let problem = model.problem {
-            HStack(alignment: .top, spacing: 12) {
-                Image(systemName: "exclamationmark.triangle.fill")
-                    .foregroundStyle(.orange)
-                Text(problem)
-                    .font(.callout)
-                    .fixedSize(horizontal: false, vertical: true)
-                Spacer(minLength: 0)
-                Button {
-                    model.problem = nil
-                } label: {
-                    Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
-                }
-                .buttonStyle(.plain)
-            }
-            .padding(16)
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14))
-            .overlay(RoundedRectangle(cornerRadius: 14).stroke(.orange.opacity(0.4)))
-            .padding(.horizontal, 20)
-            .padding(.top, 8)
-            .transition(.move(edge: .top).combined(with: .opacity))
-        }
-    }
 }
 
 struct RootView_Previews: PreviewProvider {

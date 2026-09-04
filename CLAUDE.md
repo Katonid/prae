@@ -431,6 +431,24 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   `device-<Gruppe>-<Nutzer>-<Gerät>` und zählt die Geräte je Kürzel — vorher
   überschrieben sich zwei iPads gegenseitig, und der Admin erfuhr nie,
   dass es zwei sind.
+- **Ein Fehlerband unter einem Blatt sieht niemand** (behoben in 1.0.26). Die
+  drei Bänder (Hinweis, Problem, Wiederholung) hingen ausschließlich an
+  `RootView`; Verwaltung, Einstellungen und Auslösen sind aber BLÄTTER und
+  liegen darüber. Aufgefallen beim Ernennen eines zweiten Admins: „Das Drücken
+  des Textes zeigt keine Funktion" — der Knopf meldete sehr wohl einen Fehler,
+  nur erschien der hinter dem Blatt. Die Bänder liegen jetzt in
+  `Views/Meldungen.swift` und werden über `.meldungen(model)` an die Wurzel UND
+  an jedes Blatt gehängt. **Wer ein neues Blatt baut, hängt sie mit dran.**
+  Dazu meldet sich seit 1.0.26 auch der Erfolgsfall: Ein Knopf, der schweigt,
+  ist für den Menschen davor ein kaputter Knopf.
+- **`.permissionFailure` beim Schreiben auf einen FREMDEN Datensatz heißt etwas
+  anderes** (`mappedMitgliedsschreiben`, ab 1.0.26). In der öffentlichen
+  Datenbank gehört ein Datensatz dem, der ihn angelegt hat; der Mitgliedseintrag
+  einer Kollegin gehört ihr. Ohne WRITE für die Rolle `_icloud` auf `Member`
+  kann kein Admin einen zweiten ernennen, ein Kürzel berichtigen oder jemanden
+  entfernen. `mapped` machte daraus „Nur ein Admin darf das" — den einen Satz,
+  der hier garantiert falsch ist. Jetzt nennt die Meldung den Weg durch die
+  Konsole.
 - **Zwei Admins, nicht einer** (`setRole`). Ein einziger Admin ist ein
   Ausfallpunkt: Wird dieses iPad im Sommer zurückgesetzt, kann niemand mehr
   Codes vergeben oder Entwarnung geben. Der Hinweis steht unter der
