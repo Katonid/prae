@@ -522,6 +522,29 @@ body[data-cards="dark"] .widget::after { box-shadow: inset 0 1px 0 rgba(255, 255
 .widget.is-dragging { box-shadow: 0 42px 80px -30px rgba(2, 6, 23, 0.9); }
 .widget.is-locked.is-selected { box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.5), var(--card-shadow); }
 
+/* Im Bearbeitungsmodus bedient erst der ZWEITE Tipp (gemeldet 09/2026: Beim
+ * Einrichten der Zähl-Liste zählte jedes Antippen +1). Solange ein Element
+ * nicht ausgewählt ist, sind seine Bedienflächen für Berührungen unsichtbar —
+ * der erste Tipp landet auf dem Element selbst und wählt es aus, erst danach
+ * sind die Knöpfe wieder da. Im Unterricht, in der Stapelansicht und beim
+ * Präsentieren gilt das nicht: Dort wird bedient, nicht eingerichtet. */
+body:not(.is-using):not(.is-stacked):not(.is-presenting) .widget:not(.is-selected) [data-nodrag] { pointer-events: none; }
+
+/* Überschrift je Element ausblendbar (Knopf in der Werkzeugleiste) —
+ * ergänzt die globale Einstellung data-labels="never", die ALLE trifft. */
+.widget.is-ohne-titel .w-check__title,
+.widget.is-ohne-titel .w-noise__title,
+.widget.is-ohne-titel .w-timer__label,
+.widget.is-ohne-titel .w-random__title,
+.widget.is-ohne-titel .w-sound__title { display: none; }
+
+/* Örtlich ausgeblendete Elemente: beim Bearbeiten blass (sonst wären sie
+ * nicht zurückzuholen — dieselbe Regel wie bei den Seiten), im Unterricht
+ * und beim Präsentieren ganz weg. */
+.widget.is-versteckt { opacity: 0.35; }
+body.is-using .widget.is-versteckt,
+body.is-presenting .widget.is-versteckt { display: none !important; }
+
 .widget { font-size: calc(15px * var(--w-scale, 1)); }
 .widget__inner { width: 100%; height: 100%; display: flex; position: relative; z-index: 1; text-shadow: var(--ink-shadow, none); }
 

@@ -247,6 +247,7 @@ export function defaultState() {
       // geteilten Tafel entscheidet jede für sich, welche Seiten im
       // Blätterer stehen, ohne sie den anderen wegzunehmen (Tafelbild 1.3.23).
       hiddenPages: {},
+      hiddenWidgets: {},
     },
     cloud: {
       // Pro Board: { code, editKey, autoPush, followCode }
@@ -701,6 +702,28 @@ export function seiteVerstecken(boardId, pageId, versteckt) {
     if (offen.length) setActivePage(offen[0].id);
   }
   return true;
+}
+
+/* ---------- Elemente örtlich ausblenden ----------
+ * Dieselbe Regel wie bei den Seiten: Der Wert gehört zu DIESEM Gerät und
+ * reist beim Abgleich nicht mit — die Kollegin am zweiten Gerät entscheidet
+ * selbst, was sie sieht. Beim Bearbeiten bleibt ein ausgeblendetes Element
+ * blass sichtbar (sonst wäre es nicht zurückzuholen), im Unterricht ist es weg.
+ */
+
+export function istElementVersteckt(boardId, widgetId) {
+  const map = (state.settings || {}).hiddenWidgets || {};
+  return Array.isArray(map[boardId]) && map[boardId].includes(widgetId);
+}
+
+export function elementVerstecken(boardId, widgetId, versteckt) {
+  const map = state.settings.hiddenWidgets || {};
+  const bisher = Array.isArray(map[boardId]) ? map[boardId] : [];
+  const neu = versteckt
+    ? (bisher.includes(widgetId) ? bisher : bisher.concat([widgetId]))
+    : bisher.filter((id) => id !== widgetId);
+  state.settings.hiddenWidgets = Object.assign({}, map, { [boardId]: neu });
+  touch({ board: false, reason: 'widget-hidden' });
 }
 
 /** Seite entfernen — die letzte Seite einer Tafel bleibt immer bestehen. */

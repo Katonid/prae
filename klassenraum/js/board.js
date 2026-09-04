@@ -6,6 +6,7 @@ import { getWidgetType } from './widgets/index.js';
 import {
   BOARD_WIDTH, boardHeight, AURORA, getActiveBoard, getActivePage, getState, touch, removeWidget,
   duplicateWidget, nextZ, on as onStore, setActivePage, sichtbareSeiten,
+  istElementVersteckt, elementVerstecken,
 } from './store.js';
 import { openPanel, closePanel, confirmDialog, field, button, buttonRow, toast } from './ui.js';
 import { transferWidget, copyWidgetToClipboard } from './transfer.js';
@@ -663,6 +664,12 @@ function attachInteractions(el, mounted) {
       dlog(`verwaiste Zeiger verworfen (${widget.type})`);
     }
     points.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    // Im Bearbeitungsmodus bedient erst der ZWEITE Tipp: Der erste wählt nur
+    // aus (gemeldet 09/2026: Beim Einrichten der Zähl-Liste zählte jeder Tipp
+    // +1 — auswählen ohne auszulösen ging gar nicht). Ob bedient werden darf,
+    // entscheidet der Stand VOR diesem Tipp; die Bedienflächen selbst sperrt
+    // dieselbe Regel im CSS (pointer-events auf [data-nodrag]).
+    const bedienbar = mode !== 'edit' || stackMode || selectedId === widget.id;
     if (mode === 'edit') select(widget.id);
 
     const onControl = Boolean(event.target.closest && event.target.closest('[data-nodrag]'));
@@ -670,7 +677,7 @@ function attachInteractions(el, mounted) {
     if (onControl) setArmed(widget.id);
 
     if (points.size === 1) {
-      tap = { x: event.clientX, y: event.clientY, time: Date.now(), armed: !onControl };
+      tap = { x: event.clientX, y: event.clientY, time: Date.now(), armed: !onControl, bedienbar };
       if (movable && !onControl) {
         // Manche Touch-Rahmen (interaktive Tafeln) verweigern die Übernahme —
         // dann läuft das Ziehen eben ohne sie, statt gar nicht zu beginnen.
@@ -811,6 +818,14 @@ function attachInteractions(el, mounted) {
     const instance = instances.get(widget.id);
     if (!instance || !instance.api || !instance.api.onTap) return;
     if (mode === 'use' && instance.api.tapNeedsEditing) return;
+    // Erster Tipp im Bearbeitungsmodus: nur auswählen, nichts auslösen —
+    // sonst schaltete jedes Antippen Timer, Ampel oder Symbol weiter. Karten,
+    // die ohnehin einen Aktivierungs-Tipp verlangen, gelten damit gleich als
+    // aktiviert (sonst bräuchte der Zufällige Name drei Tipps statt zwei).
+    if (!finger.bedienbar) {
+      if (instance.api.tapNeedsFocus) setArmed(widget.id);
+      return;
+    }
     if (event.pointerType !== 'mouse') armTapGuard(event);
     if (instance.api.tapNeedsFocus && armedId !== widget.id) {
       setArmed(widget.id);
@@ -969,6 +984,8 @@ function layout() {
     el.classList.toggle('is-locked', Boolean(widget.locked));
     el.classList.toggle('is-selected', widget.id === selectedId);
     el.classList.toggle('widget--bare', isBare(widget, board));
+    el.classList.toggle('is-ohne-titel', Boolean(widget.titelWeg));
+    el.classList.toggle('is-versteckt', istElementVersteckt(board.id, widget.id));
     el.style.setProperty('--w-scale', contentScale(widget).toFixed(3));
     applyInk(el, widget, board);
   }
@@ -1020,6 +1037,11 @@ export function select(widgetId) {
   renderSelection();
 }
 
+// Elemente, die eine Überschrift zeichnen — nur sie bekommen den Knopf
+// „Überschrift ausblenden" in der Werkzeugleiste. Die Klassen dazu stehen im
+// CSS unter .widget.is-ohne-titel.
+const TITEL_TYPEN = ['checklist', 'noise', 'timer', 'randomizer', 'sound'];
+
 function renderSelection() {
   updateSelectionFrame();
   if (!selectionEl) return;
@@ -1042,7 +1064,8 @@ function renderSelection() {
       html: icon(action.icon, 18),
     }));
   }
-  selectionEl.append(
+  const verborgen = istElementVersteckt(board.id, widget.id);
+  selectionEl.append(...[
     h('button', {
       class: 'tool-button', title: 'Kleiner',
       onclick: () => scaleWidget(widget, 0.85),
@@ -1091,6 +1114,34 @@ function renderSelection() {
       },
       html: icon(widget.bare ? 'frameOff' : 'frameOn', 18),
     }),
+    // Überschrift nur bei Elementen, die eine zeichnen — ein Knopf, der nie
+    // etwas tut, ist schlimmer als keiner (dieselbe Regel wie beim
+    // Zurücksetzen). Der Text bleibt gespeichert und kommt beim Wiederzeigen
+    // unverändert zurück.
+    TITEL_TYPEN.includes(widget.type) ? h('button', {
+      class: 'tool-button' + (widget.titelWeg ? ' is-on' : ''),
+      title: widget.titelWeg ? 'Überschrift wieder zeigen' : 'Überschrift ausblenden',
+      onclick: () => {
+        widget.titelWeg = !widget.titelWeg;
+        touch({ reason: 'widget-titel' });
+        layout();
+        renderSelection();
+      },
+      html: icon('text', 18),
+    }) : null,
+    h('button', {
+      // Örtlich, wie die ausgeblendeten Seiten: beim Bearbeiten blass, im
+      // Unterricht weg — und nur auf DIESEM Gerät, der Abgleich trägt es
+      // nicht weiter.
+      class: 'tool-button' + (verborgen ? ' is-on' : ''),
+      title: verborgen ? 'Element wieder einblenden' : 'Element ausblenden (nur dieses Gerät, im Unterricht unsichtbar)',
+      onclick: () => {
+        elementVerstecken(board.id, widget.id, !verborgen);
+        layout();
+        renderSelection();
+      },
+      html: icon(verborgen ? 'eyeOff' : 'eye', 18),
+    }),
     h('button', {
       // „Gegen Verschieben sperren", nicht „Position sperren" (Tafelbild
       // 1.3.26): Bedienen geht weiter — ein gesperrter Timer läuft, ein
@@ -1111,7 +1162,7 @@ function renderSelection() {
         layout();
       },
       html: icon('layers', 18),
-    }));
+    })].filter(Boolean));
 
   placeSelectionToolbar(widget);
 }
