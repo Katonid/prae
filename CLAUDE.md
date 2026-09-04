@@ -1938,6 +1938,22 @@ etwas Großem, das zuletzt geändert wurde.
 - Development (Xcode) und Production (TestFlight) sind getrennte
   CloudKit-Umgebungen — Geräte gleichen nur innerhalb derselben ab. Die
   Ansicht „Abgleich prüfen" in den Einstellungen zeigt, welche gilt.
+- **Die Herkunftszeile wird nachgesehen, nicht erschlossen** (ab 1.4.2).
+  Bis 1.4.1 gab jeder Release-Bau „Production (über TestFlight installiert)“
+  aus — auch die Fassung aus dem App Store (gemeldet 09/2026). Das war eine
+  Auskunft über die Bau-Konfiguration, ausgegeben als Messung; dieselbe Art
+  Lüge, die bei Schulalarm die APNs-Umgebung betraf. Gelesen wird jetzt der
+  Kaufbeleg: `sandboxReceipt` = TestFlight, `receipt` = App Store, sonst
+  „nicht feststellbar“. **An der CloudKit-Umgebung ändert das nichts** —
+  beide Wege sind Production; genau deshalb darf die Zeile es nicht behaupten.
+- **`cloudkit.share` muss in Production stehen, sonst gibt es keinen Link.**
+  Die Freigabe wird gesichert und bleibt ohne Adresse — CloudKit meldet
+  keinen Fehler, die App fängt es ab (`legeFreigabeAn` prüft `url != nil`)
+  und nennt den Grund. In Development legt CloudKit den Typ beim ersten
+  Teilen selbst an; nach Production kommt er nur über „Deploy Schema Changes
+  to Production“. Wer das Schema überträgt, BEVOR je eine Freigabe angelegt
+  wurde, überträgt den Typ nicht mit — dann ist Teilen aus dem App Store
+  heraus tot, während es über Xcode tadellos läuft (gemeldet 09/2026).
 - **Übersetzt wird in GitHub Actions**, nicht erst auf dem Mac: Der
   Arbeitsablauf `.github/workflows/tafelbild-build.yml` baut die App bei
   jedem Push auf `TafelbildiOS/` auf einem macOS-Läufer (xcodebuild,
