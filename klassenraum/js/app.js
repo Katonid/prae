@@ -518,15 +518,29 @@ function openBackgroundPanel() {
           class: 'segmented__item' + ((board.labels || 'always') === value ? ' is-active' : ''),
           onclick: () => {
             board.labels = value;
+            // Eine NEUE globale Wahl räumt die Element-Ausnahmen ab
+            // (Ansage des Nutzers, 09/2026: Die Element-Einstellung soll
+            // „so lange überschreiben, bis global etwas anderes gewählt
+            // wird"). Sonst fragte man sich später, warum eine Uhr ihr
+            // Datum behält, obwohl hier „Nie" steht.
+            for (const page of board.pages || []) {
+              for (const widget of page.widgets || []) {
+                delete widget.titelModus;
+                delete widget.titelWeg;
+              }
+            }
             touch();
             applyBackground();
+            renderBoard();
             render();
           },
         }, label))),
       h('p', { class: 'muted small' },
         'Betrifft die kleinen Aufschriften der Elemente — Listenname und Zähler beim Zufallsnamen, '
         + '„Timer“, „Lautstärke“, Überschrift des Tagesablaufs, Datum unter der Uhr und Bildunterschriften. '
-        + 'Ohne Rahmen wirkt die Tafel damit deutlich ruhiger.')));
+        + 'Ohne Rahmen wirkt die Tafel damit deutlich ruhiger. Einzelne Elemente können das über den '
+        + 'Überschrift-Knopf (T) in ihrer Werkzeugleiste überstimmen — eine neue Wahl hier räumt diese '
+        + 'Ausnahmen wieder ab.')));
 
     // Globale Schriftfarbe der Element-Beschriftungen — einzelne Karten können
     // in ihren Einstellungen eine eigene Farbe wählen, die dann dort gewinnt.

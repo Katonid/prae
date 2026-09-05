@@ -568,7 +568,24 @@ body[data-labels="never"] .w-check__title,
 body[data-labels="never"] .w-clock__date,
 body[data-labels="never"] .w-video__label,
 body[data-labels="never"] .w-image__caption,
+body[data-labels="never"] .w-traffic__label,
 body[data-labels="never"] .w-symbol__label { display: none; }
+
+/* Element-Ausnahme „Überschrift immer zeigen" (T-Knopf in der
+ * Werkzeugleiste): überstimmt „Nie" — aber nur für die EINE Überschrift
+ * des Elements, nicht für Listenname, Zähler und Hinweise (Ansage des
+ * Nutzers, 09/2026: „nur diese Überschrift, nicht die ganzen kleinen
+ * Anzeigen"). Eine neue globale Wahl räumt die Ausnahmen ab (app.js). */
+body[data-labels="never"] .widget.is-mit-titel .w-random__title,
+body[data-labels="never"] .widget.is-mit-titel .w-timer__label,
+body[data-labels="never"] .widget.is-mit-titel .w-sound__title,
+body[data-labels="never"] .widget.is-mit-titel .w-check__title,
+body[data-labels="never"] .widget.is-mit-titel .w-clock__date,
+body[data-labels="never"] .widget.is-mit-titel .w-video__label,
+body[data-labels="never"] .widget.is-mit-titel .w-image__caption,
+body[data-labels="never"] .widget.is-mit-titel .w-traffic__label,
+body[data-labels="never"] .widget.is-mit-titel .w-symbol__label { display: block; }
+body[data-labels="never"] .widget.is-mit-titel .w-noise__title { display: inline; }
 .widget__inner > * { flex: 1; min-width: 0; }
 
 .widget.is-entering .widget__inner {
