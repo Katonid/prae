@@ -1037,10 +1037,15 @@ export function select(widgetId) {
   renderSelection();
 }
 
-// Elemente, die eine Überschrift zeichnen — nur sie bekommen den Knopf
-// „Überschrift ausblenden" in der Werkzeugleiste. Die Klassen dazu stehen im
-// CSS unter .widget.is-ohne-titel.
-const TITEL_TYPEN = ['checklist', 'noise', 'timer', 'randomizer', 'sound'];
+// Elemente, die eine Überschrift oder Beschriftung zeichnen — sie bekommen
+// den Knopf „Überschrift ausblenden" in der Werkzeugleiste. Auch das Datum
+// der Uhr und die Beschriftung der Ampel zählen dazu (gemeldet 09/2026:
+// „das Datum bei der Uhr gilt als Überschrift" — für die Person davor ist
+// alles Text unter dem Element dasselbe). Die Klassen dazu stehen im CSS
+// unter .widget.is-ohne-titel — dieselbe Liste wie bei „Beschriftungen
+// ausblenden" (data-labels), nur je Element statt für alle.
+const TITEL_TYPEN = ['checklist', 'noise', 'timer', 'randomizer', 'sound',
+  'clock', 'traffic', 'symbols', 'image', 'video'];
 
 function renderSelection() {
   updateSelectionFrame();
@@ -1111,6 +1116,16 @@ function renderSelection() {
         touch({ reason: 'widget-frame' });
         layout();
         renderSelection();
+        // Jeder Knopf meldet sich — auf dem iPad gibt es keine Tooltips,
+        // und ein Knopf, der schweigt, ist für den Menschen davor ein
+        // kaputter Knopf (gemeldet 09/2026; dieselbe Lehre wie Schulalarm
+        // 1.0.26). Sind die Rahmen für die ganze Tafel aus, sagt der Knopf
+        // ehrlich, warum sich nichts tut.
+        if ((board.frames || 'always') === 'never') {
+          toast('Unter „Aussehen" sind die Rahmen für die ganze Tafel auf „Nie" — dieser Schalter wirkt erst, wenn dort „Immer" oder „Nur beim Bearbeiten" gilt.', 'warn');
+        } else {
+          toast(widget.bare ? 'Rahmen ausgeblendet.' : 'Rahmen wieder sichtbar.', 'success');
+        }
       },
       html: icon(widget.bare ? 'frameOff' : 'frameOn', 18),
     }),
@@ -1126,6 +1141,9 @@ function renderSelection() {
         touch({ reason: 'widget-titel' });
         layout();
         renderSelection();
+        toast(widget.titelWeg
+          ? 'Überschrift und Beschriftung dieses Elements ausgeblendet.'
+          : 'Überschrift wieder sichtbar.', 'success');
       },
       html: icon('text', 18),
     }) : null,
@@ -1139,6 +1157,9 @@ function renderSelection() {
         elementVerstecken(board.id, widget.id, !verborgen);
         layout();
         renderSelection();
+        toast(verborgen
+          ? 'Element wieder eingeblendet.'
+          : 'Ausgeblendet — nur auf diesem Gerät: im Unterricht unsichtbar, beim Bearbeiten blass.', 'success');
       },
       html: icon(verborgen ? 'eyeOff' : 'eye', 18),
     }),
@@ -1151,6 +1172,10 @@ function renderSelection() {
         widget.locked = !widget.locked;
         touch({ reason: 'widget-lock' });
         layout();
+        renderSelection();
+        toast(widget.locked
+          ? 'Gegen Verschieben gesperrt — bedienen geht weiter.'
+          : 'Verschieben wieder erlaubt.', 'success');
       },
       html: icon(widget.locked ? 'lock' : 'unlock', 18),
     }),
@@ -1160,6 +1185,7 @@ function renderSelection() {
         widget.z = nextZ();
         touch({ reason: 'widget-z' });
         layout();
+        toast('Nach vorne geholt — sichtbar, wenn sich Elemente überlappen.', 'success');
       },
       html: icon('layers', 18),
     })].filter(Boolean));
