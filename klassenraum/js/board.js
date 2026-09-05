@@ -984,7 +984,12 @@ function layout() {
     el.classList.toggle('is-locked', Boolean(widget.locked));
     el.classList.toggle('is-selected', widget.id === selectedId);
     el.classList.toggle('widget--bare', isBare(widget, board));
-    el.classList.toggle('is-ohne-titel', Boolean(widget.titelWeg));
+    // Drei Stufen je Element (Ansage des Nutzers, 09/2026): '' = wie die
+    // Tafel unter „Aussehen", 'an' = Überschrift IMMER (überstimmt „Nie"),
+    // 'aus' = Überschrift nie. titelWeg ist die Altlast aus 1.8.45.
+    const titelModus = widget.titelModus || (widget.titelWeg ? 'aus' : '');
+    el.classList.toggle('is-ohne-titel', titelModus === 'aus');
+    el.classList.toggle('is-mit-titel', titelModus === 'an');
     el.classList.toggle('is-versteckt', istElementVersteckt(board.id, widget.id));
     el.style.setProperty('--w-scale', contentScale(widget).toFixed(3));
     applyInk(el, widget, board);
@@ -1131,22 +1136,34 @@ function renderSelection() {
     }),
     // Überschrift nur bei Elementen, die eine zeichnen — ein Knopf, der nie
     // etwas tut, ist schlimmer als keiner (dieselbe Regel wie beim
-    // Zurücksetzen). Der Text bleibt gespeichert und kommt beim Wiederzeigen
-    // unverändert zurück.
-    TITEL_TYPEN.includes(widget.type) ? h('button', {
-      class: 'tool-button' + (widget.titelWeg ? ' is-on' : ''),
-      title: widget.titelWeg ? 'Überschrift wieder zeigen' : 'Überschrift ausblenden',
-      onclick: () => {
-        widget.titelWeg = !widget.titelWeg;
-        touch({ reason: 'widget-titel' });
-        layout();
-        renderSelection();
-        toast(widget.titelWeg
-          ? 'Überschrift und Beschriftung dieses Elements ausgeblendet.'
-          : 'Überschrift wieder sichtbar.', 'success');
-      },
-      html: icon('text', 18),
-    }) : null,
+    // Zurücksetzen). Drei Stufen im Kreis: wie die Tafel → immer → nie.
+    // „Immer" überstimmt auch „Beschriftungen: Nie" unter Aussehen — aber
+    // nur für die EINE Überschrift, nicht für Listenname, Zähler und
+    // Hinweise (Ansage des Nutzers, 09/2026: „nur diese Überschrift, nicht
+    // die ganzen kleinen Anzeigen"). Eine neue globale Wahl räumt die
+    // Ausnahmen wieder ab (app.js, Abschnitt „Beschriftungen").
+    TITEL_TYPEN.includes(widget.type) ? (() => {
+      const titelModus = widget.titelModus || (widget.titelWeg ? 'aus' : '');
+      return h('button', {
+        class: 'tool-button' + (titelModus ? ' is-on' : ''),
+        title: titelModus === 'an' ? 'Überschrift: wird immer gezeigt'
+          : titelModus === 'aus' ? 'Überschrift: ausgeblendet'
+            : 'Überschrift: wie unter „Aussehen"',
+        onclick: () => {
+          widget.titelModus = { '': 'an', an: 'aus', aus: '' }[titelModus] || '';
+          delete widget.titelWeg;
+          touch({ reason: 'widget-titel' });
+          layout();
+          renderSelection();
+          toast(widget.titelModus === 'an'
+            ? 'Überschrift wird IMMER gezeigt — auch wenn Beschriftungen unter „Aussehen" aus sind.'
+            : widget.titelModus === 'aus'
+              ? 'Überschrift ausgeblendet — egal, was unter „Aussehen" gilt.'
+              : 'Überschrift folgt wieder der Tafel-Einstellung unter „Aussehen".', 'success');
+        },
+        html: icon('text', 18),
+      });
+    })() : null,
     h('button', {
       // Örtlich, wie die ausgeblendeten Seiten: beim Bearbeiten blass, im
       // Unterricht weg — und nur auf DIESEM Gerät, der Abgleich trägt es
