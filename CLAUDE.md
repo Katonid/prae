@@ -438,6 +438,20 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   den Vordergrund, was der Server über das eigene Konto sagt — Rolle UND
   Kürzel. Ohne das schriebe das Gerät seine nächste Rückmeldung weiter unter
   dem alten, und die Änderung wäre nur in der Mitgliederliste zu sehen.
+- **Ein Kürzel gehört einer Person — abgewiesen wird das KÜRZEL, nicht der
+  Beitritt** (ab 1.0.28). Wer ein schon vergebenes Kürzel tippt, wird beim
+  Beitreten abgelehnt (`Member.vergleichbaresKuerzel`: Groß/Klein und
+  Leerzeichen zählen nicht, **Umlaute werden NICHT eingeebnet** — „MU“ und „MÜ“
+  sind zwei Personen), dieselbe Prüfung noch einmal in `setDisplayName`. Das
+  eigene Mitglied ist ausgenommen, sonst käme niemand nach einer Neuinstallation
+  zurück. **Die naheliegende Bestätigung durch das schon angemeldete Gerät ist
+  bewusst NICHT gebaut** (Vorschlag des Nutzers, 09/2026): Steht dieses iPad im
+  Schrank, bliebe eine Lehrkraft im Ernstfall stumm — in einer Alarm-App ist
+  Aussperren der größere Schaden als ein doppeltes Kürzel. Und sie hielte
+  niemanden auf, der ein freies Kürzel nimmt. Die Kontrolle ist deshalb
+  **Sichtbarkeit**: Die Mitgliederliste nennt seit 1.0.28 das Beitrittsdatum und
+  markiert noch vorhandene Doppel; ein unerwarteter Eintrag wird entfernt und der
+  Beitrittscode zurückgezogen.
 - **Ein Mitglied ist eine APPLE-ID, kein iPad.** Zwei iPads mit derselben
   Apple-ID sind EIN Mitglied mit EINER Rolle, und eine Rückmeldung lässt
   sich ihnen nicht einzeln zuordnen (`ack-<Alarm>-<Nutzer>`). Jede Lehrkraft

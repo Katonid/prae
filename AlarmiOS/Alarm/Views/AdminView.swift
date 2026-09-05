@@ -241,8 +241,17 @@ struct MembersView: View {
                     HStack {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(member.displayName).font(.headline)
-                            Text(member.role.label)
+                            Text("\(member.role.label) · seit \(beigetreten(member))")
                                 .font(.caption).foregroundStyle(.secondary)
+                            // Doppelte Kürzel entstehen seit 1.0.28 nicht mehr
+                            // neu. Ältere gibt es aber, und sie machen aus der
+                            // Rückmeldeliste eine Vermutung — also zeigen.
+                            if doppelt(member) {
+                                Label("Kürzel doppelt vergeben",
+                                      systemImage: "exclamationmark.triangle.fill")
+                                    .font(.caption2)
+                                    .foregroundStyle(.orange)
+                            }
                         }
                         Spacer()
                         VStack(alignment: .trailing, spacing: 6) {
@@ -291,6 +300,16 @@ struct MembersView: View {
                      + "Rückmeldung im Ernstfall kann sie nicht "
                      + "auseinanderhalten. Jede Lehrkraft braucht deshalb eine "
                      + "eigene Apple-ID.\n\n"
+                     + "Ein Kürzel gehört einer Person: Ein schon vergebenes "
+                     + "wird beim Beitreten abgewiesen. Wer ein zweites Gerät "
+                     + "mit einer ANDEREN Apple-ID anmeldet, hängt ein "
+                     + "Kennzeichen an (etwa „MÜ-2“) — für die App sind das "
+                     + "zwei Mitglieder, und beide melden im Ernstfall "
+                     + "getrennt zurück.\n\n"
+                     + "Wer neu dazukommt, steht hier mit seinem Beitrittsdatum. "
+                     + "Das ist die Kontrolle: Der Beitrittscode gilt für jeden, "
+                     + "der ihn hat — ein unerwarteter Name gehört nachgefragt "
+                     + "und notfalls hier entfernt.\n\n"
                      + "„Testalarm senden“ schickt einen Probealarm an genau dieses "
                      + "eine iPad — das Kollegium merkt nichts davon. Auf dem "
                      + "Zielgerät setzt sich damit der Haken „Zustellung geprüft“.\n\n"
@@ -323,6 +342,19 @@ struct MembersView: View {
                 Text("Noch niemand beigetreten.").foregroundStyle(.secondary)
             }
         }
+    }
+
+    /// Trägt ein zweites Mitglied dasselbe Kürzel?
+    private func doppelt(_ member: Member) -> Bool {
+        let vergleich = Member.vergleichbaresKuerzel(member.displayName)
+        return members.contains {
+            $0.id != member.id
+                && Member.vergleichbaresKuerzel($0.displayName) == vergleich
+        }
+    }
+
+    private func beigetreten(_ member: Member) -> String {
+        member.joinedAt.formatted(date: .abbreviated, time: .omitted)
     }
 
     private func umbenennen() {

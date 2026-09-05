@@ -237,6 +237,36 @@ sich die meisten Überraschungen erklären:
 Die Geräteübersicht macht den Fall sichtbar: Sie zählt die Geräte je Kürzel
 und warnt, wenn zwei unter einem stehen.
 
+**Ein Kürzel gehört einer Person** (ab 1.0.28). Wer beim Beitreten ein Kürzel
+tippt, das in dieser Schule schon jemand trägt, wird abgewiesen — groß oder
+klein und Leerzeichen zählen dabei nicht. Umlaute werden ausdrücklich **nicht**
+eingeebnet: „MU“ und „MÜ“ sind zwei Personen. Dasselbe gilt beim Berichtigen
+durch einen Admin, sonst wäre das der Weg, ein Doppel doch noch anzulegen.
+
+Abgewiesen wird das **Kürzel**, nicht der Beitritt: Wer hier steht, hat den
+Code und gehört ins Kollegium; er tippt ein anderes Kürzel und ist eine Sekunde
+später drin. Eine Rückfrage beim Gerät der bereits angemeldeten Person wäre der
+teurere Weg — steht dieses iPad im Schrank oder ist es aus, bliebe eine
+Lehrkraft im Ernstfall stumm. **In einer Alarm-App ist Aussperren der größere
+Schaden als ein doppeltes Kürzel.**
+
+Was diese Regel **nicht** leistet: Sie hält niemanden davon ab, ein bisher
+freies Kürzel zu nehmen. Der Zugang zur Gruppe hängt am sechsstelligen
+Beitrittscode — wer ihn hat und eine Apple-ID besitzt, kommt herein (siehe
+„Was die öffentliche Datenbank nicht kann“). Die Kontrolle danach ist die
+**Mitgliederliste**: Sie nennt jedes Mitglied mit Rolle und **Beitrittsdatum**,
+markiert noch vorhandene Doppel und lässt einen unerwarteten Eintrag entfernen.
+Wird ein Code weitergereicht, gehört er zurückgezogen und ein neuer vergeben.
+
+Zwei Geräte einer Person:
+
+* **Dieselbe Apple-ID** — nichts zu tun. Es ist dasselbe Mitglied, dasselbe
+  Kürzel, dieselbe Rolle; ein zweiter „Beitritt“ überschreibt nur den eigenen
+  Datensatz.
+* **Zwei verschiedene Apple-IDs** (Dienst-iPad schulisch, privates iPhone
+  privat) — das sind für die App **zwei Mitglieder**, und beide melden getrennt
+  zurück. Sie brauchen deshalb unterscheidbare Kürzel: „MÜ“ und „MÜ-2“.
+
 **Ein Kürzel lässt sich berichtigen** (Verwaltung → Mitglieder → „Kürzel
 ändern“). Es wird beim Beitreten getippt, und dabei passiert alles: Tippfehler,
 zweimal dasselbe Kürzel, ein voller Name statt eines Kürzels. Weil es in jeder

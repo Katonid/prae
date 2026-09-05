@@ -60,6 +60,7 @@ enum BackendError: LocalizedError, Equatable {
     case notPermitted
     case codeUnknown
     case codeRevoked
+    case handleTaken(String)
     case alarmAlreadyRunning(AlarmType)
     case accountUnavailable(BackendAvailability)
     case network(String)
@@ -76,6 +77,12 @@ enum BackendError: LocalizedError, Equatable {
             return "Diesen Beitrittscode gibt es nicht."
         case .codeRevoked:
             return "Dieser Beitrittscode wurde zurückgezogen."
+        case .handleTaken(let kuerzel):
+            return "Das Kürzel „\(kuerzel)“ hat in dieser Schule schon jemand. "
+                 + "Bitte ein anderes wählen — im Ernstfall muss die "
+                 + "Rückmeldeliste eindeutig sein. Ist es das eigene und "
+                 + "dieses Gerät hängt an einer zweiten Apple-ID, dann ein "
+                 + "Kennzeichen anhängen (etwa „\(kuerzel)-2“)."
         case .alarmAlreadyRunning(let type):
             return "Es läuft bereits ein \(NSLocalizedString(type.titleKey, comment: "")). "
                  + "Ein zweiter desselben Art wird nicht ausgelöst."

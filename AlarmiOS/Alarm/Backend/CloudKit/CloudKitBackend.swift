@@ -207,6 +207,31 @@ final class CloudKitBackend: AlarmBackend {
         let existingMembers = try await members(of: groupID)
         let role = existingMembers.first { $0.userId == userId }?.role ?? .member
 
+        // **Ein Kürzel gehört einer Person.**
+        //
+        // Es steht in jeder Rückmeldung und über jeder Nachricht. Zwei
+        // gleiche Kürzel machen aus der einen Zahl, auf die im Ernstfall
+        // geschaut wird, eine Vermutung — und wer das Kürzel einer Kollegin
+        // tippt, spricht unter ihrem Namen.
+        //
+        // Abgewiesen wird das Kürzel, NICHT der Beitritt: Wer hier steht, hat
+        // den Code und gehört ins Kollegium. Er tippt ein anderes Kürzel und
+        // ist eine Sekunde später drin. Eine Rückfrage bei einem anderen iPad
+        // wäre der teurere Weg — steht das Gerät im Schrank, bliebe eine
+        // Lehrkraft im Ernstfall stumm.
+        //
+        // Das eigene Mitglied ist ausgenommen: Wer die App neu installiert
+        // oder ein zweites iPad derselben Apple-ID einrichtet, trifft auf sein
+        // eigenes Kürzel und darf es behalten.
+        let vergleich = Member.vergleichbaresKuerzel(handle)
+        if !vergleich.isEmpty,
+           let fremd = existingMembers.first(where: {
+               $0.userId != userId
+                   && Member.vergleichbaresKuerzel($0.displayName) == vergleich
+           }) {
+            throw BackendError.handleTaken(fremd.displayName)
+        }
+
         try await upsert(recordID: CKRecord.ID(recordName: memberName),
                          type: CloudRecordType.member) { record in
             record[CloudField.groupRef] = CKRecord.Reference(recordID: groupID, action: .none)
@@ -788,6 +813,15 @@ final class CloudKitBackend: AlarmBackend {
         let kuerzel = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !kuerzel.isEmpty else {
             throw BackendError.server("Ein Kürzel darf nicht leer sein.")
+        }
+        // Dieselbe Regel wie beim Beitreten — sonst wäre das Berichtigen der
+        // Weg, ein Doppel doch noch anzulegen.
+        let vergleich = Member.vergleichbaresKuerzel(kuerzel)
+        if let fremd = try await members(of: try requireGroupID()).first(where: {
+            $0.id != memberId
+                && Member.vergleichbaresKuerzel($0.displayName) == vergleich
+        }) {
+            throw BackendError.handleTaken(fremd.displayName)
         }
         do {
             let record = try await database.record(for: CKRecord.ID(recordName: memberId))
