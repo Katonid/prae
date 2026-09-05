@@ -212,7 +212,7 @@ struct WidgetHostView: View {
         case .image(let value):
             ImageWidgetView(content: value, onChoose: { store.settingsWidgetID = widget.id })
         case .sounds(let value):
-            SoundsWidgetView(content: value, interactive: !editing,
+            SoundsWidgetView(content: value, elementID: widget.id, interactive: !editing,
                              onOpenSettings: { store.settingsWidgetID = widget.id })
         case .symbols(let value):
             SymbolWidgetView(content: bindSymbol(value), interactive: !editing)

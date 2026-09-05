@@ -236,10 +236,26 @@ final class SoundPlayer: NSObject, ObservableObject {
     private var streams: [String: AVPlayer] = [:]
     private var streamEnds: [String: NSObjectProtocol] = [:]
 
+    /// Der Schlüssel, unter dem ein Klangfeld geführt wird.
+    ///
+    /// **Die Kennung des Feldes allein reicht nicht** (gemeldet 09/2026).
+    /// Beim Duplizieren eines Elements wandern seine Felder mitsamt ihren
+    /// Kennungen in die Kopie — zwei Felder auf der Tafel tragen dann
+    /// dieselbe. Der Abspieler hielt sie für dasselbe Feld: Ein Tipp auf das
+    /// eine ließ auch das andere leuchten und seinen Balken ablaufen.
+    /// Deshalb steht das ELEMENT mit im Schlüssel; erst beides zusammen
+    /// benennt ein Feld auf der Tafel eindeutig.
+    static func feld(_ elementID: String, _ buttonID: String) -> String {
+        elementID + "|" + buttonID
+    }
+
     /// Spielt das Feld ab: erst die Datei auf dem Gerät, sonst den Link.
     /// `toggle` = erneutes Antippen stoppt.
-    func play(_ button: SoundButton) {
-        let id = button.id
+    ///
+    /// `feld` ist der Schlüssel aus `SoundPlayer.feld(elementID:buttonID:)` —
+    /// nicht die nackte Kennung des Feldes.
+    func play(_ button: SoundButton, feld: String) {
+        let id = feld
         let wasPlaying = isPlaying(id)
         stop(buttonID: id)
         if wasPlaying && button.toggle { return }
@@ -281,12 +297,12 @@ final class SoundPlayer: NSObject, ObservableObject {
     ///
     /// nil, solange nichts läuft oder die Länge nicht feststeht — bei einem
     /// Klang aus dem Netz weiß man sie erst, wenn genug geladen ist.
-    func fortschritt(_ buttonID: String) -> Double? {
-        if let spieler = players[buttonID] {
+    func fortschritt(_ feld: String) -> Double? {
+        if let spieler = players[feld] {
             guard spieler.duration > 0 else { return nil }
             return min(1, max(0, spieler.currentTime / spieler.duration))
         }
-        if let strom = streams[buttonID], let stueck = strom.currentItem {
+        if let strom = streams[feld], let stueck = strom.currentItem {
             let dauer = stueck.duration.seconds
             guard dauer.isFinite, dauer > 0 else { return nil }
             return min(1, max(0, stueck.currentTime().seconds / dauer))
@@ -295,12 +311,12 @@ final class SoundPlayer: NSObject, ObservableObject {
     }
 
     /// Wie lange läuft es noch? In Sekunden.
-    func restzeit(_ buttonID: String) -> Double? {
-        if let spieler = players[buttonID] {
+    func restzeit(_ feld: String) -> Double? {
+        if let spieler = players[feld] {
             guard spieler.duration > 0 else { return nil }
             return max(0, spieler.duration - spieler.currentTime)
         }
-        if let strom = streams[buttonID], let stueck = strom.currentItem {
+        if let strom = streams[feld], let stueck = strom.currentItem {
             let dauer = stueck.duration.seconds
             guard dauer.isFinite, dauer > 0 else { return nil }
             return max(0, dauer - stueck.currentTime().seconds)
@@ -330,7 +346,7 @@ final class SoundPlayer: NSObject, ObservableObject {
         playingIDs.removeAll()
     }
 
-    func isPlaying(_ buttonID: String) -> Bool { playingIDs.contains(buttonID) }
+    func isPlaying(_ feld: String) -> Bool { playingIDs.contains(feld) }
 
     // MARK: Signal am Ende eines Timers
 
