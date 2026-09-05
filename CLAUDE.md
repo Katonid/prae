@@ -2018,6 +2018,17 @@ etwas Großem, das zuletzt geändert wurde.
   Teilen-Blatt nach der Freigabe, die WIRKLICH entstanden ist: Ein fest
   eingetragenes `.allowPublic` böte sonst als einzige Möglichkeit genau die
   an, die auf diesem Konto scheitert.
+- **Eine Kopie erbt keine Kennungen** (`Kopie.swift`, ab 1.4.5). Beim
+  Duplizieren bekam das Element eine neue Kennung, was IN ihm steckt aber
+  nicht. Bei den Klangfeldern fiel es auf: Der Abspieler führt das Laufende je
+  Feld, und zwei Felder gleicher Kennung sind für ihn eines — ein Tipp auf das
+  eine ließ auch das andere leuchten und seinen Balken ablaufen (gemeldet
+  09/2026). Zwei Stellen, mit Absicht beide: `mitNeuenKennungen()` stellt die
+  Ursache ab (Klangfelder UND Checklistenpunkte, in `duplicateWidget` und
+  `duplicateBoard`), und `SoundPlayer.feld` nimmt zusätzlich das Element mit
+  in den Schlüssel — das heilt die Kopien, die schon auf der Platte liegen und
+  die kein Umbenennen mehr erreicht. **Wer eine neue Inhaltsart mit eigenen
+  Kennungen baut, trägt sie in `mitNeuenKennungen()` ein.**
 - **Übersetzt wird in GitHub Actions**, nicht erst auf dem Mac: Der
   Arbeitsablauf `.github/workflows/tafelbild-build.yml` baut die App bei
   jedem Push auf `TafelbildiOS/` auf einem macOS-Läufer (xcodebuild,

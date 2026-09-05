@@ -599,6 +599,7 @@ final class BoardStore: ObservableObject {
         copy.widgets = board.widgets.map { widget in
             var new = widget
             new.id = UUID().uuidString
+            new.content = widget.content.mitNeuenKennungen()
             return new
         }
         boards.append(copy)
@@ -1320,6 +1321,9 @@ final class BoardStore: ObservableObject {
         else { return }
         var copy = source
         copy.id = UUID().uuidString
+        // Was IM Inhalt eine Kennung trägt, bekommt auch eine neue — sonst
+        // erbt die Kopie die Identität des Originals (siehe `Kopie.swift`).
+        copy.content = source.content.mitNeuenKennungen()
         // Eine Kopie gehört dem, der sie macht — nicht dem Urheber des
         // Originals. Sonst könnte man sie hinterher nicht mehr loswerden.
         copy.erstelltVon = myUserID ?? ""

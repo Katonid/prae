@@ -4,6 +4,12 @@ import SwiftUI
 /// Aufräummusik, eigene Ansagen.
 struct SoundsWidgetView: View {
     let content: SoundsContent
+    /// Kennung des Elements — gehört zum Schlüssel jedes Feldes.
+    ///
+    /// Ohne sie führte der Abspieler zwei duplizierte Elemente als eines:
+    /// Ein Tipp auf das eine ließ auch das andere leuchten und seinen Balken
+    /// ablaufen (gemeldet 09/2026). Siehe `SoundPlayer.feld`.
+    let elementID: String
     var interactive: Bool
 
     @Environment(\.boardStyle) private var style
@@ -65,8 +71,8 @@ struct SoundsWidgetView: View {
         // `jetzt` steht nur da, damit SwiftUI den Balken neu zeichnet; der
         // Wert kommt vom Abspieler selbst.
         let _ = jetzt
-        let anteil = player.fortschritt(button.id)
-        let rest = player.restzeit(button.id)
+        let anteil = player.fortschritt(SoundPlayer.feld(elementID, button.id))
+        let rest = player.restzeit(SoundPlayer.feld(elementID, button.id))
         VStack(spacing: 3) {
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
@@ -114,7 +120,7 @@ struct SoundsWidgetView: View {
     /// Wer die Felder ausdrücklich ohne Text will, schaltet in den
     /// Einstellungen des Elements „Beschriftungen zeigen“ ab.
     private func padView(_ button: SoundButton, height: CGFloat) -> some View {
-        let playing = player.isPlaying(button.id)
+        let playing = player.isPlaying(SoundPlayer.feld(elementID, button.id))
         let color = Fuellung.leitfarbe(button.colorHex, button.colorHex2)
         let fuellung = Fuellung.stil(button.colorHex, button.colorHex2)
         return Button {
@@ -124,7 +130,7 @@ struct SoundsWidgetView: View {
                 onOpenSettings()
                 return
             }
-            SoundPlayer.shared.play(button)
+            SoundPlayer.shared.play(button, feld: SoundPlayer.feld(elementID, button.id))
         } label: {
             VStack(spacing: 4) {
                 Text(button.emoji.isEmpty ? "🔊" : button.emoji)

@@ -1897,7 +1897,11 @@ private struct SoundsSettings: View {
                     Spacer()
                     if button.hasSource {
                         Button {
-                            SoundPlayer.shared.play(button)
+                            // Eigener Namensraum: Die Probe im
+                            // Einstellungsblatt soll kein Feld auf der Tafel
+                            // zum Leuchten bringen.
+                            SoundPlayer.shared.play(button,
+                                                    feld: SoundPlayer.feld("probe", button.id))
                         } label: {
                             Image(systemName: "play.circle.fill")
                         }
