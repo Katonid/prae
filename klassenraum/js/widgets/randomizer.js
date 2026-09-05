@@ -130,6 +130,17 @@ function inkAuf(hex) {
   return (0.2126 * r + 0.7152 * g + 0.0722 * b) > 0.55 ? '#0f172a' : '#ffffff';
 }
 
+/** Mittelwert zweier Hex-Farben — für die Schriftfarbe auf einem Verlauf. */
+function mischHex(a, b) {
+  const lese = (hex) => /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex || '');
+  const ma = lese(a);
+  const mb = lese(b);
+  if (!ma || !mb) return a;
+  const teil = (i) => Math.round((parseInt(ma[i], 16) + parseInt(mb[i], 16)) / 2)
+    .toString(16).padStart(2, '0');
+  return `#${teil(1)}${teil(2)}${teil(3)}`;
+}
+
 /**
  * Gedächtnis der Auslosungen — es gehört ausdrücklich zu DIESEM Element:
  * Zwei Felder mit derselben Auslosungsfunktion (auch mit derselben
@@ -360,6 +371,7 @@ export default {
       groupView: 'karten',
       // Farbe der Namenskarten (null = automatisch passend zum Karten-Schema).
       cardColor: null,
+      cardColor2: null,
       // Nach jeder Auslosung geschützt — erst das Schloss öffnen, dann neu losen.
       locked: false,
     };
@@ -609,10 +621,19 @@ export default {
       // Eigene Kartenfarbe: als Variablen am Raster, Alt-Karten leicht abgedunkelt,
       // Schrift automatisch hell oder dunkel — je nachdem, was lesbar ist.
       const cardColor = typeof state.cardColor === 'string' && state.cardColor ? state.cardColor : null;
+      const cardColor2 = typeof state.cardColor2 === 'string' && state.cardColor2 ? state.cardColor2 : null;
       if (cardColor) {
-        groupsBox.style.setProperty('--gcard-bg', cardColor);
-        groupsBox.style.setProperty('--gcard-bg-alt', `color-mix(in srgb, ${cardColor} 82%, #0f172a)`);
-        groupsBox.style.setProperty('--gcard-ink', inkAuf(cardColor));
+        // Verlauf wie in der Tafelbild-App (Ansage des Nutzers, 09/2026):
+        // mit zweiter Farbe von der einen zur anderen; mit nur einer Farbe
+        // ein feiner Licht-Schatten-Verlauf derselben Farbe — flach wirkte
+        // die Karte gegen die iOS-Fassung ab.
+        const von = cardColor2 ? cardColor : `color-mix(in srgb, ${cardColor} 80%, #ffffff)`;
+        const bis = cardColor2 || `color-mix(in srgb, ${cardColor} 86%, #0f172a)`;
+        groupsBox.style.setProperty('--gcard-bg', `linear-gradient(165deg, ${von}, ${bis})`);
+        groupsBox.style.setProperty('--gcard-bg-alt',
+          `linear-gradient(165deg, color-mix(in srgb, ${von} 82%, #0f172a), color-mix(in srgb, ${bis} 82%, #0f172a))`);
+        groupsBox.style.setProperty('--gcard-ink',
+          inkAuf(cardColor2 ? mischHex(cardColor, cardColor2) : cardColor));
       } else {
         groupsBox.style.removeProperty('--gcard-bg');
         groupsBox.style.removeProperty('--gcard-bg-alt');
@@ -1353,6 +1374,40 @@ export default {
               render();
             },
           }))));
+        // Verlauf zur zweiten Farbe (wie in der Tafelbild-App) — erst
+        // sichtbar, wenn eine Grundfarbe gewählt ist: Auf „Automatisch"
+        // gibt es nichts, wovon der Verlauf ausgehen könnte.
+        if (kartenFarbe) {
+          const zweite = typeof state.cardColor2 === 'string' && state.cardColor2 ? state.cardColor2 : null;
+          const setZweite = (color) => {
+            ctx.widget.state.cardColor2 = color || null;
+            ctx.save();
+            rerender();
+          };
+          parts.push(field('Verlauf zur zweiten Farbe', h('div', { class: 'swatches' },
+            h('button', {
+              class: 'swatch swatch--small swatch--auto' + (!zweite ? ' is-active' : ''),
+              title: 'Kein eigener Verlauf — die eine Farbe, sanft schattiert',
+              onclick: () => setZweite(null),
+            }, '–'),
+            ['#f97316', '#fde047', '#86efac', '#93c5fd', '#f9a8d4', '#ffffff'].map((color) => h('button', {
+              class: 'swatch swatch--small' + (zweite === color ? ' is-active' : ''),
+              style: { background: color },
+              title: color,
+              onclick: () => setZweite(color),
+            })),
+            h('input', {
+              class: 'input input--color', type: 'color',
+              value: zweite || kartenFarbe,
+              title: 'Eigene zweite Farbe',
+              oninput: (event) => {
+                ctx.widget.state.cardColor2 = event.target.value;
+                ctx.save();
+                render();
+              },
+            })),
+          'Die Kärtchen laufen von der ersten zur zweiten Farbe — wie in der Tafelbild-App.'));
+        }
         parts.push(toggleRow('Mit Animation auslosen', state.animate !== false, (value) => {
           ctx.widget.state.animate = value;
           ctx.save();
