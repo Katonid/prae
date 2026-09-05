@@ -531,12 +531,20 @@ body[data-cards="dark"] .widget::after { box-shadow: inset 0 1px 0 rgba(255, 255
 body:not(.is-using):not(.is-stacked):not(.is-presenting) .widget:not(.is-selected) [data-nodrag] { pointer-events: none; }
 
 /* Überschrift je Element ausblendbar (Knopf in der Werkzeugleiste) —
- * ergänzt die globale Einstellung data-labels="never", die ALLE trifft. */
+ * ergänzt die globale Einstellung data-labels="never", die ALLE trifft.
+ * Dieselbe Klassenliste wie dort: Auch Uhr-Datum und Ampel-Beschriftung
+ * sind für die Person davor „die Überschrift" (gemeldet 09/2026). */
 .widget.is-ohne-titel .w-check__title,
 .widget.is-ohne-titel .w-noise__title,
 .widget.is-ohne-titel .w-timer__label,
+.widget.is-ohne-titel .w-timer__hint,
 .widget.is-ohne-titel .w-random__title,
-.widget.is-ohne-titel .w-sound__title { display: none; }
+.widget.is-ohne-titel .w-sound__title,
+.widget.is-ohne-titel .w-clock__date,
+.widget.is-ohne-titel .w-traffic__label,
+.widget.is-ohne-titel .w-symbol__label,
+.widget.is-ohne-titel .w-image__caption,
+.widget.is-ohne-titel .w-video__label { display: none; }
 
 /* Örtlich ausgeblendete Elemente: beim Bearbeiten blass (sonst wären sie
  * nicht zurückzuholen — dieselbe Regel wie bei den Seiten), im Unterricht
