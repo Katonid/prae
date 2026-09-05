@@ -70,7 +70,11 @@ struct JoinView: View {
                     Text("Dein Kürzel")
                 } footer: {
                     Text("Kein voller Name. Das Kürzel steht in den Rückmeldungen, "
-                         + "die die Admins sehen — mehr braucht niemand.")
+                         + "die die Admins sehen — mehr braucht niemand.\n\n"
+                         + "Jedes Kürzel gibt es in einer Schule nur einmal. Ist "
+                         + "es schon vergeben, sagt die App das beim Beitreten. "
+                         + "Ein zweites Gerät mit DERSELBEN Apple-ID braucht "
+                         + "nichts weiter — es ist dasselbe Mitglied.")
                 }
 
                 if weg == .anlegen { anlegen } else { beitreten }

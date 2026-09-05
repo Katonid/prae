@@ -94,6 +94,15 @@ final class MockBackend: AlarmBackend {
 
     func joinGroup(code: String, displayName: String) async throws -> Membership {
         guard InviteCode.normalize(code) == "K7QX2M" else { throw BackendError.codeUnknown }
+        // Ein Kürzel gehört einer Person — dieselbe Regel wie beim echten
+        // Backend, sonst prüfte die Vorschau etwas anderes als die App.
+        let vergleich = Member.vergleichbaresKuerzel(displayName)
+        if let fremd = members.first(where: {
+            $0.userId != userId
+                && Member.vergleichbaresKuerzel($0.displayName) == vergleich
+        }) {
+            throw BackendError.handleTaken(fremd.displayName)
+        }
         // Wer beitritt, wird Mitglied — wie in der Wirklichkeit.
         let member = Member(id: "m1", groupId: group.id, userId: userId,
                             displayName: displayName, role: .member)
@@ -254,6 +263,13 @@ final class MockBackend: AlarmBackend {
     }
 
     func setDisplayName(memberId: String, to name: String) async throws {
+        let vergleich = Member.vergleichbaresKuerzel(name)
+        if let fremd = members.first(where: {
+            $0.id != memberId
+                && Member.vergleichbaresKuerzel($0.displayName) == vergleich
+        }) {
+            throw BackendError.handleTaken(fremd.displayName)
+        }
         lock.around {
             guard let index = members.firstIndex(where: { $0.id == memberId }) else { return }
             members[index].displayName = name

@@ -76,6 +76,16 @@ struct Member: Codable, Identifiable, Equatable {
         self.role = role
         self.joinedAt = joinedAt
     }
+
+    /// Zwei Kürzel gelten als dasselbe, wenn sie sich nur in Groß- und
+    /// Kleinschreibung oder in Leerzeichen unterscheiden.
+    ///
+    /// Umlaute werden ausdrücklich NICHT eingeebnet: „MU“ und „MÜ“ sind zwei
+    /// Personen, und wer sie zusammenwirft, sperrt eine davon aus. Lieber ein
+    /// Doppel zu wenig erkannt als eine Lehrkraft, die nicht hereinkommt.
+    static func vergleichbaresKuerzel(_ text: String) -> String {
+        text.lowercased().filter { !$0.isWhitespace }
+    }
 }
 
 /// A raised alarm. The central record: creating it is what makes 30 iPads
