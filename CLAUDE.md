@@ -1361,8 +1361,19 @@ Namens und lebt weiter.
   stillschweigend fehlende Zeile im Kalender fällt erst auf, wenn der Termin
   vorbei ist.
 - Eine Uhrzeit in der Beschreibung wird nur mit Doppelpunkt oder dem Wort
-  „Uhr" übernommen. „3.45" in einem Text ist meist eine Zahl und keine
-  Viertel vor vier.
+  „Uhr" (bzw. „h") übernommen. „3.45" in einem Text ist meist eine Zahl und
+  keine Viertel vor vier. **Die Zeitspanne wird VOR den Einzelzeiten
+  geprüft** (`ZEITSPANNE` vor `EINZELZEIT`): „9-15.30 Uhr" ist eine Angabe,
+  keine zwei — und „11.00 Uhr" ergab ohne die Punktform in der Einzelsuche
+  einmal 00:00 Uhr, weil nur „00 Uhr" passte (gefunden 09/2026 an einer
+  echten Jahresplanung).
+- **Zeiträume in Kurzform sind der Regelfall in Schulplänen**: `12.-14.10.2026`,
+  `10./11.07.2027`, `17.10.- 31.10.2026`, `14.09.-25.09.2026`. Sie werden VOR
+  `TT.MM.JJJJ` geprüft, sonst frisst die einfache Regel das zweite Datum und
+  der Anfangstag geht verloren. Fehlt beim ersten Datum das Jahr, gilt das des
+  zweiten — bei größerem Monat um eins zurück (`28.12.-04.01.2027` beginnt
+  2026). Gefundene Daten werden am Ende chronologisch sortiert: „Ab 07.09. bis
+  zum 18.09.2026" nennt das vollständige Datum hinten.
 
 ## Projekt Klassenraum (Web-App)
 
