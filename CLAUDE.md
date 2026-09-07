@@ -1334,6 +1334,16 @@ Namens und lebt weiter.
   Python, ohne fremde Bibliothek) — PNG ohne Alphakanal, sonst legt iOS das
   Homescreen-Icon auf Schwarz, und für den Homescreen liest iOS das Manifest
   nicht zuverlässig, sondern `apple-touch-icon`.
+- **`einzeldatei.html` ist ERZEUGT** (`scripts/einzeldatei.py`) und muss nach
+  jeder Änderung an HTML, CSS oder JavaScript neu gebaut werden — sonst hängt
+  die Fassung für den Doppelklick hinterher. Sie ist der Weg auf einen
+  Windows-Rechner ohne Webserver: ES-Module weist jeder Browser bei `file://`
+  ab, deshalb liegt dort alles in EINER Datei. Jedes Modul bekommt einen
+  eigenen Geltungsbereich; ein blosses Aneinanderhängen scheitert, weil `zwei`
+  sowohl in `ics.js` als auch in `app.js` steht. **Eine `.exe` gibt es mit
+  Absicht nicht** (150 MB Electron um 60 KB App, SmartScreen-Warnung ohne
+  Signatur, zweiter Aktualisierungsweg) — Edge und Chrome installieren die
+  Seite selbst als Programm mit Startmenü-Eintrag.
 - **Der xlsx-Leser ist selbst geschrieben** (`js/zip.js`, `js/xlsx.js`).
   Entpackt wird mit `DecompressionStream('deflate-raw')`, wo der Browser es
   mitbringt, sonst mit dem eigenen Inflate daneben — den Rückfall nicht
