@@ -78,6 +78,28 @@ das Icon auf Schwarz. **Nach jeder Änderung an den Dateien die Fassungsnummer
 `FASSUNG` in `sw.js` hochzählen**, sonst bleibt der alte Zwischenspeicher
 stehen.
 
+## Auf einem Windows- oder Mac-Rechner
+
+Zwei Wege, beide ohne Installationsprogramm:
+
+* **Als Programm installieren.** In Edge: Menü „…" → *Apps* → *Diese Website
+  als App installieren*. Danach steht die App mit eigenem Symbol im Startmenü
+  und öffnet sich in einem eigenen Fenster. In Chrome: Menü → *Streamen,
+  speichern und teilen* → *Seite als App installieren*.
+* **`einzeldatei.html`** — die ganze App in EINER Datei (rund 68 KB): Stil,
+  Zeichen und alle sieben Module. Sie läuft per Doppelklick, ohne Webserver
+  und ohne Netz, auch von einem USB-Stick.
+
+Eine `.exe` gibt es mit Absicht nicht: Sie hieße rund 150 MB Electron um 60 KB
+App, dazu eine SmartScreen-Warnung, solange nichts signiert ist — und ein
+zweiter Weg, die App aktuell zu halten.
+
+Gebaut wird die Einzeldatei mit `python3 scripts/einzeldatei.py`. **Nach jeder
+Änderung an HTML, CSS oder JavaScript neu bauen**, sonst hängt sie hinterher.
+Jedes Modul bekommt darin einen eigenen Geltungsbereich — ein bloßes
+Aneinanderhängen ginge nicht, `zwei` steht sowohl in `ics.js` als auch in
+`app.js`.
+
 ## Die fertige Datei
 
 Der Knopf **„Kalenderdatei sichern (.ics)"** legt die Datei bei den Downloads
@@ -105,6 +127,7 @@ vom Pages-Arbeitsablauf des Repos mit ausgeliefert.
 | `js/app.js` | Oberfläche: Datei annehmen, Vorschau, Ändern, Herunterladen. |
 | `sw.js` | Service Worker fürs Offline-Starten (`FASSUNG` hochzählen!). |
 | `scripts/generate-icons.py` | erzeugt `icons/` — gerechnet, ohne fremde Bibliothek. |
+| `scripts/einzeldatei.py` | baut `einzeldatei.html` (alles in einer Datei, für file://). |
 
 Zwei Stellen, an denen es leicht schiefgeht:
 

@@ -1,0 +1,1828 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Terminkonverter — Excel und Word zu iCal</title>
+    <meta name="description" content="Wandelt Termine aus einer Excel-Tabelle oder aus den Tabellen eines Word-Dokuments in eine .ics-Datei für den Kalender um. Läuft ganz im Browser." />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" content="#2b5bd7" />
+    <!-- iOS liest das Manifest für den Homescreen nicht zuverlässig; es nimmt
+         apple-touch-icon. Fehlt eines, zeigt es einen Schnappschuss der Seite. -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Terminkonverter" />
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='rgb(37, 84, 209)'/><stop offset='1' stop-color='rgb(56, 130, 246)'/></linearGradient><clipPath id='blatt'><rect x='66' y='128' width='380' height='324' rx='40'/></clipPath></defs><rect width='512' height='512' rx='112' fill='url(%23g)'/><rect x='66' y='128' width='380' height='324' rx='40' fill='rgb(255, 255, 255)'/><rect x='66' y='128' width='380' height='86' fill='rgb(27, 63, 160)' clip-path='url(%23blatt)'/><rect x='146' y='84' width='40' height='76' rx='20' fill='rgb(226, 232, 240)'/><rect x='326' y='84' width='40' height='76' rx='20' fill='rgb(226, 232, 240)'/><path d='M162 318 L226 380 L356 250' fill='none' stroke='rgb(245, 158, 11)' stroke-width='54' stroke-linecap='round' stroke-linejoin='round'/></svg>" />
+    <style>
+:root {
+  color-scheme: light dark;
+  --grund: #f4f6fb;
+  --karte: #ffffff;
+  --schrift: #15243a;
+  --leise: #5a6b85;
+  --rand: #d9e0ee;
+  --blau: #2b5bd7;
+  --blau-hell: #eaf0ff;
+  --warn: #8a5a00;
+  --warn-grund: #fff5e0;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --grund: #10141d;
+    --karte: #171d29;
+    --schrift: #e8edf7;
+    --leise: #a2aec4;
+    --rand: #2a3346;
+    --blau: #7ea2ff;
+    --blau-hell: #1b2540;
+    --warn: #ffcf7a;
+    --warn-grund: #2c2415;
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  padding: 0 1rem 3rem;
+  background: var(--grund);
+  color: var(--schrift);
+  font: 16px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+}
+
+main, .kopf, .fusszeile { max-width: 52rem; margin: 0 auto; }
+
+.kopf { padding: 2.5rem 0 1.5rem; }
+.kopf h1 { margin: 0 0 .4rem; font-size: 1.9rem; letter-spacing: -.01em; }
+.kopf p { margin: 0; color: var(--leise); }
+
+h2 { margin: 0 0 .8rem; font-size: 1.1rem; }
+
+.karte, .feld {
+  background: var(--karte);
+  border: 1px solid var(--rand);
+  border-radius: 14px;
+  padding: 1.25rem;
+  margin-bottom: 1rem;
+}
+
+.feld {
+  border-style: dashed;
+  border-width: 2px;
+  text-align: center;
+  padding: 2rem 1.25rem;
+  transition: background .15s, border-color .15s;
+}
+.feld.bereit { border-color: var(--blau); background: var(--blau-hell); }
+.feld__zeichen { font-size: 2.2rem; margin: 0 0 .4rem; }
+.feld__text { margin: 0 0 .9rem; font-weight: 600; }
+.feld__klein { margin: .8rem 0 0; color: var(--leise); font-size: .85rem; }
+
+button {
+  font: inherit;
+  border: 1px solid var(--rand);
+  background: var(--karte);
+  color: var(--schrift);
+  border-radius: 10px;
+  padding: .55rem 1.1rem;
+  cursor: pointer;
+}
+button:hover { border-color: var(--blau); }
+button.haupt {
+  background: var(--blau);
+  border-color: var(--blau);
+  color: #fff;
+  font-weight: 600;
+  padding: .7rem 1.4rem;
+}
+@media (prefers-color-scheme: dark) { button.haupt { color: #0f1626; } }
+button.still { padding: .35rem .8rem; font-size: .85rem; }
+button:focus-visible, input:focus-visible, select:focus-visible {
+  outline: 3px solid var(--blau); outline-offset: 2px;
+}
+
+.raster { display: grid; gap: .9rem; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); }
+label { display: flex; flex-direction: column; gap: .3rem; font-size: .9rem; color: var(--leise); }
+input[type="text"], input[type="number"], select {
+  font: inherit;
+  color: var(--schrift);
+  background: var(--grund);
+  border: 1px solid var(--rand);
+  border-radius: 9px;
+  padding: .5rem .6rem;
+}
+
+.karte__kopf { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+.knopfreihe { display: flex; gap: .4rem; }
+.zaehler { color: var(--leise); font-weight: 400; }
+
+.tabelle-huelle { overflow-x: auto; border: 1px solid var(--rand); border-radius: 10px; }
+table { border-collapse: collapse; width: 100%; font-size: .92rem; }
+th, td { text-align: left; padding: .5rem .7rem; border-bottom: 1px solid var(--rand); vertical-align: top; }
+th { background: var(--grund); font-size: .82rem; color: var(--leise); text-transform: uppercase; letter-spacing: .04em; }
+tbody tr:last-child td { border-bottom: 0; }
+td.wann { white-space: nowrap; }
+.schmal { width: 1%; white-space: nowrap; }
+tr.aus td { opacity: .45; text-decoration: line-through; }
+tr.aus td:first-child { text-decoration: none; opacity: 1; }
+
+.fuss { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; margin-top: 1rem; }
+.fuss__text { color: var(--leise); font-size: .9rem; }
+
+.meldung { margin: 0 0 1rem; min-height: 1.2em; font-size: .95rem; }
+.meldung.fehler { color: #b3261e; font-weight: 600; }
+@media (prefers-color-scheme: dark) { .meldung.fehler { color: #ffb4ab; } }
+
+.hinweise { background: var(--warn-grund); border-color: var(--warn); }
+.hinweise h2 { color: var(--warn); }
+.hinweise ul { margin: .6rem 0 0; padding-left: 1.2rem; font-size: .9rem; }
+.hinweise li { margin-bottom: .25rem; }
+
+.hilfe .beispiel { margin-bottom: 1rem; }
+.liste { padding-left: 1.2rem; margin: 0 0 .4rem; color: var(--leise); font-size: .92rem; }
+.liste li { margin-bottom: .3rem; }
+.liste em { color: var(--schrift); font-style: normal; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .9em; }
+
+.fusszeile { padding-top: 1rem; font-size: .85rem; }
+.fusszeile a { color: var(--leise); }
+
+textarea {
+  width: 100%;
+  font: .82rem/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--schrift);
+  background: var(--grund);
+  border: 1px solid var(--rand);
+  border-radius: 10px;
+  padding: .6rem;
+  resize: vertical;
+}
+
+/* Ein Termin ist ein Knopf — sonst findet niemand, dass er sich ändern lässt. */
+.zeilenknopf {
+  border: 0;
+  background: none;
+  padding: 0;
+  font: inherit;
+  color: var(--schrift);
+  text-align: left;
+  cursor: pointer;
+  text-decoration: underline dotted var(--rand);
+  text-underline-offset: 3px;
+}
+.zeilenknopf:hover { color: var(--blau); text-decoration-color: var(--blau); }
+.zeilenknopf::after { content: " ✏️"; font-size: .85em; opacity: .5; }
+.zeilenknopf:hover::after { opacity: 1; }
+tr.geaendert td.wann::before {
+  content: "geändert";
+  display: block;
+  font-size: .7rem;
+  letter-spacing: .04em;
+  color: var(--blau);
+}
+.knopfreihe--links { justify-content: flex-start; margin-top: .8rem; }
+.hinweise li button {
+  margin-left: .4rem;
+  padding: .15rem .5rem;
+  font-size: .8rem;
+  background: var(--karte);
+}
+
+dialog {
+  border: 1px solid var(--rand);
+  border-radius: 14px;
+  background: var(--karte);
+  color: var(--schrift);
+  padding: 1.25rem;
+  width: min(34rem, calc(100vw - 2rem));
+  box-shadow: 0 18px 50px rgba(15, 23, 42, .28);
+}
+dialog::backdrop { background: rgba(15, 23, 42, .45); }
+dialog .raster { margin-bottom: .6rem; }
+dialog h2 { margin-bottom: 1rem; }
+dialog .fuss { margin-top: .4rem; }
+
+    </style>
+  </head>
+  <body>
+    <header class="kopf">
+      <h1>Terminkonverter</h1>
+      <p>Excel-Tabelle oder Word-Dokument rein, Kalenderdatei raus. Zwei Spalten genügen: <strong>Datum</strong> und <strong>Beschreibung</strong>.</p>
+    </header>
+
+    <main>
+      <section class="feld" id="ablage" aria-label="Datei auswählen">
+        <p class="feld__zeichen" aria-hidden="true">🗓️</p>
+        <p class="feld__text">Datei hierher ziehen — oder auswählen.</p>
+        <button type="button" id="waehlen">Datei auswählen</button>
+        <input type="file" id="datei" accept=".xlsx,.xlsm,.docx,.docm,.csv,.txt" hidden />
+        <p class="feld__klein">.xlsx, .docx oder .csv · Die Datei bleibt auf diesem Gerät.</p>
+      </section>
+
+      <p class="meldung" id="meldung" role="status" aria-live="polite"></p>
+
+      <section class="karte" id="einstellungen" hidden>
+        <h2>Einstellungen</h2>
+        <div class="raster">
+          <label>
+            <span>Name des Kalenders</span>
+            <input type="text" id="kalendername" value="Termine" maxlength="60" />
+          </label>
+          <label>
+            <span>Erinnerung</span>
+            <select id="erinnerung">
+              <option value="keine" selected>keine</option>
+              <option value="zeitpunkt">15 Minuten vorher (ganztägig: 8 Uhr früh)</option>
+              <option value="vortag">einen Tag vorher</option>
+            </select>
+          </label>
+          <label>
+            <span>Dauer ohne Endzeit</span>
+            <select id="dauer">
+              <option value="30">30 Minuten</option>
+              <option value="45">45 Minuten</option>
+              <option value="60" selected>1 Stunde</option>
+              <option value="90">1,5 Stunden</option>
+              <option value="120">2 Stunden</option>
+            </select>
+          </label>
+          <label>
+            <span>Jahr, wenn keines dabeisteht</span>
+            <input type="number" id="jahr" min="1900" max="2999" step="1" />
+          </label>
+        </div>
+      </section>
+
+      <section class="karte" id="vorschau" hidden>
+        <div class="karte__kopf">
+          <h2>Gefundene Termine <span class="zaehler" id="zaehler"></span></h2>
+          <div class="knopfreihe">
+            <button type="button" id="alle" class="still">Alle</button>
+            <button type="button" id="keine" class="still">Keinen</button>
+          </div>
+        </div>
+        <p class="feld__klein">Tippe auf einen Termin, um Beschreibung, Datum oder Uhrzeit zu ändern.</p>
+        <div class="tabelle-huelle">
+          <table>
+            <thead>
+              <tr><th class="schmal">Mit</th><th>Wann</th><th>Was</th><th class="schmal">Herkunft</th></tr>
+            </thead>
+            <tbody id="zeilen"></tbody>
+          </table>
+        </div>
+        <div class="knopfreihe knopfreihe--links">
+          <button type="button" id="neu" class="still">+ Termin hinzufügen</button>
+        </div>
+        <div class="fuss">
+          <button type="button" id="laden" class="haupt">Kalenderdatei sichern (.ics)</button>
+          <button type="button" id="teilen" hidden>Teilen / In Dateien sichern</button>
+          <button type="button" id="zeigen" class="still">Text anzeigen</button>
+        </div>
+        <p id="ergebnis" class="fuss__text"></p>
+        <p class="feld__klein">Die Datei landet bei den Downloads. Ein Doppelklick darauf öffnet den Kalender und fragt, wohin die Termine sollen — vorher lässt sie sich weitergeben, sichern oder aufheben.</p>
+      </section>
+
+      <section class="karte" id="textkarte" hidden>
+        <div class="karte__kopf">
+          <h2>Der Inhalt der .ics-Datei</h2>
+          <div class="knopfreihe">
+            <button type="button" id="kopieren" class="still">Text kopieren</button>
+          </div>
+        </div>
+        <p class="feld__klein">Zum Nachsehen — oder wenn das Sichern klemmt: Text kopieren, in einen Texteditor einfügen und als <em>termine.ics</em> speichern.</p>
+        <textarea id="icstext" readonly rows="12" spellcheck="false"></textarea>
+        <p id="kopierstand" class="fuss__text"></p>
+      </section>
+
+      <section class="karte hinweise" id="hinweiskarte" hidden>
+        <h2>Übergangene Zeilen</h2>
+        <p class="feld__klein">Diese Zeilen wandern nicht in den Kalender — meist steckt dort eine Überschrift, eine Leerzeile oder ein Datum in ungewohnter Schreibweise. Fehlt bloß der Tag, lässt sich die Zeile von Hand übernehmen.</p>
+        <ul id="hinweisliste"></ul>
+      </section>
+
+      <section class="karte hilfe">
+        <h2>So sieht die Tabelle aus</h2>
+        <table class="beispiel">
+          <thead><tr><th>Datum</th><th>Beschreibung</th></tr></thead>
+          <tbody>
+            <tr><td>01.09.2026</td><td>Erster Schultag</td></tr>
+            <tr><td>14.09.2026 19:30</td><td>Elternabend</td></tr>
+            <tr><td>05.01.2027 – 07.01.2027</td><td>Skifreizeit</td></tr>
+            <tr><td>3. März 2027 9:00-10:30</td><td>Zeugniskonferenz</td></tr>
+          </tbody>
+        </table>
+        <ul class="liste">
+          <li>Ein echtes Excel-Datum wird erkannt, ebenso <em>01.09.2026</em>, <em>1.9.26</em>, <em>2026-09-01</em> und <em>1. September 2026</em>.</li>
+          <li>Steht eine Uhrzeit dabei, bekommt der Termin eine Uhrzeit — sonst wird er ganztägig.</li>
+          <li>Zwei Daten in einer Zelle ergeben einen mehrtägigen Termin.</li>
+          <li>Welche Spalte links steht, ist gleich: Gesucht wird die Zelle mit dem Datum, der Rest wird zur Beschreibung.</li>
+          <li>Eine Überschriftenzeile darf stehen bleiben — in jeder Tabelle.</li>
+        </ul>
+        <h2>Auf dem Rechner — Windows und Mac</h2>
+        <ul class="liste">
+          <li><strong>Als Programm installieren:</strong> In <strong>Edge</strong> diese Seite öffnen → Menü „…" → <em>Apps</em> → <em>Diese Website als App installieren</em>. Danach steht der Terminkonverter mit eigenem Symbol im Startmenü und öffnet sich in einem eigenen Fenster, ganz ohne Browserleiste. In Chrome heißt es Menü → <em>Streamen, speichern und teilen</em> → <em>Seite als App installieren</em>.</li>
+          <li><strong>Diese Datei ist die Einzeldatei</strong> — sie enthält die ganze App und braucht weder Netz noch Webserver. Kopieren, mitnehmen, per Doppelklick öffnen.</li>
+        </ul>
+        <h2>Word-Dokumente</h2>
+        <ul class="liste">
+          <li>Aus einer <strong>.docx</strong> werden die <strong>Tabellen</strong> gelesen — auch mehrere in einem Dokument. Der Text drumherum (Anrede, Erklärungen, Grußformel) bleibt liegen.</li>
+          <li>In der Spalte „Herkunft" steht dann <em>2.3</em> für die dritte Zeile der zweiten Tabelle.</li>
+          <li>Hat das Dokument gar keine Tabelle, werden ersatzweise die Absätze durchgesehen: Jeder Absatz mit einem Datum wird ein Termin.</li>
+          <li>Die alten Formate <em>.xls</em> und <em>.doc</em> gehen nicht — die müssen in Excel oder Word einmal als <em>.xlsx</em> bzw. <em>.docx</em> gespeichert werden.</li>
+        </ul>
+        <h2>Und dann in den Kalender</h2>
+        <ul class="liste">
+          <li><strong>Mac:</strong> Doppelklick auf die gesicherte Datei → Kalender fragt, in welchen Kalender die Termine sollen. Wer sie sammeln will, legt vorher unter Ablage → Neuer Kalender einen eigenen an.</li>
+          <li><strong>iPhone/iPad:</strong> „Teilen / In Dateien sichern" nehmen — von dort lässt sich die Datei aufheben oder per Mail verschicken; Antippen in Dateien führt in den Kalender.</li>
+          <li><strong>Google Kalender:</strong> Einstellungen → Importieren und Exportieren → Datei auswählen.</li>
+          <li><strong>Outlook:</strong> Datei → Öffnen und exportieren → Importieren/Exportieren → iCalendar-Datei.</li>
+        </ul>
+        <p class="feld__klein">Die Umwandlung läuft vollständig im Browser: Es wird nichts hochgeladen, nichts gespeichert, nichts mitgezählt.</p>
+      </section>
+    </main>
+
+    <footer class="fusszeile">
+      Terminkonverter · ohne Anmeldung, ohne Server, ohne fremde Bibliothek.
+    </footer>
+
+    <dialog id="blatt" aria-labelledby="blatttitel">
+      <form id="blattform">
+        <h2 id="blatttitel">Termin bearbeiten</h2>
+        <label>
+          <span>Beschreibung</span>
+          <input type="text" id="f-titel" maxlength="200" autocomplete="off" />
+        </label>
+        <div class="raster">
+          <label>
+            <span>Datum</span>
+            <input type="date" id="f-von" required />
+          </label>
+          <label>
+            <span>Bis (nur bei mehrtägigen)</span>
+            <input type="date" id="f-bis" />
+          </label>
+          <label>
+            <span>Beginn (Uhrzeit)</span>
+            <input type="time" id="f-zeitvon" />
+          </label>
+          <label>
+            <span>Ende (Uhrzeit)</span>
+            <input type="time" id="f-zeitbis" />
+          </label>
+        </div>
+        <p class="feld__klein">Ohne Uhrzeit wird der Termin ganztägig. Die Datei selbst bleibt unverändert — geändert wird nur, was in den Kalender geht.</p>
+        <p class="meldung" id="f-fehler" role="status" aria-live="polite"></p>
+        <div class="fuss">
+          <button type="submit" class="haupt">Übernehmen</button>
+          <button type="button" id="f-abbrechen">Abbrechen</button>
+          <button type="button" id="f-loeschen" class="still">Aus der Liste nehmen</button>
+        </div>
+      </form>
+    </dialog>
+
+    <script>
+const TEILE = {};
+
+/* ---- xml.js ---- */
+(function () {
+// Kleinkram, den der xlsx- und der docx-Leser teilen.
+
+// Wandelt XML-Entitäten zurück in Zeichen.
+function entziffere(text) {
+  return text.replace(/&(#x?[0-9a-fA-F]+|amp|lt|gt|quot|apos);/g, (ganz, kern) => {
+    if (kern === 'amp') return '&';
+    if (kern === 'lt') return '<';
+    if (kern === 'gt') return '>';
+    if (kern === 'quot') return '"';
+    if (kern === 'apos') return "'";
+    const nummer = kern[1] === 'x' || kern[1] === 'X'
+      ? parseInt(kern.slice(2), 16)
+      : parseInt(kern.slice(1), 10);
+    return Number.isFinite(nummer) ? String.fromCodePoint(nummer) : ganz;
+  });
+}
+
+function alsText(dateien, pfad) {
+  const daten = dateien.get(pfad);
+  return daten ? new TextDecoder('utf-8').decode(daten) : null;
+}
+
+  TEILE.entziffere = entziffere;
+  TEILE.alsText = alsText;
+})();
+
+/* ---- zip.js ---- */
+(function () {
+// Lesen von ZIP-Dateien (und damit von .xlsx) ohne fremde Bibliothek.
+//
+// Entpackt wird mit DecompressionStream('deflate-raw'), wo der Browser es
+// mitbringt; sonst mit dem eigenen Inflate weiter unten. Der Rückfall ist
+// kein Luxus: Ohne ihn bliebe die App auf älteren Geräten stumm, und ein
+// Tabellenblatt ist klein genug, dass die eigene Rechnung nicht auffällt.
+
+const LAENGE_BASIS = [3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 15, 17, 19, 23, 27, 31,
+  35, 43, 51, 59, 67, 83, 99, 115, 131, 163, 195, 227, 258];
+const LAENGE_EXTRA = [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3,
+  3, 4, 4, 4, 4, 5, 5, 5, 5, 0];
+const ABSTAND_BASIS = [1, 2, 3, 4, 5, 7, 9, 13, 17, 25, 33, 49, 65, 97, 129,
+  193, 257, 385, 513, 769, 1025, 1537, 2049, 3073, 4097, 6145, 8193, 12289,
+  16385, 24577];
+const ABSTAND_EXTRA = [0, 0, 0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8,
+  8, 9, 9, 10, 10, 11, 11, 12, 12, 13, 13];
+const CODE_ORDNUNG = [16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15];
+
+function huffman(laengen) {
+  const anzahl = new Array(16).fill(0);
+  for (const l of laengen) anzahl[l]++;
+  anzahl[0] = 0;
+  const versatz = new Array(16).fill(0);
+  for (let i = 1; i < 15; i++) versatz[i + 1] = versatz[i] + anzahl[i];
+  const symbole = new Array(laengen.length).fill(0);
+  for (let s = 0; s < laengen.length; s++) {
+    if (laengen[s]) symbole[versatz[laengen[s]]++] = s;
+  }
+  return { anzahl, symbole };
+}
+
+// Roher DEFLATE-Strom (ohne zlib-Kopf), wie er im ZIP steht.
+function inflateRoh(daten) {
+  let bitPos = 0;
+  let aus = new Uint8Array(Math.max(1024, daten.length * 4));
+  let ende = 0;
+
+  const platz = (n) => {
+    if (ende + n <= aus.length) return;
+    let groesse = aus.length * 2;
+    while (groesse < ende + n) groesse *= 2;
+    const neu = new Uint8Array(groesse);
+    neu.set(aus.subarray(0, ende));
+    aus = neu;
+  };
+  const bits = (n) => {
+    let wert = 0;
+    for (let i = 0; i < n; i++) {
+      const byte = daten[bitPos >> 3];
+      if (byte === undefined) throw new Error('Die Datei bricht mitten im Datenstrom ab.');
+      wert |= ((byte >> (bitPos & 7)) & 1) << i;
+      bitPos++;
+    }
+    return wert;
+  };
+  const symbol = (baum) => {
+    let code = 0, erster = 0, index = 0;
+    for (let laenge = 1; laenge <= 15; laenge++) {
+      code |= bits(1);
+      const anzahl = baum.anzahl[laenge];
+      if (code - erster < anzahl) return baum.symbole[index + (code - erster)];
+      index += anzahl;
+      erster = (erster + anzahl) << 1;
+      code <<= 1;
+    }
+    throw new Error('Der gepackte Datenstrom ist beschädigt.');
+  };
+
+  let festLiteral = null, festAbstand = null;
+  let letzter = 0;
+  do {
+    letzter = bits(1);
+    const art = bits(2);
+    if (art === 0) {
+      bitPos = (bitPos + 7) & ~7;
+      const p = bitPos >> 3;
+      const laenge = daten[p] | (daten[p + 1] << 8);
+      bitPos = (p + 4) << 3;
+      platz(laenge);
+      aus.set(daten.subarray(p + 4, p + 4 + laenge), ende);
+      ende += laenge;
+      bitPos += laenge << 3;
+      continue;
+    }
+    let literal, abstand;
+    if (art === 1) {
+      if (!festLiteral) {
+        const l = new Array(288);
+        for (let i = 0; i < 288; i++) l[i] = i < 144 ? 8 : i < 256 ? 9 : i < 280 ? 7 : 8;
+        festLiteral = huffman(l);
+        festAbstand = huffman(new Array(30).fill(5));
+      }
+      literal = festLiteral;
+      abstand = festAbstand;
+    } else if (art === 2) {
+      const anzLiteral = bits(5) + 257;
+      const anzAbstand = bits(5) + 1;
+      const anzCode = bits(4) + 4;
+      const codeLaengen = new Array(19).fill(0);
+      for (let i = 0; i < anzCode; i++) codeLaengen[CODE_ORDNUNG[i]] = bits(3);
+      const codeBaum = huffman(codeLaengen);
+      const laengen = new Array(anzLiteral + anzAbstand).fill(0);
+      let i = 0;
+      while (i < laengen.length) {
+        const s = symbol(codeBaum);
+        if (s < 16) laengen[i++] = s;
+        else if (s === 16) {
+          const vorher = laengen[i - 1];
+          let n = 3 + bits(2);
+          while (n--) laengen[i++] = vorher;
+        } else if (s === 17) {
+          let n = 3 + bits(3);
+          while (n--) laengen[i++] = 0;
+        } else {
+          let n = 11 + bits(7);
+          while (n--) laengen[i++] = 0;
+        }
+      }
+      literal = huffman(laengen.slice(0, anzLiteral));
+      abstand = huffman(laengen.slice(anzLiteral));
+    } else {
+      throw new Error('Unbekannte Blockart im gepackten Datenstrom.');
+    }
+
+    for (;;) {
+      const s = symbol(literal);
+      if (s < 256) {
+        platz(1);
+        aus[ende++] = s;
+      } else if (s === 256) {
+        break;
+      } else {
+        const li = s - 257;
+        const laenge = LAENGE_BASIS[li] + bits(LAENGE_EXTRA[li]);
+        const ai = symbol(abstand);
+        const weite = ABSTAND_BASIS[ai] + bits(ABSTAND_EXTRA[ai]);
+        platz(laenge);
+        let von = ende - weite;
+        for (let n = 0; n < laenge; n++) aus[ende++] = aus[von++];
+      }
+    }
+  } while (!letzter);
+
+  return aus.subarray(0, ende);
+}
+
+async function entpacke(daten) {
+  if (typeof DecompressionStream === 'function') {
+    try {
+      const strom = new Blob([daten]).stream()
+        .pipeThrough(new DecompressionStream('deflate-raw'));
+      return new Uint8Array(await new Response(strom).arrayBuffer());
+    } catch (fehler) {
+      // Weiter mit dem eigenen Inflate — lieber langsam als gar nicht.
+    }
+  }
+  return inflateRoh(daten);
+}
+
+// Liest ein ZIP-Archiv und gibt eine Map „Pfad → Uint8Array" zurück.
+async function zipLesen(puffer) {
+  const daten = new Uint8Array(puffer);
+  const sicht = new DataView(daten.buffer, daten.byteOffset, daten.byteLength);
+
+  let eocd = -1;
+  for (let i = daten.length - 22; i >= 0 && i > daten.length - 65558; i--) {
+    if (sicht.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
+  }
+  if (eocd < 0) throw new Error('Das ist keine .xlsx-Datei (kein ZIP-Verzeichnis gefunden).');
+
+  const anzahl = sicht.getUint16(eocd + 10, true);
+  let zeiger = sicht.getUint32(eocd + 16, true);
+  if (zeiger === 0xffffffff) throw new Error('Die Datei nutzt ZIP64 — bitte in Excel neu speichern.');
+
+  const dateien = new Map();
+  const text = new TextDecoder('utf-8');
+  for (let n = 0; n < anzahl; n++) {
+    if (sicht.getUint32(zeiger, true) !== 0x02014b50) break;
+    const methode = sicht.getUint16(zeiger + 10, true);
+    const gepackt = sicht.getUint32(zeiger + 20, true);
+    const nameLaenge = sicht.getUint16(zeiger + 28, true);
+    const extraLaenge = sicht.getUint16(zeiger + 30, true);
+    const kommentarLaenge = sicht.getUint16(zeiger + 32, true);
+    const versatz = sicht.getUint32(zeiger + 42, true);
+    const name = text.decode(daten.subarray(zeiger + 46, zeiger + 46 + nameLaenge));
+    zeiger += 46 + nameLaenge + extraLaenge + kommentarLaenge;
+
+    if (name.endsWith('/')) continue;
+    const lokalName = sicht.getUint16(versatz + 26, true);
+    const lokalExtra = sicht.getUint16(versatz + 28, true);
+    const start = versatz + 30 + lokalName + lokalExtra;
+    const roh = daten.subarray(start, start + gepackt);
+    if (methode === 0) dateien.set(name, roh.slice());
+    else if (methode === 8) dateien.set(name, await entpacke(roh));
+    else throw new Error(`Unbekanntes Packverfahren in „${name}".`);
+  }
+  return dateien;
+}
+
+  TEILE.inflateRoh = inflateRoh;
+  TEILE.zipLesen = zipLesen;
+})();
+
+/* ---- xlsx.js ---- */
+(function () {
+// Liest ein Excel-Blatt (.xlsx) zu Zeilen aus Zellen.
+//
+// Eine Zelle kommt als { art, text, zahl } heraus. Ob eine Zahl ein Datum
+// meint, steht in .xlsx nicht am Wert, sondern am ZAHLENFORMAT — deshalb
+// wird styles.xml mitgelesen. Ohne das wäre der 31.08.2026 einfach 46265.
+
+const { zipLesen } = TEILE;
+const { entziffere, alsText } = TEILE;
+const DATUM_FORMATE = new Set([14, 15, 16, 17, 18, 19, 20, 21, 22, 27, 28, 29,
+  30, 31, 32, 33, 34, 35, 36, 45, 46, 47, 50, 51, 52, 53, 54, 55, 56, 57, 58]);
+
+// Ein eigenes Zahlenformat gilt als Datum, wenn darin Tag, Monat oder Jahr
+// vorkommt — außerhalb von Anführungszeichen und eckigen Klammern ([rot],
+// [h]:mm) und ohne die Farb- und Bedingungsteile.
+function formatIstDatum(format) {
+  let inText = false, inKlammer = false;
+  for (let i = 0; i < format.length; i++) {
+    const z = format[i];
+    if (inText) { if (z === '"') inText = false; continue; }
+    if (inKlammer) { if (z === ']') inKlammer = false; continue; }
+    if (z === '"') { inText = true; continue; }
+    if (z === '[') { inKlammer = true; continue; }
+    if (z === '\\') { i++; continue; }
+    if ('dmyhsDMYHS'.includes(z)) return true;
+  }
+  return false;
+}
+
+function spalteZuIndex(bezug) {
+  let index = 0;
+  for (const z of bezug) {
+    const code = z.charCodeAt(0);
+    if (code >= 65 && code <= 90) index = index * 26 + (code - 64);
+    else if (code >= 97 && code <= 122) index = index * 26 + (code - 96);
+    else break;
+  }
+  return index - 1;
+}
+
+function sharedStrings(xml) {
+  if (!xml) return [];
+  const liste = [];
+  for (const treffer of xml.matchAll(/<si\b[^>]*>([\s\S]*?)<\/si>/g)) {
+    let stueck = '';
+    for (const t of treffer[1].matchAll(/<t\b[^>]*>([\s\S]*?)<\/t>/g)) stueck += entziffere(t[1]);
+    liste.push(stueck);
+  }
+  return liste;
+}
+
+function stilFormate(xml) {
+  const formate = new Map();
+  if (!xml) return { stile: [], eigene: formate };
+  for (const t of xml.matchAll(/<numFmt\b[^>]*numFmtId="(\d+)"[^>]*formatCode="([^"]*)"/g)) {
+    formate.set(Number(t[1]), entziffere(t[2]));
+  }
+  const block = xml.match(/<cellXfs\b[^>]*>([\s\S]*?)<\/cellXfs>/);
+  const stile = [];
+  if (block) {
+    for (const xf of block[1].matchAll(/<xf\b[^>]*>/g)) {
+      const id = xf[0].match(/numFmtId="(\d+)"/);
+      stile.push(id ? Number(id[1]) : 0);
+    }
+  }
+  return { stile, eigene: formate };
+}
+
+function blattPfad(dateien) {
+  const workbook = alsText(dateien, 'xl/workbook.xml');
+  const rels = alsText(dateien, 'xl/_rels/workbook.xml.rels');
+  if (workbook && rels) {
+    const erstes = workbook.match(/<sheet\b[^>]*>/);
+    const id = erstes && erstes[0].match(/r:id="([^"]+)"/);
+    if (id) {
+      const bezug = rels.match(new RegExp(`<Relationship\\b[^>]*Id="${id[1]}"[^>]*>`));
+      const ziel = bezug && bezug[0].match(/Target="([^"]+)"/);
+      if (ziel) {
+        const pfad = ziel[1].replace(/^\/xl\//, '').replace(/^\.\//, '');
+        if (dateien.has('xl/' + pfad)) return 'xl/' + pfad;
+        if (dateien.has(pfad)) return pfad;
+      }
+    }
+  }
+  for (const name of dateien.keys()) {
+    if (/^xl\/worksheets\/[^/]+\.xml$/.test(name)) return name;
+  }
+  return null;
+}
+
+// Excel zählt Tage ab dem 30.12.1899 (bzw. ab 1904 auf altem Mac-Excel).
+function serieZuDatum(serie, ab1904 = false) {
+  const tage = serie + (ab1904 ? 1462 : 0);
+  // Auf die Minute gerundet: 10:30 kommt in .xlsx gern als 10:29:59,9 an,
+  // und in einem Kalendereintrag zählen ohnehin nur Stunde und Minute.
+  const ms = Math.round((tage - 25569) * 1440) * 60000;
+  const d = new Date(ms);
+  return {
+    jahr: d.getUTCFullYear(),
+    monat: d.getUTCMonth() + 1,
+    tag: d.getUTCDate(),
+    stunde: d.getUTCHours(),
+    minute: d.getUTCMinutes(),
+    hatZeit: Math.abs(tage - Math.floor(tage)) > 1e-9,
+  };
+}
+
+async function xlsxLesen(puffer) {
+  const dateien = await zipLesen(puffer);
+  const pfad = blattPfad(dateien);
+  if (!pfad) throw new Error('In der Datei ist kein Tabellenblatt zu finden.');
+
+  const workbook = alsText(dateien, 'xl/workbook.xml') || '';
+  const ab1904 = /date1904="(1|true)"/.test(workbook);
+  const texte = sharedStrings(alsText(dateien, 'xl/sharedStrings.xml'));
+  const { stile, eigene } = stilFormate(alsText(dateien, 'xl/styles.xml'));
+  const blatt = alsText(dateien, pfad);
+
+  const zeilen = [];
+  for (const zeile of blatt.matchAll(/<row\b([^>]*)\/>|<row\b([^>]*)>([\s\S]*?)<\/row>/g)) {
+    const kopf = zeile[1] || zeile[2] || '';
+    const inhalt = zeile[3] || '';
+    const nummer = Number((kopf.match(/\br="(\d+)"/) || [])[1] || zeilen.length + 1);
+    const zellen = [];
+    let spalte = 0;
+    for (const c of inhalt.matchAll(/<c\b([^>]*)\/>|<c\b([^>]*)>([\s\S]*?)<\/c>/g)) {
+      const merkmale = c[1] || c[2] || '';
+      const koerper = c[3] || '';
+      const bezug = (merkmale.match(/\br="([A-Za-z]+)\d+"/) || [])[1];
+      const index = bezug ? spalteZuIndex(bezug) : spalte;
+      spalte = index + 1;
+      const typ = (merkmale.match(/\bt="([^"]+)"/) || [])[1] || 'n';
+      const stil = Number((merkmale.match(/\bs="(\d+)"/) || [])[1] || -1);
+
+      let zelle = null;
+      if (typ === 'inlineStr') {
+        let stueck = '';
+        for (const t of koerper.matchAll(/<t\b[^>]*>([\s\S]*?)<\/t>/g)) stueck += entziffere(t[1]);
+        if (stueck.trim()) zelle = { art: 'text', text: stueck.trim() };
+      } else {
+        const wert = koerper.match(/<v\b[^>]*>([\s\S]*?)<\/v>/);
+        const roh = wert ? entziffere(wert[1]) : '';
+        if (roh !== '') {
+          if (typ === 's') {
+            const text = (texte[Number(roh)] || '').trim();
+            if (text) zelle = { art: 'text', text };
+          } else if (typ === 'str' || typ === 'e') {
+            if (roh.trim()) zelle = { art: 'text', text: roh.trim() };
+          } else if (typ === 'b') {
+            zelle = { art: 'text', text: roh === '1' ? 'WAHR' : 'FALSCH' };
+          } else {
+            const zahl = Number(roh);
+            if (Number.isFinite(zahl)) {
+              const formatId = stil >= 0 && stil < stile.length ? stile[stil] : 0;
+              const eigenes = eigene.get(formatId);
+              const istDatum = eigenes ? formatIstDatum(eigenes) : DATUM_FORMATE.has(formatId);
+              zelle = istDatum
+                ? { art: 'datum', zahl, text: roh, datum: serieZuDatum(zahl, ab1904) }
+                : { art: 'zahl', zahl, text: roh };
+            }
+          }
+        }
+      }
+      if (zelle) zellen[index] = zelle;
+    }
+    if (zellen.some(Boolean)) {
+      zeilen.push({ nummer, zellen: Array.from(zellen, (z) => z || null) });
+    }
+  }
+  return zeilen;
+}
+
+// CSV wird gleich mitgenommen: Wer seine Termine als .csv exportiert, soll
+// nicht erst nach Excel zurückmüssen. Semikolon, Komma und Tabulator werden
+// erkannt; Zahlen bleiben Text und gehen durch die Textdatumsprüfung.
+function csvLesen(text) {
+  const inhalt = text.replace(/^﻿/, '');
+  const kopfzeile = inhalt.split(/\r?\n/)[0] || '';
+  const trenner = [';', '\t', ','].map((z) => [z, kopfzeile.split(z).length])
+    .sort((a, b) => b[1] - a[1])[0][0];
+
+  const zeilen = [];
+  let feld = '', zellen = [], inText = false;
+  const zeileFertig = () => {
+    zellen.push(feld);
+    const gefuellt = zellen.map((w) => {
+      const wert = w.trim();
+      return wert ? { art: 'text', text: wert } : null;
+    });
+    if (gefuellt.some(Boolean)) zeilen.push({ nummer: zeilen.length + 1, zellen: gefuellt });
+    feld = '';
+    zellen = [];
+  };
+  for (let i = 0; i < inhalt.length; i++) {
+    const z = inhalt[i];
+    if (inText) {
+      if (z === '"') {
+        if (inhalt[i + 1] === '"') { feld += '"'; i++; } else inText = false;
+      } else feld += z;
+    } else if (z === '"') inText = true;
+    else if (z === trenner) { zellen.push(feld); feld = ''; }
+    else if (z === '\n') zeileFertig();
+    else if (z !== '\r') feld += z;
+  }
+  if (feld || zellen.length) zeileFertig();
+  return zeilen;
+}
+
+  TEILE.serieZuDatum = serieZuDatum;
+  TEILE.xlsxLesen = xlsxLesen;
+  TEILE.csvLesen = csvLesen;
+})();
+
+/* ---- docx.js ---- */
+(function () {
+// Liest die Tabellen eines Word-Dokuments (.docx).
+//
+// Der Fließtext drumherum bleibt liegen: Wer Termine in Tabellen notiert,
+// hat davor und dazwischen Überschriften, Vorbemerkungen und Fußzeilen — die
+// alle als „übergangene Zeile" zu melden, wäre lauter Lärm. Nur wenn das
+// Dokument überhaupt keine Tabelle enthält, werden die Absätze angesehen.
+
+const { zipLesen } = TEILE;
+const { entziffere, alsText } = TEILE;
+// Ein Wort-Dokument nennt seine Marken „w:tbl", „w:tr", „w:tc" — die Vorsilbe
+// steht aber nicht fest, deshalb wird sie beim Vergleichen abgeschnitten.
+const ohneVorsilbe = (name) => name.slice(name.indexOf(':') + 1);
+
+function zellenText(stuecke) {
+  return stuecke.join('').replace(/\s+/g, ' ').trim();
+}
+
+// Läuft einmal durch das XML und sammelt die Zeilen aller Tabellen. Eine
+// verschachtelte Tabelle wird dabei zu eigenen Zeilen — ihr Text landet nicht
+// zusätzlich in der Zelle, die sie enthält.
+function tabellenZeilen(xml) {
+  const tabellen = [];
+  const stapel = [];
+  let zeile = null;
+  let zelle = null;
+  let inText = false;
+  let tabellenNummer = 0;
+  let zeilenNummer = 0;
+
+  const marken = /<(\/?)([\w.-]+(?::[\w.-]+)?)([^>]*?)(\/?)>|([^<]+)/g;
+  let treffer;
+  while ((treffer = marken.exec(xml)) !== null) {
+    const [, schluss, name, , leer, text] = treffer;
+    if (text !== undefined) {
+      if (inText && zelle) zelle.push(entziffere(text));
+      continue;
+    }
+    const marke = ohneVorsilbe(name);
+
+    if (leer) {
+      // Tabulator und Zeilenumbruch trennen Wörter, sonst klebt alles.
+      if (zelle && (marke === 'tab' || marke === 'br')) zelle.push(' ');
+      continue;
+    }
+
+    if (!schluss) {
+      if (marke === 'tbl') {
+        tabellenNummer++;
+        zeilenNummer = 0;
+        stapel.push({ tabelle: tabellenNummer, zeile, zelle, inText });
+        zeile = null;
+        zelle = null;
+        inText = false;
+      } else if (marke === 'tr' && stapel.length) {
+        zeilenNummer++;
+        zeile = { tabelle: stapel[stapel.length - 1].tabelle, nummer: zeilenNummer, zellen: [] };
+      } else if (marke === 'tc' && zeile) {
+        zelle = [];
+      } else if (marke === 't' && zelle) {
+        inText = true;
+      } else if (marke === 'p' && zelle) {
+        zelle.push(' ');
+      }
+      continue;
+    }
+
+    if (marke === 't') inText = false;
+    else if (marke === 'tc' && zeile && zelle) {
+      const wert = zellenText(zelle);
+      zeile.zellen.push(wert ? { art: 'text', text: wert } : null);
+      zelle = null;
+    } else if (marke === 'tr' && zeile) {
+      if (zeile.zellen.some(Boolean)) tabellen.push(zeile);
+      zeile = null;
+    } else if (marke === 'tbl') {
+      const vorher = stapel.pop();
+      if (vorher) {
+        zeile = vorher.zeile;
+        zelle = vorher.zelle;
+        inText = vorher.inText;
+        zeilenNummer = zeile ? zeile.nummer : 0;
+      }
+    }
+  }
+  return tabellen;
+}
+
+// Nur für Dokumente ganz ohne Tabelle: jeder Absatz wird eine Zeile.
+function absatzZeilen(xml) {
+  const zeilen = [];
+  for (const absatz of xml.matchAll(/<(?:\w+:)?p\b[^>]*>([\s\S]*?)<\/(?:\w+:)?p>/g)) {
+    let text = '';
+    for (const t of absatz[1].matchAll(/<(?:\w+:)?t\b[^>]*>([\s\S]*?)<\/(?:\w+:)?t>/g)) {
+      text += entziffere(t[1]);
+    }
+    text = text.replace(/\s+/g, ' ').trim();
+    if (text) zeilen.push({ nummer: zeilen.length + 1, zellen: [{ art: 'text', text }] });
+  }
+  return zeilen;
+}
+
+async function docxLesen(puffer) {
+  const dateien = await zipLesen(puffer);
+  const xml = alsText(dateien, 'word/document.xml');
+  if (!xml) throw new Error('In der Datei ist kein Word-Text zu finden.');
+
+  const ausTabellen = tabellenZeilen(xml);
+  if (ausTabellen.length) {
+    // Nach der Reihenfolge der Zeilen durchnummerieren: Eine verschachtelte
+    // Tabelle ist fertig, bevor die Zeile fertig ist, die sie enthält —
+    // ohne das stünde in der Herkunftsspalte 4.1 vor 3.1.
+    const nummern = new Map();
+    for (const zeile of ausTabellen) {
+      if (!nummern.has(zeile.tabelle)) nummern.set(zeile.tabelle, nummern.size + 1);
+      zeile.tabelle = nummern.get(zeile.tabelle);
+    }
+    return { zeilen: ausTabellen, quelle: 'tabellen' };
+  }
+  return { zeilen: absatzZeilen(xml), quelle: 'absaetze' };
+}
+
+  TEILE.docxLesen = docxLesen;
+})();
+
+/* ---- termine.js ---- */
+(function () {
+// Aus den Zeilen der Tabelle werden Termine.
+//
+// Grundfall sind zwei Spalten: Datum und Beschreibung. Welche davon links
+// steht, wird nicht vorgeschrieben — gesucht wird die Zelle, die sich als
+// Datum lesen lässt; alles Übrige ist die Beschreibung. Zeilen ohne
+// erkennbares Datum verschwinden nicht still, sie kommen als Hinweis zurück.
+
+const MONATE = {
+  jan: 1, januar: 1, feb: 2, februar: 2, mrz: 3, maerz: 3, märz: 3, mar: 3,
+  apr: 4, april: 4, mai: 5, jun: 6, juni: 6, jul: 7, juli: 7, aug: 8, august: 8,
+  sep: 9, sept: 9, september: 9, okt: 10, oktober: 10, nov: 11, november: 11,
+  dez: 12, dezember: 12,
+};
+const WOCHENTAGE = /^\s*(mo|di|mi|do|fr|sa|so)(n|ns|ntag|enstag|ttwoch|nnerstag|eitag|mstag|nntag|\.)?\s*[,.]?\s*/i;
+// Was nach Datum und Uhrzeit von der Datumszelle übrig bleibt: eine leere
+// oder eine Wochentagsklammer sagt nichts, Bindewörter allein auch nicht.
+const KLAMMER_LEER = /\(\s*(?:mo|di|mi|do|fr|sa|so|montag|dienstag|mittwoch|donnerstag|freitag|samstag|sonnabend|sonntag)?\s*\.?\s*\)/gi;
+const FUELLWORT = /^(ab|bis|zum|zur|von|vom|am|im|und|oder|jeweils|ca|etwa|ggf|voraussichtlich)$/i;
+
+const KOPFWORTE = /^(datum|termin|tag|wann|von|bis|zeit|uhrzeit|beginn|ende|beschreibung|titel|thema|ereignis|was|anlass|notiz|bemerkung|ort)$/i;
+
+const zweistellig = (n) => String(n).padStart(2, '0');
+
+function alsSchluessel(datum) {
+  return `${datum.jahr}-${zweistellig(datum.monat)}-${zweistellig(datum.tag)}`;
+}
+
+function gueltig(jahr, monat, tag) {
+  if (monat < 1 || monat > 12 || tag < 1 || tag > 31) return false;
+  const probe = new Date(Date.UTC(jahr, monat - 1, tag));
+  return probe.getUTCFullYear() === jahr && probe.getUTCMonth() === monat - 1
+    && probe.getUTCDate() === tag;
+}
+
+function jahrVoll(roh) {
+  const jahr = Number(roh);
+  if (roh.length <= 2) return jahr + (jahr < 70 ? 2000 : 1900);
+  return jahr;
+}
+
+// Sucht alle Datumsangaben in einem Text und gibt sie samt Restsatz zurück.
+function datenAusText(text, ersatzJahr) {
+  const gefunden = [];
+  let rest = text;
+  // Ein Datum ohne Jahreszahl merkt sich das: Steht in derselben Zelle ein
+  // Datum MIT Jahr, gilt dessen Jahr — „14.09.-25.09.2026" meint zweimal
+  // 2026, und „28.12.-04.01.2027" meint für den ersten Tag 2026.
+  const merke = (jahr, monat, tag, ganz, bekannt = true) => {
+    if (!gueltig(jahr, monat, tag)) return ganz;
+    gefunden.push({ jahr, monat, tag, bekannt });
+    return ' '.repeat(ganz.length);
+  };
+  const beide = (ganz, t1, m1, t2, m2, j) => {
+    const jahr = jahrVoll(j);
+    if (!gueltig(jahr, m2, t2)) return ganz;
+    // Der erste Tag liegt vor dem zweiten; ein späterer Monat heißt Vorjahr.
+    const jahr1 = m1 > m2 ? jahr - 1 : jahr;
+    if (!gueltig(jahr1, m1, t1)) return ganz;
+    gefunden.push({ jahr: jahr1, monat: m1, tag: t1, bekannt: true });
+    gefunden.push({ jahr, monat: m2, tag: t2, bekannt: true });
+    return ' '.repeat(ganz.length);
+  };
+
+  rest = rest.replace(/(\d{4})-(\d{1,2})-(\d{1,2})/g,
+    (ganz, j, m, t) => merke(Number(j), Number(m), Number(t), ganz));
+  // Zeitraum über zwei Monate: 17.10.- 31.10.2026, 28.12.-04.01.2027
+  rest = rest.replace(/(\d{1,2})\.\s*(\d{1,2})\.\s*[-–—/]\s*(\d{1,2})\.\s*(\d{1,2})\.\s*(\d{2,4})/g,
+    (ganz, t1, m1, t2, m2, j) => beide(ganz, Number(t1), Number(m1), Number(t2), Number(m2), j));
+  // Zeitraum innerhalb eines Monats: 12.-14.10.2026, 10./11.07.2027
+  rest = rest.replace(/(\d{1,2})\.\s*[-–—/]\s*(\d{1,2})\.\s*(\d{1,2})\.\s*(\d{2,4})/g,
+    (ganz, t1, t2, m, j) => beide(ganz, Number(t1), Number(m), Number(t2), Number(m), j));
+  rest = rest.replace(/(\d{1,2})\.\s*(\d{1,2})\.\s*(\d{2,4})/g,
+    (ganz, t, m, j) => merke(jahrVoll(j), Number(m), Number(t), ganz));
+  rest = rest.replace(/(\d{1,2})\s*\/\s*(\d{1,2})\s*\/\s*(\d{2,4})/g,
+    (ganz, t, m, j) => merke(jahrVoll(j), Number(m), Number(t), ganz));
+  rest = rest.replace(/(\d{1,2})\.\s*([A-Za-zÄÖÜäöü]+)\.?\s*(\d{2,4})?/g,
+    (ganz, t, name, j) => {
+      const monat = MONATE[name.toLowerCase()];
+      if (!monat) return ganz;
+      return merke(j ? jahrVoll(j) : ersatzJahr, monat, Number(t), ganz, Boolean(j));
+    });
+  rest = rest.replace(/(\d{1,2})\.\s*(\d{1,2})\.(?!\d)/g,
+    (ganz, t, m) => merke(ersatzJahr, Number(m), Number(t), ganz, false));
+
+  jahreErgaenzen(gefunden);
+  // Der frühere Tag ist der Beginn, gleich in welcher Reihenfolge er im Text
+  // steht: „Ab 07.09. bis zum 18.09.2026" nennt das vollständige Datum hinten.
+  gefunden.sort((a, b) => Date.UTC(a.jahr, a.monat - 1, a.tag) - Date.UTC(b.jahr, b.monat - 1, b.tag));
+  return { daten: gefunden, rest };
+}
+
+// Datumsangaben ohne Jahreszahl bekommen das Jahr des nächsten Datums, das
+// eines trägt — über den Jahreswechsel hinweg um eins versetzt.
+function jahreErgaenzen(daten) {
+  const bekannt = daten.findIndex((d) => d.bekannt);
+  if (bekannt < 0) return;
+  const anker = daten[bekannt];
+  daten.forEach((datum, index) => {
+    if (datum.bekannt) return;
+    let jahr = anker.jahr;
+    if (index < bekannt && datum.monat > anker.monat) jahr -= 1;
+    if (index > bekannt && datum.monat < anker.monat) jahr += 1;
+    if (gueltig(jahr, datum.monat, datum.tag)) datum.jahr = jahr;
+  });
+}
+
+function zeitenAusText(text) {
+  const zeiten = [];
+  const rest = text.replace(/(\d{1,2})[:.](\d{2})(?:\s*Uhr)?|(\d{1,2})\s*Uhr/gi,
+    (ganz, s1, m1, s2) => {
+      const stunde = Number(s1 !== undefined ? s1 : s2);
+      const minute = Number(m1 || 0);
+      if (stunde > 23 || minute > 59) return ganz;
+      zeiten.push({ stunde, minute });
+      return ' '.repeat(ganz.length);
+    });
+  return { zeiten, rest };
+}
+
+function restSaeubern(text) {
+  // Erst die Trennzeichen einsammeln, dann die Klammer prüfen: In
+  // „Weihnachtsferien (23.12.2026 – 06.01.2027)" bleibt sonst der Gedankenstrich
+  // zwischen den Klammern stehen, und „( )" wird nicht als leer erkannt.
+  let rein = text.replace(/[\s,;–—-]+/g, ' ').replace(KLAMMER_LEER, ' ')
+    .replace(/\s+/g, ' ').trim();
+  // Stehen nur noch Bindewörter da, bleibt nichts. Sobald eine Zahl übrig
+  // ist, bleibt alles stehen — „15. oder" gehört dem Nutzer vor Augen.
+  if (rein && !/\d/.test(rein)) {
+    rein = rein.split(' ').filter((wort) => wort && !FUELLWORT.test(wort.replace(/\.$/, ''))).join(' ');
+  }
+  return rein.trim();
+}
+
+// Zeitspanne zuerst: „9-15.30 Uhr" ist eine Angabe, keine zwei.
+const ZEITSPANNE = /\b(\d{1,2})(?:[:.](\d{2}))?\s*(?:-|–|—|bis)\s*(\d{1,2})(?:[:.](\d{2}))?\s*(?:Uhr|h)\b/i;
+const EINZELZEIT = /\b(\d{1,2})[:.](\d{2})\s*(?:Uhr|h)\b|\b(\d{1,2}):(\d{2})\b|\b(\d{1,2})\s*(?:Uhr|h)\b/gi;
+
+function zeitenAusBeschreibung(text) {
+  const spanne = text.match(ZEITSPANNE);
+  if (spanne) {
+    const von = { stunde: Number(spanne[1]), minute: Number(spanne[2] || 0) };
+    const bis = { stunde: Number(spanne[3]), minute: Number(spanne[4] || 0) };
+    if (von.stunde < 24 && bis.stunde < 24 && von.minute < 60 && bis.minute < 60) {
+      return [von, bis];
+    }
+  }
+  const zeiten = [];
+  for (const t of text.matchAll(EINZELZEIT)) {
+    const stunde = Number(t[1] !== undefined ? t[1] : t[3] !== undefined ? t[3] : t[5]);
+    const minute = Number((t[1] !== undefined ? t[2] : t[3] !== undefined ? t[4] : 0) || 0);
+    if (stunde < 24 && minute < 60) zeiten.push({ stunde, minute });
+  }
+  return zeiten;
+}
+
+function textZuDatum(text, ersatzJahr) {
+  const ohneTag = text.replace(WOCHENTAGE, '');
+  const { daten, rest } = datenAusText(ohneTag, ersatzJahr);
+  if (!daten.length) return null;
+  const { zeiten, rest: uebrig } = zeitenAusText(rest);
+  return {
+    von: daten[0],
+    bis: daten[1] || null,
+    zeitVon: zeiten[0] || null,
+    zeitBis: zeiten[1] || null,
+    rest: restSaeubern(uebrig),
+  };
+}
+
+// Eine Zelle, die nur eine Uhrzeit trägt (in Excel eine Zahl unter 1).
+function nurZeit(zelle) {
+  if (zelle.art === 'datum' && zelle.zahl < 1) {
+    return { stunde: zelle.datum.stunde, minute: zelle.datum.minute };
+  }
+  if (zelle.art === 'text') {
+    const treffer = zelle.text.match(/^(\d{1,2})[:.](\d{2})(?:\s*Uhr)?$/i);
+    if (treffer && Number(treffer[1]) < 24 && Number(treffer[2]) < 60) {
+      return { stunde: Number(treffer[1]), minute: Number(treffer[2]) };
+    }
+  }
+  return null;
+}
+
+function zelleZuDatum(zelle, ersatzJahr) {
+  if (!zelle) return null;
+  if (zelle.art === 'datum') {
+    if (zelle.zahl < 1) return null;
+    const d = zelle.datum;
+    return {
+      von: { jahr: d.jahr, monat: d.monat, tag: d.tag },
+      bis: null,
+      zeitVon: d.hatZeit ? { stunde: d.stunde, minute: d.minute } : null,
+      zeitBis: null,
+      rest: '',
+    };
+  }
+  if (zelle.art === 'text') return textZuDatum(zelle.text, ersatzJahr);
+  return null;
+}
+
+// Eine Überschriftenzeile wird an jeder Stelle erkannt, nicht nur ganz oben:
+// Ein Word-Dokument bringt mehrere Tabellen mit, und jede hat ihre eigene.
+// Eine echte Terminzeile trägt ein Datum und kommt hier nie an.
+function istKopfzeile(zeile, erste) {
+  const worte = zeile.zellen.filter(Boolean);
+  if (!worte.length || worte.some((z) => z.art !== 'text')) return false;
+  if (worte.some((z) => KOPFWORTE.test(z.text.trim()))) return true;
+  return erste;
+}
+
+function termineLesen(zeilen, einstellungen = {}) {
+  const ersatzJahr = einstellungen.jahr || new Date().getFullYear();
+  const termine = [];
+  const hinweise = [];
+  let kopfzeilen = 0;
+
+  for (let i = 0; i < zeilen.length; i++) {
+    const zeile = zeilen[i];
+    const zellen = zeile.zellen;
+
+    let datum = null;
+    let datumIndex = -1;
+    for (let s = 0; s < zellen.length; s++) {
+      const gelesen = zelleZuDatum(zellen[s], ersatzJahr);
+      if (gelesen) { datum = gelesen; datumIndex = s; break; }
+    }
+    if (!datum) {
+      if (istKopfzeile(zeile, i === 0)) {
+        kopfzeilen++;
+        continue;
+      }
+      const text = zellen.filter(Boolean).map((z) => z.text).join(' ').trim();
+      if (text) {
+        hinweise.push({
+          zeile: zeile.nummer,
+          tabelle: zeile.tabelle,
+          text,
+          grund: 'Kein Datum erkannt',
+        });
+      }
+      continue;
+    }
+
+    const beschreibung = [];
+    if (datum.rest) beschreibung.push(datum.rest);
+    for (let s = 0; s < zellen.length; s++) {
+      if (s === datumIndex || !zellen[s]) continue;
+      const zelle = zellen[s];
+      const zeit = nurZeit(zelle);
+      if (zeit) {
+        if (!datum.zeitVon) datum.zeitVon = zeit;
+        else if (!datum.zeitBis) datum.zeitBis = zeit;
+        continue;
+      }
+      const weiteres = zelleZuDatum(zelle, ersatzJahr);
+      if (weiteres && !datum.bis && !weiteres.rest) {
+        datum.bis = weiteres.von;
+        if (weiteres.zeitVon && !datum.zeitVon) datum.zeitVon = weiteres.zeitVon;
+        continue;
+      }
+      beschreibung.push(zelle.art === 'zahl' ? String(zelle.zahl) : zelle.text);
+    }
+
+    const titel = beschreibung.join(' – ').trim();
+
+    // Eine Uhrzeit steht oft in der Beschreibung („Elternabend 19:30",
+    // „Unterricht von 8:00 – 11:30 Uhr", „Konferenz 9-15.30 Uhr"). Die
+    // Punktform wird nur mit „Uhr" oder „h" genommen: „3.45" in einem Text
+    // ist meist eine Zahl und keine Viertel vor vier.
+    if (!datum.zeitVon && titel) {
+      const gefunden = zeitenAusBeschreibung(titel);
+      if (gefunden.length) {
+        datum.zeitVon = gefunden[0];
+        if (gefunden[1]) datum.zeitBis = gefunden[1];
+      }
+    }
+
+    if (datum.bis) {
+      const a = Date.UTC(datum.von.jahr, datum.von.monat - 1, datum.von.tag);
+      const b = Date.UTC(datum.bis.jahr, datum.bis.monat - 1, datum.bis.tag);
+      if (b < a) datum.bis = null;
+    }
+
+    termine.push({
+      zeile: zeile.nummer,
+      tabelle: zeile.tabelle,
+      von: datum.von,
+      bis: datum.bis,
+      zeitVon: datum.zeitVon,
+      zeitBis: datum.zeitBis,
+      titel: titel || 'Termin',
+    });
+  }
+
+  return { termine, hinweise, kopfzeilen };
+}
+
+function alsAnzeige(termin) {
+  const tag = `${zweistellig(termin.von.tag)}.${zweistellig(termin.von.monat)}.${termin.von.jahr}`;
+  if (!termin.zeitVon && !termin.bis) return tag;
+  let text = tag;
+  if (termin.zeitVon) {
+    text += `, ${zweistellig(termin.zeitVon.stunde)}:${zweistellig(termin.zeitVon.minute)}`;
+    if (termin.zeitBis) {
+      text += `–${zweistellig(termin.zeitBis.stunde)}:${zweistellig(termin.zeitBis.minute)}`;
+    }
+    text += ' Uhr';
+  }
+  if (termin.bis) {
+    text += ` bis ${zweistellig(termin.bis.tag)}.${zweistellig(termin.bis.monat)}.${termin.bis.jahr}`;
+  }
+  return text;
+}
+
+  TEILE.alsSchluessel = alsSchluessel;
+  TEILE.termineLesen = termineLesen;
+  TEILE.alsAnzeige = alsAnzeige;
+})();
+
+/* ---- ics.js ---- */
+(function () {
+// Baut aus den gelesenen Terminen eine .ics-Datei (RFC 5545).
+//
+// Zeiten stehen bewusst OHNE Zeitzone („schwebend"): Ein Schultermin um
+// 8 Uhr ist um 8 Uhr, egal in welcher Zeitzone das Gerät gerade steht. Eine
+// mitgelieferte VTIMEZONE wäre die Alternative — sie brächte hier nichts und
+// müsste bei jeder Zeitumstellung stimmen.
+
+const zwei = (n) => String(n).padStart(2, '0');
+
+function tagesstempel(datum) {
+  return `${datum.jahr}${zwei(datum.monat)}${zwei(datum.tag)}`;
+}
+
+function zeitstempel(datum, zeit) {
+  return `${tagesstempel(datum)}T${zwei(zeit.stunde)}${zwei(zeit.minute)}00`;
+}
+
+function tagPlus(datum, tage) {
+  const d = new Date(Date.UTC(datum.jahr, datum.monat - 1, datum.tag + tage));
+  return { jahr: d.getUTCFullYear(), monat: d.getUTCMonth() + 1, tag: d.getUTCDate() };
+}
+
+function maskiere(text) {
+  return String(text)
+    .replace(/\\/g, '\\\\')
+    .replace(/;/g, '\\;')
+    .replace(/,/g, '\\,')
+    .replace(/\r?\n/g, '\\n');
+}
+
+// Gefaltet wird nach OKTETTEN, nicht nach Zeichen — ein Umlaut zählt zwei.
+// Eine mitten im Zeichen geteilte Zeile macht aus „für" Buchstabensalat.
+function falte(zeile) {
+  const koder = new TextEncoder();
+  if (koder.encode(zeile).length <= 75) return zeile;
+  const stuecke = [];
+  let aktuell = '';
+  let laenge = 0;
+  let grenze = 75;
+  for (const zeichen of zeile) {
+    const breite = koder.encode(zeichen).length;
+    if (laenge + breite > grenze) {
+      stuecke.push(aktuell);
+      aktuell = ' ';
+      laenge = 1;
+      grenze = 75;
+    }
+    aktuell += zeichen;
+    laenge += breite;
+  }
+  stuecke.push(aktuell);
+  return stuecke.join('\r\n');
+}
+
+function kennung(termin, nummer) {
+  const stoff = `${tagesstempel(termin.von)}|${termin.titel}|${nummer}`;
+  let wert = 0x811c9dc5;
+  for (let i = 0; i < stoff.length; i++) {
+    wert ^= stoff.charCodeAt(i);
+    wert = Math.imul(wert, 0x01000193) >>> 0;
+  }
+  return `${tagesstempel(termin.von)}-${wert.toString(36)}-${nummer}@terminkonverter`;
+}
+
+function wecker(termin, art) {
+  if (art === 'keine') return [];
+  const ganztags = !termin.zeitVon;
+  let ausloeser;
+  if (art === 'vortag') ausloeser = ganztags ? '-PT16H' : '-P1D';
+  else ausloeser = ganztags ? 'PT8H' : '-PT15M';
+  return [
+    'BEGIN:VALARM',
+    'ACTION:DISPLAY',
+    `TRIGGER:${ausloeser}`,
+    `DESCRIPTION:${maskiere(termin.titel)}`,
+    'END:VALARM',
+  ];
+}
+
+function icsBauen(termine, einstellungen = {}) {
+  const name = einstellungen.name || 'Termine';
+  const erinnerung = einstellungen.erinnerung || 'keine';
+  const dauer = Number(einstellungen.dauer) > 0 ? Number(einstellungen.dauer) : 60;
+  const jetzt = einstellungen.jetzt || new Date();
+  const stempel = `${jetzt.getUTCFullYear()}${zwei(jetzt.getUTCMonth() + 1)}`
+    + `${zwei(jetzt.getUTCDate())}T${zwei(jetzt.getUTCHours())}`
+    + `${zwei(jetzt.getUTCMinutes())}${zwei(jetzt.getUTCSeconds())}Z`;
+
+  const zeilen = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//Terminkonverter//Excel nach iCal//DE',
+    'CALSCALE:GREGORIAN',
+    'METHOD:PUBLISH',
+    `X-WR-CALNAME:${maskiere(name)}`,
+  ];
+
+  termine.forEach((termin, nummer) => {
+    zeilen.push('BEGIN:VEVENT');
+    zeilen.push(`UID:${kennung(termin, nummer + 1)}`);
+    zeilen.push(`DTSTAMP:${stempel}`);
+
+    if (termin.zeitVon) {
+      const beginn = new Date(Date.UTC(termin.von.jahr, termin.von.monat - 1, termin.von.tag,
+        termin.zeitVon.stunde, termin.zeitVon.minute));
+      const endtag = termin.bis || termin.von;
+      let schluss = termin.zeitBis
+        ? new Date(Date.UTC(endtag.jahr, endtag.monat - 1, endtag.tag,
+          termin.zeitBis.stunde, termin.zeitBis.minute))
+        : new Date(Date.UTC(endtag.jahr, endtag.monat - 1, endtag.tag,
+          termin.zeitVon.stunde, termin.zeitVon.minute + dauer));
+      if (schluss <= beginn) schluss = new Date(beginn.getTime() + dauer * 60000);
+      const alsTeile = (d) => ({
+        datum: { jahr: d.getUTCFullYear(), monat: d.getUTCMonth() + 1, tag: d.getUTCDate() },
+        zeit: { stunde: d.getUTCHours(), minute: d.getUTCMinutes() },
+      });
+      const a = alsTeile(beginn);
+      const e = alsTeile(schluss);
+      zeilen.push(`DTSTART:${zeitstempel(a.datum, a.zeit)}`);
+      zeilen.push(`DTEND:${zeitstempel(e.datum, e.zeit)}`);
+    } else {
+      // Bei ganztägigen Terminen ist DTEND der ERSTE Tag danach.
+      zeilen.push(`DTSTART;VALUE=DATE:${tagesstempel(termin.von)}`);
+      zeilen.push(`DTEND;VALUE=DATE:${tagesstempel(tagPlus(termin.bis || termin.von, 1))}`);
+    }
+
+    zeilen.push(`SUMMARY:${maskiere(termin.titel)}`);
+    if (termin.beschreibung) zeilen.push(`DESCRIPTION:${maskiere(termin.beschreibung)}`);
+    if (termin.ort) zeilen.push(`LOCATION:${maskiere(termin.ort)}`);
+    // Ganztägige Termine blockieren den Tag nicht (sonst gilt man den
+    // ganzen Tag als beschäftigt); Termine mit Uhrzeit schon.
+    zeilen.push(termin.zeitVon ? 'TRANSP:OPAQUE' : 'TRANSP:TRANSPARENT');
+    zeilen.push(...wecker(termin, erinnerung));
+    zeilen.push('END:VEVENT');
+  });
+
+  zeilen.push('END:VCALENDAR');
+  return zeilen.map(falte).join('\r\n') + '\r\n';
+}
+
+  TEILE.icsBauen = icsBauen;
+})();
+
+/* ---- app.js ---- */
+(function () {
+// Die Oberfläche: Datei entgegennehmen, Termine zeigen, .ics ausgeben.
+
+const { xlsxLesen, csvLesen } = TEILE;
+const { docxLesen } = TEILE;
+const { termineLesen, alsAnzeige } = TEILE;
+const { icsBauen } = TEILE;
+const teil = (id) => document.getElementById(id);
+const ablage = teil('ablage');
+const meldung = teil('meldung');
+
+let termine = [];
+let dabei = [];
+let dateiname = 'termine';
+// Der zuletzt erzeugte Text wird gemerkt: Ein Textfeld gibt seinen Inhalt
+// mit \n zurück, in eine .ics gehören aber \r\n.
+let letzterText = '';
+
+teil('jahr').value = String(new Date().getFullYear());
+
+function sage(text, fehler = false) {
+  meldung.textContent = text;
+  meldung.classList.toggle('fehler', fehler);
+}
+
+function zeigen(id, ja) {
+  teil(id).hidden = !ja;
+}
+
+const zwei = (n) => String(n).padStart(2, '0');
+const alsFeldDatum = (d) => (d ? `${d.jahr}-${zwei(d.monat)}-${zwei(d.tag)}` : '');
+const alsFeldZeit = (z) => (z ? `${zwei(z.stunde)}:${zwei(z.minute)}` : '');
+
+function ausFeldDatum(wert) {
+  const treffer = /^(\d{4})-(\d{2})-(\d{2})$/.exec(wert || '');
+  if (!treffer) return null;
+  return { jahr: Number(treffer[1]), monat: Number(treffer[2]), tag: Number(treffer[3]) };
+}
+
+function ausFeldZeit(wert) {
+  const treffer = /^(\d{1,2}):(\d{2})/.exec(wert || '');
+  if (!treffer) return null;
+  return { stunde: Number(treffer[1]), minute: Number(treffer[2]) };
+}
+
+const alsZahl = (d) => Date.UTC(d.jahr, d.monat - 1, d.tag);
+
+// Das Blatt zum Bearbeiten. `offen` ist der Platz in der Liste; -1 heißt
+// „neuer Termin", und ein neuer wird hinten angehängt.
+let offen = -1;
+
+function blattOeffnen(index, vorlage) {
+  offen = index;
+  const termin = index >= 0 ? termine[index] : (vorlage || {});
+  teil('blatttitel').textContent = index >= 0 ? 'Termin bearbeiten' : 'Termin hinzufügen';
+  teil('f-titel').value = termin.titel || '';
+  teil('f-von').value = alsFeldDatum(termin.von);
+  teil('f-bis').value = alsFeldDatum(termin.bis);
+  teil('f-zeitvon').value = alsFeldZeit(termin.zeitVon);
+  teil('f-zeitbis').value = alsFeldZeit(termin.zeitBis);
+  teil('f-fehler').textContent = '';
+  teil('f-loeschen').hidden = index < 0;
+  teil('blatt').showModal();
+  teil(index >= 0 ? 'f-titel' : 'f-von').focus();
+}
+
+function blattUebernehmen(ereignis) {
+  ereignis.preventDefault();
+  const von = ausFeldDatum(teil('f-von').value);
+  if (!von) {
+    teil('f-fehler').textContent = 'Bitte ein Datum angeben.';
+    teil('f-fehler').classList.add('fehler');
+    return;
+  }
+  const bis = ausFeldDatum(teil('f-bis').value);
+  if (bis && alsZahl(bis) < alsZahl(von)) {
+    teil('f-fehler').textContent = 'Das Ende liegt vor dem Beginn.';
+    teil('f-fehler').classList.add('fehler');
+    return;
+  }
+  const zeitVon = ausFeldZeit(teil('f-zeitvon').value);
+  const zeitBis = ausFeldZeit(teil('f-zeitbis').value);
+  if (zeitBis && !zeitVon) {
+    teil('f-fehler').textContent = 'Ohne Beginn keine Endzeit — bitte auch den Beginn eintragen.';
+    teil('f-fehler').classList.add('fehler');
+    return;
+  }
+
+  const geaendert = {
+    ...(offen >= 0 ? termine[offen] : {}),
+    titel: teil('f-titel').value.trim() || 'Termin',
+    von,
+    bis: bis && alsZahl(bis) > alsZahl(von) ? bis : null,
+    zeitVon,
+    zeitBis,
+    geaendert: true,
+  };
+  if (offen >= 0) {
+    termine[offen] = geaendert;
+  } else {
+    termine.push(geaendert);
+    dabei.push(true);
+  }
+  teil('blatt').close();
+  tabelleZeichnen();
+}
+
+function blattLoeschen() {
+  if (offen < 0) return;
+  termine.splice(offen, 1);
+  dabei.splice(offen, 1);
+  teil('blatt').close();
+  if (!termine.length) zeigen('vorschau', false);
+  else tabelleZeichnen();
+}
+
+function tabelleZeichnen() {
+  const koerper = teil('zeilen');
+  koerper.textContent = '';
+  termine.forEach((termin, index) => {
+    const zeile = document.createElement('tr');
+    if (!dabei[index]) zeile.classList.add('aus');
+
+    const zelleHaken = document.createElement('td');
+    const haken = document.createElement('input');
+    haken.type = 'checkbox';
+    haken.checked = dabei[index];
+    haken.setAttribute('aria-label', `${alsAnzeige(termin)} – ${termin.titel}`);
+    haken.addEventListener('change', () => {
+      dabei[index] = haken.checked;
+      zeile.classList.toggle('aus', !haken.checked);
+      zaehlerSetzen();
+    });
+    zelleHaken.append(haken);
+
+    const zelleWann = document.createElement('td');
+    zelleWann.className = 'wann';
+    zelleWann.textContent = alsAnzeige(termin);
+
+    const zelleWas = document.createElement('td');
+    const knopf = document.createElement('button');
+    knopf.type = 'button';
+    knopf.className = 'zeilenknopf';
+    knopf.textContent = termin.titel;
+    knopf.title = 'Termin bearbeiten';
+    knopf.addEventListener('click', () => blattOeffnen(index));
+    zelleWas.append(knopf);
+    if (termin.geaendert) zeile.classList.add('geaendert');
+
+    const zelleNummer = document.createElement('td');
+    zelleNummer.className = 'schmal';
+    zelleNummer.textContent = herkunft(termin);
+
+    zeile.append(zelleHaken, zelleWann, zelleWas, zelleNummer);
+    koerper.append(zeile);
+  });
+  zaehlerSetzen();
+}
+
+function zaehlerSetzen() {
+  const anzahl = dabei.filter(Boolean).length;
+  const geaendert = termine.filter((t) => t.geaendert).length;
+  teil('zaehler').textContent = `(${anzahl} von ${termine.length}${geaendert ? `, ${geaendert} geändert` : ''})`;
+  teil('laden').disabled = anzahl === 0;
+  teil('teilen').disabled = anzahl === 0;
+  teil('zeigen').disabled = anzahl === 0;
+  teil('ergebnis').textContent = '';
+  zeigen('textkarte', false);
+}
+
+function hinweiseZeichnen(hinweise) {
+  const liste = teil('hinweisliste');
+  liste.textContent = '';
+  for (const hinweis of hinweise.slice(0, 40)) {
+    const punkt = document.createElement('li');
+    punkt.textContent = `${herkunft(hinweis, true)}: ${hinweis.grund} — „${hinweis.text}"`;
+    // Fehlt nur der Tag, soll die Zeile nicht verloren sein: Sie lässt sich
+    // mit einem Datum von Hand übernehmen.
+    const knopf = document.createElement('button');
+    knopf.type = 'button';
+    knopf.textContent = 'Als Termin übernehmen';
+    knopf.addEventListener('click', () => {
+      if (!termine.length) {
+        zeigen('einstellungen', true);
+        zeigen('vorschau', true);
+      }
+      // Der Datumsrest am Anfang („.03.2027") gehört nicht in die
+      // Beschreibung — das Datum wird ja gleich eingetragen.
+      blattOeffnen(-1, { titel: hinweis.text.replace(/^[\d.\s/–—-]+/, '').trim() });
+      knopf.disabled = true;
+      knopf.textContent = 'übernommen';
+    });
+    punkt.append(knopf);
+    liste.append(punkt);
+  }
+  if (hinweise.length > 40) {
+    const punkt = document.createElement('li');
+    punkt.textContent = `… und ${hinweise.length - 40} weitere.`;
+    liste.append(punkt);
+  }
+  zeigen('hinweiskarte', hinweise.length > 0);
+}
+
+async function zeilenLesen(datei) {
+  const name = datei.name.toLowerCase();
+  if (name.endsWith('.csv') || name.endsWith('.txt')) {
+    return { zeilen: csvLesen(await datei.text()) };
+  }
+  if (name.endsWith('.xls')) {
+    throw new Error('Das ist das alte .xls-Format. Bitte in Excel einmal als .xlsx speichern.');
+  }
+  if (name.endsWith('.doc')) {
+    throw new Error('Das ist das alte .doc-Format. Bitte in Word einmal als .docx speichern.');
+  }
+  if (name.endsWith('.docx') || name.endsWith('.docm')) {
+    const { zeilen, quelle } = await docxLesen(await datei.arrayBuffer());
+    return { zeilen, quelle };
+  }
+  return { zeilen: await xlsxLesen(await datei.arrayBuffer()) };
+}
+
+// Woher eine Zeile stammt: in Word aus einer bestimmten Tabelle, in Excel
+// einfach aus der Zeile mit dieser Nummer.
+function herkunft(eintrag, lang = false) {
+  // Von Hand angelegte Termine stammen aus keiner Zeile.
+  if (!eintrag.zeile) return lang ? 'Von Hand' : 'neu';
+  if (!eintrag.tabelle) return lang ? `Zeile ${eintrag.zeile}` : String(eintrag.zeile);
+  return lang
+    ? `Tabelle ${eintrag.tabelle}, Zeile ${eintrag.zeile}`
+    : `${eintrag.tabelle}.${eintrag.zeile}`;
+}
+
+async function verarbeiten(datei) {
+  if (!datei) return;
+  dateiname = datei.name.replace(/\.[^.]+$/, '') || 'termine';
+  sage('Wird gelesen …');
+  try {
+    const { zeilen, quelle } = await zeilenLesen(datei);
+    if (!zeilen.length) {
+      throw new Error(quelle
+        ? 'In dem Word-Dokument war nichts zu lesen.'
+        : 'Das Tabellenblatt ist leer.');
+    }
+    const jahr = Number(teil('jahr').value) || new Date().getFullYear();
+    const ergebnis = termineLesen(zeilen, { jahr });
+    termine = ergebnis.termine;
+    dabei = termine.map(() => true);
+    hinweiseZeichnen(ergebnis.hinweise);
+    if (!termine.length) {
+      zeigen('vorschau', false);
+      zeigen('einstellungen', false);
+      sage(quelle === 'absaetze'
+        ? 'In dem Word-Dokument war kein Datum zu finden — weder in einer Tabelle noch in den Absätzen.'
+        : 'In der Tabelle war kein Datum zu finden. Steht das Datum in einer eigenen Spalte?', true);
+      return;
+    }
+    if (!teil('kalendername').value.trim()) teil('kalendername').value = dateiname;
+    zeigen('einstellungen', true);
+    zeigen('vorschau', true);
+    tabelleZeichnen();
+    const teile = [`${termine.length} ${termine.length === 1 ? 'Termin' : 'Termine'} gefunden`];
+    if (quelle === 'tabellen') {
+      const tabellen = new Set(zeilen.map((z) => z.tabelle)).size;
+      teile.push(`aus ${tabellen} ${tabellen === 1 ? 'Tabelle' : 'Tabellen'} im Dokument`);
+    }
+    if (quelle === 'absaetze') teile.push('aus den Absätzen — das Dokument hat keine Tabelle');
+    if (ergebnis.kopfzeilen) {
+      teile.push(`${ergebnis.kopfzeilen} ${ergebnis.kopfzeilen === 1 ? 'Überschriftenzeile' : 'Überschriftenzeilen'} übersprungen`);
+    }
+    sage(`${datei.name}: ${teile.join(', ')}.`);
+  } catch (fehler) {
+    termine = [];
+    dabei = [];
+    zeigen('vorschau', false);
+    zeigen('hinweiskarte', false);
+    sage(fehler.message || 'Die Datei ließ sich nicht lesen.', true);
+  }
+}
+
+function ausgabe() {
+  const gewaehlt = termine.filter((_, i) => dabei[i]);
+  if (!gewaehlt.length) return null;
+  const text = icsBauen(gewaehlt, {
+    name: teil('kalendername').value.trim() || 'Termine',
+    erinnerung: teil('erinnerung').value,
+    dauer: teil('dauer').value,
+  });
+  return { text, anzahl: gewaehlt.length, name: `${dateiname}.ics` };
+}
+
+function gemeldet(ergebnis, was) {
+  teil('ergebnis').textContent =
+    `${ergebnis.anzahl} ${ergebnis.anzahl === 1 ? 'Termin' : 'Termine'} ${was}`;
+}
+
+// Der Typ ist mit Absicht „application/octet-stream" und nicht
+// „text/calendar": Safari reicht eine Kalenderdatei sonst sofort an die
+// Kalender-App weiter, statt sie zu sichern — und dann liegt sie nirgends.
+// Was die gesicherte Datei ist, sagt die Endung .ics; ein Doppelklick öffnet
+// weiterhin den Kalender.
+function herunterladen() {
+  const ergebnis = ausgabe();
+  if (!ergebnis) return;
+  const blob = new Blob([ergebnis.text], { type: 'application/octet-stream' });
+  const adresse = URL.createObjectURL(blob);
+  const verweis = document.createElement('a');
+  verweis.href = adresse;
+  verweis.download = ergebnis.name;
+  verweis.rel = 'noopener';
+  document.body.append(verweis);
+  verweis.click();
+  verweis.remove();
+  setTimeout(() => URL.revokeObjectURL(adresse), 10000);
+  gemeldet(ergebnis, `in ${ergebnis.name} gesichert — die Datei liegt bei den Downloads.`);
+}
+
+// Auf iPhone und iPad führt kein Weg an das Teilen-Blatt vorbei: Dort heißt
+// „speichern" „In Dateien sichern", und von dort geht die Datei auch per
+// Mail oder AirDrop weiter.
+async function teilen() {
+  const ergebnis = ausgabe();
+  if (!ergebnis) return;
+  const datei = new File([ergebnis.text], ergebnis.name, { type: 'text/calendar' });
+  try {
+    await navigator.share({ files: [datei], title: ergebnis.name });
+    gemeldet(ergebnis, 'weitergegeben.');
+  } catch (fehler) {
+    if (fehler && fehler.name === 'AbortError') return;
+    herunterladen();
+  }
+}
+
+function textZeigen() {
+  const ergebnis = ausgabe();
+  if (!ergebnis) return;
+  letzterText = ergebnis.text;
+  teil('icstext').value = ergebnis.text;
+  zeigen('textkarte', true);
+  teil('textkarte').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+async function kopieren() {
+  const text = letzterText || teil('icstext').value;
+  try {
+    await navigator.clipboard.writeText(text);
+    teil('kopierstand').textContent = 'Kopiert.';
+  } catch (fehler) {
+    teil('icstext').select();
+    teil('kopierstand').textContent = 'Bitte von Hand kopieren (der Text ist ausgewählt).';
+  }
+}
+
+teil('waehlen').addEventListener('click', () => teil('datei').click());
+teil('datei').addEventListener('change', (e) => {
+  verarbeiten(e.target.files[0]);
+  e.target.value = '';
+});
+teil('laden').addEventListener('click', herunterladen);
+teil('neu').addEventListener('click', () => blattOeffnen(-1));
+teil('blattform').addEventListener('submit', blattUebernehmen);
+teil('f-abbrechen').addEventListener('click', () => teil('blatt').close());
+teil('f-loeschen').addEventListener('click', blattLoeschen);
+teil('teilen').addEventListener('click', teilen);
+teil('zeigen').addEventListener('click', textZeigen);
+teil('kopieren').addEventListener('click', kopieren);
+
+// Der Teilen-Knopf steht nur da, wo er auch etwas tut — auf dem Rechner
+// gibt es das Teilen-Blatt meist nicht.
+teil('teilen').hidden = !(navigator.canShare
+  && navigator.canShare({ files: [new File([''], 'probe.ics', { type: 'text/calendar' })] }));
+teil('alle').addEventListener('click', () => { dabei = termine.map(() => true); tabelleZeichnen(); });
+teil('keine').addEventListener('click', () => { dabei = termine.map(() => false); tabelleZeichnen(); });
+
+for (const art of ['dragenter', 'dragover']) {
+  ablage.addEventListener(art, (e) => { e.preventDefault(); ablage.classList.add('bereit'); });
+}
+for (const art of ['dragleave', 'drop']) {
+  ablage.addEventListener(art, () => ablage.classList.remove('bereit'));
+}
+ablage.addEventListener('drop', (e) => {
+  e.preventDefault();
+  verarbeiten(e.dataTransfer.files[0]);
+});
+// Ohne das öffnet der Browser eine daneben abgelegte Datei einfach als Seite.
+window.addEventListener('dragover', (e) => e.preventDefault());
+window.addEventListener('drop', (e) => e.preventDefault());
+
+// Ohne Netz weiterhin startklar — dafür braucht es den Service Worker; er ist
+// zugleich die Bedingung dafür, dass Android „Installieren" anbietet.
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch(() => {
+      // Ohne ihn läuft die App genauso, nur eben nicht offline.
+    });
+  });
+}
+
+})();
+
+    </script>
+  </body>
+</html>
