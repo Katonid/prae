@@ -23,7 +23,13 @@ Adresse: https://katonid.github.io/prae/terminkonverter/
   ganztägiger. Eine Uhrzeit in der Beschreibung („Elternabend 19:30") zählt
   auch — aber nur mit Doppelpunkt oder dem Wort „Uhr".
 - Zwei Daten in einer Zelle (oder in einer dritten Spalte) ergeben einen
-  mehrtägigen Termin.
+  mehrtägigen Termin — auch in Kurzform: `12.-14.10.2026`, `10./11.07.2027`,
+  `17.10.- 31.10.2026`. Fehlt beim ersten Datum die Jahreszahl, gilt die des
+  zweiten; über den Jahreswechsel hinweg um eins versetzt (`28.12.-04.01.2027`
+  beginnt 2026).
+- Uhrzeiten in der Beschreibung werden mitgenommen, auch als Spanne:
+  `19:30`, `8.30 Uhr`, `12.00 h`, `9-15.30 Uhr`, `von 8:00 – 11:30 Uhr`. Ohne
+  „Uhr" oder Doppelpunkt zählt eine Zahl nicht als Zeit.
 - Welche Spalte links steht, ist gleich: Gesucht wird die Zelle, die sich als
   Datum lesen lässt — alles Übrige wird zur Beschreibung.
 - Eine Überschriftenzeile darf stehen bleiben. Zeilen ohne erkennbares Datum
