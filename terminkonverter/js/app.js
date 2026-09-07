@@ -27,6 +27,93 @@ function zeigen(id, ja) {
   teil(id).hidden = !ja;
 }
 
+const zwei = (n) => String(n).padStart(2, '0');
+const alsFeldDatum = (d) => (d ? `${d.jahr}-${zwei(d.monat)}-${zwei(d.tag)}` : '');
+const alsFeldZeit = (z) => (z ? `${zwei(z.stunde)}:${zwei(z.minute)}` : '');
+
+function ausFeldDatum(wert) {
+  const treffer = /^(\d{4})-(\d{2})-(\d{2})$/.exec(wert || '');
+  if (!treffer) return null;
+  return { jahr: Number(treffer[1]), monat: Number(treffer[2]), tag: Number(treffer[3]) };
+}
+
+function ausFeldZeit(wert) {
+  const treffer = /^(\d{1,2}):(\d{2})/.exec(wert || '');
+  if (!treffer) return null;
+  return { stunde: Number(treffer[1]), minute: Number(treffer[2]) };
+}
+
+const alsZahl = (d) => Date.UTC(d.jahr, d.monat - 1, d.tag);
+
+// Das Blatt zum Bearbeiten. `offen` ist der Platz in der Liste; -1 heißt
+// „neuer Termin", und ein neuer wird hinten angehängt.
+let offen = -1;
+
+function blattOeffnen(index, vorlage) {
+  offen = index;
+  const termin = index >= 0 ? termine[index] : (vorlage || {});
+  teil('blatttitel').textContent = index >= 0 ? 'Termin bearbeiten' : 'Termin hinzufügen';
+  teil('f-titel').value = termin.titel || '';
+  teil('f-von').value = alsFeldDatum(termin.von);
+  teil('f-bis').value = alsFeldDatum(termin.bis);
+  teil('f-zeitvon').value = alsFeldZeit(termin.zeitVon);
+  teil('f-zeitbis').value = alsFeldZeit(termin.zeitBis);
+  teil('f-fehler').textContent = '';
+  teil('f-loeschen').hidden = index < 0;
+  teil('blatt').showModal();
+  teil(index >= 0 ? 'f-titel' : 'f-von').focus();
+}
+
+function blattUebernehmen(ereignis) {
+  ereignis.preventDefault();
+  const von = ausFeldDatum(teil('f-von').value);
+  if (!von) {
+    teil('f-fehler').textContent = 'Bitte ein Datum angeben.';
+    teil('f-fehler').classList.add('fehler');
+    return;
+  }
+  const bis = ausFeldDatum(teil('f-bis').value);
+  if (bis && alsZahl(bis) < alsZahl(von)) {
+    teil('f-fehler').textContent = 'Das Ende liegt vor dem Beginn.';
+    teil('f-fehler').classList.add('fehler');
+    return;
+  }
+  const zeitVon = ausFeldZeit(teil('f-zeitvon').value);
+  const zeitBis = ausFeldZeit(teil('f-zeitbis').value);
+  if (zeitBis && !zeitVon) {
+    teil('f-fehler').textContent = 'Ohne Beginn keine Endzeit — bitte auch den Beginn eintragen.';
+    teil('f-fehler').classList.add('fehler');
+    return;
+  }
+
+  const geaendert = {
+    ...(offen >= 0 ? termine[offen] : {}),
+    titel: teil('f-titel').value.trim() || 'Termin',
+    von,
+    bis: bis && alsZahl(bis) > alsZahl(von) ? bis : null,
+    zeitVon,
+    zeitBis,
+    geaendert: true,
+  };
+  if (offen >= 0) {
+    termine[offen] = geaendert;
+  } else {
+    termine.push(geaendert);
+    dabei.push(true);
+  }
+  teil('blatt').close();
+  tabelleZeichnen();
+}
+
+function blattLoeschen() {
+  if (offen < 0) return;
+  termine.splice(offen, 1);
+  dabei.splice(offen, 1);
+  teil('blatt').close();
+  if (!termine.length) zeigen('vorschau', false);
+  else tabelleZeichnen();
+}
+
 function tabelleZeichnen() {
   const koerper = teil('zeilen');
   koerper.textContent = '';
@@ -51,7 +138,14 @@ function tabelleZeichnen() {
     zelleWann.textContent = alsAnzeige(termin);
 
     const zelleWas = document.createElement('td');
-    zelleWas.textContent = termin.titel;
+    const knopf = document.createElement('button');
+    knopf.type = 'button';
+    knopf.className = 'zeilenknopf';
+    knopf.textContent = termin.titel;
+    knopf.title = 'Termin bearbeiten';
+    knopf.addEventListener('click', () => blattOeffnen(index));
+    zelleWas.append(knopf);
+    if (termin.geaendert) zeile.classList.add('geaendert');
 
     const zelleNummer = document.createElement('td');
     zelleNummer.className = 'schmal';
@@ -65,7 +159,8 @@ function tabelleZeichnen() {
 
 function zaehlerSetzen() {
   const anzahl = dabei.filter(Boolean).length;
-  teil('zaehler').textContent = `(${anzahl} von ${termine.length})`;
+  const geaendert = termine.filter((t) => t.geaendert).length;
+  teil('zaehler').textContent = `(${anzahl} von ${termine.length}${geaendert ? `, ${geaendert} geändert` : ''})`;
   teil('laden').disabled = anzahl === 0;
   teil('teilen').disabled = anzahl === 0;
   teil('zeigen').disabled = anzahl === 0;
@@ -79,6 +174,23 @@ function hinweiseZeichnen(hinweise) {
   for (const hinweis of hinweise.slice(0, 40)) {
     const punkt = document.createElement('li');
     punkt.textContent = `${herkunft(hinweis, true)}: ${hinweis.grund} — „${hinweis.text}"`;
+    // Fehlt nur der Tag, soll die Zeile nicht verloren sein: Sie lässt sich
+    // mit einem Datum von Hand übernehmen.
+    const knopf = document.createElement('button');
+    knopf.type = 'button';
+    knopf.textContent = 'Als Termin übernehmen';
+    knopf.addEventListener('click', () => {
+      if (!termine.length) {
+        zeigen('einstellungen', true);
+        zeigen('vorschau', true);
+      }
+      // Der Datumsrest am Anfang („.03.2027") gehört nicht in die
+      // Beschreibung — das Datum wird ja gleich eingetragen.
+      blattOeffnen(-1, { titel: hinweis.text.replace(/^[\d.\s/–—-]+/, '').trim() });
+      knopf.disabled = true;
+      knopf.textContent = 'übernommen';
+    });
+    punkt.append(knopf);
     liste.append(punkt);
   }
   if (hinweise.length > 40) {
@@ -110,6 +222,8 @@ async function zeilenLesen(datei) {
 // Woher eine Zeile stammt: in Word aus einer bestimmten Tabelle, in Excel
 // einfach aus der Zeile mit dieser Nummer.
 function herkunft(eintrag, lang = false) {
+  // Von Hand angelegte Termine stammen aus keiner Zeile.
+  if (!eintrag.zeile) return lang ? 'Von Hand' : 'neu';
   if (!eintrag.tabelle) return lang ? `Zeile ${eintrag.zeile}` : String(eintrag.zeile);
   return lang
     ? `Tabelle ${eintrag.tabelle}, Zeile ${eintrag.zeile}`
@@ -242,6 +356,10 @@ teil('datei').addEventListener('change', (e) => {
   e.target.value = '';
 });
 teil('laden').addEventListener('click', herunterladen);
+teil('neu').addEventListener('click', () => blattOeffnen(-1));
+teil('blattform').addEventListener('submit', blattUebernehmen);
+teil('f-abbrechen').addEventListener('click', () => teil('blatt').close());
+teil('f-loeschen').addEventListener('click', blattLoeschen);
 teil('teilen').addEventListener('click', teilen);
 teil('zeigen').addEventListener('click', textZeigen);
 teil('kopieren').addEventListener('click', kopieren);
@@ -266,3 +384,13 @@ ablage.addEventListener('drop', (e) => {
 // Ohne das öffnet der Browser eine daneben abgelegte Datei einfach als Seite.
 window.addEventListener('dragover', (e) => e.preventDefault());
 window.addEventListener('drop', (e) => e.preventDefault());
+
+// Ohne Netz weiterhin startklar — dafür braucht es den Service Worker; er ist
+// zugleich die Bedingung dafür, dass Android „Installieren" anbietet.
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch(() => {
+      // Ohne ihn läuft die App genauso, nur eben nicht offline.
+    });
+  });
+}

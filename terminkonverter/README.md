@@ -51,6 +51,33 @@ der Reihenfolge, in der die Zeilen im Dokument fertig werden.
 Hat ein Dokument gar keine Tabelle, werden ersatzweise die **Absätze**
 durchgesehen: Jeder Absatz mit einem Datum wird ein Termin.
 
+## Ändern vor dem Sichern
+
+Ein Tipp auf die Beschreibung öffnet ein Blatt: **Text, Datum, Enddatum und
+Uhrzeiten** lassen sich dort ändern, der Termin lässt sich aus der Liste
+nehmen. Geänderte Zeilen sind als solche gekennzeichnet. „+ Termin
+hinzufügen" legt einen von Hand an, und jede übergangene Zeile hat einen Knopf
+„Als Termin übernehmen" — praktisch bei Zeilen, in denen im Dokument nur der
+Tag fehlt (`.03.2027 Personalversammlung`).
+
+Geändert wird immer nur, was in den Kalender geht; die eingelesene Datei
+bleibt unangetastet.
+
+## Auf dem Homescreen
+
+Die App ist installierbar: Manifest, Icons in allen gebrauchten Größen und ein
+Service Worker, der sie auch ohne Netz starten lässt.
+
+* **iPhone/iPad:** in Safari öffnen → Teilen → „Zum Home-Bildschirm".
+* **Android:** Chrome-Menü → „App installieren".
+* **Rechner:** Chrome/Edge zeigen ein Installieren-Zeichen in der Adresszeile.
+
+Die Icons erzeugt `scripts/generate-icons.py` (reines Python, ohne fremde
+Bibliotheken) — nicht von Hand bearbeiten. PNG ohne Alphakanal, sonst legt iOS
+das Icon auf Schwarz. **Nach jeder Änderung an den Dateien die Fassungsnummer
+`FASSUNG` in `sw.js` hochzählen**, sonst bleibt der alte Zwischenspeicher
+stehen.
+
 ## Die fertige Datei
 
 Der Knopf **„Kalenderdatei sichern (.ics)"** legt die Datei bei den Downloads
@@ -75,7 +102,9 @@ vom Pages-Arbeitsablauf des Repos mit ausgeliefert.
 | `js/xml.js` | Entitäten und Textzugriff, von beiden Lesern benutzt. |
 | `js/termine.js` | Macht aus Zeilen Termine (Datums- und Zeiterkennung). |
 | `js/ics.js` | Schreibt die `.ics` nach RFC 5545. |
-| `js/app.js` | Oberfläche: Datei annehmen, Vorschau, Herunterladen. |
+| `js/app.js` | Oberfläche: Datei annehmen, Vorschau, Ändern, Herunterladen. |
+| `sw.js` | Service Worker fürs Offline-Starten (`FASSUNG` hochzählen!). |
+| `scripts/generate-icons.py` | erzeugt `icons/` — gerechnet, ohne fremde Bibliothek. |
 
 Zwei Stellen, an denen es leicht schiefgeht:
 

@@ -6,7 +6,20 @@
     <title>Terminkonverter — Excel und Word zu iCal</title>
     <meta name="description" content="Wandelt Termine aus einer Excel-Tabelle oder aus den Tabellen eines Word-Dokuments in eine .ics-Datei für den Kalender um. Läuft ganz im Browser." />
     <meta name="color-scheme" content="light dark" />
-    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='3' y='6' width='26' height='23' rx='4' fill='%232b5bd7'/%3E%3Crect x='3' y='6' width='26' height='7' rx='4' fill='%231b3fa0'/%3E%3Crect x='9' y='3' width='3' height='6' rx='1.5' fill='%23fff'/%3E%3Crect x='20' y='3' width='3' height='6' rx='1.5' fill='%23fff'/%3E%3Cpath d='M11 21l4 4 7-8' stroke='%23fff' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
+    <link rel="icon" type="image/png" sizes="32x32" href="./icons/icon-32.png" />
+    <link rel="icon" type="image/svg+xml" href="./icons/icon.svg" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <meta name="theme-color" content="#2b5bd7" />
+    <!-- iOS liest das Manifest für den Homescreen nicht zuverlässig; es nimmt
+         apple-touch-icon. Fehlt eines, zeigt es einen Schnappschuss der Seite. -->
+    <link rel="apple-touch-icon" sizes="180x180" href="./icons/icon-180.png" />
+    <link rel="apple-touch-icon" sizes="167x167" href="./icons/icon-167.png" />
+    <link rel="apple-touch-icon" sizes="152x152" href="./icons/icon-152.png" />
+    <link rel="apple-touch-icon" sizes="120x120" href="./icons/icon-120.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Terminkonverter" />
     <link rel="stylesheet" href="./css/style.css" />
   </head>
   <body>
@@ -66,6 +79,7 @@
             <button type="button" id="keine" class="still">Keinen</button>
           </div>
         </div>
+        <p class="feld__klein">Tippe auf einen Termin, um Beschreibung, Datum oder Uhrzeit zu ändern.</p>
         <div class="tabelle-huelle">
           <table>
             <thead>
@@ -73,6 +87,9 @@
             </thead>
             <tbody id="zeilen"></tbody>
           </table>
+        </div>
+        <div class="knopfreihe knopfreihe--links">
+          <button type="button" id="neu" class="still">+ Termin hinzufügen</button>
         </div>
         <div class="fuss">
           <button type="button" id="laden" class="haupt">Kalenderdatei sichern (.ics)</button>
@@ -97,7 +114,7 @@
 
       <section class="karte hinweise" id="hinweiskarte" hidden>
         <h2>Übergangene Zeilen</h2>
-        <p class="feld__klein">Diese Zeilen wandern nicht in den Kalender — meist steckt dort eine Überschrift, eine Leerzeile oder ein Datum in ungewohnter Schreibweise.</p>
+        <p class="feld__klein">Diese Zeilen wandern nicht in den Kalender — meist steckt dort eine Überschrift, eine Leerzeile oder ein Datum in ungewohnter Schreibweise. Fehlt bloß der Tag, lässt sich die Zeile von Hand übernehmen.</p>
         <ul id="hinweisliste"></ul>
       </section>
 
@@ -140,6 +157,41 @@
     <footer class="fusszeile">
       Terminkonverter · ohne Anmeldung, ohne Server, ohne fremde Bibliothek.
     </footer>
+
+    <dialog id="blatt" aria-labelledby="blatttitel">
+      <form id="blattform">
+        <h2 id="blatttitel">Termin bearbeiten</h2>
+        <label>
+          <span>Beschreibung</span>
+          <input type="text" id="f-titel" maxlength="200" autocomplete="off" />
+        </label>
+        <div class="raster">
+          <label>
+            <span>Datum</span>
+            <input type="date" id="f-von" required />
+          </label>
+          <label>
+            <span>Bis (nur bei mehrtägigen)</span>
+            <input type="date" id="f-bis" />
+          </label>
+          <label>
+            <span>Beginn (Uhrzeit)</span>
+            <input type="time" id="f-zeitvon" />
+          </label>
+          <label>
+            <span>Ende (Uhrzeit)</span>
+            <input type="time" id="f-zeitbis" />
+          </label>
+        </div>
+        <p class="feld__klein">Ohne Uhrzeit wird der Termin ganztägig. Die Datei selbst bleibt unverändert — geändert wird nur, was in den Kalender geht.</p>
+        <p class="meldung" id="f-fehler" role="status" aria-live="polite"></p>
+        <div class="fuss">
+          <button type="submit" class="haupt">Übernehmen</button>
+          <button type="button" id="f-abbrechen">Abbrechen</button>
+          <button type="button" id="f-loeschen" class="still">Aus der Liste nehmen</button>
+        </div>
+      </form>
+    </dialog>
 
     <script type="module" src="./js/app.js"></script>
   </body>

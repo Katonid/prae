@@ -1319,6 +1319,21 @@ Namens und lebt weiter.
   ausgeliefert: https://katonid.github.io/prae/terminkonverter/
   Nimmt eine Tabelle mit Datum und Beschreibung und gibt eine `.ics` aus.
   Ausführlich: `terminkonverter/README.md`.
+- **Termine lassen sich vor dem Sichern ändern** (Blatt `#blatt` in
+  `index.html`, `blattOeffnen` in `js/app.js`): Text, Datum, Enddatum,
+  Uhrzeiten; dazu „+ Termin hinzufügen" und je übergangener Zeile „Als Termin
+  übernehmen" — Letzteres ist der Ausweg für Zeilen, in denen im Dokument nur
+  der Tag fehlt (`.03.2027 Personalversammlung`, echter Fall 09/2026).
+  **Die Beschreibung ist ein KNOPF** (`.zeilenknopf`, gepunktet unterstrichen,
+  mit Stift dahinter) — dieselbe Lehre wie beim Gruppenchat in Schulalarm: Ein
+  Knopf, den niemand findet, ist kein Knopf.
+- **Die App ist installierbar** (`manifest.webmanifest`, `sw.js`, `icons/`).
+  Der Service Worker fragt IMMER erst beim Server nach und greift nur ohne
+  Netz auf den Zwischenspeicher zurück; **`FASSUNG` in `sw.js` bei jeder neuen
+  Fassung hochzählen**. Die Icons rechnet `scripts/generate-icons.py` (reines
+  Python, ohne fremde Bibliothek) — PNG ohne Alphakanal, sonst legt iOS das
+  Homescreen-Icon auf Schwarz, und für den Homescreen liest iOS das Manifest
+  nicht zuverlässig, sondern `apple-touch-icon`.
 - **Der xlsx-Leser ist selbst geschrieben** (`js/zip.js`, `js/xlsx.js`).
   Entpackt wird mit `DecompressionStream('deflate-raw')`, wo der Browser es
   mitbringt, sonst mit dem eigenen Inflate daneben — den Rückfall nicht

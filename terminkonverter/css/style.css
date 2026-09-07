@@ -141,3 +141,47 @@ textarea {
   padding: .6rem;
   resize: vertical;
 }
+
+/* Ein Termin ist ein Knopf — sonst findet niemand, dass er sich ändern lässt. */
+.zeilenknopf {
+  border: 0;
+  background: none;
+  padding: 0;
+  font: inherit;
+  color: var(--schrift);
+  text-align: left;
+  cursor: pointer;
+  text-decoration: underline dotted var(--rand);
+  text-underline-offset: 3px;
+}
+.zeilenknopf:hover { color: var(--blau); text-decoration-color: var(--blau); }
+.zeilenknopf::after { content: " ✏️"; font-size: .85em; opacity: .5; }
+.zeilenknopf:hover::after { opacity: 1; }
+tr.geaendert td.wann::before {
+  content: "geändert";
+  display: block;
+  font-size: .7rem;
+  letter-spacing: .04em;
+  color: var(--blau);
+}
+.knopfreihe--links { justify-content: flex-start; margin-top: .8rem; }
+.hinweise li button {
+  margin-left: .4rem;
+  padding: .15rem .5rem;
+  font-size: .8rem;
+  background: var(--karte);
+}
+
+dialog {
+  border: 1px solid var(--rand);
+  border-radius: 14px;
+  background: var(--karte);
+  color: var(--schrift);
+  padding: 1.25rem;
+  width: min(34rem, calc(100vw - 2rem));
+  box-shadow: 0 18px 50px rgba(15, 23, 42, .28);
+}
+dialog::backdrop { background: rgba(15, 23, 42, .45); }
+dialog .raster { margin-bottom: .6rem; }
+dialog h2 { margin-bottom: 1rem; }
+dialog .fuss { margin-top: .4rem; }
