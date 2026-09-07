@@ -3,8 +3,8 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <title>Terminkonverter — Excel zu iCal</title>
-    <meta name="description" content="Wandelt eine Excel-Tabelle mit Datum und Beschreibung in eine .ics-Datei für den Kalender um. Läuft ganz im Browser." />
+    <title>Terminkonverter — Excel und Word zu iCal</title>
+    <meta name="description" content="Wandelt Termine aus einer Excel-Tabelle oder aus den Tabellen eines Word-Dokuments in eine .ics-Datei für den Kalender um. Läuft ganz im Browser." />
     <meta name="color-scheme" content="light dark" />
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='3' y='6' width='26' height='23' rx='4' fill='%232b5bd7'/%3E%3Crect x='3' y='6' width='26' height='7' rx='4' fill='%231b3fa0'/%3E%3Crect x='9' y='3' width='3' height='6' rx='1.5' fill='%23fff'/%3E%3Crect x='20' y='3' width='3' height='6' rx='1.5' fill='%23fff'/%3E%3Cpath d='M11 21l4 4 7-8' stroke='%23fff' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
     <link rel="stylesheet" href="./css/style.css" />
@@ -12,7 +12,7 @@
   <body>
     <header class="kopf">
       <h1>Terminkonverter</h1>
-      <p>Excel-Tabelle rein, Kalenderdatei raus. Zwei Spalten genügen: <strong>Datum</strong> und <strong>Beschreibung</strong>.</p>
+      <p>Excel-Tabelle oder Word-Dokument rein, Kalenderdatei raus. Zwei Spalten genügen: <strong>Datum</strong> und <strong>Beschreibung</strong>.</p>
     </header>
 
     <main>
@@ -20,8 +20,8 @@
         <p class="feld__zeichen" aria-hidden="true">🗓️</p>
         <p class="feld__text">Datei hierher ziehen — oder auswählen.</p>
         <button type="button" id="waehlen">Datei auswählen</button>
-        <input type="file" id="datei" accept=".xlsx,.xlsm,.csv,.txt" hidden />
-        <p class="feld__klein">.xlsx, .xlsm oder .csv · Die Datei bleibt auf diesem Gerät.</p>
+        <input type="file" id="datei" accept=".xlsx,.xlsm,.docx,.docm,.csv,.txt" hidden />
+        <p class="feld__klein">.xlsx, .docx oder .csv · Die Datei bleibt auf diesem Gerät.</p>
       </section>
 
       <p class="meldung" id="meldung" role="status" aria-live="polite"></p>
@@ -69,7 +69,7 @@
         <div class="tabelle-huelle">
           <table>
             <thead>
-              <tr><th class="schmal">Mit</th><th>Wann</th><th>Was</th><th class="schmal">Zeile</th></tr>
+              <tr><th class="schmal">Mit</th><th>Wann</th><th>Was</th><th class="schmal">Herkunft</th></tr>
             </thead>
             <tbody id="zeilen"></tbody>
           </table>
@@ -117,7 +117,14 @@
           <li>Steht eine Uhrzeit dabei, bekommt der Termin eine Uhrzeit — sonst wird er ganztägig.</li>
           <li>Zwei Daten in einer Zelle ergeben einen mehrtägigen Termin.</li>
           <li>Welche Spalte links steht, ist gleich: Gesucht wird die Zelle mit dem Datum, der Rest wird zur Beschreibung.</li>
-          <li>Eine Überschriftenzeile darf stehen bleiben.</li>
+          <li>Eine Überschriftenzeile darf stehen bleiben — in jeder Tabelle.</li>
+        </ul>
+        <h2>Word-Dokumente</h2>
+        <ul class="liste">
+          <li>Aus einer <strong>.docx</strong> werden die <strong>Tabellen</strong> gelesen — auch mehrere in einem Dokument. Der Text drumherum (Anrede, Erklärungen, Grußformel) bleibt liegen.</li>
+          <li>In der Spalte „Herkunft" steht dann <em>2.3</em> für die dritte Zeile der zweiten Tabelle.</li>
+          <li>Hat das Dokument gar keine Tabelle, werden ersatzweise die Absätze durchgesehen: Jeder Absatz mit einem Datum wird ein Termin.</li>
+          <li>Die alten Formate <em>.xls</em> und <em>.doc</em> gehen nicht — die müssen in Excel oder Word einmal als <em>.xlsx</em> bzw. <em>.docx</em> gespeichert werden.</li>
         </ul>
         <h2>Und dann in den Kalender</h2>
         <ul class="liste">

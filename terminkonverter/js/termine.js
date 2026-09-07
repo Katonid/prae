@@ -119,22 +119,23 @@ function zelleZuDatum(zelle, ersatzJahr) {
   return null;
 }
 
-function istKopfzeile(zeilen) {
-  const erste = zeilen[0];
-  if (!erste) return false;
-  const worte = erste.zellen.filter(Boolean);
+// Eine Überschriftenzeile wird an jeder Stelle erkannt, nicht nur ganz oben:
+// Ein Word-Dokument bringt mehrere Tabellen mit, und jede hat ihre eigene.
+// Eine echte Terminzeile trägt ein Datum und kommt hier nie an.
+function istKopfzeile(zeile, erste) {
+  const worte = zeile.zellen.filter(Boolean);
   if (!worte.length || worte.some((z) => z.art !== 'text')) return false;
-  return worte.some((z) => KOPFWORTE.test(z.text.trim()));
+  if (worte.some((z) => KOPFWORTE.test(z.text.trim()))) return true;
+  return erste;
 }
 
 export function termineLesen(zeilen, einstellungen = {}) {
   const ersatzJahr = einstellungen.jahr || new Date().getFullYear();
   const termine = [];
   const hinweise = [];
-  let start = 0;
-  if (istKopfzeile(zeilen)) start = 1;
+  let kopfzeilen = 0;
 
-  for (let i = start; i < zeilen.length; i++) {
+  for (let i = 0; i < zeilen.length; i++) {
     const zeile = zeilen[i];
     const zellen = zeile.zellen;
 
@@ -145,8 +146,19 @@ export function termineLesen(zeilen, einstellungen = {}) {
       if (gelesen) { datum = gelesen; datumIndex = s; break; }
     }
     if (!datum) {
+      if (istKopfzeile(zeile, i === 0)) {
+        kopfzeilen++;
+        continue;
+      }
       const text = zellen.filter(Boolean).map((z) => z.text).join(' ').trim();
-      if (text) hinweise.push({ zeile: zeile.nummer, text, grund: 'Kein Datum erkannt' });
+      if (text) {
+        hinweise.push({
+          zeile: zeile.nummer,
+          tabelle: zeile.tabelle,
+          text,
+          grund: 'Kein Datum erkannt',
+        });
+      }
       continue;
     }
 
@@ -190,6 +202,7 @@ export function termineLesen(zeilen, einstellungen = {}) {
     if (!titel) {
       hinweise.push({
         zeile: zeile.nummer,
+        tabelle: zeile.tabelle,
         text: alsSchluessel(datum.von),
         grund: 'Keine Beschreibung — Termin heißt „Termin"',
       });
@@ -203,6 +216,7 @@ export function termineLesen(zeilen, einstellungen = {}) {
 
     termine.push({
       zeile: zeile.nummer,
+      tabelle: zeile.tabelle,
       von: datum.von,
       bis: datum.bis,
       zeitVon: datum.zeitVon,
@@ -211,7 +225,7 @@ export function termineLesen(zeilen, einstellungen = {}) {
     });
   }
 
-  return { termine, hinweise, kopfzeile: start === 1 };
+  return { termine, hinweise, kopfzeilen };
 }
 
 export function alsAnzeige(termin) {
