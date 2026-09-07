@@ -13,6 +13,7 @@ const paths = {
   symbols: '<circle cx="8" cy="8" r="3"/><circle cx="17" cy="9" r="2.4"/><path d="M3 19c0-3 2.2-5 5-5s5 2 5 5"/><path d="M14 19c0-2.2 1.4-4 3.2-4S21 16.8 21 19"/>',
   sound: '<path d="M9 9v6h4l5 4V5l-5 4z"/><path d="M19.5 9a4 4 0 0 1 0 6"/>',
   video: '<rect x="3" y="6" width="13" height="12" rx="3"/><path d="M16 10.5l5-3v9l-5-3z"/>',
+  link: '<path d="M10.5 13.5a4.2 4.2 0 0 0 6 0l3-3a4.2 4.2 0 0 0-6-6l-1.7 1.7"/><path d="M13.5 10.5a4.2 4.2 0 0 0-6 0l-3 3a4.2 4.2 0 0 0 6 6l1.7-1.7"/>',
   pen: '<path d="M4 20l4-1 9.5-9.5a2.1 2.1 0 0 0-3-3L5 16z"/><path d="M14 6.5l3 3"/>',
   marker: '<path d="M5 19h5l9-9a2.5 2.5 0 0 0-3.5-3.5l-9 9z"/><path d="M4 21h7"/>',
   eraser: '<path d="M8 19h12"/><path d="M15.5 4.5l4 4a2 2 0 0 1 0 3L13 18H8l-3.5-3.5a2 2 0 0 1 0-3l8-8a2 2 0 0 1 3 0z"/>',

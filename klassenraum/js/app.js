@@ -140,7 +140,7 @@ function renderDock() {
         renderBoard();
         if (widget) {
           select(widget.id);
-          if (['randomizer', 'image', 'text', 'seating'].includes(widget.type)) openWidgetSettings(widget.id);
+          if (['randomizer', 'image', 'text', 'seating', 'link'].includes(widget.type)) openWidgetSettings(widget.id);
         }
       },
     },
