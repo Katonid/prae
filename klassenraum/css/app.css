@@ -2211,6 +2211,51 @@ body[data-cards="dark"] .w-random__tile {
 
 .w-video__empty:hover { border-color: var(--accent); color: var(--accent); }
 
+/* Link — eine antippbare Kachel, die eine Adresse im neuen Tab öffnet.
+ * Die Farbe kommt vom Ziel (YouTube rot, sonst blau) — --link-farbe setzt
+ * das Element selbst (widgets/link.js). */
+.w-link {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.2em;
+  width: 100%;
+  height: 100%;
+  border-radius: 14px;
+  background: linear-gradient(165deg,
+    color-mix(in srgb, var(--link-farbe, #2563eb) 82%, #ffffff),
+    color-mix(in srgb, var(--link-farbe, #2563eb) 88%, #0f172a));
+  color: #ffffff;
+  cursor: pointer;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 3px 10px -2px rgba(2, 6, 23, 0.3);
+}
+.w-link__emoji { font-size: 2.4em; line-height: 1.1; }
+.w-link__label {
+  max-width: 92%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 1.15em;
+  font-weight: 750;
+  text-shadow: 0 1px 3px rgba(2, 6, 23, 0.45);
+}
+.w-link__host { font-size: 0.72em; font-weight: 600; opacity: 0.85; }
+.w-link__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5em;
+  width: 100%;
+  height: 100%;
+  padding: 0.6em;
+  text-align: center;
+  color: var(--card-ink-soft);
+  font-size: 0.9em;
+}
+.swatch--emoji { font-size: 15px; line-height: 1; background: var(--panel-2, rgba(148, 163, 184, 0.16)); }
+
 /* ---------- Schreiben auf der Tafel ---------- */
 
 .draw-layer {

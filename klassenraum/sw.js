@@ -1,6 +1,6 @@
 /* Service Worker: App-Dateien offline verfügbar halten — und zuverlässig aktualisieren. */
 
-const VERSION = 'v78';
+const VERSION = 'v79';
 const CACHE = `klassenraum-${VERSION}`;
 const ASSETS = [
   './',
@@ -47,6 +47,7 @@ const ASSETS = [
   './js/widgets/symbols.js',
   './js/widgets/sound.js',
   './js/widgets/video.js',
+  './js/widgets/link.js',
 ];
 
 self.addEventListener('install', (event) => {
