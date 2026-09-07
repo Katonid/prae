@@ -1,6 +1,7 @@
 // Die Oberfläche: Datei entgegennehmen, Termine zeigen, .ics ausgeben.
 
 import { xlsxLesen, csvLesen } from './xlsx.js';
+import { docxLesen } from './docx.js';
 import { termineLesen, alsAnzeige } from './termine.js';
 import { icsBauen } from './ics.js';
 
@@ -54,7 +55,7 @@ function tabelleZeichnen() {
 
     const zelleNummer = document.createElement('td');
     zelleNummer.className = 'schmal';
-    zelleNummer.textContent = String(termin.zeile);
+    zelleNummer.textContent = herkunft(termin);
 
     zeile.append(zelleHaken, zelleWann, zelleWas, zelleNummer);
     koerper.append(zeile);
@@ -77,7 +78,7 @@ function hinweiseZeichnen(hinweise) {
   liste.textContent = '';
   for (const hinweis of hinweise.slice(0, 40)) {
     const punkt = document.createElement('li');
-    punkt.textContent = `Zeile ${hinweis.zeile}: ${hinweis.grund} — „${hinweis.text}"`;
+    punkt.textContent = `${herkunft(hinweis, true)}: ${hinweis.grund} — „${hinweis.text}"`;
     liste.append(punkt);
   }
   if (hinweise.length > 40) {
@@ -91,12 +92,28 @@ function hinweiseZeichnen(hinweise) {
 async function zeilenLesen(datei) {
   const name = datei.name.toLowerCase();
   if (name.endsWith('.csv') || name.endsWith('.txt')) {
-    return csvLesen(await datei.text());
+    return { zeilen: csvLesen(await datei.text()) };
   }
   if (name.endsWith('.xls')) {
     throw new Error('Das ist das alte .xls-Format. Bitte in Excel einmal als .xlsx speichern.');
   }
-  return xlsxLesen(await datei.arrayBuffer());
+  if (name.endsWith('.doc')) {
+    throw new Error('Das ist das alte .doc-Format. Bitte in Word einmal als .docx speichern.');
+  }
+  if (name.endsWith('.docx') || name.endsWith('.docm')) {
+    const { zeilen, quelle } = await docxLesen(await datei.arrayBuffer());
+    return { zeilen, quelle };
+  }
+  return { zeilen: await xlsxLesen(await datei.arrayBuffer()) };
+}
+
+// Woher eine Zeile stammt: in Word aus einer bestimmten Tabelle, in Excel
+// einfach aus der Zeile mit dieser Nummer.
+function herkunft(eintrag, lang = false) {
+  if (!eintrag.tabelle) return lang ? `Zeile ${eintrag.zeile}` : String(eintrag.zeile);
+  return lang
+    ? `Tabelle ${eintrag.tabelle}, Zeile ${eintrag.zeile}`
+    : `${eintrag.tabelle}.${eintrag.zeile}`;
 }
 
 async function verarbeiten(datei) {
@@ -104,8 +121,12 @@ async function verarbeiten(datei) {
   dateiname = datei.name.replace(/\.[^.]+$/, '') || 'termine';
   sage('Wird gelesen …');
   try {
-    const zeilen = await zeilenLesen(datei);
-    if (!zeilen.length) throw new Error('Das Tabellenblatt ist leer.');
+    const { zeilen, quelle } = await zeilenLesen(datei);
+    if (!zeilen.length) {
+      throw new Error(quelle
+        ? 'In dem Word-Dokument war nichts zu lesen.'
+        : 'Das Tabellenblatt ist leer.');
+    }
     const jahr = Number(teil('jahr').value) || new Date().getFullYear();
     const ergebnis = termineLesen(zeilen, { jahr });
     termine = ergebnis.termine;
@@ -114,15 +135,25 @@ async function verarbeiten(datei) {
     if (!termine.length) {
       zeigen('vorschau', false);
       zeigen('einstellungen', false);
-      sage('In der Tabelle war kein Datum zu finden. Steht das Datum in einer eigenen Spalte?', true);
+      sage(quelle === 'absaetze'
+        ? 'In dem Word-Dokument war kein Datum zu finden — weder in einer Tabelle noch in den Absätzen.'
+        : 'In der Tabelle war kein Datum zu finden. Steht das Datum in einer eigenen Spalte?', true);
       return;
     }
     if (!teil('kalendername').value.trim()) teil('kalendername').value = dateiname;
     zeigen('einstellungen', true);
     zeigen('vorschau', true);
     tabelleZeichnen();
-    const wieviel = `${termine.length} ${termine.length === 1 ? 'Termin' : 'Termine'} gefunden`;
-    sage(`${datei.name}: ${wieviel}${ergebnis.kopfzeile ? ' (Überschriftenzeile übersprungen).' : '.'}`);
+    const teile = [`${termine.length} ${termine.length === 1 ? 'Termin' : 'Termine'} gefunden`];
+    if (quelle === 'tabellen') {
+      const tabellen = new Set(zeilen.map((z) => z.tabelle)).size;
+      teile.push(`aus ${tabellen} ${tabellen === 1 ? 'Tabelle' : 'Tabellen'} im Dokument`);
+    }
+    if (quelle === 'absaetze') teile.push('aus den Absätzen — das Dokument hat keine Tabelle');
+    if (ergebnis.kopfzeilen) {
+      teile.push(`${ergebnis.kopfzeilen} ${ergebnis.kopfzeilen === 1 ? 'Überschriftenzeile' : 'Überschriftenzeilen'} übersprungen`);
+    }
+    sage(`${datei.name}: ${teile.join(', ')}.`);
   } catch (fehler) {
     termine = [];
     dabei = [];

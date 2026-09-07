@@ -1,8 +1,9 @@
 # Terminkonverter
 
-Wandelt eine Excel-Tabelle mit Terminen (**Datum** und **Beschreibung**) in
-eine Kalenderdatei (`.ics`) um, die sich in Apple Kalender, Outlook, Google
-Kalender und jeden anderen Kalender importieren lässt.
+Wandelt Termine (**Datum** und **Beschreibung**) aus einer Excel-Tabelle oder
+aus den Tabellen eines Word-Dokuments in eine Kalenderdatei (`.ics`) um, die
+sich in Apple Kalender, Outlook, Google Kalender und jeden anderen Kalender
+importieren lässt.
 
 Adresse: https://katonid.github.io/prae/terminkonverter/
 
@@ -27,9 +28,22 @@ Adresse: https://katonid.github.io/prae/terminkonverter/
   Datum lesen lässt — alles Übrige wird zur Beschreibung.
 - Eine Überschriftenzeile darf stehen bleiben. Zeilen ohne erkennbares Datum
   werden nicht still verschluckt, sondern unter „Übergangene Zeilen" gezeigt.
-- Neben `.xlsx`/`.xlsm` geht auch `.csv` (Semikolon, Komma oder Tabulator).
-  Das alte Binärformat `.xls` nicht — das muss einmal als `.xlsx` gespeichert
-  werden.
+- Neben `.xlsx`/`.xlsm` gehen `.docx` und `.csv` (Semikolon, Komma oder
+  Tabulator). Die alten Binärformate `.xls` und `.doc` nicht — die müssen
+  einmal als `.xlsx` bzw. `.docx` gespeichert werden.
+
+## Word-Dokumente
+
+Aus einer `.docx` werden die **Tabellen** gelesen, auch mehrere in einem
+Dokument. Der Fließtext drumherum — Anrede, Erklärungen, Grußformel — bleibt
+liegen; ihn als „übergangene Zeilen" zu melden, wäre lauter Lärm.
+
+In der Spalte „Herkunft" steht dann `2.3` für die dritte Zeile der zweiten
+Tabelle. Verschachtelte Tabellen werden zu eigenen Zeilen; nummeriert wird in
+der Reihenfolge, in der die Zeilen im Dokument fertig werden.
+
+Hat ein Dokument gar keine Tabelle, werden ersatzweise die **Absätze**
+durchgesehen: Jeder Absatz mit einem Datum wird ein Termin.
 
 ## Die fertige Datei
 
@@ -51,6 +65,8 @@ vom Pages-Arbeitsablauf des Repos mit ausgeliefert.
 | --- | --- |
 | `js/zip.js` | Liest das ZIP-Archiv einer `.xlsx` — mit `DecompressionStream`, wo es das gibt, sonst mit eigenem Inflate. |
 | `js/xlsx.js` | Zerlegt Blatt, Zeichenketten und Zahlenformate zu Zellen; liest auch CSV. |
+| `js/docx.js` | Holt die Zeilen aus den Tabellen eines Word-Dokuments. |
+| `js/xml.js` | Entitäten und Textzugriff, von beiden Lesern benutzt. |
 | `js/termine.js` | Macht aus Zeilen Termine (Datums- und Zeiterkennung). |
 | `js/ics.js` | Schreibt die `.ics` nach RFC 5545. |
 | `js/app.js` | Oberfläche: Datei annehmen, Vorschau, Herunterladen. |

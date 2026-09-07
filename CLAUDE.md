@@ -1344,6 +1344,17 @@ Namens und lebt weiter.
 - **Zeiten stehen ohne Zeitzone** („schwebend"). Eine mitgelieferte
   VTIMEZONE brächte hier nichts und müsste bei jeder Zeitumstellung stimmen.
   Ganztägige Termine enden am ERSTEN Tag danach (so will es RFC 5545).
+- **Aus einer `.docx` werden nur die TABELLEN gelesen** (`js/docx.js`), nicht
+  der Fließtext: Wer Termine in Tabellen notiert, hat davor und dazwischen
+  Anrede, Erklärungen und Grußformel — die alle als „übergangene Zeile" zu
+  melden, wäre lauter Lärm. Erst ein Dokument ganz ohne Tabelle lässt seine
+  Absätze durchsehen. Die Vorsilbe `w:` wird beim Vergleichen abgeschnitten,
+  und eine verschachtelte Tabelle wird zu eigenen Zeilen — ihr Text landet
+  nicht zusätzlich in der Zelle, die sie enthält.
+- **Kopfzeilen werden an jeder Stelle erkannt, nicht nur ganz oben**
+  (`istKopfzeile`): Ein Word-Dokument bringt mehrere Tabellen mit, und jede
+  hat ihre eigene Überschrift. Eine echte Terminzeile trägt ein Datum und
+  kommt an dieser Prüfung nie an.
 - **Gesucht wird die Datumszelle, nicht die erste Spalte.** Welche Spalte
   links steht, ist dadurch gleich. Zeilen ohne erkennbares Datum werden
   nicht still verschluckt, sondern als „Übergangene Zeilen" angezeigt — eine

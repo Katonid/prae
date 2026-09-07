@@ -5,28 +5,10 @@
 // wird styles.xml mitgelesen. Ohne das wäre der 31.08.2026 einfach 46265.
 
 import { zipLesen } from './zip.js';
+import { entziffere, alsText } from './xml.js';
 
 const DATUM_FORMATE = new Set([14, 15, 16, 17, 18, 19, 20, 21, 22, 27, 28, 29,
   30, 31, 32, 33, 34, 35, 36, 45, 46, 47, 50, 51, 52, 53, 54, 55, 56, 57, 58]);
-
-function entziffere(text) {
-  return text.replace(/&(#x?[0-9a-fA-F]+|amp|lt|gt|quot|apos);/g, (ganz, kern) => {
-    if (kern === 'amp') return '&';
-    if (kern === 'lt') return '<';
-    if (kern === 'gt') return '>';
-    if (kern === 'quot') return '"';
-    if (kern === 'apos') return "'";
-    const nummer = kern[1] === 'x' || kern[1] === 'X'
-      ? parseInt(kern.slice(2), 16)
-      : parseInt(kern.slice(1), 10);
-    return Number.isFinite(nummer) ? String.fromCodePoint(nummer) : ganz;
-  });
-}
-
-function alsText(dateien, pfad) {
-  const daten = dateien.get(pfad);
-  return daten ? new TextDecoder('utf-8').decode(daten) : null;
-}
 
 // Ein eigenes Zahlenformat gilt als Datum, wenn darin Tag, Monat oder Jahr
 // vorkommt — außerhalb von Anführungszeichen und eckigen Klammern ([rot],
