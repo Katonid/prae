@@ -650,11 +650,29 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   kontrollieren kann, ist das System-Banner davor — das spiegelt iOS. Ob
   die Sperrbildschirm-Vorschau den Alarmtext zeigt, entscheidet das
   Krisenteam im Konfigurationsprofil, nicht die App.
-- **Kritische Hinweise sind AUS.** Das Entitlement vergibt Apple nur auf
-  schriftlichen Antrag, und eine Entitlements-Datei, die es ohne
-  Bewilligung nennt, lässt jedes Signieren scheitern. Der Code steht
-  fertig hinter der Compilerbedingung `CRITICAL_ALERTS` (drei Stellen).
-  Nicht vorher eintragen.
+- **Kritische Hinweise sind AN — seit 1.0.29** (von Apple bewilligt am
+  08.09.2026 für die App-Id `de.dboschule.alarm`). Bis dahin durfte das
+  Entitlement nirgends stehen: Eine Entitlements-Datei, die es ohne Bewilligung
+  nennt, lässt jedes Signieren scheitern. Jetzt steht
+  `com.apple.developer.usernotifications.critical-alerts` in BEIDEN
+  Entitlements-Dateien, und `CRITICAL_ALERTS` steht in
+  `SWIFT_ACTIVE_COMPILATION_CONDITIONS` an den **Projekt**-Konfigurationen
+  Debug und Release — beide Ziele erben es, die Erweiterung braucht es genauso,
+  denn sie setzt `interruptionLevel`. **Drei Dinge müssen zusammenkommen, und
+  jedes kann einzeln fehlen:** Entitlement (Apple), Compilerbedingung (Repo),
+  Erlaubnis auf dem Gerät (die Lehrkraft). Fehlt das dritte, ist die App nicht
+  kaputt — der Quelltext fällt in jedem Zweig auf `.timeSensitive` zurück, und
+  die Prüfliste zeigt die Zeile rot.
+- **Wer die Erlaubnis erst nachträglich braucht, muss NACHGEFRAGT werden**
+  (`NotificationCenterService.kritischeHinweiseNachfragen()`, ab 1.0.29).
+  `requestAuthorization` läuft nur beim Einrichten; die dreißig iPads, die vor
+  der Bewilligung eingerichtet wurden, hätten die Frage nie gesehen und wären
+  bei stummem Gerät still geblieben — obwohl die Fassung dafür gebaut ist.
+  Gefragt wird bei jedem Start, solange die Erlaubnis fehlt; hat iOS die Frage
+  einmal beantwortet, zeigt es sie nicht wieder und der Aufruf kehrt still
+  zurück. **Allgemein: Eine Berechtigung, die eine neue Fassung zusätzlich
+  braucht, erreicht die schon eingerichteten Geräte nur, wenn jemand sie dort
+  ausdrücklich nachfragt.**
 - **Handlungstexte sind Platzhalter, die als solche zu erkennen sind.**
   Was im Ernstfall dort steht, gehört mit Schulleitung, Polizei und
   Feuerwehr abgestimmt; ein Text, der bloß amtlich klingt, ist schlimmer

@@ -102,6 +102,15 @@ all-clear, administration — is fully testable on one device.
 
 ## Note on critical alerts
 
-This build does **not** request the critical alerts entitlement. Should it be
-granted later, the relevant code is behind the `CRITICAL_ALERTS` compilation
-condition and is inactive in this build.
+This build **does** use the critical alerts entitlement
+(`com.apple.developer.usernotifications.critical-alerts`). Apple assigned it to
+the developer account for the App ID `de.dboschule.alarm` on 8 September 2026.
+
+It is what makes an intruder alarm audible on a muted iPad in a classroom. The
+app asks for the permission during setup and does not fail without it: when the
+user declines, notifications fall back to `.timeSensitive`, and the in-app
+checklist shows the row as missing rather than pretending otherwise.
+
+Critical alerts are used for one thing only — an alarm raised by a colleague,
+and the reminder series that follows it until someone acknowledges. Messages
+during an alarm deliberately stay at `.active` with the default sound.

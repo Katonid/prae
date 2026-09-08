@@ -94,9 +94,11 @@ Bevor der Ansatz verworfen wird, diese fünf Punkte — in dieser Reihenfolge,
 nach Häufigkeit:
 
 1. **Kommt gar nichts?** Prüfliste auf Gerät B. Ohne Apple-ID kommt nichts.
-2. **Kommt es leise?** Dann fehlt „zeitkritisch" oder der Lautlos-Schalter
-   steht auf stumm. Ohne kritische Hinweise spielt auch ein zeitkritischer
-   Alarm bei stummem iPad keinen Ton.
+2. **Kommt es leise?** Erste Frage seit 1.0.29: Steht in der Prüfliste
+   „Kritische Hinweise erlaubt" auf grün? Ist sie erlaubt, überhört der Alarm
+   den Lautlos-Schalter und jeden Fokus. Ist sie es nicht, gilt der alte Satz —
+   dann fehlt „zeitkritisch" oder das iPad ist stumm, und ohne kritische
+   Hinweise spielt auch ein zeitkritischer Alarm bei stummem iPad keinen Ton.
 3. **Kommt es ohne Text („AMOKALARM – %@ …")?** Dann lief die Erweiterung
    nicht und der Rückfalltext greift. Prüfen, ob
    `shouldSendMutableContent` gesetzt ist und die Erweiterung wirklich
