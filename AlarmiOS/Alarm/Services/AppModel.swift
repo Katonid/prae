@@ -146,6 +146,11 @@ final class AppModel: ObservableObject {
     func start() async {
         notifications.registerCategories()
         await notifications.refreshPermissions()
+        // Kritische Hinweise wurden erst nachträglich bewilligt (09/2026). Die
+        // schon eingerichteten iPads haben die Frage nie gesehen — hier holt
+        // sie sie nach. Ohne Erlaubnis bleibt der Alarm bei stummgeschaltetem
+        // Gerät leise, obwohl diese Fassung dafür gebaut ist.
+        await notifications.kritischeHinweiseNachfragen()
         availability = await backend.availability()
 
         guard isJoined else {

@@ -114,9 +114,13 @@ enum OnboardingChecklist {
                 id: "critical",
                 title: "Kritische Hinweise erlaubt",
                 detail: permissions.criticalAllowed
-                    ? "Der Alarm klingt auch bei stummgeschaltetem iPad."
-                    : "Diese Fassung ist für kritische Hinweise gebaut, sie sind "
-                    + "aber nicht erlaubt.",
+                    ? "Der Alarm klingt auch bei stummgeschaltetem iPad und "
+                    + "durch jeden Fokus."
+                    : "Diese Fassung ist für kritische Hinweise gebaut, dieses "
+                    + "iPad erlaubt sie aber nicht. Die App fragt beim nächsten "
+                    + "Start noch einmal; kommt keine Frage, steht der Schalter "
+                    + "in den Einstellungen unter „Mitteilungen“ → Schulalarm "
+                    + "→ „Kritische Hinweise“.",
                 state: permissions.criticalAllowed ? .ok : .missing,
                 settingsURL: settings))
         }

@@ -71,7 +71,7 @@ Bundle-ID `de.dboschule.alarm`:
 | In der Mitteilungszentrale | anzeigen | zum Nachsehen |
 | Banner-Stil | **dauerhaft** | ein temporäres Banner verschwindet nach Sekunden |
 | Vorschauen | „immer" oder „ohne Entsperren" | siehe Kasten unten |
-| Kritische Hinweise | nur, wenn Apple das Entitlement bewilligt hat | siehe README |
+| Kritische Hinweise | ja, seit 1.0.29 (von Apple bewilligt 09/2026) | einmal je Gerät erlauben |
 
 > **Vorschauen und der Beamer.** Hängt am iPad ein Beamer oder Apple TV, so
 > spiegelt iOS das System-Banner mit — auch bevor jemand die App öffnet. Die
@@ -185,7 +185,10 @@ In dieser Reihenfolge prüfen — die Liste ist nach Häufigkeit sortiert:
 2. **Mitteilungen nicht erlaubt** oder Ton abgeschaltet.
 3. **Zeitkritische Mitteilungen abgeschaltet** — dann hält jeder Fokus den
    Alarm zurück.
-4. **Lautlos-Schalter.** Ohne die Berechtigung „kritische Hinweise" spielt
+4. **Lautlos-Schalter.** Seit 1.0.29 überhört ihn der Alarm — kritische
+   Hinweise sind bewilligt, eingebaut und werden beim ersten Start erfragt.
+   Wird die Frage verneint, gilt wieder der alte Satz: Ohne die Berechtigung
+   „kritische Hinweise" spielt
    auch eine zeitkritische Mitteilung bei stummem iPad keinen Ton.
 5. **Falsche CloudKit-Umgebung.** Über Xcode installiert läuft die App gegen
    *Development*, über TestFlight und Custom App gegen *Production*. Wer ein

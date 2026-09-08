@@ -1,5 +1,14 @@
 # Antrag auf „Critical Alerts" bei Apple
 
+> **Erledigt. Bewilligt am 08.09.2026** für die App-Id `de.dboschule.alarm`
+> („The entitlement for Critical Alerts has been assigned to your account").
+> Eingebaut ist es seit **1.0.29** — was dazugehört, steht unten unter
+> „Nach der Bewilligung" und im README.
+>
+> Dieses Papier bleibt als Nachweis stehen: Es hält fest, was eingereicht
+> wurde und womit begründet. Wird das Entitlement je in Frage gestellt oder
+> für eine weitere App gebraucht, ist der Text hier fertig.
+
 Fertiger Text zum Einreichen. Formular:
 <https://developer.apple.com/contact/request/notifications-critical-alerts-entitlement/>
 
@@ -176,18 +185,30 @@ Verteilung; das Entitlement kommt später mit einem neuen Bau dazu.
 
 ## Nach der Bewilligung
 
-Drei Handgriffe, sonst nichts:
+**Am 08.09.2026 geschehen, in 1.0.29.** Was getan wurde:
 
-1. `com.apple.developer.usernotifications.critical-alerts` in
-   `Config/Alarm.entitlements` eintragen — **nur dort**, nicht in die
-   Erweiterung (die hat keine Entitlements-Datei, und das muss so bleiben).
-2. `SWIFT_ACTIVE_COMPILATION_CONDITIONS` in beiden Zielen und beiden
-   Konfigurationen um `CRITICAL_ALERTS` erweitern.
-3. Neu bauen. Die App fragt die Berechtigung dann von selbst mit ab, die
-   Prüfliste zeigt den Punkt, und Alarm, Erinnerung und Tontest schalten auf
-   `.critical` um.
+1. `com.apple.developer.usernotifications.critical-alerts` in **beide**
+   Entitlements-Dateien des App-Ziels — `Config/Alarm.entitlements` (Debug)
+   und `Config/Alarm-Release.entitlements` (Release). Nicht in die
+   Erweiterung: Die hat keine Entitlements-Datei, und das muss so bleiben.
+   (Als dieses Papier entstand, gab es die zweite Datei noch nicht — die
+   Trennung kam mit 1.0.18 wegen `aps-environment`.)
+2. `SWIFT_ACTIVE_COMPILATION_CONDITIONS` um `CRITICAL_ALERTS` erweitert, an
+   den **Projekt**-Konfigurationen Debug und Release. Beide Ziele erben
+   daraus; die Erweiterung braucht es genauso wie die App, denn sie ist es,
+   die `interruptionLevel` setzt.
+3. Neu gebaut. Alarm, Erinnerung und Tontest schalten damit auf `.critical`,
+   und die Prüfliste zeigt die Zeile „Kritische Hinweise erlaubt".
 
-Der Code dafür steht fertig hinter der Compilerbedingung — drei Stellen:
+Dazu kam ein vierter Punkt, der in dieser Liste fehlte und ohne den die
+Bewilligung auf den vorhandenen Geräten wirkungslos geblieben wäre:
+
+4. **Nachfragen auf schon eingerichteten iPads**
+   (`NotificationCenterService.kritischeHinweiseNachfragen()`).
+   `requestAuthorization` läuft nur beim Einrichten — die dreißig Geräte des
+   Kollegiums hätten die Frage nie gesehen.
+
+Der Code dafür stand fertig hinter der Compilerbedingung — drei Stellen:
 `NotificationService.swift`, `AlarmReminder.swift`, `Tontest.swift` (und die
 Anfrage in `NotificationCenterService.swift`).
 

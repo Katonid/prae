@@ -71,6 +71,29 @@ final class NotificationCenterService: NSObject, ObservableObject {
         return granted
     }
 
+    /// Fragt kritische Hinweise NACH — für iPads, die es schon gibt.
+    ///
+    /// Der Fall ist kein Randfall, sondern der Regelfall: Dreißig Geräte haben
+    /// die App eingerichtet, als kritische Hinweise noch nicht bewilligt waren.
+    /// `requestAuthorization` läuft aber nur einmal, beim Einrichten — für
+    /// diese Geräte würde die Erlaubnis nie erfragt, und der Alarm bliebe
+    /// stumm geschaltet leise, obwohl die Fassung dafür gebaut ist.
+    ///
+    /// Gefragt wird bei jedem Start, solange die Erlaubnis fehlt. Das ist
+    /// keine Belästigung: Hat iOS die Frage einmal beantwortet — ja oder nein
+    /// —, zeigt es sie nicht wieder, und der Aufruf kehrt still zurück. Bleibt
+    /// sie nach dem Aktualisieren doch aus, führt die Prüfliste in die
+    /// Einstellungen; dort steht der Schalter ebenfalls.
+    func kritischeHinweiseNachfragen() async {
+        #if CRITICAL_ALERTS
+        guard permissions.authorization == .authorized,
+              !permissions.criticalAllowed else { return }
+        _ = try? await center.requestAuthorization(
+            options: [.alert, .sound, .badge, .criticalAlert])
+        await refreshPermissions()
+        #endif
+    }
+
     /// Registers the two buttons that appear on the notification itself.
     ///
     /// They matter more than they look: a teacher standing in a locked

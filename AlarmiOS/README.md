@@ -112,8 +112,11 @@ Am Gerät kommen dann drei Dinge in Frage, nach Häufigkeit:
    Spiegelung nicht selbst abschalten**, es gibt dafür keine Schnittstelle.
    Deshalb steht die Zeile auf iPhones in der Prüfliste als Anleitung und
    nicht als Häkchen: Ob es getan wurde, kann die App nicht sehen.
-3. **Lautlos-Schalter.** Ohne die Berechtigung für kritische Hinweise macht
-   auch eine zeitkritische Meldung bei stummem Gerät keinen Ton.
+3. **Lautlos-Schalter.** Seit 1.0.29 ist die Berechtigung für kritische
+   Hinweise bewilligt und eingebaut — damit klingt der Alarm auch bei stummem
+   Gerät. Vorausgesetzt, die Lehrkraft hat sie erlaubt: Die Prüfliste zeigt es
+   in der Zeile „Kritische Hinweise erlaubt". Fehlt sie, gilt wieder der alte
+   Satz — eine zeitkritische Meldung macht bei stummem Gerät keinen Ton.
 
 **Den Zustelltest kann ein Gerät nicht allein machen.** CloudKit stellt
 einem Gerät keine Meldung zu einem Datensatz zu, den es selbst geschrieben
@@ -554,27 +557,47 @@ macht. Das Entitlement dafür vergibt Apple **nur auf schriftlichen Antrag**:
 den Angaben zur App, einer deutschen Zusammenfassung dessen, was da
 eingereicht wird, und den drei Handgriffen nach der Bewilligung.
 
-Der Antrag läuft **unabhängig von der App-Prüfung** und sollte früh raus: Er
-hängt am Entwickler-Konto und an der App-Id, nicht an App Review, und er ist
-der lange Weg.
+### Bewilligt am 08.09.2026 — und was seither gilt
 
-Zu begründen ist, warum eine Verzögerung Menschen gefährdet — bei einem
-Amokalarm in einer Grundschule ist das kein rhetorischer Satz. Rechne mit
-mehreren Wochen.
+Apple hat das Entitlement dem Entwickler-Konto zugewiesen, ausdrücklich für die
+App-Id `de.dboschule.alarm`. Eingebaut ist es seit **1.0.29**:
 
-Bis dahin ist der Zweig **aus**. Der Code steht schon da, hinter der
-Compilerbedingung `CRITICAL_ALERTS`; er ist in
-`NotificationService.swift`, `AlarmReminder.swift` und
-`NotificationCenterService.swift` je einmal zu finden. Nach der Bewilligung:
+1. `com.apple.developer.usernotifications.critical-alerts` steht in **beiden**
+   Entitlements-Dateien (`Config/Alarm.entitlements` und
+   `Config/Alarm-Release.entitlements`).
+2. `SWIFT_ACTIVE_COMPILATION_CONDITIONS` trägt `CRITICAL_ALERTS` — an den
+   **Projekt**-Konfigurationen Debug und Release, von denen beide Ziele erben.
+   Die Erweiterung braucht es genauso wie die App: Sie ist es, die
+   `interruptionLevel` setzt.
 
-1. `com.apple.developer.usernotifications.critical-alerts` in **beide**
-   Entitlements-Dateien.
-2. `SWIFT_ACTIVE_COMPILATION_CONDITIONS` um `CRITICAL_ALERTS` erweitern, in
-   beiden Zielen und beiden Konfigurationen.
-3. Die Prüfliste in der App zeigt den Punkt dann von selbst mit an.
+**Drei Dinge müssen zusammenkommen, und jedes kann einzeln fehlen:** das
+Entitlement (Apple), die Compilerbedingung (dieses Repo), die Erlaubnis auf dem
+Gerät (die Lehrkraft). Fehlt das dritte, klingt der Alarm bei stummgeschaltetem
+iPad nicht — die App ist deswegen aber nicht kaputt, sie fällt auf
+`.timeSensitive` zurück. Die Prüfliste zeigt die Zeile „Kritische Hinweise
+erlaubt".
 
-**Nicht vorher eintragen.** Ein Entitlement ohne Bewilligung lässt jedes
-Signieren scheitern.
+**Schon eingerichtete iPads werden nachgefragt.** `requestAuthorization` läuft
+sonst nur beim Einrichten — die dreißig Geräte, die vor der Bewilligung
+eingerichtet wurden, hätten die Frage nie zu sehen bekommen und wären still
+leise geblieben. `NotificationCenterService.kritischeHinweiseNachfragen()` holt
+sie bei jedem Start nach, solange die Erlaubnis fehlt. Hat iOS die Frage einmal
+beantwortet, zeigt es sie nicht wieder; dann führt die Prüfliste in die
+Einstellungen, wo derselbe Schalter steht.
+
+**Der erste Bau danach braucht ein frisches Profil.** Bei automatischer
+Signierung holt Xcode es selbst — wenn nicht, in den Einstellungen des
+Entwickler-Kontos einmal „Download Manual Profiles" auslösen. Ein Bau, der mit
+„provisioning profile doesn't include the
+com.apple.developer.usernotifications.critical-alerts entitlement" abbricht,
+hat ein Profil von vor der Bewilligung erwischt.
+
+**Und das Entitlement schaltet nur den Ton, nicht die Zustellung.** Ob der
+Alarm auf einem gesperrten iPad binnen zehn Sekunden ankommt, misst weiterhin
+der Zustelltest (`docs/ZUSTELLTEST.md`) — mit kritischen Hinweisen ist er zum
+ersten Mal aussagekräftig, weil ein heruntergedrehter Klingelton das Ergebnis
+nicht mehr verfälscht.
+
 
 ---
 

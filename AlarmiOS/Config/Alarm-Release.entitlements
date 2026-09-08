@@ -32,14 +32,23 @@
 	     Erweiterung gibt es diese Fähigkeit nicht, und dort eingetragen
 	     findet die automatische Signierung kein Profil mehr („could not be
 	     included in profile"). Gebraucht wird sie dort auch nicht — die
-	     Mitteilung gehört der App, und an ihr prüft iOS die Berechtigung.
-
-	     Kritische Hinweise (com.apple.developer.usernotifications.critical-alerts)
-	     stehen hier bewusst NICHT: Das Entitlement vergibt Apple nur auf
-	     schriftlichen Antrag, und eine Datei, die es ohne Bewilligung nennt,
-	     lässt jedes Signieren scheitern. Der Weg dorthin steht im README;
-	     eingeschaltet wird der Zweig über das Build-Flag CRITICAL_ALERTS. -->
+	     Mitteilung gehört der App, und an ihr prüft iOS die Berechtigung. -->
 	<key>com.apple.developer.usernotifications.time-sensitive</key>
+	<true/>
+	<!-- Kritische Hinweise: die einzige Stufe, die auch bei stummgeschaltetem
+	     iPad und aktivem Fokus Ton macht.
+
+	     Von Apple bewilligt am 08.09.2026 für de.dboschule.alarm („The
+	     entitlement for Critical Alerts has been assigned to your account").
+	     VORHER durfte der Schlüssel hier nicht stehen: Ein Entitlement ohne
+	     Bewilligung lässt jedes Signieren scheitern.
+
+	     Er allein genügt nicht. Dazu gehört CRITICAL_ALERTS in
+	     SWIFT_ACTIVE_COMPILATION_CONDITIONS (sonst setzt der Quelltext
+	     weiterhin .timeSensitive) und die Erlaubnis des Nutzers auf dem Gerät
+	     — drei Dinge, von denen jedes einzeln fehlen kann. Die Prüfliste in
+	     der App zeigt das dritte an. -->
+	<key>com.apple.developer.usernotifications.critical-alerts</key>
 	<true/>
 </dict>
 </plist>
