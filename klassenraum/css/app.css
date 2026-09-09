@@ -557,7 +557,16 @@ body.is-presenting .widget.is-versteckt { display: none !important; }
 .widget__inner { width: 100%; height: 100%; display: flex; position: relative; z-index: 1; text-shadow: var(--ink-shadow, none); }
 
 /* Beschriftungen der Elemente ausblenden */
-body[data-labels="never"] .w-random__head,
+/* Titel und Zähler sind Beschriftung und dürfen verschwinden — ein
+ * BEDIENELEMENT nicht (dieselbe Lehre wie Tafelbild 1.3.16, dort war es
+ * dasselbe Schloss). Bis 1.8.51 verschwand mit .w-random__head auch der
+ * Schutz-Knopf, und die Meldung „Oben das Schloss antippen" zeigte auf
+ * etwas Unsichtbares (gemeldet 09/2026: „Ein Schloss ist da auch nicht").
+ * Versteckt werden deshalb nur die Textteile; eine Kopfzeile ganz ohne
+ * Knöpfe verschwindet weiterhin ganz. */
+body[data-labels="never"] .w-random__list,
+body[data-labels="never"] .w-random__count,
+body[data-labels="never"] .w-random__head:not(:has(.w-random__headbtn)),
 body[data-labels="never"] .w-random__hint,
 body[data-labels="never"] .w-random__title,
 body[data-labels="never"] .w-timer__label,
