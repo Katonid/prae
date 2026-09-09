@@ -407,6 +407,10 @@ export default {
     // Berichtigung (Tipp auf einen Namen) oder eine ganz neue Auslosung ist.
     let pendingFrom = null;
     let pendingCorrect = false;
+    // Nach einem langen Drücken (Nachziehen) baut sich die Fläche noch unter
+    // dem Finger neu auf — der Tipp beim Loslassen darf dann nicht auf einem
+    // frischen Kärtchen landen und dort den Schutz-Hinweis auslösen.
+    let tippSperreBis = 0;
     // Zum Ausmessen der Schriftbreite (für das Strecken verdeckter Namen).
     const meter = document.createElement('canvas').getContext('2d');
 
@@ -453,7 +457,7 @@ export default {
       const hasResult = state.groups && state.groups.mode === state.mode && Array.isArray(state.groups.flat);
       // Schutz: Ein bestehendes Ergebnis wird nie aus Versehen überlost.
       if (hasResult && state.locked) {
-        toast('Das Ergebnis ist geschützt. Oben das Schloss antippen — danach fragt ein Tipp auf einen Namen, ob nur dieser oder ab dort neu gelost wird.', 'warn');
+        toast('Das Ergebnis ist geschützt. Langes Drücken auf einen Namen zieht nur diesen sofort nach — für alles andere oben das Schloss antippen.', 'warn');
         // Das Schloss kurz wackeln lassen, damit klar ist, wo es sitzt.
         const lockBtn = el.querySelector('.w-random__headbtn--lock');
         if (lockBtn) {
@@ -520,6 +524,9 @@ export default {
      */
     function drawSingleNow(index) {
       if (dealing || spinning) return;
+      // Eine noch offene Rückfrage ist damit beantwortet.
+      pendingFrom = null;
+      pendingCorrect = false;
       const state = ctx.widget.state;
       const all = namesOf(state);
       const shown = state.groups && state.groups.mode === state.mode
@@ -726,7 +733,7 @@ export default {
           'data-nodrag': '',
           title: checklist ? 'Gruppe abhaken'
             : (zaehlen ? 'Tipp zählt +1 — langes Drücken nimmt eins zurück'
-              : 'Nur diesen Namen nachziehen oder ab hier neu auslosen (erst nachfragen)'),
+              : 'Langes Drücken zieht nur diesen Namen sofort nach — ein Tipp fragt erst'),
         },
         h('span', { class: 'w-random__gcard-text' }, name),
         zaehlen && stand > 0 ? h('span', { class: 'w-random__gcount' }, String(stand)) : null), () => {
@@ -734,7 +741,7 @@ export default {
             if (finishDealNow) finishDealNow();
             return;
           }
-          if (longFired) {
+          if (longFired || Date.now() < tippSperreBis) {
             longFired = false;
             return;
           }
@@ -784,6 +791,29 @@ export default {
               const now = Number(state.tally[name]) || 0;
               if (badge && now > 0) badge.textContent = String(now);
               else if (badge) badge.remove();
+            }, 600);
+          });
+        } else if (!checklist) {
+          // Langes Drücken zieht NUR diesen Namen sofort nach (Ansage des
+          // Nutzers, 09/2026: der Weg über Schloss und Rückfrage war ihm zu
+          // umständlich). Es geht bewusst auch am geschlossenen Schloss
+          // vorbei: Das Schloss schützt vor versehentlichen Tipps, und ein
+          // langes Drücken ist nie ein Versehen.
+          card.addEventListener('pointerdown', () => {
+            longFired = false;
+            clearTimeout(pressTimer);
+            // Losgelassen wird am Dokument abgefangen — die Tafel fängt den
+            // Zeiger beim Drücken ein, pointerup erreicht das Kärtchen nie.
+            const stop = () => clearTimeout(pressTimer);
+            document.addEventListener('pointerup', stop, { once: true });
+            document.addEventListener('pointercancel', stop, { once: true });
+            pressTimer = setTimeout(() => {
+              if (dealing || spinning) return;
+              longFired = true;
+              // Die Fläche baut sich gleich neu auf; der Tipp beim Loslassen
+              // darf auf dem frischen Kärtchen nichts mehr auslösen.
+              tippSperreBis = Date.now() + 800;
+              drawSingleNow(index);
             }, 600);
           });
         }
@@ -1145,9 +1175,9 @@ export default {
           } else if (state.groupView === 'zaehlen') {
             hintEl.textContent = 'Tipp auf ein Kärtchen zählt +1 (z. B. Punkte) — langes Drücken nimmt eins zurück.';
           } else if (state.locked) {
-            hintEl.textContent = 'Geschützt — zum Neuauslosen das Schloss oben öffnen.';
+            hintEl.textContent = 'Langes Drücken auf einen Namen zieht nur diesen nach — für mehr das Schloss oben öffnen.';
           } else {
-            hintEl.textContent = 'Tipp auf einen Namen lost ab dort neu — alles davor bleibt.';
+            hintEl.textContent = 'Langes Drücken auf einen Namen zieht nur diesen nach — ein Tipp fragt erst.';
           }
         }
         drawnBox.classList.add('is-hidden');
@@ -1404,7 +1434,8 @@ export default {
               rerender();
             },
           }, label))),
-        '„Abhaken“: Ein Tipp hakt eine Gruppe ab — z. B. wer die Aufgabe erledigt hat. '
+        '„Kärtchen“: Langes Drücken auf einen Namen zieht nur diesen sofort nach (z. B. wenn ein Kind fehlt). '
+        + '„Abhaken“: Ein Tipp hakt eine Gruppe ab — z. B. wer die Aufgabe erledigt hat. '
         + '„Zählen“: Ein Tipp auf ein Kärtchen zählt +1 (z. B. Punkte), langes Drücken nimmt eins zurück. '
         + 'Auch nach der Auslosung jederzeit umschaltbar (auch über das Listensymbol oben auf der Karte).'));
         // Farbe der Namenskarten: Automatisch (A), Farbfelder oder eigene Farbe.
