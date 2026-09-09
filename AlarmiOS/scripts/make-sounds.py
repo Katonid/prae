@@ -1,10 +1,26 @@
 #!/usr/bin/env python3
-"""Erzeugt die beiden Benachrichtigungstöne der Alarm-App.
+"""Erzeugt die Benachrichtigungstöne der Alarm-App.
 
     python3 AlarmiOS/scripts/make-sounds.py
 
-Ergebnis: ``AlarmiOS/Shared/Sounds/alarm.wav`` (25 s) und
-``AlarmiOS/Shared/Sounds/allclear.wav`` (3 s). Nicht von Hand bearbeiten.
+Ergebnis in ``AlarmiOS/Shared/Sounds/``: ``alarm.wav`` (25 s),
+``allclear.wav`` (3 s) und die drei leisen Töne ``dezent.wav``,
+``holz.wav`` und ``tropfen.wav`` (je 10 s). Nicht von Hand bearbeiten.
+
+Warum es leise Töne gibt
+------------------------
+
+Die Schule möchte einen Probealarm — und im Zweifel auch einen echten —
+zunächst VOR DEN KINDERN verbergen (Ansage des Nutzers, 09/2026). Ein
+durchdringendes Zweitonsignal auf dreißig iPads ist dafür das Gegenteil
+von brauchbar.
+
+Die Lautstärke steckt dabei in der DATEI, nicht in einer Einstellung. Seit
+1.0.29 sind kritische Hinweise an, und die spielen mit
+``withAudioVolume: 1.0`` — also unabhängig davon, wie laut das iPad
+gestellt ist. Ein leiser Ton lässt sich damit nur so bauen: als leise
+gerechnete Wellenform. Die drei leisen Töne sind auf 0,22 bis 0,32 Spitze
+normiert statt auf 0,92, also rund 9 bis 12 dB unter dem Alarm.
 
 Warum gerechnet und nicht geladen
 ---------------------------------
@@ -117,6 +133,95 @@ def entwarnung():
     return (werte + stille(max(0, rest) / RATE))[:int(RATE * 3.0)]
 
 
+def glocke(frequenz: float, dauer: float, obertoene, abfall: float):
+    """Ein angeschlagener Klang: weicher Einsatz, exponentielles Ausklingen.
+
+    Das ist die Bauform für alles Harmlose. Ein Alarm hat harte Kanten und
+    hält die Lautstärke; ein Signal, das niemandem auffallen soll, klingt
+    aus wie ein angeschlagenes Metall oder Holz — es fängt an und hört von
+    selbst auf.
+    """
+    anzahl = int(RATE * dauer)
+    einsatz = max(1, int(RATE * 0.012))
+    werte = []
+    for i in range(anzahl):
+        t = i / RATE
+        wert = sum(a * math.sin(2 * math.pi * frequenz * f * t)
+                   for f, a in obertoene)
+        wert *= math.exp(-abfall * t)
+        if i < einsatz:
+            wert *= i / einsatz
+        werte.append(wert)
+    return werte
+
+
+def gemischt(*spuren):
+    """Legt mehrere gleich lange Spuren übereinander."""
+    laenge = max(len(s) for s in spuren)
+    summe = [0.0] * laenge
+    for spur in spuren:
+        for i, w in enumerate(spur):
+            summe[i] += w
+    return summe
+
+
+def wiederholt(runde, gesamtdauer: float):
+    werte = []
+    while len(werte) < int(RATE * gesamtdauer):
+        werte += runde
+    return werte[:int(RATE * gesamtdauer)]
+
+
+def dezent():
+    """Zwei weiche Töne, wie eine Kalendererinnerung.
+
+    A5 und E6 — eine Quinte, das freundlichste Intervall, das es gibt. Wer
+    das im Klassenraum hört, denkt an einen Termin und nicht an Gefahr.
+    """
+    oben = [(1.0, 1.0), (2.0, 0.18), (3.0, 0.05)]
+    runde = (glocke(880.0, 0.55, oben, 5.0)
+             + glocke(1318.5, 0.75, oben, 4.2)
+             + stille(1.2))
+    return wiederholt(runde, 10.0)
+
+
+def holz():
+    """Marimba: Grundton mit den Teiltönen eines angeschlagenen Stabes.
+
+    Ein Holzstab schwingt nicht in Vielfachen seines Grundtons, sondern
+    ungefähr im Verhältnis 1 : 4 : 10. Genau das macht den warmen, kurzen
+    Klang, den niemand für ein Warnsignal hält — und es ist der Grund,
+    warum hier keine Obertonreihe steht.
+    """
+    stab = [(1.0, 1.0), (4.0, 0.30), (10.0, 0.11)]
+    runde = (glocke(523.25, 0.5, stab, 7.0)
+             + glocke(659.25, 0.6, stab, 6.0)
+             + stille(1.4))
+    return wiederholt(runde, 10.0)
+
+
+def tropfen():
+    """Ein kurzer Blubb mit fallender Tonhöhe — der leiseste der vier.
+
+    Die fallende Tonhöhe ist das, was aus einem Piepen ein Geräusch macht.
+    Ein gleichbleibender kurzer Ton klingt nach Gerät; einer, der fällt,
+    klingt nach Wassertropfen und wird nicht als Meldung gelesen.
+    """
+    anzahl = int(RATE * 0.14)
+    einsatz = max(1, int(RATE * 0.006))
+    blubb = []
+    phase = 0.0
+    for i in range(anzahl):
+        t = i / RATE
+        frequenz = 1200.0 - 520.0 * (t / 0.14)
+        phase += 2 * math.pi * frequenz / RATE
+        wert = math.sin(phase) * math.exp(-11.0 * t)
+        if i < einsatz:
+            wert *= i / einsatz
+        blubb.append(wert)
+    return wiederholt(blubb + stille(1.5), 10.0)
+
+
 def normiert(werte, spitze: float = 0.92):
     hoch = max(abs(w) for w in werte) or 1.0
     faktor = spitze / hoch
@@ -142,12 +247,22 @@ def schreibe_wav(pfad: str, werte) -> None:
 
 
 def main() -> None:
-    for name, werte in (("alarm.wav", alarmton()), ("allclear.wav", entwarnung())):
+    # Die Spitze je Datei ist die Lautstärke: Kritische Hinweise spielen mit
+    # withAudioVolume 1.0, unabhängig vom Lautstärkeregler des iPads. Leise
+    # wird ein Ton deshalb nur dadurch, dass er leise GERECHNET ist.
+    dateien = (
+        ("alarm.wav", alarmton(), 0.92),
+        ("allclear.wav", entwarnung(), 0.92),
+        ("dezent.wav", dezent(), 0.30),
+        ("holz.wav", holz(), 0.32),
+        ("tropfen.wav", tropfen(), 0.22),
+    )
+    for name, werte, spitze in dateien:
         sekunden = len(werte) / RATE
         # Über 30 Sekunden spielt iOS den Ton gar nicht ab — lieber hier
         # scheitern als auf dem Gerät schweigen.
         assert sekunden <= 30.0, f"{name} ist {sekunden:.1f} s lang, erlaubt sind 30"
-        schreibe_wav(os.path.join(ZIEL, name), normiert(werte))
+        schreibe_wav(os.path.join(ZIEL, name), normiert(werte, spitze))
 
 
 if __name__ == "__main__":

@@ -145,6 +145,9 @@ final class AppModel: ObservableObject {
     /// Everything that has to happen at every start, in the order that matters.
     func start() async {
         notifications.registerCategories()
+        // Der gewählte Ton muss unter dem festen Namen liegen, BEVOR ein Alarm
+        // kommt — die Erweiterung nennt nur den Namen und sucht nicht weiter.
+        Klanginstallation.sicherstellen(store.alarmklang)
         await notifications.refreshPermissions()
         // Kritische Hinweise wurden erst nachträglich bewilligt (09/2026). Die
         // schon eingerichteten iPads haben die Frage nie gesehen — hier holt
@@ -597,8 +600,25 @@ final class AppModel: ObservableObject {
     }
 
     /// Spielt die Tondatei unmittelbar ab, an den Mitteilungen vorbei.
-    func spieleTonprobe() {
-        hinweis = Tonprobe.abspielen()
+    func spieleTonprobe(_ klang: Alarmklang? = nil) {
+        hinweis = Tonprobe.abspielen(klang ?? store.alarmklang)
+    }
+
+    var alarmklang: Alarmklang { store.alarmklang }
+
+    /// Wechselt den Ton und setzt ihn sofort ein.
+    ///
+    /// Sofort, nicht beim nächsten Start: Wer hier tippt, will den Ton hören
+    /// und dann das iPad weglegen. Ein Wechsel, der erst morgen gilt, ist in
+    /// dieser App eine Falle — die Lehrkraft glaubte, sie sei leise gestellt.
+    func setzeAlarmklang(_ klang: Alarmklang) {
+        store.alarmklang = klang
+        if let fehler = Klanginstallation.sicherstellen(klang, erzwingen: true) {
+            problem = fehler
+        } else {
+            hinweis = "Alarmton: \(klang.titel). Der Tontest beweist ihn."
+        }
+        Task { await reportDeviceStatus() }
     }
 
     func haltTonprobeAn() {
@@ -690,7 +710,8 @@ final class AppModel: ObservableObject {
         }
         let groesse = (try? Data(contentsOf: pfad).count) ?? 0
         return Diagnose(id: "ton", titel: "Alarmton im Bündel",
-                        text: "\(name), \(groesse / 1024) KiB",
+                        text: "\(name), \(groesse / 1024) KiB\n"
+                            + "Eingesetzt: \(Klanginstallation.befund())",
                         befund: groesse > 0 ? .gut : .schlecht)
     }
 

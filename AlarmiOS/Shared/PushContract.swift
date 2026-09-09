@@ -91,6 +91,24 @@ public enum PushAsset {
     public static let alarmCategory = "ALARM"
     public static let allClearCategory = "ALLCLEAR"
     public static let messageCategory = "MESSAGE"
+    /// Der Ton, den ein Alarm auf DIESEM Gerät spielt.
+    ///
+    /// Bewusst ein fester Name, dessen Datei sich ändert — nicht umgekehrt.
+    /// Die Erweiterung setzt den Namen, und sie kann die Wahl der Lehrkraft
+    /// nicht kennen: Sie ist ein eigener Prozess mit eigenem Behälter, und
+    /// gemeinsame Einstellungen bräuchten eine App-Gruppe, also ein
+    /// Entitlement an der Erweiterung — genau das, was dieses Projekt
+    /// unsignierbar gemacht hat (siehe README).
+    ///
+    /// Also andersherum: Die App schreibt den GEWÄHLTEN Ton unter diesem
+    /// einen Namen nach `Library/Sounds`, und die Erweiterung nennt immer
+    /// ihn. Damit reist keine Wahl durch den Push und keine Einstellung über
+    /// eine Prozessgrenze.
+    ///
+    /// `alarm.wav` bleibt daneben als Vorlage im Bündel — und als der Ton,
+    /// den ein frisch installiertes Gerät hat, bevor die App das erste Mal
+    /// lief.
+    public static let signalSound = "signal.wav"
     public static let alarmSound = "alarm.wav"
     public static let allClearSound = "allclear.wav"
     /// Notifications older than this are no longer interruptive; see

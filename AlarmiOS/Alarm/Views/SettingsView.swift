@@ -38,13 +38,62 @@ struct SettingsView: View {
                 }
 
                 Section {
+                    ForEach(Alarmklang.allCases) { klang in
+                        Button {
+                            model.setzeAlarmklang(klang)
+                            model.spieleTonprobe(klang)
+                        } label: {
+                            HStack(alignment: .top, spacing: 12) {
+                                Image(systemName: model.alarmklang == klang
+                                      ? "largecircle.fill.circle" : "circle")
+                                    .foregroundStyle(model.alarmklang == klang
+                                                     ? Color.accentColor : .secondary)
+                                VStack(alignment: .leading, spacing: 3) {
+                                    HStack(spacing: 6) {
+                                        Text(klang.titel).font(.headline)
+                                        if klang.verraetSichVorDerKlasse {
+                                            Label("laut", systemImage: "speaker.wave.3.fill")
+                                                .font(.caption2)
+                                                .labelStyle(.iconOnly)
+                                                .foregroundStyle(.orange)
+                                        }
+                                    }
+                                    Text(klang.beschreibung)
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    Button("Abspielen beenden") { model.haltTonprobeAn() }
+                } header: {
+                    Text("Alarmton")
+                } footer: {
+                    Text("Ein Tipp wählt den Ton UND spielt ihn vor.\n\n"
+                         + "Der Ton gilt für dieses iPad. Soll das Kollegium im "
+                         + "Ernstfall vor den Kindern unauffällig bleiben, muss "
+                         + "ihn jedes Gerät gewählt haben — die App kann das "
+                         + "nicht für alle entscheiden.\n\n"
+                         + "Die Lautstärke steckt im Ton selbst. Kritische "
+                         + "Hinweise spielen immer mit voller Lautstärke, "
+                         + "unabhängig vom Lautstärkeregler — deshalb sind die "
+                         + "drei leisen Töne leise GERECHNET und nicht "
+                         + "leiser gestellt. Ein Regler dafür wäre wirkungslos.\n\n"
+                         + "„Alarm“ ist vor einer Klasse nicht zu verbergen. Die "
+                         + "drei anderen schon — dafür werden sie in einem lauten "
+                         + "Raum eher überhört. Die Erinnerungsreihe wiederholt "
+                         + "den Ton, bis jemand antwortet.")
+                }
+
+                Section {
                     Button("Tontest — das iPad weckt sich selbst") {
                         Task { await model.runTontest() }
                     }
                     Button("Tontest mit Standardton") {
                         Task { await model.runTontest(mitStandardton: true) }
                     }
-                    Button("Ton direkt abspielen") { model.spieleTonprobe() }
+                    Button("Gewählten Ton direkt abspielen") { model.spieleTonprobe() }
                     Button("Abspielen beenden") { model.haltTonprobeAn() }
                     NavigationLink {
                         DiagnoseView().environmentObject(model)

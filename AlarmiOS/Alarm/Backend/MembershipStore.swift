@@ -25,6 +25,7 @@ final class MembershipStore {
         static let acknowledgedAlarmIds = "alarm.acknowledgedAlarmIds"
         static let tontestBestanden = "alarm.tontestBestanden"
         static let letzterPush = "alarm.letzterPush"
+        static let alarmklang = "alarm.alarmklang"
     }
 
     private let defaults: UserDefaults
@@ -65,6 +66,22 @@ final class MembershipStore {
     var onboardingDone: Bool {
         get { defaults.bool(forKey: Key.onboardingDone) }
         set { defaults.set(newValue, forKey: Key.onboardingDone) }
+    }
+
+    /// Welcher Ton bei einem Alarm auf DIESEM iPad spielt.
+    ///
+    /// Eine Einstellung des Geräts und nicht der Schule: Die Wahl muss die
+    /// Erweiterung erreichen, und die liest keine Einstellung über die
+    /// Prozessgrenze — sie nennt nur einen festen Dateinamen, unter dem die
+    /// App den gewählten Ton ablegt. Ein schulweiter Wert stünde auf dem
+    /// Group-Datensatz, bräuchte ein neues CloudKit-Feld samt Deploy und
+    /// änderte an dieser Mechanik nichts.
+    var alarmklang: Alarmklang {
+        get {
+            defaults.string(forKey: Key.alarmklang)
+                .flatMap(Alarmklang.init(rawValue:)) ?? .vorgabe
+        }
+        set { defaults.set(newValue.rawValue, forKey: Key.alarmklang) }
     }
 
     /// Auf diesem Gerät wurde ein Ton gehört. Sagt nichts über die

@@ -650,6 +650,29 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   kontrollieren kann, ist das System-Banner davor — das spiegelt iOS. Ob
   die Sperrbildschirm-Vorschau den Alarmtext zeigt, entscheidet das
   Krisenteam im Konfigurationsprofil, nicht die App.
+- **Vier Alarmtöne, und die Lautstärke steckt in der DATEI** (ab 1.0.30, Ansage
+  des Nutzers 09/2026: Probealarme sollen vor den Kindern verborgen bleiben).
+  `alarm.wav` (laut) plus `dezent.wav`, `holz.wav`, `tropfen.wav` — auf 0,22 bis
+  0,32 Spitze gerechnet statt 0,92. Ein Lautstärkeregler wäre wirkungslos:
+  Kritische Hinweise spielen seit 1.0.29 mit `withAudioVolume: 1.0`, unabhängig
+  vom Gerät. Alle Töne rechnet `scripts/make-sounds.py`.
+- **Der Name ist fest, die Datei wechselt** (`Alarmklang.swift`,
+  `PushAsset.signalSound`). Die Erweiterung setzt den Ton und kann die Wahl der
+  Lehrkraft NICHT kennen — eigener Prozess, eigener Behälter. Eine gemeinsame
+  Einstellung bräuchte eine **App-Gruppe** und damit eine Entitlements-Datei an
+  der Erweiterung; das ist die eine Sache, die dieses Projekt unsignierbar
+  macht. Also nennt die Erweiterung immer `signal.wav`, und die App legt den
+  gewählten Ton unter diesem Namen in `Library/Sounds` ab —
+  `Klanginstallation.sicherstellen` bei jedem Start und sofort beim Wechseln.
+  **`signal.wav` darf nie ins Bündel**, sonst ist nicht entschieden, welche
+  Fassung `UNNotificationSound(named:)` nimmt. Fehlt die Datei, spielt iOS den
+  Standardton — nicht den gewählten, aber auch nie gar nichts.
+- **Der Rückfall-Ton eines Abonnements lässt sich nachträglich nicht ändern.**
+  `info.soundName` nennt seit 1.0.30 `signal.wav`, aber `reconcile` legt nur an,
+  was FEHLT — schon eingerichtete Geräte behalten `alarm.wav` als Rückfall bis
+  zum Neuaufsetzen. Ein Abonnement dafür zu löschen und neu anzulegen wäre der
+  empfindlichste Weg dieser App für einen Ton, der nur bei ausgefallener
+  Erweiterung spielt. Nicht nachrüsten.
 - **Kritische Hinweise sind AN — seit 1.0.29** (von Apple bewilligt am
   08.09.2026 für die App-Id `de.dboschule.alarm`). Bis dahin durfte das
   Entitlement nirgends stehen: Eine Entitlements-Datei, die es ohne Bewilligung

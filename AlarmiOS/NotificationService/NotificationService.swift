@@ -76,14 +76,14 @@ final class NotificationService: UNNotificationServiceExtension {
             content.body = body(triggeredBy: push.triggeredByName, at: push.createdAt)
             content.subtitle = push.instruction.map(firstLine) ?? ""
             content.categoryIdentifier = PushAsset.alarmCategory
-            configureUrgency(content, sound: PushAsset.alarmSound, stale: stale)
+            configureUrgency(content, sound: PushAsset.signalSound, stale: stale)
             if stale { info[PushKey.stale] = true }
 
         case .selfTest(let push):
             content.title = localized(PushString.selfTestTitle)
             content.body = localized(PushString.selfTestBody)
             content.categoryIdentifier = PushAsset.alarmCategory
-            configureUrgency(content, sound: PushAsset.alarmSound, stale: isStale(push))
+            configureUrgency(content, sound: PushAsset.signalSound, stale: isStale(push))
 
         case .message(let push):
             // Leiser als ein Alarm, und mit Absicht: Der Alarm hat das Gerät
@@ -128,6 +128,17 @@ final class NotificationService: UNNotificationServiceExtension {
         content.userInfo = info
     }
 
+    /// **Der Name ist fest, die Datei wechselt** (ab 1.0.30). Welchen Ton eine
+    /// Lehrkraft gewählt hat, kann diese Erweiterung nicht wissen: Sie ist ein
+    /// eigener Prozess mit eigenem Behälter, und eine gemeinsame Einstellung
+    /// bräuchte eine App-Gruppe — also eine Entitlements-Datei an der
+    /// Erweiterung, und genau die macht dieses Projekt unsignierbar. Deshalb
+    /// nennt sie immer `signal.wav`, und die App legt unter diesem Namen den
+    /// gewählten Ton in `Library/Sounds` ab (`Klanginstallation`).
+    ///
+    /// Fehlt die Datei, spielt iOS den Standardton — laut genug, aber nicht
+    /// der gewählte. Stumm wird es dadurch nie.
+    ///
     /// Interruption level and sound — the part that has to be right.
     ///
     /// `.critical` needs the `com.apple.developer.usernotifications.critical-alerts`

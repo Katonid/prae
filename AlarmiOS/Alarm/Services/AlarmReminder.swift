@@ -40,11 +40,11 @@ enum AlarmReminder {
             #if CRITICAL_ALERTS
             content.interruptionLevel = .critical
             content.sound = UNNotificationSound.criticalSoundNamed(
-                UNNotificationSoundName(PushAsset.alarmSound), withAudioVolume: 1.0)
+                UNNotificationSoundName(PushAsset.signalSound), withAudioVolume: 1.0)
             #else
             content.interruptionLevel = .timeSensitive
             content.sound = UNNotificationSound(named:
-                UNNotificationSoundName(PushAsset.alarmSound))
+                UNNotificationSoundName(PushAsset.signalSound))
             #endif
 
             let trigger = UNTimeIntervalNotificationTrigger(
