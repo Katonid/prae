@@ -453,7 +453,7 @@ export default {
       const hasResult = state.groups && state.groups.mode === state.mode && Array.isArray(state.groups.flat);
       // Schutz: Ein bestehendes Ergebnis wird nie aus Versehen überlost.
       if (hasResult && state.locked) {
-        toast('Das Ergebnis ist geschützt. Oben das Schloss antippen — danach lost ein Tipp auf einen Namen ab dort neu.', 'warn');
+        toast('Das Ergebnis ist geschützt. Oben das Schloss antippen — danach fragt ein Tipp auf einen Namen, ob nur dieser oder ab dort neu gelost wird.', 'warn');
         // Das Schloss kurz wackeln lassen, damit klar ist, wo es sitzt.
         const lockBtn = el.querySelector('.w-random__headbtn--lock');
         if (lockBtn) {
@@ -510,6 +510,53 @@ export default {
       render(prefix.length);
     }
 
+    /**
+     * NUR einen Namen nachziehen (Ansage des Nutzers, 09/2026: ein einzelnes
+     * Kind austauschen — etwa weil es krank ist —, ohne den Rest zu
+     * verlosen). Ersatz kommt aus den Namen, die gerade NICHT auf der Tafel
+     * stehen; gezogen wird fair über das Dran-Gedächtnis (wer am seltensten
+     * dran war, zuerst). Die Buchführung läuft wie bei der Berichtigung:
+     * alter Stand raus, neuer rein — der Verlaufseintrag wird ersetzt.
+     */
+    function drawSingleNow(index) {
+      if (dealing || spinning) return;
+      const state = ctx.widget.state;
+      const all = namesOf(state);
+      const shown = state.groups && state.groups.mode === state.mode
+        && Array.isArray(state.groups.flat) ? state.groups.flat : null;
+      if (!shown || index < 0 || index >= shown.length) return;
+      const kandidaten = all.filter((name) => !shown.includes(name));
+      if (!kandidaten.length) {
+        toast('Alle Namen der Liste stehen schon auf der Tafel — niemand ist zum Nachziehen übrig.', 'warn');
+        render();
+        return;
+      }
+      const saveWidget = () => ctx.save();
+      const memory = memoryOf(state, saveWidget);
+      const [ersatz] = drawDayGroup(kandidaten, 1, memory.dran);
+      const alter = shown[index];
+      const flat = shown.slice();
+      flat[index] = ersatz;
+      adjustMemory(state, saveWidget, {
+        mode: state.groups.mode, size: state.groups.size, flat: shown,
+      }, -1);
+      const size = state.groups.size;
+      // Der Haken der betroffenen Gruppe fällt — ihre Zusammensetzung ist neu.
+      const gruppe = Math.floor(index / size);
+      const done = (state.groups.done || []).filter((eintrag) => eintrag !== gruppe);
+      state.groups = { at: state.groups.at, mode: state.groups.mode, size, flat, done };
+      const entry = (state.history || []).find((item) => item.at === state.groups.at);
+      if (entry) {
+        entry.flat = flat.slice();
+        entry.done = done.slice();
+      }
+      adjustMemory(state, saveWidget, { mode: state.groups.mode, size, flat }, 1);
+      state.locked = true;
+      ctx.save();
+      render();
+      toast(`Nachgezogen: ${ersatz} statt ${alter}.`, 'success');
+    }
+
     /** Knopfzeile unter den Kärtchen — wie in der Tafelbild-App. */
     function renderActions(shown, hasNames) {
       clear(actionRow);
@@ -524,8 +571,23 @@ export default {
       if (!shown) {
         actionRow.append(abtn('Auslosen', true, () => drawGroupsNow(0)));
       } else if (pendingFrom !== null) {
+        // Die Rückfrage nach dem Tipp auf einen Namen bietet seit 1.8.53
+        // ZUERST das Nachziehen nur dieses einen Namens an — der häufigere
+        // Fall vor der Klasse (ein Kind fehlt) als das Neuverlosen ab hier.
+        // Ohne übrige Namen entfiele der Knopf ohnehin wirkungslos, also
+        // erscheint er gar nicht erst.
+        const flat = state.groups && Array.isArray(state.groups.flat) ? state.groups.flat : [];
+        const einzelName = pendingCorrect ? flat[pendingFrom] : null;
+        const uebrig = einzelName ? namesOf(state).some((name) => !flat.includes(name)) : false;
+        if (einzelName && uebrig) {
+          actionRow.append(abtn(`Nur „${einzelName}“ neu ziehen`, true, () => {
+            const index = pendingFrom;
+            pendingFrom = null;
+            drawSingleNow(index);
+          }));
+        }
         actionRow.append(
-          abtn(pendingFrom > 0 ? 'Ab hier neu auslosen' : 'Alles neu auslosen', true, () => {
+          abtn(pendingFrom > 0 ? 'Ab hier neu auslosen' : 'Alles neu auslosen', !(einzelName && uebrig), () => {
             const from = pendingFrom;
             const correct = pendingCorrect;
             pendingFrom = null;
@@ -664,7 +726,7 @@ export default {
           'data-nodrag': '',
           title: checklist ? 'Gruppe abhaken'
             : (zaehlen ? 'Tipp zählt +1 — langes Drücken nimmt eins zurück'
-              : 'Ab hier neu auslosen (alles davor bleibt)'),
+              : 'Nur diesen Namen nachziehen oder ab hier neu auslosen (erst nachfragen)'),
         },
         h('span', { class: 'w-random__gcard-text' }, name),
         zaehlen && stand > 0 ? h('span', { class: 'w-random__gcount' }, String(stand)) : null), () => {
