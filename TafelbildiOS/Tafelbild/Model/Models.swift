@@ -1813,6 +1813,20 @@ struct Board: Codable, Identifiable, Equatable {
                 return neues
             }
             meines.content = fremdes.content
+            // **Das Aussehen ist keine Anordnung** (ab 1.4.6). Behalten
+            // wird, WO ein Element steht — das ist die Entscheidung dieses
+            // Geräts. Wie es aussieht, sehen dagegen alle, die auf die Tafel
+            // schauen: Wer die Überschrift einer Kachel abschaltet, tut das
+            // für die Tafel und nicht für sein iPad. Bis 1.4.5 kam hier nur
+            // `content` herüber, und damit blieb eine solche Umstellung auf
+            // dem anderen Gerät liegen — bis dieses Gerät das nächste Mal
+            // schrieb und seinen alten Stand zurückschickte. Für den
+            // Menschen davor sah es aus, als spränge die Einstellung nach
+            // einer Weile von selbst zurück (gemeldet 09/2026).
+            meines.labels = fremdes.labels
+            meines.labelSize = fremdes.labelSize
+            meines.karte = fremdes.karte
+            meines.schriftfarbe = fremdes.schriftfarbe
             // Wer es angelegt hat, steht ein für alle Mal fest. Es aus der
             // fremden Fassung zu übernehmen hieße, dass ein Gerät mit
             // älterem Stand den Vermerk beim Weiterreichen ausradiert.

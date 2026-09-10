@@ -494,6 +494,11 @@ final class BoardStore: ObservableObject {
         /// Ohne sie entscheidet nur `ownBoardIDs` und der Anzeigename über
         /// die Sichtbarkeit — genau daran lag „Meine Klasse".
         let ohneBesitzerkennung: Bool
+        /// Übernimmt dieses Gerät von einem ankommenden Stand nur Inhalt und
+        /// Aussehen — statt alles? Siehe `BoardStore.nurInhaltZaehlt`. Ohne
+        /// diese Angabe ist bei einer Einstellung, die „von selbst
+        /// zurückspringt", nicht zu sehen, welcher der beiden Wege gilt.
+        let nurInhalt: Bool
         let angelegt: Date
         let geaendert: Date
 
@@ -511,6 +516,7 @@ final class BoardStore: ObservableObject {
             if geloescht { teile.append("gelöscht") }
             if !sichtbar { teile.append("unsichtbar") }
             if ohneBesitzerkennung { teile.append("ohne Besitzerkennung") }
+            if nurInhalt { teile.append("Abgleich: nur Inhalt") }
             // **Mit Sekunden.** Ohne sie sahen zwei Stände gleich alt aus,
             // die es nicht waren — und der Zeitstempel entscheidet beim
             // Abgleich darüber, welcher gewinnt.
@@ -540,6 +546,7 @@ final class BoardStore: ObservableObject {
                             besitzer: tafel.owner,
                             mitglieder: tafel.members.count,
                             ohneBesitzerkennung: tafel.ownerUserID.isEmpty,
+                            nurInhalt: nurInhaltZaehlt(tafel),
                             angelegt: Date(timeIntervalSince1970: Double(tafel.createdAtMs) / 1000),
                             geaendert: Date(timeIntervalSince1970: Double(tafel.updatedAtMs) / 1000))
             }
@@ -2044,16 +2051,33 @@ final class BoardStore: ObservableObject {
     /// Ohne iCloud-Kennung (kein Konto, alter Stand) gilt die vorsichtigere
     /// Regel: lieber die eigene Anordnung behalten als sie unter der Hand
     /// verstellt zu bekommen.
-    private func zusammengefuehrt(vorhanden: Board, fremd: Board) -> Board {
+    /// Zählt von einem ankommenden Stand alles — oder nur der Inhalt?
+    ///
+    /// Steht hier `true`, behält dieses Gerät seine eigene Anordnung und
+    /// übernimmt vom Gegenüber nur Inhalt und Aussehen
+    /// (`Board.mitFremdemInhalt`). Das ist die richtige Regel für eine
+    /// geteilte Tafel und die falsche, wenn beide Geräte demselben Menschen
+    /// gehören — dann soll das Umräumen mitkommen.
+    ///
+    /// **Die Antwort steht genau hier**, damit die Bestandsaufnahme
+    /// dieselbe Frage nicht ein zweites Mal beantwortet. Zwei Fassungen
+    /// liefen mit Sicherheit auseinander, und dann zeigte die Diagnose
+    /// etwas anderes an, als der Abgleich tut.
+    func nurInhaltZaehlt(_ fremd: Board) -> Bool {
         if let ich = myUserID, !ich.isEmpty, fremd.zuletztVon == ich {
-            return fremd
+            return false
         }
         // Eine Tafel, die nur mir gehört, ist kein Fall für die Trennung:
         // Da kommt ohnehin nur mein eigener Stand zurück.
         if fremd.memberUserIDs.count <= 1, fremd.zuletztVon.isEmpty,
            fremd.ownerUserID == (myUserID ?? "") {
-            return fremd
+            return false
         }
+        return true
+    }
+
+    private func zusammengefuehrt(vorhanden: Board, fremd: Board) -> Board {
+        guard nurInhaltZaehlt(fremd) else { return fremd }
         var vereint = vorhanden.mitFremdemInhalt(fremd)
         // Die Löschregel gehört der Besitzerin. Ein Gerät mit älterem Stand
         // kennt das Feld gar nicht und schickte sonst stillschweigend die

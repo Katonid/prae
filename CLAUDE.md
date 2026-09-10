@@ -2131,6 +2131,24 @@ etwas Großem, das zuletzt geändert wurde.
   in den Schlüssel — das heilt die Kopien, die schon auf der Platte liegen und
   die kein Umbenennen mehr erreicht. **Wer eine neue Inhaltsart mit eigenen
   Kennungen baut, trägt sie in `mitNeuenKennungen()` ein.**
+- **Das Aussehen eines Elements ist keine Anordnung** (ab 1.4.6).
+  `mitFremdemInhalt` behält bewusst die eigene Anordnung (x, y, Größe, z,
+  Seite, Sperre) und übernahm vom Gegenüber nur `content`. Damit blieben
+  `labels`, `labelSize`, `karte` und `schriftfarbe` liegen: Wer auf einem
+  Gerät die Überschrift einer Kachel abschaltete, sah sie auf dem anderen
+  weiter — und sobald DIESES Gerät das nächste Mal schrieb, schickte es
+  seinen alten Stand zurück und die Einstellung sprang um (gemeldet 09/2026:
+  „bleibt eine Zeit lang so, irgendwann ist es wieder auf Standard“). Wo ein
+  Element steht, ist die Entscheidung dieses Geräts; wie es aussieht, sehen
+  alle, die auf die Tafel schauen. Die vier Felder kommen deshalb mit.
+  Per Gerät bleiben nur `versteckt` und die Anordnung.
+- **Welchen Weg der Abgleich nimmt, steht in der Bestandsaufnahme**
+  (`nurInhaltZaehlt`, ab 1.4.6). Ob ein ankommender Stand ganz gilt oder nur
+  mit Inhalt und Aussehen, hängt an `zuletztVon`, `memberUserIDs` und
+  `ownerUserID` — von außen unsichtbar, und genau daran hängt jede Frage der
+  Art „warum kommt diese Einstellung nicht an?“. Die Entscheidung steht
+  jetzt an EINER Stelle, und „Abgleich prüfen“ liest dieselbe: Steht in der
+  Zeile „Abgleich: nur Inhalt“, gilt der Zusammenführungsweg.
 - **Übersetzt wird in GitHub Actions**, nicht erst auf dem Mac: Der
   Arbeitsablauf `.github/workflows/tafelbild-build.yml` baut die App bei
   jedem Push auf `TafelbildiOS/` auf einem macOS-Läufer (xcodebuild,
