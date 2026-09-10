@@ -65,7 +65,8 @@ enum OnboardingChecklist {
                       availability: BackendAvailability,
                       tontestPassed: Bool,
                       zustellungGeprueft: Bool,
-                      criticalAlertsBuilt: Bool) -> [ChecklistItem] {
+                      criticalAlertsBuilt: Bool,
+                      mitgliedschaftFehlt: Bool = false) -> [ChecklistItem] {
         let settings = URL(string: UIApplication.openSettingsURLString)
 
         var items: [ChecklistItem] = [
@@ -123,6 +124,24 @@ enum OnboardingChecklist {
                     + "→ „Kritische Hinweise“.",
                 state: permissions.criticalAllowed ? .ok : .missing,
                 settingsURL: settings))
+        }
+
+        // Nur wenn der Server das WIRKLICH gesagt hat — ein Netzaussetzer setzt
+        // diese Zeile nie. Und sie hält den Abschluss nicht auf: Lösen lässt
+        // sich das nur durch Austreten, und dazu zwingt die App niemanden.
+        if mitgliedschaftFehlt {
+            items.append(ChecklistItem(
+                id: "mitgliedschaft",
+                title: "Mitglied dieser Schule",
+                detail: "Dieses Konto steht nicht mehr in der Mitgliederliste — "
+                    + "vermutlich hat ein Admin es entfernt, oder der Austritt "
+                    + "ist auf einem anderen Gerät erfolgt. Der Alarm kommt "
+                    + "hier noch an, die Rückmeldung zählt aber bei niemandem "
+                    + "mehr. Einstellungen → „Verbindung zur Schule lösen“ "
+                    + "räumt dieses Gerät auf.",
+                state: .missing,
+                settingsURL: nil,
+                blocksCompletion: false))
         }
 
         items.append(ChecklistItem(

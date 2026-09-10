@@ -61,6 +61,7 @@ enum BackendError: LocalizedError, Equatable {
     case codeUnknown
     case codeRevoked
     case handleTaken(String)
+    case letzterAdmin
     case alarmAlreadyRunning(AlarmType)
     case accountUnavailable(BackendAvailability)
     case network(String)
@@ -86,6 +87,12 @@ enum BackendError: LocalizedError, Equatable {
                  + "Rückmeldeliste eindeutig sein. Ist es das eigene und "
                  + "dieses Gerät hängt an einer zweiten Apple-ID, dann ein "
                  + "Kennzeichen anhängen (etwa „\(kuerzel)-2“)."
+        case .letzterAdmin:
+            return "Du bist der einzige Admin dieser Schule. Ernenne erst eine "
+                 + "zweite Person zum Admin (Verwaltung → Mitglieder) — sonst "
+                 + "könnte danach niemand mehr Beitrittscodes vergeben, "
+                 + "Standorte pflegen oder Entwarnung geben. Eine Schule ohne "
+                 + "Admin lässt sich aus der App heraus nicht wiederbeleben."
         case .alarmAlreadyRunning(let type):
             return "Es läuft bereits ein \(NSLocalizedString(type.titleKey, comment: "")). "
                  + "Ein zweiter desselben Art wird nicht ausgelöst."
@@ -203,6 +210,20 @@ protocol AlarmBackend: AnyObject {
     func updateInstructions(_ instructions: [String: String]) async throws
 
     func removeMember(memberId: String) async throws
+
+    /// Löst die Verbindung DIESES Geräts zur Schule.
+    ///
+    /// Drei Dinge gehören dazu, und die Reihenfolge ist nicht beliebig:
+    /// das eigene Mitglied entfernen (sonst zählt der Admin jemanden mit, der
+    /// nicht mehr da ist), die Abonnements entfernen (sonst klingelt dieses
+    /// iPad weiter für eine Schule, zu der es nicht mehr gehört) und den
+    /// örtlichen Stand vergessen.
+    ///
+    /// **Braucht eine Verbindung.** Ein halb gelöster Zustand wäre schlimmer
+    /// als gar keiner: entweder ein Geistermitglied in der Liste oder ein
+    /// Gerät, das Alarme einer fremden Schule empfängt. Scheitert etwas,
+    /// bleibt alles, wie es war.
+    func leaveGroup() async throws
 
     /// Promotes a colleague to the leadership, or takes it back.
     ///

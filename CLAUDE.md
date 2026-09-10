@@ -467,6 +467,46 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   **Sichtbarkeit**: Die Mitgliederliste nennt seit 1.0.28 das Beitrittsdatum und
   markiert noch vorhandene Doppel; ein unerwarteter Eintrag wird entfernt und der
   Beitrittscode zurückgezogen.
+- **Austreten gibt es, Mehrfachmitgliedschaft nicht** (`leaveGroup`, ab 1.0.33,
+  Ansage des Nutzers 09/2026). Einstellungen → „Verbindung zur Schule lösen".
+  Ein Gerät gehört zu genau EINER Schule; ein Wähler „an welche Schule geht
+  dieser Alarm?" wurde ausdrücklich verworfen — im Ernstfall ist jede
+  Zusatzfrage eine zu viel. Der Musikschullehrer an drei Schulen ist ein
+  Sonderfall, den diese App bewusst nicht bedient.
+- **Die TESTSTRECKE ist kein eigener Modus, sondern der Austritt** (Wunsch des
+  Nutzers 09/2026: „einen zweiten Kanal … an anderen Geräten, die nicht an der
+  Schule registriert sind"). Ein Mitglied ist die Apple-ID, die aktive Schule
+  steht ÖRTLICH je Gerät (`store.groupId`), und `member-<Gruppe>-<Nutzer>`
+  trägt die Gruppe im Namen — dasselbe Konto kann also in zwei Gruppen ein
+  Mitglied haben, ohne dass sich etwas überschreibt. Ein zweites Gerät tritt
+  aus und richtet eine eigene Testschule ein; das Haupt-iPad bleibt unberührt.
+  **Dafür braucht es keinen Umschalter und keine zweite Datenhaltung** — wer
+  einen baut, holt sich genau die Auswahlfrage zurück, die hier nicht sein soll.
+- **Beim Austritt muss BEIDES weg, sonst gar nichts** (`CloudKitBackend.leaveGroup`).
+  Bleibt das Mitglied stehen, zählt der Admin im Ernstfall jemanden mit, der
+  nichts mehr bekommt — die gefährlichere Hälfte. Bleiben die Abonnements
+  stehen, klingelt das Gerät weiter für eine fremde Schule, und `reconcile`
+  räumt sie NIE wieder ab, weil es dafür eine Gruppe bräuchte
+  (`CloudKitSubscriptions.entferneAlle`). Scheitert ein Schritt, bleibt alles
+  wie es war: Ein Austritt ist nie eilig, und auf eine Verbindung zu bestehen
+  ist billiger als ein halb gelöster Zustand, den niemand mehr sieht.
+- **Der letzte Admin darf weder entfernt werden noch austreten**
+  (`pruefeLetztenAdmin`, in BEIDEN Backends). Ohne Admin ist eine Schule tot —
+  `createInviteCode`, `setRole`, `updateLocations` und die Entwarnung fragen
+  alle `requireAdmin()`, und aus der App heraus gibt es keinen Weg zurück. Ist
+  er das EINZIGE Mitglied, ist es kein Ausfall, sondern das Ende der Schule;
+  dann geht es.
+- **„Kein Mitglied gefunden" und „konnte nicht nachsehen" sind NICHT dasselbe**
+  (`AppModel.Mitgliedschaftsstand`, ab 1.0.33). Ein `try?` wirft den
+  Unterschied weg, und ein Netzaussetzer sähe dann aus wie ein Rauswurf. Nur
+  eine GELUNGENE Abfrage, die nichts fand, setzt `.fehlt` — dieselbe Regel wie
+  beim Alarm-Bildschirm. **Und auch dann meldet sich die App nur**: Die
+  Prüfliste zeigt die Zeile rot, gelöst wird von Hand. Ein Gerät, das sich
+  selbst abmeldet, wäre im Ernstfall stumm, ohne dass es jemand gemerkt hat.
+- **Ein Admin entfernt ein Mitglied über einen KNOPF**, nicht nur über die
+  Wischgeste (ab 1.0.33) — dieselbe Lehre wie beim Gruppenchat. Sich selbst
+  entfernt man dort nicht: Nur der Austritt in den Einstellungen räumt auch die
+  Abonnements DIESES Geräts ab, und die erreicht kein fremdes iPad.
 - **Ein Mitglied ist eine APPLE-ID, kein iPad.** Zwei iPads mit derselben
   Apple-ID sind EIN Mitglied mit EINER Rolle, und eine Rückmeldung lässt
   sich ihnen nicht einzeln zuordnen (`ack-<Alarm>-<Nutzer>`). Jede Lehrkraft

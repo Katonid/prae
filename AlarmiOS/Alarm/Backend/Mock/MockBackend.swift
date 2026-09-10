@@ -252,7 +252,24 @@ final class MockBackend: AlarmBackend {
     }
 
     func removeMember(memberId: String) async throws {
+        try pruefeLetztenAdmin(memberId: memberId)
         lock.around { members.removeAll { $0.id == memberId } }
+    }
+
+    func leaveGroup() async throws {
+        guard let eigenes = members.first(where: { $0.userId == userId }) else { return }
+        try pruefeLetztenAdmin(memberId: eigenes.id)
+        lock.around { members.removeAll { $0.id == eigenes.id } }
+    }
+
+    /// Dieselbe Regel wie im echten Backend — sonst prüfte die Vorschau etwas
+    /// anderes als die App.
+    private func pruefeLetztenAdmin(memberId: String) throws {
+        guard let betroffen = members.first(where: { $0.id == memberId }),
+              betroffen.role == .admin else { return }
+        let andereAdmins = members.contains { $0.id != memberId && $0.role == .admin }
+        let andereMitglieder = members.contains { $0.id != memberId }
+        if andereMitglieder, !andereAdmins { throw BackendError.letzterAdmin }
     }
 
     func setRole(memberId: String, role newRole: MemberRole) async throws {

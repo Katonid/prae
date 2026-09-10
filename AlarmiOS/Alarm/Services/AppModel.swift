@@ -93,6 +93,21 @@ final class AppModel: ObservableObject {
         var id: String { rawValue }
     }
 
+    /// Was der Server über die eigene Mitgliedschaft sagt.
+    ///
+    /// Bewusst DREI Zustände und nicht zwei. „Kein Mitglied gefunden" und „ich
+    /// konnte nicht nachsehen" sind nicht dasselbe, und die Verwechslung wäre
+    /// hier teuer: Ein Netzaussetzer dürfte niemals wie ein Rauswurf aussehen
+    /// und dieses iPad still abmelden. Dieselbe Regel wie beim
+    /// Alarm-Bildschirm — nur eine Abfrage, die GELUNGEN ist und nichts fand,
+    /// darf etwas behaupten.
+    ///
+    /// Und selbst dann wird nichts automatisch gelöst: Die Prüfliste zeigt die
+    /// Zeile rot, der Mensch entscheidet. Ein Gerät, das sich von selbst
+    /// abmeldet, wäre im Ernstfall stumm, ohne dass jemand es gemerkt hat.
+    enum Mitgliedschaftsstand { case ungeprueft, vorhanden, fehlt }
+    @Published private(set) var mitgliedschaft: Mitgliedschaftsstand = .ungeprueft
+
     /// Set once the whole checklist is green and a self-test has arrived.
     @Published private(set) var onboardingDone = false
 
@@ -162,8 +177,7 @@ final class AppModel: ObservableObject {
         }
 
         group = try? await backend.fetchGroup()
-        member = try? await backend.currentMember()
-        uebernimmEigenesMitglied()
+        await hoereEigenesMitgliedAb()
 
         // Subscriptions can go missing — an account switch, a container reset,
         // a restore from a backup. A device without them is deaf and does not
@@ -187,11 +201,27 @@ final class AppModel: ObservableObject {
         availability = await backend.availability()
         if isJoined {
             group = try? await backend.fetchGroup()
-            member = try? await backend.currentMember()
-            uebernimmEigenesMitglied()
+            await hoereEigenesMitgliedAb()
             await reportDeviceStatus()
         }
         await rebuildChecklist()
+    }
+
+    /// Holt das eigene Mitglied und merkt sich, ob es überhaupt eines GIBT.
+    ///
+    /// Der Unterschied zwischen „nicht gefunden" und „nicht nachsehen können"
+    /// geht in einem `try?` verloren — deshalb steht hier ein `do/catch`.
+    /// Wirft die Abfrage, bleibt der letzte bekannte Stand stehen und die App
+    /// behauptet nichts.
+    private func hoereEigenesMitgliedAb() async {
+        do {
+            let gefunden = try await backend.currentMember()
+            member = gefunden
+            mitgliedschaft = gefunden == nil ? .fehlt : .vorhanden
+            uebernimmEigenesMitglied()
+        } catch {
+            // Kein Netz, kein Urteil.
+        }
     }
 
     /// Was der Server über dieses Konto sagt, gilt — Rolle wie Kürzel.
@@ -225,6 +255,50 @@ final class AppModel: ObservableObject {
             report(error)
             return false
         }
+    }
+
+    /// Löst die Verbindung dieses Geräts zur Schule.
+    ///
+    /// Danach steht die App wieder auf dem Beitrittsbildschirm — dieses Gerät
+    /// kann einer anderen Schule beitreten oder eine eigene einrichten. Genau
+    /// darüber läuft die Teststrecke: ein zweites Gerät, eine eigene
+    /// Testschule, keine Berührung mit dem echten Kollegium.
+    ///
+    /// Was NICHT verschwindet: schon geschriebene Rückmeldungen und
+    /// Nachrichten. Die sind ein Nachweis und gehören der Schule, nicht dem
+    /// Gerät — dieselbe Regel wie beim Berichtigen eines Kürzels.
+    func verlasseSchule() async {
+        isWorking = true
+        defer { isWorking = false }
+        do {
+            try await backend.leaveGroup()
+        } catch {
+            report(error)
+            return
+        }
+
+        // Erst die Beobachter, dann der Zustand: Ein laufender Nachfasslauf
+        // schriebe sonst gleich wieder einen Alarm der alten Schule herein.
+        alarmTask?.cancel()
+        ackTask?.cancel()
+        messageTask?.cancel()
+        alarmTask = nil
+        ackTask = nil
+        messageTask = nil
+
+        group = nil
+        member = nil
+        activeAlarm = nil
+        showsAlarmScreen = false
+        allClearNotice = nil
+        acks = []
+        messages = []
+        deviceStatuses = []
+        freshInviteCode = nil
+        offenesBlatt = nil
+        mitgliedschaft = .ungeprueft
+        await rebuildChecklist()
+        hinweis = "Verbindung gelöst. Dieses Gerät gehört zu keiner Schule mehr."
     }
 
     /// Sets up a new school and makes this device the leadership.
@@ -764,7 +838,9 @@ final class AppModel: ObservableObject {
                                               availability: availability,
                                               tontestPassed: store.tontestBestanden,
                                               zustellungGeprueft: store.letzterPush != nil,
-                                              criticalAlertsBuilt: criticalAlertsBuilt)
+                                              criticalAlertsBuilt: criticalAlertsBuilt,
+                                              mitgliedschaftFehlt: isJoined
+                                                  && mitgliedschaft == .fehlt)
         // Only the explicit "I am done" flag decides which screen the app is
         // on. A permission revoked months later shows the warning banner on
         // the home screen — it does NOT push a teacher back into the setup

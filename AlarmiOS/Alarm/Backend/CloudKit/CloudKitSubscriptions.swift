@@ -67,6 +67,35 @@ enum CloudKitSubscriptions {
         }
     }
 
+    /// Entfernt ALLE Abonnements dieses Kontos in diesem Container.
+    ///
+    /// Nur für den Austritt. Solange ein Abonnement steht, stellt CloudKit
+    /// diesem Gerät weiter Alarme der alten Schule zu — und `reconcile` legt
+    /// sie nie wieder an, weil es dafür eine Gruppe bräuchte. Ein Gerät, das
+    /// austritt und trotzdem klingelt, wäre der schlechteste aller Zustände.
+    ///
+    /// Alle, nicht nur die bekannten: Der Container gehört dieser App allein,
+    /// und was hier von einer älteren Fassung liegen geblieben ist, soll
+    /// genauso weg.
+    static func entferneAlle(in database: CKDatabase) async throws {
+        let vorhandene = try await database.allSubscriptions()
+        guard !vorhandene.isEmpty else { return }
+
+        let ergebnis = try await database.modifySubscriptions(
+            saving: [], deleting: vorhandene.map(\.subscriptionID))
+
+        // Teilfehler auspacken — wie überall hier. `modifySubscriptions` wirft
+        // nur, wenn der GANZE Aufruf scheitert; ein einzeln abgelehntes
+        // Löschen stünde sonst nirgends, und der Austritt gälte als gelungen.
+        let abgelehnt: [String] = ergebnis.deleteResults.compactMap { kennung, ergebnis in
+            guard case .failure(let fehler) = ergebnis else { return nil }
+            return "\(kennung): \(CloudKitFehler.rohtext(fehler))"
+        }
+        guard abgelehnt.isEmpty else {
+            throw SubscriptionAbgelehnt(zeilen: abgelehnt.sorted())
+        }
+    }
+
     // MARK: - Die Prädikate
 
     /// Einmal geschrieben, zweimal gebraucht: von der Subscription und von der

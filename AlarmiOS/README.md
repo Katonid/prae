@@ -240,6 +240,64 @@ sich die meisten Überraschungen erklären:
 Die Geräteübersicht macht den Fall sichtbar: Sie zählt die Geräte je Kürzel
 und warnt, wenn zwei unter einem stehen.
 
+## Austreten, entfernen — und die Teststrecke (ab 1.0.33)
+
+**Jedes Mitglied kann austreten**: Einstellungen → „Verbindung zur Schule
+lösen". Danach bekommt dieses Gerät keine Alarme mehr, das Kürzel verschwindet
+aus der Mitgliederliste, und die Abonnements werden abgeräumt.
+
+Beides muss gelingen, sonst geschieht gar nichts:
+
+* Bliebe das **Mitglied** stehen, zählte der Admin im Ernstfall jemanden mit,
+  der nichts mehr bekommt. Das ist die gefährlichere Hälfte.
+* Blieben die **Abonnements** stehen, klingelte dieses iPad weiter für eine
+  Schule, zu der es nicht mehr gehört — und `reconcile` räumt sie nie wieder
+  ab, weil es dafür eine Gruppe bräuchte.
+
+Deshalb braucht der Austritt eine Verbindung. Ein Austritt ist nie eilig; darauf
+zu bestehen ist billiger als ein halb gelöster Zustand, den niemand mehr sieht.
+
+**Was bleibt:** schon geschriebene Rückmeldungen und Nachrichten. Sie sind ein
+Nachweis und gehören der Schule, nicht dem Gerät — dieselbe Regel wie beim
+Berichtigen eines Kürzels.
+
+**Ein Admin entfernt ein Mitglied** über den Knopf „Entfernen" in der
+Mitgliederliste (die Wischgeste geht weiter). Das entfernt den Eintrag; die
+Abonnements auf dem fremden Gerät kann niemand von außen abräumen. Dieses Gerät
+merkt es beim nächsten Öffnen selbst: Die Prüfliste zeigt dann „Mitglied dieser
+Schule" rot und führt zum Austritt.
+
+**Der letzte Admin kann nicht gehen.** Ohne Admin ist eine Schule tot — niemand
+könnte mehr Codes vergeben, Standorte pflegen oder Entwarnung geben, und aus der
+App heraus gibt es keinen Weg zurück. Erst eine zweite Person zum Admin machen.
+Ist der Admin das einzige Mitglied, geht es: Das ist kein Ausfall, sondern das
+Ende der Schule.
+
+### Ein Gerät, eine Schule — mit Absicht
+
+Eine Mehrfachmitgliedschaft gibt es **nicht** (Ansage des Nutzers, 09/2026). Es
+gibt sie in der Wirklichkeit — Musiklehrkräfte an drei Schulen —, aber sie
+kostete im Ernstfall eine Frage: „An welche Schule?" Diese Frage ist eine zu
+viel.
+
+### Die Teststrecke
+
+Sie ist deshalb **kein eigener Modus**, sondern fällt vom Austritt ab:
+
+1. Auf einem ZWEITEN Gerät (nicht dem, das im Kollegium hängt) austreten oder
+   gar nicht erst beitreten.
+2. Dort „Schule einrichten" — etwa „Teststrecke".
+3. Weitere Testgeräte über deren Beitrittscode dazuholen.
+
+Das Haupt-iPad bleibt unberührt Mitglied der echten Schule. Möglich ist das,
+weil ein Mitglied die **Apple-ID** ist, die aktive Schule aber **örtlich je
+Gerät** steht und der Mitgliedsdatensatz die Gruppe im Namen trägt
+(`member-<Gruppe>-<Nutzer>`) — dasselbe Konto kann in zwei Gruppen ein Mitglied
+haben, ohne dass sich etwas überschreibt.
+
+Ein Probealarm in der Teststrecke erreicht das echte Kollegium nie: Es sind
+getrennte Gruppen, und jedes Abonnement fragt nach genau einer.
+
 **Ein Kürzel gehört einer Person** (ab 1.0.28). Wer beim Beitreten ein Kürzel
 tippt, das in dieser Schule schon jemand trägt, wird abgewiesen — groß oder
 klein und Leerzeichen zählen dabei nicht. Umlaute werden ausdrücklich **nicht**

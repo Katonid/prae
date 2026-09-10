@@ -23,6 +23,10 @@ struct SettingsView: View {
     /// bezahlt. Und genau EINER je Blatt.
     @State private var zeigtDateiwahl = false
 
+    /// Fragt vor dem Austritt nach. Nicht aus Höflichkeit: Wer hier
+    /// versehentlich tippt, ist im Ernstfall nicht mehr erreichbar.
+    @State private var zeigtAustritt = false
+
     var body: some View {
         NavigationStack {
             List {
@@ -155,6 +159,34 @@ struct SettingsView: View {
                     labelled("Gegenstelle", BackendConfiguration.standard.label)
                 }
 
+                if model.isJoined {
+                    Section {
+                        Button("Verbindung zur Schule lösen", role: .destructive) {
+                            zeigtAustritt = true
+                        }
+                        .disabled(model.isWorking)
+                    } header: {
+                        Text("Schule verlassen")
+                    } footer: {
+                        Text("Danach gehört dieses Gerät zu keiner Schule mehr: "
+                             + "keine Alarme, keine Rückmeldungen. Das Kürzel "
+                             + "verschwindet aus der Mitgliederliste, und die "
+                             + "Abonnements werden abgeräumt — sonst klingelte "
+                             + "dieses iPad weiter für eine Schule, zu der es "
+                             + "nicht mehr gehört.\n\n"
+                             + "Schon geschriebene Rückmeldungen und Nachrichten "
+                             + "bleiben stehen. Sie sind ein Nachweis und gehören "
+                             + "der Schule, nicht diesem Gerät.\n\n"
+                             + "Braucht eine Verbindung: Ein halb gelöster Zustand "
+                             + "wäre schlimmer als keiner.\n\n"
+                             + "Danach steht wieder der Beitrittsbildschirm da — "
+                             + "dieses Gerät kann einer anderen Schule beitreten "
+                             + "oder eine eigene einrichten. So entsteht eine "
+                             + "Teststrecke: eigene Schule, eigene Geräte, kein "
+                             + "Kontakt zum echten Kollegium.")
+                    }
+                }
+
                 Section {
                     ForEach(OnboardingChecklist.manualHints, id: \.title) { hint in
                         VStack(alignment: .leading, spacing: 4) {
@@ -183,6 +215,17 @@ struct SettingsView: View {
                 }
             }
             .task { await model.rebuildChecklist() }
+            .alert("Verbindung zur Schule lösen?", isPresented: $zeigtAustritt) {
+                Button("Lösen", role: .destructive) {
+                    Task { await model.verlasseSchule() }
+                }
+                Button("Abbrechen", role: .cancel) { }
+            } message: {
+                Text("Dieses Gerät bekommt danach keine Alarme dieser Schule "
+                     + "mehr, und das Kürzel verschwindet aus der "
+                     + "Mitgliederliste.\n\nZum Wiederkommen braucht es einen "
+                     + "Beitrittscode von einem Admin.")
+            }
             .fileImporter(isPresented: $zeigtDateiwahl,
                           allowedContentTypes: [.audio],
                           allowsMultipleSelection: false) { ergebnis in
