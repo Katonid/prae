@@ -89,6 +89,13 @@ enum Alarmklang: String, CaseIterable, Identifiable {
         case .tropfen:
             return "Kurzes Blubb mit fallender Tonhöhe, 10 Sekunden, sehr "
                  + "leise. Wer nicht darauf wartet, hört ein Geräusch."
+        case .eigen:
+            return Eigenklang.datei == nil
+                ? "Noch keine Datei gewählt. WAV, AIFF, CAF, MP3 oder M4A, "
+                + "höchstens 30 Sekunden — die App rechnet sie um und macht "
+                + "sie so leise wie „Holzton“."
+                : "Selbst mitgebracht, umgerechnet und auf dieselbe "
+                + "Lautstärke gebracht wie die leisen Töne."
         }
     }
 
@@ -165,7 +172,8 @@ enum Klanginstallation {
             defaults.set(klang.rawValue, forKey: vermerk)
             return nil
         } catch {
-            return "\(klang.datei) ließ sich nicht einsetzen: \(error.localizedDescription)"
+            return "\(klang.datei ?? klang.rawValue) ließ sich nicht "
+                 + "einsetzen: \(error.localizedDescription)"
         }
     }
 
