@@ -403,6 +403,21 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   die Diagnose seit 1.0.16 als zweite Zeile die vermutete Umgebung
   (`umgebungsvermutung` — geraten am Beleg im Bündel, denn `CKContainer` gibt
   sie nicht her).
+- **„Diesen Beitrittscode gibt es nicht" heißt oft: nicht in DIESER Umgebung**
+  (`Umgebung.swift`, ab 1.0.31). Gemeldet 09/2026: Schule über TestFlight
+  eingerichtet, Kollegium beigetreten, alles lief — und auf einem per Xcode
+  angeschlossenen iPad wurde derselbe Code abgewiesen. Der Beitrittscode IST
+  der Name seines Datensatzes, und in Development gibt es diesen Datensatz
+  nicht; `joinGroup` bekommt `.unknownItem` und meldet wörtlich richtig, dass
+  es den Code nicht gibt. Als Auskunft war das irreführend — der Nutzer suchte
+  den Fehler im Update. Die Meldung nennt den Riss deshalb jetzt selbst, samt
+  der Umgebung, in der diese Fassung läuft, und derselbe Satz steht unter dem
+  Codefeld. **Der Riss geht in BEIDE Richtungen**, deshalb kein `#if DEBUG` um
+  den Hinweis: Welche Seite gerade fehlt, weiß die App nicht.
+- **`Umgebung.beschreibung` ist die eine Quelle** für „Development oder
+  Production". Vorher stand die Logik nur in `CloudKitBackend.umgebungsvermutung`
+  für die Diagnose; die Fehlermeldung braucht sie genauso, und zwei Fassungen
+  wären zwei Wahrheiten. `umgebungsvermutung` reicht seither nur noch durch.
 - **Teilfehler auspacken.** `modifySubscriptions` meldet ein Scheitern als
   EINEN Fehler mit `partialErrorsByItemID` darin. Ohne Auspacken liest man
   „Some items failed" und weiß nichts.
@@ -667,6 +682,26 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   **`signal.wav` darf nie ins Bündel**, sonst ist nicht entschieden, welche
   Fassung `UNNotificationSound(named:)` nimmt. Fehlt die Datei, spielt iOS den
   Standardton — nicht den gewählten, aber auch nie gar nichts.
+- **Ein eigener Ton wird umgerechnet UND leise gemacht** (`Eigenklang.swift`,
+  ab 1.0.32). Drei Fallen, jede davon still: (1) iOS nimmt als Mitteilungston
+  nur PCM/MA4/µ-law/a-law in WAV, AIFF oder CAF — eine MP3 wird nicht
+  abgelehnt, sondern durch den STANDARDTON ersetzt, ohne Fehler; also wird
+  alles, was AVFoundation lesen kann, in 16-Bit-PCM-WAV umgerechnet. (2) Über
+  30 Sekunden spielt iOS gar nichts — lieber beim Übernehmen mit einem klaren
+  Satz abweisen. (3) Eine mitgebrachte Datei ist meist bis Vollausschlag
+  ausgesteuert, und kritische Hinweise spielen mit `withAudioVolume: 1.0`:
+  ungebremst wäre der erste eigene Ton auf dreißig iPads unerwartet laut,
+  ausgerechnet in der Lage, für die die leisen Töne gebaut wurden. Normiert
+  wird deshalb auf dieselbe Spitze wie „Holzton" — **nach oben wie nach
+  unten**, denn eine sehr leise Aufnahme wäre im Ernstfall wertlos.
+  Geschrieben wird neben das Ziel und dann getauscht; ein halb geschriebener
+  Alarmton wäre schlimmer als der alte.
+- **`Alarmklang.quelle` ist die eine Stelle, an der Bündel und eigener Ton
+  zusammenlaufen.** Die vier eingebauten liegen im App-Bündel, der eigene in
+  Application Support. Wer die Unterscheidung woanders noch einmal trifft
+  (Tonprobe, Installation), baut den zweiten Weg ein zweites Mal. Und ein
+  gewählter eigener Ton, dessen Datei fehlt, gilt NICHT: `store.alarmklang`
+  fällt auf `.alarm` zurück, sonst käme der Alarm mit dem iOS-Standardton.
 - **Der Rückfall-Ton eines Abonnements lässt sich nachträglich nicht ändern.**
   `info.soundName` nennt seit 1.0.30 `signal.wav`, aber `reconcile` legt nur an,
   was FEHLT — schon eingerichtete Geräte behalten `alarm.wav` als Rückfall bis

@@ -8,11 +8,20 @@
 //  banner on the home screen.
 
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct SettingsView: View {
 
     @EnvironmentObject private var model: AppModel
     @Environment(\.dismiss) private var dismiss
+
+    /// Der Dateiwähler hängt AN DER WURZEL dieses Blattes, nicht an der Zeile.
+    ///
+    /// Eine `List` baut ihre Zeilen erst auf, wenn sie in Sichtweite kommen —
+    /// an einer Zeile mitten in der Liste ist der Wähler beim Tippen oft noch
+    /// gar nicht da. Dieselbe Lehre wie in Tafelbild, dort einmal teuer
+    /// bezahlt. Und genau EINER je Blatt.
+    @State private var zeigtDateiwahl = false
 
     var body: some View {
         NavigationStack {
@@ -40,8 +49,14 @@ struct SettingsView: View {
                 Section {
                     ForEach(Alarmklang.allCases) { klang in
                         Button {
-                            model.setzeAlarmklang(klang)
-                            model.spieleTonprobe(klang)
+                            // Ein eigener Ton, den es noch nicht gibt, lässt
+                            // sich nicht wählen — der Tipp holt erst die Datei.
+                            if klang == .eigen, !klang.vorhanden {
+                                zeigtDateiwahl = true
+                            } else {
+                                model.setzeAlarmklang(klang)
+                                model.spieleTonprobe(klang)
+                            }
                         } label: {
                             HStack(alignment: .top, spacing: 12) {
                                 Image(systemName: model.alarmklang == klang
@@ -66,6 +81,15 @@ struct SettingsView: View {
                         }
                         .buttonStyle(.plain)
                     }
+                    Button(Alarmklang.eigen.vorhanden
+                           ? "Eigenen Ton austauschen …" : "Eigenen Ton wählen …") {
+                        zeigtDateiwahl = true
+                    }
+                    if Alarmklang.eigen.vorhanden {
+                        Button("Eigenen Ton entfernen", role: .destructive) {
+                            model.entferneEigenenKlang()
+                        }
+                    }
                     Button("Abspielen beenden") { model.haltTonprobeAn() }
                 } header: {
                     Text("Alarmton")
@@ -83,7 +107,12 @@ struct SettingsView: View {
                          + "„Alarm“ ist vor einer Klasse nicht zu verbergen. Die "
                          + "drei anderen schon — dafür werden sie in einem lauten "
                          + "Raum eher überhört. Die Erinnerungsreihe wiederholt "
-                         + "den Ton, bis jemand antwortet.")
+                         + "den Ton, bis jemand antwortet.\n\n"
+                         + "Ein eigener Ton darf WAV, AIFF, CAF, MP3 oder M4A "
+                         + "sein und höchstens 30 Sekunden lang — darüber "
+                         + "spielt iOS gar nichts. Die App rechnet ihn um und "
+                         + "bringt ihn auf dieselbe Lautstärke wie „Holzton“; "
+                         + "ohne das wäre er auf allen Geräten unerwartet laut.")
                 }
 
                 Section {
@@ -154,6 +183,18 @@ struct SettingsView: View {
                 }
             }
             .task { await model.rebuildChecklist() }
+            .fileImporter(isPresented: $zeigtDateiwahl,
+                          allowedContentTypes: [.audio],
+                          allowsMultipleSelection: false) { ergebnis in
+                switch ergebnis {
+                case .success(let dateien):
+                    if let erste = dateien.first {
+                        model.uebernehmeEigenenKlang(von: erste)
+                    }
+                case .failure(let fehler):
+                    model.problem = fehler.localizedDescription
+                }
+            }
         }
     }
 

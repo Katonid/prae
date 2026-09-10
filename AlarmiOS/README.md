@@ -547,6 +547,38 @@ Gebraucht wird sie dort auch nicht: Die Mitteilung gehört der App, und iOS
 prüft die Berechtigung an ihr. Die Erweiterung setzt nur den Wert; dass er
 gilt, entscheidet das Entitlement des App-Ziels.
 
+## „Der Code wird nicht akzeptiert" — fast immer die Umgebung
+
+Über Xcode installiert läuft die App gegen die **Development**-Umgebung von
+CloudKit, über TestFlight und aus dem Laden gegen **Production**. Die beiden
+teilen nichts: keine Datensätze, keine Indizes, keine Abonnements.
+
+Der Beitrittscode **ist** der Name seines Datensatzes. Eine Schule, die über
+TestFlight eingerichtet wurde, existiert in Development also gar nicht — und
+ihr Code dort auch nicht. `joinGroup` bekommt `.unknownItem` und meldete bis
+1.0.30 wörtlich richtig: „Diesen Beitrittscode gibt es nicht."
+
+Genau das ist 09/2026 passiert: Schule über TestFlight eingerichtet, dreißig
+Leute beigetreten, alles lief — und auf einem per Xcode angeschlossenen iPad
+wurde derselbe Code abgewiesen. Gesucht wurde der Fehler im letzten Update; es
+war die Installationsart.
+
+**Seit 1.0.31 erklärt die Meldung das selbst**, samt der Umgebung, in der die
+laufende Fassung steckt. Derselbe Satz steht unter dem Codefeld, bevor
+überhaupt jemand tippt. Der Hinweis steht bewusst **nicht** hinter `#if DEBUG`:
+Der Riss geht in beide Richtungen — ein Code aus einer über Xcode
+eingerichteten Schule wird in der TestFlight-Fassung genauso abgewiesen.
+
+Nachsehen lässt es sich in Einstellungen → **Zustellung prüfen**; die zweite
+Zeile nennt die vermutete Umgebung. Auslesen kann die App sie nicht,
+`CKContainer` gibt sie nicht her — erschlossen wird sie am Kaufbeleg im Bündel,
+deshalb heißt es „vermutlich".
+
+**Zwei Wege, wenn ein Xcode-Gerät mitmachen soll:** entweder die App dort über
+TestFlight installieren statt über Xcode — oder in der Development-Umgebung
+eine eigene Testschule einrichten und deren Code benutzen. Beides ist richtig;
+was nicht geht, ist ein Code über die Grenze hinweg.
+
 ## Der Alarmton — vier zur Wahl (ab 1.0.30)
 
 Die Schule möchte einen Probealarm — und im Zweifel auch einen echten —
@@ -569,6 +601,32 @@ unabhängig davon, wie laut das iPad gestellt ist — das war ja der Sinn. Einen
 Lautstärkeregler gäbe es hier also gar nicht zu bedienen; leise wird ein Ton
 nur, indem er leise **gerechnet** ist. Die drei liegen 9 bis 12 dB unter dem
 Alarm.
+
+### Eigene Töne (ab 1.0.32)
+
+Unter Einstellungen → Alarmton → **„Eigenen Ton wählen …"**. Erlaubt ist alles,
+was AVFoundation lesen kann (WAV, AIFF, CAF, MP3, M4A); die App rechnet um und
+legt das Ergebnis in Application Support ab. Von dort kopiert es
+`Klanginstallation` wie jeden anderen Ton nach `Library/Sounds/signal.wav` —
+dieselbe Mechanik, kein Sonderweg.
+
+Drei Dinge passieren dabei, und jedes verhindert einen Fehler, den iOS
+**stillschweigend** machen würde:
+
+| Prüfung | Warum |
+|---|---|
+| **Umrechnen in 16-Bit-PCM-WAV** | Als Mitteilungston nimmt iOS nur PCM, MA4, µ-law oder a-law. Eine MP3 wird nicht abgelehnt, sondern durch den **Standardton ersetzt** — ohne Fehler. |
+| **Höchstens 30 Sekunden** | Darüber spielt iOS **gar nichts**. Wird beim Übernehmen mit einem klaren Satz abgewiesen. |
+| **Auf „Holzton"-Lautstärke normiert** | Kritische Hinweise spielen mit `withAudioVolume: 1.0`. Eine mitgebrachte Datei ist meist bis Vollausschlag ausgesteuert — ungebremst wäre der erste eigene Ton auf dreißig iPads unerwartet laut. Normiert wird **nach oben wie nach unten**: Eine sehr leise Aufnahme wäre im Ernstfall wertlos. |
+
+Geschrieben wird neben das Ziel und dann getauscht — bricht das Umrechnen ab,
+bleibt der bisherige Ton stehen. Und ein gewählter eigener Ton, dessen Datei
+fehlt (gelöscht, aus einer Sicherung zurückgeholt), gilt nicht: Die App fällt
+auf „Alarm" zurück, statt den iOS-Standardton spielen zu lassen.
+
+**Was die App nicht prüfen kann, ist die Bedeutung.** Eine Sirene bleibt eine
+Sirene, auch leise. Ob ein Ton vor einer Klasse unauffällig ist, entscheidet
+weiterhin ein Mensch.
 
 ### Wie die Wahl zur Erweiterung kommt: gar nicht
 

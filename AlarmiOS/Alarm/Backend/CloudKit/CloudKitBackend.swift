@@ -922,18 +922,10 @@ final class CloudKitBackend: AlarmBackend {
     /// eigene Indizes UND eigene Abonnements. Eine Gruppe, die über Xcode
     /// angelegt wurde, gibt es in der TestFlight-Fassung nicht — und ein Index,
     /// der in Development gesetzt ist, gilt in Production noch lange nicht.
-    static var umgebungsvermutung: String {
-        #if DEBUG
-        return "vermutlich Development (über Xcode installiert)"
-        #else
-        guard let beleg = Bundle.main.appStoreReceiptURL?.lastPathComponent else {
-            return "unbekannt — vermutlich Development"
-        }
-        return beleg == "sandboxReceipt"
-            ? "Production (über TestFlight installiert)"
-            : "Production (aus dem Laden installiert)"
-        #endif
-    }
+    /// Steht seit 1.0.31 in `Umgebung` — denselben Satz braucht auch die
+    /// Fehlermeldung zu einem abgewiesenen Beitrittscode, und zwei Fassungen
+    /// wären zwei Wahrheiten.
+    static var umgebungsvermutung: String { Umgebung.beschreibung }
 
     /// Welche APNs-Umgebung dieser Bau benutzt — und ob das zur
     /// CloudKit-Umgebung passt.

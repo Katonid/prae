@@ -111,11 +111,10 @@ enum Tonprobe {
     /// Gibt zurück, was passiert ist — im Klartext, für die Anzeige.
     @discardableResult
     static func abspielen(_ klang: Alarmklang) -> String {
-        let teile = klang.datei.split(separator: ".")
-        guard teile.count == 2,
-              let pfad = Bundle.main.url(forResource: String(teile[0]),
-                                         withExtension: String(teile[1])) else {
-            return "\(klang.datei) liegt nicht im App-Bündel."
+        guard let pfad = klang.quelle else {
+            return klang == .eigen
+                ? "Es ist kein eigener Ton hinterlegt."
+                : "\(klang.datei ?? klang.rawValue) liegt nicht im App-Bündel."
         }
         do {
             try AVAudioSession.sharedInstance().setCategory(.playback,
