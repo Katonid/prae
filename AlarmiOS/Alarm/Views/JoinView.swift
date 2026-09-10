@@ -139,7 +139,11 @@ struct JoinView: View {
             Text(codeFromMDM
                  ? "Der Code kam mit der App von der Geräteverwaltung."
                  : "Der Code kommt von einem Admin. Er enthält kein I, O, 0 "
-                 + "oder 1 — was danach aussieht, ist etwas anderes.")
+                 + "oder 1 — was danach aussieht, ist etwas anderes.\n\n"
+                 + "Ein Code gilt nur in der Umgebung, in der die Schule "
+                 + "eingerichtet wurde: TestFlight und App Store gehören "
+                 + "zusammen, eine über Xcode installierte Fassung steht für "
+                 + "sich. Diese hier läuft \(Umgebung.beschreibung).")
         }
 
         Section {

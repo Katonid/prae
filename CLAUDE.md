@@ -403,6 +403,21 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   die Diagnose seit 1.0.16 als zweite Zeile die vermutete Umgebung
   (`umgebungsvermutung` — geraten am Beleg im Bündel, denn `CKContainer` gibt
   sie nicht her).
+- **„Diesen Beitrittscode gibt es nicht" heißt oft: nicht in DIESER Umgebung**
+  (`Umgebung.swift`, ab 1.0.31). Gemeldet 09/2026: Schule über TestFlight
+  eingerichtet, Kollegium beigetreten, alles lief — und auf einem per Xcode
+  angeschlossenen iPad wurde derselbe Code abgewiesen. Der Beitrittscode IST
+  der Name seines Datensatzes, und in Development gibt es diesen Datensatz
+  nicht; `joinGroup` bekommt `.unknownItem` und meldet wörtlich richtig, dass
+  es den Code nicht gibt. Als Auskunft war das irreführend — der Nutzer suchte
+  den Fehler im Update. Die Meldung nennt den Riss deshalb jetzt selbst, samt
+  der Umgebung, in der diese Fassung läuft, und derselbe Satz steht unter dem
+  Codefeld. **Der Riss geht in BEIDE Richtungen**, deshalb kein `#if DEBUG` um
+  den Hinweis: Welche Seite gerade fehlt, weiß die App nicht.
+- **`Umgebung.beschreibung` ist die eine Quelle** für „Development oder
+  Production". Vorher stand die Logik nur in `CloudKitBackend.umgebungsvermutung`
+  für die Diagnose; die Fehlermeldung braucht sie genauso, und zwei Fassungen
+  wären zwei Wahrheiten. `umgebungsvermutung` reicht seither nur noch durch.
 - **Teilfehler auspacken.** `modifySubscriptions` meldet ein Scheitern als
   EINEN Fehler mit `partialErrorsByItemID` darin. Ohne Auspacken liest man
   „Some items failed" und weiß nichts.

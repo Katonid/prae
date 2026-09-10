@@ -74,7 +74,10 @@ enum BackendError: LocalizedError, Equatable {
         case .notPermitted:
             return "Dafür fehlt die Berechtigung. Nur ein Admin darf das."
         case .codeUnknown:
-            return "Diesen Beitrittscode gibt es nicht."
+            // Der Zusatz ist kein Geschwätz, sondern der häufigste Grund:
+            // Development und Production teilen keine Daten, und „gibt es
+            // nicht" ist dann wörtlich richtig und trotzdem irreführend.
+            return "Diesen Beitrittscode gibt es nicht.\n\n\(Umgebung.codehinweis)"
         case .codeRevoked:
             return "Dieser Beitrittscode wurde zurückgezogen."
         case .handleTaken(let kuerzel):
