@@ -783,6 +783,7 @@ final class CloudKitBackend: AlarmBackend {
 
     func removeMember(memberId: String) async throws {
         try requireAdmin()
+        try await pruefeLetztenAdmin(memberId: memberId)
         do {
             _ = try await database.deleteRecord(withID: CKRecord.ID(recordName: memberId))
         } catch let error as CKError where error.code == .unknownItem {
@@ -790,6 +791,73 @@ final class CloudKitBackend: AlarmBackend {
         } catch {
             throw mappedMitgliedsschreiben(error)
         }
+    }
+
+    /// Wirft, wenn dieses Mitglied der letzte Admin einer nicht leeren Schule
+    /// wäre.
+    ///
+    /// Ohne Admin ist eine Schule tot: `createInviteCode`, `setRole`,
+    /// `updateLocations` und die Entwarnung fragen alle `requireAdmin()`, und
+    /// es gibt keinen Weg aus der App heraus, das zu heilen. Der letzte Admin
+    /// darf deshalb weder entfernt werden noch selbst austreten.
+    ///
+    /// Ist er das EINZIGE Mitglied, ist es kein Ausfall, sondern das Ende der
+    /// Schule — dann geht es.
+    private func pruefeLetztenAdmin(memberId: String) async throws {
+        let alle = try await members(of: try requireGroupID())
+        guard let betroffen = alle.first(where: { $0.id == memberId }),
+              betroffen.role == .admin else { return }
+        let andereAdmins = alle.contains { $0.id != memberId && $0.role == .admin }
+        let andereMitglieder = alle.contains { $0.id != memberId }
+        if andereMitglieder, !andereAdmins { throw BackendError.letzterAdmin }
+    }
+
+    /// Löst die Verbindung dieses Geräts zur Schule.
+    ///
+    /// **Erst das Mitglied, dann die Abonnements, dann der örtliche Stand** —
+    /// und jeder Schritt muss gelingen, sonst bleibt alles, wie es war:
+    ///
+    /// * Bleibt das Mitglied stehen, zählt der Admin im Ernstfall jemanden
+    ///   mit, der nichts mehr bekommt. Das ist die gefährlichere Hälfte.
+    /// * Bleiben die Abonnements stehen, klingelt dieses iPad weiter für eine
+    ///   Schule, zu der es nicht mehr gehört — und `reconcile` räumt sie nie
+    ///   wieder ab, weil es dafür eine Gruppe bräuchte.
+    ///
+    /// Ein Austritt ist nie eilig. Auf eine Verbindung dafür zu bestehen ist
+    /// billiger als ein halb gelöster Zustand, den niemand mehr sieht.
+    func leaveGroup() async throws {
+        guard let groupId = store.groupId else { return }
+        guard let userId = await currentUserId() else {
+            throw BackendError.accountUnavailable(await availability())
+        }
+
+        let memberName = CloudKitMapping.memberRecordName(groupId: groupId, userId: userId)
+        try await pruefeLetztenAdmin(memberId: memberName)
+
+        do {
+            _ = try await database.deleteRecord(withID: CKRecord.ID(recordName: memberName))
+        } catch let error as CKError where error.code == .unknownItem {
+            // Schon weg — etwa weil ein Admin dieses Konto entfernt hat. Genau
+            // dann soll dieser Weg ja aufräumen; das ist kein Fehler.
+        } catch {
+            throw mappedMitgliedsschreiben(error)
+        }
+
+        do {
+            try await CloudKitSubscriptions.entferneAlle(in: database)
+        } catch {
+            throw mapped(error)
+        }
+
+        // Der Geräteeintrag ist eine Anzeige, kein Recht: Scheitert er, steht
+        // eine Zeile zu viel in der Geräteübersicht, und der Admin wischt sie
+        // weg. Das darf den Austritt nicht aufhalten.
+        let geraet = CloudKitMapping.deviceRecordName(groupId: groupId,
+                                                      userId: userId,
+                                                      deviceId: DeviceFacts.deviceId)
+        _ = try? await database.deleteRecord(withID: CKRecord.ID(recordName: geraet))
+
+        store.clearMembership()
     }
 
     func setRole(memberId: String, role: MemberRole) async throws {

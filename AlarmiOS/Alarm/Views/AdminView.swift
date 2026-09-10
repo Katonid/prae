@@ -231,6 +231,13 @@ struct MembersView: View {
     @State private var neuesKuerzel = ""
     @State private var zeigtUmbenennen = false
 
+    /// Wen der Admin gerade entfernt.
+    ///
+    /// Bis 1.0.33 ging das NUR über die Wischgeste — und „ein Knopf, den
+    /// niemand findet, ist kein Knopf" (dieselbe Lehre wie beim Gruppenchat).
+    /// Der Wischweg bleibt daneben stehen, für alle, die ihn gewohnt sind.
+    @State private var zuEntfernen: Member?
+
     @EnvironmentObject private var model: AppModel
     @State private var members: [Member] = []
 
@@ -268,6 +275,16 @@ struct MembersView: View {
                             if member.userId != model.member?.userId {
                                 Button("Testalarm senden") {
                                     Task { await model.sendTestAlarm(to: member) }
+                                }
+                                .disabled(model.isWorking)
+                            }
+                            // Sich selbst entfernt man nicht hier, sondern
+                            // über „Verbindung zur Schule lösen" in den
+                            // Einstellungen: Nur dort werden auch die
+                            // Abonnements dieses Geräts abgeräumt.
+                            if member.userId != model.member?.userId {
+                                Button("Entfernen", role: .destructive) {
+                                    zuEntfernen = member
                                 }
                                 .disabled(model.isWorking)
                             }
@@ -324,6 +341,21 @@ struct MembersView: View {
             }
         }
         .navigationTitle("Mitglieder")
+        .alert("Aus der Schule entfernen?",
+               isPresented: Binding(get: { zuEntfernen != nil },
+                                    set: { if !$0 { zuEntfernen = nil } })) {
+            Button("Entfernen", role: .destructive) {
+                if let doomed = zuEntfernen { entferne(doomed) }
+                zuEntfernen = nil
+            }
+            Button("Abbrechen", role: .cancel) { zuEntfernen = nil }
+        } message: {
+            Text("\(zuEntfernen?.displayName ?? "Dieses Mitglied") bekommt "
+                 + "danach keine Alarme dieser Schule mehr.\n\nDas Gerät der "
+                 + "Person merkt das beim nächsten Öffnen und sagt es dort — "
+                 + "abräumen kann es sich nur selbst. Schon geschriebene "
+                 + "Rückmeldungen bleiben stehen; sie sind ein Nachweis.")
+        }
         .alert("Kürzel ändern", isPresented: $zeigtUmbenennen) {
             TextField("Kürzel", text: $neuesKuerzel)
                 .textInputAutocapitalization(.characters)
@@ -355,6 +387,18 @@ struct MembersView: View {
 
     private func beigetreten(_ member: Member) -> String {
         member.joinedAt.formatted(date: .abbreviated, time: .omitted)
+    }
+
+    private func entferne(_ member: Member) {
+        Task {
+            do {
+                try await model.backend.removeMember(memberId: member.id)
+                model.hinweis = "\(member.displayName) ist nicht mehr dabei."
+                await load()
+            } catch {
+                model.report(error)
+            }
+        }
     }
 
     private func umbenennen() {
