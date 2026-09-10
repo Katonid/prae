@@ -78,8 +78,12 @@ final class MembershipStore {
     /// änderte an dieser Mechanik nichts.
     var alarmklang: Alarmklang {
         get {
-            defaults.string(forKey: Key.alarmklang)
+            let gewaehlt = defaults.string(forKey: Key.alarmklang)
                 .flatMap(Alarmklang.init(rawValue:)) ?? .vorgabe
+            // Ein eigener Ton, dessen Datei nicht mehr da ist (gelöscht,
+            // Wiederherstellung aus einer Sicherung), fiele sonst auf den
+            // iOS-Standardton — laut und ohne jede Ankündigung.
+            return gewaehlt.vorhanden ? gewaehlt : .vorgabe
         }
         set { defaults.set(newValue.rawValue, forKey: Key.alarmklang) }
     }

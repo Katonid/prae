@@ -682,6 +682,26 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   **`signal.wav` darf nie ins Bündel**, sonst ist nicht entschieden, welche
   Fassung `UNNotificationSound(named:)` nimmt. Fehlt die Datei, spielt iOS den
   Standardton — nicht den gewählten, aber auch nie gar nichts.
+- **Ein eigener Ton wird umgerechnet UND leise gemacht** (`Eigenklang.swift`,
+  ab 1.0.32). Drei Fallen, jede davon still: (1) iOS nimmt als Mitteilungston
+  nur PCM/MA4/µ-law/a-law in WAV, AIFF oder CAF — eine MP3 wird nicht
+  abgelehnt, sondern durch den STANDARDTON ersetzt, ohne Fehler; also wird
+  alles, was AVFoundation lesen kann, in 16-Bit-PCM-WAV umgerechnet. (2) Über
+  30 Sekunden spielt iOS gar nichts — lieber beim Übernehmen mit einem klaren
+  Satz abweisen. (3) Eine mitgebrachte Datei ist meist bis Vollausschlag
+  ausgesteuert, und kritische Hinweise spielen mit `withAudioVolume: 1.0`:
+  ungebremst wäre der erste eigene Ton auf dreißig iPads unerwartet laut,
+  ausgerechnet in der Lage, für die die leisen Töne gebaut wurden. Normiert
+  wird deshalb auf dieselbe Spitze wie „Holzton" — **nach oben wie nach
+  unten**, denn eine sehr leise Aufnahme wäre im Ernstfall wertlos.
+  Geschrieben wird neben das Ziel und dann getauscht; ein halb geschriebener
+  Alarmton wäre schlimmer als der alte.
+- **`Alarmklang.quelle` ist die eine Stelle, an der Bündel und eigener Ton
+  zusammenlaufen.** Die vier eingebauten liegen im App-Bündel, der eigene in
+  Application Support. Wer die Unterscheidung woanders noch einmal trifft
+  (Tonprobe, Installation), baut den zweiten Weg ein zweites Mal. Und ein
+  gewählter eigener Ton, dessen Datei fehlt, gilt NICHT: `store.alarmklang`
+  fällt auf `.alarm` zurück, sonst käme der Alarm mit dem iOS-Standardton.
 - **Der Rückfall-Ton eines Abonnements lässt sich nachträglich nicht ändern.**
   `info.soundName` nennt seit 1.0.30 `signal.wav`, aber `reconcile` legt nur an,
   was FEHLT — schon eingerichtete Geräte behalten `alarm.wav` als Rückfall bis

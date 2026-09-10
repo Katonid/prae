@@ -606,6 +606,27 @@ final class AppModel: ObservableObject {
 
     var alarmklang: Alarmklang { store.alarmklang }
 
+    /// Nimmt eine mitgebrachte Tondatei an — geprüft, umgerechnet, leise
+    /// gemacht — und schaltet sofort auf sie um.
+    ///
+    /// Umgeschaltet wird nur, wenn das Übernehmen GELANG. Sonst stünde in den
+    /// Einstellungen „Eigener Ton" gewählt, während die Datei fehlt, und der
+    /// Alarm käme mit dem iOS-Standardton.
+    func uebernehmeEigenenKlang(von url: URL) {
+        do {
+            try Eigenklang.uebernehmen(von: url)
+            setzeAlarmklang(.eigen)
+        } catch {
+            problem = error.localizedDescription
+        }
+    }
+
+    func entferneEigenenKlang() {
+        Eigenklang.entfernen()
+        setzeAlarmklang(.vorgabe)
+        hinweis = "Eigener Ton entfernt. Es gilt wieder „Alarm“."
+    }
+
     /// Wechselt den Ton und setzt ihn sofort ein.
     ///
     /// Sofort, nicht beim nächsten Start: Wer hier tippt, will den Ton hören

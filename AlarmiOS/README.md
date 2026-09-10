@@ -602,6 +602,32 @@ Lautstärkeregler gäbe es hier also gar nicht zu bedienen; leise wird ein Ton
 nur, indem er leise **gerechnet** ist. Die drei liegen 9 bis 12 dB unter dem
 Alarm.
 
+### Eigene Töne (ab 1.0.32)
+
+Unter Einstellungen → Alarmton → **„Eigenen Ton wählen …"**. Erlaubt ist alles,
+was AVFoundation lesen kann (WAV, AIFF, CAF, MP3, M4A); die App rechnet um und
+legt das Ergebnis in Application Support ab. Von dort kopiert es
+`Klanginstallation` wie jeden anderen Ton nach `Library/Sounds/signal.wav` —
+dieselbe Mechanik, kein Sonderweg.
+
+Drei Dinge passieren dabei, und jedes verhindert einen Fehler, den iOS
+**stillschweigend** machen würde:
+
+| Prüfung | Warum |
+|---|---|
+| **Umrechnen in 16-Bit-PCM-WAV** | Als Mitteilungston nimmt iOS nur PCM, MA4, µ-law oder a-law. Eine MP3 wird nicht abgelehnt, sondern durch den **Standardton ersetzt** — ohne Fehler. |
+| **Höchstens 30 Sekunden** | Darüber spielt iOS **gar nichts**. Wird beim Übernehmen mit einem klaren Satz abgewiesen. |
+| **Auf „Holzton"-Lautstärke normiert** | Kritische Hinweise spielen mit `withAudioVolume: 1.0`. Eine mitgebrachte Datei ist meist bis Vollausschlag ausgesteuert — ungebremst wäre der erste eigene Ton auf dreißig iPads unerwartet laut. Normiert wird **nach oben wie nach unten**: Eine sehr leise Aufnahme wäre im Ernstfall wertlos. |
+
+Geschrieben wird neben das Ziel und dann getauscht — bricht das Umrechnen ab,
+bleibt der bisherige Ton stehen. Und ein gewählter eigener Ton, dessen Datei
+fehlt (gelöscht, aus einer Sicherung zurückgeholt), gilt nicht: Die App fällt
+auf „Alarm" zurück, statt den iOS-Standardton spielen zu lassen.
+
+**Was die App nicht prüfen kann, ist die Bedeutung.** Eine Sirene bleibt eine
+Sirene, auch leise. Ob ein Ton vor einer Klasse unauffällig ist, entscheidet
+weiterhin ein Mensch.
+
 ### Wie die Wahl zur Erweiterung kommt: gar nicht
 
 Die Notification Service Extension setzt den Ton, und sie kann die Wahl der

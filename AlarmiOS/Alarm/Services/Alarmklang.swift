@@ -33,18 +33,37 @@ enum Alarmklang: String, CaseIterable, Identifiable {
     case dezent
     case holz
     case tropfen
+    /// Eine selbst mitgebrachte Datei. Sie liegt nicht im Bündel, sondern in
+    /// Application Support — siehe `Eigenklang`.
+    case eigen
 
     var id: String { rawValue }
 
-    /// Die Vorlage im App-Bündel.
-    var datei: String {
+    /// Die Vorlage im App-Bündel — `nil` beim eigenen Ton.
+    var datei: String? {
         switch self {
         case .alarm: return "alarm.wav"
         case .dezent: return "dezent.wav"
         case .holz: return "holz.wav"
         case .tropfen: return "tropfen.wav"
+        case .eigen: return nil
         }
     }
+
+    /// Woher die Datei kommt — Bündel oder Application Support.
+    ///
+    /// Die eine Stelle, an der die beiden Herkünfte zusammenlaufen. Wer sie
+    /// umgeht, baut den zweiten Weg ein zweites Mal.
+    var quelle: URL? {
+        guard let datei else { return Eigenklang.datei }
+        let teile = datei.split(separator: ".")
+        guard teile.count == 2 else { return nil }
+        return Bundle.main.url(forResource: String(teile[0]),
+                               withExtension: String(teile[1]))
+    }
+
+    /// Steht dieser Ton überhaupt zur Verfügung?
+    var vorhanden: Bool { quelle != nil }
 
     var titel: String {
         switch self {
@@ -52,6 +71,7 @@ enum Alarmklang: String, CaseIterable, Identifiable {
         case .dezent: return "Dezent"
         case .holz: return "Holzton"
         case .tropfen: return "Tropfen"
+        case .eigen: return Eigenklang.name ?? "Eigener Ton"
         }
     }
 
@@ -73,6 +93,10 @@ enum Alarmklang: String, CaseIterable, Identifiable {
     }
 
     /// Hört eine Klasse diesen Ton?
+    ///
+    /// Beim eigenen Ton: nein — er wird beim Übernehmen auf dieselbe Spitze
+    /// normiert wie „Holzton". Was er BEDEUTET, weiß die App trotzdem nicht;
+    /// eine Sirene bleibt eine Sirene, auch leise.
     var verraetSichVorDerKlasse: Bool { self == .alarm }
 
     static let vorgabe = Alarmklang.alarm
@@ -117,14 +141,17 @@ enum Klanginstallation {
             return "Library/Sounds ist auf diesem Gerät nicht zu finden."
         }
         let liegtDa = FileManager.default.fileExists(atPath: ziel.path)
+        // Beim eigenen Ton sagt der Vermerk nichts: Wer eine neue Datei
+        // wählt, ändert den Inhalt und nicht den Namen der Wahl. Also immer
+        // schreiben — es ist eine Datei unter zwei Megabyte.
         let unveraendert = defaults.string(forKey: vermerk) == klang.rawValue
+            && klang != .eigen
         if liegtDa, unveraendert, !erzwingen { return nil }
 
-        let teile = klang.datei.split(separator: ".")
-        guard teile.count == 2,
-              let quelle = Bundle.main.url(forResource: String(teile[0]),
-                                           withExtension: String(teile[1])) else {
-            return "\(klang.datei) liegt nicht im App-Bündel."
+        guard let quelle = klang.quelle else {
+            return klang == .eigen
+                ? "Es ist kein eigener Ton hinterlegt."
+                : "\(klang.datei ?? klang.rawValue) liegt nicht im App-Bündel."
         }
         do {
             try FileManager.default.createDirectory(at: ordner,
