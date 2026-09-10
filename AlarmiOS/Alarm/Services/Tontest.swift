@@ -63,11 +63,11 @@ enum Tontest {
             #if CRITICAL_ALERTS
             inhalt.interruptionLevel = .critical
             inhalt.sound = UNNotificationSound.criticalSoundNamed(
-                UNNotificationSoundName(PushAsset.alarmSound), withAudioVolume: 1.0)
+                UNNotificationSoundName(PushAsset.signalSound), withAudioVolume: 1.0)
             #else
             inhalt.interruptionLevel = .timeSensitive
             inhalt.sound = UNNotificationSound(named:
-                UNNotificationSoundName(PushAsset.alarmSound))
+                UNNotificationSoundName(PushAsset.signalSound))
             #endif
         }
 
@@ -110,12 +110,12 @@ enum Tonprobe {
 
     /// Gibt zurück, was passiert ist — im Klartext, für die Anzeige.
     @discardableResult
-    static func abspielen() -> String {
-        let teile = PushAsset.alarmSound.split(separator: ".")
+    static func abspielen(_ klang: Alarmklang) -> String {
+        let teile = klang.datei.split(separator: ".")
         guard teile.count == 2,
               let pfad = Bundle.main.url(forResource: String(teile[0]),
                                          withExtension: String(teile[1])) else {
-            return "\(PushAsset.alarmSound) liegt nicht im App-Bündel."
+            return "\(klang.datei) liegt nicht im App-Bündel."
         }
         do {
             try AVAudioSession.sharedInstance().setCategory(.playback,
@@ -125,7 +125,8 @@ enum Tonprobe {
             neuer.volume = 1
             spieler = neuer
             neuer.play()
-            return "Spielt … Hörst du den Alarmton, ist die Datei in Ordnung."
+            return "Spielt „\(klang.titel)“ … Das ist die Datei, nicht die "
+                 + "Mitteilung: Sie klingt auch bei stummem iPad."
         } catch {
             // Der rohe Fehler: Genau hier stünde „unsupported file type",
             // wenn das Format doch nicht taugt.

@@ -547,6 +547,67 @@ Gebraucht wird sie dort auch nicht: Die Mitteilung gehört der App, und iOS
 prüft die Berechtigung an ihr. Die Erweiterung setzt nur den Wert; dass er
 gilt, entscheidet das Entitlement des App-Ziels.
 
+## Der Alarmton — vier zur Wahl (ab 1.0.30)
+
+Die Schule möchte einen Probealarm — und im Zweifel auch einen echten —
+zunächst **vor den Kindern verbergen** (Ansage des Nutzers, 09/2026). Ein
+durchdringendes Zweitonsignal auf dreißig iPads ist dafür unbrauchbar.
+
+Unter Einstellungen → **Alarmton** stehen vier Töne. Ein Tipp wählt und spielt
+zugleich vor:
+
+| Ton | Länge | Spitze | Wofür |
+|---|---|---|---|
+| **Alarm** | 25 s | 0,92 | Das bisherige Zweitonsignal. Nicht zu überhören und nicht zu verbergen. |
+| **Dezent** | 10 s | 0,30 | Weiche Doppelnote (A5–E6). Klingt nach Kalendererinnerung. |
+| **Holzton** | 10 s | 0,32 | Marimba-Anschlag (Teiltöne 1 : 4 : 10, wie ein echter Holzstab). |
+| **Tropfen** | 10 s | 0,22 | Kurzes Blubb mit fallender Tonhöhe. Der leiseste der vier. |
+
+**Die Lautstärke steckt in der DATEI, nicht in einer Einstellung.** Das ist die
+Folge von 1.0.29: Kritische Hinweise spielen mit `withAudioVolume: 1.0`,
+unabhängig davon, wie laut das iPad gestellt ist — das war ja der Sinn. Einen
+Lautstärkeregler gäbe es hier also gar nicht zu bedienen; leise wird ein Ton
+nur, indem er leise **gerechnet** ist. Die drei liegen 9 bis 12 dB unter dem
+Alarm.
+
+### Wie die Wahl zur Erweiterung kommt: gar nicht
+
+Die Notification Service Extension setzt den Ton, und sie kann die Wahl der
+Lehrkraft nicht kennen — sie ist ein eigener Prozess mit eigenem Behälter. Eine
+gemeinsame Einstellung bräuchte eine **App-Gruppe**, also eine
+Entitlements-Datei an der Erweiterung. Genau das hat dieses Projekt schon
+einmal unsignierbar gemacht (siehe oben), und für eine Tonwahl ist das der
+falsche Preis.
+
+Also andersherum: **Der Name ist fest, die Datei wechselt.** Die Erweiterung
+nennt immer `signal.wav`; die App legt den gewählten Ton unter genau diesem
+Namen in `Library/Sounds` ab (`Alarmklang.swift`, `Klanginstallation`).
+`UNNotificationSound(named:)` schlägt an zwei Stellen nach — ganz oben im
+App-Bündel und in `Library/Sounds` —, und `signal.wav` kommt im Bündel
+bewusst NICHT vor: Sonst wäre nicht entschieden, welche Fassung gewinnt.
+
+Eingesetzt wird bei jedem Start (`AppModel.start`) und sofort beim Wechseln.
+Fehlt die Datei, spielt iOS den **Standardton** — laut genug, aber nicht der
+gewählte. **Stumm wird es dadurch nie.** Was gerade dort liegt, nennt die
+Diagnose unter „Alarmton im Bündel" in der Zeile „Eingesetzt".
+
+### Was das nicht kann
+
+* **Der Ton gilt je iPad, nicht je Schule.** Ein schulweiter Wert stünde auf
+  dem Group-Datensatz und bräuchte ein neues CloudKit-Feld samt „Deploy Schema
+  Changes to Production". An der Mechanik oben änderte er nichts — jedes Gerät
+  müsste den Ton trotzdem selbst einsetzen. Soll das Kollegium unauffällig
+  bleiben, muss die Wahl auf jedem Gerät getroffen werden.
+* **Der Rückfall-Ton auf schon eingerichteten Geräten bleibt der alte.**
+  `reconcile` legt nur an, was fehlt, und überschreibt kein vorhandenes
+  Abonnement; die Meldung eines Abonnements ließe sich nur durch Löschen und
+  Neuanlegen ändern. Das ist der empfindlichste Weg dieser App und ein
+  Rückfall-Ton ihn nicht wert — er kommt nur zum Zug, wenn die Erweiterung
+  ausfällt.
+* **Leise heißt leichter zu überhören.** Das ist keine Nebenwirkung, sondern
+  der Zweck. Die Erinnerungsreihe wiederholt den Ton, bis jemand antwortet;
+  das ist der Ausgleich.
+
 ## Kritische Hinweise (Critical Alerts)
 
 `.critical` ist die einzige Stufe, die auch bei stummgeschaltetem iPad Ton

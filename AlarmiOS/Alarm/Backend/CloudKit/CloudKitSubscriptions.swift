@@ -320,7 +320,18 @@ enum CloudKitSubscriptions {
     private static func alarmNotificationInfo() -> CKSubscription.NotificationInfo {
         let info = CKSubscription.NotificationInfo()
         info.alertLocalizationKey = PushString.alarmFallback
-        info.soundName = PushAsset.alarmSound
+        // Der RÜCKFALL-Ton — er spielt nur, wenn die Erweiterung nicht zum Zug
+        // kommt. Auch er nennt den festen Namen, damit ein leise gestelltes
+        // iPad auch in diesem Fall leise bleibt.
+        //
+        // **Auf schon eingerichteten Geräten bleibt es beim alten Wert.**
+        // `reconcile` legt nur an, was FEHLT; ein vorhandenes Abonnement wird
+        // nie überschrieben, und seine Meldung ließe sich nur durch Löschen
+        // und Neuanlegen ändern. Das ist der empfindlichste Weg dieser App,
+        // und ein Rückfall-Ton ist ihn nicht wert: Er kommt nur zum Zug, wenn
+        // die Erweiterung ausfällt. Neue Installationen bekommen ihn richtig,
+        // die übrigen beim nächsten Neuaufsetzen.
+        info.soundName = PushAsset.signalSound
         info.shouldSendMutableContent = true
         info.category = PushAsset.alarmCategory
         // One alarm, one banner — however often CloudKit decides to deliver.
