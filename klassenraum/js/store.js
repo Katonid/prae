@@ -477,6 +477,14 @@ function normalizeWidget(rawWidget) {
     z: Number.isFinite(widget.z) ? widget.z : 1,
     locked: Boolean(widget.locked),
     bare: Boolean(widget.bare),
+    // Überschrift je Element ('an' | 'aus'; undefined = wie die Tafel).
+    // Bis 1.8.55 fehlte das Feld in dieser Liste — die App baut jedes
+    // Element beim Laden und beim Abgleich aus genau diesen Feldern neu
+    // auf, und die Einstellung war nach jedem Neustart wieder weg
+    // (gemeldet 09/2026: „Die gesetzten Überschriften verschwinden immer
+    // noch."). Die Altlast titelWeg (1.8.45) wird hier gleich zu 'aus'.
+    titelModus: ['an', 'aus'].includes(widget.titelModus) ? widget.titelModus
+      : (widget.titelWeg ? 'aus' : undefined),
     // Eigene Schriftfarbe dieses Elements — überstimmt die globale der Tafel.
     textColor: typeof widget.textColor === 'string' && widget.textColor ? widget.textColor : undefined,
     // Eigener Schrift-Schatten ('none' | 'soft' | 'strong'; undefined = wie Tafel).
