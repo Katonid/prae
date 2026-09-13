@@ -35,6 +35,7 @@ struct AlarmScreenView: View {
                     if alarm.type.isDrill { drillBanner }
                     headline
                     facts
+                    if model.istEigenerAlarm(alarm) { eigenerHinweis }
                     if let instruction = alarm.instruction { instructionCard(instruction) }
                     acknowledgement
                     emergencyCall
@@ -93,6 +94,27 @@ struct AlarmScreenView: View {
         .padding(18)
         .frame(maxWidth: .infinity)
         .background(.white.opacity(0.14), in: RoundedRectangle(cornerRadius: 18))
+    }
+
+    /// Auf dem Gerät, das ausgelöst hat, bleibt es still — und das gehört
+    /// dazugesagt.
+    ///
+    /// Sonst steht jemand in einer Gefahrenlage vor einem stummen iPad und
+    /// hält es für kaputt: Dieselbe Lehre wie beim Knopf, der schweigt. Der
+    /// Satz nennt zugleich die Grenze — ein zweites iPad desselben Kontos
+    /// kann einmal anschlagen, bevor es merkt, wessen Alarm das ist.
+    private var eigenerHinweis: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 10) {
+            Image(systemName: "bell.slash.fill")
+            Text("Diesen Alarm hast du ausgelöst — dieses iPad bleibt dafür "
+                 + "stumm. Angezeigt wird alles: Rückmeldungen und Nachrichten "
+                 + "laufen weiter ein.")
+        }
+        .font(.subheadline)
+        .foregroundStyle(.white.opacity(0.85))
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(14)
+        .background(.white.opacity(0.10), in: RoundedRectangle(cornerRadius: 14))
     }
 
     private func factRow(_ title: String, _ value: String) -> some View {

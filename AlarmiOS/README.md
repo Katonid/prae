@@ -240,6 +240,39 @@ sich die meisten Überraschungen erklären:
 Die Geräteübersicht macht den Fall sichtbar: Sie zählt die Geräte je Kürzel
 und warnt, wenn zwei unter einem stehen.
 
+## Der eigene Alarm bleibt auf dem eigenen iPad stumm (ab 1.0.34)
+
+Wer auslöst, steht am Ort und weiß Bescheid. Trotzdem schlug das auslösende
+iPad dreißig Sekunden später selbst an und dann noch neunmal — der örtliche
+Nachfasslauf (`AlarmReminder`) fragt nicht, wessen Alarm das ist. In einer
+Gefahrenlage ist ein Ton aus der eigenen Tasche das Letzte, was gebraucht wird.
+
+Seit 1.0.34 vergleicht `AppModel.istEigenerAlarm` die Auslöserkennung des
+Alarms mit der eigenen: Stimmen sie überein, wird die Tonreihe nicht geplant —
+und eine schon geplante abgeräumt. **Angezeigt wird alles unverändert**:
+Alarm-Bildschirm, Rückmeldungen, Nachrichtenverlauf, Entwarnung. Auf dem
+Bildschirm steht eine Zeile, die das sagt; ein iPad, das ohne Erklärung stumm
+bleibt, hält man für kaputt.
+
+Zwei Dinge dazu, beide gemessen und keine davon schöngeredet:
+
+* **Beide Kennungen müssen gefüllt sein.** Ein leeres `triggeredByUserId`
+  heißt „weiß ich nicht" — ein Alarm, der nur aus dem Push-Paket gebaut wurde,
+  trägt es nicht, denn in den `desiredKeys` haben nur drei Felder Platz. Dann
+  gilt der Alarm als fremd und wird laut. Ein Ton zu viel ist hier der kleinere
+  Schaden.
+* **Ein ZWEITES iPad desselben Kontos kann einmal anschlagen.** CloudKit stellt
+  dem schreibenden Gerät nichts zu, einem anderen Gerät derselben Apple-ID aber
+  sehr wohl, und die Erweiterung kann nicht wissen, wer ausgelöst hat: eigener
+  Prozess, eigener Behälter, keine App-Gruppe — und die drei `desiredKeys` sind
+  mit `type`, `location`, `triggeredByName` belegt. Der eine Push klingt also;
+  die zehn Wiederholungen danach entfallen. Das über das Prädikat des
+  Abonnements zu lösen (`triggeredByUserId != …`) wäre technisch möglich und
+  ist bewusst NICHT gebaut: Dann hinge die Zustellung an einem weiteren
+  Queryable-Index, und fehlt der, entsteht gar kein Abonnement — ein Gerät,
+  das für immer stumm ist. Die wichtigste Kette dieser App wird nicht für einen
+  einzelnen Ton verlängert.
+
 ## Austreten, entfernen — und die Teststrecke (ab 1.0.33)
 
 **Jedes Mitglied kann austreten**: Einstellungen → „Verbindung zur Schule

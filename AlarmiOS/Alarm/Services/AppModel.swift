@@ -17,7 +17,17 @@ final class AppModel: ObservableObject {
     // MARK: Published state
 
     @Published private(set) var group: AlarmGroup?
-    @Published private(set) var member: Member?
+    @Published private(set) var member: Member? {
+        // Die eigene iCloud-Kennung muss einen Neustart überleben: Beim
+        // nächsten Start liegt der Alarm schon da, bevor die erste
+        // Mitgliedsabfrage zurück ist — und bis dahin wäre sonst nicht zu
+        // sagen, ob es der eigene ist.
+        didSet {
+            if let kennung = member?.userId, !kennung.isEmpty {
+                store.userId = kennung
+            }
+        }
+    }
     /// Solange einer läuft, bleibt der Bildschirm an (`isIdleTimerDisabled`).
     ///
     /// Ein iPad, das sich nach zwei Minuten sperrt, nimmt den Alarm-Bildschirm
@@ -409,6 +419,26 @@ final class AppModel: ObservableObject {
         return alarm.triggeredByUserId == member?.userId
     }
 
+    /// Hat dieses Konto den Alarm selbst ausgelöst?
+    ///
+    /// Wer auslöst, steht am Ort und weiß Bescheid — sein eigenes iPad muss
+    /// ihn nicht fünf Minuten lang anschreien, und in einer Gefahrenlage ist
+    /// ein Ton aus der eigenen Tasche das Letzte, was gebraucht wird. Der
+    /// Alarm-Bildschirm, die Rückmeldungen und der Nachrichtenverlauf bleiben
+    /// vollständig; nur der TON entfällt (`AlarmReminder`).
+    ///
+    /// Beide Kennungen müssen gefüllt sein. Ein leeres `triggeredByUserId`
+    /// heißt „weiß ich nicht" — ein Alarm aus dem Push-Paket trägt es nicht,
+    /// weil in den `desiredKeys` nur drei Felder Platz haben. Und eine leere
+    /// eigene Kennung heißt „noch nicht nachgesehen". In beiden Fällen gilt
+    /// der Alarm als fremd und wird laut: Ein Ton zu viel ist hier der
+    /// kleinere Schaden.
+    func istEigenerAlarm(_ alarm: Alarm) -> Bool {
+        let eigene = member?.userId ?? store.userId ?? ""
+        guard !eigene.isEmpty, !alarm.triggeredByUserId.isEmpty else { return false }
+        return alarm.triggeredByUserId == eigene
+    }
+
     func clear(_ alarm: Alarm) async {
         do {
             try await backend.clearAlarm(alarmId: alarm.id)
@@ -544,6 +574,17 @@ final class AppModel: ObservableObject {
         if !zurueckgestellt.contains(alarm.id) { zeigeAlarmBildschirm(fuer: nil) }
         observeDetails(for: alarm)
 
+        // Der eigene Alarm bleibt stumm. Das `remindingAbout` wird trotzdem
+        // gesetzt: Es ist der Merker „für diesen Alarm ist die Tonfrage
+        // entschieden" und verhindert, dass der nächste Nachfasslauf die
+        // Reihe doch noch anwirft. Das `cancel` räumt ab, was ein Push-Paket
+        // ohne Auslöserkennung eine Sekunde vorher schon geplant hatte.
+        if istEigenerAlarm(alarm) {
+            remindingAbout = alarm.id
+            await AlarmReminder.cancel(alarmId: alarm.id)
+            return
+        }
+
         // Start nagging only once per alarm, and only while it is unanswered.
         if !store.hasAcknowledged(alarm.id), remindingAbout != alarm.id {
             remindingAbout = alarm.id
@@ -637,7 +678,8 @@ final class AppModel: ObservableObject {
                 }
                 if !store.hasAcknowledged(payload.alarmId),
                    remindingAbout != payload.alarmId,
-                   let alarm = activeAlarm {
+                   let alarm = activeAlarm,
+                   !istEigenerAlarm(alarm) {
                     remindingAbout = payload.alarmId
                     await AlarmReminder.schedule(for: alarm)
                 }

@@ -18,6 +18,7 @@ final class MembershipStore {
     private enum Key {
         static let groupId = "alarm.groupId"
         static let memberId = "alarm.memberId"
+        static let userId = "alarm.userId"
         static let displayName = "alarm.displayName"
         static let role = "alarm.role"
         static let lastLocation = "alarm.lastLocation"
@@ -47,6 +48,19 @@ final class MembershipStore {
     var displayName: String? {
         get { defaults.string(forKey: Key.displayName) }
         set { defaults.set(newValue, forKey: Key.displayName) }
+    }
+
+    /// Die iCloud-Kennung dieses Kontos, wie sie auf dem Mitgliedsdatensatz
+    /// steht.
+    ///
+    /// Sie liegt hier und nicht nur im geladenen `Member`, weil sie schon
+    /// gebraucht wird, bevor die erste Abfrage zurück ist: Direkt nach dem
+    /// Start entscheidet sie, ob ein laufender Alarm der EIGENE ist — und
+    /// damit, ob dieses iPad ihn anschreien muss. Ein Gerät, das die Antwort
+    /// nicht kennt, spielt den Ton; das ist die vorsichtige Richtung.
+    var userId: String? {
+        get { defaults.string(forKey: Key.userId) }
+        set { defaults.set(newValue, forKey: Key.userId) }
     }
 
     var role: MemberRole {
@@ -121,6 +135,7 @@ final class MembershipStore {
     func clearMembership() {
         groupId = nil
         memberId = nil
+        userId = nil
         role = .member
         onboardingDone = false
     }
