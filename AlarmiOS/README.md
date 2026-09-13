@@ -6,8 +6,10 @@ einem Fingertipp zurück, ob ihre Klasse gesichert ist oder Hilfe braucht.
 
 Native iOS-/iPadOS-App, SwiftUI, iOS 16 aufwärts, **keine fremden
 Abhängigkeiten** — nur CloudKit, UserNotifications, AVFoundation und
-BackgroundTasks. Verteilt als Custom App über Apple School Manager und Jamf
-School.
+BackgroundTasks. **Kostenlos im App Store** — jede Schule richtet sich in
+der App ihre eigene ein; die Schulen wissen nichts voneinander. Der Weg über
+Apple School Manager und Jamf School bleibt daneben möglich und ist für
+Dienst-iPads der bequemere (siehe `docs/VERTEILUNG_JAMF_SCHOOL.md`).
 
 > **Diese App ersetzt keinen Notruf.** 110 und 112 bleiben der Weg nach
 > draußen. Sie verständigt ausschließlich das Kollegium im eigenen Haus.
@@ -529,8 +531,16 @@ Das heißt im Klartext: Wer den sechsstelligen Beitrittscode hat und eine
 Apple-ID besitzt, kann in dieser Gruppe schreiben — auch einen Alarm
 auslösen. Die Schutzwirkung kommt aus zwei anderen Richtungen:
 
-* **Die App wird nur an Schul-iPads verteilt.** Custom App über Apple School
-  Manager, nicht im öffentlichen App Store zu finden.
+* **Der Beitrittscode.** Er ist das einzige Tor in eine Schule, und er ist
+  zurückziehbar: Verwaltung → Beitrittscodes. **Seit die App kostenlos im
+  App Store steht, trägt er allein** — bis dahin stand daneben, dass die App
+  nur auf Schul-iPads zu haben war, und das gilt nicht mehr. Wer den Code
+  weitergibt, gibt die Schule weiter.
+* **Sichtbarkeit statt Türsteher.** Die Mitgliederliste nennt zu jedem Eintrag
+  das Beitrittsdatum und markiert doppelte Kürzel. Ein Eintrag, den niemand
+  erwartet hat, wird entfernt (Verwaltung → Mitglieder → „Entfernen") und der
+  Code zurückgezogen. Das ist die Kontrolle, die diese App hat — sie wirkt
+  danach, nicht davor.
 * **Datensparsamkeit.** Gespeichert wird ein Kürzel („MÜ", „Kl. 3b"), kein
   voller Name, keine Anschrift, keine Telefonnummer.
 
