@@ -60,13 +60,33 @@ export default {
     player.addEventListener('timeupdate', updateProgress);
     player.addEventListener('durationchange', updateProgress);
 
+    // „Bearbeiten" heißt: Bearbeitungsmodus und keine Vorführung — beim
+    // Präsentieren und in der Stapelansicht wird bedient, nicht eingerichtet.
+    function bearbeitetGerade() {
+      return ctx.isEditing()
+        && !document.body.classList.contains('is-presenting')
+        && !document.body.classList.contains('is-stacked');
+    }
+
     async function play(entry) {
       const state = ctx.widget.state;
+      // Anhalten geht in jedem Modus — ein laufender Klang muss immer zu
+      // stoppen sein, auch wenn gerade in den Bearbeitungsmodus gewechselt
+      // wurde.
       if (playingId === entry.id) {
         player.pause();
         player.currentTime = 0;
         playingId = null;
         render();
+        return;
+      }
+      // Im Bearbeitungsmodus spielt ein Tipp NICHT ab (Ansage des Nutzers,
+      // 09/2026: „Was im Ansichtsmodus gewünscht ist, ist im
+      // Bearbeitungsmodus nicht geschickt."), sondern öffnet die
+      // Einstellungen — wer dort tippt, will die Taste einrichten. Ein
+      // Tipp, der schweigt, wäre ein kaputter Knopf.
+      if (bearbeitetGerade()) {
+        ctx.openSettings();
         return;
       }
       const source = await mediaUrl(entry);
