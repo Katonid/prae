@@ -467,6 +467,25 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   **Sichtbarkeit**: Die Mitgliederliste nennt seit 1.0.28 das Beitrittsdatum und
   markiert noch vorhandene Doppel; ein unerwarteter Eintrag wird entfernt und der
   Beitrittscode zurückgezogen.
+- **Der eigene Alarm bleibt auf dem eigenen iPad stumm** (`istEigenerAlarm`, ab
+  1.0.34, gemeldet 09/2026). Der örtliche Nachfasslauf `AlarmReminder` fragt
+  nicht, wessen Alarm er anschreit — das auslösende Gerät schlug 30 Sekunden
+  später selbst an und dann noch neunmal. Wer auslöst, steht am Ort; in einer
+  Gefahrenlage ist ein Ton aus der eigenen Tasche das Letzte, was gebraucht
+  wird. Verglichen wird `alarm.triggeredByUserId` mit der eigenen Kennung
+  (`member?.userId ?? store.userId` — persistiert, weil beim Start der Alarm
+  schon dasteht, bevor die Mitgliedsabfrage zurück ist). **Beide müssen gefüllt
+  sein:** leer heißt „weiß ich nicht", und dann wird laut — ein Ton zu viel ist
+  der kleinere Schaden. Angezeigt wird unverändert ALLES, samt einer Zeile auf
+  dem Alarm-Bildschirm, die die Stille erklärt; ein iPad, das ohne Grund
+  schweigt, hält man für kaputt. **Ein zweites Gerät desselben Kontos schlägt
+  einmal an**: CloudKit stellt nur dem SCHREIBENDEN Gerät nichts zu, und die
+  Erweiterung kann den Auslöser nicht kennen (eigener Behälter, keine
+  App-Gruppe, `desiredKeys` mit drei Feldern voll). Das über das Prädikat zu
+  lösen (`triggeredByUserId != …`) ist bewusst NICHT gebaut — dann hinge die
+  Zustellung an einem weiteren Queryable-Index, und fehlt der, entsteht kein
+  Abonnement und das Gerät ist für immer stumm. Die wichtigste Kette dieser App
+  wird nicht für einen einzelnen Ton verlängert.
 - **Austreten gibt es, Mehrfachmitgliedschaft nicht** (`leaveGroup`, ab 1.0.33,
   Ansage des Nutzers 09/2026). Einstellungen → „Verbindung zur Schule lösen".
   Ein Gerät gehört zu genau EINER Schule; ein Wähler „an welche Schule geht
