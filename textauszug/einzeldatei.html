@@ -1,0 +1,2216 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Textauszug — Text aus PDF holen</title>
+    <meta name="description" content="Holt den reinen Text aus einer PDF-Datei und schickt ihn in die Notizen, in die Zwischenablage oder in eine Textdatei. Läuft ganz im Browser." />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" content="#0f766e" />
+    <!-- iOS liest das Manifest für den Homescreen nicht zuverlässig; es nimmt
+         apple-touch-icon. Fehlt eines, zeigt es einen Schnappschuss der Seite. -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Textauszug" />
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='rgb(13, 100, 94)'/><stop offset='1' stop-color='rgb(20, 184, 166)'/></linearGradient></defs><rect width='512' height='512' rx='112' fill='url(%23g)'/><path d='M126 88 H330 L416 174 V422 a30 30 0 0 1 -30 30 H126 a30 30 0 0 1 -30 -30 V118 a30 30 0 0 1 30 -30 z' fill='rgb(255, 255, 255)'/><path d='M330 88 V174 H416 z' fill='rgb(203, 225, 221)'/><rect x='144' y='196' width='196' height='32' rx='16' fill='rgb(245, 158, 11)'/><rect x='144' y='268' width='224' height='24' rx='12' fill='rgb(100, 132, 126)'/><rect x='144' y='316' width='224' height='24' rx='12' fill='rgb(100, 132, 126)'/><rect x='144' y='364' width='152' height='24' rx='12' fill='rgb(100, 132, 126)'/></svg>" />
+    <style>
+:root {
+  color-scheme: light dark;
+  --grund: #f3f7f6;
+  --karte: #ffffff;
+  --schrift: #12241f;
+  --leise: #55706a;
+  --rand: #d7e3e0;
+  --ton: #0f766e;
+  --ton-hell: #e2f3f0;
+  --warn: #8a5a00;
+  --warn-grund: #fff5e0;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --grund: #0e1614;
+    --karte: #16211f;
+    --schrift: #e6f0ed;
+    --leise: #a0b5b0;
+    --rand: #2a3a36;
+    --ton: #5eead4;
+    --ton-hell: #12312c;
+    --warn: #ffcf7a;
+    --warn-grund: #2c2415;
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  padding: 0 1rem 3rem;
+  background: var(--grund);
+  color: var(--schrift);
+  font: 16px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+}
+
+main, .kopf, .fusszeile { max-width: 52rem; margin: 0 auto; }
+
+.kopf { padding: 2.5rem 0 1.5rem; }
+.kopf h1 { margin: 0 0 .4rem; font-size: 1.9rem; letter-spacing: -.01em; }
+.kopf p { margin: 0; color: var(--leise); }
+
+h2 { margin: 0 0 .8rem; font-size: 1.1rem; }
+.hilfe h2 + ul + h2 { margin-top: 1.4rem; }
+
+.karte, .feld {
+  background: var(--karte);
+  border: 1px solid var(--rand);
+  border-radius: 14px;
+  padding: 1.25rem;
+  margin-bottom: 1rem;
+}
+
+.feld {
+  border-style: dashed;
+  border-width: 2px;
+  text-align: center;
+  padding: 2rem 1.25rem;
+  transition: background .15s, border-color .15s;
+}
+.feld.bereit { border-color: var(--ton); background: var(--ton-hell); }
+.feld__zeichen { font-size: 2.2rem; margin: 0 0 .4rem; }
+.feld__text { margin: 0 0 .9rem; font-weight: 600; }
+.feld__klein { margin: .8rem 0 0; color: var(--leise); font-size: .85rem; }
+
+button {
+  font: inherit;
+  border: 1px solid var(--rand);
+  background: var(--karte);
+  color: var(--schrift);
+  border-radius: 10px;
+  padding: .55rem 1.1rem;
+  cursor: pointer;
+}
+button:hover:not(:disabled) { border-color: var(--ton); }
+button:disabled { opacity: .5; cursor: default; }
+button.haupt {
+  background: var(--ton);
+  border-color: var(--ton);
+  color: #fff;
+  font-weight: 600;
+  padding: .7rem 1.4rem;
+}
+@media (prefers-color-scheme: dark) { button.haupt { color: #06211d; } }
+button.still { padding: .35rem .8rem; font-size: .85rem; }
+button:focus-visible, input:focus-visible, textarea:focus-visible {
+  outline: 3px solid var(--ton); outline-offset: 2px;
+}
+
+.schalter { display: grid; gap: .75rem; margin-bottom: 1rem; }
+.haken { display: flex; gap: .6rem; align-items: flex-start; cursor: pointer; }
+.haken input { margin-top: .25rem; width: 1.1rem; height: 1.1rem; accent-color: var(--ton); }
+.haken span { display: flex; flex-direction: column; }
+.haken small { color: var(--leise); font-size: .82rem; }
+
+.raster { display: grid; gap: .9rem; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); }
+label { font-size: .9rem; color: var(--leise); }
+.raster label { display: flex; flex-direction: column; gap: .3rem; }
+input[type="number"] {
+  font: inherit;
+  color: var(--schrift);
+  background: var(--grund);
+  border: 1px solid var(--rand);
+  border-radius: 9px;
+  padding: .5rem .6rem;
+}
+
+.karte__kopf { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+.knopfreihe { display: flex; gap: .4rem; }
+.zaehler { color: var(--leise); font-weight: 400; font-size: .95rem; }
+
+textarea {
+  width: 100%;
+  margin-top: .6rem;
+  font: .92rem/1.6 ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--schrift);
+  background: var(--grund);
+  border: 1px solid var(--rand);
+  border-radius: 10px;
+  padding: .7rem;
+  resize: vertical;
+}
+
+.fuss { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; margin-top: 1rem; }
+.fuss__text { color: var(--leise); font-size: .9rem; margin: .6rem 0 0; min-height: 1.2em; }
+
+.meldung { margin: 0 0 1rem; min-height: 1.2em; font-size: .95rem; }
+.meldung.fehler { color: #b3261e; font-weight: 600; }
+@media (prefers-color-scheme: dark) { .meldung.fehler { color: #ffb4ab; } }
+
+.hinweise { background: var(--warn-grund); border-color: var(--warn); }
+.hinweise h2 { color: var(--warn); }
+.hinweise ul { margin: .4rem 0 0; padding-left: 1.2rem; font-size: .9rem; }
+.hinweise li { margin-bottom: .25rem; }
+
+.liste { padding-left: 1.2rem; margin: 0 0 .4rem; color: var(--leise); font-size: .92rem; }
+.liste li { margin-bottom: .4rem; }
+.liste strong { color: var(--schrift); }
+.liste em { color: var(--schrift); font-style: normal; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .9em; }
+
+.fusszeile { padding-top: 1rem; font-size: .85rem; color: var(--leise); }
+
+    </style>
+  </head>
+  <body>
+    <header class="kopf">
+      <h1>Textauszug</h1>
+      <p>PDF hinein, reiner Text heraus — und von dort mit einem Tipp in die <strong>Notizen</strong>.</p>
+    </header>
+
+    <main>
+      <section class="feld" id="ablage" aria-label="Datei auswählen">
+        <p class="feld__zeichen" aria-hidden="true">📄</p>
+        <p class="feld__text">PDF hierher ziehen — oder auswählen.</p>
+        <button type="button" id="waehlen">PDF auswählen</button>
+        <input type="file" id="datei" accept="application/pdf,.pdf" hidden />
+        <p class="feld__klein">Die Datei bleibt auf diesem Gerät. Es wird nichts hochgeladen.</p>
+      </section>
+
+      <p class="meldung" id="meldung" role="status" aria-live="polite"></p>
+
+      <section class="karte" id="einstellungen" hidden>
+        <h2>Wie der Text aussehen soll</h2>
+        <div class="schalter">
+          <label class="haken">
+            <input type="checkbox" id="absaetze" checked />
+            <span><strong>Absätze zusammenführen</strong><small>Die Zeilenumbrüche der Seite fallen weg, Absätze bleiben.</small></span>
+          </label>
+          <label class="haken">
+            <input type="checkbox" id="kopfzeilen" checked />
+            <span><strong>Kopf- und Fußzeilen entfernen</strong><small>Seitenzahlen und wiederkehrende Zeilen am Rand.</small></span>
+          </label>
+          <label class="haken">
+            <input type="checkbox" id="seitenmarken" />
+            <span><strong>Seitenzahlen einfügen</strong><small>Vor jeder Seite eine Zeile „--- Seite 3 ---".</small></span>
+          </label>
+          <label class="haken">
+            <input type="checkbox" id="ueberschrift" checked />
+            <span><strong>Dateiname als erste Zeile</strong><small>In den Notizen wird die erste Zeile zur Überschrift.</small></span>
+          </label>
+        </div>
+        <div class="raster">
+          <label>
+            <span>Von Seite</span>
+            <input type="number" id="von" min="1" step="1" value="1" />
+          </label>
+          <label>
+            <span>Bis Seite</span>
+            <input type="number" id="bis" min="1" step="1" />
+          </label>
+        </div>
+      </section>
+
+      <section class="karte" id="ergebnis" hidden>
+        <div class="karte__kopf">
+          <h2>Der Text <span class="zaehler" id="zaehler"></span></h2>
+          <div class="knopfreihe">
+            <button type="button" id="alles" class="still">Alles auswählen</button>
+          </div>
+        </div>
+        <p class="feld__klein">Du kannst hier noch streichen und ändern, bevor der Text weitergeht.</p>
+        <textarea id="text" rows="16" spellcheck="false" aria-label="Der gewonnene Text"></textarea>
+        <div class="fuss">
+          <button type="button" id="notizen" class="haupt">An Notizen senden</button>
+          <button type="button" id="kopieren">Text kopieren</button>
+          <button type="button" id="sichern">Als .txt sichern</button>
+        </div>
+        <p id="stand" class="fuss__text" role="status" aria-live="polite"></p>
+      </section>
+
+      <section class="karte hinweise" id="hinweiskarte" hidden>
+        <h2>Zum Text</h2>
+        <ul id="hinweisliste"></ul>
+      </section>
+
+      <section class="karte hilfe">
+        <h2>So kommt der Text in die Notizen</h2>
+        <ul class="liste">
+          <li><strong>iPhone und iPad:</strong> „An Notizen senden" tippen → im Teilen-Blatt <em>Notizen</em> wählen → <em>Sichern</em>. Der Text steht dann als Notiz da, nicht als Anhang. Die erste Zeile wird zur Überschrift der Notiz.</li>
+          <li><strong>Geht auch:</strong> „Text kopieren" und in einer neuen Notiz einfügen — derselbe Weg, eine Handbewegung mehr.</li>
+          <li><strong>Mac und Windows:</strong> „Als .txt sichern" legt eine Textdatei ab, die sich in jedes Programm ziehen lässt.</li>
+        </ul>
+        <h2>Auf dem Rechner und auf dem Homescreen</h2>
+        <ul class="liste">
+          <li><strong>Als Programm installieren:</strong> In Edge oder Chrome Menü → <em>Apps</em> → <em>Diese Website als App installieren</em>; auf iPhone und iPad in Safari über Teilen → <em>Zum Home-Bildschirm</em>. Danach hat die App ein eigenes Symbol und läuft auch ohne Netz.</li>
+          <li><strong>Diese Datei ist die Einzeldatei</strong> — sie enthält die ganze App und braucht weder Netz noch Webserver. Kopieren, mitnehmen, per Doppelklick öffnen.</li>
+        </ul>
+        <h2>Was die App kann — und was nicht</h2>
+        <ul class="liste">
+          <li>Gelesen wird der <strong>Text, der in der PDF steht</strong>. Bei einer PDF aus Word, LibreOffice, einem Browser oder einem Satzprogramm ist das der ganze Inhalt.</li>
+          <li><strong>Ein Scan enthält keinen Text</strong>, sondern ein Bild von Text. Dafür bräuchte es eine Texterkennung (OCR) — die kann diese App nicht. Sie sagt es aber deutlich, statt eine leere Seite auszugeben.</li>
+          <li><strong>Kennwortgeschützte PDFs</strong> lassen sich nicht lesen. Wer die Datei öffnen kann, sichert sie einmal ohne Schutz (Vorschau, oder Drucken → „Als PDF sichern").</li>
+          <li>Tabellen und mehrspaltiger Satz kommen als Text an, aber ohne ihre Form — die Spalten stehen dann hintereinander.</li>
+          <li>Bilder, Formeln und Unterschriften bleiben liegen. Es geht um den reinen Text.</li>
+        </ul>
+        <p class="feld__klein">Die Umwandlung läuft vollständig im Browser: Es wird nichts hochgeladen, nichts gespeichert, nichts mitgezählt — auch keine fremde Bibliothek nachgeladen.</p>
+      </section>
+    </main>
+
+    <footer class="fusszeile">
+      Textauszug · ohne Anmeldung, ohne Server, ohne fremde Bibliothek.
+    </footer>
+
+    <script>
+const TEILE = {};
+
+/* ---- inflate.js ---- */
+(function () {
+// Entpacken von zlib- und roh-DEFLATE-Strömen.
+//
+// In einer PDF-Datei steckt fast jeder Inhalt hinter /FlateDecode, also in
+// einem zlib-Strom. Entpackt wird mit DecompressionStream, wo der Browser es
+// mitbringt, sonst mit dem eigenen Inflate darunter — denselben Rückfall hat
+// der Terminkonverter, und aus demselben Grund: Ohne ihn bleibt die App auf
+// älteren Geräten stumm, statt eine Seite anzuzeigen.
+
+const LAENGE_BASIS = [3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 15, 17, 19, 23, 27, 31,
+  35, 43, 51, 59, 67, 83, 99, 115, 131, 163, 195, 227, 258];
+const LAENGE_EXTRA = [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3,
+  3, 4, 4, 4, 4, 5, 5, 5, 5, 0];
+const ABSTAND_BASIS = [1, 2, 3, 4, 5, 7, 9, 13, 17, 25, 33, 49, 65, 97, 129,
+  193, 257, 385, 513, 769, 1025, 1537, 2049, 3073, 4097, 6145, 8193, 12289,
+  16385, 24577];
+const ABSTAND_EXTRA = [0, 0, 0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8,
+  8, 9, 9, 10, 10, 11, 11, 12, 12, 13, 13];
+const CODE_ORDNUNG = [16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15];
+
+function huffman(laengen) {
+  const anzahl = new Array(16).fill(0);
+  for (const l of laengen) anzahl[l]++;
+  anzahl[0] = 0;
+  const versatz = new Array(16).fill(0);
+  for (let i = 1; i < 15; i++) versatz[i + 1] = versatz[i] + anzahl[i];
+  const symbole = new Array(laengen.length).fill(0);
+  for (let s = 0; s < laengen.length; s++) {
+    if (laengen[s]) symbole[versatz[laengen[s]]++] = s;
+  }
+  return { anzahl, symbole };
+}
+
+// Roher DEFLATE-Strom (ohne zlib-Kopf), wie er im ZIP steht.
+function inflateRoh(daten) {
+  let bitPos = 0;
+  let aus = new Uint8Array(Math.max(1024, daten.length * 4));
+  let ende = 0;
+
+  const platz = (n) => {
+    if (ende + n <= aus.length) return;
+    let groesse = aus.length * 2;
+    while (groesse < ende + n) groesse *= 2;
+    const neu = new Uint8Array(groesse);
+    neu.set(aus.subarray(0, ende));
+    aus = neu;
+  };
+  const bits = (n) => {
+    let wert = 0;
+    for (let i = 0; i < n; i++) {
+      const byte = daten[bitPos >> 3];
+      if (byte === undefined) throw new Error('Die Datei bricht mitten im Datenstrom ab.');
+      wert |= ((byte >> (bitPos & 7)) & 1) << i;
+      bitPos++;
+    }
+    return wert;
+  };
+  const symbol = (baum) => {
+    let code = 0, erster = 0, index = 0;
+    for (let laenge = 1; laenge <= 15; laenge++) {
+      code |= bits(1);
+      const anzahl = baum.anzahl[laenge];
+      if (code - erster < anzahl) return baum.symbole[index + (code - erster)];
+      index += anzahl;
+      erster = (erster + anzahl) << 1;
+      code <<= 1;
+    }
+    throw new Error('Der gepackte Datenstrom ist beschädigt.');
+  };
+
+  let festLiteral = null, festAbstand = null;
+  let letzter = 0;
+  do {
+    letzter = bits(1);
+    const art = bits(2);
+    if (art === 0) {
+      bitPos = (bitPos + 7) & ~7;
+      const p = bitPos >> 3;
+      const laenge = daten[p] | (daten[p + 1] << 8);
+      bitPos = (p + 4) << 3;
+      platz(laenge);
+      aus.set(daten.subarray(p + 4, p + 4 + laenge), ende);
+      ende += laenge;
+      bitPos += laenge << 3;
+      continue;
+    }
+    let literal, abstand;
+    if (art === 1) {
+      if (!festLiteral) {
+        const l = new Array(288);
+        for (let i = 0; i < 288; i++) l[i] = i < 144 ? 8 : i < 256 ? 9 : i < 280 ? 7 : 8;
+        festLiteral = huffman(l);
+        festAbstand = huffman(new Array(30).fill(5));
+      }
+      literal = festLiteral;
+      abstand = festAbstand;
+    } else if (art === 2) {
+      const anzLiteral = bits(5) + 257;
+      const anzAbstand = bits(5) + 1;
+      const anzCode = bits(4) + 4;
+      const codeLaengen = new Array(19).fill(0);
+      for (let i = 0; i < anzCode; i++) codeLaengen[CODE_ORDNUNG[i]] = bits(3);
+      const codeBaum = huffman(codeLaengen);
+      const laengen = new Array(anzLiteral + anzAbstand).fill(0);
+      let i = 0;
+      while (i < laengen.length) {
+        const s = symbol(codeBaum);
+        if (s < 16) laengen[i++] = s;
+        else if (s === 16) {
+          const vorher = laengen[i - 1];
+          let n = 3 + bits(2);
+          while (n--) laengen[i++] = vorher;
+        } else if (s === 17) {
+          let n = 3 + bits(3);
+          while (n--) laengen[i++] = 0;
+        } else {
+          let n = 11 + bits(7);
+          while (n--) laengen[i++] = 0;
+        }
+      }
+      literal = huffman(laengen.slice(0, anzLiteral));
+      abstand = huffman(laengen.slice(anzLiteral));
+    } else {
+      throw new Error('Unbekannte Blockart im gepackten Datenstrom.');
+    }
+
+    for (;;) {
+      const s = symbol(literal);
+      if (s < 256) {
+        platz(1);
+        aus[ende++] = s;
+      } else if (s === 256) {
+        break;
+      } else {
+        const li = s - 257;
+        const laenge = LAENGE_BASIS[li] + bits(LAENGE_EXTRA[li]);
+        const ai = symbol(abstand);
+        const weite = ABSTAND_BASIS[ai] + bits(ABSTAND_EXTRA[ai]);
+        platz(laenge);
+        let von = ende - weite;
+        for (let n = 0; n < laenge; n++) aus[ende++] = aus[von++];
+      }
+    }
+  } while (!letzter);
+
+  return aus.subarray(0, ende);
+}
+
+// Ein zlib-Strom trägt zwei Byte Kopf und vier Byte Prüfsumme; roher DEFLATE
+// trägt nichts davon. Erkannt wird der Kopf an seiner Prüfregel.
+function istZlib(daten) {
+  if (daten.length < 2) return false;
+  const kopf = (daten[0] << 8) | daten[1];
+  return (daten[0] & 0x0f) === 8 && kopf % 31 === 0;
+}
+
+async function entpacke(daten) {
+  const zlib = istZlib(daten);
+  if (typeof DecompressionStream === 'function') {
+    try {
+      const strom = new Blob([daten]).stream()
+        .pipeThrough(new DecompressionStream(zlib ? 'deflate' : 'deflate-raw'));
+      return new Uint8Array(await new Response(strom).arrayBuffer());
+    } catch (fehler) {
+      // Weiter mit dem eigenen Inflate. Das passiert auch bei einem Strom, der
+      // ohne ordentlichen Abschluss endet — davon gibt es in freier Wildbahn
+      // mehr, als einem lieb ist, und der eigene Inflate nimmt sie hin.
+    }
+  }
+  return inflateRoh(zlib ? daten.subarray(2) : daten);
+}
+
+  TEILE.inflateRoh = inflateRoh;
+  TEILE.entpacke = entpacke;
+})();
+
+/* ---- pdf.js ---- */
+(function () {
+// Liest den Aufbau einer PDF-Datei: Objekte, Ströme, Seitenbaum.
+//
+// Eine PDF ist keine Textdatei, sondern eine Sammlung nummerierter Objekte mit
+// einem Verzeichnis am Ende. Dieses Verzeichnis wird hier ABSICHTLICH nicht
+// gelesen: Es ist die Stelle, die in freier Wildbahn am häufigsten kaputt ist
+// (abgeschnittene Downloads, Werkzeuge, die falsche Stellen schreiben), und
+// eine PDF mit falschem Verzeichnis öffnet jeder Betrachter trotzdem. Statt
+// dessen wird die ganze Datei nach „N G obj" durchsucht. Das ist ein Zug durch
+// den Speicher — bei zehn Megabyte ein Wimpernschlag, dafür ohne Fehlerquelle.
+
+const { entpacke } = TEILE;
+const LEER = new Set([0x00, 0x09, 0x0a, 0x0c, 0x0d, 0x20]);
+const TRENNER = new Set([0x28, 0x29, 0x3c, 0x3e, 0x5b, 0x5d, 0x7b, 0x7d, 0x2f, 0x25]);
+
+const istLeer = (b) => LEER.has(b);
+const istTrenner = (b) => TRENNER.has(b);
+const istZeichen = (b) => !istLeer(b) && !istTrenner(b);
+
+// Ein Name wie /Type oder /Adobe#20Deutsch — die Raute maskiert ein Byte.
+function nameLesen(daten, pos) {
+  let text = '';
+  while (pos < daten.length && istZeichen(daten[pos])) {
+    if (daten[pos] === 0x23 && pos + 2 < daten.length) {
+      const wert = parseInt(String.fromCharCode(daten[pos + 1], daten[pos + 2]), 16);
+      if (Number.isFinite(wert)) {
+        text += String.fromCharCode(wert);
+        pos += 3;
+        continue;
+      }
+    }
+    text += String.fromCharCode(daten[pos]);
+    pos++;
+  }
+  return { wert: text, pos };
+}
+
+// (Klammertext) — Klammern dürfen verschachtelt sein, der Rückstrich maskiert.
+function textLesen(daten, pos) {
+  const aus = [];
+  let tiefe = 1;
+  pos++;
+  while (pos < daten.length) {
+    const b = daten[pos];
+    if (b === 0x5c) {
+      pos++;
+      const z = daten[pos];
+      if (z === undefined) break;
+      const einfach = { 0x6e: 10, 0x72: 13, 0x74: 9, 0x62: 8, 0x66: 12 };
+      if (einfach[z] !== undefined) { aus.push(einfach[z]); pos++; }
+      else if (z >= 0x30 && z <= 0x37) {
+        let ziffern = '';
+        while (ziffern.length < 3 && daten[pos] >= 0x30 && daten[pos] <= 0x37) {
+          ziffern += String.fromCharCode(daten[pos]);
+          pos++;
+        }
+        aus.push(parseInt(ziffern, 8) & 0xff);
+      } else if (z === 0x0a) pos++;
+      else if (z === 0x0d) { pos++; if (daten[pos] === 0x0a) pos++; }
+      else { aus.push(z); pos++; }
+      continue;
+    }
+    if (b === 0x28) tiefe++;
+    if (b === 0x29) {
+      tiefe--;
+      if (tiefe === 0) { pos++; break; }
+    }
+    aus.push(b);
+    pos++;
+  }
+  return { wert: Uint8Array.from(aus), pos };
+}
+
+function hexLesen(daten, pos) {
+  const aus = [];
+  let ziffern = '';
+  pos++;
+  while (pos < daten.length && daten[pos] !== 0x3e) {
+    const z = String.fromCharCode(daten[pos]);
+    if (/[0-9a-fA-F]/.test(z)) {
+      ziffern += z;
+      if (ziffern.length === 2) { aus.push(parseInt(ziffern, 16)); ziffern = ''; }
+    }
+    pos++;
+  }
+  if (ziffern.length === 1) aus.push(parseInt(ziffern + '0', 16));
+  return { wert: Uint8Array.from(aus), pos: pos + 1 };
+}
+
+function ueberspringe(daten, pos) {
+  while (pos < daten.length) {
+    if (istLeer(daten[pos])) { pos++; continue; }
+    if (daten[pos] === 0x25) {                       // Kommentar bis Zeilenende
+      while (pos < daten.length && daten[pos] !== 0x0a && daten[pos] !== 0x0d) pos++;
+      continue;
+    }
+    break;
+  }
+  return pos;
+}
+
+// Liest EIN Objekt ab `pos`. Namen kommen als JS-Zeichenkette zurück,
+// Textstücke als Uint8Array — daran sind die beiden zu unterscheiden.
+function objektLesen(daten, pos) {
+  pos = ueberspringe(daten, pos);
+  if (pos >= daten.length) return { wert: null, pos };
+  const b = daten[pos];
+
+  if (b === 0x2f) return nameLesen(daten, pos + 1);
+  if (b === 0x28) return textLesen(daten, pos);
+  if (b === 0x3c && daten[pos + 1] === 0x3c) {
+    const woerterbuch = {};
+    pos += 2;
+    for (;;) {
+      pos = ueberspringe(daten, pos);
+      if (pos >= daten.length) break;
+      if (daten[pos] === 0x3e && daten[pos + 1] === 0x3e) { pos += 2; break; }
+      if (daten[pos] !== 0x2f) {                      // etwas Unerwartetes: weiter
+        const notfall = objektLesen(daten, pos);
+        if (notfall.pos <= pos) { pos++; continue; }
+        pos = notfall.pos;
+        continue;
+      }
+      const schluessel = nameLesen(daten, pos + 1);
+      const wert = objektLesen(daten, schluessel.pos);
+      woerterbuch[schluessel.wert] = wert.wert;
+      pos = wert.pos;
+    }
+    return { wert: woerterbuch, pos, istWoerterbuch: true };
+  }
+  if (b === 0x3c) return hexLesen(daten, pos);
+  if (b === 0x5b) {
+    const liste = [];
+    pos++;
+    for (;;) {
+      pos = ueberspringe(daten, pos);
+      if (pos >= daten.length) break;
+      if (daten[pos] === 0x5d) { pos++; break; }
+      const wert = objektLesen(daten, pos);
+      if (wert.pos <= pos) { pos++; continue; }
+      liste.push(wert.wert);
+      pos = wert.pos;
+    }
+    return { wert: liste, pos };
+  }
+  if (b === 0x5d || b === 0x3e || b === 0x29 || b === 0x7b || b === 0x7d) {
+    return { wert: null, pos: pos + 1 };
+  }
+
+  // Zahl, Verweis oder Schlüsselwort
+  let text = '';
+  while (pos < daten.length && istZeichen(daten[pos])) {
+    text += String.fromCharCode(daten[pos]);
+    pos++;
+  }
+  if (text === '') return { wert: null, pos: pos + 1 };
+  if (text === 'true') return { wert: true, pos };
+  if (text === 'false') return { wert: false, pos };
+  if (text === 'null') return { wert: null, pos };
+
+  const zahl = Number(text);
+  if (/^[-+.\d]/.test(text) && Number.isFinite(zahl)) {
+    // Steht dahinter „G R", ist es ein Verweis auf ein anderes Objekt.
+    if (Number.isInteger(zahl) && zahl >= 0) {
+      const merk = pos;
+      const zweite = ueberspringe(daten, pos);
+      let zahl2 = '';
+      let p = zweite;
+      while (p < daten.length && istZeichen(daten[p])) { zahl2 += String.fromCharCode(daten[p]); p++; }
+      if (/^\d+$/.test(zahl2)) {
+        const dritte = ueberspringe(daten, p);
+        if (daten[dritte] === 0x52 && !istZeichen(daten[dritte + 1])) {
+          return { wert: { verweis: zahl }, pos: dritte + 1 };
+        }
+      }
+      pos = merk;
+    }
+    return { wert: zahl, pos };
+  }
+  return { wert: { wort: text }, pos };
+}
+
+// ---------------------------------------------------------------- Stromfilter
+
+function vorhersageAufloesen(daten, parameter) {
+  const art = parameter.Predictor || 1;
+  if (art <= 1) return daten;
+  const spalten = parameter.Columns || 1;
+  const farben = parameter.Colors || 1;
+  const tiefe = parameter.BitsPerComponent || 8;
+  const breiteByte = Math.ceil((farben * tiefe) / 8);
+  const zeilenbreite = Math.ceil((spalten * farben * tiefe) / 8);
+
+  if (art === 2) {                                   // TIFF
+    if (tiefe !== 8) return daten;
+    for (let z = 0; z + zeilenbreite <= daten.length; z += zeilenbreite) {
+      for (let i = breiteByte; i < zeilenbreite; i++) {
+        daten[z + i] = (daten[z + i] + daten[z + i - breiteByte]) & 0xff;
+      }
+    }
+    return daten;
+  }
+
+  // PNG: jede Zeile trägt ihre Art als erstes Byte.
+  const aus = new Uint8Array(Math.floor(daten.length / (zeilenbreite + 1)) * zeilenbreite);
+  let vorher = new Uint8Array(zeilenbreite);
+  let ziel = 0;
+  for (let q = 0; q + 1 <= daten.length; q += zeilenbreite + 1) {
+    const typ = daten[q];
+    const zeile = daten.subarray(q + 1, q + 1 + zeilenbreite);
+    if (!zeile.length) break;
+    const jetzt = new Uint8Array(zeilenbreite);
+    for (let i = 0; i < zeile.length; i++) {
+      const roh = zeile[i];
+      const links = i >= breiteByte ? jetzt[i - breiteByte] : 0;
+      const oben = vorher[i];
+      const schraeg = i >= breiteByte ? vorher[i - breiteByte] : 0;
+      let wert;
+      if (typ === 0) wert = roh;
+      else if (typ === 1) wert = roh + links;
+      else if (typ === 2) wert = roh + oben;
+      else if (typ === 3) wert = roh + ((links + oben) >> 1);
+      else if (typ === 4) {
+        const p = links + oben - schraeg;
+        const pa = Math.abs(p - links);
+        const pb = Math.abs(p - oben);
+        const pc = Math.abs(p - schraeg);
+        wert = roh + (pa <= pb && pa <= pc ? links : pb <= pc ? oben : schraeg);
+      } else wert = roh;
+      jetzt[i] = wert & 0xff;
+    }
+    if (ziel + zeilenbreite <= aus.length) aus.set(jetzt, ziel);
+    ziel += zeilenbreite;
+    vorher = jetzt;
+  }
+  return aus.subarray(0, Math.min(ziel, aus.length));
+}
+
+function hexEntpacken(daten) {
+  const aus = [];
+  let ziffern = '';
+  for (const b of daten) {
+    const z = String.fromCharCode(b);
+    if (z === '>') break;
+    if (!/[0-9a-fA-F]/.test(z)) continue;
+    ziffern += z;
+    if (ziffern.length === 2) { aus.push(parseInt(ziffern, 16)); ziffern = ''; }
+  }
+  if (ziffern.length === 1) aus.push(parseInt(ziffern + '0', 16));
+  return Uint8Array.from(aus);
+}
+
+function ascii85Entpacken(daten) {
+  const aus = [];
+  let gruppe = [];
+  for (let i = 0; i < daten.length; i++) {
+    const b = daten[i];
+    if (b === 0x7e) break;                            // ~> beendet
+    if (istLeer(b)) continue;
+    if (b === 0x7a && gruppe.length === 0) { aus.push(0, 0, 0, 0); continue; }
+    if (b < 0x21 || b > 0x75) continue;
+    gruppe.push(b - 0x21);
+    if (gruppe.length === 5) {
+      let wert = 0;
+      for (const z of gruppe) wert = wert * 85 + z;
+      aus.push((wert >>> 24) & 0xff, (wert >>> 16) & 0xff, (wert >>> 8) & 0xff, wert & 0xff);
+      gruppe = [];
+    }
+  }
+  if (gruppe.length > 1) {
+    const fehlt = 5 - gruppe.length;
+    for (let i = 0; i < fehlt; i++) gruppe.push(84);
+    let wert = 0;
+    for (const z of gruppe) wert = wert * 85 + z;
+    const voll = [(wert >>> 24) & 0xff, (wert >>> 16) & 0xff, (wert >>> 8) & 0xff, wert & 0xff];
+    for (let i = 0; i < 4 - fehlt; i++) aus.push(voll[i]);
+  }
+  return Uint8Array.from(aus);
+}
+
+function laufEntpacken(daten) {
+  const aus = [];
+  let i = 0;
+  while (i < daten.length) {
+    const laenge = daten[i++];
+    if (laenge === 128) break;
+    if (laenge < 128) {
+      for (let n = 0; n <= laenge; n++) aus.push(daten[i++]);
+    } else {
+      const byte = daten[i++];
+      for (let n = 0; n < 257 - laenge; n++) aus.push(byte);
+    }
+  }
+  return Uint8Array.from(aus);
+}
+
+// LZW, wie es ältere Erzeuger benutzen. Der Code wächst von 9 auf 12 Bit.
+function lzwEntpacken(daten, frueh = 1) {
+  const aus = [];
+  let woerter = [];
+  const zuruecksetzen = () => {
+    woerter = [];
+    for (let i = 0; i < 256; i++) woerter[i] = [i];
+    woerter.length = 258;
+  };
+  zuruecksetzen();
+  let breite = 9;
+  let vorher = null;
+  let puffer = 0;
+  let bits = 0;
+  for (let i = 0; i < daten.length; i++) {
+    puffer = (puffer << 8) | daten[i];
+    bits += 8;
+    while (bits >= breite) {
+      const code = (puffer >> (bits - breite)) & ((1 << breite) - 1);
+      bits -= breite;
+      if (code === 256) { zuruecksetzen(); breite = 9; vorher = null; continue; }
+      if (code === 257) return Uint8Array.from(aus);
+      let eintrag;
+      if (woerter[code]) eintrag = woerter[code];
+      else if (vorher) eintrag = [...vorher, vorher[0]];
+      else continue;
+      aus.push(...eintrag);
+      if (vorher) woerter.push([...vorher, eintrag[0]]);
+      vorher = eintrag;
+      const grenze = woerter.length + frueh;
+      if (grenze >= 512 && breite === 9) breite = 10;
+      else if (grenze >= 1024 && breite === 10) breite = 11;
+      else if (grenze >= 2048 && breite === 11) breite = 12;
+    }
+  }
+  return Uint8Array.from(aus);
+}
+
+// Filter, hinter denen ein BILD steckt — deren Inhalt braucht diese App nie.
+const BILDFILTER = new Set(['DCTDecode', 'JPXDecode', 'JBIG2Decode', 'CCITTFaxDecode']);
+
+// ------------------------------------------------------------------ Dokument
+
+const koder = new TextDecoder('latin1');
+
+function suche(daten, muster, ab = 0) {
+  const erstes = muster[0];
+  for (let i = ab; i <= daten.length - muster.length; i++) {
+    if (daten[i] !== erstes) continue;
+    let passt = true;
+    for (let j = 1; j < muster.length; j++) {
+      if (daten[i + j] !== muster[j]) { passt = false; break; }
+    }
+    if (passt) return i;
+  }
+  return -1;
+}
+
+function alleStellen(daten, text) {
+  const muster = Uint8Array.from(text, (z) => z.charCodeAt(0));
+  const gefunden = [];
+  let ab = 0;
+  for (;;) {
+    const stelle = suche(daten, muster, ab);
+    if (stelle < 0) break;
+    gefunden.push(stelle);
+    ab = stelle + muster.length;
+  }
+  return gefunden;
+}
+
+class Dokument {
+  constructor(daten) {
+    this.daten = daten;
+    this.stellen = new Map();       // Objektnummer → Stelle in der Datei
+    this.imStrom = new Map();       // Objektnummer → { strom, index }
+    this.zwischen = new Map();      // schon gelesene Objekte
+    this.verschluesselt = false;
+  }
+
+  // „12 0 obj" in der ganzen Datei suchen. Eine spätere Fassung desselben
+  // Objekts (PDFs werden fortgeschrieben) überschreibt die frühere — deshalb
+  // gewinnt die HINTERSTE Stelle.
+  objekteSuchen() {
+    const daten = this.daten;
+    for (let i = 0; i + 2 < daten.length; i++) {
+      if (daten[i] !== 0x6f || daten[i + 1] !== 0x62 || daten[i + 2] !== 0x6a) continue;
+      if (istZeichen(daten[i + 3])) continue;
+      let p = i - 1;
+      while (p >= 0 && istLeer(daten[p])) p--;
+      let erzeugung = '';
+      while (p >= 0 && daten[p] >= 0x30 && daten[p] <= 0x39) { erzeugung = String.fromCharCode(daten[p]) + erzeugung; p--; }
+      if (!erzeugung) continue;
+      while (p >= 0 && istLeer(daten[p])) p--;
+      let nummer = '';
+      while (p >= 0 && daten[p] >= 0x30 && daten[p] <= 0x39) { nummer = String.fromCharCode(daten[p]) + nummer; p--; }
+      if (!nummer) continue;
+      if (p >= 0 && istZeichen(daten[p])) continue;
+      this.stellen.set(Number(nummer), i + 3);
+    }
+  }
+
+  // Zu welchem Objekt gehört eine Stelle in der Datei?
+  objektAn(stelle) {
+    if (!this.sortiert) {
+      this.sortiert = [...this.stellen.entries()].sort((a, b) => a[1] - b[1]);
+    }
+    let links = 0;
+    let rechts = this.sortiert.length - 1;
+    let treffer = -1;
+    while (links <= rechts) {
+      const mitte = (links + rechts) >> 1;
+      if (this.sortiert[mitte][1] <= stelle) { treffer = mitte; links = mitte + 1; }
+      else rechts = mitte - 1;
+    }
+    return treffer < 0 ? null : this.sortiert[treffer][0];
+  }
+
+  rohObjekt(nummer) {
+    const stelle = this.stellen.get(nummer);
+    if (stelle === undefined) return null;
+    const { wert, pos } = objektLesen(this.daten, stelle);
+    if (wert && typeof wert === 'object' && !Array.isArray(wert) && !(wert instanceof Uint8Array)
+        && !('verweis' in wert) && !('wort' in wert)) {
+      const nach = ueberspringe(this.daten, pos);
+      if (this.daten[nach] === 0x73 && koder.decode(this.daten.subarray(nach, nach + 6)) === 'stream') {
+        let anfang = nach + 6;
+        if (this.daten[anfang] === 0x0d) anfang++;
+        if (this.daten[anfang] === 0x0a) anfang++;
+        return { woerterbuch: wert, stromAb: anfang };
+      }
+    }
+    return { wert };
+  }
+
+  hole(wert, tiefe = 0) {
+    if (wert && typeof wert === 'object' && 'verweis' in wert && tiefe < 32) {
+      return this.hole(this.objekt(wert.verweis), tiefe + 1);
+    }
+    return wert;
+  }
+
+  objekt(nummer) {
+    if (this.zwischen.has(nummer)) return this.zwischen.get(nummer);
+    this.zwischen.set(nummer, null);                   // gegen Ringverweise
+    let ergebnis = null;
+    const imStrom = this.imStrom.get(nummer);
+    if (imStrom) {
+      ergebnis = imStrom.wert;
+    } else {
+      const roh = this.rohObjekt(nummer);
+      if (roh && roh.woerterbuch) ergebnis = { strom: roh.woerterbuch, ab: roh.stromAb, nummer };
+      else if (roh) ergebnis = roh.wert;
+    }
+    this.zwischen.set(nummer, ergebnis);
+    return ergebnis;
+  }
+
+  // Die rohen Bytes eines Stroms — Länge laut Wörterbuch, geprüft an
+  // „endstream". Eine falsche /Length ist häufig; das Schlüsselwort nicht.
+  rohStrom(strom) {
+    const laenge = this.hole(strom.strom.Length);
+    const ende = suche(this.daten, Uint8Array.from('endstream', (z) => z.charCodeAt(0)), strom.ab);
+    let bis = -1;
+    if (typeof laenge === 'number' && laenge >= 0 && strom.ab + laenge <= this.daten.length) {
+      const nach = ueberspringe(this.daten, strom.ab + laenge);
+      if (koder.decode(this.daten.subarray(nach, nach + 9)) === 'endstream') bis = strom.ab + laenge;
+    }
+    if (bis < 0) {
+      if (ende < 0) return new Uint8Array(0);
+      bis = ende;
+      while (bis > strom.ab && (this.daten[bis - 1] === 0x0a || this.daten[bis - 1] === 0x0d)) bis--;
+    }
+    return this.daten.subarray(strom.ab, bis);
+  }
+
+  async stromDaten(strom) {
+    if (strom.daten) return strom.daten;
+    let daten = this.rohStrom(strom);
+    const filter = this.hole(strom.strom.Filter);
+    const filterliste = filter === undefined || filter === null ? []
+      : Array.isArray(filter) ? filter.map((f) => this.hole(f)) : [filter];
+    let parameter = this.hole(strom.strom.DecodeParms) || this.hole(strom.strom.DP) || {};
+    const parameterliste = Array.isArray(parameter) ? parameter : [parameter];
+
+    for (let i = 0; i < filterliste.length; i++) {
+      const name = filterliste[i];
+      const teil = this.hole(parameterliste[i]) || (filterliste.length === 1 ? this.hole(parameterliste[0]) : null) || {};
+      const aufgeloest = {};
+      for (const [k, v] of Object.entries(teil)) aufgeloest[k] = this.hole(v);
+      if (BILDFILTER.has(name)) { strom.bild = true; return new Uint8Array(0); }
+      if (name === 'FlateDecode' || name === 'Fl') {
+        daten = await entpacke(daten);
+        daten = vorhersageAufloesen(daten, aufgeloest);
+      } else if (name === 'LZWDecode' || name === 'LZW') {
+        daten = lzwEntpacken(daten, aufgeloest.EarlyChange === 0 ? 0 : 1);
+        daten = vorhersageAufloesen(daten, aufgeloest);
+      } else if (name === 'ASCIIHexDecode' || name === 'AHx') daten = hexEntpacken(daten);
+      else if (name === 'ASCII85Decode' || name === 'A85') daten = ascii85Entpacken(daten);
+      else if (name === 'RunLengthDecode' || name === 'RL') daten = laufEntpacken(daten);
+    }
+    strom.daten = daten;
+    return daten;
+  }
+
+  // Objektströme auspacken: Seit PDF 1.5 stecken Seiten, Schriften und der
+  // Katalog meist in einem gepackten Sammelstrom statt einzeln in der Datei.
+  async objektstroemeLesen() {
+    const stellen = alleStellen(this.daten, '/ObjStm');
+    const nummern = new Set();
+    for (const stelle of stellen) {
+      const nummer = this.objektAn(stelle);
+      if (nummer !== null) nummern.add(nummer);
+    }
+    for (const nummer of nummern) {
+      const strom = this.objekt(nummer);
+      if (!strom || !strom.strom || this.hole(strom.strom.Type) !== 'ObjStm') continue;
+      let daten;
+      try {
+        daten = await this.stromDaten(strom);
+      } catch (fehler) {
+        continue;                                      // ein kaputter Sammelstrom
+      }
+      const anzahl = this.hole(strom.strom.N) || 0;
+      const erstes = this.hole(strom.strom.First) || 0;
+      let pos = 0;
+      const paare = [];
+      for (let i = 0; i < anzahl; i++) {
+        const a = objektLesen(daten, pos);
+        const b = objektLesen(daten, a.pos);
+        if (typeof a.wert !== 'number' || typeof b.wert !== 'number') break;
+        paare.push([a.wert, b.wert]);
+        pos = b.pos;
+      }
+      for (const [objektnummer, versatz] of paare) {
+        if (this.stellen.has(objektnummer)) continue;  // eine direkte Fassung gewinnt
+        const { wert } = objektLesen(daten, erstes + versatz);
+        this.imStrom.set(objektnummer, { wert });
+      }
+    }
+  }
+
+  wurzelFinden() {
+    for (const stelle of alleStellen(this.daten, '/Root').reverse()) {
+      const { wert } = objektLesen(this.daten, stelle + 5);
+      const wurzel = this.hole(wert);
+      if (wurzel && wurzel.Pages !== undefined) return wurzel;
+    }
+    for (const stelle of alleStellen(this.daten, '/Catalog').reverse()) {
+      const nummer = this.objektAn(stelle);
+      if (nummer === null) continue;
+      const wurzel = this.hole(this.objekt(nummer));
+      if (wurzel && wurzel.Pages !== undefined) return wurzel;
+    }
+    for (const nummer of [...this.imStrom.keys()]) {
+      const wert = this.hole(this.objekt(nummer));
+      if (wert && wert.Type === 'Catalog' && wert.Pages !== undefined) return wert;
+    }
+    return null;
+  }
+
+  // Seiten in der Reihenfolge des Baums. Ohne Baum: alle Objekte vom Typ
+  // /Page nach Nummer — besser eine Seite in zweifelhafter Reihenfolge als
+  // gar keine.
+  seiten() {
+    const gefunden = [];
+    const wurzel = this.wurzelFinden();
+    const gesehen = new Set();
+    const geerbt = ['Resources', 'MediaBox', 'CropBox', 'Rotate'];
+
+    const gehe = (knotenWert, erbe, tiefe) => {
+      const knoten = this.hole(knotenWert);
+      if (!knoten || typeof knoten !== 'object' || tiefe > 64) return;
+      const nummer = knotenWert && knotenWert.verweis;
+      if (nummer !== undefined) {
+        if (gesehen.has(nummer)) return;
+        gesehen.add(nummer);
+      }
+      const eigen = { ...erbe };
+      for (const schluessel of geerbt) {
+        if (knoten[schluessel] !== undefined) eigen[schluessel] = knoten[schluessel];
+      }
+      const kinder = this.hole(knoten.Kids);
+      if (Array.isArray(kinder)) {
+        for (const kind of kinder) gehe(kind, eigen, tiefe + 1);
+        return;
+      }
+      if (knoten.Type === 'Page' || knoten.Contents !== undefined) {
+        gefunden.push({ ...eigen, ...knoten });
+      }
+    };
+
+    if (wurzel) gehe(wurzel.Pages, {}, 0);
+    if (gefunden.length) return gefunden;
+
+    const nummern = [...new Set([...this.stellen.keys(), ...this.imStrom.keys()])].sort((a, b) => a - b);
+    for (const nummer of nummern) {
+      const wert = this.hole(this.objekt(nummer));
+      if (wert && !Array.isArray(wert) && wert.Type === 'Page') gefunden.push(wert);
+    }
+    return gefunden;
+  }
+}
+
+async function pdfLesen(puffer) {
+  const daten = new Uint8Array(puffer);
+  const kopf = koder.decode(daten.subarray(0, Math.min(1024, daten.length)));
+  if (!kopf.includes('%PDF-')) {
+    throw new Error('Das ist keine PDF-Datei — der Kopf „%PDF-" fehlt.');
+  }
+  const dokument = new Dokument(daten);
+  dokument.objekteSuchen();
+  if (!dokument.stellen.size) {
+    throw new Error('In der Datei steht kein einziges PDF-Objekt. Vermutlich ist sie unvollständig heruntergeladen.');
+  }
+
+  // Verschlüsselt? Dann steht im Anhang ein /Encrypt, und jeder Textstrom ist
+  // unlesbar. Das wird gemeldet und nicht geraten.
+  for (const stelle of alleStellen(daten, '/Encrypt')) {
+    const { wert } = objektLesen(daten, stelle + 8);
+    if (wert !== null && wert !== undefined) { dokument.verschluesselt = true; break; }
+  }
+  await dokument.objektstroemeLesen();
+  return dokument;
+}
+
+  TEILE.objektLesen = objektLesen;
+  TEILE.BILDFILTER = BILDFILTER;
+  TEILE.Dokument = Dokument;
+  TEILE.pdfLesen = pdfLesen;
+})();
+
+/* ---- schrift.js ---- */
+(function () {
+// Von Byte zu Buchstabe.
+//
+// Ein PDF speichert keinen Text, sondern Zeichennummern für eine bestimmte
+// Schrift. Welcher Buchstabe dahintersteckt, sagen drei Quellen, in dieser
+// Reihenfolge: die Tabelle /ToUnicode (wenn vorhanden, immer die beste), die
+// Kodierung samt /Differences, und zuletzt die Annahme, es sei WinAnsi.
+//
+// Ohne diesen Schritt wird aus „für" je nach Schrift „f¸r" oder Buchstabensalat
+// aus Zeichennummern — und das fällt erst auf, wenn der Text in den Notizen
+// steht.
+
+// Namen von Zeichen, wie sie in /Differences stehen. Buchstaben und Ziffern
+// heißen wie sie sind; aufgeführt wird nur, was anders heißt.
+const NAMEN = {
+  space: 32, exclam: 33, quotedbl: 34, numbersign: 35, dollar: 36, percent: 37,
+  ampersand: 38, quotesingle: 39, quoteright: 0x2019, parenleft: 40, parenright: 41,
+  asterisk: 42, plus: 43, comma: 44, hyphen: 45, period: 46, slash: 47,
+  zero: 48, one: 49, two: 50, three: 51, four: 52, five: 53, six: 54, seven: 55,
+  eight: 56, nine: 57, colon: 58, semicolon: 59, less: 60, equal: 61, greater: 62,
+  question: 63, at: 64, bracketleft: 91, backslash: 92, bracketright: 93,
+  asciicircum: 94, underscore: 95, grave: 96, quoteleft: 0x2018, braceleft: 123,
+  bar: 124, braceright: 125, asciitilde: 126,
+  exclamdown: 161, cent: 162, sterling: 163, currency: 164, yen: 165, brokenbar: 166,
+  section: 167, dieresis: 168, copyright: 169, ordfeminine: 170, guillemotleft: 171,
+  logicalnot: 172, registered: 174, macron: 175, degree: 176, plusminus: 177,
+  acute: 180, mu: 181, paragraph: 182, periodcentered: 183, cedilla: 184,
+  ordmasculine: 186, guillemotright: 187, onequarter: 188, onehalf: 189,
+  threequarters: 190, questiondown: 191, multiply: 215, divide: 247,
+  germandbls: 223, sharps: 223, eth: 240, thorn: 254, Eth: 208, Thorn: 222,
+  AE: 198, ae: 230, Oslash: 216, oslash: 248, Lslash: 0x141, lslash: 0x142,
+  OE: 0x152, oe: 0x153, Scaron: 0x160, scaron: 0x161, Zcaron: 0x17d, zcaron: 0x17e,
+  Ydieresis: 376, florin: 0x192, circumflex: 0x2c6, tilde: 0x2dc,
+  endash: 0x2013, emdash: 0x2014, quotedblleft: 0x201c, quotedblright: 0x201d,
+  quotedblbase: 0x201e, quotesinglbase: 0x201a, dagger: 0x2020, daggerdbl: 0x2021,
+  bullet: 0x2022, ellipsis: 0x2026, perthousand: 0x2030, guilsinglleft: 0x2039,
+  guilsinglright: 0x203a, fraction: 0x2044, Euro: 0x20ac, trademark: 0x2122,
+  minus: 0x2212, fi: 0xfb01, fl: 0xfb02, ffi: 0xfb03, ffl: 0xfb04, ff: 0xfb00,
+  nbspace: 32,
+};
+
+// Buchstaben mit Zeichen darüber heißen „Grundbuchstabe + Name des Zeichens".
+const ZUSATZ = {
+  acute: { a: 225, e: 233, i: 237, o: 243, u: 250, y: 253, n: 0x144, c: 0x107, s: 0x15b, z: 0x17a,
+           A: 193, E: 201, I: 205, O: 211, U: 218, Y: 221, N: 0x143, C: 0x106, S: 0x15a, Z: 0x179 },
+  grave: { a: 224, e: 232, i: 236, o: 242, u: 249, A: 192, E: 200, I: 204, O: 210, U: 217 },
+  circumflex: { a: 226, e: 234, i: 238, o: 244, u: 251, A: 194, E: 202, I: 206, O: 212, U: 219 },
+  tilde: { a: 227, n: 241, o: 245, A: 195, N: 209, O: 213 },
+  dieresis: { a: 228, e: 235, i: 239, o: 246, u: 252, y: 255, A: 196, E: 203, I: 207, O: 214, U: 220, Y: 376 },
+  ring: { a: 229, A: 197, u: 0x16f, U: 0x16e },
+  cedilla: { c: 231, C: 199, s: 0x15f, S: 0x15e, t: 0x163, T: 0x162 },
+  caron: { c: 0x10d, s: 0x161, z: 0x17e, e: 0x11b, r: 0x159, d: 0x10f, t: 0x165, n: 0x148,
+           C: 0x10c, S: 0x160, Z: 0x17d, E: 0x11a, R: 0x158, D: 0x10e, T: 0x164, N: 0x147 },
+  breve: { a: 0x103, g: 0x11f, A: 0x102, G: 0x11e },
+  ogonek: { a: 0x105, e: 0x119, A: 0x104, E: 0x118 },
+  dotaccent: { z: 0x17c, Z: 0x17b },
+  macron: { a: 0x101, e: 0x113, i: 0x12b, o: 0x14d, u: 0x16b },
+};
+
+function nameZuZeichen(name) {
+  if (!name) return null;
+  if (name.length === 1) return name.codePointAt(0);
+  if (Object.prototype.hasOwnProperty.call(NAMEN, name)) return NAMEN[name];
+  let treffer = /^uni([0-9A-Fa-f]{4})/.exec(name);
+  if (treffer) return parseInt(treffer[1], 16);
+  treffer = /^u([0-9A-Fa-f]{4,6})$/.exec(name);
+  if (treffer) return parseInt(treffer[1], 16);
+  for (const [zusatz, tabelle] of Object.entries(ZUSATZ)) {
+    if (name.length === 1 + zusatz.length && name.endsWith(zusatz)) {
+      const grund = name[0];
+      if (tabelle[grund]) return tabelle[grund];
+    }
+  }
+  // „g23" oder „cid45" nennen nur eine Nummer in der Schrift — daraus lässt
+  // sich kein Buchstabe ableiten.
+  return null;
+}
+
+// Die oberen 128 Plätze der drei üblichen Kodierungen. Unten sind sie bis auf
+// zwei Anführungszeichen gleich.
+const WINANSI_OBEN = [
+  0x20ac, 0x81, 0x201a, 0x192, 0x201e, 0x2026, 0x2020, 0x2021, 0x2c6, 0x2030,
+  0x160, 0x2039, 0x152, 0x8d, 0x17d, 0x8f, 0x90, 0x2018, 0x2019, 0x201c,
+  0x201d, 0x2022, 0x2013, 0x2014, 0x2dc, 0x2122, 0x161, 0x203a, 0x153, 0x9d,
+  0x17e, 0x178,
+];
+const MACROMAN_OBEN = [
+  196, 197, 199, 201, 209, 214, 220, 225, 224, 226, 228, 227, 229, 231, 233, 232,
+  234, 235, 237, 236, 238, 239, 241, 243, 242, 244, 246, 245, 250, 249, 251, 252,
+  0x2020, 176, 162, 163, 167, 0x2022, 182, 223, 174, 169, 0x2122, 180, 168, 0x2260,
+  198, 216, 0x221e, 177, 0x2264, 0x2265, 165, 181, 0x2202, 0x2211, 0x220f, 0x3c0,
+  0x222b, 170, 186, 0x3a9, 230, 248, 0xbf, 0xa1, 0xac, 0x221a, 0x192, 0x2248,
+  0x2206, 171, 187, 0x2026, 32, 192, 195, 213, 0x152, 0x153, 0x2013, 0x2014,
+  0x201c, 0x201d, 0x2018, 0x2019, 247, 0x25ca, 255, 0x178, 0x2044, 0x20ac,
+  0x2039, 0x203a, 0xfb01, 0xfb02, 0x2021, 183, 0x201a, 0x201e, 0x2030, 194,
+  202, 193, 203, 200, 205, 206, 207, 204, 211, 212, 0xf8ff, 210, 218, 219,
+  217, 305, 0x2c6, 0x2dc, 175, 0x2d8, 0x2d9, 0x2da, 184, 0x2dd, 0x2db, 0x2c7,
+];
+
+function grundtabelle(name) {
+  const tabelle = new Array(256).fill(0);
+  for (let i = 32; i < 127; i++) tabelle[i] = i;
+  if (name === 'MacRomanEncoding') {
+    for (let i = 0; i < MACROMAN_OBEN.length; i++) tabelle[128 + i] = MACROMAN_OBEN[i];
+    return tabelle;
+  }
+  if (name === 'StandardEncoding') {
+    tabelle[39] = 0x2019;                              // quoteright
+    tabelle[96] = 0x2018;                              // quoteleft
+    return tabelle;
+  }
+  for (let i = 0; i < WINANSI_OBEN.length; i++) tabelle[128 + i] = WINANSI_OBEN[i];
+  for (let i = 160; i < 256; i++) tabelle[i] = i;      // deckt sich mit Latin-1
+  tabelle[173] = 0x2d;                                 // weicher Trennstrich
+  return tabelle;
+}
+
+// ---------------------------------------------------------------- ToUnicode
+
+function ausHex(text) {
+  const sauber = text.replace(/[^0-9a-fA-F]/g, '');
+  let aus = '';
+  for (let i = 0; i + 4 <= sauber.length; i += 4) {
+    aus += String.fromCharCode(parseInt(sauber.slice(i, i + 4), 16));
+  }
+  if (sauber.length % 4 === 2) aus += String.fromCharCode(parseInt(sauber.slice(-2), 16));
+  return aus;
+}
+
+// Der Text steht als UTF-16BE in der Tabelle — auch Ligaturen (zwei Buchstaben
+// für ein Zeichen), deshalb wird eine ZEICHENKETTE abgelegt und kein einzelner
+// Codepunkt.
+function toUnicodeLesen(text) {
+  const karte = new Map();
+  let codeLaenge = 0;
+
+  const bereich = /begincodespacerange([\s\S]*?)endcodespacerange/g;
+  let treffer;
+  while ((treffer = bereich.exec(text)) !== null) {
+    const paare = treffer[1].match(/<([0-9a-fA-F]+)>/g) || [];
+    if (paare.length) codeLaenge = Math.max(codeLaenge, Math.ceil((paare[0].length - 2) / 2));
+  }
+
+  const zeichenBlock = /beginbfchar([\s\S]*?)endbfchar/g;
+  while ((treffer = zeichenBlock.exec(text)) !== null) {
+    const zeile = /<([0-9a-fA-F]+)>\s*(?:<([0-9a-fA-F]*)>|\/(\S+))/g;
+    let t2;
+    while ((t2 = zeile.exec(treffer[1])) !== null) {
+      const code = parseInt(t2[1], 16);
+      if (!codeLaenge) codeLaenge = Math.ceil(t2[1].length / 2);
+      if (t2[2] !== undefined) karte.set(code, ausHex(t2[2]));
+      else {
+        const punkt = nameZuZeichen(t2[3]);
+        if (punkt) karte.set(code, String.fromCodePoint(punkt));
+      }
+    }
+  }
+
+  const bereichBlock = /beginbfrange([\s\S]*?)endbfrange/g;
+  while ((treffer = bereichBlock.exec(text)) !== null) {
+    const zeile = /<([0-9a-fA-F]+)>\s*<([0-9a-fA-F]+)>\s*(?:<([0-9a-fA-F]*)>|\[([\s\S]*?)\])/g;
+    let t2;
+    while ((t2 = zeile.exec(treffer[1])) !== null) {
+      const von = parseInt(t2[1], 16);
+      const bis = parseInt(t2[2], 16);
+      if (!codeLaenge) codeLaenge = Math.ceil(t2[1].length / 2);
+      if (bis < von || bis - von > 65535) continue;
+      if (t2[3] !== undefined) {
+        const text16 = ausHex(t2[3]);
+        if (!text16) continue;
+        // Nur das LETZTE Zeichen zählt hoch — davor kann eine Ligatur stehen.
+        const vorn = text16.slice(0, -1);
+        const letztes = text16.charCodeAt(text16.length - 1);
+        for (let code = von; code <= bis; code++) {
+          karte.set(code, vorn + String.fromCharCode(letztes + (code - von)));
+        }
+      } else {
+        const stuecke = t2[4].match(/<[0-9a-fA-F]*>/g) || [];
+        stuecke.forEach((stueck, i) => karte.set(von + i, ausHex(stueck.slice(1, -1))));
+      }
+    }
+  }
+  return { karte, codeLaenge: codeLaenge || 1 };
+}
+
+// ------------------------------------------------------------------ Schrift
+
+class Schrift {
+  constructor() {
+    this.zweiByte = false;
+    this.karte = null;            // aus /ToUnicode
+    this.tabelle = grundtabelle('WinAnsiEncoding');
+    this.breiten = new Map();
+    this.standardbreite = 500;
+  }
+
+  // Zerlegt eine Zeichenkette in Codes — ein oder zwei Byte je Zeichen.
+  * codes(bytes) {
+    if (this.zweiByte) {
+      for (let i = 0; i + 1 < bytes.length; i += 2) yield (bytes[i] << 8) | bytes[i + 1];
+      if (bytes.length % 2) yield bytes[bytes.length - 1];
+      return;
+    }
+    for (const byte of bytes) yield byte;
+  }
+
+  zuText(code) {
+    if (this.karte) {
+      const treffer = this.karte.get(code);
+      if (treffer !== undefined) return treffer;
+      if (this.zweiByte) return '';                    // lieber nichts als Krempel
+    }
+    const punkt = this.tabelle[code & 0xff];
+    if (!punkt) return '';
+    return String.fromCodePoint(punkt);
+  }
+
+  breite(code) {
+    const wert = this.breiten.get(code);
+    return (wert === undefined ? this.standardbreite : wert) / 1000;
+  }
+}
+
+// Baut aus dem Schrift-Wörterbuch einer Seite ein benutzbares Objekt.
+async function schriftLesen(dokument, woerterbuch) {
+  const schrift = new Schrift();
+  const hole = (w) => dokument.hole(w);
+  const art = hole(woerterbuch.Subtype);
+
+  let breitenQuelle = woerterbuch;
+  if (art === 'Type0') {
+    schrift.zweiByte = true;
+    schrift.standardbreite = 1000;
+    const nachkommen = hole(woerterbuch.DescendantFonts);
+    const kind = Array.isArray(nachkommen) ? hole(nachkommen[0]) : null;
+    if (kind) {
+      breitenQuelle = kind;
+      const dw = hole(kind.DW);
+      if (typeof dw === 'number') schrift.standardbreite = dw;
+      const w = hole(kind.W);
+      if (Array.isArray(w)) {
+        for (let i = 0; i < w.length;) {
+          const erstes = hole(w[i]);
+          const zweites = hole(w[i + 1]);
+          if (Array.isArray(zweites)) {
+            zweites.forEach((breite, n) => schrift.breiten.set(erstes + n, hole(breite)));
+            i += 2;
+          } else {
+            const breite = hole(w[i + 2]);
+            if (typeof zweites === 'number' && typeof breite === 'number') {
+              const bis = Math.min(zweites, erstes + 65535);
+              for (let code = erstes; code <= bis; code++) schrift.breiten.set(code, breite);
+            }
+            i += 3;
+          }
+        }
+      }
+    }
+  } else {
+    const erstes = hole(woerterbuch.FirstChar);
+    const breiten = hole(woerterbuch.Widths);
+    if (Array.isArray(breiten) && typeof erstes === 'number') {
+      breiten.forEach((breite, i) => {
+        const wert = hole(breite);
+        if (typeof wert === 'number') schrift.breiten.set(erstes + i, wert);
+      });
+    }
+    const kodierung = hole(woerterbuch.Encoding);
+    if (typeof kodierung === 'string') schrift.tabelle = grundtabelle(kodierung);
+    else if (kodierung && typeof kodierung === 'object') {
+      const grund = hole(kodierung.BaseEncoding);
+      schrift.tabelle = grundtabelle(typeof grund === 'string' ? grund : 'StandardEncoding');
+      const unterschiede = hole(kodierung.Differences);
+      if (Array.isArray(unterschiede)) {
+        let code = 0;
+        for (const eintrag of unterschiede) {
+          const wert = hole(eintrag);
+          if (typeof wert === 'number') code = wert;
+          else if (typeof wert === 'string') {
+            const punkt = nameZuZeichen(wert);
+            if (punkt) schrift.tabelle[code & 0xff] = punkt;
+            code++;
+          }
+        }
+      }
+    }
+  }
+
+  const beschreibung = hole(breitenQuelle.FontDescriptor);
+  if (beschreibung && !schrift.breiten.size) {
+    const fehlend = hole(beschreibung.MissingWidth);
+    if (typeof fehlend === 'number') schrift.standardbreite = fehlend;
+  }
+
+  const zuUnicode = hole(woerterbuch.ToUnicode);
+  if (zuUnicode && zuUnicode.strom) {
+    try {
+      const daten = await dokument.stromDaten(zuUnicode);
+      const { karte, codeLaenge } = toUnicodeLesen(new TextDecoder('latin1').decode(daten));
+      if (karte.size) {
+        schrift.karte = karte;
+        if (codeLaenge >= 2) schrift.zweiByte = true;
+      }
+    } catch (fehler) {
+      // Ohne Tabelle bleibt die Kodierung — besser als gar kein Text.
+    }
+  }
+  return schrift;
+}
+
+  TEILE.nameZuZeichen = nameZuZeichen;
+  TEILE.toUnicodeLesen = toUnicodeLesen;
+  TEILE.Schrift = Schrift;
+  TEILE.schriftLesen = schriftLesen;
+})();
+
+/* ---- inhalt.js ---- */
+(function () {
+// Aus dem Inhaltsstrom einer Seite wird Text mit Ort.
+//
+// Ein PDF kennt keine Zeilen und keine Wörter. Es kennt „setze diese Zeichen an
+// diese Stelle" — hundertmal je Seite, in beliebiger Reihenfolge. Zeilen und
+// Leerzeichen müssen deshalb aus den STELLEN zurückgerechnet werden: Was auf
+// gleicher Höhe steht, ist eine Zeile; wo eine Lücke breiter ist als ein
+// Viertel der Schrifthöhe, stand ein Leerzeichen.
+//
+// Deshalb werden auch die Zeichenbreiten der Schrift gelesen: Ohne sie wüsste
+// niemand, wo ein Wort aufhört, und der Text käme ohne Leerzeichen an.
+
+const { objektLesen } = TEILE;
+const { schriftLesen, Schrift } = TEILE;
+// [a b c d e f] — die übliche Matrix aus dem PDF-Handbuch.
+const EINS = [1, 0, 0, 1, 0, 0];
+
+function mal(m, n) {
+  return [
+    m[0] * n[0] + m[1] * n[2],
+    m[0] * n[1] + m[1] * n[3],
+    m[2] * n[0] + m[3] * n[2],
+    m[2] * n[1] + m[3] * n[3],
+    m[4] * n[0] + m[5] * n[2] + n[4],
+    m[4] * n[1] + m[5] * n[3] + n[5],
+  ];
+}
+
+const punkt = (m) => ({ x: m[4], y: m[5] });
+// Wie groß eine Schrift auf dem Papier wirklich ist, steckt in der Matrix.
+const hoehe = (m) => Math.hypot(m[2], m[3]) || Math.hypot(m[0], m[1]) || 1;
+
+function drehe(x, y, winkel) {
+  const w = ((winkel % 360) + 360) % 360;
+  if (w === 90) return { x: y, y: -x };
+  if (w === 180) return { x: -x, y: -y };
+  if (w === 270) return { x: -y, y: x };
+  return { x, y };
+}
+
+// Die Zeichen einer Seite einsammeln — je Aufruf eines Textbefehls ein Stück.
+class Sammler {
+  constructor(drehung) {
+    this.stuecke = [];
+    this.drehung = drehung || 0;
+  }
+
+  lege(text, m, groesse, breite) {
+    if (!text) return;
+    const anfang = punkt(m);
+    const gedreht = drehe(anfang.x, anfang.y, this.drehung);
+    this.stuecke.push({
+      text,
+      x: gedreht.x,
+      y: gedreht.y,
+      bis: gedreht.x + breite,
+      groesse: Math.max(groesse, 0.01),
+    });
+  }
+}
+
+// Zerlegt einen Inhaltsstrom in Operanden und Befehle und führt die
+// Textbefehle aus. Alles andere (Linien, Farben, Bilder) wird übergangen.
+async function stromAusfuehren(dokument, daten, mittel, sammler, tiefe, schriften) {
+  let pos = 0;
+  let operanden = [];
+  let ctm = mittel.ctm;
+  const stapel = [];
+
+  let tm = EINS.slice();
+  let tlm = EINS.slice();
+  let schrift = mittel.schrift || new Schrift();
+  let groesse = 0;
+  let zeichenabstand = 0;
+  let wortabstand = 0;
+  let waagrecht = 1;
+  let zeilenabstand = 0;
+
+  const zeigeText = (bytes) => {
+    let text = '';
+    let vorschub = 0;
+    for (const code of schrift.codes(bytes)) {
+      text += schrift.zuText(code);
+      let breite = schrift.breite(code) * groesse + zeichenabstand;
+      if (code === 32 && !schrift.zweiByte) breite += wortabstand;
+      vorschub += breite * waagrecht;
+    }
+    const gesamt = mal(tm, ctm);
+    sammler.lege(text, gesamt, groesse * hoehe(gesamt), vorschub * hoehe(ctm));
+    tm = mal([1, 0, 0, 1, vorschub, 0], tm);
+  };
+
+  const neueZeile = (tx, ty) => {
+    tlm = mal([1, 0, 0, 1, tx, ty], tlm);
+    tm = tlm.slice();
+  };
+
+  while (pos < daten.length) {
+    const vorher = pos;
+    const { wert, pos: naechste } = objektLesen(daten, pos);
+    pos = naechste <= vorher ? vorher + 1 : naechste;
+    if (wert === null && pos >= daten.length) break;
+
+    if (!(wert && typeof wert === 'object' && 'wort' in wert)) {
+      operanden.push(wert);
+      if (operanden.length > 32) operanden.shift();
+      continue;
+    }
+
+    const befehl = wert.wort;
+    const zahl = (i) => {
+      const w = operanden[operanden.length - i];
+      return typeof w === 'number' ? w : 0;
+    };
+
+    switch (befehl) {
+      case 'q': stapel.push(ctm); break;
+      case 'Q': if (stapel.length) ctm = stapel.pop(); break;
+      case 'cm':
+        ctm = mal([zahl(6), zahl(5), zahl(4), zahl(3), zahl(2), zahl(1)], ctm);
+        break;
+      case 'BT': tm = EINS.slice(); tlm = EINS.slice(); break;
+      case 'ET': break;
+      case 'Tf': {
+        groesse = zahl(1);
+        const name = operanden[operanden.length - 2];
+        if (typeof name === 'string' && schriften.has(name)) schrift = schriften.get(name);
+        break;
+      }
+      case 'Td': neueZeile(zahl(2), zahl(1)); break;
+      case 'TD': zeilenabstand = -zahl(1); neueZeile(zahl(2), zahl(1)); break;
+      case 'Tm':
+        tlm = [zahl(6), zahl(5), zahl(4), zahl(3), zahl(2), zahl(1)];
+        tm = tlm.slice();
+        break;
+      case 'T*': neueZeile(0, -zeilenabstand); break;
+      case 'TL': zeilenabstand = zahl(1); break;
+      case 'Tc': zeichenabstand = zahl(1); break;
+      case 'Tw': wortabstand = zahl(1); break;
+      case 'Tz': waagrecht = zahl(1) / 100 || 1; break;
+      case 'Tj':
+      case 'TJ':
+      case "'":
+      case '"': {
+        if (befehl === "'") neueZeile(0, -zeilenabstand);
+        if (befehl === '"') {
+          wortabstand = zahl(3);
+          zeichenabstand = zahl(2);
+          neueZeile(0, -zeilenabstand);
+        }
+        const letztes = operanden[operanden.length - 1];
+        if (befehl === 'TJ' && Array.isArray(letztes)) {
+          for (const teil of letztes) {
+            if (teil instanceof Uint8Array) zeigeText(teil);
+            else if (typeof teil === 'number') {
+              const rueck = (-teil / 1000) * groesse * waagrecht;
+              // Eine große Lücke zwischen zwei Stücken IST ein Leerzeichen —
+              // viele Erzeuger schreiben nie eines, sondern rücken nur vor.
+              if (rueck > groesse * 0.18) {
+                const gesamt = mal(tm, ctm);
+                sammler.lege(' ', gesamt, groesse * hoehe(gesamt), rueck * hoehe(ctm));
+              }
+              tm = mal([1, 0, 0, 1, rueck, 0], tm);
+            }
+          }
+        } else if (letztes instanceof Uint8Array) {
+          zeigeText(letztes);
+        }
+        break;
+      }
+      case 'Do': {
+        const name = operanden[operanden.length - 1];
+        if (typeof name === 'string' && tiefe < 8) {
+          const formen = mittel.xobjekte || {};
+          const form = dokument.hole(formen[name]);
+          if (form && form.strom && dokument.hole(form.strom.Subtype) === 'Form') {
+            const eigeneMittel = await mittelSammeln(
+              dokument,
+              dokument.hole(form.strom.Resources) || mittel.roh,
+              mittel,
+            );
+            const matrix = dokument.hole(form.strom.Matrix);
+            eigeneMittel.ctm = Array.isArray(matrix) && matrix.length === 6
+              ? mal(matrix.map((w) => dokument.hole(w)), ctm)
+              : ctm;
+            eigeneMittel.schrift = schrift;
+            try {
+              const inhalt = await dokument.stromDaten(form);
+              await stromAusfuehren(dokument, inhalt, eigeneMittel, sammler, tiefe + 1,
+                eigeneMittel.schriften);
+            } catch (fehler) {
+              // Eine kaputte Form kostet ihren Text, nicht die ganze Seite.
+            }
+          }
+        }
+        break;
+      }
+      case 'BI': {
+        // Ein eingebettetes Bild: rohe Bytes mitten im Strom. Sie müssen
+        // übersprungen werden, sonst liest der Zerleger Unsinn.
+        const endeMuster = [0x45, 0x49];               // „EI"
+        let p = pos;
+        while (p + 1 < daten.length) {
+          if (daten[p] === endeMuster[0] && daten[p + 1] === endeMuster[1]
+              && (p === 0 || daten[p - 1] <= 0x20)
+              && (p + 2 >= daten.length || daten[p + 2] <= 0x20)) break;
+          p++;
+        }
+        pos = Math.min(p + 2, daten.length);
+        break;
+      }
+      default: break;
+    }
+    operanden = [];
+  }
+}
+
+// Schriften und Formen einer Seite bereitstellen.
+async function mittelSammeln(dokument, quellen, erbe) {
+  const mittel = {
+    ctm: EINS.slice(),
+    schriften: new Map(),
+    xobjekte: {},
+    roh: quellen,
+  };
+  const woerterbuch = dokument.hole(quellen);
+  if (!woerterbuch || typeof woerterbuch !== 'object') {
+    if (erbe) {
+      mittel.schriften = erbe.schriften;
+      mittel.xobjekte = erbe.xobjekte;
+    }
+    return mittel;
+  }
+  const schriften = dokument.hole(woerterbuch.Font);
+  if (schriften && typeof schriften === 'object') {
+    for (const [name, verweis] of Object.entries(schriften)) {
+      const eintrag = dokument.hole(verweis);
+      if (!eintrag || typeof eintrag !== 'object') continue;
+      try {
+        mittel.schriften.set(name, await schriftLesen(dokument, eintrag));
+      } catch (fehler) {
+        mittel.schriften.set(name, new Schrift());
+      }
+    }
+  }
+  const xobjekte = dokument.hole(woerterbuch.XObject);
+  if (xobjekte && typeof xobjekte === 'object') mittel.xobjekte = xobjekte;
+  if (erbe) {
+    for (const [name, schrift] of erbe.schriften) {
+      if (!mittel.schriften.has(name)) mittel.schriften.set(name, schrift);
+    }
+  }
+  return mittel;
+}
+
+// Stücke zu Zeilen bündeln: gleiche Höhe = eine Zeile, breite Lücke =
+// Leerzeichen.
+function zeilenBauen(stuecke) {
+  if (!stuecke.length) return [];
+  const sortiert = stuecke.slice().sort((a, b) => (b.y - a.y) || (a.x - b.x));
+  const zeilen = [];
+  let aktuell = null;
+
+  for (const stueck of sortiert) {
+    const schwelle = Math.max(stueck.groesse * 0.5, 1.2);
+    if (!aktuell || Math.abs(aktuell.y - stueck.y) > schwelle) {
+      aktuell = { y: stueck.y, groesse: stueck.groesse, teile: [stueck] };
+      zeilen.push(aktuell);
+    } else {
+      aktuell.teile.push(stueck);
+      aktuell.groesse = Math.max(aktuell.groesse, stueck.groesse);
+    }
+  }
+
+  return zeilen.map((zeile) => {
+    const teile = zeile.teile.sort((a, b) => a.x - b.x);
+    let text = '';
+    let bis = null;
+    for (const teil of teile) {
+      if (bis !== null) {
+        const luecke = teil.x - bis;
+        if (luecke > teil.groesse * 0.22 && !/\s$/.test(text) && !/^\s/.test(teil.text)) text += ' ';
+      }
+      text += teil.text;
+      bis = Math.max(bis === null ? teil.bis : bis, teil.bis);
+    }
+    return {
+      text: text.replace(/[ \t]+/g, ' ').trim(),
+      y: zeile.y,
+      groesse: zeile.groesse,
+      x: teile.length ? teile[0].x : 0,
+      // Wo die Zeile AUFHÖRT, entscheidet später über den Absatz: Eine Zeile,
+      // die vor dem rechten Rand endet, hat den Absatz beendet.
+      bis: bis === null ? 0 : bis,
+    };
+  }).filter((zeile) => zeile.text !== '');
+}
+
+// Der Text EINER Seite, als Zeilen.
+async function seitenZeilen(dokument, seite) {
+  const drehung = Number(dokument.hole(seite.Rotate)) || 0;
+  const sammler = new Sammler(drehung);
+  const mittel = await mittelSammeln(dokument, seite.Resources, null);
+
+  let inhalte = dokument.hole(seite.Contents);
+  if (!Array.isArray(inhalte)) inhalte = [seite.Contents];
+  const stuecke = [];
+  for (const verweis of inhalte) {
+    const strom = dokument.hole(verweis);
+    if (!strom || !strom.strom) continue;
+    try {
+      stuecke.push(await dokument.stromDaten(strom));
+    } catch (fehler) {
+      // Ein unlesbarer Teilstrom kostet seinen Text, nicht die Seite.
+    }
+  }
+  if (!stuecke.length) return [];
+
+  // Mehrere Ströme einer Seite sind EIN Strom — ein Befehl darf an der Naht
+  // geteilt sein.
+  let gesamt = stuecke[0];
+  if (stuecke.length > 1) {
+    const laenge = stuecke.reduce((summe, s) => summe + s.length + 1, 0);
+    gesamt = new Uint8Array(laenge);
+    let ziel = 0;
+    for (const stueck of stuecke) {
+      gesamt.set(stueck, ziel);
+      ziel += stueck.length;
+      gesamt[ziel] = 0x0a;
+      ziel++;
+    }
+  }
+
+  await stromAusfuehren(dokument, gesamt, mittel, sammler, 0, mittel.schriften);
+  return zeilenBauen(sammler.stuecke);
+}
+
+  TEILE.seitenZeilen = seitenZeilen;
+})();
+
+/* ---- aufbereiten.js ---- */
+(function () {
+// Aus Zeilen mit Ort wird lesbarer Text.
+//
+// Was ein PDF an Zeilenumbrüchen mitbringt, ist Satzspiegel, nicht Inhalt: Der
+// Umbruch steht dort, wo die Seite zu Ende war. Wer den Text weiterverwendet —
+// in den Notizen, in einer Mail —, will Absätze, keine Zeilen von je 78
+// Zeichen. Zusammengeführt wird aber nur, wo der Abstand es hergibt: Der
+// senkrechte Abstand zwischen zwei Zeilen sagt zuverlässiger, ob ein Absatz
+// endet, als jede Regel über Satzzeichen.
+
+const ZIFFERNZEILE = /^[\s[(–—-]*(?:Seite|Blatt|S\.)?\s*\d{1,4}\s*(?:\/\s*\d{1,4}|von\s+\d{1,4})?[\s\])–—-]*$/i;
+
+function schluessel(text) {
+  return text.toLowerCase().replace(/\s+/g, ' ').replace(/\d+/g, '#').trim();
+}
+
+// Welche Zeilen einer Seite stehen ÜBER oder UNTER dem Satzspiegel?
+//
+// Nicht „die ersten und letzten zwei" — daran ist diese Prüfung einmal
+// gescheitert: In einem Text, der sich inhaltlich wiederholt (Formulare,
+// Tabellen, Serienbriefe), sieht echter Inhalt wie eine Kopfzeile aus, und die
+// App strich ihn weg. Eine Kopfzeile erkennt man am ABSTAND: Zwischen ihr und
+// dem Text klafft eine Lücke, die größer ist als der Zeilenabstand.
+function randzeilen(zeilen) {
+  if (zeilen.length < 4) return new Set();
+  const abstaende = [];
+  for (let i = 0; i + 1 < zeilen.length; i++) abstaende.push(zeilen[i].y - zeilen[i + 1].y);
+  // Gesucht ist der Zeilenabstand INNERHALB eines Absatzes, also der kleine,
+  // häufige Abstand — nicht der mittlere. Auf einer kurzen Seite (Überschrift,
+  // zwei Absätze, Fußzeile) zieht der Mittelwert die Schwelle so weit hoch,
+  // dass die Kopfzeile darunter durchrutscht. Deshalb das untere Viertel.
+  const sortiert = abstaende.slice().sort((a, b) => a - b);
+  const typisch = sortiert[Math.floor(sortiert.length * 0.25)] || 1;
+  const rand = new Set();
+
+  for (let i = 0; i < 2 && i + 1 < zeilen.length; i++) {
+    if (zeilen[i].y - zeilen[i + 1].y > typisch * 1.6) {
+      for (let k = 0; k <= i; k++) rand.add(k);
+      break;
+    }
+  }
+  for (let i = zeilen.length - 1; i >= Math.max(1, zeilen.length - 2); i--) {
+    if (zeilen[i - 1].y - zeilen[i].y > typisch * 1.6) {
+      for (let k = i; k < zeilen.length; k++) rand.add(k);
+      break;
+    }
+  }
+  // Eine Kopfzeile ist KURZ und nie GRÖSSER als der Fließtext. Das zweite
+  // Merkmal ist das wichtigere: Ein Dokument, dessen Seiten je mit einer
+  // Kapitelüberschrift beginnen, verlöre sonst genau diese Überschriften —
+  // sie stehen am Rand, mit Abstand, und ähneln sich von Seite zu Seite.
+  const groessen = zeilen.map((zeile) => zeile.groesse).sort((a, b) => a - b);
+  const normalgroesse = groessen[Math.floor(groessen.length / 2)] || 1;
+  for (const index of [...rand]) {
+    const zeile = zeilen[index];
+    if (zeile.text.length > 80 || zeile.groesse > normalgroesse * 1.05) rand.delete(index);
+  }
+  return rand;
+}
+
+// Zeilen, die auf den meisten Seiten am Rand gleich lauten, sind Kopf- und
+// Fußzeilen. Einzeln betrachtet sähe jede aus wie Inhalt.
+function wiederholteFinden(seiten) {
+  const zaehler = new Map();
+  for (const seite of seiten) {
+    const rand = randzeilen(seite.zeilen);
+    const gesehen = new Set();
+    for (const index of rand) {
+      const k = schluessel(seite.zeilen[index].text);
+      if (!k || k.length < 2 || gesehen.has(k)) continue;
+      gesehen.add(k);
+      zaehler.set(k, (zaehler.get(k) || 0) + 1);
+    }
+  }
+  const grenze = Math.max(2, Math.ceil(seiten.length * 0.6));
+  const wiederholt = new Set();
+  for (const [k, anzahl] of zaehler) {
+    if (anzahl >= grenze) wiederholt.add(k);
+  }
+  return wiederholt;
+}
+
+function kopfUndFussWeg(seiten) {
+  const wiederholt = wiederholteFinden(seiten);
+  let entfernt = 0;
+  const sauber = seiten.map((seite) => {
+    const rand = randzeilen(seite.zeilen);
+    const zeilen = seite.zeilen.filter((zeile, index) => {
+      if (!rand.has(index)) return true;
+      // Eine reine Seitenzahl steht auf jeder Seite anders da und fiele dem
+      // Vergleich nie auf — sie wird an ihrer Gestalt erkannt.
+      if (ZIFFERNZEILE.test(zeile.text)) { entfernt++; return false; }
+      if (wiederholt.has(schluessel(zeile.text))) { entfernt++; return false; }
+      return true;
+    });
+    return { ...seite, zeilen };
+  });
+  return { seiten: sauber, entfernt };
+}
+
+// Endet die Zeile mit einem Trennstrich, gehört das Wort zusammen — außer der
+// Strich gehört dazu („E-Mail", „Nord-Süd"). Als Regel: Geht es klein weiter,
+// war es eine Trennung.
+function trennungAufloesen(links, rechts) {
+  if (!/[\p{Ll}\p{Lu}]-$/u.test(links)) return null;
+  if (!/^[\p{Ll}]/u.test(rechts)) return null;
+  return links.slice(0, -1) + rechts;
+}
+
+// Zeilen einer Seite zu Absätzen bündeln: Der senkrechte Abstand entscheidet.
+function absaetzeBauen(zeilen, zusammenfuehren) {
+  const stuecke = [];
+  let laufend = '';
+  let vorige = null;
+  // Der rechte Rand des Satzspiegels. Eine Zeile, die deutlich davor endet,
+  // ist das Ende eines Absatzes — so entsteht Flattersatz, und genau daran
+  // erkennt man einen Zeilenumbruch, der KEINER Fortsetzung dient. Ohne das
+  // wachsen Aufzählungen und Grußformeln zu einem Klumpen zusammen.
+  const randRechts = zeilen.reduce((groesster, zeile) => Math.max(groesster, zeile.bis || 0), 0);
+
+  const schliessen = () => {
+    if (laufend.trim()) stuecke.push(laufend.trim());
+    laufend = '';
+  };
+
+  for (const zeile of zeilen) {
+    const text = zeile.text;
+    if (!text) continue;
+    let neuerAbsatz = vorige === null;
+    if (vorige) {
+      const abstand = vorige.y - zeile.y;
+      const zeilenhoehe = Math.max(vorige.groesse, zeile.groesse, 1);
+      // Mehr als anderthalb Zeilenhöhen Abstand: neuer Absatz. Ein deutlicher
+      // Sprung nach rechts (Einzug) oder eine größere Schrift ebenfalls.
+      if (abstand > zeilenhoehe * 1.55) neuerAbsatz = true;
+      if (zeile.groesse > vorige.groesse * 1.25) neuerAbsatz = true;
+      if (!zusammenfuehren) neuerAbsatz = true;
+      // Aufzählungen bleiben eigene Zeilen.
+      if (/^[-•·*•–]\s|^\d{1,2}[.)]\s/.test(text)) neuerAbsatz = true;
+      if (vorige.aufzaehlung && zusammenfuehren && !neuerAbsatz) {
+        neuerAbsatz = abstand > zeilenhoehe * 1.2;
+      }
+    }
+
+    // Ein Trennstrich am Zeilenende wiegt schwerer als jede Randregel: Das
+    // Wort ist mitten entzwei und gehört zusammen.
+    const verbunden = neuerAbsatz || !vorige ? null : trennungAufloesen(laufend, text);
+    if (verbunden === null && vorige && zusammenfuehren && !neuerAbsatz) {
+      // Etwa ein halbes Wort Luft am rechten Rand: Darunter ist es Flattersatz
+      // innerhalb eines Absatzes, darüber hat der Absatz aufgehört. Gemessen
+      // an drei Sorten PDF — enger gefasst zerfiel ein Absatz in seine Zeilen.
+      const luecke = randRechts - (vorige.bis || 0);
+      if (luecke > Math.max(4, vorige.groesse * 3.4)) neuerAbsatz = true;
+    }
+
+    if (verbunden !== null) {
+      laufend = verbunden;
+    } else if (neuerAbsatz) {
+      schliessen();
+      laufend = text;
+    } else {
+      laufend += ' ' + text;
+    }
+    vorige = { ...zeile, aufzaehlung: /^[-•·*•–]\s|^\d{1,2}[.)]\s/.test(text) };
+  }
+  schliessen();
+  return stuecke;
+}
+
+function aufbereiten(seitenRoh, einstellungen = {}) {
+  const {
+    kopfzeilen = true,
+    absaetze = true,
+    seitenmarken = false,
+  } = einstellungen;
+
+  let seiten = seitenRoh;
+  let entfernt = 0;
+  if (kopfzeilen && seiten.length >= 2) {
+    const ergebnis = kopfUndFussWeg(seiten);
+    seiten = ergebnis.seiten;
+    entfernt = ergebnis.entfernt;
+  }
+
+  const teile = [];
+  let leereSeiten = 0;
+  for (const seite of seiten) {
+    const stuecke = absaetzeBauen(seite.zeilen, absaetze);
+    if (!stuecke.length) leereSeiten++;
+    if (seitenmarken) teile.push(`--- Seite ${seite.nummer} ---`);
+    teile.push(...stuecke);
+  }
+
+  const text = teile.join('\n\n')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+
+  return { text, entfernt, leereSeiten };
+}
+
+  TEILE.aufbereiten = aufbereiten;
+})();
+
+/* ---- auszug.js ---- */
+(function () {
+// Der ganze Weg: PDF hinein, Text heraus.
+//
+// In zwei Schritten, mit Absicht: Das Lesen der PDF ist die teure Arbeit und
+// passiert EINMAL je Datei. Wer danach an den Einstellungen dreht (Absätze
+// zusammenführen, Seitenbereich), bekommt die Antwort sofort — aufbereitet
+// wird aus den gemerkten Zeilen, nicht aus der Datei.
+
+const { pdfLesen } = TEILE;
+const { seitenZeilen } = TEILE;
+const { aufbereiten } = TEILE;
+async function seitenLesen(puffer, melde = () => {}) {
+  const dokument = await pdfLesen(puffer);
+  if (dokument.verschluesselt) {
+    throw new Error('Die PDF ist mit einem Kennwort geschützt — ihr Text lässt sich nicht lesen. '
+      + 'Bitte einmal ohne Schutz sichern: in der Vorschau oder im PDF-Programm über '
+      + 'Datei → Drucken → „Als PDF sichern".');
+  }
+
+  const alle = dokument.seiten();
+  if (!alle.length) throw new Error('In der PDF ist keine einzige Seite zu finden.');
+
+  const seiten = [];
+  for (let nummer = 1; nummer <= alle.length; nummer++) {
+    melde(nummer, alle.length);
+    let zeilen = [];
+    try {
+      zeilen = await seitenZeilen(dokument, alle[nummer - 1]);
+    } catch (fehler) {
+      // Eine Seite, die sich nicht lesen lässt, darf die übrigen nicht
+      // mitnehmen — sie zählt als leer und fällt im Hinweis auf.
+    }
+    seiten.push({ nummer, zeilen });
+  }
+  return { seiten, seitenGesamt: alle.length };
+}
+
+function textBauen(seitenAlle, einstellungen = {}) {
+  const von = Math.max(1, Number(einstellungen.von) || 1);
+  const bis = Math.min(seitenAlle.length, Number(einstellungen.bis) || seitenAlle.length);
+  const seiten = seitenAlle.filter((seite) => seite.nummer >= von && seite.nummer <= bis);
+
+  const { text, entfernt, leereSeiten } = aufbereiten(seiten, einstellungen);
+  const hinweise = [];
+  if (entfernt) {
+    hinweise.push(`${entfernt} ${entfernt === 1 ? 'Kopf- oder Fußzeile' : 'Kopf- und Fußzeilen'} entfernt.`);
+  }
+  if (leereSeiten) {
+    hinweise.push(`${leereSeiten} von ${seiten.length} ${seiten.length === 1 ? 'Seite enthält' : 'Seiten enthalten'}`
+      + ' keinen Text. Dort steht vermutlich ein Bild oder ein Scan — daraus kann diese App'
+      + ' keinen Text holen, das bräuchte eine Texterkennung.');
+  }
+
+  const woerter = text.trim() ? text.trim().split(/\s+/).length : 0;
+  return {
+    text,
+    hinweise,
+    seiten: seiten.length,
+    zeichen: text.length,
+    woerter,
+    ohneText: text.trim().length === 0,
+  };
+}
+
+// Für einen Durchgang in einem Rutsch (Prüfungen, Kommandozeile).
+async function textAusPdf(puffer, einstellungen = {}, melde = () => {}) {
+  const { seiten, seitenGesamt } = await seitenLesen(puffer, melde);
+  return { ...textBauen(seiten, einstellungen), seitenGesamt };
+}
+
+  TEILE.seitenLesen = seitenLesen;
+  TEILE.textBauen = textBauen;
+  TEILE.textAusPdf = textAusPdf;
+})();
+
+/* ---- app.js ---- */
+(function () {
+// Die Oberfläche: PDF annehmen, Text zeigen, weitergeben.
+
+const { seitenLesen, textBauen } = TEILE;
+const teil = (id) => document.getElementById(id);
+const ablage = teil('ablage');
+const meldung = teil('meldung');
+
+let seiten = [];
+let dateiname = 'Textauszug';
+let selbstGeaendert = false;   // hat der Nutzer im Textfeld getippt?
+
+function sage(text, fehler = false) {
+  meldung.textContent = text;
+  meldung.classList.toggle('fehler', fehler);
+}
+
+function zeigen(id, ja) {
+  teil(id).hidden = !ja;
+}
+
+function einstellungen() {
+  return {
+    absaetze: teil('absaetze').checked,
+    kopfzeilen: teil('kopfzeilen').checked,
+    seitenmarken: teil('seitenmarken').checked,
+    von: Number(teil('von').value) || 1,
+    bis: Number(teil('bis').value) || seiten.length,
+  };
+}
+
+function hinweiseZeigen(hinweise) {
+  const liste = teil('hinweisliste');
+  liste.textContent = '';
+  for (const hinweis of hinweise) {
+    const punkt = document.createElement('li');
+    punkt.textContent = hinweis;
+    liste.append(punkt);
+  }
+  zeigen('hinweiskarte', hinweise.length > 0);
+}
+
+// Baut den Text neu — nach dem Einlesen und nach jeder Änderung an den
+// Einstellungen. Was der Nutzer selbst getippt hat, wird vorher erfragt:
+// Sonst wäre ein Haken versehentlich das Ende einer halben Stunde Arbeit.
+function textZeigen(nachfragen = true) {
+  if (!seiten.length) return;
+  if (nachfragen && selbstGeaendert
+      && !window.confirm('Der Text wird neu aufgebaut. Deine Änderungen darin gehen dabei verloren. Fortfahren?')) {
+    return;
+  }
+  const ergebnis = textBauen(seiten, einstellungen());
+  let text = ergebnis.text;
+  if (teil('ueberschrift').checked && text) text = `${dateiname}\n\n${text}`;
+
+  teil('text').value = text;
+  selbstGeaendert = false;
+  teil('zaehler').textContent = `(${ergebnis.woerter.toLocaleString('de-DE')} Wörter, `
+    + `${ergebnis.zeichen.toLocaleString('de-DE')} Zeichen aus `
+    + `${ergebnis.seiten} ${ergebnis.seiten === 1 ? 'Seite' : 'Seiten'})`;
+  teil('stand').textContent = '';
+
+  const hinweise = [...ergebnis.hinweise];
+  if (ergebnis.ohneText) {
+    hinweise.unshift('In diesen Seiten steht kein Text — vermutlich ist die PDF ein Scan. '
+      + 'Ein Bild von Text lässt sich ohne Texterkennung nicht lesen.');
+  }
+  hinweiseZeigen(hinweise);
+  for (const id of ['notizen', 'kopieren', 'sichern']) teil(id).disabled = !text.trim();
+}
+
+async function verarbeiten(datei) {
+  if (!datei) return;
+  const name = datei.name.toLowerCase();
+  if (!name.endsWith('.pdf') && datei.type !== 'application/pdf') {
+    sage('Das ist keine PDF-Datei. Diese App liest nur PDFs.', true);
+    return;
+  }
+  dateiname = datei.name.replace(/\.pdf$/i, '') || 'Textauszug';
+  seiten = [];
+  selbstGeaendert = false;
+  zeigen('ergebnis', false);
+  zeigen('hinweiskarte', false);
+  sage(`${datei.name} wird gelesen …`);
+
+  try {
+    const puffer = await datei.arrayBuffer();
+    const ergebnis = await seitenLesen(puffer, (nummer, gesamt) => {
+      if (gesamt > 8 && nummer % 5 === 0) sage(`${datei.name}: Seite ${nummer} von ${gesamt} …`);
+    });
+    seiten = ergebnis.seiten;
+    teil('von').value = 1;
+    teil('von').max = seiten.length;
+    teil('bis').value = seiten.length;
+    teil('bis').max = seiten.length;
+    zeigen('einstellungen', true);
+    zeigen('ergebnis', true);
+    textZeigen(false);
+    sage(`${datei.name}: ${seiten.length} ${seiten.length === 1 ? 'Seite' : 'Seiten'} gelesen.`);
+  } catch (fehler) {
+    zeigen('einstellungen', false);
+    zeigen('ergebnis', false);
+    sage(fehler.message || 'Die Datei ließ sich nicht lesen.', true);
+  }
+}
+
+// Der Weg in die Notizen: Geteilt wird TEXT, keine Datei. Eine geteilte Datei
+// landet in den Notizen als Anhang, den man antippen muss; geteilter Text
+// steht als Notiz da und ist sofort zu bearbeiten. Genau darum geht es hier.
+async function anNotizen() {
+  const text = teil('text').value;
+  if (!text.trim()) return;
+  if (!navigator.share) {
+    await kopieren();
+    teil('stand').textContent = 'Dieser Browser kennt kein Teilen — der Text ist stattdessen '
+      + 'kopiert. In den Notizen eine neue Notiz öffnen und einfügen.';
+    return;
+  }
+  try {
+    await navigator.share({ title: dateiname, text });
+    teil('stand').textContent = 'Weitergegeben.';
+  } catch (fehler) {
+    if (fehler && fehler.name === 'AbortError') return;
+    await kopieren();
+    teil('stand').textContent = 'Das Teilen ging nicht — der Text ist stattdessen kopiert.';
+  }
+}
+
+async function kopieren() {
+  const text = teil('text').value;
+  if (!text.trim()) return;
+  try {
+    await navigator.clipboard.writeText(text);
+    teil('stand').textContent = 'Kopiert. In den Notizen eine neue Notiz öffnen und einfügen.';
+  } catch (fehler) {
+    teil('text').focus();
+    teil('text').select();
+    teil('stand').textContent = 'Bitte von Hand kopieren — der Text ist ausgewählt.';
+  }
+}
+
+// Wie beim Terminkonverter „application/octet-stream": Mit „text/plain" zeigt
+// Safari die Datei lieber an, statt sie zu sichern. Was sie ist, sagt die
+// Endung .txt.
+function sichern() {
+  const text = teil('text').value;
+  if (!text.trim()) return;
+  const blob = new Blob(['﻿' + text], { type: 'application/octet-stream' });
+  const adresse = URL.createObjectURL(blob);
+  const verweis = document.createElement('a');
+  verweis.href = adresse;
+  verweis.download = `${dateiname}.txt`;
+  verweis.rel = 'noopener';
+  document.body.append(verweis);
+  verweis.click();
+  verweis.remove();
+  setTimeout(() => URL.revokeObjectURL(adresse), 10000);
+  teil('stand').textContent = `In ${dateiname}.txt gesichert — die Datei liegt bei den Downloads.`;
+}
+
+teil('waehlen').addEventListener('click', () => teil('datei').click());
+teil('datei').addEventListener('change', (e) => {
+  verarbeiten(e.target.files[0]);
+  e.target.value = '';
+});
+for (const id of ['absaetze', 'kopfzeilen', 'seitenmarken', 'ueberschrift']) {
+  teil(id).addEventListener('change', () => textZeigen());
+}
+for (const id of ['von', 'bis']) {
+  teil(id).addEventListener('change', () => textZeigen());
+}
+teil('text').addEventListener('input', () => { selbstGeaendert = true; });
+teil('alles').addEventListener('click', () => { teil('text').focus(); teil('text').select(); });
+teil('notizen').addEventListener('click', anNotizen);
+teil('kopieren').addEventListener('click', kopieren);
+teil('sichern').addEventListener('click', sichern);
+
+for (const art of ['dragenter', 'dragover']) {
+  ablage.addEventListener(art, (e) => { e.preventDefault(); ablage.classList.add('bereit'); });
+}
+for (const art of ['dragleave', 'drop']) {
+  ablage.addEventListener(art, () => ablage.classList.remove('bereit'));
+}
+ablage.addEventListener('drop', (e) => {
+  e.preventDefault();
+  verarbeiten(e.dataTransfer.files[0]);
+});
+// Ohne das öffnet der Browser eine daneben abgelegte PDF einfach als Seite.
+window.addEventListener('dragover', (e) => e.preventDefault());
+window.addEventListener('drop', (e) => e.preventDefault());
+
+// Ohne Netz weiterhin startklar — und die Bedingung dafür, dass Android
+// „Installieren" anbietet.
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch(() => {
+      // Ohne ihn läuft die App genauso, nur eben nicht offline.
+    });
+  });
+}
+
+})();
+
+    </script>
+  </body>
+</html>

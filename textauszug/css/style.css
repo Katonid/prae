@@ -1,0 +1,142 @@
+:root {
+  color-scheme: light dark;
+  --grund: #f3f7f6;
+  --karte: #ffffff;
+  --schrift: #12241f;
+  --leise: #55706a;
+  --rand: #d7e3e0;
+  --ton: #0f766e;
+  --ton-hell: #e2f3f0;
+  --warn: #8a5a00;
+  --warn-grund: #fff5e0;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --grund: #0e1614;
+    --karte: #16211f;
+    --schrift: #e6f0ed;
+    --leise: #a0b5b0;
+    --rand: #2a3a36;
+    --ton: #5eead4;
+    --ton-hell: #12312c;
+    --warn: #ffcf7a;
+    --warn-grund: #2c2415;
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  padding: 0 1rem 3rem;
+  background: var(--grund);
+  color: var(--schrift);
+  font: 16px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+}
+
+main, .kopf, .fusszeile { max-width: 52rem; margin: 0 auto; }
+
+.kopf { padding: 2.5rem 0 1.5rem; }
+.kopf h1 { margin: 0 0 .4rem; font-size: 1.9rem; letter-spacing: -.01em; }
+.kopf p { margin: 0; color: var(--leise); }
+
+h2 { margin: 0 0 .8rem; font-size: 1.1rem; }
+.hilfe h2 + ul + h2 { margin-top: 1.4rem; }
+
+.karte, .feld {
+  background: var(--karte);
+  border: 1px solid var(--rand);
+  border-radius: 14px;
+  padding: 1.25rem;
+  margin-bottom: 1rem;
+}
+
+.feld {
+  border-style: dashed;
+  border-width: 2px;
+  text-align: center;
+  padding: 2rem 1.25rem;
+  transition: background .15s, border-color .15s;
+}
+.feld.bereit { border-color: var(--ton); background: var(--ton-hell); }
+.feld__zeichen { font-size: 2.2rem; margin: 0 0 .4rem; }
+.feld__text { margin: 0 0 .9rem; font-weight: 600; }
+.feld__klein { margin: .8rem 0 0; color: var(--leise); font-size: .85rem; }
+
+button {
+  font: inherit;
+  border: 1px solid var(--rand);
+  background: var(--karte);
+  color: var(--schrift);
+  border-radius: 10px;
+  padding: .55rem 1.1rem;
+  cursor: pointer;
+}
+button:hover:not(:disabled) { border-color: var(--ton); }
+button:disabled { opacity: .5; cursor: default; }
+button.haupt {
+  background: var(--ton);
+  border-color: var(--ton);
+  color: #fff;
+  font-weight: 600;
+  padding: .7rem 1.4rem;
+}
+@media (prefers-color-scheme: dark) { button.haupt { color: #06211d; } }
+button.still { padding: .35rem .8rem; font-size: .85rem; }
+button:focus-visible, input:focus-visible, textarea:focus-visible {
+  outline: 3px solid var(--ton); outline-offset: 2px;
+}
+
+.schalter { display: grid; gap: .75rem; margin-bottom: 1rem; }
+.haken { display: flex; gap: .6rem; align-items: flex-start; cursor: pointer; }
+.haken input { margin-top: .25rem; width: 1.1rem; height: 1.1rem; accent-color: var(--ton); }
+.haken span { display: flex; flex-direction: column; }
+.haken small { color: var(--leise); font-size: .82rem; }
+
+.raster { display: grid; gap: .9rem; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); }
+label { font-size: .9rem; color: var(--leise); }
+.raster label { display: flex; flex-direction: column; gap: .3rem; }
+input[type="number"] {
+  font: inherit;
+  color: var(--schrift);
+  background: var(--grund);
+  border: 1px solid var(--rand);
+  border-radius: 9px;
+  padding: .5rem .6rem;
+}
+
+.karte__kopf { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+.knopfreihe { display: flex; gap: .4rem; }
+.zaehler { color: var(--leise); font-weight: 400; font-size: .95rem; }
+
+textarea {
+  width: 100%;
+  margin-top: .6rem;
+  font: .92rem/1.6 ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--schrift);
+  background: var(--grund);
+  border: 1px solid var(--rand);
+  border-radius: 10px;
+  padding: .7rem;
+  resize: vertical;
+}
+
+.fuss { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; margin-top: 1rem; }
+.fuss__text { color: var(--leise); font-size: .9rem; margin: .6rem 0 0; min-height: 1.2em; }
+
+.meldung { margin: 0 0 1rem; min-height: 1.2em; font-size: .95rem; }
+.meldung.fehler { color: #b3261e; font-weight: 600; }
+@media (prefers-color-scheme: dark) { .meldung.fehler { color: #ffb4ab; } }
+
+.hinweise { background: var(--warn-grund); border-color: var(--warn); }
+.hinweise h2 { color: var(--warn); }
+.hinweise ul { margin: .4rem 0 0; padding-left: 1.2rem; font-size: .9rem; }
+.hinweise li { margin-bottom: .25rem; }
+
+.liste { padding-left: 1.2rem; margin: 0 0 .4rem; color: var(--leise); font-size: .92rem; }
+.liste li { margin-bottom: .4rem; }
+.liste strong { color: var(--schrift); }
+.liste em { color: var(--schrift); font-style: normal; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .9em; }
+
+.fusszeile { padding-top: 1rem; font-size: .85rem; color: var(--leise); }

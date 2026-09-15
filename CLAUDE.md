@@ -1535,6 +1535,65 @@ Namens und lebt weiter.
   2026). Gefundene Daten werden am Ende chronologisch sortiert: „Ab 07.09. bis
   zum 18.09.2026" nennt das vollständige Datum hinten.
 
+## Projekt Textauszug (Web-App, PDF → Text)
+
+- Code: `textauszug/` — statische Web-App ohne Bauschritt (ES-Module, kein
+  Framework, keine fremde Bibliothek), wird vom Pages-Arbeitsablauf mit
+  ausgeliefert: https://katonid.github.io/prae/textauszug/
+  Holt den reinen Text aus einer PDF und schickt ihn in die Notizen.
+  Ausführlich: `textauszug/README.md`. Gebaut nach demselben Muster wie der
+  Terminkonverter (Manifest, `sw.js` mit `FASSUNG`, `scripts/generate-icons.py`,
+  `scripts/einzeldatei.py` — alle vier Punkte gelten hier genauso).
+- **Der PDF-Leser ist selbst geschrieben** (`js/pdf.js`, `js/schrift.js`,
+  `js/inhalt.js`). Keine Bibliothek nachladen: Das bräche Offlinebetrieb und
+  Datensparsamkeit — und pdf.js allein wiegt mehr als diese ganze App.
+- **Das Querverweis-Verzeichnis am Ende der PDF wird ABSICHTLICH nicht
+  gelesen.** Es ist die Stelle, die in freier Wildbahn am häufigsten kaputt ist
+  (abgeschnittene Downloads, Werkzeuge, die falsche Stellen schreiben), und
+  eine PDF mit falschem Verzeichnis öffnet jeder Betrachter trotzdem. Gesucht
+  wird die ganze Datei nach „N G obj" ab; die HINTERSTE Fassung eines Objekts
+  gewinnt (PDFs werden fortgeschrieben). Objektströme (`/ObjStm`, seit PDF 1.5
+  der Regelfall) werden zusätzlich ausgepackt — ohne sie fehlen Katalog,
+  Seiten und Schriften.
+- **Ein PDF kennt keine Zeilen und keine Wörter**, nur „setze diese Zeichen an
+  diese Stelle". Beides wird aus den STELLEN zurückgerechnet
+  (`zeilenBauen` in `js/inhalt.js`): gleiche Höhe = eine Zeile, Lücke > ein
+  Fünftel der Schrifthöhe = Leerzeichen. Dafür werden die Zeichenbreiten
+  (`/Widths`, `/W`, `/DW`) gelesen — ohne sie käme der Text ohne Leerzeichen
+  an. Eine große Vorrückung in einem `TJ`-Feld IST ein Leerzeichen: Viele
+  Erzeuger schreiben nie eines.
+- **Welcher Buchstabe hinter einer Zeichennummer steckt, sagt `/ToUnicode`** —
+  sonst die Kodierung samt `/Differences`, zuletzt WinAnsi. Ohne diesen Schritt
+  wird aus „für" Buchstabensalat. Bei einer Type0-Schrift ohne `/ToUnicode`
+  wird NICHTS geraten (`zuText` gibt leer zurück): Zwei-Byte-Codes ohne Tabelle
+  ergeben zufällige Zeichen, und ein falscher Text ist schlimmer als ein
+  fehlender.
+- **Eine Kopfzeile erkennt man am ABSTAND und an der GRÖSSE**, nicht an der
+  Position in der Zeilenliste (`randzeilen` in `js/aufbereiten.js`). Beide
+  Merkmale sind je einmal teuer gelernt worden: Nach Position allein fraß die
+  Prüfung in einem Text, der sich inhaltlich wiederholt, echten Inhalt; ohne
+  die Größenregel verlor ein Dokument, dessen Seiten je mit einer
+  Kapitelüberschrift beginnen, genau diese Überschriften. Der Zeilenabstand
+  wird als UNTERES VIERTEL der Abstände geschätzt, nicht als Mittelwert — auf
+  einer kurzen Seite zieht der Mittelwert die Schwelle so hoch, dass die
+  Kopfzeile darunter durchrutscht.
+- **Ein Absatz endet dort, wo eine Zeile VOR dem rechten Rand aufhört.** Das
+  ist das verlässlichste Merkmal für einen Umbruch, der keine Fortsetzung ist;
+  ohne es wachsen Aufzählungen und Grußformeln zu einem Klumpen zusammen. Die
+  Schwelle liegt bei einem halben Wort (`groesse * 3.4`) — enger gefasst
+  zerfiel ein Absatz in seine Zeilen.
+- **Geteilt wird TEXT, keine Datei** (`anNotizen` in `js/app.js`). Eine
+  geteilte Datei landet in den Notizen als Anhang, den man erst antippen muss;
+  geteilter Text steht als Notiz da. Genau darum geht es dem Nutzer (Ansage
+  09/2026). Kennt der Browser kein `navigator.share`, wird kopiert und das
+  gesagt — der Knopf darf nie stumm bleiben.
+- **Ein Scan enthält keinen Text**, sondern ein Bild davon. Die App sagt das
+  deutlich, statt eine leere Seite auszugeben; eine Texterkennung hat sie
+  nicht. Dasselbe gilt für kennwortgeschützte PDFs — dort steht der Weg
+  drumherum in der Meldung.
+- Die `.txt` wird wie beim Terminkonverter als `application/octet-stream`
+  ausgegeben (mit BOM, damit Windows-Editoren die Umlaute richtig lesen).
+
 ## Projekt Klassenraum (Web-App)
 
 - Code: `klassenraum/` — statische Web-App ohne Build-Schritt (ES-Module,
