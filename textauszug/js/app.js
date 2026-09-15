@@ -206,6 +206,41 @@ async function alsEpub() {
   }
 }
 
+// Eine über das Teilen-Blatt geschickte Datei liegt im Zwischenspeicher, den
+// der Service Worker gefüllt hat (siehe sw.js). Sie wird sofort abgeholt und
+// dann dort gelöscht: Beim nächsten Öffnen soll nicht das Dokument von
+// vorgestern erscheinen.
+async function geteilteDatei() {
+  const suche = new URLSearchParams(location.search);
+  if (!suche.has('geteilt')) return null;
+  history.replaceState(null, '', location.pathname);
+  if (suche.get('geteilt') === 'leer') {
+    sage('Es kam keine Datei an. Bitte im Teilen-Blatt eine PDF auswählen.', true);
+    return null;
+  }
+  try {
+    const speicher = await caches.open('textauszug-geteilt');
+    const antwort = await speicher.match('./geteilte-datei');
+    if (!antwort) return null;
+    await speicher.delete('./geteilte-datei');
+    const name = decodeURIComponent(antwort.headers.get('X-Dateiname') || 'geteilt.pdf');
+    return new File([await antwort.blob()], name, { type: 'application/pdf' });
+  } catch (fehler) {
+    return null;
+  }
+}
+
+// Eingefügte Datei (Strg+V / Cmd+V), wo der Browser sie hergibt. Auf dem
+// Rechner ist das der kürzeste Weg, auf iPhone und iPad gibt Safari eine PDF
+// aus der Zwischenablage nicht heraus — dann passiert hier schlicht nichts.
+window.addEventListener('paste', (ereignis) => {
+  const dateien = ereignis.clipboardData && ereignis.clipboardData.files;
+  if (dateien && dateien.length) {
+    ereignis.preventDefault();
+    verarbeiten(dateien[0]);
+  }
+});
+
 teil('waehlen').addEventListener('click', () => teil('datei').click());
 teil('datei').addEventListener('change', (e) => {
   verarbeiten(e.target.files[0]);
@@ -237,6 +272,10 @@ ablage.addEventListener('drop', (e) => {
 // Ohne das öffnet der Browser eine daneben abgelegte PDF einfach als Seite.
 window.addEventListener('dragover', (e) => e.preventDefault());
 window.addEventListener('drop', (e) => e.preventDefault());
+
+geteilteDatei().then((datei) => {
+  if (datei) verarbeiten(datei);
+});
 
 // Ohne Netz weiterhin startklar — und die Bedingung dafür, dass Android
 // „Installieren" anbietet.

@@ -172,7 +172,7 @@ textarea {
         <p class="feld__text">PDF hierher ziehen — oder auswählen.</p>
         <button type="button" id="waehlen">PDF auswählen</button>
         <input type="file" id="datei" accept="application/pdf,.pdf" hidden />
-        <p class="feld__klein">Die Datei bleibt auf diesem Gerät. Es wird nichts hochgeladen.</p>
+        <p class="feld__klein">Auch einfügen (Strg+V) geht. Die Datei bleibt auf diesem Gerät — es wird nichts hochgeladen.</p>
       </section>
 
       <p class="meldung" id="meldung" role="status" aria-live="polite"></p>
@@ -253,6 +253,12 @@ textarea {
           <li><strong>Kapitel</strong> entstehen an den Überschriften: Was in der PDF größer gesetzt war, wird eine Überschrift und steht im Inhaltsverzeichnis des Buches. Hat das Dokument keine, wird der Text in Abschnitte geteilt.</li>
           <li><strong>Titel und Verfasser</strong> stehen oben in den Einstellungen — sie landen in den Buchdaten, nach denen die Bücher-App sortiert.</li>
           <li><strong>iPhone/iPad:</strong> Die Datei landet in „Dateien"; ein Tipp darauf öffnet sie in Bücher. Auf dem Mac genügt ein Doppelklick.</li>
+        </ul>
+        <h2>Eine PDF direkt aus einer anderen App schicken</h2>
+        <ul class="liste">
+          <li><strong>Android:</strong> Nach dem Installieren steht der Textauszug im <em>Teilen</em>-Menü. Eine PDF in Mail, Drive oder den Dateien antippen → Teilen → <em>Textauszug</em>, und sie ist gelesen — ohne Umweg über den Speicher.</li>
+          <li><strong>iPhone und iPad:</strong> Das geht nicht, und zwar an Apple gelegen: Web-Apps dürfen dort nicht im Teilen-Blatt stehen. Der kurze Weg ist statt dessen <em>PDF auswählen</em> → <em>Durchsuchen</em>; dort liegen iCloud Drive, Mail-Anhänge und alle Ordner der Dateien-App, ohne dass etwas kopiert werden muss. Auf dem iPad geht auch: App und Dateien nebeneinander öffnen und die PDF auf das gestrichelte Feld ziehen.</li>
+          <li><strong>Rechner:</strong> PDF ins Fenster ziehen — oder in der Ablage kopieren und hier mit Strg&nbsp;+&nbsp;V (Mac: Cmd&nbsp;+&nbsp;V) einfügen.</li>
         </ul>
         <h2>Auf dem Rechner und auf dem Homescreen</h2>
         <ul class="liste">
@@ -2611,6 +2617,41 @@ async function alsEpub() {
   }
 }
 
+// Eine über das Teilen-Blatt geschickte Datei liegt im Zwischenspeicher, den
+// der Service Worker gefüllt hat (siehe sw.js). Sie wird sofort abgeholt und
+// dann dort gelöscht: Beim nächsten Öffnen soll nicht das Dokument von
+// vorgestern erscheinen.
+async function geteilteDatei() {
+  const suche = new URLSearchParams(location.search);
+  if (!suche.has('geteilt')) return null;
+  history.replaceState(null, '', location.pathname);
+  if (suche.get('geteilt') === 'leer') {
+    sage('Es kam keine Datei an. Bitte im Teilen-Blatt eine PDF auswählen.', true);
+    return null;
+  }
+  try {
+    const speicher = await caches.open('textauszug-geteilt');
+    const antwort = await speicher.match('./geteilte-datei');
+    if (!antwort) return null;
+    await speicher.delete('./geteilte-datei');
+    const name = decodeURIComponent(antwort.headers.get('X-Dateiname') || 'geteilt.pdf');
+    return new File([await antwort.blob()], name, { type: 'application/pdf' });
+  } catch (fehler) {
+    return null;
+  }
+}
+
+// Eingefügte Datei (Strg+V / Cmd+V), wo der Browser sie hergibt. Auf dem
+// Rechner ist das der kürzeste Weg, auf iPhone und iPad gibt Safari eine PDF
+// aus der Zwischenablage nicht heraus — dann passiert hier schlicht nichts.
+window.addEventListener('paste', (ereignis) => {
+  const dateien = ereignis.clipboardData && ereignis.clipboardData.files;
+  if (dateien && dateien.length) {
+    ereignis.preventDefault();
+    verarbeiten(dateien[0]);
+  }
+});
+
 teil('waehlen').addEventListener('click', () => teil('datei').click());
 teil('datei').addEventListener('change', (e) => {
   verarbeiten(e.target.files[0]);
@@ -2642,6 +2683,10 @@ ablage.addEventListener('drop', (e) => {
 // Ohne das öffnet der Browser eine daneben abgelegte PDF einfach als Seite.
 window.addEventListener('dragover', (e) => e.preventDefault());
 window.addEventListener('drop', (e) => e.preventDefault());
+
+geteilteDatei().then((datei) => {
+  if (datei) verarbeiten(datei);
+});
 
 // Ohne Netz weiterhin startklar — und die Bedingung dafür, dass Android
 // „Installieren" anbietet.

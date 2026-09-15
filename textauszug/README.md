@@ -21,6 +21,21 @@ Geteilt wird **Text, keine Datei** — eine geteilte Datei landet in den Notizen
 als Anhang, den man erst antippen muss. Die erste Zeile wird in den Notizen zur
 Überschrift; deshalb setzt die App auf Wunsch den Dateinamen davor.
 
+## Eine PDF direkt aus einer anderen App schicken
+
+- **Android:** Die installierte App steht im *Teilen*-Menü (`share_target` im
+  Manifest). Das Betriebssystem schickt die Datei als POST an `./teilen`; eine
+  Seite kann so etwas nicht entgegennehmen, der Service Worker schon. Er legt
+  sie in einen eigenen Zwischenspeicher und leitet auf `./?geteilt=1` um, wo die
+  App sie abholt und sofort wieder löscht.
+- **iPhone und iPad:** Nicht möglich — Apple lässt Web-Apps nicht ins
+  Teilen-Blatt (Web Share Target wird in Safari nicht unterstützt). Der kurze
+  Weg dort ist der Dateiwähler der App: Er öffnet iCloud Drive, Mail-Anhänge
+  und alle Ordner der Dateien-App, ohne dass etwas kopiert werden muss. Auf dem
+  iPad geht zusätzlich Ziehen aus der Dateien-App.
+- **Rechner:** Ziehen ins Fenster, oder Datei kopieren und mit Strg/Cmd + V
+  einfügen.
+
 ## Die EPUB-Datei
 
 Aus dem Text wird auf Wunsch ein E-Book. Das lohnt sich für lange Dokumente: Im

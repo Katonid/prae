@@ -1622,6 +1622,17 @@ Namens und lebt weiter.
   Ersatzzeichen, die Zeichenklasse wurde ungültig, und die ganze App blieb
   stumm. Wer eine Datei über ein Werkzeug schreibt, das JSON-Escapes auflöst,
   prüft danach auf echte Steuerzeichen.
+- **Der Eintrag im Teilen-Blatt gibt es nur auf Android** (`share_target` im
+  Manifest, POST-Zweig in `sw.js`). Apple unterstützt Web Share Target NICHT —
+  eine Web-App kann auf iPhone und iPad nicht im Teilen-Blatt stehen, egal wie
+  sie installiert ist. Das nie anders darstellen; der Weg dort ist der
+  Dateiwähler (er öffnet iCloud Drive und Mail-Anhänge ohne Kopie) und auf dem
+  iPad das Ziehen. Die geteilte Datei kann nur der Service Worker annehmen,
+  eine Seite nicht: Er legt sie in einen EIGENEN Zwischenspeicher
+  (`textauszug-geteilt`, beim Aufräumen ausgenommen) und leitet mit 303 auf
+  `./?geteilt=1` um — ohne Umleitung stünde der Nutzer vor einer Antwortseite,
+  die es nicht gibt. Die App holt sie dort ab und LÖSCHT sie sofort, sonst
+  erschiene beim nächsten Öffnen das Dokument von vorgestern.
 - **Ein Scan enthält keinen Text**, sondern ein Bild davon. Die App sagt das
   deutlich, statt eine leere Seite auszugeben; eine Texterkennung hat sie
   nicht. Dasselbe gilt für kennwortgeschützte PDFs — dort steht der Weg
