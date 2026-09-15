@@ -88,6 +88,16 @@ async function verarbeiten(datei) {
 
   try {
     const puffer = await datei.arrayBuffer();
+    // Was der Dateiwähler ankündigt und was wirklich ankommt, ist nicht
+    // dasselbe: Eine Datei, die in iCloud noch nicht geladen ist, kommt leer
+    // oder halb an. Ohne diese Prüfung meldete die App „das ist keine
+    // PDF-Datei" — und schob die Schuld auf eine tadellose Datei (09/2026).
+    if (datei.size && puffer.byteLength < datei.size) {
+      throw new Error(`Von ${Math.round(datei.size / 1024)} KB sind nur `
+        + `${Math.round(puffer.byteLength / 1024)} KB angekommen. Liegt die Datei in iCloud, `
+        + 'ist sie vielleicht noch nicht geladen: in der Dateien-App einmal antippen, bis das '
+        + 'Wolkensymbol verschwindet, dann hier erneut auswählen.');
+    }
     const ergebnis = await seitenLesen(puffer, (nummer, gesamt) => {
       if (gesamt > 8 && nummer % 5 === 0) sage(`${datei.name}: Seite ${nummer} von ${gesamt} …`);
     });
@@ -196,6 +206,41 @@ async function alsEpub() {
   }
 }
 
+// Eine über das Teilen-Blatt geschickte Datei liegt im Zwischenspeicher, den
+// der Service Worker gefüllt hat (siehe sw.js). Sie wird sofort abgeholt und
+// dann dort gelöscht: Beim nächsten Öffnen soll nicht das Dokument von
+// vorgestern erscheinen.
+async function geteilteDatei() {
+  const suche = new URLSearchParams(location.search);
+  if (!suche.has('geteilt')) return null;
+  history.replaceState(null, '', location.pathname);
+  if (suche.get('geteilt') === 'leer') {
+    sage('Es kam keine Datei an. Bitte im Teilen-Blatt eine PDF auswählen.', true);
+    return null;
+  }
+  try {
+    const speicher = await caches.open('textauszug-geteilt');
+    const antwort = await speicher.match('./geteilte-datei');
+    if (!antwort) return null;
+    await speicher.delete('./geteilte-datei');
+    const name = decodeURIComponent(antwort.headers.get('X-Dateiname') || 'geteilt.pdf');
+    return new File([await antwort.blob()], name, { type: 'application/pdf' });
+  } catch (fehler) {
+    return null;
+  }
+}
+
+// Eingefügte Datei (Strg+V / Cmd+V), wo der Browser sie hergibt. Auf dem
+// Rechner ist das der kürzeste Weg, auf iPhone und iPad gibt Safari eine PDF
+// aus der Zwischenablage nicht heraus — dann passiert hier schlicht nichts.
+window.addEventListener('paste', (ereignis) => {
+  const dateien = ereignis.clipboardData && ereignis.clipboardData.files;
+  if (dateien && dateien.length) {
+    ereignis.preventDefault();
+    verarbeiten(dateien[0]);
+  }
+});
+
 teil('waehlen').addEventListener('click', () => teil('datei').click());
 teil('datei').addEventListener('change', (e) => {
   verarbeiten(e.target.files[0]);
@@ -227,6 +272,10 @@ ablage.addEventListener('drop', (e) => {
 // Ohne das öffnet der Browser eine daneben abgelegte PDF einfach als Seite.
 window.addEventListener('dragover', (e) => e.preventDefault());
 window.addEventListener('drop', (e) => e.preventDefault());
+
+geteilteDatei().then((datei) => {
+  if (datei) verarbeiten(datei);
+});
 
 // Ohne Netz weiterhin startklar — und die Bedingung dafür, dass Android
 // „Installieren" anbietet.

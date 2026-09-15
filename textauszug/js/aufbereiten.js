@@ -20,16 +20,22 @@ function schluessel(text) {
 // Tabellen, Serienbriefe), sieht echter Inhalt wie eine Kopfzeile aus, und die
 // App strich ihn weg. Eine Kopfzeile erkennt man am ABSTAND: Zwischen ihr und
 // dem Text klafft eine Lücke, die größer ist als der Zeilenabstand.
-function randzeilen(zeilen) {
-  if (zeilen.length < 4) return new Set();
+// Der Zeilenabstand INNERHALB eines Absatzes: der kleine, häufige Abstand —
+// nicht der mittlere. Auf einer kurzen Seite (Überschrift, zwei Absätze,
+// Fußzeile) zöge der Mittelwert jede Schwelle zu weit hoch. Deshalb das
+// untere Viertel.
+function zeilenabstand(zeilen) {
+  if (zeilen.length < 3) return null;
   const abstaende = [];
   for (let i = 0; i + 1 < zeilen.length; i++) abstaende.push(zeilen[i].y - zeilen[i + 1].y);
-  // Gesucht ist der Zeilenabstand INNERHALB eines Absatzes, also der kleine,
-  // häufige Abstand — nicht der mittlere. Auf einer kurzen Seite (Überschrift,
-  // zwei Absätze, Fußzeile) zieht der Mittelwert die Schwelle so weit hoch,
-  // dass die Kopfzeile darunter durchrutscht. Deshalb das untere Viertel.
-  const sortiert = abstaende.slice().sort((a, b) => a - b);
-  const typisch = sortiert[Math.floor(sortiert.length * 0.25)] || 1;
+  const sortiert = abstaende.filter((a) => a > 0).sort((a, b) => a - b);
+  if (!sortiert.length) return null;
+  return sortiert[Math.floor(sortiert.length * 0.25)] || null;
+}
+
+function randzeilen(zeilen) {
+  if (zeilen.length < 4) return new Set();
+  const typisch = zeilenabstand(zeilen) || 1;
   const rand = new Set();
 
   for (let i = 0; i < 2 && i + 1 < zeilen.length; i++) {
@@ -116,6 +122,12 @@ function absaetzeBauen(zeilen, zusammenfuehren) {
   // erkennt man einen Zeilenumbruch, der KEINER Fortsetzung dient. Ohne das
   // wachsen Aufzählungen und Grußformeln zu einem Klumpen zusammen.
   const randRechts = zeilen.reduce((groesster, zeile) => Math.max(groesster, zeile.bis || 0), 0);
+  // Womit der senkrechte Abstand verglichen wird, entscheidet alles: Ein
+  // Kinderbuch setzt 16 Punkt Schrift mit 37 Punkt Zeilenabstand. An der
+  // Schriftgröße gemessen wäre dort JEDE Zeile ein neuer Absatz (gefunden
+  // 09/2026 an „Caesar und Zombie"). Gemessen wird deshalb am Zeilenabstand
+  // der Seite selbst; nur wenn der nicht zu ermitteln ist, zählt die Schrift.
+  const abstandSeite = zeilenabstand(zeilen);
 
   let groesste = 0;
   const schliessen = () => {
@@ -131,15 +143,16 @@ function absaetzeBauen(zeilen, zusammenfuehren) {
     if (vorige) {
       const abstand = vorige.y - zeile.y;
       const zeilenhoehe = Math.max(vorige.groesse, zeile.groesse, 1);
-      // Mehr als anderthalb Zeilenhöhen Abstand: neuer Absatz. Ein deutlicher
-      // Sprung nach rechts (Einzug) oder eine größere Schrift ebenfalls.
-      if (abstand > zeilenhoehe * 1.55) neuerAbsatz = true;
+      const schwelle = abstandSeite ? abstandSeite * 1.45 : zeilenhoehe * 1.55;
+      // Deutlich mehr Luft als zwischen zwei Zeilen desselben Absatzes:
+      // neuer Absatz. Eine größere Schrift ebenfalls.
+      if (abstand > schwelle) neuerAbsatz = true;
       if (zeile.groesse > vorige.groesse * 1.25) neuerAbsatz = true;
       if (!zusammenfuehren) neuerAbsatz = true;
       // Aufzählungen bleiben eigene Zeilen.
       if (/^[-•·*•–]\s|^\d{1,2}[.)]\s/.test(text)) neuerAbsatz = true;
       if (vorige.aufzaehlung && zusammenfuehren && !neuerAbsatz) {
-        neuerAbsatz = abstand > zeilenhoehe * 1.2;
+        neuerAbsatz = abstand > (abstandSeite ? abstandSeite * 1.15 : zeilenhoehe * 1.2);
       }
     }
 

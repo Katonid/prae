@@ -21,6 +21,21 @@ Geteilt wird **Text, keine Datei** — eine geteilte Datei landet in den Notizen
 als Anhang, den man erst antippen muss. Die erste Zeile wird in den Notizen zur
 Überschrift; deshalb setzt die App auf Wunsch den Dateinamen davor.
 
+## Eine PDF direkt aus einer anderen App schicken
+
+- **Android:** Die installierte App steht im *Teilen*-Menü (`share_target` im
+  Manifest). Das Betriebssystem schickt die Datei als POST an `./teilen`; eine
+  Seite kann so etwas nicht entgegennehmen, der Service Worker schon. Er legt
+  sie in einen eigenen Zwischenspeicher und leitet auf `./?geteilt=1` um, wo die
+  App sie abholt und sofort wieder löscht.
+- **iPhone und iPad:** Nicht möglich — Apple lässt Web-Apps nicht ins
+  Teilen-Blatt (Web Share Target wird in Safari nicht unterstützt). Der kurze
+  Weg dort ist der Dateiwähler der App: Er öffnet iCloud Drive, Mail-Anhänge
+  und alle Ordner der Dateien-App, ohne dass etwas kopiert werden muss. Auf dem
+  iPad geht zusätzlich Ziehen aus der Dateien-App.
+- **Rechner:** Ziehen ins Fenster, oder Datei kopieren und mit Strg/Cmd + V
+  einfügen.
+
 ## Die EPUB-Datei
 
 Aus dem Text wird auf Wunsch ein E-Book. Das lohnt sich für lange Dokumente: Im
@@ -62,6 +77,9 @@ im Feld lässt sich vor dem Weitergeben von Hand kürzen.
   auszugeben.
 - **Kennwortgeschützte PDFs** lassen sich nicht lesen; die App meldet das mit
   dem Weg drumherum (einmal ohne Schutz sichern).
+- **Eine Datei, die leer oder halb ankommt**, meldet die App als das, was sie
+  ist — mit der Zahl der Bytes und dem Hinweis auf iCloud. Sie schiebt die
+  Schuld nicht auf eine tadellose PDF.
 - **Tabellen und Spalten** kommen als Text an, aber ohne ihre Form.
 
 ## Wie es gebaut ist
@@ -98,6 +116,10 @@ Vier Stellen, an denen es leicht schiefgeht:
 - **Im EPUB muss „mimetype" der erste Eintrag des ZIP sein und ungepackt
   abgelegt werden.** Daran erkennen Lesegeräte das Format, ohne das Archiv zu
   öffnen. Gepackt oder an zweiter Stelle gilt die Datei als beschädigt.
+- **Der senkrechte Abstand wird am Zeilenabstand DER SEITE gemessen, nicht an
+  der Schriftgröße.** Ein Kinderbuch setzt 16 Punkt Schrift mit 37 Punkt
+  Zeilenabstand; an der Schrift gemessen wäre dort jede Zeile ein eigener
+  Absatz.
 - **Eine Kopfzeile erkennt man am Abstand und an der Größe**, nicht an der
   Position in der Liste: über ihr klafft eine Lücke, und sie ist nie größer als
   der Fließtext. Ohne diese beiden Merkmale verliert ein Dokument mit

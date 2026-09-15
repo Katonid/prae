@@ -1568,6 +1568,21 @@ Namens und lebt weiter.
   wird NICHTS geraten (`zuText` gibt leer zurück): Zwei-Byte-Codes ohne Tabelle
   ergeben zufällige Zeichen, und ein falscher Text ist schlimmer als ein
   fehlender.
+- **Der senkrechte Abstand wird am ZEILENABSTAND DER SEITE gemessen, nicht an
+  der Schriftgröße** (`zeilenabstand` in `js/aufbereiten.js`, gefunden 09/2026
+  an „Caesar und Zombie"). Ein Kinderbuch setzt 16 Punkt Schrift mit 37 Punkt
+  Zeilenabstand; an der Schrift gemessen war dort JEDE Zeile ein eigener
+  Absatz, und aus einem Kapitel wurden 300 Einzeiler. Dieselbe Schätzung
+  (unteres Viertel der Abstände) dient der Kopfzeilenerkennung — zwei
+  Fassungen liefen garantiert auseinander.
+- **Wer eine Datei nicht lesen kann, sagt WAS ankam — und schiebt die Schuld
+  nicht auf die Datei** (gemeldet 09/2026: „Das ist keine PDF-Datei" über einer
+  tadellosen PDF). Auf iPhone und iPad liegt eine Datei aus iCloud oft nur in
+  der Wolke; der Dateiwähler meldet sie mit voller Größe, `arrayBuffer()`
+  liefert aber nichts. Deshalb vergleicht `verarbeiten` `datei.size` mit dem,
+  was wirklich ankam, und `pdfLesen` nennt bei fehlendem Kopf die Dateigröße
+  und die ersten Zeichen. Gesucht wird der Kopf zudem in der GANZEN Datei:
+  Manche Werkzeuge stellen einer PDF etwas voran.
 - **Eine Kopfzeile erkennt man am ABSTAND und an der GRÖSSE**, nicht an der
   Position in der Zeilenliste (`randzeilen` in `js/aufbereiten.js`). Beide
   Merkmale sind je einmal teuer gelernt worden: Nach Position allein fraß die
@@ -1607,6 +1622,17 @@ Namens und lebt weiter.
   Ersatzzeichen, die Zeichenklasse wurde ungültig, und die ganze App blieb
   stumm. Wer eine Datei über ein Werkzeug schreibt, das JSON-Escapes auflöst,
   prüft danach auf echte Steuerzeichen.
+- **Der Eintrag im Teilen-Blatt gibt es nur auf Android** (`share_target` im
+  Manifest, POST-Zweig in `sw.js`). Apple unterstützt Web Share Target NICHT —
+  eine Web-App kann auf iPhone und iPad nicht im Teilen-Blatt stehen, egal wie
+  sie installiert ist. Das nie anders darstellen; der Weg dort ist der
+  Dateiwähler (er öffnet iCloud Drive und Mail-Anhänge ohne Kopie) und auf dem
+  iPad das Ziehen. Die geteilte Datei kann nur der Service Worker annehmen,
+  eine Seite nicht: Er legt sie in einen EIGENEN Zwischenspeicher
+  (`textauszug-geteilt`, beim Aufräumen ausgenommen) und leitet mit 303 auf
+  `./?geteilt=1` um — ohne Umleitung stünde der Nutzer vor einer Antwortseite,
+  die es nicht gibt. Die App holt sie dort ab und LÖSCHT sie sofort, sonst
+  erschiene beim nächsten Öffnen das Dokument von vorgestern.
 - **Ein Scan enthält keinen Text**, sondern ein Bild davon. Die App sagt das
   deutlich, statt eine leere Seite auszugeben; eine Texterkennung hat sie
   nicht. Dasselbe gilt für kennwortgeschützte PDFs — dort steht der Weg
