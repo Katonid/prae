@@ -88,6 +88,16 @@ async function verarbeiten(datei) {
 
   try {
     const puffer = await datei.arrayBuffer();
+    // Was der Dateiwähler ankündigt und was wirklich ankommt, ist nicht
+    // dasselbe: Eine Datei, die in iCloud noch nicht geladen ist, kommt leer
+    // oder halb an. Ohne diese Prüfung meldete die App „das ist keine
+    // PDF-Datei" — und schob die Schuld auf eine tadellose Datei (09/2026).
+    if (datei.size && puffer.byteLength < datei.size) {
+      throw new Error(`Von ${Math.round(datei.size / 1024)} KB sind nur `
+        + `${Math.round(puffer.byteLength / 1024)} KB angekommen. Liegt die Datei in iCloud, `
+        + 'ist sie vielleicht noch nicht geladen: in der Dateien-App einmal antippen, bis das '
+        + 'Wolkensymbol verschwindet, dann hier erneut auswählen.');
+    }
     const ergebnis = await seitenLesen(puffer, (nummer, gesamt) => {
       if (gesamt > 8 && nummer % 5 === 0) sage(`${datei.name}: Seite ${nummer} von ${gesamt} …`);
     });

@@ -600,9 +600,20 @@ export class Dokument {
 
 export async function pdfLesen(puffer) {
   const daten = new Uint8Array(puffer);
-  const kopf = koder.decode(daten.subarray(0, Math.min(1024, daten.length)));
-  if (!kopf.includes('%PDF-')) {
-    throw new Error('Das ist keine PDF-Datei — der Kopf „%PDF-" fehlt.');
+  if (!daten.length) {
+    throw new Error('Die Datei kam leer an — es waren null Bytes zu lesen. Auf iPhone und '
+      + 'iPad liegt eine Datei aus iCloud oft nur in der Wolke: in der Dateien-App einmal '
+      + 'antippen, bis das Wolkensymbol verschwindet, dann hier erneut auswählen.');
+  }
+  // Gesucht wird der Kopf in der GANZEN Datei, nicht nur am Anfang: Manche
+  // Werkzeuge stellen einer PDF etwas voran (Mailvorspann, Serverantwort), und
+  // jeder Betrachter öffnet sie trotzdem.
+  if (suche(daten, Uint8Array.from('%PDF-', (z) => z.charCodeAt(0))) < 0) {
+    const anfang = koder.decode(daten.subarray(0, 8)).replace(/[^\x20-\x7e]/g, '.');
+    const art = daten[0] === 0x50 && daten[1] === 0x4b ? ' Das sieht nach einer ZIP-, Word-'
+      + ' oder EPUB-Datei aus.' : '';
+    throw new Error(`Das ist keine PDF-Datei — der Kopf „%PDF-" fehlt.${art} `
+      + `Die Datei ist ${Math.round(daten.length / 1024)} KB groß und beginnt mit „${anfang}".`);
   }
   const dokument = new Dokument(daten);
   dokument.objekteSuchen();

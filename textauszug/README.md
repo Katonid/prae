@@ -62,6 +62,9 @@ im Feld lässt sich vor dem Weitergeben von Hand kürzen.
   auszugeben.
 - **Kennwortgeschützte PDFs** lassen sich nicht lesen; die App meldet das mit
   dem Weg drumherum (einmal ohne Schutz sichern).
+- **Eine Datei, die leer oder halb ankommt**, meldet die App als das, was sie
+  ist — mit der Zahl der Bytes und dem Hinweis auf iCloud. Sie schiebt die
+  Schuld nicht auf eine tadellose PDF.
 - **Tabellen und Spalten** kommen als Text an, aber ohne ihre Form.
 
 ## Wie es gebaut ist
@@ -98,6 +101,10 @@ Vier Stellen, an denen es leicht schiefgeht:
 - **Im EPUB muss „mimetype" der erste Eintrag des ZIP sein und ungepackt
   abgelegt werden.** Daran erkennen Lesegeräte das Format, ohne das Archiv zu
   öffnen. Gepackt oder an zweiter Stelle gilt die Datei als beschädigt.
+- **Der senkrechte Abstand wird am Zeilenabstand DER SEITE gemessen, nicht an
+  der Schriftgröße.** Ein Kinderbuch setzt 16 Punkt Schrift mit 37 Punkt
+  Zeilenabstand; an der Schrift gemessen wäre dort jede Zeile ein eigener
+  Absatz.
 - **Eine Kopfzeile erkennt man am Abstand und an der Größe**, nicht an der
   Position in der Liste: über ihr klafft eine Lücke, und sie ist nie größer als
   der Fließtext. Ohne diese beiden Merkmale verliert ein Dokument mit

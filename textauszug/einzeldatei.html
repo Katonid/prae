@@ -1058,9 +1058,20 @@ class Dokument {
 
 async function pdfLesen(puffer) {
   const daten = new Uint8Array(puffer);
-  const kopf = koder.decode(daten.subarray(0, Math.min(1024, daten.length)));
-  if (!kopf.includes('%PDF-')) {
-    throw new Error('Das ist keine PDF-Datei — der Kopf „%PDF-" fehlt.');
+  if (!daten.length) {
+    throw new Error('Die Datei kam leer an — es waren null Bytes zu lesen. Auf iPhone und '
+      + 'iPad liegt eine Datei aus iCloud oft nur in der Wolke: in der Dateien-App einmal '
+      + 'antippen, bis das Wolkensymbol verschwindet, dann hier erneut auswählen.');
+  }
+  // Gesucht wird der Kopf in der GANZEN Datei, nicht nur am Anfang: Manche
+  // Werkzeuge stellen einer PDF etwas voran (Mailvorspann, Serverantwort), und
+  // jeder Betrachter öffnet sie trotzdem.
+  if (suche(daten, Uint8Array.from('%PDF-', (z) => z.charCodeAt(0))) < 0) {
+    const anfang = koder.decode(daten.subarray(0, 8)).replace(/[^\x20-\x7e]/g, '.');
+    const art = daten[0] === 0x50 && daten[1] === 0x4b ? ' Das sieht nach einer ZIP-, Word-'
+      + ' oder EPUB-Datei aus.' : '';
+    throw new Error(`Das ist keine PDF-Datei — der Kopf „%PDF-" fehlt.${art} `
+      + `Die Datei ist ${Math.round(daten.length / 1024)} KB groß und beginnt mit „${anfang}".`);
   }
   const dokument = new Dokument(daten);
   dokument.objekteSuchen();
@@ -1766,16 +1777,22 @@ function schluessel(text) {
 // Tabellen, Serienbriefe), sieht echter Inhalt wie eine Kopfzeile aus, und die
 // App strich ihn weg. Eine Kopfzeile erkennt man am ABSTAND: Zwischen ihr und
 // dem Text klafft eine Lücke, die größer ist als der Zeilenabstand.
-function randzeilen(zeilen) {
-  if (zeilen.length < 4) return new Set();
+// Der Zeilenabstand INNERHALB eines Absatzes: der kleine, häufige Abstand —
+// nicht der mittlere. Auf einer kurzen Seite (Überschrift, zwei Absätze,
+// Fußzeile) zöge der Mittelwert jede Schwelle zu weit hoch. Deshalb das
+// untere Viertel.
+function zeilenabstand(zeilen) {
+  if (zeilen.length < 3) return null;
   const abstaende = [];
   for (let i = 0; i + 1 < zeilen.length; i++) abstaende.push(zeilen[i].y - zeilen[i + 1].y);
-  // Gesucht ist der Zeilenabstand INNERHALB eines Absatzes, also der kleine,
-  // häufige Abstand — nicht der mittlere. Auf einer kurzen Seite (Überschrift,
-  // zwei Absätze, Fußzeile) zieht der Mittelwert die Schwelle so weit hoch,
-  // dass die Kopfzeile darunter durchrutscht. Deshalb das untere Viertel.
-  const sortiert = abstaende.slice().sort((a, b) => a - b);
-  const typisch = sortiert[Math.floor(sortiert.length * 0.25)] || 1;
+  const sortiert = abstaende.filter((a) => a > 0).sort((a, b) => a - b);
+  if (!sortiert.length) return null;
+  return sortiert[Math.floor(sortiert.length * 0.25)] || null;
+}
+
+function randzeilen(zeilen) {
+  if (zeilen.length < 4) return new Set();
+  const typisch = zeilenabstand(zeilen) || 1;
   const rand = new Set();
 
   for (let i = 0; i < 2 && i + 1 < zeilen.length; i++) {
@@ -1862,6 +1879,12 @@ function absaetzeBauen(zeilen, zusammenfuehren) {
   // erkennt man einen Zeilenumbruch, der KEINER Fortsetzung dient. Ohne das
   // wachsen Aufzählungen und Grußformeln zu einem Klumpen zusammen.
   const randRechts = zeilen.reduce((groesster, zeile) => Math.max(groesster, zeile.bis || 0), 0);
+  // Womit der senkrechte Abstand verglichen wird, entscheidet alles: Ein
+  // Kinderbuch setzt 16 Punkt Schrift mit 37 Punkt Zeilenabstand. An der
+  // Schriftgröße gemessen wäre dort JEDE Zeile ein neuer Absatz (gefunden
+  // 09/2026 an „Caesar und Zombie"). Gemessen wird deshalb am Zeilenabstand
+  // der Seite selbst; nur wenn der nicht zu ermitteln ist, zählt die Schrift.
+  const abstandSeite = zeilenabstand(zeilen);
 
   let groesste = 0;
   const schliessen = () => {
@@ -1877,15 +1900,16 @@ function absaetzeBauen(zeilen, zusammenfuehren) {
     if (vorige) {
       const abstand = vorige.y - zeile.y;
       const zeilenhoehe = Math.max(vorige.groesse, zeile.groesse, 1);
-      // Mehr als anderthalb Zeilenhöhen Abstand: neuer Absatz. Ein deutlicher
-      // Sprung nach rechts (Einzug) oder eine größere Schrift ebenfalls.
-      if (abstand > zeilenhoehe * 1.55) neuerAbsatz = true;
+      const schwelle = abstandSeite ? abstandSeite * 1.45 : zeilenhoehe * 1.55;
+      // Deutlich mehr Luft als zwischen zwei Zeilen desselben Absatzes:
+      // neuer Absatz. Eine größere Schrift ebenfalls.
+      if (abstand > schwelle) neuerAbsatz = true;
       if (zeile.groesse > vorige.groesse * 1.25) neuerAbsatz = true;
       if (!zusammenfuehren) neuerAbsatz = true;
       // Aufzählungen bleiben eigene Zeilen.
       if (/^[-•·*•–]\s|^\d{1,2}[.)]\s/.test(text)) neuerAbsatz = true;
       if (vorige.aufzaehlung && zusammenfuehren && !neuerAbsatz) {
-        neuerAbsatz = abstand > zeilenhoehe * 1.2;
+        neuerAbsatz = abstand > (abstandSeite ? abstandSeite * 1.15 : zeilenhoehe * 1.2);
       }
     }
 
@@ -2469,6 +2493,16 @@ async function verarbeiten(datei) {
 
   try {
     const puffer = await datei.arrayBuffer();
+    // Was der Dateiwähler ankündigt und was wirklich ankommt, ist nicht
+    // dasselbe: Eine Datei, die in iCloud noch nicht geladen ist, kommt leer
+    // oder halb an. Ohne diese Prüfung meldete die App „das ist keine
+    // PDF-Datei" — und schob die Schuld auf eine tadellose Datei (09/2026).
+    if (datei.size && puffer.byteLength < datei.size) {
+      throw new Error(`Von ${Math.round(datei.size / 1024)} KB sind nur `
+        + `${Math.round(puffer.byteLength / 1024)} KB angekommen. Liegt die Datei in iCloud, `
+        + 'ist sie vielleicht noch nicht geladen: in der Dateien-App einmal antippen, bis das '
+        + 'Wolkensymbol verschwindet, dann hier erneut auswählen.');
+    }
     const ergebnis = await seitenLesen(puffer, (nummer, gesamt) => {
       if (gesamt > 8 && nummer % 5 === 0) sage(`${datei.name}: Seite ${nummer} von ${gesamt} …`);
     });

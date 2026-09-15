@@ -1568,6 +1568,21 @@ Namens und lebt weiter.
   wird NICHTS geraten (`zuText` gibt leer zurück): Zwei-Byte-Codes ohne Tabelle
   ergeben zufällige Zeichen, und ein falscher Text ist schlimmer als ein
   fehlender.
+- **Der senkrechte Abstand wird am ZEILENABSTAND DER SEITE gemessen, nicht an
+  der Schriftgröße** (`zeilenabstand` in `js/aufbereiten.js`, gefunden 09/2026
+  an „Caesar und Zombie"). Ein Kinderbuch setzt 16 Punkt Schrift mit 37 Punkt
+  Zeilenabstand; an der Schrift gemessen war dort JEDE Zeile ein eigener
+  Absatz, und aus einem Kapitel wurden 300 Einzeiler. Dieselbe Schätzung
+  (unteres Viertel der Abstände) dient der Kopfzeilenerkennung — zwei
+  Fassungen liefen garantiert auseinander.
+- **Wer eine Datei nicht lesen kann, sagt WAS ankam — und schiebt die Schuld
+  nicht auf die Datei** (gemeldet 09/2026: „Das ist keine PDF-Datei" über einer
+  tadellosen PDF). Auf iPhone und iPad liegt eine Datei aus iCloud oft nur in
+  der Wolke; der Dateiwähler meldet sie mit voller Größe, `arrayBuffer()`
+  liefert aber nichts. Deshalb vergleicht `verarbeiten` `datei.size` mit dem,
+  was wirklich ankam, und `pdfLesen` nennt bei fehlendem Kopf die Dateigröße
+  und die ersten Zeichen. Gesucht wird der Kopf zudem in der GANZEN Datei:
+  Manche Werkzeuge stellen einer PDF etwas voran.
 - **Eine Kopfzeile erkennt man am ABSTAND und an der GRÖSSE**, nicht an der
   Position in der Zeilenliste (`randzeilen` in `js/aufbereiten.js`). Beide
   Merkmale sind je einmal teuer gelernt worden: Nach Position allein fraß die
