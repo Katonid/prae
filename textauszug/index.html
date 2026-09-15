@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Textauszug — Text aus PDF holen</title>
+    <meta name="description" content="Holt den reinen Text aus einer PDF-Datei und schickt ihn in die Notizen, in die Zwischenablage oder in eine Textdatei. Läuft ganz im Browser." />
+    <meta name="color-scheme" content="light dark" />
+    <link rel="icon" type="image/png" sizes="32x32" href="./icons/icon-32.png" />
+    <link rel="icon" type="image/svg+xml" href="./icons/icon.svg" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <meta name="theme-color" content="#0f766e" />
+    <!-- iOS liest das Manifest für den Homescreen nicht zuverlässig; es nimmt
+         apple-touch-icon. Fehlt eines, zeigt es einen Schnappschuss der Seite. -->
+    <link rel="apple-touch-icon" sizes="180x180" href="./icons/icon-180.png" />
+    <link rel="apple-touch-icon" sizes="167x167" href="./icons/icon-167.png" />
+    <link rel="apple-touch-icon" sizes="152x152" href="./icons/icon-152.png" />
+    <link rel="apple-touch-icon" sizes="120x120" href="./icons/icon-120.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Textauszug" />
+    <link rel="stylesheet" href="./css/style.css" />
+  </head>
+  <body>
+    <header class="kopf">
+      <h1>Textauszug</h1>
+      <p>PDF hinein, reiner Text heraus — und von dort mit einem Tipp in die <strong>Notizen</strong>.</p>
+    </header>
+
+    <main>
+      <section class="feld" id="ablage" aria-label="Datei auswählen">
+        <p class="feld__zeichen" aria-hidden="true">📄</p>
+        <p class="feld__text">PDF hierher ziehen — oder auswählen.</p>
+        <button type="button" id="waehlen">PDF auswählen</button>
+        <input type="file" id="datei" accept="application/pdf,.pdf" hidden />
+        <p class="feld__klein">Die Datei bleibt auf diesem Gerät. Es wird nichts hochgeladen.</p>
+      </section>
+
+      <p class="meldung" id="meldung" role="status" aria-live="polite"></p>
+
+      <section class="karte" id="einstellungen" hidden>
+        <h2>Wie der Text aussehen soll</h2>
+        <div class="schalter">
+          <label class="haken">
+            <input type="checkbox" id="absaetze" checked />
+            <span><strong>Absätze zusammenführen</strong><small>Die Zeilenumbrüche der Seite fallen weg, Absätze bleiben.</small></span>
+          </label>
+          <label class="haken">
+            <input type="checkbox" id="kopfzeilen" checked />
+            <span><strong>Kopf- und Fußzeilen entfernen</strong><small>Seitenzahlen und wiederkehrende Zeilen am Rand.</small></span>
+          </label>
+          <label class="haken">
+            <input type="checkbox" id="seitenmarken" />
+            <span><strong>Seitenzahlen einfügen</strong><small>Vor jeder Seite eine Zeile „--- Seite 3 ---".</small></span>
+          </label>
+          <label class="haken">
+            <input type="checkbox" id="ueberschrift" checked />
+            <span><strong>Dateiname als erste Zeile</strong><small>In den Notizen wird die erste Zeile zur Überschrift.</small></span>
+          </label>
+        </div>
+        <div class="raster">
+          <label>
+            <span>Von Seite</span>
+            <input type="number" id="von" min="1" step="1" value="1" />
+          </label>
+          <label>
+            <span>Bis Seite</span>
+            <input type="number" id="bis" min="1" step="1" />
+          </label>
+          <label>
+            <span>Titel (für die EPUB-Datei)</span>
+            <input type="text" id="titel" maxlength="120" autocomplete="off" />
+          </label>
+          <label>
+            <span>Verfasser (darf leer bleiben)</span>
+            <input type="text" id="verfasser" maxlength="120" autocomplete="off" />
+          </label>
+        </div>
+      </section>
+
+      <section class="karte" id="ergebnis" hidden>
+        <div class="karte__kopf">
+          <h2>Der Text <span class="zaehler" id="zaehler"></span></h2>
+          <div class="knopfreihe">
+            <button type="button" id="alles" class="still">Alles auswählen</button>
+          </div>
+        </div>
+        <p class="feld__klein">Du kannst hier noch streichen und ändern, bevor der Text weitergeht.</p>
+        <textarea id="text" rows="16" spellcheck="false" aria-label="Der gewonnene Text"></textarea>
+        <div class="fuss">
+          <button type="button" id="notizen" class="haupt">An Notizen senden</button>
+          <button type="button" id="kopieren">Text kopieren</button>
+          <button type="button" id="sichern">Als .txt sichern</button>
+          <button type="button" id="epub">Als EPUB sichern</button>
+        </div>
+        <p id="stand" class="fuss__text" role="status" aria-live="polite"></p>
+      </section>
+
+      <section class="karte hinweise" id="hinweiskarte" hidden>
+        <h2>Zum Text</h2>
+        <ul id="hinweisliste"></ul>
+      </section>
+
+      <section class="karte hilfe">
+        <h2>So kommt der Text in die Notizen</h2>
+        <ul class="liste">
+          <li><strong>iPhone und iPad:</strong> „An Notizen senden" tippen → im Teilen-Blatt <em>Notizen</em> wählen → <em>Sichern</em>. Der Text steht dann als Notiz da, nicht als Anhang. Die erste Zeile wird zur Überschrift der Notiz.</li>
+          <li><strong>Geht auch:</strong> „Text kopieren" und in einer neuen Notiz einfügen — derselbe Weg, eine Handbewegung mehr.</li>
+          <li><strong>Mac und Windows:</strong> „Als .txt sichern" legt eine Textdatei ab, die sich in jedes Programm ziehen lässt.</li>
+        </ul>
+        <h2>Als Buch lesen: die EPUB-Datei</h2>
+        <ul class="liste">
+          <li><strong>„Als EPUB sichern"</strong> macht aus dem Text ein E-Book: In <em>Bücher</em> (Apple Books) öffnen, und der Text läuft im Fließtext mit einstellbarer Schriftgröße, Nachtmodus und Lesezeichen — angenehmer als eine PDF auf einem kleinen Bildschirm.</li>
+          <li><strong>Kapitel</strong> entstehen an den Überschriften: Was in der PDF größer gesetzt war, wird eine Überschrift und steht im Inhaltsverzeichnis des Buches. Hat das Dokument keine, wird der Text in Abschnitte geteilt.</li>
+          <li><strong>Titel und Verfasser</strong> stehen oben in den Einstellungen — sie landen in den Buchdaten, nach denen die Bücher-App sortiert.</li>
+          <li><strong>iPhone/iPad:</strong> Die Datei landet in „Dateien"; ein Tipp darauf öffnet sie in Bücher. Auf dem Mac genügt ein Doppelklick.</li>
+        </ul>
+        <h2>Auf dem Rechner und auf dem Homescreen</h2>
+        <ul class="liste">
+          <li><strong>Als Programm installieren:</strong> In Edge oder Chrome Menü → <em>Apps</em> → <em>Diese Website als App installieren</em>; auf iPhone und iPad in Safari über Teilen → <em>Zum Home-Bildschirm</em>. Danach hat die App ein eigenes Symbol und läuft auch ohne Netz.</li>
+          <li><strong>Ganz ohne Netz und ohne Installation:</strong> <a href="./einzeldatei.html" download="Textauszug.html">Einzeldatei herunterladen</a> — eine einzige HTML-Datei, die alles enthält. Auf den Schreibtisch legen, Doppelklick, fertig.</li>
+        </ul>
+        <h2>Was die App kann — und was nicht</h2>
+        <ul class="liste">
+          <li>Gelesen wird der <strong>Text, der in der PDF steht</strong>. Bei einer PDF aus Word, LibreOffice, einem Browser oder einem Satzprogramm ist das der ganze Inhalt.</li>
+          <li><strong>Ein Scan enthält keinen Text</strong>, sondern ein Bild von Text. Dafür bräuchte es eine Texterkennung (OCR) — die kann diese App nicht. Sie sagt es aber deutlich, statt eine leere Seite auszugeben.</li>
+          <li><strong>Kennwortgeschützte PDFs</strong> lassen sich nicht lesen. Wer die Datei öffnen kann, sichert sie einmal ohne Schutz (Vorschau, oder Drucken → „Als PDF sichern").</li>
+          <li>Tabellen und mehrspaltiger Satz kommen als Text an, aber ohne ihre Form — die Spalten stehen dann hintereinander.</li>
+          <li>Bilder, Formeln und Unterschriften bleiben liegen. Es geht um den reinen Text.</li>
+        </ul>
+        <p class="feld__klein">Die Umwandlung läuft vollständig im Browser: Es wird nichts hochgeladen, nichts gespeichert, nichts mitgezählt — auch keine fremde Bibliothek nachgeladen.</p>
+      </section>
+    </main>
+
+    <footer class="fusszeile">
+      Textauszug · ohne Anmeldung, ohne Server, ohne fremde Bibliothek.
+    </footer>
+
+    <script type="module" src="./js/app.js"></script>
+  </body>
+</html>
