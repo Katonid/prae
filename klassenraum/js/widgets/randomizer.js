@@ -159,6 +159,29 @@ function memoryOf(state, saveWidget) {
 }
 
 /** Einen Durchgang im Gedächtnis verbuchen (+1) oder zurücknehmen (-1). */
+/**
+ * Die Rundenpunkte (Zählen) in die Gesamtliste übernehmen und die Runde auf
+ * null stellen (Ansage des Nutzers, 09/2026: „Es soll für jede Auslosung
+ * neu gezählt werden. Es wäre trotzdem schön, wenn die jeweils erreichten
+ * Punkte intern auf einer Gesamtliste gespeichert würden."). Läuft bei
+ * jeder NEUEN Auslosung — eine Berichtigung („Ab hier", einen Namen
+ * nachziehen) gehört zur laufenden Runde und lässt die Punkte stehen. Die
+ * Gesamtliste steht in den Einstellungen; das Zurücksetzen benutzt dieselbe
+ * Funktion (zuruecksetzen.js), damit auch dort nichts stillschweigend
+ * verloren geht.
+ */
+export function tallyArchivieren(state) {
+  const tally = state.tally && typeof state.tally === 'object' ? state.tally : {};
+  const namen = Object.keys(tally);
+  if (!namen.length) return;
+  if (!state.tallyGesamt || typeof state.tallyGesamt !== 'object') state.tallyGesamt = {};
+  for (const name of namen) {
+    const stand = Number(tally[name]) || 0;
+    if (stand > 0) state.tallyGesamt[name] = (Number(state.tallyGesamt[name]) || 0) + stand;
+  }
+  state.tally = {};
+}
+
 function adjustMemory(state, saveWidget, entry, delta) {
   if (!entry || !Array.isArray(entry.flat) || !entry.flat.length) return;
   const memory = memoryOf(state, saveWidget);
@@ -503,6 +526,9 @@ export default {
         }
         adjustMemory(state, saveWidget, { mode: state.mode, size, flat }, 1);
       } else {
+        // Eine NEUE Auslosung beginnt eine neue Zählrunde: Die Punkte der
+        // alten wandern in die Gesamtliste, die Karten starten bei null.
+        tallyArchivieren(state);
         const entry = { at: Date.now(), mode: state.mode, size, flat: flat.slice(), done: [] };
         state.history.unshift(entry);
         if (state.history.length > HISTORY_MAX) state.history.length = HISTORY_MAX;
@@ -1437,6 +1463,7 @@ export default {
         '„Kärtchen“: Langes Drücken auf einen Namen zieht nur diesen sofort nach (z. B. wenn ein Kind fehlt). '
         + '„Abhaken“: Ein Tipp hakt eine Gruppe ab — z. B. wer die Aufgabe erledigt hat. '
         + '„Zählen“: Ein Tipp auf ein Kärtchen zählt +1 (z. B. Punkte), langes Drücken nimmt eins zurück. '
+        + 'Jede neue Auslosung zählt wieder bei null; die Gesamtpunkte aller Runden stehen unten in den Einstellungen. '
         + 'Auch nach der Auslosung jederzeit umschaltbar (auch über das Listensymbol oben auf der Karte).'));
         // Farbe der Namenskarten: Automatisch (A), Farbfelder oder eigene Farbe.
         const kartenFarbe = typeof state.cardColor === 'string' && state.cardColor ? state.cardColor : null;
@@ -1600,7 +1627,10 @@ export default {
             const memory = memoryOf(ctx.widget.state, () => ctx.save());
             if (activeMode === 'gruppen') memory.save({}, memory.dran);
             else memory.save(memory.paare, {});
-            ctx.widget.state.tally = {};
+            // Die laufende Zählrunde wandert in die Gesamtliste (nichts
+            // geht stillschweigend verloren) — die Gesamtliste selbst
+            // bleibt stehen, sie hat ihren eigenen Löschknopf.
+            tallyArchivieren(ctx.widget.state);
             ctx.save();
             rerender();
             toast('Verlauf und Gedächtnis gelöscht — alle Kombinationen sind wieder möglich.', 'success');
@@ -1621,6 +1651,36 @@ export default {
             : h('p', { class: 'muted small' }, 'Noch nichts gemerkt — die erste Auslosung füllt das Gedächtnis.'),
           h('p', { class: 'muted small' },
             'Das Gedächtnis gehört zu DIESEM Element — ein zweites Feld mit derselben Liste zählt getrennt. „Verlauf löschen“ leert es.')));
+        // Gesamtpunkte über alle Zählrunden (Ansage des Nutzers, 09/2026):
+        // Auf der Karte zählt jede Auslosung wieder bei null, hier sammelt
+        // sich alles — einschließlich der laufenden Runde, damit die Liste
+        // nie hinter dem herhinkt, was auf der Tafel steht.
+        const rundenPunkte = state.tally && typeof state.tally === 'object' ? state.tally : {};
+        const gesamtPunkte = state.tallyGesamt && typeof state.tallyGesamt === 'object' ? state.tallyGesamt : {};
+        const punkteJeName = {};
+        for (const [name, wert] of [...Object.entries(gesamtPunkte), ...Object.entries(rundenPunkte)]) {
+          const stand = Number(wert) || 0;
+          if (stand > 0) punkteJeName[name] = (punkteJeName[name] || 0) + stand;
+        }
+        const punktZeilen = Object.entries(punkteJeName).sort((a, b) => b[1] - a[1]);
+        if (punktZeilen.length) {
+          wrap.appendChild(section('Gesamtpunkte (Zählen)',
+            h('p', { class: 'muted small' },
+              'Alle Runden zusammen, einschließlich der laufenden: '
+              + punktZeilen.map(([name, stand]) => `${name} ×${stand}`).join(' · ')),
+            h('p', { class: 'muted small' },
+              'Auf der Karte beginnt jede neue Auslosung wieder bei null — hier geht dabei nichts verloren.'),
+            buttonRow(button('Gesamtpunkte löschen', {
+              icon: 'trash', small: true, ghost: true,
+              onClick: () => {
+                ctx.widget.state.tallyGesamt = {};
+                ctx.widget.state.tally = {};
+                ctx.save();
+                rerender();
+                toast('Gesamtpunkte gelöscht — die Zählung beginnt von vorn.', 'success');
+              },
+            }))));
+        }
         wrap.appendChild(section(`Frühere Auslosungen (${history.length})`, historyBox));
       }
 
