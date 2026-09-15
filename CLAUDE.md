@@ -3690,6 +3690,16 @@ Namens und lebt weiter.
   Absatz, und aus einem Kapitel wurden 300 Einzeiler. Dieselbe Schätzung
   (unteres Viertel der Abstände) dient der Kopfzeilenerkennung — zwei
   Fassungen liefen garantiert auseinander.
+- **Sechs Kilobyte, die mit „<!DOCTYP" anfangen, sind eine WEBSEITE**
+  (`webseitenbefund` in `js/pdf.js`, gemeldet 09/2026). Der häufigste Fall hinter
+  einem misslungenen Download: Hinter dem Link steht eine Anmeldung, eine
+  Fehlerseite oder eine Vorschau, und gesichert wird deren HTML — mit `.pdf` im
+  Dateinamen. „Der Kopf '%PDF-' fehlt" ist dann wörtlich richtig und als Auskunft
+  wertlos. Genannt wird deshalb der `<title>` der Seite („Anmeldung erforderlich",
+  „404") — er sagt in fünf Wörtern, was los ist — und der Weg drumherum: die PDF
+  im Browser wirklich öffnen, dann Teilen → „In Dateien sichern". Der Titel wird
+  als UTF-8 entziffert, nicht als latin1; und unter einem Kilobyte zählt die
+  Meldung Bytes statt „0 KB".
 - **Wer eine Datei nicht lesen kann, sagt WAS ankam — und schiebt die Schuld
   nicht auf die Datei** (gemeldet 09/2026: „Das ist keine PDF-Datei" über einer
   tadellosen PDF). Auf iPhone und iPad liegt eine Datei aus iCloud oft nur in
