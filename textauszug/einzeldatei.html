@@ -1062,6 +1062,36 @@ class Dokument {
   }
 }
 
+// Was da ankommt, ist oft gar keine Datei, sondern eine SEITE. Wer einen Link
+// „sichern unter" gibt, bekommt bei einer Anmeldeschranke, einem abgelaufenen
+// Link oder einer Vorschau-Seite deren HTML — mit `.pdf` im Dateinamen. Sechs
+// Kilobyte, die mit „<!DOCTYP" anfangen, sind genau das. Der Titel der Seite
+// sagt fast immer, was los ist („Anmelden", „404 — nicht gefunden"), und ist
+// damit die weit bessere Auskunft als eine Byte-Zählung.
+function webseitenbefund(daten) {
+  const anfang = koder.decode(daten.subarray(0, 4096));
+  const kopf = anfang.replace(/^\ufeff/, '').trimStart();
+  if (!/^(?:<\?xml[^>]*>\s*)?<(?:!doctype\s+html|html|head|body|meta|title|script)\b/i.test(kopf)) {
+    return null;
+  }
+  // Der Titel wird als UTF-8 gelesen, nicht als latin1 — sonst steht in der
+  // Meldung „AnmeldungÂ erforderlich".
+  const treffer = /<title[^>]*>([\s\S]{0,300}?)<\/title>/i.exec(anfang);
+  let titel = '';
+  if (treffer) {
+    // latin1 heißt: ein Zeichen ist ein Byte. Die Stelle im entzifferten Text
+    // ist damit zugleich die Stelle in den Bytes.
+    const von = treffer.index + treffer[0].length - treffer[1].length - '</title>'.length;
+    titel = new TextDecoder('utf-8').decode(daten.subarray(von, von + treffer[1].length))
+      .replace(/<[^>]*>/g, ' ')
+      .replace(/&[a-z]+;|&#\d+;/gi, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 80);
+  }
+  return { titel };
+}
+
 async function pdfLesen(puffer) {
   const daten = new Uint8Array(puffer);
   if (!daten.length) {
@@ -1073,11 +1103,25 @@ async function pdfLesen(puffer) {
   // Werkzeuge stellen einer PDF etwas voran (Mailvorspann, Serverantwort), und
   // jeder Betrachter öffnet sie trotzdem.
   if (suche(daten, Uint8Array.from('%PDF-', (z) => z.charCodeAt(0))) < 0) {
+    // Unter einem Kilobyte sagt „0 KB" nichts; dann zählen die Bytes.
+    const groesse = daten.length < 1024
+      ? `${daten.length} Bytes`
+      : `${Math.round(daten.length / 1024)} KB`;
+    const seite = webseitenbefund(daten);
+    if (seite) {
+      throw new Error('Das ist eine Webseite, keine PDF — angekommen ist HTML'
+        + (seite.titel ? ` mit dem Titel „${seite.titel}"` : '')
+        + `, ${groesse} groß. Das passiert, wenn hinter dem Link statt der Datei eine `
+        + 'Anmeldung, eine Fehlermeldung oder eine Vorschau-Seite steht. Weg drumherum: '
+        + 'den Link im Browser öffnen, bis die PDF wirklich auf dem Schirm ist, dann '
+        + 'über „Teilen" → „In Dateien sichern" ablegen und die gesicherte Datei hier '
+        + 'auswählen.');
+    }
     const anfang = koder.decode(daten.subarray(0, 8)).replace(/[^\x20-\x7e]/g, '.');
     const art = daten[0] === 0x50 && daten[1] === 0x4b ? ' Das sieht nach einer ZIP-, Word-'
       + ' oder EPUB-Datei aus.' : '';
     throw new Error(`Das ist keine PDF-Datei — der Kopf „%PDF-" fehlt.${art} `
-      + `Die Datei ist ${Math.round(daten.length / 1024)} KB groß und beginnt mit „${anfang}".`);
+      + `Die Datei ist ${groesse} groß und beginnt mit „${anfang}".`);
   }
   const dokument = new Dokument(daten);
   dokument.objekteSuchen();
