@@ -40,7 +40,7 @@ export function textBauen(seitenAlle, einstellungen = {}) {
   const bis = Math.min(seitenAlle.length, Number(einstellungen.bis) || seitenAlle.length);
   const seiten = seitenAlle.filter((seite) => seite.nummer >= von && seite.nummer <= bis);
 
-  const { text, entfernt, leereSeiten } = aufbereiten(seiten, einstellungen);
+  const { text, bloecke, entfernt, leereSeiten } = aufbereiten(seiten, einstellungen);
   const hinweise = [];
   if (entfernt) {
     hinweise.push(`${entfernt} ${entfernt === 1 ? 'Kopf- oder Fußzeile' : 'Kopf- und Fußzeilen'} entfernt.`);
@@ -54,6 +54,7 @@ export function textBauen(seitenAlle, einstellungen = {}) {
   const woerter = text.trim() ? text.trim().split(/\s+/).length : 0;
   return {
     text,
+    bloecke,
     hinweise,
     seiten: seiten.length,
     zeichen: text.length,

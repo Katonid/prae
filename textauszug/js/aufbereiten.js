@@ -117,9 +117,11 @@ function absaetzeBauen(zeilen, zusammenfuehren) {
   // wachsen Aufzählungen und Grußformeln zu einem Klumpen zusammen.
   const randRechts = zeilen.reduce((groesster, zeile) => Math.max(groesster, zeile.bis || 0), 0);
 
+  let groesste = 0;
   const schliessen = () => {
-    if (laufend.trim()) stuecke.push(laufend.trim());
+    if (laufend.trim()) stuecke.push({ text: laufend.trim(), groesse: groesste });
     laufend = '';
+    groesste = 0;
   };
 
   for (const zeile of zeilen) {
@@ -160,6 +162,7 @@ function absaetzeBauen(zeilen, zusammenfuehren) {
     } else {
       laufend += ' ' + text;
     }
+    groesste = Math.max(groesste, zeile.groesse);
     vorige = { ...zeile, aufzaehlung: /^[-•·*•–]\s|^\d{1,2}[.)]\s/.test(text) };
   }
   schliessen();
@@ -181,19 +184,40 @@ export function aufbereiten(seitenRoh, einstellungen = {}) {
     entfernt = ergebnis.entfernt;
   }
 
-  const teile = [];
+  // Die übliche Schriftgröße des ganzen Dokuments — der Maßstab, an dem sich
+  // eine Überschrift erkennen lässt. Gemessen über ALLE Seiten: Auf einer
+  // einzelnen Seite kann die Überschrift die Mehrheit stellen.
+  const allegroessen = [];
+  for (const seite of seiten) {
+    for (const zeile of seite.zeilen) allegroessen.push(zeile.groesse);
+  }
+  allegroessen.sort((a, b) => a - b);
+  const normalgroesse = allegroessen[Math.floor(allegroessen.length / 2)] || 1;
+
+  const bloecke = [];
   let leereSeiten = 0;
   for (const seite of seiten) {
     const stuecke = absaetzeBauen(seite.zeilen, absaetze);
     if (!stuecke.length) leereSeiten++;
-    if (seitenmarken) teile.push(`--- Seite ${seite.nummer} ---`);
-    teile.push(...stuecke);
+    if (seitenmarken) bloecke.push({ text: `--- Seite ${seite.nummer} ---`, marke: true });
+    for (const stueck of stuecke) {
+      // Größer gesetzt und kurz: eine Überschrift. Beides muss zutreffen —
+      // ein langer Absatz in großer Schrift ist ein Vorspann, keine Zeile
+      // fürs Inhaltsverzeichnis.
+      const groesser = stueck.groesse > normalgroesse * 1.15;
+      const kurz = stueck.text.length <= 120;
+      bloecke.push({
+        text: stueck.text,
+        ueberschrift: groesser && kurz,
+        ebene: stueck.groesse > normalgroesse * 1.45 ? 1 : 2,
+      });
+    }
   }
 
-  const text = teile.join('\n\n')
+  const text = bloecke.map((block) => block.text).join('\n\n')
     .replace(/[ \t]+\n/g, '\n')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
 
-  return { text, entfernt, leereSeiten };
+  return { text, bloecke, entfernt, leereSeiten };
 }

@@ -97,7 +97,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible {
 .raster { display: grid; gap: .9rem; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); }
 label { font-size: .9rem; color: var(--leise); }
 .raster label { display: flex; flex-direction: column; gap: .3rem; }
-input[type="number"] {
+input[type="number"], input[type="text"] {
   font: inherit;
   color: var(--schrift);
   background: var(--grund);

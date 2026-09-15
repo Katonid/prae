@@ -15,10 +15,32 @@ PDF auswählen oder hineinziehen, Text ansehen, gegebenenfalls ändern, und dann
 | **An Notizen senden** | Teilen-Blatt → *Notizen* → *Sichern*. Der Text steht als **Notiz** da, nicht als Anhang. |
 | **Text kopieren** | In der Zwischenablage; in einer neuen Notiz einfügen. |
 | **Als .txt sichern** | Textdatei bei den Downloads. |
+| **Als EPUB sichern** | E-Book für Bücher (Apple Books), Kobo und jedes andere Lesegerät. |
 
 Geteilt wird **Text, keine Datei** — eine geteilte Datei landet in den Notizen
 als Anhang, den man erst antippen muss. Die erste Zeile wird in den Notizen zur
 Überschrift; deshalb setzt die App auf Wunsch den Dateinamen davor.
+
+## Die EPUB-Datei
+
+Aus dem Text wird auf Wunsch ein E-Book. Das lohnt sich für lange Dokumente: Im
+Lesegerät läuft der Text im Fließtext, mit einstellbarer Schriftgröße,
+Nachtmodus und Lesezeichen — angenehmer als eine PDF auf einem kleinen
+Bildschirm.
+
+**Kapitel entstehen an den Überschriften.** Welche Zeile eine Überschrift ist,
+verrät die Schriftgröße in der PDF: Was größer gesetzt war als der Fließtext und
+kurz genug ist, wird zur Überschrift und landet im Inhaltsverzeichnis des
+Buches. Hat ein Dokument gar keine Überschriften, wird nach Länge geteilt — ein
+einziges XHTML mit tausend Absätzen öffnet auf älteren Lesegeräten quälend
+langsam.
+
+**Titel und Verfasser** stehen in den Einstellungen und landen in den Buchdaten,
+nach denen die Bücher-App sortiert.
+
+Wurde der Text im Feld von Hand geändert, sind die gemerkten Blöcke hinfällig;
+die Gliederung wird dann aus dem geänderten Text zurückgelesen (kurze Zeile ohne
+Satzzeichen, gefolgt von einem Absatz = Überschrift).
 
 ## Einstellungen
 
@@ -55,6 +77,7 @@ Terminkonverter daneben. Der PDF-Leser ist selbst geschrieben.
 | `js/inhalt.js` | Führt den Inhaltsstrom aus und sammelt Text **mit Ort**. |
 | `js/aufbereiten.js` | Aus Zeilen mit Ort werden Absätze; Kopf- und Fußzeilen fliegen raus. |
 | `js/auszug.js` | Der Weg in zwei Schritten: einmal lesen, beliebig oft aufbereiten. |
+| `js/epub.js` | ZIP-Schreiber und EPUB-Bauer (Kapitel, Inhaltsverzeichnis, Buchdaten). |
 | `js/app.js` | Oberfläche: Datei annehmen, Text zeigen, weitergeben. |
 | `sw.js` | Service Worker fürs Offline-Starten (`FASSUNG` hochzählen!). |
 | `scripts/generate-icons.py` | erzeugt `icons/` — gerechnet, ohne fremde Bibliothek. |
@@ -72,6 +95,9 @@ Vier Stellen, an denen es leicht schiefgeht:
 - **Welcher Buchstabe hinter einer Zeichennummer steckt**, sagt `/ToUnicode`,
   sonst die Kodierung samt `/Differences`. Ohne diesen Schritt wird aus „für"
   Buchstabensalat.
+- **Im EPUB muss „mimetype" der erste Eintrag des ZIP sein und ungepackt
+  abgelegt werden.** Daran erkennen Lesegeräte das Format, ohne das Archiv zu
+  öffnen. Gepackt oder an zweiter Stelle gilt die Datei als beschädigt.
 - **Eine Kopfzeile erkennt man am Abstand und an der Größe**, nicht an der
   Position in der Liste: über ihr klafft eine Lücke, und sie ist nie größer als
   der Fließtext. Ohne diese beiden Merkmale verliert ein Dokument mit

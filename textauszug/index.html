@@ -68,6 +68,14 @@
             <span>Bis Seite</span>
             <input type="number" id="bis" min="1" step="1" />
           </label>
+          <label>
+            <span>Titel (für die EPUB-Datei)</span>
+            <input type="text" id="titel" maxlength="120" autocomplete="off" />
+          </label>
+          <label>
+            <span>Verfasser (darf leer bleiben)</span>
+            <input type="text" id="verfasser" maxlength="120" autocomplete="off" />
+          </label>
         </div>
       </section>
 
@@ -84,6 +92,7 @@
           <button type="button" id="notizen" class="haupt">An Notizen senden</button>
           <button type="button" id="kopieren">Text kopieren</button>
           <button type="button" id="sichern">Als .txt sichern</button>
+          <button type="button" id="epub">Als EPUB sichern</button>
         </div>
         <p id="stand" class="fuss__text" role="status" aria-live="polite"></p>
       </section>
@@ -99,6 +108,13 @@
           <li><strong>iPhone und iPad:</strong> „An Notizen senden" tippen → im Teilen-Blatt <em>Notizen</em> wählen → <em>Sichern</em>. Der Text steht dann als Notiz da, nicht als Anhang. Die erste Zeile wird zur Überschrift der Notiz.</li>
           <li><strong>Geht auch:</strong> „Text kopieren" und in einer neuen Notiz einfügen — derselbe Weg, eine Handbewegung mehr.</li>
           <li><strong>Mac und Windows:</strong> „Als .txt sichern" legt eine Textdatei ab, die sich in jedes Programm ziehen lässt.</li>
+        </ul>
+        <h2>Als Buch lesen: die EPUB-Datei</h2>
+        <ul class="liste">
+          <li><strong>„Als EPUB sichern"</strong> macht aus dem Text ein E-Book: In <em>Bücher</em> (Apple Books) öffnen, und der Text läuft im Fließtext mit einstellbarer Schriftgröße, Nachtmodus und Lesezeichen — angenehmer als eine PDF auf einem kleinen Bildschirm.</li>
+          <li><strong>Kapitel</strong> entstehen an den Überschriften: Was in der PDF größer gesetzt war, wird eine Überschrift und steht im Inhaltsverzeichnis des Buches. Hat das Dokument keine, wird der Text in Abschnitte geteilt.</li>
+          <li><strong>Titel und Verfasser</strong> stehen oben in den Einstellungen — sie landen in den Buchdaten, nach denen die Bücher-App sortiert.</li>
+          <li><strong>iPhone/iPad:</strong> Die Datei landet in „Dateien"; ein Tipp darauf öffnet sie in Bücher. Auf dem Mac genügt ein Doppelklick.</li>
         </ul>
         <h2>Auf dem Rechner und auf dem Homescreen</h2>
         <ul class="liste">

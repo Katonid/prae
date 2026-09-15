@@ -1,12 +1,14 @@
 // Die Oberfläche: PDF annehmen, Text zeigen, weitergeben.
 
 import { seitenLesen, textBauen } from './auszug.js';
+import { epubBauen, bloeckeAusText } from './epub.js';
 
 const teil = (id) => document.getElementById(id);
 const ablage = teil('ablage');
 const meldung = teil('meldung');
 
 let seiten = [];
+let bloecke = [];              // Absätze samt Wissen, was eine Überschrift ist
 let dateiname = 'Textauszug';
 let selbstGeaendert = false;   // hat der Nutzer im Textfeld getippt?
 
@@ -50,6 +52,7 @@ function textZeigen(nachfragen = true) {
     return;
   }
   const ergebnis = textBauen(seiten, einstellungen());
+  bloecke = ergebnis.bloecke;
   let text = ergebnis.text;
   if (teil('ueberschrift').checked && text) text = `${dateiname}\n\n${text}`;
 
@@ -66,7 +69,7 @@ function textZeigen(nachfragen = true) {
       + 'Ein Bild von Text lässt sich ohne Texterkennung nicht lesen.');
   }
   hinweiseZeigen(hinweise);
-  for (const id of ['notizen', 'kopieren', 'sichern']) teil(id).disabled = !text.trim();
+  for (const id of ['notizen', 'kopieren', 'sichern', 'epub']) teil(id).disabled = !text.trim();
 }
 
 async function verarbeiten(datei) {
@@ -89,6 +92,7 @@ async function verarbeiten(datei) {
       if (gesamt > 8 && nummer % 5 === 0) sage(`${datei.name}: Seite ${nummer} von ${gesamt} …`);
     });
     seiten = ergebnis.seiten;
+    teil('titel').value = dateiname;
     teil('von').value = 1;
     teil('von').max = seiten.length;
     teil('bis').value = seiten.length;
@@ -141,21 +145,55 @@ async function kopieren() {
 
 // Wie beim Terminkonverter „application/octet-stream": Mit „text/plain" zeigt
 // Safari die Datei lieber an, statt sie zu sichern. Was sie ist, sagt die
-// Endung .txt.
-function sichern() {
-  const text = teil('text').value;
-  if (!text.trim()) return;
-  const blob = new Blob(['﻿' + text], { type: 'application/octet-stream' });
+// Endung.
+function dateiSichern(daten, endung) {
+  const blob = new Blob([daten], { type: 'application/octet-stream' });
   const adresse = URL.createObjectURL(blob);
   const verweis = document.createElement('a');
   verweis.href = adresse;
-  verweis.download = `${dateiname}.txt`;
+  verweis.download = `${dateiname}.${endung}`;
   verweis.rel = 'noopener';
   document.body.append(verweis);
   verweis.click();
   verweis.remove();
   setTimeout(() => URL.revokeObjectURL(adresse), 10000);
+}
+
+function sichern() {
+  const text = teil('text').value;
+  if (!text.trim()) return;
+  // Die Byte-Marke am Anfang muss sein: Ohne sie zeigt der Windows-Editor
+  // Umlaute als Kraut an, weil er sonst keine UTF-8-Datei erkennt.
+  dateiSichern('\ufeff' + text, 'txt');
   teil('stand').textContent = `In ${dateiname}.txt gesichert — die Datei liegt bei den Downloads.`;
+}
+
+// Die EPUB entsteht aus den BLÖCKEN, nicht aus dem Text: Nur sie wissen, was
+// eine Überschrift war (sie stand in der PDF größer da), und daraus werden die
+// Kapitel. Ist der Text von Hand geändert, sind die gemerkten Blöcke hinfällig
+// — dann wird die Gliederung aus dem geänderten Text zurückgelesen.
+async function alsEpub() {
+  const text = teil('text').value;
+  if (!text.trim()) return;
+  teil('epub').disabled = true;
+  teil('stand').textContent = 'Die EPUB wird gebaut …';
+  try {
+    const teileDavon = selbstGeaendert ? bloeckeAusText(text) : bloecke;
+    const { daten, kapitel } = await epubBauen(teileDavon, {
+      titel: teil('titel').value.trim() || dateiname,
+      verfasser: teil('verfasser').value,
+      sprache: 'de',
+    });
+    dateiSichern(daten, 'epub');
+    teil('stand').textContent = `In ${dateiname}.epub gesichert — ${kapitel} `
+      + `${kapitel === 1 ? 'Kapitel' : 'Kapitel'}, zu öffnen mit Bücher (Apple Books) `
+      + 'oder jedem anderen E-Book-Programm.';
+  } catch (fehler) {
+    teil('stand').textContent = 'Die EPUB ließ sich nicht bauen: '
+      + (fehler && fehler.message ? fehler.message : 'unbekannter Fehler');
+  } finally {
+    teil('epub').disabled = false;
+  }
 }
 
 teil('waehlen').addEventListener('click', () => teil('datei').click());
@@ -174,6 +212,7 @@ teil('alles').addEventListener('click', () => { teil('text').focus(); teil('text
 teil('notizen').addEventListener('click', anNotizen);
 teil('kopieren').addEventListener('click', kopieren);
 teil('sichern').addEventListener('click', sichern);
+teil('epub').addEventListener('click', alsEpub);
 
 for (const art of ['dragenter', 'dragover']) {
   ablage.addEventListener(art, (e) => { e.preventDefault(); ablage.classList.add('bereit'); });

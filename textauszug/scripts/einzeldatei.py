@@ -23,7 +23,7 @@ ZIEL = WURZEL / 'einzeldatei.html'
 
 # Reihenfolge = Abhängigkeitsreihenfolge; app.js zuletzt.
 MODULE = ['inflate.js', 'pdf.js', 'schrift.js', 'inhalt.js', 'aufbereiten.js',
-          'auszug.js', 'app.js']
+          'auszug.js', 'epub.js', 'app.js']
 
 AUSFUHR = re.compile(r'^export\s+(async\s+function|function|const|let|class)\s+([A-Za-z_$][\w$]*)',
                      re.MULTILINE)

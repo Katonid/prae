@@ -9,7 +9,7 @@
  * bleibt der alte Zwischenspeicher stehen.
  */
 
-const FASSUNG = 'v1';
+const FASSUNG = 'v2';
 const SPEICHER = `textauszug-${FASSUNG}`;
 
 const DATEIEN = [
@@ -19,6 +19,7 @@ const DATEIEN = [
   './css/style.css',
   './js/app.js',
   './js/auszug.js',
+  './js/epub.js',
   './js/pdf.js',
   './js/inflate.js',
   './js/schrift.js',

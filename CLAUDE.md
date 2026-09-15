@@ -1587,6 +1587,26 @@ Namens und lebt weiter.
   geteilter Text steht als Notiz da. Genau darum geht es dem Nutzer (Ansage
   09/2026). Kennt der Browser kein `navigator.share`, wird kopiert und das
   gesagt — der Knopf darf nie stumm bleiben.
+- **Die EPUB wird aus den BLÖCKEN gebaut, nicht aus dem Text** (`js/epub.js`).
+  Nur die Blöcke wissen, was eine Überschrift war — nämlich das, was in der PDF
+  GRÖSSER gesetzt war als der Fließtext und kurz genug ist —, und daraus werden
+  die Kapitel samt Inhaltsverzeichnis. Ist der Text im Feld von Hand geändert,
+  sind die Blöcke hinfällig; dann liest `bloeckeAusText` die Gliederung aus dem
+  geänderten Text zurück.
+- **Im EPUB MUSS „mimetype" der erste Eintrag des ZIP sein und UNGEPACKT
+  abgelegt werden.** Daran erkennen Lesegeräte das Format, ohne das Archiv zu
+  öffnen; gepackt oder an zweiter Stelle gilt die Datei als beschädigt. Der
+  ZIP-Schreiber steht deshalb mit im Haus (`zipSchreiben`) — gepackt wird mit
+  `CompressionStream`, ohne das ungepackt, was erlaubt ist. Mitgeliefert wird
+  neben `nav.xhtml` auch das alte `toc.ncx`: Lesegeräte ohne EPUB 3 finden
+  sonst gar keine Gliederung.
+- **Escape-Folgen für Steuerzeichen (\u0000 und Geschwister) gehören als ZEICHENFOLGE
+  in den Quelltext, nie als echtes Steuerzeichen** (gefunden 09/2026 in
+  `maskiere`). In der Modulfassung lief der reguläre Ausdruck; in
+  `einzeldatei.html` machte der HTML-Parser aus dem echten NUL ein
+  Ersatzzeichen, die Zeichenklasse wurde ungültig, und die ganze App blieb
+  stumm. Wer eine Datei über ein Werkzeug schreibt, das JSON-Escapes auflöst,
+  prüft danach auf echte Steuerzeichen.
 - **Ein Scan enthält keinen Text**, sondern ein Bild davon. Die App sagt das
   deutlich, statt eine leere Seite auszugeben; eine Texterkennung hat sie
   nicht. Dasselbe gilt für kennwortgeschützte PDFs — dort steht der Weg
