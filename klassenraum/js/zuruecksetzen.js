@@ -12,7 +12,10 @@
 //   Auslosung, weiß aber weiter, wer schon dran war. Wer am Montag
 //   zurücksetzt und das Gedächtnis verliert, zieht am Dienstag womöglich
 //   dasselbe Kind zum dritten Mal.
-// - 'alles': dazu das Gedächtnis (Gezogene, Wer-mit-wem, Wer-war-dran).
+// - 'alles': dazu das Gedächtnis (Gezogene, Wer-mit-wem, Wer-war-dran)
+//   und die Gesamtpunkte der Zählrunden.
+
+import { tallyArchivieren } from './widgets/randomizer.js';
 
 /** Hat dieses Element einen Ablauf, der sich zurücksetzen lässt — und ist
  *  gerade etwas davon in Gebrauch? Ein Knopf, der nichts tut, ist schlimmer
@@ -22,11 +25,13 @@ export function istBenutzt(widget, tiefe = 'ergebnis') {
   switch (widget.type) {
     case 'randomizer': {
       const ergebnis = Boolean(state.current) || Boolean(state.groups)
-        || (state.revealParts || []).length > 0 || state.locked === true;
+        || (state.revealParts || []).length > 0 || state.locked === true
+        || Object.keys(state.tally || {}).length > 0;
       if (tiefe === 'ergebnis') return ergebnis;
       return ergebnis || (state.drawn || []).length > 0
         || Object.keys(state.paare || {}).length > 0
-        || Object.keys(state.dran || {}).length > 0;
+        || Object.keys(state.dran || {}).length > 0
+        || Object.keys(state.tallyGesamt || {}).length > 0;
     }
     case 'timer':
       return Boolean(state.running) || Boolean(state.startedAt)
@@ -68,10 +73,15 @@ export function setzeZurueck(widget, tiefe = 'ergebnis') {
       state.groups = null;
       state.revealParts = [];
       state.locked = false;
+      // Die laufende Zählrunde wandert in die Gesamtliste, statt zu
+      // verfallen — Punkte sind verdient, auch wenn die Tafel am Morgen
+      // wieder leer aussehen soll.
+      tallyArchivieren(state);
       if (tiefe === 'alles') {
         state.drawn = [];
         state.paare = {};
         state.dran = {};
+        state.tallyGesamt = {};
       }
       return true;
     case 'timer':
