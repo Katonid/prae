@@ -75,7 +75,7 @@ enum OnboardingChecklist {
                 title: "Mitteilungen erlaubt",
                 detail: permissions.authorization == .authorized
                     ? "Die App darf Mitteilungen zeigen."
-                    : "Ohne Erlaubnis bleibt dieses iPad im Alarmfall stumm.",
+                    : "Ohne Erlaubnis bleibt dieses \(Geraetename.wort) im Alarmfall stumm.",
                 state: permissions.authorization == .authorized ? .ok : .missing,
                 settingsURL: settings),
 
@@ -93,8 +93,8 @@ enum OnboardingChecklist {
                 id: "lockscreen",
                 title: "Auf dem Sperrbildschirm sichtbar",
                 detail: permissions.lockScreenEnabled
-                    ? "Der Alarm erscheint auch bei gesperrtem iPad."
-                    : "Bei gesperrtem iPad wäre nichts zu sehen — und das ist der "
+                    ? "Der Alarm erscheint auch bei gesperrtem \(Geraetename.wort)."
+                    : "Bei gesperrtem \(Geraetename.wort) wäre nichts zu sehen — und das ist der "
                     + "Normalfall im Unterricht.",
                 state: permissions.lockScreenEnabled ? .ok : .missing,
                 settingsURL: settings),
@@ -115,10 +115,10 @@ enum OnboardingChecklist {
                 id: "critical",
                 title: "Kritische Hinweise erlaubt",
                 detail: permissions.criticalAllowed
-                    ? "Der Alarm klingt auch bei stummgeschaltetem iPad und "
+                    ? "Der Alarm klingt auch bei stummgeschaltetem \(Geraetename.wort) und "
                     + "durch jeden Fokus."
                     : "Diese Fassung ist für kritische Hinweise gebaut, dieses "
-                    + "iPad erlaubt sie aber nicht. Die App fragt beim nächsten "
+                    + "\(Geraetename.wort) erlaubt sie aber nicht. Die App fragt beim nächsten "
                     + "Start noch einmal; kommt keine Frage, steht der Schalter "
                     + "in den Einstellungen unter „Mitteilungen“ → Schulalarm "
                     + "→ „Kritische Hinweise“.",
@@ -159,9 +159,9 @@ enum OnboardingChecklist {
             id: "tontest",
             title: "Ton auf diesem Gerät gehört",
             detail: tontestPassed
-                ? "Das iPad wird laut — gesperrt, mit Ton, in der richtigen "
+                ? "Das \(Geraetename.wort) wird laut — gesperrt, mit Ton, in der richtigen "
                 + "Dringlichkeitsstufe."
-                : "Noch nicht geprüft. Der Tontest weckt das iPad selbst, ohne "
+                : "Noch nicht geprüft. Der Tontest weckt das \(Geraetename.wort) selbst, ohne "
                 + "Netz. Klingt er nicht, liegt es am Gerät und nicht an der "
                 + "Zustellung.",
             state: tontestPassed ? .ok : .missing,
@@ -195,11 +195,11 @@ enum OnboardingChecklist {
             id: "zustellung",
             title: "Zustellung geprüft",
             detail: zustellungGeprueft
-                ? "Auf diesem iPad ist mindestens eine Meldung über iCloud "
+                ? "Auf diesem \(Geraetename.wort) ist mindestens eine Meldung über iCloud "
                 + "eingetroffen."
                 : "Noch nie ist hier eine Meldung eingetroffen. Der Haken setzt "
                 + "sich von selbst, sobald ein Admin einen Testalarm an dieses "
-                + "Gerät schickt — von einem ANDEREN iPad aus. Ein Gerät kann "
+                + "Gerät schickt — von einem ANDEREN Gerät aus. Ein Gerät kann "
                 + "sich die Zustellung nicht selbst beweisen.",
             state: zustellungGeprueft ? .ok : .missing,
             settingsURL: nil,
@@ -216,8 +216,8 @@ enum OnboardingChecklist {
          + "diese Zeile lässt sich deshalb nicht abhaken, sondern nur tun."),
         ("Lautlos-Schalter und Lautstärke",
          "Ohne die Berechtigung „kritische Hinweise“ spielt auch ein "
-         + "zeitkritischer Alarm bei stummgeschaltetem iPad keinen Ton — es "
-         + "bleibt bei Vibration und Anzeige. Auf einem Schul-iPad gehört der "
+         + "zeitkritischer Alarm bei stummgeschaltetem Gerät keinen Ton — es "
+         + "bleibt bei Vibration und Anzeige. Auf einem Dienstgerät gehört der "
          + "Schalter deshalb auf „laut“."),
         ("Mitteilungen dauerhaft anzeigen",
          "Einstellungen → Mitteilungen → diese App → „Banner-Stil: Dauerhaft“. "

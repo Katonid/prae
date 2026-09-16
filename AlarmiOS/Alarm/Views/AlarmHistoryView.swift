@@ -99,7 +99,7 @@ struct AlarmDetailView: View {
                     Text("Ohne Rückmeldung (\(missing.count))")
                 } footer: {
                     Text("Ohne Rückmeldung heißt nicht „hat nichts gehört“ — das "
-                         + "iPad kann aus gewesen sein. Es heißt: hier ist "
+                         + "Gerät kann aus gewesen sein. Es heißt: hier ist "
                          + "nachzufragen.")
                 }
             }

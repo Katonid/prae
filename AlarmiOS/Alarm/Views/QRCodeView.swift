@@ -79,6 +79,86 @@ struct QRScannerView: UIViewControllerRepresentable {
         override func viewDidLayoutSubviews() {
             super.viewDidLayoutSubviews()
             preview?.frame = view.bounds
+            richteVorschauAus()
+        }
+
+        /// Die Vorschau muss der Lage des GERÄTS folgen, nicht der des Sensors.
+        ///
+        /// Gemeldet 09/2026: Auf einem quer gehaltenen iPad stand das Kamerabild
+        /// hochkant, und ein fremder Beitrittscode ließ sich kaum treffen. Eine
+        /// `AVCaptureVideoPreviewLayer` beginnt nämlich immer im Hochformat —
+        /// die Verbindung übernimmt die Lage der Oberfläche NICHT von selbst.
+        ///
+        /// Erkannt hätte die Kamera den Code trotzdem: Gesucht wird im
+        /// Sensorbild, und das ist von der Anzeige unabhängig. Genau das macht
+        /// den Fehler so zäh — nichts ist kaputt, es lässt sich nur nicht
+        /// zielen. Für den Menschen davor ist das dasselbe.
+        ///
+        /// Gefragt wird die Szene DIESER Ansicht (`view.window?.windowScene`)
+        /// und nicht `connectedScenes`: Das ist eine ungeordnete Menge, und
+        /// hängt ein Beamer am iPad, greift `first { … }` mal die eine und mal
+        /// die andere — derselbe Fehler, der in Tafelbild die Dokumentenkamera
+        /// auf den Kopf stellte. Ist die Lage unbekannt, bleibt es beim
+        /// Hochformat: die Vorgabe von vorher, nie schlechter als geraten.
+        private func richteVorschauAus() {
+            guard let connection = preview?.connection else { return }
+            let lage = view.window?.windowScene?.interfaceOrientation ?? .portrait
+
+            if #available(iOS 17.0, *) {
+                let winkel = Self.winkel(fuer: lage)
+                guard connection.isVideoRotationAngleSupported(winkel) else { return }
+                if connection.videoRotationAngle != winkel {
+                    connection.videoRotationAngle = winkel
+                }
+            } else {
+                Self.richteAltAus(connection, lage)
+            }
+        }
+
+        /// Der Winkel, um den das Sensorbild zu drehen ist (ab iOS 17).
+        ///
+        /// Die Zahlen sind Apples eigene Entsprechungen aus der Abkündigung von
+        /// `videoOrientation`: portrait 90, portraitUpsideDown 270,
+        /// landscapeLeft 180, landscapeRight 0. Nicht selbst nachrechnen — die
+        /// Bezugslage der Kamera ist Querformat, und wer hier um 180 Grad
+        /// danebenliegt, merkt es nur auf einem echten Gerät.
+        static func winkel(fuer lage: UIInterfaceOrientation) -> CGFloat {
+            switch lage {
+            case .portrait: return 90
+            case .portraitUpsideDown: return 270
+            case .landscapeLeft: return 180
+            case .landscapeRight: return 0
+            default: return 90
+            }
+        }
+
+        /// Dasselbe für iOS 16, wo es die Winkel noch nicht gibt.
+        ///
+        /// Hier ist es eine reine Umbenennung: `AVCaptureVideoOrientation` hat
+        /// dieselben vier Fälle wie `UIInterfaceOrientation` und meint sie
+        /// gleich.
+        ///
+        /// Die Abkündigung steht mit Absicht AN DER FUNKTION: `videoOrientation`
+        /// ist seit iOS 17 veraltet, und ein `#available` schaltet die Warnung
+        /// nicht ab — sie hängt an der Übersetzung, nicht am Lauf. So steht sie
+        /// einmal hier statt dreimal im Bau, und sie verschwindet von selbst,
+        /// sobald das Mindest-iOS 17 ist: Dann lässt sich diese Funktion samt
+        /// ihrem Zweig ersatzlos streichen.
+        @available(iOS, deprecated: 17.0,
+                   message: "Ab iOS 17 übernimmt videoRotationAngle; dieser Zweig kann dann weg.")
+        static func richteAltAus(_ connection: AVCaptureConnection,
+                                 _ lage: UIInterfaceOrientation) {
+            let richtung: AVCaptureVideoOrientation
+            switch lage {
+            case .portrait: richtung = .portrait
+            case .portraitUpsideDown: richtung = .portraitUpsideDown
+            case .landscapeLeft: richtung = .landscapeLeft
+            case .landscapeRight: richtung = .landscapeRight
+            default: return
+            }
+            guard connection.isVideoOrientationSupported,
+                  connection.videoOrientation != richtung else { return }
+            connection.videoOrientation = richtung
         }
 
         override func viewWillAppear(_ animated: Bool) {
@@ -114,6 +194,7 @@ struct QRScannerView: UIViewControllerRepresentable {
             layer.frame = view.bounds
             view.layer.addSublayer(layer)
             preview = layer
+            richteVorschauAus()
         }
 
         func metadataOutput(_ output: AVCaptureMetadataOutput,
