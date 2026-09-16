@@ -932,9 +932,9 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   ist das die erste Frage, nicht die letzte.
 - **Die Nutzungsbedingungen stehen auf einer SEITE, nicht in der App**
   (`docs/schulalarm/nutzungsbedingungen.html`, ab 1.1.0/Build 40). Ein Text, der
-  sich ändern muss — eine Anschrift, ein Satz nach einer Rückfrage —, darf nicht
-  an einer Fassung hängen, die erst durch Apples Prüfung muss; und die dreißig
-  schon eingerichteten iPads läsen dann die alte. Verlinkt ist er im Abschnitt
+  sich ändern muss — ein Satz nach einer Rückfrage —, darf nicht an einer
+  Fassung hängen, die erst durch Apples Prüfung muss; und die dreißig schon
+  eingerichteten iPads läsen dann die alte. Verlinkt ist er im Abschnitt
   „Hilfe" der Einstellungen (`Hilfeadressen`), auf der Support-Seite und in App
   Store Connect. **Die Klausel ist bewusst ENG**: Haftung nur für Vorsatz und
   grobe Fahrlässigkeit (§ 521 BGB entsprechend, weil kostenlos), aber
@@ -943,6 +943,18 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   nach § 309 Nr. 7 BGB unwirksam — und zwar GANZ, es gibt keine erhaltende
   Reduktion. Eine zu weite Klausel schützt also schlechter als eine enge. **Wer
   hier etwas hinzufügt, prüft zuerst, ob es diese Ausnahmen antastet.**
+- **Kein Gewerbe, keine Anschrift — Punkt** (Ansage des Nutzers, 09/2026, nach
+  einer früheren Überlegung in die andere Richtung). Die App wird als PRIVATE
+  Person unentgeltlich angeboten: keine Einnahmen, keine Werbung, keine Käufe in
+  der App. Unter „Anbieter" stehen deshalb Name und E-Mail und sonst nichts; die
+  Impressumspflicht des § 5 DDG trifft geschäftsmäßige Dienste, nicht ein rein
+  privates, kostenloses Angebot. **Wer hier je wieder eine Adresse einbaut,
+  fragt vorher.**
+- **Die eine Stelle, an der eine Anschrift trotzdem öffentlich würde, ist der
+  HÄNDLERSTATUS** in App Store Connect (Digital Services Act). Wer dort
+  „Händler" angibt, dessen Name, Anschrift und Telefonnummer zeigt Apple auf der
+  Produktseite an. Für dieses Angebot ist „kein Händler" die zutreffende Angabe.
+  Steht in der Einreichungsliste; nicht nebenbei wegklicken.
 - **Was wirklich schützt, ist die Ehrlichkeit der App selbst.** Keine Zusage
   über die Zustellung, kein grünes Häkchen für „nicht nachgesehen", die
   Rückmeldeliste, die sagt, was sie NICHT ist. Diese Linie ist deshalb nicht nur
