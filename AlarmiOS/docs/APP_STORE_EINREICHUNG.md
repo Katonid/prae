@@ -108,6 +108,23 @@ Datensparsamkeit wie in der App.
 **Support-URL (Pflicht):**
 `https://katonid.github.io/prae/schulalarm/support.html`
 
+**Nutzungsbedingungen (freiwillig, hier aber sinnvoll):**
+`https://katonid.github.io/prae/schulalarm/nutzungsbedingungen.html`
+
+**Lizenzvereinbarung: Apples Standard stehen lassen.** App Store Connect →
+App-Informationen → Lizenzvereinbarung. Der Standardtext (Apples „Licensed
+Application End User License Agreement") schließt Gewährleistung bereits so weit
+aus, wie das jeweilige Recht es zulässt, und der Anbieter ist darin der
+Lizenzgeber. Eine **eigene** Vereinbarung muss Apples Mindestanforderungen
+erfüllen und wird mitgeprüft — sie ist eine zusätzliche Fehlerquelle für einen
+Gewinn, den die Nutzungsbedingungen daneben schon bringen.
+
+**Verfügbarkeit auf Deutschland begrenzen** (Preis und Verfügbarkeit →
+Verfügbarkeit). Die App ist deutschsprachig und auf deutsche Schulen
+zugeschnitten; ein Angebot in den USA bringt keinen Nutzen und holt eine
+Rechtsordnung ins Haus, in der Produkthaftung und Sammelklagen anders laufen.
+Später erweitern geht mit zwei Tipps, zurücknehmen ist mühsam.
+
 **Altersfreigabe:** überall „Nicht vorhanden"/„Keine". Die App zeigt keine
 anstößigen Inhalte, kein Glücksspiel, keine Werbung. Ergebnis: 4+.
 

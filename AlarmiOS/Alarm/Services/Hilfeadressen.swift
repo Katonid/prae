@@ -22,6 +22,15 @@ enum Hilfeadressen {
 
     static let datenschutz = URL(string: "https://katonid.github.io/prae/schulalarm/datenschutz.html")!
 
+    /// Nutzungsbedingungen und Haftung.
+    ///
+    /// Sie stehen auf einer Seite und nicht in der App: Ein Text, der sich
+    /// ändern muss — eine Anschrift, ein Satz nach einer Rückfrage —, darf
+    /// nicht an einer Fassung hängen, die erst durch die Prüfung muss. Und die
+    /// dreißig iPads, die schon eingerichtet sind, lesen dann die alte.
+    static let nutzungsbedingungen = URL(
+        string: "https://katonid.github.io/prae/schulalarm/nutzungsbedingungen.html")!
+
     /// Eine echte Mailadresse, kein Formular: Wer melden will, sitzt am iPad
     /// und soll nicht erst ein Konto anlegen müssen. Der Betreff ist
     /// vorbelegt, damit die Mail nicht im Übrigen untergeht.
