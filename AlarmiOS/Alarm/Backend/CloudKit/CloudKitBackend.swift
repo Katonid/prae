@@ -323,6 +323,14 @@ final class CloudKitBackend: AlarmBackend {
         return alarm
     }
 
+    /// Die Entwarnung — und sie schreibt auf einen FREMDEN Datensatz.
+    ///
+    /// Der Alarm gehört dem, der ihn ausgelöst hat. Ein Admin, der die
+    /// Entwarnung gibt, ändert also den Datensatz einer Kollegin; ohne WRITE
+    /// auf `Alarm` lehnt CloudKit das ab. Kein `requireAdmin()` hier: Wer
+    /// entwarnen darf, entscheidet `AppModel.mayClear` — ein Admin ODER die
+    /// auslösende Person. Jedes `.notPermitted` aus diesem Aufruf kommt
+    /// deshalb von CloudKit und nie von uns.
     func clearAlarm(alarmId: String) async throws {
         do {
             let record = try await database.record(for: CKRecord.ID(recordName: alarmId))
@@ -331,7 +339,11 @@ final class CloudKitBackend: AlarmBackend {
             record[CloudField.clearedByName] = store.displayName ?? "?"
             _ = try await database.save(record)
         } catch {
-            throw mapped(error)
+            throw mappedFremderDatensatz(error, typ: CloudRecordType.alarm,
+                folge: "Ohne WRITE auf „Alarm“ kann ein Admin nur die EIGENEN "
+                    + "Alarme entwarnen. Für alle anderen bliebe die auslösende "
+                    + "Person die Einzige, die ihren Alarm beenden kann — steht "
+                    + "deren Gerät im Schrank, läuft er weiter.")
         }
         nudge()
     }
@@ -754,7 +766,10 @@ final class CloudKitBackend: AlarmBackend {
         } catch let error as CKError where error.code == .unknownItem {
             throw BackendError.codeUnknown
         } catch {
-            throw mapped(error)
+            throw mappedFremderDatensatz(error, typ: CloudRecordType.inviteCode,
+                folge: "Ohne WRITE auf „InviteCode“ kann einen Code nur der "
+                    + "Admin zurückziehen, der ihn vergeben hat. Ein Code, den "
+                    + "niemand zurückziehen kann, gilt für immer.")
         }
     }
 
@@ -944,7 +959,7 @@ final class CloudKitBackend: AlarmBackend {
         let cutoff = Date().addingTimeInterval(-Double(days) * 24 * 60 * 60)
 
         var report = CleanupReport(alarms: 0, acks: 0, messages: 0)
-        var doomed: [CKRecord.ID] = []
+        var doomed: [(id: CKRecord.ID, typ: String)] = []
 
         // Alarms first, so that a run interrupted halfway never leaves an
         // acknowledgement pointing at an alarm that is already gone. Sorting
@@ -953,24 +968,56 @@ final class CloudKitBackend: AlarmBackend {
             let records = try await query(type, predicate: groupPredicate(groupID),
                                           limit: 2000)
             let old = records.filter { ($0.creationDate ?? Date()) < cutoff }
-            doomed += old.map(\.recordID)
-            switch type {
-            case CloudRecordType.message: report.messages = old.count
-            case CloudRecordType.ack: report.acks = old.count
-            default: report.alarms = old.count
-            }
+            doomed += old.map { (id: $0.recordID, typ: type) }
         }
 
         guard !doomed.isEmpty else { return report }
-        // CloudKit takes at most 400 changes per request.
+
+        // GEZÄHLT WIRD, WAS WIRKLICH WEG IST — nicht, was wir löschen wollten.
+        //
+        // `modifyRecords` wirft nur, wenn der ganze Aufruf scheitert; einzelne
+        // Ablehnungen stehen in `deleteResults`. Bis 1.0.36 warf diese Schleife
+        // das Ergebnis mit `_ =` weg und meldete anschließend die ABSICHT als
+        // Erfolg: „12 Alarme gelöscht“, während keiner gelöscht war. Dasselbe
+        // Muster wie bei `modifySubscriptions` in 1.0.4 — wo CloudKit ein
+        // Ergebnis je Element zurückgibt, IST das Ergebnis die Fehlermeldung.
+        //
+        // Und der wahrscheinlichste Grund steht gleich daneben: Ein Alarm
+        // gehört dem, der ihn ausgelöst hat. Ohne WRITE für `_icloud` räumt ein
+        // Admin nur das Eigene weg.
+        var abgelehnt: Error?
+        let typJeId = Dictionary(doomed.map { ($0.id, $0.typ) }, uniquingKeysWith: { a, _ in a })
+
         for chunk in stride(from: 0, to: doomed.count, by: 300).map({
-            Array(doomed[$0..<min($0 + 300, doomed.count)])
+            Array(doomed[$0..<min($0 + 300, doomed.count)]).map(\.id)
         }) {
+            let ergebnis: [CKRecord.ID: Result<Void, Error>]
             do {
-                _ = try await database.modifyRecords(saving: [], deleting: chunk)
+                (_, ergebnis) = try await database.modifyRecords(saving: [], deleting: chunk)
             } catch {
                 throw mapped(error)
             }
+            for (id, einzeln) in ergebnis {
+                switch einzeln {
+                case .success:
+                    switch typJeId[id] {
+                    case CloudRecordType.message: report.messages += 1
+                    case CloudRecordType.ack: report.acks += 1
+                    default: report.alarms += 1
+                    }
+                case .failure(let fehler):
+                    if abgelehnt == nil { abgelehnt = fehler }
+                }
+            }
+        }
+
+        // Etwas ist stehen geblieben, und niemand hat es gesagt bekommen: Das
+        // ist bei Leistungsdaten benannter Personen die falsche Richtung.
+        if let abgelehnt, report.alarms + report.acks + report.messages == 0 {
+            throw mappedFremderDatensatz(abgelehnt, typ: CloudRecordType.alarm,
+                folge: "Ohne WRITE auf „Alarm“, „Ack“ und „Message“ räumt ein "
+                    + "Admin nur weg, was er selbst geschrieben hat — der Rest "
+                    + "bleibt über die 90 Tage hinaus liegen.")
         }
         return report
     }
@@ -1303,6 +1350,8 @@ final class CloudKitBackend: AlarmBackend {
                     CKRecord.Reference(recordID: groupID, action: .none))
     }
 
+    /// Auch der Group-Datensatz gehört jemandem: der Person, die die Schule
+    /// eingerichtet hat. Ein ZWEITER Admin ändert hier also fremdes Eigentum.
     private func updateGroup(_ mutate: @escaping (CKRecord) -> Void) async throws {
         let groupID = try requireGroupID()
         do {
@@ -1310,7 +1359,10 @@ final class CloudKitBackend: AlarmBackend {
             mutate(record)
             _ = try await database.save(record)
         } catch {
-            throw mapped(error)
+            throw mappedFremderDatensatz(error, typ: CloudRecordType.group,
+                folge: "Ohne WRITE auf „Group“ kann nur die Person, die die "
+                    + "Schule eingerichtet hat, Standorte und Handlungstexte "
+                    + "pflegen — ein zweiter Admin nicht.")
         }
     }
 
@@ -1387,28 +1439,45 @@ final class CloudKitBackend: AlarmBackend {
     }
 
     /// Turns a CloudKit failure into something that can be shown to a teacher.
-    /// Für Schreibvorgänge auf dem Datensatz einer ANDEREN Person.
+    /// Für jeden Schreibvorgang auf dem Datensatz einer ANDEREN Person.
     ///
     /// In der öffentlichen Datenbank gehört jeder Datensatz dem, der ihn
-    /// geschrieben hat. Ein Admin darf den Mitgliedseintrag einer Kollegin nur
-    /// ändern, wenn der Record-Typ `Member` der Rolle `_icloud` das Schreiben
-    /// erlaubt. Fehlt das Häkchen, lehnt CloudKit ab — und `mapped` machte
-    /// daraus „Dafür fehlt die Berechtigung. Nur ein Admin darf das", also
-    /// ausgerechnet den Satz, der hier nicht stimmt: Der Mensch IST Admin.
+    /// geschrieben hat. Wer einen fremden ändern will, braucht dafür das
+    /// Schreibrecht der Rolle `_icloud` auf DESSEN Record-Typ. Fehlt das
+    /// Häkchen, lehnt CloudKit ab — und `mapped` macht daraus „Dafür fehlt die
+    /// Berechtigung. Nur ein Admin darf das", also ausgerechnet den Satz, der
+    /// hier garantiert falsch ist: Der Mensch IST Admin, sonst stünde der Knopf
+    /// gar nicht da.
     ///
-    /// Getroffen beim Ernennen eines zweiten Admins (09/2026).
-    private func mappedMitgliedsschreiben(_ error: Error) -> BackendError {
+    /// **Es ist nie nur EIN Record-Typ.** 1.0.26 hat das für `Member`
+    /// geradegerückt, weil es dort zuerst auffiel (Ernennen eines zweiten
+    /// Admins). 09/2026 kam dieselbe Meldung beim **Entwarnen des Alarms einer
+    /// Kollegin** — ein Alarm gehört dem, der ihn ausgelöst hat, und `Alarm`
+    /// war derselbe blinde Fleck. Deshalb steht die Erklärung jetzt einmal hier
+    /// und nennt den Typ, um den es gerade geht; wer einen neuen Schreibweg auf
+    /// fremde Datensätze baut, hängt ihn hier ein und nicht an `mapped`.
+    ///
+    /// `folge` ist der Satz, der sagt, was ohne das Häkchen NICHT geht. Ohne
+    /// ihn liest sich die Meldung wie eine Formalie; mit ihm weiß die Person,
+    /// was sie gerade verloren hat.
+    private func mappedFremderDatensatz(_ error: Error,
+                                        typ: String,
+                                        folge: String) -> BackendError {
         guard let ck = error as? CKError, ck.code == .permissionFailure else {
             return mapped(error)
         }
         return .server("iCloud hat das Schreiben abgelehnt. In der öffentlichen "
-            + "Datenbank gehört ein Datensatz dem, der ihn angelegt hat — der "
-            + "Eintrag einer Kollegin gehört ihr.\n\nZu setzen ist das in der "
+            + "Datenbank gehört ein Datensatz dem, der ihn angelegt hat — dieser "
+            + "hier gehört jemand anderem.\n\nZu setzen ist das in der "
             + "CloudKit-Konsole: Security Roles → _icloud → beim Record-Typ "
-            + "„Member“ die Häkchen bei READ, WRITE und CREATE, danach der Knopf "
-            + "„Deploy Schema Changes to Production“. Ohne WRITE kann kein Admin "
-            + "einen zweiten ernennen, ein Kürzel berichtigen oder ein Mitglied "
-            + "entfernen.")
+            + "„\(typ)“ die Häkchen bei READ, WRITE und CREATE, danach der Knopf "
+            + "„Deploy Schema Changes to Production“.\n\n" + folge)
+    }
+
+    private func mappedMitgliedsschreiben(_ error: Error) -> BackendError {
+        mappedFremderDatensatz(error, typ: CloudRecordType.member,
+            folge: "Ohne WRITE kann kein Admin einen zweiten ernennen, ein "
+                + "Kürzel berichtigen oder ein Mitglied entfernen.")
     }
 
     private func mapped(_ error: Error) -> BackendError {

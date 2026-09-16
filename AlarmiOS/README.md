@@ -641,16 +641,29 @@ kann ihn nicht verbiegen. Nur das Sortieren selbst passiert in der App.
 ### 3. Sicherheitsrolle
 
 `_icloud` (angemeldete Nutzer) braucht auf allen acht Record-Typen **Read,
-Write und Create**. Ohne Write kann ein zweiter Admin die Standorte nicht
-pflegen, die eine andere angelegt hat.
+Write und Create**.
 
-**Auf `Member` ist Write besonders leicht zu übersehen** und fällt erst spät
-auf: In der öffentlichen Datenbank gehört ein Datensatz dem, der ihn angelegt
-hat — der Mitgliedseintrag einer Kollegin gehört ihr. Fehlt das Häkchen, kann
-ein Admin **keinen zweiten ernennen, kein Kürzel berichtigen und niemanden
-entfernen**; CloudKit lehnt still ab. Die App nennt diesen Fall seit 1.0.26 im
-Klartext samt Weg durch die Konsole. **Nach dem Setzen: „Deploy Schema Changes
-to Production“.**
+**Write ist das Häkchen, das alles kostet — und es fällt erst spät auf.** In
+der öffentlichen Datenbank gehört ein Datensatz dem, der ihn angelegt hat. Wer
+einen fremden ändern will, braucht Write auf dessen Record-Typ; fehlt es,
+lehnt CloudKit ab. Was dann jeweils nicht geht:
+
+| Fehlt Write auf … | … dann geht nicht |
+|---|---|
+| `Alarm` | **Ein Admin kann nur die EIGENEN Alarme entwarnen.** Für alle anderen bleibt die auslösende Person die Einzige, die ihren Alarm beenden kann — steht deren Gerät im Schrank, läuft er weiter. Ebenso „Alle laufenden Alarme beenden". |
+| `Member` | Kein Admin kann einen zweiten ernennen, ein Kürzel berichtigen oder jemanden entfernen. |
+| `Group` | Nur wer die Schule eingerichtet hat, kann Standorte und Handlungstexte pflegen — ein zweiter Admin nicht. |
+| `InviteCode` | Einen Code kann nur der Admin zurückziehen, der ihn vergeben hat. |
+| `Alarm`, `Ack`, `Message` | Das Aufräumen nach 90 Tagen räumt nur weg, was dieses Konto selbst geschrieben hat. |
+
+Die App nennt jeden dieser Fälle im Klartext samt Weg durch die Konsole (seit
+1.0.26 für `Member`, seit 1.0.37 für die übrigen). **Nach dem Setzen: „Deploy
+Schema Changes to Production“.**
+
+> Gemeldet 09/2026: „Ich wollte als Admin den Alarm eines anderen Mitglieds
+> deaktivieren. Stattdessen kam, dass nur ein Admin das dürfe — aber das bin
+> ich ja." Genau dieser Fall: Write auf `Alarm` fehlte, und die Meldung sagte
+> das Einzige, was sicher falsch war.
 
 ### 4. Ins Production-Environment übernehmen
 
