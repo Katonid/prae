@@ -14,6 +14,13 @@ Dienst-iPads der bequemere (siehe `docs/VERTEILUNG_JAMF_SCHOOL.md`).
 > **Diese App ersetzt keinen Notruf.** 110 und 112 bleiben der Weg nach
 > draußen. Sie verständigt ausschließlich das Kollegium im eigenen Haus.
 
+**1.1.0 ist die erste Fassung im App Store** (Ansage des Nutzers, 09/2026).
+Der Sprung von 1.0.37 ist bewusst — was in den Laden geht, ist keine
+achtunddreißigste Nachbesserung, sondern die erste öffentliche Fassung; die
+Stände davor gab es nur im Repo und über TestFlight. Die Marken „ab 1.0.x"
+weiter unten bleiben stehen: Sie sagen, wann etwas in den Quelltext kam, und
+das ändert eine Umbenennung nicht. Danach zählt es weiter — 1.1.1, 1.1.2 …
+
 ---
 
 ## Was schon steht und was noch offen ist
