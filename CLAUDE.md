@@ -149,8 +149,9 @@ Auftrag, für Bauten, die niemand angefordert hatte.
 - App-Code: `AlarmiOS/` (zwei Targets: App + `AlarmNotificationService`,
   iPhone + iPad, iOS 16). Eine Lehrkraft löst aus, alle Dienst-iPads
   eines Kollegiums werden laut, jede meldet mit einem Tipp zurück.
-  Verteilt als **Custom App** über Apple School Manager und Jamf School —
-  nicht im öffentlichen App Store. Bundle-Id `de.dboschule.alarm`.
+  **Kostenlos im öffentlichen App Store** (Ansage des Nutzers, 09/2026; bis
+  1.0.34 war die Custom App über Apple School Manager und Jamf School der
+  einzige Weg — der bleibt daneben bestehen). Bundle-Id `de.dboschule.alarm`.
 - **Diese App ersetzt keinen Notruf.** Der Satz steht auf dem
   Alarm-Bildschirm, in den Einstellungen und in den Review-Notizen —
   nicht wegrationalisieren.
@@ -201,10 +202,15 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   Sie unterscheidet nur „irgendein angemeldeter iCloud-Nutzer" und
   „Ersteller". Sie kann NICHT „nur Mitglieder dieser Gruppe". Wer den
   sechsstelligen Code hat und eine Apple-ID besitzt, kann in der Gruppe
-  schreiben. Die Schutzwirkung kommt aus der Verteilung nur an
-  Schul-iPads und aus Datensparsamkeit (Kürzel statt Namen). Das steht so
-  im README, in den Review-Notizen und in BACKEND_MIGRATION — nicht
-  schönreden.
+  schreiben. **Seit 1.0.35 trägt der Beitrittscode das ALLEIN**: Bis dahin
+  stand daneben, dass es die App nur auf verwalteten Schul-iPads gab, und im
+  öffentlichen Laden gilt das nicht mehr. Was bleibt, ist Sichtbarkeit statt
+  Türsteher (Beitrittsdatum in der Mitgliederliste, doppelte Kürzel markiert,
+  Entfernen und Zurückziehen des Codes) und Datensparsamkeit (Kürzel statt
+  Namen). Das steht so im README, in den Review-Notizen, auf der
+  Datenschutzseite und in BACKEND_MIGRATION — **wer den Satz „nur an
+  Schul-iPads" irgendwo wiederfindet, streicht ihn**; er ist seit dem
+  öffentlichen Vertrieb schlicht falsch.
 - **Indizes und Sicherheitsrolle sind hier NÖTIG** (anders als bei
   Tafelbild, das privat abgleicht): Ohne Queryable-Index scheitert jede
   Abfrage, ohne `_icloud`-Schreibrecht kann ein zweiter Admin nichts
@@ -818,6 +824,20 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   wird sie dort auch nicht — die Mitteilung gehört der App, und an deren
   Entitlement prüft iOS, ob `.timeSensitive` gilt. Wer der Erweiterung
   wieder eine Entitlements-Datei gibt, macht das Projekt unsignierbar.
+- **Für den öffentlichen Laden muss die App JEDER Schule gehören** (ab 1.0.35).
+  Apple weist Apps zurück, die erkennbar nur einer einzelnen Einrichtung nützen
+  — dafür gibt es die Custom Apps. Die Review-Notizen begannen bis 1.0.34
+  wörtlich mit „internal … app for the staff of a single German primary school
+  … not intended for the public App Store": derselbe Text, der bei Apple
+  eingereicht wird. Die Sache stimmt ja auch gar nicht — wer die App
+  installiert, richtet sich seine eigene Schule ein, und die Schulen wissen
+  nichts voneinander. Der Text sagt das jetzt zuerst.
+- **Nachrichten im Alarm sind von Nutzern eingestellter Inhalt** (ab 1.0.35).
+  Damit gilt Apples Regel dazu: ein Weg zu melden, ein Weg, jemanden
+  loszuwerden, und eine erreichbare Adresse. Das Entfernen gab es schon
+  (Verwaltung → Mitglieder, dazu den Code zurückziehen); dazugekommen sind der
+  Abschnitt „Hilfe" in den Einstellungen und `Services/Hilfeadressen.swift` —
+  die drei Adressen an EINER Stelle, sonst lauten sie irgendwann verschieden.
 - **Der Prüfer richtet seine EIGENE Schule ein, er tritt keiner bei**
   (`docs/APP_REVIEW_NOTES.md`, ab 09/2026). Wer über einen Code beitritt, ist
   seit 1.0.13 Mitglied und kein Admin — und ein Mitglied sieht die Auswahl

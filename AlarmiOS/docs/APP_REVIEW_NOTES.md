@@ -9,10 +9,17 @@ Prüfung liest englisch.
 
 ## Purpose
 
-This is an internal emergency notification app for the staff of a single
-German primary school (about 30 teachers). It is distributed as a **Custom
-App** through Apple School Manager and Jamf School and is not intended for
-the public App Store.
+Schulalarm is a **free** in-house alert app for the staff of a school. It is
+offered on the App Store to **any** school that wants it — nothing in the app
+is tied to one school, one country or one customer. Whoever installs it sets
+up their own school inside the app in about a minute and invites colleagues
+with a six-character code. Schools are completely separate from one another;
+there is no shared directory, no central account, nothing to buy and no
+subscription.
+
+(An earlier build of this app was tested as a Custom App at one school. It is
+submitted here for ordinary public distribution because the need is the same
+in every school, and a Custom App would reach only one of them.)
 
 One teacher raises an alarm (intruder, fire, medical emergency, or a drill).
 Every colleague's school-issued iPad receives a time-sensitive notification
@@ -99,6 +106,31 @@ sets itself only when a push actually arrives, which requires a second device.
 
 Everything else — permissions, sound, the alarm screen, acknowledgements, the
 all-clear, administration — is fully testable on one device.
+
+## User-generated content, and how it is moderated
+
+There is content typed by users: a short handle, the school's name, the names
+of the locations, and the messages colleagues send each other **while an alarm
+is running**. It is worth saying how narrow that is:
+
+* Nothing is public. A message is visible only inside one school, only to
+  people who joined it with that school's code, and only for the duration of
+  that alarm's record.
+* **Blocking exists and is in the app:** an administrator removes a member
+  under Verwaltung → Mitglieder → „Entfernen", and revokes the join code so
+  the person cannot come back. The member list shows each member's join date
+  and flags duplicate handles, so an unexpected entry is easy to spot.
+* **Reporting exists:** Einstellungen → „Unangemessene Inhalte melden" opens a
+  mail to schulalarm@apps.dblern.de. The same address is on the support page,
+  which is linked from the same screen.
+* Alarms, acknowledgements and messages are deleted after 90 days.
+
+## Why the app asks for an iCloud account
+
+There is no server and no account system of our own. The app stores everything
+in CloudKit, which means a signed-in iCloud account is what identifies a
+colleague. The first screen says so if no account is present. We ask for no
+e-mail address, no password and no personal data of our own.
 
 ## Note on critical alerts
 

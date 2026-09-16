@@ -201,6 +201,22 @@ struct SettingsView: View {
                 }
 
                 Section {
+                    Link("Hilfe und Kontakt", destination: Hilfeadressen.support)
+                    Link("Datenschutz", destination: Hilfeadressen.datenschutz)
+                    Link("Unangemessene Inhalte melden",
+                         destination: Hilfeadressen.missbrauch)
+                } header: {
+                    Text("Hilfe")
+                } footer: {
+                    Text("Im Alarm schreibt das Kollegium einander Nachrichten. "
+                         + "Was dort steht, verantwortet die Person, die es "
+                         + "getippt hat. Ein Admin kann jemanden aus der Schule "
+                         + "entfernen (Verwaltung → Mitglieder) und den "
+                         + "Beitrittscode zurückziehen; ist etwas darüber hinaus "
+                         + "zu klären, geht es an die Adresse oben.")
+                }
+
+                Section {
                     Text("Diese App ersetzt keinen Notruf. 110 und 112 bleiben der "
                          + "Weg nach draußen; die App verständigt nur das Kollegium.")
                         .font(.footnote)
