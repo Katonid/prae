@@ -166,7 +166,8 @@ struct HomeView: View {
 
     private var warning: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Label("Dieses iPad ist nicht einsatzbereit", systemImage: "exclamationmark.triangle.fill")
+            Label("Dieses \(Geraetename.wort) ist nicht einsatzbereit",
+                  systemImage: "exclamationmark.triangle.fill")
                 .font(.headline)
                 .foregroundStyle(.orange)
             ForEach(model.blockingItems) { item in

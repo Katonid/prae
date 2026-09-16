@@ -864,7 +864,7 @@ final class AppModel: ObservableObject {
         do {
             try await backend.sendTestAlarm(toUserId: member.userId)
             hinweis = "Testalarm an \(member.displayName) gesendet. Der Haken "
-                + "„Zustellung geprüft“ setzt sich auf DEREN iPad."
+                + "„Zustellung geprüft“ setzt sich auf DEREN Gerät."
         } catch {
             report(error)
         }

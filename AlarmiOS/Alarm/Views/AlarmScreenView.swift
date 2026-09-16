@@ -106,7 +106,7 @@ struct AlarmScreenView: View {
     private var eigenerHinweis: some View {
         HStack(alignment: .firstTextBaseline, spacing: 10) {
             Image(systemName: "bell.slash.fill")
-            Text("Diesen Alarm hast du ausgelöst — dieses iPad bleibt dafür "
+            Text("Diesen Alarm hast du ausgelöst — dieses \(Geraetename.wort) bleibt dafür "
                  + "stumm. Angezeigt wird alles: Rückmeldungen und Nachrichten "
                  + "laufen weiter ein.")
         }
@@ -163,7 +163,7 @@ struct AlarmScreenView: View {
                     }
                     // Der Satz, auf den es ankommt: Wer zurückgemeldet hat,
                     // will wissen, dass sein iPad jetzt schweigt.
-                    Text("Dieses iPad erinnert nicht mehr.")
+                    Text("Dieses \(Geraetename.wort) erinnert nicht mehr.")
                         .font(.subheadline).opacity(0.85)
                 }
                 Spacer()
@@ -227,7 +227,7 @@ struct AlarmScreenView: View {
             .buttonStyle(.borderedProminent)
             .tint(.black.opacity(0.55))
         } else {
-            Label("Notruf 110 über Telefon oder Sekretariat — dieses iPad kann nicht telefonieren.",
+            Label("Notruf 110 über Telefon oder Sekretariat — dieses \(Geraetename.wort) kann nicht telefonieren.",
                   systemImage: "phone.badge.waveform")
                 .font(.subheadline)
                 .foregroundStyle(.white)

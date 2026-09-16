@@ -52,7 +52,7 @@ enum Tontest {
         inhalt.body = mitStandardton
             ? "Das ist der System-Mitteilungston. Hörst du DIESEN, aber nicht "
             + "den Alarmton, liegt es an der Tondatei."
-            : "Wenn du das hörst, kann dieses iPad laut werden. Die Zustellung "
+            : "Wenn du das hörst, kann dieses \(Geraetename.wort) laut werden. Die Zustellung "
             + "von einem anderen Gerät prüft der Zustelltest."
         inhalt.categoryIdentifier = PushAsset.allClearCategory
 
@@ -125,7 +125,7 @@ enum Tonprobe {
             spieler = neuer
             neuer.play()
             return "Spielt „\(klang.titel)“ … Das ist die Datei, nicht die "
-                 + "Mitteilung: Sie klingt auch bei stummem iPad."
+                 + "Mitteilung: Sie klingt auch bei stummem \(Geraetename.wort)."
         } catch {
             // Der rohe Fehler: Genau hier stünde „unsupported file type",
             // wenn das Format doch nicht taugt.

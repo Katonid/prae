@@ -242,6 +242,54 @@ sich die meisten Überraschungen erklären:
 Die Geräteübersicht macht den Fall sichtbar: Sie zählt die Geräte je Kürzel
 und warnt, wenn zwei unter einem stehen.
 
+## Das Gerät heißt, wie es heißt (ab 1.0.36)
+
+Gemeldet 09/2026: Auf einem iPhone stand „Dieses iPad ist nicht
+einsatzbereit". Die App wurde für dreißig Dienst-iPads gebaut, und die Texte
+sagten das wörtlich — nur hält eine Lehrkraft eben auch mal ein iPhone in der
+Hand, und ein Warnband, das vom falschen Gerät redet, liest sich wie ein
+Fehler in der App.
+
+`Services/Geraetename.swift` ist seither die eine Quelle, und die Regel gilt
+für jeden neuen Text:
+
+* Geht es um **dieses** Gerät, steht dort `Geraetename.wort` — „iPad",
+  „iPhone", sonst „Gerät".
+* Geht es um **irgendein** Gerät (eine Aussage über die Schule, ein anderes
+  Mitglied, zwei Geräte an einer Apple-ID), steht dort schlicht „Gerät".
+  Ein „iPad" wäre da nicht bloß unpassend, sondern falsch: Der Satz gilt für
+  jedes Gerät.
+
+Grammatisch geht das auf, weil iPad, iPhone und Gerät alle sächlich sind.
+
+## Die Kamera folgt der Lage des Geräts (ab 1.0.36)
+
+Gemeldet 09/2026: Auf einem quer gehaltenen iPad stand das Kamerabild
+hochkant, und ein fremder Beitrittscode ließ sich kaum treffen. Eine
+`AVCaptureVideoPreviewLayer` beginnt immer im Hochformat — die Verbindung
+übernimmt die Lage der Oberfläche **nicht** von selbst.
+
+Erkannt hätte die Kamera den Code trotzdem: Gesucht wird im Sensorbild, und
+das ist von der Anzeige unabhängig. Genau das macht den Fehler zäh — nichts
+ist kaputt, es lässt sich nur nicht zielen. Für den Menschen davor ist das
+dasselbe.
+
+`richteVorschauAus()` setzt den Winkel jetzt bei jedem Layout, also auch beim
+Drehen. Zwei Dinge dabei:
+
+* **Gefragt wird die Szene DIESER Ansicht** (`view.window?.windowScene`), nie
+  `connectedScenes`. Das ist eine ungeordnete Menge; hängt ein Beamer am iPad,
+  greift `first { … }` mal die eine und mal die andere — derselbe Fehler, der
+  in Tafelbild die Dokumentenkamera auf den Kopf stellte. Ist die Lage
+  unbekannt, bleibt es beim Hochformat.
+* **Die Winkel sind Apples eigene Entsprechungen** aus der Abkündigung von
+  `videoOrientation` (portrait 90, portraitUpsideDown 270, landscapeLeft 180,
+  landscapeRight 0) — nicht selbst nachgerechnet. Die Bezugslage der Kamera
+  ist Querformat, und 180 Grad daneben fällt nur auf einem echten Gerät auf.
+  Für iOS 16 steht der alte Weg daneben, in einer eigenen, als veraltet
+  markierten Funktion: `#available` schaltet eine Abkündigungswarnung nicht
+  ab, die hängt an der Übersetzung.
+
 ## Der eigene Alarm bleibt auf dem eigenen iPad stumm (ab 1.0.34)
 
 Wer auslöst, steht am Ort und weiß Bescheid. Trotzdem schlug das auslösende

@@ -99,7 +99,7 @@ struct SettingsView: View {
                     Text("Alarmton")
                 } footer: {
                     Text("Ein Tipp wählt den Ton UND spielt ihn vor.\n\n"
-                         + "Der Ton gilt für dieses iPad. Soll das Kollegium im "
+                         + "Der Ton gilt für dieses \(Geraetename.wort). Soll das Kollegium im "
                          + "Ernstfall vor den Kindern unauffällig bleiben, muss "
                          + "ihn jedes Gerät gewählt haben — die App kann das "
                          + "nicht für alle entscheiden.\n\n"
@@ -120,7 +120,7 @@ struct SettingsView: View {
                 }
 
                 Section {
-                    Button("Tontest — das iPad weckt sich selbst") {
+                    Button("Tontest — das \(Geraetename.wort) weckt sich selbst") {
                         Task { await model.runTontest() }
                     }
                     Button("Tontest mit Standardton") {
@@ -172,7 +172,7 @@ struct SettingsView: View {
                              + "keine Alarme, keine Rückmeldungen. Das Kürzel "
                              + "verschwindet aus der Mitgliederliste, und die "
                              + "Abonnements werden abgeräumt — sonst klingelte "
-                             + "dieses iPad weiter für eine Schule, zu der es "
+                             + "dieses \(Geraetename.wort) weiter für eine Schule, zu der es "
                              + "nicht mehr gehört.\n\n"
                              + "Schon geschriebene Rückmeldungen und Nachrichten "
                              + "bleiben stehen. Sie sind ein Nachweis und gehören "

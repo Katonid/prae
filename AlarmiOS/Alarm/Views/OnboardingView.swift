@@ -20,7 +20,7 @@ struct OnboardingView: View {
                 if let code = model.freshInviteCode { codeSection(code) }
 
                 Section {
-                    Text("Dieses iPad muss laut werden können, auch wenn es "
+                    Text("Dieses \(Geraetename.wort) muss laut werden können, auch wenn es "
                          + "gesperrt ist und ein Fokus läuft. Die folgenden Punkte "
                          + "sind dafür nötig.")
                         .font(.callout)
@@ -78,7 +78,7 @@ struct OnboardingView: View {
                         Text("Der Zustellnachweis steht noch aus — er braucht ein "
                              + "zweites Gerät und hält die Einrichtung deshalb "
                              + "nicht auf. Bis er erbracht ist, steht auf dem "
-                             + "Startbildschirm ein Warnband, und dieses iPad "
+                             + "Startbildschirm ein Warnband, und dieses \(Geraetename.wort) "
                              + "gilt nicht als geprüft.")
                     }
                 }
@@ -148,7 +148,7 @@ struct OnboardingView: View {
             } label: {
                 Label("Tontest starten", systemImage: "speaker.wave.3")
             }
-            Text("Sperre das iPad jetzt und lege es hin. In \(Int(Tontest.vorlauf)) "
+            Text("Sperre das \(Geraetename.wort) jetzt und lege es hin. In \(Int(Tontest.vorlauf)) "
                  + "Sekunden weckt es sich selbst — mit dem Alarmton, in der "
                  + "Dringlichkeitsstufe des Ernstfalls.")
                 .font(.footnote)
@@ -158,7 +158,7 @@ struct OnboardingView: View {
         } header: {
             Text("1. Tontest — ohne Netz")
         } footer: {
-            Text("Dieser Test läuft ganz auf dem Gerät. Er beweist, dass das iPad "
+            Text("Dieser Test läuft ganz auf dem Gerät. Er beweist, dass das \(Geraetename.wort) "
                  + "laut werden DARF — nicht, dass ein Alarm von einer Kollegin "
                  + "ankommt. Dafür ist der nächste da.")
         }
@@ -214,9 +214,9 @@ struct OnboardingView: View {
         } header: {
             Text("2. Zustellung — über iCloud")
         } footer: {
-            Text("Diesen Haken setzt dieses iPad nicht selbst: CloudKit stellt "
+            Text("Diesen Haken setzt dieses \(Geraetename.wort) nicht selbst: CloudKit stellt "
                  + "einem Gerät keine Meldung zu einem Datensatz zu, den es "
-                 + "selbst geschrieben hat. Ein iPad kann sich die Zustellung "
+                 + "selbst geschrieben hat. Ein Gerät kann sich die Zustellung "
                  + "nicht selbst beweisen — und ein Knopf, der so täte, wäre in "
                  + "dieser App das Letzte, was hier stehen dürfte.\n\n"
                  + "Weil dafür ein zweites Gerät nötig ist, hält dieser Punkt "
@@ -227,14 +227,14 @@ struct OnboardingView: View {
     /// Wer was zu tun hat, hängt davon ab, wer man ist.
     private var zustellHilfe: String {
         if model.letzterPush != nil {
-            return "Auf diesem iPad ist bereits eine Meldung eingetroffen. Der "
+            return "Auf diesem \(Geraetename.wort) ist bereits eine Meldung eingetroffen. Der "
                 + "Nachweis steht."
         }
         if model.isAdmin {
             return """
-            Du bist Admin. Schicke aus Verwaltung → Mitglieder je einen             Testalarm an die iPads der Kolleginnen; auf deren Geräten setzt             sich der Haken damit von selbst.
+            Du bist Admin. Schicke aus Verwaltung → Mitglieder je einen             Testalarm an die Geräte der Kolleginnen; auf deren Geräten setzt             sich der Haken damit von selbst.
 
-            Für dein EIGENES iPad braucht es jemand anderen: Mach unter             Verwaltung → Mitglieder eine zweite Person zum Admin — sie             schickt dir dann den Testalarm zurück. Zwei Admins sollten es             ohnehin sein, damit die Schule nicht an einem einzigen Gerät hängt.
+            Für dein EIGENES Gerät braucht es jemand anderen: Mach unter             Verwaltung → Mitglieder eine zweite Person zum Admin — sie             schickt dir dann den Testalarm zurück. Zwei Admins sollten es             ohnehin sein, damit die Schule nicht an einem einzigen Gerät hängt.
             """
         }
         return "Bitte einen Admin, dir einen Testalarm zu schicken "

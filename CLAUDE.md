@@ -473,6 +473,38 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   **Sichtbarkeit**: Die Mitgliederliste nennt seit 1.0.28 das Beitrittsdatum und
   markiert noch vorhandene Doppel; ein unerwarteter Eintrag wird entfernt und der
   Beitrittscode zurückgezogen.
+- **Das Gerät heißt, wie es heißt** (`Services/Geraetename.swift`, ab 1.0.36,
+  gemeldet 09/2026). Auf einem iPhone stand „Dieses iPad ist nicht
+  einsatzbereit" — die App war für dreißig Dienst-iPads gebaut, und die Texte
+  sagten das wörtlich. Ein Warnband, das vom falschen Gerät redet, liest sich
+  wie ein Fehler in der App. **Die Regel für JEDEN neuen Text:** Geht es um
+  DIESES Gerät, steht dort `Geraetename.wort` („iPad", „iPhone", sonst
+  „Gerät"); geht es um IRGENDEIN Gerät (eine Aussage über die Schule, ein
+  anderes Mitglied, zwei Geräte an einer Apple-ID), steht dort schlicht
+  „Gerät" — ein „iPad" wäre da nicht bloß unpassend, sondern falsch, denn der
+  Satz gilt für jedes Gerät. Grammatisch geht das auf, weil iPad, iPhone und
+  Gerät alle sächlich sind. Kein `default`-Zweig mit Rateversuch: Läuft die App
+  eines Tages auf einem Mac, ist „Gerät" richtig und „iPad" gelogen.
+- **Die Kamera folgt der Lage des GERÄTS, nicht der des Sensors**
+  (`QRCodeView.richteVorschauAus`, ab 1.0.36, gemeldet 09/2026). Auf einem quer
+  gehaltenen iPad stand das Kamerabild hochkant, und ein fremder Beitrittscode
+  ließ sich kaum treffen. Eine `AVCaptureVideoPreviewLayer` beginnt immer im
+  Hochformat — die Verbindung übernimmt die Lage der Oberfläche NICHT von
+  selbst. **Erkannt hätte die Kamera den Code trotzdem**: Gesucht wird im
+  Sensorbild, und das ist von der Anzeige unabhängig. Genau das macht den
+  Fehler zäh — nichts ist kaputt, es lässt sich nur nicht zielen; für den
+  Menschen davor ist das dasselbe. Gesetzt wird der Winkel bei jedem Layout,
+  also auch beim Drehen. Zwei Dinge dabei: **Gefragt wird die Szene DIESER
+  Ansicht** (`view.window?.windowScene`), nie `connectedScenes` — das ist eine
+  ungeordnete Menge, und hängt ein Beamer am iPad, greift `first { … }` mal die
+  eine und mal die andere (derselbe Fehler wie bei Tafelbilds
+  Dokumentenkamera). Und **die Winkel sind Apples eigene Entsprechungen** aus
+  der Abkündigung von `videoOrientation` (portrait 90, portraitUpsideDown 270,
+  landscapeLeft 180, landscapeRight 0), nicht selbst nachgerechnet: Die
+  Bezugslage der Kamera ist Querformat, und 180 Grad daneben fällt nur auf
+  einem echten Gerät auf. Der iOS-16-Weg steht in einer eigenen, als veraltet
+  markierten Funktion — `#available` schaltet eine Abkündigungswarnung nicht
+  ab, die hängt an der Übersetzung.
 - **Der eigene Alarm bleibt auf dem eigenen iPad stumm** (`istEigenerAlarm`, ab
   1.0.34, gemeldet 09/2026). Der örtliche Nachfasslauf `AlarmReminder` fragt
   nicht, wessen Alarm er anschreit — das auslösende Gerät schlug 30 Sekunden
