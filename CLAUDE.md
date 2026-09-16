@@ -582,6 +582,30 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   an jedes Blatt gehängt. **Wer ein neues Blatt baut, hängt sie mit dran.**
   Dazu meldet sich seit 1.0.26 auch der Erfolgsfall: Ein Knopf, der schweigt,
   ist für den Menschen davor ein kaputter Knopf.
+- **Es ist NIE nur ein Record-Typ** (`mappedFremderDatensatz`, ab 1.0.37).
+  1.0.26 rückte `.permissionFailure` für `Member` gerade, weil es dort zuerst
+  auffiel. 09/2026 kam derselbe Satz beim **Entwarnen des Alarms einer
+  Kollegin**: „Nur ein Admin darf das" — gemeldet von einem Admin. Ein Alarm
+  gehört dem, der ihn ausgelöst hat, und `Alarm` war derselbe blinde Fleck.
+  Betroffen sind ALLE Wege, die auf fremde Datensätze schreiben: `clearAlarm`
+  (`Alarm`), `updateGroup` (`Group`, also Standorte und Handlungstexte eines
+  ZWEITEN Admins), `revokeInviteCode` (`InviteCode`) und das Aufräumen
+  (`Alarm`, `Ack`, `Message`). Die Erklärung steht deshalb einmal in
+  `mappedFremderDatensatz` und nennt den Typ, um den es gerade geht, dazu einen
+  Satz, was ohne das Häkchen NICHT geht. **Wer einen neuen Schreibweg auf einen
+  fremden Datensatz baut, hängt ihn dort ein und nicht an `mapped`.** Und:
+  `clearAlarm` ruft bewusst kein `requireAdmin()` — wer entwarnen darf,
+  entscheidet `mayClear`; jedes `.notPermitted` von dort kommt also von
+  CloudKit und nie von uns.
+- **Das Aufräumen zählte die ABSICHT, nicht das Ergebnis** (bis 1.0.36).
+  `modifyRecords` wirft nur, wenn der ganze Aufruf scheitert; einzelne
+  Ablehnungen stehen in `deleteResults`, und die warf `cleanUp` mit `_ =` weg.
+  Gemeldet hätte es „12 Alarme gelöscht", während keiner gelöscht war — und der
+  wahrscheinlichste Grund ist genau der Punkt darüber: ohne WRITE räumt ein
+  Admin nur das Eigene weg. Dasselbe Muster wie bei `modifySubscriptions` in
+  1.0.4. **Wo CloudKit ein Ergebnis je Element zurückgibt, IST das Ergebnis die
+  Fehlermeldung** — gezählt wird seither, was wirklich weg ist, und bleibt alles
+  liegen, sagt die App es.
 - **`.permissionFailure` beim Schreiben auf einen FREMDEN Datensatz heißt etwas
   anderes** (`mappedMitgliedsschreiben`, ab 1.0.26). In der öffentlichen
   Datenbank gehört ein Datensatz dem, der ihn angelegt hat; der Mitgliedseintrag
