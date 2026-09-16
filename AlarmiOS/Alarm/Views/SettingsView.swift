@@ -203,6 +203,8 @@ struct SettingsView: View {
                 Section {
                     Link("Hilfe und Kontakt", destination: Hilfeadressen.support)
                     Link("Datenschutz", destination: Hilfeadressen.datenschutz)
+                    Link("Nutzungsbedingungen und Haftung",
+                         destination: Hilfeadressen.nutzungsbedingungen)
                     Link("Unangemessene Inhalte melden",
                          destination: Hilfeadressen.missbrauch)
                 } header: {

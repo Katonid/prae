@@ -877,6 +877,11 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   sie je gesehen. **Die Marken „ab 1.0.x" in diesem Papier bleiben stehen** —
   sie sagen, wann etwas in den Quelltext kam, und das ändert sich durch eine
   Umbenennung nicht. Danach zählt es wie gewohnt weiter: 1.1.1, 1.1.2 …
+  **Solange 1.1.0 noch nicht hochgeladen ist, hebt eine Arbeitseinheit nur die
+  BUILD-Nummer** (39 → 40 → …) und lässt die 1.1.0 stehen. Die Patch-Nummer zu
+  heben verschöbe genau den runden Stand, um den der Nutzer gebeten hat; die
+  Build-Nummer ist davon unabhängig und muss ohnehin nur steigen. Ab dem ersten
+  angenommenen Upload gilt wieder die normale Regel: beides um je +1.
 - `ITSAppUsesNonExemptEncryption = NO` steht in beiden Info.plists und als
   Build-Einstellung — nicht entfernen.
 - **Die Erweiterung hat KEINE Entitlements-Datei, und das bleibt so.**
@@ -925,6 +930,26 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   läuft die App gar nicht** — auch nicht bei gerätebasierter Zuweisung über
   Jamf, die sonst ganz ohne Apple-ID installiert. Beim Vorbereiten eines Geräts
   ist das die erste Frage, nicht die letzte.
+- **Die Nutzungsbedingungen stehen auf einer SEITE, nicht in der App**
+  (`docs/schulalarm/nutzungsbedingungen.html`, ab 1.1.0/Build 40). Ein Text, der
+  sich ändern muss — eine Anschrift, ein Satz nach einer Rückfrage —, darf nicht
+  an einer Fassung hängen, die erst durch Apples Prüfung muss; und die dreißig
+  schon eingerichteten iPads läsen dann die alte. Verlinkt ist er im Abschnitt
+  „Hilfe" der Einstellungen (`Hilfeadressen`), auf der Support-Seite und in App
+  Store Connect. **Die Klausel ist bewusst ENG**: Haftung nur für Vorsatz und
+  grobe Fahrlässigkeit (§ 521 BGB entsprechend, weil kostenlos), aber
+  ausdrücklich NICHT ausgeschlossen für Leben, Körper, Gesundheit, wesentliche
+  Vertragspflichten und das Produkthaftungsgesetz. Ein Rundum-Ausschluss wäre
+  nach § 309 Nr. 7 BGB unwirksam — und zwar GANZ, es gibt keine erhaltende
+  Reduktion. Eine zu weite Klausel schützt also schlechter als eine enge. **Wer
+  hier etwas hinzufügt, prüft zuerst, ob es diese Ausnahmen antastet.**
+- **Was wirklich schützt, ist die Ehrlichkeit der App selbst.** Keine Zusage
+  über die Zustellung, kein grünes Häkchen für „nicht nachgesehen", die
+  Rückmeldeliste, die sagt, was sie NICHT ist. Diese Linie ist deshalb nicht nur
+  eine Frage des Anstands, sondern das, was einer Zusicherung am ehesten den
+  Boden entzieht. **In der Store-Beschreibung nie „zuverlässig", „sicher",
+  „garantiert" oder „in Sekunden" versprechen** — genau daraus wird sonst eine
+  Beschaffenheitsvereinbarung.
 - **Datenschutz- und Hilfeseite liegen in `docs/schulalarm/`** und werden vom
   Pages-Ablauf mitgeliefert:
   `https://katonid.github.io/prae/schulalarm/datenschutz.html` und
