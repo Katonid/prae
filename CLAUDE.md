@@ -868,6 +868,15 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne Nachfrage,
   als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann 1.0.1
   (Build 2) usw.
+- **1.1.0 (Build 39) ist die Fassung, die in den App Store geht** (Ansage des
+  Nutzers, 09/2026: „Ich möchte gerne ein einigermaßen rundes Bild
+  einreichen."). Der Sprung von 1.0.37 ist bewusst und derselbe Gedanke wie bei
+  Tafelbild 1.4.0: Was hier eingereicht wird, ist keine achtunddreißigste
+  Nachbesserung, sondern die erste öffentliche Fassung. Die siebenunddreißig
+  Stände davor gab es nur im Repo und über TestFlight; niemand außerhalb hat
+  sie je gesehen. **Die Marken „ab 1.0.x" in diesem Papier bleiben stehen** —
+  sie sagen, wann etwas in den Quelltext kam, und das ändert sich durch eine
+  Umbenennung nicht. Danach zählt es wie gewohnt weiter: 1.1.1, 1.1.2 …
 - `ITSAppUsesNonExemptEncryption = NO` steht in beiden Info.plists und als
   Build-Einstellung — nicht entfernen.
 - **Die Erweiterung hat KEINE Entitlements-Datei, und das bleibt so.**

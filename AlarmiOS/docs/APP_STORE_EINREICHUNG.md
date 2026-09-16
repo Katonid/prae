@@ -28,6 +28,13 @@ Wer mehr braucht, braucht einen Server — `BACKEND_MIGRATION.md`.
 
 ## 1. Vor dem Hochladen
 
+**Eingereicht wird 1.1.0 (Build 39).** Der Sprung von 1.0.37 ist bewusst
+(Ansage des Nutzers, 09/2026) und derselbe Gedanke wie bei Tafelbild 1.4.0:
+Was hier in den Laden geht, ist keine achtunddreißigste Nachbesserung, sondern
+die erste öffentliche Fassung. Die Stände davor gab es nur im Repo und über
+TestFlight — niemand außerhalb hat sie je gesehen. Danach zählt es wie gewohnt
+weiter: 1.1.1, 1.1.2 …
+
 - [ ] `MARKETING_VERSION` und `CURRENT_PROJECT_VERSION` an allen **vier**
       Stellen im pbxproj gleich und höher als der letzte Upload.
 - [ ] Der Bau in GitHub Actions ist grün. **Er beweist nicht, dass sich
@@ -36,6 +43,11 @@ Wer mehr braucht, braucht einen Server — `BACKEND_MIGRATION.md`.
       App-Id und Fähigkeiten auf, und nur damit.
 - [ ] CloudKit-Konsole: **Deploy Schema Changes to Production**. Ohne das
       fehlen in Production Felder, die es in Development längst gibt.
+- [ ] CloudKit-Konsole: **Security Roles → `_icloud` → READ, WRITE und CREATE
+      auf allen acht Record-Typen.** Fehlt WRITE auf `Alarm`, kann ein Admin
+      nur die eigenen Alarme entwarnen (gemeldet 09/2026) — und das fällt erst
+      im Ernstfall auf. Die Tabelle, welches fehlende Häkchen was kostet, steht
+      im README unter „Sicherheitsrolle".
 
 ## 2. Der Eintrag in App Store Connect
 
