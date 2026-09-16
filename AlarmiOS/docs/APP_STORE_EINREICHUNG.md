@@ -75,6 +75,31 @@ Bankverbindung, keine Steuerformulare, kein Paid-Apps-Agreement. Wenn App
 Store Connect in „Vereinbarungen, Steuern und Bankverbindung" nach Bank oder
 Steuer fragt, ist der falsche Vertrag ausgewählt.
 
+## 3b. Bildschirmfotos
+
+Ein Bildschirmfoto vom Gerät hat die Auflösung DIESES Geräts — ein iPhone 16
+Pro liefert 1206 × 2622. App Store Connect nimmt aber nur eine kurze Liste
+fester Maße an und weist alles andere ab. Umgerechnet wird mit
+
+```
+python3 scripts/screenshots-aufbereiten.py --ziel iphone-6.9 bild1.png bild2.png …
+```
+
+Das Skript behält das Seitenverhältnis, füllt den Rest durch Wiederholen der
+Randspalte (bei 1206 × 2622 sind das zwei Pixel links und rechts) und schreibt
+**ohne Alphakanal** — Transparenz ist ein Ablehnungsgrund. Ziele: `iphone-6.9`
+(1290 × 2796), `iphone-6.5` (1242 × 2688), `ipad-13` (2048 × 2732).
+
+**Weil die App auch auf dem iPad läuft, verlangt App Store Connect BEIDE
+Sätze.** Ein reiner iPhone-Satz reicht nicht; das fällt erst beim Einreichen
+auf, wenn schon alles andere steht. Also am iPad dieselben Bildschirme
+aufnehmen und mit `--ziel ipad-13` umrechnen.
+
+Was gezeigt wird, entscheidet der Inhalt und nicht die Vollständigkeit: der
+Startbildschirm, die Auswahl der Alarmart, der Countdown, der Alarmbildschirm.
+**Im Bild steht „Testschule"** und kein echter Schulname — dieselbe
+Datensparsamkeit wie in der App.
+
 ## 4. Was in die Formulare gehört
 
 **Datenschutz-URL (Pflicht):**
