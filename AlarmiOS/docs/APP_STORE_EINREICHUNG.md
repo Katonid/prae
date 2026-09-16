@@ -68,12 +68,25 @@ Der Homescreen-Name bleibt „Schulalarm"
 (`INFOPLIST_KEY_CFBundleDisplayName`) — Store-Name und Anzeigename sind
 getrennte Felder und dürfen auseinandergehen.
 
-## 3. Preis und Verträge
+## 3. Preis, Verträge und Händlerstatus
+
+**Kein Gewerbe** (Ansage des Nutzers, 09/2026). Die App wird als private
+Person unentgeltlich angeboten: keine Einnahmen, keine Werbung, keine Käufe in
+der App, keine kostenpflichtige Fassung.
 
 Kostenlos heißt: Es wird **nur** der „Free Apps"-Vertrag gebraucht. Keine
 Bankverbindung, keine Steuerformulare, kein Paid-Apps-Agreement. Wenn App
 Store Connect in „Vereinbarungen, Steuern und Bankverbindung" nach Bank oder
 Steuer fragt, ist der falsche Vertrag ausgewählt.
+
+**Der Händlerstatus ist die eine Stelle, an der eine Anschrift öffentlich
+würde.** App Store Connect fragt wegen des Digital Services Act, ob man
+*Händler* (Trader) ist oder nicht. Wer „Händler" angibt, dessen Name,
+Anschrift und Telefonnummer zeigt Apple auf der Produktseite **öffentlich**
+an. Für ein kostenloses Angebot ohne Gewerbe und ohne Einnahmen ist
+**„kein Händler"** die zutreffende Angabe — und dann veröffentlicht Apple
+keine Adresse. Diese Frage sorgfältig lesen und nicht nebenbei wegklicken;
+sie lässt sich später nur mit Aufwand korrigieren.
 
 ## 3b. Bildschirmfotos
 
