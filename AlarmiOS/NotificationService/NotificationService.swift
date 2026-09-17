@@ -33,18 +33,30 @@ final class NotificationService: UNNotificationServiceExtension {
             ?? UNMutableNotificationContent()
         self.mutableContent = content
 
-        switch PushPayloadParser.event(from: request.content.userInfo) {
-        case .success(let event):
-            apply(event, to: content)
-        case .failure(.notOurs):
-            // Somebody else's push, or a CloudKit database-change ping. Pass it
-            // through untouched rather than dressing it up as an alarm.
-            break
-        case .failure(let failure):
-            describe(failure, in: content)
-        }
+        // Die Erlaubnis für kritische Hinweise muss GELESEN werden, und das
+        // geht nur asynchron. Deshalb steckt der ganze Aufbau in einem `Task`.
+        //
+        // Der Zeitrahmen der Erweiterung wird dadurch nicht knapp: Die Abfrage
+        // ist ein Blick in die eigenen Einstellungen, keine Netzanfrage. Und
+        // fällt sie doch aus, greift `serviceExtensionTimeWillExpire` und
+        // liefert die Meldung unverändert aus — eine ungeschmückte Meldung ist
+        // immer noch unendlich viel besser als keine.
+        Task {
+            let kritisch = await Meldungsstufe.kritischErlaubt()
 
-        contentHandler(content)
+            switch PushPayloadParser.event(from: request.content.userInfo) {
+            case .success(let event):
+                self.apply(event, to: content, kritischErlaubt: kritisch)
+            case .failure(.notOurs):
+                // Somebody else's push, or a CloudKit database-change ping. Pass
+                // it through untouched rather than dressing it up as an alarm.
+                break
+            case .failure(let failure):
+                self.describe(failure, in: content)
+            }
+
+            contentHandler(content)
+        }
     }
 
     /// iOS is about to give up on us. Deliver whatever we have — an
@@ -57,7 +69,8 @@ final class NotificationService: UNNotificationServiceExtension {
 
     // MARK: - Building the notification
 
-    private func apply(_ event: AlarmEvent, to content: UNMutableNotificationContent) {
+    private func apply(_ event: AlarmEvent, to content: UNMutableNotificationContent,
+                       kritischErlaubt: Bool) {
         var info = PushPayloadParser.normalized(event, merging: content.userInfo)
 
         switch event {
@@ -76,14 +89,16 @@ final class NotificationService: UNNotificationServiceExtension {
             content.body = body(triggeredBy: push.triggeredByName, at: push.createdAt)
             content.subtitle = push.instruction.map(firstLine) ?? ""
             content.categoryIdentifier = PushAsset.alarmCategory
-            configureUrgency(content, sound: PushAsset.signalSound, stale: stale)
+            configureUrgency(content, sound: PushAsset.signalSound, stale: stale,
+                             kritischErlaubt: kritischErlaubt)
             if stale { info[PushKey.stale] = true }
 
         case .selfTest(let push):
             content.title = localized(PushString.selfTestTitle)
             content.body = localized(PushString.selfTestBody)
             content.categoryIdentifier = PushAsset.alarmCategory
-            configureUrgency(content, sound: PushAsset.signalSound, stale: isStale(push))
+            configureUrgency(content, sound: PushAsset.signalSound,
+                             stale: isStale(push), kritischErlaubt: kritischErlaubt)
 
         case .message(let push):
             // Leiser als ein Alarm, und mit Absicht: Der Alarm hat das Gerät
@@ -153,7 +168,8 @@ final class NotificationService: UNNotificationServiceExtension {
     /// the app, and that is where iOS checks.
     private func configureUrgency(_ content: UNMutableNotificationContent,
                                   sound: String,
-                                  stale: Bool) {
+                                  stale: Bool,
+                                  kritischErlaubt: Bool) {
         guard !stale else {
             // An alarm nobody heard for three minutes is history, not an
             // emergency. It still gets shown — quietly.
@@ -162,14 +178,12 @@ final class NotificationService: UNNotificationServiceExtension {
             return
         }
 
-        let name = UNNotificationSoundName(sound)
-        #if CRITICAL_ALERTS
-        content.interruptionLevel = .critical
-        content.sound = UNNotificationSound.criticalSoundNamed(name, withAudioVolume: 1.0)
-        #else
-        content.interruptionLevel = .timeSensitive
-        content.sound = UNNotificationSound(named: name)
-        #endif
+        // Gelesen wird die Erlaubnis, nicht die Bau-Bedingung: `.critical`
+        // ohne erteilte Erlaubnis ist der Weg, auf dem eine Meldung ganz
+        // verschwindet — und ein stillschweigend verschluckter Alarm ist der
+        // schlimmste denkbare Fehler dieser App.
+        Meldungsstufe.setze(auf: content, ton: sound,
+                            kritischErlaubt: kritischErlaubt)
     }
 
     /// Older than three minutes counts as stale.

@@ -79,18 +79,27 @@ school in the app; it is completely separate from any real school's data.
    joins an existing school with a code is an ordinary member and will not see
    the drill option.*
 3. A six-character join code is shown. Nothing needs to be done with it.
-4. Work through the setup checklist and allow notifications. The item
-   **"Zustellung geprüft"** (delivery verified) will stay red — see the next
-   section; it does not block anything. Tap "Einrichtung abschließen".
-5. To see the alarm screen: tap the large button **"Alarm auslösen"** (raise an
+4. **Please tap "Erlauben" (Allow) on the notification permission dialog.**
+   iOS asks twice: once for notifications, once for *critical alerts*. The
+   first one is required — the app is an alarm app, and without notifications
+   nothing can make a sound. The second is optional; if you decline it, alarms
+   fall back to time-sensitive notifications and the in-app checklist shows
+   that row as missing. Both cases are fine to review.
+5. Work through the setup checklist. The item **"Zustellung geprüft"**
+   (delivery verified) will stay red — see the next section; it does not block
+   anything. Tap "Einrichtung abschließen".
+6. To see the alarm screen: tap the large button **"Alarm auslösen"** (raise an
    alarm), choose **"PROBEALARM"** (drill), pick a location, and let the
    five-second countdown run. The drill alarm appears full-screen, marked as a
    drill in grey and yellow and labelled PROBEALARM in three places.
-6. Acknowledge with "Gesehen – Klasse gesichert", then end it with
+7. Acknowledge with "Gesehen – Klasse gesichert", then end it with
    **"Entwarnung geben"** (all clear).
-7. Optional, and entirely local: Einstellungen → **"Tontest"** plays the alarm
-   as a real notification on this device, without any network, to verify that
-   the device is allowed to make a sound.
+8. Optional, and entirely local: Einstellungen → **"Tontest"** plays the alarm
+   as a real notification on this device about 8 seconds later, without any
+   network, to verify that the device is allowed to make a sound. **Lock the
+   device after tapping** — that is the point of the test. The button now
+   always reports what happened in a banner: that it was scheduled, or exactly
+   why iOS refused it.
 
 **Please use the drill type (PROBEALARM).** The three real types exist for
 genuine emergencies. In a school of the reviewer's own making they would reach
@@ -131,6 +140,33 @@ There is no server and no account system of our own. The app stores everything
 in CloudKit, which means a signed-in iCloud account is what identifies a
 colleague. The first screen says so if no account is present. We ask for no
 e-mail address, no password and no personal data of our own.
+
+## What was fixed since submission 1.1.0 (39)
+
+The first submission was rejected under Guideline 2.1(a): the reviewer found
+the "Tontest starten" button unresponsive and the device was never woken up.
+
+The cause was ours and is fixed. The test notification was built with
+`interruptionLevel = .critical` and a critical sound whenever the app was
+*compiled* with the critical-alerts entitlement — without checking whether the
+permission had actually been **granted on the device**. When it has not,
+`UNUserNotificationCenter.add(_:)` rejects the request, and the old code threw
+that error away with `try?`. The button did nothing and said nothing.
+
+Three changes:
+
+* The interruption level and sound are now decided from the **live permission
+  state** (`Shared/Meldungsstufe.swift`), in the app and in the notification
+  service extension. Without the critical-alerts permission, everything falls
+  back to `.timeSensitive` — quieter, but accepted and audible.
+* The Tontest **reports its result** in every case: scheduled, or the raw
+  reason iOS refused.
+* If notification permission has never been requested, the Tontest asks for it
+  instead of failing.
+
+The same defect also silenced the local reminder series on any device whose
+user had declined critical alerts, so this was a real bug and not only a
+review blocker.
 
 ## Note on critical alerts
 

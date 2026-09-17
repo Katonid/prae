@@ -588,8 +588,24 @@ final class AppModel: ObservableObject {
         // Start nagging only once per alarm, and only while it is unanswered.
         if !store.hasAcknowledged(alarm.id), remindingAbout != alarm.id {
             remindingAbout = alarm.id
-            await AlarmReminder.schedule(for: alarm)
+            await melde(abgewiesen: AlarmReminder.schedule(for: alarm))
         }
+    }
+
+    /// Hat iOS die ganze Erinnerungsreihe abgewiesen, muss das dastehen.
+    ///
+    /// Bis 1.1.0 (Build 39) verschluckte `try?` jede einzelne Ablehnung, und
+    /// auf Geräten ohne Erlaubnis für kritische Hinweise entstand keine einzige
+    /// Erinnerung — der Push kam, das Netz danach fehlte, und niemand erfuhr
+    /// es. Gemeldet wird nur der VOLLSTÄNDIGE Ausfall: Eine einzelne
+    /// abgewiesene von zehn ist Rauschen, keine von zehn ist ein stummes
+    /// Gerät.
+    private func melde(abgewiesen: Int) {
+        guard abgewiesen >= AlarmReminder.count else { return }
+        problem = "Dieses \(Geraetename.wort) konnte keine Erinnerung an den "
+            + "laufenden Alarm anlegen — iOS hat sie abgewiesen. Der "
+            + "Alarm-Bildschirm bleibt, aber es kommt kein weiterer Ton. "
+            + "Prüfliste öffnen: Dort steht, welche Erlaubnis fehlt."
     }
 
     /// Fetches the finished alarm so the notice can name who called it off
@@ -681,7 +697,7 @@ final class AppModel: ObservableObject {
                    let alarm = activeAlarm,
                    !istEigenerAlarm(alarm) {
                     remindingAbout = payload.alarmId
-                    await AlarmReminder.schedule(for: alarm)
+                    await melde(abgewiesen: AlarmReminder.schedule(for: alarm))
                 }
             }
         }
@@ -711,8 +727,14 @@ final class AppModel: ObservableObject {
     }
 
     /// Der örtliche Tontest — beweist den Ton, nicht die Zustellung.
+    /// Der Befund des Tontests wird ANGEZEIGT.
+    ///
+    /// Bis 1.1.0 (Build 39) verschwand er: `Tontest.starten` gab nichts
+    /// zurück, verschluckte seinen Fehler und der Knopf schwieg. Genau daran
+    /// ist die erste Einreichung gescheitert — der Prüfer tippte, iOS wies die
+    /// Mitteilung ab, und nichts sagte ihm, warum.
     func runTontest(mitStandardton: Bool = false) async {
-        await Tontest.starten(mitStandardton: mitStandardton)
+        hinweis = await Tontest.starten(mitStandardton: mitStandardton)
     }
 
     /// Spielt die Tondatei unmittelbar ab, an den Mitteilungen vorbei.

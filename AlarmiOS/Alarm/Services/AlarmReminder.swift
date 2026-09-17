@@ -24,9 +24,21 @@ enum AlarmReminder {
     /// Ten separate requests rather than one repeating trigger, because
     /// `UNTimeIntervalNotificationTrigger` only repeats at 60 seconds or more,
     /// and half a minute is the interval that matters here.
-    static func schedule(for alarm: Alarm) async {
+    /// Gibt zurück, wie viele der Erinnerungen iOS ABGEWIESEN hat.
+    ///
+    /// Bis 1.1.0 (Build 39) hing die Dringlichkeitsstufe allein an
+    /// `#if CRITICAL_ALERTS` — einer Bedingung des Übersetzens, die über die
+    /// Erlaubnis auf dem Gerät nichts weiß. Auf jedem Gerät, dessen Lehrkraft
+    /// kritische Hinweise abgelehnt hat, wies iOS deshalb JEDE der zehn
+    /// Erinnerungen ab, und `try?` warf den Fehler weg: Der Push kam noch an,
+    /// die Reihe danach nicht. Genau das Netz, das jemanden auffängt, der die
+    /// erste Meldung verpasst hat — still weg.
+    @discardableResult
+    static func schedule(for alarm: Alarm) async -> Int {
         await cancel(alarmId: alarm.id)
         let center = UNUserNotificationCenter.current()
+        let kritisch = await Meldungsstufe.kritischErlaubt()
+        var abgewiesen = 0
 
         for step in 1...count {
             let content = UNMutableNotificationContent()
@@ -37,23 +49,21 @@ enum AlarmReminder {
             content.userInfo = [PushKey.event: PushEventName.alarm,
                                 PushKey.alarmId: alarm.id,
                                 PushKey.type: alarm.type.rawValue]
-            #if CRITICAL_ALERTS
-            content.interruptionLevel = .critical
-            content.sound = UNNotificationSound.criticalSoundNamed(
-                UNNotificationSoundName(PushAsset.signalSound), withAudioVolume: 1.0)
-            #else
-            content.interruptionLevel = .timeSensitive
-            content.sound = UNNotificationSound(named:
-                UNNotificationSoundName(PushAsset.signalSound))
-            #endif
+            Meldungsstufe.setze(auf: content, ton: PushAsset.signalSound,
+                                kritischErlaubt: kritisch)
 
             let trigger = UNTimeIntervalNotificationTrigger(
                 timeInterval: interval * Double(step), repeats: false)
             let request = UNNotificationRequest(identifier: identifier(alarm.id, step),
                                                 content: content,
                                                 trigger: trigger)
-            try? await center.add(request)
+            do {
+                try await center.add(request)
+            } catch {
+                abgewiesen += 1
+            }
         }
+        return abgewiesen
     }
 
     /// Stops the series. Called from three places — acknowledgement, all-clear,
