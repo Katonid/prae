@@ -9,7 +9,7 @@
  * bleibt der alte Zwischenspeicher stehen.
  */
 
-const FASSUNG = 'v4';
+const FASSUNG = 'v5';
 const SPEICHER = `textauszug-${FASSUNG}`;
 
 const DATEIEN = [

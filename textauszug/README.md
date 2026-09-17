@@ -80,6 +80,12 @@ im Feld lässt sich vor dem Weitergeben von Hand kürzen.
 - **Eine Datei, die leer oder halb ankommt**, meldet die App als das, was sie
   ist — mit der Zahl der Bytes und dem Hinweis auf iCloud. Sie schiebt die
   Schuld nicht auf eine tadellose PDF.
+- **Eine Webseite statt einer PDF** erkennt sie und sagt es im Klartext, samt
+  dem Titel der Seite („Anmeldung erforderlich", „404"). Das ist der häufigste
+  Fall hinter einem misslungenen Download: Hinter dem Link stand eine
+  Anmeldung, eine Fehlermeldung oder eine Vorschau, und heruntergeladen wurden
+  ein paar Kilobyte HTML mit `.pdf` im Namen. Der Weg drumherum steht in der
+  Meldung.
 - **Tabellen und Spalten** kommen als Text an, aber ohne ihre Form.
 
 ## Wie es gebaut ist
