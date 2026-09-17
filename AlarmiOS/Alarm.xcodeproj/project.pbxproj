@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		A1A100000000000000000025 /* AlarmDomain.swift in Sources (App) */ = {isa = PBXBuildFile; fileRef = A1A10000000000000000001E /* AlarmDomain.swift */; };
 		A1A100000000000000000026 /* PushContract.swift in Sources (App) */ = {isa = PBXBuildFile; fileRef = A1A10000000000000000001F /* PushContract.swift */; };
+		A1A1000000000000000000F1 /* Meldungsstufe.swift in Sources (App) */ = {isa = PBXBuildFile; fileRef = A1A1000000000000000000F0 /* Meldungsstufe.swift */; };
 		A1A100000000000000000027 /* PushPayloadParser.swift in Sources (App) */ = {isa = PBXBuildFile; fileRef = A1A100000000000000000020 /* PushPayloadParser.swift */; };
 		A1A100000000000000000028 /* alarm.wav in Resources (App) */ = {isa = PBXBuildFile; fileRef = A1A100000000000000000021 /* alarm.wav */; };
 		A1A100000000000000000029 /* allclear.wav in Resources (App) */ = {isa = PBXBuildFile; fileRef = A1A100000000000000000022 /* allclear.wav */; };
@@ -18,6 +19,7 @@
 		A1A10000000000000000002A /* Localizable.strings in Resources (App) */ = {isa = PBXBuildFile; fileRef = A1A100000000000000000023 /* Localizable.strings */; };
 		A1A10000000000000000002B /* AlarmDomain.swift in Sources (Extension) */ = {isa = PBXBuildFile; fileRef = A1A10000000000000000001E /* AlarmDomain.swift */; };
 		A1A10000000000000000002C /* PushContract.swift in Sources (Extension) */ = {isa = PBXBuildFile; fileRef = A1A10000000000000000001F /* PushContract.swift */; };
+		A1A1000000000000000000F2 /* Meldungsstufe.swift in Sources (Extension) */ = {isa = PBXBuildFile; fileRef = A1A1000000000000000000F0 /* Meldungsstufe.swift */; };
 		A1A10000000000000000002D /* PushPayloadParser.swift in Sources (Extension) */ = {isa = PBXBuildFile; fileRef = A1A100000000000000000020 /* PushPayloadParser.swift */; };
 		A1A10000000000000000002E /* alarm.wav in Resources (Extension) */ = {isa = PBXBuildFile; fileRef = A1A100000000000000000021 /* alarm.wav */; };
 		A1A10000000000000000002F /* allclear.wav in Resources (Extension) */ = {isa = PBXBuildFile; fileRef = A1A100000000000000000022 /* allclear.wav */; };
@@ -54,6 +56,7 @@
 		A1A100000000000000000011 /* AlarmNotificationService.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = AlarmNotificationService.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		A1A10000000000000000001E /* AlarmDomain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlarmDomain.swift; sourceTree = "<group>"; };
 		A1A10000000000000000001F /* PushContract.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PushContract.swift; sourceTree = "<group>"; };
+		A1A1000000000000000000F0 /* Meldungsstufe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Meldungsstufe.swift; sourceTree = "<group>"; };
 		A1A100000000000000000020 /* PushPayloadParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PushPayloadParser.swift; sourceTree = "<group>"; };
 		A1A100000000000000000021 /* alarm.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = alarm.wav; sourceTree = "<group>"; };
 		A1A100000000000000000022 /* allclear.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = allclear.wav; sourceTree = "<group>"; };
@@ -123,6 +126,7 @@
 			children = (
 				A1A10000000000000000001E /* AlarmDomain.swift */,
 				A1A10000000000000000001F /* PushContract.swift */,
+				A1A1000000000000000000F0 /* Meldungsstufe.swift */,
 				A1A100000000000000000020 /* PushPayloadParser.swift */,
 				A1A100000000000000000023 /* Localizable.strings */,
 				A1A100000000000000000036 /* Sounds */,
@@ -273,6 +277,7 @@
 			files = (
 				A1A100000000000000000025 /* AlarmDomain.swift in Sources (App) */,
 				A1A100000000000000000026 /* PushContract.swift in Sources (App) */,
+				A1A1000000000000000000F1 /* Meldungsstufe.swift in Sources (App) */,
 				A1A100000000000000000027 /* PushPayloadParser.swift in Sources (App) */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -283,6 +288,7 @@
 			files = (
 				A1A10000000000000000002B /* AlarmDomain.swift in Sources (Extension) */,
 				A1A10000000000000000002C /* PushContract.swift in Sources (Extension) */,
+				A1A1000000000000000000F2 /* Meldungsstufe.swift in Sources (Extension) */,
 				A1A10000000000000000002D /* PushPayloadParser.swift in Sources (Extension) */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -407,7 +413,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Config/Alarm.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 41;
+				CURRENT_PROJECT_VERSION = 42;
 				DEVELOPMENT_TEAM = F4989GSTWS;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -439,7 +445,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = "Config/Alarm-Release.entitlements";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 41;
+				CURRENT_PROJECT_VERSION = 42;
 				DEVELOPMENT_TEAM = F4989GSTWS;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -468,7 +474,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 41;
+				CURRENT_PROJECT_VERSION = 42;
 				DEVELOPMENT_TEAM = F4989GSTWS;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "Config/NotificationService-Info.plist";
@@ -494,7 +500,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 41;
+				CURRENT_PROJECT_VERSION = 42;
 				DEVELOPMENT_TEAM = F4989GSTWS;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "Config/NotificationService-Info.plist";

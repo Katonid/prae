@@ -44,8 +44,44 @@ enum Tontest {
     ///
     ///   Ohne diesen Vergleich stehen beide Erklärungen nebeneinander, und
     ///   raten lässt sich das aus der Ferne nicht.
-    static func starten(mitStandardton: Bool = false) async {
+    /// Gibt zurück, was passiert ist — im Klartext, für die Anzeige.
+    ///
+    /// Bis 1.1.0 (Build 39) gab dieser Aufruf nichts zurück und schluckte
+    /// seinen Fehler mit `try?`. Genau daran ist die erste Einreichung
+    /// gescheitert: Der Prüfer tippte, iOS wies die Mitteilung ab, und der
+    /// Knopf schwieg. „Ein Knopf, der schweigt, ist für den Menschen davor ein
+    /// kaputter Knopf" stand seit 1.0.26 im Papier — für diesen Knopf galt es
+    /// nicht. Jetzt sagt er in jedem Fall etwas.
+    @discardableResult
+    static func starten(mitStandardton: Bool = false) async -> String {
         await abbrechen()
+
+        let zentrale = UNUserNotificationCenter.current()
+        var erlaubnis = await zentrale.notificationSettings()
+
+        // Noch nie gefragt? Dann hier fragen, statt an einer Erlaubnis zu
+        // scheitern, die niemand verweigert hat. Wer die Prüfliste übersprungen
+        // hat — oder sie nie gesehen hat —, landete sonst in einer Sackgasse,
+        // und genau so hat der Prüfer von Apple die App erlebt.
+        if erlaubnis.authorizationStatus == .notDetermined {
+            var optionen: UNAuthorizationOptions = [.alert, .sound, .badge]
+            #if CRITICAL_ALERTS
+            optionen.insert(.criticalAlert)
+            #endif
+            _ = try? await zentrale.requestAuthorization(options: optionen)
+            erlaubnis = await zentrale.notificationSettings()
+        }
+
+        // Ohne Mitteilungserlaubnis kann sich das Gerät nicht selbst wecken —
+        // und dieser Test IST eine Mitteilung. Das muss dastehen, nicht
+        // stillschweigend ins Leere laufen.
+        guard erlaubnis.authorizationStatus == .authorized else {
+            return "Mitteilungen sind für diese App nicht erlaubt. Ohne sie "
+                + "kann sich dieses \(Geraetename.wort) nicht selbst wecken — "
+                + "und im Ernstfall auch nicht von einer Kollegin geweckt "
+                + "werden. Einstellungen → Mitteilungen → Schulalarm → "
+                + "„Mitteilungen erlauben“, danach hier noch einmal tippen."
+        }
 
         let inhalt = UNMutableNotificationContent()
         inhalt.title = mitStandardton ? "Tontest (Standardton)" : "Tontest"
@@ -56,26 +92,34 @@ enum Tontest {
             + "von einem anderen Gerät prüft der Zustelltest."
         inhalt.categoryIdentifier = PushAsset.allClearCategory
 
+        let kritisch = Meldungsstufe.kritischErlaubt(erlaubnis)
         if mitStandardton {
             inhalt.interruptionLevel = .timeSensitive
             inhalt.sound = .default
         } else {
-            #if CRITICAL_ALERTS
-            inhalt.interruptionLevel = .critical
-            inhalt.sound = UNNotificationSound.criticalSoundNamed(
-                UNNotificationSoundName(PushAsset.signalSound), withAudioVolume: 1.0)
-            #else
-            inhalt.interruptionLevel = .timeSensitive
-            inhalt.sound = UNNotificationSound(named:
-                UNNotificationSoundName(PushAsset.signalSound))
-            #endif
+            Meldungsstufe.setze(auf: inhalt, ton: PushAsset.signalSound,
+                                kritischErlaubt: kritisch)
         }
 
         let ausloeser = UNTimeIntervalNotificationTrigger(timeInterval: vorlauf,
                                                           repeats: false)
-        try? await UNUserNotificationCenter.current().add(
-            UNNotificationRequest(identifier: kennung, content: inhalt,
-                                  trigger: ausloeser))
+        do {
+            try await zentrale.add(
+                UNNotificationRequest(identifier: kennung, content: inhalt,
+                                      trigger: ausloeser))
+        } catch {
+            // Der rohe Fehlertext. Hier stand bei der Ablehnung durch Apple
+            // die Ursache — und niemand bekam sie zu sehen.
+            return "iOS hat die Mitteilung nicht angenommen: "
+                + "\(error.localizedDescription)"
+        }
+
+        let stufe = kritisch
+            ? "als kritischer Hinweis — der Ton kommt auch bei stummem Gerät."
+            : "zeitkritisch. Kritische Hinweise sind auf diesem Gerät nicht "
+            + "erlaubt; bei stummgeschaltetem Gerät bleibt es deshalb still."
+        return "Der Ton kommt in \(Int(vorlauf)) Sekunden, \(stufe) "
+            + "Sperre das \(Geraetename.wort) jetzt und lege es hin."
     }
 
     static func abbrechen() async {

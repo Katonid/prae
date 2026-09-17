@@ -842,6 +842,41 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   Erlaubnis auf dem Gerät (die Lehrkraft). Fehlt das dritte, ist die App nicht
   kaputt — der Quelltext fällt in jedem Zweig auf `.timeSensitive` zurück, und
   die Prüfliste zeigt die Zeile rot.
+- **Eine Compilerbedingung weiß nichts über die ERLAUBNIS auf dem Gerät**
+  (`Shared/Meldungsstufe.swift`, ab 1.1.0/Build 42). **Das war die erste
+  Ablehnung durch Apple** (Guideline 2.1(a), 17.09.2026, iPad Air 11" /
+  iPadOS 27): „the Tontest starten button was unresponsive, even when we put
+  the device in standby it was not woken up". Der Knopf war nicht kaputt —
+  `interruptionLevel = .critical` und `criticalSoundNamed(…)` brauchen ZWEI
+  Dinge, das Entitlement UND die Erlaubnis des Menschen, und ohne die zweite
+  weist `add(_:)` die Anfrage ab. `Tontest` und `AlarmReminder` fragten aber nur
+  `#if CRITICAL_ALERTS`. Der Prüfer hatte kritische Hinweise nicht erlaubt;
+  damit war jede dieser Mitteilungen von vornherein abgewiesen. **Schlimmer als
+  die Ablehnung ist der Feldfehler dahinter:** Auf jedem Gerät, dessen Lehrkraft
+  kritische Hinweise abgelehnt hat, entstand keine einzige der zehn
+  Erinnerungen — der Push kam, das Netz danach fehlte, still. Die Entscheidung
+  steht jetzt an EINER Stelle, liegt in `Shared/` (App UND Erweiterung, also
+  sechs Einträge im pbxproj) und liest `criticalAlertSetting` zur Laufzeit; der
+  Rückfall ist `.timeSensitive` mit demselben Ton. **Wer eine neue Mitteilung
+  baut, setzt Stufe und Ton über `Meldungsstufe.setze` und nirgends von Hand.**
+  Und: Die Falle stand in `requestAuthorization` wörtlich beschrieben („it
+  simply never succeeds, which is the kind of quiet defect this app cannot
+  afford") — ein Kommentar ersetzt keine Prüfung.
+- **`try?` an einer Mitteilung ist verboten.** Dasselbe `try?`, das den
+  Ablehnungsgrund verschluckte, hat die App die erste Einreichung gekostet: Der
+  Prüfer tippte, iOS wies ab, der Knopf schwieg. `Tontest.starten` gibt seither
+  einen Befund zurück (geplant, oder der ROHE Fehlertext), `AlarmReminder`
+  zählt die abgewiesenen und meldet den vollständigen Ausfall, und
+  `AppModel.runTontest` zeigt beides. „Ein Knopf, der schweigt, ist für den
+  Menschen davor ein kaputter Knopf" stand seit 1.0.26 im Papier — für diesen
+  Knopf galt es nicht. **Bei jedem neuen Knopf prüfen, ob er im Fehlerfall
+  etwas sagt.**
+- **Ein Prüfer von Apple geht die Prüfliste nicht durch.** Er tippt auf den
+  größten Knopf. Deshalb fragt der Tontest die Mitteilungserlaubnis selbst
+  nach, wenn sie noch nie erfragt wurde, statt an ihr zu scheitern — und die
+  Prüfhinweise bitten seit der Ablehnung ausdrücklich darum, beide
+  Erlaubnisdialoge mit „Erlauben" zu beantworten. **Was ein Mensch übersehen
+  kann, darf keine Sackgasse sein.**
 - **Wer die Erlaubnis erst nachträglich braucht, muss NACHGEFRAGT werden**
   (`NotificationCenterService.kritischeHinweiseNachfragen()`, ab 1.0.29).
   `requestAuthorization` läuft nur beim Einrichten; die dreißig iPads, die vor
