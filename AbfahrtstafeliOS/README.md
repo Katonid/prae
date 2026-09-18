@@ -89,6 +89,13 @@ zwölf Zeichen ab), Ordner, Ziel und Bundle-Id bleiben „Abfahrtstafel“ /
 - **Karte auf den ganzen Bildschirm.** Ein Tipp auf die freie Kartenfläche
   oder der Knopf unten links zieht sie auf; derselbe Knopf schließt sie wieder.
   Ein Tipp auf einen Halt öffnet unverändert dessen Abfahrtstafel.
+- **Suchpunkt per langem Tipp.** Ein langer Tipp auf die Netzkarte legt den
+  Bezugspunkt dorthin — ohne Umweg über die Ortswahl. Der kurze Tipp zieht die
+  Karte weiterhin auf den ganzen Bildschirm.
+- **Die Halte der Linien gibt es überall**, nicht nur um den Suchpunkt.
+  Gezeichnet wird, was im Kartenausschnitt liegt: Wer zur S-Bahn-Strecke
+  schiebt oder hineinzoomt, bekommt dort alle Halte. Nur was gleichzeitig
+  sichtbar wäre, ist gedeckelt — jeder Punkt kostet Zeichenzeit.
 - **Hell und dunkel, zweimal getrennt.** Ein Umschalter für die App, einer
   für die Karten — eine dunkle Karte ist abends am Bahnsteig angenehm und bei
   Sonne schlecht zu lesen. Die Kartenwahl gilt für alle vier Karten. Vorgabe

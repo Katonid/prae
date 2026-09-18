@@ -1,5 +1,8 @@
 import MapKit
 import SwiftUI
+#if canImport(UIKit)
+import UIKit
+#endif
 
 /// Die Karte mit den Linienverläufen aller Linien, die hier verkehren.
 ///
@@ -31,6 +34,9 @@ struct LiniennetzView: View {
     @AppStorage(Kartendarstellung.schluessel) private var kartenwahlRoh = Kartendarstellung.wieApp.rawValue
 
     @State private var kamera: MapCameraPosition = .automatic
+    /// Der zuletzt gesehene Kartenausschnitt (ab 1.1.13). `nil` heißt „die
+    /// Kamera hat sich noch nicht gemeldet" — dann gilt wie früher alles.
+    @State private var sichtfeld: MKMapRect?
     /// Welche Linie gerade hervorgehoben ist. `nil` heißt „alle gleich".
     @State private var hervorgehoben: String?
     /// Ob die Legende aufgeklappt ist.
@@ -84,6 +90,10 @@ struct LiniennetzView: View {
     // MARK: - Karte
 
     private var karte: some View {
+        // **`MapReader` nur wegen der Umrechnung.** Ein Tipp kommt als Punkt
+        // auf dem Bildschirm an; welche Koordinate darunter liegt, weiß allein
+        // die Karte.
+        MapReader { karteninhalt in
         Map(position: $kamera, interactionModes: [.pan, .zoom, .rotate]) {
             // **Erst alle Konturen, dann alle Linien** (ab 1.1.9). Zwei
             // Durchgänge, weil sonst die Kontur der einen Linie die andere
@@ -226,9 +236,58 @@ struct LiniennetzView: View {
         // einer dunklen Karte. Die Legende liegt auf der Karte und gehört zu
         // ihr; die Fußzeile darunter gehört zur App und bleibt außen vor.
         .kartendarstellung()
+        // **Ein LANGER Tipp legt den Suchpunkt hierher** (ab 1.1.13, Ansage
+        // des Nutzers 09/2026: „Ich mag nicht immer erst wieder in dieses
+        // Menü gehen müssen."). Der kurze Tipp zieht die Karte auf, der lange
+        // setzt den Punkt — zwei Gesten, die sich nicht ins Gehege kommen.
+        .gesture(punktSetzen(karteninhalt))
+        .onMapCameraChange(frequency: .onEnd) { zustand in
+            sichtfeld = zustand.rect
+        }
         .onChange(of: netz.zuege.count) { _, _ in
             guard !netz.zuege.isEmpty else { return }
             kamera = .rect(ausschnitt)
+        }
+        }
+    }
+
+    /// Der lange Tipp, der den Suchpunkt versetzt.
+    ///
+    /// **Die Reihenfolge ist Absicht:** erst halten, dann ziehen dürfen. Ohne
+    /// das angehängte `DragGesture` käme die Stelle gar nicht mit — ein
+    /// `LongPressGesture` allein meldet nur, DASS gehalten wurde. Genommen
+    /// wird `startLocation` und nicht `location`: Der Finger wandert beim
+    /// Halten ein paar Punkte, gemeint ist aber die Stelle, auf die gezeigt
+    /// wurde.
+    private func punktSetzen(_ karteninhalt: MapProxy) -> some Gesture {
+        LongPressGesture(minimumDuration: 0.45)
+            .sequenced(before: DragGesture(minimumDistance: 0, coordinateSpace: .local))
+            .onEnded { wert in
+                guard case .second(true, let zug?) = wert,
+                      let koordinate = karteninhalt.convert(zug.startLocation, from: .local)
+                else { return }
+                neuerSuchpunkt(koordinate)
+            }
+    }
+
+    /// Setzt den Bezugspunkt auf diese Koordinate.
+    ///
+    /// **Erst den Namen holen, dann setzen** — und nicht umgekehrt. Ein
+    /// nachträgliches Umbenennen änderte `model.punkt` ein zweites Mal, und
+    /// daran hängt `onChange(of: model.punkt)`: Die Karte stellte sich mitten
+    /// in der Bewegung neu ein. Eine Karte, die springt, nachdem man gerade
+    /// einen Punkt gesetzt hat, sieht kaputt aus.
+    ///
+    /// Damit die Wartezeit auf den Namen nicht wie ein toter Knopf wirkt,
+    /// meldet sich das Gerät sofort spürbar — die Anfrage dauert Bruchteile
+    /// einer Sekunde, die Tafel danach länger.
+    private func neuerSuchpunkt(_ koordinate: CLLocationCoordinate2D) {
+        #if canImport(UIKit)
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        #endif
+        Task {
+            let name = await Ortsname.fuer(koordinate) ?? Ortsname.unbekannt
+            model.ortWaehlen(name: name, koordinate: koordinate)
         }
     }
 
@@ -299,15 +358,48 @@ struct LiniennetzView: View {
                 )
             }
         }
+        // **Gezeichnet wird, was im AUSSCHNITT liegt** (ab 1.1.13, gemeldet
+        // 09/2026: „Haltestellen gibt es offenbar nur in einem bestimmten
+        // Umkreis vom Suchpunkt … bei den S-Bahn-Linien werden weiter
+        // entfernte Haltestellen nicht angezeigt.").
+        //
+        // Ein Umkreis war es nie — es war diese Grenze. Zwölf Linien in
+        // München haben zusammen weit über dreihundert Halte, und damit fiel
+        // das Gewöhnliche IMMER weg, auch die S-Bahn-Halte zwei Kilometer
+        // weiter. Die Grenze selbst bleibt, denn sie hat einen Grund: Jeder
+        // Punkt ist eine eigene SwiftUI-Ansicht, und dreihundert davon machen
+        // die Karte zäh. Gezählt wird jetzt aber nur noch, was man wirklich
+        // sieht — wer hineinzoomt oder zur S-Bahn-Strecke schiebt, bekommt
+        // dort ALLE Halte. Das ist der Unterschied zwischen „fehlt" und
+        // „steht gerade nicht im Bild".
+        let imBlick = punkte.filter { imSichtfeld($0.koordinate) }
+
         // **Über der Grenze bleiben die entfallenden Halte stehen.** Weggelassen
-        // wird nur das Gewöhnliche: Dreihundert Punkte machen die Karte zäh,
-        // aber der eine durchgestrichene ist der Grund, aus dem jemand sie
-        // aufschlägt. Ihn mit wegzuräumen hieße, die Umleitung genau dann zu
-        // verschweigen, wenn viel los ist.
-        if punkte.count > hoechstzahlHalte {
-            return punkte.filter { $0.faelltAus || $0.lautMeldungGesperrt }
+        // wird nur das Gewöhnliche: Der eine durchgestrichene ist der Grund,
+        // aus dem jemand die Karte aufschlägt. Ihn mit wegzuräumen hieße, die
+        // Umleitung genau dann zu verschweigen, wenn viel los ist.
+        if imBlick.count > hoechstzahlHalte {
+            return imBlick.filter { $0.faelltAus || $0.lautMeldungGesperrt }
         }
-        return punkte
+        return imBlick
+    }
+
+    /// Liegt dieser Halt im gezeigten Ausschnitt?
+    ///
+    /// Mit einem Rand von einem Zehntel: Ein Punkt knapp außerhalb taucht so
+    /// schon auf, bevor er hereingeschoben ist — sonst poppte beim Schieben
+    /// an jedem Rand eine Reihe Punkte auf.
+    ///
+    /// Solange sich die Kamera noch nicht gemeldet hat (`nil`), gilt alles —
+    /// eine Karte, die beim ersten Zeichnen gar nichts zeigt, sähe aus wie
+    /// eine kaputte.
+    private func imSichtfeld(_ koordinate: CLLocationCoordinate2D) -> Bool {
+        guard let sichtfeld else { return true }
+        let rand = sichtfeld.insetBy(
+            dx: -sichtfeld.size.width * 0.1,
+            dy: -sichtfeld.size.height * 0.1
+        )
+        return rand.contains(MKMapPoint(koordinate))
     }
 
     private var zuVieleHalte: Bool {
@@ -573,7 +665,7 @@ struct LiniennetzView: View {
             liste.append(Hinweis(
                 id: "halte",
                 symbol: nil,
-                text: "Zu viele Halte für die Übersicht — eine Liniennummer antippen (auf der Karte oder in der Legende) zeigt die Haltestellen dieser Linie mit Namen."
+                text: "Zu viele Halte für diesen Ausschnitt. Hineinzoomen zeigt sie — oder eine Liniennummer antippen (auf der Karte oder in der Legende), dann stehen die Halte dieser Linie mit Namen da."
             ))
         } else if hervorgehoben == nil {
             liste.append(Hinweis(
@@ -595,6 +687,11 @@ struct LiniennetzView: View {
                 text: "Ein Tipp auf einen Halt öffnet seine Abfahrtstafel — mit allem, was dort sonst noch wegfährt."
             ))
         }
+        liste.append(Hinweis(
+            id: "suchpunkt",
+            symbol: "hand.point.up.left",
+            text: "Ein langer Tipp auf die Karte legt den Suchpunkt dorthin — die Tafel daneben füllt sich dann von dieser Stelle aus."
+        ))
         if !legendeOffen {
             liste.append(Hinweis(
                 id: "legende",
