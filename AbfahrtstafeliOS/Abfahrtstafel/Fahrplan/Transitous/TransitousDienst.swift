@@ -76,7 +76,7 @@ struct TransitousDienst: Fahrplandienst {
     func abfahrten(
         ab haltestelle: Haltestelle,
         umkreis meter: Int,
-        ab zeitpunkt: Date,
+        zeitpunkt: Date,
         anzahl: Int
     ) async throws -> [Abfahrt] {
         var felder = [
@@ -209,6 +209,7 @@ struct TransitousDienst: Fahrplandienst {
             id: id,
             name: name,
             gegend: nil,
+            elternId: ort.parentId?.nilWennLeer,
             breite: breite,
             laenge: laenge,
             mittel: (ort.modes ?? []).map { verkehrsmittel($0) }.eindeutig()
@@ -229,6 +230,9 @@ struct TransitousDienst: Fahrplandienst {
             id: id,
             name: name,
             gegend: gegend?.nilWennLeer,
+            // Die Ortssuche gibt Haltestellen und keine Steige zurück — eine
+            // obere Kennung gibt es hier also weder noch wird sie gebraucht.
+            elternId: nil,
             breite: breite,
             laenge: laenge,
             mittel: (treffer.modes ?? []).map { verkehrsmittel($0) }.eindeutig()

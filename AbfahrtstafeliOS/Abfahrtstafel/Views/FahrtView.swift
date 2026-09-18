@@ -95,7 +95,13 @@ struct FahrtView: View {
                 // zwanzig Stationen begonnen hat, stünde der Nutzer sonst am
                 // Anfang der Liste und müsste seinen Halt suchen.
                 guard let ziel = einstiegIndex(in: fahrt), ziel > 2 else { return }
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                // Die kurze Pause ist nötig, weil die Liste ihre Zeilen erst
+                // aufbaut; ein Sprung davor landet ins Leere. Über `Task` und
+                // nicht über `DispatchQueue` — diese Datei kennt sonst nur
+                // SwiftUI, und eine zweite Nebenläufigkeitswelt dafür
+                // hereinzuholen lohnt für 350 Millisekunden nicht.
+                Task { @MainActor in
+                    try? await Task.sleep(for: .milliseconds(350))
                     withAnimation { blatt.scrollTo(ziel, anchor: .center) }
                 }
             }

@@ -120,7 +120,7 @@ struct HaltestelleView: View {
             let geholt = try await model.dienst.abfahrten(
                 ab: haltestelle,
                 umkreis: 0,
-                ab: Date(),
+                zeitpunkt: Date(),
                 anzahl: 60
             )
             abfahrten = geholt.sorted { $0.tatsaechlich < $1.tatsaechlich }

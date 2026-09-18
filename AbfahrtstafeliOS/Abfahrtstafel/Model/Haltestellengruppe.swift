@@ -33,6 +33,9 @@ struct Haltestellengruppe: Identifiable {
             id: abfragbareKennung,
             name: name,
             gegend: gegend,
+            // `abfragbareKennung` IST schon die obere — eine weitere darüber
+            // gibt es nicht.
+            elternId: nil,
             breite: koordinate.latitude,
             laenge: koordinate.longitude,
             mittel: mittel
@@ -84,7 +87,17 @@ struct Haltestellengruppe: Identifiable {
             let mitteBreite = stellen.map(\.breite).reduce(0, +) / Double(stellen.count)
             let mitteLaenge = stellen.map(\.laenge).reduce(0, +) / Double(stellen.count)
             let mitte = CLLocationCoordinate2D(latitude: mitteBreite, longitude: mitteLaenge)
-            let kennung = stellen.map(\.id).min { $0.count < $1.count } ?? erste.haltestelle.id
+            // Die Kennung, unter der sich die Haltestelle als GANZES abfragen
+            // lässt. Gesucht wird unter allen Steigkennungen UND allen
+            // Elternkennungen der Gruppe die kürzeste — das ist verlässlich
+            // die obere, denn Steigkennungen entstehen durch Anhängen
+            // (`…:3` → `…:3:40:81`). Die Elternkennungen müssen mit hinein:
+            // Bei Isartor ist keiner der gelieferten Einträge der Bahnhof
+            // selbst, aber einer von ihnen NENNT ihn. Ohne das fragte „alle
+            // Abfahrten" einen einzelnen Steig ab und ließe die halbe
+            // Haltestelle weg.
+            let kennungen = stellen.map(\.id) + stellen.compactMap(\.elternId)
+            let kennung = kennungen.min { $0.count < $1.count } ?? erste.haltestelle.id
 
             return Haltestellengruppe(
                 id: kennung,

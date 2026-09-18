@@ -21,6 +21,7 @@ struct Musterdienst: Fahrplandienst {
         id: "muster-marienplatz",
         name: "Marienplatz",
         gegend: "München",
+        elternId: nil,
         breite: 48.137047,
         laenge: 11.575386,
         mittel: [.sBahn, .uBahn, .bus]
@@ -30,6 +31,7 @@ struct Musterdienst: Fahrplandienst {
         id: "muster-isartor",
         name: "Isartor",
         gegend: "München",
+        elternId: nil,
         breite: 48.134210,
         laenge: 11.583030,
         mittel: [.sBahn, .tram]
@@ -39,6 +41,7 @@ struct Musterdienst: Fahrplandienst {
         id: "muster-theatiner",
         name: "Marienplatz (Theatinerstraße)",
         gegend: "München",
+        elternId: nil,
         breite: 48.139400,
         laenge: 11.575400,
         mittel: [.tram, .bus]
@@ -56,7 +59,7 @@ struct Musterdienst: Fahrplandienst {
     func abfahrten(
         ab haltestelle: Haltestelle,
         umkreis meter: Int,
-        ab zeitpunkt: Date,
+        zeitpunkt: Date,
         anzahl: Int
     ) async throws -> [Abfahrt] {
         Self.beispielabfahrten(ab: zeitpunkt)
@@ -140,6 +143,7 @@ struct Musterdienst: Fahrplandienst {
                     id: "muster-\(name)",
                     name: name,
                     gegend: nil,
+                    elternId: nil,
                     breite: breite,
                     laenge: laenge,
                     mittel: [.sBahn]

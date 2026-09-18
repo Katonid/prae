@@ -38,7 +38,7 @@ protocol Fahrplandienst: Sendable {
     func abfahrten(
         ab haltestelle: Haltestelle,
         umkreis meter: Int,
-        ab zeitpunkt: Date,
+        zeitpunkt: Date,
         anzahl: Int
     ) async throws -> [Abfahrt]
 

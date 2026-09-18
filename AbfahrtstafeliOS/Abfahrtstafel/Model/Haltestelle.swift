@@ -13,6 +13,16 @@ struct Haltestelle: Identifiable, Codable, Hashable, Sendable {
     /// Ort oder Stadtteil, sofern der Dienst ihn kennt. Er steht klein unter
     /// dem Namen: „Marienplatz" allein gibt es in Deutschland hundertfach.
     var gegend: String?
+    /// Die Kennung der übergeordneten Haltestelle, falls der Dienst sie
+    /// führt.
+    ///
+    /// Das ist kein Eigenheit einer Schnittstelle, sondern die Sache selbst:
+    /// Ein Bahnhof hat Steige, und die Abfahrtstafel nennt den Steig
+    /// (`…:09162:3:40:81`), während der Fahrtlauf den Bahnhof meint
+    /// (`…:09162:3`). Wer „alle Abfahrten dieser Haltestelle" abfragen will,
+    /// braucht die obere Kennung — sonst bekommt er einen von fünf Steigen.
+    /// `nil` heißt „der Dienst führt keine", nicht „es gibt keine".
+    var elternId: String?
     var breite: Double
     var laenge: Double
     /// Welche Verkehrsmittel hier halten — soweit bekannt. Leer heißt „nicht
