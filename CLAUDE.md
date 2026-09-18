@@ -902,7 +902,7 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   weist App Store Connect ab. Es gibt KEINE Skript-Bauphase. **Jede
   Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne Nachfrage,
   als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann 1.0.1
-  (Build 2), 1.0.2 (Build 3) usw. Dazu gesetzt (Ansage des Nutzers,
+  (Build 2), 1.0.2 (Build 3), 1.0.3 (Build 4) usw. Dazu gesetzt (Ansage des Nutzers,
   09/2026): `DEVELOPMENT_TEAM = F4989GSTWS` — dieselbe Id wie Schulalarm und
   Tafelbild — und `INFOPLIST_KEY_LSApplicationCategoryType =
   public.app-category.navigation`. Beides steht als Build-Einstellung, weil
@@ -1246,6 +1246,30 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   bildete eine Tafel sonst zwei Abfahrten derselben Minute an derselben
   Haltestelle auf einen Schlüssel ab — eine davon verschwände
   stillschweigend aus der Liste.
+- **Auf dem iPad stehen Liste und Karte NEBENEINANDER** (ab 1.0.3, gemeldet
+  09/2026: „Die Darstellung auf dem iPad ist doch sehr in die Breite
+  gezogen."). Eine `List` füllt, was da ist; im Querformat sind das gut
+  zweitausend Punkte, und die Zeile wird von der Breite auseinandergezogen,
+  statt sie zu benutzen. Dagegen zwei Dinge: das zweispaltige Layout bei
+  Breitenklasse `regular`, und `Views/Lesebreite.swift` (760 Punkte, mittig)
+  auf jeder Zeile. **Die Lesebreite liegt auf der GANZEN Zeile und nicht auf
+  ihrem Inhalt** — bei einem `NavigationLink` stünde der Pfeil sonst weiter
+  ganz außen und die Zeile sähe genauso zerrissen aus wie vorher.
+- **Das Liniennetz wird NACHGELADEN und gedeckelt** (`Model/Liniennetz.swift`,
+  ab 1.0.3). Eine Abfahrt weiß, WANN etwas fährt, nicht WO es langfährt; der
+  Verlauf steht am Fahrtlauf, und den gibt es nur einzeln. Für zwölf Linien
+  sind das zwölf Abfragen — deshalb nebenläufig, auf zwölf gedeckelt und erst,
+  wenn jemand die Karte ansieht. Zusammengefasst wird über Linie UND
+  Verkehrsmittel, nicht über die Richtung: Die Gegenrichtung fährt denselben
+  Weg zurück und verdoppelte nur die Abfragen. `gebautAus` verhindert, dass
+  jeder Takt des `Uhrwerks` das ganze Netz neu holt — **ohne diese Prüfung
+  lüde die Karte im Sekundentakt zwölfmal nach.**
+- **Was sich nicht zeichnen lässt, wird GEZÄHLT und hingeschrieben**
+  (`Liniennetz.ohneVerlauf`). Linien aus Stufe 2 haben keine Fahrtkennung und
+  damit keinen Verlauf. Eine Karte, in der stillschweigend Linien fehlen, ist
+  eine Karte, der man ihre Unvollständigkeit nicht ansieht.
+- **Die Karte benutzt DENSELBEN Filter wie die Liste** (`AppModel.filter`).
+  Zwei Filter für dieselbe Frage wären zwei Antworten.
 - **Die Fußzeile nennt die Quellen, die WIRKLICH beigetragen haben**
   (`AppModel.beteiligteQuellen`), nicht die eingebauten. „Transitous, VRR"
   unter einer Tafel, die ganz von Transitous stammt, wäre eine Angabe über
@@ -1254,7 +1278,7 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   Stellen im pbxproj (Debug + Release) — KEINE Skript-Bauphase. **Jede
   Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne Nachfrage,
   als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann 1.0.1
-  (Build 2), 1.0.2 (Build 3) usw. Dazu gesetzt (Ansage des Nutzers,
+  (Build 2), 1.0.2 (Build 3), 1.0.3 (Build 4) usw. Dazu gesetzt (Ansage des Nutzers,
   09/2026): `DEVELOPMENT_TEAM = F4989GSTWS` — dieselbe Id wie Schulalarm und
   Tafelbild — und `INFOPLIST_KEY_LSApplicationCategoryType =
   public.app-category.navigation`. Beides steht als Build-Einstellung, weil

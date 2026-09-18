@@ -4,7 +4,7 @@ import SwiftUI
 /// herum, mit Verspätungen, Minutenziffer, allen Zwischenhalten und der
 /// Strecke auf der Karte.
 ///
-/// Die vier Bausteine werden HIER angelegt und über die Umgebung
+/// Die fünf Bausteine werden HIER angelegt und über die Umgebung
 /// weitergereicht. Jede Ansicht, die sich ihren eigenen `Standortdienst`
 /// erzeugte, hätte eine zweite Ortung laufen — und zwei Uhrwerke ließen die
 /// Minutenziffern zweier Listen auseinanderlaufen.
@@ -14,6 +14,7 @@ struct AbfahrtstafelApp: App {
     @StateObject private var standort = Standortdienst()
     @StateObject private var uhr = Uhrwerk()
     @StateObject private var merkliste = Merkliste()
+    @StateObject private var netz = Liniennetz()
 
     var body: some Scene {
         WindowGroup {
@@ -22,6 +23,7 @@ struct AbfahrtstafelApp: App {
                 .environmentObject(standort)
                 .environmentObject(uhr)
                 .environmentObject(merkliste)
+                .environmentObject(netz)
         }
     }
 }

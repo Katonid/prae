@@ -35,6 +35,7 @@ struct MerklisteView: View {
                                     .foregroundStyle(.secondary)
                                 }
                             }
+                            .lesebreite()
                         }
                         .onDelete { merkliste.entfernen($0) }
                         .onMove { merkliste.verschieben($0, $1) }

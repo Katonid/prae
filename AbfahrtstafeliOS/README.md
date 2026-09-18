@@ -31,8 +31,30 @@ zwölf Zeichen ab), Ordner, Ziel und Bundle-Id bleiben „Abfahrtstafel“ /
   es die Luftlinie ist.
 - **Freier Punkt.** Ortssuche, gemerkte Haltestellen, oder ein Fadenkreuz auf
   der Karte („wie sieht es dort aus, wo ich morgen hinmuss?“).
+- **Liniennetz auf der Karte.** Die Verläufe aller Linien, die hier
+  verkehren, übereinandergelegt — gefiltert mit derselben Leiste wie die
+  Liste. Ein Tipp in der Legende hebt eine Linie hervor, die anderen treten
+  zurück (sie verschwinden nicht: Wer eine Linie verfolgt, will sehen, wo sie
+  die anderen kreuzt). Höchstens zwölf Linien, ein Lauf je Linie.
 - **Merkliste** für die Handvoll Haltestellen des Alltags — auf dem Gerät,
   ohne Konto.
+
+## Auf dem iPad
+
+Eine `List` füllt, was da ist — im Querformat sind das gut zweitausend Punkte,
+und die Zeile wird von der Breite auseinandergezogen statt sie zu benutzen
+(gemeldet 09/2026). Zwei Dinge dagegen:
+
+- **Liste und Karte stehen nebeneinander**, sobald die Breitenklasse `regular`
+  ist. Die Liste bekommt eine begrenzte Spalte, die Karte den Rest — Karten
+  gewinnen durch Fläche, Abfahrtszeilen nicht.
+- **Jede Zeile hat eine Lesebreite** (`Views/Lesebreite.swift`, 760 Punkte,
+  mittig). Sie liegt auf der GANZEN Zeile und nicht auf ihrem Inhalt: Bei
+  einem Verweis stünde der Pfeil sonst weiter ganz außen. Auf dem iPhone ist
+  sie wirkungslos.
+
+Über das Menü oben links lässt sich zusätzlich „Nur Karte" wählen — dann füllt
+das Liniennetz die ganze Breite.
 
 ## Woher die Daten kommen
 
@@ -195,7 +217,7 @@ Bibliotheken) — nicht von Hand bearbeiten.
 `MARKETING_VERSION` und `CURRENT_PROJECT_VERSION` stehen an je zwei Stellen im
 pbxproj (Debug + Release); es gibt keine Skript-Bauphase. **Jede
 Arbeitseinheit hebt Patch- UND Build-Nummer um je +1.** Zählung ab 09/2026:
-1.0.0 (Build 1), dann 1.0.1 (Build 2), 1.0.2 (Build 3) …
+1.0.0 (Build 1), dann 1.0.1 (Build 2), 1.0.2 (Build 3), 1.0.3 (Build 4) …
 
 `ITSAppUsesNonExemptEncryption = NO` steht in `Config/Info.plist` und als
 Build-Einstellung — nicht entfernen.

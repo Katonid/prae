@@ -88,8 +88,9 @@ struct HaltestelleView: View {
                         NavigationLink(value: Fahrtwunsch(fahrtId: abfahrt.fahrtId, einstieg: abfahrt.haltestelle)) {
                             inhalt
                         }
+                        .lesebreite()
                     } else {
-                        inhalt
+                        inhalt.lesebreite()
                     }
                 }
             } header: {
