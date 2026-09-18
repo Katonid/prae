@@ -1364,11 +1364,23 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   samt Kommentaren, die diese Messung behaupteten — und nichts davon hatte je
   stattgefunden: Der abgebrochene Lauf war 113 Sekunden alt, der zweite
   übersetzte in 84. **Ein Zustand, der sich nicht ändert, ist zuerst ein
-  Verdacht gegen die Abfrage und dann erst einer gegen die Sache.** Beim
-  Warten auf einen Bau entscheidet `updated_at` des LAUFES, nicht die
-  Schrittliste des Auftrags. Dieselbe Wurzel wie beim Testskript darunter, nur
-  eine Ebene höher — und dieselbe Lehre: **Wer misst, prüft zuerst, dass er
-  wirklich eine frische Antwort in der Hand hält.**
+  Verdacht gegen die Abfrage und dann erst einer gegen die Sache.** Dieselbe
+  Wurzel wie beim Testskript darunter, nur eine Ebene höher — und dieselbe
+  Lehre: **Wer misst, prüft zuerst, dass er wirklich eine frische Antwort in
+  der Hand hält.**
+- **Es gibt KEINEN frischen Endpunkt — nur Geduld** (Nachtrag beim Bau von
+  1.1.7). Oben stand nach dem ersten Fund, beim Warten entscheide `updated_at`
+  des LAUFES statt der Schrittliste. Auch das war zu früh geschlossen: Beim
+  nächsten Bau stand `updated_at` fünfundzwanzig Minuten lang auf der
+  Startminute, die Schrittliste auf „in_progress" und die Protokollabfrage auf
+  404 — während der Auftrag in Wahrheit nach 38 Sekunden grün durch war. Alle
+  drei Abfragen lagen gleichzeitig daneben. **Aus Unveränderlichkeit lässt
+  sich also gar nichts schließen**, weder auf ein Hängen noch auf ein Laufen;
+  gezählt hat am Ende allein, dass das Protokoll irgendwann INHALT hatte, und
+  darin stehen die wirklichen Zeitstempel. Also: warten, mehrfach fragen, und
+  eine Diagnose erst stellen, wenn eine Antwort etwas SAGT — nie, weil eine
+  nichts sagt. Und: Was hier nach dem ersten Treffer als Regel notiert wird,
+  ist selbst eine Vermutung, solange es nur einmal gesehen wurde.
 - **Ein Testskript, das seine Antwortdatei wiederverwendet, lügt**
   (Selbstfund 09/2026). Beim Vermessen der Verbünde schrieb `curl` in eine
   feste Datei; schlug der Aufruf fehl, las das Skript die Antwort des
@@ -1647,6 +1659,42 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   kommt (eine Linie antippen): Jeder Punkt ist eine eigene SwiftUI-Ansicht,
   und ein paar willkürlich ausgewählte wären schlechter als keine — man hielte
   die Lücken für Wirklichkeit.
+- **Ein Tipp auf einen Halt öffnet seine Abfahrtstafel** (ab 1.1.7, Ansage des
+  Nutzers 09/2026: „Wenn ich in der Kartendarstellung bei einer Linie auf eine
+  Haltestelle tippe, dann möchte ich Informationen zu dieser angezeigt
+  bekommen."). Das Ziel gab es schon: `HaltestelleView`, dieselbe Ansicht wie
+  aus der Liste und aus der Merkliste, samt Merken-Stern und eigenem
+  Nachladen. Gebaut wurde deshalb KEIN neues Blatt, sondern ein
+  `NavigationLink(value: halt.haltestelle)` — der
+  `navigationDestination(for: Haltestelle.self)` steht in `AbfahrtstafelView`,
+  in deren Stapel die Karte liegt. Ein eigenes Blatt wäre ein zweiter Weg zu
+  derselben Ansicht und liefe irgendwann auseinander.
+- **Antippbar sind BEIDE Sorten Punkte.** Auf der Netzkarte liegen die Halte
+  der gezeichneten Linien (`sichtbareHalte`) UND die Haltestellen um den
+  Bezugspunkt (`model.gruppen`) — wer nur die einen verlinkt, baut eine Karte,
+  auf der die Hälfte der Punkte tot ist. Dazu die Halte des Fahrtlaufs in
+  `StreckenKarte`.
+- **Wer einen neuen Verweis auf eine Haltestelle baut, prüft den STAPEL.**
+  `navigationDestination(for: Haltestelle.self)` stand in `AbfahrtstafelView`
+  und `MerklisteView`, aber NICHT in `VerbindungView` — ein Fahrtlauf, der von
+  einer Verbindung aus geöffnet wird, hätte dort einen Verweis gehabt, der
+  nichts tut. Ein Verweis, der nichts tut, ist für den Menschen davor ein
+  kaputter Knopf; das Ziel ist seit 1.1.7 in allen drei Stapeln eingetragen.
+- **Der gezeichnete Punkt bleibt klein, die TREFFERFLÄCHE wird größer**
+  (`Views/Trefferflaeche.swift`). 13 bis 17 Punkte sind als Zeichnung richtig
+  — eine Buslinie hat sechzig Halte, größere Punkte wären eine Perlenkette
+  statt einer Karte — und als Fingerziel zu klein; wer danebentippt,
+  verschiebt die Karte und hält den Verweis für kaputt. Gelegt wird deshalb
+  ein unsichtbarer Kreis darum, **32 Punkte und nicht die von Apple genannten
+  44**: Bei 260 Halten überlappten sich die Flächen sonst so weit, dass
+  regelmäßig der Nachbar aufginge. Trifft man doch den falschen, steht sein
+  Name in der Überschrift der Tafel — der Irrtum ist sichtbar und nicht still.
+- **Ein Weg, den niemand sieht, ist keiner.** Ein Kartenpunkt sieht nicht aus
+  wie ein Knopf, deshalb steht der Satz „Ein Tipp auf einen Halt öffnet seine
+  Abfahrtstafel" in den Hinweisen unter der Karte — vor den Erklärungen zur
+  Zeichenweise, denn er sagt, was man TUN kann, und die anderen nur, was man
+  sieht. Dieselbe Lehre wie beim Gruppenchat in Schulalarm und beim
+  Sichtumschalter in 1.0.5.
 - **Die Liniennummer liegt auf dem Zug**, nicht nur in der Legende
   (`beschriftungen`). Gesetzt an einem Anteil des Verlaufs, der sich mit der
   Stelle der Linie in der Liste verschiebt (0,22 bis 0,78) — zwölf Linien, die
@@ -1878,7 +1926,7 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   zwölfte Nachbesserung — derselbe Gedanke wie bei Tafelbild 1.4.0 und
   Schulalarm 1.1.0. Die Marken ab 1.0.x in diesem Papier bleiben stehen;
   sie sagen, wann etwas in den Quelltext kam. Danach zählt es weiter:
-  1.1.1 (Build 14), 1.1.2 (Build 15), 1.1.3 (Build 16), 1.1.4 (Build 17), 1.1.5 (Build 18), 1.1.6 (Build 19) … Dazu gesetzt (Ansage des Nutzers,
+  1.1.1 (Build 14), 1.1.2 (Build 15), 1.1.3 (Build 16), 1.1.4 (Build 17), 1.1.5 (Build 18), 1.1.6 (Build 19), 1.1.7 (Build 20) … Dazu gesetzt (Ansage des Nutzers,
   09/2026): `DEVELOPMENT_TEAM = F4989GSTWS` — dieselbe Id wie Schulalarm und
   Tafelbild — und `INFOPLIST_KEY_LSApplicationCategoryType =
   public.app-category.navigation`. Beides steht als Build-Einstellung, weil
