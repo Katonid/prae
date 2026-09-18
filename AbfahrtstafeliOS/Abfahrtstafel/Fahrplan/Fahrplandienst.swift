@@ -55,6 +55,13 @@ enum Fahrplanfehler: LocalizedError, Equatable {
     case dienstAntwortetNicht(status: Int)
     case antwortUnlesbar(String)
     case nichtsGefunden
+    /// Um diesen Punkt herum kennt der Dienst überhaupt keine Haltestelle.
+    ///
+    /// Ein eigener Fall und nicht `nichtsGefunden`, weil die ANTWORT eine
+    /// andere ist: Hier hilft kein zweiter Versuch, sondern nur ein anderer
+    /// Punkt. Ein Knopf „Noch einmal versuchen" über einem Waldstück wäre
+    /// eine Sackgasse mit Bedienelement.
+    case keineHaltestelleInDerNaehe
     case abgebrochen
 
     var errorDescription: String? {
@@ -67,6 +74,8 @@ enum Fahrplanfehler: LocalizedError, Equatable {
             return "Die Antwort des Fahrplandienstes war nicht zu lesen: \(grund)"
         case .nichtsGefunden:
             return "Dazu hat der Fahrplandienst nichts."
+        case .keineHaltestelleInDerNaehe:
+            return "Um diesen Punkt herum kennt der Fahrplandienst keine Haltestelle. Der Dienst sucht nur etwa einen Kilometer weit — mitten im Feld oder im Wald findet er nichts, und das ist kein Fehler. Mit einem Punkt näher an einer Ortschaft geht es."
         case .abgebrochen:
             return "Abgebrochen."
         }

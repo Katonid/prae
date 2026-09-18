@@ -90,13 +90,19 @@ struct AbfahrtstafelView: View {
         case .laedt:
             ProgressView("Abfahrten werden geholt …")
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-        case .fehler(let text):
+        case .fehler(let text, let ortswahlHilft):
             Hinweisflaeche(
-                symbol: "wifi.exclamationmark",
-                titel: "Keine Abfahrten",
+                symbol: ortswahlHilft ? "mappin.slash" : "wifi.exclamationmark",
+                titel: ortswahlHilft ? "Hier ist keine Haltestelle" : "Keine Abfahrten",
                 text: text,
-                knopf: "Noch einmal versuchen",
-                tat: { model.laden() }
+                knopf: ortswahlHilft ? "Anderen Ort wählen" : "Noch einmal versuchen",
+                tat: {
+                    if ortswahlHilft {
+                        ortswahlOffen = true
+                    } else {
+                        model.laden()
+                    }
+                }
             )
         default:
             if model.gruppen.isEmpty {

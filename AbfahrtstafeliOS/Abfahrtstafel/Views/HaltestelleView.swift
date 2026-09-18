@@ -23,7 +23,7 @@ struct HaltestelleView: View {
             case .laedt where abfahrten.isEmpty:
                 ProgressView("Abfahrten werden geholt …")
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-            case .fehler(let text) where abfahrten.isEmpty:
+            case .fehler(let text, _) where abfahrten.isEmpty:
                 Hinweisflaeche(
                     symbol: "wifi.exclamationmark",
                     titel: "Keine Abfahrten",
@@ -63,7 +63,7 @@ struct HaltestelleView: View {
 
     private var liste: some View {
         List {
-            if case .fehler(let text) = stand {
+            if case .fehler(let text, _) = stand {
                 Section {
                     Meldungsband(text: text)
                         .listRowInsets(EdgeInsets())
@@ -128,9 +128,9 @@ struct HaltestelleView: View {
             stand = .da
         } catch let fehler as Fahrplanfehler {
             guard fehler != .abgebrochen else { return }
-            stand = .fehler(fehler.localizedDescription)
+            stand = .fehler(text: fehler.localizedDescription, ortswahlHilft: false)
         } catch {
-            stand = .fehler(error.localizedDescription)
+            stand = .fehler(text: error.localizedDescription, ortswahlHilft: false)
         }
     }
 }

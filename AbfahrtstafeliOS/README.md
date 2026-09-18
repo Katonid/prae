@@ -93,6 +93,11 @@ einer Ansicht ein JSON-Feld von Transitous, ließe er sich nicht übersetzen.
 - **Der Umkreis gilt um die nächstgelegene Haltestelle**, nicht um den Punkt
   selbst — so fragt der Dienst. Auf dem Land kann die nächste Haltestelle weit
   weg sein; der Kreis liegt dann dort.
+- **Mitten im Feld gibt es gar nichts.** Die Haltestellensuche des Dienstes
+  reicht rund einen Kilometer weit (nachgemessen 09/2026); weiter draußen
+  liefert sie eine leere Liste. Die App sagt das dann so und bietet die
+  Ortswahl an, statt einen zweiten Versuch vorzuschlagen, der nichts ändern
+  könnte.
 - **Echtzeit gibt es nur, wo der Verbund sie herausgibt.** Und auch eine
   Echtzeitmeldung ist eine Meldung, keine Zusage.
 - Kein Verbindungsauskunft-Teil („von A nach B“). Diese App beantwortet

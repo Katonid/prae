@@ -14,7 +14,10 @@ final class AppModel: ObservableObject {
         case leer
         case laedt
         case da
-        case fehler(String)
+        /// `ortswahlHilft` entscheidet, welchen Knopf die Fehlerfläche
+        /// anbietet. „Noch einmal versuchen" über einem Waldstück wäre eine
+        /// Sackgasse mit Bedienelement — dort hilft nur ein anderer Punkt.
+        case fehler(text: String, ortswahlHilft: Bool)
     }
 
     // MARK: - Zustand
@@ -152,7 +155,10 @@ final class AppModel: ObservableObject {
                 return
             } catch let fehler as Fahrplanfehler {
                 guard !Task.isCancelled, fehler != .abgebrochen else { return }
-                self.melden(fehler.localizedDescription)
+                self.melden(
+                    fehler.localizedDescription,
+                    ortswahlHilft: fehler == .keineHaltestelleInDerNaehe
+                )
             } catch {
                 guard !Task.isCancelled else { return }
                 self.melden(error.localizedDescription)
@@ -172,7 +178,9 @@ final class AppModel: ObservableObject {
         // sonst findet die App auf dem Land gar nichts und meldet „nichts
         // gefunden", obwohl zwei Kilometer weiter ein Bus fährt.
         let stellen = try await dienst.haltestellen(um: punkt, umkreis: max(umkreis * 4, 5000))
-        guard let naechste = stellen.first else { throw Fahrplanfehler.nichtsGefunden }
+        guard let naechste = stellen.first else {
+            throw Fahrplanfehler.keineHaltestelleInDerNaehe
+        }
         return naechste
     }
 
@@ -183,9 +191,9 @@ final class AppModel: ObservableObject {
     /// Fehler wird ein Band darüber — zusammen mit der Zeile „geholt um …",
     /// die dann ehrlich sagt, wie alt die Zahlen sind. Alte Zeiten mit einem
     /// Hinweis sind mehr wert als eine leere Fläche.
-    private func melden(_ text: String) {
+    private func melden(_ text: String, ortswahlHilft: Bool = false) {
         if abfahrten.isEmpty {
-            stand = .fehler(text)
+            stand = .fehler(text: text, ortswahlHilft: ortswahlHilft)
             meldung = nil
         } else {
             stand = .da
@@ -236,7 +244,7 @@ extension AppModel.Ladestand {
     }
 
     var fehlertext: String? {
-        if case .fehler(let text) = self { return text }
+        if case .fehler(let text, _) = self { return text }
         return nil
     }
 }

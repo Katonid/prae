@@ -1076,6 +1076,16 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   gibt immer genau FÜNF Treffer zurück (nachgemessen mit `n`, `limit`,
   `count`) — die Liste der Haltestellen baut die App deshalb aus den
   ABFAHRTEN, denn nur die wissen, ob dort heute noch etwas fährt.
+- **`/reverse-geocode` sucht nur rund einen Kilometer weit und gibt sonst
+  eine LEERE Liste zurück** (nachgemessen 09/2026: Bayerischer Wald und
+  Allgäu leer, Eppenschlag 305 m gefunden, Frankfurt 84 m). Ein Punkt
+  mitten im Feld hat also keine Ankerhaltestelle, und der Umkreis der App
+  ändert daran nichts — was der Dienst nicht liefert, lässt sich nicht
+  filtern. Dafür gibt es `Fahrplanfehler.keineHaltestelleInDerNaehe` als
+  EIGENEN Fall: Die Antwort darauf ist ein anderer Punkt, nicht ein
+  zweiter Versuch, und `Ladestand.fehler` trägt deshalb `ortswahlHilft`
+  bis zum Knopf durch. „Noch einmal versuchen" über einem Waldstück wäre
+  eine Sackgasse mit Bedienelement.
 - **„Plan" ist nicht „pünktlich".** Liegt keine Echtzeitmeldung vor
   (`realTime == false`), steht neben der Zeit das Wort „Plan" und sonst
   nichts. Ein grüner Haken für „nicht nachgesehen" wäre die teuerste Lüge,
