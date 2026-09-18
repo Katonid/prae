@@ -57,7 +57,8 @@ struct FahrtView: View {
                     StreckenKarte(
                         fahrt: fahrt,
                         einstieg: einstiegIndex(in: fahrt),
-                        hoehe: karteGross ? 460 : 230
+                        hoehe: karteGross ? 460 : 230,
+                        lautMeldungGesperrt: meldungen.gesperrteHalte(zu: fahrt.linie)
                     )
                     .listRowInsets(EdgeInsets(top: 8, leading: 12, bottom: 8, trailing: 12))
 
@@ -99,6 +100,10 @@ struct FahrtView: View {
                 }
 
                 Section {
+                    // Einmal je Aufbau geholt und nicht je Zeile: Die Liste
+                    // hat bei einer Buslinie fünfzig Halte, und jede Zeile
+                    // würde sonst die ganze Meldungsliste durchgehen.
+                    let gemeldetGesperrt = meldungen.gesperrteHalte(zu: fahrt.linie)
                     ForEach(Array(fahrt.halte.enumerated()), id: \.element.id) { nummer, halt in
                         HaltZeile(
                             halt: halt,
@@ -106,7 +111,8 @@ struct FahrtView: View {
                             istErster: nummer == 0,
                             istLetzter: nummer == fahrt.halte.count - 1,
                             istEinstieg: nummer == einstiegIndex(in: fahrt),
-                            schonVorbei: nummer < (fahrt.indexErreicht(uhr.jetzt) ?? -1)
+                            schonVorbei: nummer < (fahrt.indexErreicht(uhr.jetzt) ?? -1),
+                            lautMeldungGesperrt: Self.istGemeldet(halt, laut: gemeldetGesperrt)
                         )
                         .lesebreite()
                         .id(nummer)
@@ -118,6 +124,9 @@ struct FahrtView: View {
                         Text("Die Zeiten stammen aus \(model.dienst.quellenname). Wo kein Echtzeitwert vorliegt, steht die Planzeit.")
                         if !meldungen.nichtImFahrplan(zu: fahrt.linie).isEmpty {
                             Text("Ein entfallender Halt ist oben rot durchgestrichen. Weil die Änderungen dieser Meldung nicht in den Fahrplandaten stehen, kann eine gesperrte Haltestelle hier trotzdem als angefahren erscheinen.")
+                        }
+                        if !meldungen.gesperrteHalte(zu: fahrt.linie).isEmpty {
+                            Text("„laut Meldung gesperrt\u{201C} ist aus dem Text der Betriebsmeldung gelesen, nicht aus den Fahrplandaten. Manche Meldungen gelten nur für eine Richtung — das steht im Text, nicht in dieser Marke.")
                         }
                     }
                 }
@@ -139,6 +148,17 @@ struct FahrtView: View {
                 }
             }
         }
+    }
+
+    /// Ob eine Betriebsmeldung diesen Halt beim Namen nennt.
+    ///
+    /// Eine eigene Funktion und kein mehrzeiliger Verschluss mitten in der
+    /// Argumentliste — das ist hier nur eine Frage der Lesbarkeit und keine
+    /// Notwendigkeit: Die Übersetzung war mit beiden Fassungen gleich
+    /// schnell (84 Sekunden, gemessen im Bau von 1.1.6).
+    private static func istGemeldet(_ halt: Zwischenhalt, laut namen: [String]) -> Bool {
+        guard !namen.isEmpty else { return false }
+        return namen.contains { Haltsperrung.passt(haltestelle: halt.haltestelle.name, zu: $0) }
     }
 
     /// Welcher Halt der eigene ist.
@@ -202,6 +222,13 @@ private struct HaltZeile: View {
     let istLetzter: Bool
     let istEinstieg: Bool
     let schonVorbei: Bool
+    /// Dieser Halt wird im TEXT einer Betriebsmeldung als entfallend
+    /// genannt, steht in den Fahrplandaten aber unverändert als angefahren.
+    ///
+    /// Bewusst ein eigener Zustand und keine Vermischung mit `faelltAus`:
+    /// Der eine ist gemessen, der andere aus einem Fließtext gelesen. Wer
+    /// beides gleich zeichnet, macht aus einer Lesart eine Tatsache.
+    let lautMeldungGesperrt: Bool
 
     var body: some View {
         HStack(alignment: .center, spacing: 12) {
@@ -226,6 +253,10 @@ private struct HaltZeile: View {
                     if istEinstieg && !istErster { Kennzeichen("Einstieg") }
                     if let steig = halt.steig { Text(steig) }
                     if halt.faelltAus { Text("Halt entfällt").foregroundStyle(.red) }
+                    if lautMeldungGesperrt && !halt.faelltAus {
+                        Label("laut Meldung gesperrt", systemImage: "exclamationmark.triangle.fill")
+                            .foregroundStyle(.orange)
+                    }
                 }
                 .font(.caption)
                 .foregroundStyle(.secondary)

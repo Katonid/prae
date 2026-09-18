@@ -415,6 +415,16 @@ Trennung, sondern eine Lüge mit Protokoll. Die Ansichten sehen weiterhin nur
   noch am Fahrtlauf). Steht in der App keine Meldung, heißt das deshalb
   **nicht**, dass alles planmäßig fährt — es heißt, dass niemand
   nachgesehen hat. Die App schreibt genau das hin.
+- **Was im Text der Meldung aufgezählt ist, wird markiert.** Zählt eine
+  Meldung ihre gesperrten Haltestellen unter einer Überschrift auf
+  („Folgende Haltestellen entfallen:"), stehen diese Halte in der Halteliste
+  und auf beiden Karten **orange mit Ausrufezeichen** — „laut Meldung
+  gesperrt". Das ist bewusst ein anderes Zeichen als das rote Kreuz: Rot
+  steht so in den Fahrplandaten, Orange ist aus einem Fließtext gelesen.
+  Gelesen wird nur die Aufzählung, nicht die Satzform („Die Haltestellen X
+  und Y entfallen") — die griff beim Messen an echten Meldungen mehrfach die
+  Abfahrts- oder Ersatzhaltestelle ab, und eine angefahrene Haltestelle als
+  gesperrt zu markieren schickt jemanden zur falschen Haltestelle.
 - **Eine Meldung und die Halteliste können auseinandergehen — und beide haben
   recht.** Nachgemessen 18.09.2026 an der Linie 470 in Dortmund: Die Meldung
   des VRR nennt zwei gesperrte Haltestellen, in den Fahrplandaten entfällt
