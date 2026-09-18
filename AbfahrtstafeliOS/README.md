@@ -36,6 +36,20 @@ zwölf Zeichen ab), Ordner, Ziel und Bundle-Id bleiben „Abfahrtstafel“ /
 
 ## Woher die Daten kommen
 
+Eine **Kette aus drei Stufen** (`Fahrplan/Kettendienst.swift`). Eine
+Abfahrtstafel wird an einer Haltestelle aufgeschlagen, oft mit einem Balken
+Empfang — genau dort ist eine einzelne Quelle ein einzelner Ausfallpunkt.
+
+| # | Quelle | Deckung | Echtzeit |
+| --- | --- | --- | --- |
+| 1 | **Transitous** (MOTIS v1) | Deutschland + halb Europa | wo der Verbund sie herausgibt |
+| 2 | **MVV** (EFA) | Großraum München | ja, im Verbundgebiet |
+| 3 | **Zwischenspeicher** | zuletzt geholter Stand | nein — und das steht dabei |
+
+Haltestellensuche und Fahrtlauf gehen immer an Stufe 1: Nur sie liefert
+Zwischenhalte und Streckengeometrie. Zeilen aus Stufe 2 stehen deshalb ohne
+Pfeil da.
+
 **[Transitous](https://transitous.org)**, angesprochen über die
 MOTIS-Schnittstelle v1 (`https://api.transitous.org/api/v1`).
 
@@ -72,9 +86,11 @@ und die Liste baute sich ruckweise auf.
 ```
 Abfahrtstafel/
   Model/          Haltestelle, Abfahrt, Fahrt, Verkehrsmittel, AppModel
-  Fahrplan/       Fahrplandienst (Protokoll), Musterdienst
-    Transitous/   die einzige Stelle, die die Schnittstelle kennt
-  Dienste/        Standort, Uhrwerk, Merkliste
+  Fahrplan/       Fahrplandienst + Abfahrtsquelle (Protokolle),
+                  Kettendienst, Musterdienst
+    Transitous/   die einzige Stelle, die MOTIS kennt
+    Mvv/          die einzige Stelle, die EFA kennt
+  Dienste/        Standort, Uhrwerk, Merkliste, Abfahrtsspeicher
   Views/          Tafel, Haltestelle, Fahrt, Karte, Ortswahl, Einstellungen
 ```
 
@@ -84,6 +100,14 @@ plötzlich einen Schlüssel oder decken eine Gegend nicht ab. Solange die
 Ansichten nur dieses Protokoll kennen, kostet ein Wechsel **eine Datei**.
 `Musterdienst` ist der laufende Beweis, dass die Trennung hält — steckte in
 einer Ansicht ein JSON-Feld von Transitous, ließe er sich nicht übersetzen.
+
+**Daneben steht `Abfahrtsquelle` — mit Absicht ein zweites Protokoll.** Nicht
+jede Quelle kann alles: EFA liefert eine vorzügliche Abfahrtstafel, aber keine
+Streckengeometrie, und eine Fahrt ohne Strecke hat in dieser App keinen
+Bildschirm. Sie als `Fahrplandienst` auszugeben hieße, vier Methoden zu
+versprechen und zwei davon mit „geht nicht“ zu beantworten; das ist keine
+Trennung, sondern eine Lüge mit Protokoll. Die Ansichten sehen weiterhin nur
+`Fahrplandienst` — `Kettendienst` fügt beides zusammen.
 
 ## Grenzen, die die App auch selbst nennt
 
@@ -102,6 +126,17 @@ einer Ansicht ein JSON-Feld von Transitous, ließe er sich nicht übersetzen.
   Echtzeitmeldung ist eine Meldung, keine Zusage.
 - Kein Verbindungsauskunft-Teil („von A nach B“). Diese App beantwortet
   „was fährt hier weg und wohin“ — und das vollständig.
+- **Der Zwischenspeicher ist kein Netzersatz.** Er greift erst, wenn keine
+  Quelle mehr antwortet, hält höchstens zwei Stunden, und seine Zeiten sind
+  immer als alt gekennzeichnet — mit Uhrzeit, und **ohne laufende
+  Minutenziffern**. Eine alte Tafel, die weiterzählt, sähe richtig aus und
+  wäre es nicht.
+- **Der eingestellte Umkreis erreicht die MVV-Schnittstelle nicht.** Sie kennt
+  keinen Umkreisparameter und nimmt ihren eigenen; eine Tafel aus dieser
+  Quelle kann deshalb schmaler ausfallen als die eingestellten Meter.
+- **Nicht jede Zeile lässt sich öffnen.** Die MVV-Schnittstelle gibt eine
+  Abfahrtstafel heraus, aber keinen Fahrtlauf mit Zwischenhalten; solche
+  Zeilen stehen ohne Pfeil da.
 
 ## Bauen
 

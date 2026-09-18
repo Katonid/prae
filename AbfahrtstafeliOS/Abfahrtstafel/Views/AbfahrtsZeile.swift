@@ -13,6 +13,15 @@ struct AbfahrtsZeile: View {
     /// Bei der Tafel „Alle in der Nähe" steht die Haltestelle mit in der
     /// Zeile; in der Tafel EINER Haltestelle wäre sie fünfzehnmal dieselbe.
     var zeigtHaltestelle: Bool = false
+    /// Der Stand kommt aus dem Zwischenspeicher und ist alt. Dann wird die
+    /// Minutenziffer NICHT gezeigt: Sie ist die einzige Angabe der Zeile, die
+    /// fortlaufend etwas behauptet, und eine weiterzählende Ziffer über alten
+    /// Daten ist eine Lüge, die wie eine Auskunft aussieht.
+    var standIstAlt: Bool = false
+    /// Die Quelle steht nur dann an der Zeile, wenn die Tafel aus MEHREREN
+    /// kommt. Unter einer Tafel aus einer einzigen Quelle wäre sie
+    /// fünfzehnmal dasselbe Wort.
+    var zeigtQuelle: Bool = false
 
     var body: some View {
         HStack(spacing: 12) {
@@ -36,6 +45,9 @@ struct AbfahrtsZeile: View {
                     }
                     if zeigtHaltestelle || abfahrt.steig != nil { Text("·") }
                     Zeitangabe(abfahrt: abfahrt)
+                    if zeigtQuelle {
+                        Text("· \(abfahrt.quelle)")
+                    }
                 }
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -43,7 +55,14 @@ struct AbfahrtsZeile: View {
 
             Spacer(minLength: 4)
 
-            Minutenziffer(abfahrt: abfahrt, jetzt: jetzt)
+            if standIstAlt {
+                Text("alt")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .frame(minWidth: 62, alignment: .trailing)
+            } else {
+                Minutenziffer(abfahrt: abfahrt, jetzt: jetzt)
+            }
         }
         .padding(.vertical, 5)
         .accessibilityElement(children: .combine)
@@ -53,8 +72,13 @@ struct AbfahrtsZeile: View {
     private var vorgelesen: String {
         var teile = ["\(abfahrt.linie.mittel.name) \(abfahrt.linie.name) nach \(abfahrt.richtung)"]
         if zeigtHaltestelle { teile.append("ab \(abfahrt.haltestelle.name)") }
+        if standIstAlt {
+            teile.append("alter Stand")
+        }
         if abfahrt.faelltAus {
             teile.append("fällt aus")
+        } else if standIstAlt {
+            teile.append("geplant \(abfahrt.geplant.formatted(date: .omitted, time: .shortened))")
         } else {
             let minuten = abfahrt.minutenBis(jetzt)
             teile.append(minuten <= 0 ? "fährt jetzt" : "in \(minuten) Minuten")

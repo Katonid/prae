@@ -171,9 +171,27 @@ struct AbfahrtstafelView: View {
         .refreshable { model.laden() }
     }
 
+    /// Eine Zeile — als Verweis, WENN es einen Fahrtlauf dazu gibt.
+    ///
+    /// Nicht jede Quelle liefert eine Fahrtkennung (die EFA-Schnittstelle des
+    /// MVV gibt eine Tafel heraus und keinen Lauf). Eine Zeile, die aussieht
+    /// wie ein Knopf und beim Tippen nichts tut, ist für den Menschen davor
+    /// ein kaputter Knopf — solche Zeilen stehen deshalb ohne Pfeil da.
+    @ViewBuilder
     private func zeile(_ abfahrt: Abfahrt, mitHaltestelle: Bool) -> some View {
-        NavigationLink(value: Fahrtwunsch(fahrtId: abfahrt.fahrtId, einstieg: abfahrt.haltestelle)) {
-            AbfahrtsZeile(abfahrt: abfahrt, jetzt: uhr.jetzt, zeigtHaltestelle: mitHaltestelle)
+        let inhalt = AbfahrtsZeile(
+            abfahrt: abfahrt,
+            jetzt: uhr.jetzt,
+            zeigtHaltestelle: mitHaltestelle,
+            standIstAlt: model.standIstAlt,
+            zeigtQuelle: model.beteiligteQuellen.count > 1
+        )
+        if abfahrt.hatFahrtlauf {
+            NavigationLink(value: Fahrtwunsch(fahrtId: abfahrt.fahrtId, einstieg: abfahrt.haltestelle)) {
+                inhalt
+            }
+        } else {
+            inhalt
         }
     }
 
@@ -228,9 +246,16 @@ struct AbfahrtstafelView: View {
         var body: some View {
             VStack(alignment: .leading, spacing: 3) {
                 if let geholt = model.geholtUm {
-                    Text("Zuletzt geholt um \(geholt.formatted(date: .omitted, time: .standard)).")
+                    if model.standIstAlt {
+                        Text("Diese Zeiten sind von \(geholt.formatted(date: .omitted, time: .standard)) und zählen nicht weiter — sie kommen aus dem Zwischenspeicher, weil gerade keine Quelle erreichbar ist.")
+                    } else {
+                        Text("Zuletzt geholt um \(geholt.formatted(date: .omitted, time: .standard)).")
+                    }
                 }
-                Text("Daten: \(model.dienst.quellenname). Entfernungen sind Luftlinien. Wo keine Echtzeit vorliegt, steht die Planzeit — die App behauptet dann keine Pünktlichkeit.")
+                if !model.beteiligteQuellen.isEmpty {
+                    Text("Daten: \(model.beteiligteQuellen.joined(separator: ", ")).")
+                }
+                Text("Entfernungen sind Luftlinien. Wo keine Echtzeit vorliegt, steht die Planzeit — die App behauptet dann keine Pünktlichkeit. Zeilen ohne Pfeil stammen aus einer Quelle, die keinen Fahrtlauf herausgibt.")
             }
             .font(.caption2)
         }

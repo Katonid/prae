@@ -34,6 +34,14 @@ final class AppModel: ObservableObject {
     /// Ein Hinweis ÜBER einer weiterhin gezeigten Tafel (siehe `melden`).
     /// `nil`, solange alles glattgeht.
     @Published var meldung: String?
+    /// Gesetzt, wenn die gezeigten Zeiten aus dem Zwischenspeicher kommen —
+    /// also aus keiner erreichbaren Quelle mehr.
+    ///
+    /// Sie sind dann ALT und zählen nicht weiter: Ein Band steht darüber, die
+    /// Minutenziffern werden abgeschaltet, und die Fußzeile nennt die Uhrzeit.
+    /// Eine alte Tafel, die weiterzählt, sieht richtig aus und ist es nicht —
+    /// das ist der schlimmste denkbare Fehler dieser App.
+    @Published private(set) var standIstAlt = false
 
     /// Welche Verkehrsmittel gezeigt werden. LEER heißt „alle" und nicht
     /// „keine" — wer den letzten Haken wegnimmt, will nicht vor einer leeren
@@ -64,7 +72,7 @@ final class AppModel: ObservableObject {
 
     private let ablage: UserDefaults
 
-    init(dienst: Fahrplandienst = TransitousDienst(), ablage: UserDefaults = .standard) {
+    init(dienst: Fahrplandienst = Kettendienst(), ablage: UserDefaults = .standard) {
         self.dienst = dienst
         self.ablage = ablage
         // `integer(forKey:)` gibt für einen fehlenden Schlüssel 0 zurück, und
@@ -95,6 +103,16 @@ final class AppModel: ObservableObject {
     /// Wald ist eine Bedienung, die nie etwas tut.
     var vorhandeneMittel: [Verkehrsmittel] {
         abfahrten.map(\.linie.mittel).eindeutig().sorted { $0.rang < $1.rang }
+    }
+
+    /// Die Quellen, die zu den gezeigten Zeilen wirklich beigetragen haben.
+    ///
+    /// Nicht die Liste der eingebauten Quellen: Was in der Fußzeile steht,
+    /// soll sagen, woher DIESE Tafel kommt. „Transitous, MVV" unter einer
+    /// Tafel, die ganz von Transitous stammt, wäre eine Angabe über die App
+    /// und nicht über die Daten.
+    var beteiligteQuellen: [String] {
+        gefiltert.map(\.quelle).filter { !$0.isEmpty }.eindeutig().sorted()
     }
 
     private var gefiltert: [Abfahrt] {
@@ -151,8 +169,22 @@ final class AppModel: ObservableObject {
                 self.geladenFuer = ziel
                 self.stand = .da
                 self.meldung = nil
+                self.standIstAlt = false
             } catch is CancellationError {
                 return
+            } catch Fahrplanfehler.veralteterStand(let liegengebliebene, let geholtUm) {
+                // Der einzige Fehler, der Zeiten MITBRINGT. Sie werden gezeigt
+                // — aber als alt gekennzeichnet, mit Uhrzeit und ohne
+                // laufende Minutenziffern.
+                guard !Task.isCancelled else { return }
+                self.abfahrten = liegengebliebene.sorted { $0.tatsaechlich < $1.tatsaechlich }
+                self.geholtUm = geholtUm
+                self.geladenFuer = ziel
+                self.stand = .da
+                self.standIstAlt = true
+                self.meldung = Fahrplanfehler
+                    .veralteterStand(abfahrten: [], geholtUm: geholtUm)
+                    .localizedDescription
             } catch let fehler as Fahrplanfehler {
                 guard !Task.isCancelled, fehler != .abgebrochen else { return }
                 self.melden(

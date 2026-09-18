@@ -1151,6 +1151,56 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   Karte bewegt sich darunter. Ein Tippen auf die Karte wäre naheliegend
   und schlechter: Der Finger verdeckt genau die Stelle, die er trifft, und
   ein Tipp löst beim Verschieben leicht aus.
+- **Die Quellen sind eine KETTE, und die Reihenfolge ist gemessen**
+  (`Kettendienst`, ab 1.0.1): Transitous → MVV-EFA → Zwischenspeicher. Eine
+  Abfahrtstafel wird an einer Haltestelle aufgeschlagen, oft mit einem
+  Balken Empfang — genau dort ist eine einzelne Quelle ein einzelner
+  Ausfallpunkt. Der Gedanke stammt aus der München-App dieses Nutzers
+  (PWA, eigene Sitzung); deren Kette lautet Transitous → DB → Cache.
+- **`Fahrplandienst` und `Abfahrtsquelle` sind ZWEI Protokolle, mit Absicht.**
+  Nicht jede Quelle kann alles: EFA liefert eine vorzügliche Abfahrtstafel,
+  aber keine Streckengeometrie — und eine Fahrt ohne Strecke hat in dieser
+  App keinen Bildschirm. Sie als `Fahrplandienst` auszugeben hieße, vier
+  Methoden zu versprechen und zwei mit „geht nicht" zu beantworten; das ist
+  keine Trennung, sondern eine Lüge mit Protokoll. Die Ansichten sehen
+  weiterhin NUR `Fahrplandienst` — `Kettendienst` fügt beides zusammen.
+- **MVV-EFA: was sie kann, ist nachgemessen und nicht angenommen** (09/2026).
+  Über eine KOORDINATE (`type_dm=coord`) liefert sie die Abfahrten aller
+  Haltestellen im Umkreis samt Echtzeit — aber **nur im Verbundgebiet**
+  (Hamburg, Berlin, Frankfurt: null Abfahrten). Über eine KENNUNG
+  (`type_dm=any` mit `de:09162:2`) antwortet sie bundesweit, dort aber
+  **ohne Echtzeit** (null von vier). Gebaut ist deshalb nur der erste Weg,
+  und `zustaendig(fuer:)` hält die Anfrage auf, wo sie nichts brächte.
+  Drei Fallen dabei: In der ANFRAGE steht die **Länge zuerst**
+  (`11.575:48.137`), in der Antwort die **Breite** — vertauscht kommt keine
+  Fehlermeldung, sondern eine leere Liste. Ohne `coordOutputFormat=WGS84`
+  kommen Koordinaten in einem fremden Gitter (gemessen: 5870282, 1288570).
+  Und ein Kennungs-Suffix `_G` lässt die Abfrage still ins Leere laufen.
+- **Echtzeit gilt bei EFA nur mit `isRealtimeControlled`.** Eine geschätzte
+  Zeit, die zufällig der Planzeit gleicht, sähe sonst aus wie „pünktlich" —
+  und das ist etwas völlig anderes als „niemand hat nachgesehen".
+- **Der Zwischenspeicher ist KEIN Beschleuniger** (`Abfahrtsspeicher`, ab
+  1.0.1). Er wird nur gelesen, wenn ALLE Quellen ausgefallen sind, und was
+  er herausgibt, trägt seinen Zeitstempel bis in die Oberfläche
+  (`Fahrplanfehler.veralteterStand` — ein Fehler, der Daten MITBRINGT).
+  Dann steht ein Band darüber, die Fußzeile nennt die Uhrzeit, und **die
+  Minutenziffern werden abgeschaltet**: Sie sind die einzige Angabe, die
+  fortlaufend etwas behauptet, und eine weiterzählende Ziffer über alten
+  Daten ist eine Lüge, die wie eine Auskunft aussieht. Höchstalter zwei
+  Stunden, höchstens zwölf Haltestellen, und er liegt in den **Caches** —
+  was der Nutzer selbst angelegt hat (die Merkliste), liegt woanders.
+- **Nicht jede Zeile lässt sich öffnen** (`Abfahrt.hatFahrtlauf`). MVV gibt
+  keine Fahrtkennung heraus; solche Zeilen stehen ohne Pfeil da, und die
+  Fußzeile sagt warum. Eine Zeile, die aussieht wie ein Knopf und beim
+  Tippen nichts tut, ist für den Menschen davor ein kaputter Knopf.
+- **`Abfahrt.id` trägt Linie und Richtung mit.** Ohne Fahrtkennung (MVV)
+  bildete eine Tafel sonst zwei Abfahrten derselben Minute an derselben
+  Haltestelle auf einen Schlüssel ab — eine davon verschwände
+  stillschweigend aus der Liste.
+- **Die Fußzeile nennt die Quellen, die WIRKLICH beigetragen haben**
+  (`AppModel.beteiligteQuellen`), nicht die eingebauten. „Transitous, MVV"
+  unter einer Tafel, die ganz von Transitous stammt, wäre eine Angabe über
+  die App und nicht über die Daten.
 - `MARKETING_VERSION` und `CURRENT_PROJECT_VERSION` stehen an je zwei
   Stellen im pbxproj (Debug + Release) — KEINE Skript-Bauphase. **Jede
   Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne Nachfrage,

@@ -16,6 +16,12 @@ struct HaltestelleView: View {
     @State private var abfahrten: [Abfahrt] = []
     @State private var stand: AppModel.Ladestand = .laedt
     @State private var geholtUm: Date?
+    @State private var standIstAlt = false
+
+    /// Welche Quellen zu DIESER Tafel beigetragen haben.
+    private var quellen: [String] {
+        abfahrten.map(\.quelle).filter { !$0.isEmpty }.eindeutig().sorted()
+    }
 
     var body: some View {
         Group {
@@ -71,8 +77,19 @@ struct HaltestelleView: View {
             }
             Section {
                 ForEach(sichtbare) { abfahrt in
-                    NavigationLink(value: Fahrtwunsch(fahrtId: abfahrt.fahrtId, einstieg: abfahrt.haltestelle)) {
-                        AbfahrtsZeile(abfahrt: abfahrt, jetzt: uhr.jetzt)
+                    let inhalt = AbfahrtsZeile(
+                        abfahrt: abfahrt,
+                        jetzt: uhr.jetzt,
+                        standIstAlt: standIstAlt,
+                        zeigtQuelle: quellen.count > 1
+                    )
+                    // Ohne Fahrtkennung kein Verweis — siehe `hatFahrtlauf`.
+                    if abfahrt.hatFahrtlauf {
+                        NavigationLink(value: Fahrtwunsch(fahrtId: abfahrt.fahrtId, einstieg: abfahrt.haltestelle)) {
+                            inhalt
+                        }
+                    } else {
+                        inhalt
                     }
                 }
             } header: {
@@ -82,9 +99,15 @@ struct HaltestelleView: View {
             } footer: {
                 VStack(alignment: .leading, spacing: 3) {
                     if let geholtUm {
-                        Text("Zuletzt geholt um \(geholtUm.formatted(date: .omitted, time: .standard)). Die Tafel lädt alle 30 Sekunden nach, solange sie offen ist.")
+                        if standIstAlt {
+                            Text("Diese Zeiten sind von \(geholtUm.formatted(date: .omitted, time: .standard)) und zählen nicht weiter — es ist gerade keine Quelle erreichbar.")
+                        } else {
+                            Text("Zuletzt geholt um \(geholtUm.formatted(date: .omitted, time: .standard)). Die Tafel lädt alle 30 Sekunden nach, solange sie offen ist.")
+                        }
                     }
-                    Text("Daten: \(model.dienst.quellenname).")
+                    if !quellen.isEmpty {
+                        Text("Daten: \(quellen.joined(separator: ", ")).")
+                    }
                 }
                 .font(.caption2)
             }
@@ -125,6 +148,14 @@ struct HaltestelleView: View {
             )
             abfahrten = geholt.sorted { $0.tatsaechlich < $1.tatsaechlich }
             geholtUm = Date()
+            standIstAlt = false
+            stand = .da
+        } catch Fahrplanfehler.veralteterStand(let liegengebliebene, let alter) {
+            // Derselbe Weg wie in `AppModel`: Die Zeiten werden gezeigt, aber
+            // als alt gekennzeichnet.
+            abfahrten = liegengebliebene.sorted { $0.tatsaechlich < $1.tatsaechlich }
+            geholtUm = alter
+            standIstAlt = true
             stand = .da
         } catch let fehler as Fahrplanfehler {
             guard fehler != .abgebrochen else { return }
