@@ -1737,6 +1737,39 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   1.0.9). Zwischen zwei Ortungen ist `standort.stand` kurz nicht `.da`, die
   Tafel zeigt aber längst Abfahrten — ohne ihn fiele die Karte in genau diesem
   Augenblick auf die letzte Rettung zurück.
+- **„Alles lila" hatte ZWEI Ursachen, und nur eine war unsere** (gemeldet
+  09/2026 aus Berchtesgaden). Nachgemessen am 18.09.2026 an genau diesem Ort:
+  Die **S4 ist wirklich violett** — `route_color = 9764ac`, von der
+  Bayerischen Regiobahn selbst geführt. Daran wird nichts geändert; eine
+  eigene Farbe daneben zu stellen wäre eine Verschlimmbesserung. Die **acht
+  Buslinien** (837 bis 848, alle Bus RV Oberbayern) führen dagegen **gar keine
+  Farbe** — sie fallen auf das Bus-Violett zurück, und die Abwandlung je Linie
+  griff nicht. Wer so einen Befund liest, trennt also zuerst, was aus den
+  Daten kommt und was aus dem Rückfall.
+- **Der Streuwert stand an den SCHWÄCHSTEN Bits** (`Liniensymbol.streuwert`,
+  behoben in 1.1.8). Bis 1.1.7 lief EIN FNV-1a-Durchgang, und die beiden
+  Zahlen wurden als zwei Bitfenster daraus geschnitten — die erste aus den
+  Bits 8 bis 23. Genau die sind bei FNV-1a die schwächsten: Der letzte Schritt
+  ist eine Multiplikation, und deren niedrige Bits hängen nur von den
+  niedrigen Bits der Eingabe ab. Namen, die sich bloß im letzten Zeichen
+  unterscheiden — also die acht Buslinien einer Gegend —, bekamen damit fast
+  denselben Wert. **Gemessen:** Der Farbton aller acht Linien lag in einem
+  Fenster von 0,004, obwohl ±0,055 erlaubt sind; 838 und 839 bekamen dieselbe
+  Farbe auf den Punkt. Jetzt zwei Durchgänge mit verschiedenem Startwert, je
+  mit dem Schlussmischer von splitmix64; der kleinste Farbabstand
+  verzehnfacht sich (schlechtester Fall über Berchtesgaden, Dortmund, München
+  und einen gemischten Satz: 0,0018 → 0,0178).
+- **An den SPANNEN wurde nichts geändert**, und das ist der Punkt: ±0,055 im
+  Farbton und ±0,11 in der Helligkeit waren richtig gewählt — sie wurden nur
+  nie ausgeschöpft. Die naheliegende Reaktion („die Streuung ist zu schwach,
+  also weiter aufmachen") hätte die Familiengrenze angetastet und den Fehler
+  nicht behoben. **Wer eine Streuung für zu schwach hält, misst zuerst, ob der
+  Wert überhaupt ankommt.**
+- **Eine Farbe aus den Daten darf doppelt vorkommen.** Gemessen in München:
+  Die Buslinien 100, 132, 153 und 154 tragen alle `325868`, die 52, 58, 62 und
+  68 alle `d3762b` — das ist die Hausfarbe des Betreibers und keine Panne. Die
+  Abwandlung greift deshalb ausdrücklich NUR beim Rückfall: Wo der Verbund
+  eine Farbe führt, gilt seine, auch wenn zwei Linien dann gleich aussehen.
 - **Fehlt die Linienfarbe, wird die Rückfallfarbe je Linie ABGEWANDELT**
   (`Color.abgewandelt`, `Linienkennung.anzeigefarbe`, ab 1.0.5). Sonst sind
   alle Busse derselbe Violettton. Verschoben wird nur INNERHALB der
@@ -1926,7 +1959,7 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   zwölfte Nachbesserung — derselbe Gedanke wie bei Tafelbild 1.4.0 und
   Schulalarm 1.1.0. Die Marken ab 1.0.x in diesem Papier bleiben stehen;
   sie sagen, wann etwas in den Quelltext kam. Danach zählt es weiter:
-  1.1.1 (Build 14), 1.1.2 (Build 15), 1.1.3 (Build 16), 1.1.4 (Build 17), 1.1.5 (Build 18), 1.1.6 (Build 19), 1.1.7 (Build 20) … Dazu gesetzt (Ansage des Nutzers,
+  1.1.1 (Build 14), 1.1.2 (Build 15), 1.1.3 (Build 16), 1.1.4 (Build 17), 1.1.5 (Build 18), 1.1.6 (Build 19), 1.1.7 (Build 20), 1.1.8 (Build 21) … Dazu gesetzt (Ansage des Nutzers,
   09/2026): `DEVELOPMENT_TEAM = F4989GSTWS` — dieselbe Id wie Schulalarm und
   Tafelbild — und `INFOPLIST_KEY_LSApplicationCategoryType =
   public.app-category.navigation`. Beides steht als Build-Einstellung, weil
