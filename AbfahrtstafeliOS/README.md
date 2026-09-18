@@ -16,9 +16,11 @@ zwölf Zeichen ab), Ordner, Ziel und Bundle-Id bleiben „Abfahrtstafel“ /
   die nächste zuerst, je Haltestelle die nächsten Abfahrten. Umschaltbar auf
   „nach Zeit“ — dieselben Daten, eine Liste, chronologisch.
 - **Verspätungen ehrlich.** Weicht die Echtzeitmeldung vom Fahrplan ab, steht
-  die Planzeit durchgestrichen da, daneben `+3` und die neue Zeit. Liegt gar
-  keine Echtzeitmeldung vor, steht **„Plan“** daneben — die App behauptet dann
-  nichts über Pünktlichkeit.
+  die Planzeit durchgestrichen da, daneben `+3` und die neue Zeit. **Die
+  geltende Zeit ist dabei nie die kleinere** — im Fahrtlauf steht sie groß und
+  die durchgestrichene Planzeit klein darunter; gefahren wird nach der neuen.
+  Liegt gar keine Echtzeitmeldung vor, steht **„Plan“** daneben — die App
+  behauptet dann nichts über Pünktlichkeit.
 - **Minutenziffer.** Rechts, groß, mit gleich breiten Ziffern; unter zwei
   Minuten orange. Sie zählt im Sekundentakt weiter, aus **einer** Uhr für die
   ganze Liste.
@@ -259,7 +261,7 @@ Bibliotheken) — nicht von Hand bearbeiten.
 pbxproj (Debug + Release); es gibt keine Skript-Bauphase. **Jede
 Arbeitseinheit hebt Patch- UND Build-Nummer um je +1.** Zählung ab 09/2026:
 1.0.0 (Build 1), dann 1.0.1 (Build 2), 1.0.2 (Build 3), 1.0.3 (Build 4), 1.0.4 (Build 5),
-1.0.5 (Build 6), 1.0.6 (Build 7), 1.0.7 (Build 8), 1.0.8 (Build 9), 1.0.9 (Build 10) …
+1.0.5 (Build 6), 1.0.6 (Build 7), 1.0.7 (Build 8), 1.0.8 (Build 9), 1.0.9 (Build 10), 1.0.10 (Build 11) …
 
 `ITSAppUsesNonExemptEncryption = NO` steht in `Config/Info.plist` und als
 Build-Einstellung — nicht entfernen.

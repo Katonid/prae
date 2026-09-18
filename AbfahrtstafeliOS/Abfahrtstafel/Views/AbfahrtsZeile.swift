@@ -112,9 +112,11 @@ struct AbfahrtsZeile: View {
 ///
 /// - **Echtzeit und pünktlich:** die Uhrzeit, sonst nichts.
 /// - **Echtzeit und abweichend:** die PLANZEIT durchgestrichen, dahinter die
-///   Abweichung in Rot beziehungsweise Blau. Nur die neue Zeit zu zeigen wäre
-///   bequemer und verschwiege, dass es eine Verspätung gibt — und wer den
-///   Fahrplan im Kopf hat, hielte die App für falsch.
+///   Abweichung und die geltende Zeit in Rot beziehungsweise Blau, beide
+///   halbfett. Nur die neue Zeit zu zeigen wäre bequemer und verschwiege, dass
+///   es eine Verspätung gibt — und wer den Fahrplan im Kopf hat, hielte die App
+///   für falsch. Die durchgestrichene Planzeit darf aber nie die
+///   auffälligere von beiden sein: Gefahren wird nach der neuen.
 /// - **Ohne Echtzeit:** die Planzeit mit dem Wort „Plan" daneben. Das ist der
 ///   wichtigste der drei: Eine Zeit ohne Echtzeitmeldung sieht genauso aus wie
 ///   eine pünktliche, ist aber etwas völlig anderes. Ein grünes „pünktlich"
@@ -139,7 +141,12 @@ struct Zeitangabe: View {
                     .fontWeight(.semibold)
                     .monospacedDigit()
                     .foregroundStyle(minuten > 0 ? Color.red : Color.blue)
+                // Halbfett wie die Abweichung daneben: Die GELTENDE Zeit ist
+                // die Auskunft, die Planzeit davor nur noch die Erklärung.
+                // Gleich groß bleiben beide — in einer Zeile nebeneinander
+                // wäre ein Größenunterschied Unruhe und kein Hinweis.
                 Text(abfahrt.tatsaechlich, format: .dateTime.hour().minute())
+                    .fontWeight(.semibold)
                     .monospacedDigit()
                     .foregroundStyle(minuten > 0 ? Color.red : Color.blue)
             } else if !abfahrt.istEchtzeit {
