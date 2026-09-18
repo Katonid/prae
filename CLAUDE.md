@@ -1252,6 +1252,48 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   Ein Schlüssel in einer App ist keiner — dieselbe Regel wie bei der ersten
   Quelle. Deshalb ist der Spiegel für diese vier Länder der einzige Rückfall,
   den es gibt, und das steht so da, statt mehr zu versprechen.
+- **Ein EIGENER Schlüssel lässt sich eintragen** (`Dienste/Schluesselbund.swift`,
+  `Fahrplan/Zugang.swift`, `Views/ZugaengeView.swift`, ab 1.1.3; Ansage des
+  Nutzers, 09/2026: „In erster Linie möchte ich diese App für mich und meinen
+  eigenen Gebrauch haben. Insofern ist doch die Frage, ob man nicht einen
+  Schlüssel einlesen kann, wenn denn schon keiner fest verbaut wird."). Der
+  Satz „ein Schlüssel in einer App ist keiner" gilt für einen MITGELIEFERTEN
+  Schlüssel — der stünde in jedem Bündel. Einer, den der Nutzer selbst holt und
+  der in SEINEM Schlüsselbund liegt, ist etwas ganz anderes. **Nicht in den
+  Voreinstellungen**: Was dort steht, wandert im Klartext in jedes Backup;
+  dieselbe Bauweise wie bei Anstoß.
+- **Wo der Schlüssel in die Anfrage gehört, ist GEMESSEN** (18.09.2026, mit
+  einem Platzhalter): Wechselt die Fehlermeldung von „kein Schlüssel" zu
+  „falscher Schlüssel", liest der Dienst an dieser Stelle. Ergebnis:
+  **Navitia** HTTP-Basic (Schlüssel als Benutzername — über `?key=` sieht der
+  Dienst gar nichts, „no token"), **NS** Kopfzeile
+  `Ocp-Apim-Subscription-Key` („missing" → „invalid"), **Rejseplanen**
+  Abfrageparameter `accessId`, **DB API Marketplace** die zwei Kopfzeilen
+  `DB-Client-Id` und `DB-Api-Key`. **Golemio als Einziges NICHT bestätigt** —
+  es antwortete mit und ohne Kopfzeile wortgleich; `Zugang.gemessen` steht
+  dort auf `false`, und die Oberfläche sagt das auch.
+- **Der Schlüssel wird ÜBERALL geschwärzt** (`Zugangsprobe.geschwaerzt`), und
+  das ist keine Vorsichtsmaßnahme, sondern ein Befund: **Rejseplanen schickt
+  einen falschen Schlüssel im Klartext zurück** („access denied for <Schlüssel>
+  on location.name"). Ein kopierbarer Befund hätte ihn mitgenommen.
+  Geschwärzt wird in der Adresse, im Rohtext und in jeder Fehlermeldung, auch
+  in der prozentkodierten Form, und die längsten Geheimnisse zuerst — sonst
+  zerlegt ein kurzes Teilstück das lange und der Rest bliebe stehen.
+- **Die Probe fragt den ECHTEN Datenweg ab, nicht eine Statusseite.** Das ist
+  ihr ganzer Sinn: Was zurückkommt, ist die Antwort, aus der die Quelle gebaut
+  wird. Jede Quelle dieser App ist an einer echten Antwort entstanden und
+  keine an einer Beschreibung — für einen Zugang, den es ohne Konto nicht zu
+  sehen gibt, ist das der einzige ehrliche Weg. Gezeigt werden Status, Deutung
+  und die ersten 4000 Zeichen, kopierbar; dieselbe Bauweise wie Schulalarms
+  „Zustellung prüfen".
+- **Ein eingetragener Schlüssel schaltet NOCH KEINE Abfahrten frei**, und die
+  Oberfläche sagt das in ihrem ersten Absatz. Die Decoder fehlen, weil sich
+  ohne Konto keine einzige Antwort messen ließ; sie zu erraten wäre genau das,
+  was dieses Papier sonst verbietet. **Der nächste Schritt ist deshalb: Der
+  Nutzer holt einen Schlüssel, tippt auf „Zugang prüfen" und schickt den
+  kopierten Befund — daran wird die Quelle gebaut.** Wer das abkürzt und einen
+  Decoder nach der Beschreibung schreibt, hat eine Quelle, die aussieht wie
+  eine Auskunft und keine ist.
 - **Stufe 1 TRÄGT die App, Stufe 2 ist ein Netz darunter** (Ansage des
   Nutzers, 09/2026: „Ich möchte natürlich, dass die App an jeder anderen
   Stelle in Deutschland auch zuverlässig funktioniert."). Transitous deckt
@@ -1708,7 +1750,7 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   zwölfte Nachbesserung — derselbe Gedanke wie bei Tafelbild 1.4.0 und
   Schulalarm 1.1.0. Die Marken ab 1.0.x in diesem Papier bleiben stehen;
   sie sagen, wann etwas in den Quelltext kam. Danach zählt es weiter:
-  1.1.1 (Build 14), 1.1.2 (Build 15) … Dazu gesetzt (Ansage des Nutzers,
+  1.1.1 (Build 14), 1.1.2 (Build 15), 1.1.3 (Build 16) … Dazu gesetzt (Ansage des Nutzers,
   09/2026): `DEVELOPMENT_TEAM = F4989GSTWS` — dieselbe Id wie Schulalarm und
   Tafelbild — und `INFOPLIST_KEY_LSApplicationCategoryType =
   public.app-category.navigation`. Beides steht als Build-Einstellung, weil

@@ -110,6 +110,38 @@ Gemessen am 19.09.2026, weil die Frage berechtigt ist:
   dieselben Abfahrten und Verbindungen und nimmt sogar dieselben
   Fahrtkennungen an. Sie ist seit 1.1.2 als Stufe 1b in der Kette.
 
+### Eigene Zugänge — ein Schlüssel, der Ihnen gehört (ab 1.1.3)
+
+Einstellungen → **Eigene Zugänge**. Manche Fahrplandienste antworten nur mit
+einem Schlüssel. Ein Schlüssel, der in einer App mitgeliefert wird, ist keiner
+— einer, den Sie selbst holen, schon. Er liegt im **Schlüsselbund** (nicht in
+den Voreinstellungen, die wandern im Klartext ins Backup) und verlässt das
+Gerät nur in seine eigene Abfrage.
+
+Fünf Zugänge stehen dort, jeder mit der Stelle, an der er den Schlüssel liest
+— **nachgemessen am 18.09.2026 mit einem Platzhalter**: Wechselt die
+Fehlermeldung von „kein Schlüssel" zu „falscher Schlüssel", liest der Dienst
+wirklich dort.
+
+| Zugang | Land | Schlüssel steht in | nachgemessen |
+| --- | --- | --- | --- |
+| Navitia | Frankreich | HTTP-Basic, Schlüssel als Benutzername | ja |
+| NS | Niederlande | Kopfzeile `Ocp-Apim-Subscription-Key` | ja |
+| Rejseplanen | Dänemark | Abfrageparameter `accessId` | ja |
+| Golemio (PID) | Tschechien | Kopfzeile `X-Access-Token` | **nein** |
+| DB API Marketplace | Deutschland | `DB-Client-Id` + `DB-Api-Key` | ja |
+
+**„Zugang prüfen" fragt den echten Datenweg ab**, nicht eine Statusseite, und
+zeigt Status und Rohtext — kopierbar. Der kopierte Befund enthält den Schlüssel
+**nicht**: Er wird überall geschwärzt, und das hat einen gemessenen Grund —
+Rejseplanen schickt einen falschen Schlüssel im Klartext zurück.
+
+**Was ein Schlüssel hier noch nicht tut:** Abfahrten freischalten. Ohne Konto
+ließ sich von keinem dieser Dienste eine einzige echte Antwort messen, und
+diese App baut keine Quelle nach einer Beschreibung — jede einzelne ist an
+einer gemessenen Antwort entstanden. Der Weg dorthin führt jetzt über die
+Probe: Schlüssel holen, prüfen, den Befund weitergeben, Quelle bauen.
+
 ### Die Niederlande, Tschechien, Dänemark und Frankreich
 
 Gemessen am 18.09.2026, weil die Frage berechtigt ist: **Diese Länder trägt
