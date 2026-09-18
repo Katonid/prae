@@ -18,6 +18,15 @@ struct LiniennetzView: View {
     @State private var kamera: MapCameraPosition = .automatic
     /// Welche Linie gerade hervorgehoben ist. `nil` heißt „alle gleich".
     @State private var hervorgehoben: String?
+    /// Ob die Legende aufgeklappt ist.
+    ///
+    /// Auf einem iPhone deckt sie gut ein Viertel der Karte ab, und wer das
+    /// Netz ansehen will, braucht genau diese Fläche (gemeldet 09/2026). Die
+    /// Wahl steht in den Voreinstellungen und gilt beim nächsten Öffnen
+    /// weiter — sie über die Ansicht zu halten hieße, sie bei jedem Wechsel
+    /// zurückzusetzen. `@AppStorage` gehört dafür in eine VIEW und nie in eine
+    /// `ObservableObject`-Klasse; hier ist es an seinem Platz.
+    @AppStorage("linienLegendeOffen") private var legendeOffen = true
 
     var body: some View {
         VStack(spacing: 0) {
@@ -71,9 +80,19 @@ struct LiniennetzView: View {
             // Hin- und Herschauen.
             ForEach(beschriftungen) { marke in
                 Annotation("", coordinate: marke.punkt, anchor: .center) {
-                    Liniensymbol(linie: marke.linie)
-                        .opacity(hervorgehoben == nil || hervorgehoben == marke.id ? 1 : 0.25)
-                        .shadow(color: .black.opacity(0.25), radius: 2, y: 1)
+                    // Das Schild ist ein KNOPF und tut dasselbe wie die Zeile
+                    // in der Legende. Ohne das wäre die zugeklappte Legende
+                    // eine Sackgasse: Das Hervorheben — und damit die
+                    // Haltestellennamen — hinge dann daran, sie wieder
+                    // aufzuklappen.
+                    Button {
+                        hervorgehoben = (hervorgehoben == marke.id) ? nil : marke.id
+                    } label: {
+                        Liniensymbol(linie: marke.linie)
+                            .opacity(hervorgehoben == nil || hervorgehoben == marke.id ? 1 : 0.25)
+                            .shadow(color: .black.opacity(0.25), radius: 2, y: 1)
+                    }
+                    .buttonStyle(.plain)
                 }
                 .annotationTitles(.hidden)
             }
@@ -208,43 +227,95 @@ struct LiniennetzView: View {
 
     // MARK: - Legende
 
+    @ViewBuilder
     private var legende: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            if netz.zuege.isEmpty && !netz.laedt {
-                Text("Keine Linienverläufe")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .padding(10)
-            } else {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 6) {
-                        ForEach(netz.zuege) { zug in
-                            Button {
-                                // Ein zweiter Tipp hebt die Hervorhebung wieder
-                                // auf. Ohne das käme man aus ihr nur über einen
-                                // weiteren Knopf heraus, den niemand sucht.
-                                hervorgehoben = (hervorgehoben == zug.id) ? nil : zug.id
-                            } label: {
-                                HStack(spacing: 8) {
-                                    Liniensymbol(linie: zug.linie)
-                                    Text(zug.richtung)
-                                        .font(.caption)
-                                        .lineLimit(1)
-                                        .foregroundStyle(.primary)
+        if legendeOffen {
+            VStack(alignment: .leading, spacing: 0) {
+                legendenkopf
+                if netz.zuege.isEmpty && !netz.laedt {
+                    Text("Keine Linienverläufe")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 10)
+                        .padding(.bottom, 10)
+                } else {
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 6) {
+                            ForEach(netz.zuege) { zug in
+                                Button {
+                                    // Ein zweiter Tipp hebt die Hervorhebung wieder
+                                    // auf. Ohne das käme man aus ihr nur über einen
+                                    // weiteren Knopf heraus, den niemand sucht.
+                                    hervorgehoben = (hervorgehoben == zug.id) ? nil : zug.id
+                                } label: {
+                                    HStack(spacing: 8) {
+                                        Liniensymbol(linie: zug.linie)
+                                        Text(zug.richtung)
+                                            .font(.caption)
+                                            .lineLimit(1)
+                                            .foregroundStyle(.primary)
+                                    }
+                                    .opacity(hervorgehoben == nil || hervorgehoben == zug.id ? 1 : 0.4)
                                 }
-                                .opacity(hervorgehoben == nil || hervorgehoben == zug.id ? 1 : 0.4)
+                                .buttonStyle(.plain)
                             }
-                            .buttonStyle(.plain)
                         }
+                        .padding(.horizontal, 10)
+                        .padding(.bottom, 10)
                     }
-                    .padding(10)
+                    .frame(maxHeight: 260)
                 }
-                .frame(maxHeight: 260)
             }
+            .frame(maxWidth: 230, alignment: .leading)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .padding(10)
+        } else {
+            // Zugeklappt bleibt ein SICHTBARER Knopf stehen, kein leerer Rand.
+            // Eine Legende, die sich spurlos zumacht, ist nicht wiederzufinden
+            // — dieselbe Lehre wie beim Schloss des Sitzplans in Tafelbild.
+            Button {
+                legendeOffen = true
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "list.bullet")
+                    Text("\(netz.zuege.count)")
+                        .monospacedDigit()
+                }
+                .font(.caption.weight(.semibold))
+                .padding(.horizontal, 10)
+                .padding(.vertical, 7)
+                .background(.regularMaterial, in: Capsule())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Legende einblenden")
+            .padding(10)
         }
-        .frame(maxWidth: 230, alignment: .leading)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .padding(10)
+    }
+
+    private var legendenkopf: some View {
+        HStack(spacing: 6) {
+            Text("Linien")
+                .font(.caption.weight(.semibold))
+            Spacer(minLength: 0)
+            if hervorgehoben != nil {
+                Button("Alle") { hervorgehoben = nil }
+                    .font(.caption2)
+                    .buttonStyle(.plain)
+                    .foregroundStyle(Color.accentColor)
+            }
+            Button {
+                legendeOffen = false
+            } label: {
+                Image(systemName: "chevron.up")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Legende ausblenden")
+        }
+        .padding(.horizontal, 10)
+        .padding(.top, 9)
+        .padding(.bottom, 7)
     }
 
     // MARK: - Fußzeile
@@ -263,9 +334,12 @@ struct LiniennetzView: View {
                 Text("Gestrichelte Linien sind Luftlinien zwischen den Halten — für sie kam keine Streckenführung mit.")
             }
             if zuVieleHalte {
-                Text("Zu viele Halte für die Übersicht — eine Linie in der Legende antippen zeigt ihre Haltestellen mit Namen.")
+                Text("Zu viele Halte für die Übersicht — eine Liniennummer antippen (auf der Karte oder in der Legende) zeigt die Haltestellen dieser Linie mit Namen.")
             } else if hervorgehoben == nil {
-                Text("Die kleinen Punkte sind die Halte der gezeichneten Linien. Eine Linie antippen zeigt ihre Halte mit Namen.")
+                Text("Die kleinen Punkte sind die Halte der gezeichneten Linien. Eine Liniennummer antippen — auf der Karte oder in der Legende — zeigt ihre Halte mit Namen.")
+            }
+            if !legendeOffen {
+                Text("Die Legende ist ausgeblendet; der Knopf oben rechts auf der Karte holt sie zurück.")
             }
             Text("Je Linie ist ein Lauf gezeichnet; die Gegenrichtung fährt denselben Weg zurück. Höchstens zwölf Linien. Wo der Verbund keine Linienfarbe führt, wird die Farbe des Verkehrsmittels je Linie leicht abgewandelt.")
         }

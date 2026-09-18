@@ -42,6 +42,9 @@ zwölf Zeichen ab), Ordner, Ziel und Bundle-Id bleiben „Abfahrtstafel“ /
   **Liniennummer** als Schild — und wo der Verbund keine eigene Linienfarbe
   führt, wird die Farbe des Verkehrsmittels je Linie leicht abgewandelt, damit
   zwölf Striche übereinander auseinanderzuhalten sind.
+  Die **Legende lässt sich ausblenden** (Pfeil in ihrer Kopfzeile); zurück holt
+  sie ein kleiner Knopf an derselben Stelle. Hervorheben geht dann weiter über
+  die Liniennummern auf der Karte — die sind Knöpfe.
 - **Betriebsmeldungen.** Umleitung, Sperrung, verlegte Haltestelle,
   Ersatzverkehr — als Band über der Tafel, als Dreieck neben der betroffenen
   Linie und als Liste mit Volltext. Sie kommen **ausschließlich vom Verbund
@@ -243,7 +246,7 @@ Bibliotheken) — nicht von Hand bearbeiten.
 pbxproj (Debug + Release); es gibt keine Skript-Bauphase. **Jede
 Arbeitseinheit hebt Patch- UND Build-Nummer um je +1.** Zählung ab 09/2026:
 1.0.0 (Build 1), dann 1.0.1 (Build 2), 1.0.2 (Build 3), 1.0.3 (Build 4), 1.0.4 (Build 5),
-1.0.5 (Build 6) …
+1.0.5 (Build 6), 1.0.6 (Build 7) …
 
 `ITSAppUsesNonExemptEncryption = NO` steht in `Config/Info.plist` und als
 Build-Einstellung — nicht entfernen.

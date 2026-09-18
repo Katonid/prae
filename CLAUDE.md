@@ -1352,6 +1352,17 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   Stelle der Linie in der Liste verschiebt (0,22 bis 0,78) — zwölf Linien, die
   im Stadtzentrum übereinanderliegen, hätten sonst zwölf Schilder auf
   demselben Fleck.
+- **Die Legende lässt sich ausblenden** (`legendeOffen`, ab 1.0.6, gemeldet
+  09/2026). Auf einem iPhone deckt sie gut ein Viertel der Karte ab — also
+  genau die Fläche, für die jemand die Kartensicht öffnet. Zwei Dinge gehören
+  dazu, und beide sind die Lehre aus anderen Apps dieses Repos: **Zugeklappt
+  bleibt ein sichtbarer Knopf stehen** (wie das Schloss des Sitzplans in
+  Tafelbild — ein Bedienelement darf nicht mit der Beschriftung verschwinden),
+  und **die Liniennummern auf der Karte sind KNÖPFE** und heben dieselbe Linie
+  hervor wie die Zeile in der Legende. Ohne das wäre die zugeklappte Legende
+  eine Sackgasse: Die Haltestellennamen hingen daran, sie wieder aufzuklappen.
+  Die Wahl liegt in den Voreinstellungen (`@AppStorage` — in einer VIEW, nie
+  in `AppModel`).
 - **Fehlt die Linienfarbe, wird die Rückfallfarbe je Linie ABGEWANDELT**
   (`Color.abgewandelt`, `Linienkennung.anzeigefarbe`, ab 1.0.5). Sonst sind
   alle Busse derselbe Violettton. Verschoben wird nur INNERHALB der
@@ -1364,7 +1375,8 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   Stellen im pbxproj (Debug + Release) — KEINE Skript-Bauphase. **Jede
   Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne Nachfrage,
   als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann 1.0.1
-  (Build 2), 1.0.2 (Build 3), 1.0.3 (Build 4), 1.0.4 (Build 5) usw. Dazu gesetzt (Ansage des Nutzers,
+  (Build 2), 1.0.2 (Build 3), 1.0.3 (Build 4), 1.0.4 (Build 5), 1.0.5 (Build 6),
+  1.0.6 (Build 7) usw. Dazu gesetzt (Ansage des Nutzers,
   09/2026): `DEVELOPMENT_TEAM = F4989GSTWS` — dieselbe Id wie Schulalarm und
   Tafelbild — und `INFOPLIST_KEY_LSApplicationCategoryType =
   public.app-category.navigation`. Beides steht als Build-Einstellung, weil
