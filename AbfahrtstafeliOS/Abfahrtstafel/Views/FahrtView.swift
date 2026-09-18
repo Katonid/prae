@@ -280,28 +280,44 @@ private struct Strang: View {
 }
 
 /// Ankunft und Abfahrt eines Haltes — mit der Abweichung, wenn es eine gibt.
+/// Die Zeit an einem Halt — **die geltende groß, die planmäßige klein**.
+///
+/// Bis 1.0.9 war es umgekehrt: Die Planzeit stand groß und durchgestrichen da,
+/// die wirkliche darunter in Kleinschrift (gemeldet 09/2026: „Wenn mich die
+/// Abfahrtszeit auch nicht mehr ändert, dann ist ja die neue korrigierte Zeit
+/// die richtige … sie soll bitte nicht kleiner sein als die ursprünglich
+/// geplante Zeit."). Das ist genau richtig: Wer auf diesen Bildschirm schaut,
+/// will wissen, wann der Bus FÄHRT. Die Planzeit bleibt trotzdem stehen —
+/// ohne sie verschwiege die App, dass es eine Verspätung gibt, und wer den
+/// Fahrplan im Kopf hat, hielte sie für falsch. Sie ist nur nicht mehr die
+/// Hauptangabe, sondern die Erklärung darunter.
 private struct Haltzeit: View {
     let halt: Zwischenhalt
 
     var body: some View {
         VStack(alignment: .trailing, spacing: 1) {
-            if let zeit = halt.geplanteZeit ?? halt.zeit {
-                Text(zeit, format: .dateTime.hour().minute())
-                    .font(.body.weight(.medium))
-                    .monospacedDigit()
-                    .strikethrough(halt.verspaetungMinuten != nil, color: .secondary)
-            } else {
-                Text("—").foregroundStyle(.secondary)
-            }
-
             if let minuten = halt.verspaetungMinuten, let ist = halt.zeit {
-                HStack(spacing: 3) {
+                HStack(spacing: 4) {
                     Text(minuten > 0 ? "+\(minuten)" : "\(minuten)")
                     Text(ist, format: .dateTime.hour().minute())
                 }
-                .font(.caption.weight(.semibold))
+                .font(.body.weight(.semibold))
                 .monospacedDigit()
                 .foregroundStyle(minuten > 0 ? Color.red : Color.blue)
+
+                if let plan = halt.geplanteZeit {
+                    Text(plan, format: .dateTime.hour().minute())
+                        .font(.caption)
+                        .monospacedDigit()
+                        .strikethrough(true, color: .secondary)
+                        .foregroundStyle(.secondary)
+                }
+            } else if let zeit = halt.geplanteZeit ?? halt.zeit {
+                Text(zeit, format: .dateTime.hour().minute())
+                    .font(.body.weight(.medium))
+                    .monospacedDigit()
+            } else {
+                Text("—").foregroundStyle(.secondary)
             }
         }
     }

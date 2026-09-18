@@ -1099,6 +1099,19 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   dass es eine Verspätung gibt, und wer den Fahrplan im Kopf hat, hielte
   die App für falsch. **Ein Zufrüh (`-1`) wird ebenfalls gezeigt** — ein
   Bus, der zwei Minuten zu früh fährt, ist für den Wartenden weg.
+- **Die GELTENDE Zeit ist nie die kleinere** (`Haltzeit` in `FahrtView`, ab
+  1.0.10, gemeldet 09/2026: „Wenn mich die Abfahrtszeit auch nicht mehr ändert,
+  dann ist ja die neue korrigierte Zeit die richtige … sie soll bitte nicht
+  kleiner sein als die ursprünglich geplante Zeit."). Bis 1.0.9 stand im
+  Fahrtlauf die Planzeit groß und durchgestrichen da und die wirkliche darunter
+  in Kleinschrift — also die ungültige Angabe als Hauptangabe. Jetzt steht die
+  geltende Zeit oben und groß, die durchgestrichene Planzeit klein darunter.
+  **Stehen bleibt sie trotzdem**: Ohne sie verschwiege die App die Verspätung,
+  und wer den Fahrplan im Kopf hat, hielte sie für falsch — sie ist nur die
+  Erklärung und nicht mehr die Auskunft. In der TAFEL (`Zeitangabe`) stehen
+  beide in EINER Zeile und bleiben gleich groß; dort trägt die geltende Zeit
+  das Halbfett, denn ein Größenunterschied nebeneinander wäre Unruhe und kein
+  Hinweis.
 - **Es gibt GENAU EINE Uhr** (`Dienste/Uhrwerk.swift`), und jede
   Minutenziffer rechnet aus ihr. Holte sich jede Zeile selbst `Date()`,
   stünden zwei Abfahrten derselben Minute mit verschiedenen Ziffern
@@ -1460,7 +1473,7 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann 1.0.1
   (Build 2), 1.0.2 (Build 3), 1.0.3 (Build 4), 1.0.4 (Build 5), 1.0.5 (Build 6),
   1.0.6 (Build 7), 1.0.7 (Build 8),
-  1.0.8 (Build 9), 1.0.9 (Build 10) usw. Dazu gesetzt (Ansage des Nutzers,
+  1.0.8 (Build 9), 1.0.9 (Build 10), 1.0.10 (Build 11) usw. Dazu gesetzt (Ansage des Nutzers,
   09/2026): `DEVELOPMENT_TEAM = F4989GSTWS` — dieselbe Id wie Schulalarm und
   Tafelbild — und `INFOPLIST_KEY_LSApplicationCategoryType =
   public.app-category.navigation`. Beides steht als Build-Einstellung, weil
