@@ -1420,6 +1420,32 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   eine Sackgasse: Die Haltestellennamen hingen daran, sie wieder aufzuklappen.
   Die Wahl liegt in den Voreinstellungen (`@AppStorage` — in einer VIEW, nie
   in `AppModel`).
+- **Unter der Karte steht EINE Hinweiszeile, nicht sechs** (`hinweise`,
+  `fusszeileOffen`, ab 1.0.9, gemeldet 09/2026: „Der Text verdeckt einen großen
+  Teil der Darstellung."). Bis 1.0.8 standen dort bis zu sechs Absätze
+  untereinander und nahmen auf einem iPhone die halbe Karte. Das Missverhältnis
+  ist der Punkt: Die Erklärungen sind wichtig, aber EINMAL — die Karte ist das,
+  wofür jemand diesen Bildschirm öffnet. **Die Reihenfolge in `hinweise` ist
+  die ganze Sache**: Zugeklappt steht nur der erste da, und das muss der sein,
+  der etwas über die HEUTIGE Lage sagt (entfallender Halt, fehlende Linie) —
+  die Erklärungen zur Zeichenweise gelten immer und stehen zuletzt. Wer einen
+  neuen Hinweis anlegt, trägt ihn nach Wichtigkeit ein und nicht ans Ende.
+- **Der WUNSCH trägt die Kartenmitte, kein Schalter daneben** (`Kartenwunsch`,
+  `.sheet(item:)` in `OrtswahlView`, ab 1.0.9, gemeldet 09/2026: „kommt nach
+  wie vor München als erster Vorschlag" — trotz 1.0.7). Bis 1.0.8 standen ein
+  `Bool` und eine Koordinate nebeneinander, und das Blatt hing an
+  `.sheet(isPresented:)`. **SwiftUI baut den Inhalt eines solchen Blattes aus
+  dem Stand des LETZTEN Durchgangs**: Beide Werte in derselben Tat zu setzen
+  half nicht — die Koordinate war beim Aufbauen noch `nil` und lief in den
+  Rückfall, also nach München. Damit war 1.0.7 zwar richtig gebaut und trotzdem
+  wirkungslos. **Dieselbe Regel steht seit Tafelbild 1.0.60 im Papier**
+  („Der Wunsch trägt das Ziel, kein Schalter daneben"); hier ist sie ein
+  zweites Mal bezahlt worden. Wer ein Blatt mit einem Wert öffnet, nimmt
+  `.sheet(item:)`.
+- **Der Bezugspunkt der Tafel ist der DRITTE Rückfall der Kartenmitte** (ab
+  1.0.9). Zwischen zwei Ortungen ist `standort.stand` kurz nicht `.da`, die
+  Tafel zeigt aber längst Abfahrten — ohne ihn fiele die Karte in genau diesem
+  Augenblick auf die letzte Rettung zurück.
 - **Fehlt die Linienfarbe, wird die Rückfallfarbe je Linie ABGEWANDELT**
   (`Color.abgewandelt`, `Linienkennung.anzeigefarbe`, ab 1.0.5). Sonst sind
   alle Busse derselbe Violettton. Verschoben wird nur INNERHALB der
@@ -1434,7 +1460,7 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann 1.0.1
   (Build 2), 1.0.2 (Build 3), 1.0.3 (Build 4), 1.0.4 (Build 5), 1.0.5 (Build 6),
   1.0.6 (Build 7), 1.0.7 (Build 8),
-  1.0.8 (Build 9) usw. Dazu gesetzt (Ansage des Nutzers,
+  1.0.8 (Build 9), 1.0.9 (Build 10) usw. Dazu gesetzt (Ansage des Nutzers,
   09/2026): `DEVELOPMENT_TEAM = F4989GSTWS` — dieselbe Id wie Schulalarm und
   Tafelbild — und `INFOPLIST_KEY_LSApplicationCategoryType =
   public.app-category.navigation`. Beides steht als Build-Einstellung, weil

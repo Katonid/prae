@@ -22,8 +22,27 @@ struct OrtswahlView: View {
     @State private var treffer: [Haltestelle] = []
     @State private var suchlauf: Task<Void, Never>?
     @State private var suchfehler: String?
-    @State private var kartenmitte: CLLocationCoordinate2D?
-    @State private var karteOffen = false
+    /// **Der Wunsch TRÄGT die Mitte** — kein Schalter mit einem Wert daneben
+    /// (ab 1.0.9, gemeldet 09/2026: „kommt nach wie vor München als erster
+    /// Vorschlag", obwohl 1.0.7 den zuletzt gewählten Ort dafür eingeführt
+    /// hatte).
+    ///
+    /// Bis 1.0.8 standen hier ein `Bool` und eine Koordinate nebeneinander,
+    /// und das Blatt hing an `.sheet(isPresented:)`. SwiftUI baut den Inhalt
+    /// eines solchen Blattes aus dem Stand des LETZTEN Durchgangs: Beide Werte
+    /// in derselben Tat zu setzen half nicht — die Koordinate war beim
+    /// Aufbauen noch `nil`, und `nil` lief in den Rückfall, also nach München.
+    /// **Dieselbe Regel steht seit Tafelbild 1.0.60 im Papier** („Der Wunsch
+    /// trägt das Ziel, kein Schalter daneben"); hier ist sie ein zweites Mal
+    /// bezahlt worden.
+    @State private var kartenwunsch: Kartenwunsch?
+
+    /// Die Mitte, mit der die Kartenwahl aufgeht. `Identifiable`, weil
+    /// `.sheet(item:)` das verlangt — die Kennung ist die Koordinate selbst.
+    private struct Kartenwunsch: Identifiable {
+        let mitte: CLLocationCoordinate2D
+        var id: String { "\(mitte.latitude),\(mitte.longitude)" }
+    }
 
     var body: some View {
         NavigationStack {
@@ -51,8 +70,7 @@ struct OrtswahlView: View {
                     .disabled(standortNichtMoeglich)
 
                     Button {
-                        kartenmitte = kartenstart
-                        karteOffen = true
+                        kartenwunsch = Kartenwunsch(mitte: kartenstart ?? Self.letzteRettung)
                     } label: {
                         Label {
                             VStack(alignment: .leading, spacing: 1) {
@@ -106,10 +124,10 @@ struct OrtswahlView: View {
                     Button("Schließen") { schliessen() }
                 }
             }
-            .sheet(isPresented: $karteOffen) {
-                Kartenwahl(mitte: kartenmitte ?? Self.letzteRettung) { punkt, name in
+            .sheet(item: $kartenwunsch) { wunsch in
+                Kartenwahl(mitte: wunsch.mitte) { punkt, name in
                     model.ortWaehlen(name: name, koordinate: punkt)
-                    karteOffen = false
+                    kartenwunsch = nil
                     schliessen()
                 }
             }
@@ -133,14 +151,18 @@ struct OrtswahlView: View {
     /// öffnet, sucht aber gerade NICHT die Stelle, auf der er steht: Dafür
     /// gibt es die Zeile darüber.
     private var kartenstart: CLLocationCoordinate2D? {
-        model.letzterOrt?.koordinate ?? standortKoordinate
+        // Der Bezugspunkt der Tafel steht als DRITTER dahinter: Zwischen zwei
+        // Ortungen ist `standort.stand` kurz nicht `.da`, die Tafel zeigt aber
+        // längst Abfahrten. Ohne ihn fiele die Karte in genau diesem
+        // Augenblick auf die letzte Rettung zurück.
+        model.letzterOrt?.koordinate ?? standortKoordinate ?? model.punkt?.koordinate
     }
 
     private var kartenstarttext: String {
         if let letzter = model.letzterOrt {
             return "Beginnt bei \(letzter.beschriftung)"
         }
-        if standortKoordinate != nil {
+        if standortKoordinate != nil || model.punkt != nil {
             return "Beginnt bei deinem Standort"
         }
         return "Noch kein Ort gewählt und keine Ortung — die Karte beginnt in München"

@@ -47,7 +47,9 @@ zwölf Zeichen ab), Ordner, Ziel und Bundle-Id bleiben „Abfahrtstafel“ /
   zwölf Striche übereinander auseinanderzuhalten sind.
   Die **Legende lässt sich ausblenden** (Pfeil in ihrer Kopfzeile); zurück holt
   sie ein kleiner Knopf an derselben Stelle. Hervorheben geht dann weiter über
-  die Liniennummern auf der Karte — die sind Knöpfe.
+  die Liniennummern auf der Karte — die sind Knöpfe. Unter der Karte steht
+  **eine** Hinweiszeile — die wichtigste; der Knopf daneben klappt die übrigen
+  auf.
 - **Entfallende Halte.** Fährt eine Linie eine Umleitung, kommt das als
   Merkmal am einzelnen Halt aus den Daten (`cancelled`, oder Ein- UND Ausstieg
   verboten). Der Halt steht dann durchgestrichen im Fahrtlauf und **rot
@@ -257,7 +259,7 @@ Bibliotheken) — nicht von Hand bearbeiten.
 pbxproj (Debug + Release); es gibt keine Skript-Bauphase. **Jede
 Arbeitseinheit hebt Patch- UND Build-Nummer um je +1.** Zählung ab 09/2026:
 1.0.0 (Build 1), dann 1.0.1 (Build 2), 1.0.2 (Build 3), 1.0.3 (Build 4), 1.0.4 (Build 5),
-1.0.5 (Build 6), 1.0.6 (Build 7), 1.0.7 (Build 8), 1.0.8 (Build 9) …
+1.0.5 (Build 6), 1.0.6 (Build 7), 1.0.7 (Build 8), 1.0.8 (Build 9), 1.0.9 (Build 10) …
 
 `ITSAppUsesNonExemptEncryption = NO` steht in `Config/Info.plist` und als
 Build-Einstellung — nicht entfernen.
