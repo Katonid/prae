@@ -27,6 +27,9 @@ struct LiniennetzView: View {
     /// zurückzusetzen. `@AppStorage` gehört dafür in eine VIEW und nie in eine
     /// `ObservableObject`-Klasse; hier ist es an seinem Platz.
     @AppStorage("linienLegendeOffen") private var legendeOffen = true
+    /// Ob die Hinweise unter der Karte ausgeklappt sind. **Zu als Vorgabe**:
+    /// Sie erklären die Zeichenweise, und die liest man einmal.
+    @AppStorage("linienFusszeileOffen") private var fusszeileOffen = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -333,36 +336,116 @@ struct LiniennetzView: View {
 
     // MARK: - Fußzeile
 
+    /// Eine Zeile unter der Karte.
+    private struct Hinweis: Identifiable {
+        let id: String
+        let symbol: String?
+        let text: String
+    }
+
+    /// Die Hinweise, **nach Wichtigkeit**.
+    ///
+    /// Die Reihenfolge ist der ganze Trick: Zugeklappt steht nur der erste da,
+    /// und das muss der sein, der etwas über die HEUTIGE Lage sagt — ein
+    /// entfallender Halt, eine fehlende Linie. Die Erklärungen zur Zeichenweise
+    /// gelten immer und sind deshalb zuletzt: Wer sie einmal gelesen hat,
+    /// braucht sie nie wieder, und sie standen bis 1.0.8 trotzdem jedes Mal da.
+    private var hinweise: [Hinweis] {
+        var liste: [Hinweis] = []
+        if netz.entfallendeHalte > 0 {
+            liste.append(Hinweis(
+                id: "entfallen",
+                symbol: "arrow.triangle.branch",
+                text: netz.entfallendeHalte == 1
+                    ? "Ein Halt entfällt heute (rot durchgestrichen). Der gezeichnete Linienweg bleibt der PLANMÄSSIGE — welchen Weg das Fahrzeug stattdessen fährt, gibt keine Quelle heraus."
+                    : "\(netz.entfallendeHalte) Halte entfallen heute (rot durchgestrichen). Die gezeichneten Linienwege bleiben die PLANMÄSSIGEN — welchen Weg die Fahrzeuge stattdessen fahren, gibt keine Quelle heraus."
+            ))
+        }
+        if netz.ohneVerlauf > 0 {
+            liste.append(Hinweis(
+                id: "ohneVerlauf",
+                symbol: "exclamationmark.triangle",
+                text: netz.ohneVerlauf == 1
+                    ? "Eine Linie fehlt auf der Karte: Ihre Quelle gibt keinen Linienverlauf heraus."
+                    : "\(netz.ohneVerlauf) Linien fehlen auf der Karte: Ihre Quelle gibt keinen Linienverlauf heraus."
+            ))
+        }
+        if netz.zuege.contains(where: \.istLuftlinie) {
+            liste.append(Hinweis(
+                id: "luftlinie",
+                symbol: nil,
+                text: "Gestrichelte Linien sind Luftlinien zwischen den Halten — für sie kam keine Streckenführung mit."
+            ))
+        }
+        if zuVieleHalte {
+            liste.append(Hinweis(
+                id: "halte",
+                symbol: nil,
+                text: "Zu viele Halte für die Übersicht — eine Liniennummer antippen (auf der Karte oder in der Legende) zeigt die Haltestellen dieser Linie mit Namen."
+            ))
+        } else if hervorgehoben == nil {
+            liste.append(Hinweis(
+                id: "halte",
+                symbol: nil,
+                text: "Die kleinen Punkte sind die Halte der gezeichneten Linien. Eine Liniennummer antippen — auf der Karte oder in der Legende — zeigt ihre Halte mit Namen."
+            ))
+        }
+        if !legendeOffen {
+            liste.append(Hinweis(
+                id: "legende",
+                symbol: nil,
+                text: "Die Legende ist ausgeblendet; der Knopf oben rechts auf der Karte holt sie zurück."
+            ))
+        }
+        liste.append(Hinweis(
+            id: "zeichenweise",
+            symbol: nil,
+            text: "Je Linie ist ein Lauf gezeichnet; die Gegenrichtung fährt denselben Weg zurück. Höchstens zwölf Linien. Wo der Verbund keine Linienfarbe führt, wird die Farbe des Verkehrsmittels je Linie leicht abgewandelt."
+        ))
+        return liste
+    }
+
+    /// Die Fußzeile — zugeklappt EINE Zeile, aufgeklappt alle.
+    ///
+    /// Bis 1.0.8 standen hier bis zu sechs Absätze untereinander und nahmen auf
+    /// einem iPhone die halbe Karte weg (gemeldet 09/2026: „Der Text verdeckt
+    /// einen großen Teil der Darstellung."). Das Missverhältnis ist der Punkt:
+    /// Die Erklärungen sind wichtig — aber einmal, nicht bei jedem Blick. Die
+    /// Karte ist das, wofür jemand diesen Bildschirm öffnet.
     private var fusszeile: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            if netz.ohneVerlauf > 0 {
-                Label(
-                    netz.ohneVerlauf == 1
-                        ? "Eine Linie fehlt auf der Karte: Ihre Quelle gibt keinen Linienverlauf heraus."
-                        : "\(netz.ohneVerlauf) Linien fehlen auf der Karte: Ihre Quelle gibt keinen Linienverlauf heraus.",
-                    systemImage: "exclamationmark.triangle"
-                )
+        HStack(alignment: .top, spacing: 8) {
+            VStack(alignment: .leading, spacing: 3) {
+                ForEach(fusszeileOffen ? hinweise : Array(hinweise.prefix(1))) { hinweis in
+                    if let symbol = hinweis.symbol {
+                        Label(hinweis.text, systemImage: symbol)
+                            .lineLimit(fusszeileOffen ? nil : 2)
+                    } else {
+                        Text(hinweis.text)
+                            .lineLimit(fusszeileOffen ? nil : 2)
+                    }
+                }
             }
-            if netz.zuege.contains(where: \.istLuftlinie) {
-                Text("Gestrichelte Linien sind Luftlinien zwischen den Halten — für sie kam keine Streckenführung mit.")
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            if hinweise.count > 1 {
+                Button {
+                    withAnimation(.snappy) { fusszeileOffen.toggle() }
+                } label: {
+                    HStack(spacing: 3) {
+                        if !fusszeileOffen {
+                            Text("\(hinweise.count)")
+                                .monospacedDigit()
+                        }
+                        Image(systemName: fusszeileOffen ? "chevron.down" : "chevron.up")
+                    }
+                    .font(.caption2.weight(.bold))
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 4)
+                    .background(Capsule().fill(Color.secondary.opacity(0.16)))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(fusszeileOffen ? "Hinweise einklappen" : "Alle \(hinweise.count) Hinweise zeigen")
             }
-            if netz.entfallendeHalte > 0 {
-                Label(
-                    netz.entfallendeHalte == 1
-                        ? "Ein Halt entfällt heute (rot durchgestrichen). Der gezeichnete Linienweg bleibt der PLANMÄSSIGE — welchen Weg das Fahrzeug stattdessen fährt, gibt keine Quelle heraus."
-                        : "\(netz.entfallendeHalte) Halte entfallen heute (rot durchgestrichen). Die gezeichneten Linienwege bleiben die PLANMÄSSIGEN — welchen Weg die Fahrzeuge stattdessen fahren, gibt keine Quelle heraus.",
-                    systemImage: "arrow.triangle.branch"
-                )
-            }
-            if zuVieleHalte {
-                Text("Zu viele Halte für die Übersicht — eine Liniennummer antippen (auf der Karte oder in der Legende) zeigt die Haltestellen dieser Linie mit Namen.")
-            } else if hervorgehoben == nil {
-                Text("Die kleinen Punkte sind die Halte der gezeichneten Linien. Eine Liniennummer antippen — auf der Karte oder in der Legende — zeigt ihre Halte mit Namen.")
-            }
-            if !legendeOffen {
-                Text("Die Legende ist ausgeblendet; der Knopf oben rechts auf der Karte holt sie zurück.")
-            }
-            Text("Je Linie ist ein Lauf gezeichnet; die Gegenrichtung fährt denselben Weg zurück. Höchstens zwölf Linien. Wo der Verbund keine Linienfarbe führt, wird die Farbe des Verkehrsmittels je Linie leicht abgewandelt.")
         }
         .font(.caption2)
         .foregroundStyle(.secondary)
