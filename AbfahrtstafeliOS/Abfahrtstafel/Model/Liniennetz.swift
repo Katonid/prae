@@ -50,6 +50,15 @@ struct Linienzug: Identifiable, Sendable {
 final class Liniennetz: ObservableObject {
 
     @Published private(set) var zuege: [Linienzug] = []
+    /// Zählt hoch, sobald `zuege` ERSETZT wurde (ab 1.1.16).
+    ///
+    /// **Warum eine Zahl und nicht `zuege.count`:** Die Karte rechnet ihren
+    /// Inhalt nur noch, wenn sich wirklich etwas geändert hat — und nach
+    /// einem Nachladelauf können dieselben zwölf Linien zurückkommen, bei
+    /// denen aber ein Halt entfällt. Die Zahl bliebe gleich, der Inhalt
+    /// nicht. Ein Zähler sagt genau das, was gebraucht wird: „hier liegt
+    /// etwas Neues".
+    @Published private(set) var stand = 0
     @Published private(set) var laedt = false
     /// Wie viele Linien sich NICHT zeichnen ließen, weil ihre Quelle keinen
     /// Fahrtlauf herausgibt (die Verbünde in Stufe 2). Die Zahl steht unter
@@ -98,6 +107,7 @@ final class Liniennetz: ObservableObject {
 
         guard !wuensche.isEmpty else {
             zuege = []
+            stand += 1
             laedt = false
             return
         }
@@ -109,6 +119,7 @@ final class Liniennetz: ObservableObject {
             self.zuege = geholt.sorted {
                 ($0.linie.mittel.rang, $0.linie.name) < ($1.linie.mittel.rang, $1.linie.name)
             }
+            self.stand += 1
             self.laedt = false
         }
     }
@@ -116,6 +127,7 @@ final class Liniennetz: ObservableObject {
     func leeren() {
         auftrag?.cancel()
         zuege = []
+        stand += 1
         gebautAus = []
         ohneVerlauf = 0
         laedt = false
