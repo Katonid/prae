@@ -18,6 +18,11 @@ struct StreckenKarte: View {
     /// Wird hervorgehoben: der Halt, an dem der Nutzer einsteigt.
     var einstieg: Int?
     var hoehe: CGFloat?
+    /// Die Haltestellennamen, die eine Betriebsmeldung dieser Linie als
+    /// entfallend AUFZÄHLT. Sie kommen aus dem Text der Meldung und nicht
+    /// aus den Fahrplandaten — deshalb reisen sie getrennt hierher und
+    /// werden getrennt gezeichnet.
+    var lautMeldungGesperrt: [String] = []
 
     @State private var kamera: MapCameraPosition = .automatic
 
@@ -53,18 +58,15 @@ struct StreckenKarte: View {
                             farbe: fahrt.linie.anzeigefarbe,
                             gross: nummer == 0 || nummer == fahrt.halte.count - 1 || nummer == einstieg,
                             eigener: nummer == einstieg,
-                            faelltAus: halt.faelltAus
+                            faelltAus: halt.faelltAus,
+                            gemeldet: istGemeldet(halt)
                         )
                     }
                     // Vierzig Beschriftungen nebeneinander sind keine Karte
                     // mehr. Nur die Halte, um die es geht, tragen ihren Namen
                     // — und ein ENTFALLENDER gehört immer dazu: Er ist der
                     // Grund, aus dem jemand diese Karte aufschlägt.
-                    .annotationTitles(
-                        nummer == 0 || nummer == fahrt.halte.count - 1
-                            || nummer == einstieg || halt.faelltAus
-                            ? .automatic : .hidden
-                    )
+                    .annotationTitles(beschriftung(nummer: nummer, halt: halt))
                 }
             }
             .mapStyle(.standard(pointsOfInterest: .excludingAll))
@@ -95,7 +97,45 @@ struct StreckenKarte: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
             }
+
+            // Die orangen Punkte stehen in KEINER Fahrplanauskunft — sie
+            // stammen aus dem Text der Betriebsmeldung. Ohne diesen Satz
+            // sähen sie aus wie eine Angabe der Quelle.
+            if !gemeldeteHalte.isEmpty {
+                Label(
+                    gemeldettext,
+                    systemImage: "exclamationmark.triangle"
+                )
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            }
         }
+    }
+
+    /// Ob dieser Halt seinen Namen trägt.
+    ///
+    /// Als eigene Funktion und nicht als fünfgliedrige Oder-Kette im
+    /// Ausdruck: Fünf Bedingungen untereinander sagen, WELCHE Halte
+    /// beschriftet werden, eine Kette sagt es nicht.
+    private func beschriftung(nummer: Int, halt: Zwischenhalt) -> Visibility {
+        if nummer == 0 { return .automatic }
+        if nummer == fahrt.halte.count - 1 { return .automatic }
+        if nummer == einstieg { return .automatic }
+        if halt.faelltAus { return .automatic }
+        if istGemeldet(halt) { return .automatic }
+        return .hidden
+    }
+
+    /// Ob eine Meldung diesen Halt nennt — und die Fahrplandaten nicht.
+    private func istGemeldet(_ halt: Zwischenhalt) -> Bool {
+        guard !halt.faelltAus, !lautMeldungGesperrt.isEmpty else { return false }
+        return lautMeldungGesperrt.contains {
+            Haltsperrung.passt(haltestelle: halt.haltestelle.name, zu: $0)
+        }
+    }
+
+    private var gemeldeteHalte: [Zwischenhalt] {
+        fahrt.halte.filter(istGemeldet)
     }
 
     private var entfalltext: String {
@@ -105,6 +145,12 @@ struct StreckenKarte: View {
             ? "Ein Halt entfällt: \(liste)."
             : "\(namen.count) Halte entfallen: \(liste)."
         return wieviele + " Gezeichnet ist trotzdem der PLANMÄSSIGE Linienweg — welchen Weg das Fahrzeug stattdessen fährt, gibt keine Quelle heraus."
+    }
+
+    private var gemeldettext: String {
+        let namen = gemeldeteHalte.map(\.haltestelle.name)
+        let liste = namen.joined(separator: ", ")
+        return "Laut Betriebsmeldung gesperrt (orange): \(liste). Das steht so im TEXT der Meldung, nicht in den Fahrplandaten — die führen diese Halte unverändert als angefahren."
     }
 
     /// Der Ausschnitt, der die ganze Strecke zeigt, mit etwas Luft ringsum.
@@ -129,9 +175,26 @@ private struct Haltepunkt: View {
     let gross: Bool
     let eigener: Bool
     var faelltAus: Bool = false
+    /// Aus dem Text einer Betriebsmeldung gelesen. Eigenes Zeichen, weil es
+    /// eine andere Herkunft ist — nicht dieselbe Marke in anderer Farbe.
+    var gemeldet: Bool = false
 
     var body: some View {
-        if faelltAus {
+        if gemeldet && !faelltAus {
+            ZStack {
+                Circle()
+                    .fill(.background)
+                    .frame(width: 17, height: 17)
+                Circle()
+                    .strokeBorder(.orange, lineWidth: 3)
+                    .frame(width: 17, height: 17)
+                Image(systemName: "exclamationmark")
+                    .font(.system(size: 9, weight: .black))
+                    .foregroundStyle(.orange)
+            }
+            .shadow(color: .black.opacity(0.25), radius: 2, y: 1)
+            .accessibilityLabel("laut Meldung gesperrt")
+        } else if faelltAus {
             // Ein entfallender Halt ist NICHT derselbe Punkt in einer anderen
             // Farbe: Er wird durchgestrichen und trägt das Warnzeichen. Farbe
             // allein sieht ein farbfehlsichtiger Mensch nicht — dieselbe

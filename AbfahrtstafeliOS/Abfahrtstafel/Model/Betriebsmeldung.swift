@@ -38,6 +38,15 @@ struct Betriebsmeldung: Identifiable, Hashable, Codable, Sendable {
     let dringend: Bool
     /// Weiterführende Adresse, sofern eine brauchbare mitkam.
     let adresse: URL?
+    /// Die Haltestellen, die der TEXT dieser Meldung als entfallend
+    /// aufzählt — gelesen von `Haltsperrung`, nicht aus den Fahrplandaten.
+    ///
+    /// Leer ist der Regelfall: Gelesen wird nur die Aufzählung unter einer
+    /// Überschrift („Folgende Haltestellen entfallen:"), weil nur die sich
+    /// gegen echte Meldungen als sicher erwiesen hat. Warum die Satzform
+    /// bewusst fehlt, steht bei `Haltsperrung`.
+    let gesperrteHalte: [String]
+
     /// Der Satz, mit dem der Verbund selbst sagt, ob die beschriebene
     /// Änderung in den Fahrplandaten steht. Leer, wenn er nichts dazu sagt.
     ///

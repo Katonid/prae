@@ -66,6 +66,24 @@ final class Meldungsdienst: ObservableObject {
         meldungen(zu: linie).filter { $0.aenderungenImFahrplan == false }
     }
 
+    /// Die Haltestellennamen, die die Meldungen dieser Linie als entfallend
+    /// aufzählen.
+    ///
+    /// Sie stehen im TEXT der Meldung und in keiner Fahrplanauskunft — bei
+    /// der Sperrung, die das ausgelöst hat, nannte die Meldung sechs
+    /// Haltestellen und die Fahrplandaten führten genau eine davon. Die
+    /// Oberfläche markiert sie deshalb anders als einen entfallenden Halt
+    /// aus den Daten und schreibt hin, woher die Auskunft kommt.
+    func gesperrteHalte(zu linie: Linienkennung) -> [String] {
+        var raus: [String] = []
+        for meldung in meldungen(zu: linie) {
+            for name in meldung.gesperrteHalte where !raus.contains(name) {
+                raus.append(name)
+            }
+        }
+        return raus
+    }
+
     func aktualisieren(um haltestelle: Haltestelle?, umkreis: Int, erzwingen: Bool = false) {
         guard let haltestelle else { return }
         guard let zustaendige = quellen.first(where: { $0.zustaendig(fuer: haltestelle) }) else {

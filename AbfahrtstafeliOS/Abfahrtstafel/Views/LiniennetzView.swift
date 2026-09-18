@@ -71,13 +71,21 @@ struct LiniennetzView: View {
             // Die Halte der gezeichneten Linien.
             ForEach(sichtbareHalte) { halt in
                 Annotation(halt.name, coordinate: halt.koordinate, anchor: .center) {
-                    Linienhalt(farbe: halt.farbe, gross: halt.gross, faelltAus: halt.faelltAus)
+                    Linienhalt(
+                        farbe: halt.farbe,
+                        gross: halt.gross,
+                        faelltAus: halt.faelltAus,
+                        lautMeldungGesperrt: halt.lautMeldungGesperrt
+                    )
                 }
                 // Beschriftet nur, wenn EINE Linie hervorgehoben ist. Sonst
                 // lägen dreihundert Haltestellennamen übereinander und die
                 // Karte wäre unlesbar. Ein ENTFALLENDER Halt trägt seinen
                 // Namen immer — es sind wenige, und sie sind die Auskunft.
-                .annotationTitles(hervorgehoben == nil && !halt.faelltAus ? .hidden : .automatic)
+                .annotationTitles(
+                    hervorgehoben == nil && !halt.faelltAus && !halt.lautMeldungGesperrt
+                        ? .hidden : .automatic
+                )
             }
 
             // Die Liniennummer auf dem Zug selbst. Ohne sie ist die Karte ein
@@ -151,6 +159,9 @@ struct LiniennetzView: View {
         let farbe: Color
         let gross: Bool
         var faelltAus: Bool = false
+        /// Aus dem TEXT einer Betriebsmeldung gelesen, nicht aus den
+        /// Fahrplandaten — deshalb eigenes Feld und eigene Zeichnung.
+        var lautMeldungGesperrt: Bool = false
     }
 
     /// **Wie viele Haltepunkte höchstens gezeichnet werden.**
@@ -165,6 +176,7 @@ struct LiniennetzView: View {
     private var hoechstzahlHalte: Int { 260 }
 
     private var sichtbareHalte: [Linienhaltpunkt] {
+        let gesperrt = gesperrtJeLinie
         if let hervorgehoben, let zug = netz.zuege.first(where: { $0.id == hervorgehoben }) {
             // Eine Linie hervorgehoben: ihre Halte, und zwar alle. Das ist
             // der Fall, für den die Punkte gebaut sind.
@@ -175,7 +187,8 @@ struct LiniennetzView: View {
                     koordinate: halt.haltestelle.koordinate,
                     farbe: zug.linie.anzeigefarbe,
                     gross: nummer == 0 || nummer == zug.halte.count - 1,
-                    faelltAus: halt.faelltAus
+                    faelltAus: halt.faelltAus,
+                    lautMeldungGesperrt: gemeldet(halt.haltestelle.name, zug.linie, gesperrt)
                 )
             }
         }
@@ -192,7 +205,8 @@ struct LiniennetzView: View {
                         koordinate: halt.haltestelle.koordinate,
                         farbe: zug.linie.anzeigefarbe,
                         gross: false,
-                        faelltAus: halt.faelltAus
+                        faelltAus: halt.faelltAus,
+                        lautMeldungGesperrt: gemeldet(halt.haltestelle.name, zug.linie, gesperrt)
                     )
                 )
             }
@@ -203,14 +217,40 @@ struct LiniennetzView: View {
         // aufschlägt. Ihn mit wegzuräumen hieße, die Umleitung genau dann zu
         // verschweigen, wenn viel los ist.
         if punkte.count > hoechstzahlHalte {
-            return punkte.filter(\.faelltAus)
+            return punkte.filter { $0.faelltAus || $0.lautMeldungGesperrt }
         }
         return punkte
     }
 
     private var zuVieleHalte: Bool {
         guard hervorgehoben == nil, !netz.zuege.isEmpty else { return false }
-        return !sichtbareHalte.contains { !$0.faelltAus }
+        return !sichtbareHalte.contains { !$0.faelltAus && !$0.lautMeldungGesperrt }
+    }
+
+    /// Je Linie die Haltestellennamen, die ihre Meldungen als entfallend
+    /// aufzählen.
+    ///
+    /// **Einmal gebaut und dann nachgeschlagen.** Der erste Entwurf fragte
+    /// das je Halt ab und baute diese Tabelle dabei jedes Mal neu — zwölf
+    /// Linien mit je sechzig Halten wären siebenhundert Durchgänge durch
+    /// die ganze Meldungsliste, bei JEDEM Neuzeichnen der Karte. Dieselbe
+    /// Falle wie bei `Liniennetz.gebautAus`, nur eine Ebene tiefer.
+    private var gesperrtJeLinie: [String: [String]] {
+        var raus: [String: [String]] = [:]
+        for zug in netz.zuege where raus[zug.linie.name] == nil {
+            let namen = meldungen.gesperrteHalte(zu: zug.linie)
+            if !namen.isEmpty { raus[zug.linie.name] = namen }
+        }
+        return raus
+    }
+
+    private func gemeldet(
+        _ name: String,
+        _ linie: Linienkennung,
+        _ tabelle: [String: [String]]
+    ) -> Bool {
+        guard let namen = tabelle[linie.name] else { return false }
+        return namen.contains { Haltsperrung.passt(haltestelle: name, zu: $0) }
     }
 
     private struct Liniennummer: Identifiable {
@@ -353,7 +393,22 @@ struct LiniennetzView: View {
     /// braucht sie nie wieder, und sie standen bis 1.0.8 trotzdem jedes Mal da.
     private var hinweise: [Hinweis] {
         var liste: [Hinweis] = []
-        // Ganz nach vorn, denn es ist die einzige Zeile hier, die eine
+        // Ganz vorn, denn hier steht das Konkreteste über heute: Diese
+        // Halte nennt eine Meldung beim Namen, und in den Fahrplandaten
+        // stehen sie unverändert als angefahren.
+        let gemeldete = sichtbareHalte.filter(\.lautMeldungGesperrt)
+        if !gemeldete.isEmpty {
+            let namen = gemeldete.map(\.name).joined(separator: ", ")
+            var text = "Laut Betriebsmeldung gesperrt (orange): " + namen
+            text += ". Das steht im TEXT der Meldung, nicht in den Fahrplandaten"
+            text += gemeldete.count == 1 ? "." : " — manche Meldungen gelten nur für eine Richtung."
+            liste.append(Hinweis(
+                id: "gemeldetGesperrt",
+                symbol: "exclamationmark.triangle.fill",
+                text: text
+            ))
+        }
+        // Danach die Zeile, die eine
         // Auskunft über die HEUTIGE Lage schwächt: Wo eine Meldung gilt,
         // deren Änderungen nicht in den Fahrplandaten stehen, kann ein
         // gesperrter Halt auf dieser Karte als angefahren dastehen.
@@ -488,9 +543,28 @@ private struct Linienhalt: View {
     let farbe: Color
     let gross: Bool
     var faelltAus: Bool = false
+    var lautMeldungGesperrt: Bool = false
 
     var body: some View {
-        if faelltAus {
+        if lautMeldungGesperrt && !faelltAus {
+            // Orange und ein Dreieck — nicht das rote Kreuz: Der rote Halt
+            // steht so in den Fahrplandaten, dieser hier ist aus dem Text
+            // einer Meldung gelesen. Zwei Herkünfte, zwei Zeichen. Auch hier
+            // trägt die Form die Aussage und nicht die Farbe allein.
+            ZStack {
+                Circle()
+                    .fill(.background)
+                    .frame(width: 15, height: 15)
+                Circle()
+                    .strokeBorder(.orange, lineWidth: 2.5)
+                    .frame(width: 15, height: 15)
+                Image(systemName: "exclamationmark")
+                    .font(.system(size: 8, weight: .black))
+                    .foregroundStyle(.orange)
+            }
+            .shadow(color: .black.opacity(0.22), radius: 1.5, y: 0.5)
+            .accessibilityLabel("laut Meldung gesperrt")
+        } else if faelltAus {
             // Rot UND durchgestrichen: Farbe allein sieht ein
             // farbfehlsichtiger Mensch nicht.
             ZStack {

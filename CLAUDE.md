@@ -1356,6 +1356,19 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   (18.09.2026: Graz 11 von 12, Wien/Linz/Innsbruck null, Salzburg eine von
   zehn). **Nicht als erledigt darstellen** — wer die Adressen aus einer
   Umgebung mit freierem Netz prüfen kann, trägt sie nach.
+- **Eine API-Abfrage, die einen ALTEN Stand liefert, lügt genauso**
+  (Selbstfund 09/2026, beim Bau von 1.1.6). Die Auftragsliste von GitHub
+  Actions meldete minutenlang unverändert „Übersetzen — in_progress", während
+  der Lauf längst grün durch war. Daraus wurde erst die Diagnose „der
+  Typprüfer hängt", dann ein Abbruch des Laufs, dann ein Umbau des Quelltexts
+  samt Kommentaren, die diese Messung behaupteten — und nichts davon hatte je
+  stattgefunden: Der abgebrochene Lauf war 113 Sekunden alt, der zweite
+  übersetzte in 84. **Ein Zustand, der sich nicht ändert, ist zuerst ein
+  Verdacht gegen die Abfrage und dann erst einer gegen die Sache.** Beim
+  Warten auf einen Bau entscheidet `updated_at` des LAUFES, nicht die
+  Schrittliste des Auftrags. Dieselbe Wurzel wie beim Testskript darunter, nur
+  eine Ebene höher — und dieselbe Lehre: **Wer misst, prüft zuerst, dass er
+  wirklich eine frische Antwort in der Hand hält.**
 - **Ein Testskript, das seine Antwortdatei wiederverwendet, lügt**
   (Selbstfund 09/2026). Beim Vermessen der Verbünde schrieb `curl` in eine
   feste Datei; schlug der Aufruf fehl, las das Skript die Antwort des
@@ -1531,6 +1544,62 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   18.09.2026: VRR füllt das Feld (in beiden Richtungen), VVS, VRN und MVV
   lassen es leer. Es ist eine Zugabe, keine Zusicherung; `nil` heißt „der
   Verbund sagt nichts dazu" und ist der Regelfall.
+- **Welche Haltestellen gesperrt sind, steht im TEXT — und wird daraus
+  gelesen** (`Model/Haltsperrung.swift`, ab 1.1.6; Ansage des Nutzers 09/2026
+  nach 1.1.5: „In dem Text steht ja, welche Haltestellen gesperrt sind."). Er
+  hatte recht, und es ist die einzige Stelle, an der diese Auskunft existiert:
+  Bei der Sperrung der Westricher Straße nannte die Meldung SECHS
+  Haltestellen, die Fahrplandaten führten genau EINE davon (Haus Dellwig —
+  die stand auf dem Kartenbild des Nutzers schon mit rotem Kreuz da, aus dem
+  Weg von 1.0.8).
+- **Gelesen wird die AUFZÄHLUNG, nicht der Satz — und das ist gemessen.** Am
+  18.09.2026 wurden 104 echte Meldungen von zehn EFA-Abfragen (VRR, VVS, VRN,
+  VVO, DING, MVV) eingesammelt und beide Schreibweisen ausgewertet:
+  - **Überschrift + Liste** („Folgende Haltestellen entfallen:", auch „…der
+    Linie 423…", auch „…in Richtung Feuersee:") ergab **29 Namen, jeder
+    einzelne ein echter Haltestellenname**. Gebaut.
+  - **Der Satz** („Die Haltestellen X und Y … entfallen.") ergab 21 Namen,
+    davon mehrere falsch — und zwar auf die gefährlichste Art: In
+    „Stadtauswärts fahren die Busse ab der Haltestelle ‚Heinrich-Heine-Allee,
+    Steig 7‘ … Die Haltestelle ‚Benrather Straße‘ entfällt" wurde die
+    ABFAHRTSHALTESTELLE eingesammelt, anderswo die Starthaltestelle einer
+    Umleitungsfahrt. **Eine angefahrene Haltestelle als gesperrt zu markieren
+    schickt den Menschen davor zur falschen Haltestelle** — schlimmer als gar
+    keine Markierung. Bewusst NICHT gebaut; die Ewald-Görshop-Meldung wird
+    deshalb nicht ausgewertet, und das ist kein Versehen.
+  Wer die Satzform nachrüstet, misst zuerst wieder gegen echte Meldungen.
+- **Der wichtigste Abbruch heißt „Nächste Haltestellen:".** Dahinter stehen
+  die ERSATZhaltestellen, also genau die, die angefahren werden. Wer die
+  mitliest, dreht die Auskunft um. Abgebrochen wird an jeder Zeile mit
+  Doppelpunkt und an einer kurzen Liste von Anfangsworten.
+- **Zugeordnet wird über EIN führendes Wort, nicht über das Zeilenende**
+  (`Haltsperrung.passt`). Die Meldung schreibt „Haus Dellwig", die Daten
+  „Dortmund Haus Dellwig" — der naheliegende Weg wäre eine Endprüfung
+  gewesen, dann hätte aber „Dellwig" ebenfalls gepasst und ein zu kurzer Name
+  markierte eine fremde Haltestelle. Dazu werden Abkürzungen auf `str`
+  ausgeschrieben (VRR schreibt in derselben Meldung „Moltkestr." und
+  „Düsseldorfer Str."). 16 von 16 Proben gehen auf, darunter sechs
+  Gegenproben, die NICHT treffen dürfen. **Umlaute werden nicht eingeebnet.**
+  Trägt ein Verbund einen zweiteiligen Ortsnamen, wird schlicht nicht
+  markiert — eine Lücke ist besser als eine falsche Auskunft.
+- **Die Richtung wird abgeschnitten und nicht ausgewertet.** Ein Halt, der nur
+  in einer Richtung entfällt, wird damit in beiden markiert. Das ist die
+  gewollte Richtung des Fehlers — ein Hinweis zu viel schickt jemanden in die
+  Meldung, ein fehlender an eine Haltestelle, an der nichts hält. Die
+  Oberfläche schreibt hin, dass manche Meldungen nur für eine Richtung gelten.
+- **Zwei Herkünfte, zwei Zeichen.** Ein entfallender Halt aus den
+  FAHRPLANDATEN bleibt rot durchgestrichen mit Kreuz; ein aus dem TEXT
+  gelesener ist orange mit Ausrufezeichen und heißt „laut Meldung gesperrt".
+  Sie werden nie vermischt: Der eine ist gemessen, der andere aus Fließtext
+  gelesen — wer beides gleich zeichnet, macht aus einer Lesart eine Tatsache.
+  Deckt die Datenlage den Halt schon ab, gewinnt Rot. Markiert wird in der
+  Halteliste, auf der Streckenkarte und auf der Netzkarte, und unter jeder
+  steht, woher die Auskunft kommt.
+- **Die Nachschlagetabelle wird EINMAL gebaut** (`LiniennetzView.gesperrtJeLinie`).
+  Der erste Entwurf fragte je Halt und baute sie dabei jedes Mal neu — zwölf
+  Linien mit je sechzig Halten wären siebenhundert Durchgänge durch die
+  Meldungsliste bei jedem Neuzeichnen. Dieselbe Falle wie bei
+  `Liniennetz.gebautAus`, eine Ebene tiefer.
 - **Einzelne EFA-Felder kommen DOPPELT KODIERT** (`Klartext.geradegerueckt`,
   ab 1.1.5). In derselben VRR-Meldung stand `subtitle` als tadelloses UTF-8
   („Verspätungen") und `additionalText` daneben als „Ã„nderungen" — die
@@ -1809,7 +1878,7 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   zwölfte Nachbesserung — derselbe Gedanke wie bei Tafelbild 1.4.0 und
   Schulalarm 1.1.0. Die Marken ab 1.0.x in diesem Papier bleiben stehen;
   sie sagen, wann etwas in den Quelltext kam. Danach zählt es weiter:
-  1.1.1 (Build 14), 1.1.2 (Build 15), 1.1.3 (Build 16), 1.1.4 (Build 17), 1.1.5 (Build 18) … Dazu gesetzt (Ansage des Nutzers,
+  1.1.1 (Build 14), 1.1.2 (Build 15), 1.1.3 (Build 16), 1.1.4 (Build 17), 1.1.5 (Build 18), 1.1.6 (Build 19) … Dazu gesetzt (Ansage des Nutzers,
   09/2026): `DEVELOPMENT_TEAM = F4989GSTWS` — dieselbe Id wie Schulalarm und
   Tafelbild — und `INFOPLIST_KEY_LSApplicationCategoryType =
   public.app-category.navigation`. Beides steht als Build-Einstellung, weil
