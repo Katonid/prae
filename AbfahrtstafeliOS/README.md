@@ -104,10 +104,40 @@ Gemessen am 19.09.2026, weil die Frage berechtigt ist:
 - **`*.transport.rest` (HAFAS der Bahn)** wäre die bundesweite Alternative und
   antwortet seit dem Bau der App durchgehend mit 503 — auch an diesem Tag, für
   v5 und v6.
-- **MOTIS ist quelloffen**; Transitous ist nur eine öffentliche Instanz. Eine
-  zweite Adresse wäre der billigste Rückfall — eine gemessene zweite Instanz
-  mit DACH-Daten gibt es derzeit aber nicht, und ungemessen kommt keine Quelle
-  in die Kette.
+- **MOTIS ist quelloffen**; Transitous ist nur eine öffentliche Instanz — und
+  seit dem 18.09.2026 ist eine **zweite gemessen**: `europe.motis-project.de`
+  (TU Darmstadt) spricht dieselbe Schnittstelle Wort für Wort, liefert
+  dieselben Abfahrten und Verbindungen und nimmt sogar dieselben
+  Fahrtkennungen an. Sie ist seit 1.1.2 als Stufe 1b in der Kette.
+
+### Die Niederlande, Tschechien, Dänemark und Frankreich
+
+Gemessen am 18.09.2026, weil die Frage berechtigt ist: **Diese Länder trägt
+die erste Quelle längst.** Abfahrten mit Echtzeit an Amsterdam CS, Utrecht,
+Rotterdam, Praha hl.n., Brno, København H, Aarhus, Odense, Paris Gare de Lyon,
+Lyon Part-Dieu, Toulouse und Strasbourg; Verbindungen mit Streckenführung auch
+über Land (Praha → Brno, København → Aarhus, Paris → Lyon). Was ihnen fehlte,
+war nicht die Auskunft, sondern das **Netz darunter** — die acht Verbünde
+decken Deutschland ab, der Schweizer Dienst die Schweiz.
+
+Dieses Netz gibt es jetzt, und es ist **dieselbe Schnittstelle auf einer
+anderen Maschine** (Stufe 1b, ab 1.1.2). Sie hilft gegen einen Ausfall und
+gegen nichts sonst: Es sind dieselben Daten, also dieselbe Lücke im Fahrplan.
+Ein zweiter Weg, keine zweite Meinung — und genau so steht es auch im
+Quelltext.
+
+Eigene Quellen dieser vier Länder wurden geprüft und **nicht gebaut**, jede
+aus einem nachgemessenen Grund:
+
+- **OVapi (NL)** antwortet ohne Schlüssel und mit Echtzeit, kennt aber keine
+  Abfrage um einen Punkt. Sein Haltestellenverzeichnis wäre der Ausweg — und
+  darin tragen 1522 von 4574 Einträgen dieselbe erfundene Koordinate (sie
+  liegt in Frankreich). Ein Verzeichnis, das ein Drittel des Landes still
+  verliert, ist als Rückfall schlimmer als keiner.
+- **Rejseplanen (DK)**: die offene Schnittstelle ist abgeschaltet, die
+  Nachfolgerin verlangt einen Zugangsschlüssel.
+- **Golemio (CZ)**, **Navitia** und **PRIM Île-de-France (FR)**: alle drei
+  antworten mit „kein Schlüssel". Ein Schlüssel in einer App ist keiner.
 
 **Gebaut ist der Rückfall seit 1.1.1** (`Verbindungsquelle`,
 `EfaVerbindungen.swift`, `SchweizVerbindungen.swift`). Er greift, wenn
@@ -181,21 +211,34 @@ daneben.
 
 ## Woher die Daten kommen
 
-Eine **Kette aus drei Stufen** (`Fahrplan/Kettendienst.swift`). Eine
+Eine **Kette aus vier Stufen** (`Fahrplan/Kettendienst.swift`). Eine
 Abfahrtstafel wird an einer Haltestelle aufgeschlagen, oft mit einem Balken
 Empfang — genau dort ist eine einzelne Quelle ein einzelner Ausfallpunkt.
 
 | # | Quelle | Deckung | Echtzeit |
 | --- | --- | --- | --- |
-| 1 | **Transitous** (MOTIS) | DE, AT, CH + große Teile Europas | wo der Verbund sie herausgibt |
+| 1 | **Transitous** (MOTIS) | DE, AT, CH, NL, CZ, DK, FR + große Teile Europas | wo der Verbund sie herausgibt |
+| 1b | **Zweite MOTIS-Instanz** (dieselbe Schnittstelle, andere Maschine) | dieselbe wie 1 | dieselbe wie 1 |
 | 2 | **Verbund vor Ort** (EFA / opendata.ch) | wo einer antwortet | ja |
 | 3 | **Zwischenspeicher** | zuletzt geholter Stand | nein — und das steht dabei |
 
 **Stufe 1 trägt die App.** Sie liefert Haltestellen, Abfahrten, Zwischenhalte
-und die Strecke auf der Karte — überall. Stufe 2 ist ein Netz darunter, kein
-Ersatz: Wo kein Verbund zuständig ist, fehlt nichts, was Stufe 1 nicht schon
-hätte. Zeilen aus Stufe 2 stehen ohne Pfeil da, weil diese Schnittstellen
-keinen Fahrtlauf herausgeben.
+und die Strecke auf der Karte — überall. **Stufe 1b ist derselbe Dienst auf
+einer anderen Maschine**: Sie kann alles, was Stufe 1 kann, und sie antwortet
+auch dort, wo kein Verbund zuständig ist. Dieselben Daten allerdings — ein
+zweiter Weg, keine zweite Meinung. Stufe 2 ist ein Netz darunter, kein
+Ersatz: Wo kein Verbund zuständig ist, fehlt nichts, was die Stufen darüber
+nicht schon hätten. Zeilen aus Stufe 2 stehen ohne Pfeil da, weil diese
+Schnittstellen keinen Fahrtlauf herausgeben.
+
+**Haltestellensuche, Ortssuche und Fahrtlauf können nur die vollen Stufen**
+(1 und 1b). Bis 1.1.1 gingen sie ausschließlich an Stufe 1 — und weil die
+Tafel erst die nächste Haltestelle sucht und dann die Abfahrten holt, brach
+ein Ausfall von Stufe 1 schon dort ab: Die Verbünde und der Zwischenspeicher
+wurden nie gefragt, also genau in dem Fall nicht, für den es sie gibt. Seit
+1.1.2 fragt die Kette der Reihe nach, und wenn niemand nach dem Anker sehen
+konnte, wird der gewählte Punkt selbst zum Anker — die Verbünde fragen ohnehin
+mit einer Koordinate.
 
 ### Was in Stufe 2 steht — jede Zeile gemessen
 

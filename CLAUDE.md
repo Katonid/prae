@@ -1192,6 +1192,66 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   Quelle ein einzelner Ausfallpunkt. Der Gedanke stammt aus der München-App
   dieses Nutzers (PWA, eigene Sitzung); deren Kette lautet
   Transitous → DB → Cache.
+- **Die Kette hat seit 1.1.2 eine Stufe 1b: DIESELBE Schnittstelle auf einer
+  ANDEREN Maschine** (`Kettendienst.spiegel`, `TransitousDienst.spiegel` →
+  `europe.motis-project.de`, TU Darmstadt). Nachgemessen 18.09.2026 in
+  Dortmund, München, Amsterdam, Prag, Kopenhagen, Paris, Zürich und Wien:
+  dieselben Abfahrten, dieselbe Echtzeitquote, dieselben Verbindungen mit
+  Geometrie — und **austauschbare Fahrtkennungen**, eine Kennung aus der einen
+  Instanz öffnet den Lauf in der anderen. Verschieden sind IP, Netz und
+  Webserver (`MOTIS v2.11.3` hinter einem eigenen Proxy gegen `Caddy`).
+  **Es ist ein zweiter WEG, keine zweite MEINUNG**: dieselben Daten, also
+  dieselbe Lücke im Fahrplan. Das hilft gegen einen Ausfall und gegen nichts
+  sonst, und genau so steht es im Quelltext.
+- **Das größte Loch der Kette war der ANKER** (behoben in 1.1.2). Die Tafel
+  holt über `AppModel.ankerHaltestelle` erst die nächste Haltestelle und dann
+  die Abfahrten. `haltestellen(um:)` ging aber ausschließlich an Stufe 1 —
+  fiel die aus, warf schon dieser Schritt, und `abfahrten(ab:)` wurde nie
+  aufgerufen. **Damit waren die Verbünde, die Schweizer Quelle UND der
+  Zwischenspeicher unerreichbar, genau in dem Fall, für den es sie gibt.**
+  Ein Netz, das nur hält, solange nichts passiert, ist keines. Zwei Griffe:
+  `haltestellen`, `haltestellenSuchen`, `orteSuchen` und `fahrt` gehen jetzt
+  der Reihe nach an alle VOLLEN Quellen (`Kettendienst.beiEiner`), und
+  scheitern die alle, baut `ankerHaltestelle` einen **Behelfsanker** aus dem
+  Punkt selbst. Den brauchen die Verbünde auch gar nicht anders: EFA fragt mit
+  einer Koordinate, der Schweizer Dienst sucht seine Stationen selbst, der
+  Zwischenspeicher schlägt unter Punkt und Umkreis nach. Der Behelfsanker
+  trägt **keinen erfundenen Haltestellennamen**, sondern den des Bezugspunkts.
+- **„Nichts gefunden" wird in `beiEiner` NICHT weitergereicht.** Beide
+  Instanzen führen dieselben Daten; die zweite zu fragen brächte dieselbe
+  Antwort und nur eine Wartezeit. Weitergereicht wird nur ein AUSFALL.
+- **Niederlande, Tschechien, Dänemark und Frankreich trägt Stufe 1 — gemessen
+  18.09.2026** (Ansage des Nutzers, 09/2026: „Braucht bitte die Niederlande,
+  Tschechien und Dänemark auch mit ein. Und Frankreich"). Abfahrten mit
+  Echtzeit an Amsterdam CS (12 von 30), Utrecht (21 von 24), Rotterdam
+  (18 von 28), Praha hl.n. (22 von 28), Brno (1 von 30), København H
+  (20 von 31), Aarhus (24 von 25), Odense (21 von 25), Paris Gare de Lyon
+  (24 von 26), Lyon Part-Dieu, Toulouse, Strasbourg; Verbindungen mit
+  Geometrie in allen vier Ländern, auch über Land (Praha → Brno, København →
+  Aarhus, Paris → Lyon). **Diese Länder waren also nie ohne Auskunft** — was
+  ihnen fehlte, war das Netz darunter, und das ist seit 1.1.2 der Spiegel.
+- **Was es an eigenen Quellen für diese vier Länder gibt — gemessen
+  18.09.2026, und das Ergebnis ist mager:**
+  - **Niederlande, OVapi** (`v0.ovapi.nl`): antwortet ohne Schlüssel und mit
+    Echtzeit (90 Abfahrten an drei Bereichen um Amsterdam CS). **Trotzdem
+    nicht gebaut**, und der Grund ist die Geo-Suche: OVapi kennt keine Abfrage
+    um einen Punkt, es bräuchte sein Haltestellenverzeichnis
+    (`/stopareacode/`, 660 KB, 4574 Bereiche) — und darin tragen **1522
+    Einträge, also ein Drittel, dieselbe erfundene Koordinate** 47,974766 /
+    3,3135424 (das liegt in Frankreich). Ein Verzeichnis, das ein Drittel des
+    Landes still verliert und obendrein bei Lyon 1522 niederländische
+    Haltestellen meldet, ist als Rückfall schlimmer als keiner. Wer es doch
+    baut, filtert diese Koordinate und schreibt hin, was fehlt.
+  - **Dänemark, Rejseplanen**: Die alte offene Schnittstelle
+    (`xmlopen.rejseplanen.dk`) ist ABGESCHALTET — sie antwortet mit HTTP 299
+    und einem Abkündigungshinweis. Die Nachfolgerin (`www.rejseplanen.dk/api`,
+    HAFAS 2.53) ist erreichbar und verlangt `accessId`. Also nein.
+  - **Tschechien, Golemio** (`api.golemio.cz`): HTTP 401, Schlüssel nötig.
+  - **Frankreich, Navitia und PRIM Île-de-France**: beide HTTP 401, Schlüssel
+    nötig. `transport.data.gouv.fr` ist ein Datenkatalog und keine Auskunft.
+  Ein Schlüssel in einer App ist keiner — dieselbe Regel wie bei der ersten
+  Quelle. Deshalb ist der Spiegel für diese vier Länder der einzige Rückfall,
+  den es gibt, und das steht so da, statt mehr zu versprechen.
 - **Stufe 1 TRÄGT die App, Stufe 2 ist ein Netz darunter** (Ansage des
   Nutzers, 09/2026: „Ich möchte natürlich, dass die App an jeder anderen
   Stelle in Deutschland auch zuverlässig funktioniert."). Transitous deckt
@@ -1648,7 +1708,7 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   zwölfte Nachbesserung — derselbe Gedanke wie bei Tafelbild 1.4.0 und
   Schulalarm 1.1.0. Die Marken ab 1.0.x in diesem Papier bleiben stehen;
   sie sagen, wann etwas in den Quelltext kam. Danach zählt es weiter:
-  1.1.1 (Build 14), 1.1.2 … Dazu gesetzt (Ansage des Nutzers,
+  1.1.1 (Build 14), 1.1.2 (Build 15) … Dazu gesetzt (Ansage des Nutzers,
   09/2026): `DEVELOPMENT_TEAM = F4989GSTWS` — dieselbe Id wie Schulalarm und
   Tafelbild — und `INFOPLIST_KEY_LSApplicationCategoryType =
   public.app-category.navigation`. Beides steht als Build-Einstellung, weil

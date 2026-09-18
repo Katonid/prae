@@ -248,11 +248,43 @@ final class AppModel: ObservableObject {
         // Großzügig gesucht: Der Anker darf weiter weg liegen als der Umkreis,
         // sonst findet die App auf dem Land gar nichts und meldet „nichts
         // gefunden", obwohl zwei Kilometer weiter ein Bus fährt.
-        let stellen = try await dienst.haltestellen(um: punkt, umkreis: max(umkreis * 4, 5000))
-        guard let naechste = stellen.first else {
-            throw Fahrplanfehler.keineHaltestelleInDerNaehe
+        do {
+            let stellen = try await dienst.haltestellen(um: punkt, umkreis: max(umkreis * 4, 5000))
+            guard let naechste = stellen.first else {
+                throw Fahrplanfehler.keineHaltestelleInDerNaehe
+            }
+            return naechste
+        } catch Fahrplanfehler.keineQuelleAntwortet {
+            // **Keine Quelle konnte nach dem Anker sehen — und trotzdem wird
+            // weitergefragt** (ab 1.1.2). Der Anker war bis dahin eine
+            // Sackgasse: Er kommt von der ersten Stufe, und scheiterte die,
+            // brach das Laden hier ab. Die Verbünde, die Schweizer Quelle und
+            // der Zwischenspeicher wurden also nie gefragt — sie hängen alle
+            // an `abfahrten(ab:)`, und dahin kam die App nicht mehr.
+            //
+            // Ein Punkt reicht ihnen aber: Die EFA-Stellen fragen mit einer
+            // KOORDINATE, der Schweizer Dienst sucht seine Stationen selbst,
+            // und der Zwischenspeicher schlägt unter Punkt und Umkreis nach.
+            // Der Behelfsanker trägt deshalb genau das, was gebraucht wird,
+            // und **keinen erfundenen Namen**: Was aus ihm auf dem Bildschirm
+            // landet, kommt von der Quelle, die antwortet.
+            return Haltestelle(
+                id: "",
+                name: punktname,
+                gegend: nil,
+                elternId: nil,
+                breite: punkt.latitude,
+                laenge: punkt.longitude,
+                mittel: []
+            )
         }
-        return naechste
+    }
+
+    /// Wie der Behelfsanker heißt: so, wie der Bezugspunkt in der Leiste
+    /// steht. „Mein Standort" ist keine Haltestelle und behauptet auch keine
+    /// zu sein — eine erfundene Haltestelle wäre hier die schlechtere Lüge.
+    private var punktname: String {
+        punkt?.beschriftung ?? "Gewählter Punkt"
     }
 
     /// Ein Fehler beim Nachladen darf die stehende Tafel NICHT wegräumen.

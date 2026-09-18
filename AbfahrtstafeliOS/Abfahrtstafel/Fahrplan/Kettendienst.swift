@@ -15,17 +15,26 @@ import Foundation
 ///    große Teile Europas ab, hat Echtzeit überall dort, wo der Verbund sie
 ///    herausgibt, und als Einziges die Streckengeometrie. Es ist die Quelle,
 ///    auf der die App steht — die Kette darunter ist ein Netz, kein Ersatz.
-/// 2. **Der Verkehrsverbund vor Ort** danach (`Kettendienst.zweiteReihe`).
+/// 2. **Dieselbe Schnittstelle auf einer anderen Maschine**
+///    (`Kettendienst.spiegel`, ab 1.1.2). Sie kann ALLES, was die erste kann,
+///    und sie antwortet überall — auch in den Niederlanden, Tschechien,
+///    Dänemark und Frankreich, wo kein Verbund dieser Kette zuständig ist.
+/// 3. **Der Verkehrsverbund vor Ort** danach (`Kettendienst.zweiteReihe`).
 ///    Keine dieser Quellen ist für eine bestimmte Stadt gebaut: Jede trägt ihr
 ///    Gebiet selbst, und gefragt wird nur, wer sich zuständig meldet. Wo keine
-///    zuständig ist, bleibt es bei der ersten — die deckt die Gegend trotzdem
-///    ab. Es ist also **kein Loch, wenn hier nichts steht.**
-/// 3. **Der Zwischenspeicher** zuletzt. Alte Zeiten MIT Altersangabe sind mehr
+///    zuständig ist, bleibt es bei den beiden darüber — die decken die Gegend
+///    trotzdem ab. Es ist also **kein Loch, wenn hier nichts steht.**
+/// 4. **Der Zwischenspeicher** zuletzt. Alte Zeiten MIT Altersangabe sind mehr
 ///    wert als eine leere Fläche; ohne die Altersangabe wären sie schlimmer
 ///    als nichts.
 ///
-/// Haltestellensuche und Fahrtlauf gehen immer an die erste Quelle: Nur sie
-/// kann Zwischenhalte und Strecke.
+/// **Haltestellensuche, Ortssuche und Fahrtlauf gehen an die VOLLEN Quellen**
+/// (Stufe 1 und 2) — ein Verbund kann sie nicht. Bis 1.1.1 gingen sie
+/// ausschließlich an die erste, und das war das größte Loch dieser Kette:
+/// `haltestellen(um:)` liefert den ANKER, und ohne Anker fragt `AppModel` die
+/// Abfahrten nie ab. Die zweite Reihe und der Zwischenspeicher waren damit
+/// unerreichbar, sobald die erste Quelle ausfiel — also genau in dem Fall,
+/// für den es sie gibt.
 struct Kettendienst: Fahrplandienst {
 
     let quellenname: String
@@ -34,6 +43,9 @@ struct Kettendienst: Fahrplandienst {
     /// Die Quelle, die ALLES kann. Sie beantwortet Haltestellensuche und
     /// Fahrtlauf und steht in der Abfahrtskette an erster Stelle.
     private let erste: Fahrplandienst
+    /// Quellen, die **alles** können — die zweite Adresse derselben
+    /// Schnittstelle. Sie stehen zwischen der ersten Quelle und den Verbünden.
+    private let ersatz: [Fahrplandienst]
     /// Die Quellen, die nur Abfahrten können — der Reihe nach.
     private let weitere: [Abfahrtsquelle]
     /// Die Quellen, die nur Verbindungen können — der Reihe nach.
@@ -42,11 +54,13 @@ struct Kettendienst: Fahrplandienst {
 
     init(
         erste: Fahrplandienst = TransitousDienst(),
+        ersatz: [Fahrplandienst] = Self.spiegel,
         weitere: [Abfahrtsquelle] = Self.zweiteReihe,
         verbindungsreihe: [Verbindungsquelle] = Self.zweiteReiheFuerVerbindungen,
         speicher: Abfahrtsspeicher = Abfahrtsspeicher()
     ) {
         self.erste = erste
+        self.ersatz = ersatz
         self.weitere = weitere
         self.verbindungsreihe = verbindungsreihe
         self.speicher = speicher
@@ -57,6 +71,24 @@ struct Kettendienst: Fahrplandienst {
         self.quellenname = erste.quellenname
         self.quellenadresse = erste.quellenadresse
     }
+
+    /// **Dieselbe Schnittstelle auf einer anderen Maschine.**
+    ///
+    /// Das ist der billigste Rückfall, den diese App haben kann, und der
+    /// einzige, der ÜBERALL greift: Die Verbünde in `zweiteReihe` decken
+    /// Deutschland und die Schweiz ab — in den Niederlanden, Tschechien,
+    /// Dänemark und Frankreich stand bis 1.1.1 hinter der ersten Quelle
+    /// nichts. Nachgemessen 18.09.2026 antwortet `europe.motis-project.de`
+    /// dort mit denselben Abfahrten, derselben Echtzeitquote und denselben
+    /// Fahrtkennungen.
+    ///
+    /// **Es ist ein zweiter WEG, keine zweite MEINUNG** (siehe
+    /// `TransitousDienst.spiegel`): dieselben Daten, anderes Netz. Wer hier
+    /// eine Adresse einträgt, misst sie vorher — eine ungemessene Quelle ist
+    /// in einer Kette kein Rückfall, sondern nur Wartezeit davor.
+    static let spiegel: [Fahrplandienst] = [
+        TransitousDienst(wurzel: TransitousDienst.spiegel, quellenname: "MOTIS (Spiegel)")
+    ]
 
     /// Die zweite Reihe: alles, was nur Abfahrten kann.
     ///
@@ -76,22 +108,59 @@ struct Kettendienst: Fahrplandienst {
     /// (19.09.2026) und kein Grund, die beiden Listen zu einer zu machen.
     static let zweiteReiheFuerVerbindungen: [Verbindungsquelle] = EfaDienst.alle + [SchweizDienst()]
 
-    // MARK: - Was nur die erste Quelle kann
+    // MARK: - Was nur eine VOLLE Quelle kann
+
+    /// Alle Quellen, die alles können — die erste zuerst.
+    private var volle: [Fahrplandienst] { [erste] + ersatz }
+
+    /// Der Reihe nach fragen, bis eine antwortet.
+    ///
+    /// **Bis 1.1.1 gab es das hier gar nicht**, und das war das größte Loch
+    /// dieser Kette: `haltestellen(um:)` liefert den ANKER, und ohne Anker
+    /// ruft `AppModel` die Abfahrten nie ab — die ganze zweite Reihe und der
+    /// Zwischenspeicher blieben also unerreichbar, und zwar genau in dem
+    /// Fall, für den sie gebaut sind. Ein Netz, das nur hält, solange nichts
+    /// passiert, ist keines.
+    private func beiEiner<T>(
+        _ holen: (Fahrplandienst) async throws -> T
+    ) async throws -> T {
+        var gruende: [String] = []
+        for quelle in volle {
+            do {
+                return try await holen(quelle)
+            } catch let fehler as Fahrplanfehler {
+                // Ein Abbruch ist kein Ausfall — er heißt, dass jemand
+                // weitergewischt hat.
+                if fehler == .abgebrochen { throw fehler }
+                // „Nichts gefunden" ist eine ANTWORT und kein Ausfall: Beide
+                // Instanzen führen dieselben Daten, die zweite zu fragen
+                // brächte dasselbe Ergebnis und nur eine Wartezeit.
+                if fehler == .keineHaltestelleInDerNaehe || fehler == .nichtsGefunden { throw fehler }
+                gruende.append("\(quelle.quellenname): \(fehler.kurzfassung)")
+            } catch {
+                gruende.append("\(quelle.quellenname): \(error.localizedDescription)")
+            }
+        }
+        throw Fahrplanfehler.keineQuelleAntwortet(gruende: gruende)
+    }
 
     func haltestellen(um punkt: CLLocationCoordinate2D, umkreis meter: Int) async throws -> [Haltestelle] {
-        try await erste.haltestellen(um: punkt, umkreis: meter)
+        try await beiEiner { try await $0.haltestellen(um: punkt, umkreis: meter) }
     }
 
     func haltestellenSuchen(_ text: String, nahe punkt: CLLocationCoordinate2D?) async throws -> [Haltestelle] {
-        try await erste.haltestellenSuchen(text, nahe: punkt)
+        try await beiEiner { try await $0.haltestellenSuchen(text, nahe: punkt) }
     }
 
     func fahrt(_ fahrtId: String) async throws -> Fahrt {
-        try await erste.fahrt(fahrtId)
+        // **Die Fahrtkennungen sind austauschbar** (nachgemessen 18.09.2026):
+        // Eine Kennung aus der einen Instanz öffnet den Lauf in der anderen.
+        // Ohne das wäre dieser Rückfall wertlos.
+        try await beiEiner { try await $0.fahrt(fahrtId) }
     }
 
     func orteSuchen(_ text: String, nahe punkt: CLLocationCoordinate2D?) async throws -> [Ortstreffer] {
-        try await erste.orteSuchen(text, nahe: punkt)
+        try await beiEiner { try await $0.orteSuchen(text, nahe: punkt) }
     }
 
     var kuerzesteSuche: Int { erste.kuerzesteSuche }
@@ -141,6 +210,22 @@ struct Kettendienst: Fahrplandienst {
         case .gefunden(let gefunden): return gefunden
         case .leer(let grund): gruende.append(grund); eineQuelleSagteNichts = true
         case .ausfall(let grund): gruende.append(grund)
+        }
+
+        // Dieselbe Schnittstelle auf einer anderen Maschine. Sie steht VOR
+        // den Verbünden, weil sie überall antwortet — auch in Amsterdam,
+        // Prag, Kopenhagen und Paris, wo kein Verbund dieser Kette zuständig
+        // ist — und weil sie als Einzige Zwischenhalte und Strecke liefert.
+        for quelle in ersatz {
+            switch try await versuche(quelle.quellenname, {
+                try await quelle.verbindungen(
+                    von: von, nach: nach, zeitpunkt: zeitpunkt, ankunft: ankunft, anzahl: anzahl
+                )
+            }) {
+            case .gefunden(let gefunden): return gefunden
+            case .leer(let grund): gruende.append(grund); eineQuelleSagteNichts = true
+            case .ausfall(let grund): gruende.append(grund)
+            }
         }
 
         // Der Verbund vor Ort — nur, wenn BEIDE Punkte in seinem Gebiet
@@ -229,7 +314,33 @@ struct Kettendienst: Fahrplandienst {
             gruende.append("\(erste.quellenname): \(error.localizedDescription)")
         }
 
-        // 2. Die weiteren Quellen.
+        // 2. Dieselbe Schnittstelle auf einer anderen Maschine — vor den
+        //    Verbünden, weil sie überall antwortet und als Einzige
+        //    Fahrtkennungen mitgibt (ohne die lässt sich keine Zeile öffnen).
+        for quelle in ersatz {
+            do {
+                let geholt = try await quelle.abfahrten(
+                    ab: haltestelle, umkreis: meter, zeitpunkt: zeitpunkt, anzahl: anzahl
+                )
+                if !geholt.isEmpty {
+                    let beschriftet = geholt.map { abfahrt -> Abfahrt in
+                        var kopie = abfahrt
+                        if kopie.quelle.isEmpty { kopie.quelle = quelle.quellenname }
+                        return kopie
+                    }
+                    await speicher.sichern(beschriftet, fuer: haltestelle, umkreis: meter)
+                    return beschriftet
+                }
+                gruende.append("\(quelle.quellenname): nichts gemeldet")
+            } catch let fehler as Fahrplanfehler {
+                if fehler == .abgebrochen { throw fehler }
+                gruende.append("\(quelle.quellenname): \(fehler.kurzfassung)")
+            } catch {
+                gruende.append("\(quelle.quellenname): \(error.localizedDescription)")
+            }
+        }
+
+        // 3. Die weiteren Quellen.
         for quelle in weitere where quelle.zustaendig(fuer: haltestelle) {
             do {
                 let geholt = try await quelle.abfahrten(
@@ -248,7 +359,7 @@ struct Kettendienst: Fahrplandienst {
             }
         }
 
-        // 3. Der Zwischenspeicher. Er wirft `.veralteterStand` — der trägt das
+        // 4. Der Zwischenspeicher. Er wirft `.veralteterStand` — der trägt das
         //    ALTER mit, damit die Oberfläche es hinschreiben kann. Einen alten
         //    Stand stillschweigend als frisch auszugeben wäre der schlimmste
         //    denkbare Fehler dieser App.
