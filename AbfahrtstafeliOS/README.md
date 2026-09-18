@@ -89,6 +89,10 @@ zwölf Zeichen ab), Ordner, Ziel und Bundle-Id bleiben „Abfahrtstafel“ /
 - **Karte auf den ganzen Bildschirm.** Ein Tipp auf die freie Kartenfläche
   oder der Knopf unten links zieht sie auf; derselbe Knopf schließt sie wieder.
   Ein Tipp auf einen Halt öffnet unverändert dessen Abfahrtstafel.
+- **Hell und dunkel, zweimal getrennt.** Ein Umschalter für die App, einer
+  für die Karten — eine dunkle Karte ist abends am Bahnsteig angenehm und bei
+  Sonne schlecht zu lesen. Die Kartenwahl gilt für alle vier Karten. Vorgabe
+  ist beides „automatisch", also das, was das Gerät sagt.
 - **Merkliste** für die Handvoll Haltestellen des Alltags — auf dem Gerät,
   ohne Konto.
 

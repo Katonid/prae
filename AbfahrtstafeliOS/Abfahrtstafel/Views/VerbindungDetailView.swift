@@ -283,6 +283,7 @@ private struct VerbindungsKarte: View {
             }
         }
         .mapStyle(.standard(pointsOfInterest: .excludingAll))
+        .kartendarstellung()
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         .onAppear { kamera = .rect(ausschnitt) }
     }

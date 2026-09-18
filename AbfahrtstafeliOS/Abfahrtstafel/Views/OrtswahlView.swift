@@ -283,6 +283,7 @@ private struct Kartenwahl: View {
             ZStack {
                 Map(position: $kamera) { }
                     .mapStyle(.standard(pointsOfInterest: .including([.publicTransport])))
+                    .kartendarstellung()
                     .onMapCameraChange(frequency: .onEnd) { zustand in
                         aktuell = zustand.camera.centerCoordinate
                         Task { await namenSuchen(aktuell) }
