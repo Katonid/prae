@@ -1614,6 +1614,50 @@ Auftrag, für Bauten, die niemand angefordert hatte.
     `colorScheme` wirklich annimmt, lässt sich nur auf einem Gerät sehen. Es
     ist der dokumentierte Weg für einen Teilbaum, aber eine Erwartung und
     keine Messung — wer es prüft, trägt das Ergebnis hier nach.
+- **Es war nie ein Umkreis, es war eine ZÄHL-GRENZE** (`sichtbareHalte`, ab
+  1.1.13; gemeldet 09/2026: „Haltestellen gibt es offenbar nur in einem
+  bestimmten Umkreis vom Suchpunkt … bei den S-Bahn-Linien werden weiter
+  entfernte Haltestellen nicht angezeigt."). Über 260 Punkten zeichnete die
+  Karte GAR KEINE gewöhnlichen Halte mehr, nur noch die entfallenden — und
+  zwölf Linien in München haben zusammen weit über dreihundert. Die Grenze riss
+  also immer, und was übrig blieb, sah aus wie ein Umkreis um den Suchpunkt:
+  Die weißen Kreise in der Mitte sind die Haltestellen aus der LISTE, nicht die
+  der Linien. **Wer einen Befund liest, prüft zuerst, ob das beschriebene
+  Muster überhaupt das gebaute ist.**
+- **Gezählt wird jetzt, was im AUSSCHNITT liegt** (`imSichtfeld`, `sichtfeld`
+  über `onMapCameraChange(frequency: .onEnd)`). Die Grenze bleibt, denn ihr
+  Grund bleibt — jeder Punkt ist eine eigene SwiftUI-Ansicht, und dreihundert
+  davon machen die Karte zäh. Sie zählt aber nur noch das Sichtbare, und damit
+  gibt es die Halte überall: Wer zur S-Bahn-Strecke schiebt oder hineinzoomt,
+  bekommt dort ALLE. Das ist der Unterschied zwischen „fehlt" und „steht
+  gerade nicht im Bild", und die Fußzeile sagt ihn jetzt auch
+  („Hineinzoomen zeigt sie"). Rand von einem Zehntel, damit beim Schieben
+  nicht an jeder Kante eine Reihe Punkte aufpoppt; `nil` (Kamera hat sich noch
+  nicht gemeldet) heißt „alles", sonst wäre die Karte beim ersten Zeichnen
+  leer. **`.onEnd` und nicht `.continuous`** — sonst würde die Haltliste
+  während jeder Schiebebewegung neu gerechnet.
+- **Ein LANGER Tipp auf die Netzkarte setzt den Suchpunkt** (`punktSetzen`, ab
+  1.1.13, Ansage des Nutzers 09/2026: „Ich mag nicht immer erst wieder in
+  dieses Menü gehen müssen."). Der kurze Tipp zieht die Karte auf (1.1.11),
+  der lange versetzt den Punkt.
+  - **`LongPressGesture` allein meldet nur, DASS gehalten wurde, nicht WO.**
+    Deshalb `.sequenced(before: DragGesture(minimumDistance: 0))` — und
+    genommen wird `startLocation`, nicht `location`: Der Finger wandert beim
+    Halten ein paar Punkte, gemeint ist die Stelle, auf die gezeigt wurde.
+    Umgerechnet wird über `MapProxy.convert` aus einem `MapReader`; welche
+    Koordinate unter einem Bildschirmpunkt liegt, weiß allein die Karte.
+  - **Erst den Namen holen, dann setzen.** Ein nachträgliches Umbenennen
+    änderte `model.punkt` ein zweites Mal, und daran hängt
+    `onChange(of: model.punkt)`: Die Karte stellte sich mitten in der Bewegung
+    neu ein. Eine Karte, die springt, nachdem man gerade einen Punkt gesetzt
+    hat, sieht kaputt aus. Damit die Wartezeit nicht wie ein toter Knopf
+    wirkt, meldet sich das Gerät sofort spürbar.
+- **Der Name zu einer Koordinate steht an EINER Stelle** (`Dienste/Ortsname.swift`,
+  ab 1.1.13). Gebraucht wird er unter dem Fadenkreuz der Ortswahl und beim
+  langen Tipp; zwei Fassungen benannten denselben Punkt irgendwann verschieden.
+  **`nil` heißt „konnte nicht nachsehen" und nicht „heißt nicht"** — die
+  Ortswahl behält dann den Namen von vorhin, statt ihn beim Schieben durch
+  einen Platzhalter zu ersetzen.
 - **Betriebsmeldungen sind eine EIGENE Sache neben der Abfahrtskette**
   (`Betriebsmeldung`, `Meldungsquelle`, `Dienste/Meldungsdienst.swift`, ab
   1.0.4; gemeldet 09/2026: „Ich weiß, dass bei mir vor Ort eine Buslinie
@@ -2125,7 +2169,7 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   zwölfte Nachbesserung — derselbe Gedanke wie bei Tafelbild 1.4.0 und
   Schulalarm 1.1.0. Die Marken ab 1.0.x in diesem Papier bleiben stehen;
   sie sagen, wann etwas in den Quelltext kam. Danach zählt es weiter:
-  1.1.1 (Build 14), 1.1.2 (Build 15), 1.1.3 (Build 16), 1.1.4 (Build 17), 1.1.5 (Build 18), 1.1.6 (Build 19), 1.1.7 (Build 20), 1.1.8 (Build 21), 1.1.9 (Build 22), 1.1.10 (Build 23), 1.1.11 (Build 24), 1.1.12 (Build 25) … Dazu gesetzt (Ansage des Nutzers,
+  1.1.1 (Build 14), 1.1.2 (Build 15), 1.1.3 (Build 16), 1.1.4 (Build 17), 1.1.5 (Build 18), 1.1.6 (Build 19), 1.1.7 (Build 20), 1.1.8 (Build 21), 1.1.9 (Build 22), 1.1.10 (Build 23), 1.1.11 (Build 24), 1.1.12 (Build 25), 1.1.13 (Build 26) … Dazu gesetzt (Ansage des Nutzers,
   09/2026): `DEVELOPMENT_TEAM = F4989GSTWS` — dieselbe Id wie Schulalarm und
   Tafelbild — und `INFOPLIST_KEY_LSApplicationCategoryType =
   public.app-category.navigation`. Beides steht als Build-Einstellung, weil

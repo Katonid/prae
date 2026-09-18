@@ -318,12 +318,13 @@ private struct Kartenwahl: View {
     /// Abfahrten hängen an der Koordinate und nicht am Namen. Schlägt es fehl,
     /// bleibt „Punkt auf der Karte" stehen; das ist keine schöne, aber eine
     /// richtige Auskunft.
+    /// **`nil` heißt „konnte nicht nachsehen"** — dann bleibt der Name von
+    /// vorhin stehen. Ihn beim Schieben durch einen Platzhalter zu ersetzen
+    /// wäre ein Rückschritt: Der Punkt hat ja einen Namen, er war nur gerade
+    /// nicht zu erfragen.
     private func namenSuchen(_ punkt: CLLocationCoordinate2D) async {
-        let ort = CLLocation(latitude: punkt.latitude, longitude: punkt.longitude)
-        guard let marke = try? await CLGeocoder().reverseGeocodeLocation(ort).first else { return }
-        let teile = [marke.thoroughfare, marke.locality ?? marke.subAdministrativeArea]
-            .compactMap { $0 }
-        name = teile.isEmpty ? "Punkt auf der Karte" : teile.joined(separator: ", ")
+        guard let gefunden = await Ortsname.fuer(punkt) else { return }
+        name = gefunden
     }
 }
 
