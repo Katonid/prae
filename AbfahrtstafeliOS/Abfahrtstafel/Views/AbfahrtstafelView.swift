@@ -26,11 +26,13 @@ struct AbfahrtstafelView: View {
     @EnvironmentObject private var model: AppModel
     @EnvironmentObject private var uhr: Uhrwerk
 
+    @EnvironmentObject private var meldungen: Meldungsdienst
     @Environment(\.horizontalSizeClass) private var breitenklasse
 
     @AppStorage("tafelSicht") private var sichtRoh = Sicht.haltestellen.rawValue
     @State private var pfad = NavigationPath()
     @State private var ortswahlOffen = false
+    @State private var meldungenOffen = false
 
     /// Was die Tafel zeigt.
     ///
@@ -42,19 +44,14 @@ struct AbfahrtstafelView: View {
         case zeit
         case karte
 
-        var beschriftung: String {
+        /// Die Beschriftung auf dem Umschalter. Kurz, weil drei Felder
+        /// nebeneinander auf ein iPhone passen müssen — und weil dort das Wort
+        /// „Karte" stehen soll und nicht ein Symbol, das man deuten muss.
+        var kurz: String {
             switch self {
-            case .haltestellen: return "Nach Haltestellen"
-            case .zeit: return "Nach Zeit"
-            case .karte: return "Nur Karte"
-            }
-        }
-
-        var symbol: String {
-            switch self {
-            case .haltestellen: return "mappin.and.ellipse"
-            case .zeit: return "clock"
-            case .karte: return "map"
+            case .haltestellen: return "Haltestellen"
+            case .zeit: return "Zeit"
+            case .karte: return "Karte"
             }
         }
     }
@@ -76,8 +73,17 @@ struct AbfahrtstafelView: View {
             VStack(spacing: 0) {
                 Ortsleiste(oeffnen: { ortswahlOffen = true })
 
+                Sichtwahl(sichtRoh: $sichtRoh)
+
                 if !model.vorhandeneMittel.isEmpty {
                     Filterleiste()
+                }
+
+                if !meldungen.meldungen.isEmpty {
+                    Betriebsmeldungsband(
+                        anzahl: meldungen.meldungen.count,
+                        dringend: meldungen.meldungen.contains(where: \.dringend)
+                    ) { meldungenOffen = true }
                 }
 
                 if let meldung = model.meldung {
@@ -89,14 +95,6 @@ struct AbfahrtstafelView: View {
             .navigationTitle("Abfahrten")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Picker("Sicht", selection: $sichtRoh) {
-                        ForEach(Sicht.allCases, id: \.rawValue) { eine in
-                            Label(eine.beschriftung, systemImage: eine.symbol).tag(eine.rawValue)
-                        }
-                    }
-                    .pickerStyle(.menu)
-                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
                         model.laden()
@@ -115,6 +113,14 @@ struct AbfahrtstafelView: View {
             .sheet(isPresented: $ortswahlOffen) {
                 OrtswahlView()
             }
+            .sheet(isPresented: $meldungenOffen) {
+                MeldungenListe()
+            }
+            // Betriebsmeldungen hängen am ANKER der Tafel, nicht am Takt der
+            // Uhr: Sie werden geholt, wenn sich die geladenen Abfahrten
+            // ändern, und der Dienst selbst hält sie fünf Minuten.
+            .onChange(of: model.gruppen.first?.id) { _, _ in meldungenHolen() }
+            .onAppear { meldungenHolen() }
             // Der Gegenpart zu `Notification.Name.ortswahlOeffnen`: Die
             // Hinweisfläche liegt tief in der Ansicht und darf das Blatt nicht
             // selbst öffnen — aufgemacht wird es hier, an der Wurzel.
@@ -183,6 +189,13 @@ struct AbfahrtstafelView: View {
         }
     }
 
+    private func meldungenHolen() {
+        meldungen.aktualisieren(
+            um: model.gruppen.first?.haltestelle,
+            umkreis: model.umkreis
+        )
+    }
+
     private var naechsterUmkreis: Int {
         min(model.umkreis * 2, 3000)
     }
@@ -240,7 +253,8 @@ struct AbfahrtstafelView: View {
             jetzt: uhr.jetzt,
             zeigtHaltestelle: mitHaltestelle,
             standIstAlt: model.standIstAlt,
-            zeigtQuelle: model.beteiligteQuellen.count > 1
+            zeigtQuelle: model.beteiligteQuellen.count > 1,
+            meldung: meldungen.meldungen(zu: abfahrt.linie).first
         )
         // `lesebreite` liegt auf der GANZEN Zeile, damit auch der Pfeil des
         // Verweises mit hereinrückt.
@@ -421,6 +435,29 @@ private struct Ortsleiste: View {
     }
 }
 
+/// Der Umschalter zwischen den drei Sichten — Haltestellen, Zeit, Karte.
+///
+/// Er steht ALS SEGMENTLEISTE IM INHALT und nicht als Menü in der
+/// Werkzeugleiste (ab 1.0.5, gemeldet 09/2026: „Ich kann die Karte bei der
+/// Darstellung auf dem iPhone nirgends finden."). Auf dem iPad fiel das nicht
+/// auf, weil dort die Karte von Haus aus neben der Liste steht; auf dem iPhone
+/// lag sie hinter einem Symbol, das niemand aufklappt. Dieselbe Lehre wie beim
+/// Gruppenchat in Schulalarm: Ein Knopf, den niemand findet, ist kein Knopf.
+private struct Sichtwahl: View {
+    @Binding var sichtRoh: String
+
+    var body: some View {
+        Picker("Sicht", selection: $sichtRoh) {
+            ForEach(AbfahrtstafelView.Sicht.allCases, id: \.rawValue) { eine in
+                Text(eine.kurz).tag(eine.rawValue)
+            }
+        }
+        .pickerStyle(.segmented)
+        .padding(.horizontal, 14)
+        .padding(.bottom, 8)
+    }
+}
+
 /// Die Verkehrsmittel-Filter. Gezeigt werden nur die, die in den geladenen
 /// Daten wirklich vorkommen — ein Haken für „Fähre" mitten im Bayerischen Wald
 /// ist eine Bedienung, die nie etwas tut.
@@ -468,6 +505,7 @@ private struct Filterleiste: View {
         .environmentObject(Standortdienst())
         .environmentObject(Merkliste())
         .environmentObject(Liniennetz())
+        .environmentObject(Meldungsdienst())
 }
 
 @MainActor

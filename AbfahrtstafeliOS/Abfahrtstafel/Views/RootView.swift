@@ -73,4 +73,5 @@ struct RootView: View {
         .environmentObject(Uhrwerk())
         .environmentObject(Merkliste())
         .environmentObject(Liniennetz())
+        .environmentObject(Meldungsdienst())
 }

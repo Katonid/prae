@@ -12,6 +12,7 @@ struct HaltestelleView: View {
     @EnvironmentObject private var model: AppModel
     @EnvironmentObject private var uhr: Uhrwerk
     @EnvironmentObject private var merkliste: Merkliste
+    @EnvironmentObject private var meldungen: Meldungsdienst
 
     @State private var abfahrten: [Abfahrt] = []
     @State private var stand: AppModel.Ladestand = .laedt
@@ -81,7 +82,8 @@ struct HaltestelleView: View {
                         abfahrt: abfahrt,
                         jetzt: uhr.jetzt,
                         standIstAlt: standIstAlt,
-                        zeigtQuelle: quellen.count > 1
+                        zeigtQuelle: quellen.count > 1,
+                        meldung: meldungen.meldungen(zu: abfahrt.linie).first
                     )
                     // Ohne Fahrtkennung kein Verweis — siehe `hatFahrtlauf`.
                     if abfahrt.hatFahrtlauf {
@@ -173,5 +175,6 @@ struct HaltestelleView: View {
             .environmentObject(AppModel(dienst: Musterdienst()))
             .environmentObject(Uhrwerk())
             .environmentObject(Merkliste())
+            .environmentObject(Meldungsdienst())
     }
 }

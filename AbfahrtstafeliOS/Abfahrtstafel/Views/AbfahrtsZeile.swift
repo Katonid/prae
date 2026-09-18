@@ -22,17 +22,26 @@ struct AbfahrtsZeile: View {
     /// kommt. Unter einer Tafel aus einer einzigen Quelle wäre sie
     /// fünfzehnmal dasselbe Wort.
     var zeigtQuelle: Bool = false
+    /// Zu dieser Linie liegt eine Betriebsmeldung vor (Umleitung, Sperrung,
+    /// Ersatzverkehr). `nil` heißt „keine" — und das ist etwas anderes als
+    /// „nicht nachgesehen", was die Fußzeile trennt.
+    var meldung: Betriebsmeldung?
 
     var body: some View {
         HStack(spacing: 12) {
             Liniensymbol(linie: abfahrt.linie)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(abfahrt.richtung)
-                    .font(.body.weight(.medium))
-                    .lineLimit(1)
-                    .strikethrough(abfahrt.faelltAus, color: .secondary)
-                    .foregroundStyle(abfahrt.faelltAus ? Color.secondary : Color.primary)
+                HStack(spacing: 5) {
+                    if let meldung {
+                        Meldungsmarke(dringend: meldung.dringend)
+                    }
+                    Text(abfahrt.richtung)
+                        .font(.body.weight(.medium))
+                        .strikethrough(abfahrt.faelltAus, color: .secondary)
+                        .foregroundStyle(abfahrt.faelltAus ? Color.secondary : Color.primary)
+                }
+                .lineLimit(1)
 
                 HStack(spacing: 6) {
                     if zeigtHaltestelle {
@@ -74,6 +83,9 @@ struct AbfahrtsZeile: View {
         if zeigtHaltestelle { teile.append("ab \(abfahrt.haltestelle.name)") }
         if standIstAlt {
             teile.append("alter Stand")
+        }
+        if meldung != nil {
+            teile.append("Betriebsmeldung liegt vor")
         }
         if abfahrt.faelltAus {
             teile.append("fällt aus")

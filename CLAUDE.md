@@ -902,7 +902,7 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   weist App Store Connect ab. Es gibt KEINE Skript-Bauphase. **Jede
   Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne Nachfrage,
   als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann 1.0.1
-  (Build 2), 1.0.2 (Build 3), 1.0.3 (Build 4) usw. Dazu gesetzt (Ansage des Nutzers,
+  (Build 2), 1.0.2 (Build 3), 1.0.3 (Build 4), 1.0.4 (Build 5) usw. Dazu gesetzt (Ansage des Nutzers,
   09/2026): `DEVELOPMENT_TEAM = F4989GSTWS` — dieselbe Id wie Schulalarm und
   Tafelbild — und `INFOPLIST_KEY_LSApplicationCategoryType =
   public.app-category.navigation`. Beides steht als Build-Einstellung, weil
@@ -1180,7 +1180,12 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   wenn die Adresse plausibel aussieht: Eine ungemessene Quelle ist in einer
   Kette kein Rückfall, sondern nur eine zusätzliche Wartezeit davor.
   Reihenfolge: **erst örtlich, dann weiträumig** (VVS und DING vor `efa-bw`,
-  der örtliche Verbund kennt seine Stadtbusse besser).
+  MVV vor `Bayern-Fahrplan` — der örtliche Verbund kennt seine Stadtbusse
+  besser). **Ein landesweiter Zugang schlägt einen städtischen**, wo es ihn
+  gibt: `Bayern-Fahrplan` (DEFAS) deckt Nürnberg, Würzburg, Augsburg,
+  Regensburg und München ab und füllt damit die Lücke, die `VGN` hinterließ
+  — dessen Schnittstelle antwortete zwar mit HTTP 200, gab in Nürnberg aber
+  null Abfahrten zurück und steht deshalb nicht in der Tabelle.
 - **Die Schweiz hängt an `transport.opendata.ch`** (ab 1.0.2), ohne
   Schlüssel, mit Echtzeit (Zürich, Bern, Basel, Genf geprüft). Zwei Fallen:
   **`x` ist die BREITE und `y` die LÄNGE** — die Namen legen das Gegenteil
@@ -1270,15 +1275,96 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   eine Karte, der man ihre Unvollständigkeit nicht ansieht.
 - **Die Karte benutzt DENSELBEN Filter wie die Liste** (`AppModel.filter`).
   Zwei Filter für dieselbe Frage wären zwei Antworten.
+- **Betriebsmeldungen sind eine EIGENE Sache neben der Abfahrtskette**
+  (`Betriebsmeldung`, `Meldungsquelle`, `Dienste/Meldungsdienst.swift`, ab
+  1.0.4; gemeldet 09/2026: „Ich weiß, dass bei mir vor Ort eine Buslinie
+  gerade eine Umleitung fahren muss … Dieser aktuelle Stand ist in der App
+  aber leider nicht zu sehen."). **Nachgemessen 18.09.2026: Transitous führt
+  überhaupt keine Betriebsmeldungen** — weder an `/stoptimes` noch am
+  `/trip`. Es kennt `cancelled` und `tripCancelled`, also Verspätung und
+  Ausfall, aber nicht den GRUND und nicht die FOLGEN. Eine Umleitung ist für
+  die erste Quelle unsichtbar. Die Verbünde führen sie sehr wohl (EFA:
+  `infos[].infoLinks[]` mit Titel, Untertitel und Volltext; VRR Dortmund
+  lieferte sechs, VVS Stuttgart hundert).
+  **Daraus folgt die Bauweise:** Meldungen werden vom Verbund geholt, AUCH
+  WENN die Abfahrten von Transitous kamen. Wer sie an die Abfahrtskette
+  hängt, bekommt in ganz Deutschland keine — dort antwortet fast immer die
+  erste Quelle. Deshalb ein drittes Protokoll und keine Kette: Antwortet der
+  Verbund nicht, gibt es eben keine Meldungen, und die App sagt nichts,
+  statt etwas zu behaupten.
+- **Welche LINIEN eine Meldung betrifft, steht in den DATEN.** EFA hängt jede
+  Meldung an die Abfahrten, für die sie gilt; gesammelt wird also über die
+  Linien der Abfahrten, an denen sie hing. Den Titel nach „Linie 453" zu
+  durchsuchen wäre die naheliegende Alternative — sie wackelt schon bei
+  „Linien 400, 401" und gibt bei „Airport Express // Airport Shuttle" ganz
+  auf. Genau diese Zuordnung trägt die Marke an der einzelnen Zeile, und die
+  ist der Punkt: Eine Liste von acht Meldungen über der Tafel liest niemand,
+  ein Dreieck neben der EIGENEN Linie sieht jeder.
+- **Meldungen werden höchstens alle fünf Minuten geholt**, Abfahrten alle
+  dreißig Sekunden. Eine Sperrung gilt bis Oktober; sie im Sekundentakt
+  nachzuladen wäre eine Abfrage je halbe Minute für eine Auskunft, die sich
+  nie ändert. Ein Fehlschlag LEERT die Liste nicht — eine Sperrung, die
+  vorhin galt, gilt nach einem Netzaussetzer immer noch.
+- **„Keine Meldung" und „keine Quelle" sind NICHT dasselbe.** Wo kein Verbund
+  zuständig ist, sagt die App genau das: „Das heißt NICHT, dass alles
+  planmäßig fährt — es heißt, dass niemand nachgesehen hat." Dieselbe Regel
+  wie beim Wort „Plan" an einer Abfahrt ohne Echtzeit.
+- **HTML wird von Hand entpackt** (`Fahrplan/Efa/Klartext.swift`). Die Texte
+  der Verbünde kommen mit Markierungen und benannten Zeichen (`&szlig;`,
+  `&uuml;`, `&ndash;`, `&nbsp;`) — ohne Rückübersetzung wäre jeder deutsche
+  Text unlesbar. `NSAttributedString` könnte es und startet dafür intern
+  WebKit, muss auf den Hauptfaden und braucht Zehntelsekunden je Absatz; für
+  zwanzig Meldungen beim Laden der Tafel ist das genau die Arbeit, die eine
+  scrollende Liste ruckeln lässt. Die Zeichenliste ist bewusst KURZ: Was
+  fehlt, bleibt als `&name;` stehen und ist sichtbar falsch statt still
+  falsch. **Die Anführungszeichen stehen dort als `\u{201E}` und nicht als
+  Zeichen** — sonst schlägt `scripts/swift-quelltext-pruefen.py` an, und zwar
+  zu Recht: Ein deutsches Anführungszeichen mitten in einem Swift-Text ist
+  die eine Stelle, an der sich Inhalt und verunglücktes Ende nicht
+  unterscheiden lassen.
+- **`http://noHost` ist KEINE Adresse.** EFA setzt den Platzhalter ein, wenn
+  nichts hinterlegt ist; als Verweis angeboten führte er ins Leere.
 - **Die Fußzeile nennt die Quellen, die WIRKLICH beigetragen haben**
   (`AppModel.beteiligteQuellen`), nicht die eingebauten. „Transitous, VRR"
   unter einer Tafel, die ganz von Transitous stammt, wäre eine Angabe über
   die App und nicht über die Daten.
+- **Der Sichtumschalter steht IM INHALT, nicht in der Werkzeugleiste**
+  (`Sichtwahl` in `AbfahrtstafelView`, ab 1.0.5, gemeldet 09/2026: „Ich kann
+  die Karte bei der Darstellung auf dem iPhone nirgends finden."). Bis 1.0.4
+  war er ein `.pickerStyle(.menu)` in `ToolbarItem(placement: .topBarLeading)`
+  — ein Symbol, das niemand aufklappt. **Auf dem iPad fiel das nicht auf**,
+  weil die Karte dort von Haus aus neben der Liste steht; der Fehler war damit
+  nur auf dem Gerät zu sehen, auf dem er zählt. Jetzt eine Segmentleiste
+  „Haltestellen | Zeit | Karte" unter der Ortsleiste. Dieselbe Lehre wie beim
+  Gruppenchat in Schulalarm und beim Zurücksetzen in Tafelbild: **Ein Knopf,
+  den niemand findet, ist kein Knopf.** Nicht zurück in die Werkzeugleiste.
+- **Die Halte der gezeichneten Linien stehen auf der Karte** (`Linienzug.halte`,
+  `sichtbareHalte`, ab 1.0.5). Ein Linienzug ohne Punkte ist ein Strich über
+  der Karte, an dem sich nicht ablesen lässt, ob er dort hält, wo jemand
+  hinwill. Beschriftet wird aber NUR, wenn eine Linie hervorgehoben ist —
+  sonst lägen dreihundert Haltestellennamen übereinander. **Über 260 Punkten
+  werden GAR KEINE gezeichnet** und die Fußzeile sagt, wie man doch an sie
+  kommt (eine Linie antippen): Jeder Punkt ist eine eigene SwiftUI-Ansicht,
+  und ein paar willkürlich ausgewählte wären schlechter als keine — man hielte
+  die Lücken für Wirklichkeit.
+- **Die Liniennummer liegt auf dem Zug**, nicht nur in der Legende
+  (`beschriftungen`). Gesetzt an einem Anteil des Verlaufs, der sich mit der
+  Stelle der Linie in der Liste verschiebt (0,22 bis 0,78) — zwölf Linien, die
+  im Stadtzentrum übereinanderliegen, hätten sonst zwölf Schilder auf
+  demselben Fleck.
+- **Fehlt die Linienfarbe, wird die Rückfallfarbe je Linie ABGEWANDELT**
+  (`Color.abgewandelt`, `Linienkennung.anzeigefarbe`, ab 1.0.5). Sonst sind
+  alle Busse derselbe Violettton. Verschoben wird nur INNERHALB der
+  Farbfamilie (±0,055 im Farbton): Die gewohnte deutsche Zuordnung liest ein
+  Fahrgast ohne hinzusehen, und die darf eine Unterscheidungshilfe nicht
+  zerschlagen. **Die Streuung kommt aus einem eigenen FNV-Wert über den
+  Liniennamen, nie aus `hashValue`** — den streut Swift je Programmlauf
+  zufällig, die 462 wäre also morgens grün und abends blau.
 - `MARKETING_VERSION` und `CURRENT_PROJECT_VERSION` stehen an je zwei
   Stellen im pbxproj (Debug + Release) — KEINE Skript-Bauphase. **Jede
   Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne Nachfrage,
   als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann 1.0.1
-  (Build 2), 1.0.2 (Build 3), 1.0.3 (Build 4) usw. Dazu gesetzt (Ansage des Nutzers,
+  (Build 2), 1.0.2 (Build 3), 1.0.3 (Build 4), 1.0.4 (Build 5) usw. Dazu gesetzt (Ansage des Nutzers,
   09/2026): `DEVELOPMENT_TEAM = F4989GSTWS` — dieselbe Id wie Schulalarm und
   Tafelbild — und `INFOPLIST_KEY_LSApplicationCategoryType =
   public.app-category.navigation`. Beides steht als Build-Einstellung, weil
