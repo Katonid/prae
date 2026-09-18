@@ -131,6 +131,17 @@ wirklich dort.
 | Golemio (PID) | Tschechien | Kopfzeile `X-Access-Token` | **nein** |
 | DB API Marketplace | Deutschland | `DB-Client-Id` + `DB-Api-Key` | ja |
 
+**Wo es die Schlüssel gibt** — jede Adresse am 18.09.2026 abgerufen; in der App
+steht sie als Knopf über dem Eingabefeld, mit den Schritten daneben:
+
+| Land | Anmeldeseite | zu beachten |
+| --- | --- | --- |
+| Frankreich | `navitia.io/inscription/` | leitet auf `hove.com`, den Betreiber — das ist richtig so |
+| Niederlande | `apiportal.ns.nl/signin` | Konto allein genügt nicht: das Reisinformatie-API muss abonniert werden |
+| Dänemark | `labs.rejseplanen.dk/hc/da` | **aus der Bauumgebung nicht abrufbar** (Bot-Schutz) — steht so in der offiziellen Hilfe, geprüft ist sie nicht |
+| Tschechien | `api.golemio.cz/api-keys` | braucht JavaScript, also im Browser öffnen |
+| Deutschland | `developers.deutschebahn.com/db-api-marketplace/apis/` | zwei Angaben (Client-Id und Api-Key), dazu das Produkt Timetables zuordnen |
+
 **„Zugang prüfen" fragt den echten Datenweg ab**, nicht eine Statusseite, und
 zeigt Status und Rohtext — kopierbar. Der kopierte Befund enthält den Schlüssel
 **nicht**: Er wird überall geschwärzt, und das hat einen gemessenen Grund —
