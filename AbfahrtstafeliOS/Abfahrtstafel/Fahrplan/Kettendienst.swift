@@ -36,15 +36,19 @@ struct Kettendienst: Fahrplandienst {
     private let erste: Fahrplandienst
     /// Die Quellen, die nur Abfahrten können — der Reihe nach.
     private let weitere: [Abfahrtsquelle]
+    /// Die Quellen, die nur Verbindungen können — der Reihe nach.
+    private let verbindungsreihe: [Verbindungsquelle]
     private let speicher: Abfahrtsspeicher
 
     init(
         erste: Fahrplandienst = TransitousDienst(),
         weitere: [Abfahrtsquelle] = Self.zweiteReihe,
+        verbindungsreihe: [Verbindungsquelle] = Self.zweiteReiheFuerVerbindungen,
         speicher: Abfahrtsspeicher = Abfahrtsspeicher()
     ) {
         self.erste = erste
         self.weitere = weitere
+        self.verbindungsreihe = verbindungsreihe
         self.speicher = speicher
         // Nur die erste Quelle steht im Namen. Die zweite Reihe sind je nach
         // Gegend andere — sie in einen festen Namen zu schreiben hieße, unter
@@ -62,6 +66,15 @@ struct Kettendienst: Fahrplandienst {
     /// Genf den Schweizer Dienst. Wo keine zuständig ist, bleibt es bei der
     /// ersten Quelle, und die deckt ganz Mitteleuropa ab.
     static let zweiteReihe: [Abfahrtsquelle] = EfaDienst.alle + [SchweizDienst()]
+
+    /// Die zweite Reihe der Verbindungsauskunft.
+    ///
+    /// **Dieselben Stellen, andere Abfrage** — und deshalb eine eigene Liste:
+    /// Ob eine Quelle eine Tafel liefern kann, sagt nichts darüber, ob sie
+    /// eine Reise ausrechnen kann. Dass es hier dieselben acht Verbünde und
+    /// derselbe Schweizer Dienst sind, ist ein Ergebnis der Messung
+    /// (19.09.2026) und kein Grund, die beiden Listen zu einer zu machen.
+    static let zweiteReiheFuerVerbindungen: [Verbindungsquelle] = EfaDienst.alle + [SchweizDienst()]
 
     // MARK: - Was nur die erste Quelle kann
 
@@ -83,23 +96,28 @@ struct Kettendienst: Fahrplandienst {
 
     var kuerzesteSuche: Int { erste.kuerzesteSuche }
 
-    /// **Die Verbindungsauskunft hat NOCH keine zweite Reihe** — und das ist
-    /// eine offene Baustelle, keine Eigenschaft der Quellen.
+    /// **Die Verbindungsauskunft hat seit 1.1.1 eine zweite Reihe.**
     ///
-    /// `Abfahrtsquelle` verspricht genau eine Sache: eine Abfahrtstafel. Die
-    /// Verbünde selbst können aber MEHR, und das ist nachgemessen
-    /// (19.09.2026): `XSLT_TRIP_REQUEST2` gibt bei MVV und VRR vollständige
-    /// Verbindungen zurück — mit Fußwegen, Umstiegen, Zwischenhalten
-    /// (`stopSequence`), Streckengeometrie (`coords`), Echtzeit
-    /// (`isRealtimeControlled`, `departureTimeEstimated`) und sogar
-    /// Betriebsmeldungen (`infos`). Dasselbe gilt für die Schweiz
-    /// (`transport.opendata.ch/v1/connections`).
+    /// Sie ist nach demselben Muster gebaut wie die Abfahrtskette und aus
+    /// demselben Grund: Eine einzelne Quelle ist ein einzelner Ausfallpunkt.
+    /// Gemessen 19.09.2026 antworten **alle acht** Stellen aus
+    /// `EfaDienst.alle` über `XSLT_TRIP_REQUEST2` mit vollständigen
+    /// Verbindungen — Fußwege, Umstiege, Zwischenhalte, Streckengeometrie und
+    /// Echtzeit —, und `transport.opendata.ch/v1/connections` ebenso, ohne
+    /// Geometrie.
     ///
-    /// **Der frühere Satz „die Verbünde geben keine Reiseplanung heraus" war
-    /// also falsch** — er beschrieb, was DIESE App gebaut hat, und gab sich
-    /// als Auskunft über die Schnittstelle aus. Solange der Rückfall nicht
-    /// gebaut ist, gibt es bei einem Ausfall von Stufe 1 hier nichts, und die
-    /// App sagt das — aber sie sagt nicht, dass es nicht ginge.
+    /// **Der Rückfall reicht nicht so weit wie die erste Quelle**, und das ist
+    /// keine Nachlässigkeit, sondern die Sache selbst: Eine EFA-Stelle kennt
+    /// ihr Verbundgebiet. Dortmund → Köln kann nur Transitous. Wo keine
+    /// zuständig ist, bleibt es bei der ersten Quelle — es ist also **kein
+    /// Loch, wenn hier nichts steht.**
+    ///
+    /// **„Nichts gefunden" ist kein Ausfall.** Antwortet eine Quelle sauber
+    /// mit `.keineVerbindung`, wird die nächste trotzdem gefragt (der Verbund
+    /// vor Ort kennt seine Nachtbusse oft besser), am Ende aber genau das
+    /// gemeldet und nicht „keine Quelle antwortet". Der Unterschied zwischen
+    /// „es fährt nichts" und „niemand hat geantwortet" ist derselbe wie
+    /// zwischen „Plan" und „pünktlich".
     func verbindungen(
         von: CLLocationCoordinate2D,
         nach: CLLocationCoordinate2D,
@@ -107,9 +125,74 @@ struct Kettendienst: Fahrplandienst {
         ankunft: Bool,
         anzahl: Int
     ) async throws -> [Verbindung] {
-        try await erste.verbindungen(
-            von: von, nach: nach, zeitpunkt: zeitpunkt, ankunft: ankunft, anzahl: anzahl
-        )
+        var gruende: [String] = []
+        // **„Nichts gefunden" und „nicht geantwortet" werden getrennt
+        // gezählt.** Aus der Unterscheidung wird am Ende die Meldung, und die
+        // beiden verlangen verschiedene Knöpfe: gegen „es fährt nichts" hilft
+        // eine andere Zeit, gegen „niemand hat geantwortet" ein zweiter
+        // Versuch.
+        var eineQuelleSagteNichts = false
+
+        switch try await versuche(erste.quellenname, {
+            try await erste.verbindungen(
+                von: von, nach: nach, zeitpunkt: zeitpunkt, ankunft: ankunft, anzahl: anzahl
+            )
+        }) {
+        case .gefunden(let gefunden): return gefunden
+        case .leer(let grund): gruende.append(grund); eineQuelleSagteNichts = true
+        case .ausfall(let grund): gruende.append(grund)
+        }
+
+        // Der Verbund vor Ort — nur, wenn BEIDE Punkte in seinem Gebiet
+        // liegen.
+        for quelle in verbindungsreihe where quelle.zustaendig(von: von, nach: nach) {
+            switch try await versuche(quelle.name, {
+                try await quelle.verbindungen(
+                    von: von, nach: nach, zeitpunkt: zeitpunkt, ankunft: ankunft, anzahl: anzahl
+                )
+            }) {
+            case .gefunden(let gefunden): return gefunden
+            case .leer(let grund): gruende.append(grund); eineQuelleSagteNichts = true
+            case .ausfall(let grund): gruende.append(grund)
+            }
+        }
+
+        // **Es gibt hier keinen Zwischenspeicher**, anders als bei der Tafel.
+        // Eine Abfahrtstafel von vorhin ist mit Altersangabe noch etwas wert;
+        // eine Verbindungssuche gilt für zwei Punkte und eine Uhrzeit, und die
+        // sind beim nächsten Mal andere. Ein Treffer von gestern wäre kein
+        // alter Stand, sondern eine Antwort auf eine andere Frage.
+        if eineQuelleSagteNichts { throw Fahrplanfehler.keineVerbindung }
+        throw Fahrplanfehler.keineQuelleAntwortet(gruende: gruende)
+    }
+
+    /// Wie eine einzelne Quelle geantwortet hat.
+    private enum Versuch {
+        case gefunden([Verbindung])
+        /// Die Quelle hat geantwortet und nichts gefunden — samt Grundtext
+        /// für die Aufzählung.
+        case leer(String)
+        case ausfall(String)
+    }
+
+    private func versuche(
+        _ quellenname: String,
+        _ holen: () async throws -> [Verbindung]
+    ) async throws -> Versuch {
+        do {
+            let gefunden = try await holen()
+            if !gefunden.isEmpty { return .gefunden(gefunden) }
+            return .leer("\(quellenname): nichts gemeldet")
+        } catch let fehler as Fahrplanfehler {
+            // Ein Abbruch ist kein Ausfall — er heißt, dass jemand die Suche
+            // verworfen hat. Die Kette darf daraufhin nicht die nächste
+            // Quelle anrufen.
+            if fehler == .abgebrochen { throw fehler }
+            let text = "\(quellenname): \(fehler.kurzfassung)"
+            return fehler == .keineVerbindung ? .leer(text) : .ausfall(text)
+        } catch {
+            return .ausfall("\(quellenname): \(error.localizedDescription)")
+        }
     }
 
     // MARK: - Die Kette

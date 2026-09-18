@@ -22,6 +22,11 @@ struct VerbindungDetailView: View {
                 kopf
                     .textCase(nil)
                     .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 10, trailing: 0))
+            } footer: {
+                if ohneStreckenfuehrung {
+                    Text("Gestrichelt heißt: Die Quelle hat für diesen Abschnitt keinen Linienweg mitgeschickt. Gezeichnet ist dann die Verbindung der Halte — nicht der Weg, den das Fahrzeug nimmt.")
+                        .font(.caption2)
+                }
             }
 
             ForEach(verbindung.abschnitte) { abschnitt in
@@ -53,6 +58,13 @@ struct VerbindungDetailView: View {
         .listStyle(.insetGrouped)
         .navigationTitle("Verbindung")
         .navigationBarTitleDisplayMode(.inline)
+    }
+
+    /// Ob irgendeine Fahrt dieser Verbindung ohne Streckenführung dasteht.
+    /// Steht unter der Karte — eine Karte, der man ihre Unvollständigkeit
+    /// nicht ansieht, ist die schlechtere Karte.
+    private var ohneStreckenfuehrung: Bool {
+        verbindung.abschnitte.contains { $0.art == .fahrt && $0.strecke.isEmpty }
     }
 
     private var kopf: some View {
@@ -246,10 +258,15 @@ private struct VerbindungsKarte: View {
                                 lineCap: .round,
                                 lineJoin: .round,
                                 // Ein Fußweg ist gepunktet, weil er kein
-                                // Linienweg ist — und weil eine fehlende
-                                // Geometrie hier dieselbe gestrichelte
-                                // Luftlinie ergäbe wie überall sonst.
-                                dash: abschnitt.art == .fussweg ? [1, 5] : []
+                                // Linienweg ist. **Und eine Fahrt OHNE
+                                // Streckenführung wird gestrichelt** — nicht
+                                // durchgezogen: Nicht jede Quelle liefert
+                                // Geometrie (die Schweizer gar keine), und
+                                // eine durchgezogene Gerade quer über die
+                                // Karte sähe aus wie ein Fahrweg. Dieselbe
+                                // Regel wie bei der gestrichelten Luftlinie
+                                // im Fahrtlauf.
+                                dash: strichelt(abschnitt) ? [1, 5] : []
                             )
                         )
                 }
@@ -292,9 +309,21 @@ private struct VerbindungsKarte: View {
     /// Die Streckenführung, und wo sie fehlt, die Verbindung der Halte.
     private func linienzug(_ abschnitt: Verbindungsabschnitt) -> [CLLocationCoordinate2D] {
         if !abschnitt.strecke.isEmpty { return abschnitt.strecke }
-        let aus = [abschnitt.von?.koordinate, abschnitt.nach?.koordinate].compactMap { $0 }
-        return aus
+        // Ohne Geometrie werden die HALTE verbunden — nicht nur Anfang und
+        // Ende. Eine Fahrt über sechs Stationen läge sonst als eine einzige
+        // Gerade da, obwohl die Lage jedes Haltes bekannt ist.
+        let ausHalten = abschnitt.halte.map(\.haltestelle.koordinate)
+        if ausHalten.count >= 2 { return ausHalten }
+        return [abschnitt.von?.koordinate, abschnitt.nach?.koordinate].compactMap { $0 }
     }
+
+    /// Ob dieser Abschnitt gestrichelt gehört: jeder Fußweg, und jede Fahrt,
+    /// deren Streckenführung die Quelle nicht mitgeschickt hat.
+    private func strichelt(_ abschnitt: Verbindungsabschnitt) -> Bool {
+        abschnitt.art == .fussweg || abschnitt.strecke.isEmpty
+    }
+
+
 
     private var ausschnitt: MKMapRect {
         let punkte = verbindung.abschnitte.flatMap { linienzug($0) }

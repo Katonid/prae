@@ -117,6 +117,18 @@ final class Verbindungsmodell: ObservableObject {
         }
     }
 
+    /// Die Quellen, die wirklich beigetragen haben — in der Reihenfolge, in
+    /// der sie in der Liste stehen.
+    ///
+    /// **Nicht der Name des Dienstes.** Die Auskunft kann vom Verbund vor Ort
+    /// kommen, weil die erste Quelle gerade nicht antwortete; „Transitous"
+    /// darunter wäre dann eine Angabe über die App und nicht über die Daten.
+    /// Dieselbe Regel wie bei `AppModel.beteiligteQuellen`.
+    var beteiligteQuellen: [String] {
+        var gesehen: Set<String> = []
+        return verbindungen.map(\.quelle).filter { gesehen.insert($0).inserted }
+    }
+
     /// Der Name, der als Startpunkt in der Leiste steht.
     func startname(standortBekannt: Bool) -> String {
         if let von { return von.name }

@@ -44,6 +44,9 @@ enum SchweizAntwort {
     struct Halt: Decodable {
         let station: Station?
         let departure: String?
+        /// Nur in der Verbindungsauskunft gefüllt — eine Abfahrtstafel kennt
+        /// keine Ankunft. Ein zusätzliches Optional kostet die Tafel nichts.
+        let arrival: String?
         /// Verspätung in MINUTEN. **`nil` heißt „keine Echtzeit", nicht
         /// „pünktlich"** — und `0` heißt „gemeldet und pünktlich". Genau
         /// dieser Unterschied ist der, den diese App nie verwischen darf.
@@ -53,6 +56,7 @@ enum SchweizAntwort {
 
         struct Vorhersage: Decodable {
             let departure: String?
+            let arrival: String?
         }
     }
 }

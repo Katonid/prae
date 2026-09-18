@@ -37,8 +37,14 @@ struct SchweizDienst: Abfahrtsquelle {
     /// Wie bei den EFA-Stellen bewusst grob: Der Dienst antwortet außerhalb
     /// ohnehin mit einer leeren Liste, das Rechteck spart nur die Anfrage.
     func zustaendig(fuer haltestelle: Haltestelle) -> Bool {
-        (45.75...47.85).contains(haltestelle.breite)
-            && (5.85...10.55).contains(haltestelle.laenge)
+        imGebiet(haltestelle.koordinate)
+    }
+
+    /// Die eine Gebietsprüfung dieses Dienstes — die Tafel fragt sie für eine
+    /// Haltestelle, die Verbindungsauskunft für zwei Koordinaten. Zwei
+    /// Fassungen liefen mit Sicherheit auseinander.
+    func imGebiet(_ punkt: CLLocationCoordinate2D) -> Bool {
+        (45.75...47.85).contains(punkt.latitude) && (5.85...10.55).contains(punkt.longitude)
     }
 
     func abfahrten(
@@ -175,7 +181,10 @@ struct SchweizDienst: Abfahrtsquelle {
     }
 
     /// Die Schweizer Gattungen auf die acht Arten dieser App.
-    private func verkehrsmittel(_ gattung: String?) -> Verkehrsmittel {
+    ///
+    /// Nicht `private`: Die Verbindungsauskunft in `SchweizVerbindungen.swift`
+    /// braucht dieselbe Zuordnung.
+    func verkehrsmittel(_ gattung: String?) -> Verkehrsmittel {
         switch (gattung ?? "").uppercased() {
         case "S", "SN": return .sBahn
         case "M": return .uBahn
@@ -191,7 +200,8 @@ struct SchweizDienst: Abfahrtsquelle {
 
     // MARK: - Netz
 
-    private func hole<T: Decodable>(_ adresse: URL) async throws -> T {
+    /// Nicht `private`: auch die Verbindungsauskunft geht hierüber.
+    func hole<T: Decodable>(_ adresse: URL) async throws -> T {
         let daten: Data
         let antwort: URLResponse
         do {

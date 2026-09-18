@@ -377,7 +377,8 @@ struct TransitousDienst: Fahrplandienst {
             geplanteAbfahrt: Zeitleser.datum(reise.legs?.first?.scheduledStartTime),
             geplanteAnkunft: Zeitleser.datum(reise.legs?.last?.scheduledEndTime),
             umstiege: reise.transfers ?? max(abschnitte.filter { $0.art == .fahrt }.count - 1, 0),
-            abschnitte: abschnitte
+            abschnitte: abschnitte,
+            quelle: quellenname
         )
     }
 
