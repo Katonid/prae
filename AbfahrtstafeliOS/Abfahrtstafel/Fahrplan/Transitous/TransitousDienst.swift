@@ -23,15 +23,42 @@ import Foundation
 /// kostet der Wechsel eine Datei und keine Zeile in den Ansichten.
 struct TransitousDienst: Fahrplandienst {
 
-    let quellenname = "Transitous (MOTIS)"
+    let quellenname: String
     let quellenadresse = URL(string: "https://transitous.org")!
 
-    private let wurzel = URL(string: "https://api.transitous.org/api/v1")!
+    private let wurzel: URL
     private let sitzung: URLSession
 
-    init(sitzung: URLSession = .abfahrtstafel) {
+    init(
+        wurzel: URL = Self.transitous,
+        quellenname: String = "Transitous (MOTIS)",
+        sitzung: URLSession = .abfahrtstafel
+    ) {
+        self.wurzel = wurzel
+        self.quellenname = quellenname
         self.sitzung = sitzung
     }
+
+    /// Die Adresse, auf der diese App steht.
+    static let transitous = URL(string: "https://api.transitous.org/api/v1")!
+
+    /// **Eine ZWEITE MOTIS-Instanz mit denselben Daten** (TU Darmstadt,
+    /// nachgemessen 18.09.2026).
+    ///
+    /// Sie spricht dieselbe Schnittstelle Wort für Wort: `/reverse-geocode`,
+    /// `/stoptimes`, `/trip`, `/plan`, `/geocode` — in Dortmund, München,
+    /// Amsterdam, Prag, Kopenhagen, Paris, Zürich und Wien geprüft, mit
+    /// denselben Zahlen und derselben Echtzeitquote. Sogar die
+    /// **Fahrtkennungen sind austauschbar**: Eine Kennung aus der einen
+    /// Instanz öffnet den Lauf in der anderen.
+    ///
+    /// **Was sie ist und was nicht.** Sie läuft auf einer anderen Maschine, in
+    /// einem anderen Netz und bei einem anderen Betreiber (gemessen: eigene
+    /// IP, eigener Webserver) — sie hilft also gegen einen AUSFALL. Sie führt
+    /// aber DIESELBEN Daten; eine Lücke im Fahrplan ist in beiden dieselbe.
+    /// Das ist kein Mangel, sondern der Unterschied zwischen einem zweiten
+    /// Weg und einer zweiten Meinung, und er gehört hingeschrieben.
+    static let spiegel = URL(string: "https://europe.motis-project.de/api/v1")!
 
     // MARK: - Haltestellen
 
