@@ -1155,6 +1155,23 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   Karte bewegt sich darunter. Ein Tippen auf die Karte wäre naheliegend
   und schlechter: Der Finger verdeckt genau die Stelle, die er trifft, und
   ein Tipp löst beim Verschieben leicht aus.
+- **Die Kartenwahl beginnt beim ZULETZT GEWÄHLTEN Ort, nicht beim Bezugspunkt**
+  (`AppModel.letzterOrt`, `OrtswahlView.kartenstart`, ab 1.0.7, Ansage des
+  Nutzers 09/2026: „nicht immer München als Startort, sondern den zuletzt
+  gewählten Ort, unabhängig davon, wann das war und wo ich mich momentan
+  befinde"). Bis 1.0.6 stand dort `model.punkt?.koordinate` — und `punkt` ist
+  im gewöhnlichen Gebrauch der eigene Standort. Die Kartenwahl fiel damit auf
+  ihn zurück und ohne Ortung auf einen fest eingebauten Punkt in München. **Wer
+  die Karte öffnet, sucht aber gerade NICHT die Stelle, auf der er steht** —
+  dafür ist die Zeile darüber da.
+  Drei Dinge dabei: Gemerkt wird in `ortWaehlen`, wo Suche, Merkliste und Karte
+  zusammenlaufen (ein „zuletzt gewählter Ort", der nur die Karte zählte, wäre
+  nach einer Suche wieder der Punkt von vorgestern). **`letzterOrt` ist NICHT
+  der Bezugspunkt** — die Tafel startet weiterhin beim eigenen Standort; sie
+  mit dem Ort von letzter Woche aufzuschlagen wäre das genaue Gegenteil dessen,
+  wofür diese App an einer Haltestelle geöffnet wird. Und die Koordinate liegt
+  als DREI Schlüssel in den Voreinstellungen, samt Prüfung auf 0/0: `0,0` ist
+  der fehlende Schlüssel und liegt im Golf von Guinea.
 - **Die Quellen sind eine KETTE, und die Reihenfolge ist gemessen**
   (`Kettendienst`, ab 1.0.1): Transitous → Verbund vor Ort →
   Zwischenspeicher. Eine Abfahrtstafel wird an einer Haltestelle
@@ -1376,7 +1393,7 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne Nachfrage,
   als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann 1.0.1
   (Build 2), 1.0.2 (Build 3), 1.0.3 (Build 4), 1.0.4 (Build 5), 1.0.5 (Build 6),
-  1.0.6 (Build 7) usw. Dazu gesetzt (Ansage des Nutzers,
+  1.0.6 (Build 7), 1.0.7 (Build 8) usw. Dazu gesetzt (Ansage des Nutzers,
   09/2026): `DEVELOPMENT_TEAM = F4989GSTWS` — dieselbe Id wie Schulalarm und
   Tafelbild — und `INFOPLIST_KEY_LSApplicationCategoryType =
   public.app-category.navigation`. Beides steht als Build-Einstellung, weil
