@@ -1807,6 +1807,17 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   Bis 1.1.8 galt `wahrgenommeneHelligkeit > 0,6` → schwarz, sonst weiß. Ein
   mittelheller Ton liegt darunter, bekam weiße Schrift und trug sie nicht.
   Jetzt gewinnt schlicht die Farbe mit dem größeren Kontrastverhältnis.
+- **Ein Linienzug bekommt eine KONTUR** (`LiniennetzView.konturfarbe`, ab
+  1.1.9). Gemessen 18.09.2026 gegen die Kartenhintergründe: Ein dunkler Ton
+  auf der dunklen Karte kommt auf 1,8:1, ein heller auf der hellen Karte auf
+  2,0:1 — zu wenig, um einen Strich über die Karte zu verfolgen. **Das galt
+  schon vorher und gilt auch für jede Farbe, die ein Verbund selbst führt**;
+  es ist also kein Preis der neuen Palette, sondern ein alter blinder Fleck,
+  der beim Messen auffiel. Gezeichnet wird deshalb erst die Kontur (drei
+  Punkte breiter, Gegenfarbe zur Darstellungsart) und dann die Linie —
+  **erst ALLE Konturen, dann ALLE Linien**, sonst deckt die Kontur der einen
+  die schon gezeichnete andere zu. Nicht `Color.primary`: Das ist die Farbe
+  für Schrift und wäre auf der dunklen Karte ein reines Weiß.
 - **Eine Farbe aus den Daten darf doppelt vorkommen.** Gemessen in München:
   Die Buslinien 100, 132, 153 und 154 tragen alle `325868`, die 52, 58, 62 und
   68 alle `d3762b` — das ist die Hausfarbe des Betreibers und keine Panne. Die

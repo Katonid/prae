@@ -48,7 +48,8 @@ zwölf Zeichen ab), Ordner, Ziel und Bundle-Id bleiben „Abfahrtstafel“ /
   seine. Sonst bekommt die Linie eine aus zwölf deutlich verschiedenen Farben
   in drei Helligkeiten, vergeben über die Liniennummer — sie unterscheidet nur
   und sagt nichts über das Verkehrsmittel; das steht als Symbol in der
-  Legende.
+  Legende. Unter jedem Linienzug liegt eine Kontur in der Gegenfarbe zur
+  Karte — ohne sie trägt ein dunkler Strich auf der dunklen Karte nur 1,8:1.
   Die **Legende lässt sich ausblenden** (Pfeil in ihrer Kopfzeile); zurück holt
   sie ein kleiner Knopf an derselben Stelle. Hervorheben geht dann weiter über
   die Liniennummern auf der Karte — die sind Knöpfe. Unter der Karte steht

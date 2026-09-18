@@ -16,6 +16,10 @@ struct LiniennetzView: View {
     @EnvironmentObject private var netz: Liniennetz
     @EnvironmentObject private var meldungen: Meldungsdienst
 
+    /// Gebraucht für die Farbe der Linienkontur — sie muss die GEGENFARBE zur
+    /// Karte sein, und welche das ist, weiß nur die Darstellungsart.
+    @Environment(\.colorScheme) private var darstellung
+
     @State private var kamera: MapCameraPosition = .automatic
     /// Welche Linie gerade hervorgehoben ist. `nil` heißt „alle gleich".
     @State private var hervorgehoben: String?
@@ -47,6 +51,14 @@ struct LiniennetzView: View {
         }
     }
 
+    /// Die Farbe der Kontur unter einem Linienzug: dunkel auf heller Karte,
+    /// hell auf dunkler. Nicht `Color.primary` — das ist die Farbe für
+    /// SCHRIFT und wechselt zwar richtig, ist aber auf der dunklen Karte ein
+    /// reines Weiß, das neben einer hellen Linie mehr blendet als trennt.
+    private var konturfarbe: Color {
+        darstellung == .dark ? .black : .white
+    }
+
     private func aufbauen() {
         netz.aufbauen(aus: model.nachZeit, dienst: model.dienst)
     }
@@ -55,6 +67,31 @@ struct LiniennetzView: View {
 
     private var karte: some View {
         Map(position: $kamera, interactionModes: [.pan, .zoom, .rotate]) {
+            // **Erst alle Konturen, dann alle Linien** (ab 1.1.9). Zwei
+            // Durchgänge, weil sonst die Kontur der einen Linie die andere
+            // überdeckt, die schon gezeichnet ist.
+            //
+            // Warum es sie überhaupt gibt, ist gemessen (18.09.2026): Ein
+            // dunkler Ton auf der dunklen Karte kommt auf ein
+            // Kontrastverhältnis von 1,8:1, ein heller auf der hellen Karte
+            // auf 2,0:1 — beides zu wenig, um einen Strich zu verfolgen. Das
+            // galt schon vor der neuen Palette und für jede Farbe, die ein
+            // Verbund selbst führt. Die Kontur ist das übliche Mittel der
+            // Kartografie dagegen und hilft zugleich dort, wo sich zwei Züge
+            // überlagern.
+            ForEach(netz.zuege) { zug in
+                MapPolyline(coordinates: zug.punkte)
+                    .stroke(
+                        konturfarbe.opacity(0.55 * deckkraft(zug)),
+                        style: StrokeStyle(
+                            lineWidth: (hervorgehoben == zug.id ? 7 : 4) + 3,
+                            lineCap: .round,
+                            lineJoin: .round,
+                            dash: zug.istLuftlinie ? [2, 7] : []
+                        )
+                    )
+            }
+
             ForEach(netz.zuege) { zug in
                 MapPolyline(coordinates: zug.punkte)
                     .stroke(
