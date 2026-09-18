@@ -1044,6 +1044,128 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   abwarten, Fehler beheben — den PR-Link erst herausgeben, wenn der Bau
   grün ist.**
 
+## Projekt Abfahrtstafel (ÖPNV-Abfahrten, native iOS-App)
+
+- App-Code: `AbfahrtstafeliOS/` (ein Target: App, iPhone + iPad, iOS 17,
+  keine fremden Abhängigkeiten). Zeigt, was um einen Punkt herum gerade
+  wegfährt — Abfahrtszeit, Verspätung, Minutenziffer, alle Zwischenhalte
+  und die Strecke auf der Karte. Der Punkt ist der eigene Standort ODER
+  ein frei gewählter. Ausführlich: `AbfahrtstafeliOS/README.md`.
+- **Homescreen-Name „Abfahrt"**, Ordner/Ziel/Bundle-Id bleiben
+  „Abfahrtstafel" / `de.familie.abfahrtstafel` — nach dem ersten
+  Signieren nicht mehr ändern.
+- **Alles Fahrplan-Nahe liegt hinter EINEM Protokoll** (`Fahrplandienst`).
+  Die Schnittstelle kennt ausschließlich `Fahrplan/Transitous/`; Ansichten
+  und Modelle sehen sie nie. Das ist kein Stilwunsch: Öffentliche
+  Fahrplanschnittstellen werden abgeschaltet (HAFAS bei der Bahn),
+  verlangen plötzlich einen Schlüssel oder decken eine Gegend nicht ab.
+  `Musterdienst` ist der laufende Beweis — steckte in einer Ansicht ein
+  JSON-Feld von Transitous, ließe er sich nicht übersetzen.
+- **Datenquelle ist Transitous (MOTIS v1), ohne Schlüssel und ohne Konto.**
+  Es führt die DELFI-Daten (alle deutschen Verbünde) und große Teile
+  Europas zusammen. `v6.db.transport.rest` wäre die naheliegende
+  Alternative und antwortete beim Bau (09/2026) über Stunden mit 503.
+  Ein Schlüssel in der App wäre keiner — was in einer App steckt, ist
+  kein Geheimnis.
+- **Drei Abfragen, mehr nicht:** `/reverse-geocode` (nächste Haltestelle
+  zum Punkt), `/stoptimes` (Abfahrten), `/trip` (Lauf samt Geometrie).
+  **`radius` an `/stoptimes` ist der Grund, warum die Tafel mit EINER
+  Abfrage fertig ist** — der Dienst liefert die Abfahrten aller
+  Haltestellen im Umkreis mit. Eine Abfrage je Haltestelle wären zehn
+  Anfragen, und die Liste baute sich ruckweise auf. `/reverse-geocode`
+  gibt immer genau FÜNF Treffer zurück (nachgemessen mit `n`, `limit`,
+  `count`) — die Liste der Haltestellen baut die App deshalb aus den
+  ABFAHRTEN, denn nur die wissen, ob dort heute noch etwas fährt.
+- **`/reverse-geocode` sucht nur rund einen Kilometer weit und gibt sonst
+  eine LEERE Liste zurück** (nachgemessen 09/2026: Bayerischer Wald und
+  Allgäu leer, Eppenschlag 305 m gefunden, Frankfurt 84 m). Ein Punkt
+  mitten im Feld hat also keine Ankerhaltestelle, und der Umkreis der App
+  ändert daran nichts — was der Dienst nicht liefert, lässt sich nicht
+  filtern. Dafür gibt es `Fahrplanfehler.keineHaltestelleInDerNaehe` als
+  EIGENEN Fall: Die Antwort darauf ist ein anderer Punkt, nicht ein
+  zweiter Versuch, und `Ladestand.fehler` trägt deshalb `ortswahlHilft`
+  bis zum Knopf durch. „Noch einmal versuchen" über einem Waldstück wäre
+  eine Sackgasse mit Bedienelement.
+- **„Plan" ist nicht „pünktlich".** Liegt keine Echtzeitmeldung vor
+  (`realTime == false`), steht neben der Zeit das Wort „Plan" und sonst
+  nichts. Ein grüner Haken für „nicht nachgesehen" wäre die teuerste Lüge,
+  die diese App erzählen kann — dieselbe Regel wie bei Schulalarms
+  Prüfliste. Weicht die Echtzeit ab, steht die PLANZEIT durchgestrichen
+  da, daneben `+3` und die neue Zeit: Nur die neue zu zeigen verschwiege,
+  dass es eine Verspätung gibt, und wer den Fahrplan im Kopf hat, hielte
+  die App für falsch. **Ein Zufrüh (`-1`) wird ebenfalls gezeigt** — ein
+  Bus, der zwei Minuten zu früh fährt, ist für den Wartenden weg.
+- **Es gibt GENAU EINE Uhr** (`Dienste/Uhrwerk.swift`), und jede
+  Minutenziffer rechnet aus ihr. Holte sich jede Zeile selbst `Date()`,
+  stünden zwei Abfahrten derselben Minute mit verschiedenen Ziffern
+  nebeneinander, und die Liste zählte nur dort weiter, wo SwiftUI zufällig
+  neu zeichnet. Sekundentakt, und der Timer hängt in `.common` — in der
+  Vorgabeschleife stünde er still, solange gescrollt wird, also genau
+  dann, wenn jemand die Tafel durchsieht.
+- **Haltestellen werden über den NAMEN gruppiert, nicht über Kennungen**
+  (`Haltestellengruppe.bauen`). Der Dienst führt Haltestellen auf
+  Steig-Ebene: „Marienplatz" sind mindestens drei Einträge (`…:09162:2`,
+  `…:09162:2_G`, `…:09162:2:51:51`), und die Elternkennung ist nicht
+  überall gepflegt — ungruppiert stünde dieselbe Haltestelle dreimal
+  untereinander, jedes Mal mit einem Teil der Abfahrten. Dazu eine
+  Abstandsprüfung (400 m), weil es „Bahnhof" und „Kirche" in einem
+  Landkreis dutzendfach gibt. **Umlaute werden beim Vergleich NICHT
+  eingeebnet** — dieselbe Regel wie bei Schulalarms Kürzeln.
+- **Eine fehlende Streckengeometrie wird nicht erfunden.** Schickt der
+  Dienst keinen Linienzug mit, zeichnet `StreckenKarte` die Verbindung der
+  Halte GESTRICHELT und schreibt darunter, dass es die Luftlinie ist. Eine
+  durchgezogene Linie quer über einen Berg, wo ein Tunnel liegt, sieht aus
+  wie eine Auskunft und ist keine.
+- **Die Genauigkeit der Polylinie ist ein Parameter, keine Konstante**
+  (`Polylinie.auspacken`). Google schreibt mit fünf Nachkommastellen,
+  MOTIS mit sieben, und die Antwort sagt es selbst (`precision`). Wer rät,
+  legt die Strecke um den Faktor 100 daneben.
+- **`METRO` ist die S-BAHN, nicht die U-Bahn.** MOTIS benutzt es für
+  GTFS-Typ 109 („suburban railway"). Wer das verwechselt, färbt jede
+  S-Bahn blau und jede U-Bahn grün — und ein Fahrgast liest diese Farben,
+  ohne hinzusehen. Linienfarben kommen aus den GTFS-Daten
+  (`route_color`); fehlen sie, gilt die gewohnte deutsche Rückfallfarbe je
+  Verkehrsmittel. Ist keine Schriftfarbe angegeben, wird sie aus der
+  HELLIGKEIT entschieden und nicht auf Weiß gesetzt: Die S8 in München ist
+  hellgrün, und weiße Schrift darauf ist im Sonnenlicht nicht zu lesen.
+- **Entfernungen sind Luftlinien, und das steht dabei.** Ein Fußweg
+  bräuchte je Haltestelle eine Routing-Abfrage und wäre trotzdem geraten,
+  solange niemand weiß, wo der Zugang liegt. Wer die Zahl für eine
+  Gehstrecke hält, verpasst den Bus.
+- **Ein Fehler beim Nachladen räumt die stehende Tafel NICHT weg**
+  (`AppModel.melden`). Ist noch nichts da, füllt der Fehler den
+  Bildschirm; stehen schon Zeiten, bleiben sie und der Fehler wird ein
+  Band darüber — zusammen mit „zuletzt geholt um …", das dann ehrlich
+  sagt, wie alt die Zahlen sind.
+- **Kein `@AppStorage` in `AppModel`.** Der Wrapper ist eine
+  `DynamicProperty` und gehört in eine View; in einer
+  `ObservableObject`-Klasse schreibt er zwar in die Voreinstellungen, löst
+  aber kein `objectWillChange` aus — die Tafel bliebe nach dem Umstellen
+  des Umkreises stehen, und niemand sähe, woran es liegt.
+- **Die Ortung ist `WhenInUse` und sonst nichts.** Kein Hintergrundmodus:
+  Die App zeigt Abfahrten, während jemand auf sie schaut. Wird die Ortung
+  abgelehnt, ist das KEIN Fehlerzustand — der Weg über die Ortswahl steht
+  gleich daneben. Eine App, die dort nur „Zugriff verweigert" sagt, ist
+  für jemanden ohne Ortung zu Ende.
+- **Der Punkt auf der Karte wird über ein festes Fadenkreuz gewählt**, die
+  Karte bewegt sich darunter. Ein Tippen auf die Karte wäre naheliegend
+  und schlechter: Der Finger verdeckt genau die Stelle, die er trifft, und
+  ein Tipp löst beim Verschieben leicht aus.
+- `MARKETING_VERSION` und `CURRENT_PROJECT_VERSION` stehen an je zwei
+  Stellen im pbxproj (Debug + Release) — KEINE Skript-Bauphase. **Jede
+  Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne Nachfrage,
+  als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann 1.0.1
+  (Build 2) usw.
+- `ITSAppUsesNonExemptEncryption = NO` steht in `Config/Info.plist` UND
+  als Build-Einstellung — nicht entfernen.
+- Das App-Symbol rechnet `AbfahrtstafeliOS/scripts/make-icon.py` (reines
+  Python, ohne fremde Bibliotheken) — nicht von Hand bearbeiten.
+- Übersetzt wird in GitHub Actions
+  (`.github/workflows/ios-apps-build.yml`, Eintrag
+  `("AbfahrtstafeliOS", "Abfahrtstafel")` in `welche-apps.py`). **Erst
+  pushen, Bau abwarten, Fehler beheben — den PR-Link erst herausgeben,
+  wenn der Bau grün ist.**
+
 ## Projekt Anstoß (Fußball-Liveticker, native iOS-App)
 
 - App-Code: `AnstossiOS/` (ein Target: App, iPhone + iPad, iOS 17).

@@ -49,6 +49,7 @@ import sys
 # der die Apps aufgezählt sind; der Arbeitsablauf holt sich die Auswahl
 # hierher.
 APPS = [
+    ("AbfahrtstafeliOS", "Abfahrtstafel"),
     ("AlarmiOS", "Alarm"),
     ("AnstossiOS", "Anstoss"),
     ("CadUsdEuriOS", "CadUsdEur"),

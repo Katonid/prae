@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+
+	<!-- Die App ist deutsch und bringt keine Sprachdateien mit. Ohne diese
+	     beiden Schlüssel setzt Xcode „en", und iOS zeigt daraufhin ALLES
+	     Systemeigene englisch — Ortungsdialog, Teilen-Blatt, „Abbrechen".
+	     Dieselbe Falle wie bei Tafelbild 1.0.59. -->
+	<key>CFBundleDevelopmentRegion</key>
+	<string>de</string>
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>de</string>
+	</array>
+
+	<!-- Nur „WhenInUse". Die App hat keinen Grund, im Hintergrund zu orten:
+	     Sie zeigt Abfahrten, während jemand auf sie schaut. Der Text steht
+	     im Dialog und muss sagen, WOZU — „für ein besseres Erlebnis" ist
+	     ein Ablehnungsgrund bei Apple und obendrein nichtssagend. -->
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Damit die App die Haltestellen um dich herum finden kann. Der Standort bleibt auf dem Gerät und wird nur als Koordinate an den Fahrplandienst geschickt.</string>
+</dict>
+</plist>
