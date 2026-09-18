@@ -67,6 +67,43 @@ zwölf Zeichen ab), Ordner, Ziel und Bundle-Id bleiben „Abfahrtstafel“ /
 - **Merkliste** für die Handvoll Haltestellen des Alltags — auf dem Gerät,
   ohne Konto.
 
+## Verbindungsauskunft
+
+Der zweite Reiter beantwortet die andere Hälfte der Frage: nicht „was fährt
+hier weg", sondern **„wie komme ich dorthin"**.
+
+- **Vorschläge beim Tippen.** Ab drei Zeichen — darunter antwortet die Quelle
+  gar nicht, und die App schreibt hin, wie viele Zeichen noch fehlen, statt
+  eine leere Liste zu zeigen.
+- **Zuerst das Nahe.** Vorgeschlagen wird, was um den Startpunkt herum liegt:
+  um den eigenen Standort, oder — sobald ein Start eingetippt ist — um diesen.
+  **Weiter entfernte Ziele bleiben trotzdem erreichbar**; dafür laufen zwei
+  Abfragen nebeneinander (siehe unten).
+- **Haltestellen und Adressen**, und was ein Treffer ist, steht an der Zeile.
+- **Alternativen**: bis zu sechs Vorschläge mit Abfahrt, Ankunft, Dauer,
+  Umstiegen, Fußweg und den Linien als Schilderkette.
+- **Jetzt, oder zu einer Zeit** — wahlweise als Abfahrt oder als **Ankunft**
+  („ich muss um neun da sein" ist die häufigere Frage).
+- **Im Einzelnen**: jeder Abschnitt mit Ein- und Ausstieg, aufklappbaren
+  Zwischenhalten, entfallenden Halten und allen Teilstrecken auf einer Karte;
+  Fußwege gepunktet. Von dort führt ein Weg in den ganzen Linienlauf.
+- **Die Liste lädt sich NICHT von selbst nach.** Eine Ergebnisliste, die sich
+  unter den Fingern neu sortiert, während jemand sie liest, ist keine Hilfe.
+
+### Was die Ortssuche gelernt hat (gemessen 19.09.2026)
+
+`/geocode` kennt `placeBias`, und der wirkt kräftig. Zwei Fallen stecken darin:
+
+- **`type=STOP` schaltet den Ortsbezug aus.** Mit beiden zusammen gab „kle" bei
+  Dortmund wieder Paris und Tschechien. Gefragt wird deshalb ohne `type`, und
+  die Haltestellen werden in der App herausgesucht. (Bis 1.0.10 stand genau
+  diese Kombination im Quelltext, mit einem Kommentar, der das Gegenteil
+  behauptete — die Haltestellensuche war nie örtlich.)
+- **Mit Ortsbezug ist die Ferne unerreichbar.** „Köln Hbf" gab bei Dortmund den
+  Dortmunder Hauptbahnhof zurück. Eine Auskunft, die Köln nicht findet, ist
+  keine. Deshalb läuft eine zweite Abfrage ohne Ortsbezug nebenher; beide
+  Listen werden zusammengeführt.
+
 ## Auf dem iPad
 
 Eine `List` füllt, was da ist — im Querformat sind das gut zweitausend Punkte,
@@ -261,7 +298,7 @@ Bibliotheken) — nicht von Hand bearbeiten.
 pbxproj (Debug + Release); es gibt keine Skript-Bauphase. **Jede
 Arbeitseinheit hebt Patch- UND Build-Nummer um je +1.** Zählung ab 09/2026:
 1.0.0 (Build 1), dann 1.0.1 (Build 2), 1.0.2 (Build 3), 1.0.3 (Build 4), 1.0.4 (Build 5),
-1.0.5 (Build 6), 1.0.6 (Build 7), 1.0.7 (Build 8), 1.0.8 (Build 9), 1.0.9 (Build 10), 1.0.10 (Build 11) …
+1.0.5 (Build 6), 1.0.6 (Build 7), 1.0.7 (Build 8), 1.0.8 (Build 9), 1.0.9 (Build 10), 1.0.10 (Build 11), 1.0.11 (Build 12) …
 
 `ITSAppUsesNonExemptEncryption = NO` steht in `Config/Info.plist` und als
 Build-Einstellung — nicht entfernen.

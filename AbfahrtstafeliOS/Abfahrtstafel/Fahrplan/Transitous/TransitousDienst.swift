@@ -58,18 +58,87 @@ struct TransitousDienst: Fahrplandienst {
         let gekuerzt = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard gekuerzt.count >= 2 else { return [] }
 
-        var felder = [
-            URLQueryItem(name: "text", value: gekuerzt),
-            URLQueryItem(name: "type", value: "STOP"),
-        ]
-        if let punkt {
-            // Der Dienst gewichtet Treffer in der Nähe höher. Ohne das steht
-            // bei „Hauptbahnhof" Hamburg vor der eigenen Stadt.
-            felder.append(URLQueryItem(name: "place", value: "\(punkt.latitude),\(punkt.longitude)"))
-        }
-        let treffer: [TransitousAntwort.Treffer] = try await hole("geocode", felder)
-        return treffer.compactMap { haltestelle(aus: $0) }
+        return try await orteSuchen(gekuerzt, nahe: punkt)
+            .filter(\.istHaltestelle)
+            .compactMap { treffer in
+                Haltestelle(
+                    id: treffer.id,
+                    name: treffer.name,
+                    gegend: treffer.gegend,
+                    elternId: nil,
+                    breite: treffer.koordinate.latitude,
+                    laenge: treffer.koordinate.longitude,
+                    mittel: []
+                )
+            }
     }
+
+    // MARK: - Ortssuche
+
+    /// **Zwei Abfragen, und beide sind nötig** (nachgemessen 19.09.2026).
+    ///
+    /// `/geocode` kennt `placeBias`, und der wirkt kräftig: Mit ihm gibt „kle"
+    /// bei Dortmund lauter Dortmunder Treffer, ohne ihn Zürich, Paris und
+    /// Cleveland. Zwei Fallen stecken darin, und jede für sich macht die
+    /// Vorschlagsliste unbrauchbar:
+    ///
+    /// 1. **`type=STOP` schaltet den Ortsbezug AUS.** Mit beiden zusammen kamen
+    ///    für „kle" wieder Paris und Tschechien. Gefragt wird deshalb OHNE
+    ///    `type`, und die Haltestellen werden hier herausgesucht. (Bis 1.0.10
+    ///    stand genau diese Kombination im Quelltext, mit einem Kommentar, der
+    ///    das Gegenteil behauptete — die Suche war nie örtlich.)
+    /// 2. **Mit Ortsbezug ist die Ferne unerreichbar.** „Köln Hbf" gab bei
+    ///    Dortmund den Dortmunder Hauptbahnhof zurück, „Hamburg Hbf" ebenso.
+    ///    Eine Verbindungsauskunft, die Köln nicht findet, ist keine. Deshalb
+    ///    läuft die Abfrage OHNE Ortsbezug nebenher, und beide Listen werden
+    ///    zusammengeführt: das Nahe zuerst, das Ferne dahinter.
+    ///
+    /// Der Dienst gibt höchstens zehn Treffer je Abfrage zurück (`n` wird
+    /// nicht beachtet) — mehr zu verlangen, kostet nur Wartezeit.
+    func orteSuchen(_ text: String, nahe punkt: CLLocationCoordinate2D?) async throws -> [Ortstreffer] {
+        let gekuerzt = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        // Unter drei Zeichen antwortet der Dienst mit einer LEEREN Liste, nicht
+        // mit einem Fehler (gemessen: „k" und „kl" geben null Treffer, „kle"
+        // zehn). Die Anfrage zu stellen wäre also Wartezeit für nichts — und
+        // die leere Liste sähe aus wie „nichts gefunden".
+        guard gekuerzt.count >= kuerzesteSuche else { return [] }
+
+        async let nah: [TransitousAntwort.Treffer] = {
+            guard let punkt else { return [] }
+            return (try? await hole("geocode", [
+                URLQueryItem(name: "text", value: gekuerzt),
+                URLQueryItem(name: "place", value: "\(punkt.latitude),\(punkt.longitude)"),
+                URLQueryItem(name: "placeBias", value: "10000"),
+            ])) ?? []
+        }()
+        async let fern: [TransitousAntwort.Treffer] = (try? await hole("geocode", [
+            URLQueryItem(name: "text", value: gekuerzt),
+        ])) ?? []
+
+        let zusammen = await nah + fern
+        var gesehen = Set<String>()
+        var ergebnis: [Ortstreffer] = []
+        for treffer in zusammen {
+            guard let ort = ortstreffer(aus: treffer), gesehen.insert(ort.id).inserted else { continue }
+            ergebnis.append(ort)
+        }
+        // Haltestellen zuerst — danach gefragt wird in einer Fahrplan-App —,
+        // innerhalb beider Gruppen das Nähere zuerst. Adressen werden NICHT
+        // weggelassen: Ein Ziel ist oft keine Haltestelle, und die Auskunft
+        // rechnet ohnehin mit Koordinaten.
+        return ergebnis.sorted { links, rechts in
+            if links.istHaltestelle != rechts.istHaltestelle { return links.istHaltestelle }
+            let a = links.entfernung(von: punkt) ?? .greatestFiniteMagnitude
+            let b = rechts.entfernung(von: punkt) ?? .greatestFiniteMagnitude
+            return a < b
+        }
+    }
+
+    /// Die Zahl, ab der DIESER Dienst überhaupt antwortet — nachgemessen.
+    /// Gelesen wird sie über das Protokoll, nie unmittelbar: Eine Ansicht,
+    /// die `TransitousDienst` beim Namen nennt, hätte die Trennung schon
+    /// durchbrochen.
+    var kuerzesteSuche: Int { 3 }
 
     // MARK: - Abfahrten
 
@@ -244,6 +313,152 @@ struct TransitousDienst: Fahrplandienst {
             laenge: laenge,
             mittel: (ort.modes ?? []).map { verkehrsmittel($0) }.eindeutig()
         )
+    }
+
+    private func ortstreffer(aus treffer: TransitousAntwort.Treffer) -> Ortstreffer? {
+        guard let name = treffer.name?.nilWennLeer,
+              let breite = treffer.lat, let laenge = treffer.lon
+        else { return nil }
+        let gegend = treffer.areas?.first(where: { $0.unique == true })?.name
+            ?? treffer.areas?.first(where: { $0.simpleDefault == true })?.name
+        // Eine Adresse hat keine Kennung (`id` ist leer oder ein
+        // OSM-Knotenname). Ohne eigene Kennung fielen in `ForEach` mehrere
+        // Adressen zu einer zusammen — deshalb notfalls aus Name und
+        // Koordinate gebaut.
+        let kennung = treffer.id?.nilWennLeer ?? "\(name)@\(breite),\(laenge)"
+        return Ortstreffer(
+            id: kennung,
+            name: name,
+            gegend: gegend?.nilWennLeer,
+            koordinate: CLLocationCoordinate2D(latitude: breite, longitude: laenge),
+            istHaltestelle: treffer.type == "STOP"
+        )
+    }
+
+    // MARK: - Verbindungen
+
+    /// **Die Orte reisen als KOORDINATEN, nie als Haltestellenkennung**
+    /// (nachgemessen 19.09.2026: `/plan` mit einer `stopId` antwortet mit 404).
+    /// Die Vorschlagsliste liefert ohnehin zu jedem Treffer Breite und Länge.
+    func verbindungen(
+        von: CLLocationCoordinate2D,
+        nach: CLLocationCoordinate2D,
+        zeitpunkt: Date,
+        ankunft: Bool,
+        anzahl: Int
+    ) async throws -> [Verbindung] {
+        let antwort: TransitousAntwort.Reiseplan = try await hole("plan", [
+            URLQueryItem(name: "fromPlace", value: "\(von.latitude),\(von.longitude)"),
+            URLQueryItem(name: "toPlace", value: "\(nach.latitude),\(nach.longitude)"),
+            URLQueryItem(name: "time", value: Zeitleser.iso(zeitpunkt)),
+            URLQueryItem(name: "arriveBy", value: ankunft ? "true" : "false"),
+            URLQueryItem(name: "numItineraries", value: String(anzahl)),
+        ])
+        let gefunden = (antwort.itineraries ?? []).compactMap { verbindung(aus: $0) }
+        // **Leer ist hier kein Fehler, sondern eine Auskunft.** Der Dienst
+        // antwortet mit HTTP 200 und einer leeren Liste, wenn zwischen den
+        // beiden Punkten nichts fährt (gemessen mit Dortmund → New York).
+        guard !gefunden.isEmpty else { throw Fahrplanfehler.keineVerbindung }
+        return gefunden
+    }
+
+    private func verbindung(aus reise: TransitousAntwort.Reiseweg) -> Verbindung? {
+        guard let start = Zeitleser.datum(reise.startTime),
+              let ende = Zeitleser.datum(reise.endTime)
+        else { return nil }
+        let abschnitte = (reise.legs ?? []).enumerated().compactMap { nummer, abschnitt in
+            verbindungsabschnitt(aus: abschnitt, nummer: nummer)
+        }
+        guard !abschnitte.isEmpty else { return nil }
+        return Verbindung(
+            id: reise.id ?? "\(start.timeIntervalSince1970)-\(ende.timeIntervalSince1970)",
+            abfahrt: start,
+            ankunft: ende,
+            geplanteAbfahrt: Zeitleser.datum(reise.legs?.first?.scheduledStartTime),
+            geplanteAnkunft: Zeitleser.datum(reise.legs?.last?.scheduledEndTime),
+            umstiege: reise.transfers ?? max(abschnitte.filter { $0.art == .fahrt }.count - 1, 0),
+            abschnitte: abschnitte
+        )
+    }
+
+    private func verbindungsabschnitt(
+        aus abschnitt: TransitousAntwort.Abschnitt,
+        nummer: Int
+    ) -> Verbindungsabschnitt? {
+        guard let start = Zeitleser.datum(abschnitt.startTime),
+              let ende = Zeitleser.datum(abschnitt.endTime)
+        else { return nil }
+
+        let istFussweg = abschnitt.mode == "WALK" || abschnitt.mode == "BIKE" || abschnitt.mode == "CAR"
+        let mittel = verkehrsmittel(abschnitt.mode)
+        let linie: Linienkennung? = istFussweg ? nil : Linienkennung(
+            name: liniennname(
+                anzeige: abschnitt.displayName,
+                kurz: abschnitt.routeShortName,
+                lang: abschnitt.routeLongName,
+                mittel: mittel
+            ),
+            mittel: mittel,
+            farbe: farbwert(abschnitt.routeColor),
+            schriftfarbe: farbwert(abschnitt.routeTextColor),
+            betrieb: abschnitt.agencyName?.nilWennLeer
+        )
+
+        var orte: [TransitousAntwort.Ort] = []
+        if let von = abschnitt.from { orte.append(von) }
+        orte.append(contentsOf: abschnitt.intermediateStops ?? [])
+        if let nach = abschnitt.to { orte.append(nach) }
+        let letzterOrt = orte.count - 1
+        let halte: [Zwischenhalt] = orte.enumerated().compactMap { stelle, ort in
+            guard let haltestelle = haltestelle(aus: ort) else { return nil }
+            return Zwischenhalt(
+                nummer: stelle,
+                haltestelle: haltestelle,
+                steig: (ort.track ?? ort.scheduledTrack)?.nilWennLeer,
+                ankunft: Zeitleser.datum(ort.arrival),
+                geplanteAnkunft: Zeitleser.datum(ort.scheduledArrival),
+                abfahrt: Zeitleser.datum(ort.departure),
+                geplanteAbfahrt: Zeitleser.datum(ort.scheduledDeparture),
+                faelltAus: Self.haltEntfaellt(ort, istRand: stelle == 0 || stelle == letzterOrt)
+            )
+        }
+
+        return Verbindungsabschnitt(
+            id: "\(nummer)-\(abschnitt.tripId ?? abschnitt.mode ?? "?")-\(start.timeIntervalSince1970)",
+            art: istFussweg ? .fussweg : .fahrt,
+            vonName: benennung(abschnitt.from) ?? "Start",
+            nachName: benennung(abschnitt.to) ?? "Ziel",
+            von: abschnitt.from.flatMap { haltestelle(aus: $0) },
+            nach: abschnitt.to.flatMap { haltestelle(aus: $0) },
+            start: start,
+            ende: ende,
+            geplanterStart: Zeitleser.datum(abschnitt.scheduledStartTime),
+            geplantesEnde: Zeitleser.datum(abschnitt.scheduledEndTime),
+            linie: linie,
+            richtung: abschnitt.headsign?.nilWennLeer ?? abschnitt.tripTo?.name?.nilWennLeer,
+            fahrtId: abschnitt.tripId?.nilWennLeer,
+            halte: halte,
+            strecke: Polylinie.auspacken(
+                abschnitt.legGeometry?.points ?? "",
+                // Dieselbe Regel wie am Fahrtlauf: Die Genauigkeit steht in
+                // der Antwort und wird nicht geraten. Fehlt sie, gelten die
+                // fünf Nachkommastellen des Google-Verfahrens.
+                genauigkeit: abschnitt.legGeometry?.precision ?? 5
+            ),
+            meter: istFussweg ? abschnitt.distance.map { Int($0.rounded()) } : nil,
+            faelltAus: abschnitt.cancelled ?? false,
+            istEchtzeit: abschnitt.realTime ?? false
+        )
+    }
+
+    /// Der Name eines Ortes an einem Abschnittsende.
+    ///
+    /// MOTIS nennt Anfang und Ende einer Reise „START" und „END" — das sind
+    /// Platzhalter und keine Namen. Sie durchzureichen stünde als „START" auf
+    /// dem Bildschirm.
+    private func benennung(_ ort: TransitousAntwort.Ort?) -> String? {
+        guard let name = ort?.name?.nilWennLeer else { return nil }
+        return (name == "START" || name == "END") ? nil : name
     }
 
     private func haltestelle(aus treffer: TransitousAntwort.Treffer) -> Haltestelle? {
