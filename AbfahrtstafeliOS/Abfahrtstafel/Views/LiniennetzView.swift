@@ -354,9 +354,6 @@ struct LiniennetzView: View {
         return zug.id == hervorgehoben ? 1.0 : 0.18
     }
 
-    // MARK: - Legende
-
-    @ViewBuilder
     /// Auf- und Zuziehen der Karte. Steht unten links, also dort, wo weder die
     /// Legende (oben rechts) noch Apples eigene Bedienelemente liegen.
     @ViewBuilder
@@ -377,6 +374,9 @@ struct LiniennetzView: View {
         }
     }
 
+    // MARK: - Legende
+
+    @ViewBuilder
     private var legende: some View {
         if legendeOffen {
             VStack(alignment: .leading, spacing: 0) {
