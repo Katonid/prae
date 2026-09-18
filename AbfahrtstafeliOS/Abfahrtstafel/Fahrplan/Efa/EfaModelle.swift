@@ -5,7 +5,7 @@ import Foundation
 /// Wie bei Transitous: Hier wird nichts hübsch gemacht und fast alles ist
 /// optional. EFA ist eine gewachsene Schnittstelle vieler Verbünde; welches
 /// Feld gefüllt ist, hängt am Betrieb.
-enum MvvAntwort {
+enum EfaAntwort {
 
     struct Tafel: Decodable {
         let stopEvents: [Ereignis]?

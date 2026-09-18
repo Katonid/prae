@@ -81,6 +81,7 @@ struct FahrtView: View {
                             istEinstieg: nummer == einstiegIndex(in: fahrt),
                             schonVorbei: nummer < (fahrt.indexErreicht(uhr.jetzt) ?? -1)
                         )
+                        .lesebreite()
                         .id(nummer)
                     }
                 } header: {

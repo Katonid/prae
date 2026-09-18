@@ -26,9 +26,50 @@ struct AbfahrtstafelView: View {
     @EnvironmentObject private var model: AppModel
     @EnvironmentObject private var uhr: Uhrwerk
 
-    @AppStorage("tafelNachZeit") private var nachZeit = false
+    @Environment(\.horizontalSizeClass) private var breitenklasse
+
+    @AppStorage("tafelSicht") private var sichtRoh = Sicht.haltestellen.rawValue
     @State private var pfad = NavigationPath()
     @State private var ortswahlOffen = false
+
+    /// Was die Tafel zeigt.
+    ///
+    /// Als Aufzählung mit Rohwert, weil der Wert in den Voreinstellungen
+    /// liegt: Ein unbekannter Rohwert (etwa aus einer künftigen Fassung) fällt
+    /// dann auf „Haltestellen" zurück, statt die Ansicht leer zu lassen.
+    enum Sicht: String, CaseIterable {
+        case haltestellen
+        case zeit
+        case karte
+
+        var beschriftung: String {
+            switch self {
+            case .haltestellen: return "Nach Haltestellen"
+            case .zeit: return "Nach Zeit"
+            case .karte: return "Nur Karte"
+            }
+        }
+
+        var symbol: String {
+            switch self {
+            case .haltestellen: return "mappin.and.ellipse"
+            case .zeit: return "clock"
+            case .karte: return "map"
+            }
+        }
+    }
+
+    private var sicht: Sicht {
+        Sicht(rawValue: sichtRoh) ?? .haltestellen
+    }
+
+    /// Ob genug Breite da ist, um Liste UND Karte nebeneinander zu zeigen.
+    ///
+    /// Das ist die eigentliche Antwort auf „sehr in die Breite gezogen": Auf
+    /// dem iPad wird die Breite benutzt, statt die Zeilen auseinanderzuziehen.
+    private var nebeneinander: Bool {
+        breitenklasse == .regular && sicht != .karte
+    }
 
     var body: some View {
         NavigationStack(path: $pfad) {
@@ -49,9 +90,10 @@ struct AbfahrtstafelView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Picker("Sicht", selection: $nachZeit) {
-                        Label("Nach Haltestellen", systemImage: "mappin.and.ellipse").tag(false)
-                        Label("Nach Zeit", systemImage: "clock").tag(true)
+                    Picker("Sicht", selection: $sichtRoh) {
+                        ForEach(Sicht.allCases, id: \.rawValue) { eine in
+                            Label(eine.beschriftung, systemImage: eine.symbol).tag(eine.rawValue)
+                        }
                     }
                     .pickerStyle(.menu)
                 }
@@ -105,7 +147,9 @@ struct AbfahrtstafelView: View {
                 }
             )
         default:
-            if model.gruppen.isEmpty {
+            if sicht == .karte {
+                LiniennetzView()
+            } else if model.gruppen.isEmpty {
                 Hinweisflaeche(
                     symbol: "tram",
                     titel: "Hier fährt gerade nichts",
@@ -122,6 +166,17 @@ struct AbfahrtstafelView: View {
                         }
                     }
                 )
+            } else if nebeneinander {
+                // Auf dem iPad steht die Karte neben der Liste. Die Liste
+                // bekommt eine BEGRENZTE Breite, die Karte den Rest — Karten
+                // gewinnen durch Fläche, Abfahrtszeilen nicht.
+                HStack(spacing: 0) {
+                    liste
+                        .frame(minWidth: 330, idealWidth: 430, maxWidth: 470)
+                    Divider()
+                    LiniennetzView()
+                        .frame(maxWidth: .infinity)
+                }
             } else {
                 liste
             }
@@ -134,7 +189,7 @@ struct AbfahrtstafelView: View {
 
     private var liste: some View {
         List {
-            if nachZeit {
+            if sicht == .zeit {
                 Section {
                     ForEach(model.nachZeit) { abfahrt in
                         zeile(abfahrt, mitHaltestelle: true)
@@ -156,6 +211,7 @@ struct AbfahrtstafelView: View {
                                 )
                                 .font(.footnote)
                             }
+                            .lesebreite()
                         }
                     } header: {
                         Gruppenkopf(gruppe: gruppe)
@@ -173,8 +229,8 @@ struct AbfahrtstafelView: View {
 
     /// Eine Zeile — als Verweis, WENN es einen Fahrtlauf dazu gibt.
     ///
-    /// Nicht jede Quelle liefert eine Fahrtkennung (die EFA-Schnittstelle des
-    /// MVV gibt eine Tafel heraus und keinen Lauf). Eine Zeile, die aussieht
+    /// Nicht jede Quelle liefert eine Fahrtkennung (die EFA-Schnittstellen der
+    /// Verbünde geben eine Tafel heraus und keinen Lauf). Eine Zeile, die aussieht
     /// wie ein Knopf und beim Tippen nichts tut, ist für den Menschen davor
     /// ein kaputter Knopf — solche Zeilen stehen deshalb ohne Pfeil da.
     @ViewBuilder
@@ -186,12 +242,15 @@ struct AbfahrtstafelView: View {
             standIstAlt: model.standIstAlt,
             zeigtQuelle: model.beteiligteQuellen.count > 1
         )
+        // `lesebreite` liegt auf der GANZEN Zeile, damit auch der Pfeil des
+        // Verweises mit hereinrückt.
         if abfahrt.hatFahrtlauf {
             NavigationLink(value: Fahrtwunsch(fahrtId: abfahrt.fahrtId, einstieg: abfahrt.haltestelle)) {
                 inhalt
             }
+            .lesebreite()
         } else {
-            inhalt
+            inhalt.lesebreite()
         }
     }
 
@@ -236,6 +295,7 @@ struct AbfahrtstafelView: View {
             }
             .textCase(nil)
             .padding(.vertical, 2)
+            .lesebreite()
         }
     }
 
@@ -407,6 +467,7 @@ private struct Filterleiste: View {
         .environmentObject(Uhrwerk())
         .environmentObject(Standortdienst())
         .environmentObject(Merkliste())
+        .environmentObject(Liniennetz())
 }
 
 @MainActor

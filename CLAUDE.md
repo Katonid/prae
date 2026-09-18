@@ -902,7 +902,11 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   weist App Store Connect ab. Es gibt KEINE Skript-Bauphase. **Jede
   Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne Nachfrage,
   als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann 1.0.1
-  (Build 2) usw.
+  (Build 2), 1.0.2 (Build 3), 1.0.3 (Build 4) usw. Dazu gesetzt (Ansage des Nutzers,
+  09/2026): `DEVELOPMENT_TEAM = F4989GSTWS` — dieselbe Id wie Schulalarm und
+  Tafelbild — und `INFOPLIST_KEY_LSApplicationCategoryType =
+  public.app-category.navigation`. Beides steht als Build-Einstellung, weil
+  das Ziel `GENERATE_INFOPLIST_FILE = YES` benutzt.
 - **1.1.0 (Build 39) ist die Fassung, die in den App Store geht** (Ansage des
   Nutzers, 09/2026: „Ich möchte gerne ein einigermaßen rundes Bild
   einreichen."). Der Sprung von 1.0.37 ist bewusst und derselbe Gedanke wie bei
@@ -1152,11 +1156,55 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   und schlechter: Der Finger verdeckt genau die Stelle, die er trifft, und
   ein Tipp löst beim Verschieben leicht aus.
 - **Die Quellen sind eine KETTE, und die Reihenfolge ist gemessen**
-  (`Kettendienst`, ab 1.0.1): Transitous → MVV-EFA → Zwischenspeicher. Eine
-  Abfahrtstafel wird an einer Haltestelle aufgeschlagen, oft mit einem
-  Balken Empfang — genau dort ist eine einzelne Quelle ein einzelner
-  Ausfallpunkt. Der Gedanke stammt aus der München-App dieses Nutzers
-  (PWA, eigene Sitzung); deren Kette lautet Transitous → DB → Cache.
+  (`Kettendienst`, ab 1.0.1): Transitous → Verbund vor Ort →
+  Zwischenspeicher. Eine Abfahrtstafel wird an einer Haltestelle
+  aufgeschlagen, oft mit einem Balken Empfang — genau dort ist eine einzelne
+  Quelle ein einzelner Ausfallpunkt. Der Gedanke stammt aus der München-App
+  dieses Nutzers (PWA, eigene Sitzung); deren Kette lautet
+  Transitous → DB → Cache.
+- **Stufe 1 TRÄGT die App, Stufe 2 ist ein Netz darunter** (Ansage des
+  Nutzers, 09/2026: „Ich möchte natürlich, dass die App an jeder anderen
+  Stelle in Deutschland auch zuverlässig funktioniert."). Transitous deckt
+  Deutschland, Österreich, die Schweiz und große Teile Europas ab und
+  liefert als Einziges Zwischenhalte und Strecke. **Wo in Stufe 2 nichts
+  steht, fehlt also nichts** — das ist kein Loch, sondern der Normalfall.
+  Wer das umdreht und die App auf die Verbünde stellt, baut eine App, die
+  nur in sieben Gegenden geht.
+- **EFA ist KEIN Münchner Sonderweg** (ab 1.0.2). Dieselbe Abfrage, die in
+  München antwortet, antwortet Wort für Wort auch in Essen, Stuttgart,
+  Karlsruhe, Mannheim, Dresden und Ulm. `MvvDienst` ist deshalb zu
+  `EfaDienst` + `EfaStelle` geworden, und München ist eine Zeile in
+  `EfaDienst.alle`. **Jede Zeile dieser Tabelle ist am 18.09.2026 mit einer
+  echten Koordinatenabfrage geprüft worden und gab Abfahrten MIT Echtzeit
+  zurück.** Was sich nicht prüfen ließ, steht dort nicht — auch dann nicht,
+  wenn die Adresse plausibel aussieht: Eine ungemessene Quelle ist in einer
+  Kette kein Rückfall, sondern nur eine zusätzliche Wartezeit davor.
+  Reihenfolge: **erst örtlich, dann weiträumig** (VVS und DING vor `efa-bw`,
+  der örtliche Verbund kennt seine Stadtbusse besser).
+- **Die Schweiz hängt an `transport.opendata.ch`** (ab 1.0.2), ohne
+  Schlüssel, mit Echtzeit (Zürich, Bern, Basel, Genf geprüft). Zwei Fallen:
+  **`x` ist die BREITE und `y` die LÄNGE** — die Namen legen das Gegenteil
+  nahe, und wer sie nach Gefühl belegt, fragt im Indischen Ozean und bekommt
+  eine leere Liste statt einer Fehlermeldung. Und **`delay: nil` heißt
+  „keine Echtzeit", `delay: 0` heißt „gemeldet und pünktlich"** — genau der
+  Unterschied, den diese App nie verwischen darf. Der Dienst kennt keine
+  Tafel um einen Punkt, nur um eine Station: also erst `/v1/locations`, dann
+  bis zu drei `/v1/stationboard` nebenläufig. Für eine erste Quelle wäre das
+  zu umständlich, für einen Rückfall ist es der richtige Preis.
+- **Österreich: Stufe 1 ja, Stufe 2 nein — und das ist gemessen.** Die
+  EFA-Stellen von VVT, OÖVV, SVV und VOR waren aus der Bauumgebung nicht
+  erreichbar (Verbindungsabbruch bzw. 502 am Proxy), also stehen sie nicht
+  in der Tabelle. Die Echtzeit über Stufe 1 ist dort regional verschieden
+  (18.09.2026: Graz 11 von 12, Wien/Linz/Innsbruck null, Salzburg eine von
+  zehn). **Nicht als erledigt darstellen** — wer die Adressen aus einer
+  Umgebung mit freierem Netz prüfen kann, trägt sie nach.
+- **Ein Testskript, das seine Antwortdatei wiederverwendet, lügt**
+  (Selbstfund 09/2026). Beim Vermessen der Verbünde schrieb `curl` in eine
+  feste Datei; schlug der Aufruf fehl, las das Skript die Antwort des
+  VORIGEN Verbundes und meldete für Innsbruck und Linz „6 Abfahrten, 5
+  Echtzeit" — in Wahrheit Stuttgarter Daten. Seither: je Messung eine eigene
+  Datei, und der HTTP-Code wird mitgedruckt. **Wer eine Quelle misst, prüft
+  zuerst, dass er wirklich ihre Antwort in der Hand hält.**
 - **`Fahrplandienst` und `Abfahrtsquelle` sind ZWEI Protokolle, mit Absicht.**
   Nicht jede Quelle kann alles: EFA liefert eine vorzügliche Abfahrtstafel,
   aber keine Streckengeometrie — und eine Fahrt ohne Strecke hat in dieser
@@ -1164,14 +1212,15 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   Methoden zu versprechen und zwei mit „geht nicht" zu beantworten; das ist
   keine Trennung, sondern eine Lüge mit Protokoll. Die Ansichten sehen
   weiterhin NUR `Fahrplandienst` — `Kettendienst` fügt beides zusammen.
-- **MVV-EFA: was sie kann, ist nachgemessen und nicht angenommen** (09/2026).
+- **EFA: was sie kann, ist nachgemessen und nicht angenommen** (09/2026).
   Über eine KOORDINATE (`type_dm=coord`) liefert sie die Abfahrten aller
   Haltestellen im Umkreis samt Echtzeit — aber **nur im Verbundgebiet**
   (Hamburg, Berlin, Frankfurt: null Abfahrten). Über eine KENNUNG
   (`type_dm=any` mit `de:09162:2`) antwortet sie bundesweit, dort aber
   **ohne Echtzeit** (null von vier). Gebaut ist deshalb nur der erste Weg,
   und `zustaendig(fuer:)` hält die Anfrage auf, wo sie nichts brächte.
-  Drei Fallen dabei: In der ANFRAGE steht die **Länge zuerst**
+  Drei Fallen dabei (sie gelten für JEDE EFA-Stelle): In der ANFRAGE steht
+  die **Länge zuerst**
   (`11.575:48.137`), in der Antwort die **Breite** — vertauscht kommt keine
   Fehlermeldung, sondern eine leere Liste. Ohne `coordOutputFormat=WGS84`
   kommen Koordinaten in einem fremden Gitter (gemessen: 5870282, 1288570).
@@ -1189,23 +1238,51 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   Daten ist eine Lüge, die wie eine Auskunft aussieht. Höchstalter zwei
   Stunden, höchstens zwölf Haltestellen, und er liegt in den **Caches** —
   was der Nutzer selbst angelegt hat (die Merkliste), liegt woanders.
-- **Nicht jede Zeile lässt sich öffnen** (`Abfahrt.hatFahrtlauf`). MVV gibt
-  keine Fahrtkennung heraus; solche Zeilen stehen ohne Pfeil da, und die
+- **Nicht jede Zeile lässt sich öffnen** (`Abfahrt.hatFahrtlauf`). Die
+  Verbünde geben keine Fahrtkennung heraus; solche Zeilen stehen ohne Pfeil da, und die
   Fußzeile sagt warum. Eine Zeile, die aussieht wie ein Knopf und beim
   Tippen nichts tut, ist für den Menschen davor ein kaputter Knopf.
-- **`Abfahrt.id` trägt Linie und Richtung mit.** Ohne Fahrtkennung (MVV)
+- **`Abfahrt.id` trägt Linie und Richtung mit.** Ohne Fahrtkennung (Stufe 2)
   bildete eine Tafel sonst zwei Abfahrten derselben Minute an derselben
   Haltestelle auf einen Schlüssel ab — eine davon verschwände
   stillschweigend aus der Liste.
+- **Auf dem iPad stehen Liste und Karte NEBENEINANDER** (ab 1.0.3, gemeldet
+  09/2026: „Die Darstellung auf dem iPad ist doch sehr in die Breite
+  gezogen."). Eine `List` füllt, was da ist; im Querformat sind das gut
+  zweitausend Punkte, und die Zeile wird von der Breite auseinandergezogen,
+  statt sie zu benutzen. Dagegen zwei Dinge: das zweispaltige Layout bei
+  Breitenklasse `regular`, und `Views/Lesebreite.swift` (760 Punkte, mittig)
+  auf jeder Zeile. **Die Lesebreite liegt auf der GANZEN Zeile und nicht auf
+  ihrem Inhalt** — bei einem `NavigationLink` stünde der Pfeil sonst weiter
+  ganz außen und die Zeile sähe genauso zerrissen aus wie vorher.
+- **Das Liniennetz wird NACHGELADEN und gedeckelt** (`Model/Liniennetz.swift`,
+  ab 1.0.3). Eine Abfahrt weiß, WANN etwas fährt, nicht WO es langfährt; der
+  Verlauf steht am Fahrtlauf, und den gibt es nur einzeln. Für zwölf Linien
+  sind das zwölf Abfragen — deshalb nebenläufig, auf zwölf gedeckelt und erst,
+  wenn jemand die Karte ansieht. Zusammengefasst wird über Linie UND
+  Verkehrsmittel, nicht über die Richtung: Die Gegenrichtung fährt denselben
+  Weg zurück und verdoppelte nur die Abfragen. `gebautAus` verhindert, dass
+  jeder Takt des `Uhrwerks` das ganze Netz neu holt — **ohne diese Prüfung
+  lüde die Karte im Sekundentakt zwölfmal nach.**
+- **Was sich nicht zeichnen lässt, wird GEZÄHLT und hingeschrieben**
+  (`Liniennetz.ohneVerlauf`). Linien aus Stufe 2 haben keine Fahrtkennung und
+  damit keinen Verlauf. Eine Karte, in der stillschweigend Linien fehlen, ist
+  eine Karte, der man ihre Unvollständigkeit nicht ansieht.
+- **Die Karte benutzt DENSELBEN Filter wie die Liste** (`AppModel.filter`).
+  Zwei Filter für dieselbe Frage wären zwei Antworten.
 - **Die Fußzeile nennt die Quellen, die WIRKLICH beigetragen haben**
-  (`AppModel.beteiligteQuellen`), nicht die eingebauten. „Transitous, MVV"
+  (`AppModel.beteiligteQuellen`), nicht die eingebauten. „Transitous, VRR"
   unter einer Tafel, die ganz von Transitous stammt, wäre eine Angabe über
   die App und nicht über die Daten.
 - `MARKETING_VERSION` und `CURRENT_PROJECT_VERSION` stehen an je zwei
   Stellen im pbxproj (Debug + Release) — KEINE Skript-Bauphase. **Jede
   Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne Nachfrage,
   als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann 1.0.1
-  (Build 2) usw.
+  (Build 2), 1.0.2 (Build 3), 1.0.3 (Build 4) usw. Dazu gesetzt (Ansage des Nutzers,
+  09/2026): `DEVELOPMENT_TEAM = F4989GSTWS` — dieselbe Id wie Schulalarm und
+  Tafelbild — und `INFOPLIST_KEY_LSApplicationCategoryType =
+  public.app-category.navigation`. Beides steht als Build-Einstellung, weil
+  das Ziel `GENERATE_INFOPLIST_FILE = YES` benutzt.
 - `ITSAppUsesNonExemptEncryption = NO` steht in `Config/Info.plist` UND
   als Build-Einstellung — nicht entfernen.
 - Das App-Symbol rechnet `AbfahrtstafeliOS/scripts/make-icon.py` (reines

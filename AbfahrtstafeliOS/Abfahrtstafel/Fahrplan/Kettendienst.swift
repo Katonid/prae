@@ -11,13 +11,15 @@ import Foundation
 ///
 /// Die Reihenfolge ist begründet und keine Geschmacksfrage:
 ///
-/// 1. **Transitous** zuerst. Es hat Echtzeit überall dort, wo der Verbund sie
-///    herausgibt, und als Einziges die Streckengeometrie.
-/// 2. **MVV-EFA** danach. Es antwortet bundesweit auf Fahrplandaten, führt
-///    Echtzeit aber nur im eigenen Verbundgebiet (nachgemessen 09/2026:
-///    München mit, Frankfurt/Berlin/Hamburg ohne). Was es ohne Echtzeit
-///    liefert, wird als Planzeit gekennzeichnet — die App behauptet dort keine
-///    Pünktlichkeit.
+/// 1. **Transitous** zuerst. Es deckt Deutschland, Österreich, die Schweiz und
+///    große Teile Europas ab, hat Echtzeit überall dort, wo der Verbund sie
+///    herausgibt, und als Einziges die Streckengeometrie. Es ist die Quelle,
+///    auf der die App steht — die Kette darunter ist ein Netz, kein Ersatz.
+/// 2. **Der Verkehrsverbund vor Ort** danach (`Kettendienst.zweiteReihe`).
+///    Keine dieser Quellen ist für eine bestimmte Stadt gebaut: Jede trägt ihr
+///    Gebiet selbst, und gefragt wird nur, wer sich zuständig meldet. Wo keine
+///    zuständig ist, bleibt es bei der ersten — die deckt die Gegend trotzdem
+///    ab. Es ist also **kein Loch, wenn hier nichts steht.**
 /// 3. **Der Zwischenspeicher** zuletzt. Alte Zeiten MIT Altersangabe sind mehr
 ///    wert als eine leere Fläche; ohne die Altersangabe wären sie schlimmer
 ///    als nichts.
@@ -38,15 +40,28 @@ struct Kettendienst: Fahrplandienst {
 
     init(
         erste: Fahrplandienst = TransitousDienst(),
-        weitere: [Abfahrtsquelle] = [MvvDienst()],
+        weitere: [Abfahrtsquelle] = Self.zweiteReihe,
         speicher: Abfahrtsspeicher = Abfahrtsspeicher()
     ) {
         self.erste = erste
         self.weitere = weitere
         self.speicher = speicher
-        self.quellenname = ([erste.quellenname] + weitere.map(\.name)).joined(separator: ", ")
+        // Nur die erste Quelle steht im Namen. Die zweite Reihe sind je nach
+        // Gegend andere — sie in einen festen Namen zu schreiben hieße, unter
+        // einer Tafel in Hamburg „VRR" zu behaupten. Was wirklich beigetragen
+        // hat, sagt `AppModel.beteiligteQuellen`.
+        self.quellenname = erste.quellenname
         self.quellenadresse = erste.quellenadresse
     }
+
+    /// Die zweite Reihe: alles, was nur Abfahrten kann.
+    ///
+    /// **Keine davon ist für eine bestimmte Stadt gebaut.** Jede trägt ihr
+    /// Gebiet selbst (`zustaendig(fuer:)`), und die Kette fragt nur die, die
+    /// sich zuständig meldet — in Hamburg also keine, in Dresden den VVO, in
+    /// Genf den Schweizer Dienst. Wo keine zuständig ist, bleibt es bei der
+    /// ersten Quelle, und die deckt ganz Mitteleuropa ab.
+    static let zweiteReihe: [Abfahrtsquelle] = EfaDienst.alle + [SchweizDienst()]
 
     // MARK: - Was nur die erste Quelle kann
 
