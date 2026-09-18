@@ -161,7 +161,7 @@ struct AbfahrtstafelView: View {
             )
         default:
             if sicht == .karte {
-                LiniennetzView(umschalten: { karteImVollbild = true }).equatable()
+                LiniennetzView(pfad: $pfad, umschalten: { karteImVollbild = true }).equatable()
             } else if model.gruppen.isEmpty {
                 Hinweisflaeche(
                     symbol: "tram",
@@ -187,7 +187,7 @@ struct AbfahrtstafelView: View {
                     liste
                         .frame(minWidth: 330, idealWidth: 430, maxWidth: 470)
                     Divider()
-                    LiniennetzView(umschalten: { karteImVollbild = true }).equatable()
+                    LiniennetzView(pfad: $pfad, umschalten: { karteImVollbild = true }).equatable()
                         .frame(maxWidth: .infinity)
                 }
             } else {
@@ -465,7 +465,7 @@ private struct Vollbildkarte: View {
 
     var body: some View {
         NavigationStack(path: $pfad) {
-            LiniennetzView(imVollbild: true, umschalten: schliessen).equatable()
+            LiniennetzView(pfad: $pfad, imVollbild: true, umschalten: schliessen).equatable()
                 .navigationTitle("Liniennetz")
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {

@@ -80,8 +80,17 @@ zwölf Zeichen ab), Ordner, Ziel und Bundle-Id bleiben „Abfahrtstafel“ /
   der Netzkarte ebenso wie auf der Karte eines Fahrtlaufs, und für die Halte
   der gezeichneten Linien ebenso wie für die Haltestellen um den Bezugspunkt.
   Es ist dieselbe Ansicht wie aus der Liste, samt Merken-Stern. Gezeichnet
-  bleibt der kleine Punkt; getroffen wird eine unsichtbare Fläche darum, sonst
-  verschöbe man beim Zielen nur die Karte.
+  bleibt der kleine Punkt; getroffen wird eine Fläche darum, sonst verschöbe
+  man beim Zielen nur die Karte.
+
+  **Auf der Netzkarte nimmt seit 1.1.18 die Karte selbst den Tipp an** und
+  sucht hinterher den nächsten Punkt. Vorher war jeder Halt ein eigenes
+  Bedienelement mit einer unsichtbaren Fläche von 32 Punkten — bei
+  dreihundert Halten lag damit über der halben Karte etwas, das eine
+  Berührung annimmt, und eine Zoomgeste beginnt mit zwei Fingern irgendwo auf
+  dieser Fläche (gemeldet 09/2026: „wenn ich zoome und Haltestellen in der
+  Nähe sind, funktioniert der Zoom nicht"). Jetzt liegt auf der Karte kein
+  Bedienelement mehr, und die Griffweite kostet keine Kartenfläche.
 - **Nicht nur jetzt.** Der Knopf „Jetzt" über der Liste schaltet auf einen
   frei gewählten Zeitpunkt um — „was fährt morgen früh um sieben?". Die
   Minutenziffern sind dann aus und der Nachladelauf ruht: Eine Tafel für
@@ -95,8 +104,8 @@ zwölf Zeichen ab), Ordner, Ziel und Bundle-Id bleiben „Abfahrtstafel“ /
   Stelle liegt, dann „Suchpunkt hierher". Beides ohne Umweg über die
   Ortswahl.
 - **Karte prüfen.** In den Einstellungen steht, wie oft die Netzkarte neu
-  gezeichnet wird, was ein Aufbau kostet und wie viele Stützpunkte gezeichnet
-  werden — für die Frage, warum sich eine Karte zäh anfühlt. Rohzahlen,
+  gezeichnet wird, was ein Aufbau kostet, wie viele Stützpunkte gezeichnet
+  werden und wie viele Punkte gerade antippbar sind — für die Frage, warum sich eine Karte zäh anfühlt. Rohzahlen,
   kopierbar, ohne Deutung.
 - **Gezeichnet wird, was zu sehen ist.** Zwölf Linien in München bringen
   12.446 Stützpunkte mit; beim Blick auf das ganze Netz sind davon rund drei
