@@ -1746,8 +1746,55 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   und wäre er beobachtbar, löste jede Meldung ein Neuzeichnen aus, das
   seinerseits gemeldet würde — ein Messgerät, das seinen eigenen Messwert
   erzeugt. Gelesen wird auf Knopfdruck.
-- **Ob das die Ursache des Zoomproblems ist, steht noch nicht fest.** Nicht
-  als erledigt darstellen; die nächste Runde beginnt mit den Zahlen vom Gerät.
+- **Die Zwischenablage aus 1.1.16 reichte nicht** (gemeldet 09/2026). Sie war
+  richtig und behandelte die falsche Hälfte: Gerechnet wurde seltener, gezeichnet
+  weiterhin jede Sekunde — und der Aufwand steckte im GEZEICHNETEN.
+- **Die Linienzüge sind das Gewicht, und das ist jetzt gemessen**
+  (`Model/Linienvereinfachung.swift`, ab 1.1.17). **Der Befund kam vom
+  Nutzer und war der erste belastbare in dieser Sache:** „Je mehr Linien im
+  Spiel sind, desto länger dauert's." Nachgemessen am 18.09.2026 an genau den
+  zwölf Linien, die die App am Münchner Hauptbahnhof zeichnet:
+  **12.446 Stützpunkte**, davon allein **4.973 auf der Buslinie 68** (195
+  Halte) — und jede Linie wird ZWEIMAL gezeichnet (erst alle Konturen, dann
+  alle Linien), also rund 25.000 Koordinaten je Aufbau des Karteninhalts.
+  - **Gedünnt wird auf den MASSSTAB** (Douglas-Peucker, Toleranz = was EIN
+    Bildpunkt gerade bedeutet). Ein weggelassener Stützpunkt läge ohnehin auf
+    demselben Pixel wie die Gerade, die ihn ersetzt. Gemessen an denselben
+    Linien: 1 m → 3.281 Punkte (26 %), 3 m → 1.894 (15 %), 8 m → 1.055 (8 %),
+    20 m → 647 (5 %), 50 m → 402 (3 %). **Beim Öffnen rahmt die Karte das
+    ganze Netz** — dort gilt die letzte Zeile, aus 25.000 Koordinaten werden
+    rund 800. Wer weit hineinzoomt, bekommt den vollen Verlauf zurück.
+  - **Das ist KEINE erfundene Geometrie.** Der gezeichnete Weg bleibt der Weg
+    aus den Daten; es fallen nur Punkte weg, die auf ihm liegen. Etwas anderes
+    als eine geratene Umleitung oder eine durchgezogene Luftlinie — beides tut
+    diese App weiterhin nicht, und die Grenze ist genau hier zu ziehen.
+  - **Die Breite der Karte wird GEMESSEN** (`GeometryReader`), nicht
+    angenommen: Eine feste Zahl wäre zwischen iPhone und iPad um das
+    Zweieinhalbfache daneben. Lässt sich der Maßstab nicht feststellen, wird
+    NICHT vereinfacht — eine geratene Toleranz wäre die eine Art Fehler, die
+    man der Karte nicht ansieht.
+  - **Die Toleranz ist auf Zweierpotenzen gestuft.** Ohne das rechnete jede
+    Schiebebewegung alle zwölf Züge neu, weil sich die Breite um ein
+    Tausendstel geändert hat.
+  - **Douglas-Peucker ohne Rekursion**, mit eigenem Stapel: Fünftausend Punkte
+    können tief schachteln, und ein Stapelüberlauf wäre ein Absturz für eine
+    Linie, die nur etwas gröber gezeichnet werden sollte.
+- **Eine Ansicht, die einen ABSCHLUSS bekommt, zeichnet immer mit**
+  (`LiniennetzView: Equatable`, `.equatable()`, ab 1.1.17). `AbfahrtstafelView`
+  beobachtet das `Uhrwerk` für die Minutenziffern, sein Körper läuft im
+  Sekundentakt — und er reicht `umschalten` weiter. **Ein Abschluss lässt sich
+  nicht vergleichen**, also musste SwiftUI von einer Änderung ausgehen und
+  baute die Karte samt aller Linienzüge neu auf. Verglichen wird jetzt nur, was
+  das Aussehen wirklich bestimmt (`imVollbild`); der Abschluss tut bei jedem
+  Durchgang dasselbe. **Das schaltet nichts ab** — was die Ansicht selbst
+  beobachtet, löst weiterhin ein Neuzeichnen aus. **Wer eine vierte
+  Aufrufstelle anlegt, hängt `.equatable()` mit dran**, sonst zeichnet dort
+  wieder die Uhr mit.
+- **Ob damit das Zoomproblem erledigt ist, steht noch nicht fest.** Drei
+  Erklärungen sind bisher gefallen und zwei davon waren Vermutungen; diese hier
+  ist gemessen, aber gemessen ist die DATENMENGE und nicht die Wirkung auf dem
+  Gerät. Nicht als erledigt darstellen — der Messfühler nennt seit 1.1.17 auch
+  die Stützpunkte roh und gezeichnet.
 - **Betriebsmeldungen sind eine EIGENE Sache neben der Abfahrtskette**
   (`Betriebsmeldung`, `Meldungsquelle`, `Dienste/Meldungsdienst.swift`, ab
   1.0.4; gemeldet 09/2026: „Ich weiß, dass bei mir vor Ort eine Buslinie
@@ -2259,7 +2306,7 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   zwölfte Nachbesserung — derselbe Gedanke wie bei Tafelbild 1.4.0 und
   Schulalarm 1.1.0. Die Marken ab 1.0.x in diesem Papier bleiben stehen;
   sie sagen, wann etwas in den Quelltext kam. Danach zählt es weiter:
-  1.1.1 (Build 14), 1.1.2 (Build 15), 1.1.3 (Build 16), 1.1.4 (Build 17), 1.1.5 (Build 18), 1.1.6 (Build 19), 1.1.7 (Build 20), 1.1.8 (Build 21), 1.1.9 (Build 22), 1.1.10 (Build 23), 1.1.11 (Build 24), 1.1.12 (Build 25), 1.1.13 (Build 26), 1.1.14 (Build 27), 1.1.15 (Build 28), 1.1.16 (Build 29) … Dazu gesetzt (Ansage des Nutzers,
+  1.1.1 (Build 14), 1.1.2 (Build 15), 1.1.3 (Build 16), 1.1.4 (Build 17), 1.1.5 (Build 18), 1.1.6 (Build 19), 1.1.7 (Build 20), 1.1.8 (Build 21), 1.1.9 (Build 22), 1.1.10 (Build 23), 1.1.11 (Build 24), 1.1.12 (Build 25), 1.1.13 (Build 26), 1.1.14 (Build 27), 1.1.15 (Build 28), 1.1.16 (Build 29), 1.1.17 (Build 30) … Dazu gesetzt (Ansage des Nutzers,
   09/2026): `DEVELOPMENT_TEAM = F4989GSTWS` — dieselbe Id wie Schulalarm und
   Tafelbild — und `INFOPLIST_KEY_LSApplicationCategoryType =
   public.app-category.navigation`. Beides steht als Build-Einstellung, weil
