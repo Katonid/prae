@@ -47,7 +47,10 @@ struct EfaStelle: Sendable {
 struct EfaDienst: Abfahrtsquelle, Meldungsquelle {
 
     let stelle: EfaStelle
-    private let sitzung: URLSession
+    /// Nicht `private`: Die Reiseauskunft liegt in `EfaVerbindungen.swift` und
+    /// muss über dieselbe Sitzung gehen — eine zweite wäre eine zweite
+    /// Zwischenspeicher- und Zeitgrenzen-Einstellung.
+    let sitzung: URLSession
 
     var name: String { stelle.name }
 
@@ -57,8 +60,7 @@ struct EfaDienst: Abfahrtsquelle, Meldungsquelle {
     }
 
     func zustaendig(fuer haltestelle: Haltestelle) -> Bool {
-        stelle.breite.contains(haltestelle.breite)
-            && stelle.laenge.contains(haltestelle.laenge)
+        stelle.enthaelt(haltestelle.koordinate)
     }
 
     func abfahrten(
@@ -296,7 +298,10 @@ struct EfaDienst: Abfahrtsquelle, Meldungsquelle {
     /// vom Verbund getextet wird („MetroBus", „ExpressBus", „RegionalBus" —
     /// alles Klasse 5 bis 7 und alles ein Bus). Nur bei Klasse 0 entscheidet
     /// der Name: EFA wirft Fern- und Regionalzug in denselben Topf.
-    private func verkehrsmittel(_ produkt: EfaAntwort.Linie.Produkt?) -> Verkehrsmittel {
+    /// Nicht `private`: Die Reiseauskunft in `EfaVerbindungen.swift` braucht
+    /// dieselbe Zuordnung. Zwei Fassungen färbten dieselbe Linie in Tafel und
+    /// Auskunft verschieden.
+    func verkehrsmittel(_ produkt: EfaAntwort.Linie.Produkt?) -> Verkehrsmittel {
         // Ausgepackt und nicht direkt über das Optional geschaltet: Ein
         // `switch` über `Int?` mit nackten Zahlenmustern ist eine Stelle, an
         // der Swift je nach Fassung verschieden streng ist. -1 kommt als
@@ -311,6 +316,12 @@ struct EfaDienst: Abfahrtsquelle, Meldungsquelle {
         case 3, 4: return .tram
         case 5, 6, 7, 10, 17: return .bus
         case 9: return .faehre
+        // **Klasse 13 ist der Regionalzug** — nachgemessen 19.09.2026 in der
+        // Reiseauskunft von VRR, VVS und VVO („R-Bahn", „Regionalzug").
+        // Ohne diese Zeile fiel jeder RE und jede RB in den Vorgabefall und
+        // stand als „Sonstiges" in grau da, während dieselbe Fahrt über
+        // Transitous ein Regionalzug war.
+        case 13: return .regionalzug
         default: return .sonstiges
         }
     }

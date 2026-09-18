@@ -18,6 +18,14 @@ struct Verbindung: Identifiable, Hashable, Sendable {
     let geplanteAnkunft: Date?
     let umstiege: Int
     let abschnitte: [Verbindungsabschnitt]
+    /// Wer diese Verbindung ausgerechnet hat.
+    ///
+    /// Sie steht an der EINZELNEN Verbindung und nicht am Dienst, aus
+    /// demselben Grund wie `Abfahrt.quelle`: Unter der Liste soll stehen, wer
+    /// wirklich beigetragen hat. „Transitous" unter einer Auskunft, die vom
+    /// VRR kam, weil Transitous gerade nicht antwortete, wäre eine Angabe
+    /// über die App und nicht über die Daten.
+    let quelle: String
 
     var dauer: TimeInterval { ankunft.timeIntervalSince(abfahrt) }
 

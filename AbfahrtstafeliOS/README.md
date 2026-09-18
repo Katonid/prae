@@ -96,10 +96,11 @@ Gemessen am 19.09.2026, weil die Frage berechtigt ist:
 
 - **Die EFA-Stellen der Verbünde können Reiseplanung** (`XSLT_TRIP_REQUEST2`):
   vollständige Verbindungen mit Fußwegen, Umstiegen, Zwischenhalten,
-  Streckengeometrie, Echtzeit und Betriebsmeldungen — bei MVV und VRR geprüft.
-  Nur innerhalb des jeweiligen Verbundgebiets.
+  Streckengeometrie und Echtzeit — an **allen acht** Stellen aus
+  `EfaDienst.alle` geprüft. Nur innerhalb des jeweiligen Verbundgebiets.
 - **Die Schweizer Quelle kann es auch** (`/v1/connections`, Zürich nach Bern
-  geprüft) und liegt für die Abfahrten ohnehin in der Kette.
+  geprüft) und liegt für die Abfahrten ohnehin in der Kette. Sie liefert
+  allerdings **keine Streckengeometrie**.
 - **`*.transport.rest` (HAFAS der Bahn)** wäre die bundesweite Alternative und
   antwortet seit dem Bau der App durchgehend mit 503 — auch an diesem Tag, für
   v5 und v6.
@@ -108,9 +109,35 @@ Gemessen am 19.09.2026, weil die Frage berechtigt ist:
   mit DACH-Daten gibt es derzeit aber nicht, und ungemessen kommt keine Quelle
   in die Kette.
 
-Gebaut ist dieser Rückfall **noch nicht**. Fällt Transitous aus, gibt es in der
-Verbindungsauskunft nichts, und die App sagt das — sie behauptet aber nicht,
-dass es nicht ginge.
+**Gebaut ist der Rückfall seit 1.1.1** (`Verbindungsquelle`,
+`EfaVerbindungen.swift`, `SchweizVerbindungen.swift`). Er greift, wenn
+Transitous ausfällt — und **nur, wenn BEIDE Punkte im Gebiet der Quelle
+liegen**: Eine Tafel gilt für einen Punkt, eine Verbindung für zwei. Dortmund →
+Köln kann weiterhin nur Transitous, und wo keine zweite Quelle zuständig ist,
+ist das kein Loch, sondern der Normalfall.
+
+Unter der Ergebnisliste steht, wer wirklich geantwortet hat — nicht der Name
+der eingebauten Quelle. Eine Fahrt ohne mitgelieferte Streckenführung wird auf
+der Karte **gestrichelt** gezeichnet (verbunden werden dann die Halte), und
+darunter steht, dass das nicht der Weg des Fahrzeugs ist.
+
+### Und der Reiseplaner der Deutschen Bahn? (gemessen 18.09.2026)
+
+Nein — kein Weg, und zwar aus vier verschiedenen Gründen:
+
+- Die Schnittstelle hinter `bahn.de` (`/web/api/reiseloesung/orte`) antwortet
+  mit **HTTP 403, `OPS_BLOCKED`** — auch mit Browser-Kopfzeilen und Referer,
+  auch unter `int.bahn.de`. Die Startseite derselben Adresse antwortet mit 200;
+  es weist also die Bahn ab und nicht das Netz. Diese Schnittstelle ist nicht
+  veröffentlicht, sie bedient die eigene Webseite und darf das.
+- Der **DB API Marketplace** (`apis.deutschebahn.com`) antwortet, verlangt aber
+  Schlüssel und Konto (HTTP 401). Ein Schlüssel, der in einer App steckt, ist
+  kein Schlüssel.
+- **`*.transport.rest`** (die HAFAS-Brücke) antwortet weiterhin mit 503.
+- `app.vendo.noncd.db.de` und `reiseauskunft.bahn.de` waren aus der
+  Bauumgebung nicht erreichbar. **Nicht gemessen heißt nicht „geht nicht"** —
+  es heißt, dass hier niemand nachsehen konnte, und ungemessen kommt keine
+  Quelle in die Kette.
 
 ### Was die Ortssuche gelernt hat (gemessen 19.09.2026)
 
@@ -282,8 +309,6 @@ Trennung, sondern eine Lüge mit Protokoll. Die Ansichten sehen weiterhin nur
   könnte.
 - **Echtzeit gibt es nur, wo der Verbund sie herausgibt.** Und auch eine
   Echtzeitmeldung ist eine Meldung, keine Zusage.
-- Kein Verbindungsauskunft-Teil („von A nach B“). Diese App beantwortet
-  „was fährt hier weg und wohin“ — und das vollständig.
 - **Der Zwischenspeicher ist kein Netzersatz.** Er greift erst, wenn keine
   Quelle mehr antwortet, hält höchstens zwei Stunden, und seine Zeiten sind
   immer als alt gekennzeichnet — mit Uhrzeit, und **ohne laufende

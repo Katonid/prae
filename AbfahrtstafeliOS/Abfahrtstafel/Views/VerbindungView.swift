@@ -164,7 +164,7 @@ struct VerbindungView: View {
                         .lesebreite()
                     }
                 } footer: {
-                    Fusszeile(geholtUm: planer.geholtUm, quelle: planer.dienst.quellenname)
+                    Fusszeile(geholtUm: planer.geholtUm, quellen: planer.beteiligteQuellen)
                         .lesebreite()
                 }
             }
@@ -235,14 +235,19 @@ struct VerbindungView: View {
     /// Woher die Auskunft kommt und wie alt sie ist.
     private struct Fusszeile: View {
         let geholtUm: Date?
-        let quelle: String
+        /// Die Quellen, die WIRKLICH beigetragen haben — nicht die
+        /// eingebauten.
+        let quellen: [String]
 
         var body: some View {
             VStack(alignment: .leading, spacing: 3) {
                 if let geholtUm {
                     Text("Gesucht um \(geholtUm.formatted(date: .omitted, time: .standard)). Die Liste lädt sich NICHT von selbst nach — zum Auffrischen nach unten ziehen.")
                 }
-                Text("Auskunft: \(quelle). Fußwege sind gerechnete Wege, keine gemessenen; die Gehzeit hängt davon ab, wie schnell jemand geht. Wo keine Echtzeit vorliegt, steht „Plan“ — die App behauptet dann nichts über Pünktlichkeit.")
+                if !quellen.isEmpty {
+                    Text("Auskunft: \(quellen.joined(separator: ", ")).")
+                }
+                Text("Fußwege sind gerechnete Wege, keine gemessenen; die Gehzeit hängt davon ab, wie schnell jemand geht. Wo keine Echtzeit vorliegt, steht „Plan“ — die App behauptet dann nichts über Pünktlichkeit.")
             }
             .font(.caption2)
         }

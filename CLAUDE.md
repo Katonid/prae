@@ -1510,28 +1510,97 @@ Auftrag, für Bauten, die niemand angefordert hatte.
 - **Der Bezugspunkt der Vorschläge ist erst der gewählte Start, dann der eigene
   Standort** (`bezugFuerVorschlaege`). Wer als Start „Dortmund Hbf" eingetippt
   hat, sucht sein Ziel in Dortmund und nicht dort, wo das Telefon gerade liegt.
-- **Die Verbindungsauskunft hat NOCH keine zweite Reihe — eine offene
-  Baustelle, keine Eigenschaft der Quellen.** In 1.0.11 stand hier, die
-  Verbünde gäben eine Abfahrtstafel heraus und sonst nichts. **Das war
-  falsch**, nachgemessen am 19.09.2026: `XSLT_TRIP_REQUEST2` gibt bei MVV und
-  VRR vollständige Verbindungen zurück — Fußwege, Umstiege, Zwischenhalte
-  (`stopSequence`), Streckengeometrie (`coords`), Echtzeit
-  (`isRealtimeControlled`, `departureTimeEstimated`) und Betriebsmeldungen
-  (`infos`); dieselbe Abfrageform an beiden Stellen, HTTP 200, vier bzw. fünf
-  Verbindungen. Der Satz beschrieb also, was DIESE App gebaut hat, und gab
-  sich als Auskunft über die Schnittstelle aus — genau die Art Behauptung, die
-  dieses Papier sonst verbietet. Solange der Rückfall nicht gebaut ist, gibt
-  es bei einem Ausfall von Stufe 1 hier nichts, und die App sagt das; sie sagt
-  aber nicht, dass es nicht ginge.
+- **Die Verbindungsauskunft hat seit 1.1.1 eine ZWEITE REIHE**
+  (`Verbindungsquelle`, `EfaVerbindungen.swift`, `SchweizVerbindungen.swift`).
+  In 1.0.11 stand hier, die Verbünde gäben eine Abfahrtstafel heraus und sonst
+  nichts. **Das war falsch**, nachgemessen am 19.09.2026: `XSLT_TRIP_REQUEST2`
+  antwortete an ALLEN ACHT Stellen aus `EfaDienst.alle` mit vollständigen
+  Verbindungen — Fußwege, Umstiege, Zwischenhalte (`stopSequence`),
+  Streckengeometrie (`coords`) und Echtzeit (`isRealtimeControlled`); die
+  Schweizer `/v1/connections` ebenso, ohne Geometrie. Der Satz beschrieb also,
+  was DIESE App gebaut hatte, und gab sich als Auskunft über die Schnittstelle
+  aus. Jetzt ist der Rückfall gebaut.
+- **`Verbindungsquelle` ist das DRITTE Protokoll — aus demselben Grund wie das
+  zweite.** `Abfahrtsquelle` gibt es, weil EFA keine Streckengeometrie zu einer
+  einzelnen Fahrt kennt; `Verbindungsquelle` gibt es, weil dieselben Stellen
+  eine Reiseauskunft können, aber weder die Ortssuche für die Vorschlagsliste
+  noch einen Fahrtlauf. Sie als `Fahrplandienst` auszugeben hieße, sechs
+  Methoden zu versprechen und vier mit „geht nicht" zu beantworten.
+- **Zuständig ist eine Quelle nur, wenn BEIDE Punkte in ihrem Gebiet liegen.**
+  Das ist der Unterschied zur Tafel: Eine Tafel gilt für einen Punkt, eine
+  Verbindung für zwei. Dortmund → Köln kann nur Transitous, und eine Anfrage,
+  die garantiert nichts bringt, ist in einer Kette nur Wartezeit. Die
+  Gebietsprüfung steht deshalb an EINER Stelle je Quelle
+  (`EfaStelle.enthaelt`, `SchweizDienst.imGebiet`) und wird von Tafel und
+  Auskunft gemeinsam benutzt.
+- **„Nichts gefunden" und „nicht geantwortet" werden in der Kette GETRENNT
+  gezählt** (`Kettendienst.Versuch`). Antwortet eine Quelle sauber mit
+  `.keineVerbindung`, wird die nächste trotzdem gefragt — am Ende aber genau
+  das gemeldet und nicht „keine Quelle antwortet". Die beiden verlangen
+  verschiedene Knöpfe: gegen „es fährt nichts" hilft eine andere Zeit, gegen
+  „niemand hat geantwortet" ein zweiter Versuch. Derselbe Unterschied wie
+  zwischen „Plan" und „pünktlich".
+- **Die Verbindungsauskunft hat KEINEN Zwischenspeicher**, die Tafel schon.
+  Eine Abfahrtstafel von vorhin ist mit Altersangabe noch etwas wert; eine
+  Verbindungssuche gilt für zwei Punkte und eine Uhrzeit, und die sind beim
+  nächsten Mal andere. Ein Treffer von gestern wäre kein alter Stand, sondern
+  die Antwort auf eine andere Frage.
+- **Die Fußzeile nennt die Quelle, die WIRKLICH geantwortet hat**
+  (`Verbindung.quelle`, `Verbindungsmodell.beteiligteQuellen`). Bis 1.1.0 stand
+  dort fest `dienst.quellenname`, also „Transitous" — auch unter einer
+  Auskunft, die vom VRR kam. Dieselbe Regel wie bei `AppModel.beteiligteQuellen`
+  an der Tafel.
+- **Eine Fahrt OHNE Streckenführung wird GESTRICHELT gezeichnet**
+  (`VerbindungsKarte.strichelt`, ab 1.1.1). Der Schweizer Dienst liefert gar
+  keine Geometrie; bis 1.1.0 lag daraufhin eine durchgezogene Gerade quer über
+  der Karte und sah aus wie ein Fahrweg. Verbunden werden jetzt die HALTE (nicht
+  nur Anfang und Ende — die Lage jedes Haltes ist ja bekannt), gestrichelt, und
+  unter der Karte steht, was das heißt. Dieselbe Regel wie bei der
+  gestrichelten Luftlinie im Fahrtlauf.
+- **In der EFA-REISEAUSKUNFT steht in `realtimeStatus` ein WORT, im
+  Abfahrtsmonitor eine ZIFFER.** Gemessen 19.09.2026 an allen acht Stellen:
+  durchweg `MONITORED`. Die Ziffer `5` („entfällt") des Monitors kommt hier
+  nie vor — wer die Prüfung von dort herüberkopiert, prüft auf etwas, das es
+  in dieser Antwort nicht gibt.
+- **EFA-Produktklasse 13 ist der REGIONALZUG** (gefunden 19.09.2026 bei VRR,
+  VVS und VVO: „R-Bahn", „Regionalzug"). Sie fehlte in `verkehrsmittel`, und
+  ohne sie fiel jeder RE und jede RB in den Vorgabefall und stand grau als
+  „Sonstiges" da — während dieselbe Fahrt über Transitous ein Regionalzug war.
+  Der Fehler betraf auch die Tafel, nicht nur die neue Auskunft.
+- **Die EFA-Reiseauskunft liegt neben der Tafel, unter demselben Pfad**
+  (`XSLT_TRIP_REQUEST2` statt `XML_DM_REQUEST`) — abgeleitet aus
+  `EfaStelle.adresse` und nicht als zweites Feld gepflegt. Datum und Uhrzeit
+  reisen in der ÖRTLICHEN Zeit (`itdDate=20260919`, `itdTime=1300`), und
+  **die Länge steht in der Anfrage zuerst**, wie bei der Tafel.
+- **Beim Schweizer Dienst steht bei `from`/`to` die BREITE zuerst**, bei der
+  Stationssuche dagegen ist `x` die Breite und `y` die Länge. Zwei
+  Schreibweisen in einer Schnittstelle; wer sie verwechselt, fragt im Meer und
+  bekommt eine leere Liste statt einer Fehlermeldung. Und `journey == nil`
+  heißt Fußweg — das `walk`-Feld taugt dafür nicht, denn es trägt an manchen
+  Fußwegen `duration: null`.
+- **Der Reiseplaner der DEUTSCHEN BAHN ist kein Weg** (gemessen 18.09.2026,
+  Frage des Nutzers). Vier Zugänge, vier Ergebnisse:
+  - `www.bahn.de/web/api/reiseloesung/orte` und dasselbe unter `int.bahn.de`:
+    **HTTP 403 mit `{"status":"ERROR","code":"OPS_BLOCKED"}`** — mit
+    Browser-Kopfzeilen, mit Referer, gleich geblieben. Die Startseite derselben
+    Adresse antwortet mit 200, es ist also DB, das die Schnittstelle abweist,
+    und kein Netzproblem. Diese Schnittstelle ist nicht veröffentlicht; sie
+    bedient die eigene Webseite und darf das.
+  - **DB API Marketplace** (`apis.deutschebahn.com`): antwortet, verlangt aber
+    Schlüssel und Konto (HTTP 401). Ein Schlüssel in einer App ist keiner.
+  - `*.transport.rest` (HAFAS): **weiterhin 503**, bei v5 und v6, für DB, VBB
+    und BVG — durchgehend seit dem Bau der App.
+  - `app.vendo.noncd.db.de` und `reiseauskunft.bahn.de`: aus DIESER
+    Bauumgebung nicht erreichbar (kein DNS-Eintrag, 502 am Proxy). **Nicht
+    gemessen heißt nicht „geht nicht"** — es heißt, dass hier niemand
+    nachsehen konnte, und ungemessen gehört keine Quelle in die Kette.
 - **Was es an Alternativen zu Transitous gibt — gemessen 19.09.2026** (Frage
   des Nutzers): 
-  - **EFA-Reiseplanung** bei den acht Stellen aus `EfaDienst.alle` — der
-    nächstliegende Rückfall, weil die Adressen schon im Repo stehen und
-    geprüft sind. Grenze: Sie gilt nur IM Verbundgebiet, deckt also keine
+  - **EFA-Reiseplanung** bei den acht Stellen aus `EfaDienst.alle` — **seit
+    1.1.1 gebaut**. Grenze: Sie gilt nur IM Verbundgebiet, deckt also keine
     Fahrt von Dortmund nach Köln ab.
-  - **`transport.opendata.ch/v1/connections`** für die Schweiz — geprüft
-    (Zürich nach Bern, drei Verbindungen mit Umstiegen und Fußwegen). Der
-    Dienst liegt für die Abfahrten ohnehin schon in der Kette.
+  - **`transport.opendata.ch/v1/connections`** für die Schweiz — **seit 1.1.1
+    gebaut**; ohne Streckengeometrie.
   - **`*.transport.rest` (HAFAS der Bahn)** wäre die einzige bundesweite
     Alternative und antwortete auch am 19.09.2026 mit **503** — bei `v5` und
     `v6`, für DB, VBB und BVG. Seit dem Bau der App durchgehend nicht
@@ -1579,7 +1648,7 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   zwölfte Nachbesserung — derselbe Gedanke wie bei Tafelbild 1.4.0 und
   Schulalarm 1.1.0. Die Marken ab 1.0.x in diesem Papier bleiben stehen;
   sie sagen, wann etwas in den Quelltext kam. Danach zählt es weiter:
-  1.1.1, 1.1.2 … Dazu gesetzt (Ansage des Nutzers,
+  1.1.1 (Build 14), 1.1.2 … Dazu gesetzt (Ansage des Nutzers,
   09/2026): `DEVELOPMENT_TEAM = F4989GSTWS` — dieselbe Id wie Schulalarm und
   Tafelbild — und `INFOPLIST_KEY_LSApplicationCategoryType =
   public.app-category.navigation`. Beides steht als Build-Einstellung, weil

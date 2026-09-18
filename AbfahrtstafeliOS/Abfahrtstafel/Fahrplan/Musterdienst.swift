@@ -164,7 +164,8 @@ struct Musterdienst: Fahrplandienst {
             geplanteAbfahrt: start,
             geplanteAnkunft: fahrt.geplantesEnde,
             umstiege: 0,
-            abschnitte: [zuFuss, fahrt]
+            abschnitte: [zuFuss, fahrt],
+            quelle: "Musterdaten"
         )
     }
 
