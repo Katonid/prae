@@ -61,6 +61,18 @@ struct EinstellungenView: View {
                 }
 
                 Section {
+                    NavigationLink {
+                        ZugaengeView()
+                    } label: {
+                        Label("Eigene Zugänge", systemImage: "key")
+                    }
+                } header: {
+                    Text("Schlüssel, die Ihnen gehören")
+                } footer: {
+                    Text("Manche Fahrplandienste antworten nur mit einem Zugangsschlüssel. Ein Schlüssel, der in einer App mitgeliefert wird, ist keiner — einer, den Sie selbst holen, schon. Hier lässt er sich eintragen; er liegt dann in Ihrem Schlüsselbund und verlässt das Gerät nur in seine eigene Abfrage.")
+                }
+
+                Section {
                     Text("Diese App hat kein Konto, keinen Server und keine Anmeldung. Gemerkte Haltestellen liegen auf dem Gerät.")
                     Text("An den Fahrplandienst geht bei jeder Abfrage die Koordinate, um die es gerade geht — sonst wüsste er nicht, welche Haltestellen gemeint sind. Ein Kennzeichen des Geräts oder der Person wird nicht mitgeschickt.")
                 } header: {
@@ -87,4 +99,5 @@ struct EinstellungenView: View {
 #Preview {
     EinstellungenView()
         .environmentObject(AppModel(dienst: Musterdienst()))
+        .environmentObject(Standortdienst())
 }
