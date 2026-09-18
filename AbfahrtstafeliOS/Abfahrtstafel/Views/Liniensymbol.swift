@@ -85,14 +85,57 @@ extension Linienkennung {
     /// naheliegende Quelle und taugt dafür NICHT: Swift streut ihn je
     /// Programmlauf zufällig, die 462 wäre also morgens grün und abends
     /// blau.
+    ///
+    /// **Zwei getrennte Durchgänge, und jeder mit einer Schlussdurchmischung**
+    /// (ab 1.1.8, gemeldet 09/2026 aus Berchtesgaden: „Alles lila…"). Bis 1.1.7
+    /// lief EIN FNV-Durchgang, und die beiden Zahlen wurden als zwei
+    /// Bitfenster daraus geschnitten — die erste aus den Bits 8 bis 23. Genau
+    /// die sind bei FNV-1a die schwächsten: Der letzte Schritt ist eine
+    /// Multiplikation, und deren niedrige Bits hängen nur von den niedrigen
+    /// Bits der Eingabe ab. Namen, die sich bloß im letzten Zeichen
+    /// unterscheiden — also die acht Buslinien einer Gegend —, bekamen damit
+    /// fast denselben Wert.
+    ///
+    /// **Nachgemessen am 18.09.2026** an den echten Liniennamen: Der Farbton
+    /// aller acht Linien in Berchtesgaden lag in einem Fenster von 0,004,
+    /// obwohl ±0,055 erlaubt sind; 838 und 839 bekamen dieselbe Farbe auf den
+    /// Punkt. Die Spanne war also nie zu klein — sie wurde nie ausgeschöpft.
+    /// Mit zwei Durchgängen (verschiedener Startwert) und je einer
+    /// Durchmischung verzehnfacht sich der kleinste Farbabstand, geprüft an
+    /// vier echten Liniensätzen (Berchtesgaden, Dortmund, München, gemischt):
+    /// schlechtester Fall 0,0018 → 0,0178.
+    ///
+    /// **An den Spannen wurde nichts geändert.** Sie waren richtig; wer hier
+    /// nachbessern will, misst zuerst, ob der Wert überhaupt ankommt.
     private static func streuwert(_ text: String) -> (Double, Double) {
-        var wert: UInt64 = 1469598103934665603
+        (anteil(streuzahl(text, startwert: 1469598103934665603)),
+         anteil(streuzahl(text, startwert: 0x9E37_79B9_7F4A_7C15)))
+    }
+
+    /// FNV-1a über den Namen, danach durchmischt.
+    private static func streuzahl(_ text: String, startwert: UInt64) -> UInt64 {
+        var wert = startwert
         for byte in Array(text.utf8) {
             wert = (wert ^ UInt64(byte)) &* 1099511628211
         }
-        let eins = Double((wert >> 8) & 0xFFFF) / 65535
-        let zwei = Double((wert >> 32) & 0xFFFF) / 65535
-        return (eins, zwei)
+        return durchmischt(wert)
+    }
+
+    /// Der Schlussmischer von splitmix64 — er verteilt jedes Eingabebit über
+    /// das ganze Wort. Ohne ihn stünde die Farbe an den schwächsten Bits.
+    private static func durchmischt(_ roh: UInt64) -> UInt64 {
+        var wert = roh
+        wert ^= wert >> 30
+        wert = wert &* 0xBF58_476D_1CE4_E5B9
+        wert ^= wert >> 27
+        wert = wert &* 0x94D0_49BB_1331_11EB
+        wert ^= wert >> 31
+        return wert
+    }
+
+    /// Die oberen 32 Bit als Zahl zwischen 0 und 1.
+    private static func anteil(_ wert: UInt64) -> Double {
+        Double((wert >> 32) & 0xFFFF_FFFF) / Double(UInt32.max)
     }
 
     /// Die Schriftfarbe auf dem Liniensymbol.
