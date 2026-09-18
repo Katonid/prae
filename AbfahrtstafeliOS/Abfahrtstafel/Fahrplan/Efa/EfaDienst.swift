@@ -183,7 +183,10 @@ struct EfaDienst: Abfahrtsquelle, Meldungsquelle {
                 linien: linien,
                 quelle: name,
                 dringend: false,
-                adresse: nil
+                adresse: nil,
+                // Ein Kurzhinweis ist eine Zeile ohne Herausgeberapparat; zu
+                // ihm gibt es diesen Satz nicht.
+                fahrplanhinweis: ""
             )
         }
 
@@ -224,7 +227,15 @@ struct EfaDienst: Abfahrtsquelle, Meldungsquelle {
             linien: linien,
             quelle: name,
             dringend: (meldung.priority ?? "").lowercased() == "high",
-            adresse: adresse
+            adresse: adresse,
+            // Auch dieser Satz kommt als HTML und teils doppelt kodiert; er
+            // geht denselben Weg wie der Fließtext. Gesucht wird er über ALLE
+            // `infoLinks` und nicht nur über den ergiebigsten: Der Satz gilt
+            // der Meldung, nicht der einzelnen Fassung, und an welcher er
+            // hängt, ist nicht zugesichert.
+            fahrplanhinweis: texte.lazy
+                .compactMap { Klartext.aus($0.additionalText).nilWennLeer }
+                .first ?? ""
         )
     }
 

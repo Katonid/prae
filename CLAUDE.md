@@ -1502,6 +1502,44 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   zuständig ist, sagt die App genau das: „Das heißt NICHT, dass alles
   planmäßig fährt — es heißt, dass niemand nachgesehen hat." Dieselbe Regel
   wie beim Wort „Plan" an einer Abfahrt ohne Echtzeit.
+- **Eine Meldung sagt SELBST, ob ihre Änderung im Fahrplan steht**
+  (`Betriebsmeldung.fahrplanhinweis`, `additionalText` bei EFA, ab 1.1.5;
+  gemeldet 09/2026: „Bei der Linie 470 in Dortmund ist zwar die
+  Störungsmeldung aufgeführt, die gesperrten Haltestellen sind aber als
+  befahrbar aufgeführt."). Nachgemessen am 18.09.2026 an genau dieser Linie:
+  Die Meldung des VRR nennt zwei gesperrte Haltestellen
+  (Heinrich-Munsbeck-Straße, Hedwigstraße); in den Fahrplandaten entfällt eine
+  dritte, ganz andere (Haus Dellwig) — und nur in Richtung Oespel, die
+  Gegenrichtung hat gar keinen entfallenden Halt. Transitous und der Spiegel
+  antworteten Wort für Wort gleich; es lag also weder an der Kette noch an
+  `haltEntfaellt`. **Beides war richtig und wirkte zusammen falsch:** oben
+  „Straße gesperrt", unten jeder Halt als angefahren. Die Auflösung stand die
+  ganze Zeit in der Meldung — der Herausgeber schreibt dazu „Die beschriebenen
+  Änderungen sind in der elektronischen Fahrplanauskunft (EFA) **nicht**
+  berücksichtigt", und die App warf diesen Satz weg. Jetzt steht er wörtlich
+  in der Meldungsliste, und über der Halteliste wie auf der Netzkarte steht
+  das Band „Diese Änderungen stehen NICHT im Fahrplan". **Den Umleitungsweg
+  zeigen kann die App weiterhin nicht** — er steht in keiner Quelle; was sie
+  kann, ist es sagen.
+- **Der Satz wird wörtlich gezeigt UND gedeutet** (`aenderungenImFahrplan`).
+  Gedeutet wird an einem einzelnen Wort („nicht"), und das ist sonst genau
+  die Art Raten, die dieses Papier verbietet (`linien` kommt ausdrücklich aus
+  den Daten und nicht aus dem Titel). Der Unterschied: Dort geht es um eine
+  Aufzählung in freier Formulierung, hier um EINEN feststehenden Satz eines
+  Herausgebers, in beiden Ausprägungen gemessen — und der Wortlaut steht
+  daneben, wer ihn liest, sieht sofort, ob die Deutung stimmt. Gemessen
+  18.09.2026: VRR füllt das Feld (in beiden Richtungen), VVS, VRN und MVV
+  lassen es leer. Es ist eine Zugabe, keine Zusicherung; `nil` heißt „der
+  Verbund sagt nichts dazu" und ist der Regelfall.
+- **Einzelne EFA-Felder kommen DOPPELT KODIERT** (`Klartext.geradegerueckt`,
+  ab 1.1.5). In derselben VRR-Meldung stand `subtitle` als tadelloses UTF-8
+  („Verspätungen") und `additionalText` daneben als „Ã„nderungen" — die
+  UTF-8-Bytes ein zweites Mal als UTF-8 geschrieben. Es ist ein Fehler des
+  Herausgebers und keiner der Übertragung; `JSONDecoder` liefert dieselben
+  Zeichen. Gerichtet wird nur, wenn BEIDES zutrifft: ein verräterisches
+  Zeichen ist da, und das Zurückdrehen geht verlustfrei auf. Sonst bleibt der
+  Text stehen — ein französischer Ortsname mit Ã ist kein Fehler, und ein
+  geratener Fix träfe die Texte, die in Ordnung sind.
 - **HTML wird von Hand entpackt** (`Fahrplan/Efa/Klartext.swift`). Die Texte
   der Verbünde kommen mit Markierungen und benannten Zeichen (`&szlig;`,
   `&uuml;`, `&ndash;`, `&nbsp;`) — ohne Rückübersetzung wäre jeder deutsche
@@ -1771,7 +1809,7 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   zwölfte Nachbesserung — derselbe Gedanke wie bei Tafelbild 1.4.0 und
   Schulalarm 1.1.0. Die Marken ab 1.0.x in diesem Papier bleiben stehen;
   sie sagen, wann etwas in den Quelltext kam. Danach zählt es weiter:
-  1.1.1 (Build 14), 1.1.2 (Build 15), 1.1.3 (Build 16), 1.1.4 (Build 17) … Dazu gesetzt (Ansage des Nutzers,
+  1.1.1 (Build 14), 1.1.2 (Build 15), 1.1.3 (Build 16), 1.1.4 (Build 17), 1.1.5 (Build 18) … Dazu gesetzt (Ansage des Nutzers,
   09/2026): `DEVELOPMENT_TEAM = F4989GSTWS` — dieselbe Id wie Schulalarm und
   Tafelbild — und `INFOPLIST_KEY_LSApplicationCategoryType =
   public.app-category.navigation`. Beides steht als Build-Einstellung, weil

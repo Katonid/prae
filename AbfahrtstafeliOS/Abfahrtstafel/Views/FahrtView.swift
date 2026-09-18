@@ -85,6 +85,13 @@ struct FahrtView: View {
                         ) { meldungenOffen = true }
                         .listRowInsets(EdgeInsets())
                     }
+                    // Und wenn der Verbund dazuschreibt, dass die Änderung im
+                    // Fahrplan NICHT steht, gehört das hierher und nicht in
+                    // ein Blatt dahinter: Genau darauf schaut man gleich.
+                    if !meldungen.nichtImFahrplan(zu: fahrt.linie).isEmpty {
+                        Planwegband()
+                            .listRowInsets(EdgeInsets())
+                    }
                 } header: {
                     Kopfzeile(fahrt: fahrt)
                         .textCase(nil)
@@ -107,7 +114,12 @@ struct FahrtView: View {
                 } header: {
                     Text("\(fahrt.halte.count) Halte — \(fahrt.start?.haltestelle.name ?? "?") bis \(fahrt.ziel?.haltestelle.name ?? "?")")
                 } footer: {
-                    Text("Die Zeiten stammen aus \(model.dienst.quellenname). Wo kein Echtzeitwert vorliegt, steht die Planzeit.")
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Die Zeiten stammen aus \(model.dienst.quellenname). Wo kein Echtzeitwert vorliegt, steht die Planzeit.")
+                        if !meldungen.nichtImFahrplan(zu: fahrt.linie).isEmpty {
+                            Text("Ein entfallender Halt ist oben rot durchgestrichen. Weil die Änderungen dieser Meldung nicht in den Fahrplandaten stehen, kann eine gesperrte Haltestelle hier trotzdem als angefahren erscheinen.")
+                        }
+                    }
                 }
             }
             .listStyle(.insetGrouped)

@@ -14,6 +14,7 @@ import SwiftUI
 struct LiniennetzView: View {
     @EnvironmentObject private var model: AppModel
     @EnvironmentObject private var netz: Liniennetz
+    @EnvironmentObject private var meldungen: Meldungsdienst
 
     @State private var kamera: MapCameraPosition = .automatic
     /// Welche Linie gerade hervorgehoben ist. `nil` heißt „alle gleich".
@@ -352,6 +353,21 @@ struct LiniennetzView: View {
     /// braucht sie nie wieder, und sie standen bis 1.0.8 trotzdem jedes Mal da.
     private var hinweise: [Hinweis] {
         var liste: [Hinweis] = []
+        // Ganz nach vorn, denn es ist die einzige Zeile hier, die eine
+        // Auskunft über die HEUTIGE Lage schwächt: Wo eine Meldung gilt,
+        // deren Änderungen nicht in den Fahrplandaten stehen, kann ein
+        // gesperrter Halt auf dieser Karte als angefahren dastehen.
+        let ungepflegt = netz.zuege
+            .filter { !meldungen.nichtImFahrplan(zu: $0.linie).isEmpty }
+            .map(\.linie.name)
+        if !ungepflegt.isEmpty {
+            let namen = Set(ungepflegt).sorted().joined(separator: ", ")
+            liste.append(Hinweis(
+                id: "ungepflegt",
+                symbol: "arrow.triangle.branch",
+                text: "Zu \(namen) liegt eine Meldung vor, deren Änderungen NICHT im Fahrplan stehen. Gezeichnet ist deshalb der Planweg — eine gesperrte Haltestelle kann hier als angefahren erscheinen."
+            ))
+        }
         if netz.entfallendeHalte > 0 {
             liste.append(Hinweis(
                 id: "entfallen",
@@ -507,4 +523,5 @@ private struct Linienhalt: View {
     LiniennetzView()
         .environmentObject(AppModel(dienst: Musterdienst()))
         .environmentObject(Liniennetz())
+        .environmentObject(Meldungsdienst())
 }

@@ -47,6 +47,22 @@ enum EfaAntwort {
             /// HTML. Wird über `Klartext` lesbar gemacht.
             let content: String?
             let url: String?
+            /// Der Satz, in dem der Verbund selbst sagt, ob die beschriebene
+            /// Änderung im Fahrplan steht — wörtlich: „Die beschriebenen
+            /// Änderungen sind in der elektronischen Fahrplanauskunft (EFA)
+            /// [nicht] berücksichtigt."
+            ///
+            /// **Das ist die wichtigste Zeile einer Meldung**, und bis 1.1.4
+            /// hat die App sie weggeworfen. Sie beantwortet genau die Frage,
+            /// die sonst offen bleibt: Warum steht in der Halteliste eine
+            /// Haltestelle als angefahren da, die die Meldung darüber als
+            /// gesperrt bezeichnet? Weil der Herausgeber die Umleitung nur
+            /// beschrieben und nicht in die Fahrplandaten eingepflegt hat.
+            ///
+            /// Nachgemessen 18.09.2026: VRR füllt das Feld (in beiden
+            /// Richtungen, mit und ohne „nicht"), VVS, VRN und MVV lassen es
+            /// leer. Es ist also eine Zugabe und keine Zusicherung.
+            let additionalText: String?
         }
     }
 

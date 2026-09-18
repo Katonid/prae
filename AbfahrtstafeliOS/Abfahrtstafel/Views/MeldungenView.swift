@@ -37,6 +37,34 @@ struct Betriebsmeldungsband: View {
     }
 }
 
+/// Das Band, das sagt: Diese Meldung steht NICHT in den Fahrplandaten.
+///
+/// **Der Grund, aus dem es dieses Band gibt** (gemeldet 09/2026 zur Linie 470
+/// in Dortmund): Über der Halteliste stand eine Meldung über gesperrte
+/// Haltestellen, in der Liste stand jeder Halt als angefahren. Beides war
+/// richtig — die Meldung kommt vom Verbund, die Halte aus den Fahrplandaten,
+/// und der Verbund hatte die Umleitung nur beschrieben und nicht eingepflegt.
+/// Nebeneinander gelesen sah es aus wie ein Fehler der App.
+///
+/// Es ist KEIN Knopf. Die Meldung selbst steht einen Fingerbreit darüber und
+/// ist einer; zwei Trefferflächen übereinander lösen zuverlässig die falsche
+/// aus.
+struct Planwegband: View {
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Image(systemName: "arrow.triangle.branch")
+                .foregroundStyle(.orange)
+            Text("Diese Änderungen stehen NICHT im Fahrplan. Unten steht deshalb der Planweg — eine gesperrte Haltestelle kann dort als angefahren erscheinen.")
+                .font(.caption)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 9)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.orange.opacity(0.10))
+    }
+}
+
 /// Die kleine Marke an einer Abfahrtszeile, deren Linie eine Meldung hat.
 ///
 /// Sie ist der Grund, warum die Meldungen überhaupt je Linie zugeordnet
@@ -144,6 +172,24 @@ private struct Meldungszeile: View {
                     .lineLimit(ausgeklappt ? nil : 4)
                     .fixedSize(horizontal: false, vertical: true)
                     .onTapGesture { withAnimation(.snappy) { ausgeklappt.toggle() } }
+            }
+
+            // Der Satz des Herausgebers dazu, ob die beschriebene Änderung
+            // im Fahrplan steht. Er steht WÖRTLICH da und wird nicht
+            // zusammengefasst: Die Deutung darüber (`aenderungenImFahrplan`)
+            // liest ein einzelnes Wort — wer den Satz daneben liest, sieht
+            // sofort, ob sie stimmt.
+            if !meldung.fahrplanhinweis.isEmpty {
+                Label {
+                    Text(meldung.fahrplanhinweis)
+                } icon: {
+                    Image(systemName: meldung.aenderungenImFahrplan == false
+                          ? "exclamationmark.triangle.fill"
+                          : "info.circle")
+                }
+                .font(.caption)
+                .foregroundStyle(meldung.aenderungenImFahrplan == false ? .orange : .secondary)
+                .fixedSize(horizontal: false, vertical: true)
             }
 
             if let adresse = meldung.adresse {

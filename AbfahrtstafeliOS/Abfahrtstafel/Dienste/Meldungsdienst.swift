@@ -42,6 +42,30 @@ final class Meldungsdienst: ObservableObject {
         meldungen.filter { $0.betrifft(linie) }
     }
 
+    /// Die Meldungen zu einer Linie, deren Änderungen NICHT im Fahrplan
+    /// stehen — und die damit die Halteliste einer Fahrt in Frage stellen.
+    ///
+    /// **Warum es diese zweite Abfrage gibt** (gemeldet 09/2026: „Bei der
+    /// Linie 470 in Dortmund ist zwar die Störungsmeldung aufgeführt, die
+    /// gesperrten Haltestellen sind aber als befahrbar aufgeführt."):
+    ///
+    /// Nachgemessen am 18.09.2026 an genau dieser Linie. Die Meldung des VRR
+    /// nennt zwei gesperrte Haltestellen; in den Fahrplandaten (Transitous
+    /// und Spiegel, Wort für Wort dasselbe) entfällt eine dritte, ganz
+    /// andere, und die Richtung Mengede hat gar keinen entfallenden Halt.
+    /// Die App zeigte also beides richtig und stand trotzdem falsch da: Über
+    /// der Halteliste stand „Straße gesperrt", in der Liste stand jeder Halt
+    /// als angefahren. Die Auflösung stand die ganze Zeit in der Meldung
+    /// selbst — der Herausgeber schreibt dazu, dass die Änderungen in der
+    /// Fahrplanauskunft NICHT berücksichtigt sind. Diesen Satz warf die App
+    /// weg.
+    ///
+    /// Was daraus NICHT folgt: dass die App den Umleitungsweg zeigen könnte.
+    /// Er steht in keiner Quelle. Was sie kann, ist es sagen.
+    func nichtImFahrplan(zu linie: Linienkennung) -> [Betriebsmeldung] {
+        meldungen(zu: linie).filter { $0.aenderungenImFahrplan == false }
+    }
+
     func aktualisieren(um haltestelle: Haltestelle?, umkreis: Int, erzwingen: Bool = false) {
         guard let haltestelle else { return }
         guard let zustaendige = quellen.first(where: { $0.zustaendig(fuer: haltestelle) }) else {
