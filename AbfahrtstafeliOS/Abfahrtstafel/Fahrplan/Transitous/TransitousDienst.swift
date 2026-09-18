@@ -169,12 +169,87 @@ struct TransitousDienst: Fahrplandienst {
 
     // MARK: - Abfahrten
 
+    /// Die Verkehrsmittel, die eine EIGENE Abfrage bekommen.
+    ///
+    /// **Warum es die zweite Abfrage gibt** (ab 1.1.10, Ansage des Nutzers
+    /// 09/2026: „In München fahren garantiert noch andere Züge ab … Bitte nimm
+    /// noch weitere Verkehrsverbindungen in die App auf"): Sie fehlten nie in
+    /// der Zuordnung — `REGIONAL_RAIL` und `HIGHSPEED_RAIL` stehen seit der
+    /// ersten Fassung in `verkehrsmittel(_:)`. Sie fielen aus dem FENSTER.
+    ///
+    /// `/stoptimes` gibt die nächsten `n` Abfahrten ALLER Haltestellen im
+    /// Umkreis zurück, nach Zeit sortiert. In einer Innenstadt sind das fast
+    /// nur Busse und Trams: **Nachgemessen am 18.09.2026 an der Arnulfstraße
+    /// in München deckten die 40 Abfahrten der App ganze drei Minuten ab**
+    /// (16:42 bis 16:45) und enthielten zwei Regionalzüge. Ein Zug fährt
+    /// seltener als eine Tram — er verliert dieses Rennen immer, und zwar umso
+    /// deutlicher, je besser die Stadt mit Bussen bedient ist.
+    ///
+    /// Mit `mode=` auf dieselbe Abfrage gelegt, deckten dieselben 40 Zeilen
+    /// **54 Minuten** ab: RE5 nach Salzburg, RE25, RB16, RB6, ICE 500 nach
+    /// Berlin, dazu Fernbusse. Es ist also keine zweite Datenquelle, sondern
+    /// dieselbe mit einem zweiten Fenster.
+    ///
+    /// **`FERRY` steht bewusst mit drin**, obwohl in München keine fährt: Eine
+    /// Fähre ist genauso selten wie ein Zug und verlöre dasselbe Rennen — in
+    /// Hamburg oder am Bodensee ist das keine Spitzfindigkeit.
+    private static let selteneMittel = "REGIONAL_RAIL,HIGHSPEED_RAIL,LONG_DISTANCE,NIGHT_RAIL,COACH,FERRY"
+
     func abfahrten(
         ab haltestelle: Haltestelle,
         umkreis meter: Int,
         zeitpunkt: Date,
         anzahl: Int
     ) async throws -> [Abfahrt] {
+        // Beide Abfragen laufen nebenläufig — nacheinander wären es zwei
+        // Wartezeiten für eine Tafel.
+        async let hauptabfrage = zeilen(
+            ab: haltestelle, umkreis: meter, zeitpunkt: zeitpunkt, anzahl: anzahl, mittel: nil
+        )
+        async let zusatzabfrage = zeilen(
+            ab: haltestelle, umkreis: meter, zeitpunkt: zeitpunkt, anzahl: anzahl,
+            mittel: Self.selteneMittel
+        )
+
+        // **Die Zusatzabfrage darf die Tafel nie mitreißen.** Sie ist eine
+        // Ergänzung; scheitert sie, fehlen Züge, aber die Busse stehen da.
+        // Andersherum wäre der Schaden größer. Zuerst ausgewertet, damit sie
+        // auch dann abgewartet ist, wenn die Hauptabfrage gleich wirft.
+        let zusatz = (try? await zusatzabfrage) ?? []
+        let haupt = try await hauptabfrage
+
+        // Eine Abfahrt kann in BEIDEN Listen stehen — ein Zug in den nächsten
+        // drei Minuten steht auch in der ungefilterten. `Abfahrt.id` trägt
+        // Fahrtkennung, Linie und Richtung und ist damit der richtige
+        // Schlüssel dagegen.
+        var gesehen = Set<String>()
+        return (haupt + zusatz)
+            .compactMap { abfahrt(aus: $0) }
+            .filter { gesehen.insert($0.id).inserted }
+            // Zwei zusammengelegte Listen sind nicht mehr sortiert, und die
+            // Tafel verlässt sich darauf.
+            .sorted { $0.tatsaechlich < $1.tatsaechlich }
+    }
+
+    /// Eine einzelne `/stoptimes`-Abfrage.
+    ///
+    /// **`mode` ist der einzige Name, der wirkt.** Nachgemessen 18.09.2026:
+    /// `modes=` und `transitModes=` werden mit HTTP 200 angenommen und
+    /// **stillschweigend ignoriert** — die Antwort kommt ungefiltert zurück und
+    /// sieht völlig richtig aus. Ein falsch geschriebener Parameter fällt hier
+    /// also nicht auf; ein falsch geschriebener WERT dagegen schon
+    /// („invalid value … for enum ModeEnum"). Wer hier etwas ändert, prüft am
+    /// Zeitfenster der Antwort, ob der Filter wirklich gegriffen hat.
+    ///
+    /// **`RAIL` ist eine Obergruppe und taugt hier nicht:** Damit kamen U-Bahn
+    /// und S-Bahn mit zurück, und das Fenster war wieder zu.
+    private func zeilen(
+        ab haltestelle: Haltestelle,
+        umkreis meter: Int,
+        zeitpunkt: Date,
+        anzahl: Int,
+        mittel: String?
+    ) async throws -> [TransitousAntwort.Halt] {
         var felder = [
             URLQueryItem(name: "stopId", value: haltestelle.id),
             URLQueryItem(name: "n", value: String(anzahl)),
@@ -182,16 +257,18 @@ struct TransitousDienst: Fahrplandienst {
             URLQueryItem(name: "arriveBy", value: "false"),
         ]
         if meter > 0 {
-            // Der Umkreis ist der Grund, warum die Tafel in EINER Abfrage
-            // fertig ist: Der Dienst liefert die Abfahrten aller Haltestellen
-            // im Umkreis mit. Eine Abfrage je Haltestelle wären zehn Anfragen,
-            // und die Liste baute sich ruckweise auf.
+            // Der Umkreis ist der Grund, warum die Tafel in EINER Abfrage je
+            // Fenster fertig ist: Der Dienst liefert die Abfahrten aller
+            // Haltestellen im Umkreis mit. Eine Abfrage je Haltestelle wären
+            // zehn Anfragen, und die Liste baute sich ruckweise auf.
             felder.append(URLQueryItem(name: "radius", value: String(meter)))
+        }
+        if let mittel {
+            felder.append(URLQueryItem(name: "mode", value: mittel))
         }
 
         let tafel: TransitousAntwort.Abfahrtstafel = try await hole("stoptimes", felder)
-        let zeilen = tafel.stopTimes ?? []
-        return zeilen.compactMap { abfahrt(aus: $0) }
+        return tafel.stopTimes ?? []
     }
 
     // MARK: - Fahrt
@@ -524,7 +601,8 @@ struct TransitousDienst: Fahrplandienst {
         case "METRO", "SUBURBAN": return .sBahn
         case "SUBWAY": return .uBahn
         case "TRAM": return .tram
-        case "BUS", "COACH": return .bus
+        case "BUS": return .bus
+        case "COACH": return .fernbus
         case "REGIONAL_RAIL", "REGIONAL_FAST_RAIL", "NIGHT_RAIL", "RAIL": return .regionalzug
         case "HIGHSPEED_RAIL", "LONG_DISTANCE": return .fernzug
         case "FERRY": return .faehre
@@ -539,7 +617,32 @@ struct TransitousDienst: Fahrplandienst {
     /// steht dort die Art des Verkehrsmittels — ein leeres Schild wäre für den
     /// Menschen davor ein kaputtes Schild.
     private func liniennname(anzeige: String?, kurz: String?, lang: String?, mittel: Verkehrsmittel) -> String {
-        anzeige?.nilWennLeer ?? kurz?.nilWennLeer ?? lang?.nilWennLeer ?? mittel.name
+        let roh = anzeige?.nilWennLeer ?? kurz?.nilWennLeer ?? lang?.nilWennLeer ?? mittel.name
+        return ohneZugnummer(roh)
+    }
+
+    /// Schneidet eine angehängte Zugnummer in Klammern ab: „RE5 (79039)" wird
+    /// „RE5".
+    ///
+    /// **Gemessen, nicht angenommen** (18.09.2026): 151 Zugnamen aus München,
+    /// Dortmund, Hamburg, Berlin, Freilassing und Wien eingesammelt. 68 davon
+    /// enden auf eine Klammer — und in **jedem einzelnen Fall** stehen darin
+    /// nur Ziffern, die Zugnummer. Kein Gegenbeispiel, also wird auch nur
+    /// dieser Fall abgeschnitten: Steht etwas anderes in der Klammer, bleibt
+    /// der Name, wie er ist.
+    ///
+    /// **Ohne Klammern wird NICHTS abgeschnitten.** In Österreich hängt die
+    /// Nummer ohne sie dran („REX 7757", „R 2578", „RRR 7757") — dort ist von
+    /// außen nicht zu entscheiden, wo die Linie aufhört und die Nummer
+    /// anfängt. Ein „REX" aus „REX 7757" zu machen wäre geraten, und ein
+    /// falsches Liniensymbol ist schlimmer als ein langes.
+    private func ohneZugnummer(_ name: String) -> String {
+        guard name.hasSuffix(")"), let auf = name.lastIndex(of: "(") else { return name }
+        let inhalt = name[name.index(after: auf)..<name.index(before: name.endIndex)]
+        guard !inhalt.isEmpty, inhalt.allSatisfy(\.isNumber) else { return name }
+        let davor = name[name.startIndex..<auf].trimmingCharacters(in: .whitespaces)
+        // Ein Name, der NUR aus der Nummer besteht, wird nicht geleert.
+        return davor.isEmpty ? name : davor
     }
 
     /// GTFS schreibt Farben als sechs Hexziffern OHNE Raute — aber nicht jeder

@@ -47,8 +47,23 @@ struct Musterdienst: Fahrplandienst {
         mittel: [.tram, .bus]
     )
 
+    /// **Der Hauptbahnhof steht in den Musterdaten, seit es Züge gibt**
+    /// (ab 1.1.10). Regional- und Fernzüge fahren nun einmal nicht am
+    /// Marienplatz ab; ohne eine Haltestelle, an der sie plausibel stehen,
+    /// ließe sich ihre Darstellung nur dann ansehen, wenn gerade ein echter
+    /// Dienst antwortet. Dieselbe Überlegung wie beim entfallenden Halt.
+    static let hauptbahnhof = Haltestelle(
+        id: "muster-hauptbahnhof",
+        name: "München Hbf",
+        gegend: "München",
+        elternId: nil,
+        breite: 48.140200,
+        laenge: 11.558600,
+        mittel: [.sBahn, .uBahn, .regionalzug, .fernzug, .fernbus]
+    )
+
     func haltestellen(um punkt: CLLocationCoordinate2D, umkreis meter: Int) async throws -> [Haltestelle] {
-        [Self.marienplatz, Self.theatinerstrasse, Self.isartor]
+        [Self.marienplatz, Self.theatinerstrasse, Self.isartor, Self.hauptbahnhof]
     }
 
     func haltestellenSuchen(_ text: String, nahe punkt: CLLocationCoordinate2D?) async throws -> [Haltestelle] {
@@ -204,6 +219,11 @@ struct Musterdienst: Fahrplandienst {
         let u3 = Linienkennung(name: "U3", mittel: .uBahn, farbe: "EF7C00", schriftfarbe: "FFFFFF", betrieb: "MVG")
         let tram19 = Linienkennung(name: "19", mittel: .tram, farbe: nil, schriftfarbe: nil, betrieb: "MVG")
         let bus52 = Linienkennung(name: "52", mittel: .bus, farbe: nil, schriftfarbe: nil, betrieb: "MVG")
+        // Die drei tragen KEINE eigene Farbe — so zeigen die Musterdaten
+        // zugleich, was die Farbvergabe aus 1.1.9 daraus macht.
+        let re5 = Linienkennung(name: "RE5", mittel: .regionalzug, farbe: nil, schriftfarbe: nil, betrieb: "DB Regio")
+        let ice = Linienkennung(name: "ICE 500", mittel: .fernzug, farbe: nil, schriftfarbe: nil, betrieb: "DB Fernverkehr")
+        let flix = Linienkennung(name: "N73", mittel: .fernbus, farbe: nil, schriftfarbe: nil, betrieb: "Fernbus")
 
         return [
             bauen("f-s3", marienplatz, s3, "Pasing", inMinuten: 1, verspaetung: 3, steig: "Gl. 1"),
@@ -213,6 +233,9 @@ struct Musterdienst: Fahrplandienst {
             bauen("f-u3", marienplatz, u3, "Moosach", inMinuten: 7, verspaetung: 1, steig: "Gl. 4"),
             bauen("f-52", theatinerstrasse, bus52, "Tierpark", inMinuten: 9, faelltAus: true),
             bauen("f-s3b", isartor, s3, "Holzkirchen", inMinuten: 11, verspaetung: 2, steig: "Gl. 2"),
+            bauen("f-re5", hauptbahnhof, re5, "Salzburg Hbf", inMinuten: 14, verspaetung: 5, steig: "Gl. 27"),
+            bauen("f-ice", hauptbahnhof, ice, "Berlin Hbf", inMinuten: 21, steig: "Gl. 20"),
+            bauen("f-n73", hauptbahnhof, flix, "Zagreb", inMinuten: 34, echtzeit: false),
         ]
     }
 
