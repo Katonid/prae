@@ -95,8 +95,14 @@ zwölf Zeichen ab), Ordner, Ziel und Bundle-Id bleiben „Abfahrtstafel“ /
   Stelle liegt, dann „Suchpunkt hierher". Beides ohne Umweg über die
   Ortswahl.
 - **Karte prüfen.** In den Einstellungen steht, wie oft die Netzkarte neu
-  gezeichnet wird und was ein Aufbau kostet — für die Frage, warum sich eine
-  Karte zäh anfühlt. Rohzahlen, kopierbar, ohne Deutung.
+  gezeichnet wird, was ein Aufbau kostet und wie viele Stützpunkte gezeichnet
+  werden — für die Frage, warum sich eine Karte zäh anfühlt. Rohzahlen,
+  kopierbar, ohne Deutung.
+- **Gezeichnet wird, was zu sehen ist.** Zwölf Linien in München bringen
+  12.446 Stützpunkte mit; beim Blick auf das ganze Netz sind davon rund drei
+  Prozent überhaupt unterscheidbar. Die Karte dünnt deshalb auf den Maßstab
+  aus — nie weiter, als ein Bildpunkt reicht. Wer hineinzoomt, bekommt den
+  vollen Verlauf zurück.
 - **Die Halte der Linien gibt es überall**, nicht nur um den Suchpunkt.
   Gezeichnet wird, was im Kartenausschnitt liegt: Wer zur S-Bahn-Strecke
   schiebt oder hineinzoomt, bekommt dort alle Halte. Nur was gleichzeitig
