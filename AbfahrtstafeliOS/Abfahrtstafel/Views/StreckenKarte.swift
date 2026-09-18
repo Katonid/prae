@@ -52,14 +52,17 @@ struct StreckenKarte: View {
                         Haltepunkt(
                             farbe: fahrt.linie.anzeigefarbe,
                             gross: nummer == 0 || nummer == fahrt.halte.count - 1 || nummer == einstieg,
-                            eigener: nummer == einstieg
+                            eigener: nummer == einstieg,
+                            faelltAus: halt.faelltAus
                         )
                     }
                     // Vierzig Beschriftungen nebeneinander sind keine Karte
-                    // mehr. Nur die drei Halte, um die es geht, tragen ihren
-                    // Namen.
+                    // mehr. Nur die Halte, um die es geht, tragen ihren Namen
+                    // — und ein ENTFALLENDER gehört immer dazu: Er ist der
+                    // Grund, aus dem jemand diese Karte aufschlägt.
                     .annotationTitles(
-                        nummer == 0 || nummer == fahrt.halte.count - 1 || nummer == einstieg
+                        nummer == 0 || nummer == fahrt.halte.count - 1
+                            || nummer == einstieg || halt.faelltAus
                             ? .automatic : .hidden
                     )
                 }
@@ -77,7 +80,31 @@ struct StreckenKarte: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
             }
+
+            // **Der Satz, der diese Karte ehrlich hält.** Ein entfallender
+            // Halt heißt: Das Fahrzeug fährt einen anderen Weg. Welchen,
+            // sagt keine Quelle — der Linienzug hier ist unverändert der
+            // planmäßige (nachgemessen 09/2026 an der Linie 448 in
+            // Dortmund). Ohne diesen Hinweis sähe die Karte aus, als führe
+            // der Bus weiter mitten durch den ausgelassenen Halt.
+            if !fahrt.entfallendeHalte.isEmpty && !istLuftlinie {
+                Label(
+                    entfalltext,
+                    systemImage: "arrow.triangle.branch"
+                )
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            }
         }
+    }
+
+    private var entfalltext: String {
+        let namen = fahrt.entfallendeHalte.map(\.haltestelle.name)
+        let liste = namen.joined(separator: ", ")
+        let wieviele = namen.count == 1
+            ? "Ein Halt entfällt: \(liste)."
+            : "\(namen.count) Halte entfallen: \(liste)."
+        return wieviele + " Gezeichnet ist trotzdem der PLANMÄSSIGE Linienweg — welchen Weg das Fahrzeug stattdessen fährt, gibt keine Quelle heraus."
     }
 
     /// Der Ausschnitt, der die ganze Strecke zeigt, mit etwas Luft ringsum.
@@ -101,22 +128,43 @@ private struct Haltepunkt: View {
     let farbe: Color
     let gross: Bool
     let eigener: Bool
+    var faelltAus: Bool = false
 
     var body: some View {
-        ZStack {
-            Circle()
-                .fill(.background)
-                .frame(width: gross ? 17 : 10, height: gross ? 17 : 10)
-            Circle()
-                .strokeBorder(farbe, lineWidth: gross ? 4 : 3)
-                .frame(width: gross ? 17 : 10, height: gross ? 17 : 10)
-            if eigener {
+        if faelltAus {
+            // Ein entfallender Halt ist NICHT derselbe Punkt in einer anderen
+            // Farbe: Er wird durchgestrichen und trägt das Warnzeichen. Farbe
+            // allein sieht ein farbfehlsichtiger Mensch nicht — dieselbe
+            // Regel wie bei der Rückmeldung in der Wörterwerkstatt.
+            ZStack {
                 Circle()
-                    .fill(farbe)
-                    .frame(width: 7, height: 7)
+                    .fill(.background)
+                    .frame(width: 17, height: 17)
+                Circle()
+                    .strokeBorder(.red, lineWidth: 3)
+                    .frame(width: 17, height: 17)
+                Image(systemName: "xmark")
+                    .font(.system(size: 9, weight: .black))
+                    .foregroundStyle(.red)
             }
+            .shadow(color: .black.opacity(0.22), radius: 1.5, y: 0.5)
+            .accessibilityLabel("Halt entfällt")
+        } else {
+            ZStack {
+                Circle()
+                    .fill(.background)
+                    .frame(width: gross ? 17 : 10, height: gross ? 17 : 10)
+                Circle()
+                    .strokeBorder(farbe, lineWidth: gross ? 4 : 3)
+                    .frame(width: gross ? 17 : 10, height: gross ? 17 : 10)
+                if eigener {
+                    Circle()
+                        .fill(farbe)
+                        .frame(width: 7, height: 7)
+                }
+            }
+            .shadow(color: .black.opacity(0.18), radius: 1.5, y: 0.5)
         }
-        .shadow(color: .black.opacity(0.18), radius: 1.5, y: 0.5)
     }
 }
 
