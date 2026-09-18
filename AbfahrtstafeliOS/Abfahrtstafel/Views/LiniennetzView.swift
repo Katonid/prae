@@ -14,7 +14,27 @@ import UIKit
 /// Gefiltert wird mit DERSELBEN Leiste wie die Liste (`AppModel.filter`): Wer
 /// Busse ausblendet, sieht auch keine Buslinien auf der Karte. Zwei Filter für
 /// dieselbe Frage wären zwei Antworten.
-struct LiniennetzView: View {
+struct LiniennetzView: View, Equatable {
+
+    /// **Diese Ansicht zeichnet nur neu, wenn sich für SIE etwas ändert**
+    /// (ab 1.1.17). Ohne das lief ihr Körper einmal je Sekunde durch:
+    /// `AbfahrtstafelView` beobachtet das `Uhrwerk` für die Minutenziffern
+    /// und reicht hier einen frischen Abschluss weiter (`umschalten`) — und
+    /// ein Abschluss lässt sich nicht vergleichen, also musste SwiftUI von
+    /// einer Änderung ausgehen. Verglichen wird deshalb nur, was das
+    /// Aussehen dieser Ansicht wirklich bestimmt; der Abschluss tut bei jedem
+    /// Durchgang dasselbe.
+    ///
+    /// **Das schaltet nichts ab:** Was diese Ansicht selbst beobachtet
+    /// (`netz`, `meldungen`, `model`, ihr eigener `@State`), löst weiterhin
+    /// ein Neuzeichnen aus. Übrig bleibt nur der Takt von außen, der nichts
+    /// zu sagen hatte. Benutzt wird es über `.equatable()` an den drei
+    /// Stellen in `AbfahrtstafelView` — wer eine vierte anlegt, hängt es mit
+    /// dran, sonst zeichnet dort wieder die Uhr mit.
+    static func == (links: LiniennetzView, rechts: LiniennetzView) -> Bool {
+        links.imVollbild == rechts.imVollbild
+    }
+
     /// Ob diese Karte schon den ganzen Bildschirm füllt (ab 1.1.11). Sie
     /// zeichnet dann denselben Knopf andersherum — auf und zu ist EINE Sache
     /// und gehört an dieselbe Stelle.
@@ -61,6 +81,13 @@ struct LiniennetzView: View {
     @State private var eigeneBewegung = false
     /// Ob gerade auf eine Stelle gezielt wird (Fadenkreuz + Leiste).
     @State private var zielen = false
+    /// Wie breit die Karte auf dem Schirm ist, in Punkten.
+    ///
+    /// Gebraucht für die Vereinfachung der Linienzüge: Aus Ausschnittsbreite
+    /// und Kartenbreite ergibt sich, wie viele Meter EIN Bildpunkt bedeutet —
+    /// und was darunter liegt, ist nicht zu sehen. Geraten wird der Wert
+    /// NICHT; solange er fehlt, wird auch nicht vereinfacht.
+    @State private var kartenbreite: CGFloat = 0
     /// **Alles, was auf der Karte steht — EINMAL gerechnet** (ab 1.1.16).
     ///
     /// Bis 1.1.15 waren Halte, Beschriftungen und Hinweise berechnete
@@ -118,6 +145,7 @@ struct LiniennetzView: View {
         .onChange(of: hervorgehoben) { _, _ in neuRechnen() }
         .onChange(of: meldungen.geholtUm) { _, _ in neuRechnen() }
         .onChange(of: legendeOffen) { _, _ in neuRechnen() }
+        .onChange(of: kartenbreite) { _, _ in neuRechnen() }
         .onChange(of: model.punkt) { _, _ in
             netz.leeren()
             aufbauen()
@@ -142,7 +170,9 @@ struct LiniennetzView: View {
         let zuViele = hervorgehoben == nil
             && !netz.zuege.isEmpty
             && !halte.contains { !$0.faelltAus && !$0.lautMeldungGesperrt }
+        let gezeichnet = berechneZuege()
         inhalt = Karteninhalt(
+            zuege: gezeichnet,
             halte: halte,
             beschriftungen: berechneBeschriftungen(),
             hinweise: berechneHinweise(halte: halte, zuViele: zuViele)
@@ -150,12 +180,51 @@ struct LiniennetzView: View {
         Kartenmesser.geteilt.aufbau(
             dauer: Date().timeIntervalSince(angefangen),
             halte: halte.count,
-            linien: netz.zuege.count
+            linien: netz.zuege.count,
+            punkteRoh: netz.zuege.reduce(0) { $0 + $1.punkte.count },
+            punkteGezeichnet: gezeichnet.reduce(0) { $0 + $1.punkte.count },
+            toleranz: geltendeToleranz ?? 0
         )
+    }
+
+    /// Wie viele Meter ein Bildpunkt gerade bedeutet — `nil`, solange sich
+    /// das nicht feststellen lässt.
+    private var geltendeToleranz: Double? {
+        guard let sichtfeld, kartenbreite > 1 else { return nil }
+        let meter = sichtfeld.size.width
+            * MKMetersPerMapPointAtLatitude(sichtfeld.origin.coordinate.latitude)
+        return Linienvereinfachung.toleranz(
+            breiteInMetern: meter,
+            breiteInPunkten: Double(kartenbreite)
+        )
+    }
+
+    /// Die Linienzüge, wie sie gezeichnet werden — auf den Maßstab gedünnt.
+    private func berechneZuege() -> [Gezeichneter] {
+        let toleranz = geltendeToleranz
+        return netz.zuege.map { zug in
+            Gezeichneter(
+                id: zug.id,
+                linie: zug.linie,
+                istLuftlinie: zug.istLuftlinie,
+                punkte: toleranz.map {
+                    Linienvereinfachung.gekuerzt(zug.punkte, toleranz: $0)
+                } ?? zug.punkte
+            )
+        }
+    }
+
+    /// Ein Linienzug, so wie er auf die Karte kommt.
+    private struct Gezeichneter: Identifiable {
+        let id: String
+        let linie: Linienkennung
+        let istLuftlinie: Bool
+        let punkte: [CLLocationCoordinate2D]
     }
 
     /// Der gerechnete Inhalt der Karte.
     private struct Karteninhalt {
+        var zuege: [Gezeichneter] = []
         var halte: [Linienhaltpunkt] = []
         var beschriftungen: [Liniennummer] = []
         var hinweise: [Hinweis] = []
@@ -208,7 +277,7 @@ struct LiniennetzView: View {
             // Verbund selbst führt. Die Kontur ist das übliche Mittel der
             // Kartografie dagegen und hilft zugleich dort, wo sich zwei Züge
             // überlagern.
-            ForEach(netz.zuege) { zug in
+            ForEach(inhalt.zuege) { zug in
                 MapPolyline(coordinates: zug.punkte)
                     .stroke(
                         konturfarbe.opacity(0.55 * deckkraft(zug)),
@@ -221,7 +290,7 @@ struct LiniennetzView: View {
                     )
             }
 
-            ForEach(netz.zuege) { zug in
+            ForEach(inhalt.zuege) { zug in
                 MapPolyline(coordinates: zug.punkte)
                     .stroke(
                         zug.linie.anzeigefarbe.opacity(deckkraft(zug)),
@@ -315,6 +384,20 @@ struct LiniennetzView: View {
             }
         }
         .mapStyle(.standard(pointsOfInterest: .excludingAll))
+        // **Die Breite wird gemessen, nicht angenommen.** Aus ihr und der
+        // Breite des Ausschnitts ergibt sich, wie viele Meter ein Bildpunkt
+        // bedeutet — und daran hängt, wie fein die Linienzüge gezeichnet
+        // werden müssen. Eine feste Zahl wäre auf dem iPad um das Zweieinhalb-
+        // fache daneben.
+        .background(
+            GeometryReader { flaeche in
+                Color.clear
+                    .onAppear { kartenbreite = flaeche.size.width }
+                    .onChange(of: flaeche.size.width) { _, neu in
+                        kartenbreite = neu
+                    }
+            }
+        )
         // **Ein Tipp auf die freie Kartenfläche zieht sie auf** (ab 1.1.11,
         // wieder da seit 1.1.16). Die Halte und die Liniennummern sind Knöpfe
         // und behalten ihre eigene Aufgabe — SwiftUI gibt dem inneren
@@ -651,7 +734,7 @@ struct LiniennetzView: View {
     /// Eine hervorgehobene Linie blendet die anderen zurück — sie verschwinden
     /// aber NICHT. Wer eine Linie verfolgt, will trotzdem sehen, wo sie die
     /// anderen kreuzt.
-    private func deckkraft(_ zug: Linienzug) -> Double {
+    private func deckkraft(_ zug: Gezeichneter) -> Double {
         guard let hervorgehoben else { return 0.85 }
         return zug.id == hervorgehoben ? 1.0 : 0.18
     }

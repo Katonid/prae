@@ -39,6 +39,16 @@ final class Kartenmesser {
     private(set) var teuersterAufbau: TimeInterval = 0
     private(set) var halte = 0
     private(set) var linien = 0
+    /// Die Stützpunkte der Linienzüge, wie sie aus der Quelle kommen.
+    private(set) var punkteRoh = 0
+    /// Und die, die wirklich gezeichnet werden. **Das ist die Zahl, die mit
+    /// der Anzahl der Linien wächst** (Befund des Nutzers 09/2026: „Je mehr
+    /// Linien im Spiel sind, desto länger dauert's.") — gemessen 12.446 für
+    /// zwölf Linien in München, jede davon zweimal gezeichnet.
+    private(set) var punkteGezeichnet = 0
+    /// Wie viele Meter ein Bildpunkt beim letzten Aufbau bedeutete. 0 heißt
+    /// „nicht feststellbar, also nicht vereinfacht".
+    private(set) var toleranz = 0.0
     private(set) var seit = Date()
 
     /// Gemeldet aus dem Körper der Ansicht — absichtlich ohne jede Wirkung
@@ -50,12 +60,22 @@ final class Kartenmesser {
         zeichnungen += 1
     }
 
-    func aufbau(dauer: TimeInterval, halte: Int, linien: Int) {
+    func aufbau(
+        dauer: TimeInterval,
+        halte: Int,
+        linien: Int,
+        punkteRoh: Int,
+        punkteGezeichnet: Int,
+        toleranz: Double
+    ) {
         aufbauten += 1
         letzterAufbau = dauer
         teuersterAufbau = max(teuersterAufbau, dauer)
         self.halte = halte
         self.linien = linien
+        self.punkteRoh = punkteRoh
+        self.punkteGezeichnet = punkteGezeichnet
+        self.toleranz = toleranz
     }
 
     func zuruecksetzen() {
@@ -79,6 +99,11 @@ final class Kartenmesser {
         zeilen.append("Letzter Aufbau: \(zahl(letzterAufbau * 1000, stellen: 1)) ms")
         zeilen.append("Teuerster Aufbau: \(zahl(teuersterAufbau * 1000, stellen: 1)) ms")
         zeilen.append("Zuletzt gezeichnet: \(halte) Halte auf \(linien) Linien")
+        let anteil = punkteRoh > 0 ? 100 * Double(punkteGezeichnet) / Double(punkteRoh) : 0
+        zeilen.append("Stützpunkte: \(punkteGezeichnet) von \(punkteRoh) (\(zahl(anteil, stellen: 1)) %)")
+        zeilen.append(toleranz > 0
+            ? "Ein Bildpunkt entspricht \(zahl(toleranz, stellen: 1)) m"
+            : "Maßstab nicht feststellbar — nicht vereinfacht")
         zeilen.append("")
         zeilen.append("Gezählt wird der Durchlauf der Kartenansicht. SwiftUI")
         zeilen.append("durchläuft einen Körper gelegentlich auch auf Verdacht;")
