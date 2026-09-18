@@ -39,6 +39,14 @@ struct VerbindungView: View {
             .navigationDestination(for: Verbindung.self) { verbindung in
                 VerbindungDetailView(verbindung: verbindung)
             }
+            // Auch von hier aus führt ein Weg zu einer Haltestelle: Der
+            // Fahrtlauf eines Abschnitts zeichnet seine Halte auf die Karte,
+            // und die sind seit 1.1.7 antippbar. Ohne dieses Ziel täte der
+            // Verweis in DIESEM Stapel nichts — und ein Verweis, der nichts
+            // tut, ist für den Menschen davor ein kaputter Knopf.
+            .navigationDestination(for: Haltestelle.self) { halt in
+                HaltestelleView(haltestelle: halt)
+            }
             .navigationDestination(for: Fahrtwunsch.self) { wunsch in
                 FahrtView(fahrtId: wunsch.fahrtId, einstiegsHaltestelle: wunsch.einstieg)
             }

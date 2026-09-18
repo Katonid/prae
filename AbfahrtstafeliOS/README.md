@@ -67,6 +67,12 @@ zwölf Zeichen ab), Ordner, Ziel und Bundle-Id bleiben „Abfahrtstafel“ /
   Verbund dazuschreibt, dass seine Änderung **nicht** in den Fahrplandaten
   steht, sagt die App das über der Halteliste und auf der Netzkarte — sonst
   steht oben „Straße gesperrt" und unten jede Haltestelle als angefahren.
+- **Ein Tipp auf einen Halt auf der Karte öffnet seine Abfahrtstafel** — auf
+  der Netzkarte ebenso wie auf der Karte eines Fahrtlaufs, und für die Halte
+  der gezeichneten Linien ebenso wie für die Haltestellen um den Bezugspunkt.
+  Es ist dieselbe Ansicht wie aus der Liste, samt Merken-Stern. Gezeichnet
+  bleibt der kleine Punkt; getroffen wird eine unsichtbare Fläche darum, sonst
+  verschöbe man beim Zielen nur die Karte.
 - **Merkliste** für die Handvoll Haltestellen des Alltags — auf dem Gerät,
   ohne Konto.
 

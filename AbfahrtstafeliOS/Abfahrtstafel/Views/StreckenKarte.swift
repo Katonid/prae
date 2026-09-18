@@ -54,13 +54,21 @@ struct StreckenKarte: View {
                         coordinate: halt.haltestelle.koordinate,
                         anchor: .center
                     ) {
-                        Haltepunkt(
-                            farbe: fahrt.linie.anzeigefarbe,
-                            gross: nummer == 0 || nummer == fahrt.halte.count - 1 || nummer == einstieg,
-                            eigener: nummer == einstieg,
-                            faelltAus: halt.faelltAus,
-                            gemeldet: istGemeldet(halt)
-                        )
+                        // Ein Tipp öffnet die Tafel dieser Haltestelle —
+                        // dasselbe Ziel wie auf der Netzkarte und in der
+                        // Liste. Wer auf dem Fahrtlauf einen Halt ansieht,
+                        // fragt als Nächstes, was dort sonst noch wegfährt.
+                        NavigationLink(value: halt.haltestelle) {
+                            Haltepunkt(
+                                farbe: fahrt.linie.anzeigefarbe,
+                                gross: nummer == 0 || nummer == fahrt.halte.count - 1 || nummer == einstieg,
+                                eigener: nummer == einstieg,
+                                faelltAus: halt.faelltAus,
+                                gemeldet: istGemeldet(halt)
+                            )
+                            .trefferflaeche()
+                        }
+                        .buttonStyle(.plain)
                     }
                     // Vierzig Beschriftungen nebeneinander sind keine Karte
                     // mehr. Nur die Halte, um die es geht, tragen ihren Namen

@@ -71,12 +71,22 @@ struct LiniennetzView: View {
             // Die Halte der gezeichneten Linien.
             ForEach(sichtbareHalte) { halt in
                 Annotation(halt.name, coordinate: halt.koordinate, anchor: .center) {
-                    Linienhalt(
-                        farbe: halt.farbe,
-                        gross: halt.gross,
-                        faelltAus: halt.faelltAus,
-                        lautMeldungGesperrt: halt.lautMeldungGesperrt
-                    )
+                    // **Ein Tipp öffnet die Tafel dieser Haltestelle.** Das
+                    // Ziel ist dasselbe wie in der Liste nebenan — der
+                    // `navigationDestination(for: Haltestelle.self)` steht in
+                    // `AbfahrtstafelView`, in deren Stapel diese Karte liegt.
+                    // Ein eigenes Blatt dafür wäre ein zweiter Weg zu
+                    // derselben Ansicht und liefe irgendwann auseinander.
+                    NavigationLink(value: halt.haltestelle) {
+                        Linienhalt(
+                            farbe: halt.farbe,
+                            gross: halt.gross,
+                            faelltAus: halt.faelltAus,
+                            lautMeldungGesperrt: halt.lautMeldungGesperrt
+                        )
+                        .trefferflaeche()
+                    }
+                    .buttonStyle(.plain)
                 }
                 // Beschriftet nur, wenn EINE Linie hervorgehoben ist. Sonst
                 // lägen dreihundert Haltestellennamen übereinander und die
@@ -115,11 +125,15 @@ struct LiniennetzView: View {
             // beantworten, mit der jemand die Karte öffnet.
             ForEach(model.gruppen) { gruppe in
                 Annotation(gruppe.name, coordinate: gruppe.koordinate, anchor: .center) {
-                    ZStack {
-                        Circle().fill(.background).frame(width: 13, height: 13)
-                        Circle().strokeBorder(.primary, lineWidth: 3).frame(width: 13, height: 13)
+                    NavigationLink(value: gruppe.haltestelle) {
+                        ZStack {
+                            Circle().fill(.background).frame(width: 13, height: 13)
+                            Circle().strokeBorder(.primary, lineWidth: 3).frame(width: 13, height: 13)
+                        }
+                        .shadow(color: .black.opacity(0.2), radius: 1.5, y: 0.5)
+                        .trefferflaeche()
                     }
-                    .shadow(color: .black.opacity(0.2), radius: 1.5, y: 0.5)
+                    .buttonStyle(.plain)
                 }
             }
 
@@ -156,6 +170,9 @@ struct LiniennetzView: View {
         let id: String
         let name: String
         let koordinate: CLLocationCoordinate2D
+        /// Die ganze Haltestelle und nicht nur ihr Name: Ein Tipp auf den
+        /// Punkt öffnet ihre Tafel, und dafür braucht es die Kennung.
+        let haltestelle: Haltestelle
         let farbe: Color
         let gross: Bool
         var faelltAus: Bool = false
@@ -185,6 +202,7 @@ struct LiniennetzView: View {
                     id: "\(zug.id)#\(nummer)",
                     name: halt.haltestelle.name,
                     koordinate: halt.haltestelle.koordinate,
+                    haltestelle: halt.haltestelle,
                     farbe: zug.linie.anzeigefarbe,
                     gross: nummer == 0 || nummer == zug.halte.count - 1,
                     faelltAus: halt.faelltAus,
@@ -203,6 +221,7 @@ struct LiniennetzView: View {
                         id: halt.haltestelle.id,
                         name: halt.haltestelle.name,
                         koordinate: halt.haltestelle.koordinate,
+                        haltestelle: halt.haltestelle,
                         farbe: zug.linie.anzeigefarbe,
                         gross: false,
                         faelltAus: halt.faelltAus,
@@ -459,6 +478,19 @@ struct LiniennetzView: View {
                 id: "halte",
                 symbol: nil,
                 text: "Die kleinen Punkte sind die Halte der gezeichneten Linien. Eine Liniennummer antippen — auf der Karte oder in der Legende — zeigt ihre Halte mit Namen."
+            ))
+        }
+        // **Ein Weg, den niemand sieht, ist keiner.** Der Punkt sieht nicht
+        // aus wie ein Knopf, und genau deshalb steht dieser Satz da —
+        // dieselbe Lehre wie beim Gruppenchat in Schulalarm und beim
+        // Sichtumschalter in 1.0.5. Er steht VOR den Erklärungen zur
+        // Zeichenweise: Er sagt, was man tun kann, die anderen nur, was man
+        // sieht.
+        if !zuVieleHalte || hervorgehoben != nil {
+            liste.append(Hinweis(
+                id: "haltAntippen",
+                symbol: "hand.tap",
+                text: "Ein Tipp auf einen Halt öffnet seine Abfahrtstafel — mit allem, was dort sonst noch wegfährt."
             ))
         }
         if !legendeOffen {
