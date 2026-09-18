@@ -44,9 +44,11 @@ zwölf Zeichen ab), Ordner, Ziel und Bundle-Id bleiben „Abfahrtstafel“ /
   Dazu die **Halte der gezeichneten Linien** als kleine Punkte in der Farbe
   ihrer Linie, die Endpunkte größer; ist eine Linie hervorgehoben, stehen
   ihre Haltestellennamen dabei. Auf dem Zug selbst liegt die
-  **Liniennummer** als Schild — und wo der Verbund keine eigene Linienfarbe
-  führt, wird die Farbe des Verkehrsmittels je Linie leicht abgewandelt, damit
-  zwölf Striche übereinander auseinanderzuhalten sind.
+  **Liniennummer** als Schild. Führt der Verbund eine eigene Linienfarbe, gilt
+  seine. Sonst bekommt die Linie eine aus zwölf deutlich verschiedenen Farben
+  in drei Helligkeiten, vergeben über die Liniennummer — sie unterscheidet nur
+  und sagt nichts über das Verkehrsmittel; das steht als Symbol in der
+  Legende.
   Die **Legende lässt sich ausblenden** (Pfeil in ihrer Kopfzeile); zurück holt
   sie ein kleiner Knopf an derselben Stelle. Hervorheben geht dann weiter über
   die Liniennummern auf der Karte — die sind Knöpfe. Unter der Karte steht

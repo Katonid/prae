@@ -325,6 +325,19 @@ struct LiniennetzView: View {
                                     hervorgehoben = (hervorgehoben == zug.id) ? nil : zug.id
                                 } label: {
                                     HStack(spacing: 8) {
+                                        // Das Verkehrsmittel steht als Symbol
+                                        // daneben (ab 1.1.9). Seit die Farbe
+                                        // eines Schildes ohne eigene Farbe der
+                                        // UNTERSCHEIDUNG dient und nicht mehr
+                                        // der Familie des Verkehrsmittels,
+                                        // wäre es hier sonst gar nicht mehr
+                                        // abzulesen — und die Legende ist die
+                                        // Stelle, an der Linien nebeneinander
+                                        // verglichen werden.
+                                        Image(systemName: zug.linie.mittel.symbol)
+                                            .font(.caption2)
+                                            .foregroundStyle(.secondary)
+                                            .frame(width: 16)
                                         Liniensymbol(linie: zug.linie)
                                         Text(zug.richtung)
                                             .font(.caption)
@@ -503,7 +516,7 @@ struct LiniennetzView: View {
         liste.append(Hinweis(
             id: "zeichenweise",
             symbol: nil,
-            text: "Je Linie ist ein Lauf gezeichnet; die Gegenrichtung fährt denselben Weg zurück. Höchstens zwölf Linien. Wo der Verbund keine Linienfarbe führt, wird die Farbe des Verkehrsmittels je Linie leicht abgewandelt."
+            text: "Je Linie ist ein Lauf gezeichnet; die Gegenrichtung fährt denselben Weg zurück. Höchstens zwölf Linien. Führt der Verbund eine Linienfarbe, gilt seine. Sonst bekommt die Linie eine Farbe, die sie nur von den anderen unterscheidet — sie sagt dann nichts über das Verkehrsmittel; das steht als Symbol in der Legende."
         ))
         return liste
     }

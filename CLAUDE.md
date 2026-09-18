@@ -1759,25 +1759,59 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   mit dem Schlussmischer von splitmix64; der kleinste Farbabstand
   verzehnfacht sich (schlechtester Fall über Berchtesgaden, Dortmund, München
   und einen gemischten Satz: 0,0018 → 0,0178).
-- **An den SPANNEN wurde nichts geändert**, und das ist der Punkt: ±0,055 im
-  Farbton und ±0,11 in der Helligkeit waren richtig gewählt — sie wurden nur
-  nie ausgeschöpft. Die naheliegende Reaktion („die Streuung ist zu schwach,
-  also weiter aufmachen") hätte die Familiengrenze angetastet und den Fehler
-  nicht behoben. **Wer eine Streuung für zu schwach hält, misst zuerst, ob der
-  Wert überhaupt ankommt.**
+- **Die Spanne war zu eng — und die erste Antwort darauf war falsch** (ab
+  1.1.9, Ansage des Nutzers 09/2026 nach 1.1.8: „Am Ende des Tages ist immer
+  noch alles lila. Selbst wenn man jetzt ein paar leichte Farbnuancen
+  unterscheiden kann. Ich möchte es aber deutlicher haben."). In 1.1.8 stand
+  hier, ±0,055 im Farbton seien richtig gewählt und nur nie ausgeschöpft
+  worden. Das war eine Aussage über HSB-Einheiten, ausgegeben als Aussage über
+  das, was ein Mensch sieht. Nachgemessen am 18.09.2026 in CIE Lab, also in
+  dem Maß, das für die Wahrnehmung gebaut ist: Der kleinste Abstand zwischen
+  zwei der acht Berchtesgadener Linien lag nach 1.1.8 bei **dE 1,6** — die
+  Unterscheidungsschwelle liegt bei etwa 2,3. Die „Verzehnfachung" von 1.1.8
+  war real und trotzdem unsichtbar. **Wer eine Farbdifferenz beurteilt, misst
+  sie in dE und nicht in Farbtonanteilen.**
+- **Zwölf Töne in drei Helligkeiten, zugeordnet über die LINIENNUMMER**
+  (`Model/Linienfarben.swift`, ab 1.1.9). 36 Plätze, kleinster Abstand
+  untereinander dE 15,5. Zugeordnet wird über die Ziffern des Liniennamens,
+  NICHT über einen Streuwert: Ein Streuwert verteilt zufällig, und vierzehn
+  Linien auf zwölf Farben ergaben in Salzburg nur acht belegte Farben und
+  sieben Doppel (Geburtstagsproblem). Benachbarte Buslinien einer Gegend sind
+  aber fortlaufend nummeriert — 837, 838, 839 —, und `zahl % 36` gibt genau
+  denen garantiert verschiedene Plätze. Gemessen an vier echten Sätzen:
+  Berchtesgaden 7/7, Salzburg 14/14, München 10/10, Dortmund 9/10 (448 und
+  412 liegen genau 36 auseinander). Eine Linie ganz ohne Ziffern bekommt ihren
+  Platz aus dem Streuwert — **nie aus `hashValue`**, den streut Swift je
+  Programmlauf zufällig.
+- **Die Farbfamilie des Verkehrsmittels ist dafür aufgegeben — beim RÜCKFALL.**
+  Das klingt teurer, als es ist: Eine Linie MIT eigener Farbe hielt sich nie
+  an die Familie, und genau das stand auf dem Bildschirmfoto des Nutzers — die
+  S4 führt `route_color 9764ac` und war damit so violett wie jeder Bus daneben.
+  Die Farbe des Schildes hat das Verkehrsmittel also nie verlässlich genannt.
+  Wo es wirklich um das Verkehrsmittel geht, steht die Farbe unverändert: in
+  der Filterleiste („Busse", „S-Bahnen" — `Verkehrsmittel.rueckfallfarbe`).
+  Dazu steht seit 1.1.9 in der Legende der Netzkarte das SYMBOL des
+  Verkehrsmittels neben dem Schild, und die Fußzeile sagt ausdrücklich, dass
+  eine selbst vergebene Farbe nur unterscheidet.
+- **Drei Helligkeiten gehen nur als dunkel / Grundton / hell.** Der erste
+  Entwurf hellte in zwei Schritten auf (30 % und 55 %) — und die mittlere
+  Stufe trägt WEDER schwarze noch weiße Schrift: gemessen 2,6:1 bis 3,7:1, und
+  4,5:1 wären nötig. Gebaut ist jetzt Grundton (weiße Schrift, 4,6:1), mal
+  0,60 und 40 % in Richtung Weiß; schlechtester Schriftkontrast über alle 36
+  Plätze 4,6:1. **Die beiden Bedingungen ziehen gegeneinander**: Je heller die
+  helle Stufe, desto besser trägt schwarze Schrift und desto blasser und
+  ähnlicher werden die Töne untereinander (bei 62 % fiel der kleinste Abstand
+  von dE 15,5 auf 10,0). Gesucht war nicht das Maximum von einem, sondern das
+  beste Paar.
+- **Die Schriftfarbe entscheidet ein VERGLEICH, keine Schwelle** (ab 1.1.9).
+  Bis 1.1.8 galt `wahrgenommeneHelligkeit > 0,6` → schwarz, sonst weiß. Ein
+  mittelheller Ton liegt darunter, bekam weiße Schrift und trug sie nicht.
+  Jetzt gewinnt schlicht die Farbe mit dem größeren Kontrastverhältnis.
 - **Eine Farbe aus den Daten darf doppelt vorkommen.** Gemessen in München:
   Die Buslinien 100, 132, 153 und 154 tragen alle `325868`, die 52, 58, 62 und
   68 alle `d3762b` — das ist die Hausfarbe des Betreibers und keine Panne. Die
-  Abwandlung greift deshalb ausdrücklich NUR beim Rückfall: Wo der Verbund
-  eine Farbe führt, gilt seine, auch wenn zwei Linien dann gleich aussehen.
-- **Fehlt die Linienfarbe, wird die Rückfallfarbe je Linie ABGEWANDELT**
-  (`Color.abgewandelt`, `Linienkennung.anzeigefarbe`, ab 1.0.5). Sonst sind
-  alle Busse derselbe Violettton. Verschoben wird nur INNERHALB der
-  Farbfamilie (±0,055 im Farbton): Die gewohnte deutsche Zuordnung liest ein
-  Fahrgast ohne hinzusehen, und die darf eine Unterscheidungshilfe nicht
-  zerschlagen. **Die Streuung kommt aus einem eigenen FNV-Wert über den
-  Liniennamen, nie aus `hashValue`** — den streut Swift je Programmlauf
-  zufällig, die 462 wäre also morgens grün und abends blau.
+  eigene Farbvergabe greift deshalb ausdrücklich NUR beim Rückfall: Wo der
+  Verbund eine Farbe führt, gilt seine, auch wenn zwei Linien gleich aussehen.
 
 ### Verbindungsauskunft (ab 1.1.0)
 
@@ -1959,7 +1993,7 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   zwölfte Nachbesserung — derselbe Gedanke wie bei Tafelbild 1.4.0 und
   Schulalarm 1.1.0. Die Marken ab 1.0.x in diesem Papier bleiben stehen;
   sie sagen, wann etwas in den Quelltext kam. Danach zählt es weiter:
-  1.1.1 (Build 14), 1.1.2 (Build 15), 1.1.3 (Build 16), 1.1.4 (Build 17), 1.1.5 (Build 18), 1.1.6 (Build 19), 1.1.7 (Build 20), 1.1.8 (Build 21) … Dazu gesetzt (Ansage des Nutzers,
+  1.1.1 (Build 14), 1.1.2 (Build 15), 1.1.3 (Build 16), 1.1.4 (Build 17), 1.1.5 (Build 18), 1.1.6 (Build 19), 1.1.7 (Build 20), 1.1.8 (Build 21), 1.1.9 (Build 22) … Dazu gesetzt (Ansage des Nutzers,
   09/2026): `DEVELOPMENT_TEAM = F4989GSTWS` — dieselbe Id wie Schulalarm und
   Tafelbild — und `INFOPLIST_KEY_LSApplicationCategoryType =
   public.app-category.navigation`. Beides steht als Build-Einstellung, weil
