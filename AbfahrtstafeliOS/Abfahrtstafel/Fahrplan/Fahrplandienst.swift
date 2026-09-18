@@ -62,6 +62,18 @@ enum Fahrplanfehler: LocalizedError, Equatable {
     /// Punkt. Ein Knopf „Noch einmal versuchen" über einem Waldstück wäre
     /// eine Sackgasse mit Bedienelement.
     case keineHaltestelleInDerNaehe
+    /// Keine Quelle der Kette hat geantwortet. Die Gründe reisen mit — je
+    /// Quelle einer. „Verbindung fehlgeschlagen" über einer Kette aus drei
+    /// Quellen sagt nichts darüber, welche der drei gerissen ist.
+    case keineQuelleAntwortet(gruende: [String])
+    /// Es gibt NUR noch einen alten Stand — und der reist mitsamt seinem
+    /// Alter.
+    ///
+    /// Ein Fehler, der Daten trägt, sieht seltsam aus und ist hier richtig:
+    /// Der Aufrufer soll die Zeiten zeigen DÜRFEN, aber nicht ohne die
+    /// Altersangabe. Gäbe man sie als normales Ergebnis zurück, wäre die
+    /// Kennzeichnung eine Zeile, die man vergessen kann.
+    case veralteterStand(abfahrten: [Abfahrt], geholtUm: Date)
     case abgebrochen
 
     var errorDescription: String? {
@@ -76,8 +88,34 @@ enum Fahrplanfehler: LocalizedError, Equatable {
             return "Dazu hat der Fahrplandienst nichts."
         case .keineHaltestelleInDerNaehe:
             return "Um diesen Punkt herum kennt der Fahrplandienst keine Haltestelle. Der Dienst sucht nur etwa einen Kilometer weit — mitten im Feld oder im Wald findet er nichts, und das ist kein Fehler. Mit einem Punkt näher an einer Ortschaft geht es."
+        case .keineQuelleAntwortet(let gruende):
+            let liste = gruende.isEmpty ? "" : "\n\n" + gruende.map { "• \($0)" }.joined(separator: "\n")
+            return "Keine der Fahrplanquellen hat geantwortet.\(liste)"
+        case .veralteterStand(_, let geholtUm):
+            let uhrzeit = geholtUm.formatted(date: .omitted, time: .shortened)
+            return "Keine Verbindung — die Zeiten sind von \(uhrzeit) und zählen nicht weiter."
         case .abgebrochen:
             return "Abgebrochen."
+        }
+    }
+}
+
+extension Fahrplanfehler {
+    /// Die knappe Fassung für die Aufzählung in `keineQuelleAntwortet`.
+    ///
+    /// Der lange Satz aus `errorDescription` erklärt EINEN Fehler jemandem,
+    /// der sonst nichts sieht. In einer Liste von drei Quellen untereinander
+    /// wären drei solche Sätze eine Wand, durch die niemand liest.
+    var kurzfassung: String {
+        switch self {
+        case .keinNetz: return "keine Verbindung"
+        case .dienstAntwortetNicht(let status): return "antwortet nicht (Code \(status))"
+        case .antwortUnlesbar(let grund): return grund
+        case .nichtsGefunden: return "nichts gefunden"
+        case .keineHaltestelleInDerNaehe: return "keine Haltestelle in der Nähe"
+        case .keineQuelleAntwortet: return "keine Quelle"
+        case .veralteterStand: return "nur ein alter Stand"
+        case .abgebrochen: return "abgebrochen"
         }
     }
 }

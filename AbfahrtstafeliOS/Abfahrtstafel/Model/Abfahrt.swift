@@ -9,11 +9,27 @@ import Foundation
 /// zusätzlich `istEchtzeit`, und die Oberfläche unterscheidet die beiden Fälle.
 /// Ein grüner Haken für „nicht nachgesehen" wäre die teuerste Lüge, die diese
 /// App erzählen kann.
-struct Abfahrt: Identifiable, Hashable, Sendable {
-    /// Aus Fahrtkennung und Haltestelle zusammengesetzt. Dieselbe Fahrt hält
-    /// an mehreren Haltestellen in der Nähe — ohne die Haltestelle im
-    /// Schlüssel hielte SwiftUI zwei Zeilen für eine.
-    var id: String { "\(fahrtId)@\(haltestelle.id)@\(geplant.timeIntervalSince1970)" }
+struct Abfahrt: Identifiable, Hashable, Codable, Sendable {
+    /// Aus Fahrtkennung, Haltestelle, Zeit UND Linie zusammengesetzt.
+    ///
+    /// Die Haltestelle muss hinein, weil dieselbe Fahrt an mehreren
+    /// Haltestellen in der Nähe hält — ohne sie hielte SwiftUI zwei Zeilen für
+    /// eine. Linie und Richtung müssen hinein, weil eine Quelle ohne
+    /// Fahrtkennung (MVV) sonst zwei Abfahrten derselben Minute an derselben
+    /// Haltestelle auf einen Schlüssel abbildete; eine davon verschwände
+    /// stillschweigend aus der Liste.
+    var id: String {
+        "\(fahrtId)@\(haltestelle.id)@\(geplant.timeIntervalSince1970)@\(linie.name)@\(richtung)"
+    }
+
+    /// Ob sich zu dieser Abfahrt der Fahrtlauf öffnen lässt.
+    ///
+    /// Nicht jede Quelle liefert eine Fahrtkennung: Die EFA-Schnittstelle des
+    /// MVV gibt eine Abfahrtstafel heraus und keinen Fahrtlauf. Eine Zeile,
+    /// die aussieht wie ein Knopf und beim Tippen nichts tut, ist für den
+    /// Menschen davor ein kaputter Knopf — deshalb steht die Unterscheidung
+    /// hier und wird in der Liste auch gezeigt.
+    var hatFahrtlauf: Bool { !fahrtId.isEmpty }
 
     let fahrtId: String
     let haltestelle: Haltestelle
@@ -30,6 +46,15 @@ struct Abfahrt: Identifiable, Hashable, Sendable {
     let tatsaechlich: Date
     let istEchtzeit: Bool
     let faelltAus: Bool
+
+    /// Wer diese Zeile geliefert hat („Transitous", „MVV").
+    ///
+    /// Sie steht an der EINZELNEN Abfahrt und nicht am Ladevorgang, weil eine
+    /// Tafel aus zwei Quellen zusammenkommen kann: Fällt die erste für eine
+    /// Haltestelle aus, springt die zweite ein, und dann stehen beide
+    /// nebeneinander. Wer wissen will, warum eine Zeile keine Echtzeit trägt,
+    /// muss sehen können, woher sie kommt.
+    var quelle: String = ""
 
     /// Die Verspätung in vollen Minuten. Negativ heißt „zu früh" — das gibt es,
     /// und es zu verschweigen wäre falsch: Ein Bus, der zwei Minuten zu früh
@@ -79,7 +104,7 @@ struct Abfahrt: Identifiable, Hashable, Sendable {
 /// `route_color` und `route_text_color`). Fehlen sie, greift die Rückfallfarbe
 /// des Verkehrsmittels — eine Linie ohne Farbe ist kein Fehler, sondern der
 /// Normalfall bei vielen kleineren Betrieben.
-struct Linienkennung: Hashable, Sendable {
+struct Linienkennung: Hashable, Codable, Sendable {
     /// Was auf dem Schild steht: „S3", „U6", „X30", „RE 1".
     let name: String
     let mittel: Verkehrsmittel

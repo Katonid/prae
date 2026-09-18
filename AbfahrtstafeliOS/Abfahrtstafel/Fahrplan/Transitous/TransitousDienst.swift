@@ -196,7 +196,11 @@ struct TransitousDienst: Fahrplandienst {
             geplant: geplant,
             tatsaechlich: tatsaechlich,
             istEchtzeit: zeile.realTime ?? false,
-            faelltAus: (zeile.cancelled ?? false) || (ort.cancelled ?? false)
+            faelltAus: (zeile.cancelled ?? false) || (ort.cancelled ?? false),
+            // Kurz, weil es an jeder Zeile stehen kann. `quellenname` trägt
+            // den Zusatz „(MOTIS)" für die Einstellungen; in einer Liste neben
+            // „MVV" wäre das eine ungleiche Waage.
+            quelle: "Transitous"
         )
     }
 

@@ -93,7 +93,8 @@ struct Musterdienst: Fahrplandienst {
                 geplant: geplant,
                 tatsaechlich: geplant.addingTimeInterval(verspaetung * 60),
                 istEchtzeit: echtzeit,
-                faelltAus: faelltAus
+                faelltAus: faelltAus,
+                quelle: "Beispieldaten"
             )
         }
 
