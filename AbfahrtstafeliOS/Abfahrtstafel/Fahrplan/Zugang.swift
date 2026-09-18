@@ -48,9 +48,21 @@ struct Zugang: Identifiable, Sendable {
     /// Einschränkung dabei. Stufe 1 deckt diese Länder längst ab; ein Zugang
     /// ist hier eine zweite Meinung und kein Lückenschluss.
     let nutzen: String
-    /// Wo es den Schlüssel gibt. Ohne diese Zeile wäre das Feld eine Frage
-    /// ohne Antwort.
-    let herkunft: URL
+    /// **Die Seite, auf der man den Schlüssel BEANTRAGT** — nicht die
+    /// Startseite des Anbieters. Ohne sie wäre das Eingabefeld eine Frage ohne
+    /// Antwort, und „irgendwo auf deren Webseite" ist keine. Jede dieser
+    /// Adressen ist am 18.09.2026 abgerufen worden.
+    let anmeldung: URL
+    /// Die Beschreibung der Schnittstelle, falls es eine eigene gibt.
+    let unterlagen: URL?
+    /// Was auf dieser Seite zu tun ist — kurz, in der Reihenfolge, in der es
+    /// zu tun ist. Ein Link allein hilft nicht, wenn hinter ihm ein Portal mit
+    /// zwanzig Produkten liegt.
+    let schritte: [String]
+    /// Ob sich die Anmeldeseite aus der Bauumgebung abrufen ließ. Eine, die
+    /// hinter einem Bot-Schutz liegt, ist deshalb nicht falsch — nur nicht
+    /// nachgesehen, und das gehört dazugesagt.
+    let seiteGeprueft: Bool
     let stelle: Stelle
     /// Ob die Stelle mit einem Platzhalter nachgewiesen wurde.
     let gemessen: Bool
@@ -79,7 +91,14 @@ extension Zugang {
             name: "Navitia",
             land: "Frankreich",
             nutzen: "Abfahrten, Verbindungen und Störungsmeldungen. Die Meldungen sind das, was die erste Quelle in Frankreich gar nicht führt.",
-            herkunft: URL(string: "https://navitia.io")!,
+            anmeldung: URL(string: "https://navitia.io/inscription/")!,
+            unterlagen: URL(string: "https://doc.navitia.io")!,
+            schritte: [
+                "Auf der Seite das Formular ausfüllen (Name, E-Mail).",
+                "Die Adresse wechselt dabei zu hove.com — das ist der Betreiber von Navitia und richtig so.",
+                "Der Schlüssel kommt per E-Mail.",
+            ],
+            seiteGeprueft: true,
             stelle: .basic,
             gemessen: true,
             probe: { punkt in
@@ -94,7 +113,14 @@ extension Zugang {
             name: "NS (Nederlandse Spoorwegen)",
             land: "Niederlande",
             nutzen: "Abfahrten der Bahn — und NUR der Bahn. Bus, Tram und Metro führt die NS nicht; dafür bleibt es bei der ersten Quelle.",
-            herkunft: URL(string: "https://apiportal.ns.nl")!,
+            anmeldung: URL(string: "https://apiportal.ns.nl/signin")!,
+            unterlagen: URL(string: "https://apiportal.ns.nl/products")!,
+            schritte: [
+                "Konto anlegen — der Weg zur Registrierung steht auf der Anmeldeseite.",
+                "Danach unter Products das Reisinformatie-API abonnieren. Ohne dieses Abonnement gilt der Schlüssel nicht.",
+                "Der Schlüssel steht im eigenen Profil unter Subscriptions; es sind zwei, beide gelten.",
+            ],
+            seiteGeprueft: true,
             stelle: .kopfzeile("Ocp-Apim-Subscription-Key"),
             gemessen: true,
             probe: { _ in
@@ -112,7 +138,14 @@ extension Zugang {
             name: "Rejseplanen",
             land: "Dänemark",
             nutzen: "Abfahrten und Verbindungen im ganzen Land. Die alte offene Schnittstelle ist abgeschaltet; dies ist ihre Nachfolgerin.",
-            herkunft: URL(string: "https://labs.rejseplanen.dk")!,
+            anmeldung: URL(string: "https://labs.rejseplanen.dk/hc/da")!,
+            unterlagen: nil,
+            schritte: [
+                "Rejseplanen Labs vergibt den Zugang; dort die API 2.0 beantragen.",
+                "Diese Seite ließ sich aus der Bauumgebung nicht abrufen (Bot-Schutz). Sie steht aber so in der offiziellen Hilfe von Rejseplanen.",
+                "Damit konnten auch die Bedingungen nicht nachgesehen werden — vor dem Beantragen selbst lesen.",
+            ],
+            seiteGeprueft: false,
             stelle: .abfrageparameter("accessId"),
             gemessen: true,
             probe: { punkt in
@@ -131,7 +164,14 @@ extension Zugang {
             name: "Golemio (PID Prag)",
             land: "Tschechien",
             nutzen: "Abfahrten in Prag samt Meldungen des Verkehrsbetriebs.",
-            herkunft: URL(string: "https://api.golemio.cz")!,
+            anmeldung: URL(string: "https://api.golemio.cz/api-keys")!,
+            unterlagen: URL(string: "https://api.golemio.cz/v2/pid/docs/openapi/")!,
+            schritte: [
+                "Die Seite heißt Golemio API Key Management; dort ein Konto anlegen.",
+                "Nach der Bestätigung per E-Mail den Schlüssel selbst erzeugen.",
+                "Die Seite braucht JavaScript — im Browser öffnen, nicht in einer Vorschau.",
+            ],
+            seiteGeprueft: true,
             stelle: .kopfzeile("X-Access-Token"),
             // Als Einziger NICHT bestätigt: Der Dienst antwortete mit und ohne
             // Kopfzeile wortgleich. Die Stelle steht hier nach der
@@ -152,7 +192,15 @@ extension Zugang {
             name: "DB API Marketplace",
             land: "Deutschland",
             nutzen: "Die Sicht der Bahn auf ihre eigenen Züge. Achtung: nur Schiene, und der freie Zugang reicht nur wenige Stunden voraus — geplante Sperrungen in drei Wochen stehen auch dort nicht.",
-            herkunft: URL(string: "https://developers.deutschebahn.com")!,
+            anmeldung: URL(string: "https://developers.deutschebahn.com/db-api-marketplace/apis/")!,
+            unterlagen: URL(string: "https://developers.deutschebahn.com/db-api-marketplace/apis/product/timetables")!,
+            schritte: [
+                "Konto anlegen und anmelden.",
+                "Eine Anwendung anlegen — dabei entstehen Client-Id UND Api-Key. Beide werden gebraucht.",
+                "Der Anwendung das Produkt Timetables zuordnen, sonst antwortet der Zugang mit 401.",
+                "Oben ins Feld kommen beide, durch einen Doppelpunkt getrennt.",
+            ],
+            seiteGeprueft: true,
             stelle: .zweiKopfzeilen(kennung: "DB-Client-Id", schluessel: "DB-Api-Key"),
             gemessen: true,
             probe: { _ in

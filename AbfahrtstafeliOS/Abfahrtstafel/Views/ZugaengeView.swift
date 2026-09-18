@@ -31,6 +31,7 @@ struct ZugaengeView: View {
 
             ForEach(Zugang.alle) { zugang in
                 Section {
+                    anleitung(zugang)
                     eingabe(zugang)
                     knopfzeile(zugang)
                     if let befund = befunde[zugang.id] {
@@ -68,29 +69,56 @@ struct ZugaengeView: View {
         }
     }
 
-    private func knopfzeile(_ zugang: Zugang) -> some View {
-        HStack {
-            Button {
-                pruefen(zugang)
-            } label: {
-                if laufend == zugang.id {
-                    HStack(spacing: 8) {
-                        ProgressView()
-                        Text("Wird geprüft …")
+    /// **Wo der Schlüssel herkommt, steht ÜBER dem Feld und nicht daneben.**
+    /// Ein Eingabefeld ohne den Weg zum Schlüssel ist eine Frage ohne Antwort
+    /// — und ein Link allein reicht nicht, wenn hinter ihm ein Portal mit
+    /// zwanzig Produkten liegt. Deshalb die Schritte in der Reihenfolge, in
+    /// der sie zu tun sind.
+    private func anleitung(_ zugang: Zugang) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Link(destination: zugang.anmeldung) {
+                Label("Schlüssel beantragen", systemImage: "arrow.up.right.square.fill")
+                    .font(.body.weight(.medium))
+            }
+
+            VStack(alignment: .leading, spacing: 5) {
+                ForEach(Array(zugang.schritte.enumerated()), id: \.offset) { stelle, schritt in
+                    HStack(alignment: .firstTextBaseline, spacing: 7) {
+                        Text("\(stelle + 1).")
+                            .font(.caption.weight(.semibold))
+                            .monospacedDigit()
+                            .foregroundStyle(.secondary)
+                        Text(schritt)
+                            .font(.caption)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
-                } else {
-                    Label("Zugang prüfen", systemImage: "checkmark.seal")
                 }
             }
-            .disabled(laufend != nil || (schluessel[zugang.id] ?? "").isEmpty)
 
-            Spacer(minLength: 12)
-
-            Link(destination: zugang.herkunft) {
-                Label("Schlüssel holen", systemImage: "arrow.up.right.square")
+            if let unterlagen = zugang.unterlagen {
+                Link(destination: unterlagen) {
+                    Label("Beschreibung der Schnittstelle", systemImage: "book")
+                        .font(.caption)
+                }
             }
-            .font(.footnote)
         }
+        .padding(.vertical, 2)
+    }
+
+    private func knopfzeile(_ zugang: Zugang) -> some View {
+        Button {
+            pruefen(zugang)
+        } label: {
+            if laufend == zugang.id {
+                HStack(spacing: 8) {
+                    ProgressView()
+                    Text("Wird geprüft …")
+                }
+            } else {
+                Label("Zugang prüfen", systemImage: "checkmark.seal")
+            }
+        }
+        .disabled(laufend != nil || (schluessel[zugang.id] ?? "").isEmpty)
     }
 
     private func befundflaeche(_ befund: Zugangsprobe.Befund) -> some View {
@@ -123,6 +151,9 @@ struct ZugaengeView: View {
                 Text("Der Schlüssel steht in der Anfrage als: \(zugang.stelle.beschreibung). Nachgemessen am 18.09.2026 mit einem Platzhalter — die Fehlermeldung wechselte von „kein Schlüssel\u{201C} zu „falscher Schlüssel\u{201C}, der Dienst liest dort also wirklich.")
             } else {
                 Text("Der Schlüssel steht in der Anfrage als: \(zugang.stelle.beschreibung) — das ist NICHT nachgemessen. Dieser Dienst antwortete mit und ohne Platzhalter wortgleich; die Stelle stammt aus der Beschreibung, und eine Beschreibung ist keine Messung. Antwortet die Probe mit 401, kann es auch daran liegen.")
+            }
+            if !zugang.seiteGeprueft {
+                Text("Die Anmeldeseite ließ sich beim Bauen der App nicht abrufen — sie liegt hinter einem Bot-Schutz. Sie steht so in der offiziellen Hilfe des Anbieters; nachgesehen hat sie hier aber niemand.")
             }
             Text("Der kopierte Befund enthält den Schlüssel nicht — er wird überall geschwärzt, auch in der Antwort des Dienstes. Rejseplanen schickt ihn bei einem Fehler nämlich im Klartext zurück.")
                 .foregroundStyle(.secondary)

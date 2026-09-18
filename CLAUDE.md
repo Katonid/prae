@@ -1286,6 +1286,27 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   sehen gibt, ist das der einzige ehrliche Weg. Gezeigt werden Status, Deutung
   und die ersten 4000 Zeichen, kopierbar; dieselbe Bauweise wie Schulalarms
   „Zustellung prüfen".
+- **Wo der Schlüssel HERKOMMT, steht über dem Eingabefeld** (`Zugang.anmeldung`,
+  `Zugang.schritte`, ab 1.1.4, Ansage des Nutzers 09/2026: „Gib mir bitte an, wo
+  ich die einzelnen Schlüssel für die einzelnen Länder herunterladen kann. Am
+  besten direkt in der App."). Bis 1.1.3 stand dort nur die Startseite des
+  Anbieters — und ein Link allein hilft nicht, wenn dahinter ein Portal mit
+  zwanzig Produkten liegt. Jetzt: die **Anmeldeseite** als Knopf und zwei bis
+  vier Schritte in der Reihenfolge, in der sie zu tun sind. Jede Adresse ist am
+  18.09.2026 abgerufen worden:
+  - **Navitia (FR)**: `navitia.io/inscription/` — leitet auf `hove.com`, den
+    Betreiber. Der Wechsel der Adresse ist richtig so und steht als Schritt da,
+    sonst hält man ihn für eine Fehlleitung.
+  - **NS (NL)**: `apiportal.ns.nl/signin`. **Das Konto allein genügt nicht** —
+    ohne das Abonnement auf das Reisinformatie-API gilt der Schlüssel nicht.
+  - **Rejseplanen (DK)**: `labs.rejseplanen.dk/hc/da` — **die einzige Seite,
+    die sich aus der Bauumgebung NICHT abrufen ließ** (403, Bot-Schutz). Sie
+    steht so in der offiziellen Hilfe; `seiteGeprueft = false`, und die
+    Oberfläche sagt es. Damit sind auch die Bedingungen ungeprüft.
+  - **Golemio (CZ)**: `api.golemio.cz/api-keys` (braucht JavaScript).
+  - **DB (DE)**: `developers.deutschebahn.com/db-api-marketplace/apis/` — hier
+    entstehen ZWEI Angaben, Client-Id und Api-Key, und das Produkt Timetables
+    muss der Anwendung zugeordnet werden, sonst kommt 401.
 - **Ein eingetragener Schlüssel schaltet NOCH KEINE Abfahrten frei**, und die
   Oberfläche sagt das in ihrem ersten Absatz. Die Decoder fehlen, weil sich
   ohne Konto keine einzige Antwort messen ließ; sie zu erraten wäre genau das,
@@ -1750,7 +1771,7 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   zwölfte Nachbesserung — derselbe Gedanke wie bei Tafelbild 1.4.0 und
   Schulalarm 1.1.0. Die Marken ab 1.0.x in diesem Papier bleiben stehen;
   sie sagen, wann etwas in den Quelltext kam. Danach zählt es weiter:
-  1.1.1 (Build 14), 1.1.2 (Build 15), 1.1.3 (Build 16) … Dazu gesetzt (Ansage des Nutzers,
+  1.1.1 (Build 14), 1.1.2 (Build 15), 1.1.3 (Build 16), 1.1.4 (Build 17) … Dazu gesetzt (Ansage des Nutzers,
   09/2026): `DEVELOPMENT_TEAM = F4989GSTWS` — dieselbe Id wie Schulalarm und
   Tafelbild — und `INFOPLIST_KEY_LSApplicationCategoryType =
   public.app-category.navigation`. Beides steht als Build-Einstellung, weil
