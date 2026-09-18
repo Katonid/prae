@@ -3,7 +3,8 @@ import CoreLocation
 /// Der Name zu einer Koordinate — die eine Stelle dafür.
 ///
 /// Gebraucht wird er an zwei Enden: in der Ortswahl unter dem Fadenkreuz und
-/// seit 1.1.13 beim langen Tipp auf die Netzkarte. Zwei Fassungen benannten
+/// seit 1.1.13 beim Versetzen des Suchpunkts auf der Netzkarte (dort seit
+/// 1.1.15 ebenfalls unter einem Fadenkreuz). Zwei Fassungen benannten
 /// denselben Punkt irgendwann verschieden, und der Nutzer sähe zwei Namen für
 /// dieselbe Stelle.
 enum Ortsname {

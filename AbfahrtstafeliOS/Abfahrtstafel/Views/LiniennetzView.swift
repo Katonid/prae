@@ -33,13 +33,34 @@ struct LiniennetzView: View {
     /// Die Karte darf seit 1.1.12 eine ANDERE Darstellung haben als die App.
     @AppStorage(Kartendarstellung.schluessel) private var kartenwahlRoh = Kartendarstellung.wieApp.rawValue
 
+    /// Wohin die Karte schaut.
+    ///
+    /// **Nie `.automatic`** (ab 1.1.15). `.automatic` heißt „rahme, was
+    /// drinsteht" — und was drinsteht, hängt hier seit 1.1.13 über
+    /// `sichtbareHalte` am gezeigten Ausschnitt. Das ist eine Rückkopplung:
+    /// Jede Bewegung der Kamera ändert die Zahl der Halte, die geänderte Zahl
+    /// rahmt die Kamera neu. Wer dabei zoomt, zieht gegen die Karte an.
+    /// Gesetzt wird deshalb immer ein ausgerechneter Ausschnitt, und zwar nur
+    /// an den drei Stellen, die `rahmen(_:)` aufrufen.
     @State private var kamera: MapCameraPosition = .automatic
     /// Der zuletzt gesehene Kartenausschnitt (ab 1.1.13). `nil` heißt „die
     /// Kamera hat sich noch nicht gemeldet" — dann gilt wie früher alles.
     @State private var sichtfeld: MKMapRect?
-    /// Ob der Nutzer die Karte schon selbst bewegt hat (ab 1.1.14). Ab da
-    /// stellt sie sich nicht mehr von selbst ein — siehe `ausschnittSetzen`.
-    @State private var nutzerFuehrt = false
+    /// Ob der Ausschnitt seit dem letzten Wechsel des Bezugspunkts schon
+    /// gesetzt wurde. Danach stellt sich die Karte nie wieder selbst ein —
+    /// auch der Nachladelauf alle dreißig Sekunden nicht.
+    @State private var gerahmt = false
+    /// Ob die nächste Meldung der Kamera von UNS kommt.
+    ///
+    /// **Das ersetzt die beiden Beobachtungsgesten aus 1.1.14.** Die lagen
+    /// als `simultaneousGesture` auf der Karte, und genau das war das
+    /// Problem, das sie erkennen sollten: Eine SwiftUI-Geste auf einer Karte
+    /// streitet mit MapKits eigenen Erkennern um dieselben Finger. Wer die
+    /// Karte bewegt hat, verrät die Kamera von selbst — dafür braucht es
+    /// keine Geste.
+    @State private var eigeneBewegung = false
+    /// Ob gerade auf eine Stelle gezielt wird (Fadenkreuz + Leiste).
+    @State private var zielen = false
     /// Welche Linie gerade hervorgehoben ist. `nil` heißt „alle gleich".
     @State private var hervorgehoben: String?
     /// Ob die Legende aufgeklappt ist.
@@ -60,16 +81,20 @@ struct LiniennetzView: View {
             karte
             fusszeile
         }
-        .onAppear { aufbauen() }
+        .onAppear {
+            aufbauen()
+            rahmen(startausschnitt)
+        }
         .onChange(of: model.abfahrten.count) { _, _ in aufbauen() }
         .onChange(of: model.filter) { _, _ in aufbauen() }
         .onChange(of: model.punkt) { _, _ in
             netz.leeren()
             aufbauen()
             // Ein neuer Bezugspunkt ist eine neue Lage: Die Karte darf sich
-            // wieder selbst einstellen, bis der Nutzer sie anfasst.
-            nutzerFuehrt = false
-            kamera = .automatic
+            // wieder einmal selbst einstellen, bis der Nutzer sie anfasst.
+            gerahmt = false
+            zielen = false
+            rahmen(umkreisAusschnitt)
         }
     }
 
@@ -96,10 +121,10 @@ struct LiniennetzView: View {
     // MARK: - Karte
 
     private var karte: some View {
-        // **`MapReader` nur wegen der Umrechnung.** Ein Tipp kommt als Punkt
-        // auf dem Bildschirm an; welche Koordinate darunter liegt, weiß allein
-        // die Karte.
-        MapReader { karteninhalt in
+        // **Auf dieser Karte liegt KEINE einzige SwiftUI-Geste** (ab 1.1.15).
+        // Weder ein Tipp noch ein langer Tipp noch eine beobachtende. Was
+        // hier an Gesten gebraucht wird, macht MapKit selbst; alles andere
+        // sind Knöpfe, die man sieht.
         Map(position: $kamera, interactionModes: [.pan, .zoom, .rotate]) {
             // **Erst alle Konturen, dann alle Linien** (ab 1.1.9). Zwei
             // Durchgänge, weil sonst die Kontur der einen Linie die andere
@@ -220,15 +245,10 @@ struct LiniennetzView: View {
             }
         }
         .mapStyle(.standard(pointsOfInterest: .excludingAll))
-        // **Ein Tipp auf die freie Kartenfläche zieht sie auf.** Die Halte und
-        // die Liniennummern sind Knöpfe und behalten ihre eigene Aufgabe (ein
-        // Tipp auf einen Halt öffnet seit 1.1.7 dessen Abfahrtstafel) — SwiftUI
-        // gibt dem inneren Bedienelement den Vorrang. Der Knopf unten links tut
-        // dasselbe und ist der Weg, den man SIEHT: Eine Geste, die niemand
-        // kennt, ist so wenig wert wie ein Knopf, den niemand findet.
-        .onTapGesture { umschalten?() }
         .overlay(alignment: .topTrailing) { legende }
-        .overlay(alignment: .bottomLeading) { vollbildknopf }
+        .overlay(alignment: .bottomLeading) { kartenknoepfe }
+        .overlay(alignment: .center) { fadenkreuz }
+        .overlay(alignment: .bottom) { zielleiste }
         .overlay(alignment: .center) {
             if netz.laedt && netz.zuege.isEmpty {
                 ProgressView("Linienverläufe werden geholt …")
@@ -242,67 +262,91 @@ struct LiniennetzView: View {
         // einer dunklen Karte. Die Legende liegt auf der Karte und gehört zu
         // ihr; die Fußzeile darunter gehört zur App und bleibt außen vor.
         .kartendarstellung()
-        // **Ein LANGER Tipp legt den Suchpunkt hierher** (ab 1.1.13, Ansage
-        // des Nutzers 09/2026: „Ich mag nicht immer erst wieder in dieses
-        // Menü gehen müssen."). Der kurze Tipp zieht die Karte auf, der lange
-        // setzt den Punkt — zwei Gesten, die sich nicht ins Gehege kommen.
-        // Ebenfalls simultan: Ein `gesture` würde die Berührung für sich
-        // beanspruchen, solange es auf den langen Tipp wartet — und damit den
-        // Anfang jeder Zoomgeste verschlucken.
-        .simultaneousGesture(punktSetzen(karteninhalt))
+        // **Die Kamera sagt selbst, wer sie bewegt hat.** Kam die Meldung auf
+        // ein `rahmen(_:)` von uns, war es unsere; sonst war es der Nutzer —
+        // und ab da stellt sich die Karte nicht mehr selbst ein. Das ist der
+        // Ersatz für die beiden Beobachtungsgesten aus 1.1.14: Dieselbe
+        // Auskunft, ohne eine einzige Geste auf der Karte.
         .onMapCameraChange(frequency: .onEnd) { zustand in
             sichtfeld = zustand.rect
+            if eigeneBewegung {
+                eigeneBewegung = false
+            } else {
+                gerahmt = true
+            }
         }
-        // **Die Karte stellt sich NICHT mehr über den Nutzer hinweg ein**
-        // (ab 1.1.14, gemeldet 09/2026: „Das Zoomen auf der Karte fällt
-        // manchmal schwer, gerade wenn sie neu geöffnet ist … bewirkt die
-        // Geste mit zwei Fingern nichts.").
+        // **Die Karte stellt sich höchstens EINMAL je Bezugspunkt selbst ein**
+        // (ab 1.1.14, verschärft in 1.1.15; gemeldet 09/2026: „Das Zoomen auf
+        // der Karte fällt manchmal schwer, gerade wenn sie neu geöffnet ist …
+        // bewirkt die Geste mit zwei Fingern nichts.", danach: „Das Zoomen
+        // funktioniert aber immer noch nicht.").
         //
-        // Es war kein Gestenproblem. `Liniennetz` ersetzt `zuege` in EINEM
-        // Zug, sobald alle Fahrtläufe da sind — und das dauert ein bis drei
-        // Sekunden. Genau dann wurde hier der Ausschnitt gesetzt und die
-        // gerade gemachte Zoomgeste wieder weggeräumt. Für den Menschen davor
-        // sieht das aus, als hätte die Geste nicht gewirkt; sie hat sehr wohl,
-        // sie hielt nur einen Augenblick. Dasselbe noch einmal alle dreißig
-        // Sekunden, wenn der Nachladelauf die Linienliste ändert — daher das
-        // „manchmal".
+        // In 1.1.14 stand hier, es sei kein Gestenproblem gewesen. **Das war
+        // zu früh geschlossen.** Richtig war der beschriebene Ablauf:
+        // `Liniennetz` ersetzt `zuege` in EINEM Zug, sobald alle Fahrtläufe da
+        // sind, und genau dann wurde der Ausschnitt neu gesetzt — ein bis drei
+        // Sekunden nach dem Öffnen und noch einmal bei jedem Nachladelauf.
+        // Falsch war der Schluss, damit sei die Sache erklärt: Das Zoomen ging
+        // danach weiter nicht. Übrig blieben zwei Ursachen, die 1.1.14 nicht
+        // nur nicht behob, sondern selbst mitbrachte — die Gesten auf der
+        // Karte (siehe oben bei `karte`) und `.automatic` als Kamerastand
+        // (siehe bei `kamera`). Beide sind jetzt weg.
         //
         // Wer die Karte angefasst hat, führt sie. Zurück gibt er sie mit einem
         // neuen Bezugspunkt.
-        .onChange(of: netz.zuege.count) { _, _ in
-            guard !netz.zuege.isEmpty, !nutzerFuehrt else { return }
-            kamera = .rect(ausschnitt)
-        }
-        // **Beobachtend, nicht greifend.** `simultaneousGesture` nimmt MapKit
-        // die Berührung nicht weg — es sieht nur zu. Mit `gesture` stünde hier
-        // eine zweite Geste, die um dieselben Finger streitet, und das wäre
-        // ausgerechnet die Krankheit, die hier behoben werden soll.
-        .simultaneousGesture(
-            DragGesture(minimumDistance: 2).onChanged { _ in nutzerFuehrt = true }
-        )
-        .simultaneousGesture(
-            MagnifyGesture().onChanged { _ in nutzerFuehrt = true }
-        )
+        .onChange(of: netz.zuege.count) { _, neu in
+            guard neu > 0, !gerahmt else { return }
+            gerahmt = true
+            rahmen(ausschnitt)
         }
     }
 
-    /// Der lange Tipp, der den Suchpunkt versetzt.
+    /// Stellt den Ausschnitt ein — und merkt sich, dass wir es waren.
     ///
-    /// **Die Reihenfolge ist Absicht:** erst halten, dann ziehen dürfen. Ohne
-    /// das angehängte `DragGesture` käme die Stelle gar nicht mit — ein
-    /// `LongPressGesture` allein meldet nur, DASS gehalten wurde. Genommen
-    /// wird `startLocation` und nicht `location`: Der Finger wandert beim
-    /// Halten ein paar Punkte, gemeint ist aber die Stelle, auf die gezeigt
-    /// wurde.
-    private func punktSetzen(_ karteninhalt: MapProxy) -> some Gesture {
-        LongPressGesture(minimumDuration: 0.45)
-            .sequenced(before: DragGesture(minimumDistance: 0, coordinateSpace: .local))
-            .onEnded { wert in
-                guard case .second(true, let zug?) = wert,
-                      let koordinate = karteninhalt.convert(zug.startLocation, from: .local)
-                else { return }
-                neuerSuchpunkt(koordinate)
-            }
+    /// **Die einzige Stelle, an der `kamera` geschrieben wird.** Ein zweiter
+    /// Schreibweg daneben hieße eine Kamerabewegung, die keiner als eigene
+    /// erkennt — und die Karte hielte den Nutzer für den Urheber.
+    private func rahmen(_ rect: MKMapRect) {
+        eigeneBewegung = true
+        kamera = .rect(rect)
+    }
+
+    /// Der Ausschnitt beim Öffnen: alles Gezeichnete, solange es etwas gibt.
+    private var startausschnitt: MKMapRect {
+        netz.zuege.isEmpty ? umkreisAusschnitt : ausschnitt
+    }
+
+    /// Ein Fenster um den Bezugspunkt — das, was vor den Linienverläufen da
+    /// ist. Ohne es stünde dort die ganze Weltkarte: `ausschnitt` hat nichts
+    /// zu rahmen, solange kein Zug gezeichnet ist.
+    private var umkreisAusschnitt: MKMapRect {
+        guard let punkt = model.punkt else { return MKMapRect.world }
+        let meter = max(Double(model.umkreis) * 6, 1500)
+        let seite = meter * MKMapPointsPerMeterAtLatitude(punkt.koordinate.latitude)
+        let mitte = MKMapPoint(punkt.koordinate)
+        return MKMapRect(
+            x: mitte.x - seite / 2,
+            y: mitte.y - seite / 2,
+            width: seite,
+            height: seite
+        )
+    }
+
+    /// Legt den Suchpunkt in die Mitte des gezeigten Ausschnitts.
+    ///
+    /// **Die Mitte und nicht die Stelle eines Fingers** (ab 1.1.15): Wo ein
+    /// Finger hingetippt hat, weiß nur eine Geste — und eine Geste auf dieser
+    /// Karte ist genau das, was hier abgestellt wird. Gezielt wird deshalb
+    /// mit der Karte selbst, wie in der Ortswahl: schieben, bis das
+    /// Fadenkreuz auf der Stelle liegt.
+    private func punktInDieMitte() {
+        guard let sichtfeld else { return }
+        let mitte = MKMapPoint(
+            x: sichtfeld.origin.x + sichtfeld.size.width / 2,
+            y: sichtfeld.origin.y + sichtfeld.size.height / 2
+        ).coordinate
+        zielen = false
+        neuerSuchpunkt(mitte)
     }
 
     /// Setzt den Bezugspunkt auf diese Koordinate.
@@ -315,7 +359,8 @@ struct LiniennetzView: View {
     ///
     /// Damit die Wartezeit auf den Namen nicht wie ein toter Knopf wirkt,
     /// meldet sich das Gerät sofort spürbar — die Anfrage dauert Bruchteile
-    /// einer Sekunde, die Tafel danach länger.
+    /// einer Sekunde, die Tafel danach länger. Ein Knopf, der schweigt, ist
+    /// für den Menschen davor ein kaputter Knopf.
     private func neuerSuchpunkt(_ koordinate: CLLocationCoordinate2D) {
         #if canImport(UIKit)
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
@@ -497,8 +542,41 @@ struct LiniennetzView: View {
         return zug.id == hervorgehoben ? 1.0 : 0.18
     }
 
-    /// Auf- und Zuziehen der Karte. Steht unten links, also dort, wo weder die
-    /// Legende (oben rechts) noch Apples eigene Bedienelemente liegen.
+    // MARK: - Die Knöpfe auf der Karte
+
+    /// Die Knöpfe unten links — dort, wo weder die Legende (oben rechts) noch
+    /// Apples eigene Bedienelemente liegen.
+    ///
+    /// **Beides sind Knöpfe und keine Gesten** (ab 1.1.15). Bis 1.1.14 zog ein
+    /// Tipp auf die freie Kartenfläche die Karte auf und ein langer Tipp setzte
+    /// den Suchpunkt. Beides lag als SwiftUI-Geste auf der Karte und stritt mit
+    /// MapKits eigenen Erkennern um dieselben Finger — und das Zoomen verlor.
+    /// Eine Geste, die niemand kennt, war ohnehin so wenig wert wie ein Knopf,
+    /// den niemand findet; jetzt gibt es nur noch die Knöpfe.
+    private var kartenknoepfe: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            punktknopf
+            vollbildknopf
+        }
+        .padding(10)
+    }
+
+    /// Der Suchpunkt wird auf der Karte über einen Knopf versetzt.
+    private var punktknopf: some View {
+        Button {
+            zielen = true
+        } label: {
+            Image(systemName: "mappin.and.ellipse")
+                .font(.system(size: 15, weight: .semibold))
+                .frame(width: 34, height: 34)
+                .background(.regularMaterial, in: Circle())
+                .shadow(color: .black.opacity(0.18), radius: 2, y: 1)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Suchpunkt auf der Karte wählen")
+    }
+
+    /// Auf- und Zuziehen der Karte.
     @ViewBuilder
     private var vollbildknopf: some View {
         if let umschalten {
@@ -512,8 +590,50 @@ struct LiniennetzView: View {
                     .shadow(color: .black.opacity(0.18), radius: 2, y: 1)
             }
             .buttonStyle(.plain)
-            .padding(10)
             .accessibilityLabel(imVollbild ? "Karte schließen" : "Karte auf den ganzen Bildschirm")
+        }
+    }
+
+    /// Das Fadenkreuz in der Mitte — nur, solange gezielt wird.
+    ///
+    /// **`allowsHitTesting(false)`, und das ist keine Kleinigkeit:** Eine
+    /// Überlagerung mitten auf der Karte, die Berührungen annimmt, nähme
+    /// MapKit den Finger genau dort weg, wo am häufigsten gezoomt wird.
+    @ViewBuilder
+    private var fadenkreuz: some View {
+        if zielen {
+            ZStack {
+                Rectangle().fill(Color.accentColor).frame(width: 1.5, height: 44)
+                Rectangle().fill(Color.accentColor).frame(width: 44, height: 1.5)
+                Circle()
+                    .strokeBorder(Color.accentColor, lineWidth: 2.5)
+                    .background(Circle().fill(.background.opacity(0.35)))
+                    .frame(width: 26, height: 26)
+            }
+            .shadow(color: .black.opacity(0.35), radius: 2)
+            .allowsHitTesting(false)
+        }
+    }
+
+    /// Die Leiste, die das Zielen abschließt.
+    @ViewBuilder
+    private var zielleiste: some View {
+        if zielen {
+            VStack(spacing: 9) {
+                Text("Karte schieben, bis das Fadenkreuz auf der Stelle liegt.")
+                    .font(.caption)
+                    .multilineTextAlignment(.center)
+                HStack(spacing: 10) {
+                    Button("Abbrechen") { zielen = false }
+                        .buttonStyle(.bordered)
+                    Button("Suchpunkt hierher") { punktInDieMitte() }
+                        .buttonStyle(.borderedProminent)
+                }
+            }
+            .padding(12)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .shadow(color: .black.opacity(0.18), radius: 3, y: 1)
+            .padding(14)
         }
     }
 
@@ -724,8 +844,8 @@ struct LiniennetzView: View {
         }
         liste.append(Hinweis(
             id: "suchpunkt",
-            symbol: "hand.point.up.left",
-            text: "Ein langer Tipp auf die Karte legt den Suchpunkt dorthin — die Tafel daneben füllt sich dann von dieser Stelle aus."
+            symbol: "mappin.and.ellipse",
+            text: "Der Nadelknopf unten links versetzt den Suchpunkt: Karte schieben, bis das Fadenkreuz auf der Stelle liegt, dann Suchpunkt hierher antippen. Die Tafel füllt sich danach von dort aus."
         ))
         if !legendeOffen {
             liste.append(Hinweis(

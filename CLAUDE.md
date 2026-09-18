@@ -1670,17 +1670,50 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   Linienliste ändert; daher das „manchmal". **Der Zeitpunkt in der Meldung war
   die halbe Diagnose** — „gerade wenn sie neu geöffnet ist" ist genau das
   Fenster, in dem die Fahrtläufe eintreffen.
-- **Wer die Karte angefasst hat, führt sie** (`nutzerFuehrt`). Ab der ersten
-  eigenen Bewegung stellt sie sich nicht mehr selbst ein; zurück gibt der
-  Nutzer sie mit einem neuen Bezugspunkt, denn das ist eine neue Lage. Erkannt
-  wird die Berührung über zwei **`simultaneousGesture`** (Ziehen und Zoomen) —
-  `simultaneousGesture` sieht nur zu und nimmt MapKit die Berührung nicht weg.
-  **Mit `gesture` stünde dort eine zweite Geste, die um dieselben Finger
-  streitet**, und das wäre ausgerechnet die Krankheit, die hier behoben wird.
-  Aus demselben Grund ist auch der lange Tipp aus 1.1.13 auf
-  `simultaneousGesture` umgestellt: Ein `gesture` beansprucht die Berührung für
-  sich, solange es auf den langen Tipp wartet, und verschluckte damit den
-  Anfang jeder Zoomgeste.
+- **Wer die Karte angefasst hat, führt sie.** Ab der ersten eigenen Bewegung
+  stellt sie sich nicht mehr selbst ein; zurück gibt der Nutzer sie mit einem
+  neuen Bezugspunkt, denn das ist eine neue Lage. In 1.1.14 wurde die
+  Berührung über zwei **`simultaneousGesture`** erkannt (Ziehen und Zoomen),
+  mit der Begründung, `simultaneousGesture` sehe nur zu. **Beides ist in
+  1.1.15 wieder ausgebaut** — siehe unten.
+- **Auf einer Karte liegt KEINE SwiftUI-Geste** (ab 1.1.15; gemeldet 09/2026
+  nach 1.1.14: „Das Zoomen funktioniert aber immer noch nicht. Ich habe es
+  jetzt in der kleinen und in der bildschirmfüllenden Ansicht eine Minute lang
+  versucht."). Die Diagnose aus 1.1.14 war richtig und nicht vollständig: Der
+  Ausschnitt wurde tatsächlich über den Nutzer hinweg neu gesetzt — nur ging
+  das Zoomen danach weiter nicht. Übrig blieben zwei Ursachen, und 1.1.14
+  hatte beide sogar VERSTÄRKT:
+  - **Die Gesten selbst.** Auf der Karte lagen zuletzt vier: ein Tipp
+    (Vollbild, ab 1.1.11), ein langer Tipp (Suchpunkt, ab 1.1.13) und zwei
+    beobachtende (ab 1.1.14). Dass `simultaneousGesture` „nur zusieht", ist
+    eine Aussage über das VERHÄLTNIS zweier SwiftUI-Gesten zueinander und
+    keine über MapKits eigene Erkenner, die in einer darunterliegenden
+    UIKit-Ansicht sitzen — **das war eine Annahme, ausgegeben als Begründung.**
+    Alle vier sind weg. Was blieb, sind Knöpfe: der Vollbildknopf unten links
+    (den es seit 1.1.11 gibt) und darüber ein Nadelknopf, der ein Fadenkreuz
+    einblendet — Karte schieben, dann „Suchpunkt hierher". Das ist dieselbe
+    Bedienung wie in der Ortswahl und kostet einen Tipp mehr als der lange
+    Tipp; eine Geste, die das Zoomen frisst, kostet mehr.
+  - **`.automatic` als Kamerastand.** `MapCameraPosition.automatic` heißt
+    „rahme, was drinsteht" — und was drinsteht, hängt seit 1.1.13 über
+    `sichtbareHalte` am gezeigten Ausschnitt. Das ist eine Rückkopplung: Jede
+    Kamerabewegung ändert die Zahl der Halte, die geänderte Zahl rahmt die
+    Kamera neu. `.automatic` stand beim Öffnen und nach jedem Wechsel des
+    Bezugspunkts — und der `nutzerFuehrt`-Wächter aus 1.1.14 hielt die Karte
+    ausgerechnet dann für immer darin fest, wenn der Nutzer früh zoomte.
+    Gesetzt wird jetzt ausschließlich ein ausgerechneter `MKMapRect`, und nur
+    über `rahmen(_:)`.
+  - **Erkannt wird die eigene Bewegung an der Kamera selbst**
+    (`eigeneBewegung`): `rahmen(_:)` setzt eine Marke, `onMapCameraChange`
+    nimmt sie weg — jede Meldung ohne Marke kam vom Nutzer. Dieselbe Auskunft
+    wie die beiden Gesten, ohne eine einzige Geste.
+  - **Nicht gemessen.** Ob eine SwiftUI-Geste MapKits Zoom wirklich
+    verschluckt, lässt sich nur auf einem Gerät sehen; hier ist es nicht
+    prüfbar. Das ist der zweite Anlauf auf denselben Fehler, und deshalb sind
+    diesmal ALLE plausiblen Ursachen zugleich entfernt statt der
+    wahrscheinlichsten einzeln. **Wer eine Ursache nicht messen kann, räumt
+    nicht die wahrscheinlichste weg, sondern alle** — eine Runde mehr kostet
+    den Nutzer mehr als ein Umweg im Quelltext.
 - **Betriebsmeldungen sind eine EIGENE Sache neben der Abfahrtskette**
   (`Betriebsmeldung`, `Meldungsquelle`, `Dienste/Meldungsdienst.swift`, ab
   1.0.4; gemeldet 09/2026: „Ich weiß, dass bei mir vor Ort eine Buslinie
@@ -2192,7 +2225,7 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   zwölfte Nachbesserung — derselbe Gedanke wie bei Tafelbild 1.4.0 und
   Schulalarm 1.1.0. Die Marken ab 1.0.x in diesem Papier bleiben stehen;
   sie sagen, wann etwas in den Quelltext kam. Danach zählt es weiter:
-  1.1.1 (Build 14), 1.1.2 (Build 15), 1.1.3 (Build 16), 1.1.4 (Build 17), 1.1.5 (Build 18), 1.1.6 (Build 19), 1.1.7 (Build 20), 1.1.8 (Build 21), 1.1.9 (Build 22), 1.1.10 (Build 23), 1.1.11 (Build 24), 1.1.12 (Build 25), 1.1.13 (Build 26), 1.1.14 (Build 27) … Dazu gesetzt (Ansage des Nutzers,
+  1.1.1 (Build 14), 1.1.2 (Build 15), 1.1.3 (Build 16), 1.1.4 (Build 17), 1.1.5 (Build 18), 1.1.6 (Build 19), 1.1.7 (Build 20), 1.1.8 (Build 21), 1.1.9 (Build 22), 1.1.10 (Build 23), 1.1.11 (Build 24), 1.1.12 (Build 25), 1.1.13 (Build 26), 1.1.14 (Build 27), 1.1.15 (Build 28) … Dazu gesetzt (Ansage des Nutzers,
   09/2026): `DEVELOPMENT_TEAM = F4989GSTWS` — dieselbe Id wie Schulalarm und
   Tafelbild — und `INFOPLIST_KEY_LSApplicationCategoryType =
   public.app-category.navigation`. Beides steht als Build-Einstellung, weil

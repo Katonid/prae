@@ -86,12 +86,15 @@ zwölf Zeichen ab), Ordner, Ziel und Bundle-Id bleiben „Abfahrtstafel“ /
   frei gewählten Zeitpunkt um — „was fährt morgen früh um sieben?". Die
   Minutenziffern sind dann aus und der Nachladelauf ruht: Eine Tafel für
   morgen, die im Sekundentakt weiterzählt, sähe richtig aus und wäre es nicht.
-- **Karte auf den ganzen Bildschirm.** Ein Tipp auf die freie Kartenfläche
-  oder der Knopf unten links zieht sie auf; derselbe Knopf schließt sie wieder.
-  Ein Tipp auf einen Halt öffnet unverändert dessen Abfahrtstafel.
-- **Suchpunkt per langem Tipp.** Ein langer Tipp auf die Netzkarte legt den
-  Bezugspunkt dorthin — ohne Umweg über die Ortswahl. Der kurze Tipp zieht die
-  Karte weiterhin auf den ganzen Bildschirm.
+- **Karte auf den ganzen Bildschirm.** Der Knopf unten links zieht sie auf und
+  schließt sie wieder. Ein Tipp auf einen Halt öffnet unverändert dessen
+  Abfahrtstafel.
+- **Suchpunkt über den Nadelknopf.** Der Knopf unten links über dem
+  Vollbildknopf blendet ein Fadenkreuz ein: Karte schieben, bis es auf der
+  Stelle liegt, dann „Suchpunkt hierher" — ohne Umweg über die Ortswahl.
+  Bis 1.1.14 war das ein langer Tipp auf die Karte; er ist entfallen, weil
+  eine SwiftUI-Geste auf einer Karte mit MapKits eigenen Erkennern um
+  dieselben Finger streitet und das Zoomen dabei verlor.
 - **Die Halte der Linien gibt es überall**, nicht nur um den Suchpunkt.
   Gezeichnet wird, was im Kartenausschnitt liegt: Wer zur S-Bahn-Strecke
   schiebt oder hineinzoomt, bekommt dort alle Halte. Nur was gleichzeitig
