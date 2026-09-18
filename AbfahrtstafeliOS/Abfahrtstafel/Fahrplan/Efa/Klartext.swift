@@ -38,7 +38,35 @@ enum Klartext {
 
     static func aus(_ html: String?) -> String {
         guard let html, !html.isEmpty else { return "" }
-        return zusammenziehen(entpacken(ohneMarkierungen(html)))
+        return zusammenziehen(entpacken(ohneMarkierungen(geradegerueckt(html))))
+    }
+
+    /// Dreht eine doppelt kodierte Zeichenkette zurück.
+    ///
+    /// **Nachgemessen am 18.09.2026 bei VRR:** In derselben Meldung stand
+    /// `subtitle` als tadelloses UTF-8 („Verspätungen") und
+    /// `additionalText` daneben als „Ã„nderungen" — die
+    /// UTF-8-Bytes ein zweites Mal als UTF-8 geschrieben. Es ist also ein
+    /// Fehler EINZELNER Felder beim Herausgeber und keiner der Übertragung;
+    /// `JSONDecoder` liefert genau dieselben Zeichen, und ungerichtet stünde
+    /// der Buchstabensalat in der App.
+    ///
+    /// Gerichtet wird nur, wenn BEIDES zutrifft: Der Text trägt eines der
+    /// verräterischen Zeichen, und das Zurückdrehen geht verlustfrei auf
+    /// (jedes Zeichen passt in ein Latin-1-Byte, und die Bytes ergeben
+    /// gültiges UTF-8). Sonst bleibt der Text, wie er ist: Ein französischer
+    /// Ortsname mit Ã ist kein Fehler, und ein geratener „Fix" wäre hier
+    /// schlimmer als der Salat — er träfe die Texte, die in Ordnung sind.
+    static func geradegerueckt(_ text: String) -> String {
+        guard text.contains("\u{00C3}") || text.contains("\u{00E2}\u{20AC}") else { return text }
+        var bytes: [UInt8] = []
+        bytes.reserveCapacity(text.unicodeScalars.count)
+        for skalar in text.unicodeScalars {
+            guard skalar.value < 256 else { return text }
+            bytes.append(UInt8(skalar.value))
+        }
+        guard let zurueck = String(bytes: bytes, encoding: .utf8) else { return text }
+        return zurueck
     }
 
     /// Schneidet `<…>` heraus. Ein `<br>` und ein `</p>` werden dabei zu einem

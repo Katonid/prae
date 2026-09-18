@@ -38,6 +38,32 @@ struct Betriebsmeldung: Identifiable, Hashable, Codable, Sendable {
     let dringend: Bool
     /// Weiterführende Adresse, sofern eine brauchbare mitkam.
     let adresse: URL?
+    /// Der Satz, mit dem der Verbund selbst sagt, ob die beschriebene
+    /// Änderung in den Fahrplandaten steht. Leer, wenn er nichts dazu sagt.
+    ///
+    /// Er wird WÖRTLICH gezeigt und nicht zusammengefasst — siehe
+    /// `aenderungenImFahrplan`.
+    let fahrplanhinweis: String
+
+    /// Ob die beschriebene Änderung in den Fahrplandaten steht.
+    ///
+    /// `nil` heißt „der Verbund sagt nichts dazu" und ist der Regelfall (VVS,
+    /// VRN und MVV lassen das Feld leer, gemessen 18.09.2026). `false` ist
+    /// der Fall, der diese Eigenschaft überhaupt nötig macht.
+    ///
+    /// **Warum hier doch im Text gesucht wird**, obwohl `linien` ausdrücklich
+    /// NICHT aus dem Titel gelesen wird: Dort ginge es um eine Aufzählung in
+    /// freier Formulierung („Linien 400, 401", „Airport Express // Airport
+    /// Shuttle"), hier um EINEN feststehenden Satz eines Herausgebers, der in
+    /// beiden Ausprägungen gemessen ist. Und der Irrtum wäre auch nicht
+    /// derselbe: Eine falsch gelesene Linie hängt die Meldung an die falsche
+    /// Zeile, hier steht der Satz im Wortlaut daneben — wer ihn liest, sieht
+    /// sofort, ob die Deutung stimmt.
+    var aenderungenImFahrplan: Bool? {
+        let text = fahrplanhinweis.lowercased()
+        guard text.contains("berücksichtigt") else { return nil }
+        return !text.contains("nicht")
+    }
 
     /// Ob diese Meldung eine bestimmte Linie betrifft.
     ///

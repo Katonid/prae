@@ -63,7 +63,10 @@ zwölf Zeichen ab), Ordner, Ziel und Bundle-Id bleiben „Abfahrtstafel“ /
 - **Betriebsmeldungen.** Umleitung, Sperrung, verlegte Haltestelle,
   Ersatzverkehr — als Band über der Tafel, als Dreieck neben der betroffenen
   Linie und als Liste mit Volltext. Sie kommen **ausschließlich vom Verbund
-  vor Ort**: Die Quelle der Abfahrtszeiten führt keine einzige.
+  vor Ort**: Die Quelle der Abfahrtszeiten führt keine einzige. Und wo der
+  Verbund dazuschreibt, dass seine Änderung **nicht** in den Fahrplandaten
+  steht, sagt die App das über der Halteliste und auf der Netzkarte — sonst
+  steht oben „Straße gesperrt" und unten jede Haltestelle als angefahren.
 - **Merkliste** für die Handvoll Haltestellen des Alltags — auf dem Gerät,
   ohne Konto.
 
@@ -412,6 +415,15 @@ Trennung, sondern eine Lüge mit Protokoll. Die Ansichten sehen weiterhin nur
   noch am Fahrtlauf). Steht in der App keine Meldung, heißt das deshalb
   **nicht**, dass alles planmäßig fährt — es heißt, dass niemand
   nachgesehen hat. Die App schreibt genau das hin.
+- **Eine Meldung und die Halteliste können auseinandergehen — und beide haben
+  recht.** Nachgemessen 18.09.2026 an der Linie 470 in Dortmund: Die Meldung
+  des VRR nennt zwei gesperrte Haltestellen, in den Fahrplandaten entfällt
+  eine dritte, ganz andere, und nur in einer Richtung. Der Grund steht in der
+  Meldung selbst („Die beschriebenen Änderungen sind in der elektronischen
+  Fahrplanauskunft **nicht** berücksichtigt"), und die App zeigt diesen Satz
+  seit 1.1.5 wörtlich. **Welchen Weg der Bus stattdessen fährt und welche
+  Haltestellen er wirklich auslässt, gibt keine Quelle heraus** — die App
+  sagt, dass sie es nicht weiß, statt einen Planweg als Auskunft auszugeben.
 - **In Österreich gibt es keine zweite Quelle** und regional keine Echtzeit —
   siehe oben. Die App sagt das an der Zeile („Plan"), statt es zu verwischen.
 
