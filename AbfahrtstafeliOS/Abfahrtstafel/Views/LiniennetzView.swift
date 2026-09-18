@@ -67,12 +67,13 @@ struct LiniennetzView: View {
             // Die Halte der gezeichneten Linien.
             ForEach(sichtbareHalte) { halt in
                 Annotation(halt.name, coordinate: halt.koordinate, anchor: .center) {
-                    Linienhalt(farbe: halt.farbe, gross: halt.gross)
+                    Linienhalt(farbe: halt.farbe, gross: halt.gross, faelltAus: halt.faelltAus)
                 }
                 // Beschriftet nur, wenn EINE Linie hervorgehoben ist. Sonst
                 // lägen dreihundert Haltestellennamen übereinander und die
-                // Karte wäre unlesbar.
-                .annotationTitles(hervorgehoben == nil ? .hidden : .automatic)
+                // Karte wäre unlesbar. Ein ENTFALLENDER Halt trägt seinen
+                // Namen immer — es sind wenige, und sie sind die Auskunft.
+                .annotationTitles(hervorgehoben == nil && !halt.faelltAus ? .hidden : .automatic)
             }
 
             // Die Liniennummer auf dem Zug selbst. Ohne sie ist die Karte ein
@@ -145,6 +146,7 @@ struct LiniennetzView: View {
         let koordinate: CLLocationCoordinate2D
         let farbe: Color
         let gross: Bool
+        var faelltAus: Bool = false
     }
 
     /// **Wie viele Haltepunkte höchstens gezeichnet werden.**
@@ -165,10 +167,11 @@ struct LiniennetzView: View {
             return zug.halte.enumerated().map { nummer, halt in
                 Linienhaltpunkt(
                     id: "\(zug.id)#\(nummer)",
-                    name: halt.name,
-                    koordinate: halt.koordinate,
+                    name: halt.haltestelle.name,
+                    koordinate: halt.haltestelle.koordinate,
                     farbe: zug.linie.anzeigefarbe,
-                    gross: nummer == 0 || nummer == zug.halte.count - 1
+                    gross: nummer == 0 || nummer == zug.halte.count - 1,
+                    faelltAus: halt.faelltAus
                 )
             }
         }
@@ -177,23 +180,33 @@ struct LiniennetzView: View {
         var punkte: [Linienhaltpunkt] = []
         for zug in netz.zuege {
             for halt in zug.halte {
-                guard gesehen.insert(halt.id).inserted else { continue }
+                guard gesehen.insert(halt.haltestelle.id).inserted else { continue }
                 punkte.append(
                     Linienhaltpunkt(
-                        id: halt.id,
-                        name: halt.name,
-                        koordinate: halt.koordinate,
+                        id: halt.haltestelle.id,
+                        name: halt.haltestelle.name,
+                        koordinate: halt.haltestelle.koordinate,
                         farbe: zug.linie.anzeigefarbe,
-                        gross: false
+                        gross: false,
+                        faelltAus: halt.faelltAus
                     )
                 )
             }
         }
-        return punkte.count > hoechstzahlHalte ? [] : punkte
+        // **Über der Grenze bleiben die entfallenden Halte stehen.** Weggelassen
+        // wird nur das Gewöhnliche: Dreihundert Punkte machen die Karte zäh,
+        // aber der eine durchgestrichene ist der Grund, aus dem jemand sie
+        // aufschlägt. Ihn mit wegzuräumen hieße, die Umleitung genau dann zu
+        // verschweigen, wenn viel los ist.
+        if punkte.count > hoechstzahlHalte {
+            return punkte.filter(\.faelltAus)
+        }
+        return punkte
     }
 
     private var zuVieleHalte: Bool {
-        hervorgehoben == nil && sichtbareHalte.isEmpty && !netz.zuege.isEmpty
+        guard hervorgehoben == nil, !netz.zuege.isEmpty else { return false }
+        return !sichtbareHalte.contains { !$0.faelltAus }
     }
 
     private struct Liniennummer: Identifiable {
@@ -333,6 +346,14 @@ struct LiniennetzView: View {
             if netz.zuege.contains(where: \.istLuftlinie) {
                 Text("Gestrichelte Linien sind Luftlinien zwischen den Halten — für sie kam keine Streckenführung mit.")
             }
+            if netz.entfallendeHalte > 0 {
+                Label(
+                    netz.entfallendeHalte == 1
+                        ? "Ein Halt entfällt heute (rot durchgestrichen). Der gezeichnete Linienweg bleibt der PLANMÄSSIGE — welchen Weg das Fahrzeug stattdessen fährt, gibt keine Quelle heraus."
+                        : "\(netz.entfallendeHalte) Halte entfallen heute (rot durchgestrichen). Die gezeichneten Linienwege bleiben die PLANMÄSSIGEN — welchen Weg die Fahrzeuge stattdessen fahren, gibt keine Quelle heraus.",
+                    systemImage: "arrow.triangle.branch"
+                )
+            }
             if zuVieleHalte {
                 Text("Zu viele Halte für die Übersicht — eine Liniennummer antippen (auf der Karte oder in der Legende) zeigt die Haltestellen dieser Linie mit Namen.")
             } else if hervorgehoben == nil {
@@ -367,15 +388,34 @@ struct LiniennetzView: View {
 private struct Linienhalt: View {
     let farbe: Color
     let gross: Bool
+    var faelltAus: Bool = false
 
     var body: some View {
-        ZStack {
-            Circle()
-                .fill(.background)
-                .frame(width: gross ? 13 : 8, height: gross ? 13 : 8)
-            Circle()
-                .strokeBorder(farbe, lineWidth: gross ? 3.5 : 2.5)
-                .frame(width: gross ? 13 : 8, height: gross ? 13 : 8)
+        if faelltAus {
+            // Rot UND durchgestrichen: Farbe allein sieht ein
+            // farbfehlsichtiger Mensch nicht.
+            ZStack {
+                Circle()
+                    .fill(.background)
+                    .frame(width: 15, height: 15)
+                Circle()
+                    .strokeBorder(.red, lineWidth: 2.5)
+                    .frame(width: 15, height: 15)
+                Image(systemName: "xmark")
+                    .font(.system(size: 8, weight: .black))
+                    .foregroundStyle(.red)
+            }
+            .shadow(color: .black.opacity(0.22), radius: 1.5, y: 0.5)
+            .accessibilityLabel("Halt entfällt")
+        } else {
+            ZStack {
+                Circle()
+                    .fill(.background)
+                    .frame(width: gross ? 13 : 8, height: gross ? 13 : 8)
+                Circle()
+                    .strokeBorder(farbe, lineWidth: gross ? 3.5 : 2.5)
+                    .frame(width: gross ? 13 : 8, height: gross ? 13 : 8)
+            }
         }
     }
 }

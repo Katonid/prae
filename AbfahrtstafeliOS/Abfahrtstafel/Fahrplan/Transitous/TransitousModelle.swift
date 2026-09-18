@@ -27,6 +27,17 @@ enum TransitousAntwort {
         let scheduledArrival: String?
         let scheduledDeparture: String?
         let cancelled: Bool?
+        /// „Hier darf niemand einsteigen" bzw. „aussteigen".
+        ///
+        /// **Das ist das zweite Kennzeichen eines entfallenden Halts** und
+        /// nicht dasselbe wie `cancelled`: Ein Verbund, der eine Umleitung
+        /// meldet, setzt mal das eine, mal beides (gemessen 09/2026 an der
+        /// Linie 448 in Dortmund — dort standen alle drei Felder). Wo NUR
+        /// diese beiden stehen, wäre der Halt ohne sie unauffällig geblieben.
+        /// Am ERSTEN und LETZTEN Halt einer Fahrt ist je eines davon
+        /// planmäßig `NOT_ALLOWED`; deshalb zählt nur, wenn BEIDE es sind.
+        let pickupType: String?
+        let dropoffType: String?
         let modes: [String]?
     }
 
@@ -77,6 +88,12 @@ enum TransitousAntwort {
         let routeLongName: String?
         let displayName: String?
         let cancelled: Bool?
+        /// Die ganze Fahrt fällt aus — nicht nur diese eine Abfahrt.
+        let tripCancelled: Bool?
+        /// Siehe `Ort.pickupType`: Steht hier `NOT_ALLOWED`, hält das
+        /// Fahrzeug an DIESER Haltestelle nicht. Genau der Fall, um den es
+        /// bei einer Umleitung geht.
+        let pickupDropoffType: String?
     }
 
     /// Die Antwort von `/trip`. MOTIS gibt eine ganze Reise zurück; für eine

@@ -42,6 +42,17 @@ struct Fahrt: Identifiable, Sendable {
         }
         return letzter
     }
+
+    /// Die Halte, die diese Fahrt HEUTE nicht anfährt.
+    ///
+    /// Das ist die sichtbare Seite einer Umleitung: Der Bus fährt, er hält nur
+    /// woanders. Der wirkliche Umleitungsweg steht in KEINER Quelle — gemessen
+    /// 09/2026 an der Linie 448 in Dortmund: Der Halt „Hombruch Friedhof" kam
+    /// als entfallen zurück, die Streckengeometrie war unverändert die
+    /// planmäßige (457 Punkte). Wer daraus einen anderen Linienweg zeichnet,
+    /// erfindet ihn. Gezeigt wird deshalb der Planweg — mit dem ausdrücklichen
+    /// Hinweis, dass er es ist.
+    var entfallendeHalte: [Zwischenhalt] { halte.filter(\.faelltAus) }
 }
 
 /// Ein Halt im Lauf einer Fahrt.

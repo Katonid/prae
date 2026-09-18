@@ -154,7 +154,12 @@ struct Musterdienst: Fahrplandienst {
                 geplanteAnkunft: nummer == 0 ? nil : plan,
                 abfahrt: nummer == namen.count - 1 ? nil : plan.addingTimeInterval(180),
                 geplanteAbfahrt: nummer == namen.count - 1 ? nil : plan,
-                faelltAus: false
+                // Ein entfallender Halt gehört in die Beispieldaten: Die
+                // Umleitung ist der Fall, der sich nicht herbeiführen lässt,
+                // wenn man ihn ansehen will. Ohne ihn hier wäre jede Anzeige
+                // dafür nur an echten Daten zu prüfen — also genau dann, wenn
+                // gerade eine Straße gesperrt ist.
+                faelltAus: name == "Fasangarten"
             )
         }
         return Fahrt(

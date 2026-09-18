@@ -13,7 +13,12 @@ struct Linienzug: Identifiable, Sendable {
     /// stehen für „von wo komme ich weg", diese hier für „wo hält die Linie
     /// unterwegs". Ohne sie ist ein Linienzug ein Strich über der Karte, an
     /// dem man nicht ablesen kann, ob er dort anhält, wo man hinwill.
-    let halte: [Haltestelle]
+    ///
+    /// **Es sind `Zwischenhalt`e und nicht bloß Haltestellen** (ab 1.0.8):
+    /// Nur der Zwischenhalt weiß, ob er heute überhaupt angefahren wird. Eine
+    /// Umleitung ist auf der Karte sonst unsichtbar — der Strich liefe weiter
+    /// mitten durch einen Halt, den das Fahrzeug auslässt.
+    let halte: [Zwischenhalt]
     /// Der Fahrplandienst hat keine Geometrie mitgeschickt; gezeichnet wird
     /// die Verbindung der Halte. Die Karte stellt das gestrichelt dar und
     /// schreibt es dazu — dieselbe Regel wie bei der einzelnen Fahrt.
@@ -51,6 +56,15 @@ final class Liniennetz: ObservableObject {
     /// der Karte: Ein Netz, in dem stillschweigend Linien fehlen, ist eine
     /// Karte, der man nicht ansieht, dass sie unvollständig ist.
     @Published private(set) var ohneVerlauf = 0
+
+    /// Wie viele Halte auf den gezeichneten Linien heute entfallen.
+    ///
+    /// Die Zahl steht unter der Karte. Ein einzelner durchgestrichener Punkt
+    /// zwischen dreihundert fällt niemandem auf, und genau er ist der Grund,
+    /// aus dem jemand die Karte aufschlägt.
+    var entfallendeHalte: Int {
+        zuege.reduce(0) { $0 + $1.halte.filter(\.faelltAus).count }
+    }
 
     /// Wie viele Linien höchstens gezeichnet werden.
     ///
@@ -175,7 +189,7 @@ final class Liniennetz: ObservableObject {
                         linie: wunsch.linie,
                         richtung: wunsch.richtung,
                         punkte: punkte,
-                        halte: fahrt.halte.map(\.haltestelle),
+                        halte: fahrt.halte,
                         istLuftlinie: !ausGeometrie
                     )
                 }

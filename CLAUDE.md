@@ -1292,6 +1292,46 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   eine Karte, der man ihre Unvollständigkeit nicht ansieht.
 - **Die Karte benutzt DENSELBEN Filter wie die Liste** (`AppModel.filter`).
   Zwei Filter für dieselbe Frage wären zwei Antworten.
+- **Eine Umleitung steht in den DATEN — als Merkmal am einzelnen HALT**
+  (ab 1.0.8, nachgemessen 18.09.2026 an der Linie 448 in Dortmund: „Hombruch
+  Friedhof" kam als entfallen zurück, 1 von 23 Halten). Zwei Felder, und beide
+  werden gebraucht: `cancelled` am Ort, und — wo die Quelle das nicht setzt —
+  `pickupType` UND `dropoffType` auf `NOT_ALLOWED`. **Nur beides zusammen**,
+  denn am ersten Halt ist der Ausstieg planmäßig verboten und am letzten der
+  Einstieg; eine Oder-Prüfung kappte jede Fahrt an beiden Enden
+  (`TransitousDienst.haltEntfaellt`). An der ABFAHRT heißt dasselbe
+  `pickupDropoffType` — steht es dort auf `NOT_ALLOWED`, hält das Fahrzeug an
+  DIESER Haltestelle nicht, und ohne diese Zeile stünde die Abfahrt unverändert
+  in der Tafel: Jemand wartete auf einen Bus, der vorbeifährt.
+- **Der UMLEITUNGSWEG steht in KEINER Quelle — er wird nicht erfunden.**
+  Dieselbe Messung: Der Halt entfiel, die Streckengeometrie kam unverändert
+  planmäßig zurück (457 Punkte). Gezeichnet wird deshalb weiter der Planweg,
+  und beide Karten schreiben ausdrücklich hin, dass er es ist
+  (`StreckenKarte.entfalltext`, `LiniennetzView`-Fußzeile). Ein Linienzug, der
+  sich eine Umleitung ausdenkt, sieht aus wie eine Auskunft und ist keine —
+  dieselbe Regel wie bei der gestrichelten Luftlinie.
+- **Ein entfallender Halt wird auf der Karte NIE weggelassen.** Über der
+  Grenze von 260 Punkten zeichnet `sichtbareHalte` keine gewöhnlichen Halte
+  mehr, die entfallenden aber schon: Sie sind der Grund, aus dem jemand die
+  Karte aufschlägt. Aus demselben Grund tragen sie ihren Namen auch dann,
+  wenn keine Linie hervorgehoben ist. Gezeichnet wird rot UND mit Kreuz —
+  Farbe allein sieht ein farbfehlsichtiger Mensch nicht.
+- **`Linienzug.halte` sind `Zwischenhalt`e, keine Haltestellen** (ab 1.0.8).
+  Nur der Zwischenhalt weiß, ob er heute angefahren wird; mit blossen
+  Haltestellen ist eine Umleitung auf der Netzkarte unsichtbar.
+- **Ein entfallender Halt steht in den MUSTERDATEN** (`Musterdienst`,
+  Fasangarten). Der Fall lässt sich nicht herbeiführen, wenn man ihn ansehen
+  will — ohne ihn in den Beispieldaten wäre jede Anzeige dafür nur dann zu
+  prüfen, wenn gerade irgendwo eine Straße gesperrt ist.
+- **Was Transitous NICHT hat: geplante Sperrungen in der Zukunft.** Gemessen
+  18.09.2026 an sieben S8-Stationen (Ismaning, Hallbergmoos, Unterföhring,
+  Herrsching, Weßling, Gilching-Argelsried, Daglfing, Johanneskirchen), jeweils
+  Sa 17.10. gegen Sa 24.10.: gleiche Zahl S8-Fahrten, kein Ersatzverkehr, keine
+  Meldung. Eine Sperrung, die andere Apps für den 24.10. anzeigen, steht in den
+  DELFI-Daten also nicht — sie kommt dort aus DBs eigener Auskunft. **Das nicht
+  als Fehler der App darstellen und nicht als lösbar versprechen**, solange
+  keine Quelle dafür gemessen ist. `/stoptimes` nimmt übrigens `time` entgegen
+  und antwortet für künftige Tage; die App fragt bisher immer „jetzt".
 - **Betriebsmeldungen sind eine EIGENE Sache neben der Abfahrtskette**
   (`Betriebsmeldung`, `Meldungsquelle`, `Dienste/Meldungsdienst.swift`, ab
   1.0.4; gemeldet 09/2026: „Ich weiß, dass bei mir vor Ort eine Buslinie
@@ -1393,7 +1433,8 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne Nachfrage,
   als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann 1.0.1
   (Build 2), 1.0.2 (Build 3), 1.0.3 (Build 4), 1.0.4 (Build 5), 1.0.5 (Build 6),
-  1.0.6 (Build 7), 1.0.7 (Build 8) usw. Dazu gesetzt (Ansage des Nutzers,
+  1.0.6 (Build 7), 1.0.7 (Build 8),
+  1.0.8 (Build 9) usw. Dazu gesetzt (Ansage des Nutzers,
   09/2026): `DEVELOPMENT_TEAM = F4989GSTWS` — dieselbe Id wie Schulalarm und
   Tafelbild — und `INFOPLIST_KEY_LSApplicationCategoryType =
   public.app-category.navigation`. Beides steht als Build-Einstellung, weil

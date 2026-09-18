@@ -131,6 +131,7 @@ struct TransitousDienst: Fahrplandienst {
         orte.append(contentsOf: abschnitt.intermediateStops ?? [])
         if let nach = abschnitt.to { orte.append(nach) }
 
+        let letzterOrt = orte.count - 1
         let halte: [Zwischenhalt] = orte.enumerated().compactMap { nummer, ort in
             guard let haltestelle = haltestelle(aus: ort) else { return nil }
             return Zwischenhalt(
@@ -141,7 +142,10 @@ struct TransitousDienst: Fahrplandienst {
                 geplanteAnkunft: Zeitleser.datum(ort.scheduledArrival),
                 abfahrt: Zeitleser.datum(ort.departure),
                 geplanteAbfahrt: Zeitleser.datum(ort.scheduledDeparture),
-                faelltAus: ort.cancelled ?? false
+                faelltAus: Self.haltEntfaellt(
+                    ort,
+                    istRand: nummer == 0 || nummer == letzterOrt
+                )
             )
         }
         guard halte.count >= 2 else { throw Fahrplanfehler.nichtsGefunden }
@@ -196,12 +200,34 @@ struct TransitousDienst: Fahrplandienst {
             geplant: geplant,
             tatsaechlich: tatsaechlich,
             istEchtzeit: zeile.realTime ?? false,
-            faelltAus: (zeile.cancelled ?? false) || (ort.cancelled ?? false),
+            faelltAus: (zeile.cancelled ?? false)
+                || (zeile.tripCancelled ?? false)
+                || (ort.cancelled ?? false)
+                // Das ist der Fall, um den es bei einer UMLEITUNG geht: Die
+                // Fahrt findet statt, nur an dieser Haltestelle hält sie
+                // nicht. Ohne diese Zeile stünde die Abfahrt unverändert in
+                // der Tafel, und jemand wartete auf einen Bus, der
+                // vorbeifährt — der teuerste denkbare Fehler dieser App.
+                || zeile.pickupDropoffType == "NOT_ALLOWED",
             // Kurz, weil es an jeder Zeile stehen kann. `quellenname` trägt
             // den Zusatz „(MOTIS)" für die Einstellungen; in einer Liste neben
             // „MVV" wäre das eine ungleiche Waage.
             quelle: "Transitous"
         )
+    }
+
+    /// Ob ein Halt einer Fahrt entfällt.
+    ///
+    /// Zwei Kennzeichen, und beide sind nötig (gemessen 09/2026): `cancelled`
+    /// allein, und — wo die Quelle das nicht setzt — Ein- UND Ausstieg
+    /// verboten. **Nur beides zusammen**, denn am ersten Halt ist der Ausstieg
+    /// planmäßig verboten und am letzten der Einstieg; eine Oder-Prüfung
+    /// erklärte jede Fahrt für an beiden Enden gekappt. Am Rand wird deshalb
+    /// gar nicht danach gefragt.
+    private static func haltEntfaellt(_ ort: TransitousAntwort.Ort, istRand: Bool) -> Bool {
+        if ort.cancelled == true { return true }
+        guard !istRand else { return false }
+        return ort.pickupType == "NOT_ALLOWED" && ort.dropoffType == "NOT_ALLOWED"
     }
 
     private func haltestelle(aus ort: TransitousAntwort.Ort) -> Haltestelle? {
