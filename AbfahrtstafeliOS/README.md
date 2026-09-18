@@ -90,6 +90,28 @@ hier weg", sondern **„wie komme ich dorthin"**.
 - **Die Liste lädt sich NICHT von selbst nach.** Eine Ergebnisliste, die sich
   unter den Fingern neu sortiert, während jemand sie liest, ist keine Hilfe.
 
+### Wenn Transitous ausfällt
+
+Gemessen am 19.09.2026, weil die Frage berechtigt ist:
+
+- **Die EFA-Stellen der Verbünde können Reiseplanung** (`XSLT_TRIP_REQUEST2`):
+  vollständige Verbindungen mit Fußwegen, Umstiegen, Zwischenhalten,
+  Streckengeometrie, Echtzeit und Betriebsmeldungen — bei MVV und VRR geprüft.
+  Nur innerhalb des jeweiligen Verbundgebiets.
+- **Die Schweizer Quelle kann es auch** (`/v1/connections`, Zürich nach Bern
+  geprüft) und liegt für die Abfahrten ohnehin in der Kette.
+- **`*.transport.rest` (HAFAS der Bahn)** wäre die bundesweite Alternative und
+  antwortet seit dem Bau der App durchgehend mit 503 — auch an diesem Tag, für
+  v5 und v6.
+- **MOTIS ist quelloffen**; Transitous ist nur eine öffentliche Instanz. Eine
+  zweite Adresse wäre der billigste Rückfall — eine gemessene zweite Instanz
+  mit DACH-Daten gibt es derzeit aber nicht, und ungemessen kommt keine Quelle
+  in die Kette.
+
+Gebaut ist dieser Rückfall **noch nicht**. Fällt Transitous aus, gibt es in der
+Verbindungsauskunft nichts, und die App sagt das — sie behauptet aber nicht,
+dass es nicht ginge.
+
 ### Was die Ortssuche gelernt hat (gemessen 19.09.2026)
 
 `/geocode` kennt `placeBias`, und der wirkt kräftig. Zwei Fallen stecken darin:
@@ -298,7 +320,7 @@ Bibliotheken) — nicht von Hand bearbeiten.
 pbxproj (Debug + Release); es gibt keine Skript-Bauphase. **Jede
 Arbeitseinheit hebt Patch- UND Build-Nummer um je +1.** Zählung ab 09/2026:
 1.0.0 (Build 1), dann 1.0.1 (Build 2), 1.0.2 (Build 3), 1.0.3 (Build 4), 1.0.4 (Build 5),
-1.0.5 (Build 6), 1.0.6 (Build 7), 1.0.7 (Build 8), 1.0.8 (Build 9), 1.0.9 (Build 10), 1.0.10 (Build 11), 1.0.11 (Build 12) …
+1.0.5 (Build 6), 1.0.6 (Build 7), 1.0.7 (Build 8), 1.0.8 (Build 9), 1.0.9 (Build 10), 1.0.10 (Build 11), 1.0.11 (Build 12), **1.1.0 (Build 13)** …
 
 `ITSAppUsesNonExemptEncryption = NO` steht in `Config/Info.plist` und als
 Build-Einstellung — nicht entfernen.

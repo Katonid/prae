@@ -1468,7 +1468,7 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   Liniennamen, nie aus `hashValue`** — den streut Swift je Programmlauf
   zufällig, die 462 wäre also morgens grün und abends blau.
 
-### Verbindungsauskunft (ab 1.0.11)
+### Verbindungsauskunft (ab 1.1.0)
 
 - **Zweiter Reiter, nicht Untermenü der Tafel** (Ansage des Nutzers, 09/2026:
   „Ich möchte die App zu einem echten Verbindungsplaner ausbauen."). Das sind
@@ -1510,11 +1510,36 @@ Auftrag, für Bauten, die niemand angefordert hatte.
 - **Der Bezugspunkt der Vorschläge ist erst der gewählte Start, dann der eigene
   Standort** (`bezugFuerVorschlaege`). Wer als Start „Dortmund Hbf" eingetippt
   hat, sucht sein Ziel in Dortmund und nicht dort, wo das Telefon gerade liegt.
-- **Die Verbindungsauskunft hat KEINE zweite Reihe.** Die Verbünde in Stufe 2
-  geben eine Abfahrtstafel heraus und sonst nichts. Einen Rückfall zu bauen,
-  der stattdessen „die nächste Abfahrt in die ungefähre Richtung" zeigt, wäre
-  eine Vermutung im Gewand einer Auskunft. Fällt Stufe 1 aus, gibt es hier
-  nichts — und die App sagt das.
+- **Die Verbindungsauskunft hat NOCH keine zweite Reihe — eine offene
+  Baustelle, keine Eigenschaft der Quellen.** In 1.0.11 stand hier, die
+  Verbünde gäben eine Abfahrtstafel heraus und sonst nichts. **Das war
+  falsch**, nachgemessen am 19.09.2026: `XSLT_TRIP_REQUEST2` gibt bei MVV und
+  VRR vollständige Verbindungen zurück — Fußwege, Umstiege, Zwischenhalte
+  (`stopSequence`), Streckengeometrie (`coords`), Echtzeit
+  (`isRealtimeControlled`, `departureTimeEstimated`) und Betriebsmeldungen
+  (`infos`); dieselbe Abfrageform an beiden Stellen, HTTP 200, vier bzw. fünf
+  Verbindungen. Der Satz beschrieb also, was DIESE App gebaut hat, und gab
+  sich als Auskunft über die Schnittstelle aus — genau die Art Behauptung, die
+  dieses Papier sonst verbietet. Solange der Rückfall nicht gebaut ist, gibt
+  es bei einem Ausfall von Stufe 1 hier nichts, und die App sagt das; sie sagt
+  aber nicht, dass es nicht ginge.
+- **Was es an Alternativen zu Transitous gibt — gemessen 19.09.2026** (Frage
+  des Nutzers): 
+  - **EFA-Reiseplanung** bei den acht Stellen aus `EfaDienst.alle` — der
+    nächstliegende Rückfall, weil die Adressen schon im Repo stehen und
+    geprüft sind. Grenze: Sie gilt nur IM Verbundgebiet, deckt also keine
+    Fahrt von Dortmund nach Köln ab.
+  - **`transport.opendata.ch/v1/connections`** für die Schweiz — geprüft
+    (Zürich nach Bern, drei Verbindungen mit Umstiegen und Fußwegen). Der
+    Dienst liegt für die Abfahrten ohnehin schon in der Kette.
+  - **`*.transport.rest` (HAFAS der Bahn)** wäre die einzige bundesweite
+    Alternative und antwortete auch am 19.09.2026 mit **503** — bei `v5` und
+    `v6`, für DB, VBB und BVG. Seit dem Bau der App durchgehend nicht
+    erreichbar; als Rückfall taugt sie erst, wenn sie wieder antwortet.
+  - **MOTIS ist quelloffen**, Transitous ist nur EINE öffentliche Instanz.
+    Eine zweite Adresse hinter demselben `TransitousDienst` wäre der billigste
+    Rückfall überhaupt — es gibt derzeit aber keine gemessene zweite Instanz
+    mit DACH-Daten; ungemessen gehört keine in die Kette.
 - **Die Ergebnisliste lädt sich NICHT von selbst nach**, anders als die Tafel.
   Eine Liste, die sich unter den Fingern neu sortiert, während jemand sie
   liest, ist keine Hilfe. Aufgefrischt wird durch Ziehen, und die Fußzeile
@@ -1548,7 +1573,13 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann 1.0.1
   (Build 2), 1.0.2 (Build 3), 1.0.3 (Build 4), 1.0.4 (Build 5), 1.0.5 (Build 6),
   1.0.6 (Build 7), 1.0.7 (Build 8),
-  1.0.8 (Build 9), 1.0.9 (Build 10), 1.0.10 (Build 11), 1.0.11 (Build 12) usw. Dazu gesetzt (Ansage des Nutzers,
+  1.0.8 (Build 9), 1.0.9 (Build 10), 1.0.10 (Build 11), 1.0.11 (Build 12) usw.
+  **1.1.0 (Build 13) ist ein bewusster Sprung** (Ansage des Nutzers,
+  09/2026): Die Verbindungsauskunft ist eine Funktionsfassung und keine
+  zwölfte Nachbesserung — derselbe Gedanke wie bei Tafelbild 1.4.0 und
+  Schulalarm 1.1.0. Die Marken ab 1.0.x in diesem Papier bleiben stehen;
+  sie sagen, wann etwas in den Quelltext kam. Danach zählt es weiter:
+  1.1.1, 1.1.2 … Dazu gesetzt (Ansage des Nutzers,
   09/2026): `DEVELOPMENT_TEAM = F4989GSTWS` — dieselbe Id wie Schulalarm und
   Tafelbild — und `INFOPLIST_KEY_LSApplicationCategoryType =
   public.app-category.navigation`. Beides steht als Build-Einstellung, weil

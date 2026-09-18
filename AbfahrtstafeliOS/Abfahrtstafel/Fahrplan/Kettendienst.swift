@@ -83,15 +83,23 @@ struct Kettendienst: Fahrplandienst {
 
     var kuerzesteSuche: Int { erste.kuerzesteSuche }
 
-    /// **Die Verbindungsauskunft hat KEINE zweite Reihe** — mit Absicht.
+    /// **Die Verbindungsauskunft hat NOCH keine zweite Reihe** — und das ist
+    /// eine offene Baustelle, keine Eigenschaft der Quellen.
     ///
-    /// Die Verbünde in Stufe 2 geben eine Abfahrtstafel heraus und sonst
-    /// nichts: keine Fahrtkennung, keine Streckengeometrie und erst recht
-    /// keine Reiseplanung (`Abfahrtsquelle` verspricht genau eine Sache).
-    /// Einen Rückfall zu bauen, der stattdessen „die nächste Abfahrt in die
-    /// ungefähre Richtung" zeigt, wäre keine Auskunft, sondern eine Vermutung
-    /// im Gewand einer. Fällt Stufe 1 aus, gibt es hier eben nichts — und die
-    /// App sagt das, statt etwas zu behaupten.
+    /// `Abfahrtsquelle` verspricht genau eine Sache: eine Abfahrtstafel. Die
+    /// Verbünde selbst können aber MEHR, und das ist nachgemessen
+    /// (19.09.2026): `XSLT_TRIP_REQUEST2` gibt bei MVV und VRR vollständige
+    /// Verbindungen zurück — mit Fußwegen, Umstiegen, Zwischenhalten
+    /// (`stopSequence`), Streckengeometrie (`coords`), Echtzeit
+    /// (`isRealtimeControlled`, `departureTimeEstimated`) und sogar
+    /// Betriebsmeldungen (`infos`). Dasselbe gilt für die Schweiz
+    /// (`transport.opendata.ch/v1/connections`).
+    ///
+    /// **Der frühere Satz „die Verbünde geben keine Reiseplanung heraus" war
+    /// also falsch** — er beschrieb, was DIESE App gebaut hat, und gab sich
+    /// als Auskunft über die Schnittstelle aus. Solange der Rückfall nicht
+    /// gebaut ist, gibt es bei einem Ausfall von Stufe 1 hier nichts, und die
+    /// App sagt das — aber sie sagt nicht, dass es nicht ginge.
     func verbindungen(
         von: CLLocationCoordinate2D,
         nach: CLLocationCoordinate2D,
