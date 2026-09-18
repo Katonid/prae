@@ -37,6 +37,9 @@ struct LiniennetzView: View {
     /// Der zuletzt gesehene Kartenausschnitt (ab 1.1.13). `nil` heißt „die
     /// Kamera hat sich noch nicht gemeldet" — dann gilt wie früher alles.
     @State private var sichtfeld: MKMapRect?
+    /// Ob der Nutzer die Karte schon selbst bewegt hat (ab 1.1.14). Ab da
+    /// stellt sie sich nicht mehr von selbst ein — siehe `ausschnittSetzen`.
+    @State private var nutzerFuehrt = false
     /// Welche Linie gerade hervorgehoben ist. `nil` heißt „alle gleich".
     @State private var hervorgehoben: String?
     /// Ob die Legende aufgeklappt ist.
@@ -63,6 +66,9 @@ struct LiniennetzView: View {
         .onChange(of: model.punkt) { _, _ in
             netz.leeren()
             aufbauen()
+            // Ein neuer Bezugspunkt ist eine neue Lage: Die Karte darf sich
+            // wieder selbst einstellen, bis der Nutzer sie anfasst.
+            nutzerFuehrt = false
             kamera = .automatic
         }
     }
@@ -240,14 +246,43 @@ struct LiniennetzView: View {
         // des Nutzers 09/2026: „Ich mag nicht immer erst wieder in dieses
         // Menü gehen müssen."). Der kurze Tipp zieht die Karte auf, der lange
         // setzt den Punkt — zwei Gesten, die sich nicht ins Gehege kommen.
-        .gesture(punktSetzen(karteninhalt))
+        // Ebenfalls simultan: Ein `gesture` würde die Berührung für sich
+        // beanspruchen, solange es auf den langen Tipp wartet — und damit den
+        // Anfang jeder Zoomgeste verschlucken.
+        .simultaneousGesture(punktSetzen(karteninhalt))
         .onMapCameraChange(frequency: .onEnd) { zustand in
             sichtfeld = zustand.rect
         }
+        // **Die Karte stellt sich NICHT mehr über den Nutzer hinweg ein**
+        // (ab 1.1.14, gemeldet 09/2026: „Das Zoomen auf der Karte fällt
+        // manchmal schwer, gerade wenn sie neu geöffnet ist … bewirkt die
+        // Geste mit zwei Fingern nichts.").
+        //
+        // Es war kein Gestenproblem. `Liniennetz` ersetzt `zuege` in EINEM
+        // Zug, sobald alle Fahrtläufe da sind — und das dauert ein bis drei
+        // Sekunden. Genau dann wurde hier der Ausschnitt gesetzt und die
+        // gerade gemachte Zoomgeste wieder weggeräumt. Für den Menschen davor
+        // sieht das aus, als hätte die Geste nicht gewirkt; sie hat sehr wohl,
+        // sie hielt nur einen Augenblick. Dasselbe noch einmal alle dreißig
+        // Sekunden, wenn der Nachladelauf die Linienliste ändert — daher das
+        // „manchmal".
+        //
+        // Wer die Karte angefasst hat, führt sie. Zurück gibt er sie mit einem
+        // neuen Bezugspunkt.
         .onChange(of: netz.zuege.count) { _, _ in
-            guard !netz.zuege.isEmpty else { return }
+            guard !netz.zuege.isEmpty, !nutzerFuehrt else { return }
             kamera = .rect(ausschnitt)
         }
+        // **Beobachtend, nicht greifend.** `simultaneousGesture` nimmt MapKit
+        // die Berührung nicht weg — es sieht nur zu. Mit `gesture` stünde hier
+        // eine zweite Geste, die um dieselben Finger streitet, und das wäre
+        // ausgerechnet die Krankheit, die hier behoben werden soll.
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 2).onChanged { _ in nutzerFuehrt = true }
+        )
+        .simultaneousGesture(
+            MagnifyGesture().onChanged { _ in nutzerFuehrt = true }
+        )
         }
     }
 
