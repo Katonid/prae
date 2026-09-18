@@ -1549,6 +1549,42 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   — „Bahnhof" und „Hbf" irgendwo zusammenzuziehen trifft eines Tages zwei echte
   Haltestellen. **Nicht als erledigt darstellen**; wer es angeht, misst zuerst
   an echten Daten, wie oft welche Schreibweise vorkommt.
+- **Die Tafel hat einen wählbaren ZEITPUNKT** (`AppModel.bezugszeit`, ab
+  1.1.11, Ansage des Nutzers 09/2026). „Jetzt" oder ein Datum, umgeschaltet
+  über dieselbe `Zeitleiste`-Bauweise wie in der Verbindungsauskunft — es ist
+  dieselbe Frage, und zwei Bedienungen dafür wären zwei Dinge zu lernen.
+  **Drei Stellen hängen daran, und alle drei behaupteten vorher „jetzt":**
+  - `gefiltert` schneidet Abfahrten ab, die länger als eine Minute vorbei
+    sind — gemessen gegen die BEZUGSZEIT und nicht gegen die Uhr. Sonst läge
+    bei einer Tafel für morgen früh jede Abfahrt vor der Grenze und die Liste
+    wäre leer.
+  - **Die Minutenziffer wird abgeschaltet** (`AbfahrtsZeile.fuerGewaehlteZeit`).
+    „In 3 Minuten" über einer Tafel für morgen früh ist falsch, und zwar auf
+    dieselbe Art wie eine weiterzählende Ziffer über altem Stand aus dem
+    Zwischenspeicher. Dieselbe Regel, zweiter Anlass.
+  - **Der Nachladelauf ruht** (`RootView`): Dieselbe Abfrage alle dreißig
+    Sekunden brächte dieselbe Antwort.
+  **Der gewählte Zeitpunkt steht NICHT in den Voreinstellungen**, anders als
+  Umkreis und Anzahl. Er ist eine einmalige Frage; wer die App am nächsten Tag
+  an einer Haltestelle aufschlägt, will die Tafel von jetzt. Eine gespeicherte
+  Zeit sähe aus wie eine ganz gewöhnliche Tafel und wäre eine.
+- **`anzahl` geht bis 200** (ab 1.1.11, Ansage des Nutzers). Dabei gehört der
+  gemessene Zusammenhang aus 1.1.10 in die Fußzeile der Einstellungen: In einer
+  Innenstadt kauft eine höhere Zahl vor allem mehr Busse — vierzig Abfahrten
+  decken dort rund drei Minuten ab. Züge, Fernbusse und Fähren werden davon
+  nicht knapper, sie haben ihr eigenes Fenster.
+- **Die Karte lässt sich auf den ganzen Bildschirm ziehen** (`Vollbildkarte`,
+  ab 1.1.11, Ansage des Nutzers 09/2026). Auf dem iPad liegt neben der Liste
+  nur ein Ausschnitt, und was jemand sucht, liegt oft genau daneben.
+  **Zwei Wege mit Absicht**: ein Tipp auf die freie Kartenfläche und ein Knopf
+  unten links. Die Halte und die Liniennummern bleiben Knöpfe und behalten ihre
+  eigene Aufgabe — ein Tipp auf einen Halt öffnet weiterhin dessen
+  Abfahrtstafel (1.1.7). Eine Geste, die niemand kennt, ist so wenig wert wie
+  ein Knopf, den niemand findet; deshalb beides.
+- **Die Vollbildkarte hat ihren EIGENEN Navigationsstapel — und damit ihr
+  eigenes Ziel.** `navigationDestination(for: Haltestelle.self)` steht dort
+  noch einmal. Ohne diese Zeile wäre jeder Halt auf der Vollbildkarte ein
+  Verweis, der nichts tut; dieselbe Falle wie 1.1.7, nur eine Ebene höher.
 - **Betriebsmeldungen sind eine EIGENE Sache neben der Abfahrtskette**
   (`Betriebsmeldung`, `Meldungsquelle`, `Dienste/Meldungsdienst.swift`, ab
   1.0.4; gemeldet 09/2026: „Ich weiß, dass bei mir vor Ort eine Buslinie
@@ -2060,7 +2096,7 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   zwölfte Nachbesserung — derselbe Gedanke wie bei Tafelbild 1.4.0 und
   Schulalarm 1.1.0. Die Marken ab 1.0.x in diesem Papier bleiben stehen;
   sie sagen, wann etwas in den Quelltext kam. Danach zählt es weiter:
-  1.1.1 (Build 14), 1.1.2 (Build 15), 1.1.3 (Build 16), 1.1.4 (Build 17), 1.1.5 (Build 18), 1.1.6 (Build 19), 1.1.7 (Build 20), 1.1.8 (Build 21), 1.1.9 (Build 22), 1.1.10 (Build 23) … Dazu gesetzt (Ansage des Nutzers,
+  1.1.1 (Build 14), 1.1.2 (Build 15), 1.1.3 (Build 16), 1.1.4 (Build 17), 1.1.5 (Build 18), 1.1.6 (Build 19), 1.1.7 (Build 20), 1.1.8 (Build 21), 1.1.9 (Build 22), 1.1.10 (Build 23), 1.1.11 (Build 24) … Dazu gesetzt (Ansage des Nutzers,
   09/2026): `DEVELOPMENT_TEAM = F4989GSTWS` — dieselbe Id wie Schulalarm und
   Tafelbild — und `INFOPLIST_KEY_LSApplicationCategoryType =
   public.app-category.navigation`. Beides steht als Build-Einstellung, weil

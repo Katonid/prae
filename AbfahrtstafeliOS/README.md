@@ -82,6 +82,13 @@ zwölf Zeichen ab), Ordner, Ziel und Bundle-Id bleiben „Abfahrtstafel“ /
   Es ist dieselbe Ansicht wie aus der Liste, samt Merken-Stern. Gezeichnet
   bleibt der kleine Punkt; getroffen wird eine unsichtbare Fläche darum, sonst
   verschöbe man beim Zielen nur die Karte.
+- **Nicht nur jetzt.** Der Knopf „Jetzt" über der Liste schaltet auf einen
+  frei gewählten Zeitpunkt um — „was fährt morgen früh um sieben?". Die
+  Minutenziffern sind dann aus und der Nachladelauf ruht: Eine Tafel für
+  morgen, die im Sekundentakt weiterzählt, sähe richtig aus und wäre es nicht.
+- **Karte auf den ganzen Bildschirm.** Ein Tipp auf die freie Kartenfläche
+  oder der Knopf unten links zieht sie auf; derselbe Knopf schließt sie wieder.
+  Ein Tipp auf einen Halt öffnet unverändert dessen Abfahrtstafel.
 - **Merkliste** für die Handvoll Haltestellen des Alltags — auf dem Gerät,
   ohne Konto.
 

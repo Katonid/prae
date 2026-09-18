@@ -18,6 +18,12 @@ struct AbfahrtsZeile: View {
     /// fortlaufend etwas behauptet, und eine weiterzählende Ziffer über alten
     /// Daten ist eine Lüge, die wie eine Auskunft aussieht.
     var standIstAlt: Bool = false
+    /// Die Tafel gilt für einen GEWÄHLTEN Zeitpunkt und nicht für jetzt (ab
+    /// 1.1.11). Dann gibt es ebenfalls keine Minutenziffer: „in 3 Minuten"
+    /// über einer Tafel für morgen früh wäre schlicht falsch, und zwar auf
+    /// dieselbe Art wie eine weiterzählende Ziffer über altem Stand. Die
+    /// Abfahrtszeit selbst steht links und genügt.
+    var fuerGewaehlteZeit: Bool = false
     /// Die Quelle steht nur dann an der Zeile, wenn die Tafel aus MEHREREN
     /// kommt. Unter einer Tafel aus einer einzigen Quelle wäre sie
     /// fünfzehnmal dasselbe Wort.
@@ -69,6 +75,10 @@ struct AbfahrtsZeile: View {
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.secondary)
                     .frame(minWidth: 62, alignment: .trailing)
+            } else if fuerGewaehlteZeit {
+                // Leer, aber gleich breit: Sonst rückten die Zeilen einer
+                // Tafel für später gegenüber jeder anderen ein.
+                Color.clear.frame(width: 62, height: 1)
             } else {
                 Minutenziffer(abfahrt: abfahrt, jetzt: jetzt)
             }
@@ -89,7 +99,7 @@ struct AbfahrtsZeile: View {
         }
         if abfahrt.faelltAus {
             teile.append("fällt aus")
-        } else if standIstAlt {
+        } else if standIstAlt || fuerGewaehlteZeit {
             teile.append("geplant \(abfahrt.geplant.formatted(date: .omitted, time: .shortened))")
         } else {
             let minuten = abfahrt.minutenBis(jetzt)

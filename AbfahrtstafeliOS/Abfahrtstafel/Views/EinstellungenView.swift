@@ -25,11 +25,13 @@ struct EinstellungenView: View {
                         Text("20").tag(20)
                         Text("40").tag(40)
                         Text("80").tag(80)
+                        Text("120").tag(120)
+                        Text("200").tag(200)
                     }
                 } header: {
                     Text("Was die Tafel zeigt")
                 } footer: {
-                    Text("Der Umkreis gilt um die nächstgelegene Haltestelle, nicht um den Punkt selbst — so fragt der Fahrplandienst. Auf dem Land kann die nächste Haltestelle weit weg sein; der Kreis liegt dann dort.")
+                    Text("Der Umkreis gilt um die nächstgelegene Haltestelle, nicht um den Punkt selbst — so fragt der Fahrplandienst. Auf dem Land kann die nächste Haltestelle weit weg sein; der Kreis liegt dann dort.\n\nDie Zahl gilt je Abfrage. In einer Innenstadt kauft eine höhere vor allem mehr Busse und Trams: Gemessen decken vierzig Abfahrten dort rund drei Minuten ab. Züge, Fernbusse und Fähren werden davon nicht knapper — sie haben seit 1.1.10 eine eigene Abfrage und damit ihr eigenes Zeitfenster.")
                 }
                 .onChange(of: model.umkreis) { _, _ in model.laden() }
                 .onChange(of: model.anzahl) { _, _ in model.laden() }
