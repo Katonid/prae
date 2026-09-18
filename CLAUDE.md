@@ -1585,6 +1585,35 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   eigenes Ziel.** `navigationDestination(for: Haltestelle.self)` steht dort
   noch einmal. Ohne diese Zeile wäre jeder Halt auf der Vollbildkarte ein
   Verweis, der nichts tut; dieselbe Falle wie 1.1.7, nur eine Ebene höher.
+- **Zwei getrennte Hell-Dunkel-Umschalter** (`Views/Darstellung.swift`, ab
+  1.1.12, Ansage des Nutzers 09/2026). Einer für die App
+  (`preferredColorScheme` an der WURZEL — weiter unten gesetzt erwischte es
+  Blätter und Vollbilder nicht), einer für die KARTEN
+  (`.kartendarstellung()`, ein `environment(\.colorScheme, …)` über den
+  Kartenausschnitt). Getrennt, weil es zwei Fragen sind: Eine dunkle Karte ist
+  abends am Bahnsteig angenehm und bei Sonne unlesbar — die Liste daneben hat
+  damit nichts zu tun.
+  - **Die Kartenwahl gilt für ALLE VIER Karten** — Liniennetz, Fahrtlauf,
+    Verbindung und Ortswahl. Eine Einstellung, die nur eine davon trifft, ist
+    für den Menschen davor ein Fehler.
+  - **Die Haut gehört HINTER die Überlagerungen.** Eine Überlagerung wird von
+    außen an das fertige Bild gehängt und erbt die Umgebung des ÄUSSEREN
+    Zusammenhangs; davor gesetzt bliebe die Legende hell auf einer dunklen
+    Karte. Die Fußzeile unter der Netzkarte bleibt dagegen außen vor: Sie
+    erklärt die Zeichenweise und gehört zur App.
+  - **„Wie die App" wird an EINER Stelle aufgelöst** (`Kartendarstellung.geltend`).
+    Gebraucht wird der Wert an zwei Enden — der Modifikator legt ihn über die
+    Karte, und `LiniennetzView` braucht ihn noch einmal als Zahl, weil die
+    Kontur unter einem Linienzug die Gegenfarbe zur Karte sein muss. Zwei
+    Fassungen liefen auseinander, und dann läge auf einer dunklen Karte eine
+    weiße Kontur.
+  - **`system` bzw. „wie die App" bleibt die Vorgabe.** Wer nichts einstellt,
+    bekommt weiterhin die geplante Umschaltung zur Dämmerung, die iOS von
+    selbst macht.
+  - **Nicht gemessen:** Ob MapKits SwiftUI-`Map` die überschriebene
+    `colorScheme` wirklich annimmt, lässt sich nur auf einem Gerät sehen. Es
+    ist der dokumentierte Weg für einen Teilbaum, aber eine Erwartung und
+    keine Messung — wer es prüft, trägt das Ergebnis hier nach.
 - **Betriebsmeldungen sind eine EIGENE Sache neben der Abfahrtskette**
   (`Betriebsmeldung`, `Meldungsquelle`, `Dienste/Meldungsdienst.swift`, ab
   1.0.4; gemeldet 09/2026: „Ich weiß, dass bei mir vor Ort eine Buslinie
@@ -2096,7 +2125,7 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   zwölfte Nachbesserung — derselbe Gedanke wie bei Tafelbild 1.4.0 und
   Schulalarm 1.1.0. Die Marken ab 1.0.x in diesem Papier bleiben stehen;
   sie sagen, wann etwas in den Quelltext kam. Danach zählt es weiter:
-  1.1.1 (Build 14), 1.1.2 (Build 15), 1.1.3 (Build 16), 1.1.4 (Build 17), 1.1.5 (Build 18), 1.1.6 (Build 19), 1.1.7 (Build 20), 1.1.8 (Build 21), 1.1.9 (Build 22), 1.1.10 (Build 23), 1.1.11 (Build 24) … Dazu gesetzt (Ansage des Nutzers,
+  1.1.1 (Build 14), 1.1.2 (Build 15), 1.1.3 (Build 16), 1.1.4 (Build 17), 1.1.5 (Build 18), 1.1.6 (Build 19), 1.1.7 (Build 20), 1.1.8 (Build 21), 1.1.9 (Build 22), 1.1.10 (Build 23), 1.1.11 (Build 24), 1.1.12 (Build 25) … Dazu gesetzt (Ansage des Nutzers,
   09/2026): `DEVELOPMENT_TEAM = F4989GSTWS` — dieselbe Id wie Schulalarm und
   Tafelbild — und `INFOPLIST_KEY_LSApplicationCategoryType =
   public.app-category.navigation`. Beides steht als Build-Einstellung, weil

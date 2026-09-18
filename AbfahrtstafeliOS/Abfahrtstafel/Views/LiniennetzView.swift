@@ -27,6 +27,8 @@ struct LiniennetzView: View {
     /// Gebraucht für die Farbe der Linienkontur — sie muss die GEGENFARBE zur
     /// Karte sein, und welche das ist, weiß nur die Darstellungsart.
     @Environment(\.colorScheme) private var darstellung
+    /// Die Karte darf seit 1.1.12 eine ANDERE Darstellung haben als die App.
+    @AppStorage(Kartendarstellung.schluessel) private var kartenwahlRoh = Kartendarstellung.wieApp.rawValue
 
     @State private var kamera: MapCameraPosition = .automatic
     /// Welche Linie gerade hervorgehoben ist. `nil` heißt „alle gleich".
@@ -59,12 +61,20 @@ struct LiniennetzView: View {
         }
     }
 
+    /// Welche Darstellung die KARTE hat — die eigene Wahl, sonst die der App.
+    /// Aufgelöst wird über `Kartendarstellung.geltend`, also über dieselbe
+    /// Stelle, die auch `kartendarstellung()` benutzt: Zwei Fassungen liefen
+    /// auseinander, und dann läge auf einer dunklen Karte eine weiße Kontur.
+    private var kartenschema: ColorScheme {
+        Kartendarstellung.geltend(kartenwahlRoh, wennWieApp: darstellung)
+    }
+
     /// Die Farbe der Kontur unter einem Linienzug: dunkel auf heller Karte,
     /// hell auf dunkler. Nicht `Color.primary` — das ist die Farbe für
     /// SCHRIFT und wechselt zwar richtig, ist aber auf der dunklen Karte ein
     /// reines Weiß, das neben einer hellen Linie mehr blendet als trennt.
     private var konturfarbe: Color {
-        darstellung == .dark ? .black : .white
+        kartenschema == .dark ? .black : .white
     }
 
     private func aufbauen() {
@@ -210,6 +220,12 @@ struct LiniennetzView: View {
                     .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
             }
         }
+        // **Nach den Überlagerungen, nicht davor.** Eine Überlagerung wird
+        // von AUSSEN an das fertige Bild gehängt und erbt die Umgebung des
+        // äußeren Zusammenhangs — davor gesetzt bliebe die Legende hell auf
+        // einer dunklen Karte. Die Legende liegt auf der Karte und gehört zu
+        // ihr; die Fußzeile darunter gehört zur App und bleibt außen vor.
+        .kartendarstellung()
         .onChange(of: netz.zuege.count) { _, _ in
             guard !netz.zuege.isEmpty else { return }
             kamera = .rect(ausschnitt)

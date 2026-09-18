@@ -10,9 +10,31 @@ import SwiftUI
 struct EinstellungenView: View {
     @EnvironmentObject private var model: AppModel
 
+    /// Zwei getrennte Umschalter (ab 1.1.12, Ansage des Nutzers 09/2026).
+    /// `@AppStorage` gehört in eine VIEW — hier ist es an seinem Platz.
+    @AppStorage("darstellungApp") private var darstellungRoh = Darstellung.system.rawValue
+    @AppStorage(Kartendarstellung.schluessel) private var kartenwahlRoh = Kartendarstellung.wieApp.rawValue
+
     var body: some View {
         NavigationStack {
             Form {
+                Section {
+                    Picker("App", selection: $darstellungRoh) {
+                        ForEach(Darstellung.allCases) { wahl in
+                            Text(wahl.name).tag(wahl.rawValue)
+                        }
+                    }
+                    Picker("Karten", selection: $kartenwahlRoh) {
+                        ForEach(Kartendarstellung.allCases) { wahl in
+                            Text(wahl.name).tag(wahl.rawValue)
+                        }
+                    }
+                } header: {
+                    Text("Hell und dunkel")
+                } footer: {
+                    Text("„Automatisch\u{201C} folgt dem Gerät — mitsamt der Umschaltung zur Dämmerung, die iOS selbst vornimmt.\n\nDie Karten lassen sich getrennt einstellen: Eine dunkle Karte ist abends am Bahnsteig angenehm und bei Sonne auf dem Weg dorthin schlecht zu lesen. Die Einstellung gilt für alle vier Karten — Liniennetz, Fahrtlauf, Verbindung und Ortswahl.")
+                }
+
                 Section {
                     Picker("Umkreis", selection: $model.umkreis) {
                         Text("200 m").tag(200)

@@ -16,6 +16,11 @@ struct RootView: View {
 
     @Environment(\.scenePhase) private var lage
 
+    /// Hell oder dunkel für die APP (ab 1.1.12). `@AppStorage` gehört in eine
+    /// VIEW — in `AppModel` schriebe es zwar in die Voreinstellungen, löste
+    /// aber kein `objectWillChange` aus.
+    @AppStorage("darstellungApp") private var darstellungRoh = Darstellung.system.rawValue
+
     var body: some View {
         TabView {
             AbfahrtstafelView()
@@ -27,6 +32,10 @@ struct RootView: View {
             EinstellungenView()
                 .tabItem { Label("Einstellungen", systemImage: "gearshape") }
         }
+        // `preferredColorScheme` wirkt an der WURZEL und damit auf die ganze
+        // App — Blätter und Vollbilder eingeschlossen. Weiter unten gesetzt
+        // erwischte es genau die nicht.
+        .preferredColorScheme((Darstellung(rawValue: darstellungRoh) ?? .system).farbschema)
         .onAppear {
             standort.anfangen()
             uhr.anfangen()

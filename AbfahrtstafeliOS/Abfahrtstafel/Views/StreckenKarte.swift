@@ -78,6 +78,7 @@ struct StreckenKarte: View {
                 }
             }
             .mapStyle(.standard(pointsOfInterest: .excludingAll))
+            .kartendarstellung()
             .frame(height: hoehe)
             .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
             .onAppear { kamera = .rect(ausschnitt) }
