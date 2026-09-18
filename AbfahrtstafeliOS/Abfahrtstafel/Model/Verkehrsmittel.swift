@@ -6,7 +6,7 @@ import SwiftUI
 /// hundert `route_type`-Werte (109 = S-Bahn, 400 = U-Bahn, 900 = Tram …), und
 /// wer die alle durchreicht, baut die Umrechnung an jeder Ansicht noch einmal.
 /// Hier steht sie einmal, im jeweiligen Dienst — die Oberfläche kennt nur
-/// diese acht Fälle.
+/// diese neun Fälle.
 enum Verkehrsmittel: String, Codable, CaseIterable, Identifiable, Sendable {
     case sBahn
     case uBahn
@@ -14,6 +14,7 @@ enum Verkehrsmittel: String, Codable, CaseIterable, Identifiable, Sendable {
     case bus
     case regionalzug
     case fernzug
+    case fernbus
     case faehre
     case sonstiges
 
@@ -29,6 +30,7 @@ enum Verkehrsmittel: String, Codable, CaseIterable, Identifiable, Sendable {
         case .bus: return "Bus"
         case .regionalzug: return "Regionalzug"
         case .fernzug: return "Fernzug"
+        case .fernbus: return "Fernbus"
         case .faehre: return "Fähre"
         case .sonstiges: return "Sonstiges"
         }
@@ -43,6 +45,7 @@ enum Verkehrsmittel: String, Codable, CaseIterable, Identifiable, Sendable {
         case .bus: return "Busse"
         case .regionalzug: return "Regionalzüge"
         case .fernzug: return "Fernzüge"
+        case .fernbus: return "Fernbusse"
         case .faehre: return "Fähren"
         case .sonstiges: return "Sonstiges"
         }
@@ -56,6 +59,7 @@ enum Verkehrsmittel: String, Codable, CaseIterable, Identifiable, Sendable {
         case .bus: return "bus.fill"
         case .regionalzug: return "train.side.front.car"
         case .fernzug: return "train.side.front.car"
+        case .fernbus: return "bus.doubledecker.fill"
         case .faehre: return "ferry.fill"
         case .sonstiges: return "figure.walk"
         }
@@ -75,6 +79,11 @@ enum Verkehrsmittel: String, Codable, CaseIterable, Identifiable, Sendable {
         case .bus: return Color(red: 0.48, green: 0.22, blue: 0.62)
         case .regionalzug: return Color(red: 0.42, green: 0.45, blue: 0.50)
         case .fernzug: return Color(red: 0.16, green: 0.18, blue: 0.22)
+        // Olivbraun: gemessen der kleinste Abstand zu allen anderen
+        // Rückfallfarben dE 37,8 (zu „Sonstiges"), Schriftkontrast 7,0:1.
+        // Ein Fernbus ist weder Stadtbus noch Zug — er darf wie keins von
+        // beiden aussehen.
+        case .fernbus: return Color(red: 0.42, green: 0.34, blue: 0.14)
         case .faehre: return Color(red: 0.05, green: 0.47, blue: 0.62)
         case .sonstiges: return Color(red: 0.40, green: 0.42, blue: 0.45)
         }
@@ -90,8 +99,9 @@ enum Verkehrsmittel: String, Codable, CaseIterable, Identifiable, Sendable {
         case .bus: return 3
         case .regionalzug: return 4
         case .fernzug: return 5
-        case .faehre: return 6
-        case .sonstiges: return 7
+        case .fernbus: return 6
+        case .faehre: return 7
+        case .sonstiges: return 8
         }
     }
 }

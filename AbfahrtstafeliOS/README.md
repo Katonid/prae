@@ -15,6 +15,12 @@ zwölf Zeichen ab), Ordner, Ziel und Bundle-Id bleiben „Abfahrtstafel“ /
 - **Abfahrtstafel in der Nähe.** Alle Haltestellen im Umkreis in einer Liste,
   die nächste zuerst, je Haltestelle die nächsten Abfahrten. Umschaltbar auf
   „nach Zeit“ — dieselben Daten, eine Liste, chronologisch.
+- **Auch die Züge.** S-Bahn, U-Bahn, Tram und Bus, dazu **Regionalbahn,
+  Regionalexpress, Fernzug, Nachtzug, Fernbus und Fähre**. Die Seltenen
+  bekommen eine eigene Abfrage: In einer Innenstadt decken vierzig Abfahrten
+  sonst drei Minuten ab, und darin steht fast nur, was im Minutentakt fährt —
+  ein RE nach Salzburg wäre nie dabei. Jede Art lässt sich in der Leiste
+  darüber ein- und ausblenden.
 - **Verspätungen ehrlich.** Weicht die Echtzeitmeldung vom Fahrplan ab, steht
   die Planzeit durchgestrichen da, daneben `+3` und die neue Zeit. **Die
   geltende Zeit ist dabei nie die kleinere** — im Fahrtlauf steht sie groß und

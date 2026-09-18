@@ -1493,6 +1493,62 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   als Fehler der App darstellen und nicht als lösbar versprechen**, solange
   keine Quelle dafür gemessen ist. `/stoptimes` nimmt übrigens `time` entgegen
   und antwortet für künftige Tage; die App fragt bisher immer „jetzt".
+- **Züge fielen aus dem FENSTER, nicht aus der Zuordnung** (zweite Abfrage in
+  `TransitousDienst.abfahrten`, ab 1.1.10; Ansage des Nutzers 09/2026: „In
+  München fahren garantiert noch andere Züge ab … Bitte nimm noch weitere
+  Verkehrsverbindungen in die App auf"). `REGIONAL_RAIL` und `HIGHSPEED_RAIL`
+  standen seit der ersten Fassung in `verkehrsmittel(_:)` — es kam nur fast nie
+  eines an. `/stoptimes` gibt die nächsten `n` Abfahrten ALLER Haltestellen im
+  Umkreis zurück, nach Zeit sortiert, und in einer Innenstadt sind das Busse
+  und Trams. **Nachgemessen 18.09.2026 an der Arnulfstraße in München:** Die 40
+  Abfahrten der App deckten **drei Minuten** ab (16:42–16:45), darin zwei
+  Regionalzüge. Ein Zug fährt seltener als eine Tram und verliert dieses Rennen
+  immer — je besser die Stadt mit Bussen bedient ist, desto sicherer.
+  **Merke: Wenn eine Art Fahrt fehlt, ist die Zuordnung der zweite Verdacht und
+  das Zeitfenster der erste.**
+- **Die seltenen Verkehrsmittel bekommen eine EIGENE Abfrage.** Dieselben 40
+  Zeilen mit `mode=REGIONAL_RAIL,HIGHSPEED_RAIL,LONG_DISTANCE,NIGHT_RAIL,COACH,FERRY`
+  deckten **54 Minuten** ab: RE5 nach Salzburg (über Freilassing), RE25, RB16,
+  RB6, ICE 500 nach Berlin, dazu Fernbusse. Es ist keine zweite Quelle, sondern
+  dieselbe mit einem zweiten Fenster; beide laufen nebenläufig und werden über
+  `Abfahrt.id` entdoppelt und neu sortiert. **`FERRY` steht bewusst mit drin**,
+  obwohl in München keine fährt — eine Fähre ist genauso selten und verlöre
+  dasselbe Rennen. **Die Zusatzabfrage darf die Tafel nie mitreißen**: Scheitert
+  sie, fehlen Züge, aber die Busse stehen da; andersherum wäre der Schaden
+  größer.
+- **`mode` ist der einzige Parametername, der wirkt — und ein falscher fällt
+  NICHT auf.** Gemessen 18.09.2026: `modes=` und `transitModes=` werden mit
+  HTTP 200 angenommen und **stillschweigend ignoriert**, die Antwort kommt
+  ungefiltert zurück und sieht tadellos aus. Ein falscher WERT dagegen wird
+  abgewiesen („invalid value … for enum ModeEnum"). Wer hier etwas ändert,
+  prüft am ZEITFENSTER der Antwort, ob der Filter gegriffen hat, nicht am
+  Status. Und **`RAIL` ist eine Obergruppe**: Damit kamen U-Bahn und S-Bahn mit
+  zurück, und das Fenster war wieder zu.
+- **`COACH` ist ein FERNBUS, kein Stadtbus** (neunter Fall `fernbus`, ab
+  1.1.10). Bis dahin lief er als `.bus` mit und stand zwischen den Stadtbussen;
+  ein FlixBus nach Zagreb ist aber weder das eine noch das andere. Eigene
+  Rückfallfarbe (Olivbraun — gemessen kleinster Abstand dE 37,8 zu allen
+  anderen, Schriftkontrast 7,0:1), eigenes Symbol, eigene Filterzeile. Die
+  Filterleiste baut sich aus `AppModel.vorhandeneMittel` und zeigt die neuen
+  Zeilen von selbst, sobald so etwas abfährt.
+- **Die Zugnummer in Klammern wird abgeschnitten, alles andere nicht**
+  (`ohneZugnummer`). Transitous schreibt „RE5 (79039)" und „RB16 (59162)" —
+  auf einem Liniensymbol ist das unlesbar. Gemessen an 151 Zugnamen aus
+  München, Dortmund, Hamburg, Berlin, Freilassing und Wien: 68 enden auf eine
+  Klammer, und in **jedem einzelnen Fall** stehen darin nur Ziffern. Kein
+  Gegenbeispiel — also wird genau dieser Fall abgeschnitten. **Ohne Klammern
+  wird NICHTS abgeschnitten**: In Österreich hängt die Nummer ohne sie dran
+  („REX 7757", „R 2578", „RRR 7757"), und dort ist nicht zu entscheiden, wo die
+  Linie aufhört und die Nummer anfängt. Ein langes Schild ist besser als ein
+  falsches.
+- **Offen: Ein Bahnhof kann unter ZWEI Namen in der Liste stehen.** Gemessen am
+  18.09.2026 in München: Dieselben Gleise kommen aus zwei Datensätzen zurück,
+  einmal als „München Hbf" und einmal als „München Hauptbahnhof".
+  `Haltestellengruppe.bauen` gruppiert über den NAMEN, also werden daraus zwei
+  Einträge. Die Namen einzuebnen wäre der naheliegende Griff und der gefährliche
+  — „Bahnhof" und „Hbf" irgendwo zusammenzuziehen trifft eines Tages zwei echte
+  Haltestellen. **Nicht als erledigt darstellen**; wer es angeht, misst zuerst
+  an echten Daten, wie oft welche Schreibweise vorkommt.
 - **Betriebsmeldungen sind eine EIGENE Sache neben der Abfahrtskette**
   (`Betriebsmeldung`, `Meldungsquelle`, `Dienste/Meldungsdienst.swift`, ab
   1.0.4; gemeldet 09/2026: „Ich weiß, dass bei mir vor Ort eine Buslinie
@@ -2004,7 +2060,7 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   zwölfte Nachbesserung — derselbe Gedanke wie bei Tafelbild 1.4.0 und
   Schulalarm 1.1.0. Die Marken ab 1.0.x in diesem Papier bleiben stehen;
   sie sagen, wann etwas in den Quelltext kam. Danach zählt es weiter:
-  1.1.1 (Build 14), 1.1.2 (Build 15), 1.1.3 (Build 16), 1.1.4 (Build 17), 1.1.5 (Build 18), 1.1.6 (Build 19), 1.1.7 (Build 20), 1.1.8 (Build 21), 1.1.9 (Build 22) … Dazu gesetzt (Ansage des Nutzers,
+  1.1.1 (Build 14), 1.1.2 (Build 15), 1.1.3 (Build 16), 1.1.4 (Build 17), 1.1.5 (Build 18), 1.1.6 (Build 19), 1.1.7 (Build 20), 1.1.8 (Build 21), 1.1.9 (Build 22), 1.1.10 (Build 23) … Dazu gesetzt (Ansage des Nutzers,
   09/2026): `DEVELOPMENT_TEAM = F4989GSTWS` — dieselbe Id wie Schulalarm und
   Tafelbild — und `INFOPLIST_KEY_LSApplicationCategoryType =
   public.app-category.navigation`. Beides steht als Build-Einstellung, weil
