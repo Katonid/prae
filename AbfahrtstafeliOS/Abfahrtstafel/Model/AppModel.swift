@@ -74,6 +74,25 @@ final class AppModel: ObservableObject {
         didSet { ablage.set(anzahl, forKey: "abfahrtenAnzahl") }
     }
 
+    /// Ob die Tafel „jetzt" zeigt oder einen GEWÄHLTEN Zeitpunkt (ab 1.1.11,
+    /// Ansage des Nutzers 09/2026: „baue auch die Optionen in die App ein,
+    /// nicht zum aktuellen Zeitpunkt zu suchen, sondern zu einem frei
+    /// konfigurierbaren Zeitpunkt").
+    ///
+    /// **Bewusst NICHT in den Voreinstellungen** — anders als Umkreis und
+    /// Anzahl. Ein gewählter Zeitpunkt ist eine einmalige Frage („was fährt
+    /// morgen früh um sieben?"); wer die App am nächsten Tag an einer
+    /// Haltestelle aufschlägt, will die Tafel von JETZT. Eine Einstellung, die
+    /// einen Zustand überlebt, an den niemand mehr denkt, ist eine Falle —
+    /// und diese hier sähe aus wie eine ganz gewöhnliche Tafel.
+    @Published var abJetzt = true
+    @Published var zeitpunkt = Date()
+
+    /// Der Zeitpunkt, für den die Tafel gilt — die eine Stelle, an der „jetzt"
+    /// und „gewählt" zusammenlaufen. Wer daneben noch einmal `Date()` schreibt,
+    /// baut eine Tafel, die halb in der Zukunft steht.
+    var bezugszeit: Date { abJetzt ? Date() : zeitpunkt }
+
     let dienst: Fahrplandienst
 
     private var laufenderAuftrag: Task<Void, Never>?
@@ -160,7 +179,10 @@ final class AppModel: ObservableObject {
         // erreichen, und eine Zeile, die im Augenblick der Abfahrt
         // verschwindet, nimmt dem Wartenden die Bestätigung, dass er richtig
         // steht.
-        let grenze = Date().addingTimeInterval(-60)
+        // Gemessen wird gegen die BEZUGSZEIT, nicht gegen die Uhr: Bei einer
+        // Tafel für morgen früh läge sonst jede Abfahrt vor der Grenze und die
+        // Liste wäre leer.
+        let grenze = bezugszeit.addingTimeInterval(-60)
         return abfahrten.filter { abfahrt in
             guard abfahrt.tatsaechlich >= grenze else { return false }
             guard !filter.isEmpty else { return true }
@@ -186,6 +208,7 @@ final class AppModel: ObservableObject {
         let ziel = punkt.koordinate
         let umkreis = self.umkreis
         let anzahl = self.anzahl
+        let zeit = self.bezugszeit
 
         // Nur beim ersten Laden dreht sich etwas. Beim Nachladen bleibt die
         // alte Tafel stehen, bis die neue da ist — eine Liste, die alle
@@ -199,7 +222,7 @@ final class AppModel: ObservableObject {
                 let geholt = try await self.dienst.abfahrten(
                     ab: anker,
                     umkreis: umkreis,
-                    zeitpunkt: Date(),
+                    zeitpunkt: zeit,
                     anzahl: anzahl
                 )
                 guard !Task.isCancelled else { return }

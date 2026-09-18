@@ -12,6 +12,14 @@ import SwiftUI
 /// Busse ausblendet, sieht auch keine Buslinien auf der Karte. Zwei Filter für
 /// dieselbe Frage wären zwei Antworten.
 struct LiniennetzView: View {
+    /// Ob diese Karte schon den ganzen Bildschirm füllt (ab 1.1.11). Sie
+    /// zeichnet dann denselben Knopf andersherum — auf und zu ist EINE Sache
+    /// und gehört an dieselbe Stelle.
+    var imVollbild: Bool = false
+    /// Aufziehen bzw. schließen. `nil` heißt „diese Karte lässt sich nicht
+    /// umschalten" — dann steht auch kein Knopf da.
+    var umschalten: (() -> Void)?
+
     @EnvironmentObject private var model: AppModel
     @EnvironmentObject private var netz: Liniennetz
     @EnvironmentObject private var meldungen: Meldungsdienst
@@ -186,7 +194,15 @@ struct LiniennetzView: View {
             }
         }
         .mapStyle(.standard(pointsOfInterest: .excludingAll))
+        // **Ein Tipp auf die freie Kartenfläche zieht sie auf.** Die Halte und
+        // die Liniennummern sind Knöpfe und behalten ihre eigene Aufgabe (ein
+        // Tipp auf einen Halt öffnet seit 1.1.7 dessen Abfahrtstafel) — SwiftUI
+        // gibt dem inneren Bedienelement den Vorrang. Der Knopf unten links tut
+        // dasselbe und ist der Weg, den man SIEHT: Eine Geste, die niemand
+        // kennt, ist so wenig wert wie ein Knopf, den niemand findet.
+        .onTapGesture { umschalten?() }
         .overlay(alignment: .topTrailing) { legende }
+        .overlay(alignment: .bottomLeading) { vollbildknopf }
         .overlay(alignment: .center) {
             if netz.laedt && netz.zuege.isEmpty {
                 ProgressView("Linienverläufe werden geholt …")
@@ -341,6 +357,26 @@ struct LiniennetzView: View {
     // MARK: - Legende
 
     @ViewBuilder
+    /// Auf- und Zuziehen der Karte. Steht unten links, also dort, wo weder die
+    /// Legende (oben rechts) noch Apples eigene Bedienelemente liegen.
+    @ViewBuilder
+    private var vollbildknopf: some View {
+        if let umschalten {
+            Button(action: umschalten) {
+                Image(systemName: imVollbild
+                      ? "arrow.down.right.and.arrow.up.left"
+                      : "arrow.up.left.and.arrow.down.right")
+                    .font(.system(size: 15, weight: .semibold))
+                    .frame(width: 34, height: 34)
+                    .background(.regularMaterial, in: Circle())
+                    .shadow(color: .black.opacity(0.18), radius: 2, y: 1)
+            }
+            .buttonStyle(.plain)
+            .padding(10)
+            .accessibilityLabel(imVollbild ? "Karte schließen" : "Karte auf den ganzen Bildschirm")
+        }
+    }
+
     private var legende: some View {
         if legendeOffen {
             VStack(alignment: .leading, spacing: 0) {

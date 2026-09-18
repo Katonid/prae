@@ -33,6 +33,8 @@ struct AbfahrtstafelView: View {
     @State private var pfad = NavigationPath()
     @State private var ortswahlOffen = false
     @State private var meldungenOffen = false
+    /// Die Karte auf dem ganzen Bildschirm (ab 1.1.11).
+    @State private var karteImVollbild = false
 
     /// Was die Tafel zeigt.
     ///
@@ -75,6 +77,8 @@ struct AbfahrtstafelView: View {
 
                 Sichtwahl(sichtRoh: $sichtRoh)
 
+                Zeitleiste()
+
                 if !model.vorhandeneMittel.isEmpty {
                     Filterleiste()
                 }
@@ -103,6 +107,9 @@ struct AbfahrtstafelView: View {
                     }
                     .accessibilityLabel("Abfahrten neu laden")
                 }
+            }
+            .fullScreenCover(isPresented: $karteImVollbild) {
+                Vollbildkarte(schliessen: { karteImVollbild = false })
             }
             .navigationDestination(for: Haltestelle.self) { halt in
                 HaltestelleView(haltestelle: halt)
@@ -154,7 +161,7 @@ struct AbfahrtstafelView: View {
             )
         default:
             if sicht == .karte {
-                LiniennetzView()
+                LiniennetzView(umschalten: { karteImVollbild = true })
             } else if model.gruppen.isEmpty {
                 Hinweisflaeche(
                     symbol: "tram",
@@ -180,7 +187,7 @@ struct AbfahrtstafelView: View {
                     liste
                         .frame(minWidth: 330, idealWidth: 430, maxWidth: 470)
                     Divider()
-                    LiniennetzView()
+                    LiniennetzView(umschalten: { karteImVollbild = true })
                         .frame(maxWidth: .infinity)
                 }
             } else {
@@ -253,6 +260,7 @@ struct AbfahrtstafelView: View {
             jetzt: uhr.jetzt,
             zeigtHaltestelle: mitHaltestelle,
             standIstAlt: model.standIstAlt,
+            fuerGewaehlteZeit: !model.abJetzt,
             zeigtQuelle: model.beteiligteQuellen.count > 1,
             meldung: meldungen.meldungen(zu: abfahrt.linie).first
         )
@@ -387,6 +395,98 @@ extension Notification.Name {
 /// Sie steht IMMER da, auch beim eigenen Standort. Ein Bezugspunkt, der nur
 /// sichtbar wird, wenn er vom Standort abweicht, lässt niemanden wissen, dass
 /// er sich ändern lässt.
+/// „Jetzt" oder ein gewählter Zeitpunkt (ab 1.1.11).
+///
+/// Dieselbe Bauweise wie die `Zeitleiste` der Verbindungsauskunft, mit Absicht:
+/// Es ist dieselbe Frage, und zwei verschiedene Bedienungen für dieselbe Frage
+/// wären zwei Dinge zu lernen.
+///
+/// **Der Knopf steht immer da, auch bei „Jetzt".** Eine Bedienung, die erst
+/// erscheint, wenn man sie schon gefunden hat, ist keine — dieselbe Lehre wie
+/// beim Sichtumschalter in 1.0.5.
+private struct Zeitleiste: View {
+    @EnvironmentObject private var model: AppModel
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Button {
+                model.abJetzt.toggle()
+                // Beim Umschalten auf einen Zeitpunkt beginnt der bei JETZT.
+                // Ein Feld, das mit der Uhrzeit von vorhin aufgeht, sieht aus
+                // wie ein Fehler.
+                if !model.abJetzt { model.zeitpunkt = Date() }
+                model.laden()
+            } label: {
+                Label(model.abJetzt ? "Jetzt" : "Zeitpunkt", systemImage: "clock")
+                    .font(.caption.weight(.medium))
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(
+                        Capsule().fill(
+                            model.abJetzt
+                                ? Color.secondary.opacity(0.14)
+                                : Color.accentColor.opacity(0.22)
+                        )
+                    )
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(model.abJetzt
+                                ? "Zeigt die Abfahrten von jetzt. Antippen für einen anderen Zeitpunkt."
+                                : "Zeigt die Abfahrten zu einem gewählten Zeitpunkt. Antippen für jetzt.")
+
+            if !model.abJetzt {
+                DatePicker(
+                    "Zeitpunkt",
+                    selection: Binding(
+                        get: { model.zeitpunkt },
+                        // Jede Drehung lädt neu — `laden()` bricht den
+                        // laufenden Auftrag vorher ab, es bleibt also die
+                        // letzte Wahl übrig und nicht ein Stapel Abfragen.
+                        set: { model.zeitpunkt = $0; model.laden() }
+                    )
+                )
+                .labelsHidden()
+                .font(.caption)
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 14)
+        .padding(.bottom, 6)
+    }
+}
+
+/// Die Karte auf dem ganzen Bildschirm (ab 1.1.11, Ansage des Nutzers
+/// 09/2026). Auf dem iPad liegt neben der Liste nur ein Ausschnitt des Netzes;
+/// was jemand sehen will, liegt oft genau daneben.
+private struct Vollbildkarte: View {
+    let schliessen: () -> Void
+    @State private var pfad = NavigationPath()
+
+    var body: some View {
+        NavigationStack(path: $pfad) {
+            LiniennetzView(imVollbild: true, umschalten: schliessen)
+                .navigationTitle("Liniennetz")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button {
+                            schliessen()
+                        } label: {
+                            Label("Schließen", systemImage: "xmark")
+                        }
+                    }
+                }
+                // **Ein eigener Stapel braucht sein eigenes Ziel.** Dieselbe
+                // Falle wie in 1.1.7: Ohne diese Zeile wäre jeder Halt auf der
+                // Vollbildkarte ein Verweis, der nichts tut.
+                .navigationDestination(for: Haltestelle.self) { halt in
+                    HaltestelleView(haltestelle: halt)
+                }
+        }
+    }
+}
+
 private struct Ortsleiste: View {
     let oeffnen: () -> Void
 

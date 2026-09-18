@@ -66,6 +66,10 @@ struct RootView: View {
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(30))
                 guard !Task.isCancelled else { return }
+                // Bei einem GEWÄHLTEN Zeitpunkt gibt es nichts nachzuladen:
+                // Die Tafel zeigt nicht „jetzt", und dieselbe Abfrage brächte
+                // alle dreißig Sekunden dieselbe Antwort.
+                guard model.abJetzt else { continue }
                 model.laden(erzwingen: false)
             }
         }
