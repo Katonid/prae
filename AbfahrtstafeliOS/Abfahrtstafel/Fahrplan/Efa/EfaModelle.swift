@@ -25,6 +25,34 @@ enum EfaAntwort {
         /// 5 = entfällt. Nur die 5 wird ausgewertet; die anderen stehen
         /// schon in den Zeiten.
         let realtimeStatus: [String]?
+        /// Die ausführlichen Betriebsmeldungen zu dieser Abfahrt (Umleitung,
+        /// Sperrung, verlegte Haltestelle). Der Text steckt nicht hier,
+        /// sondern in `infoLinks` — `infos` selbst trägt nur Kennung,
+        /// Dringlichkeit und Zeitstempel.
+        let infos: [Meldung]?
+        /// Kurze Hinweise („Ersatzverkehr", „Fahrradmitnahme begrenzt
+        /// möglich"). Eine Zeile statt eines Absatzes.
+        let hints: [Hinweis]?
+    }
+
+    struct Meldung: Decodable {
+        let id: String?
+        /// „normal" oder „high" — mehr kam in den Messungen nicht vor.
+        let priority: String?
+        let infoLinks: [Text]?
+
+        struct Text: Decodable {
+            let title: String?
+            let subtitle: String?
+            /// HTML. Wird über `Klartext` lesbar gemacht.
+            let content: String?
+            let url: String?
+        }
+    }
+
+    struct Hinweis: Decodable {
+        let content: String?
+        let type: String?
     }
 
     struct Ort: Decodable {

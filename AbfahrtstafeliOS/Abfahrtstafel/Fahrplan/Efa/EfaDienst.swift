@@ -44,7 +44,7 @@ struct EfaStelle: Sendable {
 /// Umkreisparameter; sie nimmt ihren eigenen. Die Tafel aus dieser Quelle kann
 /// deshalb schmaler ausfallen als die eingestellten Meter. Das ist der Preis
 /// eines Rückfalls und steht so in der Fußzeile.
-struct EfaDienst: Abfahrtsquelle {
+struct EfaDienst: Abfahrtsquelle, Meldungsquelle {
 
     let stelle: EfaStelle
     private let sitzung: URLSession
@@ -67,6 +67,18 @@ struct EfaDienst: Abfahrtsquelle {
         zeitpunkt: Date,
         anzahl: Int
     ) async throws -> [Abfahrt] {
+        let tafel = try await hole(um: haltestelle, anzahl: anzahl)
+        return (tafel.stopEvents ?? [])
+            .compactMap { abfahrt(aus: $0, rueckfalllage: haltestelle) }
+            .sorted { $0.tatsaechlich < $1.tatsaechlich }
+    }
+
+    /// Die eine Netzabfrage dieses Dienstes.
+    ///
+    /// Abfahrten UND Betriebsmeldungen kommen aus derselben Antwort — EFA
+    /// hängt die Meldungen an die Abfahrten, für die sie gelten. Zwei
+    /// getrennte Abfragen wären zwei Wege zu denselben Daten.
+    private func hole(um haltestelle: Haltestelle, anzahl: Int) async throws -> EfaAntwort.Tafel {
         var bausatz = URLComponents(url: stelle.adresse, resolvingAgainstBaseURL: false)
         bausatz?.queryItems = [
             URLQueryItem(name: "outputFormat", value: "rapidJSON"),
@@ -110,16 +122,108 @@ struct EfaDienst: Abfahrtsquelle {
             throw Fahrplanfehler.dienstAntwortetNicht(status: http.statusCode)
         }
 
-        let tafel: EfaAntwort.Tafel
         do {
-            tafel = try JSONDecoder().decode(EfaAntwort.Tafel.self, from: daten)
+            return try JSONDecoder().decode(EfaAntwort.Tafel.self, from: daten)
         } catch {
             throw Fahrplanfehler.antwortUnlesbar(error.localizedDescription)
         }
+    }
 
-        return (tafel.stopEvents ?? [])
-            .compactMap { abfahrt(aus: $0, rueckfalllage: haltestelle) }
-            .sorted { $0.tatsaechlich < $1.tatsaechlich }
+    // MARK: - Betriebsmeldungen
+
+    /// Die Betriebsmeldungen im Umkreis.
+    ///
+    /// **Es ist DIESELBE Abfrage wie für die Abfahrten** — EFA schickt die
+    /// Meldungen an den Abfahrten mit, für die sie gelten. Die Antwort wird
+    /// hier nur anders ausgewertet: Statt der Zeiten werden die `infos`
+    /// eingesammelt und nach Kennung zusammengelegt.
+    ///
+    /// Genau daraus ergibt sich, welche LINIEN eine Meldung betrifft: die
+    /// Linien der Abfahrten, an denen sie hing. Das steht in den Daten und
+    /// muss nicht aus dem Titel geraten werden.
+    func meldungen(um haltestelle: Haltestelle, umkreis meter: Int) async throws -> [Betriebsmeldung] {
+        // Großzügiger als die Tafel: Eine Sperrung betrifft eine Linie, und
+        // die fährt an mehr Haltestellen als den drei vor der Tür. Ein
+        // größerer Ausschnitt kostet hier nichts, weil ohnehin nach Linie
+        // gefiltert wird.
+        let tafel = try await hole(um: haltestelle, anzahl: 60)
+
+        var gesammelt: [String: (meldung: EfaAntwort.Meldung, linien: Set<String>)] = [:]
+        var kurzhinweise: [String: Set<String>] = [:]
+
+        for ereignis in tafel.stopEvents ?? [] {
+            let linie = ereignis.transportation?.disassembledName?.nilWennLeer
+                ?? ereignis.transportation?.number?.nilWennLeer
+            guard let linie else { continue }
+
+            for info in ereignis.infos ?? [] {
+                guard let kennung = info.id?.nilWennLeer else { continue }
+                gesammelt[kennung, default: (info, [])].linien.insert(linie)
+            }
+            for hinweis in ereignis.hints ?? [] {
+                guard let text = Klartext.aus(hinweis.content).nilWennLeer else { continue }
+                kurzhinweise[text, default: []].insert(linie)
+            }
+        }
+
+        let ausfuehrliche = gesammelt.compactMap { kennung, eintrag -> Betriebsmeldung? in
+            betriebsmeldung(kennung: kennung, aus: eintrag.meldung, linien: eintrag.linien)
+        }
+
+        // Kurzhinweise sind eine eigene Art Meldung: eine Zeile, kein Absatz.
+        // Sie bekommen den Text als Titel und keinen Fließtext — etwas
+        // dazuzuerfinden, damit das Feld gefüllt ist, wäre genau verkehrt.
+        let kurze = kurzhinweise.map { text, linien in
+            Betriebsmeldung(
+                id: "hinweis-\(name)-\(text.hashValue)",
+                titel: text,
+                text: "",
+                linien: linien,
+                quelle: name,
+                dringend: false,
+                adresse: nil
+            )
+        }
+
+        return (ausfuehrliche + kurze).sorted {
+            ($0.dringend ? 0 : 1, $0.titel) < ($1.dringend ? 0 : 1, $1.titel)
+        }
+    }
+
+    private func betriebsmeldung(
+        kennung: String,
+        aus meldung: EfaAntwort.Meldung,
+        linien: Set<String>
+    ) -> Betriebsmeldung? {
+        // Der erste Eintrag mit Text gewinnt. Mehrere `infoLinks` sind in der
+        // Regel dieselbe Meldung in mehreren Sprachen oder Längen.
+        let texte = meldung.infoLinks ?? []
+        let ergiebig = texte.first {
+            ($0.subtitle?.nilWennLeer ?? $0.title?.nilWennLeer) != nil
+        } ?? texte.first
+        guard let ergiebig else { return nil }
+
+        let titel = ergiebig.subtitle?.nilWennLeer
+            ?? ergiebig.title?.nilWennLeer
+            ?? Klartext.aus(ergiebig.content).nilWennLeer
+        guard let titel else { return nil }
+
+        let text = Klartext.aus(ergiebig.content)
+        // „http://noHost" ist der Platzhalter, den EFA einsetzt, wenn keine
+        // Adresse hinterlegt ist. Als Verweis angeboten führte er ins Leere.
+        let adresse = ergiebig.url?.nilWennLeer
+            .flatMap { $0.contains("noHost") ? nil : URL(string: $0) }
+
+        return Betriebsmeldung(
+            id: "\(name)-\(kennung)",
+            titel: titel,
+            // Wiederholt der Fließtext nur die Überschrift, bleibt er weg.
+            text: text == titel ? "" : text,
+            linien: linien,
+            quelle: name,
+            dringend: (meldung.priority ?? "").lowercased() == "high",
+            adresse: adresse
+        )
     }
 
     // MARK: - Umrechnen
@@ -240,6 +344,19 @@ extension EfaDienst {
             adresse: URL(string: "https://efa.mvv-muenchen.de/ng/XML_DM_REQUEST")!,
             breite: 47.70...48.65,
             laenge: 10.75...12.45
+        )),
+        // Ganz Bayern (DEFAS, hinter „bayern-fahrplan.de"). Steht NACH dem
+        // MVV, damit München beim örtlichen Verbund bleibt — dieselbe Regel
+        // wie bei VVS/DING vor `efa-bw`. Geprüft 18.09.2026 in Nürnberg,
+        // Würzburg, Augsburg, Regensburg und München, überall mit Echtzeit
+        // und mit Betriebsmeldungen. Es füllt damit die Lücke, die `VGN`
+        // hinterließ: Dessen Schnittstelle antwortete zwar, gab in Nürnberg
+        // aber null Abfahrten zurück.
+        EfaDienst(stelle: EfaStelle(
+            name: "Bayern-Fahrplan",
+            adresse: URL(string: "https://mobile.defas-fgi.de/beg/XML_DM_REQUEST")!,
+            breite: 47.20...50.60,
+            laenge: 8.90...13.90
         )),
         // Nordrhein-Westfalen (Rhein-Ruhr und Niederrhein)
         EfaDienst(stelle: EfaStelle(

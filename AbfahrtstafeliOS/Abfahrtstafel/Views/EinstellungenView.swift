@@ -37,6 +37,7 @@ struct EinstellungenView: View {
                 Section {
                     LabeledContent("1. Transitous", value: "Deutschland, Österreich, Schweiz")
                     LabeledContent("2. Verkehrsverbund vor Ort", value: "wo einer antwortet")
+                    LabeledContent("Betriebsmeldungen", value: "nur vom Verbund")
                     LabeledContent("3. Zwischenspeicher", value: "ohne Netz")
                     Link(destination: model.dienst.quellenadresse) {
                         Label("transitous.org", systemImage: "arrow.up.right.square")
@@ -54,6 +55,8 @@ struct EinstellungenView: View {
                         Zeiten aus dem Zwischenspeicher sind immer als solche gekennzeichnet, mit Uhrzeit, und ihre Minutenziffern zählen nicht weiter. Eine alte Tafel, die weiterzählt, sähe richtig aus und wäre es nicht.
 
                         Zeilen ohne Pfeil lassen sich nicht öffnen: Die Schnittstellen der Verbünde geben eine Abfahrtstafel heraus, aber keinen Fahrtlauf mit Zwischenhalten.
+
+                        Betriebsmeldungen — Umleitung, Sperrung, verlegte Haltestelle — kommen AUSSCHLIESSLICH vom Verbund vor Ort. Die Quelle der Abfahrtszeiten führt keine einzige; sie kennt Verspätung und Ausfall, aber nicht den Grund und nicht die Folgen. Wo kein Verbund zuständig ist, steht hier deshalb nichts — und das heißt NICHT, dass alles planmäßig fährt, sondern dass niemand nachgesehen hat.
                         """)
                 }
 

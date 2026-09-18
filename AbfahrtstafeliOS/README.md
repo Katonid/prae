@@ -36,6 +36,10 @@ zwölf Zeichen ab), Ordner, Ziel und Bundle-Id bleiben „Abfahrtstafel“ /
   Liste. Ein Tipp in der Legende hebt eine Linie hervor, die anderen treten
   zurück (sie verschwinden nicht: Wer eine Linie verfolgt, will sehen, wo sie
   die anderen kreuzt). Höchstens zwölf Linien, ein Lauf je Linie.
+- **Betriebsmeldungen.** Umleitung, Sperrung, verlegte Haltestelle,
+  Ersatzverkehr — als Band über der Tafel, als Dreieck neben der betroffenen
+  Linie und als Liste mit Volltext. Sie kommen **ausschließlich vom Verbund
+  vor Ort**: Die Quelle der Abfahrtszeiten führt keine einzige.
 - **Merkliste** für die Handvoll Haltestellen des Alltags — auf dem Gerät,
   ohne Konto.
 
@@ -82,6 +86,7 @@ nur, was Abfahrten **mit Echtzeit** zurückgab.
 | Quelle | Gebiet | Ergebnis der Messung |
 | --- | --- | --- |
 | MVV | Großraum München | 6 Abfahrten, 6 mit Echtzeit |
+| Bayern-Fahrplan | ganz Bayern | Nürnberg, Würzburg, Augsburg, Regensburg: je 7–10 von 8–10 |
 | VRR | Rhein-Ruhr, Niederrhein | 6 / 5 |
 | VVS | Region Stuttgart | 6 / 5 |
 | DING | Ulm, Donau-Iller | 6 / 6 |
@@ -199,6 +204,11 @@ Trennung, sondern eine Lüge mit Protokoll. Die Ansichten sehen weiterhin nur
 - **Nicht jede Zeile lässt sich öffnen.** Die Schnittstellen der Verbünde geben
   eine Abfahrtstafel heraus, aber keinen Fahrtlauf mit Zwischenhalten; solche
   Zeilen stehen ohne Pfeil da.
+- **Betriebsmeldungen gibt es nur dort, wo ein Verbund zuständig ist.** Die
+  erste Quelle führt keine (nachgemessen 18.09.2026: weder an den Abfahrten
+  noch am Fahrtlauf). Steht in der App keine Meldung, heißt das deshalb
+  **nicht**, dass alles planmäßig fährt — es heißt, dass niemand
+  nachgesehen hat. Die App schreibt genau das hin.
 - **In Österreich gibt es keine zweite Quelle** und regional keine Echtzeit —
   siehe oben. Die App sagt das an der Zeile („Plan"), statt es zu verwischen.
 
@@ -217,7 +227,7 @@ Bibliotheken) — nicht von Hand bearbeiten.
 `MARKETING_VERSION` und `CURRENT_PROJECT_VERSION` stehen an je zwei Stellen im
 pbxproj (Debug + Release); es gibt keine Skript-Bauphase. **Jede
 Arbeitseinheit hebt Patch- UND Build-Nummer um je +1.** Zählung ab 09/2026:
-1.0.0 (Build 1), dann 1.0.1 (Build 2), 1.0.2 (Build 3), 1.0.3 (Build 4) …
+1.0.0 (Build 1), dann 1.0.1 (Build 2), 1.0.2 (Build 3), 1.0.3 (Build 4), 1.0.4 (Build 5) …
 
 `ITSAppUsesNonExemptEncryption = NO` steht in `Config/Info.plist` und als
 Build-Einstellung — nicht entfernen.

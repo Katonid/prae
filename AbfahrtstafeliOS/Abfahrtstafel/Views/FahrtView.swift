@@ -16,11 +16,13 @@ struct FahrtView: View {
 
     @EnvironmentObject private var model: AppModel
     @EnvironmentObject private var uhr: Uhrwerk
+    @EnvironmentObject private var meldungen: Meldungsdienst
 
     @State private var fahrt: Fahrt?
     @State private var fehler: String?
     @State private var laedt = true
     @State private var karteGross = false
+    @State private var meldungenOffen = false
 
     var body: some View {
         Group {
@@ -42,6 +44,9 @@ struct FahrtView: View {
         .navigationTitle(fahrt.map { "\($0.linie.name) nach \($0.richtung)" } ?? "Fahrt")
         .navigationBarTitleDisplayMode(.inline)
         .task { await laden() }
+        .sheet(isPresented: $meldungenOffen) {
+            MeldungenListe(nurFuer: fahrt?.linie)
+        }
     }
 
     @ViewBuilder
@@ -64,6 +69,21 @@ struct FahrtView: View {
                             systemImage: karteGross ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right"
                         )
                         .font(.footnote)
+                    }
+                    // Eine Umleitung macht genau diese Halteliste
+                    // fragwürdig: Ein entfallender Halt steht hier sonst
+                    // unverändert drin, als führe die Linie ihn an.
+                    let zurLinie = meldungen.meldungen(zu: fahrt.linie)
+                    if !zurLinie.isEmpty {
+                        // `Betriebsmeldungsband` IST schon ein Knopf — ihn in
+                        // einen zweiten zu legen, gäbe zwei Trefferflächen
+                        // übereinander, von denen iOS zuverlässig nur eine
+                        // auslöst.
+                        Betriebsmeldungsband(
+                            anzahl: zurLinie.count,
+                            dringend: zurLinie.contains(where: \.dringend)
+                        ) { meldungenOffen = true }
+                        .listRowInsets(EdgeInsets())
                     }
                 } header: {
                     Kopfzeile(fahrt: fahrt)
@@ -292,5 +312,6 @@ private struct Haltzeit: View {
         FahrtView(fahrtId: "f-s3", einstiegsHaltestelle: Musterdienst.marienplatz)
             .environmentObject(AppModel(dienst: Musterdienst()))
             .environmentObject(Uhrwerk())
+            .environmentObject(Meldungsdienst())
     }
 }

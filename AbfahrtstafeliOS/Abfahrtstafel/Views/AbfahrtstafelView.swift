@@ -26,11 +26,13 @@ struct AbfahrtstafelView: View {
     @EnvironmentObject private var model: AppModel
     @EnvironmentObject private var uhr: Uhrwerk
 
+    @EnvironmentObject private var meldungen: Meldungsdienst
     @Environment(\.horizontalSizeClass) private var breitenklasse
 
     @AppStorage("tafelSicht") private var sichtRoh = Sicht.haltestellen.rawValue
     @State private var pfad = NavigationPath()
     @State private var ortswahlOffen = false
+    @State private var meldungenOffen = false
 
     /// Was die Tafel zeigt.
     ///
@@ -80,6 +82,13 @@ struct AbfahrtstafelView: View {
                     Filterleiste()
                 }
 
+                if !meldungen.meldungen.isEmpty {
+                    Betriebsmeldungsband(
+                        anzahl: meldungen.meldungen.count,
+                        dringend: meldungen.meldungen.contains(where: \.dringend)
+                    ) { meldungenOffen = true }
+                }
+
                 if let meldung = model.meldung {
                     Meldungsband(text: meldung) { model.meldung = nil }
                 }
@@ -115,6 +124,14 @@ struct AbfahrtstafelView: View {
             .sheet(isPresented: $ortswahlOffen) {
                 OrtswahlView()
             }
+            .sheet(isPresented: $meldungenOffen) {
+                MeldungenListe()
+            }
+            // Betriebsmeldungen hängen am ANKER der Tafel, nicht am Takt der
+            // Uhr: Sie werden geholt, wenn sich die geladenen Abfahrten
+            // ändern, und der Dienst selbst hält sie fünf Minuten.
+            .onChange(of: model.gruppen.first?.id) { _, _ in meldungenHolen() }
+            .onAppear { meldungenHolen() }
             // Der Gegenpart zu `Notification.Name.ortswahlOeffnen`: Die
             // Hinweisfläche liegt tief in der Ansicht und darf das Blatt nicht
             // selbst öffnen — aufgemacht wird es hier, an der Wurzel.
@@ -183,6 +200,13 @@ struct AbfahrtstafelView: View {
         }
     }
 
+    private func meldungenHolen() {
+        meldungen.aktualisieren(
+            um: model.gruppen.first?.haltestelle,
+            umkreis: model.umkreis
+        )
+    }
+
     private var naechsterUmkreis: Int {
         min(model.umkreis * 2, 3000)
     }
@@ -240,7 +264,8 @@ struct AbfahrtstafelView: View {
             jetzt: uhr.jetzt,
             zeigtHaltestelle: mitHaltestelle,
             standIstAlt: model.standIstAlt,
-            zeigtQuelle: model.beteiligteQuellen.count > 1
+            zeigtQuelle: model.beteiligteQuellen.count > 1,
+            meldung: meldungen.meldungen(zu: abfahrt.linie).first
         )
         // `lesebreite` liegt auf der GANZEN Zeile, damit auch der Pfeil des
         // Verweises mit hereinrückt.
@@ -468,6 +493,7 @@ private struct Filterleiste: View {
         .environmentObject(Standortdienst())
         .environmentObject(Merkliste())
         .environmentObject(Liniennetz())
+        .environmentObject(Meldungsdienst())
 }
 
 @MainActor
