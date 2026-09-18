@@ -104,6 +104,21 @@ struct EinstellungenView: View {
                 }
 
                 Section {
+                    Text(kartenbefund.isEmpty ? "Noch nicht gemessen." : kartenbefund)
+                        .font(.footnote.monospaced())
+                        .textSelection(.enabled)
+                    Button("Messen") { kartenbefund = Kartenmesser.geteilt.befund }
+                    Button("Zähler zurücksetzen") {
+                        Kartenmesser.geteilt.zuruecksetzen()
+                        kartenbefund = Kartenmesser.geteilt.befund
+                    }
+                } header: {
+                    Text("Karte prüfen")
+                } footer: {
+                    Text("Wie oft die Netzkarte neu gezeichnet wird und was ein Aufbau kostet. Gedacht für die Frage, warum sich eine Karte zäh anfühlt — erst die Karte eine Weile benutzen, dann hier messen. Der Text lässt sich markieren und kopieren.")
+                }
+
+                Section {
                     LabeledContent("Fassung", value: fassung)
                 } footer: {
                     Text("Fahrpläne sind Auskünfte, keine Zusagen. Wer einen Anschluss erreichen muss, plant einen Puffer ein.")
@@ -112,6 +127,8 @@ struct EinstellungenView: View {
             .navigationTitle("Einstellungen")
         }
     }
+
+    @State private var kartenbefund = ""
 
     private var fassung: String {
         let nummer = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "?"

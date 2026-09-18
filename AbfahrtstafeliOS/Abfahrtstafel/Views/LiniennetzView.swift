@@ -37,7 +37,7 @@ struct LiniennetzView: View {
     ///
     /// **Nie `.automatic`** (ab 1.1.15). `.automatic` heißt „rahme, was
     /// drinsteht" — und was drinsteht, hängt hier seit 1.1.13 über
-    /// `sichtbareHalte` am gezeigten Ausschnitt. Das ist eine Rückkopplung:
+    /// `berechneHalte()` am gezeigten Ausschnitt. Das ist eine Rückkopplung:
     /// Jede Bewegung der Kamera ändert die Zahl der Halte, die geänderte Zahl
     /// rahmt die Kamera neu. Wer dabei zoomt, zieht gegen die Karte an.
     /// Gesetzt wird deshalb immer ein ausgerechneter Ausschnitt, und zwar nur
@@ -61,6 +61,23 @@ struct LiniennetzView: View {
     @State private var eigeneBewegung = false
     /// Ob gerade auf eine Stelle gezielt wird (Fadenkreuz + Leiste).
     @State private var zielen = false
+    /// **Alles, was auf der Karte steht — EINMAL gerechnet** (ab 1.1.16).
+    ///
+    /// Bis 1.1.15 waren Halte, Beschriftungen und Hinweise berechnete
+    /// Eigenschaften, und der Körper dieser Ansicht las sie mehrfach:
+    /// `hinweise` wurde an vier Stellen der Fußzeile ausgewertet und rechnete
+    /// je Durchgang dreimal die Halteliste, dazu einmal die Karte selbst —
+    /// **zehn bis dreizehn volle Durchgänge über alle Halte je Zeichnung.**
+    /// Und gezeichnet wurde jede Sekunde: `AbfahrtstafelView` beobachtet das
+    /// `Uhrwerk` für die Minutenziffern, gibt an `LiniennetzView` einen
+    /// frischen Abschluss weiter, und damit kann SwiftUI nicht sehen, dass
+    /// sich nichts geändert hat.
+    ///
+    /// Zwölf Linien mit je sechzig Halten sind 720 Halte; jeder davon wird
+    /// gegen die Meldungsliste geprüft, mit Textvergleich. Das lief bisher
+    /// rund zehntausendmal je Sekunde auf dem Hauptfaden — also genau dort,
+    /// wo auch die Gesten der Karte bedient werden.
+    @State private var inhalt = Karteninhalt()
     /// Welche Linie gerade hervorgehoben ist. `nil` heißt „alle gleich".
     @State private var hervorgehoben: String?
     /// Ob die Legende aufgeklappt ist.
@@ -77,25 +94,71 @@ struct LiniennetzView: View {
     @AppStorage("linienFusszeileOffen") private var fusszeileOffen = false
 
     var body: some View {
+        // Der Messfühler (ab 1.1.16). Er verändert nichts und löst nichts
+        // aus — er zählt nur mit, wie oft dieser Körper wirklich durchlaufen
+        // wird. Ohne diese Zahl bleibt jede Aussage über die Karte eine
+        // Vermutung, und davon gab es hier schon zwei.
+        let _ = Kartenmesser.geteilt.gezeichnet()
         VStack(spacing: 0) {
             karte
             fusszeile
         }
         .onAppear {
             aufbauen()
+            neuRechnen()
             rahmen(startausschnitt)
         }
         .onChange(of: model.abfahrten.count) { _, _ in aufbauen() }
         .onChange(of: model.filter) { _, _ in aufbauen() }
+        // **Die Auslöser des Neurechnens, und nur sie.** Wer hier etwas
+        // hinzufügt, das den Karteninhalt beeinflusst, trägt es ein — sonst
+        // steht auf der Karte still ein alter Stand, und das ist der
+        // gefährlichere Fehler als ein Durchgang zu viel.
+        .onChange(of: netz.stand) { _, _ in neuRechnen() }
+        .onChange(of: hervorgehoben) { _, _ in neuRechnen() }
+        .onChange(of: meldungen.geholtUm) { _, _ in neuRechnen() }
+        .onChange(of: legendeOffen) { _, _ in neuRechnen() }
         .onChange(of: model.punkt) { _, _ in
             netz.leeren()
             aufbauen()
+            neuRechnen()
             // Ein neuer Bezugspunkt ist eine neue Lage: Die Karte darf sich
             // wieder einmal selbst einstellen, bis der Nutzer sie anfasst.
             gerahmt = false
             zielen = false
             rahmen(umkreisAusschnitt)
         }
+    }
+
+    /// Rechnet den Karteninhalt neu — die EINZIGE Stelle, an der das
+    /// geschieht.
+    ///
+    /// Aufgerufen wird sie aus `onAppear`, aus den `onChange`-Zeilen und aus
+    /// `onMapCameraChange`, nie aus dem Körper: Ein Neurechnen im Körper
+    /// schriebe `@State` während des Zeichnens und liefe im Kreis.
+    private func neuRechnen() {
+        let angefangen = Date()
+        let halte = berechneHalte()
+        let zuViele = hervorgehoben == nil
+            && !netz.zuege.isEmpty
+            && !halte.contains { !$0.faelltAus && !$0.lautMeldungGesperrt }
+        inhalt = Karteninhalt(
+            halte: halte,
+            beschriftungen: berechneBeschriftungen(),
+            hinweise: berechneHinweise(halte: halte, zuViele: zuViele)
+        )
+        Kartenmesser.geteilt.aufbau(
+            dauer: Date().timeIntervalSince(angefangen),
+            halte: halte.count,
+            linien: netz.zuege.count
+        )
+    }
+
+    /// Der gerechnete Inhalt der Karte.
+    private struct Karteninhalt {
+        var halte: [Linienhaltpunkt] = []
+        var beschriftungen: [Liniennummer] = []
+        var hinweise: [Hinweis] = []
     }
 
     /// Welche Darstellung die KARTE hat — die eigene Wahl, sonst die der App.
@@ -121,10 +184,17 @@ struct LiniennetzView: View {
     // MARK: - Karte
 
     private var karte: some View {
-        // **Auf dieser Karte liegt KEINE einzige SwiftUI-Geste** (ab 1.1.15).
-        // Weder ein Tipp noch ein langer Tipp noch eine beobachtende. Was
-        // hier an Gesten gebraucht wird, macht MapKit selbst; alles andere
-        // sind Knöpfe, die man sieht.
+        // **Die Gesten sind wieder da** (ab 1.1.16). In 1.1.15 standen sie
+        // unter Verdacht, das Zoomen zu verschlucken — der Nutzer hat dem
+        // widersprochen, und zwar mit dem Argument, das zählt: Das Problem
+        // gab es schon, bevor es sie gab. Damit war die ganze Begründung
+        // hinfällig, und ein Weg, den jemand ausdrücklich haben wollte, wird
+        // nicht auf Verdacht abgebaut.
+        //
+        // **`MapReader` nur wegen der Umrechnung.** Ein Tipp kommt als Punkt
+        // auf dem Bildschirm an; welche Koordinate darunter liegt, weiß
+        // allein die Karte.
+        MapReader { karteninhalt in
         Map(position: $kamera, interactionModes: [.pan, .zoom, .rotate]) {
             // **Erst alle Konturen, dann alle Linien** (ab 1.1.9). Zwei
             // Durchgänge, weil sonst die Kontur der einen Linie die andere
@@ -165,7 +235,7 @@ struct LiniennetzView: View {
             }
 
             // Die Halte der gezeichneten Linien.
-            ForEach(sichtbareHalte) { halt in
+            ForEach(inhalt.halte) { halt in
                 Annotation(halt.name, coordinate: halt.koordinate, anchor: .center) {
                     // **Ein Tipp öffnet die Tafel dieser Haltestelle.** Das
                     // Ziel ist dasselbe wie in der Liste nebenan — der
@@ -197,7 +267,7 @@ struct LiniennetzView: View {
             // Die Liniennummer auf dem Zug selbst. Ohne sie ist die Karte ein
             // Bündel farbiger Striche, und die Legende am Rand zwingt zum
             // Hin- und Herschauen.
-            ForEach(beschriftungen) { marke in
+            ForEach(inhalt.beschriftungen) { marke in
                 Annotation("", coordinate: marke.punkt, anchor: .center) {
                     // Das Schild ist ein KNOPF und tut dasselbe wie die Zeile
                     // in der Legende. Ohne das wäre die zugeklappte Legende
@@ -245,6 +315,12 @@ struct LiniennetzView: View {
             }
         }
         .mapStyle(.standard(pointsOfInterest: .excludingAll))
+        // **Ein Tipp auf die freie Kartenfläche zieht sie auf** (ab 1.1.11,
+        // wieder da seit 1.1.16). Die Halte und die Liniennummern sind Knöpfe
+        // und behalten ihre eigene Aufgabe — SwiftUI gibt dem inneren
+        // Bedienelement den Vorrang. Der Knopf unten links tut dasselbe und
+        // ist der Weg, den man SIEHT.
+        .onTapGesture { umschalten?() }
         .overlay(alignment: .topTrailing) { legende }
         .overlay(alignment: .bottomLeading) { kartenknoepfe }
         .overlay(alignment: .center) { fadenkreuz }
@@ -262,6 +338,13 @@ struct LiniennetzView: View {
         // einer dunklen Karte. Die Legende liegt auf der Karte und gehört zu
         // ihr; die Fußzeile darunter gehört zur App und bleibt außen vor.
         .kartendarstellung()
+        // **Ein LANGER Tipp legt den Suchpunkt hierher** (ab 1.1.13, wieder
+        // da seit 1.1.16, Ansage des Nutzers 09/2026: „Ich mag nicht immer
+        // erst wieder in dieses Menü gehen müssen."). Daneben steht seit
+        // 1.1.15 der Nadelknopf mit dem Fadenkreuz — beides mit Absicht:
+        // Eine Geste, die niemand kennt, ist so wenig wert wie ein Knopf, den
+        // niemand findet.
+        .simultaneousGesture(punktSetzen(karteninhalt))
         // **Die Kamera sagt selbst, wer sie bewegt hat.** Kam die Meldung auf
         // ein `rahmen(_:)` von uns, war es unsere; sonst war es der Nutzer —
         // und ab da stellt sich die Karte nicht mehr selbst ein. Das ist der
@@ -269,6 +352,11 @@ struct LiniennetzView: View {
         // Auskunft, ohne eine einzige Geste auf der Karte.
         .onMapCameraChange(frequency: .onEnd) { zustand in
             sichtfeld = zustand.rect
+            // Der Ausschnitt entscheidet, welche Halte gezeichnet werden —
+            // also muss er den Inhalt neu rechnen lassen. **`.onEnd` und
+            // nicht `.continuous`**: sonst liefe die ganze Rechnung während
+            // jeder Schiebebewegung mit.
+            neuRechnen()
             if eigeneBewegung {
                 eigeneBewegung = false
             } else {
@@ -281,16 +369,21 @@ struct LiniennetzView: View {
         // bewirkt die Geste mit zwei Fingern nichts.", danach: „Das Zoomen
         // funktioniert aber immer noch nicht.").
         //
-        // In 1.1.14 stand hier, es sei kein Gestenproblem gewesen. **Das war
-        // zu früh geschlossen.** Richtig war der beschriebene Ablauf:
-        // `Liniennetz` ersetzt `zuege` in EINEM Zug, sobald alle Fahrtläufe da
-        // sind, und genau dann wurde der Ausschnitt neu gesetzt — ein bis drei
-        // Sekunden nach dem Öffnen und noch einmal bei jedem Nachladelauf.
-        // Falsch war der Schluss, damit sei die Sache erklärt: Das Zoomen ging
-        // danach weiter nicht. Übrig blieben zwei Ursachen, die 1.1.14 nicht
-        // nur nicht behob, sondern selbst mitbrachte — die Gesten auf der
-        // Karte (siehe oben bei `karte`) und `.automatic` als Kamerastand
-        // (siehe bei `kamera`). Beide sind jetzt weg.
+        // Der beschriebene Ablauf war richtig: `Liniennetz` ersetzt `zuege`
+        // in EINEM Zug, sobald alle Fahrtläufe da sind, und genau dann wurde
+        // der Ausschnitt neu gesetzt — ein bis drei Sekunden nach dem Öffnen
+        // und noch einmal bei jedem Nachladelauf. Ein sich selbst
+        // einstellender Ausschnitt gehört nicht über den Nutzer hinweg, und
+        // das bleibt so.
+        //
+        // **Die Sache erklärt war damit aber nicht** (Ansage des Nutzers
+        // 09/2026: das Problem gab es schon vor 1.1.13, und es gibt es
+        // weiter). Auch die Gesten waren es nicht — die stehen seit 1.1.16
+        // wieder da. Was in 1.1.16 gemessen wurde, steht bei `inhalt`: Diese
+        // Ansicht lief einmal je Sekunde durch und rechnete dabei zehn- bis
+        // dreizehnmal alle Halte durch. Ob DAS die Ursache ist, sagt der
+        // Messfühler auf dem Gerät (Einstellungen → „Karte prüfen") — hier
+        // lässt es sich nicht ansehen.
         //
         // Wer die Karte angefasst hat, führt sie. Zurück gibt er sie mit einem
         // neuen Bezugspunkt.
@@ -299,6 +392,26 @@ struct LiniennetzView: View {
             gerahmt = true
             rahmen(ausschnitt)
         }
+        }
+    }
+
+    /// Der lange Tipp, der den Suchpunkt versetzt.
+    ///
+    /// **Die Reihenfolge ist Absicht:** erst halten, dann ziehen dürfen. Ohne
+    /// das angehängte `DragGesture` käme die Stelle gar nicht mit — ein
+    /// `LongPressGesture` allein meldet nur, DASS gehalten wurde. Genommen
+    /// wird `startLocation` und nicht `location`: Der Finger wandert beim
+    /// Halten ein paar Punkte, gemeint ist aber die Stelle, auf die gezeigt
+    /// wurde.
+    private func punktSetzen(_ karteninhalt: MapProxy) -> some Gesture {
+        LongPressGesture(minimumDuration: 0.45)
+            .sequenced(before: DragGesture(minimumDistance: 0, coordinateSpace: .local))
+            .onEnded { wert in
+                guard case .second(true, let zug?) = wert,
+                      let koordinate = karteninhalt.convert(zug.startLocation, from: .local)
+                else { return }
+                neuerSuchpunkt(koordinate)
+            }
     }
 
     /// Stellt den Ausschnitt ein — und merkt sich, dass wir es waren.
@@ -400,7 +513,13 @@ struct LiniennetzView: View {
     /// schlechter als keine — man hielte die Lücken für Wirklichkeit.
     private var hoechstzahlHalte: Int { 260 }
 
-    private var sichtbareHalte: [Linienhaltpunkt] {
+    /// **Eine FUNKTION und keine berechnete Eigenschaft** (ab 1.1.16). Der
+    /// Unterschied ist nicht stilistisch: Als Eigenschaft sah sie billig aus
+    /// und wurde deshalb aus dem Körper heraus zehn- bis dreizehnmal je
+    /// Zeichnung gelesen. Ein Name mit Klammern erinnert an jeder Aufrufstelle
+    /// daran, dass hier gerechnet wird. Aufgerufen wird sie nur noch aus
+    /// `neuRechnen()`.
+    private func berechneHalte() -> [Linienhaltpunkt] {
         let gesperrt = gesperrtJeLinie
         if let hervorgehoben, let zug = netz.zuege.first(where: { $0.id == hervorgehoben }) {
             // Eine Linie hervorgehoben: ihre Halte, und zwar alle. Das ist
@@ -482,11 +601,6 @@ struct LiniennetzView: View {
         return rand.contains(MKMapPoint(koordinate))
     }
 
-    private var zuVieleHalte: Bool {
-        guard hervorgehoben == nil, !netz.zuege.isEmpty else { return false }
-        return !sichtbareHalte.contains { !$0.faelltAus && !$0.lautMeldungGesperrt }
-    }
-
     /// Je Linie die Haltestellennamen, die ihre Meldungen als entfallend
     /// aufzählen.
     ///
@@ -525,7 +639,7 @@ struct LiniennetzView: View {
     /// Liste verschiebt: Zwölf Linien, die im Stadtzentrum alle
     /// übereinanderliegen, hätten sonst zwölf Schilder auf demselben Fleck.
     /// So verteilen sie sich über den Verlauf.
-    private var beschriftungen: [Liniennummer] {
+    private func berechneBeschriftungen() -> [Liniennummer] {
         let anzahl = max(netz.zuege.count - 1, 1)
         return netz.zuege.enumerated().compactMap { nummer, zug in
             let anteil = 0.22 + 0.56 * (Double(nummer) / Double(anzahl))
@@ -759,12 +873,12 @@ struct LiniennetzView: View {
     /// entfallender Halt, eine fehlende Linie. Die Erklärungen zur Zeichenweise
     /// gelten immer und sind deshalb zuletzt: Wer sie einmal gelesen hat,
     /// braucht sie nie wieder, und sie standen bis 1.0.8 trotzdem jedes Mal da.
-    private var hinweise: [Hinweis] {
+    private func berechneHinweise(halte: [Linienhaltpunkt], zuViele: Bool) -> [Hinweis] {
         var liste: [Hinweis] = []
         // Ganz vorn, denn hier steht das Konkreteste über heute: Diese
         // Halte nennt eine Meldung beim Namen, und in den Fahrplandaten
         // stehen sie unverändert als angefahren.
-        let gemeldete = sichtbareHalte.filter(\.lautMeldungGesperrt)
+        let gemeldete = halte.filter(\.lautMeldungGesperrt)
         if !gemeldete.isEmpty {
             let namen = gemeldete.map(\.name).joined(separator: ", ")
             var text = "Laut Betriebsmeldung gesperrt (orange): " + namen
@@ -816,7 +930,7 @@ struct LiniennetzView: View {
                 text: "Gestrichelte Linien sind Luftlinien zwischen den Halten — für sie kam keine Streckenführung mit."
             ))
         }
-        if zuVieleHalte {
+        if zuViele {
             liste.append(Hinweis(
                 id: "halte",
                 symbol: nil,
@@ -835,7 +949,7 @@ struct LiniennetzView: View {
         // Sichtumschalter in 1.0.5. Er steht VOR den Erklärungen zur
         // Zeichenweise: Er sagt, was man tun kann, die anderen nur, was man
         // sieht.
-        if !zuVieleHalte || hervorgehoben != nil {
+        if !zuViele || hervorgehoben != nil {
             liste.append(Hinweis(
                 id: "haltAntippen",
                 symbol: "hand.tap",
@@ -872,7 +986,7 @@ struct LiniennetzView: View {
     private var fusszeile: some View {
         HStack(alignment: .top, spacing: 8) {
             VStack(alignment: .leading, spacing: 3) {
-                ForEach(fusszeileOffen ? hinweise : Array(hinweise.prefix(1))) { hinweis in
+                ForEach(fusszeileOffen ? inhalt.hinweise : Array(inhalt.hinweise.prefix(1))) { hinweis in
                     if let symbol = hinweis.symbol {
                         Label(hinweis.text, systemImage: symbol)
                             .lineLimit(fusszeileOffen ? nil : 2)
@@ -884,13 +998,13 @@ struct LiniennetzView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
-            if hinweise.count > 1 {
+            if inhalt.hinweise.count > 1 {
                 Button {
                     withAnimation(.snappy) { fusszeileOffen.toggle() }
                 } label: {
                     HStack(spacing: 3) {
                         if !fusszeileOffen {
-                            Text("\(hinweise.count)")
+                            Text("\(inhalt.hinweise.count)")
                                 .monospacedDigit()
                         }
                         Image(systemName: fusszeileOffen ? "chevron.down" : "chevron.up")
@@ -901,7 +1015,7 @@ struct LiniennetzView: View {
                     .background(Capsule().fill(Color.secondary.opacity(0.16)))
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel(fusszeileOffen ? "Hinweise einklappen" : "Alle \(hinweise.count) Hinweise zeigen")
+                .accessibilityLabel(fusszeileOffen ? "Hinweise einklappen" : "Alle \(inhalt.hinweise.count) Hinweise zeigen")
             }
         }
         .font(.caption2)
