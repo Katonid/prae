@@ -35,8 +35,8 @@ struct EinstellungenView: View {
                 .onChange(of: model.anzahl) { _, _ in model.laden() }
 
                 Section {
-                    LabeledContent("1. Transitous", value: "überall")
-                    LabeledContent("2. MVV", value: "Großraum München")
+                    LabeledContent("1. Transitous", value: "Deutschland, Österreich, Schweiz")
+                    LabeledContent("2. Verkehrsverbund vor Ort", value: "wo einer antwortet")
                     LabeledContent("3. Zwischenspeicher", value: "ohne Netz")
                     Link(destination: model.dienst.quellenadresse) {
                         Label("transitous.org", systemImage: "arrow.up.right.square")
@@ -45,13 +45,15 @@ struct EinstellungenView: View {
                     Text("Woher die Zahlen kommen")
                 } footer: {
                     Text("""
-                        Die App fragt der Reihe nach. Transitous führt die offenen Fahrplandaten der Verkehrsverbünde zusammen — in Deutschland über DELFI, dazu große Teile Europas; kein Schlüssel, kein Konto. Antwortet es nicht, fragt die App im Großraum München die Schnittstelle des MVV. Antwortet auch die nicht, zeigt sie den zuletzt geholten Stand.
+                        Die App fragt der Reihe nach. Transitous führt die offenen Fahrplandaten der Verkehrsverbünde zusammen — Deutschland, Österreich, die Schweiz und große Teile Europas; kein Schlüssel, kein Konto. Das ist die Quelle für alles: Haltestellen, Abfahrten, Zwischenhalte und die Strecke auf der Karte.
 
-                        Was das heißt: Echtzeit gibt es nur dort, wo der Verbund sie herausgibt. Steht bei einer Abfahrt „Plan", hat niemand nachgesehen — die App zeigt dann die Fahrplanzeit und behauptet keine Pünktlichkeit. Und auch eine Echtzeitmeldung ist eine Meldung und keine Zusage.
+                        Antwortet sie nicht, fragt die App den Verkehrsverbund vor Ort — geprüft sind MVV, VRR, VVS, DING, VRN, VVO und efa-bw sowie opendata.ch für die Schweiz. Wo keiner davon zuständig ist, geht es ohne zweite Quelle weiter; die erste deckt die Gegend trotzdem ab. Antwortet auch die nicht, zeigt die App den zuletzt geholten Stand.
+
+                        Was das heißt: Echtzeit gibt es nur dort, wo der Verbund sie herausgibt — in Deutschland und der Schweiz fast überall, in Österreich je nach Gegend. Steht bei einer Abfahrt „Plan", hat niemand nachgesehen; die App zeigt dann die Fahrplanzeit und behauptet keine Pünktlichkeit. Und auch eine Echtzeitmeldung ist eine Meldung und keine Zusage.
 
                         Zeiten aus dem Zwischenspeicher sind immer als solche gekennzeichnet, mit Uhrzeit, und ihre Minutenziffern zählen nicht weiter. Eine alte Tafel, die weiterzählt, sähe richtig aus und wäre es nicht.
 
-                        Zeilen ohne Pfeil lassen sich nicht öffnen: Die MVV-Schnittstelle gibt eine Abfahrtstafel heraus, aber keinen Fahrtlauf mit Zwischenhalten.
+                        Zeilen ohne Pfeil lassen sich nicht öffnen: Die Schnittstellen der Verbünde geben eine Abfahrtstafel heraus, aber keinen Fahrtlauf mit Zwischenhalten.
                         """)
                 }
 

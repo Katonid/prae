@@ -365,9 +365,27 @@ enum Zeitleser {
         return f
     }()
 
+    /// Ein Zeitversatz OHNE Doppelpunkt („+0200"), wie ihn
+    /// `transport.opendata.ch` schreibt.
+    ///
+    /// `ISO8601DateFormatter` ist bei der Schreibweise der Zeitzone
+    /// eigensinnig: Je nachdem, ob `withColonSeparatorInTimeZone` gesetzt ist,
+    /// liest er „+02:00" oder „+0200" — und die andere Form gibt er als `nil`
+    /// zurück. `nil` an einer Abfahrtszeit heißt aber, dass die Zeile
+    /// stillschweigend aus der Liste fällt. Deshalb ein dritter Leser, der
+    /// beide Formen nimmt.
+    private static let mitVersatz: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.dateFormat = "yyyy-MM-dd'T'HH:mm:ssZZZ"
+        return f
+    }()
+
     static func datum(_ text: String?) -> Date? {
         guard let text = text?.nilWennLeer else { return nil }
-        return ohneBruchteile.date(from: text) ?? mitBruchteilen.date(from: text)
+        return ohneBruchteile.date(from: text)
+            ?? mitBruchteilen.date(from: text)
+            ?? mitVersatz.date(from: text)
     }
 
     static func iso(_ datum: Date) -> String {

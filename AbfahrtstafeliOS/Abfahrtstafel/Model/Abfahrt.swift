@@ -15,7 +15,7 @@ struct Abfahrt: Identifiable, Hashable, Codable, Sendable {
     /// Die Haltestelle muss hinein, weil dieselbe Fahrt an mehreren
     /// Haltestellen in der Nähe hält — ohne sie hielte SwiftUI zwei Zeilen für
     /// eine. Linie und Richtung müssen hinein, weil eine Quelle ohne
-    /// Fahrtkennung (MVV) sonst zwei Abfahrten derselben Minute an derselben
+    /// Fahrtkennung (die Verbünde) sonst zwei Abfahrten derselben Minute an derselben
     /// Haltestelle auf einen Schlüssel abbildete; eine davon verschwände
     /// stillschweigend aus der Liste.
     var id: String {
@@ -24,8 +24,9 @@ struct Abfahrt: Identifiable, Hashable, Codable, Sendable {
 
     /// Ob sich zu dieser Abfahrt der Fahrtlauf öffnen lässt.
     ///
-    /// Nicht jede Quelle liefert eine Fahrtkennung: Die EFA-Schnittstelle des
-    /// MVV gibt eine Abfahrtstafel heraus und keinen Fahrtlauf. Eine Zeile,
+    /// Nicht jede Quelle liefert eine Fahrtkennung: Die EFA-Schnittstellen der
+    /// Verkehrsverbünde geben eine Abfahrtstafel heraus und keinen Fahrtlauf.
+    /// Eine Zeile,
     /// die aussieht wie ein Knopf und beim Tippen nichts tut, ist für den
     /// Menschen davor ein kaputter Knopf — deshalb steht die Unterscheidung
     /// hier und wird in der Liste auch gezeigt.
@@ -47,7 +48,7 @@ struct Abfahrt: Identifiable, Hashable, Codable, Sendable {
     let istEchtzeit: Bool
     let faelltAus: Bool
 
-    /// Wer diese Zeile geliefert hat („Transitous", „MVV").
+    /// Wer diese Zeile geliefert hat („Transitous", „VRR", „opendata.ch").
     ///
     /// Sie steht an der EINZELNEN Abfahrt und nicht am Ladevorgang, weil eine
     /// Tafel aus zwei Quellen zusammenkommen kann: Fällt die erste für eine

@@ -42,13 +42,51 @@ Empfang — genau dort ist eine einzelne Quelle ein einzelner Ausfallpunkt.
 
 | # | Quelle | Deckung | Echtzeit |
 | --- | --- | --- | --- |
-| 1 | **Transitous** (MOTIS v1) | Deutschland + halb Europa | wo der Verbund sie herausgibt |
-| 2 | **MVV** (EFA) | Großraum München | ja, im Verbundgebiet |
+| 1 | **Transitous** (MOTIS) | DE, AT, CH + große Teile Europas | wo der Verbund sie herausgibt |
+| 2 | **Verbund vor Ort** (EFA / opendata.ch) | wo einer antwortet | ja |
 | 3 | **Zwischenspeicher** | zuletzt geholter Stand | nein — und das steht dabei |
 
-Haltestellensuche und Fahrtlauf gehen immer an Stufe 1: Nur sie liefert
-Zwischenhalte und Streckengeometrie. Zeilen aus Stufe 2 stehen deshalb ohne
-Pfeil da.
+**Stufe 1 trägt die App.** Sie liefert Haltestellen, Abfahrten, Zwischenhalte
+und die Strecke auf der Karte — überall. Stufe 2 ist ein Netz darunter, kein
+Ersatz: Wo kein Verbund zuständig ist, fehlt nichts, was Stufe 1 nicht schon
+hätte. Zeilen aus Stufe 2 stehen ohne Pfeil da, weil diese Schnittstellen
+keinen Fahrtlauf herausgeben.
+
+### Was in Stufe 2 steht — jede Zeile gemessen
+
+Angefragt am 18.09.2026 mit einer echten Koordinatenabfrage; aufgenommen wurde
+nur, was Abfahrten **mit Echtzeit** zurückgab.
+
+| Quelle | Gebiet | Ergebnis der Messung |
+| --- | --- | --- |
+| MVV | Großraum München | 6 Abfahrten, 6 mit Echtzeit |
+| VRR | Rhein-Ruhr, Niederrhein | 6 / 5 |
+| VVS | Region Stuttgart | 6 / 5 |
+| DING | Ulm, Donau-Iller | 6 / 6 |
+| VRN | Rhein-Neckar | 6 / 6 |
+| VVO | Dresden, Oberelbe | 6 / 6 |
+| efa-bw | ganz Baden-Württemberg | 6 / 6 |
+| opendata.ch | Schweiz | Zürich, Bern, Basel, Genf — durchweg Echtzeit |
+
+Die Reihenfolge ist Absicht: **erst örtlich, dann weiträumig.** Für Stuttgart
+und Ulm antworten sowohl der örtliche Verbund als auch das landesweite
+`efa-bw`; der örtliche kennt seine Stadtbusse besser.
+
+**Die Liste ist ausdrücklich nicht vollständig.** Sie muss es nicht sein —
+fehlt ein Verbund, bleibt es dort bei Stufe 1.
+
+### Österreich
+
+Stufe 1 deckt Österreich ab (Haltestellen, Abfahrten, Zwischenhalte, Karte).
+Die **Echtzeit ist dort regional verschieden** — gemessen am 18.09.2026:
+Graz 11 von 12 Abfahrten mit Echtzeit, Wien, Linz und Innsbruck keine,
+Salzburg eine von zehn. Wo sie fehlt, steht „Plan" an der Zeile.
+
+Eine zweite Quelle gibt es dort **nicht**, und zwar aus einem ehrlichen Grund:
+Die EFA-Stellen von VVT, OÖVV, SVV und VOR waren aus der Bauumgebung nicht
+erreichbar (Verbindungsabbruch bzw. 502 am Proxy). Ungeprüfte Adressen kommen
+hier nicht hinein — eine Quelle, die niemand gemessen hat, ist in einer Kette
+kein Rückfall, sondern nur eine zusätzliche Wartezeit davor.
 
 **[Transitous](https://transitous.org)**, angesprochen über die
 MOTIS-Schnittstelle v1 (`https://api.transitous.org/api/v1`).
@@ -89,7 +127,8 @@ Abfahrtstafel/
   Fahrplan/       Fahrplandienst + Abfahrtsquelle (Protokolle),
                   Kettendienst, Musterdienst
     Transitous/   die einzige Stelle, die MOTIS kennt
-    Mvv/          die einzige Stelle, die EFA kennt
+    Efa/          die einzige Stelle, die EFA kennt (+ Tabelle der Verbünde)
+    Schweiz/      die einzige Stelle, die opendata.ch kennt
   Dienste/        Standort, Uhrwerk, Merkliste, Abfahrtsspeicher
   Views/          Tafel, Haltestelle, Fahrt, Karte, Ortswahl, Einstellungen
 ```
@@ -131,12 +170,15 @@ Trennung, sondern eine Lüge mit Protokoll. Die Ansichten sehen weiterhin nur
   immer als alt gekennzeichnet — mit Uhrzeit, und **ohne laufende
   Minutenziffern**. Eine alte Tafel, die weiterzählt, sähe richtig aus und
   wäre es nicht.
-- **Der eingestellte Umkreis erreicht die MVV-Schnittstelle nicht.** Sie kennt
-  keinen Umkreisparameter und nimmt ihren eigenen; eine Tafel aus dieser
-  Quelle kann deshalb schmaler ausfallen als die eingestellten Meter.
-- **Nicht jede Zeile lässt sich öffnen.** Die MVV-Schnittstelle gibt eine
-  Abfahrtstafel heraus, aber keinen Fahrtlauf mit Zwischenhalten; solche
+- **Der eingestellte Umkreis erreicht die EFA-Schnittstellen nicht.** Sie
+  kennen keinen Umkreisparameter und nehmen ihren eigenen; eine Tafel aus
+  einer solchen Quelle kann deshalb schmaler ausfallen als die eingestellten
+  Meter.
+- **Nicht jede Zeile lässt sich öffnen.** Die Schnittstellen der Verbünde geben
+  eine Abfahrtstafel heraus, aber keinen Fahrtlauf mit Zwischenhalten; solche
   Zeilen stehen ohne Pfeil da.
+- **In Österreich gibt es keine zweite Quelle** und regional keine Echtzeit —
+  siehe oben. Die App sagt das an der Zeile („Plan"), statt es zu verwischen.
 
 ## Bauen
 
@@ -153,7 +195,7 @@ Bibliotheken) — nicht von Hand bearbeiten.
 `MARKETING_VERSION` und `CURRENT_PROJECT_VERSION` stehen an je zwei Stellen im
 pbxproj (Debug + Release); es gibt keine Skript-Bauphase. **Jede
 Arbeitseinheit hebt Patch- UND Build-Nummer um je +1.** Zählung ab 09/2026:
-1.0.0 (Build 1), dann 1.0.1 (Build 2) …
+1.0.0 (Build 1), dann 1.0.1 (Build 2), 1.0.2 (Build 3) …
 
 `ITSAppUsesNonExemptEncryption = NO` steht in `Config/Info.plist` und als
 Build-Einstellung — nicht entfernen.

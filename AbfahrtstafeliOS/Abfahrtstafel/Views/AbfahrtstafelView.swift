@@ -173,8 +173,8 @@ struct AbfahrtstafelView: View {
 
     /// Eine Zeile — als Verweis, WENN es einen Fahrtlauf dazu gibt.
     ///
-    /// Nicht jede Quelle liefert eine Fahrtkennung (die EFA-Schnittstelle des
-    /// MVV gibt eine Tafel heraus und keinen Lauf). Eine Zeile, die aussieht
+    /// Nicht jede Quelle liefert eine Fahrtkennung (die EFA-Schnittstellen der
+    /// Verbünde geben eine Tafel heraus und keinen Lauf). Eine Zeile, die aussieht
     /// wie ein Knopf und beim Tippen nichts tut, ist für den Menschen davor
     /// ein kaputter Knopf — solche Zeilen stehen deshalb ohne Pfeil da.
     @ViewBuilder

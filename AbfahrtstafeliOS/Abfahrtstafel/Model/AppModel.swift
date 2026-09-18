@@ -108,7 +108,7 @@ final class AppModel: ObservableObject {
     /// Die Quellen, die zu den gezeigten Zeilen wirklich beigetragen haben.
     ///
     /// Nicht die Liste der eingebauten Quellen: Was in der Fußzeile steht,
-    /// soll sagen, woher DIESE Tafel kommt. „Transitous, MVV" unter einer
+    /// soll sagen, woher DIESE Tafel kommt. „Transitous, VRR" unter einer
     /// Tafel, die ganz von Transitous stammt, wäre eine Angabe über die App
     /// und nicht über die Daten.
     var beteiligteQuellen: [String] {
