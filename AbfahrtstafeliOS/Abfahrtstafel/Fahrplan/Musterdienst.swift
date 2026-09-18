@@ -69,6 +69,105 @@ struct Musterdienst: Fahrplandienst {
         Self.beispielfahrt
     }
 
+    func orteSuchen(_ text: String, nahe punkt: CLLocationCoordinate2D?) async throws -> [Ortstreffer] {
+        let alle = [Self.marienplatz, Self.theatinerstrasse, Self.isartor]
+        return alle
+            .filter { $0.name.localizedCaseInsensitiveContains(text) }
+            .map {
+                Ortstreffer(
+                    id: $0.id,
+                    name: $0.name,
+                    gegend: "München",
+                    koordinate: $0.koordinate,
+                    istHaltestelle: true
+                )
+            }
+    }
+
+    /// Eine Beispielverbindung mit allem, was eine echte schwierig macht:
+    /// Fußweg, Umstieg, Verspätung. **Der laufende Beweis** — steckte in einer
+    /// Ansicht ein JSON-Feld von Transitous, ließe sich das hier nicht bauen.
+    func verbindungen(
+        von: CLLocationCoordinate2D,
+        nach: CLLocationCoordinate2D,
+        zeitpunkt: Date,
+        ankunft: Bool,
+        anzahl: Int
+    ) async throws -> [Verbindung] {
+        (0..<min(anzahl, 3)).map { nummer in
+            Self.beispielverbindung(ab: zeitpunkt.addingTimeInterval(Double(nummer) * 600), nummer: nummer)
+        }
+    }
+
+    private static func beispielverbindung(ab start: Date, nummer: Int) -> Verbindung {
+        func halt(_ haltestelle: Haltestelle, _ stelle: Int, _ zeit: Date) -> Zwischenhalt {
+            Zwischenhalt(
+                nummer: stelle,
+                haltestelle: haltestelle,
+                steig: nil,
+                ankunft: zeit,
+                geplanteAnkunft: zeit,
+                abfahrt: zeit,
+                geplanteAbfahrt: zeit,
+                faelltAus: false
+            )
+        }
+        let zuFuss = Verbindungsabschnitt(
+            id: "muster-fuss-\(nummer)",
+            art: .fussweg,
+            vonName: "Start",
+            nachName: marienplatz.name,
+            von: nil,
+            nach: marienplatz,
+            start: start,
+            ende: start.addingTimeInterval(240),
+            geplanterStart: nil,
+            geplantesEnde: nil,
+            linie: nil,
+            richtung: nil,
+            fahrtId: nil,
+            halte: [],
+            strecke: [],
+            meter: 310,
+            faelltAus: false,
+            istEchtzeit: false
+        )
+        let fahrtStart = start.addingTimeInterval(300)
+        let fahrt = Verbindungsabschnitt(
+            id: "muster-fahrt-\(nummer)",
+            art: .fahrt,
+            vonName: marienplatz.name,
+            nachName: isartor.name,
+            von: marienplatz,
+            nach: isartor,
+            start: fahrtStart.addingTimeInterval(180),
+            ende: fahrtStart.addingTimeInterval(600),
+            geplanterStart: fahrtStart,
+            geplantesEnde: fahrtStart.addingTimeInterval(420),
+            linie: Linienkennung(name: "S3", mittel: .sBahn, farbe: "702082", schriftfarbe: "FFFFFF", betrieb: "S-Bahn München"),
+            richtung: "Pasing",
+            fahrtId: "f-s3",
+            halte: [
+                halt(marienplatz, 0, fahrtStart.addingTimeInterval(180)),
+                halt(theatinerstrasse, 1, fahrtStart.addingTimeInterval(390)),
+                halt(isartor, 2, fahrtStart.addingTimeInterval(600)),
+            ],
+            strecke: [],
+            meter: nil,
+            faelltAus: false,
+            istEchtzeit: true
+        )
+        return Verbindung(
+            id: "muster-verbindung-\(nummer)",
+            abfahrt: start,
+            ankunft: fahrt.ende,
+            geplanteAbfahrt: start,
+            geplanteAnkunft: fahrt.geplantesEnde,
+            umstiege: 0,
+            abschnitte: [zuFuss, fahrt]
+        )
+    }
+
     // MARK: - Die Beispiele
 
     static func beispielabfahrten(ab jetzt: Date = Date()) -> [Abfahrt] {

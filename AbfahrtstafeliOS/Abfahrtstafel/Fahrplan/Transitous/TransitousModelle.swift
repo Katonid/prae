@@ -103,6 +103,21 @@ enum TransitousAntwort {
         let legs: [Abschnitt]?
     }
 
+    /// Die Antwort von `/plan` — die Verbindungsauskunft.
+    struct Reiseplan: Decodable {
+        let itineraries: [Reiseweg]?
+    }
+
+    /// Eine Verbindung: Fußwege und Fahrten in einer Kette.
+    struct Reiseweg: Decodable {
+        let id: String?
+        let startTime: String?
+        let endTime: String?
+        let duration: Double?
+        let transfers: Int?
+        let legs: [Abschnitt]?
+    }
+
     struct Abschnitt: Decodable {
         let mode: String?
         let from: Ort?
@@ -119,6 +134,19 @@ enum TransitousAntwort {
         let intermediateStops: [Ort]?
         let legGeometry: Geometrie?
         let realTime: Bool?
+        /// Die Zeiten des Abschnitts. `/trip` braucht sie nicht — dort stehen
+        /// sie an den Halten —, `/plan` sehr wohl: Ein Fußweg hat gar keine
+        /// Halte und wäre ohne sie ein Abschnitt ohne Anfang und Ende.
+        let startTime: String?
+        let endTime: String?
+        /// Nur an einem Fußweg: die Länge in Metern.
+        let distance: Double?
+        /// Die planmäßigen Zeiten des Abschnitts. Aus ihnen und `startTime`
+        /// wird die Verspätung — die Antwort führt sie getrennt, und genau
+        /// diese Trennung ist es, die „Plan" von „pünktlich" unterscheidet.
+        let scheduledStartTime: String?
+        let scheduledEndTime: String?
+        let tripTo: Ort?
     }
 
     struct Geometrie: Decodable {

@@ -1467,13 +1467,88 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   zerschlagen. **Die Streuung kommt aus einem eigenen FNV-Wert über den
   Liniennamen, nie aus `hashValue`** — den streut Swift je Programmlauf
   zufällig, die 462 wäre also morgens grün und abends blau.
+
+### Verbindungsauskunft (ab 1.0.11)
+
+- **Zweiter Reiter, nicht Untermenü der Tafel** (Ansage des Nutzers, 09/2026:
+  „Ich möchte die App zu einem echten Verbindungsplaner ausbauen."). Das sind
+  die zwei Fragen, mit denen man eine ÖPNV-App öffnet — „was fährt hier weg"
+  und „wie komme ich dorthin". Eine Auskunft im Untermenü einer Tafel fände
+  niemand; eine Tafel, die plötzlich eine Reise plant, wäre zwei Dinge auf
+  einmal.
+- **`/plan` ist die Auskunft, und die Orte reisen als KOORDINATEN.** Mit einer
+  Haltestellenkennung antwortet sie mit 404 (nachgemessen 19.09.2026). Die
+  Vorschlagsliste liefert ohnehin zu jedem Treffer Breite und Länge.
+- **Eine leere Ergebnisliste ist kein Fehler, sondern eine Auskunft.** `/plan`
+  antwortet mit HTTP 200 und null Verbindungen, wenn nichts fährt (gemessen mit
+  Dortmund → New York). Dafür gibt es `Fahrplanfehler.keineVerbindung` als
+  eigenen Fall, und `zeitHilft` trägt bis zum Knopf durch: „Noch einmal
+  versuchen" hilft nicht, wenn nachts nichts fährt — eine andere Zeit schon.
+  Dieselbe Bauweise wie `keineHaltestelleInDerNaehe`.
+- **Die Vorschlagsliste braucht ZWEI Abfragen** (`TransitousDienst.orteSuchen`).
+  `/geocode` kennt `placeBias`, und der wirkt kräftig — mit ihm gibt „kle" bei
+  Dortmund lauter Dortmunder Treffer, ohne ihn Zürich, Paris und Cleveland.
+  Zwei Fallen, und jede für sich macht die Liste unbrauchbar:
+  **`type=STOP` schaltet den Ortsbezug AUS** (mit beiden zusammen kamen für
+  „kle" wieder Paris und Tschechien — gefragt wird deshalb ohne `type`, und die
+  Haltestellen werden in der App herausgesucht), und **mit Ortsbezug ist die
+  Ferne unerreichbar** („Köln Hbf" gab bei Dortmund den Dortmunder
+  Hauptbahnhof, „Hamburg Hbf" ebenso). Eine Auskunft, die Köln nicht findet,
+  ist keine. Also beides nebenläufig und zusammengeführt: das Nahe zuerst, das
+  Ferne dahinter. **Wer hier auf eine Abfrage zurückbaut, bricht eine der
+  beiden Hälften.**
+- **Bis 1.0.10 war die Haltestellensuche NIE örtlich.** Sie schickte `type=STOP`
+  UND `place` — also genau die Kombination, die den Ortsbezug abschaltet — und
+  darüber stand ein Kommentar, der das Gegenteil behauptete. Ein Kommentar ist
+  keine Messung.
+- **Unter drei Zeichen antwortet die Quelle mit einer LEEREN Liste**, nicht mit
+  einem Fehler („k" und „kl" null Treffer, „kle" zehn). Die Zahl steht deshalb
+  am Protokoll (`Fahrplandienst.kuerzesteSuche`) und nicht in der Ansicht: Wie
+  kurz eine Eingabe sein darf, weiß nur die Quelle. Die Oberfläche schreibt
+  hin, wie viele Zeichen noch fehlen — eine leere Liste sähe aus wie „nichts
+  gefunden".
+- **Der Bezugspunkt der Vorschläge ist erst der gewählte Start, dann der eigene
+  Standort** (`bezugFuerVorschlaege`). Wer als Start „Dortmund Hbf" eingetippt
+  hat, sucht sein Ziel in Dortmund und nicht dort, wo das Telefon gerade liegt.
+- **Die Verbindungsauskunft hat KEINE zweite Reihe.** Die Verbünde in Stufe 2
+  geben eine Abfahrtstafel heraus und sonst nichts. Einen Rückfall zu bauen,
+  der stattdessen „die nächste Abfahrt in die ungefähre Richtung" zeigt, wäre
+  eine Vermutung im Gewand einer Auskunft. Fällt Stufe 1 aus, gibt es hier
+  nichts — und die App sagt das.
+- **Die Ergebnisliste lädt sich NICHT von selbst nach**, anders als die Tafel.
+  Eine Liste, die sich unter den Fingern neu sortiert, während jemand sie
+  liest, ist keine Hilfe. Aufgefrischt wird durch Ziehen, und die Fußzeile
+  nennt die Uhrzeit der Suche.
+- **Die Linienschilder SIND die Ergebniszeile.** Wer zwischen fünf Vorschlägen
+  wählt, entscheidet nach „S1 oder zweimal umsteigen" und nicht nach Minuten.
+  Die Fußwege stehen als Gehsymbol dazwischen — ohne sie sähe ein Vorschlag mit
+  zwanzig Minuten Fußweg aus wie einer, bei dem man am Bahnsteig gegenüber
+  umsteigt.
+- **Eine Verbindung mit ausfallendem Abschnitt wird GEZEIGT**, nicht
+  weggelassen — mit rotem Band. Wer sie im Kopf hat, sucht sie sonst und hält
+  die App für unvollständig. Dieselbe Regel wie beim entfallenden Halt.
+- **Zwischenhalte stehen zugeklappt da.** Bei einer Fahrt über zwanzig
+  Stationen wären sie der ganze Bildschirm; gesucht wird hier zuerst, wo man
+  ein-, um- und aussteigt.
+- **Fußwege sind gerechnet, nicht gemessen**, und das steht unter der Liste:
+  Wie lange jemand wirklich braucht, hängt vom Gehtempo ab und davon, wo der
+  Zugang zum Bahnsteig liegt. Ein Umstieg mit drei Minuten auf dem Papier kann
+  in einem großen Bahnhof knapp werden.
+- **`Verbindung` vergleicht sich über die KENNUNG.** Der erzeugte
+  `Hashable`-Leser käme nicht durch — in den Abschnitten stecken
+  `CLLocationCoordinate2D`, und die sind nicht `Hashable`. Gebraucht wird
+  beides nur für `navigationDestination(for:)`.
+- **Eine Kette für beide Bildschirme** (`AbfahrtstafelApp.dienst`). Zwei Ketten
+  nebeneinander hieße zwei Zwischenspeicher und zwei Meinungen darüber, welcher
+  Verbund gerade antwortet.
+
 - `MARKETING_VERSION` und `CURRENT_PROJECT_VERSION` stehen an je zwei
   Stellen im pbxproj (Debug + Release) — KEINE Skript-Bauphase. **Jede
   Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne Nachfrage,
   als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann 1.0.1
   (Build 2), 1.0.2 (Build 3), 1.0.3 (Build 4), 1.0.4 (Build 5), 1.0.5 (Build 6),
   1.0.6 (Build 7), 1.0.7 (Build 8),
-  1.0.8 (Build 9), 1.0.9 (Build 10), 1.0.10 (Build 11) usw. Dazu gesetzt (Ansage des Nutzers,
+  1.0.8 (Build 9), 1.0.9 (Build 10), 1.0.10 (Build 11), 1.0.11 (Build 12) usw. Dazu gesetzt (Ansage des Nutzers,
   09/2026): `DEVELOPMENT_TEAM = F4989GSTWS` — dieselbe Id wie Schulalarm und
   Tafelbild — und `INFOPLIST_KEY_LSApplicationCategoryType =
   public.app-category.navigation`. Beides steht als Build-Einstellung, weil

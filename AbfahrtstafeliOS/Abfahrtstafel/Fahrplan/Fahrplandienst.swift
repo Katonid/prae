@@ -44,6 +44,45 @@ protocol Fahrplandienst: Sendable {
 
     /// Der ganze Lauf einer Fahrt samt Zwischenhalten und Streckengeometrie.
     func fahrt(_ fahrtId: String) async throws -> Fahrt
+
+    /// Ortssuche für die Vorschlagsliste — Haltestellen UND Adressen.
+    ///
+    /// Getrennt von `haltestellenSuchen`, weil es eine andere Frage ist: Die
+    /// Ortswahl der Tafel will einen Bezugspunkt, also eine Haltestelle; ein
+    /// Ziel darf auch eine Adresse sein. Beides in eine Methode zu ziehen
+    /// hieße, an einer der beiden Stellen zu filtern — und Filtern im
+    /// Aufrufer ist genau die Art Wissen, die nicht in die Oberfläche gehört.
+    func orteSuchen(_ text: String, nahe punkt: CLLocationCoordinate2D?) async throws -> [Ortstreffer]
+
+    /// Ab wie vielen Zeichen die Ortssuche überhaupt etwas findet.
+    ///
+    /// Sie steht HIER und nicht in der Ansicht: Wie kurz eine Eingabe sein
+    /// darf, weiß nur die Quelle — Transitous antwortet unter drei Zeichen mit
+    /// einer leeren Liste. Die Oberfläche liest den Wert und schreibt hin, wie
+    /// viele Zeichen noch fehlen; eine leere Liste sähe sonst aus wie „nichts
+    /// gefunden". Eine Zahl, die in einer View steht, wäre beim nächsten
+    /// Quellenwechsel still falsch.
+    var kuerzesteSuche: Int { get }
+
+    /// Verbindungen von A nach B.
+    ///
+    /// `ankunft == true` heißt: `zeitpunkt` ist die gewünschte ANKUNFT. Das
+    /// ist keine Spielerei — „ich muss um neun da sein" ist die häufigere
+    /// Frage als „ich gehe jetzt los", und sie lässt sich aus der anderen
+    /// nicht ausrechnen.
+    func verbindungen(
+        von: CLLocationCoordinate2D,
+        nach: CLLocationCoordinate2D,
+        zeitpunkt: Date,
+        ankunft: Bool,
+        anzahl: Int
+    ) async throws -> [Verbindung]
+}
+
+extension Fahrplandienst {
+    /// Drei Zeichen — der gemessene Wert von Transitous. Wer eine Quelle
+    /// hinzufügt, die mehr oder weniger braucht, sagt es hier.
+    var kuerzesteSuche: Int { 3 }
 }
 
 /// Was schiefgehen kann — im Klartext, weil der Nutzer es liest.
@@ -66,6 +105,13 @@ enum Fahrplanfehler: LocalizedError, Equatable {
     /// Quelle einer. „Verbindung fehlgeschlagen" über einer Kette aus drei
     /// Quellen sagt nichts darüber, welche der drei gerissen ist.
     case keineQuelleAntwortet(gruende: [String])
+    /// Die Auskunft hat geantwortet und NICHTS gefunden.
+    ///
+    /// Ein eigener Fall und nicht `nichtsGefunden`: Das ist kein Fehler,
+    /// sondern eine Auskunft — zwischen diesen beiden Punkten fährt zu dieser
+    /// Zeit nichts. Ein „Noch einmal versuchen" wäre hier eine Sackgasse mit
+    /// Bedienelement; was hilft, ist eine andere Zeit oder ein anderes Ziel.
+    case keineVerbindung
     /// Es gibt NUR noch einen alten Stand — und der reist mitsamt seinem
     /// Alter.
     ///
@@ -88,6 +134,8 @@ enum Fahrplanfehler: LocalizedError, Equatable {
             return "Dazu hat der Fahrplandienst nichts."
         case .keineHaltestelleInDerNaehe:
             return "Um diesen Punkt herum kennt der Fahrplandienst keine Haltestelle. Der Dienst sucht nur etwa einen Kilometer weit — mitten im Feld oder im Wald findet er nichts, und das ist kein Fehler. Mit einem Punkt näher an einer Ortschaft geht es."
+        case .keineVerbindung:
+            return "Zwischen diesen beiden Punkten findet die Auskunft um diese Zeit keine Verbindung. Das ist kein Fehler der App — nachts, auf dem Land und über weite Strecken kommt das vor. Mit einer anderen Zeit oder einem Ziel näher an einer Haltestelle geht es oft doch."
         case .keineQuelleAntwortet(let gruende):
             let liste = gruende.isEmpty ? "" : "\n\n" + gruende.map { "• \($0)" }.joined(separator: "\n")
             return "Keine der Fahrplanquellen hat geantwortet.\(liste)"
@@ -113,6 +161,7 @@ extension Fahrplanfehler {
         case .antwortUnlesbar(let grund): return grund
         case .nichtsGefunden: return "nichts gefunden"
         case .keineHaltestelleInDerNaehe: return "keine Haltestelle in der Nähe"
+        case .keineVerbindung: return "keine Verbindung gefunden"
         case .keineQuelleAntwortet: return "keine Quelle"
         case .veralteterStand: return "nur ein alter Stand"
         case .abgebrochen: return "abgebrochen"

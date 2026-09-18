@@ -77,6 +77,33 @@ struct Kettendienst: Fahrplandienst {
         try await erste.fahrt(fahrtId)
     }
 
+    func orteSuchen(_ text: String, nahe punkt: CLLocationCoordinate2D?) async throws -> [Ortstreffer] {
+        try await erste.orteSuchen(text, nahe: punkt)
+    }
+
+    var kuerzesteSuche: Int { erste.kuerzesteSuche }
+
+    /// **Die Verbindungsauskunft hat KEINE zweite Reihe** — mit Absicht.
+    ///
+    /// Die Verbünde in Stufe 2 geben eine Abfahrtstafel heraus und sonst
+    /// nichts: keine Fahrtkennung, keine Streckengeometrie und erst recht
+    /// keine Reiseplanung (`Abfahrtsquelle` verspricht genau eine Sache).
+    /// Einen Rückfall zu bauen, der stattdessen „die nächste Abfahrt in die
+    /// ungefähre Richtung" zeigt, wäre keine Auskunft, sondern eine Vermutung
+    /// im Gewand einer. Fällt Stufe 1 aus, gibt es hier eben nichts — und die
+    /// App sagt das, statt etwas zu behaupten.
+    func verbindungen(
+        von: CLLocationCoordinate2D,
+        nach: CLLocationCoordinate2D,
+        zeitpunkt: Date,
+        ankunft: Bool,
+        anzahl: Int
+    ) async throws -> [Verbindung] {
+        try await erste.verbindungen(
+            von: von, nach: nach, zeitpunkt: zeitpunkt, ankunft: ankunft, anzahl: anzahl
+        )
+    }
+
     // MARK: - Die Kette
 
     func abfahrten(

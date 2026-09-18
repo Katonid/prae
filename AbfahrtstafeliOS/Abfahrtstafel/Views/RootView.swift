@@ -1,10 +1,14 @@
 import SwiftUI
 
-/// Die drei Reiter der App.
+/// Die vier Reiter der App.
 ///
-/// Drei und nicht mehr: Die Abfahrtstafel ist die App, „Gemerkt" ist die
-/// Abkürzung für den Alltag, und die Einstellungen sagen, woher die Zahlen
-/// kommen. Alles Weitere gehört an die Stelle, an der es gebraucht wird.
+/// Die ersten beiden sind die zwei Fragen, mit denen man eine ÖPNV-App öffnet:
+/// **was fährt hier weg** (Abfahrten) und **wie komme ich dorthin**
+/// (Verbindung). Sie stehen nebeneinander und nicht ineinander — eine Auskunft
+/// im Untermenü einer Tafel fände niemand, und eine Tafel, die plötzlich eine
+/// Reise plant, wäre zwei Dinge auf einmal. „Gemerkt" ist die Abkürzung für
+/// den Alltag, die Einstellungen sagen, woher die Zahlen kommen. Alles Weitere
+/// gehört an die Stelle, an der es gebraucht wird.
 struct RootView: View {
     @EnvironmentObject private var model: AppModel
     @EnvironmentObject private var standort: Standortdienst
@@ -16,6 +20,8 @@ struct RootView: View {
         TabView {
             AbfahrtstafelView()
                 .tabItem { Label("Abfahrten", systemImage: "tram.fill") }
+            VerbindungView()
+                .tabItem { Label("Verbindung", systemImage: "arrow.triangle.turn.up.right.diamond.fill") }
             MerklisteView()
                 .tabItem { Label("Gemerkt", systemImage: "star.fill") }
             EinstellungenView()
@@ -74,4 +80,5 @@ struct RootView: View {
         .environmentObject(Merkliste())
         .environmentObject(Liniennetz())
         .environmentObject(Meldungsdienst())
+        .environmentObject(Verbindungsmodell(dienst: Musterdienst()))
 }
