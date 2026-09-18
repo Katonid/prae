@@ -89,12 +89,14 @@ zwölf Zeichen ab), Ordner, Ziel und Bundle-Id bleiben „Abfahrtstafel“ /
 - **Karte auf den ganzen Bildschirm.** Der Knopf unten links zieht sie auf und
   schließt sie wieder. Ein Tipp auf einen Halt öffnet unverändert dessen
   Abfahrtstafel.
-- **Suchpunkt über den Nadelknopf.** Der Knopf unten links über dem
+- **Suchpunkt auf zwei Wegen.** Ein langer Tipp auf die Karte legt den
+  Bezugspunkt dorthin — oder der Nadelknopf unten links über dem
   Vollbildknopf blendet ein Fadenkreuz ein: Karte schieben, bis es auf der
-  Stelle liegt, dann „Suchpunkt hierher" — ohne Umweg über die Ortswahl.
-  Bis 1.1.14 war das ein langer Tipp auf die Karte; er ist entfallen, weil
-  eine SwiftUI-Geste auf einer Karte mit MapKits eigenen Erkennern um
-  dieselben Finger streitet und das Zoomen dabei verlor.
+  Stelle liegt, dann „Suchpunkt hierher". Beides ohne Umweg über die
+  Ortswahl.
+- **Karte prüfen.** In den Einstellungen steht, wie oft die Netzkarte neu
+  gezeichnet wird und was ein Aufbau kostet — für die Frage, warum sich eine
+  Karte zäh anfühlt. Rohzahlen, kopierbar, ohne Deutung.
 - **Die Halte der Linien gibt es überall**, nicht nur um den Suchpunkt.
   Gezeichnet wird, was im Kartenausschnitt liegt: Wer zur S-Bahn-Strecke
   schiebt oder hineinzoomt, bekommt dort alle Halte. Nur was gleichzeitig
