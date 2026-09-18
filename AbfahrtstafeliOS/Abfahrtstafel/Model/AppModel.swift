@@ -25,6 +25,17 @@ final class AppModel: ObservableObject {
     /// Der Punkt, auf den sich alles bezieht. `nil` heißt „noch keiner" —
     /// beim ersten Start, solange die Ortung sucht.
     @Published var punkt: Bezugspunkt?
+
+    /// Der zuletzt von Hand gewählte Ort — über Programmstarts hinweg.
+    ///
+    /// **Er ist NICHT der Bezugspunkt.** Die Tafel beginnt weiterhin beim
+    /// eigenen Standort; wer die App an der Haltestelle vor der Tür
+    /// aufschlägt, will nicht die Abfahrten von letzter Woche in Hamburg
+    /// sehen. Gebraucht wird er als STARTMITTE der Kartenwahl: Dort geht es um
+    /// „wo sehe ich nach", und die Antwort ist fast immer dieselbe Gegend wie
+    /// beim letzten Mal — nicht der Fleck, auf dem man gerade steht (Ansage
+    /// des Nutzers, 09/2026).
+    @Published private(set) var letzterOrt: Bezugspunkt?
     @Published private(set) var abfahrten: [Abfahrt] = []
     @Published private(set) var stand: Ladestand = .leer
     /// Wann die gezeigten Zahlen geholt wurden. Sie steht in der Fußzeile,
@@ -82,6 +93,34 @@ final class AppModel: ObservableObject {
         umkreis = gelesenerUmkreis > 0 ? gelesenerUmkreis : 500
         let geleseneAnzahl = ablage.integer(forKey: "abfahrtenAnzahl")
         anzahl = geleseneAnzahl > 0 ? geleseneAnzahl : 40
+        letzterOrt = Self.letztenOrtLesen(aus: ablage)
+    }
+
+    // MARK: - Der zuletzt gewählte Ort
+
+    /// Gelesen wird über DREI Schlüssel und nicht über einen kodierten Wert.
+    ///
+    /// `CLLocationCoordinate2D` ist nicht `Codable`, und ein eigener Leser für
+    /// drei Zahlen wäre mehr Quelltext als die drei Zeilen hier. Dass 0/0
+    /// (fehlender Schlüssel) im Golf von Guinea liegt, ist der Grund für die
+    /// Prüfung: Ohne sie öffnete die Karte dort, sobald jemand noch nie einen
+    /// Ort gewählt hat.
+    private static func letztenOrtLesen(aus ablage: UserDefaults) -> Bezugspunkt? {
+        guard let name = ablage.string(forKey: "letzterOrtName") else { return nil }
+        let breite = ablage.double(forKey: "letzterOrtBreite")
+        let laenge = ablage.double(forKey: "letzterOrtLaenge")
+        guard breite != 0 || laenge != 0 else { return nil }
+        return .gewaehlterOrt(
+            name: name,
+            koordinate: CLLocationCoordinate2D(latitude: breite, longitude: laenge)
+        )
+    }
+
+    private func letztenOrtMerken(name: String, koordinate: CLLocationCoordinate2D) {
+        letzterOrt = .gewaehlterOrt(name: name, koordinate: koordinate)
+        ablage.set(name, forKey: "letzterOrtName")
+        ablage.set(koordinate.latitude, forKey: "letzterOrtBreite")
+        ablage.set(koordinate.longitude, forKey: "letzterOrtLaenge")
     }
 
     // MARK: - Abgeleitetes
@@ -245,7 +284,13 @@ final class AppModel: ObservableObject {
         laden(erzwingen: vorher == nil)
     }
 
+    /// Ein Ort von Hand — aus der Suche, der Merkliste oder von der Karte.
+    ///
+    /// Alle drei Wege laufen hier zusammen, und deshalb wird hier gemerkt:
+    /// Ein „zuletzt gewählter Ort", der nur die Karte zählte, wäre nach einer
+    /// Suche nach „Dortmund Hbf" wieder der Punkt von vorgestern.
     func ortWaehlen(name: String, koordinate: CLLocationCoordinate2D) {
+        letztenOrtMerken(name: name, koordinate: koordinate)
         punkt = .gewaehlterOrt(name: name, koordinate: koordinate)
         abfahrten = []
         geladenFuer = nil

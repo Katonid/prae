@@ -30,7 +30,10 @@ zwölf Zeichen ab), Ordner, Ziel und Bundle-Id bleiben „Abfahrtstafel“ /
   Karte die Verbindung der Halte **gestrichelt** und schreibt darunter, dass
   es die Luftlinie ist.
 - **Freier Punkt.** Ortssuche, gemerkte Haltestellen, oder ein Fadenkreuz auf
-  der Karte („wie sieht es dort aus, wo ich morgen hinmuss?“).
+  der Karte („wie sieht es dort aus, wo ich morgen hinmuss?“). Die Karte
+  beginnt beim **zuletzt gewählten Ort** — vor dem eigenen Standort, und
+  unabhängig davon, wie lange das her ist. Unter dem Knopf steht, wo sie
+  aufgehen wird.
 - **Liniennetz auf der Karte.** Die Verläufe aller Linien, die hier
   verkehren, übereinandergelegt — gefiltert mit derselben Leiste wie die
   Liste. Ein Tipp in der Legende hebt eine Linie hervor, die anderen treten
@@ -246,7 +249,7 @@ Bibliotheken) — nicht von Hand bearbeiten.
 pbxproj (Debug + Release); es gibt keine Skript-Bauphase. **Jede
 Arbeitseinheit hebt Patch- UND Build-Nummer um je +1.** Zählung ab 09/2026:
 1.0.0 (Build 1), dann 1.0.1 (Build 2), 1.0.2 (Build 3), 1.0.3 (Build 4), 1.0.4 (Build 5),
-1.0.5 (Build 6), 1.0.6 (Build 7) …
+1.0.5 (Build 6), 1.0.6 (Build 7), 1.0.7 (Build 8) …
 
 `ITSAppUsesNonExemptEncryption = NO` steht in `Config/Info.plist` und als
 Build-Einstellung — nicht entfernen.

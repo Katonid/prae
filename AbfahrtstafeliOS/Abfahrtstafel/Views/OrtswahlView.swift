@@ -51,10 +51,19 @@ struct OrtswahlView: View {
                     .disabled(standortNichtMoeglich)
 
                     Button {
-                        kartenmitte = model.punkt?.koordinate ?? standortKoordinate
+                        kartenmitte = kartenstart
                         karteOffen = true
                     } label: {
-                        Label("Punkt auf der Karte wählen", systemImage: "mappin.and.ellipse")
+                        Label {
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text("Punkt auf der Karte wählen")
+                                Text(kartenstarttext)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        } icon: {
+                            Image(systemName: "mappin.and.ellipse")
+                        }
                     }
                 }
 
@@ -98,7 +107,7 @@ struct OrtswahlView: View {
                 }
             }
             .sheet(isPresented: $karteOffen) {
-                Kartenwahl(mitte: kartenmitte ?? Musterdienst.marienplatz.koordinate) { punkt, name in
+                Kartenwahl(mitte: kartenmitte ?? Self.letzteRettung) { punkt, name in
                     model.ortWaehlen(name: name, koordinate: punkt)
                     karteOffen = false
                     schliessen()
@@ -111,6 +120,40 @@ struct OrtswahlView: View {
         if case .da(let hier) = standort.stand { return hier }
         return nil
     }
+
+    /// Wo die Kartenwahl aufgeht.
+    ///
+    /// **Der zuletzt gewählte Ort zuerst — vor dem eigenen Standort** (ab
+    /// 1.0.7, Ansage des Nutzers 09/2026: „nicht immer München als Startort,
+    /// sondern den zuletzt gewählten Ort, unabhängig davon, wann das war und
+    /// wo ich mich momentan befinde"). Bis 1.0.6 stand hier
+    /// `model.punkt?.koordinate` — und `punkt` ist beim gewöhnlichen Gebrauch
+    /// der eigene Standort, also fiel die Kartenwahl auf ihn zurück und ohne
+    /// Ortung ganz auf einen fest eingebauten Punkt in München. Wer die Karte
+    /// öffnet, sucht aber gerade NICHT die Stelle, auf der er steht: Dafür
+    /// gibt es die Zeile darüber.
+    private var kartenstart: CLLocationCoordinate2D? {
+        model.letzterOrt?.koordinate ?? standortKoordinate
+    }
+
+    private var kartenstarttext: String {
+        if let letzter = model.letzterOrt {
+            return "Beginnt bei \(letzter.beschriftung)"
+        }
+        if standortKoordinate != nil {
+            return "Beginnt bei deinem Standort"
+        }
+        return "Noch kein Ort gewählt und keine Ortung — die Karte beginnt in München"
+    }
+
+    /// Der Fleck, an dem die Karte aufgeht, wenn es WIRKLICH nichts gibt:
+    /// nie ein Ort gewählt und keine Ortung. Eine Karte muss irgendwo
+    /// anfangen; dass es München ist, sagt die Zeile unter dem Knopf, statt
+    /// es als Auskunft auszugeben.
+    private static let letzteRettung = CLLocationCoordinate2D(
+        latitude: 48.137047,
+        longitude: 11.575386
+    )
 
     private var standortNichtMoeglich: Bool {
         standort.stand == .abgelehnt || standort.stand == .ausgeschaltet
