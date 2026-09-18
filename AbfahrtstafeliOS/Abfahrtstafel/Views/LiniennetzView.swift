@@ -55,9 +55,32 @@ struct LiniennetzView: View {
                     )
             }
 
-            // Die Haltestellen als Punkte. Sie sind der Anker, an dem man die
-            // Linien im Netz wiederfindet — ohne sie ist es ein Liniengewirr
-            // ohne Bezug zu dem, was in der Liste steht.
+            // Die Halte der gezeichneten Linien.
+            ForEach(sichtbareHalte) { halt in
+                Annotation(halt.name, coordinate: halt.koordinate, anchor: .center) {
+                    Linienhalt(farbe: halt.farbe, gross: halt.gross)
+                }
+                // Beschriftet nur, wenn EINE Linie hervorgehoben ist. Sonst
+                // lägen dreihundert Haltestellennamen übereinander und die
+                // Karte wäre unlesbar.
+                .annotationTitles(hervorgehoben == nil ? .hidden : .automatic)
+            }
+
+            // Die Liniennummer auf dem Zug selbst. Ohne sie ist die Karte ein
+            // Bündel farbiger Striche, und die Legende am Rand zwingt zum
+            // Hin- und Herschauen.
+            ForEach(beschriftungen) { marke in
+                Annotation("", coordinate: marke.punkt, anchor: .center) {
+                    Liniensymbol(linie: marke.linie)
+                        .opacity(hervorgehoben == nil || hervorgehoben == marke.id ? 1 : 0.25)
+                        .shadow(color: .black.opacity(0.25), radius: 2, y: 1)
+                }
+                .annotationTitles(.hidden)
+            }
+
+            // Die Haltestellen um den Bezugspunkt — die aus der Liste
+            // nebenan. Sie stehen ÜBER den Linienhalten, weil sie die Frage
+            // beantworten, mit der jemand die Karte öffnet.
             ForEach(model.gruppen) { gruppe in
                 Annotation(gruppe.name, coordinate: gruppe.koordinate, anchor: .center) {
                     ZStack {
@@ -91,6 +114,87 @@ struct LiniennetzView: View {
         .onChange(of: netz.zuege.count) { _, _ in
             guard !netz.zuege.isEmpty else { return }
             kamera = .rect(ausschnitt)
+        }
+    }
+
+    // MARK: - Was auf der Karte steht
+
+    /// Ein Halt einer gezeichneten Linie.
+    private struct Linienhaltpunkt: Identifiable {
+        let id: String
+        let name: String
+        let koordinate: CLLocationCoordinate2D
+        let farbe: Color
+        let gross: Bool
+    }
+
+    /// **Wie viele Haltepunkte höchstens gezeichnet werden.**
+    ///
+    /// Eine Buslinie hat leicht sechzig Halte; zwölf Linien ergeben auch nach
+    /// dem Zusammenlegen gemeinsamer Halte schnell dreihundert Punkte. Jeder
+    /// davon ist in SwiftUI eine eigene Ansicht — ab einigen Hundert wird das
+    /// Schieben der Karte zäh. Über der Grenze werden deshalb GAR KEINE
+    /// gezeichnet und die Fußzeile sagt, wie man trotzdem an sie kommt: eine
+    /// Linie antippen. Ein paar willkürlich ausgewählte zu zeigen wäre
+    /// schlechter als keine — man hielte die Lücken für Wirklichkeit.
+    private var hoechstzahlHalte: Int { 260 }
+
+    private var sichtbareHalte: [Linienhaltpunkt] {
+        if let hervorgehoben, let zug = netz.zuege.first(where: { $0.id == hervorgehoben }) {
+            // Eine Linie hervorgehoben: ihre Halte, und zwar alle. Das ist
+            // der Fall, für den die Punkte gebaut sind.
+            return zug.halte.enumerated().map { nummer, halt in
+                Linienhaltpunkt(
+                    id: "\(zug.id)#\(nummer)",
+                    name: halt.name,
+                    koordinate: halt.koordinate,
+                    farbe: zug.linie.anzeigefarbe,
+                    gross: nummer == 0 || nummer == zug.halte.count - 1
+                )
+            }
+        }
+
+        var gesehen = Set<String>()
+        var punkte: [Linienhaltpunkt] = []
+        for zug in netz.zuege {
+            for halt in zug.halte {
+                guard gesehen.insert(halt.id).inserted else { continue }
+                punkte.append(
+                    Linienhaltpunkt(
+                        id: halt.id,
+                        name: halt.name,
+                        koordinate: halt.koordinate,
+                        farbe: zug.linie.anzeigefarbe,
+                        gross: false
+                    )
+                )
+            }
+        }
+        return punkte.count > hoechstzahlHalte ? [] : punkte
+    }
+
+    private var zuVieleHalte: Bool {
+        hervorgehoben == nil && sichtbareHalte.isEmpty && !netz.zuege.isEmpty
+    }
+
+    private struct Liniennummer: Identifiable {
+        let id: String
+        let linie: Linienkennung
+        let punkt: CLLocationCoordinate2D
+    }
+
+    /// Je Linie EINE Nummer auf der Karte.
+    ///
+    /// Gesetzt an einer Stelle, die sich mit der Position der Linie in der
+    /// Liste verschiebt: Zwölf Linien, die im Stadtzentrum alle
+    /// übereinanderliegen, hätten sonst zwölf Schilder auf demselben Fleck.
+    /// So verteilen sie sich über den Verlauf.
+    private var beschriftungen: [Liniennummer] {
+        let anzahl = max(netz.zuege.count - 1, 1)
+        return netz.zuege.enumerated().compactMap { nummer, zug in
+            let anteil = 0.22 + 0.56 * (Double(nummer) / Double(anzahl))
+            guard let punkt = zug.punkt(beiAnteil: anteil) else { return nil }
+            return Liniennummer(id: zug.id, linie: zug.linie, punkt: punkt)
         }
     }
 
@@ -158,7 +262,12 @@ struct LiniennetzView: View {
             if netz.zuege.contains(where: \.istLuftlinie) {
                 Text("Gestrichelte Linien sind Luftlinien zwischen den Halten — für sie kam keine Streckenführung mit.")
             }
-            Text("Je Linie ist ein Lauf gezeichnet; die Gegenrichtung fährt denselben Weg zurück. Höchstens zwölf Linien.")
+            if zuVieleHalte {
+                Text("Zu viele Halte für die Übersicht — eine Linie in der Legende antippen zeigt ihre Haltestellen mit Namen.")
+            } else if hervorgehoben == nil {
+                Text("Die kleinen Punkte sind die Halte der gezeichneten Linien. Eine Linie antippen zeigt ihre Halte mit Namen.")
+            }
+            Text("Je Linie ist ein Lauf gezeichnet; die Gegenrichtung fährt denselben Weg zurück. Höchstens zwölf Linien. Wo der Verbund keine Linienfarbe führt, wird die Farbe des Verkehrsmittels je Linie leicht abgewandelt.")
         }
         .font(.caption2)
         .foregroundStyle(.secondary)
@@ -177,6 +286,23 @@ struct LiniennetzView: View {
             rahmen = rahmen.union(MKMapRect(origin: MKMapPoint(punkt), size: MKMapSize(width: 0, height: 0)))
         }
         return rahmen.insetBy(dx: -rahmen.size.width * 0.08 - 300, dy: -rahmen.size.height * 0.08 - 300)
+    }
+}
+
+/// Ein Halt auf einem Linienzug — klein, in der Farbe seiner Linie.
+private struct Linienhalt: View {
+    let farbe: Color
+    let gross: Bool
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .fill(.background)
+                .frame(width: gross ? 13 : 8, height: gross ? 13 : 8)
+            Circle()
+                .strokeBorder(farbe, lineWidth: gross ? 3.5 : 2.5)
+                .frame(width: gross ? 13 : 8, height: gross ? 13 : 8)
+        }
     }
 }
 

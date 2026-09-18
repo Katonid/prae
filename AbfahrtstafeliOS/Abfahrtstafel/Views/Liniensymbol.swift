@@ -31,9 +31,68 @@ extension Color {
     }
 }
 
+extension Color {
+    /// Verschiebt den Farbton ein Stück und ändert Sättigung und Helligkeit
+    /// leicht — für die Unterscheidung mehrerer Linien derselben Art.
+    func abgewandelt(farbton: Double, helligkeit: Double) -> Color {
+        #if canImport(UIKit)
+        var h: CGFloat = 0, s: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        guard UIColor(self).getHue(&h, saturation: &s, brightness: &b, alpha: &a) else { return self }
+        let neuerTon = (Double(h) + farbton).truncatingRemainder(dividingBy: 1.0)
+        return Color(
+            hue: neuerTon < 0 ? neuerTon + 1 : neuerTon,
+            saturation: min(max(Double(s) + farbton * 0.35, 0.35), 1.0),
+            brightness: min(max(Double(b) + helligkeit, 0.32), 0.92)
+        )
+        #else
+        return self
+        #endif
+    }
+}
+
 extension Linienkennung {
+    /// Die Farbe des Liniensymbols und des Linienzugs auf der Karte.
+    ///
+    /// Erste Wahl ist immer die Farbe, die der Verkehrsverbund selbst führt
+    /// (GTFS `route_color`) — die steht an der Haltestelle und im Netzplan,
+    /// und eine eigene daneben zu stellen wäre eine Verschlimmbesserung.
+    ///
+    /// **Fehlt sie, wird die Rückfallfarbe je Linie ABGEWANDELT** (ab 1.0.5,
+    /// gewünscht 09/2026). Ohne das sind auf der Karte alle Busse derselbe
+    /// Violettton und alle Regionalzüge dasselbe Grau — bei zwölf Linien
+    /// übereinander ist dann nicht zu erkennen, welcher Strich zu welcher
+    /// Nummer gehört. Verschoben wird nur INNERHALB der Farbfamilie: Die
+    /// gewohnte deutsche Zuordnung (S-Bahn grün, U-Bahn blau, Tram rot, Bus
+    /// violett) liest ein Fahrgast ohne hinzusehen, und die darf eine
+    /// Unterscheidungshilfe nicht zerschlagen.
     var anzeigefarbe: Color {
-        Color(hex: farbe) ?? mittel.rueckfallfarbe
+        if let eigene = Color(hex: farbe) { return eigene }
+        let streuung = Self.streuwert(name)
+        // ±0,055 im Farbton reicht, um zwei Striche nebeneinander zu trennen,
+        // und bleibt weit genug von der Nachbarfamilie entfernt. Die
+        // Helligkeit wandert zusätzlich ein wenig, damit auch zwei Linien mit
+        // zufällig ähnlichem Ton auseinandergehen.
+        return mittel.rueckfallfarbe.abgewandelt(
+            farbton: (streuung.0 - 0.5) * 0.11,
+            helligkeit: (streuung.1 - 0.5) * 0.22
+        )
+    }
+
+    /// Zwei Zahlen zwischen 0 und 1, fest aus dem Liniennamen abgeleitet.
+    ///
+    /// Fest heißt: Dieselbe Linie bekommt immer dieselbe Farbe — über
+    /// Programmstarts hinweg und auf jedem Gerät. `hashValue` wäre die
+    /// naheliegende Quelle und taugt dafür NICHT: Swift streut ihn je
+    /// Programmlauf zufällig, die 462 wäre also morgens grün und abends
+    /// blau.
+    private static func streuwert(_ text: String) -> (Double, Double) {
+        var wert: UInt64 = 1469598103934665603
+        for byte in Array(text.utf8) {
+            wert = (wert ^ UInt64(byte)) &* 1099511628211
+        }
+        let eins = Double((wert >> 8) & 0xFFFF) / 65535
+        let zwei = Double((wert >> 32) & 0xFFFF) / 65535
+        return (eins, zwei)
     }
 
     /// Die Schriftfarbe auf dem Liniensymbol.

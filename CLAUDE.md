@@ -1328,6 +1328,38 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   (`AppModel.beteiligteQuellen`), nicht die eingebauten. „Transitous, VRR"
   unter einer Tafel, die ganz von Transitous stammt, wäre eine Angabe über
   die App und nicht über die Daten.
+- **Der Sichtumschalter steht IM INHALT, nicht in der Werkzeugleiste**
+  (`Sichtwahl` in `AbfahrtstafelView`, ab 1.0.5, gemeldet 09/2026: „Ich kann
+  die Karte bei der Darstellung auf dem iPhone nirgends finden."). Bis 1.0.4
+  war er ein `.pickerStyle(.menu)` in `ToolbarItem(placement: .topBarLeading)`
+  — ein Symbol, das niemand aufklappt. **Auf dem iPad fiel das nicht auf**,
+  weil die Karte dort von Haus aus neben der Liste steht; der Fehler war damit
+  nur auf dem Gerät zu sehen, auf dem er zählt. Jetzt eine Segmentleiste
+  „Haltestellen | Zeit | Karte" unter der Ortsleiste. Dieselbe Lehre wie beim
+  Gruppenchat in Schulalarm und beim Zurücksetzen in Tafelbild: **Ein Knopf,
+  den niemand findet, ist kein Knopf.** Nicht zurück in die Werkzeugleiste.
+- **Die Halte der gezeichneten Linien stehen auf der Karte** (`Linienzug.halte`,
+  `sichtbareHalte`, ab 1.0.5). Ein Linienzug ohne Punkte ist ein Strich über
+  der Karte, an dem sich nicht ablesen lässt, ob er dort hält, wo jemand
+  hinwill. Beschriftet wird aber NUR, wenn eine Linie hervorgehoben ist —
+  sonst lägen dreihundert Haltestellennamen übereinander. **Über 260 Punkten
+  werden GAR KEINE gezeichnet** und die Fußzeile sagt, wie man doch an sie
+  kommt (eine Linie antippen): Jeder Punkt ist eine eigene SwiftUI-Ansicht,
+  und ein paar willkürlich ausgewählte wären schlechter als keine — man hielte
+  die Lücken für Wirklichkeit.
+- **Die Liniennummer liegt auf dem Zug**, nicht nur in der Legende
+  (`beschriftungen`). Gesetzt an einem Anteil des Verlaufs, der sich mit der
+  Stelle der Linie in der Liste verschiebt (0,22 bis 0,78) — zwölf Linien, die
+  im Stadtzentrum übereinanderliegen, hätten sonst zwölf Schilder auf
+  demselben Fleck.
+- **Fehlt die Linienfarbe, wird die Rückfallfarbe je Linie ABGEWANDELT**
+  (`Color.abgewandelt`, `Linienkennung.anzeigefarbe`, ab 1.0.5). Sonst sind
+  alle Busse derselbe Violettton. Verschoben wird nur INNERHALB der
+  Farbfamilie (±0,055 im Farbton): Die gewohnte deutsche Zuordnung liest ein
+  Fahrgast ohne hinzusehen, und die darf eine Unterscheidungshilfe nicht
+  zerschlagen. **Die Streuung kommt aus einem eigenen FNV-Wert über den
+  Liniennamen, nie aus `hashValue`** — den streut Swift je Programmlauf
+  zufällig, die 462 wäre also morgens grün und abends blau.
 - `MARKETING_VERSION` und `CURRENT_PROJECT_VERSION` stehen an je zwei
   Stellen im pbxproj (Debug + Release) — KEINE Skript-Bauphase. **Jede
   Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne Nachfrage,

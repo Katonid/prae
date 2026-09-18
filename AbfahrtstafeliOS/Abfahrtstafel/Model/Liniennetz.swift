@@ -7,10 +7,30 @@ struct Linienzug: Identifiable, Sendable {
     let linie: Linienkennung
     let richtung: String
     let punkte: [CLLocationCoordinate2D]
+    /// Die Halte DIESER Linie, in Fahrtrichtung.
+    ///
+    /// Sie sind etwas anderes als die Haltestellen um den Bezugspunkt: Die
+    /// stehen für „von wo komme ich weg", diese hier für „wo hält die Linie
+    /// unterwegs". Ohne sie ist ein Linienzug ein Strich über der Karte, an
+    /// dem man nicht ablesen kann, ob er dort anhält, wo man hinwill.
+    let halte: [Haltestelle]
     /// Der Fahrplandienst hat keine Geometrie mitgeschickt; gezeichnet wird
     /// die Verbindung der Halte. Die Karte stellt das gestrichelt dar und
     /// schreibt es dazu — dieselbe Regel wie bei der einzelnen Fahrt.
     let istLuftlinie: Bool
+
+    /// Ein Punkt auf dem Linienzug, angegeben als Anteil seiner Länge.
+    ///
+    /// Gerechnet wird über den INDEX und nicht über die wirkliche Länge: Die
+    /// Stützpunkte einer Streckengeometrie liegen dicht genug beieinander,
+    /// dass der Unterschied für das Setzen einer Beschriftung keine Rolle
+    /// spielt — und die Bogenlänge zu summieren kostete bei 600 Punkten je
+    /// Linie Rechenzeit für nichts.
+    func punkt(beiAnteil anteil: Double) -> CLLocationCoordinate2D? {
+        guard !punkte.isEmpty else { return nil }
+        let stelle = Int((Double(punkte.count - 1) * min(max(anteil, 0), 1)).rounded())
+        return punkte[stelle]
+    }
 }
 
 /// Die Linien, die um den Bezugspunkt herum verkehren — als Netz auf der
@@ -155,6 +175,7 @@ final class Liniennetz: ObservableObject {
                         linie: wunsch.linie,
                         richtung: wunsch.richtung,
                         punkte: punkte,
+                        halte: fahrt.halte.map(\.haltestelle),
                         istLuftlinie: !ausGeometrie
                     )
                 }
