@@ -160,6 +160,12 @@ struct LiniennetzView: View, Equatable {
         // steht auf der Karte still ein alter Stand, und das ist der
         // gefährlichere Fehler als ein Durchgang zu viel.
         .onChange(of: netz.stand) { _, _ in neuRechnen() }
+        // Die Zahl der weggelassenen Linien steht in der Fußzeile und kann
+        // sich ändern, OHNE dass sich die gewählten zwölf ändern — kommt eine
+        // dreizehnte Linie dazu, bleibt `netz.stand` gleich. Ohne diese Zeile
+        // stünde darunter still eine alte Zahl.
+        .onChange(of: netz.nichtGezeichnet) { _, _ in neuRechnen() }
+        .onChange(of: netz.ohneVerlauf) { _, _ in neuRechnen() }
         .onChange(of: hervorgehoben) { _, _ in neuRechnen() }
         .onChange(of: meldungen.geholtUm) { _, _ in neuRechnen() }
         .onChange(of: legendeOffen) { _, _ in neuRechnen() }
@@ -267,7 +273,14 @@ struct LiniennetzView: View, Equatable {
     }
 
     private func aufbauen() {
-        netz.aufbauen(aus: model.nachZeit, dienst: model.dienst)
+        // Der Bezugspunkt entscheidet seit 1.1.24 mit, WELCHE zwölf Linien
+        // gezeichnet werden — die nächstgelegenen, nicht die zufällig
+        // zuerst abfahrenden.
+        netz.aufbauen(
+            aus: model.nachZeit,
+            bezug: model.punkt?.koordinate,
+            dienst: model.dienst
+        )
     }
 
     // MARK: - Karte
@@ -1083,6 +1096,15 @@ struct LiniennetzView: View, Equatable {
                 text: netz.entfallendeHalte == 1
                     ? "Ein Halt entfällt heute (rot durchgestrichen). Der gezeichnete Linienweg bleibt der PLANMÄSSIGE — welchen Weg das Fahrzeug stattdessen fährt, gibt keine Quelle heraus."
                     : "\(netz.entfallendeHalte) Halte entfallen heute (rot durchgestrichen). Die gezeichneten Linienwege bleiben die PLANMÄSSIGEN — welchen Weg die Fahrzeuge stattdessen fahren, gibt keine Quelle heraus."
+            ))
+        }
+        if netz.nichtGezeichnet > 0 {
+            liste.append(Hinweis(
+                id: "nichtGezeichnet",
+                symbol: "exclamationmark.triangle",
+                text: netz.nichtGezeichnet == 1
+                    ? "Eine weitere Linie fährt hier, ist aber nicht gezeichnet — die Karte zeigt höchstens zwölf, und zwar die dem Punkt nächsten. Ein kleinerer Umkreis oder ein Filter holt die übrigen herein."
+                    : "\(netz.nichtGezeichnet) weitere Linien fahren hier, sind aber nicht gezeichnet — die Karte zeigt höchstens zwölf, und zwar die dem Punkt nächsten. Ein kleinerer Umkreis oder ein Filter holt die übrigen herein."
             ))
         }
         if netz.ohneVerlauf > 0 {

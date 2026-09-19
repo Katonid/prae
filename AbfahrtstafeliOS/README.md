@@ -112,6 +112,17 @@ zwölf Zeichen ab), Ordner, Ziel und Bundle-Id bleiben „Abfahrtstafel“ /
   Prozent überhaupt unterscheidbar. Die Karte dünnt deshalb auf den Maßstab
   aus — nie weiter, als ein Bildpunkt reicht. Wer hineinzoomt, bekommt den
   vollen Verlauf zurück.
+- **Die Karte zeichnet höchstens zwölf Linien — und zwar die nächsten.** Jeder
+  Linienverlauf ist eine eigene Abfrage; an einem großen Umsteigepunkt
+  verkehren leicht vierzig Linien. Gewählt werden die, die dem Bezugspunkt am
+  nächsten halten. Bis 1.1.23 gewann, wer zuerst abfuhr — und das ist bei
+  großem Umkreis reiner Zufall: **Am Karl-Preis-Platz in München deckten 200
+  Abfahrten im Umkreis von 3 km ganze drei Minuten ab und enthielten 43
+  verschiedene Linien**; gezeichnet wurden zwölf vom zwei Kilometer entfernten
+  Ostbahnhof, während die U2 direkt unter dem Bezugspunkt fehlte (Platz 18 der
+  Zeitliste, Platz 3 nach Nähe). **Was die Grenze weglässt, steht seit 1.1.24
+  als Zahl unter der Karte**, samt dem, was hilft: ein kleinerer Umkreis oder
+  ein Filter.
 - **Die Halte der Linien gibt es überall**, nicht nur um den Suchpunkt.
   Gezeichnet wird, was im Kartenausschnitt liegt: Wer zur S-Bahn-Strecke
   schiebt oder hineinzoomt, bekommt dort alle Halte. Nur was gleichzeitig

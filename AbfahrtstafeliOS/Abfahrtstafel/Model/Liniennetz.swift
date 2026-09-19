@@ -66,6 +66,21 @@ final class Liniennetz: ObservableObject {
     /// Karte, der man nicht ansieht, dass sie unvollständig ist.
     @Published private(set) var ohneVerlauf = 0
 
+    /// Wie viele Linien die ZWÖLFER-GRENZE weggelassen hat (ab 1.1.24).
+    ///
+    /// **Bis 1.1.23 wurden sie stillschweigend verschluckt.** `ohneVerlauf`
+    /// zählt nur Linien, deren Quelle gar keinen Lauf herausgibt — eine
+    /// Linie MIT Fahrtkennung, die bloß nicht mehr in die Zwölf passte, galt
+    /// als „zeichenbar“ und tauchte in keiner Zahl auf. Gemeldet 09/2026:
+    /// „Am Karl-Preis-Platz hält die U2. Warum ist die bei den Linien nicht
+    /// aufgeführt?“ — die Karte zeichnete zwölf Linien aus der Umgebung und
+    /// sagte mit keinem Wort, dass einunddreißig fehlten.
+    ///
+    /// Dieselbe Regel wie bei `ohneVerlauf` und bei `zuViele`: **Eine Karte,
+    /// in der stillschweigend Linien fehlen, ist eine Karte, der man ihre
+    /// Unvollständigkeit nicht ansieht.**
+    @Published private(set) var nichtGezeichnet = 0
+
     /// Wie viele Halte auf den gezeichneten Linien heute entfallen.
     ///
     /// Die Zahl steht unter der Karte. Ein einzelner durchgestrichener Punkt
@@ -93,9 +108,24 @@ final class Liniennetz: ObservableObject {
     /// ausblendet, sieht auch keine Buslinien auf der Karte. Die Karte zeigt
     /// damit dasselbe wie die Liste daneben — zwei Filter für dieselbe Frage
     /// wären zwei Antworten.
-    func aufbauen(aus abfahrten: [Abfahrt], dienst: Fahrplandienst) {
-        let wuensche = wuenscheBauen(aus: abfahrten)
+    func aufbauen(
+        aus abfahrten: [Abfahrt],
+        bezug: CLLocationCoordinate2D?,
+        dienst: Fahrplandienst
+    ) {
+        let (wuensche, uebrige) = wuenscheBauen(aus: abfahrten, bezug: bezug)
         let schluessel = Set(wuensche.map(\.id))
+
+        // **Die Zählungen werden IMMER nachgeführt, die Abfrage nicht.**
+        // Sie hängen an allen Abfahrten und nicht nur an den gewählten zwölf:
+        // Kommt eine dreizehnte Linie dazu, ohne die Auswahl zu ändern,
+        // stimmte die Zahl darunter sonst nicht mehr. Zugewiesen wird nur bei
+        // echter Änderung — ein `@Published`, das denselben Wert noch einmal
+        // bekommt, lässt die Karte trotzdem neu zeichnen (die Lehre aus
+        // 1.1.16), und `aufbauen` läuft im Sekundentakt.
+        let neuOhneVerlauf = zaehleOhneVerlauf(abfahrten)
+        if ohneVerlauf != neuOhneVerlauf { ohneVerlauf = neuOhneVerlauf }
+        if nichtGezeichnet != uebrige { nichtGezeichnet = uebrige }
 
         // Nichts Neues — dann auch keine Abfrage. Ohne diese Prüfung lüde die
         // Karte bei jedem Takt der Uhr das ganze Netz neu.
@@ -103,7 +133,6 @@ final class Liniennetz: ObservableObject {
 
         auftrag?.cancel()
         gebautAus = schluessel
-        ohneVerlauf = zaehleOhneVerlauf(abfahrten)
 
         guard !wuensche.isEmpty else {
             zuege = []
@@ -130,36 +159,84 @@ final class Liniennetz: ObservableObject {
         stand += 1
         gebautAus = []
         ohneVerlauf = 0
+        nichtGezeichnet = 0
         laedt = false
     }
 
     // MARK: - Innen
 
-    /// Ein Wunsch je LINIE, nicht je Abfahrt.
+    /// Ein Wunsch je LINIE, nicht je Abfahrt — und zwar die Linien, die dem
+    /// Bezugspunkt am NÄCHSTEN kommen.
     ///
     /// Zusammengefasst wird über Name und Verkehrsmittel, nicht über die
     /// Richtung: Die Gegenrichtung fährt denselben Weg zurück, und sie
     /// mitzuzeichnen verdoppelte die Abfragen für eine Linie, die man schon
     /// sieht. Gezeigt wird deshalb ein Lauf je Linie — die Beschriftung sagt,
     /// welcher.
-    private func wuenscheBauen(aus abfahrten: [Abfahrt]) -> [Wunsch] {
-        var gesehen = Set<String>()
-        var wuensche: [Wunsch] = []
+    ///
+    /// **Bis 1.1.23 gewann, wer zuerst abfuhr — und das ist bei großem
+    /// Umkreis reiner Zufall** (gemeldet 09/2026: „Am Karl-Preis-Platz hält
+    /// die U2. Warum ist die bei den Linien nicht aufgeführt?“). Die Liste
+    /// der Abfahrten ist nach ZEIT sortiert, und `/stoptimes` gibt die
+    /// nächsten `n` Abfahrten ALLER Haltestellen im Umkreis zurück.
+    /// **Nachgemessen am 19.09.2026 am Karl-Preis-Platz in München**, 200
+    /// Abfahrten im Umkreis von 3 km: Sie deckten **drei Minuten** ab und
+    /// enthielten **43 verschiedene Linien**. Die ersten zwölf davon waren
+    /// die, deren Fahrzeug in den ersten Sekunden zufällig losfuhr — S5, S6,
+    /// 100, 132, 139, 145, 155, 17, 185, 187, 18, 190, größtenteils vom
+    /// Ostbahnhof, gut zwei Kilometer entfernt. **Die U2, die direkt unter dem
+    /// Bezugspunkt hält, stand auf Platz 18** und fiel heraus.
+    ///
+    /// Gewählt wird deshalb nach der kleinsten Entfernung einer ihrer
+    /// Abfahrten zum Bezugspunkt. Dieselbe Messung, dieselbe Antwort:
+    /// 59 (0 m), 155 (85 m), **U2 (118 m)**, 55, 145, 54, U5, U8, 191 — also
+    /// die Linien, die dort wirklich halten, wo der Mensch steht. Bei
+    /// gleichem Abstand gilt weiter die Zeit, damit die Auswahl
+    /// nachvollziehbar bleibt.
+    ///
+    /// **Der gezeichnete Lauf bleibt der FRÜHESTE** dieser Linie, nicht der
+    /// nächstgelegene. Geändert wird eine Sache auf einmal — sonst sagt der
+    /// nächste Befund nichts mehr.
+    ///
+    /// Zurück kommt auch, wie viele Linien die Grenze weggelassen hat. Ohne
+    /// diese Zahl verschwänden sie ohne ein Wort.
+    private func wuenscheBauen(
+        aus abfahrten: [Abfahrt],
+        bezug: CLLocationCoordinate2D?
+    ) -> (wuensche: [Wunsch], uebrige: Int) {
+        var reihenfolge: [String] = []
+        var naehe: [String: CLLocationDistance] = [:]
+        var frueheste: [String: Wunsch] = [:]
+
         for abfahrt in abfahrten where abfahrt.hatFahrtlauf {
             let id = "\(abfahrt.linie.mittel.rawValue)-\(abfahrt.linie.name)"
-            guard !gesehen.contains(id) else { continue }
-            gesehen.insert(id)
-            wuensche.append(
-                Wunsch(
-                    id: id,
-                    fahrtId: abfahrt.fahrtId,
-                    linie: abfahrt.linie,
-                    richtung: abfahrt.richtung
-                )
+            // Ohne Bezugspunkt gibt es keine Nähe, und dann bleibt es bei der
+            // Zeit — geraten wird keine Entfernung.
+            let entfernung = bezug.map { abfahrt.haltestelle.entfernung(zu: $0) } ?? 0
+            if let bisher = naehe[id] {
+                if entfernung < bisher { naehe[id] = entfernung }
+                continue
+            }
+            reihenfolge.append(id)
+            naehe[id] = entfernung
+            frueheste[id] = Wunsch(
+                id: id,
+                fahrtId: abfahrt.fahrtId,
+                linie: abfahrt.linie,
+                richtung: abfahrt.richtung
             )
-            if wuensche.count >= hoechstzahl { break }
         }
-        return wuensche
+
+        let gewaehlt = reihenfolge.enumerated()
+            .sorted { links, rechts in
+                let a = naehe[links.element] ?? 0
+                let b = naehe[rechts.element] ?? 0
+                return a == b ? links.offset < rechts.offset : a < b
+            }
+            .prefix(hoechstzahl)
+            .compactMap { frueheste[$0.element] }
+
+        return (gewaehlt, max(reihenfolge.count - gewaehlt.count, 0))
     }
 
     private func zaehleOhneVerlauf(_ abfahrten: [Abfahrt]) -> Int {

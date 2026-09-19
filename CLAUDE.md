@@ -1539,6 +1539,47 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   Weg zurück und verdoppelte nur die Abfragen. `gebautAus` verhindert, dass
   jeder Takt des `Uhrwerks` das ganze Netz neu holt — **ohne diese Prüfung
   lüde die Karte im Sekundentakt zwölfmal nach.**
+- **Gewählt werden die NÄCHSTEN zwölf Linien, nicht die zuerst abfahrenden**
+  (`Liniennetz.wuenscheBauen`, ab 1.1.24; gemeldet 09/2026: „Am Karl-Preis-Platz
+  hält die U2. Warum ist die bei den Linien nicht aufgeführt?“). Sie stand sehr
+  wohl in den Daten — sie fiel aus der ZWÖLFER-GRENZE. Bis 1.1.23 nahm
+  `wuenscheBauen` die ersten zwölf Linien in der Reihenfolge der ABFAHRTEN, und
+  die ist nach Zeit sortiert. **Nachgemessen am 19.09.2026 am Karl-Preis-Platz**,
+  200 Abfahrten im Umkreis von 3 km: Sie deckten **drei Minuten** ab und
+  enthielten **43 verschiedene Linien**; die ersten zwölf waren die, deren
+  Fahrzeug in den ersten Sekunden zufällig losfuhr — S5, S6, 100, 132, 139, 145,
+  155, 17, 185, 187, 18, 190, größtenteils vom zwei Kilometer entfernten
+  Ostbahnhof. **Die U2, die direkt unter dem Bezugspunkt hält, stand auf Platz
+  18.** Dieselbe Messung nach Nähe sortiert: 59 (0 m), 155 (85 m), **U2
+  (118 m)**, 55, 145, 54, U5, U8, 191 — also die Linien, die dort halten, wo der
+  Mensch steht. Bei gleichem Abstand gilt weiter die Zeit. Dasselbe Muster wie
+  1.1.10: **Wenn etwas fehlt, ist die Zuordnung der zweite Verdacht und das
+  Fenster der erste** — nur ist es hier nicht das Zeitfenster, sondern die
+  Auswahl daraus.
+- **Der gezeichnete Lauf bleibt der FRÜHESTE** dieser Linie, nicht der
+  nächstgelegene. Die Nähe entscheidet, WELCHE Linien gezeichnet werden, nicht
+  WELCHER Lauf — geändert wird eine Sache auf einmal, sonst sagt der nächste
+  Befund nichts mehr.
+- **Was die Grenze weglässt, wird GEZÄHLT** (`Liniennetz.nichtGezeichnet`, ab
+  1.1.24). Das ist die schlimmere Hälfte desselben Befundes: `ohneVerlauf` zählt
+  nur Linien, deren Quelle gar keinen Lauf herausgibt. Eine Linie MIT
+  Fahrtkennung, die bloß nicht mehr in die Zwölf passte, galt als „zeichenbar“
+  und tauchte in keiner Zahl auf — die Karte zeichnete zwölf Linien und sagte
+  mit keinem Wort, dass einunddreißig fehlten. **Die Regel stand seit 1.0.3
+  daneben und galt für diesen Fall nicht**: „Eine Karte, in der stillschweigend
+  Linien fehlen, ist eine Karte, der man ihre Unvollständigkeit nicht ansieht.“
+  Die Fußzeile nennt jetzt die Zahl und sagt, was hilft (kleinerer Umkreis oder
+  ein Filter) — dieselbe Bauweise wie „Hineinzoomen zeigt sie“ bei den Halten.
+  **Wer eine neue Grenze einzieht, zählt, was sie wegnimmt.**
+- **Die beiden Zählungen werden IMMER nachgeführt, die Abfrage nicht.** Sie
+  hängen an ALLEN Abfahrten und nicht an den gewählten zwölf: Kommt eine
+  dreizehnte Linie dazu, ohne die Auswahl zu ändern, stimmte die Zahl darunter
+  sonst nicht mehr, und `netz.stand` bliebe gleich. Deshalb stehen sie vor dem
+  `guard` — und deshalb stehen `nichtGezeichnet` und `ohneVerlauf` seit 1.1.24
+  auch in den Auslösern von `neuRechnen`. Zugewiesen wird nur bei echter
+  Änderung: Ein `@Published`, das denselben Wert noch einmal bekommt, lässt die
+  Karte trotzdem neu zeichnen (die Lehre aus 1.1.16), und `aufbauen` läuft im
+  Sekundentakt.
 - **Was sich nicht zeichnen lässt, wird GEZÄHLT und hingeschrieben**
   (`Liniennetz.ohneVerlauf`). Linien aus Stufe 2 haben keine Fahrtkennung und
   damit keinen Verlauf. Eine Karte, in der stillschweigend Linien fehlen, ist
@@ -2654,7 +2695,7 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   zwölfte Nachbesserung — derselbe Gedanke wie bei Tafelbild 1.4.0 und
   Schulalarm 1.1.0. Die Marken ab 1.0.x in diesem Papier bleiben stehen;
   sie sagen, wann etwas in den Quelltext kam. Danach zählt es weiter:
-  1.1.1 (Build 14), 1.1.2 (Build 15), 1.1.3 (Build 16), 1.1.4 (Build 17), 1.1.5 (Build 18), 1.1.6 (Build 19), 1.1.7 (Build 20), 1.1.8 (Build 21), 1.1.9 (Build 22), 1.1.10 (Build 23), 1.1.11 (Build 24), 1.1.12 (Build 25), 1.1.13 (Build 26), 1.1.14 (Build 27), 1.1.15 (Build 28), 1.1.16 (Build 29), 1.1.17 (Build 30), 1.1.18 (Build 31), 1.1.19 (Build 32), 1.1.20 (Build 33), 1.1.21 (Build 34), 1.1.22 (Build 35), 1.1.23 (Build 36) … Dazu gesetzt (Ansage des Nutzers,
+  1.1.1 (Build 14), 1.1.2 (Build 15), 1.1.3 (Build 16), 1.1.4 (Build 17), 1.1.5 (Build 18), 1.1.6 (Build 19), 1.1.7 (Build 20), 1.1.8 (Build 21), 1.1.9 (Build 22), 1.1.10 (Build 23), 1.1.11 (Build 24), 1.1.12 (Build 25), 1.1.13 (Build 26), 1.1.14 (Build 27), 1.1.15 (Build 28), 1.1.16 (Build 29), 1.1.17 (Build 30), 1.1.18 (Build 31), 1.1.19 (Build 32), 1.1.20 (Build 33), 1.1.21 (Build 34), 1.1.22 (Build 35), 1.1.23 (Build 36), 1.1.24 (Build 37) … Dazu gesetzt (Ansage des Nutzers,
   09/2026): `DEVELOPMENT_TEAM = F4989GSTWS` — dieselbe Id wie Schulalarm und
   Tafelbild — und `INFOPLIST_KEY_LSApplicationCategoryType =
   public.app-category.navigation`. Beides steht als Build-Einstellung, weil
