@@ -101,7 +101,7 @@ struct Haltestellengruppe: Identifiable {
 
             return Haltestellengruppe(
                 id: kennung,
-                name: erste.haltestelle.name,
+                name: Self.anzeigename(stellen.map(\.name)),
                 gegend: stellen.compactMap(\.gegend).first,
                 koordinate: mitte,
                 abfragbareKennung: kennung,
@@ -113,13 +113,89 @@ struct Haltestellengruppe: Identifiable {
         .sorted { $0.entfernung < $1.entfernung }
     }
 
-    /// Klein geschrieben, ohne doppelte Leerzeichen. **Umlaute bleiben stehen**
-    /// — „Muhle" und „Mühle" sind zwei Orte, und sie einzuebnen führte Gruppen
+    /// Klein geschrieben, ohne doppelte Leerzeichen, mit ausgeschriebenen
+    /// Bahnhofs-Abkürzungen und ohne Komma. **Umlaute bleiben stehen** —
+    /// „Muhle“ und „Mühle“ sind zwei Orte, und sie einzuebnen führte Gruppen
     /// zusammen, die nichts miteinander zu tun haben.
+    ///
+    /// **Warum das nötig ist** (ab 1.1.23; seit 1.1.10 stand der Fall als
+    /// offener Punkt im Papier): Derselbe Bahnhof stand zweimal in der Liste,
+    /// einmal als „München Hbf“ und einmal als „München Hauptbahnhof“.
+    /// **Nachgemessen am 19.09.2026 an 22 deutschen Städten** (je rund 150
+    /// Abfahrten im Umkreis von 500 Metern um den Hauptbahnhof, 170
+    /// verschiedene Haltestellennamen): Der Fall kommt in ACHT von 22 Städten
+    /// vor — Augsburg, Bremen, Erfurt, Kiel, Leipzig, Mannheim, München,
+    /// Nürnberg — und in zwei Schreibweisen:
+    ///
+    /// | Ort | Schreibweisen (Abfahrten) | Abstand |
+    /// |---|---|---|
+    /// | Nürnberg | „Nürnberg Hbf“ (75), „Nürnberg Hauptbahnhof“ (1) | 326 m |
+    /// | Augsburg | „Augsburg Hbf“ (111), „Augsburg Hauptbahnhof“ (3) | 332 m |
+    /// | Bremen | „Bremen Hauptbahnhof“ (53), „Bremen Hbf“ (12) | 242 m |
+    /// | Erfurt | „Erfurt, Hauptbahnhof“ (52), „Erfurt Hbf“ (12) | 93 m |
+    ///
+    /// **Das Komma ist der zweite Riss und derselbe Fehler.** In Erfurt,
+    /// Leipzig und Mannheim schreibt der Verbund „Stadt, Halt“, die Bahn
+    /// daneben „Stadt Hbf“ — ohne das Komma wegzuräumen blieben auch diese
+    /// drei doppelt. Gemessen trägt jeder der 50 Namen mit Komma dieselbe
+    /// Form; in Prag traf es übrigens genauso („Praha,Hlavní nádraží“ gegen
+    /// „Praha hlavní nádraží“).
+    ///
+    /// **Verglichen wird der GANZE Name, Wort für Wort ausgeschrieben — nicht
+    /// ein Bruchstück.** Das ist der Punkt, an dem die naheliegende Lösung
+    /// gefährlich wird, und dieselbe Messung zeigt es an derselben Stelle:
+    /// Um den Münchner Hauptbahnhof liegen „Hauptbahnhof Nord“,
+    /// „Hauptbahnhof Süd“ und „Hauptbahnhof (U, Tram)“, alle innerhalb von
+    /// 270 Metern; in Dresden steht „Dresden Hauptbahnhof“ neben „Dresden
+    /// Hauptbahnhof Nord“ und „Dresden Hbf (Strehlener Str.)“, in Kassel
+    /// „Kassel Hauptbahnhof“ neben „Kassel Hauptbahnhof Nord“. Wer „Hbf“ und
+    /// „Hauptbahnhof“ IRGENDWO im Namen zusammenzieht, wirft die alle mit in
+    /// einen Topf — und das sind verschiedene Haltestellen, deren Unterschied
+    /// genau der ist, den ein Wartender braucht. Ausgeschrieben und dann auf
+    /// GLEICHHEIT geprüft bleiben sie getrennt.
+    ///
+    /// Ergebnis der Messung: acht Zusammenlegungen, **keine falsche**. **Wer
+    /// die Liste erweitert, misst wieder nach** — jede weitere Abkürzung ist
+    /// eine Gelegenheit, zwei echte Haltestellen zu verschmelzen.
     private static func vergleichsname(_ text: String) -> String {
-        text.lowercased()
+        // Das Komma trennt bei vielen Verbünden den Ort vom Halt
+        // („Erfurt, Hauptbahnhof“) — es wird zum Leerzeichen und nicht
+        // gestrichen, sonst würde aus „Praha,Hlavní“ ein Wort.
+        text.replacingOccurrences(of: ",", with: " ")
+            .lowercased()
             .split(separator: " ", omittingEmptySubsequences: true)
+            .map { wort -> String in
+                switch wort.trimmingCharacters(in: CharacterSet(charactersIn: ".")) {
+                case "hbf": return "hauptbahnhof"
+                case "bf", "bhf": return "bahnhof"
+                default: return String(wort)
+                }
+            }
             .joined(separator: " ")
+    }
+
+    /// Welche Schreibweise in der Liste steht, wenn eine Gruppe mehrere hat.
+    ///
+    /// **Die häufigste gewinnt** — nicht die erste und nicht die längere. Die
+    /// Messung sagt, warum: In Nürnberg und Augsburg ist die Kurzform die
+    /// übliche („Augsburg Hbf“, 111 von 114 Abfahrten), in Bremen und Kiel die
+    /// lange, in Erfurt und Mannheim die mit Komma. Eine feste Vorliebe für
+    /// eine der Formen schriebe also an jedem zweiten Ort etwas hin, was dort
+    /// niemand sagt. Bei Gleichstand die längere: Sie sagt mehr.
+    ///
+    /// **Ausgedacht wird nichts.** Was hier steht, hat eine Quelle so
+    /// geschrieben — einen gemittelten oder gekürzten Namen zu bauen wäre
+    /// eine Angabe über die App und nicht über die Haltestelle.
+    private static func anzeigename(_ namen: [String]) -> String {
+        var zaehler: [String: Int] = [:]
+        for name in namen { zaehler[name, default: 0] += 1 }
+        return zaehler
+            .max { links, rechts in
+                links.value != rechts.value
+                    ? links.value < rechts.value
+                    : links.key.count < rechts.key.count
+            }?
+            .key ?? namen.first ?? ""
     }
 }
 

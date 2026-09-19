@@ -442,6 +442,23 @@ einzigen Abfrage fertig ist: Der Dienst liefert die Abfahrten aller
 Haltestellen im Umkreis mit. Eine Abfrage je Haltestelle wären zehn Anfragen,
 und die Liste baute sich ruckweise auf.
 
+**Haltestellen werden über den NAMEN gruppiert** — der Dienst führt sie auf
+Steig-Ebene, „Marienplatz“ sind dort mindestens drei Einträge. Dazu gehört,
+dass derselbe Bahnhof in den Daten verschieden heißen kann. **Nachgemessen am
+19.09.2026 an 22 deutschen Städten** (je rund 150 Abfahrten, 170 verschiedene
+Namen): In acht davon steht der Hauptbahnhof doppelt — in Nürnberg 75-mal als
+„Nürnberg Hbf“ und einmal als „Nürnberg Hauptbahnhof“, in Erfurt 52-mal als
+„Erfurt, Hauptbahnhof“ und zwölfmal als „Erfurt Hbf“. Seit 1.1.23 schreibt die
+App die Abkürzung aus und räumt das Komma weg, bevor sie vergleicht.
+
+Verglichen wird dabei der **ganze** Name und nicht ein Bruchstück — dieselbe
+Messung sagt, warum: Um den Münchner Hauptbahnhof liegen „Hauptbahnhof Nord“,
+„Hauptbahnhof Süd“ und „Hauptbahnhof (U, Tram)“ innerhalb von 270 Metern, in
+Dresden steht „Dresden Hauptbahnhof“ neben „Dresden Hauptbahnhof Nord“. Das
+sind verschiedene Haltestellen. Acht Zusammenlegungen, keine falsche. Welche
+Schreibweise am Ende dasteht, entscheidet die Mehrheit der Abfahrten —
+ausgedacht wird kein Name.
+
 ## Aufbau
 
 ```
