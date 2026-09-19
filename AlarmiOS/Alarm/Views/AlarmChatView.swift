@@ -83,16 +83,46 @@ struct AlarmChatView: View {
         Task { await model.send(message: text, for: alarm) }
     }
 
+    /// Eine Nachricht — und ein Weg, sie zu melden.
+    ///
+    /// **Der Meldeweg gehört AN den Inhalt** (ab 1.1.0/Build 44). Es gab ihn
+    /// schon (Einstellungen → Hilfe → „Unangemessene Inhalte melden"), aber
+    /// dort findet ihn niemand, der gerade etwas liest, das dort nicht stehen
+    /// sollte — dieselbe Lehre wie beim Gruppenchat selbst, den bis 1.0.21
+    /// niemand fand. Apples Regel zu von Nutzern eingestelltem Inhalt
+    /// (Guideline 1.2) verlangt genau das: einen Weg zu melden, dort wo der
+    /// Inhalt steht.
+    ///
+    /// Gemeldet wird per E-Mail, mit Kürzel, Uhrzeit und Wortlaut im Entwurf —
+    /// ohne diese drei ist eine Meldung nicht zu bearbeiten. Abgeschickt wird
+    /// sie vom Menschen, nicht von der App: Eine Meldung, die still hinausgeht,
+    /// ist keine Meldung, sondern eine Übermittlung.
+    ///
+    /// Ein langes Drücken ist bewusst NICHT der einzige Weg — es gibt keine
+    /// Geste, die jemand unter Druck errät. Deshalb steht das Menü hinter
+    /// einem sichtbaren Zeichen am Rand der Karte.
     private func bubble(_ message: Message) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 8) {
                 Text(message.senderName).font(.subheadline).fontWeight(.semibold)
                 Text(Clock.time.string(from: message.createdAt))
                     .font(.caption).foregroundStyle(.secondary)
+                Spacer(minLength: 0)
+                Menu {
+                    Link(destination: Hilfeadressen.meldung(zu: message)) {
+                        Label("Diese Nachricht melden", systemImage: "exclamationmark.bubble")
+                    }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                        .foregroundStyle(.secondary)
+                        .padding(.leading, 8)
+                }
+                .accessibilityLabel("Nachricht melden")
             }
             Text(message.text)
                 .font(.body)
                 .fixedSize(horizontal: false, vertical: true)
+                .textSelection(.enabled)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .card(alarm.type.tint)

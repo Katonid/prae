@@ -380,22 +380,42 @@ struct DeviceStatusDraft: Equatable {
 /// are agreed with the head teacher and the police — an app must not put words
 /// into that document, and a text that merely sounds authoritative is worse
 /// than an obvious blank.
+/// Die Texte, die eine frisch eingerichtete Schule mitbekommt.
+///
+/// **Sie sagen von sich aus, dass sie noch nicht abgestimmt sind** — und das
+/// bleibt so: Was im Ernstfall dort steht, gehört mit Schulleitung, Polizei
+/// und Feuerwehr besprochen, und ein Text, der bloß amtlich klingt, ist
+/// gefährlicher als ein sichtbar unfertiger.
+///
+/// Bis 1.1.0 (Build 43) begann jeder mit dem Wort „Platzhalter". Gemeint war
+/// dasselbe, gelesen wird es anders: Für einen Prüfer bei Apple ist
+/// „Platzhalter" das Kennzeichen einer unfertigen App (Guideline 2.1 —
+/// „Apps that include placeholder text … should not be submitted"), und er
+/// sieht diesen Bildschirm, sobald er einen Alarm auslöst. Der Satz sagt
+/// jetzt dasselbe über die SCHULE statt über die App: Er ist eine Aufgabe an
+/// das Kollegium, keine Baustelle im Programm.
 enum DefaultInstructions {
     static let byType: [String: String] = [
         AlarmType.amok.rawValue: """
-        Platzhalter — bitte mit Schulleitung und Polizei abstimmen.
-        Beispielhafter Aufbau: Tür verschließen, Fenster und Sichtachsen \
-        meiden, Ruhe bewahren, Handys stumm, auf Entwarnung warten.
+        Diese Schule hat noch keinen eigenen Text hinterlegt. Bis dahin gilt \
+        als Anhalt: Tür verschließen, Fenster und Sichtachsen meiden, Ruhe \
+        bewahren, Handys stumm, auf Entwarnung warten.
+        Verbindlich wird der Wortlaut erst, wenn die Schulleitung ihn mit der \
+        Polizei abgestimmt und unter Verwaltung → Handlungstexte eingetragen hat.
         """,
         AlarmType.fire.rawValue: """
-        Platzhalter — bitte mit Schulleitung und Feuerwehr abstimmen.
-        Beispielhafter Aufbau: Klasse vollzählig zum Sammelplatz führen, \
-        Klassenbuch mitnehmen, Fenster und Türen schließen.
+        Diese Schule hat noch keinen eigenen Text hinterlegt. Bis dahin gilt \
+        als Anhalt: Klasse vollzählig zum Sammelplatz führen, Klassenbuch \
+        mitnehmen, Fenster und Türen schließen.
+        Verbindlich wird der Wortlaut erst, wenn die Schulleitung ihn mit der \
+        Feuerwehr abgestimmt und unter Verwaltung → Handlungstexte eingetragen hat.
         """,
         AlarmType.medical.rawValue: """
-        Platzhalter — bitte mit Schulleitung abstimmen.
-        Beispielhafter Aufbau: Ersthelfer verständigen, Weg für den \
-        Rettungsdienst frei halten, Klasse ruhig im Raum behalten.
+        Diese Schule hat noch keinen eigenen Text hinterlegt. Bis dahin gilt \
+        als Anhalt: Ersthelfer verständigen, Weg für den Rettungsdienst frei \
+        halten, Klasse ruhig im Raum behalten.
+        Verbindlich wird der Wortlaut erst, wenn die Schulleitung ihn \
+        abgestimmt und unter Verwaltung → Handlungstexte eingetragen hat.
         """,
         AlarmType.test.rawValue: """
         Probealarm. Es besteht keine Gefahr. Bitte nur die Rückmeldung geben, \

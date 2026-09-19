@@ -519,9 +519,12 @@ struct InstructionsView: View {
         Form {
             Section {
                 Text("Diese Texte stehen im Ernstfall groß auf dem Alarm-Bildschirm. "
-                     + "Die Voreinstellung ist bewusst ein sichtbarer Platzhalter — "
-                     + "was hier steht, gehört mit Schulleitung, Polizei und "
-                     + "Feuerwehr abgestimmt.")
+                     + "Bis eine Schule sie ersetzt, sagen sie von sich aus, dass "
+                     + "sie noch nicht abgestimmt sind — das ist Absicht: Ein Text, "
+                     + "der bloß amtlich klingt, ist gefährlicher als einer, dem man "
+                     + "ansieht, dass er noch besprochen werden muss. Was hier am "
+                     + "Ende steht, gehört mit Schulleitung, Polizei und Feuerwehr "
+                     + "abgestimmt.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
