@@ -53,12 +53,7 @@ struct VerbindungView: View {
             // und die sind seit 1.1.7 antippbar. Ohne dieses Ziel täte der
             // Verweis in DIESEM Stapel nichts — und ein Verweis, der nichts
             // tut, ist für den Menschen davor ein kaputter Knopf.
-            .navigationDestination(for: Haltestelle.self) { halt in
-                HaltestelleView(haltestelle: halt)
-            }
-            .navigationDestination(for: Fahrtwunsch.self) { wunsch in
-                FahrtView(fahrtId: wunsch.fahrtId, einstiegsHaltestelle: wunsch.einstieg)
-            }
+            .fahrplanziele()
             .sheet(item: $suchfeld) { feld in
                 OrtssucheView(
                     titel: feld.titel,

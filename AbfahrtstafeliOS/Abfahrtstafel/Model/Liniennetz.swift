@@ -92,10 +92,50 @@ final class Liniennetz: ObservableObject {
 
     /// Wie viele Linien höchstens gezeichnet werden.
     ///
-    /// Zwölf, weil das zwölf Netzabfragen sind. An einem großen Umsteigepunkt
-    /// verkehren leicht dreißig Linien; die alle zu holen dauerte an einer
-    /// Haltestelle stehend zu lange, und die Karte wäre ein Knäuel.
-    private let hoechstzahl = 12
+    /// **Zwanzig seit 1.1.25, davor zwölf** (Frage des Nutzers 09/2026:
+    /// „Würde die App zusammenbrechen, wenn die Anzahl erhöht würde?").
+    /// Nachgemessen am 19.09.2026 am Karl-Preis-Platz in München, 3 km
+    /// Umkreis, 43 verfügbare Linien — und der Engpass ist NICHT der, den
+    /// die alte Begründung nannte:
+    ///
+    /// **Die Abfragen kosten nichts.** Sie laufen nebenläufig, also
+    /// entscheidet die langsamste: 12 Linien 1,39 s, 24 Linien 1,39 s, 43
+    /// Linien 1,40 s. Keine Drosselung, kein Fehler. Die Zwölf war also nie
+    /// eine Netzgrenze, auch wenn hier bis 1.1.24 „das sind zwölf
+    /// Netzabfragen" stand.
+    ///
+    /// **Das Gewicht steckt im GEZEICHNETEN, und dort erst beim Hineinzoomen.**
+    /// Beim Öffnen rahmt die Karte das ganze Netz, und die Vereinfachung aus
+    /// 1.1.17 greift dann sogar besser, je mehr Linien es sind — das Netz
+    /// reicht weiter, also bedeutet ein Bildpunkt mehr Meter. Zoomt jemand
+    /// hinein, geht die Toleranz gegen null und der volle Verlauf kommt
+    /// zurück. Gezeichnete Koordinaten (jede Linie zählt zweimal, erst
+    /// Kontur, dann Linie):
+    ///
+    /// | Linien | Netzübersicht | Stadtviertel | Straßenzug | ganz nah |
+    /// |---|---|---|---|---|
+    /// | 12 | 522 | 1.504 | 4.530 | 13.924 |
+    /// | **20** | **1.652** | **6.554** | **20.026** | **79.668** |
+    /// | 43 | 2.354 | 9.648 | 29.320 | 110.810 |
+    ///
+    /// **Das ist die ehrliche Hälfte der Antwort:** Beim Öffnen ist alles
+    /// harmlos, aber am Straßenzug erreichen zwanzig Linien mit rund 20.000
+    /// Koordinaten ungefähr die Größe, die 1.1.17 als das Gewicht gemessen
+    /// hat (dort rund 25.000). Der Unterschied ist, **wie oft** sie anfällt:
+    /// Damals bei jeder Zeichnung, also im Sekundentakt; seit 1.1.16 und
+    /// 1.1.17 nur noch auf einen echten Auslöser. Dreiundvierzig wären
+    /// dagegen auch so das Anderthalbfache davon — deshalb zwanzig und nicht
+    /// mehr.
+    ///
+    /// **Nicht als gemessen darstellen ist dabei die Wirkung auf dem Gerät.**
+    /// Gezählt sind Koordinaten, nicht Bildwiederholungen; was ein iPad damit
+    /// macht, sagt nur das iPad. „Karte prüfen" in den Einstellungen nennt
+    /// die Stützpunkte roh und gezeichnet — fühlt sich die Karte
+    /// hineingezoomt zäh an, ist DIESE Zahl die, die man senkt.
+    ///
+    /// **Wer sie weiter anhebt, misst vorher am Gerät** — und nicht an der
+    /// Netzübersicht, sondern hineingezoomt.
+    private let hoechstzahl = 20
 
     /// Woraus das aktuelle Netz gebaut wurde. Verhindert, dass jeder Neuaufbau
     /// der Ansicht zwölf Abfragen auslöst.

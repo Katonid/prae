@@ -1737,10 +1737,61 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   eigene Aufgabe — ein Tipp auf einen Halt öffnet weiterhin dessen
   Abfahrtstafel (1.1.7). Eine Geste, die niemand kennt, ist so wenig wert wie
   ein Knopf, den niemand findet; deshalb beides.
-- **Die Vollbildkarte hat ihren EIGENEN Navigationsstapel — und damit ihr
-  eigenes Ziel.** `navigationDestination(for: Haltestelle.self)` steht dort
-  noch einmal. Ohne diese Zeile wäre jeder Halt auf der Vollbildkarte ein
-  Verweis, der nichts tut; dieselbe Falle wie 1.1.7, nur eine Ebene höher.
+- **Ein eigener Stapel braucht ALLE Ziele, nicht eines** (`Views/Fahrplanziele.swift`,
+  ab 1.1.25; gemeldet 09/2026: „Ein Tipp auf eine Linie bewirkt leider gar
+  nichts"). Die Vollbildkarte macht seit 1.1.11 einen eigenen
+  `NavigationStack` auf und trug darin `Haltestelle` ein, aber **nicht**
+  `Fahrtwunsch`. Wer dort einen Halt antippte, kam in dessen Abfahrtstafel —
+  und von da an ging es nicht weiter: Jede Zeile ist ein
+  `NavigationLink(value: Fahrtwunsch(…))`, und ein Verweis, dessen Wertetyp im
+  Stapel kein Ziel hat, tut NICHTS. Kein Absturz, keine Meldung, keine
+  Bewegung; für den Menschen davor ein kaputter Knopf.
+- **Die Lehre stand schon da und war trotzdem nicht gezogen.** Über genau
+  dieser Zeile stand seit 1.1.11 der Kommentar „Ein eigener Stapel braucht sein
+  eigenes Ziel. Dieselbe Falle wie in 1.1.7" — und darunter wurde EINES der
+  zwei Ziele eingetragen. Dasselbe Muster wie bei Schulalarms
+  `requestAuthorization`, wo die Falle im Kommentar beschrieben stand und die
+  Prüfung fehlte: **Ein Kommentar ersetzt keine Prüfung.** Deshalb ist es jetzt
+  kein Merksatz mehr, sondern ein Modifikator: `.fahrplanziele()` hängt an
+  allen vier Stapeln (Tafel, Vollbildkarte, Merkliste, Verbindung) und trägt
+  beide Ziele. **Wer einen neuen Stapel baut, hängt ihn dran; wer ein drittes
+  Ziel braucht, trägt es DORT ein.** `Verbindung` steht bewusst nicht darin —
+  die gibt es nur in der Auskunft, und ein Ziel für einen Wert anzumelden, der
+  in diesem Stapel nie vorkommt, verspräche einen Weg, den es nicht gibt.
+- **Erst die LAGE prüfen, dann die Arbeit machen** (`berechneHalte`, ab
+  1.1.25). Bis 1.1.24 wurde für JEDEN Halt JEDER Linie ein Punkt gebaut —
+  samt `gemeldet(…)`, also einem Textvergleich gegen die Meldungsliste — und
+  ERST DANACH auf den Ausschnitt gefiltert. `hoechstzahlHalte` deckelte damit,
+  was GEZEICHNET wird, nicht, was durchgegangen wird. **Gemessen am
+  19.09.2026 am Karl-Preis-Platz**, 3 km Umkreis: zwölf Linien haben dort 292
+  Halte, dreiundvierzig **2.125** — und das lief bei jedem Neurechnen durch,
+  also bei jeder Schiebebewegung. Dieselbe Falle wie 1.1.16, nur eine Ebene
+  tiefer und mit der Zahl der Linien wachsend. Das Ergebnis ändert sich durch
+  das Vorziehen nicht: Eine Haltestelle hat genau eine Koordinate, also fällt
+  `imSichtfeld` für alle ihre Vorkommen gleich aus — Filtern und Entdoppeln
+  sind vertauschbar.
+- **Die Grenze steht auf ZWANZIG (ab 1.1.25), und der Engpass ist nicht der,
+  der bis 1.1.24 dabeistand** (Frage des Nutzers 09/2026: „Würde die App
+  zusammenbrechen, wenn die Anzahl erhöht würde?"). Nachgemessen am
+  19.09.2026 am Karl-Preis-Platz, 3 km Umkreis, 43 verfügbare Linien:
+  - **Die Abfragen kosten nichts.** Nebenläufig, also entscheidet die
+    langsamste: 12 Linien 1,39 s, 24 Linien 1,39 s, 43 Linien 1,40 s; keine
+    Drosselung, kein Fehler, 205 KB gegen 1,4 MB. „Das sind zwölf
+    Netzabfragen" stand hier bis 1.1.24 als Begründung und war keine.
+  - **Beim Öffnen ist auch das Zeichnen harmlos** — die Vereinfachung aus
+    1.1.17 greift sogar besser, je mehr Linien es sind (3,7 % bei zwölf,
+    2,1 % bei 43), weil das Netz weiter reicht und ein Bildpunkt mehr Meter
+    bedeutet.
+  - **Beim Hineinzoomen kippt es.** Gezeichnete Koordinaten am Straßenzug:
+    12 Linien 4.530, 20 Linien 20.026, 43 Linien 29.320. Zwanzig erreichen
+    damit ungefähr die Größe, die 1.1.17 als das Gewicht gemessen hat (rund
+    25.000) — der Unterschied ist, wie OFT sie anfällt: damals bei jeder
+    Zeichnung im Sekundentakt, seit 1.1.16/1.1.17 nur auf einen echten
+    Auslöser. **Das ist die ehrliche Hälfte der Antwort und kein Freibrief.**
+  - **Nicht gemessen ist die Wirkung auf dem Gerät** — gezählt sind
+    Koordinaten, nicht Bildwiederholungen. Fühlt sich die Karte hineingezoomt
+    zäh an, ist `hoechstzahl` die Zahl, die man senkt; „Karte prüfen" nennt
+    die Stützpunkte roh und gezeichnet.
 - **Zwei getrennte Hell-Dunkel-Umschalter** (`Views/Darstellung.swift`, ab
   1.1.12, Ansage des Nutzers 09/2026). Einer für die App
   (`preferredColorScheme` an der WURZEL — weiter unten gesetzt erwischte es
@@ -2695,7 +2746,7 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   zwölfte Nachbesserung — derselbe Gedanke wie bei Tafelbild 1.4.0 und
   Schulalarm 1.1.0. Die Marken ab 1.0.x in diesem Papier bleiben stehen;
   sie sagen, wann etwas in den Quelltext kam. Danach zählt es weiter:
-  1.1.1 (Build 14), 1.1.2 (Build 15), 1.1.3 (Build 16), 1.1.4 (Build 17), 1.1.5 (Build 18), 1.1.6 (Build 19), 1.1.7 (Build 20), 1.1.8 (Build 21), 1.1.9 (Build 22), 1.1.10 (Build 23), 1.1.11 (Build 24), 1.1.12 (Build 25), 1.1.13 (Build 26), 1.1.14 (Build 27), 1.1.15 (Build 28), 1.1.16 (Build 29), 1.1.17 (Build 30), 1.1.18 (Build 31), 1.1.19 (Build 32), 1.1.20 (Build 33), 1.1.21 (Build 34), 1.1.22 (Build 35), 1.1.23 (Build 36), 1.1.24 (Build 37) … Dazu gesetzt (Ansage des Nutzers,
+  1.1.1 (Build 14), 1.1.2 (Build 15), 1.1.3 (Build 16), 1.1.4 (Build 17), 1.1.5 (Build 18), 1.1.6 (Build 19), 1.1.7 (Build 20), 1.1.8 (Build 21), 1.1.9 (Build 22), 1.1.10 (Build 23), 1.1.11 (Build 24), 1.1.12 (Build 25), 1.1.13 (Build 26), 1.1.14 (Build 27), 1.1.15 (Build 28), 1.1.16 (Build 29), 1.1.17 (Build 30), 1.1.18 (Build 31), 1.1.19 (Build 32), 1.1.20 (Build 33), 1.1.21 (Build 34), 1.1.22 (Build 35), 1.1.23 (Build 36), 1.1.24 (Build 37), 1.1.25 (Build 38) … Dazu gesetzt (Ansage des Nutzers,
   09/2026): `DEVELOPMENT_TEAM = F4989GSTWS` — dieselbe Id wie Schulalarm und
   Tafelbild — und `INFOPLIST_KEY_LSApplicationCategoryType =
   public.app-category.navigation`. Beides steht als Build-Einstellung, weil
