@@ -111,12 +111,7 @@ struct AbfahrtstafelView: View {
             .fullScreenCover(isPresented: $karteImVollbild) {
                 Vollbildkarte(schliessen: { karteImVollbild = false })
             }
-            .navigationDestination(for: Haltestelle.self) { halt in
-                HaltestelleView(haltestelle: halt)
-            }
-            .navigationDestination(for: Fahrtwunsch.self) { wunsch in
-                FahrtView(fahrtId: wunsch.fahrtId, einstiegsHaltestelle: wunsch.einstieg)
-            }
+            .fahrplanziele()
             .sheet(isPresented: $ortswahlOffen) {
                 OrtswahlView()
             }
@@ -477,12 +472,12 @@ private struct Vollbildkarte: View {
                         }
                     }
                 }
-                // **Ein eigener Stapel braucht sein eigenes Ziel.** Dieselbe
-                // Falle wie in 1.1.7: Ohne diese Zeile wäre jeder Halt auf der
-                // Vollbildkarte ein Verweis, der nichts tut.
-                .navigationDestination(for: Haltestelle.self) { halt in
-                    HaltestelleView(haltestelle: halt)
-                }
+                // **Ein eigener Stapel braucht ALLE Ziele.** Bis 1.1.24 stand
+                // hier nur `Haltestelle` — und damit war jede Zeile in der
+                // Abfahrtstafel eines angetippten Haltes ein Verweis, der
+                // nichts tut (gemeldet 09/2026). Seit 1.1.25 steht der ganze
+                // Satz an einer Stelle; siehe `Fahrplanziele.swift`.
+                .fahrplanziele()
         }
     }
 }

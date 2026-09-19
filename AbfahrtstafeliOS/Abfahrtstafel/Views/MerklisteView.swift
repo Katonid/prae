@@ -43,12 +43,7 @@ struct MerklisteView: View {
                 }
             }
             .navigationTitle("Gemerkt")
-            .navigationDestination(for: Haltestelle.self) { halt in
-                HaltestelleView(haltestelle: halt)
-            }
-            .navigationDestination(for: Fahrtwunsch.self) { wunsch in
-                FahrtView(fahrtId: wunsch.fahrtId, einstiegsHaltestelle: wunsch.einstieg)
-            }
+            .fahrplanziele()
             .toolbar {
                 if !merkliste.haltestellen.isEmpty {
                     EditButton()

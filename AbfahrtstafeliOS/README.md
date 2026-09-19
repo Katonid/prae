@@ -112,8 +112,8 @@ zwölf Zeichen ab), Ordner, Ziel und Bundle-Id bleiben „Abfahrtstafel“ /
   Prozent überhaupt unterscheidbar. Die Karte dünnt deshalb auf den Maßstab
   aus — nie weiter, als ein Bildpunkt reicht. Wer hineinzoomt, bekommt den
   vollen Verlauf zurück.
-- **Die Karte zeichnet höchstens zwölf Linien — und zwar die nächsten.** Jeder
-  Linienverlauf ist eine eigene Abfrage; an einem großen Umsteigepunkt
+- **Die Karte zeichnet höchstens zwanzig Linien — und zwar die nächsten.**
+  Jeder Linienverlauf ist eine eigene Abfrage; an einem großen Umsteigepunkt
   verkehren leicht vierzig Linien. Gewählt werden die, die dem Bezugspunkt am
   nächsten halten. Bis 1.1.23 gewann, wer zuerst abfuhr — und das ist bei
   großem Umkreis reiner Zufall: **Am Karl-Preis-Platz in München deckten 200
@@ -123,6 +123,13 @@ zwölf Zeichen ab), Ordner, Ziel und Bundle-Id bleiben „Abfahrtstafel“ /
   Zeitliste, Platz 3 nach Nähe). **Was die Grenze weglässt, steht seit 1.1.24
   als Zahl unter der Karte**, samt dem, was hilft: ein kleinerer Umkreis oder
   ein Filter.
+- **Warum die Grenze überhaupt eine ist — gemessen, nicht vermutet.** Die
+  Abfragen sind es nicht: zwölf, vierundzwanzig und dreiundvierzig Linien
+  brauchen dieselbe Zeit, weil sie nebenläufig laufen (1,4 s). Das Gewicht
+  steckt im Gezeichneten, und dort erst beim Hineinzoomen — am Straßenzug sind
+  es bei zwölf Linien 4.530 Koordinaten, bei zwanzig 20.026, bei
+  dreiundvierzig 29.320. Beim Öffnen rahmt die Karte das ganze Netz, dort
+  bleiben davon rund zwei Prozent. Seit 1.1.25 steht die Grenze auf zwanzig.
 - **Die Halte der Linien gibt es überall**, nicht nur um den Suchpunkt.
   Gezeichnet wird, was im Kartenausschnitt liegt: Wer zur S-Bahn-Strecke
   schiebt oder hineinzoomt, bekommt dort alle Halte. Nur was gleichzeitig

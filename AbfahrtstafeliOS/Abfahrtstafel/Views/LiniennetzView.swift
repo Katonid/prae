@@ -722,25 +722,6 @@ struct LiniennetzView: View, Equatable {
             }
         }
 
-        var gesehen = Set<String>()
-        var punkte: [Linienhaltpunkt] = []
-        for zug in netz.zuege {
-            for halt in zug.halte {
-                guard gesehen.insert(halt.haltestelle.id).inserted else { continue }
-                punkte.append(
-                    Linienhaltpunkt(
-                        id: halt.haltestelle.id,
-                        name: halt.haltestelle.name,
-                        koordinate: halt.haltestelle.koordinate,
-                        haltestelle: halt.haltestelle,
-                        farbe: zug.linie.anzeigefarbe,
-                        gross: false,
-                        faelltAus: halt.faelltAus,
-                        lautMeldungGesperrt: gemeldet(halt.haltestelle.name, zug.linie, gesperrt)
-                    )
-                )
-            }
-        }
         // **Gezeichnet wird, was im AUSSCHNITT liegt** (ab 1.1.13, gemeldet
         // 09/2026: „Haltestellen gibt es offenbar nur in einem bestimmten
         // Umkreis vom Suchpunkt … bei den S-Bahn-Linien werden weiter
@@ -755,8 +736,45 @@ struct LiniennetzView: View, Equatable {
         // sieht — wer hineinzoomt oder zur S-Bahn-Strecke schiebt, bekommt
         // dort ALLE Halte. Das ist der Unterschied zwischen „fehlt" und
         // „steht gerade nicht im Bild".
-        let imBlick = punkte.filter { imSichtfeld($0.koordinate) }
-
+        //
+        // **Erst die LAGE prüfen, dann die Arbeit machen** (ab 1.1.25).
+        // Bis 1.1.24 wurde für JEDEN Halt JEDER Linie ein Punkt gebaut —
+        // samt `gemeldet(…)`, also einem Textvergleich gegen die
+        // Meldungsliste mit Kleinschreibung und ausgeschriebenen
+        // Abkürzungen — und ERST DANACH auf den Ausschnitt gefiltert. Die
+        // Grenze von `hoechstzahlHalte` deckelte damit, was GEZEICHNET wird,
+        // nicht, was durchgegangen wird.
+        //
+        // **Nachgemessen am 19.09.2026 am Karl-Preis-Platz in München**, 3 km
+        // Umkreis: zwölf Linien haben dort zusammen 292 Halte, dreiundvierzig
+        // haben **2.125**. Das lief bei jedem Neurechnen durch, also bei jeder
+        // Schiebebewegung der Karte — dieselbe Falle wie 1.1.16, nur eine
+        // Ebene tiefer und mit der Zahl der Linien wachsend.
+        //
+        // Die Prüfung ist vier Vergleiche, der Textvergleich ist ein Suchlauf.
+        // **Das Ergebnis ändert sich dadurch nicht**: Eine Haltestelle hat
+        // genau eine Koordinate, `imSichtfeld` fällt also für alle ihre
+        // Vorkommen gleich aus — Filtern und Entdoppeln sind vertauschbar.
+        var gesehen = Set<String>()
+        var imBlick: [Linienhaltpunkt] = []
+        for zug in netz.zuege {
+            for halt in zug.halte {
+                guard imSichtfeld(halt.haltestelle.koordinate) else { continue }
+                guard gesehen.insert(halt.haltestelle.id).inserted else { continue }
+                imBlick.append(
+                    Linienhaltpunkt(
+                        id: halt.haltestelle.id,
+                        name: halt.haltestelle.name,
+                        koordinate: halt.haltestelle.koordinate,
+                        haltestelle: halt.haltestelle,
+                        farbe: zug.linie.anzeigefarbe,
+                        gross: false,
+                        faelltAus: halt.faelltAus,
+                        lautMeldungGesperrt: gemeldet(halt.haltestelle.name, zug.linie, gesperrt)
+                    )
+                )
+            }
+        }
         // **Über der Grenze bleiben die entfallenden Halte stehen.** Weggelassen
         // wird nur das Gewöhnliche: Der eine durchgestrichene ist der Grund,
         // aus dem jemand die Karte aufschlägt. Ihn mit wegzuräumen hieße, die
