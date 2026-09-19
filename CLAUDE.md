@@ -2423,6 +2423,94 @@ Auftrag, für Bauten, die niemand angefordert hatte.
 - **Eine Kette für beide Bildschirme** (`AbfahrtstafelApp.dienst`). Zwei Ketten
   nebeneinander hieße zwei Zwischenspeicher und zwei Meinungen darüber, welcher
   Verbund gerade antwortet.
+- **Mehrere Vorschläge auf EINER Karte** (`Views/VergleichsKarte.swift`, ab
+  1.1.20, Ansage des Nutzers 09/2026: „Ich suche nach einer Möglichkeit, diese
+  gemeinsam auf einer Karte anzeigen zu lassen, sodass man die Verläufe
+  vergleichen kann … Auf jeden Fall möchte ich in einem Menü die einzelnen
+  Verbindungen auf der Karte ein- und ausblenden können."). Die Liste sagt, wie
+  lange etwas dauert und wie oft man umsteigt; sie sagt nicht, WO es langgeht.
+  - **Drei Dinge sind auseinanderzuhalten, und jedes bekommt ein EIGENES
+    Mittel**: das VERKEHRSMITTEL die Linienfarbe (wie überall in dieser App),
+    die VERBINDUNG eine Nummer am Zug samt derselben Nummer in der Liste, und
+    was gerade gemeint ist das Hervorheben. **Die Farbe kann die Verbindung
+    nicht tragen** — sie ist schon für das Verkehrsmittel vergeben, und genau
+    das wollte der Nutzer sehen („ob die Verbindung eine reine ICE-Verbindung
+    ist oder fünfmal umsteigen bei Regionalbahnen bedeutet"). Dazu kommt: Zwei
+    Vorschläge über dieselbe Strecke liegen ohnehin übereinander, eine zweite
+    Farbe daneben verspräche eine Trennung, die es nicht gibt.
+  - **Das Menü ist die Liste oben rechts** — aufklappbar wie die Legende der
+    Netzkarte, und aus demselben Grund: Auf einem iPhone deckt sie sonst die
+    Fläche zu, für die man sie öffnet. **Zwei Aufgaben, zwei Knöpfe**: Das
+    Häkchen blendet ein und aus, ein Tipp auf die Zeile hebt hervor. Ein Tipp,
+    der mal dies und mal jenes tut, ist für den Menschen davor kaputt.
+  - **Die Schilderkette steht in der LISTE, nicht auf der Karte.** Auf der
+    Karte wäre dafür kein Platz; gedeckelt auf sechs Schilder, der Rest wird
+    gezählt. Kleiner gezeichnet wären sie genau dort unlesbar, wo sie
+    gebraucht werden — dieselbe Rechnung wie beim Dauerbalken in 1.1.19.
+  - **Umstiegspunkte nur bei der hervorgehobenen Verbindung.** Alle auf einmal
+    wären dreißig Punkte, und die Frage „wo steige ich um" hat immer eine
+    bestimmte Verbindung im Sinn.
+  - **Gerahmt wird, was SICHTBAR ist**, und neu gerahmt beim Ein- und
+    Ausblenden. Das widerspricht der Regel der Netzkarte nur scheinbar: Dort
+    stellte sich die Karte über den Nutzer hinweg ein, weil eine Antwort aus
+    dem Netz eintraf; hier ist der Auslöser sein eigener Tipp.
+  - **Auf der Karte liegt kein Bedienelement** (Lehre aus 1.1.18) — alle
+    Punkte `.allowsHitTesting(false)`.
+  - **`linienzug` und `gestrichelt` sind ans MODELL gewandert**
+    (`Verbindungsabschnitt`). Es gibt jetzt zwei Karten, die Verbindungen
+    zeichnen; zwei Fassungen zeichneten irgendwann verschiedene Wege für
+    dieselbe Fahrt.
+- **Der Deutschland-Ticket-Filter gehört in die ANFRAGE, nicht in die Liste**
+  (ab 1.1.20, Ansage des Nutzers 09/2026: „Es soll möglich sein, nur
+  Verbindungen anzeigen zu lassen, die mit dem Deutschland-Ticket befahrbar
+  sind."). **Gemessen 19.09.2026, Dortmund → München:** Ohne Einschränkung
+  kamen fünf Vorschläge zurück, und in ALLEN fünf steckte ein ICE oder IC. Wer
+  erst hinterher aussiebt, bekommt eine leere Liste und schließt daraus, es
+  gebe keine Nahverkehrsverbindung — mit `transitModes` liefert dieselbe
+  Strecke sechs Vorschläge aus lauter Regionalzügen (fünf bis sieben Umstiege,
+  gut zehn Stunden statt knapp sechs).
+  - **`transitModes` wirkt an `/plan` — an `/stoptimes` heißt derselbe Filter
+    `mode`.** Gemessen am selben Tag: `mode=` und `modes=` werden von `/plan`
+    mit HTTP 200 angenommen und **stillschweigend ignoriert** (die Antwort war
+    Byte für Byte die ungefilterte, 457 412 B). Umgekehrt wirkt an
+    `/stoptimes` nur `mode`. **Der Parametername ist je Endpunkt ein anderer,
+    und ein falscher fällt nicht auf** — geprüft wird am INHALT der Antwort,
+    nie am Status. Ein falscher WERT dagegen meldet sich: HTTP 400 samt
+    Aufzählung aller gültigen (`ModeEnum`).
+  - **`RAIL` steht bewusst NICHT dabei.** Es ist eine Obergruppe und holt
+    Fern- und Hochgeschwindigkeitszüge zurück — nachgemessen an Dortmund →
+    Köln, Hamburg → Berlin und München → Zürich: mit `RAIL` standen in jeder
+    wieder ICE und IC in der Liste, ohne `RAIL` keine, bei gleicher Zahl an
+    Vorschlägen. Dieselbe Falle wie an der Tafel, nur an der anderen
+    Schnittstelle.
+  - **Die Regel steht an EINER Stelle** (`Verkehrsmittel.imDeutschlandTicket`)
+    und wird an zwei Enden gebraucht: für die Modi der Anfrage und für die
+    Prüfung jeder Antwort. **Im Zweifel NICHT abgedeckt** — `sonstiges` und
+    `faehre` fallen heraus. Die beiden Fehler sind nicht gleich schwer: Eine
+    Verbindung zu viel wegzulassen kostet eine Auskunft, eine zu viel zu
+    zeigen ein erhöhtes Beförderungsentgelt. (Manche Fähren SIND Nahverkehr —
+    die HADAG gehört zum HVV —, aber welche, steht in keinem Feld.)
+  - **`NIGHT_RAIL` lief bis 1.1.19 als Regionalzug mit** und ist jetzt
+    Fernzug. Falsch war das schon auf dem Schild; mit dem Filter wäre es die
+    teure Sorte falsch gewesen.
+  - **Fragen kann nur Transitous.** Die Verbünde und der Schweizer Dienst
+    kennen keinen gemessenen Parameter dafür, und eine geratene Einschränkung
+    gehört in keine Anfrage — ihre Antworten siebt `Kettendienst.gesiebt`.
+    Damit gilt die Zusage „in dieser Liste steht kein Fernverkehr" für JEDE
+    Quelle. Bleibt nach dem Sieben nichts übrig, wird die nächste Quelle
+    gefragt: Eine Quelle, die hier nur Fernverkehr kennt, ist für diese Frage
+    dasselbe wie eine, die nichts gefunden hat.
+  - **Was der Filter NICHT kann, steht unter der Liste.** Er kennt das
+    VERKEHRSMITTEL, nicht das LAND: München → Zürich kommt mit
+    Nahverkehrsmodi als vollständige Regionalzugverbindung zurück und ist ab
+    der Grenze nicht im Deutschland-Ticket. Ausnahmen einzelner Linien stehen
+    ebenfalls in keiner Quelle. Dieselbe Ehrlichkeit wie beim Wort „Plan".
+  - **Nicht in den Voreinstellungen.** Wer ein Deutschland-Ticket hat, hat es
+    dauerhaft — aber eine App, die beim nächsten Öffnen still die schnellen
+    Verbindungen weglässt, sieht aus wie eine App, die sie nicht findet. Der
+    Schalter steht sichtbar in der Leiste, und steht er an, nennt ihn auch die
+    Meldung „nichts gefunden": Sonst liest sich die wie eine Aussage über den
+    Fahrplan.
 - **Die Dauer wird als BALKEN vergleichbar, nicht durch Stauchen der Schilder**
   (`Views/Dauerbalken.swift`, ab 1.1.19, Ansage des Nutzers 09/2026: „Es wäre
   schön, wenn man die angezeigten Verbindungen schnell hinsichtlich ihrer Dauer
@@ -2479,7 +2567,7 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   zwölfte Nachbesserung — derselbe Gedanke wie bei Tafelbild 1.4.0 und
   Schulalarm 1.1.0. Die Marken ab 1.0.x in diesem Papier bleiben stehen;
   sie sagen, wann etwas in den Quelltext kam. Danach zählt es weiter:
-  1.1.1 (Build 14), 1.1.2 (Build 15), 1.1.3 (Build 16), 1.1.4 (Build 17), 1.1.5 (Build 18), 1.1.6 (Build 19), 1.1.7 (Build 20), 1.1.8 (Build 21), 1.1.9 (Build 22), 1.1.10 (Build 23), 1.1.11 (Build 24), 1.1.12 (Build 25), 1.1.13 (Build 26), 1.1.14 (Build 27), 1.1.15 (Build 28), 1.1.16 (Build 29), 1.1.17 (Build 30), 1.1.18 (Build 31), 1.1.19 (Build 32) … Dazu gesetzt (Ansage des Nutzers,
+  1.1.1 (Build 14), 1.1.2 (Build 15), 1.1.3 (Build 16), 1.1.4 (Build 17), 1.1.5 (Build 18), 1.1.6 (Build 19), 1.1.7 (Build 20), 1.1.8 (Build 21), 1.1.9 (Build 22), 1.1.10 (Build 23), 1.1.11 (Build 24), 1.1.12 (Build 25), 1.1.13 (Build 26), 1.1.14 (Build 27), 1.1.15 (Build 28), 1.1.16 (Build 29), 1.1.17 (Build 30), 1.1.18 (Build 31), 1.1.19 (Build 32), 1.1.20 (Build 33) … Dazu gesetzt (Ansage des Nutzers,
   09/2026): `DEVELOPMENT_TEAM = F4989GSTWS` — dieselbe Id wie Schulalarm und
   Tafelbild — und `INFOPLIST_KEY_LSApplicationCategoryType =
   public.app-category.navigation`. Beides steht als Build-Einstellung, weil

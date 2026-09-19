@@ -151,6 +151,25 @@ hier weg", sondern **„wie komme ich dorthin"**.
 - **Im Einzelnen**: jeder Abschnitt mit Ein- und Ausstieg, aufklappbaren
   Zwischenhalten, entfallenden Halten und allen Teilstrecken auf einer Karte;
   Fußwege gepunktet. Von dort führt ein Weg in den ganzen Linienlauf.
+- **Wege vergleichen** (ab 1.1.20). Ein Knopf über der Liste legt alle
+  Vorschläge auf EINE Karte. Die Liste sagt, wie lange etwas dauert; sie sagt
+  nicht, wo es langgeht — und ob ein Umstieg in Hamm oder in Köln liegt,
+  entscheidet manchmal alles. Jeder Abschnitt trägt seine Linienfarbe (eine
+  reine ICE-Verbindung sieht anders aus als eine Kette von Regionalzügen),
+  jede Verbindung eine Nummer am Zug. Im Menü oben rechts lässt sich jede
+  einzeln ein- und ausblenden; ein Tipp auf die Zeile hebt ihren Weg hervor
+  und zeigt ihre Umstiege mit Namen.
+- **Nur mit dem Deutschland-Ticket** (ab 1.1.20). Ein Schalter in der Leiste
+  blendet alles aus, wofür ein Fernverkehrsticket nötig wäre — ICE, IC/EC,
+  Nachtzug, Fernbus. **Der Filter geht in die Anfrage**, nicht erst in die
+  Liste: Zwischen Dortmund und München steckt in jedem der fünf schnellsten
+  Vorschläge ein Fernzug; erst die eingeschränkte Suche bringt die
+  Nahverkehrsverbindungen überhaupt zum Vorschein.
+
+  Was er **nicht** kann, steht unter der Liste: Er kennt das Verkehrsmittel,
+  nicht das Land — eine Fahrt über die Grenze ist jenseits davon nicht
+  enthalten —, und keine Ausnahme einzelner Linien. Fähren bleiben außen vor,
+  weil sich nicht unterscheiden lässt, welche zum Nahverkehr gehören.
 - **Die Liste lädt sich NICHT von selbst nach.** Eine Ergebnisliste, die sich
   unter den Fingern neu sortiert, während jemand sie liest, ist keine Hilfe.
 

@@ -192,7 +192,8 @@ struct Kettendienst: Fahrplandienst {
         nach: CLLocationCoordinate2D,
         zeitpunkt: Date,
         ankunft: Bool,
-        anzahl: Int
+        anzahl: Int,
+        nurNahverkehr: Bool
     ) async throws -> [Verbindung] {
         var gruende: [String] = []
         // **„Nichts gefunden" und „nicht geantwortet" werden getrennt
@@ -204,10 +205,14 @@ struct Kettendienst: Fahrplandienst {
 
         switch try await versuche(erste.quellenname, {
             try await erste.verbindungen(
-                von: von, nach: nach, zeitpunkt: zeitpunkt, ankunft: ankunft, anzahl: anzahl
+                von: von, nach: nach, zeitpunkt: zeitpunkt, ankunft: ankunft,
+                anzahl: anzahl, nurNahverkehr: nurNahverkehr
             )
         }) {
-        case .gefunden(let gefunden): return gefunden
+        case .gefunden(let gefunden):
+            if let uebrig = gesiebt(gefunden, nurNahverkehr) { return uebrig }
+            gruende.append("\(erste.quellenname): nichts ohne Fernverkehr")
+            eineQuelleSagteNichts = true
         case .leer(let grund): gruende.append(grund); eineQuelleSagteNichts = true
         case .ausfall(let grund): gruende.append(grund)
         }
@@ -219,10 +224,14 @@ struct Kettendienst: Fahrplandienst {
         for quelle in ersatz {
             switch try await versuche(quelle.quellenname, {
                 try await quelle.verbindungen(
-                    von: von, nach: nach, zeitpunkt: zeitpunkt, ankunft: ankunft, anzahl: anzahl
+                    von: von, nach: nach, zeitpunkt: zeitpunkt, ankunft: ankunft,
+                    anzahl: anzahl, nurNahverkehr: nurNahverkehr
                 )
             }) {
-            case .gefunden(let gefunden): return gefunden
+            case .gefunden(let gefunden):
+                if let uebrig = gesiebt(gefunden, nurNahverkehr) { return uebrig }
+                gruende.append("\(quelle.quellenname): nichts ohne Fernverkehr")
+                eineQuelleSagteNichts = true
             case .leer(let grund): gruende.append(grund); eineQuelleSagteNichts = true
             case .ausfall(let grund): gruende.append(grund)
             }
@@ -233,10 +242,14 @@ struct Kettendienst: Fahrplandienst {
         for quelle in verbindungsreihe where quelle.zustaendig(von: von, nach: nach) {
             switch try await versuche(quelle.name, {
                 try await quelle.verbindungen(
-                    von: von, nach: nach, zeitpunkt: zeitpunkt, ankunft: ankunft, anzahl: anzahl
+                    von: von, nach: nach, zeitpunkt: zeitpunkt, ankunft: ankunft,
+                    anzahl: anzahl, nurNahverkehr: nurNahverkehr
                 )
             }) {
-            case .gefunden(let gefunden): return gefunden
+            case .gefunden(let gefunden):
+                if let uebrig = gesiebt(gefunden, nurNahverkehr) { return uebrig }
+                gruende.append("\(quelle.name): nichts ohne Fernverkehr")
+                eineQuelleSagteNichts = true
             case .leer(let grund): gruende.append(grund); eineQuelleSagteNichts = true
             case .ausfall(let grund): gruende.append(grund)
             }
@@ -249,6 +262,25 @@ struct Kettendienst: Fahrplandienst {
         // alter Stand, sondern eine Antwort auf eine andere Frage.
         if eineQuelleSagteNichts { throw Fahrplanfehler.keineVerbindung }
         throw Fahrplanfehler.keineQuelleAntwortet(gruende: gruende)
+    }
+
+    /// Das Netz unter dem Deutschland-Ticket-Filter.
+    ///
+    /// **Fragen kann nur Transitous** (`transitModes`, gemessen 19.09.2026).
+    /// Die Verbünde und der Schweizer Dienst kennen keinen gemessenen
+    /// Parameter dafür, und eine ungemessene Vermutung gehört in keine
+    /// Anfrage — also wird ihre Antwort hier geprüft. Damit gilt die Zusage
+    /// „in dieser Liste steht kein Fernverkehr" für JEDE Quelle und nicht nur
+    /// für die erste.
+    ///
+    /// `nil` heißt „nach dem Sieben bleibt nichts übrig" — dann wird die
+    /// nächste Quelle gefragt, statt eine leere Liste auszugeben. Eine
+    /// Quelle, die hier nur Fernverkehr kennt, ist für diese Frage dasselbe
+    /// wie eine, die nichts gefunden hat.
+    private func gesiebt(_ gefunden: [Verbindung], _ nurNahverkehr: Bool) -> [Verbindung]? {
+        guard nurNahverkehr else { return gefunden }
+        let uebrig = gefunden.filter(\.nurNahverkehr)
+        return uebrig.isEmpty ? nil : uebrig
     }
 
     /// Wie eine einzelne Quelle geantwortet hat.

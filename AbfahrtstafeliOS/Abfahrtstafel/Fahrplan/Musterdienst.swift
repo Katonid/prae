@@ -107,11 +107,15 @@ struct Musterdienst: Fahrplandienst {
         nach: CLLocationCoordinate2D,
         zeitpunkt: Date,
         ankunft: Bool,
-        anzahl: Int
+        anzahl: Int,
+        nurNahverkehr: Bool
     ) async throws -> [Verbindung] {
-        (0..<min(anzahl, 3)).map { nummer in
+        let gebaut = (0..<min(anzahl, 3)).map { nummer in
             Self.beispielverbindung(ab: zeitpunkt.addingTimeInterval(Double(nummer) * 600), nummer: nummer)
         }
+        // Auch die Musterdaten halten sich an die Regel — sonst wäre der
+        // Filter an ihnen nicht zu prüfen.
+        return nurNahverkehr ? gebaut.filter(\.nurNahverkehr) : gebaut
     }
 
     private static func beispielverbindung(ab start: Date, nummer: Int) -> Verbindung {

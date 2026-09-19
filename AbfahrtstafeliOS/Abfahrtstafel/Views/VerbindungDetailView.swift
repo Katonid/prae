@@ -248,7 +248,7 @@ private struct VerbindungsKarte: View {
     var body: some View {
         Map(position: $kamera, interactionModes: [.pan, .zoom]) {
             ForEach(verbindung.abschnitte) { abschnitt in
-                let punkte = linienzug(abschnitt)
+                let punkte = abschnitt.linienzug
                 if punkte.count >= 2 {
                     MapPolyline(coordinates: punkte)
                         .stroke(
@@ -266,7 +266,7 @@ private struct VerbindungsKarte: View {
                                 // Karte sähe aus wie ein Fahrweg. Dieselbe
                                 // Regel wie bei der gestrichelten Luftlinie
                                 // im Fahrtlauf.
-                                dash: strichelt(abschnitt) ? [1, 5] : []
+                                dash: abschnitt.gestrichelt ? [1, 5] : []
                             )
                         )
                 }
@@ -312,26 +312,10 @@ private struct VerbindungsKarte: View {
     }
 
     /// Die Streckenführung, und wo sie fehlt, die Verbindung der Halte.
-    private func linienzug(_ abschnitt: Verbindungsabschnitt) -> [CLLocationCoordinate2D] {
-        if !abschnitt.strecke.isEmpty { return abschnitt.strecke }
-        // Ohne Geometrie werden die HALTE verbunden — nicht nur Anfang und
-        // Ende. Eine Fahrt über sechs Stationen läge sonst als eine einzige
-        // Gerade da, obwohl die Lage jedes Haltes bekannt ist.
-        let ausHalten = abschnitt.halte.map(\.haltestelle.koordinate)
-        if ausHalten.count >= 2 { return ausHalten }
-        return [abschnitt.von?.koordinate, abschnitt.nach?.koordinate].compactMap { $0 }
-    }
-
-    /// Ob dieser Abschnitt gestrichelt gehört: jeder Fußweg, und jede Fahrt,
-    /// deren Streckenführung die Quelle nicht mitgeschickt hat.
-    private func strichelt(_ abschnitt: Verbindungsabschnitt) -> Bool {
-        abschnitt.art == .fussweg || abschnitt.strecke.isEmpty
-    }
-
 
 
     private var ausschnitt: MKMapRect {
-        let punkte = verbindung.abschnitte.flatMap { linienzug($0) }
+        let punkte = verbindung.abschnitte.flatMap(\.linienzug)
         guard let erster = punkte.first else { return MKMapRect.world }
         var rahmen = MKMapRect(origin: MKMapPoint(erster), size: MKMapSize(width: 0, height: 0))
         for punkt in punkte.dropFirst() {

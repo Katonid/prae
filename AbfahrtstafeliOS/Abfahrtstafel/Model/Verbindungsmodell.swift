@@ -30,6 +30,28 @@ final class Verbindungsmodell: ObservableObject {
     /// „jetzt" weiterläuft und ein gewählter Zeitpunkt stehen bleibt.
     @Published var abJetzt = true
 
+    /// Nur Verbindungen, die mit dem Deutschland-Ticket befahrbar sind.
+    ///
+    /// **Der Filter wirkt auf die ANFRAGE, nicht auf die fertige Liste** —
+    /// deshalb steht er hier und nicht in der Ansicht, und deshalb löst er
+    /// eine neue Suche aus. Gemessen (Dortmund → München): Ohne
+    /// Einschränkung steckt in allen fünf Vorschlägen ein Fernzug; erst die
+    /// eingeschränkte Anfrage bringt die Nahverkehrsverbindungen überhaupt
+    /// zum Vorschein.
+    ///
+    /// **Nicht in den Voreinstellungen.** Wer ein Deutschland-Ticket hat, hat
+    /// es zwar dauerhaft — aber eine App, die beim nächsten Öffnen still die
+    /// schnellen Verbindungen weglässt, sieht aus wie eine App, die sie nicht
+    /// findet. Die Leiste zeigt den Filter an, solange er an ist.
+    @Published var nurDeutschlandTicket = false {
+        didSet { if oldValue != nurDeutschlandTicket { suchen(standort: letzterStandort) } }
+    }
+
+    /// Der zuletzt benutzte Standort — damit das Umschalten des Filters die
+    /// Suche mit denselben Punkten wiederholen kann, ohne dass die Ansicht
+    /// ihn noch einmal hereinreichen muss.
+    private var letzterStandort: CLLocationCoordinate2D?
+
     @Published private(set) var verbindungen: [Verbindung] = []
     @Published private(set) var stand: Stand = .leer
     @Published private(set) var geholtUm: Date?
@@ -84,6 +106,7 @@ final class Verbindungsmodell: ObservableObject {
             return
         }
 
+        letzterStandort = standort
         let wann = abJetzt ? Date() : zeitpunkt
         let ankunft = !abJetzt && alsAnkunft
         stand = .laedt
@@ -96,7 +119,8 @@ final class Verbindungsmodell: ObservableObject {
                     nach: ziel.koordinate,
                     zeitpunkt: wann,
                     ankunft: ankunft,
-                    anzahl: 6
+                    anzahl: 6,
+                    nurNahverkehr: nurDeutschlandTicket
                 )
                 guard !Task.isCancelled else { return }
                 verbindungen = gefunden
@@ -109,8 +133,16 @@ final class Verbindungsmodell: ObservableObject {
                 let fehler = error as? Fahrplanfehler
                 if fehler == .abgebrochen { return }
                 verbindungen = []
+                // **Steht der Filter an, gehört er in die Meldung.** Sonst
+                // liest sich „hier fährt nichts" wie eine Aussage über den
+                // Fahrplan, während in Wahrheit nur der Fernverkehr
+                // ausgeblendet ist — und der Knopf daneben wäre der falsche.
+                var text = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+                if nurDeutschlandTicket, fehler == .keineVerbindung {
+                    text += " Der Filter „Deutschland-Ticket\u{201C} ist an — ohne ihn kämen auch Verbindungen mit Fernzug oder Fernbus infrage."
+                }
                 stand = .fehler(
-                    text: (error as? LocalizedError)?.errorDescription ?? error.localizedDescription,
+                    text: text,
                     zeitHilft: fehler == .keineVerbindung
                 )
             }
