@@ -63,11 +63,24 @@ Eine Person richtet die Schule ein, alle anderen treten bei.
 Verwaltung → Mitglieder eine zweite Person dazu machen; sie schickt den
 Testalarm zurück.
 
-**Was ein zweites Gerät braucht, hält den ersten Start nicht auf.** Der
-Zustellnachweis war bis 1.0.9 Bedingung für „Einrichtung abschließen" — und
-damit zirkulär: Der Nachweis braucht einen Push von einem anderen Gerät, den
-schickt ein Admin aus der Verwaltung, die Verwaltung liegt hinter dem
-Startbildschirm. Niemand kam mehr hinein.
+**Nichts in dieser Prüfliste hält den ersten Start auf.** Sie sagt, was fehlt;
+„Einrichtung abschließen" ist immer tippbar. Zweimal ist das anders gewesen,
+und beide Male war es eine Sackgasse: Bis 1.0.9 war der Zustellnachweis
+Bedingung — der braucht einen Push von einem anderen Gerät, den schickt ein
+Admin aus der Verwaltung, und die Verwaltung liegt hinter dem Startbildschirm.
+Bis 1.1.0 (Build 42) war es die Mitteilungserlaubnis; wer die Systemfrage
+verneinte, kam gar nicht in die App. Daran ist die erste Einreichung im
+öffentlichen Laden gescheitert (Apple, Guideline 4.5.4).
+
+**Mitteilungen sind freiwillig.** Ohne sie bleiben Auslösen, Rückmelden,
+Nachrichten, Entwarnen, Verwaltung und Diagnose vollständig nutzbar, und bei
+offener App erscheint ein Alarm binnen Sekunden von selbst — die Abfrage (fünf
+Sekunden bei laufendem Alarm, sonst dreißig) hängt an keiner Erlaubnis. Was
+fehlt, ist der Ton bei hinten liegender App, der Nachfasslauf und der Tontest.
+Punkt für Punkt steht das unter Einstellungen → „Was ohne Mitteilungen geht".
+**Für ein Dienstgerät, das im Ernstfall laut werden soll, gehören sie
+trotzdem dazu** — ohne sie ist das Gerät keine Alarmanlage, sondern eine
+Ansicht.
 
 Kommt der Code über Jamf School mit der App mit
 (`docs/MDM_APPCONFIG.md`), entfällt Schritt 3 bis auf das Kürzel.

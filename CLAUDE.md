@@ -862,6 +862,41 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   Und: Die Falle stand in `requestAuthorization` wörtlich beschrieben („it
   simply never succeeds, which is the kind of quiet defect this app cannot
   afford") — ein Kommentar ersetzt keine Prüfung.
+- **Diese App sperrt niemanden aus — sie SAGT, was fehlt** (ab 1.1.0/Build 43).
+  **Das war die zweite Ablehnung durch Apple** (Guideline 4.5.4, 19.09.2026,
+  iPad Air 11"): „The app requires push notifications in order to function.
+  Push notifications must be optional and must obtain the user's consent to be
+  used within the app." Der Prüfer hatte recht. „Einrichtung abschließen" war
+  grau, solange eine Mitteilungszeile rot stand (`ChecklistItem.blocksCompletion`,
+  `AppModel.finishBlockers`) — wer die Systemfrage mit „Nicht erlauben"
+  beantwortete, kam aus der Einrichtung nie wieder heraus: kein Auslösen, keine
+  Verwaltung, keine Prüfliste. Dieselbe Sackgasse wie 1.0.10 beim
+  Zustellnachweis, nur eine Etage tiefer und diesmal vollständig — und 1.0.10
+  hatte die Lehre schon aufgeschrieben („Was ein zweites Gerät braucht, darf
+  nie Bedingung für den ersten Start sein"), nur nicht zu Ende gezogen. Der
+  Sperrmechanismus ist deshalb **ersatzlos aus dem Quelltext entfernt**, nicht
+  auf „false" gestellt: Ein Feld, das nur noch falsch sein darf, wird
+  irgendwann wieder wahr. **Wer einen Knopf ausgraut, solange etwas fehlt,
+  holt diese Ablehnung zurück.**
+- **Ohne Mitteilungen bleibt die App benutzbar, und das steht auch da**
+  (`Views/OhneMitteilungenView.swift`, ab 1.1.0/Build 43). Auslösen,
+  Rückmelden, Nachrichten, Entwarnen, Verwaltung und Diagnose hängen an keiner
+  Erlaubnis, und die Abfrage (fünf Sekunden bei laufendem Alarm, sonst
+  dreißig) läuft unabhängig davon — eine offene App zeigt einen Alarm also
+  binnen Sekunden von selbst. Was fehlt, ist der Ton bei hinten liegender App,
+  der Nachfasslauf und der Tontest. Die Seite zählt beides Punkt für Punkt auf
+  und redet nichts schön; der Satz „dieses Gerät ist dann kein Alarmgerät,
+  sondern eine Ansicht" steht ausdrücklich darin.
+- **Die Einwilligung wird IN der App eingeholt, erklärt, und nie von selbst.**
+  Ein eigener Abschnitt „Mitteilungen — freiwillig" steht in der Einrichtung
+  UND dauerhaft in den Einstellungen (wer beim ersten Start ablehnt, käme sonst
+  nie wieder daran vorbei); daneben immer der Weg zu „Was ohne Mitteilungen
+  geht". Den Systemdialog löst ausschließlich ein Tipp aus — beim Start fragt
+  die App nichts (`kritischeHinweiseNachfragen` ist an `.authorized` gebunden
+  und kommt damit erst nach einer Zusage zum Zug). Und `melde(abgewiesen:)`
+  meldet einen Ausfall nur als FEHLER, wenn die Erlaubnis da ist: Wer sie
+  bewusst verneint hat, bekommt einen Hinweis statt eines roten Bandes — eine
+  App, die eine getroffene Entscheidung als Störung ausgibt, drängt.
 - **`try?` an einer Mitteilung ist verboten.** Dasselbe `try?`, das den
   Ablehnungsgrund verschluckte, hat die App die erste Einreichung gekostet: Der
   Prüfer tippte, iOS wies ab, der Knopf schwieg. `Tontest.starten` gibt seither

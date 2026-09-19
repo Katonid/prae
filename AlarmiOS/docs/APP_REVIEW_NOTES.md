@@ -1,6 +1,9 @@
 # App Review Notes
 
-Zum Einfügen in App Store Connect → App-Prüfungsinformationen → Anmerkungen.
+Die **vollständige** Fassung zum Nachschlagen. Was in App Store Connect →
+App-Prüfungsinformationen → Anmerkungen eingefügt wird, steht in
+`APP_REVIEW_NOTES_ASC.txt`: Das Feld nimmt nur 4000 Zeichen, dieses Papier ist
+dreimal so lang. Beide gehören zusammen gepflegt.
 Gilt genauso für die **Beta App Review** vor einer externen TestFlight-Gruppe
 (TestFlight → Testinformationen). Der Text ist bewusst englisch: Apples
 Prüfung liest englisch.
@@ -46,7 +49,7 @@ subscriptions; a notification service extension raises them to
 
 | Permission | Why |
 |---|---|
-| Notifications (alert, sound, badge) | the entire purpose of the app |
+| Notifications (alert, sound, badge) | so an alarm is audible while the app is in the background — **optional**, see "Notifications are optional" below |
 | Time-sensitive notifications | an alarm must pass a Focus mode |
 | Background modes: remote notifications | a silent "report your status" push |
 | Background modes: fetch | `BGAppRefreshTask` refreshes the device's own status entry |
@@ -79,15 +82,20 @@ school in the app; it is completely separate from any real school's data.
    joins an existing school with a code is an ordinary member and will not see
    the drill option.*
 3. A six-character join code is shown. Nothing needs to be done with it.
-4. **Please tap "Erlauben" (Allow) on the notification permission dialog.**
-   iOS asks twice: once for notifications, once for *critical alerts*. The
-   first one is required — the app is an alarm app, and without notifications
-   nothing can make a sound. The second is optional; if you decline it, alarms
-   fall back to time-sensitive notifications and the in-app checklist shows
-   that row as missing. Both cases are fine to review.
-5. Work through the setup checklist. The item **"Zustellung geprüft"**
-   (delivery verified) will stay red — see the next section; it does not block
-   anything. Tap "Einrichtung abschließen".
+4. The setup screen has a section **"Mitteilungen — freiwillig"**
+   (notifications — optional) with two entries: a button that asks for the
+   permission, and **"Was ohne Mitteilungen geht"** (what works without
+   notifications), which lists feature by feature what is available and what is
+   not. **Either choice continues the review.** Declining costs the sound when
+   the app is in the background; nothing is locked or hidden. If you would like
+   to hear an alarm, please allow notifications — iOS then asks a second time
+   for *critical alerts*, which is optional again and only decides whether the
+   alarm is audible on a silenced device.
+5. Work through the setup checklist. **No item blocks anything**; red rows are
+   information, and the button "Einrichtung abschließen" (finish setup) is
+   always enabled. "Zustellung geprüft" (delivery verified) in particular stays
+   red on a single device — see the next section but one. Tap "Einrichtung
+   abschließen".
 6. To see the alarm screen: tap the large button **"Alarm auslösen"** (raise an
    alarm), choose **"PROBEALARM"** (drill), pick a location, and let the
    five-second countdown run. The drill alarm appears full-screen, marked as a
@@ -104,6 +112,35 @@ school in the app; it is completely separate from any real school's data.
 **Please use the drill type (PROBEALARM).** The three real types exist for
 genuine emergencies. In a school of the reviewer's own making they would reach
 nobody, but the drill type is unmistakable either way.
+
+## Notifications are optional (Guideline 4.5.4)
+
+This was the finding on build 42, and it was correct. That build greyed out
+the "finish setup" button while the notification permission was missing, so a
+reviewer who declined the system dialog could not leave the setup screen. It
+is fixed, and the fix goes further than the button:
+
+* **Nothing in the app is gated on the notification permission any more.** The
+  checklist is a report, not a gate; the concept of a blocking item has been
+  removed from the code entirely.
+* **Consent is asked for inside the app**, in its own section headed
+  "Mitteilungen — freiwillig" (notifications — optional), with a sentence
+  explaining what they are for and a sentence stating that the app stays usable
+  without them. The system dialog is only ever raised by an explicit tap — the
+  app never prompts on its own at launch.
+* **The same section is in Settings**, permanently, so somebody who declined at
+  first setup can change their mind without reinstalling.
+* **"Was ohne Mitteilungen geht"** is a screen that lists, item by item, what
+  works and what does not.
+
+Without notifications the app remains fully functional: raising an alarm,
+seeing a running alarm, acknowledging it, the group chat during an alarm,
+calling the all clear, member administration, join codes, the checklist and the
+diagnostics all work. The app polls its backend every five seconds while an
+alarm is running and every thirty seconds otherwise, independently of any
+permission, so an open app shows an alarm within seconds either way. What is
+lost is sound while the app is in the background, the ten follow-up reminders
+and the local sound test — and each of those is named on that screen.
 
 ## What a single device cannot show
 
@@ -140,6 +177,15 @@ There is no server and no account system of our own. The app stores everything
 in CloudKit, which means a signed-in iCloud account is what identifies a
 colleague. The first screen says so if no account is present. We ask for no
 e-mail address, no password and no personal data of our own.
+
+## What was fixed since submission 1.1.0 (42)
+
+**Guideline 4.5.4.** Notifications are no longer required for the app to
+function — see the section "Notifications are optional" above. Concretely: the
+blocking mechanism behind the setup button is gone from the source, consent is
+requested in a dedicated, explained section in both the setup screen and
+Settings, and a screen lists what the app can and cannot do without the
+permission. The app never raises the system dialog by itself.
 
 ## What was fixed since submission 1.1.0 (39)
 

@@ -37,28 +37,40 @@ struct ChecklistItem: Identifiable, Equatable {
     /// Where in the system settings this is fixed, when it can be jumped to.
     var settingsURL: URL?
 
-    /// Ob dieser Punkt den Abschluss der Einrichtung verhindern darf.
+    /// Ein offener Punkt hält den Abschluss der Einrichtung NICHT auf.
     ///
-    /// Für alles, was dieses eine Gerät selbst in Ordnung bringen kann: ja.
-    /// Für den Zustellnachweis: **nein** — und das ist keine Nachlässigkeit,
-    /// sondern die Auflösung einer Sackgasse. Der Nachweis braucht einen Push
-    /// von einem ANDEREN Gerät; den schickt ein Admin aus der Verwaltung;
-    /// die Verwaltung liegt hinter dem Startbildschirm; der Startbildschirm
-    /// lag hinter „Einrichtung abschließen". Damit kam niemand mehr hinein —
-    /// auch der erste Admin nicht, der die Schule gerade eingerichtet hatte.
+    /// Bis 1.1.0 (Build 42) gab es dafür ein Feld, und „Einrichtung
+    /// abschließen" war grau, solange eine der Mitteilungszeilen rot stand.
+    /// **Das hat die zweite Ablehnung durch Apple gekostet** (Guideline 4.5.4,
+    /// 19.09.2026, iPad Air 11": „The app requires push notifications in order
+    /// to function. Push notifications must be optional and must obtain the
+    /// user's consent to be used within the app.") — und der Prüfer hatte
+    /// recht: Wer die Mitteilungsfrage mit „Nicht erlauben" beantwortete, kam
+    /// aus der Einrichtung nie wieder heraus. Kein Auslösen, keine Verwaltung,
+    /// keine Prüfliste, nichts.
     ///
-    /// Der Punkt bleibt trotzdem rot und das Warnband auf dem Startbildschirm
-    /// stehen, bis wirklich etwas angekommen ist. Gesperrt wird nur, was sich
-    /// hier und jetzt auf diesem Gerät lösen lässt.
-    var blocksCompletion: Bool = true
-
+    /// Es ist dieselbe Sackgasse wie 1.0.10 beim Zustellnachweis, nur eine
+    /// Etage tiefer, und diesmal war sie vollständig. **Die Regel daraus ist
+    /// allgemein: Diese App sperrt niemanden aus — sie SAGT, was fehlt.**
+    /// Ohne Mitteilungen ist das Gerät schlechter dran, aber nicht wertlos:
+    /// Auslösen, Rückmelden, Nachrichten, Entwarnen und die Abfrage alle fünf
+    /// Sekunden laufen weiter; was fehlt, ist der Ton, wenn die App hinten
+    /// liegt. Das steht so auf dem Bildschirm, in der Prüfliste und im
+    /// Warnband — und es hält niemanden auf.
     var isBlocking: Bool { state == .missing }
-
-    /// Hält diesen Punkt den Abschluss auf?
-    var blocksFinish: Bool { isBlocking && blocksCompletion }
 }
 
 enum OnboardingChecklist {
+
+    /// Die Zeilen, die an der Mitteilungserlaubnis hängen.
+    ///
+    /// Eine Liste und keine verstreute Abfrage: Wer eine Zeile dazunimmt, die
+    /// ohne die Erlaubnis nie grün werden kann, trägt sie hier ein — sonst
+    /// erklärt das Warnband auf dem Startbildschirm die Hälfte des Problems.
+    static let mitteilungsPunkte: Set<String> = [
+        "notifications", "sound", "lockscreen", "timesensitive", "critical",
+        "tontest"
+    ]
 
     /// The checkable half.
     static func items(permissions: NotificationCenterService.Permissions,
@@ -75,7 +87,12 @@ enum OnboardingChecklist {
                 title: "Mitteilungen erlaubt",
                 detail: permissions.authorization == .authorized
                     ? "Die App darf Mitteilungen zeigen."
-                    : "Ohne Erlaubnis bleibt dieses \(Geraetename.wort) im Alarmfall stumm.",
+                    : "Ohne Erlaubnis bleibt dieses \(Geraetename.wort) im Alarmfall "
+                    + "stumm, solange die App nicht offen ist. Auslösen, "
+                    + "Rückmelden, Nachrichten und Entwarnen gehen weiter, und "
+                    + "bei offener App erscheint ein Alarm binnen Sekunden von "
+                    + "selbst. Erlauben lässt sich das jederzeit — hier in der "
+                    + "Prüfliste oder in den Einstellungen des Geräts.",
                 state: permissions.authorization == .authorized ? .ok : .missing,
                 settingsURL: settings),
 
@@ -126,9 +143,9 @@ enum OnboardingChecklist {
                 settingsURL: settings))
         }
 
-        // Nur wenn der Server das WIRKLICH gesagt hat — ein Netzaussetzer setzt
-        // diese Zeile nie. Und sie hält den Abschluss nicht auf: Lösen lässt
-        // sich das nur durch Austreten, und dazu zwingt die App niemanden.
+        // Nur wenn der Server das WIRKLICH gesagt hat — ein Netzaussetzer
+        // setzt diese Zeile nie. Lösen lässt sich der Fall ohnehin nur durch
+        // Austreten, und dazu zwingt die App niemanden.
         if mitgliedschaftFehlt {
             items.append(ChecklistItem(
                 id: "mitgliedschaft",
@@ -140,8 +157,7 @@ enum OnboardingChecklist {
                     + "mehr. Einstellungen → „Verbindung zur Schule lösen“ "
                     + "räumt dieses Gerät auf.",
                 state: .missing,
-                settingsURL: nil,
-                blocksCompletion: false))
+                settingsURL: nil))
         }
 
         items.append(ChecklistItem(
@@ -187,8 +203,7 @@ enum OnboardingChecklist {
                     + "Danach bleibt der Alarm auf dem iPhone, mit dem eigenen "
                     + "Ton.\n\nOhne gekoppelte Uhr ist hier nichts zu tun.",
                 state: .unknown,
-                settingsURL: nil,
-                blocksCompletion: false))
+                settingsURL: nil))
         }
 
         items.append(ChecklistItem(
@@ -202,8 +217,7 @@ enum OnboardingChecklist {
                 + "Gerät schickt — von einem ANDEREN Gerät aus. Ein Gerät kann "
                 + "sich die Zustellung nicht selbst beweisen.",
             state: zustellungGeprueft ? .ok : .missing,
-            settingsURL: nil,
-            blocksCompletion: false))
+            settingsURL: nil))
 
         return items
     }

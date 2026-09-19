@@ -1,11 +1,20 @@
 //  OnboardingView.swift
 //  The checklist, and the self-test that ends it.
 //
-//  The rule this screen exists to enforce: onboarding is not finished when
-//  every line is green. It is finished when a test alarm has actually arrived
-//  on this device and somebody confirmed hearing it. Green ticks describe
-//  settings; a delivered notification describes reality, and only the second
-//  one is what the school is relying on.
+//  Zwei Regeln stehen hier gegeneinander, und beide sind teuer bezahlt.
+//
+//  Die erste: Grüne Häkchen beschreiben Einstellungen, eine angekommene
+//  Meldung beschreibt die Wirklichkeit — und nur auf die zweite verlässt sich
+//  eine Schule. Deshalb steht hier eine Prüfliste und nicht ein Willkommensbild.
+//
+//  Die zweite: **Diese Liste sperrt niemanden aus.** „Einrichtung abschließen"
+//  ist immer tippbar, auch wenn keine einzige Zeile grün ist. Bis 1.1.0
+//  (Build 42) war der Knopf grau, solange die Mitteilungserlaubnis fehlte —
+//  wer die Systemfrage mit „Nicht erlauben" beantwortete, kam damit nie in die
+//  App. Apple hat die Fassung dafür abgelehnt (Guideline 4.5.4), und die
+//  Ablehnung war richtig: Mitteilungen machen diese App LAUT, sie machen sie
+//  nicht erst benutzbar. Was fehlt, steht als Satz darunter und als Warnband
+//  auf dem Startbildschirm — es hält niemanden auf.
 
 import SwiftUI
 
@@ -20,23 +29,20 @@ struct OnboardingView: View {
                 if let code = model.freshInviteCode { codeSection(code) }
 
                 Section {
-                    Text("Dieses \(Geraetename.wort) muss laut werden können, auch wenn es "
-                         + "gesperrt ist und ein Fokus läuft. Die folgenden Punkte "
-                         + "sind dafür nötig.")
+                    Text("Damit dieses \(Geraetename.wort) im Ernstfall laut wird — auch "
+                         + "gesperrt und bei laufendem Fokus —, sollten die "
+                         + "folgenden Punkte stehen. Aufgehalten wird hier "
+                         + "niemand: Was offen bleibt, steht dabei, und die "
+                         + "Liste ist danach dauerhaft in den Einstellungen zu "
+                         + "finden.")
                         .font(.callout)
                 }
+
+                mitteilungsSection
 
                 Section("Von der App prüfbar") {
                     ForEach(model.checklist) { item in
                         checklistRow(item)
-                    }
-                }
-
-                Section {
-                    Button {
-                        Task { await model.requestPermissions() }
-                    } label: {
-                        Label("Berechtigungen anfragen", systemImage: "bell.badge")
                     }
                 }
 
@@ -69,18 +75,8 @@ struct OnboardingView: View {
                     } label: {
                         Text("Einrichtung abschließen").fontWeight(.semibold)
                     }
-                    .disabled(!model.finishBlockers.isEmpty)
                 } footer: {
-                    if !model.finishBlockers.isEmpty {
-                        Text("Noch offen: "
-                             + model.finishBlockers.map(\.title).joined(separator: ", "))
-                    } else if model.letzterPush == nil {
-                        Text("Der Zustellnachweis steht noch aus — er braucht ein "
-                             + "zweites Gerät und hält die Einrichtung deshalb "
-                             + "nicht auf. Bis er erbracht ist, steht auf dem "
-                             + "Startbildschirm ein Warnband, und dieses \(Geraetename.wort) "
-                             + "gilt nicht als geprüft.")
-                    }
+                    Text(abschlusshinweis)
                 }
             }
             .navigationTitle("Einrichtung")
@@ -112,6 +108,69 @@ struct OnboardingView: View {
         } header: {
             Text("Die Schule ist eingerichtet")
         }
+    }
+
+    /// Die Einwilligung — ausdrücklich, erklärt, und mit einem Weg daran vorbei.
+    ///
+    /// Apples Vorgabe zu 4.5.4 lautet: Mitteilungen müssen freiwillig sein und
+    /// die Einwilligung muss IN der App eingeholt werden. Beides steht hier:
+    /// der Knopf, der die Systemfrage auslöst, davor ein Satz, wozu, und
+    /// darunter der Satz, was ohne sie noch geht. Der Systemdialog allein
+    /// erklärt nichts — er fragt nur.
+    @ViewBuilder
+    private var mitteilungsSection: some View {
+        Section {
+            if model.mitteilungenErlaubt {
+                Label("Mitteilungen sind erlaubt", systemImage: "checkmark.circle.fill")
+                    .foregroundStyle(.green)
+            } else {
+                Button {
+                    Task { await model.requestPermissions() }
+                } label: {
+                    Label("Mitteilungen erlauben", systemImage: "bell.badge")
+                        .fontWeight(.semibold)
+                }
+            }
+            NavigationLink {
+                OhneMitteilungenView().environmentObject(model)
+            } label: {
+                Label("Was ohne Mitteilungen geht", systemImage: "questionmark.circle")
+            }
+        } header: {
+            Text("Mitteilungen — freiwillig")
+        } footer: {
+            Text("Mitteilungen sind der Weg, auf dem ein Alarm dieses "
+                 + "\(Geraetename.wort) erreicht, während es gesperrt ist oder eine andere "
+                 + "App vorn liegt. Genau dafür ist diese App gebaut, und "
+                 + "deshalb wird hier darum gebeten.\n\n"
+                 + "Erlauben musst du es trotzdem nicht. Ohne Mitteilungen "
+                 + "bleibt die App vollständig benutzbar — sie wird nur nicht "
+                 + "von selbst laut. Die Entscheidung lässt sich jederzeit "
+                 + "ändern, hier oder in den Einstellungen des Geräts.")
+        }
+    }
+
+    /// Was am Abschlussknopf steht — eine Auskunft, keine Bedingung.
+    private var abschlusshinweis: String {
+        var teile: [String] = []
+        if !model.blockingItems.isEmpty {
+            teile.append("Noch offen: "
+                         + model.blockingItems.map(\.title).joined(separator: ", ")
+                         + ". Das hält hier nichts auf — die Prüfliste steht "
+                         + "dauerhaft in den Einstellungen, und was rot bleibt, "
+                         + "zeigt der Startbildschirm als Warnband an.")
+        }
+        if model.letzterPush == nil {
+            teile.append("Der Zustellnachweis braucht ein zweites Gerät und "
+                         + "kann deshalb hier gar nicht erbracht werden. Bis "
+                         + "dahin gilt dieses \(Geraetename.wort) als ungeprüft.")
+        }
+        if teile.isEmpty {
+            return "Alles Prüfbare steht. Wiederholt wird die Prüfung trotzdem "
+                + "bei jedem Start — Berechtigungen ändern sich hinter dem "
+                + "Rücken einer App."
+        }
+        return teile.joined(separator: "\n\n")
     }
 
     private func checklistRow(_ item: ChecklistItem) -> some View {

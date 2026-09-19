@@ -1,0 +1,41 @@
+Die Fassung für App Store Connect → App-Prüfungsinformationen → Anmerkungen.
+
+Das Feld nimmt 4000 Zeichen. `APP_REVIEW_NOTES.md` ist die vollständige
+Fassung und liegt weit darüber — wer sie einfügt, bekommt sie abgeschnitten
+oder gar nicht angenommen, und das fiel bisher jedes Mal erst beim Einreichen
+auf. Deshalb steht hier daneben, was wirklich in das Feld geht: derselbe
+Inhalt, auf die Grenze gerechnet.
+
+**Beide Dateien gehören zusammen gepflegt.** Ändert sich etwas an Rollen,
+Knöpfen, Einrichtungsablauf oder an einem Ablehnungsgrund, wird es hier
+mitgezogen — sonst verspricht das Feld dem Prüfer etwas anderes als das Papier.
+
+Länge prüfen (muss unter 4000 bleiben):
+
+    awk 'NR>17' AlarmiOS/docs/APP_REVIEW_NOTES_ASC.txt | wc -m
+
+----------------------------------------------------------------------
+PURPOSE
+Schulalarm is a free in-house alert app for school staff, offered to ANY school. Whoever installs it sets up their own school in a minute and invites colleagues with a six-character code. Schools are completely separate: no shared directory, nothing to buy. One teacher raises an alarm (intruder, fire, medical, or a drill); colleagues' iPads show what happened and where and offer two one-tap replies. It does NOT replace the emergency services, and says so on the alarm screen and in its settings.
+
+NOTIFICATIONS ARE OPTIONAL (Guideline 4.5.4)
+Your finding on build 42 was correct: that build greyed out the "finish setup" button while the notification permission was missing, so a reviewer who declined the system dialog could not leave the setup screen. Fixed in build 43, and the fix goes further than the button:
+
+- Nothing in the app is gated on the notification permission any more. The blocking mechanism was removed from the source entirely; the checklist is a report, not a gate, and "Einrichtung abschliessen" (finish setup) is always enabled.
+- Consent is asked for inside the app, in a section headed "Mitteilungen - freiwillig" (notifications - optional): a sentence on what they are for, a sentence stating that the app stays usable without them, and a link to a screen listing item by item what works without them. The system dialog is only ever raised by an explicit tap; the app never prompts on its own at launch.
+- That section is in Settings too, so somebody who declined at first setup can change their mind without reinstalling.
+
+Without notifications the app stays fully functional: raising an alarm, seeing a running one, acknowledging it, the group chat, the all clear, member administration, join codes, checklist and diagnostics all work. It polls its backend every five seconds while an alarm runs and every thirty otherwise, independently of any permission, so an open app shows an alarm within seconds either way. Lost is only sound while the app is in the background, the follow-up reminders and the local sound test.
+
+HOW TO TEST - no test account or join code is needed
+1. Sign in to iCloud on the device; the app stores everything in CloudKit.
+2. Choose "Schule einrichten" (set up a school) at the top, NOT "Beitreten" (join). Enter any school name and any short handle, e.g. TEST, and tap "Schule einrichten und Admin werden". This matters: whoever sets up a school becomes its administrator, and only an administrator may raise a drill. A join code is then shown; nothing needs to be done with it.
+3. Either answer on notifications continues the review. To hear an alarm, tap "Mitteilungen erlauben" and allow; iOS then asks again for critical alerts, which is optional and only decides audibility on a silenced device.
+4. No checklist item blocks anything. "Zustellung geprueft" (delivery verified) stays red on a single device: CloudKit does not deliver a subscription notification to the device that wrote the record, so one device cannot prove delivery to itself. Tap "Einrichtung abschliessen".
+5. Tap "Alarm ausloesen", choose "PROBEALARM" (drill), pick a location, let the five-second countdown run. Acknowledge with "Gesehen - Klasse gesichert", then end it with "Entwarnung geben". Please use the drill type; the three real types are for genuine emergencies.
+6. Optional, entirely local: Einstellungen -> "Tontest" plays the alarm as a real notification about 8 seconds later, without any network. Lock the device after tapping - that is the point of the test.
+
+USER-GENERATED CONTENT
+During an alarm, colleagues send short messages visible only inside their own school's group. Reporting: Einstellungen -> "Unangemessene Inhalte melden" (to schulalarm@apps.dblern.de). An administrator removes a member under Verwaltung -> Mitglieder and revokes the join code.
+
+The critical-alerts entitlement was granted by Apple on 08 September 2026 for de.dboschule.alarm. Without the user's permission the app falls back to time-sensitive notifications.
