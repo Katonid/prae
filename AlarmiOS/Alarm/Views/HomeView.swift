@@ -164,6 +164,14 @@ struct HomeView: View {
         return "\(alarm.type.title) beendet durch \(name) um \(zeit)."
     }
 
+    /// Das Warnband — eine Auskunft, kein Riegel.
+    ///
+    /// Es sagt, was fehlt, und lässt alles daneben offen: Auslösen,
+    /// Rückmelden, Verwaltung. Genau daran ist 1.1.0 (Build 42) bei Apple
+    /// gescheitert, nur eine Etage höher — dort war „Einrichtung abschließen"
+    /// gesperrt, solange die Mitteilungserlaubnis fehlte (Guideline 4.5.4).
+    /// Hier wird deshalb nichts ausgegraut, und wenn die offenen Punkte an den
+    /// Mitteilungen hängen, steht dazu, was ohne sie trotzdem geht.
     private var warning: some View {
         VStack(alignment: .leading, spacing: 10) {
             Label("Dieses \(Geraetename.wort) ist nicht einsatzbereit",
@@ -172,6 +180,16 @@ struct HomeView: View {
                 .foregroundStyle(.orange)
             ForEach(model.blockingItems) { item in
                 Text("• " + item.title).font(.subheadline)
+            }
+            if model.mitteilungenOffen {
+                Text("Auslösen, Rückmelden, Nachrichten und Entwarnen gehen "
+                     + "weiter, und bei offener App erscheint ein Alarm binnen "
+                     + "Sekunden von selbst. Was fehlt, ist der Ton, wenn "
+                     + "dieses \(Geraetename.wort) gesperrt ist oder eine andere App vorn "
+                     + "liegt.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             Button("Prüfliste öffnen") { model.offenesBlatt = .einstellungen }
                 .buttonStyle(.borderedProminent)

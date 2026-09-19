@@ -602,6 +602,17 @@ final class AppModel: ObservableObject {
     /// Gerät.
     private func melde(abgewiesen: Int) {
         guard abgewiesen >= AlarmReminder.count else { return }
+        // Wer Mitteilungen bewusst abgelehnt hat, bekommt hier keine
+        // Fehlermeldung vorgehalten. Der Ausfall ist derselbe, aber die
+        // Ursache ist eine Entscheidung und keine Störung — und eine App, die
+        // eine getroffene Entscheidung als Fehler ausgibt, drängt.
+        guard notifications.permissions.authorization == .authorized else {
+            hinweis = "Ohne Mitteilungen bleibt es bei diesem einen Bild: Der "
+                + "Alarm-Bildschirm steht, solange die App offen ist, es kommt "
+                + "aber kein Ton und kein Nachfassen. Erlauben lässt sich das "
+                + "in den Einstellungen dieser App."
+            return
+        }
         problem = "Dieses \(Geraetename.wort) konnte keine Erinnerung an den "
             + "laufenden Alarm anlegen — iOS hat sie abgewiesen. Der "
             + "Alarm-Bildschirm bleibt, aber es kommt kein weiterer Ton. "
@@ -915,13 +926,26 @@ final class AppModel: ObservableObject {
     /// Was auf dem Startbildschirm als Warnband steht — alles Offene.
     var blockingItems: [ChecklistItem] { checklist.filter(\.isBlocking) }
 
-    /// Was den Abschluss der Einrichtung wirklich aufhält.
+    /// Darf dieses Gerät Mitteilungen zeigen?
     ///
-    /// Nur Punkte, die dieses Gerät allein lösen kann. Der Zustellnachweis
-    /// gehört nicht dazu: Er braucht ein zweites Gerät, und ihn zur Bedingung
-    /// zu machen sperrte die Einrichtung für alle aus (siehe
-    /// `ChecklistItem.blocksCompletion`).
-    var finishBlockers: [ChecklistItem] { checklist.filter(\.blocksFinish) }
+    /// Gelesen aus der Prüfliste und nicht unmittelbar aus `notifications`:
+    /// Die Prüfliste ist `@Published` auf DIESEM Objekt, ein verschachteltes
+    /// `ObservableObject` beobachtet SwiftUI dagegen nicht. Über
+    /// `notifications.permissions` gelesen zeichnete die Ansicht erst beim
+    /// nächsten anderen Anlass neu — der Knopf „Mitteilungen erlauben" bliebe
+    /// also stehen, nachdem er gewirkt hat.
+    var mitteilungenErlaubt: Bool {
+        checklist.first { $0.id == "notifications" }?.state == .ok
+    }
+
+    /// Betrifft eine der offenen Zeilen die Mitteilungen?
+    ///
+    /// Entscheidet nur darüber, WAS dazugesagt wird — nie darüber, ob jemand
+    /// weiterkommt. Gesperrt wird in dieser App nichts (siehe
+    /// `ChecklistItem.isBlocking`).
+    var mitteilungenOffen: Bool {
+        blockingItems.contains { OnboardingChecklist.mitteilungsPunkte.contains($0.id) }
+    }
 
     // MARK: - Devices
 

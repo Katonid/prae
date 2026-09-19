@@ -50,6 +50,43 @@ struct SettingsView: View {
                     Button("Erneut prüfen") { Task { await model.refresh() } }
                 }
 
+                // Die Einwilligung gehört auch hierher, nicht nur in die
+                // Einrichtung: Wer sie beim ersten Start verneint hat, kommt
+                // sonst nie wieder daran vorbei — und genau das war Apples
+                // Punkt zu 4.5.4. Der Weg daneben steht gleich daneben.
+                Section {
+                    if model.mitteilungenErlaubt {
+                        Label("Mitteilungen sind erlaubt",
+                              systemImage: "checkmark.circle.fill")
+                            .foregroundStyle(.green)
+                    } else {
+                        Button {
+                            Task { await model.requestPermissions() }
+                        } label: {
+                            Label("Mitteilungen erlauben", systemImage: "bell.badge")
+                                .fontWeight(.semibold)
+                        }
+                    }
+                    NavigationLink {
+                        OhneMitteilungenView().environmentObject(model)
+                    } label: {
+                        Label("Was ohne Mitteilungen geht",
+                              systemImage: "questionmark.circle")
+                    }
+                } header: {
+                    Text("Mitteilungen — freiwillig")
+                } footer: {
+                    Text("Ohne Mitteilungen bleibt die App benutzbar: Auslösen, "
+                         + "Rückmelden, Nachrichten und Entwarnen gehen weiter, "
+                         + "und bei offener App erscheint ein Alarm binnen "
+                         + "Sekunden von selbst. Was fehlt, ist der Ton, wenn "
+                         + "dieses \(Geraetename.wort) gesperrt ist oder eine andere App "
+                         + "vorn liegt.\n\n"
+                         + "Hat iOS die Frage schon einmal beantwortet, zeigt es "
+                         + "sie kein zweites Mal; dann führt „Öffnen“ oben in "
+                         + "die Einstellungen des Geräts.")
+                }
+
                 Section {
                     ForEach(Alarmklang.allCases) { klang in
                         Button {

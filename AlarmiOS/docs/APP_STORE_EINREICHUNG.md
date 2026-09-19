@@ -152,8 +152,19 @@ Standort, keine Kontakte, keine Werbekennung. Die Liste steht auch in
 `APP_REVIEW_NOTES.md`. Ein Testkonto wird **nicht** gebraucht — der Prüfer
 richtet seine eigene Schule ein.
 
-## 5. Die zwei Stellen, an denen so eine App abgewiesen wird
+## 5. Die drei Stellen, an denen so eine App abgewiesen wird
 
+0. **„Die App verlangt Mitteilungen."** (Guideline 4.5.4 — genau daran ist
+   1.1.0/42 gescheitert.) Mitteilungen dürfen für eine App nicht Bedingung
+   sein, und die Einwilligung muss IN der App eingeholt werden. Bei einer
+   Alarm-App liegt der Fehler nahe und war hier auch gemacht: „Einrichtung
+   abschließen" war grau, solange die Erlaubnis fehlte — wer die Systemfrage
+   verneinte, kam nie in die App. Gegenmittel ist keine Formulierung, sondern
+   Quelltext: **kein Weg in dieser App hängt an der Erlaubnis.** Dazu ein
+   eigener Abschnitt „Mitteilungen — freiwillig" in der Einrichtung UND in den
+   Einstellungen, und eine Seite „Was ohne Mitteilungen geht", die Punkt für
+   Punkt aufzählt, was bleibt und was fehlt. **Merke: Wer einen neuen
+   Bildschirm sperrt, solange etwas fehlt, holt diese Ablehnung zurück.**
 1. **„Das ist eine Firmen-App."** Apple verweist Apps, die erkennbar nur
    einer einzelnen Einrichtung nützen, auf die Custom Apps. Gegenmittel ist
    kein Trick, sondern die Wahrheit an der richtigen Stelle: Jede Schule
