@@ -170,7 +170,7 @@ hier weg", sondern **„wie komme ich dorthin"**.
   an seiner Zeile — samt Land. Gelesen wird es an der Haltestellenkennung, die
   einzige Stelle, an der es verlässlich steht. Ob das Deutschland-Ticket dort
   noch gilt, sagt eine kurze, **von Hand gepflegte** Liste bekannter
-  Grenzabschnitte (Salzburg, Kufstein, Venlo, Enschede); ein
+  Grenzabschnitte (Salzburg, Arnheim, Kufstein, Venlo, Enschede); ein
   maschinenlesbares Verzeichnis dafür gibt es nicht — der Fahrplandatensatz
   führt keinerlei Tarifdaten. Die App sagt deshalb nie „gilt", sondern „steht
   in dieser Liste", und welche Einträge bestätigt sind und welche nicht.

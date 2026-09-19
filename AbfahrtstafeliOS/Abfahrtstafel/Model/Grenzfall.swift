@@ -27,11 +27,27 @@ struct Grenzfall: Identifiable, Sendable {
     let land: String
     /// Wie der Abschnitt heißt — steht so in der Oberfläche.
     let name: String
-    /// Namensbruchstücke der Halte, die jenseits der Grenze noch dazugehören.
-    /// Klein geschrieben; verglichen wird ohne Rücksicht auf Groß- und
-    /// Kleinschreibung, aber **ohne Umlaute einzuebnen** — dieselbe Regel wie
-    /// bei den Kürzeln in Schulalarm und bei der Haltestellengruppierung.
-    let stichworte: [String]
+    /// Die Halte jenseits der Grenze, die noch dazugehören — mit ihrem
+    /// VOLLEN Namen, so wie die Quelle ihn schreibt.
+    ///
+    /// **Verglichen wird genau, nicht auf Bruchstücke** (ab 1.1.22). Der
+    /// erste Entwurf suchte nach Bruchstücken, und daran wäre genau der Fall
+    /// gescheitert, um den es geht: „venlo" steckt auch in „Venlo,
+    /// Koninginnesingel", einem Stadtbushalt, und „arnhem" in „Arnhem
+    /// Velperpoort" — beides Nahverkehr IN den Niederlanden, und beides
+    /// sicher nicht im Deutschland-Ticket. Ein genauer Vergleich lässt
+    /// solche Fahrten in den vorsichtigen Zweig laufen.
+    ///
+    /// Der Preis: Schreibt eine Quelle einen Namen anders („Salzburg Hbf"
+    /// statt „Salzburg Hauptbahnhof"), greift der Eintrag nicht und die
+    /// Verbindung gilt als nicht gelistet. Das ist die Richtung, in der ein
+    /// Fehler nichts kostet — deshalb stehen bekannte Schreibweisen hier
+    /// nebeneinander.
+    ///
+    /// Verglichen wird ohne Rücksicht auf Groß- und Kleinschreibung, aber
+    /// **ohne Umlaute einzuebnen** — dieselbe Regel wie bei den Kürzeln in
+    /// Schulalarm und bei der Haltestellengruppierung.
+    let halte: [String]
     /// Ob der Eintrag bestätigt ist. `false` heißt: allgemein bekannt, hier
     /// aber nicht nachgeprüft — und die Oberfläche schreibt das hin.
     let gesichert: Bool
@@ -46,28 +62,41 @@ struct Grenzfall: Identifiable, Sendable {
         Grenzfall(
             land: "at",
             name: "Freilassing – Salzburg Hbf",
-            stichworte: ["salzburg"],
+            halte: ["salzburg hauptbahnhof", "salzburg hbf"],
             gesichert: true,
             quelle: "Ansage des Nutzers 09/2026, dazu die allgemein bekannte Tarifregelung"
+        ),
+        // **Zevenaar gehört dazu.** Nachgemessen am 19.09.2026 an
+        // Düsseldorf → Arnheim und Emmerich → Arnheim: Die RE19 hält jenseits
+        // der Grenze zweimal, und ohne den Zwischenhalt fiele jede Fahrt, die
+        // dort hält, in den vorsichtigen Zweig. **Wer einen Eintrag anlegt,
+        // fragt die Strecke ab und schreibt die Halte ab, statt sie zu
+        // erraten.**
+        Grenzfall(
+            land: "nl",
+            name: "Emmerich – Arnhem Centraal (RE19)",
+            halte: ["arnhem centraal", "zevenaar"],
+            gesichert: true,
+            quelle: "Ansage des Nutzers 09/2026 — eigene Fahrt"
         ),
         Grenzfall(
             land: "at",
             name: "Kiefersfelden – Kufstein (Korridor)",
-            stichworte: ["kufstein"],
+            halte: ["kufstein"],
             gesichert: false,
             quelle: "allgemein bekannt, hier nicht nachgeprüft"
         ),
         Grenzfall(
             land: "nl",
             name: "Kaldenkirchen – Venlo",
-            stichworte: ["venlo"],
+            halte: ["venlo"],
             gesichert: false,
             quelle: "allgemein bekannt, hier nicht nachgeprüft"
         ),
         Grenzfall(
             land: "nl",
             name: "Gronau – Enschede",
-            stichworte: ["enschede", "glanerbrug"],
+            halte: ["enschede", "glanerbrug", "enschede de eschmarke"],
             gesichert: false,
             quelle: "allgemein bekannt, hier nicht nachgeprüft"
         ),
@@ -88,8 +117,8 @@ struct Grenzfall: Identifiable, Sendable {
         guard !ausland.isEmpty else { return nil }
         return alle.first { fall in
             ausland.allSatisfy { halt in
-                halt.land == fall.land
-                    && fall.stichworte.contains { halt.name.lowercased().contains($0) }
+                let name = halt.name.lowercased().trimmingCharacters(in: .whitespaces)
+                return halt.land == fall.land && fall.halte.contains(name)
             }
         }
     }

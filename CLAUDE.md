@@ -2548,9 +2548,21 @@ Auftrag, für Bauten, die niemand angefordert hatte.
     ändern sich zum Fahrplanwechsel, die Liste nicht von selbst. Dieselbe
     Regel wie beim Wort „Plan" an einer Abfahrt.
   - **`gesichert` trennt Bestätigtes von allgemein Bekanntem** — dieselbe
-    Bauweise wie `Zugang.seiteGeprueft`. Bestätigt ist bisher nur
-    Freilassing – Salzburg Hbf (Ansage des Nutzers); Kufstein, Venlo und
-    Enschede stehen als ungeprüft drin und sagen das auch.
+    Bauweise wie `Zugang.seiteGeprueft`. Bestätigt sind Freilassing –
+    Salzburg Hbf und Emmerich – Arnhem Centraal (beides Ansagen des Nutzers,
+    Arnheim aus eigener Fahrt); Kufstein, Venlo und Enschede stehen als
+    ungeprüft drin und sagen das auch.
+  - **Verglichen wird der GANZE Haltename, nicht ein Bruchstück** (ab
+    1.1.22). Der erste Entwurf suchte Bruchstücke — und daran wäre genau der
+    Fall gescheitert, um den es geht: „venlo" steckt auch in „Venlo,
+    Koninginnesingel" und „arnhem" in „Arnhem Velperpoort", also in
+    Stadtverkehr, der sicher nicht enthalten ist. Der Preis ist eine
+    Schreibweise, die nicht greift; das ist die Richtung, in der ein Fehler
+    nichts kostet.
+  - **Die Halte eines Eintrags werden ABGEFRAGT, nicht geraten.**
+    Nachgemessen 19.09.2026 an Düsseldorf → Arnheim: Die RE19 hält jenseits
+    der Grenze zweimal — in Zevenaar und in Arnhem Centraal. Ohne den
+    Zwischenhalt fiele jede Fahrt, die dort hält, in den vorsichtigen Zweig.
   - **Alle oder keiner**: Ein Eintrag zählt nur, wenn er JEDEN ausländischen
     Halt der Verbindung abdeckt. Eine Fahrt, die hinter Salzburg weiter nach
     Linz geht, ist keine Salzburgfahrt mehr.
@@ -2619,7 +2631,7 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   zwölfte Nachbesserung — derselbe Gedanke wie bei Tafelbild 1.4.0 und
   Schulalarm 1.1.0. Die Marken ab 1.0.x in diesem Papier bleiben stehen;
   sie sagen, wann etwas in den Quelltext kam. Danach zählt es weiter:
-  1.1.1 (Build 14), 1.1.2 (Build 15), 1.1.3 (Build 16), 1.1.4 (Build 17), 1.1.5 (Build 18), 1.1.6 (Build 19), 1.1.7 (Build 20), 1.1.8 (Build 21), 1.1.9 (Build 22), 1.1.10 (Build 23), 1.1.11 (Build 24), 1.1.12 (Build 25), 1.1.13 (Build 26), 1.1.14 (Build 27), 1.1.15 (Build 28), 1.1.16 (Build 29), 1.1.17 (Build 30), 1.1.18 (Build 31), 1.1.19 (Build 32), 1.1.20 (Build 33), 1.1.21 (Build 34) … Dazu gesetzt (Ansage des Nutzers,
+  1.1.1 (Build 14), 1.1.2 (Build 15), 1.1.3 (Build 16), 1.1.4 (Build 17), 1.1.5 (Build 18), 1.1.6 (Build 19), 1.1.7 (Build 20), 1.1.8 (Build 21), 1.1.9 (Build 22), 1.1.10 (Build 23), 1.1.11 (Build 24), 1.1.12 (Build 25), 1.1.13 (Build 26), 1.1.14 (Build 27), 1.1.15 (Build 28), 1.1.16 (Build 29), 1.1.17 (Build 30), 1.1.18 (Build 31), 1.1.19 (Build 32), 1.1.20 (Build 33), 1.1.21 (Build 34), 1.1.22 (Build 35) … Dazu gesetzt (Ansage des Nutzers,
   09/2026): `DEVELOPMENT_TEAM = F4989GSTWS` — dieselbe Id wie Schulalarm und
   Tafelbild — und `INFOPLIST_KEY_LSApplicationCategoryType =
   public.app-category.navigation`. Beides steht als Build-Einstellung, weil
