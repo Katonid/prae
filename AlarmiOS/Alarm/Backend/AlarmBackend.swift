@@ -35,15 +35,15 @@ enum BackendAvailability: Equatable {
             return "Verbunden."
         case .noAccount:
             return """
-            Auf diesem iPad ist keine Apple-ID angemeldet. Ohne sie kommt \
-            kein Alarm an — auch kein Probealarm. Einstellungen → oben auf \
-            den Namen tippen → anmelden.
+            Auf diesem \(Geraetename.wort) ist keine Apple-ID angemeldet. Ohne sie \
+            kommt kein Alarm an — auch kein Probealarm. Einstellungen → oben \
+            auf den Namen tippen → anmelden.
             """
         case .restricted:
             return """
-            Die Apple-ID auf diesem iPad darf iCloud nicht nutzen. Das ist \
-            eine Einstellung der Geräteverwaltung; bitte an die \
-            Jamf-Administration wenden.
+            Die Apple-ID auf diesem \(Geraetename.wort) darf iCloud nicht nutzen. \
+            Das gibt die Geräteverwaltung vor; freigeben kann es nur, wer das \
+            Gerät verwaltet.
             """
         case .networkUnavailable:
             return "Keine Netzverbindung. Alarme lassen sich derzeit nicht auslösen."

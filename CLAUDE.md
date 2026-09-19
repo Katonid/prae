@@ -897,6 +897,63 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   meldet einen Ausfall nur als FEHLER, wenn die Erlaubnis da ist: Wer sie
   bewusst verneint hat, bekommt einen Hinweis statt eines roten Bandes — eine
   App, die eine getroffene Entscheidung als Störung ausgibt, drängt.
+- **Eine verweigerte Kamera ist kein schwarzer Bildschirm** (`QRCodeView`, ab
+  1.1.0/Build 44, im eigenen Durchgang gefunden). `configure()` bestand aus drei
+  `guard … else { return }`: Ohne Erlaubnis — oder im Simulator, oder auf einem
+  Gerät ohne Kamera — wurde nichts eingerichtet, und stehen blieb eine schwarze
+  Fläche ohne ein Wort. **Das ist genau die Form der ersten Ablehnung** („the
+  button was unresponsive"), nur an einem anderen Knopf; getroffen hätte es auch
+  jede Lehrkraft, die die Kamerafrage einmal verneint hat. Jetzt entscheidet
+  `AVCaptureDevice.authorizationStatus` vorher: noch nie gefragt → fragen,
+  verweigert → ein Satz, ein Knopf in die Einstellungen und der Hinweis auf den
+  Weg daneben. **Der Weg daneben ist der wichtigere** — den sechsstelligen Code
+  kann man abtippen. Die Kamera ist eine Abkürzung, nie eine Bedingung; dieselbe
+  Regel wie bei den Mitteilungen, und beide Male hat Apple sie uns beigebracht.
+  **Merke: Jeder `guard … else { return }` in einem Einrichtungsweg ist ein
+  stummer Knopf, bis das Gegenteil bewiesen ist.**
+- **Das Wort „Platzhalter" gehört nicht in die Oberfläche** (ab 1.1.0/Build 44).
+  Die Handlungstexte begannen mit „Platzhalter — bitte mit Schulleitung und
+  Polizei abstimmen". Gemeint war die SCHULE, gelesen wird es über die APP:
+  Guideline 2.1 nennt „placeholder text" ausdrücklich als Ablehnungsgrund, und
+  ein Prüfer sieht diesen Bildschirm, sobald er einen Alarm auslöst. Der Satz
+  sagt jetzt dasselbe von der Schule her („Diese Schule hat noch keinen eigenen
+  Text hinterlegt … verbindlich wird der Wortlaut erst, wenn …"). **An der Sache
+  ändert sich nichts** — die Texte bleiben erkennbar unfertig, und genau das ist
+  ihr Sinn: Ein Text, der bloß amtlich klingt, ist gefährlicher als ein sichtbar
+  unfertiger. Geändert hat sich nur, worüber der Satz spricht.
+- **Kein Name eines MDM-Anbieters in einem Oberflächentext** (ab 1.1.0/Build 44).
+  `BackendAvailability.restricted` sagte „bitte an die Jamf-Administration
+  wenden". Für eine Schule, die Jamf benutzt, ist das hilfreich; für einen
+  Prüfer bei Apple ist es das Kennzeichen einer Firmen-App, die in den
+  öffentlichen Laden nicht gehört (Guideline 4.3, dieselbe Ecke wie „nur an
+  Schul-iPads"). Es heißt jetzt „Das gibt die Geräteverwaltung vor" — richtig
+  für jedes MDM und ohne Firmenschild. Die Anleitung für Jamf bleibt im Papier,
+  wo sie hingehört.
+- **Der Meldeweg gehört AN den Inhalt** (`AlarmChatView`, `Hilfeadressen.meldung(zu:)`,
+  ab 1.1.0/Build 44). Es gab ihn (Einstellungen → Hilfe), aber dort findet ihn
+  niemand, der gerade etwas liest, das dort nicht stehen sollte — dieselbe Lehre
+  wie beim Gruppenchat selbst, den bis 1.0.21 niemand fand. Apples Regel zu von
+  Nutzern eingestelltem Inhalt verlangt genau das. Jede Nachricht trägt jetzt ein
+  „…"-Menü mit „Diese Nachricht melden"; die Mail ist mit Kürzel, Uhrzeit,
+  Kennung und Wortlaut vorbelegt, **abgeschickt wird sie vom Menschen** — eine
+  Mail, die die App still hinausschickt, wäre keine Meldung, sondern eine
+  Übermittlung.
+- **Wer nur die Dateigröße braucht, fragt nach der Größe** (`Alarmklang.befund`,
+  ab 1.1.0/Build 44). `attributesOfItem` holt das ganze Attributbündel und damit
+  die Datei-ZEITSTEMPEL — die stehen auf Apples Liste der
+  begründungspflichtigen Schnittstellen, und ein Prüflauf streicht sie an
+  (ITMS-91053). `resourceValues(forKeys: [.fileSizeKey])` steht auf keiner
+  Liste. Eine Begründung in `PrivacyInfo.xcprivacy` einzutragen wäre der andere
+  Weg gewesen und der schlechtere: Sie wäre unwahr, denn gelesen wird kein
+  Zeitstempel.
+- **Kontolöschung: Es gibt kein Konto** (Guideline 5.1.1(v), festgehalten
+  09/2026). Die App legt keines an — sie benutzt die Apple-ID, die auf dem Gerät
+  schon angemeldet ist, und fragt weder E-Mail noch Kennwort. Was sie anlegt,
+  ist eine MITGLIEDSCHAFT, und die löscht „Verbindung zur Schule lösen" samt der
+  Abonnements dieses Geräts. Rückmeldungen und Nachrichten bleiben bewusst
+  stehen: Sie sind ein Nachweis, der der Schule gehört, und nach 90 Tagen räumt
+  sie das Aufräumen ohnehin weg. **Das gehört in die Prüfhinweise**, auch wenn
+  niemand danach fragt — die Frage kommt sonst als Ablehnung.
 - **`try?` an einer Mitteilung ist verboten.** Dasselbe `try?`, das den
   Ablehnungsgrund verschluckte, hat die App die erste Einreichung gekostet: Der
   Prüfer tippte, iOS wies ab, der Knopf schwieg. `Tontest.starten` gibt seither

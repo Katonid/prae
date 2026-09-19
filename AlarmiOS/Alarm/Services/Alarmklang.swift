@@ -178,10 +178,18 @@ enum Klanginstallation {
     }
 
     /// Für die Diagnose: Was liegt gerade da, und wie groß ist es?
+    ///
+    /// Gefragt wird gezielt nach `.fileSizeKey` und nicht über
+    /// `attributesOfItem`. Der Unterschied ist nicht der Stil: Apples Liste
+    /// der begründungspflichtigen Schnittstellen („required reason APIs")
+    /// führt die Datei-ZEITSTEMPEL, und `attributesOfItem` holt sie
+    /// zwangsläufig mit — es liest das ganze Attributbündel. Wer nur die Größe
+    /// braucht, fragt nach der Größe; dann gibt es nichts zu begründen und
+    /// nichts, was ein Prüflauf bei Apple anstreicht (ITMS-91053).
     static func befund() -> String {
         guard let ziel else { return "Library/Sounds: nicht zu finden" }
-        guard let werte = try? FileManager.default.attributesOfItem(atPath: ziel.path),
-              let groesse = werte[.size] as? Int else {
+        guard let werte = try? ziel.resourceValues(forKeys: [.fileSizeKey]),
+              let groesse = werte.fileSize else {
             return "\(PushAsset.signalSound): FEHLT — es spielte der Standardton"
         }
         let name = UserDefaults.standard.string(forKey: vermerk) ?? "unbekannt"

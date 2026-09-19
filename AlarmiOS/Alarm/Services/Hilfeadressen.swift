@@ -31,9 +31,53 @@ enum Hilfeadressen {
     static let nutzungsbedingungen = URL(
         string: "https://katonid.github.io/prae/schulalarm/nutzungsbedingungen.html")!
 
-    /// Eine echte Mailadresse, kein Formular: Wer melden will, sitzt am iPad
+    /// Eine echte Mailadresse, kein Formular: Wer melden will, sitzt am Gerät
     /// und soll nicht erst ein Konto anlegen müssen. Der Betreff ist
     /// vorbelegt, damit die Mail nicht im Übrigen untergeht.
     static let missbrauch = URL(
-        string: "mailto:schulalarm@apps.dblern.de?subject=Meldung%20aus%20der%20App%20Schulalarm")!
+        string: "mailto:\(postfach)?subject=\(kodiert("Meldung aus der App Schulalarm"))")!
+
+    /// Dieselbe Meldung, aber zu EINER bestimmten Nachricht.
+    ///
+    /// Mit Kürzel, Uhrzeit und Wortlaut im Entwurf — ohne die drei lässt sich
+    /// eine Meldung nicht bearbeiten, und niemand tippt sie unter Druck von
+    /// Hand ab. Abgeschickt wird sie vom Menschen: Eine Mail, die die App
+    /// still hinausschickt, wäre keine Meldung, sondern eine Übermittlung.
+    ///
+    /// Kommt die Adresse nicht zustande — ein Wortlaut mit Zeichen, die sich
+    /// nicht kodieren lassen —, gilt die allgemeine Meldeadresse. Ein Knopf,
+    /// der dann gar nichts täte, wäre genau der Fehler, der diese App schon
+    /// eine Einreichung gekostet hat.
+    static func meldung(zu nachricht: Message) -> URL {
+        let zeit = ISO8601DateFormatter().string(from: nachricht.createdAt)
+        let text = """
+        Ich melde diese Nachricht aus der App Schulalarm:
+
+        Von: \(nachricht.senderName)
+        Zeitpunkt: \(zeit)
+        Kennung: \(nachricht.id)
+
+        Wortlaut:
+        \(nachricht.text)
+
+        Grund der Meldung:
+        """
+        let adresse = "mailto:\(postfach)"
+            + "?subject=\(kodiert("Meldung zu einer Nachricht in Schulalarm"))"
+            + "&body=\(kodiert(text))"
+        return URL(string: adresse) ?? missbrauch
+    }
+
+    private static let postfach = "schulalarm@apps.dblern.de"
+
+    /// Prozentkodierung für Betreff und Rumpf einer `mailto:`-Adresse.
+    ///
+    /// `.urlQueryAllowed` lässt `&` und `+` stehen — das erste beendete den
+    /// Rumpf mitten im Satz, das zweite käme als Leerzeichen an. Beide werden
+    /// deshalb ausdrücklich ausgenommen.
+    private static func kodiert(_ text: String) -> String {
+        var erlaubt = CharacterSet.urlQueryAllowed
+        erlaubt.remove(charactersIn: "&+?=#")
+        return text.addingPercentEncoding(withAllowedCharacters: erlaubt) ?? ""
+    }
 }

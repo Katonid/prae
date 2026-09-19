@@ -166,9 +166,11 @@ is running**. It is worth saying how narrow that is:
   under Verwaltung → Mitglieder → „Entfernen", and revokes the join code so
   the person cannot come back. The member list shows each member's join date
   and flags duplicate handles, so an unexpected entry is easy to spot.
-* **Reporting exists:** Einstellungen → „Unangemessene Inhalte melden" opens a
-  mail to schulalarm@apps.dblern.de. The same address is on the support page,
-  which is linked from the same screen.
+* **Reporting exists, on the content itself:** every message carries a menu
+  (the „…" at its top right) with „Diese Nachricht melden". It opens a mail to
+  schulalarm@apps.dblern.de with the sender's handle, the timestamp and the
+  wording already filled in; the user sends it. The same address is also in
+  Einstellungen → Hilfe and on the support page.
 * Alarms, acknowledgements and messages are deleted after 90 days.
 
 ## Why the app asks for an iCloud account
@@ -177,6 +179,35 @@ There is no server and no account system of our own. The app stores everything
 in CloudKit, which means a signed-in iCloud account is what identifies a
 colleague. The first screen says so if no account is present. We ask for no
 e-mail address, no password and no personal data of our own.
+
+**On account deletion (Guideline 5.1.1(v)):** the app creates no account, so
+there is none to delete — it uses the iCloud account already on the device.
+What it does create is a membership: a short handle in one school's member
+list. Einstellungen → „Verbindung zur Schule lösen" deletes that membership
+record and removes the device's subscriptions in the same step. Messages and
+acknowledgements already written stay, deliberately: during an incident they
+are a record that belongs to the school, not to the device, and they are
+deleted automatically after 90 days. An administrator can remove any member,
+and the reporting address above reaches a human.
+
+## What was fixed since submission 1.1.0 (43)
+
+Three things found in our own review of the whole app, before you had to:
+
+* **The QR scanner no longer shows a black screen when the camera is
+  refused.** It now asks for permission at the point of use, and if permission
+  is denied or there is no camera it says so, offers a button into Settings and
+  points at the way round it — the six-character join code can always be typed
+  in on the screen before. As with notifications, the camera is a shortcut
+  here, never a condition.
+* **The default instruction texts no longer begin with the word
+  "Platzhalter" (placeholder).** They are deliberately not final — what a
+  school tells its staff during an emergency has to be agreed with its head
+  teacher, the police and the fire brigade, and a text that merely sounds
+  official is more dangerous than one that visibly still needs discussing. The
+  wording now says that about the *school* rather than about the app.
+* **Messages can be reported from the message itself**, not only from
+  Settings.
 
 ## What was fixed since submission 1.1.0 (42)
 
