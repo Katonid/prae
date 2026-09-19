@@ -167,7 +167,11 @@ struct VerbindungView: View {
                 Section {
                     ForEach(planer.verbindungen) { verbindung in
                         NavigationLink(value: verbindung) {
-                            VerbindungsZeile(verbindung: verbindung, jetzt: uhr.jetzt)
+                            VerbindungsZeile(
+                                verbindung: verbindung,
+                                jetzt: uhr.jetzt,
+                                laengsteDauer: planer.laengsteDauer
+                            )
                         }
                         .lesebreite()
                     }
@@ -255,6 +259,7 @@ struct VerbindungView: View {
                 if !quellen.isEmpty {
                     Text("Auskunft: \(quellen.joined(separator: ", ")).")
                 }
+                Text("Der Balken unter jeder Verbindung zeigt ihre Dauer im Verhältnis zur längsten dieser Liste. Die farbigen Stücke sind die Fahrten, die blassen dazwischen die Wartezeit — verglichen wird die Länge, nicht die Uhrzeit.")
                 Text("Fußwege sind gerechnete Wege, keine gemessenen; die Gehzeit hängt davon ab, wie schnell jemand geht. Wo keine Echtzeit vorliegt, steht „Plan“ — die App behauptet dann nichts über Pünktlichkeit.")
             }
             .font(.caption2)

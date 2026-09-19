@@ -148,6 +148,12 @@ struct Musterdienst: Fahrplandienst {
             istEchtzeit: false
         )
         let fahrtStart = start.addingTimeInterval(300)
+        // **Die drei Beispiele dauern verschieden lang** (ab 1.1.19). Vorher
+        // waren sie auf die Minute gleich und unterschieden sich nur in der
+        // Abfahrt — damit ließ sich der `Dauerbalken` an den Musterdaten gar
+        // nicht ansehen, und eine Ergebnisliste aus drei gleich langen
+        // Verbindungen gibt es in Wirklichkeit ohnehin selten.
+        let laenger = Double(nummer) * 300
         let fahrt = Verbindungsabschnitt(
             id: "muster-fahrt-\(nummer)",
             art: .fahrt,
@@ -156,16 +162,16 @@ struct Musterdienst: Fahrplandienst {
             von: marienplatz,
             nach: isartor,
             start: fahrtStart.addingTimeInterval(180),
-            ende: fahrtStart.addingTimeInterval(600),
+            ende: fahrtStart.addingTimeInterval(600 + laenger),
             geplanterStart: fahrtStart,
-            geplantesEnde: fahrtStart.addingTimeInterval(420),
+            geplantesEnde: fahrtStart.addingTimeInterval(420 + laenger),
             linie: Linienkennung(name: "S3", mittel: .sBahn, farbe: "702082", schriftfarbe: "FFFFFF", betrieb: "S-Bahn München"),
             richtung: "Pasing",
             fahrtId: "f-s3",
             halte: [
                 halt(marienplatz, 0, fahrtStart.addingTimeInterval(180)),
                 halt(theatinerstrasse, 1, fahrtStart.addingTimeInterval(390)),
-                halt(isartor, 2, fahrtStart.addingTimeInterval(600)),
+                halt(isartor, 2, fahrtStart.addingTimeInterval(600 + laenger)),
             ],
             strecke: [],
             meter: nil,
@@ -237,6 +243,12 @@ struct Musterdienst: Fahrplandienst {
             bauen("f-ice", hauptbahnhof, ice, "Berlin Hbf", inMinuten: 21, steig: "Gl. 20"),
             bauen("f-n73", hauptbahnhof, flix, "Zagreb", inMinuten: 34, echtzeit: false),
         ]
+    }
+
+    /// Drei Beispielverbindungen verschiedener Dauer — für die Vorschau des
+    /// `Dauerbalken`s, die sonst nichts zu vergleichen hätte.
+    static let beispielverbindungen: [Verbindung] = (0..<3).map {
+        beispielverbindung(ab: Date().addingTimeInterval(Double($0) * 600), nummer: $0)
     }
 
     static let beispielfahrt: Fahrt = {

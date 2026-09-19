@@ -138,6 +138,14 @@ hier weg", sondern **„wie komme ich dorthin"**.
 - **Haltestellen und Adressen**, und was ein Treffer ist, steht an der Zeile.
 - **Alternativen**: bis zu sechs Vorschläge mit Abfahrt, Ankunft, Dauer,
   Umstiegen, Fußweg und den Linien als Schilderkette.
+- **Dauer auf einen Blick** (ab 1.1.19). Unter jeder Zeile liegt ein Balken,
+  so lang wie ihre Dauer im Verhältnis zur längsten Verbindung der Liste — die
+  Zahl daneben ist die Auskunft, der Balken der Vergleich. Er ist zugleich die
+  Zeitachse dieser Verbindung: Die farbigen Stücke sind die Fahrten in ihren
+  Linienfarben, das mittlere Grau sind Fußwege, das helle dazwischen ist
+  **Wartezeit** — oft ein gutes Viertel der Reise, und sonst nirgends zu
+  sehen. Verglichen wird die Länge, nicht die Uhrzeit; jeder Balken beginnt
+  bei seiner eigenen Abfahrt.
 - **Jetzt, oder zu einer Zeit** — wahlweise als Abfahrt oder als **Ankunft**
   („ich muss um neun da sein" ist die häufigere Frage).
 - **Im Einzelnen**: jeder Abschnitt mit Ein- und Ausstieg, aufklappbaren

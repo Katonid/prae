@@ -2331,6 +2331,49 @@ Auftrag, für Bauten, die niemand angefordert hatte.
 - **Eine Kette für beide Bildschirme** (`AbfahrtstafelApp.dienst`). Zwei Ketten
   nebeneinander hieße zwei Zwischenspeicher und zwei Meinungen darüber, welcher
   Verbund gerade antwortet.
+- **Die Dauer wird als BALKEN vergleichbar, nicht durch Stauchen der Schilder**
+  (`Views/Dauerbalken.swift`, ab 1.1.19, Ansage des Nutzers 09/2026: „Es wäre
+  schön, wenn man die angezeigten Verbindungen schnell hinsichtlich ihrer Dauer
+  vergleichen könnte … die längste Verbindung geht vom Bildschirmrand zu
+  Bildschirmrand, die anderen entsprechend kürzer."). Die Zahl rechts an der
+  Zeile ist die Auskunft, aber kein Vergleich: Sechs Angaben untereinander muss
+  man lesen und im Kopf voneinander abziehen.
+  - **Die vorgeschlagene Form geht nicht auf — nachgezählt am Bildschirmfoto
+    des Nutzers** (Duisburg Großenbaum, 19.09.2026): Die LÄNGSTE Verbindung
+    (2 h 3 min) trug DREI Schilder, die KÜRZESTE (1 h 20 min) VIER. Auf 65 %
+    der Breite gestaucht müsste die kürzeste schmaler sein als die längste und
+    dabei ein Schild mehr tragen; es bliebe nur, die Schilder zu verkleinern
+    oder abzuschneiden — und „die Linienschilder SIND die Ergebniszeile".
+    **Merke: Bevor eine Länge etwas codiert, prüfen, ob der Inhalt in diese
+    Länge passt.**
+  - **Der Balken ist die Zeitachse DIESER Verbindung.** Jeder Abschnitt liegt
+    an seiner echten Stelle (`start`/`ende`), die Lücken dazwischen sind die
+    Wartezeit. Nur die Abschnitte zu zeichnen wäre falsch: Sie summieren sich
+    NICHT zur Gesamtdauer — zwischen zwei Fahrten steht man am Bahnsteig, und
+    in der gemeldeten Liste ist das ein gutes Viertel der Reise.
+  - **Verglichen wird die LÄNGE, nicht die Uhrzeit.** Jeder Balken beginnt bei
+    seiner eigenen Abfahrt. Eine gemeinsame Achse sagte zusätzlich, wer zuerst
+    ankommt, schöbe aber jede spätere Verbindung nach rechts; bei anderthalb
+    Stunden Spanne bliebe von den Balken wenig übrig. Die Fußzeile schreibt
+    hin, welcher Vergleich gemeint ist.
+  - **Maßstab ist die gezeigte LISTE** (`Verbindungsmodell.laengsteDauer`),
+    keine feste Obergrenze: Mit „drei Stunden" als Maß wären sechs Vorschläge
+    zwischen 80 und 123 Minuten sechs fast gleich lange Balken.
+  - **Ein ausfallender Abschnitt wird blass, nicht rot.** Rot IST hier eine
+    Linienfarbe (RE1); eine zweite Bedeutung daneben wäre nicht zu trennen.
+    Gesagt wird der Ausfall ohnehin zweimal — als Band über der Zeile und als
+    Kreuz am Schild.
+  - **Für VoiceOver ausgeblendet.** Die Zeile nennt die Dauer bereits in
+    Worten; „Balken, 65 Prozent" wäre eine zweite Ansage derselben Sache.
+  - **Die Sorge um schmale Geräte erledigt sich damit von selbst**: Der Balken
+    trägt keine Schrift und wird beliebig kurz, die Schilderkette liegt seit
+    jeher in einer waagerecht scrollbaren Zeile. Ein senkrechtes Layout oder
+    eine zweite Schiebefläche braucht es nicht.
+  - **Die Musterdaten liefern seit 1.1.19 drei verschieden lange
+    Verbindungen.** Vorher waren sie auf die Minute gleich und unterschieden
+    sich nur in der Abfahrt — an ihnen ließ sich der Balken gar nicht ansehen.
+    **Wer eine Anzeige baut, die Werte VERGLEICHT, prüft, ob die Musterdaten
+    überhaupt etwas zu vergleichen hergeben.**
 
 - `MARKETING_VERSION` und `CURRENT_PROJECT_VERSION` stehen an je zwei
   Stellen im pbxproj (Debug + Release) — KEINE Skript-Bauphase. **Jede
@@ -2344,7 +2387,7 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   zwölfte Nachbesserung — derselbe Gedanke wie bei Tafelbild 1.4.0 und
   Schulalarm 1.1.0. Die Marken ab 1.0.x in diesem Papier bleiben stehen;
   sie sagen, wann etwas in den Quelltext kam. Danach zählt es weiter:
-  1.1.1 (Build 14), 1.1.2 (Build 15), 1.1.3 (Build 16), 1.1.4 (Build 17), 1.1.5 (Build 18), 1.1.6 (Build 19), 1.1.7 (Build 20), 1.1.8 (Build 21), 1.1.9 (Build 22), 1.1.10 (Build 23), 1.1.11 (Build 24), 1.1.12 (Build 25), 1.1.13 (Build 26), 1.1.14 (Build 27), 1.1.15 (Build 28), 1.1.16 (Build 29), 1.1.17 (Build 30), 1.1.18 (Build 31) … Dazu gesetzt (Ansage des Nutzers,
+  1.1.1 (Build 14), 1.1.2 (Build 15), 1.1.3 (Build 16), 1.1.4 (Build 17), 1.1.5 (Build 18), 1.1.6 (Build 19), 1.1.7 (Build 20), 1.1.8 (Build 21), 1.1.9 (Build 22), 1.1.10 (Build 23), 1.1.11 (Build 24), 1.1.12 (Build 25), 1.1.13 (Build 26), 1.1.14 (Build 27), 1.1.15 (Build 28), 1.1.16 (Build 29), 1.1.17 (Build 30), 1.1.18 (Build 31), 1.1.19 (Build 32) … Dazu gesetzt (Ansage des Nutzers,
   09/2026): `DEVELOPMENT_TEAM = F4989GSTWS` — dieselbe Id wie Schulalarm und
   Tafelbild — und `INFOPLIST_KEY_LSApplicationCategoryType =
   public.app-category.navigation`. Beides steht als Build-Einstellung, weil
