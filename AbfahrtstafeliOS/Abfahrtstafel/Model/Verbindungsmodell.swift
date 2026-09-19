@@ -129,6 +129,18 @@ final class Verbindungsmodell: ObservableObject {
         return verbindungen.map(\.quelle).filter { gesehen.insert($0).inserted }
     }
 
+    /// Die längste Dauer der gezeigten Liste — der Maßstab für die
+    /// `Dauerbalken` an den Zeilen.
+    ///
+    /// **Der Maßstab ist die LISTE, nicht ein fester Wert.** Verglichen wird,
+    /// was gerade dasteht; eine feste Obergrenze (etwa „drei Stunden") machte
+    /// aus sechs Vorschlägen zwischen 80 und 123 Minuten sechs fast gleich
+    /// lange Balken, und der Vergleich wäre weg. Gerechnet wird über eine
+    /// Handvoll Einträge, also einmal je Aufbau der Liste.
+    var laengsteDauer: TimeInterval {
+        verbindungen.map(\.dauer).max() ?? 0
+    }
+
     /// Der Name, der als Startpunkt in der Leiste steht.
     func startname(standortBekannt: Bool) -> String {
         if let von { return von.name }

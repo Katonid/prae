@@ -5,9 +5,16 @@ import SwiftUI
 /// Oben die beiden Zeiten, darunter die Linien in Fahrtrichtung. Die
 /// Linienschilder sind die Zeile: Wer zwischen fünf Vorschlägen wählt,
 /// entscheidet nach „S1 oder zweimal umsteigen" und nicht nach Minuten.
+///
+/// **Ganz unten der `Dauerbalken`** (ab 1.1.19): die Zahl rechts oben ist die
+/// Auskunft, der Balken der Vergleich. Warum er eine eigene Zeile bekommt und
+/// nicht die Schilderkette staucht, steht dort.
 struct VerbindungsZeile: View {
     let verbindung: Verbindung
     let jetzt: Date
+    /// Die längste Dauer der gezeigten Liste — der Maßstab des Balkens. 0
+    /// heißt „kein Maßstab", dann bleibt der Balken weg.
+    var laengsteDauer: TimeInterval = 0
 
     var body: some View {
         VStack(alignment: .leading, spacing: 7) {
@@ -80,6 +87,8 @@ struct VerbindungsZeile: View {
                 }
                 .padding(.vertical, 1)
             }
+
+            Dauerbalken(verbindung: verbindung, laengsteDauer: laengsteDauer)
 
             HStack(spacing: 10) {
                 Text(umstiegstext)
