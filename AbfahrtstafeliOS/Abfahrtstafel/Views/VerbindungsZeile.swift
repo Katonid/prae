@@ -15,6 +15,11 @@ struct VerbindungsZeile: View {
     /// Die längste Dauer der gezeigten Liste — der Maßstab des Balkens. 0
     /// heißt „kein Maßstab", dann bleibt der Balken weg.
     var laengsteDauer: TimeInterval = 0
+    /// Ob der Deutschland-Ticket-Filter an ist. Nur dann steht der
+    /// Grenzhinweis an der Zeile: Wer ohne Filter sucht, hat die Frage nach
+    /// dem Fahrschein gerade nicht gestellt, und eine Zeile mehr an jeder
+    /// Auslandsverbindung wäre dann bloß Lärm.
+    var mitTicketfilter: Bool = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 7) {
@@ -90,6 +95,12 @@ struct VerbindungsZeile: View {
 
             Dauerbalken(verbindung: verbindung, laengsteDauer: laengsteDauer)
 
+            if mitTicketfilter, let grenztext {
+                Label(grenztext.text, systemImage: grenztext.symbol)
+                    .font(.caption2)
+                    .foregroundStyle(grenztext.farbe)
+            }
+
             HStack(spacing: 10) {
                 Text(umstiegstext)
                 if verbindung.fussmeter > 0 {
@@ -103,6 +114,49 @@ struct VerbindungsZeile: View {
             .foregroundStyle(.secondary)
         }
         .padding(.vertical, 3)
+    }
+
+    /// Was an der Zeile über die Grenze steht — oder `nil`, wenn nichts zu
+    /// sagen ist (die Verbindung bleibt nachweislich in Deutschland).
+    ///
+    /// **Drei Fälle, und alle drei werden unterschieden**, weil sie
+    /// Verschiedenes bedeuten: in der Liste, nicht in der Liste, und „Land
+    /// nicht feststellbar". Der dritte ist der, den man am liebsten
+    /// weglassen würde — und genau der darf nicht als „bleibt in
+    /// Deutschland" durchgehen.
+    private var grenztext: (text: String, symbol: String, farbe: Color)? {
+        let laender = verbindung.auslandslaender
+        let unklar = verbindung.landStellenweiseUnbekannt
+        // **Der Nachsatz ist kein Beiwerk.** Gemessen am 19.09.2026 an
+        // Mönchengladbach → Venlo: Der Zug endet in Venlo (Treffer in der
+        // Liste), danach geht es mit einem niederländischen Stadtbus weiter,
+        // und dessen Halte tragen eine Kennung ohne Landesvorsatz. Ohne
+        // diesen Zusatz stünde an einer Fahrt, die im Ausland noch Bus
+        // fährt, ein glattes „steht in der Liste" — und der Bus ist ganz
+        // sicher nicht enthalten.
+        let nachsatz = unklar ? " (an einem Halt nennt die Quelle das Land nicht)" : ""
+
+        if let fall = verbindung.grenzfall {
+            if fall.gesichert && !unklar {
+                return ("Grenzabschnitt \(fall.name) — steht in der Liste der abgedeckten Abschnitte",
+                        "checkmark.circle", .secondary)
+            }
+            let grund = fall.gesichert ? "" : ", dort aber nicht bestätigt"
+            return ("Grenzabschnitt \(fall.name) — steht in der Liste\(grund)\(nachsatz)",
+                    "questionmark.circle", .orange)
+        }
+        if let erstes = laender.first {
+            let wohin = laender.count == 1
+                ? Landkennung.wohin(erstes)
+                : laender.map(Landkennung.name).joined(separator: ", ")
+            return ("Fährt \(wohin) — dieser Abschnitt steht nicht in der Liste",
+                    "exclamationmark.triangle", .orange)
+        }
+        if unklar {
+            return ("Bei einem Halt sagt die Quelle das Land nicht — ob die Fahrt in Deutschland bleibt, ist hier nicht zu erkennen",
+                    "questionmark.circle", .secondary)
+        }
+        return nil
     }
 
     private var dauertext: String {

@@ -166,10 +166,18 @@ hier weg", sondern **„wie komme ich dorthin"**.
   Vorschläge ein Fernzug; erst die eingeschränkte Suche bringt die
   Nahverkehrsverbindungen überhaupt zum Vorschein.
 
-  Was er **nicht** kann, steht unter der Liste: Er kennt das Verkehrsmittel,
-  nicht das Land — eine Fahrt über die Grenze ist jenseits davon nicht
-  enthalten —, und keine Ausnahme einzelner Linien. Fähren bleiben außen vor,
-  weil sich nicht unterscheiden lässt, welche zum Nahverkehr gehören.
+  **Über die Grenze** (ab 1.1.21): Führt ein Vorschlag ins Ausland, steht das
+  an seiner Zeile — samt Land. Gelesen wird es an der Haltestellenkennung, die
+  einzige Stelle, an der es verlässlich steht. Ob das Deutschland-Ticket dort
+  noch gilt, sagt eine kurze, **von Hand gepflegte** Liste bekannter
+  Grenzabschnitte (Salzburg, Kufstein, Venlo, Enschede); ein
+  maschinenlesbares Verzeichnis dafür gibt es nicht — der Fahrplandatensatz
+  führt keinerlei Tarifdaten. Die App sagt deshalb nie „gilt", sondern „steht
+  in dieser Liste", und welche Einträge bestätigt sind und welche nicht.
+
+  Was der Filter **nicht** kann: Ausnahmen einzelner Linien stehen in keiner
+  Quelle. Fähren bleiben außen vor, weil sich nicht unterscheiden lässt,
+  welche zum Nahverkehr gehören.
 - **Die Liste lädt sich NICHT von selbst nach.** Eine Ergebnisliste, die sich
   unter den Fingern neu sortiert, während jemand sie liest, ist keine Hilfe.
 

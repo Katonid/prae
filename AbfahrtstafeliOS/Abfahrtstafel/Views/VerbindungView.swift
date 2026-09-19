@@ -206,7 +206,8 @@ struct VerbindungView: View {
                             VerbindungsZeile(
                                 verbindung: verbindung,
                                 jetzt: uhr.jetzt,
-                                laengsteDauer: planer.laengsteDauer
+                                laengsteDauer: planer.laengsteDauer,
+                                mitTicketfilter: planer.nurDeutschlandTicket
                             )
                         }
                         .lesebreite()
@@ -305,7 +306,8 @@ struct VerbindungView: View {
                     Text("Auskunft: \(quellen.joined(separator: ", ")).")
                 }
                 if mitFilter {
-                    Text("Der Filter zeigt nur Verbindungen ohne Fernzug, Fernbus und Nachtzug — das, was ein Deutschland-Ticket abdeckt. Er kennt das Verkehrsmittel, nicht das Land: Eine Fahrt, die über die Grenze führt, ist jenseits davon nicht enthalten. Auch Ausnahmen einzelner Linien stehen in keiner Quelle. Fähren bleiben außen vor, weil sich nicht unterscheiden lässt, welche zum Nahverkehr gehören.")
+                    Text("Der Filter zeigt nur Verbindungen ohne Fernzug, Fernbus und Nachtzug — das, was ein Deutschland-Ticket abdeckt. Ausnahmen einzelner Linien stehen in keiner Quelle; Fähren bleiben außen vor, weil sich nicht unterscheiden lässt, welche zum Nahverkehr gehören.")
+                    Text("Führt eine Verbindung über die Grenze, steht das an ihrer Zeile. Ob das Deutschland-Ticket dort noch gilt, sagt eine kurze, von Hand gepflegte Liste bekannter Grenzabschnitte — ein maschinenlesbares Verzeichnis dafür gibt es nicht. Die Liste ist also eine Gedächtnisstütze und keine Fahrkartenauskunft.")
                 }
                 Text("Der Balken unter jeder Verbindung zeigt ihre Dauer im Verhältnis zur längsten dieser Liste. Die farbigen Stücke sind die Fahrten, die blassen dazwischen die Wartezeit — verglichen wird die Länge, nicht die Uhrzeit.")
                 Text("Fußwege sind gerechnete Wege, keine gemessenen; die Gehzeit hängt davon ab, wie schnell jemand geht. Wo keine Echtzeit vorliegt, steht „Plan“ — die App behauptet dann nichts über Pünktlichkeit.")
