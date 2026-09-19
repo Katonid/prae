@@ -41,6 +41,7 @@ protocol Verbindungsquelle: Sendable {
         nach: CLLocationCoordinate2D,
         zeitpunkt: Date,
         ankunft: Bool,
-        anzahl: Int
+        anzahl: Int,
+        nurNahverkehr: Bool
     ) async throws -> [Verbindung]
 }

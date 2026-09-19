@@ -76,8 +76,15 @@ extension SchweizDienst: Verbindungsquelle {
         nach: CLLocationCoordinate2D,
         zeitpunkt: Date,
         ankunft: Bool,
-        anzahl: Int
+        anzahl: Int,
+        nurNahverkehr: Bool
     ) async throws -> [Verbindung] {
+        // **`nurNahverkehr` wird hier bewusst NICHT an die Quelle gereicht.**
+        // Einen Parameter dafür kennt diese Schnittstelle nicht gemessen, und
+        // eine geratene Einschränkung wäre schlimmer als keine: Sie würde
+        // stillschweigend Verbindungen unterschlagen. Gesiebt wird die
+        // Antwort im `Kettendienst` (`gesiebt`) — dort gilt die Regel für
+        // alle Quellen gleich.
         var bausatz = URLComponents(url: verbindungsAdresse, resolvingAgainstBaseURL: false)
         bausatz?.queryItems = [
             // **Hier steht die BREITE zuerst.** Der Dienst nimmt bei `from`

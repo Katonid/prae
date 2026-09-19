@@ -51,6 +51,29 @@ struct Verbindung: Identifiable, Hashable, Sendable {
     /// im Kopf hat, sucht sie sonst und hält die App für unvollständig.
     var faelltAus: Bool { abschnitte.contains(where: \.faelltAus) }
 
+    /// Ob JEDE Fahrt dieser Verbindung Nahverkehr ist — die Bedingung für
+    /// „mit dem Deutschland-Ticket befahrbar".
+    ///
+    /// **Es zählt die schwächste Stelle.** Eine Verbindung aus fünf
+    /// Regionalzügen und einem ICE ist keine Deutschland-Ticket-Verbindung;
+    /// gefragt wird deshalb, ob ALLE Fahrten abgedeckt sind. Fußwege zählen
+    /// nicht mit — sie sind kostenlos.
+    ///
+    /// **Eine Verbindung ganz ohne Fahrt (nur Fußweg) gilt als abgedeckt.**
+    /// Zu Fuß braucht es kein Ticket; sie hier herauszufiltern wäre die eine
+    /// Antwort, die sicher falsch ist.
+    var nurNahverkehr: Bool { fahrten.allSatisfy { ($0.linie?.mittel ?? .sonstiges).imDeutschlandTicket } }
+
+    /// Die Fahrten, an denen es scheitert — für die Meldung, wenn der Filter
+    /// alles wegnimmt. Eine Liste, die leer bleibt und nicht sagt WARUM, ist
+    /// die Frage von vorhin noch einmal.
+    var nichtImDeutschlandTicket: [Verkehrsmittel] {
+        var gesehen: Set<Verkehrsmittel> = []
+        return fahrten
+            .map { $0.linie?.mittel ?? .sonstiges }
+            .filter { !$0.imDeutschlandTicket && gesehen.insert($0).inserted }
+    }
+
     /// Ob für diese Verbindung überhaupt eine Echtzeitmeldung vorliegt.
     /// Wenn nicht, steht „Plan" daran — dieselbe Regel wie an einer Abfahrt.
     var hatEchtzeit: Bool { fahrten.contains(where: \.istEchtzeit) }
@@ -107,6 +130,32 @@ struct Verbindungsabschnitt: Identifiable, Sendable {
     }
 
     var entfallendeHalte: [Zwischenhalt] { halte.filter(\.faelltAus) }
+
+    /// Der Weg dieses Abschnitts auf der Karte.
+    ///
+    /// **Ohne Geometrie werden die HALTE verbunden** — nicht nur Anfang und
+    /// Ende. Eine Fahrt über sechs Stationen läge sonst als eine einzige
+    /// Gerade da, obwohl die Lage jedes Haltes bekannt ist.
+    ///
+    /// Steht seit 1.1.20 am Modell und nicht mehr in der Kartenansicht: Es
+    /// gibt jetzt zwei Karten, die Verbindungen zeichnen (die einzelne und
+    /// die Vergleichskarte), und zwei Fassungen zeichneten irgendwann
+    /// verschiedene Wege für dieselbe Fahrt.
+    var linienzug: [CLLocationCoordinate2D] {
+        if !strecke.isEmpty { return strecke }
+        let ausHalten = halte.map(\.haltestelle.koordinate)
+        if ausHalten.count >= 2 { return ausHalten }
+        return [von?.koordinate, nach?.koordinate].compactMap { $0 }
+    }
+
+    /// Ob dieser Abschnitt gestrichelt gehört: jeder Fußweg, und jede Fahrt,
+    /// deren Streckenführung die Quelle nicht mitgeschickt hat.
+    ///
+    /// Eine durchgezogene Gerade quer über die Karte sähe aus wie ein
+    /// Fahrweg; nicht jede Quelle liefert Geometrie (die Schweizer gar
+    /// keine). Dieselbe Regel wie bei der gestrichelten Luftlinie im
+    /// Fahrtlauf.
+    var gestrichelt: Bool { art == .fussweg || strecke.isEmpty }
 }
 
 /// Ein Treffer der Ortssuche — Haltestelle, Adresse oder Ort.

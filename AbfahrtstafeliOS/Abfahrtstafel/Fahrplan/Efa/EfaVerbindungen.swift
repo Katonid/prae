@@ -81,8 +81,15 @@ extension EfaDienst: Verbindungsquelle {
         nach: CLLocationCoordinate2D,
         zeitpunkt: Date,
         ankunft: Bool,
-        anzahl: Int
+        anzahl: Int,
+        nurNahverkehr: Bool
     ) async throws -> [Verbindung] {
+        // **`nurNahverkehr` wird hier bewusst NICHT an die Quelle gereicht.**
+        // Einen Parameter dafür kennt diese Schnittstelle nicht gemessen, und
+        // eine geratene Einschränkung wäre schlimmer als keine: Sie würde
+        // stillschweigend Verbindungen unterschlagen. Gesiebt wird die
+        // Antwort im `Kettendienst` (`gesiebt`) — dort gilt die Regel für
+        // alle Quellen gleich.
         let plan = try await holeReiseplan(
             von: von, nach: nach, zeitpunkt: zeitpunkt, ankunft: ankunft, anzahl: anzahl
         )

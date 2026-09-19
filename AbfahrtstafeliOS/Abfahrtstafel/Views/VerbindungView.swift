@@ -22,6 +22,12 @@ struct VerbindungView: View {
         var titel: String { self == .start ? "Startpunkt" : "Ziel" }
     }
 
+    /// Ob die Vergleichskarte offen ist. Sie liegt als Vollbild über allem
+    /// und nicht als Blatt: Auf dem iPad wäre ein Blatt ein Kärtchen in der
+    /// Mitte, und eine Karte lebt von Fläche — dieselbe Lehre wie beim
+    /// Platz-Editor in Tafelbild.
+    @State private var vergleichOffen = false
+
     private var standortKoordinate: CLLocationCoordinate2D? {
         if case .da(let hier) = standort.stand { return hier }
         return nil
@@ -38,6 +44,9 @@ struct VerbindungView: View {
             .navigationBarTitleDisplayMode(.inline)
             .navigationDestination(for: Verbindung.self) { verbindung in
                 VerbindungDetailView(verbindung: verbindung)
+            }
+            .fullScreenCover(isPresented: $vergleichOffen) {
+                VergleichsKarte(verbindungen: planer.verbindungen)
             }
             // Auch von hier aus führt ein Weg zu einer Haltestelle: Der
             // Fahrtlauf eines Abschnitts zeichnet seine Halte auf die Karte,
@@ -97,6 +106,33 @@ struct VerbindungView: View {
             }
 
             Zeitleiste()
+
+            HStack(spacing: 10) {
+                // **Ein Schalter, kein Menüpunkt.** Wer ein
+                // Deutschland-Ticket hat, stellt das einmal um und sieht
+                // danach an der Leiste, dass es an ist. In einem Menü
+                // versteckt wäre es ein Filter, den man vergisst — und dann
+                // sähe eine kurze Liste nach einem schlechten Fahrplan aus.
+                Toggle(isOn: $planer.nurDeutschlandTicket) {
+                    Label("Deutschland-Ticket", systemImage: "ticket")
+                        .font(.footnote)
+                }
+                .toggleStyle(.button)
+                .buttonStyle(.bordered)
+                .tint(planer.nurDeutschlandTicket ? .accentColor : .secondary)
+
+                Spacer(minLength: 0)
+
+                if planer.verbindungen.count > 1 {
+                    Button {
+                        vergleichOffen = true
+                    } label: {
+                        Label("Wege vergleichen", systemImage: "map")
+                            .font(.footnote)
+                    }
+                    .buttonStyle(.bordered)
+                }
+            }
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
@@ -176,7 +212,11 @@ struct VerbindungView: View {
                         .lesebreite()
                     }
                 } footer: {
-                    Fusszeile(geholtUm: planer.geholtUm, quellen: planer.beteiligteQuellen)
+                    Fusszeile(
+                        geholtUm: planer.geholtUm,
+                        quellen: planer.beteiligteQuellen,
+                        mitFilter: planer.nurDeutschlandTicket
+                    )
                         .lesebreite()
                 }
             }
@@ -250,6 +290,11 @@ struct VerbindungView: View {
         /// Die Quellen, die WIRKLICH beigetragen haben — nicht die
         /// eingebauten.
         let quellen: [String]
+        /// Ob der Deutschland-Ticket-Filter an ist. Wird hereingereicht und
+        /// nicht selbst nachgesehen: Eine verschachtelte Ansicht kennt das
+        /// Modell der äußeren nicht, und ein `@EnvironmentObject` an dieser
+        /// Stelle wäre ein zweiter Weg zu demselben Wert.
+        let mitFilter: Bool
 
         var body: some View {
             VStack(alignment: .leading, spacing: 3) {
@@ -258,6 +303,9 @@ struct VerbindungView: View {
                 }
                 if !quellen.isEmpty {
                     Text("Auskunft: \(quellen.joined(separator: ", ")).")
+                }
+                if mitFilter {
+                    Text("Der Filter zeigt nur Verbindungen ohne Fernzug, Fernbus und Nachtzug — das, was ein Deutschland-Ticket abdeckt. Er kennt das Verkehrsmittel, nicht das Land: Eine Fahrt, die über die Grenze führt, ist jenseits davon nicht enthalten. Auch Ausnahmen einzelner Linien stehen in keiner Quelle. Fähren bleiben außen vor, weil sich nicht unterscheiden lässt, welche zum Nahverkehr gehören.")
                 }
                 Text("Der Balken unter jeder Verbindung zeigt ihre Dauer im Verhältnis zur längsten dieser Liste. Die farbigen Stücke sind die Fahrten, die blassen dazwischen die Wartezeit — verglichen wird die Länge, nicht die Uhrzeit.")
                 Text("Fußwege sind gerechnete Wege, keine gemessenen; die Gehzeit hängt davon ab, wie schnell jemand geht. Wo keine Echtzeit vorliegt, steht „Plan“ — die App behauptet dann nichts über Pünktlichkeit.")

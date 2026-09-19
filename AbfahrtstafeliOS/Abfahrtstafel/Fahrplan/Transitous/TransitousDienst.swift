@@ -449,15 +449,20 @@ struct TransitousDienst: Fahrplandienst {
         nach: CLLocationCoordinate2D,
         zeitpunkt: Date,
         ankunft: Bool,
-        anzahl: Int
+        anzahl: Int,
+        nurNahverkehr: Bool
     ) async throws -> [Verbindung] {
-        let antwort: TransitousAntwort.Reiseplan = try await hole("plan", [
+        var felder = [
             URLQueryItem(name: "fromPlace", value: "\(von.latitude),\(von.longitude)"),
             URLQueryItem(name: "toPlace", value: "\(nach.latitude),\(nach.longitude)"),
             URLQueryItem(name: "time", value: Zeitleser.iso(zeitpunkt)),
             URLQueryItem(name: "arriveBy", value: ankunft ? "true" : "false"),
             URLQueryItem(name: "numItineraries", value: String(anzahl)),
-        ])
+        ]
+        if nurNahverkehr {
+            felder.append(URLQueryItem(name: "transitModes", value: Self.nahverkehrsmodi))
+        }
+        let antwort: TransitousAntwort.Reiseplan = try await hole("plan", felder)
         let gefunden = (antwort.itineraries ?? []).compactMap { verbindung(aus: $0) }
         // **Leer ist hier kein Fehler, sondern eine Auskunft.** Der Dienst
         // antwortet mit HTTP 200 und einer leeren Liste, wenn zwischen den
@@ -465,6 +470,40 @@ struct TransitousDienst: Fahrplandienst {
         guard !gefunden.isEmpty else { throw Fahrplanfehler.keineVerbindung }
         return gefunden
     }
+
+    /// Die MOTIS-Modi, die als Nahverkehr gelten — was ein Deutschland-Ticket
+    /// abdeckt.
+    ///
+    /// **Der Filter gehört in die ANFRAGE und nicht nur in die Liste**
+    /// (gemessen 19.09.2026, Dortmund → München): Ohne Einschränkung kamen
+    /// fünf Vorschläge zurück, und in ALLEN fünf steckte ein ICE oder IC. Wer
+    /// erst hinterher aussiebt, bekommt eine leere Liste und schließt daraus,
+    /// es gebe keine Nahverkehrsverbindung — mit `transitModes` liefert
+    /// dieselbe Strecke sechs Vorschläge aus lauter Regionalzügen (fünf bis
+    /// sieben Umstiege, gut zehn Stunden statt knapp sechs). Genau danach
+    /// fragt, wer ein Deutschland-Ticket hat.
+    ///
+    /// **`transitModes` ist der Name, der hier wirkt — an `/stoptimes` heißt
+    /// derselbe Filter `mode`.** Gemessen am selben Tag: `mode=` und `modes=`
+    /// werden von `/plan` mit HTTP 200 angenommen und stillschweigend
+    /// ignoriert (die Antwort war Byte für Byte die ungefilterte). Umgekehrt
+    /// wirkt an `/stoptimes` nur `mode`. **Wer hier etwas ändert, prüft am
+    /// INHALT der Antwort, ob der Filter gegriffen hat, nicht am Status.**
+    /// Ein falscher WERT fällt dagegen sofort auf: `transitModes=QUATSCH`
+    /// antwortet mit HTTP 400 und zählt die gültigen Werte auf.
+    ///
+    /// **`RAIL` steht bewusst NICHT dabei.** Es ist eine Obergruppe und holt
+    /// Fern- und Hochgeschwindigkeitszüge zurück — nachgemessen an drei
+    /// Strecken (Dortmund → Köln, Hamburg → Berlin, München → Zürich): mit
+    /// `RAIL` standen in jeder wieder ICE und IC in der Liste, ohne `RAIL`
+    /// keine. Gekostet hat es nichts, die Zahl der Vorschläge blieb gleich.
+    /// Dieselbe Falle wie bei der Tafel, nur an der anderen Schnittstelle.
+    ///
+    /// **`FERRY`, `FUNICULAR` und `CABLE_CAR` fehlen mit Absicht** — siehe
+    /// `Verkehrsmittel.imDeutschlandTicket`: Im Zweifel lieber eine Auskunft
+    /// zu wenig als eine Fahrt ohne gültigen Fahrschein.
+    private static let nahverkehrsmodi =
+        "TRAM,SUBWAY,METRO,SUBURBAN,BUS,REGIONAL_RAIL,REGIONAL_FAST_RAIL"
 
     private func verbindung(aus reise: TransitousAntwort.Reiseweg) -> Verbindung? {
         guard let start = Zeitleser.datum(reise.startTime),
@@ -603,8 +642,12 @@ struct TransitousDienst: Fahrplandienst {
         case "TRAM": return .tram
         case "BUS": return .bus
         case "COACH": return .fernbus
-        case "REGIONAL_RAIL", "REGIONAL_FAST_RAIL", "NIGHT_RAIL", "RAIL": return .regionalzug
-        case "HIGHSPEED_RAIL", "LONG_DISTANCE": return .fernzug
+        case "REGIONAL_RAIL", "REGIONAL_FAST_RAIL", "RAIL": return .regionalzug
+        // **`NIGHT_RAIL` ist FERNverkehr** (berichtigt in 1.1.20). Bis dahin
+        // lief ein Nightjet als Regionalzug mit — falsch schon auf dem
+        // Schild, und seit es den Deutschland-Ticket-Filter gibt, wäre es die
+        // teure Sorte falsch: Ein Nachtzug ist darin nicht enthalten.
+        case "HIGHSPEED_RAIL", "LONG_DISTANCE", "NIGHT_RAIL": return .fernzug
         case "FERRY": return .faehre
         default: return .sonstiges
         }

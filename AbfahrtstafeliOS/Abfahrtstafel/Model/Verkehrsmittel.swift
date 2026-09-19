@@ -89,6 +89,37 @@ enum Verkehrsmittel: String, Codable, CaseIterable, Identifiable, Sendable {
         }
     }
 
+    /// Ob dieses Verkehrsmittel als NAHVERKEHR gilt — das, was ein
+    /// Deutschland-Ticket abdeckt.
+    ///
+    /// **Die Regel steht hier und nirgends sonst** (ab 1.1.20, Ansage des
+    /// Nutzers 09/2026: „Es soll möglich sein, nur Verbindungen anzeigen zu
+    /// lassen, die mit dem Deutschland-Ticket befahrbar sind."). Sie wird an
+    /// zwei Enden gebraucht — die Anfrage an Transitous schickt die passenden
+    /// MOTIS-Modi mit, und jede Antwort wird zusätzlich hier geprüft. Zwei
+    /// Fassungen liefen auseinander, und die eine, die mehr durchließe, wäre
+    /// die teure.
+    ///
+    /// **Im Zweifel NICHT abgedeckt.** Die beiden Fehler sind nicht gleich
+    /// schwer: Eine Verbindung zu viel wegzulassen kostet eine Auskunft, eine
+    /// zu viel zu zeigen kostet ein erhöhtes Beförderungsentgelt. Deshalb
+    /// fallen `sonstiges` (unbekanntes Mittel) und `faehre` heraus — manche
+    /// Fähren sind Nahverkehr (die HADAG in Hamburg gehört zum HVV), viele
+    /// sind es nicht, und welche, steht in keinem Feld.
+    ///
+    /// **Was diese Eigenschaft NICHT kann**, und was die Oberfläche deshalb
+    /// dazuschreibt: Sie kennt das Verkehrsmittel, nicht das LAND. Gemessen
+    /// am 19.09.2026: München → Zürich gibt mit Nahverkehrsmodi eine
+    /// vollständige Verbindung aus Regionalzügen zurück — die ist ab der
+    /// Grenze nicht im Deutschland-Ticket. Und sie kennt keine Ausnahme
+    /// einzelner Linien.
+    var imDeutschlandTicket: Bool {
+        switch self {
+        case .sBahn, .uBahn, .tram, .bus, .regionalzug: return true
+        case .fernzug, .fernbus, .faehre, .sonstiges: return false
+        }
+    }
+
     /// Die Reihenfolge in der Filterleiste und in Gruppierungen. Schiene vor
     /// Straße, weil die meisten Fahrgäste zuerst danach suchen.
     var rang: Int {
