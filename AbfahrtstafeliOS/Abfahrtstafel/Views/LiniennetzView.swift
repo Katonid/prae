@@ -31,10 +31,28 @@ struct LiniennetzView: View, Equatable {
     /// zu sagen hatte. Benutzt wird es über `.equatable()` an den drei
     /// Stellen in `AbfahrtstafelView` — wer eine vierte anlegt, hängt es mit
     /// dran, sonst zeichnet dort wieder die Uhr mit.
+    ///
+    /// Verglichen wird weder `umschalten` noch `pfad`: Beide zeigen auf
+    /// dieselbe Stelle, solange die Ansicht steht, und ein `Binding` auf
+    /// einen `@State` bleibt auch dann gültig, wenn die Ansicht selbst nicht
+    /// neu gebaut wurde.
     static func == (links: LiniennetzView, rechts: LiniennetzView) -> Bool {
         links.imVollbild == rechts.imVollbild
     }
 
+    /// Der Navigationsstapel, in dem diese Karte liegt.
+    ///
+    /// **Warum die Karte ihn selbst braucht** (ab 1.1.18): Bis 1.1.17 war
+    /// jeder Halt ein `NavigationLink` und jedes Liniensymbol ein `Button` —
+    /// also bis zu dreihundert Bedienelemente MITTEN auf der Karte. Jedes
+    /// davon nimmt Berührungen an, und eine Zoomgeste beginnt nun einmal mit
+    /// zwei Fingern irgendwo auf der Fläche. Seither liegt auf der Karte kein
+    /// Bedienelement mehr; wohin ein Tipp führt, entscheidet `tippen(_:_:)`
+    /// und schiebt es hier auf den Stapel. Das Ziel bleibt dasselbe wie in
+    /// der Liste (`navigationDestination(for: Haltestelle.self)`) — ein
+    /// eigenes Blatt wäre ein zweiter Weg zu derselben Ansicht und liefe
+    /// irgendwann auseinander.
+    @Binding var pfad: NavigationPath
     /// Ob diese Karte schon den ganzen Bildschirm füllt (ab 1.1.11). Sie
     /// zeichnet dann denselben Knopf andersherum — auf und zu ist EINE Sache
     /// und gehört an dieselbe Stelle.
@@ -171,10 +189,11 @@ struct LiniennetzView: View, Equatable {
             && !netz.zuege.isEmpty
             && !halte.contains { !$0.faelltAus && !$0.lautMeldungGesperrt }
         let gezeichnet = berechneZuege()
+        let beschriftungen = berechneBeschriftungen()
         inhalt = Karteninhalt(
             zuege: gezeichnet,
             halte: halte,
-            beschriftungen: berechneBeschriftungen(),
+            beschriftungen: beschriftungen,
             hinweise: berechneHinweise(halte: halte, zuViele: zuViele)
         )
         Kartenmesser.geteilt.aufbau(
@@ -183,7 +202,8 @@ struct LiniennetzView: View, Equatable {
             linien: netz.zuege.count,
             punkteRoh: netz.zuege.reduce(0) { $0 + $1.punkte.count },
             punkteGezeichnet: gezeichnet.reduce(0) { $0 + $1.punkte.count },
-            toleranz: geltendeToleranz ?? 0
+            toleranz: geltendeToleranz ?? 0,
+            tippziele: halte.count + beschriftungen.count + model.gruppen.count
         )
     }
 
@@ -306,22 +326,18 @@ struct LiniennetzView: View, Equatable {
             // Die Halte der gezeichneten Linien.
             ForEach(inhalt.halte) { halt in
                 Annotation(halt.name, coordinate: halt.koordinate, anchor: .center) {
-                    // **Ein Tipp öffnet die Tafel dieser Haltestelle.** Das
-                    // Ziel ist dasselbe wie in der Liste nebenan — der
-                    // `navigationDestination(for: Haltestelle.self)` steht in
-                    // `AbfahrtstafelView`, in deren Stapel diese Karte liegt.
-                    // Ein eigenes Blatt dafür wäre ein zweiter Weg zu
-                    // derselben Ansicht und liefe irgendwann auseinander.
-                    NavigationLink(value: halt.haltestelle) {
-                        Linienhalt(
-                            farbe: halt.farbe,
-                            gross: halt.gross,
-                            faelltAus: halt.faelltAus,
-                            lautMeldungGesperrt: halt.lautMeldungGesperrt
-                        )
-                        .trefferflaeche()
-                    }
-                    .buttonStyle(.plain)
+                    // **Ein Punkt auf der Karte ist ein BILD, kein
+                    // Bedienelement** (ab 1.1.18). Ein Tipp öffnet weiterhin
+                    // die Tafel dieser Haltestelle — er wird aber von der
+                    // Karte selbst angenommen (`tippen(_:_:)`) und nicht von
+                    // dreihundert einzelnen Verweisen. Siehe `pfad`.
+                    Linienhalt(
+                        farbe: halt.farbe,
+                        gross: halt.gross,
+                        faelltAus: halt.faelltAus,
+                        lautMeldungGesperrt: halt.lautMeldungGesperrt
+                    )
+                    .allowsHitTesting(false)
                 }
                 // Beschriftet nur, wenn EINE Linie hervorgehoben ist. Sonst
                 // lägen dreihundert Haltestellennamen übereinander und die
@@ -338,19 +354,18 @@ struct LiniennetzView: View, Equatable {
             // Hin- und Herschauen.
             ForEach(inhalt.beschriftungen) { marke in
                 Annotation("", coordinate: marke.punkt, anchor: .center) {
-                    // Das Schild ist ein KNOPF und tut dasselbe wie die Zeile
-                    // in der Legende. Ohne das wäre die zugeklappte Legende
-                    // eine Sackgasse: Das Hervorheben — und damit die
-                    // Haltestellennamen — hinge dann daran, sie wieder
-                    // aufzuklappen.
-                    Button {
-                        hervorgehoben = (hervorgehoben == marke.id) ? nil : marke.id
-                    } label: {
-                        Liniensymbol(linie: marke.linie)
-                            .opacity(hervorgehoben == nil || hervorgehoben == marke.id ? 1 : 0.25)
-                            .shadow(color: .black.opacity(0.25), radius: 2, y: 1)
-                    }
-                    .buttonStyle(.plain)
+                    // Ein Tipp auf das Schild hebt seine Linie hervor und tut
+                    // damit dasselbe wie die Zeile in der Legende. Ohne das
+                    // wäre die zugeklappte Legende eine Sackgasse: Das
+                    // Hervorheben — und damit die Haltestellennamen — hinge
+                    // dann daran, sie wieder aufzuklappen. **Der Knopf ist
+                    // seit 1.1.18 keiner mehr**; angenommen wird der Tipp von
+                    // der Karte (`tippen(_:_:)`), damit auf der Fläche nichts
+                    // mehr liegt, das eine Zoomgeste abfangen kann.
+                    Liniensymbol(linie: marke.linie)
+                        .opacity(hervorgehoben == nil || hervorgehoben == marke.id ? 1 : 0.25)
+                        .shadow(color: .black.opacity(0.25), radius: 2, y: 1)
+                        .allowsHitTesting(false)
                 }
                 .annotationTitles(.hidden)
             }
@@ -360,15 +375,12 @@ struct LiniennetzView: View, Equatable {
             // beantworten, mit der jemand die Karte öffnet.
             ForEach(model.gruppen) { gruppe in
                 Annotation(gruppe.name, coordinate: gruppe.koordinate, anchor: .center) {
-                    NavigationLink(value: gruppe.haltestelle) {
-                        ZStack {
-                            Circle().fill(.background).frame(width: 13, height: 13)
-                            Circle().strokeBorder(.primary, lineWidth: 3).frame(width: 13, height: 13)
-                        }
-                        .shadow(color: .black.opacity(0.2), radius: 1.5, y: 0.5)
-                        .trefferflaeche()
+                    ZStack {
+                        Circle().fill(.background).frame(width: 13, height: 13)
+                        Circle().strokeBorder(.primary, lineWidth: 3).frame(width: 13, height: 13)
                     }
-                    .buttonStyle(.plain)
+                    .shadow(color: .black.opacity(0.2), radius: 1.5, y: 0.5)
+                    .allowsHitTesting(false)
                 }
             }
 
@@ -380,6 +392,10 @@ struct LiniennetzView: View, Equatable {
                         .padding(7)
                         .background(Circle().fill(Color.accentColor))
                         .shadow(color: .black.opacity(0.28), radius: 3, y: 1)
+                        // Er tut nichts — dann darf er auch keine Berührung
+                        // annehmen. Eine Nadel, die einen Finger schluckt,
+                        // fehlt der Zoomgeste.
+                        .allowsHitTesting(false)
                 }
             }
         }
@@ -398,12 +414,15 @@ struct LiniennetzView: View, Equatable {
                     }
             }
         )
-        // **Ein Tipp auf die freie Kartenfläche zieht sie auf** (ab 1.1.11,
-        // wieder da seit 1.1.16). Die Halte und die Liniennummern sind Knöpfe
-        // und behalten ihre eigene Aufgabe — SwiftUI gibt dem inneren
-        // Bedienelement den Vorrang. Der Knopf unten links tut dasselbe und
-        // ist der Weg, den man SIEHT.
-        .onTapGesture { umschalten?() }
+        // **EIN Tipp für die ganze Karte** (ab 1.1.18). Bis 1.1.17 stand
+        // hier nur „Karte aufziehen", und Halte und Liniennummern hatten je
+        // ihr eigenes Bedienelement. Jetzt entscheidet `tippen(_:_:)` am
+        // Abstand in Bildpunkten, was gemeint war: der nächste Punkt in
+        // Griffweite — und wenn keiner in der Nähe liegt, das Aufziehen. Der
+        // Knopf unten links tut dasselbe und ist der Weg, den man SIEHT.
+        .onTapGesture(coordinateSpace: .local) { stelle in
+            tippen(stelle, karteninhalt)
+        }
         .overlay(alignment: .topTrailing) { legende }
         .overlay(alignment: .bottomLeading) { kartenknoepfe }
         .overlay(alignment: .center) { fadenkreuz }
@@ -486,6 +505,75 @@ struct LiniennetzView: View, Equatable {
     /// wird `startLocation` und nicht `location`: Der Finger wandert beim
     /// Halten ein paar Punkte, gemeint ist aber die Stelle, auf die gezeigt
     /// wurde.
+    /// Wie weit ein Tipp von einem Punkt entfernt sein darf, in Bildpunkten.
+    ///
+    /// **Größer als die gezeichneten Punkte, und das ist der Gewinn.** Bis
+    /// 1.1.17 lag um jeden Halt ein unsichtbarer Kreis von 32 Punkten, damit
+    /// man ihn überhaupt treffen konnte — dreihundert davon deckten die Karte
+    /// zu. Hier kostet die Griffweite keine einzige Kartenfläche: Sie wird
+    /// erst gerechnet, NACHDEM der Tipp angekommen ist.
+    private static let griffweite: CGFloat = 26
+
+    /// Was ein Tipp auf die Karte bedeutet.
+    private enum Tippfolge {
+        case hervorheben(String)
+        case oeffnen(Haltestelle)
+    }
+
+    /// Sucht den nächsten Punkt unter dem Finger — und zieht sonst die Karte
+    /// auf.
+    ///
+    /// Gerechnet wird in BILDPUNKTEN und nicht in Metern: Was nah aussieht,
+    /// ist nah am Finger, und beim Hineinzoomen rücken zwei Halte auf dem
+    /// Schirm auseinander, ohne sich im Gelände zu bewegen. Umgerechnet wird
+    /// über `MapProxy` — welche Stelle des Schirms zu einer Koordinate
+    /// gehört, weiß allein die Karte.
+    ///
+    /// **Durchgegangen wird von unten nach oben**, damit bei gleichem Abstand
+    /// das gewinnt, was obenauf liegt: erst die Halte der Linien, dann die
+    /// Liniensymbole, zuletzt die Haltestellen aus der Liste.
+    private func tippen(_ stelle: CGPoint, _ karteninhalt: MapProxy) {
+        func abstand(_ koordinate: CLLocationCoordinate2D) -> CGFloat? {
+            guard let punkt = karteninhalt.convert(koordinate, to: .local) else { return nil }
+            let dx = punkt.x - stelle.x
+            let dy = punkt.y - stelle.y
+            return (dx * dx + dy * dy).squareRoot()
+        }
+
+        var naechster = Self.griffweite
+        var folge: Tippfolge?
+
+        for halt in inhalt.halte {
+            if let d = abstand(halt.koordinate), d <= naechster {
+                naechster = d
+                folge = .oeffnen(halt.haltestelle)
+            }
+        }
+        for marke in inhalt.beschriftungen {
+            if let d = abstand(marke.punkt), d <= naechster {
+                naechster = d
+                folge = .hervorheben(marke.id)
+            }
+        }
+        for gruppe in model.gruppen {
+            if let d = abstand(gruppe.koordinate), d <= naechster {
+                naechster = d
+                folge = .oeffnen(gruppe.haltestelle)
+            }
+        }
+
+        switch folge {
+        case .hervorheben(let kennung):
+            hervorgehoben = (hervorgehoben == kennung) ? nil : kennung
+        case .oeffnen(let haltestelle):
+            // Dasselbe Ziel wie aus der Liste — eingetragen ist es einmal je
+            // Stapel (`navigationDestination(for: Haltestelle.self)`).
+            pfad.append(haltestelle)
+        case nil:
+            umschalten?()
+        }
+    }
+
     private func punktSetzen(_ karteninhalt: MapProxy) -> some Gesture {
         LongPressGesture(minimumDuration: 0.45)
             .sequenced(before: DragGesture(minimumDistance: 0, coordinateSpace: .local))
@@ -1177,7 +1265,9 @@ private struct Linienhalt: View {
 }
 
 #Preview {
-    LiniennetzView()
+    // Ein fester Stapel genügt hier: Die Vorschau zeigt die Karte, sie
+    // navigiert nicht.
+    LiniennetzView(pfad: .constant(NavigationPath()))
         .environmentObject(AppModel(dienst: Musterdienst()))
         .environmentObject(Liniennetz())
         .environmentObject(Meldungsdienst())

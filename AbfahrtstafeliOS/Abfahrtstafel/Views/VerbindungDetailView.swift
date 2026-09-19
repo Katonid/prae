@@ -279,6 +279,10 @@ private struct VerbindungsKarte: View {
                         Circle().strokeBorder(punkt.farbe, lineWidth: 3.5).frame(width: 13, height: 13)
                     }
                     .shadow(color: .black.opacity(0.2), radius: 1.5, y: 0.5)
+                    // Diese Punkte tun nichts — dann nehmen sie auch keine
+                    // Berührung an. Was auf einer Karte liegt und keine
+                    // Aufgabe hat, fehlt sonst der Zoomgeste (ab 1.1.18).
+                    .allowsHitTesting(false)
                 }
             }
         }

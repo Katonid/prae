@@ -1795,6 +1795,44 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   ist gemessen, aber gemessen ist die DATENMENGE und nicht die Wirkung auf dem
   Gerät. Nicht als erledigt darstellen — der Messfühler nennt seit 1.1.17 auch
   die Stützpunkte roh und gezeichnet.
+- **Auf einer Karte darf kein Bedienelement liegen** (ab 1.1.18, Befund des
+  Nutzers 09/2026: „wenn ich zoome und Haltestellen in der Nähe sind,
+  funktioniert der Zoom nicht. Auch wenn es ein dicht besiedeltes Gebiet mit
+  vielen Pins ist, schlägt der Zoom deshalb fehl."). Das ist der erste Befund
+  in dieser Sache, der sagt, WANN es fehlschlägt — und er zeigt nicht auf die
+  Linien, sondern auf die Punkte. **Nachgezählt am Quelltext:** Bis 1.1.17 war
+  jeder der bis zu 260 Halte ein `NavigationLink`, jede Haltestelle aus der
+  Liste ebenso und jedes Liniensymbol ein `Button`, und jedes davon trug über
+  `trefferflaeche()` einen unsichtbaren Kreis von 32 Punkten. Bei 34 Punkten
+  Abstand deckt ein Raster solcher Kreise rund 70 % der Fläche ab; in einer
+  Innenstadt landen also beide Finger einer Zoomgeste mit hoher
+  Wahrscheinlichkeit auf einem Bedienelement statt auf der Karte. **Merke:
+  Eine Geste gehört der Karte; was auf ihr liegt, ist ein BILD.**
+  - Die Punkte sind seit 1.1.18 `.allowsHitTesting(false)` — auch der
+    Bezugspunkt und die Umstiegspunkte in `VerbindungDetailView`, die gar
+    nichts tun: Was keine Aufgabe hat, darf erst recht keinen Finger
+    schlucken.
+  - Den Tipp nimmt die KARTE an (`LiniennetzView.tippen(_:_:)`) und sucht
+    hinterher den nächsten Punkt in **Bildpunkten** (`MapProxy.convert`),
+    Griffweite 26. Gerechnet wird also erst, NACHDEM klar ist, dass ein Tipp
+    gemeint war — damit kostet die Griffweite keine Kartenfläche mehr und darf
+    sogar großzügiger sein als der gezeichnete Punkt. Durchgegangen wird von
+    unten nach oben, damit bei gleichem Abstand das gewinnt, was obenauf
+    liegt; liegt nichts in Griffweite, zieht der Tipp wie bisher die Karte
+    auf.
+  - **Dafür braucht die Karte den Navigationsstapel selbst**
+    (`LiniennetzView.pfad`, ein `@Binding` an `NavigationPath`). Das Ziel
+    bleibt das eine, das in jedem Stapel eingetragen ist
+    (`navigationDestination(for: Haltestelle.self)`) — ein eigenes Blatt wäre
+    ein zweiter Weg zu derselben Ansicht und liefe irgendwann auseinander.
+  - **Der Fahrtlauf (`StreckenKarte`) trägt die alte Bauweise noch.** Das ist
+    Absicht: Es wird eine Sache auf einmal geändert, sonst sagt der nächste
+    Befund nichts mehr. Hält die Erklärung, gehört sie mitgezogen.
+  - **Nicht als erledigt darstellen.** Gemessen ist der AUFBAU (wie viele
+    Bedienelemente auf der Karte lagen, jetzt null — der Messfühler nennt die
+    Zahl der antippbaren Punkte seit 1.1.18 mit), nicht die Wirkung auf dem
+    Gerät. Es ist die vierte Erklärung in dieser Sache; die ersten beiden
+    waren Vermutungen, die dritte eine Datenmessung ohne Wirkungsnachweis.
 - **Betriebsmeldungen sind eine EIGENE Sache neben der Abfahrtskette**
   (`Betriebsmeldung`, `Meldungsquelle`, `Dienste/Meldungsdienst.swift`, ab
   1.0.4; gemeldet 09/2026: „Ich weiß, dass bei mir vor Ort eine Buslinie
@@ -2306,7 +2344,7 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   zwölfte Nachbesserung — derselbe Gedanke wie bei Tafelbild 1.4.0 und
   Schulalarm 1.1.0. Die Marken ab 1.0.x in diesem Papier bleiben stehen;
   sie sagen, wann etwas in den Quelltext kam. Danach zählt es weiter:
-  1.1.1 (Build 14), 1.1.2 (Build 15), 1.1.3 (Build 16), 1.1.4 (Build 17), 1.1.5 (Build 18), 1.1.6 (Build 19), 1.1.7 (Build 20), 1.1.8 (Build 21), 1.1.9 (Build 22), 1.1.10 (Build 23), 1.1.11 (Build 24), 1.1.12 (Build 25), 1.1.13 (Build 26), 1.1.14 (Build 27), 1.1.15 (Build 28), 1.1.16 (Build 29), 1.1.17 (Build 30) … Dazu gesetzt (Ansage des Nutzers,
+  1.1.1 (Build 14), 1.1.2 (Build 15), 1.1.3 (Build 16), 1.1.4 (Build 17), 1.1.5 (Build 18), 1.1.6 (Build 19), 1.1.7 (Build 20), 1.1.8 (Build 21), 1.1.9 (Build 22), 1.1.10 (Build 23), 1.1.11 (Build 24), 1.1.12 (Build 25), 1.1.13 (Build 26), 1.1.14 (Build 27), 1.1.15 (Build 28), 1.1.16 (Build 29), 1.1.17 (Build 30), 1.1.18 (Build 31) … Dazu gesetzt (Ansage des Nutzers,
   09/2026): `DEVELOPMENT_TEAM = F4989GSTWS` — dieselbe Id wie Schulalarm und
   Tafelbild — und `INFOPLIST_KEY_LSApplicationCategoryType =
   public.app-category.navigation`. Beides steht als Build-Einstellung, weil

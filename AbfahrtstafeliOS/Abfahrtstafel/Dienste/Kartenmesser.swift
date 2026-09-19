@@ -49,6 +49,17 @@ final class Kartenmesser {
     /// Wie viele Meter ein Bildpunkt beim letzten Aufbau bedeutete. 0 heißt
     /// „nicht feststellbar, also nicht vereinfacht".
     private(set) var toleranz = 0.0
+    /// Wie viele Punkte auf der Karte einen Tipp beantworten — Halte,
+    /// Liniensymbole und die Haltestellen aus der Liste zusammen.
+    ///
+    /// **Warum das zählt** (ab 1.1.18, Befund des Nutzers 09/2026: „wenn ich
+    /// zoome und Haltestellen in der Nähe sind, funktioniert der Zoom
+    /// nicht"): Bis 1.1.17 war jeder dieser Punkte ein `NavigationLink` oder
+    /// ein `Button` mit einer unsichtbaren Trefferfläche von 32 Punkten — bei
+    /// dreihundert davon war die halbe Karte mit Bedienelementen belegt.
+    /// Seit 1.1.18 liegt dort keines mehr; die Zahl sagt trotzdem, wie dicht
+    /// es gerade ist, denn genau daran hing der gemeldete Fall.
+    private(set) var tippziele = 0
     private(set) var seit = Date()
 
     /// Gemeldet aus dem Körper der Ansicht — absichtlich ohne jede Wirkung
@@ -66,7 +77,8 @@ final class Kartenmesser {
         linien: Int,
         punkteRoh: Int,
         punkteGezeichnet: Int,
-        toleranz: Double
+        toleranz: Double,
+        tippziele: Int
     ) {
         aufbauten += 1
         letzterAufbau = dauer
@@ -76,6 +88,7 @@ final class Kartenmesser {
         self.punkteRoh = punkteRoh
         self.punkteGezeichnet = punkteGezeichnet
         self.toleranz = toleranz
+        self.tippziele = tippziele
     }
 
     func zuruecksetzen() {
@@ -101,6 +114,7 @@ final class Kartenmesser {
         zeilen.append("Zuletzt gezeichnet: \(halte) Halte auf \(linien) Linien")
         let anteil = punkteRoh > 0 ? 100 * Double(punkteGezeichnet) / Double(punkteRoh) : 0
         zeilen.append("Stützpunkte: \(punkteGezeichnet) von \(punkteRoh) (\(zahl(anteil, stellen: 1)) %)")
+        zeilen.append("Antippbare Punkte: \(tippziele) — davon Bedienelemente: 0")
         zeilen.append(toleranz > 0
             ? "Ein Bildpunkt entspricht \(zahl(toleranz, stellen: 1)) m"
             : "Maßstab nicht feststellbar — nicht vereinfacht")
