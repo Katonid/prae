@@ -148,9 +148,11 @@ jeweils **mit der Identität verknüpft** und **nicht** für Tracking. Kein
 Standort, keine Kontakte, keine Werbekennung. Die Liste steht auch in
 `PrivacyInfo.xcprivacy`; die beiden dürfen nicht auseinandergehen.
 
-**Anmerkungen für die Prüfung:** der vollständige Text aus
-`APP_REVIEW_NOTES.md`. Ein Testkonto wird **nicht** gebraucht — der Prüfer
-richtet seine eigene Schule ein.
+**Anmerkungen für die Prüfung:** der Text aus
+`APP_REVIEW_NOTES_ASC.txt` — das Feld nimmt **4000 Zeichen**, und
+`APP_REVIEW_NOTES.md` (die vollständige Fassung zum Nachschlagen) liegt weit
+darüber. Ein Testkonto wird **nicht** gebraucht — der Prüfer richtet seine
+eigene Schule ein.
 
 ## 5. Die drei Stellen, an denen so eine App abgewiesen wird
 

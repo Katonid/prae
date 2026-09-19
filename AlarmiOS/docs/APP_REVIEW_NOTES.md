@@ -1,6 +1,9 @@
 # App Review Notes
 
-Zum Einfügen in App Store Connect → App-Prüfungsinformationen → Anmerkungen.
+Die **vollständige** Fassung zum Nachschlagen. Was in App Store Connect →
+App-Prüfungsinformationen → Anmerkungen eingefügt wird, steht in
+`APP_REVIEW_NOTES_ASC.txt`: Das Feld nimmt nur 4000 Zeichen, dieses Papier ist
+dreimal so lang. Beide gehören zusammen gepflegt.
 Gilt genauso für die **Beta App Review** vor einer externen TestFlight-Gruppe
 (TestFlight → Testinformationen). Der Text ist bewusst englisch: Apples
 Prüfung liest englisch.
