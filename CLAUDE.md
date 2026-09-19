@@ -2511,6 +2511,58 @@ Auftrag, für Bauten, die niemand angefordert hatte.
     Schalter steht sichtbar in der Leiste, und steht er an, nennt ihn auch die
     Meldung „nichts gefunden": Sonst liest sich die wie eine Aussage über den
     Fahrplan.
+- **Das LAND steht in der Haltestellenkennung — und nur dort**
+  (`Model/Landkennung.swift`, ab 1.1.21, Ansage des Nutzers 09/2026: „Ich
+  hätte gedacht, dass es irgendwo ein Verzeichnis gibt. So ist zum Beispiel
+  komplett klar, dass eine Fahrt … von München nach Salzburg … auch auf
+  österreichischem Gebiet vom Deutschlandticket abgedeckt wird.").
+  - **Ein Tarifverzeichnis gibt es in den Daten NICHT** (nachgemessen
+    19.09.2026): MOTIS kann GTFS-Fares, der DELFI-Datensatz trägt aber keine —
+    `debugOutput.fares` steht auf 0, `agencyFareUrl` ist an jedem Abschnitt
+    leer. **Das nicht als lösbar versprechen**, solange keine Quelle dafür
+    gemessen ist.
+  - **Gelesen wird der Landesvorsatz der Kennung**: `de-DELFI_de:09162:…`,
+    `de-DELFI_at:45:50002` (Salzburg), `de-DELFI_NL:S:vl` (Venlo — GROSS
+    geschrieben, also ohne Rücksicht auf Schreibweise vergleichen),
+    `de-DELFI_nl:…` (Enschede), `ch:` (Basel).
+  - **Zwei naheliegende Wege sind gemessen falsch, und beide in BEIDE
+    Richtungen.** Erstens sagt der Datensatz vorn nicht das Land:
+    `nl-OpenOV_2860697` ist „Aachen Hbf" und `be-sncb_8015345` ist „Aachen Hbf
+    (DE)" — deutsche Bahnhöfe in fremden Datensätzen —, während
+    `de-DELFI_000008101912` „Reutte in Tirol" ist, also Österreich im
+    deutschen. Zweitens sind rein numerische Kennungen KEINE UIC-Nummern: Das
+    sieht bestechend aus (Ehrwald `…008100089`, und 81 ist Österreich), aber
+    „Finkenwerder" in Hamburg steht als `…015198010` und „Hannover
+    Hauptbahnhof" als `…090031022`. **Wer hier eine Systematik erkennt, prüft
+    sie an einem Gegenbeispiel, bevor er sie baut.**
+  - **Unbekannt heißt unbekannt und nie „Deutschland".** Die Halte der
+    Außerfernbahn (Ehrwald, Reutte) tragen im deutschen Datensatz numerische
+    Kennungen; daraus „bleibt in Deutschland" zu machen, behauptete genau das
+    Falsche. Die Zeile sagt in diesem Fall, dass das Land nicht feststellbar
+    ist.
+- **Die Grenzabschnitte sind eine LISTE mit Datum und Herkunft**
+  (`Model/Grenzfall.swift`, ab 1.1.21). Weil es kein Verzeichnis zu holen
+  gibt, steht sie von Hand da — kurz mit Absicht, denn jeder Eintrag ist eine
+  Behauptung über einen Fahrschein.
+  - **Die App sagt nie „gilt", sondern „steht in dieser Liste".** Tarife
+    ändern sich zum Fahrplanwechsel, die Liste nicht von selbst. Dieselbe
+    Regel wie beim Wort „Plan" an einer Abfahrt.
+  - **`gesichert` trennt Bestätigtes von allgemein Bekanntem** — dieselbe
+    Bauweise wie `Zugang.seiteGeprueft`. Bestätigt ist bisher nur
+    Freilassing – Salzburg Hbf (Ansage des Nutzers); Kufstein, Venlo und
+    Enschede stehen als ungeprüft drin und sagen das auch.
+  - **Alle oder keiner**: Ein Eintrag zählt nur, wenn er JEDEN ausländischen
+    Halt der Verbindung abdeckt. Eine Fahrt, die hinter Salzburg weiter nach
+    Linz geht, ist keine Salzburgfahrt mehr.
+  - **Ein Treffer neben unbekannten Halten ist kein glatter Treffer.**
+    Gemessen an Mönchengladbach → Venlo: Der Zug endet in Venlo (Treffer),
+    danach geht es mit einem niederländischen Stadtbus weiter, dessen Halte
+    keinen Landesvorsatz tragen — und der Bus ist sicher nicht enthalten. Die
+    Zeile hängt deshalb den Nachsatz an, statt „steht in der Liste" zu sagen.
+  - **Basel steht bewusst NICHT drin.** „Basel Bad Bf" liegt im deutschen
+    Tarifgebiet, „Basel SBB" nicht — beide tragen `ch:` und beide heißen
+    „Basel". Ein Stichwort „basel" deckte also genau den Fall mit ab, der
+    nicht gilt.
 - **Die Dauer wird als BALKEN vergleichbar, nicht durch Stauchen der Schilder**
   (`Views/Dauerbalken.swift`, ab 1.1.19, Ansage des Nutzers 09/2026: „Es wäre
   schön, wenn man die angezeigten Verbindungen schnell hinsichtlich ihrer Dauer
@@ -2567,7 +2619,7 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   zwölfte Nachbesserung — derselbe Gedanke wie bei Tafelbild 1.4.0 und
   Schulalarm 1.1.0. Die Marken ab 1.0.x in diesem Papier bleiben stehen;
   sie sagen, wann etwas in den Quelltext kam. Danach zählt es weiter:
-  1.1.1 (Build 14), 1.1.2 (Build 15), 1.1.3 (Build 16), 1.1.4 (Build 17), 1.1.5 (Build 18), 1.1.6 (Build 19), 1.1.7 (Build 20), 1.1.8 (Build 21), 1.1.9 (Build 22), 1.1.10 (Build 23), 1.1.11 (Build 24), 1.1.12 (Build 25), 1.1.13 (Build 26), 1.1.14 (Build 27), 1.1.15 (Build 28), 1.1.16 (Build 29), 1.1.17 (Build 30), 1.1.18 (Build 31), 1.1.19 (Build 32), 1.1.20 (Build 33) … Dazu gesetzt (Ansage des Nutzers,
+  1.1.1 (Build 14), 1.1.2 (Build 15), 1.1.3 (Build 16), 1.1.4 (Build 17), 1.1.5 (Build 18), 1.1.6 (Build 19), 1.1.7 (Build 20), 1.1.8 (Build 21), 1.1.9 (Build 22), 1.1.10 (Build 23), 1.1.11 (Build 24), 1.1.12 (Build 25), 1.1.13 (Build 26), 1.1.14 (Build 27), 1.1.15 (Build 28), 1.1.16 (Build 29), 1.1.17 (Build 30), 1.1.18 (Build 31), 1.1.19 (Build 32), 1.1.20 (Build 33), 1.1.21 (Build 34) … Dazu gesetzt (Ansage des Nutzers,
   09/2026): `DEVELOPMENT_TEAM = F4989GSTWS` — dieselbe Id wie Schulalarm und
   Tafelbild — und `INFOPLIST_KEY_LSApplicationCategoryType =
   public.app-category.navigation`. Beides steht als Build-Einstellung, weil

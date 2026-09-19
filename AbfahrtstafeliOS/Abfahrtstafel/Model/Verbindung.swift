@@ -74,6 +74,44 @@ struct Verbindung: Identifiable, Hashable, Sendable {
             .filter { !$0.imDeutschlandTicket && gesehen.insert($0).inserted }
     }
 
+    /// Alle Halte der FAHRTEN, samt Zwischenhalten — die Grundlage für die
+    /// Landesfrage.
+    ///
+    /// **Die Zwischenhalte müssen mit.** Die Grenze wird mitten in einem
+    /// Abschnitt überfahren: Der RE5 von München nach Salzburg steigt in
+    /// Deutschland ein und in Österreich aus, und dazwischen liegt
+    /// Freilassing. Nur Ein- und Ausstieg zu betrachten, ginge hier zufällig
+    /// gut und bei einer Fahrt, die im Ausland nur durchfährt, schief.
+    private var fahrthalte: [(land: String?, name: String)] {
+        fahrten.flatMap { abschnitt -> [(land: String?, name: String)] in
+            let orte = abschnitt.halte.map(\.haltestelle)
+                + [abschnitt.von, abschnitt.nach].compactMap { $0 }
+            return orte.map { (Landkennung.land(vonKennung: $0.id), $0.name) }
+        }
+    }
+
+    /// Die Länder, die diese Verbindung nachweislich berührt — ohne
+    /// Deutschland.
+    var auslandslaender: [String] {
+        var gesehen: Set<String> = []
+        return fahrthalte.compactMap(\.land)
+            .filter { $0 != "de" && gesehen.insert($0).inserted }
+    }
+
+    /// Ob an mindestens einem Halt gar nicht festzustellen ist, in welchem
+    /// Land er liegt.
+    ///
+    /// **Das wird gesagt und nicht verschwiegen.** Gemessen 19.09.2026: Die
+    /// Halte der Außerfernbahn (Ehrwald, Reutte) stehen im deutschen
+    /// Datensatz mit rein numerischer Kennung, und die sagt über das Land
+    /// nichts. Wer daraus „bleibt in Deutschland" macht, behauptet genau das
+    /// Falsche — die Strecke führt durch Tirol.
+    var landStellenweiseUnbekannt: Bool { fahrthalte.contains { $0.land == nil } }
+
+    /// Der Grenzabschnitt aus der Liste, der ALLE ausländischen Halte dieser
+    /// Verbindung abdeckt — oder `nil`.
+    var grenzfall: Grenzfall? { Grenzfall.passend(zu: fahrthalte) }
+
     /// Ob für diese Verbindung überhaupt eine Echtzeitmeldung vorliegt.
     /// Wenn nicht, steht „Plan" daran — dieselbe Regel wie an einer Abfahrt.
     var hatEchtzeit: Bool { fahrten.contains(where: \.istEchtzeit) }
