@@ -1633,14 +1633,37 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   („REX 7757", „R 2578", „RRR 7757"), und dort ist nicht zu entscheiden, wo die
   Linie aufhört und die Nummer anfängt. Ein langes Schild ist besser als ein
   falsches.
-- **Offen: Ein Bahnhof kann unter ZWEI Namen in der Liste stehen.** Gemessen am
-  18.09.2026 in München: Dieselben Gleise kommen aus zwei Datensätzen zurück,
-  einmal als „München Hbf" und einmal als „München Hauptbahnhof".
-  `Haltestellengruppe.bauen` gruppiert über den NAMEN, also werden daraus zwei
-  Einträge. Die Namen einzuebnen wäre der naheliegende Griff und der gefährliche
-  — „Bahnhof" und „Hbf" irgendwo zusammenzuziehen trifft eines Tages zwei echte
-  Haltestellen. **Nicht als erledigt darstellen**; wer es angeht, misst zuerst
-  an echten Daten, wie oft welche Schreibweise vorkommt.
+- **Ein Bahnhof stand unter ZWEI Namen in der Liste — behoben in 1.1.23.** Der
+  Punkt stand seit 1.1.10 als offener im Papier, mit der Auflage, zuerst an
+  echten Daten zu messen. **Nachgemessen am 19.09.2026 an 22 deutschen
+  Städten** (je rund 150 Abfahrten im Umkreis von 500 Metern um den
+  Hauptbahnhof, 170 verschiedene Haltestellennamen): Der Fall kommt in ACHT von
+  22 Städten vor — Augsburg, Bremen, Erfurt, Kiel, Leipzig, Mannheim, München,
+  Nürnberg. **Und es sind ZWEI Risse, nicht einer:** „Hbf“ gegen
+  „Hauptbahnhof“ (Nürnberg 75 zu 1, Augsburg 111 zu 3, Bremen 53 zu 12) und
+  das Komma, mit dem viele Verbünde den Ort vom Halt trennen („Erfurt,
+  Hauptbahnhof“ gegen „Erfurt Hbf“; ebenso Leipzig und Mannheim, und in Prag
+  „Praha,Hlavní nádraží“ gegen „Praha hlavní nádraží“). Wer nur die
+  Abkürzung ausschreibt, lässt drei der acht Städte doppelt stehen.
+- **Ausgeschrieben wird Wort für Wort, verglichen wird auf GLEICHHEIT**
+  (`Haltestellengruppe.vergleichsname`). Der gefährliche Griff wäre, „Hbf“ und
+  „Hauptbahnhof“ irgendwo im Namen zusammenzuziehen — und dieselbe Messung
+  zeigt an derselben Stelle, was das kostet: Um den Münchner Hauptbahnhof
+  liegen „Hauptbahnhof Nord“, „Hauptbahnhof Süd“ und „Hauptbahnhof (U, Tram)“
+  innerhalb von 270 Metern, in Dresden steht „Dresden Hauptbahnhof“ neben
+  „Dresden Hauptbahnhof Nord“ und „Dresden Hbf (Strehlener Str.)“, in Kassel
+  „Kassel Hauptbahnhof“ neben „Kassel Hauptbahnhof Nord“. Das sind
+  verschiedene Haltestellen, und ihr Unterschied ist genau der, den ein
+  Wartender braucht. Ergebnis der Messung: acht Zusammenlegungen, **keine
+  falsche**. **Umlaute werden weiterhin nicht eingeebnet**, und wer die Liste
+  der Abkürzungen erweitert, misst wieder nach.
+- **Welche Schreibweise dasteht, entscheidet die MEHRHEIT**
+  (`Haltestellengruppe.anzeigename`), nicht die erste und nicht die längere.
+  Auch das ist gemessen und geht in beide Richtungen: In Nürnberg und Augsburg
+  ist die Kurzform die übliche, in Bremen und Kiel die lange, in Erfurt und
+  Mannheim die mit Komma. Eine feste Vorliebe schriebe an jedem zweiten Ort
+  etwas hin, was dort niemand sagt. Bei Gleichstand die längere. **Gebaut wird
+  kein Name** — was dasteht, hat eine Quelle so geschrieben.
 - **Die Tafel hat einen wählbaren ZEITPUNKT** (`AppModel.bezugszeit`, ab
   1.1.11, Ansage des Nutzers 09/2026). „Jetzt" oder ein Datum, umgeschaltet
   über dieselbe `Zeitleiste`-Bauweise wie in der Verbindungsauskunft — es ist
@@ -2631,7 +2654,7 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   zwölfte Nachbesserung — derselbe Gedanke wie bei Tafelbild 1.4.0 und
   Schulalarm 1.1.0. Die Marken ab 1.0.x in diesem Papier bleiben stehen;
   sie sagen, wann etwas in den Quelltext kam. Danach zählt es weiter:
-  1.1.1 (Build 14), 1.1.2 (Build 15), 1.1.3 (Build 16), 1.1.4 (Build 17), 1.1.5 (Build 18), 1.1.6 (Build 19), 1.1.7 (Build 20), 1.1.8 (Build 21), 1.1.9 (Build 22), 1.1.10 (Build 23), 1.1.11 (Build 24), 1.1.12 (Build 25), 1.1.13 (Build 26), 1.1.14 (Build 27), 1.1.15 (Build 28), 1.1.16 (Build 29), 1.1.17 (Build 30), 1.1.18 (Build 31), 1.1.19 (Build 32), 1.1.20 (Build 33), 1.1.21 (Build 34), 1.1.22 (Build 35) … Dazu gesetzt (Ansage des Nutzers,
+  1.1.1 (Build 14), 1.1.2 (Build 15), 1.1.3 (Build 16), 1.1.4 (Build 17), 1.1.5 (Build 18), 1.1.6 (Build 19), 1.1.7 (Build 20), 1.1.8 (Build 21), 1.1.9 (Build 22), 1.1.10 (Build 23), 1.1.11 (Build 24), 1.1.12 (Build 25), 1.1.13 (Build 26), 1.1.14 (Build 27), 1.1.15 (Build 28), 1.1.16 (Build 29), 1.1.17 (Build 30), 1.1.18 (Build 31), 1.1.19 (Build 32), 1.1.20 (Build 33), 1.1.21 (Build 34), 1.1.22 (Build 35), 1.1.23 (Build 36) … Dazu gesetzt (Ansage des Nutzers,
   09/2026): `DEVELOPMENT_TEAM = F4989GSTWS` — dieselbe Id wie Schulalarm und
   Tafelbild — und `INFOPLIST_KEY_LSApplicationCategoryType =
   public.app-category.navigation`. Beides steht als Build-Einstellung, weil
