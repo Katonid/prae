@@ -372,5 +372,7 @@ private struct Haltzeit: View {
             .environmentObject(AppModel(dienst: Musterdienst()))
             .environmentObject(Uhrwerk())
             .environmentObject(Meldungsdienst())
+            .environmentObject(Standortdienst())
+            .environmentObject(Fusswegmesser(quelle: Musterdienst()))
     }
 }

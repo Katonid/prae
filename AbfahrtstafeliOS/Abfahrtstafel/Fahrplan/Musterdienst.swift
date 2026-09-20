@@ -12,7 +12,7 @@ import Foundation
 /// Vorlage für diese App waren. Sie sind erfunden und sollen es auch bleiben —
 /// wer hier echte Zeiten einträgt, baut eine App, die im Flugmodus zu
 /// funktionieren scheint.
-struct Musterdienst: Fahrplandienst {
+struct Musterdienst: VolleQuelle {
 
     let quellenname = "Beispieldaten"
     let quellenadresse = URL(string: "https://transitous.org")!
@@ -102,6 +102,40 @@ struct Musterdienst: Fahrplandienst {
     /// Eine Beispielverbindung mit allem, was eine echte schwierig macht:
     /// Fußweg, Umstieg, Verspätung. **Der laufende Beweis** — steckte in einer
     /// Ansicht ein JSON-Feld von Transitous, ließe sich das hier nicht bauen.
+    /// Ein erfundener Fußweg — mit einem erfundenen Umweg.
+    ///
+    /// **Der Umweg ist der Sinn der Sache.** Ein Muster, das die Luftlinie
+    /// als Weglänge zurückgibt, sähe nie anders aus als gar keine Messung —
+    /// und genau der Unterschied zwischen beiden Zahlen ist die Auskunft,
+    /// um die es hier geht. Gezeichnet wird ein Knick statt einer Geraden,
+    /// damit sich die Anzeige eines Verlaufs überhaupt ansehen lässt.
+    ///
+    /// Die Zahlen sind erfunden und sollen es bleiben: Wer hier echte Werte
+    /// einträgt, baut eine App, die im Flugmodus zu funktionieren scheint.
+    func fussweg(
+        von: CLLocationCoordinate2D,
+        nach: CLLocationCoordinate2D
+    ) async throws -> Fussweg {
+        let luft = CLLocation(latitude: von.latitude, longitude: von.longitude)
+            .distance(from: CLLocation(latitude: nach.latitude, longitude: nach.longitude))
+        guard luft > 0 else { throw Fahrplanfehler.keinFussweg }
+        let meter = luft * 1.28
+        // Ein Knick seitlich der Geraden, damit der Verlauf als Verlauf zu
+        // erkennen ist.
+        let knick = CLLocationCoordinate2D(
+            latitude: (von.latitude + nach.latitude) / 2 + (nach.longitude - von.longitude) * 0.18,
+            longitude: (von.longitude + nach.longitude) / 2 - (nach.latitude - von.latitude) * 0.18
+        )
+        return Fussweg(
+            start: von,
+            ziel: nach,
+            meter: meter,
+            dauer: meter / 1.19,
+            linienzug: [von, knick, nach],
+            quelle: quellenname
+        )
+    }
+
     func verbindungen(
         von: CLLocationCoordinate2D,
         nach: CLLocationCoordinate2D,

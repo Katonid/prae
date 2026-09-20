@@ -601,6 +601,7 @@ private struct Filterleiste: View {
         .environmentObject(Merkliste())
         .environmentObject(Liniennetz())
         .environmentObject(Meldungsdienst())
+        .environmentObject(Fusswegmesser(quelle: Musterdienst()))
 }
 
 @MainActor

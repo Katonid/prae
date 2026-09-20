@@ -176,5 +176,7 @@ struct HaltestelleView: View {
             .environmentObject(Uhrwerk())
             .environmentObject(Merkliste())
             .environmentObject(Meldungsdienst())
+            .environmentObject(Standortdienst())
+            .environmentObject(Fusswegmesser(quelle: Musterdienst()))
     }
 }

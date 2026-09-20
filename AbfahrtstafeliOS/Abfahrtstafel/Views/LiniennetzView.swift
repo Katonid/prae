@@ -26,7 +26,7 @@ struct LiniennetzView: View, Equatable {
     /// Durchgang dasselbe.
     ///
     /// **Das schaltet nichts ab:** Was diese Ansicht selbst beobachtet
-    /// (`netz`, `meldungen`, `model`, ihr eigener `@State`), löst weiterhin
+    /// (`netz`, `meldungen`, `model`, `messer`, ihr eigener `@State`), löst weiterhin
     /// ein Neuzeichnen aus. Übrig bleibt nur der Takt von außen, der nichts
     /// zu sagen hatte. Benutzt wird es über `.equatable()` an den drei
     /// Stellen in `AbfahrtstafelView` — wer eine vierte anlegt, hängt es mit
@@ -64,6 +64,14 @@ struct LiniennetzView: View, Equatable {
     @EnvironmentObject private var model: AppModel
     @EnvironmentObject private var netz: Liniennetz
     @EnvironmentObject private var meldungen: Meldungsdienst
+    /// Die Entfernungsmessung zu Fuß (ab 1.1.26). Sie liegt in der UMGEBUNG
+    /// und nicht hier als `@State`: Diese Ansicht gibt es zweimal —
+    /// eingebettet und im Vollbild —, und eine gerade gemessene Strecke, die
+    /// beim Aufziehen der Karte verschwindet, sähe wie ein Fehler aus.
+    @EnvironmentObject private var messer: Fusswegmesser
+    /// Nur für den Knopf „Mein Standort" in der Messleiste. Wer vor Ort
+    /// misst, soll den Startpunkt nicht mit dem Fadenkreuz suchen müssen.
+    @EnvironmentObject private var standort: Standortdienst
 
     /// Gebraucht für die Farbe der Linienkontur — sie muss die GEGENFARBE zur
     /// Karte sein, und welche das ist, weiß nur die Darstellungsart.
@@ -397,6 +405,44 @@ struct LiniennetzView: View, Equatable {
                 }
             }
 
+            // **Die Fußwegmessung — nur, solange sie läuft** (ab 1.1.26).
+            //
+            // Gezeichnet wird DURCHGEZOGEN, wenn ein Weg gefunden wurde, und
+            // GESTRICHELT, wenn es nur die Luftlinie ist: dieselbe Regel wie
+            // beim Fahrtlauf ohne Streckengeometrie. Eine durchgezogene Linie
+            // quer über einen Fluss sieht aus wie eine Auskunft und ist keine.
+            if let strecke = messtrecke {
+                MapPolyline(coordinates: strecke.punkte)
+                    .stroke(
+                        konturfarbe.opacity(0.5),
+                        style: StrokeStyle(
+                            lineWidth: 9, lineCap: .round, lineJoin: .round,
+                            dash: strecke.gestrichelt ? [2, 8] : []
+                        )
+                    )
+                MapPolyline(coordinates: strecke.punkte)
+                    .stroke(
+                        Color.accentColor,
+                        style: StrokeStyle(
+                            lineWidth: 5, lineCap: .round, lineJoin: .round,
+                            dash: strecke.gestrichelt ? [2, 8] : []
+                        )
+                    )
+            }
+            if let start = messer.start {
+                Annotation("Start", coordinate: start.koordinate, anchor: .center) {
+                    // Ein BILD, kein Bedienelement — siehe 1.1.18.
+                    Messmarke(symbol: "figure.walk").allowsHitTesting(false)
+                }
+                .annotationTitles(.hidden)
+            }
+            if let ziel = messer.ziel {
+                Annotation("Ziel", coordinate: ziel.koordinate, anchor: .center) {
+                    Messmarke(symbol: "flag.checkered").allowsHitTesting(false)
+                }
+                .annotationTitles(.hidden)
+            }
+
             if let punkt = model.punkt {
                 Annotation(punkt.beschriftung, coordinate: punkt.koordinate, anchor: .center) {
                     Image(systemName: punkt.symbol)
@@ -440,6 +486,7 @@ struct LiniennetzView: View, Equatable {
         .overlay(alignment: .bottomLeading) { kartenknoepfe }
         .overlay(alignment: .center) { fadenkreuz }
         .overlay(alignment: .bottom) { zielleiste }
+        .overlay(alignment: .bottom) { messleiste }
         .overlay(alignment: .center) {
             if netz.laedt && netz.zuege.isEmpty {
                 ProgressView("Linienverläufe werden geholt …")
@@ -579,11 +626,30 @@ struct LiniennetzView: View, Equatable {
         case .hervorheben(let kennung):
             hervorgehoben = (hervorgehoben == kennung) ? nil : kennung
         case .oeffnen(let haltestelle):
-            // Dasselbe Ziel wie aus der Liste — eingetragen ist es einmal je
-            // Stapel (`navigationDestination(for: Haltestelle.self)`).
-            pfad.append(haltestelle)
+            // **Im Messbetrieb heißt derselbe Tipp etwas anderes** (ab
+            // 1.1.26): Er nimmt die Haltestelle als Messpunkt, statt ihre
+            // Tafel zu öffnen. Eine Haltestelle ist der häufigste Start und
+            // das häufigste Ziel einer solchen Messung, und sie mit dem
+            // Fadenkreuz zu suchen, wo sie doch als Punkt dasteht, wäre
+            // Arbeit für nichts. Der Modus ist sichtbar — der Knopf unten
+            // links steht auf „Abbrechen", das Fadenkreuz liegt in der
+            // Mitte, die Leiste sagt, was gerade dran ist.
+            if messer.aktiv {
+                #if canImport(UIKit)
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                #endif
+                messer.setzeNaechsten(haltestelle.koordinate, name: haltestelle.name)
+            } else {
+                // Dasselbe Ziel wie aus der Liste — eingetragen ist es einmal
+                // je Stapel (`navigationDestination(for: Haltestelle.self)`).
+                pfad.append(haltestelle)
+            }
         case nil:
-            umschalten?()
+            // Im Messbetrieb zieht ein Tipp ins Leere die Karte NICHT auf.
+            // Wer gerade zielt, hat die Karte so geschoben, wie er sie
+            // braucht; ein Wechsel der Ansicht mitten darin wäre eine
+            // Bewegung, die niemand angefordert hat.
+            if !messer.aktiv { umschalten?() }
         }
     }
 
@@ -871,15 +937,51 @@ struct LiniennetzView: View, Equatable {
     /// den niemand findet; jetzt gibt es nur noch die Knöpfe.
     private var kartenknoepfe: some View {
         VStack(alignment: .leading, spacing: 8) {
+            messknopf
             punktknopf
             vollbildknopf
         }
         .padding(10)
     }
 
+    /// **Der Knopf für die Entfernungsmessung zu Fuß** (ab 1.1.26).
+    ///
+    /// Er steht hier und nicht in einem Menü: Ein Knopf, den niemand findet,
+    /// ist kein Knopf — dieselbe Lehre wie beim Sichtumschalter (1.0.5) und
+    /// beim Gruppenchat in Schulalarm. Eine dritte Geste auf dieser Karte
+    /// wäre die schlechtere Wahl gewesen: Was auf einer Karte liegt, streitet
+    /// mit dem Zoomen um dieselben Finger (1.1.18).
+    private var messknopf: some View {
+        Button {
+            if messer.aktiv {
+                messer.beenden()
+            } else {
+                zielen = false
+                messer.anfangen()
+            }
+        } label: {
+            Image(systemName: messer.aktiv ? "xmark" : "figure.walk")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(messer.aktiv ? Color.white : Color.primary)
+                .frame(width: 34, height: 34)
+                .background(
+                    messer.aktiv
+                        ? AnyShapeStyle(Color.accentColor)
+                        : AnyShapeStyle(Material.regularMaterial),
+                    in: Circle()
+                )
+                .shadow(color: .black.opacity(0.18), radius: 2, y: 1)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(messer.aktiv ? "Messen beenden" : "Entfernung zu Fuß messen")
+    }
+
     /// Der Suchpunkt wird auf der Karte über einen Knopf versetzt.
     private var punktknopf: some View {
         Button {
+            // Zielen und Messen benutzen dasselbe Fadenkreuz — beides
+            // gleichzeitig wären zwei Bedeutungen für eine Mitte.
+            messer.beenden()
             zielen = true
         } label: {
             Image(systemName: "mappin.and.ellipse")
@@ -917,7 +1019,10 @@ struct LiniennetzView: View, Equatable {
     /// MapKit den Finger genau dort weg, wo am häufigsten gezoomt wird.
     @ViewBuilder
     private var fadenkreuz: some View {
-        if zielen {
+        // Dasselbe Fadenkreuz wie beim Suchpunkt, und mit Absicht dasselbe:
+        // Einen Punkt auf der Karte zu wählen ist EINE Sache, und zwei
+        // Bedienungen dafür wären zwei Dinge zu lernen.
+        if zielen || messer.aktiv {
             ZStack {
                 Rectangle().fill(Color.accentColor).frame(width: 1.5, height: 44)
                 Rectangle().fill(Color.accentColor).frame(width: 44, height: 1.5)
@@ -934,7 +1039,7 @@ struct LiniennetzView: View, Equatable {
     /// Die Leiste, die das Zielen abschließt.
     @ViewBuilder
     private var zielleiste: some View {
-        if zielen {
+        if zielen && !messer.aktiv {
             VStack(spacing: 9) {
                 Text("Karte schieben, bis das Fadenkreuz auf der Stelle liegt.")
                     .font(.caption)
@@ -951,6 +1056,208 @@ struct LiniennetzView: View, Equatable {
             .shadow(color: .black.opacity(0.18), radius: 3, y: 1)
             .padding(14)
         }
+    }
+
+    // MARK: - Entfernung zu Fuß
+
+    /// Was von der Messung auf der Karte liegt.
+    ///
+    /// **Eine berechnete Eigenschaft, und hier ist das billig** — anders als
+    /// `berechneHalte()`, das 1.1.16 deshalb zur Funktion wurde: Es sind ein
+    /// Linienzug und zwei Punkte, kein Suchlauf über siebenhundert Halte und
+    /// keine Textvergleiche. Sie in `neuRechnen` aufzunehmen brächte nichts
+    /// und hinge nur einen weiteren Auslöser daran.
+    ///
+    /// **Gestrichelt heißt Luftlinie.** Solange kein Weg vorliegt — weil die
+    /// Abfrage noch läuft, gescheitert ist oder es keinen gibt —, wird die
+    /// Gerade zwischen den beiden Punkten gezeichnet, und die Leiste darunter
+    /// sagt, dass es eine ist.
+    private var messtrecke: (punkte: [CLLocationCoordinate2D], gestrichelt: Bool)? {
+        if let weg = messer.weg, weg.linienzug.count > 1 {
+            return (weg.linienzug, false)
+        }
+        guard let start = messer.start?.koordinate, let ziel = messer.ziel?.koordinate else {
+            return nil
+        }
+        return ([start, ziel], true)
+    }
+
+    /// Setzt den gerade fälligen Messpunkt auf die Mitte des Ausschnitts.
+    ///
+    /// Gezielt wird mit der KARTE, nicht mit dem Finger — derselbe Grund wie
+    /// in der Ortswahl: Der Finger verdeckt genau die Stelle, die er trifft.
+    private func messpunktInDieMitte() {
+        guard let sichtfeld else { return }
+        let mitte = MKMapPoint(
+            x: sichtfeld.origin.x + sichtfeld.size.width / 2,
+            y: sichtfeld.origin.y + sichtfeld.size.height / 2
+        ).coordinate
+        #if canImport(UIKit)
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        #endif
+        messer.setzeNaechsten(mitte)
+    }
+
+    /// Der eigene Standort, sofern die Ortung ihn hergibt.
+    private var eigenerStandort: CLLocationCoordinate2D? {
+        if case .da(let hier) = standort.stand { return hier }
+        return nil
+    }
+
+    /// Die Leiste, die durch die Messung führt.
+    ///
+    /// **Sie sagt bei jedem Schritt, was als Nächstes zu tun ist**, und am
+    /// Ende, was die Zahlen bedeuten und was sie NICHT bedeuten. Eine
+    /// Gehzeit ohne den Satz, mit welchem Tempo sie gerechnet ist, wäre eine
+    /// Zusage — dieselbe Regel wie beim Wort „Plan" an einer Abfahrt ohne
+    /// Echtzeit.
+    @ViewBuilder
+    private var messleiste: some View {
+        if messer.aktiv {
+            VStack(alignment: .leading, spacing: 9) {
+                messtext
+                messknoepfe
+            }
+            .frame(maxWidth: 520)
+            .padding(12)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .shadow(color: .black.opacity(0.18), radius: 3, y: 1)
+            .padding(14)
+        }
+    }
+
+    @ViewBuilder
+    private var messtext: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            switch messer.schritt {
+            case .start, .aus:
+                Text("Karte schieben, bis das Fadenkreuz auf dem **Startpunkt** liegt.")
+                    .font(.caption)
+                Text("Ein Tipp auf eine Haltestelle nimmt sie als Punkt.")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            case .ziel:
+                Text(punktzeile("Start", messer.start))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Text("Jetzt das Fadenkreuz auf das **Ziel** schieben — oder eine Haltestelle antippen.")
+                    .font(.caption)
+            case .fertig:
+                Text(punktzeile("Start", messer.start))
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                Text(punktzeile("Ziel", messer.ziel))
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                messergebnis
+            }
+        }
+        .multilineTextAlignment(.leading)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func punktzeile(_ marke: String, _ punkt: Fusswegmesser.Marke?) -> String {
+        guard let punkt else { return "\(marke): —" }
+        // **`nil` heißt „wird noch nachgesehen"** und nicht „heißt nicht".
+        // Solange der Name unterwegs ist, steht die Koordinate da — ein
+        // leeres Feld sähe aus, als wäre der Punkt nicht gesetzt.
+        let name = punkt.name ?? String(
+            format: "%.5f, %.5f", punkt.koordinate.latitude, punkt.koordinate.longitude
+        )
+        return "\(marke): \(name)"
+    }
+
+    @ViewBuilder
+    private var messergebnis: some View {
+        if messer.laedt {
+            HStack(spacing: 7) {
+                ProgressView().controlSize(.small)
+                Text("Fußweg wird geholt …").font(.caption)
+            }
+            .padding(.top, 2)
+        } else if let weg = messer.weg {
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: 8) {
+                    Label(
+                        Haltestelle.entfernungstext(weg.meter),
+                        systemImage: "figure.walk"
+                    )
+                    .font(.headline)
+                    Text(Fusswegmesser.gehzeittext(weg.dauer))
+                        .font(.headline)
+                        .foregroundStyle(Color.accentColor)
+                }
+                // **Die Luftlinie steht IMMER daneben.** Der Unterschied
+                // zwischen beiden ist die eigentliche Auskunft: Ein Weg von
+                // 1,7 km über 1,1 km Luftlinie heißt, dass ein Fluss, ein
+                // Gleis oder eine Schnellstraße dazwischenliegt.
+                Text("Luftlinie \(Haltestelle.entfernungstext(weg.luftlinie)) · \(weg.quelle)")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                Text(tempohinweis(weg))
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.top, 2)
+        } else {
+            VStack(alignment: .leading, spacing: 3) {
+                if let luft = messer.luftlinie {
+                    Label(
+                        "Luftlinie \(Haltestelle.entfernungstext(luft))",
+                        systemImage: "ruler"
+                    )
+                    .font(.headline)
+                }
+                // Kein Weg ist kein leeres Feld: Der Grund steht da, und er
+                // unterscheidet „es gibt keinen" von „niemand hat
+                // geantwortet".
+                Text(messer.fehler ?? "Es liegt nur die Luftlinie vor.")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.top, 2)
+        }
+    }
+
+    /// Mit welchem Tempo die Quelle gerechnet hat — und dass es ihres ist.
+    private func tempohinweis(_ weg: Fussweg) -> String {
+        guard let tempo = weg.tempo else {
+            return "Die Gehzeit ist die Annahme der Quelle, keine Messung an einem Menschen."
+        }
+        let kmh = String(format: "%.1f", tempo * 3.6).replacingOccurrences(of: ".", with: ",")
+        return "Gerechnet mit \(kmh) km/h. Wer langsamer geht, Treppen meidet oder ein Kind an der Hand hat, braucht länger."
+    }
+
+    @ViewBuilder
+    private var messknoepfe: some View {
+        VStack(spacing: 7) {
+            HStack(spacing: 10) {
+                if messer.schritt == .fertig {
+                    Button("Neu messen") { messer.nochEinmal() }
+                        .buttonStyle(.bordered)
+                    Button("Fertig") { messer.beenden() }
+                        .buttonStyle(.borderedProminent)
+                } else {
+                    if let hier = eigenerStandort {
+                        Button("Mein Standort") {
+                            messer.setzeNaechsten(hier, name: "Mein Standort")
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                    Button(messer.schritt == .ziel ? "Ziel hierher" : "Start hierher") {
+                        messpunktInDieMitte()
+                    }
+                    .buttonStyle(.borderedProminent)
+                }
+            }
+            if messer.schritt != .fertig {
+                Button("Abbrechen") { messer.beenden() }
+                    .font(.caption)
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .frame(maxWidth: .infinity)
     }
 
     // MARK: - Legende
@@ -1250,6 +1557,24 @@ struct LiniennetzView: View, Equatable {
 }
 
 /// Ein Halt auf einem Linienzug — klein, in der Farbe seiner Linie.
+/// Start- und Zielpunkt der Entfernungsmessung.
+///
+/// Größer und auffälliger als ein Haltepunkt, weil es genau zwei davon gibt
+/// und sie die Frage beantworten, um derentwillen der Modus offen ist.
+private struct Messmarke: View {
+    let symbol: String
+
+    var body: some View {
+        Image(systemName: symbol)
+            .font(.system(size: 13, weight: .bold))
+            .foregroundStyle(.white)
+            .padding(6)
+            .background(Circle().fill(Color.accentColor))
+            .overlay(Circle().strokeBorder(.white, lineWidth: 2))
+            .shadow(color: .black.opacity(0.3), radius: 3, y: 1)
+    }
+}
+
 private struct Linienhalt: View {
     let farbe: Color
     let gross: Bool
@@ -1311,4 +1636,6 @@ private struct Linienhalt: View {
         .environmentObject(AppModel(dienst: Musterdienst()))
         .environmentObject(Liniennetz())
         .environmentObject(Meldungsdienst())
+        .environmentObject(Standortdienst())
+        .environmentObject(Fusswegmesser(quelle: Musterdienst()))
 }

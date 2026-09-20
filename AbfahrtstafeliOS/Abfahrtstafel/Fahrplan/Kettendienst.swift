@@ -35,17 +35,17 @@ import Foundation
 /// Abfahrten nie ab. Die zweite Reihe und der Zwischenspeicher waren damit
 /// unerreichbar, sobald die erste Quelle ausfiel — also genau in dem Fall,
 /// für den es sie gibt.
-struct Kettendienst: Fahrplandienst {
+struct Kettendienst: VolleQuelle {
 
     let quellenname: String
     let quellenadresse: URL
 
     /// Die Quelle, die ALLES kann. Sie beantwortet Haltestellensuche und
     /// Fahrtlauf und steht in der Abfahrtskette an erster Stelle.
-    private let erste: Fahrplandienst
+    private let erste: VolleQuelle
     /// Quellen, die **alles** können — die zweite Adresse derselben
     /// Schnittstelle. Sie stehen zwischen der ersten Quelle und den Verbünden.
-    private let ersatz: [Fahrplandienst]
+    private let ersatz: [VolleQuelle]
     /// Die Quellen, die nur Abfahrten können — der Reihe nach.
     private let weitere: [Abfahrtsquelle]
     /// Die Quellen, die nur Verbindungen können — der Reihe nach.
@@ -53,8 +53,8 @@ struct Kettendienst: Fahrplandienst {
     private let speicher: Abfahrtsspeicher
 
     init(
-        erste: Fahrplandienst = TransitousDienst(),
-        ersatz: [Fahrplandienst] = Self.spiegel,
+        erste: VolleQuelle = TransitousDienst(),
+        ersatz: [VolleQuelle] = Self.spiegel,
         weitere: [Abfahrtsquelle] = Self.zweiteReihe,
         verbindungsreihe: [Verbindungsquelle] = Self.zweiteReiheFuerVerbindungen,
         speicher: Abfahrtsspeicher = Abfahrtsspeicher()
@@ -86,7 +86,7 @@ struct Kettendienst: Fahrplandienst {
     /// `TransitousDienst.spiegel`): dieselben Daten, anderes Netz. Wer hier
     /// eine Adresse einträgt, misst sie vorher — eine ungemessene Quelle ist
     /// in einer Kette kein Rückfall, sondern nur Wartezeit davor.
-    static let spiegel: [Fahrplandienst] = [
+    static let spiegel: [VolleQuelle] = [
         TransitousDienst(wurzel: TransitousDienst.spiegel, quellenname: "MOTIS (Spiegel)")
     ]
 
@@ -111,7 +111,7 @@ struct Kettendienst: Fahrplandienst {
     // MARK: - Was nur eine VOLLE Quelle kann
 
     /// Alle Quellen, die alles können — die erste zuerst.
-    private var volle: [Fahrplandienst] { [erste] + ersatz }
+    private var volle: [VolleQuelle] { [erste] + ersatz }
 
     /// Der Reihe nach fragen, bis eine antwortet.
     ///
@@ -122,7 +122,7 @@ struct Kettendienst: Fahrplandienst {
     /// Fall, für den sie gebaut sind. Ein Netz, das nur hält, solange nichts
     /// passiert, ist keines.
     private func beiEiner<T>(
-        _ holen: (Fahrplandienst) async throws -> T
+        _ holen: (VolleQuelle) async throws -> T
     ) async throws -> T {
         var gruende: [String] = []
         for quelle in volle {
@@ -135,7 +135,8 @@ struct Kettendienst: Fahrplandienst {
                 // „Nichts gefunden" ist eine ANTWORT und kein Ausfall: Beide
                 // Instanzen führen dieselben Daten, die zweite zu fragen
                 // brächte dasselbe Ergebnis und nur eine Wartezeit.
-                if fehler == .keineHaltestelleInDerNaehe || fehler == .nichtsGefunden { throw fehler }
+                if fehler == .keineHaltestelleInDerNaehe || fehler == .nichtsGefunden
+                    || fehler == .keinFussweg { throw fehler }
                 gruende.append("\(quelle.quellenname): \(fehler.kurzfassung)")
             } catch {
                 gruende.append("\(quelle.quellenname): \(error.localizedDescription)")
@@ -161,6 +162,20 @@ struct Kettendienst: Fahrplandienst {
 
     func orteSuchen(_ text: String, nahe punkt: CLLocationCoordinate2D?) async throws -> [Ortstreffer] {
         try await beiEiner { try await $0.orteSuchen(text, nahe: punkt) }
+    }
+
+    /// Der Fußweg geht an dieselben VOLLEN Quellen wie Haltestellensuche und
+    /// Fahrtlauf — ein Verbund kann ihn nicht.
+    ///
+    /// **„Kein Fußweg" wird nicht weitergereicht.** Beide Instanzen führen
+    /// dieselben Straßendaten; die zweite zu fragen brächte dieselbe Antwort
+    /// und nur eine Wartezeit. Weitergereicht wird nur ein AUSFALL — siehe
+    /// `beiEiner`.
+    func fussweg(
+        von: CLLocationCoordinate2D,
+        nach: CLLocationCoordinate2D
+    ) async throws -> Fussweg {
+        try await beiEiner { try await $0.fussweg(von: von, nach: nach) }
     }
 
     var kuerzesteSuche: Int { erste.kuerzesteSuche }

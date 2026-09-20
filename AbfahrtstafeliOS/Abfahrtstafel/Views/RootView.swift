@@ -93,5 +93,6 @@ struct RootView: View {
         .environmentObject(Merkliste())
         .environmentObject(Liniennetz())
         .environmentObject(Meldungsdienst())
+        .environmentObject(Fusswegmesser(quelle: Musterdienst()))
         .environmentObject(Verbindungsmodell(dienst: Musterdienst()))
 }
