@@ -101,6 +101,17 @@ struct VerbindungsZeile: View {
 
             Dauerbalken(verbindung: verbindung, laengsteDauer: laengsteDauer)
 
+            // **Ersatzverkehr steht an der ZEILE, nicht am Schild** (ab
+            // 1.1.30). Die Schilderkette ist eine waagerecht scrollende
+            // Leiste; ein zweizeiliges Schild darin wäre entweder
+            // abgeschnitten oder machte die Kette doppelt so hoch. Hier
+            // steht der Satz einmal und nennt die betroffene Linie.
+            if let ersatztext {
+                Label(ersatztext, systemImage: "arrow.triangle.swap")
+                    .font(.caption2)
+                    .foregroundStyle(.orange)
+            }
+
             if mitTicketfilter, let grenztext {
                 Label(grenztext.text, systemImage: grenztext.symbol)
                     .font(.caption2)
@@ -120,6 +131,30 @@ struct VerbindungsZeile: View {
             .foregroundStyle(.secondary)
         }
         .padding(.vertical, 3)
+    }
+
+    /// Die Linien dieser Verbindung, die sich SELBST einen Ersatzverkehr
+    /// nennen — oder `nil`, wenn keine es tut.
+    ///
+    /// **Das ist keine vollständige Liste der Ersatzverkehre**, und das ist
+    /// hier ausdrücklich in Kauf genommen: Gemessen am 21.09.2026 schrieb
+    /// von 194 Busabschnitten nur einer (National Express) seinen Langnamen
+    /// hin. Eine „S1", die als Bus fährt, steht in den Daten ohne jedes
+    /// Wort dazu — die Zeile schweigt dann, statt es zu behaupten. Das
+    /// Verkehrsmittelsymbol auf dem Schild (1.1.29) sagt trotzdem, dass ein
+    /// Bus fährt; das ist der gemessene Teil der Auskunft.
+    private var ersatztext: String? {
+        var gesehen = Set<String>()
+        var teile: [String] = []
+        for fahrt in verbindung.fahrten {
+            guard let linie = fahrt.linie,
+                  let wortlaut = Ersatzverkehr.laut(linie.langname),
+                  gesehen.insert(linie.name).inserted
+            else { continue }
+            teile.append("\(linie.name) (\(wortlaut))")
+        }
+        guard !teile.isEmpty else { return nil }
+        return "Ersatzverkehr laut Quelle: " + teile.joined(separator: ", ")
     }
 
     /// Was an der Zeile über die Grenze steht — oder `nil`, wenn nichts zu

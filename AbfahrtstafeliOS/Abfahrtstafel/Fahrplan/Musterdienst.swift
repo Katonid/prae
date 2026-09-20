@@ -272,6 +272,17 @@ struct Musterdienst: VolleQuelle {
         let re5 = Linienkennung(name: "RE5", mittel: .regionalzug, farbe: nil, schriftfarbe: nil, betrieb: "DB Regio")
         let ice = Linienkennung(name: "ICE 500", mittel: .fernzug, farbe: nil, schriftfarbe: nil, betrieb: "DB Fernverkehr")
         let flix = Linienkennung(name: "N73", mittel: .fernbus, farbe: nil, schriftfarbe: nil, betrieb: "Fernbus")
+        // **Ein Schienenersatzverkehr gehört in die Musterdaten** (ab 1.1.30).
+        // Ein Bus, der den Namen UND die Farbe einer Bahnlinie trägt und sich
+        // im Langnamen selbst so nennt — nachgebaut nach der Messung vom
+        // 21.09.2026 (`mode = BUS`, `routeType = 3`, `routeLongName = "SEV
+        // RE 1"`, National Express). Ohne ihn ließe sich die Anzeige dafür
+        // nur dann ansehen, wenn gerade irgendwo eine Strecke gesperrt ist —
+        // dieselbe Überlegung wie beim entfallenden Halt in Fasangarten.
+        let sev = Linienkennung(
+            name: "RE5", mittel: .bus, farbe: nil, schriftfarbe: nil,
+            betrieb: "DB Regio", langname: "SEV RE 5"
+        )
 
         return [
             bauen("f-s3", marienplatz, s3, "Pasing", inMinuten: 1, verspaetung: 3, steig: "Gl. 1"),
@@ -284,6 +295,7 @@ struct Musterdienst: VolleQuelle {
             bauen("f-re5", hauptbahnhof, re5, "Salzburg Hbf", inMinuten: 14, verspaetung: 5, steig: "Gl. 27"),
             bauen("f-ice", hauptbahnhof, ice, "Berlin Hbf", inMinuten: 21, steig: "Gl. 20"),
             bauen("f-n73", hauptbahnhof, flix, "Zagreb", inMinuten: 34, echtzeit: false),
+            bauen("f-sev", hauptbahnhof, sev, "Freilassing", inMinuten: 38, echtzeit: false),
         ]
     }
 

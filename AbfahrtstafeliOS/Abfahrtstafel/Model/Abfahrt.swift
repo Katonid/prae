@@ -115,4 +115,22 @@ struct Linienkennung: Hashable, Codable, Sendable {
     /// Der Betreiber. Steht klein in der Fahrtansicht: Bei zwei Linien
     /// gleicher Nummer in derselben Gegend ist er die Unterscheidung.
     let betrieb: String?
+
+    /// Der LANGE Name der Linie, wenn die Quelle einen führt und er etwas
+    /// anderes sagt als das Schild (`routeLongName` bei GTFS).
+    ///
+    /// **Er ist die einzige Stelle, an der ein Ersatzverkehr sich selbst
+    /// benennt** (ab 1.1.30). Nachgemessen am 21.09.2026 in Düsseldorf,
+    /// Duisburg, Essen, Berlin, Hamburg, Köln und Stuttgart: Unter den 194
+    /// Busabschnitten, die eine Bus-Suche zurückgab, stand in genau EINER
+    /// Fassung ein Hinweis — `routeLongName = "SEV RE 1"` von National
+    /// Express. Bis 1.1.29 warf die App das Feld weg; das ist dieselbe
+    /// Lehre wie beim `additionalText` der Verbundmeldungen in 1.1.5:
+    /// **Wo die Quelle ihre eigene Lage erklärt, wird die Erklärung nicht
+    /// weggeworfen.**
+    ///
+    /// Leer, wo die Quelle nichts führt — und das ist der Regelfall. Wer
+    /// daraus schließt, es sei dann KEIN Ersatzverkehr, schließt falsch:
+    /// Dieselbe Messung gab eine „S1" als Bus mit leerem Langnamen zurück.
+    var langname: String? = nil
 }

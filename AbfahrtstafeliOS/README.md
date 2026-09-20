@@ -421,6 +421,30 @@ Eindruck entstand. Und ein Textmerkmal für Ersatzverkehr gibt es nicht:
 Derselbe Durchgang gab eine Linie „S1" als Bus zurück, dort aber ganz ohne
 Zusatz am Namen.
 
+### Und wo die Quelle es hinschreibt, steht es jetzt da (ab 1.1.30)
+
+Der Einwand darauf war berechtigt: **RE1 und S1 sind Bahnlinien.** Beides
+stimmt gleichzeitig — die Linie ist eine Bahnlinie, die Fahrt an jenem Abend
+war ein Bus. Nachgemessen am 21.09.2026 auf beiden Seiten:
+
+| | als Bahn | nachts als Bus |
+|---|---|---|
+| S1, Duisburg Hbf → Großenbaum | **7 min**, `mode = METRO`, DB Regio AG NRW | **20 min**, `mode = BUS`, „Nahreisezug", über Schlenk Bf und Buchholz Bf |
+| RE1, Essen Hbf → Duisburg Hbf | fuhr an dem Tag gar nicht | **41 min**, National Express, `routeLongName = "SEV RE 1"` |
+
+Ein Bussymbol sagt, **was** fährt — nicht **warum** es so heißt. Das Wort
+stand die ganze Zeit in den Daten (`routeLongName`), und die App warf es weg.
+Seit 1.1.30 steht es unter der Zeile: „Ersatzverkehr — die Quelle nennt diese
+Fahrt ‚SEV RE 1‘", in der Ergebnisliste, am Verbindungsabschnitt, in der
+Abfahrtstafel und über dem Fahrtlauf.
+
+**Was die App dabei nicht kann, sagt sie auch.** Ein Feld für
+Schienenersatzverkehr gibt es in diesen Daten nicht: Der dafür vorgesehene
+GTFS-Typ 714 kam in 194 Busabschnitten über sechs Strecken kein einziges Mal
+vor, und hingeschrieben hat es nur ein einziger Herausgeber. Die „S1", die als
+Bus fährt, trägt einen leeren Langnamen — dort schweigt die App, statt eine
+Erklärung zu erfinden.
+
 ## Auf dem iPad
 
 Eine `List` füllt, was da ist — im Querformat sind das gut zweitausend Punkte,
@@ -674,7 +698,7 @@ Bibliotheken) — nicht von Hand bearbeiten.
 pbxproj (Debug + Release); es gibt keine Skript-Bauphase. **Jede
 Arbeitseinheit hebt Patch- UND Build-Nummer um je +1.** Zählung ab 09/2026:
 1.0.0 (Build 1), dann 1.0.1 (Build 2), 1.0.2 (Build 3), 1.0.3 (Build 4), 1.0.4 (Build 5),
-1.0.5 (Build 6), 1.0.6 (Build 7), 1.0.7 (Build 8), 1.0.8 (Build 9), 1.0.9 (Build 10), 1.0.10 (Build 11), 1.0.11 (Build 12), **1.1.0 (Build 13)** … 1.1.25 (Build 38), 1.1.26 (Build 39), 1.1.27 (Build 40), 1.1.28 (Build 41), 1.1.29 (Build 42) …
+1.0.5 (Build 6), 1.0.6 (Build 7), 1.0.7 (Build 8), 1.0.8 (Build 9), 1.0.9 (Build 10), 1.0.10 (Build 11), 1.0.11 (Build 12), **1.1.0 (Build 13)** … 1.1.25 (Build 38), 1.1.26 (Build 39), 1.1.27 (Build 40), 1.1.28 (Build 41), 1.1.29 (Build 42), 1.1.30 (Build 43) …
 
 `ITSAppUsesNonExemptEncryption = NO` steht in `Config/Info.plist` und als
 Build-Einstellung — nicht entfernen.

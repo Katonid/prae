@@ -2467,6 +2467,49 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   - Dazu ein Satz in der Fußzeile der Auskunft, der den Fall benennt. Eine
     Anzeige, die stimmt, aber missverstanden wird, ist für den Menschen davor
     ein Fehler — dieselbe Regel wie bei „Plan" gegen „pünktlich".
+- **Das Symbol sagt WAS, nicht WARUM — und das reichte nicht** (`Ersatzverkehr`,
+  `Views/Linienzusatz.swift`, ab 1.1.30; Ansage des Nutzers 09/2026 zu 1.1.29:
+  „RE 1 und S1 sind Züge. Definitiv."). **Er hat recht, und 1.1.29 hatte auch
+  recht** — es sind zwei verschiedene Sätze: RE1 und S1 SIND Bahnlinien; was
+  nachts auf ihnen fährt, ist ein Bus. Nachgemessen am 21.09.2026 auf BEIDEN
+  Seiten, und das ist der Teil, der 1.1.29 fehlte:
+  - **Duisburg Hbf → Großenbaum**: die S1 als `mode = METRO` in **7 Minuten**
+    (mittags), dieselbe Strecke als „S1" mit `mode = BUS` nachts in **20** —
+    über „Duisburg Schlenk Bf" und „Duisburg Buchholz Bf", Betrieb
+    „Nahreisezug" statt „DB Regio AG NRW", ohne Linienfarbe.
+  - **Essen Hbf → Duisburg Hbf** gab es an dem Tag als Bahn GAR NICHT; der
+    „RE1" von National Express braucht 41 Minuten und trägt
+    `routeLongName = "SEV RE 1"`.
+  - Eine „S6" hält als Bus an „Essen Stadtwaldplatz", eine „U76" an
+    „Meerbusch Büderich,Landsknecht" — Straßenhaltestellen.
+  **Merke: Ein Widerspruch des Nutzers ist nicht automatisch ein Fehler im
+  Befund — er kann auch heißen, dass der Befund die falsche Frage beantwortet
+  hat.** Hier war die Messung richtig und die ANZEIGE unvollständig: Ein
+  Bussymbol auf einem RE1-Schild sagt, was fährt, aber nicht warum, und wer
+  weiß, dass der RE1 ein Zug ist, hält das Symbol für einen Fehler der App.
+  - **Das Wort stand die ganze Zeit in den Daten** (`routeLongName`), und die
+    App warf es weg. **Dieselbe Lehre wie beim `additionalText` in 1.1.5** —
+    wo die Quelle ihre eigene Lage erklärt, wird die Erklärung nicht
+    weggeworfen. `Linienkennung.langname` trägt sie jetzt mit; gezeigt wird
+    sie an EINER Stelle (`Linienzusatz`) und von allen vieren benutzt.
+  - **Gedeutet wird ein feststehender Ausdruck, der Wortlaut steht daneben** —
+    dieselbe Bauweise wie `Betriebsmeldung.fahrplanhinweis`. **Verglichen wird
+    WORTWEISE**: „SEV" steckt auch in „Sevenum" (Grenzort, in dieser App über
+    `Grenzfall` längst ein Thema) und in „Sevilla"; eine Teilstringsuche machte
+    aus einer Bahn nach Sevenum einen Ersatzverkehr. Dieselbe Lehre wie 1.1.22.
+  - **Ein Feld dafür gibt es NICHT.** GTFS kennt den Typ 714 („Rail Replacement
+    Bus Service") — gemessen an 194 Busabschnitten über sechs Strecken
+    (Düsseldorf, Berlin, Hamburg, Köln, Stuttgart, München, je zwei Zeiten) kam
+    er **kein einziges Mal** vor; es gab nur 3 und 700. Und 3 gegen 700 trennt
+    nichts: Ein gewöhnlicher Rheinbahn-Stadtbus trägt 3, ein Essener Nachtbus
+    700. Auch `alerts` gibt es an `/plan` nicht.
+  - **Hingeschrieben hat es genau EINER** (National Express, „SEV RE 1");
+    S1, S6, S28 und U76 kamen mit LEEREM Langnamen. Wo der Satz fehlt, sagt die
+    App nichts dazu — eine Lücke ist besser als eine erfundene Erklärung, und
+    das Verkehrsmittelsymbol bleibt der gemessene Teil der Auskunft.
+  - **Ein Ersatzverkehr steht in den MUSTERDATEN** — sonst ließe sich die
+    Anzeige nur ansehen, wenn gerade irgendwo eine Strecke gesperrt ist;
+    dieselbe Überlegung wie beim entfallenden Halt in Fasangarten.
 
 ### Verbindungsauskunft (ab 1.1.0)
 
@@ -2944,7 +2987,7 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   zwölfte Nachbesserung — derselbe Gedanke wie bei Tafelbild 1.4.0 und
   Schulalarm 1.1.0. Die Marken ab 1.0.x in diesem Papier bleiben stehen;
   sie sagen, wann etwas in den Quelltext kam. Danach zählt es weiter:
-  1.1.1 (Build 14), 1.1.2 (Build 15), 1.1.3 (Build 16), 1.1.4 (Build 17), 1.1.5 (Build 18), 1.1.6 (Build 19), 1.1.7 (Build 20), 1.1.8 (Build 21), 1.1.9 (Build 22), 1.1.10 (Build 23), 1.1.11 (Build 24), 1.1.12 (Build 25), 1.1.13 (Build 26), 1.1.14 (Build 27), 1.1.15 (Build 28), 1.1.16 (Build 29), 1.1.17 (Build 30), 1.1.18 (Build 31), 1.1.19 (Build 32), 1.1.20 (Build 33), 1.1.21 (Build 34), 1.1.22 (Build 35), 1.1.23 (Build 36), 1.1.24 (Build 37), 1.1.25 (Build 38), 1.1.26 (Build 39), 1.1.27 (Build 40), 1.1.28 (Build 41), 1.1.29 (Build 42) … Dazu gesetzt (Ansage des Nutzers,
+  1.1.1 (Build 14), 1.1.2 (Build 15), 1.1.3 (Build 16), 1.1.4 (Build 17), 1.1.5 (Build 18), 1.1.6 (Build 19), 1.1.7 (Build 20), 1.1.8 (Build 21), 1.1.9 (Build 22), 1.1.10 (Build 23), 1.1.11 (Build 24), 1.1.12 (Build 25), 1.1.13 (Build 26), 1.1.14 (Build 27), 1.1.15 (Build 28), 1.1.16 (Build 29), 1.1.17 (Build 30), 1.1.18 (Build 31), 1.1.19 (Build 32), 1.1.20 (Build 33), 1.1.21 (Build 34), 1.1.22 (Build 35), 1.1.23 (Build 36), 1.1.24 (Build 37), 1.1.25 (Build 38), 1.1.26 (Build 39), 1.1.27 (Build 40), 1.1.28 (Build 41), 1.1.29 (Build 42), 1.1.30 (Build 43) … Dazu gesetzt (Ansage des Nutzers,
   09/2026): `DEVELOPMENT_TEAM = F4989GSTWS` — dieselbe Id wie Schulalarm und
   Tafelbild — und `INFOPLIST_KEY_LSApplicationCategoryType =
   public.app-category.navigation`. Beides steht als Build-Einstellung, weil
