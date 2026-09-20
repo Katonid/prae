@@ -30,7 +30,13 @@ final class Verbindungsmodell: ObservableObject {
     /// „jetzt" weiterläuft und ein gewählter Zeitpunkt stehen bleibt.
     @Published var abJetzt = true
 
-    /// Nur Verbindungen, die mit dem Deutschland-Ticket befahrbar sind.
+    /// Was von der Suche verlangt wird: bestimmte Verkehrsmittel und/oder nur
+    /// das, was ein Deutschland-Ticket abdeckt.
+    ///
+    /// **Seit 1.1.27 ein Wert und nicht mehr ein nackter Schalter** (Ansage
+    /// des Nutzers 09/2026: „Ich möchte z. B. einstellen können, dass eine
+    /// Verbindung nur per Bus geschehen soll."). Beide Einschränkungen wirken
+    /// gleich und werden deshalb auch gleich behandelt.
     ///
     /// **Der Filter wirkt auf die ANFRAGE, nicht auf die fertige Liste** —
     /// deshalb steht er hier und nicht in der Ansicht, und deshalb löst er
@@ -42,9 +48,10 @@ final class Verbindungsmodell: ObservableObject {
     /// **Nicht in den Voreinstellungen.** Wer ein Deutschland-Ticket hat, hat
     /// es zwar dauerhaft — aber eine App, die beim nächsten Öffnen still die
     /// schnellen Verbindungen weglässt, sieht aus wie eine App, die sie nicht
-    /// findet. Die Leiste zeigt den Filter an, solange er an ist.
-    @Published var nurDeutschlandTicket = false {
-        didSet { if oldValue != nurDeutschlandTicket { suchen(standort: letzterStandort) } }
+    /// findet. Die Leiste zeigt den Filter an, solange er an ist — und das
+    /// gilt für die Verkehrsmittel genauso.
+    @Published var filter = Verbindungsfilter() {
+        didSet { if oldValue != filter { suchen(standort: letzterStandort) } }
     }
 
     /// Der zuletzt benutzte Standort — damit das Umschalten des Filters die
@@ -107,6 +114,21 @@ final class Verbindungsmodell: ObservableObject {
         }
 
         letzterStandort = standort
+
+        // **Ein Widerspruch wird gesagt und nicht gefragt** (ab 1.1.27).
+        // „Nur Fernzug" zusammen mit dem Deutschland-Ticket lässt kein
+        // einziges Verkehrsmittel übrig; die Anfrage brächte eine leere
+        // Liste, und die läse sich wie eine Aussage über den Fahrplan. Wer
+        // nichts zulässt, bekommt keine Suche, sondern einen Satz.
+        guard !filter.istWiderspruch else {
+            verbindungen = []
+            stand = .fehler(
+                text: "Diese Auswahl schließt sich selbst aus: Keines der gewählten Verkehrsmittel ist im Deutschland-Ticket enthalten. Entweder den Ticketfilter ausschalten oder ein Nahverkehrsmittel dazunehmen.",
+                zeitHilft: false
+            )
+            return
+        }
+
         let wann = abJetzt ? Date() : zeitpunkt
         let ankunft = !abJetzt && alsAnkunft
         stand = .laedt
@@ -120,7 +142,7 @@ final class Verbindungsmodell: ObservableObject {
                     zeitpunkt: wann,
                     ankunft: ankunft,
                     anzahl: 6,
-                    nurNahverkehr: nurDeutschlandTicket
+                    filter: filter
                 )
                 guard !Task.isCancelled else { return }
                 verbindungen = gefunden
@@ -138,8 +160,8 @@ final class Verbindungsmodell: ObservableObject {
                 // Fahrplan, während in Wahrheit nur der Fernverkehr
                 // ausgeblendet ist — und der Knopf daneben wäre der falsche.
                 var text = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
-                if nurDeutschlandTicket, fehler == .keineVerbindung {
-                    text += " Der Filter „Deutschland-Ticket\u{201C} ist an — ohne ihn kämen auch Verbindungen mit Fernzug oder Fernbus infrage."
+                if filter.aktiv, fehler == .keineVerbindung {
+                    text += " Der Filter ist an (\(filter.beschreibung)) — ohne ihn kämen weitere Verbindungen infrage."
                 }
                 stand = .fehler(
                     text: text,

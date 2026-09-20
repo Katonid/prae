@@ -2692,6 +2692,59 @@ Auftrag, für Bauten, die niemand angefordert hatte.
     Schalter steht sichtbar in der Leiste, und steht er an, nennt ihn auch die
     Meldung „nichts gefunden": Sonst liest sich die wie eine Aussage über den
     Fahrplan.
+- **Nach VERKEHRSMITTELN filtern — und was dabei nicht geht** (`Verbindungsfilter`,
+  ab 1.1.27, Ansage des Nutzers 09/2026: „Beim Verbindungsplaner möchte ich
+  Verkehrsmittel filtern können: Bus, Tram, U, S, RE, RB, usw. Ich möchte z. B.
+  einstellen können, dass eine Verbindung nur per Bus geschehen soll.").
+  - **Der Filter wirkt je Modus und genau — gemessen 20.09.2026.** `BUS` gab in
+    München nur Buslinien zurück, `SUBWAY` nur U-Bahnen, `TRAM` nur Trams,
+    `BUS,TRAM` beides. München Hbf → Freising ohne Filter S-Bahn und
+    Regionalzug, mit `BUS` eine vollständige Busverbindung über die Linie 635.
+    **Die wäre durch nachträgliches Aussieben nie erschienen** — dieselbe
+    Lehre wie beim Deutschland-Ticket in 1.1.20, und derselbe Grund, warum der
+    Filter in die ANFRAGE gehört.
+  - **RE und RB lassen sich NICHT trennen, und das steht in der App.**
+    Nachgemessen an acht Strecken: Beide kommen als `mode = REGIONAL_RAIL` mit
+    `routeType = 106` zurück, und MEX und DRF ebenso.
+    `transitModes=REGIONAL_FAST_RAIL` und `REGIONAL_RAIL` gaben an Dortmund →
+    Hamm Antworten von **gleicher Bytezahl** (107 340 B), und München →
+    Nürnberg lieferte unter beiden auch RB16. Es gibt in diesen Daten kein
+    Feld, an dem die Unterscheidung hinge. Der Unterschied existiert nur im
+    LINIENNAMEN — und ihn dort auszulesen wäre nicht bloß Raten, sondern
+    schädlich: Der Dienst sucht die schnellste Regionalverbindung, und wer
+    davon die RB wegsiebt, bekommt eine leere Liste und schließt daraus, es
+    führe keine. **Nicht nachrüsten, ohne zuerst an echten Antworten zu
+    messen**, ob eine Quelle die Unterscheidung überhaupt herausgibt.
+  - **`nil` und „alle acht" sind nicht dasselbe.** Ohne Einschränkung geht gar
+    kein `transitModes` mit; wer stattdessen die volle Liste schickte, siebte
+    still alle Fahrten aus, deren Art die App nicht kennt (`sonstiges`). Aus
+    demselben Grund steht `sonstiges` nicht in `Verbindungsfilter.waehlbare` —
+    „nur Sonstiges" ist kein Wunsch, den jemand hat.
+  - **Die Abbildung für die ANFRAGE ist NICHT die Umkehrung der fürs Lesen.**
+    In `verkehrsmittel(_:)` steht `RAIL` beim Regionalzug, weil eine Antwort so
+    zurückkommen kann; in `motisModi` darf es nicht stehen, denn `RAIL` ist eine
+    Obergruppe und holt ICE und IC zurück (gemessen 19.09.2026). Wer die beiden
+    Listen zusammenzieht, macht aus „nur Regionalzug" eine Anfrage mit
+    Fernverkehr.
+  - **Ein Wert statt zweier Schalter.** Bis 1.1.26 reiste ein nacktes
+    `nurNahverkehr: Bool` durch alle drei Protokolle; ein zweites Feld daneben
+    hätte an sechs Stellen einzeln beachtet werden müssen. Die beiden
+    Einschränkungen UNDen sich (`geltendeMittel`), und ein Widerspruch („nur
+    Fernzug" plus Deutschland-Ticket) wird als SATZ beantwortet, bevor
+    irgendjemand gefragt wird — eine Anfrage ohne ein einziges erlaubtes
+    Verkehrsmittel brächte eine leere Liste, die wie eine Aussage über den
+    Fahrplan aussähe.
+  - **Fragen kann weiterhin nur Transitous**; die Verbünde und der Schweizer
+    Dienst kennen keinen gemessenen Parameter dafür, ihre Antworten siebt
+    `Kettendienst.gesiebt`. Damit gilt die Zusage für JEDE Quelle.
+  - **Die Kapsel wird an EINER Stelle gezeichnet** (`Views/Mittelkapsel.swift`),
+    von Tafel und Auskunft gemeinsam. Es sind zwei verschiedene Fragen mit
+    derselben Bedienung — und genau so soll es sein; zwei Fassungen desselben
+    Aussehens liefen auseinander. **Der Unterschied gehört trotzdem
+    dazugesagt:** Auf der Tafel filtert die Leiste, was schon geladen ist, in
+    der Auskunft löst sie eine neue Suche aus. Und sie bietet dort ALLE acht an
+    und nicht nur die vorkommenden — vor der Suche gibt es keine Antwort, aus
+    der sich ablesen ließe, was hier fährt.
 - **Das LAND steht in der Haltestellenkennung — und nur dort**
   (`Model/Landkennung.swift`, ab 1.1.21, Ansage des Nutzers 09/2026: „Ich
   hätte gedacht, dass es irgendwo ein Verzeichnis gibt. So ist zum Beispiel
@@ -2812,7 +2865,7 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   zwölfte Nachbesserung — derselbe Gedanke wie bei Tafelbild 1.4.0 und
   Schulalarm 1.1.0. Die Marken ab 1.0.x in diesem Papier bleiben stehen;
   sie sagen, wann etwas in den Quelltext kam. Danach zählt es weiter:
-  1.1.1 (Build 14), 1.1.2 (Build 15), 1.1.3 (Build 16), 1.1.4 (Build 17), 1.1.5 (Build 18), 1.1.6 (Build 19), 1.1.7 (Build 20), 1.1.8 (Build 21), 1.1.9 (Build 22), 1.1.10 (Build 23), 1.1.11 (Build 24), 1.1.12 (Build 25), 1.1.13 (Build 26), 1.1.14 (Build 27), 1.1.15 (Build 28), 1.1.16 (Build 29), 1.1.17 (Build 30), 1.1.18 (Build 31), 1.1.19 (Build 32), 1.1.20 (Build 33), 1.1.21 (Build 34), 1.1.22 (Build 35), 1.1.23 (Build 36), 1.1.24 (Build 37), 1.1.25 (Build 38), 1.1.26 (Build 39) … Dazu gesetzt (Ansage des Nutzers,
+  1.1.1 (Build 14), 1.1.2 (Build 15), 1.1.3 (Build 16), 1.1.4 (Build 17), 1.1.5 (Build 18), 1.1.6 (Build 19), 1.1.7 (Build 20), 1.1.8 (Build 21), 1.1.9 (Build 22), 1.1.10 (Build 23), 1.1.11 (Build 24), 1.1.12 (Build 25), 1.1.13 (Build 26), 1.1.14 (Build 27), 1.1.15 (Build 28), 1.1.16 (Build 29), 1.1.17 (Build 30), 1.1.18 (Build 31), 1.1.19 (Build 32), 1.1.20 (Build 33), 1.1.21 (Build 34), 1.1.22 (Build 35), 1.1.23 (Build 36), 1.1.24 (Build 37), 1.1.25 (Build 38), 1.1.26 (Build 39), 1.1.27 (Build 40) … Dazu gesetzt (Ansage des Nutzers,
   09/2026): `DEVELOPMENT_TEAM = F4989GSTWS` — dieselbe Id wie Schulalarm und
   Tafelbild — und `INFOPLIST_KEY_LSApplicationCategoryType =
   public.app-category.navigation`. Beides steht als Build-Einstellung, weil

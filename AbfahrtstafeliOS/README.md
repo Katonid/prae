@@ -345,6 +345,30 @@ Nein — kein Weg, und zwar aus vier verschiedenen Gründen:
   keine. Deshalb läuft eine zweite Abfrage ohne Ortsbezug nebenher; beide
   Listen werden zusammengeführt.
 
+### Nach Verkehrsmitteln filtern (ab 1.1.27)
+
+Unter der Zeitleiste steht dieselbe Kapselleiste wie auf der Abfahrtstafel:
+Busse, Trams, U-Bahnen, S-Bahnen, Regionalzüge, Fernzüge, Fernbusse, Fähren.
+Antippen schränkt ein, „Alle" nimmt es zurück. **„Nur per Bus" ist damit eine
+Auswahl** — und zwar eine, die in die ANFRAGE geht und nicht erst in die
+Liste: Nachgemessen am 20.09.2026 gibt München Hbf → Freising ohne Filter
+S-Bahn und Regionalzug, mit „Busse" eine vollständige Busverbindung über die
+Linie 635. Wer erst hinterher aussiebt, bekommt gar nichts, weil der Dienst
+von sich aus die schnellste Verbindung sucht.
+
+Eine Verbindung zählt nur, wenn **alle** ihre Fahrten passen; Fußwege zählen
+nicht mit. Der Filter lässt sich mit dem Deutschland-Ticket kombinieren —
+beides zusammen gilt als UND, und eine Auswahl, die sich selbst ausschließt
+(„nur Fernzug" plus Ticket), sagt das, statt eine leere Liste zu zeigen.
+
+**RE und RB lassen sich nicht trennen**, und die App schreibt das hin. Beide
+kommen aus der Quelle als derselbe Wert zurück (`REGIONAL_RAIL`,
+`routeType 106`) — ebenso MEX und weitere Marken der Länderbahnen. Der
+Unterschied steht nur im Liniennamen, und ihn dort auszulesen wäre nicht bloß
+geraten, sondern schädlich: Der Dienst sucht die schnellste Regionalverbindung,
+und wer davon die RB wegsiebt, bekommt eine leere Liste und hält sie für eine
+Aussage über den Fahrplan.
+
 ## Auf dem iPad
 
 Eine `List` füllt, was da ist — im Querformat sind das gut zweitausend Punkte,
@@ -598,7 +622,7 @@ Bibliotheken) — nicht von Hand bearbeiten.
 pbxproj (Debug + Release); es gibt keine Skript-Bauphase. **Jede
 Arbeitseinheit hebt Patch- UND Build-Nummer um je +1.** Zählung ab 09/2026:
 1.0.0 (Build 1), dann 1.0.1 (Build 2), 1.0.2 (Build 3), 1.0.3 (Build 4), 1.0.4 (Build 5),
-1.0.5 (Build 6), 1.0.6 (Build 7), 1.0.7 (Build 8), 1.0.8 (Build 9), 1.0.9 (Build 10), 1.0.10 (Build 11), 1.0.11 (Build 12), **1.1.0 (Build 13)** … 1.1.25 (Build 38), 1.1.26 (Build 39) …
+1.0.5 (Build 6), 1.0.6 (Build 7), 1.0.7 (Build 8), 1.0.8 (Build 9), 1.0.9 (Build 10), 1.0.10 (Build 11), 1.0.11 (Build 12), **1.1.0 (Build 13)** … 1.1.25 (Build 38), 1.1.26 (Build 39), 1.1.27 (Build 40) …
 
 `ITSAppUsesNonExemptEncryption = NO` steht in `Config/Info.plist` und als
 Build-Einstellung — nicht entfernen.

@@ -76,7 +76,7 @@ protocol Fahrplandienst: Sendable {
         zeitpunkt: Date,
         ankunft: Bool,
         anzahl: Int,
-        nurNahverkehr: Bool
+        filter: Verbindungsfilter
     ) async throws -> [Verbindung]
 }
 
