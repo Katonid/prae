@@ -39,6 +39,21 @@ struct Verbindungsfilter: Equatable, Sendable {
     /// Ende — genau das, was sich beim Dienst auch einstellen lässt.
     var hoechsterFussweg: Int?
 
+    /// **Keine Verbindung, die auf einem Schienenersatzverkehr beruht** (ab
+    /// 1.1.31, Ansage des Nutzers 09/2026: „Dann suche ich jetzt tatsächlich
+    /// nach einer Möglichkeit, den Schienenersatzverkehr auch noch
+    /// herausfiltern zu können.").
+    ///
+    /// **Dieser Filter kann NICHT in die Anfrage** — anders als die
+    /// Verkehrsmittel und das Deutschland-Ticket. Nachgemessen am
+    /// 21.09.2026 an 1559 Busabschnitten: Der dafür vorgesehene GTFS-Typ
+    /// **714** („Rail Replacement Bus Service") kam **kein einziges Mal** vor,
+    /// `alerts` gibt es an `/plan` gar nicht, und einen Parameter dafür kennt
+    /// MOTIS nicht. Gesiebt wird also hinterher — mit allem, was daran hängt:
+    /// Bleibt nichts übrig, ist das eine Aussage über den FILTER und nicht
+    /// über den Fahrplan, und die Meldung sagt das auch.
+    var ohneErsatzverkehr = false
+
     static let alles = Verbindungsfilter()
 
     /// Die Verkehrsmittel, die diese Suche zulässt — `nil` heißt „alle".
@@ -60,7 +75,9 @@ struct Verbindungsfilter: Equatable, Sendable {
     /// dem Deutschland-Ticket.
     var istWiderspruch: Bool { geltendeMittel?.isEmpty == true }
 
-    var aktiv: Bool { !mittel.isEmpty || nurDeutschlandTicket || hoechsterFussweg != nil }
+    var aktiv: Bool {
+        !mittel.isEmpty || nurDeutschlandTicket || hoechsterFussweg != nil || ohneErsatzverkehr
+    }
 
     mutating func umschalten(_ eines: Verkehrsmittel) {
         if mittel.contains(eines) { mittel.remove(eines) } else { mittel.insert(eines) }
@@ -76,8 +93,26 @@ struct Verbindungsfilter: Equatable, Sendable {
     /// falsch ist.
     func passt(_ verbindung: Verbindung) -> Bool {
         guard fussweglaengePasst(verbindung) else { return false }
+        guard ersatzverkehrPasst(verbindung) else { return false }
         guard let erlaubt = geltendeMittel else { return true }
         return verbindung.fahrten.allSatisfy { erlaubt.contains($0.linie?.mittel ?? .sonstiges) }
+    }
+
+    /// **EINE Ersatzfahrt genügt, um die Verbindung wegzunehmen.** Wer sie
+    /// meiden will, meidet sie ganz: Eine Reise, bei der der letzte Abschnitt
+    /// ein Schienenersatzverkehr ist, hilft ihm nicht.
+    ///
+    /// Gesiebt werden BEIDE Stufen — die Fahrt, die sich selbst so nennt, und
+    /// der Bus unter dem Namen einer Bahnlinie. Nur die erste zu nehmen wäre
+    /// ein Filter, der fast nie greift: Von 130 so gefundenen Abschnitten
+    /// schrieben es nur 39 auch hin (gemessen 21.09.2026), also nicht einmal
+    /// jeder dritte. Der Preis steht in `Ersatzverkehr.bahnvorsaetze` und in
+    /// der Fußzeile: Eine Buslinie, die wirklich „S5" hieße, fiele mit heraus
+    /// — in 1559 gemessenen Abschnitten gab es keine, ausschließen lässt es
+    /// sich aber nicht.
+    private func ersatzverkehrPasst(_ verbindung: Verbindung) -> Bool {
+        guard ohneErsatzverkehr else { return true }
+        return verbindung.fahrten.allSatisfy { !Ersatzverkehr.befund($0.linie).trifftZu }
     }
 
     /// **Die Fußweggrenze wird NACHGEPRÜFT und nicht der Anfrage überlassen**
@@ -119,6 +154,7 @@ struct Verbindungsfilter: Equatable, Sendable {
         let namen = mittel.sorted { $0.rang < $1.rang }.map(\.mehrzahl)
         if !namen.isEmpty { teile.append("nur \(namen.joined(separator: ", "))") }
         if nurDeutschlandTicket { teile.append("Deutschland-Ticket") }
+        if ohneErsatzverkehr { teile.append("ohne Ersatzverkehr") }
         if let grenze = hoechsterFussweg {
             teile.append("höchstens \(Haltestelle.entfernungstext(Double(grenze))) zu Fuß")
         }

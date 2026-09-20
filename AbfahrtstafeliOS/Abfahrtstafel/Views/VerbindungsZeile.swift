@@ -107,7 +107,7 @@ struct VerbindungsZeile: View {
             // abgeschnitten oder machte die Kette doppelt so hoch. Hier
             // steht der Satz einmal und nennt die betroffene Linie.
             if let ersatztext {
-                Label(ersatztext, systemImage: "arrow.triangle.swap")
+                Label(ersatztext.text, systemImage: "arrow.triangle.swap")
                     .font(.caption2)
                     .foregroundStyle(.orange)
             }
@@ -136,25 +136,36 @@ struct VerbindungsZeile: View {
     /// Die Linien dieser Verbindung, die sich SELBST einen Ersatzverkehr
     /// nennen — oder `nil`, wenn keine es tut.
     ///
-    /// **Das ist keine vollständige Liste der Ersatzverkehre**, und das ist
-    /// hier ausdrücklich in Kauf genommen: Gemessen am 21.09.2026 schrieb
-    /// von 194 Busabschnitten nur einer (National Express) seinen Langnamen
-    /// hin. Eine „S1", die als Bus fährt, steht in den Daten ohne jedes
-    /// Wort dazu — die Zeile schweigt dann, statt es zu behaupten. Das
-    /// Verkehrsmittelsymbol auf dem Schild (1.1.29) sagt trotzdem, dass ein
-    /// Bus fährt; das ist der gemessene Teil der Auskunft.
-    private var ersatztext: String? {
+    /// **Zwei Stufen, zwei Sätze** (ab 1.1.31). Sagt die Quelle es selbst,
+    /// steht ihr Wortlaut da; ist es nur ein Bus unter dem Namen einer
+    /// Bahnlinie, sagt die Zeile genau das und nicht mehr. Warum beides
+    /// nicht vermischt wird, steht in `Ersatzverkehr` — dieselbe Regel wie
+    /// bei den entfallenden Halten seit 1.1.6.
+    ///
+    /// **Vollständig ist auch das nicht**, und das gehört dazugesagt: Ein
+    /// Ersatzverkehr, der unter einer gewöhnlichen Busnummer fährt, ist von
+    /// außen nicht zu erkennen.
+    private var ersatztext: (text: String, gesichert: Bool)? {
         var gesehen = Set<String>()
         var teile: [String] = []
+        var alleGesichert = true
         for fahrt in verbindung.fahrten {
-            guard let linie = fahrt.linie,
-                  let wortlaut = Ersatzverkehr.laut(linie.langname),
-                  gesehen.insert(linie.name).inserted
-            else { continue }
-            teile.append("\(linie.name) (\(wortlaut))")
+            guard let linie = fahrt.linie, gesehen.insert(linie.name).inserted else { continue }
+            switch Ersatzverkehr.befund(linie) {
+            case .gesichert(let wortlaut):
+                teile.append(wortlaut == linie.name ? linie.name : "\(linie.name) (\(wortlaut))")
+            case .vermutet:
+                teile.append(linie.name)
+                alleGesichert = false
+            case .nein:
+                continue
+            }
         }
         guard !teile.isEmpty else { return nil }
-        return "Ersatzverkehr laut Quelle: " + teile.joined(separator: ", ")
+        let liste = teile.joined(separator: ", ")
+        return alleGesichert
+            ? ("Ersatzverkehr laut Quelle: " + liste, true)
+            : ("Ersatzverkehr — als Bus unterwegs: " + liste, false)
     }
 
     /// Was an der Zeile über die Grenze steht — oder `nil`, wenn nichts zu

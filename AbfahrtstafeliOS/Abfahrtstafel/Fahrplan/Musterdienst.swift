@@ -207,7 +207,16 @@ struct Musterdienst: VolleQuelle {
             ende: fahrtStart.addingTimeInterval(600 + laenger),
             geplanterStart: fahrtStart,
             geplantesEnde: fahrtStart.addingTimeInterval(420 + laenger),
-            linie: Linienkennung(name: "S3", mittel: .sBahn, farbe: "702082", schriftfarbe: "FFFFFF", betrieb: "S-Bahn München"),
+            // **Der dritte Vorschlag fährt als Ersatzverkehr** (ab 1.1.31):
+            // ein BUS, der „S3" heißt und dessen Quelle nichts dazu sagt —
+            // genau der Fall, den der Filter „Ohne Ersatzverkehr" wegnimmt.
+            // Ohne ihn in den Musterdaten ließe sich weder die Markierung
+            // noch der Filter ansehen, solange nirgends eine Strecke
+            // gesperrt ist; dieselbe Überlegung wie beim entfallenden Halt
+            // in Fasangarten.
+            linie: nummer == 2
+                ? Linienkennung(name: "S3", mittel: .bus, farbe: "702082", schriftfarbe: "FFFFFF", betrieb: "Nahreisezug")
+                : Linienkennung(name: "S3", mittel: .sBahn, farbe: "702082", schriftfarbe: "FFFFFF", betrieb: "S-Bahn München"),
             richtung: "Pasing",
             fahrtId: "f-s3",
             halte: [

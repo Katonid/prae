@@ -21,11 +21,11 @@ struct Linienzusatz: View {
     var mitBetrieb: Bool = false
 
     var body: some View {
-        if let hinweis = Ersatzverkehr.hinweis(linie.langname) {
+        if let hinweis = Ersatzverkehr.hinweis(linie) {
             Label(hinweis + betriebszusatz, systemImage: "arrow.triangle.swap")
                 .font(.caption2)
                 .foregroundStyle(.orange)
-        } else if let lang = linie.langname {
+        } else if let lang = linie.langname {   // ein langer Name ohne Ersatzverkehr
             Text(lang + betriebszusatz)
                 .font(.caption2)
                 .foregroundStyle(.secondary)
@@ -53,11 +53,17 @@ struct Linienzusatz: View {
                          betrieb: "National Express", langname: "SEV RE 1"),
             mitBetrieb: true
         )
-        // Derselbe Fall, aber die Quelle schweigt — dann sagt die App nur,
-        // wer fährt, und behauptet nichts über den Grund.
+        // Derselbe Fall, aber die Quelle schweigt: Dann trägt der NAME die
+        // Auskunft — ein Bus, der „S1" heißt (ab 1.1.31).
         Linienzusatz(
             linie: .init(name: "S1", mittel: .bus, farbe: nil, schriftfarbe: nil,
                          betrieb: "Nahreisezug", langname: nil),
+            mitBetrieb: true
+        )
+        // Und ein gewöhnlicher Bus, der nichts dergleichen ist.
+        Linienzusatz(
+            linie: .init(name: "SB16", mittel: .bus, farbe: nil, schriftfarbe: nil,
+                         betrieb: "Rheinbahn Bus", langname: nil),
             mitBetrieb: true
         )
         // Ein langer Name ganz ohne Ersatzverkehr.

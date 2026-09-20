@@ -118,6 +118,18 @@ struct VerbindungView: View {
 
                 Fusswegknopf()
 
+                // **Ersatzverkehr ausschließen** (ab 1.1.31). Sichtbar in der
+                // Leiste und nicht im Menü, aus demselben Grund wie der
+                // Ticketschalter: Ein Filter, den man vergisst, lässt eine
+                // kurze Liste wie einen schlechten Fahrplan aussehen.
+                Toggle(isOn: $planer.filter.ohneErsatzverkehr) {
+                    Label("Ohne Ersatzverkehr", systemImage: "arrow.triangle.swap")
+                        .font(.footnote)
+                }
+                .toggleStyle(.button)
+                .buttonStyle(.bordered)
+                .tint(planer.filter.ohneErsatzverkehr ? .accentColor : .secondary)
+
                 Spacer(minLength: 0)
 
                 if planer.verbindungen.count > 1 {
@@ -400,6 +412,11 @@ struct VerbindungView: View {
                     Text("Eine Verbindung zählt nur, wenn ALLE ihre Fahrten passen; Fußwege zählen nicht mit. Und der Filter kennt die Art des Verkehrsmittels, nicht die Linie: RE und RB lassen sich nicht trennen — beide kommen aus der Quelle als derselbe Wert (gemessen 20.09.2026, dazu MEX und weitere Marken der Länderbahnen).")
                     Text("Steht auf einem Schild ein Bahnname wie \u{201E}RE1\u{201C} oder \u{201E}S1\u{201C}, obwohl nur Busse gesucht sind, ist das ein SCHIENENERSATZVERKEHR: Er behält den Namen und oft sogar die Farbe der Bahnlinie und ist doch ein Bus. Das Symbol links auf dem Schild sagt, was die Daten als Verkehrsmittel führen.")
                     Text("Nachgemessen am 21.09.2026: Die S1 braucht von Duisburg Hbf nach Großenbaum als Bahn 7 Minuten, als Bus nachts 20 — über Schlenk Bf und Buchholz Bf. Nur: Von 194 Busabschnitten an sechs Strecken schrieb ein EINZIGER Herausgeber seinen Ersatzverkehr auch hin (\u{201E}SEV RE 1\u{201C}). Wo der Satz dasteht, zeigt die App ihn unter der Zeile; wo er fehlt, sagt sie nichts dazu — eine Lücke ist besser als eine erfundene Erklärung.")
+                }
+                if filter.ohneErsatzverkehr {
+                    Text("Verbindungen mit Schienenersatzverkehr sind ausgeblendet. Erkannt wird er auf zwei Wegen: Die Quelle nennt ihn selbst so (\u{201E}SEV RE 1\u{201C}) — oder ein BUS trägt den Namen einer Bahnlinie (RE, RB, S, U, IC, EC, RS, MEX mit Ziffer).")
+                    Text("Gemessen am 21.09.2026 an 1559 Busabschnitten in 18 Städten: Das zweite Merkmal traf 130-mal, und jeder Treffer gehörte einem Bahnbetrieb; elf der 18 Linien ließen sich auf derselben Strecke als Schiene nachweisen, bei den übrigen gab die Schienenabfrage gar nichts her — so sieht eine gesperrte Strecke aus. Im Ausland kein einziger Fehltreffer.")
+                    Text("Was der Filter NICHT findet: einen Ersatzverkehr unter gewöhnlicher Busnummer, und Kürzel, die sich nicht nachprüfen ließen (ÖBB \u{201E}SV190\u{201C}, DB \u{201E}EBU\u{201C}). Ein Feld dafür gibt es in diesen Daten nicht — der GTFS-Typ 714 kam in keinem einzigen Abschnitt vor. Gesiebt wird deshalb erst nach der Suche: Bleibt nichts übrig, ist das eine Aussage über den Filter, nicht über den Fahrplan.")
                 }
                 if let grenze = filter.hoechsterFussweg {
                     Text("Gesucht wird nur nach Verbindungen, bei denen der Weg zur ersten und der von der letzten Haltestelle höchstens \(Haltestelle.entfernungstext(Double(grenze))) lang ist. Ohne eigene Grenze lässt der Dienst rund einen Kilometer zu (gemessen).")
