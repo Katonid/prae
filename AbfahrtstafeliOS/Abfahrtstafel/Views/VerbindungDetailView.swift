@@ -125,7 +125,11 @@ struct VerbindungDetailView: View {
         var body: some View {
             VStack(alignment: .leading, spacing: 8) {
                 HStack(spacing: 10) {
-                    if let linie = abschnitt.linie { Liniensymbol(linie: linie) }
+                    // Mit dem Symbol des Verkehrsmittels (ab 1.1.29) — hier
+                    // ist es die Auskunft, mit der man einen
+                    // Schienenersatzverkehr von der Bahnlinie unterscheidet,
+                    // deren Namen er trägt. Siehe `Liniensymbol`.
+                    if let linie = abschnitt.linie { Liniensymbol(linie: linie, mitMittel: true) }
                     VStack(alignment: .leading, spacing: 1) {
                         Text("Richtung \(abschnitt.richtung ?? "unbekannt")")
                             .font(.subheadline.weight(.medium))

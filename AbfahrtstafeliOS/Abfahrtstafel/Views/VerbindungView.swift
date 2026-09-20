@@ -398,6 +398,7 @@ struct VerbindungView: View {
                 if !filter.mittel.isEmpty {
                     Text("Gesucht wird nur nach \(filter.mittel.sorted { $0.rang < $1.rang }.map(\.mehrzahl).joined(separator: ", ")). Das steht schon in der ANFRAGE und nicht erst in der Liste: Wer erst hinterher aussiebt, bekommt oft gar nichts — der Dienst sucht sonst die schnellste Verbindung und gibt genau die zurück.")
                     Text("Eine Verbindung zählt nur, wenn ALLE ihre Fahrten passen; Fußwege zählen nicht mit. Und der Filter kennt die Art des Verkehrsmittels, nicht die Linie: RE und RB lassen sich nicht trennen — beide kommen aus der Quelle als derselbe Wert (gemessen 20.09.2026, dazu MEX und weitere Marken der Länderbahnen).")
+                    Text("Steht auf einem Schild ein Bahnname wie \u{201E}RE1\u{201C}, obwohl nur Busse gesucht sind, ist das ein SCHIENENERSATZVERKEHR: Er behält den Namen und die Farbe der Bahnlinie und ist doch ein Bus. Das Symbol links auf dem Schild sagt, was wirklich fährt — nachgemessen am 21.09.2026 kam so ein Abschnitt aus der Quelle als Bus zurück, und ein Textmerkmal dafür gibt es nicht: Derselbe Durchgang gab einen Ersatzbus ohne jeden Zusatz am Namen.")
                 }
                 if let grenze = filter.hoechsterFussweg {
                     Text("Gesucht wird nur nach Verbindungen, bei denen der Weg zur ersten und der von der letzten Haltestelle höchstens \(Haltestelle.entfernungstext(Double(grenze))) lang ist. Ohne eigene Grenze lässt der Dienst rund einen Kilometer zu (gemessen).")

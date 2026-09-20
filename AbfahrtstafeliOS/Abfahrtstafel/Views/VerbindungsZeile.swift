@@ -78,7 +78,13 @@ struct VerbindungsZeile: View {
                             .font(.caption2)
                             .foregroundStyle(.secondary)
                         } else if let linie = abschnitt.linie {
-                            Liniensymbol(linie: linie)
+                            // **Mit dem Symbol des Verkehrsmittels** (ab
+                            // 1.1.29). Genau hier fiel es auf: Bei „nur
+                            // Busse" standen in jedem Vorschlag Schilder mit
+                            // „RE1" — Schienenersatzverkehr, gemessen als
+                            // `mode = BUS`. Die Schilderkette IST diese
+                            // Zeile, also muss sie das Verkehrsmittel sagen.
+                            Liniensymbol(linie: linie, mitMittel: true)
                                 .opacity(abschnitt.faelltAus ? 0.45 : 1)
                                 .overlay {
                                     if abschnitt.faelltAus {

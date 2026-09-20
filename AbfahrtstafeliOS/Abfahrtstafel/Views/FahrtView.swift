@@ -198,7 +198,9 @@ private struct Kopfzeile: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            Liniensymbol(linie: fahrt.linie, gross: true)
+            // Mit dem Symbol des Verkehrsmittels (ab 1.1.29) — siehe
+            // `Liniensymbol`.
+            Liniensymbol(linie: fahrt.linie, gross: true, mitMittel: true)
             VStack(alignment: .leading, spacing: 2) {
                 Text("Richtung \(fahrt.richtung)")
                     .font(.headline)

@@ -383,6 +383,13 @@ struct LiniennetzView: View, Equatable {
                     // seit 1.1.18 keiner mehr**; angenommen wird der Tipp von
                     // der Karte (`tippen(_:_:)`), damit auf der Fläche nichts
                     // mehr liegt, das eine Zoomgeste abfangen kann.
+                    //
+                    // **Hier bewusst OHNE `mitMittel`** (1.1.29): Auf der
+                    // Karte ist das Schild eine Marke auf einem Linienzug,
+                    // kein Eintrag in einer Liste — das Verkehrsmittel steht
+                    // in der Legende daneben, und breiter gezeichnet deckten
+                    // zwölf Schilder mehr von der Fläche zu, für die die
+                    // Karte geöffnet wird (dieselbe Rechnung wie in 1.1.18).
                     Liniensymbol(linie: marke.linie)
                         .opacity(hervorgehoben == nil || hervorgehoben == marke.id ? 1 : 0.25)
                         .shadow(color: .black.opacity(0.25), radius: 2, y: 1)
@@ -1297,6 +1304,9 @@ struct LiniennetzView: View, Equatable {
                                             .font(.caption2)
                                             .foregroundStyle(.secondary)
                                             .frame(width: 16)
+                                        // Kein `mitMittel`: Das Symbol steht
+                                        // hier seit 1.1.9 LINKS daneben — auf
+                                        // dem Schild wäre es dasselbe zweimal.
                                         Liniensymbol(linie: zug.linie)
                                         Text(zug.richtung)
                                             .font(.caption)

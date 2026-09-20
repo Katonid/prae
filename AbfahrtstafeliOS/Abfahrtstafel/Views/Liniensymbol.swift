@@ -82,15 +82,49 @@ extension Linienkennung {
 /// eine Abfahrtstafel fällt.
 struct Liniensymbol: View {
     let linie: Linienkennung
+
     var gross: Bool = false
 
+    /// **Das Symbol des Verkehrsmittels MIT auf dem Schild** (ab 1.1.29,
+    /// gemeldet 09/2026: „Nur Busse sind ausgewählt" — und in der Liste stand
+    /// in jedem Vorschlag ein „RE1").
+    ///
+    /// Der Filter hatte recht: **Nachgemessen am 21.09.2026** kommt dieser
+    /// Abschnitt aus der Quelle als `mode = BUS`, `routeType = 3` und
+    /// `routeLongName = "SEV RE 1"` — ein Schienenersatzverkehr von National
+    /// Express, also wirklich ein Bus. Er behält aber den Namen der
+    /// BAHNLINIE, und er behält deren Farbe (`route_color 9b1b60`). Auf dem
+    /// Schild stand damit alles, was nach Regionalzug aussieht, und nichts,
+    /// was ihn als Bus ausweist.
+    ///
+    /// **Der Name hat das Verkehrsmittel nie genannt, und die Farbe seit
+    /// 1.1.9 auch nicht mehr** — dort steht es schon: „eine selbst vergebene
+    /// Farbe unterscheidet nur". Die Legende der Netzkarte zeigt das Symbol
+    /// deshalb seit 1.1.9 daneben. Was fehlte, war dieselbe Auskunft überall
+    /// sonst.
+    ///
+    /// **Gezeigt wird das gemessene `mode`, nicht eine Lesart des Namens.**
+    /// Aus „RE1" zu schließen, dass etwas ein Zug ist, wäre genau das Raten,
+    /// das diesen Fehler erzeugt hat. Und es griffe zu kurz: Derselbe
+    /// Durchgang gab auch eine Linie „S1" als Bus zurück, dort aber mit
+    /// LEEREM `routeLongName` — es gibt also kein Textmerkmal, an dem sich
+    /// ein Ersatzverkehr verlässlich erkennen ließe. Das `mode` gibt es
+    /// immer.
+    var mitMittel: Bool = false
+
     var body: some View {
-        Text(linie.name)
-            .font(.system(size: gross ? 19 : 16, weight: .heavy, design: .rounded))
-            .monospacedDigit()
+        HStack(spacing: gross ? 6 : 4) {
+            if mitMittel {
+                Image(systemName: linie.mittel.symbol)
+                    .font(.system(size: gross ? 13 : 11, weight: .semibold))
+            }
+            Text(linie.name)
+                .font(.system(size: gross ? 19 : 16, weight: .heavy, design: .rounded))
+                .monospacedDigit()
+                .lineLimit(1)
+                .minimumScaleFactor(0.55)
+        }
             .foregroundStyle(linie.anzeigeschrift)
-            .lineLimit(1)
-            .minimumScaleFactor(0.55)
             .padding(.horizontal, gross ? 12 : 9)
             .frame(minWidth: gross ? 62 : 52, minHeight: gross ? 34 : 30)
             .background(
@@ -113,6 +147,16 @@ struct Liniensymbol: View {
         Liniensymbol(linie: .init(name: "S8", mittel: .sBahn, farbe: "99C813", schriftfarbe: nil, betrieb: nil))
         Liniensymbol(linie: .init(name: "U6", mittel: .uBahn, farbe: nil, schriftfarbe: nil, betrieb: nil))
         Liniensymbol(linie: .init(name: "X201", mittel: .bus, farbe: nil, schriftfarbe: nil, betrieb: nil), gross: true)
+        // Der Fall, um den es geht: ein Schienenersatzverkehr trägt den Namen
+        // und die Farbe der Bahnlinie und ist ein Bus.
+        Liniensymbol(
+            linie: .init(name: "RE1", mittel: .bus, farbe: "9b1b60", schriftfarbe: nil, betrieb: "National Express"),
+            mitMittel: true
+        )
+        Liniensymbol(
+            linie: .init(name: "RE1", mittel: .regionalzug, farbe: "9b1b60", schriftfarbe: nil, betrieb: nil),
+            mitMittel: true
+        )
     }
     .padding()
 }

@@ -35,7 +35,12 @@ struct AbfahrtsZeile: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            Liniensymbol(linie: abfahrt.linie)
+            // **Mit dem Symbol des Verkehrsmittels** (ab 1.1.29). Ein
+            // Schienenersatzverkehr trägt den Namen UND die Farbe der
+            // Bahnlinie; ohne das Symbol ist er von ihr auf dem Schild nicht
+            // zu unterscheiden. Warum dabei das gemessene `mode` entscheidet
+            // und nicht eine Lesart des Namens, steht in `Liniensymbol`.
+            Liniensymbol(linie: abfahrt.linie, mitMittel: true)
 
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 5) {

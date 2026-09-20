@@ -255,6 +255,12 @@ struct VergleichsKarte: View {
                     HStack(spacing: 4) {
                         ForEach(gezeigteFahrten(verbindung)) { fahrt in
                             if let linie = fahrt.linie {
+                                // Kein `mitMittel`: Die Kette ist auf sechs
+                                // Schilder gedeckelt, weil die Leiste schmal
+                                // ist; jedes Schild breiter zu machen nähme
+                                // genau den Platz wieder weg. Wer wissen
+                                // will, was fährt, öffnet die Verbindung —
+                                // dort steht das Symbol an jedem Abschnitt.
                                 Liniensymbol(linie: linie)
                             }
                         }
