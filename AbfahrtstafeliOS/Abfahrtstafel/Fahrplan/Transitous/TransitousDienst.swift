@@ -525,7 +525,7 @@ struct TransitousDienst: VolleQuelle {
         zeitpunkt: Date,
         ankunft: Bool,
         anzahl: Int,
-        nurNahverkehr: Bool
+        filter: Verbindungsfilter
     ) async throws -> [Verbindung] {
         var felder = [
             URLQueryItem(name: "fromPlace", value: "\(von.latitude),\(von.longitude)"),
@@ -534,8 +534,14 @@ struct TransitousDienst: VolleQuelle {
             URLQueryItem(name: "arriveBy", value: ankunft ? "true" : "false"),
             URLQueryItem(name: "numItineraries", value: String(anzahl)),
         ]
-        if nurNahverkehr {
-            felder.append(URLQueryItem(name: "transitModes", value: Self.nahverkehrsmodi))
+        // **Der Filter gehört in die ANFRAGE.** Ohne `transitModes` sucht der
+        // Dienst die schnellste Verbindung und gibt genau die zurück; wer
+        // hinterher aussiebt, bekommt eine leere Liste und schließt daraus,
+        // es gebe keine Busverbindung. Gemessen 20.09.2026 (München Hbf →
+        // Freising): ohne Filter S-Bahn und Regionalzug, mit `BUS` eine
+        // vollständige Busverbindung über die Linie 635.
+        if let modi = Self.motisModi(filter.geltendeMittel) {
+            felder.append(URLQueryItem(name: "transitModes", value: modi))
         }
         let antwort: TransitousAntwort.Reiseplan = try await hole("plan", felder)
         let gefunden = (antwort.itineraries ?? []).compactMap { verbindung(aus: $0) }
@@ -546,39 +552,44 @@ struct TransitousDienst: VolleQuelle {
         return gefunden
     }
 
-    /// Die MOTIS-Modi, die als Nahverkehr gelten — was ein Deutschland-Ticket
-    /// abdeckt.
+    /// Welche MOTIS-Modi zu einem Verkehrsmittel dieser App gehören — die
+    /// Abbildung für die ANFRAGE.
     ///
-    /// **Der Filter gehört in die ANFRAGE und nicht nur in die Liste**
-    /// (gemessen 19.09.2026, Dortmund → München): Ohne Einschränkung kamen
-    /// fünf Vorschläge zurück, und in ALLEN fünf steckte ein ICE oder IC. Wer
-    /// erst hinterher aussiebt, bekommt eine leere Liste und schließt daraus,
-    /// es gebe keine Nahverkehrsverbindung — mit `transitModes` liefert
-    /// dieselbe Strecke sechs Vorschläge aus lauter Regionalzügen (fünf bis
-    /// sieben Umstiege, gut zehn Stunden statt knapp sechs). Genau danach
-    /// fragt, wer ein Deutschland-Ticket hat.
+    /// **Sie ist nicht die Umkehrung von `verkehrsmittel(_:)`, und das ist
+    /// Absicht.** Dort steht `RAIL` beim Regionalzug, weil eine Antwort mit
+    /// diesem Wert zurückkommen kann; hier darf es nicht stehen: `RAIL` ist
+    /// eine OBERGRUPPE und holt Fern- und Hochgeschwindigkeitszüge mit
+    /// zurück (gemessen an Dortmund → Köln, Hamburg → Berlin und München →
+    /// Zürich). Wer die beiden Listen zusammenzieht, macht aus „nur
+    /// Regionalzug" eine Anfrage, die ICEs liefert.
     ///
-    /// **`transitModes` ist der Name, der hier wirkt — an `/stoptimes` heißt
-    /// derselbe Filter `mode`.** Gemessen am selben Tag: `mode=` und `modes=`
-    /// werden von `/plan` mit HTTP 200 angenommen und stillschweigend
-    /// ignoriert (die Antwort war Byte für Byte die ungefilterte). Umgekehrt
-    /// wirkt an `/stoptimes` nur `mode`. **Wer hier etwas ändert, prüft am
-    /// INHALT der Antwort, ob der Filter gegriffen hat, nicht am Status.**
-    /// Ein falscher WERT fällt dagegen sofort auf: `transitModes=QUATSCH`
-    /// antwortet mit HTTP 400 und zählt die gültigen Werte auf.
-    ///
-    /// **`RAIL` steht bewusst NICHT dabei.** Es ist eine Obergruppe und holt
-    /// Fern- und Hochgeschwindigkeitszüge zurück — nachgemessen an drei
-    /// Strecken (Dortmund → Köln, Hamburg → Berlin, München → Zürich): mit
-    /// `RAIL` standen in jeder wieder ICE und IC in der Liste, ohne `RAIL`
-    /// keine. Gekostet hat es nichts, die Zahl der Vorschläge blieb gleich.
-    /// Dieselbe Falle wie bei der Tafel, nur an der anderen Schnittstelle.
-    ///
-    /// **`FERRY`, `FUNICULAR` und `CABLE_CAR` fehlen mit Absicht** — siehe
-    /// `Verkehrsmittel.imDeutschlandTicket`: Im Zweifel lieber eine Auskunft
-    /// zu wenig als eine Fahrt ohne gültigen Fahrschein.
-    private static let nahverkehrsmodi =
-        "TRAM,SUBWAY,METRO,SUBURBAN,BUS,REGIONAL_RAIL,REGIONAL_FAST_RAIL"
+    /// **`REGIONAL_FAST_RAIL` steht mit drin und bringt nichts — gemessen
+    /// 20.09.2026.** Dortmund → Hamm mit `REGIONAL_RAIL` und mit
+    /// `REGIONAL_FAST_RAIL` gaben Antworten von **gleicher Bytezahl**
+    /// (107 340 B), und in beiden trugen alle Abschnitte `REGIONAL_RAIL`.
+    /// Mitgeschickt wird es trotzdem: Es kostet nichts, und wenn eine
+    /// Instanz die Unterscheidung eines Tages führt, fehlt sie hier nicht.
+    private static func motisModi(_ mittel: Set<Verkehrsmittel>?) -> String? {
+        guard let mittel, !mittel.isEmpty else { return nil }
+        let modi = mittel.sorted { $0.rang < $1.rang }.flatMap { eines -> [String] in
+            switch eines {
+            case .sBahn: return ["METRO", "SUBURBAN"]
+            case .uBahn: return ["SUBWAY"]
+            case .tram: return ["TRAM"]
+            case .bus: return ["BUS"]
+            case .regionalzug: return ["REGIONAL_RAIL", "REGIONAL_FAST_RAIL"]
+            case .fernzug: return ["HIGHSPEED_RAIL", "LONG_DISTANCE", "NIGHT_RAIL"]
+            case .fernbus: return ["COACH"]
+            case .faehre: return ["FERRY"]
+            // `sonstiges` ist der Sammelfall für alles Unzugeordnete. Er
+            // lässt sich nicht anfragen, und `Verbindungsfilter.waehlbare`
+            // bietet ihn deshalb gar nicht erst an.
+            case .sonstiges: return []
+            }
+        }
+        return modi.isEmpty ? nil : modi.joined(separator: ",")
+    }
+
 
     private func verbindung(aus reise: TransitousAntwort.Reiseweg) -> Verbindung? {
         guard let start = Zeitleser.datum(reise.startTime),

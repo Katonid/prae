@@ -108,13 +108,13 @@ struct VerbindungView: View {
                 // danach an der Leiste, dass es an ist. In einem Menü
                 // versteckt wäre es ein Filter, den man vergisst — und dann
                 // sähe eine kurze Liste nach einem schlechten Fahrplan aus.
-                Toggle(isOn: $planer.nurDeutschlandTicket) {
+                Toggle(isOn: $planer.filter.nurDeutschlandTicket) {
                     Label("Deutschland-Ticket", systemImage: "ticket")
                         .font(.footnote)
                 }
                 .toggleStyle(.button)
                 .buttonStyle(.bordered)
-                .tint(planer.nurDeutschlandTicket ? .accentColor : .secondary)
+                .tint(planer.filter.nurDeutschlandTicket ? .accentColor : .secondary)
 
                 Spacer(minLength: 0)
 
@@ -128,6 +128,8 @@ struct VerbindungView: View {
                     .buttonStyle(.bordered)
                 }
             }
+
+            Mittelleiste()
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
@@ -202,7 +204,7 @@ struct VerbindungView: View {
                                 verbindung: verbindung,
                                 jetzt: uhr.jetzt,
                                 laengsteDauer: planer.laengsteDauer,
-                                mitTicketfilter: planer.nurDeutschlandTicket
+                                mitTicketfilter: planer.filter.nurDeutschlandTicket
                             )
                         }
                         .lesebreite()
@@ -211,7 +213,7 @@ struct VerbindungView: View {
                     Fusszeile(
                         geholtUm: planer.geholtUm,
                         quellen: planer.beteiligteQuellen,
-                        mitFilter: planer.nurDeutschlandTicket
+                        filter: planer.filter
                     )
                         .lesebreite()
                 }
@@ -280,17 +282,63 @@ struct VerbindungView: View {
         }
     }
 
+    /// Die Verkehrsmittel-Leiste der Auskunft.
+    ///
+    /// **Dieselbe Bedienung wie auf der Tafel, mit einem Unterschied, der
+    /// dazugesagt gehört:** Dort filtert sie, was schon geladen ist; hier
+    /// geht sie in die ANFRAGE und löst eine neue Suche aus. Gemessen
+    /// 20.09.2026 (München Hbf → Freising): ohne Filter kommen S-Bahn und
+    /// Regionalzug, mit „Busse" eine vollständige Busverbindung über die
+    /// Linie 635 — die wäre durch nachträgliches Aussieben nie erschienen.
+    ///
+    /// **Angeboten werden alle acht und nicht nur die vorkommenden.** Auf der
+    /// Tafel steht nur, was in den geladenen Abfahrten wirklich fährt; hier
+    /// gibt es vor der Suche noch gar keine Antwort, aus der sich das ablesen
+    /// ließe. Ein Mittel, das an dieser Strecke nicht fährt, führt zu einer
+    /// ehrlichen Auskunft („dafür findet die Suche nichts") und nicht zu
+    /// einem stummen Knopf.
+    private struct Mittelleiste: View {
+        @EnvironmentObject private var planer: Verbindungsmodell
+
+        var body: some View {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 7) {
+                    ForEach(Verbindungsfilter.waehlbare) { mittel in
+                        Mittelkapsel(mittel: mittel, an: planer.filter.mittel.contains(mittel)) {
+                            planer.filter.umschalten(mittel)
+                        }
+                    }
+                    if !planer.filter.mittel.isEmpty {
+                        // **Ein Weg zurück, und er ist sichtbar.** Ohne ihn
+                        // müsste man sich merken, welche Kapseln man
+                        // angetippt hat.
+                        Button("Alle") { planer.filter.mittel = [] }
+                            .font(.caption)
+                            .padding(.leading, 3)
+                    }
+                }
+                // Der Rand liegt INNEN und wird außen wieder abgezogen: So
+                // scrollt die Leiste von Bildschirmkante zu Bildschirmkante
+                // wie die der Tafel, statt am Rand des Formulars abgeschnitten
+                // zu werden. Die Leiste wird damit beliebig schmal — ein
+                // eigenes Layout für kleine Geräte braucht es nicht.
+                .padding(.horizontal, 14)
+            }
+            .padding(.horizontal, -14)
+        }
+    }
+
     /// Woher die Auskunft kommt und wie alt sie ist.
     private struct Fusszeile: View {
         let geholtUm: Date?
         /// Die Quellen, die WIRKLICH beigetragen haben — nicht die
         /// eingebauten.
         let quellen: [String]
-        /// Ob der Deutschland-Ticket-Filter an ist. Wird hereingereicht und
-        /// nicht selbst nachgesehen: Eine verschachtelte Ansicht kennt das
-        /// Modell der äußeren nicht, und ein `@EnvironmentObject` an dieser
-        /// Stelle wäre ein zweiter Weg zu demselben Wert.
-        let mitFilter: Bool
+        /// Der geltende Filter. Wird hereingereicht und nicht selbst
+        /// nachgesehen: Eine verschachtelte Ansicht kennt das Modell der
+        /// äußeren nicht, und ein `@EnvironmentObject` an dieser Stelle wäre
+        /// ein zweiter Weg zu demselben Wert.
+        let filter: Verbindungsfilter
 
         var body: some View {
             VStack(alignment: .leading, spacing: 3) {
@@ -300,8 +348,12 @@ struct VerbindungView: View {
                 if !quellen.isEmpty {
                     Text("Auskunft: \(quellen.joined(separator: ", ")).")
                 }
-                if mitFilter {
-                    Text("Der Filter zeigt nur Verbindungen ohne Fernzug, Fernbus und Nachtzug — das, was ein Deutschland-Ticket abdeckt. Ausnahmen einzelner Linien stehen in keiner Quelle; Fähren bleiben außen vor, weil sich nicht unterscheiden lässt, welche zum Nahverkehr gehören.")
+                if !filter.mittel.isEmpty {
+                    Text("Gesucht wird nur nach \(filter.mittel.sorted { $0.rang < $1.rang }.map(\.mehrzahl).joined(separator: ", ")). Das steht schon in der ANFRAGE und nicht erst in der Liste: Wer erst hinterher aussiebt, bekommt oft gar nichts — der Dienst sucht sonst die schnellste Verbindung und gibt genau die zurück.")
+                    Text("Eine Verbindung zählt nur, wenn ALLE ihre Fahrten passen; Fußwege zählen nicht mit. Und der Filter kennt die Art des Verkehrsmittels, nicht die Linie: RE und RB lassen sich nicht trennen — beide kommen aus der Quelle als derselbe Wert (gemessen 20.09.2026, dazu MEX und weitere Marken der Länderbahnen).")
+                }
+                if filter.nurDeutschlandTicket {
+                    Text("Der Ticketfilter zeigt nur Verbindungen ohne Fernzug, Fernbus und Nachtzug — das, was ein Deutschland-Ticket abdeckt. Ausnahmen einzelner Linien stehen in keiner Quelle; Fähren bleiben außen vor, weil sich nicht unterscheiden lässt, welche zum Nahverkehr gehören.")
                     Text("Führt eine Verbindung über die Grenze, steht das an ihrer Zeile. Ob das Deutschland-Ticket dort noch gilt, sagt eine kurze, von Hand gepflegte Liste bekannter Grenzabschnitte — ein maschinenlesbares Verzeichnis dafür gibt es nicht. Die Liste ist also eine Gedächtnisstütze und keine Fahrkartenauskunft.")
                 }
                 Text("Der Balken unter jeder Verbindung zeigt ihre Dauer im Verhältnis zur längsten dieser Liste. Die farbigen Stücke sind die Fahrten, die blassen dazwischen die Wartezeit — verglichen wird die Länge, nicht die Uhrzeit.")

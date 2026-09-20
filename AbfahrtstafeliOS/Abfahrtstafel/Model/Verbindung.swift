@@ -51,28 +51,14 @@ struct Verbindung: Identifiable, Hashable, Sendable {
     /// im Kopf hat, sucht sie sonst und hält die App für unvollständig.
     var faelltAus: Bool { abschnitte.contains(where: \.faelltAus) }
 
-    /// Ob JEDE Fahrt dieser Verbindung Nahverkehr ist — die Bedingung für
-    /// „mit dem Deutschland-Ticket befahrbar".
-    ///
-    /// **Es zählt die schwächste Stelle.** Eine Verbindung aus fünf
-    /// Regionalzügen und einem ICE ist keine Deutschland-Ticket-Verbindung;
-    /// gefragt wird deshalb, ob ALLE Fahrten abgedeckt sind. Fußwege zählen
-    /// nicht mit — sie sind kostenlos.
-    ///
-    /// **Eine Verbindung ganz ohne Fahrt (nur Fußweg) gilt als abgedeckt.**
-    /// Zu Fuß braucht es kein Ticket; sie hier herauszufiltern wäre die eine
-    /// Antwort, die sicher falsch ist.
-    var nurNahverkehr: Bool { fahrten.allSatisfy { ($0.linie?.mittel ?? .sonstiges).imDeutschlandTicket } }
-
-    /// Die Fahrten, an denen es scheitert — für die Meldung, wenn der Filter
-    /// alles wegnimmt. Eine Liste, die leer bleibt und nicht sagt WARUM, ist
-    /// die Frage von vorhin noch einmal.
-    var nichtImDeutschlandTicket: [Verkehrsmittel] {
-        var gesehen: Set<Verkehrsmittel> = []
-        return fahrten
-            .map { $0.linie?.mittel ?? .sonstiges }
-            .filter { !$0.imDeutschlandTicket && gesehen.insert($0).inserted }
-    }
+    // **`nurNahverkehr` und `nichtImDeutschlandTicket` standen bis 1.1.26
+    // hier.** Sie sind nach `Verbindungsfilter` gewandert (`passt`,
+    // `stoerenfriede`) und ERSATZLOS entfernt, nicht auf den neuen Weg
+    // umgebogen: Es gibt jetzt zwei Einschränkungen, die zusammenwirken
+    // (Verkehrsmittel und Ticket), und eine Eigenschaft, die nur eine von
+    // beiden kennt, wäre die zweite Meinung, die irgendwann jemand fragt.
+    // Die Regel steht an EINER Stelle, und das ist die, die auch die
+    // Anfrage baut.
 
     /// Alle Halte der FAHRTEN, samt Zwischenhalten — die Grundlage für die
     /// Landesfrage.

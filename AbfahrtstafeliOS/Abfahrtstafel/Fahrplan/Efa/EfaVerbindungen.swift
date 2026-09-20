@@ -82,9 +82,9 @@ extension EfaDienst: Verbindungsquelle {
         zeitpunkt: Date,
         ankunft: Bool,
         anzahl: Int,
-        nurNahverkehr: Bool
+        filter: Verbindungsfilter
     ) async throws -> [Verbindung] {
-        // **`nurNahverkehr` wird hier bewusst NICHT an die Quelle gereicht.**
+        // **Der Filter wird hier bewusst NICHT an die Quelle gereicht.**
         // Einen Parameter dafür kennt diese Schnittstelle nicht gemessen, und
         // eine geratene Einschränkung wäre schlimmer als keine: Sie würde
         // stillschweigend Verbindungen unterschlagen. Gesiebt wird die

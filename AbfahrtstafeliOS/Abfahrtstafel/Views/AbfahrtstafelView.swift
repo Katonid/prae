@@ -563,23 +563,12 @@ private struct Filterleiste: View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 7) {
                 ForEach(model.vorhandeneMittel) { mittel in
-                    let an = model.filter.contains(mittel)
-                    Button {
+                    // Gezeichnet wird die Kapsel an EINER Stelle
+                    // (`Mittelkapsel`) — die Verbindungsauskunft benutzt
+                    // dieselbe.
+                    Mittelkapsel(mittel: mittel, an: model.filter.contains(mittel)) {
                         model.filterUmschalten(mittel)
-                    } label: {
-                        HStack(spacing: 5) {
-                            Image(systemName: mittel.symbol)
-                            Text(mittel.mehrzahl)
-                        }
-                        .font(.caption.weight(.medium))
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .background(
-                            Capsule().fill(an ? mittel.rueckfallfarbe.opacity(0.9) : Color.secondary.opacity(0.13))
-                        )
-                        .foregroundStyle(an ? .white : .primary)
                     }
-                    .buttonStyle(.plain)
                 }
                 if !model.filter.isEmpty {
                     Button("Alle") { model.filter = [] }
