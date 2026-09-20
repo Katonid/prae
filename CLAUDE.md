@@ -2436,6 +2436,37 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   68 alle `d3762b` — das ist die Hausfarbe des Betreibers und keine Panne. Die
   eigene Farbvergabe greift deshalb ausdrücklich NUR beim Rückfall: Wo der
   Verbund eine Farbe führt, gilt seine, auch wenn zwei Linien gleich aussehen.
+- **Das Liniensymbol nennt seit 1.1.29 das VERKEHRSMITTEL** (`Liniensymbol.mitMittel`;
+  gemeldet 09/2026: „Nur Busse sind ausgewählt" — und in jedem der vier
+  Vorschläge stand ein Schild „RE1"). **Der Filter hatte recht.** Nachgemessen
+  am 21.09.2026 an derselben Strecke (Duisburg Großenbaum, nachts,
+  `transitModes=BUS`): Die Abschnitte kommen als `mode = BUS`, `routeType = 3`
+  zurück, `routeLongName = "SEV RE 1"`, Betrieb National Express — ein
+  **Schienenersatzverkehr**. Er behält den NAMEN der Bahnlinie und deren Farbe
+  (`route_color 9b1b60`). Auf dem Schild stand damit alles, was nach
+  Regionalzug aussieht, und nichts, was ihn als Bus ausweist.
+  - **Der Name hat das Verkehrsmittel nie genannt, und die Farbe seit 1.1.9
+    auch nicht mehr** — dort steht es schon: „eine selbst vergebene Farbe
+    unterscheidet nur", und die Legende der Netzkarte bekam deshalb das Symbol
+    daneben. Was fehlte, war dieselbe Auskunft überall sonst. **Merke: Wer eine
+    Auskunft an EINER Stelle nachrüstet, prüft, wo sie sonst noch fehlt.**
+  - **Gezeigt wird das gemessene `mode`, nicht eine Lesart des Namens.** Aus
+    „RE1" zu schließen, dass etwas ein Zug ist, wäre genau das Raten, das
+    diesen Fehler erzeugt hat. Und ein Textmerkmal für Ersatzverkehr gibt es
+    nicht: Derselbe Durchgang gab eine Linie „S1" als Bus zurück, dort aber mit
+    **leerem** `routeLongName`. Das `mode` gibt es immer.
+  - **Gesetzt ist es, wo Schilder in einer LISTE stehen** (Ergebniszeile der
+    Auskunft, Abschnitte einer Verbindung, Abfahrtszeile, Kopf des Fahrtlaufs).
+    Bewusst NICHT auf der Netzkarte — dort ist das Schild eine Marke auf einem
+    Linienzug, und breitere Marken decken die Fläche zu, für die die Karte
+    geöffnet wird (dieselbe Rechnung wie 1.1.18) —, nicht in deren Legende
+    (dort steht das Symbol seit 1.1.9 links daneben, es wäre dasselbe zweimal)
+    und nicht in der schmalen Leiste der Vergleichskarte (die Kette ist auf
+    sechs Schilder gedeckelt, und jedes Schild breiter zu machen nähme genau
+    den Platz wieder weg).
+  - Dazu ein Satz in der Fußzeile der Auskunft, der den Fall benennt. Eine
+    Anzeige, die stimmt, aber missverstanden wird, ist für den Menschen davor
+    ein Fehler — dieselbe Regel wie bei „Plan" gegen „pünktlich".
 
 ### Verbindungsauskunft (ab 1.1.0)
 
@@ -2913,7 +2944,7 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   zwölfte Nachbesserung — derselbe Gedanke wie bei Tafelbild 1.4.0 und
   Schulalarm 1.1.0. Die Marken ab 1.0.x in diesem Papier bleiben stehen;
   sie sagen, wann etwas in den Quelltext kam. Danach zählt es weiter:
-  1.1.1 (Build 14), 1.1.2 (Build 15), 1.1.3 (Build 16), 1.1.4 (Build 17), 1.1.5 (Build 18), 1.1.6 (Build 19), 1.1.7 (Build 20), 1.1.8 (Build 21), 1.1.9 (Build 22), 1.1.10 (Build 23), 1.1.11 (Build 24), 1.1.12 (Build 25), 1.1.13 (Build 26), 1.1.14 (Build 27), 1.1.15 (Build 28), 1.1.16 (Build 29), 1.1.17 (Build 30), 1.1.18 (Build 31), 1.1.19 (Build 32), 1.1.20 (Build 33), 1.1.21 (Build 34), 1.1.22 (Build 35), 1.1.23 (Build 36), 1.1.24 (Build 37), 1.1.25 (Build 38), 1.1.26 (Build 39), 1.1.27 (Build 40), 1.1.28 (Build 41) … Dazu gesetzt (Ansage des Nutzers,
+  1.1.1 (Build 14), 1.1.2 (Build 15), 1.1.3 (Build 16), 1.1.4 (Build 17), 1.1.5 (Build 18), 1.1.6 (Build 19), 1.1.7 (Build 20), 1.1.8 (Build 21), 1.1.9 (Build 22), 1.1.10 (Build 23), 1.1.11 (Build 24), 1.1.12 (Build 25), 1.1.13 (Build 26), 1.1.14 (Build 27), 1.1.15 (Build 28), 1.1.16 (Build 29), 1.1.17 (Build 30), 1.1.18 (Build 31), 1.1.19 (Build 32), 1.1.20 (Build 33), 1.1.21 (Build 34), 1.1.22 (Build 35), 1.1.23 (Build 36), 1.1.24 (Build 37), 1.1.25 (Build 38), 1.1.26 (Build 39), 1.1.27 (Build 40), 1.1.28 (Build 41), 1.1.29 (Build 42) … Dazu gesetzt (Ansage des Nutzers,
   09/2026): `DEVELOPMENT_TEAM = F4989GSTWS` — dieselbe Id wie Schulalarm und
   Tafelbild — und `INFOPLIST_KEY_LSApplicationCategoryType =
   public.app-category.navigation`. Beides steht als Build-Einstellung, weil

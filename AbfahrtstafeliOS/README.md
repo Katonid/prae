@@ -394,6 +394,33 @@ Die Längen sind die gerechneten Wege des Dienstes. Wie weit jemand wirklich
 läuft, hängt davon ab, wo der Zugang zum Bahnsteig liegt — dieselbe Einschränkung
 wie bei den Fußwegen in der Ergebnisliste.
 
+### Warum auf einem Busschild „RE1" stehen kann (ab 1.1.29)
+
+Gemeldet 09/2026: Der Filter stand auf **Busse**, und in jedem der vier
+Vorschläge stand trotzdem ein Schild **RE1**.
+
+**Der Filter hatte recht.** Nachgemessen am 21.09.2026 an derselben Strecke
+(Duisburg Großenbaum, nachts): Der Abschnitt kommt aus der Quelle als Bus
+zurück (`mode = BUS`, `routeType = 3`, `routeLongName = "SEV RE 1"`, Betrieb
+National Express) — ein **Schienenersatzverkehr**. Er behält den Namen der
+Bahnlinie und sogar deren Farbe (`route_color 9b1b60`). Auf dem Schild stand
+damit alles, was nach Regionalzug aussieht, und nichts, was ihn als Bus
+auswies.
+
+Seit 1.1.29 steht deshalb **das Symbol des Verkehrsmittels links auf dem
+Schild** — überall dort, wo Schilder in einer Liste stehen: in der
+Ergebniszeile der Auskunft, an jedem Abschnitt einer Verbindung, in der
+Abfahrtstafel und über dem Fahrtlauf. Auf der Netzkarte bleibt das Schild
+schlank (dort ist es eine Marke auf einem Linienzug, und breitere Marken
+decken die Fläche zu, für die man die Karte öffnet); in der Legende steht das
+Symbol schon seit 1.1.9 daneben.
+
+**Gezeigt wird die gemessene Verkehrsmittelart, keine Lesart des Namens.** Aus
+„RE1" zu schließen, dass etwas ein Zug ist, wäre genau das Raten, aus dem der
+Eindruck entstand. Und ein Textmerkmal für Ersatzverkehr gibt es nicht:
+Derselbe Durchgang gab eine Linie „S1" als Bus zurück, dort aber ganz ohne
+Zusatz am Namen.
+
 ## Auf dem iPad
 
 Eine `List` füllt, was da ist — im Querformat sind das gut zweitausend Punkte,
@@ -647,7 +674,7 @@ Bibliotheken) — nicht von Hand bearbeiten.
 pbxproj (Debug + Release); es gibt keine Skript-Bauphase. **Jede
 Arbeitseinheit hebt Patch- UND Build-Nummer um je +1.** Zählung ab 09/2026:
 1.0.0 (Build 1), dann 1.0.1 (Build 2), 1.0.2 (Build 3), 1.0.3 (Build 4), 1.0.4 (Build 5),
-1.0.5 (Build 6), 1.0.6 (Build 7), 1.0.7 (Build 8), 1.0.8 (Build 9), 1.0.9 (Build 10), 1.0.10 (Build 11), 1.0.11 (Build 12), **1.1.0 (Build 13)** … 1.1.25 (Build 38), 1.1.26 (Build 39), 1.1.27 (Build 40), 1.1.28 (Build 41) …
+1.0.5 (Build 6), 1.0.6 (Build 7), 1.0.7 (Build 8), 1.0.8 (Build 9), 1.0.9 (Build 10), 1.0.10 (Build 11), 1.0.11 (Build 12), **1.1.0 (Build 13)** … 1.1.25 (Build 38), 1.1.26 (Build 39), 1.1.27 (Build 40), 1.1.28 (Build 41), 1.1.29 (Build 42) …
 
 `ITSAppUsesNonExemptEncryption = NO` steht in `Config/Info.plist` und als
 Build-Einstellung — nicht entfernen.
