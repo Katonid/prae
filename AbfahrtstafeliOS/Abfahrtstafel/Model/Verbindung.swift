@@ -37,6 +37,25 @@ struct Verbindung: Identifiable, Hashable, Sendable {
     /// weil sie der häufigste Grund ist, eine Verbindung NICHT zu nehmen.
     var fussmeter: Int { abschnitte.compactMap(\.meter).reduce(0, +) }
 
+    /// Der Weg zur ersten und der von der letzten Haltestelle, einzeln.
+    ///
+    /// **Nur die RÄNDER, und das ist der Punkt** (ab 1.1.28): Genau diese
+    /// beiden Wege lassen sich beim Dienst begrenzen
+    /// (`maxPreTransitTime`/`maxPostTransitTime`, gemessen 21.09.2026). Ein
+    /// Fußweg MITTEN in der Verbindung ist ein Umstieg — er steht als
+    /// Fußpfad im Fahrplan, ist nicht einstellbar und wird deshalb hier nicht
+    /// mitgezählt; eine Grenze, die ihn erfasste, nähme Verbindungen weg,
+    /// ohne dass es eine Anfrage gäbe, die sie vermeidet.
+    ///
+    /// Fängt die Verbindung an einer Haltestelle an, gibt es gar keinen
+    /// Zugangsweg — dann steht hier nichts, und jede Grenze ist eingehalten.
+    var randfusswege: [Double] {
+        [abschnitte.first, abschnitte.last]
+            .compactMap { $0 }
+            .filter { $0.art == .fussweg }
+            .compactMap { $0.meter.map(Double.init) }
+    }
+
     /// Verspätung der Abfahrt in vollen Minuten, oder `nil`.
     var verspaetungMinuten: Int? {
         guard let plan = geplanteAbfahrt else { return nil }

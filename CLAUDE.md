@@ -2745,6 +2745,54 @@ Auftrag, für Bauten, die niemand angefordert hatte.
     der Auskunft löst sie eine neue Suche aus. Und sie bietet dort ALLE acht an
     und nicht nur die vorkommenden — vor der Suche gibt es keine Antwort, aus
     der sich ablesen ließe, was hier fährt.
+- **Wie weit höchstens zu Fuß** (`Verbindungsfilter.hoechsterFussweg`, ab
+  1.1.28, Ansage des Nutzers 09/2026: „Vielleicht ist es manchmal nötig, eine
+  Strecke zu Fuß zu gehen, damit eine Verbindung zustandekommt. Ich möchte die
+  maximale Länge dieser Strecke festlegen können.").
+  - **Zwei Parameter wirken, fünf tun nichts — gemessen 21.09.2026 am INHALT
+    der Antwort.** An Starnberg (Ortsrand) → München Hbf, einer Strecke mit
+    Zugangswegen zwischen 334 und 796 m: `maxPreTransitTime` begrenzt den
+    ERSTEN Weg (300 s ließ nur noch 334 m zu, 120 s gar keine Verbindung
+    mehr), `maxPostTransitTime` den LETZTEN (120 s → jede Verbindung endete
+    mit 136 m). **`maxWalkDistance`, `maxTransferTime`, `walkReluctance`,
+    `maxMatchingDistance` und `maxTravelTime` lieferten alle fünf eine
+    Antwort, die Byte für Byte der ungefilterten glich — mit HTTP 200.** Ein
+    unbekannter Parametername fällt an dieser Schnittstelle nicht auf;
+    dieselbe Falle wie bei `mode`/`transitModes`, und schon das dritte Mal.
+  - **Von Haus aus gilt 900 Sekunden.** `maxPreTransitTime=900` war Byte für
+    Byte die ungefilterte Antwort, 1800 gab andere Wege (1561 m statt 796 m).
+    Wer nichts einstellt, hat also schon eine Grenze von gut einem Kilometer —
+    das gehört gesagt, sonst hält man das Fehlen weiter Zugangswege für einen
+    Fehler.
+  - **Eine ZEITgrenze hält keine METERgrenze**, und das ist der Befund, der
+    die Bauweise bestimmt: 888 s (aus 800 m gerechnet) gaben am Dortmunder
+    Stadtrand Zugangswege von 983 m zurück, 555 s (aus 500 m) solche von
+    626 m. Der Dienst rundet jede Gehdauer auf **volle Minuten** (gemessen:
+    alle Dauern Vielfache von 60), und sein Tempo schwankt je Weg zwischen
+    **0,93 und 1,48 m/s** (Mittelwert 1,17). **Deshalb beides:** Die Anfrage
+    fragt großzügig (0,9 m/s, auf Minuten aufgerundet), und
+    `Verbindungsfilter.passt` hält hinterher die Zahl, die auf dem Knopf
+    steht. Wer nur die Zeit schickte, verspräche eine Zahl, die nicht gilt;
+    wer nur siebte, verlöre Verbindungen, die gepasst hätten.
+  - **Die Grenze gilt für die RÄNDER, nicht für Umstiegswege**
+    (`Verbindung.randfusswege`). Ein Fußweg mitten in der Verbindung steht als
+    Fußpfad im Fahrplan, lässt sich beim Dienst nicht begrenzen, und ihn
+    wegzusieben nähme Verbindungen weg, ohne dass es eine Anfrage gäbe, die
+    sie vermeidet. Die Fußzeile schreibt das hin — dieselbe Ehrlichkeit wie
+    bei „Plan".
+  - **Feste Stufen, kein Schieberegler.** Eine Grenze auf den Meter genau
+    täuschte eine Genauigkeit vor, die es nicht gibt: Die gezeigte Länge ist
+    der Weg, den der Dienst gerechnet hat, nicht der, den jemand wirklich
+    geht.
+  - **Sie ist die EINZIGE der drei Einschränkungen, die gemerkt wird.**
+    Verkehrsmittel und Ticket gehören zur FAHRT, die Gehstrecke zur PERSON —
+    wie weit jemand laufen kann, ändert sich nicht über Nacht. Die Sorge aus
+    1.1.20 („eine App, die beim nächsten Öffnen still etwas weglässt") bleibt
+    trotzdem beantwortet: Der Wert steht auf dem Knopf.
+  - **Ein `didSet` läuft beim Initialisieren nicht mit** — nur deshalb kann
+    `Verbindungsmodell.init` den gemerkten Wert setzen, ohne eine Suche
+    auszulösen, bevor überhaupt ein Ziel dasteht. Dafür hat `filter` keinen
+    Vorgabewert mehr und wird vollständig im `init` belegt.
 - **Das LAND steht in der Haltestellenkennung — und nur dort**
   (`Model/Landkennung.swift`, ab 1.1.21, Ansage des Nutzers 09/2026: „Ich
   hätte gedacht, dass es irgendwo ein Verzeichnis gibt. So ist zum Beispiel
@@ -2865,7 +2913,7 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   zwölfte Nachbesserung — derselbe Gedanke wie bei Tafelbild 1.4.0 und
   Schulalarm 1.1.0. Die Marken ab 1.0.x in diesem Papier bleiben stehen;
   sie sagen, wann etwas in den Quelltext kam. Danach zählt es weiter:
-  1.1.1 (Build 14), 1.1.2 (Build 15), 1.1.3 (Build 16), 1.1.4 (Build 17), 1.1.5 (Build 18), 1.1.6 (Build 19), 1.1.7 (Build 20), 1.1.8 (Build 21), 1.1.9 (Build 22), 1.1.10 (Build 23), 1.1.11 (Build 24), 1.1.12 (Build 25), 1.1.13 (Build 26), 1.1.14 (Build 27), 1.1.15 (Build 28), 1.1.16 (Build 29), 1.1.17 (Build 30), 1.1.18 (Build 31), 1.1.19 (Build 32), 1.1.20 (Build 33), 1.1.21 (Build 34), 1.1.22 (Build 35), 1.1.23 (Build 36), 1.1.24 (Build 37), 1.1.25 (Build 38), 1.1.26 (Build 39), 1.1.27 (Build 40) … Dazu gesetzt (Ansage des Nutzers,
+  1.1.1 (Build 14), 1.1.2 (Build 15), 1.1.3 (Build 16), 1.1.4 (Build 17), 1.1.5 (Build 18), 1.1.6 (Build 19), 1.1.7 (Build 20), 1.1.8 (Build 21), 1.1.9 (Build 22), 1.1.10 (Build 23), 1.1.11 (Build 24), 1.1.12 (Build 25), 1.1.13 (Build 26), 1.1.14 (Build 27), 1.1.15 (Build 28), 1.1.16 (Build 29), 1.1.17 (Build 30), 1.1.18 (Build 31), 1.1.19 (Build 32), 1.1.20 (Build 33), 1.1.21 (Build 34), 1.1.22 (Build 35), 1.1.23 (Build 36), 1.1.24 (Build 37), 1.1.25 (Build 38), 1.1.26 (Build 39), 1.1.27 (Build 40), 1.1.28 (Build 41) … Dazu gesetzt (Ansage des Nutzers,
   09/2026): `DEVELOPMENT_TEAM = F4989GSTWS` — dieselbe Id wie Schulalarm und
   Tafelbild — und `INFOPLIST_KEY_LSApplicationCategoryType =
   public.app-category.navigation`. Beides steht als Build-Einstellung, weil

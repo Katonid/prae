@@ -50,8 +50,21 @@ final class Verbindungsmodell: ObservableObject {
     /// schnellen Verbindungen weglässt, sieht aus wie eine App, die sie nicht
     /// findet. Die Leiste zeigt den Filter an, solange er an ist — und das
     /// gilt für die Verkehrsmittel genauso.
-    @Published var filter = Verbindungsfilter() {
-        didSet { if oldValue != filter { suchen(standort: letzterStandort) } }
+    @Published var filter: Verbindungsfilter {
+        didSet {
+            guard oldValue != filter else { return }
+            // **Nur die Fußweggrenze wird gemerkt** (ab 1.1.28). Die anderen
+            // beiden Einschränkungen gehören zur FAHRT — wer heute nur mit
+            // dem Bus will, will das morgen nicht unbedingt, und eine App,
+            // die beim nächsten Öffnen still die Hälfte weglässt, sieht aus
+            // wie eine App, die nichts findet. Wie weit jemand laufen kann,
+            // gehört dagegen zur PERSON und ändert sich nicht über Nacht.
+            // Still ist es trotzdem nicht: Der Wert steht auf dem Knopf.
+            if oldValue.hoechsterFussweg != filter.hoechsterFussweg {
+                ablage.set(filter.hoechsterFussweg ?? 0, forKey: "hoechsterFussweg")
+            }
+            suchen(standort: letzterStandort)
+        }
     }
 
     /// Der zuletzt benutzte Standort — damit das Umschalten des Filters die
@@ -66,8 +79,20 @@ final class Verbindungsmodell: ObservableObject {
     let dienst: Fahrplandienst
     private var auftrag: Task<Void, Never>?
 
-    init(dienst: Fahrplandienst) {
+    private let ablage: UserDefaults
+
+    init(dienst: Fahrplandienst, ablage: UserDefaults = .standard) {
         self.dienst = dienst
+        self.ablage = ablage
+        // **Der Filter bekommt hier seinen ERSTEN Wert und wird nicht
+        // nachträglich geändert.** Ein `didSet` läuft beim Initialisieren
+        // nicht mit — nur deshalb löst der gemerkte Wert keine Suche aus,
+        // bevor überhaupt ein Ziel dasteht.
+        //
+        // 0 ist der fehlende Schlüssel UND „keine Grenze" — beides bedeutet
+        // hier dasselbe, also braucht es keine Unterscheidung.
+        let gemerkt = ablage.integer(forKey: "hoechsterFussweg")
+        filter = Verbindungsfilter(hoechsterFussweg: gemerkt > 0 ? gemerkt : nil)
     }
 
     /// Der Punkt, um den herum die Vorschläge gesucht werden.

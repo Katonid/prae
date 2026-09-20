@@ -369,6 +369,31 @@ geraten, sondern schädlich: Der Dienst sucht die schnellste Regionalverbindung,
 und wer davon die RB wegsiebt, bekommt eine leere Liste und hält sie für eine
 Aussage über den Fahrplan.
 
+### Wie weit höchstens zu Fuß (ab 1.1.28)
+
+Neben dem Ticketschalter steht ein Menü: **„Fußweg egal" oder max. 200 m,
+300 m, 500 m, 800 m, 1,2 km, 2,0 km.** Die Grenze gilt für den Weg **zur
+ersten und von der letzten Haltestelle** — also für die Strecke, die man
+laufen muss, damit die Verbindung überhaupt zustandekommt.
+
+Der eingestellte Wert steht auf dem Knopf und wird als einzige der drei
+Einschränkungen gemerkt: Verkehrsmittel und Ticket gehören zur Fahrt, die
+Gehstrecke zur Person.
+
+**Zwei Dinge, die dabei ehrlich gesagt gehören:**
+
+- **Ein Umstiegsweg mitten in der Verbindung fällt nicht darunter.** Er steht
+  als Fußpfad im Fahrplan und lässt sich beim Dienst nicht begrenzen; ihn
+  wegzusieben nähme Verbindungen weg, ohne dass es eine Anfrage gäbe, die sie
+  vermeidet.
+- **Ohne eigene Grenze gilt trotzdem eine** — der Dienst lässt von Haus aus
+  rund einen Kilometer zu (gemessen 21.09.2026). Das Fehlen sehr weiter
+  Zugangswege ist also kein Fehler der App.
+
+Die Längen sind die gerechneten Wege des Dienstes. Wie weit jemand wirklich
+läuft, hängt davon ab, wo der Zugang zum Bahnsteig liegt — dieselbe Einschränkung
+wie bei den Fußwegen in der Ergebnisliste.
+
 ## Auf dem iPad
 
 Eine `List` füllt, was da ist — im Querformat sind das gut zweitausend Punkte,
@@ -622,7 +647,7 @@ Bibliotheken) — nicht von Hand bearbeiten.
 pbxproj (Debug + Release); es gibt keine Skript-Bauphase. **Jede
 Arbeitseinheit hebt Patch- UND Build-Nummer um je +1.** Zählung ab 09/2026:
 1.0.0 (Build 1), dann 1.0.1 (Build 2), 1.0.2 (Build 3), 1.0.3 (Build 4), 1.0.4 (Build 5),
-1.0.5 (Build 6), 1.0.6 (Build 7), 1.0.7 (Build 8), 1.0.8 (Build 9), 1.0.9 (Build 10), 1.0.10 (Build 11), 1.0.11 (Build 12), **1.1.0 (Build 13)** … 1.1.25 (Build 38), 1.1.26 (Build 39), 1.1.27 (Build 40) …
+1.0.5 (Build 6), 1.0.6 (Build 7), 1.0.7 (Build 8), 1.0.8 (Build 9), 1.0.9 (Build 10), 1.0.10 (Build 11), 1.0.11 (Build 12), **1.1.0 (Build 13)** … 1.1.25 (Build 38), 1.1.26 (Build 39), 1.1.27 (Build 40), 1.1.28 (Build 41) …
 
 `ITSAppUsesNonExemptEncryption = NO` steht in `Config/Info.plist` und als
 Build-Einstellung — nicht entfernen.

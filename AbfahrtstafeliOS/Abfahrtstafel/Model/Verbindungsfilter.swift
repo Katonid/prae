@@ -1,3 +1,4 @@
+import CoreLocation
 import Foundation
 
 /// Was von einer Verbindungssuche verlangt wird: bestimmte Verkehrsmittel,
@@ -25,6 +26,19 @@ struct Verbindungsfilter: Equatable, Sendable {
     /// Nur Verbindungen, die ein Deutschland-Ticket abdeckt.
     var nurDeutschlandTicket = false
 
+    /// **Wie weit höchstens zu Fuß — zur ersten und von der letzten
+    /// Haltestelle** (ab 1.1.28, Ansage des Nutzers 09/2026: „Vielleicht ist
+    /// es manchmal nötig, eine Strecke zu Fuß zu gehen, damit eine Verbindung
+    /// zustandekommt. Ich möchte die maximale Länge dieser Strecke festlegen
+    /// können."). `nil` heißt „keine eigene Grenze"; dann gilt, was der
+    /// Dienst von Haus aus zulässt — gemessen 21.09.2026 sind das
+    /// **900 Sekunden**, also gut einen Kilometer.
+    ///
+    /// **Gemeint ist EINE Strecke, nicht die Summe.** Der Nutzer hat nach der
+    /// Länge „dieser Strecke" gefragt, und das ist der Weg am Anfang bzw. am
+    /// Ende — genau das, was sich beim Dienst auch einstellen lässt.
+    var hoechsterFussweg: Int?
+
     static let alles = Verbindungsfilter()
 
     /// Die Verkehrsmittel, die diese Suche zulässt — `nil` heißt „alle".
@@ -46,7 +60,7 @@ struct Verbindungsfilter: Equatable, Sendable {
     /// dem Deutschland-Ticket.
     var istWiderspruch: Bool { geltendeMittel?.isEmpty == true }
 
-    var aktiv: Bool { !mittel.isEmpty || nurDeutschlandTicket }
+    var aktiv: Bool { !mittel.isEmpty || nurDeutschlandTicket || hoechsterFussweg != nil }
 
     mutating func umschalten(_ eines: Verkehrsmittel) {
         if mittel.contains(eines) { mittel.remove(eines) } else { mittel.insert(eines) }
@@ -61,8 +75,30 @@ struct Verbindungsfilter: Equatable, Sendable {
     /// Verkehrsmittelfilter wegzunehmen wäre die eine Antwort, die sicher
     /// falsch ist.
     func passt(_ verbindung: Verbindung) -> Bool {
+        guard fussweglaengePasst(verbindung) else { return false }
         guard let erlaubt = geltendeMittel else { return true }
         return verbindung.fahrten.allSatisfy { erlaubt.contains($0.linie?.mittel ?? .sonstiges) }
+    }
+
+    /// **Die Fußweggrenze wird NACHGEPRÜFT und nicht der Anfrage überlassen**
+    /// (ab 1.1.28). Der Dienst kennt nur eine Grenze in SEKUNDEN, und die
+    /// hält keine Grenze in Metern: Gemessen 21.09.2026 gab eine Anfrage mit
+    /// 888 Sekunden (aus 800 m gerechnet) am Dortmunder Stadtrand Zugangswege
+    /// von 983 m zurück, eine mit 555 Sekunden (aus 500 m) solche von 626 m.
+    /// Das liegt nicht an einem falschen Tempo: Der Dienst rundet jede
+    /// Gehdauer auf volle Minuten, und sein Tempo schwankt je Weg zwischen
+    /// 0,93 und 1,48 m/s. **Die Zeit fragt also grosszügig, die Zahl hält
+    /// diese Prüfung** — wer nur das eine täte, versprächse eine Zahl, die
+    /// nicht gilt, oder verlöre Verbindungen, die gepasst hätten.
+    ///
+    /// Gefragt wird nach dem WEG AM ANFANG und dem AM ENDE, einzeln. Ein
+    /// Umstiegsweg mitten in der Verbindung bleibt aussen vor: Er steht als
+    /// Fusspfad im Fahrplan, lässt sich beim Dienst nicht begrenzen, und ihn
+    /// hier wegzusieben nähme Verbindungen weg, ohne dass es eine Anfrage
+    /// gäbe, die sie vermeidet. Die Oberfläche schreibt das hin.
+    private func fussweglaengePasst(_ verbindung: Verbindung) -> Bool {
+        guard let grenze = hoechsterFussweg else { return true }
+        return verbindung.randfusswege.allSatisfy { $0 <= Double(grenze) }
     }
 
     /// Die Verkehrsmittel, an denen eine Verbindung scheitert — für die
@@ -79,14 +115,23 @@ struct Verbindungsfilter: Equatable, Sendable {
     /// Wie der Filter in einer Meldung heißt — im Klartext, weil der Nutzer
     /// ihn liest.
     var beschreibung: String {
+        var teile: [String] = []
         let namen = mittel.sorted { $0.rang < $1.rang }.map(\.mehrzahl)
-        switch (namen.isEmpty, nurDeutschlandTicket) {
-        case (true, true): return "Deutschland-Ticket"
-        case (false, false): return "nur \(namen.joined(separator: ", "))"
-        case (false, true): return "nur \(namen.joined(separator: ", ")) und Deutschland-Ticket"
-        case (true, false): return "kein Filter"
+        if !namen.isEmpty { teile.append("nur \(namen.joined(separator: ", "))") }
+        if nurDeutschlandTicket { teile.append("Deutschland-Ticket") }
+        if let grenze = hoechsterFussweg {
+            teile.append("höchstens \(Haltestelle.entfernungstext(Double(grenze))) zu Fuß")
         }
+        return teile.isEmpty ? "kein Filter" : teile.joined(separator: ", ")
     }
+
+    /// Die Stufen, die zur Wahl stehen — `nil` ist „ohne Grenze".
+    ///
+    /// Stufen und kein Schieberegler: Eine Grenze auf den Meter genau
+    /// einzustellen, täuschte eine Genauigkeit vor, die es nicht gibt (der
+    /// gezeigte Weg ist der des Dienstes, nicht der, den jemand wirklich
+    /// geht), und ein Regler in einer schmalen Leiste trifft ohnehin niemand.
+    static let fussweggrenzen: [Int?] = [nil, 200, 300, 500, 800, 1200, 2000]
 
     /// **Die Verkehrsmittel, die sich überhaupt filtern lassen.**
     ///
