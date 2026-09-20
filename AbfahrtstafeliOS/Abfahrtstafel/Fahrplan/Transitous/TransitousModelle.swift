@@ -106,6 +106,13 @@ enum TransitousAntwort {
     /// Die Antwort von `/plan` — die Verbindungsauskunft.
     struct Reiseplan: Decodable {
         let itineraries: [Reiseweg]?
+        /// **Der reine Fußweg steht HIER und nicht in `itineraries`**
+        /// (gemessen 20.09.2026, Karl-Preis-Platz → Ostbahnhof). Ein Weg
+        /// ganz ohne öffentliches Verkehrsmittel ist für MOTIS keine
+        /// Verbindung, sondern eine „direkte" Verbindung; `itineraries`
+        /// blieb in derselben Antwort leer. Wer ihn dort sucht, findet
+        /// nichts und hält die Quelle für stumm.
+        let direct: [Reiseweg]?
     }
 
     /// Eine Verbindung: Fußwege und Fahrten in einer Kette.

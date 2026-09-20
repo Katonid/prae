@@ -207,4 +207,6 @@ private struct Meldungszeile: View {
 #Preview {
     MeldungenListe()
         .environmentObject(Meldungsdienst())
+        .environmentObject(Standortdienst())
+        .environmentObject(Fusswegmesser(quelle: Musterdienst()))
 }

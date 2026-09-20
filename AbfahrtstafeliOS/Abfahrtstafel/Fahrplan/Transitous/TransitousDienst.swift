@@ -21,7 +21,7 @@ import Foundation
 /// naheliegende Alternative und war zum Zeitpunkt des Baus nicht erreichbar
 /// (503). Genau dafür gibt es `Fahrplandienst`: Wird sie wieder erreichbar,
 /// kostet der Wechsel eine Datei und keine Zeile in den Ansichten.
-struct TransitousDienst: Fahrplandienst {
+struct TransitousDienst: VolleQuelle {
 
     let quellenname: String
     let quellenadresse = URL(string: "https://transitous.org")!
@@ -436,6 +436,81 @@ struct TransitousDienst: Fahrplandienst {
             gegend: gegend?.nilWennLeer,
             koordinate: CLLocationCoordinate2D(latitude: breite, longitude: laenge),
             istHaltestelle: treffer.type == "STOP"
+        )
+    }
+
+    // MARK: - Fußweg
+
+    /// **Wie weit ein Fußweg höchstens gerechnet wird — vier Stunden.**
+    ///
+    /// Die Zahl ist nötig und gemessen (20.09.2026, Marienplatz nach Norden):
+    /// Ohne `maxDirectTime` gibt der Dienst ab etwa **1800 Sekunden Gehzeit**
+    /// gar nichts mehr zurück — ein Kilometer Luftlinie kam mit 1075 s durch,
+    /// zwei Kilometer und alles darüber lieferten eine LEERE Antwort mit HTTP
+    /// 200. Das sah aus wie „kein Weg" und war eine Voreinstellung.
+    ///
+    /// Dass der Parameter wirklich wirkt, ist am INHALT geprüft und nicht am
+    /// Status: Dieselben fünf Kilometer antworteten ohne ihn mit nichts und
+    /// mit `maxDirectTime=7200` mit 4769 s über 5583 m. Das ist hier die
+    /// Pflichtübung — ein falsch geschriebener Parametername wird von `/plan`
+    /// stillschweigend ignoriert und die Antwort sieht tadellos aus.
+    ///
+    /// Vier Stunden sind rund 17 km Weg. Teuer ist es nicht: Auch eine
+    /// Abfrage über 150 km beantwortete der Dienst in gut einer Sekunde — sie
+    /// fand dann allerdings nichts, und das ist richtig so.
+    private static let hoechsteGehzeit = 14400
+
+    func fussweg(
+        von: CLLocationCoordinate2D,
+        nach: CLLocationCoordinate2D
+    ) async throws -> Fussweg {
+        let felder = [
+            URLQueryItem(name: "fromPlace", value: "\(von.latitude),\(von.longitude)"),
+            URLQueryItem(name: "toPlace", value: "\(nach.latitude),\(nach.longitude)"),
+            URLQueryItem(name: "directModes", value: "WALK"),
+            // **Leer und nicht weggelassen.** Ohne diese Zeile rechnet der
+            // Dienst zusätzlich eine ganze Reiseauskunft aus — Zeit und
+            // Daten für eine Antwort, die hier niemand liest.
+            URLQueryItem(name: "transitModes", value: ""),
+            URLQueryItem(name: "maxDirectTime", value: String(Self.hoechsteGehzeit)),
+        ]
+        let antwort: TransitousAntwort.Reiseplan = try await hole("plan", felder)
+
+        // **Leer ist hier kein Fehler, sondern eine Auskunft** — dieselbe
+        // Regel wie bei den Verbindungen. Gemessen: Helgoland vom Festland
+        // aus und München → Nürnberg antworteten mit HTTP 200 und ohne einen
+        // einzigen Weg, und beides stimmt.
+        guard let reise = antwort.direct?.first,
+              let abschnitt = reise.legs?.first(where: { $0.mode == "WALK" }),
+              let meter = abschnitt.distance, meter > 0
+        else { throw Fahrplanfehler.keinFussweg }
+
+        // Die Dauer steht an der Reise. Steht sie dort nicht, wird sie aus
+        // den beiden Zeiten des Abschnitts gerechnet — geraten wird sie
+        // nicht: Eine erfundene Gehzeit sähe aus wie eine Auskunft.
+        let dauer: TimeInterval
+        if let gemeldet = reise.duration, gemeldet > 0 {
+            dauer = gemeldet
+        } else if let anfang = Zeitleser.datum(abschnitt.startTime),
+                  let ende = Zeitleser.datum(abschnitt.endTime) {
+            dauer = ende.timeIntervalSince(anfang)
+        } else {
+            dauer = 0
+        }
+
+        // Die Genauigkeit kommt MIT und wird nicht angenommen (gemessen: 7).
+        // Wer hier fünf einsetzt, legt den Weg um den Faktor 100 daneben.
+        let verlauf = abschnitt.legGeometry.map {
+            Polylinie.auspacken($0.points ?? "", genauigkeit: $0.precision ?? 5)
+        } ?? []
+
+        return Fussweg(
+            start: von,
+            ziel: nach,
+            meter: meter,
+            dauer: dauer,
+            linienzug: verlauf,
+            quelle: quellenname
         )
     }
 

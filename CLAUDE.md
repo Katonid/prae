@@ -1241,6 +1241,72 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   bräuchte je Haltestelle eine Routing-Abfrage und wäre trotzdem geraten,
   solange niemand weiß, wo der Zugang liegt. Wer die Zahl für eine
   Gehstrecke hält, verpasst den Bus.
+- **Ein AUSDRÜCKLICH erfragter Fußweg ist etwas anderes** (`Fusswegquelle`,
+  `Fusswegmesser`, ab 1.1.26, Ansage des Nutzers 09/2026: „Ich möchte eine
+  Möglichkeit der Entfernungsmessung zu Fuß einbauen … sowohl vor Ort … als
+  auch von einem anderen Ort … Dies alles unkompliziert auf der Karte."). Der
+  Punkt darüber bleibt gültig und gilt für die LISTE: Ein Dutzend Abfragen
+  für Zahlen, die niemand angefordert hat, wäre falsch. Hier fragt jemand
+  nach EINER Strecke — eine Abfrage für eine Auskunft, um die gebeten wurde.
+  Auf der Netzkarte, über einen sichtbaren Knopf unten links; Start und Ziel
+  mit demselben Fadenkreuz wie der Suchpunkt, wahlweise „Mein Standort", und
+  ein Tipp auf eine Haltestelle nimmt sie als Punkt.
+- **Der Fußweg steht in `direct`, nicht in `itineraries`** (gemessen
+  20.09.2026, Karl-Preis-Platz → Ostbahnhof). Ein Weg ganz ohne
+  Verkehrsmittel ist für MOTIS keine Verbindung, sondern eine „direkte" —
+  `itineraries` blieb in derselben Antwort leer. Wer ihn dort sucht, hält
+  die Quelle für stumm.
+- **Ohne `maxDirectTime` hört der Fußweg bei 30 Minuten auf — still.**
+  Nachgemessen am selben Tag, Marienplatz nach Norden: ein Kilometer
+  Luftlinie kam mit 1075 s durch, **zwei Kilometer und alles darüber
+  lieferten eine LEERE Antwort mit HTTP 200**. Das sah aus wie „es gibt
+  keinen Weg" und war eine Voreinstellung. Dass der Parameter wirkt, ist am
+  INHALT geprüft und nicht am Status — dieselben fünf Kilometer ohne ihn
+  nichts, mit `maxDirectTime=7200` 4769 s über 5583 m; ein falsch
+  geschriebener Parametername wird von `/plan` stillschweigend ignoriert.
+  Gesetzt sind vier Stunden (rund 17 km). Teuer ist es nicht: auch eine
+  Abfrage über 150 km war in gut einer Sekunde beantwortet.
+- **„Kein Fußweg" gibt es wirklich, und dann steht die Luftlinie da.**
+  Helgoland vom Festland aus und München → Nürnberg antworteten auch mit
+  hohem Deckel mit nichts — richtig, denn über Wasser und über 150 km führt
+  keiner. `Fahrplanfehler.keinFussweg` ist deshalb ein eigener Fall: Hier
+  hilft weder ein zweiter Versuch noch eine andere Zeit. Gezeichnet wird
+  dann die GESTRICHELTE Gerade, und darunter steht, dass es die Luftlinie
+  ist — dieselbe Regel wie beim Fahrtlauf ohne Streckengeometrie.
+- **Die Luftlinie steht IMMER daneben, auch bei gefundenem Weg.** Der
+  Unterschied zwischen beiden ist die eigentliche Auskunft: 1,7 km Weg über
+  1,1 km Luftlinie heißt, dass ein Fluss, ein Gleis oder eine Schnellstraße
+  dazwischenliegt. Und sie ist die einzige Zahl, die auch bei einem
+  Netzaussetzer dasteht.
+- **Die Gehzeit ist die Annahme der QUELLE, keine Messung an einem
+  Menschen** (rund 1,19 m/s, also gut 4,3 km/h — gemessen). Die Leiste
+  schreibt das Tempo hin und dazu, dass langsamer geht, wer Treppen meidet
+  oder ein Kind an der Hand hat. Eine nackte Minutenzahl wäre eine Zusage —
+  dieselbe Regel wie beim Wort „Plan" an einer Abfahrt ohne Echtzeit.
+- **`Fusswegquelle` ist das VIERTE Protokoll, und `VolleQuelle` hält die
+  Kette bei EINER Liste.** Eigenes Protokoll aus demselben Grund wie
+  `Abfahrtsquelle` und `Verbindungsquelle`: Die Verbünde geben Fußwege nur
+  INNERHALB einer Reiseauskunft heraus, nicht zu zwei frei gewählten
+  Punkten. `VolleQuelle = Fahrplandienst & Fusswegquelle` ist der Typ der
+  ersten Stufe und des Spiegels — so gibt es weiterhin eine einzige Liste
+  von Adressen und keinen `as?`-Versuch zur Laufzeit, der den Fehler vom
+  Übersetzer auf das Gerät verschöbe.
+- **Der `Fusswegmesser` liegt in der UMGEBUNG, nicht in der Karte.** Die
+  Netzkarte gibt es zweimal — eingebettet neben der Liste und im Vollbild —,
+  und das sind zwei Ansichten mit eigenem `@State`. Eine gerade gemessene
+  Strecke, die beim Aufziehen der Karte verschwindet, sähe wie ein Fehler
+  aus.
+- **Im Messbetrieb heißt derselbe Tipp etwas anderes.** Ein Tipp auf eine
+  Haltestelle nimmt sie als Messpunkt, statt ihre Tafel zu öffnen; ein Tipp
+  ins Leere zieht die Karte NICHT auf. Beides ist erlaubt, weil der Modus
+  sichtbar ist: Der Knopf steht auf „Abbrechen", das Fadenkreuz liegt in der
+  Mitte, und die Leiste sagt, was gerade dran ist. **Ein Modus, den man
+  nicht sieht, darf die Bedeutung eines Tipps nicht ändern.**
+- **Der Name wird NACHGETRAGEN, nicht abgewartet** (`Fusswegmesser.nameNachtragen`).
+  Der Geocoder braucht eine Sekunde; wer auf ihn wartet, bevor der Punkt
+  dasteht, baut einen Knopf, der eine Sekunde lang nichts tut. Die Messung
+  selbst hängt an der Koordinate. Eine späte Antwort schreibt nur, wenn noch
+  DERSELBE Punkt gemeint ist — sonst benannte sie den längst ersetzten.
 - **Ein Fehler beim Nachladen räumt die stehende Tafel NICHT weg**
   (`AppModel.melden`). Ist noch nichts da, füllt der Fehler den
   Bildschirm; stehen schon Zeiten, bleiben sie und der Fehler wird ein
@@ -2746,7 +2812,7 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   zwölfte Nachbesserung — derselbe Gedanke wie bei Tafelbild 1.4.0 und
   Schulalarm 1.1.0. Die Marken ab 1.0.x in diesem Papier bleiben stehen;
   sie sagen, wann etwas in den Quelltext kam. Danach zählt es weiter:
-  1.1.1 (Build 14), 1.1.2 (Build 15), 1.1.3 (Build 16), 1.1.4 (Build 17), 1.1.5 (Build 18), 1.1.6 (Build 19), 1.1.7 (Build 20), 1.1.8 (Build 21), 1.1.9 (Build 22), 1.1.10 (Build 23), 1.1.11 (Build 24), 1.1.12 (Build 25), 1.1.13 (Build 26), 1.1.14 (Build 27), 1.1.15 (Build 28), 1.1.16 (Build 29), 1.1.17 (Build 30), 1.1.18 (Build 31), 1.1.19 (Build 32), 1.1.20 (Build 33), 1.1.21 (Build 34), 1.1.22 (Build 35), 1.1.23 (Build 36), 1.1.24 (Build 37), 1.1.25 (Build 38) … Dazu gesetzt (Ansage des Nutzers,
+  1.1.1 (Build 14), 1.1.2 (Build 15), 1.1.3 (Build 16), 1.1.4 (Build 17), 1.1.5 (Build 18), 1.1.6 (Build 19), 1.1.7 (Build 20), 1.1.8 (Build 21), 1.1.9 (Build 22), 1.1.10 (Build 23), 1.1.11 (Build 24), 1.1.12 (Build 25), 1.1.13 (Build 26), 1.1.14 (Build 27), 1.1.15 (Build 28), 1.1.16 (Build 29), 1.1.17 (Build 30), 1.1.18 (Build 31), 1.1.19 (Build 32), 1.1.20 (Build 33), 1.1.21 (Build 34), 1.1.22 (Build 35), 1.1.23 (Build 36), 1.1.24 (Build 37), 1.1.25 (Build 38), 1.1.26 (Build 39) … Dazu gesetzt (Ansage des Nutzers,
   09/2026): `DEVELOPMENT_TEAM = F4989GSTWS` — dieselbe Id wie Schulalarm und
   Tafelbild — und `INFOPLIST_KEY_LSApplicationCategoryType =
   public.app-category.navigation`. Beides steht als Build-Einstellung, weil

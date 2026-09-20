@@ -14,7 +14,13 @@ struct AbfahrtstafelApp: App {
     /// fragen dieselbe Quelle; zwei Ketten nebeneinander hieße zwei
     /// Zwischenspeicher und zwei Meinungen darüber, welcher Verbund gerade
     /// antwortet.
-    private static let dienst: Fahrplandienst = Kettendienst()
+    /// **Die Kette steht in ihrem eigenen Typ da und nicht hinter
+    /// `Fahrplandienst`.** Sie kann mehr als das Protokoll — seit 1.1.26 auch
+    /// den Fußweg (`Fusswegquelle`) —, und wer sie hier auf das eine
+    /// Protokoll einengt, kann das andere nicht mehr weiterreichen, ohne zur
+    /// Laufzeit zurückzufragen.
+    private static let kette = Kettendienst()
+    private static var dienst: Fahrplandienst { kette }
 
     @StateObject private var model = AppModel(dienst: AbfahrtstafelApp.dienst)
     @StateObject private var planer = Verbindungsmodell(dienst: AbfahrtstafelApp.dienst)
@@ -23,6 +29,11 @@ struct AbfahrtstafelApp: App {
     @StateObject private var merkliste = Merkliste()
     @StateObject private var netz = Liniennetz()
     @StateObject private var meldungen = Meldungsdienst()
+    /// **In der Umgebung und nicht in der Karte.** Die Netzkarte gibt es
+    /// zweimal — eingebettet und im Vollbild —, und das sind zwei Ansichten
+    /// mit eigenem `@State`. Eine gerade gemessene Strecke, die beim
+    /// Aufziehen der Karte verschwindet, sähe wie ein Fehler aus.
+    @StateObject private var fusswege = Fusswegmesser(quelle: AbfahrtstafelApp.kette)
 
     var body: some Scene {
         WindowGroup {
@@ -34,6 +45,7 @@ struct AbfahrtstafelApp: App {
                 .environmentObject(merkliste)
                 .environmentObject(netz)
                 .environmentObject(meldungen)
+                .environmentObject(fusswege)
         }
     }
 }

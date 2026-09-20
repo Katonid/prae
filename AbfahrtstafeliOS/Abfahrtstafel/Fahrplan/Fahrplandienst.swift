@@ -113,6 +113,14 @@ enum Fahrplanfehler: LocalizedError, Equatable {
     /// Zeit nichts. Ein „Noch einmal versuchen" wäre hier eine Sackgasse mit
     /// Bedienelement; was hilft, ist eine andere Zeit oder ein anderes Ziel.
     case keineVerbindung
+    /// Zwischen diesen beiden Punkten führt kein Fußweg.
+    ///
+    /// Ein eigener Fall, weil die ANTWORT eine andere ist: Hier hilft weder
+    /// ein zweiter Versuch noch eine andere Zeit — es gibt schlicht keinen
+    /// durchgehenden Weg (eine Insel, ein Sperrgebiet) oder die Strecke ist
+    /// zu weit, um sie zu Fuß auszurechnen. Was bleibt, ist die Luftlinie
+    /// mit einem Satz dazu.
+    case keinFussweg
     /// Es gibt NUR noch einen alten Stand — und der reist mitsamt seinem
     /// Alter.
     ///
@@ -137,6 +145,8 @@ enum Fahrplanfehler: LocalizedError, Equatable {
             return "Um diesen Punkt herum kennt der Fahrplandienst keine Haltestelle. Der Dienst sucht nur etwa einen Kilometer weit — mitten im Feld oder im Wald findet er nichts, und das ist kein Fehler. Mit einem Punkt näher an einer Ortschaft geht es."
         case .keineVerbindung:
             return "Zwischen diesen beiden Punkten findet die Auskunft um diese Zeit keine Verbindung. Das ist kein Fehler der App — nachts, auf dem Land und über weite Strecken kommt das vor. Mit einer anderen Zeit oder einem Ziel näher an einer Haltestelle geht es oft doch."
+        case .keinFussweg:
+            return "Zwischen diesen beiden Punkten findet der Dienst keinen durchgehenden Fußweg. Über eine Insel, ein Sperrgebiet oder sehr weite Strecken rechnet er keinen aus — das ist kein Fehler der App. Was bleibt, ist die Luftlinie."
         case .keineQuelleAntwortet(let gruende):
             let liste = gruende.isEmpty ? "" : "\n\n" + gruende.map { "• \($0)" }.joined(separator: "\n")
             return "Keine der Fahrplanquellen hat geantwortet.\(liste)"
@@ -163,6 +173,7 @@ extension Fahrplanfehler {
         case .nichtsGefunden: return "nichts gefunden"
         case .keineHaltestelleInDerNaehe: return "keine Haltestelle in der Nähe"
         case .keineVerbindung: return "keine Verbindung gefunden"
+        case .keinFussweg: return "kein Fußweg gefunden"
         case .keineQuelleAntwortet: return "keine Quelle"
         case .veralteterStand: return "nur ein alter Stand"
         case .abgebrochen: return "abgebrochen"
