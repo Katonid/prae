@@ -116,6 +116,8 @@ struct VerbindungView: View {
                 .buttonStyle(.bordered)
                 .tint(planer.filter.nurDeutschlandTicket ? .accentColor : .secondary)
 
+                Fusswegknopf()
+
                 Spacer(minLength: 0)
 
                 if planer.verbindungen.count > 1 {
@@ -282,6 +284,51 @@ struct VerbindungView: View {
         }
     }
 
+    /// Wie weit höchstens zu Fuß — als Menü mit festen Stufen.
+    ///
+    /// **Ein Menü und kein Schieberegler.** Eine Grenze auf den Meter genau
+    /// einzustellen täuschte eine Genauigkeit vor, die es nicht gibt: Die
+    /// gezeigte Länge ist der Weg, den der Dienst gerechnet hat, nicht der,
+    /// den jemand wirklich geht. Und ein Regler in einer schmalen Leiste
+    /// trifft ohnehin niemand.
+    ///
+    /// **Der eingestellte Wert steht AUF dem Knopf**, nicht nur im Menü
+    /// dahinter. Ein Filter, den man nur beim Aufklappen sieht, ist ein
+    /// Filter, den man vergisst — und dann sähe eine kurze Liste nach einem
+    /// schlechten Fahrplan aus. Dieselbe Regel wie beim Ticketschalter
+    /// daneben.
+    private struct Fusswegknopf: View {
+        @EnvironmentObject private var planer: Verbindungsmodell
+
+        var body: some View {
+            Menu {
+                ForEach(Verbindungsfilter.fussweggrenzen.indices, id: \.self) { stelle in
+                    let grenze = Verbindungsfilter.fussweggrenzen[stelle]
+                    Button {
+                        planer.filter.hoechsterFussweg = grenze
+                    } label: {
+                        if planer.filter.hoechsterFussweg == grenze {
+                            Label(beschriftung(grenze), systemImage: "checkmark")
+                        } else {
+                            Text(beschriftung(grenze))
+                        }
+                    }
+                }
+            } label: {
+                Label(beschriftung(planer.filter.hoechsterFussweg), systemImage: "figure.walk")
+                    .font(.footnote)
+            }
+            .buttonStyle(.bordered)
+            .tint(planer.filter.hoechsterFussweg == nil ? .secondary : .accentColor)
+            .accessibilityLabel("Höchstlänge eines Fußwegs")
+        }
+
+        private func beschriftung(_ grenze: Int?) -> String {
+            guard let grenze else { return "Fußweg egal" }
+            return "max. \(Haltestelle.entfernungstext(Double(grenze)))"
+        }
+    }
+
     /// Die Verkehrsmittel-Leiste der Auskunft.
     ///
     /// **Dieselbe Bedienung wie auf der Tafel, mit einem Unterschied, der
@@ -351,6 +398,10 @@ struct VerbindungView: View {
                 if !filter.mittel.isEmpty {
                     Text("Gesucht wird nur nach \(filter.mittel.sorted { $0.rang < $1.rang }.map(\.mehrzahl).joined(separator: ", ")). Das steht schon in der ANFRAGE und nicht erst in der Liste: Wer erst hinterher aussiebt, bekommt oft gar nichts — der Dienst sucht sonst die schnellste Verbindung und gibt genau die zurück.")
                     Text("Eine Verbindung zählt nur, wenn ALLE ihre Fahrten passen; Fußwege zählen nicht mit. Und der Filter kennt die Art des Verkehrsmittels, nicht die Linie: RE und RB lassen sich nicht trennen — beide kommen aus der Quelle als derselbe Wert (gemessen 20.09.2026, dazu MEX und weitere Marken der Länderbahnen).")
+                }
+                if let grenze = filter.hoechsterFussweg {
+                    Text("Gesucht wird nur nach Verbindungen, bei denen der Weg zur ersten und der von der letzten Haltestelle höchstens \(Haltestelle.entfernungstext(Double(grenze))) lang ist. Ohne eigene Grenze lässt der Dienst rund einen Kilometer zu (gemessen).")
+                    Text("Ein UMSTIEGSWEG mitten in der Verbindung fällt nicht darunter: Er steht als Fußpfad im Fahrplan und lässt sich beim Dienst nicht begrenzen. Und die Längen sind die gerechneten Wege des Dienstes — wie weit jemand wirklich läuft, hängt davon ab, wo der Zugang zum Bahnsteig liegt.")
                 }
                 if filter.nurDeutschlandTicket {
                     Text("Der Ticketfilter zeigt nur Verbindungen ohne Fernzug, Fernbus und Nachtzug — das, was ein Deutschland-Ticket abdeckt. Ausnahmen einzelner Linien stehen in keiner Quelle; Fähren bleiben außen vor, weil sich nicht unterscheiden lässt, welche zum Nahverkehr gehören.")

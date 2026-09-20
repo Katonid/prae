@@ -543,6 +543,13 @@ struct TransitousDienst: VolleQuelle {
         if let modi = Self.motisModi(filter.geltendeMittel) {
             felder.append(URLQueryItem(name: "transitModes", value: modi))
         }
+        // **Die Fußweggrenze reist als ZEIT, denn der Dienst kennt nur Zeit**
+        // (ab 1.1.28). Sie ist bewusst großzügig gerechnet; die Grenze in
+        // Metern hält hinterher `Verbindungsfilter.passt`.
+        if let sekunden = Self.gehsekunden(filter.hoechsterFussweg) {
+            felder.append(URLQueryItem(name: "maxPreTransitTime", value: String(sekunden)))
+            felder.append(URLQueryItem(name: "maxPostTransitTime", value: String(sekunden)))
+        }
         let antwort: TransitousAntwort.Reiseplan = try await hole("plan", felder)
         let gefunden = (antwort.itineraries ?? []).compactMap { verbindung(aus: $0) }
         // **Leer ist hier kein Fehler, sondern eine Auskunft.** Der Dienst
@@ -550,6 +557,42 @@ struct TransitousDienst: VolleQuelle {
         // beiden Punkten nichts fährt (gemessen mit Dortmund → New York).
         guard !gefunden.isEmpty else { throw Fahrplanfehler.keineVerbindung }
         return gefunden
+    }
+
+    /// **Die beiden Parameter, die den Fußweg wirklich begrenzen — gemessen
+    /// 21.09.2026 am Inhalt der Antwort und nicht am Status.**
+    ///
+    /// Geprüft an Starnberg (Ortsrand) → München Hbf, einer Strecke mit
+    /// Zugangswegen zwischen 334 und 796 m:
+    ///
+    /// - **`maxPreTransitTime` begrenzt den ERSTEN Weg** (mit 300 s fielen
+    ///   die Wege über 334 m weg, mit 120 s blieb gar keine Verbindung übrig).
+    /// - **`maxPostTransitTime` begrenzt den LETZTEN** (mit 120 s endete jede
+    ///   Verbindung mit 136 m Fußweg).
+    /// - **`maxWalkDistance`, `maxTransferTime`, `walkReluctance`,
+    ///   `maxMatchingDistance` und `maxTravelTime` tun NICHTS.** Alle fünf
+    ///   lieferten eine Antwort, die Byte für Byte der ungefilterten glich —
+    ///   und zwar mit HTTP 200. **Ein unbekannter Parametername fällt an
+    ///   dieser Schnittstelle nicht auf**; geprüft wird deshalb am Inhalt.
+    ///   (`maxDirectTime` wirkt sehr wohl, aber nur auf den durchgehenden
+    ///   Fußweg der Entfernungsmessung, nicht auf Zugangswege.)
+    /// - **Von Haus aus gilt 900 s**: Eine Anfrage mit `maxPreTransitTime=900`
+    ///   war Byte für Byte die ungefilterte, 1800 gab andere Wege. Wer nichts
+    ///   einstellt, hat also schon eine Grenze von gut einem Kilometer.
+    ///
+    /// **Warum großzügig gerechnet wird.** Der Dienst rundet jede Gehdauer auf
+    /// volle Minuten, und sein Tempo schwankt je Weg (gemessen 0,93 bis
+    /// 1,48 m/s, Mittelwert 1,17). Eine Umrechnung mit dem schnellsten Tempo
+    /// verlöre Verbindungen, die gepasst hätten; mit dem langsamsten kommen
+    /// ein paar zu lange Wege mit, und die nimmt die Prüfung in
+    /// `Verbindungsfilter` hinterher heraus. Von den beiden Fehlern ist der
+    /// zweite der billigere — er kostet nichts, der erste eine Auskunft.
+    private static func gehsekunden(_ meter: Int?) -> Int? {
+        guard let meter, meter > 0 else { return nil }
+        // 0,9 m/s liegt unter dem langsamsten gemessenen Weg; aufgerundet auf
+        // volle Minuten, weil der Dienst ohnehin in Minuten rechnet.
+        let sekunden = Double(meter) / 0.9
+        return Int((sekunden / 60).rounded(.up)) * 60
     }
 
     /// Welche MOTIS-Modi zu einem Verkehrsmittel dieser App gehören — die
