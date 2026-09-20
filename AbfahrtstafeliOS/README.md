@@ -445,6 +445,44 @@ vor, und hingeschrieben hat es nur ein einziger Herausgeber. Die „S1", die als
 Bus fährt, trägt einen leeren Langnamen — dort schweigt die App, statt eine
 Erklärung zu erfinden.
 
+### Ersatzverkehr herausfiltern (ab 1.1.31)
+
+Neben dem Ticketschalter steht **„Ohne Ersatzverkehr"**. Erkannt wird er auf
+zwei Wegen, und die App hält sie auseinander:
+
+1. **Die Quelle sagt es selbst** — und zwar an *zwei* Stellen: National
+   Express im Langnamen („SEV RE 1"), die Albtal-Verkehrs-Gesellschaft im
+   Kurznamen („SEV S7/S71").
+2. **Ein Bus trägt den Namen einer Bahnlinie** (RE, RB, S, U, IC, ICE, EC,
+   RS, MEX mit Ziffer).
+
+Der zweite Weg ist die einzige Stelle, an der diese App einen Liniennamen
+auswertet — und er ist gemessen, nicht geraten (21.09.2026):
+
+- **1434 Busabschnitte**, zwölf deutsche Strecken, vier Tageszeiten, 360
+  verschiedene Buslinien. Echte Busse beginnen mit `M`, `N`, `NE`, `SB`, `X`
+  oder `BER` — **keiner stößt mit der Liste zusammen.** 130 Treffer, jeder von
+  einem Bahnbetrieb gefahren.
+- Die 18 so gefundenen Linien wurden **einzeln auf ihrer eigenen Strecke**
+  nachgefragt: elf gibt es dort nachweislich als Schiene, bei den übrigen gab
+  die Schienenabfrage *gar nichts* her — so sieht eine gesperrte Strecke aus.
+  Kein Treffer war eine gewöhnliche Buslinie.
+- **125 Busabschnitte im Ausland** (Amsterdam bis Salzburg): kein einziger
+  Fehltreffer. Dänische S-Busse heißen `300S` — die Ziffer steht vorn.
+
+Beide Stufen werden gesiebt: Von den 130 Abschnitten schrieben nur 39 es auch
+hin, ein Filter allein auf das Wort griffe nicht einmal in jedem dritten Fall.
+
+**Was der Filter nicht kann, steht in der App:** Ein Ersatzverkehr unter
+gewöhnlicher Busnummer bleibt unsichtbar, ebenso Kürzel, die sich nicht
+nachprüfen ließen (ÖBB „SV190", DB „EBU"). Ein Feld dafür gibt es nicht — der
+GTFS-Typ 714 kam in 1559 Abschnitten kein einziges Mal vor. Gesiebt wird
+deshalb erst nach der Suche; bleibt nichts übrig, ist das eine Aussage über
+den Filter und nicht über den Fahrplan.
+
+In der **Abfahrtstafel** gibt es diesen Filter nicht. Dort ist ein
+Ersatzverkehr ein Bus — markiert, aber nicht filterbar.
+
 ## Auf dem iPad
 
 Eine `List` füllt, was da ist — im Querformat sind das gut zweitausend Punkte,
@@ -698,7 +736,7 @@ Bibliotheken) — nicht von Hand bearbeiten.
 pbxproj (Debug + Release); es gibt keine Skript-Bauphase. **Jede
 Arbeitseinheit hebt Patch- UND Build-Nummer um je +1.** Zählung ab 09/2026:
 1.0.0 (Build 1), dann 1.0.1 (Build 2), 1.0.2 (Build 3), 1.0.3 (Build 4), 1.0.4 (Build 5),
-1.0.5 (Build 6), 1.0.6 (Build 7), 1.0.7 (Build 8), 1.0.8 (Build 9), 1.0.9 (Build 10), 1.0.10 (Build 11), 1.0.11 (Build 12), **1.1.0 (Build 13)** … 1.1.25 (Build 38), 1.1.26 (Build 39), 1.1.27 (Build 40), 1.1.28 (Build 41), 1.1.29 (Build 42), 1.1.30 (Build 43) …
+1.0.5 (Build 6), 1.0.6 (Build 7), 1.0.7 (Build 8), 1.0.8 (Build 9), 1.0.9 (Build 10), 1.0.10 (Build 11), 1.0.11 (Build 12), **1.1.0 (Build 13)** … 1.1.25 (Build 38), 1.1.26 (Build 39), 1.1.27 (Build 40), 1.1.28 (Build 41), 1.1.29 (Build 42), 1.1.30 (Build 43), 1.1.31 (Build 44) …
 
 `ITSAppUsesNonExemptEncryption = NO` steht in `Config/Info.plist` und als
 Build-Einstellung — nicht entfernen.
