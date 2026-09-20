@@ -296,7 +296,13 @@ struct TransitousDienst: VolleQuelle {
             mittel: mittel,
             farbe: farbwert(abschnitt.routeColor),
             schriftfarbe: farbwert(abschnitt.routeTextColor),
-            betrieb: abschnitt.agencyName?.nilWennLeer
+            betrieb: abschnitt.agencyName?.nilWennLeer,
+            langname: zusatzname(abschnitt.routeLongName, neben: liniennname(
+                anzeige: abschnitt.displayName,
+                kurz: abschnitt.routeShortName,
+                lang: abschnitt.routeLongName,
+                mittel: mittel
+            ))
         )
 
         var orte: [TransitousAntwort.Ort] = []
@@ -365,7 +371,13 @@ struct TransitousDienst: VolleQuelle {
                 mittel: mittel,
                 farbe: farbwert(zeile.routeColor),
                 schriftfarbe: farbwert(zeile.routeTextColor),
-                betrieb: zeile.agencyName?.nilWennLeer
+                betrieb: zeile.agencyName?.nilWennLeer,
+                langname: zusatzname(zeile.routeLongName, neben: liniennname(
+                    anzeige: zeile.displayName,
+                    kurz: zeile.routeShortName,
+                    lang: zeile.routeLongName,
+                    mittel: mittel
+                ))
             ),
             richtung: zeile.headsign?.nilWennLeer
                 ?? zeile.tripTo?.name?.nilWennLeer
@@ -674,7 +686,13 @@ struct TransitousDienst: VolleQuelle {
             mittel: mittel,
             farbe: farbwert(abschnitt.routeColor),
             schriftfarbe: farbwert(abschnitt.routeTextColor),
-            betrieb: abschnitt.agencyName?.nilWennLeer
+            betrieb: abschnitt.agencyName?.nilWennLeer,
+            langname: zusatzname(abschnitt.routeLongName, neben: liniennname(
+                anzeige: abschnitt.displayName,
+                kurz: abschnitt.routeShortName,
+                lang: abschnitt.routeLongName,
+                mittel: mittel
+            ))
         )
 
         var orte: [TransitousAntwort.Ort] = []
@@ -791,6 +809,18 @@ struct TransitousDienst: VolleQuelle {
     private func liniennname(anzeige: String?, kurz: String?, lang: String?, mittel: Verkehrsmittel) -> String {
         let roh = anzeige?.nilWennLeer ?? kurz?.nilWennLeer ?? lang?.nilWennLeer ?? mittel.name
         return ohneZugnummer(roh)
+    }
+
+    /// Der lange Name, aber nur, wenn er etwas ANDERES sagt als das Schild.
+    ///
+    /// `liniennname` fällt auf den langen Namen zurück, wenn es keinen kurzen
+    /// gibt — dann stünde derselbe Text zweimal untereinander. Und ein leeres
+    /// Feld ist kein Name: Gemessen am 21.09.2026 kam der Langname bei fast
+    /// jedem Busabschnitt als LEERER Text zurück, nicht als fehlendes Feld.
+    private func zusatzname(_ lang: String?, neben schild: String) -> String? {
+        guard let lang = lang?.nilWennLeer else { return nil }
+        let gestutzt = lang.trimmingCharacters(in: .whitespacesAndNewlines)
+        return gestutzt.caseInsensitiveCompare(schild) == .orderedSame ? nil : gestutzt
     }
 
     /// Schneidet eine angehängte Zugnummer in Klammern ab: „RE5 (79039)" wird

@@ -134,6 +134,12 @@ struct VerbindungDetailView: View {
                         Text("Richtung \(abschnitt.richtung ?? "unbekannt")")
                             .font(.subheadline.weight(.medium))
                             .lineLimit(1)
+                        // Was die Quelle sonst noch über diese Linie sagt
+                        // (ab 1.1.30) — hier mit dem Betrieb, denn bei einem
+                        // Ersatzverkehr ist er die halbe Auskunft.
+                        if let linie = abschnitt.linie {
+                            Linienzusatz(linie: linie, mitBetrieb: true)
+                        }
                         if !abschnitt.istEchtzeit {
                             Text("Planzeiten — keine Echtzeitmeldung")
                                 .font(.caption2)

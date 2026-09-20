@@ -71,6 +71,11 @@ struct AbfahrtsZeile: View {
                 }
                 .font(.caption)
                 .foregroundStyle(.secondary)
+
+                // Was die Quelle sonst über diese Linie sagt (ab 1.1.30) —
+                // ohne den Betrieb: In einer Tafel zählt die Zeile für den
+                // Wartenden, und die ist schon dreizeilig.
+                Linienzusatz(linie: abfahrt.linie)
             }
 
             Spacer(minLength: 4)

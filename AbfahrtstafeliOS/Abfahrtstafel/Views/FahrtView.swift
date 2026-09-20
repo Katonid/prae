@@ -210,6 +210,8 @@ private struct Kopfzeile: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
+                // Ohne `mitBetrieb`: Der steht schon eine Zeile darüber.
+                Linienzusatz(linie: fahrt.linie)
             }
             Spacer()
         }
