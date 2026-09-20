@@ -37,6 +37,16 @@ zwölf Zeichen ab), Ordner, Ziel und Bundle-Id bleiben „Abfahrtstafel“ /
   — sofern der Fahrplandienst ihn mitschickt. Tut er es nicht, zeichnet die
   Karte die Verbindung der Halte **gestrichelt** und schreibt darunter, dass
   es die Luftlinie ist.
+- **Entfernung zu Fuß messen** (ab 1.1.26). Der Knopf mit der gehenden Figur
+  unten links auf der Netzkarte. Start und Ziel wählen Sie mit demselben
+  Fadenkreuz wie den Suchpunkt — oder Sie nehmen „Mein Standort", oder Sie
+  tippen eine Haltestelle auf der Karte an. Heraus kommen **Weglänge,
+  Gehzeit und der Verlauf**, dazu immer die Luftlinie daneben: Der
+  Unterschied zwischen beiden ist die eigentliche Auskunft. Gibt es keinen
+  Weg — über Wasser, über hundert Kilometer —, steht die Luftlinie
+  **gestrichelt** da und die Leiste sagt, dass es eine ist. Die Gehzeit ist
+  die Annahme der Quelle (rund 4,3 km/h) und keine Messung an Ihnen; das
+  steht auch dabei.
 - **Freier Punkt.** Ortssuche, gemerkte Haltestellen, oder ein Fadenkreuz auf
   der Karte („wie sieht es dort aus, wo ich morgen hinmuss?“). Die Karte
   beginnt beim **zuletzt gewählten Ort** — vor dem eigenen Standort, und
@@ -508,9 +518,21 @@ Trennung, sondern eine Lüge mit Protokoll. Die Ansichten sehen weiterhin nur
 
 ## Grenzen, die die App auch selbst nennt
 
-- **Entfernungen sind Luftlinien**, keine Fußwege. Ein Fußweg bräuchte je
-  Haltestelle eine Routing-Abfrage und wäre trotzdem geraten, solange niemand
-  weiß, wo der Zugang liegt. Die Beschriftung sagt „Luftlinie“.
+- **Entfernungen in der LISTE sind Luftlinien**, keine Fußwege. Ein Fußweg je
+  Haltestelle wäre ein Dutzend Routing-Abfragen für Zahlen, die niemand
+  angefordert hat — und trotzdem geraten, solange niemand weiß, wo der Zugang
+  liegt. Die Beschriftung sagt „Luftlinie“. Wer einen Fußweg wirklich wissen
+  will, misst ihn auf der Karte (seit 1.1.26); das ist EINE Abfrage für eine
+  Auskunft, um die gebeten wurde.
+- **Der gemessene Fußweg hört bei vier Stunden auf** (rund 17 km). Das ist
+  kein Schätzwert: Ohne die Angabe `maxDirectTime` gibt der Dienst schon ab
+  30 Minuten Gehzeit gar nichts mehr zurück — nachgemessen 20.09.2026, und
+  zwar mit HTTP 200 und einer leeren Antwort, was aussah wie „es gibt keinen
+  Weg". Über der Grenze und dort, wo wirklich keiner führt (eine Insel),
+  zeigt die App die Luftlinie und sagt es.
+- **Ob Apples eigene Fußweg-Berechnung besser wäre, ist nicht gemessen.**
+  `MKDirections` lässt sich nur auf einem Gerät ausprobieren, nicht in der
+  Bauumgebung — und eine ungemessene Quelle gehört in diese App nicht.
 - **Der Umkreis gilt um die nächstgelegene Haltestelle**, nicht um den Punkt
   selbst — so fragt der Dienst. Auf dem Land kann die nächste Haltestelle weit
   weg sein; der Kreis liegt dann dort.
@@ -576,7 +598,7 @@ Bibliotheken) — nicht von Hand bearbeiten.
 pbxproj (Debug + Release); es gibt keine Skript-Bauphase. **Jede
 Arbeitseinheit hebt Patch- UND Build-Nummer um je +1.** Zählung ab 09/2026:
 1.0.0 (Build 1), dann 1.0.1 (Build 2), 1.0.2 (Build 3), 1.0.3 (Build 4), 1.0.4 (Build 5),
-1.0.5 (Build 6), 1.0.6 (Build 7), 1.0.7 (Build 8), 1.0.8 (Build 9), 1.0.9 (Build 10), 1.0.10 (Build 11), 1.0.11 (Build 12), **1.1.0 (Build 13)** …
+1.0.5 (Build 6), 1.0.6 (Build 7), 1.0.7 (Build 8), 1.0.8 (Build 9), 1.0.9 (Build 10), 1.0.10 (Build 11), 1.0.11 (Build 12), **1.1.0 (Build 13)** … 1.1.25 (Build 38), 1.1.26 (Build 39) …
 
 `ITSAppUsesNonExemptEncryption = NO` steht in `Config/Info.plist` und als
 Build-Einstellung — nicht entfernen.
