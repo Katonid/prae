@@ -360,7 +360,8 @@ Urlaubstagebuch/
   Dienste/     EXIF, Textimport, Bildarchiv, Ablage, Wolke, Spurbau,
                Spureinfuhr, Buchdatei, Kartenwerk, Kachelkarte,
                Seitensatz, Buchausgabe, Standortdienst
-  Views/       Regal, Reise, Seitenfläche, Inspektor, Importe, Karte, PDF
+  Views/       Regal, Reise, Seitenfläche, Inspektor, Importe, Karte, PDF,
+               Fotostil (fürs ganze Buch), Bedienung (die Gesten)
 ```
 
 `Reise` ist eine JSON-Datei je Buch im Dokumentenordner, die Bilder liegen
@@ -699,8 +700,9 @@ Fotoblock. Danach war die Einstellung nicht mehr zu ändern, ohne
 zweihundert Fotos einzeln anzufassen — genau der Fall, den
 `Schriftabweichung` für die Schrift längst vermeidet.
 
-* **Buch → Format, Ränder, Karte → „Fotos"**: Schatten, weißer Rand (wie bei
-  einem Sofortbild), Linie ringsum und deren Farbe. Gilt für jedes Foto.
+* **Buch → „Fotos…"**: Schatten, weißer Rand (wie bei einem Sofortbild),
+  Linie ringsum und deren Farbe. Gilt für jedes Foto. (Bis 1.0.9 lag das
+  hinter „Format, Ränder, Karte" — siehe unten.)
 * **Am einzelnen Block steht eine Abweichung**, kein Wert: Wer im Inspektor
   nichts anfasst, folgt dem Buch — und eine spätere Änderung am Buch trifft
   dieses Foto mit. Ein Knopf „Wieder wie im Buch" nimmt die Abweichung
@@ -713,6 +715,44 @@ Der Umbau von `schatten`/`fotorand`/`randbreite` auf optional ist für ältere
 Bücher gefahrlos: Der erzeugte `Codable`-Leser verlangt einen Schlüssel nur
 für nicht-optionale Eigenschaften. Ein vorhandener Wert wird gelesen, ein
 fehlender wird `nil` — also „wie im Buch".
+
+## Finden statt suchen (1.0.10)
+
+Gemeldet 09/2026: „Kann ich das jetzt für alle Fotos global einstellen und
+wenn ja, wo? Irgendwie ist die App nicht intuitiv zu bedienen."
+
+Die Einstellung gab es seit 1.0.9. Sie lag hinter **Buch → „Format, Ränder,
+Karte…"** — hinter einem Menüpunkt, der nach Papiermaßen klingt. Das ist in
+dieser App jetzt der vierte Befund derselben Art: die Bildunterschrift
+(1.0.6), das Zurücksetzen in Tafelbild, der Gruppenchat in Schulalarm, und
+nun das. **Ein Menüpunkt, der nicht sagt, was dahinter liegt, ist so wenig
+wert wie ein Knopf, den niemand findet.**
+
+* **„Fotos…" steht eigenständig im Buch-Menü**, gleich unter Stil und
+  Schrift. Die Felder selbst stehen einmal da (`Views/Fotostil.swift`,
+  `Fotostilfelder`) und werden an zwei Stellen gezeigt — im eigenen Blatt
+  und weiterhin als Unterseite der Gestaltung. Zwei Fassungen desselben
+  Formulars liefen auseinander.
+* **Vom einzelnen Foto zum ganzen Buch führt ein Knopf.** Wer im Inspektor
+  die Wirkung eines Fotos ändert, ist genau die Person, die „und für alle?"
+  fragt. Der Knopf sagt, wo man steht („Für alle Fotos einstellen" bzw.
+  „Dieses Foto weicht ab — für alle einstellen"); „Wieder wie im Buch" nimmt
+  die Abweichung zurück.
+* **Die Gesten stehen aufgeschrieben** („?" unten in der Leiste,
+  `Views/BedienungView.swift`). Eine Buchseite ist seit 1.0.5 eine
+  Zeichnung, und jeder Griff daran ist eine Geste: Tipp, Doppeltipp, Ziehen
+  am Punkt, zwei Finger auf dem Foto. Nichts davon sieht man. Die Karte
+  zählt auf, was geht und wo was eingestellt wird — sie erklärt nichts,
+  denn wer sie öffnet, sucht etwas Bestimmtes. Wer eine neue Geste einbaut,
+  trägt sie dort ein.
+* **„Satz" heißt jetzt „Anordnen".** „Satz" ist das Fachwort für das, was der
+  Layoutautomat tut; gesucht wird es von jemandem, der eine Seite neu
+  verteilt haben will.
+
+**Ob sich die App dadurch anders anfühlt, ist nicht gemessen.** Gemessen
+sind Wege: Die Einstellung liegt eine Ebene höher und heißt nach ihrer
+Sache, die Gesten stehen an einer Stelle. Ob das reicht, sagt erst der
+nächste Befund.
 
 ## Bildunterschriften (1.0.5)
 
