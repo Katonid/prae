@@ -366,6 +366,116 @@ final class Reisewerk: ObservableObject, Identifiable {
         return true
     }
 
+    // MARK: - Einen Textkasten teilen
+
+    // Nur der Tagebuchtext lässt sich teilen. Überschrift, Datumszeile und
+    // Bildunterschrift stehen am Tag bzw. am Foto; von ihnen eine zweite
+    // Hälfte anzulegen hieße, eine Kopie zu bauen, die beim nächsten
+    // Neuanordnen auseinanderläuft.
+    func teilbar(_ block: Block) -> Bool {
+        if case .text = block.inhalt { return true }
+        return false
+    }
+
+    // Teilt einen Textkasten und führt ihn auf einer weiteren Seite fort.
+    //
+    // Zwei Wege, und beide hat der Nutzer beschrieben (09/2026: „Im
+    // Nachhinein möchte ich eine Textbox gegebenenfalls teilen können und
+    // sie manuell auf einer weiteren Seite fortführen können."):
+    // `nachAbsatz: nil` teilt dort, wo der Kasten voll ist — also genau
+    // das, was unten herausfällt, wandert weiter; eine Zahl teilt nach dem
+    // genannten Absatz.
+    //
+    // Der erste Kasten behält seinen Rahmen. Ihn auf den verbliebenen Text
+    // zu schrumpfen wäre der naheliegende Griff und der falsche: Dieselbe
+    // Regel wie bei `hoeheAnTextAnpassen` — ein Kasten, der von selbst
+    // kleiner wird, nimmt eine Größe weg, die jemand mit der Hand
+    // eingestellt hat.
+    @discardableResult
+    func textTeilen(_ id: UUID, nachAbsatz: Int? = nil) -> Bool {
+        guard let stelle = block(id) else { return false }
+        let tag = reise.tage[stelle.tag]
+        let block = tag.seiten[stelle.seite].bloecke[stelle.block]
+        guard case let .text(inhalt) = block.inhalt else {
+            // Überschrift, Datumszeile und Bildunterschrift stehen am Tag
+            // bzw. am Foto und nicht im Block — sie zu teilen hieße, eine
+            // Kopie anzulegen, die beim nächsten Neuanordnen auseinanderläuft.
+            meldung = .init(text: "Teilen geht nur beim Tagebuchtext. Überschrift, "
+                            + "Datumszeile und Bildunterschrift gehören dem Tag "
+                            + "bzw. dem Foto.", schwer: true)
+            return false
+        }
+
+        let bild = Seitensatz.schriftbild(block, reise: reise)
+        let rand = block.textrand(reise.gestaltung)
+        let breite = block.textbreite(rand: rand)
+        var kopf = ""
+        var rest = ""
+
+        if let nachAbsatz {
+            (kopf, rest) = Textaufbereitung.teilen(inhalt, nachAbsatz: nachAbsatz)
+        } else {
+            let platz = CGSize(width: breite, height: max(block.rahmen.hoehe - 2 * rand, 1))
+            (kopf, rest) = Textmass.teilen(inhalt, bild: bild, groesse: platz)
+        }
+
+        guard !rest.isEmpty else {
+            meldung = .init(text: "Hier ist nichts zu teilen: Der Text passt "
+                            + "vollständig in diesen Kasten.")
+            return false
+        }
+        guard !kopf.isEmpty else {
+            // Passt nicht eine Zeile hinein, ist der Kasten zu klein oder
+            // die Schrift zu groß. Den ganzen Text wegzuschieben sähe aus,
+            // als sei er verschwunden.
+            meldung = .init(text: "In diesen Kasten passt nicht einmal die erste Zeile — "
+                            + "erst den Rahmen größer ziehen oder die Schrift kleiner "
+                            + "stellen.", schwer: true)
+            return false
+        }
+
+        merken()
+        reise.tage[stelle.tag].seiten[stelle.seite].bloecke[stelle.block].inhalt = .text(kopf)
+        reise.tage[stelle.tag].seiten[stelle.seite].bloecke[stelle.block].vonHand = true
+
+        // Die Fortsetzung ist eine KOPIE des Kastens — mit neuer Kennung.
+        // Sie soll aussehen wie ihr Anfang: Schrift, Grund, Innenabstand,
+        // Linie und Breite bleiben, nur Inhalt, Lage und Höhe sind neu.
+        var fortsetzung = block
+        fortsetzung.id = UUID()
+        fortsetzung.inhalt = .text(rest)
+        fortsetzung.vonHand = true
+        fortsetzung.ebene = 0
+        let satz = reise.gestaltung.satzspiegel(reise.format)
+        let noetig = Textmass.hoehe(rest, bild: bild, breite: breite) + 2 * rand
+        fortsetzung.rahmen = Rahmen(x: block.rahmen.x, y: satz.minY,
+                                    breite: block.rahmen.breite,
+                                    hoehe: min(noetig, satz.height))
+
+        // Auf eine LEERE Folgeseite darf die Fortsetzung; auf eine schon
+        // gefüllte nicht — dort läge sie über dem, was da steht. Dann
+        // bekommt sie eine eigene Seite, und die steht unmittelbar hinter
+        // dem Anfang: Eine Fortsetzung drei Seiten später findet niemand.
+        let folge = stelle.seite + 1
+        let seiten = reise.tage[stelle.tag].seiten
+        let leerDa = seiten.indices.contains(folge) && seiten[folge].bloecke.isEmpty
+        if !leerDa {
+            reise.tage[stelle.tag].seiten.insert(Seite(), at: min(folge, seiten.count))
+        }
+        let ziel = min(folge, reise.tage[stelle.tag].seiten.count - 1)
+        reise.tage[stelle.tag].seiten[ziel].bloecke.append(fortsetzung)
+        reise.tage[stelle.tag].seiten[ziel].heben(fortsetzung.id)
+
+        // Hingehen, wo die Fortsetzung steht. Ein Knopf, nach dem sich
+        // sichtbar nichts tut, ist für den Menschen davor ein kaputter Knopf.
+        seitenzeiger = ziel
+        gewaehlterBlock = fortsetzung.id
+        textUeberlauf = nil
+        meldung = .init(text: "Der Kasten ist geteilt — der Rest steht auf Seite "
+                        + "\(ziel + 1) dieses Tages.")
+        return true
+    }
+
     // Alle Abweichungen einzelner Fotos zurücknehmen — danach folgt jedes
     // Foto wieder der Einstellung des Buches.
     func fotowirkungVereinheitlichen() {

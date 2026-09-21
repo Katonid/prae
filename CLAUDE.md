@@ -3836,6 +3836,73 @@ Befunde, und keiner davon war Geschmack:
   Aufbau (ZIP-Verzeichnis, DEFLATE-Sorte, welche Word-Elemente Text tragen,
   welche Kodierung wann scheitert); ob eine bestimmte `.docx` oder PDF
   durchgeht, sagt erst der nächste Befund. **Nicht als erledigt darstellen.**
+- **Der Umbruch sucht ZUERST einen Absatz** (`Textmass.teilenMitArt`, ab 1.0.14,
+  Ansage des Nutzers 09/2026: „Sodass Texte, die in der angegebenen Schriftgröße
+  zu groß für eine Seite sind, automatisch auf einer weiteren Seite fortgesetzt
+  werden. Dabei wäre es schön, wenn an einem bestehenden Absatz umgebrochen
+  wird."). Fortgesetzt wurde schon vorher — geteilt wurde aber an der
+  WORTgrenze, also mitten im Gedanken. Jetzt wird vor der Wortgrenze die letzte
+  Absatzgrenze gesucht, die noch auf die Seite passt.
+  - **Der Absatz gewinnt nicht um jeden Preis.** Steht die letzte Grenze weit
+    oben — ein einziger langer Absatz füllt den Rest —, bliebe unten eine große
+    weiße Fläche stehen, und die sieht nach Abbruch aus. Gemessen wird deshalb,
+    wie hoch der Kopf bis zu dieser Grenze WIRD (`Textmass.hoehe`, also
+    CoreText, nicht die Zeichenzahl), und verglichen mit dem Platz, den es gibt.
+    Unter 62 Prozent Füllung bleibt es bei der Wortgrenze. **Die Zahl ist
+    gewählt und nicht gemessen** — sie lässt höchstens gut ein Drittel Seite
+    frei.
+  - **Ein Absatz ist der ZEILENWECHSEL**, nicht die Leerzeile. `Schriftbild`
+    setzt den Absatzabstand als `paragraphSpacing`, und CoreText zählt dafür
+    genau dieselbe Grenze; zwei Meinungen darüber, wo ein Absatz aufhört, wären
+    zwei verschiedene Umbrüche. Mitgelesen werden U+2028 und U+2029 — die
+    stehen in Texten aus Word und aus PDFs und wären sonst unsichtbar.
+- **Fotos warten nicht mehr, bis der Text fertig ist** (`Layoutautomat.reihenSetzen`,
+  ab 1.0.14). Bis 1.0.13 füllte der Text auf jeder Folgeseite die ganze Höhe;
+  ein Tag mit langem Text und vielen Bildern ergab erst mehrere reine
+  Textseiten und danach reine Fotoseiten — das Bild zum Erzählten stand drei
+  Seiten weiter. **Freigehalten wird die GEMESSENE Höhe der nächsten Fotoreihe**
+  (`naechsteReihe` rechnet sie ohnehin aus) und kein geschätzter Anteil: Ein
+  Anteil, der zu klein ist, lässt die Reihe doch nicht hinein, und dann bliebe
+  unten weißer Platz, den niemand bestellt hat. Passen nach der Reihe keine
+  sechs Zeilen Text mehr auf die Seite, wird gar nichts freigehalten — eine
+  Seite mit vier Zeilen über einem Bild ist kein Satz, sondern ein Rest. Ist
+  kein Foto mehr offen, gilt wieder die ganze Seite.
+- **Einen Textkasten von Hand teilen** (`Reisewerk.textTeilen`, ab 1.0.14,
+  Ansage des Nutzers 09/2026: „Im Nachhinein möchte ich eine Textbox
+  gegebenenfalls teilen können und sie manuell auf einer weiteren Seite
+  fortführen können."). Zwei Wege, weil es zwei Fragen sind: „Rest auf die
+  nächste Seite" lässt stehen, was in den Kasten passt, und schiebt den
+  Überhang weiter — die Stelle sagt der Satz, man muss sie nicht suchen;
+  „Nach einem Absatz teilen" trennt an einer selbst gewählten Stelle und gilt
+  auch dann, wenn gar nichts herausfällt. Ausgesucht wird nach dem ANFANG des
+  Absatzes: „Absatz 4" sagt niemandem etwas, „Am Morgen zogen wir …" schon.
+  - **Der erste Kasten behält seinen Rahmen.** Ihn auf den verbliebenen Text zu
+    schrumpfen wäre der naheliegende Griff und der falsche — dieselbe Regel wie
+    bei `hoeheAnTextAnpassen`: Ein Kasten, der von selbst kleiner wird, nimmt
+    eine Größe weg, die jemand mit der Hand eingestellt hat.
+  - **Die Fortsetzung ist eine KOPIE mit neuer Kennung** — Schrift, Grund,
+    Innenabstand, Linie und Breite bleiben, nur Inhalt, Lage und Höhe sind neu.
+    Sie soll aussehen wie ihr Anfang.
+  - **Auf eine schon gefüllte Folgeseite kommt sie nicht**, sonst läge sie über
+    dem, was dort steht; dann bekommt sie eine eigene, und die steht
+    unmittelbar hinter dem Anfang — eine Fortsetzung drei Seiten später findet
+    niemand. Beide Kästen tragen danach `vonHand`, der Tag gilt also als
+    Handarbeit und wird nicht ohne Rückfrage neu angeordnet.
+  - **Geteilt wird nur der Tagebuchtext.** Überschrift, Datumszeile und
+    Bildunterschrift stehen am Tag bzw. am Foto; von ihnen eine zweite Hälfte
+    anzulegen hieße, eine Kopie zu bauen, die beim nächsten Neuanordnen
+    auseinanderläuft.
+  - **Drei Wege dorthin**, und keiner davon ist eine Geste: Block → Teilen, der
+    Knopf unten in der Leiste (er steht neben „Rahmen an Text anpassen", sobald
+    die orange Marke zu sehen ist — auf einer vollen Seite ist er der einzige
+    Ausweg, der bleibt) und die Zeile in der Bedienungskarte. **Wer einen neuen
+    Griff einbaut, trägt ihn dort ein.**
+- **Nicht gemessen (1.0.14):** Kein Buch ist damit gesetzt worden. Gerechnet
+  sind die Regeln — wo ein Absatz aufhört, wie hoch der Kopf wird, wie hoch die
+  nächste Fotoreihe ist; wie eine Doppelseite damit AUSSIEHT, sagt erst der
+  nächste Befund des Nutzers. Die beiden Zahlen (62 Prozent Füllung, sechs
+  Zeilen neben einer Fotoreihe) sind gewählt und nicht gemessen. **Nicht als
+  erledigt darstellen.**
 - **Die Bildunterschrift war halb gebaut** (ab 1.0.5, Wunsch des Nutzers
   09/2026: „zu jedem Foto einen Beschreibungstext … Dies soll jedoch eine
   Option für jedes Foto sein. Kein muss."). Der Layoutautomat hielt Platz

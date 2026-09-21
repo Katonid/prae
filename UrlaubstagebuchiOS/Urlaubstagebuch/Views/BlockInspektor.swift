@@ -32,6 +32,7 @@ struct BlockInspektor: View {
                     if block.inhalt.istText { ueberlaufAbschnitt(block) }
                     if block.inhalt.istText { schriftAbschnitt(block) }
                     absatzAbschnitt(block)
+                    teilenAbschnitt(block)
                     if let id = block.fotoID { fotoAbschnitt(block, fotoID: id) }
                     if block.inhalt == .karte { karteAbschnitt(block) }
                     lageAbschnitt(block)
@@ -274,6 +275,48 @@ struct BlockInspektor: View {
                 Text(zeilen.count > 2
                      ? "Der Absatzabstand steht nach JEDEM Absatz. Ist ein eingelesener Text hart umbrochen, ist jede Zeile einer — dann sieht es nach zu viel Luft aus, obwohl die Einstellung stimmt. Das Zusammenführen macht aus fortlaufenden Zeilen wieder Absätze; rückgängig geht es mit dem Pfeil oben."
                      : "Der Absatzabstand oben gilt nach jedem Absatz dieses Kastens.")
+            }
+        }
+    }
+
+    // EINEN KASTEN TEILEN UND AUF EINER WEITEREN SEITE FORTFÜHREN
+    //
+    // Ansage des Nutzers, 09/2026: „Im Nachhinein möchte ich eine Textbox
+    // gegebenenfalls teilen können und sie manuell auf einer weiteren
+    // Seite fortführen können." Zwei Wege, weil es zwei Fragen sind: Der
+    // erste schiebt das weiter, was unten herausfällt — dafür muss man
+    // keine Stelle suchen, der Satz sagt sie. Der zweite teilt nach einem
+    // Absatz, den man selbst aussucht; er gilt auch dann, wenn gar nichts
+    // herausfällt.
+    //
+    // Ausgesucht wird nach dem ANFANG des Absatzes und nicht nach seiner
+    // Nummer: „Absatz 4" sagt niemandem etwas, „Am Morgen zogen wir …"
+    // schon.
+    @ViewBuilder
+    private func teilenAbschnitt(_ block: Block) -> some View {
+        if case let .text(inhalt) = block.inhalt {
+            let absaetze = Textaufbereitung.absaetze(inhalt)
+            Section {
+                Button {
+                    werk.textTeilen(block.id)
+                } label: {
+                    Label("Rest auf die nächste Seite", systemImage: "text.line.first.and.arrowtriangle.forward")
+                }
+                if absaetze.count > 1 {
+                    Menu {
+                        ForEach(absaetze.indices.dropLast(), id: \.self) { stelle in
+                            Button(vorschau(absaetze[stelle])) {
+                                werk.textTeilen(block.id, nachAbsatz: stelle + 1)
+                            }
+                        }
+                    } label: {
+                        Label("Nach einem Absatz teilen", systemImage: "text.append")
+                    }
+                }
+            } header: {
+                Text("Teilen")
+            } footer: {
+                Text("„Rest auf die nächste Seite\u{201C} lässt stehen, was in den Kasten passt, und legt den Überhang als zweiten Kasten auf die folgende Seite — steht dort schon etwas, bekommt er eine eigene. Der Kasten hier behält seine Größe; kleiner wird er nur von Hand.")
             }
         }
     }
@@ -677,6 +720,14 @@ struct BlockInspektor: View {
         f.dateFormat = "d. MMM yyyy, HH:mm"
         f.timeZone = TimeZone(secondsFromGMT: 0)
         return f
+    }
+
+    // Der Anfang eines Absatzes als Merkzeichen — lang genug, um ihn
+    // wiederzuerkennen, kurz genug für eine Menüzeile.
+    private func vorschau(_ absatz: String) -> String {
+        let sauber = absatz.trimmingCharacters(in: .whitespacesAndNewlines)
+        if sauber.count <= 44 { return sauber }
+        return String(sauber.prefix(44)) + "\u{2026}"
     }
 
     private func zahl(_ name: String, wert: Double, setzen: @escaping (Double) -> Void) -> some View {
