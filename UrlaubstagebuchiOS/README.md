@@ -717,6 +717,72 @@ Bücher gefahrlos: Der erzeugte `Codable`-Leser verlangt einen Schlüssel nur
 für nicht-optionale Eigenschaften. Ein vorhandener Wert wird gelesen, ein
 fehlender wird `nil` — also „wie im Buch".
 
+## Der Weg durch ein ganzes Buch (1.0.14)
+
+Beschrieben hat ihn der Nutzer selbst: erst das Tagebuch aus Word — daraus
+entstehen die Reisetage —, dann die Reisespur, die an jedem Tag eine Karte
+hinterlässt, zuletzt die Fotos, die sich in unterschiedlicher Stückzahl auf
+die Tage verteilen. Die drei Einfuhrwege gab es schon (`Dienste/Textimport.swift`,
+`Dienste/Spureinfuhr.swift`, `Dienste/Fotoeinfuhr.swift`); was daran nicht
+stimmte, war das Zusammensetzen danach.
+
+**Der Seitenumbruch sucht jetzt zuerst einen Absatz.** Dass ein zu langer Text
+auf der nächsten Seite weitergeht, konnte der Layoutautomat seit 1.0.0 —
+geteilt wurde aber an der letzten Wortgrenze, also mitten im Gedanken. Vor ihr
+wird nun die letzte Absatzgrenze gesucht, die noch auf die Seite passt.
+
+Der Absatz gewinnt nicht um jeden Preis. Steht seine Grenze weit oben, weil ein
+einziger langer Absatz den Rest der Seite füllt, bliebe unten eine große weiße
+Fläche stehen — und die sieht nach Abbruch aus. Gemessen wird deshalb mit
+CoreText, wie hoch der Kopf bis zu dieser Grenze wird, und verglichen mit dem
+Platz, den es gibt: Bleiben weniger als 62 Prozent gefüllt, wird wie bisher an
+der Wortgrenze geteilt. **Die Zahl ist gewählt und nicht gemessen.**
+
+Ein Absatz ist dabei der Zeilenwechsel und nicht die Leerzeile: `Schriftbild`
+setzt den Absatzabstand als `paragraphSpacing`, und CoreText zählt dafür genau
+dieselbe Grenze. Zwei Meinungen darüber, wo ein Absatz aufhört, wären zwei
+verschiedene Umbrüche.
+
+**Die Fotos warten nicht mehr, bis der Text fertig ist.** Bis 1.0.13 füllte der
+Text auf jeder Folgeseite die ganze Höhe; ein Tag mit langem Text und vielen
+Bildern ergab erst mehrere reine Textseiten und danach reine Fotoseiten — das
+Bild zum Erzählten stand drei Seiten weiter. Freigehalten wird jetzt die
+gemessene Höhe der nächsten Fotoreihe (`naechsteReihe` rechnet sie ohnehin aus)
+und kein geschätzter Anteil: Ein Anteil, der zu klein ist, lässt die Reihe doch
+nicht hinein, und dann bliebe unten weißer Platz, den niemand bestellt hat.
+Passen nach der Reihe keine sechs Zeilen Text mehr auf die Seite, wird gar
+nichts freigehalten — eine Seite mit vier Zeilen über einem Bild ist kein Satz,
+sondern ein Rest. Ist kein Foto mehr offen, gilt wieder die ganze Seite.
+
+**Und im Nachhinein lässt sich ein Textkasten teilen.** Zwei Wege, weil es zwei
+Fragen sind:
+
+* **„Rest auf die nächste Seite"** lässt stehen, was in den Kasten passt, und
+  legt den Überhang als zweiten Kasten auf die folgende Seite. Die Stelle sagt
+  der Satz; man muss sie nicht suchen.
+* **„Nach einem Absatz teilen"** trennt an einer selbst gewählten Stelle und
+  gilt auch dann, wenn gar nichts herausfällt. Ausgesucht wird nach dem Anfang
+  des Absatzes — „Absatz 4" sagt niemandem etwas, „Am Morgen zogen wir …"
+  schon.
+
+Der erste Kasten behält dabei seine Größe. Ihn auf den verbliebenen Text zu
+schrumpfen wäre der naheliegende Griff und der falsche: dieselbe Regel wie beim
+Mitwachsen — ein Kasten, der von selbst kleiner wird, nimmt eine Größe weg, die
+jemand mit der Hand eingestellt hat. Die Fortsetzung ist eine Kopie mit neuer
+Kennung und sieht aus wie ihr Anfang (Schrift, Grund, Innenabstand, Linie,
+Breite); steht auf der Folgeseite schon etwas, bekommt sie eine eigene Seite
+unmittelbar dahinter. Beide Kästen gelten danach als Handarbeit und werden
+nicht ohne Rückfrage neu angeordnet.
+
+Zu finden ist das an drei Stellen: Block → Teilen, unten in der Leiste neben
+„Rahmen an Text anpassen", sobald die orange Marke zu sehen ist, und als Zeile
+in der Bedienungskarte hinter dem „?".
+
+**Nicht gemessen:** Kein Buch ist damit gesetzt worden. Gerechnet sind die
+Regeln — wo ein Absatz aufhört, wie hoch der Kopf wird, wie hoch die nächste
+Fotoreihe ist. Wie eine Doppelseite damit aussieht, sagt erst der nächste
+Befund.
+
 ## Der Textimport nimmt jetzt Word, PDF und reinen Text (1.0.13)
 
 Gewünscht: „Ich möchte Texte im Word-Format, PDF oder reinen Text eingeben
@@ -1109,6 +1175,10 @@ im Inspektor gab es, aber keinen Weg zu sehen, was es bewirkt.
   randbündigen Reihe füllen eine A4-quer-Seite zu 40 % — höher kann die
   Reihe nicht werden, das ist Geometrie. Die Antwort darauf ist eine
   Vorlage (eines groß, zwei gestapelt), nicht eine weitere Stellschraube.
+* **Der neue Umbruch ist nicht gesetzt worden.** Die Absatzgrenze, die
+  62-Prozent-Schwelle und der freigehaltene Platz für die nächste Fotoreihe
+  sind gerechnet; wie eine Doppelseite damit aussieht, zeigt erst ein Buch.
+  Die beiden Zahlen sind gewählt und nicht gemessen.
 * **Wie sich ein Buch mit zweihundert Fotos anfühlt, ist nicht gemessen.**
   Vorschaubilder sind gedeckelt und der Kartenvorrat begrenzt, aber beides
   ist eine Vorsichtsmaßnahme und keine Messung.
