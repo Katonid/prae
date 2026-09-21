@@ -15,6 +15,18 @@ struct ReiseView: View {
     // auseinander.
     @AppStorage("einrasten") private var einrastenAn = true
     @State private var buchdatei: Buchwunsch?
+    // Einzelseiten oder Doppelseiten. `@AppStorage` gehört in eine VIEW
+    // und nie ins `Reisewerk` — der Wrapper ist eine `DynamicProperty`.
+    @AppStorage("doppelseiten") private var doppelseiten = false
+    // Der Maßstab beim Aufsetzen der Zweifingergeste. Gerechnet wird vom
+    // Anfangswert aus: `magnification` ist die GESAMTE Bewegung seit dem
+    // Aufsetzen, und wer sie aufaddiert, beschleunigt mit jedem Bildpunkt
+    // (dieselbe Lehre wie beim Bildausschnitt in 1.0.8).
+    @State private var zoomAnfang: Double?
+    // Wie breit die Bühne ist. GEMESSEN und gemerkt, nicht geschätzt:
+    // Daran hängt der eingepasste Maßstab, und den brauchen die Lupen und
+    // die Geste auch außerhalb des `GeometryReader`.
+    @State private var buehnenbreite: Double = 0
 
     // Der Wunsch trägt das Ziel, kein Schalter daneben — dieselbe Regel
     // wie bei den Dateiwählern in Tafelbild. Ein `URL` ist nicht
@@ -100,11 +112,6 @@ struct ReiseView: View {
 
     private var buehne: some View {
         GeometryReader { raum in
-            // EINMAL je Durchgang, nicht zweimal: Bis 1.0.15 stand hier
-            // zweimal `sichtbareSeiten` — einmal für die Liste und einmal
-            // für die Prüfung auf leer —, und dahinter lag der Aufbau der
-            // ganzen Seitenfolge samt Titelblatt.
-            let seiten = werk.sichtbareSeiten
             ScrollView([.horizontal, .vertical]) {
                 // LAZY, und das ist der Punkt: Ein gewöhnlicher `VStack`
                 // baut JEDES Kind sofort auf, auch das, was weit unterhalb
@@ -117,25 +124,87 @@ struct ReiseView: View {
                 // jemand die Seite wechselt. Ein `LazyVStack` baut nur,
                 // was in Sichtweite kommt.
                 LazyVStack(spacing: 26) {
-                    ForEach(seiten) { buchseite in
-                        VStack(spacing: 6) {
-                            SeitenflaecheView(werk: werk, buchseite: buchseite,
-                                              massstab: massstab(raum.size))
-                            Text("Seite \(buchseite.nummer)")
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                        }
+                    if doppelseiten {
+                        bogenliste
+                    } else {
+                        einzelseiten
                     }
-                    if seiten.isEmpty { hinweisLeer }
                 }
                 .padding(28)
                 .frame(maxWidth: .infinity)
+                // ZWEI FINGER ZOOMEN DIE SEITE (ab 1.0.17).
+                //
+                // Die Geste hängt am INHALT der Bühne und nicht an einer
+                // einzelnen Seite: Gezoomt wird das Blatt, nicht das, was
+                // darauf liegt. Sie ist abgeschaltet, solange ein FOTO
+                // gewählt ist — dort bedeuten zwei Finger seit 1.0.8 den
+                // Bildausschnitt im Rahmen, und eine Geste, die zwei Dinge
+                // gleichzeitig tut, ist für den Menschen davor kaputt.
+                // Sichtbar ist der Unterschied an den Anfassern; und die
+                // Lupen unten links gehen immer.
+                .gesture(seitenzoom, including: seitenzoomErlaubt ? .all : .subviews)
             }
             .background(Color(.systemGroupedBackground))
+            // Gemessen wird die Breite EINMAL je Änderung, nicht im Körper:
+            // Ein `@State`, das während des Zeichnens geschrieben wird,
+            // löst das nächste Zeichnen aus.
+            .onChange(of: raum.size.width, initial: true) { _, breite in
+                buehnenbreite = breite
+            }
         }
         .navigationTitle(titelzeile)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar { werkzeuge }
+    }
+
+    // EINMAL je Durchgang gelesen, nicht zweimal: Bis 1.0.15 stand
+    // `sichtbareSeiten` hier zweimal — einmal für die Liste und einmal für
+    // die Prüfung auf leer —, und dahinter lag der Aufbau der ganzen
+    // Seitenfolge samt Titelblatt.
+    @ViewBuilder
+    private var einzelseiten: some View {
+        let seiten = werk.sichtbareSeiten
+        ForEach(seiten) { buchseite in
+            VStack(spacing: 6) {
+                SeitenflaecheView(werk: werk, buchseite: buchseite, massstab: massstabJetzt)
+                Text("Seite \(buchseite.nummer)")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        if seiten.isEmpty { hinweisLeer }
+    }
+
+    @ViewBuilder
+    private var bogenliste: some View {
+        let bogen = werk.sichtbareDoppelseiten
+        ForEach(bogen) { einer in
+            DoppelseiteView(werk: werk, bogen: einer, massstab: massstabJetzt)
+        }
+        if bogen.isEmpty {
+            hinweisLeer
+        } else if let hinweis = ungeradeSeitenzahl {
+            // Gesagt wird es dort, wo die Frage entsteht: In der
+            // Doppelseitenansicht sieht man, dass der letzte Bogen keine
+            // Rückseite hat. Die meisten Druckdienste verlangen eine
+            // GERADE Seitenzahl; das ist hier NICHT geprüft, sondern
+            // gezählt — was ein bestimmter Anbieter annimmt, steht in
+            // seinen Angaben und nicht in dieser App.
+            Text(hinweis)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: 420)
+                .padding(.top, 8)
+        }
+    }
+
+    private var ungeradeSeitenzahl: String? {
+        let anzahl = werk.seitenfolge.count
+        guard anzahl > 0, anzahl % 2 == 1 else { return nil }
+        return "Das Buch hat \(anzahl) Seiten, also eine ungerade Zahl \u{2014} "
+            + "die letzte Seite hat keine Rückseite. Viele Druckdienste verlangen "
+            + "eine gerade Seitenzahl; ob dieser es tut, steht in seinen Angaben."
     }
 
     private var hinweisLeer: some View {
@@ -163,11 +232,31 @@ struct ReiseView: View {
     // Der Maßstab passt die Seite in die Breite ein, solange nicht
     // ausdrücklich gezoomt wurde. Ein Buch, das man erst zurechtschieben
     // muss, bevor man es sieht, ist keines.
-    private func massstab(_ raum: CGSize) -> Double {
+    //
+    // In der Doppelseitenansicht zählt die DOPPELTE Breite: Was eingepasst
+    // werden soll, ist der aufgeschlagene Bogen und nicht die halbe Seite.
+    private var passenderMassstab: Double {
         let bogen = werk.reise.gestaltung.bogen(werk.reise.format)
-        let passend = max((raum.width - 56) / bogen.width, 0.12)
-        if zoom == 0 { return min(passend, 1.6) }
-        return zoom
+        let breite = bogen.width * (doppelseiten ? 2 : 1)
+        let platz = max(buehnenbreite - 56, 120)
+        return min(max(platz / breite, 0.12), 1.6)
+    }
+
+    // ZWEI FINGER auf der Bühne (ab 1.0.17, Ansage des Nutzers 09/2026:
+    // „Eine Zwei-Finger-Geste auf die Seite wäre mir lieber.").
+    private var seitenzoom: some Gesture {
+        MagnifyGesture(minimumScaleDelta: 0.01)
+            .onChanged { wert in
+                let anfang = zoomAnfang ?? massstabJetzt
+                if zoomAnfang == nil { zoomAnfang = anfang }
+                zoom = min(max(anfang * wert.magnification, 0.12), 4)
+            }
+            .onEnded { _ in zoomAnfang = nil }
+    }
+
+    // Über einem gewählten FOTO gehören die zwei Finger dem Bildausschnitt.
+    private var seitenzoomErlaubt: Bool {
+        werk.ausschnittsmodus == nil && gewaehlterBlock?.fotoID == nil
     }
 
     // MARK: - Werkzeuge
@@ -300,6 +389,17 @@ struct ReiseView: View {
             }
         }
         ToolbarItemGroup(placement: .bottomBar) {
+            // Einzelseiten oder Doppelseiten. Der Umschalter steht UNTEN
+            // neben den Lupen und nicht in einem Menü: Er gehört zur
+            // Ansicht, und wer ihn sucht, sucht ihn dort, wo auch der
+            // Maßstab liegt. Ein Knopf in einem Menü wäre einer, den
+            // niemand findet.
+            Picker("Ansicht", selection: $doppelseiten) {
+                Image(systemName: "doc").tag(false)
+                Image(systemName: "book.pages").tag(true)
+            }
+            .pickerStyle(.segmented)
+            .frame(width: 104)
             Button { zoom = max(massstabJetzt * 0.8, 0.12) } label: {
                 Image(systemName: "minus.magnifyingglass")
             }
@@ -380,7 +480,11 @@ struct ReiseView: View {
         }
     }
 
-    private var massstabJetzt: Double { zoom == 0 ? 0.7 : zoom }
+    // Der Maßstab, der GERADE gilt. Bis 1.0.16 stand hier bei
+    // eingepasster Ansicht die feste 0,7 — eine Schätzung, und die Lupen
+    // sprangen damit auf einen Wert, der mit dem Bild auf dem Schirm
+    // nichts zu tun hatte. Jetzt ist es der gemessene eingepasste Maßstab.
+    private var massstabJetzt: Double { zoom == 0 ? passenderMassstab : zoom }
 
     // DER GEWÄHLTE BLOCK WIRD EINMAL GESUCHT, NICHT ZWEIMAL.
     //
