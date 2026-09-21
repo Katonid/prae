@@ -212,7 +212,7 @@ enum Buchausgabe {
                                                       kante: auftrag.bildkante)
         }
         Seitensatz.zeichneHintergrund(grund, rechteck: bogenrechteck, bild: grundbild,
-                                      in: zusammenhang)
+                                      saat: buchseite.seite.id.saat, in: zusammenhang)
 
         for block in buchseite.seite.sortiert {
             let rechteck = block.rahmen.rect

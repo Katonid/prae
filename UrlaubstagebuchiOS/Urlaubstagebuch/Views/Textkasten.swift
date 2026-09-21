@@ -42,11 +42,20 @@ struct Textkasten: UIViewRepresentable {
         return ansicht
     }
 
+    // Neu gezeichnet wird nur, wenn sich WIRKLICH etwas geändert hat.
+    //
+    // Bis 1.0.15 stand hier ein `setNeedsDisplay()` ohne Bedingung, und
+    // die drei Zuweisungen darüber lösten je eines aus. Diese Methode läuft
+    // aber bei JEDEM Durchgang des SwiftUI-Körpers — beim Schieben also
+    // sechzigmal in der Sekunde —, und dahinter steckt ein voller
+    // CoreText-Satz je Textkasten. Ein Buch hat drei bis fünf davon auf
+    // einer Seite. Die `didSet`-Beobachter melden die Änderung ohnehin;
+    // gebraucht wird hier nur der Vergleich, und `Schriftbild` ist
+    // `Hashable`.
     func updateUIView(_ ansicht: TextkastenView, context: Context) {
-        ansicht.text = text
-        ansicht.bild = bild
-        ansicht.rand = rand
-        ansicht.setNeedsDisplay()
+        if ansicht.text != text { ansicht.text = text }
+        if ansicht.bild != bild { ansicht.bild = bild }
+        if ansicht.rand != rand { ansicht.rand = rand }
     }
 }
 

@@ -761,7 +761,7 @@ struct HintergrundFlaeche: View {
                 hintergrund.swiftUIVerlauf
             case .papierstruktur:
                 hintergrund.farbe.farbe
-                Papierkorn(staerke: hintergrund.koernung)
+                Papierkorn(staerke: hintergrund.koernung, saat: seite.id.saat)
             case .foto:
                 hintergrund.farbe.farbe
                 if let id = hintergrund.fotoID, let foto = werk.reise.foto(id),
@@ -784,19 +784,19 @@ struct HintergrundFlaeche: View {
 // Megabyte für etwas, das man kaum sieht und trotzdem vermisst.
 struct Papierkorn: View {
     let staerke: Double
+    // An der SEITE festgemacht. Ohne diese Zahl würfelte jede Neuzeichnung
+    // ein neues Korn — auf dem Bildschirm ein Flimmern, und gedruckt eine
+    // andere Seite als die angesehene. Gerechnet wird es von derselben
+    // Funktion, die auch das PDF fragt.
+    let saat: UInt64
 
     var body: some View {
         Canvas { zusammenhang, groesse in
-            guard staerke > 0.005 else { return }
-            var zufall = SystemRandomNumberGenerator()
-            let punkte = Int(groesse.width * groesse.height / 900)
-            for _ in 0..<punkte {
-                let x = Double.random(in: 0..<groesse.width, using: &zufall)
-                let y = Double.random(in: 0..<groesse.height, using: &zufall)
-                let deckung = Double.random(in: 0..<staerke, using: &zufall)
+            for punkt in Seitensatz.kornpunkte(groesse: groesse, koernung: staerke, saat: saat) {
                 zusammenhang.fill(
-                    Path(ellipseIn: CGRect(x: x, y: y, width: 1.2, height: 1.2)),
-                    with: .color(.black.opacity(deckung))
+                    Path(ellipseIn: CGRect(x: punkt.ort.x, y: punkt.ort.y,
+                                           width: 1.2, height: 1.2)),
+                    with: .color(.black.opacity(punkt.deckung))
                 )
             }
         }
@@ -885,9 +885,18 @@ struct FotoKachel: View {
     var body: some View {
         GeometryReader { raum in
             let rahmen = CGRect(origin: .zero, size: raum.size)
+            // GEMESSEN, weil es hier nicht zu rechnen ist: Ein
+            // Vorschaubild kommt beim ersten Mal von der Platte und wird
+            // entpackt — das läuft auf dem Hauptfaden, und wie lange es
+            // dauert, hängt am Gerät und an der Bildgröße. Gezählt werden
+            // ALLE Aufrufe samt Gesamtdauer; ein Treffer im Zwischenspeicher
+            // kostet nichts und fällt in der Summe nicht auf. Steht im
+            // Befund „Fotos 12× 900 ms", ist die Frage beantwortet.
             if let foto = werk.reise.foto(fotoID),
-               let bild = Bildarchiv.shared.vorschau(foto.datei, reise: werk.reise.id,
-                                                     kante: vorschaukante(raum.size))
+               let bild = werk.messer.sammelt("Fotos", {
+                   Bildarchiv.shared.vorschau(foto.datei, reise: werk.reise.id,
+                                              kante: vorschaukante(raum.size))
+               })
             {
                 // Dieselbe Rechnung wie im PDF — `zielrechteck` steht an
                 // einer Stelle und wird hier nur angewandt.

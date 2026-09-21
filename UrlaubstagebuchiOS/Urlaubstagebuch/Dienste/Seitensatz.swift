@@ -129,9 +129,49 @@ enum Seitensatz {
         zusammenhang.restoreGState()
     }
 
+    // Ein einzelnes Korn auf dem Papier: wo es liegt und wie dunkel es ist.
+    struct Kornpunkt {
+        var ort: CGPoint
+        var deckung: Double
+    }
+
+    // Das Korn — gerechnet, und zwar WIEDERHOLBAR.
+    //
+    // Bis 1.0.15 würfelten Bildschirm und PDF es je für sich mit einem
+    // `SystemRandomNumberGenerator` aus, und der lässt sich nicht
+    // wiederholen. Zwei Folgen, und beide waren zu sehen: Auf dem
+    // Bildschirm war das Korn bei jeder Neuzeichnung ein anderes, also ein
+    // Flimmern statt einer Struktur — und die gedruckte Seite sah nie aus
+    // wie die angesehene. Im Quelltext stand daneben, der Zufallsstrom sei
+    // „an der Seite festgemacht"; er war es nie. **Ein Kommentar ersetzt
+    // keine Prüfung** — dieselbe Lehre wie bei Schulalarms
+    // `requestAuthorization` und bei den Navigationszielen der
+    // Abfahrtstafel.
+    //
+    // Gerechnet wird an EINER Stelle, gefragt von Ansicht UND PDF; zwei
+    // Fassungen desselben Korns wären wieder zwei Seiten.
+    static func kornpunkte(groesse: CGSize, koernung: Double, saat: UInt64) -> [Kornpunkt] {
+        guard koernung > 0.005, groesse.width > 1, groesse.height > 1 else { return [] }
+        var streu = Saatstrom(saat)
+        let anzahl = Int(groesse.width * groesse.height / 900)
+        var punkte: [Kornpunkt] = []
+        punkte.reserveCapacity(anzahl)
+        for _ in 0..<anzahl {
+            let x = Double.random(in: 0..<groesse.width, using: &streu)
+            let y = Double.random(in: 0..<groesse.height, using: &streu)
+            let deckung = Double.random(in: 0..<koernung, using: &streu)
+            punkte.append(Kornpunkt(ort: CGPoint(x: x, y: y), deckung: deckung))
+        }
+        return punkte
+    }
+
     // Der Seitenhintergrund — in Ansicht und PDF derselbe.
+    //
+    // `saat` macht das Papierkorn an der SEITE fest: dieselbe Seite bekommt
+    // immer dasselbe Korn, zwei Seiten nebeneinander ein verschiedenes.
     static func zeichneHintergrund(_ grund: Seitenhintergrund, rechteck: CGRect,
-                                   bild: UIImage?, in zusammenhang: CGContext)
+                                   bild: UIImage?, saat: UInt64 = 0,
+                                   in zusammenhang: CGContext)
     {
         zusammenhang.saveGState()
         zusammenhang.setFillColor(grund.farbe.uiFarbe.cgColor)
@@ -159,19 +199,17 @@ enum Seitensatz {
                 )
             }
         case .papierstruktur:
-            // Dasselbe Korn wie auf dem Bildschirm, aus demselben Grund
-            // gerechnet statt geladen. Der Zufallsstrom ist AN DER SEITE
-            // festgemacht, damit zwei Ausgaben desselben Buches nicht
-            // verschieden aussehen.
-            var streu = SystemRandomNumberGenerator()
-            let punkte = Int(rechteck.width * rechteck.height / 900)
+            // Dasselbe Korn wie auf dem Bildschirm — buchstäblich dasselbe,
+            // seit es aus `kornpunkte` kommt und nicht mehr aus zwei
+            // getrennten Würfen.
             zusammenhang.clip(to: rechteck)
-            for _ in 0..<punkte {
-                let x = Double.random(in: rechteck.minX..<rechteck.maxX, using: &streu)
-                let y = Double.random(in: rechteck.minY..<rechteck.maxY, using: &streu)
-                let deckung = Double.random(in: 0..<max(grund.koernung, 0.001), using: &streu)
-                zusammenhang.setFillColor(UIColor.black.withAlphaComponent(deckung).cgColor)
-                zusammenhang.fill(CGRect(x: x, y: y, width: 1.2, height: 1.2))
+            for punkt in Self.kornpunkte(groesse: rechteck.size,
+                                         koernung: grund.koernung, saat: saat)
+            {
+                zusammenhang.setFillColor(UIColor.black.withAlphaComponent(punkt.deckung).cgColor)
+                zusammenhang.fill(CGRect(x: rechteck.minX + punkt.ort.x,
+                                         y: rechteck.minY + punkt.ort.y,
+                                         width: 1.2, height: 1.2))
             }
         case .foto:
             if let bild {

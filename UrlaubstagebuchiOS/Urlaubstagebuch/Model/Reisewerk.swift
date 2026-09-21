@@ -79,6 +79,96 @@ final class Reisewerk: ObservableObject, Identifiable {
         gewaehlterTag = reise.tage.first?.id
     }
 
+    // MARK: - Die Seitenliste
+
+    // Die Kennung der Titelseite in der Tagesliste. Sie gehört zu keinem
+    // Tag — deshalb eine feste Kennung und kein erfundener leerer Tag, den
+    // dann jede Auswertung wieder aussortieren muss.
+    static let titelseitenKennung = UUID(uuidString: "00000000-0000-0000-0000-000000000001")!
+
+    // Was die Bühne zeigt — und zwar OHNE bei jedem Neuzeichnen das
+    // Titelblatt neu zu setzen.
+    //
+    // `Reise.seitenfolge` ist eine BERECHNETE Eigenschaft, und darin steckt
+    // zweierlei, was nicht nach Rechnung aussieht: `reise.automat` baut
+    // `fotoIndex`, also ein Wörterbuch über ALLE Fotos des Buches, und
+    // `automat.titelseite(…)` setzt das Titelblatt samt zwei
+    // CoreText-Messungen. Gelesen wurde das bis 1.0.15 im Körper von
+    // `ReiseView` — und dort ZWEIMAL je Durchgang, einmal für die Liste und
+    // einmal für die Prüfung auf leer. Der Körper läuft bei jedem Bildpunkt
+    // einer Ziehbewegung; bei zweihundert Fotos ist das die teuerste Zeile
+    // der ganzen Ansicht. **Eine berechnete Eigenschaft sieht billig aus** —
+    // dieselbe Falle wie bei der Netzkarte der Abfahrtstafel, hier zum
+    // dritten Mal.
+    //
+    // Gemerkt wird NUR das Titelblatt, und das ist Absicht: Es ist die
+    // einzige Seite, die es nicht GIBT, sondern die gerechnet wird — alle
+    // anderen stehen als `Seite` am Tag und werden hier nur aufgereiht. Die
+    // Blöcke eines Tages zu merken hieße, beim Schieben einen alten Stand
+    // zu zeichnen; zwei Wahrheiten für dieselbe Seite laufen auseinander
+    // (Lehre aus 1.0.8).
+    private var titelblatt: (schluessel: Int, seite: Seite)?
+
+    // Alles, was in das Titelblatt eingeht — und nichts sonst. Fehlte hier
+    // ein Feld, bliebe ein alter Titel stehen, ohne dass etwas darauf
+    // hinwiese; deshalb steht die Liste neben dem Bauplan in
+    // `Layoutautomat.titelseite` und wird mit ihm zusammen geändert.
+    private var titelblattschluessel: Int {
+        var misch = Hasher()
+        misch.combine(reise.titel)
+        misch.combine(reise.untertitel)
+        misch.combine(reise.zeitraum)
+        misch.combine(reise.titelfoto)
+        // Ob es das Titelfoto NOCH gibt, entscheidet über die Gestalt der
+        // Seite (Plakat oder Textblatt). Ein Vergleich von Kennungen über
+        // die Fotoliste ist dabei ein Bruchteil dessen, was das Wörterbuch
+        // kostet, das `fotoIndex` sonst baut.
+        misch.combine(reise.titelfoto.map { id in reise.fotos.contains { $0.id == id } } ?? false)
+        misch.combine(reise.format)
+        misch.combine(reise.gestaltung)
+        misch.combine(reise.typografie)
+        misch.combine(reise.buchstil)
+        return misch.finalize()
+    }
+
+    var seitenfolge: [Buchseite] {
+        var folge: [Buchseite] = []
+        var nummer = 1
+        if reise.titelseite {
+            let schluessel = titelblattschluessel
+            let seite: Seite
+            if let da = titelblatt, da.schluessel == schluessel {
+                seite = da.seite
+            } else {
+                seite = messer.sammelt("Titelblatt") {
+                    reise.automat.titelseite(titel: reise.titel, untertitel: reise.untertitel,
+                                             zeitraum: reise.zeitraum, titelfoto: reise.titelfoto)
+                }
+                titelblatt = (schluessel, seite)
+            }
+            folge.append(Buchseite(seite: seite, tag: nil, nummer: nummer))
+            nummer += 1
+        }
+        for tag in reise.tage where !tag.ausgeblendet {
+            for seite in tag.seiten {
+                folge.append(Buchseite(seite: seite, tag: tag, nummer: nummer))
+                nummer += 1
+            }
+        }
+        return folge
+    }
+
+    // Die Seiten, die gerade gezeigt werden. Gefiltert wird nach dem
+    // gewählten Tag; ist keiner gewählt, ist es das ganze Buch.
+    var sichtbareSeiten: [Buchseite] {
+        messer.sammelt("Seitenliste") { () -> [Buchseite] in
+            let alle = seitenfolge
+            guard let gewaehlt = gewaehlterTag else { return alle }
+            if gewaehlt == Self.titelseitenKennung { return alle.filter { $0.tag == nil } }
+            return alle.filter { $0.tag?.id == gewaehlt }
+        }
+    }
+
     // MARK: - Sichern
 
     // Gesichert wird verzögert. Beim Schieben eines Fotos ändert sich das
