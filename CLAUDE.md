@@ -3397,6 +3397,104 @@ Befunde, und keiner davon war Geschmack:
   Erscheinung der App. Sie sind Werkzeug, nicht Erzeugnis; die Einstellung
   gilt dem gedruckten Bild. Wer das ändert, ändert es für beide.
 
+### Abgleich, Austausch und Tagesspur (ab 1.0.4)
+
+- **Der Abgleich läuft über iCloud DRIVE, nicht über CloudKit** (`Dienste/Wolke.swift`,
+  Ansage des Nutzers 09/2026: „über iCloud mit anderen Geräten synchronisieren
+  und dies bitte automatisch"). Ein Buch ist eine kleine JSON-Datei und
+  zweihundert große Bilder — genau dafür ist ein Dateiabgleich gebaut: Er lädt
+  eine Datei erst herunter, wenn sie gebraucht wird, und überträgt ein Bild
+  nicht noch einmal, weil im Text ein Komma anders steht. Eine eigene
+  Synchronisierung müsste all das nachbauen; wie viel das ist, steht in diesem
+  Papier unter Tafelbild, wo sie GEBAUT ist. **Nicht auf CloudKit umstellen,
+  ohne diesen Absatz zu widerlegen.**
+- **`url(forUbiquityContainerIdentifier:)` BLOCKIERT** und beim ersten Aufruf
+  spürbar lange — Apple sagt das ausdrücklich. Es läuft deshalb einmal beim
+  Start abseits des Hauptfadens (`Wolke.vorbereiten`), und bis die Antwort da
+  ist, arbeitet die App örtlich weiter. Es darf NICHT in einen `init`.
+- **`Wolke.wurzel` ist die einzige Stelle, die weiß, wo ein Buch liegt.**
+  `Ablage` und `Bildarchiv` fragen dort; zwei Meinungen darüber wären zwei
+  Ablagen, und die Bilder lägen auf dem Gerät, während das Buch in der Wolke
+  steht.
+- **Das Regal HORCHT, statt zu fragen** (`NSMetadataQuery` in `Regal.beobachten`).
+  Das ist der Unterschied zwischen „abgeglichen" und „abgeglichen, sobald
+  jemand die App neu startet". Zwei Sekunden Ruhe zwischen den Meldungen, sonst
+  baut sich das Regal während einer Übertragung zwanzigmal neu auf. **Wer den
+  Abgleich in den Einstellungen einschaltet, startet den Beobachter mit**
+  (`Regal.wolkeGewechselt`) — sonst liefe er erst nach dem nächsten Start, und
+  das sieht aus wie ein Abgleich, der nicht läuft.
+- **Konflikte werden nach dem `geaendert` IM BUCH entschieden**, nicht nach dem
+  Zeitstempel der Datei. Zwei Gründe: Beim Kopieren bekommt eine Datei ohnehin
+  einen neuen, und die Dateizeit steht auf Apples Liste der
+  begründungspflichtigen Schnittstellen (dieselbe Lehre wie bei Schulalarms
+  Tonbefund). **Die unterlegene Fassung wird NICHT überschrieben**, sondern
+  bleibt als `<Kennung>-konflikt-<Zeit>.json` liegen und steht in den
+  Einstellungen mit „Diese Fassung nehmen" und „Verwerfen". Ein Abgleich, der
+  stillschweigend einen Abend Arbeit wegnimmt, ist schlimmer als zwei Bücher,
+  die man vergleichen muss. `Ablage.alle()` überspringt diese Dateien — im
+  Regal wären zwei gleich heißende Bücher die schlechtere Art, dasselbe zu
+  sagen.
+- **Umschalten KOPIERT und löscht nichts**, in beiden Richtungen. Wer
+  zurückschaltet, findet seine Bücher auf dem Gerät vor; wer sich vertan hat,
+  hat nichts verloren. Ein Buch doppelt ist besser als eines weniger.
+- **Ohne iCloud-Recht bleibt die App örtlich und SAGT es.** Fehlt das
+  Entitlement oder ist niemand angemeldet, gibt iOS keinen Behälter heraus;
+  dann wird der Wunsch zurückgenommen und der Grund genannt. Kein Absperren —
+  dieselbe Regel wie bei Schulalarms Mitteilungen.
+- **`NSUbiquitousContainers` macht den Ordner SICHTBAR** (Info.plist). Ohne die
+  drei Schlüssel läge er versteckt im Behälter, und niemand käme an seine
+  Bücher heran, wenn die App einmal nicht mehr da ist. Eine Ablage, die man nur
+  mit der App wieder aufbekommt, ist bei einem Tagebuch die falsche.
+- **Das Entitlement kann diesen Bau nicht prüfen.** `CODE_SIGN_ENTITLEMENTS`
+  steht seit 1.0.4 im pbxproj; GitHub Actions baut mit
+  `CODE_SIGNING_ALLOWED=NO` und sieht es nie an. Ob sich signieren lässt,
+  entscheidet sich auf dem Mac — und dafür muss die App-Id in der
+  Entwicklerkonsole iCloud können und der Behälter
+  `iCloud.de.familie.urlaubstagebuch` existieren (in Xcode: Signing &
+  Capabilities → + iCloud → iCloud Documents). **Einen grünen Bau nie als
+  „signierbar" ausgeben** — dieselbe Regel wie bei Schulalarm.
+- **Das Austauschformat ist SELBST geschrieben** (`Dienste/Buchdatei.swift`,
+  Endung `.reisebuch`). Zum PACKEN eines ZIP gibt es auf iOS einen
+  halböffentlichen Weg (`NSFileCoordinator` mit `.forUploading`), zum
+  ENTPACKEN gar keinen. Ein Format, das sich schreiben, aber nicht lesen lässt,
+  ist kein Austauschformat, und eine fremde Bibliothek wäre die erste
+  Abhängigkeit dieser App. Aufbau: 11 Bytes Kennung, 4 Bytes Kopflänge,
+  JSON-Kopf (die Reise plus die Bilderliste mit Längen), dann die Bilddateien
+  unverändert hintereinander.
+- **Geschrieben wird stückweise, gelesen speicherabgebildet.** Ein Buch mit
+  zweihundert Fotos wiegt ein Gigabyte und gehört nicht am Stück in den
+  Arbeitsspeicher. Und nach der Dateigröße wird über `resourceValues(forKeys:
+  [.fileSizeKey])` gefragt und nicht über `attributesOfItem` — Letzteres liest
+  die Zeitstempel mit (ITMS-91053).
+- **Erst nachsehen, dann übernehmen.** `Buchdatei.pruefen` sagt, was in der
+  Datei steht und ob sie ein vorhandenes Buch überschreiben würde; erst danach
+  fragt die App „Ersetzen oder als Kopie". Ein Einlesen, das gleich losschreibt,
+  hat keinen Rückweg.
+- **Die Tagesspur-Einfuhr liest beide Formate** (`Dienste/Spureinfuhr.swift`,
+  Ansage des Nutzers 09/2026: „Ich sehe bislang noch keine Importfunktion für
+  Daten aus der Tagesspur-App"). Fotos bringen den Ort mit, an dem jemand stand
+  und abgedrückt hat; die Tagesspur kennt den Weg dazwischen.
+- **Auch hier kommt der Tag aus DREI ZAHLEN.** Die JSON-Sicherung trägt je Tag
+  einen `dayKey` (`2026-07-25`) in der Zeitzone der Aufzeichnung — der Tag, den
+  der Mensch erlebt hat, und damit die beste Angabe, die es gibt. Im GPX steht
+  derselbe Schlüssel vorn im Spurnamen (`2026-07-25 – iPhone`), und genau
+  deshalb wird er dort ABGELESEN und nicht gerechnet. Nur bei einer fremden
+  GPX-Datei bleibt die Umrechnung; dann ist die Zeitzone wählbar, und der
+  Befund nennt die Zahl der betroffenen Tage. Gesucht wird der Schlüssel nur am
+  ANFANG des Namens — „Wanderung am 12.08." ist keiner (dieselbe Falle wie beim
+  Textimport).
+- **Ein Aufenthalt wird NIE ausgedünnt.** Er trägt einen Namen, und einen
+  benannten Ort wegzurechnen, weil er nah am vorigen liegt, nähme genau die
+  Angabe weg, für die es ihn gibt. Ausgedünnt wird nur die Strecke, mit
+  derselben Regel wie bei den Fotos (`Spurbau.ausgeduennt` — seit 1.0.4 eine
+  eigene Funktion, die auch `punkteAusFotos` benutzt; zwei Fassungen desselben
+  Ausdünnens liefen auseinander).
+- **`Ortsquelle.tagesspur` zählt NICHT als Fotopunkt.** „Aus den Fotos neu
+  bauen" lässt solche Punkte stehen — sie sind ausdrücklich eingelesen worden
+  und kämen aus keinem Bild zurück. Ein erneutes Einlesen desselben Tages
+  ERSETZT sie dagegen: Wer eine Sicherung zweimal wählt, soll nicht die
+  doppelte Spur bekommen.
+
 ### Ein Tagebuch muss eine neue Fassung überleben (ab 1.0.3)
 
 - Swift baut den Leser einer `Codable`-Struktur selbst — und der verlangt
@@ -3428,6 +3526,8 @@ Befunde, und keiner davon war Geschmack:
   Nachfrage, als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann
   1.0.1 (Build 2) usw. Dazu gesetzt: `DEVELOPMENT_TEAM = F4989GSTWS` und
   `INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.travel`.
+  Seit 1.0.4 steht dort auch `CODE_SIGN_ENTITLEMENTS = Config/Urlaubstagebuch.entitlements`
+  (iCloud Documents) — nicht entfernen, sonst liegt der Abgleich still.
 - `ITSAppUsesNonExemptEncryption = NO` steht in `Config/Info.plist` UND als
   Build-Einstellung — nicht entfernen.
 - Das App-Symbol rechnet `UrlaubstagebuchiOS/scripts/make-icon.py` (reines

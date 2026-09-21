@@ -233,6 +233,71 @@ Wanderführer mit Ja und ohne Gebühren — verlangt aber, dass die abgedruckte
 Karte unter denselben Bedingungen weitergegeben werden darf. Für ein
 Familienbuch im Schrank ist das folgenlos; für eine Auflage nicht.
 
+### Der Abgleich läuft über iCloud Drive, nicht über CloudKit
+
+Ein Buch ist eine kleine JSON-Datei und zweihundert große Bilder. Genau
+dafür ist ein Dateiabgleich gebaut: Er lädt eine Datei erst herunter, wenn
+sie gebraucht wird, und überträgt ein Bild nicht noch einmal, nur weil im
+Buch ein Komma anders steht. Eine eigene Synchronisierung müsste all das
+nachbauen.
+
+Die Bücher liegen deshalb im Behälter der App im iCloud-Laufwerk, und den
+Abgleich macht iOS. Was die App dazutut, sind vier Dinge:
+
+* Sie stößt das **Herunterladen** an, was noch nicht auf dem Gerät ist —
+  sonst stünde ein Buch im Regal, das sich nicht öffnen lässt.
+* Sie **horcht** über `NSMetadataQuery`, statt beim Start einmal zu fragen.
+  Das ist der Unterschied zwischen „abgeglichen" und „abgeglichen, sobald
+  jemand die App neu startet". Zwei Sekunden Ruhe zwischen den Meldungen,
+  sonst baut sich das Regal während einer Übertragung zwanzigmal neu auf.
+* Sie löst **Konflikte** — nach dem `geaendert` IM Buch und nicht nach dem
+  Zeitstempel der Datei. Die unterlegene Fassung wird nicht überschrieben,
+  sondern bleibt als eigene Datei liegen und steht in den Einstellungen.
+  Ein Abgleich, der stillschweigend einen Abend Arbeit wegnimmt, ist
+  schlimmer als zwei Bücher, die man vergleichen muss.
+* Sie **kopiert beim Umschalten** und löscht nichts — in keiner Richtung.
+
+Fehlt das iCloud-Recht, oder ist niemand angemeldet, gibt iOS keinen
+Behälter heraus. Dann bleibt alles auf dem Gerät, und die App sagt das.
+
+### Ein ganzes Buch in einer Datei
+
+`.reisebuch` enthält das Buch samt aller Bilder. Der Behälter ist selbst
+geschrieben, und zwar aus einem Grund: Zum **Packen** eines ZIP gibt es auf
+iOS einen halböffentlichen Weg (`NSFileCoordinator` mit `.forUploading`),
+zum **Entpacken** gar keinen. Ein Format, das sich schreiben, aber nicht
+lesen lässt, ist kein Austauschformat, und eine fremde Bibliothek wäre die
+erste Abhängigkeit dieser App.
+
+    REISEBUCH1\n            11 Bytes Kennung
+    [4 Bytes]               Länge des Kopfes, große Ziffer zuerst
+    { … }                   der Kopf als JSON: die Reise und eine Liste
+                            der Bilder mit ihren Längen
+    ……………                   die Bilddateien, unverändert, hintereinander
+
+Geschrieben und gelesen wird stückweise beziehungsweise
+speicherabgebildet — ein Buch mit zweihundert Fotos wiegt ein Gigabyte und
+gehört nicht am Stück in den Arbeitsspeicher.
+
+### Die Reisespur aus der Tagesspur
+
+Fotos bringen den Ort mit, an dem jemand stand und abgedrückt hat. Die
+Tagesspur kennt den Weg dazwischen — die Fahrt über den Pass, an der
+niemand angehalten hat, und den Vormittag im Museum, an dem kein Foto
+entstand.
+
+**Der Tag kommt auch hier aus drei Zahlen.** Die JSON-Sicherung trägt zu
+jedem Tag einen `dayKey` (`2026-07-25`) in der Zeitzone der Aufzeichnung —
+also den Tag, den der Mensch erlebt hat. Im GPX steht derselbe Schlüssel
+vorn im Namen der Spur. Nur bei einer GPX-Datei aus einer fremden App muss
+der Tag aus dem Zeitstempel gerechnet werden; dann ist die Zeitzone
+wählbar, und der Befund sagt, bei wie vielen Tagen das gilt.
+
+Ausgedünnt wird mit derselben Regel wie bei den Fotos. **Aufenthalte
+werden nie zusammengefasst**: Sie tragen einen Namen, und einen benannten
+Ort wegzurechnen, weil er nah am vorigen liegt, nähme genau die Angabe
+weg, für die es ihn gibt.
+
 ### Der Textimport behauptet nichts, er zeigt
 
 Die ganze Schwierigkeit steckt in einer Frage: Was **ist** eine
@@ -292,8 +357,9 @@ wirkungslos — und genau das will man beim Umstellen einer Schrift nicht.
 ```
 Urlaubstagebuch/
   Model/       Reise, Tag, Seite, Block, Schriftbild, Layoutautomat, Einrasten
-  Dienste/     EXIF, Textimport, Bildarchiv, Ablage, Spurbau, Kartenwerk,
-               Kachelkarte, Seitensatz, Buchausgabe, Standortdienst
+  Dienste/     EXIF, Textimport, Bildarchiv, Ablage, Wolke, Spurbau,
+               Spureinfuhr, Buchdatei, Kartenwerk, Kachelkarte,
+               Seitensatz, Buchausgabe, Standortdienst
   Views/       Regal, Reise, Seitenfläche, Inspektor, Importe, Karte, PDF
 ```
 
