@@ -716,6 +716,120 @@ Bücher gefahrlos: Der erzeugte `Codable`-Leser verlangt einen Schlüssel nur
 für nicht-optionale Eigenschaften. Ein vorhandener Wert wird gelesen, ein
 fehlender wird `nil` — also „wie im Buch".
 
+## Vier Befunde aus dem laufenden Buch (1.0.11)
+
+### Die Karte zeigte nichts — und es gab keinen Weg heraus
+
+Gemeldet: „Auf der Karte wird ja quasi nichts dargestellt. Der Ort könnte
+sonst wo sein. … Ich möchte die Karte rein und heraus nehmen können."
+
+Den Wert dafür (`Reisetag.kartenausschnitt`) gibt es seit der ersten
+Fassung. **Setzen konnte ihn niemand**: Im Inspektor stand einzig der Knopf
+„Wieder automatisch rahmen" — das Rückgängig zu einer Tat, die es nicht
+gab. Gerahmt wurde deshalb immer selbsttätig um die Tagesspur, und bei
+einem einzigen Punkt rechnet `Kartenwerk.region` eine Spanne von 0,008 Grad,
+also rund 900 Meter. Die Karte war nicht falsch, sie war zu nah.
+
+**Merke: Ein Knopf, der etwas zurücknimmt, setzt voraus, dass es einen Weg
+hin gibt.** Ein Feld, das nur gelesen und nie geschrieben wird, ist ein halb
+gebautes Vorhaben — dieselbe Art Befund wie bei der Bildunterschrift in
+1.0.5.
+
+* **Block → Ausschnitt → „Ausschnitt auf der Karte wählen"** öffnet eine
+  echte Karte. Übernommen wird das FENSTER, nicht eine Stelle — deshalb ein
+  Rahmen und kein Fadenkreuz wie bei der Ortswahl.
+* **„näher" und „weiter"** stehen daneben im Inspektor: Wer nur etwas
+  herauszoomen will, soll dafür keinen Bildschirm öffnen müssen. Beide
+  rechnen vom GELTENDEN Ausschnitt aus, also auch vom automatischen.
+* Die Spanne steht in Kilometern da. Eine Gradzahl sagt niemandem etwas.
+
+### Beschriftungsdichte gibt es bei MapKit nicht
+
+Gewünscht war, „wie dicht die Beschriftungen sein sollen". Was sich
+wirklich einstellen lässt, ist der Filter für ORTE (`pointOfInterestFilter`):
+Geschäfte, Museen, Haltestellen. Straßen- und Ortsnamen setzt Apple selbst,
+nach Maßstab — dafür gibt es keine Schraube; wer weniger davon will, nimmt
+die Karte näher heran.
+
+**Genau das steht in der Oberfläche**, statt einen Regler anzubieten, der
+nichts tut. Drei Stufen: „Alle Orte", „Wenige", „Keine Orte".
+
+* Beim **Satellitenbild** entscheidet die Wahl über die Art des Aufbaus:
+  `MKImageryMapConfiguration` zeigt überhaupt keine Namen, die gibt es nur
+  über `MKHybridMapConfiguration`.
+* Bei **OpenStreetMap, OpenTopoMap und eigenem Server** ist die Beschriftung
+  fertig im Kachelbild. Keine Einstellung dieser App kann daran etwas
+  ändern, und die App sagt das dort auch.
+* Geändert gegenüber 1.0.10: „Gelände" schaltete die Orte fest ab. Das war
+  als Stilfrage gebaut und ist jetzt eine eigene Einstellung.
+
+### Das Einrasten war stumm
+
+Gewünscht: „Der Randindikator soll sich an den Rand und die Fotos
+orientieren, aber im Einzelfall auch veränderbar sein."
+
+Gefangen hat der Block an Rand und Nachbarn schon immer — er sprang dabei um
+zwei Punkte, und ob das der Satzspiegel war, die Schnittkante, das Foto
+darüber oder gar nichts, stand nirgends. **Eine Hilfe, die man nicht sieht,
+ist für den Menschen davor ein Zucken.**
+
+* Beim Schieben steht jetzt eine **Linie über den ganzen Bogen**, mit der
+  Herkunft als Wort und als Farbe: „Rand", „Schnittkante", „Nachbar". Das
+  sind drei verschiedene Auskünfte.
+* Die Kanten kommen aus **einer** Quelle (`Einrasten.kanten`). Vorher baute
+  das Verschieben seine Liste selbst und das Größenändern eine zweite, und
+  nur die zweite kannte die Schnittkante.
+* „Im Einzelfall veränderbar" sind zwei Dinge: der Schalter **„An Rand und
+  Nachbarn einrasten"** unter „Anordnen" — wer ihn ausmacht, bekommt auch
+  keine Linien, denn eine Linie ohne Wirkung wäre eine Behauptung — und die
+  Zahl in Millimetern im Inspektor unter „Lage auf der Seite".
+
+### „Warum so viel Platz nach jedem Absatz?"
+
+Den Absatzabstand gibt es buchweit seit der ersten Fassung (Buch → Schrift).
+Gefehlt haben zwei Dinge, und das zweite ist das wichtigere:
+
+* **Die Ausnahme an der einzelnen Stelle** — Block → Schrift an dieser
+  Stelle → Absatzabstand.
+* **Der Grund.** Er steht im Text selbst: Ein hart umbrochen eingelesener
+  Tagebuchtext hat je ZEILE einen Absatz, und dann steht der Abstand eben
+  nach jeder Zeile. Der Inspektor zählt die Absätze deshalb und bietet das
+  Zusammenführen dort an, wo die Frage entsteht. **Eine Zahl, die den Befund
+  erklärt, ist mehr wert als ein Regler, der ihn verdeckt.**
+
+Warum die Erkennung aus 1.0.2 bei genau diesem Text nicht gegriffen hat, ist
+**nicht geklärt** — gemessen ist sie an zwei Texten, der gemeldete ist ein
+dritter.
+
+### Ein Textfeld mit Hintergrund
+
+Gewünscht: „Ein Hintergrund … und dessen Transparenz … So könnte
+beispielsweise auch Text auf einem Hintergrundbild gemacht werden."
+
+Den farbigen Grund gab es; was fehlte, waren die zwei Dinge, die ihn
+brauchbar machen — beide unter Block → Rand und Grund:
+
+* **Deckkraft als eigener Schieber.** Der Farbwähler von iOS kann sie, aber
+  hinter einem Tipp auf das Farbfeld; wer sie sucht, findet sie nicht. Sie
+  ist hier kein Schmuck, sondern der Zweck.
+* **Innenabstand.** Schrift, die unmittelbar an der Kante einer Fläche
+  anfängt, sieht aus wie ein Satzfehler. Er wird beim Einschalten des
+  Grundes gesetzt und beim Ausschalten nicht zurückgenommen.
+
+Der Innenabstand wird an **allen vier** Textstellen mitgerechnet: Bildschirm,
+PDF, Überlaufmessung und Druckprüfung. Vergäße man eine davon, sagte die
+Marke „passt", während im Druck eine Zeile fehlt.
+
+### Nebenbei gefunden
+
+**Ein neues nicht-optionales Feld macht jede gesicherte Datei unlesbar —
+auch in einem kleinen Typ.** `Kartenbild` bekam die Beschriftung und braucht
+deshalb einen Leser von Hand. Aufgefallen beim Gegenlesen und nicht im Bau:
+`Reisetag` liest sein `kartenbild` über `wahlweise`, und das schluckt den
+Fehler — die Karteneinstellung wäre still auf die Vorgabe zurückgefallen.
+Die Regel steht seit 1.0.3 im Papier und galt bis dahin nur für `Reise` und
+`Reisetag`; sie gilt für jeden Typ, der wächst.
+
 ## Finden statt suchen (1.0.10)
 
 Gemeldet 09/2026: „Kann ich das jetzt für alle Fotos global einstellen und

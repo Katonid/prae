@@ -281,7 +281,12 @@ struct SeitenflaecheView: View {
               block.inhalt.istText
         else { return "-" }
         let text = Seitensatz.inhaltstext(block, tag: tag, reise: werk.reise)
-        return "\(block.id)|\(Int(block.rahmen.breite))|\(Int(block.rahmen.hoehe))|\(text.count)"
+        // Der Innenabstand gehört in den Schlüssel: Er nimmt dem Text
+        // Breite UND Höhe weg. Ohne ihn bliebe die Marke stehen, wo sie
+        // stand, obwohl der Kasten gerade enger geworden ist — ein Hinweis,
+        // der hinterherhinkt, ist schlimmer als keiner.
+        return "\(block.id)|\(Int(block.rahmen.breite))|\(Int(block.rahmen.hoehe))"
+            + "|\(Int(block.textrand))|\(text.count)"
     }
 
     private func ueberlaufMessen() -> Double? {
