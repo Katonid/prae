@@ -56,6 +56,79 @@ enum Seitensatz {
         zusammenhang.restoreGState()
     }
 
+    // Der weiße Rand eines Sofortbildes. Er gehört NACH AUSSEN, nicht nach
+    // innen: Ein Rand, der vom Bild abgeht, machte jede Reihe des
+    // Layoutautomaten um zwei Ränder zu schmal, und die Reihen gingen nicht
+    // mehr auf.
+    static func fotorandRechteck(_ rechteck: CGRect, rand: CGFloat) -> CGRect {
+        rechteck.insetBy(dx: -rand, dy: -rand)
+    }
+
+    // Schatten und Papierrand in einem: Erst der Schatten unter dem
+    // weißen Feld, dann das Feld, dann das Bild darin. Andersherum läge der
+    // Schatten über dem Bild.
+    static func zeichneSchatten(_ rechteck: CGRect, art: Schattenart, massstab: CGFloat,
+                                eckenradius: CGFloat, in zusammenhang: CGContext)
+    {
+        guard art != .keiner else { return }
+        let werte = art.werte
+        zusammenhang.saveGState()
+        zusammenhang.setShadow(
+            offset: CGSize(width: 0, height: werte.versatz * massstab),
+            blur: werte.unschaerfe * massstab,
+            color: UIColor.black.withAlphaComponent(werte.deckung).cgColor
+        )
+        zusammenhang.setFillColor(UIColor.white.cgColor)
+        UIBezierPath(roundedRect: rechteck, cornerRadius: eckenradius).fill()
+        zusammenhang.restoreGState()
+    }
+
+    static func zeichneFlaeche(_ rechteck: CGRect, farbe: UIColor, eckenradius: CGFloat,
+                               in zusammenhang: CGContext)
+    {
+        zusammenhang.saveGState()
+        zusammenhang.setFillColor(farbe.cgColor)
+        UIBezierPath(roundedRect: rechteck, cornerRadius: eckenradius).fill()
+        zusammenhang.restoreGState()
+    }
+
+    // Der Verlauf unter einer Überschrift auf einem Foto: unten dunkel,
+    // oben durchsichtig.
+    //
+    // `opak` ist der Weg für Druckereien, die kein PDF mit Transparenz
+    // annehmen (PDF/X-1a und X-3 erlauben keine). Dann steht statt des
+    // Verlaufs ein geschlossenes Feld — weniger elegant, aber lesbar, und
+    // das ist hier das Wichtigere.
+    static func zeichneVerlauf(_ rechteck: CGRect, opak: Bool, in zusammenhang: CGContext) {
+        zusammenhang.saveGState()
+        if opak {
+            zusammenhang.setFillColor(UIColor(white: 0.08, alpha: 1).cgColor)
+            zusammenhang.fill(rechteck)
+            zusammenhang.restoreGState()
+            return
+        }
+        let farben = [
+            UIColor(white: 0, alpha: 0).cgColor,
+            UIColor(white: 0, alpha: 0.30).cgColor,
+            UIColor(white: 0, alpha: 0.72).cgColor,
+        ] as CFArray
+        let stellen: [CGFloat] = [0, 0.45, 1]
+        guard let verlauf = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(),
+                                       colors: farben, locations: stellen)
+        else {
+            zusammenhang.restoreGState()
+            return
+        }
+        zusammenhang.clip(to: rechteck)
+        zusammenhang.drawLinearGradient(
+            verlauf,
+            start: CGPoint(x: rechteck.midX, y: rechteck.minY),
+            end: CGPoint(x: rechteck.midX, y: rechteck.maxY),
+            options: []
+        )
+        zusammenhang.restoreGState()
+    }
+
     static func zeichneLinie(_ rechteck: CGRect, farbe: UIColor, in zusammenhang: CGContext) {
         zusammenhang.saveGState()
         zusammenhang.setFillColor(farbe.cgColor)

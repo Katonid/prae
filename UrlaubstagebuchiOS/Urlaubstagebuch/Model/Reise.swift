@@ -34,12 +34,41 @@ struct Reise: Identifiable, Codable {
     var typografie = Typografie()
     var gestaltung = Gestaltung()
     var format: Seitenformat = .a4quer
+    var stil: String = Buchstil.magazin.id
+    var titelfoto: UUID?
+    var akzent: Farbwert = .akzent
     var kartenstil: Kartenstil = .gedaempft
-    var linienfarbe: Farbwert = .akzent
     var titelseite: Bool = true
     var geaendert: Date = Date()
 
+    var buchstil: Buchstil {
+        var gewaehlt = Buchstil.nach(stil)
+        // Die Akzentfarbe gehört der REISE und nicht dem Stil: Wer sie
+        // ändert, will sie behalten, auch wenn er danach noch einmal den
+        // Stil wechselt — und wer den Stil wechselt, will dessen Farbe.
+        // Deshalb trägt der Stil sie nur als Vorschlag, gesetzt wird sie
+        // beim Anwenden.
+        gewaehlt.akzent = akzent
+        return gewaehlt
+    }
+
     func foto(_ id: UUID) -> Foto? { fotos.first { $0.id == id } }
+
+    // Den Stil anwenden heißt: alles auf einmal setzen, was zusammengehört.
+    // Was danach von Hand geändert wird, bleibt geändert — der Stil ist ein
+    // Anfang und keine Schranke.
+    mutating func stilAnwenden(_ neu: Buchstil) {
+        stil = neu.id
+        typografie = neu.typografie
+        akzent = neu.akzent
+        gestaltung.papier = neu.papier
+        gestaltung.randAussen = neu.randAussen
+        gestaltung.randOben = neu.randOben
+        gestaltung.randUnten = neu.randUnten
+        gestaltung.fuge = neu.fuge
+        gestaltung.eckenradius = neu.eckenradius
+        gestaltung.seitenzahlen = neu.seitenzahlen
+    }
 
     var fotoIndex: [UUID: Foto] {
         Dictionary(uniqueKeysWithValues: fotos.map { ($0.id, $0) })

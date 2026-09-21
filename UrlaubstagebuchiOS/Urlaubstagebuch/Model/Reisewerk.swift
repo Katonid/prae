@@ -118,9 +118,18 @@ final class Reisewerk: ObservableObject, Identifiable {
 
     // MARK: - Satz
 
-    var automat: Layoutautomat {
-        Layoutautomat(format: reise.format, gestaltung: reise.gestaltung,
-                      typografie: reise.typografie, fotoIndex: reise.fotoIndex)
+    // Der Automat kommt von der Reise selbst — sonst gäbe es ihn zweimal,
+    // und die Seitenfolge (die ihn für die Titelseite braucht) hätte einen
+    // anderen als die Tagesseiten.
+    var automat: Layoutautomat { reise.automat }
+
+    func stilAnwenden(_ stil: Buchstil) {
+        merken()
+        reise.stilAnwenden(stil)
+        // Ein Stil ändert Ränder, Fugen und Schriftgrößen — also alles, was
+        // die Seiten bestimmt. Sie nicht neu zu setzen hieße, den Stil zu
+        // wählen und ihn nicht zu sehen.
+        alleNeuAnordnen(nurUnberuehrte: true)
     }
 
     // Gibt zurück, ob an diesem Tag von Hand gearbeitet wurde. Die Ansicht
@@ -206,7 +215,7 @@ final class Reisewerk: ObservableObject, Identifiable {
         guard let t = tagIndex(tagID), reise.tage[t].seiten.indices.contains(seite) else { return }
         merken()
         let satz = reise.gestaltung.satzspiegel(reise.format)
-        let breite = min(satz.width * 0.46, 260)
+        let breite = min(satz.width * 0.46, 260.0)
         let neu = Block(
             inhalt: inhalt,
             rahmen: Rahmen(x: satz.midX - breite / 2, y: satz.midY - 60,

@@ -17,10 +17,10 @@ struct TextimportView: View {
     @State private var ersetzen = false
     @State private var vorspannUebernehmen = true
     @State private var dateiwahl = false
-
-    private var befund: Textimport.Importbefund {
-        Textimport.lesen(text, bezugsjahr: bezugsjahr)
-    }
+    // Gelesen wird auf Änderung, nicht bei jedem Neuzeichnen: Das Zerlegen
+    // geht über jede Zeile des Textes, und die Ansicht zeichnet sich bei
+    // jedem Tastendruck neu.
+    @State private var befund = Textimport.Importbefund()
 
     private var bezugsjahr: Int {
         werk.reise.tage.first?.datum.jahr ?? Tagesdatum(Date()).jahr
@@ -71,6 +71,9 @@ struct TextimportView: View {
                     }
                     .disabled(befund.abschnitte.isEmpty)
                 }
+            }
+            .onChange(of: text) { _, neu in
+                befund = Textimport.lesen(neu, bezugsjahr: bezugsjahr)
             }
             .sheet(isPresented: $dateiwahl) {
                 Dateiwahl(typen: [.plainText, .utf8PlainText, .rtf, .text]) { adressen in

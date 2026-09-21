@@ -2,10 +2,14 @@ import CoreGraphics
 import Foundation
 
 // Wie eine Tagesseite grundsätzlich aufgebaut ist. Die App wählt das
-// Muster selbst (nach Textlänge, Zahl der Fotos und dem Format der Bilder);
-// der Nutzer kann es je Tag überschreiben. Ein Automat ohne Handbremse ist
-// in einem Buch, das jemandem GEFALLEN soll, kein Angebot.
+// Muster selbst (nach Textlänge, Zahl der Fotos, Format der Bilder und der
+// Vorliebe des gewählten Stils); der Nutzer kann es je Tag überschreiben.
+// Ein Automat ohne Handbremse ist in einem Buch, das jemandem GEFALLEN
+// soll, kein Angebot.
 enum Seitenmuster: String, Codable, CaseIterable, Identifiable {
+    case vollbildAufmacher
+    case halbseitig
+    case album
     case karteOben
     case karteSeitlich
     case bildZuerst
@@ -16,6 +20,9 @@ enum Seitenmuster: String, Codable, CaseIterable, Identifiable {
 
     var name: String {
         switch self {
+        case .vollbildAufmacher: return "Bild über die ganze Seite"
+        case .halbseitig: return "Bild über die halbe Seite"
+        case .album: return "Eingeklebt"
         case .karteOben: return "Karte als Band oben"
         case .karteSeitlich: return "Karte neben dem Text"
         case .bildZuerst: return "Großes Aufmacherfoto"
@@ -26,12 +33,30 @@ enum Seitenmuster: String, Codable, CaseIterable, Identifiable {
 
     var beschreibung: String {
         switch self {
-        case .karteOben: return "Die Tagesstrecke liegt breit unter der Überschrift, darunter Text und Fotos."
-        case .karteSeitlich: return "Text und Karte nebeneinander, die Fotos darunter."
-        case .bildZuerst: return "Ein Foto über die volle Breite, danach Text und Karte."
-        case .textZuerst: return "Der Text trägt die Seite, Karte und Fotos folgen."
-        case .bilderbogen: return "Fast nur Bilder, der Text bleibt kurz."
+        case .vollbildAufmacher:
+            return "Das erste Foto füllt die Seite bis über den Rand, Datum und Überschrift liegen darauf. Text und Bilder folgen auf der nächsten Seite."
+        case .halbseitig:
+            return "Ein Foto läuft über die halbe Seite bis an drei Kanten, daneben stehen Text und Karte."
+        case .album:
+            return "Bilder mit weißem Rand, leicht gedreht und einander überlappend — wie in ein Album geklebt."
+        case .karteOben:
+            return "Die Tagesstrecke liegt breit unter der Überschrift, darunter Text und Fotos."
+        case .karteSeitlich:
+            return "Text und Karte nebeneinander, die Fotos darunter."
+        case .bildZuerst:
+            return "Ein Foto über die volle Satzbreite, danach Text und Karte."
+        case .textZuerst:
+            return "Der Text trägt die Seite, Karte und Fotos folgen."
+        case .bilderbogen:
+            return "Fast nur Bilder, der Text bleibt kurz."
         }
+    }
+
+    // Läuft dieses Muster bis an die Papierkante? Ohne Anschnitt ist es
+    // nicht zu haben — und in einem Stil, der keine randabfallenden Bilder
+    // will, hat es nichts verloren.
+    var brauchtAnschnitt: Bool {
+        self == .vollbildAufmacher || self == .halbseitig
     }
 }
 
@@ -49,14 +74,82 @@ struct Layoutautomat {
     var format: Seitenformat
     var gestaltung: Gestaltung
     var typografie: Typografie
+    var stil: Buchstil
     var fotoIndex: [UUID: Foto]
 
     private var satz: CGRect { gestaltung.satzspiegel(format) }
-    private var fuge: Double { gestaltung.fuge }
+    private var fuge: Double { gestaltung.fugePt }
+    private var bogen: CGRect { gestaltung.randabfallend(format) }
 
     // MARK: - Titelseite
 
-    func titelseite(titel: String, untertitel: String, zeitraum: String) -> Seite {
+    // Mit Titelfoto ist sie ein Plakat, ohne ein ruhiges Textblatt. Beides
+    // ist richtig; was nicht geht, ist ein halbherziges Dazwischen — ein
+    // kleines Bildchen über einem großen Titel sieht aus wie ein Entwurf.
+    func titelseite(titel: String, untertitel: String, zeitraum: String,
+                    titelfoto: UUID?) -> Seite
+    {
+        if let titelfoto, fotoIndex[titelfoto] != nil {
+            return titelseiteMitBild(titel: titel, untertitel: untertitel,
+                                     zeitraum: zeitraum, foto: titelfoto)
+        }
+        return titelseiteSchlicht(titel: titel, untertitel: untertitel, zeitraum: zeitraum)
+    }
+
+    private func titelseiteMitBild(titel: String, untertitel: String, zeitraum: String,
+                                   foto: UUID) -> Seite
+    {
+        var bloecke: [Block] = []
+        bloecke.append(Block(
+            inhalt: .foto(foto),
+            rahmen: Rahmen(bogen),
+            randabfallend: true
+        ))
+
+        // Der Titel steht auf einem hellen Feld und nicht frei auf dem Bild.
+        // Weiße Schrift auf einem Foto ist genau so lange lesbar, bis
+        // jemand ein Bild mit hellem Himmel wählt — und dann ist es der
+        // Titel des Buches, der verschwindet.
+        let breite = satz.width * 0.72
+        let x = satz.minX
+        var gross = typografie.titel
+        gross.groesse = typografie.titel.groesse * 1.35
+        let titelHoehe = Textmass.hoehe(titel, bild: gross, breite: breite - 40)
+
+        var unter = typografie.flieText
+        unter.groesse = typografie.flieText.groesse * 1.15
+        let untertext = [untertitel, zeitraum].filter { !$0.isEmpty }.joined(separator: "\n")
+        let unterHoehe = untertext.isEmpty ? 0
+            : Textmass.hoehe(untertext, bild: unter, breite: breite - 40)
+
+        let feldHoehe = titelHoehe + (unterHoehe > 0 ? unterHoehe + 16 : 0) + 44
+        let feldY = satz.maxY - feldHoehe
+
+        bloecke.append(Block(
+            inhalt: .flaeche,
+            rahmen: Rahmen(x: x, y: feldY, breite: breite, hoehe: feldHoehe),
+            grund: Farbwert(rot: stil.papier.rot, gruen: stil.papier.gruen,
+                            blau: stil.papier.blau, deckung: 0.93)
+        ))
+        bloecke.append(Block(
+            inhalt: .titel,
+            rahmen: Rahmen(x: x + 22, y: feldY + 20, breite: breite - 44, hoehe: titelHoehe),
+            abweichung: Schriftabweichung(groesse: gross.groesse)
+        ))
+        if unterHoehe > 0 {
+            bloecke.append(Block(
+                inhalt: .text(untertext),
+                rahmen: Rahmen(x: x + 22, y: feldY + 20 + titelHoehe + 12,
+                               breite: breite - 44, hoehe: unterHoehe),
+                abweichung: Schriftabweichung(groesse: unter.groesse)
+            ))
+        }
+        return Seite(bloecke: bloecke, ohneSeitenzahl: true)
+    }
+
+    private func titelseiteSchlicht(titel: String, untertitel: String,
+                                    zeitraum: String) -> Seite
+    {
         var bloecke: [Block] = []
         let breite = satz.width
         var gross = typografie.titel
@@ -79,13 +172,12 @@ struct Layoutautomat {
             abweichung: Schriftabweichung(groesse: gross.groesse, ausrichtung: .mitte)
         ))
         y += titelHoehe + 14
-
         bloecke.append(Block(
             inhalt: .linie,
-            rahmen: Rahmen(x: satz.midX - 60, y: y, breite: 120, hoehe: 1)
+            rahmen: Rahmen(x: satz.midX - 60, y: y, breite: 120, hoehe: 1),
+            rand: stil.akzent
         ))
         y += 12
-
         if !untertext.isEmpty {
             bloecke.append(Block(
                 inhalt: .text(untertext),
@@ -93,26 +185,47 @@ struct Layoutautomat {
                 abweichung: Schriftabweichung(groesse: unter.groesse, ausrichtung: .mitte)
             ))
         }
-        return Seite(bloecke: bloecke)
+        return Seite(bloecke: bloecke, ohneSeitenzahl: true)
     }
 
     // MARK: - Musterwahl
 
+    // Gewählt wird aus der VORLIEBE des Stils, und zwar das erste Muster,
+    // das zum Inhalt dieses Tages passt. Damit sieht ein Buch durchgehend
+    // nach einer Handschrift aus, ohne dass alle Seiten gleich wären —
+    // eine Liste erlaubter Muster je Stil ist der Unterschied zwischen
+    // Abwechslung und Unruhe.
     func musterVorschlag(text: String, fotos: [Foto], hatSpur: Bool) -> Seitenmuster {
         let zeichen = text.count
-        if !hatSpur {
-            return fotos.count >= 5 && zeichen < 400 ? .bilderbogen : .textZuerst
+        let anschnittGeht = gestaltung.anschnitt > 0.5 && stil.randabfallendErlaubt
+        let quer = fotos.first.map { $0.seitenverhaeltnis > 1.15 } ?? false
+
+        for muster in stil.musterVorliebe {
+            if muster.brauchtAnschnitt, !anschnittGeht { continue }
+            switch muster {
+            case .vollbildAufmacher:
+                // Ein Vollbild lohnt sich nur, wenn danach noch etwas kommt
+                // und das Bild die Seite auch trägt.
+                if fotos.count >= 3, zeichen > 200, quer { return muster }
+            case .halbseitig:
+                if fotos.count >= 2, zeichen > 150 { return muster }
+            case .album:
+                if fotos.count >= 3 { return muster }
+            case .karteOben:
+                if hatSpur, fotos.count <= 2 { return muster }
+            case .karteSeitlich:
+                if hatSpur, zeichen > 200 { return muster }
+            case .bildZuerst:
+                if quer, zeichen < 1400, !fotos.isEmpty { return muster }
+            case .textZuerst:
+                if zeichen > 600 || fotos.isEmpty { return muster }
+            case .bilderbogen:
+                if fotos.count >= 4 { return muster }
+            }
         }
-        if fotos.isEmpty { return .karteOben }
-        if zeichen > 1400 { return .karteSeitlich }
-        if fotos.count >= 6 && zeichen < 500 { return .bilderbogen }
-        // Ein querformatiges erstes Foto trägt eine Seite als Aufmacher; ein
-        // hochkantes über die volle Breite wäre ein Turm und schöbe alles
-        // andere auf die zweite Seite.
-        if let erstes = fotos.first, erstes.seitenverhaeltnis > 1.2, zeichen < 1100 {
-            return .bildZuerst
-        }
-        return .karteSeitlich
+        if fotos.isEmpty { return .textZuerst }
+        if hatSpur, zeichen > 200 { return .karteSeitlich }
+        return .bilderbogen
     }
 
     // MARK: - Tagesseiten
@@ -124,36 +237,71 @@ struct Layoutautomat {
 
         var seiten: [Seite] = []
         var bloecke: [Block] = []
-        var y = satz.minY
         var offeneFotos = fotos
         var restText = tag.text.trimmingCharacters(in: .whitespacesAndNewlines)
         var karteOffen = karte
+        var y = satz.minY
 
-        // Kopf: Datumszeile, darunter die Überschrift. Beides zusammen, weil
-        // ein Datum ohne seinen Titel eine verwaiste Zeile ist.
-        let datumHoehe = typografie.datum.zeilenhoehe + 2
-        bloecke.append(Block(
-            inhalt: .datum,
-            rahmen: Rahmen(x: satz.minX, y: y, breite: satz.width, hoehe: datumHoehe)
-        ))
-        y += datumHoehe + 3
-
-        let titel = tag.ueberschrift.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !titel.isEmpty {
-            let hoehe = Textmass.hoehe(titel, bild: typografie.titel, breite: satz.width)
-            bloecke.append(Block(
-                inhalt: .titel,
-                rahmen: Rahmen(x: satz.minX, y: y, breite: satz.width, hoehe: hoehe)
-            ))
-            y += hoehe + 6
+        // Der Vollbild-Aufmacher bekommt eine EIGENE Seite. Text darauf zu
+        // quetschen wäre der schlechtere Handel: Das Bild verlöre seine
+        // Wirkung, und der Text läge auf einem unruhigen Grund.
+        if muster == .vollbildAufmacher, let aufmacher = offeneFotos.first {
+            offeneFotos.removeFirst()
+            seiten.append(vollbildseite(aufmacher, tag: tag))
+            bloecke = []
+            y = satz.minY
+            let kopf = kopfzeile(tag: tag, y: &y, knapp: true)
+            bloecke.append(contentsOf: kopf)
+        } else {
+            bloecke.append(contentsOf: kopfzeile(tag: tag, y: &y, knapp: false))
         }
-        bloecke.append(Block(
-            inhalt: .linie,
-            rahmen: Rahmen(x: satz.minX, y: y, breite: satz.width, hoehe: 0.8)
-        ))
-        y += 14
 
         switch muster {
+        case .halbseitig:
+            if let gross = offeneFotos.first {
+                offeneFotos.removeFirst()
+                // Das Bild läuft nach links, oben und unten bis über die
+                // Kante; nur zur Textseite hin hat es einen Rand.
+                let breite = format.groesse.width * 0.46
+                bloecke.append(Block(
+                    inhalt: .foto(gross.id),
+                    rahmen: Rahmen(x: bogen.minX, y: bogen.minY,
+                                   breite: breite - bogen.minX, hoehe: bogen.height),
+                    randabfallend: true
+                ))
+                let textX = breite + Druckmass.pt(gestaltung.fuge * 2)
+                let textBreite = satz.maxX - textX
+                var textY = satz.minY
+                // Auf dieser Seite steht der Kopf rechts neben dem Bild.
+                bloecke.removeAll { $0.inhalt == .datum || $0.inhalt == .titel || $0.inhalt == .linie }
+                bloecke.append(contentsOf: kopfzeile(tag: tag, y: &textY, knapp: false,
+                                                     x: textX, breite: textBreite))
+                var neu = bloecke
+                (neu, textY, restText) = textSpalte(neu, y: textY, x: textX,
+                                                    breite: textBreite, text: restText)
+                bloecke = neu
+                if karteOffen, textY + textBreite / 1.4 < satz.maxY {
+                    let hoehe = textBreite / 1.4
+                    bloecke.append(karteBlock(x: textX, y: textY, breite: textBreite, hoehe: hoehe))
+                    textY += hoehe + fuge
+                    karteOffen = false
+                }
+                y = textY
+                // Was hier nicht mehr hinpasst, beginnt eine neue Seite.
+                if !offeneFotos.isEmpty || !restText.isEmpty || karteOffen {
+                    seiten.append(Seite(bloecke: bloecke))
+                    bloecke = []
+                    y = satz.minY
+                }
+            }
+
+        case .album:
+            (bloecke, y, restText) = textSpalte(bloecke, y: y, x: satz.minX,
+                                                breite: satz.width, text: restText)
+            let (albumbloecke, unten) = albumreihen(&offeneFotos, ab: y, karte: &karteOffen)
+            bloecke.append(contentsOf: albumbloecke)
+            y = unten
+
         case .bildZuerst:
             if let aufmacher = offeneFotos.first {
                 offeneFotos.removeFirst()
@@ -163,7 +311,8 @@ struct Layoutautomat {
                                          y: y, breite: breite, hoehe: hoehe))
                 y += hoehe + unterschriftHoehe(aufmacher, breite: breite) + fuge + 4
             }
-            (bloecke, y, restText) = textSpalte(bloecke, y: y, breite: satz.width, text: restText)
+            (bloecke, y, restText) = textSpalte(bloecke, y: y, x: satz.minX,
+                                                breite: satz.width, text: restText)
 
         case .karteOben:
             if karteOffen {
@@ -172,7 +321,8 @@ struct Layoutautomat {
                 y += hoehe + fuge + 4
                 karteOffen = false
             }
-            (bloecke, y, restText) = textSpalte(bloecke, y: y, breite: satz.width, text: restText)
+            (bloecke, y, restText) = textSpalte(bloecke, y: y, x: satz.minX,
+                                                breite: satz.width, text: restText)
 
         case .karteSeitlich:
             let karteBreite = karteOffen ? (satz.width * gestaltung.kartenanteil).rounded() : 0
@@ -186,16 +336,15 @@ struct Layoutautomat {
                 karteOffen = false
             }
             var textUnten = y
-            (bloecke, textUnten, restText) = textSpalte(bloecke, y: y, breite: textBreite, text: restText)
+            (bloecke, textUnten, restText) = textSpalte(bloecke, y: y, x: satz.minX,
+                                                        breite: textBreite, text: restText)
             y = max(textUnten, karteUnten) + 4
 
-        case .textZuerst:
-            (bloecke, y, restText) = textSpalte(bloecke, y: y, breite: satz.width, text: restText)
+        case .textZuerst, .vollbildAufmacher:
+            (bloecke, y, restText) = textSpalte(bloecke, y: y, x: satz.minX,
+                                                breite: satz.width, text: restText)
 
         case .bilderbogen:
-            // Beim Bilderbogen kommt der Text nur, wenn er kurz ist — sonst
-            // stünde er als Mauer über den Bildern, und genau das soll dieses
-            // Muster ja nicht.
             if !restText.isEmpty {
                 let hoehe = Textmass.hoehe(restText, bild: typografie.flieText, breite: satz.width)
                 if hoehe < satz.height * 0.22 {
@@ -212,11 +361,182 @@ struct Layoutautomat {
         // Karte und Fotos als Kacheln in Reihen. Eine noch offene Karte
         // läuft vorn mit, damit sie nicht allein auf der letzten Seite
         // landet, wo sie niemand mit dem Tag in Verbindung bringt.
+        if muster != .album {
+            let (weitere, gefuellt, uebrig) = reihenSetzen(
+                offeneFotos, karte: karteOffen, bloecke: bloecke, ab: y, restText: restText)
+            seiten.append(contentsOf: weitere)
+            bloecke = gefuellt
+            restText = uebrig
+        }
+
+        if !bloecke.isEmpty || seiten.isEmpty { seiten.append(Seite(bloecke: bloecke)) }
+        return seiten
+    }
+
+    // MARK: - Bausteine
+
+    private func vollbildseite(_ foto: Foto, tag: Reisetag) -> Seite {
+        var bloecke: [Block] = []
+        bloecke.append(Block(
+            inhalt: .foto(foto.id),
+            rahmen: Rahmen(bogen),
+            randabfallend: true
+        ))
+        // Ein dunkler Verlauf am unteren Rand trägt die Schrift auch über
+        // einem hellen Bild. Er ist kein Schmuck, sondern die Bedingung
+        // dafür, dass die Überschrift überhaupt lesbar ist.
+        let bandHoehe = satz.height * 0.42
+        bloecke.append(Block(
+            inhalt: .verlauf,
+            rahmen: Rahmen(x: bogen.minX, y: bogen.maxY - bandHoehe,
+                           breite: bogen.width, hoehe: bandHoehe),
+            randabfallend: true
+        ))
+        var hell = Schriftabweichung()
+        hell.farbe = Farbwert(rot: 1, gruen: 1, blau: 1)
+
+        let titel = tag.ueberschrift.trimmingCharacters(in: .whitespacesAndNewlines)
+        var titelbild = typografie.titel
+        titelbild.farbe = Farbwert(rot: 1, gruen: 1, blau: 1)
+        let titelHoehe = titel.isEmpty ? 0
+            : Textmass.hoehe(titel, bild: titelbild, breite: satz.width * 0.8)
+        let datumHoehe = typografie.datum.zeilenhoehe + 2
+        var y = satz.maxY - titelHoehe - datumHoehe - 6
+
+        var datumhell = hell
+        datumhell.farbe = Farbwert(rot: 1, gruen: 0.93, blau: 0.86)
+        bloecke.append(Block(
+            inhalt: .datum,
+            rahmen: Rahmen(x: satz.minX, y: y, breite: satz.width, hoehe: datumHoehe),
+            abweichung: datumhell
+        ))
+        y += datumHoehe + 3
+        if !titel.isEmpty {
+            bloecke.append(Block(
+                inhalt: .titel,
+                rahmen: Rahmen(x: satz.minX, y: y, breite: satz.width * 0.8, hoehe: titelHoehe),
+                abweichung: hell
+            ))
+        }
+        return Seite(bloecke: bloecke, ohneSeitenzahl: true)
+    }
+
+    private func kopfzeile(tag: Reisetag, y: inout CGFloat, knapp: Bool,
+                           x: CGFloat? = nil, breite: CGFloat? = nil) -> [Block]
+    {
+        var bloecke: [Block] = []
+        let linksX = x ?? satz.minX
+        let spaltenbreite = breite ?? satz.width
+
+        let datumHoehe = typografie.datum.zeilenhoehe + 2
+        bloecke.append(Block(
+            inhalt: .datum,
+            rahmen: Rahmen(x: linksX, y: y, breite: spaltenbreite, hoehe: datumHoehe)
+        ))
+        y += datumHoehe + 3
+
+        // Auf der Fortsetzungsseite steht der Titel nicht noch einmal — er
+        // stand schon groß auf dem Aufmacher, und zweimal gelesen wirkt er
+        // wie ein Fehler im Satz.
+        let titel = tag.ueberschrift.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !titel.isEmpty, !knapp {
+            let hoehe = Textmass.hoehe(titel, bild: typografie.titel, breite: spaltenbreite)
+            bloecke.append(Block(
+                inhalt: .titel,
+                rahmen: Rahmen(x: linksX, y: y, breite: spaltenbreite, hoehe: hoehe)
+            ))
+            y += hoehe + 6
+        }
+        bloecke.append(Block(
+            inhalt: .linie,
+            rahmen: Rahmen(x: linksX, y: y, breite: spaltenbreite, hoehe: 0.8),
+            rand: stil.akzent
+        ))
+        y += 14
+        return bloecke
+    }
+
+    // Eingeklebt: Bilder mit weißem Rand, jedes ein wenig anders gedreht,
+    // einander überlappend.
+    //
+    // Der Dreh ist AUS DER KENNUNG gerechnet und nicht zufällig — sonst
+    // stünde dasselbe Bild nach jedem Neuanordnen woanders, und der Satz
+    // wäre nie zweimal derselbe. Die Grenze von vier Grad ist der
+    // Unterschied zwischen „mit der Hand eingeklebt" und „schief".
+    private func albumreihen(_ fotos: inout [Foto], ab: CGFloat,
+                             karte: inout Bool) -> ([Block], CGFloat)
+    {
+        var bloecke: [Block] = []
+        var y = ab
+        let spalten = fotos.count >= 5 ? 3 : 2
+        let breite = (satz.width - fuge * Double(spalten - 1)) / Double(spalten)
+        var spalte = 0
+        var reihenhoehe: CGFloat = 0
+
+        var kacheln: [(inhalt: Blockinhalt, verhaeltnis: Double, foto: Foto?)] = []
+        if karte {
+            kacheln.append((.karte, 1.3, nil))
+            karte = false
+        }
+        for foto in fotos { kacheln.append((.foto(foto.id), foto.seitenverhaeltnis, foto)) }
+        fotos = []
+
+        for kachel in kacheln {
+            let hoehe = breite / max(kachel.verhaeltnis, 0.35)
+            if y + hoehe > satz.maxY, spalte == 0 { break }
+            let x = satz.minX + Double(spalte) * (breite + fuge)
+            // Die Überlappung: Jede zweite Kachel rückt ein Stück nach oben
+            // und über den Nachbarn. Die Drehung kommt aus der Kennung.
+            let versatz = spalte % 2 == 1 ? -fuge * 1.6 : 0
+            var block = Block(
+                inhalt: kachel.inhalt,
+                rahmen: Rahmen(x: x - (spalte > 0 ? fuge * 0.5 : 0), y: y + versatz,
+                               breite: breite, hoehe: hoehe),
+                drehung: drehwinkel(kachel.foto?.id),
+                ebene: spalte,
+                schatten: stil.schatten,
+                fotorand: kachel.inhalt.istFoto ? stil.fotorand : 0
+            )
+            if !kachel.inhalt.istFoto { block.fotorand = 0 }
+            bloecke.append(block)
+            reihenhoehe = max(reihenhoehe, hoehe + abs(versatz))
+            spalte += 1
+            if spalte == spalten {
+                spalte = 0
+                y += reihenhoehe + fuge * 1.4
+                reihenhoehe = 0
+            }
+        }
+        if spalte > 0 { y += reihenhoehe + fuge }
+        return (bloecke, y)
+    }
+
+    // Immer derselbe Winkel für dasselbe Bild — ein Satz, der sich bei
+    // jedem Neuanordnen anders neigt, ist kein Satz, sondern ein Würfel.
+    private func drehwinkel(_ id: UUID?) -> Double {
+        guard let id else { return 0 }
+        var wert: UInt64 = 0xcbf2_9ce4_8422_2325
+        for teil in id.uuidString.utf8 {
+            wert = (wert ^ UInt64(teil)) &* 0x1000_0000_01b3
+        }
+        let anteil = Double(wert % 1000) / 1000
+        return (anteil - 0.5) * 4.2
+    }
+
+    private func reihenSetzen(_ fotos: [Foto], karte: Bool, bloecke eingang: [Block],
+                              ab: CGFloat, restText: String)
+        -> (fertig: [Seite], offen: [Block], rest: String)
+    {
+        var seiten: [Seite] = []
+        var bloecke = eingang
+        var y = ab
+        var text = restText
+
         var kacheln: [Kachel] = []
-        if karteOffen {
+        if karte {
             kacheln.append(Kachel(inhalt: .karte, verhaeltnis: 1.3, unterschrift: 0))
         }
-        for foto in offeneFotos {
+        for foto in fotos {
             kacheln.append(Kachel(
                 inhalt: .foto(foto.id),
                 verhaeltnis: foto.seitenverhaeltnis,
@@ -228,32 +548,30 @@ struct Layoutautomat {
         var offen = kacheln
         // Die Notbremse ist kein Schmuck: Kommt aus der Textteilung einmal
         // nichts zurück (ein einzelnes Wort, das breiter ist als die Seite),
-        // liefe die Schleife ewig — und eine App, die beim Einlesen eines
-        // Tagebuchs hängt, ist schlimmer als eine, die einen Absatz
-        // abschneidet. Was übrig bleibt, meldet sie hinterher.
+        // liefe die Schleife ewig.
         var durchgaenge = 0
-        while !offen.isEmpty || !restText.isEmpty {
+        while !offen.isEmpty || !text.isEmpty {
             durchgaenge += 1
             if durchgaenge > 200 { break }
-            if !restText.isEmpty {
+            if !text.isEmpty {
                 let platz = CGSize(width: satz.width, height: satz.maxY - y)
                 if platz.height > typografie.flieText.zeilenhoehe * 3 {
-                    let (kopf, rest) = Textmass.teilen(restText, bild: typografie.flieText, groesse: platz)
+                    let (kopf, rest) = Textmass.teilen(text, bild: typografie.flieText,
+                                                       groesse: platz)
                     if kopf.isEmpty {
-                        // Auf einer frischen Seite passt nichts hinein — dann
-                        // hilft auch die nächste nicht.
-                        restText = ""
+                        text = ""
                     } else {
-                        let hoehe = Textmass.hoehe(kopf, bild: typografie.flieText, breite: satz.width)
+                        let hoehe = Textmass.hoehe(kopf, bild: typografie.flieText,
+                                                   breite: satz.width)
                         bloecke.append(Block(
                             inhalt: .text(kopf),
                             rahmen: Rahmen(x: satz.minX, y: y, breite: satz.width, hoehe: hoehe)
                         ))
                         y += hoehe + fuge + 4
-                        restText = rest
+                        text = rest
                     }
                 }
-                if !restText.isEmpty {
+                if !text.isEmpty {
                     seiten.append(Seite(bloecke: bloecke))
                     bloecke = []
                     y = satz.minY
@@ -286,34 +604,33 @@ struct Layoutautomat {
             y += hoehe + fuge
             offen.removeFirst(reihe.count)
         }
-
-        if !bloecke.isEmpty || seiten.isEmpty { seiten.append(Seite(bloecke: bloecke)) }
-        return seiten
+        return (seiten, bloecke, text)
     }
 
-    // MARK: - Bausteine
-
-    private func fotoblock(_ foto: Foto, x: Double, y: Double, breite: Double, hoehe: Double) -> Block {
+    private func fotoblock(_ foto: Foto, x: Double, y: Double, breite: Double,
+                           hoehe: Double) -> Block
+    {
         Block(
             inhalt: .foto(foto.id),
-            rahmen: Rahmen(x: x, y: y, breite: breite, hoehe: hoehe)
+            rahmen: Rahmen(x: x, y: y, breite: breite, hoehe: hoehe),
+            schatten: stil.schatten,
+            fotorand: stil.fotorand
         )
     }
 
     private func karteBlock(x: Double, y: Double, breite: Double, hoehe: Double) -> Block {
-        Block(inhalt: .karte, rahmen: Rahmen(x: x, y: y, breite: breite, hoehe: hoehe))
+        Block(inhalt: .karte, rahmen: Rahmen(x: x, y: y, breite: breite, hoehe: hoehe),
+              schatten: stil.schatten)
     }
 
     private func unterschriftHoehe(_ foto: Foto, breite: Double) -> Double {
         guard !foto.unterschrift.isEmpty else { return 0 }
-        return Textmass.hoehe(foto.unterschrift, bild: typografie.bildunterschrift, breite: breite) + 3
+        return Textmass.hoehe(foto.unterschrift, bild: typografie.bildunterschrift,
+                              breite: breite) + 3
     }
 
-    // Der Rückgabetyp ist `CGFloat` und nicht `Double`, obwohl beide auf
-    // diesen Geräten dasselbe sind: Bei einer TUPEL-Zuweisung rechnet Swift
-    // die beiden nicht ineinander um, und `y` kommt aus einem `CGRect`.
-    private func textSpalte(_ bloecke: [Block], y: CGFloat, breite: Double, text: String)
-        -> ([Block], CGFloat, String)
+    private func textSpalte(_ bloecke: [Block], y: CGFloat, x: CGFloat, breite: Double,
+                            text: String) -> ([Block], CGFloat, String)
     {
         guard !text.isEmpty else { return (bloecke, y, text) }
         var neue = bloecke
@@ -324,7 +641,7 @@ struct Layoutautomat {
         let hoehe = Textmass.hoehe(kopf, bild: typografie.flieText, breite: breite)
         neue.append(Block(
             inhalt: .text(kopf),
-            rahmen: Rahmen(x: satz.minX, y: y, breite: breite, hoehe: hoehe)
+            rahmen: Rahmen(x: x, y: y, breite: breite, hoehe: hoehe)
         ))
         return (neue, y + hoehe + fuge + 4, rest)
     }
@@ -346,9 +663,9 @@ struct Layoutautomat {
 
     // Eine Reihe wird gefüllt, bis sie bei der Zielhöhe angekommen ist, und
     // dann auf die volle Satzbreite gestreckt. Das ist das Verfahren, mit
-    // dem Fotobücher und Bildergalerien arbeiten: Alle Bilder einer Reihe
-    // sind gleich hoch, die Reihe steht randbündig, und kein Bild wird
-    // beschnitten, um in ein Raster zu passen.
+    // dem Fotobücher arbeiten: Alle Bilder einer Reihe sind gleich hoch, die
+    // Reihe steht randbündig, und kein Bild wird beschnitten, um in ein
+    // Raster zu passen.
     private func naechsteReihe(_ kacheln: [Kachel], breite: Double, ziel: Double)
         -> (reihe: [Kachel], hoehe: Double, bildhoehe: Double)
     {

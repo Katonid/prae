@@ -11,6 +11,7 @@ struct ReiseView: View {
     @State private var neuAnordnenFrage: UUID?
 
     enum Blatt: Identifiable {
+        case stil
         case textimport
         case fotos
         case dateien
@@ -23,6 +24,7 @@ struct ReiseView: View {
 
         var id: String {
             switch self {
+            case .stil: return "stil"
             case .textimport: return "text"
             case .fotos: return "fotos"
             case .dateien: return "dateien"
@@ -125,8 +127,8 @@ struct ReiseView: View {
     // ausdrücklich gezoomt wurde. Ein Buch, das man erst zurechtschieben
     // muss, bevor man es sieht, ist keines.
     private func massstab(_ raum: CGSize) -> Double {
-        let format = werk.reise.format.groesse
-        let passend = max((raum.width - 56) / format.width, 0.12)
+        let bogen = werk.reise.gestaltung.bogen(werk.reise.format)
+        let passend = max((raum.width - 56) / bogen.width, 0.12)
         if zoom == 0 { return min(passend, 1.6) }
         return zoom
     }
@@ -209,6 +211,7 @@ struct ReiseView: View {
         }
         ToolbarItem(placement: .topBarTrailing) {
             Menu {
+                Button("Stil wählen…", systemImage: "paintpalette") { blatt = .stil }
                 Button("Schrift und Ausrichtung…", systemImage: "textformat") {
                     blatt = .typografie
                 }
@@ -309,6 +312,8 @@ struct ReiseView: View {
     @ViewBuilder
     private func blattInhalt(_ welches: Blatt) -> some View {
         switch welches {
+        case .stil:
+            StilView(werk: werk)
         case .textimport:
             TextimportView(werk: werk)
         case .fotos:

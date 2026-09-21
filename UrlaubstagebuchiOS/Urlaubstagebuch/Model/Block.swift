@@ -11,6 +11,14 @@ enum Blockinhalt: Codable, Hashable {
     case foto(UUID)
     case karte
     case linie
+    // Eine reine Farbfläche — trägt einen Titel über einem Foto oder
+    // setzt einen Abschnitt farbig ab.
+    case flaeche
+    // Ein Verlauf von unten nach oben ins Durchsichtige. Er ist kein
+    // Schmuck, sondern die Bedingung dafür, dass Schrift auf einem Foto
+    // lesbar bleibt: Weiß auf einem hellen Himmel verschwindet, und
+    // welcher Himmel es wird, weiß man beim Setzen nicht.
+    case verlauf
 
     var istFoto: Bool { if case .foto = self { return true }; return false }
     var istText: Bool {
@@ -36,6 +44,8 @@ enum Blockinhalt: Codable, Hashable {
         case .foto: return "Foto"
         case .karte: return "Karte"
         case .linie: return "Trennlinie"
+        case .flaeche: return "Farbfläche"
+        case .verlauf: return "Verlauf"
         }
     }
 }
@@ -93,6 +103,38 @@ struct Bildausschnitt: Codable, Hashable {
     }
 }
 
+// Ein Schatten unter einem Foto ist der billigste Weg, eine Seite Tiefe zu
+// geben — und der schnellste, sie billig aussehen zu lassen. Deshalb keine
+// frei einstellbaren Werte, sondern drei geprüfte Stufen: Ein Schatten mit
+// falschem Winkel und zu viel Deckung ist das Kennzeichen jeder
+// selbstgebauten Vorlage.
+enum Schattenart: String, Codable, CaseIterable, Identifiable {
+    case keiner
+    case weich
+    case kante
+
+    var id: String { rawValue }
+
+    var name: String {
+        switch self {
+        case .keiner: return "Kein Schatten"
+        case .weich: return "Weich"
+        case .kante: return "Angehoben"
+        }
+    }
+
+    // Unschärfe, Versatz nach unten und Deckung — in Punkten bei einer
+    // A4-Seite. Gerechnet wird beim Zeichnen mit der Seitenbreite, damit
+    // ein 30er-Buch nicht denselben winzigen Schatten bekommt.
+    var werte: (unschaerfe: Double, versatz: Double, deckung: Double) {
+        switch self {
+        case .keiner: return (0, 0, 0)
+        case .weich: return (9, 3.5, 0.22)
+        case .kante: return (3.5, 1.6, 0.30)
+        }
+    }
+}
+
 struct Block: Identifiable, Codable, Hashable {
     var id = UUID()
     var inhalt: Blockinhalt
@@ -108,8 +150,17 @@ struct Block: Identifiable, Codable, Hashable {
     var vonHand: Bool = false
     var rand: Farbwert?
     var randbreite: Double = 0
-    var schatten: Bool = false
+    var schatten: Schattenart = .keiner
     var grund: Farbwert?
+    // Der weiße Rand um ein Foto, wie ihn ein Sofortbild hat — in
+    // Millimetern, weil man ihn im gedruckten Buch misst und nicht auf dem
+    // Bildschirm.
+    var fotorand: Double = 0
+    // Reicht dieser Block in den Anschnitt? Die Marke ist nötig, weil ein
+    // randabfallender Block beim Wechsel des Formats seine Zugabe behalten
+    // muss — ohne sie stünde nach dem Umstellen von drei auf fünf
+    // Millimeter überall ein weißer Faden.
+    var randabfallend: Bool = false
 
     var istFoto: Bool { inhalt.istFoto }
 
@@ -132,6 +183,9 @@ struct Seite: Identifiable, Codable, Hashable {
     var id = UUID()
     var bloecke: [Block] = []
     var papier: Farbwert?
+    // Eine Seite, die ganz von einem Bild gefüllt ist, bekommt keine
+    // Seitenzahl: Sie stünde auf dem Foto und sähe aus wie ein Versehen.
+    var ohneSeitenzahl: Bool = false
 
     var vonHand: Bool { bloecke.contains(where: \.vonHand) }
 

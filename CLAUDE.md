@@ -3171,6 +3171,96 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   `Double` und `CGFloat` NICHT ineinander um, obwohl beide auf diesen
   Geräten dasselbe sind. Bei gewöhnlichen Zuweisungen und Argumenten tut
   er es — der Fehler zeigt sich also nur an dieser einen Stelle.
+- **Das Ergebnis ist eine DRUCKVORLAGE, kein Bildschirmdokument** (ab
+  1.0.1). Gemessen an dem, was deutsche Druckdienste verlangen (BoD,
+  epubli, Saal Digital, 09/2026): PDF, Endformat exakt aus Millimetern,
+  3 mm Anschnitt (BoD 5), 300 dpi, Schriften eingebettet, **RGB** — und
+  damit ausdrücklich NICHT CMYK: Fotobuchdienste verlangen RGB und wandeln
+  selbst um. Wer bei einer Offsetdruckerei mit ISO Coated v2 bestellt,
+  braucht eine umgewandelte Datei; iOS kann kein CMYK-PDF schreiben. **Das
+  nicht als lösbar versprechen.**
+- **Kein Word oder Pages als Zwischenstufe** (Frage des Nutzers, 09/2026).
+  Eine Textverarbeitung kennt keinen Anschnitt, bricht Bilder um, wenn sich
+  eine Zeile ändert, und setzt auf jedem Rechner leicht anders. Genau das,
+  worauf es bei einer Druckvorlage ankommt, ist dort nicht zu haben.
+- **Das PDF entsteht über einen `CGContext`, nicht über
+  `UIGraphicsPDFRenderer`** (ab 1.0.1). Der Unterschied ist genau eine
+  Sache, und die entscheidet beim Druckdienst: Nur so lassen sich **TrimBox
+  und BleedBox** setzen. Daran erkennt die Druckerei, wo das Endformat
+  aufhört; ohne sie nimmt sie den Bogen für das Endformat und schneidet den
+  Anschnitt ins Bild. Die Boxen werden als rohe `CGRect`-Bytes übergeben —
+  ein `NSValue` nimmt CoreGraphics dort nicht an.
+- **Der Anschnitt ist NEGATIVER Raum.** Alle Blockkoordinaten liegen im
+  Endformat, dessen linke obere Ecke bei (0,0) sitzt; ein randabfallender
+  Block beginnt bei `-anschnitt`. Beim Zeichnen wird der Kontext einmal um
+  den Anschnitt verschoben. Das hält jede Zahl im Modell bei dem Wert, der
+  auf dem Lineal steht — die Alternative (Ursprung in der Bogenecke) hätte
+  jeden Rand um drei Millimeter verschoben.
+- **Gerechnet wird in MILLIMETERN, gesetzt in Punkten** (`Druckmass`). Ein
+  Buch wird in Millimetern bestellt; niemand kann einschätzen, ob 184
+  Punkte viel sind. Die Umrechnung steht an einer Stelle und nicht als
+  gerundete 2,83 verstreut — bei A4 liegt man damit schon um einen halben
+  Millimeter daneben.
+- **Der Bundsteg wird auf BEIDE Seitenränder gerechnet**, nicht nur auf den
+  inneren. Welche Seite innen liegt, hängt an der laufenden Seitenzahl, und
+  die verschiebt sich, sobald ein Tag eine Seite mehr braucht. Ein Bundsteg
+  auf der falschen Seite fällt erst im gebundenen Buch auf; ein paar
+  Millimeter Verschwendung sind der billigere Fehler.
+- **Die Druckprüfung misst, sie behauptet nicht** (`Dienste/Druckpruefung.swift`,
+  dieselbe Bauweise wie „Zustellung prüfen" bei Schulalarm). Vorab: dpi je
+  Fotoblock samt Seitenzahl des schwächsten, Anschnitt, randabfallende
+  Blöcke, Transparenz, Schrifteinbettung. Danach an der fertigen Datei:
+  Seitenzahl, MediaBox und TrimBox, gelesen aus dem PDF und nicht aus dem
+  Modell, das es geschrieben hat. Ein Buch geht einmal in den Druck und
+  kommt eine Woche später als Stapel Papier zurück.
+- **Ob eine Schrift eingebettet werden DARF, steht in ihr selbst** — im
+  Feld `fsType` der OS/2-Tabelle. Eine Schrift mit „Restricted License
+  Embedding" landet nicht im PDF, und die Druckerei ersetzt sie
+  stillschweigend. Gelesen wird die Tabelle über `CTFontCopyTable`; gibt
+  eine Schrift sie nicht heraus (die drei Systemschnitte tun das), sagt die
+  Prüfung genau das und rät nicht. **Ob CoreGraphics die erlaubte Schrift
+  dann wirklich einbettet, ist damit NICHT gemessen** — das zeigt erst ein
+  Blick in die fertige Datei.
+- **Die dpi-Rechnung nimmt den ZOOM des Ausschnitts mit.** Wer in ein Bild
+  hineinzoomt, benutzt weniger Pixel für dieselbe Fläche; ohne diesen
+  Faktor meldete die Prüfung 300 dpi für ein Bild, das mit 120 gedruckt
+  wird.
+- **Ein Stil setzt alles auf einmal** (`Model/Buchstil.swift`, fünf Stück).
+  Schrift, Farbe, Ränder, Fugen, Schatten und die Vorliebe für bestimmte
+  Seitenmuster ziehen gegeneinander: Eine schmale Didot mit engen Fugen und
+  randabfallenden Bildern ergibt ein Magazin, eine runde Groteske mit
+  breiten Rändern und Sofortbild-Rahmen ein Album — jede Mischung daraus
+  sieht aus wie ein Versehen. Der Stil ist ein Anfang und keine Schranke;
+  danach lässt sich jede Einzelheit weiter ändern.
+- **Die Akzentfarbe gehört der REISE, nicht dem Stil.** Wer sie ändert,
+  will sie behalten; wer den Stil wechselt, will dessen Farbe. Der Stil
+  trägt sie deshalb nur als Vorschlag. Und es gibt sie **nur einmal** — ein
+  zweites Feld „Linienfarbe" für die Karte gab es in 1.0.0 und lief
+  unweigerlich auseinander.
+- **Der Drehwinkel im Album-Muster kommt aus der KENNUNG des Fotos**, nicht
+  aus dem Zufall. Ein Satz, der sich bei jedem Neuanordnen anders neigt,
+  ist kein Satz, sondern ein Würfel. Die Grenze von gut vier Grad ist der
+  Unterschied zwischen „mit der Hand eingeklebt" und „schief".
+- **Die Schnittkante liegt ÜBER allem** (`SeitenflaecheView`). Sie ist die
+  Linie, an der beschnitten wird; unter den randabfallenden Bildern
+  gezeichnet wäre sie genau dort versteckt, wo man sie braucht.
+- **Weiße Schrift auf einem Foto braucht einen Verlauf darunter**
+  (`Blockinhalt.verlauf`). Sie ist genau so lange lesbar, bis jemand ein
+  Bild mit hellem Himmel wählt — und dann verschwindet die Überschrift des
+  Tages. Beim Ausgeben ohne Transparenz wird der Verlauf zu einem
+  geschlossenen Feld: weniger elegant, aber lesbar, und das ist hier das
+  Wichtigere.
+- **Seitenzahl und Kopfzeile sind KEINE Blöcke.** Sie gehören zum Buch und
+  nicht zum Tag; als Blöcke im Satz verschöbe sie irgendwann jemand. Sie
+  werden beim Zeichnen jeder Seite ergänzt, und eine ganzseitig bebilderte
+  Seite bekommt keine (`Seite.ohneSeitenzahl`) — die Zahl stünde auf dem
+  Foto und sähe aus wie ein Versehen.
+- **Eine berechnete Eigenschaft sieht billig aus** (dieselbe Falle wie bei
+  der Netzkarte der Abfahrtstafel, hier zweimal getroffen): Die
+  Druckprüfung läuft über alle Seiten und alle Fotos, die Datumserkennung
+  über jede Zeile des Textes. Beide standen zuerst als berechnete
+  Eigenschaft in einer `Form` und liefen damit bei JEDEM Neuzeichnen. Jetzt
+  hängen sie an `.task` und `.onChange`.
 - `MARKETING_VERSION` und `CURRENT_PROJECT_VERSION` stehen an je zwei
   Stellen im pbxproj (Debug + Release) — es gibt KEINE Skript-Bauphase.
   **Jede Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne

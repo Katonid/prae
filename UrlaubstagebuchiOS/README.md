@@ -7,6 +7,11 @@ oder mehrere Seiten mit Text, Bildern und einer Karte der Tagesstrecke.
 Auf dem Homescreen heißt sie **Reisebuch**; Ordner, Ziel und Bundle-Id
 bleiben `Urlaubstagebuch` / `de.familie.urlaubstagebuch`.
 
+Das Ergebnis ist eine **druckfertige PDF-Datei**: Endformat und Anschnitt
+stehen als TrimBox und BleedBox darin, der Text ist Text und keine
+Abbildung, und vor dem Ausgeben sagt eine Prüfung, was ein Druckdienst
+beanstanden würde.
+
 ## Was sie tut
 
 1. **Fotos einlesen.** Aus der Fotomediathek oder aus Dateien. Aufnahmetag
@@ -24,6 +29,63 @@ bleiben `Urlaubstagebuch` / `de.familie.urlaubstagebuch`.
    ändern, drehen; jedes Bild im Rahmen verschieben und vergrößern; an
    jeder Stelle die Schrift ändern.
 6. **PDF.** Eine Datei mit echtem Text, in Seitengröße, druckfertig.
+
+## Für den Druck
+
+Gemessen an dem, was deutsche Druckdienste verlangen (BoD, epubli, Saal
+Digital und die üblichen Online-Druckereien, abgerufen 09/2026):
+
+| Anforderung | Wie die App sie erfüllt |
+| --- | --- |
+| **PDF** | Einzige Ausgabe. Kein Word-Umweg — siehe unten. |
+| **Endformat** | A4 hoch, A4 quer, 21 x 21, 30 x 30 cm, exakt aus Millimetern gerechnet. |
+| **Anschnitt** | Einstellbar, Vorgabe 3 mm (BoD verlangt 5). Steht als BleedBox in der Datei. |
+| **TrimBox** | Das Endformat, damit die Druckerei weiß, wo geschnitten wird. |
+| **300 dpi** | Bilder bis 3600 Punkte Kante; die Prüfung nennt das schwächste Bild mit Seitenzahl. |
+| **Schriften eingebettet** | Die Prüfung liest die Einbettungserlaubnis aus der Schrift selbst (`fsType`). |
+| **RGB** | Bleibt RGB — genau das verlangen Fotobuchdienste, sie wandeln selbst um. |
+| **Keine Transparenz (PDF/X-1a, X-3)** | Schalter beim Ausgeben; Schatten fallen weg, Verläufe werden zu Feldern. |
+| **Umschlag getrennt** | Wahlweise zwei Dateien: Titelseite und Innenteil. |
+| **Bundsteg** | Einstellbar, auf beide Ränder gerechnet (siehe unten, warum). |
+
+**Was die App NICHT kann: CMYK.** Eine klassische Offsetdruckerei, die
+ISO Coated v2 verlangt, braucht eine umgewandelte Datei; iOS kann kein
+CMYK-PDF schreiben. Für Fotobücher ist das kein Mangel, sondern richtig so
+— dort ist RGB die gewünschte Anlieferung.
+
+**Warum kein Word oder Pages als Zwischenstufe.** Eine Textverarbeitung
+kennt keinen Anschnitt, bricht Bilder um, wenn sich eine Zeile ändert, und
+setzt auf jedem Rechner leicht anders. Genau die Dinge, auf die es bei
+einer Druckvorlage ankommt — dass ein Bild drei Millimeter über die
+Schnittkante steht und im Juni noch genauso steht wie im Mai —, sind dort
+nicht zu haben.
+
+## Der Stil trägt die Gestaltung
+
+Fünf Stile setzen Schrift, Farbe, Ränder, Fugen, Schatten und die Vorliebe
+für bestimmte Seitenmuster **auf einmal**: *Magazin*, *Fotoalbum*,
+*Journal*, *Klar*, *Postkarte*. Das ist keine Bequemlichkeit — diese
+Einstellungen ziehen gegeneinander. Eine schmale Didot mit engen Fugen und
+randabfallenden Bildern ergibt ein Magazin, eine runde Groteske mit breiten
+Rändern und Sofortbild-Rahmen ein Album, und jede Mischung aus beidem sieht
+aus wie ein Versehen.
+
+Die Vorschau in der Stilauswahl ist mit demselben Setzer gebaut wie das
+Buch und zeigt die eigenen Fotos. Ein gemaltes Beispielbild wäre einfacher
+und gälte nichts.
+
+Acht Seitenmuster, darunter drei, die das Buch tragen:
+
+* **Bild über die ganze Seite** — das erste Foto füllt eine eigene Seite
+  bis über den Rand, Datum und Überschrift liegen auf einem Verlauf darauf.
+* **Bild über die halbe Seite** — ein Foto bis an drei Kanten, daneben Text
+  und Karte.
+* **Eingeklebt** — Bilder mit weißem Rand, leicht gedreht, überlappend, mit
+  Schatten.
+
+Der Drehwinkel wird **aus der Kennung des Fotos gerechnet** und nicht
+gewürfelt: Ein Satz, der sich bei jedem Neuanordnen anders neigt, ist kein
+Satz.
 
 ## Die Entscheidungen, die den Rest tragen
 
@@ -194,10 +256,16 @@ Bibliotheken) — nicht von Hand bearbeiten.
 
 ## Offene Punkte
 
-* **Ob die Schriften im PDF ankommen, ist nicht gemessen.** Der Text wird
-  als Text gesetzt; ob iOS eine Systemschrift in die Datei einbettet oder
-  nur benennt, lässt sich erst an einem echten Ausdruck sehen. Nicht als
-  erledigt darstellen.
+* **Die Schrifteinbettung ist halb gemessen.** Die App liest aus jeder
+  benutzten Schrift, ob sie eingebettet werden DARF (`fsType` der
+  OS/2-Tabelle) — das ist eine echte Messung. Ob CoreGraphics sie dann
+  wirklich einbettet, steht damit noch nicht fest; das zeigt erst ein Blick
+  in die fertige Datei mit einem Werkzeug wie Acrobat. Die drei
+  Systemschnitte geben die Auskunft gar nicht heraus, und die Prüfung sagt
+  das auch. Nicht als erledigt darstellen.
+* **Das PDF ist noch nie gedruckt worden.** Boxen, Anschnitt und Auflösung
+  sind gerechnet und in der Datei nachgemessen; ob ein Druckdienst die
+  Datei ohne Rückfrage annimmt, weiß man nach dem ersten Auftrag.
 * **Der Bau in GitHub Actions beweist nicht, dass sich signieren lässt.**
   Er läuft mit `CODE_SIGNING_ALLOWED=NO` gegen den Simulator; Entitlements
   werden dabei nie geprüft.

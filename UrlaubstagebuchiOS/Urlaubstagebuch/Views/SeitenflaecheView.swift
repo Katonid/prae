@@ -17,35 +17,56 @@ struct SeitenflaecheView: View {
     @State private var zieht: CGSize = .zero
 
     private var format: CGSize { werk.reise.format.groesse }
+    private var anschnitt: Double { werk.reise.gestaltung.anschnittPt }
+    private var bogen: CGSize { werk.reise.gestaltung.bogen(werk.reise.format) }
 
     var body: some View {
+        // Gezeigt wird der ganze BOGEN, also Endformat plus Anschnitt. Wer
+        // nur das Endformat sähe, könnte nicht beurteilen, ob ein Bild weit
+        // genug übersteht — und genau dort entscheidet sich, ob im
+        // gedruckten Buch ein weißer Faden stehen bleibt.
         ZStack(alignment: .topLeading) {
             Rectangle()
                 .fill((buchseite.seite.papier ?? werk.reise.gestaltung.papier).farbe)
-                .frame(width: format.width, height: format.height)
+                .frame(width: bogen.width, height: bogen.height)
+                .offset(x: -anschnitt, y: -anschnitt)
                 .onTapGesture { werk.gewaehlterBlock = nil }
 
             if bearbeitbar, werk.zeigeSatzspiegel {
+                let satz = werk.reise.gestaltung.satzspiegel(werk.reise.format)
                 Rectangle()
                     .strokeBorder(style: StrokeStyle(lineWidth: 0.7, dash: [4, 4]))
                     .foregroundStyle(Color.accentColor.opacity(0.35))
-                    .frame(width: werk.reise.gestaltung.satzspiegel(werk.reise.format).width,
-                           height: werk.reise.gestaltung.satzspiegel(werk.reise.format).height)
-                    .offset(x: werk.reise.gestaltung.satzspiegel(werk.reise.format).minX,
-                            y: werk.reise.gestaltung.satzspiegel(werk.reise.format).minY)
+                    .frame(width: satz.width, height: satz.height)
+                    .offset(x: satz.minX, y: satz.minY)
                     .allowsHitTesting(false)
             }
 
             ForEach(buchseite.seite.sortiert) { block in
                 blockAnsicht(block)
             }
+
+            // Die Schnittkante liegt ÜBER allem. Sie ist die Linie, an der
+            // das Buch beschnitten wird; was außerhalb liegt, sieht später
+            // niemand mehr. Sie unter den Bildern zu zeichnen hieße, sie
+            // genau dort zu verstecken, wo sie gebraucht wird.
+            if bearbeitbar, anschnitt > 0.5, werk.zeigeSatzspiegel {
+                Rectangle()
+                    .strokeBorder(style: StrokeStyle(lineWidth: 0.8, dash: [7, 4]))
+                    .foregroundStyle(Color.red.opacity(0.55))
+                    .frame(width: format.width, height: format.height)
+                    .allowsHitTesting(false)
+            }
         }
-        .frame(width: format.width, height: format.height)
+        .frame(width: bogen.width, height: bogen.height, alignment: .topLeading)
+        .offset(x: anschnitt, y: anschnitt)
+        .frame(width: bogen.width, height: bogen.height, alignment: .topLeading)
+        .clipped()
         .background(Color.white)
         .compositingGroup()
         .shadow(color: .black.opacity(0.18), radius: 9, y: 3)
         .scaleEffect(massstab, anchor: .topLeading)
-        .frame(width: format.width * massstab, height: format.height * massstab)
+        .frame(width: bogen.width * massstab, height: bogen.height * massstab)
     }
 
     @ViewBuilder
@@ -55,6 +76,16 @@ struct SeitenflaecheView: View {
         let rahmen = block.rahmen
 
         BlockInhaltView(werk: werk, block: block, tag: buchseite.tag)
+            .frame(width: rahmen.breite, height: rahmen.hoehe)
+            .padding(Druckmass.pt(block.fotorand))
+            .background {
+                if block.fotorand > 0 {
+                    RoundedRectangle(cornerRadius: werk.reise.gestaltung.eckenradiusPt)
+                        .fill(Color.white)
+                }
+            }
+            .schattenwurf(block.schatten, massstab: format.width / 600)
+            .padding(-Druckmass.pt(block.fotorand))
             .frame(width: rahmen.breite, height: rahmen.hoehe)
             .rotationEffect(.degrees(block.drehung))
             .overlay {
@@ -263,8 +294,22 @@ struct BlockInhaltView: View {
             )
         case .linie:
             Rectangle()
-                .fill((block.rand ?? Farbwert.leise).farbe.opacity(0.45))
+                .fill((block.rand ?? werk.reise.akzent).farbe.opacity(0.55))
                 .frame(height: max(block.rahmen.hoehe, 0.6))
+        case .flaeche:
+            Color.clear
+        case .verlauf:
+            // Derselbe Verlauf wie im PDF: unten dunkel, oben durchsichtig.
+            // Ohne ihn stünde die Überschrift des Tages auf einem hellen
+            // Himmel und wäre weg.
+            LinearGradient(
+                stops: [
+                    .init(color: .black.opacity(0), location: 0),
+                    .init(color: .black.opacity(0.30), location: 0.45),
+                    .init(color: .black.opacity(0.72), location: 1),
+                ],
+                startPoint: .top, endPoint: .bottom
+            )
         case let .foto(id):
             FotoKachel(werk: werk, block: block, fotoID: id)
         case .karte:
@@ -353,7 +398,7 @@ struct KartenKachel: View {
     private func kennung(_ groesse: CGSize) -> String {
         let punkte = tag?.spur.map(\.koordinate) ?? []
         let stil = tag?.kartenstil ?? werk.reise.kartenstil
-        return "\(punkte.count)|\(Int(groesse.width))x\(Int(groesse.height))|\(stil.rawValue)|\(tag?.kartenausschnitt?.spanne ?? -1)|\(werk.reise.linienfarbe.rot)"
+        return "\(punkte.count)|\(Int(groesse.width))x\(Int(groesse.height))|\(stil.rawValue)|\(tag?.kartenausschnitt?.spanne ?? -1)|\(werk.reise.akzent.rot)"
     }
 
     private func laden(_ groesse: CGSize) async {
@@ -362,9 +407,26 @@ struct KartenKachel: View {
             punkte: tag.spur.map(\.koordinate),
             groesse: CGSize(width: groesse.width * 2, height: groesse.height * 2),
             stil: tag.kartenstil ?? werk.reise.kartenstil,
-            linienfarbe: werk.reise.linienfarbe,
+            linienfarbe: werk.reise.akzent,
             ausschnitt: tag.kartenausschnitt
         )
         await MainActor.run { bild = ergebnis }
+    }
+}
+
+
+// Derselbe Schatten wie im PDF — die Werte stehen in `Schattenart` und
+// nicht zweimal.
+private extension View {
+    @ViewBuilder
+    func schattenwurf(_ art: Schattenart, massstab: Double) -> some View {
+        if art == .keiner {
+            self
+        } else {
+            let werte = art.werte
+            shadow(color: .black.opacity(werte.deckung),
+                   radius: werte.unschaerfe * massstab / 2,
+                   y: werte.versatz * massstab)
+        }
     }
 }

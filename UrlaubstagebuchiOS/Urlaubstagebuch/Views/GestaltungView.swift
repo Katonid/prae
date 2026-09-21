@@ -3,6 +3,7 @@ import SwiftUI
 struct GestaltungView: View {
     @ObservedObject var werk: Reisewerk
     @Environment(\.dismiss) private var schliessen
+    @State private var titelfotoWahl = false
 
     var body: some View {
         NavigationStack {
@@ -11,41 +12,61 @@ struct GestaltungView: View {
                     TextField("Titel", text: $werk.reise.titel)
                     TextField("Untertitel", text: $werk.reise.untertitel, axis: .vertical)
                     Toggle("Titelseite", isOn: $werk.reise.titelseite)
+                    if werk.reise.titelseite {
+                        Button {
+                            titelfotoWahl = true
+                        } label: {
+                            LabeledContent("Titelbild",
+                                           value: werk.reise.titelfoto == nil ? "ohne" : "gewählt")
+                        }
+                    }
                 }
 
                 Section {
                     Picker("Seitenformat", selection: $werk.reise.format) {
                         ForEach(Seitenformat.allCases) { format in
-                            Text(format.name).tag(format)
+                            Text("\(format.name) · \(format.masstext)").tag(format)
                         }
                     }
-                    LabeledContent("Seitengröße", value:
-                        "\(Int(werk.reise.format.groesse.width)) × \(Int(werk.reise.format.groesse.height)) pt")
+                    LabeledContent("Bogen mit Anschnitt", value: bogentext)
                 } header: {
                     Text("Format")
                 } footer: {
-                    Text("Die Maße sind PostScript-Punkte — dieselbe Einheit, in der eine PDF-Seite gemessen wird. Was du auf dem Bildschirm siehst, ist deshalb genau die gedruckte Seite.")
+                    Text("Das Endformat ist die Seite, wie sie nach dem Schneiden in der Hand liegt. Der Bogen ist das, was im PDF steht — Endformat plus Anschnitt. Beide Maße stehen als TrimBox und BleedBox in der Datei, daran erkennt der Druckdienst, wo geschnitten wird.")
+                }
+
+                Section {
+                    mmRegler("Anschnitt", $werk.reise.gestaltung.anschnitt, 0...8, schritt: 1)
+                    mmRegler("Bundsteg", $werk.reise.gestaltung.bundsteg, 0...15, schritt: 1)
+                } header: {
+                    Text("Druckzugaben")
+                } footer: {
+                    Text("Anschnitt: 3 mm sind der Standard, manche Buchdienste verlangen 5 mm. Ohne ihn kann kein Bild bis an die Papierkante laufen.\n\nBundsteg: zusätzlicher Rand zur Heftung. Er wird auf beide Seitenränder gerechnet — welche Seite innen liegt, hängt an der laufenden Seitenzahl, und die verschiebt sich, sobald ein Tag eine Seite mehr braucht.")
                 }
 
                 Section("Satzspiegel") {
-                    regler("Rand außen", $werk.reise.gestaltung.randAussen, 12...120)
-                    regler("Rand oben", $werk.reise.gestaltung.randOben, 12...120)
-                    regler("Rand unten", $werk.reise.gestaltung.randUnten, 12...120)
-                    regler("Fuge zwischen Bildern", $werk.reise.gestaltung.fuge, 0...40)
-                    regler("Eckenradius", $werk.reise.gestaltung.eckenradius, 0...24)
+                    mmRegler("Rand außen", $werk.reise.gestaltung.randAussen, 5...45)
+                    mmRegler("Rand oben", $werk.reise.gestaltung.randOben, 5...45)
+                    mmRegler("Rand unten", $werk.reise.gestaltung.randUnten, 5...45)
+                    mmRegler("Fuge zwischen Bildern", $werk.reise.gestaltung.fuge, 0...15,
+                             schritt: 0.5)
+                    mmRegler("Eckenradius", $werk.reise.gestaltung.eckenradius, 0...10,
+                             schritt: 0.5)
                     ColorPicker("Papierfarbe", selection: Binding(
                         get: { werk.reise.gestaltung.papier.farbe },
                         set: { werk.reise.gestaltung.papier = Farbwert($0) }
                     ))
+                    Toggle("Seitenzahlen", isOn: $werk.reise.gestaltung.seitenzahlen)
+                    Toggle("Kopfzeile mit Datum", isOn: $werk.reise.gestaltung.kopfzeile)
                 }
 
                 Section("Karte") {
                     Picker("Kartenbild", selection: $werk.reise.kartenstil) {
                         ForEach(Kartenstil.allCases) { stil in Text(stil.name).tag(stil) }
                     }
-                    ColorPicker("Farbe der Reisespur", selection: Binding(
-                        get: { werk.reise.linienfarbe.farbe },
-                        set: { werk.reise.linienfarbe = Farbwert($0) }
+                    ColorPicker("Akzentfarbe", selection: Binding(
+                        get: { werk.reise.akzent.farbe },
+                        set: { werk.reise.akzent = Farbwert($0) }
                     ))
                     VStack(alignment: .leading) {
                         LabeledContent("Breite der Karte im Satz",
@@ -81,15 +102,86 @@ struct GestaltungView: View {
                     }
                 }
             }
+            .sheet(isPresented: $titelfotoWahl) {
+                TitelfotoView(werk: werk)
+            }
         }
     }
 
-    private func regler(_ name: String, _ wert: Binding<Double>,
-                        _ bereich: ClosedRange<Double>) -> some View
+    private var bogentext: String {
+        let bogen = werk.reise.gestaltung.bogen(werk.reise.format)
+        return "\(Druckmass.mmText(bogen.width)) x \(Druckmass.mmText(bogen.height))"
+    }
+
+    private func mmRegler(_ name: String, _ wert: Binding<Double>,
+                          _ bereich: ClosedRange<Double>, schritt: Double = 1) -> some View
     {
         VStack(alignment: .leading) {
-            LabeledContent(name, value: String(format: "%.0f pt", wert.wrappedValue))
-            Slider(value: wert, in: bereich)
+            LabeledContent(name, value: String(format: schritt < 1 ? "%.1f mm" : "%.0f mm",
+                                               wert.wrappedValue)
+                .replacingOccurrences(of: ".", with: ","))
+            Slider(value: wert, in: bereich, step: schritt)
+        }
+    }
+}
+
+// Das Bild für die Titelseite. Ohne eines ist sie ein ruhiges Textblatt,
+// mit einem ein Plakat — beides ist richtig, ein kleines Bildchen über
+// einem großen Titel wäre es nicht.
+struct TitelfotoView: View {
+    @ObservedObject var werk: Reisewerk
+    @Environment(\.dismiss) private var schliessen
+
+    private let raster = [GridItem(.adaptive(minimum: 96), spacing: 8)]
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                LazyVGrid(columns: raster, spacing: 8) {
+                    ForEach(werk.reise.fotos.filter { !$0.abgelegt }) { foto in
+                        Button {
+                            werk.merken()
+                            werk.reise.titelfoto = werk.reise.titelfoto == foto.id ? nil : foto.id
+                        } label: {
+                            ZStack(alignment: .topTrailing) {
+                                if let bild = Bildarchiv.shared.vorschau(
+                                    foto.datei, reise: werk.reise.id, kante: 300)
+                                {
+                                    Image(uiImage: bild)
+                                        .resizable()
+                                        .scaledToFill()
+                                        .frame(height: 96)
+                                        .clipped()
+                                } else {
+                                    Rectangle().fill(Color(.systemGray5)).frame(height: 96)
+                                }
+                                if werk.reise.titelfoto == foto.id {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .foregroundStyle(.white, Color.accentColor)
+                                        .padding(5)
+                                }
+                            }
+                            .clipShape(RoundedRectangle(cornerRadius: 7))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding()
+            }
+            .navigationTitle("Titelbild")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Ohne Bild") {
+                        werk.merken()
+                        werk.reise.titelfoto = nil
+                        schliessen()
+                    }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Fertig") { schliessen() }
+                }
+            }
         }
     }
 }

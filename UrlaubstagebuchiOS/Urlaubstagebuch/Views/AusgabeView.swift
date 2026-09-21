@@ -8,9 +8,27 @@ struct AusgabeView: View {
     @State private var anteil: Double = 0
     @State private var laeuft = false
     @State private var fertig: URL?
+    @State private var befundAmPDF: [Druckpruefung.Zeile] = []
     @State private var fehler: String?
     @State private var teilen = false
     @State private var guete: Bildguete = .druck
+    @State private var ohneTransparenz = false
+    @State private var umfang: Umfang = .ganzesBuch
+    @State private var teilenliste: [URL] = []
+    @State private var befundVorab: [Druckpruefung.Zeile] = []
+
+    enum Umfang: String, CaseIterable, Identifiable {
+        case ganzesBuch
+        case getrennt
+
+        var id: String { rawValue }
+        var name: String {
+            switch self {
+            case .ganzesBuch: return "Eine Datei"
+            case .getrennt: return "Umschlag getrennt"
+            }
+        }
+    }
 
     enum Bildguete: String, CaseIterable, Identifiable {
         case sparsam
@@ -21,15 +39,15 @@ struct AusgabeView: View {
 
         var kante: Int {
             switch self {
-            case .sparsam: return 1400
-            case .druck: return 2400
-            case .voll: return 4000
+            case .sparsam: return 1600
+            case .druck: return 3600
+            case .voll: return 6000
             }
         }
 
         var name: String {
             switch self {
-            case .sparsam: return "Sparsam"
+            case .sparsam: return "Zum Ansehen"
             case .druck: return "Für den Druck"
             case .voll: return "Volle Auflösung"
             }
@@ -37,9 +55,12 @@ struct AusgabeView: View {
 
         var erklaerung: String {
             switch self {
-            case .sparsam: return "Kleine Datei, gut zum Anschauen und Verschicken. Für den Druck zu wenig."
-            case .druck: return "Genug für eine gedruckte A4-Seite. Der übliche Fall."
-            case .voll: return "So groß wie die Bilder hergeben. Die Datei kann sehr groß werden."
+            case .sparsam:
+                return "Kleine Datei zum Durchsehen und Verschicken. Für den Druck zu wenig."
+            case .druck:
+                return "Bis 3600 Bildpunkte je Kante — das reicht für 300 dpi auf einer ganzen A4-Seite. Der übliche Fall."
+            case .voll:
+                return "So groß, wie die Bilder hergeben. Nötig nur bei Formaten über 30 cm; die Datei kann sehr groß werden."
             }
         }
     }
@@ -49,25 +70,36 @@ struct AusgabeView: View {
             Form {
                 Section {
                     LabeledContent("Seiten", value: "\(werk.reise.seitenzahl)")
-                    LabeledContent("Format", value: werk.reise.format.name)
+                    LabeledContent("Endformat", value: werk.reise.format.masstext)
                     Picker("Bildgüte", selection: $guete) {
                         ForEach(Bildguete.allCases) { g in Text(g.name).tag(g) }
                     }
                     Text(guete.erklaerung)
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                    Picker("Umfang", selection: $umfang) {
+                        ForEach(Umfang.allCases) { u in Text(u.name).tag(u) }
+                    }
+                    Toggle("Ohne Transparenz (PDF/X-1a, X-3)", isOn: $ohneTransparenz)
+                    if ohneTransparenz {
+                        Text("Schatten fallen weg, und der Verlauf unter einer Überschrift auf einem Foto wird zu einem geschlossenen Feld. Nur nötig, wenn die Druckerei ausdrücklich danach fragt.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                 } header: {
                     Text("Was ausgegeben wird")
                 } footer: {
-                    Text("Der Text wird als Text gesetzt, nicht als Bild — das PDF bleibt durchsuchbar und wiegt einen Bruchteil.")
+                    Text("Der Text wird als Text gesetzt, nicht als Bild — das PDF bleibt durchsuchbar und wiegt einen Bruchteil. Endformat und Anschnitt stehen als TrimBox und BleedBox darin.")
+                }
+
+                Section("Vor dem Ausgeben geprüft") {
+                    ForEach(befundVorab) { zeile in BefundZeile(zeile: zeile) }
                 }
 
                 if laeuft {
                     Section {
                         ProgressView(value: anteil)
-                        Text(anteil < 0.45
-                             ? "Kartenbilder werden geholt…"
-                             : "Seiten werden gesetzt…")
+                        Text(anteil < 0.45 ? "Kartenbilder werden geholt…" : "Seiten werden gesetzt…")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -81,6 +113,9 @@ struct AusgabeView: View {
                 }
 
                 if let fertig {
+                    Section("An der fertigen Datei gemessen") {
+                        ForEach(befundAmPDF) { zeile in BefundZeile(zeile: zeile) }
+                    }
                     Section {
                         PDFVorschau(adresse: fertig)
                             .frame(height: 320)
@@ -90,8 +125,6 @@ struct AusgabeView: View {
                         } label: {
                             Label("Sichern oder teilen", systemImage: "square.and.arrow.up")
                         }
-                    } header: {
-                        Text("Fertig")
                     }
                 }
 
@@ -113,10 +146,9 @@ struct AusgabeView: View {
                 }
             }
             .sheet(isPresented: $teilen) {
-                if let fertig {
-                    Teilenblatt(gegenstaende: [fertig])
-                }
+                Teilenblatt(gegenstaende: teilenliste)
             }
+            .task { befundVorab = Druckpruefung.vorab(werk.reise) }
         }
     }
 
@@ -124,15 +156,71 @@ struct AusgabeView: View {
         laeuft = true
         fehler = nil
         anteil = 0
+        befundAmPDF = []
         do {
-            let ziel = try await Buchausgabe.pdf(werk.reise, bildkante: guete.kante) { wert in
-                anteil = wert
+            if umfang == .getrennt {
+                // Viele Buchdienste wollen Umschlag und Innenteil als zwei
+                // Dateien. Ausgegeben wird dann der Innenteil als Hauptdatei
+                // und der Umschlag daneben — beide liegen im selben Ordner
+                // und werden zusammen geteilt.
+                let umschlag = try await Buchausgabe.pdf(
+                    werk.reise,
+                    auftrag: .init(bildkante: guete.kante, ohneTransparenz: ohneTransparenz,
+                                   nurUmschlag: true),
+                    fortschritt: { _ in })
+                let innen = try await Buchausgabe.pdf(
+                    werk.reise,
+                    auftrag: .init(bildkante: guete.kante, ohneTransparenz: ohneTransparenz,
+                                   ohneUmschlag: true),
+                    fortschritt: { wert in anteil = wert })
+                fertig = innen
+                befundAmPDF = Druckpruefung.amPDF(innen)
+                    + [Druckpruefung.Zeile(
+                        stufe: .gut, titel: "Umschlag getrennt gesichert",
+                        text: umschlag.lastPathComponent)]
+                teilenliste = [innen, umschlag]
+            } else {
+                let ziel = try await Buchausgabe.pdf(
+                    werk.reise,
+                    auftrag: .init(bildkante: guete.kante, ohneTransparenz: ohneTransparenz),
+                    fortschritt: { wert in anteil = wert })
+                fertig = ziel
+                befundAmPDF = Druckpruefung.amPDF(ziel)
+                teilenliste = [ziel]
             }
-            fertig = ziel
         } catch {
             fehler = error.localizedDescription
         }
         laeuft = false
+    }
+
+}
+
+struct BefundZeile: View {
+    let zeile: Druckpruefung.Zeile
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 9) {
+            Image(systemName: zeile.stufe.symbol)
+                .foregroundStyle(farbe)
+                .font(.system(size: 14))
+            VStack(alignment: .leading, spacing: 2) {
+                Text(zeile.titel)
+                    .font(.subheadline.weight(.medium))
+                Text(zeile.text)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(.vertical, 1)
+    }
+
+    private var farbe: Color {
+        switch zeile.stufe {
+        case .gut: return .green
+        case .hinweis: return .secondary
+        case .warnung: return .orange
+        }
     }
 }
 
