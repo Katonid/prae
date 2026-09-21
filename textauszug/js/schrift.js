@@ -9,6 +9,8 @@
 // aus Zeichennummern — und das fällt erst auf, wenn der Text in den Notizen
 // steht.
 
+import { standardbreiten } from './schriftmasse.js';
+
 // Namen von Zeichen, wie sie in /Differences stehen. Buchstaben und Ziffern
 // heißen wie sie sind; aufgeführt wird nur, was anders heißt.
 const NAMEN = {
@@ -263,6 +265,18 @@ export async function schriftLesen(dokument, woerterbuch) {
         const wert = hole(breite);
         if (typeof wert === 'number') schrift.breiten.set(erstes + i, wert);
       });
+    }
+    // Eine der 14 Standardschriften MUSS kein /Widths mitbringen — jedes
+    // PDF-Programm kennt ihre Maße, und diese App jetzt auch. Vorher galt
+    // hier für jedes Zeichen 500/1000: Das „i" so breit wie das „m", und
+    // damit standen Leerzeichen, Zeilenenden und Absatzgrenzen schief.
+    if (!schrift.breiten.size) {
+      const gemessen = standardbreiten(hole(woerterbuch.BaseFont));
+      if (gemessen) {
+        for (let code = 32; code < 256; code++) {
+          if (gemessen[code]) schrift.breiten.set(code, gemessen[code]);
+        }
+      }
     }
     const kodierung = hole(woerterbuch.Encoding);
     if (typeof kodierung === 'string') schrift.tabelle = grundtabelle(kodierung);

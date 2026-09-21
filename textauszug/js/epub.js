@@ -137,7 +137,14 @@ const nummer = (n) => String(n).padStart(3, '0');
 // tausend Absätzen öffnet auf älteren Lesegeräten quälend langsam.
 export function kapitelSchneiden(bloecke, titel) {
   const ebenen = bloecke.filter((b) => b.ueberschrift).map((b) => b.ebene || 2);
-  const oberste = ebenen.length ? Math.min(...ebenen) : null;
+  let oberste = ebenen.length ? Math.min(...ebenen) : null;
+  // Eine Stufe, die nur EINMAL vorkommt, ist ein Titel und keine
+  // Einteilung: Danach zu schneiden ergäbe ein einziges Kapitel, das das
+  // ganze Buch enthält — und ein Inhaltsverzeichnis mit einem Eintrag.
+  if (oberste !== null && ebenen.filter((e) => e === oberste).length === 1) {
+    const tiefer = ebenen.filter((e) => e > oberste);
+    if (tiefer.length) oberste = Math.min(...tiefer);
+  }
   const kapitel = [];
   let aktuell = null;
 
@@ -185,10 +192,18 @@ ${koerper}
 `;
 }
 
-const STIL = `/* Absichtlich sparsam: Ein Lesegerät bringt seine eigene Schrift,
-   seinen Zeilenabstand und seine Ränder mit, und der Leser stellt sie ein.
-   Vorgeschrieben wird hier nur, was sonst falsch aussähe. */
-body { margin: 0 1em; }
+// Der Stil einer EPUB ist ein VORSCHLAG, keine Anweisung. Ein Lesegerät
+// bringt seine eigene Schrift, seinen Zeilenabstand und seine Ränder mit,
+// und der Leser stellt sie ein — in Bücher (Apple Books) entscheidet
+// darüber der Schalter zwischen „Original" und einer eigenen Schrift.
+// Deshalb steht hier nur, was sonst falsch aussähe, und die gewählte
+// Schrift als Wunsch. Eingebettet wird keine: Eine Schriftdatei wöge mehr
+// als das ganze Buch, und weitergeben darf man längst nicht jede.
+function stil(schriftCss, abstand) {
+  return `/* Schrift und Zeilenabstand sind ein Vorschlag — das Lesegerät
+   und sein Besitzer haben das letzte Wort. */
+body { margin: 0 1em;${schriftCss ? ` font-family: ${schriftCss};` : ''}`
+    + `${abstand ? ` line-height: ${abstand};` : ''} }
 h1, h2, h3 { line-height: 1.25; margin: 1.4em 0 .6em; }
 h1 { font-size: 1.5em; }
 h2 { font-size: 1.25em; }
@@ -196,6 +211,7 @@ h3 { font-size: 1.1em; }
 p { margin: 0 0 .8em; text-align: justify; hyphens: auto; }
 p.marke { text-align: center; opacity: .6; font-size: .85em; }
 `;
+}
 
 function kennung() {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) return `urn:uuid:${crypto.randomUUID()}`;
@@ -290,7 +306,7 @@ ${dateien.map((d, i) => `    <navPoint id="np${nummer(i + 1)}" playOrder="${i + 
     { name: 'OEBPS/content.opf', daten: opf },
     { name: 'OEBPS/nav.xhtml', daten: nav },
     { name: 'OEBPS/toc.ncx', daten: ncx },
-    { name: 'OEBPS/stil.css', daten: STIL },
+    { name: 'OEBPS/stil.css', daten: stil(einstellungen.schriftCss, einstellungen.zeilenabstand) },
     ...dateien.map((d) => ({ name: `OEBPS/${d.pfad}`, daten: d.inhalt })),
   ];
 
@@ -306,16 +322,29 @@ ${dateien.map((d, i) => `    <navPoint id="np${nummer(i + 1)}" playOrder="${i + 
 // folgt darauf.
 export function bloeckeAusText(text) {
   const stuecke = text.split(/\n{2,}/).map((s) => s.trim()).filter(Boolean);
-  return stuecke.map((stueck, i) => {
-    const marke = /^---\s*Seite\s+\d+\s*---$/i.test(stueck);
-    const kurz = stueck.length <= 70 && !/\n/.test(stueck);
-    const ohneSatzzeichen = !/[.!?:;,]$/.test(stueck);
-    const folgtAbsatz = i + 1 < stuecke.length && stuecke[i + 1].length > stueck.length;
-    return {
-      text: stueck,
-      marke,
-      ueberschrift: !marke && kurz && ohneSatzzeichen && folgtAbsatz,
-      ebene: 2,
-    };
+  const istMarke = (stueck) => /^---\s*Seite\s+\d+\s*---$/i.test(stueck);
+  // Gestalt einer Überschrift: eine kurze einzelne Zeile, die nicht wie ein
+  // Satz endet.
+  const gestalt = stuecke.map((stueck) => stueck.length <= 70 && !/\n/.test(stueck)
+    && !/[.!?:;,]$/.test(stueck) && !istMarke(stueck));
+
+  const bloecke = stuecke.map((stueck, i) => {
+    // Dazu muss etwas folgen, das sie überschreibt. Für die ERSTE Zeile
+    // gilt auch die nächste Überschrift als Beleg: „Mein Bericht" steht
+    // über „Kapitel 1", also über einer ebenso kurzen Zeile. Für alle
+    // anderen bleibt es beim längeren Absatz — sonst würde aus einem
+    // „Mit freundlichen Grüßen" über einem Namen eine Überschrift.
+    const folgt = i + 1 < stuecke.length
+      && (stuecke[i + 1].length > stueck.length
+        || (i === 0 && stuecke.length > 2 && gestalt[1]));
+    return { text: stueck, marke: istMarke(stueck), ueberschrift: gestalt[i] && folgt, ebene: 2 };
   });
+
+  // Die erste Überschrift, unter der weitere stehen, ist der TITEL des
+  // Textes: in der PDF größer gesetzt, in der EPUB kein eigenes Kapitel.
+  if (bloecke.length && bloecke[0].ueberschrift
+      && bloecke.some((block, i) => i > 0 && block.ueberschrift)) {
+    bloecke[0].ebene = 1;
+  }
+  return bloecke;
 }

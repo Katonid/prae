@@ -2,6 +2,8 @@
 
 import { seitenLesen, textBauen } from './auszug.js';
 import { epubBauen, bloeckeAusText } from './epub.js';
+import { pdfBauen, PAPIERE, RAENDER, ABSTAENDE } from './pdfbauen.js';
+import { FAMILIEN, familie } from './schriftmasse.js';
 
 const teil = (id) => document.getElementById(id);
 const ablage = teil('ablage');
@@ -11,6 +13,7 @@ let seiten = [];
 let bloecke = [];              // Absätze samt Wissen, was eine Überschrift ist
 let dateiname = 'Textauszug';
 let selbstGeaendert = false;   // hat der Nutzer im Textfeld getippt?
+let modus = 'pdf';             // 'pdf' = aus einer Datei gelesen, 'text' = selbst geschrieben
 
 function sage(text, fehler = false) {
   meldung.textContent = text;
@@ -29,6 +32,65 @@ function einstellungen() {
     von: Number(teil('von').value) || 1,
     bis: Number(teil('bis').value) || seiten.length,
   };
+}
+
+// Die Wähler werden aus den Tabellen gefüllt, die der Setzer mitbringt —
+// sonst stünden dieselben Namen zweimal da und liefen auseinander.
+function waehlerFuellen() {
+  const fuellen = (id, tabelle, vorgabe) => {
+    const waehler = teil(id);
+    for (const [schluessel, eintrag] of Object.entries(tabelle)) {
+      const punkt = document.createElement('option');
+      punkt.value = schluessel;
+      punkt.textContent = eintrag.name;
+      waehler.append(punkt);
+    }
+    waehler.value = vorgabe;
+  };
+  fuellen('schrift', FAMILIEN, 'serif');
+  fuellen('zeilenabstand', ABSTAENDE, 'normal');
+  fuellen('papier', PAPIERE, 'a4');
+  fuellen('seitenrand', RAENDER, 'normal');
+}
+
+// Wie PDF und EPUB aussehen sollen. Beide bekommen dieselben Angaben; was
+// nur für eines gilt, ignoriert das andere.
+function satzEinstellungen() {
+  const gewaehlt = teil('schrift').value;
+  return {
+    titel: zielname(),
+    verfasser: teil('verfasser').value.trim(),
+    schrift: gewaehlt,
+    schriftCss: familie(gewaehlt).css,
+    groesse: Number(teil('schriftgroesse').value) || 12,
+    papier: teil('papier').value,
+    rand: teil('seitenrand').value,
+    zeilenabstand: teil('zeilenabstand').value,
+    seitenzahlen: teil('seitenzahlen').checked,
+  };
+}
+
+// Der Name der Datei, die gleich herauskommt.
+function zielname() {
+  return teil('titel').value.trim() || dateiname;
+}
+
+// Was weitergegeben wird, hängt daran, ob im Feld noch der gelesene Text
+// steht: Nur dann wissen die gemerkten Blöcke noch, was eine Überschrift
+// war. Sonst wird die Gliederung aus dem Feld zurückgelesen.
+function bloeckeJetzt() {
+  return (modus === 'text' || selbstGeaendert) ? bloeckeAusText(teil('text').value) : bloecke;
+}
+
+function knoepfe() {
+  const hatText = Boolean(teil('text').value.trim());
+  for (const id of ['notizen', 'kopieren', 'sichern', 'epub', 'pdf']) teil(id).disabled = !hatText;
+}
+
+function zaehlerZeigen(text) {
+  const woerter = (text.match(/\S+/g) || []).length;
+  teil('zaehler').textContent = `(${woerter.toLocaleString('de-DE')} Wörter, `
+    + `${text.length.toLocaleString('de-DE')} Zeichen)`;
 }
 
 function hinweiseZeigen(hinweise) {
@@ -69,16 +131,53 @@ function textZeigen(nachfragen = true) {
       + 'Ein Bild von Text lässt sich ohne Texterkennung nicht lesen.');
   }
   hinweiseZeigen(hinweise);
-  for (const id of ['notizen', 'kopieren', 'sichern', 'epub']) teil(id).disabled = !text.trim();
+  knoepfe();
+}
+
+// Der zweite Weg hinein: kein Dokument, sondern eigener Text. Alles
+// dahinter bleibt dasselbe — dieselben Blöcke, dieselbe EPUB, derselbe
+// Satz. Nur die Leseeinstellungen haben hier nichts zu suchen.
+function textModus(inhalt = '', name = 'Mein Text') {
+  modus = 'text';
+  seiten = [];
+  bloecke = [];
+  dateiname = name;
+  selbstGeaendert = true;
+  zeigen('leseteil', false);
+  zeigen('einstellungen', true);
+  zeigen('ergebnis', true);
+  zeigen('hinweiskarte', false);
+  teil('titel').value = inhalt ? name : '';
+  teil('text').value = inhalt;
+  zaehlerZeigen(inhalt);
+  teil('stand').textContent = '';
+  knoepfe();
+  teil('text').focus();
+  sage(inhalt
+    ? `${name}: Text übernommen — unten als PDF oder EPUB sichern.`
+    : 'Text hineinschreiben oder einfügen — daraus wird unten eine PDF oder eine EPUB.');
 }
 
 async function verarbeiten(datei) {
   if (!datei) return;
   const name = datei.name.toLowerCase();
-  if (!name.endsWith('.pdf') && datei.type !== 'application/pdf') {
-    sage('Das ist keine PDF-Datei. Diese App liest nur PDFs.', true);
+  // Eine Textdatei geht denselben Weg wie eingesetzter Text: Sie ist schon
+  // Text, es gibt nichts zu lesen. Genau so entsteht aus einer .txt von
+  // gestern eine PDF von heute.
+  if (/\.(txt|md|markdown|text)$/.test(name) || datei.type === 'text/plain') {
+    try {
+      textModus(await datei.text(), datei.name.replace(/\.[^.]+$/, '') || 'Mein Text');
+    } catch (fehler) {
+      sage('Die Textdatei ließ sich nicht lesen.', true);
+    }
     return;
   }
+  if (!name.endsWith('.pdf') && datei.type !== 'application/pdf') {
+    sage('Das ist weder eine PDF noch eine Textdatei.', true);
+    return;
+  }
+  modus = 'pdf';
+  zeigen('leseteil', true);
   dateiname = datei.name.replace(/\.pdf$/i, '') || 'Textauszug';
   seiten = [];
   selbstGeaendert = false;
@@ -161,7 +260,7 @@ function dateiSichern(daten, endung) {
   const adresse = URL.createObjectURL(blob);
   const verweis = document.createElement('a');
   verweis.href = adresse;
-  verweis.download = `${dateiname}.${endung}`;
+  verweis.download = `${zielname()}.${endung}`;
   verweis.rel = 'noopener';
   document.body.append(verweis);
   verweis.click();
@@ -175,27 +274,54 @@ function sichern() {
   // Die Byte-Marke am Anfang muss sein: Ohne sie zeigt der Windows-Editor
   // Umlaute als Kraut an, weil er sonst keine UTF-8-Datei erkennt.
   dateiSichern('\ufeff' + text, 'txt');
-  teil('stand').textContent = `In ${dateiname}.txt gesichert — die Datei liegt bei den Downloads.`;
+  teil('stand').textContent = `In ${zielname()}.txt gesichert — die Datei liegt bei den Downloads.`;
 }
 
 // Die EPUB entsteht aus den BLÖCKEN, nicht aus dem Text: Nur sie wissen, was
 // eine Überschrift war (sie stand in der PDF größer da), und daraus werden die
 // Kapitel. Ist der Text von Hand geändert, sind die gemerkten Blöcke hinfällig
 // — dann wird die Gliederung aus dem geänderten Text zurückgelesen.
+// Aus denselben Blöcken wie die EPUB, nur gesetzt statt fließend. Die
+// Zahl der Zeichen, die WinAnsi nicht hergibt, wird genannt: Was die App
+// nicht setzen kann, verschweigt sie nicht.
+function alsPdf() {
+  const text = teil('text').value;
+  if (!text.trim()) return;
+  teil('pdf').disabled = true;
+  teil('stand').textContent = 'Die PDF wird gesetzt …';
+  try {
+    const ergebnis = pdfBauen(bloeckeJetzt(), satzEinstellungen());
+    dateiSichern(ergebnis.daten, 'pdf');
+    let satz = `In ${zielname()}.pdf gesichert — ${ergebnis.seiten} `
+      + `${ergebnis.seiten === 1 ? 'Seite' : 'Seiten'}, `
+      + `${Math.max(1, Math.round(ergebnis.daten.length / 1024))} KB.`;
+    if (ergebnis.ersetzt) {
+      satz += ` ${ergebnis.ersetzt} ${ergebnis.ersetzt === 1 ? 'Zeichen steht' : 'Zeichen stehen'} `
+        + `als Fragezeichen darin — die Standardschriften kennen ${ergebnis.unbekannt.join(' ')} `
+        + 'nicht.';
+    }
+    teil('stand').textContent = satz;
+  } catch (fehler) {
+    teil('stand').textContent = 'Die PDF ließ sich nicht setzen: '
+      + (fehler && fehler.message ? fehler.message : 'unbekannter Fehler');
+  } finally {
+    teil('pdf').disabled = false;
+  }
+}
+
 async function alsEpub() {
   const text = teil('text').value;
   if (!text.trim()) return;
   teil('epub').disabled = true;
   teil('stand').textContent = 'Die EPUB wird gebaut …';
   try {
-    const teileDavon = selbstGeaendert ? bloeckeAusText(text) : bloecke;
-    const { daten, kapitel } = await epubBauen(teileDavon, {
-      titel: teil('titel').value.trim() || dateiname,
-      verfasser: teil('verfasser').value,
+    const { daten, kapitel } = await epubBauen(bloeckeJetzt(), {
+      ...satzEinstellungen(),
+      zeilenabstand: (ABSTAENDE[teil('zeilenabstand').value] || ABSTAENDE.normal).mass,
       sprache: 'de',
     });
     dateiSichern(daten, 'epub');
-    teil('stand').textContent = `In ${dateiname}.epub gesichert — ${kapitel} `
+    teil('stand').textContent = `In ${zielname()}.epub gesichert — ${kapitel} `
       + `${kapitel === 1 ? 'Kapitel' : 'Kapitel'}, zu öffnen mit Bücher (Apple Books) `
       + 'oder jedem anderen E-Book-Programm.';
   } catch (fehler) {
@@ -252,12 +378,18 @@ for (const id of ['absaetze', 'kopfzeilen', 'seitenmarken', 'ueberschrift']) {
 for (const id of ['von', 'bis']) {
   teil(id).addEventListener('change', () => textZeigen());
 }
-teil('text').addEventListener('input', () => { selbstGeaendert = true; });
+teil('text').addEventListener('input', () => {
+  selbstGeaendert = true;
+  knoepfe();
+  if (modus === 'text') zaehlerZeigen(teil('text').value);
+});
+teil('eigenertext').addEventListener('click', () => textModus());
 teil('alles').addEventListener('click', () => { teil('text').focus(); teil('text').select(); });
 teil('notizen').addEventListener('click', anNotizen);
 teil('kopieren').addEventListener('click', kopieren);
 teil('sichern').addEventListener('click', sichern);
 teil('epub').addEventListener('click', alsEpub);
+teil('pdf').addEventListener('click', alsPdf);
 
 for (const art of ['dragenter', 'dragover']) {
   ablage.addEventListener(art, (e) => { e.preventDefault(); ablage.classList.add('bereit'); });
@@ -272,6 +404,8 @@ ablage.addEventListener('drop', (e) => {
 // Ohne das öffnet der Browser eine daneben abgelegte PDF einfach als Seite.
 window.addEventListener('dragover', (e) => e.preventDefault());
 window.addEventListener('drop', (e) => e.preventDefault());
+
+waehlerFuellen();
 
 geteilteDatei().then((datei) => {
   if (datei) verarbeiten(datei);

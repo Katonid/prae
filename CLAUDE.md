@@ -3660,7 +3660,7 @@ Namens und lebt weiter.
   Terminkonverter (Manifest, `sw.js` mit `FASSUNG`, `scripts/generate-icons.py`,
   `scripts/einzeldatei.py` — alle vier Punkte gelten hier genauso).
 - **Der PDF-Leser ist selbst geschrieben** (`js/pdf.js`, `js/schrift.js`,
-  `js/inhalt.js`). Keine Bibliothek nachladen: Das bräche Offlinebetrieb und
+  `js/inhalt.js`), der PDF-SETZER ebenfalls (`js/pdfbauen.js`). Keine Bibliothek nachladen: Das bräche Offlinebetrieb und
   Datensparsamkeit — und pdf.js allein wiegt mehr als diese ganze App.
 - **Das Querverweis-Verzeichnis am Ende der PDF wird ABSICHTLICH nicht
   gelesen.** Es ist die Stelle, die in freier Wildbahn am häufigsten kaputt ist
@@ -3690,6 +3690,63 @@ Namens und lebt weiter.
   Absatz, und aus einem Kapitel wurden 300 Einzeiler. Dieselbe Schätzung
   (unteres Viertel der Abstände) dient der Kopfzeilenerkennung — zwei
   Fassungen liefen garantiert auseinander.
+- **Sechs Kilobyte, die mit „<!DOCTYP" anfangen, sind eine WEBSEITE**
+  (`webseitenbefund` in `js/pdf.js`, gemeldet 09/2026). Der häufigste Fall hinter
+  einem misslungenen Download: Hinter dem Link steht eine Anmeldung, eine
+  Fehlerseite oder eine Vorschau, und gesichert wird deren HTML — mit `.pdf` im
+  Dateinamen. „Der Kopf '%PDF-' fehlt" ist dann wörtlich richtig und als Auskunft
+  wertlos. Genannt wird deshalb der `<title>` der Seite („Anmeldung erforderlich",
+  „404") — er sagt in fünf Wörtern, was los ist — und der Weg drumherum: die PDF
+  im Browser wirklich öffnen, dann Teilen → „In Dateien sichern". Der Titel wird
+  als UTF-8 entziffert, nicht als latin1; und unter einem Kilobyte zählt die
+  Meldung Bytes statt „0 KB".
+- **Die Gegenrichtung: aus Text wird eine PDF** (`js/pdfbauen.js`,
+  `js/schriftmasse.js`, `js/winansi.js`, ab 09/2026 auf Wunsch des Nutzers).
+  „Eigenen Text einsetzen" öffnet ein leeres Feld; alles dahinter ist dasselbe
+  wie beim Lesen einer PDF — dieselben Blöcke, dieselbe EPUB, derselbe Satz.
+  Eine `.txt` darf man auch ins Fenster ziehen.
+- **Es gibt genau DREI Schriften, und das ist eine Entscheidung** (Helvetica,
+  Times, Courier — je vier Schnitte). Nur diese Familien bringt jedes
+  PDF-Programm mit; damit muss **keine Schrift eingebettet** werden: Die Datei
+  bleibt bei ein paar Kilobyte statt einem halben Megabyte, öffnet überall
+  gleich und braucht keine Lizenz für die Weitergabe. Wer eine vierte Schrift
+  anbietet, trägt eine Schriftdatei ins Repo und in jede erzeugte PDF. **In der
+  EPUB ist die Schrift ohnehin nur ein Vorschlag** — dort entscheidet das
+  Lesegerät, und das ist der Sinn des Formats, keine Lücke.
+- **Ein PDF bricht keine Zeile um — wer setzt, muss messen.**
+  `js/schriftmasse.js` ist ERZEUGT (`scripts/schriftmasse.py`) und hält die
+  Vorschubbreiten aller zwölf Schnitte. Gewonnen werden sie aus den
+  Liberation-Schriften des Bau-Rechners, die maßgleich mit Arial, Times New
+  Roman und Courier New sind — und die wiederum mit den Standardschriften. Das
+  Skript prüft jeden Schnitt gegen Adobes Originalwerte (Helvetica: Leerzeichen
+  278, A 667, a 556, m 833) und bricht bei Abweichung ab: Eine falsche Breite
+  sähe man dem Quelltext nie an, wohl aber der siebten Seite.
+- **Getrennt wird NICHT, deshalb ist der Satz linksbündig.** Die deutsche
+  Silbentrennung ist nicht ableitbar (dieselbe Regel wie in der
+  Wörterwerkstatt), und eine falsche Trennung stünde für immer im Dokument.
+  Ohne Trennung reißt Blocksatz Löcher in die Zeilen — ein flatternder rechter
+  Rand ist der kleinere Schaden. Nur ein Wort, das allein schon breiter ist als
+  die Zeile (eine lange Adresse), wird hart zerlegt: Dort gibt es keine
+  Alternative außer Wegschneiden.
+- **Was WinAnsi nicht hergibt, wird GEZÄHLT** (`js/winansi.js`). Die
+  Standardschriften kennen 224 Zeichen; deutscher Text passt vollständig hinein,
+  ein Emoji nicht. Es wird zum Fragezeichen, und die App sagt hinterher, wie
+  viele es waren und welche. Weiches Trennzeichen und geschütztes Leerzeichen
+  werden VOR der Zuordnung ersetzt — das weiche Trennzeichen hat in WinAnsi eine
+  sichtbare Gestalt, unverändert stünde mitten im Wort ein Bindestrich.
+- **Der LESER kennt die Standardbreiten jetzt auch** (`standardbreiten` in
+  `schriftmasse.js`, benutzt von `js/schrift.js`). Eine der 14 Standardschriften
+  MUSS kein `/Widths` mitbringen; vorher nahm der Leser dafür 500/1000 je
+  Zeichen an — das „i" so breit wie das „m", und damit standen Leerzeichen,
+  Zeilenenden und Absatzgrenzen schief. Gefunden beim Rücklesen der selbst
+  gesetzten PDF: Der Leser meldete Zeilen von 620 Punkt auf einer Seite von 595.
+- **Eine Stufe, die nur EINMAL vorkommt, ist ein Titel und keine
+  Kapiteleinteilung** (`kapitelSchneiden`). Sonst ergibt „Titel / Kapitel 1 /
+  Kapitel 2" ein einziges EPUB-Kapitel, das das ganze Buch enthält, und ein
+  Inhaltsverzeichnis mit einem Eintrag. Dazu erkennt `bloeckeAusText` die erste
+  Zeile als Titel, wenn darunter eine weitere Überschrift steht — aber NUR die
+  erste: Sonst würde aus einem „Mit freundlichen Grüßen" über einem Namen eine
+  Überschrift.
 - **Wer eine Datei nicht lesen kann, sagt WAS ankam — und schiebt die Schuld
   nicht auf die Datei** (gemeldet 09/2026: „Das ist keine PDF-Datei" über einer
   tadellosen PDF). Auf iPhone und iPad liegt eine Datei aus iCloud oft nur in
