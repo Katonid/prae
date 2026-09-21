@@ -717,6 +717,45 @@ Bücher gefahrlos: Der erzeugte `Codable`-Leser verlangt einen Schlüssel nur
 für nicht-optionale Eigenschaften. Ein vorhandener Wert wird gelesen, ein
 fehlender wird `nil` — also „wie im Buch".
 
+## Was bei jedem Bildpunkt lief (1.0.15)
+
+Gemeldet: „Nach kurzer Zeit ist die App nun eingefroren." Gemessen werden
+kann das hier nicht — es gibt kein Gerät. Abzählen lässt sich dagegen, wie
+viel Arbeit je Neuzeichnung anfällt, und in 1.0.14 war das zu viel.
+
+Der Block-Inspektor ist eine **Spalte**: Er steht offen, während gearbeitet
+wird, und sein Körper läuft bei jeder Meldung des Reisewerks noch einmal.
+Seit 1.0.8 wandert ein geschobener Rahmen sofort ins Modell — beim Schieben
+meldet sich das Werk also bei jedem Bildpunkt. Drei Dinge lagen in diesem
+Körper:
+
+* **Ein Menü mit einem Knopf je Absatz.** Der Inhalt eines `Menu` entsteht
+  beim Zeichnen des Formulars, nicht beim Aufklappen. Ein eingelesener
+  Tagebuchtext ist hart umbrochen, also ist jede Zeile ein Absatz: Bei einem
+  Tag mit zweihundert Zeilen wurden zweihundert Knöpfe gebaut, sechzigmal in
+  der Sekunde. Die Auswahl steht jetzt in einem Blatt mit einer Liste — die
+  baut nur, was zu sehen ist, und erst beim Öffnen.
+* **Zweimal die Absatzliste** über den ganzen Text. Sie wird jetzt einmal je
+  Änderung gerechnet und gemerkt.
+* **Zwei Suchläufe durch alle Blöcke** in der Werkzeugleiste, wo einer reicht.
+
+**Und weil sich das hier nicht nachmessen lässt, misst es die App.** Unter
+Anordnen → „Bedienung prüfen" steht seit 1.0.15 neben dem letzten Griff auch,
+wie oft sich Seite und Inspektor in der Sekunde neu zeichnen — mit der
+Zeitspanne dabei, denn eine Rate ohne ihren Zeitraum ist keine Messung. Der
+Messfühler ist bewusst nicht beobachtbar: Ein Messgerät, dessen Meldung ein
+Neuzeichnen auslöst, erzeugt seinen eigenen Messwert.
+
+Beim Nachrechnen fiel noch etwas auf: Die **Notbremse** des Layoutautomaten
+(200 Durchgänge, gegen eine Endlosschleife) gab den Rest des Textes zurück,
+und danach setzte ihn niemand mehr — derselbe Verlust wie im ersten
+gedruckten Stand, nur in einem Zweig, den bisher niemand betrat. Er wird
+jetzt gesetzt und läuft notfalls sichtbar über.
+
+**Nicht gemessen, samt Gegenprobe:** Die Rechnung gilt nur, wenn der
+Inspektor offen war. War er zu, ist sie widerlegt — dann sagt der Messfühler
+beim nächsten Mal, wo es hakt.
+
 ## Der Weg durch ein ganzes Buch (1.0.14)
 
 Beschrieben hat ihn der Nutzer selbst: erst das Tagebuch aus Word — daraus
@@ -1175,6 +1214,9 @@ im Inspektor gab es, aber keinen Weg zu sehen, was es bewirkt.
   randbündigen Reihe füllen eine A4-quer-Seite zu 40 % — höher kann die
   Reihe nicht werden, das ist Geometrie. Die Antwort darauf ist eine
   Vorlage (eines groß, zwei gestapelt), nicht eine weitere Stellschraube.
+* **Warum die App einfror, ist NICHT gemessen.** Was 1.0.15 entfernt, ist
+  am Quelltext abgezählte Arbeit je Neuzeichnung; ob sie der Grund war,
+  zeigt erst der Messfühler unter „Bedienung prüfen" auf einem echten Gerät.
 * **Der neue Umbruch ist nicht gesetzt worden.** Die Absatzgrenze, die
   62-Prozent-Schwelle und der freigehaltene Platz für die nächste Fotoreihe
   sind gerechnet; wie eine Doppelseite damit aussieht, zeigt erst ein Buch.

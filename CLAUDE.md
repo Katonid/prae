@@ -3903,6 +3903,58 @@ Befunde, und keiner davon war Geschmack:
   nächste Befund des Nutzers. Die beiden Zahlen (62 Prozent Füllung, sechs
   Zeilen neben einer Fotoreihe) sind gewählt und nicht gemessen. **Nicht als
   erledigt darstellen.**
+- **Der Inspektor ist eine SPALTE und läuft bei jedem Bildpunkt mit** (ab
+  1.0.15; gemeldet 09/2026: „Nach kurzer Zeit ist die App nun eingefroren.").
+  **Nicht gemessen, sondern am Quelltext abgezählt** — ein Gerät gibt es hier
+  nicht. `BlockInspektor` hängt an `.inspector(isPresented:)`, steht also offen,
+  während gearbeitet wird, und sein Körper läuft bei JEDER Meldung des
+  `Reisewerk`s noch einmal. Seit 1.0.8 wandert ein geschobener Rahmen sofort
+  ins Modell — beim Schieben meldet sich das Werk damit bei jedem Bildpunkt.
+  In 1.0.14 baute der Inspektor dabei drei Dinge, die keine sind:
+  - **Ein `Menu` mit einem Knopf je Absatz.** Der Inhalt eines `Menu`
+    entsteht beim Zeichnen des Formulars, nicht beim Aufklappen; und ein
+    eingelesener Tagebuchtext ist hart umbrochen, also ist JEDE ZEILE ein
+    Absatz. Bei einem Tag mit zweihundert Zeilen sind das zweihundert Knöpfe
+    samt zweihundert Textausschnitten — sechzigmal in der Sekunde. Die
+    Auswahl steht seit 1.0.15 in einem Blatt mit einer `List`: Die baut nur,
+    was zu sehen ist, und erst beim Öffnen.
+  - **Zweimal die Absatzliste** über den ganzen Text (einmal für die Zahl,
+    einmal für das Menü). Sie wird jetzt EINMAL je Änderung gerechnet
+    (`.task(id:)`, Schlüssel ist der Text selbst) und liegt in `@State` —
+    dieselbe Bauweise wie `textUeberlauf` seit 1.0.8.
+  - **Zwei Suchläufe in der Werkzeugleiste.** `werk.block(_:)` geht durch
+    alle Tage, Seiten und Blöcke; 1.0.14 stellte `teilbarerText` neben
+    `gewaehltesFoto`. Es ist jetzt ein Lauf (`ReiseView.gewaehlterBlock`).
+  **Die Lehre ist alt und stand für die Karte schon da** („Eine berechnete
+  Eigenschaft sieht billig aus"): **Was im Körper einer Ansicht steht, läuft
+  so oft, wie gezeichnet wird — und wer das nicht weiß, misst es.**
+- **Und weil sich das hier nicht nachmessen lässt, misst es die App**
+  (`Dienste/Zeichenmesser.swift`, sichtbar unter Anordnen → „Bedienung
+  prüfen", ab 1.0.15). Neuzeichnungen je Sekunde von Seite und Inspektor,
+  dazu die Dauer des Absatzlaufs — **immer mit der Zeitspanne dabei**, denn
+  eine Rate ohne ihren Zeitraum ist keine Messung. Dasselbe Muster wie der
+  Kartenmesser der Abfahrtstafel und die Stufenprobe bei Schulalarm.
+  **Kein `@Published` und kein `ObservableObject`**: Die Ansichten melden
+  sich dort an, und wäre der Messfühler beobachtbar, löste jede Meldung ein
+  Neuzeichnen aus, das seinerseits gemeldet würde — ein Messgerät, das seinen
+  eigenen Messwert erzeugt. Gemeldet wird im KÖRPER und nicht in `onAppear`:
+  Nur der Körper läuft bei jedem Neuzeichnen.
+- **Die Notbremse des Layoutautomaten verlor den Rest des Textes** (gefunden
+  beim Nachrechnen 09/2026, behoben in 1.0.15). `reihenSetzen` bricht nach
+  200 Durchgängen ab — gedacht gegen eine Endlosschleife. Das nackte `break`
+  gab den Resttext aber nur zurück, und der Aufrufer setzt ihn danach
+  nirgends mehr: Genau der Fehler aus dem ersten gedruckten Stand („mussten
+  von Passagieren, die"), nur in einem Zweig, den bis dahin niemand betrat.
+  Seit 1.0.14 laufen Text und Fotoreihen abwechselnd, die Zahl der Durchgänge
+  ist also gestiegen. Was beim Abbruch übrig ist, wird jetzt gesetzt und
+  läuft notfalls sichtbar über. **Ein Tagebuch darf keinen Satz verlieren —
+  auch nicht in einem Notausgang.**
+- **Nicht gemessen (1.0.15) — und die Gegenprobe steht dabei:** Ob das
+  Einfrieren wirklich daher kam, weiß niemand. Die Rechnung gilt nur, wenn
+  der Block-Inspektor offen WAR; war er zu, ist sie widerlegt, und dann sagt
+  der Messfühler beim nächsten Mal, wo es hakt. **Nicht als erledigt
+  darstellen** — es ist die erste Erklärung für diesen Befund, und in diesem
+  Papier stehen genug Fälle, in denen die erste eine Vermutung war.
 - **Die Bildunterschrift war halb gebaut** (ab 1.0.5, Wunsch des Nutzers
   09/2026: „zu jedem Foto einen Beschreibungstext … Dies soll jedoch eine
   Option für jedes Foto sein. Kein muss."). Der Layoutautomat hielt Platz
