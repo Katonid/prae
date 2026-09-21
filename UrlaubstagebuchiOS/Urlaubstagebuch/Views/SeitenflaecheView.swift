@@ -38,6 +38,17 @@ struct SeitenflaecheView: View {
     // `translation` und `magnification` sind die GESAMTE Bewegung seit dem
     // Aufsetzen, und wer sie aufaddiert, beschleunigt mit jedem Bildpunkt.
     @State private var ausgangsausschnitt: Bildausschnitt?
+    // Woran der Block gerade einrastet. Gezeichnet wird das als Linie quer
+    // über die Seite — solange die Geste läuft und keinen Takt länger.
+    @State private var fangSenkrecht: Einrasten.Linie?
+    @State private var fangWaagerecht: Einrasten.Linie?
+    // Einrasten lässt sich abschalten. Das ist die zweite Hälfte des
+    // Wunsches („im Einzelfall auch veränderbar"): Eine Hilfe, aus der
+    // sich nicht aussteigen lässt, ist eine Bevormundung — und es gibt
+    // Lagen, in denen ein Block bewusst einen halben Millimeter neben der
+    // Kante stehen soll. Der genaue Wert steht daneben im Inspektor.
+    // `@AppStorage` gehört in eine VIEW und nie ins `Reisewerk`.
+    @AppStorage("einrasten") private var einrastenAn = true
 
     private var format: CGSize { werk.reise.format.groesse }
     private var anschnitt: Double { werk.reise.gestaltung.anschnittPt }
@@ -79,6 +90,26 @@ struct SeitenflaecheView: View {
                 // denselben Inhalt zeigen nie dasselbe.**
                 if werk.textBearbeitung != block.id {
                     blockAnsicht(block)
+                }
+            }
+
+            // WORAN der Block gerade einrastet, steht als Linie da.
+            //
+            // Sie liegt über den Blöcken und unter der Schnittkante, geht
+            // über den ganzen Bogen und trägt ihre Herkunft als Farbe: Der
+            // Satzspiegel und die Schnittkante sind die Ordnung der Seite,
+            // ein Nachbar ist eine Ausrichtung an etwas, das man sieht.
+            // Ohne diese Linie war das Einrasten ein Zucken ohne Auskunft.
+            if bearbeitbar, gegriffen != nil {
+                if let linie = fangSenkrecht {
+                    Fanglinie(linie: linie, senkrecht: true, laenge: bogen.height,
+                              massstab: massstab)
+                        .offset(x: linie.wert, y: -anschnitt)
+                }
+                if let linie = fangWaagerecht {
+                    Fanglinie(linie: linie, senkrecht: false, laenge: bogen.width,
+                              massstab: massstab)
+                        .offset(x: -anschnitt, y: linie.wert)
                 }
             }
 
@@ -250,7 +281,12 @@ struct SeitenflaecheView: View {
               block.inhalt.istText
         else { return "-" }
         let text = Seitensatz.inhaltstext(block, tag: tag, reise: werk.reise)
-        return "\(block.id)|\(Int(block.rahmen.breite))|\(Int(block.rahmen.hoehe))|\(text.count)"
+        // Der Innenabstand gehört in den Schlüssel: Er nimmt dem Text
+        // Breite UND Höhe weg. Ohne ihn bliebe die Marke stehen, wo sie
+        // stand, obwohl der Kasten gerade enger geworden ist — ein Hinweis,
+        // der hinterherhinkt, ist schlimmer als keiner.
+        return "\(block.id)|\(Int(block.rahmen.breite))|\(Int(block.rahmen.hoehe))"
+            + "|\(Int(block.textrand))|\(text.count)"
     }
 
     private func ueberlaufMessen() -> Double? {
@@ -468,6 +504,8 @@ struct SeitenflaecheView: View {
         ausgangsrahmen = nil
         gestenstart = nil
         ausgangsausschnitt = nil
+        fangSenkrecht = nil
+        fangWaagerecht = nil
     }
 
     // MARK: - Schieben
@@ -487,13 +525,27 @@ struct SeitenflaecheView: View {
         guard let ausgang = ausgangsrahmen else { return }
         var probe = block
         probe.rahmen = ausgang
-        let gefangen = Einrasten.gefangen(
-            block: probe,
-            dx: wert.translation.width, dy: wert.translation.height,
-            nachbarn: buchseite.seite.bloecke.filter { $0.id != block.id },
-            satz: satz,
-            toleranz: 6 / massstab
-        )
+        // Ohne Einrasten wird schlicht die Strecke genommen. Der Schalter
+        // sitzt im Menü „Anordnen"; wer ihn ausmacht, bekommt auch keine
+        // Linien — eine Linie ohne Wirkung wäre eine Behauptung.
+        let gefangen: Einrasten.Fang
+        if einrastenAn {
+            gefangen = Einrasten.gefangen(
+                block: probe,
+                dx: wert.translation.width, dy: wert.translation.height,
+                nachbarn: buchseite.seite.bloecke.filter { $0.id != block.id },
+                satz: satz,
+                bogen: werk.reise.gestaltung.anschnitt > 0.5
+                    ? werk.reise.gestaltung.randabfallend(werk.reise.format) : nil,
+                toleranz: 6 / massstab
+            )
+        } else {
+            gefangen = Einrasten.Fang(dx: wert.translation.width,
+                                      dy: wert.translation.height,
+                                      senkrecht: nil, waagerecht: nil)
+        }
+        fangSenkrecht = gefangen.senkrecht
+        fangWaagerecht = gefangen.waagerecht
         let neu = ausgang.verschoben(dx: gefangen.dx, dy: gefangen.dy)
             .begrenzt(auf: werk.reise.format.groesse)
         werk.aendere(block.id, merken: false) { $0.rahmen = neu }
@@ -543,37 +595,42 @@ struct SeitenflaecheView: View {
         neu.breite = max(neu.breite, 24)
         neu.hoehe = max(neu.hoehe, 14)
 
-        var kantenX: [Double] = [satz.minX, satz.maxX, satz.midX]
-        var kantenY: [Double] = [satz.minY, satz.maxY, satz.midY]
-        if werk.reise.gestaltung.anschnitt > 0.5 {
-            let bogen = werk.reise.gestaltung.randabfallend(werk.reise.format)
-            kantenX.append(contentsOf: [bogen.minX, bogen.maxX])
-            kantenY.append(contentsOf: [bogen.minY, bogen.maxY])
-        }
-        for nachbar in buchseite.seite.bloecke where nachbar.id != block.id {
-            let r = nachbar.rahmen.rect
-            kantenX.append(contentsOf: [r.minX, r.maxX])
-            kantenY.append(contentsOf: [r.minY, r.maxY])
-        }
-        let toleranz = 7 / massstab
+        // Dieselben Kanten wie beim Schieben, aus derselben Quelle
+        // (`Einrasten.kanten`) — zwei Listen liefen auseinander, und dann
+        // finge eine Ecke an etwas, woran die Kante daneben nicht fängt.
+        let alle = Einrasten.kanten(
+            satz: satz,
+            bogen: werk.reise.gestaltung.anschnitt > 0.5
+                ? werk.reise.gestaltung.randabfallend(werk.reise.format) : nil,
+            nachbarn: buchseite.seite.bloecke.filter { $0.id != block.id }
+        )
+        let toleranz = einrastenAn ? 7 / massstab : 0
+        var senkrecht: Einrasten.Linie?
+        var waagerecht: Einrasten.Linie?
         if richtung.waagerecht < 0 {
-            let gefangen = Einrasten.kanteGefangen(neu.x, kanten: kantenX, toleranz: toleranz)
-            neu.breite += neu.x - gefangen
-            neu.x = gefangen
+            let gefangen = Einrasten.kanteGefangen(neu.x, kanten: alle.x, toleranz: toleranz)
+            neu.breite += neu.x - gefangen.wert
+            neu.x = gefangen.wert
+            senkrecht = gefangen.linie
         } else if richtung.waagerecht > 0 {
-            let rechts = Einrasten.kanteGefangen(neu.x + neu.breite, kanten: kantenX,
+            let rechts = Einrasten.kanteGefangen(neu.x + neu.breite, kanten: alle.x,
                                                  toleranz: toleranz)
-            neu.breite = rechts - neu.x
+            neu.breite = rechts.wert - neu.x
+            senkrecht = rechts.linie
         }
         if richtung.senkrecht < 0 {
-            let gefangen = Einrasten.kanteGefangen(neu.y, kanten: kantenY, toleranz: toleranz)
-            neu.hoehe += neu.y - gefangen
-            neu.y = gefangen
+            let gefangen = Einrasten.kanteGefangen(neu.y, kanten: alle.y, toleranz: toleranz)
+            neu.hoehe += neu.y - gefangen.wert
+            neu.y = gefangen.wert
+            waagerecht = gefangen.linie
         } else if richtung.senkrecht > 0 {
-            let unten = Einrasten.kanteGefangen(neu.y + neu.hoehe, kanten: kantenY,
+            let unten = Einrasten.kanteGefangen(neu.y + neu.hoehe, kanten: alle.y,
                                                 toleranz: toleranz)
-            neu.hoehe = unten - neu.y
+            neu.hoehe = unten.wert - neu.y
+            waagerecht = unten.linie
         }
+        fangSenkrecht = senkrecht
+        fangWaagerecht = waagerecht
 
         werk.aendere(block.id, merken: false) { b in
             b.rahmen = neu
@@ -767,7 +824,8 @@ struct BlockInhaltView: View {
         case .titel, .datum, .text:
             Textkasten(
                 text: Seitensatz.inhaltstext(block, tag: tag, reise: werk.reise),
-                bild: Seitensatz.schriftbild(block, reise: werk.reise)
+                bild: Seitensatz.schriftbild(block, reise: werk.reise),
+                rand: block.textrand
             )
         case .bildunterschrift:
             let text = Seitensatz.inhaltstext(block, tag: tag, reise: werk.reise)
@@ -782,7 +840,8 @@ struct BlockInhaltView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
             } else {
                 Textkasten(text: text,
-                           bild: Seitensatz.schriftbild(block, reise: werk.reise))
+                           bild: Seitensatz.schriftbild(block, reise: werk.reise),
+                           rand: block.textrand)
             }
         case .linie:
             Rectangle()

@@ -243,7 +243,8 @@ enum Buchausgabe {
             case .titel, .datum, .text, .bildunterschrift:
                 let bild = Seitensatz.schriftbild(block, reise: reise)
                 let text = Seitensatz.inhaltstext(block, tag: buchseite.tag, reise: reise)
-                Seitensatz.zeichneText(text, bild: bild, rechteck: rechteck,
+                Seitensatz.zeichneText(text, bild: bild,
+                                       rechteck: block.textrechteck(rechteck),
                                        in: zusammenhang, seitenhoehe: endformat.height)
 
             case .linie:

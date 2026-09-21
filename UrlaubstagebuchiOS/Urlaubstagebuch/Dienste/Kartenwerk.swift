@@ -175,7 +175,7 @@ actor Kartenwerk {
         wunsch.region = region
         wunsch.size = groesse
         wunsch.scale = massstab
-        wunsch.preferredConfiguration = kartenbild.stil.aufbau
+        wunsch.preferredConfiguration = kartenbild.aufbau
         // DAS ist der Griff gegen die dunkle Karte im gedruckten Buch: Ohne
         // ihn nimmt der Schnappschuss die Erscheinung des Systems an, und
         // wer sein iPad abends dunkel schaltet, bekommt eine schwarze Karte

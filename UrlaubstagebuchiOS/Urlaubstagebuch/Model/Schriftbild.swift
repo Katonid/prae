@@ -210,6 +210,12 @@ struct Schriftabweichung: Codable, Hashable {
     var familie: Schriftfamilie?
     var groesse: Double?
     var zeilenabstand: Double?
+    // Der Abstand NACH einem Absatz. Er steht hier seit 1.0.11, weil die
+    // Frage an einem einzelnen Kasten gestellt wird und nicht am Buch
+    // (gemeldet 09/2026: „Nach wie vor weiß ich nicht, warum bei dem Text
+    // nach jedem Absatz so viel Platz gelassen wird."). Buchweit gibt es
+    // ihn seit 1.0.0 unter „Schrift"; was fehlte, war die Ausnahme.
+    var absatzabstand: Double?
     var ausrichtung: Ausrichtung?
     var farbe: Farbwert?
     var fett: Bool?
@@ -227,6 +233,7 @@ struct Schriftabweichung: Codable, Hashable {
         if let familie { bild.familie = familie }
         if let groesse { bild.groesse = groesse }
         if let zeilenabstand { bild.zeilenabstand = zeilenabstand }
+        if let absatzabstand { bild.absatzabstand = absatzabstand }
         if let ausrichtung { bild.ausrichtung = ausrichtung }
         if let farbe { bild.farbe = farbe }
         if let fett { bild.fett = fett }

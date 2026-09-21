@@ -3564,6 +3564,107 @@ Befunde, und keiner davon war Geschmack:
   nächste Befund des Nutzers. **Eine Oberflächenänderung als gelöstes
   Bedienproblem auszugeben wäre genau die Art Behauptung, die dieses Papier
   sonst verbietet.**
+- **Ein Knopf, der etwas ZURÜCKNIMMT, setzt voraus, dass es einen Weg hin
+  gibt** (`Views/KartenausschnittView.swift`, ab 1.0.11, gemeldet 09/2026:
+  „Auf der Karte wird ja quasi nichts dargestellt. Der Ort könnte sonst wo
+  sein."). `Reisetag.kartenausschnitt` gibt es seit 1.0.0 — und bis 1.0.10
+  konnte ihn NIEMAND setzen: Im Inspektor stand einzig „Wieder automatisch
+  rahmen". Gerahmt wurde deshalb immer selbsttätig um die Spur, und für die
+  rechnet `Kartenwerk.region` bei einem einzigen Punkt eine Spanne von
+  0,008 Grad — rund 900 Meter. Die Karte war also nicht falsch, sie war zu
+  nah, und zwar ohne jeden Ausweg. **Ein Feld, das nur gelesen und nie
+  geschrieben wird, ist ein halb gebautes Vorhaben** — dieselbe Art Befund
+  wie bei der Bildunterschrift in 1.0.5.
+- **Gewählt wird auf einer ECHTEN Karte, und übernommen wird das FENSTER.**
+  Kein Fadenkreuz wie bei der Ortswahl: Dort wird eine Stelle gewählt, hier
+  ein Ausschnitt. Dazu „näher" und „weiter" unmittelbar im Inspektor — wer
+  nur etwas herauszoomen will, soll dafür keinen Bildschirm öffnen müssen.
+  Beide rechnen vom GELTENDEN Ausschnitt aus, also auch vom automatischen;
+  sonst spränge der erste Tipp auf einen Wert, der mit dem Bild auf der
+  Seite nichts zu tun hat. Die Spanne steht in Kilometern da (ein Grad
+  Breite ≈ 111 km) — eine Gradzahl sagt niemandem etwas.
+- **Beschriftungsdichte gibt es bei MapKit NICHT — es gibt einen POI-Filter**
+  (`Kartenbeschriftung`, ab 1.0.11). Gewünscht war, „wie dicht die
+  Beschriftungen sein sollen". Was sich wirklich einstellen lässt, ist
+  `pointOfInterestFilter`: Geschäfte, Museen, Haltestellen. Straßen- und
+  Ortsnamen setzt Apple selbst nach Maßstab, und dafür gibt es keine
+  Schraube — wer weniger davon will, nimmt die Karte näher heran. **Genau
+  das steht in der Oberfläche**, statt einen Regler anzubieten, der nichts
+  tut. Beim SATELLITENBILD entscheidet die Wahl sogar über die Art des
+  Aufbaus: `MKImageryMapConfiguration` zeigt überhaupt keine Namen, die
+  gibt es nur über `MKHybridMapConfiguration`. Bei den Kachelquellen ist die
+  Beschriftung fertig IM BILD — das sagt die App dort auch.
+  Geändert gegenüber 1.0.10: „Gelände" schaltete die Orte fest ab; das war
+  als Stilfrage gebaut und ist jetzt eine eigene Einstellung.
+- **`.castle` und `.landmark` gibt es erst ab iOS 18.** Sie wären für eine
+  Reisekarte die naheliegenden Kategorien und kosteten einen Bau: Diese App
+  baut gegen iOS 17, und ein `@available` für eine Zierde wäre der falsche
+  Preis.
+- **Ein neues NICHT-optionales Feld macht jede gesicherte Datei unlesbar —
+  auch in einem kleinen Typ.** `Kartenbild` bekam `beschriftung` und braucht
+  deshalb seit 1.0.11 einen Leser von Hand (`Model/Nachsicht.swift`). Beim
+  Gegenlesen gefunden, nicht im Bau: `Reisetag` liest sein `kartenbild` über
+  `wahlweise`, und das schluckt den Fehler — die Karteneinstellung wäre
+  STILL auf die Vorgabe zurückgefallen. **Die Regel steht seit 1.0.3 im
+  Papier und galt bis dahin nur für `Reise` und `Reisetag`; sie gilt für
+  jeden Typ, der wächst.**
+- **Einrasten sagt jetzt, WORAN** (`Einrasten.Fang`, `Fanglinie`, ab 1.0.11,
+  Ansage des Nutzers 09/2026: „Der Randindikator soll sich an den Rand und
+  die Fotos orientieren, aber im Einzelfall auch veränderbar sein."). Bis
+  1.0.10 rastete der Block stumm ein: Er sprang um zwei Punkte, und ob das
+  der Satzspiegel war, die Schnittkante, das Foto darüber oder gar nichts,
+  stand nirgends. **Eine Hilfe, die man nicht sieht, ist für den Menschen
+  davor ein Zucken.** Gezeichnet wird eine Linie über den ganzen Bogen, mit
+  der Herkunft als Wort und als Farbe — „Rand" und „Nachbar" sind zwei
+  verschiedene Auskünfte.
+- **Die Kanten kommen aus EINER Quelle** (`Einrasten.kanten`). Bis 1.0.10
+  baute das Verschieben seine Liste selbst und das Größenändern eine zweite,
+  und nur die zweite kannte die Schnittkante: Ein randabfallendes Foto rastete
+  beim Ziehen an der Ecke am Anschnitt ein und beim Verschieben nicht.
+- **„Im Einzelfall veränderbar" sind zwei Dinge**: der Schalter „An Rand und
+  Nachbarn einrasten" unter „Anordnen" (wer ihn ausmacht, bekommt auch keine
+  Linien — eine Linie ohne Wirkung wäre eine Behauptung) und die Zahl in
+  Millimetern im Inspektor unter „Lage auf der Seite". Der Schalter liegt in
+  `@AppStorage` und damit in einer VIEW, nie im `Reisewerk`.
+- **Der Absatzabstand war da, die ERKLÄRUNG fehlte** (ab 1.0.11, gemeldet
+  09/2026: „Nach wie vor weiß ich nicht, warum bei dem Text nach jedem Absatz
+  so viel Platz gelassen wird."). Buchweit steht er seit 1.0.0 unter Buch →
+  Schrift. Was fehlte, war zweierlei: die Ausnahme an der einzelnen Stelle
+  (`Schriftabweichung.absatzabstand`) und der Grund. Der Grund steht im Text
+  selbst: In einem hart umbrochenen Tagebuchtext ist JEDE ZEILE ein eigener
+  Absatz, und dann steht der Abstand eben nach jeder Zeile. **Der Inspektor
+  zählt die Absätze deshalb und bietet das Zusammenführen an der Stelle an,
+  an der die Frage entsteht** (`Textaufbereitung.erzwingen`). Eine Zahl, die
+  den Befund erklärt, ist mehr wert als ein Regler, der ihn verdeckt.
+  **Offen bleibt, warum die Erkennung aus 1.0.2 bei diesem Text nicht
+  gegriffen hat** — gemessen ist sie an zwei Texten des Nutzers, und der
+  gemeldete ist ein dritter. Nicht als geklärt darstellen.
+- **Ein Textkasten darf einen Grund haben, und der darf durchscheinen**
+  (`Block.grund`, `Block.innenabstand`, ab 1.0.11, Ansage des Nutzers
+  09/2026: „So könnte beispielsweise auch Text auf einem Hintergrundbild
+  gemacht werden."). Den farbigen Grund gab es; was fehlte, waren die zwei
+  Dinge, die ihn brauchbar machen:
+  - **Die Deckkraft als eigener Schieber.** `Farbwert` trägt sie seit 1.0.0,
+    und der Farbwähler von iOS kann sie — aber hinter einem Tipp auf das
+    Farbfeld, und wer sie sucht, findet sie nicht. Sie ist hier kein Schmuck,
+    sondern der Zweck: Ein halbdurchsichtiges Feld lässt ein Foto durch und
+    die Schrift trotzdem lesbar bleiben.
+  - **Ein Innenabstand.** Schrift, die unmittelbar an der Kante einer Fläche
+    anfängt, sieht aus wie ein Satzfehler. Er wird beim Einschalten des
+    Grundes gesetzt und beim Ausschalten NICHT zurückgenommen — wer ihn von
+    Hand geändert hat, soll ihn behalten.
+- **Ein Innenabstand muss an ALLEN VIER Textstellen mitgerechnet werden**:
+  auf dem Bildschirm (`Textkasten`), im PDF (`Buchausgabe`), bei der
+  Überlaufmessung (`Reisewerk.fehlendeHoehe`) und in der Druckprüfung.
+  Gerechnet wird er an einer Stelle (`Block.textrechteck` / `textbreite`);
+  vergäße man eine der vier, sagte die Marke „passt", während im Druck eine
+  Zeile fehlt. Das Textfeld beim Bearbeiten bekommt denselben Wert als
+  `textContainerInset` — sonst spränge der Text beim Doppeltipp an die Kante
+  und beim Schließen wieder zurück.
+- **Nicht gemessen:** wie sich das alles auf einem Gerät anfühlt. Gemessen
+  sind Wege und Rechnungen; ob die Fanglinie beim Schieben hilft oder stört
+  und ob der gewählte Kartenausschnitt im Druck das Erwartete zeigt, sagt
+  erst der nächste Befund.
 - **Die Bildunterschrift war halb gebaut** (ab 1.0.5, Wunsch des Nutzers
   09/2026: „zu jedem Foto einen Beschreibungstext … Dies soll jedoch eine
   Option für jedes Foto sein. Kein muss."). Der Layoutautomat hielt Platz

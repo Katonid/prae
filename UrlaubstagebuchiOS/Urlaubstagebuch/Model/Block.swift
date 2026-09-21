@@ -178,6 +178,15 @@ struct Block: Identifiable, Codable, Hashable {
     // Millimetern, weil man ihn im gedruckten Buch misst und nicht auf dem
     // Bildschirm.
     var fotorand: Double?
+    // Der Abstand vom Rand des Blocks bis zum Text, in Seitenpunkten.
+    //
+    // Er gehört zum farbigen Grund (Ansage des Nutzers, 09/2026: „wenn bei
+    // einem Textfeld ein Hintergrund gewählt werden könnte … So könnte
+    // beispielsweise auch Text auf einem Hintergrundbild gemacht werden."):
+    // Schrift, die unmittelbar an der Kante einer Fläche anfängt, sieht aus
+    // wie ein Satzfehler. Ohne Grund bleibt er `nil` und damit null — ein
+    // Textblock ohne Fläche soll weiterhin exakt am Satzspiegel stehen.
+    var innenabstand: Double?
     // Reicht dieser Block in den Anschnitt? Die Marke ist nötig, weil ein
     // randabfallender Block beim Wechsel des Formats seine Zugabe behalten
     // muss — ohne sie stünde nach dem Umstellen von drei auf fünf
@@ -217,6 +226,27 @@ struct Block: Identifiable, Codable, Hashable {
     var folgtDemBuch: Bool {
         schatten == nil && fotorand == nil && randbreite == nil && rand == nil
     }
+
+    // Wie weit der Text vom Rand des Blocks wegbleibt.
+    //
+    // Die Zahl steht hier und wird von ALLEN vier Stellen gelesen, die mit
+    // Text umgehen: der Bildschirm, das PDF, die Überlaufmessung und die
+    // Druckprüfung. Zwei Fassungen liefen auseinander — und der Unterschied
+    // wäre ein Kasten, dessen Marke „passt" sagt, während im Druck eine
+    // Zeile fehlt.
+    var textrand: Double { max(innenabstand ?? 0, 0) }
+
+    // Die Fläche, in der der Text wirklich steht. Nie kleiner als ein
+    // Streifen: Ein Innenabstand, der größer ist als der halbe Block,
+    // ließe gar nichts mehr übrig, und aus dem Block verschwände der Text,
+    // ohne dass etwas darauf hinwiese.
+    func textrechteck(_ rechteck: CGRect) -> CGRect {
+        let luft = min(textrand, min(rechteck.width, rechteck.height) / 2 - 2)
+        guard luft > 0 else { return rechteck }
+        return rechteck.insetBy(dx: luft, dy: luft)
+    }
+
+    var textbreite: Double { max(rahmen.breite - 2 * textrand, 1) }
 }
 
 struct Blockwirkung {

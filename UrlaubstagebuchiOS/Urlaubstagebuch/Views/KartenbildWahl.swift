@@ -29,6 +29,21 @@ struct KartenbildWahl: View {
                 Picker("Helligkeit", selection: $bild.helle) {
                     ForEach(Kartenhelle.allCases) { helle in Text(helle.name).tag(helle) }
                 }
+                Picker("Beschriftung", selection: $bild.beschriftung) {
+                    ForEach(Kartenbeschriftung.allCases) { art in Text(art.name).tag(art) }
+                }
+                // EHRLICH, statt einen Regler „Beschriftungsdichte"
+                // anzubieten, den es nicht gibt: MapKit kennt einen Filter
+                // für ORTE und sonst nichts. Straßen- und Ortsnamen setzt
+                // Apple selbst nach Maßstab — wer weniger davon will,
+                // nimmt die Karte näher heran.
+                Text("Gefiltert werden ORTE — Geschäfte, Museen, Haltestellen. "
+                     + "Straßen- und Ortsnamen setzt Apple selbst, je nach Maßstab; "
+                     + "sie lassen sich nicht ausdünnen. Beim Satellitenbild "
+                     + "entscheidet die Wahl darüber, ob überhaupt Namen darauf "
+                     + "stehen.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
                 if bild.helle == .wieApp {
                     Label("Dann entscheidet die Erscheinung des Geräts, ob die Karte "
                           + "hell oder dunkel gedruckt wird.",
@@ -36,6 +51,18 @@ struct KartenbildWahl: View {
                         .font(.caption)
                         .foregroundStyle(.orange)
                 }
+            }
+
+            if bild.quelle != .apple {
+                // Bei den Kachelquellen ist die Beschriftung IM BILD: Sie
+                // kommt fertig gerendert vom Server. Keine Einstellung
+                // dieser App kann daran etwas ändern — und ein Regler, der
+                // nichts tut, ist schlimmer als keiner.
+                Label("Bei dieser Quelle steht die Beschriftung fest im Kachelbild. "
+                      + "Näher oder weiter geht über den Ausschnitt.",
+                      systemImage: "info.circle")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
 
             if bild.quelle == .eigene {

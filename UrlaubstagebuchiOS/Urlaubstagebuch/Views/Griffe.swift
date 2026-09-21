@@ -192,7 +192,7 @@ struct InlineText: View {
 
     var body: some View {
         let rahmen = block.rahmen.rect
-        TextflaecheBruecke(text: $text, bild: bild) {
+        TextflaecheBruecke(text: $text, bild: bild, rand: block.textrand) {
             fertig()
         }
         .frame(width: rahmen.width, height: max(rahmen.height, bild.zeilenhoehe * 1.6))
@@ -224,6 +224,10 @@ struct InlineText: View {
 struct TextflaecheBruecke: UIViewRepresentable {
     @Binding var text: String
     var bild: Schriftbild
+    // Derselbe Innenabstand, mit dem der Block gezeichnet wird. Ohne ihn
+    // spränge der Text beim Doppeltipp an die Kante und beim Schließen
+    // wieder zurück — dieselbe Art Unterschied wie zwischen zwei Setzern.
+    var rand: Double = 0
     var fertig: () -> Void
 
     func makeUIView(context: Context) -> UITextView {
@@ -232,6 +236,7 @@ struct TextflaecheBruecke: UIViewRepresentable {
         feld.backgroundColor = .clear
         feld.textContainerInset = .zero
         feld.textContainer.lineFragmentPadding = 0
+        feld.textContainerInset = UIEdgeInsets(top: rand, left: rand, bottom: rand, right: rand)
         feld.isScrollEnabled = false
         feld.autocorrectionType = .default
         feld.spellCheckingType = .default
@@ -240,6 +245,7 @@ struct TextflaecheBruecke: UIViewRepresentable {
     }
 
     func updateUIView(_ feld: UITextView, context: Context) {
+        feld.textContainerInset = UIEdgeInsets(top: rand, left: rand, bottom: rand, right: rand)
         let attribute = bild.attribute()
         feld.typingAttributes = attribute
         if feld.text != text {
@@ -266,5 +272,58 @@ struct TextflaecheBruecke: UIViewRepresentable {
             text = feld.text
             fertig()
         }
+    }
+}
+
+// MARK: - Die Fanglinie
+
+// Woran der Block gerade einrastet — als Linie quer über den Bogen.
+//
+// Bis 1.0.10 rastete er stumm ein: Er sprang um zwei Punkte, und ob das der
+// Satzspiegel war, die Schnittkante, das Foto darüber oder gar nichts, stand
+// nirgends. Für den Menschen davor war das ein Zucken (Ansage des Nutzers,
+// 09/2026: „Der Randindikator soll sich an den Rand und die Fotos
+// orientieren"). Die Linie sagt es jetzt, und sie sagt auch, WELCHE Kante es
+// ist — „Rand" und „Nachbar" sind zwei verschiedene Auskünfte.
+//
+// Alle Maße werden durch den Maßstab geteilt: Die Linie ist eine Hilfe für
+// das Auge und keine Zeichnung auf dem Papier — sie soll auf einer klein
+// gezoomten Seite genauso dünn sein wie auf einer großen. Sie wird nie
+// gedruckt.
+struct Fanglinie: View {
+    let linie: Einrasten.Linie
+    let senkrecht: Bool
+    let laenge: Double
+    let massstab: Double
+
+    private var farbe: Color {
+        switch linie.herkunft {
+        case .satz: return .accentColor
+        case .anschnitt: return .red
+        case .nachbar: return .blue
+        }
+    }
+
+    var body: some View {
+        // Die Beschriftung hängt als ÜBERLAGERUNG an der Linie und liegt
+        // nicht neben ihr in einem Stapel: Ein `ZStack` würde so breit wie
+        // sein breitestes Kind, und das ist die Schrift — die Linie läge
+        // dann nicht mehr auf der Kante, an der gefangen wurde.
+        Rectangle()
+            .fill(farbe.opacity(0.85))
+            .frame(width: senkrecht ? 1 / massstab : laenge,
+                   height: senkrecht ? laenge : 1 / massstab)
+            .overlay(alignment: senkrecht ? .top : .leading) {
+                Text(linie.herkunft.name)
+                    .font(.system(size: 7 / massstab, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 4 / massstab)
+                    .padding(.vertical, 1.5 / massstab)
+                    .background(farbe.opacity(0.9), in: Capsule())
+                    .fixedSize()
+                    .offset(x: senkrecht ? 0 : 8 / massstab,
+                            y: senkrecht ? 8 / massstab : 0)
+            }
+            .allowsHitTesting(false)
     }
 }

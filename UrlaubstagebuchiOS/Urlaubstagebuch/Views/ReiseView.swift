@@ -9,6 +9,10 @@ struct ReiseView: View {
     @State private var zoom: Double = 0
     @State private var blatt: Blatt?
     @State private var neuAnordnenFrage: UUID?
+    // Derselbe Schlüssel wie in `SeitenflaecheView` — `@AppStorage` teilt
+    // sich über den Namen, und zwei Zustände für denselben Schalter liefen
+    // auseinander.
+    @AppStorage("einrasten") private var einrastenAn = true
     @State private var buchdatei: Buchwunsch?
 
     // Der Wunsch trägt das Ziel, kein Schalter daneben — dieselbe Regel
@@ -229,6 +233,13 @@ struct ReiseView: View {
                 }
                 Divider()
                 Toggle("Satzspiegel zeigen", isOn: $werk.zeigeSatzspiegel)
+                // Einrasten lässt sich abschalten — die zweite Hälfte des
+                // Wunsches nach einem Randindikator, der „im Einzelfall auch
+                // veränderbar" ist. Eine Hilfe, aus der man nicht aussteigen
+                // kann, ist eine Bevormundung; der genaue Wert in
+                // Millimetern steht daneben im Inspektor unter „Lage".
+                // `@AppStorage` gehört in eine View und nie ins `Reisewerk`.
+                Toggle("An Rand und Nachbarn einrasten", isOn: $einrastenAn)
                 Toggle("Bedienung prüfen", isOn: $werk.zeigeGriffprobe)
             } label: {
                 Label("Anordnen", systemImage: "wand.and.stars")
