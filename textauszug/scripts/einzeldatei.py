@@ -4,7 +4,7 @@
 Warum überhaupt: Die App besteht aus ES-Modulen, und die weist jeder Browser
 ab, wenn die Seite über file:// geöffnet wird. Für den Betrieb auf einem
 Rechner ohne Webserver — Windows-PC, USB-Stick, Mailanhang — wird deshalb
-alles in eine Datei gelegt: Stil, Zeichen und die sieben Module.
+alles in eine Datei gelegt: Stil, Zeichen und alle Module.
 
 Jedes Modul bekommt dabei seinen eigenen Geltungsbereich (eine sofort
 aufgerufene Funktion) und gibt seine Ausfuhren an ein gemeinsames Objekt
@@ -22,8 +22,8 @@ WURZEL = HIER.parent
 ZIEL = WURZEL / 'einzeldatei.html'
 
 # Reihenfolge = Abhängigkeitsreihenfolge; app.js zuletzt.
-MODULE = ['inflate.js', 'pdf.js', 'schrift.js', 'inhalt.js', 'aufbereiten.js',
-          'auszug.js', 'epub.js', 'app.js']
+MODULE = ['inflate.js', 'pdf.js', 'schriftmasse.js', 'schrift.js', 'inhalt.js',
+          'aufbereiten.js', 'auszug.js', 'winansi.js', 'pdfbauen.js', 'epub.js', 'app.js']
 
 AUSFUHR = re.compile(r'^export\s+(async\s+function|function|const|let|class)\s+([A-Za-z_$][\w$]*)',
                      re.MULTILINE)

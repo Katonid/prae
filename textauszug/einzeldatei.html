@@ -158,27 +158,37 @@ textarea {
 
 .fusszeile { padding-top: 1rem; font-size: .85rem; color: var(--leise); }
 
+/* Zwei Wege hinein, nebeneinander und auf schmalen Geräten untereinander. */
+.knopfreihe--mitte {
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
     </style>
   </head>
   <body>
     <header class="kopf">
       <h1>Textauszug</h1>
-      <p>PDF hinein, reiner Text heraus — und von dort mit einem Tipp in die <strong>Notizen</strong>.</p>
+      <p>PDF hinein, reiner Text heraus — in die <strong>Notizen</strong>, als <strong>EPUB</strong> oder als fertig gesetzte <strong>PDF</strong>. Eigener Text geht genauso.</p>
     </header>
 
     <main>
       <section class="feld" id="ablage" aria-label="Datei auswählen">
         <p class="feld__zeichen" aria-hidden="true">📄</p>
         <p class="feld__text">PDF hierher ziehen — oder auswählen.</p>
-        <button type="button" id="waehlen">PDF auswählen</button>
-        <input type="file" id="datei" accept="application/pdf,.pdf" hidden />
-        <p class="feld__klein">Auch einfügen (Strg+V) geht. Die Datei bleibt auf diesem Gerät — es wird nichts hochgeladen.</p>
+        <div class="knopfreihe knopfreihe--mitte">
+          <button type="button" id="waehlen">PDF auswählen</button>
+          <button type="button" id="eigenertext" class="still">Eigenen Text einsetzen</button>
+        </div>
+        <input type="file" id="datei" accept="application/pdf,.pdf,text/plain,.txt,.md" hidden />
+        <p class="feld__klein">Auch einfügen (Strg+V) und eine Textdatei gehen. Die Datei bleibt auf diesem Gerät — es wird nichts hochgeladen.</p>
       </section>
 
       <p class="meldung" id="meldung" role="status" aria-live="polite"></p>
 
       <section class="karte" id="einstellungen" hidden>
-        <h2>Wie der Text aussehen soll</h2>
+        <div id="leseteil">
+        <h2>Wie die PDF gelesen wird</h2>
         <div class="schalter">
           <label class="haken">
             <input type="checkbox" id="absaetze" checked />
@@ -206,15 +216,52 @@ textarea {
             <span>Bis Seite</span>
             <input type="number" id="bis" min="1" step="1" />
           </label>
+        </div>
+        </div>
+
+        <h2>Wie PDF und EPUB aussehen</h2>
+        <div class="raster">
           <label>
-            <span>Titel (für die EPUB-Datei)</span>
+            <span>Titel</span>
             <input type="text" id="titel" maxlength="120" autocomplete="off" />
           </label>
           <label>
             <span>Verfasser (darf leer bleiben)</span>
             <input type="text" id="verfasser" maxlength="120" autocomplete="off" />
           </label>
+          <label>
+            <span>Schrift</span>
+            <!-- Die Auswahl füllt js/app.js aus den drei Familien, die in
+                 jedem PDF-Programm stecken. -->
+            <select id="schrift"></select>
+          </label>
+          <label>
+            <span>Schriftgröße (Punkt)</span>
+            <input type="number" id="schriftgroesse" min="6" max="30" step="1" value="12" />
+          </label>
+          <label>
+            <span>Zeilenabstand</span>
+            <select id="zeilenabstand"></select>
+          </label>
+          <label>
+            <span>Papier (nur PDF)</span>
+            <select id="papier"></select>
+          </label>
+          <label>
+            <span>Seitenrand (nur PDF)</span>
+            <select id="seitenrand"></select>
+          </label>
         </div>
+        <div class="schalter">
+          <label class="haken">
+            <input type="checkbox" id="seitenzahlen" checked />
+            <span><strong>Seitenzahlen in die PDF</strong><small>Unten mittig auf jeder Seite.</small></span>
+          </label>
+        </div>
+        <p class="feld__klein"><strong>Warum nur drei Schriften?</strong> Diese drei stecken in jedem
+          PDF-Programm; damit muss in der Datei keine Schrift mitgeliefert werden, sie bleibt winzig
+          und sieht überall gleich aus. In der EPUB ist die Schrift ohnehin nur ein Vorschlag — dort
+          entscheidet das Lesegerät.</p>
       </section>
 
       <section class="karte" id="ergebnis" hidden>
@@ -231,6 +278,7 @@ textarea {
           <button type="button" id="kopieren">Text kopieren</button>
           <button type="button" id="sichern">Als .txt sichern</button>
           <button type="button" id="epub">Als EPUB sichern</button>
+          <button type="button" id="pdf">Als PDF sichern</button>
         </div>
         <p id="stand" class="fuss__text" role="status" aria-live="polite"></p>
       </section>
@@ -247,6 +295,36 @@ textarea {
           <li><strong>Geht auch:</strong> „Text kopieren" und in einer neuen Notiz einfügen — derselbe Weg, eine Handbewegung mehr.</li>
           <li><strong>Mac und Windows:</strong> „Als .txt sichern" legt eine Textdatei ab, die sich in jedes Programm ziehen lässt.</li>
         </ul>
+        <h2>Eigenen Text setzen — ohne PDF am Anfang</h2>
+        <ul class="liste">
+          <li><strong>„Eigenen Text einsetzen"</strong> öffnet ein leeres Feld. Text hineinschreiben
+            oder einfügen — und daraus wird mit einem Tipp eine <em>PDF</em> zum Ausdrucken und
+            Verschicken oder eine <em>EPUB</em> zum Lesen. Eine Textdatei (.txt) darf man auch
+            einfach ins Fenster ziehen.</li>
+          <li><strong>Überschriften</strong> erkennt die App an der Gestalt: eine kurze Zeile ohne
+            Satzzeichen am Ende, unter der ein Absatz folgt. Sie wird in der PDF größer gesetzt,
+            kommt in die Lesezeichen und wird in der EPUB zum Kapitel. Wer das steuern will,
+            lässt eine Leerzeile davor und danach.</li>
+          <li><strong>Getrennt wird nicht</strong>, und deshalb ist der Satz linksbündig: Die
+            deutsche Silbentrennung lässt sich nicht errechnen, und eine falsche Trennung stünde
+            für immer im Dokument. Ein flatternder rechter Rand ist der kleinere Schaden.</li>
+        </ul>
+
+        <h2>Die Schrift wählen</h2>
+        <ul class="liste">
+          <li><strong>Drei Familien stehen zur Wahl:</strong> serifenlos (Helvetica/Arial), mit
+            Serifen (Times) und Schreibmaschine (Courier). Dazu Schriftgröße, Zeilenabstand,
+            Papierformat und Seitenrand.</li>
+          <li><strong>Warum nicht mehr?</strong> Genau diese drei bringt jedes PDF-Programm der
+            Welt mit. Eine andere Schrift müsste in die Datei eingebettet werden — das macht aus
+            30 KB schnell 500 KB, und weitergeben darf man längst nicht jede Schrift. Dafür
+            öffnet diese PDF überall gleich, auch in zehn Jahren.</li>
+          <li><strong>In der EPUB ist die Schrift nur ein Vorschlag.</strong> Ein E-Book läuft im
+            Fließtext, und welche Schrift dort steht, entscheidet das Lesegerät und sein Besitzer
+            — in <em>Bücher</em> steht dafür der Schalter zwischen „Original" und einer eigenen
+            Schrift. Das ist keine Lücke, sondern der Sinn des Formats.</li>
+        </ul>
+
         <h2>Als Buch lesen: die EPUB-Datei</h2>
         <ul class="liste">
           <li><strong>„Als EPUB sichern"</strong> macht aus dem Text ein E-Book: In <em>Bücher</em> (Apple Books) öffnen, und der Text läuft im Fließtext mit einstellbarer Schriftgröße, Nachtmodus und Lesezeichen — angenehmer als eine PDF auf einem kleinen Bildschirm.</li>
@@ -267,6 +345,9 @@ textarea {
         </ul>
         <h2>Was die App kann — und was nicht</h2>
         <ul class="liste">
+          <li>Aus <strong>eigenem Text</strong> entsteht eine PDF mit Lesezeichen und Seitenzahlen
+            oder eine EPUB mit Kapiteln. Was die App dabei nicht setzen kann — ein Emoji, ein
+            griechischer Buchstabe —, zählt sie und sagt es hinterher; verschluckt wird nichts.</li>
           <li>Gelesen wird der <strong>Text, der in der PDF steht</strong>. Bei einer PDF aus Word, LibreOffice, einem Browser oder einem Satzprogramm ist das der ganze Inhalt.</li>
           <li><strong>Ein Scan enthält keinen Text</strong>, sondern ein Bild von Text. Dafür bräuchte es eine Texterkennung (OCR) — die kann diese App nicht. Sie sagt es aber deutlich, statt eine leere Seite auszugeben.</li>
           <li><strong>Kennwortgeschützte PDFs</strong> lassen sich nicht lesen. Wer die Datei öffnen kann, sichert sie einmal ohne Schutz (Vorschau, oder Drucken → „Als PDF sichern").</li>
@@ -1145,6 +1226,135 @@ async function pdfLesen(puffer) {
   TEILE.pdfLesen = pdfLesen;
 })();
 
+/* ---- schriftmasse.js ---- */
+(function () {
+// ERZEUGT von scripts/schriftmasse.py — nicht von Hand ändern.
+//
+// Die Vorschubbreiten der 14 Standardschriften, in Tausendstel der
+// Schriftgröße, für die WinAnsi-Codes 32 bis 255 (0 = dort steht kein
+// Zeichen). Ein PDF bricht keine Zeile selbst um: Wer setzt, muss messen.
+//
+// Eingebettet wird deshalb keine Schrift — Helvetica, Times und Courier
+// bringt jedes PDF-Programm mit, und die fertige Datei bleibt ein paar
+// Kilobyte groß.
+
+const ROH = {
+  'Helvetica':
+    '278 278 355 556 556 889 667 191 333 333 389 584 278 333 278 278 556 556 556 556 556 556 556 556 556 556 278 278 584 584 584 556 1015 667 667 722 722 667 611 778 722 278 500 667 556 833 722 778 667 778 722 667 611 722 667 944 667 667 611 278 278 278 469 556 333 556 556 500 556 556 278 556 556 222 222 500 222 833 556 556 556 556 333 500 278 556 500 722 500 500 500 334 260 334 584 0 556 0 222 556 333 1000 556 556 333 1000 667 333 1000 0 611 0 0 222 222 333 333 350 556 1000 333 1000 500 333 944 0 500 667 278 333 556 556 556 556 260 556 333 737 370 556 584 333 737 552 400 549 333 333 333 576 537 333 333 333 365 556 834 834 834 611 667 667 667 667 667 667 1000 722 667 667 667 667 278 278 278 278 722 722 778 778 778 778 778 584 778 722 722 722 722 667 667 611 556 556 556 556 556 556 889 500 556 556 556 556 278 278 278 278 556 556 556 556 556 556 556 549 611 556 556 556 556 500 556 500',
+  'Helvetica-Bold':
+    '278 333 474 556 556 889 722 238 333 333 389 584 278 333 278 278 556 556 556 556 556 556 556 556 556 556 333 333 584 584 584 611 975 722 722 722 722 667 611 778 722 278 556 722 611 833 722 778 667 778 722 667 611 722 667 944 667 667 611 333 278 333 584 556 333 556 611 556 611 556 333 611 611 278 278 556 278 889 611 611 611 611 389 556 333 611 556 778 556 556 500 389 280 389 584 0 556 0 278 556 500 1000 556 556 333 1000 667 333 1000 0 611 0 0 278 278 500 500 350 556 1000 333 1000 556 333 944 0 500 667 278 333 556 556 556 556 280 556 333 737 370 556 584 333 737 552 400 549 333 333 333 576 556 333 333 333 365 556 834 834 834 611 722 722 722 722 722 722 1000 722 667 667 667 667 278 278 278 278 722 722 778 778 778 778 778 584 778 722 722 722 722 667 667 611 556 556 556 556 556 556 889 556 556 556 556 556 278 278 278 278 611 611 611 611 611 611 611 549 611 611 611 611 611 556 611 556',
+  'Helvetica-Oblique':
+    '278 278 355 556 556 889 667 191 333 333 389 584 278 333 278 278 556 556 556 556 556 556 556 556 556 556 278 278 584 584 584 556 1015 667 667 722 722 667 611 778 722 278 500 667 556 833 722 778 667 778 722 667 611 722 667 944 667 667 611 278 278 278 469 556 333 556 556 500 556 556 278 556 556 222 222 500 222 833 556 556 556 556 333 500 278 556 500 722 500 500 500 334 260 334 584 0 556 0 222 556 333 1000 556 556 333 1000 667 333 1000 0 611 0 0 222 222 333 333 350 556 1000 333 1000 500 333 944 0 500 667 278 333 556 556 556 556 260 556 333 737 370 556 584 333 737 552 400 549 333 333 333 576 537 333 333 333 365 556 834 834 834 611 667 667 667 667 667 667 1000 722 667 667 667 667 278 278 278 278 722 722 778 778 778 778 778 584 778 722 722 722 722 667 667 611 556 556 556 556 556 556 889 500 556 556 556 556 278 278 278 278 556 556 556 556 556 556 556 549 611 556 556 556 556 500 556 500',
+  'Helvetica-BoldOblique':
+    '278 333 474 556 556 889 722 238 333 333 389 584 278 333 278 278 556 556 556 556 556 556 556 556 556 556 333 333 584 584 584 611 975 722 722 722 722 667 611 778 722 278 556 722 611 833 722 778 667 778 722 667 611 722 667 944 667 667 611 333 278 333 584 556 333 556 611 556 611 556 333 611 611 278 278 556 278 889 611 611 611 611 389 556 333 611 556 778 556 556 500 389 280 389 584 0 556 0 278 556 500 1000 556 556 333 1000 667 333 1000 0 611 0 0 278 278 500 500 350 556 1000 333 1000 556 333 944 0 500 667 278 333 556 556 556 556 280 556 333 737 370 556 584 333 737 552 400 549 333 333 333 576 556 333 333 333 365 556 834 834 834 611 722 722 722 722 722 722 1000 722 667 667 667 667 278 278 278 278 722 722 778 778 778 778 778 584 778 722 722 722 722 667 667 611 556 556 556 556 556 556 889 556 556 556 556 556 278 278 278 278 611 611 611 611 611 611 611 549 611 611 611 611 611 556 611 556',
+  'Times-Roman':
+    '250 333 408 500 500 833 778 180 333 333 500 564 250 333 250 278 500 500 500 500 500 500 500 500 500 500 278 278 564 564 564 444 921 722 667 667 722 611 556 722 722 333 389 722 611 889 722 722 556 722 667 556 611 722 722 944 722 722 611 333 278 333 469 500 333 444 500 444 500 444 333 500 500 278 278 500 278 778 500 500 500 500 333 389 278 500 500 722 500 500 444 480 200 480 541 0 500 0 333 500 444 1000 500 500 333 1000 556 333 889 0 611 0 0 333 333 444 444 350 500 1000 333 980 389 333 722 0 444 722 250 333 500 500 500 500 200 500 333 760 276 500 564 333 760 500 400 549 300 300 333 576 453 333 333 300 310 500 750 750 750 444 722 722 722 722 722 722 889 667 611 611 611 611 333 333 333 333 722 722 722 722 722 722 722 564 722 722 722 722 722 722 556 500 444 444 444 444 444 444 667 444 444 444 444 444 278 278 278 278 500 500 500 500 500 500 500 549 500 500 500 500 500 500 500 500',
+  'Times-Bold':
+    '250 333 555 500 500 1000 833 278 333 333 500 570 250 333 250 278 500 500 500 500 500 500 500 500 500 500 333 333 570 570 570 500 930 722 667 722 722 667 611 778 778 389 500 778 667 944 722 778 611 778 722 556 667 722 722 1000 722 722 667 333 278 333 581 500 333 500 556 444 556 444 333 500 556 278 333 556 278 833 556 500 556 556 444 389 333 556 500 722 500 500 444 394 220 394 520 0 500 0 333 500 500 1000 500 500 333 1000 556 333 1000 0 667 0 0 333 333 500 500 350 500 1000 333 1000 389 333 722 0 444 722 250 333 500 500 500 500 220 500 333 747 300 500 570 333 747 500 400 549 300 300 333 576 540 333 333 300 330 500 750 750 750 500 722 722 722 722 722 722 1000 722 667 667 667 667 389 389 389 389 722 722 778 778 778 778 778 570 778 722 722 722 722 722 611 556 500 500 500 500 500 500 722 444 444 444 444 444 278 278 278 278 500 556 500 500 500 500 500 549 500 556 556 556 556 500 556 500',
+  'Times-Italic':
+    '250 333 420 500 500 833 778 214 333 333 500 675 250 333 250 278 500 500 500 500 500 500 500 500 500 500 333 333 675 675 675 500 920 611 611 667 722 611 611 722 722 333 444 667 556 833 667 722 611 722 611 500 556 722 611 833 611 556 556 389 278 389 422 500 333 500 500 444 500 444 278 500 500 278 278 444 278 722 500 500 500 500 389 389 278 500 444 667 444 444 389 400 275 400 541 0 500 0 333 500 556 889 500 500 333 1000 500 333 944 0 556 0 0 333 333 556 556 350 500 889 333 980 389 333 667 0 389 556 250 389 500 500 500 500 275 500 333 760 276 500 675 333 760 500 400 549 300 300 333 576 523 250 333 300 310 500 750 750 750 500 611 611 611 611 611 611 889 667 611 611 611 611 333 333 333 333 722 667 722 722 722 722 722 675 722 722 722 722 722 556 611 500 500 500 500 500 500 500 667 444 444 444 444 444 278 278 278 278 500 500 500 500 500 500 500 549 500 500 500 500 500 444 500 444',
+  'Times-BoldItalic':
+    '250 389 555 500 500 833 778 278 333 333 500 570 250 333 250 278 500 500 500 500 500 500 500 500 500 500 333 333 570 570 570 500 832 667 667 667 722 667 667 722 778 389 500 667 611 889 722 722 611 722 667 556 611 722 667 889 667 611 611 333 278 333 570 500 333 500 500 444 500 444 333 500 556 278 278 500 278 778 556 500 500 500 389 389 278 556 444 667 500 444 389 348 220 348 570 0 500 0 333 500 500 1000 500 500 333 1000 556 333 944 0 611 0 0 333 333 500 500 350 500 1000 333 1000 389 333 722 0 389 611 250 389 500 500 500 500 220 500 333 747 266 500 606 333 747 500 400 549 300 300 333 576 500 250 333 300 300 500 750 750 750 500 667 667 667 667 667 667 944 667 667 667 667 667 389 389 389 389 722 722 722 722 722 722 722 570 722 722 722 722 722 611 611 500 500 500 500 500 500 500 722 444 444 444 444 444 278 278 278 278 500 556 500 500 500 500 500 549 500 556 556 556 556 444 500 444',
+  'Courier':
+    '600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 0 600 0 600 600 600 600 600 600 600 600 600 600 600 0 600 0 0 600 600 600 600 600 600 600 600 600 600 600 600 0 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600',
+  'Courier-Bold':
+    '600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 0 600 0 600 600 600 600 600 600 600 600 600 600 600 0 600 0 0 600 600 600 600 600 600 600 600 600 600 600 600 0 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600',
+  'Courier-Oblique':
+    '600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 0 600 0 600 600 600 600 600 600 600 600 600 600 600 0 600 0 0 600 600 600 600 600 600 600 600 600 600 600 600 0 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600',
+  'Courier-BoldOblique':
+    '600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 0 600 0 600 600 600 600 600 600 600 600 600 600 600 0 600 0 0 600 600 600 600 600 600 600 600 600 600 600 600 0 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600',
+};
+
+const GEMESSEN = new Map();
+
+// Die vier Schnitte je Familie. Die Namen sind die, die im PDF stehen.
+const FAMILIEN = {
+  serifenlos: {
+    name: 'Serifenlos (Helvetica)',
+    normal: 'Helvetica',
+    fett: 'Helvetica-Bold',
+    kursiv: 'Helvetica-Oblique',
+    fettkursiv: 'Helvetica-BoldOblique',
+    css: 'Helvetica, Arial, sans-serif',
+  },
+  serif: {
+    name: 'Mit Serifen (Times)',
+    normal: 'Times-Roman',
+    fett: 'Times-Bold',
+    kursiv: 'Times-Italic',
+    fettkursiv: 'Times-BoldItalic',
+    css: '"Times New Roman", Times, serif',
+  },
+  schreibmaschine: {
+    name: 'Schreibmaschine (Courier)',
+    normal: 'Courier',
+    fett: 'Courier-Bold',
+    kursiv: 'Courier-Oblique',
+    fettkursiv: 'Courier-BoldOblique',
+    css: '"Courier New", Courier, monospace',
+  },
+};
+
+function familie(schluessel) {
+  return FAMILIEN[schluessel] || FAMILIEN.serifenlos;
+}
+
+// Einmal aus der Zeichenkette in Zahlen — danach ist jede Messung ein
+// Tabellenzugriff.
+function tabelle(schriftname) {
+  let werte = GEMESSEN.get(schriftname);
+  if (!werte) {
+    const roh = ROH[schriftname];
+    if (!roh) throw new Error(`Unbekannte Schrift: ${schriftname}`);
+    werte = new Uint16Array(256);
+    const teile = roh.split(' ');
+    for (let i = 0; i < teile.length; i++) werte[i + 32] = Number(teile[i]);
+    GEMESSEN.set(schriftname, werte);
+  }
+  return werte;
+}
+
+// Welche der zwölf Tabellen gehört zu dieser Schrift? Gebraucht beim LESEN
+// einer fremden PDF: Eine Standardschrift bringt kein /Widths mit — sie
+// muss keines mitbringen, jedes Programm kennt ihre Maße. Ohne diese
+// Zuordnung nimmt der Leser für jedes Zeichen 500/1000 an, und dann steht
+// das „i" so breit da wie das „m": Zeilen, Leerzeichen und die Erkennung
+// von Absätzen hängen aber genau an dieser Zahl.
+//
+// Der Name darf einen Vorsatz für eine Teilmenge tragen (ABCDEF+Arial-BoldMT),
+// und Arial, Helvetica und Nimbus Sans sind dasselbe Maß.
+function standardbreiten(grundname) {
+  if (!grundname) return null;
+  const roh = String(grundname).replace(/^[A-Z]{6}\+/, '').toLowerCase().replace(/[^a-z]/g, '');
+  let schluessel = null;
+  if (/courier|mono/.test(roh)) schluessel = 'schreibmaschine';
+  else if (/helvetica|arial|sans|grotesk|verdana|tahoma/.test(roh)) schluessel = 'serifenlos';
+  else if (/times|roman|serif|georgia|garamond|book/.test(roh)) schluessel = 'serif';
+  if (!schluessel) return null;                // lieber raten lassen als falsch messen
+
+  const satz = FAMILIEN[schluessel];
+  const fett = /bold|black|heavy|semibold/.test(roh);
+  const kursiv = /italic|oblique/.test(roh);
+  if (fett && kursiv) return tabelle(satz.fettkursiv);
+  if (fett) return tabelle(satz.fett);
+  if (kursiv) return tabelle(satz.kursiv);
+  return tabelle(satz.normal);
+}
+
+// Die Breite einer Folge von WinAnsi-BYTES, in Punkt.
+function breite(bytes, schriftname, groesse) {
+  const werte = tabelle(schriftname);
+  let summe = 0;
+  for (let i = 0; i < bytes.length; i++) summe += werte[bytes[i]] || 0;
+  return (summe * groesse) / 1000;
+}
+
+  TEILE.FAMILIEN = FAMILIEN;
+  TEILE.familie = familie;
+  TEILE.standardbreiten = standardbreiten;
+  TEILE.breite = breite;
+})();
+
 /* ---- schrift.js ---- */
 (function () {
 // Von Byte zu Buchstabe.
@@ -1158,6 +1368,7 @@ async function pdfLesen(puffer) {
 // aus Zeichennummern — und das fällt erst auf, wenn der Text in den Notizen
 // steht.
 
+const { standardbreiten } = TEILE;
 // Namen von Zeichen, wie sie in /Differences stehen. Buchstaben und Ziffern
 // heißen wie sie sind; aufgeführt wird nur, was anders heißt.
 const NAMEN = {
@@ -1412,6 +1623,18 @@ async function schriftLesen(dokument, woerterbuch) {
         const wert = hole(breite);
         if (typeof wert === 'number') schrift.breiten.set(erstes + i, wert);
       });
+    }
+    // Eine der 14 Standardschriften MUSS kein /Widths mitbringen — jedes
+    // PDF-Programm kennt ihre Maße, und diese App jetzt auch. Vorher galt
+    // hier für jedes Zeichen 500/1000: Das „i" so breit wie das „m", und
+    // damit standen Leerzeichen, Zeilenenden und Absatzgrenzen schief.
+    if (!schrift.breiten.size) {
+      const gemessen = standardbreiten(hole(woerterbuch.BaseFont));
+      if (gemessen) {
+        for (let code = 32; code < 256; code++) {
+          if (gemessen[code]) schrift.breiten.set(code, gemessen[code]);
+        }
+      }
     }
     const kodierung = hole(woerterbuch.Encoding);
     if (typeof kodierung === 'string') schrift.tabelle = grundtabelle(kodierung);
@@ -2122,6 +2345,470 @@ async function textAusPdf(puffer, einstellungen = {}, melde = () => {}) {
   TEILE.textAusPdf = textAusPdf;
 })();
 
+/* ---- winansi.js ---- */
+(function () {
+// Von Unicode nach WinAnsi — der Zeichensatz, den ein PDF ohne eingebettete
+// Schrift versteht.
+//
+// Die 14 Standardschriften kennen 224 Zeichen, nicht 150.000. Was darin
+// steht, deckt deutschen Text vollständig ab: Umlaute, ß, die typografischen
+// Anführungszeichen „ " ‚ ', Gedankenstrich, Auslassungspunkte, das
+// Eurozeichen. Was NICHT darin steht — ein Pfeil, ein griechischer
+// Buchstabe, ein Emoji —, wird durch ein Fragezeichen ersetzt und GEZÄHLT:
+// Die App sagt hinterher, wie viele Zeichen sie nicht setzen konnte. Ein
+// stillschweigend verschlucktes Zeichen wäre genau die Art Fehler, die erst
+// auf Seite sieben auffällt.
+
+// Die Codes 0x80 bis 0x9F sind der einzige Teil, in dem WinAnsi von Latin-1
+// abweicht; darüber sind Code und Unicode-Nummer dieselben.
+const OBEN = {
+  0x20ac: 0x80, 0x201a: 0x82, 0x0192: 0x83, 0x201e: 0x84, 0x2026: 0x85,
+  0x2020: 0x86, 0x2021: 0x87, 0x02c6: 0x88, 0x2030: 0x89, 0x0160: 0x8a,
+  0x2039: 0x8b, 0x0152: 0x8c, 0x017d: 0x8e, 0x2018: 0x91, 0x2019: 0x92,
+  0x201c: 0x93, 0x201d: 0x94, 0x2022: 0x95, 0x2013: 0x96, 0x2014: 0x97,
+  0x02dc: 0x98, 0x2122: 0x99, 0x0161: 0x9a, 0x203a: 0x9b, 0x0153: 0x9c,
+  0x017e: 0x9e, 0x0178: 0x9f,
+};
+
+// Wird VOR der Zuordnung nachgeschlagen, darf also auch Zeichen betreffen,
+// die es in WinAnsi gibt. Zwei davon sind wichtig: Das weiche Trennzeichen
+// hat dort eine sichtbare Gestalt — unverändert stünde mitten im Wort ein
+// Bindestrich. Und ein geschütztes Leerzeichen ist ein Leerzeichen; die
+// PDF kennt ohnehin nur Zeilen, die schon umbrochen sind.
+const ERSATZ = {
+  0x00ad: '', 0x200b: '', 0x200c: '', 0x200d: '', 0xfeff: '',
+  0x00a0: ' ', 0x2007: ' ', 0x2009: ' ', 0x202f: ' ', 0x2002: ' ',
+  0x2003: ' ', 0x0009: ' ', 0x000a: ' ', 0x000d: ' ',
+  0x2010: '-', 0x2011: '-', 0x2012: '-', 0x2015: '—', 0x2212: '-',
+  0x2032: "'", 0x2033: '"', 0x02bc: "'", 0x2044: '/',
+  0x2190: '<-', 0x2192: '->', 0x2194: '<->', 0x21d2: '=>',
+  0x2264: '<=', 0x2265: '>=', 0x2260: '!=',
+  0x25cf: '•', 0x25aa: '•', 0x25a0: '•', 0x25e6: '•', 0x2219: '•',
+  0x2043: '•', 0x2500: '-', 0x2013: '–',
+};
+
+function einzeln(nummer) {
+  if (nummer >= 0x20 && nummer <= 0x7e) return nummer;
+  if (OBEN[nummer] !== undefined) return OBEN[nummer];
+  if (nummer >= 0xa0 && nummer <= 0xff) return nummer;
+  return null;
+}
+
+function anhaengen(bytes, text) {
+  for (const zeichen of text) {
+    const byte = einzeln(zeichen.codePointAt(0));
+    if (byte !== null) bytes.push(byte);
+  }
+}
+
+// Gibt die Bytes zurück und dazu, wie oft ein Zeichen nicht zu setzen war.
+function nachWinAnsi(text) {
+  const bytes = [];
+  let ersetzt = 0;
+  const unbekannt = new Set();
+
+  for (const zeichen of String(text)) {
+    const nummer = zeichen.codePointAt(0);
+
+    const ausweich = ERSATZ[nummer];
+    if (ausweich !== undefined) { anhaengen(bytes, ausweich); continue; }
+
+    const gerade = einzeln(nummer);
+    if (gerade !== null) { bytes.push(gerade); continue; }
+
+    // Ein zusammengesetztes Zeichen kann nach der Zerlegung passen (ein ē
+    // aus e und Strich darüber). Erst danach ist es wirklich nicht
+    // darstellbar — und der Grundbuchstabe ist mehr wert als ein
+    // Fragezeichen.
+    const zerlegt = zeichen.normalize('NFKD').replace(/[̀-ͯ]/g, '');
+    if (zerlegt && [...zerlegt].every((z) => einzeln(z.codePointAt(0)) !== null)) {
+      anhaengen(bytes, zerlegt);
+      continue;
+    }
+
+    bytes.push(0x3f);                      // Fragezeichen — sichtbar, nicht still
+    ersetzt++;
+    if (unbekannt.size < 12) unbekannt.add(zeichen);
+  }
+
+  return { bytes: Uint8Array.from(bytes), ersetzt, unbekannt: [...unbekannt] };
+}
+
+  TEILE.nachWinAnsi = nachWinAnsi;
+})();
+
+/* ---- pdfbauen.js ---- */
+(function () {
+// Aus Absätzen wird eine PDF-Datei.
+//
+// Die Gegenrichtung zu js/pdf.js: Dort wird gelesen, hier gesetzt. Und
+// gesetzt heißt hier wirklich setzen — ein PDF bricht keine Zeile um, es
+// kennt nur „schreibe diese Zeichen an diese Stelle". Wo eine Zeile endet,
+// entscheidet also diese Datei, und zwar gemessen (js/schriftmasse.js).
+//
+// GETRENNT WIRD NICHT. Die deutsche Silbentrennung ist nicht ableitbar —
+// dieselbe Regel wie in der Wörterwerkstatt —, und eine falsche Trennung
+// steht für immer im Dokument. Ohne Trennung aber reißt Blocksatz Löcher in
+// die Zeilen, deshalb ist der Satz linksbündig. Das ist die ehrliche
+// Reihenfolge: lieber ein flatternder rechter Rand als ein falsch
+// getrenntes Wort.
+
+const { familie, breite } = TEILE;
+const { nachWinAnsi } = TEILE;
+// Ein Punkt ist 1/72 Zoll; ein Zentimeter also 28,35 Punkt.
+const CM = 72 / 2.54;
+
+const PAPIERE = {
+  a4: { name: 'A4', breite: 595.28, hoehe: 841.89 },
+  a5: { name: 'A5 (halb so groß, gut zum Lesen)', breite: 419.53, hoehe: 595.28 },
+  letter: { name: 'US Letter', breite: 612, hoehe: 792 },
+};
+
+const RAENDER = {
+  schmal: { name: 'schmal (1,5 cm)', mass: 1.5 * CM },
+  normal: { name: 'normal (2 cm)', mass: 2 * CM },
+  breit: { name: 'breit (3 cm)', mass: 3 * CM },
+};
+
+const ABSTAENDE = {
+  eng: { name: 'eng', mass: 1.2 },
+  normal: { name: 'normal', mass: 1.45 },
+  weit: { name: 'weit', mass: 1.8 },
+};
+
+// ------------------------------------------------------------ Bytes schreiben
+
+class Schreiber {
+  constructor() {
+    this.stuecke = [];
+    this.laenge = 0;
+  }
+
+  bytes(daten) {
+    this.stuecke.push(daten);
+    this.laenge += daten.length;
+    return this;
+  }
+
+  // Alles, was an Steuertext in eine PDF geht, ist reines ASCII.
+  text(zeichen) {
+    const daten = new Uint8Array(zeichen.length);
+    for (let i = 0; i < zeichen.length; i++) daten[i] = zeichen.charCodeAt(i) & 0xff;
+    return this.bytes(daten);
+  }
+
+  fertig() {
+    const aus = new Uint8Array(this.laenge);
+    let stelle = 0;
+    for (const stueck of this.stuecke) { aus.set(stueck, stelle); stelle += stueck.length; }
+    return aus;
+  }
+}
+
+// Eine Zeichenkette im Inhaltsstrom: Klammern und Gegenschrägstrich müssen
+// maskiert werden, alles über 127 wird oktal geschrieben. Ein rohes Byte
+// wäre erlaubt, aber ein einziges davon in einer Zeile, die ein Werkzeug
+// später als Text behandelt, macht die Datei unlesbar.
+function alsZeichenkette(bytes) {
+  let aus = '(';
+  for (const byte of bytes) {
+    if (byte === 0x28 || byte === 0x29 || byte === 0x5c) aus += '\\' + String.fromCharCode(byte);
+    else if (byte < 32 || byte > 126) aus += '\\' + byte.toString(8).padStart(3, '0');
+    else aus += String.fromCharCode(byte);
+  }
+  return aus + ')';
+}
+
+// Titel und Verfasser stehen in den Dateiangaben, und die liest jedes
+// Programm anders. UTF-16 mit Vorzeichen ist der Weg, der überall ankommt —
+// ein Umlaut in WinAnsi wäre bei manchem Betrachter Buchstabensalat.
+function alsTextangabe(zeichen) {
+  let aus = '<FEFF';
+  for (const z of String(zeichen)) {
+    const nummer = z.codePointAt(0);
+    if (nummer > 0xffff) {
+      const rest = nummer - 0x10000;
+      aus += (0xd800 + (rest >> 10)).toString(16).padStart(4, '0');
+      aus += (0xdc00 + (rest & 0x3ff)).toString(16).padStart(4, '0');
+    } else {
+      aus += nummer.toString(16).padStart(4, '0');
+    }
+  }
+  return (aus + '>').toUpperCase();
+}
+
+function zeitstempel(datum) {
+  const zwei = (n) => String(n).padStart(2, '0');
+  return `D:${datum.getUTCFullYear()}${zwei(datum.getUTCMonth() + 1)}${zwei(datum.getUTCDate())}`
+    + `${zwei(datum.getUTCHours())}${zwei(datum.getUTCMinutes())}${zwei(datum.getUTCSeconds())}Z`;
+}
+
+// ------------------------------------------------------------------- Umbruch
+
+// Ein Wort, das allein schon breiter ist als die Zeile (eine lange Adresse),
+// wird hart zerlegt. Sonst liefe es über den Rand hinaus — und das ist der
+// eine Fall, in dem Trennen ohne Regelwerk erlaubt ist: Es gibt keine
+// Alternative außer Wegschneiden.
+function hartTeilen(wort, schrift, groesse, platz) {
+  const teile = [];
+  let anfang = 0;
+  while (anfang < wort.length) {
+    let bis = anfang + 1;
+    while (bis < wort.length && breite(wort.subarray(anfang, bis + 1), schrift, groesse) <= platz) bis++;
+    teile.push(wort.subarray(anfang, bis));
+    anfang = bis;
+  }
+  return teile;
+}
+
+function zeilenUmbrechen(bytes, schrift, groesse, platz) {
+  const zeilen = [];
+  const woerter = [];
+  let anfang = 0;
+  for (let i = 0; i <= bytes.length; i++) {
+    if (i === bytes.length || bytes[i] === 0x20) {
+      if (i > anfang) woerter.push(bytes.subarray(anfang, i));
+      anfang = i + 1;
+    }
+  }
+  if (!woerter.length) return [];
+
+  let laufend = null;
+  for (const wort of woerter) {
+    if (breite(wort, schrift, groesse) > platz) {
+      if (laufend) { zeilen.push(laufend); laufend = null; }
+      for (const stueck of hartTeilen(wort, schrift, groesse, platz)) zeilen.push(stueck);
+      continue;
+    }
+    const versuch = laufend ? verbinden(laufend, wort) : wort;
+    if (breite(versuch, schrift, groesse) <= platz) {
+      laufend = versuch;
+    } else {
+      zeilen.push(laufend);
+      laufend = wort;
+    }
+  }
+  if (laufend) zeilen.push(laufend);
+  return zeilen;
+}
+
+function verbinden(links, rechts) {
+  const aus = new Uint8Array(links.length + 1 + rechts.length);
+  aus.set(links, 0);
+  aus[links.length] = 0x20;
+  aus.set(rechts, links.length + 1);
+  return aus;
+}
+
+// --------------------------------------------------------------------- Satz
+
+function pdfBauen(bloecke, einstellungen = {}) {
+  const schriften = familie(einstellungen.schrift);
+  const papier = PAPIERE[einstellungen.papier] || PAPIERE.a4;
+  const rand = (RAENDER[einstellungen.rand] || RAENDER.normal).mass;
+  const abstand = (ABSTAENDE[einstellungen.zeilenabstand] || ABSTAENDE.normal).mass;
+  const groesse = Math.min(30, Math.max(6, Number(einstellungen.groesse) || 12));
+  const seitenzahlen = einstellungen.seitenzahlen !== false;
+  const titel = (einstellungen.titel || '').trim();
+  const verfasser = (einstellungen.verfasser || '').trim();
+  const jetzt = einstellungen.jetzt || new Date();
+
+  const platz = papier.breite - 2 * rand;
+  const obenY = papier.hoehe - rand;
+  // Unten bleibt Luft für die Seitenzahl; ohne sie klebt sie am Text.
+  const untenY = rand + (seitenzahlen ? groesse * 1.8 : 0);
+
+  const seiten = [];
+  let aktuell = null;
+  let y = 0;
+  let ersetzt = 0;
+  const unbekannt = new Set();
+  const marken = [];                        // Überschriften für das Lesezeichen-Verzeichnis
+
+  const neueSeite = () => {
+    aktuell = [];
+    seiten.push(aktuell);
+    y = obenY;
+  };
+  neueSeite();
+
+  const setze = (bytes, schrift, hoehe, x) => {
+    aktuell.push({ bytes, schrift, groesse: hoehe, x, y: y - hoehe * 0.85 });
+    y -= hoehe * abstand;
+  };
+
+  for (const block of bloecke) {
+    const roh = String(block.text || '').replace(/\s+/g, ' ').trim();
+    if (!roh) continue;
+    const ueberschrift = Boolean(block.ueberschrift);
+    const marke = Boolean(block.marke);
+    const hoehe = ueberschrift
+      ? groesse * ((block.ebene || 2) === 1 ? 1.5 : 1.22)
+      : (marke ? groesse * 0.85 : groesse);
+    const schrift = ueberschrift ? schriften.fett : schriften.normal;
+
+    const gewandelt = nachWinAnsi(roh);
+    ersetzt += gewandelt.ersetzt;
+    for (const z of gewandelt.unbekannt) if (unbekannt.size < 12) unbekannt.add(z);
+
+    const zeilen = zeilenUmbrechen(gewandelt.bytes, schrift, hoehe, platz);
+    if (!zeilen.length) continue;
+
+    // Luft davor — nur wenn oben schon etwas steht. Sonst rutschte die
+    // erste Seite nach unten weg.
+    const luftDavor = ueberschrift ? hoehe * 0.7 : 0;
+    if (y < obenY) y -= luftDavor;
+
+    // Eine Überschrift, unter die nichts mehr passt, gehört auf die nächste
+    // Seite: Eine Kapitelzeile allein am Fuß ist ein Satzfehler, den jeder
+    // sieht. Sie braucht deshalb Platz für sich UND für zwei Zeilen des
+    // Absatzes darunter — den kennt die Schleife hier nicht, aber zwei
+    // Zeilen sind sicher, denn ein leeres Kapitel gibt es nicht.
+    const gebraucht = hoehe * abstand * zeilen.length
+      + (ueberschrift ? groesse * abstand * 2 : 0);
+    if (y - gebraucht < untenY && y < obenY) neueSeite();
+
+    for (const zeile of zeilen) {
+      if (y - hoehe * abstand < untenY) neueSeite();
+      const x = marke ? rand + (platz - breite(zeile, schrift, hoehe)) / 2 : rand;
+      if (ueberschrift && zeile === zeilen[0]) {
+        marken.push({ titel: roh, seite: seiten.length - 1, y, ebene: block.ebene || 2 });
+      }
+      setze(zeile, schrift, hoehe, x);
+    }
+    y -= ueberschrift ? hoehe * 0.35 : groesse * 0.5;
+  }
+
+  return {
+    daten: zusammensetzen(seiten, marken, {
+      schriften, papier, groesse, seitenzahlen, titel, verfasser, jetzt, rand,
+    }),
+    seiten: seiten.length,
+    ersetzt,
+    unbekannt: [...unbekannt],
+  };
+}
+
+// ------------------------------------------------------------- Datei bauen
+
+function zusammensetzen(seiten, marken, o) {
+  const { schriften, papier, groesse, seitenzahlen, titel, verfasser, jetzt, rand } = o;
+  const schnitte = [schriften.normal, schriften.fett, schriften.kursiv, schriften.fettkursiv];
+
+  // Feste Nummern zuerst, danach je Seite zwei Objekte und zuletzt die
+  // Lesezeichen. Ein Verweis auf ein Objekt, das es nicht gibt, macht die
+  // Datei unlesbar — deshalb wird hier gerechnet und nicht geraten.
+  const ERSTES_FONT = 4;
+  const ERSTE_SEITE = ERSTES_FONT + schnitte.length;
+  const seiteNr = (i) => ERSTE_SEITE + i * 2;
+  const inhaltNr = (i) => ERSTE_SEITE + i * 2 + 1;
+  const ERSTE_MARKE = ERSTE_SEITE + seiten.length * 2;
+  const WURZEL_MARKE = ERSTE_MARKE + marken.length;
+  const gesamt = marken.length ? WURZEL_MARKE : ERSTE_MARKE - 1;
+
+  const schreiber = new Schreiber();
+  const stellen = new Array(gesamt + 1).fill(0);
+
+  schreiber.text('%PDF-1.4\n');
+  // Vier Bytes über 127: Daran erkennen Werkzeuge, dass die Datei binär ist
+  // und nicht zeilenweise umgeschrieben werden darf.
+  schreiber.bytes(Uint8Array.from([0x25, 0xe2, 0xe3, 0xcf, 0xd3, 0x0a]));
+
+  const objekt = (nummer, inhalt) => {
+    stellen[nummer] = schreiber.laenge;
+    schreiber.text(`${nummer} 0 obj\n${inhalt}\nendobj\n`);
+  };
+
+  objekt(1, `<< /Type /Catalog /Pages 2 0 R /Lang (de-DE)`
+    + `${marken.length ? ` /Outlines ${WURZEL_MARKE} 0 R /PageMode /UseOutlines` : ''} >>`);
+  objekt(2, `<< /Type /Pages /Count ${seiten.length} /Kids [`
+    + seiten.map((_, i) => `${seiteNr(i)} 0 R`).join(' ') + '] >>');
+  objekt(3, '<< ' + (titel ? `/Title ${alsTextangabe(titel)} ` : '')
+    + (verfasser ? `/Author ${alsTextangabe(verfasser)} ` : '')
+    + `/Producer ${alsTextangabe('Textauszug')} /CreationDate (${zeitstempel(jetzt)}) >>`);
+
+  schnitte.forEach((name, i) => {
+    objekt(ERSTES_FONT + i,
+      `<< /Type /Font /Subtype /Type1 /BaseFont /${name} /Encoding /WinAnsiEncoding >>`);
+  });
+
+  const schriftName = (name) => `/F${schnitte.indexOf(name) + 1}`;
+  const mittel = papier.breite / 2;
+
+  seiten.forEach((zeilen, i) => {
+    let strom = 'BT\n';
+    let letzte = null;
+    for (const zeile of zeilen) {
+      const kennung = `${zeile.schrift}|${zeile.groesse}`;
+      if (kennung !== letzte) {
+        strom += `${schriftName(zeile.schrift)} ${runden(zeile.groesse)} Tf\n`;
+        letzte = kennung;
+      }
+      strom += `1 0 0 1 ${runden(zeile.x)} ${runden(zeile.y)} Tm\n`;
+      strom += `${alsZeichenkette(zeile.bytes)} Tj\n`;
+    }
+    if (seitenzahlen) {
+      const zahl = nachWinAnsi(String(i + 1)).bytes;
+      const klein = Math.max(7, groesse * 0.8);
+      strom += `${schriftName(schriften.normal)} ${runden(klein)} Tf\n`;
+      strom += `1 0 0 1 ${runden(mittel - breite(zahl, schriften.normal, klein) / 2)} `
+        + `${runden(rand * 0.55)} Tm\n${alsZeichenkette(zahl)} Tj\n`;
+    }
+    strom += 'ET\n';
+
+    objekt(seiteNr(i), `<< /Type /Page /Parent 2 0 R /MediaBox `
+      + `[0 0 ${runden(papier.breite)} ${runden(papier.hoehe)}] /Resources << /Font << `
+      + schnitte.map((name, k) => `/F${k + 1} ${ERSTES_FONT + k} 0 R`).join(' ')
+      + ` >> >> /Contents ${inhaltNr(i)} 0 R >>`);
+
+    // Die Länge zählt BYTES, nicht Zeichen. Im Strom steht nach der
+    // Maskierung zwar nur ASCII, aber diese Zeile ist der Ort, an dem sich
+    // das eines Tages rächt.
+    const bytes = new Schreiber().text(strom).fertig();
+    stellen[inhaltNr(i)] = schreiber.laenge;
+    schreiber.text(`${inhaltNr(i)} 0 obj\n<< /Length ${bytes.length} >>\nstream\n`);
+    schreiber.bytes(bytes);
+    schreiber.text('endstream\nendobj\n');
+  });
+
+  // Lesezeichen: dieselbe Gliederung wie das Inhaltsverzeichnis der EPUB.
+  // Flach, nicht verschachtelt — eine falsch gezählte Verschachtelung
+  // lassen manche Betrachter die ganze Liste verwerfen.
+  if (marken.length) {
+    marken.forEach((mark, i) => {
+      const nummer = ERSTE_MARKE + i;
+      const vor = i > 0 ? ` /Prev ${nummer - 1} 0 R` : '';
+      const nach = i < marken.length - 1 ? ` /Next ${nummer + 1} 0 R` : '';
+      objekt(nummer, `<< /Title ${alsTextangabe(mark.titel)} /Parent ${WURZEL_MARKE} 0 R`
+        + `${vor}${nach} /Dest [${seiteNr(mark.seite)} 0 R /XYZ null ${runden(mark.y)} null] >>`);
+    });
+    objekt(WURZEL_MARKE, `<< /Type /Outlines /First ${ERSTE_MARKE} 0 R `
+      + `/Last ${ERSTE_MARKE + marken.length - 1} 0 R /Count ${marken.length} >>`);
+  }
+
+  const xref = schreiber.laenge;
+  schreiber.text(`xref\n0 ${gesamt + 1}\n0000000000 65535 f \n`);
+  for (let i = 1; i <= gesamt; i++) {
+    schreiber.text(`${String(stellen[i]).padStart(10, '0')} 00000 n \n`);
+  }
+  schreiber.text(`trailer\n<< /Size ${gesamt + 1} /Root 1 0 R /Info 3 0 R >>\n`
+    + `startxref\n${xref}\n%%EOF\n`);
+
+  return schreiber.fertig();
+}
+
+// Zwei Nachkommastellen reichen für ein Zehntel Haarbreite und halten die
+// Datei klein.
+function runden(zahl) {
+  return String(Math.round(zahl * 100) / 100);
+}
+
+  TEILE.PAPIERE = PAPIERE;
+  TEILE.RAENDER = RAENDER;
+  TEILE.ABSTAENDE = ABSTAENDE;
+  TEILE.pdfBauen = pdfBauen;
+})();
+
 /* ---- epub.js ---- */
 (function () {
 // Baut aus den Textblöcken eine EPUB-Datei.
@@ -2263,7 +2950,14 @@ const nummer = (n) => String(n).padStart(3, '0');
 // tausend Absätzen öffnet auf älteren Lesegeräten quälend langsam.
 function kapitelSchneiden(bloecke, titel) {
   const ebenen = bloecke.filter((b) => b.ueberschrift).map((b) => b.ebene || 2);
-  const oberste = ebenen.length ? Math.min(...ebenen) : null;
+  let oberste = ebenen.length ? Math.min(...ebenen) : null;
+  // Eine Stufe, die nur EINMAL vorkommt, ist ein Titel und keine
+  // Einteilung: Danach zu schneiden ergäbe ein einziges Kapitel, das das
+  // ganze Buch enthält — und ein Inhaltsverzeichnis mit einem Eintrag.
+  if (oberste !== null && ebenen.filter((e) => e === oberste).length === 1) {
+    const tiefer = ebenen.filter((e) => e > oberste);
+    if (tiefer.length) oberste = Math.min(...tiefer);
+  }
   const kapitel = [];
   let aktuell = null;
 
@@ -2311,10 +3005,18 @@ ${koerper}
 `;
 }
 
-const STIL = `/* Absichtlich sparsam: Ein Lesegerät bringt seine eigene Schrift,
-   seinen Zeilenabstand und seine Ränder mit, und der Leser stellt sie ein.
-   Vorgeschrieben wird hier nur, was sonst falsch aussähe. */
-body { margin: 0 1em; }
+// Der Stil einer EPUB ist ein VORSCHLAG, keine Anweisung. Ein Lesegerät
+// bringt seine eigene Schrift, seinen Zeilenabstand und seine Ränder mit,
+// und der Leser stellt sie ein — in Bücher (Apple Books) entscheidet
+// darüber der Schalter zwischen „Original" und einer eigenen Schrift.
+// Deshalb steht hier nur, was sonst falsch aussähe, und die gewählte
+// Schrift als Wunsch. Eingebettet wird keine: Eine Schriftdatei wöge mehr
+// als das ganze Buch, und weitergeben darf man längst nicht jede.
+function stil(schriftCss, abstand) {
+  return `/* Schrift und Zeilenabstand sind ein Vorschlag — das Lesegerät
+   und sein Besitzer haben das letzte Wort. */
+body { margin: 0 1em;${schriftCss ? ` font-family: ${schriftCss};` : ''}`
+    + `${abstand ? ` line-height: ${abstand};` : ''} }
 h1, h2, h3 { line-height: 1.25; margin: 1.4em 0 .6em; }
 h1 { font-size: 1.5em; }
 h2 { font-size: 1.25em; }
@@ -2322,6 +3024,7 @@ h3 { font-size: 1.1em; }
 p { margin: 0 0 .8em; text-align: justify; hyphens: auto; }
 p.marke { text-align: center; opacity: .6; font-size: .85em; }
 `;
+}
 
 function kennung() {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) return `urn:uuid:${crypto.randomUUID()}`;
@@ -2416,7 +3119,7 @@ ${dateien.map((d, i) => `    <navPoint id="np${nummer(i + 1)}" playOrder="${i + 
     { name: 'OEBPS/content.opf', daten: opf },
     { name: 'OEBPS/nav.xhtml', daten: nav },
     { name: 'OEBPS/toc.ncx', daten: ncx },
-    { name: 'OEBPS/stil.css', daten: STIL },
+    { name: 'OEBPS/stil.css', daten: stil(einstellungen.schriftCss, einstellungen.zeilenabstand) },
     ...dateien.map((d) => ({ name: `OEBPS/${d.pfad}`, daten: d.inhalt })),
   ];
 
@@ -2432,18 +3135,31 @@ ${dateien.map((d, i) => `    <navPoint id="np${nummer(i + 1)}" playOrder="${i + 
 // folgt darauf.
 function bloeckeAusText(text) {
   const stuecke = text.split(/\n{2,}/).map((s) => s.trim()).filter(Boolean);
-  return stuecke.map((stueck, i) => {
-    const marke = /^---\s*Seite\s+\d+\s*---$/i.test(stueck);
-    const kurz = stueck.length <= 70 && !/\n/.test(stueck);
-    const ohneSatzzeichen = !/[.!?:;,]$/.test(stueck);
-    const folgtAbsatz = i + 1 < stuecke.length && stuecke[i + 1].length > stueck.length;
-    return {
-      text: stueck,
-      marke,
-      ueberschrift: !marke && kurz && ohneSatzzeichen && folgtAbsatz,
-      ebene: 2,
-    };
+  const istMarke = (stueck) => /^---\s*Seite\s+\d+\s*---$/i.test(stueck);
+  // Gestalt einer Überschrift: eine kurze einzelne Zeile, die nicht wie ein
+  // Satz endet.
+  const gestalt = stuecke.map((stueck) => stueck.length <= 70 && !/\n/.test(stueck)
+    && !/[.!?:;,]$/.test(stueck) && !istMarke(stueck));
+
+  const bloecke = stuecke.map((stueck, i) => {
+    // Dazu muss etwas folgen, das sie überschreibt. Für die ERSTE Zeile
+    // gilt auch die nächste Überschrift als Beleg: „Mein Bericht" steht
+    // über „Kapitel 1", also über einer ebenso kurzen Zeile. Für alle
+    // anderen bleibt es beim längeren Absatz — sonst würde aus einem
+    // „Mit freundlichen Grüßen" über einem Namen eine Überschrift.
+    const folgt = i + 1 < stuecke.length
+      && (stuecke[i + 1].length > stueck.length
+        || (i === 0 && stuecke.length > 2 && gestalt[1]));
+    return { text: stueck, marke: istMarke(stueck), ueberschrift: gestalt[i] && folgt, ebene: 2 };
   });
+
+  // Die erste Überschrift, unter der weitere stehen, ist der TITEL des
+  // Textes: in der PDF größer gesetzt, in der EPUB kein eigenes Kapitel.
+  if (bloecke.length && bloecke[0].ueberschrift
+      && bloecke.some((block, i) => i > 0 && block.ueberschrift)) {
+    bloecke[0].ebene = 1;
+  }
+  return bloecke;
 }
 
   TEILE.zipSchreiben = zipSchreiben;
@@ -2458,6 +3174,8 @@ function bloeckeAusText(text) {
 
 const { seitenLesen, textBauen } = TEILE;
 const { epubBauen, bloeckeAusText } = TEILE;
+const { pdfBauen, PAPIERE, RAENDER, ABSTAENDE } = TEILE;
+const { FAMILIEN, familie } = TEILE;
 const teil = (id) => document.getElementById(id);
 const ablage = teil('ablage');
 const meldung = teil('meldung');
@@ -2466,6 +3184,7 @@ let seiten = [];
 let bloecke = [];              // Absätze samt Wissen, was eine Überschrift ist
 let dateiname = 'Textauszug';
 let selbstGeaendert = false;   // hat der Nutzer im Textfeld getippt?
+let modus = 'pdf';             // 'pdf' = aus einer Datei gelesen, 'text' = selbst geschrieben
 
 function sage(text, fehler = false) {
   meldung.textContent = text;
@@ -2484,6 +3203,65 @@ function einstellungen() {
     von: Number(teil('von').value) || 1,
     bis: Number(teil('bis').value) || seiten.length,
   };
+}
+
+// Die Wähler werden aus den Tabellen gefüllt, die der Setzer mitbringt —
+// sonst stünden dieselben Namen zweimal da und liefen auseinander.
+function waehlerFuellen() {
+  const fuellen = (id, tabelle, vorgabe) => {
+    const waehler = teil(id);
+    for (const [schluessel, eintrag] of Object.entries(tabelle)) {
+      const punkt = document.createElement('option');
+      punkt.value = schluessel;
+      punkt.textContent = eintrag.name;
+      waehler.append(punkt);
+    }
+    waehler.value = vorgabe;
+  };
+  fuellen('schrift', FAMILIEN, 'serif');
+  fuellen('zeilenabstand', ABSTAENDE, 'normal');
+  fuellen('papier', PAPIERE, 'a4');
+  fuellen('seitenrand', RAENDER, 'normal');
+}
+
+// Wie PDF und EPUB aussehen sollen. Beide bekommen dieselben Angaben; was
+// nur für eines gilt, ignoriert das andere.
+function satzEinstellungen() {
+  const gewaehlt = teil('schrift').value;
+  return {
+    titel: zielname(),
+    verfasser: teil('verfasser').value.trim(),
+    schrift: gewaehlt,
+    schriftCss: familie(gewaehlt).css,
+    groesse: Number(teil('schriftgroesse').value) || 12,
+    papier: teil('papier').value,
+    rand: teil('seitenrand').value,
+    zeilenabstand: teil('zeilenabstand').value,
+    seitenzahlen: teil('seitenzahlen').checked,
+  };
+}
+
+// Der Name der Datei, die gleich herauskommt.
+function zielname() {
+  return teil('titel').value.trim() || dateiname;
+}
+
+// Was weitergegeben wird, hängt daran, ob im Feld noch der gelesene Text
+// steht: Nur dann wissen die gemerkten Blöcke noch, was eine Überschrift
+// war. Sonst wird die Gliederung aus dem Feld zurückgelesen.
+function bloeckeJetzt() {
+  return (modus === 'text' || selbstGeaendert) ? bloeckeAusText(teil('text').value) : bloecke;
+}
+
+function knoepfe() {
+  const hatText = Boolean(teil('text').value.trim());
+  for (const id of ['notizen', 'kopieren', 'sichern', 'epub', 'pdf']) teil(id).disabled = !hatText;
+}
+
+function zaehlerZeigen(text) {
+  const woerter = (text.match(/\S+/g) || []).length;
+  teil('zaehler').textContent = `(${woerter.toLocaleString('de-DE')} Wörter, `
+    + `${text.length.toLocaleString('de-DE')} Zeichen)`;
 }
 
 function hinweiseZeigen(hinweise) {
@@ -2524,16 +3302,53 @@ function textZeigen(nachfragen = true) {
       + 'Ein Bild von Text lässt sich ohne Texterkennung nicht lesen.');
   }
   hinweiseZeigen(hinweise);
-  for (const id of ['notizen', 'kopieren', 'sichern', 'epub']) teil(id).disabled = !text.trim();
+  knoepfe();
+}
+
+// Der zweite Weg hinein: kein Dokument, sondern eigener Text. Alles
+// dahinter bleibt dasselbe — dieselben Blöcke, dieselbe EPUB, derselbe
+// Satz. Nur die Leseeinstellungen haben hier nichts zu suchen.
+function textModus(inhalt = '', name = 'Mein Text') {
+  modus = 'text';
+  seiten = [];
+  bloecke = [];
+  dateiname = name;
+  selbstGeaendert = true;
+  zeigen('leseteil', false);
+  zeigen('einstellungen', true);
+  zeigen('ergebnis', true);
+  zeigen('hinweiskarte', false);
+  teil('titel').value = inhalt ? name : '';
+  teil('text').value = inhalt;
+  zaehlerZeigen(inhalt);
+  teil('stand').textContent = '';
+  knoepfe();
+  teil('text').focus();
+  sage(inhalt
+    ? `${name}: Text übernommen — unten als PDF oder EPUB sichern.`
+    : 'Text hineinschreiben oder einfügen — daraus wird unten eine PDF oder eine EPUB.');
 }
 
 async function verarbeiten(datei) {
   if (!datei) return;
   const name = datei.name.toLowerCase();
-  if (!name.endsWith('.pdf') && datei.type !== 'application/pdf') {
-    sage('Das ist keine PDF-Datei. Diese App liest nur PDFs.', true);
+  // Eine Textdatei geht denselben Weg wie eingesetzter Text: Sie ist schon
+  // Text, es gibt nichts zu lesen. Genau so entsteht aus einer .txt von
+  // gestern eine PDF von heute.
+  if (/\.(txt|md|markdown|text)$/.test(name) || datei.type === 'text/plain') {
+    try {
+      textModus(await datei.text(), datei.name.replace(/\.[^.]+$/, '') || 'Mein Text');
+    } catch (fehler) {
+      sage('Die Textdatei ließ sich nicht lesen.', true);
+    }
     return;
   }
+  if (!name.endsWith('.pdf') && datei.type !== 'application/pdf') {
+    sage('Das ist weder eine PDF noch eine Textdatei.', true);
+    return;
+  }
+  modus = 'pdf';
+  zeigen('leseteil', true);
   dateiname = datei.name.replace(/\.pdf$/i, '') || 'Textauszug';
   seiten = [];
   selbstGeaendert = false;
@@ -2616,7 +3431,7 @@ function dateiSichern(daten, endung) {
   const adresse = URL.createObjectURL(blob);
   const verweis = document.createElement('a');
   verweis.href = adresse;
-  verweis.download = `${dateiname}.${endung}`;
+  verweis.download = `${zielname()}.${endung}`;
   verweis.rel = 'noopener';
   document.body.append(verweis);
   verweis.click();
@@ -2630,27 +3445,54 @@ function sichern() {
   // Die Byte-Marke am Anfang muss sein: Ohne sie zeigt der Windows-Editor
   // Umlaute als Kraut an, weil er sonst keine UTF-8-Datei erkennt.
   dateiSichern('\ufeff' + text, 'txt');
-  teil('stand').textContent = `In ${dateiname}.txt gesichert — die Datei liegt bei den Downloads.`;
+  teil('stand').textContent = `In ${zielname()}.txt gesichert — die Datei liegt bei den Downloads.`;
 }
 
 // Die EPUB entsteht aus den BLÖCKEN, nicht aus dem Text: Nur sie wissen, was
 // eine Überschrift war (sie stand in der PDF größer da), und daraus werden die
 // Kapitel. Ist der Text von Hand geändert, sind die gemerkten Blöcke hinfällig
 // — dann wird die Gliederung aus dem geänderten Text zurückgelesen.
+// Aus denselben Blöcken wie die EPUB, nur gesetzt statt fließend. Die
+// Zahl der Zeichen, die WinAnsi nicht hergibt, wird genannt: Was die App
+// nicht setzen kann, verschweigt sie nicht.
+function alsPdf() {
+  const text = teil('text').value;
+  if (!text.trim()) return;
+  teil('pdf').disabled = true;
+  teil('stand').textContent = 'Die PDF wird gesetzt …';
+  try {
+    const ergebnis = pdfBauen(bloeckeJetzt(), satzEinstellungen());
+    dateiSichern(ergebnis.daten, 'pdf');
+    let satz = `In ${zielname()}.pdf gesichert — ${ergebnis.seiten} `
+      + `${ergebnis.seiten === 1 ? 'Seite' : 'Seiten'}, `
+      + `${Math.max(1, Math.round(ergebnis.daten.length / 1024))} KB.`;
+    if (ergebnis.ersetzt) {
+      satz += ` ${ergebnis.ersetzt} ${ergebnis.ersetzt === 1 ? 'Zeichen steht' : 'Zeichen stehen'} `
+        + `als Fragezeichen darin — die Standardschriften kennen ${ergebnis.unbekannt.join(' ')} `
+        + 'nicht.';
+    }
+    teil('stand').textContent = satz;
+  } catch (fehler) {
+    teil('stand').textContent = 'Die PDF ließ sich nicht setzen: '
+      + (fehler && fehler.message ? fehler.message : 'unbekannter Fehler');
+  } finally {
+    teil('pdf').disabled = false;
+  }
+}
+
 async function alsEpub() {
   const text = teil('text').value;
   if (!text.trim()) return;
   teil('epub').disabled = true;
   teil('stand').textContent = 'Die EPUB wird gebaut …';
   try {
-    const teileDavon = selbstGeaendert ? bloeckeAusText(text) : bloecke;
-    const { daten, kapitel } = await epubBauen(teileDavon, {
-      titel: teil('titel').value.trim() || dateiname,
-      verfasser: teil('verfasser').value,
+    const { daten, kapitel } = await epubBauen(bloeckeJetzt(), {
+      ...satzEinstellungen(),
+      zeilenabstand: (ABSTAENDE[teil('zeilenabstand').value] || ABSTAENDE.normal).mass,
       sprache: 'de',
     });
     dateiSichern(daten, 'epub');
-    teil('stand').textContent = `In ${dateiname}.epub gesichert — ${kapitel} `
+    teil('stand').textContent = `In ${zielname()}.epub gesichert — ${kapitel} `
       + `${kapitel === 1 ? 'Kapitel' : 'Kapitel'}, zu öffnen mit Bücher (Apple Books) `
       + 'oder jedem anderen E-Book-Programm.';
   } catch (fehler) {
@@ -2707,12 +3549,18 @@ for (const id of ['absaetze', 'kopfzeilen', 'seitenmarken', 'ueberschrift']) {
 for (const id of ['von', 'bis']) {
   teil(id).addEventListener('change', () => textZeigen());
 }
-teil('text').addEventListener('input', () => { selbstGeaendert = true; });
+teil('text').addEventListener('input', () => {
+  selbstGeaendert = true;
+  knoepfe();
+  if (modus === 'text') zaehlerZeigen(teil('text').value);
+});
+teil('eigenertext').addEventListener('click', () => textModus());
 teil('alles').addEventListener('click', () => { teil('text').focus(); teil('text').select(); });
 teil('notizen').addEventListener('click', anNotizen);
 teil('kopieren').addEventListener('click', kopieren);
 teil('sichern').addEventListener('click', sichern);
 teil('epub').addEventListener('click', alsEpub);
+teil('pdf').addEventListener('click', alsPdf);
 
 for (const art of ['dragenter', 'dragover']) {
   ablage.addEventListener(art, (e) => { e.preventDefault(); ablage.classList.add('bereit'); });
@@ -2727,6 +3575,8 @@ ablage.addEventListener('drop', (e) => {
 // Ohne das öffnet der Browser eine daneben abgelegte PDF einfach als Seite.
 window.addEventListener('dragover', (e) => e.preventDefault());
 window.addEventListener('drop', (e) => e.preventDefault());
+
+waehlerFuellen();
 
 geteilteDatei().then((datei) => {
   if (datei) verarbeiten(datei);

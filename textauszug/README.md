@@ -2,13 +2,16 @@
 
 Holt den reinen Text aus einer PDF-Datei und schickt ihn weiter — bevorzugt in
 die **Notizen** auf iPhone und iPad, sonst in die Zwischenablage oder in eine
-`.txt`-Datei.
+`.txt`-Datei. Und in die Gegenrichtung: aus eingesetztem Text wird eine
+gesetzte **PDF** oder eine **EPUB**.
 
 Adresse: https://katonid.github.io/prae/textauszug/
 
 ## Was hineingeht und was herauskommt
 
-PDF auswählen oder hineinziehen, Text ansehen, gegebenenfalls ändern, und dann:
+Zwei Wege hinein: **PDF** auswählen, hineinziehen oder einfügen — oder
+**„Eigenen Text einsetzen"** und schreiben (eine `.txt` darf man auch ins
+Fenster ziehen). Danach steht der Text im Feld, lässt sich ändern, und dann:
 
 | Knopf | Was passiert |
 | --- | --- |
@@ -16,6 +19,7 @@ PDF auswählen oder hineinziehen, Text ansehen, gegebenenfalls ändern, und dann
 | **Text kopieren** | In der Zwischenablage; in einer neuen Notiz einfügen. |
 | **Als .txt sichern** | Textdatei bei den Downloads. |
 | **Als EPUB sichern** | E-Book für Bücher (Apple Books), Kobo und jedes andere Lesegerät. |
+| **Als PDF sichern** | Gesetzte Seiten mit Seitenzahlen und Lesezeichen — zum Drucken und Verschicken. |
 
 Geteilt wird **Text, keine Datei** — eine geteilte Datei landet in den Notizen
 als Anhang, den man erst antippen muss. Die erste Zeile wird in den Notizen zur
@@ -36,6 +40,34 @@ als Anhang, den man erst antippen muss. Die erste Zeile wird in den Notizen zur
 - **Rechner:** Ziehen ins Fenster, oder Datei kopieren und mit Strg/Cmd + V
   einfügen.
 
+## Die PDF-Datei — und die Schrift
+
+Aus denselben Absätzen wie die EPUB, nur gesetzt statt fließend: Überschriften
+größer und fett, Seitenzahlen unten mittig, Lesezeichen zum Springen. Wählbar
+sind Schrift, Schriftgröße, Zeilenabstand, Papierformat (A4, A5, Letter) und
+Seitenrand.
+
+**Drei Schriften stehen zur Wahl** — serifenlos (Helvetica/Arial), mit Serifen
+(Times) und Schreibmaschine (Courier). Das ist keine Sparsamkeit, sondern eine
+Entscheidung: Genau diese drei Familien bringt **jedes** PDF-Programm mit. Damit
+muss in die Datei keine Schrift eingebettet werden — sie bleibt ein paar
+Kilobyte groß, öffnet überall gleich und braucht keine Lizenz für die
+Weitergabe. Eine eingebettete Schrift macht aus 30 KB schnell 500 KB.
+
+Die Zeichenbreiten dazu stehen in `js/schriftmasse.js` (erzeugt von
+`scripts/schriftmasse.py`): Ein PDF bricht keine Zeile selbst um, wer setzt,
+muss messen.
+
+**Getrennt wird nicht, deshalb ist der Satz linksbündig.** Die deutsche
+Silbentrennung lässt sich nicht errechnen — dieselbe Regel wie in der
+Wörterwerkstatt —, und eine falsche Trennung stünde für immer im Dokument. Ohne
+Trennung aber reißt Blocksatz Löcher in die Zeilen. Ein flatternder rechter Rand
+ist der kleinere Schaden.
+
+**Was WinAnsi nicht hergibt, wird gezählt.** Die Standardschriften kennen 224
+Zeichen; ein Emoji oder ein griechischer Buchstabe steht als Fragezeichen da,
+und die App sagt hinterher, wie viele es waren. Verschluckt wird nichts.
+
 ## Die EPUB-Datei
 
 Aus dem Text wird auf Wunsch ein E-Book. Das lohnt sich für lange Dokumente: Im
@@ -52,6 +84,12 @@ langsam.
 
 **Titel und Verfasser** stehen in den Einstellungen und landen in den Buchdaten,
 nach denen die Bücher-App sortiert.
+
+**Die Schrift ist in der EPUB nur ein Vorschlag.** Ein E-Book läuft im
+Fließtext; welche Schrift dort steht, entscheidet das Lesegerät und sein
+Besitzer — in *Bücher* der Schalter zwischen „Original" und einer eigenen
+Schrift. Das ist keine Lücke des Formats, sondern sein Sinn. Eingebettet wird
+auch hier nichts.
 
 Wurde der Text im Feld von Hand geändert, sind die gemerkten Blöcke hinfällig;
 die Gliederung wird dann aus dem geänderten Text zurückgelesen (kurze Zeile ohne
@@ -102,9 +140,13 @@ Terminkonverter daneben. Der PDF-Leser ist selbst geschrieben.
 | `js/aufbereiten.js` | Aus Zeilen mit Ort werden Absätze; Kopf- und Fußzeilen fliegen raus. |
 | `js/auszug.js` | Der Weg in zwei Schritten: einmal lesen, beliebig oft aufbereiten. |
 | `js/epub.js` | ZIP-Schreiber und EPUB-Bauer (Kapitel, Inhaltsverzeichnis, Buchdaten). |
+| `js/schriftmasse.js` | Zeichenbreiten der 14 Standardschriften — erzeugt, nicht von Hand. |
+| `js/winansi.js` | Von Unicode in den Zeichensatz, den eine PDF ohne eingebettete Schrift versteht. |
+| `js/pdfbauen.js` | Der Satz: Umbruch, Seiten, Lesezeichen, die fertige Datei. |
 | `js/app.js` | Oberfläche: Datei annehmen, Text zeigen, weitergeben. |
 | `sw.js` | Service Worker fürs Offline-Starten (`FASSUNG` hochzählen!). |
 | `scripts/generate-icons.py` | erzeugt `icons/` — gerechnet, ohne fremde Bibliothek. |
+| `scripts/schriftmasse.py` | erzeugt `js/schriftmasse.js` aus den Liberation-Schriften. |
 | `scripts/einzeldatei.py` | baut `einzeldatei.html` (alles in einer Datei, für `file://`). |
 
 Vier Stellen, an denen es leicht schiefgeht:

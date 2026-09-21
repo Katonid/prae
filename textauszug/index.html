@@ -25,22 +25,26 @@
   <body>
     <header class="kopf">
       <h1>Textauszug</h1>
-      <p>PDF hinein, reiner Text heraus — und von dort mit einem Tipp in die <strong>Notizen</strong>.</p>
+      <p>PDF hinein, reiner Text heraus — in die <strong>Notizen</strong>, als <strong>EPUB</strong> oder als fertig gesetzte <strong>PDF</strong>. Eigener Text geht genauso.</p>
     </header>
 
     <main>
       <section class="feld" id="ablage" aria-label="Datei auswählen">
         <p class="feld__zeichen" aria-hidden="true">📄</p>
         <p class="feld__text">PDF hierher ziehen — oder auswählen.</p>
-        <button type="button" id="waehlen">PDF auswählen</button>
-        <input type="file" id="datei" accept="application/pdf,.pdf" hidden />
-        <p class="feld__klein">Auch einfügen (Strg+V) geht. Die Datei bleibt auf diesem Gerät — es wird nichts hochgeladen.</p>
+        <div class="knopfreihe knopfreihe--mitte">
+          <button type="button" id="waehlen">PDF auswählen</button>
+          <button type="button" id="eigenertext" class="still">Eigenen Text einsetzen</button>
+        </div>
+        <input type="file" id="datei" accept="application/pdf,.pdf,text/plain,.txt,.md" hidden />
+        <p class="feld__klein">Auch einfügen (Strg+V) und eine Textdatei gehen. Die Datei bleibt auf diesem Gerät — es wird nichts hochgeladen.</p>
       </section>
 
       <p class="meldung" id="meldung" role="status" aria-live="polite"></p>
 
       <section class="karte" id="einstellungen" hidden>
-        <h2>Wie der Text aussehen soll</h2>
+        <div id="leseteil">
+        <h2>Wie die PDF gelesen wird</h2>
         <div class="schalter">
           <label class="haken">
             <input type="checkbox" id="absaetze" checked />
@@ -68,15 +72,52 @@
             <span>Bis Seite</span>
             <input type="number" id="bis" min="1" step="1" />
           </label>
+        </div>
+        </div>
+
+        <h2>Wie PDF und EPUB aussehen</h2>
+        <div class="raster">
           <label>
-            <span>Titel (für die EPUB-Datei)</span>
+            <span>Titel</span>
             <input type="text" id="titel" maxlength="120" autocomplete="off" />
           </label>
           <label>
             <span>Verfasser (darf leer bleiben)</span>
             <input type="text" id="verfasser" maxlength="120" autocomplete="off" />
           </label>
+          <label>
+            <span>Schrift</span>
+            <!-- Die Auswahl füllt js/app.js aus den drei Familien, die in
+                 jedem PDF-Programm stecken. -->
+            <select id="schrift"></select>
+          </label>
+          <label>
+            <span>Schriftgröße (Punkt)</span>
+            <input type="number" id="schriftgroesse" min="6" max="30" step="1" value="12" />
+          </label>
+          <label>
+            <span>Zeilenabstand</span>
+            <select id="zeilenabstand"></select>
+          </label>
+          <label>
+            <span>Papier (nur PDF)</span>
+            <select id="papier"></select>
+          </label>
+          <label>
+            <span>Seitenrand (nur PDF)</span>
+            <select id="seitenrand"></select>
+          </label>
         </div>
+        <div class="schalter">
+          <label class="haken">
+            <input type="checkbox" id="seitenzahlen" checked />
+            <span><strong>Seitenzahlen in die PDF</strong><small>Unten mittig auf jeder Seite.</small></span>
+          </label>
+        </div>
+        <p class="feld__klein"><strong>Warum nur drei Schriften?</strong> Diese drei stecken in jedem
+          PDF-Programm; damit muss in der Datei keine Schrift mitgeliefert werden, sie bleibt winzig
+          und sieht überall gleich aus. In der EPUB ist die Schrift ohnehin nur ein Vorschlag — dort
+          entscheidet das Lesegerät.</p>
       </section>
 
       <section class="karte" id="ergebnis" hidden>
@@ -93,6 +134,7 @@
           <button type="button" id="kopieren">Text kopieren</button>
           <button type="button" id="sichern">Als .txt sichern</button>
           <button type="button" id="epub">Als EPUB sichern</button>
+          <button type="button" id="pdf">Als PDF sichern</button>
         </div>
         <p id="stand" class="fuss__text" role="status" aria-live="polite"></p>
       </section>
@@ -109,6 +151,36 @@
           <li><strong>Geht auch:</strong> „Text kopieren" und in einer neuen Notiz einfügen — derselbe Weg, eine Handbewegung mehr.</li>
           <li><strong>Mac und Windows:</strong> „Als .txt sichern" legt eine Textdatei ab, die sich in jedes Programm ziehen lässt.</li>
         </ul>
+        <h2>Eigenen Text setzen — ohne PDF am Anfang</h2>
+        <ul class="liste">
+          <li><strong>„Eigenen Text einsetzen"</strong> öffnet ein leeres Feld. Text hineinschreiben
+            oder einfügen — und daraus wird mit einem Tipp eine <em>PDF</em> zum Ausdrucken und
+            Verschicken oder eine <em>EPUB</em> zum Lesen. Eine Textdatei (.txt) darf man auch
+            einfach ins Fenster ziehen.</li>
+          <li><strong>Überschriften</strong> erkennt die App an der Gestalt: eine kurze Zeile ohne
+            Satzzeichen am Ende, unter der ein Absatz folgt. Sie wird in der PDF größer gesetzt,
+            kommt in die Lesezeichen und wird in der EPUB zum Kapitel. Wer das steuern will,
+            lässt eine Leerzeile davor und danach.</li>
+          <li><strong>Getrennt wird nicht</strong>, und deshalb ist der Satz linksbündig: Die
+            deutsche Silbentrennung lässt sich nicht errechnen, und eine falsche Trennung stünde
+            für immer im Dokument. Ein flatternder rechter Rand ist der kleinere Schaden.</li>
+        </ul>
+
+        <h2>Die Schrift wählen</h2>
+        <ul class="liste">
+          <li><strong>Drei Familien stehen zur Wahl:</strong> serifenlos (Helvetica/Arial), mit
+            Serifen (Times) und Schreibmaschine (Courier). Dazu Schriftgröße, Zeilenabstand,
+            Papierformat und Seitenrand.</li>
+          <li><strong>Warum nicht mehr?</strong> Genau diese drei bringt jedes PDF-Programm der
+            Welt mit. Eine andere Schrift müsste in die Datei eingebettet werden — das macht aus
+            30 KB schnell 500 KB, und weitergeben darf man längst nicht jede Schrift. Dafür
+            öffnet diese PDF überall gleich, auch in zehn Jahren.</li>
+          <li><strong>In der EPUB ist die Schrift nur ein Vorschlag.</strong> Ein E-Book läuft im
+            Fließtext, und welche Schrift dort steht, entscheidet das Lesegerät und sein Besitzer
+            — in <em>Bücher</em> steht dafür der Schalter zwischen „Original" und einer eigenen
+            Schrift. Das ist keine Lücke, sondern der Sinn des Formats.</li>
+        </ul>
+
         <h2>Als Buch lesen: die EPUB-Datei</h2>
         <ul class="liste">
           <li><strong>„Als EPUB sichern"</strong> macht aus dem Text ein E-Book: In <em>Bücher</em> (Apple Books) öffnen, und der Text läuft im Fließtext mit einstellbarer Schriftgröße, Nachtmodus und Lesezeichen — angenehmer als eine PDF auf einem kleinen Bildschirm.</li>
@@ -129,6 +201,9 @@
         </ul>
         <h2>Was die App kann — und was nicht</h2>
         <ul class="liste">
+          <li>Aus <strong>eigenem Text</strong> entsteht eine PDF mit Lesezeichen und Seitenzahlen
+            oder eine EPUB mit Kapiteln. Was die App dabei nicht setzen kann — ein Emoji, ein
+            griechischer Buchstabe —, zählt sie und sagt es hinterher; verschluckt wird nichts.</li>
           <li>Gelesen wird der <strong>Text, der in der PDF steht</strong>. Bei einer PDF aus Word, LibreOffice, einem Browser oder einem Satzprogramm ist das der ganze Inhalt.</li>
           <li><strong>Ein Scan enthält keinen Text</strong>, sondern ein Bild von Text. Dafür bräuchte es eine Texterkennung (OCR) — die kann diese App nicht. Sie sagt es aber deutlich, statt eine leere Seite auszugeben.</li>
           <li><strong>Kennwortgeschützte PDFs</strong> lassen sich nicht lesen. Wer die Datei öffnen kann, sichert sie einmal ohne Schutz (Vorschau, oder Drucken → „Als PDF sichern").</li>
