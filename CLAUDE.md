@@ -3955,6 +3955,79 @@ Befunde, und keiner davon war Geschmack:
   der Messfühler beim nächsten Mal, wo es hakt. **Nicht als erledigt
   darstellen** — es ist die erste Erklärung für diesen Befund, und in diesem
   Papier stehen genug Fälle, in denen die erste eine Vermutung war.
+- **Die Gegenprobe kam sofort, und sie ging gegen 1.0.15** (gemeldet 09/2026:
+  „Erst ging es. Als ich auf eine andere Seite wollte, fror es ein.", dazu das
+  Bild des Messfühlers: `Inspektor 18/s (48 in 2,7 s) · Seite 36/s (98 in
+  2,7 s) · Absätze 0,0 ms`). Drei Dinge stehen darin, und sie widerlegen die
+  Erklärung von 1.0.15 für DIESEN Fall: Der Absatzlauf kostet **null**
+  Millisekunden, die Raten sind mäßig, und der Inspektor war auf dem Bild
+  **zu** — er zählte trotzdem mit, weil eine `.inspector`-Spalte auch
+  zugeklappt einen Körper hat. Was 1.0.15 abgestellt hat, war richtig
+  abgestellt; es war nicht das hier. **Genau dafür war die Probe da** — und
+  dass sie die eigene Erklärung umwirft, ist ihr Sinn und kein Rückschlag.
+- **Ein `VStack` ist nicht lazy — und baute damit das GANZE Buch** (behoben in
+  1.0.16). Das ist der erste Befund in dieser Sache, der zum Zeitpunkt passt:
+  Die Bühne ist ein `ScrollView` mit einem `VStack` und einem `ForEach` über
+  die sichtbaren Seiten, und ein gewöhnlicher `VStack` baut JEDES Kind sofort
+  auf, auch das zwanzig Seiten tiefer. Je Seite hängen daran alle Textkästen
+  (je ein voller CoreText-Satz) und alle Fotos (je ein Vorschaubild, von der
+  Platte gelesen und auf dem HAUPTFADEN entpackt). Ist kein Tag gewählt, sind
+  das sämtliche Seiten des Buches. **Und genau das geschieht beim Wechsel**:
+  Die Liste wird eine andere, und alles darin entsteht neu. Jetzt ein
+  `LazyVStack` — gebaut wird, was in Sichtweite kommt.
+- **`Reise.seitenfolge` sah billig aus und setzte das Titelblatt neu** (ab
+  1.0.16). Es ist eine berechnete Eigenschaft, und darin steckt zweierlei:
+  `reise.automat` baut `fotoIndex`, also ein Wörterbuch über ALLE Fotos des
+  Buches, und `automat.titelseite(…)` setzt das Titelblatt samt zwei
+  CoreText-Messungen. Gelesen wurde sie im Körper von `ReiseView`, und dort
+  **zweimal** je Durchgang — einmal für die Liste, einmal für die Prüfung auf
+  leer. Dritte Auflage derselben Falle (Netzkarte der Abfahrtstafel,
+  Druckprüfung und Datumserkennung in 1.0.0): **Eine berechnete Eigenschaft
+  sieht billig aus.**
+- **Gemerkt wird NUR das Titelblatt** (`Reisewerk.titelblatt`). Es ist die
+  einzige Seite, die es nicht GIBT, sondern die gerechnet wird; alle anderen
+  stehen als `Seite` am Tag und werden nur aufgereiht. Die Blöcke eines Tages
+  zu merken hieße, beim Schieben einen alten Stand zu zeichnen — die Lehre aus
+  1.0.8, und sie gilt hier genauso. **Der Schlüssel nennt alles, was in das
+  Titelblatt eingeht** (Titel, Untertitel, Zeitraum, Titelfoto samt der Frage,
+  ob es das noch gibt, Format, Gestaltung, Typografie, Stil); fehlte ein Feld,
+  bliebe ein alter Titel stehen, ohne dass etwas darauf hinwiese. Wer
+  `Layoutautomat.titelseite` ändert, ändert den Schlüssel mit.
+- **`updateUIView` läuft bei JEDEM Durchgang, nicht bei jeder Änderung**
+  (`Textkasten`, ab 1.0.16). Dort stand ein `setNeedsDisplay()` ohne
+  Bedingung, und die drei Zuweisungen darüber lösten über ihre
+  `didSet`-Beobachter je eines aus. Dahinter steckt ein voller CoreText-Satz
+  je Textkasten, und eine Seite hat drei bis fünf davon. Verglichen wird
+  jetzt vorher — `Schriftbild` ist `Hashable`. **Merke: Eine
+  `UIViewRepresentable` bekommt ihr `update` bei jedem Neuzeichnen; was darin
+  teuer ist, gehört hinter einen Vergleich.**
+- **Das Papierkorn flimmerte, und der Kommentar daneben behauptete das
+  Gegenteil** (`Saatstrom`, `Seitensatz.kornpunkte`, ab 1.0.16, beim
+  Nachrechnen gefunden). Bildschirm und PDF würfelten es getrennt, jeder mit
+  einem `SystemRandomNumberGenerator` — der lässt sich nicht wiederholen. Zwei
+  Folgen: Auf dem Bildschirm war das Korn bei jeder Neuzeichnung ein anderes,
+  also ein Flimmern statt einer Struktur; und die gedruckte Seite sah nie aus
+  wie die angesehene — in einer App, deren erste Regel lautet, dass Seite und
+  PDF derselbe Setzer zeichnet. Im Quelltext stand dazu, der Zufallsstrom sei
+  „AN DER SEITE festgemacht"; er war es nie. **Ein Kommentar ersetzt keine
+  Prüfung** — dieselbe Lehre wie bei Schulalarms `requestAuthorization` und
+  den Navigationszielen der Abfahrtstafel. Gerechnet wird es jetzt an EINER
+  Stelle, mit einer Saat aus der Seitenkennung.
+- **Die Saat kommt aus den BYTES der Kennung, nie aus `hashValue`**
+  (`UUID.saat`). Den streut Swift bei jedem Programmlauf neu; dieselbe Seite
+  sähe nach jedem Start der App anders aus. Dieselbe Falle wie bei den
+  Linienfarben der Abfahrtstafel.
+- **Der Messfühler nennt seit 1.0.16 auch SUMMEN** (`Zeichenmesser.sammelt`):
+  wie oft etwas im Zeitfenster gelaufen ist und wie viel Zeit dabei
+  zusammenkam — Fotos, Seitenliste, Titelblatt. Die LETZTE Dauer sagt darüber
+  nichts; sie ist gerade dann klein, wenn der Zwischenspeicher zufällig traf.
+  Dazu ein Knopf „Befund kopieren" unter Anordnen: Eine Messung, die man
+  abschreiben oder abfotografieren muss, kommt verkürzt an.
+- **Nicht gemessen (1.0.16), und das ist die zweite Erklärung für dasselbe
+  Einfrieren.** Abgezählt ist, WAS je Neuzeichnung und je Seitenwechsel
+  anfiel; ob das Gerät danach flüssig ist, sagt erst der nächste Befund. Die
+  Zahl der gezeichneten Korn-Punkte ist unverändert — nur der Zufall daran ist
+  weg. **Nicht als erledigt darstellen.**
 - **Die Bildunterschrift war halb gebaut** (ab 1.0.5, Wunsch des Nutzers
   09/2026: „zu jedem Foto einen Beschreibungstext … Dies soll jedoch eine
   Option für jedes Foto sein. Kein muss."). Der Layoutautomat hielt Platz

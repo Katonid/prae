@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct ReiseView: View {
     @ObservedObject var werk: Reisewerk
@@ -99,9 +100,24 @@ struct ReiseView: View {
 
     private var buehne: some View {
         GeometryReader { raum in
+            // EINMAL je Durchgang, nicht zweimal: Bis 1.0.15 stand hier
+            // zweimal `sichtbareSeiten` — einmal für die Liste und einmal
+            // für die Prüfung auf leer —, und dahinter lag der Aufbau der
+            // ganzen Seitenfolge samt Titelblatt.
+            let seiten = werk.sichtbareSeiten
             ScrollView([.horizontal, .vertical]) {
-                VStack(spacing: 26) {
-                    ForEach(sichtbareSeiten) { buchseite in
+                // LAZY, und das ist der Punkt: Ein gewöhnlicher `VStack`
+                // baut JEDES Kind sofort auf, auch das, was weit unterhalb
+                // des Bildschirms liegt. Ist kein Tag gewählt, sind das
+                // sämtliche Seiten des Buches — mit jedem Textkasten (ein
+                // voller CoreText-Satz) und jedem Foto (ein Vorschaubild,
+                // das beim ersten Mal von der Platte gelesen und entpackt
+                // wird). Bei einem Buch mit zweihundert Fotos ist das die
+                // Arbeit eines ganzen PDF-Laufs, und sie fällt an, sobald
+                // jemand die Seite wechselt. Ein `LazyVStack` baut nur,
+                // was in Sichtweite kommt.
+                LazyVStack(spacing: 26) {
+                    ForEach(seiten) { buchseite in
                         VStack(spacing: 6) {
                             SeitenflaecheView(werk: werk, buchseite: buchseite,
                                               massstab: massstab(raum.size))
@@ -110,7 +126,7 @@ struct ReiseView: View {
                                 .foregroundStyle(.secondary)
                         }
                     }
-                    if sichtbareSeiten.isEmpty { hinweisLeer }
+                    if seiten.isEmpty { hinweisLeer }
                 }
                 .padding(28)
                 .frame(maxWidth: .infinity)
@@ -134,16 +150,10 @@ struct ReiseView: View {
         .frame(height: 340)
     }
 
-    private var sichtbareSeiten: [Buchseite] {
-        let alle = werk.reise.seitenfolge
-        guard let gewaehlt = werk.gewaehlterTag else { return alle }
-        if gewaehlt == Self.titelseitenKennung {
-            return alle.filter { $0.tag == nil }
-        }
-        return alle.filter { $0.tag?.id == gewaehlt }
-    }
-
-    static let titelseitenKennung = UUID(uuidString: "00000000-0000-0000-0000-000000000001")!
+    // Die Liste selbst steht seit 1.0.16 im `Reisewerk` — sie wird an
+    // mehr als einer Stelle gebraucht, und dort liegt auch das gemerkte
+    // Titelblatt.
+    static let titelseitenKennung = Reisewerk.titelseitenKennung
 
     private var titelzeile: String {
         if werk.gewaehlterTag == Self.titelseitenKennung { return "Titelseite" }
@@ -243,6 +253,17 @@ struct ReiseView: View {
                 // `@AppStorage` gehört in eine View und nie ins `Reisewerk`.
                 Toggle("An Rand und Nachbarn einrasten", isOn: $einrastenAn)
                 Toggle("Bedienung prüfen", isOn: $werk.zeigeGriffprobe)
+                // Der Befund wird abgetippt oder abfotografiert, solange er
+                // nur auf der Seite steht — und eine Messung, die man
+                // abschreiben muss, kommt verkürzt an. Dieselbe Bauweise
+                // wie bei „Zustellung prüfen" in Schulalarm: kopierbar,
+                // ohne Deutung.
+                Button("Befund kopieren", systemImage: "doc.on.doc") {
+                    UIPasteboard.general.string =
+                        (werk.letzterGriff ?? "noch nichts gegriffen")
+                        + "\n" + werk.messer.befund
+                    werk.meldung = Reisewerk.Meldung(text: "Der Befund liegt in der Zwischenablage.")
+                }
             } label: {
                 Label("Anordnen", systemImage: "wand.and.stars")
             }
