@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+
+	<!-- Die App ist deutsch und bringt keine Sprachdateien mit. Ohne diese
+	     beiden Schlüssel setzt Xcode „en", und iOS zeigt daraufhin ALLES
+	     Systemeigene englisch — Fotowähler, Dateiwähler, Teilen-Blatt,
+	     „Abbrechen". Dieselbe Falle wie bei Tafelbild 1.0.59. -->
+	<key>CFBundleDevelopmentRegion</key>
+	<string>de</string>
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>de</string>
+	</array>
+
+	<!-- Der Fotowähler selbst braucht KEINE Berechtigung — er läuft in einem
+	     eigenen Prozess. Die Berechtigung braucht nur der Umweg dahinter:
+	     Ohne sie entfernt iOS die Standortdaten aus den herausgegebenen
+	     Bilddaten, und die Reisespur bliebe leer. Mit ihr liest die App den
+	     Aufnahmeort am Mediathekseintrag nach. Wer ablehnt, kann alles
+	     weiter benutzen und setzt die Punkte auf der Karte. -->
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Damit die App den Aufnahmeort deiner Fotos lesen und daraus die Reisespur zeichnen kann. Ohne diese Erlaubnis gibt iOS die Orte nicht heraus; die Fotos lassen sich trotzdem einsetzen, und du kannst die Punkte selbst auf der Karte wählen.</string>
+
+	<!-- Nur „WhenInUse", und nur als Bequemlichkeit: Wer gerade an dem Ort
+	     steht, den er eintragen will, soll ihn nicht auf der Karte suchen
+	     müssen. Ohne Ortung fehlt genau dieser eine Knopf. -->
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Damit du beim Setzen eines Reisepunktes deinen jetzigen Standort übernehmen kannst, statt ihn auf der Karte zu suchen. Der Standort bleibt auf dem Gerät.</string>
+</dict>
+</plist>

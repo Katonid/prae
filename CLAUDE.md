@@ -3002,6 +3002,195 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   pushen, Bau abwarten, Fehler beheben — den PR-Link erst herausgeben,
   wenn der Bau grün ist.**
 
+## Projekt Urlaubstagebuch (Reisebuch aus Fotos und Text, native iOS-App)
+
+- App-Code: `UrlaubstagebuchiOS/` (ein Target: App, iPhone + iPad, iOS 17,
+  keine fremden Abhängigkeiten). Aus Fotos und einem Tagebuchtext entsteht
+  ein gesetztes Buch: je Tag Seiten mit Text, Bildern und einer Karte der
+  Tagesstrecke, als PDF ausgebbar. Ausführlich:
+  `UrlaubstagebuchiOS/README.md`.
+- **Homescreen-Name „Reisebuch"**, Ordner/Ziel/Bundle-Id bleiben
+  „Urlaubstagebuch" / `de.familie.urlaubstagebuch` — nach dem ersten
+  Signieren nicht mehr ändern.
+- **Der Tag kommt aus DREI ZAHLEN, nie aus einer Umrechnung**
+  (`Model/Tagesdatum.swift`). Ein EXIF-Aufnahmedatum hat KEINE Zeitzone:
+  „2026:08:12 19:33:21" ist die Uhr am Ort der Aufnahme. Wer daraus ein
+  `Date` macht, muss eine Zone annehmen, und jede Annahme ist irgendwo
+  falsch — ein Foto vom 12. August, 23:40 Ortszeit in Bangkok wäre in
+  Deutschland der 13. und rutschte in den falschen Tagebucheintrag, ohne
+  dass etwas auffiele; die Uhrzeit stimmt ja. Der Tagesschlüssel wird
+  deshalb unmittelbar aus den ZIFFERN gebaut (EXIF-Zeichenkette,
+  Datumszeile im Text). Das `Date` daneben sortiert nur INNERHALB eines
+  Tages, trägt eine feste Zone und ist kein Augenblick auf der Weltuhr.
+  **Die einzige Stelle, an der ein Tag doch aus einer Umrechnung entsteht,
+  ist der Zeitpunkt aus der Fotomediathek** — die gibt nichts anderes her,
+  und das steht so im Quelltext.
+- **Ohne Mediathekserlaubnis gibt iOS keine Aufnahmeorte heraus.** Das ist
+  die Falle, an der ein Reisetagebuch ohne Vorwarnung scheitert: Der
+  Fotowähler braucht KEINE Berechtigung, und genau deshalb hält man ihn für
+  den ganzen Weg. Hat die App keinen Zugriff auf die Mediathek, entfernt
+  iOS die Standortdaten aus den herausgegebenen Bilddaten — die Fotos
+  kommen an, die Karte bleibt leer, und es sieht aus, als könne die App
+  kein EXIF lesen. Deshalb ist der Fotowähler der von UIKit
+  (`Views/Waehler.swift`): Nur ein `PHPickerViewController` mit
+  `PHPickerConfiguration(photoLibrary: .shared())` gibt den
+  `assetIdentifier` heraus, über den sich der Ort am Mediathekseintrag
+  nachschlagen lässt. SwiftUIs `PhotosPicker` kann das nicht, sein
+  `itemIdentifier` bleibt leer. **Nicht auf `PhotosPicker` zurückbauen.**
+- **Geladen werden DATEN, nie ein `UIImage`.** Ein Bild ist schon entpackt
+  — seine Metadaten sind dann weg, und damit Datum und Ort. Daran
+  scheitern die meisten Versuche, EXIF aus einem Fotowähler zu bekommen.
+  Der Weg über **Dateien** ist von alldem nicht betroffen: Dort kommt die
+  Datei unangetastet an. Er ist der verlässlichere und deshalb kein
+  Notbehelf.
+- **Wer die Erlaubnis verweigert, wird nicht ausgesperrt** (dieselbe Lehre
+  wie Schulalarm 1.1.0/Build 43). Alles außer dem automatischen
+  Aufnahmeort läuft weiter, die Punkte lassen sich von Hand setzen, und
+  die App sagt in einem Satz, was fehlt und warum.
+- **Breite und Höhe stehen so in der Datei, wie der Sensor sie gelesen
+  hat.** Ein hochkant gehaltenes Telefon liefert 4032 × 3024 plus eine
+  Orientierung (5 bis 8 = gedreht). Ohne das Tauschen wäre jedes
+  Hochformat im Layout ein Querformat, und die Fotoreihen gingen nicht
+  auf. Beim Vorschaubild macht das
+  `kCGImageSourceCreateThumbnailWithTransform` — ohne diese Zeile liegt
+  jedes Hochformat quer, und zwar NUR in der Vorschau.
+- **Der GPS-Betrag ist immer positiv**; ob Süd oder West, steht in einem
+  eigenen Feld. Wer es überliest, verlegt jede Reise auf die Nordhalbkugel
+  und nach Osten.
+- **Seite und PDF zeichnet DERSELBE Setzer** (`Dienste/Seitensatz.swift`,
+  CoreText). Eine Buchseite wird zweimal gezeichnet — auf dem Bildschirm,
+  damit man sie anfassen kann, und ins PDF, damit man sie drucken kann.
+  Zwei Zeichenwege bedeuten früher oder später zwei Ergebnisse, und der
+  Unterschied fällt auf, wenn das Buch beim Drucker liegt. Die Ansicht
+  hängt eine UIView davor (`Views/Textkasten.swift`), die nichts weiter
+  tut, als diese Funktionen aufzurufen. **Wer eine neue Blockart baut,
+  zeichnet sie dort und nicht zweimal.**
+- **Ein `Text` aus SwiftUI taugt hier nicht:** kein Blocksatz, keine feste
+  Zeilenhöhe, keine Silbentrennung, eigener Umbruch. Und `draw(with:)` aus
+  UIKit setzt über TextKit, also über einen ANDEREN Umbruch als den, mit
+  dem `Textmass` (CoreText) gerechnet hat — ein Text, der beim Messen
+  sechs Zeilen hatte und beim Zeichnen sieben, läuft unten aus seinem
+  Block.
+- **Gemessen wird der Umbruch, nicht geschätzt** (`Model/Textmass.swift`).
+  Eine Schätzung aus Zeichenzahl mal Schriftgröße ist bei einer
+  Proportionalschrift regelmäßig um ein Drittel daneben.
+- **Silbentrennung ist hier ERLAUBT**, anders als in Textauszug und
+  Wörterwerkstatt. Getrennt wird nicht von uns, sondern von Apples
+  deutschem Wörterbuch (`hyphenationFactor` mit `languageIdentifier`).
+  Eine selbst gebaute Trennung bleibt verboten: Die deutsche ist nicht
+  ableitbar, und eine falsche stünde für immer im gedruckten Buch.
+- **Wo das Bild im Rahmen liegt, rechnet EINE Funktion**
+  (`Bildausschnitt.zielrechteck`), benutzt von der Ansicht und vom PDF.
+  Grundlage ist FÜLLEN, nicht Einpassen; was überragt, wird beschnitten.
+  Rahmen und Ausschnitt sind zwei Dinge: Der Rahmen ist der Platz auf der
+  Seite, der Ausschnitt der sichtbare Teil des Bildes. Beides muss gehen.
+- **Gerechnet wird in SEITENPUNKTEN, nicht in Bildschirmpunkten.** Der
+  Maßstab liegt als eine einzige Skalierung über der Seite, und jede Geste
+  wird durch ihn geteilt, bevor sie ins Modell geht. Ohne diese Division
+  wanderte ein Block auf einer klein gezoomten Seite dreimal so weit wie
+  der Finger — und ein Buch, das auf dem iPhone gestaltet wurde, sähe auf
+  dem iPad anders aus.
+- **Die Karte auf der Seite ist ein BILD** (`MKMapSnapshotter`,
+  `Dienste/Kartenwerk.swift`), mit drei Wirkungen auf einmal: Das PDF
+  sieht aus wie die Ansicht; die Karte schluckt keine Geste, die den Block
+  bewegen wollte (Lehre aus Abfahrtstafel 1.1.18, deshalb
+  `.allowsHitTesting(false)`); und ohne Netz bleibt das Bild stehen. Der
+  Punkt wird dagegen auf einer ECHTEN Karte gewählt, in einem eigenen
+  Bildschirm, über ein festes Fadenkreuz — ein Tippen wäre naheliegend und
+  schlechter, der Finger verdeckt genau die Stelle, die er trifft.
+- **Gezeichnet wird die Verbindung der Punkte, nicht der gefahrene Weg**,
+  und das steht unter der Karte. Welche Straße es war, steht in keinem
+  Foto. Dieselbe Ehrlichkeit wie bei der gestrichelten Luftlinie in der
+  Abfahrtstafel.
+- **Die Spur wird AUSGEDÜNNT und dabei gezählt** (`Dienste/Spurbau.swift`,
+  Vorgabe 150 m). Wer an einem Tag zweihundert Fotos macht, macht
+  hundertachtzig davon an fünf Orten; ungefiltert wäre die Spur ein Knäuel.
+  Zusammengefasst wird nach ENTFERNUNG und nicht nach Zeit: eine Stunde im
+  Museum ist ein Punkt, eine Stunde im Zug sind viele. Was
+  zusammengefasst wurde, zählt `zusammengefasst` mit — stillschweigend
+  wegzulassen wäre eine Lücke, die niemand bemerkt.
+- **Ein Handpunkt OHNE Uhrzeit kommt ans Ende und wird nicht einsortiert.**
+  Wohin er in der Tagesfolge gehört, weiß niemand — auch die App nicht.
+  Eine Reihenfolge, die sie sich ausdenkt, sähe aus wie eine, die aus den
+  Daten kommt. Verschieben geht in der Punktliste, und das steht dabei.
+- **Der Textimport behauptet nichts, er ZEIGT** (`Dienste/Textimport.swift`,
+  `Views/TextimportView.swift`). Die Regel hat zwei Hälften, beide an 18
+  echten Sätzen gemessen (sechs davon dürfen NICHT treffen): Vor dem Datum
+  darf nur Beiwerk stehen (Wochentag, „am", „Tag 5", Satzzeichen); nach dem
+  Datum steht die Überschrift, höchstens 60 Zeichen und **groß
+  anfangend**. Damit fallen „Heute, am 12.08., war es heiß." und „Am 12.08.
+  begann alles mit einem verspäteten Flug" heraus, und „12.08.2026 –
+  Ankunft in Lissabon" ergibt Datum und Überschrift auf einmal.
+- **Vorn wird NUR ein Wochentag oder eine Zahl abgeschnitten, nie ein
+  Artikel** (gefunden beim Messen). Ein früherer Entwurf strich „der" und
+  „den" überall, und aus „Der Weg nach oben" wurde „Weg nach oben" — ein
+  Artikel steht am Anfang jeder zweiten Überschrift.
+- **Ein Monatsname muss ein echter sein.** Ohne diese Prüfung würde aus
+  „3. Tag in Porto" ein Datum, und der Monat wäre geraten.
+- **Fehlt die Jahreszahl, gilt die des vorigen Tages** — rutscht das Datum
+  dabei in die Vergangenheit, ist es der Jahreswechsel. Eine Reise über
+  Silvester ist nichts Besonderes, ein Tagebuch, das dabei elf Monate
+  zurückspringt, schon.
+- **Was von Hand geändert wurde, bleibt.** Jeder angefasste Block trägt
+  `vonHand` und wird vom Neuanordnen in Ruhe gelassen; vor dem
+  Überschreiben eines bearbeiteten Tages fragt die App ausdrücklich nach,
+  und die Tagesliste zeigt an jedem solchen Tag ein Zeichen. Eine
+  Automatik, die eine Stunde Handarbeit ohne Rückfrage überschreibt,
+  benutzt man genau einmal. Dazu ein flacher Rückgängig-Stapel (25 Stände)
+  — ohne ihn traut sich niemand, etwas auszuprobieren.
+- **Gemerkt wird beim ANFANG einer Geste, nicht bei jedem Bildpunkt.** Bei
+  sechzig Zwischenständen je Fingerbewegung wäre der Stapel nach einer
+  Geste voll und der Zustand davor unerreichbar.
+- **Örtlich heißt ABWEICHUNG, nicht Kopie** (`Schriftabweichung`). Alle
+  Felder sind freiwillig; was `nil` ist, folgt weiter der globalen
+  Einstellung. Würde eine örtliche Änderung stillschweigend alle Werte
+  kopieren, wäre jede spätere Änderung am Buchganzen an allen schon einmal
+  angefassten Stellen wirkungslos — genau das, was man beim Umstellen
+  einer Schrift nicht will.
+- **Nur Schriftfamilien anbieten, die das Gerät wirklich hat**
+  (`Schriftfamilie.vorhandene`). Eine, die dann doch die Systemschrift
+  zeichnet, wäre eine Auskunft, die nicht stimmt. Mitgeliefert wird keine:
+  Ein Buch wird weitergegeben, und dafür bräuchte jede Schrift eine Lizenz.
+- **Ein Modus, den man nicht sieht, darf die Bedeutung einer Geste nicht
+  ändern.** Im Ausschnittsmodus verschiebt das Ziehen das Bild IM Rahmen
+  statt den Rahmen auf der Seite — und ein Band über der Seite sagt das.
+  Dieselbe Regel wie beim Fußwegmesser der Abfahrtstafel.
+- **Nichts geht stillschweigend verloren:** Fotos ohne Datum landen in der
+  Ablage und werden gezählt, Fotos ohne Ort werden gezählt, ein Wisch
+  nimmt ein Foto vom Tag und nicht von der Platte, eine unlesbare Reise
+  wird in der Übersicht gezählt, und der Einfuhrbericht sagt in einem Satz,
+  was ankam.
+- **Gesichert wird über eine temporäre Datei, die getauscht wird.** Eine
+  halb geschriebene Reise wäre der Verlust eines ganzen Buches — und die
+  Wahrscheinlichkeit dafür ist am höchsten, wenn viel darin steht.
+- **Kein `@AppStorage` in `Reisewerk`** — dieselbe Falle wie in der
+  Abfahrtstafel: Der Wrapper ist eine `DynamicProperty`, schreibt zwar in
+  die Voreinstellungen, löst aber kein `objectWillChange` aus.
+- **Der Layoutautomat rechnet in `CGFloat`, wo ein `CGRect` im Spiel ist**
+  (getroffen beim ersten Bau): Bei einer TUPEL-Zuweisung rechnet Swift
+  `Double` und `CGFloat` NICHT ineinander um, obwohl beide auf diesen
+  Geräten dasselbe sind. Bei gewöhnlichen Zuweisungen und Argumenten tut
+  er es — der Fehler zeigt sich also nur an dieser einen Stelle.
+- `MARKETING_VERSION` und `CURRENT_PROJECT_VERSION` stehen an je zwei
+  Stellen im pbxproj (Debug + Release) — es gibt KEINE Skript-Bauphase.
+  **Jede Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne
+  Nachfrage, als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann
+  1.0.1 (Build 2) usw. Dazu gesetzt: `DEVELOPMENT_TEAM = F4989GSTWS` und
+  `INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.travel`.
+- `ITSAppUsesNonExemptEncryption = NO` steht in `Config/Info.plist` UND als
+  Build-Einstellung — nicht entfernen.
+- Das App-Symbol rechnet `UrlaubstagebuchiOS/scripts/make-icon.py` (reines
+  Python, ohne fremde Bibliotheken) — nicht von Hand bearbeiten.
+- **Offen: Ob die Schriften im PDF ankommen, ist nicht gemessen.** Der Text
+  wird als Text gesetzt; ob iOS eine Systemschrift einbettet oder nur
+  benennt, lässt sich erst an einem echten Ausdruck sehen. **Nicht als
+  erledigt darstellen.** Ebenso ungemessen: wie sich ein Buch mit
+  zweihundert Fotos anfühlt.
+- Übersetzt wird in GitHub Actions (`.github/workflows/ios-apps-build.yml`,
+  Eintrag `("UrlaubstagebuchiOS", "Urlaubstagebuch")` in `welche-apps.py`).
+  **Erst pushen, Bau abwarten, Fehler beheben — den PR-Link erst
+  herausgeben, wenn der Bau grün ist.**
+
 ## Projekt Anstoß (Fußball-Liveticker, native iOS-App)
 
 - App-Code: `AnstossiOS/` (ein Target: App, iPhone + iPad, iOS 17).
