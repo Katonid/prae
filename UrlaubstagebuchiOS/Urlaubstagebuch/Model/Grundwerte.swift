@@ -110,53 +110,125 @@ struct Farbwert: Codable, Hashable {
     static let akzent = Farbwert(rot: 0.816, gruen: 0.412, blau: 0.235)
 }
 
-// Das Format des Buches. Die Zahlen sind PostScript-Punkte, also genau die
-// Einheit, in der eine PDF-Seite gemessen wird — damit ist der Export ohne
-// Umrechnung gleich der Ansicht.
+// Das Format des Buches — in MILLIMETERN, weil man ein Buch so bestellt.
+//
+// Gerechnet wird daraus in PostScript-Punkten, also in der Einheit, in der
+// eine PDF-Seite gemessen wird. Die alten runden Punktzahlen (595 x 842)
+// waren nah dran und eben nicht genau: A4 sind 595,276 x 841,890 Punkte,
+// und eine Seite, die einen halben Millimeter zu klein ankommt, schiebt
+// beim Druckdienst den ganzen Beschnitt.
 enum Seitenformat: String, Codable, CaseIterable, Identifiable {
     case a4hoch
     case a4quer
-    case quadrat
+    case quadrat21
+    case quadrat30
 
     var id: String { rawValue }
 
-    var groesse: CGSize {
+    var millimeter: CGSize {
         switch self {
-        case .a4hoch: return CGSize(width: 595, height: 842)
-        case .a4quer: return CGSize(width: 842, height: 595)
-        case .quadrat: return CGSize(width: 680, height: 680)
+        case .a4hoch: return CGSize(width: 210, height: 297)
+        case .a4quer: return CGSize(width: 297, height: 210)
+        case .quadrat21: return CGSize(width: 210, height: 210)
+        case .quadrat30: return CGSize(width: 300, height: 300)
         }
+    }
+
+    // Das ENDFORMAT in Punkten — die Seite, wie sie nach dem Schneiden in
+    // der Hand liegt. Der Anschnitt kommt außen herum und gehört zur
+    // Gestaltung, nicht zum Format.
+    var groesse: CGSize {
+        CGSize(width: Druckmass.pt(millimeter.width), height: Druckmass.pt(millimeter.height))
     }
 
     var name: String {
         switch self {
         case .a4hoch: return "A4 hoch"
         case .a4quer: return "A4 quer"
-        case .quadrat: return "Quadratisch"
+        case .quadrat21: return "21 x 21 cm"
+        case .quadrat30: return "30 x 30 cm"
         }
+    }
+
+    var masstext: String {
+        "\(Int(millimeter.width)) x \(Int(millimeter.height)) mm"
     }
 }
 
-// Die Maße, die für das ganze Buch gelten. Sie stehen an EINER Stelle,
-// weil ein Satzspiegel, der von Seite zu Seite wandert, das Erste ist, was
-// ein Buch unruhig macht.
+// Die Maße, die für das ganze Buch gelten — durchweg in MILLIMETERN.
+//
+// Sie stehen an EINER Stelle, weil ein Satzspiegel, der von Seite zu Seite
+// wandert, das Erste ist, was ein Buch unruhig macht.
 struct Gestaltung: Codable, Hashable {
-    var randAussen: Double = 44
-    var randOben: Double = 48
-    var randUnten: Double = 52
-    var fuge: Double = 12
+    var randAussen: Double = 16
+    var randOben: Double = 17
+    var randUnten: Double = 19
+    var fuge: Double = 4
+
+    // Der ANSCHNITT ist der Streifen, der nach dem Druck weggeschnitten
+    // wird. Ohne ihn kann kein Bild bis an die Papierkante laufen: Jede
+    // Schneidemaschine hat ein Spiel von einem knappen Millimeter, und
+    // ohne Zugabe bliebe dort ein weißer Faden stehen. Drei Millimeter sind
+    // der Standard, manche Buchdienste verlangen fünf.
+    var anschnitt: Double = 3
+
+    // Der BUNDSTEG ist der zusätzliche Rand zur Heftung hin. Bei einer
+    // Klebebindung verschwindet sonst der innere Rand im Falz.
+    //
+    // Er wird auf BEIDE Seitenränder gerechnet und nicht nur auf den
+    // inneren. Das kostet ein paar Millimeter und ist die einzige Fassung,
+    // die immer stimmt: Welche Seite innen liegt, hängt an der laufenden
+    // Seitenzahl, und die verschiebt sich, sobald ein Tag eine Seite mehr
+    // oder weniger braucht. Ein Bundsteg auf der falschen Seite fällt erst
+    // im gebundenen Buch auf.
+    var bundsteg: Double = 0
+
     var kartenanteil: Double = 0.38
-    var eckenradius: Double = 4
+    var eckenradius: Double = 0
     var papier: Farbwert = .papier
     var mindestabstandSpur: Double = 150
 
+    // Seitenzahlen und Kopfzeile gehören zum Buch, nicht zum Tag — deshalb
+    // stehen sie hier und werden beim Zeichnen jeder Seite ergänzt, statt
+    // als Blöcke im Satz herumzuliegen, wo sie jemand versehentlich
+    // verschöbe.
+    var seitenzahlen: Bool = true
+    var kopfzeile: Bool = false
+
+    var anschnittPt: Double { Druckmass.pt(anschnitt) }
+    var fugePt: Double { Druckmass.pt(fuge) }
+    var eckenradiusPt: Double { Druckmass.pt(eckenradius) }
+
+    // Der bedruckbare Bogen: Endformat plus Anschnitt an allen vier Kanten.
+    // Das ist die Größe der PDF-Seite.
+    func bogen(_ format: Seitenformat) -> CGSize {
+        let end = format.groesse
+        let zugabe = anschnittPt * 2
+        return CGSize(width: end.width + zugabe, height: end.height + zugabe)
+    }
+
+    // Der Satzspiegel liegt im ENDFORMAT und hat seinen Ursprung in dessen
+    // linker oberer Ecke. Der Anschnitt ist damit negativer Raum: Ein
+    // randabfallender Block beginnt bei -anschnitt und ist um die doppelte
+    // Zugabe breiter. Das hält alle Koordinaten der Seite bei den Zahlen,
+    // die auf dem Lineal stehen.
     func satzspiegel(_ format: Seitenformat) -> CGRect {
         let groesse = format.groesse
+        let seite = Druckmass.pt(randAussen + bundsteg)
         return CGRect(
-            x: randAussen,
-            y: randOben,
-            width: groesse.width - 2 * randAussen,
-            height: groesse.height - randOben - randUnten
+            x: seite,
+            y: Druckmass.pt(randOben),
+            width: groesse.width - 2 * seite,
+            height: groesse.height - Druckmass.pt(randOben + randUnten)
         )
+    }
+
+    // Der volle Bogen in Seitenkoordinaten — von -anschnitt bis
+    // Endformat + anschnitt. Was hier hineinreicht, läuft randabfallend.
+    func randabfallend(_ format: Seitenformat) -> CGRect {
+        let groesse = format.groesse
+        return CGRect(x: -anschnittPt, y: -anschnittPt,
+                      width: groesse.width + 2 * anschnittPt,
+                      height: groesse.height + 2 * anschnittPt)
     }
 }

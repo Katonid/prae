@@ -25,6 +25,7 @@ struct BlockInspektor: View {
                     if let id = block.fotoID { fotoAbschnitt(block, fotoID: id) }
                     if block.inhalt == .karte { karteAbschnitt(block) }
                     lageAbschnitt(block)
+                    wirkungAbschnitt(block)
                     rahmenAbschnitt(block)
                     werkzeugAbschnitt(block)
                 }
@@ -234,6 +235,40 @@ struct BlockInspektor: View {
         }
     }
 
+    private func wirkungAbschnitt(_ block: Block) -> some View {
+        Section {
+            Picker("Schatten", selection: Binding(
+                get: { block.schatten },
+                set: { neu in werk.aendere(block.id) { $0.schatten = neu } }
+            )) {
+                ForEach(Schattenart.allCases) { art in Text(art.name).tag(art) }
+            }
+            if block.istFoto {
+                VStack(alignment: .leading) {
+                    LabeledContent("Weißer Rand", value: String(format: "%.1f mm", block.fotorand)
+                        .replacingOccurrences(of: ".", with: ","))
+                    Slider(value: Binding(
+                        get: { block.fotorand },
+                        set: { neu in werk.aendere(block.id, merken: false) { $0.fotorand = neu } }
+                    ), in: 0...10, step: 0.5)
+                }
+            }
+            Toggle("Bis über den Rand (randabfallend)", isOn: Binding(
+                get: { block.randabfallend },
+                set: { an in randabfallendSetzen(block, an: an) }
+            ))
+            .disabled(werk.reise.gestaltung.anschnitt < 0.5)
+        } header: {
+            Text("Wirkung")
+        } footer: {
+            if werk.reise.gestaltung.anschnitt < 0.5 {
+                Text("Randabfallend geht erst mit Anschnitt. Er steht unter „Buch“ → „Format, Ränder, Karte“ und sollte 3 mm betragen.")
+            } else {
+                Text("Randabfallend heißt: Der Block wird bis über die Schnittkante gezogen, damit nach dem Beschneiden kein weißer Faden stehen bleibt.")
+            }
+        }
+    }
+
     private func rahmenAbschnitt(_ block: Block) -> some View {
         Section("Rand und Grund") {
             VStack(alignment: .leading) {
@@ -296,11 +331,17 @@ struct BlockInspektor: View {
         HStack {
             Text(name)
             Spacer()
-            TextField(name, value: Binding(get: { wert }, set: setzen), format: .number.precision(.fractionLength(0)))
+            // Angezeigt wird in MILLIMETERN: Ein Buch wird in Millimetern
+            // bestellt, und niemand kann einschätzen, ob 184 Punkte viel
+            // sind. Gespeichert bleibt es in Punkten.
+            TextField(name, value: Binding(
+                get: { Druckmass.mm(wert) },
+                set: { setzen(Druckmass.pt($0)) }
+            ), format: .number.precision(.fractionLength(1)))
                 .multilineTextAlignment(.trailing)
                 .keyboardType(.numbersAndPunctuation)
                 .frame(width: 80)
-            Text("pt").foregroundStyle(.tertiary).font(.caption)
+            Text("mm").foregroundStyle(.tertiary).font(.caption)
         }
     }
 
@@ -313,6 +354,38 @@ struct BlockInspektor: View {
                 werk.aendere(block.id, merken: false) { $0.abweichung[keyPath: pfad] = neu }
             }
         )
+    }
+
+    // Randabfallend ist keine Marke, die man nur setzt — der Block muss
+    // auch wirklich bis in den Anschnitt reichen. Beides getrennt zu
+    // machen, hieße einen Schalter anzubieten, der nichts tut.
+    private func randabfallendSetzen(_ block: Block, an: Bool) {
+        let anschnitt = werk.reise.gestaltung.anschnittPt
+        let bogen = werk.reise.gestaltung.randabfallend(werk.reise.format)
+        let satz = werk.reise.gestaltung.satzspiegel(werk.reise.format)
+        werk.aendere(block.id) { b in
+            b.randabfallend = an
+            guard an else { return }
+            // Die Kanten, die schon nah am Papierrand liegen, werden über
+            // ihn hinausgezogen; die anderen bleiben, wo sie sind. Ein
+            // Block in der Seitenmitte soll nicht plötzlich die ganze Seite
+            // füllen.
+            let nah = anschnitt * 2 + 6
+            var r = b.rahmen
+            if r.x <= satz.minX + nah {
+                let rechts = r.x + r.breite
+                r.x = bogen.minX
+                r.breite = rechts - r.x
+            }
+            if r.x + r.breite >= satz.maxX - nah { r.breite = bogen.maxX - r.x }
+            if r.y <= satz.minY + nah {
+                let unten = r.y + r.hoehe
+                r.y = bogen.minY
+                r.hoehe = unten - r.y
+            }
+            if r.y + r.hoehe >= satz.maxY - nah { r.hoehe = bogen.maxY - r.y }
+            b.rahmen = r
+        }
     }
 
     private func ausrichten(_ block: Block) {

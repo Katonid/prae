@@ -63,7 +63,7 @@ struct PunktwahlView: View {
         Map(position: $kamera) {
             if let tag, tag.spur.count >= 2 {
                 MapPolyline(coordinates: tag.spur.map(\.koordinate.clLocation))
-                    .stroke(werk.reise.linienfarbe.farbe, lineWidth: 3)
+                    .stroke(werk.reise.akzent.farbe, lineWidth: 3)
             }
             ForEach(tag?.spur ?? []) { punkt in
                 Marker(punkt.name.isEmpty ? "Punkt" : punkt.name,
