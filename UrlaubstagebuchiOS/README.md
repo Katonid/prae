@@ -659,6 +659,61 @@ anderen Kasten wäre sie eine zweite Messung je Neuzeichnen — und der Fall
 entsteht praktisch nur dort, wo man gerade gezogen hat. Fürs ganze Buch ist
 die Druckprüfung zuständig.
 
+## Das Textfeld und die Fotowirkung (1.0.9)
+
+### „Das Textfeld erscheint dupliziert"
+
+Gemeldet: „Sobald ich einen Doppeltipp auf den Text ausübe, erscheint das
+Textfeld dupliziert, übereinander liegend und lässt sich auch nicht mehr
+entfernen."
+
+Der erste Teil ist am Quelltext zu sehen: Beim Bearbeiten lag das
+Eingabefeld (UIKit, TextKit) **über** dem weiter gezeichneten Block
+(CoreText). Dieselben Wörter, zwei Umbruchmaschinen — die brechen nie an
+derselben Stelle, und übereinander sieht das aus wie zwei Textfelder. Der
+bearbeitete Block wird deshalb nicht mehr zusätzlich gezeichnet.
+
+> **Merke:** Zwei Zeichner für denselben Inhalt zeigen nie dasselbe.
+
+Der zweite Teil — „lässt sich nicht mehr entfernen" — hatte einen eigenen
+Grund: Das Feld ließ sich nur schließen, indem man **daneben** tippte, und
+traf man dabei einen anderen Textblock, ging sofort das nächste Feld auf.
+Jetzt liegt eine unsichtbare Fläche hinter dem Feld, die es schließt und den
+Tipp nicht weiterreicht, dazu der Knopf **„Text fertig"** in der Fußleiste.
+Wer einen Modus baut, baut den Ausgang mit — und zwar sichtbar.
+
+**Nicht beantwortet:** ob auf dieser Seite wirklich ZWEI Textkästen liegen.
+Das Bildschirmfoto lässt beides zu. Die Druckprüfung meldet ab 1.0.9
+denselben Wortlaut mehrfach auf einer Seite — das wäre im gedruckten Buch
+ein doppelter Absatz, und mit dem Hinweis ist er nicht mehr zu übersehen.
+Woher ein zweiter Kasten käme, sagt sie nicht.
+
+### Wie sich Fotos abheben — einmal fürs ganze Buch
+
+Gewünscht: „Ich möchte die Einstellung, wie die einzelnen Fotos sich abheben
+sollen, beziehungsweise wie der Rahmen um sie herum aussehen soll, global
+einstellen können."
+
+Bis 1.0.8 schrieb der Layoutautomat Schatten und weißen Rand in **jeden**
+Fotoblock. Danach war die Einstellung nicht mehr zu ändern, ohne
+zweihundert Fotos einzeln anzufassen — genau der Fall, den
+`Schriftabweichung` für die Schrift längst vermeidet.
+
+* **Buch → Format, Ränder, Karte → „Fotos"**: Schatten, weißer Rand (wie bei
+  einem Sofortbild), Linie ringsum und deren Farbe. Gilt für jedes Foto.
+* **Am einzelnen Block steht eine Abweichung**, kein Wert: Wer im Inspektor
+  nichts anfasst, folgt dem Buch — und eine spätere Änderung am Buch trifft
+  dieses Foto mit. Ein Knopf „Wieder wie im Buch" nimmt die Abweichung
+  zurück, einer in der Gestaltung nimmt alle zurück.
+* **Aufgelöst wird an einer Stelle** (`Block.wirkung`), die Bildschirm und
+  PDF gemeinsam fragen. Zwei Fassungen liefen auseinander, und der
+  Unterschied fiele auf, wenn das Buch beim Drucker liegt.
+
+Der Umbau von `schatten`/`fotorand`/`randbreite` auf optional ist für ältere
+Bücher gefahrlos: Der erzeugte `Codable`-Leser verlangt einen Schlüssel nur
+für nicht-optionale Eigenschaften. Ein vorhandener Wert wird gelesen, ein
+fehlender wird `nil` — also „wie im Buch".
+
 ## Bildunterschriften (1.0.5)
 
 Gewünscht 09/2026: „Ich möchte zu jedem Foto einen Beschreibungstext

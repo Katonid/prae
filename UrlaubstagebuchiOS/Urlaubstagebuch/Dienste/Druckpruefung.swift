@@ -62,6 +62,37 @@ enum Druckpruefung {
         )]
     }
 
+    // Zwei Textkästen auf derselben Seite mit demselben Wortlaut — das
+    // druckt denselben Absatz zweimal. Auf dem Bildschirm liegen sie leicht
+    // übereinander und sehen aus wie ein Darstellungsfehler; im Buch sind
+    // es zwei Absätze. Gemeldet 09/2026 als „das Textfeld erscheint
+    // dupliziert"; woher der zweite Kasten kam, ist damit noch nicht
+    // beantwortet — aber er ist ab jetzt nicht mehr zu übersehen.
+    static func doppelterText(_ reise: Reise) -> [Zeile] {
+        var treffer: [String] = []
+        for tag in reise.tage {
+            for (nummer, seite) in tag.seiten.enumerated() {
+                var gesehen: [String: Int] = [:]
+                for block in seite.bloecke where block.inhalt.istText {
+                    let text = Seitensatz.inhaltstext(block, tag: tag, reise: reise)
+                        .trimmingCharacters(in: .whitespacesAndNewlines)
+                    guard text.count > 20 else { continue }
+                    gesehen[text, default: 0] += 1
+                }
+                for (text, anzahl) in gesehen where anzahl > 1 {
+                    let anfang = text.prefix(40)
+                    treffer.append("\(tag.datum.mittel), Seite \(nummer + 1): \(anzahl)× \u{201E}\(anfang)…\u{201C}")
+                }
+            }
+        }
+        guard !treffer.isEmpty else { return [] }
+        return [Zeile(
+            stufe: .warnung,
+            titel: "\(treffer.count)× derselbe Text mehrfach auf einer Seite",
+            text: "Derselbe Wortlaut steht in mehreren Textkästen und würde doppelt gedruckt. Den überzähligen Kasten antippen und im Inspektor mit \u{201E}Block entfernen\u{201C} wegnehmen.\n" + treffer.prefix(12).joined(separator: "\n")
+        )]
+    }
+
     // MARK: - Vor dem Ausgeben
 
     static func vorab(_ reise: Reise) -> [Zeile] {
@@ -87,6 +118,7 @@ enum Druckpruefung {
         zeilen.append(contentsOf: bildaufloesung(reise))
         zeilen.append(contentsOf: schriften(reise))
         zeilen.append(contentsOf: abgeschnittenerText(reise))
+        zeilen.append(contentsOf: doppelterText(reise))
 
         // Randabfallendes
         let randab = reise.seitenfolge.reduce(0) { summe, seite in
@@ -104,7 +136,9 @@ enum Druckpruefung {
 
         // Transparenz
         let mitSchatten = reise.seitenfolge.contains { seite in
-            seite.seite.bloecke.contains { $0.schatten != .keiner || $0.inhalt == .verlauf }
+            seite.seite.bloecke.contains {
+                $0.wirkung(reise.gestaltung).schatten != .keiner || $0.inhalt == .verlauf
+            }
         }
         if mitSchatten {
             zeilen.append(Zeile(

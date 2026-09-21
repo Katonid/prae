@@ -359,6 +359,23 @@ final class Reisewerk: ObservableObject, Identifiable {
         return true
     }
 
+    // Alle Abweichungen einzelner Fotos zurücknehmen — danach folgt jedes
+    // Foto wieder der Einstellung des Buches.
+    func fotowirkungVereinheitlichen() {
+        merken()
+        for t in reise.tage.indices {
+            for s in reise.tage[t].seiten.indices {
+                for b in reise.tage[t].seiten[s].bloecke.indices
+                where reise.tage[t].seiten[s].bloecke[b].istFoto {
+                    reise.tage[t].seiten[s].bloecke[b].schatten = nil
+                    reise.tage[t].seiten[s].bloecke[b].fotorand = nil
+                    reise.tage[t].seiten[s].bloecke[b].randbreite = nil
+                    reise.tage[t].seiten[s].bloecke[b].rand = nil
+                }
+            }
+        }
+    }
+
     func tagAendern(_ id: UUID, _ arbeit: (inout Reisetag) -> Void) {
         guard let stelle = tagIndex(id) else { return }
         merken()

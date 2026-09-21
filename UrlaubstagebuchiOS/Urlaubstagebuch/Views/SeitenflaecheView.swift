@@ -70,7 +70,16 @@ struct SeitenflaecheView: View {
             }
 
             ForEach(buchseite.seite.sortiert) { block in
-                blockAnsicht(block)
+                // Der Block, der gerade im Textfeld steht, wird hier NICHT
+                // gezeichnet. Sonst liegen zwei Fassungen desselben Textes
+                // übereinander — eine von CoreText gesetzte und eine von
+                // TextKit —, und die brechen nie an derselben Stelle um.
+                // Gemeldet 09/2026: „erscheint das Textfeld dupliziert,
+                // übereinander liegend". **Merke: Zwei Zeichner für
+                // denselben Inhalt zeigen nie dasselbe.**
+                if werk.textBearbeitung != block.id {
+                    blockAnsicht(block)
+                }
             }
 
             // Die Schnittkante liegt ÜBER allem. Sie ist die Linie, an der
@@ -152,6 +161,16 @@ struct SeitenflaecheView: View {
             if bearbeitbar, let id = werk.textBearbeitung,
                let block = buchseite.seite.bloecke.first(where: { $0.id == id })
             {
+                // Ein Tipp NEBEN das Textfeld schließt es — und sonst
+                // nichts. Bis 1.0.8 kam so ein Tipp bei der Seite an, und
+                // traf er dabei einen anderen Textblock, ging gleich das
+                // nächste Feld auf: Für den Menschen davor ein Textfeld,
+                // das sich nicht schließen lässt.
+                Color.clear
+                    .frame(width: bogen.width, height: bogen.height)
+                    .offset(x: -anschnitt, y: -anschnitt)
+                    .contentShape(Rectangle())
+                    .onTapGesture { werk.textBearbeitung = nil }
                 InlineText(werk: werk, block: block, tag: buchseite.tag, massstab: massstab)
             }
 
@@ -258,18 +277,19 @@ struct SeitenflaecheView: View {
     @ViewBuilder
     private func blockAnsicht(_ block: Block) -> some View {
         let rahmen = block.rahmen
-        let randPt = Druckmass.pt(block.fotorand)
+        let wirkung = block.wirkung(werk.reise.gestaltung)
+        let randPt = Druckmass.pt(wirkung.fotorand)
 
         BlockInhaltView(werk: werk, block: block, tag: buchseite.tag)
             .frame(width: rahmen.breite, height: rahmen.hoehe)
             .padding(randPt)
             .background {
-                if block.fotorand > 0 {
+                if wirkung.fotorand > 0 {
                     RoundedRectangle(cornerRadius: werk.reise.gestaltung.eckenradiusPt)
                         .fill(Color.white)
                 }
             }
-            .schattenwurf(block.schatten, massstab: format.width / 600)
+            .schattenwurf(wirkung.schatten, massstab: format.width / 600)
             .padding(-randPt)
             .frame(width: rahmen.breite, height: rahmen.hoehe)
             .rotationEffect(.degrees(block.drehung))
@@ -733,9 +753,10 @@ struct BlockInhaltView: View {
                     .fill(grund.farbe)
             }
             inhalt
-            if let rand = block.rand, block.randbreite > 0, block.inhalt != .linie {
+            let wirkung = block.wirkung(werk.reise.gestaltung)
+            if let rand = wirkung.randfarbe, wirkung.randbreite > 0, block.inhalt != .linie {
                 RoundedRectangle(cornerRadius: werk.reise.gestaltung.eckenradiusPt)
-                    .strokeBorder(rand.farbe, lineWidth: block.randbreite)
+                    .strokeBorder(rand.farbe, lineWidth: wirkung.randbreite)
             }
         }
     }
