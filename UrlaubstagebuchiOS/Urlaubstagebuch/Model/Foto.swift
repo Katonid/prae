@@ -9,6 +9,10 @@ enum Ortsquelle: String, Codable {
     case exif
     case mediathek
     case vonHand
+    // Aus der Tagesspur-App eingelesen. Ein solcher Punkt zählt NICHT als
+    // Fotopunkt: „Aus den Fotos neu bauen" lässt ihn stehen, denn er ist
+    // ausdrücklich eingelesen worden und käme aus keinem Bild zurück.
+    case tagesspur
     case keiner
 
     var name: String {
@@ -16,6 +20,7 @@ enum Ortsquelle: String, Codable {
         case .exif: return "aus dem Foto"
         case .mediathek: return "aus der Fotomediathek"
         case .vonHand: return "von Hand gesetzt"
+        case .tagesspur: return "aus der Tagesspur"
         case .keiner: return "kein Ort bekannt"
         }
     }

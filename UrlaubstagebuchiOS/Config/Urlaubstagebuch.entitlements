@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Der Abgleich läuft über iCloud Drive und nicht über CloudKit: Ein
+	     Buch ist eine kleine JSON-Datei und zweihundert große Bilder, und
+	     genau dafür ist ein Dateiabgleich gebaut. Gebraucht wird deshalb
+	     „CloudDocuments" und kein Datenbankrecht.
+
+	     Fehlt dieses Recht — weil die App-Id in der Entwicklerkonsole
+	     iCloud nicht kann —, gibt iOS keinen Behälter heraus. Die App
+	     bleibt dann örtlich und sagt es; sie stürzt nicht ab und sperrt
+	     niemanden aus. -->
+	<key>com.apple.developer.icloud-container-identifiers</key>
+	<array>
+		<string>iCloud.de.familie.urlaubstagebuch</string>
+	</array>
+	<key>com.apple.developer.icloud-services</key>
+	<array>
+		<string>CloudDocuments</string>
+	</array>
+	<key>com.apple.developer.ubiquity-container-identifiers</key>
+	<array>
+		<string>iCloud.de.familie.urlaubstagebuch</string>
+	</array>
+</dict>
+</plist>

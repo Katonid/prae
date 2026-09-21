@@ -16,26 +16,41 @@ enum Spurbau {
             .filter { !$0.abgelegt && $0.hatOrt }
             .sorted { ($0.aufnahme ?? .distantPast) < ($1.aufnahme ?? .distantPast) }
 
+        let roh: [Reisepunkt] = mitOrt.compactMap { foto in
+            guard let ort = foto.koordinate else { return nil }
+            return Reisepunkt(
+                koordinate: ort,
+                name: "",
+                zeit: foto.aufnahme,
+                quelle: foto.ortsquelle == .mediathek ? .mediathek : .exif
+            )
+        }
+        return ausgeduennt(roh, mindestabstand: mindestabstand)
+    }
+
+    // Die Ausdünnung selbst, für eine schon gebaute Reihe von Punkten —
+    // Fotos gehen denselben Weg, und die Tagesspur mit ihren tausend
+    // Messpunkten am Tag erst recht.
+    //
+    // Zusammengefasst wird mit dem zuletzt BEHALTENEN Punkt und nicht mit
+    // dem unmittelbaren Vorgänger: Sonst wanderte eine Kette knapp
+    // unterschwelliger Schritte über Kilometer, ohne je einen Punkt zu
+    // setzen.
+    static func ausgeduennt(_ punkte: [Reisepunkt], mindestabstand: Double) -> [Reisepunkt] {
         var spur: [Reisepunkt] = []
-        for foto in mitOrt {
-            guard let ort = foto.koordinate else { continue }
+        for punkt in punkte {
             if var letzter = spur.last,
-               letzter.koordinate.entfernung(zu: ort) < mindestabstand
+               letzter.koordinate.entfernung(zu: punkt.koordinate) < mindestabstand
             {
                 // Nicht wegwerfen, sondern mitzählen: Die Karte zeigt an
                 // einem dick gezeichneten Punkt, dass dort mehrere Bilder
                 // entstanden sind. Ein stillschweigend verschlucktes Foto
                 // wäre eine Lücke, die niemand bemerkt.
-                letzter.zusammengefasst += 1
+                letzter.zusammengefasst += punkt.zusammengefasst
                 spur[spur.count - 1] = letzter
                 continue
             }
-            spur.append(Reisepunkt(
-                koordinate: ort,
-                name: "",
-                zeit: foto.aufnahme,
-                quelle: foto.ortsquelle == .mediathek ? .mediathek : .exif
-            ))
+            spur.append(punkt)
         }
         return spur
     }

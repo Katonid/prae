@@ -8,14 +8,10 @@ import Foundation
 // steht — ein Schreibvorgang, den iOS mitten im Vorgang beendet, weil der
 // Nutzer die App weglegt.
 enum Ablage {
-    static let ordnername = "Reisen"
-
-    static var wurzel: URL {
-        let ort = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent(ordnername, isDirectory: true)
-        try? FileManager.default.createDirectory(at: ort, withIntermediateDirectories: true)
-        return ort
-    }
+    // WO die Reisen liegen, entscheidet `Wolke` — auf dem Gerät oder in
+    // iCloud. Hier steht es nicht noch einmal: Zwei Meinungen darüber, wo
+    // ein Buch liegt, wären zwei Ablagen.
+    static var wurzel: URL { Wolke.wurzel }
 
     static func datei(_ id: UUID) -> URL {
         wurzel.appendingPathComponent("\(id.uuidString).json")
@@ -47,7 +43,9 @@ enum Ablage {
     }
 
     static func laden(_ id: UUID) throws -> Reise {
-        let daten = try Data(contentsOf: datei(id))
+        let ort = datei(id)
+        Wolke.konflikteLoesen(ort)
+        let daten = try Data(contentsOf: ort)
         return try leser().decode(Reise.self, from: daten)
     }
 
@@ -56,12 +54,22 @@ enum Ablage {
     // Liste, die stillschweigend kürzer ist, sieht aus wie Datenverlust —
     // und ohne die Zahl wüsste niemand, ob sie einer ist.
     static func alle() -> (reisen: [Reise], unlesbar: Int) {
+        // Was in iCloud liegt, liegt nicht unbedingt auf dem Gerät. Ohne
+        // diesen Anstoß stünde ein Buch im Regal, das sich nicht öffnen
+        // lässt, und niemand wüsste warum.
+        Wolke.herunterladenAnstossen()
         guard let inhalt = try? FileManager.default.contentsOfDirectory(
             at: wurzel, includingPropertiesForKeys: nil)
         else { return ([], 0) }
         var gefunden: [Reise] = []
         var kaputt = 0
         for ort in inhalt where ort.pathExtension == "json" {
+            // Eine beiseitegelegte Konfliktfassung ist kein Buch im Regal —
+            // sie steht in den Einstellungen und wartet dort auf eine
+            // Entscheidung. Zwei gleich heißende Bücher nebeneinander wären
+            // die schlechtere Art, dasselbe zu sagen.
+            guard !ort.lastPathComponent.contains(Wolke.konfliktmarke) else { continue }
+            Wolke.konflikteLoesen(ort)
             guard let daten = try? Data(contentsOf: ort),
                   let reise = try? leser().decode(Reise.self, from: daten)
             else {
@@ -75,9 +83,7 @@ enum Ablage {
 
     static func loeschen(_ id: UUID) {
         try? FileManager.default.removeItem(at: datei(id))
-        let bilder = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("Reisen", isDirectory: true)
-            .appendingPathComponent(id.uuidString, isDirectory: true)
-        try? FileManager.default.removeItem(at: bilder)
+        try? FileManager.default.removeItem(
+            at: wurzel.appendingPathComponent(id.uuidString, isDirectory: true))
     }
 }

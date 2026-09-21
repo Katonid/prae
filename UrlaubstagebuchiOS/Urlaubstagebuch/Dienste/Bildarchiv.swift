@@ -25,9 +25,11 @@ final class Bildarchiv {
         vorrat.countLimit = 120
     }
 
+    // Die Bilder liegen neben dem Buch, und WO das ist, entscheidet
+    // `Wolke` — sonst läge das Buch in iCloud und seine Bilder auf dem
+    // Gerät.
     func ordner(_ reise: UUID) -> URL {
-        let wurzel = dateien.urls(for: .documentDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("Reisen", isDirectory: true)
+        let wurzel = Wolke.wurzel
             .appendingPathComponent(reise.uuidString, isDirectory: true)
             .appendingPathComponent("Bilder", isDirectory: true)
         try? dateien.createDirectory(at: wurzel, withIntermediateDirectories: true)

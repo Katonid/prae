@@ -5,6 +5,7 @@ struct RegalView: View {
     @State private var neuerTitel = ""
     @State private var anlegenOffen = false
     @State private var zuLoeschen: Reise?
+    @State private var einstellungen = false
 
     var body: some View {
         NavigationStack {
@@ -17,6 +18,13 @@ struct RegalView: View {
             }
             .navigationTitle("Reisetagebücher")
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button {
+                        einstellungen = true
+                    } label: {
+                        Label("Einstellungen", systemImage: "gearshape")
+                    }
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
                         neuerTitel = ""
@@ -25,6 +33,10 @@ struct RegalView: View {
                         Label("Neue Reise", systemImage: "plus")
                     }
                 }
+            }
+            .sheet(isPresented: $einstellungen) {
+                EinstellungenView()
+                    .environmentObject(regal)
             }
             .alert("Neue Reise", isPresented: $anlegenOffen) {
                 TextField("Titel", text: $neuerTitel)
