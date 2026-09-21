@@ -13,6 +13,11 @@ struct Kartenbild: Codable, Hashable {
     var quelle: Kartenquelle = .apple
     var stil: Kartenstil = .gedaempft
     var helle: Kartenhelle = .hell
+    // Wie viel auf der Karte BESCHRIFTET ist (ab 1.0.11, Ansage des
+    // Nutzers 09/2026: „nach Möglichkeit auch bestimmen, wie dicht die
+    // Beschriftungen sein sollen"). Was davon wirklich geht, steht an
+    // `Kartenbeschriftung` — und was nicht geht, steht dort auch.
+    var beschriftung: Kartenbeschriftung = .wenige
     // Nur für `eigene`: die Adressvorlage und der Lizenzhinweis, der unter
     // der Karte stehen muss. Beides kann nur der Nutzer wissen.
     var vorlage: String = ""
@@ -73,7 +78,90 @@ struct Kartenbild: Codable, Hashable {
     // Bild verändert — eine vergessene Stelle zeigt nach dem Umstellen das
     // Bild von vorhin, und das sieht aus, als tue der Schalter nichts.
     var merkmal: String {
-        "\(quelle.rawValue)|\(stil.rawValue)|\(helle.rawValue)|\(vorlage)"
+        "\(quelle.rawValue)|\(stil.rawValue)|\(helle.rawValue)|\(beschriftung.rawValue)|\(vorlage)"
+    }
+
+    // Der Aufbau für Apples Aufnahme — Stil UND Beschriftung zusammen.
+    //
+    // Er steht hier und nicht mehr am `Kartenstil`, weil zwei Angaben
+    // zusammenkommen müssen: Die eine sagt, wie die Karte gezeichnet wird,
+    // die andere, wie viel darauf steht. Beim Satellitenbild entscheidet
+    // das sogar über die Art des Aufbaus — `MKImageryMapConfiguration`
+    // zeigt ÜBERHAUPT keine Beschriftung, Namen gibt es nur über
+    // `MKHybridMapConfiguration`.
+    //
+    // **Geändert gegenüber 1.0.10:** „Gelände" schaltete bis dahin die
+    // Orte fest ab (`excludingAll`). Das war als Stilfrage gebaut und ist
+    // jetzt eine eigene Einstellung; wer dort nichts beschriftet haben
+    // will, wählt „Keine".
+    var aufbau: MKMapConfiguration {
+        switch stil {
+        case .gedaempft:
+            let auf = MKStandardMapConfiguration(elevationStyle: .flat, emphasisStyle: .muted)
+            auf.pointOfInterestFilter = beschriftung.filter
+            return auf
+        case .standard:
+            let auf = MKStandardMapConfiguration(elevationStyle: .flat, emphasisStyle: .default)
+            auf.pointOfInterestFilter = beschriftung.filter
+            return auf
+        case .gelaende:
+            let auf = MKStandardMapConfiguration(elevationStyle: .realistic, emphasisStyle: .muted)
+            auf.pointOfInterestFilter = beschriftung.filter
+            return auf
+        case .satellit:
+            guard beschriftung != .keine else {
+                return MKImageryMapConfiguration(elevationStyle: .flat)
+            }
+            let auf = MKHybridMapConfiguration(elevationStyle: .flat)
+            auf.pointOfInterestFilter = beschriftung.filter
+            return auf
+        }
+    }
+}
+
+// Wie dicht die Karte beschriftet ist.
+//
+// **Was hier geht und was nicht, ist eine Auskunft über MapKit und keine
+// über diese App.** Eine Schraube „Beschriftungsdichte" gibt es dort
+// nicht; es gibt einen Filter für ORTE (Geschäfte, Museen, Haltestellen)
+// und die Entscheidung, ob überhaupt Namen über dem Satellitenbild
+// liegen. Straßen- und Ortsnamen setzt Apple selbst, nach Maßstab — wer
+// weniger davon will, zoomt heraus. Genau das steht auch in der
+// Oberfläche, statt einen Regler anzubieten, der nichts tut.
+//
+// Bei den Kachelquellen (OpenStreetMap, OpenTopoMap, eigener Server) ist
+// die Beschriftung IM BILD: Sie kommt fertig gerendert vom Server, und
+// keine Einstellung dieser App kann daran etwas ändern.
+enum Kartenbeschriftung: String, Codable, CaseIterable, Identifiable {
+    case alle
+    case wenige
+    case keine
+
+    var id: String { rawValue }
+
+    var name: String {
+        switch self {
+        case .alle: return "Alle Orte"
+        case .wenige: return "Wenige"
+        case .keine: return "Keine Orte"
+        }
+    }
+
+    // `nil` heißt „kein Filter", also alles, was Apple von sich aus zeigt.
+    var filter: MKPointOfInterestFilter? {
+        switch self {
+        case .alle: return nil
+        case .wenige:
+            // Was auf einer REISEkarte weiterhilft: Verkehr, Wasser, Berge,
+            // Sehenswürdigkeiten. Was wegfällt: jedes Café und jeder
+            // Friseur — die machen eine Stadtkarte unlesbar und sagen über
+            // eine Reise nichts.
+            return MKPointOfInterestFilter(including: [
+                .airport, .publicTransport, .beach, .nationalPark, .park,
+                .museum, .castle, .landmark, .marina, .campground,
+            ])
+        case .keine: return .excludingAll
+        }
     }
 }
 
@@ -167,18 +255,4 @@ enum Kartenstil: String, Codable, CaseIterable, Identifiable {
         }
     }
 
-    var aufbau: MKMapConfiguration {
-        switch self {
-        case .gedaempft:
-            return MKStandardMapConfiguration(elevationStyle: .flat, emphasisStyle: .muted)
-        case .standard:
-            return MKStandardMapConfiguration(elevationStyle: .flat, emphasisStyle: .default)
-        case .gelaende:
-            let aufbau = MKStandardMapConfiguration(elevationStyle: .realistic, emphasisStyle: .muted)
-            aufbau.pointOfInterestFilter = .excludingAll
-            return aufbau
-        case .satellit:
-            return MKImageryMapConfiguration(elevationStyle: .flat)
-        }
-    }
 }

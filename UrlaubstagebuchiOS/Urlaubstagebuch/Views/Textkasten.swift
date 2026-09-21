@@ -12,6 +12,11 @@ import UIKit
 struct Textkasten: UIViewRepresentable {
     var text: String
     var bild: Schriftbild
+    // Der Abstand vom Rand des Kastens bis zum Text — gebraucht, sobald
+    // ein farbiger Grund darunterliegt. Er kommt vom Block und wird hier
+    // nur durchgereicht; gerechnet wird er an EINER Stelle
+    // (`Block.textrechteck`), die auch das PDF fragt.
+    var rand: Double = 0
 
     func makeUIView(context: Context) -> TextkastenView {
         let ansicht = TextkastenView()
@@ -40,6 +45,7 @@ struct Textkasten: UIViewRepresentable {
     func updateUIView(_ ansicht: TextkastenView, context: Context) {
         ansicht.text = text
         ansicht.bild = bild
+        ansicht.rand = rand
         ansicht.setNeedsDisplay()
     }
 }
@@ -47,13 +53,16 @@ struct Textkasten: UIViewRepresentable {
 final class TextkastenView: UIView {
     var text: String = "" { didSet { setNeedsDisplay() } }
     var bild = Schriftbild() { didSet { setNeedsDisplay() } }
+    var rand: Double = 0 { didSet { setNeedsDisplay() } }
 
     override func draw(_ rect: CGRect) {
         guard let zusammenhang = UIGraphicsGetCurrentContext(), !text.isEmpty else { return }
+        let ganz = CGRect(origin: .zero, size: bounds.size)
+        let luft = min(max(rand, 0), min(ganz.width, ganz.height) / 2 - 2)
         Seitensatz.zeichneText(
             text,
             bild: bild,
-            rechteck: CGRect(origin: .zero, size: bounds.size),
+            rechteck: luft > 0 ? ganz.insetBy(dx: luft, dy: luft) : ganz,
             in: zusammenhang,
             seitenhoehe: bounds.height
         )

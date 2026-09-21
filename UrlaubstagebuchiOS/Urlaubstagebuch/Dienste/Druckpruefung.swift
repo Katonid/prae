@@ -45,7 +45,11 @@ enum Druckpruefung {
                     let text = Seitensatz.inhaltstext(block, tag: tag, reise: reise)
                     guard !text.isEmpty, block.rahmen.breite > 1 else { continue }
                     let bild = Seitensatz.schriftbild(block, reise: reise)
-                    let noetig = Textmass.hoehe(text, bild: bild, breite: block.rahmen.breite)
+                    // Dieselbe Rechnung wie in `Reisewerk.fehlendeHöhe` —
+                    // samt Innenabstand. Zwei Fassungen ergaben eine Seite,
+                    // auf der die Marke schweigt und die Prüfung anschlägt.
+                    let noetig = Textmass.hoehe(text, bild: bild, breite: block.textbreite)
+                        + 2 * block.textrand
                     guard noetig > block.rahmen.hoehe + 0.5 else { continue }
                     betroffen.append("\(tag.datum.mittel): \(block.inhalt.name), es fehlen \(Druckmass.mmText(noetig - block.rahmen.hoehe))")
                 }
