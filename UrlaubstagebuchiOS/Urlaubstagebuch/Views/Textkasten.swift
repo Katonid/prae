@@ -22,6 +22,18 @@ struct Textkasten: UIViewRepresentable {
         // Textblock auf der Seite unverschiebbar, und zwar nur der Text;
         // ein Fehler, den man am Quelltext der Seite nicht sieht.
         ansicht.isUserInteractionEnabled = false
+        // ENTSCHEIDEND, und der Grund für den verzerrten Text nach jeder
+        // Größenänderung: Eine `UIView` steht von Haus aus auf
+        // `.scaleToFill`. Ändert sich ihr Rahmen, zeichnet UIKit nicht neu,
+        // sondern ZIEHT das zuletzt gezeichnete Bild auf die neue Größe —
+        // aus dem gesetzten Text wird eine gestauchte oder gestreckte
+        // Grafik. Erst irgendein späteres `draw(_:)` rückte das gerade,
+        // und genau das ist der Seitenwechsel, der es bisher brauchte.
+        // Mit `.redraw` fordert UIKit bei jeder Rahmenänderung eine neue
+        // Zeichnung an. **Merke: Wer in einer UIView selbst zeichnet,
+        // setzt `contentMode = .redraw` — sonst wird das Bild skaliert
+        // statt neu gesetzt.**
+        ansicht.contentMode = .redraw
         return ansicht
     }
 

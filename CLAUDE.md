@@ -3427,6 +3427,62 @@ Befunde, und keiner davon war Geschmack:
   Griffs — und der lautete in jedem Fall „Fläche", also genau das, was die
   Frage offenließ. **Eine Probe, die nur ihr Ergebnis nennt, ist die Frage
   von vorhin noch einmal.**
+- **Was der Finger bewegt, wird SOFORT ins Modell geschrieben** (ab 1.0.8,
+  gemeldet 09/2026: „Beim Verschieben bleibt grundsätzlich die Erfahrung
+  bestehen. Warum wandert der nicht einfach mit?"). Bis 1.0.7 bewegte das
+  Verschieben nur einen Versatz beim ZEICHNEN (`schiebt`/`zieht`); der Rahmen
+  im Modell blieb stehen und wurde erst am Ende der Geste gesetzt. Drei
+  Folgen, und alle drei waren zu sehen: Der Block lief dem Finger nach, die
+  GRIFFE blieben zurück (die lesen den Rahmen), und brach die Geste ab, ohne
+  dass `onEnded` kam, stand das Bild für immer neben seinem eigenen Rahmen —
+  genau das zeigte das Bildschirmfoto des Nutzers. Die GRÖSSENÄNDERUNG machte
+  es von Anfang an richtig, und genau die ging. **Eine zweite Wahrheit fürs
+  Zeichnen läuft früher oder später auseinander.** Gerechnet wird dabei vom
+  `ausgangsrahmen` aus und nie vom jetzigen: `translation` ist die ganze
+  Bewegung seit dem Aufsetzen, und auf einen mitgewanderten Rahmen addiert
+  liefe der Block davon.
+- **`contentMode` einer selbst zeichnenden `UIView` MUSS `.redraw` sein**
+  (`Textkasten`, ab 1.0.8, gemeldet 09/2026: „ein Textfeld, das in der Größe
+  verändert wurde, [stellt] den Text verzerrt dar. Man muss erst auf eine
+  andere Seite … wechseln"). Die Vorgabe ist `.scaleToFill`: Ändert sich der
+  Rahmen, zeichnet UIKit NICHT neu, sondern zieht das zuletzt gezeichnete
+  Bild auf die neue Größe — aus gesetztem Text wird eine gestauchte Grafik.
+  Der Seitenwechsel half, weil er die Ansicht neu aufbaute. Das ist
+  dokumentiertes UIKit-Verhalten und keine Vermutung; es trifft JEDE Ansicht
+  dieses Repos, die in `draw(_:)` selbst zeichnet.
+- **Zwei Finger vergrößern das BILD, die Griffe den RAHMEN** (`zoomgeste`, ab
+  1.0.8, Wunsch des Nutzers 09/2026). Der Unterschied stand seit 1.0.0 im
+  Papier (`Bildausschnitt`: „Wer ein Foto größer haben will, ändert den
+  Rahmen; wer ein Gesicht in die Mitte rücken will, den Ausschnitt") — es
+  fehlte der Griff dafür. Die Seite selbst wird nicht mit zwei Fingern
+  gezoomt (dafür stehen die Lupen unten links), es gibt also nichts, womit
+  sich die Geste streiten könnte.
+- **`translation` und `magnification` sind die GESAMTE Bewegung seit dem
+  Aufsetzen** (behoben in 1.0.8). `ausschnittSchieben` addierte sie bei jedem
+  Bildpunkt auf den laufenden Wert — das Bild schoss unter dem Finger weg,
+  und zwar immer schneller. Gerechnet wird vom Wert beim Aufsetzen
+  (`ausgangsausschnitt`), wie überall sonst in dieser Ansicht.
+- **Ein Textkasten sagt, wenn etwas herausfällt** (ab 1.0.8, gemeldet
+  09/2026: „Leider kann es aber passieren, dass Text abgeschnitten wird …
+  Das fällt zunächst nicht unbedingt auf."). Drei Dinge zusammen, und keines
+  reicht allein:
+  - **Er WÄCHST beim Tippen mit**, wie ein Textfeld in Pages
+    (`hoeheAnTextAnpassen` am Ende von `textSchreiben`). Nur wachsen, nie
+    schrumpfen — ein Kasten, der von selbst kleiner wird, nähme eine Größe
+    weg, die jemand mit der Hand eingestellt hat.
+  - **Wer ihn von Hand zu klein zieht, sieht eine MARKE** an der Unterkante
+    (`Ueberlaufmarke`, orange, mit Pluszeichen — dieselbe Zeichensprache wie
+    in Pages), dazu den Knopf „Rahmen an Text anpassen" in der Fußleiste und
+    im Inspektor. Ein Hinweis ohne Weg, ihn aufzulösen, ist die Frage von
+    vorhin noch einmal.
+  - **Die Druckprüfung zählt das GANZE Buch** (`abgeschnittenerText`). Die
+    Marke sieht nur, wer gerade auf dieser Seite ist; ein fehlender Satz
+    fällt sonst erst auf, wenn das Buch gedruckt ist.
+  **Der Befund ist GESPEICHERT, nicht gerechnet** (`Reisewerk.textUeberlauf`):
+  Dahinter steckt ein voller CoreText-Satz, und als berechnete Eigenschaft
+  liefe der bei jedem Neuzeichnen der Seite mit — dieselbe Falle wie bei der
+  Netzkarte der Abfahrtstafel. Gemessen wird an EINER Stelle, wenn sich
+  Auswahl, Rahmenmaße oder Textlänge ändern.
 - **Die Bildunterschrift war halb gebaut** (ab 1.0.5, Wunsch des Nutzers
   09/2026: „zu jedem Foto einen Beschreibungstext … Dies soll jedoch eine
   Option für jedes Foto sein. Kein muss."). Der Layoutautomat hielt Platz
