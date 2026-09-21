@@ -98,3 +98,75 @@ struct Tagesdatum: Codable, Hashable, Comparable, Identifiable {
     var mittel: String { Self.kurzeForm.string(from: mittag) }
     var kurz: String { Self.sehrKurz.string(from: mittag) }
 }
+
+
+// Wie die Datumszeile über jedem Tag aussieht.
+//
+// Sie stand bis 1.0.1 fest auf „Donnerstag, 4. Juni 2026" — gemeldet
+// 09/2026: „Die Datumsüberschrift auf jeder Seite ist fix und kann bislang
+// nicht geändert werden." Sie gehört zum BUCH und wird deshalb einmal für
+// alle Tage gewählt; ein einzelner Tag darf trotzdem etwas anderes tragen
+// (`Reisetag.datumstext`), denn manchmal heißt ein Tag „Ankunft" und nicht
+// „Freitag".
+enum Datumsstil: String, Codable, CaseIterable, Identifiable {
+    case langMitWochentag
+    case lang
+    case mittel
+    case kurz
+    case wochentag
+    case nummeriert
+    case ohne
+
+    var id: String { rawValue }
+
+    var name: String {
+        switch self {
+        case .langMitWochentag: return "Donnerstag, 4. Juni 2026"
+        case .lang: return "4. Juni 2026"
+        case .mittel: return "Do, 4. Juni"
+        case .kurz: return "04.06.2026"
+        case .wochentag: return "Donnerstag"
+        case .nummeriert: return "Tag 3"
+        case .ohne: return "keine Datumszeile"
+        }
+    }
+
+    func text(_ datum: Tagesdatum, nummer: Int) -> String {
+        switch self {
+        case .langMitWochentag: return datum.lang
+        case .lang: return datum.mittel
+        case .mittel: return datum.mitWochentagKurz
+        case .kurz: return datum.ziffern
+        case .wochentag: return datum.wochentag
+        case .nummeriert: return "Tag \(nummer)"
+        case .ohne: return ""
+        }
+    }
+}
+
+extension Tagesdatum {
+    private static let wochentagLang: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "de_DE")
+        f.dateFormat = "EEEE"
+        return f
+    }()
+
+    private static let mitWochentag: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "de_DE")
+        f.dateFormat = "EE, d. MMMM"
+        return f
+    }()
+
+    private static let zifferform: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "de_DE")
+        f.dateFormat = "dd.MM.yyyy"
+        return f
+    }()
+
+    var wochentag: String { Self.wochentagLang.string(from: mittag) }
+    var mitWochentagKurz: String { Self.mitWochentag.string(from: mittag) }
+    var ziffern: String { Self.zifferform.string(from: mittag) }
+}

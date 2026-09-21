@@ -559,7 +559,26 @@ struct Layoutautomat {
                     let (kopf, rest) = Textmass.teilen(text, bild: typografie.flieText,
                                                        groesse: platz)
                     if kopf.isEmpty {
-                        text = ""
+                        // Auf einer vollen Seite passt nichts mehr hinein —
+                        // dann kommt der Rest auf die nächste. Ihn hier zu
+                        // verwerfen war ein Fehler: Im ersten gedruckten
+                        // Stand endete ein Tag mitten im Satz („mussten von
+                        // Passagieren, die"), und der Rest war weg. Ein
+                        // Tagebuch darf keinen Satz verlieren.
+                        if bloecke.isEmpty {
+                            // Selbst auf einer leeren Seite geht nichts: Dann
+                            // ist die Schrift zu groß für die Seite. Der Text
+                            // wird gesetzt und läuft sichtbar über, statt
+                            // still zu verschwinden.
+                            let hoehe = Textmass.hoehe(text, bild: typografie.flieText,
+                                                       breite: satz.width)
+                            bloecke.append(Block(
+                                inhalt: .text(text),
+                                rahmen: Rahmen(x: satz.minX, y: y, breite: satz.width,
+                                               hoehe: hoehe)
+                            ))
+                            text = ""
+                        }
                     } else {
                         let hoehe = Textmass.hoehe(kopf, bild: typografie.flieText,
                                                    breite: satz.width)

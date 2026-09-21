@@ -10,6 +10,7 @@ import SwiftUI
 // angefassten Stellen wirkungslos.
 struct BlockInspektor: View {
     @ObservedObject var werk: Reisewerk
+    @State private var hintergrundOffen = false
 
     private var block: Block? {
         guard let id = werk.gewaehlterBlock, let stelle = werk.block(id) else { return nil }
@@ -34,6 +35,19 @@ struct BlockInspektor: View {
             }
         }
         .navigationTitle("Block")
+        .sheet(isPresented: $hintergrundOffen) {
+            if let tag = werk.tag, !tag.seiten.isEmpty {
+                HintergrundView(
+                    werk: werk,
+                    seite: (tag.id, min(max(werk.seitenzeiger, 0), tag.seiten.count - 1))
+                )
+            }
+        }
+    }
+
+    private func hintergrundname(_ tag: Reisetag, _ stelle: Int) -> String {
+        guard let eigener = seite(tag, stelle)?.hintergrund else { return "wie im Buch" }
+        return eigener.art.name
     }
 
     // Ist kein Block gewählt, gehört dieser Platz der SEITE. Ein eigener
@@ -68,15 +82,10 @@ struct BlockInspektor: View {
                 }
 
                 Section {
-                    Toggle("Eigene Papierfarbe", isOn: Binding(
-                        get: { seite(tag, stelle)?.papier != nil },
-                        set: { an in papierSetzen(tag, stelle, an ? werk.reise.gestaltung.papier : nil) }
-                    ))
-                    if let farbe = seite(tag, stelle)?.papier {
-                        ColorPicker("Papier dieser Seite", selection: Binding(
-                            get: { farbe.farbe },
-                            set: { papierSetzen(tag, stelle, Farbwert($0)) }
-                        ))
+                    Button {
+                        hintergrundOffen = true
+                    } label: {
+                        LabeledContent("Hintergrund", value: hintergrundname(tag, stelle))
                     }
                     Button(role: .destructive) {
                         werk.seiteLoeschen(tag.id, seite: stelle)

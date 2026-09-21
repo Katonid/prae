@@ -4,6 +4,7 @@ struct GestaltungView: View {
     @ObservedObject var werk: Reisewerk
     @Environment(\.dismiss) private var schliessen
     @State private var titelfotoWahl = false
+    @State private var hintergrundOffen = false
 
     var body: some View {
         NavigationStack {
@@ -44,6 +45,24 @@ struct GestaltungView: View {
                     Text("Anschnitt: 3 mm sind der Standard, manche Buchdienste verlangen 5 mm. Ohne ihn kann kein Bild bis an die Papierkante laufen.\n\nBundsteg: zusätzlicher Rand zur Heftung. Er wird auf beide Seitenränder gerechnet — welche Seite innen liegt, hängt an der laufenden Seitenzahl, und die verschiebt sich, sobald ein Tag eine Seite mehr braucht.")
                 }
 
+                Section {
+                    Button {
+                        hintergrundOffen = true
+                    } label: {
+                        LabeledContent("Hintergrund",
+                                       value: werk.reise.gestaltung.hintergrund.art.name)
+                    }
+                    Picker("Datumszeile", selection: $werk.reise.gestaltung.datumsstil) {
+                        ForEach(Datumsstil.allCases) { stil in
+                            Text(stil.name).tag(stil)
+                        }
+                    }
+                } header: {
+                    Text("Aussehen")
+                } footer: {
+                    Text("Beides gilt für das ganze Buch. Eine einzelne Seite darf einen anderen Hintergrund haben, und ein einzelner Tag eine andere Datumszeile — beides über den Inspektor rechts.")
+                }
+
                 Section("Satzspiegel") {
                     mmRegler("Rand außen", $werk.reise.gestaltung.randAussen, 5...45)
                     mmRegler("Rand oben", $werk.reise.gestaltung.randOben, 5...45)
@@ -52,10 +71,6 @@ struct GestaltungView: View {
                              schritt: 0.5)
                     mmRegler("Eckenradius", $werk.reise.gestaltung.eckenradius, 0...10,
                              schritt: 0.5)
-                    ColorPicker("Papierfarbe", selection: Binding(
-                        get: { werk.reise.gestaltung.papier.farbe },
-                        set: { werk.reise.gestaltung.papier = Farbwert($0) }
-                    ))
                     Toggle("Seitenzahlen", isOn: $werk.reise.gestaltung.seitenzahlen)
                     Toggle("Kopfzeile mit Datum", isOn: $werk.reise.gestaltung.kopfzeile)
                 }
@@ -104,6 +119,9 @@ struct GestaltungView: View {
             }
             .sheet(isPresented: $titelfotoWahl) {
                 TitelfotoView(werk: werk)
+            }
+            .sheet(isPresented: $hintergrundOffen) {
+                HintergrundView(werk: werk)
             }
         }
     }

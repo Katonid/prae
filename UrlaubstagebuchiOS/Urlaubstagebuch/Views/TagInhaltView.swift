@@ -7,6 +7,7 @@ struct TagInhaltView: View {
     @ObservedObject var werk: Reisewerk
     let tagID: UUID
     @Environment(\.dismiss) private var schliessen
+    @State private var aufraeumBefund: String?
 
     private var stelle: Int? { werk.tagIndex(tagID) }
 
@@ -14,18 +15,41 @@ struct TagInhaltView: View {
         NavigationStack {
             if let stelle {
                 Form {
-                    Section("Überschrift") {
+                    Section {
                         TextField("z. B. Ankunft in Lissabon",
                                   text: binden(stelle, \.ueberschrift))
+                        TextField(werk.reise.gestaltung.datumsstil
+                            .text(werk.reise.tage[stelle].datum,
+                                  nummer: stelle + 1),
+                                  text: Binding(
+                            get: { werk.reise.tage[stelle].datumstext ?? "" },
+                            set: { werk.reise.tage[stelle].datumstext = $0.isEmpty ? nil : $0 }
+                        ))
+                        Toggle("Diesen Tag ausblenden", isOn: binden(stelle, \.ausgeblendet))
+                    } header: {
+                        Text("Überschrift und Datumszeile")
+                    } footer: {
+                        Text("Bleibt die Datumszeile leer, gilt das Format des Buches. Ein ausgeblendeter Tag bleibt vollständig erhalten, kommt aber nicht ins Buch.")
                     }
                     Section {
                         TextEditor(text: binden(stelle, \.text))
                             .frame(minHeight: 220)
                             .font(.system(size: 14))
+                        Button {
+                            let befund = werk.absaetzeAufraeumen(tagID)
+                            aufraeumBefund = befund?.beschreibung
+                        } label: {
+                            Label("Absätze aufräumen", systemImage: "text.alignleft")
+                        }
+                        if let aufraeumBefund {
+                            Text(aufraeumBefund)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
                     } header: {
                         Text("Tagebuchtext")
                     } footer: {
-                        Text("\(werk.reise.tage[stelle].text.count) Zeichen. Der Text fließt beim Neuanordnen über so viele Seiten, wie er braucht.")
+                        Text("\(werk.reise.tage[stelle].text.count) Zeichen. „Absätze aufräumen“ führt hart umbrochene Zeilen wieder zusammen — daran, dass viele Zeilen an derselben Grenze enden, erkennt die App den Umbruch. Frei geschriebener Text bleibt unangetastet.")
                     }
 
                     Section {

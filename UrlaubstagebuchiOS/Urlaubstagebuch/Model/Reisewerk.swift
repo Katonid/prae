@@ -35,6 +35,10 @@ final class Reisewerk: ObservableObject, Identifiable {
     // die mal dies und mal jenes tut, ohne dass man den Unterschied sieht,
     // ist für den Menschen davor ein kaputtes Bedienelement.
     @Published var ausschnittsmodus: UUID?
+    // Welcher Textblock gerade AUF DER SEITE bearbeitet wird. Bis 1.0.1
+    // ging das nur über ein Feld im Inspektor — gemeldet 09/2026: „Ich
+    // würde den Text am liebsten direkt auf der Seite ändern können."
+    @Published var textBearbeitung: UUID?
 
     struct Meldung: Identifiable {
         var id = UUID()
@@ -196,6 +200,48 @@ final class Reisewerk: ObservableObject, Identifiable {
         block.rahmen = block.rahmen.verschoben(dx: dx, dy: dy).begrenzt(auf: reise.format.groesse)
         block.vonHand = true
         reise.tage[stelle.tag].seiten[stelle.seite].bloecke[stelle.block] = block
+    }
+
+    // Wohin ein auf der Seite geänderter Text gehört, hängt an der Blockart:
+    // Der Fließtext steckt im Block, die Überschrift und die Datumszeile am
+    // TAG. Sie in den Block zu schreiben wäre der bequeme Weg und der
+    // falsche — beim nächsten Neuanordnen entstünde ein neuer Block, und die
+    // Änderung wäre weg.
+    func textSchreiben(_ id: UUID, text: String) {
+        guard let stelle = block(id) else { return }
+        merken()
+        let art = reise.tage[stelle.tag].seiten[stelle.seite].bloecke[stelle.block].inhalt
+        switch art {
+        case .titel:
+            reise.tage[stelle.tag].ueberschrift = text
+        case .datum:
+            // Leer heißt: wieder das Format des Buches.
+            reise.tage[stelle.tag].datumstext = text.isEmpty ? nil : text
+        case .text:
+            reise.tage[stelle.tag].seiten[stelle.seite].bloecke[stelle.block].inhalt = .text(text)
+            reise.tage[stelle.tag].seiten[stelle.seite].bloecke[stelle.block].vonHand = true
+        default:
+            break
+        }
+    }
+
+    func tagAendern(_ id: UUID, _ arbeit: (inout Reisetag) -> Void) {
+        guard let stelle = tagIndex(id) else { return }
+        merken()
+        arbeit(&reise.tage[stelle])
+    }
+
+    // Absätze eines Tages aufräumen — derselbe Lauf wie beim Einlesen, für
+    // Texte, die schon im Buch stehen.
+    @discardableResult
+    func absaetzeAufraeumen(_ tagID: UUID) -> Textaufbereitung.Befund? {
+        guard let stelle = tagIndex(tagID) else { return nil }
+        let befund = Textaufbereitung.pruefen(reise.tage[stelle].text)
+        guard befund.zusammengefuehrt else { return befund }
+        merken()
+        reise.tage[stelle].text = Textaufbereitung.leerzeilenStraffen(befund.text)
+        neuAnordnen(tagID, erzwingen: false)
+        return befund
     }
 
     func blockLoeschen(_ id: UUID) {

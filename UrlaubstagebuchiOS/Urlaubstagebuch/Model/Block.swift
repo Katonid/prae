@@ -183,6 +183,8 @@ struct Seite: Identifiable, Codable, Hashable {
     var id = UUID()
     var bloecke: [Block] = []
     var papier: Farbwert?
+    // Der Hintergrund DIESER Seite. Leer heißt: Es gilt der des Buches.
+    var hintergrund: Seitenhintergrund?
     // Eine Seite, die ganz von einem Bild gefüllt ist, bekommt keine
     // Seitenzahl: Sie stünde auf dem Foto und sähe aus wie ein Versehen.
     var ohneSeitenzahl: Bool = false

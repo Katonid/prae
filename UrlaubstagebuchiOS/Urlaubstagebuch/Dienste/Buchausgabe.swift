@@ -31,7 +31,7 @@ extension Reise {
             ))
             nummer += 1
         }
-        for tag in tage {
+        for tag in tage where !tag.ausgeblendet {
             for seite in tag.seiten {
                 folge.append(Buchseite(seite: seite, tag: tag, nummer: nummer))
                 nummer += 1
@@ -195,11 +195,24 @@ enum Buchausgabe {
         // größer sein als auf einer Postkarte, sonst verschwindet er.
         let massstab = endformat.width / 600
 
-        let papier = (buchseite.seite.papier ?? reise.gestaltung.papier).uiFarbe
-        zusammenhang.setFillColor(papier.cgColor)
-        zusammenhang.fill(CGRect(x: -anschnitt, y: -anschnitt,
-                                 width: endformat.width + 2 * anschnitt,
-                                 height: endformat.height + 2 * anschnitt))
+        // Der Hintergrund läuft IMMER bis in den Anschnitt — eine Fläche,
+        // die am Endformat aufhört, hätte nach dem Beschneiden genau den
+        // weißen Faden, wegen dem es den Anschnitt gibt.
+        let bogenrechteck = CGRect(x: -anschnitt, y: -anschnitt,
+                                   width: endformat.width + 2 * anschnitt,
+                                   height: endformat.height + 2 * anschnitt)
+        var grund = buchseite.seite.hintergrund ?? reise.gestaltung.hintergrund
+        if let eigenes = buchseite.seite.papier {
+            grund.farbe = eigenes
+            grund.art = .einfarbig
+        }
+        var grundbild: UIImage?
+        if grund.art == .foto, let id = grund.fotoID, let foto = reise.foto(id) {
+            grundbild = Bildarchiv.shared.fuerAusgabe(foto.datei, reise: reise.id,
+                                                      kante: auftrag.bildkante)
+        }
+        Seitensatz.zeichneHintergrund(grund, rechteck: bogenrechteck, bild: grundbild,
+                                      in: zusammenhang)
 
         for block in buchseite.seite.sortiert {
             let rechteck = block.rahmen.rect
