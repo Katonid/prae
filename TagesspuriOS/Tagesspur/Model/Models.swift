@@ -438,9 +438,10 @@ enum TrackMath {
         var note: String
     }
 
-    static func position(at time: Date, in sortedPoints: [TrackPoint]) -> TimePosition? {
+    static func position(at time: Date, in sortedPoints: [TrackPoint], zone: TimeZone? = nil) -> TimePosition? {
         guard let first = sortedPoints.first, let last = sortedPoints.last else { return nil }
-        func fmt(_ d: Date) -> String { d.formatted(date: .omitted, time: .shortened) }
+        // Uhrzeiten in der Ortszeit des Tages (nil → Gerätezeit).
+        func fmt(_ d: Date) -> String { Ortszeit.uhrzeit(d, zone: zone) }
 
         if time <= first.t {
             return TimePosition(

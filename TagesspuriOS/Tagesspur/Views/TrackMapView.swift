@@ -311,6 +311,8 @@ struct MediaThumbView: View {
 /// Horizontale Leiste mit Aufnahmen; jedes Thumbnail ist antippbar.
 struct MediaStripView: View {
     let media: [MediaItem]
+    /// Ortszeit des Tages (nil → Gerätezeit) für die Zeit unterm Bild.
+    var zone: TimeZone? = nil
     var onTap: ((MediaItem) -> Void)? = nil
 
     var body: some View {
@@ -323,7 +325,7 @@ struct MediaStripView: View {
                         VStack(spacing: 2) {
                             MediaThumbView(item: item)
                                 .clipShape(RoundedRectangle(cornerRadius: 8))
-                            Text(item.date.formatted(date: .omitted, time: .shortened))
+                            Text(Ortszeit.uhrzeit(item.date, zone: zone))
                                 .font(.caption2)
                                 .foregroundStyle(.secondary)
                         }

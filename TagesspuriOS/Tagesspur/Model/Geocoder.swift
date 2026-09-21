@@ -9,6 +9,9 @@ struct GeoInfo: Sendable {
     var inlandWater: String
     var ocean: String
     var areas: String
+    /// Zeitzone des Orts (z. B. "America/Toronto") — Grundlage für die
+    /// Ortszeit-Anzeige eines Reisetages. Leer, wenn Apple keine liefert.
+    var timeZoneID: String
 }
 
 /// Serialisiertes, gedrosseltes Reverse-Geocoding mit Cache.
@@ -42,7 +45,8 @@ actor Geocoder {
             thoroughfare: placemark.thoroughfare ?? "",
             inlandWater: placemark.inlandWater ?? "",
             ocean: placemark.ocean ?? "",
-            areas: (placemark.areasOfInterest ?? []).joined(separator: ", ")
+            areas: (placemark.areasOfInterest ?? []).joined(separator: ", "),
+            timeZoneID: placemark.timeZone?.identifier ?? ""
         )
         cache[key] = info
         return info

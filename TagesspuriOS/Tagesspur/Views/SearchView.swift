@@ -100,7 +100,9 @@ struct SearchView: View {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(visit.title).font(.subheadline)
                             HStack {
-                                Text(visit.arrival.formatted(date: .omitted, time: .shortened))
+                                // Ortszeit des Tages, sofern schon ermittelt
+                                // (gemerkt wird sie beim Öffnen des Tages).
+                                Text(Ortszeit.uhrzeit(visit.arrival, zone: Ortszeit.gespeicherteZone(fuer: result.dayKey)))
                                 if !visit.subtitle.isEmpty {
                                     Text("· \(visit.subtitle)")
                                 }
@@ -212,7 +214,7 @@ struct SearchView: View {
                 NavigationLink(value: CursorTarget(dayKey: answer.dayKey, time: answer.time)) {
                     VStack(alignment: .leading, spacing: 3) {
                         Label(
-                            "\(DayKey.displayName(for: answer.dayKey)), \(answer.time.formatted(date: .omitted, time: .shortened))",
+                            "\(DayKey.displayName(for: answer.dayKey)), \(Ortszeit.uhrzeit(answer.time, zone: Ortszeit.gespeicherteZone(fuer: answer.dayKey)))",
                             systemImage: "clock.fill"
                         )
                         .font(.subheadline.bold())

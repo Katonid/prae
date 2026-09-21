@@ -8,6 +8,8 @@ import AVKit
 struct MediaViewerView: View {
     let items: [MediaItem]
     @State var index: Int
+    /// Ortszeit des Tages (nil → Gerätezeit).
+    var zone: TimeZone? = nil
 
     @Environment(\.dismiss) private var dismiss
 
@@ -46,7 +48,7 @@ struct MediaViewerView: View {
             Spacer()
             VStack(spacing: 2) {
                 if let current {
-                    Text(current.date.formatted(date: .abbreviated, time: .shortened))
+                    Text(Ortszeit.zeitpunkt(current.date, zone: zone))
                         .font(.subheadline.bold())
                 }
                 Text("\(index + 1) von \(items.count)")
