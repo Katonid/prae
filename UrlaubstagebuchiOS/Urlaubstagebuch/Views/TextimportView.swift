@@ -28,6 +28,9 @@ struct TextimportView: View {
     // dabei jedes Mal mit.
     @State private var mass = Textaufbereitung.Umbruchmass(laengste: 0, grenze: 0,
                                                            anteil: 0, zeilen: 0)
+    // Was zuletzt aus einer DATEI kam. Wer den Text von Hand einfügt,
+    // lässt es `nil` — dann gibt es auch nichts zu berichten.
+    @State private var quelle: Textquelle.Befund?
 
     private var bezugsjahr: Int {
         werk.reise.tage.first?.datum.jahr ?? Tagesdatum(Date()).jahr
@@ -40,13 +43,32 @@ struct TextimportView: View {
                     TextEditor(text: $text)
                         .frame(minHeight: 180)
                         .font(.system(size: 13, design: .monospaced))
-                    Button("Aus einer Textdatei laden…", systemImage: "doc.text") {
+                    Button("Aus einer Datei laden…", systemImage: "doc.text") {
                         dateiwahl = true
+                    }
+                    if let quelle {
+                        Label(quelle.beschreibung, systemImage: "checkmark.circle")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    // Was beim Lesen WEGGENOMMEN wurde, steht wörtlich da.
+                    // Eine Kopfzeile, die zu Unrecht als solche galt, fällt
+                    // nur so auf — „2 Zeilen entfernt“ wäre eine Zahl ohne
+                    // Nachweis.
+                    if let quelle, !quelle.entfernt.isEmpty {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Als Kopf- oder Fußzeile entfernt, weil sie auf den meisten Seiten oben oder unten stand:")
+                            ForEach(quelle.entfernt, id: \.self) { zeile in
+                                Text("\u{2022} \(zeile)").italic()
+                            }
+                        }
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
                     }
                 } header: {
                     Text("Tagebuchtext")
                 } footer: {
-                    Text("Füge den ganzen Text ein. Erkannt werden Zeilen wie „12.08.2026“, „12. August“, „Mo, 12.08.“ oder „2026-08-12“ — auch mit einer kurzen Überschrift dahinter. Ein Datum mitten im Satz trennt nicht.\n\nIst der Text hart umbrochen (viele Zeilen enden an derselben Grenze), werden die Zeilen wieder zu Absätzen zusammengeführt. Sonst stünde im Buch jede Zeile als eigener Absatz.")
+                    Text("Füge den ganzen Text ein oder lade eine Datei: reiner Text, Word (.docx), PDF oder RTF. Erkannt werden Zeilen wie „12.08.2026“, „12. August“, „Mo, 12.08.“ oder „2026-08-12“ — auch mit einer kurzen Überschrift dahinter. Ein Datum mitten im Satz trennt nicht.\n\nIst der Text hart umbrochen (viele Zeilen enden an derselben Grenze), werden die Zeilen wieder zu Absätzen zusammengeführt. Sonst stünde im Buch jede Zeile als eigener Absatz.")
                 }
 
                 if !text.isEmpty {
@@ -92,7 +114,7 @@ struct TextimportView: View {
             .onChange(of: text) { _, neu in neuLesen(neu) }
             .onChange(of: absaetzeZusammenfuehren) { _, _ in neuLesen(text) }
             .sheet(isPresented: $dateiwahl) {
-                Dateiwahl(typen: [.plainText, .utf8PlainText, .rtf, .text]) { adressen in
+                Dateiwahl(typen: Textquelle.typen) { adressen in
                     ladeDatei(adressen.first)
                 }
             }
@@ -186,24 +208,27 @@ struct TextimportView: View {
 
     private func ladeDatei(_ adresse: URL?) {
         guard let adresse else { return }
-        let offen = adresse.startAccessingSecurityScopedResource()
-        defer { if offen { adresse.stopAccessingSecurityScopedResource() } }
-        guard let daten = try? Data(contentsOf: adresse) else {
-            werk.meldung = .init(text: "Die Datei ließ sich nicht lesen.", schwer: true)
-            return
-        }
-        // Erst UTF-8, dann die alten Windows-Kodierungen. Ein Tagebuch aus
-        // einem Word-Export kommt oft als Latin-1, und ohne diesen zweiten
-        // Versuch stünde die Datei als „nicht lesbar“ da, obwohl nur die
-        // Umlaute im Weg waren.
-        if let inhalt = String(data: daten, encoding: .utf8) {
-            text = inhalt
-        } else if let inhalt = String(data: daten, encoding: .isoLatin1) {
-            text = inhalt
-        } else if let inhalt = String(data: daten, encoding: .windowsCP1252) {
-            text = inhalt
-        } else {
-            werk.meldung = .init(text: "Die Textkodierung der Datei ist unbekannt.", schwer: true)
+        do {
+            // Die ganze Arbeit steht in `Textquelle`: Was für eine Datei
+            // das ist, entscheiden dort die ersten BYTES — nicht die
+            // Endung und nicht dieser Bildschirm.
+            let gelesen = try Textquelle.lesen(adresse)
+            quelle = gelesen
+            text = gelesen.text
+            if gelesen.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                werk.meldung = .init(
+                    text: "Gelesen wurde \(gelesen.art.name) \u{201E}\(gelesen.dateiname)\u{201C} \u{2014} Text steht aber keiner darin.",
+                    schwer: true)
+            } else {
+                werk.meldung = .init(text: gelesen.beschreibung)
+            }
+        } catch {
+            quelle = nil
+            // Der ROHE Satz des Lesers. Jeder Fall dort nennt den Weg
+            // drumherum (Kennwort, alte .doc, Scan, Datei aus iCloud); ein
+            // aufgeräumtes „Die Datei ließ sich nicht lesen“
+            // verschwiege genau das.
+            werk.meldung = .init(text: error.localizedDescription, schwer: true)
         }
     }
 }

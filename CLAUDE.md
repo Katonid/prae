@@ -3757,6 +3757,85 @@ Befunde, und keiner davon war Geschmack:
   sie ist an seinen Zahlen nachgerechnet, und die Datei selbst liegt hier
   nicht. **Beides nicht als erledigt darstellen**, bevor der nächste Befund es
   sagt.
+- **Was eine Datei IST, sagen die ersten Bytes — nicht die Endung**
+  (`Dienste/Textquelle.swift`, ab 1.0.13, Wunsch des Nutzers 09/2026: „Ich
+  möchte Texte im Word-Format, PDF oder reinen Text eingeben können."). Bis
+  1.0.12 nahm der Textimport nur eine Textdatei; wer sein Tagebuch in Word
+  geschrieben hatte, musste es erst irgendwo hindurchkopieren. Alles, was eine
+  Datei in Text verwandelt, steht jetzt an EINER Stelle — der Bildschirm ruft
+  eine Funktion und bekommt einen Befund; ob dahinter PDFKit, ein ZIP-Leser
+  oder eine Kodierungsleiter steckt, weiß er nicht. **Dieselbe Lehre wie in
+  Textauszug**, wo sechs Kilobyte HTML mit `.pdf` im Namen ankamen: Eine
+  Endung ist eine Behauptung, die ersten Bytes sind eine Tatsache. Die Endung
+  entscheidet nur da, wo die Bytes nichts sagen — bei reinem Text.
+- **PDF liest PDFKit, und was es NICHT hergibt, ist die Lage der Zeilen**
+  (`Dienste/Pdftext.swift`, ab 1.0.13). Textauszug muss seinen PDF-Leser
+  selbst schreiben, weil im Browser keiner mitgeliefert wird; auf iOS gehört
+  einer zum System, und ihn nachzubauen wäre dieselbe Arbeit noch einmal samt
+  einer zweiten Fehlerquelle. Der Preis ist die Kopfzeilenerkennung: Dort
+  misst der ABSTAND zum Satzspiegel, hier bleibt nur der Text je Seite.
+  Erkannt wird deshalb die **Wiederholung** — eine Zeile, die auf den meisten
+  Seiten ganz oben oder ganz unten steht und sich nur in ihren Ziffern
+  unterscheidet (`marke` ebnet Zifferngruppen zu `#` ein, sonst käme „Seite 3
+  von 30" nie zweimal vor). **Das ist ein anderes Merkmal und wird auch anders
+  falsch**: Ein Buch mit wiederkehrendem Refrain als erster Zeile verlöre ihn.
+  Deshalb steht hinterher WÖRTLICH da, was entfernt wurde — eine Zahl („2
+  Zeilen entfernt") wäre keine Auskunft, sondern eine Behauptung. Unter drei
+  Seiten wird gar nichts entfernt, und eine Zeile über 90 Zeichen gilt als
+  Fließtext.
+- **Ein Scan und eine kennwortgeschützte PDF sagen je EINEN Satz**, der den
+  Weg drumherum nennt — dieselbe Regel wie in Textauszug. Die Scan-Grenze ist
+  gemessen und nicht gefühlt: unter zwanzig Nicht-Leerzeichen je Seite ist
+  kein Text mehr da, sondern nur noch Versprengtes aus einer Textebene.
+- **Eine `.docx` ist ein ZIP, und auf iOS gibt es keinen Entpacker**
+  (`Dienste/Zipleser.swift`, `Dienste/Wordtext.swift`, ab 1.0.13). Dieselbe
+  Lücke, wegen der `Buchdatei` ein eigenes Format schreibt. Ausgepackt wird
+  über Apples `Compression`: **`COMPRESSION_ZLIB` ist dort das ROHE DEFLATE
+  nach RFC 1951**, und genau das steht in einem ZIP — ohne zlib-Kopf und ohne
+  Prüfsumme davor; dieselbe Überlegung wie `DecompressionStream('deflate-raw')`
+  in Textauszug. Gelesen wird über das **zentrale Verzeichnis** am Ende und
+  nicht durch Vorwärtssuche nach lokalen Köpfen: `PK\u{03}\u{04}` kann auch
+  mitten in gepackten Daten stehen. Und die Namens- und Extralängen kommen aus
+  dem **lokalen** Kopf, nicht aus dem Verzeichnis — Word schreibt dort andere
+  Extrafelder, und wer die Zahlen von der falschen Stelle nimmt, landet ein
+  paar Bytes neben den Daten.
+- **`NSAttributedString` kann `.docx` auf iOS NICHT.** Sein
+  `officeOpenXML`-Dokumenttyp gibt es nur auf dem Mac; der Weg über `.html`
+  startet intern WebKit, muss auf den Hauptfaden und liest eine `.docx`
+  ohnehin nicht. RTF dagegen kann es wirklich und ohne WebKit — deshalb bleibt
+  genau dieser eine Weg bei Apple.
+- **Aus `word/document.xml` wird NUR `w:t` in einem `w:r` gelesen.**
+  `w:instrText` trägt Feldbefehle („HYPERLINK \\l …"), `w:delText` den
+  gelöschten Text aus der Nachverfolgung — beides stünde sonst im Tagebuch.
+  Dazu zwei Fallen: **`w:tab` gibt es zweimal** (im Lauf als Zeichen, in den
+  Absatzeigenschaften als Definition eines Tabstopps — nur das erste ist
+  Text), und **„p" und „t" gibt es auch in DrawingML**, also in Schaubildern;
+  gezählt wird deshalb der Namensraum und nicht der nackte Name. Ein `w:br`
+  wird zur ZEILE und nicht zum Absatz: Das ist genau der hart umbrochene Text,
+  den `Textaufbereitung` seit 1.0.12 wieder zusammenführt.
+- **Die alte `.doc` wird an ihrer Kennung erkannt und abgewiesen.** Sie ist
+  kein ZIP, sondern ein zusammengesetztes Dokument von 1997
+  (`D0 CF 11 E0 A1 B1 1A E1`); ohne diese Prüfung meldete der Zipleser „kein
+  ZIP-Archiv" — wörtlich richtig und für den Menschen davor wertlos. Der Satz
+  nennt jetzt den Weg: in Word öffnen, als `.docx` sichern.
+- **Die Reihenfolge der Kodierungen IST die Sache** (`Textquelle.reinerText`,
+  ab 1.0.13). `isoLatin1` nimmt JEDES Byte an und scheitert nie — bis 1.0.12
+  stand es vor `windowsCP1252`, und damit war der CP1252-Zweig unerreichbarer
+  Quelltext: Die Bytes 0x80 bis 0x9F einer Windows-Datei (also „ “ – …) wurden
+  zu unsichtbaren Steuerzeichen, ohne eine einzige Fehlermeldung. Gelesen wird
+  jetzt: Byte-Vorzeichen zuerst (eine UTF-16-Datei kam vorher als Salat mit
+  Nullbytes an), dann UTF-8, dann Windows-1252, dann ISO 8859-1 als letzte
+  Rettung. **Merke: Ein Decoder, der nie scheitert, darf nie vor einem stehen,
+  der scheitern kann.**
+- **Der Bildschirm sagt, was angekommen ist** — Art, Dateiname, Seiten,
+  Absätze, Kodierung, Zeichenzahl, dazu die entfernten Rand­zeilen. Dieselbe
+  Regel wie beim Einfuhrbericht der Fotos: Ein stummer Import lässt die Frage
+  offen, ob überhaupt die richtige Datei gewählt wurde.
+- **Nicht gemessen:** Keine der vier Wege ist an einer echten Datei des
+  Nutzers gelaufen — hier gibt es weder Word noch PDFKit. Gerechnet ist der
+  Aufbau (ZIP-Verzeichnis, DEFLATE-Sorte, welche Word-Elemente Text tragen,
+  welche Kodierung wann scheitert); ob eine bestimmte `.docx` oder PDF
+  durchgeht, sagt erst der nächste Befund. **Nicht als erledigt darstellen.**
 - **Die Bildunterschrift war halb gebaut** (ab 1.0.5, Wunsch des Nutzers
   09/2026: „zu jedem Foto einen Beschreibungstext … Dies soll jedoch eine
   Option für jedes Foto sein. Kein muss."). Der Layoutautomat hielt Platz
