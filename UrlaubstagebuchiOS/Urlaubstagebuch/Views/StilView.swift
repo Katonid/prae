@@ -150,7 +150,7 @@ private struct Stilprobe: View {
     }
 
     private func probeschrift(_ bild: Schriftbild, groesse: CGFloat) -> Font {
-        Font(bild.familie.uiFont(groesse: groesse, fett: bild.fett, kursiv: bild.kursiv))
+        Font(bild.familie.uiFont(groesse: groesse, fett: bild.fett, kursiv: bild.kursiv) as CTFont)
     }
 
     @ViewBuilder

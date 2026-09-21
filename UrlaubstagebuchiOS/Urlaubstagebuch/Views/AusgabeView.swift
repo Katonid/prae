@@ -15,6 +15,7 @@ struct AusgabeView: View {
     @State private var ohneTransparenz = false
     @State private var umfang: Umfang = .ganzesBuch
     @State private var teilenliste: [URL] = []
+    @State private var befundVorab: [Druckpruefung.Zeile] = []
 
     enum Umfang: String, CaseIterable, Identifiable {
         case ganzesBuch
@@ -92,9 +93,7 @@ struct AusgabeView: View {
                 }
 
                 Section("Vor dem Ausgeben geprüft") {
-                    ForEach(Druckpruefung.vorab(werk.reise)) { zeile in
-                        BefundZeile(zeile: zeile)
-                    }
+                    ForEach(befundVorab) { zeile in BefundZeile(zeile: zeile) }
                 }
 
                 if laeuft {
@@ -149,6 +148,7 @@ struct AusgabeView: View {
             .sheet(isPresented: $teilen) {
                 Teilenblatt(gegenstaende: teilenliste)
             }
+            .task { befundVorab = Druckpruefung.vorab(werk.reise) }
         }
     }
 

@@ -36,35 +36,77 @@ struct BlockInspektor: View {
         .navigationTitle("Block")
     }
 
+    // Ist kein Block gewählt, gehört dieser Platz der SEITE. Ein eigener
+    // Bildschirm für die Papierfarbe wäre ein Weg, den niemand findet —
+    // gesucht wird sie dort, wo man gerade steht.
+    @ViewBuilder
     private var leer: some View {
-        VStack(spacing: 16) {
-            ContentUnavailableView {
-                Label("Kein Block gewählt", systemImage: "hand.tap")
-            } description: {
-                Text("Tippe auf ein Foto, einen Text oder die Karte auf der Seite. Was du hier änderst, gilt nur an dieser Stelle.")
-            }
-            if let tag = werk.tag, !tag.seiten.isEmpty {
-                VStack(spacing: 8) {
-                    Text("Auf die gezeigte Seite legen")
-                        .font(.footnote)
+        if let tag = werk.tag, !tag.seiten.isEmpty {
+            let stelle = min(max(werk.seitenzeiger, 0), tag.seiten.count - 1)
+            Form {
+                Section {
+                    Text("Tippe auf ein Foto, einen Text oder die Karte. Was du dann hier änderst, gilt nur an jener Stelle.")
+                        .font(.caption)
                         .foregroundStyle(.secondary)
-                    Button("Textblock") {
-                        werk.blockHinzufuegen(.text("Neuer Text"), tag: tag.id,
-                                              seite: min(werk.seitenzeiger, tag.seiten.count - 1))
+                } header: {
+                    Text("Kein Block gewählt")
+                }
+
+                Section("Auf die Seite legen") {
+                    Button("Textblock", systemImage: "text.alignleft") {
+                        werk.blockHinzufuegen(.text("Neuer Text"), tag: tag.id, seite: stelle)
                     }
-                    Button("Karte") {
-                        werk.blockHinzufuegen(.karte, tag: tag.id,
-                                              seite: min(werk.seitenzeiger, tag.seiten.count - 1))
+                    Button("Karte", systemImage: "map") {
+                        werk.blockHinzufuegen(.karte, tag: tag.id, seite: stelle)
                     }
-                    Button("Trennlinie") {
-                        werk.blockHinzufuegen(.linie, tag: tag.id,
-                                              seite: min(werk.seitenzeiger, tag.seiten.count - 1))
+                    Button("Trennlinie", systemImage: "minus") {
+                        werk.blockHinzufuegen(.linie, tag: tag.id, seite: stelle)
+                    }
+                    Button("Farbfläche", systemImage: "square.fill") {
+                        werk.blockHinzufuegen(.flaeche, tag: tag.id, seite: stelle)
                     }
                 }
-                .buttonStyle(.bordered)
+
+                Section {
+                    Toggle("Eigene Papierfarbe", isOn: Binding(
+                        get: { seite(tag, stelle)?.papier != nil },
+                        set: { an in papierSetzen(tag, stelle, an ? werk.reise.gestaltung.papier : nil) }
+                    ))
+                    if let farbe = seite(tag, stelle)?.papier {
+                        ColorPicker("Papier dieser Seite", selection: Binding(
+                            get: { farbe.farbe },
+                            set: { papierSetzen(tag, stelle, Farbwert($0)) }
+                        ))
+                    }
+                    Button(role: .destructive) {
+                        werk.seiteLoeschen(tag.id, seite: stelle)
+                    } label: {
+                        Label("Diese Seite entfernen", systemImage: "trash")
+                    }
+                    .disabled(tag.seiten.count <= 1)
+                } header: {
+                    Text("Seite \(stelle + 1) von \(tag.seiten.count)")
+                } footer: {
+                    Text("Eine einzelne Seite darf anders sein als das Buch — ein farbiger Grund zu Beginn eines Abschnitts trägt weiter als eine zweite Schriftart.")
+                }
+            }
+        } else {
+            ContentUnavailableView {
+                Label("Keine Seite", systemImage: "doc")
+            } description: {
+                Text("Wähle links einen Tag.")
             }
         }
-        .padding()
+    }
+
+    private func seite(_ tag: Reisetag, _ stelle: Int) -> Seite? {
+        tag.seiten.indices.contains(stelle) ? tag.seiten[stelle] : nil
+    }
+
+    private func papierSetzen(_ tag: Reisetag, _ stelle: Int, _ farbe: Farbwert?) {
+        guard let t = werk.tagIndex(tag.id),
+              werk.reise.tage[t].seiten.indices.contains(stelle) else { return }
+        werk.reise.tage[t].seiten[stelle].papier = farbe
     }
 
     // MARK: - Abschnitte
