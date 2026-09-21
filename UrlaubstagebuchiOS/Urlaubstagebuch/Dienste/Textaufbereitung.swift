@@ -186,6 +186,44 @@ enum Textaufbereitung {
         pruefen(text, mass: vermessen(text, schwelle: 0.6), mindestanteil: 0).text
     }
 
+    // MARK: - Absätze eines Kastens
+
+    // Die Absätze eines Textes — leere Zeilen zählen nicht mit.
+    //
+    // Gebraucht vom Inspektor: Wer einen Textkasten von Hand teilen will,
+    // sucht die Stelle nach ihrem Anfang aus und nicht nach einer
+    // Zeichenzahl.
+    static func absaetze(_ text: String) -> [String] {
+        text.components(separatedBy: .newlines)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+    }
+
+    // Teilt einen Text NACH dem n-ten Absatz (1 = nach dem ersten).
+    //
+    // Geschnitten wird an der ZEILE und nicht an einer der gesäuberten
+    // Fassungen aus `absaetze`: Was zwischen zwei Absätzen steht — eine
+    // Leerzeile, ein Einzug —, bleibt dort, wo es stand. Eine Teilung, die
+    // den Text nebenbei umformatiert, wäre zwei Änderungen auf einmal.
+    static func teilen(_ text: String, nachAbsatz n: Int) -> (kopf: String, rest: String) {
+        guard n >= 1 else { return ("", text) }
+        let zeilen = text.components(separatedBy: "\n")
+        var gezaehlt = 0
+        for (stelle, zeile) in zeilen.enumerated() {
+            if zeile.trimmingCharacters(in: .whitespaces).isEmpty { continue }
+            gezaehlt += 1
+            if gezaehlt == n {
+                let kopf = zeilen[0...stelle].joined(separator: "\n")
+                let rest = stelle + 1 < zeilen.count
+                    ? zeilen[(stelle + 1)...].joined(separator: "\n")
+                    : ""
+                return (kopf.trimmingCharacters(in: .whitespacesAndNewlines),
+                        rest.trimmingCharacters(in: .whitespacesAndNewlines))
+            }
+        }
+        return (text, "")
+    }
+
     // Leerzeilen zusammenfassen: Drei Leerzeilen hintereinander sind kein
     // Gestaltungsmittel, sondern ein Rest aus der Zwischenablage.
     static func leerzeilenStraffen(_ text: String) -> String {

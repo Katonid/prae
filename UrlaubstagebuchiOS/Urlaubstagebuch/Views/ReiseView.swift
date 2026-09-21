@@ -330,6 +330,19 @@ struct ReiseView: View {
                     Label("Rahmen an Text anpassen", systemImage: "arrow.down.to.line")
                 }
                 .tint(.orange)
+                // Der zweite Weg aus demselben Befund: Was nicht
+                // hineinpasst, muss nicht in DIESEN Kasten — es kann auf
+                // der nächsten Seite weitergehen. Auf einer vollen Seite
+                // ist das der einzige, der bleibt.
+                if teilbarerText {
+                    Button {
+                        werk.textTeilen(id)
+                    } label: {
+                        Label("Rest auf die nächste Seite",
+                              systemImage: "text.line.first.and.arrowtriangle.forward")
+                    }
+                    .tint(.orange)
+                }
             }
             if let tag = werk.tag {
                 Button {
@@ -347,6 +360,13 @@ struct ReiseView: View {
     }
 
     private var massstabJetzt: Double { zoom == 0 ? 0.7 : zoom }
+
+    // Ob der gewählte Block ein Tagebuchtext ist — nur der lässt sich
+    // teilen. Überschrift und Datumszeile stehen am Tag.
+    private var teilbarerText: Bool {
+        guard let id = werk.gewaehlterBlock, let stelle = werk.block(id) else { return false }
+        return werk.teilbar(werk.reise.tage[stelle.tag].seiten[stelle.seite].bloecke[stelle.block])
+    }
 
     // Welches Foto gerade gewählt ist — oder keines.
     private var gewaehltesFoto: UUID? {

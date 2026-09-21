@@ -525,6 +525,11 @@ struct Layoutautomat {
         return (anteil - 0.5) * 4.2
     }
 
+    // Wie viele Zeilen Text mindestens übrig bleiben müssen, damit für eine
+    // Fotoreihe auf derselben Seite Platz freigehalten wird. Gewählt, nicht
+    // gemessen — siehe `reihenSetzen`.
+    private static let mindestzeilenNebenFoto: Double = 6
+
     private func reihenSetzen(_ fotos: [Foto], karte: Bool, bloecke eingang: [Block],
                               ab: CGFloat, restText: String)
         -> (fertig: [Seite], offen: [Block], rest: String)
@@ -557,7 +562,39 @@ struct Layoutautomat {
             durchgaenge += 1
             if durchgaenge > 200 { break }
             if !text.isEmpty {
-                let platz = CGSize(width: satz.width, height: satz.maxY - y)
+                // Warten noch Fotos, bekommt der Text NICHT die ganze
+                // Seite.
+                //
+                // Bis 1.0.13 füllte er sie: Ein Tag mit langem Text und
+                // vielen Bildern ergab erst mehrere reine Textseiten und
+                // danach reine Fotoseiten — das Bild zum Erzählten stand
+                // drei Seiten weiter. Gewollt ist das andere (Ansage des
+                // Nutzers, 09/2026: „Die Fotos werden dann drumherum
+                // verteilt bzw. auch auf einer weiteren Seite
+                // untergebracht, wenn sie in hoher Stückzahl auftreten.").
+                //
+                // Freigehalten wird die GEMESSENE Höhe der nächsten
+                // Fotoreihe und kein geschätzter Anteil: `naechsteReihe`
+                // rechnet sie ohnehin aus, und ein Anteil, der zu klein
+                // ist, lässt die Reihe doch nicht hinein — dann bliebe
+                // unten weißer Platz, den niemand bestellt hat. Passt nach
+                // der Reihe kein halber Absatz Text mehr auf die Seite,
+                // wird gar nichts freigehalten: Eine Seite mit vier Zeilen
+                // über einem Bild ist kein Satz, sondern ein Rest.
+                //
+                // Gerechnet wird durchgehend in `CGFloat`: Hier ist ein
+                // `CGRect` im Spiel, und die Umrechnung steht ausdrücklich
+                // da, statt sie dem Übersetzer zu überlassen.
+                let verbleibend = satz.maxY - y
+                var freigehalten: CGFloat = 0
+                if !offen.isEmpty {
+                    let (_, reihenhoehe, _) = naechsteReihe(offen, breite: satz.width, ziel: ziel)
+                    let braucht = CGFloat(reihenhoehe + fuge)
+                    let bleibt = CGFloat(typografie.flieText.zeilenhoehe
+                                         * Self.mindestzeilenNebenFoto)
+                    if verbleibend - braucht > bleibt { freigehalten = braucht }
+                }
+                let platz = CGSize(width: satz.width, height: verbleibend - freigehalten)
                 if platz.height > typografie.flieText.zeilenhoehe * 3 {
                     let (kopf, rest) = Textmass.teilen(text, bild: typografie.flieText,
                                                        groesse: platz)
@@ -593,7 +630,10 @@ struct Layoutautomat {
                         text = rest
                     }
                 }
-                if !text.isEmpty {
+                // Umgebrochen wird erst, wenn auch kein Foto mehr wartet.
+                // Sonst füllt eine Fotoreihe den Rest dieser Seite, und
+                // der Text geht darunter oder auf der nächsten weiter.
+                if !text.isEmpty, offen.isEmpty {
                     seiten.append(Seite(bloecke: bloecke))
                     bloecke = []
                     reihenaufSeite = []
