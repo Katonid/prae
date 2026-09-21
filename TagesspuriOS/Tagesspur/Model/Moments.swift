@@ -9,12 +9,14 @@ struct Moment: Identifiable {
     let end: Date
     let coordinate: CLLocationCoordinate2D?
     let placeName: String
+    /// Ortszeit des Tages (nil → Gerätezeit) — für die Titelzeile.
+    var zone: TimeZone? = nil
 
     var id: String { items.first?.id ?? "\(start.timeIntervalSince1970)" }
 
     var timeText: String {
-        let s = start.formatted(date: .omitted, time: .shortened)
-        let e = end.formatted(date: .omitted, time: .shortened)
+        let s = Ortszeit.uhrzeit(start, zone: zone)
+        let e = Ortszeit.uhrzeit(end, zone: zone)
         return s == e ? s : "\(s) – \(e)"
     }
 
@@ -29,7 +31,7 @@ enum MomentBuilder {
     private static let maxGap: TimeInterval = 45 * 60
     private static let maxDistance: CLLocationDistance = 500
 
-    static func moments(from items: [MediaItem], visits: [VisitInfo]) -> [Moment] {
+    static func moments(from items: [MediaItem], visits: [VisitInfo], zone: TimeZone? = nil) -> [Moment] {
         let sorted = items.sorted { $0.date < $1.date }
         guard !sorted.isEmpty else { return [] }
 
@@ -69,7 +71,8 @@ enum MomentBuilder {
                 start: group.first?.date ?? Date(),
                 end: group.last?.date ?? Date(),
                 coordinate: center,
-                placeName: placeName(for: group, center: center, visits: visits)
+                placeName: placeName(for: group, center: center, visits: visits),
+                zone: zone
             )
         }
     }

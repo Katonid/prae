@@ -181,6 +181,9 @@ struct DayDetailView: View {
     @State private var exportURL: URL?
     @State private var exportMessage: String?
     @State private var hiddenTrackIds: Set<String> = []
+    /// Ortszeit des Tages: Zeitzone des Aufnahmeorts (Geocoder, je Tag
+    /// einmal ermittelt und gemerkt). nil → Gerätezeit, ohne Behauptung.
+    @State private var zone: TimeZone?
 
     /// Nur eigene UND eingeblendete Tracks — die Geräteauswahl wirkt
     /// damit auf Replay, Zeit-Cursor und GPX-Export. (Familien-Punkte
@@ -202,7 +205,8 @@ struct DayDetailView: View {
                 replayTarget = ReplayTarget(
                     id: "eigene",
                     title: DayKey.displayName(for: dayKey),
-                    points: allPoints
+                    points: allPoints,
+                    zone: zone
                 )
             }
         }
@@ -210,33 +214,52 @@ struct DayDetailView: View {
             if track.points.count > 1 {
                 let name = track.deviceName.isEmpty ? "Gerät" : track.deviceName
                 Button(name) {
-                    replayTarget = ReplayTarget(id: track.id, title: name, points: track.points)
+                    replayTarget = ReplayTarget(id: track.id, title: name, points: track.points, zone: zone)
                 }
             }
         }
     }
 
     private var moments: [Moment] {
-        MomentBuilder.moments(from: media, visits: visits)
+        MomentBuilder.moments(from: media, visits: visits, zone: zone)
     }
 
     private var cursorPosition: TrackMath.TimePosition? {
         guard let cursorTime else { return nil }
-        return TrackMath.position(at: cursorTime, in: allPoints)
+        return TrackMath.position(at: cursorTime, in: allPoints, zone: zone)
     }
 
     private var cursorPin: TrackMapView.TimeCursor? {
         guard let cursorTime, let position = cursorPosition else { return nil }
         return TrackMapView.TimeCursor(
             coordinate: position.coordinate,
-            label: cursorTime.formatted(date: .omitted, time: .shortened)
+            label: Ortszeit.uhrzeit(cursorTime, zone: zone)
         )
+    }
+
+    /// Uhrzeit in der Ortszeit des Tages (nil → Gerätezeit).
+    private func uhr(_ date: Date) -> String {
+        Ortszeit.uhrzeit(date, zone: zone)
+    }
+
+    /// Hinweiszeile — nur wenn Orts- und Gerätezeit auseinanderliegen.
+    private var zoneHinweis: String? {
+        let datum = tracks.first(where: { !$0.points.isEmpty })?.points.first?.t
+            ?? DayKey.date(for: dayKey) ?? Date()
+        return Ortszeit.hinweis(zone: zone, am: datum)
     }
 
     var body: some View {
         VStack(spacing: 0) {
             TrackMapView(tracks: tracks, visits: visits, media: media, timeCursor: cursorPin, externalHiddenTrackIds: $hiddenTrackIds, onMediaTap: openViewer)
             List {
+                if let zoneHinweis {
+                    Section {
+                        Label(zoneHinweis, systemImage: "clock.badge.questionmark")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                }
                 gapSection
                 timeSection
                 exportSection
@@ -280,7 +303,7 @@ struct DayDetailView: View {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(visit.title).font(.subheadline)
                                 HStack {
-                                    Text("\(visit.arrival.formatted(date: .omitted, time: .shortened)) – \(visit.departure.formatted(date: .omitted, time: .shortened))")
+                                    Text("\(uhr(visit.arrival)) – \(uhr(visit.departure))")
                                     if !visit.subtitle.isEmpty {
                                         Text("· \(visit.subtitle)")
                                     }
@@ -304,7 +327,7 @@ struct DayDetailView: View {
                                         .foregroundStyle(.secondary)
                                 }
                                 .padding(.horizontal)
-                                MediaStripView(media: moment.items, onTap: openViewer)
+                                MediaStripView(media: moment.items, zone: zone, onTap: openViewer)
                             }
                             .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 8, trailing: 0))
                         }
@@ -313,6 +336,10 @@ struct DayDetailView: View {
             }
             .listStyle(.insetGrouped)
             .frame(maxHeight: 320)
+            // DatePicker („Wo war ich um …?“, GPX-Export) zeigen damit
+            // dieselbe Ortszeit wie die Textzeilen — .formatted()-Aufrufe
+            // liest die Umgebung nicht, die laufen über uhr().
+            .environment(\.timeZone, zone ?? .current)
         }
         .navigationTitle(DayKey.displayName(for: dayKey))
         .navigationBarTitleDisplayMode(.inline)
@@ -327,10 +354,10 @@ struct DayDetailView: View {
             }
         }
         .fullScreenCover(item: $replayTarget) { target in
-            TrackReplayView(title: target.title, points: target.points)
+            TrackReplayView(title: target.title, points: target.points, zone: target.zone)
         }
         .fullScreenCover(isPresented: $showViewer) {
-            MediaViewerView(items: media, index: viewerIndex)
+            MediaViewerView(items: media, index: viewerIndex, zone: zone)
         }
         .onChange(of: hiddenTrackIds) { _, _ in
             exportURL = nil
@@ -339,6 +366,17 @@ struct DayDetailView: View {
             reload()
             if cursorTime == nil, let initialCursorTime {
                 cursorTime = initialCursorTime
+            }
+            // Ortszeit des Tages: erst der gemerkte Wert (sofort, ohne
+            // Netz), sonst einmal über den Geocoder — am mittleren Punkt
+            // des Tages, nicht am ersten: Wer morgens abfliegt, ist am
+            // ersten Punkt noch in der falschen Zone.
+            zone = Ortszeit.gespeicherteZone(fuer: dayKey)
+            if zone == nil {
+                let pts = tracks.flatMap(\.points).sorted { $0.t < $1.t }
+                if !pts.isEmpty {
+                    zone = await Ortszeit.zone(fuer: dayKey, koordinate: pts[pts.count / 2].coordinate)
+                }
             }
         }
         .task {
@@ -370,7 +408,7 @@ struct DayDetailView: View {
             let events = LocationTracker.events(
                 from: a.t.addingTimeInterval(-120),
                 to: b.t.addingTimeInterval(120)
-            ).map { "\($0.0.formatted(date: .omitted, time: .shortened)) – \($0.1)" }
+            ).map { "\(uhr($0.0)) – \($0.1)" }
             result.append(GapInfo(start: a.t, end: b.t, distance: distance, events: events))
         }
         return result
@@ -383,7 +421,7 @@ struct DayDetailView: View {
             Section("Lücken-Diagnose") {
                 ForEach(dayGaps) { gap in
                     VStack(alignment: .leading, spacing: 3) {
-                        Text("\(gap.start.formatted(date: .omitted, time: .shortened)) – \(gap.end.formatted(date: .omitted, time: .shortened)) · \(Int(gap.end.timeIntervalSince(gap.start) / 60)) min, \(String(format: "%.1f km", gap.distance / 1000)) ohne Daten")
+                        Text("\(uhr(gap.start)) – \(uhr(gap.end)) · \(Int(gap.end.timeIntervalSince(gap.start) / 60)) min, \(String(format: "%.1f km", gap.distance / 1000)) ohne Daten")
                             .font(.subheadline.bold())
                         if gap.events.isEmpty {
                             Text("Keine Ereignisse protokolliert — iOS hat in dieser Zeit keine (brauchbaren) Ortungen geliefert. Das Protokoll reicht nur einige Tage zurück.")
@@ -511,8 +549,9 @@ struct DayDetailView: View {
         guard let firstPoint = slicedPoints.first, let lastPoint = slicedPoints.last else { return }
         let timeFormatter = DateFormatter()
         timeFormatter.dateFormat = "HH-mm"
+        timeFormatter.timeZone = zone ?? .current
         let label = "\(dayKey)_\(timeFormatter.string(from: firstPoint.t))_bis_\(timeFormatter.string(from: lastPoint.t))"
-        let rangeText = "\(firstPoint.t.formatted(date: .omitted, time: .shortened)) – \(lastPoint.t.formatted(date: .omitted, time: .shortened))"
+        let rangeText = "\(uhr(firstPoint.t)) – \(uhr(lastPoint.t))"
         do {
             exportURL = try Exporter.exportTimeSlice(
                 points: slicedPoints,

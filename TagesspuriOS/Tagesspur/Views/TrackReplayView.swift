@@ -9,6 +9,8 @@ struct ReplayTarget: Identifiable {
     let id: String
     let title: String
     let points: [TrackPoint]
+    /// Ortszeit des Tages (nil → Gerätezeit, z. B. „Heute“).
+    var zone: TimeZone? = nil
 }
 
 /// Spielt einen Tag wie einen Film ab — wahlweise als 3D-Flug oder als
@@ -35,11 +37,14 @@ struct TrackReplayView: View {
     private let cumulative: [Double]
     private let totalDistance: Double
     private let baseDuration: TimeInterval = 45
+    /// Ortszeit des Tages (nil → Gerätezeit).
+    private let zone: TimeZone?
 
     private let timer = Timer.publish(every: 1.0 / 30.0, on: .main, in: .common).autoconnect()
 
-    init(title: String, points: [TrackPoint]) {
+    init(title: String, points: [TrackPoint], zone: TimeZone? = nil) {
         self.title = title
+        self.zone = zone
         let sorted = points.sorted { $0.t < $1.t }
         let sampled = Self.downsample(sorted, maxCount: 800)
         self.path = sampled
@@ -119,9 +124,14 @@ struct TrackReplayView: View {
             Spacer()
             VStack(spacing: 2) {
                 Text(title).font(.headline)
-                Text(currentState.time.formatted(date: .omitted, time: .shortened))
+                Text(Ortszeit.uhrzeit(currentState.time, zone: zone))
                     .font(.system(.title2, design: .rounded).monospacedDigit())
                     .bold()
+                if let kurz = Ortszeit.kurzhinweis(zone: zone, am: currentState.time) {
+                    Text(kurz)
+                        .font(.caption2)
+                        .opacity(0.85)
+                }
             }
             .foregroundStyle(.white)
             .shadow(radius: 3)

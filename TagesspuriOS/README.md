@@ -418,6 +418,28 @@ Native SwiftUI-App, iOS 17+, keine externen Abhängigkeiten.
     die interpolierte Position auf der Karte, dazu Adresse
     (Reverse-Geocoding), umgebende Messpunkte und ehrliche Kennzeichnung
     von Messlücken (Ruhemodus) — `TrackMath.position(at:in:)`.
+- **Ortszeit statt Gerätezeit (`Model/Ortszeit.swift`, ab 1.4.27)**
+  - Die Punkte tragen absolute Zeitstempel; angezeigt wurden sie stur in
+    der Zeitzone des Geräts — ein Kanada-Tag stand auf einem deutschen
+    Gerät sechs Stunden daneben. Jetzt wird je Tag die Zeitzone des
+    AUFNAHMEORTS ermittelt (`CLPlacemark.timeZone` am mittleren Punkt des
+    Tages — nicht am ersten: Wer morgens abfliegt, ist dort noch in der
+    falschen Zone) und dauerhaft in den Voreinstellungen gemerkt
+    (`tagesspur.zeitzone.<dayKey>`) — die Anzeige braucht danach kein Netz.
+  - Gilt im Tagesdetail (Lücken-Diagnose, Zeit-Cursor samt DatePicker und
+    Positions-Notiz, Aufenthalte, Momente, Medienzeiten, GPX-Export),
+    im Replay und im Medienbetrachter; die Suche nutzt die gemerkte Zone,
+    sobald der Tag einmal geöffnet war.
+  - Über der Liste steht ein Hinweis („Alle Uhrzeiten in Ortszeit
+    America/Toronto (UTC−4) — dein Gerät steht auf Europe/Berlin“) —
+    aber NUR, wenn der Offset am konkreten Tag wirklich abweicht; an
+    jedem heimischen Tag wäre er Lärm. Verglichen wird der Offset, nicht
+    der Zonenname (Berlin und Rom sind zwei Namen mit derselben Uhr).
+  - Solange die Zone nicht ermittelt ist (kein Netz, Geocoder ohne
+    Antwort), gilt die Gerätezeit — ohne Hinweis, ohne Behauptung.
+    Die DatePicker bekommen die Zone über `.environment(\.timeZone, …)`;
+    `.formatted()` liest diese Umgebung NICHT, deshalb laufen alle
+    Textzeiten über `Ortszeit.uhrzeit`.
   - Hell/Dunkel getrennt für App und Karte einstellbar (Einstellungen →
     Darstellung), z. B. dunkle App mit heller Karte.
   - Designsprache in `Views/Theme.swift`: Markenverlauf, Hero-Karten mit
@@ -447,7 +469,7 @@ Native SwiftUI-App, iOS 17+, keine externen Abhängigkeiten.
   - Einrichtung: Einstellungen → Familie; Sync automatisch beim
     Aktivwerden der App plus manueller Knopf.
 - **Versionierung**
-  - Marketing-Version (`MARKETING_VERSION`, aktuell 1.4.26) wird von
+  - Marketing-Version (`MARKETING_VERSION`, aktuell 1.4.27) wird von
     Hand gepflegt; die Build-Nummer setzt eine Skript-Bauphase
     („Build-Nummer setzen“) bei jedem Build automatisch: primär die
     Anzahl der Git-Commits, bei git-Fehlern ein Datumsstempel
