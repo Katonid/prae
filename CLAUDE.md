@@ -3520,6 +3520,50 @@ Befunde, und keiner davon war Geschmack:
   **Woher ein zweiter Kasten kommt, ist damit nicht beantwortet** — die
   Prüfung macht ihn nur unübersehbar und nennt den Weg, ihn zu entfernen.
   Nicht als geklärt darstellen.
+- **Viermal derselbe Befund: „Es war da, man fand es nicht"** (ab 1.0.10,
+  gemeldet 09/2026: „Kann ich das jetzt für alle Fotos global einstellen und
+  wenn ja, wo? Irgendwie ist die App nicht intuitiv zu bedienen."). Die
+  Foto-Einstellung war in 1.0.9 gebaut — sie lag hinter **Buch → „Format,
+  Ränder, Karte…"**, also hinter einem Menüpunkt, der nach Papiermaßen
+  klingt. Derselbe Befund wie bei der Bildunterschrift (1.0.6), beim
+  Zurücksetzen in Tafelbild und beim Gruppenchat in Schulalarm. **Ein
+  Menüpunkt, der nicht sagt, was dahinter liegt, ist so wenig wert wie ein
+  Knopf, den niemand findet.** Deshalb heißt der Eintrag jetzt schlicht
+  **„Fotos…"** und steht eigenständig im Buch-Menü, gleich unter Stil und
+  Schrift — dort, wo die Frage gestellt wird.
+- **Die Felder stehen EINMAL da und werden an zwei Stellen gezeigt**
+  (`Views/Fotostil.swift`, `Fotostilfelder`). Das eigene Blatt (Buch →
+  Fotos) und die Unterseite der Gestaltung, wo sie bisher lagen, zeigen
+  dieselbe Ansicht. Zwei Fassungen desselben Formulars liefen auseinander —
+  dieselbe Regel wie bei `Block.wirkung`, die Bildschirm und PDF gemeinsam
+  fragen.
+- **Der Weg vom Einzelfall zum Ganzen steht im Inspektor** (ab 1.0.10). Wer
+  ein Foto gewählt hat und dessen Wirkung ändern will, ist genau die Person,
+  die die Frage „und für alle?" stellt. Im Abschnitt „Wirkung" führt deshalb
+  ein Knopf ins Buch-Blatt; seine Beschriftung sagt, wo man steht („Für alle
+  Fotos einstellen" oder „Dieses Foto weicht ab — für alle einstellen"),
+  und „Wieder wie im Buch" nimmt die Abweichung zurück. Dafür reicht
+  `ReiseView` sein `blatt` als `@Binding` in den Inspektor durch: Ein
+  zweites Blatt über dem Inspektor wäre eine zweite Ebene für dieselbe
+  Einstellung.
+- **Gesten sind unsichtbar — also stehen sie aufgeschrieben**
+  (`Views/BedienungView.swift`, ab 1.0.10). Eine Buchseite ist seit 1.0.5
+  eine ZEICHNUNG, und jeder Griff daran ist eine Geste: Tipp, Doppeltipp,
+  Ziehen am Punkt, zwei Finger. Nichts davon sieht man. Die Karte hinter dem
+  **„?" unten in der Leiste** zählt auf, was geht und wo was eingestellt
+  wird; sie erklärt nichts, denn wer sie öffnet, sucht etwas Bestimmtes.
+  **Wer eine neue Geste einbaut, trägt sie dort ein** — eine Geste, die dort
+  fehlt, gibt es für den Menschen davor nicht.
+- **„Satz" heißt jetzt „Anordnen"** (ab 1.0.10). „Satz" ist das Fachwort für
+  das, was der Layoutautomat tut; gesucht wird es von jemandem, der eine
+  Seite neu verteilt haben will. Ein Menü, das die Aufgabe nennt statt des
+  Handwerks, findet man ohne Vorwissen.
+- **Nicht gemessen: ob die App sich jetzt anders anfühlt.** Was gemessen ist,
+  sind Wege — die Einstellung liegt eine Ebene höher und heißt nach ihrer
+  Sache, die Gesten stehen an einer Stelle. Ob das reicht, sagt erst der
+  nächste Befund des Nutzers. **Eine Oberflächenänderung als gelöstes
+  Bedienproblem auszugeben wäre genau die Art Behauptung, die dieses Papier
+  sonst verbietet.**
 - **Die Bildunterschrift war halb gebaut** (ab 1.0.5, Wunsch des Nutzers
   09/2026: „zu jedem Foto einen Beschreibungstext … Dies soll jedoch eine
   Option für jedes Foto sein. Kein muss."). Der Layoutautomat hielt Platz
