@@ -3326,6 +3326,102 @@ Befunde, und keiner davon war Geschmack:
   um 0,4 Grad schief steht, sieht nicht gewollt aus, sondern nach einem
   Versehen.
 
+### Karten: Quelle, Helligkeit und Lizenz (ab 1.0.3)
+
+- **Hell oder dunkel entscheidet das BUCH, nicht das iPad** (gemeldet
+  09/2026: „Die Landkarten sind von Apple Karten in der dunklen Ansicht.").
+  Bis 1.0.2 stand über der Helligkeit gar nichts, und damit nahm
+  `MKMapSnapshotter` die Erscheinung des Systems an: Wer abends am dunkel
+  geschalteten iPad arbeitete, bekam eine schwarze Karte ins gedruckte Buch.
+  Das ist kein Geschmack, sondern ein Fehler — eine Druckvorlage darf nicht
+  davon abhängen, wie hell es im Zimmer war. Gesetzt wird
+  `MKMapSnapshotter.Options.traitCollection`; die Vorgabe ist **hell** und
+  nicht `wieApp`. Wer `wieApp` wählt, bekommt einen Warnhinweis daneben.
+  **Nicht gemessen**: ob `traitCollection` auf einem echten Gerät wirklich
+  greift — das zeigt erst ein Ausdruck. Der Weg daneben ist eine
+  Kachelquelle, die ohnehin immer hell ist.
+- **Vier Quellen** (`Model/Kartenbild.swift`, `Dienste/Kachelkarte.swift`,
+  ab 1.0.3, Ansage des Nutzers 09/2026: „auf andere Kartenanbieter wie
+  OpenStreetMap oder andere zurückgreifen"). Apple Karten, OpenStreetMap,
+  OpenTopoMap und ein eigener Kachelserver. Alles am 21.09.2026 gemessen:
+  `tile.openstreetmap.org` und `tile.opentopomap.org` antworten ohne
+  Schlüssel mit 256-px-PNG (`max-age=16144` bzw. `604800`); OpenTopoMap
+  rendert bis Zoomstufe 17.
+- **Carto ist NICHT gebaut, und der Grund steht hier.**
+  `basemaps.cartocdn.com` antwortete zwar ohne Schlüssel (auch mit `@2x`,
+  also 512 px — das wäre für den Druck das Beste gewesen), aber Carto
+  verlangt seit 2026 einen API-Schlüssel und deckelt bei fünf Millionen
+  Kacheln im Monat. **Ein Schlüssel in einer App ist keiner** — dieselbe
+  Regel wie in der Abfahrtstafel. Wer einen eigenen holt, trägt ihn über
+  „Eigener Kachelserver" ein; dafür ist der Weg da.
+  `maps.wikimedia.org` antwortete mit 403.
+- **Die Nutzungsrichtlinie der OSM Foundation ist gelesen, nicht vermutet**
+  (abgerufen 21.09.2026). Drei Dinge sind daraus Pflicht: ein eigener
+  User-Agent (Anfragen mit der Vorgabe einer Bibliothek werden ausdrücklich
+  gesperrt — es steht der Name der App darin und eine Adresse, **nie die
+  E-Mail des Nutzers**), ein Zwischenspeicher, der die Verfallszeiten des
+  Servers achtet (`URLCache`, 256 MB), und ein Deckel (48 Kacheln je Karte;
+  darüber sinkt die Auflösung). **Verboten ist das Vorausladen** („bulk
+  downloading", „offline use") — einen Knopf, der eine Gegend im Voraus
+  holt, gibt es deshalb nicht und darf es nicht geben.
+- **Der Lizenzhinweis wird IN das Bild gezeichnet** und ist nirgends
+  abschaltbar. Ein Hinweis als eigener Textblock ließe sich verschieben,
+  überdecken oder löschen — und stünde dann nicht mehr da, wenn das Buch
+  beim Drucker liegt. OpenTopoMap nennt den Wortlaut ausdrücklich
+  („Kartendaten: © OpenStreetMap-Mitwirkende, SRTM | Kartendarstellung:
+  © OpenTopoMap (CC-BY-SA)"), OSM verlangt ihn sichtbar und nicht hinter
+  einem Schalter.
+- **CC-BY-SA heißt auch Share-alike, und das gehört gesagt.** Der
+  Herausgeber von OpenTopoMap beantwortet die Frage nach dem gedruckten
+  Wanderführer mit Ja und ohne Gebühren — verlangt aber, dass die
+  abgedruckte Karte unter denselben Bedingungen weitergegeben werden darf.
+  Für ein Familienbuch im Schrank folgenlos, für eine Auflage nicht.
+- **Entschieden wird an der QUELLE, nicht an der Adresse.** Eine eigene
+  Quelle ohne Adresse fiele sonst stillschweigend auf Apple zurück, und der
+  Nutzer hielte seinen Kachelserver für einen, der genau so aussieht. Ohne
+  Adresse UND ohne Lizenzhinweis gilt die Quelle als unvollständig und die
+  Karte bleibt leer — mit einer Zeile, die das sagt.
+- **Erst das Mosaik, dann verkleinern** (`Kachelkarte`). Jede Kachel einzeln
+  in das verkleinerte Bild zu zeichnen wäre der naheliegende Weg und
+  hinterließe an jeder Kachelgrenze einen hellen Haarstrich: Die Ränder
+  lägen auf gebrochenen Bildpunkten, und die Glättung rechnet dort mit dem
+  weißen Grund.
+- **Der Maßstab des Kartenbildes steht FEST auf 2.**
+  `UIGraphicsImageRenderer` nähme sonst `UIScreen.main.scale` — und dann
+  hinge die Auflösung der gedruckten Karte daran, auf welchem Gerät das Buch
+  gerade offen war.
+- **Eine leere Kartenfläche hat zwei Gründe, und sie verlangen verschiedene
+  Handgriffe**: noch keine Punkte, oder die Karte ließ sich nicht holen.
+  Beides gleich aussehen zu lassen wäre ein stummer Befund.
+- **Die Karten in Ortswahl und Spurliste bleiben Apples Live-Karten** in der
+  Erscheinung der App. Sie sind Werkzeug, nicht Erzeugnis; die Einstellung
+  gilt dem gedruckten Bild. Wer das ändert, ändert es für beide.
+
+### Ein Tagebuch muss eine neue Fassung überleben (ab 1.0.3)
+
+- Swift baut den Leser einer `Codable`-Struktur selbst — und der verlangt
+  JEDEN Schlüssel, **auch wenn die Eigenschaft einen Vorgabewert hat**. Ein
+  neues Feld macht damit jede vorher gesicherte Datei unlesbar. Bei einem
+  Reisetagebuch ist das der teuerste denkbare Fehler: Es gibt keine zweite
+  Ausfertigung. `Reise` und `Reisetag` lesen sich deshalb seit 1.0.3 von
+  Hand über `Model/Nachsicht.swift`. Dieselbe Lehre wie bei Anstoß
+  („Ablagen müssen Modelländerungen überleben") — dort war sie
+  aufgeschrieben und hier nicht gezogen.
+- **Die Nachsicht ist GESTAFFELT und deckt damit auch die Typen darunter
+  ab.** Ändert sich `Block`, `Seite`, `Gestaltung` oder `Typografie`, fällt
+  in `Reisetag` bzw. `Reise` nur das eine Feld auf seinen Vorgabewert
+  zurück: Die Seiten eines Tages sind dann leer, und
+  `fehlendeSeitenNachholen()` setzt sie beim Öffnen neu. Die Gestaltung
+  kostet eine Einstellung, der Inhalt bleibt. **Was NICHT abgedeckt ist**:
+  ein Tag ohne `datum` — der reißt die ganze Tagesliste mit. Der Schlüssel
+  steht seit 1.0.0 in jeder Datei; wer ihn antastet, baut vorher eine
+  nachsichtige Liste.
+- **Ein alter Schlüssel wird weiter GELESEN, auch wenn es die Eigenschaft
+  nicht mehr gibt** (`AlteSchluessel` in `Model/Reise.swift`). Bis 1.0.2
+  hieß die Karteneinstellung `kartenstil` und kannte nur Apples vier Stile;
+  sie wird beim Lesen ins neue `kartenbild` gehoben und danach nicht mehr
+  geschrieben. Ohne das verlöre jedes Buch von damals seine Einstellung.
+
 - `MARKETING_VERSION` und `CURRENT_PROJECT_VERSION` stehen an je zwei
   Stellen im pbxproj (Debug + Release) — es gibt KEINE Skript-Bauphase.
   **Jede Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne

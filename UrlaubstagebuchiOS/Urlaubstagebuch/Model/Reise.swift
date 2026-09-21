@@ -1,5 +1,12 @@
 import Foundation
 
+// Der Schlüssel, unter dem bis 1.0.2 der Kartenstil stand. Er hat keine
+// Eigenschaft mehr, wird aber weiter GELESEN — sonst verlöre jedes Buch
+// von damals seine Karteneinstellung.
+fileprivate enum AlteSchluessel: String, CodingKey {
+    case kartenstil
+}
+
 // Ein Tag des Tagebuchs. Er trägt den INHALT (Text, Fotos, Spur) und
 // daneben die daraus GESETZTEN Seiten. Beides getrennt zu halten ist der
 // ganze Trick dieser App: Der Inhalt ist das, was der Nutzer eingegeben
@@ -16,7 +23,9 @@ struct Reisetag: Identifiable, Codable, Hashable {
     var karteZeigen: Bool = true
     var muster: Seitenmuster?
     var kartenausschnitt: Kartenausschnitt?
-    var kartenstil: Kartenstil?
+    // Die Karte DIESES Tages. Leer heißt: Es gilt, was im Buch eingestellt
+    // ist — Quelle, Stil und Helligkeit zusammen.
+    var kartenbild: Kartenbild?
     // Überschreibt die Datumszeile dieses einen Tages. Leer heißt: Es gilt,
     // was im Buch eingestellt ist.
     var datumstext: String?
@@ -24,6 +33,35 @@ struct Reisetag: Identifiable, Codable, Hashable {
     // ins Buch. Ihn zu löschen wäre der einzige andere Weg gewesen — und
     // ein gelöschter Tagebuchtag ist weg.
     var ausgeblendet: Bool = false
+
+    // Ein Leser von Hand, damit ein Tagebuch eine neue Fassung überlebt
+    // (siehe `Model/Nachsicht.swift`). Der einzige Sonderfall ist die alte
+    // Angabe `kartenstil`: Bis 1.0.2 stand dort nur Apples Stil, und ein
+    // Buch von damals soll ihn behalten.
+    init(from decoder: Decoder) throws {
+        let b = try decoder.container(keyedBy: CodingKeys.self)
+        id = b.wert(.id, UUID())
+        datum = try b.decode(Tagesdatum.self, forKey: .datum)
+        ueberschrift = b.wert(.ueberschrift, "")
+        text = b.wert(.text, "")
+        fotos = b.wert(.fotos, [])
+        spur = b.wert(.spur, [])
+        seiten = b.wert(.seiten, [])
+        karteZeigen = b.wert(.karteZeigen, true)
+        muster = b.wahlweise(.muster)
+        kartenausschnitt = b.wahlweise(.kartenausschnitt)
+        datumstext = b.wahlweise(.datumstext)
+        ausgeblendet = b.wert(.ausgeblendet, false)
+        if let neu: Kartenbild = b.wahlweise(.kartenbild) {
+            kartenbild = neu
+        } else if let alt = Reise.alterStil(decoder) {
+            kartenbild = Kartenbild(quelle: .apple, stil: alt, helle: .hell)
+        } else {
+            kartenbild = nil
+        }
+    }
+
+    init(datum: Tagesdatum) { self.datum = datum }
 
     var hatSpur: Bool { spur.count >= 1 }
     var hatStrecke: Bool { spur.count >= 2 }
@@ -44,9 +82,44 @@ struct Reise: Identifiable, Codable {
     var stil: String = Buchstil.magazin.id
     var titelfoto: UUID?
     var akzent: Farbwert = .akzent
-    var kartenstil: Kartenstil = .gedaempft
+    var kartenbild = Kartenbild()
     var titelseite: Bool = true
     var geaendert: Date = Date()
+
+    init() {}
+
+    // Derselbe nachsichtige Leser wie beim Tag — und aus demselben Grund.
+    init(from decoder: Decoder) throws {
+        let b = try decoder.container(keyedBy: CodingKeys.self)
+        id = b.wert(.id, UUID())
+        titel = b.wert(.titel, "Meine Reise")
+        untertitel = b.wert(.untertitel, "")
+        tage = b.wert(.tage, [])
+        fotos = b.wert(.fotos, [])
+        typografie = b.wert(.typografie, Typografie())
+        gestaltung = b.wert(.gestaltung, Gestaltung())
+        format = b.wert(.format, Seitenformat.a4quer)
+        stil = b.wert(.stil, Buchstil.magazin.id)
+        titelfoto = b.wahlweise(.titelfoto)
+        akzent = b.wert(.akzent, Farbwert.akzent)
+        titelseite = b.wert(.titelseite, true)
+        geaendert = b.wert(.geaendert, Date())
+        if let neu: Kartenbild = b.wahlweise(.kartenbild) {
+            kartenbild = neu
+        } else {
+            kartenbild = Kartenbild(quelle: .apple,
+                                    stil: Reise.alterStil(decoder) ?? .gedaempft,
+                                    helle: .hell)
+        }
+    }
+
+    // Bis 1.0.2 hieß die Angabe `kartenstil` und kannte nur Apples vier
+    // Stile. Sie steht in jedem Buch von damals und wird beim Lesen in das
+    // neue Feld gehoben; geschrieben wird sie nicht mehr.
+    fileprivate static func alterStil(_ decoder: Decoder) -> Kartenstil? {
+        guard let alt = try? decoder.container(keyedBy: AlteSchluessel.self) else { return nil }
+        return (try? alt.decodeIfPresent(Kartenstil.self, forKey: .kartenstil)) ?? nil
+    }
 
     var buchstil: Buchstil {
         var gewaehlt = Buchstil.nach(stil)

@@ -183,6 +183,56 @@ Gezeichnet wird die **Verbindung der Punkte**, nicht der gefahrene Weg —
 welche Straße es war, steht in keinem Foto. Das steht auch so unter der
 Karte.
 
+### Hell oder dunkel entscheidet das Buch, nicht das iPad
+
+Bis 1.0.2 stand über der Helligkeit gar nichts, und damit entschied die
+Erscheinung des Geräts: Wer abends am dunkel geschalteten iPad arbeitete,
+bekam eine schwarze Karte ins gedruckte Buch. Eine Druckvorlage darf nicht
+davon abhängen, wie hell es im Zimmer war. Seit 1.0.3 steht die Helligkeit
+in der Gestaltung, und die Vorgabe ist **hell**
+(`MKMapSnapshotter.Options.traitCollection`).
+
+### Vier Kartenquellen, und was jede kostet
+
+Apple Karten sind die einzige Quelle, die iOS mitbringt, und ihr Aussehen
+ist nicht verhandelbar. Eine topographische Karte mit Höhenlinien gibt es
+dort nicht. Eine Kachelkarte ist dagegen nichts als quadratische Bilder
+unter einer Adresse (`Dienste/Kachelkarte.swift`, Web-Mercator von Hand).
+
+| Quelle | Gemessen 21.09.2026 | Lizenz |
+|---|---|---|
+| Apple Karten | vier Stile, hell/dunkel, kein Netzkonto | Apples Bedingungen |
+| OpenStreetMap | `tile.openstreetmap.org`, 256 px, `max-age=16144` | ODbL, Namensnennung |
+| OpenTopoMap | bis Zoom 17, `max-age=604800` | CC-BY-SA, Abdruck ausdrücklich erlaubt |
+| Eigener Server | Adressvorlage `{z}/{x}/{y}` | trägt der Nutzer selbst ein |
+
+Drei Dinge sind dabei Pflicht, nicht Zugabe, und sie stehen so in der
+Nutzungsrichtlinie der OpenStreetMap Foundation (abgerufen am 21.09.2026):
+
+* **Ein eigener User-Agent.** Anfragen mit der Vorgabe einer Bibliothek
+  werden ausdrücklich gesperrt. Es steht also der Name dieser App darin und
+  eine Adresse, unter der man sie findet — keine E-Mail des Nutzers.
+* **Ein Zwischenspeicher**, der die Verfallszeiten des Servers achtet
+  (`URLCache`, 256 MB auf der Platte).
+* **Ein Deckel.** Höchstens 48 Kacheln je Karte; darüber wird die Auflösung
+  gesenkt, statt einen fremden Server zu belasten, den niemand dafür
+  bezahlt.
+
+Was es mit Absicht **nicht** gibt: einen Knopf, der eine Gegend im Voraus
+lädt. Genau das nennt die Richtlinie als verboten. Geholt wird, was auf
+einer Seite steht.
+
+**Der Lizenzhinweis wird IN das Bild gezeichnet**, unten rechts, und lässt
+sich nicht abschalten. Ein Hinweis als eigener Textblock ließe sich
+verschieben, überdecken oder löschen — und stünde dann nicht mehr da, wenn
+das Buch beim Drucker liegt.
+
+Und eine Ehrlichkeit dazu: **CC-BY-SA heißt auch Share-alike.** Der
+Herausgeber von OpenTopoMap beantwortet die Frage nach dem gedruckten
+Wanderführer mit Ja und ohne Gebühren — verlangt aber, dass die abgedruckte
+Karte unter denselben Bedingungen weitergegeben werden darf. Für ein
+Familienbuch im Schrank ist das folgenlos; für eine Auflage nicht.
+
 ### Der Textimport behauptet nichts, er zeigt
 
 Die ganze Schwierigkeit steckt in einer Frage: Was **ist** eine
@@ -243,7 +293,7 @@ wirkungslos — und genau das will man beim Umstellen einer Schrift nicht.
 Urlaubstagebuch/
   Model/       Reise, Tag, Seite, Block, Schriftbild, Layoutautomat, Einrasten
   Dienste/     EXIF, Textimport, Bildarchiv, Ablage, Spurbau, Kartenwerk,
-               Seitensatz, Buchausgabe, Standortdienst
+               Kachelkarte, Seitensatz, Buchausgabe, Standortdienst
   Views/       Regal, Reise, Seitenfläche, Inspektor, Importe, Karte, PDF
 ```
 

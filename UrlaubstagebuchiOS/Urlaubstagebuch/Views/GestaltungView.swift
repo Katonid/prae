@@ -75,16 +75,15 @@ struct GestaltungView: View {
                     Toggle("Kopfzeile mit Datum", isOn: $werk.reise.gestaltung.kopfzeile)
                 }
 
-                Section("Karte") {
-                    Picker("Kartenbild", selection: $werk.reise.kartenstil) {
-                        ForEach(Kartenstil.allCases) { stil in Text(stil.name).tag(stil) }
-                    }
+                KartenbildWahl(titel: "Kartenbild", bild: $werk.reise.kartenbild)
+
+                Section("Karte im Satz") {
                     ColorPicker("Akzentfarbe", selection: Binding(
                         get: { werk.reise.akzent.farbe },
                         set: { werk.reise.akzent = Farbwert($0) }
                     ))
                     VStack(alignment: .leading) {
-                        LabeledContent("Breite der Karte im Satz",
+                        LabeledContent("Breite der Karte",
                                        value: "\(Int(werk.reise.gestaltung.kartenanteil * 100)) %")
                         Slider(value: $werk.reise.gestaltung.kartenanteil, in: 0.2...0.6)
                     }

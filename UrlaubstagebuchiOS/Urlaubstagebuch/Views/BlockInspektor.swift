@@ -238,15 +238,17 @@ struct BlockInspektor: View {
     private func karteAbschnitt(_ block: Block) -> some View {
         if let tag = werk.tag, let stelle = werk.tagIndex(tag.id) {
             Section("Karte") {
-                Picker("Kartenbild", selection: Binding(
-                    get: { tag.kartenstil ?? werk.reise.kartenstil },
-                    set: { neu in
+                // Ein Tag darf die Karte des Buches überschreiben — aber
+                // nur ausdrücklich. Ohne den Schalter wüsste hinterher
+                // niemand mehr, welche Tage der Buchgestaltung folgen und
+                // welche ihr eigenes Bild tragen.
+                Toggle("Eigene Karte für diesen Tag", isOn: Binding(
+                    get: { tag.kartenbild != nil },
+                    set: { an in
                         werk.merken()
-                        werk.reise.tage[stelle].kartenstil = neu
+                        werk.reise.tage[stelle].kartenbild = an ? werk.reise.kartenbild : nil
                     }
-                )) {
-                    ForEach(Kartenstil.allCases) { stil in Text(stil.name).tag(stil) }
-                }
+                ))
                 LabeledContent("Punkte", value: "\(tag.spur.count)")
                 if tag.hatStrecke {
                     LabeledContent("Länge", value: Spurbau.laengeText(tag.spur))
@@ -257,6 +259,12 @@ struct BlockInspektor: View {
                         werk.reise.tage[stelle].kartenausschnitt = nil
                     }
                 }
+            }
+            if tag.kartenbild != nil {
+                KartenbildWahl(titel: "Karte dieses Tages", bild: Binding(
+                    get: { werk.reise.tage[stelle].kartenbild ?? werk.reise.kartenbild },
+                    set: { werk.reise.tage[stelle].kartenbild = $0 }
+                ))
             }
         }
     }
