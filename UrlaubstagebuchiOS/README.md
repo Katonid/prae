@@ -717,6 +717,68 @@ Bücher gefahrlos: Der erzeugte `Codable`-Leser verlangt einen Schlüssel nur
 für nicht-optionale Eigenschaften. Ein vorhandener Wert wird gelesen, ein
 fehlender wird `nil` — also „wie im Buch".
 
+## Nur bauen, was zu sehen ist (1.0.16)
+
+Gemeldet, gleich nach 1.0.15: „Erst ging es. Als ich auf eine andere Seite
+wollte, fror es ein." Dazu das Bild des Messfühlers:
+
+```
+Inspektor 18/s (48 in 2,7 s) · Seite 36/s (98 in 2,7 s) · Absätze 0,0 ms
+```
+
+**Damit ist die Erklärung von 1.0.15 für diesen Fall widerlegt.** Der
+Absatzlauf kostet null Millisekunden, die Raten sind mäßig — und der
+Inspektor war auf dem Bild zugeklappt; er zählte trotzdem mit, weil eine
+Spalte auch zugeklappt einen Körper hat. Was 1.0.15 abgestellt hat, war
+richtig abgestellt. Es war nicht das hier. Genau dafür war die Probe da.
+
+Was sich stattdessen abzählen lässt, und es passt zum Zeitpunkt:
+
+* **Die Bühne baute jede Seite sofort auf.** Ein `VStack` ist nicht lazy; er
+  baut auch das Kind, das zwanzig Seiten tiefer liegt. An jeder Seite hängen
+  alle Textkästen (je ein voller CoreText-Satz) und alle Fotos (je ein
+  Vorschaubild, von der Platte gelesen und auf dem Hauptfaden entpackt). Ist
+  kein Tag gewählt, sind das sämtliche Seiten des Buches — und beim Wechsel
+  entsteht das alles neu. Jetzt ein `LazyVStack`.
+* **Die Seitenliste setzte das Titelblatt neu, zweimal je Durchgang.**
+  `Reise.seitenfolge` ist eine berechnete Eigenschaft; darin baut `automat`
+  ein Wörterbuch über alle Fotos des Buches, und `titelseite(…)` setzt das
+  Titelblatt samt zwei CoreText-Messungen. Gelesen wurde sie im Körper von
+  `ReiseView` — einmal für die Liste, einmal für die Prüfung auf leer. Die
+  Liste steht jetzt im Reisewerk, das Titelblatt wird gemerkt.
+* **`Textkasten.updateUIView` forderte bedingungslos eine Neuzeichnung an.**
+  Diese Methode läuft bei jedem Durchgang des SwiftUI-Körpers, und dahinter
+  steckt ein CoreText-Satz je Textkasten. Jetzt nur bei echter Änderung.
+
+Gemerkt wird ausdrücklich **nur das Titelblatt**: Es ist die einzige Seite,
+die es nicht gibt, sondern die gerechnet wird. Die Blöcke eines Tages zu
+merken hieße, beim Schieben einen alten Stand zu zeichnen.
+
+### Das Papierkorn flimmerte
+
+Beim Nachrechnen gefunden: Bildschirm und PDF würfelten das Korn getrennt,
+jeder mit einem Zufallsstrom, der sich nicht wiederholen lässt. Auf dem
+Bildschirm war es damit bei jeder Neuzeichnung ein anderes — ein Flimmern
+statt einer Struktur —, und die gedruckte Seite sah nie aus wie die
+angesehene. Im Quelltext stand daneben, der Strom sei „an der Seite
+festgemacht"; er war es nie. **Ein Kommentar ersetzt keine Prüfung.**
+
+Gerechnet wird es jetzt an einer Stelle, von Ansicht und PDF gemeinsam, mit
+einer Saat aus der Seitenkennung — und die kommt aus deren Bytes und nie aus
+`hashValue`, den Swift bei jedem Programmlauf neu streut.
+
+### Die Probe zählt jetzt auch Summen
+
+`Zeichenmesser.sammelt` nennt, wie oft etwas im Zeitfenster gelaufen ist und
+wie viel Zeit dabei zusammenkam — Fotos, Seitenliste, Titelblatt. Die letzte
+Dauer sagt darüber nichts; sie ist gerade dann klein, wenn der
+Zwischenspeicher zufällig traf. Dazu ein Knopf **„Befund kopieren"** unter
+Anordnen: Eine Messung, die man abfotografieren muss, kommt verkürzt an.
+
+**Nicht gemessen:** Abgezählt ist, was je Neuzeichnung und je Seitenwechsel
+anfiel. Ob das Gerät danach flüssig ist, sagt erst der nächste Befund — es
+ist die zweite Erklärung für dasselbe Einfrieren.
+
 ## Was bei jedem Bildpunkt lief (1.0.15)
 
 Gemeldet: „Nach kurzer Zeit ist die App nun eingefroren." Gemessen werden
@@ -1214,9 +1276,11 @@ im Inspektor gab es, aber keinen Weg zu sehen, was es bewirkt.
   randbündigen Reihe füllen eine A4-quer-Seite zu 40 % — höher kann die
   Reihe nicht werden, das ist Geometrie. Die Antwort darauf ist eine
   Vorlage (eines groß, zwei gestapelt), nicht eine weitere Stellschraube.
-* **Warum die App einfror, ist NICHT gemessen.** Was 1.0.15 entfernt, ist
-  am Quelltext abgezählte Arbeit je Neuzeichnung; ob sie der Grund war,
-  zeigt erst der Messfühler unter „Bedienung prüfen" auf einem echten Gerät.
+* **Warum die App einfror, ist NICHT gemessen.** Was 1.0.15 und 1.0.16
+  entfernen, ist am Quelltext abgezählte Arbeit je Neuzeichnung und je
+  Seitenwechsel; ob sie der Grund war, zeigt erst der Messfühler unter
+  „Bedienung prüfen" auf einem echten Gerät. Die Erklärung von 1.0.15 hat
+  der erste Befund bereits umgeworfen — 1.0.16 ist die zweite.
 * **Der neue Umbruch ist nicht gesetzt worden.** Die Absatzgrenze, die
   62-Prozent-Schwelle und der freigehaltene Platz für die nächste Fotoreihe
   sind gerechnet; wie eine Doppelseite damit aussieht, zeigt erst ein Buch.
