@@ -75,10 +75,16 @@ enum Buchausgabe {
     static func pdf(_ reise: Reise, auftrag: Auftrag = Auftrag(),
                     fortschritt: @escaping @MainActor (Double) -> Void) async throws -> URL
     {
-        var seiten = reise.seitenfolge
-        if auftrag.nurUmschlag { seiten = seiten.filter { $0.tag == nil } }
-        if auftrag.ohneUmschlag { seiten = seiten.filter { $0.tag != nil } }
-        guard !seiten.isEmpty else { throw Fehler.keineSeiten }
+        var gefiltert = reise.seitenfolge
+        if auftrag.nurUmschlag { gefiltert = gefiltert.filter { $0.tag == nil } }
+        if auftrag.ohneUmschlag { gefiltert = gefiltert.filter { $0.tag != nil } }
+        guard !gefiltert.isEmpty else { throw Fehler.keineSeiten }
+        // Ab hier unveränderlich: Eine `var`, die aus einem nebenläufigen
+        // Abschluss gelesen wird, ist unter Swift 6 ein Fehler — und der
+        // Grund dafür ist echt, nicht formal: Beim Fortschritt dürfte sich
+        // die Liste zwischen zwei Meldungen nicht ändern.
+        let seiten = gefiltert
+        let anzahl = Double(seiten.count)
 
         let endformat = reise.format.groesse
         let anschnitt = reise.gestaltung.anschnittPt
@@ -102,7 +108,7 @@ enum Buchausgabe {
                 )
                 if let bild { karten[block.id] = bild }
             }
-            await MainActor.run { fortschritt(Double(stelle) / Double(seiten.count) * 0.45) }
+            await MainActor.run { fortschritt(Double(stelle) / anzahl * 0.45) }
         }
 
         let ziel = FileManager.default.temporaryDirectory
@@ -158,7 +164,7 @@ enum Buchausgabe {
             zusammenhang.restoreGState()
             zusammenhang.endPDFPage()
 
-            let anteil = 0.45 + Double(stelle + 1) / Double(seiten.count) * 0.55
+            let anteil = 0.45 + Double(stelle + 1) / anzahl * 0.55
             await MainActor.run { fortschritt(anteil) }
         }
         zusammenhang.closePDF()
