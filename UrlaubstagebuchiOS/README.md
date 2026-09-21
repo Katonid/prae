@@ -566,6 +566,99 @@ Feld funktioniert. Es wird eine Sache auf einmal geändert.
   steht die Antwort da. **Eine Probe, die nur ihr Ergebnis nennt, ist die
   Frage von vorhin noch einmal.**
 
+## Was nach 1.0.7 übrig blieb (1.0.8)
+
+Gemeldet: „Es ist jetzt tatsächlich schon hundertmal besser. Aber immer noch
+ausbaufähig." Vier Punkte, und drei davon lassen sich am Quelltext
+nachrechnen.
+
+### „Warum wandert der nicht einfach mit?"
+
+Bis 1.0.7 bewegte das Verschieben nur einen Versatz beim **Zeichnen**
+(`schiebt`/`zieht`); der Rahmen im Modell blieb stehen und wurde erst am
+Ende der Geste gesetzt. Das hat drei Folgen, und alle drei waren zu sehen:
+
+* Der Block läuft dem Finger nach, statt unter ihm zu liegen.
+* **Die Griffe bleiben zurück** — sie lesen den Rahmen, und der hat sich ja
+  nicht bewegt.
+* Bricht die Geste ab, ohne dass `onEnded` kommt, steht das Bild **für
+  immer** neben seinem eigenen Rahmen. Genau das zeigt das erste
+  Bildschirmfoto: die Griffe links oben, das Foto rechts unten.
+
+Die **Größenänderung** hat es von Anfang an richtig gemacht — sie schreibt
+bei jedem Bildpunkt ins Modell —, und genau die ging.
+
+> **Merke:** Was der Finger bewegt, wird sofort ins Modell geschrieben. Eine
+> zweite Wahrheit fürs Zeichnen läuft früher oder später auseinander.
+
+Gerechnet wird dabei vom `ausgangsrahmen` aus und nie vom jetzigen:
+`translation` ist die ganze Bewegung seit dem Aufsetzen; auf einen
+mitgewanderten Rahmen addiert liefe der Block davon.
+
+### Der verzerrte Text nach jeder Größenänderung
+
+Gemeldet: „ein Textfeld, das in der Größe verändert wurde, [stellt] den Text
+verzerrt dar. Man muss erst auf eine andere Seite des Projektes wechseln und
+wieder zurückkommen." Die Bildschirmfotos zeigen es zweimal — einmal
+gestaucht, einmal gestreckt.
+
+Das ist kein Fehler im Satz, sondern **dokumentiertes UIKit-Verhalten**: Eine
+`UIView` steht von Haus aus auf `contentMode = .scaleToFill`. Ändert sich ihr
+Rahmen, zeichnet UIKit nicht neu, sondern **zieht das zuletzt gezeichnete
+Bild auf die neue Größe** — aus gesetztem Text wird eine Grafik. Der
+Seitenwechsel half, weil er die Ansicht neu aufbaute.
+
+`TextkastenView` steht seit 1.0.8 auf `.redraw`. Das gilt für jede Ansicht
+dieses Repos, die in `draw(_:)` selbst zeichnet.
+
+### Zwei Finger vergrößern das Bild im Rahmen
+
+Gewünscht: „die Vergrößerung des Fotos innerhalb des Rahmens. Den Rahmen kann
+man ja jetzt mittlerweile gut anpassen."
+
+Der Unterschied steht seit 1.0.0 im Quelltext — „wer ein Foto größer haben
+will, ändert den Rahmen; wer ein Gesicht in die Mitte rücken will, den
+Ausschnitt" —, es fehlte nur der Griff dafür. Jetzt: **Kanten und Ecken
+ziehen den Rahmen, zwei Finger den Ausschnitt.** Die Seite selbst wird nicht
+mit zwei Fingern gezoomt (dafür stehen die Lupen unten links), es gibt also
+nichts, womit sich die Geste streiten könnte. Der Regler im Inspektor bleibt
+daneben stehen, und dort steht jetzt auch, dass es die Geste gibt.
+
+Dabei fiel ein zweiter Fehler auf: Das **Schieben des Ausschnitts** addierte
+die Gesamtstrecke bei jedem Bildpunkt auf den laufenden Wert — das Bild schoss
+unter dem Finger weg, und zwar immer schneller. `translation` und
+`magnification` sind die ganze Bewegung seit dem Aufsetzen; gerechnet wird
+jetzt auch dort vom Anfangswert.
+
+### Abgeschnittener Text — drei Dinge, und keines reicht allein
+
+Gemeldet: „Leider kann es aber passieren, dass Text abgeschnitten wird, wenn
+Textfeld zu klein für die Menge an Text ist. Das fällt zunächst nicht
+unbedingt auf. Würde mir wünschen, dass sich die Textfelder so verhalten wie
+zum Beispiel die Textfelder in Pages für iPad."
+
+* **Der Kasten wächst beim Tippen mit**, wie in Pages. Nur wachsen, nie
+  schrumpfen: Ein Kasten, der von selbst kleiner wird, nähme eine Größe weg,
+  die jemand mit der Hand eingestellt hat.
+* **Wer ihn von Hand zu klein zieht, sieht eine Marke** an der Unterkante —
+  ein oranges Kästchen mit Pluszeichen, dieselbe Zeichensprache wie in Pages.
+  Dazu der Knopf **„Rahmen an Text anpassen"** in der Fußleiste und im
+  Inspektor, samt der Angabe, wie viel Höhe fehlt. Ein Hinweis ohne Weg, ihn
+  aufzulösen, wäre die Frage von vorhin noch einmal.
+* **Die Druckprüfung zählt das ganze Buch.** Die Marke sieht nur, wer gerade
+  auf dieser Seite ist; ein fehlender Satz fällt sonst erst auf, wenn das
+  Buch gedruckt ist — und dann ist er bezahlt.
+
+Der Befund ist **gespeichert, nicht gerechnet** (`Reisewerk.textUeberlauf`):
+Dahinter steckt ein voller CoreText-Satz, und als berechnete Eigenschaft
+liefe er bei jedem Neuzeichnen mit. Gemessen wird an einer Stelle, wenn sich
+Auswahl, Rahmenmaße oder Textlänge ändern.
+
+**Was die Marke NICHT tut:** Sie steht nur am gewählten Block. Auf jedem
+anderen Kasten wäre sie eine zweite Messung je Neuzeichnen — und der Fall
+entsteht praktisch nur dort, wo man gerade gezogen hat. Fürs ganze Buch ist
+die Druckprüfung zuständig.
+
 ## Bildunterschriften (1.0.5)
 
 Gewünscht 09/2026: „Ich möchte zu jedem Foto einen Beschreibungstext
