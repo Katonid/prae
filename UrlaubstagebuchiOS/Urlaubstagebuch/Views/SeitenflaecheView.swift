@@ -15,8 +15,17 @@ struct SeitenflaecheView: View {
     var bearbeitbar: Bool = true
     var massstab: Double
 
-    @State private var schiebt: UUID?
-    @State private var zieht: CGSize = .zero
+    // `schiebt`/`zieht` gab es bis 1.0.7: Beim Verschieben bewegte sich nur
+    // ein Versatz beim ZEICHNEN, der Rahmen im Modell blieb stehen und
+    // wurde erst am Ende der Geste gesetzt. Damit lief der Block dem
+    // Finger nach, die Griffe blieben zurück (die lesen den Rahmen), und
+    // brach die Geste ab, ohne dass `onEnded` kam, stand das Bild für
+    // immer neben seinem eigenen Rahmen. Gemeldet 09/2026: „Warum wandert
+    // der nicht einfach mit?" **Merke: Was der Finger bewegt, wird SOFORT
+    // ins Modell geschrieben — eine zweite Wahrheit fürs Zeichnen läuft
+    // früher oder später auseinander.** Die Größenänderung machte das von
+    // Anfang an so, und genau die ging.
+    //
     // Was der Finger beim Aufsetzen gegriffen hat. Entschieden wird EINMAL,
     // beim ersten Bildpunkt der Bewegung — sonst wechselte mitten im Ziehen
     // die Bedeutung, sobald der Finger über einen anderen Griff wandert.
@@ -24,6 +33,11 @@ struct SeitenflaecheView: View {
     @State private var ausgangsrahmen: Rahmen?
     // Woran eine neue Ziehbewegung zu erkennen ist: am Aufsetzpunkt.
     @State private var gestenstart: CGPoint?
+    // Der Ausschnitt beim Aufsetzen — für Zweifinger-Zoom und Schieben im
+    // Rahmen. Beide rechnen vom Anfangswert aus, nicht vom letzten:
+    // `translation` und `magnification` sind die GESAMTE Bewegung seit dem
+    // Aufsetzen, und wer sie aufaddiert, beschleunigt mit jedem Bildpunkt.
+    @State private var ausgangsausschnitt: Bildausschnitt?
 
     private var format: CGSize { werk.reise.format.groesse }
     private var anschnitt: Double { werk.reise.gestaltung.anschnittPt }
@@ -88,16 +102,14 @@ struct SeitenflaecheView: View {
             if bearbeitbar, let block = gewaehlterBlock, werk.textBearbeitung != block.id {
                 let saum = ziehsaum(block)
                 // WÄHREND einer Geste bleibt diese Fläche stehen, wo sie war
-                // (`ausgangsrahmen`). Das ist der Grund, aus dem das
-                // Verschieben ging und das Ziehen an einem Griff nicht:
-                // Verschoben wird erst am Ende der Geste (bis dahin nur ein
-                // Versatz beim Zeichnen), die GRÖSSE dagegen bei jedem
-                // Bildpunkt — und damit veränderte sich die Fläche, an der
-                // die Geste hängt, unter dem eigenen Finger. Ihre lokalen
-                // Koordinaten wandern dann mit, die gemeldete Strecke bezieht
-                // sich auf einen anderen Ursprung als eben noch, und die
-                // Geste bricht ab. **Merke: Eine Fläche, die eine Geste
-                // trägt, darf sich während dieser Geste nicht bewegen.**
+                // (`ausgangsrahmen`). Seit 1.0.8 schreiben Verschieben,
+                // Größe und Drehung bei JEDEM Bildpunkt ins Modell — die
+                // Fläche hinge sonst an einem Rahmen, der unter dem eigenen
+                // Finger wandert, und eine Geste, deren Ansicht sich
+                // darunter verändert, bricht ab. **Merke: Eine Fläche, die
+                // eine Geste trägt, darf sich während dieser Geste nicht
+                // bewegen.** Wo der Finger aufgesetzt hat, hängt davon seit
+                // 1.0.7 nicht mehr ab — das misst der Seitenraum.
                 let bezug = ausgangsrahmen ?? block.rahmen
                 Color.clear
                     .frame(width: bezug.breite + 2 * saum,
@@ -120,6 +132,21 @@ struct SeitenflaecheView: View {
                         einfachtipp(punkt)
                     }
                     .gesture(ziehgeste(block))
+                    // Zwei Finger über dem gewählten FOTO vergrößern den
+                    // Ausschnitt im Rahmen. `simultaneousGesture`, damit
+                    // sie sich mit dem Ziehen nicht ausschließt: Das eine
+                    // ist ein Finger, das andere zwei.
+                    .simultaneousGesture(zoomgeste(block), including: block.fotoID == nil ? .subviews : .all)
+            }
+
+            // Ein Textkasten, aus dem unten etwas herausfällt, sagt das.
+            // Dieselbe Marke wie in Pages: ein kleines Kästchen mit einem
+            // Pluszeichen an der Unterkante. Gezeichnet wird sie nur beim
+            // Bearbeiten und nie im PDF — sie ist ein Hinweis, kein Inhalt.
+            if bearbeitbar, let block = gewaehlterBlock, werk.textUeberlauf != nil,
+               werk.textBearbeitung != block.id
+            {
+                Ueberlaufmarke(block: block, massstab: massstab)
             }
 
             if bearbeitbar, let id = werk.textBearbeitung,
@@ -193,6 +220,23 @@ struct SeitenflaecheView: View {
         .shadow(color: .black.opacity(0.18), radius: 9, y: 3)
         .scaleEffect(massstab, anchor: .topLeading)
         .frame(width: bogen.width * massstab, height: bogen.height * massstab)
+        // EINMAL je Änderung, nicht bei jedem Neuzeichnen: Dahinter steckt
+        // ein voller CoreText-Satz. Der Schlüssel nennt nur, was den
+        // Befund ändern kann — Block, Rahmenmaße, Textlänge.
+        .task(id: ueberlaufschluessel) { werk.textUeberlauf = ueberlaufMessen() }
+    }
+
+    private var ueberlaufschluessel: String {
+        guard bearbeitbar, let block = gewaehlterBlock, let tag = buchseite.tag,
+              block.inhalt.istText
+        else { return "-" }
+        let text = Seitensatz.inhaltstext(block, tag: tag, reise: werk.reise)
+        return "\(block.id)|\(Int(block.rahmen.breite))|\(Int(block.rahmen.hoehe))|\(text.count)"
+    }
+
+    private func ueberlaufMessen() -> Double? {
+        guard bearbeitbar, let block = gewaehlterBlock, let tag = buchseite.tag else { return nil }
+        return werk.fehlendeHoehe(block, tag: tag)
     }
 
     // Der Abstand des Drehgriffs über dem Block — an einer Stelle, weil
@@ -213,7 +257,6 @@ struct SeitenflaecheView: View {
 
     @ViewBuilder
     private func blockAnsicht(_ block: Block) -> some View {
-        let versatz = schiebt == block.id ? zieht : .zero
         let rahmen = block.rahmen
         let randPt = Druckmass.pt(block.fotorand)
 
@@ -230,7 +273,7 @@ struct SeitenflaecheView: View {
             .padding(-randPt)
             .frame(width: rahmen.breite, height: rahmen.hoehe)
             .rotationEffect(.degrees(block.drehung))
-            .offset(x: rahmen.x + versatz.width, y: rahmen.y + versatz.height)
+            .offset(x: rahmen.x, y: rahmen.y)
             // Ein Block ist eine ZEICHNUNG. Er trägt keine Geste mehr, und
             // was in ihm liegt — Textkasten, Foto, Karte — nimmt erst recht
             // keinen Finger an.
@@ -347,7 +390,7 @@ struct SeitenflaecheView: View {
         }
         switch art {
         case .verschieben:
-            verschieben(block, wert: wert, endgueltig: endgueltig)
+            verschieben(block, wert: wert)
         case .drehen:
             // UNGEDREHT: `drehen` setzt den Winkel absolut, gemessen im
             // ruhenden Koordinatensystem der Seite. Mit dem
@@ -404,34 +447,36 @@ struct SeitenflaecheView: View {
         gegriffen = nil
         ausgangsrahmen = nil
         gestenstart = nil
+        ausgangsausschnitt = nil
     }
 
     // MARK: - Schieben
 
-    private func verschieben(_ block: Block, wert: DragGesture.Value, endgueltig: Bool) {
-        // OHNE Teilung durch den Maßstab. Eine Geste wird in den eigenen
-        // Koordinaten der Ansicht gemeldet, an der sie hängt — und die
-        // liegen INNERHALB des `scaleEffect`, also schon in Seitenpunkten.
-        // Bis 1.0.4 wurde hier zusätzlich geteilt; bei halb gezeigter Seite
-        // lief der Block damit doppelt so weit wie der Finger. Gemessen ist
-        // das nicht, deshalb nennt die Probe die Strecke und den Maßstab:
-        // Wandert der Block genau mit dem Finger, stimmt es.
-        let dx = wert.translation.width
-        let dy = wert.translation.height
-        if !endgueltig {
-            schiebt = block.id
-            zieht = CGSize(width: dx, height: dy)
-            return
-        }
+    private func verschieben(_ block: Block, wert: DragGesture.Value) {
+        // OHNE Teilung durch den Maßstab. Eine Geste wird im SEITENRAUM
+        // gemeldet, und der liegt innerhalb des `scaleEffect` — die
+        // Strecke ist also schon in Seitenpunkten. Bis 1.0.4 wurde hier
+        // zusätzlich geteilt; bei halb gezeigter Seite lief der Block
+        // damit doppelt so weit wie der Finger.
+        //
+        // Gerechnet wird vom AUSGANGSRAHMEN aus, nicht vom jetzigen:
+        // `translation` ist die ganze Bewegung seit dem Aufsetzen, und auf
+        // den mitgewanderten Rahmen addiert liefe der Block davon.
+        // Geschrieben wird bei jedem Bildpunkt — dieselbe Bauweise wie
+        // beim Ändern der Größe, und deshalb wandern die Griffe mit.
+        guard let ausgang = ausgangsrahmen else { return }
+        var probe = block
+        probe.rahmen = ausgang
         let gefangen = Einrasten.gefangen(
-            block: block, dx: dx, dy: dy,
+            block: probe,
+            dx: wert.translation.width, dy: wert.translation.height,
             nachbarn: buchseite.seite.bloecke.filter { $0.id != block.id },
             satz: satz,
             toleranz: 6 / massstab
         )
-        werk.schiebe(block.id, dx: gefangen.dx, dy: gefangen.dy, merken: false)
-        schiebt = nil
-        zieht = .zero
+        let neu = ausgang.verschoben(dx: gefangen.dx, dy: gefangen.dy)
+            .begrenzt(auf: werk.reise.format.groesse)
+        werk.aendere(block.id, merken: false) { $0.rahmen = neu }
     }
 
     // MARK: - Drehen
@@ -524,16 +569,94 @@ struct SeitenflaecheView: View {
 
     private func ausschnittSchieben(_ block: Block, wert: DragGesture.Value, endgueltig: Bool) {
         guard let id = block.fotoID, let foto = werk.reise.foto(id) else { return }
+        if ausgangsausschnitt == nil { ausgangsausschnitt = block.ausschnitt }
+        guard let ausgang = ausgangsausschnitt else { return }
         let rahmen = block.rahmen.rect
         let bildgroesse = CGSize(width: foto.breite, height: foto.hoehe)
-        let dx = wert.translation.width / max(rahmen.width, 1)
-        let dy = wert.translation.height / max(rahmen.height, 1)
-        werk.aendere(block.id, merken: endgueltig) { block in
-            var neu = block.ausschnitt
-            neu.versatzX += dx
-            neu.versatzY += dy
-            block.ausschnitt = neu.begrenzt(bildgroesse: bildgroesse, rahmen: rahmen)
+        // Vom AUSGANGSWERT aus. Bis 1.0.7 wurde die Gesamtstrecke bei jedem
+        // Bildpunkt aufaddiert — das Bild schoss unter dem Finger weg, und
+        // zwar immer schneller.
+        var neu = ausgang
+        neu.versatzX += wert.translation.width / max(rahmen.width, 1)
+        neu.versatzY += wert.translation.height / max(rahmen.height, 1)
+        werk.aendere(block.id, merken: false) {
+            $0.ausschnitt = neu.begrenzt(bildgroesse: bildgroesse, rahmen: rahmen)
         }
+        if endgueltig { ausgangsausschnitt = nil }
+    }
+
+    // MARK: - Zwei Finger vergrößern das Bild IM Rahmen
+
+    // Gewünscht 09/2026: „Wäre schön, wenn man ein Foto einfach mit einer
+    // Zweifinger-Geste in den inneren Bereich ziehen könnte. Also die
+    // Vergrößerung des Fotos innerhalb des Rahmens."
+    //
+    // Der Rahmen ist der Platz auf der Seite, der Ausschnitt der sichtbare
+    // Teil des Bildes — zwei Dinge, und beide müssen zu machen sein. Die
+    // Kanten und Ecken ziehen den RAHMEN, zwei Finger den AUSSCHNITT. Die
+    // Seite selbst wird nicht mit zwei Fingern gezoomt (dafür stehen die
+    // Lupen unten links), es gibt hier also nichts, womit sich diese Geste
+    // streiten könnte.
+    private func zoomgeste(_ block: Block) -> some Gesture {
+        MagnifyGesture(minimumScaleDelta: 0.01)
+            .onChanged { wert in bildZoomen(block, faktor: wert.magnification, endgueltig: false) }
+            .onEnded { wert in bildZoomen(block, faktor: wert.magnification, endgueltig: true) }
+    }
+
+    private func bildZoomen(_ block: Block, faktor: Double, endgueltig: Bool) {
+        guard let id = block.fotoID, let foto = werk.reise.foto(id) else { return }
+        if ausgangsausschnitt == nil {
+            ausgangsausschnitt = block.ausschnitt
+            // Einmal je Geste gemerkt, nicht je Bildpunkt — sonst wäre der
+            // Rückgängig-Stapel nach einem Zoom voll. Und nicht noch
+            // einmal, wenn daneben schon eine Ziehbewegung läuft: Die hat
+            // beim Aufsetzen gemerkt, und zwei Stände für eine Handbewegung
+            // wären zwei Schritte zurück.
+            if gegriffen == nil { werk.merken() }
+        }
+        guard let ausgang = ausgangsausschnitt else { return }
+        let rahmen = block.rahmen.rect
+        let bildgroesse = CGSize(width: foto.breite, height: foto.hoehe)
+        var neu = ausgang
+        neu.zoom = ausgang.zoom * faktor
+        let begrenzt = neu.begrenzt(bildgroesse: bildgroesse, rahmen: rahmen)
+        werk.aendere(block.id, merken: false) { $0.ausschnitt = begrenzt }
+        werk.letzterGriff = String(format: "Bild im Rahmen \u{00B7} Zoom %.2f", begrenzt.zoom)
+        if endgueltig { ausgangsausschnitt = nil }
+    }
+}
+
+// MARK: - Die Marke für abgeschnittenen Text
+
+// Ein kleines Kästchen mit einem Pluszeichen an der Unterkante des Blocks
+// — dieselbe Zeichensprache wie in Pages, und aus demselben Grund: Ein
+// Kasten, aus dem unten zwei Sätze herausfallen, sieht aus wie ein Kasten,
+// der zu Ende ist. In einem Tagebuch ist das der teuerste denkbare Fehler,
+// denn es gibt keine zweite Ausfertigung des Satzes.
+//
+// Sie ist eine ZEICHNUNG wie alles auf dieser Seite und nimmt keinen
+// Finger an; angefasst wird über den Knopf „Rahmen an Text anpassen".
+struct Ueberlaufmarke: View {
+    let block: Block
+    let massstab: Double
+
+    private var groesse: Double { 16 / massstab }
+
+    var body: some View {
+        let rahmen = block.rahmen.rect
+        ZStack {
+            RoundedRectangle(cornerRadius: 2 / massstab)
+                .fill(Color.orange)
+            Image(systemName: "plus")
+                .font(.system(size: groesse * 0.6, weight: .bold))
+                .foregroundStyle(.white)
+        }
+        .frame(width: groesse, height: groesse)
+        .position(x: rahmen.width / 2, y: rahmen.height)
+        .frame(width: rahmen.width, height: rahmen.height, alignment: .topLeading)
+        .rotationEffect(.degrees(block.drehung))
+        .offset(x: rahmen.minX, y: rahmen.minY)
+        .allowsHitTesting(false)
     }
 }
 

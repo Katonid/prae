@@ -274,6 +274,17 @@ struct ReiseView: View {
                     Label("Bildunterschrift", systemImage: "text.bubble")
                 }
             }
+            // Steht die Marke auf der Seite, steht hier der Knopf dazu. Ein
+            // Hinweis ohne Weg, ihn aufzulösen, ist die Frage von vorhin
+            // noch einmal.
+            if werk.textUeberlauf != nil, let id = werk.gewaehlterBlock {
+                Button {
+                    werk.hoeheAnTextAnpassen(id)
+                } label: {
+                    Label("Rahmen an Text anpassen", systemImage: "arrow.down.to.line")
+                }
+                .tint(.orange)
+            }
             if let tag = werk.tag {
                 Button {
                     blatt = .tagInhalt(tag.id)

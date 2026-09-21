@@ -32,6 +32,36 @@ enum Druckpruefung {
         var text: String
     }
 
+    // Ein Kasten, aus dem unten Text herausfällt, ist der eine Fehler, den
+    // ein Tagebuch nicht machen darf: Auf dem Bildschirm sieht er aus wie
+    // ein Kasten, der zu Ende ist, und im gedruckten Buch fehlt ein Satz.
+    // Auf der Seite steht dafür die orange Marke — die sieht aber nur, wer
+    // gerade auf dieser Seite ist. Das ganze Buch zählt diese Prüfung.
+    static func abgeschnittenerText(_ reise: Reise) -> [Zeile] {
+        var betroffen: [String] = []
+        for tag in reise.tage {
+            for seite in tag.seiten {
+                for block in seite.bloecke where block.inhalt.istText {
+                    let text = Seitensatz.inhaltstext(block, tag: tag, reise: reise)
+                    guard !text.isEmpty, block.rahmen.breite > 1 else { continue }
+                    let bild = Seitensatz.schriftbild(block, reise: reise)
+                    let noetig = Textmass.hoehe(text, bild: bild, breite: block.rahmen.breite)
+                    guard noetig > block.rahmen.hoehe + 0.5 else { continue }
+                    betroffen.append("\(tag.datum.mittel): \(block.inhalt.name), es fehlen \(Druckmass.mmText(noetig - block.rahmen.hoehe))")
+                }
+            }
+        }
+        guard !betroffen.isEmpty else {
+            return [Zeile(stufe: .gut, titel: "Kein abgeschnittener Text",
+                          text: "In jeden Textkasten passt, was darin steht.")]
+        }
+        return [Zeile(
+            stufe: .warnung,
+            titel: "\(betroffen.count) Textkästen sind zu klein",
+            text: "Unten fällt Text heraus und steht so auch nicht im PDF. Auf der Seite ist der Kasten mit einer orangen Marke versehen; \u{201E}Rahmen an Text anpassen\u{201C} löst es auf.\n" + betroffen.prefix(12).joined(separator: "\n")
+        )]
+    }
+
     // MARK: - Vor dem Ausgeben
 
     static func vorab(_ reise: Reise) -> [Zeile] {
@@ -56,6 +86,7 @@ enum Druckpruefung {
 
         zeilen.append(contentsOf: bildaufloesung(reise))
         zeilen.append(contentsOf: schriften(reise))
+        zeilen.append(contentsOf: abgeschnittenerText(reise))
 
         // Randabfallendes
         let randab = reise.seitenfolge.reduce(0) { summe, seite in

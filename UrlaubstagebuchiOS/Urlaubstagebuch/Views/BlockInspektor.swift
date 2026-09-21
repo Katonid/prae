@@ -22,6 +22,7 @@ struct BlockInspektor: View {
             if let block {
                 Form {
                     artAbschnitt(block)
+                    if block.inhalt.istText { ueberlaufAbschnitt(block) }
                     if block.inhalt.istText { schriftAbschnitt(block) }
                     if let id = block.fotoID { fotoAbschnitt(block, fotoID: id) }
                     if block.inhalt == .karte { karteAbschnitt(block) }
@@ -182,6 +183,28 @@ struct BlockInspektor: View {
         }
     }
 
+    // Was abgeschnitten wird, steht hier im Klartext — samt dem Knopf, der
+    // es auflöst. Gerechnet wird der Befund NICHT hier: Er steht in
+    // `werk.textUeberlauf` und wird einmal je Änderung gemessen.
+    @ViewBuilder
+    private func ueberlaufAbschnitt(_ block: Block) -> some View {
+        if let noetig = werk.textUeberlauf, werk.gewaehlterBlock == block.id {
+            Section("Text passt nicht") {
+                Label("Unten fällt Text aus dem Kasten heraus.", systemImage: "exclamationmark.triangle")
+                    .foregroundStyle(.orange)
+                Text(String(format: "Nötig wären %.0f mm Höhe, der Kasten hat %.0f mm.",
+                            Druckmass.mm(noetig), Druckmass.mm(block.rahmen.hoehe)))
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                Button {
+                    werk.hoeheAnTextAnpassen(block.id)
+                } label: {
+                    Label("Rahmen an Text anpassen", systemImage: "arrow.down.to.line")
+                }
+            }
+        }
+    }
+
     @ViewBuilder
     private func fotoAbschnitt(_ block: Block, fotoID: UUID) -> some View {
         if let foto = werk.reise.foto(fotoID) {
@@ -194,6 +217,9 @@ struct BlockInspektor: View {
                               : "Ausschnitt auf der Seite verschieben",
                           systemImage: "crop")
                 }
+                Text("Zwei Finger auf dem gewählten Foto vergrößern den Ausschnitt im Rahmen; \u{201E}Ausschnitt verschieben\u{201C} rückt ihn zurecht. Die Kanten und Ecken ziehen dagegen den RAHMEN — den Platz auf der Seite.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
                 VStack(alignment: .leading) {
                     LabeledContent("Vergrößerung",
                                    value: String(format: "%.2f ×", block.ausschnitt.zoom))

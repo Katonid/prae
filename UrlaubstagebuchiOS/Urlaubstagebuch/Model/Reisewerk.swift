@@ -47,6 +47,15 @@ final class Reisewerk: ObservableObject, Identifiable {
     // die mal dies und mal jenes tut, ohne dass man den Unterschied sieht,
     // ist für den Menschen davor ein kaputtes Bedienelement.
     @Published var ausschnittsmodus: UUID?
+    // Wie viel Höhe dem gewählten Textblock fehlt, damit nichts
+    // abgeschnitten wird — oder nil.
+    //
+    // GESPEICHERT und nicht gerechnet: Dahinter steckt ein voller
+    // CoreText-Satz, und als berechnete Eigenschaft liefe der bei jedem
+    // Neuzeichnen der Seite mit. Dieselbe Falle wie bei der Netzkarte der
+    // Abfahrtstafel. Gefüllt wird er an EINER Stelle — in
+    // `SeitenflaecheView`, wenn sich Auswahl, Rahmen oder Text ändern.
+    @Published var textUeberlauf: Double?
     // Welcher Textblock gerade AUF DER SEITE bearbeitet wird. Bis 1.0.1
     // ging das nur über ein Feld im Inspektor — gemeldet 09/2026: „Ich
     // würde den Text am liebsten direkt auf der Seite ändern können."
@@ -307,6 +316,47 @@ final class Reisewerk: ObservableObject, Identifiable {
         default:
             break
         }
+        // Der Kasten WÄCHST mit dem Text, wie ein Textfeld in Pages. Ohne
+        // das schriebe man in einen Kasten hinein, und der Rest fiele
+        // unten heraus, ohne dass etwas darauf hinweist. `merken` steht
+        // schon oben — ein zweiter Stand wäre ein zweiter Schritt
+        // zurück für eine Änderung.
+        hoeheAnTextAnpassen(id, merken: false)
+    }
+
+    // MARK: - Ein Tagebuch darf keinen Satz verlieren
+
+    // Wie hoch ein Textblock sein MÜSSTE, damit sein Text vollständig
+    // hineinpasst — oder nil, wenn er es schon tut.
+    //
+    // Gemessen mit demselben Satz, der hinterher zeichnet und druckt
+    // (`Textmass`), nicht geschätzt. Ein Kasten, aus dem unten zwei Sätze
+    // herausfallen, sieht auf dem Bildschirm aus wie ein Kasten, der zu
+    // Ende ist — das ist der eine Fehler, den ein Tagebuch nicht machen
+    // darf.
+    func fehlendeHoehe(_ block: Block, tag: Reisetag) -> Double? {
+        guard block.inhalt.istText else { return nil }
+        let text = Seitensatz.inhaltstext(block, tag: tag, reise: reise)
+        guard !text.isEmpty, block.rahmen.breite > 1 else { return nil }
+        let bild = Seitensatz.schriftbild(block, reise: reise)
+        let noetig = Textmass.hoehe(text, bild: bild, breite: block.rahmen.breite)
+        return noetig > block.rahmen.hoehe + 0.5 ? noetig : nil
+    }
+
+    // Den Rahmen so hoch machen, dass der Text hineinpasst. Nur WACHSEN:
+    // Ein Kasten, der beim Tippen von selbst schrumpft, nähme eine Größe
+    // weg, die jemand mit der Hand eingestellt hat.
+    @discardableResult
+    func hoeheAnTextAnpassen(_ id: UUID, merken merkt: Bool = true) -> Bool {
+        guard let stelle = block(id) else { return false }
+        let tag = reise.tage[stelle.tag]
+        let block = tag.seiten[stelle.seite].bloecke[stelle.block]
+        guard let noetig = fehlendeHoehe(block, tag: tag) else { return false }
+        if merkt { merken() }
+        reise.tage[stelle.tag].seiten[stelle.seite].bloecke[stelle.block].rahmen.hoehe = noetig
+        reise.tage[stelle.tag].seiten[stelle.seite].bloecke[stelle.block].vonHand = true
+        textUeberlauf = nil
+        return true
     }
 
     func tagAendern(_ id: UUID, _ arbeit: (inout Reisetag) -> Void) {
