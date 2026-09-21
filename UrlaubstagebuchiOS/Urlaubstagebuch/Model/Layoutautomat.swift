@@ -309,8 +309,11 @@ struct Layoutautomat {
         return Textmass.hoehe(foto.unterschrift, bild: typografie.bildunterschrift, breite: breite) + 3
     }
 
-    private func textSpalte(_ bloecke: [Block], y: Double, breite: Double, text: String)
-        -> ([Block], Double, String)
+    // Der Rückgabetyp ist `CGFloat` und nicht `Double`, obwohl beide auf
+    // diesen Geräten dasselbe sind: Bei einer TUPEL-Zuweisung rechnet Swift
+    // die beiden nicht ineinander um, und `y` kommt aus einem `CGRect`.
+    private func textSpalte(_ bloecke: [Block], y: CGFloat, breite: Double, text: String)
+        -> ([Block], CGFloat, String)
     {
         guard !text.isEmpty else { return (bloecke, y, text) }
         var neue = bloecke

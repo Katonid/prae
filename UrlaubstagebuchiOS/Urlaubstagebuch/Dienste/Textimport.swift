@@ -8,10 +8,15 @@ import Foundation
 // vor („die Fähre am 14.08. war ausgebucht"), und wer jedes Datum als
 // Trenner nimmt, zerlegt einen Absatz in drei Tage.
 //
-// Die Regel lautet deshalb: Eine Zeile ist eine Datumszeile, wenn nach dem
-// Abziehen des Datums, des Wochentags und der üblichen Beiwörter fast
-// nichts übrig bleibt. Was doch übrig bleibt, ist die ÜBERSCHRIFT des Tages
-// — „12.08.2026 – Ankunft in Lissabon" ergibt beides auf einmal.
+// Die Regel hat deshalb zwei Hälften, und beide sind an echten Sätzen
+// gemessen (18 Proben, darunter sechs, die NICHT treffen dürfen):
+//
+// 1. VOR dem Datum darf nur Beiwerk stehen — ein Wochentag, „am", „Tag 5",
+//    Satzzeichen. Damit fällt „Heute, am 12.08., war es heiß." heraus.
+// 2. NACH dem Datum steht die Überschrift. Sie darf höchstens 60 Zeichen
+//    haben und muss groß anfangen. Damit fällt „Am 12.08. begann alles mit
+//    einem verspäteten Flug" heraus, und „12.08.2026 – Ankunft in
+//    Lissabon" ergibt Datum und Überschrift auf einmal.
 //
 // Und weil sich diese Regel nicht in jedem Text bewähren kann, behauptet
 // die App das Ergebnis nicht, sondern ZEIGT es: `Importbefund` nennt jede
@@ -60,9 +65,15 @@ enum Textimport {
         "sonnabend", "sonntag", "mo", "di", "mi", "do", "fr", "sa", "so",
     ]
 
-    // Was neben einem Datum stehen darf, ohne dass die Zeile aufhört, eine
-    // Datumszeile zu sein.
-    static let beiwoerter = ["tag", "am", "den", "der", "reisetag", "etappe"]
+    // Was VOR einem Datum stehen darf, ohne dass die Zeile aufhört, eine
+    // Datumszeile zu sein: ein Wochentag, ein Beiwort, eine Tagesnummer,
+    // Satzzeichen. Steht dort etwas anderes, ist das Datum Teil eines
+    // Satzes — „Heute, am 12.08., war es heiß."
+    static let beiwoerter = ["tag", "am", "vom", "den", "der", "reisetag", "etappe"]
+
+    static let trenner = CharacterSet(charactersIn: " \t,;:.-|/()[]\u{2013}\u{2014}")
+
+    private static let zerleger = CharacterSet(charactersIn: " \t,;:-|/()[]\u{2013}\u{2014}")
 
     private struct Treffer {
         var tag: Int
@@ -121,33 +132,55 @@ enum Textimport {
         return nil
     }
 
-    // Was von der Zeile übrig bleibt, wenn Datum, Wochentag und Beiwörter
-    // weg sind. Das ist zugleich der Vorschlag für die Überschrift.
-    private static func rest(_ zeile: String, ohne bereich: NSRange) -> String {
-        let ns = zeile as NSString
-        var uebrig = ns.replacingCharacters(in: bereich, with: " ")
-        uebrig = uebrig.replacingOccurrences(of: "\u{2013}", with: " ")
-        uebrig = uebrig.replacingOccurrences(of: "\u{2014}", with: " ")
-        let teile = uebrig
-            .components(separatedBy: CharacterSet(charactersIn: " \t,;:-|/()[]"))
-            .map { $0.trimmingCharacters(in: .whitespaces) }
-            .filter { !$0.isEmpty }
-        let gefiltert = teile.filter { stueck in
-            let klein = stueck.lowercased().trimmingCharacters(in: CharacterSet(charactersIn: "."))
-            if wochentage.contains(klein) { return false }
-            if beiwoerter.contains(klein) { return false }
-            // Eine nackte Zahl neben dem Datum ist die Tagesnummer.
-            if Int(klein) != nil { return false }
-            return true
+    static func nurBeiwerk(_ text: String) -> Bool {
+        for stueck in text.components(separatedBy: zerleger) {
+            let klein = stueck.trimmingCharacters(in: CharacterSet(charactersIn: " ."))
+                .lowercased()
+            if klein.isEmpty { continue }
+            if wochentage.contains(klein) { continue }
+            if beiwoerter.contains(klein) { continue }
+            if Int(klein) != nil { continue }
+            return false
         }
-        return gefiltert.joined(separator: " ")
+        return true
     }
 
-    // Wie viel neben dem Datum stehen darf. 60 Zeichen sind eine
+    // Was NACH dem Datum steht, wird die Überschrift des Tages.
+    //
+    // Abgeschnitten wird vorn nur ein Wochentag oder eine nackte Zahl —
+    // ausdrücklich KEIN Artikel. Ein früherer Entwurf strich „der" und
+    // „den" überall, und aus „Der Weg nach oben" wurde „Weg nach oben":
+    // Ein Artikel steht am Anfang jeder zweiten Überschrift, und in der
+    // Mitte gehört er sowieso zum Satz.
+    static func ueberschrift(_ text: String) -> String {
+        var rest = text.trimmingCharacters(in: trenner)
+        while true {
+            let erstes = rest.prefix { $0.isLetter || $0.isNumber }
+            guard !erstes.isEmpty else { break }
+            let klein = erstes.lowercased()
+            guard wochentage.contains(klein) || Int(klein) != nil else { break }
+            rest = String(rest.dropFirst(erstes.count)).trimmingCharacters(in: trenner)
+        }
+        return rest
+    }
+
+    // Wie lang eine Überschrift sein darf. 60 Zeichen sind eine
     // Überschrift; alles darüber ist Fließtext, in dem zufällig ein Datum
-    // vorkommt. Die Zahl ist eine Setzung — deshalb zeigt die Vorschau, was
-    // sie bewirkt hat, statt sie stillschweigend anzuwenden.
+    // vorkommt.
     static let hoechsteUeberschrift = 60
+
+    // Und woran man eine Überschrift sonst noch erkennt: Sie fängt GROSS
+    // an. Ein fortlaufender Satz tut das nicht — „Am 12.08. begann alles
+    // mit einem verspäteten Flug" ist Text und keine Tagesüberschrift.
+    // Das ist die Regel, die im Deutschen am wenigsten kostet; ein Tag,
+    // dessen Zeile klein weitergeht, wird nicht getrennt, und die Vorschau
+    // zeigt es.
+    static func istUeberschrift(_ text: String) -> Bool {
+        if text.isEmpty { return true }
+        if text.count > hoechsteUeberschrift { return false }
+        guard let erstes = text.first else { return true }
+        return erstes.isUppercase || erstes.isNumber
+    }
 
     static func lesen(_ text: String, bezugsjahr: Int) -> Importbefund {
         var befund = Importbefund()
@@ -179,8 +212,10 @@ enum Textimport {
                 if laufend != nil { sammlung.append(sauber) } else { vorspann.append(sauber) }
                 continue
             }
-            let uebrig = rest(sauber, ohne: treffer.bereich)
-            guard uebrig.count <= hoechsteUeberschrift else {
+            let ns = sauber as NSString
+            let davor = ns.substring(to: treffer.bereich.location)
+            let uebrig = ueberschrift(ns.substring(from: treffer.bereich.location + treffer.bereich.length))
+            guard nurBeiwerk(davor), istUeberschrift(uebrig) else {
                 if laufend != nil { sammlung.append(sauber) } else { vorspann.append(sauber) }
                 continue
             }
