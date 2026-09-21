@@ -99,23 +99,27 @@ struct SeitenflaecheView: View {
                 // Geste bricht ab. **Merke: Eine Fläche, die eine Geste
                 // trägt, darf sich während dieser Geste nicht bewegen.**
                 let bezug = ausgangsrahmen ?? block.rahmen
-                let ursprung = CGPoint(x: bezug.x - saum, y: bezug.y - saum)
                 Color.clear
                     .frame(width: bezug.breite + 2 * saum,
                            height: bezug.hoehe + 2 * saum)
                     .contentShape(Rectangle())
-                    .offset(x: ursprung.x, y: ursprung.y)
+                    .offset(x: bezug.x - saum, y: bezug.y - saum)
                     // Die Tipps gehören mit auf diese Fläche: Sie liegt über
                     // dem Block, und ohne sie käme über dem gewählten Block
                     // kein Tipp mehr an — also weder das Abwählen noch der
                     // Doppeltipp, der den Text öffnet.
-                    .onTapGesture(count: 2, coordinateSpace: .local) { punkt in
-                        doppeltipp(aufSeite(punkt, ursprung: ursprung))
+                    //
+                    // GEMESSEN wird im Raum der SEITE und nicht im eigenen.
+                    // Siehe `Seitenraum` — diese Fläche ist verschoben und
+                    // ändert während einer Geste ihre Größe; was „lokal"
+                    // dann heißt, ist genau die Frage, an der es hing.
+                    .onTapGesture(count: 2, coordinateSpace: .named(Seitenraum.name)) { punkt in
+                        doppeltipp(punkt)
                     }
-                    .onTapGesture(count: 1, coordinateSpace: .local) { punkt in
-                        einfachtipp(aufSeite(punkt, ursprung: ursprung))
+                    .onTapGesture(count: 1, coordinateSpace: .named(Seitenraum.name)) { punkt in
+                        einfachtipp(punkt)
                     }
-                    .gesture(ziehgeste(block, ursprung: ursprung))
+                    .gesture(ziehgeste(block))
             }
 
             if bearbeitbar, let id = werk.textBearbeitung,
@@ -138,6 +142,15 @@ struct SeitenflaecheView: View {
                     .allowsHitTesting(false)
             }
         }
+        // DER SEITENRAUM. Alles, was hier gemessen wird — jeder Tipp, jeder
+        // Aufsetzpunkt einer Ziehbewegung —, wird gegen DIESEN Ursprung
+        // gerechnet, und der ist die linke obere Ecke des Endformats. Damit
+        // ist „wo hat der Finger aufgesetzt" nicht mehr davon abhängig, an
+        // welcher Ansicht die Geste zufällig hängt.
+        // `coordinateSpace(name:)` ist seit iOS 17 abgekündigt — hier steht
+        // die Fassung mit `NamedCoordinateSpace`, sonst meldete der Bau eine
+        // Warnung, und Warnungen sind in diesem Repo keine Nebensache.
+        .coordinateSpace(.named(Seitenraum.name))
         .frame(width: bogen.width, height: bogen.height, alignment: .topLeading)
         // ALLE Gesten hängen an der SEITE, nicht an den Blöcken.
         //
@@ -163,6 +176,12 @@ struct SeitenflaecheView: View {
         // was gemeint war — erst genau, dann im Umkreis einer Fingerbreite.
         // Gerechnet wird also erst, wenn klar ist, dass ein Tipp gemeint
         // war, und die Fangweite kostet keine Fläche.
+        //
+        // Hier bleibt es bei `.local`: Diese Ansicht ist nicht verschoben und
+        // ändert ihre Größe nicht, ihr Raum IST der Seitenraum — und das
+        // Auswählen über sie hat im Feld nachweislich funktioniert. Der
+        // benannte Raum steht eine Ebene tiefer und wäre von hier aus der
+        // Raum eines Nachkommen; darauf wird nicht gezeigt.
         .contentShape(Rectangle())
         .onTapGesture(count: 2, coordinateSpace: .local) { punkt in doppeltipp(punkt) }
         .onTapGesture(count: 1, coordinateSpace: .local) { punkt in einfachtipp(punkt) }
@@ -179,7 +198,18 @@ struct SeitenflaecheView: View {
     // Der Abstand des Drehgriffs über dem Block — an einer Stelle, weil
     // Zeichnung und Treffprüfung denselben Wert brauchen.
     private var griffabstand: Double { 32 / massstab }
-    private var greifweite: Double { 24 / massstab }
+    private var grundgreifweite: Double { 24 / massstab }
+
+    // Die Greifweite eines EINZELNEN Blocks. Eine Fingerkuppe ist das Maß,
+    // aber sie darf einen kleinen Block nicht ganz ausfüllen: Läge jeder
+    // Punkt eines 60 x 40 grossen Blocks im Umkreis einer Ecke, liesse er
+    // sich nur noch in der Größe ziehen und nie mehr verschieben. Deshalb
+    // gedeckelt auf gut ein Drittel der kürzeren Seite — mit einem Boden,
+    // unter den es nicht geht, sonst wäre der Griff nicht zu treffen.
+    private func greifweite(_ block: Block) -> Double {
+        let kurz = min(block.rahmen.breite, block.rahmen.hoehe)
+        return min(grundgreifweite, max(10 / massstab, kurz * 0.35))
+    }
 
     @ViewBuilder
     private func blockAnsicht(_ block: Block) -> some View {
@@ -286,30 +316,25 @@ struct SeitenflaecheView: View {
     // die Griffe samt Drehgriff darin liegen. Im Ausschnittsmodus gibt es
     // keine Griffe — dort bleibt die Fläche beim Bild.
     private func ziehsaum(_ block: Block) -> Double {
-        werk.ausschnittsmodus == block.id ? 0 : max(greifweite, griffabstand + greifweite)
+        werk.ausschnittsmodus == block.id ? 0 : griffabstand + grundgreifweite
     }
 
-    private func ziehgeste(_ block: Block, ursprung: CGPoint) -> some Gesture {
-        DragGesture(minimumDistance: 3)
-            .onChanged { wert in ziehen(block, ursprung: ursprung, wert: wert, endgueltig: false) }
-            .onEnded { wert in ziehen(block, ursprung: ursprung, wert: wert, endgueltig: true) }
+    // Die Geste misst im SEITENRAUM, nicht im eigenen. Damit ist der
+    // Aufsetzpunkt dieselbe Zahl, die auch ein Tipp auf die Seite liefert —
+    // und die Umrechnung, an der es hing, gibt es gar nicht mehr.
+    private func ziehgeste(_ block: Block) -> some Gesture {
+        DragGesture(minimumDistance: 3, coordinateSpace: .named(Seitenraum.name))
+            .onChanged { wert in ziehen(block, wert: wert, endgueltig: false) }
+            .onEnded { wert in ziehen(block, wert: wert, endgueltig: true) }
     }
 
-    // Die Geste meldet in den Koordinaten IHRER Fläche, und die beginnt um
-    // den Saum vor dem Block. Umgerechnet wird einmal, hier.
-    private func aufSeite(_ punkt: CGPoint, ursprung: CGPoint) -> CGPoint {
-        CGPoint(x: punkt.x + ursprung.x, y: punkt.y + ursprung.y)
-    }
-
-    private func ziehen(_ block: Block, ursprung: CGPoint, wert: DragGesture.Value,
-                        endgueltig: Bool)
-    {
+    private func ziehen(_ block: Block, wert: DragGesture.Value, endgueltig: Bool) {
         // Eine NEUE Geste erkennt man am Aufsetzpunkt. Ohne diese Prüfung
         // bliebe nach einer abgebrochenen Geste der alte Griff stehen, und
         // die nächste Bewegung täte etwas, das niemand angefasst hat.
         if gegriffen == nil || gestenstart != wert.startLocation {
             gestenstart = wert.startLocation
-            griffFestlegen(aufSeite(wert.startLocation, ursprung: ursprung), block: block)
+            griffFestlegen(wert.startLocation, block: block)
         }
         guard let art = gegriffen else {
             if endgueltig { gestenendeAufraeumen(wert) }
@@ -328,9 +353,8 @@ struct SeitenflaecheView: View {
             // ruhenden Koordinatensystem der Seite. Mit dem
             // zurückgedrehten Punkt wäre er relativ zur schon gesetzten
             // Drehung, und der Block liefe dem Finger davon.
-            let jetzt = aufSeite(wert.location, ursprung: ursprung)
-            drehen(block, zeigt: CGPoint(x: jetzt.x - block.rahmen.x,
-                                         y: jetzt.y - block.rahmen.y))
+            drehen(block, zeigt: CGPoint(x: wert.location.x - block.rahmen.x,
+                                         y: wert.location.y - block.rahmen.y))
         default:
             groesseAendern(block, wert: wert)
         }
@@ -349,14 +373,24 @@ struct SeitenflaecheView: View {
             werk.letzterGriff = "Ausschnitt an \(block.inhalt.name)"
             return
         }
-        let art = Grifflage.getroffen(imBlock(punkt, block: block, absolut: false),
+        let weite = greifweite(block)
+        let imEigenen = imBlock(punkt, block: block, absolut: false)
+        let art = Grifflage.getroffen(imEigenen,
                                       breite: block.rahmen.breite,
                                       hoehe: block.rahmen.hoehe,
                                       abstand: griffabstand,
-                                      greifweite: greifweite) ?? .verschieben
+                                      greifweite: weite) ?? .verschieben
         gegriffen = art
         ausgangsrahmen = block.rahmen
-        werk.letzterGriff = "\(art.name) an \(block.inhalt.name)"
+        // Die Probe nennt ZAHLEN und keine Deutung: wo der Finger im Block
+        // aufgesetzt hat, wie groß der Block ist und wie weit ein Griff
+        // greift. Damit ist beim nächsten Mal nachzurechnen, ob der Punkt
+        // stimmt — und nicht wieder zu raten.
+        werk.letzterGriff = String(
+            format: "%@ an %@ \u{00B7} Punkt %.0f/%.0f in 0…%.0f/0…%.0f \u{00B7} greift %.0f",
+            art.name, block.inhalt.name,
+            imEigenen.x, imEigenen.y,
+            block.rahmen.breite, block.rahmen.hoehe, weite)
         werk.merken()
     }
 

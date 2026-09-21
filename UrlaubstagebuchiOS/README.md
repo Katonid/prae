@@ -504,6 +504,68 @@ Bewegung täte etwas, das niemand angefasst hat.
 **Nicht gemessen** — wie alles an dieser Bedienung. „Bedienung prüfen" sagt
 es.
 
+## Die Anfasser, zum vierten Mal — und diesmal gerechnet (1.0.7)
+
+Gemeldet: „Na, das hat ja mal so gar nichts gebracht. Jetzt geht nicht mal
+mehr drehen. Die Anfasser sind zu sehen, aber egal, ob ich auf einen
+Anfasser tippe und halte oder auf das Foto selbst oder den Text, es wird
+immer nur verschoben."
+
+**Das ist der Befund, der sich rechnen lässt, statt ihn zu deuten.** Die
+Geste kommt an — es wird ja verschoben. Nur gibt `Grifflage.getroffen` nie
+einen Griff zurück, sondern immer `nil`, und `?? .verschieben` macht daraus
+stillschweigend ein Verschieben. Damit ist es weder die Geste noch die
+Fläche noch das Neuzeichnen: **Es ist der PUNKT, den die Geste liefert.**
+Dass das Drehen „jetzt auch nicht mehr" geht, sagt dasselbe noch einmal —
+der Drehgriff ist auch nur ein Griff, er ging seit dem Umbau von 1.0.5 nie,
+und ausprobiert wurde er erst jetzt.
+
+**Woher ein falscher Punkt kommt.** Eine Geste meldet ihren Punkt im Raum
+derjenigen Ansicht, an der sie hängt. Das ist hier die Ziehfläche des
+gewählten Blocks: verschoben (`offset`), um einen Saum vergrößert, und seit
+1.0.6 zusätzlich eine, die während des Ziehens ihre Größe ändert. Der
+Quelltext rechnete den gemeldeten Punkt deshalb auf die Seite um
+(`aufSeite`). Liegt der Ursprung dieses Raumes aber **vor** dem Versatz, ist
+der Punkt schon ein Seitenpunkt, die Umrechnung addiert den Blockursprung
+ein zweites Mal, und der Griffpunkt landet um den halben Block daneben —
+mitten in der Fläche, nie an einer Ecke. Genau das gemeldete Bild.
+
+**Welche der beiden Lesarten stimmt, lässt sich hier nicht messen. Also
+wird die Frage abgeschafft.** Gemessen wird ab 1.0.7 in einem BENANNTEN
+Raum (`Seitenraum`, an der Seite selbst deklariert); `DragGesture` und Tipp
+bekommen ihn mit (`coordinateSpace: .named(…)`). Damit ist der Aufsetzpunkt
+dieselbe Zahl, die auch ein Tipp auf die Seite liefert — unabhängig davon,
+an welcher Ansicht die Geste hängt und wie weit die verschoben ist.
+`aufSeite` ist ersatzlos gestrichen.
+
+> **Merke:** Wer einen Punkt aus einer Geste braucht, nennt den Raum, in dem
+> er gilt. „Lokal" ist eine Auskunft über den Ansichtsbaum und keine über
+> die Seite.
+
+Die Tipps an der Seite selbst bleiben bei `.local`: Diese Ansicht ist nicht
+verschoben, ihr Raum IST der Seitenraum, und das Auswählen über sie hat im
+Feld funktioniert. Es wird eine Sache auf einmal geändert.
+
+**Zwei Dinge fielen beim Nachrechnen mit ab:**
+
+* **Die Greifweite darf einen kleinen Block nicht ganz ausfüllen.** Sie war
+  fest eine Fingerkuppe (24 Bildschirmpunkte). Bei einem Block von 60 × 40
+  Seitenpunkten liegt damit *jeder* Punkt im Umkreis einer Ecke — er ließe
+  sich nur noch in der Größe ziehen und nie mehr verschieben. Gedeckelt auf
+  gut ein Drittel der kürzeren Seite, mit einem Boden, unter den es nicht
+  geht. Bei einer flachen Datumszeile fallen obere und untere Kante
+  trotzdem zusammen; dort gewinnt die Ecke, und die zieht beide Maße. Bei
+  vierzehn Punkten Höhe gibt es keine vier unterscheidbaren Kanten — das
+  ist Geometrie und keine Einstellung.
+* **Die Probe nennt jetzt Zahlen statt einer Deutung.** Bis 1.0.6 stand in
+  „Bedienung prüfen" nur der Name des Griffs — und der lautete in jedem
+  Fall „Fläche", also genau das, was die Frage offenließ. Jetzt steht dort,
+  wo der Finger IM Block aufgesetzt hat, wie groß der Block ist und wie
+  weit ein Griff greift: `Fläche an Foto · Punkt 144/244 in 0…400/0…200 ·
+  greift 20`. Stimmt der Punkt nicht zum Griff, den man angefasst hat,
+  steht die Antwort da. **Eine Probe, die nur ihr Ergebnis nennt, ist die
+  Frage von vorhin noch einmal.**
+
 ## Bildunterschriften (1.0.5)
 
 Gewünscht 09/2026: „Ich möchte zu jedem Foto einen Beschreibungstext
@@ -548,11 +610,12 @@ im Inspektor gab es, aber keinen Weg zu sehen, was es bewirkt.
 
 ## Offene Punkte
 
-* **Ob die Anfasser jetzt gehen, ist NICHT gemessen.** Es ist die dritte
-  Erklärung in dieser Sache; die erste war eine Vermutung, die zweite eine,
-  die der Nutzer widerlegt hat. Gebaut ist der Ausschluss aller Verdächtigen
-  auf einmal, dazu die Probe „Bedienung prüfen". Erst was sie anzeigt, ist
-  ein Befund.
+* **Ob die Anfasser jetzt gehen, ist NICHT gemessen.** Es ist die vierte
+  Erklärung in dieser Sache. Die ersten drei waren Vermutungen; diese hier
+  ist am Quelltext gerechnet und erklärt, warum ausnahmslos jeder Griff als
+  „Fläche" ankam — aber ein Gerät gibt es hier nicht. „Bedienung prüfen"
+  nennt seit 1.0.7 den gemessenen Punkt; **erst was dort steht, ist ein
+  Befund.**
 * **Die Schrifteinbettung ist halb gemessen.** Die App liest aus jeder
   benutzten Schrift, ob sie eingebettet werden DARF (`fsType` der
   OS/2-Tabelle) — das ist eine echte Messung. Ob CoreGraphics sie dann
