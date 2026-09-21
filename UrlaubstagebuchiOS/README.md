@@ -254,6 +254,23 @@ wird: Eine halb geschriebene Reise wäre der Verlust eines ganzen Buches.
 Das App-Symbol rechnet `scripts/make-icon.py` (reines Python, ohne fremde
 Bibliotheken) — nicht von Hand bearbeiten.
 
+## Was der erste gedruckte Stand zeigte (1.0.2)
+
+Sechs Befunde aus einem ausgegebenen PDF, alle behoben:
+
+| Befund | Ursache | Jetzt |
+| --- | --- | --- |
+| Jede Zeile ein eigener Absatz | Der Text war hart umbrochen, Zeilen durch Leerzeilen getrennt | `Textaufbereitung` erkennt das an der Zeilenlänge und führt zusammen |
+| Text endete mitten im Satz | Der Notausgang gegen Endlosschleifen warf den Rest weg | Neue Seite; passt es nirgends, läuft der Text sichtbar über |
+| Griffe nicht zu treffen | Sie ragten über den Blockrahmen hinaus — dort nimmt SwiftUI keinen Finger an | Eigene Ebene über der Seite, dazu ein Drehgriff |
+| Text nur im Inspektor änderbar | — | Doppeltipp öffnet ein Textfeld an Ort und Stelle, in der Druckschrift |
+| Datumszeile fest | — | Sieben Formate für das Buch, je Tag überschreibbar |
+| Kein Seitenhintergrund | — | Einfarbig, Verlauf, Foto mit Schleier, Papierkorn — global und je Seite |
+
+Dazu: Fotos lassen sich drehen (Griff über dem Block, rastet bei 45°),
+überlappen (Ebene) und der Restplatz einer Seite wird zwischen den
+Fotoreihen verteilt statt unten liegen gelassen.
+
 ## Offene Punkte
 
 * **Die Schrifteinbettung ist halb gemessen.** Die App liest aus jeder
@@ -269,6 +286,10 @@ Bibliotheken) — nicht von Hand bearbeiten.
 * **Der Bau in GitHub Actions beweist nicht, dass sich signieren lässt.**
   Er läuft mit `CODE_SIGNING_ALLOWED=NO` gegen den Simulator; Entitlements
   werden dabei nie geprüft.
+* **Seitenvorlagen mit Platzhaltern stehen noch aus.** Drei Fotos in einer
+  randbündigen Reihe füllen eine A4-quer-Seite zu 40 % — höher kann die
+  Reihe nicht werden, das ist Geometrie. Die Antwort darauf ist eine
+  Vorlage (eines groß, zwei gestapelt), nicht eine weitere Stellschraube.
 * **Wie sich ein Buch mit zweihundert Fotos anfühlt, ist nicht gemessen.**
   Vorschaubilder sind gedeckelt und der Kartenvorrat begrenzt, aber beides
   ist eine Vorsichtsmaßnahme und keine Messung.

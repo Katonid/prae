@@ -3261,6 +3261,71 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   über jede Zeile des Textes. Beide standen zuerst als berechnete
   Eigenschaft in einer `Form` und liefen damit bei JEDEM Neuzeichnen. Jetzt
   hängen sie an `.task` und `.onChange`.
+### Was der erste gedruckte Stand zeigte (1.0.2)
+
+Der Nutzer hat 1.0.1 als PDF ausgegeben und die Seiten geschickt. Sechs
+Befunde, und keiner davon war Geschmack:
+
+- **Jede Zeile stand als eigener Absatz** (`Dienste/Textaufbereitung.swift`).
+  Der eingelesene Text war bei rund hundert Zeichen hart umbrochen und die
+  Zeilen zusätzlich durch LEERZEILEN getrennt; der Setzer machte daraus
+  getreulich sechs Absätze mit Absatzabstand, und ein Satz lief über zwei
+  davon („… Nissan Kicks gegen Jeep" / „Grand Cherokee. Leider …").
+  **Erkannt wird das an der LÄNGE der Zeilen, nicht an den Leerzeilen:**
+  Hart umbrochener Text hat eine enge Verteilung — viele Zeilen enden dicht
+  unter derselben Grenze. Gemessen an den Texten des Nutzers (50 % und 60 %
+  lange Zeilen) gegen frei geschriebenen Text (33 %); die Schwelle liegt bei
+  35 %, und wo sie nicht greift, bleibt der Text unangetastet. Eine Zeile
+  setzt den Absatz fort, wenn die vorige bis an die Grenze reichte UND nicht
+  mit einem Satzzeichen endete (oder die nächste klein anfängt).
+- **Text ging beim Seitenumbruch verloren.** Auf Seite 5 endete ein Tag
+  mitten im Satz („mussten von Passagieren, die"), der Rest war weg:
+  `if kopf.isEmpty { text = "" }` — der „Notausgang" gegen eine
+  Endlosschleife warf den Rest fort. Jetzt wird eine neue Seite begonnen,
+  und passt der Text selbst auf einer leeren Seite nicht (zu große Schrift),
+  läuft er SICHTBAR über. **Ein Tagebuch darf keinen Satz verlieren** — ein
+  überlaufender Block fällt auf, ein fehlender Satz nicht.
+- **Die Griffe waren da und nicht zu treffen** (`Views/Griffe.swift`).
+  Gemeldet als „Ich kann ein Textfeld nicht in der Größe skalieren." Sie
+  hingen als `.overlay` IM Block und ragten mit ihrer halben Breite über
+  dessen Rahmen hinaus — **was außerhalb eines Frames liegt, nimmt in
+  SwiftUI keinen Finger an**, und das nachgestellte
+  `.contentShape(Rectangle())` beschnitt den Rest. Jetzt liegen sie als
+  eigene Ebene über der Seite. **Merke: Ein Bedienelement, das über seinen
+  Elternrahmen hinausragt, gehört eine Ebene höher.**
+- **Text wird auf der SEITE geändert, nicht im Inspektor** (`InlineText`,
+  Doppeltipp). Ein `UITextView` mit denselben Attributen an derselben
+  Stelle — getippt wird in der Schrift, in der gedruckt wird. Wohin der Text
+  zurückgeschrieben wird, hängt an der Blockart: Fließtext in den Block,
+  Überschrift und Datumszeile an den TAG. In den Block geschrieben wäre die
+  Änderung beim nächsten Neuanordnen weg.
+- **Die Datumszeile ist einstellbar** (`Datumsstil`, sieben Fassungen, plus
+  `Reisetag.datumstext` je Tag). Sie stand fest auf „Donnerstag, 4. Juni
+  2026".
+- **Seitenhintergründe global UND je Seite** (`Model/Seitenhintergrund.swift`):
+  einfarbig, Verlauf, Foto mit Schleier, Papierkorn. Genau diese Reihenfolge
+  — das Buch hat einen Hintergrund, eine einzelne Seite darf einen anderen
+  haben. Ein Hintergrund läuft IMMER bis in den Anschnitt; eine Fläche, die
+  am Endformat aufhört, hätte nach dem Beschneiden den weißen Faden, wegen
+  dem es den Anschnitt gibt. Ob die Schrift hell werden muss, wird über die
+  wahrgenommene Helligkeit GERECHNET.
+- **Der Restplatz wird verteilt, nicht unten liegen gelassen**
+  (`restplatzVerteilen`). Eine Seite trug drei Fotos in einer Reihe und
+  darunter die halbe Seite Weiß. Höher kann eine randbündige Reihe nicht
+  werden — ihre Höhe ist die Satzbreite geteilt durch die Summe der
+  Seitenverhältnisse, das ist Geometrie und keine Einstellung. Was geht, ist
+  die Lücken zwischen den Reihen zu strecken, gedeckelt auf das Dreifache
+  der Fuge: Luft zwischen den Reihen sieht nach Absicht aus, Luft am Fuß
+  nach Abbruch. **Die eigentliche Antwort darauf sind Seitenvorlagen mit
+  Platzhaltern** (drei Fotos als eines groß plus zwei gestapelt) — die
+  stehen noch aus.
+- **Gedreht wird um die MITTE, und der Winkel kommt aus dem Zeiger** von der
+  Mitte zum Finger, nicht aus der Wegstrecke. Eine Drehung aus der
+  Verschiebung dreht am Rand schneller als in der Mitte und fühlt sich
+  sofort falsch an. Bei Vielfachen von 45 Grad rastet sie ein: Ein Bild, das
+  um 0,4 Grad schief steht, sieht nicht gewollt aus, sondern nach einem
+  Versehen.
+
 - `MARKETING_VERSION` und `CURRENT_PROJECT_VERSION` stehen an je zwei
   Stellen im pbxproj (Debug + Release) — es gibt KEINE Skript-Bauphase.
   **Jede Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne

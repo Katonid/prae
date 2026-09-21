@@ -546,6 +546,7 @@ struct Layoutautomat {
 
         let ziel = zielhoehe(fuer: kacheln.count)
         var offen = kacheln
+        var reihenaufSeite: [[UUID]] = []
         // Die Notbremse ist kein Schmuck: Kommt aus der Textteilung einmal
         // nichts zurück (ein einzelnes Wort, das breiter ist als die Seite),
         // liefe die Schleife ewig.
@@ -593,6 +594,7 @@ struct Layoutautomat {
                 if !text.isEmpty {
                     seiten.append(Seite(bloecke: bloecke))
                     bloecke = []
+                    reihenaufSeite = []
                     y = satz.minY
                     continue
                 }
@@ -600,30 +602,77 @@ struct Layoutautomat {
             guard !offen.isEmpty else { break }
             let (reihe, hoehe, gestreckt) = naechsteReihe(offen, breite: satz.width, ziel: ziel)
             if y + hoehe > satz.maxY, !bloecke.isEmpty {
-                seiten.append(Seite(bloecke: bloecke))
+                seiten.append(Seite(
+                    bloecke: restplatzVerteilen(bloecke, reihen: reihenaufSeite,
+                                                unten: y - fuge)))
                 bloecke = []
+                reihenaufSeite = []
                 y = satz.minY
                 continue
             }
             var x = satz.minX
+            var reihenbloecke: [UUID] = []
             for kachel in reihe {
                 let breite = gestreckt * kachel.verhaeltnis
                 switch kachel.inhalt {
                 case let .foto(id):
                     if let foto = fotoIndex[id] {
-                        bloecke.append(fotoblock(foto, x: x, y: y, breite: breite, hoehe: gestreckt))
+                        let block = fotoblock(foto, x: x, y: y, breite: breite, hoehe: gestreckt)
+                        bloecke.append(block)
+                        reihenbloecke.append(block.id)
                     }
                 case .karte:
-                    bloecke.append(karteBlock(x: x, y: y, breite: breite, hoehe: gestreckt))
+                    let block = karteBlock(x: x, y: y, breite: breite, hoehe: gestreckt)
+                    bloecke.append(block)
+                    reihenbloecke.append(block.id)
                 default:
                     break
                 }
                 x += breite + fuge
             }
+            if !reihenbloecke.isEmpty { reihenaufSeite.append(reihenbloecke) }
             y += hoehe + fuge
             offen.removeFirst(reihe.count)
         }
+        bloecke = restplatzVerteilen(bloecke, reihen: reihenaufSeite, unten: y - fuge)
         return (seiten, bloecke, text)
+    }
+
+    // Was unten übrig bleibt, wird zwischen die Reihen gelegt.
+    //
+    // Der Anlass steht im ersten gedruckten Stand: Eine Seite trug drei
+    // Fotos in einer Reihe und darunter die halbe Seite Weiß. Höher kann
+    // eine randbündige Reihe nicht werden — ihre Höhe ergibt sich aus der
+    // Satzbreite geteilt durch die Summe der Seitenverhältnisse. Was geht,
+    // ist den Rest zu VERTEILEN, statt ihn unten liegen zu lassen: Luft
+    // zwischen den Reihen sieht nach Absicht aus, Luft am Fuß nach
+    // Abbruch.
+    //
+    // Gedeckelt auf das Dreifache der Fuge. Ohne Deckel schwömmen zwei
+    // Bilder mit zehn Zentimetern Abstand auf der Seite, und das ist kein
+    // Satz mehr, sondern ein Versehen in die andere Richtung.
+    private func restplatzVerteilen(_ bloecke: [Block], reihen: [[UUID]],
+                                    unten: CGFloat) -> [Block]
+    {
+        guard reihen.count >= 1, unten > satz.minY else { return bloecke }
+        let rest = satz.maxY - unten
+        guard rest > fuge else { return bloecke }
+        // Die Lücken: zwischen den Reihen, und eine halbe am Fuß, damit der
+        // Block nicht an der Unterkante klebt.
+        let lücken = Double(reihen.count - 1) + 0.5
+        guard lücken > 0.4 else { return bloecke }
+        let jeLücke = min(rest / lücken, fuge * 3)
+        guard jeLücke > 1 else { return bloecke }
+
+        var ergebnis = bloecke
+        for (nummer, reihe) in reihen.enumerated() where nummer > 0 {
+            let versatz = jeLücke * Double(nummer)
+            for id in reihe {
+                guard let stelle = ergebnis.firstIndex(where: { $0.id == id }) else { continue }
+                ergebnis[stelle].rahmen.y += versatz
+            }
+        }
+        return ergebnis
     }
 
     private func fotoblock(_ foto: Foto, x: Double, y: Double, breite: Double,
