@@ -42,10 +42,7 @@ struct SeitenflaecheView: View {
             HintergrundFlaeche(werk: werk, hintergrund: hintergrund, seite: buchseite.seite)
                 .frame(width: bogen.width, height: bogen.height)
                 .offset(x: -anschnitt, y: -anschnitt)
-                .onTapGesture {
-                    werk.gewaehlterBlock = nil
-                    werk.textBearbeitung = nil
-                }
+                .allowsHitTesting(false)
 
             if bearbeitbar, werk.zeigeSatzspiegel {
                 Rectangle()
@@ -71,14 +68,39 @@ struct SeitenflaecheView: View {
                     .allowsHitTesting(false)
             }
 
-            // Die Griffe sind eine ZEICHNUNG über dem gewählten Block und
-            // nehmen keinen Finger an. Angefasst wird der Block selbst; er
-            // trägt als einziger eine Geste und entscheidet an der Stelle,
-            // an der der Finger aufsetzt, was gemeint war.
+            // Die Griffe sind eine ZEICHNUNG und nehmen keinen Finger an —
+            // wie alles andere auf dieser Seite. Angefasst wird die SEITE.
             if bearbeitbar, let block = gewaehlterBlock, werk.ausschnittsmodus != block.id,
                werk.textBearbeitung != block.id
             {
                 Griffzeichnung(block: block, massstab: massstab, abstand: griffabstand)
+            }
+
+            // Die Ziehfläche liegt NUR über dem gewählten Block, und das ist
+            // kein Detail: Die Seite steckt in einem `ScrollView`, und eine
+            // Ziehgeste über der ganzen Fläche nähme ihm das Blättern ab.
+            // Ein Tipp tut das nicht — deshalb wählt man mit einem Tipp und
+            // fasst danach an. Der Rahmen ist um den Griffsaum größer, damit
+            // die Griffe darin liegen; wo keine Auswahl ist, scrollt die
+            // Seite wie zuvor.
+            if bearbeitbar, let block = gewaehlterBlock, werk.textBearbeitung != block.id {
+                let saum = ziehsaum(block)
+                Color.clear
+                    .frame(width: block.rahmen.breite + 2 * saum,
+                           height: block.rahmen.hoehe + 2 * saum)
+                    .contentShape(Rectangle())
+                    .offset(x: block.rahmen.x - saum, y: block.rahmen.y - saum)
+                    // Die Tipps gehören mit auf diese Fläche: Sie liegt über
+                    // dem Block, und ohne sie käme über dem gewählten Block
+                    // kein Tipp mehr an — also weder das Abwählen noch der
+                    // Doppeltipp, der den Text öffnet.
+                    .onTapGesture(count: 2, coordinateSpace: .local) { punkt in
+                        doppeltipp(aufSeite(punkt, block: block, saum: saum))
+                    }
+                    .onTapGesture(count: 1, coordinateSpace: .local) { punkt in
+                        einfachtipp(aufSeite(punkt, block: block, saum: saum))
+                    }
+                    .gesture(ziehgeste(block, saum: saum))
             }
 
             if bearbeitbar, let id = werk.textBearbeitung,
@@ -102,6 +124,33 @@ struct SeitenflaecheView: View {
             }
         }
         .frame(width: bogen.width, height: bogen.height, alignment: .topLeading)
+        // ALLE Gesten hängen an der SEITE, nicht an den Blöcken.
+        //
+        // Gemeldet 09/2026, nachdem schon das Verschieben zweimal nicht ging:
+        // „Ich habe mitunter auch Schwierigkeiten, Textblöcke auswählen zu
+        // können." Damit ist es nicht mehr die Geste, sondern schon der
+        // TIPP — und das erklärt beides auf einmal. Zwei Gründe, und beide
+        // sind am Quelltext nachzurechnen:
+        //
+        // 1. Ein Textblock ist FLACH. Eine Datumszeile misst rund 14
+        //    Seitenpunkte; bei einer A4-Seite auf einem iPhone (Maßstab
+        //    gut 0,5) sind das sieben Bildschirmpunkte. Apple nennt 44 als
+        //    Mindestmaß für ein Fingerziel. Ein Rahmen, der genau so groß
+        //    ist wie das Gezeichnete, ist bei Text also grundsätzlich zu
+        //    klein — unabhängig von jeder Gestenfrage.
+        // 2. Jeder Block trug seine eigenen Gesten, dazu lag in den
+        //    Textblöcken eine UIKit-Ansicht. Wer mehrere Gesten
+        //    übereinanderlegt, muss wissen, welche gewinnt.
+        //
+        // Deshalb dieselbe Bauweise wie bei der Netzkarte der Abfahrtstafel
+        // (1.1.18): Eine Geste gehört der FLÄCHE; was darauf liegt, ist ein
+        // Bild. Die Seite nimmt den Finger entgegen und sucht HINTERHER,
+        // was gemeint war — erst genau, dann im Umkreis einer Fingerbreite.
+        // Gerechnet wird also erst, wenn klar ist, dass ein Tipp gemeint
+        // war, und die Fangweite kostet keine Fläche.
+        .contentShape(Rectangle())
+        .onTapGesture(count: 2, coordinateSpace: .local) { punkt in doppeltipp(punkt) }
+        .onTapGesture(count: 1, coordinateSpace: .local) { punkt in einfachtipp(punkt) }
         .offset(x: anschnitt, y: anschnitt)
         .frame(width: bogen.width, height: bogen.height, alignment: .topLeading)
         .clipped()
@@ -119,16 +168,9 @@ struct SeitenflaecheView: View {
 
     @ViewBuilder
     private func blockAnsicht(_ block: Block) -> some View {
-        let gewaehlt = werk.gewaehlterBlock == block.id
         let versatz = schiebt == block.id ? zieht : .zero
         let rahmen = block.rahmen
         let randPt = Druckmass.pt(block.fotorand)
-        // Ist der Block gewählt, reicht seine Trefferfläche über den Rahmen
-        // hinaus — so weit, dass die Griffe darin liegen. Sie haben keine
-        // eigene Geste mehr; getroffen wird der Block, und der rechnet
-        // hinterher aus, welcher Griff gemeint war. Damit kann kein Griff
-        // mehr „daneben" liegen.
-        let saum = gewaehlt && bearbeitbar ? max(greifweite, griffabstand + greifweite) : 0
 
         BlockInhaltView(werk: werk, block: block, tag: buchseite.tag)
             .frame(width: rahmen.breite, height: rahmen.hoehe)
@@ -143,114 +185,164 @@ struct SeitenflaecheView: View {
             .padding(-randPt)
             .frame(width: rahmen.breite, height: rahmen.hoehe)
             .rotationEffect(.degrees(block.drehung))
-            // Was IM Block liegt, ist ein Bild und nimmt keinen Finger an.
-            // Der Textkasten ist eine UIKit-Ansicht, und eine solche nimmt
-            // sich den Finger, ohne ihn weiterzugeben — dieselbe Lehre wie
-            // bei der Netzkarte der Abfahrtstafel.
+            .offset(x: rahmen.x + versatz.width, y: rahmen.y + versatz.height)
+            // Ein Block ist eine ZEICHNUNG. Er trägt keine Geste mehr, und
+            // was in ihm liegt — Textkasten, Foto, Karte — nimmt erst recht
+            // keinen Finger an.
             .allowsHitTesting(false)
-            // Die Trefferfläche ist ein EIGENER, größerer Rahmen und kein
-            // negativer Saum. Ein Kind, das über seinen Elternrahmen
-            // hinausragt, nimmt in SwiftUI keinen Finger an — die Lehre von
-            // 1.0.2 gilt hier genauso, und ein `padding(-saum)` liefe ihr
-            // genau entgegen. Der Inhalt liegt mittig darin und damit
-            // unverrückt an seiner Stelle.
-            .frame(width: rahmen.breite + 2 * saum, height: rahmen.hoehe + 2 * saum)
-            .contentShape(Rectangle())
-            .offset(x: rahmen.x - saum + versatz.width, y: rahmen.y - saum + versatz.height)
-            .onTapGesture(count: 2) {
-                guard bearbeitbar, block.inhalt.istText else { return }
-                werk.gewaehlterBlock = block.id
-                werk.textBearbeitung = block.id
-            }
-            .onTapGesture {
-                guard bearbeitbar else { return }
-                werk.textBearbeitung = nil
-                werk.gewaehlterBlock = gewaehlt ? nil : block.id
-            }
-            // Vorrang vor den Tipp-Gesten: Ein Tipp und eine Ziehbewegung
-            // an derselben Ansicht streiten sich sonst, und der Tipp gewinnt.
-            // Bei einer Mindeststrecke von drei Punkten kommt ein echter
-            // Tipp trotzdem durch — er bewegt sich nicht.
-            //
-            // Abgeschaltet wird über die MASKE und nicht über ein `nil`:
-            // `highPriorityGesture` nimmt keinen leeren Wert entgegen.
-            .highPriorityGesture(
-                blockgeste(block, saum: saum),
-                including: bearbeitbar && werk.textBearbeitung != block.id ? .all : .subviews
-            )
     }
 
-    // EINE Geste je Block, und sie entscheidet an der Stelle, an der der
-    // Finger aufsetzt, was gemeint war: schieben, an einem der acht Griffe
-    // ziehen oder am Dreher drehen.
-    //
-    // Bis 1.0.3 hatte jeder Griff seine eigene Geste, und dazu trug der
-    // Block zwei Tipp-Gesten. Gemeldet wurde zweimal, dass sich Bilder
-    // nicht verschieben und Rahmen nicht ziehen lassen. Wer mehrere Gesten
-    // übereinanderlegt, muss wissen, welche gewinnt — und genau das ließ
-    // sich hier nicht messen. Also gibt es nur noch eine.
-    private func blockgeste(_ block: Block, saum: Double) -> some Gesture {
-        DragGesture(minimumDistance: 3)
-            .onChanged { wert in ziehen(block, wert: wert, saum: saum, endgueltig: false) }
-            .onEnded { wert in ziehen(block, wert: wert, saum: saum, endgueltig: true) }
+    // MARK: - Was liegt unter dem Finger?
+
+    // Die Fangweite für einen Block: eine knappe Fingerbreite, in
+    // Bildschirmpunkten gedacht und in Seitenpunkte umgerechnet. Sie ist
+    // kleiner als die der Griffe — ein Griff ist ein Punkt, ein Block hat
+    // eine Fläche, und ein zu großzügiger Fang schnappte über einen
+    // benachbarten Block hinweg.
+    private var fangweite: Double { 20 / massstab }
+
+    // Erst genau, dann im Umkreis — jeweils von OBEN nach unten, damit bei
+    // zwei übereinanderliegenden Blöcken der gewinnt, den man sieht.
+    private func blockUnter(_ punkt: CGPoint) -> Block? {
+        let oben = buchseite.seite.sortiert.reversed()
+        if let treffer = oben.first(where: { trifft($0, punkt: punkt, luft: 0) }) {
+            return treffer
+        }
+        return oben.first { trifft($0, punkt: punkt, luft: fangweite) }
     }
 
-    // `saum` ist der Unterschied zwischen der Trefferfläche und dem Block:
-    // Die Geste hängt an der größeren Fläche, gerechnet wird in den
-    // Koordinaten des Blocks.
-    private func ziehen(_ block: Block, wert: DragGesture.Value, saum: Double,
-                        endgueltig: Bool)
-    {
-        if werk.ausschnittsmodus == block.id {
-            ausschnittSchieben(block, wert: wert, endgueltig: endgueltig)
-            return
-        }
-        let beginn = CGPoint(x: wert.startLocation.x - saum, y: wert.startLocation.y - saum)
-        let jetzt = CGPoint(x: wert.location.x - saum, y: wert.location.y - saum)
-        if gegriffen == nil {
-            let art = griffUnter(beginn, block: block)
-            gegriffen = art
-            werk.letzterGriff = "\(art.name) an \(block.inhalt.name)"
-            werk.gewaehlterBlock = block.id
-            werk.merken()
-            ausgangsrahmen = block.rahmen
-        }
-        switch gegriffen ?? .verschieben {
-        case .verschieben:
-            verschieben(block, wert: wert, endgueltig: endgueltig)
-        case .drehen:
-            drehen(block, zeigt: jetzt)
-        default:
-            groesseAendern(block, wert: wert)
-        }
-        if endgueltig {
-            werk.letzterGriff = (werk.letzterGriff ?? "") + String(
-                format: " \u{00B7} %.1f / %.1f mm \u{00B7} Maßstab %.2f",
-                Druckmass.mm(wert.translation.width),
-                Druckmass.mm(wert.translation.height), massstab)
-            gegriffen = nil
-            ausgangsrahmen = nil
-        }
+    // Liegt der Punkt im Rahmen (zuzüglich Luft)? Bei einem gedrehten Block
+    // wird er vorher um dessen Mitte zurückgedreht — der Rahmen dreht ja mit.
+    private func trifft(_ block: Block, punkt: CGPoint, luft: Double) -> Bool {
+        let feld = block.rahmen.rect.insetBy(dx: -luft, dy: -luft)
+        return feld.contains(imBlock(punkt, block: block, absolut: true))
     }
 
-    // Welcher Griff liegt unter dem Finger? Gerechnet wird in den
-    // Koordinaten des Blocks; bei einem gedrehten Block wird der Punkt
-    // vorher um die Mitte zurückgedreht — die Griffe drehen ja mit.
-    private func griffUnter(_ punkt: CGPoint, block: Block) -> Griffart {
-        guard werk.gewaehlterBlock == block.id else { return .verschieben }
-        let breite = block.rahmen.breite
-        let hoehe = block.rahmen.hoehe
+    // Rechnet einen Punkt der SEITE in die Koordinaten eines Blocks um.
+    // `absolut` behält den Ursprung der Seite (für die Rahmenprüfung),
+    // sonst liegt (0,0) in der linken oberen Ecke des Blocks (für die
+    // Griffe).
+    private func imBlock(_ punkt: CGPoint, block: Block, absolut: Bool) -> CGPoint {
         var stelle = punkt
         if abs(block.drehung) > 0.01 {
-            let mitte = CGPoint(x: breite / 2, y: hoehe / 2)
+            let mitte = block.rahmen.mitte
             let winkel = -block.drehung * .pi / 180
             let dx = punkt.x - mitte.x
             let dy = punkt.y - mitte.y
             stelle = CGPoint(x: mitte.x + dx * cos(winkel) - dy * sin(winkel),
                              y: mitte.y + dx * sin(winkel) + dy * cos(winkel))
         }
-        return Grifflage.getroffen(stelle, breite: breite, hoehe: hoehe,
-                                   abstand: griffabstand, greifweite: greifweite) ?? .verschieben
+        if absolut { return stelle }
+        return CGPoint(x: stelle.x - block.rahmen.x, y: stelle.y - block.rahmen.y)
+    }
+
+    // MARK: - Tippen
+
+    private func einfachtipp(_ punkt: CGPoint) {
+        guard bearbeitbar else { return }
+        werk.textBearbeitung = nil
+        let treffer = blockUnter(punkt)
+        werk.letzterGriff = treffer.map { "Tipp auf \($0.inhalt.name)" } ?? "Tipp ins Leere"
+        guard let treffer else {
+            werk.gewaehlterBlock = nil
+            return
+        }
+        werk.gewaehlterBlock = werk.gewaehlterBlock == treffer.id ? nil : treffer.id
+    }
+
+    private func doppeltipp(_ punkt: CGPoint) {
+        guard bearbeitbar, let treffer = blockUnter(punkt) else { return }
+        werk.letzterGriff = "Doppeltipp auf \(treffer.inhalt.name)"
+        werk.gewaehlterBlock = treffer.id
+        guard treffer.inhalt.istText else { return }
+        werk.textBearbeitung = treffer.id
+    }
+
+    // MARK: - Ziehen
+
+    // Wie weit die Ziehfläche über den Block hinausreicht: so weit, dass
+    // die Griffe samt Drehgriff darin liegen. Im Ausschnittsmodus gibt es
+    // keine Griffe — dort bleibt die Fläche beim Bild.
+    private func ziehsaum(_ block: Block) -> Double {
+        werk.ausschnittsmodus == block.id ? 0 : max(greifweite, griffabstand + greifweite)
+    }
+
+    private func ziehgeste(_ block: Block, saum: Double) -> some Gesture {
+        DragGesture(minimumDistance: 3)
+            .onChanged { wert in ziehen(block, saum: saum, wert: wert, endgueltig: false) }
+            .onEnded { wert in ziehen(block, saum: saum, wert: wert, endgueltig: true) }
+    }
+
+    // Die Geste meldet in den Koordinaten IHRER Fläche, und die beginnt um
+    // den Saum vor dem Block. Umgerechnet wird einmal, hier.
+    private func aufSeite(_ punkt: CGPoint, block: Block, saum: Double) -> CGPoint {
+        CGPoint(x: punkt.x + block.rahmen.x - saum, y: punkt.y + block.rahmen.y - saum)
+    }
+
+    private func ziehen(_ block: Block, saum: Double, wert: DragGesture.Value,
+                        endgueltig: Bool)
+    {
+        if gegriffen == nil {
+            griffFestlegen(aufSeite(wert.startLocation, block: block, saum: saum), block: block)
+        }
+        guard let art = gegriffen else {
+            if endgueltig { gestenendeAufraeumen(wert) }
+            return
+        }
+        if werk.ausschnittsmodus == block.id {
+            ausschnittSchieben(block, wert: wert, endgueltig: endgueltig)
+            if endgueltig { gestenendeAufraeumen(wert) }
+            return
+        }
+        switch art {
+        case .verschieben:
+            verschieben(block, wert: wert, endgueltig: endgueltig)
+        case .drehen:
+            // UNGEDREHT: `drehen` setzt den Winkel absolut, gemessen im
+            // ruhenden Koordinatensystem der Seite. Mit dem
+            // zurückgedrehten Punkt wäre er relativ zur schon gesetzten
+            // Drehung, und der Block liefe dem Finger davon.
+            let jetzt = aufSeite(wert.location, block: block, saum: saum)
+            drehen(block, zeigt: CGPoint(x: jetzt.x - block.rahmen.x,
+                                         y: jetzt.y - block.rahmen.y))
+        default:
+            groesseAendern(block, wert: wert)
+        }
+        if endgueltig { gestenendeAufraeumen(wert) }
+    }
+
+    // Einmal beim Aufsetzen, und dann gilt es für die ganze Bewegung: Sonst
+    // wechselte die Bedeutung mitten im Ziehen, sobald der Finger über
+    // einen anderen Griff wandert.
+    private func griffFestlegen(_ punkt: CGPoint, block: Block) {
+        // Im Ausschnittsmodus gibt es keine Griffe, und gemerkt wird dort
+        // erst am Ende der Geste (`ausschnittSchieben`) — ein zweites
+        // Merken hier legte einen leeren Stand auf den Rückgängig-Stapel.
+        guard werk.ausschnittsmodus != block.id else {
+            gegriffen = .verschieben
+            werk.letzterGriff = "Ausschnitt an \(block.inhalt.name)"
+            return
+        }
+        let art = Grifflage.getroffen(imBlock(punkt, block: block, absolut: false),
+                                      breite: block.rahmen.breite,
+                                      hoehe: block.rahmen.hoehe,
+                                      abstand: griffabstand,
+                                      greifweite: greifweite) ?? .verschieben
+        gegriffen = art
+        ausgangsrahmen = block.rahmen
+        werk.letzterGriff = "\(art.name) an \(block.inhalt.name)"
+        werk.merken()
+    }
+
+    private func gestenendeAufraeumen(_ wert: DragGesture.Value) {
+        if gegriffen != nil {
+            werk.letzterGriff = (werk.letzterGriff ?? "") + String(
+                format: " \u{00B7} %.1f / %.1f mm \u{00B7} Maßstab %.2f",
+                Druckmass.mm(wert.translation.width),
+                Druckmass.mm(wert.translation.height), massstab)
+        }
+        gegriffen = nil
+        ausgangsrahmen = nil
     }
 
     // MARK: - Schieben
