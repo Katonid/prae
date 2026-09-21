@@ -17,6 +17,13 @@ struct Reisetag: Identifiable, Codable, Hashable {
     var muster: Seitenmuster?
     var kartenausschnitt: Kartenausschnitt?
     var kartenstil: Kartenstil?
+    // Überschreibt die Datumszeile dieses einen Tages. Leer heißt: Es gilt,
+    // was im Buch eingestellt ist.
+    var datumstext: String?
+    // Ein ausgeblendeter Tag bleibt vollständig erhalten, kommt aber nicht
+    // ins Buch. Ihn zu löschen wäre der einzige andere Weg gewesen — und
+    // ein gelöschter Tagebuchtag ist weg.
+    var ausgeblendet: Bool = false
 
     var hatSpur: Bool { spur.count >= 1 }
     var hatStrecke: Bool { spur.count >= 2 }

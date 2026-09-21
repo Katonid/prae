@@ -16,6 +16,7 @@ struct TextimportView: View {
     @State private var text = ""
     @State private var ersetzen = false
     @State private var vorspannUebernehmen = true
+    @State private var absaetzeZusammenfuehren = true
     @State private var dateiwahl = false
     // Gelesen wird auf Änderung, nicht bei jedem Neuzeichnen: Das Zerlegen
     // geht über jede Zeile des Textes, und die Ansicht zeichnet sich bei
@@ -39,12 +40,14 @@ struct TextimportView: View {
                 } header: {
                     Text("Tagebuchtext")
                 } footer: {
-                    Text("Füge den ganzen Text ein. Erkannt werden Zeilen wie „12.08.2026“, „12. August“, „Mo, 12.08.“ oder „2026-08-12“ — auch mit einer kurzen Überschrift dahinter. Ein Datum mitten im Satz trennt nicht.")
+                    Text("Füge den ganzen Text ein. Erkannt werden Zeilen wie „12.08.2026“, „12. August“, „Mo, 12.08.“ oder „2026-08-12“ — auch mit einer kurzen Überschrift dahinter. Ein Datum mitten im Satz trennt nicht.\n\nIst der Text hart umbrochen (viele Zeilen enden an derselben Grenze), werden die Zeilen wieder zu Absätzen zusammengeführt. Sonst stünde im Buch jede Zeile als eigener Absatz.")
                 }
 
                 if !text.isEmpty {
                     vorschau
                     Section {
+                        Toggle("Harte Zeilenumbrüche zusammenführen",
+                               isOn: $absaetzeZusammenfuehren)
                         Toggle("Vorhandene Texte ersetzen", isOn: $ersetzen)
                         if befund.hatVorspann {
                             Toggle("Vorspann als Untertitel des Buches", isOn: $vorspannUebernehmen)
@@ -72,9 +75,8 @@ struct TextimportView: View {
                     .disabled(befund.abschnitte.isEmpty)
                 }
             }
-            .onChange(of: text) { _, neu in
-                befund = Textimport.lesen(neu, bezugsjahr: bezugsjahr)
-            }
+            .onChange(of: text) { _, neu in neuLesen(neu) }
+            .onChange(of: absaetzeZusammenfuehren) { _, _ in neuLesen(text) }
             .sheet(isPresented: $dateiwahl) {
                 Dateiwahl(typen: [.plainText, .utf8PlainText, .rtf, .text]) { adressen in
                     ladeDatei(adressen.first)
@@ -121,6 +123,11 @@ struct TextimportView: View {
                         Text("\(abschnitt.text.count) Zeichen · gelesen aus: \(abschnitt.quellzeile)")
                             .font(.system(size: 10))
                             .foregroundStyle(.tertiary)
+                        if let auf = abschnitt.aufbereitung, auf.zusammengefuehrt {
+                            Label(auf.beschreibung, systemImage: "text.alignleft")
+                                .font(.system(size: 10))
+                                .foregroundStyle(Color.accentColor)
+                        }
                     }
                     .padding(.vertical, 2)
                 }
@@ -140,6 +147,11 @@ struct TextimportView: View {
                 }
             }
         }
+    }
+
+    private func neuLesen(_ roh: String) {
+        befund = Textimport.lesen(roh, bezugsjahr: bezugsjahr,
+                                  absaetzeZusammenfuehren: absaetzeZusammenfuehren)
     }
 
     private func ladeDatei(_ adresse: URL?) {

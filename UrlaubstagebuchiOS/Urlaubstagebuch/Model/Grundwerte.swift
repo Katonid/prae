@@ -186,6 +186,7 @@ struct Gestaltung: Codable, Hashable {
     var kartenanteil: Double = 0.38
     var eckenradius: Double = 0
     var papier: Farbwert = .papier
+    var hintergrund = Seitenhintergrund.weiss
     var mindestabstandSpur: Double = 150
 
     // Seitenzahlen und Kopfzeile gehören zum Buch, nicht zum Tag — deshalb
@@ -194,6 +195,7 @@ struct Gestaltung: Codable, Hashable {
     // verschöbe.
     var seitenzahlen: Bool = true
     var kopfzeile: Bool = false
+    var datumsstil: Datumsstil = .langMitWochentag
 
     var anschnittPt: Double { Druckmass.pt(anschnitt) }
     var fugePt: Double { Druckmass.pt(fuge) }

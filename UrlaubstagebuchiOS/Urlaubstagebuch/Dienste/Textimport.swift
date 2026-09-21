@@ -31,6 +31,9 @@ enum Textimport {
         var text: String
         var zeilennummer: Int
         var quellzeile: String
+        // Was die Absatzerkennung an diesem Tag gefunden hat. Steht in der
+        // Vorschau, damit man sie abschalten kann, wenn sie danebenliegt.
+        var aufbereitung: Textaufbereitung.Befund?
     }
 
     struct Importbefund {
@@ -182,7 +185,8 @@ enum Textimport {
         return erstes.isUppercase || erstes.isNumber
     }
 
-    static func lesen(_ text: String, bezugsjahr: Int) -> Importbefund {
+    static func lesen(_ text: String, bezugsjahr: Int,
+                      absaetzeZusammenfuehren: Bool = true) -> Importbefund {
         var befund = Importbefund()
         let zeilen = text.components(separatedBy: .newlines)
         befund.zeilenGesamt = zeilen.count
@@ -194,9 +198,16 @@ enum Textimport {
 
         func abschliessen() {
             guard var offen = laufend else { return }
-            offen.text = sammlung
+            let roh = sammlung
                 .joined(separator: "\n")
                 .trimmingCharacters(in: .whitespacesAndNewlines)
+            if absaetzeZusammenfuehren {
+                let gepruefet = Textaufbereitung.pruefen(roh)
+                offen.aufbereitung = gepruefet
+                offen.text = Textaufbereitung.leerzeilenStraffen(gepruefet.text)
+            } else {
+                offen.text = Textaufbereitung.leerzeilenStraffen(roh)
+            }
             befund.abschnitte.append(offen)
             laufend = nil
             sammlung = []

@@ -12,6 +12,7 @@ struct ReiseView: View {
 
     enum Blatt: Identifiable {
         case stil
+        case hintergrund
         case textimport
         case fotos
         case dateien
@@ -25,6 +26,7 @@ struct ReiseView: View {
         var id: String {
             switch self {
             case .stil: return "stil"
+            case .hintergrund: return "hintergrund"
             case .textimport: return "text"
             case .fotos: return "fotos"
             case .dateien: return "dateien"
@@ -216,6 +218,9 @@ struct ReiseView: View {
                     blatt = .typografie
                 }
                 Button("Format, Ränder, Karte…", systemImage: "ruler") { blatt = .gestaltung }
+                Button("Hintergrund…", systemImage: "square.fill.on.square.fill") {
+                    blatt = .hintergrund
+                }
                 Divider()
                 Button("Als PDF sichern…", systemImage: "square.and.arrow.up") { blatt = .ausgabe }
             } label: {
@@ -314,6 +319,8 @@ struct ReiseView: View {
         switch welches {
         case .stil:
             StilView(werk: werk)
+        case .hintergrund:
+            HintergrundView(werk: werk)
         case .textimport:
             TextimportView(werk: werk)
         case .fotos:

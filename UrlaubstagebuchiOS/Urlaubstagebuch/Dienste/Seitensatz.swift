@@ -129,6 +129,66 @@ enum Seitensatz {
         zusammenhang.restoreGState()
     }
 
+    // Der Seitenhintergrund — in Ansicht und PDF derselbe.
+    static func zeichneHintergrund(_ grund: Seitenhintergrund, rechteck: CGRect,
+                                   bild: UIImage?, in zusammenhang: CGContext)
+    {
+        zusammenhang.saveGState()
+        zusammenhang.setFillColor(grund.farbe.uiFarbe.cgColor)
+        zusammenhang.fill(rechteck)
+
+        switch grund.art {
+        case .einfarbig:
+            break
+        case .verlauf:
+            let farben = [grund.farbe.uiFarbe.cgColor, grund.zweitfarbe.uiFarbe.cgColor] as CFArray
+            if let verlauf = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(),
+                                        colors: farben, locations: [0, 1])
+            {
+                let bogen = grund.winkel * .pi / 180
+                let halb = CGPoint(x: rechteck.midX, y: rechteck.midY)
+                let weite = max(rechteck.width, rechteck.height)
+                zusammenhang.clip(to: rechteck)
+                zusammenhang.drawLinearGradient(
+                    verlauf,
+                    start: CGPoint(x: halb.x - cos(bogen) * weite / 2,
+                                   y: halb.y - sin(bogen) * weite / 2),
+                    end: CGPoint(x: halb.x + cos(bogen) * weite / 2,
+                                 y: halb.y + sin(bogen) * weite / 2),
+                    options: [.drawsBeforeStartLocation, .drawsAfterEndLocation]
+                )
+            }
+        case .papierstruktur:
+            // Dasselbe Korn wie auf dem Bildschirm, aus demselben Grund
+            // gerechnet statt geladen. Der Zufallsstrom ist AN DER SEITE
+            // festgemacht, damit zwei Ausgaben desselben Buches nicht
+            // verschieden aussehen.
+            var streu = SystemRandomNumberGenerator()
+            let punkte = Int(rechteck.width * rechteck.height / 900)
+            zusammenhang.clip(to: rechteck)
+            for _ in 0..<punkte {
+                let x = Double.random(in: rechteck.minX..<rechteck.maxX, using: &streu)
+                let y = Double.random(in: rechteck.minY..<rechteck.maxY, using: &streu)
+                let deckung = Double.random(in: 0..<max(grund.koernung, 0.001), using: &streu)
+                zusammenhang.setFillColor(UIColor.black.withAlphaComponent(deckung).cgColor)
+                zusammenhang.fill(CGRect(x: x, y: y, width: 1.2, height: 1.2))
+            }
+        case .foto:
+            if let bild {
+                zusammenhang.saveGState()
+                zusammenhang.clip(to: rechteck)
+                let ziel = Bildausschnitt.voll.zielrechteck(bildgroesse: bild.size,
+                                                            rahmen: rechteck)
+                bild.draw(in: ziel)
+                zusammenhang.restoreGState()
+            }
+            zusammenhang.setFillColor(
+                grund.farbe.uiFarbe.withAlphaComponent(grund.schleier).cgColor)
+            zusammenhang.fill(rechteck)
+        }
+        zusammenhang.restoreGState()
+    }
+
     static func zeichneLinie(_ rechteck: CGRect, farbe: UIColor, in zusammenhang: CGContext) {
         zusammenhang.saveGState()
         zusammenhang.setFillColor(farbe.cgColor)
@@ -160,12 +220,22 @@ enum Seitensatz {
             if let tag { return tag.ueberschrift }
             return reise.titel
         case .datum:
-            return tag?.datum.lang ?? reise.zeitraum
+            guard let tag else { return reise.zeitraum }
+            return datumstext(tag, reise: reise)
         case let .text(wert):
             return wert
         default:
             return ""
         }
+    }
+
+    // Die Datumszeile: erst eine eigene Beschriftung dieses Tages, sonst
+    // der Stil des Buches. Bis 1.0.1 stand hier fest „Donnerstag, 4. Juni
+    // 2026" — und war an keiner Stelle zu ändern.
+    static func datumstext(_ tag: Reisetag, reise: Reise) -> String {
+        if let eigener = tag.datumstext, !eigener.isEmpty { return eigener }
+        let nummer = (reise.tage.firstIndex { $0.id == tag.id } ?? 0) + 1
+        return reise.gestaltung.datumsstil.text(tag.datum, nummer: nummer)
     }
 
     static func schriftbild(_ block: Block, reise: Reise) -> Schriftbild {
