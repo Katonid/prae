@@ -347,6 +347,12 @@ struct KartenKachel: View {
     let block: Block
     let tag: Reisetag?
     @State private var bild: UIImage?
+    // Ein leeres Feld hat zwei Gründe, und sie verlangen verschiedene
+    // Handgriffe: Entweder gibt es noch keine Punkte, oder die Karte ließ
+    // sich nicht holen (kein Netz, ein Kachelserver, der nicht antwortet,
+    // eine eigene Adresse ohne Lizenzhinweis). Beides gleich auszusehen
+    // wäre genau die Art stummer Befund, die diese App nicht abgibt.
+    @State private var gescheitert = false
 
     var body: some View {
         GeometryReader { raum in
@@ -356,9 +362,14 @@ struct KartenKachel: View {
                     Image(uiImage: bild).resizable().scaledToFill()
                 } else {
                     VStack(spacing: 5) {
-                        Image(systemName: "map").foregroundStyle(.tertiary)
+                        Image(systemName: gescheitert ? "map.trianglebadge.exclamationmark" : "map")
+                            .foregroundStyle(.tertiary)
                         if (tag?.spur.isEmpty ?? true) {
                             Text("Noch keine Reisepunkte")
+                                .font(.system(size: 8))
+                                .foregroundStyle(.tertiary)
+                        } else if gescheitert {
+                            Text("Karte nicht geladen")
                                 .font(.system(size: 8))
                                 .foregroundStyle(.tertiary)
                         }
@@ -375,8 +386,8 @@ struct KartenKachel: View {
 
     private func kennung(_ groesse: CGSize) -> String {
         let punkte = tag?.spur.map(\.koordinate) ?? []
-        let stil = tag?.kartenstil ?? werk.reise.kartenstil
-        return "\(punkte.count)|\(Int(groesse.width))x\(Int(groesse.height))|\(stil.rawValue)|\(tag?.kartenausschnitt?.spanne ?? -1)|\(werk.reise.akzent.rot)"
+        let bild = tag?.kartenbild ?? werk.reise.kartenbild
+        return "\(punkte.count)|\(Int(groesse.width))x\(Int(groesse.height))|\(bild.merkmal)|\(tag?.kartenausschnitt?.spanne ?? -1)|\(werk.reise.akzent.rot)"
     }
 
     private func laden(_ groesse: CGSize) async {
@@ -384,11 +395,14 @@ struct KartenKachel: View {
         let ergebnis = await Kartenwerk.shared.bild(
             punkte: tag.spur.map(\.koordinate),
             groesse: CGSize(width: groesse.width * 2, height: groesse.height * 2),
-            stil: tag.kartenstil ?? werk.reise.kartenstil,
+            kartenbild: tag.kartenbild ?? werk.reise.kartenbild,
             linienfarbe: werk.reise.akzent,
             ausschnitt: tag.kartenausschnitt
         )
-        await MainActor.run { bild = ergebnis }
+        await MainActor.run {
+            bild = ergebnis
+            gescheitert = ergebnis == nil
+        }
     }
 }
 

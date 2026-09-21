@@ -2,39 +2,6 @@ import MapKit
 import SwiftUI
 import UIKit
 
-enum Kartenstil: String, Codable, CaseIterable, Identifiable {
-    case gedaempft
-    case standard
-    case gelaende
-    case satellit
-
-    var id: String { rawValue }
-
-    var name: String {
-        switch self {
-        case .gedaempft: return "Zurückhaltend"
-        case .standard: return "Standard"
-        case .gelaende: return "Gelände"
-        case .satellit: return "Satellit"
-        }
-    }
-
-    var aufbau: MKMapConfiguration {
-        switch self {
-        case .gedaempft:
-            return MKStandardMapConfiguration(elevationStyle: .flat, emphasisStyle: .muted)
-        case .standard:
-            return MKStandardMapConfiguration(elevationStyle: .flat, emphasisStyle: .default)
-        case .gelaende:
-            let aufbau = MKStandardMapConfiguration(elevationStyle: .realistic, emphasisStyle: .muted)
-            aufbau.pointOfInterestFilter = .excludingAll
-            return aufbau
-        case .satellit:
-            return MKImageryMapConfiguration(elevationStyle: .flat)
-        }
-    }
-}
-
 // Die Karte auf einer Buchseite ist ein BILD, keine Karte.
 //
 // Das ist eine Entscheidung mit drei Wirkungen auf einmal. Erstens sieht das
@@ -47,31 +14,36 @@ enum Kartenstil: String, Codable, CaseIterable, Identifiable {
 //
 // Gewählt wird der Ausschnitt dagegen auf einer ECHTEN Karte, in einem
 // eigenen Bildschirm — dort ist die Karte die Hauptsache und darf alles.
+//
+// Woher der Untergrund kommt, entscheidet `Kartenbild.quelle`: Apple nimmt
+// ihn auf, alle anderen werden aus Kacheln zusammengesetzt. Die Spur, die
+// Punkte und der Lizenzhinweis werden danach für BEIDE Wege an genau einer
+// Stelle gezeichnet — zwei Zeichenwege ergäben zwei Karten.
 actor Kartenwerk {
     static let shared = Kartenwerk()
 
     private var vorrat: [String: UIImage] = [:]
     private var laufend: [String: Task<UIImage?, Never>] = [:]
 
-    private func schluessel(_ punkte: [Koordinate], groesse: CGSize, stil: Kartenstil,
+    private func schluessel(_ punkte: [Koordinate], groesse: CGSize, bild: Kartenbild,
                             linie: Farbwert, ausschnitt: Kartenausschnitt?) -> String
     {
         let orte = punkte.map { String(format: "%.5f,%.5f", $0.breite, $0.laenge) }.joined(separator: ";")
         let rahmen = ausschnitt.map { String(format: "%.5f,%.5f,%.5f", $0.mitte.breite, $0.mitte.laenge, $0.spanne) } ?? "auto"
-        return "\(orte)|\(Int(groesse.width))x\(Int(groesse.height))|\(stil.rawValue)|\(linie.rot),\(linie.gruen),\(linie.blau)|\(rahmen)"
+        return "\(orte)|\(Int(groesse.width))x\(Int(groesse.height))|\(bild.merkmal)|\(linie.rot),\(linie.gruen),\(linie.blau)|\(rahmen)"
     }
 
-    func bild(punkte: [Koordinate], groesse: CGSize, stil: Kartenstil, linienfarbe: Farbwert,
-              ausschnitt: Kartenausschnitt?) async -> UIImage?
+    func bild(punkte: [Koordinate], groesse: CGSize, kartenbild: Kartenbild,
+              linienfarbe: Farbwert, ausschnitt: Kartenausschnitt?) async -> UIImage?
     {
         guard groesse.width > 8, groesse.height > 8 else { return nil }
-        let merker = schluessel(punkte, groesse: groesse, stil: stil, linie: linienfarbe,
+        let merker = schluessel(punkte, groesse: groesse, bild: kartenbild, linie: linienfarbe,
                                 ausschnitt: ausschnitt)
         if let da = vorrat[merker] { return da }
         if let laeuft = laufend[merker] { return await laeuft.value }
 
-        let auftrag = Task<UIImage?, Never> { [stil, linienfarbe] in
-            await Self.zeichnen(punkte: punkte, groesse: groesse, stil: stil,
+        let auftrag = Task<UIImage?, Never> { [kartenbild, linienfarbe] in
+            await Self.zeichnen(punkte: punkte, groesse: groesse, kartenbild: kartenbild,
                                 linienfarbe: linienfarbe, ausschnitt: ausschnitt)
         }
         laufend[merker] = auftrag
@@ -89,7 +61,7 @@ actor Kartenwerk {
         vorrat.removeAll()
     }
 
-    private static func region(_ punkte: [Koordinate], ausschnitt: Kartenausschnitt?)
+    static func region(_ punkte: [Koordinate], ausschnitt: Kartenausschnitt?)
         -> MKCoordinateRegion
     {
         if let ausschnitt {
@@ -125,28 +97,38 @@ actor Kartenwerk {
         )
     }
 
-    private static func zeichnen(punkte: [Koordinate], groesse: CGSize, stil: Kartenstil,
+    // Der Maßstab steht FEST auf 2 und kommt nicht vom Bildschirm.
+    // `UIGraphicsImageRenderer` nähme sonst `UIScreen.main.scale` — und dann
+    // hinge die Auflösung der gedruckten Karte daran, auf welchem Gerät das
+    // Buch gerade offen war.
+    private static let massstab: CGFloat = 2
+
+    private static func zeichnen(punkte: [Koordinate], groesse: CGSize, kartenbild: Kartenbild,
                                  linienfarbe: Farbwert, ausschnitt: Kartenausschnitt?) async -> UIImage?
     {
-        let wunsch = MKMapSnapshotter.Options()
-        wunsch.region = region(punkte, ausschnitt: ausschnitt)
-        wunsch.size = groesse
-        wunsch.scale = 2
-        wunsch.preferredConfiguration = stil.aufbau
-
-        let aufnahme: MKMapSnapshotter.Snapshot
-        do {
-            aufnahme = try await MKMapSnapshotter(options: wunsch).start()
-        } catch {
-            return nil
+        let feld = region(punkte, ausschnitt: ausschnitt)
+        // Entschieden wird an der QUELLE und nicht daran, ob eine Adresse
+        // dasteht. Sonst bekäme eine eigene Quelle ohne Adresse
+        // stillschweigend eine Apple-Karte — und der Nutzer hielte seinen
+        // Kachelserver für einen, der genau so aussieht.
+        let untergrund: Kachelkarte.Untergrund?
+        if kartenbild.quelle == .apple {
+            untergrund = await appleAufnahme(region: feld, groesse: groesse, kartenbild: kartenbild)
+        } else {
+            guard kartenbild.vollstaendig else { return nil }
+            untergrund = await Kachelkarte.untergrund(region: feld, groesse: groesse,
+                                                      massstab: massstab, bild: kartenbild)
         }
+        guard let untergrund else { return nil }
 
-        let zeichner = UIGraphicsImageRenderer(size: groesse)
+        let form = UIGraphicsImageRendererFormat()
+        form.scale = massstab
+        form.opaque = true
+        let zeichner = UIGraphicsImageRenderer(size: groesse, format: form)
         return zeichner.image { zusammenhang in
-            aufnahme.image.draw(at: .zero)
-            let stellen = punkte.map { aufnahme.point(for: $0.clLocation) }
-            guard !stellen.isEmpty else { return }
+            untergrund.bild.draw(in: CGRect(origin: .zero, size: groesse))
             let feder = zusammenhang.cgContext
+            let stellen = punkte.map(untergrund.stelle)
 
             if stellen.count >= 2 {
                 // Erst eine helle Kontur, dann die Linie. Ohne sie
@@ -179,7 +161,87 @@ actor Kartenwerk {
                                                         width: r * 1.16, height: r * 1.16))
                 innen.fill()
             }
+
+            zeichneNachweis(kartenbild.nachweis, groesse: groesse, feder: feder)
         }
+    }
+
+    // MARK: - Apples Aufnahme
+
+    private static func appleAufnahme(region: MKCoordinateRegion, groesse: CGSize,
+                                      kartenbild: Kartenbild) async -> Kachelkarte.Untergrund?
+    {
+        let wunsch = MKMapSnapshotter.Options()
+        wunsch.region = region
+        wunsch.size = groesse
+        wunsch.scale = massstab
+        wunsch.preferredConfiguration = kartenbild.stil.aufbau
+        // DAS ist der Griff gegen die dunkle Karte im gedruckten Buch: Ohne
+        // ihn nimmt der Schnappschuss die Erscheinung des Systems an, und
+        // wer sein iPad abends dunkel schaltet, bekommt eine schwarze Karte
+        // aufs Papier. Eine Druckvorlage darf nicht davon abhängen, wie hell
+        // es im Zimmer war.
+        if kartenbild.helle != .wieApp {
+            wunsch.traitCollection = UITraitCollection(userInterfaceStyle: kartenbild.helle.stil)
+        }
+
+        let aufnahme: MKMapSnapshotter.Snapshot
+        do {
+            aufnahme = try await MKMapSnapshotter(options: wunsch).start()
+        } catch {
+            return nil
+        }
+        return Kachelkarte.Untergrund(bild: aufnahme.image,
+                                      stelle: { aufnahme.point(for: $0.clLocation) })
+    }
+
+    // MARK: - Der Lizenzhinweis
+
+    // Er wird IN das Bild gezeichnet und nicht daneben gesetzt.
+    //
+    // Der Grund ist der Druck: Ein Hinweis, der als eigener Textblock unter
+    // der Karte läge, ließe sich verschieben, überdecken oder löschen — und
+    // stünde dann nicht mehr da, wenn das Buch beim Drucker liegt. Die
+    // Richtlinie von OpenStreetMap verlangt ausdrücklich, ihn nicht hinter
+    // Bedienelementen oder Schaltern zu verstecken; OpenTopoMap nennt den
+    // Wortlaut, der deutlich sichtbar sein soll. Also gehört er dorthin, wo
+    // er nicht abhandenkommen kann.
+    private static func zeichneNachweis(_ text: String, groesse: CGSize,
+                                        feder: CGContext) {
+        let sauber = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !sauber.isEmpty else { return }
+        let hoehe = max(min(groesse.width / 52, 9), 5.5)
+        let schrift = UIFont.systemFont(ofSize: hoehe, weight: .regular)
+        let luft = max(groesse.width / 90, 2.5)
+        let absatz = NSMutableParagraphStyle()
+        absatz.alignment = .right
+        absatz.lineBreakMode = .byWordWrapping
+        let merkmale: [NSAttributedString.Key: Any] = [
+            .font: schrift,
+            .foregroundColor: UIColor(white: 0.16, alpha: 1),
+            .paragraphStyle: absatz,
+        ]
+        let hoechstbreite = max(groesse.width - 4 * luft, 20)
+        let satz = NSAttributedString(string: sauber, attributes: merkmale)
+        let masse = satz.boundingRect(
+            with: CGSize(width: hoechstbreite, height: hoehe * 3),
+            options: [.usesLineFragmentOrigin, .usesFontLeading], context: nil
+        )
+        let kasten = CGRect(
+            x: groesse.width - masse.width - 3 * luft,
+            y: groesse.height - masse.height - 3 * luft,
+            width: masse.width + 2 * luft,
+            height: masse.height + 1.6 * luft
+        )
+        // Gesichert und zurückgesetzt, weil eine Beschneidung sonst für
+        // alles gälte, was nach ihr käme — heute steht nichts mehr danach,
+        // morgen vielleicht doch.
+        feder.saveGState()
+        feder.setFillColor(UIColor(white: 1, alpha: 0.82).cgColor)
+        UIBezierPath(roundedRect: kasten, cornerRadius: luft).fill()
+        satz.draw(with: kasten.insetBy(dx: luft, dy: 0.8 * luft),
+                  options: [.usesLineFragmentOrigin, .usesFontLeading], context: nil)
+        feder.restoreGState()
     }
 }
 

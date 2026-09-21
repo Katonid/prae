@@ -102,7 +102,7 @@ enum Buchausgabe {
                 let bild = await Kartenwerk.shared.bild(
                     punkte: tag.spur.map(\.koordinate),
                     groesse: groesse,
-                    stil: tag.kartenstil ?? reise.kartenstil,
+                    kartenbild: tag.kartenbild ?? reise.kartenbild,
                     linienfarbe: reise.akzent,
                     ausschnitt: tag.kartenausschnitt
                 )
