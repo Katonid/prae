@@ -557,10 +557,35 @@ struct Layoutautomat {
         // Die Notbremse ist kein Schmuck: Kommt aus der Textteilung einmal
         // nichts zurück (ein einzelnes Wort, das breiter ist als die Seite),
         // liefe die Schleife ewig.
+        //
+        // **Sie verlor bis 1.0.14 den Rest des Textes** (gefunden beim
+        // Nachrechnen 09/2026): Ein nacktes `break` gibt `text` zurück, und
+        // der Aufrufer setzt ihn nur in `restText` — danach wird er nirgends
+        // mehr gesetzt. Damit wäre genau der Fehler zurück, der im ersten
+        // gedruckten Stand einen Tag mitten im Satz enden ließ. Ein
+        // Tagebuch darf keinen Satz verlieren: Was beim Abbruch übrig ist,
+        // wird gesetzt und läuft notfalls sichtbar über.
         var durchgaenge = 0
         while !offen.isEmpty || !text.isEmpty {
             durchgaenge += 1
-            if durchgaenge > 200 { break }
+            if durchgaenge > 200 {
+                if !text.isEmpty {
+                    if !bloecke.isEmpty {
+                        seiten.append(Seite(bloecke: bloecke))
+                        bloecke = []
+                        reihenaufSeite = []
+                        y = satz.minY
+                    }
+                    let hoehe = Textmass.hoehe(text, bild: typografie.flieText,
+                                               breite: satz.width)
+                    bloecke.append(Block(
+                        inhalt: .text(text),
+                        rahmen: Rahmen(x: satz.minX, y: y, breite: satz.width, hoehe: hoehe)
+                    ))
+                    text = ""
+                }
+                break
+            }
             if !text.isEmpty {
                 // Warten noch Fotos, bekommt der Text NICHT die ganze
                 // Seite.

@@ -66,6 +66,10 @@ struct SeitenflaecheView: View {
 
     var body: some View {
         ZStack(alignment: .topLeading) {
+            // Die Probe meldet sich im KÖRPER an — der läuft bei jedem
+            // Neuzeichnen, und genau das ist die Zahl, die hier niemand
+            // nachmessen kann.
+            let _ = werk.messer.melde("Seite")
             HintergrundFlaeche(werk: werk, hintergrund: hintergrund, seite: buchseite.seite)
                 .frame(width: bogen.width, height: bogen.height)
                 .offset(x: -anschnitt, y: -anschnitt)
@@ -209,11 +213,15 @@ struct SeitenflaecheView: View {
             // steht nur da, wenn jemand sie eingeschaltet hat, und sie sagt
             // nichts als das Gemessene.
             if bearbeitbar, werk.zeigeGriffprobe {
-                Text(werk.letzterGriff ?? "noch nichts gegriffen")
+                Text((werk.letzterGriff ?? "noch nichts gegriffen")
+                     + "\n" + werk.messer.befund)
                     .font(.system(size: 9 / massstab, design: .monospaced))
+                    .multilineTextAlignment(.leading)
+                    .fixedSize()
                     .padding(.horizontal, 5 / massstab)
                     .padding(.vertical, 3 / massstab)
-                    .background(Color.black.opacity(0.72), in: Capsule())
+                    .background(Color.black.opacity(0.72),
+                                in: RoundedRectangle(cornerRadius: 6 / massstab))
                     .foregroundStyle(.white)
                     .offset(x: satz.minX, y: satz.minY - 16 / massstab)
                     .allowsHitTesting(false)

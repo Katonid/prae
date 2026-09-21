@@ -18,6 +18,25 @@ struct BlockInspektor: View {
     @Binding var blatt: ReiseView.Blatt?
     @State private var hintergrundOffen = false
     @State private var ausschnittOffen = false
+    // DIE ABSÄTZE WERDEN EINMAL GERECHNET, NICHT BEI JEDEM NEUZEICHNEN.
+    //
+    // Der Inspektor ist eine `.inspector`-SPALTE: Er steht offen, während
+    // gearbeitet wird, und sein Körper läuft bei jeder Meldung des
+    // `Reisewerk`s noch einmal — beim Schieben eines Blocks also bei jedem
+    // Bildpunkt (seit 1.0.8 wandert der Rahmen sofort ins Modell). Was
+    // hier im Körper steht, läuft damit sechzigmal in der Sekunde.
+    // Dieselbe Falle wie bei der Netzkarte der Abfahrtstafel, und in
+    // diesem Papier steht sie seit 1.0.0: „Eine berechnete Eigenschaft
+    // sieht billig aus."
+    @State private var absaetze: [String] = []
+    @State private var absatzwahl: Absatzwahl?
+
+    // Der Text des gewählten Blocks — oder leer. Grundlage der
+    // Absatzliste und damit der Schlüssel, an dem sie neu gerechnet wird.
+    private var absatztext: String {
+        guard let block, case let .text(inhalt) = block.inhalt else { return "" }
+        return inhalt
+    }
 
     private var block: Block? {
         guard let id = werk.gewaehlterBlock, let stelle = werk.block(id) else { return nil }
@@ -26,6 +45,10 @@ struct BlockInspektor: View {
 
     var body: some View {
         Group {
+            // Die Probe meldet sich hier an — im Körper, denn genau der
+            // läuft bei jedem Neuzeichnen. In `onAppear` stünde eine Zahl,
+            // die nichts misst.
+            let _ = werk.messer.melde("Inspektor")
             if let block {
                 Form {
                     artAbschnitt(block)
@@ -45,6 +68,16 @@ struct BlockInspektor: View {
             }
         }
         .navigationTitle("Block")
+        .task(id: absatztext) {
+            absaetze = werk.messer.misst("Absätze") {
+                Textaufbereitung.absaetze(absatztext)
+            }
+        }
+        .sheet(item: $absatzwahl) { wahl in
+            AbsatzwahlView(absaetze: wahl.absaetze) { stelle in
+                werk.textTeilen(wahl.blockID, nachAbsatz: stelle)
+            }
+        }
         .sheet(isPresented: $ausschnittOffen) {
             if let tag = werk.tag {
                 KartenausschnittView(werk: werk, tagID: tag.id)
@@ -258,8 +291,11 @@ struct BlockInspektor: View {
     @ViewBuilder
     private func absatzAbschnitt(_ block: Block) -> some View {
         if case let .text(inhalt) = block.inhalt {
-            let zeilen = inhalt.components(separatedBy: "\n")
-                .filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
+            // Gezählt wird die zwischengespeicherte Liste. Bis 1.0.14 stand
+            // hier ein `components(separatedBy:)` über den ganzen Text —
+            // bei jedem Neuzeichnen, also beim Schieben sechzigmal je
+            // Sekunde.
+            let zeilen = absaetze
             Section {
                 LabeledContent("Absätze in diesem Kasten", value: "\(zeilen.count)")
                 if zeilen.count > 2 {
@@ -292,10 +328,18 @@ struct BlockInspektor: View {
     // Ausgesucht wird nach dem ANFANG des Absatzes und nicht nach seiner
     // Nummer: „Absatz 4" sagt niemandem etwas, „Am Morgen zogen wir …"
     // schon.
+    //
+    // **Die Auswahl steht in einem BLATT und nicht in einem Menü** (ab
+    // 1.0.15). Bis 1.0.14 baute dieser Abschnitt je Absatz einen Knopf —
+    // in einem `Menu`, dessen Inhalt beim Zeichnen des Formulars entsteht.
+    // Ein eingelesener Tagebuchtext ist hart umbrochen, also ist JEDE
+    // ZEILE ein Absatz: Bei einem Tag mit zweihundert Zeilen wurden
+    // zweihundert Knöpfe samt zweihundert Textausschnitten gebaut, und
+    // das bei jedem Neuzeichnen des Inspektors. Ein Blatt mit einer
+    // `List` baut nur, was zu sehen ist, und erst beim Öffnen.
     @ViewBuilder
     private func teilenAbschnitt(_ block: Block) -> some View {
-        if case let .text(inhalt) = block.inhalt {
-            let absaetze = Textaufbereitung.absaetze(inhalt)
+        if case .text = block.inhalt {
             Section {
                 Button {
                     werk.textTeilen(block.id)
@@ -303,14 +347,10 @@ struct BlockInspektor: View {
                     Label("Rest auf die nächste Seite", systemImage: "text.line.first.and.arrowtriangle.forward")
                 }
                 if absaetze.count > 1 {
-                    Menu {
-                        ForEach(absaetze.indices.dropLast(), id: \.self) { stelle in
-                            Button(vorschau(absaetze[stelle])) {
-                                werk.textTeilen(block.id, nachAbsatz: stelle + 1)
-                            }
-                        }
+                    Button {
+                        absatzwahl = Absatzwahl(blockID: block.id, absaetze: absaetze)
                     } label: {
-                        Label("Nach einem Absatz teilen", systemImage: "text.append")
+                        Label("Nach einem Absatz teilen…", systemImage: "text.append")
                     }
                 }
             } header: {
@@ -720,14 +760,6 @@ struct BlockInspektor: View {
         f.dateFormat = "d. MMM yyyy, HH:mm"
         f.timeZone = TimeZone(secondsFromGMT: 0)
         return f
-    }
-
-    // Der Anfang eines Absatzes als Merkzeichen — lang genug, um ihn
-    // wiederzuerkennen, kurz genug für eine Menüzeile.
-    private func vorschau(_ absatz: String) -> String {
-        let sauber = absatz.trimmingCharacters(in: .whitespacesAndNewlines)
-        if sauber.count <= 44 { return sauber }
-        return String(sauber.prefix(44)) + "\u{2026}"
     }
 
     private func zahl(_ name: String, wert: Double, setzen: @escaping (Double) -> Void) -> some View {
