@@ -3483,6 +3483,43 @@ Befunde, und keiner davon war Geschmack:
   liefe der bei jedem Neuzeichnen der Seite mit — dieselbe Falle wie bei der
   Netzkarte der Abfahrtstafel. Gemessen wird an EINER Stelle, wenn sich
   Auswahl, Rahmenmaße oder Textlänge ändern.
+- **Zwei Zeichner für denselben Inhalt zeigen nie dasselbe** (ab 1.0.9,
+  gemeldet 09/2026: „Sobald ich einen Doppeltipp auf den Text ausübe,
+  erscheint das Textfeld dupliziert, übereinander liegend"). Beim Bearbeiten
+  lag das `InlineText`-Feld (UIKit/TextKit) ÜBER dem weiter gezeichneten
+  Block (CoreText). Dieselben Wörter, zwei Umbruchmaschinen — die brechen
+  nie an derselben Stelle. Der bearbeitete Block wird deshalb nicht mehr
+  zusätzlich gezeichnet.
+- **Ein Zustand ohne sichtbaren Ausgang ist ein hängengebliebenes Programm**
+  (ab 1.0.9). Das Textfeld ließ sich nur schließen, indem man DANEBEN tippte
+  — und traf man dabei einen anderen Textblock, ging sofort das nächste Feld
+  auf. Jetzt liegt eine unsichtbare Fläche hinter dem Feld, die es schließt
+  und den Tipp nicht weiterreicht, dazu der Knopf „Text fertig" in der
+  Fußleiste. **Wer einen Modus baut, baut den Ausgang mit — und zwar
+  sichtbar.**
+- **Wie sich Fotos abheben, gehört dem BUCH** (`Gestaltung.fotoschatten`,
+  `.fotorand`, `.fotorandbreite`, `.fotorandfarbe`, ab 1.0.9, Ansage des
+  Nutzers 09/2026: „Ich möchte die Einstellung, wie die einzelnen Fotos sich
+  abheben sollen … global einstellen können."). Bis 1.0.8 schrieb der
+  Layoutautomat Schatten und weißen Rand in JEDEN Fotoblock — danach war die
+  Einstellung nicht mehr zu ändern, ohne zweihundert Fotos einzeln
+  anzufassen. Am Block stehen sie seither als **Abweichung** (`nil` = wie im
+  Buch), genau wie `Schriftabweichung`; aufgelöst wird an EINER Stelle
+  (`Block.wirkung`), die Bildschirm UND PDF gemeinsam fragen. Der Stil setzt
+  das Buch, nicht die Blöcke. Ein Knopf in der Gestaltung nimmt alle
+  Abweichungen zurück.
+- **Eine Eigenschaft, die als Wert gedacht war, wird durch `nil` zur
+  Abweichung — ohne dass alte Dateien brechen.** Der erzeugte
+  `Codable`-Leser verlangt einen Schlüssel nur für NICHT-optionale
+  Eigenschaften; ein vorhandener Wert wird gelesen, ein fehlender wird
+  `nil`. Deshalb war der Umbau von `schatten`/`fotorand`/`randbreite` auf
+  optional gefahrlos — im Gegensatz zum umgekehrten Weg.
+- **Derselbe Text zweimal auf einer Seite ist ein DRUCKFEHLER**
+  (`Druckpruefung.doppelterText`, ab 1.0.9). Auf dem Bildschirm sieht das
+  aus wie eine Unsauberkeit der Anzeige; gedruckt sind es zwei Absätze.
+  **Woher ein zweiter Kasten kommt, ist damit nicht beantwortet** — die
+  Prüfung macht ihn nur unübersehbar und nennt den Weg, ihn zu entfernen.
+  Nicht als geklärt darstellen.
 - **Die Bildunterschrift war halb gebaut** (ab 1.0.5, Wunsch des Nutzers
   09/2026: „zu jedem Foto einen Beschreibungstext … Dies soll jedoch eine
   Option für jedes Foto sein. Kein muss."). Der Layoutautomat hielt Platz

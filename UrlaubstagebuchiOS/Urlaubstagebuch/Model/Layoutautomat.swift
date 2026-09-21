@@ -493,7 +493,7 @@ struct Layoutautomat {
             // Die Überlappung: Jede zweite Kachel rückt ein Stück nach oben
             // und über den Nachbarn. Die Drehung kommt aus der Kennung.
             let versatz = spalte % 2 == 1 ? -fuge * 1.6 : 0
-            var block = Block(
+            let block = Block(
                 inhalt: kachel.inhalt,
                 rahmen: Rahmen(x: x - (spalte > 0 ? fuge * 0.5 : 0), y: y + versatz,
                                breite: breite, hoehe: hoehe),
