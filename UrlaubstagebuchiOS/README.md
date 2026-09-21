@@ -357,7 +357,8 @@ wirkungslos — und genau das will man beim Umstellen einer Schrift nicht.
 ```
 Urlaubstagebuch/
   Model/       Reise, Tag, Seite, Block, Schriftbild, Layoutautomat, Einrasten
-  Dienste/     EXIF, Textimport, Bildarchiv, Ablage, Wolke, Spurbau,
+  Dienste/     EXIF, Textimport, Textquelle (Word/PDF/Text), Zipleser,
+               Wordtext, Pdftext, Bildarchiv, Ablage, Wolke, Spurbau,
                Spureinfuhr, Buchdatei, Kartenwerk, Kachelkarte,
                Seitensatz, Buchausgabe, Standortdienst
   Views/       Regal, Reise, Seitenfläche, Inspektor, Importe, Karte, PDF,
@@ -715,6 +716,83 @@ Der Umbau von `schatten`/`fotorand`/`randbreite` auf optional ist für ältere
 Bücher gefahrlos: Der erzeugte `Codable`-Leser verlangt einen Schlüssel nur
 für nicht-optionale Eigenschaften. Ein vorhandener Wert wird gelesen, ein
 fehlender wird `nil` — also „wie im Buch".
+
+## Der Textimport nimmt jetzt Word, PDF und reinen Text (1.0.13)
+
+Gewünscht: „Ich möchte Texte im Word-Format, PDF oder reinen Text eingeben
+können." Bis 1.0.12 nahm der Import nur eine Textdatei entgegen.
+
+Alles, was eine Datei in Text verwandelt, steht seither an **einer** Stelle
+(`Dienste/Textquelle.swift`). Der Bildschirm ruft eine Funktion und bekommt
+einen Befund; ob dahinter PDFKit, ein ZIP-Leser oder eine Kodierungsleiter
+steckt, weiß er nicht.
+
+**Entschieden wird an den ersten Bytes, nicht an der Endung** — dieselbe
+Lehre wie in Textauszug, wo sechs Kilobyte HTML mit `.pdf` im Namen ankamen.
+Eine Endung ist eine Behauptung, die ersten Bytes sind eine Tatsache.
+
+### PDF
+
+Gelesen mit PDFKit. Textauszug muss seinen PDF-Leser selbst schreiben, weil
+im Browser keiner mitgeliefert wird; auf iOS gehört einer zum System.
+
+Der Preis ist die Kopfzeilenerkennung: Textauszug misst den **Abstand** zum
+Satzspiegel, PDFKit gibt die Zeilenlagen nicht heraus. Erkannt wird hier
+deshalb die **Wiederholung** — eine Zeile, die auf den meisten Seiten ganz
+oben oder ganz unten steht und sich nur in ihren Ziffern unterscheidet
+(„Seite 3 von 30" und „Seite 4 von 30" werden auf dasselbe Muster gebracht).
+Das ist ein anderes Merkmal und wird auch anders falsch: Ein Buch mit
+wiederkehrendem Refrain als erster Zeile verlöre ihn. **Deshalb steht
+hinterher wörtlich da, was entfernt wurde.**
+
+Unter drei Seiten wird gar nichts entfernt. Ein Scan und eine
+kennwortgeschützte PDF sagen je einen Satz, der den Weg drumherum nennt.
+
+### Word
+
+Eine `.docx` ist ein ZIP mit `word/document.xml` darin — und auf iOS gibt es
+keinen öffentlichen Entpacker, dieselbe Lücke, wegen der `Buchdatei` ein
+eigenes Format schreibt. Ausgepackt wird mit Apples `Compression`:
+`COMPRESSION_ZLIB` ist dort das **rohe DEFLATE** nach RFC 1951, und genau das
+steht in einem ZIP. Gelesen wird über das zentrale Verzeichnis am Ende, nicht
+durch Vorwärtssuche nach lokalen Köpfen.
+
+`NSAttributedString` wäre der kurze Weg und kann es auf iOS nicht: Der
+`officeOpenXML`-Typ existiert nur auf dem Mac. RTF dagegen kann es wirklich,
+und ohne WebKit — deshalb bleibt genau dieser eine Weg bei Apple.
+
+Aus dem XML wird **nur `w:t` in einem `w:r`** gelesen: `w:instrText` trägt
+Feldbefehle, `w:delText` gelöschten Text aus der Nachverfolgung. Zwei Fallen
+daneben — `w:tab` gibt es im Lauf (ein Zeichen) und in den
+Absatzeigenschaften (die Definition eines Tabstopps), und „p" und „t" gibt es
+auch in DrawingML, also in Schaubildern; gezählt wird deshalb der Namensraum.
+
+Ein `w:br` wird zur **Zeile**, nicht zum Absatz — genau der hart umbrochene
+Text, den `Textaufbereitung` seit 1.0.12 wieder zusammenführt.
+
+Die alte binäre `.doc` wird an ihrer Kennung erkannt und mit einem klaren
+Satz abgewiesen.
+
+### Reiner Text
+
+Byte-Vorzeichen zuerst, dann UTF-8, dann Windows-1252, dann ISO 8859-1.
+
+**Die Reihenfolge ist der ganze Punkt.** `isoLatin1` nimmt jedes Byte an und
+scheitert nie; bis 1.0.12 stand es vor `windowsCP1252`, und damit war dessen
+Zweig unerreichbarer Quelltext: Die Bytes 0x80 bis 0x9F einer Windows-Datei —
+also die typografischen Anführungszeichen, der Gedankenstrich, die Auslassung
+— wurden zu unsichtbaren Steuerzeichen, ohne eine einzige Fehlermeldung. Und
+eine UTF-16-Datei kam als Salat mit Nullbytes an, aus demselben Grund.
+
+### Was hinterher dasteht
+
+Art, Dateiname, Seiten, Absätze, Kodierung, Zeichenzahl — und die entfernten
+Randzeilen im Wortlaut.
+
+**Nicht gemessen:** Keiner der vier Wege ist an einer echten Datei gelaufen;
+hier gibt es weder Word noch PDFKit. Gerechnet ist der Aufbau — ZIP-Verzeichnis,
+DEFLATE-Sorte, welche Word-Elemente Text tragen, welche Kodierung wann
+scheitert. Ob eine bestimmte Datei durchgeht, sagt erst der nächste Befund.
 
 ## Drei Befunde aus dem laufenden Buch (1.0.12)
 
