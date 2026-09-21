@@ -161,14 +161,23 @@ struct Block: Identifiable, Codable, Hashable {
     // stiller Rückschritt — und der Nutzer hätte keinen Grund mehr, der
     // Automatik zu trauen.
     var vonHand: Bool = false
+    // WIE EIN FOTO SICH ABHEBT — Schatten, weißer Rand, Linie ringsum.
+    //
+    // Alle vier sind ABWEICHUNGEN und keine Werte: `nil` heißt „wie im Buch
+    // eingestellt". Dieselbe Bauweise wie bei `Schriftabweichung`, und aus
+    // demselben Grund (Ansage des Nutzers, 09/2026: „Ich möchte die
+    // Einstellung, wie die einzelnen Fotos sich abheben sollen … global
+    // einstellen können."). Kopierte der Block die Werte des Buches beim
+    // Anlegen, wäre jede spätere Änderung am Buchganzen wirkungslos — man
+    // müsste zweihundert Fotos einzeln anfassen.
     var rand: Farbwert?
-    var randbreite: Double = 0
-    var schatten: Schattenart = .keiner
+    var randbreite: Double?
+    var schatten: Schattenart?
     var grund: Farbwert?
     // Der weiße Rand um ein Foto, wie ihn ein Sofortbild hat — in
     // Millimetern, weil man ihn im gedruckten Buch misst und nicht auf dem
     // Bildschirm.
-    var fotorand: Double = 0
+    var fotorand: Double?
     // Reicht dieser Block in den Anschnitt? Die Marke ist nötig, weil ein
     // randabfallender Block beim Wechsel des Formats seine Zugabe behalten
     // muss — ohne sie stünde nach dem Umstellen von drei auf fünf
@@ -186,6 +195,35 @@ struct Block: Identifiable, Codable, Hashable {
         if case let .text(wert) = inhalt { return wert }
         return nil
     }
+
+    // Was für diesen Block WIRKLICH gilt — eigene Abweichung, sonst die
+    // Einstellung des Buches. Die eine Stelle, an der das aufgelöst wird:
+    // Bildschirm und PDF fragen dieselbe, sonst sähe das gedruckte Buch
+    // anders aus als die Vorschau.
+    //
+    // Die Buch-Einstellung gilt nur für FOTOS. Ein Textkasten mit dem
+    // Schatten aller Fotos wäre eine Überraschung und keine Einstellung.
+    func wirkung(_ gestaltung: Gestaltung) -> Blockwirkung {
+        let fuerFoto = istFoto
+        return Blockwirkung(
+            schatten: schatten ?? (fuerFoto ? gestaltung.fotoschatten : .keiner),
+            fotorand: fotorand ?? (fuerFoto ? gestaltung.fotorand : 0),
+            randbreite: randbreite ?? (fuerFoto ? gestaltung.fotorandbreite : 0),
+            randfarbe: rand ?? (fuerFoto ? gestaltung.fotorandfarbe : nil)
+        )
+    }
+
+    // Folgt dieser Block in allen vier Stücken dem Buch?
+    var folgtDemBuch: Bool {
+        schatten == nil && fotorand == nil && randbreite == nil && rand == nil
+    }
+}
+
+struct Blockwirkung {
+    var schatten: Schattenart
+    var fotorand: Double
+    var randbreite: Double
+    var randfarbe: Farbwert?
 }
 
 // Eine Seite des Buches. `vonHand` sagt, ob an ihr etwas geändert wurde —

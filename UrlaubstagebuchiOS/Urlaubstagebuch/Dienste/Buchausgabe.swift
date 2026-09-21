@@ -223,10 +223,11 @@ enum Buchausgabe {
                 zusammenhang.translateBy(x: -rechteck.midX, y: -rechteck.midY)
             }
 
-            let randPt = Druckmass.pt(block.fotorand)
+            let wirkung = block.wirkung(reise.gestaltung)
+            let randPt = Druckmass.pt(wirkung.fotorand)
             let traeger = Seitensatz.fotorandRechteck(rechteck, rand: randPt)
             if block.istFoto, !auftrag.ohneTransparenz {
-                Seitensatz.zeichneSchatten(traeger, art: block.schatten, massstab: massstab,
+                Seitensatz.zeichneSchatten(traeger, art: wirkung.schatten, massstab: massstab,
                                            eckenradius: ecken, in: zusammenhang)
             }
             if randPt > 0 {
@@ -269,7 +270,7 @@ enum Buchausgabe {
             case .karte:
                 if let bild = karten[block.id] {
                     if !auftrag.ohneTransparenz {
-                        Seitensatz.zeichneSchatten(rechteck, art: block.schatten,
+                        Seitensatz.zeichneSchatten(rechteck, art: block.wirkung(reise.gestaltung).schatten,
                                                    massstab: massstab, eckenradius: ecken,
                                                    in: zusammenhang)
                     }
@@ -291,9 +292,10 @@ enum Buchausgabe {
                 }
             }
 
-            if let rand = block.rand, block.randbreite > 0, block.inhalt != .linie {
+            let randwirkung = block.wirkung(reise.gestaltung)
+            if let rand = randwirkung.randfarbe, randwirkung.randbreite > 0, block.inhalt != .linie {
                 Seitensatz.zeichneRahmen(rechteck, farbe: rand.uiFarbe,
-                                         breite: block.randbreite, eckenradius: ecken,
+                                         breite: randwirkung.randbreite, eckenradius: ecken,
                                          in: zusammenhang)
             }
             zusammenhang.restoreGState()

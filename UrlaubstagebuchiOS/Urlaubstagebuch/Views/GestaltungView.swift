@@ -63,6 +63,38 @@ struct GestaltungView: View {
                     Text("Beides gilt für das ganze Buch. Eine einzelne Seite darf einen anderen Hintergrund haben, und ein einzelner Tag eine andere Datumszeile — beides über den Inspektor rechts.")
                 }
 
+                // Wie sich Fotos abheben — EINMAL für das ganze Buch.
+                // Ansage des Nutzers, 09/2026. Was ein einzelnes Foto
+                // abweichend haben soll, steht in seinem Inspektor; wer
+                // dort nichts anfasst, folgt diesen Werten.
+                Section {
+                    Picker("Schatten", selection: $werk.reise.gestaltung.fotoschatten) {
+                        ForEach(Schattenart.allCases) { art in Text(art.name).tag(art) }
+                    }
+                    VStack(alignment: .leading) {
+                        LabeledContent("Weißer Rand",
+                                       value: String(format: "%.1f mm", werk.reise.gestaltung.fotorand)
+                                           .replacingOccurrences(of: ".", with: ","))
+                        Slider(value: $werk.reise.gestaltung.fotorand, in: 0...10, step: 0.5)
+                    }
+                    VStack(alignment: .leading) {
+                        LabeledContent("Linie ringsum",
+                                       value: String(format: "%.1f pt", werk.reise.gestaltung.fotorandbreite))
+                        Slider(value: $werk.reise.gestaltung.fotorandbreite, in: 0...6, step: 0.5)
+                    }
+                    ColorPicker("Farbe der Linie", selection: Binding(
+                        get: { (werk.reise.gestaltung.fotorandfarbe ?? .leise).farbe },
+                        set: { werk.reise.gestaltung.fotorandfarbe = Farbwert($0) }
+                    ))
+                    Button("Abweichungen einzelner Fotos aufheben") {
+                        werk.fotowirkungVereinheitlichen()
+                    }
+                } header: {
+                    Text("Fotos")
+                } footer: {
+                    Text("Gilt für jedes Foto des Buches. Ein einzelnes Foto darf davon abweichen — das stellt man in seinem Inspektor ein. Der Knopf nimmt alle solchen Abweichungen zurück.")
+                }
+
                 Section("Satzspiegel") {
                     mmRegler("Rand außen", $werk.reise.gestaltung.randAussen, 5...45)
                     mmRegler("Rand oben", $werk.reise.gestaltung.randOben, 5...45)

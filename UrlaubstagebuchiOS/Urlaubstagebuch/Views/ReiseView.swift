@@ -263,6 +263,19 @@ struct ReiseView: View {
                 Image(systemName: "plus.magnifyingglass")
             }
             Spacer()
+            // Solange ein Textfeld offen ist, steht hier der Weg heraus.
+            // Bis 1.0.8 gab es keinen: Man musste daneben tippen, und traf
+            // man dabei einen anderen Textblock, ging gleich das nächste
+            // Feld auf. Ein Zustand ohne sichtbaren Ausgang ist für den
+            // Menschen davor ein hängengebliebenes Programm.
+            if werk.textBearbeitung != nil {
+                Button {
+                    werk.textBearbeitung = nil
+                } label: {
+                    Label("Text fertig", systemImage: "checkmark.circle.fill")
+                }
+                .buttonStyle(.borderedProminent)
+            }
             // Ist ein Foto gewählt, steht hier der kürzeste Weg zu seiner
             // Unterschrift. Eine Geste, die niemand kennt (der Doppeltipp),
             // ist so wenig wert wie ein Schalter, den niemand findet —

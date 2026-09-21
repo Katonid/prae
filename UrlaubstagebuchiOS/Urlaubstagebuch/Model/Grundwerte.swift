@@ -183,6 +183,18 @@ struct Gestaltung: Codable, Hashable {
     // im gebundenen Buch auf.
     var bundsteg: Double = 0
 
+    // WIE SICH FOTOS ABHEBEN — einmal für das ganze Buch.
+    //
+    // Ein Buch, in dem jedes zweite Foto einen anderen Schatten hat, sieht
+    // nach Versehen aus; und zweihundert Fotos einzeln anzufassen macht
+    // niemand. Was ein einzelner Block davon abweichend haben soll, steht
+    // an ihm (`Block.wirkung`).
+    var fotoschatten: Schattenart = .keiner
+    // Der weiße Rand wie bei einem Sofortbild, in Millimetern.
+    var fotorand: Double = 0
+    var fotorandbreite: Double = 0
+    var fotorandfarbe: Farbwert?
+
     var kartenanteil: Double = 0.38
     var eckenradius: Double = 0
     var papier: Farbwert = .papier

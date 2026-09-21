@@ -334,21 +334,40 @@ struct BlockInspektor: View {
     }
 
     private func wirkungAbschnitt(_ block: Block) -> some View {
-        Section {
+        let wirkung = block.wirkung(werk.reise.gestaltung)
+        return Section {
+            // Was hier steht, ist eine ABWEICHUNG vom Buch. Wer nichts
+            // anfasst, folgt der Einstellung unter „Buch“ → „Fotos“ — und
+            // eine Änderung dort trifft dann auch diesen Block.
+            if block.istFoto, block.folgtDemBuch {
+                Label("Folgt der Einstellung des Buches", systemImage: "book")
+                    .foregroundStyle(.secondary)
+                    .font(.footnote)
+            }
             Picker("Schatten", selection: Binding(
-                get: { block.schatten },
+                get: { wirkung.schatten },
                 set: { neu in werk.aendere(block.id) { $0.schatten = neu } }
             )) {
                 ForEach(Schattenart.allCases) { art in Text(art.name).tag(art) }
             }
             if block.istFoto {
                 VStack(alignment: .leading) {
-                    LabeledContent("Weißer Rand", value: String(format: "%.1f mm", block.fotorand)
+                    LabeledContent("Weißer Rand", value: String(format: "%.1f mm", wirkung.fotorand)
                         .replacingOccurrences(of: ".", with: ","))
                     Slider(value: Binding(
-                        get: { block.fotorand },
+                        get: { wirkung.fotorand },
                         set: { neu in werk.aendere(block.id, merken: false) { $0.fotorand = neu } }
                     ), in: 0...10, step: 0.5)
+                }
+                if !block.folgtDemBuch {
+                    Button("Wieder wie im Buch") {
+                        werk.aendere(block.id) { b in
+                            b.schatten = nil
+                            b.fotorand = nil
+                            b.randbreite = nil
+                            b.rand = nil
+                        }
+                    }
                 }
             }
             Toggle("Bis über den Rand (randabfallend)", isOn: Binding(
@@ -370,9 +389,10 @@ struct BlockInspektor: View {
     private func rahmenAbschnitt(_ block: Block) -> some View {
         Section("Rand und Grund") {
             VStack(alignment: .leading) {
-                LabeledContent("Randbreite", value: String(format: "%.1f pt", block.randbreite))
+                let wirkung = block.wirkung(werk.reise.gestaltung)
+                LabeledContent("Randbreite", value: String(format: "%.1f pt", wirkung.randbreite))
                 Slider(value: Binding(
-                    get: { block.randbreite },
+                    get: { wirkung.randbreite },
                     set: { neu in
                         werk.aendere(block.id, merken: false) {
                             $0.randbreite = neu
@@ -382,7 +402,7 @@ struct BlockInspektor: View {
                 ), in: 0...6, step: 0.5)
             }
             ColorPicker("Randfarbe", selection: Binding(
-                get: { (block.rand ?? .leise).farbe },
+                get: { (block.wirkung(werk.reise.gestaltung).randfarbe ?? .leise).farbe },
                 set: { neu in werk.aendere(block.id, merken: false) { $0.rand = Farbwert(neu) } }
             ))
             Toggle("Farbiger Grund", isOn: Binding(

@@ -147,6 +147,12 @@ struct Reise: Identifiable, Codable {
         gestaltung.randUnten = neu.randUnten
         gestaltung.fuge = neu.fuge
         gestaltung.eckenradius = neu.eckenradius
+        // Der Stil setzt das BUCH und nicht jeden einzelnen Block. Bis
+        // 1.0.8 schrieb der Layoutautomat Schatten und weißen Rand in jeden
+        // Fotoblock — danach war die Einstellung nicht mehr zu ändern,
+        // ohne jedes Foto anzufassen.
+        gestaltung.fotoschatten = neu.schatten
+        gestaltung.fotorand = neu.fotorand
         gestaltung.seitenzahlen = neu.seitenzahlen
     }
 

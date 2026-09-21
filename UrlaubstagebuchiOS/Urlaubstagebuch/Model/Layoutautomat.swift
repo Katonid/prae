@@ -498,11 +498,8 @@ struct Layoutautomat {
                 rahmen: Rahmen(x: x - (spalte > 0 ? fuge * 0.5 : 0), y: y + versatz,
                                breite: breite, hoehe: hoehe),
                 drehung: drehwinkel(kachel.foto?.id),
-                ebene: spalte,
-                schatten: stil.schatten,
-                fotorand: kachel.inhalt.istFoto ? stil.fotorand : 0
+                ebene: spalte
             )
-            if !kachel.inhalt.istFoto { block.fotorand = 0 }
             bloecke.append(block)
             reihenhoehe = max(reihenhoehe, hoehe + abs(versatz))
             spalte += 1
@@ -698,17 +695,19 @@ struct Layoutautomat {
     private func fotoblock(_ foto: Foto, x: Double, y: Double, breite: Double,
                            hoehe: Double) -> Block
     {
+        // Ohne Schatten und ohne weißen Rand: Beides steht am BUCH
+        // (`Gestaltung.fotoschatten`, `.fotorand`) und wird beim Zeichnen
+        // aufgelöst. Schriebe der Automat sie hier hinein, wäre die
+        // Einstellung des Buches für alle schon gesetzten Fotos wirkungslos.
         Block(
             inhalt: .foto(foto.id),
-            rahmen: Rahmen(x: x, y: y, breite: breite, hoehe: hoehe),
-            schatten: stil.schatten,
-            fotorand: stil.fotorand
+            rahmen: Rahmen(x: x, y: y, breite: breite, hoehe: hoehe)
         )
     }
 
     private func karteBlock(x: Double, y: Double, breite: Double, hoehe: Double) -> Block {
         Block(inhalt: .karte, rahmen: Rahmen(x: x, y: y, breite: breite, hoehe: hoehe),
-              schatten: stil.schatten)
+              schatten: stil.schatten == .keiner ? nil : stil.schatten)
     }
 
     // Nur wo sie eingeschaltet IST, kostet sie Platz. Bis 1.0.4 rechnete
