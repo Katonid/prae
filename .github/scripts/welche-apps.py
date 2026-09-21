@@ -62,6 +62,7 @@ APPS = [
     ("TafelbildiOS", "Tafelbild"),
     ("TagesspuriOS", "Tagesspur"),
     ("TankbuchiOS", "Tankbuch"),
+    ("UrlaubstagebuchiOS", "Urlaubstagebuch"),
 ]
 
 # Ändert sich davon etwas, wird alles gebaut.

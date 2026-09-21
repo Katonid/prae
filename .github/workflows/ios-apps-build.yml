@@ -55,6 +55,7 @@ on:
           - Tafelbild
           - Tagesspur
           - Tankbuch
+          - Urlaubstagebuch
 
 concurrency:
   group: ios-apps-${{ github.ref }}
