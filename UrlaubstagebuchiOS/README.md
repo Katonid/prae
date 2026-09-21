@@ -361,7 +361,7 @@ Urlaubstagebuch/
                Spureinfuhr, Buchdatei, Kartenwerk, Kachelkarte,
                Seitensatz, Buchausgabe, Standortdienst
   Views/       Regal, Reise, Seitenfläche, Inspektor, Importe, Karte, PDF,
-               Fotostil (fürs ganze Buch), Bedienung (die Gesten)
+               Fotostil und Textstil (fürs ganze Buch), Bedienung (die Gesten)
 ```
 
 `Reise` ist eine JSON-Datei je Buch im Dokumentenordner, die Bilder liegen
@@ -715,6 +715,102 @@ Der Umbau von `schatten`/`fotorand`/`randbreite` auf optional ist für ältere
 Bücher gefahrlos: Der erzeugte `Codable`-Leser verlangt einen Schlüssel nur
 für nicht-optionale Eigenschaften. Ein vorhandener Wert wird gelesen, ein
 fehlender wird `nil` — also „wie im Buch".
+
+## Drei Befunde aus dem laufenden Buch (1.0.12)
+
+### Der Text stand wieder außerhalb seines Rahmens
+
+Gemeldet, zum zweiten Mal: „Das Bearbeiten des Textes im Kasten funktioniert
+noch nicht richtig. Wieder wird beim Doppeltipp der Text außerhalb des
+Rahmens dargestellt."
+
+1.0.9 hatte die DOPPELUNG behoben — der Block wird seither nicht mehr
+zusätzlich gezeichnet, solange sein Text im Feld steht. Der Überstand blieb,
+und er war ein zweiter Befund im selben Bild.
+
+Die Ursache lässt sich am Quelltext nachzählen: Das Feld ist ein
+`UITextView` mit `isScrollEnabled = false`, und so eines meldet die Größe,
+die sein Text BRAUCHT. Ein `UIViewRepresentable` ohne `sizeThatFits` gibt
+SwiftUI genau diese Zahl weiter — und **ein `.frame()` beschneidet nicht, es
+stellt ein zu großes Kind mittig hin.** Genau das zeigte das Bildschirmfoto:
+der Text über die halbe Seite, mittig auf dem orangen Rechteck, die Absätze
+zu drei sehr langen Zeilen geworden.
+
+Zurückgegeben wird jetzt die angebotene BREITE — nie mehr — und die HÖHE,
+die der Text darin wirklich braucht. Ausgerichtet wird oben links, und die
+Höhe steht als `minHeight` statt als feste Zahl: So wächst der Kasten beim
+Tippen nach unten, wie ein Textfeld in Pages, statt Zeilen zu verschlucken.
+
+### Textfelder lassen sich jetzt fürs ganze Buch einstellen
+
+Gefragt: „Kann ich global einstellen, wie die Einstellungen für die
+Textfelder sein sollen? Ich möchte das können."
+
+**Buch → „Textfelder…"** — farbiger Grund samt Deckkraft, Innenabstand,
+Linie ringsum, Schatten. Dieselbe Bauweise wie bei den Fotos seit 1.0.9:
+Was hier steht, ist eine Vorgabe und keine Kopie. `nil` am einzelnen Block
+heißt „wie im Buch", aufgelöst an der einen Stelle (`Block.wirkung`), die
+Bildschirm und PDF gemeinsam fragen. Im Inspektor führt ein Knopf dorthin
+und sagt, wo man steht („Folgt dem Buch" oder „Für alle Textfelder
+einstellen").
+
+Zwei getrennte Sätze für Foto und Text, nicht einer: Ein Textkasten mit dem
+Schatten aller Fotos wäre eine Überraschung, und wer den weißen
+Sofortbild-Rand seiner Bilder hochzieht, meint nicht die Schrift.
+
+Dazu ein neues Feld `Block.ohneGrund`. Solange es nur den Block gab, hieß
+`grund == nil` zweierlei auf einmal: „nichts gesetzt" und „keiner". Sobald
+das Buch einen vorgibt, fällt das auseinander — der Schalter ginge aus, der
+Grund käme zurück, und für den Menschen davor wäre der Schalter kaputt.
+
+### Der Textimport machte aus jeder Zeile einen Absatz
+
+Gefragt: „Der Textimport hat offenbar am Ende jeder Zeile einen Absatz
+erzeugt. Ich frage mich, ob das an meiner Vorlage lag … oder ob der
+Textinterpreter nicht richtig funktioniert."
+
+Der Textinterpreter. Und die Rechnung sagt auch, warum. **Nachgerechnet am
+gemeldeten Tag** (4. Juni 2026, sieben Zeilen von 46, 102, 104, 56, 43, 31
+und 16 Zeichen): die längste 104, die Grenze bei 85 % davon, also 88 — und
+nur zwei der sieben Zeilen erreichen sie. Das sind 29 % gegen eine Schwelle
+von 35 %, die Erkennung stand still.
+
+Gemessen wurde bis 1.0.11 je TAG. Ein kurzer Tag endet aber nun einmal mit
+einer kurzen Zeile, und je kürzer der Tag, desto schwerer wiegt sie. Wo die
+Umbruchspalte lag, hat der Schreiber dagegen EINMAL für die ganze Datei
+entschieden. Gemessen wird deshalb einmal über den gesamten Text, und das
+Ergebnis wird an jeden Tag weitergereicht.
+
+Dazu zwei Zeichen, die unabhängig von der Länge entscheiden — beide stehen
+im gemeldeten Text: ein **Bindestrich am Zeilenende** („Boeing 747-" /
+„400") ist ein zerrissenes Wort, und ein **Komma am Zeilenanfang** („,
+zurück nach Frankfurt") kann kein Absatzanfang sein. „Fängt klein an" allein
+reicht bewusst nicht: Ein zu Unrecht zusammengezogener Absatz ist der
+teurere Fehler, weil er im gedruckten Buch nicht mehr zu sehen ist.
+
+Und die Zahlen stehen jetzt im Einlesen-Blatt: längste Zeile, Anteil,
+Zeilenzahl, Schwelle, Ergebnis. Je Tag steht die Zeile auch dann da, wenn
+NICHT zusammengeführt wurde — eine Erkennung, die schweigt, wenn sie nichts
+tut, lässt einen raten.
+
+### Beim Gegenlesen gefunden
+
+* `Gestaltung`, `Block` und `Seite` lesen sich seit 1.0.12 von Hand
+  (`Model/Nachsicht.swift`). Die Regel galt seit 1.0.3 für `Reise` und
+  `Reisetag`; die Typen darunter hatten sie nicht, und genau in ihnen wuchs
+  diese Fassung. Ein neues Feld in `Gestaltung` hätte in jedem vorhandenen
+  Buch Format, Ränder, Bundsteg, Anschnitt und Fotowirkung auf die Vorgaben
+  zurückgesetzt — still, denn das Buch öffnet sich ja. Ein neues Feld in
+  `Block` hätte die ganze Seitenliste eines Tages mitgenommen.
+* `Farbwert(_:deckung:)` hält die Deckkraft fest. Der Farbwähler steht auf
+  `supportsOpacity: false` und gibt immer volle Deckung zurück; seit 1.0.11
+  steht daneben ein eigener Deckkraft-Schieber — jeder Griff an die
+  Grundfarbe setzte ihn also stillschweigend auf 100 %.
+
+**Nicht gemessen:** ob das Textfeld beim Doppeltipp jetzt wirklich im Rahmen
+steht, und ob die Umbruch-Erkennung an der Vorlage des Nutzers greift. Das
+erste ist gerechnet, das zweite an seinen Zahlen nachgerechnet; ein Gerät
+und die Datei gibt es hier nicht.
 
 ## Vier Befunde aus dem laufenden Buch (1.0.11)
 
