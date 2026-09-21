@@ -371,7 +371,7 @@ struct BlockInspektor: View {
     @ViewBuilder
     private func karteAbschnitt(_ block: Block) -> some View {
         if let tag = werk.tag, let stelle = werk.tagIndex(tag.id) {
-            Section("Karte") {
+            Section {
                 // Ein Tag darf die Karte des Buches überschreiben — aber
                 // nur ausdrücklich. Ohne den Schalter wüsste hinterher
                 // niemand mehr, welche Tage der Buchgestaltung folgen und
