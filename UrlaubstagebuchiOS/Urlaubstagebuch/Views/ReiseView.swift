@@ -33,6 +33,7 @@ struct ReiseView: View {
         case tagesspur
         case typografie
         case fotostil
+        case textstil
         case gestaltung
         case bedienung
         case ausgabe
@@ -50,6 +51,7 @@ struct ReiseView: View {
             case .tagesspur: return "tagesspur"
             case .typografie: return "typo"
             case .fotostil: return "fotostil"
+            case .textstil: return "textstil"
             case .gestaltung: return "gestaltung"
             case .bedienung: return "bedienung"
             case .ausgabe: return "ausgabe"
@@ -257,6 +259,7 @@ struct ReiseView: View {
                 // niemand (gemeldet 09/2026: „Kann ich das jetzt für alle
                 // Fotos global einstellen und wenn ja, wo?").
                 Button("Fotos…", systemImage: "photo.stack") { blatt = .fotostil }
+                Button("Textfelder…", systemImage: "text.alignleft") { blatt = .textstil }
                 Button("Format, Ränder, Karte…", systemImage: "ruler") { blatt = .gestaltung }
                 Button("Hintergrund…", systemImage: "square.fill.on.square.fill") {
                     blatt = .hintergrund
@@ -436,6 +439,8 @@ struct ReiseView: View {
             TypografieView(werk: werk)
         case .fotostil:
             FotostilView(werk: werk)
+        case .textstil:
+            TextstilView(werk: werk)
         case .gestaltung:
             GestaltungView(werk: werk)
         case .bedienung:

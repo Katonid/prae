@@ -523,9 +523,23 @@ struct BlockInspektor: View {
     }
 
     private func rahmenAbschnitt(_ block: Block) -> some View {
-        Section {
+        let wirkung = block.wirkung(werk.reise.gestaltung)
+        return Section {
+            // Der Weg vom Einzelfall zum Ganzen — dieselbe Zeile wie beim
+            // Foto, und aus demselben Grund: Wer hier steht, hat die Frage
+            // gerade („Kann ich global einstellen, wie die Einstellungen
+            // für die Textfelder sein sollen?", 09/2026).
+            if block.inhalt.istText {
+                Button {
+                    blatt = .textstil
+                } label: {
+                    Label(block.folgtDemBuchAlsText
+                              ? "Folgt dem Buch \u{2013} für alle Textfelder einstellen\u{2026}"
+                              : "Für alle Textfelder einstellen\u{2026}",
+                          systemImage: "textformat.size")
+                }
+            }
             VStack(alignment: .leading) {
-                let wirkung = block.wirkung(werk.reise.gestaltung)
                 LabeledContent("Randbreite", value: String(format: "%.1f pt", wirkung.randbreite))
                 Slider(value: Binding(
                     get: { wirkung.randbreite },
@@ -538,27 +552,49 @@ struct BlockInspektor: View {
                 ), in: 0...6, step: 0.5)
             }
             ColorPicker("Randfarbe", selection: Binding(
-                get: { (block.wirkung(werk.reise.gestaltung).randfarbe ?? .leise).farbe },
+                get: { (wirkung.randfarbe ?? .leise).farbe },
                 set: { neu in werk.aendere(block.id, merken: false) { $0.rand = Farbwert(neu) } }
             ))
+            // AUSschalten heißt seit 1.0.12 „hier ausdrücklich keiner" und
+            // nicht mehr bloß „nichts Eigenes gesetzt": Gibt das Buch einen
+            // Grund vor, käme der sonst zurück, und der Schalter täte
+            // nichts. Ein Schalter, der nichts tut, ist ein kaputter.
             Toggle("Farbiger Grund", isOn: Binding(
-                get: { block.grund != nil },
+                get: { wirkung.grund != nil },
                 set: { an in
+                    let buchgrund = werk.reise.gestaltung.textgrund
                     werk.aendere(block.id) {
-                        $0.grund = an ? Farbwert(rot: 0.96, gruen: 0.95, blau: 0.92, deckung: 0.85) : nil
-                        // Ein Grund ohne Innenabstand lässt die Schrift an
-                        // der Kante der Fläche anfangen, und das sieht aus
-                        // wie ein Satzfehler. Gesetzt wird er nur beim
-                        // EINSCHALTEN und nie beim Ausschalten: Wer ihn
-                        // danach von Hand ändert, soll ihn behalten.
-                        if an, $0.inhalt.istText, $0.innenabstand == nil { $0.innenabstand = 6 }
+                        $0.ohneGrund = !an
+                        if an {
+                            if $0.grund == nil, !$0.inhalt.istText || buchgrund == nil {
+                                $0.grund = Farbwert(rot: 0.96, gruen: 0.95, blau: 0.92,
+                                                    deckung: 0.85)
+                            }
+                            // Ein Grund ohne Innenabstand lässt die Schrift
+                            // an der Kante der Fläche anfangen, und das
+                            // sieht aus wie ein Satzfehler. Gesetzt wird er
+                            // nur beim EINSCHALTEN und nie beim Ausschalten:
+                            // Wer ihn danach von Hand ändert, soll ihn
+                            // behalten.
+                            if $0.inhalt.istText, $0.innenabstand == nil,
+                               werk.reise.gestaltung.textinnenabstand <= 0
+                            {
+                                $0.innenabstand = 6
+                            }
+                        } else {
+                            $0.grund = nil
+                        }
                     }
                 }
             ))
-            if let grund = block.grund {
+            if let grund = wirkung.grund {
                 ColorPicker("Grundfarbe", selection: Binding(
                     get: { grund.farbe },
-                    set: { neu in werk.aendere(block.id, merken: false) { $0.grund = Farbwert(neu) } }
+                    set: { neu in
+                        werk.aendere(block.id, merken: false) {
+                            $0.grund = Farbwert(neu, deckung: grund.deckung)
+                        }
+                    }
                 ), supportsOpacity: false)
                 // Die Deckkraft steht als EIGENER Schieber da und nicht nur
                 // im Farbwähler von iOS: Dort liegt sie hinter einem Tipp
@@ -574,7 +610,11 @@ struct BlockInspektor: View {
                     Slider(value: Binding(
                         get: { grund.deckung },
                         set: { neu in
-                            werk.aendere(block.id, merken: false) { $0.grund?.deckung = neu }
+                            werk.aendere(block.id, merken: false) {
+                                var farbe = $0.grund ?? grund
+                                farbe.deckung = neu
+                                $0.grund = farbe
+                            }
                         }
                     ), in: 0...1)
                 }
@@ -582,20 +622,32 @@ struct BlockInspektor: View {
             if block.inhalt.istText {
                 VStack(alignment: .leading) {
                     LabeledContent("Innenabstand",
-                                   value: Druckmass.mmText(block.textrand))
+                                   value: Druckmass.mmText(wirkung.textrand))
                     Slider(value: Binding(
-                        get: { block.textrand },
+                        get: { wirkung.textrand },
                         set: { neu in
                             werk.aendere(block.id, merken: false) { $0.innenabstand = neu }
                         }
                     ), in: 0...40, step: 1)
+                }
+                if !block.folgtDemBuchAlsText {
+                    Button("Wieder wie im Buch") {
+                        werk.aendere(block.id) { b in
+                            b.schatten = nil
+                            b.randbreite = nil
+                            b.rand = nil
+                            b.grund = nil
+                            b.innenabstand = nil
+                            b.ohneGrund = false
+                        }
+                    }
                 }
             }
         } header: {
             Text("Rand und Grund")
         } footer: {
             if block.inhalt.istText {
-                Text("Der Innenabstand hält die Schrift vom Rand des Kastens weg — ohne ihn fängt sie unmittelbar an der Kante der Fläche an. Er wird mitgerechnet: Der Hinweis „Text passt nicht“ und die Druckprüfung messen mit ihm.")
+                Text("Der Innenabstand hält die Schrift vom Rand des Kastens weg — ohne ihn fängt sie unmittelbar an der Kante der Fläche an. Er wird mitgerechnet: Der Hinweis „Text passt nicht\u{201C} und die Druckprüfung messen mit ihm.")
             } else {
                 Text("Der Grund liegt unter dem Inhalt des Blocks, die Linie außen darum herum.")
             }

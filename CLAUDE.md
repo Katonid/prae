@@ -3665,6 +3665,98 @@ Befunde, und keiner davon war Geschmack:
   sind Wege und Rechnungen; ob die Fanglinie beim Schieben hilft oder stört
   und ob der gewählte Kartenausschnitt im Druck das Erwartete zeigt, sagt
   erst der nächste Befund.
+- **Ein `UIViewRepresentable` ohne `sizeThatFits` bestimmt seine Größe SELBST**
+  (`TextflaecheBruecke`, ab 1.0.12; gemeldet 09/2026, zum zweiten Mal: „Das
+  Bearbeiten des Textes im Kasten funktioniert noch nicht richtig. Wieder wird
+  beim Doppeltipp der Text außerhalb des Rahmens dargestellt."). 1.0.9 hatte
+  die DOPPELUNG behoben (der Block wird nicht mehr zusätzlich gezeichnet) und
+  den Überstand stehen lassen — zwei Befunde in einem Bild, und nur einer war
+  gelesen. Die Rechnung dahinter ist am Quelltext nachzuzählen und keine
+  Vermutung: Das Feld ist ein `UITextView` mit `isScrollEnabled = false`, und
+  so eines meldet die Größe, die sein Text BRAUCHT, nicht die, die es bekommt.
+  Ohne `sizeThatFits` nimmt SwiftUI genau diese Zahl — und **`.frame()`
+  beschneidet nicht, es stellt ein zu großes Kind MITTIG hin**. Genau so sah
+  das Bildschirmfoto aus: der Text über die halbe Seite, mittig auf dem
+  orangen Rechteck, die Absätze zu drei sehr langen Zeilen geworden.
+  Zurückgegeben wird jetzt die angebotene BREITE (nie mehr) und die HÖHE, die
+  der Text darin braucht; ausgerichtet wird oben links, und die Höhe hängt an
+  `.frame(minHeight:)` statt an einer festen — so wächst der Kasten beim
+  Tippen nach unten, wie in Pages, statt Zeilen zu verschlucken. **Merke: Wer
+  eine UIKit-Ansicht in SwiftUI einhängt, sagt ihr, wie groß sie sein darf.**
+- **Textfelder lassen sich buchweit einstellen** (`Gestaltung.textgrund`,
+  `.textinnenabstand`, `.textrandbreite`, `.textrandfarbe`, `.textschatten`,
+  Blatt „Buch → Textfelder…", ab 1.0.12, Ansage des Nutzers 09/2026: „Kann ich
+  global einstellen, wie die Einstellungen für die Textfelder sein sollen? Ich
+  möchte das können."). Dieselbe Bauweise wie bei den Fotos in 1.0.9/1.0.10 und
+  aus demselben Grund: **Abweichung, keine Kopie** — `nil` am Block heißt „wie
+  im Buch", aufgelöst an der einen Stelle (`Block.wirkung`), die Bildschirm UND
+  PDF fragen. Zwei getrennte Sätze für Foto und Text, nicht einer: Ein
+  Textkasten mit dem Schatten aller Fotos wäre eine Überraschung, und wer den
+  weißen Sofortbild-Rand seiner Bilder hochzieht, meint nicht die Schrift.
+- **„Nichts gesetzt" und „hier ausdrücklich keiner" sind NICHT dasselbe**
+  (`Block.ohneGrund`, ab 1.0.12). Solange es nur den Block gab, hieß
+  `grund == nil` beides auf einmal. Sobald das Buch einen Grund vorgibt, fällt
+  das auseinander: Der Schalter „Farbiger Grund" ginge aus, der Grund käme vom
+  Buch zurück, und für den Menschen davor wäre der Schalter kaputt — dieselbe
+  Lehre wie bei „Ein Knopf, der schweigt". **Wer eine buchweite Vorgabe
+  nachrüstet, prüft, ob sich das Abschalten noch sagen lässt.**
+- **`Gestaltung`, `Block` und `Seite` lesen sich seit 1.0.12 von Hand**
+  (`Model/Nachsicht.swift`). Die Regel stand seit 1.0.3 im Papier und galt für
+  `Reise` und `Reisetag`; die Typen DARUNTER hatten sie nicht, und genau in
+  ihnen wuchs diese Fassung. Was das gekostet hätte, ist auszurechnen:
+  `Reise` holt die Gestaltung über `b.wert(.gestaltung, Gestaltung())` — ein
+  neues Feld dort hätte in jedem vorhandenen Buch **Format, Ränder, Bundsteg,
+  Anschnitt und Fotowirkung** auf die Vorgaben zurückgesetzt, still, denn das
+  Buch öffnet sich ja. Und ein neues Feld in `Block` hätte über
+  `seiten = b.wert(.seiten, [])` die ganze Seitenliste eines Tages
+  mitgenommen, also die Handarbeit eines Abends. **Jeder Typ, der wächst,
+  bekommt seinen Leser, bevor er wächst.**
+- **Der Umbruch ist eine Eigenschaft der DATEI, nicht des Tages**
+  (`Textaufbereitung.vermessen`, ab 1.0.12; gemeldet 09/2026: „Der Textimport
+  hat offenbar am Ende jeder Zeile einen Absatz erzeugt. Ich frage mich, ob das
+  an meiner Vorlage lag … oder ob der Textinterpreter nicht richtig
+  funktioniert."). Er hat nicht richtig funktioniert, und die Rechnung sagt
+  auch, warum. **Nachgerechnet am gemeldeten Tag** (4. Juni 2026, sieben Zeilen
+  von 46, 102, 104, 56, 43, 31 und 16 Zeichen): `laengste` = 104, `grenze` = 88,
+  und nur zwei der sieben Zeilen erreichen sie — 29 % gegen eine Schwelle von
+  35 %. Die Erkennung stand also still, obwohl die Vorlage hart umbrochen war.
+  Gemessen wurde bis 1.0.11 je Tag (`Textimport.lesen` ruft `pruefen` in
+  `abschliessen()`, also einmal je Abschnitt), und ein kurzer Tag endet nun
+  einmal mit einer kurzen Zeile — je kürzer der Tag, desto schwerer wiegt sie.
+  Wo die Umbruchspalte lag, hat der Schreiber aber EINMAL für die ganze Datei
+  entschieden. Gemessen wird deshalb einmal über den gesamten Text und das
+  Ergebnis an jeden Tag weitergereicht. **Merke: Bevor eine Schwelle als zu
+  streng gilt, prüfen, ob sie am richtigen Gegenstand gemessen wird.**
+- **Zwei Zeichen entscheiden unabhängig von der Länge** (`Textaufbereitung.fortsetzt`).
+  Beide stehen im gemeldeten Text: ein **Bindestrich am Ende** der vorigen Zeile
+  („Boeing 747-" / „400") ist ein zerrissenes Wort, und ein **Komma am Anfang**
+  dieser Zeile („, zurück nach Frankfurt") kann kein Absatzanfang sein. Eng
+  gefasst mit Absicht — „fängt klein an" allein reicht NICHT: In einem frei
+  geschriebenen Text gibt es kleingeschriebene Absatzanfänge, und ein zu
+  Unrecht zusammengezogener Absatz ist der teurere Fehler, weil er im
+  gedruckten Buch nicht mehr zu sehen ist.
+- **Die Zahlen stehen im Einlesen-Blatt, und auch der Fall „nichts getan" sagt
+  es** (ab 1.0.12). Längste Zeile, Anteil, Zeilenzahl, Schwelle und das
+  Ergebnis — und je Tag steht die Zeile jetzt auch dann da, wenn NICHT
+  zusammengeführt wurde. Das ist die Antwort auf die Frage, mit der dieser
+  Durchgang anfing: „lag das an meiner Vorlage oder am Textinterpreter?" Eine
+  Erkennung, die schweigt, wenn sie nichts tut, lässt einen raten. Gemerkt wird
+  das Maß in `@State` und nicht als berechnete Eigenschaft — der Lauf geht über
+  jede Zeile, und das Blatt zeichnet sich bei jedem Tastendruck neu (dieselbe
+  Falle wie bei der Netzkarte der Abfahrtstafel).
+- **`Farbwert(_:deckung:)` hält die Deckkraft fest** (ab 1.0.12, beim
+  Gegenlesen gefunden). Der Farbwähler steht auf `supportsOpacity: false` und
+  gibt deshalb IMMER volle Deckung zurück; seit 1.0.11 steht daneben ein
+  eigener Deckkraft-Schieber — jeder Griff an die Grundfarbe setzte ihn also
+  stillschweigend auf 100 % zurück. Genau das, wofür der Schieber gebaut wurde
+  (Text auf einem Hintergrundbild), war damit nach einem Farbwechsel weg.
+- **Nicht gemessen:** ob das Textfeld beim Doppeltipp jetzt wirklich im Rahmen
+  steht. Gerechnet ist, WARUM es überstand (ein Kind ohne Maßangabe, ein
+  `.frame`, das nicht beschneidet); gesehen hat es niemand. Ebenso ungemessen
+  bleibt, ob die Umbruch-Erkennung an der Vorlage des Nutzers jetzt greift —
+  sie ist an seinen Zahlen nachgerechnet, und die Datei selbst liegt hier
+  nicht. **Beides nicht als erledigt darstellen**, bevor der nächste Befund es
+  sagt.
 - **Die Bildunterschrift war halb gebaut** (ab 1.0.5, Wunsch des Nutzers
   09/2026: „zu jedem Foto einen Beschreibungstext … Dies soll jedoch eine
   Option für jedes Foto sein. Kein muss."). Der Layoutautomat hielt Platz

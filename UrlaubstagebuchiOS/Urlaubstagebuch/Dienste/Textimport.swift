@@ -191,6 +191,14 @@ enum Textimport {
         let zeilen = text.components(separatedBy: .newlines)
         befund.zeilenGesamt = zeilen.count
 
+        // EINMAL für die ganze Vorlage gemessen und dann an jeden Tag
+        // weitergereicht. Wo die Umbruchspalte lag, hat der Schreiber
+        // einmal entschieden; je Tag gemessen hängt das Ergebnis davon
+        // ab, wie lang der Tag ist — ein kurzer endet mit einer kurzen
+        // Zeile, und die zieht den Anteil unter die Schwelle. Genau das
+        // war der gemeldete Fall (siehe `Textaufbereitung`).
+        let mass = Textaufbereitung.vermessen(text)
+
         var vorspann: [String] = []
         var laufend: Abschnitt?
         var sammlung: [String] = []
@@ -202,7 +210,7 @@ enum Textimport {
                 .joined(separator: "\n")
                 .trimmingCharacters(in: .whitespacesAndNewlines)
             if absaetzeZusammenfuehren {
-                let gepruefet = Textaufbereitung.pruefen(roh)
+                let gepruefet = Textaufbereitung.pruefen(roh, mass: mass)
                 offen.aufbereitung = gepruefet
                 offen.text = Textaufbereitung.leerzeilenStraffen(gepruefet.text)
             } else {
