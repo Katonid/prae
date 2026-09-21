@@ -10,6 +10,11 @@ import SwiftUI
 // angefassten Stellen wirkungslos.
 struct BlockInspektor: View {
     @ObservedObject var werk: Reisewerk
+    // Damit der Inspektor auf die Einstellung des BUCHES zeigen kann. Wer
+    // hier steht, hat die Frage gerade („wie soll das aussehen?") — und
+    // genau hier muss der Weg zur buchweiten Antwort stehen, nicht nur
+    // zwei Menüs weiter.
+    @Binding var blatt: ReiseView.Blatt?
     @State private var hintergrundOffen = false
 
     private var block: Block? {
@@ -339,10 +344,15 @@ struct BlockInspektor: View {
             // Was hier steht, ist eine ABWEICHUNG vom Buch. Wer nichts
             // anfasst, folgt der Einstellung unter „Buch“ → „Fotos“ — und
             // eine Änderung dort trifft dann auch diesen Block.
-            if block.istFoto, block.folgtDemBuch {
-                Label("Folgt der Einstellung des Buches", systemImage: "book")
-                    .foregroundStyle(.secondary)
-                    .font(.footnote)
+            if block.istFoto {
+                Button {
+                    blatt = .fotostil
+                } label: {
+                    Label(block.folgtDemBuch
+                              ? "Folgt dem Buch \u{2013} für alle Fotos einstellen\u{2026}"
+                              : "Für alle Fotos einstellen\u{2026}",
+                          systemImage: "photo.stack")
+                }
             }
             Picker("Schatten", selection: Binding(
                 get: { wirkung.schatten },

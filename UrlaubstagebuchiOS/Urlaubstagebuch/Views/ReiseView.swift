@@ -28,7 +28,9 @@ struct ReiseView: View {
         case dateien
         case tagesspur
         case typografie
+        case fotostil
         case gestaltung
+        case bedienung
         case ausgabe
         case tagInhalt(UUID)
         case spur(UUID)
@@ -43,7 +45,9 @@ struct ReiseView: View {
             case .dateien: return "dateien"
             case .tagesspur: return "tagesspur"
             case .typografie: return "typo"
+            case .fotostil: return "fotostil"
             case .gestaltung: return "gestaltung"
+            case .bedienung: return "bedienung"
             case .ausgabe: return "ausgabe"
             case let .tagInhalt(id): return "tag-\(id)"
             case let .spur(id): return "spur-\(id)"
@@ -60,7 +64,7 @@ struct ReiseView: View {
         }
         .navigationSplitViewStyle(.balanced)
         .inspector(isPresented: $inspektor) {
-            BlockInspektor(werk: werk)
+            BlockInspektor(werk: werk, blatt: $blatt)
                 .inspectorColumnWidth(min: 260, ideal: 310, max: 380)
         }
         .sheet(item: $blatt) { welches in
@@ -227,7 +231,7 @@ struct ReiseView: View {
                 Toggle("Satzspiegel zeigen", isOn: $werk.zeigeSatzspiegel)
                 Toggle("Bedienung prüfen", isOn: $werk.zeigeGriffprobe)
             } label: {
-                Label("Satz", systemImage: "wand.and.stars")
+                Label("Anordnen", systemImage: "wand.and.stars")
             }
         }
         ToolbarItem(placement: .topBarTrailing) {
@@ -236,6 +240,12 @@ struct ReiseView: View {
                 Button("Schrift und Ausrichtung…", systemImage: "textformat") {
                     blatt = .typografie
                 }
+                // Eigener Punkt, und zwar hier oben bei Stil und Schrift.
+                // Bis 1.0.9 lag das hinter „Format, Ränder, Karte" — einem
+                // Namen, der nach Papiermaßen klingt; gefunden hat es
+                // niemand (gemeldet 09/2026: „Kann ich das jetzt für alle
+                // Fotos global einstellen und wenn ja, wo?").
+                Button("Fotos…", systemImage: "photo.stack") { blatt = .fotostil }
                 Button("Format, Ränder, Karte…", systemImage: "ruler") { blatt = .gestaltung }
                 Button("Hintergrund…", systemImage: "square.fill.on.square.fill") {
                     blatt = .hintergrund
@@ -261,6 +271,15 @@ struct ReiseView: View {
             Button("Einpassen") { zoom = 0 }
             Button { zoom = min(massstabJetzt * 1.25, 4) } label: {
                 Image(systemName: "plus.magnifyingglass")
+            }
+            // Die Gesten dieser Seite sind unsichtbar — ein Doppeltipp,
+            // zwei Finger, acht Punkte am Rand. Deshalb steht hier ein
+            // Fragezeichen und nicht in einem Menü: Wer nicht weiß, wie
+            // etwas geht, klappt kein Menü auf, in dem er es vermutet.
+            Button {
+                blatt = .bedienung
+            } label: {
+                Label("Bedienung", systemImage: "questionmark.circle")
             }
             Spacer()
             // Solange ein Textfeld offen ist, steht hier der Weg heraus.
@@ -404,8 +423,12 @@ struct ReiseView: View {
             SpurimportView(werk: werk)
         case .typografie:
             TypografieView(werk: werk)
+        case .fotostil:
+            FotostilView(werk: werk)
         case .gestaltung:
             GestaltungView(werk: werk)
+        case .bedienung:
+            BedienungView()
         case .ausgabe:
             AusgabeView(werk: werk)
         case let .tagInhalt(id):
