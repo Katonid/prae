@@ -9,6 +9,16 @@ struct ReiseView: View {
     @State private var zoom: Double = 0
     @State private var blatt: Blatt?
     @State private var neuAnordnenFrage: UUID?
+    @State private var buchdatei: Buchwunsch?
+
+    // Der Wunsch trägt das Ziel, kein Schalter daneben — dieselbe Regel
+    // wie bei den Dateiwählern in Tafelbild. Ein `URL` ist nicht
+    // `Identifiable`, und die Zusatzkonformität einer fremden Sorte
+    // aufzuzwingen wäre der teurere Weg.
+    struct Buchwunsch: Identifiable {
+        let id = UUID()
+        let ort: URL
+    }
 
     enum Blatt: Identifiable {
         case stil
@@ -16,6 +26,7 @@ struct ReiseView: View {
         case textimport
         case fotos
         case dateien
+        case tagesspur
         case typografie
         case gestaltung
         case ausgabe
@@ -30,6 +41,7 @@ struct ReiseView: View {
             case .textimport: return "text"
             case .fotos: return "fotos"
             case .dateien: return "dateien"
+            case .tagesspur: return "tagesspur"
             case .typografie: return "typo"
             case .gestaltung: return "gestaltung"
             case .ausgabe: return "ausgabe"
@@ -53,6 +65,9 @@ struct ReiseView: View {
         }
         .sheet(item: $blatt) { welches in
             blattInhalt(welches)
+        }
+        .sheet(item: $buchdatei) { wunsch in
+            Teilenblatt(gegenstaende: [wunsch.ort])
         }
         .overlay(alignment: .top) { baender }
         .alert("Seiten neu anordnen?", isPresented: .init(
@@ -166,6 +181,9 @@ struct ReiseView: View {
                 Button("Bilder aus Dateien…", systemImage: "folder") {
                     blatt = .dateien
                 }
+                Button("Reisespur aus der Tagesspur…", systemImage: "point.topleft.down.curvedto.point.bottomright.up") {
+                    blatt = .tagesspur
+                }
                 Divider()
                 Button("Fotoablage…", systemImage: "tray") { blatt = .ablage }
             } label: {
@@ -223,6 +241,7 @@ struct ReiseView: View {
                 }
                 Divider()
                 Button("Als PDF sichern…", systemImage: "square.and.arrow.up") { blatt = .ausgabe }
+                Button("Buch als Datei sichern…", systemImage: "shippingbox") { buchSichern() }
             } label: {
                 Label("Buch", systemImage: "book")
             }
@@ -259,6 +278,18 @@ struct ReiseView: View {
     }
 
     private var massstabJetzt: Double { zoom == 0 ? 0.7 : zoom }
+
+    // Das ganze Buch als eine Datei — samt aller Bilder, zum Sichern, zum
+    // Umziehen auf ein anderes Gerät und zum Weitergeben.
+    private func buchSichern() {
+        werk.sofortSichern()
+        do {
+            buchdatei = Buchwunsch(ort: try Buchdatei.schreiben(werk.reise))
+        } catch {
+            werk.meldung = .init(text: "Die Buchdatei ließ sich nicht schreiben: "
+                                 + error.localizedDescription, schwer: true)
+        }
+    }
 
     private func musterSetzen(_ muster: Seitenmuster?) {
         guard let tag = werk.tag, let stelle = werk.tagIndex(tag.id) else { return }
@@ -327,6 +358,8 @@ struct ReiseView: View {
             FotoeinfuhrView(werk: werk)
         case .dateien:
             DateieinfuhrView(werk: werk)
+        case .tagesspur:
+            SpurimportView(werk: werk)
         case .typografie:
             TypografieView(werk: werk)
         case .gestaltung:

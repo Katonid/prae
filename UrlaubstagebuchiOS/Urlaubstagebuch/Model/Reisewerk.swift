@@ -290,6 +290,51 @@ final class Reisewerk: ObservableObject, Identifiable {
 
     // MARK: - Spur
 
+    // Die Spuren aus der Tagesspur übernehmen.
+    //
+    // Idempotent: Was bei einem früheren Einlesen desselben Tages
+    // hereinkam, wird ERSETZT und nicht verdoppelt. Wer eine Sicherung
+    // zweimal wählt, soll nicht die doppelte Spur bekommen. Punkte aus
+    // Fotos und von Hand bleiben unberührt und werden nach der Uhrzeit
+    // wieder eingeordnet.
+    @discardableResult
+    func spurUebernehmen(_ tage: [Spureinfuhr.Tagesspur], fehlendeAnlegen: Bool) -> String {
+        merken()
+        var geaendert = 0
+        var angelegt = 0
+        var uebersprungen = 0
+        for neue in tage {
+            var stelle = reise.tage.firstIndex { $0.datum == neue.datum }
+            if stelle == nil {
+                guard fehlendeAnlegen else {
+                    uebersprungen += 1
+                    continue
+                }
+                stelle = reise.tagIndex(fuer: neue.datum)
+                angelegt += 1
+            }
+            guard let stelle else { continue }
+            let behalten = reise.tage[stelle].spur.filter { $0.quelle != .tagesspur }
+            var spur = neue.punkte
+            for punkt in behalten {
+                guard let zeit = punkt.zeit else {
+                    spur.append(punkt)
+                    continue
+                }
+                let wohin = spur.firstIndex { ($0.zeit ?? .distantFuture) > zeit } ?? spur.count
+                spur.insert(punkt, at: wohin)
+            }
+            reise.tage[stelle].spur = spur
+            geaendert += 1
+        }
+        reise.tage.sort { $0.datum < $1.datum }
+        fehlendeSeitenNachholen()
+        var satz = "\(geaendert) Tage haben eine neue Spur"
+        if angelegt > 0 { satz += ", \(angelegt) davon neu angelegt" }
+        if uebersprungen > 0 { satz += "; \(uebersprungen) übersprungen, weil es den Tag nicht gibt" }
+        return satz + "."
+    }
+
     func spurAktualisieren(_ tagID: UUID) {
         guard let t = tagIndex(tagID) else { return }
         let fotos = reise.tage[t].fotos.compactMap { reise.foto($0) }

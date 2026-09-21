@@ -5,6 +5,9 @@ struct RegalView: View {
     @State private var neuerTitel = ""
     @State private var anlegenOffen = false
     @State private var zuLoeschen: Reise?
+    @State private var einstellungen = false
+    @State private var angebot: Buchdatei.Befund?
+    @State private var einlesefehler: String?
 
     var body: some View {
         NavigationStack {
@@ -17,6 +20,13 @@ struct RegalView: View {
             }
             .navigationTitle("Reisetagebücher")
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button {
+                        einstellungen = true
+                    } label: {
+                        Label("Einstellungen", systemImage: "gearshape")
+                    }
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
                         neuerTitel = ""
@@ -25,6 +35,44 @@ struct RegalView: View {
                         Label("Neue Reise", systemImage: "plus")
                     }
                 }
+            }
+            .sheet(isPresented: $einstellungen) {
+                EinstellungenView()
+                    .environmentObject(regal)
+            }
+            // Eine hereingereichte Buchdatei — aus „Dateien", per AirDrop
+            // oder über den Wähler in den Einstellungen. Die Frage steht
+            // hier und nur hier.
+            .onChange(of: regal.angeboteneDatei) { _, ort in
+                guard let ort else { return }
+                do {
+                    angebot = try Buchdatei.pruefen(ort)
+                } catch {
+                    einlesefehler = error.localizedDescription
+                    aufraeumen()
+                }
+            }
+            .alert("Buch einlesen", isPresented: .init(
+                get: { angebot != nil },
+                set: { if !$0 { angebot = nil; aufraeumen() } }
+            )) {
+                if angebot?.schonVorhanden == true {
+                    Button("Vorhandenes ersetzen", role: .destructive) { einlesen(alsKopie: false) }
+                    Button("Als Kopie anlegen") { einlesen(alsKopie: true) }
+                } else {
+                    Button("Einlesen") { einlesen(alsKopie: false) }
+                }
+                Button("Abbrechen", role: .cancel) { angebot = nil; aufraeumen() }
+            } message: {
+                if let angebot { Text(einlesetext(angebot)) }
+            }
+            .alert("Das ging nicht", isPresented: .init(
+                get: { einlesefehler != nil },
+                set: { if !$0 { einlesefehler = nil } }
+            )) {
+                Button("Gut") { einlesefehler = nil }
+            } message: {
+                Text(einlesefehler ?? "")
             }
             .alert("Neue Reise", isPresented: $anlegenOffen) {
                 TextField("Titel", text: $neuerTitel)
@@ -53,6 +101,42 @@ struct RegalView: View {
             ReiseView(werk: werk)
                 .environmentObject(regal)
         }
+    }
+
+    private func einlesetext(_ befund: Buchdatei.Befund) -> String {
+        var satz = "\u{201E}\(befund.reise.titel)\u{201C} mit \(befund.reise.tage.count) Tagen "
+            + "und \(befund.bilder) Bildern."
+        if befund.fehlendeBilder > 0 {
+            satz += " \(befund.fehlendeBilder) Bilder fehlen in der Datei."
+        }
+        if befund.schonVorhanden {
+            satz += "\n\nEin Buch mit derselben Kennung gibt es schon. Ersetzen "
+                + "überschreibt es; eine Kopie legt ein zweites daneben."
+        }
+        return satz
+    }
+
+    private func einlesen(alsKopie: Bool) {
+        guard let ort = regal.angeboteneDatei else { return }
+        angebot = nil
+        do {
+            _ = try Buchdatei.einlesen(ort, alsKopie: alsKopie)
+            regal.neuLesen()
+        } catch {
+            einlesefehler = error.localizedDescription
+        }
+        aufraeumen()
+    }
+
+    // Was iOS in den Posteingang der App gelegt hat, gehört danach nicht
+    // mehr dort hin: Beim nächsten Öffnen läge es sonst noch einmal da.
+    private func aufraeumen() {
+        if let ort = regal.angeboteneDatei,
+           ort.path.contains("/Inbox/")
+        {
+            try? FileManager.default.removeItem(at: ort)
+        }
+        regal.angeboteneDatei = nil
     }
 
     private var leer: some View {
