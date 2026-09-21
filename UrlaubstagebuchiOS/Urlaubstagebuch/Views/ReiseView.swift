@@ -313,7 +313,7 @@ struct ReiseView: View {
             // Unterschrift. Eine Geste, die niemand kennt (der Doppeltipp),
             // ist so wenig wert wie ein Schalter, den niemand findet —
             // deshalb beides.
-            if let fotoID = gewaehltesFoto {
+            if let fotoID = gewaehlterBlock?.fotoID {
                 Button {
                     werk.unterschriftOeffnen(fotoID)
                 } label: {
@@ -334,7 +334,7 @@ struct ReiseView: View {
                 // hineinpasst, muss nicht in DIESEN Kasten — es kann auf
                 // der nächsten Seite weitergehen. Auf einer vollen Seite
                 // ist das der einzige, der bleibt.
-                if teilbarerText {
+                if let gewaehlt = gewaehlterBlock, werk.teilbar(gewaehlt) {
                     Button {
                         werk.textTeilen(id)
                     } label: {
@@ -361,17 +361,15 @@ struct ReiseView: View {
 
     private var massstabJetzt: Double { zoom == 0 ? 0.7 : zoom }
 
-    // Ob der gewählte Block ein Tagebuchtext ist — nur der lässt sich
-    // teilen. Überschrift und Datumszeile stehen am Tag.
-    private var teilbarerText: Bool {
-        guard let id = werk.gewaehlterBlock, let stelle = werk.block(id) else { return false }
-        return werk.teilbar(werk.reise.tage[stelle.tag].seiten[stelle.seite].bloecke[stelle.block])
-    }
-
-    // Welches Foto gerade gewählt ist — oder keines.
-    private var gewaehltesFoto: UUID? {
+    // DER GEWÄHLTE BLOCK WIRD EINMAL GESUCHT, NICHT ZWEIMAL.
+    //
+    // `werk.block(_:)` geht durch alle Tage, Seiten und Blöcke. Die
+    // Werkzeugleiste zeichnet sich bei jeder Meldung des `Reisewerk`s neu
+    // — beim Schieben eines Blocks also bei jedem Bildpunkt. In 1.0.14
+    // standen hier zwei solche Suchläufe nebeneinander; einer reicht.
+    private var gewaehlterBlock: Block? {
         guard let id = werk.gewaehlterBlock, let stelle = werk.block(id) else { return nil }
-        return werk.reise.tage[stelle.tag].seiten[stelle.seite].bloecke[stelle.block].fotoID
+        return werk.reise.tage[stelle.tag].seiten[stelle.seite].bloecke[stelle.block]
     }
 
     // Das ganze Buch als eine Datei — samt aller Bilder, zum Sichern, zum

@@ -30,6 +30,10 @@ final class Reisewerk: ObservableObject, Identifiable {
     // eine Probe entscheiden.
     @Published var letzterGriff: String?
     @Published var zeigeGriffprobe = false
+    // Wie oft sich Seite und Inspektor neu zeichnen. Bewusst KEIN
+    // `@Published` — siehe `Zeichenmesser`: Ein Messgerät, dessen Messung
+    // ein Neuzeichnen auslöst, misst sich selbst.
+    let messer = Zeichenmesser()
     // Kein `@AppStorage` in einem `ObservableObject`: Der Wrapper ist eine
     // `DynamicProperty` und gehört in eine View. Hier schriebe er zwar in
     // die Voreinstellungen, löste aber kein `objectWillChange` aus — die
