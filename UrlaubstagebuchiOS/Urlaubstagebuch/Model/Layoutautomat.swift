@@ -307,8 +307,13 @@ struct Layoutautomat {
                 offeneFotos.removeFirst()
                 let hoehe = min(satz.width / aufmacher.seitenverhaeltnis, satz.height * 0.45)
                 let breite = min(satz.width, hoehe * aufmacher.seitenverhaeltnis)
-                bloecke.append(fotoblock(aufmacher, x: satz.minX + (satz.width - breite) / 2,
-                                         y: y, breite: breite, hoehe: hoehe))
+                let links = satz.minX + (satz.width - breite) / 2
+                bloecke.append(fotoblock(aufmacher, x: links, y: y, breite: breite, hoehe: hoehe))
+                if let zeile = unterschriftBlock(aufmacher, x: links, y: y + hoehe,
+                                                 breite: breite)
+                {
+                    bloecke.append(zeile)
+                }
                 y += hoehe + unterschriftHoehe(aufmacher, breite: breite) + fuge + 4
             }
             (bloecke, y, restText) = textSpalte(bloecke, y: y, x: satz.minX,
@@ -620,6 +625,21 @@ struct Layoutautomat {
                         let block = fotoblock(foto, x: x, y: y, breite: breite, hoehe: gestreckt)
                         bloecke.append(block)
                         reihenbloecke.append(block.id)
+                        // Die Unterschrift steht UNTER dem Bild und in
+                        // dessen Breite. Die Reihenhöhe hält den Platz
+                        // dafür schon frei (`naechsteReihe`); hier wird er
+                        // nur noch gefüllt.
+                        if let zeile = unterschriftBlock(foto, x: x, y: y + gestreckt,
+                                                         breite: breite)
+                        {
+                            bloecke.append(zeile)
+                            // Sie gehört zur Reihe wie das Bild selbst:
+                            // `restplatzVerteilen` schiebt die Reihen
+                            // auseinander, und eine Unterschrift, die dabei
+                            // liegen bliebe, stünde plötzlich im Bild
+                            // darüber.
+                            reihenbloecke.append(zeile.id)
+                        }
                     }
                 case .karte:
                     let block = karteBlock(x: x, y: y, breite: breite, hoehe: gestreckt)
@@ -691,10 +711,24 @@ struct Layoutautomat {
               schatten: stil.schatten)
     }
 
+    // Nur wo sie eingeschaltet IST, kostet sie Platz. Bis 1.0.4 rechnete
+    // der Automat den Streifen für jeden Text mit und setzte trotzdem nie
+    // eine Unterschrift — die Lücke unter dem Bild war da, der Satz nicht.
     private func unterschriftHoehe(_ foto: Foto, breite: Double) -> Double {
-        guard !foto.unterschrift.isEmpty else { return 0 }
-        return Textmass.hoehe(foto.unterschrift, bild: typografie.bildunterschrift,
-                              breite: breite) + 3
+        guard foto.unterschriftZeigen else { return 0 }
+        let text = foto.unterschrift.isEmpty ? "Bildunterschrift" : foto.unterschrift
+        return Textmass.hoehe(text, bild: typografie.bildunterschrift, breite: breite) + 3
+    }
+
+    // Der Block dazu — leer heißt kein Block: Ein Kasten ohne Text wäre auf
+    // der Seite unsichtbar und ließe sich doch anfassen.
+    private func unterschriftBlock(_ foto: Foto, x: Double, y: Double,
+                                   breite: Double) -> Block?
+    {
+        let hoehe = unterschriftHoehe(foto, breite: breite)
+        guard hoehe > 0 else { return nil }
+        return Block(inhalt: .bildunterschrift(foto.id),
+                     rahmen: Rahmen(x: x, y: y + 3, breite: breite, hoehe: hoehe - 3))
     }
 
     private func textSpalte(_ bloecke: [Block], y: CGFloat, x: CGFloat, breite: Double,

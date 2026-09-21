@@ -41,9 +41,57 @@ struct Foto: Identifiable, Codable, Hashable {
     var koordinate: Koordinate?
     var ortsquelle: Ortsquelle = .keiner
     var unterschrift: String = ""
+    // Die Bildunterschrift ist eine MÖGLICHKEIT und keine Pflicht (Ansage
+    // des Nutzers, 09/2026). Gezeigt wird sie nur, wenn sie hier
+    // eingeschaltet ist; der Text bleibt auch dann stehen, wenn sie es
+    // nicht ist — wer sie abschaltet, soll seinen Satz nicht verlieren.
+    var unterschriftZeigen: Bool = false
     // Was der Nutzer bewusst weggelassen hat, kommt beim nächsten
     // Neuanordnen nicht zurück — sonst wäre jede Aufräumarbeit umsonst.
     var abgelegt: Bool = false
+
+    // Ein Leser von Hand — dieselbe Vorsorge wie bei Reise und Reisetag
+    // (siehe `Model/Nachsicht.swift`). Ohne ihn machte jedes neue Feld am
+    // Foto die ganze Fotoliste eines Buches unlesbar, und das wäre der
+    // Verlust der Bilder.
+    init(from decoder: Decoder) throws {
+        let b = try decoder.container(keyedBy: CodingKeys.self)
+        id = b.wert(.id, UUID())
+        datei = try b.decode(String.self, forKey: .datei)
+        breite = b.wert(.breite, 1000)
+        hoehe = b.wert(.hoehe, 750)
+        aufnahme = b.wahlweise(.aufnahme)
+        tagesschluessel = b.wahlweise(.tagesschluessel)
+        koordinate = b.wahlweise(.koordinate)
+        ortsquelle = b.wert(.ortsquelle, Ortsquelle.keiner)
+        unterschrift = b.wert(.unterschrift, "")
+        // Vorgefunden heißt gezeigt: Ein Buch, in dem schon Unterschriften
+        // stehen, ist vor diesem Feld entstanden — sie jetzt stillschweigend
+        // auszublenden nähme dem Nutzer Arbeit weg, die er gemacht hat.
+        unterschriftZeigen = b.wert(.unterschriftZeigen, !unterschrift.isEmpty)
+        abgelegt = b.wert(.abgelegt, false)
+    }
+
+    // Von Hand geschrieben, weil der eigene Leser den erzeugten Erzeuger
+    // mitnimmt. Die Reihenfolge ist dieselbe wie vorher.
+    init(id: UUID = UUID(), datei: String, breite: Double, hoehe: Double,
+         aufnahme: Date? = nil, tagesschluessel: String? = nil,
+         koordinate: Koordinate? = nil, ortsquelle: Ortsquelle = .keiner,
+         unterschrift: String = "", unterschriftZeigen: Bool = false,
+         abgelegt: Bool = false)
+    {
+        self.id = id
+        self.datei = datei
+        self.breite = breite
+        self.hoehe = hoehe
+        self.aufnahme = aufnahme
+        self.tagesschluessel = tagesschluessel
+        self.koordinate = koordinate
+        self.ortsquelle = ortsquelle
+        self.unterschrift = unterschrift
+        self.unterschriftZeigen = unterschriftZeigen
+        self.abgelegt = abgelegt
+    }
 
     var seitenverhaeltnis: Double {
         guard hoehe > 0, breite > 0 else { return 1.5 }

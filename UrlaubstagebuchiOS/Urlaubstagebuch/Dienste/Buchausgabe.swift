@@ -239,7 +239,7 @@ enum Buchausgabe {
             }
 
             switch block.inhalt {
-            case .titel, .datum, .text:
+            case .titel, .datum, .text, .bildunterschrift:
                 let bild = Seitensatz.schriftbild(block, reise: reise)
                 let text = Seitensatz.inhaltstext(block, tag: buchseite.tag, reise: reise)
                 Seitensatz.zeichneText(text, bild: bild, rechteck: rechteck,
@@ -264,16 +264,6 @@ enum Buchausgabe {
                     Seitensatz.zeichneBild(bild, ausschnitt: block.ausschnitt,
                                            rechteck: rechteck, in: zusammenhang,
                                            eckenradius: ecken)
-                    if !foto.unterschrift.isEmpty {
-                        let bildschrift = block.abweichung
-                            .angewendet(auf: reise.typografie.bildunterschrift)
-                        let unten = CGRect(x: rechteck.minX, y: traeger.maxY + 3,
-                                           width: rechteck.width,
-                                           height: bildschrift.zeilenhoehe * 3)
-                        Seitensatz.zeichneText(foto.unterschrift, bild: bildschrift,
-                                               rechteck: unten, in: zusammenhang,
-                                               seitenhoehe: endformat.height)
-                    }
                 }
 
             case .karte:

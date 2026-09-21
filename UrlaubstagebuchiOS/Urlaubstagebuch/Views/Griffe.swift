@@ -1,175 +1,154 @@
 import SwiftUI
 import UIKit
 
-// Die Anfasser am gewählten Block: vier Ecken zum Skalieren, ein Griff zum
-// Drehen.
+// Welcher Griff angefasst wurde — und damit, was eine Ziehbewegung bedeutet.
 //
-// Sie liegen als EIGENE Ebene über der Seite und nicht als `.overlay` im
-// Block. Der Unterschied ist kein Stilfrage: Ein Griff ragt mit seiner
-// halben Breite über den Rahmen hinaus, und was außerhalb eines Frames
-// liegt, nimmt in SwiftUI keinen Finger an. Bis 1.0.1 waren die Griffe
-// deshalb sichtbar und nicht zu treffen — gemeldet 09/2026: „Ich kann ein
-// Textfeld nicht in der Größe skalieren."
-struct Griffe: View {
-    @ObservedObject var werk: Reisewerk
+// Die Aufzählung liegt hier und nicht in der Ansicht, weil zwei Stellen sie
+// brauchen: die ZEICHNUNG (wo sitzt welcher Griff) und die GESTE (welcher
+// wurde getroffen). Zwei Fassungen davon liefen auseinander, und dann läge
+// der sichtbare Griff woanders als der, den der Finger trifft — genau der
+// Fehler, der hier zweimal gemeldet wurde.
+enum Griffart: String, Equatable {
+    case verschieben
+    case obenLinks, obenRechts, untenLinks, untenRechts
+    case links, rechts, oben, unten
+    case drehen
+
+    var name: String {
+        switch self {
+        case .verschieben: return "Fläche"
+        case .obenLinks: return "Ecke oben links"
+        case .obenRechts: return "Ecke oben rechts"
+        case .untenLinks: return "Ecke unten links"
+        case .untenRechts: return "Ecke unten rechts"
+        case .links: return "Kante links"
+        case .rechts: return "Kante rechts"
+        case .oben: return "Kante oben"
+        case .unten: return "Kante unten"
+        case .drehen: return "Drehgriff"
+        }
+    }
+
+    var zieht: (waagerecht: Double, senkrecht: Double) {
+        switch self {
+        case .obenLinks: return (-1, -1)
+        case .obenRechts: return (1, -1)
+        case .untenLinks: return (-1, 1)
+        case .untenRechts: return (1, 1)
+        case .links: return (-1, 0)
+        case .rechts: return (1, 0)
+        case .oben: return (0, -1)
+        case .unten: return (0, 1)
+        default: return (0, 0)
+        }
+    }
+}
+
+// Wo die Griffe eines Blocks liegen — in seinen EIGENEN Koordinaten, also
+// mit (0,0) in seiner linken oberen Ecke.
+//
+// Das ist die eine Stelle, an der das steht. Gezeichnet wird danach, und
+// getroffen wird danach; deshalb kann der sichtbare Griff nicht mehr
+// woanders liegen als der wirksame.
+struct Griffpunkt: Identifiable {
+    let art: Griffart
+    let stelle: CGPoint
+    var id: String { art.rawValue }
+}
+
+enum Grifflage {
+    static func punkte(breite: Double, hoehe: Double, abstand: Double) -> [Griffpunkt] {
+        [
+            Griffpunkt(art: .obenLinks, stelle: CGPoint(x: 0, y: 0)),
+            Griffpunkt(art: .obenRechts, stelle: CGPoint(x: breite, y: 0)),
+            Griffpunkt(art: .untenLinks, stelle: CGPoint(x: 0, y: hoehe)),
+            Griffpunkt(art: .untenRechts, stelle: CGPoint(x: breite, y: hoehe)),
+            Griffpunkt(art: .oben, stelle: CGPoint(x: breite / 2, y: 0)),
+            Griffpunkt(art: .unten, stelle: CGPoint(x: breite / 2, y: hoehe)),
+            Griffpunkt(art: .links, stelle: CGPoint(x: 0, y: hoehe / 2)),
+            Griffpunkt(art: .rechts, stelle: CGPoint(x: breite, y: hoehe / 2)),
+            Griffpunkt(art: .drehen, stelle: CGPoint(x: breite / 2, y: -abstand)),
+        ]
+    }
+
+    // Was der Finger getroffen hat. Geprüft wird in der Reihenfolge, in der
+    // die Griffe übereinanderliegen: erst der Dreher, dann die Ecken, dann
+    // die Kanten — an einem kleinen Block überlappen sie einander, und dann
+    // soll die Ecke gewinnen und nicht die Kante daneben.
+    static func getroffen(_ punkt: CGPoint, breite: Double, hoehe: Double,
+                          abstand: Double, greifweite: Double) -> Griffart?
+    {
+        let alle = punkte(breite: breite, hoehe: hoehe, abstand: abstand)
+        for art in [Griffart.drehen, .obenLinks, .obenRechts, .untenLinks, .untenRechts,
+                    .oben, .unten, .links, .rechts]
+        {
+            guard let stelle = alle.first(where: { $0.art == art })?.stelle else { continue }
+            if hypot(punkt.x - stelle.x, punkt.y - stelle.y) <= greifweite { return art }
+        }
+        if punkt.x >= 0, punkt.y >= 0, punkt.x <= breite, punkt.y <= hoehe {
+            return .verschieben
+        }
+        return nil
+    }
+}
+
+// Die Anfasser am gewählten Block — eine ZEICHNUNG und sonst nichts.
+//
+// Bis 1.0.3 trug jeder Griff seine eigene Ziehgeste, und die Griffe lagen
+// als eigene Ebene über der Seite. Beides ist ausgebaut. Gemeldet wurde
+// zweimal, dass sich weder Bilder verschieben noch Rahmen ziehen lassen,
+// während der Drehgriff ging — und der Unterschied zwischen beiden war
+// genau, dass der Dreher als einziger NICHT über dem Block lag.
+//
+// Woran es lag, ließ sich hier nicht messen; es gab mehrere Verdächtige auf
+// einmal (eine UIKit-Ansicht im Block, die Tipp-Gesten neben der Ziehgeste,
+// Ebenen übereinander, die einander den Finger wegnehmen). Deshalb sind
+// jetzt ALLE weg: Ein Block hat genau EINE Geste, und die entscheidet an
+// der Stelle, an der der Finger aufsetzt, was gemeint war. Was auf dem
+// Block liegt, ist ein Bild und nimmt keinen Finger an — dieselbe Lehre wie
+// bei der Netzkarte der Abfahrtstafel („Eine Geste gehört der Karte").
+struct Griffzeichnung: View {
     let block: Block
     let massstab: Double
-    let nachbarn: [Block]
-
-    @State private var start: Rahmen?
-    @State private var startwinkel: Double?
+    let abstand: Double
 
     private var groesse: Double { 15 / massstab }
-    private var rahmen: CGRect { block.rahmen.rect }
 
     var body: some View {
+        let rahmen = block.rahmen.rect
         ZStack(alignment: .topLeading) {
-            ecke(.topLeading)
-            ecke(.topTrailing)
-            ecke(.bottomLeading)
-            ecke(.bottomTrailing)
-            dreher
+            Rectangle()
+                .strokeBorder(Color.accentColor, lineWidth: 1.5 / massstab)
+                .frame(width: rahmen.width, height: rahmen.height)
+
+            ForEach(Grifflage.punkte(breite: rahmen.width, hoehe: rahmen.height,
+                                     abstand: abstand)) { griff in
+                marke(griff.art)
+                    .position(x: griff.stelle.x, y: griff.stelle.y)
+            }
         }
         .frame(width: rahmen.width, height: rahmen.height, alignment: .topLeading)
         .rotationEffect(.degrees(block.drehung))
         .offset(x: rahmen.minX, y: rahmen.minY)
+        // Die Griffe sind gezeichnet und nicht angefasst: Der Finger geht an
+        // den Block darunter, der als einziger eine Geste hat.
+        .allowsHitTesting(false)
     }
 
-    // MARK: - Ecken
-
-    private func ecke(_ stelle: Alignment) -> some View {
-        Circle()
-            .fill(Color.white)
-            .overlay(Circle().strokeBorder(Color.accentColor, lineWidth: 2 / massstab))
-            .frame(width: groesse, height: groesse)
-            .contentShape(Circle().inset(by: -groesse * 0.4))
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: stelle)
-            .offset(x: stelle.horizontal == .leading ? -groesse / 2 : groesse / 2,
-                    y: stelle.vertical == .top ? -groesse / 2 : groesse / 2)
-            .gesture(
-                DragGesture(minimumDistance: 1)
-                    .onChanged { wert in groesseAendern(stelle, wert: wert, endgueltig: false) }
-                    .onEnded { wert in groesseAendern(stelle, wert: wert, endgueltig: true) }
-            )
-    }
-
-    // MARK: - Drehen
-
-    private var dreher: some View {
-        Image(systemName: "arrow.trianglehead.clockwise")
-            .font(.system(size: groesse * 0.62, weight: .semibold))
-            .foregroundStyle(.white)
-            .frame(width: groesse * 1.25, height: groesse * 1.25)
-            .background(Circle().fill(Color.accentColor))
-            .contentShape(Circle().inset(by: -groesse * 0.4))
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-            .offset(y: -groesse * 2.1)
-            .gesture(
-                DragGesture(minimumDistance: 1)
-                    .onChanged { wert in drehen(wert, endgueltig: false) }
-                    .onEnded { wert in drehen(wert, endgueltig: true) }
-            )
-    }
-
-    // Gedreht wird um die MITTE des Blocks, und der Winkel kommt aus dem
-    // Zeiger von der Mitte zum Finger — nicht aus der Wegstrecke. Eine
-    // Drehung, die sich aus der Verschiebung errechnet, dreht am Rand
-    // schneller als in der Mitte und fühlt sich sofort falsch an.
-    private func drehen(_ wert: DragGesture.Value, endgueltig: Bool) {
-        if startwinkel == nil {
-            startwinkel = block.drehung
-            werk.merken()
-        }
-        let mitte = CGPoint(x: rahmen.width / 2, y: rahmen.height / 2)
-        // Der Griff sitzt über der Mitte; der Zeiger geht von der Mitte zum
-        // Finger, und oben ist null Grad.
-        let zeiger = CGPoint(x: wert.location.x - mitte.x,
-                             y: wert.location.y - mitte.y - rahmen.height / 2)
-        var grad = atan2(zeiger.x, -zeiger.y) * 180 / .pi + (startwinkel ?? 0)
-        // In Fünf-Grad-Schritten, solange man nicht genau zielt — und bei
-        // null, waagerecht und senkrecht mit einer kleinen Rast: Ein Bild,
-        // das um 0,4 Grad schief steht, sieht nicht gewollt aus, sondern
-        // nach einem Versehen.
-        for rast in stride(from: -180.0, through: 180.0, by: 45) where abs(grad - rast) < 3 {
-            grad = rast
-        }
-        werk.aendere(block.id, merken: false) { $0.drehung = grad }
-        if endgueltig { startwinkel = nil }
-    }
-
-    // MARK: - Größe
-
-    private func groesseAendern(_ stelle: Alignment, wert: DragGesture.Value, endgueltig: Bool) {
-        let ausgang = start ?? block.rahmen
-        if start == nil {
-            start = block.rahmen
-            werk.merken()
-        }
-        let dx = wert.translation.width / massstab
-        let dy = wert.translation.height / massstab
-
-        var neu = ausgang
-        if stelle.horizontal == .leading {
-            neu.x = ausgang.x + dx
-            neu.breite = ausgang.breite - dx
+    @ViewBuilder
+    private func marke(_ art: Griffart) -> some View {
+        if art == .drehen {
+            Image(systemName: "arrow.trianglehead.clockwise")
+                .font(.system(size: groesse * 0.62, weight: .semibold))
+                .foregroundStyle(.white)
+                .frame(width: groesse * 1.25, height: groesse * 1.25)
+                .background(Circle().fill(Color.accentColor))
         } else {
-            neu.breite = ausgang.breite + dx
+            Circle()
+                .fill(Color.white)
+                .overlay(Circle().strokeBorder(Color.accentColor, lineWidth: 2 / massstab))
+                .frame(width: groesse, height: groesse)
         }
-        if stelle.vertical == .top {
-            neu.y = ausgang.y + dy
-            neu.hoehe = ausgang.hoehe - dy
-        } else {
-            neu.hoehe = ausgang.hoehe + dy
-        }
-        // Unter dieser Größe ist ein Block nicht mehr zu treffen — und ein
-        // Block, den man nicht mehr anfassen kann, ist verloren.
-        neu.breite = max(neu.breite, 24)
-        neu.hoehe = max(neu.hoehe, 14)
-
-        let satz = werk.reise.gestaltung.satzspiegel(werk.reise.format)
-        var kantenX: [Double] = [satz.minX, satz.maxX, satz.midX]
-        var kantenY: [Double] = [satz.minY, satz.maxY, satz.midY]
-        if werk.reise.gestaltung.anschnitt > 0.5 {
-            let bogen = werk.reise.gestaltung.randabfallend(werk.reise.format)
-            kantenX.append(contentsOf: [bogen.minX, bogen.maxX])
-            kantenY.append(contentsOf: [bogen.minY, bogen.maxY])
-        }
-        for nachbar in nachbarn {
-            let r = nachbar.rahmen.rect
-            kantenX.append(contentsOf: [r.minX, r.maxX])
-            kantenY.append(contentsOf: [r.minY, r.maxY])
-        }
-        let toleranz = 7 / massstab
-        if stelle.horizontal == .leading {
-            let gefangen = Einrasten.kanteGefangen(neu.x, kanten: kantenX, toleranz: toleranz)
-            neu.breite += neu.x - gefangen
-            neu.x = gefangen
-        } else {
-            let rechts = Einrasten.kanteGefangen(neu.x + neu.breite, kanten: kantenX,
-                                                 toleranz: toleranz)
-            neu.breite = rechts - neu.x
-        }
-        if stelle.vertical == .top {
-            let gefangen = Einrasten.kanteGefangen(neu.y, kanten: kantenY, toleranz: toleranz)
-            neu.hoehe += neu.y - gefangen
-            neu.y = gefangen
-        } else {
-            let unten = Einrasten.kanteGefangen(neu.y + neu.hoehe, kanten: kantenY,
-                                                toleranz: toleranz)
-            neu.hoehe = unten - neu.y
-        }
-
-        werk.aendere(block.id, merken: false) { b in
-            b.rahmen = neu
-            // Wird ein Foto größer gezogen, bleibt sein Ausschnitt gültig —
-            // aber nur, wenn er den neuen Rahmen noch füllt.
-            if let id = b.fotoID, let foto = werk.reise.foto(id) {
-                b.ausschnitt = b.ausschnitt.begrenzt(
-                    bildgroesse: CGSize(width: foto.breite, height: foto.hoehe),
-                    rahmen: neu.rect)
-            }
-        }
-        if endgueltig { start = nil }
     }
 }
 

@@ -1,14 +1,25 @@
 import CoreGraphics
 import Foundation
 
-// Was ein Block zeigt. Die Bildunterschrift hängt am Foto und ist KEIN
-// eigener Block: Sie muss mit dem Bild wandern, und zwei Dinge, die immer
-// zusammen verschoben werden, sind eines.
+// Was ein Block zeigt.
+//
+// Die Bildunterschrift ist seit 1.0.5 ein EIGENER Block. Bis dahin stand
+// hier, sie sei keiner, weil sie mit dem Bild wandern müsse — und genau das
+// war der Fehler: Der Layoutautomat hielt Platz für sie frei, das PDF
+// zeichnete sie, auf dem Bildschirm erschien sie nie, und anfassen ließ sie
+// sich gar nicht. Was man verschieben, drehen und anders setzen können soll,
+// braucht einen Block. Zusammen bleiben Bild und Unterschrift trotzdem: Der
+// TEXT steht am Foto, der Block trägt nur dessen Kennung.
 enum Blockinhalt: Codable, Hashable {
     case titel
     case datum
     case text(String)
     case foto(UUID)
+    // Die Bildunterschrift eines Fotos. Sie trägt die KENNUNG des Fotos und
+    // nicht den Text: Der steht am Foto, und eine Kopie im Block liefe
+    // beim nächsten Neuanordnen auseinander — dieselbe Überlegung wie bei
+    // Überschrift und Datumszeile, die am Tag stehen.
+    case bildunterschrift(UUID)
     case karte
     case linie
     // Eine reine Farbfläche — trägt einen Titel über einem Foto oder
@@ -23,7 +34,7 @@ enum Blockinhalt: Codable, Hashable {
     var istFoto: Bool { if case .foto = self { return true }; return false }
     var istText: Bool {
         switch self {
-        case .titel, .datum, .text: return true
+        case .titel, .datum, .text, .bildunterschrift: return true
         default: return false
         }
     }
@@ -32,6 +43,7 @@ enum Blockinhalt: Codable, Hashable {
         switch self {
         case .titel: return .titel
         case .datum: return .datum
+        case .bildunterschrift: return .bildunterschrift
         default: return .flieText
         }
     }
@@ -42,6 +54,7 @@ enum Blockinhalt: Codable, Hashable {
         case .datum: return "Datum"
         case .text: return "Text"
         case .foto: return "Foto"
+        case .bildunterschrift: return "Bildunterschrift"
         case .karte: return "Karte"
         case .linie: return "Trennlinie"
         case .flaeche: return "Farbfläche"

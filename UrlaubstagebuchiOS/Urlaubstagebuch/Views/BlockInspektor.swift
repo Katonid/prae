@@ -215,14 +215,27 @@ struct BlockInspektor: View {
                         werk.aendere(block.id) { $0.ausschnitt = .voll }
                     }
                 }
-                TextField("Bildunterschrift", text: Binding(
-                    get: { foto.unterschrift },
-                    set: { neu in
-                        var geaendert = foto
-                        geaendert.unterschrift = neu
-                        werk.reise.setzeFoto(geaendert)
-                    }
-                ), axis: .vertical)
+                // Die Unterschrift ist eine Möglichkeit und kein Muss:
+                // Erst der Schalter, dann das Feld. Ein Textfeld, das immer
+                // dasteht, sieht aus wie eine Pflichtangabe.
+                Toggle("Bildunterschrift zeigen", isOn: Binding(
+                    get: { foto.unterschriftZeigen },
+                    set: { neu in werk.unterschriftUmschalten(foto.id, an: neu) }
+                ))
+                if foto.unterschriftZeigen {
+                    TextField("Bildunterschrift", text: Binding(
+                        get: { foto.unterschrift },
+                        set: { neu in
+                            var geaendert = foto
+                            geaendert.unterschrift = neu
+                            werk.reise.setzeFoto(geaendert)
+                        }
+                    ), axis: .vertical)
+                    Text("Schrift, Größe und Farbe stellst du unter Buch \u{2192} "
+                         + "Schrift und Ausrichtung für alle Bildunterschriften auf einmal ein.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
                 LabeledContent("Aufnahme", value: foto.aufnahme.map { zeitform.string(from: $0) } ?? "unbekannt")
                 LabeledContent("Ort", value: foto.ortsquelle.name)
                 if foto.hatOrt, let ort = foto.koordinate {
