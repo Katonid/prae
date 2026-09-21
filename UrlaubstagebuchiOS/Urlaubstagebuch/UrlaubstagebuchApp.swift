@@ -11,6 +11,13 @@ struct UrlaubstagebuchApp: App {
             RegalView()
                 .environmentObject(regal)
                 .task { await regal.starten() }
+                .onOpenURL { ort in
+                    // Eine Buchdatei, die jemand in „Dateien" antippt oder
+                    // per AirDrop schickt. Gefragt wird trotzdem: Ein
+                    // Einlesen, das gleich losschreibt, könnte ein Buch
+                    // überschreiben, das der Nutzer noch braucht.
+                    regal.angeboteneDatei = ort
+                }
                 .onChange(of: lage) { _, neu in
                     // Zurück aus dem Hintergrund: Auf dem anderen Gerät kann
                     // inzwischen etwas passiert sein. Ein Regal, das den
@@ -29,6 +36,11 @@ final class Regal: ObservableObject {
     @Published var reisen: [Reise] = []
     @Published var unlesbar: Int = 0
     @Published var offen: Reisewerk?
+    // Eine Buchdatei, die von außen hereingereicht wurde — aus „Dateien",
+    // per AirDrop oder über den Wähler in den Einstellungen. Die Frage
+    // danach steht an EINER Stelle (im Regal): Ein zweiter Kasten mit
+    // derselben Frage liefe irgendwann auseinander.
+    @Published var angeboteneDatei: URL?
 
     private var beobachter: NSMetadataQuery?
     private var nachschlag: Task<Void, Never>?

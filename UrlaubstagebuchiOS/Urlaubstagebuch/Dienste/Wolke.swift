@@ -226,7 +226,7 @@ enum Wolke {
     // ist schlimmer als zwei Bücher, die man vergleichen muss.
     @discardableResult
     static func konflikteLoesen(_ ort: URL) -> Int {
-        guard let andere = NSFileVersion.unresolvedConflictVersions(withItemAt: ort),
+        guard let andere = NSFileVersion.unresolvedConflictVersionsOfItem(at: ort),
               !andere.isEmpty
         else { return 0 }
 
@@ -254,7 +254,7 @@ enum Wolke {
         }
         if let bester {
             // Die jüngere Fassung wird zur geltenden.
-            _ = try? bester.replaceItem(at: ort)
+            _ = try? bester.replaceItem(at: ort, options: [])
         }
         for fassung in andere { fassung.isResolved = true }
         try? NSFileVersion.removeOtherVersionsOfItem(at: ort)

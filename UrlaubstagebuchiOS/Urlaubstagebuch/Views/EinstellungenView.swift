@@ -11,9 +11,6 @@ struct EinstellungenView: View {
     @State private var arbeitet = false
     @State private var bericht: String?
     @State private var waehler = false
-    @State private var befund: Buchdatei.Befund?
-    @State private var gewaehlteDatei: URL?
-    @State private var fehler: String?
     @State private var konflikte: [URL] = []
 
     var body: some View {
@@ -35,25 +32,15 @@ struct EinstellungenView: View {
             .fullScreenCover(isPresented: $waehler) {
                 Dateiwahl(typen: buchtypen) { urls in
                     waehler = false
-                    if let erste = urls.first { pruefen(erste) }
+                    guard let erste = urls.first else { return }
+                    // Gefragt wird im Regal — dort steht die Frage EINMAL,
+                    // und dort kommt auch an, was von außen hereingereicht
+                    // wird. Ein Kasten über einem Blatt wäre obendrein
+                    // unsichtbar (die Lehre aus Schulalarm 1.0.26).
+                    regal.angeboteneDatei = erste
+                    schliessen()
                 }
                 .ignoresSafeArea()
-            }
-            .alert("Buch einlesen", isPresented: .init(
-                get: { befund != nil },
-                set: { if !$0 { befund = nil } }
-            )) {
-                if let befund, befund.schonVorhanden {
-                    Button("Vorhandenes ersetzen", role: .destructive) { einlesen(alsKopie: false) }
-                    Button("Als Kopie anlegen") { einlesen(alsKopie: true) }
-                } else {
-                    Button("Einlesen") { einlesen(alsKopie: false) }
-                }
-                Button("Abbrechen", role: .cancel) { befund = nil }
-            } message: {
-                if let befund {
-                    Text(einlesetext(befund))
-                }
             }
         }
     }
@@ -146,11 +133,6 @@ struct EinstellungenView: View {
             } label: {
                 Label("Buchdatei einlesen…", systemImage: "square.and.arrow.down")
             }
-            if let fehler {
-                Label(fehler, systemImage: "exclamationmark.triangle")
-                    .font(.footnote)
-                    .foregroundStyle(.orange)
-            }
         } header: {
             Text("Austausch")
         } footer: {
@@ -189,42 +171,8 @@ struct EinstellungenView: View {
         }
     }
 
-    private func pruefen(_ ort: URL) {
-        fehler = nil
-        do {
-            gewaehlteDatei = ort
-            befund = try Buchdatei.pruefen(ort)
-        } catch {
-            gewaehlteDatei = nil
-            fehler = error.localizedDescription
-        }
-    }
 
-    private func einlesetext(_ befund: Buchdatei.Befund) -> String {
-        var satz = "\u{201E}\(befund.reise.titel)\u{201C} mit \(befund.reise.tage.count) Tagen "
-            + "und \(befund.bilder) Bildern."
-        if befund.fehlendeBilder > 0 {
-            satz += " \(befund.fehlendeBilder) Bilder fehlen in der Datei."
-        }
-        if befund.schonVorhanden {
-            satz += "\n\nEin Buch mit derselben Kennung gibt es schon. Ersetzen "
-                + "überschreibt es; eine Kopie legt ein zweites daneben."
-        }
-        return satz
-    }
 
-    private func einlesen(alsKopie: Bool) {
-        guard let ort = gewaehlteDatei else { return }
-        befund = nil
-        do {
-            _ = try Buchdatei.einlesen(ort, alsKopie: alsKopie)
-            regal.neuLesen()
-            bericht = "Buch eingelesen."
-        } catch {
-            fehler = error.localizedDescription
-        }
-        gewaehlteDatei = nil
-    }
 
     private func konfliktNehmen(_ ort: URL) {
         // Der Name der Konfliktdatei trägt die Kennung des Buches vorn — so
