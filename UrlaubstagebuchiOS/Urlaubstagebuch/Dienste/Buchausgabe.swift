@@ -234,7 +234,11 @@ enum Buchausgabe {
                 Seitensatz.zeichneFlaeche(traeger, farbe: .white, eckenradius: ecken,
                                           in: zusammenhang)
             }
-            if let grund = block.grund {
+            // Der Grund kommt aus der WIRKUNG: Er darf seit 1.0.12 auch
+            // vom Buch vorgegeben sein. Dieselbe Quelle wie auf dem
+            // Bildschirm — zwei Fassungen ergäben ein PDF, das anders
+            // aussieht als die Vorschau.
+            if let grund = wirkung.grund {
                 Seitensatz.zeichneFlaeche(rechteck, farbe: grund.uiFarbe,
                                           eckenradius: ecken, in: zusammenhang)
             }
@@ -244,7 +248,8 @@ enum Buchausgabe {
                 let bild = Seitensatz.schriftbild(block, reise: reise)
                 let text = Seitensatz.inhaltstext(block, tag: buchseite.tag, reise: reise)
                 Seitensatz.zeichneText(text, bild: bild,
-                                       rechteck: block.textrechteck(rechteck),
+                                       rechteck: block.textrechteck(rechteck,
+                                                                     rand: wirkung.textrand),
                                        in: zusammenhang, seitenhoehe: endformat.height)
 
             case .linie:
@@ -271,7 +276,7 @@ enum Buchausgabe {
             case .karte:
                 if let bild = karten[block.id] {
                     if !auftrag.ohneTransparenz {
-                        Seitensatz.zeichneSchatten(rechteck, art: block.wirkung(reise.gestaltung).schatten,
+                        Seitensatz.zeichneSchatten(rechteck, art: wirkung.schatten,
                                                    massstab: massstab, eckenradius: ecken,
                                                    in: zusammenhang)
                     }
@@ -293,10 +298,9 @@ enum Buchausgabe {
                 }
             }
 
-            let randwirkung = block.wirkung(reise.gestaltung)
-            if let rand = randwirkung.randfarbe, randwirkung.randbreite > 0, block.inhalt != .linie {
+            if let rand = wirkung.randfarbe, wirkung.randbreite > 0, block.inhalt != .linie {
                 Seitensatz.zeichneRahmen(rechteck, farbe: rand.uiFarbe,
-                                         breite: randwirkung.randbreite, eckenradius: ecken,
+                                         breite: wirkung.randbreite, eckenradius: ecken,
                                          in: zusammenhang)
             }
             zusammenhang.restoreGState()

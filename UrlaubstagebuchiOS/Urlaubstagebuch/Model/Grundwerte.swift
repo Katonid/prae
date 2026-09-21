@@ -101,6 +101,15 @@ struct Farbwert: Codable, Hashable {
         self.init(rot: r, gruen: g, blau: b, deckung: a)
     }
 
+    // Farbe wählen, Deckkraft behalten. Der Farbwähler von iOS steht auf
+    // `supportsOpacity: false` und gibt deshalb IMMER volle Deckung
+    // zurück — ohne diesen Weg setzte jeder Griff an die Grundfarbe den
+    // Schieber daneben stillschweigend auf 100 %.
+    init(_ farbe: Color, deckung: Double) {
+        self.init(farbe)
+        self.deckung = deckung
+    }
+
     var farbe: Color { Color(.sRGB, red: rot, green: gruen, blue: blau, opacity: deckung) }
     var uiFarbe: UIColor { UIColor(red: rot, green: gruen, blue: blau, alpha: deckung) }
 
@@ -195,6 +204,26 @@ struct Gestaltung: Codable, Hashable {
     var fotorandbreite: Double = 0
     var fotorandfarbe: Farbwert?
 
+    // WIE TEXTKÄSTEN AUSSEHEN — einmal für das ganze Buch.
+    //
+    // Dieselbe Bauweise wie bei den Fotos darüber und aus demselben Grund
+    // (Ansage des Nutzers, 09/2026: „Kann ich global einstellen, wie die
+    // Einstellungen für die Textfelder sein sollen? Ich möchte das
+    // können."). Was hier steht, gilt für jeden Textblock, der nichts
+    // Eigenes gesetzt hat; was ein einzelner abweichend haben soll, steht
+    // an ihm (`Block.wirkung`).
+    //
+    // `textgrund` ist ABSICHTLICH wahlweise: `nil` heißt „kein Grund".
+    // Ein Buch, in dem plötzlich jeder Textkasten eine Fläche trägt, wäre
+    // eine Überraschung und keine Einstellung.
+    var textgrund: Farbwert?
+    // Der Abstand vom Rand des Kastens bis zur Schrift, in Seitenpunkten
+    // — dieselbe Einheit wie `Block.innenabstand`.
+    var textinnenabstand: Double = 0
+    var textrandbreite: Double = 0
+    var textrandfarbe: Farbwert?
+    var textschatten: Schattenart = .keiner
+
     var kartenanteil: Double = 0.38
     var eckenradius: Double = 0
     var papier: Farbwert = .papier
@@ -208,6 +237,44 @@ struct Gestaltung: Codable, Hashable {
     var seitenzahlen: Bool = true
     var kopfzeile: Bool = false
     var datumsstil: Datumsstil = .langMitWochentag
+
+    init() {}
+
+    // Von Hand gelesen, und zwar seit dem Tag, an dem hier ein Feld
+    // dazugekommen ist.
+    //
+    // `Reise` holt die Gestaltung über `b.wert(.gestaltung, Gestaltung())`
+    // — scheitert der erzeugte Leser an einem Schlüssel, den es in der
+    // alten Datei nicht gab, fällt die GANZE Gestaltung auf ihre Vorgaben
+    // zurück: Format, Ränder, Bundsteg, Fotowirkung, alles. Der Fehler
+    // wäre still, denn das Buch öffnet sich ja. Dieselbe Falle wie bei
+    // `Kartenbild` in 1.0.11, eine Ebene höher und teurer.
+    init(from decoder: Decoder) throws {
+        let b = try decoder.container(keyedBy: CodingKeys.self)
+        randAussen = b.wert(.randAussen, 16.0)
+        randOben = b.wert(.randOben, 17.0)
+        randUnten = b.wert(.randUnten, 19.0)
+        fuge = b.wert(.fuge, 4.0)
+        anschnitt = b.wert(.anschnitt, 3.0)
+        bundsteg = b.wert(.bundsteg, 0.0)
+        fotoschatten = b.wert(.fotoschatten, Schattenart.keiner)
+        fotorand = b.wert(.fotorand, 0.0)
+        fotorandbreite = b.wert(.fotorandbreite, 0.0)
+        fotorandfarbe = b.wahlweise(.fotorandfarbe)
+        textgrund = b.wahlweise(.textgrund)
+        textinnenabstand = b.wert(.textinnenabstand, 0.0)
+        textrandbreite = b.wert(.textrandbreite, 0.0)
+        textrandfarbe = b.wahlweise(.textrandfarbe)
+        textschatten = b.wert(.textschatten, Schattenart.keiner)
+        kartenanteil = b.wert(.kartenanteil, 0.38)
+        eckenradius = b.wert(.eckenradius, 0.0)
+        papier = b.wert(.papier, Farbwert.papier)
+        hintergrund = b.wert(.hintergrund, Seitenhintergrund.weiss)
+        mindestabstandSpur = b.wert(.mindestabstandSpur, 150.0)
+        seitenzahlen = b.wert(.seitenzahlen, true)
+        kopfzeile = b.wert(.kopfzeile, false)
+        datumsstil = b.wert(.datumsstil, Datumsstil.langMitWochentag)
+    }
 
     var anschnittPt: Double { Druckmass.pt(anschnitt) }
     var fugePt: Double { Druckmass.pt(fuge) }

@@ -22,6 +22,12 @@ struct TextimportView: View {
     // geht über jede Zeile des Textes, und die Ansicht zeichnet sich bei
     // jedem Tastendruck neu.
     @State private var befund = Textimport.Importbefund()
+    // Was die Zeilenlängen der GANZEN Vorlage sagen. Gemerkt und nicht
+    // gerechnet: Der Lauf geht über jede Zeile, und diese Ansicht zeichnet
+    // sich bei jedem Tastendruck neu — als berechnete Eigenschaft liefe er
+    // dabei jedes Mal mit.
+    @State private var mass = Textaufbereitung.Umbruchmass(laengste: 0, grenze: 0,
+                                                           anteil: 0, zeilen: 0)
 
     private var bezugsjahr: Int {
         werk.reise.tage.first?.datum.jahr ?? Tagesdatum(Date()).jahr
@@ -53,9 +59,17 @@ struct TextimportView: View {
                             Toggle("Vorspann als Untertitel des Buches", isOn: $vorspannUebernehmen)
                         }
                     } footer: {
-                        Text(ersetzen
-                             ? "Der Text der betroffenen Tage wird überschrieben."
-                             : "Vorhandener Text bleibt stehen, der neue wird angehängt.")
+                        VStack(alignment: .leading, spacing: 6) {
+                            // Die Zahlen, an denen die Entscheidung hängt —
+                            // hingeschrieben statt behauptet. Gemessen wird
+                            // an der ganzen Vorlage und nicht am einzelnen
+                            // Tag: Wo die Umbruchspalte lag, hat der
+                            // Schreiber einmal entschieden.
+                            Text(umbruchtext)
+                            Text(ersetzen
+                                 ? "Der Text der betroffenen Tage wird überschrieben."
+                                 : "Vorhandener Text bleibt stehen, der neue wird angehängt.")
+                        }
                     }
                 }
             }
@@ -123,10 +137,16 @@ struct TextimportView: View {
                         Text("\(abschnitt.text.count) Zeichen · gelesen aus: \(abschnitt.quellzeile)")
                             .font(.system(size: 10))
                             .foregroundStyle(.tertiary)
-                        if let auf = abschnitt.aufbereitung, auf.zusammengefuehrt {
+                        // Auch der Fall „nicht zusammengeführt" steht da.
+                        // Er ist die Antwort auf die Frage, mit der dieser
+                        // Durchgang anfing („lag das an meiner Vorlage oder
+                        // am Textinterpreter?"): Eine Erkennung, die
+                        // schweigt, wenn sie nichts tut, lässt einen raten.
+                        if let auf = abschnitt.aufbereitung {
                             Label(auf.beschreibung, systemImage: "text.alignleft")
                                 .font(.system(size: 10))
-                                .foregroundStyle(Color.accentColor)
+                                .foregroundStyle(auf.zusammengefuehrt
+                                                 ? Color.accentColor : .secondary)
                         }
                     }
                     .padding(.vertical, 2)
@@ -149,7 +169,17 @@ struct TextimportView: View {
         }
     }
 
+    private var umbruchtext: String {
+        guard mass.zeilen >= 3 else {
+            return "Zu wenige Zeilen, um den Umbruch zu messen."
+        }
+        let anteil = Int((mass.anteil * 100).rounded())
+        let hart = mass.anteil >= 0.35
+        return "Gemessen an der ganzen Vorlage: längste Zeile \(mass.laengste) Zeichen, \(anteil) % der \(mass.zeilen) Zeilen enden an derselben Grenze. Ab 35 % gilt der Text als hart umbrochen — hier also \(hart ? "ja" : "nein")."
+    }
+
     private func neuLesen(_ roh: String) {
+        mass = Textaufbereitung.vermessen(roh)
         befund = Textimport.lesen(roh, bezugsjahr: bezugsjahr,
                                   absaetzeZusammenfuehren: absaetzeZusammenfuehren)
     }

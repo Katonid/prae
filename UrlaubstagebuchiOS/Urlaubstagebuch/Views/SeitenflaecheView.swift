@@ -286,7 +286,7 @@ struct SeitenflaecheView: View {
         // stand, obwohl der Kasten gerade enger geworden ist — ein Hinweis,
         // der hinterherhinkt, ist schlimmer als keiner.
         return "\(block.id)|\(Int(block.rahmen.breite))|\(Int(block.rahmen.hoehe))"
-            + "|\(Int(block.textrand))|\(text.count)"
+            + "|\(Int(block.textrand(werk.reise.gestaltung)))|\(text.count)"
     }
 
     private func ueberlaufMessen() -> Double? {
@@ -803,14 +803,17 @@ struct BlockInhaltView: View {
     let block: Block
     let tag: Reisetag?
 
+    private var wirkung: Blockwirkung { block.wirkung(werk.reise.gestaltung) }
+
     var body: some View {
         ZStack {
-            if let grund = block.grund {
+            // Der Grund kommt aus der WIRKUNG und nicht mehr vom Block
+            // allein: Seit 1.0.12 darf ihn auch das Buch vorgeben.
+            if let grund = wirkung.grund {
                 RoundedRectangle(cornerRadius: werk.reise.gestaltung.eckenradiusPt)
                     .fill(grund.farbe)
             }
             inhalt
-            let wirkung = block.wirkung(werk.reise.gestaltung)
             if let rand = wirkung.randfarbe, wirkung.randbreite > 0, block.inhalt != .linie {
                 RoundedRectangle(cornerRadius: werk.reise.gestaltung.eckenradiusPt)
                     .strokeBorder(rand.farbe, lineWidth: wirkung.randbreite)
@@ -825,7 +828,7 @@ struct BlockInhaltView: View {
             Textkasten(
                 text: Seitensatz.inhaltstext(block, tag: tag, reise: werk.reise),
                 bild: Seitensatz.schriftbild(block, reise: werk.reise),
-                rand: block.textrand
+                rand: wirkung.textrand
             )
         case .bildunterschrift:
             let text = Seitensatz.inhaltstext(block, tag: tag, reise: werk.reise)
@@ -841,7 +844,7 @@ struct BlockInhaltView: View {
             } else {
                 Textkasten(text: text,
                            bild: Seitensatz.schriftbild(block, reise: werk.reise),
-                           rand: block.textrand)
+                           rand: wirkung.textrand)
             }
         case .linie:
             Rectangle()

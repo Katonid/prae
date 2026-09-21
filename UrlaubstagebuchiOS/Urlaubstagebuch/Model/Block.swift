@@ -187,11 +187,83 @@ struct Block: Identifiable, Codable, Hashable {
     // wie ein Satzfehler. Ohne Grund bleibt er `nil` und damit null — ein
     // Textblock ohne Fläche soll weiterhin exakt am Satzspiegel stehen.
     var innenabstand: Double?
+    // Ausdrücklich OHNE Grund — auch wenn das Buch einen vorgibt.
+    //
+    // Nötig, seit es eine buchweite Einstellung dafür gibt (1.0.12):
+    // `grund == nil` heißt „wie im Buch", und ohne dieses zweite Feld
+    // ließe sich „hier ausdrücklich keiner" gar nicht sagen. Ein Schalter,
+    // der sich ausschalten lässt und dabei nichts tut, ist für den
+    // Menschen davor ein kaputter Schalter.
+    var ohneGrund: Bool = false
     // Reicht dieser Block in den Anschnitt? Die Marke ist nötig, weil ein
     // randabfallender Block beim Wechsel des Formats seine Zugabe behalten
     // muss — ohne sie stünde nach dem Umstellen von drei auf fünf
     // Millimeter überall ein weißer Faden.
     var randabfallend: Bool = false
+
+    // Von Hand geschrieben, weil es daneben einen eigenen Leser gibt —
+    // damit fällt der erzeugte Merkmalsinitialisierer weg. Die Reihenfolge
+    // ist die der Eigenschaften, damit jeder Aufruf so bleibt, wie er war.
+    init(id: UUID = UUID(),
+         inhalt: Blockinhalt,
+         rahmen: Rahmen,
+         abweichung: Schriftabweichung = Schriftabweichung(),
+         ausschnitt: Bildausschnitt = Bildausschnitt(),
+         drehung: Double = 0,
+         ebene: Int = 0,
+         vonHand: Bool = false,
+         rand: Farbwert? = nil,
+         randbreite: Double? = nil,
+         schatten: Schattenart? = nil,
+         grund: Farbwert? = nil,
+         fotorand: Double? = nil,
+         innenabstand: Double? = nil,
+         ohneGrund: Bool = false,
+         randabfallend: Bool = false)
+    {
+        self.id = id
+        self.inhalt = inhalt
+        self.rahmen = rahmen
+        self.abweichung = abweichung
+        self.ausschnitt = ausschnitt
+        self.drehung = drehung
+        self.ebene = ebene
+        self.vonHand = vonHand
+        self.rand = rand
+        self.randbreite = randbreite
+        self.schatten = schatten
+        self.grund = grund
+        self.fotorand = fotorand
+        self.innenabstand = innenabstand
+        self.ohneGrund = ohneGrund
+        self.randabfallend = randabfallend
+    }
+
+    // Von Hand gelesen — aus demselben Grund wie bei `Reise`, `Reisetag`
+    // und `Gestaltung`, und hier wiegt es am schwersten: Scheitert der
+    // erzeugte Leser eines Blocks an einem Schlüssel, den es in der alten
+    // Datei nicht gab, fällt in `Seite` die ganze Blockliste weg — also
+    // die Handarbeit eines Abends. Jedes Feld, das hier dazukommt, ist
+    // damit gefahrlos.
+    init(from decoder: Decoder) throws {
+        let b = try decoder.container(keyedBy: CodingKeys.self)
+        id = b.wert(.id, UUID())
+        inhalt = try b.decode(Blockinhalt.self, forKey: .inhalt)
+        rahmen = try b.decode(Rahmen.self, forKey: .rahmen)
+        abweichung = b.wert(.abweichung, Schriftabweichung())
+        ausschnitt = b.wert(.ausschnitt, Bildausschnitt())
+        drehung = b.wert(.drehung, 0.0)
+        ebene = b.wert(.ebene, 0)
+        vonHand = b.wert(.vonHand, false)
+        rand = b.wahlweise(.rand)
+        randbreite = b.wahlweise(.randbreite)
+        schatten = b.wahlweise(.schatten)
+        grund = b.wahlweise(.grund)
+        fotorand = b.wahlweise(.fotorand)
+        innenabstand = b.wahlweise(.innenabstand)
+        ohneGrund = b.wert(.ohneGrund, false)
+        randabfallend = b.wert(.randabfallend, false)
+    }
 
     var istFoto: Bool { inhalt.istFoto }
 
@@ -212,19 +284,53 @@ struct Block: Identifiable, Codable, Hashable {
     //
     // Die Buch-Einstellung gilt nur für FOTOS. Ein Textkasten mit dem
     // Schatten aller Fotos wäre eine Überraschung und keine Einstellung.
+    // Seit 1.0.12 gilt dasselbe für TEXTKÄSTEN, mit einer eigenen
+    // Einstellung („Buch" → „Textfelder…"). Zwei getrennte Sätze und nicht
+    // einer: Ein Textkasten mit dem Schatten aller Fotos wäre eine
+    // Überraschung und keine Einstellung — und wer den weißen Sofortbild-
+    // Rand seiner Fotos hochzieht, meint nicht die Schrift.
     func wirkung(_ gestaltung: Gestaltung) -> Blockwirkung {
         let fuerFoto = istFoto
+        let fuerText = inhalt.istText
+
+        var buchschatten = Schattenart.keiner
+        var buchrandbreite: Double = 0
+        var buchrandfarbe: Farbwert?
+        var buchgrund: Farbwert?
+        var buchinnen: Double = 0
+        if fuerFoto {
+            buchschatten = gestaltung.fotoschatten
+            buchrandbreite = gestaltung.fotorandbreite
+            buchrandfarbe = gestaltung.fotorandfarbe
+        } else if fuerText {
+            buchschatten = gestaltung.textschatten
+            buchrandbreite = gestaltung.textrandbreite
+            buchrandfarbe = gestaltung.textrandfarbe
+            buchgrund = gestaltung.textgrund
+            buchinnen = gestaltung.textinnenabstand
+        }
+
         return Blockwirkung(
-            schatten: schatten ?? (fuerFoto ? gestaltung.fotoschatten : .keiner),
+            schatten: schatten ?? buchschatten,
             fotorand: fotorand ?? (fuerFoto ? gestaltung.fotorand : 0),
-            randbreite: randbreite ?? (fuerFoto ? gestaltung.fotorandbreite : 0),
-            randfarbe: rand ?? (fuerFoto ? gestaltung.fotorandfarbe : nil)
+            randbreite: randbreite ?? buchrandbreite,
+            randfarbe: rand ?? buchrandfarbe,
+            grund: ohneGrund ? nil : (grund ?? buchgrund),
+            textrand: max(innenabstand ?? buchinnen, 0)
         )
     }
 
     // Folgt dieser Block in allen vier Stücken dem Buch?
     var folgtDemBuch: Bool {
         schatten == nil && fotorand == nil && randbreite == nil && rand == nil
+    }
+
+    // Dasselbe für einen Textkasten. Der Grund und der Innenabstand
+    // gehören dazu, der weiße Sofortbild-Rand nicht — den gibt es nur am
+    // Foto.
+    var folgtDemBuchAlsText: Bool {
+        schatten == nil && randbreite == nil && rand == nil
+            && grund == nil && innenabstand == nil && !ohneGrund
     }
 
     // Wie weit der Text vom Rand des Blocks wegbleibt.
@@ -234,19 +340,23 @@ struct Block: Identifiable, Codable, Hashable {
     // Druckprüfung. Zwei Fassungen liefen auseinander — und der Unterschied
     // wäre ein Kasten, dessen Marke „passt" sagt, während im Druck eine
     // Zeile fehlt.
-    var textrand: Double { max(innenabstand ?? 0, 0) }
+    // Sie fragen ihn seit 1.0.12 über die WIRKUNG ab, denn er kann auch
+    // vom Buch kommen — eine eigene Fassung hier hieße zwei Wahrheiten.
+    func textrand(_ gestaltung: Gestaltung) -> Double {
+        wirkung(gestaltung).textrand
+    }
 
     // Die Fläche, in der der Text wirklich steht. Nie kleiner als ein
     // Streifen: Ein Innenabstand, der größer ist als der halbe Block,
     // ließe gar nichts mehr übrig, und aus dem Block verschwände der Text,
     // ohne dass etwas darauf hinwiese.
-    func textrechteck(_ rechteck: CGRect) -> CGRect {
-        let luft = min(textrand, min(rechteck.width, rechteck.height) / 2 - 2)
+    func textrechteck(_ rechteck: CGRect, rand: Double) -> CGRect {
+        let luft = min(max(rand, 0), min(rechteck.width, rechteck.height) / 2 - 2)
         guard luft > 0 else { return rechteck }
         return rechteck.insetBy(dx: luft, dy: luft)
     }
 
-    var textbreite: Double { max(rahmen.breite - 2 * textrand, 1) }
+    func textbreite(rand: Double) -> Double { max(rahmen.breite - 2 * rand, 1) }
 }
 
 struct Blockwirkung {
@@ -254,6 +364,8 @@ struct Blockwirkung {
     var fotorand: Double
     var randbreite: Double
     var randfarbe: Farbwert?
+    var grund: Farbwert?
+    var textrand: Double
 }
 
 // Eine Seite des Buches. `vonHand` sagt, ob an ihr etwas geändert wurde —
@@ -269,6 +381,27 @@ struct Seite: Identifiable, Codable, Hashable {
     // Eine Seite, die ganz von einem Bild gefüllt ist, bekommt keine
     // Seitenzahl: Sie stünde auf dem Foto und sähe aus wie ein Versehen.
     var ohneSeitenzahl: Bool = false
+
+    init(id: UUID = UUID(), bloecke: [Block] = [], papier: Farbwert? = nil,
+         hintergrund: Seitenhintergrund? = nil, ohneSeitenzahl: Bool = false)
+    {
+        self.id = id
+        self.bloecke = bloecke
+        self.papier = papier
+        self.hintergrund = hintergrund
+        self.ohneSeitenzahl = ohneSeitenzahl
+    }
+
+    // Auch hier von Hand gelesen: Eine Seite, an der ein Schlüssel fehlt,
+    // risse sonst die ganze Seitenliste eines Tages mit.
+    init(from decoder: Decoder) throws {
+        let b = try decoder.container(keyedBy: CodingKeys.self)
+        id = b.wert(.id, UUID())
+        bloecke = b.wert(.bloecke, [])
+        papier = b.wahlweise(.papier)
+        hintergrund = b.wahlweise(.hintergrund)
+        ohneSeitenzahl = b.wert(.ohneSeitenzahl, false)
+    }
 
     var vonHand: Bool { bloecke.contains(where: \.vonHand) }
 

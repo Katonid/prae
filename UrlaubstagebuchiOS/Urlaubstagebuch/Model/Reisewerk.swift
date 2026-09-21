@@ -344,8 +344,9 @@ final class Reisewerk: ObservableObject, Identifiable {
         // eine Messung ohne ihn meldete „passt", während im Druck eine Zeile
         // fehlt. Zurückgegeben wird wieder eine BLOCKhöhe — der Rahmen ist
         // es, den der Knopf danach hochzieht.
-        let noetig = Textmass.hoehe(text, bild: bild, breite: block.textbreite)
-            + 2 * block.textrand
+        let rand = block.textrand(reise.gestaltung)
+        let noetig = Textmass.hoehe(text, bild: bild, breite: block.textbreite(rand: rand))
+            + 2 * rand
         return noetig > block.rahmen.hoehe + 0.5 ? noetig : nil
     }
 
@@ -377,6 +378,26 @@ final class Reisewerk: ObservableObject, Identifiable {
                     reise.tage[t].seiten[s].bloecke[b].fotorand = nil
                     reise.tage[t].seiten[s].bloecke[b].randbreite = nil
                     reise.tage[t].seiten[s].bloecke[b].rand = nil
+                }
+            }
+        }
+    }
+
+    // Dasselbe für die Textkästen — danach folgt jeder wieder der
+    // Einstellung des Buches. Der weiße Sofortbild-Rand bleibt außen vor:
+    // Den gibt es nur am Foto.
+    func textwirkungVereinheitlichen() {
+        merken()
+        for t in reise.tage.indices {
+            for s in reise.tage[t].seiten.indices {
+                for b in reise.tage[t].seiten[s].bloecke.indices
+                where reise.tage[t].seiten[s].bloecke[b].inhalt.istText {
+                    reise.tage[t].seiten[s].bloecke[b].schatten = nil
+                    reise.tage[t].seiten[s].bloecke[b].randbreite = nil
+                    reise.tage[t].seiten[s].bloecke[b].rand = nil
+                    reise.tage[t].seiten[s].bloecke[b].grund = nil
+                    reise.tage[t].seiten[s].bloecke[b].innenabstand = nil
+                    reise.tage[t].seiten[s].bloecke[b].ohneGrund = false
                 }
             }
         }

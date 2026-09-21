@@ -19,10 +19,45 @@ import Foundation
 // 50 % und 60 % lange Zeilen) gegen einen frei geschriebenen Text (33 %).
 // Die Schwelle liegt bei 35 %, und wo sie nicht greift, bleibt der Text
 // unangetastet.
+//
+// **Gemessen wird seit 1.0.12 am GANZEN Dokument, nicht am einzelnen Tag**
+// (gemeldet 09/2026: „Der Textimport hat offenbar am Ende jeder Zeile einen
+// Absatz erzeugt. Ich frage mich, ob das an meiner Vorlage lag … oder ob
+// der Textinterpreter nicht richtig funktioniert."). Er hat nicht richtig
+// funktioniert, und die Rechnung sagt auch, warum: Die Umbruchspalte ist
+// eine Eigenschaft der DATEI, der Anteil wurde aber je Tag bestimmt.
+// Nachgerechnet an dem gemeldeten Tag (4. Juni 2026, sieben Zeilen von
+// 46, 102, 104, 56, 43, 31 und 16 Zeichen): `laengste` = 104, `grenze` = 88,
+// und nur zwei der sieben Zeilen erreichen sie — 29 %, also unter der
+// Schwelle von 35 %. An diesem Tag stand die Erkennung damit still, obwohl
+// die Vorlage hart umbrochen war; ein kurzer Tag endet nun einmal mit einer
+// kurzen Zeile, und je kürzer der Tag, desto schwerer wiegt sie. Am ganzen
+// Dokument gemessen gibt es diesen Zufall nicht.
 enum Textaufbereitung {
     // Womit ein Satz endet. Ein Doppelpunkt gehört NICHT dazu — „getauscht:
     // Nissan Kicks" ist mitten im Satz.
     private static let satzende = CharacterSet(charactersIn: ".!?…»\u{201C}\"")
+
+    // Womit eine Zeile NIE anfängt, die einen neuen Absatz beginnt. Ein
+    // Absatz, der mit einem Komma losgeht, ist keiner — er ist die zweite
+    // Hälfte des vorigen. Gemessen am gemeldeten Tag: Dort steht „Boeing
+    // 747-" und in der Zeile darunter „, zurück nach Frankfurt".
+    private static let fortsetzungszeichen = CharacterSet(charactersIn: ",;:)]}\u{201C}»")
+
+    // Was die ZEILENLÄNGEN eines Textes über seinen Umbruch sagen.
+    //
+    // Das ist eine Aussage über die QUELLE und nicht über einen Abschnitt
+    // daraus: Wo die Umbruchspalte lag, hat der Schreiber einmal für die
+    // ganze Datei entschieden. Deshalb wird einmal gemessen und das
+    // Ergebnis an jeden Tag weitergereicht.
+    struct Umbruchmass {
+        var laengste: Int
+        var grenze: Double
+        var anteil: Double
+        var zeilen: Int
+
+        var genug: Bool { zeilen >= 3 }
+    }
 
     struct Befund {
         var text: String
@@ -30,76 +65,125 @@ enum Textaufbereitung {
         var zusammengefuehrt: Bool
         var absaetzeVorher: Int
         var absaetzeNachher: Int
+        // Wurde am ganzen Dokument gemessen oder nur an diesem Stück? Das
+        // gehört in die Auskunft: „29 % lange Zeilen" an einem Tag und
+        // „54 %" in der Datei sind beide richtig und bedeuten Verschiedenes.
+        var amGanzenText: Bool = false
 
         var beschreibung: String {
+            let quelle = amGanzenText ? "der Vorlage" : "dieses Textes"
             guard zusammengefuehrt else {
-                return "Der Text ist frei umbrochen (\(Int(anteilLangerZeilen * 100)) % lange Zeilen) — er bleibt, wie er ist."
+                return "Der Text ist frei umbrochen (\(Int(anteilLangerZeilen * 100)) % lange Zeilen in \(quelle)) — er bleibt, wie er ist."
             }
-            return "Harte Zeilenumbrüche erkannt (\(Int(anteilLangerZeilen * 100)) % der Zeilen enden an derselben Grenze). Aus \(absaetzeVorher) Zeilen werden \(absaetzeNachher) Absätze."
+            return "Harte Zeilenumbrüche erkannt (\(Int(anteilLangerZeilen * 100)) % der Zeilen in \(quelle) enden an derselben Grenze). Aus \(absaetzeVorher) Zeilen werden \(absaetzeNachher) Absätze."
         }
     }
 
-    static func pruefen(_ text: String, schwelle: Double = 0.85,
-                        mindestanteil: Double = 0.35) -> Befund
-    {
-        let zeilen = text.components(separatedBy: .newlines)
+    private static func zeilen(_ text: String) -> [String] {
+        text.components(separatedBy: .newlines)
             .map { $0.trimmingCharacters(in: .whitespaces) }
             .filter { !$0.isEmpty }
-        guard zeilen.count >= 3 else {
-            return Befund(text: text, anteilLangerZeilen: 0, zusammengefuehrt: false,
-                          absaetzeVorher: zeilen.count, absaetzeNachher: zeilen.count)
+    }
+
+    static func vermessen(_ text: String, schwelle: Double = 0.85) -> Umbruchmass {
+        let alle = zeilen(text)
+        guard !alle.isEmpty else {
+            return Umbruchmass(laengste: 0, grenze: .greatestFiniteMagnitude,
+                               anteil: 0, zeilen: 0)
+        }
+        let laengste = alle.map(\.count).max() ?? 0
+        let grenze = Double(laengste) * schwelle
+        let anteil = Double(alle.filter { Double($0.count) >= grenze }.count) / Double(alle.count)
+        return Umbruchmass(laengste: laengste, grenze: grenze, anteil: anteil,
+                           zeilen: alle.count)
+    }
+
+    // `mass` ist das Maß der QUELLE. Fehlt es, wird an diesem Text selbst
+    // gemessen — das ist der Fall, wenn ein einzelner Tag nachträglich
+    // aufgeräumt wird und es keine Datei mehr gibt, die man fragen könnte.
+    static func pruefen(_ text: String, mass: Umbruchmass? = nil,
+                        mindestanteil: Double = 0.35) -> Befund
+    {
+        let eigene = zeilen(text)
+        let gemessen = mass ?? vermessen(text)
+        guard eigene.count >= 3, gemessen.genug else {
+            return Befund(text: text, anteilLangerZeilen: gemessen.anteil,
+                          zusammengefuehrt: false,
+                          absaetzeVorher: eigene.count, absaetzeNachher: eigene.count,
+                          amGanzenText: mass != nil)
         }
 
-        let laengste = zeilen.map(\.count).max() ?? 0
-        let grenze = Double(laengste) * schwelle
-        let anteil = Double(zeilen.filter { Double($0.count) >= grenze }.count) / Double(zeilen.count)
-
-        guard anteil >= mindestanteil else {
-            return Befund(text: text, anteilLangerZeilen: anteil, zusammengefuehrt: false,
-                          absaetzeVorher: zeilen.count, absaetzeNachher: zeilen.count)
+        guard gemessen.anteil >= mindestanteil else {
+            return Befund(text: text, anteilLangerZeilen: gemessen.anteil,
+                          zusammengefuehrt: false,
+                          absaetzeVorher: eigene.count, absaetzeNachher: eigene.count,
+                          amGanzenText: mass != nil)
         }
 
         var absaetze: [String] = []
         var teile: [String] = []
-        var letzteLaenge = 0
+        var letzte = ""
 
-        for zeile in zeilen {
-            guard let vorige = teile.last else {
+        for zeile in eigene {
+            guard !teile.isEmpty else {
                 teile = [zeile]
-                letzteLaenge = zeile.count
+                letzte = zeile
                 continue
             }
-            let endetSatz = vorige.unicodeScalars.last.map { satzende.contains($0) } ?? false
-            let faengtKlein = zeile.first?.isLowercase ?? false
-            // Fortsetzung nur, wenn die vorige Zeile bis an die Umbruchgrenze
-            // reichte — sonst endete dort ein Gedanke. Endet sie mit einem
-            // Punkt, ist trotzdem Schluss, es sei denn, die nächste fängt
-            // klein an (dann war der Punkt eine Abkürzung).
-            let fortsetzung = Double(letzteLaenge) >= grenze && (!endetSatz || faengtKlein)
-            if fortsetzung {
+            if fortsetzt(vorige: letzte, zeile: zeile, grenze: gemessen.grenze) {
                 teile.append(zeile)
             } else {
                 absaetze.append(teile.joined(separator: " "))
                 teile = [zeile]
             }
-            letzteLaenge = zeile.count
+            letzte = zeile
         }
         if !teile.isEmpty { absaetze.append(teile.joined(separator: " ")) }
 
         return Befund(
             text: absaetze.joined(separator: "\n\n"),
-            anteilLangerZeilen: anteil,
+            anteilLangerZeilen: gemessen.anteil,
             zusammengefuehrt: true,
-            absaetzeVorher: zeilen.count,
-            absaetzeNachher: absaetze.count
+            absaetzeVorher: eigene.count,
+            absaetzeNachher: absaetze.count,
+            amGanzenText: mass != nil
         )
     }
 
+    // Gehört diese Zeile noch zur vorigen?
+    //
+    // Die Länge entscheidet zuerst: Reichte die vorige Zeile bis an die
+    // Umbruchgrenze, ging der Gedanke weiter. Zwei Zeichen entscheiden
+    // aber UNABHÄNGIG davon, und beide stehen im gemeldeten Text:
+    //
+    // 1. Ein BINDESTRICH am Ende der vorigen Zeile ist ein zerrissenes
+    //    Wort („Boeing 747-" / „400"). Ein Absatz endet nicht so.
+    // 2. Ein Komma (oder eine schließende Klammer, ein Semikolon) am
+    //    ANFANG dieser Zeile: Kein Absatz beginnt damit — „, zurück nach
+    //    Frankfurt" ist die zweite Hälfte des Satzes darüber.
+    //
+    // Beides ist eng gefasst mit Absicht. „Fängt klein an" allein reicht
+    // NICHT: In einem frei geschriebenen Text gibt es kleingeschriebene
+    // Absatzanfänge, und ein zu Unrecht zusammengezogener Absatz ist der
+    // teurere Fehler — er ist im gedruckten Buch nicht mehr zu sehen.
+    private static func fortsetzt(vorige: String, zeile: String, grenze: Double) -> Bool {
+        if vorige.hasSuffix("-") { return true }
+        if let erstes = zeile.unicodeScalars.first, fortsetzungszeichen.contains(erstes) {
+            return true
+        }
+        guard Double(vorige.count) >= grenze else { return false }
+        let endetSatz = vorige.unicodeScalars.last.map { satzende.contains($0) } ?? false
+        let faengtKlein = zeile.first?.isLowercase ?? false
+        // Endet die Zeile mit einem Punkt, ist Schluss — es sei denn, die
+        // nächste fängt klein an (dann war der Punkt eine Abkürzung).
+        return !endetSatz || faengtKlein
+    }
+
     // Für den Fall, dass die Erkennung nicht greift, der Nutzer die Zeilen
-    // aber trotzdem zusammengeführt haben will: dieselbe Rechnung ohne die
-    // Anteilsprüfung.
+    // aber trotzdem zusammengeführt haben will: dieselbe Rechnung mit
+    // großzügiger Grenze und ohne die Anteilsprüfung.
     static func erzwingen(_ text: String) -> String {
-        pruefen(text, schwelle: 0.6, mindestanteil: 0).text
+        pruefen(text, mass: vermessen(text, schwelle: 0.6), mindestanteil: 0).text
     }
 
     // Leerzeilen zusammenfassen: Drei Leerzeilen hintereinander sind kein

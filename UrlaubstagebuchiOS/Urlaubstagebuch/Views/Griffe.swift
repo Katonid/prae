@@ -192,10 +192,24 @@ struct InlineText: View {
 
     var body: some View {
         let rahmen = block.rahmen.rect
-        TextflaecheBruecke(text: $text, bild: bild, rand: block.textrand) {
+        // Die BREITE ist fest, die HÖHE wächst mit dem Text — wie ein
+        // Textfeld in Pages. Beides steht in zwei Lagen übereinander, und
+        // das ist kein Umweg: `.frame(width:)` bietet dem Feld genau diese
+        // Breite an, `.frame(minHeight:)` hält den Kasten auf der Höhe des
+        // Blocks, solange der Text weniger braucht.
+        //
+        // **Ausgerichtet wird oben links.** Ein `.frame` beschneidet nicht:
+        // Ist das Kind größer als der angebotene Platz, steht es MITTIG
+        // über — genau das Bild aus der Meldung (09/2026: „Wieder wird beim
+        // Doppeltipp der Text außerhalb des Rahmens dargestellt"). Mit
+        // `topLeading` und der Maßangabe in `sizeThatFits` kann das nicht
+        // mehr passieren.
+        TextflaecheBruecke(text: $text, bild: bild,
+                           rand: block.textrand(werk.reise.gestaltung)) {
             fertig()
         }
-        .frame(width: rahmen.width, height: max(rahmen.height, bild.zeilenhoehe * 1.6))
+        .frame(width: rahmen.width, alignment: .topLeading)
+        .frame(minHeight: max(rahmen.height, bild.zeilenhoehe * 1.6), alignment: .topLeading)
         .background(Color.accentColor.opacity(0.07))
         .overlay(
             Rectangle().strokeBorder(Color.accentColor, lineWidth: 1.5 / massstab)
@@ -242,6 +256,33 @@ struct TextflaecheBruecke: UIViewRepresentable {
         feld.spellCheckingType = .default
         DispatchQueue.main.async { feld.becomeFirstResponder() }
         return feld
+    }
+
+    // OHNE diese Funktion nimmt SwiftUI die Größe, die sich die
+    // UIKit-Ansicht selbst ausrechnet — und ein `UITextView` mit
+    // abgeschaltetem Scrollen meldet die Größe, die sein Text BRAUCHT,
+    // nicht die, die er bekommt. War sie breiter als der Block, lief der
+    // Text über die halbe Seite: `.frame()` beschneidet nicht, es stellt
+    // ein zu großes Kind mittig hin.
+    //
+    // Zurückgegeben wird deshalb die angebotene BREITE (nie mehr) und die
+    // HÖHE, die der Text darin wirklich braucht — so wächst der Kasten
+    // beim Tippen nach unten, statt Zeilen zu verschlucken. Gemessen wird
+    // mit `sizeThatFits` des Feldes selbst, also mit demselben Umbruch, mit
+    // dem es gleich zeichnet.
+    //
+    // **Merke: Ein `UIViewRepresentable` ohne `sizeThatFits` bestimmt seine
+    // Größe selbst.**
+    func sizeThatFits(_ vorschlag: ProposedViewSize, uiView feld: UITextView,
+                      context: Context) -> CGSize?
+    {
+        guard let breite = vorschlag.width, breite > 1, breite < .infinity else {
+            return nil
+        }
+        let gemessen = feld.sizeThatFits(
+            CGSize(width: breite, height: .greatestFiniteMagnitude)
+        )
+        return CGSize(width: breite, height: max(gemessen.height, 1))
     }
 
     func updateUIView(_ feld: UITextView, context: Context) {
