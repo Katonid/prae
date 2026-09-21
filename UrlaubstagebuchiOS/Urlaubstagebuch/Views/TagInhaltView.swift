@@ -166,7 +166,7 @@ struct FotoZeile: View {
                     .frame(width: 52, height: 52)
             }
             VStack(alignment: .leading, spacing: 2) {
-                Text(foto.unterschrift.isEmpty ? "ohne Bildunterschrift" : foto.unterschrift)
+                Text(beschriftung)
                     .font(.subheadline)
                     .foregroundStyle(foto.unterschrift.isEmpty ? .secondary : .primary)
                     .lineLimit(1)
@@ -180,6 +180,24 @@ struct FotoZeile: View {
                 }
             }
             Spacer()
+            // Die Unterschrift lässt sich hier ein- und ausschalten, ohne
+            // den Block auf der Seite suchen zu müssen. Ein Muss ist sie
+            // nicht (Ansage des Nutzers, 09/2026).
+            Button {
+                werk.unterschriftUmschalten(foto.id, an: !foto.unterschriftZeigen)
+            } label: {
+                Image(systemName: foto.unterschriftZeigen
+                      ? "text.bubble.fill" : "text.bubble")
+                    .foregroundStyle(foto.unterschriftZeigen ? Color.accentColor : .secondary)
+            }
+            .buttonStyle(.borderless)
+            .accessibilityLabel(foto.unterschriftZeigen
+                                ? "Bildunterschrift ausschalten" : "Bildunterschrift zeigen")
         }
+    }
+
+    private var beschriftung: String {
+        if !foto.unterschrift.isEmpty { return foto.unterschrift }
+        return foto.unterschriftZeigen ? "Bildunterschrift noch leer" : "ohne Bildunterschrift"
     }
 }

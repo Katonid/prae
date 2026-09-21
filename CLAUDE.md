@@ -3290,9 +3290,73 @@ Befunde, und keiner davon war Geschmack:
   hingen als `.overlay` IM Block und ragten mit ihrer halben Breite über
   dessen Rahmen hinaus — **was außerhalb eines Frames liegt, nimmt in
   SwiftUI keinen Finger an**, und das nachgestellte
-  `.contentShape(Rectangle())` beschnitt den Rest. Jetzt liegen sie als
+  `.contentShape(Rectangle())` beschnitt den Rest. Daraufhin lagen sie als
   eigene Ebene über der Seite. **Merke: Ein Bedienelement, das über seinen
-  Elternrahmen hinausragt, gehört eine Ebene höher.**
+  Elternrahmen hinausragt, gehört eine Ebene höher.** Der Satz gilt
+  weiterhin — die DIAGNOSE war trotzdem nicht die Ursache, siehe der
+  nächste Punkt.
+- **Dieselbe Meldung ein zweites Mal — und die Erklärung von 1.0.2 war
+  widerlegt** (ab 1.0.5, gemeldet 09/2026: „Leider kann ich die Bilder immer
+  noch nicht verschieben oder skalieren. Und den Text kann ich zwar
+  bearbeiten und drehen, aber die Anfasser an den Seiten lassen auch hier
+  keine Änderung des Textfensters zu."). **Widerlegt durch die Meldung
+  selbst:** Der DREHGRIFF liegt als einziger ganz außerhalb des
+  Blockrahmens — und er ist der, der geht. Läge es am Hinausragen, wäre es
+  genau andersherum. Eine Erklärung, die einmal geholfen hat, ist damit noch
+  keine Ursache; das gehört gesagt, statt eine dritte Vermutung
+  danebenzustellen (dieselbe Lehre wie beim Zoomen der Abfahrtstafel, wo
+  zweimal eine Vermutung als Diagnose ausgegeben wurde).
+- **Messen ging nicht, also wurden ALLE Verdächtigen auf einmal
+  ausgeräumt** (ab 1.0.5). Es lagen mehrere übereinander, und keiner ließ
+  sich ohne Gerät von den anderen trennen: der `Textkasten` (eine
+  UIKit-Ansicht mitten im Block — die nimmt sich den Finger und gibt ihn
+  nicht weiter), die Foto- und Kartenkachel, zwei Tipp-Gesten neben einer
+  Ziehgeste an derselben Ansicht, und neun Griffe mit je eigener Geste, die
+  einander überlappen. Jetzt gilt:
+  - **Was in einem Block liegt, ist ein BILD** (`allowsHitTesting(false)`,
+    am Textkasten zusätzlich `isUserInteractionEnabled = false`). Dieselbe
+    Lehre wie bei der Netzkarte der Abfahrtstafel.
+  - **Ein Block hat GENAU EINE Geste.** Sie entscheidet an der Stelle, an
+    der der Finger aufsetzt, EINMAL, was gemeint war — sonst wechselte die
+    Bedeutung mitten im Ziehen, sobald der Finger über einen anderen Griff
+    wandert.
+  - **Wo ein Griff liegt, steht an EINER Stelle** (`Grifflage.punkte`) und
+    wird von Zeichnung UND Treffprüfung gelesen. Zwei Fassungen liefen
+    auseinander, und dann läge der sichtbare Griff woanders als der
+    wirksame — genau der Fehler, um den es hier geht.
+  - **Die Trefferfläche ist ein eigener, größerer Rahmen und kein negativer
+    Saum.** `padding(-saum)` liefe der Lehre von 1.0.2 genau entgegen.
+  - **Eine Geste wird NICHT durch den Maßstab geteilt.** Sie wird in den
+    eigenen Koordinaten der Ansicht gemeldet, an der sie hängt, und die
+    liegen innerhalb des `scaleEffect` — also schon in Seitenpunkten. Bis
+    1.0.4 wurde zusätzlich geteilt. Das ist die Lesart der Dokumentation und
+    **keine Messung**; deshalb nennt die Probe Strecke und Maßstab.
+- **Und weil sich das hier nicht messen lässt, misst es die App**
+  (`Reisewerk.letzterGriff`, Buch → Satz → „Bedienung prüfen", ab 1.0.5).
+  Eine Zeile über der Seite sagt nach jeder Ziehbewegung, was angekommen
+  ist: welcher Griff, an welcher Blockart, wie weit in Millimetern, bei
+  welchem Maßstab. Dasselbe Muster wie Schulalarms Stufenprobe und der
+  Kartenmesser der Abfahrtstafel. **Nicht als erledigt darstellen**, bevor
+  diese Zeile es sagt.
+- **Die Bildunterschrift war halb gebaut** (ab 1.0.5, Wunsch des Nutzers
+  09/2026: „zu jedem Foto einen Beschreibungstext … Dies soll jedoch eine
+  Option für jedes Foto sein. Kein muss."). Der Layoutautomat hielt Platz
+  für sie frei, das PDF zeichnete sie — auf dem Bildschirm erschien sie nie,
+  und anfassen ließ sie sich gar nicht. Sie ist jetzt ein eigener Block
+  (`Blockinhalt.bildunterschrift`), also verschiebbar, drehbar und in der
+  Größe zu ziehen; der TEXT steht weiter am Foto und reist mit ihm mit —
+  dieselbe Überlegung wie bei Überschrift und Datumszeile, die am Tag
+  stehen. **Der Kommentar über `Blockinhalt` behauptete das Gegenteil und
+  ist gestrichen.** Eingeschaltet wird je Foto (`Foto.unterschriftZeigen`),
+  im Inspektor oder mit dem Sprechblasen-Knopf in der Fotoliste; was aus
+  ist, kostet auch keinen Platz im Satz. **Der Text bleibt beim Abschalten
+  stehen**, und beim Einlesen eines älteren Buches gilt eine nicht leere
+  Unterschrift als eingeschaltet — sonst nähme eine neue Fassung
+  stillschweigend Arbeit weg, die jemand gemacht hat. Schrift, Größe und
+  Farbe stehen einmal für alle unter der Rolle „Bildunterschrift".
+  **Sie gehört zur Reihe wie das Bild selbst**: `restplatzVerteilen` schiebt
+  die Reihen auseinander, und eine Unterschrift, die dabei liegen bliebe,
+  stünde plötzlich im Bild darüber.
 - **Text wird auf der SEITE geändert, nicht im Inspektor** (`InlineText`,
   Doppeltipp). Ein `UITextView` mit denselben Attributen an derselben
   Stelle — getippt wird in der Schrift, in der gedruckt wird. Wohin der Text

@@ -17,6 +17,11 @@ struct SeitenflaecheView: View {
 
     @State private var schiebt: UUID?
     @State private var zieht: CGSize = .zero
+    // Was der Finger beim Aufsetzen gegriffen hat. Entschieden wird EINMAL,
+    // beim ersten Bildpunkt der Bewegung — sonst wechselte mitten im Ziehen
+    // die Bedeutung, sobald der Finger über einen anderen Griff wandert.
+    @State private var gegriffen: Griffart?
+    @State private var ausgangsrahmen: Rahmen?
 
     private var format: CGSize { werk.reise.format.groesse }
     private var anschnitt: Double { werk.reise.gestaltung.anschnittPt }
@@ -66,25 +71,34 @@ struct SeitenflaecheView: View {
                     .allowsHitTesting(false)
             }
 
-            // Die Griffe liegen als EIGENE Ebene über allen Blöcken.
-            //
-            // Bis 1.0.1 hingen sie als `.overlay` im Block und ragten mit
-            // ihrer halben Breite über dessen Rahmen hinaus — und was
-            // außerhalb eines Frames liegt, nimmt in SwiftUI keinen Finger
-            // an. Gemeldet 09/2026: „Ich kann ein Textfeld nicht in der
-            // Größe skalieren." Der Knopf war da und ließ sich nicht
-            // treffen; das ist für den Menschen davor dasselbe wie keiner.
+            // Die Griffe sind eine ZEICHNUNG über dem gewählten Block und
+            // nehmen keinen Finger an. Angefasst wird der Block selbst; er
+            // trägt als einziger eine Geste und entscheidet an der Stelle,
+            // an der der Finger aufsetzt, was gemeint war.
             if bearbeitbar, let block = gewaehlterBlock, werk.ausschnittsmodus != block.id,
                werk.textBearbeitung != block.id
             {
-                Griffe(werk: werk, block: block, massstab: massstab,
-                       nachbarn: buchseite.seite.bloecke.filter { $0.id != block.id })
+                Griffzeichnung(block: block, massstab: massstab, abstand: griffabstand)
             }
 
             if bearbeitbar, let id = werk.textBearbeitung,
                let block = buchseite.seite.bloecke.first(where: { $0.id == id })
             {
                 InlineText(werk: werk, block: block, tag: buchseite.tag, massstab: massstab)
+            }
+
+            // Die Probe: Was hat die Seite zuletzt entgegengenommen? Sie
+            // steht nur da, wenn jemand sie eingeschaltet hat, und sie sagt
+            // nichts als das Gemessene.
+            if bearbeitbar, werk.zeigeGriffprobe {
+                Text(werk.letzterGriff ?? "noch nichts gegriffen")
+                    .font(.system(size: 9 / massstab, design: .monospaced))
+                    .padding(.horizontal, 5 / massstab)
+                    .padding(.vertical, 3 / massstab)
+                    .background(Color.black.opacity(0.72), in: Capsule())
+                    .foregroundStyle(.white)
+                    .offset(x: satz.minX, y: satz.minY - 16 / massstab)
+                    .allowsHitTesting(false)
             }
         }
         .frame(width: bogen.width, height: bogen.height, alignment: .topLeading)
@@ -98,12 +112,23 @@ struct SeitenflaecheView: View {
         .frame(width: bogen.width * massstab, height: bogen.height * massstab)
     }
 
+    // Der Abstand des Drehgriffs über dem Block — an einer Stelle, weil
+    // Zeichnung und Treffprüfung denselben Wert brauchen.
+    private var griffabstand: Double { 32 / massstab }
+    private var greifweite: Double { 24 / massstab }
+
     @ViewBuilder
     private func blockAnsicht(_ block: Block) -> some View {
         let gewaehlt = werk.gewaehlterBlock == block.id
         let versatz = schiebt == block.id ? zieht : .zero
         let rahmen = block.rahmen
         let randPt = Druckmass.pt(block.fotorand)
+        // Ist der Block gewählt, reicht seine Trefferfläche über den Rahmen
+        // hinaus — so weit, dass die Griffe darin liegen. Sie haben keine
+        // eigene Geste mehr; getroffen wird der Block, und der rechnet
+        // hinterher aus, welcher Griff gemeint war. Damit kann kein Griff
+        // mehr „daneben" liegen.
+        let saum = gewaehlt && bearbeitbar ? max(greifweite, griffabstand + greifweite) : 0
 
         BlockInhaltView(werk: werk, block: block, tag: buchseite.tag)
             .frame(width: rahmen.breite, height: rahmen.hoehe)
@@ -118,15 +143,20 @@ struct SeitenflaecheView: View {
             .padding(-randPt)
             .frame(width: rahmen.breite, height: rahmen.hoehe)
             .rotationEffect(.degrees(block.drehung))
-            .overlay {
-                if gewaehlt, bearbeitbar {
-                    Rectangle()
-                        .strokeBorder(Color.accentColor, lineWidth: 1.5 / massstab)
-                        .allowsHitTesting(false)
-                }
-            }
-            .offset(x: rahmen.x + versatz.width, y: rahmen.y + versatz.height)
+            // Was IM Block liegt, ist ein Bild und nimmt keinen Finger an.
+            // Der Textkasten ist eine UIKit-Ansicht, und eine solche nimmt
+            // sich den Finger, ohne ihn weiterzugeben — dieselbe Lehre wie
+            // bei der Netzkarte der Abfahrtstafel.
+            .allowsHitTesting(false)
+            // Die Trefferfläche ist ein EIGENER, größerer Rahmen und kein
+            // negativer Saum. Ein Kind, das über seinen Elternrahmen
+            // hinausragt, nimmt in SwiftUI keinen Finger an — die Lehre von
+            // 1.0.2 gilt hier genauso, und ein `padding(-saum)` liefe ihr
+            // genau entgegen. Der Inhalt liegt mittig darin und damit
+            // unverrückt an seiner Stelle.
+            .frame(width: rahmen.breite + 2 * saum, height: rahmen.hoehe + 2 * saum)
             .contentShape(Rectangle())
+            .offset(x: rahmen.x - saum + versatz.width, y: rahmen.y - saum + versatz.height)
             .onTapGesture(count: 2) {
                 guard bearbeitbar, block.inhalt.istText else { return }
                 werk.gewaehlterBlock = block.id
@@ -137,54 +167,214 @@ struct SeitenflaecheView: View {
                 werk.textBearbeitung = nil
                 werk.gewaehlterBlock = gewaehlt ? nil : block.id
             }
-            .gesture(bearbeitbar && werk.textBearbeitung != block.id ? schiebegeste(block) : nil)
+            // Vorrang vor den Tipp-Gesten: Ein Tipp und eine Ziehbewegung
+            // an derselben Ansicht streiten sich sonst, und der Tipp gewinnt.
+            // Bei einer Mindeststrecke von drei Punkten kommt ein echter
+            // Tipp trotzdem durch — er bewegt sich nicht.
+            //
+            // Abgeschaltet wird über die MASKE und nicht über ein `nil`:
+            // `highPriorityGesture` nimmt keinen leeren Wert entgegen.
+            .highPriorityGesture(
+                blockgeste(block, saum: saum),
+                including: bearbeitbar && werk.textBearbeitung != block.id ? .all : .subviews
+            )
     }
 
-    // Geschoben wird in Bildschirmpunkten, gespeichert in Seitenpunkten —
-    // die Division durch den Maßstab ist der ganze Unterschied.
-    private func schiebegeste(_ block: Block) -> some Gesture {
-        DragGesture(minimumDistance: 4)
-            .onChanged { wert in
-                if werk.ausschnittsmodus == block.id {
-                    ausschnittSchieben(block, wert: wert, endgueltig: false)
-                    return
-                }
-                if schiebt != block.id {
-                    schiebt = block.id
-                    werk.gewaehlterBlock = block.id
-                    // Einmal merken, wenn die Bewegung ANFÄNGT. Bei jedem
-                    // Bildpunkt zu merken füllte den Rückgängig-Stapel mit
-                    // sechzig Zwischenständen einer einzigen Geste.
-                    werk.merken()
-                }
-                zieht = CGSize(width: wert.translation.width / massstab,
-                               height: wert.translation.height / massstab)
+    // EINE Geste je Block, und sie entscheidet an der Stelle, an der der
+    // Finger aufsetzt, was gemeint war: schieben, an einem der acht Griffe
+    // ziehen oder am Dreher drehen.
+    //
+    // Bis 1.0.3 hatte jeder Griff seine eigene Geste, und dazu trug der
+    // Block zwei Tipp-Gesten. Gemeldet wurde zweimal, dass sich Bilder
+    // nicht verschieben und Rahmen nicht ziehen lassen. Wer mehrere Gesten
+    // übereinanderlegt, muss wissen, welche gewinnt — und genau das ließ
+    // sich hier nicht messen. Also gibt es nur noch eine.
+    private func blockgeste(_ block: Block, saum: Double) -> some Gesture {
+        DragGesture(minimumDistance: 3)
+            .onChanged { wert in ziehen(block, wert: wert, saum: saum, endgueltig: false) }
+            .onEnded { wert in ziehen(block, wert: wert, saum: saum, endgueltig: true) }
+    }
+
+    // `saum` ist der Unterschied zwischen der Trefferfläche und dem Block:
+    // Die Geste hängt an der größeren Fläche, gerechnet wird in den
+    // Koordinaten des Blocks.
+    private func ziehen(_ block: Block, wert: DragGesture.Value, saum: Double,
+                        endgueltig: Bool)
+    {
+        if werk.ausschnittsmodus == block.id {
+            ausschnittSchieben(block, wert: wert, endgueltig: endgueltig)
+            return
+        }
+        let beginn = CGPoint(x: wert.startLocation.x - saum, y: wert.startLocation.y - saum)
+        let jetzt = CGPoint(x: wert.location.x - saum, y: wert.location.y - saum)
+        if gegriffen == nil {
+            let art = griffUnter(beginn, block: block)
+            gegriffen = art
+            werk.letzterGriff = "\(art.name) an \(block.inhalt.name)"
+            werk.gewaehlterBlock = block.id
+            werk.merken()
+            ausgangsrahmen = block.rahmen
+        }
+        switch gegriffen ?? .verschieben {
+        case .verschieben:
+            verschieben(block, wert: wert, endgueltig: endgueltig)
+        case .drehen:
+            drehen(block, zeigt: jetzt)
+        default:
+            groesseAendern(block, wert: wert)
+        }
+        if endgueltig {
+            werk.letzterGriff = (werk.letzterGriff ?? "") + String(
+                format: " \u{00B7} %.1f / %.1f mm \u{00B7} Maßstab %.2f",
+                Druckmass.mm(wert.translation.width),
+                Druckmass.mm(wert.translation.height), massstab)
+            gegriffen = nil
+            ausgangsrahmen = nil
+        }
+    }
+
+    // Welcher Griff liegt unter dem Finger? Gerechnet wird in den
+    // Koordinaten des Blocks; bei einem gedrehten Block wird der Punkt
+    // vorher um die Mitte zurückgedreht — die Griffe drehen ja mit.
+    private func griffUnter(_ punkt: CGPoint, block: Block) -> Griffart {
+        guard werk.gewaehlterBlock == block.id else { return .verschieben }
+        let breite = block.rahmen.breite
+        let hoehe = block.rahmen.hoehe
+        var stelle = punkt
+        if abs(block.drehung) > 0.01 {
+            let mitte = CGPoint(x: breite / 2, y: hoehe / 2)
+            let winkel = -block.drehung * .pi / 180
+            let dx = punkt.x - mitte.x
+            let dy = punkt.y - mitte.y
+            stelle = CGPoint(x: mitte.x + dx * cos(winkel) - dy * sin(winkel),
+                             y: mitte.y + dx * sin(winkel) + dy * cos(winkel))
+        }
+        return Grifflage.getroffen(stelle, breite: breite, hoehe: hoehe,
+                                   abstand: griffabstand, greifweite: greifweite) ?? .verschieben
+    }
+
+    // MARK: - Schieben
+
+    private func verschieben(_ block: Block, wert: DragGesture.Value, endgueltig: Bool) {
+        // OHNE Teilung durch den Maßstab. Eine Geste wird in den eigenen
+        // Koordinaten der Ansicht gemeldet, an der sie hängt — und die
+        // liegen INNERHALB des `scaleEffect`, also schon in Seitenpunkten.
+        // Bis 1.0.4 wurde hier zusätzlich geteilt; bei halb gezeigter Seite
+        // lief der Block damit doppelt so weit wie der Finger. Gemessen ist
+        // das nicht, deshalb nennt die Probe die Strecke und den Maßstab:
+        // Wandert der Block genau mit dem Finger, stimmt es.
+        let dx = wert.translation.width
+        let dy = wert.translation.height
+        if !endgueltig {
+            schiebt = block.id
+            zieht = CGSize(width: dx, height: dy)
+            return
+        }
+        let gefangen = Einrasten.gefangen(
+            block: block, dx: dx, dy: dy,
+            nachbarn: buchseite.seite.bloecke.filter { $0.id != block.id },
+            satz: satz,
+            toleranz: 6 / massstab
+        )
+        werk.schiebe(block.id, dx: gefangen.dx, dy: gefangen.dy, merken: false)
+        schiebt = nil
+        zieht = .zero
+    }
+
+    // MARK: - Drehen
+
+    // Gedreht wird um die MITTE, und der Winkel kommt aus dem Zeiger von der
+    // Mitte zum Finger — nicht aus der Wegstrecke. Eine Drehung aus der
+    // Verschiebung dreht am Rand schneller als in der Mitte.
+    private func drehen(_ block: Block, zeigt: CGPoint) {
+        let mitte = CGPoint(x: block.rahmen.breite / 2, y: block.rahmen.hoehe / 2)
+        let zeiger = CGPoint(x: zeigt.x - mitte.x, y: zeigt.y - mitte.y)
+        var grad = atan2(zeiger.x, -zeiger.y) * 180 / .pi
+        // Bei Vielfachen von 45 Grad rastet sie ein: Ein Bild, das um 0,4
+        // Grad schief steht, sieht nicht gewollt aus, sondern nach einem
+        // Versehen.
+        for rast in stride(from: -180.0, through: 180.0, by: 45) where abs(grad - rast) < 3 {
+            grad = rast
+        }
+        werk.aendere(block.id, merken: false) { $0.drehung = grad }
+    }
+
+    // MARK: - Größe
+
+    private func groesseAendern(_ block: Block, wert: DragGesture.Value) {
+        guard let ausgang = ausgangsrahmen, let art = gegriffen else { return }
+        let richtung = art.zieht
+        let dx = wert.translation.width
+        let dy = wert.translation.height
+
+        var neu = ausgang
+        if richtung.waagerecht < 0 {
+            neu.x = ausgang.x + dx
+            neu.breite = ausgang.breite - dx
+        } else if richtung.waagerecht > 0 {
+            neu.breite = ausgang.breite + dx
+        }
+        if richtung.senkrecht < 0 {
+            neu.y = ausgang.y + dy
+            neu.hoehe = ausgang.hoehe - dy
+        } else if richtung.senkrecht > 0 {
+            neu.hoehe = ausgang.hoehe + dy
+        }
+        // Unter dieser Größe ist ein Block nicht mehr zu treffen — und ein
+        // Block, den man nicht mehr anfassen kann, ist verloren.
+        neu.breite = max(neu.breite, 24)
+        neu.hoehe = max(neu.hoehe, 14)
+
+        var kantenX: [Double] = [satz.minX, satz.maxX, satz.midX]
+        var kantenY: [Double] = [satz.minY, satz.maxY, satz.midY]
+        if werk.reise.gestaltung.anschnitt > 0.5 {
+            let bogen = werk.reise.gestaltung.randabfallend(werk.reise.format)
+            kantenX.append(contentsOf: [bogen.minX, bogen.maxX])
+            kantenY.append(contentsOf: [bogen.minY, bogen.maxY])
+        }
+        for nachbar in buchseite.seite.bloecke where nachbar.id != block.id {
+            let r = nachbar.rahmen.rect
+            kantenX.append(contentsOf: [r.minX, r.maxX])
+            kantenY.append(contentsOf: [r.minY, r.maxY])
+        }
+        let toleranz = 7 / massstab
+        if richtung.waagerecht < 0 {
+            let gefangen = Einrasten.kanteGefangen(neu.x, kanten: kantenX, toleranz: toleranz)
+            neu.breite += neu.x - gefangen
+            neu.x = gefangen
+        } else if richtung.waagerecht > 0 {
+            let rechts = Einrasten.kanteGefangen(neu.x + neu.breite, kanten: kantenX,
+                                                 toleranz: toleranz)
+            neu.breite = rechts - neu.x
+        }
+        if richtung.senkrecht < 0 {
+            let gefangen = Einrasten.kanteGefangen(neu.y, kanten: kantenY, toleranz: toleranz)
+            neu.hoehe += neu.y - gefangen
+            neu.y = gefangen
+        } else if richtung.senkrecht > 0 {
+            let unten = Einrasten.kanteGefangen(neu.y + neu.hoehe, kanten: kantenY,
+                                                toleranz: toleranz)
+            neu.hoehe = unten - neu.y
+        }
+
+        werk.aendere(block.id, merken: false) { b in
+            b.rahmen = neu
+            // Wird ein Foto größer gezogen, bleibt sein Ausschnitt gültig —
+            // aber nur, wenn er den neuen Rahmen noch füllt.
+            if let id = b.fotoID, let foto = werk.reise.foto(id) {
+                b.ausschnitt = b.ausschnitt.begrenzt(
+                    bildgroesse: CGSize(width: foto.breite, height: foto.hoehe),
+                    rahmen: neu.rect)
             }
-            .onEnded { wert in
-                if werk.ausschnittsmodus == block.id {
-                    ausschnittSchieben(block, wert: wert, endgueltig: true)
-                    return
-                }
-                let dx = wert.translation.width / massstab
-                let dy = wert.translation.height / massstab
-                let gefangen = Einrasten.gefangen(
-                    block: block, dx: dx, dy: dy,
-                    nachbarn: buchseite.seite.bloecke.filter { $0.id != block.id },
-                    satz: satz,
-                    toleranz: 6 / massstab
-                )
-                werk.schiebe(block.id, dx: gefangen.dx, dy: gefangen.dy, merken: false)
-                schiebt = nil
-                zieht = .zero
-            }
+        }
     }
 
     private func ausschnittSchieben(_ block: Block, wert: DragGesture.Value, endgueltig: Bool) {
         guard let id = block.fotoID, let foto = werk.reise.foto(id) else { return }
         let rahmen = block.rahmen.rect
         let bildgroesse = CGSize(width: foto.breite, height: foto.hoehe)
-        let dx = wert.translation.width / massstab / max(rahmen.width, 1)
-        let dy = wert.translation.height / massstab / max(rahmen.height, 1)
+        let dx = wert.translation.width / max(rahmen.width, 1)
+        let dy = wert.translation.height / max(rahmen.height, 1)
         werk.aendere(block.id, merken: endgueltig) { block in
             var neu = block.ausschnitt
             neu.versatzX += dx
@@ -282,6 +472,21 @@ struct BlockInhaltView: View {
                 text: Seitensatz.inhaltstext(block, tag: tag, reise: werk.reise),
                 bild: Seitensatz.schriftbild(block, reise: werk.reise)
             )
+        case .bildunterschrift:
+            let text = Seitensatz.inhaltstext(block, tag: tag, reise: werk.reise)
+            if text.isEmpty {
+                // Nur auf dem Bildschirm und nie im PDF: Eine eingeschaltete
+                // Unterschrift ohne Text wäre sonst eine unsichtbare Fläche,
+                // die sich nicht antippen lässt, weil niemand weiß, wo sie
+                // liegt.
+                Text("Bildunterschrift \u{2026}")
+                    .font(.system(size: max(werk.reise.typografie.bildunterschrift.groesse, 5)))
+                    .foregroundStyle(.tertiary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            } else {
+                Textkasten(text: text,
+                           bild: Seitensatz.schriftbild(block, reise: werk.reise))
+            }
         case .linie:
             Rectangle()
                 .fill((block.rand ?? werk.reise.akzent).farbe.opacity(0.55))

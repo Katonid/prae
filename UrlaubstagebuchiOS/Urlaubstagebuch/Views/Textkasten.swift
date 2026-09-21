@@ -17,6 +17,11 @@ struct Textkasten: UIViewRepresentable {
         let ansicht = TextkastenView()
         ansicht.backgroundColor = .clear
         ansicht.isOpaque = false
+        // Eine UIKit-Ansicht nimmt sich den Finger und gibt ihn nicht
+        // weiter — auch eine, die nichts tut als zeichnen. Damit wäre jeder
+        // Textblock auf der Seite unverschiebbar, und zwar nur der Text;
+        // ein Fehler, den man am Quelltext der Seite nicht sieht.
+        ansicht.isUserInteractionEnabled = false
         return ansicht
     }
 

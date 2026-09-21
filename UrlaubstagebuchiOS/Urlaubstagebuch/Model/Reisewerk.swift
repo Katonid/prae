@@ -18,6 +18,18 @@ final class Reisewerk: ObservableObject, Identifiable {
     @Published var seitenzeiger: Int = 0
     @Published var meldung: Meldung?
     @Published var beschaeftigt: String?
+    // Was die Seite bei der letzten Ziehbewegung entgegengenommen hat.
+    //
+    // Das ist eine PROBE und keine Zugabe: Dass sich Bilder nicht
+    // verschieben lassen, wurde zweimal gemeldet, und beide Male ließ sich
+    // hier nicht messen, woran es liegt — es gab mehrere Verdächtige und
+    // kein Gerät, sie zu trennen. Diese Zeile sagt beim nächsten Mal, ob
+    // die Geste überhaupt ankam und als was sie gelesen wurde. Dasselbe
+    // Muster wie die Stufenprobe bei Schulalarm und der Kartenmesser der
+    // Abfahrtstafel: Wo sich eine Ursache nicht erschließen lässt, muss
+    // eine Probe entscheiden.
+    @Published var letzterGriff: String?
+    @Published var zeigeGriffprobe = false
     // Kein `@AppStorage` in einem `ObservableObject`: Der Wrapper ist eine
     // `DynamicProperty` und gehört in eine View. Hier schriebe er zwar in
     // die Voreinstellungen, löste aber kein `objectWillChange` aus — die
@@ -202,16 +214,65 @@ final class Reisewerk: ObservableObject, Identifiable {
         reise.tage[stelle.tag].seiten[stelle.seite].bloecke[stelle.block] = block
     }
 
+    // Die Bildunterschrift eines Fotos ein- und ausschalten.
+    //
+    // Sie wird SOFORT gesetzt oder weggenommen und nicht erst beim nächsten
+    // Neuanordnen: Ein Schalter, nach dem auf der Seite nichts passiert,
+    // ist für den Menschen davor ein kaputter Schalter. Den ganzen Tag neu
+    // zu setzen wäre die andere Möglichkeit und die schlechtere — sie
+    // nähme jede Handarbeit mit.
+    func unterschriftUmschalten(_ fotoID: UUID, an: Bool) {
+        merken()
+        if var foto = reise.foto(fotoID) {
+            foto.unterschriftZeigen = an
+            reise.setzeFoto(foto)
+        }
+        let bild = reise.typografie.bildunterschrift
+        let text = reise.foto(fotoID)?.unterschrift ?? ""
+        for t in reise.tage.indices {
+            for s in reise.tage[t].seiten.indices {
+                if !an {
+                    reise.tage[t].seiten[s].bloecke.removeAll {
+                        $0.inhalt == .bildunterschrift(fotoID)
+                    }
+                    continue
+                }
+                guard !reise.tage[t].seiten[s].bloecke.contains(where: {
+                    $0.inhalt == .bildunterschrift(fotoID)
+                }), let stelle = reise.tage[t].seiten[s].bloecke.firstIndex(where: {
+                    $0.fotoID == fotoID
+                }) else { continue }
+                let fotoblock = reise.tage[t].seiten[s].bloecke[stelle]
+                let hoehe = Textmass.hoehe(text.isEmpty ? "Bildunterschrift" : text,
+                                           bild: bild, breite: fotoblock.rahmen.breite)
+                let neu = Block(
+                    inhalt: .bildunterschrift(fotoID),
+                    rahmen: Rahmen(x: fotoblock.rahmen.x,
+                                   y: fotoblock.rahmen.y + fotoblock.rahmen.hoehe + 3,
+                                   breite: fotoblock.rahmen.breite, hoehe: hoehe)
+                )
+                reise.tage[t].seiten[s].bloecke.insert(neu, at: stelle + 1)
+            }
+        }
+    }
+
     // Wohin ein auf der Seite geänderter Text gehört, hängt an der Blockart:
     // Der Fließtext steckt im Block, die Überschrift und die Datumszeile am
-    // TAG. Sie in den Block zu schreiben wäre der bequeme Weg und der
-    // falsche — beim nächsten Neuanordnen entstünde ein neuer Block, und die
-    // Änderung wäre weg.
+    // TAG, die Bildunterschrift am FOTO. Alles in den Block zu schreiben
+    // wäre der bequeme Weg und der falsche — beim nächsten Neuanordnen
+    // entstünde ein neuer Block, und die Änderung wäre weg.
     func textSchreiben(_ id: UUID, text: String) {
         guard let stelle = block(id) else { return }
         merken()
         let art = reise.tage[stelle.tag].seiten[stelle.seite].bloecke[stelle.block].inhalt
         switch art {
+        case let .bildunterschrift(fotoID):
+            // Sie gehört dem Foto und reist mit ihm mit.
+            if var foto = reise.foto(fotoID) {
+                foto.unterschrift = text
+                if !text.isEmpty { foto.unterschriftZeigen = true }
+                reise.setzeFoto(foto)
+            }
         case .titel:
             reise.tage[stelle.tag].ueberschrift = text
         case .datum:

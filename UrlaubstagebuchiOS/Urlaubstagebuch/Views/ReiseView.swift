@@ -225,6 +225,7 @@ struct ReiseView: View {
                 }
                 Divider()
                 Toggle("Satzspiegel zeigen", isOn: $werk.zeigeSatzspiegel)
+                Toggle("Bedienung prüfen", isOn: $werk.zeigeGriffprobe)
             } label: {
                 Label("Satz", systemImage: "wand.and.stars")
             }

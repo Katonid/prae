@@ -224,6 +224,11 @@ enum Seitensatz {
             return datumstext(tag, reise: reise)
         case let .text(wert):
             return wert
+        case let .bildunterschrift(id):
+            // Der Text steht am FOTO, nicht im Block: Sonst wäre er beim
+            // nächsten Neuanordnen weg, und wer ein Bild auf eine andere
+            // Seite zieht, ließe seine Unterschrift zurück.
+            return reise.foto(id)?.unterschrift ?? ""
         default:
             return ""
         }

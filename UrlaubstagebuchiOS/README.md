@@ -378,7 +378,7 @@ Sechs Befunde aus einem ausgegebenen PDF, alle behoben:
 | --- | --- | --- |
 | Jede Zeile ein eigener Absatz | Der Text war hart umbrochen, Zeilen durch Leerzeilen getrennt | `Textaufbereitung` erkennt das an der Zeilenlänge und führt zusammen |
 | Text endete mitten im Satz | Der Notausgang gegen Endlosschleifen warf den Rest weg | Neue Seite; passt es nirgends, läuft der Text sichtbar über |
-| Griffe nicht zu treffen | Sie ragten über den Blockrahmen hinaus — dort nimmt SwiftUI keinen Finger an | Eigene Ebene über der Seite, dazu ein Drehgriff |
+| Griffe nicht zu treffen | Damals angenommen: Sie ragten über den Blockrahmen hinaus. Das war nur die halbe Wahrheit — siehe unten, 1.0.5 | Eine Geste je Block; die Griffe sind nur noch gezeichnet |
 | Text nur im Inspektor änderbar | — | Doppeltipp öffnet ein Textfeld an Ort und Stelle, in der Druckschrift |
 | Datumszeile fest | — | Sieben Formate für das Buch, je Tag überschreibbar |
 | Kein Seitenhintergrund | — | Einfarbig, Verlauf, Foto mit Schleier, Papierkorn — global und je Seite |
@@ -387,8 +387,101 @@ Dazu: Fotos lassen sich drehen (Griff über dem Block, rastet bei 45°),
 überlappen (Ebene) und der Restplatz einer Seite wird zwischen den
 Fotoreihen verteilt statt unten liegen gelassen.
 
+## Die Anfasser, zum zweiten Mal (1.0.5)
+
+Gemeldet 09/2026, nach 1.0.4: „Leider kann ich die Bilder immer noch nicht
+verschieben oder skalieren. Und den Text kann ich zwar bearbeiten und
+drehen, aber die Anfasser an den Seiten lassen auch hier keine Änderung des
+Textfensters zu."
+
+**Die Erklärung von 1.0.2 war damit widerlegt**, und zwar durch die Meldung
+selbst: Der DREHGRIFF liegt als einziger ganz außerhalb des Blockrahmens —
+er ist der, der geht. Läge es am Hinausragen, wäre es genau andersherum.
+Was hier stand, war also eine Vermutung, die einmal geholfen hat und die
+Ursache nicht war; das gehört gesagt, statt eine dritte Vermutung
+danebenzustellen.
+
+Messen ließ es sich hier nicht — es gibt kein Gerät in der Bauumgebung, und
+gleich mehrere Verdächtige lagen übereinander:
+
+* der `Textkasten`, eine UIKit-Ansicht mitten im Block; eine solche nimmt
+  sich den Finger und gibt ihn nicht weiter,
+* die Karte und die Fotokachel darunter,
+* zwei Tipp-Gesten und eine Ziehgeste an derselben Ansicht, die sich um den
+  Vorrang streiten,
+* neun Griffe als eigene Ebene, jeder mit eigener Geste, die einander
+  überlappen.
+
+Deshalb sind jetzt **alle auf einmal** weg statt einer nach dem anderen:
+
+* Was in einem Block liegt, ist ein BILD (`allowsHitTesting(false)`) — auch
+  der Textkasten (`isUserInteractionEnabled = false`). Dieselbe Lehre wie
+  bei der Netzkarte der Abfahrtstafel: Eine Geste gehört der Fläche, was
+  darauf liegt, ist Zeichnung.
+* Ein Block hat **genau eine** Ziehgeste. Sie entscheidet an der Stelle, an
+  der der Finger aufsetzt, EINMAL, was gemeint war — schieben, an einer der
+  acht Kanten und Ecken ziehen oder drehen (`Grifflage.getroffen`).
+* Die Griffe sind eine reine Zeichnung. Wo sie liegen, steht an EINER
+  Stelle (`Grifflage.punkte`) und wird von Zeichnung und Treffprüfung
+  gemeinsam gelesen — damit kann der sichtbare Griff nicht mehr woanders
+  liegen als der wirksame.
+* Die Trefferfläche des gewählten Blocks ist ein eigener, größerer Rahmen —
+  **kein negativer Saum**: Ein Kind, das über seinen Elternrahmen
+  hinausragt, nimmt in SwiftUI wirklich keinen Finger an, und das war an
+  1.0.2 richtig.
+* Die Strecke einer Geste wird **nicht mehr durch den Maßstab geteilt**.
+  Eine Geste wird in den eigenen Koordinaten der Ansicht gemeldet, an der
+  sie hängt, und die liegen innerhalb des `scaleEffect` — also schon in
+  Seitenpunkten. Das ist die Lesart der Dokumentation und keine Messung.
+
+**Und weil sich das hier nicht messen lässt, misst es die App.**
+Buch → Satz → „Bedienung prüfen" legt eine Zeile über die Seite, die nach
+jeder Ziehbewegung sagt, was angekommen ist: welcher Griff, an welcher
+Blockart, wie weit in Millimetern, bei welchem Maßstab. Dasselbe Muster wie
+die Stufenprobe bei Schulalarm und der Kartenmesser der Abfahrtstafel — nach
+zwei falschen Vermutungen ist das keine Zugabe mehr, sondern die Arbeit
+selbst. **Nicht als erledigt darstellen**, bevor diese Zeile es sagt.
+
+## Bildunterschriften (1.0.5)
+
+Gewünscht 09/2026: „Ich möchte zu jedem Foto einen Beschreibungstext
+zufügen können … Dies soll jedoch eine Option für jedes Foto sein. Kein
+muss."
+
+Dabei kam heraus, dass die Unterschrift eine **halb gebaute** Sache war:
+Der Layoutautomat hielt Platz für sie frei, das PDF zeichnete sie — auf dem
+Bildschirm erschien sie nie, und anfassen ließ sie sich gar nicht. Ein Feld
+im Inspektor gab es, aber keinen Weg zu sehen, was es bewirkt.
+
+* **Sie ist jetzt ein eigener Block** (`Blockinhalt.bildunterschrift`) und
+  damit verschiebbar, drehbar und in der Größe zu ziehen wie jeder andere.
+  Der TEXT steht weiter am Foto: Wer ein Bild auf eine andere Seite zieht,
+  soll seine Unterschrift nicht zurücklassen, und beim Neuanordnen darf sie
+  nicht verschwinden — dieselbe Überlegung wie bei Überschrift und
+  Datumszeile, die am Tag stehen.
+* **Eingeschaltet wird sie je Foto** (`Foto.unterschriftZeigen`), im
+  Inspektor oder mit dem Sprechblasen-Knopf in der Fotoliste des Tages. Was
+  aus ist, kostet auch keinen Platz im Satz. Der Text bleibt beim
+  Ausschalten stehen — wer sie wieder anschaltet, soll seinen Satz
+  wiederfinden.
+* **Schrift, Größe und Farbe stellt man einmal für alle ein**, unter
+  Buch → Schrift, Rolle „Bildunterschrift"; je Block lässt sich davon
+  abweichen wie überall sonst.
+* **Wer schon eine Unterschrift getippt hatte, behält sie sichtbar**: Beim
+  Einlesen eines älteren Buches gilt ein nicht leerer Text als
+  eingeschaltet.
+* Ein eingeschalteter, aber noch leerer Kasten steht auf dem Bildschirm als
+  blasses „Bildunterschrift …" da und im PDF gar nicht. Eine unsichtbare
+  Fläche, die sich nicht antippen lässt, weil niemand weiß, wo sie liegt,
+  wäre der schlechtere Tausch.
+
 ## Offene Punkte
 
+* **Ob die Anfasser jetzt gehen, ist NICHT gemessen.** Es ist die dritte
+  Erklärung in dieser Sache; die erste war eine Vermutung, die zweite eine,
+  die der Nutzer widerlegt hat. Gebaut ist der Ausschluss aller Verdächtigen
+  auf einmal, dazu die Probe „Bedienung prüfen". Erst was sie anzeigt, ist
+  ein Befund.
 * **Die Schrifteinbettung ist halb gemessen.** Die App liest aus jeder
   benutzten Schrift, ob sie eingebettet werden DARF (`fsType` der
   OS/2-Tabelle) — das ist eine echte Messung. Ob CoreGraphics sie dann
