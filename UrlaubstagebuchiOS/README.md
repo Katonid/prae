@@ -434,10 +434,48 @@ Deshalb sind jetzt **alle auf einmal** weg statt einer nach dem anderen:
   sie hängt, und die liegen innerhalb des `scaleEffect` — also schon in
   Seitenpunkten. Das ist die Lesart der Dokumentation und keine Messung.
 
+## Und dann kam der Befund, der die Sache erklärt (1.0.5)
+
+Noch im selben Durchgang gemeldet: „Es scheint wohl ein größeres Problem zu
+sein, denn ich habe mitunter auch Schwierigkeiten, Textblöcke auswählen zu
+können."
+
+**Damit ist es nicht mehr die Geste, sondern schon der TIPP** — und das
+erklärt beides auf einmal. Zwei Gründe, und beide sind am Quelltext
+nachzurechnen statt zu plausibeln:
+
+1. **Ein Textblock ist FLACH.** Eine Datumszeile misst rund 14 Seitenpunkte;
+   eine A4-Seite auf einem iPhone wird mit gut halbem Maßstab gezeigt, also
+   sind das **sieben Bildschirmpunkte**. Apple nennt 44 als Mindestmaß für
+   ein Fingerziel. Eine Trefferfläche, die genau so groß ist wie das
+   Gezeichnete, ist bei Text damit grundsätzlich zu klein — unabhängig von
+   jeder Gestenfrage. Das trifft die Textblöcke und sonst kaum etwas, und
+   genau so wurde es gemeldet.
+2. **Die Gesten lagen übereinander** (siehe oben).
+
+Gebaut ist deshalb dieselbe Trennung wie bei der Netzkarte der
+Abfahrtstafel: **Ein Block ist eine Zeichnung, die SEITE nimmt den Finger
+entgegen.**
+
+* Der Tipp geht an die Seite. Sie sucht hinterher, was gemeint war — erst
+  genau, dann im Umkreis einer knappen Fingerbreite (20 Punkte), jeweils von
+  oben nach unten, damit bei zwei übereinanderliegenden Blöcken der gewinnt,
+  den man sieht. Gerechnet wird erst, wenn klar ist, dass ein Tipp gemeint
+  war; die Fangweite kostet also keine Fläche.
+* **Die Ziehgeste liegt NUR über dem gewählten Block** samt Griffsaum. Das
+  ist kein Detail: Die Seite steckt in einem `ScrollView`, und eine Geste
+  über der ganzen Fläche nähme ihm das Blättern. Ein Tipp tut das nicht —
+  also **erst antippen, dann anfassen**. Wo keine Auswahl ist, scrollt die
+  Seite wie zuvor.
+* Die Tipps hängen auch an dieser Ziehfläche. Ohne das käme über dem
+  gewählten Block kein Tipp mehr an — weder das Abwählen noch der
+  Doppeltipp, der den Text öffnet.
+
 **Und weil sich das hier nicht messen lässt, misst es die App.**
 Buch → Satz → „Bedienung prüfen" legt eine Zeile über die Seite, die nach
 jeder Ziehbewegung sagt, was angekommen ist: welcher Griff, an welcher
-Blockart, wie weit in Millimetern, bei welchem Maßstab. Dasselbe Muster wie
+Blockart, wie weit in Millimetern, bei welchem Maßstab — und nach jedem
+Tipp, ob er einen Block getroffen hat oder ins Leere ging. Dasselbe Muster wie
 die Stufenprobe bei Schulalarm und der Kartenmesser der Abfahrtstafel — nach
 zwei falschen Vermutungen ist das keine Zugabe mehr, sondern die Arbeit
 selbst. **Nicht als erledigt darstellen**, bevor diese Zeile es sagt.

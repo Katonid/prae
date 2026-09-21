@@ -3331,11 +3331,38 @@ Befunde, und keiner davon war Geschmack:
     liegen innerhalb des `scaleEffect` — also schon in Seitenpunkten. Bis
     1.0.4 wurde zusätzlich geteilt. Das ist die Lesart der Dokumentation und
     **keine Messung**; deshalb nennt die Probe Strecke und Maßstab.
+- **Der Befund, der die Sache erklärt: auch das AUSWÄHLEN geht nicht**
+  (gemeldet 09/2026, noch im selben Durchgang: „Es scheint wohl ein größeres
+  Problem zu sein, denn ich habe mitunter auch Schwierigkeiten, Textblöcke
+  auswählen zu können."). Damit ist es nicht die Geste, sondern schon der
+  TIPP. Zwei Gründe, beide am Quelltext nachzurechnen:
+  - **Ein Textblock ist FLACH.** Eine Datumszeile misst rund 14
+    Seitenpunkte; eine A4-Seite wird auf einem iPhone mit gut halbem Maßstab
+    gezeigt, also sieben Bildschirmpunkte. Apple nennt 44 als Mindestmaß für
+    ein Fingerziel. **Eine Trefferfläche in Größe des Gezeichneten ist bei
+    Text grundsätzlich zu klein** — unabhängig von jeder Gestenfrage, und
+    das trifft die Textblöcke und sonst kaum etwas.
+  - Die Gesten lagen übereinander (Punkt darüber).
+- **Also: Ein Block ist eine ZEICHNUNG, die SEITE nimmt den Finger
+  entgegen** (ab 1.0.5) — dieselbe Trennung wie bei der Netzkarte der
+  Abfahrtstafel. Die Seite sucht HINTERHER, was gemeint war: erst genau,
+  dann im Umkreis einer knappen Fingerbreite (`fangweite`, 20 Punkte),
+  jeweils von oben nach unten, damit bei zwei übereinanderliegenden Blöcken
+  der gewinnt, den man sieht. Damit kostet die Fangweite keine Fläche.
+- **Die Ziehgeste liegt NUR über dem gewählten Block** samt Griffsaum, und
+  das ist kein Detail: Die Seite steckt in einem `ScrollView`, und eine
+  Ziehgeste über der ganzen Fläche nähme ihm das Blättern. Ein Tipp tut das
+  nicht — deshalb **erst antippen, dann anfassen**; wo keine Auswahl ist,
+  scrollt die Seite wie zuvor. **Die Tipps hängen mit auf dieser Fläche**,
+  sonst käme über dem gewählten Block keiner mehr an (kein Abwählen, kein
+  Doppeltipp für den Text). **Wer eine Geste über eine ganze Fläche legt,
+  prüft, was diese Fläche sonst noch tut.**
 - **Und weil sich das hier nicht messen lässt, misst es die App**
   (`Reisewerk.letzterGriff`, Buch → Satz → „Bedienung prüfen", ab 1.0.5).
   Eine Zeile über der Seite sagt nach jeder Ziehbewegung, was angekommen
   ist: welcher Griff, an welcher Blockart, wie weit in Millimetern, bei
-  welchem Maßstab. Dasselbe Muster wie Schulalarms Stufenprobe und der
+  welchem Maßstab — und nach jedem Tipp, ob er einen Block getroffen hat
+  oder ins Leere ging. Dasselbe Muster wie Schulalarms Stufenprobe und der
   Kartenmesser der Abfahrtstafel. **Nicht als erledigt darstellen**, bevor
   diese Zeile es sagt.
 - **Die Bildunterschrift war halb gebaut** (ab 1.0.5, Wunsch des Nutzers
