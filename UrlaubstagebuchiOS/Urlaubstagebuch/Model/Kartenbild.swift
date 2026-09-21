@@ -77,6 +77,34 @@ struct Kartenbild: Codable, Hashable {
     // Der Schlüssel für den Zwischenspeicher. Er muss ALLES nennen, was das
     // Bild verändert — eine vergessene Stelle zeigt nach dem Umstellen das
     // Bild von vorhin, und das sieht aus, als tue der Schalter nichts.
+    // Ein Leser von Hand, aus demselben Grund wie bei `Reise` und
+    // `Reisetag` (siehe `Model/Nachsicht.swift`): Der erzeugte verlangt
+    // JEDEN Schlüssel, auch einen mit Vorgabewert. `beschriftung` kam in
+    // 1.0.11 dazu — ohne diesen Leser wäre jede vorher gesicherte
+    // Karteneinstellung beim Öffnen weg, und zwar stillschweigend, weil
+    // `wahlweise` den Fehler schluckt.
+    init(from decoder: Decoder) throws {
+        let b = try decoder.container(keyedBy: CodingKeys.self)
+        quelle = b.wert(.quelle, .apple)
+        stil = b.wert(.stil, .gedaempft)
+        helle = b.wert(.helle, .hell)
+        beschriftung = b.wert(.beschriftung, .wenige)
+        vorlage = b.wert(.vorlage, "")
+        eigenerNachweis = b.wert(.eigenerNachweis, "")
+    }
+
+    init(quelle: Kartenquelle = .apple, stil: Kartenstil = .gedaempft,
+         helle: Kartenhelle = .hell, beschriftung: Kartenbeschriftung = .wenige,
+         vorlage: String = "", eigenerNachweis: String = "")
+    {
+        self.quelle = quelle
+        self.stil = stil
+        self.helle = helle
+        self.beschriftung = beschriftung
+        self.vorlage = vorlage
+        self.eigenerNachweis = eigenerNachweis
+    }
+
     var merkmal: String {
         "\(quelle.rawValue)|\(stil.rawValue)|\(helle.rawValue)|\(beschriftung.rawValue)|\(vorlage)"
     }
@@ -156,9 +184,13 @@ enum Kartenbeschriftung: String, Codable, CaseIterable, Identifiable {
             // Sehenswürdigkeiten. Was wegfällt: jedes Café und jeder
             // Friseur — die machen eine Stadtkarte unlesbar und sagen über
             // eine Reise nichts.
+            // Nur Kategorien, die es SEIT iOS 13 gibt. `.landmark` und
+            // `.castle` wären die naheliegenden für eine Reisekarte und
+            // kamen erst mit iOS 18 — diese App baut gegen iOS 17, und ein
+            // `@available` für eine Zierde wäre der falsche Preis.
             return MKPointOfInterestFilter(including: [
                 .airport, .publicTransport, .beach, .nationalPark, .park,
-                .museum, .castle, .landmark, .marina, .campground,
+                .museum, .marina, .campground, .zoo, .aquarium, .stadium,
             ])
         case .keine: return .excludingAll
         }
