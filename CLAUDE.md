@@ -4028,6 +4028,102 @@ Befunde, und keiner davon war Geschmack:
   anfiel; ob das Gerät danach flüssig ist, sagt erst der nächste Befund. Die
   Zahl der gezeichneten Korn-Punkte ist unverändert — nur der Zufall daran ist
   weg. **Nicht als erledigt darstellen.**
+- **Zwei Finger zoomen die SEITE — außer über einem gewählten Foto** (`seitenzoom`,
+  ab 1.0.17, Ansage des Nutzers 09/2026: „Ich weiß, dass es links einen Regler
+  gibt, aber der ist mir zu umständlich zu bedienen. Eine Zwei-Finger-Geste auf
+  die Seite wäre mir lieber."). Die Geste hängt am INHALT der Bühne, nicht an
+  einer einzelnen Seite: Gezoomt wird das Blatt und nicht, was darauf liegt.
+  **Damit gibt es erstmals zwei Bedeutungen für dieselbe Geste** — seit 1.0.8
+  vergrößern zwei Finger über dem gewählten Foto den Bildausschnitt IM Rahmen,
+  und der Satz „die Seite selbst wird nicht mit zwei Fingern gezoomt, es gibt
+  also nichts, womit sich die Geste streiten könnte" stand genau deshalb im
+  Papier. Aufgelöst wird das an EINER Stelle (`seitenzoomErlaubt`): Ist ein Foto
+  gewählt oder der Ausschnittsmodus an, gehört die Geste dem Bild, sonst der
+  Seite. **Das ist erlaubt, weil der Unterschied SICHTBAR ist** (die Anfasser
+  stehen da, ein Tipp daneben hebt die Auswahl auf) und weil es daneben immer
+  einen Weg gibt, der nicht von der Auswahl abhängt: die Lupen unten links.
+  Dieselbe Regel wie beim Fußwegmesser der Abfahrtstafel — **ein Modus, den man
+  nicht sieht, darf die Bedeutung einer Geste nicht ändern.**
+- **`magnification` ist die GESAMTE Bewegung seit dem Aufsetzen** — gerechnet
+  wird vom Maßstab beim Aufsetzen (`zoomAnfang`) und nie vom laufenden Wert,
+  sonst beschleunigt der Zoom mit jedem Bildpunkt. Dieselbe Falle wie beim
+  Bildausschnitt in 1.0.8, jetzt zum zweiten Mal.
+- **Der eingepasste Maßstab wird GEMESSEN, nicht geschätzt** (`passenderMassstab`,
+  `buehnenbreite`, ab 1.0.17, beim Bau der Geste gefunden). `massstabJetzt` gab
+  bei eingepasster Ansicht eine feste **0,7** zurück — eine Zahl, die mit dem
+  Bild auf dem Schirm nichts zu tun hat. Die Lupen sprangen damit beim ersten
+  Tipp aus der eingepassten Ansicht auf 0,56 bzw. 0,875, egal wie groß die
+  Seite gerade stand, und die neue Geste hätte denselben Sprung gemacht.
+  Gemessen wird die Bühnenbreite über `onChange(of: raum.size.width)` und
+  gemerkt in `@State` — **nicht im Körper geschrieben**: Ein `@State`, das
+  während des Zeichnens gesetzt wird, löst das nächste Zeichnen aus.
+- **Seite 1 ist eine RECHTE Seite** (`Reisewerk.Doppelseite`,
+  `Views/DoppelseiteView.swift`, ab 1.0.17, Ansage des Nutzers 09/2026: „Ein
+  Buch hat ja Seiten mit Vorder- und Rückseite. Und auf das Titelblatt kommt ja
+  zunächst einmal die Innenseite des Hardcovers, bevor die erste wirkliche
+  Buchseite anfängt."). Das ist Buchbinderei und keine Geschmacksfrage: Ein
+  Recto trägt eine ungerade Nummer. Der erste Bogen zeigt also rechts die
+  Seite 1 und links die **Innenseite des Umschlags** — beim Hardcover das
+  Vorsatzpapier. Die kommt von der Druckerei, steht in KEINEM PDF und zählt in
+  keiner Seitenzahl; gezeigt wird sie trotzdem, denn sonst läge die Seite 1
+  links und damit falsch. **Und sie steht mit ihrem Namen da** („Kommt von der
+  Druckerei – nicht im PDF"): Eine leere graue Fläche ohne ein Wort hielte man
+  für einen Fehler. Am anderen Ende gilt dasselbe — eine fehlende rechte Seite
+  kann es nur am Buchende geben, dort liegt die Innenseite des Rückens.
+- **Gepaart wird über das GANZE Buch und erst danach nach Tag gefiltert**
+  (`sichtbareDoppelseiten`). Andernfalls verschöbe eine Auswahl die Paarung:
+  Fängt ein Tag auf einer linken Seite an, stünde er bei einer Paarung
+  innerhalb der Auswahl plötzlich rechts — die Doppelseite zeigte dann etwas,
+  das im gedruckten Buch nie so aussieht. Gezeigt wird jeder Bogen, auf dem
+  eine Seite der Auswahl liegt, **samt der Nachbarseite, auch wenn die zu
+  einem anderen Tag gehört**. Genau so liegt das Buch auf dem Tisch.
+- **Zwischen zwei gegenüberliegenden Seiten liegt KEIN Abstand** (`spacing: 0`).
+  Im gebundenen Buch stoßen sie am Bund aneinander; was dazwischen hell stehen
+  bleibt, ist der ANSCHNITT beider Seiten, und wo der endet, zeigt die rote
+  Schnittkante (Anordnen → „Satzspiegel zeigen"). Eine Lücke zu zeichnen wäre
+  bequemer und behauptete einen Falz, den es nicht gibt.
+- **Der Umschalter steht UNTEN neben den Lupen**, nicht in einem Menü: Er
+  gehört zur Ansicht, und wer ihn sucht, sucht ihn dort, wo der Maßstab liegt.
+  Dieselbe Lehre wie beim Sichtumschalter der Abfahrtstafel (1.0.5) — **ein
+  Knopf, den niemand findet, ist kein Knopf.** Die Wahl liegt in
+  `@AppStorage` und damit in einer VIEW, nie im `Reisewerk`.
+- **Eine ungerade Seitenzahl wird GEZÄHLT und hingeschrieben, nicht geprüft**
+  (ab 1.0.17). In der Doppelseitenansicht sieht man, dass der letzte Bogen
+  keine Rückseite hat; darunter steht dann, dass viele Druckdienste eine gerade
+  Seitenzahl verlangen und dass die Angabe des jeweiligen Anbieters gilt. Was
+  ein bestimmter Dienst annimmt, ist hier NICHT gemessen — die Zeile sagt
+  deshalb, was sie weiß, und verspricht nichts.
+- **Die Automatik läuft — aber die Reisespur setzte keine Seite neu** (behoben
+  in 1.0.17, beim Nachrechnen der Frage des Nutzers gefunden: „Was das Programm
+  auszeichnen würde, wäre ja, dass automatisch Texte, Bilder und Koordinaten
+  bestimmten Tagen zugeordnet werden und diese Seiten automatisch erstellt
+  werden. Ich hoffe, dass das so funktioniert."). Zwei der drei Wege riefen
+  `alleNeuAnordnen(nurUnberuehrte: true)` — `textVerteilen` und die
+  Fotoeinfuhr. `spurUebernehmen` rief dagegen nur `fehlendeSeitenNachholen()`,
+  **und das überspringt jeden Tag, dessen Seitenliste schon gefüllt ist.** Der
+  Kartenblock entsteht aber erst, wenn der Tag eine Spur HAT
+  (`Layoutautomat.seiten`: `tag.karteZeigen && tag.hatSpur`). In der
+  Reihenfolge, die der Nutzer beschreibt — erst der Text, dann die Reisespur —
+  kam damit auf keiner Seite eine Karte, und zwar STUMM: Die Tage standen da,
+  die Punkte standen in der Liste, gesetzt wurde nichts. Dass es beim
+  anschließenden Einlesen der FOTOS doch noch aufgefallen wäre, war Zufall.
+  **Merke: Wer einen Einleseweg baut, prüft, ob die Seiten danach neu gesetzt
+  werden — `fehlendeSeitenNachholen` ist dafür nie die Antwort**, es ist der
+  Notnagel für eine leere Liste.
+- **Der erste Punkt von Hand bringt die Karte, der letzte nimmt sie weg**
+  (`spurGeaendert`, ab 1.0.17). Dieselbe Wurzel, eine Ebene tiefer:
+  `punktHinzufuegen` und `punkteLoeschen` änderten die Spur, ohne die Seite neu
+  zu setzen. Neu gesetzt wird nur, wenn `hatSpur` UMKIPPT — ein Punkt mehr in
+  einer vorhandenen Spur soll die Seite nicht durcheinanderwerfen —, und mit
+  `erzwingen: false`, damit die Handarbeit stehen bleibt.
+- **Nicht gemessen (1.0.17):** Ob die Zweifingergeste auf einem Gerät flüssig
+  ist, ob sie sich mit dem Blättern des `ScrollView` verträgt und ob sie mit
+  dem Bildausschnitt wirklich nie kollidiert, ist am Quelltext entschieden und
+  nicht auf einem iPad gesehen. **Der Zoom verfolgt den Mittelpunkt der Geste
+  NICHT** — der `ScrollView` behält seinen Versatz, es wird also um die obere
+  linke Ecke gezoomt; das nicht anders darstellen. Und die Doppelseitenansicht
+  ändert am PDF nichts: Der Bundsteg wird seit 1.0.1 ohnehin auf beide Ränder
+  gerechnet, die Ansicht zeigt nur, was daraus wird.
 - **Die Bildunterschrift war halb gebaut** (ab 1.0.5, Wunsch des Nutzers
   09/2026: „zu jedem Foto einen Beschreibungstext … Dies soll jedoch eine
   Option für jedes Foto sein. Kein muss."). Der Layoutautomat hielt Platz
