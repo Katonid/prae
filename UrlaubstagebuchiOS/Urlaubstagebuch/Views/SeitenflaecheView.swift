@@ -22,6 +22,8 @@ struct SeitenflaecheView: View {
     // die Bedeutung, sobald der Finger über einen anderen Griff wandert.
     @State private var gegriffen: Griffart?
     @State private var ausgangsrahmen: Rahmen?
+    // Woran eine neue Ziehbewegung zu erkennen ist: am Aufsetzpunkt.
+    @State private var gestenstart: CGPoint?
 
     private var format: CGSize { werk.reise.format.groesse }
     private var anschnitt: Double { werk.reise.gestaltung.anschnittPt }
@@ -85,22 +87,35 @@ struct SeitenflaecheView: View {
             // Seite wie zuvor.
             if bearbeitbar, let block = gewaehlterBlock, werk.textBearbeitung != block.id {
                 let saum = ziehsaum(block)
+                // WÄHREND einer Geste bleibt diese Fläche stehen, wo sie war
+                // (`ausgangsrahmen`). Das ist der Grund, aus dem das
+                // Verschieben ging und das Ziehen an einem Griff nicht:
+                // Verschoben wird erst am Ende der Geste (bis dahin nur ein
+                // Versatz beim Zeichnen), die GRÖSSE dagegen bei jedem
+                // Bildpunkt — und damit veränderte sich die Fläche, an der
+                // die Geste hängt, unter dem eigenen Finger. Ihre lokalen
+                // Koordinaten wandern dann mit, die gemeldete Strecke bezieht
+                // sich auf einen anderen Ursprung als eben noch, und die
+                // Geste bricht ab. **Merke: Eine Fläche, die eine Geste
+                // trägt, darf sich während dieser Geste nicht bewegen.**
+                let bezug = ausgangsrahmen ?? block.rahmen
+                let ursprung = CGPoint(x: bezug.x - saum, y: bezug.y - saum)
                 Color.clear
-                    .frame(width: block.rahmen.breite + 2 * saum,
-                           height: block.rahmen.hoehe + 2 * saum)
+                    .frame(width: bezug.breite + 2 * saum,
+                           height: bezug.hoehe + 2 * saum)
                     .contentShape(Rectangle())
-                    .offset(x: block.rahmen.x - saum, y: block.rahmen.y - saum)
+                    .offset(x: ursprung.x, y: ursprung.y)
                     // Die Tipps gehören mit auf diese Fläche: Sie liegt über
                     // dem Block, und ohne sie käme über dem gewählten Block
                     // kein Tipp mehr an — also weder das Abwählen noch der
                     // Doppeltipp, der den Text öffnet.
                     .onTapGesture(count: 2, coordinateSpace: .local) { punkt in
-                        doppeltipp(aufSeite(punkt, block: block, saum: saum))
+                        doppeltipp(aufSeite(punkt, ursprung: ursprung))
                     }
                     .onTapGesture(count: 1, coordinateSpace: .local) { punkt in
-                        einfachtipp(aufSeite(punkt, block: block, saum: saum))
+                        einfachtipp(aufSeite(punkt, ursprung: ursprung))
                     }
-                    .gesture(ziehgeste(block, saum: saum))
+                    .gesture(ziehgeste(block, ursprung: ursprung))
             }
 
             if bearbeitbar, let id = werk.textBearbeitung,
@@ -254,8 +269,15 @@ struct SeitenflaecheView: View {
         guard bearbeitbar, let treffer = blockUnter(punkt) else { return }
         werk.letzterGriff = "Doppeltipp auf \(treffer.inhalt.name)"
         werk.gewaehlterBlock = treffer.id
-        guard treffer.inhalt.istText else { return }
-        werk.textBearbeitung = treffer.id
+        if treffer.inhalt.istText {
+            werk.textBearbeitung = treffer.id
+            return
+        }
+        // Ein Doppeltipp auf ein FOTO schreibt seine Unterschrift. Das ist
+        // derselbe Griff wie beim Text — man tippt zweimal auf das, was man
+        // beschriften will — und der einzige Weg dorthin, den man nicht
+        // vorher gelesen haben muss.
+        if let id = treffer.fotoID { werk.unterschriftOeffnen(id) }
     }
 
     // MARK: - Ziehen
@@ -267,23 +289,27 @@ struct SeitenflaecheView: View {
         werk.ausschnittsmodus == block.id ? 0 : max(greifweite, griffabstand + greifweite)
     }
 
-    private func ziehgeste(_ block: Block, saum: Double) -> some Gesture {
+    private func ziehgeste(_ block: Block, ursprung: CGPoint) -> some Gesture {
         DragGesture(minimumDistance: 3)
-            .onChanged { wert in ziehen(block, saum: saum, wert: wert, endgueltig: false) }
-            .onEnded { wert in ziehen(block, saum: saum, wert: wert, endgueltig: true) }
+            .onChanged { wert in ziehen(block, ursprung: ursprung, wert: wert, endgueltig: false) }
+            .onEnded { wert in ziehen(block, ursprung: ursprung, wert: wert, endgueltig: true) }
     }
 
     // Die Geste meldet in den Koordinaten IHRER Fläche, und die beginnt um
     // den Saum vor dem Block. Umgerechnet wird einmal, hier.
-    private func aufSeite(_ punkt: CGPoint, block: Block, saum: Double) -> CGPoint {
-        CGPoint(x: punkt.x + block.rahmen.x - saum, y: punkt.y + block.rahmen.y - saum)
+    private func aufSeite(_ punkt: CGPoint, ursprung: CGPoint) -> CGPoint {
+        CGPoint(x: punkt.x + ursprung.x, y: punkt.y + ursprung.y)
     }
 
-    private func ziehen(_ block: Block, saum: Double, wert: DragGesture.Value,
+    private func ziehen(_ block: Block, ursprung: CGPoint, wert: DragGesture.Value,
                         endgueltig: Bool)
     {
-        if gegriffen == nil {
-            griffFestlegen(aufSeite(wert.startLocation, block: block, saum: saum), block: block)
+        // Eine NEUE Geste erkennt man am Aufsetzpunkt. Ohne diese Prüfung
+        // bliebe nach einer abgebrochenen Geste der alte Griff stehen, und
+        // die nächste Bewegung täte etwas, das niemand angefasst hat.
+        if gegriffen == nil || gestenstart != wert.startLocation {
+            gestenstart = wert.startLocation
+            griffFestlegen(aufSeite(wert.startLocation, ursprung: ursprung), block: block)
         }
         guard let art = gegriffen else {
             if endgueltig { gestenendeAufraeumen(wert) }
@@ -302,7 +328,7 @@ struct SeitenflaecheView: View {
             // ruhenden Koordinatensystem der Seite. Mit dem
             // zurückgedrehten Punkt wäre er relativ zur schon gesetzten
             // Drehung, und der Block liefe dem Finger davon.
-            let jetzt = aufSeite(wert.location, block: block, saum: saum)
+            let jetzt = aufSeite(wert.location, ursprung: ursprung)
             drehen(block, zeigt: CGPoint(x: jetzt.x - block.rahmen.x,
                                          y: jetzt.y - block.rahmen.y))
         default:
@@ -343,6 +369,7 @@ struct SeitenflaecheView: View {
         }
         gegriffen = nil
         ausgangsrahmen = nil
+        gestenstart = nil
     }
 
     // MARK: - Schieben

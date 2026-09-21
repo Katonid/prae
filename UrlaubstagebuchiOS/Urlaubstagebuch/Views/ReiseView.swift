@@ -263,6 +263,17 @@ struct ReiseView: View {
                 Image(systemName: "plus.magnifyingglass")
             }
             Spacer()
+            // Ist ein Foto gewählt, steht hier der kürzeste Weg zu seiner
+            // Unterschrift. Eine Geste, die niemand kennt (der Doppeltipp),
+            // ist so wenig wert wie ein Schalter, den niemand findet —
+            // deshalb beides.
+            if let fotoID = gewaehltesFoto {
+                Button {
+                    werk.unterschriftOeffnen(fotoID)
+                } label: {
+                    Label("Bildunterschrift", systemImage: "text.bubble")
+                }
+            }
             if let tag = werk.tag {
                 Button {
                     blatt = .tagInhalt(tag.id)
@@ -279,6 +290,12 @@ struct ReiseView: View {
     }
 
     private var massstabJetzt: Double { zoom == 0 ? 0.7 : zoom }
+
+    // Welches Foto gerade gewählt ist — oder keines.
+    private var gewaehltesFoto: UUID? {
+        guard let id = werk.gewaehlterBlock, let stelle = werk.block(id) else { return nil }
+        return werk.reise.tage[stelle.tag].seiten[stelle.seite].bloecke[stelle.block].fotoID
+    }
 
     // Das ganze Buch als eine Datei — samt aller Bilder, zum Sichern, zum
     // Umziehen auf ein anderes Gerät und zum Weitergeben.

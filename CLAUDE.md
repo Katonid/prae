@@ -3365,6 +3365,21 @@ Befunde, und keiner davon war Geschmack:
   oder ins Leere ging. Dasselbe Muster wie Schulalarms Stufenprobe und der
   Kartenmesser der Abfahrtstafel. **Nicht als erledigt darstellen**, bevor
   diese Zeile es sagt.
+- **Verschieben ging, Größe ändern nicht — und der Unterschied IST die
+  Erklärung** (ab 1.0.6, gemeldet 09/2026: „Bei Fotos und Textfeldern wird nun
+  ein Verschieben zugelassen. Die Anpasser bewirken aber leider noch keine
+  Größen- oder Formatänderung."). Verschoben wird erst am ENDE der Geste — bis
+  dahin bewegt sich nur ein Versatz beim Zeichnen, der Rahmen bleibt. Die
+  GRÖSSE ändert sich bei jedem Bildpunkt. Und an diesem Rahmen hing seit 1.0.5
+  die Ziehfläche: Sie wuchs unter dem eigenen Finger mit, ihre lokalen
+  Koordinaten wanderten mit, die gemeldete Strecke bezog sich auf einen
+  anderen Ursprung als eben noch — und die Geste brach ab. Das Drehen war
+  nicht betroffen, weil die Fläche nicht am Winkel hängt; auch das passt zum
+  Befund. **Merke: Eine Fläche, die eine Geste TRÄGT, darf sich während dieser
+  Geste nicht bewegen** — sie steht jetzt still (`ausgangsrahmen`), solange
+  gezogen wird. Dazu erkennt die Geste am AUFSETZPUNKT, ob sie neu ist: Nach
+  einem Abbruch bliebe sonst der alte Griff stehen, und die nächste Bewegung
+  täte etwas, das niemand angefasst hat.
 - **Die Bildunterschrift war halb gebaut** (ab 1.0.5, Wunsch des Nutzers
   09/2026: „zu jedem Foto einen Beschreibungstext … Dies soll jedoch eine
   Option für jedes Foto sein. Kein muss."). Der Layoutautomat hielt Platz
@@ -3381,6 +3396,17 @@ Befunde, und keiner davon war Geschmack:
   Unterschrift als eingeschaltet — sonst nähme eine neue Fassung
   stillschweigend Arbeit weg, die jemand gemacht hat. Schrift, Größe und
   Farbe stehen einmal für alle unter der Rolle „Bildunterschrift".
+  **Gefunden hat den Weg dorthin aber niemand** (gemeldet 09/2026: „Ich habe
+  noch nicht gefunden, wie ich eine Unterschrift unter ein Bild setzen
+  kann."): Der Schalter stand im Inspektor hinter dem Abschnitt „Foto" und in
+  der Fotoliste des Tages — beides Wege, die man kennen muss. Seit 1.0.6 gibt
+  es zwei, die man nicht kennen muss: ein **Doppeltipp auf das Foto**
+  (`unterschriftOeffnen` — derselbe Griff wie beim Text, man tippt zweimal auf
+  das, was man beschriften will) und bei gewähltem Foto der Knopf
+  **„Bildunterschrift"** unten in der Leiste. Eine Geste, die niemand kennt,
+  ist so wenig wert wie ein Knopf, den niemand findet — deshalb beides.
+  **Ein Knopf, den niemand findet, ist kein Knopf — und das gilt auch für
+  einen Schalter in einem Formular.**
   **Sie gehört zur Reihe wie das Bild selbst**: `restplatzVerteilen` schiebt
   die Reihen auseinander, und eine Unterschrift, die dabei liegen bliebe,
   stünde plötzlich im Bild darüber.

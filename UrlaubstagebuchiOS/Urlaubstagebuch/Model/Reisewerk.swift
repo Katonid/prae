@@ -256,6 +256,29 @@ final class Reisewerk: ObservableObject, Identifiable {
         }
     }
 
+    // Der kurze Weg von einem Foto zu seiner Unterschrift: einschalten,
+    // wenn sie aus ist, den Block suchen und ihn gleich zum Schreiben
+    // öffnen. Gemeldet 09/2026: „Ich habe noch nicht gefunden, wie ich eine
+    // Unterschrift unter ein Bild setzen kann." Sie stand im Inspektor
+    // hinter dem Abschnitt „Foto" und in der Fotoliste des Tages — beides
+    // Wege, die man kennen muss. **Ein Knopf, den niemand findet, ist kein
+    // Knopf**, und das gilt auch für einen Schalter in einem Formular.
+    func unterschriftOeffnen(_ fotoID: UUID) {
+        if reise.foto(fotoID)?.unterschriftZeigen != true {
+            unterschriftUmschalten(fotoID, an: true)
+        }
+        for tag in reise.tage {
+            for seite in tag.seiten {
+                guard let block = seite.bloecke.first(where: {
+                    $0.inhalt == .bildunterschrift(fotoID)
+                }) else { continue }
+                gewaehlterBlock = block.id
+                textBearbeitung = block.id
+                return
+            }
+        }
+    }
+
     // Wohin ein auf der Seite geänderter Text gehört, hängt an der Blockart:
     // Der Fließtext steckt im Block, die Überschrift und die Datumszeile am
     // TAG, die Bildunterschrift am FOTO. Alles in den Block zu schreiben
