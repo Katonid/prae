@@ -1,6 +1,24 @@
 import SwiftUI
 import UIKit
 
+// Der Raum, in dem auf dieser Seite GEMESSEN wird.
+//
+// Sein Ursprung ist die linke obere Ecke des Endformats — dieselbe Ecke,
+// gegen die jede Blockkoordinate im Modell steht. Der Name liegt hier und
+// nicht als Zeichenkette an drei Stellen: Ein Tippfehler darin ergäbe
+// keinen Übersetzungsfehler, sondern stillschweigend falsche Zahlen.
+//
+// Warum es ihn überhaupt gibt: Eine Geste meldet ihren Punkt im Raum
+// DERJENIGEN Ansicht, an der sie hängt. Die Ziehfläche des gewählten
+// Blocks ist aber verschoben, um einen Saum vergrößert und ändert während
+// des Ziehens ihre Größe — „lokal" heißt dort also etwas, das sich unter
+// dem Finger bewegt, und ob der Ursprung vor oder hinter dem Versatz
+// liegt, ist ohne Gerät nicht zu entscheiden. Mit einem benannten Raum
+// stellt sich die Frage nicht mehr.
+enum Seitenraum {
+    static let name = "seite"
+}
+
 // Welcher Griff angefasst wurde — und damit, was eine Ziehbewegung bedeutet.
 //
 // Die Aufzählung liegt hier und nicht in der Ansicht, weil zwei Stellen sie

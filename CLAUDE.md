@@ -3380,6 +3380,53 @@ Befunde, und keiner davon war Geschmack:
   gezogen wird. Dazu erkennt die Geste am AUFSETZPUNKT, ob sie neu ist: Nach
   einem Abbruch bliebe sonst der alte Griff stehen, und die nächste Bewegung
   täte etwas, das niemand angefasst hat.
+- **Die Erklärung von 1.0.6 war die fünfte und wieder daneben** (ab 1.0.7,
+  gemeldet 09/2026: „Jetzt geht nicht mal mehr drehen. Die Anfasser sind zu
+  sehen, aber egal, ob ich auf einen Anfasser tippe und halte oder auf das
+  Foto selbst oder den Text, es wird immer nur verschoben."). Das ist der
+  Befund, der sich RECHNEN lässt, statt ihn zu deuten: Die Geste kommt an
+  (es wird ja verschoben), nur liefert `Grifflage.getroffen` nie einen Griff
+  — also ist der PUNKT falsch, den sie bekommt, und nichts sonst. Und es galt
+  auch schon in 1.0.5; dass das Drehen „jetzt auch nicht mehr" geht, heißt,
+  dass es seit dem Umbau nie ging und erst jetzt ausprobiert wurde.
+- **Eine Geste meldet ihren Punkt im Raum DERJENIGEN Ansicht, an der sie
+  hängt** — und das war hier die Ziehfläche des gewählten Blocks: verschoben
+  (`offset`), um einen Saum vergrößert, und seit 1.0.6 zusätzlich eine, die
+  ihre Größe während des Ziehens ändert. Der Quelltext rechnete den
+  gemeldeten Punkt deshalb auf die Seite um (`aufSeite`). Liegt der Ursprung
+  dieses Raumes aber VOR dem Versatz, ist der Punkt schon ein Seitenpunkt und
+  die Umrechnung addiert den Blockursprung ein zweites Mal — der Griffpunkt
+  landet dann um den halben Block daneben, `getroffen` gibt `nil` zurück und
+  `?? .verschieben` macht daraus stillschweigend ein Verschieben. Genau das
+  Bild, das gemeldet wurde.
+- **Welche der beiden Lesarten stimmt, lässt sich hier nicht messen — also
+  wird die Frage abgeschafft.** Gemessen wird seit 1.0.7 in einem BENANNTEN
+  Raum (`Seitenraum.name`, deklariert an der Seite selbst), und `DragGesture`
+  wie Tipp bekommen ihn mit: `coordinateSpace: .named(…)`. Damit ist der
+  Aufsetzpunkt dieselbe Zahl wie bei einem Tipp auf die Seite, unabhängig
+  davon, an welcher Ansicht die Geste hängt und wie die verschoben ist.
+  `aufSeite` ist ersatzlos gestrichen. **Merke: Wer einen Punkt aus einer
+  Geste braucht, nennt den Raum, in dem er gilt — „lokal" ist eine Auskunft
+  über den Ansichtsbaum und keine über die Seite.** Die Tipps an der Seite
+  selbst bleiben bei `.local`: Diese Ansicht ist nicht verschoben, und das
+  Auswählen über sie hat nachweislich funktioniert — es wird eine Sache auf
+  einmal geändert.
+- **Die Greifweite darf einen kleinen Block nicht ganz ausfüllen** (ab
+  1.0.7, beim Nachrechnen gefunden). Sie war fest eine Fingerkuppe (24
+  Bildschirmpunkte); bei einem Block von 60 x 40 Seitenpunkten liegt damit
+  JEDER Punkt im Umkreis einer Ecke — er ließe sich nur noch in der Größe
+  ziehen und nie mehr verschieben. Gedeckelt auf gut ein Drittel der
+  kürzeren Seite, mit einem Boden, unter den es nicht geht. Bei einer
+  flachen Datumszeile fallen obere und untere Kante trotzdem zusammen; dort
+  gewinnt die Ecke, und die zieht beide Maße — bei vierzehn Punkten Höhe
+  gibt es keine vier unterscheidbaren Kanten, und das ist Geometrie und
+  keine Einstellung.
+- **Die Probe nennt jetzt ZAHLEN** (`letzterGriff`, Buch → Satz → „Bedienung
+  prüfen"): wo der Finger IM Block aufgesetzt hat, wie groß der Block ist,
+  wie weit ein Griff greift. Bis 1.0.6 stand dort nur der gedeutete Name des
+  Griffs — und der lautete in jedem Fall „Fläche", also genau das, was die
+  Frage offenließ. **Eine Probe, die nur ihr Ergebnis nennt, ist die Frage
+  von vorhin noch einmal.**
 - **Die Bildunterschrift war halb gebaut** (ab 1.0.5, Wunsch des Nutzers
   09/2026: „zu jedem Foto einen Beschreibungstext … Dies soll jedoch eine
   Option für jedes Foto sein. Kein muss."). Der Layoutautomat hielt Platz
