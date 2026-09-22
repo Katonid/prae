@@ -5325,6 +5325,65 @@ Befunde, und keiner davon war Geschmack:
   auf einmal geändert**: Die Regel „eine Sache auf einmal" ist hier bewusst
   gebrochen, weil die fünf gemeldeten Seiten EINE gemeinsame Ursache haben —
   fünf Fassungen nacheinander hätten sie einzeln kuriert, ohne sie zu beheben.
+- **TEXT IST EIN FELD WIE EIN FOTO — und die Seite wird GEFÜLLT**
+  (`Model/Mosaik.swift`, ab 1.0.35; Diagnose des Nutzers 09/2026 im Vergleich
+  mit einer fremden Foto-App: „ob ein grundlegendes Problem vielleicht ist,
+  dass du Text auf der einen Seite und Bilder auf der anderen Seite als
+  streng getrennte Formate betrachtest. Ich glaube, ich hätte gedacht, dass
+  Text ein gleichberechtigtes Gestaltungselement einer Seite ist, wie auch
+  ein Foto." — dazu der Befund: dort seien „die Bilder wesentlich größer und
+  verschenken wesentlich weniger Platz auf der Seite"). **Er hat recht, und
+  es stand so im Quelltext**: Eine Seite bestand aus einer TEXTSPALTE und
+  darunter aus FOTOREIHEN, und die sechs Seitenformen aus 1.0.34 waren
+  allesamt Antworten auf die Frage, in welcher REIHENFOLGE beide kommen —
+  eine Frage, die es nur unter dieser Annahme gibt. `Seitenform` ist deshalb
+  **ersatzlos entfernt**, wie `Seitenrhythmus` eine Fassung zuvor.
+  - **Eine Seite ist eine SPALTE aus Reihen, die zusammen die volle Satzhöhe
+    ergeben.** Bis 1.0.34 rechnete `zielhoehe` die Reihenhöhe allein aus der
+    ZAHL der Kacheln und sah die Seite nie an; was unten übrig blieb, schob
+    `restplatzVerteilen` in die Lücken. **Damit war weißer Platz der
+    Normalfall und ein großes Bild der Ausnahmefall.**
+  - **Gesucht wird über die ZAHL der Reihen, nicht über eine Formel**
+    (`Mosaik.beste`, eins bis vier): Eine größere Zielhöhe nimmt Kacheln aus
+    den Reihen heraus und kann eine Reihe MEHR ergeben — derselbe nicht
+    monotone Zusammenhang wie bei `ausfuellendesZiel` seit 1.0.32. Gewertet
+    wird die Dehnung.
+  - **Ein Text hat kein Seitenverhältnis, sondern zu jeder Breite eine
+    gemessene Höhe** (`Mosaik.mischreihe`). Probiert werden zwölf Breiten
+    zwischen 30 und 70 Prozent der Satzbreite; genommen wird die, bei der die
+    Fotohöhe gerade noch über der Texthöhe liegt. Eine Umkehrfunktion gibt es
+    nicht — die Texthöhe springt von Zeile zu Zeile. Gemessen wird vom
+    AUFRUFER (`Textmass`, also derselbe Satz, der zeichnet) und als Abschluss
+    hereingereicht; `Mosaik` selbst enthält nur Arithmetik.
+  - **Wie viele Bilder auf eine Seite gehören, entscheidet der PLATZ.**
+    `Tagesplan` schlägt eine Zahl vor, die Seite prüft sie: Bleibt Luft,
+    kommt ein Bild dazu; wird es eng, geht eines zurück (bis zu zehn
+    Anläufe). **Nicht die Zahl der Bilder bestimmt den Satz, sondern der
+    Platz bestimmt die Zahl der Bilder.**
+  - **Die Dehnung ist auf 1,22 gedeckelt.** Gedehnt heißt: Das Bild wird
+    höher, als sein Verhältnis vorgibt, und verliert seitlich gut 18
+    Prozent — der Rahmen wird GEFÜLLT, nicht eingepasst. Mehr wäre genau der
+    Ausschnitt, den 1.0.34 am Aufmacherband abgestellt hat. Reicht der Deckel
+    nicht, bleibt der Rest als Luft zwischen den Reihen stehen: Lieber etwas
+    Weiß als ein Bild, dem ein Fünftel fehlt.
+  - **Was daraus von selbst folgt**, ohne einen einzigen Sonderfall: Text
+    neben einem Foto, wo der Text kurz ist; Text über die volle Breite, wo er
+    mehr als die halbe Seite braucht; eine reine Bilderseite, wo kein Text
+    mehr wartet. In der Gangart `bilderreich` bleibt der Text ganz auf der
+    ersten Seite (Ansage des Nutzers: „den Text nicht noch weiter
+    auseinanderzuziehen").
+  - **Die Seitenschätzung des Plans rechnet jetzt mit einer Reihenhöhe von
+    einem Drittel der Seite** statt mit `zielhoehe`. Seit die Reihen die
+    Seite füllen, schätzte die alte Zahl die Bilder zu klein und damit den
+    Tag zu kurz.
+- **Nicht gemessen (1.0.35):** Keine Seite ist damit gesehen worden.
+  Gerechnet ist die Geometrie; **gewählt und nicht gemessen** sind die
+  Dehnungsgrenze 1,22, die Spanne der Textbreite (30 bis 70 Prozent), die
+  zwölf Stufen, die Schwelle von 56 Prozent Seitenhöhe für die volle Breite
+  und die Reihenzahl eins bis vier. **Ungemessen ist auch der Preis der
+  Rechnung**: bis zu zwölf CoreText-Messungen je Seite für die Textbreite,
+  dazu je Anlauf der Bildzahl eine neue Aufteilung. Das läuft beim
+  Neuanordnen und nicht beim Zeichnen — gesehen hat es trotzdem niemand.
 - **Die Bildunterschrift war halb gebaut** (ab 1.0.5, Wunsch des Nutzers
   09/2026: „zu jedem Foto einen Beschreibungstext … Dies soll jedoch eine
   Option für jedes Foto sein. Kein muss."). Der Layoutautomat hielt Platz

@@ -717,6 +717,89 @@ Bücher gefahrlos: Der erzeugte `Codable`-Leser verlangt einen Schlüssel nur
 für nicht-optionale Eigenschaften. Ein vorhandener Wert wird gelesen, ein
 fehlender wird `nil` — also „wie im Buch".
 
+## Text ist ein Feld wie ein Foto (1.0.35)
+
+Gemeldet 09/2026 im Vergleich mit einer fremden Foto-App: Dort seien „die
+Bilder wesentlich größer und verschenken wesentlich weniger Platz auf der
+Seite". Dazu die Diagnose, die diesen Umbau ausgelöst hat:
+
+> „ob ein grundlegendes Problem vielleicht ist, dass du Text auf der einen
+> Seite und Bilder auf der anderen Seite als streng getrennte Formate
+> betrachtest. Ich glaube, ich hätte gedacht, dass Text ein
+> gleichberechtigtes Gestaltungselement einer Seite ist, wie auch ein Foto."
+
+**Er hat recht, und es stand so im Quelltext.** Eine Seite bestand aus einer
+TEXTSPALTE und darunter aus FOTOREIHEN. Die sechs Seitenformen aus 1.0.34
+(`nurText`, `nurBilder`, `seitlich`, `band`, `reihenOben`, `reihenUnten`)
+waren allesamt Antworten auf eine einzige Frage: in welcher REIHENFOLGE Text
+und Bilder kommen. Diese Frage gibt es nur, wenn man beide für getrennte
+Formate hält.
+
+Dazu kam die zweite Hälfte des Befundes, und die ist reine Geometrie: Die
+Höhe einer Fotoreihe rechnete `zielhoehe` allein aus der ZAHL der Kacheln
+und sah die Seite nie an. Was unten übrig blieb, verteilte
+`restplatzVerteilen` in die Lücken zwischen den Reihen. **Damit war weißer
+Platz der Normalfall und ein großes Bild der Ausnahmefall.**
+
+### Die Umkehrung (`Model/Mosaik.swift`)
+
+1. **Eine Seite ist eine Spalte aus Reihen, die zusammen die volle Satzhöhe
+   ergeben.** Nicht die Zahl der Bilder bestimmt ihre Höhe, sondern der
+   Platz, der da ist. Gesucht wird über die ZAHL der Reihen (eins bis vier)
+   und nicht über eine Formel: Eine größere Zielhöhe nimmt Kacheln aus den
+   Reihen heraus und kann damit eine Reihe MEHR ergeben — der Zusammenhang
+   ist nicht monoton. Gewertet wird die **Dehnung**: Am besten ist die
+   Aufteilung, die am wenigsten gedehnt oder gestaucht werden muss.
+2. **Ein Textfeld ist eine Kachel in einer dieser Reihen**, mit derselben
+   Höhe wie die Fotos daneben. Seine Breite ist die eine Unbekannte: Ein
+   Text hat kein festes Seitenverhältnis, sondern zu jeder Breite eine
+   gemessene Höhe. `Mosaik.mischreihe` probiert zwölf Breiten zwischen 30
+   und 70 Prozent der Satzbreite durch und nimmt die, bei der die Fotohöhe
+   gerade noch über der Texthöhe liegt — dann steht der Text vollständig in
+   der Reihe und darunter bleibt nichts liegen. Jede Stufe kostet genau eine
+   Messung; eine Umkehrfunktion gibt es nicht, weil die Texthöhe von Zeile
+   zu Zeile springt.
+3. **Wie viele Bilder auf eine Seite gehören, entscheidet der Platz.**
+   `Tagesplan` macht einen Vorschlag aus der Verteilung über die Tage; ob er
+   aufgeht, weiß erst die Seite. Bleibt zu viel Luft, kommt ein Bild dazu;
+   wird es zu eng, geht eines zurück. Das ist die Antwort auf „verschenkt
+   wesentlich weniger Platz": Nicht die Zahl der Bilder bestimmt den Satz,
+   sondern der Platz bestimmt die Zahl der Bilder.
+
+### Die Dehnung ist gedeckelt
+
+Was nach der besten Aufteilung noch fehlt, wird auf die Reihen verteilt: Ein
+Foto wird dann ein wenig höher, als sein Verhältnis vorgibt, und verliert
+seitlich etwas — der Rahmen wird ja GEFÜLLT und nicht eingepasst. Gedeckelt
+ist das auf **1,22**, also gut 18 Prozent der Breite. Mehr wäre genau der
+Ausschnitt, den 1.0.34 am Aufmacherband abgestellt hat („Ein Band folgt dem
+Seitenverhältnis, sonst ist es ein Ausschnitt"). Reicht der Deckel nicht,
+bleibt der Rest als Luft zwischen den Reihen stehen: Lieber etwas Weiß als
+ein Bild, dem ein Fünftel fehlt.
+
+### Was daraus von selbst folgt
+
+* **Text neben einem Foto** ist kein Sonderfall mehr, sondern das Ergebnis
+  einer kurzen Textmenge neben einem Bild.
+* **Eine reine Bilderseite** entsteht, wo kein Text mehr wartet — und in der
+  bilderreichen Gangart bleibt der Text jetzt ganz auf der ersten Seite
+  (Ansage des Nutzers: „den Text nicht noch weiter auseinanderzuziehen").
+* **Ein Text über die volle Breite** entsteht, wo er mehr als die halbe
+  Seite braucht — ein Foto daneben wäre dort eine Briefmarke.
+
+### Nicht gemessen
+
+**Keine Seite ist damit gesehen worden.** Gerechnet ist die Geometrie: dass
+die Reihen die Satzhöhe treffen, dass die Textbreite gefunden wird und dass
+die Dehnung beschnitten bleibt. Wie eine Doppelseite AUSSIEHT, sagt erst der
+nächste Befund. Gewählt und nicht gemessen sind: die Dehnungsgrenze 1,22,
+die Spanne der Textbreite (30 bis 70 Prozent), die zwölf Stufen, die Schwelle
+von 56 Prozent Seitenhöhe, ab der der Text die volle Breite bekommt, und die
+Reihenzahl eins bis vier. **Ungemessen ist auch, was die Rechnung kostet:**
+Je Seite fallen bis zu zwölf CoreText-Messungen für die Textbreite an, dazu
+je Anlauf der Bildzahl eine neue Aufteilung — das läuft beim Neuanordnen und
+nicht beim Zeichnen, aber gesehen hat es niemand.
+
 ## Die Seite entsteht aus dem Inhalt des Tages (1.0.34)
 
 Gemeldet 09/2026, mit zwei Bildschirmfotos eines ausgegebenen Buches und
@@ -2757,6 +2840,11 @@ im Inspektor gab es, aber keinen Weg zu sehen, was es bewirkt.
   wäre der schlechtere Tausch.
 
 ## Offene Punkte
+
+* **Nichts an 1.0.35 ist auf einem Gerät gesehen.** Die Füllung der Seite ist
+  gerechnet, nicht angesehen; alle Zahlen darin sind gewählt und nicht
+  gemessen, und was die Rechnung an Zeit kostet, ist unbekannt (siehe den
+  Abschnitt zu 1.0.35).
 
 * **Nichts an 1.0.34 ist auf einem Gerät gesehen.** Der Planer ist
   gerechnet, nicht angesehen; alle Zahlen darin sind gewählt und nicht
