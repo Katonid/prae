@@ -352,6 +352,48 @@ wirkungslos — und genau das will man beim Umstellen einer Schrift nicht.
 * Eine Reise, die sich nicht lesen lässt, wird in der Übersicht gezählt.
 * Der Einfuhrbericht sagt in einem Satz, was ankam und was nicht.
 
+## Selbst installierte Schriften (1.0.41)
+
+Gemeldet 09/2026: „Quicksand und … sind auf dem iPad installiert und können
+beispielsweise in Pages auch genutzt werden. In der App werden sie allerdings
+nicht einmal angezeigt."
+
+**Die App war nicht kaputt — sie hat an der falschen Stelle gefragt.**
+`Schriftfamilie.alleDesGeraets` baut die Liste aus `UIFont.familyNames`, und
+das ist das Verzeichnis DIESES PROZESSES: die Schriften des Systems und die,
+die eine App in ihrem Bündel mitbringt. Was jemand über eine
+Schriftverwaltung auf das iPad legt, liegt woanders. Dafür gibt es seit
+iOS 13 den `UIFontPickerViewController` — genau den zeigt Pages, und genau
+den zeigt die Schriftwahl jetzt auch, in einem eigenen Abschnitt über der
+vollen Liste.
+
+Eine Liste lässt sich nicht nachrüsten: Es gibt für fremde Apps keine
+Aufzählung der installierten Schriften, und das ist Absicht von Apple. Der
+Wähler ist der Weg.
+
+**Gewählt wird ein Deskriptor, gesichert wird ein Name.** Nur ein Name passt
+in ein Buch, das auf einem zweiten Gerät wieder aufgehen soll. Die App meldet
+die Schrift deshalb für ihren Prozess an (`CTFontManagerRegisterFontDescriptors`,
+Umfang `.process` — installiert hat sie der Nutzer längst) und sieht danach
+nach, ob sie unter ihrem Namen auffindbar ist. Was dabei herauskommt, steht
+als Satz in der Schriftwahl; behauptet wird nichts. Weil eine Anmeldung auf
+`.process` mit dem Prozess endet, wird bei jedem Start wieder angemeldet, was
+einmal gewählt wurde.
+
+**Eine fehlende Schrift wird gesagt.** `Schriftbild.uiFont` fällt auf die
+Systemschrift zurück, wenn ein Name nicht auflöst — richtig, denn eine Seite
+ohne Schrift gibt es nicht. Nur sieht man es der Seite nicht an: Sie ist
+gesetzt, sie ist lesbar, und sie ist in einer anderen Schrift als der, die
+oben steht. In einer Druckvorlage ist das der teuerste stille Fehler. Gezählt
+und benannt wird er jetzt in der Druckprüfung für das ganze Buch und als
+Zeile in der Schriftwahl für die gerade gewählte.
+
+**Nicht gemessen:** Hier gibt es keine selbst installierte Schrift.
+Gerechnet ist nur, warum sie in der Liste fehlten; ob der Wähler sie zeigt,
+ob die Anmeldung greift, ob der Name nach einem Neustart trägt und ob eine so
+gewählte Schrift ins PDF eingebettet wird, ist offen. Genau deshalb sagt die
+App nach jeder Wahl, was sie vorfindet.
+
 ## Aufbau
 
 ```
@@ -3360,6 +3402,11 @@ im Inspektor gab es, aber keinen Weg zu sehen, was es bewirkt.
 
 ## Offene Punkte
 
+* **Nichts an 1.0.41 ist auf einem Gerät gesehen.** Ob der Systemwähler die
+  selbst installierten Schriften zeigt, ob die Anmeldung auf `.process`
+  greift, ob der Name nach einem Neustart trägt und ob eine so gewählte
+  Schrift ins PDF eingebettet wird — alles vier offen. Die App misst es und
+  sagt es; der nächste Befund ist die Messung.
 * **Nichts an 1.0.36 ist auf einem Gerät gesehen.** Überlappung, Staffelhub und
   Drehwinkel sind gerechnet und gewählt, nicht gemessen; ob eine Doppelseite
   damit nach „hingelegt" aussieht oder nach „verrutscht", sagt erst der nächste

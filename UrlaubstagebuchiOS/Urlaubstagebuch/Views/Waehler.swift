@@ -147,3 +147,47 @@ enum Druckauftrag {
             .first { $0.isKeyWindow }
     }
 }
+
+// DER SYSTEM-SCHRIFTWÄHLER (ab 1.0.41).
+//
+// Der einzige Weg an Schriften, die der Nutzer selbst auf das Gerät gelegt
+// hat: `UIFont.familyNames` zählt sie nicht mit (siehe
+// `Model/Geraeteschriften.swift`). Es ist derselbe Wähler, den Pages zeigt.
+//
+// `includeFaces = true`, weil in dieser App der SCHNITT die halbe Miete ist
+// — „zu dick gedruckt" war der Befund, mit dem die Schriftwahl in 1.0.29
+// überhaupt entstand.
+struct Schriftwahl: UIViewControllerRepresentable {
+    var fertig: (UIFontDescriptor?) -> Void
+
+    func makeUIViewController(context: Context) -> UIFontPickerViewController {
+        let aufbau = UIFontPickerViewController.Configuration()
+        aufbau.includeFaces = true
+        // Die Systemschrift steht in dieser App schon oben in der Liste;
+        // hier geht es um die Schriften des Geräts.
+        aufbau.displayUsingSystemFont = false
+        let waehler = UIFontPickerViewController(configuration: aufbau)
+        waehler.delegate = context.coordinator
+        return waehler
+    }
+
+    func updateUIViewController(_ waehler: UIFontPickerViewController, context: Context) {}
+
+    func makeCoordinator() -> Bote { Bote(fertig: fertig) }
+
+    final class Bote: NSObject, UIFontPickerViewControllerDelegate {
+        let fertig: (UIFontDescriptor?) -> Void
+        init(fertig: @escaping (UIFontDescriptor?) -> Void) { self.fertig = fertig }
+
+        func fontPickerViewControllerDidPickFont(_ waehler: UIFontPickerViewController) {
+            let deskriptor = waehler.selectedFontDescriptor
+            waehler.dismiss(animated: true)
+            fertig(deskriptor)
+        }
+
+        func fontPickerViewControllerDidCancel(_ waehler: UIFontPickerViewController) {
+            waehler.dismiss(animated: true)
+            fertig(nil)
+        }
+    }
+}

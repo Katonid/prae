@@ -3148,7 +3148,7 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   angefassten Stellen wirkungslos — genau das, was man beim Umstellen
   einer Schrift nicht will.
 - **Nur Schriftfamilien anbieten, die das Gerät wirklich hat**
-  (`Schriftfamilie.vorhandene`). Eine, die dann doch die Systemschrift
+  (`Schriftfamilie.alleDesGeraets`, geprüft mit `.vorhanden`). Eine, die dann doch die Systemschrift
   zeichnet, wäre eine Auskunft, die nicht stimmt. Mitgeliefert wird keine:
   Ein Buch wird weitergegeben, und dafür bräuchte jede Schrift eine Lizenz.
 - **Ein Modus, den man nicht sieht, darf die Bedeutung einer Geste nicht
@@ -5865,6 +5865,61 @@ Befunde, und keiner davon war Geschmack:
   ist und ob der Systemdruckdialog die Broschüre richtig auf das Papier
   bringt, sagt erst der nächste Befund. **Nichts davon als erledigt
   darstellen.**
+- **SELBST INSTALLIERTE SCHRIFTEN ZÄHLT `UIFont.familyNames` NICHT MIT**
+  (`Model/Geraeteschriften.swift`, `Schriftwahl` in `Views/Waehler.swift`, ab
+  1.0.41; gemeldet 09/2026: „Quicksand und … sind auf dem iPad installiert
+  und können beispielsweise in Pages auch genutzt werden. In der App werden
+  sie allerdings nicht einmal angezeigt."). **Die App war nicht kaputt, sie
+  hat an der falschen Stelle gefragt:** `Schriftfamilie.alleDesGeraets` baut
+  die Liste aus `UIFont.familyNames`, und das ist das Verzeichnis DIESES
+  PROZESSES — die Schriften des Systems und die, die eine App in ihrem Bündel
+  mitbringt. Was jemand über eine Schriftverwaltung auf das iPad legt, liegt
+  woanders; dafür gibt es seit iOS 13 den `UIFontPickerViewController`, und
+  genau den zeigt Pages. **Merke: Eine Aufzählung ist keine Frage an das
+  Gerät, sondern eine an den eigenen Prozess.**
+  - **Der Wähler ist der einzige Weg.** Eine Liste lässt sich nicht
+    nachrüsten — es gibt keine Aufzählung der installierten Schriften für
+    fremde Apps, und das ist Absicht von Apple. Der Knopf steht deshalb in
+    einem EIGENEN Abschnitt („Selbst installierte Schriften") über der
+    vollen Liste, mit dem Satz daneben, warum die Schrift darunter fehlt.
+  - **Gewählt wird ein DESKRIPTOR, gesichert wird ein NAME.** Nur ein Name
+    passt in ein Buch, das auf einem zweiten Gerät wieder aufgehen soll.
+    Also wird die Schrift für den Prozess angemeldet
+    (`CTFontManagerRegisterFontDescriptors`, Umfang `.process` — installiert
+    hat sie der Nutzer längst) und danach NACHGESEHEN, ob sie unter ihrem
+    Namen auffindbar ist. Das Ergebnis steht als Satz in der Schriftwahl.
+    **Angenommen wird nichts**; dieselbe Bauweise wie die Stufenprobe bei
+    Schulalarm.
+  - **Eine Anmeldung auf `.process` endet mit dem Prozess.** Deshalb meldet
+    `beimStartAnmelden()` bei jedem Start alles wieder an, was einmal
+    gewählt wurde — und zählt, wie viel davon trägt. Die Namensliste liegt
+    in den Voreinstellungen und NICHT im Buch: Welche Schriften auf einem
+    Gerät liegen, ist eine Eigenschaft des Geräts.
+  - **Kein `@AppStorage`** dafür — das ist eine `DynamicProperty` und gehört
+    in eine View (die Regel steht seit 1.0.0 im Papier).
+  - **Erst anmelden, dann nach dem Familiennamen fragen.** `UIFont(descriptor:)`
+    gibt für eine dem Prozess unbekannte Schrift eine ERSATZSCHRIFT zurück —
+    und deren Familienname stünde dann im Buch.
+- **Eine fehlende Schrift ist der teuerste stille Fehler einer Druckvorlage**
+  (`Druckpruefung`, ab 1.0.41). `Schriftbild.uiFont` fällt auf die
+  Systemschrift zurück, wenn ein Name nicht auflöst — richtig, denn eine
+  Seite ohne Schrift gibt es nicht. Nur sieht man es der Seite nicht an: Sie
+  ist gesetzt, sie ist lesbar, und sie ist in einer anderen Schrift als der,
+  die in der Schriftwahl steht. Getroffen wird das vor allem von selbst
+  installierten Schriften und von einem Buch, das von einem anderen Gerät
+  kommt. Gezählt und benannt wird es jetzt an zwei Stellen: in der
+  Druckprüfung für das ganze Buch und als Zeile in der Schriftwahl für die
+  gerade gewählte. **Wer einen stillen Rückfall baut, baut die Zeile dazu,
+  die ihn sichtbar macht.**
+- **Nicht gemessen (1.0.41):** Auf einem Gerät gesehen hat das niemand — hier
+  gibt es keine selbst installierte Schrift. Gerechnet ist, WARUM sie in der
+  Liste fehlten (`UIFont.familyNames` ist die Aufzählung des Prozesses);
+  **ungeprüft ist alles danach**: ob `UIFontPickerViewController` die
+  Schriften des Nutzers zeigt, ob die Anmeldung auf `.process` greift, ob der
+  Name nach einem Neustart noch trägt und ob eine so gewählte Schrift ins PDF
+  eingebettet wird. Genau deshalb sagt die App nach jeder Wahl selbst, was
+  sie vorfindet, statt es zu behaupten. **Nichts davon als erledigt
+  darstellen** — der nächste Befund des Nutzers ist hier die Messung.
 - **Die Bildunterschrift war halb gebaut** (ab 1.0.5, Wunsch des Nutzers
   09/2026: „zu jedem Foto einen Beschreibungstext … Dies soll jedoch eine
   Option für jedes Foto sein. Kein muss."). Der Layoutautomat hielt Platz

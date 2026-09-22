@@ -10,7 +10,16 @@ struct UrlaubstagebuchApp: App {
         WindowGroup {
             RegalView()
                 .environmentObject(regal)
-                .task { await regal.starten() }
+                .task {
+                    // Selbst installierte Schriften gelten nur für DIESEN
+                    // Prozess und müssen bei jedem Start wieder angemeldet
+                    // werden (ab 1.0.41, `Model/Geraeteschriften.swift`).
+                    // Ohne das stünde im Buch ein Schriftname, den die App
+                    // nach einem Neustart nicht mehr auflöst — und gesetzt
+                    // würde still die Systemschrift.
+                    Geraeteschriften.beimStartAnmelden()
+                    await regal.starten()
+                }
                 .onOpenURL { ort in
                     // Eine Buchdatei, die jemand in „Dateien" antippt oder
                     // per AirDrop schickt. Gefragt wird trotzdem: Ein

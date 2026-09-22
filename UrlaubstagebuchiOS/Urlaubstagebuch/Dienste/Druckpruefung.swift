@@ -134,7 +134,7 @@ enum Druckpruefung {
         )]
     }
 
-    // WO MITTEN IM SATZ GETRENNT WURDE (ab 1.0.37).
+    // WO MITTEN IM SATZ GETRENNT WURDE (ab 1.0.41).
     //
     // Der Befund, der diese Fassung ausgelöst hat (Nutzer, 09/2026): „Ich
     // hatte aber gesagt, dass die Trennstellen dabei nach den Absätzen sein
@@ -190,7 +190,7 @@ enum Druckpruefung {
         )]
     }
 
-    // WIE LANG DIE ZEILEN SIND — gemessen (ab 1.0.37).
+    // WIE LANG DIE ZEILEN SIND — gemessen (ab 1.0.41).
     //
     // Die Zeilenlänge ist die Zahl, auf die sich
     // `Gestaltung.textspaltenanteil` stützt, und eine Einstellung, die sich
@@ -478,6 +478,19 @@ enum Druckpruefung {
             }
         }
 
+        // EINE SCHRIFT, DIE ES HIER NICHT GIBT, IST DER STILLE FEHLER (ab 1.0.41).
+        //
+        // `Schriftbild.uiFont` fällt auf die Systemschrift zurück, wenn ein
+        // Name nicht auflöst — richtig, denn eine Seite ohne Schrift gibt es
+        // nicht. Nur sieht man es der Seite nicht an: Sie ist gesetzt, sie
+        // ist lesbar, und sie ist in einer anderen Schrift als der, die oben
+        // steht. Das trifft vor allem selbst installierte Schriften und
+        // Bücher, die von einem anderen Gerät kommen.
+        let fehlend = benutzt
+            .filter { $0.familienname != nil && !$0.vorhanden }
+            .map(\.name)
+            .sorted()
+
         var verboten: [String] = []
         var unbekannt: [String] = []
         var erlaubt: [String] = []
@@ -493,6 +506,13 @@ enum Druckpruefung {
         }
 
         var zeilen: [Zeile] = []
+        if !fehlend.isEmpty {
+            zeilen.append(Zeile(
+                stufe: .warnung,
+                titel: "\(fehlend.count) Schrift\(fehlend.count == 1 ? "" : "en") gibt es auf diesem Gerät nicht",
+                text: "\(fehlend.joined(separator: ", ")) \u{2014} gesetzt und gedruckt wird stattdessen die Systemschrift. Entweder die Schrift auf diesem Gerät installieren (dann in der Schriftwahl einmal \u{201E}Schrift vom Gerät wählen\u{2026}\u{201C} antippen) oder im Buch eine andere wählen."
+            ))
+        }
         if !verboten.isEmpty {
             zeilen.append(Zeile(
                 stufe: .warnung,
