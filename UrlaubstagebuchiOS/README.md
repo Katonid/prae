@@ -717,6 +717,93 @@ Bücher gefahrlos: Der erzeugte `Codable`-Leser verlangt einen Schlüssel nur
 für nicht-optionale Eigenschaften. Ein vorhandener Wert wird gelesen, ein
 fehlender wird `nil` — also „wie im Buch".
 
+## Alles neu verteilen — und kein Satz geht dabei verloren (1.0.38)
+
+> „Ich frage mich, wie die nun geschaffene Funktion auf dem bereits
+> eingegebenen Text angewendet werden kann. Vielleicht wäre eine Funktion
+> sinnvoll, das Ganze einmal so weit zurückzusetzen, dass der Bild- und
+> Textverteiler in Aktion treten kann."
+
+Die Antwort auf die erste Hälfte lautet: **gar nicht von selbst**, und das ist
+kein Mangel. Was in `Gestaltung` und im `Layoutautomat` steht, wirkt beim
+SETZEN einer Seite; ein fertiges Buch trägt seine Blöcke als Rahmen im Modell.
+Würde eine neue Fassung das von selbst umstellen, bekäme jemand nach einem
+Update sein Buch neu gesetzt, ohne es gewollt zu haben.
+
+`alleNeuAnordnen(nurUnberuehrte: true)` gab es schon — es überspringt aber
+jeden Tag mit Handarbeit, und Handarbeit ist bereits ein verschobener Block.
+Für jeden angefassten Tag hätte man einzeln ins Tagesmenü gemusst.
+
+### Der eigentliche Befund: Das Neusetzen verlor Text
+
+Beim Nachsehen kam etwas heraus, das schwerer wiegt als die Frage.
+`Reisewerk.textSchreiben` legt einen auf der SEITE bearbeiteten Fließtext in
+den **Block** (Zweig `.text`) — `Layoutautomat.seiten(fuer:)` setzt aber aus
+`tag.text`, und der weiß davon nichts. Wer einen Tag mit bearbeitetem Text neu
+anordnen ließ, verlor seinen Wortlaut. Still, denn die Seite steht ja danach
+da.
+
+**Das gab es schon lange vor dieser Fassung:** an „Seiten neu anordnen" im
+Tagesmenü und an beiden Muster-Wegen. „Alle unberührten Tage" war nur deshalb
+ungefährlich, weil es solche Tage übersprang.
+
+`Reisewerk.wortlautSichern` schreibt den Wortlaut deshalb **vor** dem Setzen an
+den Tag zurück. Der Aufruf gehört an jede Stelle, die Seiten setzt — wer einen
+neuen Weg dorthin baut und ihn vergisst, baut denselben stillen Verlust wieder
+ein.
+
+### Eine Ansicht setzt keine Seiten
+
+Zwei der vier Stellen, die den Automaten aufriefen, standen in **Ansichten**
+(der Picker in `TagInhaltView` und `ReiseView.musterSetzen`) und hatten
+dieselbe Folge zweimal gebaut. Keine von beiden wusste vom Wortlaut in den
+Blöcken. Beide gehen jetzt über `Reisewerk.musterSetzen`: Die Ansicht sagt, was
+gewollt ist; wie daraus Seiten werden, weiß das Werk.
+
+Dass der Befund genau dort saß, wo der neue Kommentar davor warnt, ist kein
+Zufall — er war schon da, bevor der Kommentar geschrieben war.
+
+### Zusammenfügen heißt zuerst nachsehen, nicht raten
+
+Das Teilen hat die Ränder abgeschnitten, also steht nirgends mehr, ob zwischen
+zwei Stücken ein Absatzwechsel lag oder ein Leerzeichen mitten im Satz. Beides
+falsch zu machen kostet: Ein Leerzeichen statt eines Absatzes zieht zwei
+Absätze zusammen, ein Absatz statt eines Leerzeichens reißt einen Satz
+auseinander — und genau diesen Riss hat 1.0.37 gerade abgestellt.
+
+Kommen beide Stücke **unverändert** im Tagebuchtext vor, steht dort auch, was
+dazwischen lag; das deckt den häufigsten Fall ab (von zehn Kästen ist einer
+bearbeitet). Geraten wird nur an einer bearbeiteten Naht — Satzzeichen davor
+heißt Absatz —, und **wie oft, wird gezählt und hingeschrieben**.
+
+### Zwei Fehler im eigenen Entwurf, beim Gegenlesen gefunden
+
+Beide hätten Text im Tagebuch beschädigt, und keiner wäre aufgefallen:
+
+* **`Seite.sortiert` ist die Zeichen-Reihenfolge** (nach `ebene`) und sagt über
+  die Lesereihenfolge nichts. Der Automat setzt je Seite nur einen Textkasten,
+  aber „Nach einem Absatz teilen" (1.0.14) kann zwei auf derselben Seite
+  hinterlassen — dann stünde der zweite Absatz vor dem ersten. Sortiert wird
+  nach der Lage.
+* **Zwei gleiche Stücke hintereinander zählen einmal.** Es gibt sie:
+  `Druckpruefung.doppelterText` kennt seit 1.0.9 „derselbe Wortlaut in zwei
+  Kästen auf einer Seite", und woher der zweite Kasten kommt, ist bis heute
+  nicht geklärt. Ungeprüft stünde der Absatz hinterher doppelt im
+  Tagebuchtext — ein Schaden, den die Rettungsfunktion selbst anrichtet.
+
+### Was bleibt und was wegfällt
+
+Steht vorher da, Tag für Tag. **Bleibt:** Tagebuchtext, Überschrift,
+Datumszeile, Bildunterschriften, die Fotos, die Reisepunkte. **Fällt weg:**
+Lage, Größe, Drehung und eigene Schrift der Blöcke, von Hand angelegte oder
+entfernte Seiten, geteilte Textkästen. Die harte Fassung fragt zusätzlich nach,
+bevor sie Handarbeit wegnimmt.
+
+**Nicht gemessen:** Nichts davon ist auf einem Gerät gesehen worden. Gerechnet
+ist, warum der Wortlaut verlorenging und wie er sich zurückholen lässt;
+ungeprüft an echten Daten ist, wie oft die Naht geraten werden muss — das sagt
+erst die Zahl in der Vorschau an einem wirklichen Buch.
+
 ## Der Absatz gewinnt, der Text wird schmaler (1.0.37)
 
 Fünf Befunde des Nutzers (09/2026), und alle fünf sind am Quelltext

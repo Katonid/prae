@@ -5614,6 +5614,96 @@ Befunde, und keiner davon war Geschmack:
   Das Fenster für den Anker kommt aus der Szene DIESER App und nie aus
   `connectedScenes.first` (ungeordnete Menge — dieselbe Falle wie bei
   Tafelbilds Dokumentenkamera).
+- **EIN GESETZTES BUCH ÄNDERT SICH NICHT VON SELBST** (`Neuverteilung`,
+  „…" → „Alles neu verteilen…", ab 1.0.38; Frage des Nutzers 09/2026: „Ich
+  frage mich, wie die nun geschaffene Funktion auf dem bereits eingegebenen
+  Text angewendet werden kann. Vielleicht wäre eine Funktion sinnvoll, das
+  Ganze einmal so weit zurückzusetzen, dass der Bild- und Textverteiler in
+  Aktion treten kann.").
+  Die Antwort auf die erste Hälfte lautet NEIN, und das ist kein Mangel: Was
+  in `Gestaltung` und im `Layoutautomat` steht, wirkt beim SETZEN einer
+  Seite; ein fertiges Buch trägt seine Blöcke als Rahmen im Modell. Würde
+  eine neue Fassung das von selbst umstellen, bekäme jemand nach einem
+  Update sein Buch neu gesetzt, ohne es gewollt zu haben. **Angestoßen wird
+  es ausdrücklich** — und vorher steht Tag für Tag da, was dabei wegfällt.
+  `alleNeuAnordnen(nurUnberuehrte: true)` gab es schon, es überspringt aber
+  jeden Tag mit Handarbeit, und Handarbeit ist bereits ein verschobener
+  Block; für jeden angefassten Tag hätte man einzeln ins Tagesmenü gemusst.
+- **UND BEIM NACHSEHEN KAM DER EIGENTLICHE BEFUND HERAUS: Das Neusetzen
+  verlor den auf der Seite geschriebenen Text** (`Reisewerk.wortlautSichern`,
+  ab 1.0.38). `textSchreiben` legt einen bearbeiteten Fließtext in den BLOCK
+  (Zweig `.text`), `Layoutautomat.seiten(fuer:)` setzt aber aus `tag.text` —
+  und der weiß davon nichts. Wer also einen Tag mit bearbeitetem Text neu
+  anordnen ließ, verlor seinen Wortlaut, STILL, denn die Seite steht ja
+  danach da. **Das gab es schon lange vor dieser Fassung**: an „Seiten neu
+  anordnen" im Tagesmenü und an beiden Muster-Wegen; „Alle unberührten Tage"
+  war nur deshalb ungefährlich, weil es solche Tage übersprang. Der Wortlaut
+  wandert jetzt VOR dem Setzen an den Tag zurück. **Der Aufruf gehört an
+  JEDE Stelle, die Seiten setzt** — wer einen neuen Weg dorthin baut und ihn
+  vergisst, baut denselben stillen Verlust wieder ein.
+- **Eine Ansicht setzt keine Seiten** (`Reisewerk.musterSetzen`, ab 1.0.38).
+  Zwei der vier Stellen, die den Automaten aufriefen, standen in ANSICHTEN
+  (`TagInhaltView`-Picker und `ReiseView.musterSetzen`) und hatten dieselbe
+  Folge zweimal gebaut — keine von beiden wusste vom Wortlaut in den
+  Blöcken. Die Ansicht sagt, was gewollt ist; wie daraus Seiten werden,
+  weiß das Werk. **Dass der Befund genau dort saß, wo der neue Kommentar
+  davor warnt, ist kein Zufall: Er war schon da, bevor der Kommentar
+  geschrieben war.**
+- **Beim Zusammenfügen wird zuerst NACHGESEHEN, nicht geraten**
+  (`Neuverteilung.zusammenfuegen`). Das Teilen hat die Ränder abgeschnitten
+  (`trimmingCharacters`), also steht nirgends mehr, ob zwischen zwei Stücken
+  ein Absatzwechsel lag oder ein Leerzeichen mitten im Satz. Beides falsch
+  zu machen kostet: ein Leerzeichen statt eines Absatzes zieht zwei Absätze
+  zusammen, ein Absatz statt eines Leerzeichens reißt einen Satz
+  auseinander — und genau diesen Riss hat 1.0.37 gerade abgestellt. Kommen
+  beide Stücke UNVERÄNDERT im Tagebuchtext vor, steht dort auch, was
+  dazwischen lag; das deckt den häufigsten Fall ab (von zehn Kästen ist
+  einer bearbeitet). Geraten wird nur an einer bearbeiteten Naht — Satzzeichen
+  davor heißt Absatz —, und **wie oft, wird gezählt und hingeschrieben**.
+  Gesucht wird das zweite Stück HINTER dem ersten: Stünde derselbe Wortlaut
+  zweimal im Text, nähme eine Suche von vorn die falsche Stelle.
+- **Zwei Fehler im eigenen Entwurf, beim Gegenlesen gefunden** (1.0.38) —
+  beide hätten Text im Tagebuch beschädigt, und keiner wäre aufgefallen:
+  - **`Seite.sortiert` ist die ZEICHEN-Reihenfolge** (nach `ebene`) und sagt
+    über die LESE-Reihenfolge nichts. Der Automat setzt je Seite nur einen
+    Textkasten, aber „Nach einem Absatz teilen" (1.0.14) kann zwei auf
+    derselben Seite hinterlassen — dann stünde der zweite Absatz vor dem
+    ersten im Tagebuchtext. Sortiert wird nach der LAGE (y, dann x).
+  - **Zwei gleiche Stücke hintereinander zählen einmal.** Es gibt sie:
+    `Druckpruefung.doppelterText` kennt seit 1.0.9 „derselbe Wortlaut in
+    zwei Kästen auf einer Seite", und woher der zweite Kasten kommt, ist bis
+    heute nicht geklärt. Ungeprüft stünde der Absatz hinterher DOPPELT im
+    Tagebuchtext — ein Schaden, den die Rettungsfunktion selbst anrichtet.
+    Eng gefasst auf das unmittelbare Nacheinander: Ein Tagebuch darf
+    denselben kurzen Satz zweimal enthalten, nur nicht zweimal an derselben
+    Stelle.
+- **Was beim Neuverteilen BLEIBT und was WEGFÄLLT, steht vorher da.** Bleibt:
+  Tagebuchtext, Überschrift, Datumszeile, Bildunterschriften (die stehen am
+  Tag bzw. am Foto), die Fotos und die Reisepunkte. Fällt weg: Lage, Größe,
+  Drehung und eigene Schrift der Blöcke, von Hand angelegte oder entfernte
+  Seiten, geteilte Textkästen. Die harte Fassung fragt zusätzlich nach,
+  bevor sie Handarbeit wegnimmt — dieselbe Regel wie beim Stilwechsel seit
+  1.0.32, und eine Rückfrage, die nur eine Antwort zulässt, ist keine.
+- **Eine `+`-KETTE MIT `?:` UND INTERPOLATION SPRENGT DEN TYPPRÜFER**
+  (getroffen beim Bau von 1.0.38). `NeuverteilenView` trug einen `Text(…)`
+  aus fünf per `+` verketteten Teilen, darin ein ternärer Ausdruck und ein
+  `\(geratene)`. Der Übersetzer gab auf: „the compiler is unable to
+  type-check this expression in reasonable time". **Lange `+`-Ketten aus
+  reinen LITERALEN gehen in diesem Repo an hundert Stellen gut** — was sie
+  sprengt, ist die MISCHUNG: `+`, `?:` und `\(…)` im selben Ausdruck. Jeder
+  Teil für sich ist mehrdeutig (`+` gibt es für String und Zahl, `?:`
+  verzweigt die Typen, Interpolation nimmt alles), und der Prüfer muss die
+  Kreuzung aller Möglichkeiten durchgehen.
+  **Gebaut wird so etwas außerhalb des Körpers**, Stück für Stück in eine
+  `String`-Variable — dann ist jeder Schritt eindeutig. Die Meldung nennt
+  übrigens nur die ERSTE solche Stelle einer Datei; wer sie behebt, sieht
+  sich die anderen gleich mit an, statt einen zweiten roten Bau zu
+  riskieren (in 1.0.38 standen noch drei daneben).
+- **Nicht gemessen (1.0.38):** Nichts davon ist auf einem Gerät gesehen
+  worden. Gerechnet ist, WARUM der Wortlaut verlorenging und wie er sich
+  zurückholen lässt; **ungeprüft an echten Daten** ist, wie oft die Naht
+  geraten werden muss — das sagt erst die Zahl in der Vorschau an einem
+  wirklichen Buch. **Nicht als erledigt darstellen.**
 - **Nicht gemessen (1.0.37):** Keine Seite ist damit gesehen worden.
   Gerechnet sind die Geometrie und die Ursachen; **gewählt und nicht
   gemessen** sind die Vorgabe 0,66 für die Textspalte (sie ist die Zahl aus
@@ -5884,7 +5974,7 @@ Befunde, und keiner davon war Geschmack:
   Stellen im pbxproj (Debug + Release) — es gibt KEINE Skript-Bauphase.
   **Jede Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne
   Nachfrage, als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann
-  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.37 (Build 38). Dazu gesetzt:
+  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.38 (Build 39). Dazu gesetzt:
   `DEVELOPMENT_TEAM = F4989GSTWS` und
   `INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.travel`.
   Seit 1.0.4 steht dort auch `CODE_SIGN_ENTITLEMENTS = Config/Urlaubstagebuch.entitlements`
