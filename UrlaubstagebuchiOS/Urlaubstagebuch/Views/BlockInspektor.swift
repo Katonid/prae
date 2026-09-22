@@ -225,6 +225,7 @@ struct BlockInspektor: View {
 
     // MARK: - Abschnitte
 
+    @ViewBuilder
     private func artAbschnitt(_ block: Block) -> some View {
         Section {
             LabeledContent("Art", value: block.inhalt.name)
