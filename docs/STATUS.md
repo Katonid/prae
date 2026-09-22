@@ -95,7 +95,7 @@ gemeinsame Bauweise:
 | --- | --- | --- | --- |
 | Schulalarm | 1.1.0 (Build 44) | App Store, Einreichung | zwei Ablehnungen beantwortet, Wiedervorlage |
 | Abfahrtstafel | 1.1.30 (Build 43) | in Arbeit | läuft, laufende Befunde des Nutzers |
-| Reisebuch | 1.0.39 (Build 40) | in Arbeit | Satzmaschine im Umbau, **aktive Baustelle** |
+| Reisebuch | 1.0.40 (Build 41) | in Arbeit | Satzmaschine im Umbau, **aktive Baustelle** |
 | Tafelbild | 1.4.6 | App Store, freigegeben | in Pflege |
 | Kassenbuch | 1.0.17 (Build 18) | TestFlight/Store | in Pflege |
 | Tagesspur | 1.4.27 | Store | in Pflege |
@@ -180,6 +180,12 @@ Die Satzmaschine ist in vier Fassungen hintereinander umgebaut worden
   nur im Inspektor ganz unten, Kopieren gab es gar nicht. Kopiert wird,
   was sich selbst gehört (Fotos, Karten, Linien, Flächen) — ein
   Tagebuchtext gehört dem Tag und stünde sonst doppelt im Buch.
+* 1.0.40 — der Schalter „Silben trennen" hat von 1.0.0 bis 1.0.39 nichts
+  getan: `hyphenationFactor` ist ein Feld von TextKit, gesetzt wird mit
+  CoreText, und dessen `CTParagraphStyle` kennt keine Trennung. Die
+  Stellen kommen jetzt aus Apples Wörterbuch
+  (`CFStringGetHyphenationLocationBeforeIndex`), der Strich wird selbst
+  eingefügt, und die Druckprüfung zählt, wie viele es geworden sind.
 
 **Offen und ausdrücklich ungemessen:**
 

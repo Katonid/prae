@@ -717,6 +717,121 @@ Bücher gefahrlos: Der erzeugte `Codable`-Leser verlangt einen Schlüssel nur
 für nicht-optionale Eigenschaften. Ein vorhandener Wert wird gelesen, ein
 fehlender wird `nil` — also „wie im Buch".
 
+## Die Silbentrennung war ein Schalter ohne Draht (1.0.40)
+
+> „Trotz aktivierter Silbentrennung sieht es dann so aus."
+> — mit einem Bildschirmfoto: Blocksatz, handbreite Lücken zwischen den
+> Wörtern, kein einziger Trennstrich.
+
+Er hat recht, und die Ursache ist am Quelltext abzuzählen.
+
+`Schriftbild.attribute` setzte `NSMutableParagraphStyle.hyphenationFactor`.
+Gesetzt wird die Seite aber mit **CoreText**
+(`CTFramesetterCreateWithAttributedString`, `CTFrameDraw`), und CoreText
+übersetzt einen `NSParagraphStyle` in einen `CTParagraphStyle`. Dessen
+Aufzählung `CTParagraphStyleSpecifier` kennt Ausrichtung, Einzüge,
+Zeilenhöhen, Absatzabstände und den Umbruchmodus — eine Silbentrennung steht
+nicht darin. Das Feld fällt beim Übersetzen weg.
+
+**Damit hat der Schalter „Silben trennen" von 1.0.0 bis 1.0.39 nichts getan**
+— weder auf dem Bildschirm noch im PDF, denn beide gehen durch dieselbe
+Funktion (`Seitensatz.zeichneText`).
+
+### Warum es zehn Fassungen lang niemandem auffiel
+
+Im Textfeld beim Bearbeiten wirkte die Einstellung sehr wohl.
+`TextflaecheBruecke` ist ein `UITextView`, setzt also über TextKit — und
+TextKit liest `hyphenationFactor`. Beim Doppeltipp war der Text getrennt,
+auf der Seite darunter nicht: dieselbe Einstellung, zwei Satzmaschinen.
+
+**Merke: Ein Attribut, das im Modell steht, ist noch nicht gesetzt.** Wer
+eine Einstellung an zwei Wege reicht, prüft sie an beiden.
+
+### Und die App behauptete das Gegenteil
+
+Unter den Schaltern stand „Blocksatz ohne Silbentrennung reißt Löcher in die
+Zeilen" — aber nur, **solange der Schalter aus war**. Wer ihn umlegte, sah
+die Warnung verschwinden und die Löcher bleiben. Ein Hinweis, der mit dem
+Schalter verschwindet, sagt „erledigt", und das war hier falsch.
+
+Jetzt stehen dort Zeilen, die etwas aussagen: woher die Trennstellen kommen,
+ob dieses Gerät überhaupt ein deutsches Wörterbuch hat, und dass in
+Großbuchstaben nicht getrennt wird.
+
+### Getrennt wird weiterhin nicht von uns
+
+Die Stellen kommen aus `CFStringGetHyphenationLocationBeforeIndex`, also aus
+demselben deutschen Wörterbuch des Systems, das TextKit benutzt hätte. Die
+Regel bleibt: Eine selbst gebaute Trennung ist verboten — die deutsche ist
+nicht ableitbar, und eine falsche stünde für immer im gedruckten Buch. Neu
+ist nur, dass die App das Wörterbuch selbst fragt und den Strich selbst
+einfügt.
+
+**Ein weiches Trennzeichen (U+00AD) wäre der naheliegende Weg und ist bewusst
+nicht gebaut.** Ob CoreText es als Umbruchstelle nimmt und dabei einen
+sichtbaren Strich zeichnet, ließ sich hier nicht messen — und der Fehlerfall
+wäre der teuerste denkbare: ein Strich mitten im Wort auf jeder Seite des
+gedruckten Buches. Eingefügt wird deshalb ein **echter** Strich (U+002D und
+nicht U+2010; das Viertelgeviert fehlt in mancher Schrift, und eine fehlende
+Glyphe wäre ein Kästchen im Wort), und zwar nur dort, wo die Zeile ohnehin
+umbricht. Damit hängt nichts an einer Annahme über CoreText.
+
+### Wie es rechnet
+
+Ein Setzer je Absatz, nicht einer je Trennstelle: Ein eingefügter Strich
+gehört zur ablaufenden Zeile, die nächste beginnt an einer Stelle, die es im
+Urtext gibt. `CTTypesetterSuggestLineBreak` lässt sich also weiter mit
+demselben Setzer fragen, und die Striche werden erst am Ende in den Text
+geschrieben. Ein Setzer je Trennstelle wäre quadratisch — bei einem `Mosaik`,
+das zwölf Spaltenbreiten durchprobiert, ist das der Unterschied zwischen
+Millisekunden und Sekunden.
+
+Gemessen wird die Zeile **mit** dem Strich und nicht die Zeile plus einen
+einzeln gemessenen Strich. Der Unterschied ist die Unterschneidung zwischen
+letztem Buchstaben und Strich, und er entscheidet: Rechnete man zu knapp,
+passte die Zeile beim Setzen nicht mehr, CoreText bräche an der Lücke davor
+um — und der Strich stünde am **Anfang** der nächsten Zeile mitten im Wort.
+Vorgeschaltet ist eine grobe Prüfung über denselben Setzer; genau gemessen
+wird nur der eine Kandidat, der sie überstanden hat.
+
+Zwei Zahlen sind gewählt und nicht gemessen: mindestens zwei Zeichen vor dem
+Strich und drei danach, höchstens drei getrennte Zeilen hintereinander.
+Beides ist Handwerk des Schriftsatzes.
+
+### Zwei Dinge, die daran hängen
+
+**Die Breite gehört an jede Aufrufstelle von `Textmass`.** Seit die Trennung
+von Hand gesetzt wird, hängt der gesetzte Text an der Breite: Wo die Zeile
+umbricht, entscheidet, welches Wort getrennt wird. Messen und Zeichnen müssen
+dieselbe Breite nennen — sonst hätte der Setzer, der die Höhe ausrechnet,
+andere Striche als der, der die Seite zeichnet, und der Text liefe unten aus
+seinem Block.
+
+**`passtBis` rechnet auf den Urtext zurück.** Es sagt, wie viel Text auf eine
+Seite passt, und `teilen` schneidet danach den Tagebuchtext. Käme dort eine
+Länge aus dem gesetzten Text zurück, wanderten die eingefügten Striche über
+`Neuverteilung` in `tag.text` — mitten in die Wörter, und zwar dauerhaft.
+Versalien bleiben aus demselben Grund ungetrennt: `uppercased()` kann die
+Länge ändern („ß" wird „SS"), und dann ginge die Rückrechnung um ein Zeichen
+daneben.
+
+### Gezählt statt zugesagt
+
+Nach einem Schalter, der zehn Fassungen lang nichts tat, steht in der
+Druckprüfung keine Zusage, sondern eine Zahl: so viele Trennstriche in so
+vielen Textblöcken, gezählt am gesetzten Buch. Ist sie null, obwohl der
+Schalter an ist, sieht man das, statt es zu vermuten.
+
+### Nicht gemessen
+
+Keine Seite ist damit gesehen worden. Gerechnet und am Quelltext abgezählt
+ist die Ursache und die Geometrie der Einfügung. **Ungemessen bleibt der
+Preis:** Die Trennung läuft bei jeder Messung mit, und `Mosaik` misst
+denselben Text in zwölf Breiten. Der Zwischenspeicher fängt die
+Wiederholungen ab, aber wie sich ein Buch mit zwanzig Tagen beim Neuanordnen
+anfühlt, sagt erst der nächste Befund; der Zeichenmesser unter „Bedienung
+prüfen" zählt die Dauer mit.
+
 ## Verschieben findbar, Kopieren gebaut (1.0.39)
 
 > „Ich suche noch nach der Funktion, Elemente auf eine andere Seite zu

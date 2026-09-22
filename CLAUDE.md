@@ -5743,6 +5743,109 @@ Befunde, und keiner davon war Geschmack:
   `ForEach` (die Typprüfer-Falle aus 1.0.38 — jetzt drei Funktionen). **Die
   Regeln zu kennen genügt nicht; sie müssen am eigenen Diff angewandt
   werden, bevor der Bau es tut.**
+- **`hyphenationFactor` IST EIN FELD VON TEXTKIT — CoreText wirft es weg**
+  (`Model/Silbentrennung.swift`, ab 1.0.40; gemeldet 09/2026 mit
+  Bildschirmfoto: „Trotz aktivierter Silbentrennung sieht es dann so aus"
+  — Blocksatz mit handbreiten Lücken und keinem einzigen Trennstrich).
+  **Die Ursache ist am Quelltext abzuzählen und keine Vermutung:**
+  `Schriftbild.attribute` setzt `NSMutableParagraphStyle.hyphenationFactor`,
+  gesetzt wird die Seite aber mit CoreText. Reicht man CoreText eine
+  `NSAttributedString`, übersetzt es den `NSParagraphStyle` in einen
+  `CTParagraphStyle` — und dessen Aufzählung `CTParagraphStyleSpecifier`
+  kennt Ausrichtung, Einzüge, Zeilenhöhen, Absatzabstände und den
+  Umbruchmodus. Eine Silbentrennung steht nicht darin, also fällt das Feld
+  beim Übersetzen weg.
+  **Damit hat der Schalter „Silben trennen" von 1.0.0 bis 1.0.39 NICHTS
+  getan** — weder auf dem Bildschirm noch im PDF, denn beide gehen durch
+  `Seitensatz.zeichneText`. **Merke: Ein Attribut, das im Modell steht, ist
+  noch nicht gesetzt.** TextKit und CoreText nehmen dieselbe
+  `NSAttributedString` entgegen und werten NICHT dieselben Schlüssel aus.
+- **Warum es nie auffiel: im Textfeld wirkte es.** `TextflaecheBruecke` ist
+  ein `UITextView`, setzt also über TextKit und liest `hyphenationFactor`
+  sehr wohl. Beim Doppeltipp war der Text getrennt, auf der Seite darunter
+  nicht — dieselbe Einstellung, zwei Satzmaschinen. Wer eine Einstellung an
+  zwei Wege reicht, prüft sie an BEIDEN.
+- **Und die App behauptete das Gegenteil.** `TypografieView` zeigte
+  „Blocksatz ohne Silbentrennung reißt Löcher in die Zeilen" nur, SOLANGE
+  der Schalter aus war. Wer ihn umlegte, sah die Warnung verschwinden und
+  die Löcher bleiben. Ein Hinweis, der mit dem Schalter verschwindet, sagt
+  aus: „erledigt" — und das war hier falsch. Seit 1.0.40 sagen die Zeilen
+  darunter, woher die Trennstellen kommen, ob das Gerät überhaupt ein
+  deutsches Wörterbuch hat und dass in Großbuchstaben nicht getrennt wird.
+- **Getrennt wird weiterhin NICHT von uns.** Die Stellen kommen aus
+  `CFStringGetHyphenationLocationBeforeIndex`, also aus demselben deutschen
+  Wörterbuch des Systems, das TextKit benutzt hätte. Die Regel dieses Repos
+  („eine selbst gebaute Trennung ist verboten, die deutsche ist nicht
+  ableitbar, und eine falsche stünde für immer im gedruckten Buch") bleibt
+  unangetastet — neu ist nur, dass die App das Wörterbuch selbst fragt und
+  den Strich selbst einfügt.
+- **Ein WEICHES Trennzeichen (U+00AD) wäre der naheliegende Weg und ist
+  bewusst NICHT gebaut.** Ob CoreText es als Umbruchstelle nimmt und dabei
+  einen sichtbaren Strich zeichnet, lässt sich hier nicht messen — und der
+  Fehlerfall wäre der teuerste denkbare: ein Strich mitten im Wort auf jeder
+  Seite des gedruckten Buches. Eingefügt wird deshalb ein ECHTER Strich
+  (U+002D, nicht U+2010 — das Viertelgeviert fehlt in mancher Schrift, und
+  eine fehlende Glyphe wäre ein Kästchen im Wort), und zwar nur dort, wo die
+  Zeile ohnehin umbricht. Damit hängt nichts an einer Annahme über CoreText.
+- **EIN Setzer je Absatz, nicht einer je Trennstelle.** Ein eingefügter
+  Strich gehört zur ABLAUFENDEN Zeile; die nächste beginnt an einer Stelle,
+  die es im Urtext gibt. `CTTypesetterSuggestLineBreak` lässt sich also
+  weiter mit demselben Setzer fragen, und die Striche werden erst am Ende in
+  den Text geschrieben. Ein Setzer je Trennstelle wäre der naheliegende Weg
+  und quadratisch — bei einem `Mosaik`, das zwölf Spaltenbreiten
+  durchprobiert, ist das der Unterschied zwischen Millisekunden und
+  Sekunden.
+- **Gemessen wird die Zeile MIT dem Strich, nicht die Zeile plus einen
+  einzeln gemessenen Strich.** Der Unterschied ist die Unterschneidung
+  zwischen letztem Buchstaben und Strich, und er entscheidet: Rechnete man
+  zu knapp, passte die Zeile beim Setzen nicht mehr, CoreText bräche an der
+  Lücke davor um — und der Strich stünde am ANFANG der nächsten Zeile mitten
+  im Wort. Vorgeschaltet ist eine grobe Prüfung über denselben Setzer (die
+  kostet nichts Zusätzliches); genau gemessen wird nur der eine Kandidat,
+  der sie überstanden hat.
+- **DIE BREITE GEHÖRT AN JEDE AUFRUFSTELLE VON `Textmass`** (ab 1.0.40).
+  Seit die Trennung von Hand gesetzt wird, hängt der gesetzte Text an der
+  Breite: Wo die Zeile umbricht, entscheidet, welches Wort getrennt wird.
+  Messen und Zeichnen müssen deshalb dieselbe Breite nennen — sonst hätte
+  der Setzer, der die Höhe ausrechnet, andere Striche als der, der die Seite
+  zeichnet, und der Text liefe unten aus seinem Block. Genau die Regel, aus
+  der `Textmass` überhaupt entstanden ist, eine Ebene tiefer.
+- **`passtBis` rechnet auf den URTEXT zurück** (`Ergebnis.imUrtext`). Es
+  sagt, wie viel Text auf eine Seite passt, und `teilen` schneidet danach
+  den TAGEBUCHTEXT. Käme dort eine Länge aus dem gesetzten Text zurück,
+  wanderten die eingefügten Striche über `Neuverteilung.fliesstexte` in
+  `tag.text` — mitten in die Wörter, und zwar dauerhaft. **Wer einen Text
+  für die Anzeige verändert, braucht den Weg zurück, bevor er ihn misst.**
+- **Versalien bleiben ungetrennt, und das ist Absicht.**
+  `Schriftbild.gesetzt` schreibt den Text dann groß, und `uppercased()` kann
+  die Länge ändern (aus „ß" wird „SS"). Die Rückrechnung auf den Urtext
+  ginge damit um ein Zeichen daneben, und ein Tagebuchtext verlöre beim
+  nächsten Neuverteilen einen Buchstaben. Versalien stehen in Überschriften,
+  und die sind kurz; die Oberfläche sagt es dazu.
+- **Was das Wörterbuch vorschlägt, wird MITGELESEN.**
+  `CFStringGetHyphenationLocationBeforeIndex` gibt auch das Zeichen zurück,
+  das an die Stelle gehört. Für Deutsch ist das seit 1996 ein gewöhnlicher
+  Trennstrich; schlägt es etwas anderes vor, könnte sich die Schreibung
+  ändern (die alte „Zuk-ker"-Regel), und das wäre eine Entscheidung über den
+  Text, die uns nicht zusteht — solche Stellen werden übersprungen.
+- **Wie oft wirklich getrennt wurde, ZÄHLT die Druckprüfung**
+  (`Druckpruefung.trennungsbefund`). Nach einem Schalter, der zehn Fassungen
+  lang nichts tat, steht dort keine Zusage, sondern eine Zahl: so viele
+  Trennstriche in so vielen Textblöcken, gezählt am gesetzten Buch. Ist sie
+  null, obwohl der Schalter an ist, sieht man das, statt es zu vermuten.
+- **Zwei Zahlen sind gewählt und nicht gemessen:** mindestens zwei Zeichen
+  vor dem Strich und drei danach, und höchstens drei getrennte Zeilen
+  hintereinander. Beides ist Handwerk des Schriftsatzes, an diesem Buch
+  nicht nachgeprüft.
+- **Nicht gemessen (1.0.40):** Keine Seite ist damit gesehen worden.
+  Gerechnet und am Quelltext abgezählt ist die URSACHE — dass
+  `hyphenationFactor` bei CoreText wegfällt — und die Geometrie der
+  Einfügung. **Ungemessen bleibt der PREIS:** Die Trennung läuft bei jeder
+  Messung mit, und `Mosaik` misst denselben Text in zwölf Breiten; der
+  Zwischenspeicher fängt die Wiederholungen ab, aber wie sich ein Buch mit
+  zwanzig Tagen beim Neuanordnen anfühlt, sagt erst der nächste Befund. Der
+  Zeichenmesser unter „Bedienung prüfen" zählt die Dauer mit. **Nicht als
+  erledigt darstellen.**
 - **Nicht gemessen (1.0.39):** Nichts davon ist auf einem Gerät gesehen
   worden. Dass das Blockmenü auffindbar IST, folgt daraus, dass es unten in
   der Leiste steht und den Namen des Blocks trägt — gesehen hat es niemand,
@@ -6023,7 +6126,7 @@ Befunde, und keiner davon war Geschmack:
   Stellen im pbxproj (Debug + Release) — es gibt KEINE Skript-Bauphase.
   **Jede Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne
   Nachfrage, als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann
-  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.39 (Build 40). Dazu gesetzt:
+  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.40 (Build 41). Dazu gesetzt:
   `DEVELOPMENT_TEAM = F4989GSTWS` und
   `INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.travel`.
   Seit 1.0.4 steht dort auch `CODE_SIGN_ENTITLEMENTS = Config/Urlaubstagebuch.entitlements`

@@ -62,11 +62,17 @@ enum Silbentrennung {
 
     // MARK: - Was das Gerät hergibt
 
-    // Gebaut wird der Behälter mit CoreFoundation und nicht über eine
-    // Brücke von `Locale`: `CFStringGetHyphenationLocationBeforeIndex` will
-    // ein `CFLocale`, und eine Überbrückung, die vielleicht geht, ist an
-    // dieser Stelle eine Zeile, die vielleicht übersetzt.
-    static let woerterbuch: CFLocale = CFLocaleCreate(kCFAllocatorDefault, "de_DE" as CFString)
+    // Der Weg über `NSLocale` und nicht über `CFLocaleCreate`.
+    //
+    // `CFLocaleCreate` nimmt als zweites Argument einen
+    // `CFLocaleIdentifier` — und der ist in Swift KEIN Alias für
+    // `CFString`, sondern ein eigener Typ (Apple markiert ihn als
+    // Zeichenketten-Aufzählung, Swift baut daraus eine Struktur). Genau das
+    // hat den ersten Bau von 1.0.40 gekostet: „cannot convert value of type
+    // 'CFString' to expected argument type 'CFLocaleIdentifier'".
+    // `NSLocale` und `CFLocale` sind dagegen gebührenfrei überbrückt, und
+    // `as` ist dafür der übliche Weg.
+    static let woerterbuch: CFLocale = NSLocale(localeIdentifier: "de_DE") as CFLocale
 
     /// Ob dieses Gerät überhaupt ein deutsches Trennwörterbuch hat.
     ///
