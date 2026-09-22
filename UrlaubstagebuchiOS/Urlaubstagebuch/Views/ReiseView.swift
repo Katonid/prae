@@ -981,6 +981,20 @@ struct ReiseView: View {
                     UIPasteboard.general.string = befundtext
                     werk.meldung = Reisewerk.Meldung(text: "Der Befund liegt in der Zwischenablage.")
                 }
+                // Gezählt wird beim TIPP und nicht im Körper des Menüs: Ein
+                // Menü baut seinen Inhalt bei jedem Zeichnen der
+                // Werkzeugleiste, und der Lauf geht über alle Seiten und
+                // Blöcke des Buches. Dieselbe Falle wie bei der
+                // Druckprüfung in 1.0.0.
+                Button("Leere Bildunterschriften abschalten",
+                       systemImage: "text.bubble") {
+                    let zahl = werk.leereUnterschriftenAbschalten()
+                    werk.meldung = Reisewerk.Meldung(
+                        text: zahl == 0
+                            ? "Es gibt keine leeren Bildunterschriften."
+                            : "\(zahl) leere Bildunterschrift\(zahl == 1 ? "" : "en") abgeschaltet. Mit \u{201E}Widerrufen\u{201C} zurückzunehmen."
+                    )
+                }
             }
         } label: {
             Label("Mehr", systemImage: "ellipsis.circle")
