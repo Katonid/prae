@@ -4598,6 +4598,52 @@ Befunde, und keiner davon war Geschmack:
   bewiesen** — die Höhenschätzung des `LazyVStack` ist die Erklärung, die zu
   den Zahlen passt, und mehr nicht. Die Nachführung wirkt unabhängig davon,
   aber sie ist ein Netz und kein Beweis. **Nicht als erledigt darstellen.**
+- **`scaleEffect` ändert die ZEICHNUNG, nie die LAYOUTGRÖSSE — und ein `.frame`
+  ohne Ausrichtung stellt ein kleineres Kind MITTIG hinein** (behoben in
+  1.0.26, gemeldet 09/2026 zum wiederholten Mal). Zwei Zeilen in
+  `SeitenflaecheView`:
+  `.scaleEffect(massstab, anchor: .topLeading)` und darunter
+  `.frame(width: bogen.width * massstab, height: bogen.height * massstab)`.
+  Das Kind meldet weiterhin die UNSKALIERTE Bogengröße, der Rahmen ist die
+  skalierte — also stand das Kind mittig darin, und gezeichnet wurde ab SEINER
+  Ecke, um `bogen · (Maßstab − 1) / 2` versetzt. Der Griff ist ein Wort:
+  `alignment: .topLeading`.
+- **Drei Beschwerden, eine Ursache — und der Nutzer hatte sie genauer benannt
+  als jede Vermutung davor.** „Es ist nicht die Seite, sondern irgendein oberer
+  linker Punkt der Arbeitsfläche, den du willkürlich festgelegt hast": genau
+  so, und der Punkt lag um den halben Zuwachs daneben. Dazu „am oberen Rand
+  bleibt grundsätzlich Abstand bis zur eigentlichen Buchseite" (die leere
+  Lücke oben links), „die untere rechte Ecke erreiche ich nie" (der Überhang
+  unten rechts — gerollt wird der RAHMEN, nicht die Zeichnung) und „nicht
+  wieder herauszoomen" (**was außerhalb eines Frames liegt, nimmt in SwiftUI
+  keinen Finger an** — dieselbe Regel wie bei den Griffen in 1.0.2, eine Ebene
+  höher; der Zoom hängt an der Fläche der Bühne). **Merke: Drei Beschwerden,
+  die sich widersprechen, haben oft eine Ursache — und die Beschwerde, die eine
+  GEOMETRIE beschreibt, ist die, an der man rechnen kann.**
+- **Nachgemessen an zwei Bildschirmfotos, in BEIDE Richtungen.** Bei 94 % steht
+  die Blattkante 93 pt vom Bühnenrand, wo `Zoomanker` 121,5 erwartet (−28,5
+  gegen gerechnet −28,0); bei 187 % liegt der Inhalt um +387/+272 daneben
+  (gerechnet +373,5/+266,1). Unter 100 % zeichnet es weiter oben links als der
+  Rahmen, darüber weiter unten rechts — beide Vorzeichen stimmen, beide
+  Beträge auch. **Eine Ursache, die nur in einer Richtung passt, ist keine.**
+- **Eine Probe, die „alles in Ordnung" meldet, ist nicht gescheitert.** Die
+  Zeile aus 1.0.24 nannte `Soll −588/−1411 · Ist −588/−1411 · Abweichung 0/−0`
+  — und das war RICHTIG: Gerollt wurde genau dorthin, wo die Rechnung es
+  wollte. Falsch war, wo die Rechnung die Seite VERMUTETE. Ohne diese Zeile
+  wäre 1.0.26 die fünfte Vermutung geworden; sie hat die Geometrie entlastet
+  und den Blick auf das gelenkt, was sie nicht misst. **Wer eine Probe baut,
+  schreibt dazu, was sie NICHT misst** — hier: wo das Gezeichnete innerhalb
+  seines Rahmens liegt.
+- **1.0.25 war falsch und ist zurückgenommen.** Die Nachführung (rollen,
+  nachsehen, noch einmal rollen) und der Deckel für den `LazyVStack` waren die
+  Antwort auf eine Frage, die es nicht gab: Der Versatz wurde nie nachträglich
+  verstellt, er war von Anfang an ein anderer, als die Rechnung annahm.
+  `ReiseView` steht wieder auf dem Stand von 1.0.24. **Ein Mechanismus, dessen
+  Grund widerlegt ist, bleibt nicht liegen** — sonst steht beim nächsten Befund
+  eine Regelung im Weg, die niemand mehr begründen kann.
+- **Nicht gemessen (1.0.26):** Gesehen hat es niemand. Gerechnet und an zwei
+  Bildern nachgemessen ist die URSACHE; dass die drei Beschwerden damit weg
+  sind, folgt aus der Geometrie. **Nicht als erledigt darstellen.**
 - **Die Bildunterschrift war halb gebaut** (ab 1.0.5, Wunsch des Nutzers
   09/2026: „zu jedem Foto einen Beschreibungstext … Dies soll jedoch eine
   Option für jedes Foto sein. Kein muss."). Der Layoutautomat hielt Platz
