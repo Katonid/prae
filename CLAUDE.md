@@ -5002,6 +5002,69 @@ Befunde, und keiner davon war Geschmack:
   `PHPickerResult.itemProvider.suggestedName` wirklich den ursprünglichen Dateinamen
   trägt, ist die Lesart der Dokumentation und keine Messung. **Nicht als erledigt
   darstellen.**
+- **Der freigehaltene Streifen gehört der REIHE, nicht dem Text** (ab 1.0.31,
+  gemeldet 09/2026: „Es gibt einen riesigen Textblock und danach werden die Bilder
+  auf die Seite geknallt."). Das ist am Quelltext nachzurechnen und passt zum
+  Bildschirmfoto: `.wechsel` hält auf der ersten Seite die gemessene Höhe der
+  nächsten Fotoreihe frei (seit 1.0.29) — und `reihenSetzen` prüft zu Beginn jeder
+  Seite NOCH EINMAL selbst, ob neben einer Reihe sechs Zeilen Text Platz haben.
+  Auf genau diesem Streifen haben sie das nicht, also gab die Prüfung null zurück
+  und der ganze Rest ging an den Text. Ging dem Text dabei die Luft aus, blieb
+  unten Weiß stehen und die Reihe passte nicht mehr: neue Seite, nur Bilder.
+  **Wer Platz für ein Bild freihält, stellt das Bild auch hinein** — reicht die
+  Resthöhe für eine Reihe, aber nicht für Reihe UND sechs Zeilen, bekommt sie die
+  Reihe. **Merke: Wenn zwei Stellen dieselbe Frage stellen, muss die zweite die
+  Antwort der ersten kennen.**
+- **Jede Seite bekommt ein eigenes Seitenbild** (`Model/Seitenrhythmus.swift`, ab
+  1.0.31, Ansage des Nutzers 09/2026: „Dabei soll nicht jede Seite gleich aussehen
+  … Mal soll der Textblock oben links sein, mal in der Mitte, mal leicht
+  verschoben, vielleicht auch sogar einmal gedreht."). Verteilt wurde seit 1.0.14;
+  was fehlte, war das Zweite — Textspalte über die volle Satzbreite, darunter
+  randbündige Fotoreihen, Seite für Seite dasselbe. **Ein Buch, dessen Seiten sich
+  nur im Inhalt unterscheiden, ist gesetzt wie eine Tabelle.**
+  - **Sechs Seitenbilder in FESTER Folge**, der Einstieg aus `UUID.saat` des
+    Tages — sonst begänne jeder Tag mit demselben Bild, also derselbe Befund eine
+    Ebene höher. **Nie aus `hashValue`**: Den streut Swift je Programmlauf neu,
+    und dasselbe Buch sähe nach jedem Start anders aus (dieselbe Falle wie bei
+    den Linienfarben der Abfahrtstafel und beim Papierkorn in 1.0.16).
+  - **Die Liste ist eine FOLGE, keine Menge.** Auf eine volle Breite folgt eine
+    schmale, auf einen linken Block ein rechter. Wer etwas einfügt, ordnet ein.
+  - **Die Spanne ist eng mit Absicht** (58 bis 100 Prozent Spaltenbreite, linke
+    oder rechte Kante). Einen frei im Blatt schwebenden Kasten gibt es NICHT: Ein
+    Buch, dessen Ränder von Seite zu Seite springen, wirkt nicht lebendig,
+    sondern unfertig.
+  - **Gedreht und gestaffelt wird nur, wo es hingehört** (`Buchstil.lebendig` —
+    Fotoalbum und Postkarte ja, Magazin, Journal und Klar nein). In einem Magazin
+    wäre ein schiefes Bild ein Fehler, in einem Album fehlte es.
+  - **Die Drehung des Textblocks ist auf 0,6 Grad gedeckelt, und die gehobene
+    Ecke wird MITGERECHNET.** Ein halbes Grad auf 400 Punkt Breite sind gut
+    dreieinhalb Punkt — weniger als die Fuge, aber nicht nichts; wer es nicht
+    dazurechnet, verlässt sich darauf, dass es schon passen wird. Mehr als ein
+    Grad liest sich nicht als Absicht, sondern als Druckfehler.
+  - **Den Rhythmus bekommt NUR `.wechsel`.** Die übrigen Muster sind je eine
+    eigene Bildidee; wandernde Spalten würden dort mit der Idee des Musters
+    streiten. Es wird eine Sache auf einmal geändert.
+- **Ein Menü, das seinen eigenen Stand verschweigt, lässt einen raten** (ab
+  1.0.31, gemeldet 09/2026: „Die angekündigte Option Tagebuch, Text und Bilder im
+  Wechsel finde ich nicht."). Fünfte Auflage von „es war da, man fand es nicht",
+  diesmal doppelt: Der Menüpunkt hieß **„Seitenmuster"** — ein Fachwort statt
+  einer Frage — und lag hinter einem Knopf, der nur ein KALENDERSYMBOL trug, also
+  einer von vier gleich aussehenden Kreisen in der Werkzeugleiste war. Jetzt
+  trägt der Knopf das DATUM sichtbar, der Menüpunkt heißt „Seiten setzen: …" und
+  nennt, was gerade gilt (ausdrücklich gewählt oder „automatisch (…)").
+- **„Für ALLE Tage übernehmen" steht dort, wo die Frage entsteht**
+  (`Reisewerk.musterFuerAlle`, ab 1.0.31) — im Menü des einzelnen Tages. Wer für
+  einen Tag einstellt, wie seine Seiten gesetzt werden, ist genau die Person, die
+  als Nächstes „und für alle?" fragt; dieselbe Lehre wie beim Fotostil in 1.0.10.
+  **Tage mit Handarbeit bleiben dabei stehen und werden gezählt**: Ein
+  Musterwechsel, der eine Stunde Handarbeit stillschweigend wegräumt, wird genau
+  einmal benutzt.
+- **Nicht gemessen (1.0.31):** Wie eine Doppelseite im neuen Rhythmus AUSSIEHT,
+  hat niemand gesehen. Gerechnet ist die Ursache des vollen Textblocks; die sechs
+  Seitenbilder und ihre Zahlen sind gewählt und nicht gemessen — ob die Folge
+  abwechslungsreich wirkt oder unruhig, sagt erst der nächste Befund. Ebenso
+  ungeprüft, ob ein leicht gedrehter Textblock im PDF sauber steht. **Nicht als
+  erledigt darstellen.**
 - **Die Bildunterschrift war halb gebaut** (ab 1.0.5, Wunsch des Nutzers
   09/2026: „zu jedem Foto einen Beschreibungstext … Dies soll jedoch eine
   Option für jedes Foto sein. Kein muss."). Der Layoutautomat hielt Platz
