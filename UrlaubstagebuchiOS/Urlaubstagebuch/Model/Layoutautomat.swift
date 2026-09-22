@@ -456,9 +456,14 @@ struct Layoutautomat {
         let kopfhoehe = max(ab - satz.minY, 0)
         let textHoehe = text.isEmpty ? 0
             : Textmass.hoehe(text, bild: typografie.flieText, breite: satz.width)
+        // Gemessen mit einer Reihenhöhe von einem Drittel der Seite — also
+        // so, wie `Mosaik` die Seite wirklich füllt. `zielhoehe` stand hier
+        // bis 1.0.34 und rechnet aus der ZAHL der Kacheln; seit die Reihen
+        // die Seite füllen, schätzte das die Bilder zu klein und den Tag
+        // damit zu kurz.
         let bilderHoehe = offen.isEmpty ? 0
             : stapelhoehe(offen, breite: satz.width,
-                          ziel: zielhoehe(fuer: offen.count), hub: 0)
+                          ziel: Double(satz.height) / 3, hub: 0)
         let plan = Tagesplan.bauen(textHoehe: textHoehe, bilderHoehe: bilderHoehe,
                                    kacheln: offen.count, kopf: kopfhoehe,
                                    satzhoehe: satz.height, fuge: fuge)
@@ -491,7 +496,14 @@ struct Layoutautomat {
             // Zuschlag von einem Viertel ist Absicht: Die Zahl der Seiten
             // ist eine Schätzung, und ein Text, der knapp gehalten wird,
             // schöbe am Ende einen Rest auf eine zusätzliche Seite.
-            let textZiel: Double = restSeiten > 1
+            // IN EINER BILDERREICHEN GANGART BLEIBT DER TEXT BEISAMMEN.
+            //
+            // Ansage des Nutzers 09/2026: „Dann habe ich vielleicht 25 Fotos
+            // und nur 5 Sätze Text. Dann bietet es sich vielleicht doch an,
+            // eine reine Bilderseite zu machen, und den Text nicht noch
+            // weiter auseinanderzuziehen." Fünf Sätze über sechs Seiten
+            // verteilt sind auf jeder Seite ein Rest.
+            let textZiel: Double = restSeiten > 1 && plan.gangart != .bilderreich
                 ? min(restTextHoehe / Double(restSeiten) * 1.25, Double(platz.height))
                 : Double(platz.height)
             let vorher = (offen.count, text.count)
@@ -526,253 +538,220 @@ struct Layoutautomat {
         return seiten
     }
 
-    // EINE Seite. Was sie bekommt, steht im Plan; WIE sie aussieht,
-    // entscheidet `Seitenform.waehlen` aus dem, was auf ihr liegt.
+    // EINE Seite — und zwar eine GEFÜLLTE.
+    //
+    // Was auf die Seite gehört, sagt der Plan; wie es liegt, rechnet
+    // `Mosaik`. Es gibt hier keine Seitenformen mehr: Ob der Text neben
+    // einem Foto steht, über einer Reihe oder allein, ist kein Fall aus
+    // einer Liste, sondern das Ergebnis aus Textmenge, Bildformaten und
+    // Platz.
     private func seiteFuellen(platz: CGRect, nummer: Int, restSeiten: Int,
                               plan: Tagesplan, textZiel: Double,
                               offen: inout [Kachel], text: inout String) -> [Block]
     {
-        var bloecke: [Block] = []
-        var y = platz.minY
         let zeilenhoehe = max(typografie.flieText.zeilenhoehe, 1)
-        let anzahl = plan.kachelnAufSeite(offen: offen.count, restSeiten: restSeiten)
-        var gruppe = Array(offen.prefix(anzahl))
-        let erste = gruppe.first
-        let textZeilen = text.isEmpty ? 0 : min(textZiel, Double(platz.height)) / zeilenhoehe
-        let form = Seitenform.waehlen(
-            gangart: plan.gangart, kacheln: gruppe.count, textZeilen: textZeilen,
-            hochkant: erste.map { $0.verhaeltnis <= 0.92 } ?? false,
-            quer: erste.map { $0.verhaeltnis >= 1.12 } ?? false,
-            seite: nummer
-        )
 
-        switch form {
-        case .nurText:
-            (bloecke, y, text) = textSpalte(bloecke, y: y, x: platz.minX,
-                                            breite: platz.width, text: text)
-
-        case .nurBilder:
-            let ziel = ausfuellendesZiel(gruppe, breite: platz.width,
-                                         grund: zielhoehe(fuer: gruppe.count),
-                                         platz: platz.maxY - y, hub: 0, textOffen: false)
-            let kasten = CGRect(x: platz.minX, y: y, width: platz.width,
-                                height: platz.maxY - y)
-            let (neue, unten, rest) = reihenIn(kasten, kacheln: gruppe, ziel: ziel,
-                                               verteilen: true)
-            bloecke.append(contentsOf: neue)
-            y = unten
-            gruppe = rest
-
-        case .band:
-            // EIN BAND FOLGT DEM BILD (Befund des Nutzers zu Seite 5,
-            // 09/2026: „ist ein Ausschnitt eines Fotos auf die ganze
-            // Seitenbreite gezogen. Das macht keinen Sinn.").
-            //
-            // Bis 1.0.33 stand die Höhe fest bei knapp einem Drittel der
-            // Satzhöhe und die Breite bei voller Satzbreite — ein
-            // Hochformat wurde damit zu einem Streifen quer durch das
-            // Bild. Gerechnet wird jetzt aus dem Seitenverhältnis, und
-            // gedeckelt wird die HOEHE; was dabei an Breite fehlt, bleibt
-            // Rand. Ein Band bekommt deshalb nur ein Querformat.
-            if let kachel = gruppe.first {
-                let hoehe = min(platz.width / max(kachel.verhaeltnis, 0.35),
-                                platz.height * 0.40)
-                let breite = hoehe * kachel.verhaeltnis
-                let x = platz.minX + (platz.width - breite) / 2
-                let (neue, unten) = kachelbloecke(kachel, x: x, y: y,
-                                                  breite: breite, hoehe: hoehe)
-                bloecke.append(contentsOf: neue)
-                y += unten + fuge + 4
-                gruppe.removeFirst()
+        // Der Textanteil DIESER Seite. Geteilt wird an der vollen
+        // Satzbreite: Steht der Text später in einer schmaleren Spalte,
+        // wird er höher und schmaler — die FLÄCHE bleibt ungefähr dieselbe,
+        // und um die geht es beim Verteilen.
+        var kopf = ""
+        if !text.isEmpty, textZiel > zeilenhoehe * 2.5 {
+            let (vorn, hinten) = Textmass.teilen(
+                text, bild: typografie.flieText,
+                groesse: CGSize(width: platz.width, height: min(textZiel, platz.height))
+            )
+            if !vorn.isEmpty {
+                kopf = vorn
+                text = hinten
             }
-            (bloecke, y, text) = textSpalte(bloecke, y: y, x: platz.minX,
-                                            breite: platz.width, text: text)
+        }
 
-        case .seitlich:
-            // EIN BILD NEBEN DEM TEXT, UND DER TEXT LAEUFT DARUNTER WEITER.
-            //
-            // Das ist die Antwort auf zwei Punkte des Nutzers zugleich: auf
-            // Seite 6 („könnte zumindest eins der Fotos noch neben den Text
-            // gezogen werden") und auf den dritten seiner drei Fälle („bei
-            // sehr viel Text und wenig Bildern … dass der Text sie
-            // umfließt").
-            //
-            // Umflossen wird in einem L: eine schmale Spalte neben dem Bild,
-            // darunter die volle Breite. Ein Bild, das AUF BEIDEN Seiten
-            // Text hat, ist bewusst nicht gebaut — dafür müsste jede Zeile
-            // einzeln gesetzt werden (CoreText legt einen Rahmen in ein
-            // Rechteck), und der Textblock wäre danach nicht mehr das, was
-            // man in dieser App anfassen und verschieben kann. Zwei Blöcke
-            // sind hier das ehrlichere Mittel: Sie messen und zeichnen mit
-            // demselben Satz wie jeder andere Text.
-            if let kachel = gruppe.first {
-                let spalte = (platz.width * 0.40).rounded()
-                let hoehe = min(spalte / max(kachel.verhaeltnis, 0.35),
-                                platz.height * 0.46)
-                let breite = hoehe * kachel.verhaeltnis
-                let rechts = nummer % 2 == 0
-                let bildX = rechts ? platz.maxX - breite : platz.minX
-                let (neue, bildUnten) = kachelbloecke(kachel, x: bildX, y: y,
-                                                      breite: breite, hoehe: hoehe)
-                bloecke.append(contentsOf: neue)
-                gruppe.removeFirst()
+        // WIE VIELE BILDER FÜLLEN DIESE SEITE?
+        //
+        // Der Plan macht einen Vorschlag aus der Verteilung über die Tage;
+        // ob er aufgeht, weiß erst die Seite. Bleibt zu viel Luft, kommt
+        // ein Bild dazu; wird es zu eng, geht eines zurück. Das ist die
+        // Antwort auf „verschenkt wesentlich weniger Platz auf der Seite":
+        // Nicht die Zahl der Bilder bestimmt den Satz, sondern der Platz
+        // bestimmt die Zahl der Bilder.
+        var anzahl = max(plan.kachelnAufSeite(offen: offen.count, restSeiten: restSeiten),
+                         offen.isEmpty ? 0 : 1)
+        var bau: Mosaikbau?
+        for _ in 0..<10 {
+            guard let versuch = mosaik(platz: platz, nummer: nummer, text: kopf,
+                                       gruppe: Array(offen.prefix(anzahl)))
+            else { break }
+            bau = versuch
+            if versuch.dehnung > Self.dehnungsgrenze, anzahl < offen.count {
+                anzahl += 1
+                continue
+            }
+            if versuch.dehnung < 1 / Self.dehnungsgrenze, anzahl > 1 {
+                anzahl -= 1
+                continue
+            }
+            break
+        }
 
-                let schmal = platz.width - breite - fuge * 1.6
-                let schmalX = rechts ? platz.minX : platz.maxX - schmal
-                var spaltenUnten = y
-                (bloecke, spaltenUnten, text) = textSpalte(bloecke, y: y, x: schmalX,
-                                                           breite: schmal, text: text,
-                                                           hoechstens: bildUnten)
-                y = max(y + bildUnten, spaltenUnten - fuge - 4) + fuge + 4
+        guard let fertig = bau else {
+            // Weder Text noch Bild — dann bleibt die Seite, wie sie ist.
+            return []
+        }
+        if fertig.kacheln > 0 { offen.removeFirst(min(fertig.kacheln, offen.count)) }
+        return fertig.bloecke
+    }
 
-                if !text.isEmpty {
-                    let reserve: Double = gruppe.isEmpty ? 0
-                        : min(stapelhoehe(gruppe, breite: platz.width,
-                                          ziel: zielhoehe(fuer: gruppe.count), hub: 0),
-                              Double(platz.height) * 0.42) + fuge + 4
-                    let uebrig = Double(platz.maxY - y) - reserve
-                    if uebrig > zeilenhoehe * 2 {
-                        (bloecke, y, text) = textSpalte(bloecke, y: y, x: platz.minX,
-                                                        breite: platz.width, text: text,
-                                                        hoechstens: uebrig)
-                    }
+    // Wie weit eine Reihe über ihre natürliche Höhe hinaus gedehnt werden
+    // darf. Gedehnt heißt: Das Bild wird höher, als sein Verhältnis vorgibt,
+    // und verliert dafür seitlich etwas — der Rahmen wird GEFÜLLT, nicht
+    // eingepasst. Bei 1,22 sind das gut 18 Prozent der Breite. Mehr wäre
+    // genau der Ausschnitt, den 1.0.34 am Aufmacherband abgestellt hat.
+    private static let dehnungsgrenze: Double = 1.22
+
+    private struct Mosaikbau {
+        var bloecke: [Block]
+        var dehnung: Double
+        var kacheln: Int
+    }
+
+    // Die Rechnung für eine Seite: erst die Textreihe, dann die Fotoreihen
+    // in dem, was übrig bleibt.
+    private func mosaik(platz: CGRect, nummer: Int, text: String,
+                        gruppe: [Kachel]) -> Mosaikbau?
+    {
+        guard !text.isEmpty || !gruppe.isEmpty else { return nil }
+        let breite = platz.width
+        var fotos = gruppe
+
+        // ---- Die Textreihe
+        //
+        // Drei Fälle, und keiner davon ist eine Vorlage: Ohne Bilder steht
+        // der Text über die volle Breite. Braucht er dort schon mehr als die
+        // halbe Seite, bekommt er sie ebenfalls ganz — ein Foto daneben
+        // wäre dann eine Briefmarke. Sonst sucht `Mosaik.mischreihe` die
+        // Breite, bei der Text und Bilder NEBENEINANDER aufgehen.
+        var textbreite = breite
+        var texthoehe: Double = 0
+        var textreihe: [Kachel] = []
+        var textreihenhoehe: Double = 0
+        if !text.isEmpty {
+            let voll = Textmass.hoehe(text, bild: typografie.flieText, breite: breite)
+            texthoehe = voll
+            textreihenhoehe = voll
+            if !fotos.isEmpty, voll <= platz.height * 0.56 {
+                let daneben = min(fotos.count, voll > platz.height * 0.32 ? 1 : 2)
+                let neben = Array(fotos.prefix(daneben))
+                if let mischung = Mosaik.mischreihe(
+                    fotos: neben.map(\.verhaeltnis), breite: breite, fuge: fuge,
+                    kleinste: breite * 0.30, groesste: breite * 0.70, stufen: 12,
+                    texthoehe: { Textmass.hoehe(text, bild: typografie.flieText, breite: $0) }
+                ) {
+                    fotos.removeFirst(daneben)
+                    textreihe = neben
+                    textbreite = mischung.textbreite
+                    texthoehe = mischung.texthoehe
+                    textreihenhoehe = mischung.hoehe + (neben.map(\.unterschrift).max() ?? 0)
                 }
             }
-
-        case .reihenOben:
-            let fuerText = min(textZiel, Double(platz.height))
-            var hoehe = Double(platz.height) - fuerText - fuge - 4
-            hoehe = min(max(hoehe, Double(platz.height) * 0.28), Double(platz.height) * 0.66)
-            let kasten = CGRect(x: platz.minX, y: y, width: platz.width, height: hoehe)
-            let (neue, unten, rest) = reihenIn(kasten, kacheln: gruppe,
-                                               ziel: zielhoehe(fuer: gruppe.count),
-                                               verteilen: false)
-            bloecke.append(contentsOf: neue)
-            gruppe = rest
-            if !neue.isEmpty { y = unten + fuge + 4 }
-            (bloecke, y, text) = textSpalte(bloecke, y: y, x: platz.minX,
-                                            breite: platz.width, text: text)
-
-        case .reihenUnten:
-            // DER TEXT BEKOMMT NICHT DIE GANZE SEITE, solange Bilder für
-            // sie vorgesehen sind. Genau daran hing der gemeldete Fall vom
-            // 3. August: Der Text lief bis zum Satzspiegelende, das eine
-            // Foto passte nicht mehr und stand danach allein und riesig auf
-            // der nächsten Seite.
-            let reserve = min(stapelhoehe(gruppe, breite: platz.width,
-                                          ziel: zielhoehe(fuer: gruppe.count), hub: 0),
-                              Double(platz.height) * 0.55)
-            let fuerText = max(min(textZiel, Double(platz.height) - reserve - fuge - 4),
-                               zeilenhoehe * 3)
-            (bloecke, y, text) = textSpalte(bloecke, y: y, x: platz.minX,
-                                            breite: platz.width, text: text,
-                                            hoechstens: fuerText)
-            let kasten = CGRect(x: platz.minX, y: y, width: platz.width,
-                                height: platz.maxY - y)
-            let (neue, unten, rest) = reihenIn(kasten, kacheln: gruppe,
-                                               ziel: zielhoehe(fuer: gruppe.count),
-                                               verteilen: true)
-            bloecke.append(contentsOf: neue)
-            y = unten
-            gruppe = rest
         }
 
-        // Was von der Gruppe übrig ist, kommt noch unter das Gesetzte —
-        // sonst wäre es stillschweigend auf die nächste Seite geschoben,
-        // obwohl hier noch Platz ist.
-        if !gruppe.isEmpty, Double(platz.maxY - y) > zeilenhoehe * 3 {
-            let kasten = CGRect(x: platz.minX, y: y, width: platz.width,
-                                height: platz.maxY - y)
-            let (neue, unten, rest) = reihenIn(kasten, kacheln: gruppe,
-                                               ziel: zielhoehe(fuer: gruppe.count),
-                                               verteilen: true)
-            bloecke.append(contentsOf: neue)
-            y = unten
-            gruppe = rest
+        // ---- Die Fotoreihen in dem, was übrig bleibt
+        let luft: Double = textreihenhoehe > 0 && !fotos.isEmpty ? fuge + 4 : 0
+        let uebrig = Double(platz.height) - textreihenhoehe - luft
+        var spalte: Mosaik.Spalte?
+        if !fotos.isEmpty, uebrig > 40 {
+            // Die Bildunterschriften gehen in die Rechnung ein und nicht
+            // als Zuschlag hinterher: `Mosaik.spalte` zieht sie von der
+            // freien Höhe ab, bevor es die Dehnung bildet. Sonst hielten
+            // die Reihen ihre Höhe nicht, sobald Unterschriften
+            // eingeschaltet sind.
+            spalte = Mosaik.beste(fotos.map(\.verhaeltnis), breite: breite, fuge: fuge,
+                                  hoehe: uebrig, reihen: 1...4,
+                                  unterschrift: { fotos[$0].unterschrift })
         }
 
-        let verbraucht = anzahl - gruppe.count
-        if verbraucht > 0 { offen.removeFirst(verbraucht) }
-        return bloecke
-    }
-
-    // Kacheln in Reihen, in einen gegebenen Kasten. Zurück kommen die
-    // Blöcke, die erreichte Unterkante und die Kacheln, die nicht mehr
-    // hineingingen.
-    private func reihenIn(_ kasten: CGRect, kacheln: [Kachel], ziel: Double,
-                          verteilen: Bool)
-        -> (bloecke: [Block], unten: CGFloat, rest: [Kachel])
-    {
-        guard kasten.height > 8 else { return ([], kasten.minY, kacheln) }
+        // ---- Setzen
         var bloecke: [Block] = []
-        var reihen: [[UUID]] = []
-        var offen = kacheln
-        var y = kasten.minY
+        var y = Double(platz.minY)
+        let textOben = nummer % 2 == 0
+        var gesetzteKacheln = textreihe.count
+        var dehnung = spalte?.dehnung ?? 1
 
-        while !offen.isEmpty {
-            // Eine gestaffelte Reihe braucht oben und unten etwas Luft: Jede
-            // zweite Kachel sitzt ein Stück höher und ist leicht gedreht.
-            // Der Hub wird der Reihenhöhe ZUGERECHNET — sonst schöbe sich
-            // die erste Kachel in die Zeile darüber.
-            //
-            // Gestaffelt wird nur in Stilen, die das vertragen, und nur ab
-            // zwei Kacheln. Es ist die Antwort auf den Befund zu Seite 7
-            // („sind plötzlich drei Fotos schnurgerade nebeneinander"):
-            // Drei gleich hohe Bilder in einer Flucht sind ein Raster, kein
-            // Satz.
-            let hub: Double = stil.lebendig && offen.count > 1 ? fuge * 0.9 : 0
-            var (reihe, hoehe, gestreckt) = naechsteReihe(offen, breite: kasten.width,
-                                                          ziel: ziel)
-            if y + hoehe + hub * 2 > kasten.maxY {
-                // EINE REIHE SCHRUMPFT, BEVOR SIE UMBRICHT (ab 1.0.34).
-                //
-                // Bis 1.0.33 brach hier die Seite um, sobald die nächste
-                // Reihe in ihrer Zielhöhe nicht mehr hineinpasste. Das war
-                // der gemeldete Fall: „Das einzige Foto … erscheint nun
-                // super gross auf einer leeren Seite 4. Dabei wäre auf
-                // Seite 3 noch Platz gewesen. Es hätte dort fast in
-                // derselben Größe Platz gefunden."
-                //
-                // Eine Reihe ist aber kein festes Mass — ihre Höhe folgt
-                // aus der Zielhöhe, und die lässt sich für diese eine
-                // Reihe senken. Erst wenn auch das nichts mehr hergibt,
-                // bleibt der Umbruch.
-                let rest = Double(kasten.maxY - y) - hub * 2
-                guard rest >= min(ziel * 0.5, Double(satz.height) * 0.16) else { break }
-                (reihe, hoehe, gestreckt) = naechsteReihe(offen, breite: kasten.width,
-                                                          ziel: rest, hoechstens: rest)
-                guard !reihe.isEmpty, hoehe <= rest + 0.5 else { break }
-            }
-
-            // Eine Reihe, die ihre Zielhöhe nicht erreicht, ist schmaler
-            // als der Kasten. Sie steht dann MITTIG und nicht linksbündig:
-            // Ein einzelnes Bild, das an der linken Kante klebt, sieht aus
-            // wie der Rest einer Reihe.
-            let breiten = reihe.map { gestreckt * $0.verhaeltnis }
-            let gesamt = breiten.reduce(0, +) + fuge * Double(max(reihe.count - 1, 0))
-            var x = kasten.minX + max(0, (kasten.width - gesamt) / 2)
-            var kennungen: [UUID] = []
-            for (stelle, kachel) in reihe.enumerated() {
-                let breite = breiten[stelle]
-                let versatz: Double = hub > 0 && stelle % 2 == 1 ? -hub : hub
-                let (neue, _) = kachelbloecke(
-                    kachel, x: x, y: y + versatz, breite: breite, hoehe: gestreckt,
-                    gedreht: hub > 0 ? drehwinkel(kachel.kennung) * 0.7 : 0
-                )
+        func setzeTextreihe() {
+            guard !text.isEmpty else { return }
+            let textLinks = nummer % 4 < 2
+            let fotobreite = breite - textbreite - fuge * Double(textreihe.count)
+            let bildhoehe = textreihenhoehe - (textreihe.map(\.unterschrift).max() ?? 0)
+            var x = Double(platz.minX) + (textLinks ? 0 : fotobreite + fuge * Double(textreihe.count))
+            bloecke.append(Block(
+                inhalt: .text(text),
+                rahmen: Rahmen(x: x, y: y, breite: textbreite, hoehe: max(texthoehe, 1))
+            ))
+            x = textLinks
+                ? Double(platz.minX) + textbreite + fuge
+                : Double(platz.minX)
+            let summe = textreihe.reduce(0.0) { $0 + $1.verhaeltnis }
+            for kachel in textreihe {
+                let kachelbreite = summe > 0.01 ? fotobreite * (kachel.verhaeltnis / summe) : 0
+                let (neue, _) = kachelbloecke(kachel, x: x, y: y,
+                                              breite: kachelbreite, hoehe: bildhoehe)
                 bloecke.append(contentsOf: neue)
-                kennungen.append(contentsOf: neue.map(\.id))
-                x += breite + fuge
+                x += kachelbreite + fuge
             }
-            if !kennungen.isEmpty { reihen.append(kennungen) }
-            y += hoehe + hub * 2 + fuge
-            offen.removeFirst(reihe.count)
+            y += textreihenhoehe + fuge + 4
         }
 
-        let unten = max(y - fuge, kasten.minY)
-        guard verteilen else { return (bloecke, unten, offen) }
-        return (restplatzVerteilen(bloecke, reihen: reihen, unten: unten, bis: kasten.maxY),
-                unten, offen)
+        func setzeFotoreihen(bis grenze: Double) {
+            guard let spalte, !fotos.isEmpty else { return }
+            // Gedehnt wird gedeckelt — und was dann noch fehlt, bleibt als
+            // Luft zwischen den Reihen stehen. Lieber etwas Weiß als ein
+            // Bild, dem ein Fünftel seiner Breite fehlt.
+            let faktor = min(max(spalte.dehnung, 1 / Self.dehnungsgrenze), Self.dehnungsgrenze)
+            dehnung = spalte.dehnung
+            var gezeichnet: [[UUID]] = []
+            for (nummerReihe, reihe) in spalte.reihen.enumerated() {
+                let hoehe = spalte.hoehen[nummerReihe] * faktor
+                let unten = reihe.map { fotos[$0].unterschrift }.max() ?? 0
+                if y + hoehe + unten > grenze + 0.5 { break }
+                let summe = reihe.reduce(0.0) { $0 + fotos[$1].verhaeltnis }
+                var x = Double(platz.minX)
+                var kennungen: [UUID] = []
+                for stelle in reihe {
+                    let kachel = fotos[stelle]
+                    let kachelbreite = summe > 0.01
+                        ? (breite - fuge * Double(reihe.count - 1)) * (kachel.verhaeltnis / summe)
+                        : breite
+                    let (neue, _) = kachelbloecke(kachel, x: x, y: y,
+                                                  breite: kachelbreite, hoehe: hoehe)
+                    bloecke.append(contentsOf: neue)
+                    kennungen.append(contentsOf: neue.map(\.id))
+                    x += kachelbreite + fuge
+                }
+                if !kennungen.isEmpty { gezeichnet.append(kennungen) }
+                gesetzteKacheln += reihe.count
+                y += hoehe + unten + fuge
+            }
+            if gezeichnet.count > 1 {
+                bloecke = restplatzVerteilen(bloecke, reihen: gezeichnet,
+                                             unten: CGFloat(y - fuge), bis: CGFloat(grenze))
+            }
+        }
+
+        if textOben {
+            setzeTextreihe()
+            setzeFotoreihen(bis: Double(platz.maxY))
+        } else {
+            // Steht der Text unten, gehört ihm sein Streifen schon jetzt —
+            // sonst füllten die Reihen die Seite und er fiele heraus.
+            setzeFotoreihen(bis: Double(platz.minY) + uebrig)
+            y = max(y, Double(platz.maxY) - textreihenhoehe)
+            setzeTextreihe()
+        }
+
+        return Mosaikbau(bloecke: bloecke, dehnung: dehnung, kacheln: gesetzteKacheln)
     }
+
 
     // Eine Kachel als Blöcke — Bild samt Unterschrift, oder die Karte.
     // Zurück kommt auch, wie hoch beides zusammen wird: Die Unterschrift
@@ -1365,8 +1344,7 @@ struct Layoutautomat {
     // Raster zu passen.
     // `hoechstens` ist die HARTE Obergrenze für die ganze Reihe samt
     // Unterschrift. Sie ist der Unterschied zwischen „die Reihe passt
-    // nicht mehr, also neue Seite" und „die Reihe wird eben kleiner" —
-    // siehe `reihenIn`.
+    // nicht mehr, also neue Seite" und „die Reihe wird eben kleiner".
     private func naechsteReihe(_ kacheln: [Kachel], breite: Double, ziel: Double,
                                hoechstens: Double? = nil)
         -> (reihe: [Kachel], hoehe: Double, bildhoehe: Double)

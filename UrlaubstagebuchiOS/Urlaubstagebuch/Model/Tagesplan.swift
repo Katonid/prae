@@ -123,50 +123,16 @@ struct Tagesplan {
     }
 }
 
-// Wie eine einzelne Seite aufgebaut ist. Gewählt wird sie NICHT aus einer
-// Liste, sondern aus dem, was auf dieser Seite liegt: wie viele Kacheln,
-// wie hoch oder breit die erste steht, wie viel Text daneben passt.
-enum Seitenform {
-    case nurText
-    case nurBilder
-    // Ein Hochformat in einer Spalte am Rand, der Text steht daneben und
-    // läuft DARUNTER über die volle Breite weiter.
-    case seitlich
-    // Ein Querformat über die Satzbreite, der Text darunter.
-    case band
-    case reihenOben
-    case reihenUnten
-
-    // `seite` ist die laufende Nummer der Seite INNERHALB des Tages. Sie
-    // entscheidet nur, ob eine Reihe oben oder unten steht und an welcher
-    // Kante das seitliche Bild liegt — zwei gleich aufgebaute Seiten
-    // hintereinander sähen sonst aus wie ein Doppeldruck.
-    static func waehlen(gangart: Gangart, kacheln: Int, textZeilen: Double,
-                        hochkant: Bool, quer: Bool, seite: Int) -> Seitenform
-    {
-        if kacheln == 0 { return .nurText }
-        // Unter drei Zeilen ist der Rest kein Absatz mehr, sondern ein
-        // Rest. Er wartet auf die nächste Seite, diese trägt die Bilder.
-        if textZeilen < 3 { return .nurBilder }
-
-        // EIN BILD NEBEN DEN TEXT (Befund des Nutzers zu Seite 6, 09/2026:
-        // „könnte zumindest eins der Fotos noch neben den Text gezogen
-        // werden und die anderen Fotos entsprechend verteilt"). Es braucht
-        // ein Hochformat — ein Querformat in einer schmalen Spalte wird zum
-        // Briefmarkenbild — und genug Text, damit neben UND unter dem Bild
-        // etwas steht. Sonst stünde eine kurze Spalte neben einem Bild und
-        // darunter nichts.
-        if hochkant, textZeilen >= 12 { return .seitlich }
-
-        // Ein Querformat über die Satzbreite. Nur allein: Zwei Bilder
-        // nebeneinander sind eine Reihe und kein Band.
-        if kacheln == 1, quer { return seite % 2 == 0 ? .band : .reihenUnten }
-
-        // In der textreichen Gangart steht das Bild oben und der Text
-        // darunter — so beginnt die Seite mit dem Bild und liest sich
-        // danach in einem Zug.
-        if gangart == .textreich { return .reihenOben }
-
-        return seite % 2 == 0 ? .reihenUnten : .reihenOben
-    }
-}
+// Bis 1.0.34 stand hier eine Aufzählung `Seitenform` — nurText, nurBilder,
+// seitlich, band, reihenOben, reihenUnten. Sie ist ersatzlos ENTFERNT
+// (ab 1.0.35), und ihr Wegfall ist der eigentliche Umbau dieser Fassung:
+//
+// Jede dieser Formen war eine Antwort auf die Frage, in welcher REIHENFOLGE
+// Text und Bilder kommen — also auf eine Frage, die es nur gibt, wenn man
+// beide für getrennte Formate hält. Der Nutzer hat genau das benannt
+// (09/2026): „Ich glaube, ich hätte gedacht, dass Text ein gleichberechtigtes
+// Gestaltungselement einer Seite ist, wie auch ein Foto."
+//
+// Wie eine Seite aussieht, rechnet seither `Mosaik` aus Textmenge,
+// Bildformaten und Platz. Ein Mechanismus, dessen Grund widerlegt ist,
+// bleibt nicht liegen.
