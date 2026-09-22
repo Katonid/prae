@@ -843,6 +843,45 @@ final class Reisewerk: ObservableObject, Identifiable {
         spurGeaendert(tagID, hatteSpur: hatteSpur)
     }
 
+    // EINEN VORHANDENEN PUNKT ÄNDERN (ab 1.0.20, Ansage des Nutzers 09/2026:
+    // „Ich möchte sie löschen, örtlich und zeitlich verändern können.").
+    //
+    // Ändert sich die UHRZEIT, wird der Punkt neu einsortiert: Die Reihenfolge
+    // der Liste ist die Reihenfolge der gezeichneten Spur, und ein Punkt von
+    // 8 Uhr hinter einem von 17 Uhr ergäbe eine Linie, die niemand gefahren
+    // ist. Punkte OHNE Uhrzeit bleiben, wo sie sind — wohin sie gehören,
+    // weiß auch die App nicht (die Regel steht seit 1.0.0 dort).
+    func punktAendern(_ tagID: UUID, punktID: UUID, ort: Koordinate,
+                      name: String, zeit: Date?)
+    {
+        guard let t = tagIndex(tagID),
+              let stelle = reise.tage[t].spur.firstIndex(where: { $0.id == punktID })
+        else { return }
+        merken()
+        var punkt = reise.tage[t].spur[stelle]
+        let alteZeit = punkt.zeit
+        punkt.koordinate = ort
+        punkt.name = name
+        punkt.zeit = zeit
+        reise.tage[t].spur[stelle] = punkt
+        if zeit != alteZeit, let zeit {
+            reise.tage[t].spur.remove(at: stelle)
+            let neueStelle = reise.tage[t].spur.firstIndex { ($0.zeit ?? .distantFuture) > zeit }
+                ?? reise.tage[t].spur.count
+            reise.tage[t].spur.insert(punkt, at: neueStelle)
+        }
+        // `hatSpur` kann sich dabei nicht ändern — die Zahl der Punkte bleibt
+        // gleich. Gesichert und neu gezeichnet werden muss trotzdem.
+        sofortSichern()
+    }
+
+    func punktLoeschen(_ tagID: UUID, punktID: UUID) {
+        guard let t = tagIndex(tagID),
+              let stelle = reise.tage[t].spur.firstIndex(where: { $0.id == punktID })
+        else { return }
+        punkteLoeschen(tagID, stellen: IndexSet(integer: stelle))
+    }
+
     func punkteLoeschen(_ tagID: UUID, stellen: IndexSet) {
         guard let t = tagIndex(tagID) else { return }
         merken()

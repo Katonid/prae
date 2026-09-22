@@ -42,11 +42,12 @@ struct ReiseView: View {
     // Bildpunkt der Geste — dieselbe Regel wie beim Griff an einem Block.
     @State private var zoomgriff: Zoomanker.Griff?
     @State private var brennpunkt: CGPoint = .zero
-    // Der Wunsch einer Lupe. Er reist über den Zustand, weil der
-    // `ScrollViewProxy` nur INNERHALB des `ScrollViewReader`s gilt und die
-    // Knöpfe in der Werkzeugleiste stehen. Ihn außerhalb zu merken wäre
-    // der naheliegende Weg und einer, den SwiftUI nicht zusagt.
-    @State private var lupenwunsch: Double?
+    // Ein gewünschter MASSSTAB aus der Fußleiste. Er reist über den
+    // Zustand, weil der `ScrollViewProxy` nur INNERHALB des
+    // `ScrollViewReader`s gilt und die Knöpfe in der Werkzeugleiste stehen.
+    // Ihn außerhalb zu merken wäre der naheliegende Weg und einer, den
+    // SwiftUI nicht zusagt.
+    @State private var massstabwunsch: Double?
     // Der geführte Weg „Buch aufbauen" schickt zum nächsten Blatt und
     // bekommt danach die Bühne zurück. Ein Blatt über einem Blatt wäre auf
     // dem iPad ein Kärtchen auf einem Kärtchen — deshalb macht das eine zu
@@ -204,13 +205,13 @@ struct ReiseView: View {
                              including: seitenzoomErlaubt ? .all : .subviews)
                 }
                 .coordinateSpace(.named(Self.buehnenraum))
-                .background(Color(.systemGroupedBackground))
+                .background(Self.leinwand)
                 // Die Lupen können den Leser nicht selbst erreichen; sie
                 // legen ihren Wunsch hier ab.
-                .onChange(of: lupenwunsch) { _, wunsch in
+                .onChange(of: massstabwunsch) { _, wunsch in
                     guard let wunsch else { return }
-                    lupenwunsch = nil
-                    lupenzoom(wunsch, leser: leser)
+                    massstabwunsch = nil
+                    massstabSetzen(wunsch, leser: leser)
                 }
             }
             // Gemessen wird das Sichtfeld EINMAL je Änderung, nicht im
@@ -390,14 +391,15 @@ struct ReiseView: View {
         DispatchQueue.main.async { leser.scrollTo(elementkennung, anchor: anker) }
     }
 
-    // Die Lupen zoomen um die MITTE des Sichtfelds, aus demselben Grund wie
-    // die Geste um ihren Mittelpunkt: Was man ansieht, soll stehen bleiben.
-    private func lupenzoom(_ faktor: Double, leser: ScrollViewProxy) {
+    // Ein Maßstab aus der Fußleiste wird um die MITTE des Sichtfelds
+    // gesetzt, aus demselben Grund wie die Geste um ihren Mittelpunkt: Was
+    // man ansieht, soll stehen bleiben.
+    private func massstabSetzen(_ ziel: Double, leser: ScrollViewProxy) {
         let mitte = CGPoint(x: buehnenbreite / 2, y: buehnenhoehe / 2)
         let imInhalt = CGPoint(x: mitte.x - lage.ursprung.x, y: mitte.y - lage.ursprung.y)
         let gegriffen = massstaebe.griff(bei: imInhalt, inhalt: lage.groesse,
                                          massstab: massstabJetzt)
-        zoomAuf(massstabJetzt * faktor, griff: gegriffen, brennpunkt: mitte, leser: leser)
+        zoomAuf(ziel, griff: gegriffen, brennpunkt: mitte, leser: leser)
     }
 
     // Die Maße, mit denen gerechnet wird. NUR aus einem Handgriff heraus
@@ -427,13 +429,46 @@ struct ReiseView: View {
 
     private static let buehnenraum = "buehne"
 
+    // DIE LEINWAND, auf der das Blatt liegt (ab 1.0.20).
+    //
+    // Bis 1.0.19 war es `systemGroupedBackground` — ein sehr helles Grau,
+    // und darauf ist ein weißes Blatt kaum ein Blatt. So macht es keine App,
+    // die Seiten zeigt: Pages und Keynote stellen das Papier auf einen
+    // deutlich dunkleren Grund, Apple Books auf einen ganz dunklen. Der
+    // Grund ist kein Geschmack — nur vor einem neutralen Mittelton lässt
+    // sich beurteilen, wie hell ein Foto auf dem Papier wirklich steht.
+    private static let leinwand = Color(uiColor: UIColor { stil in
+        stil.userInterfaceStyle == .dark
+            ? UIColor(white: 0.11, alpha: 1)
+            : UIColor(white: 0.82, alpha: 1)
+    })
+
     // Über einem gewählten FOTO gehören die zwei Finger dem Bildausschnitt.
     private var seitenzoomErlaubt: Bool {
         werk.ausschnittsmodus == nil && gewaehlterBlock?.fotoID == nil
     }
 
     // MARK: - Werkzeuge
-
+    //
+    // DIE MENÜS BEANTWORTEN JE EINE FRAGE (ab 1.0.20, Befund des Nutzers
+    // 09/2026: „Ich finde, dass viele Funktionen nicht selbsterklärend in
+    // verschachtelten Menüs abgelegt wurden.").
+    //
+    // Bis 1.0.19 standen oben drei gleich aussehende Menüs — „Einlesen",
+    // „Anordnen", „Buch" —, und wo etwas lag, ergab sich aus der Geschichte
+    // und nicht aus der Sache: Der Satzspiegel (eine Ansichtssache) lag
+    // unter „Anordnen", das PDF (eine Ausgabe) unter „Buch" neben der
+    // Stilwahl, und die Sachen DIESES Tages verteilten sich auf zwei Menüs
+    // und die Fußleiste. Jetzt gibt es vier Orte, und jeder beantwortet
+    // genau eine Frage:
+    //
+    // * `+`   — Was kommt ins Buch hinein?
+    // * Pinsel — Wie sieht das Buch aus?
+    // * `…`   — Alles Seltene: ausgeben, prüfen, Hilfen.
+    // * „Tag" unten — Alles zu DIESEM Tag, an einer Stelle.
+    //
+    // **Nichts steht an zwei Stellen.** Wer eine Funktion hinzufügt, sucht
+    // zuerst die Frage, die sie beantwortet, und hängt sie dorthin.
     @ToolbarContentBuilder
     private var werkzeuge: some ToolbarContent {
         ToolbarItem(placement: .topBarLeading) {
@@ -441,164 +476,74 @@ struct ReiseView: View {
                 werk.sofortSichern()
                 regal.schliessen()
             } label: {
-                Label("Fertig", systemImage: "chevron.left")
+                Label("Bücher", systemImage: "chevron.left")
             }
         }
         ToolbarItem(placement: .topBarLeading) {
+            // „Zurück" hieß dieser Knopf bis 1.0.19 — direkt neben einem
+            // Zurück-Pfeil, der das Buch schließt. Zwei Dinge mit demselben
+            // Wort sind eines zu viel.
             Button {
                 werk.zurueck()
             } label: {
-                Label("Zurück", systemImage: "arrow.uturn.backward")
+                Label("Widerrufen", systemImage: "arrow.uturn.backward")
             }
             .disabled(!werk.kannZurueck)
         }
-        ToolbarItem(placement: .topBarTrailing) {
-            Menu {
-                // Zuerst der geführte Weg: Er sagt, in welcher Reihenfolge
-                // die drei Schritte zusammengehören, und zeigt hinterher,
-                // was zugeordnet wurde. Die drei Einzelwege bleiben
-                // daneben stehen — wer weiß, was er will, soll nicht durch
-                // einen Ablauf laufen müssen.
-                Button("Buch aufbauen…", systemImage: "wand.and.sparkles") {
-                    blatt = .aufbau
-                }
-                Divider()
-                Button("Tagebuchtext einlesen…", systemImage: "text.book.closed") {
-                    blatt = .textimport
-                }
-                Button("Fotos aus der Mediathek…", systemImage: "photo.on.rectangle") {
-                    blatt = .fotos
-                }
-                Button("Bilder aus Dateien…", systemImage: "folder") {
-                    blatt = .dateien
-                }
-                Button("Reisespur aus der Tagesspur…", systemImage: "point.topleft.down.curvedto.point.bottomright.up") {
-                    blatt = .tagesspur
-                }
-                Divider()
-                Button("Fotoablage…", systemImage: "tray") { blatt = .ablage }
-            } label: {
-                Label("Einlesen", systemImage: "square.and.arrow.down")
-            }
-        }
-        ToolbarItem(placement: .topBarTrailing) {
-            Menu {
-                if let tag = werk.tag {
-                    Button("Diesen Tag neu anordnen", systemImage: "wand.and.stars") {
-                        if werk.hatHandarbeit(tag.id) {
-                            neuAnordnenFrage = tag.id
-                        } else {
-                            werk.neuAnordnen(tag.id, erzwingen: true)
-                        }
-                    }
-                    Menu("Seitenmuster") {
-                        Button("Automatisch wählen") { musterSetzen(nil) }
-                        Divider()
-                        ForEach(Seitenmuster.allCases) { muster in
-                            Button {
-                                musterSetzen(muster)
-                            } label: {
-                                if tag.muster == muster {
-                                    Label(muster.name, systemImage: "checkmark")
-                                } else {
-                                    Text(muster.name)
-                                }
-                            }
-                        }
-                    }
-                    Divider()
-                    Button("Seite anfügen", systemImage: "plus.rectangle.on.rectangle") {
-                        werk.seiteHinzufuegen(tag.id)
-                    }
-                }
-                Button("Alle unberührten Tage neu anordnen", systemImage: "arrow.clockwise") {
-                    werk.alleNeuAnordnen(nurUnberuehrte: true)
-                }
-                Divider()
-                Toggle("Satzspiegel zeigen", isOn: $werk.zeigeSatzspiegel)
-                // Einrasten lässt sich abschalten — die zweite Hälfte des
-                // Wunsches nach einem Randindikator, der „im Einzelfall auch
-                // veränderbar" ist. Eine Hilfe, aus der man nicht aussteigen
-                // kann, ist eine Bevormundung; der genaue Wert in
-                // Millimetern steht daneben im Inspektor unter „Lage".
-                // `@AppStorage` gehört in eine View und nie ins `Reisewerk`.
-                Toggle("An Rand und Nachbarn einrasten", isOn: $einrastenAn)
-                Toggle("Bedienung prüfen", isOn: $werk.zeigeGriffprobe)
-                // Der Befund wird abgetippt oder abfotografiert, solange er
-                // nur auf der Seite steht — und eine Messung, die man
-                // abschreiben muss, kommt verkürzt an. Dieselbe Bauweise
-                // wie bei „Zustellung prüfen" in Schulalarm: kopierbar,
-                // ohne Deutung.
-                Button("Befund kopieren", systemImage: "doc.on.doc") {
-                    UIPasteboard.general.string =
-                        (werk.letzterGriff ?? "noch nichts gegriffen")
-                        + "\n" + werk.messer.befund
-                    werk.meldung = Reisewerk.Meldung(text: "Der Befund liegt in der Zwischenablage.")
-                }
-            } label: {
-                Label("Anordnen", systemImage: "wand.and.stars")
-            }
-        }
-        ToolbarItem(placement: .topBarTrailing) {
-            Menu {
-                Button("Stil wählen…", systemImage: "paintpalette") { blatt = .stil }
-                Button("Schrift und Ausrichtung…", systemImage: "textformat") {
-                    blatt = .typografie
-                }
-                // Eigener Punkt, und zwar hier oben bei Stil und Schrift.
-                // Bis 1.0.9 lag das hinter „Format, Ränder, Karte" — einem
-                // Namen, der nach Papiermaßen klingt; gefunden hat es
-                // niemand (gemeldet 09/2026: „Kann ich das jetzt für alle
-                // Fotos global einstellen und wenn ja, wo?").
-                Button("Fotos…", systemImage: "photo.stack") { blatt = .fotostil }
-                Button("Textfelder…", systemImage: "text.alignleft") { blatt = .textstil }
-                Button("Format, Ränder, Karte…", systemImage: "ruler") { blatt = .gestaltung }
-                Button("Hintergrund…", systemImage: "square.fill.on.square.fill") {
-                    blatt = .hintergrund
-                }
-                Divider()
-                Button("Als PDF sichern…", systemImage: "square.and.arrow.up") { blatt = .ausgabe }
-                Button("Buch als Datei sichern…", systemImage: "shippingbox") { buchSichern() }
-            } label: {
-                Label("Buch", systemImage: "book")
-            }
-        }
+
+        ToolbarItem(placement: .topBarTrailing) { hinzufuegenMenue }
+        ToolbarItem(placement: .topBarTrailing) { gestaltenMenue }
+        ToolbarItem(placement: .topBarTrailing) { mehrMenue }
+
         ToolbarItem(placement: .topBarTrailing) {
             Button {
                 inspektor.toggle()
             } label: {
-                Label("Block", systemImage: "slider.horizontal.3")
+                Label("Ausgewähltes", systemImage: "slider.horizontal.3")
             }
         }
+
         ToolbarItemGroup(placement: .bottomBar) {
-            // Einzelseiten oder Doppelseiten. Der Umschalter steht UNTEN
-            // neben den Lupen und nicht in einem Menü: Er gehört zur
-            // Ansicht, und wer ihn sucht, sucht ihn dort, wo auch der
-            // Maßstab liegt. Ein Knopf in einem Menü wäre einer, den
-            // niemand findet.
+            // Einzelseiten oder Doppelseiten. Der Umschalter steht UNTEN und
+            // nicht in einem Menü: Er gehört zur Ansicht, und wer ihn sucht,
+            // sucht ihn dort, wo auch der Maßstab liegt.
             Picker("Ansicht", selection: $doppelseiten) {
                 Image(systemName: "doc").tag(false)
                 Image(systemName: "book.pages").tag(true)
             }
             .pickerStyle(.segmented)
             .frame(width: 104)
-            Button { lupenwunsch = 0.8 } label: {
-                Image(systemName: "minus.magnifyingglass")
+
+            // EIN Maßstab-Knopf statt Lupe-minus, „Einpassen" und Lupe-plus
+            // (Ansage des Nutzers 09/2026: „Es ist auch nicht nötig, Funktionen
+            // doppelt auszustatten, wie zum Beispiel das Zoomen mit der
+            // Fingergeste … und trotzdem noch die Plus-Minus-Buttons zu
+            // belassen."). Stufenweises Zoomen können zwei Finger besser; was
+            // sie NICHT können, ist ein bestimmter Maßstab — und genau das
+            // steht hier. Die Beschriftung ist zugleich die Auskunft, wie groß
+            // die Seite gerade steht.
+            Menu {
+                Button("Einpassen", systemImage: "arrow.down.forward.and.arrow.up.backward") {
+                    zoom = 0
+                }
+                Button("100 % (Originalgröße)", systemImage: "1.square") { massstabwunsch = 1 }
+            } label: {
+                Text(massstabtext)
+                    .font(.subheadline.monospacedDigit())
             }
-            Button("Einpassen") { zoom = 0 }
-            Button { lupenwunsch = 1.25 } label: {
-                Image(systemName: "plus.magnifyingglass")
-            }
-            // Die Gesten dieser Seite sind unsichtbar — ein Doppeltipp,
-            // zwei Finger, acht Punkte am Rand. Deshalb steht hier ein
-            // Fragezeichen und nicht in einem Menü: Wer nicht weiß, wie
-            // etwas geht, klappt kein Menü auf, in dem er es vermutet.
+
+            // Die Gesten dieser Seite sind unsichtbar — ein Doppeltipp, zwei
+            // Finger, acht Punkte am Rand. Deshalb steht hier ein Fragezeichen
+            // und nicht in einem Menü: Wer nicht weiß, wie etwas geht, klappt
+            // kein Menü auf, in dem er es vermutet.
             Button {
                 blatt = .bedienung
             } label: {
                 Label("Bedienung", systemImage: "questionmark.circle")
             }
+
             Spacer()
+
             // Solange ein Textfeld offen ist, steht hier der Weg heraus.
             // Bis 1.0.8 gab es keinen: Man musste daneben tippen, und traf
             // man dabei einen anderen Textblock, ging gleich das nächste
@@ -647,19 +592,149 @@ struct ReiseView: View {
                     .tint(.orange)
                 }
             }
-            if let tag = werk.tag {
-                Button {
-                    blatt = .tagInhalt(tag.id)
-                } label: {
-                    Label("Text und Fotos des Tages", systemImage: "square.and.pencil")
-                }
-                Button {
-                    blatt = .spur(tag.id)
-                } label: {
-                    Label("Reisepunkte", systemImage: "mappin.and.ellipse")
+
+            tagMenue
+        }
+    }
+
+    // WAS KOMMT INS BUCH HINEIN?
+    private var hinzufuegenMenue: some View {
+        Menu {
+            // Zuerst der geführte Weg: Er sagt, in welcher Reihenfolge die
+            // drei Schritte zusammengehören, und zeigt hinterher, was
+            // zugeordnet wurde.
+            Button("Buch aufbauen…", systemImage: "wand.and.sparkles") { blatt = .aufbau }
+            Divider()
+            Button("Tagebuchtext…", systemImage: "text.book.closed") { blatt = .textimport }
+            Button("Fotos aus der Mediathek…", systemImage: "photo.on.rectangle") {
+                blatt = .fotos
+            }
+            Button("Bilder aus Dateien…", systemImage: "folder") { blatt = .dateien }
+            Button("Reisespur…", systemImage: "point.topleft.down.curvedto.point.bottomright.up") {
+                blatt = .tagesspur
+            }
+            Divider()
+            Button {
+                blatt = .ablage
+            } label: {
+                // Die Zahl gehört auf den Eintrag: Fotos ohne Tag liegen
+                // sonst unbemerkt in der Ablage.
+                Label(werk.reise.heimatlose.isEmpty
+                      ? "Fotoablage…"
+                      : "Fotoablage (\(werk.reise.heimatlose.count))…",
+                      systemImage: "tray")
+            }
+        } label: {
+            Label("Hinzufügen", systemImage: "plus")
+        }
+    }
+
+    // WIE SIEHT DAS BUCH AUS?
+    private var gestaltenMenue: some View {
+        Menu {
+            Button("Stil wählen…", systemImage: "paintpalette") { blatt = .stil }
+            Button("Schrift und Ausrichtung…", systemImage: "textformat") { blatt = .typografie }
+            Button("Fotos…", systemImage: "photo.stack") { blatt = .fotostil }
+            Button("Textfelder…", systemImage: "text.alignleft") { blatt = .textstil }
+            Button("Seitenhintergrund…", systemImage: "square.fill.on.square.fill") {
+                blatt = .hintergrund
+            }
+            Divider()
+            Button("Format, Ränder, Karte…", systemImage: "ruler") { blatt = .gestaltung }
+        } label: {
+            Label("Gestalten", systemImage: "paintbrush")
+        }
+    }
+
+    // ALLES SELTENE.
+    private var mehrMenue: some View {
+        Menu {
+            Button("Als PDF sichern…", systemImage: "square.and.arrow.up") { blatt = .ausgabe }
+            Button("Buch als Datei sichern…", systemImage: "shippingbox") { buchSichern() }
+            Divider()
+            Button("Alle unberührten Tage neu anordnen", systemImage: "arrow.clockwise") {
+                werk.alleNeuAnordnen(nurUnberuehrte: true)
+            }
+            Divider()
+            Section("Hilfen beim Anordnen") {
+                Toggle("Satzspiegel zeigen", isOn: $werk.zeigeSatzspiegel)
+                // Einrasten lässt sich abschalten — die zweite Hälfte des
+                // Wunsches nach einem Randindikator, der „im Einzelfall auch
+                // veränderbar" ist. Eine Hilfe, aus der man nicht aussteigen
+                // kann, ist eine Bevormundung; der genaue Wert in
+                // Millimetern steht daneben im Inspektor unter „Lage".
+                // `@AppStorage` gehört in eine View und nie ins `Reisewerk`.
+                Toggle("An Rand und Nachbarn einrasten", isOn: $einrastenAn)
+            }
+            Divider()
+            Section("Prüfen") {
+                Toggle("Bedienung prüfen", isOn: $werk.zeigeGriffprobe)
+                // Der Befund wird abgetippt oder abfotografiert, solange er
+                // nur auf der Seite steht — und eine Messung, die man
+                // abschreiben muss, kommt verkürzt an. Dieselbe Bauweise
+                // wie bei „Zustellung prüfen" in Schulalarm: kopierbar,
+                // ohne Deutung.
+                Button("Befund kopieren", systemImage: "doc.on.doc") {
+                    UIPasteboard.general.string =
+                        (werk.letzterGriff ?? "noch nichts gegriffen")
+                        + "\n" + werk.messer.befund
+                    werk.meldung = Reisewerk.Meldung(text: "Der Befund liegt in der Zwischenablage.")
                 }
             }
+        } label: {
+            Label("Mehr", systemImage: "ellipsis.circle")
         }
+    }
+
+    // ALLES ZU DIESEM TAG — an EINER Stelle.
+    //
+    // Bis 1.0.19 lagen „Text und Fotos" und „Reisepunkte" als zwei Knöpfe in
+    // der Fußleiste, das Neuanordnen und das Seitenmuster dagegen oben unter
+    // „Anordnen". Dass beides denselben Tag betrifft, war nirgends zu sehen.
+    @ViewBuilder
+    private var tagMenue: some View {
+        if let tag = werk.tag {
+            Menu {
+                Button("Text und Fotos…", systemImage: "square.and.pencil") {
+                    blatt = .tagInhalt(tag.id)
+                }
+                Button("Reisepunkte…", systemImage: "mappin.and.ellipse") {
+                    blatt = .spur(tag.id)
+                }
+                Divider()
+                Button("Seiten neu anordnen", systemImage: "wand.and.stars") {
+                    if werk.hatHandarbeit(tag.id) {
+                        neuAnordnenFrage = tag.id
+                    } else {
+                        werk.neuAnordnen(tag.id, erzwingen: true)
+                    }
+                }
+                Menu("Seitenmuster") {
+                    Button("Automatisch wählen") { musterSetzen(nil) }
+                    Divider()
+                    ForEach(Seitenmuster.allCases) { muster in
+                        Button {
+                            musterSetzen(muster)
+                        } label: {
+                            if tag.muster == muster {
+                                Label(muster.name, systemImage: "checkmark")
+                            } else {
+                                Text(muster.name)
+                            }
+                        }
+                    }
+                }
+                Button("Seite anfügen", systemImage: "plus.rectangle.on.rectangle") {
+                    werk.seiteHinzufuegen(tag.id)
+                }
+            } label: {
+                Label(tag.datum.kurz, systemImage: "calendar")
+            }
+        }
+    }
+
+    private var massstabtext: String {
+        "\(Int((massstabJetzt * 100).rounded())) %"
     }
 
     // Der Maßstab, der GERADE gilt. Bis 1.0.16 stand hier bei

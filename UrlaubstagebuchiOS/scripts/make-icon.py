@@ -2,10 +2,21 @@
 """Erzeugt das App-Symbol für das Urlaubstagebuch — reines Python, ohne
 fremde Bibliotheken (wie die Symbolskripte der anderen Apps dieses Repos).
 
-Gezeichnet wird ein aufgeschlagenes Buch von oben, und darüber läuft die
-Reisespur mit ihren Punkten. Beides zusammen ist die App: das Tagebuch und
-der Weg, den es festhält. Kein Koffer, kein Globus — die sagen „Reise", aber
-nicht, was diese App tut.
+WARUM ES SEIT 1.0.20 ANDERS AUSSIEHT (Befund des Nutzers, 09/2026): „Das
+Programm-Icon sieht von Weitem aus wie eine weiße Fläche mit einem Rand
+drumherum."
+
+Er hat recht, und der Grund ist am alten Entwurf abzulesen: Dort lag ein
+aufgeschlagenes Buch in Papierweiß über drei Vierteln der Fläche, auf einem
+dunklen Grund. Aus zehn Zentimetern sah man das Buch; auf einem Homescreen
+misst ein Symbol vierzig Bildpunkte, und dann bleibt von Papier, Falz und
+Lineatur nichts als eine helle Fläche mit dunklem Saum.
+
+Ein Symbol hat bei dieser Größe **eine Farbe und eine Form**, mehr nicht —
+so machen es die Apps mit derselben Aufgabe: Polarsteps eine Route, Karten
+eine Nadel, Apple Books ein weißes Zeichen auf einem kräftigen Verlauf.
+Hier ist es beides zusammen, und es sagt genau, was die App tut: ein Weg
+mit Anfang und Ziel.
 
     python3 UrlaubstagebuchiOS/scripts/make-icon.py
 
@@ -22,14 +33,18 @@ ZIEL = os.path.join(
     "Urlaubstagebuch", "Assets.xcassets", "AppIcon.appiconset", "AppIcon1024.png",
 )
 
-GRUND_OBEN = (38, 62, 74)
-GRUND_UNTEN = (20, 36, 46)
-PAPIER = (250, 246, 238)
-PAPIER_SCHATTEN = (226, 218, 205)
-FALZ = (206, 196, 180)
-SPUR = (208, 105, 60)
-PUNKT_RAND = (255, 252, 246)
-LINEATUR = (214, 206, 192)
+# Der Verlauf läuft DIAGONAL von warm nach tief: Ein senkrechter Verlauf
+# sieht auf einem Homescreen wie ein Farbfeld aus, ein diagonaler hat eine
+# Richtung. Die Farben sind so dunkel gewählt, dass Weiß darauf überall
+# trägt — auf einem hellen Gelb täte es das nicht.
+GRUND_A = (247, 148, 56)     # oben links, Abendsonne
+GRUND_B = (176, 32, 86)      # unten rechts, tiefes Rot
+WEISS = (255, 253, 250)
+# Die Kontur unter dem Weiß. Sie ist keine Zierde: Der Verlauf ist oben
+# links deutlich heller als unten rechts, und ohne sie verlöre die Linie
+# dort an Halt. Dieselbe Überlegung wie bei den Linienzügen der
+# Abfahrtstafel.
+KONTUR = (104, 18, 52)
 
 
 def mischen(a, b, anteil):
@@ -37,13 +52,15 @@ def mischen(a, b, anteil):
     return tuple(a[i] + (b[i] - a[i]) * anteil for i in range(3))
 
 
+def grundfarbe(x, y):
+    """Der Verlauf an dieser Stelle — diagonal von oben links nach unten
+    rechts. Gebraucht wird er zweimal: für die Leinwand und für die Löcher
+    in Nadel und Startpunkt, die den Grund wieder durchscheinen lassen."""
+    return mischen(GRUND_A, GRUND_B, (x + y) / (2 * (GROESSE - 1)))
+
+
 def leinwand():
-    """Der Grund als senkrechter Verlauf."""
-    bild = []
-    for y in range(GROESSE):
-        farbe = mischen(GRUND_OBEN, GRUND_UNTEN, y / (GROESSE - 1))
-        bild.append([list(farbe) for _ in range(GROESSE)])
-    return bild
+    return [[list(grundfarbe(x, y)) for x in range(GROESSE)] for y in range(GROESSE)]
 
 
 def setzen(bild, x, y, farbe, deckung):
@@ -66,20 +83,13 @@ def deckung_aus_abstand(abstand, weichheit=1.0):
     return max(0.0, min(1.0, 0.5 - abstand / weichheit))
 
 
-def rundrechteck(bild, x0, y0, x1, y1, radius, farbe):
-    for y in range(max(0, int(y0 - 2)), min(GROESSE, int(y1 + 2))):
-        for x in range(max(0, int(x0 - 2)), min(GROESSE, int(x1 + 2))):
-            cx = min(max(x + 0.5, x0 + radius), x1 - radius)
-            cy = min(max(y + 0.5, y0 + radius), y1 - radius)
-            abstand = math.hypot(x + 0.5 - cx, y + 0.5 - cy) - radius
-            setzen(bild, x, y, farbe, deckung_aus_abstand(abstand))
-
-
-def kreis(bild, mx, my, radius, farbe):
+def kreis(bild, mx, my, radius, farbe=None):
+    """Ein Kreis. Ohne Farbe wird der GRUND wiederhergestellt — so entsteht
+    das Loch in der Nadel, ohne dass ein zweiter Verlauf gerechnet wird."""
     for y in range(max(0, int(my - radius - 2)), min(GROESSE, int(my + radius + 2))):
         for x in range(max(0, int(mx - radius - 2)), min(GROESSE, int(mx + radius + 2))):
             abstand = math.hypot(x + 0.5 - mx, y + 0.5 - my) - radius
-            setzen(bild, x, y, farbe, deckung_aus_abstand(abstand))
+            setzen(bild, x, y, farbe or grundfarbe(x, y), deckung_aus_abstand(abstand))
 
 
 def strecke(bild, ax, ay, bx, by, breite, farbe):
@@ -103,10 +113,9 @@ def strecke(bild, ax, ay, bx, by, breite, farbe):
             setzen(bild, x, y, farbe, deckung_aus_abstand(abstand))
 
 
-def kurve(bild, punkte, breite, farbe, schritte=14):
-    """Eine weiche Linie durch die gegebenen Punkte (Catmull-Rom), gezeichnet
-    als Kette kurzer Strecken. Eine Reisespur aus geraden Knicken sähe aus
-    wie ein Diagramm und nicht wie ein Weg."""
+def feine_kurve(punkte, schritte=16):
+    """Catmull-Rom durch die gegebenen Punkte. Eine Reisespur aus geraden
+    Knicken sähe aus wie ein Diagramm und nicht wie ein Weg."""
     erweitert = [punkte[0]] + list(punkte) + [punkte[-1]]
     fein = []
     for i in range(len(erweitert) - 3):
@@ -122,43 +131,55 @@ def kurve(bild, punkte, breite, farbe, schritte=14):
                        + (-p0[1] + 3 * p1[1] - 3 * p2[1] + p3[1]) * t3)
             fein.append((x, y))
     fein.append(punkte[-1])
+    return fein
+
+
+def kurve(bild, fein, breite, farbe):
     for i in range(len(fein) - 1):
         strecke(bild, fein[i][0], fein[i][1], fein[i + 1][0], fein[i + 1][1], breite, farbe)
+
+
+def nadel(bild, mx, my, radius, spitze, farbe):
+    """Die Kartennadel: ein Kopf und ein Auslauf zur Spitze.
+
+    Der Auslauf wird zeilenweise gefüllt, die Breite nimmt mit einem Exponenten
+    ab — linear ergäbe ein Dreieck, und ein Dreieck unter einem Kreis sieht aus
+    wie ein Eis und nicht wie eine Nadel.
+    """
+    kreis(bild, mx, my, radius, farbe)
+    hoehe = spitze - my
+    for y in range(int(my), int(spitze) + 2):
+        anteil = (y - my) / hoehe
+        if anteil < 0:
+            continue
+        halb = radius * max(0.0, (1 - min(anteil, 1.0)) ** 0.62)
+        for x in range(int(mx - halb - 2), int(mx + halb + 2)):
+            deckung = max(0.0, min(1.0, halb - abs(x + 0.5 - mx) + 0.5))
+            setzen(bild, x, y, farbe, deckung)
 
 
 def bauen():
     bild = leinwand()
 
-    # Das aufgeschlagene Buch: ein Schattenblatt, darauf die beiden Seiten.
-    rundrechteck(bild, 118, 250, 906, 800, 26, PAPIER_SCHATTEN)
-    rundrechteck(bild, 108, 232, 896, 782, 26, PAPIER)
+    # Der Weg. Er windet sich mit Absicht, statt gleichmäßig zu steigen:
+    # Eine Linie, die nur nach rechts oben läuft, liest sich als Diagramm.
+    # Alles bleibt innerhalb von 140 bis 884 — was näher an der Ecke liegt,
+    # schneidet iOS mit seiner abgerundeten Maske weg.
+    spur = [(232, 806), (338, 700), (262, 592), (416, 552), (536, 602), (648, 539)]
+    fein = feine_kurve(spur)
+    kurve(bild, fein, 74, KONTUR)
+    kurve(bild, fein, 48, WEISS)
 
-    # Die Lineatur der rechten Seite. Sie macht aus einer weißen Fläche ein
-    # Tagebuch — ohne sie wäre es irgendein Blatt.
-    for i in range(6):
-        y = 356 + i * 62
-        rundrechteck(bild, 540, y, 826, y + 13, 6, LINEATUR)
+    # Das Ziel: eine Nadel, deren Spitze auf dem Ende des Weges steht.
+    nadel(bild, 648, 300, 118, 539, KONTUR)
+    nadel(bild, 648, 300, 104, 528, WEISS)
+    kreis(bild, 648, 300, 41)
 
-    # Der Falz in der Mitte.
-    rundrechteck(bild, 496, 250, 508, 764, 6, FALZ)
-
-    # Die Reisespur über der linken Seite. Sie windet sich mit Absicht, statt
-    # gleichmäßig zu steigen: Eine Linie, die nur nach rechts oben läuft,
-    # liest sich als Diagramm und nicht als Weg.
-    spur = [(178, 700), (272, 606), (206, 486), (330, 428), (296, 328), (438, 288)]
-    kurve(bild, spur, 26, (255, 253, 248))
-    kurve(bild, spur, 15, SPUR)
-
-    for i, (x, y) in enumerate(spur):
-        if i not in (0, len(spur) - 1):
-            continue
-        kreis(bild, x, y, 34, PUNKT_RAND)
-        kreis(bild, x, y, 21, SPUR)
-    for i, (x, y) in enumerate(spur):
-        if i in (0, len(spur) - 1):
-            continue
-        kreis(bild, x, y, 22, PUNKT_RAND)
-        kreis(bild, x, y, 12, SPUR)
+    # Der Anfang: ein Punkt mit Loch, damit er zur Nadel gehört und nicht
+    # wie ein abgeschnittenes Linienende aussieht.
+    kreis(bild, 232, 806, 62, KONTUR)
+    kreis(bild, 232, 806, 50, WEISS)
+    kreis(bild, 232, 806, 21)
 
     return bild
 

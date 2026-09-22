@@ -252,7 +252,7 @@ struct BlockInspektor: View {
             // Der Abstand NACH einem Absatz — hier, weil die Frage an
             // diesem einen Kasten gestellt wird (09/2026: „warum bei dem
             // Text nach jedem Absatz so viel Platz gelassen wird").
-            // Buchweit steht er unter Buch → Schrift; was fehlte, war die
+            // Buchweit steht er unter Gestalten → Schrift; was fehlte, war die
             // Ausnahme an der einzelnen Stelle.
             VStack(alignment: .leading) {
                 LabeledContent("Absatzabstand",

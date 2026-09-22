@@ -225,8 +225,13 @@ private struct Vorschaubild: View {
             RoundedRectangle(cornerRadius: 8)
                 .fill(reise.gestaltung.papier.farbe)
                 .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(.quaternary))
-            if let erstes = reise.fotos.first,
-               let bild = Bildarchiv.shared.vorschau(erstes.datei, reise: reise.id, kante: 200)
+            // Das TITELFOTO zuerst — das ist das Bild, das auch auf dem
+            // Titelblatt steht, und damit das Gesicht dieses Buches. Bis
+            // 1.0.19 stand hier das erste Foto der Reise, also ein
+            // beliebiges; zwei Bücher mit demselben Anreisetag sahen im
+            // Regal gleich aus.
+            if let datei = titelbild,
+               let bild = Bildarchiv.shared.vorschau(datei, reise: reise.id, kante: 240)
             {
                 Image(uiImage: bild)
                     .resizable()
@@ -237,6 +242,14 @@ private struct Vorschaubild: View {
                     .foregroundStyle(.tertiary)
             }
         }
-        .frame(width: 58, height: 58)
+        // Hochkant wie ein Buchrücken im Regal, nicht quadratisch: Apple
+        // Books und jede Bücher-App zeigen ein Buch als Buch.
+        .frame(width: 52, height: 68)
+        .shadow(color: .black.opacity(0.18), radius: 4, y: 2)
+    }
+
+    private var titelbild: String? {
+        if let id = reise.titelfoto, let foto = reise.foto(id) { return foto.datei }
+        return reise.fotos.first?.datei
     }
 }
