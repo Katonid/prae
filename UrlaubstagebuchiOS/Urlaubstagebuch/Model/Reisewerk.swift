@@ -882,6 +882,71 @@ final class Reisewerk: ObservableObject, Identifiable {
         punkteLoeschen(tagID, stellen: IndexSet(integer: stelle))
     }
 
+    // MEHRERE ZEITSTEMPEL AUF EINMAL VERSCHIEBEN (ab 1.0.21, Ansage des
+    // Nutzers 09/2026: „mehrere von ihnen auswählen zu können und ihren
+    // Zeitstempel gemeinsam verschieben zu können, beispielsweise um drei
+    // Stunden nach hinten.").
+    //
+    // Der Fall dahinter ist der Regelfall auf einer Reise: eine Kamera, deren
+    // Uhr auf der Zeit von zu Hause stand, oder eine Spur aus einer fremden
+    // App ohne Zonenangabe. Verschoben wird die WANDUHR am Ort — dieselbe
+    // Bedeutung wie überall (siehe `Dienste/Ortszeit.swift`); addiert werden
+    // schlicht Sekunden.
+    //
+    // Zurückgegeben wird ein Satz für die Meldung, und er nennt AUCH, was
+    // NICHT verschoben wurde: Ein Punkt ohne Uhrzeit hat keine, die sich
+    // verschieben ließe, und eine stillschweigend übergangene Auswahl sieht
+    // aus wie ein Fehler.
+    @discardableResult
+    func zeitenVerschieben(_ tagID: UUID, punkte: Set<UUID>, um sekunden: TimeInterval) -> String {
+        guard let t = tagIndex(tagID), !punkte.isEmpty else { return "Nichts ausgewählt." }
+        merken()
+        var verschoben = 0
+        var ohneZeit = 0
+        for stelle in reise.tage[t].spur.indices where punkte.contains(reise.tage[t].spur[stelle].id) {
+            guard let zeit = reise.tage[t].spur[stelle].zeit else {
+                ohneZeit += 1
+                continue
+            }
+            reise.tage[t].spur[stelle].zeit = zeit.addingTimeInterval(sekunden)
+            verschoben += 1
+        }
+        reise.tage[t].spur = nachZeitGeordnet(reise.tage[t].spur)
+        sofortSichern()
+        var satz = verschoben == 1 ? "1 Punkt verschoben." : "\(verschoben) Punkte verschoben."
+        if ohneZeit > 0 {
+            satz += ohneZeit == 1
+                ? " 1 Punkt hat keine Uhrzeit und blieb unverändert."
+                : " \(ohneZeit) Punkte haben keine Uhrzeit und blieben unverändert."
+        }
+        return satz
+    }
+
+    func punkteLoeschen(_ tagID: UUID, ids: Set<UUID>) {
+        guard let t = tagIndex(tagID) else { return }
+        let stellen = IndexSet(reise.tage[t].spur.indices.filter { ids.contains(reise.tage[t].spur[$0].id) })
+        guard !stellen.isEmpty else { return }
+        punkteLoeschen(tagID, stellen: stellen)
+    }
+
+    // Nach Zeit ordnen, STABIL und ohne die zeitlosen Punkte zu verwürfeln.
+    //
+    // `sorted` ist in Swift nicht als stabil zugesichert; ohne den Index als
+    // zweites Merkmal stünden zwei Punkte derselben Minute nach jedem
+    // Verschieben in einer anderen Reihenfolge. Punkte OHNE Uhrzeit rutschen
+    // ans Ende und behalten dort ihre Ordnung — wohin sie gehören, weiß auch
+    // die App nicht (die Regel steht seit 1.0.0 dort).
+    private func nachZeitGeordnet(_ spur: [Reisepunkt]) -> [Reisepunkt] {
+        spur.enumerated()
+            .sorted { links, rechts in
+                let a = links.element.zeit ?? .distantFuture
+                let b = rechts.element.zeit ?? .distantFuture
+                if a == b { return links.offset < rechts.offset }
+                return a < b
+            }
+            .map(\.element)
+    }
+
     func punkteLoeschen(_ tagID: UUID, stellen: IndexSet) {
         guard let t = tagIndex(tagID) else { return }
         merken()

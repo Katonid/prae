@@ -717,6 +717,32 @@ Bücher gefahrlos: Der erzeugte `Codable`-Leser verlangt einen Schlüssel nur
 für nicht-optionale Eigenschaften. Ein vorhandener Wert wird gelesen, ein
 fehlender wird `nil` — also „wie im Buch".
 
+## Mehrere Punkte, eine Zeitverschiebung (1.0.21)
+
+Ansage des Nutzers: „mehrere von ihnen auswählen zu können und ihren
+Zeitstempel gemeinsam verschieben zu können, beispielsweise um drei Stunden
+nach hinten." Der Fall dahinter ist der Regelfall auf einer Reise — eine
+Kamera, deren Uhr auf der Zeit von zu Hause stand, oder eine Spur aus einer
+fremden App ohne Zonenangabe.
+
+Tagesmenü → Reisepunkte → **„Auswählen"**, dann die Punkte antippen; unten
+stehen „Alle wählen", „Zeiten verschieben…" und „Gewählte löschen".
+
+- **Der Modus ist sichtbar**: Die Überschrift zählt mit, der Knopf heißt
+  „Fertig", vor jeder Zeile steht ein Kreis statt eines Pfeils. Ein Modus, den
+  man nicht sieht, darf die Bedeutung eines Tipps nicht ändern.
+- **Ordnen und Auswählen gibt es nicht gleichzeitig** — sonst hätte ein Tipp
+  auf eine Zeile drei Bedeutungen.
+- **Das Blatt rechnet vor**: Zahl der Gewählten, Zahl der Punkte ohne Uhrzeit
+  (an denen sich nichts verschieben lässt) und der erste Punkt mit alter und
+  neuer Zeit. Wer „drei Stunden nach hinten" liest, hat noch nicht geprüft, ob
+  es die richtige Richtung ist.
+- **Verschoben wird die Uhrzeit am Ort**, dieselbe, die in der Liste steht.
+  Punkte, die dabei über Mitternacht rutschen, bleiben an diesem Tag: Der Tag
+  ist der, den du erlebt hast, und nicht das Ergebnis einer Rechnung.
+- Danach wird stabil neu nach Zeit geordnet; Punkte ohne Uhrzeit behalten ihre
+  Reihenfolge am Ende.
+
 ## Punkte bearbeiten, klarere Menüs, neues Symbol (1.0.20)
 
 ### Reisepunkte lassen sich ändern

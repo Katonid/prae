@@ -13,6 +13,16 @@ struct SpurView: View {
 
     struct Punktwunsch: Identifiable { let id: UUID }
 
+    // MEHRERE PUNKTE AUF EINMAL (ab 1.0.21).
+    //
+    // Der Modus ist SICHTBAR: Die Überschrift zählt mit, der Knopf heißt
+    // „Fertig", und vor jeder Zeile steht ein Kreis statt eines Pfeils. Ein
+    // Modus, den man nicht sieht, darf die Bedeutung eines Tipps nicht
+    // ändern — dieselbe Regel wie beim Fußwegmesser der Abfahrtstafel.
+    @State private var auswahlmodus = false
+    @State private var auswahl: Set<UUID> = []
+    @State private var verschieben = false
+
     private var tag: Reisetag? { werk.reise.tage.first { $0.id == tagID } }
 
     var body: some View {
@@ -53,9 +63,18 @@ struct SpurView: View {
                             // berichtigen — und ein Knopf in einem Menü wäre
                             // einer, den niemand findet.
                             Button {
-                                bearbeiten = Punktwunsch(id: punkt.id)
+                                if auswahlmodus {
+                                    if auswahl.contains(punkt.id) {
+                                        auswahl.remove(punkt.id)
+                                    } else {
+                                        auswahl.insert(punkt.id)
+                                    }
+                                } else {
+                                    bearbeiten = Punktwunsch(id: punkt.id)
+                                }
                             } label: {
-                                PunktZeile(punkt: punkt)
+                                PunktZeile(punkt: punkt,
+                                           gewaehlt: auswahlmodus ? auswahl.contains(punkt.id) : nil)
                             }
                             .buttonStyle(.plain)
                         }
@@ -63,9 +82,19 @@ struct SpurView: View {
                         .onMove { von, nach in werk.punkteVerschieben(tagID, von: von, nach: nach) }
                     } header: {
                         HStack {
-                            Text("\(tag.spur.count) Punkte")
+                            Text(auswahlmodus
+                                 ? "\(auswahl.count) von \(tag.spur.count) gewählt"
+                                 : "\(tag.spur.count) Punkte")
                             Spacer()
-                            EditButton().font(.caption)
+                            Button(auswahlmodus ? "Fertig" : "Auswählen") {
+                                auswahlmodus.toggle()
+                                if !auswahlmodus { auswahl = [] }
+                            }
+                            .font(.caption)
+                            // Das Ordnen und das Auswählen sind zwei Modi.
+                            // Beide gleichzeitig anzubieten hieße, dass ein
+                            // Tipp drei Bedeutungen hätte.
+                            if !auswahlmodus { EditButton().font(.caption) }
                         }
                     } footer: {
                         VStack(alignment: .leading, spacing: 6) {
@@ -78,6 +107,33 @@ struct SpurView: View {
                             // Zonen. Dieselbe Regel wie beim Wort „Plan"
                             // an einer Abfahrt ohne Echtzeit.
                             Text(zeitsatz(tag))
+                        }
+                    }
+
+                    if auswahlmodus {
+                        Section {
+                            Button(auswahl.count == tag.spur.count ? "Keinen wählen" : "Alle wählen") {
+                                auswahl = auswahl.count == tag.spur.count
+                                    ? []
+                                    : Set(tag.spur.map(\.id))
+                            }
+                            Button {
+                                verschieben = true
+                            } label: {
+                                Label("Zeiten verschieben\u{2026}", systemImage: "clock.arrow.2.circlepath")
+                            }
+                            .disabled(auswahl.isEmpty)
+                            Button(role: .destructive) {
+                                werk.punkteLoeschen(tagID, ids: auswahl)
+                                auswahl = []
+                            } label: {
+                                Label("Gewählte löschen", systemImage: "trash")
+                            }
+                            .disabled(auswahl.isEmpty)
+                        } footer: {
+                            Text("Alle gewählten Punkte werden um denselben Betrag verschoben "
+                                 + "\u{2014} zum Beispiel, wenn die Kamera auf der Uhrzeit von "
+                                 + "zu Hause stand.")
                         }
                     }
 
@@ -108,6 +164,12 @@ struct SpurView: View {
             }
             .sheet(item: $bearbeiten) { wunsch in
                 PunktwahlView(werk: werk, tagID: tagID, punktID: wunsch.id)
+            }
+            .sheet(isPresented: $verschieben) {
+                Zeitverschiebung(werk: werk, tagID: tagID, punkte: auswahl) {
+                    auswahl = []
+                    auswahlmodus = false
+                }
             }
         }
     }
@@ -141,9 +203,16 @@ struct SpurView: View {
 
 private struct PunktZeile: View {
     let punkt: Reisepunkt
+    /// Leer heißt: kein Auswahlmodus. Dann steht rechts ein Pfeil, und ein
+    /// Tipp öffnet den Punkt.
+    var gewaehlt: Bool?
 
     var body: some View {
         HStack(spacing: 10) {
+            if let gewaehlt {
+                Image(systemName: gewaehlt ? "checkmark.circle.fill" : "circle")
+                    .foregroundStyle(gewaehlt ? Color.accentColor : .secondary)
+            }
             Image(systemName: punkt.istAusFoto ? "camera.fill" : "mappin.circle.fill")
                 .foregroundStyle(punkt.istAusFoto ? Color.blue : Color.accentColor)
             VStack(alignment: .leading, spacing: 1) {
@@ -165,9 +234,11 @@ private struct PunktZeile: View {
                 .foregroundStyle(.secondary)
             }
             Spacer()
-            Image(systemName: "chevron.right")
-                .font(.caption2)
-                .foregroundStyle(.tertiary)
+            if gewaehlt == nil {
+                Image(systemName: "chevron.right")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+            }
         }
     }
 
