@@ -717,6 +717,63 @@ Bücher gefahrlos: Der erzeugte `Codable`-Leser verlangt einen Schlüssel nur
 für nicht-optionale Eigenschaften. Ein vorhandener Wert wird gelesen, ein
 fehlender wird `nil` — also „wie im Buch".
 
+## Der erste echte Befund (1.0.23)
+
+Gemeldet 09/2026: „Beim Zoomen springt die Seite irgendwo hin. Da hat sich
+nichts geändert. Ich habe sie jetzt klein gezoomt und kann sie nicht wieder
+größer bekommen." — dazu der kopierte Befund aus „Bedienung prüfen".
+
+**Zum ersten Mal in dieser Sache entscheidet eine Messung und keine
+Überlegung.** Die Antwort steht in zwei Zahlen derselben Zeile:
+
+    Inhalt 1046×429 · Bühne 1046×864
+
+### Die Geste braucht Fläche
+
+Die Zweifingergeste hängt am **Inhalt**. Bei 25 % deckte der die oberen 429
+von 864 Punkten ab; darunter lag nackte Leinwand ohne Geste. Wer in der Mitte
+des Bildschirms aufzieht, greift also ins Leere — **und die Falle zieht sich
+zu, je kleiner man zoomt.** Genau der gemeldete Zustand.
+
+Der Inhalt ist seither mindestens so hoch wie das Sichtfeld. **Oben
+ausgerichtet, nicht mittig**: Die Lagen der Elemente gehen in `Zoomanker` ein,
+und eine senkrechte Zentrierung verschöbe jede davon. Die Breite konnte 1.0.22
+exakt setzen; die Höhe wird als Mindestmaß gesetzt, denn unter der Bogenliste
+kann noch ein Hinweis stehen, und eine feste Höhe schnitte ihn ab.
+
+### Eine glatte 1,00 heißt „geklemmt", nicht „unten"
+
+Derselbe Befund nannte `Griff #1 quer 0.50 hoch 1.00`. Der Finger lag an der
+Unterkante des Inhalts, also **neben** dem Blatt. Daraus wurde trotzdem ein
+Anker gerechnet, und der legte die Blattunterkante unter den Finger: der
+Sprung „irgendwo hin". Wo kein Blatt unter dem Finger ist, gibt es keinen
+Brennpunkt zu halten — dann wird gar nicht mehr gerollt.
+
+Es ist dieselbe Ursache wie oben, von der anderen Seite gesehen: Beide
+Symptome kommen daher, dass die Geste dort ankam, wo kein Inhalt war.
+
+### Und die Probe hat sich selbst belastet
+
+Zwei Zahlen darin waren falsch, und beide sind am Befund aufgefallen:
+
+* `Inhalt 570×423` stand über einem Rahmen, der 1046 breit gesetzt war.
+  `Inhaltslage` wird durch den `scaleEffect` hindurch gemessen, und am **Ende**
+  einer Geste steht dort die skalierte Größe. Beim Aufsetzen ist der Faktor
+  noch 1 — dort wird sie jetzt gemerkt.
+* `Blatt 990 pt` war die Inhaltsbreite minus Ränder, bei einer kleinen Seite
+  also die Bühne und nicht das Blatt. Gerechnet wird jetzt Bogenbreite mal
+  Maßstab.
+
+**Wer eine Probe baut, prüft, ob sie misst, was ihre Beschriftung sagt.**
+
+### Was der Befund ausgeschlossen hat
+
+Die Breite stimmte — `Inhalt 1046` ist genau die in 1.0.22 gesetzte
+Inhaltsbreite, der Umbau wirkt also. Und `frei ⇄0 ↕-435` sagt, dass bei
+kleiner Seite gar nichts zu schieben ist; das ist richtig so und war nie der
+Fehler. Erst diese Zahlen haben die Frage von „warum springt es" auf „wo
+kommt die Geste überhaupt an" gedreht.
+
 ## Die Seite ließ sich nicht schieben (1.0.22)
 
 Gemeldet 09/2026, mit drei Bildschirmfotos bei 68 %, 116 % und 208 %: „Die
@@ -1637,6 +1694,11 @@ im Inspektor gab es, aber keinen Weg zu sehen, was es bewirkt.
   „Fläche" ankam — aber ein Gerät gibt es hier nicht. „Bedienung prüfen"
   nennt seit 1.0.7 den gemessenen Punkt; **erst was dort steht, ist ein
   Befund.**
+* **Ob sich die Seite jetzt überall aufziehen lässt, ist NICHT gemessen**
+  (1.0.23). Gemessen ist, WARUM die Geste nicht ankam — der Inhalt war kleiner
+  als das Sichtfeld; dass sie es jetzt tut, folgt aus der Geometrie und hat
+  niemand gesehen. Der Weg zurück aus einer zu kleinen Seite hängt an keiner
+  Geste: der Knopf mit der Prozentzahl unten links → „Einpassen".
 * **Ob sich die Seite jetzt schieben lässt und der Zoom steht, ist NICHT
   gemessen** (1.0.18, fortgeschrieben 1.0.22). Abgezählt ist die Geometrie:
   dass ein Höchstmaß die Breite nicht wachsen lässt, und dass der asynchrone
