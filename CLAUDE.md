@@ -3171,6 +3171,13 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   `Double` und `CGFloat` NICHT ineinander um, obwohl beide auf diesen
   Geräten dasselbe sind. Bei gewöhnlichen Zuweisungen und Argumenten tut
   er es — der Fehler zeigt sich also nur an dieser einen Stelle.
+  **Zum zweiten Mal getroffen in 1.0.37** (`PunktwahlView.punktBei`):
+  `hypot` über zwei `CGFloat` gibt `CGFloat` zurück, und das Tupel war als
+  `(punkt: Reisepunkt, abstand: Double)` deklariert. Der Bau hat es
+  gemeldet, nicht die Quelltextprüfung — die sieht String-Literale an.
+  **Merke: Überall, wo ein Wert aus einem `CGPoint`, `CGRect` oder
+  `CGSize` in ein Tupel, einen Rückgabetyp oder eine Eigenschaft vom Typ
+  `Double` geht, gehört ein `Double(…)` darum.**
 - **Das Ergebnis ist eine DRUCKVORLAGE, kein Bildschirmdokument** (ab
   1.0.1). Gemessen an dem, was deutsche Druckdienste verlangen (BoD,
   epubli, Saal Digital, 09/2026): PDF, Endformat exakt aus Millimetern,
@@ -5462,6 +5469,160 @@ Befunde, und keiner davon war Geschmack:
   Buch nachgesehen**: Sollte er etwas anderes gemeint haben, steht es in
   seinem eingelesenen Text und nicht in der App. **Nichts davon als erledigt
   darstellen.**
+- **DER ABSATZ GEWINNT — immer** (`Textmass.teilen`, ab 1.0.37; Ansage des
+  Nutzers 09/2026, zum zweiten Mal: „Ich hatte aber gesagt, dass die
+  Trennstellen dabei nach den Absätzen sein sollen. Ich finde aber
+  Trennstellen, die quasi mitten im Text passieren."). Er hat recht, und die
+  Stelle ist auszurechnen: Bis 1.0.36 stand dort ein `mindestfuellung` von
+  0,62 — die Absatzgrenze galt nur, wenn der Kopf danach noch 62 Prozent des
+  Kastens füllte, sonst wurde an der WORTgrenze geteilt.
+  **Die Abwägung war seit 1.0.35 hinfällig, und das ist der ganze Befund.**
+  Gebaut wurde sie in 1.0.14 gegen eine große weiße Fläche am Seitenfuß —
+  damals bestand eine Seite aus einer Textspalte und darunter aus
+  Fotoreihen, und was der Text nicht brauchte, blieb Papier. Seither füllt
+  `Mosaik` die Seite: Was der Text nicht braucht, bekommen die Bilder, und
+  `seiteFuellen` nimmt so lange ein Bild dazu, bis der Platz aufgeht. Die
+  Lücke, gegen die die Regel gebaut war, gibt es nicht mehr — sie stand nur
+  noch da und hat geschadet. **Merke: Wer eine Regel stehen lässt, deren
+  Grund eine spätere Fassung beseitigt hat, baut einen Fehler ein, den
+  niemand mehr begründen kann** (dieselbe Lehre wie beim Rückbau von 1.0.25
+  und beim Wegfall von `Seitenrhythmus` und `Seitenform`).
+  Ersatzlos entfernt und NICHT auf 0 gestellt: Ein Parameter, der nur noch
+  einen Wert haben darf, wird irgendwann wieder ein anderer (dieselbe Regel
+  wie beim Sperrmechanismus in Schulalarm 1.1.0). An der Wortgrenze wird nur
+  noch geteilt, wo es im Kasten ÜBERHAUPT keine Absatzgrenze gibt — ein
+  einzelner Absatz, der für sich schon länger ist als der Platz.
+- **Und diese Stellen werden GEZÄHLT** (`Druckpruefung.mittenImSatz`, ab
+  1.0.37). Sonst wäre „der Absatz gewinnt" eine Zusage, die sich niemand
+  ansehen kann. Gemessen wird am ERGEBNIS und nicht an der Absicht: Ein
+  Textblock, der nicht mit einem Satzzeichen aufhört und dem ein weiterer
+  folgt, endet mitten im Satz — unabhängig davon, was die Teilung gemeint
+  hat, und damit die ehrlichere Zahl.
+- **DIE TEXTSPALTE HAT EINE HÖCHSTBREITE** (`Gestaltung.textspaltenanteil`,
+  Vorgabe 0,66, ab 1.0.37; Ansage des Nutzers 09/2026: „Mir fällt auf, dass
+  der Text des Tagebuches in der Regel über die gesamte Breite einer Seite
+  geht. Das finde ich nicht gut, denn ich denke, er ist besser lesbar, wenn
+  er maximal über zwei Drittel der Seite geht.").
+  - **Gemessen wird gegen die SATZBREITE, nicht gegen den freien Raum.**
+    Sonst käme ein Deckel auf den anderen: Bei „Karte neben dem Text" ist
+    die Spalte schon auf gut die halbe Satzbreite eingeengt, und zwei
+    Drittel DAVON wären ein Streifen. Es ist eine Obergrenze und keine
+    Vorschrift — wer ohnehin weniger bekommt, behält, was er hat.
+  - **Eine Zahl, EINE Stelle** (`Layoutautomat.satzTextbreite`). Gefragt
+    wird sie überall, wo bisher `satz.width` für einen Textblock stand:
+    beim Messen für den Plan, beim TEILEN und beim Setzen. Liefen die drei
+    auseinander, würde an einer Breite geteilt und in einer anderen
+    gesetzt — der Text wäre auf der Seite anderthalbmal so hoch wie
+    gerechnet und liefe unten heraus.
+  - **Der Deckel gilt auch im alten Weg** (`textSpalte`, also die acht
+    übrigen Muster). Ihn nur im Mosaik zu ziehen hieße, dass „Text zuerst"
+    und „Karte oben" weiter Zeilen von neunzig Zeichen ergäben.
+  - **Wie viele Zeichen wirklich auf einer Zeile stehen, MISST die App**
+    (`Textmass.zeichenJeZeile`, Zeile in der Druckprüfung). Eine
+    Einstellung, die sich auf eine Behauptung stützt, wäre in diesem Buch
+    die falsche. Gezählt wird mit demselben CoreText-Umbruch, der zeichnet;
+    die letzte Zeile bleibt draußen, weil sie dort endet, wo der Text
+    aufhört. **Die Spanne 45 bis 75 Zeichen ist Handwerk des Schriftsatzes
+    und an diesem Buch NICHT nachgeprüft** — die Zeile sagt das auch.
+- **Die Textreihe steht an jeder Stelle der Spalte** (ab 1.0.37, Ansage des
+  Nutzers: „Auch hier wäre es dann gut, vielleicht verschiedene Textblöcke
+  zu haben, die sich mit den Bildern abwechseln."). Bis 1.0.36 gab es zwei
+  Lagen — ganz oben oder ganz unten (`textOben = nummer % 2 == 0`); einen
+  Wechsel gab es damit nur von Seite zu Seite, nicht auf der Seite. Die
+  Textreihe ist jetzt eine Reihe unter den anderen: 0 heißt oben,
+  `reihen.count` unten, alles dazwischen ZWISCHEN zwei Fotoreihen. Gewählt
+  aus der Seitennummer und nicht gewürfelt — derselbe Inhalt ergibt
+  denselben Satz.
+  - **Bricht eine Reihe ab, bricht ALLES ab** (`abgebrochen`). Die Kacheln
+    liegen in einer Folge, und `seiteFuellen` nimmt hinterher die ersten
+    `gesetzteKacheln` aus dem Vorrat. Würde Reihe 2 übersprungen und Reihe 3
+    gesetzt, wären zwei Bilder vertauscht — still und unauffindbar.
+  - **`restplatzVerteilen` läuft nur im LETZTEN Abschnitt.** Im oberen liefe
+    die gewonnene Luft in den Textblock hinein, und die Funktion kennt ihn
+    nicht: Sie verschiebt nur die Reihen, die sie bekommt.
+- **Die Reisepunkte auf der Buchkarte waren eine Perlenkette**
+  (`Spurpunktstil`, ab 1.0.37; Befund des Nutzers 09/2026: „Diese Punkte
+  haben eine bestimmte Farbe und einen Kreis um sich herum. Das sieht etwas
+  merkwürdig aus. Ich habe noch keine richtige Lösung dafür."). Am Quelltext
+  abzulesen und kein Eindruck: Je Punkt wurde ein VOLLER weißer Kreis
+  gezeichnet und darauf ein farbiger Kern von 58 Prozent des Radius — der
+  Rest war ein weißer Ring von fast einem Viertel des Durchmessers. Bei
+  dreißig Fotopunkten an einem Tag übernimmt der die Karte. Gedacht war er
+  als KONTRAST (dieselbe Rechnung wie unter der Linie); als Zeichnung war er
+  zu laut. **Weil der Nutzer ausdrücklich sagt, er habe noch keine Lösung,
+  ist keiner seiner drei Auswege weggelassen**: `ohne` (nur die Linie),
+  `dezent` (volle Punkte in der Linienfarbe mit haardünner Kontur — die
+  Vorgabe), `enden` (nur Anfang und Ziel) und `ring` (der alte, dünner).
+  **Eine Kontur ist kein Ring**: Sie liegt AUF der Kante und nimmt dem Punkt
+  nichts weg. Und `punktstil` steht im `merkmal` des Zwischenspeichers —
+  eine vergessene Stelle im Schlüssel zeigt nach dem Umstellen das Bild von
+  vorhin, und das sieht aus, als tue der Schalter nichts.
+- **Einen Punkt findet man auf der KARTE, nicht in der Liste**
+  (`PunktwahlView`, ab 1.0.37; Befund des Nutzers 09/2026: „Ich möchte die
+  Reisepunkte auf einer Karte, die möglichst bildschirmfüllend ist,
+  auswählen können und verschieben können bzw. löschen können. Innerhalb der
+  Liste ist es schwierig, einen bestimmten Punkt wiederzufinden."). Die
+  Karte gab es seit 1.0.20, bildschirmfüllend, samt Verschieben und
+  Löschen — nur der WEG hinein führte über die Liste: `punktID` war ein
+  `let` von außen, und die Punkte auf der Karte waren `Marker`, also
+  unantastbar. Siebte Auflage von „es war da, man fand es nicht", und
+  diesmal fehlte nicht der Knopf, sondern der Weg zu ihm.
+  - **`punktID` ist ein ZUSTAND.** Ein Tipp auf einen Punkt wählt ihn, die
+    Leiste nennt ihn beim Namen und sagt, der wievielte er ist; „Neuer
+    Punkt" führt zurück. Ohne diesen Rückweg käme man, einmal auf einem
+    Punkt gelandet, nie wieder zum Anlegen.
+  - **Auf der Karte liegt kein Bedienelement** (`.allowsHitTesting(false)`,
+    Lehre aus Abfahrtstafel 1.1.18). Den Tipp nimmt die Karte entgegen und
+    sucht HINTERHER den nächsten Punkt — in BILDPUNKTEN und nicht in Grad,
+    denn was „nah" heißt, hängt am Maßstab. Gerechnet wird erst, wenn klar
+    ist, dass ein Tipp gemeint war; die Griffweite kostet damit keine
+    Kartenfläche.
+  - **Verschoben wird über das FADENKREUZ, nicht durch Ziehen des Punktes.**
+    Eine Ziehgeste auf einer Karte streitet mit dem Schieben der Karte — und
+    genau diese Art Geste hat dieses Projekt von 1.0.5 bis 1.0.8 gekostet.
+  - **Löschen schließt das Blatt nicht mehr.** Wer Punkte auf der Karte
+    durchsieht, löscht oft mehrere; ein Blatt, das nach jedem Löschen
+    zugeht, macht aus drei Handgriffen dreimal denselben Weg.
+- **Die Broschüre lag drei Ebenen tief** (ab 1.0.37, gemeldet 09/2026: „Noch
+  nicht gefunden habe ich die gewünschte Option, das Reisetagebuch auf dem
+  heimischen Drucker doppelseitig als Broschüre drucken zu können"). Es gibt
+  sie seit 1.0.27 und sie ist vollständig gebaut. Gefunden hat sie niemand,
+  und daran waren drei Dinge auf einmal schuld: das falsche Menü („…" →
+  „Als PDF sichern…" klingt nach einer Datei und nicht nach einem Drucker),
+  ein zugeklappter Picker darüber, und dessen Name „Umfang" — ein Wort, das
+  nach Seitenzahl klingt. Jetzt ein eigener Menüpunkt **„Broschüre
+  drucken…"**, sprechende Namen im Picker („Broschüre zum Selberfalten"),
+  und je ein Satz darunter, was dahintersteht. **Kein zweiter Bildschirm:**
+  derselbe, nur mit Vorwahl — ein zweiter Weg zu derselben Sache liefe
+  irgendwann auseinander.
+- **Und sie stand mit dem RICHTIGEN Weg in der Bedienungskarte.** Seit
+  1.0.27, wörtlich. Gefunden wurde sie trotzdem nicht. **Merke: Eine
+  Bedienungskarte ist ein Nachschlagewerk für jemanden, der etwas Bestimmtes
+  sucht — sie ersetzt keinen auffindbaren Menüpunkt.** Wer eine Funktion für
+  auffindbar hält, weil sie dort steht, hat die Frage nicht beantwortet,
+  sondern verschoben.
+- **Gedruckt wird aus der App heraus** (`Druckauftrag`, ab 1.0.37). Bis
+  1.0.36 gab es nur eine Datei zum Teilen; sie erst zu sichern, dann in
+  „Dateien" zu suchen und von dort zu drucken, ist der Umweg um genau den
+  Knopf herum, um den gebeten wurde. `UIPrintInteractionController` zeigt
+  sich SELBST — eingebettet in ein SwiftUI-`.sheet` bliebe das Blatt
+  schwarz; dieselbe Lehre wie beim Teilen-Blatt und beim Dateiwähler in
+  Tafelbild. **`duplex` ist ein WUNSCH, keine Einstellung:** Was der Drucker
+  tut und über welche Kante er wendet, entscheidet der Mensch im Dialog, und
+  die App kann es weder setzen noch auslesen — deshalb steht daneben
+  weiterhin der Schalter „Rückseiten um 180° drehen" und keine Automatik.
+  Das Fenster für den Anker kommt aus der Szene DIESER App und nie aus
+  `connectedScenes.first` (ungeordnete Menge — dieselbe Falle wie bei
+  Tafelbilds Dokumentenkamera).
+- **Nicht gemessen (1.0.37):** Keine Seite ist damit gesehen worden.
+  Gerechnet sind die Geometrie und die Ursachen; **gewählt und nicht
+  gemessen** sind die Vorgabe 0,66 für die Textspalte (sie ist die Zahl aus
+  der Ansage) und die Maße der Punkte (Radius `breite/130`, Kontur
+  `breite/900`). Ob eine Doppelseite mit wandernder Textspalte ruhig wirkt
+  oder unruhig, ob ein dezenter Punkt auf einer bunten Karte noch zu sehen
+  ist und ob der Systemdruckdialog die Broschüre richtig auf das Papier
+  bringt, sagt erst der nächste Befund. **Nichts davon als erledigt
+  darstellen.**
 - **Die Bildunterschrift war halb gebaut** (ab 1.0.5, Wunsch des Nutzers
   09/2026: „zu jedem Foto einen Beschreibungstext … Dies soll jedoch eine
   Option für jedes Foto sein. Kein muss."). Der Layoutautomat hielt Platz
@@ -5723,7 +5884,8 @@ Befunde, und keiner davon war Geschmack:
   Stellen im pbxproj (Debug + Release) — es gibt KEINE Skript-Bauphase.
   **Jede Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne
   Nachfrage, als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann
-  1.0.1 (Build 2) usw. Dazu gesetzt: `DEVELOPMENT_TEAM = F4989GSTWS` und
+  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.37 (Build 38). Dazu gesetzt:
+  `DEVELOPMENT_TEAM = F4989GSTWS` und
   `INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.travel`.
   Seit 1.0.4 steht dort auch `CODE_SIGN_ENTITLEMENTS = Config/Urlaubstagebuch.entitlements`
   (iCloud Documents) — nicht entfernen, sonst liegt der Abgleich still.

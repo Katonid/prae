@@ -717,6 +717,173 @@ Bücher gefahrlos: Der erzeugte `Codable`-Leser verlangt einen Schlüssel nur
 für nicht-optionale Eigenschaften. Ein vorhandener Wert wird gelesen, ein
 fehlender wird `nil` — also „wie im Buch".
 
+## Der Absatz gewinnt, der Text wird schmaler (1.0.37)
+
+Fünf Befunde des Nutzers (09/2026), und alle fünf sind am Quelltext
+nachzurechnen statt zu plausibeln.
+
+### Trennstellen mitten im Text
+
+> „Ich hatte aber gesagt, dass die Trennstellen dabei nach den Absätzen sein
+> sollen. Ich finde aber Trennstellen, die quasi mitten im Text passieren.
+> Das möchte ich nicht."
+
+Er hat recht, und die Stelle steht im Quelltext: `Textmass.teilen` trug ein
+`mindestfuellung` von 0,62. Die Absatzgrenze galt nur, wenn der Kopf danach
+noch 62 Prozent des Kastens füllte — sonst wurde an der WORTgrenze getrennt.
+
+**Diese Abwägung war seit 1.0.35 hinfällig, und das ist der ganze Befund.**
+Gebaut wurde sie in 1.0.14 gegen eine große weiße Fläche am Seitenfuß: Damals
+bestand eine Seite aus einer Textspalte und darunter aus Fotoreihen, und was
+der Text nicht brauchte, blieb Papier. Seither füllt `Mosaik` die Seite — was
+der Text nicht braucht, bekommen die Bilder, und `seiteFuellen` nimmt so lange
+ein Bild dazu, bis der Platz aufgeht. Die Lücke, gegen die die Regel gebaut
+war, gibt es nicht mehr; sie stand nur noch da und hat geschadet.
+
+**Wer eine Regel stehen lässt, deren Grund eine spätere Fassung beseitigt hat,
+baut einen Fehler ein, den niemand mehr begründen kann.** Dieselbe Lehre wie
+beim Rückbau von 1.0.25 und beim Wegfall von `Seitenrhythmus` (1.0.34) und
+`Seitenform` (1.0.35).
+
+Sie ist **ersatzlos entfernt** und nicht auf 0 gestellt: Ein Parameter, der nur
+noch einen Wert haben darf, wird irgendwann wieder ein anderer. An der
+Wortgrenze wird nur noch getrennt, wo es im Kasten ÜBERHAUPT keine Absatzgrenze
+gibt — ein einzelner Absatz, der für sich schon länger ist als der Platz.
+
+**Und diese Stellen werden gezählt** (`Druckpruefung.mittenImSatz`). Sonst wäre
+„der Absatz gewinnt" eine Zusage, die sich niemand ansehen kann. Gemessen wird
+am ERGEBNIS und nicht an der Absicht: Ein Textblock, der nicht mit einem
+Satzzeichen aufhört und dem ein weiterer folgt, endet mitten im Satz.
+
+### Der Text lief über die ganze Seitenbreite
+
+> „Mir fällt auf, dass der Text des Tagebuches in der Regel über die gesamte
+> Breite einer Seite geht. Das finde ich nicht gut, denn ich denke, er ist
+> besser lesbar, wenn er maximal über zwei Drittel der Seite geht."
+
+`Gestaltung.textspaltenanteil` (Vorgabe 0,66, Regler unter Gestalten → Ränder,
+Karte, Seitenzahlen → „Textspalte").
+
+* **Gemessen wird gegen die Satzbreite**, nicht gegen den gerade freien Raum.
+  Sonst käme ein Deckel auf den anderen: Bei „Karte neben dem Text" ist die
+  Spalte schon auf gut die halbe Satzbreite eingeengt, und zwei Drittel DAVON
+  wären ein Streifen. Es ist eine Obergrenze, keine Vorschrift.
+* **Eine Zahl, eine Stelle** (`Layoutautomat.satzTextbreite`) — gefragt beim
+  Messen für den Plan, beim TEILEN und beim Setzen. Liefen die drei
+  auseinander, würde an einer Breite geteilt und in einer anderen gesetzt: Der
+  Text wäre anderthalbmal so hoch wie gerechnet und liefe unten heraus.
+* **Der Deckel gilt auch im alten Weg** (`textSpalte`, die acht übrigen
+  Muster). Ihn nur im Mosaik zu ziehen hieße, dass „Text zuerst" und „Karte
+  oben" weiter Zeilen von neunzig Zeichen ergäben.
+* **Wie viele Zeichen wirklich auf einer Zeile stehen, misst die App**
+  (`Textmass.zeichenJeZeile`, Zeile in der Druckprüfung, gezählt mit demselben
+  CoreText-Umbruch, der zeichnet). Eine Einstellung, die sich auf eine
+  Behauptung stützt, wäre in diesem Buch die falsche. **Die Spanne 45 bis 75
+  Zeichen ist Handwerk des Schriftsatzes und an diesem Buch nicht
+  nachgeprüft** — die Zeile sagt das auch.
+
+### Textblöcke im Wechsel mit den Bildern
+
+> „Auch hier wäre es dann gut, vielleicht verschiedene Textblöcke zu haben, die
+> sich mit den Bildern abwechseln."
+
+Bis 1.0.36 gab es zwei Lagen — ganz oben oder ganz unten
+(`textOben = nummer % 2 == 0`). Damit stand auf jeder Seite ein Block Text und
+darunter ein Block Bilder; einen Wechsel gab es nur von Seite zu Seite, nicht
+auf der Seite. Die Textreihe ist jetzt eine Reihe unter den anderen: 0 heißt
+oben, `reihen.count` unten, alles dazwischen ZWISCHEN zwei Fotoreihen. Gewählt
+aus der Seitennummer und nicht gewürfelt.
+
+* **Bricht eine Reihe ab, bricht alles ab** (`abgebrochen`). Die Kacheln liegen
+  in einer Folge, und `seiteFuellen` nimmt hinterher die ersten
+  `gesetzteKacheln` aus dem Vorrat. Würde Reihe 2 übersprungen und Reihe 3
+  gesetzt, wären zwei Bilder vertauscht — still und unauffindbar.
+* **`restplatzVerteilen` läuft nur im letzten Abschnitt.** Im oberen liefe die
+  gewonnene Luft in den Textblock hinein, und die Funktion kennt ihn nicht.
+
+### Die Punkte auf der Buchkarte waren eine Perlenkette
+
+> „Diese Punkte haben eine bestimmte Farbe und einen Kreis um sich herum. Das
+> sieht etwas merkwürdig aus. Ich habe noch keine richtige Lösung dafür."
+
+Am Quelltext abzulesen: Je Punkt wurde ein VOLLER weißer Kreis gezeichnet und
+darauf ein farbiger Kern von 58 Prozent des Radius — der Rest war ein weißer
+Ring von fast einem Viertel des Durchmessers. Bei dreißig Fotopunkten an einem
+Tag übernimmt der die Karte. Gedacht war er als Kontrast (dieselbe Rechnung wie
+unter der Linie); als Zeichnung war er zu laut.
+
+**Weil der Nutzer ausdrücklich sagt, er habe noch keine Lösung, ist keiner
+seiner drei Auswege weggelassen** (`Spurpunktstil`): `ohne` (nur die Linie),
+`dezent` (volle Punkte in der Linienfarbe mit haardünner Kontur — die Vorgabe),
+`enden` (nur Anfang und Ziel) und `ring` (der alte, dünner). **Eine Kontur ist
+kein Ring:** Sie liegt AUF der Kante und nimmt dem Punkt nichts weg.
+
+`punktstil` steht im `merkmal` des Zwischenspeichers — eine vergessene Stelle
+im Schlüssel zeigt nach dem Umstellen das Bild von vorhin, und das sieht aus,
+als tue der Schalter nichts.
+
+### Einen Punkt findet man auf der Karte, nicht in der Liste
+
+> „Ich möchte die Reisepunkte auf einer Karte, die möglichst bildschirmfüllend
+> ist, auswählen können und verschieben können bzw. löschen können. Innerhalb
+> der Liste ist es schwierig, einen bestimmten Punkt wiederzufinden."
+
+Die Karte gab es seit 1.0.20 — bildschirmfüllend, samt Verschieben und Löschen.
+Nur der WEG hinein führte über die Liste: `punktID` war ein `let` von außen, und
+die Punkte auf der Karte waren `Marker`, also unantastbar.
+
+* **`punktID` ist ein Zustand.** Ein Tipp auf einen Punkt wählt ihn, die Leiste
+  nennt ihn beim Namen und sagt, der wievielte er ist; „Neuer Punkt" führt
+  zurück. Ohne diesen Rückweg käme man, einmal auf einem Punkt gelandet, nie
+  wieder zum Anlegen.
+* **Auf der Karte liegt kein Bedienelement** (`.allowsHitTesting(false)`, Lehre
+  aus Abfahrtstafel 1.1.18). Den Tipp nimmt die Karte entgegen und sucht
+  hinterher den nächsten Punkt — in BILDPUNKTEN und nicht in Grad, denn was
+  „nah" heißt, hängt am Maßstab.
+* **Verschoben wird über das Fadenkreuz**, nicht durch Ziehen des Punktes. Eine
+  Ziehgeste auf einer Karte streitet mit dem Schieben der Karte — und genau
+  diese Art Geste hat dieses Projekt von 1.0.5 bis 1.0.8 gekostet.
+* **Löschen schließt das Blatt nicht mehr.** Wer Punkte durchsieht, löscht oft
+  mehrere.
+
+### Die Broschüre lag drei Ebenen tief
+
+> „Noch nicht gefunden habe ich die gewünschte Option, das Reisetagebuch auf
+> dem heimischen Drucker doppelseitig als Broschüre drucken zu können."
+
+Es gibt sie seit 1.0.27, und sie ist vollständig gebaut. Gefunden hat sie
+niemand, und daran waren drei Dinge auf einmal schuld: das falsche Menü („…" →
+„Als PDF sichern…" klingt nach einer Datei, nicht nach einem Drucker), ein
+zugeklappter Picker darüber, und dessen Name „Umfang" — ein Wort, das nach
+Seitenzahl klingt.
+
+Jetzt ein eigener Menüpunkt **„Broschüre drucken…"**, sprechende Namen im
+Picker und je ein Satz darunter. **Kein zweiter Bildschirm:** derselbe, nur mit
+Vorwahl.
+
+**Und sie stand mit dem richtigen Weg in der Bedienungskarte.** Seit 1.0.27,
+wörtlich. Gefunden wurde sie trotzdem nicht. **Eine Bedienungskarte ist ein
+Nachschlagewerk für jemanden, der etwas Bestimmtes sucht — sie ersetzt keinen
+auffindbaren Menüpunkt.**
+
+**Gedruckt wird aus der App heraus** (`Druckauftrag`). Die Datei erst zu
+sichern, dann in „Dateien" zu suchen und von dort zu drucken, ist der Umweg um
+genau den Knopf herum, um den gebeten wurde. `UIPrintInteractionController`
+zeigt sich SELBST — eingebettet in ein SwiftUI-`.sheet` bliebe das Blatt
+schwarz. `duplex` ist ein WUNSCH, keine Einstellung: Was der Drucker tut und
+über welche Kante er wendet, entscheidet der Mensch im Dialog, und die App kann
+es weder setzen noch auslesen.
+
+### Was 1.0.37 NICHT beweist
+
+Keine Seite ist damit gesehen worden. Gerechnet sind die Geometrie und die
+Ursachen; **gewählt und nicht gemessen** sind die Vorgabe 0,66 für die
+Textspalte (sie ist die Zahl aus der Ansage) und die Maße der Punkte (Radius
+`breite/130`, Kontur `breite/900`). Ob eine Doppelseite mit wandernder
+Textspalte ruhig wirkt oder unruhig, ob ein dezenter Punkt auf einer bunten
+Karte noch zu sehen ist und ob der Systemdruckdialog die Broschüre richtig aufs
+Papier bringt, sagt erst der nächste Befund.
+
 ## Eine Reihe ist ein Stapel, kein Raster (1.0.36)
 
 Befund des Nutzers 09/2026 zu 1.0.35: „Allerdings ist die Anordnung der Fotos

@@ -179,7 +179,14 @@ struct PunktwahlView: View {
             guard let auf = leser.convert(eintrag.koordinate.clLocation, to: .local) else {
                 continue
             }
-            let abstand = hypot(auf.x - stelle.x, auf.y - stelle.y)
+            // `Double(…)` ist hier Pflicht und keine Zierde: `hypot` über
+            // zwei `CGFloat` gibt `CGFloat` zurück, und bei einer
+            // TUPEL-Zuweisung rechnet Swift die beiden NICHT ineinander um —
+            // obwohl sie auf diesen Geräten dasselbe sind. Bei gewöhnlichen
+            // Zuweisungen und Argumenten tut er es; der Fehler zeigt sich
+            // also nur an dieser einen Stelle. Dieselbe Falle wie beim
+            // Layoutautomaten im ersten Bau, und das zweite Mal.
+            let abstand = Double(hypot(auf.x - stelle.x, auf.y - stelle.y))
             guard abstand <= Self.griffweite else { continue }
             if naechster == nil || abstand < naechster!.abstand {
                 naechster = (eintrag, abstand)
