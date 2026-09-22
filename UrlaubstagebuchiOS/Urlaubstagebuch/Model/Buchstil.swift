@@ -36,9 +36,50 @@ struct Buchstil: Identifiable, Hashable {
     var musterVorliebe: [Seitenmuster]
     var seitenzahlen: Bool
 
-    static let alle: [Buchstil] = [magazin, album, journal, klar, postkarte]
+    static let alle: [Buchstil] = [tagebuch, magazin, album, journal, klar, postkarte]
 
-    // MARK: - Die fünf
+    // MARK: - Die sechs
+
+    // Das Tagebuch steht als STIL in der Liste, nicht als Seitenmuster
+    // hinter einem Tagesmenü (ab 1.0.32).
+    //
+    // Es gab „Text und Bilder im Wechsel" seit 1.0.29 — als `Seitenmuster`,
+    // also dort, wo man einen einzelnen Tag anders setzen lässt. Der Nutzer
+    // hat es dreimal nicht gefunden und beim dritten Mal gesagt, wo er es
+    // sucht: bei Fotobuch und Magazin. Er hat recht, und es ist nicht bloß
+    // eine Frage des Ortes — ein durchgehend erzählendes Buch ist eine
+    // Handschrift und kein Sonderfall eines Tages. Dieselbe Lehre wie beim
+    // Gruppenchat in Schulalarm und beim Sichtumschalter der Abfahrtstafel:
+    // Was niemand findet, gibt es für den Menschen davor nicht.
+    static let tagebuch = Buchstil(
+        id: "tagebuch",
+        name: "Tagebuch",
+        beschreibung: "Text und Bilder wechseln sich über alle Seiten ab, jede Seite anders aufgeteilt. Jeder Tag beginnt mit einem breiten Aufmacherbild.",
+        typografie: {
+            var t = Typografie()
+            t.titel = Schriftbild(familie: .iowan, groesse: 27, zeilenabstand: 1.1,
+                                  absatzabstand: 0, ausrichtung: .links, fett: true)
+            t.datum = Schriftbild(familie: .avenir, groesse: 8.5, zeilenabstand: 1.2,
+                                  absatzabstand: 0, ausrichtung: .links,
+                                  farbe: Farbwert(rot: 0.58, gruen: 0.33, blau: 0.20),
+                                  versalien: true, sperrung: 2.0)
+            t.flieText = Schriftbild(familie: .iowan, groesse: 10.4, zeilenabstand: 1.5,
+                                     absatzabstand: 7, ausrichtung: .links, trennung: true)
+            t.bildunterschrift = Schriftbild(familie: .avenir, groesse: 7.2,
+                                             zeilenabstand: 1.25, absatzabstand: 0,
+                                             ausrichtung: .links, farbe: .leise,
+                                             kursiv: true)
+            return t
+        }(),
+        papier: Farbwert(rot: 0.996, gruen: 0.988, blau: 0.973),
+        akzent: Farbwert(rot: 0.58, gruen: 0.33, blau: 0.20),
+        randAussen: 16, randOben: 17, randUnten: 19, fuge: 5,
+        eckenradius: 0, fotorand: 0, schatten: .keiner,
+        randabfallendErlaubt: true,
+        lebendig: true,
+        musterVorliebe: [.wechsel, .bildZuerst, .karteSeitlich, .album, .bilderbogen],
+        seitenzahlen: true
+    )
 
     static let magazin = Buchstil(
         id: "magazin",

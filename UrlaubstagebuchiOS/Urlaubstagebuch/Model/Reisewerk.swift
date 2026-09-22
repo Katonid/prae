@@ -170,7 +170,7 @@ final class Reisewerk: ObservableObject, Identifiable {
 
     // Gehört diese Seite zu diesem Tag? `Self.titelseitenKennung` steht
     // für die Titelseite, die zu keinem Tag gehört.
-    func gehoert(_ seite: Buchseite, zu tag: UUID) -> Bool {
+    func gehört(_ seite: Buchseite, zu tag: UUID) -> Bool {
         if tag == Self.titelseitenKennung { return seite.tag == nil }
         return seite.tag?.id == tag
     }
@@ -325,17 +325,38 @@ final class Reisewerk: ObservableObject, Identifiable {
     // anderen als die Tagesseiten.
     var automat: Layoutautomat { reise.automat }
 
-    func stilAnwenden(_ stil: Buchstil) {
+    // WER ENTSCHEIDET, OB HANDARBEIT STEHEN BLEIBT, IST DER NUTZER (ab 1.0.32).
+    //
+    // Bis 1.0.31 wurden von Hand bearbeitete Tage beim Stilwechsel IMMER
+    // verschont. Die Vorsicht ist richtig — eine Automatik, die eine Stunde
+    // Handarbeit ohne Rückfrage überschreibt, benutzt man genau einmal.
+    // Falsch war, daraus eine Regel zu machen: Wer den Stil wechselt, will
+    // das ganze Buch anders haben, und dann stehen ein paar Seiten im alten
+    // Satz mitten darin (Ansage des Nutzers, 09/2026: „Ich möchte das frei
+    // entscheiden können."). Gefragt wird weiterhin, nur ist die Antwort
+    // jetzt eine echte Wahl und keine Ansage.
+    func stilAnwenden(_ stil: Buchstil, auchHandarbeit: Bool = false) {
         merken()
         reise.stilAnwenden(stil)
         // Ein Stil ändert Ränder, Fugen und Schriftgrößen — also alles, was
         // die Seiten bestimmt. Sie nicht neu zu setzen hieße, den Stil zu
         // wählen und ihn nicht zu sehen.
-        alleNeuAnordnen(nurUnberuehrte: true)
+        alleNeuAnordnen(nurUnberuehrte: !auchHandarbeit)
     }
 
     // Gibt zurück, ob an diesem Tag von Hand gearbeitet wurde. Die Ansicht
     // fragt damit nach, BEVOR sie eine Stunde Arbeit überschreibt.
+    // Wie viele Tage von Hand bearbeitet sind. Die Stilauswahl nennt die
+    // Zahl in ihrer Rückfrage: „an einigen Tagen" laesst einen raten, ob
+    // es um einen geht oder um zwanzig.
+    //
+    // Gerechnet wird über alle Tage und alle Seiten — das gehört nicht in
+    // den Körper einer Ansicht, sondern an den Tipp, der die Frage
+    // auslöst (dieselbe Falle wie bei der Druckprüfung in 1.0.0).
+    func handarbeitstage() -> Int {
+        reise.tage.filter { tag in tag.seiten.contains(where: \.vonHand) }.count
+    }
+
     func hatHandarbeit(_ id: UUID) -> Bool {
         guard let stelle = tagIndex(id) else { return false }
         return reise.tage[stelle].seiten.contains { $0.vonHand }

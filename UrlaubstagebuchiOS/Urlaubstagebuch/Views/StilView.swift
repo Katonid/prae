@@ -11,6 +11,11 @@ struct StilView: View {
     @ObservedObject var werk: Reisewerk
     @Environment(\.dismiss) private var schliessen
     @State private var frage: Buchstil?
+    @State private var handarbeit = 0
+
+    private var tagwort: String {
+        handarbeit == 1 ? "einem Tag" : "\(handarbeit) Tagen"
+    }
 
     var body: some View {
         NavigationStack {
@@ -18,9 +23,8 @@ struct StilView: View {
                 Section {
                     ForEach(Buchstil.alle) { stil in
                         Button {
-                            if werk.reise.tage.contains(where: { tag in
-                                tag.seiten.contains(where: \.vonHand)
-                            }) {
+                            handarbeit = werk.handarbeitstage()
+                            if handarbeit > 0 {
                                 frage = stil
                             } else {
                                 werk.stilAnwenden(stil)
@@ -33,7 +37,7 @@ struct StilView: View {
                         .buttonStyle(.plain)
                     }
                 } footer: {
-                    Text("Der Stil ist ein Anfang und keine Schranke: Schrift, Ränder und jedes einzelne Bild lassen sich danach weiter ändern. Von Hand bearbeitete Seiten bleiben, wie sie sind.")
+                    Text("Der Stil ist ein Anfang und keine Schranke: Schrift, Ränder und jedes einzelne Bild lassen sich danach weiter ändern. Gibt es von Hand bearbeitete Seiten, fragt die App, ob auch sie neu gesetzt werden sollen.")
                 }
             }
             .navigationTitle("Stil")
@@ -46,14 +50,19 @@ struct StilView: View {
             .alert("Stil wechseln?", isPresented: .init(
                 get: { frage != nil }, set: { if !$0 { frage = nil } }
             )) {
-                Button("Wechseln") {
+                Button("Bearbeitete Seiten behalten") {
                     if let stil = frage { werk.stilAnwenden(stil) }
+                    frage = nil
+                    schliessen()
+                }
+                Button("Alles neu setzen", role: .destructive) {
+                    if let stil = frage { werk.stilAnwenden(stil, auchHandarbeit: true) }
                     frage = nil
                     schliessen()
                 }
                 Button("Abbrechen", role: .cancel) { frage = nil }
             } message: {
-                Text("An einigen Tagen wurde von Hand gearbeitet. Deren Seiten behalten ihre Anordnung und bekommen nur die neue Schrift — der Rest wird neu gesetzt.")
+                Text("An \(tagwort) wurde von Hand gearbeitet. \u{201E}Behalten\u{201C} lässt deren Anordnung stehen und gibt ihnen nur die neue Schrift. \u{201E}Alles neu setzen\u{201C} ordnet auch sie neu an — die Handarbeit an diesen Tagen ist dann weg. Mit \u{201E}Widerrufen\u{201C} lässt sich beides zurücknehmen.")
             }
         }
     }

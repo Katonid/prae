@@ -29,7 +29,7 @@ enum Seitenmuster: String, Codable, CaseIterable, Identifiable {
         case .bildZuerst: return "Großes Aufmacherfoto"
         case .textZuerst: return "Text zuerst"
         case .bilderbogen: return "Bilderbogen"
-        case .wechsel: return "Tagebuch: Text und Bilder im Wechsel"
+        case .wechsel: return "Text und Bilder im Wechsel"
         }
     }
 
@@ -361,6 +361,36 @@ struct Layoutautomat {
                                                 breite: satz.width, text: restText)
 
         case .wechsel:
+            // EIN TAG FÄNGT MIT EINEM BILD AN (ab 1.0.32).
+            //
+            // Befund des Nutzers zu 1.0.31: „Ich finde sie nach wie vor sehr
+            // nüchtern." Die Seiten waren richtig gesetzt und sahen aus wie
+            // ein Bericht: Kopfzeile, Textspalte, darunter eine Reihe
+            // gleich hoher Bilder. Was fehlte, war der Anfang — ein Tag
+            // beginnt in jedem Reisebuch mit einem Bild, nicht mit einer
+            // Überschrift über einer Textspalte.
+            //
+            // Das Band läuft über die GANZE Satzbreite, auch wenn die
+            // Textspalte darunter schmaler ist: Genau dieser Unterschied
+            // macht es zum Aufmacher. Es kostet ein Foto aus dem Vorrat,
+            // deshalb erst ab dreien — bei zweien wäre die Reihe darunter
+            // leer, und der Tag sähe ärmer aus statt reicher.
+            if restText.count > 600, offeneFotos.count >= 3,
+               let aufmacher = offeneFotos.first
+            {
+                offeneFotos.removeFirst()
+                let hoehe = min(satz.height * 0.34,
+                                satz.width / max(aufmacher.seitenverhaeltnis, 0.5))
+                bloecke.append(fotoblock(aufmacher, x: satz.minX, y: y,
+                                         breite: satz.width, hoehe: hoehe))
+                if let zeile = unterschriftBlock(aufmacher, x: satz.minX, y: y + hoehe,
+                                                 breite: satz.width)
+                {
+                    bloecke.append(zeile)
+                }
+                y += hoehe + unterschriftHoehe(aufmacher, breite: satz.width) + fuge + 4
+            }
+
             // TEXT UND BILDER VON DER ERSTEN SEITE AN (ab 1.0.29).
             //
             // `reihenSetzen` wechselt seit 1.0.14 auf den FOLGESEITEN
@@ -642,8 +672,19 @@ struct Layoutautomat {
             ))
         }
 
-        let ziel = zielhoehe(fuer: kacheln.count)
+        let grundziel = zielhoehe(fuer: kacheln.count)
+        var ziel = grundziel
         var offen = kacheln
+        // Zu Beginn JEDER Seite neu gefragt: Passt alles, was noch offen
+        // ist, auf diese eine Seite, dann dürfen die Reihen so weit
+        // wachsen, dass sie die Seite füllen (siehe `ausfuellendesZiel`).
+        func zielNachlegen() {
+            ziel = ausfuellendesZiel(offen, breite: reihenBreite, grund: grundziel,
+                                     platz: satz.maxY - y,
+                                     hub: bild.gestaffelt ? fuge * 0.9 : 0,
+                                     textOffen: !text.isEmpty)
+        }
+        zielNachlegen()
         var reihenaufSeite: [[UUID]] = []
         // Die Notbremse ist kein Schmuck: Kommt aus der Textteilung einmal
         // nichts zurück (ein einzelnes Wort, das breiter ist als die Seite),
@@ -774,6 +815,7 @@ struct Layoutautomat {
                     reihenaufSeite = []
                     y = satz.minY
                     naechstesBild()
+                    zielNachlegen()
                     continue
                 }
             }
@@ -792,6 +834,7 @@ struct Layoutautomat {
                 reihenaufSeite = []
                 y = satz.minY
                 naechstesBild()
+                zielNachlegen()
                 continue
             }
             var x = reihenX
@@ -960,6 +1003,66 @@ struct Layoutautomat {
         default: teiler = 3.7
         }
         return min(satz.width / teiler, satz.height * 0.52)
+    }
+
+    // Wie hoch alles Offene zusammen wird, wenn es in Reihen dieser
+    // Zielhöhe gesetzt wird: die Reihenhöhen samt Staffelhub, dazu die
+    // Fugen dazwischen. Gerechnet wird mit derselben Funktion, die auch
+    // setzt (`naechsteReihe`) — eine zweite Schätzung daneben liefe
+    // auseinander, und dann hielte die Seite nicht, was die Probe sagt.
+    private func stapelhoehe(_ kacheln: [Kachel], breite: Double, ziel: Double,
+                             hub: Double) -> Double
+    {
+        var offen = kacheln
+        var summe: Double = 0
+        var reihen = 0
+        while !offen.isEmpty, reihen < 60 {
+            let (reihe, hoehe, _) = naechsteReihe(offen, breite: breite, ziel: ziel)
+            guard !reihe.isEmpty else { break }
+            summe += hoehe + hub * 2
+            reihen += 1
+            offen.removeFirst(reihe.count)
+        }
+        return summe + fuge * Double(max(reihen - 1, 0))
+    }
+
+    // DIE LETZTE SEITE EINES TAGES WAR DIE VERSCHENKTE (ab 1.0.32).
+    //
+    // `zielhoehe` rechnet allein aus der ZAHL der Kacheln und sieht die
+    // Seite nie an. Solange viele Bilder warten, ist das richtig — die
+    // nächste Reihe füllt ohnehin nach. Auf der letzten Seite eines Tages
+    // warten aber oft nur noch zwei oder drei: Eine Reihe steht oben, und
+    // darunter bleibt die halbe Seite weiß. `restplatzVerteilen` hilft
+    // dort nicht — es verteilt die Lücken ZWISCHEN den Reihen, und bei
+    // einer einzigen Reihe gibt es keine.
+    //
+    // Vergrößert wird deshalb nur, wenn ALLES Offene auf diese eine Seite
+    // passt und kein Text mehr wartet. Solange noch Text kommt, gehört der
+    // Platz ihm; und passt nicht alles, füllt die nächste Reihe die Seite
+    // ohnehin.
+    //
+    // Gesucht wird in Schritten und nicht gerechnet: Eine größere Zielhöhe
+    // nimmt Kacheln aus den Reihen heraus und kann damit eine Reihe MEHR
+    // ergeben — der Zusammenhang ist nicht monoton, eine geschlossene
+    // Formel gäbe es dafür nicht. Gehalten wird der letzte Wert, der
+    // nachweislich passte.
+    private func ausfuellendesZiel(_ offen: [Kachel], breite: Double, grund: Double,
+                                   platz: Double, hub: Double,
+                                   textOffen: Bool) -> Double
+    {
+        guard !textOffen, !offen.isEmpty, platz > grund else { return grund }
+        guard stapelhoehe(offen, breite: breite, ziel: grund, hub: hub) <= platz
+        else { return grund }
+        let deckel = min(grund * 2.2, satz.height * 0.52)
+        var beste = grund
+        var versuch = grund
+        while versuch < deckel {
+            versuch = min(versuch * 1.05, deckel)
+            guard stapelhoehe(offen, breite: breite, ziel: versuch, hub: hub) <= platz
+            else { break }
+            beste = versuch
+        }
+        return beste
     }
 
     // Eine Reihe wird gefüllt, bis sie bei der Zielhöhe angekommen ist, und
