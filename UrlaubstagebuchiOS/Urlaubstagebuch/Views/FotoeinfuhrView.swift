@@ -146,17 +146,22 @@ struct FotoeinfuhrView: View {
         }
     }
 
+    // Auch dieser Weg holt Foto für Foto (ab 1.0.30). Bis dahin sammelte er
+    // erst alle Rohbilder in einer Liste und reichte sie dann weiter — das
+    // war tragbar, solange man Fotos einzeln antippt, und ist es nicht
+    // mehr, seit der Wunsch ausdrücklich „alle“ lautet: Fünfhundert
+    // ausgewählte Bilder wären ein Gigabyte im Arbeitsspeicher, bevor das
+    // erste auf der Platte liegt.
     private func verarbeiten(_ treffer: [PHPickerResult]) async {
         guard !treffer.isEmpty else { return }
         laeuft = true
-        var bilder: [Rohbild] = []
-        for eintrag in treffer {
-            guard let daten = await ladeDaten(eintrag) else { continue }
-            bilder.append(Rohbild(daten: daten, kennung: eintrag.assetIdentifier,
-                                  endung: endung(eintrag),
-                                  name: eintrag.itemProvider.suggestedName))
+        let bericht = await werk.fotosAufnehmen(anzahl: treffer.count, ohneDatum: ziel) { stelle in
+            let eintrag = treffer[stelle]
+            guard let daten = await ladeDaten(eintrag) else { return nil }
+            return Rohbild(daten: daten, kennung: eintrag.assetIdentifier,
+                           endung: endung(eintrag),
+                           name: eintrag.itemProvider.suggestedName)
         }
-        let bericht = await werk.fotosAufnehmen(bilder, ohneDatum: ziel)
         laeuft = false
         werk.meldung = .init(text: bericht.text)
         schliessen()
