@@ -4557,6 +4557,47 @@ Befunde, und keiner davon war Geschmack:
   gesehen; gerechnet ist nur, warum er in 1.0.23 nicht stand. Ob sich die
   Arbeitsfläche schieben lässt, ist weiterhin ungeklärt — neu ist allein,
   dass es sich ablesen lässt. **Nicht als erledigt darstellen.**
+- **Die Rechnung stimmte — und wurde HINTERHER überschrieben** (ab 1.0.25,
+  zum wiederholten Mal gemeldet 09/2026: „Sobald ich aber loslasse, ist wieder
+  die linke obere Ecke im Fokus."). **Die Probe aus 1.0.24 hat entschieden, und
+  sie entlastet die Geometrie vollständig:** `Soll −588/−1411 ·
+  Ist −588/−1411 · Abweichung 0/−0`. `scrollTo` löst einen Anker außerhalb der
+  Mitte also ein, auf den Punkt — die Frage, die seit 1.0.18 offen stand, ist
+  damit beantwortet. **Nachgerechnet am Bildschirmfoto desselben Augenblicks**
+  (Ballonfoto bei 69 % der Blattbreite, auf dem Schirm bei 937 pt, Blattbreite
+  1606 pt am Bild nachgemessen) stand der Inhalt dort aber bei rund
+  −201/−1139. **Der Versatz wird nach der Messung wieder zurechtgerückt**, in
+  Richtung Ursprung. Damit heißt die Frage nicht mehr „wie rechnet man den
+  Anker", sondern „wer verstellt ihn hinterher".
+- **Wo etwas den Versatz später verstellt, hilft eine REGELUNG und keine
+  bessere Formel** (`ReiseView.nachfuehren`, ab 1.0.25): rollen, nachsehen,
+  und wenn es nicht steht, noch einmal rollen — nach 0,05 / 0,12 / 0,25 / 0,4 /
+  0,7 Sekunden. Abbruch, sobald der Versatz auf einen Bildpunkt sitzt, und
+  sofort beim Aufsetzen der nächsten Geste: **Wer die Finger auf dem Glas hat,
+  führt** — eine laufende Nachführung zöge ihm die Seite weg. Die Zahl der
+  Korrekturen steht in der Probe; geschrieben wird sie EINMAL am Ende und nicht
+  bei jedem Takt, denn jede Zuweisung an `werk.letzteBuehne` zeichnet die Bühne
+  neu (die Lehre aus 1.0.16) — mitten in einer Regelung wäre das genau die
+  Unruhe, gegen die sie gebaut ist.
+- **Ein `LazyVStack` weiß nur, wie hoch die Elemente sind, die er GEBAUT hat**
+  (`ReiseView.faulAb = 12`, ab 1.0.25). 1.0.16 hat ihn eingebaut, und der Grund
+  gilt weiter: Ist kein Tag gewählt, stehen dort alle Seiten des Buches. Sein
+  Preis trifft aber genau diese Stelle — während nach einem Zoom Seiten gesetzt
+  und Fotos geladen werden, ändert sich die Gesamthöhe, und ein `ScrollView`
+  rückt seinen Versatz dann nach. Ein gewählter Tag hat zwei bis sechs Seiten;
+  dort ist die Faulheit kein Gewinn und kostet die Verlässlichkeit. Gezählt
+  werden ELEMENTE, nicht Seiten — eine Doppelseite trägt zwei.
+- **Zwei Griffe auf einmal sind hier erlaubt, WEIL die Probe sie trennt.** Die
+  Regel „eine Sache auf einmal" gilt, damit der nächste Befund zuzuordnen ist;
+  hier tut das die Zeile selbst: „ohne Nachführung" heißt, die Rolle war von
+  selbst still und es lag am Stapel, „n× nachgeführt" heißt, die Regelung hat
+  es geradegezogen. **Wer zwei Dinge zugleich ändert, baut vorher die Messung
+  ein, die sie auseinanderhält** — sonst gilt die Regel unverändert.
+- **Nicht gemessen (1.0.25):** Ob es auf dem Gerät jetzt steht, hat niemand
+  gesehen. Und **welcher Mechanismus den Versatz verstellt, ist nicht
+  bewiesen** — die Höhenschätzung des `LazyVStack` ist die Erklärung, die zu
+  den Zahlen passt, und mehr nicht. Die Nachführung wirkt unabhängig davon,
+  aber sie ist ein Netz und kein Beweis. **Nicht als erledigt darstellen.**
 - **Die Bildunterschrift war halb gebaut** (ab 1.0.5, Wunsch des Nutzers
   09/2026: „zu jedem Foto einen Beschreibungstext … Dies soll jedoch eine
   Option für jedes Foto sein. Kein muss."). Der Layoutautomat hielt Platz
