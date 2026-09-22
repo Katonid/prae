@@ -717,6 +717,107 @@ Bücher gefahrlos: Der erzeugte `Codable`-Leser verlangt einen Schlüssel nur
 für nicht-optionale Eigenschaften. Ein vorhandener Wert wird gelesen, ein
 fehlender wird `nil` — also „wie im Buch".
 
+## Schriften, Seitenwechsel, und die fehlende Vorlage (1.0.29)
+
+Drei Ansagen des Nutzers, 09/2026:
+
+> Ich möchte noch weitere Schriftarten verwenden. Standardmäßig möchte ich
+> eine serifenlose Schrift verwenden, bei der das kleine A so aussieht wie bei
+> der Systemschrift Futura. Futura selbst ist mir etwas zu dick gedruckt.
+> Bitte finde dort Alternativen.
+
+> Ich möchte ein Bild problemlos von einer Seite auf eine andere schieben
+> können beziehungsweise auch andere Elemente wie zum Beispiel Textfelder.
+
+> Bei den Vorlagen vermisse ich etwas … Ich möchte ein Reisetagebuch mit sehr
+> viel Text mit ebenfalls sehr vielen Bildern verknüpfen. Hier möchte ich, dass
+> der Text automatisch auf den einzelnen Seiten … verteilt wird und die Bilder
+> entsprechend auch.
+
+### Die Schriftwahl misst, statt aufzuschreiben
+
+`Schriftfamilie` war eine Aufzählung mit sechzehn Namen — eine Liste, die
+jemand einmal aufgeschrieben hat. Welche Schriften ein iPad wirklich
+mitbringt, entscheidet aber das Gerät. Jetzt steht dort der **Familienname**,
+und die Wahl zeigt, was da ist (derselbe Umbau wie beim `Seitenformat` in
+1.0.27, samt demselben nachsichtigen Leser für alte Dateien).
+
+Dazu kommt der **Schnitt** — und der ist der eigentliche Grund. Bis 1.0.28
+baute `uiFont` den Deskriptor allein aus dem Familiennamen; damit kam immer
+der Regelschnitt und nie ein leichterer. „Futura ist mir etwas zu dick
+gedruckt" ist genau diese Lücke. Sie ist geschlossen, soweit das geht:
+**Futura liefert iOS nur ab Medium aufwärts** — einen Buch- oder Light-Schnitt
+gibt es dort nicht, und wo keiner ist, steht auch keiner in der Liste.
+
+**Ob ein kleines a rund ist, misst die App an der Glyphe.** Der Unterschied
+zwischen einstöckig (Futura: ein Kreis mit Stamm) und zweistöckig (Helvetica:
+eine Schale unten mit einem Bogen darüber) steckt in der Gegenform, also im
+Loch: Beim einstöckigen füllt sie fast die ganze Buchstabenhöhe, beim
+zweistöckigen gut ein Drittel.
+
+Nachgemessen an elf Schriftdateien (22.09.2026, dieselbe Rechnung in Python
+nachgezogen):
+
+| | Höhe der Gegenform |
+| --- | --- |
+| Liberation Sans / Serif / Mono, DejaVu Sans / Serif, FreeSans, Loma | 0,362 – 0,397 |
+| FreeSerif, DejaVu Serif | 0,429 – 0,468 |
+| **Poppins, Questrial, Josefin Sans** | **0,719 – 0,913** |
+
+Zwischen 0,468 und 0,719 liegt eine breite Lücke; die Schwelle steht mittig
+darin (0,55).
+
+**Welche Kontur die äußere ist, entscheidet das Umfassen und nicht die
+Fläche.** Das ist an einer echten Schrift gelernt: Jost zeichnet sein a aus
+zwei einander überlappenden Formen statt aus Umriss und Loch. Nach der Fläche
+gerechnet gewann dort die falsche Kontur, und heraus kam „zweistöckig" für
+eine Schrift, die einstöckig ist. Wo keine Kontur alle anderen umfasst, gibt
+die Messung deshalb **keine Antwort** und sagt das auch — eine Messung, die im
+Zweifel etwas behauptet, ist schlechter als eine, die schweigt.
+
+Wichtiger als jede Messung ist aber, dass **jede Zeile der Schriftwahl in ihrer
+eigenen Schrift gesetzt ist**, mit einem Wort, das drei kleine a trägt. Wer die
+Form sucht, sieht sie. Die Messung ordnet nur die Liste und nennt ihre Zahlen
+unter der Probe.
+
+Mitgeliefert wird weiterhin keine Schriftdatei: Ein Buch wird weitergegeben,
+und dafür bräuchte jede Schrift eine Lizenz.
+
+### Auf eine andere Seite — ein Befehl, keine Geste
+
+Im Inspektor steht unter **„Auf welcher Seite"**: zurück, vor, oder eine
+bestimmte; auf der letzten Seite legt „Neue Seite" eine an.
+
+Bewusst kein Ziehen über die Blattgrenze. Eine Ziehgeste, die ein Blatt
+verlässt, müsste *mitten im Ziehen* entscheiden, zu welcher Seite der Finger
+gerade gehört — in einer Bühne, die sich dabei rollt und zoomt. Das ist die Art
+Ziehgeste, die dieses Projekt von 1.0.5 bis 1.0.8 gekostet hat und deren Zoom
+bis 1.0.28 nicht stand. Ein Knopf, der immer tut, was draufsteht, ist hier mehr
+wert als eine Geste, die meistens tut, was gemeint war.
+
+Die **Lage auf dem Blatt bleibt** dabei, wie sie ist; danach trägt der Block
+`vonHand`. Verschoben wird innerhalb **eines Tages** — über Tagesgrenzen hinweg
+ist es keine Frage der Seite mehr, sondern der Zuordnung, und die wird in der
+Fotoliste des Tages beantwortet.
+
+### „Text und Bilder im Wechsel"
+
+`reihenSetzen` wechselt seit 1.0.14 auf den **Folgeseiten** zwischen Text und
+Fotoreihen. Die **erste** Seite war davon ausgenommen: Dort füllte der Text bis
+zum Satzspiegelende, und das erste Bild stand eine Seite weiter. Bei einem Tag
+mit viel von beidem ergibt das genau den gemeldeten Eindruck — erst ein Kapitel
+Text, dann eines mit Bildern.
+
+Das neue Muster hält schon auf der ersten Seite die **Zielhöhe der nächsten
+Fotoreihe** frei; dieselbe Zahl, mit der `reihenSetzen` weiterrechnet, und kein
+geschätzter Anteil. Bleiben daneben keine sechs Zeilen Text mehr, wird gar
+nichts freigehalten: Eine Seite mit vier Zeilen über einem Bild ist kein Satz,
+sondern ein Rest.
+
+Vorgeschlagen wird es ab **1200 Zeichen und vier Fotos** — ein Tag mit drei
+Sätzen und zwei Bildern ist nicht gemeint und bekommt weiter, was er vorher
+bekam. Von Hand steht es im Tagesmenü unter „Seitenmuster".
+
 ## Das ganze Buch untereinander, und ein Wort an der Geste (1.0.28)
 
 Zwei Befunde des Nutzers, 09/2026:
@@ -2146,6 +2247,20 @@ im Inspektor gab es, aber keinen Weg zu sehen, was es bewirkt.
 
 ## Offene Punkte
 
+* **Welche Schriften mit rundem a auf dem iPad des Nutzers stehen, weiß hier
+  niemand** (1.0.29). Die Messung läuft auf dem Gerät; erst die Liste dort
+  sagt, ob Futura Gesellschaft bekommt. Gut möglich, dass die Gruppe dünn
+  ausfällt — unter den Schriften, die iOS mitbringt, ist ein einstöckiges a
+  selten. Steht dort nichts Brauchbares, wäre der nächste Schritt eine
+  mitgelieferte Schrift unter der SIL Open Font License (sie erlaubt
+  Einbettung und Weitergabe ausdrücklich, und dieses Repo führt in
+  `woerterwerkstatt/fonts/` bereits solche Dateien). Das wäre eine Abkehr von
+  der Regel „keine Schriftdatei mitliefern" und gehört abgesprochen, nicht
+  nebenbei gemacht.
+* **Ungesehen (1.0.29):** ob sich das Verschieben auf eine andere Seite
+  richtig anfühlt, und wie eine Doppelseite im Muster „Text und Bilder im
+  Wechsel" aussieht. Die beiden Zahlen dahinter (1200 Zeichen, vier Fotos)
+  sind gewählt und nicht gemessen.
 * **Ob die Geste jetzt verlässlich ankommt, ist NICHT gesehen** (1.0.28). Es
   folgt daraus, wie UIKit zwei Erkenner gegeneinander abwägt, und aus dem
   Vergleich mit dem Bildausschnitt in derselben App — gemessen wird es erst
