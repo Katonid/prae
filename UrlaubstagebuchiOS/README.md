@@ -717,6 +717,75 @@ Bücher gefahrlos: Der erzeugte `Codable`-Leser verlangt einen Schlüssel nur
 für nicht-optionale Eigenschaften. Ein vorhandener Wert wird gelesen, ein
 fehlender wird `nil` — also „wie im Buch".
 
+## Die Rechnung stimmte — und wurde hinterher überschrieben (1.0.25)
+
+Gemeldet 09/2026, zum wiederholten Mal: „Ich möchte auf das Bild unten rechts
+zoomen und wenn ich die Finger noch drauf halte, geht der Zoom auch in die
+richtige Richtung. Sobald ich aber loslasse, ist wieder die linke obere Ecke im
+Fokus.“
+
+Diesmal entscheidet die Probe, und sie entlastet die Rechnung vollständig:
+
+```
+Zoom 94 % → 187 % · Blattbreite 803 pt · Bühne 1046×864
+Griff #2 quer 0.85 hoch 0.75 · Brennpunkt 803/673
+Ziel #2 · Anker 1.00/0.63 · roh 1.00/0.63
+Soll -588/-1411 · Ist -588/-1411 · Abweichung 0/-0
+```
+
+**`scrollTo` hat den Anker eingelöst, auf den Punkt** — 0,4 Sekunden nach dem
+Loslassen. Damit ist die Frage, die seit 1.0.18 offen stand, beantwortet: Die
+Geometrie taugt, und ein Anker außerhalb der Mitte wird genommen wie
+beschrieben.
+
+### Und trotzdem steht danach etwas anderes da
+
+Nachgerechnet am Bildschirmfoto desselben Augenblicks: Das Ballonfoto liegt
+dort bei 69 % der Blattbreite und steht auf dem Schirm bei 937 Punkten; mit der
+Blattbreite bei 187 % (1606 pt, ebenfalls am Bild nachgemessen) ergibt das
+einen Inhaltsversatz von rund **−201/−1139** — nicht −588/−1411. Der Versatz
+wird also **nach** der Messung wieder zurechtgerückt, in Richtung Ursprung.
+
+Damit heißt die Frage nicht mehr „wie rechnet man den Anker“, sondern „wer
+verstellt ihn hinterher“. Zwei Griffe, und die Probe trennt sie.
+
+### Erstens: eine Regelung statt einer Rechnung
+
+`nachfuehren` rollt, sieht nach und rollt noch einmal, wenn es nicht steht —
+nach 0,05 / 0,12 / 0,25 / 0,4 / 0,7 Sekunden. Abgebrochen wird, sobald der
+Versatz auf einen Bildpunkt sitzt, und sofort, wenn eine neue Geste anfängt:
+Wer die Finger aufsetzt, führt. Gegen etwas, das den Versatz später verstellt,
+hilft keine bessere Formel; es hilft, noch einmal hinzusehen.
+
+### Zweitens: der `LazyVStack` gilt erst ab zwölf Elementen
+
+1.0.16 hat ihn eingebaut, und der Grund gilt weiter: Ist kein Tag gewählt,
+stehen hier alle Seiten des Buches. **Er hat aber einen Preis, der genau hier
+weh tut** — er kennt nur die Höhe der Elemente, die er schon gebaut hat.
+Während nach einem Zoom Seiten gesetzt und Fotos geladen werden, ändert sich
+die Gesamthöhe, und ein `ScrollView` rückt seinen Versatz dann nach. Ein
+gewählter Tag hat zwei bis sechs Seiten; dort ist die Faulheit kein Gewinn und
+kostet die Verlässlichkeit. Über der Grenze bleibt sie.
+
+### Die Probe sagt, welcher der beiden Griffe gewirkt hat
+
+Die letzte Zeile endet seit 1.0.25 mit „ohne Nachführung“ oder „3×
+nachgeführt“. Steht dort „ohne“ und stimmt das Bild, war die Rolle von selbst
+still — dann lag es am Stapel. Steht dort eine Zahl, hat die Regelung es
+geradegezogen.
+
+Geschrieben wird die Zeile **einmal je Zoom** und nicht bei jedem Takt: Das
+Feld liegt im `Reisewerk`, und jede Zuweisung zeichnet die Bühne neu — mitten
+in einer Regelung wäre das genau die Unruhe, gegen die sie gebaut ist.
+
+### Was weiter offen ist
+
+Ob es auf dem Gerät jetzt steht, hat niemand gesehen. Gemessen ist, dass die
+Rechnung stimmt und dass der Versatz hinterher ein anderer war; **welcher
+Mechanismus ihn verstellt, ist nicht bewiesen** — die Höhenschätzung des
+`LazyVStack` ist die Erklärung, die dazu passt, und mehr nicht. Die Regelung
+wirkt unabhängig davon, aber sie ist ein Netz und kein Beweis.
+
 ## Der Sprung in die linke obere Ecke — selbst gebaut (1.0.24)
 
 Gemeldet 09/2026: „Schon besser, aber immer noch nicht genug. … Ich möchte
@@ -1791,7 +1860,13 @@ im Inspektor gab es, aber keinen Weg zu sehen, was es bewirkt.
   als das Sichtfeld; dass sie es jetzt tut, folgt aus der Geometrie und hat
   niemand gesehen. Der Weg zurück aus einer zu kleinen Seite hängt an keiner
   Geste: der Knopf mit der Prozentzahl unten links → „Einpassen".
-* **Ob der Brennpunkt jetzt steht, ist NICHT gemessen** (1.0.24). Gerechnet
+* **Ob der Brennpunkt jetzt steht, ist NICHT gesehen** (1.0.25). Gemessen ist,
+  dass die Rechnung stimmt (`Abweichung 0/−0`) und dass der Versatz kurz
+  darauf ein anderer war. **Welcher Mechanismus ihn verstellt, ist nicht
+  bewiesen** — die Höhenschätzung des `LazyVStack` passt dazu, mehr nicht. Die
+  Nachführung wirkt unabhängig davon; die Zeile „ohne Nachführung“ bzw.
+  „n× nachgeführt“ sagt beim nächsten Mal, welcher Griff es war.
+* **Ob der Brennpunkt jetzt steht, war auch in 1.0.24 NICHT gemessen.** Gerechnet
   ist, warum er in 1.0.23 nicht stand — ohne Rollen wächst der Inhalt unter
   einem stehenden Versatz, und das ist der Sprung in die linke obere Ecke.
   **Neu ist, dass es sich messen lässt:** Die Zeile `Soll … Ist … Abweichung`
