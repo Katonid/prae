@@ -717,6 +717,101 @@ Bücher gefahrlos: Der erzeugte `Codable`-Leser verlangt einen Schlüssel nur
 für nicht-optionale Eigenschaften. Ein vorhandener Wert wird gelesen, ein
 fehlender wird `nil` — also „wie im Buch".
 
+## Buch aufbauen, und der Zoom bleibt unter dem Finger (1.0.18)
+
+### „Buch aufbauen" — die Reihenfolge war da, sie stand nur nirgends
+
+Befund des Nutzers: „Bislang ist die App auf jeder einzelnen Seite ja eher
+ein noch etwas sperrig zu bedienender Bild- und Texteditor … Was das Programm
+auszeichnen würde, wäre ja, dass automatisch Texte, Bilder und Koordinaten
+bestimmten Tagen zugeordnet werden und diese Seiten automatisch erstellt
+werden."
+
+Das tut die App seit 1.0.0. Der Text legt die Tage an, die Reisespur hängt an
+jeden Tag eine Karte, die Fotos verteilen sich über ihr Aufnahmedatum, und der
+Layoutautomat setzt daraus die Seiten. Nur stand davon nirgends etwas: Die drei
+Wege lagen als drei gleichrangige Punkte in einem Menü, und in welcher
+Reihenfolge sie zusammengehören, wusste nur, wer die App gebaut hat.
+
+Das ist die **fünfte Auflage desselben Befundes** — „es war da, man fand es
+nicht". Die vier davor: die Bildunterschrift (1.0.5/1.0.6), das Zurücksetzen,
+der Zweifinger-Zoom und die Foto-Einstellung (1.0.10).
+
+**Einlesen → Buch aufbauen** zeigt jetzt die drei Schritte in ihrer
+Reihenfolge, je mit dem Stand („12 Tage angelegt, 11 davon mit Text"), einer
+Zeile, was der Schritt tut, und dem Knopf dorthin. Darunter steht Tag für Tag,
+was zugeordnet wurde: Zeichen, Fotos, Orte (davon aus der Tagesspur), Seiten —
+und was fehlt. Dazu die Fotos in der Ablage, ohne Datum und ohne Ort. Der
+ganze Bericht lässt sich kopieren.
+
+Drei Entscheidungen dahinter:
+
+- **Kein neuer Einleseweg.** Die Arbeit machen unverändert `TextimportView`,
+  `SpurimportView` und `FotoeinfuhrView`. Dieser Bildschirm ist die
+  Reihenfolge, der Stand und der Bericht — ein zweiter Weg zu derselben Sache
+  liefe irgendwann auseinander.
+- **Die Blätter werden nicht gestapelt.** Jede Einleseansicht bringt einen
+  eigenen `NavigationStack` mit, und ein Blatt über einem Blatt ist auf dem
+  iPad ein Kärtchen auf einem Kärtchen. Der Aufbau macht deshalb zu, die
+  Wurzel öffnet das nächste Blatt, und wenn das zugeht, kommt der Aufbau
+  zurück — dort steht dann, was daraus geworden ist.
+- **Ein Tag ohne Foto ist kein Fehler.** Was fehlt, steht orange da und nicht
+  rot; es steht aber da, sonst bemerkt es niemand.
+
+Die drei Einzelwege bleiben daneben stehen: Wer weiß, was er will, soll nicht
+durch einen Ablauf laufen müssen.
+
+### Der Zoom geschieht um den Mittelpunkt der Geste
+
+Ansage des Nutzers zu 1.0.17: „Und der Seitenzoom soll um den Mittelpunkt der
+Geste geschehen." 1.0.17 hatte das als offenen Punkt aufgeschrieben — der
+`ScrollView` behält seinen Versatz, während der Inhalt wächst, also wurde um
+die obere linke Ecke gezoomt.
+
+**Ein SwiftUI-`ScrollView` hat unter iOS 17 keinen Versatz zum Setzen.**
+`scrollPosition(id:)` zeigt auf eine Ansicht, `scrollTo(point:)` gibt es erst
+ab iOS 18. Der einzige Hebel ist `ScrollViewProxy.scrollTo(_:anchor:)`, und
+der legt den Punkt `a` eines Elements auf den Punkt `a` des Sichtfelds.
+`Model/Zoomanker.swift` löst diese Gleichung nach `a` auf.
+
+Den `ScrollView` durch eine eigene Schiebe- und Zoomfläche zu ersetzen wäre
+der naheliegende Weg und der teurere: Daran hängen das Blättern, die Faulheit
+des `LazyVStack` aus 1.0.16 und die Ziehgesten der Blöcke, für die 1.0.5 bis
+1.0.8 gebraucht wurden.
+
+Gebaut ist es in zwei Hälften, und nur eine rechnet:
+
+- **Während der Geste** skaliert ein `scaleEffect` mit Anker auf den Punkt
+  zwischen den Fingern. Das ist eine Abbildung und kann gar nicht
+  danebenliegen — und die Seiten werden dabei nicht bei jedem Bildpunkt neu
+  gesetzt.
+- **Am Ende** wird der Maßstab gesetzt und einmal gerollt.
+
+Dazu drei Kleinigkeiten, die die Rechnung tragen:
+
+- Der Anteil gilt für das **Blatt**, nicht für das ganze Element: Die
+  Beschriftungszeile darunter wächst nicht mit. Damit nichts geschätzt wird,
+  hat sie eine feste Höhe, und Fuge, Rand und Beschriftungshöhe stehen als
+  `Buehnenmasse` an einer Stelle.
+- Wo der Inhalt gerade steht, wird in eine **Klasse** geschrieben
+  (`Inhaltslage`) und nicht in `@State`: Der Wert ändert sich bei jedem
+  Bildpunkt des Scrollens, und ein Zustand an dieser Stelle zeichnete die
+  Bühne sechzigmal in der Sekunde neu — genau das, was 1.0.16 abgestellt hat.
+  Dieselbe Bauweise wie beim `Zeichenmesser`.
+- Die **Lupen** zoomen über denselben Weg auf die Mitte des Sichtfelds.
+
+Am Anfang und am Ende der Liste hält der Brennpunkt nicht — weiter rollt kein
+`ScrollView`, und das ist richtig so.
+
+**Nicht gemessen:** Ob der Punkt auf einem Gerät wirklich stehen bleibt, hat
+niemand gesehen. Gerechnet ist die Geometrie; ungeprüft sind die beiden
+Annahmen darunter — dass `MagnifyGesture.Value.startLocation` im Raum des
+Inhalts gemeldet wird und dass `scrollTo` mit einem Anker außerhalb der Mitte
+tut, was die Dokumentation sagt. Und beim Übergang von der Skalierung auf den
+gesetzten Maßstab kann ein Bild lang ein Sprung stehen bleiben: Gerollt wird
+einen Durchgang später, weil `scrollTo` die Größe braucht, die das Element
+dann erst hat.
+
 ## Zwei Finger, Doppelseiten — und eine Karte, die nie kam (1.0.17)
 
 Drei Wünsche und ein Fehler, der beim Nachrechnen des dritten auffiel.
@@ -1335,6 +1430,12 @@ im Inspektor gab es, aber keinen Weg zu sehen, was es bewirkt.
   „Fläche" ankam — aber ein Gerät gibt es hier nicht. „Bedienung prüfen"
   nennt seit 1.0.7 den gemessenen Punkt; **erst was dort steht, ist ein
   Befund.**
+* **Ob der Zoom den Brennpunkt wirklich hält, ist NICHT gemessen** (1.0.18).
+  Gerechnet ist die Geometrie; ungeprüft sind die zwei Annahmen darunter —
+  dass `MagnifyGesture.Value.startLocation` im Raum des Inhalts gemeldet wird
+  und dass `scrollTo` mit einem Anker außerhalb der Mitte tut, was die
+  Dokumentation sagt. Beim Übergang von der Skalierung auf den gesetzten
+  Maßstab kann ein Bild lang ein Sprung stehen bleiben.
 * **Die Schrifteinbettung ist halb gemessen.** Die App liest aus jeder
   benutzten Schrift, ob sie eingebettet werden DARF (`fsType` der
   OS/2-Tabelle) — das ist eine echte Messung. Ob CoreGraphics sie dann

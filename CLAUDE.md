@@ -4124,6 +4124,88 @@ Befunde, und keiner davon war Geschmack:
   linke Ecke gezoomt; das nicht anders darstellen. Und die Doppelseitenansicht
   ändert am PDF nichts: Der Bundsteg wird seit 1.0.1 ohnehin auf beide Ränder
   gerechnet, die Ansicht zeigt nur, was daraus wird.
+- **Buch aufbauen: die Reihenfolge war da, sie stand nur nirgends**
+  (`Views/AufbauView.swift`, `Dienste/Aufbaubericht.swift`, ab 1.0.18;
+  Befund des Nutzers 09/2026: „Bislang ist die App auf jeder einzelnen Seite
+  ja eher ein noch etwas sperrig zu bedienender Bild- und Texteditor … Was
+  das Programm auszeichnen würde, wäre ja, dass automatisch Texte, Bilder und
+  Koordinaten bestimmten Tagen zugeordnet werden."). Das TUT die App seit
+  1.0.0 — der Text legt die Tage an, die Spur hängt je eine Karte daran, die
+  Fotos verteilen sich über ihr Aufnahmedatum. Gestanden hat davon nirgends
+  etwas: Die drei Wege lagen als drei gleichrangige Punkte in einem Menü,
+  und in welcher Reihenfolge sie zusammengehören, wusste nur, wer es gebaut
+  hat. **Fünfte Auflage desselben Befundes** („es war da, man fand es
+  nicht") — die vier davor waren die Bildunterschrift, das Zurücksetzen, der
+  Zweifinger-Zoom und die Foto-Einstellung.
+  - **Kein neuer Einleseweg.** Die Arbeit machen unverändert
+    `TextimportView`, `SpurimportView` und `FotoeinfuhrView`; dieser
+    Bildschirm ist die Reihenfolge, der Stand und der Bericht. Ein zweiter
+    Weg zu derselben Sache liefe irgendwann auseinander — dieselbe Regel wie
+    bei `Block.wirkung` und bei den Fotostilfeldern aus 1.0.10.
+  - **Die Blätter werden NICHT gestapelt.** Jede der drei Einleseansichten
+    bringt einen eigenen `NavigationStack` mit, und ein Blatt über einem
+    Blatt ist auf dem iPad ein Kärtchen auf einem Kärtchen. Stattdessen macht
+    der Aufbau zu, die WURZEL öffnet das nächste Blatt im `onDismiss`, und
+    wenn das zugeht, kommt der Aufbau zurück — dort steht dann, was daraus
+    geworden ist. Dieselbe Regel wie bei den Dateiwählern in Tafelbild: Der
+    Wunsch trägt das Ziel (`alsNaechstes`), kein Schalter daneben.
+  - **Der Bericht zählt, er behauptet nicht.** Je Tag Zeichen, Fotos, Orte
+    (davon aus der Tagesspur) und Seiten, dazu, was fehlt; darunter die
+    Fotos in der Ablage, ohne Datum und ohne Ort. Kopierbar — dieselbe
+    Bauweise wie „Zustellung prüfen" bei Schulalarm. **Ein Tag ohne Foto ist
+    kein Fehler**, deshalb steht das Fehlende orange und nicht rot; es steht
+    aber da, sonst bemerkt es niemand.
+  - **Gerechnet wird beim Öffnen, nicht im Körper** (`.task`). Der Bericht
+    geht über alle Tage und alle Fotos — dieselbe Falle wie bei der
+    Druckprüfung in 1.0.0.
+  - **Die drei Einzelwege bleiben stehen.** Wer weiß, was er will, soll nicht
+    durch einen Ablauf laufen müssen.
+- **Der Zoom geschieht um den Mittelpunkt der Geste** (`Model/Zoomanker.swift`,
+  ab 1.0.18, Ansage des Nutzers 09/2026). 1.0.17 hatte es als offenen Punkt
+  aufgeschrieben: Der `ScrollView` behält seinen Versatz, während der Inhalt
+  wächst — gezoomt wurde also um die obere linke Ecke.
+  - **Ein SwiftUI-`ScrollView` hat unter iOS 17 keinen Versatz zum SETZEN.**
+    `scrollPosition(id:)` zeigt auf eine Ansicht, `scrollTo(point:)` gibt es
+    erst ab iOS 18. Der einzige Hebel ist
+    `ScrollViewProxy.scrollTo(_:anchor:)` — und der legt den Punkt `a` eines
+    ELEMENTS auf den Punkt `a` des Sichtfelds. `Zoomanker` löst diese
+    Gleichung nach `a` auf. **Den `ScrollView` durch eine eigene Schiebe- und
+    Zoomfläche zu ersetzen wäre der naheliegende Weg und der teurere**: Daran
+    hängen das Blättern, die Faulheit des `LazyVStack` aus 1.0.16 und die
+    Ziehgesten der Blöcke, für die 1.0.5 bis 1.0.8 gebraucht wurden.
+  - **Zwei Hälften, und nur eine rechnet.** Solange die Finger auf dem Glas
+    sind, skaliert ein `scaleEffect` mit Anker — das ist eine Abbildung und
+    kann gar nicht danebenliegen, und die Seiten werden dabei nicht bei jedem
+    Bildpunkt neu gesetzt. Erst am Ende wird der Maßstab gesetzt und EINMAL
+    gerollt.
+  - **Der Anteil gilt für das BLATT, nicht für das Element.** Die
+    Beschriftungszeile darunter wächst beim Zoomen nicht mit; ein Anteil über
+    beides zusammen ginge daneben. Damit die Rechnung nicht schätzt, hat die
+    Zeile eine FESTE Höhe (`Buehnenmasse`), und Fuge, Rand und
+    Beschriftungshöhe stehen an EINER Stelle — wer sie in der Ansicht ändert
+    und dort nicht, zoomt wieder auf einen Punkt, auf den niemand gezeigt hat.
+  - **Wo der Inhalt steht, wird in eine KLASSE geschrieben** (`Inhaltslage`),
+    nicht in `@State` und nicht über eine Preference. Der Wert ändert sich bei
+    jedem Bildpunkt des Scrollens; ein Zustand an dieser Stelle zeichnete die
+    Bühne sechzigmal in der Sekunde neu — genau das, was 1.0.16 abgestellt
+    hat. Dieselbe Bauweise wie beim `Zeichenmesser`, der aus demselben Grund
+    kein `@Published` hat. Gelesen wird nur im Augenblick einer Geste.
+  - **Die Lupen zoomen auf die MITTE des Sichtfelds**, über denselben Weg.
+    Ihr Wunsch reist über `lupenwunsch` durch den Zustand, weil der
+    `ScrollViewProxy` nur innerhalb des `ScrollViewReader`s gilt und die
+    Knöpfe in der Werkzeugleiste stehen; ihn außerhalb zu merken wäre der
+    naheliegende Weg und einer, den SwiftUI nicht zusagt.
+  - **Am Rand hält der Brennpunkt nicht** — weiter als bis zum Anfang und
+    zum Ende rollt kein `ScrollView`. Das ist richtig so und kein Fehler.
+  - **Nicht gemessen:** Ob der Punkt auf einem Gerät wirklich stehen bleibt,
+    hat niemand gesehen. Gerechnet ist die Geometrie; ungeprüft sind die
+    beiden Annahmen darunter — dass `MagnifyGesture.Value.startLocation` im
+    Raum des Inhalts gemeldet wird und dass `scrollTo` mit einem Anker
+    außerhalb der Mitte tut, was die Dokumentation sagt. Und beim Übergang
+    von der Skalierung auf den gesetzten Maßstab kann ein Bild lang ein
+    Sprung stehen: Gerollt wird einen Durchgang später, weil `scrollTo` die
+    Größe braucht, die das Element dann erst hat. **Nicht als erledigt
+    darstellen.**
 - **Die Bildunterschrift war halb gebaut** (ab 1.0.5, Wunsch des Nutzers
   09/2026: „zu jedem Foto einen Beschreibungstext … Dies soll jedoch eine
   Option für jedes Foto sein. Kein muss."). Der Layoutautomat hielt Platz
