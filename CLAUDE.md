@@ -4358,6 +4358,36 @@ Befunde, und keiner davon war Geschmack:
   wie das Symbol auf einem Homescreen wirkt, ob der Tipp auf die Karte den
   richtigen Punkt trifft und ob der Schatten auf einem Gerät nicht zu schwer
   ist. **Nicht als erledigt darstellen.**
+- **Mehrere Zeitstempel auf einmal verschieben** (`Views/Zeitverschiebung.swift`,
+  `Reisewerk.zeitenVerschieben`, ab 1.0.21, Ansage des Nutzers 09/2026:
+  „mehrere von ihnen auswählen zu können und ihren Zeitstempel gemeinsam
+  verschieben zu können, beispielsweise um drei Stunden nach hinten."). Der
+  Fall dahinter ist der Regelfall auf einer Reise: eine Kamera, deren Uhr auf
+  der Zeit von zu Hause stand, oder eine Spur aus einer fremden App ohne
+  Zonenangabe.
+  - **Der Auswahlmodus ist SICHTBAR**: Die Überschrift zählt mit („4 von 37
+    gewählt"), der Knopf heißt „Fertig", und vor jeder Zeile steht ein Kreis
+    statt eines Pfeils. Ein Modus, den man nicht sieht, darf die Bedeutung
+    eines Tipps nicht ändern — dieselbe Regel wie beim Fußwegmesser der
+    Abfahrtstafel.
+  - **Ordnen und Auswählen gibt es nicht gleichzeitig.** Der `EditButton`
+    verschwindet im Auswahlmodus; sonst hätte ein Tipp auf eine Zeile drei
+    Bedeutungen (öffnen, auswählen, anfassen).
+  - **Das Blatt rechnet VOR, statt zu versprechen**: Zahl der Gewählten, Zahl
+    der Punkte ohne Uhrzeit (an denen sich nichts verschieben lässt) und der
+    erste Punkt mit alter und neuer Zeit. Wer „drei Stunden nach hinten" liest,
+    hat noch nicht geprüft, ob es die richtige Richtung ist. Dieselbe Bauweise
+    wie bei jeder Einfuhr dieser App: erst zeigen, dann übernehmen.
+  - **Verschoben wird die WANDUHR am Ort** — dieselbe, die in der Liste steht
+    (siehe `Dienste/Ortszeit.swift`); addiert werden schlicht Sekunden. Punkte,
+    die dabei über Mitternacht rutschen, **bleiben an diesem Tag**: Der Tag ist
+    der, den der Mensch erlebt hat, und nicht das Ergebnis einer Rechnung.
+  - **Danach wird STABIL neu nach Zeit geordnet** (`nachZeitGeordnet`). `sorted`
+    ist in Swift nicht als stabil zugesichert; ohne den Index als zweites
+    Merkmal stünden zwei Punkte derselben Minute nach jedem Verschieben anders.
+    Punkte ohne Uhrzeit behalten ihre Reihenfolge am Ende.
+  - **Was nicht verschoben wurde, steht in der Meldung.** Eine stillschweigend
+    übergangene Auswahl sieht aus wie ein Fehler.
 - **Die Bildunterschrift war halb gebaut** (ab 1.0.5, Wunsch des Nutzers
   09/2026: „zu jedem Foto einen Beschreibungstext … Dies soll jedoch eine
   Option für jedes Foto sein. Kein muss."). Der Layoutautomat hielt Platz
