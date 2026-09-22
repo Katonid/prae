@@ -717,6 +717,98 @@ Bücher gefahrlos: Der erzeugte `Codable`-Leser verlangt einen Schlüssel nur
 für nicht-optionale Eigenschaften. Ein vorhandener Wert wird gelesen, ein
 fehlender wird `nil` — also „wie im Buch".
 
+## Der Sprung in die linke obere Ecke — selbst gebaut (1.0.24)
+
+Gemeldet 09/2026: „Schon besser, aber immer noch nicht genug. … Ich möchte
+das Foto unten rechts näher heranzoomen. Wenn ich das tue, dann wird die
+Zoom-Geste korrekt ausgeführt. Lasse ich allerdings die beiden Finger los,
+dann springt das Bild wieder auf die linke obere Ecke. Ein Verschieben der
+Arbeitsfläche ist auch nach wie vor nicht möglich.“
+
+Der erste Satz ist die Diagnose: **Während der Geste stimmt es, beim
+Loslassen nicht.** Während der Geste skaliert ein `scaleEffect` um den Punkt
+zwischen den Fingern — das ist eine Abbildung und kann gar nicht danebenliegen.
+Beim Loslassen wird der Maßstab gesetzt und einmal gerollt. Wird **nicht**
+gerollt, behält die Rolle ihren Versatz, während der Inhalt um den Faktor der
+Geste WÄCHST — man sieht dann einen Punkt, der um genau diesen Faktor näher am
+Ursprung liegt. Das IST der Sprung in die linke obere Ecke.
+
+### Es war 1.0.23
+
+Dort stand am Ende des Zooms `guard griff.imBlatt`: Lag der Mittelpunkt der
+Finger nicht auf dem Blatt, wurde gar nicht gerollt. Gedacht war das gegen den
+Sprung an eine Blattkante — gebaut war damit der Sprung in die Ecke, also der
+Zustand von vor 1.0.18. Die Bedingung ist weg; gerollt wird immer.
+
+Dasselbe gilt für das **Klemmen der beiden Griffanteile** auf 0 bis 1. Der
+Brennpunkt ist ein Punkt IM INHALT, und das Blatt ist nur das Maß, in dem er
+ausgedrückt wird. `hoch = 1,05` heißt „eine Blatthöhe und fünf Prozent unter
+der Oberkante“, und damit lässt sich genauso rechnen wie mit 0,5. Geklemmt
+werden darf erst der fertige `UnitPoint`, denn DER kann nichts anderes
+ausdrücken.
+
+### Ein geklemmter Anker geht über den NACHBARN
+
+Im Befund des Nutzers stand `Anker … 0.76 (geklemmt)`. Ein Anker kann nur Werte
+von 0 bis 1 tragen und damit nur Elementkanten zwischen 0 und
+`Sichtfeld − Element`; alles darüber hinaus wurde bisher an den Rand geklemmt.
+Die Reichweite lässt sich aber ohne jede Annahme vergrößern, **weil alle
+Elemente gleich hoch sind und im selben Abstand stehen**: Die Kante von Element
+`k` liegt um `(k − Index) · Schritt` unter der des gegriffenen. Rollt man also
+ein Nachbarelement an den passenden Anker, steht das gegriffene genau dort, wo
+es stehen soll. `Zoomanker.rollziel` sucht das Element, dessen Anker am
+wenigsten geklemmt werden muss; passt der des gegriffenen schon, ändert sich
+nichts. Das ist reine Geometrie und keine Vermutung.
+
+### Und zum ersten Mal wird die WIRKUNG gemessen
+
+Seit 1.0.18 steht im Papier, dass die Rechnung stimmt und ungeprüft ist, ob
+`scrollTo` einen Anker außerhalb der Mitte wirklich einlöst. Die Probe nennt
+deshalb seit 1.0.24 eine Zeile mehr:
+
+```
+Soll -1073/-2528 · Ist -1070/-2531 · Abweichung 3/-3
+```
+
+`Soll` ist der Versatz, den der Inhalt nach dem Rollen haben MÜSSTE; `Ist` der,
+den er 0,4 Sekunden später WIRKLICH hat. Stimmen beide überein, löst `scrollTo`
+den Anker ein und ein verbleibender Fehler liegt woanders; weichen sie ab, liegt
+er an genau dieser Stelle. **Damit ist die Frage zum ersten Mal entscheidbar,
+statt aus der Dokumentation gefolgert.**
+
+### Zum Schieben: gezählt, nicht erklärt
+
+Die zweite Hälfte der Meldung lässt sich von hier aus nicht aufklären — ein
+`ScrollView` rollt oder rollt nicht, und am Quelltext sieht man es nicht.
+`Inhaltslage` zählt deshalb seit 1.0.24 mit, wie weit der Ursprung des Inhalts
+seit dem Öffnen überhaupt gewandert ist; die Zeile steht in „Befund kopieren“:
+
+```
+Gewandert seit dem Öffnen: ⇄0 ↕0 (412 Meldungen)
+```
+
+Bleibt die Spanne null, während jemand schiebt, rollt die Bühne nicht — dann
+ist es keine Frage der Rechnung oben. Wächst sie, rollt sie, und die Frage ist
+eine andere. Dazu sagt die Zeile `frei ⇄` weiterhin, ob es überhaupt etwas zu
+schieben gibt: Bei eingepasster Seite passt das Blatt in die Breite, und quer
+gibt es nichts.
+
+Ein zweiter Weg steht seit 1.0.24 in der Bedienungskarte und hängt an keiner
+Rolle: **mit zwei Fingern ein kleines Stück auf der Stelle aufziehen, auf die
+man sehen will.** Der Zoom hält den Punkt zwischen den Fingern fest und holt ihn
+damit in die Mitte — das ist eine unmittelbare Folge daraus, dass jetzt immer
+gerollt wird.
+
+### Was NICHT geändert wurde, und warum
+
+Es liegt nahe, dass die Zweifingergeste einen Zweifinger-Wisch verschluckt —
+also genau die Bewegung, die nach einem Aufziehen am nächsten liegt. Das wäre
+mit `simultaneousGesture` zu ändern, wie es `SeitenflaecheView` beim
+Bildausschnitt schon tut. **Es ist bewusst nicht in derselben Fassung gemacht
+worden**: Hier ändert sich gerade, wohin nach dem Zoomen gerollt wird, und wer
+zwei Dinge auf einmal ändert, kann den nächsten Befund nicht mehr zuordnen.
+Es ist eine Vermutung und steht als solche da.
+
 ## Der erste echte Befund (1.0.23)
 
 Gemeldet 09/2026: „Beim Zoomen springt die Seite irgendwo hin. Da hat sich
@@ -1699,6 +1791,18 @@ im Inspektor gab es, aber keinen Weg zu sehen, was es bewirkt.
   als das Sichtfeld; dass sie es jetzt tut, folgt aus der Geometrie und hat
   niemand gesehen. Der Weg zurück aus einer zu kleinen Seite hängt an keiner
   Geste: der Knopf mit der Prozentzahl unten links → „Einpassen".
+* **Ob der Brennpunkt jetzt steht, ist NICHT gemessen** (1.0.24). Gerechnet
+  ist, warum er in 1.0.23 nicht stand — ohne Rollen wächst der Inhalt unter
+  einem stehenden Versatz, und das ist der Sprung in die linke obere Ecke.
+  **Neu ist, dass es sich messen lässt:** Die Zeile `Soll … Ist … Abweichung`
+  in „Befund kopieren“ sagt, ob `scrollTo` den Anker einlöst. Erst was dort
+  steht, ist ein Befund.
+* **Warum sich die Arbeitsfläche nicht schieben lässt, ist NICHT geklärt**
+  (1.0.24, zum zweiten Mal gemeldet). Gezählt wird es seither: `Gewandert seit
+  dem Öffnen` nennt die Spanne, um die der Inhalt überhaupt je gerollt ist.
+  Die Vermutung, dass die Zweifingergeste einen Zweifinger-Wisch verschluckt,
+  ist absichtlich NICHT in derselben Fassung ausprobiert — es wird eine Sache
+  auf einmal geändert.
 * **Ob sich die Seite jetzt schieben lässt und der Zoom steht, ist NICHT
   gemessen** (1.0.18, fortgeschrieben 1.0.22). Abgezählt ist die Geometrie:
   dass ein Höchstmaß die Breite nicht wachsen lässt, und dass der asynchrone
