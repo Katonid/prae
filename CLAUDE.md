@@ -5948,11 +5948,13 @@ Befunde, und keiner davon war Geschmack:
   woanders; dafür gibt es seit iOS 13 den `UIFontPickerViewController`, und
   genau den zeigt Pages. **Merke: Eine Aufzählung ist keine Frage an das
   Gerät, sondern eine an den eigenen Prozess.**
-  - **Der Wähler ist der einzige Weg.** Eine Liste lässt sich nicht
-    nachrüsten — es gibt keine Aufzählung der installierten Schriften für
-    fremde Apps, und das ist Absicht von Apple. Der Knopf steht deshalb in
-    einem EIGENEN Abschnitt („Selbst installierte Schriften") über der
-    vollen Liste, mit dem Satz daneben, warum die Schrift darunter fehlt.
+  - **„Der Wähler ist der einzige Weg" stand hier und war falsch**
+    (berichtigt in 1.0.43). Es gibt sehr wohl eine Abfrage —
+    `CTFontManagerCopyRegisteredFontDescriptors(.persistent, true)` —, und
+    sie steht seit 1.0.43 davor; siehe den Absatz darunter. Der Satz war
+    eine Annahme über Apples Absicht, ausgegeben als Auskunft über die
+    Schnittstelle. Der Knopf bleibt daneben: Was die Abfrage nicht hergibt,
+    holt der Wähler.
   - **Gewählt wird ein DESKRIPTOR, gesichert wird ein NAME.** Nur ein Name
     passt in ein Buch, das auf einem zweiten Gerät wieder aufgehen soll.
     Also wird die Schrift für den Prozess angemeldet
@@ -5991,6 +5993,70 @@ Befunde, und keiner davon war Geschmack:
   eingebettet wird. Genau deshalb sagt die App nach jeder Wahl selbst, was
   sie vorfindet, statt es zu behaupten. **Nichts davon als erledigt
   darstellen** — der nächste Befund des Nutzers ist hier die Messung.
+- **EINE AUFZÄHLUNG IST KEINE FRAGE AN DAS GERÄT — ABER ES GIBT EINE**
+  (`Geraeteschriften.systemfund`, ab 1.0.43; gemeldet 09/2026, nachdem
+  1.0.41 ausgeliefert war: „Die Schriftarten tauchen immer noch nicht
+  auf."). 1.0.41 hat die Ursache richtig benannt und die falsche Antwort
+  gegeben: Die LISTE blieb dieselbe, daneben stand ein Knopf, der EINE
+  Schrift nach der anderen holt — und er stand unter zwei Abschnitten, von
+  denen der erste („Rundes a") auf einem iPad schon eine Bildschirmhöhe
+  füllt. Wer die Liste ansieht, sieht also genau das, was vorher dastand.
+  **Neunte Auflage von „es war da, man fand es nicht"** — und diesmal war
+  zusätzlich zu wenig da.
+  - **Das System lässt sich fragen.**
+    `CTFontManagerCopyRegisteredFontDescriptors(.persistent, true)` gibt die
+    Schriften zurück, die auf diesem Gerät dauerhaft angemeldet sind — also
+    auch, was eine Schriftverwaltung dort abgelegt hat. `beimStartAnmelden`
+    meldet sie für DIESEN Prozess an (`.process`); danach stehen sie in
+    `UIFont.familyNames` und damit in der gewohnten Liste, ohne dass jemand
+    einen Wähler öffnen muss. **Ob die Abfrage auf dem iPad des Nutzers
+    etwas hergibt, ist NICHT gemessen** — deshalb zählt die App das
+    Ergebnis, statt es zu behaupten.
+  - **`CTFontManagerRegisterFontDescriptors` arbeitet ASYNCHRON.** Bis
+    1.0.42 wurde ohne Rückrufblock angemeldet und unmittelbar danach
+    gefragt, ob die Schrift unter ihrem Namen auffindbar sei — eine Frage,
+    die zu diesem Zeitpunkt noch gar nicht beantwortet sein kann. Der
+    Befund konnte also „NICHT auffindbar" sagen, während alles in Ordnung
+    war, und `beimStartAnmelden` zählte beim ersten Start garantiert null.
+    Gemeldet wird jetzt aus dem Block, und zwar erst, wenn er sich als
+    abgeschlossen meldet. **Merke: Wo eine Schnittstelle einen
+    Rückrufblock anbietet, ist die Frage davor zu früh.**
+  - **Ein Deskriptor, der nur einen NAMEN trägt, ist der schwächste Weg.**
+    Genau das blieb von einer über den Wähler gewählten Schrift übrig, und
+    ob sich damit eine dem Prozess unbekannte Schrift wiederfinden lässt,
+    ist offen. Die Systemabfrage steht deshalb DAVOR; der Namensweg bleibt
+    als zweiter stehen, und beides wird getrennt gezählt.
+  - **Der Abschnitt steht ganz oben**, gleich unter der Probe, und die
+    Familien, die das Gerät meldet, stehen als Zeilen darin — in ihrer
+    eigenen Schrift gesetzt wie jede andere. Dazu ein zweiter Zugang im
+    Schrift-Blatt („Selbst installierte Schriften…"), denn hinter
+    „Schriftart überall" steht der Name der gerade gewählten Schrift, und
+    das liest sich wie eine Auswahlliste. Der irreführende Fußtext dort
+    („Nur die Schriftfamilien, die dieses Gerät wirklich mitbringt, stehen
+    zur Wahl") ist berichtigt — er beschrieb den Prozess und klang wie eine
+    Aussage über das Gerät.
+  - **„Schriften prüfen" ist eine PROBE, keine Erklärung**
+    (`Views/Schriftenprobe.swift`). Nach einer Erklärung, die nicht
+    geholfen hat, wird nicht ein zweites Mal geraten: kopierbar stehen dort
+    die Zahl der vom System gemeldeten Einträge, wie viele davon lesbar
+    waren, wie viele Familien der Prozess danach kennt, jede über den
+    Wähler gewählte Schrift samt Auffindbarkeit — und ein PROTOKOLL der
+    letzten Starts, das den Neustart überlebt. Nur so lässt sich „geht gar
+    nicht" von „geht, hält aber den Neustart nicht" unterscheiden.
+    Dasselbe Muster wie Schulalarms Stufenprobe und der Kartenmesser der
+    Abfahrtstafel.
+- **Nicht gemessen (1.0.43):** Auf einem Gerät gesehen hat das niemand —
+  hier gibt es kein iPad und keine selbst installierte Schrift. Gerechnet
+  ist, warum die Frage in 1.0.41 zu früh kam (der Aufruf ist asynchron) und
+  warum der Weg nicht gefunden wurde (er lag unter zwei Abschnitten).
+  **Ungeprüft bleibt das Entscheidende**: ob
+  `CTFontManagerCopyRegisteredFontDescriptors(.persistent, true)` auf
+  diesem iPad überhaupt etwas zurückgibt, ob sich die Einträge als
+  `UIFontDescriptor` lesen lassen, ob die Anmeldung greift und ob eine so
+  erreichte Schrift ins PDF eingebettet wird. Genau deshalb nennt die Probe
+  zwei Zahlen (gemeldet und lesbar) statt einer. **Nichts davon als
+  erledigt darstellen** — der Befund aus „Schriften prüfen" ist hier die
+  Messung.
 - **Die Bildunterschrift war halb gebaut** (ab 1.0.5, Wunsch des Nutzers
   09/2026: „zu jedem Foto einen Beschreibungstext … Dies soll jedoch eine
   Option für jedes Foto sein. Kein muss."). Der Layoutautomat hielt Platz
@@ -6252,7 +6318,7 @@ Befunde, und keiner davon war Geschmack:
   Stellen im pbxproj (Debug + Release) — es gibt KEINE Skript-Bauphase.
   **Jede Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne
   Nachfrage, als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann
-  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.42 (Build 43). Dazu gesetzt:
+  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.43 (Build 44). Dazu gesetzt:
   `DEVELOPMENT_TEAM = F4989GSTWS` und
   `INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.travel`.
   Seit 1.0.4 steht dort auch `CODE_SIGN_ENTITLEMENTS = Config/Urlaubstagebuch.entitlements`

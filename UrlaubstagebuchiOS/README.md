@@ -405,6 +405,42 @@ Größenunterschied innerhalb eines Tages, mit Datum und beiden Maßen, und wie
 viel Prozent der Satzhöhe das höchste Foto des Buches nimmt. Gemessen am
 fertigen Satz und nicht an der Absicht.
 
+## Die Schriften des Geräts holen (1.0.43)
+
+Gemeldet, nachdem 1.0.41 ausgeliefert war: „Die Schriftarten tauchen immer
+noch nicht auf."
+
+1.0.41 hat die Ursache richtig benannt und die zu kleine Antwort gegeben. Die
+LISTE blieb dieselbe; daneben stand ein Knopf, der eine Schrift nach der
+anderen holt — und er stand unter zwei Abschnitten, von denen der erste
+(„Rundes a") auf einem iPad schon eine Bildschirmhöhe füllt.
+
+**Das System lässt sich sehr wohl fragen.**
+`CTFontManagerCopyRegisteredFontDescriptors(.persistent, true)` gibt zurück,
+was auf diesem Gerät dauerhaft angemeldet ist — also auch, was eine
+Schriftverwaltung dort abgelegt hat. Die App fragt das beim Start, meldet die
+Fundstücke für ihren Prozess an, und danach stehen sie in der gewohnten Liste.
+Ob die Abfrage auf einem bestimmten iPad etwas hergibt, ist hier nicht
+gemessen; die App zählt es und schreibt es hin.
+
+**Die Frage in 1.0.41 kam zu früh.**
+`CTFontManagerRegisterFontDescriptors` arbeitet asynchron. Bis 1.0.42 wurde
+ohne Rückrufblock angemeldet und unmittelbar danach nachgesehen, ob die
+Schrift auffindbar sei — der Befund konnte also „NICHT auffindbar" sagen,
+während alles in Ordnung war. Gemeldet wird jetzt aus dem Block.
+
+**Der Abschnitt steht ganz oben**, gleich unter der Probe, mit den Familien
+des Geräts als Zeilen darin. Dazu ein zweiter Zugang im Schrift-Blatt
+(„Selbst installierte Schriften…"): Hinter „Schriftart überall" steht der Name
+der gerade gewählten Schrift, und das liest sich wie eine Auswahlliste.
+
+**„Schriften prüfen" ist eine Probe, keine Erklärung.** Kopierbar stehen dort
+die Zahl der vom System gemeldeten Einträge, wie viele davon lesbar waren, wie
+viele Familien der Prozess danach kennt, jede gewählte Schrift samt
+Auffindbarkeit — und ein Protokoll der letzten Starts, das den Neustart
+überlebt. Nur so lässt sich „geht gar nicht" von „geht, hält aber den Neustart
+nicht" unterscheiden.
+
 ## Selbst installierte Schriften (1.0.41)
 
 Gemeldet 09/2026: „Quicksand und … sind auf dem iPad installiert und können
@@ -420,9 +456,8 @@ iOS 13 den `UIFontPickerViewController` — genau den zeigt Pages, und genau
 den zeigt die Schriftwahl jetzt auch, in einem eigenen Abschnitt über der
 vollen Liste.
 
-Eine Liste lässt sich nicht nachrüsten: Es gibt für fremde Apps keine
-Aufzählung der installierten Schriften, und das ist Absicht von Apple. Der
-Wähler ist der Weg.
+Dass sich eine Liste nicht nachrüsten lasse, stand hier und war falsch —
+siehe den Abschnitt darunter.
 
 **Gewählt wird ein Deskriptor, gesichert wird ein Name.** Nur ein Name passt
 in ein Buch, das auf einem zweiten Gerät wieder aufgehen soll. Die App meldet
@@ -3455,6 +3490,12 @@ im Inspektor gab es, aber keinen Weg zu sehen, was es bewirkt.
 
 ## Offene Punkte
 
+* **Nichts an 1.0.43 ist auf einem Gerät gesehen.** Ob
+  `CTFontManagerCopyRegisteredFontDescriptors(.persistent, true)` auf dem
+  iPad des Nutzers überhaupt etwas zurückgibt, ob sich die Einträge als
+  `UIFontDescriptor` lesen lassen, ob die Anmeldung greift und ob eine so
+  erreichte Schrift ins PDF eingebettet wird, ist offen. Deshalb nennt die
+  Probe zwei Zahlen (gemeldet und lesbar) statt einer.
 * **Nichts an 1.0.42 ist auf einem Gerät gesehen.** Gerechnet ist die Ursache
   (91 gegen 17 Prozent der Satzhöhe für dasselbe Foto) und die Geometrie der
   Abhilfe. Gewählt und nicht gemessen sind die Grenzen der Zielhöhe (0,16 bis
