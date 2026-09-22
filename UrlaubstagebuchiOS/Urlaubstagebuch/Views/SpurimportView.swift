@@ -20,6 +20,10 @@ struct SpurimportView: View {
     @State private var gewaehlt: Set<String> = []
     @State private var fehlendeAnlegen = true
     @State private var zone: TimeZone = .current
+    // Läuft gerade das Nachschlagen der Zeitzonen? Es braucht Netz und
+    // dauert einen Augenblick je Tag; eine Vorschau, die sich ohne ein Wort
+    // dazu ändert, sieht aus wie ein Wackler.
+    @State private var sucht = false
 
     var body: some View {
         NavigationStack {
@@ -116,22 +120,41 @@ struct SpurimportView: View {
                 Text("Der Pfeil zeigt, was das Ausdünnen übrig lässt.")
             }
 
-            if befund.gerechneteTage > 0 {
-                Section {
-                    Picker("Zeitzone", selection: $zone) {
-                        ForEach(zonen, id: \.identifier) { eine in
-                            Text(eine.identifier).tag(eine)
-                        }
+            Section {
+                if sucht {
+                    HStack(spacing: 9) {
+                        ProgressView()
+                        Text("Zeitzonen werden nachgeschlagen\u{2026}")
+                            .foregroundStyle(.secondary)
                     }
-                    .onChange(of: zone) { _, _ in nochEinmalLesen() }
-                } header: {
-                    Text("Zeitzone")
-                } footer: {
-                    Text("Bei \(befund.gerechneteTage) von \(befund.tage.count) Tagen "
-                         + "steht der Tag nicht in der Datei; er wird aus dem "
-                         + "Zeitstempel gerechnet. Eine Wanderung, die um 23:40 "
-                         + "Ortszeit endet, landet mit der falschen Zone im falschen "
-                         + "Tagebucheintrag.")
+                }
+                LabeledContent("Nachgeschlagen",
+                               value: "\(nachgeschlagene) von \(befund.tage.count) Tagen")
+                Picker("Sonst gilt", selection: $zone) {
+                    ForEach(zonen, id: \.identifier) { eine in
+                        Text(eine.identifier).tag(eine)
+                    }
+                }
+                .onChange(of: zone) { _, _ in nochEinmalLesen() }
+            } header: {
+                Text("Uhrzeiten")
+            } footer: {
+                // Was hier steht, ist der Grund für den ganzen Umbau von
+                // 1.0.19: In der Datei stehen Augenblicke auf der Weltuhr,
+                // im Buch stehen Uhrzeiten am Ort.
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("In der Datei stehen die Zeiten als Augenblick auf der "
+                         + "Weltuhr. Gezeigt und gespeichert wird die Uhrzeit AM ORT "
+                         + "\u{2014} in Deutschland also die mitteleuropäische "
+                         + "Sommerzeit, in Kanada die von Toronto. Welche Zone gilt, "
+                         + "wird je Tag am ersten Ort nachgeschlagen; das braucht Netz.")
+                    Text("Wo sich keine ermitteln lässt, gilt die hier eingestellte. "
+                         + "Sie entscheidet außerdem über den TAG bei Dateien ohne "
+                         + "Tagesschlüssel"
+                         + (befund.gerechneteTage > 0
+                            ? " \u{2014} das betrifft \(befund.gerechneteTage) von "
+                              + "\(befund.tage.count) Tagen dieser Datei."
+                            : "; in dieser Datei steht er überall dabei."))
                 }
             }
 
@@ -186,6 +209,11 @@ struct SpurimportView: View {
                     Text(untertitel(tag))
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                    if let zeile = zonenzeile(tag) {
+                        Text(zeile)
+                            .font(.caption2)
+                            .foregroundStyle(tag.zoneNachgeschlagen ? .secondary : .orange)
+                    }
                 }
             }
         }
@@ -197,6 +225,19 @@ struct SpurimportView: View {
         if tag.aufenthalte > 0 { teile.append("\(tag.aufenthalte) Aufenthalte") }
         teile.append(tag.gerechnet ? "Tag gerechnet" : "Tag abgelesen")
         return teile.joined(separator: " \u{00B7} ")
+    }
+
+    // Welche Zone für diesen Tag gilt — und ob sie nachgeschlagen oder
+    // angenommen ist. Eine angenommene Zone steht orange da: Sie ist keine
+    // Auskunft über den Ort, sondern eine Einstellung.
+    private func zonenzeile(_ tag: Spureinfuhr.Tagesspur) -> String? {
+        guard let zone = tag.zone else { return nil }
+        let name = Ortszeit.beschreibung(zone, am: tag.datum.mittag)
+        return tag.zoneNachgeschlagen ? name : "\(name) \u{2014} angenommen"
+    }
+
+    private var nachgeschlagene: Int {
+        befund?.tage.filter(\.zoneNachgeschlagen).count ?? 0
     }
 
     private func imBuch(_ datum: Tagesdatum) -> Bool {
@@ -239,10 +280,32 @@ struct SpurimportView: View {
             let vorhandene = neu.tage.filter { imBuch($0.datum) }
             gewaehlt = Set((vorhandene.isEmpty ? neu.tage : vorhandene).map(\.id))
             fehler = nil
+            zonenNachschlagen(neu)
         } catch {
             befund = nil
             gewaehlt = []
             fehler = error.localizedDescription
+        }
+    }
+
+    // Das Nachschlagen läuft NACH dem Anzeigen: Die Vorschau steht damit
+    // sofort da, und die Zonen tragen sich nach. Wer ohne Netz einliest,
+    // bekommt trotzdem eine vollständige Vorschau — nur eben mit der
+    // eingestellten Zone.
+    private func zonenNachschlagen(_ roh: Spureinfuhr.Befund) {
+        sucht = true
+        Task {
+            let fertig = await Spureinfuhr.ortszeitenSetzen(roh)
+            await MainActor.run {
+                // Nur übernehmen, wenn inzwischen keine andere Datei und
+                // keine andere Zone gewählt wurde — eine späte Antwort darf
+                // nicht den Stand von vorhin zurückbringen (dieselbe Regel
+                // wie beim nachgetragenen Ortsnamen in der Abfahrtstafel).
+                guard befund?.art == roh.art,
+                      befund?.tage.map(\.id) == roh.tage.map(\.id) else { return }
+                befund = fertig
+                sucht = false
+            }
         }
     }
 

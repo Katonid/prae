@@ -19,6 +19,17 @@ import Foundation
 // Zeitstempel gerechnet werden; dann sagt der Befund das ausdrücklich, und
 // die Zeitzone ist wählbar. Eine Wanderung, die um 23:40 Ortszeit endet,
 // gehörte sonst in den falschen Tagebucheintrag.
+//
+// **Und die UHRZEIT kommt seit 1.0.19 ebenso vom Ort** (`Ortszeit`). In
+// beiden Dateiformaten stehen echte Augenblicke auf der Weltuhr; bis 1.0.18
+// landeten die unverändert in `Reisepunkt.zeit` und wurden dort mit
+// derselben festen Zone gezeichnet wie die Zeit aus einem Foto — also als
+// UTC. Damit standen in einer Liste Fotopunkte richtig und Spurpunkte
+// falsch, in Kanada um vier Stunden. Umgerechnet wird beim EINLESEN, nicht
+// beim Zeichnen: Danach bedeutet das Feld überall dasselbe. **Schon
+// eingelesene Tage bleiben, wie sie sind** — die App weiß nicht mehr, aus
+// welcher Zone sie kamen; wer sie berichtigen will, liest die Datei noch
+// einmal ein, und das ersetzt die alten Spurpunkte des Tages.
 enum Spureinfuhr {
     // MARK: - Was herauskommt
 
@@ -29,6 +40,14 @@ enum Spureinfuhr {
         var aufenthalte: Int
         // Wurde der Tag aus einem Zeitstempel gerechnet statt abgelesen?
         var gerechnet: Bool
+        // In welcher Zone die Uhrzeiten dieses Tages GELTEN. Gesetzt wird
+        // sie von `ortszeitenSetzen`; bis dahin steht sie auf `nil` und die
+        // Zeiten sind noch Augenblicke auf der Weltuhr.
+        var zone: TimeZone?
+        // Aus den Orten nachgeschlagen (true) oder die eingestellte Zone
+        // (false)? Der Unterschied gehört in die Vorschau: Das eine ist
+        // eine Auskunft, das andere eine Annahme.
+        var zoneNachgeschlagen: Bool = false
 
         var id: String { datum.schluessel }
     }
@@ -224,6 +243,44 @@ enum Spureinfuhr {
     }
 
     // MARK: - Gemeinsames
+
+    // MARK: - Ortszeit
+
+    // AUS AUGENBLICKEN WERDEN UHRZEITEN AM ORT.
+    //
+    // Gefragt wird je TAG und nicht je Punkt: Eine Reise kreuzt Zonen (der
+    // Nutzer nennt Deutschland und Toronto in einem Satz), aber innerhalb
+    // eines Tages ist eine Zone die richtige Näherung — und eine Anfrage je
+    // Punkt wären Tausende. Genommen wird der erste Punkt des Tages mit
+    // einer Koordinate.
+    //
+    // **Der TAG wird dabei nicht neu gerechnet.** Wo ein `dayKey` in der
+    // Datei stand, ist er der Tag, den der Mensch erlebt hat (die Regel von
+    // ganz oben); dass eine umgerechnete Uhrzeit über Mitternacht rutscht,
+    // ändert daran nichts. Wo der Tag gerechnet wurde, gilt weiter die
+    // eingestellte Zone — sonst müsste erst gruppiert werden, um die Zone
+    // zu finden, und die Zone bestimmte die Gruppierung.
+    static func ortszeitenSetzen(_ befund: Befund) async -> Befund {
+        var neu = befund
+        for stelle in neu.tage.indices {
+            let ersterOrt = neu.tage[stelle].punkte.first?.koordinate
+            var zone = befund.zone
+            var nachgeschlagen = false
+            if let ersterOrt, let gefunden = await Zonensucher.geteilt.zone(fuer: ersterOrt) {
+                zone = gefunden
+                nachgeschlagen = true
+            }
+            neu.tage[stelle].zone = zone
+            neu.tage[stelle].zoneNachgeschlagen = nachgeschlagen
+            neu.tage[stelle].punkte = neu.tage[stelle].punkte.map { punkt in
+                guard let augenblick = punkt.zeit else { return punkt }
+                var umgerechnet = punkt
+                umgerechnet.zeit = Ortszeit.wanduhr(augenblick, in: zone)
+                return umgerechnet
+            }
+        }
+        return neu
+    }
 
     private static func zusammenstellen(
         roh: [String: (punkte: [Reisepunkt], gerechnet: Bool)],
