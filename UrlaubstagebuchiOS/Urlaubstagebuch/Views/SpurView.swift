@@ -52,8 +52,16 @@ struct SpurView: View {
                             EditButton().font(.caption)
                         }
                     } footer: {
-                        if tag.hatStrecke {
-                            Text("\(Spurbau.laengeText(tag.spur)). Gezeichnet wird die Verbindung der Punkte, nicht der gefahrene Weg — welche Straße es war, steht in keinem Foto.")
+                        VStack(alignment: .leading, spacing: 6) {
+                            if tag.hatStrecke {
+                                Text("\(Spurbau.laengeText(tag.spur)). Gezeichnet wird die Verbindung der Punkte, nicht der gefahrene Weg — welche Straße es war, steht in keinem Foto.")
+                            }
+                            // Eine Uhrzeit ohne Angabe, worauf sie sich
+                            // bezieht, ist in einem Reisetagebuch eine
+                            // Zumutung: Dieselbe Reise hat Tage in zwei
+                            // Zonen. Dieselbe Regel wie beim Wort „Plan"
+                            // an einer Abfahrt ohne Echtzeit.
+                            Text(zeitsatz(tag))
                         }
                     }
 
@@ -83,6 +91,17 @@ struct SpurView: View {
                 PunktwahlView(werk: werk, tagID: tagID)
             }
         }
+    }
+
+    // Worauf sich die Uhrzeiten dieses Tages beziehen.
+    private func zeitsatz(_ tag: Reisetag) -> String {
+        let grundsatz = "Alle Uhrzeiten sind Ortszeiten: bei Fotos so, wie die Kamera "
+            + "sie geschrieben hat, bei einer eingelesenen Reisespur umgerechnet."
+        guard let kennung = tag.zeitzone, let zone = TimeZone(identifier: kennung) else {
+            return grundsatz
+        }
+        return grundsatz + " Für diesen Tag gilt "
+            + Ortszeit.beschreibung(zone, am: tag.datum.mittag) + "."
     }
 
     private func vorschau(_ tag: Reisetag) -> some View {

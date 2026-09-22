@@ -779,6 +779,9 @@ final class Reisewerk: ObservableObject, Identifiable {
                 spur.insert(punkt, at: wohin)
             }
             reise.tage[stelle].spur = spur
+            // Woraufhin sich die Uhrzeiten dieses Tages beziehen. Sie sind
+            // bereits umgerechnet; das Feld ist die Auskunft dazu.
+            if let zone = neue.zone { reise.tage[stelle].zeitzone = zone.identifier }
             geaendert += 1
         }
         reise.tage.sort { $0.datum < $1.datum }

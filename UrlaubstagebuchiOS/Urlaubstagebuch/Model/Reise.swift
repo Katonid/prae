@@ -33,6 +33,13 @@ struct Reisetag: Identifiable, Codable, Hashable {
     // ins Buch. Ihn zu löschen wäre der einzige andere Weg gewesen — und
     // ein gelöschter Tagebuchtag ist weg.
     var ausgeblendet: Bool = false
+    // In welcher Zeitzone die Uhrzeiten dieses Tages gelten (Kennung, z. B.
+    // `America/Toronto`). Gesetzt beim Einlesen der Reisespur; leer heißt,
+    // dass es niemand feststellen konnte. **Die Uhrzeiten selbst sind schon
+    // umgerechnet** — dieses Feld sagt nur, WORAUF sie sich beziehen, und
+    // ist damit eine Auskunft und keine Rechenvorschrift. Wer es zum Umrechnen
+    // benutzt, rechnet ein zweites Mal.
+    var zeitzone: String?
 
     // Ein Leser von Hand, damit ein Tagebuch eine neue Fassung überlebt
     // (siehe `Model/Nachsicht.swift`). Der einzige Sonderfall ist die alte
@@ -52,6 +59,7 @@ struct Reisetag: Identifiable, Codable, Hashable {
         kartenausschnitt = b.wahlweise(.kartenausschnitt)
         datumstext = b.wahlweise(.datumstext)
         ausgeblendet = b.wert(.ausgeblendet, false)
+        zeitzone = b.wahlweise(.zeitzone)
         if let neu: Kartenbild = b.wahlweise(.kartenbild) {
             kartenbild = neu
         } else if let alt = Reise.alterStil(decoder) {

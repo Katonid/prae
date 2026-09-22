@@ -25,6 +25,9 @@ struct Aufbaubericht {
         /// „Ort aus dem Foto" und „Ort eingelesen" sind zwei Dinge.
         var ausTagesspur: Int
         var seiten: Int
+        /// Worauf sich die Uhrzeiten dieses Tages beziehen (Kennung der
+        /// Zeitzone), sofern beim Einlesen der Spur eine feststand.
+        var zeitzone: String?
         var ausgeblendet: Bool
         var handarbeit: Bool
 
@@ -44,6 +47,13 @@ struct Aufbaubericht {
             var teile = ["\(zeichen) Zeichen", "\(fotos) Fotos", "\(punkte) Orte"]
             if ausTagesspur > 0 { teile[2] += " (\(ausTagesspur) aus der Spur)" }
             teile.append(seiten == 1 ? "1 Seite" : "\(seiten) Seiten")
+            // Nur der letzte Teil der Kennung: „America/Toronto" ist in
+            // einer Zeile mit vier anderen Angaben zu lang, „Toronto" sagt
+            // dasselbe. Die volle Kennung samt Versatz steht unter den
+            // Reisepunkten des Tages.
+            if let zeitzone, let kurz = zeitzone.split(separator: "/").last {
+                teile.append(kurz.replacingOccurrences(of: "_", with: " "))
+            }
             return teile.joined(separator: " \u{00B7} ")
         }
     }
@@ -71,6 +81,7 @@ struct Aufbaubericht {
                                 punkte: tag.spur.count,
                                 ausTagesspur: ausSpur,
                                 seiten: tag.seiten.count,
+                                zeitzone: tag.zeitzone,
                                 ausgeblendet: tag.ausgeblendet,
                                 handarbeit: handarbeit(tag.id)))
             if !tag.text.isEmpty { tageMitText += 1 }

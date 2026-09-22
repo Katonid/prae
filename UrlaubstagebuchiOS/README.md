@@ -717,6 +717,51 @@ Bücher gefahrlos: Der erzeugte `Codable`-Leser verlangt einen Schlüssel nur
 für nicht-optionale Eigenschaften. Ein vorhandener Wert wird gelesen, ein
 fehlender wird `nil` — also „wie im Buch".
 
+## Uhrzeiten sind Ortszeiten (1.0.19)
+
+Ansage des Nutzers: Die Zeiten „müssten dann angepasst werden gemäß der
+Zeitzone des Ortes, also in Deutschland der mitteleuropäischen Sommerzeit und
+für Kanada die Sommerzeit in Toronto."
+
+In dieser App ist eine Uhrzeit immer die **Wanduhr am Ort** und nie ein
+Augenblick auf der Weltuhr — dieselbe Regel wie beim Tag, der aus drei Zahlen
+kommt. Sie galt bisher nur für die eine Hälfte der Daten:
+
+- Ein **Foto** hält sich von selbst daran. Im EXIF steht „19:33:21" ohne jede
+  Zone; die App legt genau diese Ziffern mit einer festen Zone ab und zeichnet
+  mit derselben. Auf dem Bildschirm steht, was die Kamera angezeigt hat.
+- Die **Reisespur** hielt sich nicht daran. Tagesspur-Sicherung und GPX
+  schreiben echte Augenblicke (`2026-07-25T18:14:03Z`), und die landeten
+  unverändert im selben Feld. Mit derselben festen Zone gezeichnet hieß das:
+  UTC. In einer Liste standen damit Fotopunkte richtig und Spurpunkte falsch —
+  in Toronto um vier Stunden, in Deutschland um zwei.
+
+Umgerechnet wird jetzt beim **Einlesen**, nicht beim Zeichnen; danach bedeutet
+das Feld überall dasselbe. Welche Zone gilt, wird **je Tag am ersten Ort
+nachgeschlagen** — je Punkt wären es Tausende Anfragen, je Datei wäre es
+falsch, denn eine Reise kreuzt Zonen. Eine eigene Tabelle wäre geraten: iOS
+bringt keine mit, und Zonengrenzen folgen Staats- und Provinzgrenzen, nicht
+Längengraden.
+
+Ohne Netz wird nichts behauptet. Dann gilt die im Blatt eingestellte Zone, und
+die Vorschau sagt je Tag, welche es war: nachgeschlagen steht grau da,
+angenommen orange und mit dem Wort dabei. Unter den Reisepunkten eines Tages
+steht, worauf sich seine Uhrzeiten beziehen.
+
+**Der Tag wird dabei nicht neu gerechnet.** Wo ein Tagesschlüssel in der Datei
+steht, ist er der Tag, den der Mensch erlebt hat — dass eine umgerechnete
+Uhrzeit über Mitternacht rutscht, ändert daran nichts.
+
+**Schon eingelesene Tage bleiben, wie sie sind.** Aus welcher Zone sie kamen,
+weiß die App nicht mehr, und eine Spur um vier Stunden zu verschieben, weil es
+plausibel aussieht, wäre geraten. Wer sie berichtigen will, liest die Datei
+noch einmal ein; das ersetzt die Spurpunkte des Tages.
+
+**Nicht gemessen:** Ob der Geocoder für die Orte dieser Reise wirklich eine
+Zone hergibt, hat niemand gesehen — hier gibt es weder Netz zu Apples
+Geocoder noch eine echte Sicherung. Die Zeile „Nachgeschlagen: n von m Tagen"
+im Einlesen-Blatt sagt es.
+
 ## Buch aufbauen, und der Zoom bleibt unter dem Finger (1.0.18)
 
 ### „Buch aufbauen" — die Reihenfolge war da, sie stand nur nirgends
@@ -1436,6 +1481,10 @@ im Inspektor gab es, aber keinen Weg zu sehen, was es bewirkt.
   und dass `scrollTo` mit einem Anker außerhalb der Mitte tut, was die
   Dokumentation sagt. Beim Übergang von der Skalierung auf den gesetzten
   Maßstab kann ein Bild lang ein Sprung stehen bleiben.
+* **Ob die Zeitzonen wirklich nachgeschlagen werden, ist NICHT gemessen**
+  (1.0.19). Gerechnet ist die Umrechnung; ob `CLPlacemark.timeZone` für die
+  Orte dieser Reise etwas hergibt, sagt erst die Zeile „Nachgeschlagen: n von
+  m Tagen" im Einlesen-Blatt.
 * **Die Schrifteinbettung ist halb gemessen.** Die App liest aus jeder
   benutzten Schrift, ob sie eingebettet werden DARF (`fsType` der
   OS/2-Tabelle) — das ist eine echte Messung. Ob CoreGraphics sie dann
