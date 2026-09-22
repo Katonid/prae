@@ -405,6 +405,32 @@ Größenunterschied innerhalb eines Tages, mit Datum und beiden Maßen, und wie
 viel Prozent der Satzhöhe das höchste Foto des Buches nimmt. Gemessen am
 fertigen Satz und nicht an der Absicht.
 
+## Das Recht, die Schriften des Geräts zu sehen (1.0.44)
+
+Zum dritten Mal gemeldet, diesmal mit Bildschirmfotos — und die haben
+entschieden: In **Pages** stehen Poppins, Proxima Nova, Publico Text und
+Quicksand in der Schriftliste. Im **Wähler von iOS**, den diese App seit
+1.0.41 zeigt, springt dieselbe Liste von „PingFang TC" auf „Rockwell".
+
+Es fehlte also weder die Liste dieser App noch der Weg zum Wähler, sondern
+das, was iOS der App überhaupt herausgibt. Dafür gibt es ein Recht:
+`com.apple.developer.user-fonts` mit dem Wert `system-installed-fonts`. Ohne
+das sieht eine App nur die Schriften des Systems und die aus ihrem eigenen
+Bündel — über den Wähler genauso wenig wie über
+`CTFontManagerCopyRegisteredFontDescriptors`. Damit ist auch gesagt, warum
+1.0.43 nichts ändern konnte: Die Abfrage war richtig und fragte in einen
+leeren Raum.
+
+Eine Bewilligung braucht es nicht; in Xcode ist es die Fähigkeit „Fonts" mit
+dem Haken „Use Installed Fonts". **Wirksam wird es erst in einem signierten
+Bau** — GitHub Actions baut ohne Signierung und sieht Entitlements nie an.
+
+**Die Gegenprobe stand die ganze Zeit zur Verfügung** und steht jetzt auch in
+der App: Der Wähler ist Apples eigener, also zeigt er, was das System der App
+zeigt. Fehlt deine Schrift dort, liegt es nicht an dieser Liste. „Schriften
+prüfen" sagt das im Klartext, und die Fußzeile der Schriftwahl unterscheidet
+seither „keine da" von „diese App darf sie nicht sehen".
+
 ## Die Schriften des Geräts holen (1.0.43)
 
 Gemeldet, nachdem 1.0.41 ausgeliefert war: „Die Schriftarten tauchen immer
@@ -3490,6 +3516,10 @@ im Inspektor gab es, aber keinen Weg zu sehen, was es bewirkt.
 
 ## Offene Punkte
 
+* **Ob das Recht aus 1.0.44 wirkt, ist nicht gemessen.** Dass es fehlt, ist
+  am Unterschied zwischen Pages und dem Wähler dieser App abgelesen; dass es
+  mit dem Recht geht, zeigt erst ein signierter Bau auf dem Mac. Alles, was
+  danach kommt, bleibt offen — siehe den Punkt darunter.
 * **Nichts an 1.0.43 ist auf einem Gerät gesehen.** Ob
   `CTFontManagerCopyRegisteredFontDescriptors(.persistent, true)` auf dem
   iPad des Nutzers überhaupt etwas zurückgibt, ob sich die Einträge als

@@ -6057,6 +6057,51 @@ Befunde, und keiner davon war Geschmack:
   zwei Zahlen (gemeldet und lesbar) statt einer. **Nichts davon als
   erledigt darstellen** — der Befund aus „Schriften prüfen" ist hier die
   Messung.
+- **OHNE EIN RECHT GIBT iOS DIE SCHRIFTEN GAR NICHT HERAUS**
+  (`com.apple.developer.user-fonts` = `system-installed-fonts`, ab 1.0.44;
+  gemeldet 09/2026 zum dritten Mal, diesmal mit drei Bildschirmfotos).
+  **Die Bilder sind die Messung, und sie zeigen auf etwas anderes als 1.0.41
+  und 1.0.43:** In Pages stehen Poppins, Proxima Nova, Publico Text und
+  Quicksand in der Schriftliste; im Wähler von iOS — demselben Wähler, den
+  diese App seit 1.0.41 zeigt — springt dieselbe Liste von „PingFang TC"
+  unmittelbar auf „Rockwell". Es fehlte also weder die Liste dieser App noch
+  der Weg zum Wähler: **Es fehlte, was iOS der App überhaupt herausgibt.**
+  - **Das Recht deckt beide Wege ab.** Ohne es sieht eine App ausschließlich
+    die Schriften des Systems und die aus dem eigenen Bündel — der
+    `UIFontPickerViewController` zeigt dann genau dieselbe Auswahl, und
+    `CTFontManagerCopyRegisteredFontDescriptors(.persistent, true)` gibt
+    nichts her. Damit ist auch gesagt, warum 1.0.43 nichts ändern konnte:
+    Die Abfrage war richtig und fragte in einen leeren Raum.
+  - **Eine Bewilligung braucht es nicht** (anders als bei Schulalarms
+    kritischen Hinweisen, wo eine Entitlements-Datei ohne Bewilligung jedes
+    Signieren scheitern lässt). In Xcode ist es die Fähigkeit „Fonts" mit
+    dem Haken „Use Installed Fonts"; bei automatischer Signierung trägt
+    Xcode es an der App-Id nach.
+  - **Wirksam wird es erst SIGNIERT.** GitHub Actions baut mit
+    `CODE_SIGNING_ALLOWED=NO` und sieht Entitlements nie an — ein grüner Bau
+    sagt hier also nichts, und das ist dieselbe Regel wie beim iCloud-Recht
+    seit 1.0.4. Gesehen wird es auf dem Gerät des Nutzers oder gar nicht.
+  - **Zweimal an der falschen Stelle gesucht, und beide Male ohne Not.**
+    1.0.41 baute den Wähler, 1.0.43 die Systemabfrage; beides war für sich
+    richtig und beides konnte nichts ausrichten. **Was gefehlt hat, war eine
+    Gegenprobe, die zwischen „diese App findet sie nicht" und „iOS gibt sie
+    nicht heraus" trennt** — und die stand die ganze Zeit zur Verfügung: Der
+    Wähler ist Apples eigener, also zeigt er, was das System der App zeigt.
+    Die Probe nennt sie seit 1.0.44 im Klartext („Stehen deine Schriften im
+    Wähler? Wenn nein, liegt es nicht an dieser Liste."), und die Fußzeile
+    der Schriftwahl unterscheidet „keine da" von „diese App darf sie nicht
+    sehen". **Merke: Wo zwei Erklärungen nebeneinander stehen und eine
+    fremde App dieselbe Frage sichtbar beantwortet, ist der Vergleich mit
+    ihr die billigste Messung.**
+- **Nicht gemessen (1.0.44):** Dass das Recht fehlt, ist am Unterschied
+  zwischen Pages und dem Wähler dieser App abgelesen und passt zu dem, was
+  Apple dafür verlangt. **Dass es mit dem Recht geht, ist NICHT gemessen** —
+  es braucht einen signierten Bau, und der entsteht auf dem Mac des Nutzers.
+  Ebenso offen bleibt alles, was 1.0.43 offen gelassen hat (ob die
+  Systemabfrage dann Einträge zurückgibt, ob sie sich als `UIFontDescriptor`
+  lesen lassen, ob die Anmeldung greift, ob eine so erreichte Schrift ins
+  PDF eingebettet wird). **Nichts davon als erledigt darstellen** — der
+  Befund aus „Schriften prüfen" ist hier weiterhin die Messung.
 - **Die Bildunterschrift war halb gebaut** (ab 1.0.5, Wunsch des Nutzers
   09/2026: „zu jedem Foto einen Beschreibungstext … Dies soll jedoch eine
   Option für jedes Foto sein. Kein muss."). Der Layoutautomat hielt Platz
@@ -6318,11 +6363,13 @@ Befunde, und keiner davon war Geschmack:
   Stellen im pbxproj (Debug + Release) — es gibt KEINE Skript-Bauphase.
   **Jede Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne
   Nachfrage, als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann
-  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.43 (Build 44). Dazu gesetzt:
+  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.44 (Build 45). Dazu gesetzt:
   `DEVELOPMENT_TEAM = F4989GSTWS` und
   `INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.travel`.
   Seit 1.0.4 steht dort auch `CODE_SIGN_ENTITLEMENTS = Config/Urlaubstagebuch.entitlements`
-  (iCloud Documents) — nicht entfernen, sonst liegt der Abgleich still.
+  (iCloud Documents, seit 1.0.44 zusätzlich `com.apple.developer.user-fonts`)
+  — nicht entfernen, sonst liegt der Abgleich still und die selbst
+  installierten Schriften bleiben unsichtbar.
 - `ITSAppUsesNonExemptEncryption = NO` steht in `Config/Info.plist` UND als
   Build-Einstellung — nicht entfernen.
 - Das App-Symbol rechnet `UrlaubstagebuchiOS/scripts/make-icon.py` (reines
