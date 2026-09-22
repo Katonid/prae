@@ -717,6 +717,122 @@ Bücher gefahrlos: Der erzeugte `Codable`-Leser verlangt einen Schlüssel nur
 für nicht-optionale Eigenschaften. Ein vorhandener Wert wird gelesen, ein
 fehlender wird `nil` — also „wie im Buch".
 
+## Alle Fotos auf einmal, und keines mehr in der Ablage (1.0.30)
+
+Zwei Beschwerden in einer Nachricht (09/2026): „Beim Foto-Import muss ich
+bislang die Fotos einzeln auswählen. Ich möchte, dass sie alle ausgewählt
+werden können. Das Importmodul sagt mir, dass Fotos automatisch auf die Tage
+verteilt werden und wenn das Datum fehlt, dann liegen sie in der Ablage. Das
+möchte ich nicht. Ich möchte, dass bei einem fehlenden Datum der Tag einfach
+automatisch angelegt wird."
+
+### Alle auf einmal ist nicht der Wähler, sondern der Zeitraum
+
+Apples Fotowähler kennt keinen Knopf „alle auswählen", und eine App kann ihm
+keinen einbauen: `PHPickerViewController` läuft in einem EIGENEN Prozess —
+genau das ist der Grund, warum er ohne Mediathekserlaubnis arbeiten darf. Die
+Mehrfachauswahl war übrigens nie beschränkt (`selectionLimit = 0` steht seit
+1.0.0 dort); was fehlt, ist der eine Knopf, und der gehört nicht uns.
+
+Also wird nicht nach Bildern gefragt, sondern nach einem **Zeitraum** — und
+das ist für ein Reisetagebuch ohnehin die richtige Frage: Eine Reise IST ein
+Zeitraum. `Dienste/Zeitraumeinfuhr.swift` fragt die Mediathek mit einem
+Prädikat auf `creationDate` und gibt die Treffer in ihrer Aufnahmereihenfolge
+zurück.
+
+* **Gezählt wird, bevor etwas geladen wird.** Die Zeile „Gefunden: 1284
+  Fotos" steht unter den beiden Datumsfeldern und kostet keine einzige
+  Bilddatei. Ohne sie wäre der Knopf ein Sprung ins Dunkle.
+* **Geholt wird Foto für Foto.** Tausend Rohbilder auf einmal sind mehrere
+  Gigabyte und passen nicht in den Arbeitsspeicher. `fotosAufnehmen` gibt es
+  deshalb seit 1.0.30 in zwei Fassungen, und die eine ruft die andere: Die
+  Liste ist der gewöhnliche Weg, der Strom der für Zeitraum und Fotowähler.
+  **Es gibt trotzdem nur EINE Stelle, an der ein Rohbild zu einem `Foto`
+  wird** — zwei liefen auseinander.
+* **Auch der FOTOWÄHLER geht jetzt über den Strom.** Er sammelte bis 1.0.29
+  erst alle Rohbilder in einer Liste — tragbar, solange man Fotos einzeln
+  antippt, und nicht mehr tragbar, seit der Wunsch ausdrücklich „alle"
+  lautet: Fünfhundert ausgewählte Bilder wären ein Gigabyte im
+  Arbeitsspeicher, bevor das erste auf der Platte liegt.
+* **`isNetworkAccessAllowed = true`, ausdrücklich.** Ein Foto kann in iCloud
+  liegen und nicht auf dem Gerät. Ohne diese Zeile käme gar nichts zurück,
+  ohne Fehler und ohne Erklärung — der Zeitraum sähe halb leer aus.
+* **`requestImageDataAndOrientation` darf seinen Rückruf mehrmals aufrufen.**
+  Ein zweites `resume` an einer `CheckedContinuation` ist kein Fehler,
+  sondern ein ABSTURZ. Deshalb der Wächter `Einmal`.
+* **Der Zeitraum wird am `creationDate` gemessen, und das ist ein Augenblick
+  auf der Weltuhr.** Die Grenzen entstehen in der GERÄTEZONE — dieselbe
+  ausdrückliche Ausnahme wie beim Datum aus der Mediathek. Wer in Toronto
+  fotografiert und zu Hause einliest, kann an den Rändern einen Tag
+  danebenliegen; deshalb ist der Zeitraum frei wählbar und nicht fest.
+* **Bei `.limited` liefert die Abfrage nur die freigegebenen Fotos.** Das ist
+  kein Fehler, aber es sieht aus wie einer, wenn es niemand sagt — die
+  Fußzeile sagt es.
+* **Der Fotowähler bleibt.** Ohne Mediathekserlaubnis geht der Zeitraum gar
+  nicht; der Wähler ist deshalb nicht der Notbehelf, sondern der Weg für alle
+  anderen Fälle.
+
+### „Wenn das Datum fehlt" war zweierlei
+
+Der TAG wurde immer schon angelegt: `Reise.tagIndex(fuer:)` hängt einen neuen
+Reisetag an, sobald ein Foto ein Datum trägt, das es im Buch noch nicht gibt.
+In die Ablage kam nur, was **gar kein** Datum trägt. Die Fußzeile des
+Einlesen-Blattes sagte das so verkürzt, dass es wie das Gegenteil klang; sie
+ist neu geschrieben.
+
+Bleibt der Fall, um den es wirklich geht — und der bekommt zwei Antworten:
+
+* **Eine dritte Datumsquelle: der DATEINAME** (`Dienste/Namensdatum.swift`).
+  Der häufigste Grund für ein fehlendes EXIF-Datum ist kein fehlendes Datum,
+  sondern eine Datei, die durch einen Messenger, einen Bildbearbeiter oder
+  eine Ausfuhr gelaufen ist: Die Metadaten sind weg, der NAME steht noch da,
+  und Kameras schreiben das Datum hinein (`IMG_20260812_193321.jpg`,
+  `PXL_20260812_173321123.jpg`, `2026-08-12 19.33.21.jpg`, `Foto
+  12.08.2026.jpg`). Gelesen wird nach derselben Regel wie überall: **Der Tag
+  kommt aus drei Zahlen** — ein Dateiname trägt Ziffern und keine Zeitzone,
+  hier wird nichts umgerechnet.
+* **Geraten wird dabei NICHT.** Erkannt werden drei Schreibweisen
+  (`2026-08-12` mit Trenner, `12.08.2026`, und `20260812` bzw.
+  `20260812193321` am Stück); eine Ziffernfolge anderer Länge wird nicht
+  beschnitten, und das Jahr muss zwischen 1990 und 2100 liegen — enger als
+  `Tagesdatum.gueltig`, weil ein Dateiname die schwächere Quelle ist. Aus
+  `IMG_1234.jpg` wird kein Datum. Die Alternative — irgendeine Ziffernfolge
+  als Datum zu lesen — legte ein Foto stillschweigend auf einen erfundenen
+  Tag, und das ist der Fehler, den man dem gedruckten Buch nicht ansieht.
+* **`deletingPathExtension` schneidet stur hinter dem letzten Punkt ab.** Bei
+  einem Namen ohne Endung („2026.08.12") nähme es den Tag mit. Gelesen wird
+  deshalb erst ohne Endung, dann mit.
+* **Und wenn auch dann keines übrig bleibt, entscheidet der Mensch.** Die
+  Zeile „Fotos ohne Datum" steht sichtbar im Einlesen-Blatt: Ablage oder ein
+  bestimmter Tag, vorbelegt mit dem ersten Reisetag. **Ein Foto ohne jede
+  Datumsangabe trägt keine Auskunft darüber, wann es aufgenommen wurde — an
+  WELCHEN Tag es geht, ist deshalb eine Entscheidung und keine Messung.**
+  Genau deshalb steht sie vorne und nicht im Stillen, und der Bericht nennt
+  hinterher den Tag beim Namen.
+* **Was keine Aufnahmezeit hat, kommt ans ENDE des Tages** und nicht an den
+  Anfang. Bis 1.0.29 stand dort `.distantPast`, und das war folgenlos,
+  solange ein Tag gar kein undatiertes Foto tragen konnte. Jetzt wäre es die
+  falsche Richtung: Es schöbe sich vor den Morgen eines Tages, über den es
+  nichts aussagt. Dieselbe Regel wie beim Handpunkt ohne Uhrzeit in der
+  Reisespur.
+
+### Der Weg über „Dateien"
+
+Er hat keinen eigenen Bildschirm — er ist der Dateiwähler und sonst nichts
+(`allowsMultipleSelection` steht dort seit 1.0.0 auf `true`). Für Fotos ohne
+Datum gilt deshalb dieselbe Vorgabe wie beim Foto-Import: der erste Reisetag,
+und die Ablage nur, solange es gar keinen Tag gibt. Der Bericht sagt
+hinterher, wo sie gelandet sind.
+
+### Ein Feld, das nie gelesen wird, ist ein halb gebautes Vorhaben
+
+Beim Gegenlesen gefunden und wieder ausgebaut: Der erste Entwurf trug eine
+Aufzählung `Datumsquelle` am `Bildbefund` mit — geschrieben an drei Stellen,
+gelesen an keiner. Gezählt wird ohnehin dort, wo die Quelle greift, und der
+Bericht nennt beide Zahlen („Bei 12 Fotos kam das Datum aus der
+Fotomediathek", „Bei 30 Fotos stand das Datum nur im Dateinamen"). Dieselbe
+Lehre wie beim Kartenausschnitt in 1.0.11.
+
 ## Schriften, Seitenwechsel, und die fehlende Vorlage (1.0.29)
 
 Drei Ansagen des Nutzers, 09/2026:
@@ -2247,6 +2363,18 @@ im Inspektor gab es, aber keinen Weg zu sehen, was es bewirkt.
 
 ## Offene Punkte
 
+* **Nichts davon ist auf einem Gerät gesehen** (1.0.30). Gerechnet ist, wie
+  die Namen zerlegt werden und was die Mediathek auf eine Zeitraumabfrage
+  herausgibt; ob eine bestimmte Kamera ihre Dateien so benennt, sagt erst der
+  Einfuhrbericht des Nutzers — er nennt die Zahl („Bei n Fotos stand das
+  Datum nur im Dateinamen"). Ebenso ungemessen: **wie sich ein Zeitraum mit
+  tausend Fotos anfühlt.** Das Einlesen läuft auf dem Hauptfaden und gibt
+  zwischen zwei Fotos ab, die Fortschrittszeile zählt also mit — ob das
+  flüssig bleibt und ob Bilder aus iCloud rechtzeitig eintreffen, ist nicht
+  geprüft. Und ob `PHPickerResult.itemProvider.suggestedName` auf dem Gerät
+  wirklich den ursprünglichen Dateinamen trägt, ist die Lesart der
+  Dokumentation und keine Messung; der Weg über „Dateien" und der über den
+  Zeitraum holen ihn aus verlässlicheren Quellen.
 * **Welche Schriften mit rundem a auf dem iPad des Nutzers stehen, weiß hier
   niemand** (1.0.29). Die Messung läuft auf dem Gerät; erst die Liste dort
   sagt, ob Futura Gesellschaft bekommt. Gut möglich, dass die Gruppe dünn
