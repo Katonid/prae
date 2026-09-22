@@ -717,6 +717,82 @@ Bücher gefahrlos: Der erzeugte `Codable`-Leser verlangt einen Schlüssel nur
 für nicht-optionale Eigenschaften. Ein vorhandener Wert wird gelesen, ein
 fehlender wird `nil` — also „wie im Buch".
 
+## Zwei Finger, Doppelseiten — und eine Karte, die nie kam (1.0.17)
+
+Drei Wünsche und ein Fehler, der beim Nachrechnen des dritten auffiel.
+
+### Zwei Finger zoomen die Seite
+
+Gewünscht: „Ich weiß, dass es links einen Regler gibt, aber der ist mir zu
+umständlich zu bedienen." Die Geste hängt am Inhalt der Bühne, nicht an einer
+einzelnen Seite: Gezoomt wird das Blatt und nicht, was darauf liegt.
+
+**Damit gibt es erstmals zwei Bedeutungen für dieselbe Geste.** Seit 1.0.8
+vergrößern zwei Finger über dem gewählten Foto den Bildausschnitt im Rahmen.
+Aufgelöst wird das an einer Stelle: Ist ein Foto gewählt, gehört die Geste dem
+Bild, sonst der Seite. Das ist erlaubt, weil der Unterschied **sichtbar** ist —
+die Anfasser stehen da, ein Tipp daneben hebt die Auswahl auf — und weil die
+Lupen unten links immer gehen, unabhängig von jeder Auswahl.
+
+Beim Bauen fiel daneben auf: Der geltende Maßstab war bei eingepasster Ansicht
+eine feste **0,7**, also eine Schätzung. Die Lupen sprangen damit auf einen
+Wert, der mit dem Bild auf dem Schirm nichts zu tun hatte. Jetzt wird die
+Bühnenbreite gemessen und der eingepasste Maßstab daraus gerechnet.
+
+### Doppelseiten, und das Vorsatzpapier gehört dazu
+
+Gewünscht: „Ein Buch hat ja Seiten mit Vorder- und Rückseite. Und auf das
+Titelblatt kommt ja zunächst einmal die Innenseite des Hardcovers."
+
+Das ist Buchbinderei und keine Geschmacksfrage: Ein Recto trägt eine ungerade
+Nummer, **Seite 1 liegt also rechts**. Der erste Bogen zeigt links die
+Innenseite des Umschlags — beim Hardcover das Vorsatzpapier. Die kommt von der
+Druckerei, steht in keinem PDF und zählt in keiner Seitenzahl; gezeigt wird sie
+trotzdem, denn sonst läge Seite 1 links und damit falsch. Und sie steht mit
+ihrem Namen da: Eine leere graue Fläche ohne ein Wort hielte man für einen
+Fehler.
+
+* **Gepaart wird über das ganze Buch und erst danach nach Tag gefiltert.**
+  Sonst verschöbe eine Auswahl die Paarung, und ein Tag, der auf einer linken
+  Seite anfängt, stünde plötzlich rechts. Gezeigt wird jeder Bogen, auf dem eine
+  Seite der Auswahl liegt — samt der Nachbarseite, auch wenn die zu einem
+  anderen Tag gehört. Genau so liegt das Buch auf dem Tisch.
+* **Zwischen zwei gegenüberliegenden Seiten liegt kein Abstand.** Im gebundenen
+  Buch stoßen sie am Bund aneinander; der helle Streifen dazwischen ist der
+  Anschnitt beider Seiten, und wo der endet, zeigt die rote Schnittkante.
+* **Der Umschalter steht unten neben den Lupen**, nicht in einem Menü: Er
+  gehört zur Ansicht.
+* Hat das Buch eine **ungerade** Seitenzahl, steht das unter den Bogen — mit
+  dem Hinweis, dass viele Druckdienste eine gerade verlangen. Geprüft ist das
+  nicht, gezählt schon.
+
+Am PDF ändert die Ansicht nichts: Der Bundsteg wird seit 1.0.1 ohnehin auf
+beide Ränder gerechnet.
+
+### Die Automatik läuft — die Reisespur setzte aber keine Seite neu
+
+Gefragt: „Was das Programm auszeichnen würde, wäre ja, dass automatisch Texte,
+Bilder und Koordinaten bestimmten Tagen zugeordnet werden und diese Seiten
+automatisch erstellt werden."
+
+Das tut sie, und zwar an drei Stellen — nur eine davon war kaputt. Der
+Textimport (`textVerteilen`) und die Fotoeinfuhr setzen nach dem Einlesen alle
+unberührten Tage neu. Die Reisespur rief dagegen nur „fehlende Seiten
+nachholen", **und das überspringt jeden Tag, dessen Seiten schon stehen**. Der
+Kartenblock entsteht aber erst, wenn der Tag eine Spur hat. In genau der
+Reihenfolge, die der Nutzer beschreibt — erst der Text, dann die Reisespur —
+kam damit auf keiner Seite eine Karte, und zwar stumm: Die Tage standen da, die
+Punkte standen in der Liste, gesetzt wurde nichts. Dass es beim anschließenden
+Einlesen der Fotos doch noch aufgefallen wäre, war Zufall.
+
+Dieselbe Wurzel eine Ebene tiefer: Der erste von Hand gesetzte Punkt brachte
+die Karte auch nicht. Neu gesetzt wird jetzt, wenn „hat eine Spur" umkippt —
+nicht bei jedem weiteren Punkt, und nie über Handarbeit hinweg.
+
+**Nicht gemessen:** Ob die Geste auf einem Gerät flüssig ist und sich mit dem
+Blättern verträgt, ist am Quelltext entschieden und nicht gesehen. Der Zoom
+verfolgt den Mittelpunkt der Geste nicht — gezoomt wird um die obere linke Ecke.
+
 ## Nur bauen, was zu sehen ist (1.0.16)
 
 Gemeldet, gleich nach 1.0.15: „Erst ging es. Als ich auf eine andere Seite

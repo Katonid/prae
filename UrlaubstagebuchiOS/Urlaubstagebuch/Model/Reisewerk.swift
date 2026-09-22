@@ -158,14 +158,86 @@ final class Reisewerk: ObservableObject, Identifiable {
         return folge
     }
 
+    // Gehört diese Seite zur gerade gewählten Auswahl? Ist kein Tag
+    // gewählt, gehört das ganze Buch dazu.
+    func inAuswahl(_ seite: Buchseite) -> Bool {
+        guard let gewaehlt = gewaehlterTag else { return true }
+        if gewaehlt == Self.titelseitenKennung { return seite.tag == nil }
+        return seite.tag?.id == gewaehlt
+    }
+
     // Die Seiten, die gerade gezeigt werden. Gefiltert wird nach dem
     // gewählten Tag; ist keiner gewählt, ist es das ganze Buch.
     var sichtbareSeiten: [Buchseite] {
         messer.sammelt("Seitenliste") { () -> [Buchseite] in
-            let alle = seitenfolge
-            guard let gewaehlt = gewaehlterTag else { return alle }
-            if gewaehlt == Self.titelseitenKennung { return alle.filter { $0.tag == nil } }
-            return alle.filter { $0.tag?.id == gewaehlt }
+            self.seitenfolge.filter { self.inAuswahl($0) }
+        }
+    }
+
+    // MARK: - Doppelseiten
+
+    // Zwei Seiten, wie sie im aufgeschlagenen Buch nebeneinanderliegen.
+    //
+    // Die Paarung ist keine Geschmacksfrage, sondern Buchbinderei: Seite 1
+    // ist eine RECHTE Seite (ein Recto), und jede rechte Seite trägt eine
+    // ungerade Nummer. Der erste Bogen zeigt also rechts die Seite 1 und
+    // links — nichts: Dort liegt im gebundenen Buch die INNENSEITE DES
+    // UMSCHLAGS (beim Hardcover das Vorsatzpapier), und die kommt von der
+    // Druckerei und steht in keinem PDF. Sie wird deshalb gezeigt und als
+    // solche benannt, aber nicht mitgezählt.
+    struct Doppelseite: Identifiable {
+        // Der laufende Bogen: 0 trägt rechts die Seite 1, 1 die Seiten 2
+        // und 3, und so weiter.
+        let bogen: Int
+        var links: Buchseite?
+        var rechts: Buchseite?
+
+        var id: Int { bogen }
+        // Links liegt die Innenseite des Umschlags — nur auf dem ersten
+        // Bogen, und nur dort, weil davor keine Seite steht.
+        var beginntMitUmschlag: Bool { bogen == 0 && links == nil }
+        // Und rechts liegt die Innenseite des RÜCKEN-Umschlags: Eine
+        // fehlende rechte Seite kann es nur am Ende des Buches geben, denn
+        // gebaut wird der Bogen aus fortlaufenden Nummern.
+        var endetMitUmschlag: Bool { rechts == nil }
+    }
+
+    var doppelseiten: [Doppelseite] {
+        let alle = seitenfolge
+        guard !alle.isEmpty else { return [] }
+        var nachNummer: [Int: Buchseite] = [:]
+        for seite in alle { nachNummer[seite.nummer] = seite }
+        let letzte = alle.map(\.nummer).max() ?? 0
+        var bogen: [Doppelseite] = []
+        var zaehler = 0
+        while 2 * zaehler <= letzte {
+            // Links die gerade, rechts die ungerade Nummer — nie umgekehrt.
+            let links = nachNummer[2 * zaehler]
+            let rechts = nachNummer[2 * zaehler + 1]
+            if links != nil || rechts != nil || zaehler == 0 {
+                bogen.append(Doppelseite(bogen: zaehler, links: links, rechts: rechts))
+            }
+            zaehler += 1
+        }
+        return bogen
+    }
+
+    // Gepaart wird über das GANZE Buch und erst danach gefiltert.
+    //
+    // Andernfalls verschöbe eine Auswahl die Paarung: Fängt ein Tag auf
+    // einer linken Seite an, stünde er bei einer Paarung innerhalb der
+    // Auswahl plötzlich rechts, und die Doppelseite zeigte etwas, das im
+    // gedruckten Buch nie so aussieht. Gezeigt wird deshalb jeder Bogen,
+    // auf dem eine Seite der Auswahl liegt — samt der Nachbarseite, auch
+    // wenn die zu einem anderen Tag gehört. Genau so liegt das Buch dann
+    // auch auf dem Tisch.
+    var sichtbareDoppelseiten: [Doppelseite] {
+        messer.sammelt("Seitenliste") { () -> [Doppelseite] in
+            self.doppelseiten.filter { bogen in
+                if let links = bogen.links, self.inAuswahl(links) { return true }
+                if let rechts = bogen.rechts, self.inAuswahl(rechts) { return true }
+                return false
+            }
         }
     }
 
@@ -710,7 +782,21 @@ final class Reisewerk: ObservableObject, Identifiable {
             geaendert += 1
         }
         reise.tage.sort { $0.datum < $1.datum }
-        fehlendeSeitenNachholen()
+        // NEU SETZEN, nicht bloß fehlende Seiten nachholen (ab 1.0.17).
+        //
+        // Bis 1.0.16 stand hier `fehlendeSeitenNachholen()`, und das
+        // überspringt jeden Tag, dessen Seitenliste schon gefüllt ist. Der
+        // Kartenblock entsteht aber erst, wenn der Tag eine Spur HAT
+        // (`Layoutautomat.seiten`: `tag.karteZeigen && tag.hatSpur`). Wer
+        // also in der vom Nutzer beschriebenen Reihenfolge arbeitet — erst
+        // der Text, dann die Reisespur — bekam auf keiner Seite eine Karte,
+        // und zwar stumm: Die Tage waren angelegt, die Punkte standen in
+        // der Liste, nur gesetzt wurde nichts. Dass es beim Einlesen der
+        // FOTOS danach doch noch auffiel, war Zufall — dieser Weg rief
+        // `alleNeuAnordnen` von Anfang an.
+        // `nurUnberuehrte` hält die Handarbeit an: Ein Tag, an dem jemand
+        // geschoben hat, bleibt, wie er ist.
+        alleNeuAnordnen(nurUnberuehrte: true)
         var satz = "\(geaendert) Tage haben eine neue Spur"
         if angelegt > 0 { satz += ", \(angelegt) davon neu angelegt" }
         if uebersprungen > 0 { satz += "; \(uebersprungen) übersprungen, weil es den Tag nicht gibt" }
@@ -727,9 +813,22 @@ final class Reisewerk: ObservableObject, Identifiable {
         )
     }
 
+    // Ob ein Tag eine Spur HAT, entscheidet über den Kartenblock. Kippt das
+    // um, muss die Seite neu gesetzt werden — sonst bleibt die Karte aus
+    // oder steht leer da. Nur beim UMKIPPEN: Ein Punkt mehr in einer
+    // vorhandenen Spur soll die Seite nicht durcheinanderwerfen, und
+    // `erzwingen: false` hält die Handarbeit ohnehin an.
+    private func spurGeaendert(_ tagID: UUID, hatteSpur: Bool) {
+        guard let t = tagIndex(tagID) else { return }
+        if reise.tage[t].hatSpur != hatteSpur {
+            neuAnordnen(tagID, erzwingen: false)
+        }
+    }
+
     func punktHinzufuegen(_ tagID: UUID, ort: Koordinate, name: String, zeit: Date?) {
         guard let t = tagIndex(tagID) else { return }
         merken()
+        let hatteSpur = reise.tage[t].hatSpur
         let punkt = Reisepunkt(koordinate: ort, name: name, zeit: zeit, quelle: .vonHand)
         if let zeit {
             let stelle = reise.tage[t].spur.firstIndex { ($0.zeit ?? .distantFuture) > zeit }
@@ -738,12 +837,15 @@ final class Reisewerk: ObservableObject, Identifiable {
         } else {
             reise.tage[t].spur.append(punkt)
         }
+        spurGeaendert(tagID, hatteSpur: hatteSpur)
     }
 
     func punkteLoeschen(_ tagID: UUID, stellen: IndexSet) {
         guard let t = tagIndex(tagID) else { return }
         merken()
+        let hatteSpur = reise.tage[t].hatSpur
         reise.tage[t].spur.remove(atOffsets: stellen)
+        spurGeaendert(tagID, hatteSpur: hatteSpur)
     }
 
     func punkteVerschieben(_ tagID: UUID, von: IndexSet, nach: Int) {
