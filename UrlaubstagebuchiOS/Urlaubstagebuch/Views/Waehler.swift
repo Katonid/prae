@@ -1,5 +1,6 @@
 import PhotosUI
 import SwiftUI
+import UIKit
 import UniformTypeIdentifiers
 
 // Der Fotowähler — bewusst der von UIKit und nicht SwiftUIs `PhotosPicker`.
@@ -87,4 +88,62 @@ struct Teilenblatt: UIViewControllerRepresentable {
     }
 
     func updateUIViewController(_ blatt: UIActivityViewController, context: Context) {}
+}
+
+// DEN SYSTEM-DRUCKDIALOG ZEIGEN (ab 1.0.37).
+//
+// Ansage des Nutzers, 09/2026: „das Reisetagebuch auf dem heimischen
+// Drucker doppelseitig als Broschüre drucken zu können". Die Datei dafür
+// baut die App seit 1.0.27 — was fehlte, war der Weg zum Drucker. Sie erst
+// zu sichern, dann in „Dateien" zu suchen und von dort zu drucken, ist ein
+// Umweg um genau den Knopf herum, um den gebeten wurde.
+//
+// **An SwiftUI vorbei.** `UIPrintInteractionController` ist kein
+// View-Controller, den man in ein `.sheet` hängen kann — er zeigt sich
+// selbst. Eingebettet bliebe das Blatt schwarz; dieselbe Lehre wie beim
+// Teilen-Blatt und beim Dateiwähler in Tafelbild.
+//
+// **`duplex` ist ein WUNSCH, keine Einstellung.** Was der Drucker wirklich
+// tut und über welche Kante er wendet, entscheidet der Mensch im Dialog;
+// die App kann das weder setzen noch auslesen. Deshalb steht daneben der
+// Schalter „Rückseiten um 180° drehen" mit einem Satz dazu — und keine
+// Automatik, die bei der Hälfte aller Geräte jede zweite Seite auf den Kopf
+// stellt.
+enum Druckauftrag {
+    @MainActor
+    static func zeigen(_ adresse: URL, titel: String, beidseitig: Bool) {
+        guard UIPrintInteractionController.isPrintingAvailable else { return }
+        let auftrag = UIPrintInteractionController.shared
+        let angaben = UIPrintInfo(dictionary: nil)
+        angaben.outputType = .general
+        angaben.jobName = titel.isEmpty ? "Reisebuch" : titel
+        // Die lange Kante ist die gewöhnliche Wendung und die, für die der
+        // Schalter in der Ausgabe aus bleibt. Wer seinen Drucker anders
+        // eingestellt hat, sieht es im Dialog und ändert es dort.
+        angaben.duplex = beidseitig ? .longEdge : .none
+        auftrag.printInfo = angaben
+        auftrag.printingItem = adresse
+        // Auf dem iPad braucht der Dialog einen Anker. Ohne ihn wirft UIKit;
+        // genommen wird die Ansicht der SZENE DIESER App und nie
+        // `connectedScenes.first` — das ist eine ungeordnete Menge, und mit
+        // einem Beamer am Gerät griffe es mal die eine und mal die andere
+        // (dieselbe Falle wie bei Tafelbilds Dokumentenkamera).
+        guard let fenster = aktivesFenster() else { return }
+        if UIDevice.current.userInterfaceIdiom == .pad {
+            let flaeche = fenster.bounds
+            let anker = CGRect(x: flaeche.midX - 1, y: flaeche.midY - 1, width: 2, height: 2)
+            auftrag.present(from: anker, in: fenster, animated: true, completionHandler: nil)
+        } else {
+            auftrag.present(animated: true, completionHandler: nil)
+        }
+    }
+
+    @MainActor
+    private static func aktivesFenster() -> UIWindow? {
+        UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .filter { $0.session.role == .windowApplication && $0.activationState == .foregroundActive }
+            .flatMap(\.windows)
+            .first { $0.isKeyWindow }
+    }
 }

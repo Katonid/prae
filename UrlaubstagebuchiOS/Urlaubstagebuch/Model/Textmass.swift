@@ -43,6 +43,35 @@ enum Textmass {
         return sichtbar.length
     }
 
+    // WIE VIELE ZEICHEN AUF EINER ZEILE STEHEN — gemessen, nicht geschätzt
+    // (ab 1.0.37).
+    //
+    // Die Zeilenlänge ist die eine Zahl, an der sich Lesbarkeit festmachen
+    // lässt, und sie ist der Grund für die Höchstbreite der Textspalte
+    // (`Gestaltung.textspaltenanteil`). Eine Zahl, die eine Einstellung
+    // rechtfertigt, darf keine Behauptung sein: Gezählt wird mit demselben
+    // CoreText-Umbruch, der hinterher zeichnet.
+    //
+    // Die LETZTE Zeile bleibt draußen. Sie endet dort, wo der Text aufhört,
+    // und wäre bei einem kurzen Absatz die halbe Messung — bei einem Text
+    // aus lauter Einzeilern gäbe es dann gar nichts zu messen, und genau der
+    // kommt hier vor (ein hart umbrochenes Tagebuch). Bleibt danach nichts
+    // übrig, wird die einzige Zeile gezählt, statt null zurückzugeben.
+    static func zeichenJeZeile(_ text: String, bild: Schriftbild, breite: Double) -> Int {
+        guard !text.isEmpty, breite > 1 else { return 0 }
+        let setzer = rahmensetzer(text, bild: bild)
+        let hoch = max(hoehe(text, bild: bild, breite: breite), 1) + bild.zeilenhoehe * 2
+        let pfad = CGPath(rect: CGRect(x: 0, y: 0, width: breite, height: hoch), transform: nil)
+        let rahmen = CTFramesetterCreateFrame(setzer, CFRange(location: 0, length: 0), pfad, nil)
+        guard let zeilen = CTFrameGetLines(rahmen) as? [CTLine], !zeilen.isEmpty else { return 0 }
+        // Eine Zeile, die mit einem Zeilenwechsel endet, ist ein
+        // Absatzschluss und damit genauso ein Sonderfall wie die letzte.
+        let laengen = zeilen.map { CTLineGetStringRange($0).length }
+        let voll = laengen.count > 1 ? Array(laengen.dropLast()) : laengen
+        guard !voll.isEmpty else { return 0 }
+        return Int((Double(voll.reduce(0, +)) / Double(voll.count)).rounded())
+    }
+
     // Wo geteilt wurde. Gebraucht wird das nicht zum Rechnen, sondern zum
     // Hinschreiben: Eine Seite, die an einer Wortgrenze aufhört, sieht
     // anders aus als eine, die an einem Absatz aufhört, und wer sich
@@ -56,30 +85,46 @@ enum Textmass {
 
     // Teilt einen Text an der Stelle, an der die Seite voll ist.
     //
-    // ZUERST wird ein ABSATZ gesucht (Ansage des Nutzers, 09/2026: „Dabei
-    // wäre es schön, wenn an einem bestehenden Absatz umgebrochen
-    // wird."). Ein Absatz ist eine gedankliche Einheit; mitten in ihm
-    // umzubrechen ist im Buch zu sehen, auch wenn kein Wort verloren geht.
+    // DER ABSATZ GEWINNT. Immer (ab 1.0.37).
     //
-    // Der Absatz gewinnt aber NICHT um jeden Preis: Steht die letzte
-    // Absatzgrenze weit oben auf der Seite — ein einziger langer Absatz
-    // füllt den Rest —, bliebe unten eine große weiße Fläche stehen,
-    // und die sieht nach Abbruch aus. Gemessen wird deshalb, wie hoch der
-    // Kopf bis zu dieser Grenze WIRD, und verglichen mit dem Platz, den es
-    // gibt. Bleibt weniger als `mindestfuellung` davon gefüllt, wird wie
-    // bisher an der Wortgrenze geteilt. Die Zahl ist gewählt und nicht
-    // gemessen: 0,62 lässt höchstens gut ein Drittel Seite frei.
+    // Ansage des Nutzers, 09/2026, zum zweiten Mal: „Ich hatte aber gesagt,
+    // dass die Trennstellen dabei nach den Absätzen sein sollen. Ich finde
+    // aber Trennstellen, die quasi mitten im Text passieren. Das möchte ich
+    // nicht."
+    //
+    // Er hat recht, und die Stelle, an der es schiefging, ist auszurechnen:
+    // Bis 1.0.36 stand hier ein `mindestfuellung` von 0,62 — die Absatzgrenze
+    // galt nur, wenn der Kopf danach noch mindestens 62 Prozent des Kastens
+    // füllte, sonst wurde an der WORTgrenze geteilt. Gebaut wurde das in
+    // 1.0.14 gegen eine große weiße Fläche am Fuß der Seite.
+    //
+    // DIESE ABWÄGUNG IST SEIT 1.0.35 HINFÄLLIG. Damals bestand eine Seite aus
+    // einer Textspalte und darunter aus Fotoreihen; blieb der Text kurz, blieb
+    // unten Papier. Seither füllt `Mosaik` die Seite: Was der Text nicht
+    // braucht, bekommen die Bilder, und `seiteFuellen` nimmt so lange ein Bild
+    // dazu, bis der Platz aufgeht. Die weiße Fläche, gegen die
+    // `mindestfuellung` gebaut war, gibt es also gar nicht mehr — die Regel
+    // stand noch da und hat nur noch geschadet.
+    //
+    // Sie ist deshalb ERSATZLOS entfernt und nicht auf 0 gestellt: Ein
+    // Parameter, der nur noch einen Wert haben darf, wird irgendwann wieder
+    // ein anderer (dieselbe Regel wie beim Sperrmechanismus in Schulalarm
+    // 1.1.0).
+    //
+    // An der Wortgrenze wird nur noch geteilt, wenn im Kasten ÜBERHAUPT keine
+    // Absatzgrenze liegt — ein einziger Absatz, der für sich schon länger ist
+    // als der Platz. Dann gibt es keine Wahl; die Druckprüfung zählt diese
+    // Stellen und nennt Tag und Seite, statt sie stillschweigend hinzunehmen.
     static func teilen(_ text: String, bild: Schriftbild, groesse: CGSize,
-                       anAbsatz: Bool = true, mindestfuellung: Double = 0.62)
+                       anAbsatz: Bool = true)
         -> (kopf: String, rest: String)
     {
-        let geteilt = teilenMitArt(text, bild: bild, groesse: groesse,
-                                   anAbsatz: anAbsatz, mindestfuellung: mindestfuellung)
+        let geteilt = teilenMitArt(text, bild: bild, groesse: groesse, anAbsatz: anAbsatz)
         return (geteilt.kopf, geteilt.rest)
     }
 
     static func teilenMitArt(_ text: String, bild: Schriftbild, groesse: CGSize,
-                             anAbsatz: Bool = true, mindestfuellung: Double = 0.62)
+                             anAbsatz: Bool = true)
         -> (kopf: String, rest: String, art: Schnittart)
     {
         let laenge = passtBis(text, bild: bild, groesse: groesse)
@@ -91,12 +136,9 @@ enum Textmass {
             let kopf = String(utf16: Array(utf16[0..<grenze]))
                 .trimmingCharacters(in: .whitespacesAndNewlines)
             if !kopf.isEmpty {
-                let kopfhoehe = Self.hoehe(kopf, bild: bild, breite: groesse.width)
-                if kopfhoehe >= groesse.height * mindestfuellung {
-                    let rest = String(utf16: Array(utf16[grenze...]))
-                        .trimmingCharacters(in: .whitespacesAndNewlines)
-                    if !rest.isEmpty { return (kopf, rest, .absatz) }
-                }
+                let rest = String(utf16: Array(utf16[grenze...]))
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                if !rest.isEmpty { return (kopf, rest, .absatz) }
             }
         }
 

@@ -18,6 +18,9 @@ struct Kartenbild: Codable, Hashable {
     // Beschriftungen sein sollen"). Was davon wirklich geht, steht an
     // `Kartenbeschriftung` — und was nicht geht, steht dort auch.
     var beschriftung: Kartenbeschriftung = .wenige
+    // Wie die Reisepunkte auf der Karte gezeichnet werden — oder ob
+    // überhaupt (ab 1.0.37). Die Begründung steht an `Spurpunktstil`.
+    var punktstil: Spurpunktstil = .dezent
     // Nur für `eigene`: die Adressvorlage und der Lizenzhinweis, der unter
     // der Karte stehen muss. Beides kann nur der Nutzer wissen.
     var vorlage: String = ""
@@ -89,24 +92,31 @@ struct Kartenbild: Codable, Hashable {
         stil = b.wert(.stil, .gedaempft)
         helle = b.wert(.helle, .hell)
         beschriftung = b.wert(.beschriftung, .wenige)
+        punktstil = b.wert(.punktstil, .dezent)
         vorlage = b.wert(.vorlage, "")
         eigenerNachweis = b.wert(.eigenerNachweis, "")
     }
 
     init(quelle: Kartenquelle = .apple, stil: Kartenstil = .gedaempft,
          helle: Kartenhelle = .hell, beschriftung: Kartenbeschriftung = .wenige,
+         punktstil: Spurpunktstil = .dezent,
          vorlage: String = "", eigenerNachweis: String = "")
     {
         self.quelle = quelle
         self.stil = stil
         self.helle = helle
         self.beschriftung = beschriftung
+        self.punktstil = punktstil
         self.vorlage = vorlage
         self.eigenerNachweis = eigenerNachweis
     }
 
     var merkmal: String {
-        "\(quelle.rawValue)|\(stil.rawValue)|\(helle.rawValue)|\(beschriftung.rawValue)|\(vorlage)"
+        // `punktstil` gehört hier hinein, weil er das BILD verändert. Eine
+        // vergessene Stelle im Schlüssel zeigt nach dem Umstellen das Bild
+        // von vorhin — und das sieht aus, als tue der Schalter nichts.
+        "\(quelle.rawValue)|\(stil.rawValue)|\(helle.rawValue)|\(beschriftung.rawValue)"
+            + "|\(punktstil.rawValue)|\(vorlage)"
     }
 
     // Der Aufbau für Apples Aufnahme — Stil UND Beschriftung zusammen.
@@ -143,6 +153,77 @@ struct Kartenbild: Codable, Hashable {
             let auf = MKHybridMapConfiguration(elevationStyle: .flat)
             auf.pointOfInterestFilter = beschriftung.filter
             return auf
+        }
+    }
+}
+
+// WIE DIE REISEPUNKTE AUF DER KARTE AUSSEHEN (ab 1.0.37).
+//
+// Befund des Nutzers, 09/2026: „Die Reisespur setzt sich offenbar aus den
+// verschiedenen Reisepunkten zusammen. Diese Punkte haben eine bestimmte
+// Farbe und einen Kreis um sich herum. Das sieht etwas merkwürdig aus. Ich
+// habe noch keine richtige Lösung dafür. Vielleicht verzichtet man ganz auf
+// die Punkte oder hat zumindest die Option, diese abzustellen und
+// stattdessen nur eine Linie dargestellt zu bekommen. Oder der Kreis um die
+// Punkte hat einen nicht ganz so dicken Rand bzw. dieselbe Farbe wie die
+// Punkte."
+//
+// Was er beschreibt, ist am Quelltext abzulesen und kein Eindruck: Bis
+// 1.0.36 wurde je Punkt ein VOLLER weißer Kreis gezeichnet und darauf ein
+// farbiger Kern von 58 Prozent des Radius. Aus dem Rest wurde ein weißer
+// Ring, der fast ein Viertel des Punktdurchmessers breit ist — bei einer
+// Tagesspur aus dreißig Fotos also eine Perlenkette aus weißen Ringen über
+// einer dünnen Linie. Der Ring war als KONTRAST gedacht (dieselbe Rechnung
+// wie unter der Linie); als Zeichnung hat er die Karte übernommen.
+//
+// Alle drei Auswege, die der Nutzer nennt, stehen hier — und weil er
+// ausdrücklich sagt, er habe noch keine Lösung, ist keiner davon
+// weggelassen. Vorgabe ist `dezent`: die Punkte in der Linienfarbe, mit
+// einer haardünnen Kontur statt eines Rings. Sie sind damit noch zu sehen
+// (ein Punkt ist eine Auskunft — dort stand jemand), treten aber hinter die
+// Linie zurück.
+enum Spurpunktstil: String, Codable, CaseIterable, Identifiable {
+    // Gar keine Punkte — nur die Linie.
+    case ohne
+    // Volle Punkte in der Linienfarbe, mit haardünner heller Kontur.
+    case dezent
+    // Nur Anfang und Ziel. Die beiden sind eine Auskunft, die die
+    // Zwischenpunkte nicht geben: Wo der Tag anfing und wo er endete.
+    case enden
+    // Der Ring wie bis 1.0.36 — nur dünner. Wer ihn gewohnt ist oder eine
+    // sehr unruhige Karte hat, auf der die Punkte sonst untergehen.
+    case ring
+
+    var id: String { rawValue }
+
+    var name: String {
+        switch self {
+        case .ohne: return "Keine \u{2014} nur die Linie"
+        case .dezent: return "Dezent, in der Linienfarbe"
+        case .enden: return "Nur Anfang und Ziel"
+        case .ring: return "Mit hellem Ring"
+        }
+    }
+
+    var erklaerung: String {
+        switch self {
+        case .ohne:
+            return "Die Strecke wird als durchgehende Linie gezeichnet. Wo einzelne Punkte liegen, ist dann nicht mehr zu sehen."
+        case .dezent:
+            return "Kleine volle Punkte in derselben Farbe wie die Linie, mit einer haardünnen hellen Kontur, damit sie über dunklem Untergrund nicht verschwinden."
+        case .enden:
+            return "Nur der erste und der letzte Punkt des Tages werden gezeichnet, dazwischen nur die Linie."
+        case .ring:
+            return "Jeder Punkt bekommt einen hellen Ring. Deutlich zu sehen, aber bei vielen Punkten wird daraus eine Perlenkette."
+        }
+    }
+
+    // Wird an DIESER Stelle überhaupt ein Punkt gezeichnet?
+    func zeichnet(stelle: Int, von anzahl: Int) -> Bool {
+        switch self {
+        case .ohne: return false
+        case .dezent, .ring: return true
+        case .enden: return stelle == 0 || stelle == anzahl - 1
         }
     }
 }

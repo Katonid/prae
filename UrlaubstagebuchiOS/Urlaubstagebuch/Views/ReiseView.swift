@@ -113,6 +113,7 @@ struct ReiseView: View {
         case seitenformat
         case bedienung
         case ausgabe
+        case broschuere
         case tagInhalt(UUID)
         case spur(UUID)
         case seiten(UUID)
@@ -134,6 +135,7 @@ struct ReiseView: View {
             case .seitenformat: return "format"
             case .bedienung: return "bedienung"
             case .ausgabe: return "ausgabe"
+            case .broschuere: return "broschuere"
             case let .tagInhalt(id): return "tag-\(id)"
             case let .spur(id): return "spur-\(id)"
             case let .seiten(id): return "seiten-\(id)"
@@ -939,6 +941,20 @@ struct ReiseView: View {
     private var mehrMenue: some View {
         Menu {
             Button("Als PDF sichern…", systemImage: "square.and.arrow.up") { blatt = .ausgabe }
+            // EIN EIGENER MENÜPUNKT FÜR DIE BROSCHÜRE (ab 1.0.37).
+            //
+            // Es gibt sie seit 1.0.27, vollständig gebaut — gefunden hat
+            // sie niemand (Ansage des Nutzers, 09/2026). Sie lag drei
+            // Ebenen tief: hinter „…", darin hinter „Als PDF sichern…"
+            // (klingt nach einer Datei, nicht nach einem Drucker) und dort
+            // hinter einem zugeklappten Picker namens „Umfang" (klingt nach
+            // Seitenzahl). Sechste Auflage von „es war da, man fand es
+            // nicht" — dieselbe Lehre wie beim Gruppenchat in Schulalarm,
+            // beim Sichtumschalter der Abfahrtstafel und bei den
+            // Foto-Einstellungen in 1.0.10.
+            //
+            // Kein zweiter Bildschirm: derselbe, nur mit Vorwahl.
+            Button("Broschüre drucken…", systemImage: "printer") { blatt = .broschuere }
             Button("Buch als Datei sichern…", systemImage: "shippingbox") { buchSichern() }
             // ERST SICHERN, DANN KOPIEREN (ab 1.0.33).
             //
@@ -1268,6 +1284,8 @@ struct ReiseView: View {
             BedienungView()
         case .ausgabe:
             AusgabeView(werk: werk)
+        case .broschuere:
+            AusgabeView(werk: werk, vorwahl: .broschuere)
         case let .tagInhalt(id):
             TagInhaltView(werk: werk, tagID: id)
         case let .spur(id):

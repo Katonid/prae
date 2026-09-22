@@ -148,18 +148,50 @@ actor Kartenwerk {
                 weg.stroke()
             }
 
-            let radius = max(groesse.width / 110, 3.4)
-            for (stelle, punkt) in stellen.enumerated() {
-                let gross = stelle == 0 || stelle == stellen.count - 1
-                let r = gross ? radius * 1.5 : radius
-                let kreis = UIBezierPath(ovalIn: CGRect(x: punkt.x - r, y: punkt.y - r,
-                                                        width: r * 2, height: r * 2))
-                feder.setFillColor(UIColor.white.cgColor)
-                kreis.fill()
-                feder.setFillColor(linienfarbe.uiFarbe.cgColor)
-                let innen = UIBezierPath(ovalIn: CGRect(x: punkt.x - r * 0.58, y: punkt.y - r * 0.58,
-                                                        width: r * 1.16, height: r * 1.16))
-                innen.fill()
+            // DIE PUNKTE — und ob es sie überhaupt gibt (ab 1.0.37).
+            //
+            // Bis 1.0.36 war je Punkt ein VOLLER weißer Kreis gezeichnet und
+            // darauf ein farbiger Kern von 58 Prozent des Radius; der Rest
+            // wurde zu einem weißen Ring von fast einem Viertel des
+            // Durchmessers. Bei dreißig Fotopunkten an einem Tag ergab das
+            // eine Perlenkette, die die Karte übernahm. Was hier steht,
+            // entscheidet `Spurpunktstil` — dort steht auch, warum es alle
+            // vier Fassungen gibt.
+            let stil = kartenbild.punktstil
+            if stil != .ohne {
+                let radius = max(groesse.width / 130, 2.8)
+                for (stelle, punkt) in stellen.enumerated() {
+                    guard stil.zeichnet(stelle: stelle, von: stellen.count) else { continue }
+                    // Anfang und Ziel bleiben größer: Sie sagen, wo der Tag
+                    // anfing und wo er endete, und das ist mehr als „hier
+                    // war jemand auch".
+                    let gross = stelle == 0 || stelle == stellen.count - 1
+                    let r = gross ? radius * 1.5 : radius
+                    let kreis = UIBezierPath(ovalIn: CGRect(x: punkt.x - r, y: punkt.y - r,
+                                                            width: r * 2, height: r * 2))
+                    if stil == .ring {
+                        // Der alte Ring, aber dünner: ein Fünftel des
+                        // Radius statt zweier Fünftel.
+                        feder.setFillColor(UIColor.white.cgColor)
+                        kreis.fill()
+                        feder.setFillColor(linienfarbe.uiFarbe.cgColor)
+                        let kern = r * 0.80
+                        UIBezierPath(ovalIn: CGRect(x: punkt.x - kern, y: punkt.y - kern,
+                                                    width: kern * 2, height: kern * 2)).fill()
+                    } else {
+                        // Voll in der Linienfarbe, mit einer haardünnen
+                        // hellen Kontur. Sie ist nicht Zierde, sondern
+                        // derselbe Grund wie unter der Linie: Ein dunkler
+                        // Punkt über dunklem Wald verschwindet sonst. Nur
+                        // ist eine Kontur kein Ring — sie liegt AUF der
+                        // Kante und nimmt dem Punkt nichts weg.
+                        feder.setFillColor(linienfarbe.uiFarbe.cgColor)
+                        kreis.fill()
+                        feder.setStrokeColor(UIColor.white.withAlphaComponent(0.8).cgColor)
+                        kreis.lineWidth = max(groesse.width / 900, 0.6)
+                        kreis.stroke()
+                    }
+                }
             }
 
             zeichneNachweis(kartenbild.nachweis, groesse: groesse, feder: feder)
