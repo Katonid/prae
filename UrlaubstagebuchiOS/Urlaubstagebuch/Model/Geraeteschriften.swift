@@ -24,6 +24,16 @@ import UIKit
 // herauskommt, wird für diesen Prozess angemeldet; danach steht es in
 // `UIFont.familyNames` und damit in der gewohnten Liste.
 //
+// UND DARÜBER STEHT EIN RECHT (ab 1.0.44). Ohne
+// `com.apple.developer.user-fonts` = `system-installed-fonts` gibt iOS einer
+// App die selbst installierten Schriften ÜBERHAUPT NICHT heraus — weder über
+// diese Abfrage noch über den Wähler. Gemessen an drei Bildschirmfotos des
+// Nutzers (22.09.2026): In Pages stehen Poppins, Proxima Nova, Publico Text
+// und Quicksand; im Wähler von iOS, den diese App zeigt, springt dieselbe
+// Liste von „PingFang TC" auf „Rockwell". Das Recht steht seit 1.0.44 in
+// `Config/Urlaubstagebuch.entitlements`; wirksam wird es erst in einem
+// SIGNIERTEN Bau, und der Bau in GitHub Actions sieht Entitlements nie an.
+//
 // **Gemessen ist das hier nicht.** Ob diese Abfrage auf dem iPad des
 // Nutzers etwas hergibt, weiß hier niemand — deshalb behauptet diese Datei
 // nichts, sondern ZÄHLT: Sie meldet an, sieht danach nach, was der Prozess
@@ -221,8 +231,16 @@ enum Geraeteschriften {
         text += "Davon als Deskriptor lesbar: \(fund.deskriptoren.count) "
             + "in \(fund.familien.count) Familien.\n"
         if fund.familien.isEmpty {
-            text += "Keine Familie genannt. Dann gibt diese Abfrage auf diesem Gerät "
-                + "nichts her, und es bleibt der Wähler von iOS.\n"
+            text += "Keine Familie genannt.\n"
+            text += "Erster Verdacht: das Recht \u{201E}com.apple.developer.user-fonts\u{201C} "
+            text += "(system-installed-fonts). Ohne das gibt iOS einer App die selbst "
+            text += "installierten Schriften gar nicht heraus \u{2014} auch nicht über den "
+            text += "Wähler. Es steht seit 1.0.44 in der Entitlements-Datei und wirkt nur in "
+            text += "einem signierten Bau.\n"
+            text += "Gegenprobe ohne Fachwissen: Tippe unten auf "
+            text += "\u{201E}Schrift vom Gerät wählen\u{2026}\u{201C}. Stehen deine eigenen "
+            text += "Schriften dort, liegt es nicht am Recht; fehlen sie dort auch, dann "
+            text += "schon.\n"
         } else {
             text += "Familien: " + fund.familien.prefix(25).joined(separator: ", ")
             if fund.familien.count > 25 { text += " \u{2026}" }

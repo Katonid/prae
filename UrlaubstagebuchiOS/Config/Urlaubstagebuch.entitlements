@@ -23,5 +23,26 @@
 	<array>
 		<string>iCloud.de.familie.urlaubstagebuch</string>
 	</array>
+
+	<!-- SELBST INSTALLIERTE SCHRIFTEN SIEHT EINE APP NUR MIT DIESEM RECHT
+	     (ab 1.0.44). Gemessen an drei Bildschirmfotos des Nutzers vom
+	     22.09.2026: In Pages stehen Poppins, Proxima Nova, Publico Text und
+	     Quicksand in der Liste; im Schriftwähler von iOS — demselben
+	     Wähler, den diese App zeigt — springt die Liste von „PingFang TC"
+	     unmittelbar auf „Rockwell". Es fehlt also nicht die Liste dieser
+	     App, es fehlen die Schriften in dem, was iOS ihr überhaupt
+	     herausgibt.
+
+	     Ohne dieses Recht sieht eine App ausschließlich die Schriften des
+	     Systems und die, die sie selbst im Bündel mitbringt — daran ändert
+	     auch der Wähler nichts, und `CTFontManagerCopyRegisteredFontDescriptors`
+	     gibt dann ebenfalls nichts her. Apple verlangt dafür keine
+	     Bewilligung (anders als bei Schulalarms kritischen Hinweisen); in
+	     Xcode ist es die Fähigkeit „Fonts" mit dem Haken „Use Installed
+	     Fonts". -->
+	<key>com.apple.developer.user-fonts</key>
+	<array>
+		<string>system-installed-fonts</string>
+	</array>
 </dict>
 </plist>

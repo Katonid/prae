@@ -150,11 +150,12 @@ struct SchriftwahlView: View {
         if fund.familien.isEmpty {
             systemzeile = "Dieses Gerät meldet keine selbst installierte Schrift "
                 + "(\(fund.roh) Einträge, davon lesbar \(fund.deskriptoren.count)). "
-                + "Eine Schrift, die du über eine Schriftverwaltung auf das iPad gelegt "
-                + "hast, ist dieser App dann nicht von selbst bekannt \u{2014} an sie "
-                + "kommt nur der Wähler von iOS, derselbe, den Pages zeigt. Was dort "
-                + "gewählt wird, meldet die App für sich an und sieht danach nach, ob "
-                + "sie die Schrift unter ihrem Namen wiederfindet."
+                + "Das kann zweierlei heißen: Es liegt keine auf dem Gerät \u{2014} oder "
+                + "diese App darf sie nicht sehen. Ob dein eigener Bestand fehlt, zeigt der "
+                + "Wähler von iOS unten: Es ist derselbe, den Pages zeigt. Fehlen die "
+                + "Schriften auch dort, liegt es nicht an dieser Liste, sondern daran, was "
+                + "iOS der App herausgibt \u{2014} Zahlen dazu stehen unter "
+                + "\u{201E}Schriften prüfen\u{201C}."
         } else {
             systemzeile = "Dieses Gerät meldet \(fund.familien.count) selbst "
                 + "installierte Familien; sie stehen hier oben und weiter unten in der "
