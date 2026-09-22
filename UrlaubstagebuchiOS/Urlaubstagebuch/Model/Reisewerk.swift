@@ -366,6 +366,7 @@ final class Reisewerk: ObservableObject, Identifiable {
         guard let stelle = tagIndex(id) else { return }
         if !erzwingen, hatHandarbeit(id) { return }
         merken()
+        wortlautSichern(stelle)
         reise.tage[stelle].seiten = automat.seiten(fuer: reise.tage[stelle])
         seitenzeiger = 0
     }
@@ -375,8 +376,90 @@ final class Reisewerk: ObservableObject, Identifiable {
         let werkzeug = automat
         for stelle in reise.tage.indices {
             if nurUnberuehrte, reise.tage[stelle].seiten.contains(where: { $0.vonHand }) { continue }
+            wortlautSichern(stelle)
             reise.tage[stelle].seiten = werkzeug.seiten(fuer: reise.tage[stelle])
         }
+    }
+
+    // EIN TAGEBUCH DARF KEINEN SATZ VERLIEREN — auch nicht beim Neusetzen
+    // (ab 1.0.38).
+    //
+    // `textSchreiben` legt einen auf der SEITE bearbeiteten Fließtext in den
+    // Block und nicht an den Tag; `Layoutautomat.seiten(fuer:)` setzt aber
+    // aus `tag.text`. Wer also einen Tag mit bearbeitetem Text neu anordnen
+    // ließ, verlor seinen Wortlaut — still, denn die Seite steht ja danach
+    // da. Das gab es schon vor dieser Fassung; „Alle unberührten Tage" war
+    // nur deshalb ungefährlich, weil es solche Tage übersprang.
+    //
+    // Gerettet wird VOR dem Setzen: Weicht der Wortlaut auf den Seiten vom
+    // Tagebuchtext ab, ist er der neuere Stand und wandert an den Tag
+    // zurück. Wo die Stücke unverändert im Tagebuchtext stehen, wird dort
+    // nachgesehen, was zwischen ihnen lag; nur an einer bearbeiteten Naht
+    // wird geraten (siehe `Neuverteilung.zusammenfuegen`).
+    //
+    // **Der Aufruf gehört an JEDE Stelle, die Seiten neu setzt.** Wer einen
+    // neuen Weg dorthin baut und ihn vergisst, baut denselben stillen
+    // Verlust wieder ein.
+    @discardableResult
+    func wortlautSichern(_ stelle: Int) -> Bool {
+        guard reise.tage.indices.contains(stelle) else { return false }
+        let tag = reise.tage[stelle]
+        let stuecke = Neuverteilung.fliesstexte(tag)
+        guard !stuecke.isEmpty else { return false }
+        let original = tag.text.trimmingCharacters(in: .whitespacesAndNewlines)
+        var geraten = 0
+        let zusammen = Neuverteilung.zusammenfuegen(stuecke, original: original,
+                                                    geraten: &geraten)
+        guard Neuverteilung.vergleichsform(zusammen)
+            != Neuverteilung.vergleichsform(original) else { return false }
+        reise.tage[stelle].text = zusammen
+        return true
+    }
+
+    // ALLES NEU VERTEILEN LASSEN (ab 1.0.38).
+    //
+    // Frage des Nutzers, 09/2026: „Vielleicht wäre eine Funktion sinnvoll,
+    // das Ganze einmal so weit zurückzusetzen, dass der Bild- und
+    // Textverteiler in Aktion treten kann."
+    //
+    // Das ist mehr als `alleNeuAnordnen`: Dort bleibt jeder Tag mit
+    // Handarbeit stehen, und Handarbeit ist schon ein verschobener Block.
+    // Wer eine neue Fassung der Satzmaschine auf ein fertiges Buch anwenden
+    // will, kommt damit nicht weiter — für jeden angefassten Tag müsste er
+    // einzeln ins Tagesmenü.
+    //
+    // Was dabei WEGFÄLLT, steht in der Vorschau und nicht erst hinterher in
+    // einer Meldung: Lage, Größe, Drehung und Abweichungen der Blöcke, von
+    // Hand angelegte oder entfernte Seiten. Was BLEIBT: der Tagebuchtext,
+    // die Überschrift, die Datumszeile, die Bildunterschriften (die stehen
+    // am Tag bzw. am Foto), die Fotos selbst und die Reisepunkte.
+    @discardableResult
+    func neuVerteilen(nurUnberuehrte: Bool) -> String {
+        merken()
+        let werkzeug = automat
+        var gesetzt = 0
+        var verschont = 0
+        var gerettet = 0
+        for stelle in reise.tage.indices {
+            if nurUnberuehrte, reise.tage[stelle].seiten.contains(where: { $0.vonHand }) {
+                verschont += 1
+                continue
+            }
+            if wortlautSichern(stelle) { gerettet += 1 }
+            reise.tage[stelle].seiten = werkzeug.seiten(fuer: reise.tage[stelle])
+            gesetzt += 1
+        }
+        sofortSichern()
+        var satz = "\(gesetzt) Tage neu verteilt."
+        if verschont > 0 {
+            satz += " \(verschont) Tage tragen Handarbeit und blieben stehen."
+        }
+        if gerettet > 0 {
+            satz += " Bei \(gerettet) Tagen wurde der auf der Seite geänderte Wortlaut "
+                + "in den Tagebuchtext übernommen."
+        }
+        meldung = .init(text: satz)
+        return satz
     }
 
     // WELCHES Muster für diesen Tag gerade gilt, wenn keines gesetzt ist.
@@ -417,6 +500,7 @@ final class Reisewerk: ObservableObject, Identifiable {
                 verschont += 1
                 continue
             }
+            wortlautSichern(stelle)
             reise.tage[stelle].seiten = werkzeug.seiten(fuer: reise.tage[stelle])
             gesetzt += 1
         }
@@ -429,6 +513,25 @@ final class Reisewerk: ObservableObject, Identifiable {
         }
         meldung = .init(text: satz)
         return satz
+    }
+
+    // DAS MUSTER EINES EINZELNEN TAGES — an EINER Stelle (ab 1.0.38).
+    //
+    // Bis 1.0.37 stand dieselbe Folge zweimal in ANSICHTEN: im Picker von
+    // `TagInhaltView` und in `ReiseView.musterSetzen`. Beide riefen den
+    // Automaten unmittelbar — und keine der beiden wusste vom Wortlaut in
+    // den Blöcken, also verloren beide den auf der Seite geschriebenen Text.
+    // Genau der Fall, vor dem der Kommentar an `wortlautSichern` warnt, und
+    // er stand schon da, bevor der Kommentar geschrieben war.
+    //
+    // **Eine Ansicht setzt keine Seiten.** Sie sagt, was gewollt ist; wie
+    // daraus Seiten werden, weiß das Werk.
+    func musterSetzen(_ id: UUID, muster: Seitenmuster?) {
+        guard let stelle = tagIndex(id) else { return }
+        merken()
+        reise.tage[stelle].muster = muster
+        wortlautSichern(stelle)
+        reise.tage[stelle].seiten = automat.seiten(fuer: reise.tage[stelle])
     }
 
     // Seiten, die noch gar nicht gesetzt sind, werden beim Öffnen gesetzt.

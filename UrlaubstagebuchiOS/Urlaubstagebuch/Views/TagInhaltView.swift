@@ -56,11 +56,13 @@ struct TagInhaltView: View {
                         Toggle("Karte auf der Seite zeigen", isOn: binden(stelle, \.karteZeigen))
                         Picker("Seitenmuster", selection: Binding(
                             get: { werk.reise.tage[stelle].muster },
+                            // Gesetzt wird im WERK und nicht hier: Eine
+                            // Ansicht, die den Automaten selbst aufruft,
+                            // kennt den Wortlaut in den Blöcken nicht und
+                            // überschreibt ihn (siehe
+                            // `Reisewerk.wortlautSichern`).
                             set: { neu in
-                                werk.merken()
-                                werk.reise.tage[stelle].muster = neu
-                                werk.reise.tage[stelle].seiten =
-                                    werk.automat.seiten(fuer: werk.reise.tage[stelle])
+                                werk.musterSetzen(werk.reise.tage[stelle].id, muster: neu)
                             }
                         )) {
                             Text("Automatisch").tag(Seitenmuster?.none)

@@ -114,6 +114,7 @@ struct ReiseView: View {
         case bedienung
         case ausgabe
         case broschuere
+        case neuverteilen
         case tagInhalt(UUID)
         case spur(UUID)
         case seiten(UUID)
@@ -136,6 +137,7 @@ struct ReiseView: View {
             case .bedienung: return "bedienung"
             case .ausgabe: return "ausgabe"
             case .broschuere: return "broschuere"
+            case .neuverteilen: return "neuverteilen"
             case let .tagInhalt(id): return "tag-\(id)"
             case let .spur(id): return "spur-\(id)"
             case let .seiten(id): return "seiten-\(id)"
@@ -971,6 +973,21 @@ struct ReiseView: View {
                 }
             }
             Divider()
+            // ALLES NEU VERTEILEN LASSEN (ab 1.0.38).
+            //
+            // „Alle unberührten Tage neu anordnen" gab es schon — es
+            // überspringt aber jeden Tag mit Handarbeit, und Handarbeit ist
+            // bereits ein verschobener Block. Wer eine neue Fassung der
+            // Satzmaschine auf ein fertiges Buch anwenden will, kam damit
+            // nicht weiter und musste jeden angefassten Tag einzeln über
+            // das Tagesmenü nachziehen.
+            //
+            // Der Menüpunkt heißt nach der SACHE und nicht nach dem
+            // Handwerk, und er führt auf eine Vorschau statt sofort
+            // loszulegen: Was wegfällt, steht vorher da, Tag für Tag.
+            Button("Alles neu verteilen…", systemImage: "arrow.triangle.2.circlepath") {
+                blatt = .neuverteilen
+            }
             Button("Alle unberührten Tage neu anordnen", systemImage: "arrow.clockwise") {
                 werk.alleNeuAnordnen(nurUnberuehrte: true)
             }
@@ -1200,10 +1217,8 @@ struct ReiseView: View {
     }
 
     private func musterSetzen(_ muster: Seitenmuster?) {
-        guard let tag = werk.tag, let stelle = werk.tagIndex(tag.id) else { return }
-        werk.merken()
-        werk.reise.tage[stelle].muster = muster
-        werk.reise.tage[stelle].seiten = werk.automat.seiten(fuer: werk.reise.tage[stelle])
+        guard let tag = werk.tag else { return }
+        werk.musterSetzen(tag.id, muster: muster)
     }
 
     // MARK: - Bänder
@@ -1286,6 +1301,8 @@ struct ReiseView: View {
             AusgabeView(werk: werk)
         case .broschuere:
             AusgabeView(werk: werk, vorwahl: .broschuere)
+        case .neuverteilen:
+            NeuverteilenView(werk: werk)
         case let .tagInhalt(id):
             TagInhaltView(werk: werk, tagID: id)
         case let .spur(id):
