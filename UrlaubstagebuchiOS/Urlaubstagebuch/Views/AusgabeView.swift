@@ -16,16 +16,19 @@ struct AusgabeView: View {
     @State private var umfang: Umfang = .ganzesBuch
     @State private var teilenliste: [URL] = []
     @State private var befundVorab: [Druckpruefung.Zeile] = []
+    @State private var rueckseitenDrehen = false
 
     enum Umfang: String, CaseIterable, Identifiable {
         case ganzesBuch
         case getrennt
+        case broschuere
 
         var id: String { rawValue }
         var name: String {
             switch self {
             case .ganzesBuch: return "Eine Datei"
             case .getrennt: return "Umschlag getrennt"
+            case .broschuere: return "Broschüre"
             }
         }
     }
@@ -79,6 +82,13 @@ struct AusgabeView: View {
                         .foregroundStyle(.secondary)
                     Picker("Umfang", selection: $umfang) {
                         ForEach(Umfang.allCases) { u in Text(u.name).tag(u) }
+                    }
+                    if umfang == .broschuere {
+                        LabeledContent("Bogen", value: broschuerenmass)
+                        Toggle("Rückseiten um 180° drehen", isOn: $rueckseitenDrehen)
+                        Text(broschuerenhinweis)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                     }
                     Toggle("Ohne Transparenz (PDF/X-1a, X-3)", isOn: $ohneTransparenz)
                     if ohneTransparenz {
@@ -152,13 +162,55 @@ struct AusgabeView: View {
         }
     }
 
+    // MARK: - Broschüre
+
+    private var broschuerenmass: String {
+        let end = werk.reise.format
+        let b = end.breite * 2
+        return "\(ganzzahl(b)) × \(ganzzahl(end.hoehe)) mm (zwei Seiten nebeneinander)"
+    }
+
+    private var broschuerenbefund: String {
+        let seiten = werk.reise.seitenzahl
+        let gefuellt = seiten % 4 == 0 ? seiten : seiten + (4 - seiten % 4)
+        let bogen = gefuellt / 2
+        let leer = gefuellt - seiten
+        var text = "\(bogen) Bogen, beidseitig zu bedrucken"
+        if leer > 0 { text += " · \(leer) leere Seite\(leer == 1 ? "" : "n") aufgefüllt" }
+        return text
+    }
+
+    private var broschuerenhinweis: String {
+        "Zwei Seiten kommen nebeneinander auf einen Bogen, in Heftfolge — gefaltet und in der Mitte geheftet liegt daraus ein Heft in der Hand. Die Bogenzahl ist immer durch vier teilbar; fehlende Seiten bleiben weiß.\n\nGedruckt wird beidseitig. Wendet der Drucker über die LANGE Kante, bleibt der Schalter aus; wendet er über die kurze, steht die Rückseite sonst auf dem Kopf. Welche der beiden Einstellungen gilt, sagt kein Dateiformat — das steht im Druckdialog.\n\nOhne Anschnitt: Ein Heimdrucker druckt nicht bis an die Kante, und ein Anschnitt, den niemand wegschneidet, wäre ein Rand aus abgeschnittenem Bild."
+    }
+
+    private func ganzzahl(_ wert: Double) -> String {
+        String(Int(wert.rounded()))
+    }
+
     private func ausgeben() async {
         laeuft = true
         fehler = nil
         anteil = 0
         befundAmPDF = []
         do {
-            if umfang == .getrennt {
+            if umfang == .broschuere {
+                let ziel = try await Buchausgabe.broschuere(
+                    werk.reise,
+                    auftrag: .init(bildkante: guete.kante, ohneTransparenz: ohneTransparenz,
+                                   rueckseitenDrehen: rueckseitenDrehen),
+                    fortschritt: { wert in anteil = wert })
+                fertig = ziel
+                // KEINE Druckprüfung an der Broschüre: Sie misst TrimBox und
+                // BleedBox, und die gibt es hier bewusst nicht — ein
+                // Heimdrucker schneidet nichts ab. Eine Prüfung, die das
+                // Fehlen einer Box beanstandet, die nicht hingehört, wäre
+                // eine Fehlmeldung.
+                befundAmPDF = [Druckpruefung.Zeile(
+                    stufe: .gut, titel: "Broschüre gesetzt",
+                    text: broschuerenbefund)]
+                teilenliste = [ziel]
+            } else if umfang == .getrennt {
                 // Viele Buchdienste wollen Umschlag und Innenteil als zwei
                 // Dateien. Ausgegeben wird dann der Innenteil als Hauptdatei
                 // und der Umschlag daneben — beide liegen im selben Ordner
