@@ -980,6 +980,14 @@ final class Reisewerk: ObservableObject, Identifiable {
     // Auf welche Seiten dieser Block überhaupt kann — und auf welcher er
     // gerade steht. Gebraucht an zwei Stellen (Inspektor und Blockmenü);
     // zwei Fassungen zählten irgendwann verschieden.
+    //
+    // **Das Blockmenü gab es bis 1.0.38 nicht**, obwohl dieser Kommentar es
+    // seit 1.0.29 nennt. Genau daran hing der Befund des Nutzers (09/2026:
+    // „Ich suche noch nach der Funktion, Elemente auf eine andere Seite zu
+    // kopieren oder zu verschieben. Sie ist zu versteckt."): Verschieben
+    // gab es nur im Inspektor, also hinter dem Schieberegler in der
+    // Werkzeugleiste und dort ganz unten. Ein Kommentar, der eine zweite
+    // Aufrufstelle behauptet, ist kein Beleg dafür, dass es sie gibt.
     func seitenlage(_ id: UUID) -> (jetzt: Int, anzahl: Int)? {
         guard let stelle = block(id) else { return nil }
         return (stelle.seite, reise.tage[stelle.tag].seiten.count)
@@ -997,6 +1005,68 @@ final class Reisewerk: ObservableObject, Identifiable {
         reise.tage[stelle.tag].seiten[stelle.seite + 1].bloecke.append(geschoben)
         gewaehlterBlock = geschoben.id
         seitenzeiger = stelle.seite + 1
+    }
+
+    // EINEN BLOCK KOPIEREN (ab 1.0.39, Ansage des Nutzers 09/2026:
+    // „Elemente auf eine andere Seite zu kopieren oder zu verschieben").
+    //
+    // **Kopiert werden kann, was sich SELBST gehört.** Ein Foto gehört dem
+    // Tag und darf zweimal im Buch stehen — klein im Text und groß auf einer
+    // Aufmacherseite ist ein gewollter Satz. Ein TAGEBUCHTEXT dagegen gehört
+    // dem Tag als Ganzes und steht einmal darin: Eine Kopie davon wäre
+    // derselbe Absatz zweimal im gedruckten Buch, `Druckpruefung.doppelterText`
+    // meldet genau das seit 1.0.9 als Fehler, und `Neuverteilung` schriebe
+    // ihn beim nächsten Neuverteilen doppelt in den Tagebuchtext zurück.
+    // Dasselbe gilt für Überschrift, Datumszeile und Bildunterschrift —
+    // deren Text steht am Tag bzw. am Foto, eine zweite Anzeige desselben
+    // Textes wäre kein Element, sondern eine Dublette.
+    //
+    // Wer einen Textkasten aufteilen will, teilt ihn (`textTeilen`); das ist
+    // die Sache, die dahinter wirklich gemeint ist.
+    func kopierbar(_ block: Block) -> Bool { !block.inhalt.istText }
+
+    // `nil` als Ziel heißt: auf dieselbe Seite. Dann liegt die Kopie ein
+    // Stück versetzt — deckungsgleich übereinander sähe sie aus, als wäre
+    // nichts geschehen, und man verschöbe beim nächsten Griff das Original.
+    @discardableResult
+    func blockKopieren(_ id: UUID, aufSeite ziel: Int? = nil) -> Bool {
+        guard let stelle = block(id) else { return false }
+        let vorlage = reise.tage[stelle.tag].seiten[stelle.seite].bloecke[stelle.block]
+        guard kopierbar(vorlage) else {
+            meldung = .init(text: "Kopieren geht nur bei Fotos, Karten, Linien und Flächen. "
+                            + "Ein Tagebuchtext gehört dem Tag und steht einmal im Buch \u{2014} "
+                            + "zum Aufteilen gibt es \u{201E}Rest auf die nächste Seite\u{201C}.",
+                            schwer: true)
+            return false
+        }
+        let seite = ziel ?? stelle.seite
+        guard reise.tage[stelle.tag].seiten.indices.contains(seite) else { return false }
+        merken()
+        var kopie = vorlage
+        // EINE KOPIE ERBT KEINE KENNUNG. Zwei Blöcke mit derselben id sind
+        // für jede Suche EIN Block — `block(_:)` fände immer nur den ersten,
+        // und der zweite ließe sich nie wieder anfassen. Dieselbe Lehre wie
+        // bei Tafelbild 1.4.5.
+        kopie.id = UUID()
+        kopie.vonHand = true
+        if ziel == nil || ziel == stelle.seite {
+            // Versetzt um eine Fuge, aber nicht aus dem Satzspiegel hinaus.
+            let versatz = max(reise.gestaltung.fugePt, 6)
+            let raum = reise.gestaltung.satzspiegel(reise.format)
+            // `Double(…)` um die Kanten des `CGRect`: Bei gemischten Typen
+            // in einem `min` rechnet Swift `CGFloat` und `Double` nicht
+            // zuverlässig ineinander um — dieselbe Falle, die 1.0.37 einen
+            // Bau gekostet hat.
+            let rechts = Double(raum.maxX) - kopie.rahmen.breite
+            let unten = Double(raum.maxY) - kopie.rahmen.hoehe
+            kopie.rahmen.x = min(kopie.rahmen.x + versatz, rechts)
+            kopie.rahmen.y = min(kopie.rahmen.y + versatz, unten)
+        }
+        reise.tage[stelle.tag].seiten[seite].bloecke.append(kopie)
+        reise.tage[stelle.tag].seiten[seite].heben(kopie.id)
+        gewaehlterBlock = kopie.id
+        seitenzeiger = seite
+        return true
     }
 
     func blockNachVorn(_ id: UUID) {

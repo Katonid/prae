@@ -247,10 +247,39 @@ struct BlockInspektor: View {
         seitenAbschnitt(block)
     }
 
+    // Der Fußtext dieses Abschnitts — ausgelagert, weil er sich nach der
+    // Blockart richtet und ein `?:` mitten in einer `+`-Kette den
+    // Typprüfer sprengt (die Lehre aus 1.0.38).
+    private func seitensatz(_ block: Block) -> String {
+        var satz = "Die Lage auf dem Blatt bleibt dabei, wie sie ist \u{2014} der Block steht "
+        satz += "auf der neuen Seite an derselben Stelle. Verschoben wird innerhalb DIESES "
+        satz += "Tages; zu welchem Tag ein Foto geh\u{00F6}rt, wird in der Fotoliste des Tages "
+        satz += "entschieden. Danach gilt der Block als von Hand gesetzt und wird beim "
+        satz += "Neuanordnen in Ruhe gelassen."
+        guard !werk.kopierbar(block) else {
+            satz += "\n\nEine Kopie auf derselben Seite liegt versetzt \u{2014} deckungsgleich "
+            satz += "s\u{00E4}he sie aus, als w\u{00E4}re nichts geschehen."
+            return satz
+        }
+        satz += "\n\nKopieren geht hier nicht: Ein Tagebuchtext geh\u{00F6}rt dem Tag und steht "
+        satz += "einmal im Buch \u{2014} eine zweite Fassung w\u{00E4}re im Druck derselbe Absatz "
+        satz += "zweimal. Zum Aufteilen gibt es \u{201E}Rest auf die n\u{00E4}chste Seite\u{201C}."
+        return satz
+    }
+
     // AUF EINE ANDERE SEITE (ab 1.0.29, Ansage des Nutzers 09/2026: „ich
     // möchte ein Bild problemlos von einer Seite auf eine andere schieben
     // können beziehungsweise auch andere Elemente wie zum Beispiel
     // Textfelder.").
+    //
+    // **Der Weg hierher war zu weit** (Befund des Nutzers 09/2026: „Sie ist
+    // zu versteckt."). Dieser Abschnitt liegt im Inspektor ganz unten,
+    // hinter Schrift, Wirkung, Lage und Ausschnitt — und der Inspektor
+    // selbst hinter dem Schieberegler in der Werkzeugleiste. Seit 1.0.39
+    // stehen dieselben Handgriffe im Blockmenü unten in der Leiste, direkt
+    // neben dem Tagesmenü. Hier bleiben sie, weil der Inspektor der Ort
+    // ist, an dem man einen gewählten Block ohnehin einrichtet; gerufen
+    // werden von beiden dieselben Funktionen im Werk.
     @ViewBuilder
     private func seitenAbschnitt(_ block: Block) -> some View {
         if let lage = werk.seitenlage(block.id) {
@@ -290,10 +319,30 @@ struct BlockInspektor: View {
                         }
                     }
                 }
+                // KOPIEREN steht direkt darunter (ab 1.0.39): Wer einen
+                // Block auf eine andere Seite bringen will, ist genau die
+                // Person, die als Nächstes fragt „und geht das auch als
+                // Kopie?". Dieselbe Überlegung wie beim Fotostil in 1.0.10.
+                if werk.kopierbar(block) {
+                    Button {
+                        werk.blockKopieren(block.id)
+                    } label: {
+                        Label("Auf dieser Seite kopieren", systemImage: "plus.square.on.square")
+                    }
+                    if lage.anzahl > 1 {
+                        Menu("Kopie auf Seite …") {
+                            ForEach(0..<lage.anzahl, id: \.self) { nummer in
+                                Button("Seite \(nummer + 1)") {
+                                    werk.blockKopieren(block.id, aufSeite: nummer)
+                                }
+                            }
+                        }
+                    }
+                }
             } header: {
                 Text("Auf welcher Seite")
             } footer: {
-                Text("Die Lage auf dem Blatt bleibt dabei, wie sie ist \u{2014} der Block steht auf der neuen Seite an derselben Stelle. Verschoben wird innerhalb DIESES Tages; zu welchem Tag ein Foto gehört, wird in der Fotoliste des Tages entschieden. Nach dem Verschieben gilt der Block als von Hand gesetzt und wird beim Neuanordnen in Ruhe gelassen.")
+                Text(seitensatz(block))
             }
         }
     }
