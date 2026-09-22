@@ -4388,6 +4388,70 @@ Befunde, und keiner davon war Geschmack:
     Punkte ohne Uhrzeit behalten ihre Reihenfolge am Ende.
   - **Was nicht verschoben wurde, steht in der Meldung.** Eine stillschweigend
     übergangene Auswahl sieht aus wie ein Fehler.
+- **Ein HÖCHSTMASS macht einen Inhalt nie breiter** (`ReiseView.inhaltsbreite`,
+  ab 1.0.22; gemeldet 09/2026: „Die Seite kann leider nicht verschoben werden.
+  Wenn ich sie zoome, dann springt sie immer in irgendeine offenbar
+  vorgerasterte Position. Diese ist aber selten die, mit der ich dann an der
+  Stelle gerne weiterarbeiten würde."). Der Inhalt der Bühne trug
+  `.frame(maxWidth: .infinity)`. In einem SENKRECHTEN `ScrollView` ist das der
+  übliche Griff — dort bietet die Rolle ihre eigene Breite an, das Höchstmaß
+  setzt sie ein, und der Inhalt steht mittig. Diese Bühne rollt aber in BEIDE
+  Richtungen, und dort ist es der falsche Griff: **Ein Höchstmaß kann einen
+  Inhalt niemals BREITER machen als das, was ihm angeboten wird**, und wie
+  breit ein `ScrollView` seinen Inhalt auf einer ROLLACHSE anbietet, steht
+  nirgends verbindlich. Genau daran hing, ob sich eine herangezoomte Seite
+  quer schieben lässt. Gesetzt wird jetzt eine AUSGERECHNETE Breite:
+  mindestens das Sichtfeld (sonst ließe sich ein schmales Blatt nicht
+  zentrieren) und mindestens das Blatt samt seinen beiden Rändern (sonst gäbe
+  es nichts zu schieben, wo es etwas zu schieben gibt). Beide Zahlen sind
+  bekannt — die eine gemessen, die andere Bogenbreite mal Maßstab. **Damit
+  hängt das Schieben an keiner Zusage mehr, die niemand nachlesen kann.**
+- **Und der Kommentar daneben behauptete das Gegenteil.** Über
+  `Zoomanker.griff` stand seit 1.0.18: „Der Inhalt ist mindestens so breit wie
+  das Sichtfeld (`maxWidth: .infinity`)" — ein Höchstmaß als Beleg für ein
+  Mindestmaß, in einer Klammer, in der die Prüfung hätte stehen müssen.
+  Dieselbe Wurzel wie bei Schulalarms `requestAuthorization` und den
+  Navigationszielen der Abfahrtstafel: **Ein Kommentar ersetzt keine Prüfung.**
+  Die Zeile nennt jetzt `ReiseView.inhaltsbreite`, also die Stelle, an der das
+  Mindestmaß wirklich gesetzt wird.
+- **Ein `DispatchQueue.main.async` aus einem Gestenrückruf ist NICHT „nach dem
+  nächsten Durchgang"** (behoben in 1.0.22). `zoomAuf` setzte `zoom = neu` und
+  rollte im selben Atemzug asynchron hinterher, mit dem Kommentar „erst stehen
+  lassen, dann rollen". Eine Zustandsänderung löst aber einen Durchgang von
+  SwiftUI aus, und ein Block in der Hauptschlange kann davor laufen: Dann
+  rechnet `scrollTo` mit der ALTEN Größe des Elements und rollt an eine
+  Stelle, die mit dem neuen Maßstab nichts zu tun hat. Genau so sieht
+  „springt in irgendeine Position" aus. Der Wunsch reist deshalb durch den
+  Zustand (`rollwunsch`) und wird in `onChange` eingelöst — das läuft
+  garantiert nach dem Durchgang, der ihn gesetzt hat. **Die laufende Nummer im
+  Wunsch gehört dazu**: `onChange` meldet sich nur bei einer Änderung, und
+  zweimal derselbe Anker hintereinander wäre keine.
+- **Geklemmt heißt „geht hier nicht", nicht „ist falsch gerechnet"**
+  (`Zoomanker.Ankerbefund`, ab 1.0.22). `teil` klemmte den Anker stumm auf 0
+  bis 1. Ein roher Wert außerhalb davon heißt aber etwas Bestimmtes: Der
+  Brennpunkt ist an dieser Stelle GAR NICHT zu halten — weiter als bis zum
+  Rand rollt kein `ScrollView`, und am Anfang und Ende der Liste ist das der
+  Normalfall. Geklemmt sieht genau das aus wie eine Handvoll fester
+  Stellungen, in die die Seite nach jedem Zoomen springt. Geklemmt wird jetzt
+  erst beim Bauen des `UnitPoint`, und der Befund trägt beide Zahlen.
+- **Die Probe nennt seither den FREIEN WEG** („Bedienung prüfen", darunter
+  „Befund kopieren"). Sichtfeld, Inhalt, Versatz, Maßstab, Blattbreite, Griff,
+  Brennpunkt, Anker roh und geklemmt — und `frei ⇄`/`↕`, also Inhalt minus
+  Sichtfeld. **Ist diese Zahl waagerecht null, gibt es nichts zu schieben, und
+  jede weitere Erklärung erübrigt sich.** Die jetzige Lage wird erst beim
+  Tippen auf „Befund kopieren" gelesen und nirgends laufend mitgeschrieben —
+  `Inhaltslage` ist aus demselben Grund eine schlichte Klasse und kein
+  `@State` (die Lehre aus 1.0.16).
+- **Nicht gemessen (1.0.22), und es ist die dritte Erklärung für diese Bühne.**
+  Abgezählt ist die Geometrie: dass ein Höchstmaß die Breite nicht wachsen
+  lässt, und dass der asynchrone Block vor dem Durchgang liegen kann.
+  **Gesehen hat es niemand** — ob sich die Seite auf dem iPad jetzt schieben
+  lässt und ob der Brennpunkt beim Zoomen steht, sagt erst der nächste Befund.
+  1.0.18 hatte beides schon als offen aufgeschrieben („dass `scrollTo` mit
+  einem Anker außerhalb der Mitte tut, was die Dokumentation sagt"), und diese
+  Fassung prüft davon nichts nach; sie stellt zwei Dinge ab, die unabhängig
+  davon falsch waren, und gibt der nächsten Meldung Zahlen mit. **Nicht als
+  erledigt darstellen.**
 - **Die Bildunterschrift war halb gebaut** (ab 1.0.5, Wunsch des Nutzers
   09/2026: „zu jedem Foto einen Beschreibungstext … Dies soll jedoch eine
   Option für jedes Foto sein. Kein muss."). Der Layoutautomat hielt Platz

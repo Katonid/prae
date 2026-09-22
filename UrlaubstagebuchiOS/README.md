@@ -717,6 +717,71 @@ Bücher gefahrlos: Der erzeugte `Codable`-Leser verlangt einen Schlüssel nur
 für nicht-optionale Eigenschaften. Ein vorhandener Wert wird gelesen, ein
 fehlender wird `nil` — also „wie im Buch".
 
+## Die Seite ließ sich nicht schieben (1.0.22)
+
+Gemeldet 09/2026, mit drei Bildschirmfotos bei 68 %, 116 % und 208 %: „Die
+Seite kann leider nicht verschoben werden. Wenn ich sie zoome, dann springt
+sie immer in irgendeine offenbar vorgerasterte Position. Diese ist aber selten
+die, mit der ich dann an der Stelle gerne weiterarbeiten würde."
+
+Zwei Dinge, beide am Quelltext abzuzählen und beide unabhängig voneinander
+falsch.
+
+### Ein Höchstmaß macht einen Inhalt nie breiter
+
+Der Inhalt der Bühne trug `.frame(maxWidth: .infinity)`. In einem
+**senkrechten** `ScrollView` ist das der übliche Griff: Die Rolle bietet ihre
+eigene Breite an, das Höchstmaß setzt sie ein, der Inhalt steht mittig. Diese
+Bühne rollt aber in **beide** Richtungen — und dort kann ein Höchstmaß den
+Inhalt niemals *breiter* machen als das, was ihm angeboten wird. Wie breit ein
+`ScrollView` seinen Inhalt auf einer Rollachse anbietet, steht nirgends
+verbindlich; genau daran hing, ob sich eine herangezoomte Seite quer schieben
+lässt.
+
+Gesetzt wird jetzt eine **ausgerechnete** Breite (`ReiseView.inhaltsbreite`):
+mindestens das Sichtfeld — sonst ließe sich ein schmales Blatt nicht
+zentrieren — und mindestens das Blatt samt seinen beiden Rändern — sonst gäbe
+es nichts zu schieben, wo es etwas zu schieben gibt. Beide Zahlen sind
+bekannt: die eine ist gemessen, die andere ist Bogenbreite mal Maßstab. Damit
+hängt das Schieben an keiner Zusage mehr, die niemand nachlesen kann.
+
+Über `Zoomanker.griff` stand dazu seit 1.0.18 der Satz „Der Inhalt ist
+mindestens so breit wie das Sichtfeld (`maxWidth: .infinity`)" — ein Höchstmaß
+als Beleg für ein Mindestmaß. **Ein Kommentar ersetzt keine Prüfung.**
+
+### Ein asynchroner Block läuft nicht zwingend nach dem Durchgang
+
+`zoomAuf` setzte den neuen Maßstab und rollte im selben Atemzug in einem
+`DispatchQueue.main.async` hinterher, mit dem Kommentar „erst stehen lassen,
+dann rollen". Eine Zustandsänderung löst aber einen Durchgang von SwiftUI aus,
+und ein Block in der Hauptschlange kann davor laufen. Dann rechnet `scrollTo`
+mit der **alten** Größe des Elements und rollt an eine Stelle, die mit dem
+neuen Maßstab nichts zu tun hat — genau so sieht „springt in irgendeine
+Position" aus.
+
+Der Wunsch reist jetzt durch den Zustand und wird in `onChange` eingelöst;
+das läuft garantiert nach dem Durchgang, der ihn gesetzt hat. Die laufende
+Nummer im Wunsch gehört dazu: `onChange` meldet sich nur bei einer Änderung,
+und zweimal derselbe Anker hintereinander wäre keine.
+
+### Geklemmt heißt „geht hier nicht"
+
+`Zoomanker` klemmte den Anker stumm auf 0 bis 1. Ein roher Wert außerhalb
+davon heißt aber etwas Bestimmtes: Der Brennpunkt ist an dieser Stelle gar
+nicht zu halten — weiter als bis zum Rand rollt kein `ScrollView`, und am
+Anfang und Ende der Liste ist das der Normalfall. Geklemmt sieht genau das aus
+wie eine Handvoll fester Stellungen. Geklemmt wird jetzt erst beim Bauen des
+`UnitPoint`, und der Befund trägt beide Zahlen.
+
+### Und die Probe nennt den freien Weg
+
+„Bedienung prüfen" (⋯ → Prüfen) zeigt seither auch die Bühne: Sichtfeld,
+Inhalt, Versatz, Maßstab, Blattbreite, Griff, Brennpunkt und den Anker roh wie
+geklemmt — dazu `frei ⇄` und `↕`, also Inhalt minus Sichtfeld. **Ist diese
+Zahl waagerecht null, gibt es nichts zu schieben, und jede weitere Erklärung
+erübrigt sich.** Die jetzige Lage wird erst beim Tippen auf „Befund kopieren"
+gelesen und nirgends laufend mitgeschrieben.
+
 ## Mehrere Punkte, eine Zeitverschiebung (1.0.21)
 
 Ansage des Nutzers: „mehrere von ihnen auswählen zu können und ihren
@@ -1572,12 +1637,15 @@ im Inspektor gab es, aber keinen Weg zu sehen, was es bewirkt.
   „Fläche" ankam — aber ein Gerät gibt es hier nicht. „Bedienung prüfen"
   nennt seit 1.0.7 den gemessenen Punkt; **erst was dort steht, ist ein
   Befund.**
-* **Ob der Zoom den Brennpunkt wirklich hält, ist NICHT gemessen** (1.0.18).
-  Gerechnet ist die Geometrie; ungeprüft sind die zwei Annahmen darunter —
-  dass `MagnifyGesture.Value.startLocation` im Raum des Inhalts gemeldet wird
-  und dass `scrollTo` mit einem Anker außerhalb der Mitte tut, was die
-  Dokumentation sagt. Beim Übergang von der Skalierung auf den gesetzten
-  Maßstab kann ein Bild lang ein Sprung stehen bleiben.
+* **Ob sich die Seite jetzt schieben lässt und der Zoom steht, ist NICHT
+  gemessen** (1.0.18, fortgeschrieben 1.0.22). Abgezählt ist die Geometrie:
+  dass ein Höchstmaß die Breite nicht wachsen lässt, und dass der asynchrone
+  Block vor dem Durchgang liegen kann. Ungeprüft bleiben die zwei Annahmen von
+  1.0.18 — dass `MagnifyGesture.Value.startLocation` im Raum des Inhalts
+  gemeldet wird und dass `scrollTo` mit einem Anker außerhalb der Mitte tut,
+  was die Dokumentation sagt. Beim Übergang von der Skalierung auf den
+  gesetzten Maßstab kann ein Bild lang ein Sprung stehen bleiben. **Erst was
+  in „Bedienung prüfen" steht, ist ein Befund** — vor allem `frei ⇄`.
 * **Ob die neue Menüaufteilung intuitiver ist, ist NICHT gemessen** (1.0.20).
   Geändert sind Wege und Namen; ob sie den Befund „nicht selbsterklärend"
   auflösen, sagt erst der nächste. Dasselbe gilt für das Symbol auf einem
