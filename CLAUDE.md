@@ -4452,6 +4452,55 @@ Befunde, und keiner davon war Geschmack:
   Fassung prüft davon nichts nach; sie stellt zwei Dinge ab, die unabhängig
   davon falsch waren, und gibt der nächsten Meldung Zahlen mit. **Nicht als
   erledigt darstellen.**
+- **Die Geste braucht FLÄCHE — und der Befund hat es gesagt** (ab 1.0.23;
+  gemeldet 09/2026: „Beim Zoomen springt die Seite irgendwo hin. Da hat sich
+  nichts geändert. Ich habe sie jetzt klein gezoomt und kann sie nicht wieder
+  größer bekommen.", dazu der kopierte Befund). **Zum ersten Mal in dieser
+  Sache entscheidet eine Messung und keine Überlegung**, und sie steht in zwei
+  Zahlen derselben Zeile: `Inhalt 1046×429 · Bühne 1046×864`. Die
+  Zweifingergeste hängt am INHALT. Bei 25 % deckte der die oberen 429 von 864
+  Punkten ab; darunter lag nackte Leinwand OHNE Geste. Wer in der Mitte des
+  Bildschirms aufzieht, greift also ins Leere — **und die Falle zieht sich zu,
+  je kleiner man zoomt**: genau der gemeldete Zustand. Der Inhalt ist seither
+  mindestens so hoch wie das Sichtfeld. **Oben ausgerichtet, nicht mittig** —
+  die Lagen der Elemente gehen in `Zoomanker` ein, und eine senkrechte
+  Zentrierung verschöbe jede davon. Die Breite konnte 1.0.22 exakt setzen
+  (`.frame(width:)`); die Höhe wird als MINDESTMASS gesetzt, denn unter der
+  Bogenliste kann noch ein Hinweis stehen, und eine feste Höhe schnitte ihn ab.
+- **Eine glatte 1,00 in einem Anteil heißt „geklemmt", nicht „unten"**
+  (`Zoomanker.Griff.imBlatt`, ab 1.0.23). Derselbe Befund nannte
+  `Griff #1 quer 0.50 hoch 1.00` — der Finger lag an der Unterkante des
+  Inhalts, also NEBEN dem Blatt. Daraus wurde trotzdem ein Anker gerechnet,
+  und der legte die Blattunterkante unter den Finger: der Sprung „irgendwo
+  hin". Wo kein Blatt unter dem Finger ist, gibt es keinen Brennpunkt zu
+  halten — dann wird gar nicht mehr gerollt, und die Rolle bleibt stehen, wo
+  sie steht. **Es ist dieselbe Ursache wie beim Punkt darüber**, von der
+  anderen Seite gesehen: Beide Symptome kommen daher, dass die Geste dort
+  ankam, wo kein Inhalt war.
+- **Eine Probe, die ihre eigene Zahl verzerrt, ist schlimmer als keine**
+  (ab 1.0.23, zwei Berichtigungen, beide am ersten echten Befund aufgefallen):
+  - `Inhalt 570×423` stand über einem Rahmen, der 1046 breit gesetzt war.
+    `Inhaltslage` wird durch den `scaleEffect` HINDURCH gemessen, und am ENDE
+    einer Geste steht dort die skalierte Größe (570/1046 ist ungefähr der
+    Zoomfaktor jener Geste). Beim AUFSETZEN ist `lupe` noch 1, also stimmt sie
+    dort — seither wird sie dort gemerkt.
+  - `Blatt 990 pt` war `inhaltsbreite` minus Ränder, bei einer kleinen Seite
+    also die BÜHNE und nicht das Blatt. Gerechnet wird jetzt Bogenbreite mal
+    Maßstab (`blattbreite(bei:)`).
+  **Wer eine Probe baut, prüft, ob sie misst, was ihre Beschriftung sagt.**
+- **Was der Befund AUSGESCHLOSSEN hat, zählt auch.** Die Breite stimmte
+  („Inhalt 1046", genau die gesetzte `inhaltsbreite`) — der Umbau von 1.0.22
+  wirkt also. Und `frei ⇄0 ↕-435` sagt, dass bei kleiner Seite gar nichts zu
+  schieben ist; das ist richtig so und war nie der Fehler. **Erst diese
+  Zahlen haben die Frage von „warum springt es" auf „wo kommt die Geste
+  überhaupt an" gedreht** — nach drei Erklärungen, die alle am Quelltext
+  abgezählt und keine gemessen waren.
+- **Nicht gemessen (1.0.23):** Ob sich die Seite jetzt überall aufziehen lässt
+  und ob der Brennpunkt steht, sagt erst der nächste Befund. Gemessen ist,
+  WARUM die Geste nicht ankam; dass sie es jetzt tut, folgt aus der Geometrie
+  und ist nicht gesehen. **Nicht als erledigt darstellen.** Der Weg zurück aus
+  einer zu kleinen Seite liegt daneben und hängt an keiner Geste: der Knopf
+  mit der Prozentzahl unten links → „Einpassen".
 - **Die Bildunterschrift war halb gebaut** (ab 1.0.5, Wunsch des Nutzers
   09/2026: „zu jedem Foto einen Beschreibungstext … Dies soll jedoch eine
   Option für jedes Foto sein. Kein muss."). Der Layoutautomat hielt Platz

@@ -42,6 +42,15 @@ struct ReiseView: View {
     // Bildpunkt der Geste — dieselbe Regel wie beim Griff an einem Block.
     @State private var zoomgriff: Zoomanker.Griff?
     @State private var brennpunkt: CGPoint = .zero
+    // Inhalt und Versatz BEIM AUFSETZEN — für die Probe.
+    //
+    // Gemessen 09/2026: Der Befund nannte „Inhalt 570×423", während der
+    // Rahmen 1046 breit war. `lage` wird durch den `scaleEffect` hindurch
+    // gemessen, und am ENDE der Geste steht dort die skalierte Größe. Beim
+    // Aufsetzen ist `lupe` noch 1, also stimmt sie — dort wird sie gemerkt.
+    // **Eine Probe, die ihre eigene Zahl verzerrt, ist schlimmer als keine.**
+    @State private var zoominhalt: CGSize = .zero
+    @State private var zoomversatz: CGPoint = .zero
     // Ein gewünschter MASSSTAB aus der Fußleiste. Er reist über den
     // Zustand, weil der `ScrollViewProxy` nur INNERHALB des
     // `ScrollViewReader`s gilt und die Knöpfe in der Werkzeugleiste stehen.
@@ -181,6 +190,26 @@ struct ReiseView: View {
                     }
                     .padding(Buehnenmasse.rand)
                     .frame(width: inhaltsbreite, alignment: .center)
+                    // DIE GESTE BRAUCHT FLÄCHE (ab 1.0.23, gemessen am Befund
+                    // des Nutzers 09/2026: „Inhalt 1046×429 · Bühne 1046×864").
+                    //
+                    // Die Zweifingergeste hängt am INHALT. Steht die Seite
+                    // klein, ist der Inhalt kleiner als das Sichtfeld — bei
+                    // 25 % deckte er die oberen 429 von 864 Punkten ab, und
+                    // darunter lag nackte Leinwand OHNE Geste. Wer in der
+                    // Mitte des Bildschirms aufzieht, greift also ins Leere.
+                    // **Die Falle zieht sich zu, je kleiner man zoomt** —
+                    // genau der gemeldete Zustand: „klein gezoomt und kann sie
+                    // nicht wieder größer bekommen." Dasselbe erklärt das
+                    // `hoch 1.00` im Befund: Der Finger lag an der Unterkante
+                    // des Inhalts, also außerhalb des Blattes.
+                    //
+                    // Der Inhalt ist deshalb mindestens so hoch wie das
+                    // Sichtfeld. **Oben ausgerichtet**, nicht mittig: Die
+                    // Lagen der Elemente gehen in `Zoomanker` ein, und eine
+                    // senkrechte Zentrierung verschöbe jede davon.
+                    .frame(minHeight: buehnenhoehe > 0 ? CGFloat(buehnenhoehe) : nil,
+                           alignment: .top)
                     // Wo der Inhalt steht und wie groß er ist. Gelesen im
                     // KÖRPER des `GeometryReader`s und in ein Merkfeld
                     // geschrieben — nicht über `@State` und nicht über eine
@@ -359,9 +388,17 @@ struct ReiseView: View {
     // Maßstab. Damit hängt das Schieben an keiner Zusage mehr, die niemand
     // nachlesen kann.
     private var inhaltsbreite: CGFloat {
+        return max(CGFloat(buehnenbreite),
+                   CGFloat(blattbreite(bei: massstabJetzt)) + 2 * Buehnenmasse.rand)
+    }
+
+    // Wie breit ein Blatt bei diesem Maßstab ist. Bis 1.0.22 nannte die Probe
+    // an dieser Stelle `inhaltsbreite` minus Ränder — und das ist bei einer
+    // kleinen Seite die BÜHNE und nicht das Blatt. Eine Probe, die etwas
+    // anderes misst, als ihre Beschriftung sagt, führt in die Irre.
+    private func blattbreite(bei massstab: Double) -> Double {
         let bogen = werk.reise.gestaltung.bogen(werk.reise.format)
-        let blatt = bogen.width * (doppelseiten ? 2 : 1) * massstabJetzt
-        return max(CGFloat(buehnenbreite), CGFloat(blatt) + 2 * Buehnenmasse.rand)
+        return bogen.width * (doppelseiten ? 2 : 1) * massstab
     }
 
     // Wohin nach einem Zoom gerollt wird. Die laufende Nummer gehört dazu,
@@ -429,6 +466,8 @@ struct ReiseView: View {
                                      massstab: anfang)
         brennpunkt = CGPoint(x: lage.ursprung.x + wert.startLocation.x,
                              y: lage.ursprung.y + wert.startLocation.y)
+        zoominhalt = inhalt
+        zoomversatz = lage.ursprung
         // Der Anker wird SELBST gerechnet und nicht aus `startAnchor`
         // genommen: Worauf sich diese Zahl genau bezieht, steht nirgends
         // verbindlich, und der Punkt im Inhalt ist hier ohnehin bekannt.
@@ -451,7 +490,11 @@ struct ReiseView: View {
         zoom = neu
         werk.letzteBuehne = zoomprobe(griff: griff, brennpunkt: brennpunkt,
                                       befund: befund, alt: alt, neu: neu)
-        guard let elementkennung = kennung(griff.index) else { return }
+        // Lag der Finger auf keinem Blatt, gibt es keinen Brennpunkt zu
+        // halten — dann bleibt die Rolle stehen, wo sie steht. Ein Anker aus
+        // einem geklemmten Griff legte die Blattkante unter den Finger, und
+        // das ist der Sprung, der gemeldet wurde.
+        guard griff.imBlatt, let elementkennung = kennung(griff.index) else { return }
         rollnummer += 1
         rollwunsch = Rollwunsch(kennung: elementkennung, anker: befund.anker,
                                 nummer: rollnummer)
@@ -469,20 +512,21 @@ struct ReiseView: View {
     private func zoomprobe(griff: Zoomanker.Griff, brennpunkt: CGPoint,
                            befund: Zoomanker.Ankerbefund,
                            alt: Double, neu: Double) -> String {
-        let freiQuer = Double(lage.groesse.width) - buehnenbreite
-        let freiHoch = Double(lage.groesse.height) - buehnenhoehe
+        let freiQuer = Double(zoominhalt.width) - buehnenbreite
+        let freiHoch = Double(zoominhalt.height) - buehnenhoehe
         var zeilen: [String] = []
         zeilen.append(String(
-            format: "Zoom %.0f %% \u{2192} %.0f %% \u{00B7} Blatt %.0f pt \u{00B7} B\u{00FC}hne %.0f\u{00D7}%.0f",
-            alt * 100, neu * 100, Double(inhaltsbreite) - 2 * Double(Buehnenmasse.rand),
-            buehnenbreite, buehnenhoehe))
+            format: "Zoom %.0f %% \u{2192} %.0f %% \u{00B7} Blattbreite %.0f pt \u{00B7} B\u{00FC}hne %.0f\u{00D7}%.0f",
+            alt * 100, neu * 100, blattbreite(bei: alt), buehnenbreite, buehnenhoehe))
         zeilen.append(String(
             format: "Inhalt %.0f\u{00D7}%.0f \u{00B7} Versatz %.0f/%.0f \u{00B7} frei \u{21C4}%.0f \u{2195}%.0f",
-            Double(lage.groesse.width), Double(lage.groesse.height),
-            Double(lage.ursprung.x), Double(lage.ursprung.y), freiQuer, freiHoch))
+            Double(zoominhalt.width), Double(zoominhalt.height),
+            Double(zoomversatz.x), Double(zoomversatz.y), freiQuer, freiHoch))
         zeilen.append(String(
-            format: "Griff #%d quer %.2f hoch %.2f \u{00B7} Brennpunkt %.0f/%.0f",
-            griff.index + 1, griff.quer, griff.hoch, Double(brennpunkt.x), Double(brennpunkt.y)))
+            format: "Griff #%d quer %.2f hoch %.2f%@ \u{00B7} Brennpunkt %.0f/%.0f",
+            griff.index + 1, griff.quer, griff.hoch,
+            griff.imBlatt ? "" : " (neben dem Blatt \u{2014} nicht gerollt)",
+            Double(brennpunkt.x), Double(brennpunkt.y)))
         zeilen.append(String(
             format: "Anker %.2f/%.2f \u{00B7} roh %.2f/%.2f%@",
             befund.anker.x, befund.anker.y, befund.rohX, befund.rohY,
