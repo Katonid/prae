@@ -250,6 +250,64 @@ enum Druckpruefung {
         return [Zeile(stufe: .gut, titel: "\(zeichen) Zeichen je Zeile", text: grund)]
     }
 
+    // WIE OFT WIRKLICH GETRENNT WURDE — gezählt, nicht zugesagt (ab 1.0.40).
+    //
+    // Der Schalter „Silben trennen" hat von 1.0.0 bis 1.0.39 nichts getan
+    // (`Model/Silbentrennung.swift`), und die Oberfläche behauptete das
+    // Gegenteil. Deshalb steht hier keine Zusage, sondern eine Zahl: Wie
+    // viele Trennstriche stehen im gesetzten Buch? Ist sie null, obwohl der
+    // Schalter an ist, sieht man das, statt es zu vermuten.
+    //
+    // Gerechnet wird mit denselben Breiten, mit denen die Seiten gesetzt
+    // sind — die Antwort kommt deshalb fast immer aus dem Zwischenspeicher
+    // der Trennung und kostet nichts.
+    static func trennungsbefund(_ reise: Reise) -> [Zeile] {
+        var bloecke = 0
+        var striche = 0
+        for tag in reise.tage {
+            for seite in tag.seiten {
+                for block in seite.bloecke {
+                    guard case let .text(inhalt) = block.inhalt, !inhalt.isEmpty else { continue }
+                    let bild = Seitensatz.schriftbild(block, reise: reise)
+                    guard bild.trennung else { continue }
+                    bloecke += 1
+                    let rand = block.textrand(reise.gestaltung)
+                    let breite = block.textbreite(rand: rand)
+                    striche += Silbentrennung.getrennt(inhalt, bild: bild, breite: breite)
+                        .stellen.count
+                }
+            }
+        }
+        guard bloecke > 0 else { return [] }
+
+        // Die Texte werden Stück für Stück gebaut und nicht als `+`-Kette in
+        // die Argumentliste geschrieben: Die Mischung aus `+`, Bedingung und
+        // Interpolation ist genau die, an der in 1.0.38 der Typprüfer
+        // aufgegeben hat.
+        var quelle = "Die Trennstellen kommen aus dem deutschen W\u{00F6}rterbuch des "
+        quelle += "Ger\u{00E4}ts, nicht aus dieser App."
+
+        if !Silbentrennung.verfuegbar {
+            var text = "In \(bloecke) Textbl\u{00F6}cken ist die Trennung eingeschaltet. "
+            text += "Dieses Ger\u{00E4}t gibt f\u{00FC}r Deutsch kein Trennw\u{00F6}rterbuch "
+            text += "heraus, also wird nichts getrennt. "
+            text += quelle
+            let titel = "Silbentrennung eingeschaltet, aber kein W\u{00F6}rterbuch"
+            return [Zeile(stufe: .warnung, titel: titel, text: text)]
+        }
+        if striche == 0 {
+            var text = "In \(bloecke) Textbl\u{00F6}cken ist die Trennung eingeschaltet, "
+            text += "gesetzt wurde aber kein einziger Strich. Bei schmalen Spalten und "
+            text += "langen W\u{00F6}rtern w\u{00E4}re das ungew\u{00F6}hnlich. "
+            text += quelle
+            return [Zeile(stufe: .hinweis, titel: "Keine Trennstelle im ganzen Buch", text: text)]
+        }
+        var text = "Gez\u{00E4}hlt am gesetzten Buch, nicht an der Einstellung. "
+        text += quelle
+        let titel = "\(striche) Trennstriche in \(bloecke) Textbl\u{00F6}cken"
+        return [Zeile(stufe: .gut, titel: titel, text: text)]
+    }
+
     // MARK: - Vor dem Ausgeben
 
     static func vorab(_ reise: Reise) -> [Zeile] {
@@ -278,6 +336,7 @@ enum Druckpruefung {
         zeilen.append(contentsOf: doppelterText(reise))
         zeilen.append(contentsOf: leereUnterschriften(reise))
         zeilen.append(contentsOf: zeilenlaenge(reise))
+        zeilen.append(contentsOf: trennungsbefund(reise))
         zeilen.append(contentsOf: mittenImSatz(reise))
 
         // Randabfallendes

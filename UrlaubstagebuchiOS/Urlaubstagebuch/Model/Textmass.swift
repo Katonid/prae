@@ -11,13 +11,32 @@ import UIKit
 // aus der Seite läuft oder eine halbe Seite leer bleibt. Gerechnet wird
 // mit CoreText, also mit demselben Satz, der hinterher auch zeichnet.
 enum Textmass {
-    static func rahmensetzer(_ text: String, bild: Schriftbild) -> CTFramesetter {
-        CTFramesetterCreateWithAttributedString(bild.gesetzt(text) as CFAttributedString)
+    // DIE BREITE GEHÖRT DAZU (ab 1.0.40) — und zwar an JEDER Aufrufstelle.
+    //
+    // Seit die Silbentrennung von Hand gesetzt wird, hängt der gesetzte
+    // Text an der Breite: Wo die Zeile umbricht, entscheidet, welches Wort
+    // getrennt wird. Messen und Zeichnen müssen deshalb dieselbe Breite
+    // nennen — sonst hätte der Setzer, der die Höhe ausrechnet, andere
+    // Striche als der, der die Seite zeichnet, und der Text liefe unten aus
+    // seinem Block. Genau die Regel, aus der diese Datei überhaupt
+    // entstanden ist, nur eine Ebene tiefer.
+    static func rahmensetzer(_ text: String, bild: Schriftbild, breite: Double) -> CTFramesetter {
+        getrennt(text, bild: bild, breite: breite).setzer
+    }
+
+    private static func getrennt(_ text: String, bild: Schriftbild, breite: Double)
+        -> (setzer: CTFramesetter, trennung: Silbentrennung.Ergebnis)
+    {
+        let trennung = Silbentrennung.getrennt(text, bild: bild, breite: breite)
+        let setzer = CTFramesetterCreateWithAttributedString(
+            bild.gesetzt(trennung.text) as CFAttributedString
+        )
+        return (setzer, trennung)
     }
 
     static func hoehe(_ text: String, bild: Schriftbild, breite: Double) -> Double {
         guard !text.isEmpty, breite > 1 else { return 0 }
-        let setzer = rahmensetzer(text, bild: bild)
+        let setzer = rahmensetzer(text, bild: bild, breite: breite)
         var gebraucht = CFRange()
         let groesse = CTFramesetterSuggestFrameSizeWithConstraints(
             setzer,
@@ -36,11 +55,16 @@ enum Textmass {
     // nächste Seite.
     static func passtBis(_ text: String, bild: Schriftbild, groesse: CGSize) -> Int {
         guard !text.isEmpty, groesse.width > 1, groesse.height > 1 else { return 0 }
-        let setzer = rahmensetzer(text, bild: bild)
+        let (setzer, trennung) = getrennt(text, bild: bild, breite: Double(groesse.width))
         let pfad = CGPath(rect: CGRect(origin: .zero, size: groesse), transform: nil)
         let rahmen = CTFramesetterCreateFrame(setzer, CFRange(location: 0, length: 0), pfad, nil)
         let sichtbar = CTFrameGetVisibleStringRange(rahmen)
-        return sichtbar.length
+        // ZURÜCK IN DEN URTEXT. `sichtbar.length` zählt Zeichen des
+        // GESETZTEN Textes, also samt der eingefügten Trennstriche —
+        // `teilen` schneidet damit aber den Tagebuchtext. Ohne diese
+        // Umrechnung wanderten die Striche über `Neuverteilung` mitten in
+        // die Wörter von `tag.text`, und zwar dauerhaft.
+        return trennung.imUrtext(sichtbar.length)
     }
 
     // WIE VIELE ZEICHEN AUF EINER ZEILE STEHEN — gemessen, nicht geschätzt
@@ -59,7 +83,7 @@ enum Textmass {
     // übrig, wird die einzige Zeile gezählt, statt null zurückzugeben.
     static func zeichenJeZeile(_ text: String, bild: Schriftbild, breite: Double) -> Int {
         guard !text.isEmpty, breite > 1 else { return 0 }
-        let setzer = rahmensetzer(text, bild: bild)
+        let setzer = rahmensetzer(text, bild: bild, breite: breite)
         let hoch = max(hoehe(text, bild: bild, breite: breite), 1) + bild.zeilenhoehe * 2
         let pfad = CGPath(rect: CGRect(x: 0, y: 0, width: breite, height: hoch), transform: nil)
         let rahmen = CTFramesetterCreateFrame(setzer, CFRange(location: 0, length: 0), pfad, nil)
