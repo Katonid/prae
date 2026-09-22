@@ -717,6 +717,86 @@ Bücher gefahrlos: Der erzeugte `Codable`-Leser verlangt einen Schlüssel nur
 für nicht-optionale Eigenschaften. Ein vorhandener Wert wird gelesen, ein
 fehlender wird `nil` — also „wie im Buch".
 
+## Die Seite hing aus ihrem eigenen Rahmen heraus (1.0.26)
+
+Gemeldet 09/2026, und dieser Befund nennt drei Dinge auf einmal:
+
+> „Wenn ich die Seite aufgezoomt habe, springt sie grundsätzlich so, dass der
+> Fokus in der linken oberen Ecke liegt … Nachdem ich die Seite herangezoomt
+> habe, kann ich sie mit einer Zwei-Finger-Geste nicht wieder herauszoomen …
+> Die untere rechte Ecke erreiche ich nie. Dafür bleibt am oberen Rand
+> grundsätzlich Abstand bis zur eigentlichen Buchseite.“
+
+**Drei Beschwerden, eine Ursache**, und sie steht in zwei Zeilen
+`SeitenflaecheView`:
+
+```swift
+.scaleEffect(massstab, anchor: .topLeading)
+.frame(width: bogen.width * massstab, height: bogen.height * massstab)
+```
+
+`scaleEffect` ändert nur die ZEICHNUNG, nie die Layoutgröße: Das Kind darüber
+meldet weiterhin `bogen`, also die **unskalierte** Größe. Der Rahmen hier ist
+die skalierte — und **ein `.frame` ohne Ausrichtung stellt ein kleineres Kind
+mittig hinein.** Gezeichnet wurde danach ab der Ecke dieses zentrierten Kindes,
+also um `bogen · (Maßstab − 1) / 2` versetzt.
+
+### Damit erklärt sich jeder der drei Sätze
+
+| Befund | Ursache |
+| --- | --- |
+| „am oberen Rand bleibt Abstand bis zur Buchseite“ | die leere Lücke oben links |
+| „die untere rechte Ecke erreiche ich nie“ | der Überhang unten rechts — gerollt wird der RAHMEN, nicht die Zeichnung |
+| „nicht wieder herauszoomen“ | was außerhalb eines Frames liegt, nimmt in SwiftUI keinen Finger an; der Zoom hängt an der Fläche der Bühne |
+| „irgendein oberer linker Punkt der Arbeitsfläche“ | `Zoomanker` rechnet ab der Rahmenecke, gezeichnet wird aber weiter unten rechts |
+
+Der Nutzer hat das genauer gesagt als jede Vermutung davor: **„es ist nicht die
+Seite, sondern irgendein oberer linker Punkt der Arbeitsfläche, den du
+willkürlich festgelegt hast“** — genau so ist es, und der Punkt liegt um den
+halben Zuwachs daneben.
+
+### Nachgemessen, in beide Richtungen
+
+An zwei Bildschirmfotos desselben Buches:
+
+| Maßstab | gemessen | gerechnet `bogen·(m−1)/2` |
+| --- | --- | --- |
+| 94 % | Blattkante 93 pt vom Bühnenrand, wo `Zoomanker` 121,5 erwartet → **−28,5** | **−28,0** |
+| 187 % | Inhalt bei rund −201/−1139 statt −588/−1411 → **+387/+272** | **+373,5/+266,1** |
+
+Unter 100 % liegt die Zeichnung also weiter oben links als ihr Rahmen, darüber
+weiter unten rechts — beide Vorzeichen stimmen, beide Beträge auch.
+
+Und damit ist die Zeile aufgelöst, die 1.0.25 in die Irre geführt hat:
+`Soll −588/−1411 · Ist −588/−1411 · Abweichung 0/−0` war **richtig**. Gerollt
+wurde genau dorthin, wo die Rechnung es wollte; nur stand die Seite nicht dort,
+wo die Rechnung sie vermutete.
+
+### Der Griff ist ein Wort
+
+`alignment: .topLeading` am äußeren `.frame`. Dann liegt die Ecke des Kindes
+auf der Ecke des Rahmens, `scaleEffect` skaliert um genau diese Ecke, und die
+Zeichnung füllt ihren Rahmen auf den Punkt.
+
+### Was aus 1.0.25 wieder ausgebaut ist
+
+Die **Nachführung** und der **Deckel für den `LazyVStack`**. Beide waren die
+Antwort auf eine Frage, die es nicht gab — der Versatz wurde nie „nachträglich
+verstellt“, er war von Anfang an ein anderer, als die Rechnung annahm.
+`ReiseView` steht wieder auf dem Stand von 1.0.24. Ein Mechanismus, dessen
+Grund widerlegt ist, bleibt nicht liegen; und der nächste Befund soll wieder
+zuzuordnen sein.
+
+**Was aus 1.0.24 bleibt, ist die Probe** — ohne die Zeile `Soll … Ist …` wäre
+dieser Durchgang die fünfte Vermutung geworden. Dass sie „alles in Ordnung“
+meldete, war ihr Verdienst und nicht ihr Versagen: Sie hat die Rechnung
+entlastet und den Blick auf das gelenkt, was sie nicht misst.
+
+### Nicht gemessen
+
+Gesehen hat es niemand. Gerechnet und an zwei Bildern nachgemessen ist die
+Ursache; dass die drei Beschwerden damit weg sind, folgt aus der Geometrie.
+
 ## Die Rechnung stimmte — und wurde hinterher überschrieben (1.0.25)
 
 Gemeldet 09/2026, zum wiederholten Mal: „Ich möchte auf das Bild unten rechts
@@ -1860,13 +1940,13 @@ im Inspektor gab es, aber keinen Weg zu sehen, was es bewirkt.
   als das Sichtfeld; dass sie es jetzt tut, folgt aus der Geometrie und hat
   niemand gesehen. Der Weg zurück aus einer zu kleinen Seite hängt an keiner
   Geste: der Knopf mit der Prozentzahl unten links → „Einpassen".
-* **Ob der Brennpunkt jetzt steht, ist NICHT gesehen** (1.0.25). Gemessen ist,
-  dass die Rechnung stimmt (`Abweichung 0/−0`) und dass der Versatz kurz
-  darauf ein anderer war. **Welcher Mechanismus ihn verstellt, ist nicht
-  bewiesen** — die Höhenschätzung des `LazyVStack` passt dazu, mehr nicht. Die
-  Nachführung wirkt unabhängig davon; die Zeile „ohne Nachführung“ bzw.
-  „n× nachgeführt“ sagt beim nächsten Mal, welcher Griff es war.
-* **Ob der Brennpunkt jetzt steht, war auch in 1.0.24 NICHT gemessen.** Gerechnet
+* **Ob der Brennpunkt jetzt steht, ist NICHT gesehen** (1.0.26). Die URSACHE ist
+  diesmal gemessen — an zwei Bildschirmfotos, in beide Richtungen, mit
+  gerechneten und gemessenen Beträgen, die auf ein paar Punkte zusammenfallen.
+  Dass die drei Beschwerden damit weg sind, folgt aus der Geometrie und hat
+  niemand auf einem Gerät gesehen.
+* **Die Erklärung von 1.0.25 war falsch und ist zurückgenommen** (Nachführung,
+  `LazyVStack`-Deckel). Der Versatz wurde nie nachträglich verstellt. Gerechnet
   ist, warum er in 1.0.23 nicht stand — ohne Rollen wächst der Inhalt unter
   einem stehenden Versatz, und das ist der Sprung in die linke obere Ecke.
   **Neu ist, dass es sich messen lässt:** Die Zeile `Soll … Ist … Abweichung`

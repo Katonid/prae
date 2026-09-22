@@ -277,7 +277,36 @@ struct SeitenflaecheView: View {
         .background(Color.white)
         .compositingGroup()
         .scaleEffect(massstab, anchor: .topLeading)
-        .frame(width: bogen.width * massstab, height: bogen.height * massstab)
+        // `alignment: .topLeading` IST DER GANZE PUNKT (ab 1.0.26).
+        //
+        // `scaleEffect` ändert nur die ZEICHNUNG, nie die Layoutgröße: Das
+        // Kind darüber meldet weiterhin `bogen`, also die UNSKALIERTE
+        // Größe. Der Rahmen hier ist die skalierte — und ein `.frame` ohne
+        // Ausrichtung stellt ein kleineres Kind MITTIG hinein. Der Zoom
+        // rechnete danach ab der Ecke DIESES Kindes, und die lag um
+        // `bogen · (Maßstab − 1) / 2` in der Mitte des Rahmens.
+        //
+        // Damit hing die gezeichnete Seite bei jedem Maßstab über 100 % aus
+        // ihrem eigenen Rahmen heraus — nach rechts und unten —, und oben
+        // links blieb genau so viel leer. **Alle drei Beschwerden des
+        // Nutzers sind dasselbe** (09/2026): „am oberen Rand bleibt
+        // grundsätzlich Abstand bis zur eigentlichen Buchseite" (die Lücke),
+        // „die untere rechte Ecke erreiche ich nie" (der Überhang; gerollt
+        // wird der Rahmen, nicht die Zeichnung), und „mit einer
+        // Zwei-Finger-Geste nicht wieder herauszoomen" — denn was außerhalb
+        // eines Frames liegt, nimmt in SwiftUI keinen Finger an, und der
+        // Zoom hängt an der Fläche der Bühne. Dieselbe Regel wie bei den
+        // Griffen in 1.0.2, eine Ebene höher.
+        //
+        // NACHGEMESSEN an zwei Bildschirmfotos desselben Buches, in beide
+        // Richtungen: bei 94 % steht die Blattkante 93 pt vom Bühnenrand,
+        // wo `Zoomanker` 121,5 erwartet (−28,5; gerechnet −28,0), bei 187 %
+        // liegt der Inhalt um +387/+272 daneben (gerechnet +373,5/+266,1).
+        // Deshalb stimmte die Probe (`Soll = Ist`) und das Bild trotzdem
+        // nicht: Gerollt wurde richtig, nur stand die Seite woanders, als
+        // die Rechnung annahm.
+        .frame(width: bogen.width * massstab, height: bogen.height * massstab,
+               alignment: .topLeading)
         // DER SCHATTEN LIEGT AUSSERHALB DES MASSSTABS (ab 1.0.20).
         //
         // Bis 1.0.19 stand er davor und wurde mitskaliert: Bei eingepasster
