@@ -717,6 +717,142 @@ Bücher gefahrlos: Der erzeugte `Codable`-Leser verlangt einen Schlüssel nur
 für nicht-optionale Eigenschaften. Ein vorhandener Wert wird gelesen, ein
 fehlender wird `nil` — also „wie im Buch".
 
+## Formate, A5 aus A4, Broschüre (1.0.27)
+
+Ansage des Nutzers, 09/2026:
+
+> Ich möchte verschiedene Maßvorlagen für die Seiten haben. DIN A4
+> Hochkant, DIN A4 Breit, DIN A5 dasselbe und quadratisch 28 x 28 cm.
+> Ansonsten möchte ich aber auch die Möglichkeit haben, eine Seite frei
+> skalieren zu können, also eigene Maßeingaben tätigen zu können. […]
+> Allerdings möchte ich zusätzlich eine Version auf dem heimischen Drucker
+> ausdrucken können, damit ich Vorder- und Rückseiten gut bedrucken kann,
+> würde das Format dann auf ein DIN A5 Buch schrumpfen. Ich weiß, dass es
+> problematisch sein könnte, die Größe der Schriften im Dokument
+> herunterzurechnen, aber ich hoffe, dass es eine Möglichkeit gibt, ohne
+> viel Aufwand aus dem DIN A4 Projekt ein A5 Projekt zu machen. Wenn dann
+> noch die Möglichkeit besteht, automatisch einen Buchdruck auswählen zu
+> können, so dass die Seiten des Dokumentes automatisch umsortiert werden,
+> so dass ich eine doppelseitige Broschüre drucken kann.
+
+Drei Dinge, und sie hängen aneinander.
+
+### Das Format ist kein Wort mehr
+
+`Seitenformat` war eine Aufzählung mit vier Fällen; ein freies Maß lässt
+sich darin nicht ausdrücken. Es ist jetzt ein Wertetyp aus `breite`,
+`hoehe` und einem **optionalen** Vorlagennamen — `nil` heißt „selbst
+eingetippt". Sieben Vorlagen:
+
+| Vorlage | Maß |
+| --- | --- |
+| A4 hoch / quer | 210 × 297 / 297 × 210 mm |
+| A5 hoch / quer | 148 × 210 / 210 × 148 mm |
+| Quadrat | 21 × 21, 28 × 28, 30 × 30 cm |
+
+Dazu ein freies Maß, 70 bis 500 mm je Kante. Darunter wären die Ränder
+breiter als die Seite, darüber nimmt kein Druckdienst dieser
+Größenordnung an.
+
+**Der Leser nimmt weiterhin den alten Text entgegen.** In jeder
+gesicherten Reise steht dort `"a4quer"`, also eine Zeichenkette und kein
+Objekt. Ohne den Einzelwert-Zweig in `init(from:)` wäre `format` beim
+Lesen auf die Vorgabe gefallen — und weil `Reise` das Feld über
+`wert(.format, …)` holt, **still**: Das Buch ginge auf, und die Seiten
+hätten das falsche Maß. Wer einen Typ von einer Aufzählung auf eine
+Struktur umbaut, schreibt den Leser für beide Formen.
+
+Das Format hat seit 1.0.27 einen eigenen Bildschirm (Gestalten →
+Seitenformat). Es ist die eine Entscheidung, an der alles andere hängt,
+und seit dieser Fassung rechnet sie das Buch um; das gehört nicht hinter
+eine Auswahlzeile zwischen Anschnitt und Bundsteg. In der Gestaltung
+steht die Zeile weiter, jetzt als Auskunft mit dem Weg dorthin.
+
+### A4 nach A5 ist eine Multiplikation
+
+Die ganze A-Reihe hat dasselbe Seitenverhältnis — das ist ihre
+Bauvorschrift. Ein einziger Faktor (1/√2 ≈ 0,707) trifft also beide
+Kanten, und `Model/Formatwechsel.swift` rechnet ihn auf **alles, was eine
+Länge ist**: Blockrahmen, Ränder, Fuge, Bundsteg, Eckenradius,
+Schriftgrößen, Innenabstände, Linienbreiten. Danach steht jeder Block
+relativ an derselben Stelle und wirkt in derselben Größe; nur das Papier
+ist kleiner.
+
+Was **nicht** mitgerechnet wird:
+
+* **Der Anschnitt.** Er ist keine Gestaltung, sondern eine Angabe der
+  Druckerei: Drei Millimeter sind drei Millimeter, egal wie groß die Seite
+  ist. Wer ihn mitschrumpfte, lieferte eine Datei, die formal stimmt und
+  beim Schneiden den weißen Faden bekommt, wegen dem es den Anschnitt
+  gibt.
+* **Der Bildausschnitt.** `zoom` und die beiden Versätze sind Anteile am
+  Bild und keine Längen; mitgerechnet verschöben sie jedes Foto in seinem
+  Rahmen.
+* **Die Breite der Karte** (ein Anteil) und die **Drehung** (ein Winkel).
+
+Bei unähnlichen Formaten — A4 hoch auf 28 × 28 cm — gibt es keinen
+Faktor, der beides trifft. Genommen wird der kleinere der beiden, denn das
+ist der einzige, bei dem kein Block aus der Seite fällt; an einer Kante
+bleibt dann mehr Luft als vorher. Der Satz wird davon nicht falsch, sieht
+aber danach aus, wenn niemand es sagt — das Blatt sagt es.
+
+**Erst zeigen, dann übernehmen.** Ein Formatwechsel fasst jeden Block des
+Buches an. Vorher stehen da: beide Formate mit Maß, der Faktor in Prozent,
+die Zahl der Blöcke und die Fließtextgröße vorher und nachher. Zwei Wege,
+weil es zwei Fragen sind — „mitrechnen" für ein fertiges Buch, „nur das
+Format wechseln" für eines, das danach ohnehin neu angeordnet wird. Beides
+hängt an `werk.merken()` und ist mit „Widerrufen" zurückzunehmen.
+
+### Die Broschüre ist ein Bogen, keine Druckvorlage
+
+„… → Als PDF sichern → Umfang: Broschüre" setzt den Rückenstich. Die
+Seitenfolge wird mit Leerseiten auf ein Vielfaches von **vier** aufgefüllt
+(anders geht ein gefalteter Bogen nicht auf), dann trägt Bogen `i` vorn
+`[n−1−2i | 2i]` und hinten `[2i+1 | n−2−2i]`. Der Bogen ist doppelt so
+breit wie das Endformat.
+
+**Ohne TrimBox und BleedBox, mit Absicht.** Beide sagen einer Druckerei,
+wo geschnitten wird — auf einem Bogen mit zwei Seiten nebeneinander gäbe
+es dafür keine einzige richtige Stelle, und eine Schnittmarke am falschen
+Ort ist schlimmer als keine. Aus demselben Grund läuft an der Broschüre
+keine Druckprüfung: Sie misst genau diese beiden Kästen und meldete hier
+garantiert Falsches. Was stattdessen dasteht, ist die Rechnung selbst —
+Seiten, Leerseiten, Bogen, Bogenmaß.
+
+**Die Rückseiten lassen sich um 180 Grad drehen, und das ist eine Frage an
+den Drucker.** Ob er beim beidseitigen Druck über die lange oder die kurze
+Kante wendet, steht in keiner Datei; es ist eine Einstellung des Treibers
+und je Gerät anders. Deshalb ein Schalter mit einem Satz daneben und keine
+Automatik: Eine App, die das errät, druckt bei der Hälfte aller Geräte
+jede zweite Seite auf dem Kopf.
+
+### „Erst beim dritten Versuch" — ein Verdacht mit Zähler
+
+Der Nutzer meldete zu 1.0.26: „Jetzt scheint es zu funktionieren. Mitunter
+reagiert der Zoom erst beim dritten Versuch."
+
+Die naheliegende Erklärung steht im Quelltext: `seitenzoomErlaubt`
+schaltet die Zweifingergeste der Seite ab, solange ein Foto gewählt ist
+oder der Ausschnittsmodus läuft — dann gehört sie dem Bild (so seit
+1.0.17). Eine zu kurze Aufziehbewegung kommt als Tipp an, der Tipp hebt
+die Auswahl auf, und der nächste Versuch geht. Das wäre genau das
+gemeldete Muster.
+
+**Gemessen ist es nicht.** Nach sechs Fassungen an dieser Bühne wird hier
+nicht mehr geraten, also steht es nicht als Ursache da, sondern als Zeile
+im Befund („Bedienung prüfen"):
+
+```
+Seitenzoom: erlaubt
+Seitenzoom: gesperrt (ein Foto ist gewählt)
+Seitenzoom: gesperrt (Ausschnittsmodus)
+```
+
+Dazu zählt der `Zeichenmesser` Beginn und Ende jeder Geste. Sagt der
+Befund beim nächsten Mal „gesperrt", ist es das. Sagt er „erlaubt" und die
+Geste zählt trotzdem nicht hoch, kommt sie gar nicht an — und das ist
+etwas anderes.
+
 ## Die Seite hing aus ihrem eigenen Rahmen heraus (1.0.26)
 
 Gemeldet 09/2026, und dieser Befund nennt drei Dinge auf einmal:
@@ -1929,6 +2065,20 @@ im Inspektor gab es, aber keinen Weg zu sehen, was es bewirkt.
 
 ## Offene Punkte
 
+* **Die Broschüre ist nie gedruckt worden** (1.0.27). Gerechnet ist die
+  Bogenfolge des Rückenstichs; ob sie gefaltet aufgeht, sagt erst ein
+  Probedruck mit vier Seiten. Und welche Wendeeinstellung ein bestimmter
+  Drucker benutzt — lange oder kurze Kante —, steht in keiner Datei: Deshalb
+  der Schalter „Rückseiten um 180° drehen" und keine Automatik.
+* **Die Umrechnung von A4 auf A5 ist gerechnet, nicht gesehen** (1.0.27). Ob
+  ein Fließtext, der von 11 pt auf 7,8 pt geht, noch angenehm zu lesen ist,
+  sagt erst der Ausdruck. Die Rechnung selbst geht bei A4/A5 ohne Rest auf,
+  weil die A-Reihe ein einziges Seitenverhältnis hat; bei unähnlichen
+  Formaten bleibt an einer Kante Luft, und das steht in der App.
+* **„Erst beim dritten Versuch" ist ein Verdacht, kein Befund** (1.0.27). Die
+  Zeile „Seitenzoom: erlaubt/gesperrt (…)" im Befund und die Zähler des
+  `Zeichenmessers` sind dafür gebaut, ihn zu bestätigen oder zu widerlegen —
+  gemessen ist bisher nichts.
 * **Ob die Anfasser jetzt gehen, ist NICHT gemessen.** Es ist die vierte
   Erklärung in dieser Sache. Die ersten drei waren Vermutungen; diese hier
   ist am Quelltext gerechnet und erklärt, warum ausnahmslos jeder Griff als

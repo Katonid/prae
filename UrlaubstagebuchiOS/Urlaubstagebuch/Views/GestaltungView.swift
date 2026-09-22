@@ -24,16 +24,19 @@ struct GestaltungView: View {
                 }
 
                 Section {
-                    Picker("Seitenformat", selection: $werk.reise.format) {
-                        ForEach(Seitenformat.allCases) { format in
-                            Text("\(format.name) · \(format.masstext)").tag(format)
-                        }
-                    }
+                    LabeledContent("Seitenformat",
+                                   value: "\(werk.reise.format.name) · \(werk.reise.format.masstext)")
                     LabeledContent("Bogen mit Anschnitt", value: bogentext)
                 } header: {
                     Text("Format")
                 } footer: {
-                    Text("Das Endformat ist die Seite, wie sie nach dem Schneiden in der Hand liegt. Der Bogen ist das, was im PDF steht — Endformat plus Anschnitt. Beide Maße stehen als TrimBox und BleedBox in der Datei, daran erkennt der Druckdienst, wo geschnitten wird.")
+                    // Das Format steht seit 1.0.27 auf einem EIGENEN
+                    // Bildschirm (Gestalten → Seitenformat): Es gibt dort
+                    // Vorlagen, ein freies Maß und die Umrechnung des
+                    // ganzen Buches. Hier bleibt es als Auskunft stehen —
+                    // dieselbe Einstellung an zwei Stellen zu bedienen wäre
+                    // genau das, was dieses Haus sonst verbietet.
+                    Text("Geändert wird das Format unter \u{201E}Gestalten → Seitenformat\u{201C} — dort stehen die Vorlagen, das freie Maß und die Umrechnung des ganzen Buches.\n\nDas Endformat ist die Seite, wie sie nach dem Schneiden in der Hand liegt. Der Bogen ist das, was im PDF steht — Endformat plus Anschnitt. Beide Maße stehen als TrimBox und BleedBox in der Datei, daran erkennt der Druckdienst, wo geschnitten wird.")
                 }
 
                 Section {

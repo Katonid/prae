@@ -4644,6 +4644,110 @@ Befunde, und keiner davon war Geschmack:
 - **Nicht gemessen (1.0.26):** Gesehen hat es niemand. Gerechnet und an zwei
   Bildern nachgemessen ist die URSACHE; dass die drei Beschwerden damit weg
   sind, folgt aus der Geometrie. **Nicht als erledigt darstellen.**
+- **Das Format ist kein Wort mehr, sondern zwei Zahlen** (`Seitenformat`, ab
+  1.0.27, Ansage des Nutzers 09/2026: „Ich möchte verschiedene Maßvorlagen für
+  die Seiten haben. DIN A4 Hochkant, DIN A4 Breit, DIN A5 dasselbe und
+  quadratisch 28 x 28 cm. Ansonsten möchte ich aber auch die Möglichkeit
+  haben, eine Seite frei skalieren zu können."). Bis 1.0.26 war es eine
+  Aufzählung mit vier festen Fällen; ein freies Maß lässt sich darin gar nicht
+  ausdrücken. Jetzt ein Wertetyp aus `breite`, `hoehe` und einem **optionalen**
+  Vorlagennamen — `nil` heißt „selbst eingetippt". Sieben Vorlagen (A4 und A5
+  je hoch und quer, 21, 28 und 30 cm im Quadrat), Grenzen 70 bis 500 mm je
+  Kante: Darunter wären die Ränder breiter als die Seite, darüber nimmt kein
+  Druckdienst dieser Größenordnung an.
+- **Der Leser nimmt weiterhin den alten TEXT entgegen.** In jeder gesicherten
+  Reise steht an dieser Stelle `"a4quer"`, also eine Zeichenkette und kein
+  Objekt. Ohne den Einzelwert-Zweig in `init(from:)` wäre `format` beim Lesen
+  auf die Vorgabe gefallen — und weil `Reise` das Feld über `wert(.format, …)`
+  holt, **still**: Das Buch ginge auf, und die Seiten hätten das falsche Maß.
+  Dieselbe Regel wie seit 1.0.3, nur diesmal nicht für ein neues Feld, sondern
+  für ein Feld, das seine GESTALT gewechselt hat. **Wer einen Typ von einer
+  Aufzählung auf eine Struktur umbaut, schreibt den Leser für beide Formen.**
+- **A4 nach A5 ist EINE Multiplikation** (`Model/Formatwechsel.swift`, ab
+  1.0.27, Ansage des Nutzers 09/2026: „ich hoffe, dass es eine Möglichkeit
+  gibt, ohne viel Aufwand aus dem DIN A4 Projekt ein A5 Projekt zu machen").
+  Die ganze A-Reihe hat dasselbe Seitenverhältnis — das ist ihre Bauvorschrift
+  —, also trifft ein einziger Faktor (1/√2 ≈ 0,707) beide Kanten. Gerechnet
+  wird er auf **alles, was eine Länge ist**: Blockrahmen, Ränder, Fuge,
+  Bundsteg, Eckenradius, Schriftgrößen, Innenabstände, Linienbreiten. Danach
+  steht jeder Block relativ an derselben Stelle und wirkt in derselben Größe;
+  nur das Papier ist kleiner. Die Sorge des Nutzers („problematisch, die Größe
+  der Schriften herunterzurechnen") ist damit beantwortet, solange das
+  Verhältnis stimmt.
+- **Der Anschnitt wird NICHT mitgerechnet.** Er ist keine Gestaltung, sondern
+  eine Angabe der Druckerei: Drei Millimeter sind drei Millimeter, egal wie
+  groß die Seite ist. Wer ihn mitschrumpfte, lieferte eine Datei, die formal
+  stimmt und beim Schneiden den weißen Faden bekommt, wegen dem es den
+  Anschnitt gibt. Ebenso bleiben **`kartenanteil`** (ein Anteil), der
+  **Bildausschnitt** (`zoom` und die beiden Versätze sind Anteile am Bild —
+  mitgerechnet verschöben sie jedes Foto in seinem Rahmen) und die
+  **Drehung** (ein Winkel).
+- **Bei UNÄHNLICHEN Formaten gilt der kleinere Faktor, und das steht dabei.**
+  Von A4 hoch auf 28 × 28 cm gibt es keinen, der beides trifft; genommen wird
+  `min(neu.breite/alt.breite, neu.hoehe/alt.hoehe)`, denn das ist der einzige,
+  bei dem kein Block aus der Seite fällt. An einer Kante bleibt dann mehr Luft
+  als vorher — der Satz wird davon nicht falsch, sieht aber danach aus, wenn
+  niemand es sagt. Das Blatt sagt es.
+- **Erst zeigen, dann übernehmen** (`Formatwechsel.vorschau`, `Wechselblatt`).
+  Ein Formatwechsel fasst JEDEN Block des Buches an. Vorher stehen da: beide
+  Formate mit Maß, der Faktor in Prozent, die Zahl der betroffenen Blöcke und
+  die Fließtextgröße vorher und nachher. Dieselbe Bauweise wie bei jeder
+  Einfuhr dieser App. **Zwei Wege**, weil es zwei Fragen sind: „mitrechnen"
+  für ein fertiges Buch, „nur das Format wechseln" für eines, das danach
+  ohnehin neu angeordnet wird. Beides hängt an `werk.merken()` und ist mit
+  „Widerrufen" zurückzunehmen.
+- **Das Format bekommt einen EIGENEN Bildschirm** (Gestalten → Seitenformat).
+  Bis 1.0.26 war es eine Auswahlzeile im Gestaltungsblatt, zwischen Anschnitt
+  und Bundsteg. Das Format ist aber die eine Entscheidung, an der alles
+  andere hängt, und seit 1.0.27 rechnet sie das Buch um — das gehört nicht
+  hinter einen Auswahlknopf in einer Liste. In der Gestaltung steht die
+  Zeile weiterhin, jetzt aber als Auskunft mit dem Weg dorthin: **Ein
+  Bildschirm, der einen Wert nur noch anzeigt, muss sagen, wo er geändert
+  wird** — sonst ist er für den Menschen davor kaputt.
+- **Die Broschüre ist ein BOGEN und keine Druckvorlage**
+  (`Buchausgabe.broschuere`, ab 1.0.27, Ansage des Nutzers 09/2026: „Wenn dann
+  noch die Möglichkeit besteht, automatisch einen Buchdruck auswählen zu
+  können, so dass die Seiten des Dokumentes automatisch umsortiert werden, so
+  dass ich eine doppelseitige Broschüre drucken kann."). Gesetzt wird der
+  Rückenstich: Die Seitenfolge wird mit Leerseiten auf ein Vielfaches von VIER
+  aufgefüllt (anders geht ein gefalteter Bogen nicht auf), dann trägt Bogen `i`
+  vorn `[n−1−2i | 2i]` und hinten `[2i+1 | n−2−2i]`. Der Bogen ist doppelt so
+  breit wie das Endformat.
+- **Ohne TrimBox und BleedBox, mit Absicht.** Beide sagen einer Druckerei, wo
+  geschnitten wird — auf einem Bogen mit zwei Seiten nebeneinander gäbe es
+  dafür keine einzige richtige Stelle, und eine Schnittmarke am falschen Ort
+  ist schlimmer als keine. Aus demselben Grund läuft an der Broschüre **keine
+  Druckprüfung**: Sie misst genau diese beiden Kästen und meldete hier
+  garantiert Falsches. Was stattdessen dasteht, ist die Rechnung selbst —
+  Seiten, Leerseiten, Bogen, Bogenmaß.
+- **Die Rückseiten lassen sich um 180 Grad drehen, und das ist eine Frage an
+  den DRUCKER.** Ob er beim beidseitigen Druck über die lange oder die kurze
+  Kante wendet, steht in keiner Datei; es ist eine Einstellung des Treibers
+  und je Gerät anders. Deshalb ein Schalter mit einem Satz daneben und keine
+  Automatik: Eine App, die das errät, druckt bei der Hälfte aller Geräte jede
+  zweite Seite auf dem Kopf. **Das nicht als gelöst darstellen** — geprüft ist
+  es erst am eigenen Drucker, mit vier Seiten Probe.
+- **„Der Zoom reagiert erst beim dritten Versuch" ist ein VERDACHT mit
+  Zähler, kein Befund** (ab 1.0.27, gemeldet 09/2026 neben der Rückmeldung,
+  dass es jetzt funktioniere). Die naheliegende Erklärung steht im Quelltext:
+  `seitenzoomErlaubt` schaltet die Zweifingergeste der Seite ab, solange ein
+  Foto gewählt ist oder der Ausschnittsmodus läuft — dann gehört sie dem Bild.
+  Eine zu kurze Aufziehbewegung kommt als TIPP an, der Tipp hebt die Auswahl
+  auf, und der nächste Versuch geht. Das wäre genau das gemeldete Muster.
+  **Gemessen ist es nicht**, deshalb steht es nicht als Ursache da, sondern
+  als Zeile im Befund: „Seitenzoom: erlaubt" bzw. „gesperrt (ein Foto ist
+  gewählt)" / „gesperrt (Ausschnittsmodus)", dazu zählt der `Zeichenmesser`
+  Beginn und Ende jeder Geste. Sagt der Befund beim nächsten Mal „gesperrt",
+  ist es das; sagt er „erlaubt" und die Geste zählt trotzdem nicht hoch, kommt
+  sie gar nicht an, und das ist etwas anderes. Dasselbe Muster wie bei
+  Schulalarms Stufenprobe — **nach sechs Fassungen an dieser Bühne wird hier
+  nicht mehr geraten.**
+- **Nicht gemessen (1.0.27):** Keine Broschüre ist gedruckt worden, und welche
+  Wendeeinstellung ein bestimmter Drucker benutzt, lässt sich aus einer Datei
+  nicht wissen. Die Umrechnung von A4 auf A5 ist gerechnet und nicht auf einem
+  Gerät gesehen — ob ein Fließtext von 11 pt bei 7,8 pt noch angenehm zu lesen
+  ist, sagt erst der Ausdruck. Und die Ursache des „dritten Versuchs" ist ein
+  Verdacht, siehe oben. **Nichts davon als erledigt darstellen.**
 - **Die Bildunterschrift war halb gebaut** (ab 1.0.5, Wunsch des Nutzers
   09/2026: „zu jedem Foto einen Beschreibungstext … Dies soll jedoch eine
   Option für jedes Foto sein. Kein muss."). Der Layoutautomat hielt Platz

@@ -126,41 +126,132 @@ struct Farbwert: Codable, Hashable {
 // waren nah dran und eben nicht genau: A4 sind 595,276 x 841,890 Punkte,
 // und eine Seite, die einen halben Millimeter zu klein ankommt, schiebt
 // beim Druckdienst den ganzen Beschnitt.
-enum Seitenformat: String, Codable, CaseIterable, Identifiable {
-    case a4hoch
-    case a4quer
-    case quadrat21
-    case quadrat30
+// DAS ENDFORMAT EINER SEITE, in Millimetern.
+//
+// Bis 1.0.26 war das eine Aufzählung mit vier festen Fällen. Das trug,
+// solange es vier Fälle waren, und stand dem im Weg, was der Nutzer
+// gebraucht hat (Ansage 09/2026): „Ich möchte verschiedene Maßvorlagen für
+// die Seiten haben … Ansonsten möchte ich aber auch die Möglichkeit haben,
+// eine Seite frei skalieren zu können, also eigene Maßeingaben tätigen zu
+// können." Eine Aufzählung kann kein freies Maß tragen; eine Struktur mit
+// zwei Zahlen kann beides.
+//
+// `vorlage` ist der NAME einer Vorlage und sonst nichts — `nil` heißt
+// „frei eingegeben". Die Maße stehen trotzdem immer ausgeschrieben da:
+// Wer eine Vorlage eines Tages ändert, ändert damit nicht rückwirkend das
+// Format eines fertigen Buches. Dieselbe Überlegung wie bei
+// `DefaultInstructions.locations` in Schulalarm: Eine Vorlage ist ein
+// Anfangswert, kein Bestand.
+struct Seitenformat: Codable, Hashable, Identifiable {
+    /// Breite des Endformats in Millimetern.
+    var breite: Double
+    /// Höhe des Endformats in Millimetern.
+    var hoehe: Double
+    /// Der Name der Vorlage, aus der es stammt; `nil` heißt frei eingegeben.
+    var vorlage: String?
 
-    var id: String { rawValue }
-
-    var millimeter: CGSize {
-        switch self {
-        case .a4hoch: return CGSize(width: 210, height: 297)
-        case .a4quer: return CGSize(width: 297, height: 210)
-        case .quadrat21: return CGSize(width: 210, height: 210)
-        case .quadrat30: return CGSize(width: 300, height: 300)
-        }
+    init(breite: Double, hoehe: Double, vorlage: String? = nil) {
+        self.breite = breite
+        self.hoehe = hoehe
+        self.vorlage = vorlage
     }
+
+    // ALTE DATEIEN TRAGEN HIER EINEN TEXT, nicht ein Objekt.
+    //
+    // Bis 1.0.26 stand in der Datei schlicht `"a4quer"`. Ein Leser, der nur
+    // das neue Objekt kennt, machte aus jedem vorhandenen Buch eines ohne
+    // Format — und `Reise` holt das Format über `b.wert(.format, …)`, das
+    // heißt: still auf die Vorgabe zurück, und die Seiten eines A4-Buches
+    // wären plötzlich quer. Deshalb wird BEIDES gelesen. Dieselbe Regel wie
+    // bei `AlteSchluessel` in `Reise`: Ein alter Schlüssel wird weiter
+    // gelesen, auch wenn es die Eigenschaft nicht mehr gibt.
+    init(from decoder: Decoder) throws {
+        if let einzeln = try? decoder.singleValueContainer(),
+           let text = try? einzeln.decode(String.self)
+        {
+            self = Seitenformat.vorlagen.first { $0.vorlage == text } ?? .a4quer
+            return
+        }
+        let b = try decoder.container(keyedBy: CodingKeys.self)
+        breite = b.wert(.breite, 297.0)
+        hoehe = b.wert(.hoehe, 210.0)
+        vorlage = b.wahlweise(.vorlage)
+    }
+
+    // MARK: - Vorlagen
+
+    static let a4hoch = Seitenformat(breite: 210, hoehe: 297, vorlage: "a4hoch")
+    static let a4quer = Seitenformat(breite: 297, hoehe: 210, vorlage: "a4quer")
+    static let a5hoch = Seitenformat(breite: 148, hoehe: 210, vorlage: "a5hoch")
+    static let a5quer = Seitenformat(breite: 210, hoehe: 148, vorlage: "a5quer")
+    static let quadrat21 = Seitenformat(breite: 210, hoehe: 210, vorlage: "quadrat21")
+    static let quadrat28 = Seitenformat(breite: 280, hoehe: 280, vorlage: "quadrat28")
+    static let quadrat30 = Seitenformat(breite: 300, hoehe: 300, vorlage: "quadrat30")
+
+    static let vorlagen: [Seitenformat] = [
+        .a4hoch, .a4quer, .a5hoch, .a5quer, .quadrat21, .quadrat28, .quadrat30,
+    ]
+
+    // MARK: - Grenzen der freien Eingabe
+    //
+    // Unten: Kleiner als eine Postkarte ergibt keinen Satzspiegel mehr —
+    // die Ränder allein wären breiter als die Seite. Oben: Ein PDF kann
+    // mehr, jeder Druckdienst dieser Größenordnung nicht.
+    static let kleinstesMass: Double = 70
+    static let groesstesMass: Double = 500
+
+    static func gueltig(_ mm: Double) -> Bool {
+        mm >= kleinstesMass && mm <= groesstesMass
+    }
+
+    var millimeter: CGSize { CGSize(width: breite, height: hoehe) }
 
     // Das ENDFORMAT in Punkten — die Seite, wie sie nach dem Schneiden in
     // der Hand liegt. Der Anschnitt kommt außen herum und gehört zur
     // Gestaltung, nicht zum Format.
     var groesse: CGSize {
-        CGSize(width: Druckmass.pt(millimeter.width), height: Druckmass.pt(millimeter.height))
+        CGSize(width: Druckmass.pt(breite), height: Druckmass.pt(hoehe))
+    }
+
+    var istFrei: Bool { vorlage == nil }
+
+    var id: String {
+        vorlage ?? String(format: "frei-%.1f-%.1f", breite, hoehe)
     }
 
     var name: String {
-        switch self {
-        case .a4hoch: return "A4 hoch"
-        case .a4quer: return "A4 quer"
-        case .quadrat21: return "21 x 21 cm"
-        case .quadrat30: return "30 x 30 cm"
+        switch vorlage {
+        case "a4hoch": return "A4 hoch"
+        case "a4quer": return "A4 quer"
+        case "a5hoch": return "A5 hoch"
+        case "a5quer": return "A5 quer"
+        case "quadrat21": return "21 \u{00D7} 21 cm"
+        case "quadrat28": return "28 \u{00D7} 28 cm"
+        case "quadrat30": return "30 \u{00D7} 30 cm"
+        default: return "Eigenes Ma\u{00DF}"
         }
     }
 
     var masstext: String {
-        "\(Int(millimeter.width)) x \(Int(millimeter.height)) mm"
+        let b = zahl(breite), h = zahl(hoehe)
+        return "\(b) \u{00D7} \(h) mm"
+    }
+
+    private func zahl(_ wert: Double) -> String {
+        let gerundet = (wert * 10).rounded() / 10
+        if abs(gerundet - gerundet.rounded()) < 0.05 {
+            return String(Int(gerundet.rounded()))
+        }
+        return String(format: "%.1f", gerundet).replacingOccurrences(of: ".", with: ",")
+    }
+
+    // Das Seitenverhältnis. Zwei Formate mit demselben Verhältnis lassen
+    // sich verlustfrei ineinander umrechnen — A4 und A5 sind genau das,
+    // und deshalb geht der Wunsch des Nutzers auf.
+    var verhaeltnis: Double { hoehe > 0 ? breite / hoehe : 1 }
+
+    func aehnlichZu(_ andere: Seitenformat) -> Bool {
+        abs(verhaeltnis - andere.verhaeltnis) < 0.005
     }
 }
 

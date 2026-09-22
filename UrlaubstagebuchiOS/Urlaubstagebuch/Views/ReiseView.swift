@@ -97,6 +97,7 @@ struct ReiseView: View {
         case fotostil
         case textstil
         case gestaltung
+        case seitenformat
         case bedienung
         case ausgabe
         case tagInhalt(UUID)
@@ -116,6 +117,7 @@ struct ReiseView: View {
             case .fotostil: return "fotostil"
             case .textstil: return "textstil"
             case .gestaltung: return "gestaltung"
+            case .seitenformat: return "format"
             case .bedienung: return "bedienung"
             case .ausgabe: return "ausgabe"
             case let .tagInhalt(id): return "tag-\(id)"
@@ -824,7 +826,8 @@ struct ReiseView: View {
                 blatt = .hintergrund
             }
             Divider()
-            Button("Format, Ränder, Karte…", systemImage: "ruler") { blatt = .gestaltung }
+            Button("Seitenformat…", systemImage: "square.resize") { blatt = .seitenformat }
+            Button("Ränder, Karte, Seitenzahlen…", systemImage: "ruler") { blatt = .gestaltung }
         } label: {
             Label("Gestalten", systemImage: "paintbrush")
         }
@@ -940,10 +943,26 @@ struct ReiseView: View {
             format: "Gewandert seit dem \u{00D6}ffnen: \u{21C4}%.0f \u{2195}%.0f "
                   + "(%d Meldungen)",
             Double(lage.spanne.width), Double(lage.spanne.height), lage.meldungen)
+        // WARUM EINE GESTE GAR NICHT ANKOMMT, steht hier und nicht in einer
+        // Vermutung (ab 1.0.27, gemeldet 09/2026: „Mitunter reagiert der
+        // Zoom erst beim dritten Versuch."). Solange ein FOTO gewählt ist,
+        // gehören zwei Finger seit 1.0.8 dem Bildausschnitt — und weil
+        // dessen Geste nur ÜBER dem Foto liegt, passiert daneben gar
+        // nichts. Das ist der naheliegende Grund für „erst beim dritten
+        // Versuch": Ein Aufziehen, das zu kurz gerät, kommt als Tipp an,
+        // hebt die Auswahl auf, und erst danach gehört die Geste wieder
+        // der Seite. **Aufgeschrieben als Verdacht, gezählt als Zahl** —
+        // „Zoomgeste" unten sagt, wie viele überhaupt angekommen sind.
+        let sperre = seitenzoomErlaubt
+            ? "Seitenzoom: erlaubt"
+            : (werk.ausschnittsmodus != nil
+                ? "Seitenzoom: gesperrt (Ausschnittsmodus)"
+                : "Seitenzoom: gesperrt (ein Foto ist gew\u{00E4}hlt)")
         return [werk.letzterGriff ?? "noch nichts gegriffen",
                 werk.letzteBuehne ?? "noch nicht gezoomt",
                 jetzt,
                 gewandert,
+                sperre,
                 werk.messer.befund].joined(separator: "\n")
     }
 
@@ -1059,6 +1078,8 @@ struct ReiseView: View {
             TextstilView(werk: werk)
         case .gestaltung:
             GestaltungView(werk: werk)
+        case .seitenformat:
+            FormatView(werk: werk)
         case .bedienung:
             BedienungView()
         case .ausgabe:
