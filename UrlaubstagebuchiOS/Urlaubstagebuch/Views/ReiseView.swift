@@ -48,6 +48,13 @@ struct ReiseView: View {
     // Ihn außerhalb zu merken wäre der naheliegende Weg und einer, den
     // SwiftUI nicht zusagt.
     @State private var massstabwunsch: Double?
+    // Wohin nach einem Zoom gerollt werden soll. Ein eigener Zustand und
+    // kein Aufruf aus der Geste heraus — siehe `onChange(of: rollwunsch)`.
+    @State private var rollwunsch: Rollwunsch?
+    // Die laufende Nummer sorgt dafür, dass zwei gleiche Wünsche
+    // hintereinander BEIDE ankommen: `onChange` meldet sich nur bei einer
+    // Änderung, und zweimal derselbe Anker wäre keine.
+    @State private var rollnummer = 0
     // Der geführte Weg „Buch aufbauen" schickt zum nächsten Blatt und
     // bekommt danach die Bühne zurück. Ein Blatt über einem Blatt wäre auf
     // dem iPad ein Kärtchen auf einem Kärtchen — deshalb macht das eine zu
@@ -173,7 +180,7 @@ struct ReiseView: View {
                         }
                     }
                     .padding(Buehnenmasse.rand)
-                    .frame(maxWidth: .infinity)
+                    .frame(width: inhaltsbreite, alignment: .center)
                     // Wo der Inhalt steht und wie groß er ist. Gelesen im
                     // KÖRPER des `GeometryReader`s und in ein Merkfeld
                     // geschrieben — nicht über `@State` und nicht über eine
@@ -201,7 +208,7 @@ struct ReiseView: View {
                     // gleichzeitig tut, ist für den Menschen davor kaputt.
                     // Sichtbar ist der Unterschied an den Anfassern; und die
                     // Lupen unten links gehen immer.
-                    .gesture(seitenzoom(leser),
+                    .gesture(seitenzoom,
                              including: seitenzoomErlaubt ? .all : .subviews)
                 }
                 .coordinateSpace(.named(Self.buehnenraum))
@@ -211,7 +218,28 @@ struct ReiseView: View {
                 .onChange(of: massstabwunsch) { _, wunsch in
                     guard let wunsch else { return }
                     massstabwunsch = nil
-                    massstabSetzen(wunsch, leser: leser)
+                    massstabSetzen(wunsch)
+                }
+                // ERST DIE NEUE LAGE, DANN ROLLEN (ab 1.0.22).
+                //
+                // Bis 1.0.21 stand das `scrollTo` in einem
+                // `DispatchQueue.main.async` MITTEN im Gestenrückruf. Dort
+                // ist die Reihenfolge nicht zugesagt: Der Block wandert
+                // sofort in die Hauptschlange, die Zustandsänderung
+                // `zoom = neu` dagegen löst einen Durchgang von SwiftUI
+                // aus — läuft der Block davor, rechnet `scrollTo` mit der
+                // ALTEN Größe des Elements und rollt an eine Stelle, die
+                // mit dem neuen Maßstab nichts zu tun hat. Genau so sieht
+                // „springt in irgendeine Position" aus. Der Wunsch reist
+                // deshalb durch den Zustand: `onChange` läuft garantiert
+                // NACH dem Durchgang, der ihn gesetzt hat, und der eine
+                // Sprung darin nach dessen Layout.
+                .onChange(of: rollwunsch) { _, wunsch in
+                    guard let wunsch else { return }
+                    rollwunsch = nil
+                    DispatchQueue.main.async {
+                        leser.scrollTo(wunsch.kennung, anchor: wunsch.anker)
+                    }
                 }
             }
             // Gemessen wird das Sichtfeld EINMAL je Änderung, nicht im
@@ -307,6 +335,43 @@ struct ReiseView: View {
         return werk.tag?.datum.lang ?? werk.reise.titel
     }
 
+    // WIE BREIT DER INHALT DER BÜHNE IST — ausgerechnet, nicht erfragt
+    // (ab 1.0.22, gemeldet 09/2026: „Die Seite kann leider nicht verschoben
+    // werden.").
+    //
+    // Bis 1.0.21 stand hier `.frame(maxWidth: .infinity)`. Das ist der
+    // übliche Griff in einem SENKRECHTEN `ScrollView`: Dort bietet die
+    // Rolle ihre eigene Breite an, das Höchstmaß setzt sie ein, und der
+    // Inhalt steht mittig. Diese Bühne rollt aber in BEIDE Richtungen, und
+    // dort ist es der falsche Griff — **ein Höchstmaß kann einen Inhalt
+    // niemals BREITER machen als das, was ihm angeboten wird**, und wie
+    // breit ein `ScrollView` seinen Inhalt auf einer ROLLACHSE anbietet,
+    // steht nirgends verbindlich. Genau daran hing, ob sich die Seite über
+    // die Breite schieben lässt. Der Kommentar an `Zoomanker.griff` führte
+    // das Höchstmaß sogar als Beleg für ein Mindestmaß an — wieder einmal
+    // ein Kommentar statt einer Prüfung.
+    //
+    // Gesetzt wird deshalb eine AUSGERECHNETE Breite: mindestens das
+    // Sichtfeld (sonst ließe sich ein schmales Blatt nicht zentrieren) und
+    // mindestens das Blatt samt seinen beiden Rändern (sonst gäbe es nichts
+    // zu schieben, wo es etwas zu schieben gibt). Beide Zahlen sind
+    // bekannt — die eine ist gemessen, die andere ist Bogenbreite mal
+    // Maßstab. Damit hängt das Schieben an keiner Zusage mehr, die niemand
+    // nachlesen kann.
+    private var inhaltsbreite: CGFloat {
+        let bogen = werk.reise.gestaltung.bogen(werk.reise.format)
+        let blatt = bogen.width * (doppelseiten ? 2 : 1) * massstabJetzt
+        return max(CGFloat(buehnenbreite), CGFloat(blatt) + 2 * Buehnenmasse.rand)
+    }
+
+    // Wohin nach einem Zoom gerollt wird. Die laufende Nummer gehört dazu,
+    // damit zweimal derselbe Anker auch zweimal ankommt.
+    private struct Rollwunsch: Equatable {
+        var kennung: String
+        var anker: UnitPoint
+        var nummer: Int
+    }
+
     // Der Maßstab passt die Seite in die Breite ein, solange nicht
     // ausdrücklich gezoomt wurde. Ein Buch, das man erst zurechtschieben
     // muss, bevor man es sieht, ist keines.
@@ -330,7 +395,7 @@ struct ReiseView: View {
     // Die erste Hälfte kann gar nicht danebenliegen — sie ist eine
     // Abbildung und keine Rechnung. Die zweite ist die Rechnung, und sie
     // fällt genau einmal an statt sechzigmal in der Sekunde.
-    private func seitenzoom(_ leser: ScrollViewProxy) -> some Gesture {
+    private var seitenzoom: some Gesture {
         MagnifyGesture(minimumScaleDelta: 0.01)
             .onChanged { wert in
                 if zoomAnfang == nil { gesteBeginnen(wert) }
@@ -348,7 +413,7 @@ struct ReiseView: View {
                 lupenanker = .center
                 zoomAnfang = nil
                 if let gegriffen = zoomgriff {
-                    zoomAuf(neu, griff: gegriffen, brennpunkt: brennpunkt, leser: leser)
+                    zoomAuf(neu, griff: gegriffen, brennpunkt: brennpunkt)
                 } else {
                     zoom = neu
                 }
@@ -376,30 +441,64 @@ struct ReiseView: View {
     private func gedeckelt(_ wert: Double) -> Double { min(max(wert, 0.12), 4) }
 
     // Den Maßstab setzen UND den Brennpunkt halten.
-    private func zoomAuf(_ wunsch: Double, griff: Zoomanker.Griff, brennpunkt: CGPoint,
-                         leser: ScrollViewProxy) {
+    private func zoomAuf(_ wunsch: Double, griff: Zoomanker.Griff, brennpunkt: CGPoint) {
+        let alt = massstabJetzt
         let neu = gedeckelt(wunsch)
-        let anker = massstaebe.anker(
+        let befund = massstaebe.anker(
             fuer: griff, brennpunkt: brennpunkt,
             sichtfeld: CGSize(width: buehnenbreite, height: buehnenhoehe),
             massstab: neu)
         zoom = neu
+        werk.letzteBuehne = zoomprobe(griff: griff, brennpunkt: brennpunkt,
+                                      befund: befund, alt: alt, neu: neu)
         guard let elementkennung = kennung(griff.index) else { return }
-        // Erst stehen lassen, dann rollen: `scrollTo` rechnet mit der
-        // Größe, die das Element GERADE hat — und die entsteht erst im
-        // nächsten Durchgang.
-        DispatchQueue.main.async { leser.scrollTo(elementkennung, anchor: anker) }
+        rollnummer += 1
+        rollwunsch = Rollwunsch(kennung: elementkennung, anker: befund.anker,
+                                nummer: rollnummer)
+    }
+
+    // WAS BEIM ZOOMEN WIRKLICH GERECHNET WURDE (ab 1.0.22).
+    //
+    // Die Regel dieses Hauses lautet: Wo sich eine Ursache nicht
+    // erschließen lässt, muss eine Probe entscheiden. Am Quelltext
+    // abzuzählen war, dass ein Höchstmaß die Breite nicht wachsen lässt;
+    // ob die Seite sich danach WIRKLICH schieben lässt, sagt allein das
+    // Gerät. Genannt wird deshalb ohne Deutung, was gemessen und was
+    // gerechnet wurde — vor allem „frei": Ist diese Zahl waagerecht null,
+    // gibt es nichts zu schieben, und jede weitere Erklärung erübrigt sich.
+    private func zoomprobe(griff: Zoomanker.Griff, brennpunkt: CGPoint,
+                           befund: Zoomanker.Ankerbefund,
+                           alt: Double, neu: Double) -> String {
+        let freiQuer = Double(lage.groesse.width) - buehnenbreite
+        let freiHoch = Double(lage.groesse.height) - buehnenhoehe
+        var zeilen: [String] = []
+        zeilen.append(String(
+            format: "Zoom %.0f %% \u{2192} %.0f %% \u{00B7} Blatt %.0f pt \u{00B7} B\u{00FC}hne %.0f\u{00D7}%.0f",
+            alt * 100, neu * 100, Double(inhaltsbreite) - 2 * Double(Buehnenmasse.rand),
+            buehnenbreite, buehnenhoehe))
+        zeilen.append(String(
+            format: "Inhalt %.0f\u{00D7}%.0f \u{00B7} Versatz %.0f/%.0f \u{00B7} frei \u{21C4}%.0f \u{2195}%.0f",
+            Double(lage.groesse.width), Double(lage.groesse.height),
+            Double(lage.ursprung.x), Double(lage.ursprung.y), freiQuer, freiHoch))
+        zeilen.append(String(
+            format: "Griff #%d quer %.2f hoch %.2f \u{00B7} Brennpunkt %.0f/%.0f",
+            griff.index + 1, griff.quer, griff.hoch, Double(brennpunkt.x), Double(brennpunkt.y)))
+        zeilen.append(String(
+            format: "Anker %.2f/%.2f \u{00B7} roh %.2f/%.2f%@",
+            befund.anker.x, befund.anker.y, befund.rohX, befund.rohY,
+            befund.geklemmt ? " (geklemmt)" : ""))
+        return zeilen.joined(separator: "\n")
     }
 
     // Ein Maßstab aus der Fußleiste wird um die MITTE des Sichtfelds
     // gesetzt, aus demselben Grund wie die Geste um ihren Mittelpunkt: Was
     // man ansieht, soll stehen bleiben.
-    private func massstabSetzen(_ ziel: Double, leser: ScrollViewProxy) {
+    private func massstabSetzen(_ ziel: Double) {
         let mitte = CGPoint(x: buehnenbreite / 2, y: buehnenhoehe / 2)
         let imInhalt = CGPoint(x: mitte.x - lage.ursprung.x, y: mitte.y - lage.ursprung.y)
         let gegriffen = massstaebe.griff(bei: imInhalt, inhalt: lage.groesse,
                                          massstab: massstabJetzt)
-        zoomAuf(ziel, griff: gegriffen, brennpunkt: mitte, leser: leser)
+        zoomAuf(ziel, griff: gegriffen, brennpunkt: mitte)
     }
 
     // Die Maße, mit denen gerechnet wird. NUR aus einem Handgriff heraus
@@ -675,9 +774,7 @@ struct ReiseView: View {
                 // wie bei „Zustellung prüfen" in Schulalarm: kopierbar,
                 // ohne Deutung.
                 Button("Befund kopieren", systemImage: "doc.on.doc") {
-                    UIPasteboard.general.string =
-                        (werk.letzterGriff ?? "noch nichts gegriffen")
-                        + "\n" + werk.messer.befund
+                    UIPasteboard.general.string = befundtext
                     werk.meldung = Reisewerk.Meldung(text: "Der Befund liegt in der Zwischenablage.")
                 }
             }
@@ -731,6 +828,29 @@ struct ReiseView: View {
                 Label(tag.datum.kurz, systemImage: "calendar")
             }
         }
+    }
+
+    // Der ganze Befund für die Zwischenablage.
+    //
+    // Die JETZIGE Lage der Bühne steht mit drin und wird erst beim Tippen
+    // gelesen: Sie ändert sich bei jedem Bildpunkt des Schiebens, und ein
+    // Zustand, der dabei mitschriebe, zeichnete die Bühne sechzigmal in der
+    // Sekunde neu (die Lehre aus 1.0.16 — `Inhaltslage` steht genau deshalb
+    // in einer schlichten Klasse und nicht in `@State`).
+    private var befundtext: String {
+        let freiQuer = Double(lage.groesse.width) - buehnenbreite
+        let freiHoch = Double(lage.groesse.height) - buehnenhoehe
+        let jetzt = String(
+            format: "Jetzt: Ma\u{00DF}stab %.0f %% \u{00B7} B\u{00FC}hne %.0f\u{00D7}%.0f \u{00B7} "
+                  + "Inhalt %.0f\u{00D7}%.0f \u{00B7} Versatz %.0f/%.0f \u{00B7} "
+                  + "frei \u{21C4}%.0f \u{2195}%.0f",
+            massstabJetzt * 100, buehnenbreite, buehnenhoehe,
+            Double(lage.groesse.width), Double(lage.groesse.height),
+            Double(lage.ursprung.x), Double(lage.ursprung.y), freiQuer, freiHoch)
+        return [werk.letzterGriff ?? "noch nichts gegriffen",
+                werk.letzteBuehne ?? "noch nicht gezoomt",
+                jetzt,
+                werk.messer.befund].joined(separator: "\n")
     }
 
     private var massstabtext: String {

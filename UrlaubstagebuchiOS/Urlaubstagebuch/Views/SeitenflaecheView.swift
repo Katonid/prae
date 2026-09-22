@@ -214,6 +214,7 @@ struct SeitenflaecheView: View {
             // nichts als das Gemessene.
             if bearbeitbar, werk.zeigeGriffprobe {
                 Text((werk.letzterGriff ?? "noch nichts gegriffen")
+                     + "\n" + (werk.letzteBuehne ?? "noch nicht gezoomt")
                      + "\n" + werk.messer.befund)
                     .font(.system(size: 9 / massstab, design: .monospaced))
                     .multilineTextAlignment(.leading)
