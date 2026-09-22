@@ -8,6 +8,13 @@ import SwiftUI
 // jemand einmal aufgeschrieben hat. Jetzt: jede Familie dieses Geräts,
 // jede Zeile in ihrer eigenen Schrift gesetzt — und ganz oben die, deren
 // kleines a rund ist wie bei Futura.
+//
+// DIE SELBST INSTALLIERTEN SCHRIFTEN STEHEN GANZ OBEN (ab 1.0.43).
+// 1.0.41 hat den Weg zu ihnen gebaut und ihn zwischen „Rundes a" und die
+// volle Liste gelegt — also unter zwei Abschnitte, von denen der erste auf
+// einem iPad schon eine Bildschirmhöhe füllt. Gemeldet wurde daraufhin,
+// die Schriftarten tauchten immer noch nicht auf. Neunte Auflage desselben
+// Befundes in diesem Repo: Ein Knopf, den niemand findet, ist kein Knopf.
 struct SchriftwahlView: View {
     @Binding var auswahl: Schriftfamilie
     var titel: String = "Schrift"
@@ -16,6 +23,13 @@ struct SchriftwahlView: View {
     // Der Systemwähler und sein Befund (ab 1.0.41).
     @State private var waehlerOffen = false
     @State private var geraetebefund: String?
+
+    // Was das System selbst als installiert meldet (ab 1.0.43). Gemessen
+    // beim Öffnen und in `@State` gemerkt — die Abfrage geht über alle
+    // angemeldeten Schriften des Geräts, und ein Körper läuft bei jedem
+    // Neuzeichnen (die Lehre aus 1.0.15).
+    @State private var geraetefamilien: [Schriftfamilie] = []
+    @State private var systemzeile = ""
 
     // Das Wort trägt drei kleine a. Wer nach der Form des a sucht, soll
     // sie sehen, ohne zu scrollen.
@@ -43,6 +57,31 @@ struct SchriftwahlView: View {
                 Text("Probe")
             } footer: {
                 Text(formbefund)
+            }
+
+            Section {
+                ForEach(geraetefamilien) { familie in
+                    familienzeile(familie)
+                }
+                Button {
+                    waehlerOffen = true
+                } label: {
+                    Label("Schrift vom Gerät wählen\u{2026}", systemImage: "textformat")
+                }
+                if let geraetebefund {
+                    Text(geraetebefund)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+                NavigationLink {
+                    Schriftenprobe()
+                } label: {
+                    Label("Schriften prüfen", systemImage: "stethoscope")
+                }
+            } header: {
+                Text("Selbst installierte Schriften")
+            } footer: {
+                Text(systemzeile)
             }
 
             if schnitte.count > 1 {
@@ -82,34 +121,18 @@ struct SchriftwahlView: View {
             }
 
             Section {
-                Button {
-                    waehlerOffen = true
-                } label: {
-                    Label("Schrift vom Gerät wählen\u{2026}", systemImage: "textformat")
-                }
-                if let geraetebefund {
-                    Text(geraetebefund)
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                }
-            } header: {
-                Text("Selbst installierte Schriften")
-            } footer: {
-                Text("Eine Schrift, die du über eine Schriftverwaltung auf das iPad gelegt hast, steht NICHT in der Liste darunter: Die zählt auf, was dieser App bekannt ist, und selbst installierte Schriften liegen woanders. An sie kommt nur der Wähler von iOS \u{2014} derselbe, den Pages zeigt. Was dort gewählt wird, meldet die App für sich an und sieht danach nach, ob sie die Schrift unter ihrem Namen wiederfindet; das Ergebnis steht oben.")
-            }
-
-            Section {
                 ForEach(alle) { familie in
                     familienzeile(familie)
                 }
             } header: {
                 Text("Alle Schriften dieses Geräts")
             } footer: {
-                Text("Mitgeliefert wird keine Schriftdatei: Ein Buch wird weitergegeben, und dafür bräuchte jede Schrift eine Lizenz. Was hier steht, bringt dieses Gerät mit \u{2014} und wird deshalb auch ins PDF eingebettet, wenn die Schrift es erlaubt (siehe \u{201E}Vor dem Druck prüfen\u{201C}).")
+                Text("Mitgeliefert wird keine Schriftdatei: Ein Buch wird weitergegeben, und dafür bräuchte jede Schrift eine Lizenz. Was hier steht, kennt dieser Prozess \u{2014} die Schriften von iOS und alles, was oben angemeldet werden konnte. Eingebettet ins PDF wird eine Schrift, wenn sie es erlaubt (siehe \u{201E}Vor dem Druck prüfen\u{201C}).")
             }
         }
         .navigationTitle(titel)
         .navigationBarTitleDisplayMode(.inline)
+        .task { messen() }
         .sheet(isPresented: $waehlerOffen) {
             Schriftwahl { deskriptor in
                 waehlerOffen = false
@@ -120,25 +143,55 @@ struct SchriftwahlView: View {
         }
     }
 
+    // Was das Gerät hergibt — einmal beim Öffnen und nach jeder Wahl.
+    private func messen() {
+        let fund = Geraeteschriften.systemfund()
+        geraetefamilien = fund.familien.map { Schriftfamilie(familienname: $0) }
+        if fund.familien.isEmpty {
+            systemzeile = "Dieses Gerät meldet keine selbst installierte Schrift "
+                + "(\(fund.roh) Einträge, davon lesbar \(fund.deskriptoren.count)). "
+                + "Eine Schrift, die du über eine Schriftverwaltung auf das iPad gelegt "
+                + "hast, ist dieser App dann nicht von selbst bekannt \u{2014} an sie "
+                + "kommt nur der Wähler von iOS, derselbe, den Pages zeigt. Was dort "
+                + "gewählt wird, meldet die App für sich an und sieht danach nach, ob "
+                + "sie die Schrift unter ihrem Namen wiederfindet."
+        } else {
+            systemzeile = "Dieses Gerät meldet \(fund.familien.count) selbst "
+                + "installierte Familien; sie stehen hier oben und weiter unten in der "
+                + "vollen Liste. Angemeldet werden sie bei jedem Start neu \u{2014} das "
+                + "gilt immer nur für diese App und ändert am Gerät nichts. Was hier "
+                + "fehlt, holt der Wähler von iOS."
+        }
+    }
+
     // Was der Systemwähler zurückgibt, ist ein DESKRIPTOR; gesichert wird
     // aber ein NAME — nur der passt in ein Buch, das auf einem anderen
     // Gerät wieder aufgehen soll. Also: anmelden, dann nachsehen, ob der
     // Name trägt, und beides sagen.
     private func uebernimm(_ deskriptor: UIFontDescriptor) {
-        // ERST anmelden, dann fragen: Ohne Anmeldung gäbe `UIFont(descriptor:)`
+        let schnitt = Geraeteschriften.schnittname(deskriptor) ?? ""
+        // Der Familienname kommt aus dem DESKRIPTOR und nicht aus einer
+        // daraus gebauten Schrift: Ohne Anmeldung gäbe `UIFont(descriptor:)`
         // für eine dem Prozess unbekannte Schrift eine Ersatzschrift zurück —
         // und damit stünde deren Familienname im Buch.
-        Geraeteschriften.anmelden(deskriptor)
-        let schnitt = deskriptor.postscriptName
-        let familie = deskriptor.fontAttributes[.family] as? String
-            ?? UIFont(descriptor: deskriptor, size: 12).familyName
+        let familie = Geraeteschriften.familienname(deskriptor)
         let gewaehlt = Schriftfamilie(
-            familienname: familie,
+            familienname: familie ?? UIFont(descriptor: deskriptor, size: 12).familyName,
             schnitt: schnitt.isEmpty ? nil : schnitt)
         if !schnitt.isEmpty { Geraeteschriften.merken(schnitt) }
-        Geraeteschriften.merken(familie)
+        if let familie { Geraeteschriften.merken(familie) }
         auswahl = gewaehlt
-        geraetebefund = Geraeteschriften.befund(gewaehlt)
+        geraetebefund = "Wird angemeldet \u{2026}"
+        // Der Befund kommt erst, wenn die Anmeldung abgeschlossen gemeldet
+        // hat. Bis 1.0.42 wurde unmittelbar danach nachgesehen — eine
+        // Frage, die zu diesem Zeitpunkt noch gar nicht beantwortet sein
+        // kann, denn `CTFontManagerRegisterFontDescriptors` arbeitet
+        // asynchron.
+        Geraeteschriften.anmelden(deskriptor) { meldung in
+            Geraeteschriften.notiere("Wähler: \(gewaehlt.vollerName) \u{2014} " + meldung)
+            geraetebefund = Geraeteschriften.befund(gewaehlt)
+            messen()
+        }
     }
 
     // MARK: - Zeilen

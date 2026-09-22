@@ -27,6 +27,25 @@ struct TypografieView: View {
                         LabeledContent("Schriftart überall",
                                        value: werk.reise.typografie.flieText.familie.vollerName)
                     }
+                    // ZWEI ZUGÄNGE ZU DERSELBEN SEITE (ab 1.0.43). Wer
+                    // eine selbst installierte Schrift sucht, sucht sie
+                    // nicht hinter „Schriftart überall" — dort steht der
+                    // Name der gerade gewählten Schrift, und das liest sich
+                    // wie eine Auswahlliste. Dieselbe Lehre wie beim
+                    // Fotostil in 1.0.10: Der Menüpunkt muss sagen, was
+                    // dahinterliegt.
+                    NavigationLink {
+                        SchriftwahlView(auswahl: Binding(
+                            get: { werk.reise.typografie.flieText.familie },
+                            set: { neu in
+                                werk.merken()
+                                werk.reise.typografie.familieUeberall(neu)
+                            }
+                        ), titel: "Schrift überall")
+                    } label: {
+                        Label("Selbst installierte Schriften\u{2026}",
+                              systemImage: "textformat")
+                    }
                     HStack {
                         Text("Alle Größen")
                         Spacer()
@@ -44,7 +63,7 @@ struct TypografieView: View {
                 } header: {
                     Text("Für das ganze Buch")
                 } footer: {
-                    Text("Nur die Schriftfamilien, die dieses Gerät wirklich mitbringt, stehen zur Wahl — eine, die dann doch die Systemschrift zeichnet, wäre eine Auskunft, die nicht stimmt.")
+                    Text("Zur Wahl steht, was dieses Gerät wirklich hergibt — eine Schrift, die dann doch die Systemschrift zeichnet, wäre eine Auskunft, die nicht stimmt. Eine selbst installierte Schrift ist dieser App nicht von selbst bekannt; der Abschnitt ganz oben in der Schriftwahl holt sie und sagt, was dabei herauskam.")
                 }
 
                 Picker("Wofür", selection: $rolle) {
