@@ -20,7 +20,7 @@ struct DoppelseiteView: View {
     private var bogenmass: CGSize { werk.reise.gestaltung.bogen(werk.reise.format) }
 
     var body: some View {
-        VStack(spacing: 6) {
+        VStack(spacing: Buehnenmasse.beschriftungsabstand) {
             HStack(alignment: .top, spacing: 0) {
                 seite(bogen.links, umschlag: bogen.beginntMitUmschlag, vorn: true)
                 seite(bogen.rechts, umschlag: bogen.endetMitUmschlag, vorn: false)
@@ -45,9 +45,12 @@ struct DoppelseiteView: View {
     }
 
     private var beschriftung: some View {
+        // FESTE Höhe — `Zoomanker` rechnet mit ihr, damit der Zoom um den
+        // Mittelpunkt der Geste nicht auf einer Schätzung steht.
         Text(zeile)
             .font(.caption2)
             .foregroundStyle(.secondary)
+            .frame(height: Buehnenmasse.beschriftung)
     }
 
     private var zeile: String {

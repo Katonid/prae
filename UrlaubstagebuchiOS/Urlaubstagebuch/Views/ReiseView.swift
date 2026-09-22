@@ -27,6 +27,32 @@ struct ReiseView: View {
     // Daran hängt der eingepasste Maßstab, und den brauchen die Lupen und
     // die Geste auch außerhalb des `GeometryReader`.
     @State private var buehnenbreite: Double = 0
+    @State private var buehnenhoehe: Double = 0
+    // Wo der Inhalt gerade steht. Kein `@State` — siehe `Inhaltslage`.
+    @State private var lage = Inhaltslage()
+    // WÄHREND der Geste wird nicht neu gesetzt, sondern skaliert: `lupe`
+    // ist der Faktor, `lupenanker` der Punkt, um den skaliert wird. Ein
+    // `scaleEffect` mit Anker hält genau diesen Punkt fest — damit steht
+    // der Mittelpunkt der Geste, ohne dass irgendetwas nachgerechnet
+    // werden müsste. Erst am Ende wird der Maßstab wirklich gesetzt.
+    @State private var lupe: Double = 1
+    @State private var lupenanker: UnitPoint = .center
+    // Was der Finger beim Aufsetzen gegriffen hat, und wo dieser Punkt auf
+    // dem Bildschirm lag. Beides wird EINMAL bestimmt, beim ersten
+    // Bildpunkt der Geste — dieselbe Regel wie beim Griff an einem Block.
+    @State private var zoomgriff: Zoomanker.Griff?
+    @State private var brennpunkt: CGPoint = .zero
+    // Der Wunsch einer Lupe. Er reist über den Zustand, weil der
+    // `ScrollViewProxy` nur INNERHALB des `ScrollViewReader`s gilt und die
+    // Knöpfe in der Werkzeugleiste stehen. Ihn außerhalb zu merken wäre
+    // der naheliegende Weg und einer, den SwiftUI nicht zusagt.
+    @State private var lupenwunsch: Double?
+    // Der geführte Weg „Buch aufbauen" schickt zum nächsten Blatt und
+    // bekommt danach die Bühne zurück. Ein Blatt über einem Blatt wäre auf
+    // dem iPad ein Kärtchen auf einem Kärtchen — deshalb macht das eine zu
+    // und das nächste auf, im `onDismiss`. Dieselbe Regel wie bei den
+    // Dateiwählern in Tafelbild: Der Wunsch trägt das Ziel.
+    @State private var alsNaechstes: Blatt?
 
     // Der Wunsch trägt das Ziel, kein Schalter daneben — dieselbe Regel
     // wie bei den Dateiwählern in Tafelbild. Ein `URL` ist nicht
@@ -38,6 +64,7 @@ struct ReiseView: View {
     }
 
     enum Blatt: Identifiable {
+        case aufbau
         case stil
         case hintergrund
         case textimport
@@ -56,6 +83,7 @@ struct ReiseView: View {
 
         var id: String {
             switch self {
+            case .aufbau: return "aufbau"
             case .stil: return "stil"
             case .hintergrund: return "hintergrund"
             case .textimport: return "text"
@@ -86,7 +114,14 @@ struct ReiseView: View {
             BlockInspektor(werk: werk, blatt: $blatt)
                 .inspectorColumnWidth(min: 260, ideal: 310, max: 380)
         }
-        .sheet(item: $blatt) { welches in
+        .sheet(item: $blatt, onDismiss: {
+            guard let naechstes = alsNaechstes else { return }
+            // Nach einem Einleseschritt geht es zurück in den Aufbau — dort
+            // steht dann, was daraus geworden ist. Nach dem Aufbau selbst
+            // endet die Kette.
+            alsNaechstes = naechstes.id == "aufbau" ? nil : .aufbau
+            blatt = naechstes
+        }) { welches in
             blattInhalt(welches)
         }
         .sheet(item: $buchdatei) { wunsch in
@@ -112,44 +147,78 @@ struct ReiseView: View {
 
     private var buehne: some View {
         GeometryReader { raum in
-            ScrollView([.horizontal, .vertical]) {
-                // LAZY, und das ist der Punkt: Ein gewöhnlicher `VStack`
-                // baut JEDES Kind sofort auf, auch das, was weit unterhalb
-                // des Bildschirms liegt. Ist kein Tag gewählt, sind das
-                // sämtliche Seiten des Buches — mit jedem Textkasten (ein
-                // voller CoreText-Satz) und jedem Foto (ein Vorschaubild,
-                // das beim ersten Mal von der Platte gelesen und entpackt
-                // wird). Bei einem Buch mit zweihundert Fotos ist das die
-                // Arbeit eines ganzen PDF-Laufs, und sie fällt an, sobald
-                // jemand die Seite wechselt. Ein `LazyVStack` baut nur,
-                // was in Sichtweite kommt.
-                LazyVStack(spacing: 26) {
-                    if doppelseiten {
-                        bogenliste
-                    } else {
-                        einzelseiten
+            // Der Leser gibt den einzigen Weg her, mit dem sich ein
+            // SwiftUI-`ScrollView` unter iOS 17 gezielt bewegen lässt:
+            // `scrollTo` auf ein Element, mit einem Anker. Einen Versatz
+            // zum Setzen gibt es nicht — deshalb rechnet `Zoomanker` den
+            // Anker aus, statt eine Zahl zu schieben.
+            ScrollViewReader { leser in
+                ScrollView([.horizontal, .vertical]) {
+                    // LAZY, und das ist der Punkt: Ein gewöhnlicher `VStack`
+                    // baut JEDES Kind sofort auf, auch das, was weit unterhalb
+                    // des Bildschirms liegt. Ist kein Tag gewählt, sind das
+                    // sämtliche Seiten des Buches — mit jedem Textkasten (ein
+                    // voller CoreText-Satz) und jedem Foto (ein Vorschaubild,
+                    // das beim ersten Mal von der Platte gelesen und entpackt
+                    // wird). Bei einem Buch mit zweihundert Fotos ist das die
+                    // Arbeit eines ganzen PDF-Laufs, und sie fällt an, sobald
+                    // jemand die Seite wechselt. Ein `LazyVStack` baut nur,
+                    // was in Sichtweite kommt.
+                    LazyVStack(spacing: Buehnenmasse.fuge) {
+                        if doppelseiten {
+                            bogenliste
+                        } else {
+                            einzelseiten
+                        }
                     }
+                    .padding(Buehnenmasse.rand)
+                    .frame(maxWidth: .infinity)
+                    // Wo der Inhalt steht und wie groß er ist. Gelesen im
+                    // KÖRPER des `GeometryReader`s und in ein Merkfeld
+                    // geschrieben — nicht über `@State` und nicht über eine
+                    // Preference: Beides schriebe bei jedem Bildpunkt des
+                    // Scrollens einen Zustand und zeichnete damit die ganze
+                    // Bühne neu (die Lehre aus 1.0.16).
+                    .background(
+                        GeometryReader { raster in
+                            let _ = lage.merken(raster.frame(in: .named(Self.buehnenraum)))
+                            Color.clear
+                        }
+                    )
+                    // Der Zoom WÄHREND der Geste ist eine reine Skalierung um
+                    // den Punkt, auf den die Finger zeigen. Damit steht dieser
+                    // Punkt fest, ohne dass etwas gerechnet wird — und die
+                    // Seiten werden nicht bei jedem Bildpunkt neu gesetzt.
+                    .scaleEffect(lupe, anchor: lupenanker)
+                    // ZWEI FINGER ZOOMEN DIE SEITE (ab 1.0.17).
+                    //
+                    // Die Geste hängt am INHALT der Bühne und nicht an einer
+                    // einzelnen Seite: Gezoomt wird das Blatt, nicht das, was
+                    // darauf liegt. Sie ist abgeschaltet, solange ein FOTO
+                    // gewählt ist — dort bedeuten zwei Finger seit 1.0.8 den
+                    // Bildausschnitt im Rahmen, und eine Geste, die zwei Dinge
+                    // gleichzeitig tut, ist für den Menschen davor kaputt.
+                    // Sichtbar ist der Unterschied an den Anfassern; und die
+                    // Lupen unten links gehen immer.
+                    .gesture(seitenzoom(leser),
+                             including: seitenzoomErlaubt ? .all : .subviews)
                 }
-                .padding(28)
-                .frame(maxWidth: .infinity)
-                // ZWEI FINGER ZOOMEN DIE SEITE (ab 1.0.17).
-                //
-                // Die Geste hängt am INHALT der Bühne und nicht an einer
-                // einzelnen Seite: Gezoomt wird das Blatt, nicht das, was
-                // darauf liegt. Sie ist abgeschaltet, solange ein FOTO
-                // gewählt ist — dort bedeuten zwei Finger seit 1.0.8 den
-                // Bildausschnitt im Rahmen, und eine Geste, die zwei Dinge
-                // gleichzeitig tut, ist für den Menschen davor kaputt.
-                // Sichtbar ist der Unterschied an den Anfassern; und die
-                // Lupen unten links gehen immer.
-                .gesture(seitenzoom, including: seitenzoomErlaubt ? .all : .subviews)
+                .coordinateSpace(.named(Self.buehnenraum))
+                .background(Color(.systemGroupedBackground))
+                // Die Lupen können den Leser nicht selbst erreichen; sie
+                // legen ihren Wunsch hier ab.
+                .onChange(of: lupenwunsch) { _, wunsch in
+                    guard let wunsch else { return }
+                    lupenwunsch = nil
+                    lupenzoom(wunsch, leser: leser)
+                }
             }
-            .background(Color(.systemGroupedBackground))
-            // Gemessen wird die Breite EINMAL je Änderung, nicht im Körper:
-            // Ein `@State`, das während des Zeichnens geschrieben wird,
-            // löst das nächste Zeichnen aus.
-            .onChange(of: raum.size.width, initial: true) { _, breite in
-                buehnenbreite = breite
+            // Gemessen wird das Sichtfeld EINMAL je Änderung, nicht im
+            // Körper: Ein `@State`, das während des Zeichnens geschrieben
+            // wird, löst das nächste Zeichnen aus.
+            .onChange(of: raum.size, initial: true) { _, groesse in
+                buehnenbreite = groesse.width
+                buehnenhoehe = groesse.height
             }
         }
         .navigationTitle(titelzeile)
@@ -165,12 +234,18 @@ struct ReiseView: View {
     private var einzelseiten: some View {
         let seiten = werk.sichtbareSeiten
         ForEach(seiten) { buchseite in
-            VStack(spacing: 6) {
+            VStack(spacing: Buehnenmasse.beschriftungsabstand) {
                 SeitenflaecheView(werk: werk, buchseite: buchseite, massstab: massstabJetzt)
+                // FESTE Höhe, und das ist keine Kosmetik: `Zoomanker`
+                // rechnet mit ihr. Eine Zeile, die sich ihre Höhe selbst
+                // sucht, wäre in dieser Rechnung eine Schätzung.
                 Text("Seite \(buchseite.nummer)")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
+                    .frame(height: Buehnenmasse.beschriftung)
             }
+            // Die Kennung, auf die `scrollTo` zielt.
+            .id("blatt-\(buchseite.id)")
         }
         if seiten.isEmpty { hinweisLeer }
     }
@@ -180,6 +255,7 @@ struct ReiseView: View {
         let bogen = werk.sichtbareDoppelseiten
         ForEach(bogen) { einer in
             DoppelseiteView(werk: werk, bogen: einer, massstab: massstabJetzt)
+                .id("bogen-\(einer.bogen)")
         }
         if bogen.isEmpty {
             hinweisLeer
@@ -213,6 +289,7 @@ struct ReiseView: View {
         } description: {
             Text("Lies Fotos oder einen Tagebuchtext ein — die App legt daraus die Tage an und setzt die Seiten.")
         } actions: {
+            Button("Buch aufbauen") { blatt = .aufbau }
             Button("Text einlesen") { blatt = .textimport }
             Button("Fotos einlesen") { blatt = .fotos }
         }
@@ -243,16 +320,112 @@ struct ReiseView: View {
     }
 
     // ZWEI FINGER auf der Bühne (ab 1.0.17, Ansage des Nutzers 09/2026:
-    // „Eine Zwei-Finger-Geste auf die Seite wäre mir lieber.").
-    private var seitenzoom: some Gesture {
+    // „Eine Zwei-Finger-Geste auf die Seite wäre mir lieber.") — und seit
+    // 1.0.18 um den MITTELPUNKT der Geste (Ansage des Nutzers 09/2026).
+    //
+    // Zwei Hälften: Solange die Finger auf dem Glas sind, skaliert ein
+    // `scaleEffect` mit Anker; danach wird der Maßstab gesetzt und der
+    // Inhalt so gerollt, dass derselbe Punkt wieder unter dem Finger liegt.
+    // Die erste Hälfte kann gar nicht danebenliegen — sie ist eine
+    // Abbildung und keine Rechnung. Die zweite ist die Rechnung, und sie
+    // fällt genau einmal an statt sechzigmal in der Sekunde.
+    private func seitenzoom(_ leser: ScrollViewProxy) -> some Gesture {
         MagnifyGesture(minimumScaleDelta: 0.01)
             .onChanged { wert in
+                if zoomAnfang == nil { gesteBeginnen(wert) }
                 let anfang = zoomAnfang ?? massstabJetzt
-                if zoomAnfang == nil { zoomAnfang = anfang }
-                zoom = min(max(anfang * wert.magnification, 0.12), 4)
+                // `magnification` ist die GESAMTE Bewegung seit dem
+                // Aufsetzen — gerechnet wird vom Anfangswert aus, sonst
+                // beschleunigt der Zoom mit jedem Bildpunkt (die Lehre aus
+                // 1.0.8, und dort stand sie schon zweimal).
+                lupe = gedeckelt(anfang * wert.magnification) / anfang
             }
-            .onEnded { _ in zoomAnfang = nil }
+            .onEnded { wert in
+                let anfang = zoomAnfang ?? massstabJetzt
+                let neu = gedeckelt(anfang * wert.magnification)
+                lupe = 1
+                lupenanker = .center
+                zoomAnfang = nil
+                if let gegriffen = zoomgriff {
+                    zoomAuf(neu, griff: gegriffen, brennpunkt: brennpunkt, leser: leser)
+                } else {
+                    zoom = neu
+                }
+                zoomgriff = nil
+            }
     }
+
+    private func gesteBeginnen(_ wert: MagnifyGesture.Value) {
+        let anfang = massstabJetzt
+        zoomAnfang = anfang
+        let inhalt = lage.groesse
+        zoomgriff = massstaebe.griff(bei: wert.startLocation, inhalt: inhalt,
+                                     massstab: anfang)
+        brennpunkt = CGPoint(x: lage.ursprung.x + wert.startLocation.x,
+                             y: lage.ursprung.y + wert.startLocation.y)
+        // Der Anker wird SELBST gerechnet und nicht aus `startAnchor`
+        // genommen: Worauf sich diese Zahl genau bezieht, steht nirgends
+        // verbindlich, und der Punkt im Inhalt ist hier ohnehin bekannt.
+        lupenanker = UnitPoint(
+            x: inhalt.width > 0 ? wert.startLocation.x / inhalt.width : 0.5,
+            y: inhalt.height > 0 ? wert.startLocation.y / inhalt.height : 0.5
+        )
+    }
+
+    private func gedeckelt(_ wert: Double) -> Double { min(max(wert, 0.12), 4) }
+
+    // Den Maßstab setzen UND den Brennpunkt halten.
+    private func zoomAuf(_ wunsch: Double, griff: Zoomanker.Griff, brennpunkt: CGPoint,
+                         leser: ScrollViewProxy) {
+        let neu = gedeckelt(wunsch)
+        let anker = massstaebe.anker(
+            fuer: griff, brennpunkt: brennpunkt,
+            sichtfeld: CGSize(width: buehnenbreite, height: buehnenhoehe),
+            massstab: neu)
+        zoom = neu
+        guard let elementkennung = kennung(griff.index) else { return }
+        // Erst stehen lassen, dann rollen: `scrollTo` rechnet mit der
+        // Größe, die das Element GERADE hat — und die entsteht erst im
+        // nächsten Durchgang.
+        DispatchQueue.main.async { leser.scrollTo(elementkennung, anchor: anker) }
+    }
+
+    // Die Lupen zoomen um die MITTE des Sichtfelds, aus demselben Grund wie
+    // die Geste um ihren Mittelpunkt: Was man ansieht, soll stehen bleiben.
+    private func lupenzoom(_ faktor: Double, leser: ScrollViewProxy) {
+        let mitte = CGPoint(x: buehnenbreite / 2, y: buehnenhoehe / 2)
+        let imInhalt = CGPoint(x: mitte.x - lage.ursprung.x, y: mitte.y - lage.ursprung.y)
+        let gegriffen = massstaebe.griff(bei: imInhalt, inhalt: lage.groesse,
+                                         massstab: massstabJetzt)
+        zoomAuf(massstabJetzt * faktor, griff: gegriffen, brennpunkt: mitte, leser: leser)
+    }
+
+    // Die Maße, mit denen gerechnet wird. NUR aus einem Handgriff heraus
+    // gelesen und nie im Körper: `sichtbareSeiten` geht über das ganze
+    // Buch.
+    private var massstaebe: Zoomanker {
+        let bogen = werk.reise.gestaltung.bogen(werk.reise.format)
+        return Zoomanker(blatthoehe: bogen.height,
+                         blattbreite: bogen.width * (doppelseiten ? 2 : 1),
+                         beiwerk: Buehnenmasse.beiwerk,
+                         fuge: Buehnenmasse.fuge,
+                         rand: Buehnenmasse.rand,
+                         anzahl: doppelseiten ? werk.sichtbareDoppelseiten.count
+                                              : werk.sichtbareSeiten.count)
+    }
+
+    private func kennung(_ stelle: Int) -> String? {
+        if doppelseiten {
+            let liste = werk.sichtbareDoppelseiten
+            guard liste.indices.contains(stelle) else { return nil }
+            return "bogen-\(liste[stelle].bogen)"
+        }
+        let liste = werk.sichtbareSeiten
+        guard liste.indices.contains(stelle) else { return nil }
+        return "blatt-\(liste[stelle].id)"
+    }
+
+    private static let buehnenraum = "buehne"
 
     // Über einem gewählten FOTO gehören die zwei Finger dem Bildausschnitt.
     private var seitenzoomErlaubt: Bool {
@@ -281,6 +454,15 @@ struct ReiseView: View {
         }
         ToolbarItem(placement: .topBarTrailing) {
             Menu {
+                // Zuerst der geführte Weg: Er sagt, in welcher Reihenfolge
+                // die drei Schritte zusammengehören, und zeigt hinterher,
+                // was zugeordnet wurde. Die drei Einzelwege bleiben
+                // daneben stehen — wer weiß, was er will, soll nicht durch
+                // einen Ablauf laufen müssen.
+                Button("Buch aufbauen…", systemImage: "wand.and.sparkles") {
+                    blatt = .aufbau
+                }
+                Divider()
                 Button("Tagebuchtext einlesen…", systemImage: "text.book.closed") {
                     blatt = .textimport
                 }
@@ -400,11 +582,11 @@ struct ReiseView: View {
             }
             .pickerStyle(.segmented)
             .frame(width: 104)
-            Button { zoom = max(massstabJetzt * 0.8, 0.12) } label: {
+            Button { lupenwunsch = 0.8 } label: {
                 Image(systemName: "minus.magnifyingglass")
             }
             Button("Einpassen") { zoom = 0 }
-            Button { zoom = min(massstabJetzt * 1.25, 4) } label: {
+            Button { lupenwunsch = 1.25 } label: {
                 Image(systemName: "plus.magnifyingglass")
             }
             // Die Gesten dieser Seite sind unsichtbar — ein Doppeltipp,
@@ -566,6 +748,8 @@ struct ReiseView: View {
     @ViewBuilder
     private func blattInhalt(_ welches: Blatt) -> some View {
         switch welches {
+        case .aufbau:
+            AufbauView(werk: werk) { ziel in alsNaechstes = ziel }
         case .stil:
             StilView(werk: werk)
         case .hintergrund:

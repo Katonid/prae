@@ -42,7 +42,7 @@ struct BedienungView: View {
               wie: "Am runden Griff über dem Block ziehen. Bei jedem Vielfachen von 45 Grad rastet er ein."),
         Griff(zeichen: "arrow.up.left.and.down.right.magnifyingglass",
               was: "Die Seite heranzoomen",
-              wie: "Mit zwei Fingern auf der Seite auf- und zuziehen. \u{201E}Einpassen\u{201C} unten in der Leiste holt die ganze Seite zurück, die Lupen daneben gehen in Schritten."),
+              wie: "Mit zwei Fingern auf der Seite auf- und zuziehen. Die Stelle zwischen den Fingern bleibt dabei stehen. \u{201E}Einpassen\u{201C} unten in der Leiste holt die ganze Seite zurück, die Lupen daneben gehen in Schritten und zoomen auf die Mitte."),
         Griff(zeichen: "photo.badge.arrow.down",
               was: "Ein Foto im Rahmen vergrößern",
               wie: "Ein Foto auswählen und DARAUF mit zwei Fingern auf- und zuziehen. Der Rahmen bleibt, wo er ist — nur der gezeigte Ausschnitt ändert sich. Solange ein Foto gewählt ist, zoomen zwei Finger deshalb nicht die Seite; ein Tipp daneben hebt die Auswahl auf."),
@@ -58,6 +58,9 @@ struct BedienungView: View {
     ]
 
     private let woSteht: [Griff] = [
+        Griff(zeichen: "wand.and.sparkles",
+              was: "Text, Spur und Fotos einlesen",
+              wie: "Einlesen \u{2192} Buch aufbauen. Die drei Schritte in der Reihenfolge, in der sie zusammengehören \u{2014} und danach steht Tag für Tag da, was zugeordnet wurde und was fehlt."),
         Griff(zeichen: "photo.stack",
               was: "Wie sich ALLE Fotos abheben",
               wie: "Buch → Fotos: Schatten, weißer Rand, Linie ringsum. Was dort steht, gilt für jedes Foto des Buches."),
