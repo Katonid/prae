@@ -168,20 +168,28 @@ final class Reisewerk: ObservableObject, Identifiable {
         return folge
     }
 
-    // Gehört diese Seite zur gerade gewählten Auswahl? Ist kein Tag
-    // gewählt, gehört das ganze Buch dazu.
-    func inAuswahl(_ seite: Buchseite) -> Bool {
-        guard let gewaehlt = gewaehlterTag else { return true }
-        if gewaehlt == Self.titelseitenKennung { return seite.tag == nil }
-        return seite.tag?.id == gewaehlt
+    // Gehört diese Seite zu diesem Tag? `Self.titelseitenKennung` steht
+    // für die Titelseite, die zu keinem Tag gehört.
+    func gehoert(_ seite: Buchseite, zu tag: UUID) -> Bool {
+        if tag == Self.titelseitenKennung { return seite.tag == nil }
+        return seite.tag?.id == tag
     }
 
-    // Die Seiten, die gerade gezeigt werden. Gefiltert wird nach dem
-    // gewählten Tag; ist keiner gewählt, ist es das ganze Buch.
+    // DAS GANZE BUCH STEHT UNTEREINANDER (ab 1.0.28, Ansage des Nutzers
+    // 09/2026: „Lieb, wenn alle Seiten fortlaufend untereinander stehen
+    // würden, beziehungsweise in dieser Ansicht die Doppelseiten, sodass
+    // man mühelos von einem Seitenpaar zum nächsten wischen kann, ohne
+    // dass man links die Liste der Seiten [braucht]").
+    //
+    // Bis 1.0.27 filterte diese Liste nach dem gewählten Tag. Damit war
+    // die Tagesliste links keine Übersicht, sondern die EINZIGE Art, sich
+    // durch das Buch zu bewegen: Wer die letzte Seite eines Tages sah und
+    // weiterblättern wollte, musste zur Liste greifen. Ein Buch blättert
+    // man aber, man schlägt es nicht neu auf. Gezeigt wird deshalb alles;
+    // die Tagesliste ist seither eine SPRUNGMARKE, und welcher Tag gewählt
+    // ist, folgt dem, was gerade im Bild steht.
     var sichtbareSeiten: [Buchseite] {
-        messer.sammelt("Seitenliste") { () -> [Buchseite] in
-            self.seitenfolge.filter { self.inAuswahl($0) }
-        }
+        messer.sammelt("Seitenliste") { () -> [Buchseite] in self.seitenfolge }
     }
 
     // MARK: - Doppelseiten
@@ -232,23 +240,16 @@ final class Reisewerk: ObservableObject, Identifiable {
         return bogen
     }
 
-    // Gepaart wird über das GANZE Buch und erst danach gefiltert.
+    // Auch hier das ganze Buch (ab 1.0.28) — siehe `sichtbareSeiten`.
     //
-    // Andernfalls verschöbe eine Auswahl die Paarung: Fängt ein Tag auf
-    // einer linken Seite an, stünde er bei einer Paarung innerhalb der
-    // Auswahl plötzlich rechts, und die Doppelseite zeigte etwas, das im
-    // gedruckten Buch nie so aussieht. Gezeigt wird deshalb jeder Bogen,
-    // auf dem eine Seite der Auswahl liegt — samt der Nachbarseite, auch
-    // wenn die zu einem anderen Tag gehört. Genau so liegt das Buch dann
-    // auch auf dem Tisch.
+    // Gepaart wurde schon vorher über das GANZE Buch und erst danach
+    // gefiltert, und der Grund dafür gilt weiter: Eine Paarung innerhalb
+    // einer Auswahl verschöbe die Seiten. Fängt ein Tag auf einer linken
+    // Seite an, stünde er darin plötzlich rechts — und die Doppelseite
+    // zeigte etwas, das im gedruckten Buch nie so aussieht. Jetzt entfällt
+    // der Filter ganz, und damit auch diese Falle.
     var sichtbareDoppelseiten: [Doppelseite] {
-        messer.sammelt("Seitenliste") { () -> [Doppelseite] in
-            self.doppelseiten.filter { bogen in
-                if let links = bogen.links, self.inAuswahl(links) { return true }
-                if let rechts = bogen.rechts, self.inAuswahl(rechts) { return true }
-                return false
-            }
-        }
+        messer.sammelt("Seitenliste") { () -> [Doppelseite] in self.doppelseiten }
     }
 
     // MARK: - Sichern

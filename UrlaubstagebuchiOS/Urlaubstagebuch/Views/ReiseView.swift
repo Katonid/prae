@@ -69,6 +69,19 @@ struct ReiseView: View {
     // hintereinander BEIDE ankommen: `onChange` meldet sich nur bei einer
     // Änderung, und zweimal derselbe Anker wäre keine.
     @State private var rollnummer = 0
+    // WELCHE REIHEN GERADE IM BILD STEHEN (ab 1.0.28) — Reihennummer auf
+    // Tageskennung. Seit alle Seiten untereinanderstehen, ist die Frage
+    // „welcher Tag ist gewählt" nicht mehr die Frage „was wird gezeigt",
+    // sondern „worauf zielt das Tagesmenü unten rechts". Und die muss dem
+    // folgen, was man sieht: Wer zum 6. August scrollt und dann „Seiten neu
+    // anordnen" tippt, meint den 6. August und nicht den Tag, den er vor
+    // zehn Minuten in der Liste angetippt hat.
+    //
+    // Gemeldet wird über `onAppear`/`onDisappear` der Reihen und nicht aus
+    // dem Rollversatz: Das fällt genau EINMAL je Reihe an und nicht bei
+    // jedem Bildpunkt — dieselbe Überlegung, aus der `Inhaltslage` kein
+    // `@State` ist (die Lehre aus 1.0.16).
+    @State private var imBlick: [Int: UUID] = [:]
     // Der geführte Weg „Buch aufbauen" schickt zum nächsten Blatt und
     // bekommt danach die Bühne zurück. Ein Blatt über einem Blatt wäre auf
     // dem iPad ein Kärtchen auf einem Kärtchen — deshalb macht das eine zu
@@ -244,8 +257,29 @@ struct ReiseView: View {
                     // gleichzeitig tut, ist für den Menschen davor kaputt.
                     // Sichtbar ist der Unterschied an den Anfassern; und die
                     // Lupen unten links gehen immer.
-                    .gesture(seitenzoom,
-                             including: seitenzoomErlaubt ? .all : .subviews)
+                    //
+                    // `simultaneousGesture` UND NICHT `gesture` (ab 1.0.28;
+                    // gemeldet 09/2026: „Die Geste müsste eigentlich allein
+                    // der Seite gehören, aber trotzdem muss ich mehrere Male
+                    // anfassen.").
+                    //
+                    // Über dieser Ansicht liegt der `ScrollView` und damit
+                    // dessen Schiebeerkenner, und der beginnt schon bei EINEM
+                    // Finger. Zwei Finger auf einer Rollfläche sind für ihn
+                    // ein Wisch; ohne ausdrückliche Erlaubnis zur
+                    // GLEICHZEITIGEN Erkennung muss einer der beiden
+                    // verlieren, und welcher, entscheiden die ersten
+                    // Millisekunden der Bewegung. Genau das ist „mal beim
+                    // ersten, mal beim dritten Versuch".
+                    //
+                    // Das ist keine Vermutung, sondern ein Vergleich IN
+                    // DIESER App: `SeitenflaecheView` hängt den Zoom des
+                    // Bildausschnitts seit 1.0.8 mit `simultaneousGesture`
+                    // in denselben `ScrollView` — dieselbe Gestenart, dieselbe
+                    // Rollfläche —, und der greift. Der Unterschied zwischen
+                    // beiden ist dieses eine Wort.
+                    .simultaneousGesture(seitenzoom,
+                                         including: seitenzoomErlaubt ? .all : .subviews)
                 }
                 .coordinateSpace(.named(Self.buehnenraum))
                 .background(Self.leinwand)
@@ -290,6 +324,17 @@ struct ReiseView: View {
                 buehnenbreite = groesse.width
                 buehnenhoehe = groesse.height
             }
+            // Ein Tipp in der Tagesliste ROLLT zu diesem Tag (ab 1.0.28).
+            .onChange(of: werk.gewaehlterTag) { _, _ in springeZuGewaehltem() }
+            // Und umgekehrt: Was oben im Bild steht, ist der gewählte Tag.
+            .onChange(of: tagImBlick) { _, neu in
+                guard let neu, neu != werk.gewaehlterTag else { return }
+                werk.gewaehlterTag = neu
+            }
+            // Einzelseiten und Doppelseiten zählen ihre Reihen VERSCHIEDEN
+            // (Seitenzahl gegen Bogennummer). Beim Umschalten ist die alte
+            // Meldung deshalb nicht bloß veraltet, sondern falsch.
+            .onChange(of: doppelseiten) { _, _ in imBlick.removeAll() }
         }
         .navigationTitle(titelzeile)
         .navigationBarTitleDisplayMode(.inline)
@@ -316,6 +361,8 @@ struct ReiseView: View {
             }
             // Die Kennung, auf die `scrollTo` zielt.
             .id("blatt-\(buchseite.id)")
+            .onAppear { imBlick[buchseite.nummer] = tageskennung(buchseite) }
+            .onDisappear { imBlick[buchseite.nummer] = nil }
         }
         if seiten.isEmpty { hinweisLeer }
     }
@@ -326,6 +373,13 @@ struct ReiseView: View {
         ForEach(bogen) { einer in
             DoppelseiteView(werk: werk, bogen: einer, massstab: massstabJetzt)
                 .id("bogen-\(einer.bogen)")
+                // Gemeldet wird die SPÄTERE der beiden Seiten. Beginnt ein
+                // Tag auf der rechten Seite eines Bogens, sieht man seinen
+                // Anfang — dann ist er der Tag, um den es geht.
+                .onAppear {
+                    imBlick[einer.bogen] = tageskennung(einer.rechts ?? einer.links)
+                }
+                .onDisappear { imBlick[einer.bogen] = nil }
         }
         if bogen.isEmpty {
             hinweisLeer
@@ -364,6 +418,52 @@ struct ReiseView: View {
             Button("Fotos einlesen") { blatt = .fotos }
         }
         .frame(height: 340)
+    }
+
+    // MARK: - Die Tagesliste ist eine Sprungmarke (ab 1.0.28)
+
+    // Zu welchem Tag eine Seite gehört. Die Titelseite gehört zu keinem —
+    // sie trägt die eigene Kennung, mit der auch die Liste links sie führt.
+    private func tageskennung(_ seite: Buchseite?) -> UUID {
+        seite?.tag?.id ?? Self.titelseitenKennung
+    }
+
+    // Der Tag, der GERADE OBEN im Bild steht. Die kleinste gemeldete
+    // Reihennummer ist die oberste — die Reihen stehen untereinander und
+    // sind nach Seitenzahl geordnet.
+    private var tagImBlick: UUID? {
+        guard let oberste = imBlick.keys.min() else { return nil }
+        return imBlick[oberste]
+    }
+
+    // Die Reihe, bei der ein Tag anfängt — das Ziel eines Sprungs aus der
+    // Tagesliste. Gesucht wird in derselben Liste, die auch gezeigt wird;
+    // eine zweite Zählung liefe auseinander.
+    private func ersteKennung(fuer tag: UUID) -> String? {
+        if doppelseiten {
+            let bogen = werk.sichtbareDoppelseiten.first { einer in
+                if let links = einer.links, werk.gehoert(links, zu: tag) { return true }
+                if let rechts = einer.rechts, werk.gehoert(rechts, zu: tag) { return true }
+                return false
+            }
+            return bogen.map { "bogen-\($0.bogen)" }
+        }
+        let seite = werk.sichtbareSeiten.first { werk.gehoert($0, zu: tag) }
+        return seite.map { "blatt-\($0.id)" }
+    }
+
+    // Ein Tipp in der Tagesliste ROLLT hin, er filtert nicht mehr.
+    //
+    // Steht der Tag schon oben im Bild, ist nichts zu tun — und genau
+    // daran erkennt diese Stelle auch, dass die Änderung gar nicht aus der
+    // Liste kam, sondern vom Rollen selbst. Ein zweiter Schalter daneben,
+    // der „das war ich" sagt, wäre die naheliegende Lösung und eine, die
+    // bei jeder Änderung der Reihenfolge wieder danebenliegt.
+    private func springeZuGewaehltem() {
+        guard let tag = werk.gewaehlterTag, tag != tagImBlick,
+              let kennung = ersteKennung(fuer: tag) else { return }
+        rollnummer += 1
+        rollwunsch = Rollwunsch(kennung: kennung, anker: .top, nummer: rollnummer)
     }
 
     // Die Liste selbst steht seit 1.0.16 im `Reisewerk` — sie wird an
@@ -943,16 +1043,23 @@ struct ReiseView: View {
             format: "Gewandert seit dem \u{00D6}ffnen: \u{21C4}%.0f \u{2195}%.0f "
                   + "(%d Meldungen)",
             Double(lage.spanne.width), Double(lage.spanne.height), lage.meldungen)
-        // WARUM EINE GESTE GAR NICHT ANKOMMT, steht hier und nicht in einer
-        // Vermutung (ab 1.0.27, gemeldet 09/2026: „Mitunter reagiert der
-        // Zoom erst beim dritten Versuch."). Solange ein FOTO gewählt ist,
-        // gehören zwei Finger seit 1.0.8 dem Bildausschnitt — und weil
-        // dessen Geste nur ÜBER dem Foto liegt, passiert daneben gar
-        // nichts. Das ist der naheliegende Grund für „erst beim dritten
-        // Versuch": Ein Aufziehen, das zu kurz gerät, kommt als Tipp an,
-        // hebt die Auswahl auf, und erst danach gehört die Geste wieder
-        // der Seite. **Aufgeschrieben als Verdacht, gezählt als Zahl** —
-        // „Zoomgeste" unten sagt, wie viele überhaupt angekommen sind.
+        // OB DIE GESTE DER SEITE GEHÖRT — und der Verdacht aus 1.0.27 ist
+        // WIDERLEGT (ab 1.0.28).
+        //
+        // 1.0.27 schrieb hier als naheliegenden Grund für „erst beim
+        // dritten Versuch" auf, dass zwei Finger über einem gewählten Foto
+        // seit 1.0.8 dem Bildausschnitt gehören und ein zu kurzes Aufziehen
+        // als Tipp ankommt, der die Auswahl aufhebt. Der Nutzer hat dem
+        // ausdrücklich widersprochen (09/2026: „ich kann dir versichern,
+        // dass ich kein Bild ausgewählt habe"). Damit ist die Sperre nicht
+        // die Ursache — sie wird weiter genannt, weil die Zeile eine
+        // MESSUNG ist und keine Erklärung war; sie schließt einen Zweig
+        // aus, mehr wollte sie nie. Der Grund steht seit 1.0.28 eine Ebene
+        // tiefer, am `simultaneousGesture` der Bühne.
+        //
+        // „Zoomgeste" unten zählt, wie viele Gesten überhaupt ANGEKOMMEN
+        // sind: Bleibt die Zahl null, während jemand aufzieht, hat der
+        // Erkenner nie begonnen.
         let sperre = seitenzoomErlaubt
             ? "Seitenzoom: erlaubt"
             : (werk.ausschnittsmodus != nil
