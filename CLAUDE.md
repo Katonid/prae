@@ -4206,6 +4206,60 @@ Befunde, und keiner davon war Geschmack:
     Sprung stehen: Gerollt wird einen Durchgang später, weil `scrollTo` die
     Größe braucht, die das Element dann erst hat. **Nicht als erledigt
     darstellen.**
+- **Eine Uhrzeit ist die WANDUHR am Ort, nie ein Augenblick auf der Weltuhr**
+  (`Dienste/Ortszeit.swift`, ab 1.0.19, Ansage des Nutzers 09/2026: Die Zeiten
+  „müssten dann angepasst werden gemäß der Zeitzone des Ortes, also in
+  Deutschland der mitteleuropäischen Sommerzeit und für Kanada die Sommerzeit
+  in Toronto."). Das ist dieselbe Regel wie beim TAG, der aus drei Zahlen
+  kommt — sie galt bisher nur für die eine Hälfte der Daten.
+  - **Ein Foto hält sich von selbst daran.** Im EXIF steht „19:33:21" ohne
+    jede Zone; `Bildbefund` legt genau diese Ziffern mit einer FESTEN Zone ab,
+    und `SpurView` wie `BlockInspektor` zeichnen mit derselben. Auf dem
+    Bildschirm steht damit, was die Kamera angezeigt hat.
+  - **Die Reisespur hielt sich NICHT daran.** Tagesspur-Sicherung und GPX
+    schreiben echte Augenblicke (`2026-07-25T18:14:03Z`), und die landeten
+    unverändert in demselben Feld. Gezeichnet mit derselben festen Zone hieß
+    das: UTC. In einer Liste standen damit Fotopunkte richtig und Spurpunkte
+    falsch — in Toronto um vier Stunden, in Deutschland um zwei. **Ein Feld
+    mit zwei Bedeutungen läuft auseinander**, und hier war es schon
+    auseinandergelaufen, nebeneinander in derselben Zeile.
+  - **Umgerechnet wird beim EINLESEN, nicht beim Zeichnen**
+    (`Spureinfuhr.ortszeitenSetzen`). Danach bedeutet `Reisepunkt.zeit`
+    überall dasselbe. Der Versatz wird für den jeweiligen Augenblick erfragt
+    (`zone.secondsFromGMT(for:)`) und nicht als fester Wert der Zone: Eine
+    Reise über den Oktober hinweg läge sonst an einem Ende falsch.
+  - **Welche Zone gilt, wird je TAG nachgeschlagen** (`Zonensucher`,
+    `CLPlacemark.timeZone` am ersten Ort des Tages). Je Punkt wären es
+    Tausende Anfragen, je Datei wäre es falsch — der Nutzer nennt Deutschland
+    und Toronto in einem Satz. **Eine eigene Tabelle wäre geraten**: iOS
+    bringt keine mit, und Zonengrenzen folgen Staats- und Provinzgrenzen,
+    nicht Längengraden. Gemerkt wird auf einem Viertelgrad-Gitter, und ein
+    `actor` hält die Anfragen auseinander — `CLGeocoder` nimmt immer nur eine
+    gleichzeitig und weist die zweite ab.
+  - **Ohne Netz wird nichts behauptet.** Dann gilt die im Blatt eingestellte
+    Zone, und die Vorschau sagt je Tag, welche es war — nachgeschlagen steht
+    grau da, angenommen orange und mit dem Wort „angenommen". Dieselbe Regel
+    wie beim Wort „Plan" an einer Abfahrt ohne Echtzeit.
+  - **Der TAG wird dabei NICHT neu gerechnet.** Wo ein `dayKey` in der Datei
+    stand, ist er der Tag, den der Mensch erlebt hat; dass eine umgerechnete
+    Uhrzeit über Mitternacht rutscht, ändert daran nichts. Wo der Tag
+    gerechnet werden muss (fremdes GPX), gilt weiter die eingestellte Zone —
+    sonst müsste erst gruppiert werden, um die Zone zu finden, und die Zone
+    bestimmte die Gruppierung.
+  - **`Reisetag.zeitzone` ist eine AUSKUNFT, keine Rechenvorschrift.** Die
+    Uhrzeiten sind schon umgerechnet; das Feld sagt nur, worauf sie sich
+    beziehen, und steht unter den Reisepunkten und im Aufbaubericht. Wer damit
+    noch einmal umrechnet, rechnet zweimal.
+  - **Schon eingelesene Tage bleiben, wie sie sind.** Aus welcher Zone sie
+    kamen, weiß die App nicht mehr; eine Wanderung um vier Stunden zu
+    verschieben, weil es plausibel aussieht, wäre geraten. Wer sie berichtigen
+    will, liest die Datei noch einmal ein — das ersetzt die Spurpunkte des
+    Tages (die Regel steht seit 1.0.4 dort).
+  - **Nicht gemessen:** Ob `CLPlacemark.timeZone` für die Orte dieser Reise
+    etwas hergibt, hat niemand gesehen — hier gibt es weder Netz zu Apples
+    Geocoder noch eine echte Sicherung. Gerechnet ist die Umrechnung und der
+    Weg drumherum; ob die Zonen ankommen, sagt die Zeile „Nachgeschlagen: n
+    von m Tagen" im Einlesen-Blatt. **Nicht als erledigt darstellen.**
 - **Die Bildunterschrift war halb gebaut** (ab 1.0.5, Wunsch des Nutzers
   09/2026: „zu jedem Foto einen Beschreibungstext … Dies soll jedoch eine
   Option für jedes Foto sein. Kein muss."). Der Layoutautomat hielt Platz

@@ -148,13 +148,13 @@ struct SpurimportView: View {
                          + "\u{2014} in Deutschland also die mitteleuropäische "
                          + "Sommerzeit, in Kanada die von Toronto. Welche Zone gilt, "
                          + "wird je Tag am ersten Ort nachgeschlagen; das braucht Netz.")
-                    Text("Wo sich keine ermitteln lässt, gilt die hier eingestellte. "
-                         + "Sie entscheidet außerdem über den TAG bei Dateien ohne "
-                         + "Tagesschlüssel"
-                         + (befund.gerechneteTage > 0
-                            ? " \u{2014} das betrifft \(befund.gerechneteTage) von "
-                              + "\(befund.tage.count) Tagen dieser Datei."
-                            : "; in dieser Datei steht er überall dabei."))
+                    // Der Satz wird als TEXT gebaut und nicht im
+                    // ViewBuilder zusammengerechnet: Eine Verkettung aus
+                    // fünf Teilen mit einem Bedingungsausdruck darin
+                    // bekommt der Typprüfer nicht in vertretbarer Zeit
+                    // auseinander („unable to type-check this expression
+                    // in reasonable time").
+                    Text(zonensatz(befund))
                 }
             }
 
@@ -212,7 +212,7 @@ struct SpurimportView: View {
                     if let zeile = zonenzeile(tag) {
                         Text(zeile)
                             .font(.caption2)
-                            .foregroundStyle(tag.zoneNachgeschlagen ? .secondary : .orange)
+                            .foregroundStyle(tag.zoneNachgeschlagen ? Color.secondary : Color.orange)
                     }
                 }
             }
@@ -225,6 +225,16 @@ struct SpurimportView: View {
         if tag.aufenthalte > 0 { teile.append("\(tag.aufenthalte) Aufenthalte") }
         teile.append(tag.gerechnet ? "Tag gerechnet" : "Tag abgelesen")
         return teile.joined(separator: " \u{00B7} ")
+    }
+
+    private func zonensatz(_ befund: Spureinfuhr.Befund) -> String {
+        let anfang = "Wo sich keine ermitteln lässt, gilt die hier eingestellte. "
+            + "Sie entscheidet außerdem über den TAG bei Dateien ohne Tagesschlüssel"
+        guard befund.gerechneteTage > 0 else {
+            return anfang + "; in dieser Datei steht er überall dabei."
+        }
+        return anfang + " \u{2014} das betrifft \(befund.gerechneteTage) von "
+            + "\(befund.tage.count) Tagen dieser Datei."
     }
 
     // Welche Zone für diesen Tag gilt — und ob sie nachgeschlagen oder
