@@ -5232,6 +5232,99 @@ Befunde, und keiner davon war Geschmack:
   Fortschrittsanzeige fehlt, sagt erst der nächste Befund. Ebenso ungeprüft,
   ob `FileManager.copyItem` auf diesem Gerät eine APFS-Kopie anlegt oder die
   Bytes wirklich verdoppelt — die Platzfrage ist damit offen.
+- **Die Seite entsteht aus dem INHALT des Tages** (`Model/Tagesplan.swift`, ab
+  1.0.34; Befund des Nutzers 09/2026 zu zwei Bildschirmfotos eines
+  ausgegebenen Buches: „Es hat tatsächlich den Eindruck, als ob hier nur ein
+  vorgegebenes Design mit sechs unterschiedlichen Seiten der Reihe nach
+  abgespult wird, ohne darauf zu achten, wie der konkrete Inhalt eines Tages
+  wirklich ist."). **Er hatte recht, und es stand wortwörtlich so im
+  Quelltext**: `Seitenrhythmus` war eine Liste von sechs Seitenbildern,
+  durchlaufen mit `(seite + versatz) % 6`; wie viel Text der Tag hat, wie
+  viele Bilder und ob sie hoch oder quer stehen, ging in diese Wahl mit keinem
+  einzigen Wert ein. Die Datei ist **ersatzlos entfernt** und nicht auf einen
+  Sonderfall zurückgestellt — dieselbe Regel wie beim Rückbau von 1.0.25:
+  Ein Mechanismus, dessen Grund widerlegt ist, bleibt nicht liegen.
+  - **Gemessen werden zwei Höhen** — der Text über die volle Satzbreite
+    (`Textmass.hoehe`) und alle Bilder zusammen in Reihen
+    (`Layoutautomat.stapelhoehe`), beide mit den Funktionen, die hinterher
+    auch SETZEN. Eine zweite Schätzung daneben liefe auseinander, und dann
+    hielte die Seite nicht, was der Plan sagt.
+  - **Aus dem Verhältnis folgt die GANGART, aus der Summe die Zahl der
+    Seiten** — und das sind genau die drei Fälle, die der Nutzer genannt hat:
+    `bilderreich` (unter einem Fünftel Text: der Text bleibt beisammen, danach
+    dürfen reine Bilderseiten stehen), `ausgewogen` (auf jeder Seite beides),
+    `textreich` (über sieben Zehnteln: Bilder neben dem Text).
+  - **Die Seitenzahl ist eine Schätzung mit Absicht.** Sie steuert die
+    Verteilung und ist keine Zusage; was am Ende übrig ist, kommt auf eine
+    zusätzliche Seite. Wie viele Kacheln auf die Seite gehören, wird bei JEDER
+    Seite neu aus dem Offenen gerechnet und nicht beim Start festgelegt —
+    sonst stimmte die Verteilung nicht mehr, sobald eine Seite mehr aufnimmt
+    als geplant.
+  - **Nichts daran ist gewürfelt und nichts hängt an der Kennung des Tages.**
+    Derselbe Inhalt ergibt denselben Satz; die Abwechslung kommt aus dem
+    Inhalt und aus dem Wechsel der Seitenstellung.
+- **Eine Reihe SCHRUMPFT, bevor sie umbricht** (`Layoutautomat.reihenIn`, ab
+  1.0.34). Gemeldet: „Das einzige Foto … erscheint nun super groß auf einer
+  leeren Seite 4. Dabei wäre auf Seite 3 noch Platz gewesen." Zwei Ursachen,
+  beide nachzurechnen: Der Text bekam die ganze Seite, obwohl noch ein Bild
+  für sie vorgesehen war (freigehalten wurde nur, wenn Reihe UND sechs Zeilen
+  danebenpassten, sonst gar nichts) — und die Seite brach um, sobald die
+  nächste Reihe in ihrer ZIELHÖHE nicht mehr hineinpasste, worauf dieselbe
+  Reihe auf der neuen, leeren Seite wachsen durfte (`ausfuellendesZiel` aus
+  1.0.32). Eine Reihe ist aber kein festes Maß: Ihre Höhe folgt aus der
+  Zielhöhe, und die lässt sich für diese eine Reihe senken. **Erst wenn auch
+  das nichts mehr hergibt, bleibt der Umbruch.**
+- **Ein Band folgt dem SEITENVERHÄLTNIS, sonst ist es ein Ausschnitt** (ab
+  1.0.34, gemeldet: „Auf der Seite 5 ist ein Ausschnitt eines Fotos auf die
+  ganze Seitenbreite gezogen. Das macht keinen Sinn."). Das Aufmacherband aus
+  1.0.32 stand fest auf gut einem Drittel der Satzhöhe bei voller Satzbreite —
+  und weil ein Rahmen GEFÜLLT und nicht eingepasst wird (`Bildausschnitt`),
+  wurde aus einem Hochformat ein Streifen quer durch das Bild. Gedeckelt wird
+  jetzt die HÖHE, was an Breite fehlt, bleibt Rand, und ein Band bekommt nur
+  ein Querformat. **Wer einen Rahmen setzt, dessen Verhältnis vom Bild
+  abweicht, hat einen Ausschnitt gewählt — absichtlich beim Vollbild, versehentlich
+  überall sonst.**
+- **Ein Bild NEBEN dem Text, und der Text läuft darunter weiter**
+  (`Seitenform.seitlich`, ab 1.0.34). Antwort auf zwei Punkte zugleich: auf
+  Seite 6 („könnte zumindest eins der Fotos noch neben den Text gezogen
+  werden und die anderen Fotos entsprechend verteilt") und auf den dritten
+  der drei Fälle („bei sehr viel Text und wenig Bildern … dass der Text sie
+  umfließt"). Umflossen wird in einem **L**: eine schmale Spalte neben dem
+  Bild, darunter die volle Breite — zwei Blöcke, kein neuer Satz.
+  **Ein Bild, das auf BEIDEN Seiten Text hat, ist bewusst nicht gebaut:**
+  CoreText legt einen Rahmen in ein Rechteck; alles andere verlangte, jede
+  Zeile einzeln zu setzen, also einen zweiten Umbruch neben dem, mit dem
+  `Textmass` misst — und der Textblock wäre danach nicht mehr das, was man in
+  dieser App anfassen, verschieben und teilen kann.
+- **Drei Fotos in einer Flucht sind ein Raster, kein Satz** (ab 1.0.34,
+  gemeldet zu Seite 7). In Stilen mit `Buchstil.lebendig` liegen die Kacheln
+  einer Reihe wieder gegeneinander versetzt und leicht gedreht — mit dem
+  Winkel aus der Kennung des Fotos, also bei jedem Neuanordnen demselben. Und
+  eine Reihe, die ihre Zielhöhe nicht erreicht, steht **mittig** statt
+  linksbündig: Ein einzelnes Bild an der linken Kante sieht aus wie der Rest
+  einer Reihe.
+- **`Seitenmuster.wechsel` heißt „Nach Inhalt gesetzt" und ist der REGELFALL**
+  (ab 1.0.34). Bis 1.0.33 verlangte es über 1200 Zeichen und mindestens vier
+  Fotos. Genau daran scheiterte der 3. August im gemeldeten Buch: Ein Tag mit
+  Text und EINEM Foto fiel durch die Schwelle und landete bei einem Muster
+  ohne Planer. Jetzt greift es, sobald ein Tag Text UND Bild hat; ohne eines
+  von beidem gibt es nichts zu verteilen, und die eigenen Bildideen der
+  übrigen acht Muster sind die bessere Antwort. Dieses eine Muster geht weder
+  durch den Musterschalter noch durch `reihenSetzen` — ein Satz, der sich nach
+  dem Inhalt richtet, lässt sich nicht als Sonderfall in eine Kette einbauen,
+  die Text und Bilder nacheinander abarbeitet; er muss beide zugleich vor sich
+  haben.
+- **Nicht gemessen (1.0.34):** Keine Seite ist damit gesehen worden. Gerechnet
+  ist, WARUM das Foto auf der leeren Seite landete, warum das Band ein
+  Ausschnitt wurde und was der Rhythmus mit dem Inhalt zu tun hatte (nichts).
+  **Gewählt und nicht gemessen sind alle Zahlen im Planer** — die beiden
+  Gangart-Schwellen (0,20 und 0,72), die Spaltenbreite des seitlichen Bildes
+  (0,40 der Satzbreite) und seine Höhe (höchstens 0,46), die Bandhöhe (0,40),
+  der Zuschlag von einem Viertel auf den Textanteil je Seite und die zwölf
+  Zeilen, ab denen ein Bild neben den Text darf. **Und es sind mehrere Dinge
+  auf einmal geändert**: Die Regel „eine Sache auf einmal" ist hier bewusst
+  gebrochen, weil die fünf gemeldeten Seiten EINE gemeinsame Ursache haben —
+  fünf Fassungen nacheinander hätten sie einzeln kuriert, ohne sie zu beheben.
 - **Die Bildunterschrift war halb gebaut** (ab 1.0.5, Wunsch des Nutzers
   09/2026: „zu jedem Foto einen Beschreibungstext … Dies soll jedoch eine
   Option für jedes Foto sein. Kein muss."). Der Layoutautomat hielt Platz

@@ -27,8 +27,8 @@ struct Buchstil: Identifiable, Hashable {
     var fotorand: Double
     var schatten: Schattenart
     var randabfallendErlaubt: Bool
-    // Dürfen Bilder leicht gedreht und gegeneinander versetzt liegen und
-    // darf der Textblock eine Spur schief stehen (siehe `Seitenrhythmus`)?
+    // Dürfen Bilder leicht gedreht und gegeneinander versetzt liegen
+    // (siehe `Layoutautomat.reihenIn` und das Album-Muster)?
     // Das ist keine Kleinigkeit, sondern der Unterschied zwischen einem
     // eingeklebten Album und einem gesetzten Magazin — in einem Magazin
     // wäre ein schiefes Bild ein Fehler, in einem Album fehlte es.
