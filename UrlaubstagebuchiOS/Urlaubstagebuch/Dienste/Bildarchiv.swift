@@ -107,6 +107,29 @@ final class Bildarchiv {
         }
     }
 
+    // DIE BILDER EINER REISE NEBEN DIE KOPIE LEGEN (ab 1.0.33).
+    //
+    // Die Bilder liegen in einem Ordner je REISE, und `Ablage.loeschen`
+    // räumt genau diesen Ordner mit weg. Zwei Bücher dürfen sich ihn
+    // deshalb NICHT teilen: Wer die Kopie löscht, nähme dem Urbuch alle
+    // Fotos mit — und zwar still, denn das Buch öffnet sich ja weiterhin.
+    // Kopiert wird Datei für Datei; der Ordner selbst steht schon da,
+    // weil `ordner(_:)` ihn anlegt.
+    //
+    // Die NAMEN bleiben, wie sie sind. Sie gelten innerhalb eines Ordners,
+    // und das Buch nennt sie genau so — sie umzubenennen hieße, jede
+    // Fotoangabe im kopierten Buch mitzuziehen, ohne dass irgendetwas
+    // davon besser würde.
+    func ordnerKopieren(von alt: UUID, nach neu: UUID) throws {
+        let quelle = ordner(alt)
+        let ziel = ordner(neu)
+        let inhalt = (try? dateien.contentsOfDirectory(atPath: quelle.path)) ?? []
+        for name in inhalt {
+            try dateien.copyItem(at: quelle.appendingPathComponent(name),
+                                 to: ziel.appendingPathComponent(name))
+        }
+    }
+
     func groesseInMB(reise: UUID) -> Double {
         let ort = ordner(reise)
         guard let inhalt = try? dateien.contentsOfDirectory(atPath: ort.path) else { return 0 }

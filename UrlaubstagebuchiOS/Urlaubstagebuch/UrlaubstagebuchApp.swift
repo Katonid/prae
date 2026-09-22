@@ -131,6 +131,80 @@ final class Regal: ObservableObject {
         neuLesen()
     }
 
+    // EIN BUCH DUPLIZIEREN (ab 1.0.33, Ansage des Nutzers 09/2026:
+    // „Ich möchte ein Projekt duplizieren können.").
+    //
+    // Ein Buch ist zweierlei: eine JSON-Datei und ein Ordner voller Bilder.
+    // Kopiert werden müssen BEIDE — ein Buch mit fremdem Bilderordner wäre
+    // eine Zeitbombe (siehe `Bildarchiv.ordnerKopieren`).
+    //
+    // Die INNEREN Kennungen bleiben, wie sie sind: Tage, Seiten, Blöcke und
+    // Fotos gelten innerhalb eines Buches, und zwei Bücher sehen einander
+    // nie. Mehr noch — sie MÜSSEN bleiben: Papierkorn und Seitenrhythmus
+    // rechnen aus `UUID.saat`, und mit neuen Kennungen sähe die Kopie anders
+    // aus als das Urbuch. (Tafelbild hat 1.4.5 das Gegenteil gelernt; dort
+    // lagen die Kopien in DERSELBEN Tafel, und dann ist eine doppelte
+    // Kennung wirklich eine.) Neu ist genau eine Zahl: die der Reise, denn
+    // die ist der Dateiname.
+    //
+    // Die Bilder werden ABSEITS des Hauptfadens kopiert. Ein Buch mit
+    // zweihundert Fotos wiegt ein Gigabyte; auf dem Hauptfaden stünde die
+    // App währenddessen still, und für den Menschen davor wäre sie
+    // abgestürzt.
+    //
+    // `@MainActor`, weil `neuLesen()` am Ende `@Published` schreibt: Eine
+    // nicht isolierte `async`-Funktion läuft im Nebenläufigkeits-Pool und
+    // nicht beim Aufrufer (dieselbe Wurzel wie bei Schulalarms
+    // Hintergrundereignissen, nur eine Ebene harmloser). Die eigentliche
+    // Arbeit steht trotzdem abseits — dafür ist das `Task.detached` da.
+    @MainActor
+    @discardableResult
+    func duplizieren(_ reise: Reise) async -> String {
+        var kopie = reise
+        kopie.id = UUID()
+        kopie.titel = Regal.kopietitel(reise.titel, vorhandene: reisen.map(\.titel))
+        kopie.geaendert = Date()
+        let alt = reise.id
+        let neu = kopie.id
+
+        let fehler: String? = await Task.detached(priority: .userInitiated) {
+            do {
+                try Bildarchiv.shared.ordnerKopieren(von: alt, nach: neu)
+                return nil
+            } catch {
+                return error.localizedDescription
+            }
+        }.value
+
+        // Halb kopiert ist schlimmer als gar nicht kopiert: Ein Buch ohne
+        // seine Bilder sieht aus wie eines, dem die Fotos abhandengekommen
+        // sind. Was angefangen wurde, wird deshalb wieder weggeräumt.
+        if let fehler {
+            Ablage.loeschen(neu)
+            return "Die Bilder ließen sich nicht kopieren: \(fehler)"
+        }
+        do {
+            try Ablage.sichern(kopie)
+        } catch {
+            Ablage.loeschen(neu)
+            return "Die Kopie ließ sich nicht sichern: \(error.localizedDescription)"
+        }
+        neuLesen()
+        return "\u{201E}\(kopie.titel)\u{201C} steht im Regal."
+    }
+
+    // „Reise (Kopie)", dann „Reise (Kopie 2)". Ein zweites Buch mit
+    // demselben Titel wäre im Regal nicht auseinanderzuhalten — die
+    // Kennung sieht man dort nicht.
+    static func kopietitel(_ titel: String, vorhandene: [String]) -> String {
+        let genommen = Set(vorhandene)
+        let erster = titel + " (Kopie)"
+        guard genommen.contains(erster) else { return erster }
+        var zahl = 2
+        while genommen.contains("\(titel) (Kopie \(zahl))"), zahl < 100 { zahl += 1 }
+        return "\(titel) (Kopie \(zahl))"
+    }
+
     func loeschen(_ id: UUID) {
         Ablage.loeschen(id)
         neuLesen()
