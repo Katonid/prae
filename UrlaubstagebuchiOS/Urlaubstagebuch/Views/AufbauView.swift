@@ -80,8 +80,10 @@ struct AufbauView: View {
                     stand: bericht.fotosGesamt == 0
                         ? "Noch keine Fotos."
                         : "\(bericht.fotosGesamt) Fotos, verteilt auf \(bericht.tageMitFotos) Tage.",
-                    erklaerung: "Zugeordnet wird über das Aufnahmedatum im Bild. Was kein "
-                        + "Datum hat, kommt in die Ablage und geht nicht verloren."
+                    erklaerung: "Zugeordnet wird über das Aufnahmedatum \u{2014} aus dem Bild, "
+                        + "sonst aus der Mediathek, sonst aus dem Dateinamen. Ein Tag, den es "
+                        + "noch nicht gibt, entsteht dabei von selbst. Was gar kein Datum "
+                        + "trägt, geht an den Tag, den du beim Einlesen dafür wählst."
                 ) {
                     Button("Fotos aus der Mediathek\u{2026}") { los(.fotos) }
                     Button("Bilder aus Dateien\u{2026}") { los(.dateien) }

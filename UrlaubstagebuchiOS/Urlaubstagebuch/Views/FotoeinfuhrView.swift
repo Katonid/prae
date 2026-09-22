@@ -14,6 +14,10 @@ struct FotoeinfuhrView: View {
     @State private var waehlerOffen = false
     @State private var laeuft = false
     @State private var stand: PHAuthorizationStatus = Reisewerk.mediathekStand
+    @State private var ziel: Fotoziel = .ablage
+    @State private var von = Date()
+    @State private var bis = Date()
+    @State private var gefunden: Int?
 
     var body: some View {
         NavigationStack {
@@ -59,7 +63,56 @@ struct FotoeinfuhrView: View {
                     }
                     .disabled(laeuft)
                 } footer: {
-                    Text("Die Fotos werden nach ihrem Aufnahmedatum auf die Tage verteilt. Fehlt das Datum, liegen sie in der Ablage, bis du sie zuordnest — verloren geht keines.")
+                    Text("Im Fotowähler lassen sich beliebig viele Fotos antippen. Einen Knopf \u{201E}alle auswählen\u{201C} hat er nicht — der Wähler gehört iOS und läuft in einem eigenen Programm, damit er ohne Zugriff auf die Mediathek arbeiten kann. Wer alles auf einmal will, nimmt den Zeitraum darunter.")
+                }
+
+                // Der eigentliche Weg zu „alle auf einmal": nicht nach
+                // Bildern fragen, sondern nach einem Zeitraum. Eine Reise
+                // IST ein Zeitraum — und die Mediathek gibt ihn her,
+                // sobald die Erlaubnis da ist, die diese App ohnehin für
+                // die Aufnahmeorte braucht.
+                Section {
+                    if stand == .authorized || stand == .limited {
+                        DatePicker("Von", selection: $von, displayedComponents: .date)
+                        DatePicker("Bis", selection: $bis, displayedComponents: .date)
+                        HStack {
+                            Text("Gefunden")
+                            Spacer()
+                            Text(gefunden.map { "\($0) Fotos" } ?? "…")
+                                .foregroundStyle(.secondary)
+                                .monospacedDigit()
+                        }
+                        Button {
+                            Task { await zeitraumHolen() }
+                        } label: {
+                            Label("Alle Fotos dieses Zeitraums einlesen",
+                                  systemImage: "square.stack.3d.down.right")
+                        }
+                        .disabled(laeuft || (gefunden ?? 0) == 0)
+                    } else {
+                        Text("Dafür braucht die App Zugriff auf die Fotomediathek — ohne ihn kann sie nicht nachsehen, was in einem Zeitraum liegt.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                } header: {
+                    Text("Alle Fotos eines Zeitraums")
+                } footer: {
+                    if stand == .limited {
+                        Text("Es sind nur ausgewählte Fotos freigegeben — in diesem Zeitraum findet die App deshalb nur diese.")
+                    } else {
+                        Text("Gezählt wird nach dem Aufnahmezeitpunkt, den die Mediathek führt. Fotos, die in iCloud liegen, werden beim Einlesen geladen; das kann dauern.")
+                    }
+                }
+
+                Section {
+                    Picker("Fotos ohne Datum", selection: $ziel) {
+                        Text("In die Ablage").tag(Fotoziel.ablage)
+                        ForEach(werk.reise.tage) { tag in
+                            Text("Zu \(tag.datum.mittel)").tag(Fotoziel.tag(tag.id))
+                        }
+                    }
+                } footer: {
+                    Text("Die Fotos werden nach ihrem Aufnahmedatum auf die Tage verteilt, und ein Tag, den es noch nicht gibt, entsteht dabei von selbst. Steht kein Datum im Foto, sieht die App in der Mediathek und im Dateinamen nach. Bleibt auch dann keines übrig, trägt das Foto keine Auskunft darüber, wann es aufgenommen wurde — wohin es dann kommt, ist eine Entscheidung und keine Messung. Deshalb steht sie hier.")
                 }
 
                 if laeuft {
@@ -84,7 +137,12 @@ struct FotoeinfuhrView: View {
                 }
                 .ignoresSafeArea()
             }
-            .onAppear { stand = Reisewerk.mediathekStand }
+            .onAppear {
+                stand = Reisewerk.mediathekStand
+                vorbelegen()
+            }
+            .onChange(of: von) { _, _ in zaehlen() }
+            .onChange(of: bis) { _, _ in zaehlen() }
         }
     }
 
@@ -95,9 +153,58 @@ struct FotoeinfuhrView: View {
         for eintrag in treffer {
             guard let daten = await ladeDaten(eintrag) else { continue }
             bilder.append(Rohbild(daten: daten, kennung: eintrag.assetIdentifier,
-                                  endung: endung(eintrag)))
+                                  endung: endung(eintrag),
+                                  name: eintrag.itemProvider.suggestedName))
         }
-        let bericht = await werk.fotosAufnehmen(bilder)
+        let bericht = await werk.fotosAufnehmen(bilder, ohneDatum: ziel)
+        laeuft = false
+        werk.meldung = .init(text: bericht.text)
+        schliessen()
+    }
+
+    // Vorbelegt wird der Zeitraum der Reise, wenn es schon Tage gibt —
+    // das ist die Frage, die jemand in diesem Augenblick stellt. Ist das
+    // Buch noch leer, sind es die letzten vier Wochen; eine leere Liste
+    // sähe aus wie eine kaputte Abfrage.
+    private func vorbelegen() {
+        if let erster = werk.reise.tage.first?.datum,
+           let letzter = werk.reise.tage.last?.datum
+        {
+            von = erster.mittag
+            bis = letzter.mittag
+        } else {
+            bis = Date()
+            von = Calendar(identifier: .gregorian)
+                .date(byAdding: .day, value: -28, to: bis) ?? bis
+        }
+        if let erster = werk.reise.tage.first { ziel = .tag(erster.id) }
+        zaehlen()
+    }
+
+    private func zaehlen() {
+        guard stand == .authorized || stand == .limited else {
+            gefunden = 0
+            return
+        }
+        let a = Tagesdatum(min(von, bis))
+        let b = Tagesdatum(max(von, bis))
+        gefunden = Zeitraumeinfuhr.zaehle(von: a, bis: b)
+    }
+
+    // Der Zeitraum-Import holt Foto für Foto. Tausend Rohbilder auf
+    // einmal wären mehrere Gigabyte — deshalb reicht die Ansicht dem Werk
+    // keine Liste, sondern einen Weg, das nächste zu holen.
+    private func zeitraumHolen() async {
+        let a = Tagesdatum(min(von, bis))
+        let b = Tagesdatum(max(von, bis))
+        guard let treffer = Zeitraumeinfuhr.treffer(von: a, bis: b), treffer.count > 0 else {
+            werk.meldung = .init(text: "In diesem Zeitraum liegt kein Foto.")
+            return
+        }
+        laeuft = true
+        let bericht = await werk.fotosAufnehmen(anzahl: treffer.count, ohneDatum: ziel) { stelle in
+            await Zeitraumeinfuhr.rohbild(treffer.object(at: stelle))
+        }
         laeuft = false
         werk.meldung = .init(text: bericht.text)
         schliessen()
@@ -133,6 +240,15 @@ struct DateieinfuhrView: View {
     @ObservedObject var werk: Reisewerk
     @Environment(\.dismiss) private var schliessen
 
+    // Dieser Weg hat keinen eigenen Bildschirm — er ist der Dateiwähler und
+    // sonst nichts. Für Fotos ohne Datum gilt deshalb dieselbe Vorgabe wie
+    // beim Foto-Import: der erste Reisetag, und die Ablage nur, solange es
+    // gar keinen Tag gibt. Der Bericht sagt hinterher, wo sie gelandet
+    // sind; wer sie woanders haben will, nimmt sie dort wieder heraus.
+    private var ziel: Fotoziel {
+        werk.reise.tage.first.map { Fotoziel.tag($0.id) } ?? .ablage
+    }
+
     var body: some View {
         Dateiwahl(typen: [.image], mehrere: true) { adressen in
             Task { await verarbeiten(adressen) }
@@ -154,9 +270,10 @@ struct DateieinfuhrView: View {
             defer { if offen { adresse.stopAccessingSecurityScopedResource() } }
             guard let daten = try? Data(contentsOf: adresse) else { continue }
             let endung = adresse.pathExtension.isEmpty ? "jpg" : adresse.pathExtension.lowercased()
-            bilder.append(Rohbild(daten: daten, kennung: nil, endung: endung))
+            bilder.append(Rohbild(daten: daten, kennung: nil, endung: endung,
+                                  name: adresse.lastPathComponent))
         }
-        let bericht = await werk.fotosAufnehmen(bilder)
+        let bericht = await werk.fotosAufnehmen(bilder, ohneDatum: ziel)
         werk.meldung = .init(text: bericht.text)
         schliessen()
     }
