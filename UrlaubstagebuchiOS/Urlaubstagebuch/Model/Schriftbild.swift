@@ -69,23 +69,37 @@ struct Schriftfamilie: Codable, Hashable, Identifiable {
     static let serifeSystem = Schriftfamilie(entwurf: .serifen)
     static let rundeSystem = Schriftfamilie(entwurf: .rund)
 
+    static let georgia = Schriftfamilie(familienname: "Georgia")
+    static let palatino = Schriftfamilie(familienname: "Palatino")
+    static let hoefler = Schriftfamilie(familienname: "Hoefler Text")
+    static let baskerville = Schriftfamilie(familienname: "Baskerville")
+    static let iowan = Schriftfamilie(familienname: "Iowan Old Style")
+    static let didot = Schriftfamilie(familienname: "Didot")
+    static let charter = Schriftfamilie(familienname: "Charter")
+    static let optima = Schriftfamilie(familienname: "Optima")
+    static let avenir = Schriftfamilie(familienname: "Avenir Next")
+    static let futura = Schriftfamilie(familienname: "Futura")
+    static let typewriter = Schriftfamilie(familienname: "American Typewriter")
+    static let handschrift = Schriftfamilie(familienname: "Bradley Hand")
+    static let schreibschrift = Schriftfamilie(familienname: "Snell Roundhand")
+
     static let alteNamen: [String: Schriftfamilie] = [
         "system": .system,
         "serifeSystem": .serifeSystem,
         "rundeSystem": .rundeSystem,
-        "georgia": Schriftfamilie(familienname: "Georgia"),
-        "palatino": Schriftfamilie(familienname: "Palatino"),
-        "hoefler": Schriftfamilie(familienname: "Hoefler Text"),
-        "baskerville": Schriftfamilie(familienname: "Baskerville"),
-        "iowan": Schriftfamilie(familienname: "Iowan Old Style"),
-        "didot": Schriftfamilie(familienname: "Didot"),
-        "charter": Schriftfamilie(familienname: "Charter"),
-        "optima": Schriftfamilie(familienname: "Optima"),
-        "avenir": Schriftfamilie(familienname: "Avenir Next"),
-        "futura": Schriftfamilie(familienname: "Futura"),
-        "typewriter": Schriftfamilie(familienname: "American Typewriter"),
-        "handschrift": Schriftfamilie(familienname: "Bradley Hand"),
-        "schreibschrift": Schriftfamilie(familienname: "Snell Roundhand"),
+        "georgia": .georgia,
+        "palatino": .palatino,
+        "hoefler": .hoefler,
+        "baskerville": .baskerville,
+        "iowan": .iowan,
+        "didot": .didot,
+        "charter": .charter,
+        "optima": .optima,
+        "avenir": .avenir,
+        "futura": .futura,
+        "typewriter": .typewriter,
+        "handschrift": .handschrift,
+        "schreibschrift": .schreibschrift,
     ]
 
     // MARK: - Namen und Bestand
