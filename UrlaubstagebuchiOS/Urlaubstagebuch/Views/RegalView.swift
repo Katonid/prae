@@ -8,6 +8,8 @@ struct RegalView: View {
     @State private var einstellungen = false
     @State private var angebot: Buchdatei.Befund?
     @State private var einlesefehler: String?
+    @State private var kopiert: String?
+    @State private var kopiertGerade = false
 
     var body: some View {
         NavigationStack {
@@ -84,6 +86,14 @@ struct RegalView: View {
             } message: {
                 Text("Wie soll das Buch heißen? Der Titel lässt sich später ändern.")
             }
+            .alert("Kopiert", isPresented: .init(
+                get: { kopiert != nil },
+                set: { if !$0 { kopiert = nil } }
+            )) {
+                Button("Gut") { kopiert = nil }
+            } message: {
+                Text(kopiert ?? "")
+            }
             .alert("Reise löschen?", isPresented: .init(
                 get: { zuLoeschen != nil },
                 set: { if !$0 { zuLoeschen = nil } }
@@ -100,6 +110,20 @@ struct RegalView: View {
         .fullScreenCover(item: $regal.offen) { werk in
             ReiseView(werk: werk)
                 .environmentObject(regal)
+        }
+    }
+
+    // Kopiert wird in einem `Task`, weil die Bilder abseits des
+    // Hauptfadens gehen (siehe `Regal.duplizieren`). Solange er läuft,
+    // sind die Zeilen gesperrt: Zweimal auf dasselbe Buch getippt ergäbe
+    // zwei Kopien, und die zweite hieße dann auch noch anders.
+    private func duplizieren(_ reise: Reise) {
+        guard !kopiertGerade else { return }
+        kopiertGerade = true
+        Task {
+            let satz = await regal.duplizieren(reise)
+            kopiertGerade = false
+            kopiert = satz
         }
     }
 
@@ -175,7 +199,23 @@ struct RegalView: View {
                 .buttonStyle(.plain)
                 .swipeActions {
                     Button("Löschen", role: .destructive) { zuLoeschen = reise }
+                    Button("Duplizieren") { duplizieren(reise) }
+                        .tint(.accentColor)
                 }
+                // Daneben im Kontextmenü, und zwar bewusst zweimal: Eine
+                // Wischgeste kennt, wer sie kennt. Beides ruft dieselbe
+                // Stelle — zwei Wege zu einer Sache, nicht zwei Sachen.
+                .contextMenu {
+                    Button("Duplizieren", systemImage: "plus.square.on.square") {
+                        duplizieren(reise)
+                    }
+                    Button(role: .destructive) {
+                        zuLoeschen = reise
+                    } label: {
+                        Label("Löschen", systemImage: "trash")
+                    }
+                }
+                .disabled(kopiertGerade)
             }
         }
         .listStyle(.insetGrouped)

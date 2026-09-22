@@ -115,6 +115,7 @@ struct ReiseView: View {
         case ausgabe
         case tagInhalt(UUID)
         case spur(UUID)
+        case seiten(UUID)
         case ablage
 
         var id: String {
@@ -135,6 +136,7 @@ struct ReiseView: View {
             case .ausgabe: return "ausgabe"
             case let .tagInhalt(id): return "tag-\(id)"
             case let .spur(id): return "spur-\(id)"
+            case let .seiten(id): return "seiten-\(id)"
             case .ablage: return "ablage"
             }
         }
@@ -938,6 +940,20 @@ struct ReiseView: View {
         Menu {
             Button("Als PDF sichern…", systemImage: "square.and.arrow.up") { blatt = .ausgabe }
             Button("Buch als Datei sichern…", systemImage: "shippingbox") { buchSichern() }
+            // ERST SICHERN, DANN KOPIEREN (ab 1.0.33).
+            //
+            // `Regal.duplizieren` liest das Buch aus dem Modell, und das
+            // Sichern läuft sonst verzögert. Ohne diese Zeile fehlte der
+            // Kopie genau das, was man in den letzten Minuten getan hat —
+            // und zwar still, denn die Kopie steht ja da.
+            Button("Dieses Buch duplizieren", systemImage: "plus.square.on.square") {
+                werk.sofortSichern()
+                let buch = werk.reise
+                Task {
+                    let satz = await regal.duplizieren(buch)
+                    werk.meldung = Reisewerk.Meldung(text: satz)
+                }
+            }
             Divider()
             Button("Alle unberührten Tage neu anordnen", systemImage: "arrow.clockwise") {
                 werk.alleNeuAnordnen(nurUnberuehrte: true)
@@ -1033,6 +1049,15 @@ struct ReiseView: View {
                     }
                 } label: {
                     Text("Seiten setzen: \(mustername(tag))")
+                }
+                // SEITEN AN BESTIMMTEN STELLEN (ab 1.0.33).
+                //
+                // Bis 1.0.32 stand hier nur „Seite anfügen", und das hängte
+                // immer hinten an. Eine Stelle mitten im Tag ließ sich gar
+                // nicht ansprechen, und das Entfernen lag im Inspektor —
+                // also dort, wo man einen Block bearbeitet.
+                Button("Seiten…", systemImage: "rectangle.stack") {
+                    blatt = .seiten(tag.id)
                 }
                 Button("Seite anfügen", systemImage: "plus.rectangle.on.rectangle") {
                     werk.seiteHinzufuegen(tag.id)
@@ -1233,6 +1258,8 @@ struct ReiseView: View {
             TagInhaltView(werk: werk, tagID: id)
         case let .spur(id):
             SpurView(werk: werk, tagID: id)
+        case let .seiten(id):
+            SeitenView(werk: werk, tagID: id)
         case .ablage:
             AblageView(werk: werk)
         }

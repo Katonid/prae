@@ -717,6 +717,86 @@ Bücher gefahrlos: Der erzeugte `Codable`-Leser verlangt einen Schlüssel nur
 für nicht-optionale Eigenschaften. Ein vorhandener Wert wird gelesen, ein
 fehlender wird `nil` — also „wie im Buch".
 
+## Seiten von Hand, und ein Buch zweimal (1.0.33)
+
+Zwei Ansagen, und die erste hat einen stillen Fehler mit ans Licht gebracht.
+
+### „Seiten an bestimmten Stellen hinzufügen oder löschen"
+
+Es gab dafür zwei halbe Wege. **„Seite anfügen"** im Tagesmenü hängte immer
+HINTEN an — wer zwischen der zweiten und der dritten Seite Platz brauchte,
+musste die Seite am Ende anlegen und alles von Hand dorthin schieben. Und
+**„Diese Seite entfernen"** stand im Block-Inspektor, also dort, wo man einen
+Block bearbeitet, und galt nur für die Seite, auf der der gewählte Block
+gerade liegt. Eine bestimmte Stelle ließ sich so gar nicht ansprechen.
+
+Jetzt: **Tagesmenü → „Seiten…"**. Eine Liste, die jede Seite mit ihrer Nummer
+nennt und sagt, was darauf steht („2 Texte · 3 Fotos"). Eine Nummer ist die
+einzige Angabe, mit der sich eine Stelle benennen lässt; Miniaturbilder wären
+hübscher und beantworteten die Frage nicht. Darin:
+
+* **Davor einfügen** (Wischen nach rechts oder Kontextmenü),
+* **danach einfügen**,
+* **entfernen** (Wischen nach links),
+* **Reihenfolge ziehen** über „Bearbeiten",
+* **am Ende anfügen** als sichtbarer Knopf unter der Liste.
+
+Die letzte Seite eines Tages bleibt stehen: Ein Tag ohne Seite wäre ein Loch
+im Buch, und `fehlendeSeitenNachholen` setzte ihn beim nächsten Öffnen
+ohnehin neu.
+
+### Der Fehler dahinter: eine leere Seite war keine Handarbeit
+
+`Seite.vonHand` war ausschließlich **gerechnet** — „irgendein Block auf dieser
+Seite wurde angefasst". Eine von Hand eingefügte **leere** Seite trägt aber
+keinen Block. Sie galt damit als unberührt, und das nächste Neuanordnen des
+Tages räumte sie weg, ohne ein Wort. „Seite anfügen" war seit 1.0.0 eine
+Zusage, die beim nächsten Handgriff daneben zurückgenommen wurde.
+
+Daneben steht jetzt ein **gespeicherter** Vermerk (`vonHandAngelegt`). Er
+steht an der SEITE und nicht am Tag, weil `Seite.vonHand` die eine Stelle
+ist, durch die alles fragt — `hatHandarbeit`, `alleNeuAnordnen`,
+`handarbeitstage`, die Marke in der Tagesliste, die Rückfrage beim
+Stilwechsel. Ein zweites Feld am Tag müsste an jeder davon einzeln beachtet
+werden, und die eine vergessene Stelle wäre wieder ein stiller Verlust.
+Entfernen und Verschieben setzen ihn ebenfalls: Wer an der Seitenfolge
+arbeitet, hat von Hand gearbeitet.
+
+Was das kostet, steht unter der Liste: Der Tag wird danach beim
+automatischen Neuanordnen übersprungen. Wer das nicht weiß, hält den
+Automaten für kaputt.
+
+### „Ich möchte ein Projekt duplizieren können"
+
+Im Regal über Wischgeste und Kontextmenü, im offenen Buch unter „…". Ein
+Buch ist **zweierlei**: eine JSON-Datei und ein Ordner voller Bilder, und
+kopiert werden müssen beide. Ein Buch mit fremdem Bilderordner wäre eine
+Zeitbombe — `Ablage.loeschen` räumt den Ordner der Reise mit weg, wer also
+die Kopie löscht, nähme dem Urbuch alle Fotos mit, und zwar still: Das Buch
+öffnet sich ja weiterhin.
+
+* **Die inneren Kennungen bleiben.** Tage, Seiten, Blöcke und Fotos gelten
+  innerhalb eines Buches, und zwei Bücher sehen einander nie. Mehr noch — sie
+  müssen bleiben, denn Papierkorn und Seitenrhythmus rechnen aus `UUID.saat`;
+  mit neuen Kennungen sähe die Kopie anders aus als das Urbuch. Neu ist genau
+  eine Zahl: die der Reise, denn die ist der Dateiname.
+* **Halb kopiert wird zurückgenommen.** Scheitert das Sichern, wird der schon
+  angelegte Bilderordner wieder weggeräumt.
+* **Die Bilder gehen abseits des Hauptfadens.** Ein Buch mit zweihundert
+  Fotos wiegt ein Gigabyte; auf dem Hauptfaden stünde die App währenddessen
+  still, und für den Menschen davor wäre sie abgestürzt.
+* Der Titel bekommt „(Kopie)", beim zweiten Mal „(Kopie 2)" — im Regal sieht
+  man die Kennung nicht, und zwei gleich heißende Bücher wären nicht
+  auseinanderzuhalten.
+
+### Nicht gemessen
+
+Nichts davon ist auf einem Gerät gesehen. Gerechnet ist, warum eine leere
+Seite verschwand; dass sie jetzt stehen bleibt, folgt daraus. Wie lange das
+Kopieren eines Buches mit zweihundert Fotos dauert, ist **nicht gemessen** —
+und ob `FileManager.copyItem` dabei eine APFS-Kopie anlegt oder die Bytes
+wirklich verdoppelt, ebenso wenig.
+
 ## Tagebuch ist ein Stil — und die letzte Seite wird gefüllt (1.0.32)
 
 Drei Befunde des Nutzers zu 1.0.31, und der erste ist der wichtigste.
@@ -2546,6 +2626,16 @@ im Inspektor gab es, aber keinen Weg zu sehen, was es bewirkt.
   wäre der schlechtere Tausch.
 
 ## Offene Punkte
+
+* **Nichts an 1.0.33 ist auf einem Gerät gesehen.** Gerechnet ist, warum eine
+  von Hand eingefügte leere Seite beim nächsten Neuanordnen verschwand
+  (`Seite.vonHand` fragt die Blöcke, und eine leere Seite hat keine) — dass
+  sie jetzt stehen bleibt, folgt daraus. **Wie lange das Duplizieren eines
+  Buches mit zweihundert Fotos dauert, ist nicht gemessen**: Es läuft abseits
+  des Hauptfadens und sperrt die Liste so lange; ob dabei eine
+  Fortschrittsanzeige fehlt, sagt erst der nächste Befund. Und ob
+  `FileManager.copyItem` auf dem Gerät eine APFS-Kopie anlegt oder die Bytes
+  wirklich verdoppelt, ist ungeprüft — die Platzfrage bleibt damit offen.
 
 * **Nichts an 1.0.32 ist auf einem Gerät gesehen.** Gerechnet ist, warum
   unten auf der letzten Seite eines Tages Platz blieb; dass sie jetzt gefüllt

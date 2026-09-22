@@ -872,19 +872,61 @@ final class Reisewerk: ObservableObject, Identifiable {
         gewaehlterBlock = neu.id
     }
 
-    func seiteHinzufuegen(_ tagID: UUID) {
-        guard let t = tagIndex(tagID) else { return }
+    // EINE LEERE SEITE AN EINER BESTIMMTEN STELLE (ab 1.0.33).
+    //
+    // Bis 1.0.32 gab es nur „Seite anfügen", und das hängte immer hinten
+    // an. Wer zwischen dem zweiten und dem dritten Tag Platz brauchte,
+    // musste die Seite am Ende anlegen und alles von Hand dorthin
+    // schieben. Angefügt wird weiterhin — das ist jetzt der Sonderfall
+    // „einfügen ganz hinten" und keine zweite Funktion daneben.
+    //
+    // Die neue Seite trägt `vonHandAngelegt`: Ohne den Vermerk räumte das
+    // nächste Neuanordnen des Tages sie wieder weg, und zwar STILL.
+    @discardableResult
+    func seiteEinfuegen(_ tagID: UUID, an stelle: Int) -> Int? {
+        guard let t = tagIndex(tagID) else { return nil }
+        let ziel = min(max(stelle, 0), reise.tage[t].seiten.count)
         merken()
-        reise.tage[t].seiten.append(Seite())
-        seitenzeiger = reise.tage[t].seiten.count - 1
+        reise.tage[t].seiten.insert(Seite(vonHandAngelegt: true), at: ziel)
+        seitenzeiger = ziel
+        return ziel
     }
 
+    func seiteHinzufuegen(_ tagID: UUID) {
+        guard let t = tagIndex(tagID) else { return }
+        seiteEinfuegen(tagID, an: reise.tage[t].seiten.count)
+    }
+
+    // Die letzte Seite eines Tages bleibt stehen: Ein Tag ohne Seite wäre
+    // kein Tag mehr, sondern ein Loch im Buch — und `fehlendeSeitenNachholen`
+    // setzte ihn beim nächsten Öffnen ohnehin neu.
     func seiteLoeschen(_ tagID: UUID, seite: Int) {
         guard let t = tagIndex(tagID), reise.tage[t].seiten.count > 1,
               reise.tage[t].seiten.indices.contains(seite) else { return }
         merken()
         reise.tage[t].seiten.remove(at: seite)
+        // Wer eine Seite entfernt, hat an der Seitenfolge dieses Tages
+        // gearbeitet. Ohne diesen Vermerk holte das nächste Neuanordnen
+        // sie zurück, als wäre nichts gewesen.
+        seitenfolgeGemerkt(t)
         seitenzeiger = min(seitenzeiger, reise.tage[t].seiten.count - 1)
+    }
+
+    func seiteVerschieben(_ tagID: UUID, von: IndexSet, nach: Int) {
+        guard let t = tagIndex(tagID) else { return }
+        merken()
+        reise.tage[t].seiten.move(fromOffsets: von, toOffset: nach)
+        seitenfolgeGemerkt(t)
+    }
+
+    // Eine Seite dieses Tages trägt danach den Vermerk — welche, ist
+    // gleichgültig: Gefragt wird überall nur, OB der Tag Handarbeit
+    // enthält. Steht der Vermerk schon irgendwo, bleibt alles wie es ist.
+    private func seitenfolgeGemerkt(_ t: Int) {
+        guard !reise.tage[t].seiten.contains(where: \.vonHand),
+              !reise.tage[t].seiten.isEmpty
+        else { return }
+        reise.tage[t].seiten[0].vonHandAngelegt = true
     }
 
     // MARK: - Spur

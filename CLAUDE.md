@@ -5150,6 +5150,88 @@ Befunde, und keiner davon war Geschmack:
   einmal geändert** (Aufmacher und Füllung) — das ist hier vertretbar, weil sie
   sich auf der Seite nicht verwechseln lassen: ein breites Bild oben ist der
   eine, größere Reihen unten der andere.
+- **Eine LEERE Seite war keine Handarbeit — und verschwand deshalb**
+  (`Seite.vonHandAngelegt`, ab 1.0.33). `Seite.vonHand` war ausschließlich
+  GERECHNET: „irgendein Block auf dieser Seite wurde angefasst". Eine von
+  Hand eingefügte leere Seite trägt aber keinen Block; sie galt damit als
+  unberührt, und das nächste Neuanordnen des Tages räumte sie weg, ohne ein
+  Wort. Damit war „Seite anfügen" seit 1.0.0 eine Zusage, die beim nächsten
+  Handgriff daneben zurückgenommen wurde. Daneben steht jetzt ein
+  GESPEICHERTER Vermerk.
+  - **Er steht an der SEITE und nicht am Tag.** `Seite.vonHand` ist die eine
+    Stelle, durch die alles fragt — `hatHandarbeit`, `alleNeuAnordnen`,
+    `handarbeitstage`, die Marke in der Tagesliste, die Rückfrage beim
+    Stilwechsel. Ein zweites Feld am Tag müsste an jeder davon einzeln
+    beachtet werden, und die eine vergessene Stelle wäre wieder ein stiller
+    Verlust.
+  - **Auch das ENTFERNEN und das VERSCHIEBEN einer Seite setzen ihn**
+    (`Reisewerk.seitenfolgeGemerkt`). Wer an der Seitenfolge arbeitet, hat
+    von Hand gearbeitet; ohne den Vermerk holte das nächste Neuanordnen die
+    Seite zurück, als wäre nichts gewesen. Welche Seite ihn trägt, ist
+    gleichgültig — gefragt wird überall nur, OB der Tag Handarbeit enthält.
+  - Das Feld ist neu und NICHT optional, `Seite` liest sich aber seit 1.0.12
+    von Hand (`b.wert(.vonHandAngelegt, false)`) — ein Buch von gestern
+    öffnet sich unverändert.
+- **Seiten an bestimmten Stellen** (`Views/SeitenView.swift`,
+  `Reisewerk.seiteEinfuegen`, ab 1.0.33; Ansage des Nutzers 09/2026: „Für die
+  manuelle Bearbeitung brauche ich die Option Seiten an bestimmten Stellen
+  hinzufügen zu können oder eben auch löschen zu können."). Bis 1.0.32 gab es
+  dafür zwei halbe Wege: „Seite anfügen" im Tagesmenü hängte immer HINTEN an,
+  und „Diese Seite entfernen" stand im Block-Inspektor — also dort, wo man
+  einen Block bearbeitet, und nur für die Seite, auf der der gewählte Block
+  gerade liegt. Eine bestimmte Stelle ließ sich damit gar nicht ansprechen.
+  - **Eine LISTE mit Nummern, keine Miniaturbilder.** Eine Nummer ist die
+    einzige Angabe, mit der sich eine Stelle benennen lässt; daneben steht,
+    was auf der Seite steht („2 Texte · 3 Fotos"), sonst wäre es eine Folge
+    von Zahlen, von denen sich keine wiedererkennen lässt.
+  - **`seiteHinzufuegen` ist seither der Sonderfall „einfügen ganz hinten"**
+    und keine zweite Funktion daneben — zwei Fassungen desselben Anfügens
+    liefen auseinander.
+  - **Die letzte Seite eines Tages bleibt stehen.** Ein Tag ohne Seite wäre
+    ein Loch im Buch, und `fehlendeSeitenNachholen` setzte ihn beim nächsten
+    Öffnen ohnehin neu.
+  - **Unter der Liste steht, was die Handarbeit KOSTET:** Der Tag wird danach
+    beim automatischen Neuanordnen übersprungen. Wer das nicht weiß, hält den
+    Automaten für kaputt.
+- **Ein Buch duplizieren heißt ZWEI Hälften kopieren** (`Regal.duplizieren`,
+  `Bildarchiv.ordnerKopieren`, ab 1.0.33; Ansage des Nutzers 09/2026: „Ich
+  möchte ein Projekt duplizieren können."). Ein Buch ist eine JSON-Datei UND
+  ein Ordner voller Bilder. **Ein Buch mit fremdem Bilderordner wäre eine
+  Zeitbombe**: `Ablage.loeschen` räumt den Ordner der Reise mit weg — wer die
+  Kopie löscht, nähme dem Urbuch alle Fotos mit, und zwar still, denn das
+  Buch öffnet sich ja weiterhin.
+  - **Die INNEREN Kennungen bleiben, wie sie sind**, und das ist kein
+    Versehen: Tage, Seiten, Blöcke und Fotos gelten innerhalb eines Buches,
+    und zwei Bücher sehen einander nie. Mehr noch — sie MÜSSEN bleiben, denn
+    Papierkorn und Seitenrhythmus rechnen aus `UUID.saat`; mit neuen
+    Kennungen sähe die Kopie anders aus als das Urbuch. **Tafelbild hat
+    1.4.5 das Gegenteil gelernt** („Eine Kopie erbt keine Kennungen") — dort
+    lagen die Kopien in DERSELBEN Tafel, und dann ist eine doppelte Kennung
+    wirklich eine. Neu ist genau eine Zahl: die der Reise, denn die ist der
+    Dateiname.
+  - **Die Dateinamen der Bilder bleiben ebenfalls.** Sie gelten innerhalb
+    eines Ordners; sie umzubenennen hieße, jede Fotoangabe im kopierten Buch
+    mitzuziehen, ohne dass irgendetwas besser würde.
+  - **Halb kopiert wird zurückgenommen.** Scheitert das Sichern, wird der
+    schon angelegte Bilderordner wieder weggeräumt — ein Buch ohne seine
+    Bilder sieht aus wie eines, dem die Fotos abhandengekommen sind.
+  - **Die Bilder gehen ABSEITS des Hauptfadens** (`Task.detached`), und
+    `duplizieren` ist `@MainActor`, weil `neuLesen()` am Ende `@Published`
+    schreibt: Eine nicht isolierte `async`-Funktion läuft im
+    Nebenläufigkeits-Pool und nicht beim Aufrufer.
+  - **Zwei Wege, eine Stelle:** Wischgeste und Kontextmenü im Regal, dazu
+    „Dieses Buch duplizieren" im `…`-Menü des offenen Buches — dort mit
+    `sofortSichern()` davor, sonst fehlte der Kopie, was in den letzten
+    Minuten getan wurde.
+- **Nicht gemessen (1.0.33):** Nichts davon ist auf einem Gerät gesehen.
+  Gerechnet ist, WARUM eine leere Seite verschwand (`vonHand` ist eine
+  berechnete Eigenschaft über die Blöcke, und eine leere Seite hat keine) —
+  dass sie jetzt stehen bleibt, folgt daraus. **Wie lange das Kopieren eines
+  Buches mit zweihundert Fotos dauert, ist nicht gemessen**: Es läuft abseits
+  des Hauptfadens und sperrt die Liste so lange, aber ob dabei eine
+  Fortschrittsanzeige fehlt, sagt erst der nächste Befund. Ebenso ungeprüft,
+  ob `FileManager.copyItem` auf diesem Gerät eine APFS-Kopie anlegt oder die
+  Bytes wirklich verdoppelt — die Platzfrage ist damit offen.
 - **Die Bildunterschrift war halb gebaut** (ab 1.0.5, Wunsch des Nutzers
   09/2026: „zu jedem Foto einen Beschreibungstext … Dies soll jedoch eine
   Option für jedes Foto sein. Kein muss."). Der Layoutautomat hielt Platz

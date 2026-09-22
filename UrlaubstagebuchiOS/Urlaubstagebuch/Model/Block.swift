@@ -381,15 +381,33 @@ struct Seite: Identifiable, Codable, Hashable {
     // Eine Seite, die ganz von einem Bild gefüllt ist, bekommt keine
     // Seitenzahl: Sie stünde auf dem Foto und sähe aus wie ein Versehen.
     var ohneSeitenzahl: Bool = false
+    // EINE LEERE SEITE IST AUCH HANDARBEIT (ab 1.0.33).
+    //
+    // `vonHand` war ausschließlich gerechnet: „irgendein Block auf dieser
+    // Seite wurde angefasst". Eine von Hand eingefügte LEERE Seite trägt
+    // aber keinen Block — sie galt damit als unberührt, und das nächste
+    // Neuanordnen des Tages räumte sie stillschweigend weg. Wer eine Seite
+    // einfügt, um sie danach zu füllen, verlor sie beim ersten Handgriff
+    // daneben.
+    //
+    // Deshalb daneben ein GESPEICHERTER Vermerk. Er steht an der Seite und
+    // nicht am Tag, weil `Seite.vonHand` die eine Stelle ist, durch die
+    // alles fragt (`hatHandarbeit`, `alleNeuAnordnen`, `handarbeitstage`,
+    // die Marke in der Tagesliste, die Rückfrage beim Stilwechsel) — ein
+    // zweites Feld am Tag müsste an jeder davon einzeln beachtet werden,
+    // und die eine vergessene Stelle wäre wieder ein stiller Verlust.
+    var vonHandAngelegt: Bool = false
 
     init(id: UUID = UUID(), bloecke: [Block] = [], papier: Farbwert? = nil,
-         hintergrund: Seitenhintergrund? = nil, ohneSeitenzahl: Bool = false)
+         hintergrund: Seitenhintergrund? = nil, ohneSeitenzahl: Bool = false,
+         vonHandAngelegt: Bool = false)
     {
         self.id = id
         self.bloecke = bloecke
         self.papier = papier
         self.hintergrund = hintergrund
         self.ohneSeitenzahl = ohneSeitenzahl
+        self.vonHandAngelegt = vonHandAngelegt
     }
 
     // Auch hier von Hand gelesen: Eine Seite, an der ein Schlüssel fehlt,
@@ -401,9 +419,10 @@ struct Seite: Identifiable, Codable, Hashable {
         papier = b.wahlweise(.papier)
         hintergrund = b.wahlweise(.hintergrund)
         ohneSeitenzahl = b.wert(.ohneSeitenzahl, false)
+        vonHandAngelegt = b.wert(.vonHandAngelegt, false)
     }
 
-    var vonHand: Bool { bloecke.contains(where: \.vonHand) }
+    var vonHand: Bool { vonHandAngelegt || bloecke.contains(where: \.vonHand) }
 
     func block(_ id: UUID) -> Block? { bloecke.first { $0.id == id } }
 
