@@ -51,6 +51,11 @@ struct ReiseView: View {
     // **Eine Probe, die ihre eigene Zahl verzerrt, ist schlimmer als keine.**
     @State private var zoominhalt: CGSize = .zero
     @State private var zoomversatz: CGPoint = .zero
+    // Wo der Inhalt nach dem Zoomen stehen MÜSSTE (ab 1.0.24). Gemessen
+    // wird dieselbe Zahl kurz danach in `lage.ursprung` — erst der
+    // Vergleich sagt, ob `scrollTo` den Anker einlöst. Bis 1.0.23 war das
+    // eine Erwartung aus der Dokumentation und stand als offener Punkt da.
+    @State private var zoomsoll: CGPoint?
     // Ein gewünschter MASSSTAB aus der Fußleiste. Er reist über den
     // Zustand, weil der `ScrollViewProxy` nur INNERHALB des
     // `ScrollViewReader`s gilt und die Knöpfe in der Werkzeugleiste stehen.
@@ -268,6 +273,11 @@ struct ReiseView: View {
                     rollwunsch = nil
                     DispatchQueue.main.async {
                         leser.scrollTo(wunsch.kennung, anchor: wunsch.anker)
+                        // Und danach die Gegenprobe: Steht der Inhalt dort,
+                        // wo er stehen sollte? Einmal je Zoom, nicht laufend.
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                            sollIstNachtragen()
+                        }
                     }
                 }
             }
@@ -483,34 +493,41 @@ struct ReiseView: View {
     private func zoomAuf(_ wunsch: Double, griff: Zoomanker.Griff, brennpunkt: CGPoint) {
         let alt = massstabJetzt
         let neu = gedeckelt(wunsch)
-        let befund = massstaebe.anker(
+        let ziel = massstaebe.rollziel(
             fuer: griff, brennpunkt: brennpunkt,
             sichtfeld: CGSize(width: buehnenbreite, height: buehnenhoehe),
             massstab: neu)
+        let breiteNachher = max(buehnenbreite,
+                                blattbreite(bei: neu) + 2 * Double(Buehnenmasse.rand))
+        let soll = massstaebe.sollversatz(fuer: griff, brennpunkt: brennpunkt,
+                                          inhaltsbreite: breiteNachher, massstab: neu)
         zoom = neu
+        zoomsoll = soll
         werk.letzteBuehne = zoomprobe(griff: griff, brennpunkt: brennpunkt,
-                                      befund: befund, alt: alt, neu: neu)
-        // Lag der Finger auf keinem Blatt, gibt es keinen Brennpunkt zu
-        // halten — dann bleibt die Rolle stehen, wo sie steht. Ein Anker aus
-        // einem geklemmten Griff legte die Blattkante unter den Finger, und
-        // das ist der Sprung, der gemeldet wurde.
-        guard griff.imBlatt, let elementkennung = kennung(griff.index) else { return }
+                                      ziel: ziel, soll: soll, alt: alt, neu: neu)
+        // IMMER rollen (ab 1.0.24). Bis 1.0.23 stand hier ein
+        // `guard griff.imBlatt` — und wo nicht gerollt wird, behält die
+        // Rolle ihren Versatz, während der Inhalt wächst: der gemeldete
+        // Sprung in die linke obere Ecke. Siehe `Zoomanker.Griff.imBlatt`.
+        guard let elementkennung = kennung(ziel.stelle) else { return }
         rollnummer += 1
-        rollwunsch = Rollwunsch(kennung: elementkennung, anker: befund.anker,
+        rollwunsch = Rollwunsch(kennung: elementkennung, anker: ziel.anker,
                                 nummer: rollnummer)
     }
 
-    // WAS BEIM ZOOMEN WIRKLICH GERECHNET WURDE (ab 1.0.22).
+    // WAS BEIM ZOOMEN WIRKLICH GERECHNET WURDE (ab 1.0.22), UND WAS
+    // DARAUS GEWORDEN IST (ab 1.0.24).
     //
     // Die Regel dieses Hauses lautet: Wo sich eine Ursache nicht
-    // erschließen lässt, muss eine Probe entscheiden. Am Quelltext
-    // abzuzählen war, dass ein Höchstmaß die Breite nicht wachsen lässt;
-    // ob die Seite sich danach WIRKLICH schieben lässt, sagt allein das
-    // Gerät. Genannt wird deshalb ohne Deutung, was gemessen und was
-    // gerechnet wurde — vor allem „frei": Ist diese Zahl waagerecht null,
-    // gibt es nichts zu schieben, und jede weitere Erklärung erübrigt sich.
+    // erschließen lässt, muss eine Probe entscheiden. Drei Fassungen lang
+    // wurde hier gerechnet und die Wirkung nicht gemessen — die Zeile
+    // „Soll/Ist" holt das nach: `Soll` ist der Versatz, den der Inhalt nach
+    // dem Rollen haben MÜSSTE, `Ist` der, den er kurz danach WIRKLICH hat.
+    // Stimmen beide überein, löst `scrollTo` den Anker ein und der Fehler
+    // liegt woanders; weichen sie ab, liegt es an genau dieser Stelle.
+    // Genannt wird ohne Deutung, was gemessen und was gerechnet wurde.
     private func zoomprobe(griff: Zoomanker.Griff, brennpunkt: CGPoint,
-                           befund: Zoomanker.Ankerbefund,
+                           ziel: Zoomanker.Rollziel, soll: CGPoint,
                            alt: Double, neu: Double) -> String {
         let freiQuer = Double(zoominhalt.width) - buehnenbreite
         let freiHoch = Double(zoominhalt.height) - buehnenhoehe
@@ -525,13 +542,37 @@ struct ReiseView: View {
         zeilen.append(String(
             format: "Griff #%d quer %.2f hoch %.2f%@ \u{00B7} Brennpunkt %.0f/%.0f",
             griff.index + 1, griff.quer, griff.hoch,
-            griff.imBlatt ? "" : " (neben dem Blatt \u{2014} nicht gerollt)",
+            griff.imBlatt ? "" : " (neben dem Blatt)",
             Double(brennpunkt.x), Double(brennpunkt.y)))
         zeilen.append(String(
-            format: "Anker %.2f/%.2f \u{00B7} roh %.2f/%.2f%@",
-            befund.anker.x, befund.anker.y, befund.rohX, befund.rohY,
-            befund.geklemmt ? " (geklemmt)" : ""))
+            format: "Ziel #%d \u{00B7} Anker %.2f/%.2f \u{00B7} roh %.2f/%.2f%@",
+            ziel.stelle + 1, ziel.anker.x, ziel.anker.y, ziel.rohX, ziel.rohY,
+            ziel.geklemmt ? " (geklemmt)" : ""))
+        zeilen.append(String(format: "Soll %.0f/%.0f \u{00B7} Ist \u{2026}",
+                             Double(soll.x), Double(soll.y)))
         return zeilen.joined(separator: "\n")
+    }
+
+    // Die Gegenprobe, gelesen NACH dem Rollen (ab 1.0.24).
+    //
+    // Sie läuft genau einmal je Zoom und nicht laufend: Ein Zustand, der
+    // bei jedem Bildpunkt geschrieben wird, zeichnet die Bühne sechzigmal
+    // in der Sekunde neu (die Lehre aus 1.0.16). Die Wartezeit ist die
+    // Umdrehung, die der `ScrollView` zum Rollen braucht.
+    private func sollIstNachtragen() {
+        guard let soll = zoomsoll, let text = werk.letzteBuehne else { return }
+        let ist = lage.ursprung
+        let neu = String(format: "Soll %.0f/%.0f \u{00B7} Ist %.0f/%.0f \u{00B7} Abweichung %.0f/%.0f",
+                         Double(soll.x), Double(soll.y),
+                         Double(ist.x), Double(ist.y),
+                         Double(ist.x) - Double(soll.x), Double(ist.y) - Double(soll.y))
+        var zeilen = text.components(separatedBy: "\n")
+        if let letzte = zeilen.indices.last, zeilen[letzte].hasPrefix("Soll ") {
+            zeilen[letzte] = neu
+        } else {
+            zeilen.append(neu)
+        }
+        werk.letzteBuehne = zeilen.joined(separator: "\n")
     }
 
     // Ein Maßstab aus der Fußleiste wird um die MITTE des Sichtfelds
@@ -891,9 +932,18 @@ struct ReiseView: View {
             massstabJetzt * 100, buehnenbreite, buehnenhoehe,
             Double(lage.groesse.width), Double(lage.groesse.height),
             Double(lage.ursprung.x), Double(lage.ursprung.y), freiQuer, freiHoch)
+        // WANDERT DIE BÜHNE? (ab 1.0.24) Gemeldet 09/2026, zum zweiten Mal:
+        // „Ein Verschieben der Arbeitsfläche ist auch nach wie vor nicht
+        // möglich." Bleibt die Spanne null, während jemand schiebt, rollt
+        // die Bühne nicht — dann ist es keine Frage der Rechnung oben.
+        let gewandert = String(
+            format: "Gewandert seit dem \u{00D6}ffnen: \u{21C4}%.0f \u{2195}%.0f "
+                  + "(%d Meldungen)",
+            Double(lage.spanne.width), Double(lage.spanne.height), lage.meldungen)
         return [werk.letzterGriff ?? "noch nichts gegriffen",
                 werk.letzteBuehne ?? "noch nicht gezoomt",
                 jetzt,
+                gewandert,
                 werk.messer.befund].joined(separator: "\n")
     }
 
