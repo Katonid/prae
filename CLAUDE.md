@@ -4817,6 +4817,108 @@ Befunde, und keiner davon war Geschmack:
   Ruck, sagt erst der nächste Befund. Und die Bühne trägt jetzt wieder das
   GANZE Buch: Der `LazyVStack` aus 1.0.16 ist genau dafür da, aber wie sich
   ein Buch mit zweihundert Fotos dabei anfühlt, ist weiterhin ungemessen.
+- **Welche Schriften ein Gerät hat, misst die App — sie schreibt es nicht
+  auf** (`Schriftfamilie` ab 1.0.29 ein Wertetyp, `Model/Buchstabenform.swift`,
+  `Views/SchriftwahlView.swift`; Ansage des Nutzers 09/2026: „Ich möchte noch
+  weitere Schriftarten verwenden. Standardmäßig möchte ich eine serifenlose
+  Schrift verwenden, bei der das kleine A so aussieht wie bei der Systemschrift
+  Futura. Futura selbst ist mir etwas zu dick gedruckt. Bitte finde dort
+  Alternativen."). Bis 1.0.28 war die Auswahl eine Aufzählung mit sechzehn
+  Namen, die jemand einmal aufgeschrieben hatte. Welche Schriften ein iPad
+  wirklich mitbringt, entscheidet aber das Gerät und ändert sich mit jeder
+  iOS-Fassung. Jetzt steht dort der FAMILIENNAME, und gezeigt wird, was da ist.
+  Dieselbe Umstellung wie beim `Seitenformat` in 1.0.27 — samt demselben
+  Leser: Alte Dateien tragen `"futura"` als Text, und ohne den Einzelwert-Zweig
+  fiele die Schrift beim Lesen STILL auf die Vorgabe zurück.
+- **Der SCHNITT ist der eigentliche Grund für den Umbau.** Bis 1.0.28 baute
+  `uiFont` den Deskriptor allein aus dem Familiennamen — damit kam immer der
+  Regelschnitt und nie ein leichterer, den eine Familie vielleicht hat. „Futura
+  ist mir etwas zu dick gedruckt" ist genau diese Lücke. Sie ist jetzt
+  geschlossen, soweit sie sich schließen lässt: **Futura liefert iOS nur ab
+  Medium aufwärts** — einen Buch- oder Light-Schnitt gibt es dort nicht, und
+  wo keiner ist, steht auch keiner in der Liste. Das sagt die Oberfläche
+  ausdrücklich, statt eine Einstellung anzubieten, die nichts ändert.
+- **Ob ein kleines a rund ist, wird an der GLYPHE gemessen**
+  (`Buchstabenform`). Der Unterschied zwischen einem einstöckigen a (Futura:
+  ein Kreis mit Stamm) und einem zweistöckigen (Helvetica: eine Schale unten
+  mit einem Bogen darüber) steckt in der GEGENFORM, also im Loch: Beim
+  einstöckigen füllt sie fast die ganze Buchstabenhöhe, beim zweistöckigen gut
+  ein Drittel. **Nachgemessen an elf Schriftdateien** (22.09.2026, dieselbe
+  Rechnung in Python nachgezogen): zweistöckig 0,362 bis 0,468 (Liberation
+  Sans/Serif/Mono, DejaVu Sans/Serif, FreeSans, FreeSerif, Loma), einstöckig
+  0,719 bis 0,913 (Poppins, Questrial, Josefin Sans). Zwischen 0,468 und 0,719
+  liegt eine breite Lücke; die Schwelle steht mittig darin.
+- **Welche Kontur die äußere ist, entscheidet das UMFASSEN und nicht die
+  Fläche — und wo keine alle anderen umfasst, gibt es KEINE Antwort.** Das ist
+  an einer echten Schrift gelernt: **Jost zeichnet sein a aus zwei einander
+  überlappenden Formen** statt aus Umriss und Loch. Nach der Fläche gerechnet
+  gewann dort die falsche Kontur, und heraus kam „zweistöckig" für eine
+  Schrift, die einstöckig ist. Jetzt schweigt die Messung in diesem Fall und
+  sagt das auch. **Eine Messung, die im Zweifel etwas behauptet, ist schlechter
+  als eine, die schweigt** — dieselbe Regel wie bei „Plan" gegen „pünktlich".
+- **Jede Zeile der Schriftwahl ist in ihrer eigenen Schrift gesetzt**, mit
+  einem Wort, das drei kleine a trägt. Das ist mehr wert als jede Messung: Wer
+  die Form des a sucht, sieht sie. Die Messung ordnet nur die Liste und nennt
+  ihre Zahlen unter der Probe — nachlesbar, nicht geglaubt.
+- **Mitgeliefert wird weiterhin keine Schriftdatei.** Ein Buch wird
+  weitergegeben, und dafür bräuchte jede Schrift eine Lizenz. Was zur Wahl
+  steht, bringt das Gerät mit; ob es sich einbetten lässt, sagt seit 1.0.1 die
+  Druckprüfung aus der OS/2-Tabelle.
+- **Ein `NavigationLink` im Inspektor ist ein Knopf, der nichts tut** (ab
+  1.0.29, beim Bau bemerkt). `BlockInspektor` ist eine `.inspector`-Spalte und
+  bringt keinen eigenen Navigationsstapel mit — dieselbe Falle wie bei den
+  Fahrplanzielen der Abfahrtstafel. Die Schriftwahl liegt dort deshalb als
+  BLATT mit eigenem Stapel, und der Block wird darin neu nachgeschlagen statt
+  hineingereicht: Ein mitgegebener Block wäre der Stand von dem Augenblick, in
+  dem das Blatt aufging.
+- **Einen Block auf eine andere Seite schieben — als BEFEHL und nicht als
+  Geste** (`Reisewerk.blockVerschieben`, `blockAufNeueSeite`, Abschnitt „Auf
+  welcher Seite" im Inspektor, ab 1.0.29; Ansage des Nutzers 09/2026: „ich
+  möchte ein Bild problemlos von einer Seite auf eine andere schieben können
+  beziehungsweise auch andere Elemente wie zum Beispiel Textfelder."). Eine
+  Ziehgeste, die ein Blatt verlässt, müsste MITTEN im Ziehen entscheiden, zu
+  welcher Seite der Finger gerade gehört — in einer Bühne, die sich dabei rollt
+  und zoomt. Das ist die Art Ziehgeste, die dieses Projekt von 1.0.5 bis 1.0.8
+  gekostet hat und deren Zoom bis 1.0.28 nicht stand. **Ein Knopf, der immer
+  tut, was draufsteht, ist hier mehr wert als eine Geste, die meistens tut, was
+  gemeint war.**
+- **Die Lage auf dem Blatt bleibt beim Verschieben, wie sie ist.** Den Block
+  auf der neuen Seite zu zentrieren wäre bequemer und verschöbe etwas, das
+  niemand angefasst hat. Danach trägt er `vonHand` — ein Neuanordnen, das ihn
+  stillschweigend zurückholte, nähme genau die Entscheidung zurück, die jemand
+  gerade getroffen hat. **Verschoben wird innerhalb EINES Tages:** Über
+  Tagesgrenzen hinweg ist es keine Frage der Seite mehr, sondern der Zuordnung
+  (`tag.fotos`), und die wird dort beantwortet, wo sie gestellt wird — in der
+  Fotoliste des Tages.
+- **„Text und Bilder im Wechsel" ist ein eigenes Muster, kein neuer Name**
+  (`Seitenmuster.wechsel`, ab 1.0.29; Ansage des Nutzers 09/2026: „Bei den
+  Vorlagen vermisse ich etwas … Ich möchte ein Reisetagebuch mit sehr viel Text
+  mit ebenfalls sehr vielen Bildern verknüpfen."). `reihenSetzen` wechselt seit
+  1.0.14 auf den FOLGESEITEN zwischen Text und Fotoreihen — die ERSTE Seite war
+  davon ausgenommen: Dort füllte der Text bis zum Satzspiegelende, und das
+  erste Bild stand eine Seite weiter. Bei einem Tag mit viel von beidem ergibt
+  das genau den gemeldeten Eindruck: erst ein Kapitel Text, dann eines mit
+  Bildern. Das neue Muster hält auf der ersten Seite die ZIELHÖHE der nächsten
+  Fotoreihe frei — dieselbe Zahl, mit der `reihenSetzen` weiterrechnet, und
+  kein geschätzter Anteil. Bleiben daneben keine sechs Zeilen Text mehr, wird
+  gar nichts freigehalten; eine Seite mit vier Zeilen über einem Bild ist kein
+  Satz, sondern ein Rest.
+- **Die Schwelle ist hoch mit Absicht** (über 1200 Zeichen UND mindestens vier
+  Fotos). Ein Tag mit drei Sätzen und zwei Bildern ist damit nicht gemeint und
+  bekommt weiter, was er vorher bekam. Das Muster steht in allen fünf
+  Buchstilen an erster Stelle — es greift also überall, aber nur für die Tage,
+  um die es geht.
+- **Nicht gemessen (1.0.29):** Welche Schriften auf dem iPad des Nutzers ein
+  rundes a haben, weiß hier niemand — die Messung läuft auf dem Gerät, und
+  erst die Liste dort sagt, ob Futura Gesellschaft bekommt. Gut möglich, dass
+  die Gruppe dünn ausfällt: Unter den Schriften, die iOS mitbringt, ist ein
+  einstöckiges a selten. **Sollte dort nichts Brauchbares stehen, ist der
+  nächste Schritt eine mitgelieferte Schrift unter der SIL Open Font License**
+  (die erlaubt Einbettung und Weitergabe ausdrücklich, und dieses Repo führt in
+  `woerterwerkstatt/fonts/` bereits solche Dateien) — das wäre aber eine
+  Abkehr von der Regel oben und gehört ausdrücklich abgesprochen, nicht
+  nebenbei gemacht. Ebenso ungesehen: ob das Verschieben auf eine andere Seite
+  sich richtig anfühlt und wie eine Doppelseite im neuen Muster aussieht.
 - **Die Bildunterschrift war halb gebaut** (ab 1.0.5, Wunsch des Nutzers
   09/2026: „zu jedem Foto einen Beschreibungstext … Dies soll jedoch eine
   Option für jedes Foto sein. Kein muss."). Der Layoutautomat hielt Platz

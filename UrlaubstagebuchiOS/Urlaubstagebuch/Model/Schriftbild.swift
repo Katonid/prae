@@ -3,82 +3,130 @@ import Foundation
 import SwiftUI
 import UIKit
 
-// Die Schriftfamilien, die zur Wahl stehen. Alle bringt iOS mit — eine
-// Schriftdatei mitzuliefern hieße, für jede eine Lizenz zur Weitergabe zu
-// haben, und ein Buch wird weitergegeben.
+// WELCHE SCHRIFT — Familie und, falls gewünscht, ein bestimmter SCHNITT
+// (ab 1.0.29 ein Wertetyp, vorher eine Aufzählung mit sechzehn festen
+// Fällen).
 //
-// Was auf DIESEM Gerät fehlt, wird nicht angeboten (`vorhandene`): Eine
-// Schrift, die in der Liste steht und dann doch die Systemschrift zeichnet,
-// wäre eine Auskunft, die nicht stimmt.
-enum Schriftfamilie: String, Codable, CaseIterable, Identifiable {
-    case system
-    case serifeSystem
-    case rundeSystem
-    case georgia
-    case palatino
-    case hoefler
-    case baskerville
-    case iowan
-    case didot
-    case charter
-    case optima
-    case avenir
-    case futura
-    case typewriter
-    case handschrift
-    case schreibschrift
+// Die Aufzählung war eine Liste, die jemand einmal aufgeschrieben hat.
+// Welche Schriften ein iPad wirklich mitbringt, entscheidet aber das
+// Gerät — und der Nutzer wollte „noch weitere Schriftarten" (09/2026).
+// Jetzt steht hier der FAMILIENNAME, und die Wahl zeigt, was da ist.
+//
+// Mitgeliefert wird weiterhin keine Schriftdatei: Ein Buch wird
+// weitergegeben, und dafür bräuchte jede Schrift eine Lizenz.
+//
+// Der SCHNITT ist neu und der eigentliche Grund für diesen Umbau. Bis
+// 1.0.28 baute `uiFont` den Deskriptor allein aus dem Familiennamen —
+// damit bekam man immer den Regelschnitt und nie den leichten, den eine
+// Familie vielleicht hat. „Futura ist mir etwas zu dick gedruckt" ist
+// genau diese Lücke: Sie lässt sich nur schließen, wenn sich ein Schnitt
+// wählen lässt.
+struct Schriftfamilie: Codable, Hashable, Identifiable {
+    // `nil` heißt: einer der drei SYSTEMSCHNITTE. Die haben keinen
+    // Familiennamen, den man nachschlagen könnte — sie entstehen über
+    // einen Entwurf am Deskriptor.
+    var familienname: String?
+    var entwurf: Systementwurf?
+    // Der PostScript-Name eines bestimmten Schnitts. `nil` heißt „der
+    // Regelschnitt dieser Familie".
+    var schnitt: String?
 
-    var id: String { rawValue }
+    init(familienname: String? = nil, entwurf: Systementwurf? = nil,
+         schnitt: String? = nil)
+    {
+        self.familienname = familienname
+        self.entwurf = entwurf
+        self.schnitt = schnitt
+    }
+
+    // ALTE DATEIEN TRAGEN HIER EINEN TEXT, kein Objekt.
+    //
+    // In jeder gesicherten Reise steht an dieser Stelle „futura" oder
+    // „serifeSystem". Ohne den Einzelwert-Zweig fiele die Schrift beim
+    // Lesen auf die Vorgabe zurück — und weil `Schriftbild` von Hand
+    // gelesen wird, STILL: Das Buch ginge auf, und alles stünde in einer
+    // anderen Schrift. Dieselbe Regel wie beim `Seitenformat` in 1.0.27.
+    init(from decoder: Decoder) throws {
+        if let einzeln = try? decoder.singleValueContainer(),
+           let text = try? einzeln.decode(String.self)
+        {
+            self = Schriftfamilie.alteNamen[text] ?? .serifeSystem
+            return
+        }
+        let b = try decoder.container(keyedBy: CodingKeys.self)
+        familienname = b.wahlweise(.familienname)
+        entwurf = b.wahlweise(.entwurf)
+        schnitt = b.wahlweise(.schnitt)
+    }
+
+    var id: String {
+        (familienname ?? entwurf?.rawValue ?? "system") + "|" + (schnitt ?? "")
+    }
+
+    // MARK: - Die Namen, die es bis 1.0.28 gab
+
+    static let system = Schriftfamilie(entwurf: .standard)
+    static let serifeSystem = Schriftfamilie(entwurf: .serifen)
+    static let rundeSystem = Schriftfamilie(entwurf: .rund)
+
+    static let georgia = Schriftfamilie(familienname: "Georgia")
+    static let palatino = Schriftfamilie(familienname: "Palatino")
+    static let hoefler = Schriftfamilie(familienname: "Hoefler Text")
+    static let baskerville = Schriftfamilie(familienname: "Baskerville")
+    static let iowan = Schriftfamilie(familienname: "Iowan Old Style")
+    static let didot = Schriftfamilie(familienname: "Didot")
+    static let charter = Schriftfamilie(familienname: "Charter")
+    static let optima = Schriftfamilie(familienname: "Optima")
+    static let avenir = Schriftfamilie(familienname: "Avenir Next")
+    static let futura = Schriftfamilie(familienname: "Futura")
+    static let typewriter = Schriftfamilie(familienname: "American Typewriter")
+    static let handschrift = Schriftfamilie(familienname: "Bradley Hand")
+    static let schreibschrift = Schriftfamilie(familienname: "Snell Roundhand")
+
+    static let alteNamen: [String: Schriftfamilie] = [
+        "system": .system,
+        "serifeSystem": .serifeSystem,
+        "rundeSystem": .rundeSystem,
+        "georgia": .georgia,
+        "palatino": .palatino,
+        "hoefler": .hoefler,
+        "baskerville": .baskerville,
+        "iowan": .iowan,
+        "didot": .didot,
+        "charter": .charter,
+        "optima": .optima,
+        "avenir": .avenir,
+        "futura": .futura,
+        "typewriter": .typewriter,
+        "handschrift": .handschrift,
+        "schreibschrift": .schreibschrift,
+    ]
+
+    // MARK: - Namen und Bestand
 
     var name: String {
-        switch self {
-        case .system: return "System"
-        case .serifeSystem: return "System mit Serifen"
-        case .rundeSystem: return "System rund"
-        case .georgia: return "Georgia"
-        case .palatino: return "Palatino"
-        case .hoefler: return "Hoefler Text"
-        case .baskerville: return "Baskerville"
-        case .iowan: return "Iowan Old Style"
-        case .didot: return "Didot"
-        case .charter: return "Charter"
-        case .optima: return "Optima"
-        case .avenir: return "Avenir Next"
-        case .futura: return "Futura"
-        case .typewriter: return "American Typewriter"
-        case .handschrift: return "Bradley Hand"
-        case .schreibschrift: return "Snell Roundhand"
+        if let familienname { return familienname }
+        switch entwurf ?? .standard {
+        case .standard: return "System"
+        case .serifen: return "System mit Serifen"
+        case .rund: return "System rund"
         }
     }
 
-    // Die drei Systemschnitte haben keinen Familiennamen, den man
-    // nachschlagen könnte — sie entstehen über einen Entwurf am Deskriptor.
-    var entwurf: UIFontDescriptor.SystemDesign? {
-        switch self {
-        case .system: return .default
-        case .serifeSystem: return .serif
-        case .rundeSystem: return .rounded
-        default: return nil
-        }
+    // Der Schnitt, wie ihn ein Mensch liest: „Futura" bringt iOS als
+    // „Futura-Medium" mit, und „Medium" ist das, was davon interessiert.
+    var schnittname: String? {
+        guard let schnitt, let familienname else { return nil }
+        let ohneFamilie = schnitt.replacingOccurrences(
+            of: familienname.replacingOccurrences(of: " ", with: ""),
+            with: "")
+        let sauber = ohneFamilie.trimmingCharacters(in: CharacterSet(charactersIn: "-_ "))
+        return sauber.isEmpty ? nil : sauber
     }
 
-    var familienname: String? {
-        switch self {
-        case .system, .serifeSystem, .rundeSystem: return nil
-        case .georgia: return "Georgia"
-        case .palatino: return "Palatino"
-        case .hoefler: return "Hoefler Text"
-        case .baskerville: return "Baskerville"
-        case .iowan: return "Iowan Old Style"
-        case .didot: return "Didot"
-        case .charter: return "Charter"
-        case .optima: return "Optima"
-        case .avenir: return "Avenir Next"
-        case .futura: return "Futura"
-        case .typewriter: return "American Typewriter"
-        case .handschrift: return "Bradley Hand"
-        case .schreibschrift: return "Snell Roundhand"
-        }
+    var vollerName: String {
+        guard let schnittname else { return name }
+        return "\(name) \(schnittname)"
     }
 
     var vorhanden: Bool {
@@ -86,15 +134,46 @@ enum Schriftfamilie: String, Codable, CaseIterable, Identifiable {
         return !UIFont.fontNames(forFamilyName: familienname).isEmpty
     }
 
-    static var vorhandene: [Schriftfamilie] { allCases.filter(\.vorhanden) }
+    // ALLE Familien dieses Geräts, die drei Systemschnitte vorneweg.
+    static var alleDesGeraets: [Schriftfamilie] {
+        [.system, .serifeSystem, .rundeSystem]
+            + UIFont.familyNames.sorted().map { Schriftfamilie(familienname: $0) }
+    }
+
+    // Die Schnitte dieser Familie. Bei den Systemschnitten gibt es keine
+    // zum Nachschlagen — dort macht das Gewicht die Arbeit.
+    var schnitte: [Schriftfamilie] {
+        guard let familienname else { return [] }
+        return UIFont.fontNames(forFamilyName: familienname).sorted().map {
+            Schriftfamilie(familienname: familienname, schnitt: $0)
+        }
+    }
+
+    // Dieselbe Familie ohne die Wahl eines Schnitts.
+    var ohneSchnitt: Schriftfamilie {
+        Schriftfamilie(familienname: familienname, entwurf: entwurf)
+    }
+
+    // Gehören zwei Angaben zur selben Familie?
+    func gleicheFamilie(wie andere: Schriftfamilie) -> Bool {
+        familienname == andere.familienname && entwurf == andere.entwurf
+    }
+
+    // MARK: - Die Schrift selbst
 
     func uiFont(groesse: CGFloat, fett: Bool, kursiv: Bool) -> UIFont {
         var deskriptor: UIFontDescriptor
-        if let familienname {
+        if let schnitt, let gewaehlt = UIFont(name: schnitt, size: groesse) {
+            // Ein ausdrücklich gewählter Schnitt ist der Grund, aus dem es
+            // dieses Feld gibt — er wird nicht noch einmal über die Familie
+            // gesucht, sonst käme wieder der Regelschnitt heraus.
+            deskriptor = gewaehlt.fontDescriptor
+        } else if let familienname {
             deskriptor = UIFontDescriptor(fontAttributes: [.family: familienname])
         } else {
             let grund = UIFont.systemFont(ofSize: groesse, weight: fett ? .semibold : .regular)
-            deskriptor = grund.fontDescriptor.withDesign(entwurf ?? .default) ?? grund.fontDescriptor
+            deskriptor = grund.fontDescriptor
+                .withDesign((entwurf ?? .standard).systemDesign) ?? grund.fontDescriptor
         }
         var merkmale: UIFontDescriptor.SymbolicTraits = []
         // Bei den Systemschnitten steckt die Fette schon im Gewicht oben;
@@ -106,6 +185,21 @@ enum Schriftfamilie: String, Codable, CaseIterable, Identifiable {
             deskriptor = mit
         }
         return UIFont(descriptor: deskriptor, size: groesse)
+    }
+}
+
+// Die drei Schnitte, die iOS ohne Familiennamen hergibt.
+enum Systementwurf: String, Codable, Hashable, CaseIterable {
+    case standard
+    case serifen
+    case rund
+
+    var systemDesign: UIFontDescriptor.SystemDesign {
+        switch self {
+        case .standard: return .default
+        case .serifen: return .serif
+        case .rund: return .rounded
+        }
     }
 }
 
