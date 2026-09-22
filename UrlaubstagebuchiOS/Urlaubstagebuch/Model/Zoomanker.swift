@@ -62,17 +62,27 @@ struct Zoomanker {
     /// und ein Anteil über beides zusammen ginge beim Zoomen daneben.
     struct Griff {
         var index: Int
+        /// Die Stelle im Blatt, SENKRECHT, als Anteil. Sie darf ausserhalb
+        /// von 0 bis 1 liegen — siehe `imBlatt`.
         var hoch: Double
+        /// Dasselbe waagerecht.
         var quer: Double
-        /// Lag der Finger WIRKLICH auf einem Blatt?
+        /// Lag der Finger auf dem Blatt oder daneben?
         ///
-        /// Gemessen 09/2026: Der Befund des Nutzers nannte
-        /// `Griff #1 quer 0.50 hoch 1.00` — eine glatte Eins heißt geklemmt,
-        /// also außerhalb des Blattes. Bis 1.0.22 wurde daraus trotzdem ein
-        /// Anker gerechnet, und der legte die UNTERKANTE der Seite unter den
-        /// Finger: ein Sprung an eine Stelle, auf die niemand gezeigt hat.
-        /// Wo kein Blatt ist, gibt es keinen Brennpunkt zu halten — dann wird
-        /// gar nicht gerollt.
+        /// NUR EINE AUSKUNFT FÜR DIE PROBE, keine Bedingung mehr (ab 1.0.24).
+        /// In 1.0.23 hing daran, ob überhaupt gerollt wurde — und das war der
+        /// gemeldete Fehler: „Lasse ich die beiden Finger los, dann springt das
+        /// Bild wieder auf die linke obere Ecke." Wird nicht gerollt, behält
+        /// die Rolle ihren Versatz, während der Inhalt um den Faktor der Geste
+        /// WÄCHST; man sieht dann einen Punkt, der um genau diesen Faktor
+        /// näher am Ursprung liegt. Das IST der Sprung in die linke obere Ecke.
+        ///
+        /// Auch das Klemmen der beiden Anteile ist deshalb weg: Der Brennpunkt
+        /// ist ein Punkt IM INHALT, und das Blatt ist nur das Maß, in dem er
+        /// ausgedrückt wird. `hoch = 1,05` ist eine brauchbare Zahl — sie
+        /// heißt „eine Blatthöhe und fünf Prozent unter der Oberkante", und
+        /// damit lässt sich genauso rechnen wie mit 0,5. Geklemmt werden darf
+        /// erst der fertige `UnitPoint`, denn DER kann nichts anderes.
         var imBlatt: Bool
     }
 
@@ -89,8 +99,7 @@ struct Zoomanker {
         let roh = Double(punkt.y) - rand
         let stelle = min(max(Int(floor(roh / schritt(massstab))), 0), anzahl - 1)
         let imElement = roh - Double(stelle) * schritt(massstab)
-        let hochRoh = imElement / (blatthoehe * massstab)
-        let hoch = min(max(hochRoh, 0), 1)
+        let hoch = imElement / (blatthoehe * massstab)
         // Waagerecht liegt das Element in der Mitte: Der Inhalt ist
         // mindestens so breit wie das Sichtfeld UND mindestens so breit wie
         // das Blatt samt Rand (`ReiseView.inhaltsbreite`), und was schmaler
@@ -99,52 +108,108 @@ struct Zoomanker {
         // Mindestmaß; siehe die Anmerkung an `inhaltsbreite`.
         let breite = blattbreite * massstab
         let links = max((Double(inhalt.width) - breite) / 2, rand)
-        let querRoh = (Double(punkt.x) - links) / breite
-        return Griff(index: stelle, hoch: hoch,
-                     quer: min(max(querRoh, 0), 1),
-                     imBlatt: hochRoh >= 0 && hochRoh <= 1
-                              && querRoh >= 0 && querRoh <= 1)
+        let quer = (Double(punkt.x) - links) / breite
+        return Griff(index: stelle, hoch: hoch, quer: quer,
+                     imBlatt: hoch >= 0 && hoch <= 1 && quer >= 0 && quer <= 1)
     }
 
-    /// Der Anker für `scrollTo`.
+    /// Wo die OBERE LINKE ECKE des gegriffenen Blattes liegen muss, damit
+    /// der Brennpunkt wieder unter dem Finger liegt — in Bildschirmpunkten,
+    /// gemessen von der oberen linken Ecke des Sichtfelds.
+    ///
+    /// Das ist die eigentliche Aufgabe; alles andere ist die Frage, wie sie
+    /// sich einem `ScrollView` mitteilen lässt.
+    func sollkante(fuer griff: Griff, brennpunkt: CGPoint, massstab: Double) -> CGPoint {
+        // Ausdrücklich gerechnet und ausdrücklich umgewandelt: Swift rechnet
+        // `Double` und `CGFloat` zwar ineinander um, aber nicht überall —
+        // die Lehre aus dem ersten Bau des Layoutautomaten.
+        let quer = Double(brennpunkt.x) - griff.quer * blattbreite * massstab
+        let hoch = Double(brennpunkt.y) - griff.hoch * blatthoehe * massstab
+        return CGPoint(x: CGFloat(quer), y: CGFloat(hoch))
+    }
+
+    /// Wohin gerollt wird: auf WELCHES Element, mit welchem Anker.
     ///
     /// `scrollTo(_:anchor:)` legt den Punkt `a` DES ELEMENTS auf den Punkt
-    /// `a` des Sichtfelds. Gesucht ist also das `a`, für das der Griffpunkt
-    /// wieder unter dem Finger liegt:
+    /// `a` des Sichtfelds. Gesucht ist also das `a`, für das die Sollkante
+    /// herauskommt:
     ///
-    ///     Elementkante + Anteil · Blatt(neu) = Brennpunkt
-    ///     Elementkante = a · (Sichtfeld − Element(neu))
+    ///     Elementkante = a · (Sichtfeld − Element)
     ///
-    /// Beides gleichgesetzt und nach `a` aufgelöst. Ist das Element so groß
-    /// wie das Sichtfeld, hat die Gleichung keine Lösung — dann gibt es
-    /// aber auch nichts zu verschieben, und 0,5 ist so gut wie jeder
-    /// andere Wert. Am Anfang und am Ende der Liste lässt sich der
-    /// Brennpunkt nicht halten: Weiter als bis zum Rand rollt kein
-    /// `ScrollView`, und das ist richtig so.
-    func anker(fuer griff: Griff, brennpunkt: CGPoint, sichtfeld: CGSize,
-               massstab: Double) -> Ankerbefund {
-        let hoch = blatthoehe * massstab
+    /// EIN ANKER KANN NUR 0 BIS 1 AUSDRÜCKEN, und damit nur Kanten zwischen
+    /// 0 und `Sichtfeld − Element`. Alles darüber hinaus wurde bis 1.0.23
+    /// geklemmt — und eine geklemmte Zahl legt die Blattkante an den
+    /// Bildschirmrand, statt den Brennpunkt zu halten. Genau das stand im
+    /// Befund des Nutzers (09/2026): „Anker … 0.76 (geklemmt)".
+    ///
+    /// Die Reichweite lässt sich aber ohne jede Annahme vergrößern, weil
+    /// ALLE Elemente gleich hoch sind und im selben Abstand stehen: Die
+    /// Kante von Element `k` liegt um `(k − Index) · Schritt` unter der des
+    /// gegriffenen. Rollt man also ein NACHBARELEMENT an den passenden
+    /// Anker, steht das gegriffene genau dort, wo es stehen soll. Gesucht
+    /// wird deshalb das Element, dessen Anker am wenigsten geklemmt werden
+    /// muss; bei Gleichstand das nächstgelegene. Das ist reine Geometrie
+    /// und keine Vermutung — passt der Anker des gegriffenen Elements schon,
+    /// ändert sich nichts.
+    ///
+    /// Am Anfang und am Ende der Liste bleibt es beim Klemmen: Weiter als
+    /// bis zum Rand rollt kein `ScrollView`, und das ist richtig so.
+    func rollziel(fuer griff: Griff, brennpunkt: CGPoint, sichtfeld: CGSize,
+                  massstab: Double) -> Rollziel {
         let breit = blattbreite * massstab
-        let rohX = teil(Double(brennpunkt.x) - griff.quer * breit,
-                        Double(sichtfeld.width) - breit)
-        let rohY = teil(Double(brennpunkt.y) - griff.hoch * hoch,
-                        Double(sichtfeld.height) - elementhoehe(massstab))
-        return Ankerbefund(anker: UnitPoint(x: min(max(rohX, 0), 1),
-                                            y: min(max(rohY, 0), 1)),
-                           rohX: rohX, rohY: rohY)
+        let kante = sollkante(fuer: griff, brennpunkt: brennpunkt, massstab: massstab)
+        let rohX = teil(Double(kante.x), Double(sichtfeld.width) - breit)
+        let nennerY = Double(sichtfeld.height) - elementhoehe(massstab)
+        var stelle = griff.index
+        var rohY = teil(Double(kante.y), nennerY)
+        if abs(nennerY) > 1, ueberstand(rohY) > 0, anzahl > 1 {
+            let schrittY = schritt(massstab)
+            for k in 0..<anzahl where k != griff.index {
+                let versuch = (Double(kante.y) + Double(k - griff.index) * schrittY) / nennerY
+                let besser = ueberstand(versuch) < ueberstand(rohY) - 1e-9
+                let gleichNaeher = abs(ueberstand(versuch) - ueberstand(rohY)) <= 1e-9
+                    && abs(k - griff.index) < abs(stelle - griff.index)
+                if besser || gleichNaeher {
+                    rohY = versuch
+                    stelle = k
+                }
+            }
+        }
+        return Rollziel(stelle: stelle,
+                        anker: UnitPoint(x: min(max(rohX, 0), 1),
+                                         y: min(max(rohY, 0), 1)),
+                        rohX: rohX, rohY: rohY)
     }
 
-    /// Der Anker UND die rohe Rechnung dahinter.
+    /// Wo der Inhalt danach stehen MÜSSTE (sein Ursprung im Raum der Bühne).
+    ///
+    /// Das ist die Gegenprobe zu allem oben: Gemessen wird dieselbe Zahl in
+    /// `Inhaltslage.ursprung`. Stimmen Soll und Ist überein, hat `scrollTo`
+    /// getan, was der Anker sagt; weichen sie ab, liegt es nicht an dieser
+    /// Rechnung. Ob ein `ScrollView` einen Anker außerhalb der Mitte
+    /// wirklich so einlöst, steht seit 1.0.18 als offener Punkt im Papier —
+    /// ab 1.0.24 ist es messbar statt behauptet.
+    func sollversatz(fuer griff: Griff, brennpunkt: CGPoint,
+                     inhaltsbreite: Double, massstab: Double) -> CGPoint {
+        let breit = blattbreite * massstab
+        let links = max((inhaltsbreite - breit) / 2, rand)
+        let oben = rand + Double(griff.index) * schritt(massstab)
+        let kante = sollkante(fuer: griff, brennpunkt: brennpunkt, massstab: massstab)
+        return CGPoint(x: CGFloat(Double(kante.x) - links),
+                       y: CGFloat(Double(kante.y) - oben))
+    }
+
+    /// Das Element, der Anker UND die rohe Rechnung dahinter.
     ///
     /// Geklemmt wird erst hier und nicht mehr in der Rechnung, und das ist
     /// der Unterschied, auf den es ankommt: Ein roher Anker außerhalb von
     /// 0 bis 1 heißt, dass der Brennpunkt an dieser Stelle GAR NICHT zu
-    /// halten ist — weiter als bis zum Rand rollt kein `ScrollView`.
-    /// Geklemmt sieht genau das aus wie eine Handvoll fester Stellungen, in
-    /// die die Seite nach jedem Zoomen springt. Die Probe nennt deshalb
-    /// BEIDE Zahlen; wer nur die geklemmte sieht, hält eine unmögliche Lage
-    /// für eine falsch gerechnete.
-    struct Ankerbefund {
+    /// halten ist. Geklemmt sieht genau das aus wie eine Handvoll fester
+    /// Stellungen, in die die Seite nach jedem Zoomen springt. Die Probe
+    /// nennt deshalb BEIDE Zahlen; wer nur die geklemmte sieht, hält eine
+    /// unmögliche Lage für eine falsch gerechnete.
+    struct Rollziel {
+        var stelle: Int
         var anker: UnitPoint
         var rohX: Double
         var rohY: Double
@@ -154,8 +219,14 @@ struct Zoomanker {
         }
     }
 
+    // Wie weit ein roher Anker aus dem Bereich fällt, den ein `UnitPoint`
+    // ausdrücken kann.
+    private func ueberstand(_ wert: Double) -> Double {
+        max(0, max(-wert, wert - 1))
+    }
+
     // Ein Nenner nahe null heißt: Element und Sichtfeld sind gleich groß.
-    // Geklemmt wird hier NICHT mehr (ab 1.0.22) — siehe `Ankerbefund`.
+    // Geklemmt wird hier NICHT mehr (ab 1.0.22) — siehe `Rollziel`.
     private func teil(_ zaehler: Double, _ nenner: Double) -> Double {
         guard abs(nenner) > 1 else { return 0.5 }
         return zaehler / nenner
@@ -174,8 +245,40 @@ final class Inhaltslage {
     private(set) var ursprung: CGPoint = .zero
     private(set) var groesse: CGSize = .zero
 
+    // WANDERT DIE BÜHNE ÜBERHAUPT? (ab 1.0.24)
+    //
+    // Gemeldet 09/2026, zum zweiten Mal: „Ein Verschieben der Arbeitsfläche
+    // ist auch nach wie vor nicht möglich." Am Quelltext ist das nicht zu
+    // entscheiden — ein `ScrollView` rollt oder rollt nicht, und von hier
+    // aus sieht man es nicht. Gezählt wird deshalb, wie weit der Ursprung
+    // seit dem Öffnen überhaupt gewandert ist. Bleibt die Spanne null,
+    // während jemand schiebt, rollt die Bühne nicht; wächst sie, rollt sie
+    // und die Frage ist eine andere. Dasselbe Muster wie beim Kartenmesser
+    // der Abfahrtstafel: Wo sich eine Ursache nicht erschließen lässt, muss
+    // eine Probe entscheiden.
+    //
+    // Gezählt wird in EINER Klasse und ohne `@Published` — aus demselben
+    // Grund wie oben: Ein Zustand, der bei jedem Bildpunkt geschrieben
+    // wird, zeichnet die Bühne sechzigmal in der Sekunde neu.
+    private var kleinsteX = Double.infinity
+    private var groessteX = -Double.infinity
+    private var kleinsteY = Double.infinity
+    private var groessteY = -Double.infinity
+    private(set) var meldungen = 0
+
     func merken(_ rahmen: CGRect) {
         ursprung = rahmen.origin
         groesse = rahmen.size
+        meldungen += 1
+        kleinsteX = min(kleinsteX, Double(rahmen.origin.x))
+        groessteX = max(groessteX, Double(rahmen.origin.x))
+        kleinsteY = min(kleinsteY, Double(rahmen.origin.y))
+        groessteY = max(groessteY, Double(rahmen.origin.y))
+    }
+
+    /// Wie weit der Ursprung seit dem Öffnen gewandert ist, quer und hoch.
+    var spanne: CGSize {
+        guard meldungen > 0 else { return .zero }
+        return CGSize(width: groessteX - kleinsteX, height: groessteY - kleinsteY)
     }
 }

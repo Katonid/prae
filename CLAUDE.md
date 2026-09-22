@@ -4501,6 +4501,62 @@ Befunde, und keiner davon war Geschmack:
   und ist nicht gesehen. **Nicht als erledigt darstellen.** Der Weg zurück aus
   einer zu kleinen Seite liegt daneben und hängt an keiner Geste: der Knopf
   mit der Prozentzahl unten links → „Einpassen".
+- **Wer nicht rollt, springt in die linke obere Ecke** (ab 1.0.24, gemeldet
+  09/2026: „Wenn ich das tue, dann wird die Zoom-Geste korrekt ausgeführt.
+  Lasse ich allerdings die beiden Finger los, dann springt das Bild wieder auf
+  die linke obere Ecke."). **Der Befund sagt selbst, wo es liegt:** Während der
+  Geste skaliert ein `scaleEffect` um den Punkt zwischen den Fingern — das ist
+  eine Abbildung und kann gar nicht danebenliegen; erst beim Loslassen wird
+  gerechnet. Also liegt es am Loslassen. Und dort stand seit 1.0.23 ein
+  `guard griff.imBlatt`: Lag der Mittelpunkt der Finger nicht auf dem Blatt,
+  wurde GAR NICHT gerollt — dann behält die Rolle ihren Versatz, während der
+  Inhalt um den Faktor der Geste WÄCHST, und man sieht einen Punkt, der um
+  genau diesen Faktor näher am Ursprung liegt. Das IST der Sprung in die Ecke,
+  also der Zustand von vor 1.0.18. Gerollt wird jetzt immer; `imBlatt` ist nur
+  noch eine Auskunft für die Probe.
+- **Der Brennpunkt ist ein Punkt IM INHALT, das Blatt nur das Maß dafür**
+  (ab 1.0.24). Aus demselben Grund werden die beiden Griffanteile nicht mehr
+  auf 0 bis 1 geklemmt: `hoch = 1,05` heißt „eine Blatthöhe und fünf Prozent
+  unter der Oberkante" und rechnet sich genauso wie 0,5. Geklemmt werden darf
+  erst der fertige `UnitPoint`, denn DER kann nichts anderes ausdrücken.
+- **Ein geklemmter Anker wird über den NACHBARN ausgedrückt**
+  (`Zoomanker.rollziel`, ab 1.0.24). Ein Anker trägt nur Werte von 0 bis 1 und
+  damit nur Elementkanten zwischen 0 und `Sichtfeld − Element`; im Befund des
+  Nutzers stand `Anker … 0.76 (geklemmt)`. Die Reichweite lässt sich aber ohne
+  jede Annahme vergrößern, **weil alle Elemente gleich hoch sind und im selben
+  Abstand stehen**: Die Kante von Element `k` liegt um `(k − Index) · Schritt`
+  unter der des gegriffenen, also rollt man das Nachbarelement an den
+  passenden Anker und das gegriffene steht, wo es stehen soll. Gesucht wird
+  das Element mit dem geringsten Überstand; passt der eigene Anker schon,
+  ändert sich nichts. Reine Geometrie, keine Vermutung.
+- **Seit 1.0.24 wird die WIRKUNG gemessen und nicht gefolgert** (`sollversatz`,
+  Zeile `Soll … Ist … Abweichung`). Seit 1.0.18 steht hier, dass ungeprüft
+  ist, ob `scrollTo` einen Anker außerhalb der Mitte einlöst — drei Fassungen
+  lang wurde gerechnet und die Wirkung nicht nachgesehen. `Soll` ist der
+  Versatz, den der Inhalt danach haben MÜSSTE, `Ist` der, den er 0,4 s später
+  WIRKLICH hat. Stimmen sie überein, liegt ein verbleibender Fehler nicht an
+  dieser Rechnung. **Wer eine Geometrie baut, baut die Gegenprobe mit.**
+- **„Lässt sich nicht schieben" wird GEZÄHLT, nicht erklärt**
+  (`Inhaltslage.spanne`, ab 1.0.24, zum zweiten Mal gemeldet). Ein `ScrollView`
+  rollt oder rollt nicht, und am Quelltext sieht man es nicht. Gezählt wird
+  deshalb, wie weit der Ursprung des Inhalts seit dem Öffnen überhaupt
+  gewandert ist — bleibt die Spanne null, während jemand schiebt, rollt die
+  Bühne nicht; wächst sie, ist die Frage eine andere. Gezählt wird in einer
+  schlichten Klasse OHNE `@Published`, aus demselben Grund wie beim
+  `Zeichenmesser`: Ein Zustand, der bei jedem Bildpunkt geschrieben wird,
+  zeichnet die Bühne sechzigmal in der Sekunde neu.
+- **Die Vermutung zum Schieben ist AUFGESCHRIEBEN und nicht ausprobiert**
+  (1.0.24). Naheliegend ist, dass die Zweifingergeste einen Zweifinger-Wisch
+  verschluckt — also genau die Bewegung, die nach einem Aufziehen am nächsten
+  liegt; zu ändern wäre das mit `simultaneousGesture`, wie es
+  `SeitenflaecheView` beim Bildausschnitt tut. Bewusst NICHT in derselben
+  Fassung: Hier ändert sich gerade, wohin nach dem Zoomen gerollt wird, und
+  wer zwei Dinge auf einmal ändert, kann den nächsten Befund nicht mehr
+  zuordnen.
+- **Nicht gemessen (1.0.24):** Ob der Brennpunkt jetzt steht, hat niemand
+  gesehen; gerechnet ist nur, warum er in 1.0.23 nicht stand. Ob sich die
+  Arbeitsfläche schieben lässt, ist weiterhin ungeklärt — neu ist allein,
+  dass es sich ablesen lässt. **Nicht als erledigt darstellen.**
 - **Die Bildunterschrift war halb gebaut** (ab 1.0.5, Wunsch des Nutzers
   09/2026: „zu jedem Foto einen Beschreibungstext … Dies soll jedoch eine
   Option für jedes Foto sein. Kein muss."). Der Layoutautomat hielt Platz

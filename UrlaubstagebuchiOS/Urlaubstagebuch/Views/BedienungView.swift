@@ -45,7 +45,7 @@ struct BedienungView: View {
               wie: "Mit zwei Fingern auf der Seite auf- und zuziehen. Die Stelle zwischen den Fingern bleibt dabei stehen. Der Knopf mit der Prozentzahl unten sagt, wie groß die Seite gerade steht, und stellt sie auf \u{201E}Einpassen\u{201C} oder 100 % \u{2014} Plus- und Minus-Lupen gibt es nicht mehr, das können zwei Finger besser."),
         Griff(zeichen: "hand.draw",
               was: "Die herangezoomte Seite verschieben",
-              wie: "Mit EINEM Finger über die freie Fläche ziehen, solange kein Block ausgewählt ist \u{2014} über einem gewählten Block gehört dieselbe Bewegung ihm. Geschoben wird in beide Richtungen, sobald die Seite größer ist als der Bildschirm; bei \u{201E}Einpassen\u{201C} passt sie in die Breite und es gibt quer nichts zu schieben."),
+              wie: "Mit EINEM Finger über die freie Fläche ziehen, solange kein Block ausgewählt ist \u{2014} über einem gewählten Block gehört dieselbe Bewegung ihm. Geschoben wird in beide Richtungen, sobald die Seite größer ist als der Bildschirm; bei \u{201E}Einpassen\u{201C} passt sie in die Breite und es gibt quer nichts zu schieben. Der zweite Weg, und er hängt an keiner Rolle: mit zwei Fingern ein kleines St\u{00FC}ck auf der Stelle aufziehen, auf die man sehen will \u{2014} der Zoom h\u{00E4}lt den Punkt zwischen den Fingern fest und holt ihn damit in die Mitte."),
         Griff(zeichen: "photo.badge.arrow.down",
               was: "Ein Foto im Rahmen vergrößern",
               wie: "Ein Foto auswählen und DARAUF mit zwei Fingern auf- und zuziehen. Der Rahmen bleibt, wo er ist — nur der gezeigte Ausschnitt ändert sich. Solange ein Foto gewählt ist, zoomen zwei Finger deshalb nicht die Seite; ein Tipp daneben hebt die Auswahl auf."),
