@@ -717,6 +717,137 @@ Bücher gefahrlos: Der erzeugte `Codable`-Leser verlangt einen Schlüssel nur
 für nicht-optionale Eigenschaften. Ein vorhandener Wert wird gelesen, ein
 fehlender wird `nil` — also „wie im Buch".
 
+## Die Seite entsteht aus dem Inhalt des Tages (1.0.34)
+
+Gemeldet 09/2026, mit zwei Bildschirmfotos eines ausgegebenen Buches und
+einem Befund, der genauer war als jede Vermutung von hier: Es habe den
+Eindruck, als werde nur ein vorgegebenes Design mit sechs unterschiedlichen
+Seiten der Reihe nach abgespult, ohne darauf zu achten, wie der konkrete
+Inhalt eines Tages wirklich ist — und genau das wäre die Stärke der App: für
+jeden Tag flexibel zu entscheiden, wie die beste Anordnung sein könnte.
+
+**Er hatte recht, und es stand wortwörtlich so im Quelltext.**
+`Seitenrhythmus` war eine Liste von sechs Seitenbildern, durchlaufen mit
+`(seite + versatz) % 6`. Wie viel Text der Tag hat, wie viele Bilder und ob
+sie hoch oder quer stehen, ging in diese Wahl mit keinem einzigen Wert ein.
+Die Datei ist ersatzlos entfernt und nicht auf einen Sonderfall
+zurückgestellt: Ein Mechanismus, dessen Grund widerlegt ist, bleibt nicht
+liegen.
+
+### Erst messen, dann planen, dann setzen
+
+An ihrer Stelle steht `Model/Tagesplan.swift`. Gemessen werden zwei Höhen —
+wie hoch der Text über die volle Satzbreite wird (`Textmass.hoehe`) und wie
+hoch alle Bilder zusammen werden, wenn man sie in Reihen setzt
+(`Layoutautomat.stapelhoehe`). Beide kommen aus denselben Funktionen, die
+hinterher auch setzen; eine zweite Schätzung daneben liefe auseinander, und
+dann hielte die Seite nicht, was der Plan sagt.
+
+Aus dem VERHÄLTNIS der beiden folgt die **Gangart**, aus ihrer SUMME die Zahl
+der Seiten. Das sind genau die drei Fälle, die der Nutzer genannt hat:
+
+* **bilderreich** (unter einem Fünftel Text) — „Dann habe ich vielleicht 25
+  Fotos und nur 5 Sätze Text. Dann bietet es sich vielleicht doch an, eine
+  reine Bilderseite zu machen, und den Text nicht noch weiter
+  auseinanderzuziehen." Der Text bleibt beisammen, danach dürfen reine
+  Bilderseiten stehen.
+* **ausgewogen** — „Ich habe 20 Fotos und einen sehr langen Text. Das
+  verteile ich einigermaßen gleichmäßig auf die Seiten. So dass immer Bilder
+  und Text auf jeder Seite sind. Das Design wechsle ich dabei ab." Jede Seite
+  bekommt ihren Anteil an beidem, und die Stellung wechselt.
+* **textreich** (über sieben Zehnteln Text) — „bei sehr viel Text und wenig
+  Bildern wird es bestimmt auch eine Möglichkeit geben, diese so anzuordnen,
+  dass der Text sie umfließt."
+
+**Die Zahl der Seiten ist eine Schätzung mit Absicht.** Sie steuert die
+Verteilung und ist keine Zusage: Geht am Ende doch mehr hinein oder weniger,
+setzt der Automat weiter, und was übrig ist, kommt auf eine zusätzliche
+Seite. Wie viele Kacheln auf die Seite gehören, wird bei JEDER Seite neu aus
+dem gerechnet, was noch offen ist — nicht aus einer beim Start festgelegten
+Liste. Damit bleibt die Verteilung gleichmäßig, auch wenn eine Seite mehr
+aufgenommen hat als geplant.
+
+**Nichts daran ist gewürfelt, und nichts hängt an der Kennung des Tages.**
+Derselbe Inhalt ergibt denselben Satz. Die Abwechslung kommt jetzt aus dem
+Inhalt und aus dem Wechsel der Seitenstellung — nicht aus einem Katalog.
+
+### Die fünf gemeldeten Seiten
+
+**Seite 3/4 — „Das einzige Foto … erscheint nun super groß auf einer leeren
+Seite 4. Dabei wäre auf Seite 3 noch Platz gewesen."** Zwei Ursachen, beide
+am Quelltext nachzurechnen. Erstens bekam der Text die ganze Seite, obwohl
+noch ein Bild für sie vorgesehen war: Freigehalten wurde nur, wenn Reihe UND
+sechs Zeilen Text danebenpassten, und sonst gar nichts. Zweitens brach die
+Seite um, sobald die nächste Reihe in ihrer ZIELHÖHE nicht mehr hineinpasste
+— und auf der neuen, leeren Seite durfte dieselbe Reihe dann wachsen. Eine
+Reihe ist aber kein festes Maß: Ihre Höhe folgt aus der Zielhöhe, und die
+lässt sich für diese eine Reihe senken. **Eine Reihe schrumpft jetzt, bevor
+sie umbricht** (`reihenIn`), und der Text wird gedeckelt, solange Bilder für
+diese Seite vorgesehen sind.
+
+**Seite 5 — „ein Ausschnitt eines Fotos auf die ganze Seitenbreite gezogen.
+Das macht keinen Sinn."** Das war das Aufmacherband aus 1.0.32: Höhe fest bei
+gut einem Drittel der Satzhöhe, Breite fest bei voller Satzbreite. Ein
+Hochformat wurde damit zu einem Streifen quer durch das Bild — der Rahmen
+wird ja gefüllt, nicht eingepasst. Ein Band folgt jetzt dem
+Seitenverhältnis: Gedeckelt wird die HÖHE, was an Breite fehlt, bleibt Rand,
+und ein Band bekommt nur ein Querformat.
+
+**Seite 6 — „könnte zumindest eins der Fotos noch neben den Text gezogen
+werden und die anderen Fotos entsprechend verteilt."** Neue Seitenform
+`seitlich`: ein Hochformat in einer Spalte am Rand, der Text daneben und
+DARUNTER über die volle Breite weiter, die übrigen Bilder als Reihe unten.
+Die Seite wechselt die Kante, damit zwei solche Seiten hintereinander nicht
+wie ein Doppeldruck aussehen.
+
+**Seite 7/8 — „sind plötzlich drei Fotos schnurgerade nebeneinander" und
+„nur drei Fotos".** Drei gleich hohe Bilder in einer Flucht sind ein Raster
+und kein Satz: In Stilen, die das vertragen (`Buchstil.lebendig` — Tagebuch,
+Fotoalbum, Postkarte), liegen die Kacheln einer Reihe wieder gegeneinander
+versetzt und leicht gedreht, immer mit demselben Winkel je Bild. Und eine
+Reihe, die ihre Zielhöhe nicht erreicht, steht MITTIG statt linksbündig: Ein
+einzelnes Bild an der linken Kante sieht aus wie der Rest einer Reihe.
+
+### Umflossen wird in einem L — und warum nicht ringsum
+
+Der Text legt sich um das Bild, indem er in ZWEI Blöcken steht: eine schmale
+Spalte neben dem Bild, darunter die volle Breite. Ein Bild, das auf BEIDEN
+Seiten Text hat, ist bewusst nicht gebaut, und das ist keine Bequemlichkeit:
+CoreText legt einen Rahmen in ein Rechteck, für alles andere müsste jede
+Zeile einzeln gesetzt werden — mit einem zweiten Umbruch neben dem, mit dem
+`Textmass` misst, also genau der Fehler, den dieses Papier an anderer Stelle
+beschreibt. Und der Textblock wäre danach nicht mehr das, was man in dieser
+App anfassen, verschieben und teilen kann. Zwei Blöcke sind hier das
+ehrlichere Mittel: Sie messen und zeichnen mit demselben Satz wie jeder
+andere Text.
+
+### Das Muster heißt jetzt „Nach Inhalt gesetzt"
+
+`Seitenmuster.wechsel` ist kein Sonderfall mehr für Tage mit sehr viel Text
+UND sehr vielen Bildern (bis 1.0.33: über 1200 Zeichen, mindestens vier
+Fotos), sondern der REGELFALL für jeden Tag, der Text und Bilder hat. Genau
+an dieser Schwelle scheiterte der 3. August im gemeldeten Buch: ein Tag mit
+Text und EINEM Foto fiel durch, landete bei einem Muster ohne Planer, und
+dessen Bild stand allein auf der nächsten Seite. Ohne Text oder ohne Bild
+greift das Muster weiterhin nicht — dann gibt es nichts zu verteilen, und
+die eigenen Bildideen der übrigen acht Muster sind die bessere Antwort.
+
+### Nicht gemessen
+
+**Keine Seite ist damit gesehen worden.** Gerechnet ist, WARUM das Foto auf
+der leeren Seite landete, warum das Band ein Ausschnitt wurde und was der
+Rhythmus mit dem Inhalt zu tun hatte (nichts). Wie eine Doppelseite im neuen
+Plan AUSSIEHT, sagt erst der nächste Befund. Gewählt und nicht gemessen sind
+alle Zahlen darin: die beiden Gangart-Schwellen (0,20 und 0,72), die
+Spaltenbreite des seitlichen Bildes (0,40 der Satzbreite), seine Höhe
+(höchstens 0,46 der Satzhöhe), die Bandhöhe (0,40), der Zuschlag von einem
+Viertel auf den Textanteil je Seite und die Schwelle von zwölf Zeilen, ab der
+ein Bild neben den Text darf. **Und es sind mehrere Dinge auf einmal
+geändert** — die sonst geltende Regel, eine Sache auf einmal zu ändern, ist
+hier bewusst gebrochen: Die fünf gemeldeten Seiten haben eine gemeinsame
+Ursache, und fünf Fassungen nacheinander hätten sie einzeln kuriert, ohne sie
+zu beheben.
+
 ## Seiten von Hand, und ein Buch zweimal (1.0.33)
 
 Zwei Ansagen, und die erste hat einen stillen Fehler mit ans Licht gebracht.
@@ -2626,6 +2757,11 @@ im Inspektor gab es, aber keinen Weg zu sehen, was es bewirkt.
   wäre der schlechtere Tausch.
 
 ## Offene Punkte
+
+* **Nichts an 1.0.34 ist auf einem Gerät gesehen.** Der Planer ist
+  gerechnet, nicht angesehen; alle Zahlen darin sind gewählt und nicht
+  gemessen (siehe den Abschnitt zu 1.0.34). Ob eine Doppelseite damit nach
+  einem Reisebuch aussieht, sagt erst der nächste Befund.
 
 * **Nichts an 1.0.33 ist auf einem Gerät gesehen.** Gerechnet ist, warum eine
   von Hand eingefügte leere Seite beim nächsten Neuanordnen verschwand
