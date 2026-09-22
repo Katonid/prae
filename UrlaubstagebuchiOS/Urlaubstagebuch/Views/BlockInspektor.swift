@@ -18,6 +18,11 @@ struct BlockInspektor: View {
     @Binding var blatt: ReiseView.Blatt?
     @State private var hintergrundOffen = false
     @State private var ausschnittOffen = false
+    // EIN BLATT UND KEIN VERWEIS (ab 1.0.29). Der Inspektor ist eine
+    // `.inspector`-Spalte und bringt KEINEN eigenen Navigationsstapel mit;
+    // ein `NavigationLink` darin ist ein Knopf, der nichts tut — dieselbe
+    // Falle wie bei den Fahrplanzielen der Abfahrtstafel.
+    @State private var schriftwahlOffen = false
     // DIE ABSÄTZE WERDEN EINMAL GERECHNET, NICHT BEI JEDEM NEUZEICHNEN.
     //
     // Der Inspektor ist eine `.inspector`-SPALTE: Er steht offen, während
@@ -76,6 +81,25 @@ struct BlockInspektor: View {
         .sheet(item: $absatzwahl) { wahl in
             AbsatzwahlView(absaetze: wahl.absaetze) { stelle in
                 werk.textTeilen(wahl.blockID, nachAbsatz: stelle)
+            }
+        }
+        .sheet(isPresented: $schriftwahlOffen) {
+            // Der Block wird hier NEU nachgeschlagen und nicht
+            // hineingereicht: Ein mitgegebener Block wäre der Stand von
+            // dem Augenblick, in dem das Blatt aufging.
+            if let block, block.inhalt.istText {
+                NavigationStack {
+                    SchriftwahlView(
+                        auswahl: binden(block, \.familie,
+                                        block.abweichung.angewendet(
+                                            auf: werk.reise.typografie[block.inhalt.rolle]).familie),
+                        titel: "Schrift hier")
+                        .toolbar {
+                            ToolbarItem(placement: .confirmationAction) {
+                                Button("Fertig") { schriftwahlOffen = false }
+                            }
+                        }
+                }
             }
         }
         .sheet(isPresented: $ausschnittOffen) {
@@ -219,6 +243,58 @@ struct BlockInspektor: View {
                     .foregroundStyle(.secondary)
             }
         }
+        seitenAbschnitt(block)
+    }
+
+    // AUF EINE ANDERE SEITE (ab 1.0.29, Ansage des Nutzers 09/2026: „ich
+    // möchte ein Bild problemlos von einer Seite auf eine andere schieben
+    // können beziehungsweise auch andere Elemente wie zum Beispiel
+    // Textfelder.").
+    @ViewBuilder
+    private func seitenAbschnitt(_ block: Block) -> some View {
+        if let lage = werk.seitenlage(block.id) {
+            Section {
+                LabeledContent("Steht auf",
+                               value: "Seite \(lage.jetzt + 1) von \(lage.anzahl)")
+                HStack {
+                    Button {
+                        werk.blockVerschieben(block.id, aufSeite: lage.jetzt - 1)
+                    } label: {
+                        Label("Zurück", systemImage: "arrow.up.doc")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(lage.jetzt == 0)
+
+                    Button {
+                        if lage.jetzt + 1 < lage.anzahl {
+                            werk.blockVerschieben(block.id, aufSeite: lage.jetzt + 1)
+                        } else {
+                            werk.blockAufNeueSeite(block.id)
+                        }
+                    } label: {
+                        Label(lage.jetzt + 1 < lage.anzahl ? "Vor" : "Neue Seite",
+                              systemImage: "arrow.down.doc")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                }
+                if lage.anzahl > 2 {
+                    Menu("Auf eine bestimmte Seite …") {
+                        ForEach(0..<lage.anzahl, id: \.self) { nummer in
+                            Button("Seite \(nummer + 1)") {
+                                werk.blockVerschieben(block.id, aufSeite: nummer)
+                            }
+                            .disabled(nummer == lage.jetzt)
+                        }
+                    }
+                }
+            } header: {
+                Text("Auf welcher Seite")
+            } footer: {
+                Text("Die Lage auf dem Blatt bleibt dabei, wie sie ist \u{2014} der Block steht auf der neuen Seite an derselben Stelle. Verschoben wird innerhalb DIESES Tages; zu welchem Tag ein Foto gehört, wird in der Fotoliste des Tages entschieden. Nach dem Verschieben gilt der Block als von Hand gesetzt und wird beim Neuanordnen in Ruhe gelassen.")
+            }
+        }
     }
 
     @ViewBuilder
@@ -227,10 +303,10 @@ struct BlockInspektor: View {
         let gilt = block.abweichung.angewendet(auf: grund)
 
         Section("Schrift an dieser Stelle") {
-            Picker("Schriftart", selection: binden(block, \.familie, gilt.familie)) {
-                ForEach(Schriftfamilie.vorhandene) { familie in
-                    Text(familie.name).tag(familie)
-                }
+            Button {
+                schriftwahlOffen = true
+            } label: {
+                LabeledContent("Schriftart", value: gilt.familie.vollerName)
             }
             Stepper(value: binden(block, \.groesse, gilt.groesse), in: 4...80, step: 0.5) {
                 LabeledContent("Größe", value: String(format: "%.1f pt", gilt.groesse))

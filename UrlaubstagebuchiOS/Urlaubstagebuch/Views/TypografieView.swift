@@ -15,16 +15,17 @@ struct TypografieView: View {
         NavigationStack {
             Form {
                 Section {
-                    Picker("Schriftart überall", selection: Binding(
-                        get: { werk.reise.typografie.flieText.familie },
-                        set: { neu in
-                            werk.merken()
-                            werk.reise.typografie.familieUeberall(neu)
-                        }
-                    )) {
-                        ForEach(Schriftfamilie.vorhandene) { familie in
-                            Text(familie.name).tag(familie)
-                        }
+                    NavigationLink {
+                        SchriftwahlView(auswahl: Binding(
+                            get: { werk.reise.typografie.flieText.familie },
+                            set: { neu in
+                                werk.merken()
+                                werk.reise.typografie.familieUeberall(neu)
+                            }
+                        ), titel: "Schrift überall")
+                    } label: {
+                        LabeledContent("Schriftart überall",
+                                       value: werk.reise.typografie.flieText.familie.vollerName)
                     }
                     HStack {
                         Text("Alle Größen")
@@ -89,10 +90,10 @@ struct TypografieView: View {
 
     private var schriftAbschnitt: some View {
         Section(rolle.name) {
-            Picker("Schriftart", selection: bild.familie) {
-                ForEach(Schriftfamilie.vorhandene) { familie in
-                    Text(familie.name).tag(familie)
-                }
+            NavigationLink {
+                SchriftwahlView(auswahl: bild.familie, titel: rolle.name)
+            } label: {
+                LabeledContent("Schriftart", value: bild.wrappedValue.familie.vollerName)
             }
             Stepper(value: bild.groesse, in: 4...80, step: 0.5) {
                 LabeledContent("Größe", value: String(format: "%.1f pt", bild.wrappedValue.groesse))

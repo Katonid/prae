@@ -15,6 +15,7 @@ enum Seitenmuster: String, Codable, CaseIterable, Identifiable {
     case bildZuerst
     case textZuerst
     case bilderbogen
+    case wechsel
 
     var id: String { rawValue }
 
@@ -28,6 +29,7 @@ enum Seitenmuster: String, Codable, CaseIterable, Identifiable {
         case .bildZuerst: return "Großes Aufmacherfoto"
         case .textZuerst: return "Text zuerst"
         case .bilderbogen: return "Bilderbogen"
+        case .wechsel: return "Tagebuch: Text und Bilder im Wechsel"
         }
     }
 
@@ -49,6 +51,8 @@ enum Seitenmuster: String, Codable, CaseIterable, Identifiable {
             return "Der Text trägt die Seite, Karte und Fotos folgen."
         case .bilderbogen:
             return "Fast nur Bilder, der Text bleibt kurz."
+        case .wechsel:
+            return "Für Tage mit viel Text UND vielen Bildern: Der Text läuft über so viele Seiten, wie er braucht, und zwischen den Abschnitten stehen Fotoreihen \u{2014} schon auf der ersten Seite. Kein Kapitel aus lauter Text und danach eines aus lauter Bildern."
         }
     }
 
@@ -221,6 +225,13 @@ struct Layoutautomat {
                 if zeichen > 600 || fotos.isEmpty { return muster }
             case .bilderbogen:
                 if fotos.count >= 4 { return muster }
+            case .wechsel:
+                // Die Schwelle ist hoch mit Absicht: Dieses Muster ist die
+                // Antwort auf „sehr viel Text mit ebenfalls sehr vielen
+                // Bildern". Ein Tag mit drei Sätzen und zwei Fotos ist
+                // damit nicht gemeint und bekommt weiter, was er vorher
+                // bekam.
+                if zeichen > 1200, fotos.count >= 4 { return muster }
             }
         }
         if fotos.isEmpty { return .textZuerst }
@@ -348,6 +359,35 @@ struct Layoutautomat {
         case .textZuerst, .vollbildAufmacher:
             (bloecke, y, restText) = textSpalte(bloecke, y: y, x: satz.minX,
                                                 breite: satz.width, text: restText)
+
+        case .wechsel:
+            // TEXT UND BILDER VON DER ERSTEN SEITE AN (ab 1.0.29).
+            //
+            // `reihenSetzen` wechselt seit 1.0.14 auf den FOLGESEITEN
+            // zwischen Text und Fotoreihen. Die erste Seite war davon
+            // ausgenommen: Dort füllte der Text bis zum Satzspiegelende,
+            // und das erste Bild stand eine Seite weiter. Bei einem Tag mit
+            // viel Text UND vielen Bildern ist genau das der Eindruck, den
+            // der Nutzer gemeldet hat — erst ein Kapitel Text, dann eines
+            // mit Bildern.
+            //
+            // Freigehalten wird die ZIELHÖHE der nächsten Fotoreihe und
+            // kein geschätzter Anteil — dieselbe Zahl, mit der
+            // `reihenSetzen` weiterrechnet; ein Anteil, der zu klein ist,
+            // ließe die Reihe doch nicht hinein und hinterließe weißen
+            // Platz, den niemand bestellt hat. Bleiben daneben keine sechs
+            // Zeilen Text mehr, wird gar nichts freigehalten: Eine Seite
+            // mit vier Zeilen über einem Bild ist kein Satz, sondern ein
+            // Rest.
+            var deckel: Double?
+            if !offeneFotos.isEmpty || karteOffen {
+                let reihe = zielhoehe(fuer: offeneFotos.count)
+                let bleibt = satz.maxY - y - (reihe + fuge + 4)
+                if bleibt > typografie.flieText.zeilenhoehe * 6 { deckel = bleibt }
+            }
+            (bloecke, y, restText) = textSpalte(bloecke, y: y, x: satz.minX,
+                                                breite: satz.width, text: restText,
+                                                hoechstens: deckel)
 
         case .bilderbogen:
             if !restText.isEmpty {
@@ -795,12 +835,17 @@ struct Layoutautomat {
                      rahmen: Rahmen(x: x, y: y + 3, breite: breite, hoehe: hoehe - 3))
     }
 
+    // `hoechstens` deckelt die Höhe des Textes auf dieser Seite. Ohne
+    // Deckel füllt er bis zum Satzspiegelende — richtig für ein Muster,
+    // das den Text trägt, falsch für eines, das ihn mit Bildern abwechseln
+    // soll (`.wechsel`, ab 1.0.29).
     private func textSpalte(_ bloecke: [Block], y: CGFloat, x: CGFloat, breite: Double,
-                            text: String) -> ([Block], CGFloat, String)
+                            text: String, hoechstens: Double? = nil) -> ([Block], CGFloat, String)
     {
         guard !text.isEmpty else { return (bloecke, y, text) }
         var neue = bloecke
-        let platz = CGSize(width: breite, height: satz.maxY - y)
+        let raum = min(satz.maxY - y, hoechstens ?? .greatestFiniteMagnitude)
+        let platz = CGSize(width: breite, height: raum)
         guard platz.height > typografie.flieText.zeilenhoehe * 2 else { return (bloecke, y, text) }
         let (kopf, rest) = Textmass.teilen(text, bild: typografie.flieText, groesse: platz)
         guard !kopf.isEmpty else { return (bloecke, y, text) }

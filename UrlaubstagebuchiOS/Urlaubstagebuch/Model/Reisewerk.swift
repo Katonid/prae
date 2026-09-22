@@ -716,6 +716,67 @@ final class Reisewerk: ObservableObject, Identifiable {
         if gewaehlterBlock == id { gewaehlterBlock = nil }
     }
 
+    // EINEN BLOCK AUF EINE ANDERE SEITE SCHIEBEN (ab 1.0.29, Ansage des
+    // Nutzers 09/2026: „ich möchte ein Bild problemlos von einer Seite auf
+    // eine andere schieben können beziehungsweise auch andere Elemente wie
+    // zum Beispiel Textfelder.").
+    //
+    // Bewusst ein BEFEHL und keine Geste über die Seitengrenze. Eine
+    // Ziehgeste, die ein Blatt verlässt, müsste mitten im Ziehen
+    // entscheiden, zu welcher Seite der Finger gerade gehört, und zwar in
+    // einer Bühne, die sich dabei rollt und zoomt — das ist die Art
+    // Ziehgeste, die dieses Projekt von 1.0.5 bis 1.0.8 gekostet hat. Ein
+    // Knopf, der immer tut, was draufsteht, ist hier mehr wert als eine
+    // Geste, die meistens tut, was gemeint war.
+    //
+    // Verschoben wird INNERHALB eines Tages. Über Tagesgrenzen hinweg ist
+    // es keine Frage der Seite mehr, sondern der Zuordnung: Ein Foto
+    // gehört zu einem Tag (`tag.fotos`), und das ändert man dort, wo diese
+    // Frage gestellt wird — in der Fotoliste des Tages.
+    @discardableResult
+    func blockVerschieben(_ id: UUID, aufSeite ziel: Int) -> Bool {
+        guard let stelle = block(id) else { return false }
+        guard reise.tage[stelle.tag].seiten.indices.contains(ziel),
+              ziel != stelle.seite
+        else { return false }
+        merken()
+        var geschoben = reise.tage[stelle.tag].seiten[stelle.seite].bloecke.remove(at: stelle.block)
+        // Er zählt danach als Handarbeit: Ein Neuanordnen, das ihn
+        // stillschweigend auf die alte Seite zurückholte, nähme genau die
+        // Entscheidung zurück, die jemand gerade getroffen hat.
+        geschoben.vonHand = true
+        // Die Lage bleibt, wie sie war — auf der neuen Seite steht der
+        // Block an derselben Stelle. Ihn zu zentrieren wäre bequemer und
+        // verschöbe etwas, das niemand angefasst hat.
+        reise.tage[stelle.tag].seiten[ziel].bloecke.append(geschoben)
+        reise.tage[stelle.tag].seiten[ziel].heben(geschoben.id)
+        gewaehlterBlock = geschoben.id
+        seitenzeiger = ziel
+        return true
+    }
+
+    // Auf welche Seiten dieser Block überhaupt kann — und auf welcher er
+    // gerade steht. Gebraucht an zwei Stellen (Inspektor und Blockmenü);
+    // zwei Fassungen zählten irgendwann verschieden.
+    func seitenlage(_ id: UUID) -> (jetzt: Int, anzahl: Int)? {
+        guard let stelle = block(id) else { return nil }
+        return (stelle.seite, reise.tage[stelle.tag].seiten.count)
+    }
+
+    // Eine neue Seite hinter der jetzigen anlegen UND gleich dorthin
+    // schieben. Ohne das endet „auf die nächste Seite" auf der letzten
+    // Seite in einem Knopf, der nichts tut.
+    func blockAufNeueSeite(_ id: UUID) {
+        guard let stelle = block(id) else { return }
+        merken()
+        reise.tage[stelle.tag].seiten.insert(Seite(), at: stelle.seite + 1)
+        var geschoben = reise.tage[stelle.tag].seiten[stelle.seite].bloecke.remove(at: stelle.block)
+        geschoben.vonHand = true
+        reise.tage[stelle.tag].seiten[stelle.seite + 1].bloecke.append(geschoben)
+        gewaehlterBlock = geschoben.id
+        seitenzeiger = stelle.seite + 1
+    }
+
     func blockNachVorn(_ id: UUID) {
         guard let stelle = block(id) else { return }
         merken()

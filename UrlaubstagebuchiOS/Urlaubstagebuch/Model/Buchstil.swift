@@ -58,7 +58,7 @@ struct Buchstil: Identifiable, Hashable {
         randAussen: 18, randOben: 18, randUnten: 20, fuge: 3.5,
         eckenradius: 0, fotorand: 0, schatten: .keiner,
         randabfallendErlaubt: true,
-        musterVorliebe: [.vollbildAufmacher, .halbseitig, .karteSeitlich, .bilderbogen],
+        musterVorliebe: [.wechsel, .vollbildAufmacher, .halbseitig, .karteSeitlich, .bilderbogen],
         seitenzahlen: true
     )
 
@@ -87,7 +87,7 @@ struct Buchstil: Identifiable, Hashable {
         randAussen: 15, randOben: 16, randUnten: 18, fuge: 6,
         eckenradius: 0, fotorand: 2.6, schatten: .weich,
         randabfallendErlaubt: false,
-        musterVorliebe: [.album, .karteSeitlich, .bildZuerst, .bilderbogen],
+        musterVorliebe: [.wechsel, .album, .karteSeitlich, .bildZuerst, .bilderbogen],
         seitenzahlen: false
     )
 
@@ -114,7 +114,7 @@ struct Buchstil: Identifiable, Hashable {
         randAussen: 22, randOben: 22, randUnten: 24, fuge: 4.5,
         eckenradius: 0, fotorand: 0, schatten: .keiner,
         randabfallendErlaubt: false,
-        musterVorliebe: [.textZuerst, .karteSeitlich, .bildZuerst],
+        musterVorliebe: [.wechsel, .textZuerst, .karteSeitlich, .bildZuerst],
         seitenzahlen: true
     )
 
@@ -141,7 +141,7 @@ struct Buchstil: Identifiable, Hashable {
         randAussen: 14, randOben: 15, randUnten: 17, fuge: 3,
         eckenradius: 1.5, fotorand: 0, schatten: .keiner,
         randabfallendErlaubt: true,
-        musterVorliebe: [.bilderbogen, .halbseitig, .karteOben, .karteSeitlich],
+        musterVorliebe: [.wechsel, .bilderbogen, .halbseitig, .karteOben, .karteSeitlich],
         seitenzahlen: true
     )
 
@@ -169,7 +169,7 @@ struct Buchstil: Identifiable, Hashable {
         randAussen: 16, randOben: 17, randUnten: 19, fuge: 4.5,
         eckenradius: 3, fotorand: 0, schatten: .weich,
         randabfallendErlaubt: true,
-        musterVorliebe: [.bildZuerst, .karteSeitlich, .album, .bilderbogen],
+        musterVorliebe: [.wechsel, .bildZuerst, .karteSeitlich, .album, .bilderbogen],
         seitenzahlen: true
     )
 
