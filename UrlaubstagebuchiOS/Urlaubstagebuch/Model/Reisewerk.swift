@@ -358,6 +358,58 @@ final class Reisewerk: ObservableObject, Identifiable {
         }
     }
 
+    // WELCHES Muster für diesen Tag gerade gilt, wenn keines gesetzt ist.
+    //
+    // Gebraucht wird es für die Anzeige im Tagesmenü: Ein Menüpunkt, der
+    // „automatisch" sagt und nicht dazu, WAS der Automat gewählt hat,
+    // lässt einen raten — und genau daran ist die Frage entstanden, ob es
+    // das Muster „Text und Bilder im Wechsel" überhaupt gibt.
+    func gewaehltesMuster(_ id: UUID) -> Seitenmuster? {
+        guard let stelle = tagIndex(id) else { return nil }
+        let tag = reise.tage[stelle]
+        if let eigenes = tag.muster { return eigenes }
+        let fotos = tag.fotos.compactMap { reise.foto($0) }.filter { !$0.abgelegt }
+        return automat.musterVorschlag(text: tag.text, fotos: fotos,
+                                       hatSpur: tag.karteZeigen && tag.hatSpur)
+    }
+
+    // Dasselbe Muster für JEDEN Tag — oder überall zurück auf
+    // „automatisch".
+    //
+    // Der Weg dorthin steht dort, wo die Frage entsteht: im Menü des
+    // einzelnen Tages. Wer für einen Tag einstellt, wie seine Seiten
+    // gesetzt werden, ist genau die Person, die als Nächstes fragt „und
+    // für alle?" — dieselbe Lehre wie beim Fotostil in 1.0.10.
+    //
+    // Neu angeordnet werden dabei NUR die Tage ohne Handarbeit. Ein Muster
+    // zu wechseln und dabei eine Stunde Handarbeit stillschweigend
+    // wegzuräumen wäre genau die Automatik, die man genau einmal benutzt.
+    @discardableResult
+    func musterFuerAlle(_ muster: Seitenmuster?) -> String {
+        merken()
+        for stelle in reise.tage.indices { reise.tage[stelle].muster = muster }
+        var gesetzt = 0
+        var verschont = 0
+        let werkzeug = automat
+        for stelle in reise.tage.indices {
+            if reise.tage[stelle].seiten.contains(where: { $0.vonHand }) {
+                verschont += 1
+                continue
+            }
+            reise.tage[stelle].seiten = werkzeug.seiten(fuer: reise.tage[stelle])
+            gesetzt += 1
+        }
+        sofortSichern()
+        let name = muster?.name ?? "Automatisch wählen"
+        var satz = "\(name): \(gesetzt) Tage neu gesetzt."
+        if verschont > 0 {
+            satz += " \(verschont) Tage tragen Handarbeit und blieben stehen — "
+                + "sie lassen sich einzeln über „Seiten neu anordnen\u{201C} nachziehen."
+        }
+        meldung = .init(text: satz)
+        return satz
+    }
+
     // Seiten, die noch gar nicht gesetzt sind, werden beim Öffnen gesetzt.
     // Das ist kein Neuanordnen: Eine leere Seitenliste ist kein Stand, den
     // jemand gewollt haben könnte.
