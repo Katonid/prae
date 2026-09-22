@@ -521,8 +521,16 @@ struct Layoutautomat {
         let bilderHoehe = offen.isEmpty ? 0
             : stapelhoehe(offen, breite: satz.width,
                           ziel: Double(satz.height) / 3, hub: 0)
+        // Die Verhältnissumme trägt die Zielreihenhöhe des Tages (siehe
+        // `Tagesplan.zielreihenhoehe`): Aus ihr und der Fläche, die den
+        // Bildern bleibt, folgt genau eine Höhe — und damit sind die Fotos
+        // eines Tages auf allen seinen Seiten ungefähr gleich groß.
+        let verhaeltnissumme = offen.reduce(0.0) { $0 + $1.verhaeltnis }
         let plan = Tagesplan.bauen(textHoehe: textHoehe, bilderHoehe: bilderHoehe,
-                                   kacheln: offen.count, kopf: kopfhoehe,
+                                   kacheln: offen.count,
+                                   verhaeltnissumme: verhaeltnissumme,
+                                   satzbreite: Double(satz.width),
+                                   kopf: kopfhoehe,
                                    satzhoehe: satz.height, fuge: fuge)
 
         var bloecke = kopf
@@ -564,7 +572,7 @@ struct Layoutautomat {
                 ? min(restTextHoehe / Double(restSeiten) * 1.25, Double(platz.height))
                 : Double(platz.height)
             let vorher = (offen.count, text.count)
-            let neue = seiteFuellen(platz: platz, nummer: nummer, restSeiten: restSeiten,
+            let neue = seiteFuellen(platz: platz, nummer: nummer,
                                     plan: plan, textZiel: textZiel,
                                     offen: &offen, text: &text)
             bloecke.append(contentsOf: neue)
@@ -603,7 +611,7 @@ struct Layoutautomat {
     // einem Foto steht, über einer Reihe oder allein, ist kein Fall aus
     // einer Liste, sondern das Ergebnis aus Textmenge, Bildformaten und
     // Platz.
-    private func seiteFuellen(platz: CGRect, nummer: Int, restSeiten: Int,
+    private func seiteFuellen(platz: CGRect, nummer: Int,
                               plan: Tagesplan, textZiel: Double,
                               offen: inout [Kachel], text: inout String) -> [Block]
     {
@@ -632,25 +640,96 @@ struct Layoutautomat {
 
         // WIE VIELE BILDER FÜLLEN DIESE SEITE?
         //
-        // Der Plan macht einen Vorschlag aus der Verteilung über die Tage;
-        // ob er aufgeht, weiß erst die Seite. Bleibt zu viel Luft, kommt
-        // ein Bild dazu; wird es zu eng, geht eines zurück. Das ist die
-        // Antwort auf „verschenkt wesentlich weniger Platz auf der Seite":
-        // Nicht die Zahl der Bilder bestimmt den Satz, sondern der Platz
-        // bestimmt die Zahl der Bilder.
-        var anzahl = max(plan.kachelnAufSeite(offen: offen.count, restSeiten: restSeiten),
-                         offen.isEmpty ? 0 : 1)
+        // Gerechnet wird aus der ZIELHÖHE des Tages und dem Platz, der
+        // nach dem Text bleibt — nicht mehr aus „offene Kacheln geteilt
+        // durch restliche Seiten" (bis 1.0.41). Eine Zählung sagt nichts
+        // über die Größe: Zwei randbündige Hochformate untereinander
+        // füllen eine Seite genauso gut wie sechs kleine Kacheln, und
+        // genau daran hingen die riesigen Einzelbilder.
+        //
+        // Der Plan macht damit einen Vorschlag; ob er aufgeht, weiß erst
+        // die Seite. Bleibt zu viel Luft, kommt ein Bild dazu; wird es zu
+        // eng, geht eines zurück.
+        let verhaeltnisse = offen.map(\.verhaeltnis)
+        // Wie viel Höhe der Text dieser Seite ungefähr nimmt. Eine
+        // Schätzung an der Spaltenbreite — wo er wirklich steht (über die
+        // Breite oder neben einem Foto), entscheidet `mosaik`; hier geht
+        // es nur um den Startwert, den die Schleife danach korrigiert.
+        let textstreifen = kopf.isEmpty ? 0
+            : min(Double(platz.height),
+                  Textmass.hoehe(kopf, bild: typografie.flieText,
+                                 breite: min(Double(platz.width), satzTextbreite)) + fuge)
+        let fuerBilder = max(Double(platz.height) - textstreifen, 1)
+        var anzahl = offen.isEmpty ? 0
+            : max(1, plan.kachelnFuer(verhaeltnisse: verhaeltnisse,
+                                      hoehe: fuerBilder, breite: Double(platz.width)))
+
+        // KEINE HUNGERNDE LETZTE SEITE (ab 1.0.42).
+        //
+        // Gemeldet 09/2026: „so ungeschickt über vier Seiten, dass
+        // tatsächlich am Ende die Fotos alleine auf der Seite stehen."
+        // Genau das entsteht, wenn nach dieser Seite noch ein oder zwei
+        // Kacheln übrig bleiben: Die nächste Seite kann sie nicht füllen,
+        // und dehnen darf sie sie nicht.
+        //
+        // Passt ALLES Offene noch auf diese Seite — gemessen an der
+        // Zielhöhe und der Stauchung, die ohnehin erlaubt ist —, kommt es
+        // mit. Die Bilder werden dann etwas kleiner als das Tagesziel;
+        // das ist der geringere Schaden als eine Seite zu einem Viertel.
+        // Der Grenzwert ist die Dehnungsgrenze selbst und keine zweite
+        // Zahl: Bei mehr als dieser Stauchung ginge die Spalte über den
+        // Kasten hinaus, und die letzte Reihe fiele wieder heraus.
+        //
+        // `mindestens` ist die Untergrenze für die Schrumpfschleife. Sie steht auf 1 und
+        // nicht auf dem Startwert: Überfüllt die geschätzte Zahl die
+        // Seite, muss die Schleife sie senken dürfen. Nur der Fall unten
+        // hebt sie an — was der Seite ausdrücklich mitgegeben wurde, darf
+        // sie nicht gleich wieder abgeben.
+        var mindestens = 1
+        if !offen.isEmpty, text.isEmpty,
+           plan.spaltenhoehe(verhaeltnisse: verhaeltnisse[...],
+                             breite: Double(platz.width)) <= fuerBilder * Self.dehnungsgrenze
+        {
+            anzahl = offen.count
+            mindestens = offen.count
+        }
+
+        // GEHALTEN WIRD DER BESTE VERSUCH, NICHT DER LETZTE (ab 1.0.42).
+        //
+        // Zwischen zwei Kachelzahlen kann die Seite springen: Mit drei
+        // Bildern bleibt die Spalte zu hoch, mit zweien zu niedrig, und
+        // keine der beiden liegt im erlaubten Band. Bis 1.0.41 nahm die
+        // Schleife dann, was im zehnten Durchgang zufällig dastand.
+        // Gewertet wird jetzt wie in `Mosaik.beste`: am wenigsten gedehnt
+        // oder gestaucht gewinnt. Und wer eine Zahl schon versucht hat,
+        // versucht sie nicht wieder — sonst drehte sich die Schleife nur.
+
+        // Wie gut eine Kachelzahl sitzt: je näher die Dehnung an 1, desto
+        // besser. Eine Dehnung von null oder darunter gibt es, wenn
+        // Unterschriften und Fugen den Kasten schon allein füllen — die
+        // zählt nie als bester Versuch.
+        func guete(_ versuch: Mosaikbau) -> Double {
+            versuch.dehnung > 0 ? abs(log(versuch.dehnung)) : .infinity
+        }
         var bau: Mosaikbau?
+        var versucht = Set<Int>()
         for _ in 0..<10 {
+            guard !versucht.contains(anzahl) else { break }
+            versucht.insert(anzahl)
             guard let versuch = mosaik(platz: platz, nummer: nummer, text: kopf,
-                                       gruppe: Array(offen.prefix(anzahl)))
+                                       gruppe: Array(offen.prefix(anzahl)),
+                                       ziel: plan.zielhoehe)
             else { break }
-            bau = versuch
+            if let bisher = bau {
+                if guete(versuch) < guete(bisher) { bau = versuch }
+            } else {
+                bau = versuch
+            }
             if versuch.dehnung > Self.dehnungsgrenze, anzahl < offen.count {
                 anzahl += 1
                 continue
             }
-            if versuch.dehnung < 1 / Self.dehnungsgrenze, anzahl > 1 {
+            if versuch.dehnung < 1 / Self.dehnungsgrenze, anzahl > mindestens {
                 anzahl -= 1
                 continue
             }
@@ -672,6 +751,12 @@ struct Layoutautomat {
     // genau der Ausschnitt, den 1.0.34 am Aufmacherband abgestellt hat.
     private static let dehnungsgrenze: Double = 1.22
 
+    // Wie weit eine einzelne Reihe über die Zielhöhe des Tages hinausgehen
+    // darf. Eine Zahl, die GEWÄHLT und nicht gemessen ist: Ein Drittel
+    // lässt Platz für einen Akzent, ohne dass ein Foto zum Fünffachen
+    // seiner Nachbarn wird — und das war der Befund.
+    private static let reihendeckel: Double = 1.3
+
     private struct Mosaikbau {
         var bloecke: [Block]
         var dehnung: Double
@@ -681,11 +766,25 @@ struct Layoutautomat {
     // Die Rechnung für eine Seite: erst die Textreihe, dann die Fotoreihen
     // in dem, was übrig bleibt.
     private func mosaik(platz: CGRect, nummer: Int, text: String,
-                        gruppe: [Kachel]) -> Mosaikbau?
+                        gruppe: [Kachel], ziel: Double) -> Mosaikbau?
     {
         guard !text.isEmpty || !gruppe.isEmpty else { return nil }
-        let breite = platz.width
+        // Ausdrücklich `Double` und nicht `CGFloat`: Aus der Breite werden
+        // hier Reihenhöhen und Kachelbreiten gerechnet, und die Regel
+        // dieses Repos gilt an jeder Stelle, an der ein Maß aus einem
+        // `CGRect` in eine Rechnung geht.
+        let breite = Double(platz.width)
         var fotos = gruppe
+        // WIE HOCH EINE REIHE HÖCHSTENS WIRD (ab 1.0.42).
+        //
+        // Die Zielhöhe des Tages, plus die Toleranz, die eine einzelne
+        // Reihe darüber hinausgehen darf. Ohne diesen Deckel folgte die
+        // Höhe einer Reihe zwingend aus der Satzbreite — und ein
+        // Hochformat allein in einer Reihe nahm damit gut 85 Prozent der
+        // Seite. Was über dem Deckel läge, wird nicht höher, sondern
+        // SCHMALER: Die Kacheln behalten ihr Verhältnis und die Reihe
+        // steht mittig.
+        let deckel = ziel * Self.reihendeckel
 
         // ---- Die Textreihe
         //
@@ -713,6 +812,7 @@ struct Layoutautomat {
                     fotos: neben.map(\.verhaeltnis), breite: breite, quer: querfuge,
                     fuge: fuge,
                     kleinste: breite * 0.30, groesste: hoechstbreite, stufen: 12,
+                    hoechstens: deckel,
                     texthoehe: { Textmass.hoehe(text, bild: typografie.flieText, breite: $0) }
                 ) {
                     fotos.removeFirst(daneben)
@@ -734,10 +834,14 @@ struct Layoutautomat {
             // freien Höhe ab, bevor es die Dehnung bildet. Sonst hielten
             // die Reihen ihre Höhe nicht, sobald Unterschriften
             // eingeschaltet sind.
+            //
+            // Bis fünf Reihen statt vier: Mit dem Deckel passen mehr
+            // Kacheln auf eine Seite, und ohne die fünfte Reihe müsste
+            // `beste` sie in vier zu breite Reihen zwängen.
             spalte = Mosaik.beste(fotos.map(\.verhaeltnis), breite: breite,
                                   quer: querfuge, fuge: fuge,
-                                  hoehe: uebrig, reihen: 1...4,
-                                  staffel: staffelhub * 2,
+                                  hoehe: uebrig, reihen: 1...5,
+                                  staffel: staffelhub * 2, hoechstens: deckel,
                                   unterschrift: { fotos[$0].unterschrift })
         }
 
@@ -807,9 +911,17 @@ struct Layoutautomat {
         // Der gedeckelte Dehnungsfaktor — einmal gerechnet, von beiden
         // Abschnitten benutzt. Zwei Fassungen ergäben oberhalb und
         // unterhalb des Textes verschieden hohe Reihen.
-        let faktor = spalte.map {
-            min(max($0.dehnung, 1 / Self.dehnungsgrenze), Self.dehnungsgrenze)
-        } ?? 1
+        //
+        // NACH UNTEN GIBT ES KEINE GRENZE MEHR (ab 1.0.42). Sie stand da,
+        // solange eine Reihe die Satzbreite füllen MUSSTE: Stauchen hieß
+        // dann, das Bild seitlich zu beschneiden. Seit eine Reihe schmaler
+        // werden darf, heißt Stauchen „kleiner und mittig" und kostet
+        // nichts. Und es rettet die Seite: Mit der alten Grenze wurde die
+        // Spalte höher als der Kasten, die letzte Reihe fiel heraus
+        // (`abgebrochen`) und ihr Bild landete allein auf der nächsten
+        // Seite — genau der gemeldete Fehler. Nach OBEN bleibt die Grenze,
+        // denn Dehnen beschneidet weiterhin.
+        let faktor = spalte.map { min(max($0.dehnung, 0.05), Self.dehnungsgrenze) } ?? 1
 
         // Wie hoch die Reihen eines Abschnitts zusammen werden — samt
         // Staffelhub, Unterschriften und Fugen. Gebraucht, um zu wissen, wo
@@ -821,7 +933,7 @@ struct Layoutautomat {
                 let reihe = spalte.reihen[i]
                 let hub = reihe.count > 1 ? staffelhub : 0
                 let unten = reihe.map { fotos[$0].unterschrift }.max() ?? 0
-                summe += spalte.hoehen[i] * faktor + hub * 2 + unten + fuge
+                summe += min(spalte.hoehen[i] * faktor, deckel) + hub * 2 + unten + fuge
             }
             return summe
         }
@@ -832,7 +944,11 @@ struct Layoutautomat {
             var gezeichnet: [[UUID]] = []
             for nummerReihe in bereich where spalte.reihen.indices.contains(nummerReihe) {
                 let reihe = spalte.reihen[nummerReihe]
-                let hoehe = spalte.hoehen[nummerReihe] * faktor
+                // Der Deckel gilt auch NACH der Dehnung. Sonst holte der
+                // Faktor genau das zurück, was er verhindern soll: eine
+                // Reihe, die schon an der Obergrenze steht, würde noch
+                // einmal um ein Fünftel höher.
+                let hoehe = min(spalte.hoehen[nummerReihe] * faktor, deckel)
                 let unten = reihe.map { fotos[$0].unterschrift }.max() ?? 0
                 // Gestaffelt wird erst ab zwei Kacheln — ein einzelnes Bild
                 // steht schief da und sonst nichts, und daneben fehlte der
@@ -845,14 +961,22 @@ struct Layoutautomat {
                     break
                 }
                 let summe = reihe.reduce(0.0) { $0 + fotos[$1].verhaeltnis }
-                var x = Double(platz.minX)
+                // Wie breit die Reihe bei DIESER Höhe wird. Steht sie unter
+                // ihrer natürlichen Höhe (weil der Deckel gegriffen hat),
+                // füllt sie die Satzbreite nicht mehr — dann bleibt links
+                // und rechts Rand, und die Reihe steht mittig. Reicht die
+                // Höhe dagegen aus, ergibt `min` genau die alte Rechnung:
+                // randbündig, und die Dehnung beschneidet das Bild.
+                let luecken = querfuge * Double(reihe.count - 1)
+                let spanne = min(breite, hoehe * summe + luecken)
+                let nutzbreite = spanne - luecken
+                var x = Double(platz.minX) + (breite - spanne) / 2
                 var kennungen: [UUID] = []
                 for (stelle, nummerKachel) in reihe.enumerated() {
                     let kachel = fotos[nummerKachel]
                     let kachelbreite = summe > 0.01
-                        ? (breite - querfuge * Double(reihe.count - 1))
-                            * (kachel.verhaeltnis / summe)
-                        : breite
+                        ? nutzbreite * (kachel.verhaeltnis / summe)
+                        : nutzbreite
                     // Jede zweite Kachel sitzt oben statt unten und liegt
                     // dabei über ihren Nachbarn — so sieht die Überlappung
                     // gelegt aus und nicht verrutscht.
