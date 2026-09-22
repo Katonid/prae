@@ -5699,6 +5699,55 @@ Befunde, und keiner davon war Geschmack:
   übrigens nur die ERSTE solche Stelle einer Datei; wer sie behebt, sieht
   sich die anderen gleich mit an, statt einen zweiten roten Bau zu
   riskieren (in 1.0.38 standen noch drei daneben).
+- **VERSCHIEBEN GAB ES, KOPIEREN NICHT — und beides war zu versteckt**
+  (Blockmenü in der Fußleiste, `Reisewerk.blockKopieren`, ab 1.0.39; Befund
+  des Nutzers 09/2026: „Ich suche noch nach der Funktion, Elemente auf eine
+  andere Seite zu kopieren oder zu verschieben. Sie ist zu versteckt.").
+  Achte Auflage von „es war da, man fand es nicht" — und diesmal mit einem
+  Beleg dafür, dass es nie fertig gebaut wurde: **Über `seitenlage` stand
+  seit 1.0.29 der Kommentar „Gebraucht an zwei Stellen (Inspektor und
+  Blockmenü)", und das Blockmenü gab es nicht.** Ein Kommentar, der eine
+  zweite Aufrufstelle behauptet, ist kein Beleg dafür, dass es sie gibt;
+  dieselbe Wurzel wie bei jedem anderen Fall in diesem Papier, in dem ein
+  Kommentar eine Prüfung ersetzen sollte.
+  Verschieben lag im Block-Inspektor GANZ UNTEN, hinter Schrift, Wirkung,
+  Lage und Ausschnitt — und der Inspektor selbst hinter dem Schieberegler
+  in der Werkzeugleiste. **Der Inspektor ist der Ort für EINSTELLUNGEN; was
+  man mit einem Block TUT, gehört dorthin, wo man ihn gerade anfasst.**
+  Das Menü steht jetzt unten in der Leiste neben dem Tagesmenü, beschriftet
+  mit der Art des Blocks, und erscheint nur bei gewähltem Block. Der
+  Abschnitt im Inspektor bleibt: zwei Zugänge, dieselben Funktionen im Werk
+  (die Regel aus 1.0.10).
+- **Kopiert werden kann, was sich SELBST gehört** (`Reisewerk.kopierbar`,
+  ab 1.0.39). Fotos, Karten, Linien und Flächen ja; Fließtext,
+  Überschrift, Datumszeile und Bildunterschrift nein. Das ist keine
+  Bequemlichkeit, sondern folgt aus dem Modell: Ein Tagebuchtext gehört dem
+  TAG und steht einmal darin. Eine Kopie wäre im Druck derselbe Absatz
+  zweimal — `Druckpruefung.doppelterText` meldet genau das seit 1.0.9 als
+  Fehler —, und `Neuverteilung.fliesstexte` schriebe ihn beim nächsten
+  Neuverteilen DOPPELT in den Tagebuchtext zurück. Der Grund steht im
+  Fußtext des Inspektors; im Menü fehlt der Eintrag ganz, statt ausgegraut
+  dazustehen: **Ein Knopf ohne Wirkung ist für den Menschen davor ein
+  kaputter Knopf, ein fehlender wird nicht gesucht.** Wer einen Textkasten
+  aufteilen will, teilt ihn — das ist die Sache, die dahinter gemeint ist.
+- **Eine Kopie erbt keine Kennung** (dieselbe Lehre wie Tafelbild 1.4.5).
+  Zwei Blöcke mit derselben `id` sind für jede Suche EIN Block:
+  `Reisewerk.block(_:)` fände immer nur den ersten, und der zweite ließe
+  sich nie wieder anfassen. Auf derselben Seite liegt die Kopie zudem
+  VERSETZT und auf den Satzspiegel geklemmt — deckungsgleich sähe sie aus,
+  als wäre nichts geschehen, und der nächste Griff verschöbe das Original.
+- **Zwei eigene Fallen beim Gegenlesen von 1.0.39 gefunden**, beide
+  namentlich in diesem Papier: ein `min` über eine `CGRect`-Kante und einen
+  `Double` (die CGFloat-Falle aus 1.0.37 — jetzt mit `Double(…)` darum),
+  und ein Menükörper aus verschachtelten Sections, Bedingungen und
+  `ForEach` (die Typprüfer-Falle aus 1.0.38 — jetzt drei Funktionen). **Die
+  Regeln zu kennen genügt nicht; sie müssen am eigenen Diff angewandt
+  werden, bevor der Bau es tut.**
+- **Nicht gemessen (1.0.39):** Nichts davon ist auf einem Gerät gesehen
+  worden. Dass das Blockmenü auffindbar IST, folgt daraus, dass es unten in
+  der Leiste steht und den Namen des Blocks trägt — gesehen hat es niemand,
+  und eine Oberflächenänderung als gelöstes Bedienproblem auszugeben wäre
+  genau die Behauptung, die dieses Papier sonst verbietet.
 - **Nicht gemessen (1.0.38):** Nichts davon ist auf einem Gerät gesehen
   worden. Gerechnet ist, WARUM der Wortlaut verlorenging und wie er sich
   zurückholen lässt; **ungeprüft an echten Daten** ist, wie oft die Naht
@@ -5974,7 +6023,7 @@ Befunde, und keiner davon war Geschmack:
   Stellen im pbxproj (Debug + Release) — es gibt KEINE Skript-Bauphase.
   **Jede Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne
   Nachfrage, als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann
-  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.38 (Build 39). Dazu gesetzt:
+  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.39 (Build 40). Dazu gesetzt:
   `DEVELOPMENT_TEAM = F4989GSTWS` und
   `INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.travel`.
   Seit 1.0.4 steht dort auch `CODE_SIGN_ENTITLEMENTS = Config/Urlaubstagebuch.entitlements`

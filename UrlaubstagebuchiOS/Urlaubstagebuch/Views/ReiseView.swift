@@ -885,9 +885,130 @@ struct ReiseView: View {
                 }
             }
 
+            blockMenue
             tagMenue
         }
     }
+
+    // WAS MIT DIESEM BLOCK GESCHEHEN SOLL (ab 1.0.39).
+    //
+    // Befund des Nutzers, 09/2026: „Ich suche noch nach der Funktion,
+    // Elemente auf eine andere Seite zu kopieren oder zu verschieben. Sie
+    // ist zu versteckt."
+    //
+    // Beides trifft zu, und auf zweierlei Weise: VERSCHIEBEN gab es seit
+    // 1.0.29 — aber nur im Block-Inspektor, also hinter dem Schieberegler
+    // in der Werkzeugleiste und dort ganz unten, hinter Schrift, Wirkung,
+    // Lage und Ausschnitt. KOPIEREN gab es überhaupt nicht.
+    //
+    // Der Inspektor ist der Ort für Einstellungen; was man mit einem Block
+    // TUT, gehört dorthin, wo man ihn gerade anfasst. Das Menü steht
+    // deshalb unten in der Leiste neben dem Tagesmenü und erscheint nur,
+    // solange ein Block gewählt ist — sichtbar beschriftet mit der Art des
+    // Blocks, damit klar ist, worauf es zielt.
+    //
+    // **Zweiter Zugang, EINE Stelle:** Der Abschnitt im Inspektor bleibt,
+    // und beide rufen dieselben Funktionen im Werk. Zwei Fassungen
+    // derselben Handgriffe liefen auseinander — dieselbe Regel wie bei den
+    // Fotostilfeldern (1.0.10).
+    @ViewBuilder
+    private var blockMenue: some View {
+        if let block = gewaehlterBlock, let lage = werk.seitenlage(block.id) {
+            Menu {
+                verschiebenAbschnitt(block, lage: lage)
+                kopierenAbschnitt(block, lage: lage)
+                restAbschnitt(block)
+            } label: {
+                Label(block.inhalt.name, systemImage: "square.on.square")
+            }
+        }
+    }
+
+    // Auf welcher Seite der Block steht und wie viele es gibt.
+    private typealias Seitenlage = (jetzt: Int, anzahl: Int)
+
+    // DREI ABSCHNITTE, DREI FUNKTIONEN. Zusammen in einem Menü-Körper wäre
+    // das ein verschachtelter Ausdruck aus Sections, Bedingungen und
+    // ForEach — also genau das, woran der Typprüfer in 1.0.38 aufgegeben
+    // hat. Aufgeteilt ist jeder Teil für sich eindeutig.
+    @ViewBuilder
+    private func verschiebenAbschnitt(_ block: Block, lage: Seitenlage) -> some View {
+        Section("Verschieben") {
+            Button("Eine Seite zurück", systemImage: "arrow.up.doc") {
+                werk.blockVerschieben(block.id, aufSeite: lage.jetzt - 1)
+            }
+            .disabled(lage.jetzt == 0)
+            if lage.jetzt + 1 < lage.anzahl {
+                Button("Eine Seite vor", systemImage: "arrow.down.doc") {
+                    werk.blockVerschieben(block.id, aufSeite: lage.jetzt + 1)
+                }
+            }
+            Button("Auf eine neue Seite", systemImage: "doc.badge.plus") {
+                werk.blockAufNeueSeite(block.id)
+            }
+            if lage.anzahl > 2 {
+                Menu("Auf Seite \u{2026}") {
+                    ForEach(0..<lage.anzahl, id: \.self) { nummer in
+                        Button("Seite \(nummer + 1)") {
+                            werk.blockVerschieben(block.id, aufSeite: nummer)
+                        }
+                        .disabled(nummer == lage.jetzt)
+                    }
+                }
+            }
+        }
+    }
+
+    // Kopieren gibt es nur, wo es sinnvoll ist. Ein ausgegrauter Eintrag
+    // ohne Grund wäre für den Menschen davor ein kaputter Knopf; steht er
+    // gar nicht da, sucht man ihn auch nicht. Warum ein Tagebuchtext nicht
+    // dabei ist, steht im Fußtext des Inspektors.
+    @ViewBuilder
+    private func kopierenAbschnitt(_ block: Block, lage: Seitenlage) -> some View {
+        if werk.kopierbar(block) {
+            Section("Kopieren") {
+                Button("Auf dieser Seite", systemImage: "plus.square.on.square") {
+                    werk.blockKopieren(block.id)
+                }
+                if lage.jetzt + 1 < lage.anzahl {
+                    Button("Auf die nächste Seite", systemImage: "square.on.square.dashed") {
+                        werk.blockKopieren(block.id, aufSeite: lage.jetzt + 1)
+                    }
+                }
+                if lage.anzahl > 1 {
+                    Menu("Kopie auf Seite \u{2026}") {
+                        ForEach(0..<lage.anzahl, id: \.self) { nummer in
+                            Button("Seite \(nummer + 1)") {
+                                werk.blockKopieren(block.id, aufSeite: nummer)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func restAbschnitt(_ block: Block) -> some View {
+        Section {
+            if werk.teilbar(block) {
+                Button("Rest auf die nächste Seite",
+                       systemImage: "text.line.first.and.arrowtriangle.forward")
+                {
+                    werk.textTeilen(block.id)
+                }
+            }
+            Button("Nach vorn holen", systemImage: "square.3.layers.3d.top.filled") {
+                werk.blockNachVorn(block.id)
+            }
+            Button(role: .destructive) {
+                werk.blockLoeschen(block.id)
+            } label: {
+                Label("Entfernen", systemImage: "trash")
+            }
+        }
+    }
+
 
     // WAS KOMMT INS BUCH HINEIN?
     private var hinzufuegenMenue: some View {
