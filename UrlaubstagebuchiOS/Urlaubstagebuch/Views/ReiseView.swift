@@ -56,6 +56,9 @@ struct ReiseView: View {
     // Vergleich sagt, ob `scrollTo` den Anker einlöst. Bis 1.0.23 war das
     // eine Erwartung aus der Dokumentation und stand als offener Punkt da.
     @State private var zoomsoll: CGPoint?
+    // Die laufende Nachführung. Sie wird abgebrochen, sobald eine neue
+    // Geste anfängt — sonst zöge sie dem Finger die Seite weg.
+    @State private var nachfuehrer: Task<Void, Never>?
     // Ein gewünschter MASSSTAB aus der Fußleiste. Er reist über den
     // Zustand, weil der `ScrollViewProxy` nur INNERHALB des
     // `ScrollViewReader`s gilt und die Knöpfe in der Werkzeugleiste stehen.
@@ -176,23 +179,7 @@ struct ReiseView: View {
             // Anker aus, statt eine Zahl zu schieben.
             ScrollViewReader { leser in
                 ScrollView([.horizontal, .vertical]) {
-                    // LAZY, und das ist der Punkt: Ein gewöhnlicher `VStack`
-                    // baut JEDES Kind sofort auf, auch das, was weit unterhalb
-                    // des Bildschirms liegt. Ist kein Tag gewählt, sind das
-                    // sämtliche Seiten des Buches — mit jedem Textkasten (ein
-                    // voller CoreText-Satz) und jedem Foto (ein Vorschaubild,
-                    // das beim ersten Mal von der Platte gelesen und entpackt
-                    // wird). Bei einem Buch mit zweihundert Fotos ist das die
-                    // Arbeit eines ganzen PDF-Laufs, und sie fällt an, sobald
-                    // jemand die Seite wechselt. Ein `LazyVStack` baut nur,
-                    // was in Sichtweite kommt.
-                    LazyVStack(spacing: Buehnenmasse.fuge) {
-                        if doppelseiten {
-                            bogenliste
-                        } else {
-                            einzelseiten
-                        }
-                    }
+                    buehneninhalt
                     .padding(Buehnenmasse.rand)
                     .frame(width: inhaltsbreite, alignment: .center)
                     // DIE GESTE BRAUCHT FLÄCHE (ab 1.0.23, gemessen am Befund
@@ -271,13 +258,9 @@ struct ReiseView: View {
                 .onChange(of: rollwunsch) { _, wunsch in
                     guard let wunsch else { return }
                     rollwunsch = nil
-                    DispatchQueue.main.async {
-                        leser.scrollTo(wunsch.kennung, anchor: wunsch.anker)
-                        // Und danach die Gegenprobe: Steht der Inhalt dort,
-                        // wo er stehen sollte? Einmal je Zoom, nicht laufend.
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-                            sollIstNachtragen()
-                        }
+                    nachfuehrer?.cancel()
+                    nachfuehrer = Task { @MainActor in
+                        await nachfuehren(wunsch, leser: leser)
                     }
                 }
             }
@@ -294,13 +277,58 @@ struct ReiseView: View {
         .toolbar { werkzeuge }
     }
 
+    // FAUL NUR, WO ES NÖTIG IST (ab 1.0.25).
+    //
+    // 1.0.16 hat den `VStack` gegen einen `LazyVStack` getauscht, und der
+    // Grund gilt unverändert: Ist kein Tag gewählt, stehen hier sämtliche
+    // Seiten des Buches, jede mit ihren Textkästen und Fotos — ein
+    // gewöhnlicher `VStack` baut sie alle sofort auf. Das war die zweite
+    // Erklärung für das Einfrieren.
+    //
+    // **Ein `LazyVStack` hat aber einen Preis, der genau hier weh tut:** Er
+    // weiß nur, wie hoch die Elemente sind, die er schon gebaut hat.
+    // `scrollTo` weit nach unten heißt also: rollen, bauen, nachmessen,
+    // noch einmal rollen — und wenn ein Element oben wieder verworfen
+    // wird, ändert sich die Gesamthöhe und der `ScrollView` rückt seinen
+    // Versatz nach. Genau das passt zum Befund des Nutzers (09/2026): Die
+    // Probe meldet 0,4 s nach dem Zoomen `Abweichung 0/−0`, und was
+    // hinterher auf dem Bildschirm steht, ist trotzdem eine ANDERE Stelle.
+    //
+    // Ein gewählter Tag hat zwei bis sechs Seiten. Dort ist die Faulheit
+    // kein Gewinn und kostet die Verlässlichkeit; über der Grenze bleibt
+    // sie. **Die Zahl gilt für ELEMENTE, nicht für Seiten** — eine
+    // Doppelseite trägt zwei.
+    static let faulAb = 12
+
+    @ViewBuilder
+    private var buehneninhalt: some View {
+        if doppelseiten {
+            let bogen = werk.sichtbareDoppelseiten
+            stapel(bogen.count * 2) { bogenliste(bogen) }
+        } else {
+            let seiten = werk.sichtbareSeiten
+            stapel(seiten.count) { einzelseiten(seiten) }
+        }
+    }
+
+    @ViewBuilder
+    private func stapel<Inhalt: View>(_ anzahl: Int,
+                                      @ViewBuilder _ inhalt: () -> Inhalt) -> some View {
+        if anzahl <= Self.faulAb {
+            VStack(spacing: Buehnenmasse.fuge) { inhalt() }
+        } else {
+            LazyVStack(spacing: Buehnenmasse.fuge) { inhalt() }
+        }
+    }
+
     // EINMAL je Durchgang gelesen, nicht zweimal: Bis 1.0.15 stand
     // `sichtbareSeiten` hier zweimal — einmal für die Liste und einmal für
     // die Prüfung auf leer —, und dahinter lag der Aufbau der ganzen
-    // Seitenfolge samt Titelblatt.
+    // Seitenfolge samt Titelblatt. Seit 1.0.25 wird die Liste eine Ebene
+    // höher gelesen und hier durchgereicht: Die Wahl des Stapels braucht
+    // ihre LÄNGE, und ein zweiter Lauf dafür wäre derselbe Fehler.
     @ViewBuilder
-    private var einzelseiten: some View {
-        let seiten = werk.sichtbareSeiten
+    private func einzelseiten(_ seiten: [Buchseite]) -> some View {
         ForEach(seiten) { buchseite in
             VStack(spacing: Buehnenmasse.beschriftungsabstand) {
                 SeitenflaecheView(werk: werk, buchseite: buchseite, massstab: massstabJetzt)
@@ -319,8 +347,7 @@ struct ReiseView: View {
     }
 
     @ViewBuilder
-    private var bogenliste: some View {
-        let bogen = werk.sichtbareDoppelseiten
+    private func bogenliste(_ bogen: [Reisewerk.Doppelseite]) -> some View {
         ForEach(bogen) { einer in
             DoppelseiteView(werk: werk, bogen: einer, massstab: massstabJetzt)
                 .id("bogen-\(einer.bogen)")
@@ -412,10 +439,13 @@ struct ReiseView: View {
     }
 
     // Wohin nach einem Zoom gerollt wird. Die laufende Nummer gehört dazu,
-    // damit zweimal derselbe Anker auch zweimal ankommt.
+    // damit zweimal derselbe Anker auch zweimal ankommt; `soll` ist der
+    // Versatz, den der Inhalt danach haben MUSS — daran prüft die
+    // Nachführung, ob es geklappt hat.
     private struct Rollwunsch: Equatable {
         var kennung: String
         var anker: UnitPoint
+        var soll: CGPoint
         var nummer: Int
     }
 
@@ -469,6 +499,9 @@ struct ReiseView: View {
     }
 
     private func gesteBeginnen(_ wert: MagnifyGesture.Value) {
+        // Wer die Finger aufsetzt, führt — eine laufende Nachführung zöge
+        // ihm die Seite unter der Hand weg.
+        nachfuehrer?.cancel()
         let anfang = massstabJetzt
         zoomAnfang = anfang
         let inhalt = lage.groesse
@@ -512,7 +545,43 @@ struct ReiseView: View {
         guard let elementkennung = kennung(ziel.stelle) else { return }
         rollnummer += 1
         rollwunsch = Rollwunsch(kennung: elementkennung, anker: ziel.anker,
-                                nummer: rollnummer)
+                                soll: soll, nummer: rollnummer)
+    }
+
+    // DIE ROLLE WIRD NACHGEFÜHRT, BIS SIE STEHT (ab 1.0.25).
+    //
+    // Gemessen 09/2026 am Befund des Nutzers: `Soll −588/−1411 ·
+    // Ist −588/−1411 · Abweichung 0/−0` — `scrollTo` hat den Anker also
+    // eingelöst, auf den Punkt. Auf dem Bildschirm stand hinterher
+    // trotzdem eine andere Stelle. **Damit ist die Rechnung bewiesen und
+    // die Frage eine andere geworden:** Irgendetwas rückt den Versatz
+    // NACH dieser Messung wieder zurecht — der `ScrollView` selbst, wenn
+    // sich die Höhe seines Inhalts noch ändert, während Seiten gebaut und
+    // Fotos geladen werden.
+    //
+    // Dagegen hilft keine bessere Formel, sondern eine Regelung: rollen,
+    // nachsehen, und wenn es nicht steht, noch einmal rollen. Die Takte
+    // werden länger, weil auch das Nachrücken später kommt; abgebrochen
+    // wird, sobald es sitzt (ein Bildpunkt Spiel), spätestens nach gut
+    // anderthalb Sekunden. **Wie oft nachgeführt wurde, steht in der
+    // Probe** — steht dort „ohne Nachführung", war die Rolle von selbst
+    // still, und dann lag es an der Faulheit des Stapels.
+    private static let nachfuehrtakt: [Double] = [0.05, 0.12, 0.25, 0.4, 0.7]
+
+    @MainActor
+    private func nachfuehren(_ wunsch: Rollwunsch, leser: ScrollViewProxy) async {
+        var korrekturen = 0
+        var abweichung = CGPoint.zero
+        for (durchgang, pause) in Self.nachfuehrtakt.enumerated() {
+            leser.scrollTo(wunsch.kennung, anchor: wunsch.anker)
+            if durchgang > 0 { korrekturen += 1 }
+            try? await Task.sleep(nanoseconds: UInt64(pause * 1_000_000_000))
+            if Task.isCancelled { return }
+            let ist = lage.ursprung
+            abweichung = CGPoint(x: ist.x - wunsch.soll.x, y: ist.y - wunsch.soll.y)
+            if abs(abweichung.x) <= 1 && abs(abweichung.y) <= 1 { break }
+        }
+        sollIstNachtragen(abweichung: abweichung, korrekturen: korrekturen)
     }
 
     // WAS BEIM ZOOMEN WIRKLICH GERECHNET WURDE (ab 1.0.22), UND WAS
@@ -553,19 +622,24 @@ struct ReiseView: View {
         return zeilen.joined(separator: "\n")
     }
 
-    // Die Gegenprobe, gelesen NACH dem Rollen (ab 1.0.24).
+    // Die Gegenprobe, gelesen NACH dem Rollen (ab 1.0.24, seit 1.0.25 am
+    // Ende der Nachführung).
     //
-    // Sie läuft genau einmal je Zoom und nicht laufend: Ein Zustand, der
-    // bei jedem Bildpunkt geschrieben wird, zeichnet die Bühne sechzigmal
-    // in der Sekunde neu (die Lehre aus 1.0.16). Die Wartezeit ist die
-    // Umdrehung, die der `ScrollView` zum Rollen braucht.
-    private func sollIstNachtragen() {
+    // Geschrieben wird EINMAL je Zoom und nicht bei jedem Takt: Das Feld
+    // liegt im `Reisewerk`, und jede Zuweisung zeichnet die Bühne neu —
+    // mitten in einer Regelung wäre das genau die Unruhe, gegen die sie
+    // gebaut ist (die Lehre aus 1.0.16).
+    private func sollIstNachtragen(abweichung: CGPoint, korrekturen: Int) {
         guard let soll = zoomsoll, let text = werk.letzteBuehne else { return }
         let ist = lage.ursprung
-        let neu = String(format: "Soll %.0f/%.0f \u{00B7} Ist %.0f/%.0f \u{00B7} Abweichung %.0f/%.0f",
-                         Double(soll.x), Double(soll.y),
-                         Double(ist.x), Double(ist.y),
-                         Double(ist.x) - Double(soll.x), Double(ist.y) - Double(soll.y))
+        let nachlauf = korrekturen == 0
+            ? "ohne Nachf\u{00FC}hrung"
+            : "\(korrekturen)\u{00D7} nachgef\u{00FC}hrt"
+        let neu = String(
+            format: "Soll %.0f/%.0f \u{00B7} Ist %.0f/%.0f \u{00B7} Abweichung %.0f/%.0f \u{00B7} %@",
+            Double(soll.x), Double(soll.y),
+            Double(ist.x), Double(ist.y),
+            Double(abweichung.x), Double(abweichung.y), nachlauf)
         var zeilen = text.components(separatedBy: "\n")
         if let letzte = zeilen.indices.last, zeilen[letzte].hasPrefix("Soll ") {
             zeilen[letzte] = neu
