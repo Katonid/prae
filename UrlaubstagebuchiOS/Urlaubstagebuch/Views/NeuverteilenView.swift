@@ -54,20 +54,9 @@ struct NeuverteilenView: View {
 
                 if !mitAbweichung.isEmpty {
                     Section {
-                        Label("Auf \(mitAbweichung.count) Tagen steht ein anderer Wortlaut als "
-                              + "im Tagebuchtext", systemImage: "text.badge.checkmark")
+                        Label(abweichungstitel, systemImage: "text.badge.checkmark")
                             .foregroundStyle(.orange)
-                        Text("Dort wurde Text AUF DER SEITE bearbeitet. Der Automat setzt aus "
-                             + "dem Tagebuchtext am Tag — ohne Gegenmaßnahme wäre dieser "
-                             + "Wortlaut weg. Er wird deshalb vorher zurück in den "
-                             + "Tagebuchtext geschrieben."
-                             + (geratene > 0
-                                ? "\n\nAn \(geratene) Stellen lässt sich nicht mehr feststellen, "
-                                    + "ob dort ein Absatz endete oder ein Satz weiterlief; dort "
-                                    + "entscheidet das Satzzeichen davor. Wo beide Stücke "
-                                    + "unverändert im Tagebuchtext stehen, wird dort "
-                                    + "nachgesehen statt geraten."
-                                : ""))
+                        Text(rettungssatz)
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     } header: {
@@ -92,8 +81,7 @@ struct NeuverteilenView: View {
                         nurUnberuehrte = true
                         loslegen()
                     } label: {
-                        Label("Nur die \(befunde.count - mitHandarbeit.count) unberührten Tage",
-                              systemImage: "wand.and.sparkles")
+                        Label(schonendTitel, systemImage: "wand.and.sparkles")
                     }
                     .disabled(befunde.count == mitHandarbeit.count)
                     // DIE HARTE FASSUNG FRAGT NACH. Sie ist der Grund, aus
@@ -104,7 +92,8 @@ struct NeuverteilenView: View {
                         nurUnberuehrte = false
                         if mitHandarbeit.isEmpty { loslegen() } else { frage = true }
                     } label: {
-                        Label("Alle \(befunde.count) Tage neu verteilen", systemImage: "arrow.clockwise")
+                        Label("Alle \(befunde.count) Tage neu verteilen",
+                              systemImage: "arrow.clockwise")
                     }
                     .disabled(befunde.isEmpty)
                 }
@@ -131,6 +120,30 @@ struct NeuverteilenView: View {
         }
     }
 
+    // DER SATZ WIRD AUSSERHALB DES KÖRPERS GEBAUT (ab 1.0.38, vom
+    // Übersetzer erzwungen).
+    //
+    // Er stand zuerst als eine Kette aus `+` im `Text(…)` — mit einem
+    // ternären Ausdruck und einer Interpolation darin. Der Typprüfer hat
+    // aufgegeben: „unable to type-check this expression in reasonable
+    // time". Lange `+`-Ketten aus reinen Literalen gehen in diesem Repo an
+    // hundert Stellen gut; was sie sprengt, ist die MISCHUNG — ein `?:`
+    // und ein `\(…)` in derselben Kette.
+    //
+    // Gebaut wird deshalb Stück für Stück, mit ausgeschriebenem Typ.
+    private var rettungssatz: String {
+        var satz = "Dort wurde Text AUF DER SEITE bearbeitet. Der Automat setzt aus dem "
+        satz += "Tagebuchtext am Tag \u{2014} ohne Gegenma\u{00DF}nahme w\u{00E4}re dieser "
+        satz += "Wortlaut weg. Er wird deshalb vorher zur\u{00FC}ck in den Tagebuchtext "
+        satz += "geschrieben."
+        guard geratene > 0 else { return satz }
+        satz += "\n\nAn \(geratene) Stellen l\u{00E4}sst sich nicht mehr feststellen, ob dort "
+        satz += "ein Absatz endete oder ein Satz weiterlief; dort entscheidet das Satzzeichen "
+        satz += "davor. Wo beide St\u{00FC}cke unver\u{00E4}ndert im Tagebuchtext stehen, wird "
+        satz += "dort nachgesehen statt geraten."
+        return satz
+    }
+
     private func zeile(_ befund: Neuverteilung.Befund) -> some View {
         VStack(alignment: .leading, spacing: 3) {
             HStack {
@@ -147,8 +160,7 @@ struct NeuverteilenView: View {
                         .foregroundStyle(.orange)
                 }
             }
-            Text("\(befund.zeichen) Zeichen · \(befund.fotos) Fotos · "
-                 + "\(befund.seiten) Seite\(befund.seiten == 1 ? "" : "n")")
+            Text(kennzahlen(befund))
                 .font(.caption2)
                 .foregroundStyle(.secondary)
             if befund.handarbeit || befund.wortlautWeichtAb {
@@ -157,6 +169,23 @@ struct NeuverteilenView: View {
                     .foregroundStyle(.orange)
             }
         }
+    }
+
+    // Dieselbe Vorsicht wie bei `rettungssatz`: Interpolation, ein `?:` und
+    // eine `+`-Kette im selben Ausdruck sind das, woran der Typprüfer
+    // aufgibt. Gebaut wird außerhalb des Körpers.
+    private var schonendTitel: String {
+        let zahl = befunde.count - mitHandarbeit.count
+        return "Nur die \(zahl) unberührten Tage"
+    }
+
+    private var abweichungstitel: String {
+        "Auf \(mitAbweichung.count) Tagen steht ein anderer Wortlaut als im Tagebuchtext"
+    }
+
+    private func kennzahlen(_ befund: Neuverteilung.Befund) -> String {
+        let seiten = befund.seiten == 1 ? "1 Seite" : "\(befund.seiten) Seiten"
+        return "\(befund.zeichen) Zeichen \u{00B7} \(befund.fotos) Fotos \u{00B7} " + seiten
     }
 
     private func hinweis(_ befund: Neuverteilung.Befund) -> String {

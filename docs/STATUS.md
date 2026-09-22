@@ -95,7 +95,7 @@ gemeinsame Bauweise:
 | --- | --- | --- | --- |
 | Schulalarm | 1.1.0 (Build 44) | App Store, Einreichung | zwei Ablehnungen beantwortet, Wiedervorlage |
 | Abfahrtstafel | 1.1.30 (Build 43) | in Arbeit | läuft, laufende Befunde des Nutzers |
-| Reisebuch | 1.0.37 (Build 38) | in Arbeit | Satzmaschine im Umbau, **aktive Baustelle** |
+| Reisebuch | 1.0.38 (Build 39) | in Arbeit | Satzmaschine im Umbau, **aktive Baustelle** |
 | Tafelbild | 1.4.6 | App Store, freigegeben | in Pflege |
 | Kassenbuch | 1.0.17 (Build 18) | TestFlight/Store | in Pflege |
 | Tagesspur | 1.4.27 | Store | in Pflege |
@@ -169,6 +169,13 @@ Die Satzmaschine ist in vier Fassungen hintereinander umgebaut worden
   Dazu: `Spurpunktstil` für die Punkte auf der Buchkarte, Punkte auf der
   Vollbildkarte antippbar, und die Broschüre als eigener Menüpunkt samt
   Drucken aus der App.
+* 1.0.38 — „Alles neu verteilen…" mit Vorschau Tag für Tag: Ein gesetztes
+  Buch ändert sich durch eine neue Fassung NICHT von selbst, das muss
+  jemand anstoßen. Dabei fiel ein älterer stiller Datenverlust auf: Ein
+  auf der Seite bearbeiteter Fließtext steht nur im Block, der Automat
+  setzt aus dem Tagebuchtext am Tag — er ging beim Neuanordnen verloren.
+  `wortlautSichern` schreibt ihn vorher zurück, und zwar an jeder Stelle,
+  die Seiten setzt (zwei davon standen in Ansichten).
 
 **Offen und ausdrücklich ungemessen:**
 
