@@ -4919,6 +4919,89 @@ Befunde, und keiner davon war Geschmack:
   Abkehr von der Regel oben und gehört ausdrücklich abgesprochen, nicht
   nebenbei gemacht. Ebenso ungesehen: ob das Verschieben auf eine andere Seite
   sich richtig anfühlt und wie eine Doppelseite im neuen Muster aussieht.
+- **„Alle auswählen" kann Apples Fotowähler nicht — ein ZEITRAUM kann es**
+  (`Dienste/Zeitraumeinfuhr.swift`, ab 1.0.30, gemeldet 09/2026: „Beim Foto-Import
+  muss ich bislang die Fotos einzeln auswählen. Ich möchte, dass sie alle
+  ausgewählt werden können."). Die Mehrfachauswahl war nie beschränkt
+  (`selectionLimit = 0` steht seit 1.0.0 dort); was fehlt, ist der eine Knopf, und
+  der gehört nicht uns: `PHPickerViewController` läuft in einem EIGENEN Prozess —
+  genau deshalb darf er ohne Mediathekserlaubnis arbeiten, und genau deshalb kann
+  ihm keine App etwas hinzufügen. Gefragt wird deshalb nicht nach Bildern, sondern
+  nach einem Zeitraum: **Eine Reise IST ein Zeitraum**, und die Mediathek gibt ihn
+  über ein Prädikat auf `creationDate` her, sobald die Erlaubnis da ist, die diese
+  App ohnehin für die Aufnahmeorte braucht.
+  - **Gezählt wird, bevor etwas geladen wird** („Gefunden: 1284 Fotos"). Ein Knopf,
+    der ungefragt tausend Dateien holt, ist ein Sprung ins Dunkle.
+  - **Geholt wird Foto für Foto**, und zwar auf BEIDEN Wegen. Tausend Rohbilder
+    sind mehrere Gigabyte; der Fotowähler sammelte sie bis 1.0.29 erst alle in
+    einer Liste, was tragbar war, solange man einzeln antippt. `fotosAufnehmen`
+    gibt es seit 1.0.30 zweimal — als Liste und als Strom —, und die Liste ruft
+    den Strom: **Es gibt nur EINE Stelle, an der ein Rohbild zu einem `Foto`
+    wird.**
+  - **`isNetworkAccessAllowed = true`, ausdrücklich.** Ein Foto kann in iCloud
+    liegen; ohne diese Zeile käme gar nichts zurück, ohne Fehler — der Zeitraum
+    sähe halb leer aus.
+  - **`requestImageDataAndOrientation` darf seinen Rückruf MEHRMALS aufrufen.** Ein
+    zweites `resume` an einer `CheckedContinuation` ist kein Fehler, sondern ein
+    Absturz; daher der Wächter `Einmal`.
+  - Die Grenzen des Zeitraums entstehen in der GERÄTEZONE — dieselbe ausdrückliche
+    Ausnahme wie beim Datum aus der Mediathek. Bei `.limited` liefert die Abfrage
+    nur die freigegebenen Fotos, und die Fußzeile sagt das.
+- **„Wenn das Datum fehlt" war ZWEIERLEI** (ab 1.0.30, gemeldet 09/2026: „wenn das
+  Datum fehlt, dann liegen sie in der Ablage. Das möchte ich nicht. Ich möchte,
+  dass bei einem fehlenden Datum der Tag einfach automatisch angelegt wird."). Der
+  TAG wurde immer schon angelegt — `Reise.tagIndex(fuer:)` hängt einen Reisetag an,
+  sobald ein Foto ein Datum trägt, das es im Buch noch nicht gibt. In die Ablage kam
+  nur, was GAR KEIN Datum trägt. Die Fußzeile des Einlesen-Blattes sagte das so
+  verkürzt, dass es wie das Gegenteil klang. **Merke: Ein Befund über eine Funktion
+  kann ein Befund über ihren Beschreibungstext sein** — erst prüfen, was die App
+  wirklich tut, bevor man sie umbaut.
+- **Die dritte Datumsquelle ist der DATEINAME** (`Dienste/Namensdatum.swift`, ab
+  1.0.30). Der häufigste Grund für ein fehlendes EXIF-Datum ist kein fehlendes
+  Datum, sondern eine Datei, die durch einen Messenger oder eine Bildbearbeitung
+  gelaufen ist: Die Metadaten sind weg, der NAME steht noch da
+  (`IMG_20260812_193321.jpg`, `PXL_20260812_173321123.jpg`, `2026-08-12 19.33.21.jpg`,
+  `Foto 12.08.2026.jpg`). Es gilt dieselbe Regel wie überall: **Der Tag kommt aus
+  drei Zahlen** — ein Dateiname trägt Ziffern und keine Zeitzone, hier wird nichts
+  umgerechnet; der Zeitpunkt daneben ist wie beim EXIF-Datum ein Sortierschlüssel in
+  fester Zone.
+  - **Geraten wird NICHT.** Drei Schreibweisen, und eine Ziffernfolge anderer Länge
+    wird nicht beschnitten; das Jahr muss zwischen 1990 und 2100 liegen — enger als
+    `Tagesdatum.gueltig`, weil ein Dateiname die schwächere Quelle ist. Aus
+    `IMG_1234.jpg` wird kein Datum. Irgendeine Ziffernfolge als Datum zu lesen legte
+    ein Foto still auf einen erfundenen Tag, und das ist der Fehler, den man dem
+    gedruckten Buch nicht ansieht.
+  - **`deletingPathExtension` schneidet stur hinter dem letzten Punkt ab.** Bei
+    „2026.08.12" ohne Endung nähme es den Tag mit — gelesen wird erst ohne Endung,
+    dann mit.
+- **Wo gar kein Datum übrig bleibt, entscheidet der MENSCH, und zwar vorher**
+  (`Fotoziel`, Zeile „Fotos ohne Datum" im Einlesen-Blatt, ab 1.0.30). Ein Foto ohne
+  jede Datumsangabe trägt keine Auskunft darüber, wann es aufgenommen wurde — an
+  WELCHEN Tag es geht, ist eine Entscheidung und keine Messung. Vorbelegt mit dem
+  ersten Reisetag, Ablage nur, solange es gar keinen Tag gibt; der Bericht nennt den
+  Tag hinterher beim Namen. Einen Tag mit erfundenem Datum anzulegen wäre der
+  naheliegende Griff und der falsche: `Reisetag` ist über sein `Tagesdatum`
+  geschlüsselt, und ein erfundenes stünde für immer im Buch. Der Weg über „Dateien"
+  hat keinen eigenen Bildschirm und nimmt dieselbe Vorgabe.
+- **Was keine Aufnahmezeit hat, kommt ans ENDE des Tages** (ab 1.0.30). Bis dahin
+  stand in der Sortierung `.distantPast`, und das war folgenlos, solange ein Tag gar
+  kein undatiertes Foto tragen konnte. Jetzt wäre es die falsche Richtung: Es schöbe
+  sich vor den Morgen eines Tages, über den es nichts aussagt. Dieselbe Regel wie
+  beim Handpunkt ohne Uhrzeit in der Reisespur.
+- **Ein Feld, das nie gelesen wird, ist ein halb gebautes Vorhaben** (beim
+  Gegenlesen von 1.0.30 wieder ausgebaut). Der erste Entwurf trug eine Aufzählung
+  `Datumsquelle` am `Bildbefund` — geschrieben an drei Stellen, gelesen an keiner.
+  Gezählt wird ohnehin dort, wo die Quelle greift, und der Einfuhrbericht nennt die
+  Zahlen. Dieselbe Lehre wie beim Kartenausschnitt in 1.0.11, nur diesmal vor dem
+  Ausliefern bemerkt.
+- **Nicht gemessen (1.0.30):** Nichts davon ist auf einem Gerät gesehen. Gerechnet
+  ist, wie ein Name zerlegt wird und was die Mediathek auf eine Zeitraumabfrage
+  herausgibt; ob eine bestimmte Kamera so benennt, sagt erst der Einfuhrbericht des
+  Nutzers. Ebenso ungemessen, **wie sich ein Zeitraum mit tausend Fotos anfühlt** —
+  das Einlesen läuft auf dem Hauptfaden und gibt zwischen zwei Fotos ab. Und ob
+  `PHPickerResult.itemProvider.suggestedName` wirklich den ursprünglichen Dateinamen
+  trägt, ist die Lesart der Dokumentation und keine Messung. **Nicht als erledigt
+  darstellen.**
 - **Die Bildunterschrift war halb gebaut** (ab 1.0.5, Wunsch des Nutzers
   09/2026: „zu jedem Foto einen Beschreibungstext … Dies soll jedoch eine
   Option für jedes Foto sein. Kein muss."). Der Layoutautomat hielt Platz
