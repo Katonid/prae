@@ -13,6 +13,10 @@ struct SchriftwahlView: View {
     var titel: String = "Schrift"
     @Environment(\.dismiss) private var schliessen
 
+    // Der Systemwähler und sein Befund (ab 1.0.41).
+    @State private var waehlerOffen = false
+    @State private var geraetebefund: String?
+
     // Das Wort trägt drei kleine a. Wer nach der Form des a sucht, soll
     // sie sehen, ohne zu scrollen.
     static let probetext = "Tagebuch aus Kanada"
@@ -24,6 +28,17 @@ struct SchriftwahlView: View {
                     .font(Font(auswahl.uiFont(groesse: 26, fett: false, kursiv: false)))
                     .frame(maxWidth: .infinity, alignment: .leading)
                 LabeledContent("Gewählt", value: auswahl.vollerName)
+                if !auswahl.vorhanden {
+                    // Ein stiller Rückfall auf die Systemschrift wäre in
+                    // einer Druckvorlage die teuerste Art Fehler: Die Seite
+                    // sieht ordentlich aus und ist in einer anderen Schrift
+                    // gesetzt, als oben steht.
+                    Label("Diese Schrift ist auf diesem Gerät nicht (mehr) da \u{2014} "
+                          + "gesetzt wird die Systemschrift.",
+                          systemImage: "exclamationmark.triangle.fill")
+                        .font(.footnote)
+                        .foregroundStyle(.orange)
+                }
             } header: {
                 Text("Probe")
             } footer: {
@@ -67,6 +82,23 @@ struct SchriftwahlView: View {
             }
 
             Section {
+                Button {
+                    waehlerOffen = true
+                } label: {
+                    Label("Schrift vom Gerät wählen\u{2026}", systemImage: "textformat")
+                }
+                if let geraetebefund {
+                    Text(geraetebefund)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+            } header: {
+                Text("Selbst installierte Schriften")
+            } footer: {
+                Text("Eine Schrift, die du über eine Schriftverwaltung auf das iPad gelegt hast, steht NICHT in der Liste darunter: Die zählt auf, was dieser App bekannt ist, und selbst installierte Schriften liegen woanders. An sie kommt nur der Wähler von iOS \u{2014} derselbe, den Pages zeigt. Was dort gewählt wird, meldet die App für sich an und sieht danach nach, ob sie die Schrift unter ihrem Namen wiederfindet; das Ergebnis steht oben.")
+            }
+
+            Section {
                 ForEach(alle) { familie in
                     familienzeile(familie)
                 }
@@ -78,6 +110,35 @@ struct SchriftwahlView: View {
         }
         .navigationTitle(titel)
         .navigationBarTitleDisplayMode(.inline)
+        .sheet(isPresented: $waehlerOffen) {
+            Schriftwahl { deskriptor in
+                waehlerOffen = false
+                guard let deskriptor else { return }
+                uebernimm(deskriptor)
+            }
+            .ignoresSafeArea()
+        }
+    }
+
+    // Was der Systemwähler zurückgibt, ist ein DESKRIPTOR; gesichert wird
+    // aber ein NAME — nur der passt in ein Buch, das auf einem anderen
+    // Gerät wieder aufgehen soll. Also: anmelden, dann nachsehen, ob der
+    // Name trägt, und beides sagen.
+    private func uebernimm(_ deskriptor: UIFontDescriptor) {
+        // ERST anmelden, dann fragen: Ohne Anmeldung gäbe `UIFont(descriptor:)`
+        // für eine dem Prozess unbekannte Schrift eine Ersatzschrift zurück —
+        // und damit stünde deren Familienname im Buch.
+        Geraeteschriften.anmelden(deskriptor)
+        let schnitt = deskriptor.postscriptName
+        let familie = deskriptor.fontAttributes[.family] as? String
+            ?? UIFont(descriptor: deskriptor, size: 12).familyName
+        let gewaehlt = Schriftfamilie(
+            familienname: familie,
+            schnitt: schnitt.isEmpty ? nil : schnitt)
+        if !schnitt.isEmpty { Geraeteschriften.merken(schnitt) }
+        Geraeteschriften.merken(familie)
+        auswahl = gewaehlt
+        geraetebefund = Geraeteschriften.befund(gewaehlt)
     }
 
     // MARK: - Zeilen
