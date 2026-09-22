@@ -29,7 +29,7 @@ enum Seitenmuster: String, Codable, CaseIterable, Identifiable {
         case .bildZuerst: return "Großes Aufmacherfoto"
         case .textZuerst: return "Text zuerst"
         case .bilderbogen: return "Bilderbogen"
-        case .wechsel: return "Text und Bilder im Wechsel"
+        case .wechsel: return "Nach Inhalt gesetzt"
         }
     }
 
@@ -52,7 +52,7 @@ enum Seitenmuster: String, Codable, CaseIterable, Identifiable {
         case .bilderbogen:
             return "Fast nur Bilder, der Text bleibt kurz."
         case .wechsel:
-            return "Für Tage mit viel Text UND vielen Bildern: Der Text läuft über so viele Seiten, wie er braucht, und zwischen den Abschnitten stehen Fotoreihen — schon auf der ersten Seite. Kein Kapitel aus lauter Text und danach eines aus lauter Bildern."
+            return "Die App misst Text und Bilder dieses Tages und entscheidet daraus: wie viele Seiten er bekommt, wie beides darauf verteilt wird und wie jede einzelne Seite aussieht. Viel Text und wenige Bilder ergibt Bilder neben dem Text, viele Bilder und wenig Text auch einmal eine reine Bilderseite."
         }
     }
 
@@ -72,6 +72,11 @@ private struct Kachel {
     var inhalt: Blockinhalt
     var verhaeltnis: Double
     var unterschrift: Double
+
+    var kennung: UUID? {
+        if case let .foto(id) = inhalt { return id }
+        return nil
+    }
 }
 
 struct Layoutautomat {
@@ -226,12 +231,22 @@ struct Layoutautomat {
             case .bilderbogen:
                 if fotos.count >= 4 { return muster }
             case .wechsel:
-                // Die Schwelle ist hoch mit Absicht: Dieses Muster ist die
-                // Antwort auf „sehr viel Text mit ebenfalls sehr vielen
-                // Bildern". Ein Tag mit drei Sätzen und zwei Fotos ist
-                // damit nicht gemeint und bekommt weiter, was er vorher
-                // bekam.
-                if zeichen > 1200, fotos.count >= 4 { return muster }
+                // Bis 1.0.33 stand hier eine hohe Schwelle (1200 Zeichen,
+                // vier Fotos): Das Muster war die Antwort auf den einen
+                // Fall „sehr viel Text mit ebenfalls sehr vielen Bildern".
+                //
+                // Seit 1.0.34 ist es kein Sonderfall mehr, sondern der
+                // REGELFALL für jeden Tag, der Text UND Bilder hat — der
+                // Planer dahinter kann beide Enden (siehe `Tagesplan`).
+                // Genau daran scheiterte der 3. August im gemeldeten Buch:
+                // ein Tag mit Text und EINEM Foto fiel durch diese Schwelle
+                // und landete bei einem Muster, das das Bild allein auf
+                // eine sonst leere Seite stellte.
+                //
+                // Ohne Text oder ohne Bild greift es nicht: Dann gibt es
+                // nichts zu verteilen, und die eigenen Bildideen der
+                // übrigen Muster sind die bessere Antwort.
+                if zeichen > 250, !fotos.isEmpty || hatSpur { return muster }
             }
         }
         if fotos.isEmpty { return .textZuerst }
@@ -265,6 +280,32 @@ struct Layoutautomat {
             bloecke.append(contentsOf: kopf)
         } else {
             bloecke.append(contentsOf: kopfzeile(tag: tag, y: &y, knapp: false))
+        }
+
+        // NACH INHALT GESETZT (ab 1.0.34).
+        //
+        // Dieses Muster baut seine Seiten vollständig selbst und geht
+        // deshalb weder durch den Musterschalter darunter noch durch
+        // `reihenSetzen`. Der Grund ist der Befund des Nutzers: Ein Satz,
+        // der sich nach dem Inhalt richtet, kann nicht als Sonderfall in
+        // einer Kette gebaut werden, die Text und Bilder nacheinander
+        // abarbeitet — er muss beide zugleich vor sich haben.
+        if muster == .wechsel {
+            var kacheln: [Kachel] = []
+            if karteOffen {
+                kacheln.append(Kachel(inhalt: .karte, verhaeltnis: 1.3, unterschrift: 0))
+                karteOffen = false
+            }
+            for foto in offeneFotos {
+                kacheln.append(Kachel(
+                    inhalt: .foto(foto.id),
+                    verhaeltnis: foto.seitenverhaeltnis,
+                    unterschrift: unterschriftHoehe(foto, breite: satz.width / 3)
+                ))
+            }
+            seiten.append(contentsOf: inhaltsseiten(kopf: bloecke, ab: y,
+                                                    text: restText, kacheln: kacheln))
+            return seiten
         }
 
         switch muster {
@@ -361,73 +402,9 @@ struct Layoutautomat {
                                                 breite: satz.width, text: restText)
 
         case .wechsel:
-            // EIN TAG FÄNGT MIT EINEM BILD AN (ab 1.0.32).
-            //
-            // Befund des Nutzers zu 1.0.31: „Ich finde sie nach wie vor sehr
-            // nüchtern." Die Seiten waren richtig gesetzt und sahen aus wie
-            // ein Bericht: Kopfzeile, Textspalte, darunter eine Reihe
-            // gleich hoher Bilder. Was fehlte, war der Anfang — ein Tag
-            // beginnt in jedem Reisebuch mit einem Bild, nicht mit einer
-            // Überschrift über einer Textspalte.
-            //
-            // Das Band läuft über die GANZE Satzbreite, auch wenn die
-            // Textspalte darunter schmaler ist: Genau dieser Unterschied
-            // macht es zum Aufmacher. Es kostet ein Foto aus dem Vorrat,
-            // deshalb erst ab dreien — bei zweien wäre die Reihe darunter
-            // leer, und der Tag sähe ärmer aus statt reicher.
-            if restText.count > 600, offeneFotos.count >= 3,
-               let aufmacher = offeneFotos.first
-            {
-                offeneFotos.removeFirst()
-                let hoehe = min(satz.height * 0.34,
-                                satz.width / max(aufmacher.seitenverhaeltnis, 0.5))
-                bloecke.append(fotoblock(aufmacher, x: satz.minX, y: y,
-                                         breite: satz.width, hoehe: hoehe))
-                if let zeile = unterschriftBlock(aufmacher, x: satz.minX, y: y + hoehe,
-                                                 breite: satz.width)
-                {
-                    bloecke.append(zeile)
-                }
-                y += hoehe + unterschriftHoehe(aufmacher, breite: satz.width) + fuge + 4
-            }
-
-            // TEXT UND BILDER VON DER ERSTEN SEITE AN (ab 1.0.29).
-            //
-            // `reihenSetzen` wechselt seit 1.0.14 auf den FOLGESEITEN
-            // zwischen Text und Fotoreihen. Die erste Seite war davon
-            // ausgenommen: Dort füllte der Text bis zum Satzspiegelende,
-            // und das erste Bild stand eine Seite weiter. Bei einem Tag mit
-            // viel Text UND vielen Bildern ist genau das der Eindruck, den
-            // der Nutzer gemeldet hat — erst ein Kapitel Text, dann eines
-            // mit Bildern.
-            //
-            // Freigehalten wird die ZIELHÖHE der nächsten Fotoreihe und
-            // kein geschätzter Anteil — dieselbe Zahl, mit der
-            // `reihenSetzen` weiterrechnet; ein Anteil, der zu klein ist,
-            // ließe die Reihe doch nicht hinein und hinterließe weißen
-            // Platz, den niemand bestellt hat. Bleiben daneben keine sechs
-            // Zeilen Text mehr, wird gar nichts freigehalten: Eine Seite
-            // mit vier Zeilen über einem Bild ist kein Satz, sondern ein
-            // Rest.
-            var deckel: Double?
-            if !offeneFotos.isEmpty || karteOffen {
-                let reihe = zielhoehe(fuer: offeneFotos.count)
-                let bleibt = satz.maxY - y - (reihe + fuge + 4)
-                if bleibt > typografie.flieText.zeilenhoehe * 6 { deckel = bleibt }
-            }
-            // Auch die ERSTE Seite folgt dem Rhythmus (ab 1.0.31). Bis 1.0.30
-            // stand der Text hier immer über die volle Satzbreite, und damit
-            // fing jeder Tag gleich an.
-            let erstesBild = Seitenrhythmus.bild(seite: 0, saat: tag.id.saat,
-                                                 lebendig: stil.lebendig)
-            let spaltenbreite = satz.width * erstesBild.textbreite
-            let spaltenX = satz.minX + erstesBild.einzug(satz.width,
-                                                         anteil: erstesBild.textbreite,
-                                                         rechts: erstesBild.textRechts)
-            (bloecke, y, restText) = textSpalte(bloecke, y: y, x: spaltenX,
-                                                breite: spaltenbreite, text: restText,
-                                                hoechstens: deckel,
-                                                drehung: erstesBild.textdrehung)
+            // Oben abgefangen: Dieses Muster setzt `inhaltsseiten`, und das
+            // baut den ganzen Tag selbst. Hier kommt es nie an.
+            break
 
         case .bilderbogen:
             if !restText.isEmpty {
@@ -447,18 +424,8 @@ struct Layoutautomat {
         // läuft vorn mit, damit sie nicht allein auf der letzten Seite
         // landet, wo sie niemand mit dem Tag in Verbindung bringt.
         if muster != .album {
-            // Den Rhythmus bekommt NUR `.wechsel`. Die übrigen Muster sind
-            // je eine eigene Bildidee (ein Vollbild, eine Karte neben dem
-            // Text, ein Bilderbogen) — wandernde Spalten würden dort mit
-            // der Idee des Musters streiten. Es wird eine Sache auf einmal
-            // geändert.
-            let takt = muster == .wechsel
-                ? Rhythmuswahl(saat: tag.id.saat, lebendig: stil.lebendig,
-                               abSeite: seiten.count)
-                : nil
             let (weitere, gefuellt, uebrig) = reihenSetzen(
-                offeneFotos, karte: karteOffen, bloecke: bloecke, ab: y, restText: restText,
-                rhythmus: takt)
+                offeneFotos, karte: karteOffen, bloecke: bloecke, ab: y, restText: restText)
             seiten.append(contentsOf: weitere)
             bloecke = gefuellt
             restText = uebrig
@@ -466,6 +433,372 @@ struct Layoutautomat {
 
         if !bloecke.isEmpty || seiten.isEmpty { seiten.append(Seite(bloecke: bloecke)) }
         return seiten
+    }
+
+    // MARK: - Nach Inhalt gesetzt (ab 1.0.34)
+
+    // Der ganze Tag auf einmal: erst messen, dann planen, dann Seite für
+    // Seite füllen.
+    //
+    // Der Unterschied zu `reihenSetzen` ist nicht die Technik, sondern die
+    // Reihenfolge. Dort wird ein Strom aus Text und Kacheln abgearbeitet
+    // und die Seite ist das, was dabei herauskommt. Hier steht zuerst
+    // fest, wie viel es insgesamt ist und auf wie viele Seiten es gehört;
+    // erst danach entsteht die einzelne Seite, und zwar aus dem, was ihr
+    // zugeteilt wurde. Nur so lässt sich überhaupt sagen, dass auf JEDER
+    // Seite Text und Bilder stehen sollen.
+    private func inhaltsseiten(kopf: [Block], ab: CGFloat, text eingang: String,
+                               kacheln eingangKacheln: [Kachel]) -> [Seite]
+    {
+        var seiten: [Seite] = []
+        var offen = eingangKacheln
+        var text = eingang.trimmingCharacters(in: .whitespacesAndNewlines)
+        let kopfhoehe = max(ab - satz.minY, 0)
+        let textHoehe = text.isEmpty ? 0
+            : Textmass.hoehe(text, bild: typografie.flieText, breite: satz.width)
+        let bilderHoehe = offen.isEmpty ? 0
+            : stapelhoehe(offen, breite: satz.width,
+                          ziel: zielhoehe(fuer: offen.count), hub: 0)
+        let plan = Tagesplan.bauen(textHoehe: textHoehe, bilderHoehe: bilderHoehe,
+                                   kacheln: offen.count, kopf: kopfhoehe,
+                                   satzhoehe: satz.height, fuge: fuge)
+
+        var bloecke = kopf
+        var y = ab
+        var nummer = 0
+        var restTextHoehe = textHoehe
+        var durchgaenge = 0
+
+        while !offen.isEmpty || !text.isEmpty {
+            durchgaenge += 1
+            // Dieselbe Notbremse wie in `reihenSetzen`, und aus demselben
+            // Grund: Kommt aus der Textteilung einmal nichts zurück, liefe
+            // die Schleife ewig. Was dann übrig ist, wird unten gesetzt —
+            // ein Tagebuch darf keinen Satz verlieren.
+            if durchgaenge > 120 { break }
+
+            let platz = CGRect(x: satz.minX, y: y, width: satz.width,
+                               height: satz.maxY - y)
+            guard platz.height > typografie.flieText.zeilenhoehe * 3 else {
+                seiten.append(Seite(bloecke: bloecke))
+                bloecke = []
+                y = satz.minY
+                nummer += 1
+                continue
+            }
+            let restSeiten = max(1, plan.seiten - nummer)
+            // Wie viel Höhe der Text auf DIESER Seite bekommt. Der
+            // Zuschlag von einem Viertel ist Absicht: Die Zahl der Seiten
+            // ist eine Schätzung, und ein Text, der knapp gehalten wird,
+            // schöbe am Ende einen Rest auf eine zusätzliche Seite.
+            let textZiel: Double = restSeiten > 1
+                ? min(restTextHoehe / Double(restSeiten) * 1.25, Double(platz.height))
+                : Double(platz.height)
+            let vorher = (offen.count, text.count)
+            let neue = seiteFuellen(platz: platz, nummer: nummer, restSeiten: restSeiten,
+                                    plan: plan, textZiel: textZiel,
+                                    offen: &offen, text: &text)
+            bloecke.append(contentsOf: neue)
+            restTextHoehe = text.isEmpty ? 0
+                : Textmass.hoehe(text, bild: typografie.flieText, breite: satz.width)
+            if offen.isEmpty, text.isEmpty { break }
+            // Ging auf einer leeren Seite gar nichts, passt der Rest
+            // nirgends hin. Weiterblättern brauchte man dann nicht.
+            if (offen.count, text.count) == vorher, neue.isEmpty { break }
+            seiten.append(Seite(bloecke: bloecke))
+            bloecke = []
+            y = satz.minY
+            nummer += 1
+        }
+
+        if !text.isEmpty {
+            if !bloecke.isEmpty {
+                seiten.append(Seite(bloecke: bloecke))
+                bloecke = []
+            }
+            let hoehe = Textmass.hoehe(text, bild: typografie.flieText, breite: satz.width)
+            bloecke.append(Block(
+                inhalt: .text(text),
+                rahmen: Rahmen(x: satz.minX, y: satz.minY, breite: satz.width, hoehe: hoehe)
+            ))
+        }
+        if !bloecke.isEmpty || seiten.isEmpty { seiten.append(Seite(bloecke: bloecke)) }
+        return seiten
+    }
+
+    // EINE Seite. Was sie bekommt, steht im Plan; WIE sie aussieht,
+    // entscheidet `Seitenform.waehlen` aus dem, was auf ihr liegt.
+    private func seiteFuellen(platz: CGRect, nummer: Int, restSeiten: Int,
+                              plan: Tagesplan, textZiel: Double,
+                              offen: inout [Kachel], text: inout String) -> [Block]
+    {
+        var bloecke: [Block] = []
+        var y = platz.minY
+        let zeilenhoehe = max(typografie.flieText.zeilenhoehe, 1)
+        let anzahl = plan.kachelnAufSeite(offen: offen.count, restSeiten: restSeiten)
+        var gruppe = Array(offen.prefix(anzahl))
+        let erste = gruppe.first
+        let textZeilen = text.isEmpty ? 0 : min(textZiel, Double(platz.height)) / zeilenhoehe
+        let form = Seitenform.waehlen(
+            gangart: plan.gangart, kacheln: gruppe.count, textZeilen: textZeilen,
+            hochkant: erste.map { $0.verhaeltnis <= 0.92 } ?? false,
+            quer: erste.map { $0.verhaeltnis >= 1.12 } ?? false,
+            seite: nummer
+        )
+
+        switch form {
+        case .nurText:
+            (bloecke, y, text) = textSpalte(bloecke, y: y, x: platz.minX,
+                                            breite: platz.width, text: text)
+
+        case .nurBilder:
+            let ziel = ausfuellendesZiel(gruppe, breite: platz.width,
+                                         grund: zielhoehe(fuer: gruppe.count),
+                                         platz: platz.maxY - y, hub: 0, textOffen: false)
+            let kasten = CGRect(x: platz.minX, y: y, width: platz.width,
+                                height: platz.maxY - y)
+            let (neue, unten, rest) = reihenIn(kasten, kacheln: gruppe, ziel: ziel,
+                                               verteilen: true)
+            bloecke.append(contentsOf: neue)
+            y = unten
+            gruppe = rest
+
+        case .band:
+            // EIN BAND FOLGT DEM BILD (Befund des Nutzers zu Seite 5,
+            // 09/2026: „ist ein Ausschnitt eines Fotos auf die ganze
+            // Seitenbreite gezogen. Das macht keinen Sinn.").
+            //
+            // Bis 1.0.33 stand die Höhe fest bei knapp einem Drittel der
+            // Satzhöhe und die Breite bei voller Satzbreite — ein
+            // Hochformat wurde damit zu einem Streifen quer durch das
+            // Bild. Gerechnet wird jetzt aus dem Seitenverhältnis, und
+            // gedeckelt wird die HOEHE; was dabei an Breite fehlt, bleibt
+            // Rand. Ein Band bekommt deshalb nur ein Querformat.
+            if let kachel = gruppe.first {
+                let hoehe = min(platz.width / max(kachel.verhaeltnis, 0.35),
+                                platz.height * 0.40)
+                let breite = hoehe * kachel.verhaeltnis
+                let x = platz.minX + (platz.width - breite) / 2
+                let (neue, unten) = kachelbloecke(kachel, x: x, y: y,
+                                                  breite: breite, hoehe: hoehe)
+                bloecke.append(contentsOf: neue)
+                y += unten + fuge + 4
+                gruppe.removeFirst()
+            }
+            (bloecke, y, text) = textSpalte(bloecke, y: y, x: platz.minX,
+                                            breite: platz.width, text: text)
+
+        case .seitlich:
+            // EIN BILD NEBEN DEM TEXT, UND DER TEXT LAEUFT DARUNTER WEITER.
+            //
+            // Das ist die Antwort auf zwei Punkte des Nutzers zugleich: auf
+            // Seite 6 („könnte zumindest eins der Fotos noch neben den Text
+            // gezogen werden") und auf den dritten seiner drei Fälle („bei
+            // sehr viel Text und wenig Bildern … dass der Text sie
+            // umfließt").
+            //
+            // Umflossen wird in einem L: eine schmale Spalte neben dem Bild,
+            // darunter die volle Breite. Ein Bild, das AUF BEIDEN Seiten
+            // Text hat, ist bewusst nicht gebaut — dafür müsste jede Zeile
+            // einzeln gesetzt werden (CoreText legt einen Rahmen in ein
+            // Rechteck), und der Textblock wäre danach nicht mehr das, was
+            // man in dieser App anfassen und verschieben kann. Zwei Blöcke
+            // sind hier das ehrlichere Mittel: Sie messen und zeichnen mit
+            // demselben Satz wie jeder andere Text.
+            if let kachel = gruppe.first {
+                let spalte = (platz.width * 0.40).rounded()
+                let hoehe = min(spalte / max(kachel.verhaeltnis, 0.35),
+                                platz.height * 0.46)
+                let breite = hoehe * kachel.verhaeltnis
+                let rechts = nummer % 2 == 0
+                let bildX = rechts ? platz.maxX - breite : platz.minX
+                let (neue, bildUnten) = kachelbloecke(kachel, x: bildX, y: y,
+                                                      breite: breite, hoehe: hoehe)
+                bloecke.append(contentsOf: neue)
+                gruppe.removeFirst()
+
+                let schmal = platz.width - breite - fuge * 1.6
+                let schmalX = rechts ? platz.minX : platz.maxX - schmal
+                var spaltenUnten = y
+                (bloecke, spaltenUnten, text) = textSpalte(bloecke, y: y, x: schmalX,
+                                                           breite: schmal, text: text,
+                                                           hoechstens: bildUnten)
+                y = max(y + bildUnten, spaltenUnten - fuge - 4) + fuge + 4
+
+                if !text.isEmpty {
+                    let reserve: Double = gruppe.isEmpty ? 0
+                        : min(stapelhoehe(gruppe, breite: platz.width,
+                                          ziel: zielhoehe(fuer: gruppe.count), hub: 0),
+                              Double(platz.height) * 0.42) + fuge + 4
+                    let uebrig = Double(platz.maxY - y) - reserve
+                    if uebrig > zeilenhoehe * 2 {
+                        (bloecke, y, text) = textSpalte(bloecke, y: y, x: platz.minX,
+                                                        breite: platz.width, text: text,
+                                                        hoechstens: uebrig)
+                    }
+                }
+            }
+
+        case .reihenOben:
+            let fuerText = min(textZiel, Double(platz.height))
+            var hoehe = Double(platz.height) - fuerText - fuge - 4
+            hoehe = min(max(hoehe, Double(platz.height) * 0.28), Double(platz.height) * 0.66)
+            let kasten = CGRect(x: platz.minX, y: y, width: platz.width, height: hoehe)
+            let (neue, unten, rest) = reihenIn(kasten, kacheln: gruppe,
+                                               ziel: zielhoehe(fuer: gruppe.count),
+                                               verteilen: false)
+            bloecke.append(contentsOf: neue)
+            gruppe = rest
+            if !neue.isEmpty { y = unten + fuge + 4 }
+            (bloecke, y, text) = textSpalte(bloecke, y: y, x: platz.minX,
+                                            breite: platz.width, text: text)
+
+        case .reihenUnten:
+            // DER TEXT BEKOMMT NICHT DIE GANZE SEITE, solange Bilder für
+            // sie vorgesehen sind. Genau daran hing der gemeldete Fall vom
+            // 3. August: Der Text lief bis zum Satzspiegelende, das eine
+            // Foto passte nicht mehr und stand danach allein und riesig auf
+            // der nächsten Seite.
+            let reserve = min(stapelhoehe(gruppe, breite: platz.width,
+                                          ziel: zielhoehe(fuer: gruppe.count), hub: 0),
+                              Double(platz.height) * 0.55)
+            let fuerText = max(min(textZiel, Double(platz.height) - reserve - fuge - 4),
+                               zeilenhoehe * 3)
+            (bloecke, y, text) = textSpalte(bloecke, y: y, x: platz.minX,
+                                            breite: platz.width, text: text,
+                                            hoechstens: fuerText)
+            let kasten = CGRect(x: platz.minX, y: y, width: platz.width,
+                                height: platz.maxY - y)
+            let (neue, unten, rest) = reihenIn(kasten, kacheln: gruppe,
+                                               ziel: zielhoehe(fuer: gruppe.count),
+                                               verteilen: true)
+            bloecke.append(contentsOf: neue)
+            y = unten
+            gruppe = rest
+        }
+
+        // Was von der Gruppe übrig ist, kommt noch unter das Gesetzte —
+        // sonst wäre es stillschweigend auf die nächste Seite geschoben,
+        // obwohl hier noch Platz ist.
+        if !gruppe.isEmpty, Double(platz.maxY - y) > zeilenhoehe * 3 {
+            let kasten = CGRect(x: platz.minX, y: y, width: platz.width,
+                                height: platz.maxY - y)
+            let (neue, unten, rest) = reihenIn(kasten, kacheln: gruppe,
+                                               ziel: zielhoehe(fuer: gruppe.count),
+                                               verteilen: true)
+            bloecke.append(contentsOf: neue)
+            y = unten
+            gruppe = rest
+        }
+
+        let verbraucht = anzahl - gruppe.count
+        if verbraucht > 0 { offen.removeFirst(verbraucht) }
+        return bloecke
+    }
+
+    // Kacheln in Reihen, in einen gegebenen Kasten. Zurück kommen die
+    // Blöcke, die erreichte Unterkante und die Kacheln, die nicht mehr
+    // hineingingen.
+    private func reihenIn(_ kasten: CGRect, kacheln: [Kachel], ziel: Double,
+                          verteilen: Bool)
+        -> (bloecke: [Block], unten: CGFloat, rest: [Kachel])
+    {
+        guard kasten.height > 8 else { return ([], kasten.minY, kacheln) }
+        var bloecke: [Block] = []
+        var reihen: [[UUID]] = []
+        var offen = kacheln
+        var y = kasten.minY
+
+        while !offen.isEmpty {
+            // Eine gestaffelte Reihe braucht oben und unten etwas Luft: Jede
+            // zweite Kachel sitzt ein Stück höher und ist leicht gedreht.
+            // Der Hub wird der Reihenhöhe ZUGERECHNET — sonst schöbe sich
+            // die erste Kachel in die Zeile darüber.
+            //
+            // Gestaffelt wird nur in Stilen, die das vertragen, und nur ab
+            // zwei Kacheln. Es ist die Antwort auf den Befund zu Seite 7
+            // („sind plötzlich drei Fotos schnurgerade nebeneinander"):
+            // Drei gleich hohe Bilder in einer Flucht sind ein Raster, kein
+            // Satz.
+            let hub: Double = stil.lebendig && offen.count > 1 ? fuge * 0.9 : 0
+            var (reihe, hoehe, gestreckt) = naechsteReihe(offen, breite: kasten.width,
+                                                          ziel: ziel)
+            if y + hoehe + hub * 2 > kasten.maxY {
+                // EINE REIHE SCHRUMPFT, BEVOR SIE UMBRICHT (ab 1.0.34).
+                //
+                // Bis 1.0.33 brach hier die Seite um, sobald die nächste
+                // Reihe in ihrer Zielhöhe nicht mehr hineinpasste. Das war
+                // der gemeldete Fall: „Das einzige Foto … erscheint nun
+                // super gross auf einer leeren Seite 4. Dabei wäre auf
+                // Seite 3 noch Platz gewesen. Es hätte dort fast in
+                // derselben Größe Platz gefunden."
+                //
+                // Eine Reihe ist aber kein festes Mass — ihre Höhe folgt
+                // aus der Zielhöhe, und die lässt sich für diese eine
+                // Reihe senken. Erst wenn auch das nichts mehr hergibt,
+                // bleibt der Umbruch.
+                let rest = Double(kasten.maxY - y) - hub * 2
+                guard rest >= min(ziel * 0.5, Double(satz.height) * 0.16) else { break }
+                (reihe, hoehe, gestreckt) = naechsteReihe(offen, breite: kasten.width,
+                                                          ziel: rest, hoechstens: rest)
+                guard !reihe.isEmpty, hoehe <= rest + 0.5 else { break }
+            }
+
+            // Eine Reihe, die ihre Zielhöhe nicht erreicht, ist schmaler
+            // als der Kasten. Sie steht dann MITTIG und nicht linksbündig:
+            // Ein einzelnes Bild, das an der linken Kante klebt, sieht aus
+            // wie der Rest einer Reihe.
+            let breiten = reihe.map { gestreckt * $0.verhaeltnis }
+            let gesamt = breiten.reduce(0, +) + fuge * Double(max(reihe.count - 1, 0))
+            var x = kasten.minX + max(0, (kasten.width - gesamt) / 2)
+            var kennungen: [UUID] = []
+            for (stelle, kachel) in reihe.enumerated() {
+                let breite = breiten[stelle]
+                let versatz: Double = hub > 0 && stelle % 2 == 1 ? -hub : hub
+                let (neue, _) = kachelbloecke(
+                    kachel, x: x, y: y + versatz, breite: breite, hoehe: gestreckt,
+                    gedreht: hub > 0 ? drehwinkel(kachel.kennung) * 0.7 : 0
+                )
+                bloecke.append(contentsOf: neue)
+                kennungen.append(contentsOf: neue.map(\.id))
+                x += breite + fuge
+            }
+            if !kennungen.isEmpty { reihen.append(kennungen) }
+            y += hoehe + hub * 2 + fuge
+            offen.removeFirst(reihe.count)
+        }
+
+        let unten = max(y - fuge, kasten.minY)
+        guard verteilen else { return (bloecke, unten, offen) }
+        return (restplatzVerteilen(bloecke, reihen: reihen, unten: unten, bis: kasten.maxY),
+                unten, offen)
+    }
+
+    // Eine Kachel als Blöcke — Bild samt Unterschrift, oder die Karte.
+    // Zurück kommt auch, wie hoch beides zusammen wird: Die Unterschrift
+    // gehört zum Bild, und wer sie beim Weiterrücken vergisst, setzt den
+    // nächsten Block darüber.
+    private func kachelbloecke(_ kachel: Kachel, x: Double, y: Double, breite: Double,
+                               hoehe: Double, gedreht: Double = 0) -> ([Block], Double)
+    {
+        var bloecke: [Block] = []
+        var unten = hoehe
+        switch kachel.inhalt {
+        case let .foto(id):
+            guard let foto = fotoIndex[id] else { return ([], 0) }
+            var block = fotoblock(foto, x: x, y: y, breite: breite, hoehe: hoehe)
+            block.drehung = gedreht
+            bloecke.append(block)
+            if let zeile = unterschriftBlock(foto, x: x, y: y + hoehe, breite: breite) {
+                bloecke.append(zeile)
+                unten += unterschriftHoehe(foto, breite: breite)
+            }
+        case .karte:
+            bloecke.append(karteBlock(x: x, y: y, breite: breite, hoehe: hoehe))
+        default:
+            break
+        }
+        return (bloecke, unten)
     }
 
     // MARK: - Bausteine
@@ -620,45 +953,23 @@ struct Layoutautomat {
     // gemessen — siehe `reihenSetzen`.
     private static let mindestzeilenNebenFoto: Double = 6
 
-    // Welcher Rhythmus auf den Folgeseiten gilt. `nil` heißt: die alte,
-    // durchgehend randbündige Form — so bleiben alle Muster außer
-    // `.wechsel` Zeile für Zeile, wie sie waren. Es wird eine Sache auf
-    // einmal geändert.
-    struct Rhythmuswahl {
-        var saat: UInt64
-        var lebendig: Bool
-        var abSeite: Int
-    }
-
+    // Die durchgehend randbündige Form: Text über die volle Satzbreite,
+    // darunter Fotoreihen. Sie gilt für die acht Muster, die je eine eigene
+    // Bildidee tragen — ein Vollbild, eine Karte neben dem Text, ein
+    // Bilderbogen. Der nach Inhalt gesetzte Tag (`.wechsel`) kommt hier
+    // nicht mehr an; er baut seine Seiten in `inhaltsseiten` selbst.
     private func reihenSetzen(_ fotos: [Foto], karte: Bool, bloecke eingang: [Block],
-                              ab: CGFloat, restText: String,
-                              rhythmus: Rhythmuswahl? = nil)
+                              ab: CGFloat, restText: String)
         -> (fertig: [Seite], offen: [Block], rest: String)
     {
         var seiten: [Seite] = []
         var bloecke = eingang
         var y = ab
         var text = restText
-        var seitennummer = rhythmus?.abSeite ?? 0
-        // Das Seitenbild der Seite, die gerade gefüllt wird. Ohne Rhythmus
-        // ist es das ruhige Grundbild — volle Breite, nichts gedreht.
-        var bild = rhythmus.map {
-            Seitenrhythmus.bild(seite: seitennummer, saat: $0.saat, lebendig: $0.lebendig)
-        } ?? Seitenrhythmus.bilder[0]
-        func naechstesBild() {
-            seitennummer += 1
-            if let r = rhythmus {
-                bild = Seitenrhythmus.bild(seite: seitennummer, saat: r.saat, lebendig: r.lebendig)
-            }
-        }
-        var textBreite: Double { satz.width * bild.textbreite }
-        var textX: Double {
-            satz.minX + bild.einzug(satz.width, anteil: bild.textbreite, rechts: bild.textRechts)
-        }
-        var reihenBreite: Double { satz.width * bild.bilderbreite }
-        var reihenX: Double {
-            satz.minX + bild.einzug(satz.width, anteil: bild.bilderbreite, rechts: bild.bilderRechts)
-        }
+        let textBreite = satz.width
+        let textX = satz.minX
+        let reihenBreite = satz.width
+        let reihenX = satz.minX
 
         var kacheln: [Kachel] = []
         if karte {
@@ -680,8 +991,7 @@ struct Layoutautomat {
         // wachsen, dass sie die Seite füllen (siehe `ausfuellendesZiel`).
         func zielNachlegen() {
             ziel = ausfuellendesZiel(offen, breite: reihenBreite, grund: grundziel,
-                                     platz: satz.maxY - y,
-                                     hub: bild.gestaffelt ? fuge * 0.9 : 0,
+                                     platz: satz.maxY - y, hub: 0,
                                      textOffen: !text.isEmpty)
         }
         zielNachlegen()
@@ -798,11 +1108,9 @@ struct Layoutautomat {
                                                    breite: textBreite)
                         bloecke.append(Block(
                             inhalt: .text(kopf),
-                            rahmen: Rahmen(x: textX, y: y, breite: textBreite, hoehe: hoehe),
-                            drehung: bild.textdrehung
+                            rahmen: Rahmen(x: textX, y: y, breite: textBreite, hoehe: hoehe)
                         ))
-                        let ecke = abs(sin(bild.textdrehung * .pi / 180)) * textBreite / 2
-                        y += hoehe + ecke + fuge + 4
+                        y += hoehe + fuge + 4
                         text = rest
                     }
                 }
@@ -814,50 +1122,38 @@ struct Layoutautomat {
                     bloecke = []
                     reihenaufSeite = []
                     y = satz.minY
-                    naechstesBild()
                     zielNachlegen()
                     continue
                 }
             }
             guard !offen.isEmpty else { break }
             let (reihe, hoehe, gestreckt) = naechsteReihe(offen, breite: reihenBreite, ziel: ziel)
-            // Eine gestaffelte Reihe braucht oben und unten etwas Luft: Jede
-            // zweite Kachel sitzt ein Stück höher und ist leicht gedreht.
-            // Der Hub wird der Reihenhöhe ZUGERECHNET — sonst schöbe sich
-            // die erste Kachel in die Zeile darüber.
-            let hub: Double = bild.gestaffelt ? fuge * 0.9 : 0
-            if y + hoehe + hub * 2 > satz.maxY, !bloecke.isEmpty {
+            if y + hoehe > satz.maxY, !bloecke.isEmpty {
                 seiten.append(Seite(
                     bloecke: restplatzVerteilen(bloecke, reihen: reihenaufSeite,
                                                 unten: y - fuge)))
                 bloecke = []
                 reihenaufSeite = []
                 y = satz.minY
-                naechstesBild()
                 zielNachlegen()
                 continue
             }
             var x = reihenX
             var reihenbloecke: [UUID] = []
-            for (stelle, kachel) in reihe.enumerated() {
+            for kachel in reihe {
                 let breite = gestreckt * kachel.verhaeltnis
-                let versatz: Double = bild.gestaffelt && stelle % 2 == 1 ? -hub : hub
                 switch kachel.inhalt {
                 case let .foto(id):
                     if let foto = fotoIndex[id] {
-                        var block = fotoblock(foto, x: x, y: y + versatz,
+                        let block = fotoblock(foto, x: x, y: y,
                                               breite: breite, hoehe: gestreckt)
-                        // Immer derselbe Winkel für dasselbe Bild — dieselbe
-                        // Regel wie im Album-Muster: Ein Satz, der sich bei
-                        // jedem Neuanordnen anders neigt, ist kein Satz.
-                        if bild.gestaffelt { block.drehung = drehwinkel(id) * 0.7 }
                         bloecke.append(block)
                         reihenbloecke.append(block.id)
                         // Die Unterschrift steht UNTER dem Bild und in
                         // dessen Breite. Die Reihenhöhe hält den Platz
                         // dafür schon frei (`naechsteReihe`); hier wird er
                         // nur noch gefüllt.
-                        if let zeile = unterschriftBlock(foto, x: x, y: y + versatz + gestreckt,
+                        if let zeile = unterschriftBlock(foto, x: x, y: y + gestreckt,
                                                          breite: breite)
                         {
                             bloecke.append(zeile)
@@ -870,7 +1166,7 @@ struct Layoutautomat {
                         }
                     }
                 case .karte:
-                    let block = karteBlock(x: x, y: y + versatz, breite: breite, hoehe: gestreckt)
+                    let block = karteBlock(x: x, y: y, breite: breite, hoehe: gestreckt)
                     bloecke.append(block)
                     reihenbloecke.append(block.id)
                 default:
@@ -879,7 +1175,7 @@ struct Layoutautomat {
                 x += breite + fuge
             }
             if !reihenbloecke.isEmpty { reihenaufSeite.append(reihenbloecke) }
-            y += hoehe + hub * 2 + fuge
+            y += hoehe + fuge
             offen.removeFirst(reihe.count)
         }
         bloecke = restplatzVerteilen(bloecke, reihen: reihenaufSeite, unten: y - fuge)
@@ -900,10 +1196,13 @@ struct Layoutautomat {
     // Bilder mit zehn Zentimetern Abstand auf der Seite, und das ist kein
     // Satz mehr, sondern ein Versehen in die andere Richtung.
     private func restplatzVerteilen(_ bloecke: [Block], reihen: [[UUID]],
-                                    unten: CGFloat) -> [Block]
+                                    unten: CGFloat, bis: CGFloat? = nil) -> [Block]
     {
         guard reihen.count >= 1, unten > satz.minY else { return bloecke }
-        let rest = satz.maxY - unten
+        // `bis` ist die Unterkante des Kastens, in dem die Reihen stehen.
+        // Ohne sie gälte immer der Satzspiegel — und eine Reihe ÜBER einem
+        // Textblock schöbe sich beim Verteilen in den Text hinein.
+        let rest = (bis ?? satz.maxY) - unten
         guard rest > fuge else { return bloecke }
         // Die Lücken: zwischen den Reihen, und eine halbe am Fuß, damit der
         // Block nicht an der Unterkante klebt.
@@ -966,8 +1265,8 @@ struct Layoutautomat {
     // das den Text trägt, falsch für eines, das ihn mit Bildern abwechseln
     // soll (`.wechsel`, ab 1.0.29).
     private func textSpalte(_ bloecke: [Block], y: CGFloat, x: CGFloat, breite: Double,
-                            text: String, hoechstens: Double? = nil,
-                            drehung: Double = 0) -> ([Block], CGFloat, String)
+                            text: String, hoechstens: Double? = nil)
+        -> ([Block], CGFloat, String)
     {
         guard !text.isEmpty else { return (bloecke, y, text) }
         var neue = bloecke
@@ -979,15 +1278,9 @@ struct Layoutautomat {
         let hoehe = Textmass.hoehe(kopf, bild: typografie.flieText, breite: breite)
         neue.append(Block(
             inhalt: .text(kopf),
-            rahmen: Rahmen(x: x, y: y, breite: breite, hoehe: hoehe),
-            drehung: drehung
+            rahmen: Rahmen(x: x, y: y, breite: breite, hoehe: hoehe)
         ))
-        // Eine gedrehte Spalte hebt ihre Ecken. Ein halbes Grad auf 400
-        // Punkt Breite sind gut dreieinhalb Punkt — weniger als die Fuge,
-        // aber nicht nichts. Gerechnet wird es dazu, statt sich darauf zu
-        // verlassen, dass es schon passen wird.
-        let ecke = abs(sin(drehung * .pi / 180)) * breite / 2
-        return (neue, y + hoehe + ecke + fuge + 4, rest)
+        return (neue, y + hoehe + fuge + 4, rest)
     }
 
     // Wie hoch eine Fotoreihe im Regelfall werden soll. Wenige Bilder dürfen
@@ -1070,7 +1363,12 @@ struct Layoutautomat {
     // dem Fotobücher arbeiten: Alle Bilder einer Reihe sind gleich hoch, die
     // Reihe steht randbündig, und kein Bild wird beschnitten, um in ein
     // Raster zu passen.
-    private func naechsteReihe(_ kacheln: [Kachel], breite: Double, ziel: Double)
+    // `hoechstens` ist die HARTE Obergrenze für die ganze Reihe samt
+    // Unterschrift. Sie ist der Unterschied zwischen „die Reihe passt
+    // nicht mehr, also neue Seite" und „die Reihe wird eben kleiner" —
+    // siehe `reihenIn`.
+    private func naechsteReihe(_ kacheln: [Kachel], breite: Double, ziel: Double,
+                               hoechstens: Double? = nil)
         -> (reihe: [Kachel], hoehe: Double, bildhoehe: Double)
     {
         var reihe: [Kachel] = []
@@ -1085,9 +1383,10 @@ struct Layoutautomat {
         // Die letzte Reihe kann deutlich zu hoch werden, wenn nur noch ein
         // einzelnes Bild übrig ist. Sie wird deshalb gedeckelt und steht
         // dann linksbündig, statt als Riese die Seite zu sprengen.
-        let deckel = ziel * 1.45
-        if bildhoehe > deckel { bildhoehe = deckel }
         let unten = reihe.map(\.unterschrift).max() ?? 0
+        var deckel = ziel * 1.45
+        if let hoechstens { deckel = min(deckel, hoechstens - unten) }
+        if bildhoehe > deckel { bildhoehe = max(deckel, 1) }
         return (reihe, bildhoehe + unten, bildhoehe)
     }
 }

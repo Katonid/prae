@@ -140,8 +140,9 @@ final class Regal: ObservableObject {
     //
     // Die INNEREN Kennungen bleiben, wie sie sind: Tage, Seiten, Blöcke und
     // Fotos gelten innerhalb eines Buches, und zwei Bücher sehen einander
-    // nie. Mehr noch — sie MÜSSEN bleiben: Papierkorn und Seitenrhythmus
-    // rechnen aus `UUID.saat`, und mit neuen Kennungen sähe die Kopie anders
+    // nie. Mehr noch — sie MÜSSEN bleiben: Das Papierkorn rechnet aus
+    // `UUID.saat` und der Drehwinkel eines Albumfotos aus der Kennung des
+    // Fotos; mit neuen Kennungen sähe die Kopie anders
     // aus als das Urbuch. (Tafelbild hat 1.4.5 das Gegenteil gelernt; dort
     // lagen die Kopien in DERSELBEN Tafel, und dann ist eine doppelte
     // Kennung wirklich eine.) Neu ist genau eine Zahl: die der Reise, denn
