@@ -717,6 +717,95 @@ Bücher gefahrlos: Der erzeugte `Codable`-Leser verlangt einen Schlüssel nur
 für nicht-optionale Eigenschaften. Ein vorhandener Wert wird gelesen, ein
 fehlender wird `nil` — also „wie im Buch".
 
+## Keine zwei Seiten gleich — und der Streifen gehört der Reihe (1.0.31)
+
+Zum dritten Mal dieselbe Sache (09/2026): „Ein langer Text soll
+abschnittsweise auf mehrere Seiten verteilt werden und die Bilder
+entsprechend auch auf die zusätzlichen Seiten sortiert werden. Dabei soll
+nicht jede Seite gleich aussehen, sondern es immer abwechselnd
+unterschiedlich gestaltet sein. Mal soll der Textblock oben links sein, mal
+in der Mitte, mal leicht verschoben, vielleicht auch sogar einmal gedreht."
+Dazu: „Die angekündigte Option Tagebuch, Text und Bilder im Wechsel finde
+ich nicht."
+
+Drei Befunde in einer Meldung, und jeder hat eine eigene Ursache.
+
+### Der freigehaltene Streifen wurde wieder mit Text gefüllt
+
+Das ist die Ursache für das Bildschirmfoto: oben ein voller Textblock,
+unten weißer Rest, die Bilder eine Seite weiter. Sie ist am Quelltext
+nachzurechnen:
+
+* `.wechsel` hält auf der ersten Seite die **gemessene Höhe der nächsten
+  Fotoreihe** frei (so seit 1.0.29) und übergibt an `reihenSetzen`.
+* `reihenSetzen` prüft zu Beginn jeder Seite selbst, ob neben einer
+  Fotoreihe noch **sechs Zeilen Text** Platz haben. Auf genau diesem
+  Streifen haben sie das nicht — also gab die Prüfung null zurück, und der
+  ganze Rest der Seite ging an den Text.
+* Ging dem Text dabei die Luft aus, blieb unten Weiß stehen, und die
+  Fotoreihe passte nicht mehr: neue Seite, nur Bilder.
+
+**Wer Platz für ein Bild freihält, stellt das Bild auch hinein.** Reicht die
+Resthöhe für eine Reihe, aber nicht für Reihe und sechs Zeilen, bekommt sie
+jetzt die **Reihe** und nicht der Text.
+
+### Jede Seite hatte dasselbe Seitenbild
+
+Verteilt wurde seit 1.0.14; was fehlte, war das Zweite: Textspalte über die
+volle Satzbreite, darunter randbündige Fotoreihen — Seite für Seite
+dasselbe. Ein Buch, dessen Seiten sich nur im Inhalt unterscheiden, ist
+gesetzt wie eine Tabelle.
+
+`Model/Seitenrhythmus.swift` gibt jeder Seite eines Tages ein eigenes
+**Seitenbild**: die Textspalte zwischen 58 und 100 Prozent der Satzbreite,
+an der linken oder rechten Kante, die Fotoreihe ebenso, dazu in den Stilen
+**Fotoalbum** und **Postkarte** leicht gedrehte und gegeneinander versetzte
+Bilder und eine Spur Schräge am Textblock.
+
+* **Bestimmt, nicht gewürfelt.** Sechs Seitenbilder in fester Folge; der
+  Einstieg kommt aus der Kennung des Tages (`UUID.saat`), damit nicht jeder
+  Tag mit demselben Bild beginnt. **Nie aus `hashValue`** — den streut Swift
+  bei jedem Programmlauf neu, und dasselbe Buch sähe nach jedem Start anders
+  aus (dieselbe Regel wie beim Drehwinkel eines Albumfotos und beim
+  Papierkorn aus 1.0.16).
+* **Die Folge ist eine Folge, keine Menge.** Auf eine volle Breite folgt
+  eine schmale, auf einen linken Block ein rechter. Wer etwas einfügt, sieht
+  die Liste als Reihenfolge an.
+* **Die Spanne ist eng mit Absicht.** Was es NICHT gibt, ist ein frei im
+  Blatt schwebender Kasten: Ein Buch, dessen Ränder von Seite zu Seite
+  springen, wirkt nicht lebendig, sondern unfertig.
+* **Gedreht wird nur, wo es hingehört** (`Buchstil.lebendig`). In einem
+  Magazin wäre ein schiefes Bild ein Fehler, in einem Album fehlte es. Die
+  Drehung des TEXTBLOCKS ist auf 0,6 Grad gedeckelt — über 400 Punkt Breite
+  sind das gut zwei Punkt an der Ecke; ein schief laufender Fließtext liest
+  sich sonst nicht als Absicht, sondern als Druckfehler. Die gehobene Ecke
+  wird der Blockhöhe **zugerechnet**, statt sich darauf zu verlassen, dass
+  es schon passen wird.
+* **Den Rhythmus bekommt NUR `.wechsel`.** Die übrigen Muster sind je eine
+  eigene Bildidee (ein Vollbild, eine Karte neben dem Text, ein
+  Bilderbogen); wandernde Spalten würden dort mit der Idee des Musters
+  streiten. Es wird eine Sache auf einmal geändert.
+
+### Und gefunden hat das Muster niemand
+
+Fünfte Auflage des alten Befundes, diesmal doppelt: Der Menüpunkt hieß
+**„Seitenmuster"** — ein Fachwort statt einer Frage — und lag hinter einem
+Knopf, der nur ein **Kalendersymbol** trug, also einer von vier gleich
+aussehenden Kreisen in der Werkzeugleiste war. Dass darin alles zu genau
+diesem Tag steht, war nirgends zu sehen.
+
+* Der Knopf trägt jetzt das **Datum** sichtbar neben dem Symbol.
+* Der Menüpunkt heißt **„Seiten setzen: …"** und nennt, was gerade gilt —
+  ausdrücklich gewählt oder „automatisch (Tagebuch: Text und Bilder im
+  Wechsel)". **Ein Menü, das seinen eigenen Stand verschweigt, lässt einen
+  raten** — und genau daran ist die Frage entstanden, ob es das Muster
+  überhaupt gibt.
+* **„Für ALLE Tage übernehmen"** steht dort, wo die Frage entsteht — wer es
+  für einen Tag einstellt, ist die Person, die als Nächstes „und für alle?"
+  fragt (dieselbe Lehre wie beim Fotostil in 1.0.10). Tage mit Handarbeit
+  bleiben dabei stehen und werden gezählt: Ein Musterwechsel, der eine
+  Stunde Handarbeit stillschweigend wegräumt, wird genau einmal benutzt.
+
 ## Alle Fotos auf einmal, und keines mehr in der Ablage (1.0.30)
 
 Zwei Beschwerden in einer Nachricht (09/2026): „Beim Foto-Import muss ich
@@ -2363,6 +2452,14 @@ im Inspektor gab es, aber keinen Weg zu sehen, was es bewirkt.
 
 ## Offene Punkte
 
+* **Wie eine Doppelseite im neuen Rhythmus AUSSIEHT, hat niemand gesehen**
+  (1.0.31). Gerechnet ist die Ursache des vollen Textblocks — sie ist am
+  Quelltext nachzuzählen und passt zum Bildschirmfoto, gemessen auf einem
+  Gerät ist sie nicht. Die sechs Seitenbilder und ihre Zahlen (58 bis 100
+  Prozent Spaltenbreite, 0,6 Grad Drehung, ein knapper Fugenhub beim
+  Staffeln) sind **gewählt und nicht gemessen**; ob die Folge abwechslungs­-
+  reich wirkt oder unruhig, sagt erst der nächste Befund. Ebenso ungeprüft:
+  ob ein leicht gedrehter Textblock im PDF sauber steht.
 * **Nichts davon ist auf einem Gerät gesehen** (1.0.30). Gerechnet ist, wie
   die Namen zerlegt werden und was die Mediathek auf eine Zeitraumabfrage
   herausgibt; ob eine bestimmte Kamera ihre Dateien so benennt, sagt erst der

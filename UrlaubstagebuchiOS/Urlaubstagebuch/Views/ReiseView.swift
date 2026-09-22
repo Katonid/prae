@@ -994,8 +994,27 @@ struct ReiseView: View {
                         werk.neuAnordnen(tag.id, erzwingen: true)
                     }
                 }
-                Menu("Seitenmuster") {
-                    Button("Automatisch wählen") { musterSetzen(nil) }
+                // WIE DIE SEITEN DIESES TAGES GESETZT WERDEN.
+                //
+                // Hieß bis 1.0.30 „Seitenmuster" und wurde nicht gefunden
+                // (gemeldet 09/2026: „Die angekündigte Option Tagebuch,
+                // Text und Bilder im Wechsel finde ich nicht."). Zwei
+                // Gründe, und beide sind behoben: Der Menüpunkt nannte
+                // ein Fachwort statt einer Frage, und der Knopf darüber
+                // trug nur ein Kalendersymbol — man sah dem Menü nicht an,
+                // dass DIESER Tag dahintersteckt. Der Name des geltenden
+                // Musters steht jetzt daneben; ein Menü, das seinen
+                // eigenen Stand verschweigt, lässt einen raten.
+                Menu {
+                    Button {
+                        musterSetzen(nil)
+                    } label: {
+                        if tag.muster == nil {
+                            Label("Automatisch wählen", systemImage: "checkmark")
+                        } else {
+                            Text("Automatisch wählen")
+                        }
+                    }
                     Divider()
                     ForEach(Seitenmuster.allCases) { muster in
                         Button {
@@ -1008,12 +1027,25 @@ struct ReiseView: View {
                             }
                         }
                     }
+                    Divider()
+                    Button("Für ALLE Tage übernehmen", systemImage: "square.stack.3d.up") {
+                        werk.musterFuerAlle(werk.tag?.muster)
+                    }
+                } label: {
+                    Text("Seiten setzen: \(mustername(tag))")
                 }
                 Button("Seite anfügen", systemImage: "plus.rectangle.on.rectangle") {
                     werk.seiteHinzufuegen(tag.id)
                 }
             } label: {
-                Label(tag.datum.kurz, systemImage: "calendar")
+                // Der Knopf trägt das DATUM sichtbar. Als reines Symbol war
+                // er einer von vier gleich aussehenden Kreisen in der
+                // Werkzeugleiste, und dass darin alles zu diesem einen Tag
+                // steht, stand nirgends.
+                HStack(spacing: 5) {
+                    Image(systemName: "calendar")
+                    Text(tag.datum.kurz)
+                }
             }
         }
     }
@@ -1104,6 +1136,12 @@ struct ReiseView: View {
             werk.meldung = .init(text: "Die Buchdatei ließ sich nicht schreiben: "
                                  + error.localizedDescription, schwer: true)
         }
+    }
+
+    // Was gerade gilt — ausdrücklich gesetzt oder vom Automaten gewählt.
+    private func mustername(_ tag: Reisetag) -> String {
+        if let muster = tag.muster { return muster.name }
+        return "automatisch (\(werk.gewaehltesMuster(tag.id)?.name ?? "—"))"
     }
 
     private func musterSetzen(_ muster: Seitenmuster?) {

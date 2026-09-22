@@ -52,7 +52,7 @@ enum Seitenmuster: String, Codable, CaseIterable, Identifiable {
         case .bilderbogen:
             return "Fast nur Bilder, der Text bleibt kurz."
         case .wechsel:
-            return "Für Tage mit viel Text UND vielen Bildern: Der Text läuft über so viele Seiten, wie er braucht, und zwischen den Abschnitten stehen Fotoreihen \u{2014} schon auf der ersten Seite. Kein Kapitel aus lauter Text und danach eines aus lauter Bildern."
+            return "Für Tage mit viel Text UND vielen Bildern: Der Text läuft über so viele Seiten, wie er braucht, und zwischen den Abschnitten stehen Fotoreihen — schon auf der ersten Seite. Kein Kapitel aus lauter Text und danach eines aus lauter Bildern."
         }
     }
 
@@ -385,9 +385,19 @@ struct Layoutautomat {
                 let bleibt = satz.maxY - y - (reihe + fuge + 4)
                 if bleibt > typografie.flieText.zeilenhoehe * 6 { deckel = bleibt }
             }
-            (bloecke, y, restText) = textSpalte(bloecke, y: y, x: satz.minX,
-                                                breite: satz.width, text: restText,
-                                                hoechstens: deckel)
+            // Auch die ERSTE Seite folgt dem Rhythmus (ab 1.0.31). Bis 1.0.30
+            // stand der Text hier immer über die volle Satzbreite, und damit
+            // fing jeder Tag gleich an.
+            let erstesBild = Seitenrhythmus.bild(seite: 0, saat: tag.id.saat,
+                                                 lebendig: stil.lebendig)
+            let spaltenbreite = satz.width * erstesBild.textbreite
+            let spaltenX = satz.minX + erstesBild.einzug(satz.width,
+                                                         anteil: erstesBild.textbreite,
+                                                         rechts: erstesBild.textRechts)
+            (bloecke, y, restText) = textSpalte(bloecke, y: y, x: spaltenX,
+                                                breite: spaltenbreite, text: restText,
+                                                hoechstens: deckel,
+                                                drehung: erstesBild.textdrehung)
 
         case .bilderbogen:
             if !restText.isEmpty {
@@ -407,8 +417,18 @@ struct Layoutautomat {
         // läuft vorn mit, damit sie nicht allein auf der letzten Seite
         // landet, wo sie niemand mit dem Tag in Verbindung bringt.
         if muster != .album {
+            // Den Rhythmus bekommt NUR `.wechsel`. Die übrigen Muster sind
+            // je eine eigene Bildidee (ein Vollbild, eine Karte neben dem
+            // Text, ein Bilderbogen) — wandernde Spalten würden dort mit
+            // der Idee des Musters streiten. Es wird eine Sache auf einmal
+            // geändert.
+            let takt = muster == .wechsel
+                ? Rhythmuswahl(saat: tag.id.saat, lebendig: stil.lebendig,
+                               abSeite: seiten.count)
+                : nil
             let (weitere, gefuellt, uebrig) = reihenSetzen(
-                offeneFotos, karte: karteOffen, bloecke: bloecke, ab: y, restText: restText)
+                offeneFotos, karte: karteOffen, bloecke: bloecke, ab: y, restText: restText,
+                rhythmus: takt)
             seiten.append(contentsOf: weitere)
             bloecke = gefuellt
             restText = uebrig
@@ -570,14 +590,45 @@ struct Layoutautomat {
     // gemessen — siehe `reihenSetzen`.
     private static let mindestzeilenNebenFoto: Double = 6
 
+    // Welcher Rhythmus auf den Folgeseiten gilt. `nil` heißt: die alte,
+    // durchgehend randbündige Form — so bleiben alle Muster außer
+    // `.wechsel` Zeile für Zeile, wie sie waren. Es wird eine Sache auf
+    // einmal geändert.
+    struct Rhythmuswahl {
+        var saat: UInt64
+        var lebendig: Bool
+        var abSeite: Int
+    }
+
     private func reihenSetzen(_ fotos: [Foto], karte: Bool, bloecke eingang: [Block],
-                              ab: CGFloat, restText: String)
+                              ab: CGFloat, restText: String,
+                              rhythmus: Rhythmuswahl? = nil)
         -> (fertig: [Seite], offen: [Block], rest: String)
     {
         var seiten: [Seite] = []
         var bloecke = eingang
         var y = ab
         var text = restText
+        var seitennummer = rhythmus?.abSeite ?? 0
+        // Das Seitenbild der Seite, die gerade gefüllt wird. Ohne Rhythmus
+        // ist es das ruhige Grundbild — volle Breite, nichts gedreht.
+        var bild = rhythmus.map {
+            Seitenrhythmus.bild(seite: seitennummer, saat: $0.saat, lebendig: $0.lebendig)
+        } ?? Seitenrhythmus.bilder[0]
+        func naechstesBild() {
+            seitennummer += 1
+            if let r = rhythmus {
+                bild = Seitenrhythmus.bild(seite: seitennummer, saat: r.saat, lebendig: r.lebendig)
+            }
+        }
+        var textBreite: Double { satz.width * bild.textbreite }
+        var textX: Double {
+            satz.minX + bild.einzug(satz.width, anteil: bild.textbreite, rechts: bild.textRechts)
+        }
+        var reihenBreite: Double { satz.width * bild.bilderbreite }
+        var reihenX: Double {
+            satz.minX + bild.einzug(satz.width, anteil: bild.bilderbreite, rechts: bild.bilderRechts)
+        }
 
         var kacheln: [Kachel] = []
         if karte {
@@ -617,10 +668,10 @@ struct Layoutautomat {
                         y = satz.minY
                     }
                     let hoehe = Textmass.hoehe(text, bild: typografie.flieText,
-                                               breite: satz.width)
+                                               breite: textBreite)
                     bloecke.append(Block(
                         inhalt: .text(text),
-                        rahmen: Rahmen(x: satz.minX, y: y, breite: satz.width, hoehe: hoehe)
+                        rahmen: Rahmen(x: textX, y: y, breite: textBreite, hoehe: hoehe)
                     ))
                     text = ""
                 }
@@ -652,15 +703,32 @@ struct Layoutautomat {
                 // da, statt sie dem Übersetzer zu überlassen.
                 let verbleibend = satz.maxY - y
                 var freigehalten: CGFloat = 0
+                var reiheZuerst = false
                 if !offen.isEmpty {
-                    let (_, reihenhoehe, _) = naechsteReihe(offen, breite: satz.width, ziel: ziel)
+                    let (_, reihenhoehe, _) = naechsteReihe(offen, breite: reihenBreite, ziel: ziel)
                     let braucht = CGFloat(reihenhoehe + fuge)
                     let bleibt = CGFloat(typografie.flieText.zeilenhoehe
                                          * Self.mindestzeilenNebenFoto)
-                    if verbleibend - braucht > bleibt { freigehalten = braucht }
+                    if verbleibend - braucht > bleibt {
+                        freigehalten = braucht
+                    } else if verbleibend >= braucht {
+                        // DER FREIGEHALTENE STREIFEN GEHÖRT DER REIHE (ab 1.0.31).
+                        //
+                        // Reicht die Resthöhe für eine Fotoreihe, aber nicht
+                        // für Reihe UND sechs Zeilen Text, dann hielt das
+                        // Muster `.wechsel` oben genau diesen Streifen frei —
+                        // und hier wurde er wieder mit Text gefüllt, weil
+                        // `freigehalten` in diesem Fall null ist. Das Ergebnis
+                        // war die Seite, die der Nutzer gemeldet hat: oben ein
+                        // voller Textblock, die Bilder eine Seite weiter.
+                        //
+                        // Wer Platz für ein Bild freihält, stellt das Bild
+                        // auch hinein.
+                        reiheZuerst = true
+                    }
                 }
-                let platz = CGSize(width: satz.width, height: verbleibend - freigehalten)
-                if platz.height > typografie.flieText.zeilenhoehe * 3 {
+                let platz = CGSize(width: textBreite, height: verbleibend - freigehalten)
+                if !reiheZuerst, platz.height > typografie.flieText.zeilenhoehe * 3 {
                     let (kopf, rest) = Textmass.teilen(text, bild: typografie.flieText,
                                                        groesse: platz)
                     if kopf.isEmpty {
@@ -676,22 +744,24 @@ struct Layoutautomat {
                             // wird gesetzt und läuft sichtbar über, statt
                             // still zu verschwinden.
                             let hoehe = Textmass.hoehe(text, bild: typografie.flieText,
-                                                       breite: satz.width)
+                                                       breite: textBreite)
                             bloecke.append(Block(
                                 inhalt: .text(text),
-                                rahmen: Rahmen(x: satz.minX, y: y, breite: satz.width,
+                                rahmen: Rahmen(x: textX, y: y, breite: textBreite,
                                                hoehe: hoehe)
                             ))
                             text = ""
                         }
                     } else {
                         let hoehe = Textmass.hoehe(kopf, bild: typografie.flieText,
-                                                   breite: satz.width)
+                                                   breite: textBreite)
                         bloecke.append(Block(
                             inhalt: .text(kopf),
-                            rahmen: Rahmen(x: satz.minX, y: y, breite: satz.width, hoehe: hoehe)
+                            rahmen: Rahmen(x: textX, y: y, breite: textBreite, hoehe: hoehe),
+                            drehung: bild.textdrehung
                         ))
-                        y += hoehe + fuge + 4
+                        let ecke = abs(sin(bild.textdrehung * .pi / 180)) * textBreite / 2
+                        y += hoehe + ecke + fuge + 4
                         text = rest
                     }
                 }
@@ -703,35 +773,48 @@ struct Layoutautomat {
                     bloecke = []
                     reihenaufSeite = []
                     y = satz.minY
+                    naechstesBild()
                     continue
                 }
             }
             guard !offen.isEmpty else { break }
-            let (reihe, hoehe, gestreckt) = naechsteReihe(offen, breite: satz.width, ziel: ziel)
-            if y + hoehe > satz.maxY, !bloecke.isEmpty {
+            let (reihe, hoehe, gestreckt) = naechsteReihe(offen, breite: reihenBreite, ziel: ziel)
+            // Eine gestaffelte Reihe braucht oben und unten etwas Luft: Jede
+            // zweite Kachel sitzt ein Stück höher und ist leicht gedreht.
+            // Der Hub wird der Reihenhöhe ZUGERECHNET — sonst schöbe sich
+            // die erste Kachel in die Zeile darüber.
+            let hub: Double = bild.gestaffelt ? fuge * 0.9 : 0
+            if y + hoehe + hub * 2 > satz.maxY, !bloecke.isEmpty {
                 seiten.append(Seite(
                     bloecke: restplatzVerteilen(bloecke, reihen: reihenaufSeite,
                                                 unten: y - fuge)))
                 bloecke = []
                 reihenaufSeite = []
                 y = satz.minY
+                naechstesBild()
                 continue
             }
-            var x = satz.minX
+            var x = reihenX
             var reihenbloecke: [UUID] = []
-            for kachel in reihe {
+            for (stelle, kachel) in reihe.enumerated() {
                 let breite = gestreckt * kachel.verhaeltnis
+                let versatz: Double = bild.gestaffelt && stelle % 2 == 1 ? -hub : hub
                 switch kachel.inhalt {
                 case let .foto(id):
                     if let foto = fotoIndex[id] {
-                        let block = fotoblock(foto, x: x, y: y, breite: breite, hoehe: gestreckt)
+                        var block = fotoblock(foto, x: x, y: y + versatz,
+                                              breite: breite, hoehe: gestreckt)
+                        // Immer derselbe Winkel für dasselbe Bild — dieselbe
+                        // Regel wie im Album-Muster: Ein Satz, der sich bei
+                        // jedem Neuanordnen anders neigt, ist kein Satz.
+                        if bild.gestaffelt { block.drehung = drehwinkel(id) * 0.7 }
                         bloecke.append(block)
                         reihenbloecke.append(block.id)
                         // Die Unterschrift steht UNTER dem Bild und in
                         // dessen Breite. Die Reihenhöhe hält den Platz
                         // dafür schon frei (`naechsteReihe`); hier wird er
                         // nur noch gefüllt.
-                        if let zeile = unterschriftBlock(foto, x: x, y: y + gestreckt,
+                        if let zeile = unterschriftBlock(foto, x: x, y: y + versatz + gestreckt,
                                                          breite: breite)
                         {
                             bloecke.append(zeile)
@@ -744,7 +827,7 @@ struct Layoutautomat {
                         }
                     }
                 case .karte:
-                    let block = karteBlock(x: x, y: y, breite: breite, hoehe: gestreckt)
+                    let block = karteBlock(x: x, y: y + versatz, breite: breite, hoehe: gestreckt)
                     bloecke.append(block)
                     reihenbloecke.append(block.id)
                 default:
@@ -753,7 +836,7 @@ struct Layoutautomat {
                 x += breite + fuge
             }
             if !reihenbloecke.isEmpty { reihenaufSeite.append(reihenbloecke) }
-            y += hoehe + fuge
+            y += hoehe + hub * 2 + fuge
             offen.removeFirst(reihe.count)
         }
         bloecke = restplatzVerteilen(bloecke, reihen: reihenaufSeite, unten: y - fuge)
@@ -840,7 +923,8 @@ struct Layoutautomat {
     // das den Text trägt, falsch für eines, das ihn mit Bildern abwechseln
     // soll (`.wechsel`, ab 1.0.29).
     private func textSpalte(_ bloecke: [Block], y: CGFloat, x: CGFloat, breite: Double,
-                            text: String, hoechstens: Double? = nil) -> ([Block], CGFloat, String)
+                            text: String, hoechstens: Double? = nil,
+                            drehung: Double = 0) -> ([Block], CGFloat, String)
     {
         guard !text.isEmpty else { return (bloecke, y, text) }
         var neue = bloecke
@@ -852,9 +936,15 @@ struct Layoutautomat {
         let hoehe = Textmass.hoehe(kopf, bild: typografie.flieText, breite: breite)
         neue.append(Block(
             inhalt: .text(kopf),
-            rahmen: Rahmen(x: x, y: y, breite: breite, hoehe: hoehe)
+            rahmen: Rahmen(x: x, y: y, breite: breite, hoehe: hoehe),
+            drehung: drehung
         ))
-        return (neue, y + hoehe + fuge + 4, rest)
+        // Eine gedrehte Spalte hebt ihre Ecken. Ein halbes Grad auf 400
+        // Punkt Breite sind gut dreieinhalb Punkt — weniger als die Fuge,
+        // aber nicht nichts. Gerechnet wird es dazu, statt sich darauf zu
+        // verlassen, dass es schon passen wird.
+        let ecke = abs(sin(drehung * .pi / 180)) * breite / 2
+        return (neue, y + hoehe + ecke + fuge + 4, rest)
     }
 
     // Wie hoch eine Fotoreihe im Regelfall werden soll. Wenige Bilder dürfen

@@ -27,6 +27,12 @@ struct Buchstil: Identifiable, Hashable {
     var fotorand: Double
     var schatten: Schattenart
     var randabfallendErlaubt: Bool
+    // Dürfen Bilder leicht gedreht und gegeneinander versetzt liegen und
+    // darf der Textblock eine Spur schief stehen (siehe `Seitenrhythmus`)?
+    // Das ist keine Kleinigkeit, sondern der Unterschied zwischen einem
+    // eingeklebten Album und einem gesetzten Magazin — in einem Magazin
+    // wäre ein schiefes Bild ein Fehler, in einem Album fehlte es.
+    var lebendig: Bool
     var musterVorliebe: [Seitenmuster]
     var seitenzahlen: Bool
 
@@ -58,6 +64,7 @@ struct Buchstil: Identifiable, Hashable {
         randAussen: 18, randOben: 18, randUnten: 20, fuge: 3.5,
         eckenradius: 0, fotorand: 0, schatten: .keiner,
         randabfallendErlaubt: true,
+        lebendig: false,
         musterVorliebe: [.wechsel, .vollbildAufmacher, .halbseitig, .karteSeitlich, .bilderbogen],
         seitenzahlen: true
     )
@@ -87,6 +94,7 @@ struct Buchstil: Identifiable, Hashable {
         randAussen: 15, randOben: 16, randUnten: 18, fuge: 6,
         eckenradius: 0, fotorand: 2.6, schatten: .weich,
         randabfallendErlaubt: false,
+        lebendig: true,
         musterVorliebe: [.wechsel, .album, .karteSeitlich, .bildZuerst, .bilderbogen],
         seitenzahlen: false
     )
@@ -114,6 +122,7 @@ struct Buchstil: Identifiable, Hashable {
         randAussen: 22, randOben: 22, randUnten: 24, fuge: 4.5,
         eckenradius: 0, fotorand: 0, schatten: .keiner,
         randabfallendErlaubt: false,
+        lebendig: false,
         musterVorliebe: [.wechsel, .textZuerst, .karteSeitlich, .bildZuerst],
         seitenzahlen: true
     )
@@ -141,6 +150,7 @@ struct Buchstil: Identifiable, Hashable {
         randAussen: 14, randOben: 15, randUnten: 17, fuge: 3,
         eckenradius: 1.5, fotorand: 0, schatten: .keiner,
         randabfallendErlaubt: true,
+        lebendig: false,
         musterVorliebe: [.wechsel, .bilderbogen, .halbseitig, .karteOben, .karteSeitlich],
         seitenzahlen: true
     )
@@ -169,6 +179,7 @@ struct Buchstil: Identifiable, Hashable {
         randAussen: 16, randOben: 17, randUnten: 19, fuge: 4.5,
         eckenradius: 3, fotorand: 0, schatten: .weich,
         randabfallendErlaubt: true,
+        lebendig: true,
         musterVorliebe: [.wechsel, .bildZuerst, .karteSeitlich, .album, .bilderbogen],
         seitenzahlen: true
     )
