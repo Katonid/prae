@@ -64,6 +64,16 @@ struct Zoomanker {
         var index: Int
         var hoch: Double
         var quer: Double
+        /// Lag der Finger WIRKLICH auf einem Blatt?
+        ///
+        /// Gemessen 09/2026: Der Befund des Nutzers nannte
+        /// `Griff #1 quer 0.50 hoch 1.00` — eine glatte Eins heißt geklemmt,
+        /// also außerhalb des Blattes. Bis 1.0.22 wurde daraus trotzdem ein
+        /// Anker gerechnet, und der legte die UNTERKANTE der Seite unter den
+        /// Finger: ein Sprung an eine Stelle, auf die niemand gezeigt hat.
+        /// Wo kein Blatt ist, gibt es keinen Brennpunkt zu halten — dann wird
+        /// gar nicht gerollt.
+        var imBlatt: Bool
     }
 
     func elementhoehe(_ massstab: Double) -> Double { blatthoehe * massstab + beiwerk }
@@ -74,12 +84,13 @@ struct Zoomanker {
     /// Division, und es muss nichts gemessen werden.
     func griff(bei punkt: CGPoint, inhalt: CGSize, massstab: Double) -> Griff {
         guard anzahl > 0, massstab > 0, blatthoehe > 0, blattbreite > 0 else {
-            return Griff(index: 0, hoch: 0.5, quer: 0.5)
+            return Griff(index: 0, hoch: 0.5, quer: 0.5, imBlatt: false)
         }
         let roh = Double(punkt.y) - rand
         let stelle = min(max(Int(floor(roh / schritt(massstab))), 0), anzahl - 1)
         let imElement = roh - Double(stelle) * schritt(massstab)
-        let hoch = anteil(imElement, blatthoehe * massstab)
+        let hochRoh = imElement / (blatthoehe * massstab)
+        let hoch = min(max(hochRoh, 0), 1)
         // Waagerecht liegt das Element in der Mitte: Der Inhalt ist
         // mindestens so breit wie das Sichtfeld UND mindestens so breit wie
         // das Blatt samt Rand (`ReiseView.inhaltsbreite`), und was schmaler
@@ -88,7 +99,11 @@ struct Zoomanker {
         // Mindestmaß; siehe die Anmerkung an `inhaltsbreite`.
         let breite = blattbreite * massstab
         let links = max((Double(inhalt.width) - breite) / 2, rand)
-        return Griff(index: stelle, hoch: hoch, quer: anteil(Double(punkt.x) - links, breite))
+        let querRoh = (Double(punkt.x) - links) / breite
+        return Griff(index: stelle, hoch: hoch,
+                     quer: min(max(querRoh, 0), 1),
+                     imBlatt: hochRoh >= 0 && hochRoh <= 1
+                              && querRoh >= 0 && querRoh <= 1)
     }
 
     /// Der Anker für `scrollTo`.
@@ -137,11 +152,6 @@ struct Zoomanker {
         var geklemmt: Bool {
             rohX < -0.0005 || rohX > 1.0005 || rohY < -0.0005 || rohY > 1.0005
         }
-    }
-
-    private func anteil(_ wert: Double, _ ganzes: Double) -> Double {
-        guard ganzes > 0 else { return 0.5 }
-        return min(max(wert / ganzes, 0), 1)
     }
 
     // Ein Nenner nahe null heißt: Element und Sichtfeld sind gleich groß.
