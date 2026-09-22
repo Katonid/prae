@@ -112,6 +112,33 @@ struct Layoutautomat {
     private var querfuge: Double { stil.lebendig ? -fuge * 1.1 : fuge }
     private var staffelhub: Double { stil.lebendig ? fuge * 0.9 : 0 }
 
+    // WIE BREIT EINE TEXTSPALTE HÖCHSTENS WIRD (ab 1.0.37).
+    //
+    // Eine Zahl, EINE Stelle. Gefragt wird sie an jedem Ort, an dem bisher
+    // `satz.width` für einen Textblock stand — beim Messen für den Plan,
+    // beim Teilen und beim Setzen. Liefen die drei auseinander, würde an
+    // einer Breite geteilt und in einer anderen gesetzt: Der Text wäre auf
+    // der Seite höher, als der Plan gerechnet hat, und liefe unten heraus.
+    //
+    // Die Begründung steht an `Gestaltung.textspaltenanteil`.
+    // Gemessen wird gegen die SATZBREITE und nicht gegen den Raum, der
+    // gerade übrig ist. Sonst käme ein Deckel auf den anderen: Bei „Karte
+    // neben dem Text" ist die Spalte schon auf gut die halbe Satzbreite
+    // eingeengt, und zwei Drittel DAVON wären ein Streifen. Wer ohnehin
+    // weniger bekommt, behält, was er hat — die Zahl ist eine Obergrenze
+    // und keine Vorschrift.
+    private var satzTextbreite: Double {
+        let anteil = min(max(gestaltung.textspaltenanteil, 0.3), 1)
+        return satz.width * anteil
+    }
+
+    // Wo eine schmale Textspalte in ihrem Raum liegt. Links oder rechts,
+    // und der Wechsel geht seitenpaarweise — dieselbe Zählung wie beim
+    // Text neben einem Foto, damit auf einer Seite nicht beides
+    // gegeneinander steht. Ein Text, der auf jeder Seite an derselben
+    // Kante klebt, macht aus dem freien Drittel einen toten Streifen.
+    private func textLinks(_ nummer: Int) -> Bool { nummer % 4 < 2 }
+
     // Gedreht wird nur, wo auch überlappt wird, und immer um denselben
     // Winkel für dasselbe Bild. Eine Karte wird NICHT gedreht: Sie ist eine
     // Auskunft und kein Erinnerungsstück.
@@ -485,7 +512,7 @@ struct Layoutautomat {
         var text = eingang.trimmingCharacters(in: .whitespacesAndNewlines)
         let kopfhoehe = max(ab - satz.minY, 0)
         let textHoehe = text.isEmpty ? 0
-            : Textmass.hoehe(text, bild: typografie.flieText, breite: satz.width)
+            : Textmass.hoehe(text, bild: typografie.flieText, breite: satzTextbreite)
         // Gemessen mit einer Reihenhöhe von einem Drittel der Seite — also
         // so, wie `Mosaik` die Seite wirklich füllt. `zielhoehe` stand hier
         // bis 1.0.34 und rechnet aus der ZAHL der Kacheln; seit die Reihen
@@ -542,7 +569,7 @@ struct Layoutautomat {
                                     offen: &offen, text: &text)
             bloecke.append(contentsOf: neue)
             restTextHoehe = text.isEmpty ? 0
-                : Textmass.hoehe(text, bild: typografie.flieText, breite: satz.width)
+                : Textmass.hoehe(text, bild: typografie.flieText, breite: satzTextbreite)
             if offen.isEmpty, text.isEmpty { break }
             // Ging auf einer leeren Seite gar nichts, passt der Rest
             // nirgends hin. Weiterblättern brauchte man dann nicht.
@@ -558,10 +585,11 @@ struct Layoutautomat {
                 seiten.append(Seite(bloecke: bloecke))
                 bloecke = []
             }
-            let hoehe = Textmass.hoehe(text, bild: typografie.flieText, breite: satz.width)
+            let restbreite = satzTextbreite
+            let hoehe = Textmass.hoehe(text, bild: typografie.flieText, breite: restbreite)
             bloecke.append(Block(
                 inhalt: .text(text),
-                rahmen: Rahmen(x: satz.minX, y: satz.minY, breite: satz.width, hoehe: hoehe)
+                rahmen: Rahmen(x: satz.minX, y: satz.minY, breite: restbreite, hoehe: hoehe)
             ))
         }
         if !bloecke.isEmpty || seiten.isEmpty { seiten.append(Seite(bloecke: bloecke)) }
@@ -587,9 +615,14 @@ struct Layoutautomat {
         // und um die geht es beim Verteilen.
         var kopf = ""
         if !text.isEmpty, textZiel > zeilenhoehe * 2.5 {
+            // Geteilt wird an der SPALTENbreite und nicht an der Satzbreite
+            // (ab 1.0.37). Wer an der vollen Breite teilt und in zwei
+            // Dritteln setzt, gibt der Seite anderthalbmal so viel Text, wie
+            // gemessen wurde — und der läuft unten heraus.
             let (vorn, hinten) = Textmass.teilen(
                 text, bild: typografie.flieText,
-                groesse: CGSize(width: platz.width, height: min(textZiel, platz.height))
+                groesse: CGSize(width: min(platz.width, satzTextbreite),
+                                height: min(textZiel, platz.height))
             )
             if !vorn.isEmpty {
                 kopf = vorn
@@ -657,16 +690,20 @@ struct Layoutautomat {
         // ---- Die Textreihe
         //
         // Drei Fälle, und keiner davon ist eine Vorlage: Ohne Bilder steht
-        // der Text über die volle Breite. Braucht er dort schon mehr als die
-        // halbe Seite, bekommt er sie ebenfalls ganz — ein Foto daneben
-        // wäre dann eine Briefmarke. Sonst sucht `Mosaik.mischreihe` die
-        // Breite, bei der Text und Bilder NEBENEINANDER aufgehen.
-        var textbreite = breite
+        // der Text in seiner HÖCHSTBREITE, also in zwei Dritteln der
+        // Satzbreite (ab 1.0.37, siehe `Gestaltung.textspaltenanteil`) —
+        // was daneben frei bleibt, ist Rand. Braucht er dort schon mehr als
+        // die halbe Seite, bekommt er diese Breite ebenfalls ganz; ein Foto
+        // in dem schmalen Rest wäre eine Briefmarke. Sonst sucht
+        // `Mosaik.mischreihe` die Breite, bei der Text und Bilder
+        // NEBENEINANDER aufgehen, und die ist nochmals schmaler.
+        let hoechstbreite = min(breite, satzTextbreite)
+        var textbreite = hoechstbreite
         var texthoehe: Double = 0
         var textreihe: [Kachel] = []
         var textreihenhoehe: Double = 0
         if !text.isEmpty {
-            let voll = Textmass.hoehe(text, bild: typografie.flieText, breite: breite)
+            let voll = Textmass.hoehe(text, bild: typografie.flieText, breite: hoechstbreite)
             texthoehe = voll
             textreihenhoehe = voll
             if !fotos.isEmpty, voll <= platz.height * 0.56 {
@@ -675,7 +712,7 @@ struct Layoutautomat {
                 if let mischung = Mosaik.mischreihe(
                     fotos: neben.map(\.verhaeltnis), breite: breite, quer: querfuge,
                     fuge: fuge,
-                    kleinste: breite * 0.30, groesste: breite * 0.70, stufen: 12,
+                    kleinste: breite * 0.30, groesste: hoechstbreite, stufen: 12,
                     texthoehe: { Textmass.hoehe(text, bild: typografie.flieText, breite: $0) }
                 ) {
                     fotos.removeFirst(daneben)
@@ -707,13 +744,39 @@ struct Layoutautomat {
         // ---- Setzen
         var bloecke: [Block] = []
         var y = Double(platz.minY)
-        let textOben = nummer % 2 == 0
         var gesetzteKacheln = textreihe.count
         var dehnung = spalte?.dehnung ?? 1
+        // Bricht eine Reihe ab, weil sie nicht mehr passt, darf danach
+        // KEINE weitere gesetzt werden: Die Kacheln liegen in einer Folge,
+        // und `seiteFuellen` nimmt hinterher die ersten `gesetzteKacheln`
+        // aus dem Vorrat. Würde Reihe 2 übersprungen und Reihe 3 gesetzt,
+        // wären zwei Bilder vertauscht — still und unauffindbar.
+        var abgebrochen = false
+
+        // WO DER TEXT IN DER SPALTE STEHT (ab 1.0.37).
+        //
+        // Ansage des Nutzers, 09/2026: „Auch hier wäre es dann gut,
+        // vielleicht verschiedene Textblöcke zu haben, die sich mit den
+        // Bildern abwechseln."
+        //
+        // Bis 1.0.36 gab es genau zwei Lagen — ganz oben oder ganz unten
+        // (`textOben = nummer % 2 == 0`). Damit stand auf jeder Seite ein
+        // Block Text und darunter (oder darüber) ein Block Bilder; einen
+        // Wechsel gab es nur von Seite zu Seite, nicht auf der Seite.
+        //
+        // Die Textreihe ist jetzt eine Reihe unter den anderen und darf an
+        // jeder Stelle der Spalte stehen: 0 heißt oben, `reihen.count`
+        // unten, alles dazwischen ZWISCHEN zwei Fotoreihen. Gewählt wird
+        // aus der Seitennummer und nicht gewürfelt — derselbe Inhalt ergibt
+        // denselben Satz (dieselbe Regel wie beim Drehwinkel und beim
+        // Papierkorn).
+        let reihenzahl = spalte?.reihen.count ?? 0
+        let stellen = reihenzahl + 1
+        let textStelle = stellen > 1 ? nummer % stellen : 0
 
         func setzeTextreihe() {
             guard !text.isEmpty else { return }
-            let textLinks = nummer % 4 < 2
+            let links = textLinks(nummer)
             let luecken = Double(max(textreihe.count - 1, 0))
             // Zwischen Text und Fotos steht immer eine ganze Fuge, zwischen
             // zwei Fotos die `querfuge` — die darf überlappen, der Text
@@ -721,12 +784,12 @@ struct Layoutautomat {
             let fotobreite = breite - textbreite - fuge - querfuge * luecken
             let fotospanne = fotobreite + querfuge * luecken
             let bildhoehe = textreihenhoehe - (textreihe.map(\.unterschrift).max() ?? 0)
-            var x = Double(platz.minX) + (textLinks ? 0 : fotospanne + fuge)
+            var x = Double(platz.minX) + (links ? 0 : fotospanne + fuge)
             bloecke.append(Block(
                 inhalt: .text(text),
                 rahmen: Rahmen(x: x, y: y, breite: textbreite, hoehe: max(texthoehe, 1))
             ))
-            x = textLinks
+            x = links
                 ? Double(platz.minX) + textbreite + fuge
                 : Double(platz.minX)
             let summe = textreihe.reduce(0.0) { $0 + $1.verhaeltnis }
@@ -741,15 +804,34 @@ struct Layoutautomat {
             y += textreihenhoehe + fuge + 4
         }
 
-        func setzeFotoreihen(bis grenze: Double) {
-            guard let spalte, !fotos.isEmpty else { return }
-            // Gedehnt wird gedeckelt — und was dann noch fehlt, bleibt als
-            // Luft zwischen den Reihen stehen. Lieber etwas Weiß als ein
-            // Bild, dem ein Fünftel seiner Breite fehlt.
-            let faktor = min(max(spalte.dehnung, 1 / Self.dehnungsgrenze), Self.dehnungsgrenze)
+        // Der gedeckelte Dehnungsfaktor — einmal gerechnet, von beiden
+        // Abschnitten benutzt. Zwei Fassungen ergäben oberhalb und
+        // unterhalb des Textes verschieden hohe Reihen.
+        let faktor = spalte.map {
+            min(max($0.dehnung, 1 / Self.dehnungsgrenze), Self.dehnungsgrenze)
+        } ?? 1
+
+        // Wie hoch die Reihen eines Abschnitts zusammen werden — samt
+        // Staffelhub, Unterschriften und Fugen. Gebraucht, um zu wissen, wo
+        // der Text hinkommt, wenn er MITTEN in der Spalte steht.
+        func abschnittshoehe(_ bereich: Range<Int>) -> Double {
+            guard let spalte else { return 0 }
+            var summe: Double = 0
+            for i in bereich where spalte.reihen.indices.contains(i) {
+                let reihe = spalte.reihen[i]
+                let hub = reihe.count > 1 ? staffelhub : 0
+                let unten = reihe.map { fotos[$0].unterschrift }.max() ?? 0
+                summe += spalte.hoehen[i] * faktor + hub * 2 + unten + fuge
+            }
+            return summe
+        }
+
+        func setzeFotoreihen(_ bereich: Range<Int>, bis grenze: Double, verteilen: Bool) {
+            guard let spalte, !fotos.isEmpty, !abgebrochen else { return }
             dehnung = spalte.dehnung
             var gezeichnet: [[UUID]] = []
-            for (nummerReihe, reihe) in spalte.reihen.enumerated() {
+            for nummerReihe in bereich where spalte.reihen.indices.contains(nummerReihe) {
+                let reihe = spalte.reihen[nummerReihe]
                 let hoehe = spalte.hoehen[nummerReihe] * faktor
                 let unten = reihe.map { fotos[$0].unterschrift }.max() ?? 0
                 // Gestaffelt wird erst ab zwei Kacheln — ein einzelnes Bild
@@ -758,7 +840,10 @@ struct Layoutautomat {
                 // Bedingung wie in `Mosaik.spalte`, sonst hielte die Spalte
                 // ihre Höhe nicht.
                 let hub = reihe.count > 1 ? staffelhub : 0
-                if y + hoehe + hub * 2 + unten > grenze + 0.5 { break }
+                if y + hoehe + hub * 2 + unten > grenze + 0.5 {
+                    abgebrochen = true
+                    break
+                }
                 let summe = reihe.reduce(0.0) { $0 + fotos[$1].verhaeltnis }
                 var x = Double(platz.minX)
                 var kennungen: [UUID] = []
@@ -784,21 +869,37 @@ struct Layoutautomat {
                 gesetzteKacheln += reihe.count
                 y += hoehe + hub * 2 + unten + fuge
             }
-            if gezeichnet.count > 1 {
+            // Verteilt wird nur im LETZTEN Abschnitt und nur nach unten.
+            // Im oberen liefe die gewonnene Luft in den Textblock hinein,
+            // und `restplatzVerteilen` kennt ihn nicht — es verschiebt nur
+            // die Reihen, die es bekommt.
+            if verteilen, gezeichnet.count > 1 {
                 bloecke = restplatzVerteilen(bloecke, reihen: gezeichnet,
                                              unten: CGFloat(y - fuge), bis: CGFloat(grenze))
             }
         }
 
-        if textOben {
+        if text.isEmpty {
+            setzeFotoreihen(0..<reihenzahl, bis: Double(platz.maxY), verteilen: true)
+        } else if textStelle == 0 {
             setzeTextreihe()
-            setzeFotoreihen(bis: Double(platz.maxY))
-        } else {
+            setzeFotoreihen(0..<reihenzahl, bis: Double(platz.maxY), verteilen: true)
+        } else if textStelle >= reihenzahl {
             // Steht der Text unten, gehört ihm sein Streifen schon jetzt —
             // sonst füllten die Reihen die Seite und er fiele heraus.
-            setzeFotoreihen(bis: Double(platz.minY) + uebrig)
+            setzeFotoreihen(0..<reihenzahl, bis: Double(platz.maxY) - textreihenhoehe - luft,
+                            verteilen: true)
             y = max(y, Double(platz.maxY) - textreihenhoehe)
             setzeTextreihe()
+        } else {
+            // MITTENDRIN. Der obere Abschnitt bekommt genau die Höhe, die
+            // seine Reihen brauchen; der Text schließt an, und der Rest
+            // gehört dem unteren Abschnitt.
+            let oben = abschnittshoehe(0..<textStelle)
+            setzeFotoreihen(0..<textStelle, bis: Double(platz.minY) + oben + 0.5,
+                            verteilen: false)
+            setzeTextreihe()
+            setzeFotoreihen(textStelle..<reihenzahl, bis: Double(platz.maxY), verteilen: true)
         }
 
         return Mosaikbau(bloecke: bloecke, dehnung: dehnung, kacheln: gesetzteKacheln)
@@ -1005,7 +1106,7 @@ struct Layoutautomat {
         var bloecke = eingang
         var y = ab
         var text = restText
-        let textBreite = satz.width
+        let textBreite = satzTextbreite
         let textX = satz.minX
         let reihenBreite = satz.width
         let reihenX = satz.minX
@@ -1313,12 +1414,20 @@ struct Layoutautomat {
     // Deckel füllt er bis zum Satzspiegelende — richtig für ein Muster,
     // das den Text trägt, falsch für eines, das ihn mit Bildern abwechseln
     // soll (`.wechsel`, ab 1.0.29).
-    private func textSpalte(_ bloecke: [Block], y: CGFloat, x: CGFloat, breite: Double,
+    private func textSpalte(_ bloecke: [Block], y: CGFloat, x: CGFloat, breite roh: Double,
                             text: String, hoechstens: Double? = nil)
         -> ([Block], CGFloat, String)
     {
         guard !text.isEmpty else { return (bloecke, y, text) }
         var neue = bloecke
+        // DER DECKEL GILT AUCH HIER (ab 1.0.37). Die acht übrigen Muster
+        // setzen ihren Text über diese eine Funktion; ihn nur im
+        // Mosaik-Weg zu begrenzen hieße, dass „Text zuerst" und „Karte
+        // oben" weiter Zeilen von neunzig Zeichen ergäben. Linksbündig,
+        // der Rest bleibt Rand: Eine wechselnde Kante ist die Sache des
+        // Mosaiks, das seine Seiten zählt — hier gibt es dafür keine
+        // Seitennummer, und eine geratene wäre Unruhe statt Rhythmus.
+        let breite = min(roh, satzTextbreite)
         let raum = min(satz.maxY - y, hoechstens ?? .greatestFiniteMagnitude)
         let platz = CGSize(width: breite, height: raum)
         guard platz.height > typografie.flieText.zeilenhoehe * 2 else { return (bloecke, y, text) }

@@ -95,7 +95,7 @@ gemeinsame Bauweise:
 | --- | --- | --- | --- |
 | Schulalarm | 1.1.0 (Build 44) | App Store, Einreichung | zwei Ablehnungen beantwortet, Wiedervorlage |
 | Abfahrtstafel | 1.1.30 (Build 43) | in Arbeit | läuft, laufende Befunde des Nutzers |
-| Reisebuch | 1.0.36 (Build 37) | in Arbeit | Satzmaschine im Umbau, **aktive Baustelle** |
+| Reisebuch | 1.0.37 (Build 38) | in Arbeit | Satzmaschine im Umbau, **aktive Baustelle** |
 | Tafelbild | 1.4.6 | App Store, freigegeben | in Pflege |
 | Kassenbuch | 1.0.17 (Build 18) | TestFlight/Store | in Pflege |
 | Tagesspur | 1.4.27 | Store | in Pflege |
@@ -162,6 +162,13 @@ Die Satzmaschine ist in vier Fassungen hintereinander umgebaut worden
 * 1.0.36 — eine Reihe ist ein Stapel, kein Raster: Drehung, Staffelung und
   überlappende Ecken sind zurück; das Wort „Bildunterschrift …" auf der
   Seite ist durch eine Marke ersetzt.
+* 1.0.37 — der Absatz gewinnt beim Teilen IMMER (`mindestfuellung`
+  ersatzlos raus; die Regel von 1.0.14 war seit 1.0.35 hinfällig), die
+  Textspalte ist auf zwei Drittel der Satzbreite gedeckelt, und die
+  Textreihe steht an jeder Stelle der Spalte statt nur oben oder unten.
+  Dazu: `Spurpunktstil` für die Punkte auf der Buchkarte, Punkte auf der
+  Vollbildkarte antippbar, und die Broschüre als eigener Menüpunkt samt
+  Drucken aus der App.
 
 **Offen und ausdrücklich ungemessen:**
 
@@ -177,6 +184,13 @@ Die Satzmaschine ist in vier Fassungen hintereinander umgebaut worden
 * Kein CMYK-PDF; iOS kann das nicht. Nicht als lösbar versprechen.
 * Der Befund zur „Regieanweisung" (1.0.36) ist am Quelltext hergeleitet
   und nicht am Buch des Nutzers nachgesehen.
+* Die Vorgabe 0,66 für die Textspalte ist die Zahl aus der Ansage des
+  Nutzers, nicht gemessen. Die Spanne 45–75 Zeichen je Zeile ist Handwerk
+  des Schriftsatzes und an diesem Buch nicht nachgeprüft — die App misst
+  seit 1.0.37, wie viele es wirklich sind.
+* Ob der Systemdruckdialog die Broschüre richtig aufs Papier bringt, ist
+  nicht geprüft: Das zeigt erst ein Ausdruck auf einem echten Drucker,
+  und welche Wendeeinstellung dort gilt, steht in keiner Datei.
 
 ### Schulalarm
 
@@ -271,10 +285,12 @@ hat:
 
 ## 8. Nächste Schritte
 
-1. **Reisebuch:** Rückmeldung des Nutzers zu 1.0.36 abwarten — sieht eine
-   Doppelseite mit gedrehten, überlappenden Bildern nach „hingelegt" aus
-   oder nach „verrutscht"? Danach die Zahlen (Überlappung, Staffelhub,
-   Winkel) nachziehen. Erst danach lohnt ein gedruckter Probebogen.
+1. **Reisebuch:** Rückmeldung des Nutzers zu 1.0.37 abwarten — wirkt eine
+   Doppelseite mit wandernder Textspalte ruhig oder unruhig, und sieht die
+   gedrehte, überlappende Bilderreihe aus 1.0.36 nach „hingelegt" aus oder
+   nach „verrutscht"? Danach die Zahlen (Spaltenanteil, Überlappung,
+   Staffelhub, Winkel) nachziehen. Erst danach lohnt ein gedruckter
+   Probebogen.
 2. **Reisebuch:** Ein PDF auf einem Gerät erzeugen und auf
    Schrifteinbettung prüfen — der älteste offene Punkt dieses Projekts.
 3. **Schulalarm:** Zustelltest auf zwei echten Geräten nach

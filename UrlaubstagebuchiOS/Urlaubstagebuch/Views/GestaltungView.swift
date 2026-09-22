@@ -94,6 +94,31 @@ struct GestaltungView: View {
                     Toggle("Kopfzeile mit Datum", isOn: $werk.reise.gestaltung.kopfzeile)
                 }
 
+                // DIE BREITE DER TEXTSPALTE (ab 1.0.37). Sie steht in einem
+                // eigenen Abschnitt und nicht zwischen den Rändern: Es ist
+                // keine Frage des Papiers, sondern der Lesbarkeit — und die
+                // Zahl darunter ist der Grund dafür.
+                Section {
+                    VStack(alignment: .leading) {
+                        LabeledContent(
+                            "Höchstbreite",
+                            value: "\(Int((werk.reise.gestaltung.textspaltenanteil * 100).rounded())) %"
+                        )
+                        Slider(value: $werk.reise.gestaltung.textspaltenanteil,
+                               in: 0.4...1.0, step: 0.02)
+                    }
+                } header: {
+                    Text("Textspalte")
+                } footer: {
+                    Text("Über die volle Satzbreite stehen auf einer A4-Seite weit über achtzig "
+                         + "Zeichen in einer Zeile; wer am Zeilenende ankommt, findet den Anfang "
+                         + "der nächsten nicht mehr sicher wieder. Bequem zu lesen sind 45 bis 75. "
+                         + "Was neben dem Text frei bleibt, bekommen die Bilder — und wo keine "
+                         + "mehr sind, bleibt es Rand.\n\nWie viele Zeichen in DIESEM Buch wirklich "
+                         + "auf einer Zeile stehen, steht unter „…“ → „Als PDF sichern…“ im "
+                         + "Abschnitt „Vor dem Ausgeben geprüft“ — gemessen, nicht geschätzt.")
+                }
+
                 KartenbildWahl(titel: "Kartenbild", bild: $werk.reise.kartenbild)
 
                 Section("Karte im Satz") {

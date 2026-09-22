@@ -134,6 +134,122 @@ enum Druckpruefung {
         )]
     }
 
+    // WO MITTEN IM SATZ GETRENNT WURDE (ab 1.0.37).
+    //
+    // Der Befund, der diese Fassung ausgelöst hat (Nutzer, 09/2026): „Ich
+    // hatte aber gesagt, dass die Trennstellen dabei nach den Absätzen sein
+    // sollen. Ich finde aber Trennstellen, die quasi mitten im Text
+    // passieren."
+    //
+    // `Textmass.teilen` schneidet seither IMMER an einem Absatz, solange es
+    // einen gibt. Übrig bleibt genau ein Fall, in dem es keinen geben KANN:
+    // ein einzelner Absatz, der für sich schon länger ist als der Platz auf
+    // der Seite. Dann muss an der Wortgrenze getrennt werden.
+    //
+    // Diese Stellen werden GEZÄHLT und nicht stillschweigend hingenommen —
+    // sonst wäre „der Absatz gewinnt" eine Zusage, die sich niemand ansehen
+    // kann. Gemessen wird am ERGEBNIS und nicht an der Absicht: Ein
+    // Textblock, der nicht mit einem Satzzeichen aufhört und dem ein
+    // weiterer folgt, endet mitten im Satz. Das ist unabhängig davon, was
+    // die Teilung gemeint hat — und damit die ehrlichere Zahl.
+    static func mittenImSatz(_ reise: Reise) -> [Zeile] {
+        // Schlusszeichen, nach denen ein Absatz zu Ende sein darf. Das
+        // Anführungszeichen und die Klammer stehen dabei, weil ein Satz auf
+        // „\u{2026} sagte sie.\u{201C}" endet.
+        let schluss: Set<Character> = [".", "!", "?", ":", ";",
+                                       "\u{201C}", "\u{2019}", "\u{00BB}", ")", "\u{2026}"]
+        var treffer: [String] = []
+        for tag in reise.tage {
+            var stuecke: [String] = []
+            for seite in tag.seiten {
+                for block in seite.bloecke {
+                    guard case let .text(inhalt) = block.inhalt else { continue }
+                    let sauber = inhalt.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if !sauber.isEmpty { stuecke.append(sauber) }
+                }
+            }
+            guard stuecke.count > 1 else { continue }
+            for stueck in stuecke.dropLast() {
+                guard let letztes = stueck.last, !schluss.contains(letztes) else { continue }
+                let ende = stueck.suffix(34)
+                treffer.append("\(tag.datum.mittel): \u{2026}\(ende)")
+            }
+        }
+        guard !treffer.isEmpty else {
+            return [Zeile(stufe: .gut, titel: "Alle Trennstellen liegen an einem Absatz",
+                          text: "Kein Textkasten endet mitten im Satz.")]
+        }
+        return [Zeile(
+            stufe: .hinweis,
+            titel: "\(treffer.count)\u{00D7} mitten im Satz getrennt",
+            text: "An diesen Stellen gab es im Kasten keine Absatzgrenze \u{2014} der Absatz "
+                + "ist f\u{00FC}r sich schon l\u{00E4}nger als der Platz auf der Seite. "
+                + "Eine kleinere Schrift, eine breitere Textspalte oder ein zus\u{00E4}tzlicher "
+                + "Absatz im Tagebuchtext l\u{00F6}st es auf.\n"
+                + treffer.prefix(12).joined(separator: "\n")
+        )]
+    }
+
+    // WIE LANG DIE ZEILEN SIND — gemessen (ab 1.0.37).
+    //
+    // Die Zeilenlänge ist die Zahl, auf die sich
+    // `Gestaltung.textspaltenanteil` stützt, und eine Einstellung, die sich
+    // auf eine Behauptung stützt, wäre in diesem Buch die falsche. Gezählt
+    // wird mit demselben CoreText-Umbruch, der die Seiten setzt
+    // (`Textmass.zeichenJeZeile`).
+    //
+    // **Die Spanne ist typografisches Handwerk und keine Messung an diesem
+    // Buch**: 45 bis 75 Zeichen gelten als bequem zu lesen, weil das Auge
+    // am Zeilenende den Anfang der nächsten noch sicher findet. Das steht
+    // so in jedem Satzlehrbuch; hier ist es nicht nachgeprüft worden, und
+    // deshalb sagt die Zeile es als Faustregel und nicht als Befund.
+    //
+    // Gemessen wird der LÄNGSTE Fließtextblock des Buches: Ein kurzer sagt
+    // über die Zeilenlänge nichts, weil er nur aus einer Zeile bestehen
+    // kann. Überschriften, Datumszeilen und Bildunterschriften bleiben
+    // draußen — für die gilt die Faustregel nicht.
+    static func zeilenlaenge(_ reise: Reise) -> [Zeile] {
+        var breiteste: (block: Block, laenge: Int)?
+        for tag in reise.tage {
+            for seite in tag.seiten {
+                for block in seite.bloecke {
+                    guard case let .text(inhalt) = block.inhalt,
+                          inhalt.count > 80, block.rahmen.breite > 1
+                    else { continue }
+                    if breiteste == nil || inhalt.count > breiteste!.laenge {
+                        breiteste = (block, inhalt.count)
+                    }
+                }
+            }
+        }
+        guard let breiteste, case let .text(inhalt) = breiteste.block.inhalt else { return [] }
+        let bild = Seitensatz.schriftbild(breiteste.block, reise: reise)
+        let rand = breiteste.block.textrand(reise.gestaltung)
+        let breite = breiteste.block.textbreite(rand: rand)
+        let zeichen = Textmass.zeichenJeZeile(inhalt, bild: bild, breite: breite)
+        guard zeichen > 0 else { return [] }
+
+        let anteil = Int((reise.gestaltung.textspaltenanteil * 100).rounded())
+        let grund = "Gemessen am l\u{00E4}ngsten Textblock des Buches: rund \(zeichen) Zeichen "
+            + "je Zeile bei \(Druckmass.mmText(breite)) Spaltenbreite \u{2014} das sind "
+            + "\(anteil)\u{00A0}% der Satzbreite (Gestalten \u{2192} R\u{00E4}nder, Karte, "
+            + "Seitenzahlen). Als bequem zu lesen gelten 45 bis 75 Zeichen; das ist eine "
+            + "Faustregel des Schriftsatzes und keine Messung an diesem Buch."
+        if zeichen > 85 {
+            return [Zeile(stufe: .warnung,
+                          titel: "\(zeichen) Zeichen je Zeile \u{2014} sehr lang",
+                          text: grund + " Eine schmalere Textspalte oder eine gr\u{00F6}\u{00DF}ere "
+                              + "Schrift bringt die Zahl herunter.")]
+        }
+        if zeichen < 32 {
+            return [Zeile(stufe: .hinweis,
+                          titel: "\(zeichen) Zeichen je Zeile \u{2014} sehr kurz",
+                          text: grund + " Bei so schmalen Spalten rei\u{00DF}t der Satz auf; eine "
+                              + "kleinere Schrift oder eine breitere Spalte hilft.")]
+        }
+        return [Zeile(stufe: .gut, titel: "\(zeichen) Zeichen je Zeile", text: grund)]
+    }
+
     // MARK: - Vor dem Ausgeben
 
     static func vorab(_ reise: Reise) -> [Zeile] {
@@ -161,6 +277,8 @@ enum Druckpruefung {
         zeilen.append(contentsOf: abgeschnittenerText(reise))
         zeilen.append(contentsOf: doppelterText(reise))
         zeilen.append(contentsOf: leereUnterschriften(reise))
+        zeilen.append(contentsOf: zeilenlaenge(reise))
+        zeilen.append(contentsOf: mittenImSatz(reise))
 
         // Randabfallendes
         let randab = reise.seitenfolge.reduce(0) { summe, seite in

@@ -35,10 +35,18 @@ struct SpurView: View {
                             .listRowInsets(EdgeInsets())
                     }
                     Section {
+                        // DER WEG ZUR KARTE HEISST JETZT NACH DEM, WAS
+                        // DORT GEHT (ab 1.0.37). „Punkt auf der Karte
+                        // setzen" klang nach einem Weg, der nur hinzufügt —
+                        // dabei lässt sich auf derselben Karte seit 1.0.37
+                        // jeder vorhandene Punkt antippen, verschieben und
+                        // löschen. Ein Menüpunkt, der nicht sagt, was
+                        // dahinter liegt, ist so wenig wert wie ein Knopf,
+                        // den niemand findet.
                         Button {
                             punktwahl = true
                         } label: {
-                            Label("Punkt auf der Karte setzen", systemImage: "mappin.and.ellipse")
+                            Label("Punkte auf der Karte\u{2026}", systemImage: "map")
                         }
                         Button {
                             werk.spurAktualisieren(tagID)
@@ -47,9 +55,11 @@ struct SpurView: View {
                             Label("Aus den Fotos neu bauen", systemImage: "arrow.clockwise")
                         }
                     } footer: {
-                        Text("Beim Neubauen bleiben die von Hand gesetzten Punkte erhalten; "
-                             + "die Fotopunkte werden ersetzt. Ein Tipp auf einen Punkt in der "
-                             + "Liste öffnet ihn zum Ändern \u{2014} Ort, Name, Uhrzeit, Löschen.")
+                        Text("Auf der Karte lässt sich jeder Punkt antippen, verschieben und "
+                             + "löschen \u{2014} dort findet man ihn leichter wieder als in der "
+                             + "Liste. Ein Tipp auf eine Zeile hier öffnet denselben Bildschirm "
+                             + "bei diesem Punkt. Beim Neubauen aus den Fotos bleiben die von "
+                             + "Hand gesetzten Punkte erhalten; die Fotopunkte werden ersetzt.")
                     }
 
                     Section {
@@ -163,7 +173,7 @@ struct SpurView: View {
                 PunktwahlView(werk: werk, tagID: tagID)
             }
             .sheet(item: $bearbeiten) { wunsch in
-                PunktwahlView(werk: werk, tagID: tagID, punktID: wunsch.id)
+                PunktwahlView(werk: werk, tagID: tagID, start: wunsch.id)
             }
             .sheet(isPresented: $verschieben) {
                 Zeitverschiebung(werk: werk, tagID: tagID, punkte: auswahl) {

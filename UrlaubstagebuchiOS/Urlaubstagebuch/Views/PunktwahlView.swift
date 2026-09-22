@@ -20,11 +20,36 @@ import SwiftUI
 // Die UHRZEIT wird getippt und nicht gedreht (ebenfalls ausdrücklich: „Die
 // neue Zeitangabe möchte ich per Hand eingeben."). Angenommen wird alles,
 // was eindeutig ist — „9:05", „0905", „9.05", „9".
+// EINEN PUNKT AUF DER KARTE FINDEN — nicht in der Liste (ab 1.0.37).
+//
+// Befund des Nutzers, 09/2026: „Ich möchte die Reisepunkte auf einer Karte,
+// die möglichst bildschirmfüllend ist, auswählen können und verschieben
+// können bzw. löschen können. Innerhalb der Liste ist es schwierig, einen
+// bestimmten Punkt wiederzufinden."
+//
+// Die Karte gab es schon, bildschirmfüllend, samt Verschieben und Löschen —
+// nur der WEG hinein führte über die Liste: `punktID` war ein `let`, das von
+// außen hereingereicht wurde, und wer den Punkt in der Liste nicht fand, kam
+// gar nicht erst hierher. Die Punkte auf der Karte waren `Marker`, also
+// unantastbar.
+//
+// Deshalb ist `punktID` jetzt ein ZUSTAND: Ein Tipp auf einen Punkt wählt
+// ihn aus, und von da an heißt der Knopf „Übernehmen" statt „Punkt hier
+// setzen". Wer beim Öffnen einen Punkt mitbekommt, startet bei dem.
+//
+// AUF DER KARTE LIEGT KEIN BEDIENELEMENT. Die Geste gehört der Karte; was
+// auf ihr liegt, ist ein BILD (`.allowsHitTesting(false)`). Den Tipp nimmt
+// die Karte entgegen und sucht HINTERHER den nächsten Punkt — in
+// BILDPUNKTEN, nicht in Grad, denn was „nah" heißt, hängt am Maßstab.
+// Dieselbe Lehre wie bei der Netzkarte der Abfahrtstafel (1.1.18): Liegen
+// Bedienelemente auf einer Karte, schlucken sie die Finger der Zoomgeste.
 struct PunktwahlView: View {
     @ObservedObject var werk: Reisewerk
     let tagID: UUID
-    // Leer heißt: ein neuer Punkt. Sonst der, der geändert wird.
-    var punktID: UUID?
+    // Womit begonnen wird. Leer heißt: ein neuer Punkt.
+    var start: UUID?
+    // Welcher Punkt gerade bearbeitet wird. Leer heißt: ein neuer.
+    @State private var punktID: UUID?
     @Environment(\.dismiss) private var schliessen
     @StateObject private var standort = Standortdienst()
 
@@ -45,6 +70,14 @@ struct PunktwahlView: View {
     @State private var suche = ""
     @State private var treffer: [MKMapItem] = []
     @State private var sucheLaeuft = false
+
+    // Wie weit ein Tipp danebengehen darf, in BILDSCHIRMPUNKTEN. Apple
+    // nennt 44 als Mindestmaß für ein Fingerziel; hier darf es großzügiger
+    // sein als der gezeichnete Punkt, weil die Suche erst läuft, NACHDEM
+    // klar ist, dass ein Tipp gemeint war — sie kostet also keine
+    // Kartenfläche. Zu groß wäre sie trotzdem falsch: Dann ließe sich die
+    // Karte in der Nähe einer Spur nicht mehr verschieben.
+    private static let griffweite: Double = 30
 
     private var tag: Reisetag? { werk.reise.tage.first { $0.id == tagID } }
     private var punkt: Reisepunkt? {
@@ -86,8 +119,19 @@ struct PunktwahlView: View {
             .task { starten() }
             .alert("Punkt löschen?", isPresented: $loeschfrage) {
                 Button("Löschen", role: .destructive) {
-                    if let punktID { werk.punktLoeschen(tagID, punktID: punktID) }
-                    schliessen()
+                    guard let alt = punktID else { return }
+                    werk.punktLoeschen(tagID, punktID: alt)
+                    // NICHT schließen (ab 1.0.37). Wer Punkte auf der Karte
+                    // durchsieht, löscht oft mehrere; ein Blatt, das nach
+                    // jedem Löschen zugeht, macht aus drei Handgriffen
+                    // dreimal denselben Weg. Stattdessen zurück auf „neuer
+                    // Punkt" — der gelöschte ist ja weg.
+                    punktID = nil
+                    name = ""
+                    nameGeholt = false
+                    zeitSetzen = false
+                    zeittext = ""
+                    werk.meldung = .init(text: "Punkt gelöscht.")
                 }
                 Button("Abbrechen", role: .cancel) {}
             } message: {
@@ -100,13 +144,74 @@ struct PunktwahlView: View {
     private var karte: some View {
         MapReader { leser in
             kartenbild
-                // EIN TIPP SETZT DIE STELLE. Umgerechnet wird über den
-                // `MapProxy` — welche Koordinate unter einem Bildschirmpunkt
-                // liegt, weiß allein die Karte.
+                // EIN TIPP — zwei Bedeutungen, und welche gilt, entscheidet,
+                // was unter dem Finger liegt. Liegt dort ein Reisepunkt,
+                // wird der gewählt; sonst rückt die Stelle unter das
+                // Fadenkreuz wie bisher.
+                //
+                // Das ist erlaubt, obwohl diese App sonst verlangt, dass
+                // ein Modus sichtbar ist: Es IST sichtbar — die Punkte
+                // stehen auf der Karte, der gewählte ist hervorgehoben, und
+                // die Leiste unten nennt ihn beim Namen. Dieselbe Bauweise
+                // wie ein Tipp auf einen Halt in der Netzkarte der
+                // Abfahrtstafel.
                 .onTapGesture { stelle in
+                    if let getroffen = punktBei(stelle, leser: leser) {
+                        waehle(getroffen)
+                        return
+                    }
                     guard let ort = leser.convert(stelle, from: .local) else { return }
                     kamera = .region(MKCoordinateRegion(center: ort, span: spanne))
                 }
+        }
+    }
+
+    // Welcher Punkt unter dem Finger liegt — gemessen in BILDPUNKTEN.
+    //
+    // Gerechnet wird erst, NACHDEM ein Tipp angekommen ist; in Grad zu
+    // messen ginge nicht, weil ein Grad je nach Maßstab ein Millimeter oder
+    // ein Bildschirm ist. Von hinten nach vorn durchgegangen, damit bei
+    // gleichem Abstand der gewinnt, der obenauf gezeichnet ist.
+    private func punktBei(_ stelle: CGPoint, leser: MapProxy) -> Reisepunkt? {
+        guard let spur = tag?.spur, !spur.isEmpty else { return nil }
+        var naechster: (punkt: Reisepunkt, abstand: Double)?
+        for eintrag in spur.reversed() {
+            guard let auf = leser.convert(eintrag.koordinate.clLocation, to: .local) else {
+                continue
+            }
+            // `Double(…)` ist hier Pflicht und keine Zierde: `hypot` über
+            // zwei `CGFloat` gibt `CGFloat` zurück, und bei einer
+            // TUPEL-Zuweisung rechnet Swift die beiden NICHT ineinander um —
+            // obwohl sie auf diesen Geräten dasselbe sind. Bei gewöhnlichen
+            // Zuweisungen und Argumenten tut er es; der Fehler zeigt sich
+            // also nur an dieser einen Stelle. Dieselbe Falle wie beim
+            // Layoutautomaten im ersten Bau, und das zweite Mal.
+            let abstand = Double(hypot(auf.x - stelle.x, auf.y - stelle.y))
+            guard abstand <= Self.griffweite else { continue }
+            if naechster == nil || abstand < naechster!.abstand {
+                naechster = (eintrag, abstand)
+            }
+        }
+        return naechster?.punkt
+    }
+
+    // Auf einen anderen Punkt wechseln. Die Karte fährt hin, und die Felder
+    // übernehmen seine Angaben — sonst stünde im Namensfeld noch der Name
+    // des vorigen und würde beim nächsten „Übernehmen" auf den neuen
+    // geschrieben.
+    private func waehle(_ neu: Reisepunkt) {
+        guard neu.id != punktID else { return }
+        punktID = neu.id
+        mitte = neu.koordinate
+        kamera = .region(MKCoordinateRegion(center: neu.koordinate.clLocation, span: spanne))
+        name = neu.name
+        nameGeholt = true
+        if let zeit = neu.zeit {
+            zeitSetzen = true
+            zeittext = Self.uhrzeit.string(from: zeit)
+        } else {
+            zeitSetzen = false
+            zeittext = ""
         }
     }
 
@@ -116,11 +221,15 @@ struct PunktwahlView: View {
                 MapPolyline(coordinates: tag.spur.map(\.koordinate.clLocation))
                     .stroke(werk.reise.akzent.farbe, lineWidth: 3)
             }
-            ForEach(tag?.spur ?? []) { punkt in
-                Marker(punkt.name.isEmpty ? "Punkt" : punkt.name,
-                       systemImage: punkt.istAusFoto ? "camera.fill" : "mappin",
-                       coordinate: punkt.koordinate.clLocation)
-                    .tint(punkt.istAusFoto ? .blue : Color.accentColor)
+            ForEach(tag?.spur ?? []) { eintrag in
+                Annotation(eintrag.name, coordinate: eintrag.koordinate.clLocation) {
+                    Spurmarke(punkt: eintrag, gewaehlt: eintrag.id == punktID)
+                }
+                // WAS AUF EINER KARTE LIEGT, IST EIN BILD. Ein antippbarer
+                // Punkt schluckt den Finger der Zoomgeste — die Lehre aus
+                // 1.1.18 der Abfahrtstafel. Den Tipp nimmt die Karte
+                // entgegen (siehe `punktBei`).
+                .annotationTitles(.hidden)
             }
         }
         .mapControls {
@@ -153,6 +262,47 @@ struct PunktwahlView: View {
 
     private var leiste: some View {
         VStack(spacing: 10) {
+            // WELCHER PUNKT GERADE DRAN IST — in Worten. Ein Tipp auf die
+            // Karte kann ihn wechseln, und ein Knopf, der dann „Übernehmen"
+            // heißt, ohne zu sagen wofür, wäre ein Knopf, dem man nicht
+            // traut.
+            HStack(spacing: 8) {
+                if let punkt {
+                    Image(systemName: punkt.istAusFoto ? "camera.fill" : "mappin.circle.fill")
+                        .foregroundStyle(punkt.istAusFoto ? Color.blue : Color.accentColor)
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(punkt.name.isEmpty ? "Punkt ohne Namen" : punkt.name)
+                            .font(.subheadline.weight(.medium))
+                        Text(stellensatz(punkt))
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    // ZURÜCK ZU „NEU". Ohne diesen Weg käme man, einmal auf
+                    // einem Punkt gelandet, nie wieder zum Anlegen — und
+                    // dass der Knopf unten plötzlich anders heißt, sähe wie
+                    // ein Fehler aus.
+                    Button("Neuer Punkt") {
+                        punktID = nil
+                        name = ""
+                        nameGeholt = false
+                        zeitSetzen = false
+                        zeittext = ""
+                        Task { await nameHolen() }
+                    }
+                    .font(.caption)
+                } else {
+                    Image(systemName: "plus.circle")
+                        .foregroundStyle(Color.accentColor)
+                    Text(tag?.spur.isEmpty == false
+                         ? "Neuer Punkt \u{2014} ein Tipp auf einen vorhandenen öffnet ihn."
+                         : "Neuer Punkt")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                }
+            }
+            Divider()
             if standort.abgelehnt {
                 Text("Ohne Ortung fehlt nur der Knopf „Mein Standort“ — die Karte lässt sich weiter frei bewegen.")
                     .font(.caption)
@@ -258,6 +408,7 @@ struct PunktwahlView: View {
         // Karte wieder auf dem Ausgangspunkt.
         guard !geladen else { return }
         geladen = true
+        punktID = start
         let anfang = punkt ?? tag?.spur.last
         if let anfang {
             kamera = .region(MKCoordinateRegion(
@@ -331,7 +482,6 @@ struct PunktwahlView: View {
         if let punktID {
             werk.punktAendern(tagID, punktID: punktID, ort: mitte, name: name, zeit: uhrzeit)
             werk.meldung = .init(text: "Punkt geändert: \(wie)")
-            schliessen()
         } else {
             werk.punktHinzufuegen(tagID, ort: mitte, name: name, zeit: uhrzeit)
             werk.meldung = .init(text: "Punkt gesetzt: \(wie)")
@@ -368,5 +518,47 @@ struct PunktwahlView: View {
         let antwort = try? await MKLocalSearch(request: wunsch).start()
         treffer = Array((antwort?.mapItems ?? []).prefix(8))
         sucheLaeuft = false
+    }
+
+    // Wo dieser Punkt in der Tagesfolge steht — die Angabe, die in der
+    // Liste die Zeile darunter trägt und hier sonst fehlte.
+    private func stellensatz(_ eintrag: Reisepunkt) -> String {
+        var teile: [String] = []
+        if let spur = tag?.spur, let stelle = spur.firstIndex(where: { $0.id == eintrag.id }) {
+            teile.append("Punkt \(stelle + 1) von \(spur.count)")
+        }
+        teile.append(eintrag.zeit.map { Self.uhrzeit.string(from: $0) } ?? "ohne Uhrzeit")
+        teile.append(eintrag.quelle.name)
+        return teile.joined(separator: " \u{00B7} ")
+    }
+}
+
+// Ein Reisepunkt auf der Karte — als BILD und nicht als Knopf.
+//
+// `.allowsHitTesting(false)` ist hier der ganze Punkt: Diese Marke darf
+// keinen Finger annehmen, sonst schluckt sie die Zoomgeste der Karte
+// (Abfahrtstafel 1.1.18). Den Tipp wertet `PunktwahlView.punktBei` aus.
+//
+// Der GEWÄHLTE Punkt wird größer und bekommt einen Ring. Das ist keine
+// Zierde: Der Knopf unten heißt „Übernehmen" und schreibt auf genau diesen
+// Punkt — welcher es ist, muss auf der Karte zu sehen sein.
+private struct Spurmarke: View {
+    let punkt: Reisepunkt
+    let gewaehlt: Bool
+
+    var body: some View {
+        ZStack {
+            if gewaehlt {
+                Circle()
+                    .strokeBorder(Color.accentColor, lineWidth: 2.5)
+                    .background(Circle().fill(.white.opacity(0.65)))
+                    .frame(width: 30, height: 30)
+            }
+            Image(systemName: punkt.istAusFoto ? "camera.fill" : "mappin.circle.fill")
+                .font(.system(size: gewaehlt ? 15 : 12))
+                .foregroundStyle(punkt.istAusFoto ? Color.blue : Color.accentColor)
+                .shadow(color: .white.opacity(0.9), radius: 1.5)
+        }
+        .allowsHitTesting(false)
     }
 }

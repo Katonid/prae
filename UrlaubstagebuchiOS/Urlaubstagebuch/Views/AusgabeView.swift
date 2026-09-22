@@ -1,6 +1,13 @@
 import PDFKit
 import SwiftUI
 
+// AUSGEBEN — und seit 1.0.37 auch DRUCKEN.
+//
+// Diese eine Ansicht bedient beide Einstiege: „Als PDF sichern…" und
+// „Broschüre drucken…". Ein zweiter Bildschirm für die Broschüre wäre ein
+// zweiter Weg zu derselben Sache und liefe irgendwann auseinander —
+// dieselbe Regel wie bei den Fotostilfeldern (1.0.10). Der Einstieg wählt
+// nur vor, was hier oben steht.
 struct AusgabeView: View {
     @ObservedObject var werk: Reisewerk
     @Environment(\.dismiss) private var schliessen
@@ -13,11 +20,34 @@ struct AusgabeView: View {
     @State private var teilen = false
     @State private var guete: Bildguete = .druck
     @State private var ohneTransparenz = false
-    @State private var umfang: Umfang = .ganzesBuch
+    @State private var umfang: Umfang
+    @State private var drucken = false
+
+    // WOMIT DER BILDSCHIRM AUFMACHT. Der Menüpunkt „Broschüre drucken…"
+    // reicht `.broschuere` herein; sonst bleibt es bei der einen Datei.
+    //
+    // Gesetzt wird der Anfangswert HIER und nicht in `.task`: Ein Zustand,
+    // den eine Aufgabe nachträglich überschreibt, springt für einen
+    // Durchgang lang auf den falschen Wert — und wer in dieser Zeit schon
+    // umgestellt hat, sieht seine Wahl zurückgesetzt.
+    init(werk: Reisewerk, vorwahl: Umfang = .ganzesBuch) {
+        self.werk = werk
+        _umfang = State(initialValue: vorwahl)
+    }
     @State private var teilenliste: [URL] = []
     @State private var befundVorab: [Druckpruefung.Zeile] = []
     @State private var rueckseitenDrehen = false
 
+    // WIE DIE SEITEN ANGEORDNET WERDEN.
+    //
+    // Der Picker hieß bis 1.0.36 „Umfang", und die Namen darin sagten
+    // nicht, was dahintersteht: Für „Broschüre" musste man wissen, dass es
+    // eine gibt. Dass der Nutzer sie nicht gefunden hat (09/2026: „Noch
+    // nicht gefunden habe ich die gewünschte Option, das Reisetagebuch auf
+    // dem heimischen Drucker doppelseitig als Broschüre drucken zu
+    // können"), obwohl sie seit 1.0.27 vollständig gebaut ist, liegt an
+    // drei Dingen auf einmal: falsches Menü, ein Wort, das nach Seitenzahl
+    // klingt, und ein zugeklappter Picker darüber. Alle drei sind geändert.
     enum Umfang: String, CaseIterable, Identifiable {
         case ganzesBuch
         case getrennt
@@ -26,9 +56,20 @@ struct AusgabeView: View {
         var id: String { rawValue }
         var name: String {
             switch self {
-            case .ganzesBuch: return "Eine Datei"
-            case .getrennt: return "Umschlag getrennt"
-            case .broschuere: return "Broschüre"
+            case .ganzesBuch: return "Buchseiten der Reihe nach"
+            case .getrennt: return "Umschlag als eigene Datei"
+            case .broschuere: return "Broschüre zum Selberfalten"
+            }
+        }
+
+        var erklaerung: String {
+            switch self {
+            case .ganzesBuch:
+                return "Eine Datei, Seite für Seite — das, was eine Druckerei oder ein Fotobuchdienst haben will."
+            case .getrennt:
+                return "Zwei Dateien: Innenteil und Umschlag. Viele Buchdienste verlangen das so."
+            case .broschuere:
+                return "Zwei Seiten nebeneinander auf einen Bogen, in Heftfolge. Für den eigenen Drucker: beidseitig ausdrucken, in der Mitte falten, heften."
             }
         }
     }
@@ -80,9 +121,12 @@ struct AusgabeView: View {
                     Text(guete.erklaerung)
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                    Picker("Umfang", selection: $umfang) {
+                    Picker("Anordnung", selection: $umfang) {
                         ForEach(Umfang.allCases) { u in Text(u.name).tag(u) }
                     }
+                    Text(umfang.erklaerung)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                     if umfang == .broschuere {
                         LabeledContent("Bogen", value: broschuerenmass)
                         Toggle("Rückseiten um 180° drehen", isOn: $rueckseitenDrehen)
@@ -130,6 +174,17 @@ struct AusgabeView: View {
                         PDFVorschau(adresse: fertig)
                             .frame(height: 320)
                             .listRowInsets(EdgeInsets())
+                        // DRUCKEN STEHT VOR TEILEN, wenn eine Broschüre
+                        // gesetzt wurde (ab 1.0.37). Sie ist für den
+                        // eigenen Drucker gebaut und für sonst nichts; eine
+                        // Datei, die man erst irgendwohin sichern und dann
+                        // von Hand wieder öffnen muss, wäre der Umweg um
+                        // genau den Knopf herum, um den gebeten wurde.
+                        Button {
+                            drucken = true
+                        } label: {
+                            Label("Drucken\u{2026}", systemImage: "printer")
+                        }
                         Button {
                             teilen = true
                         } label: {
@@ -148,7 +203,7 @@ struct AusgabeView: View {
                     .disabled(laeuft)
                 }
             }
-            .navigationTitle("Als PDF sichern")
+            .navigationTitle(umfang == .broschuere ? "Broschüre" : "Als PDF sichern")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -157,6 +212,12 @@ struct AusgabeView: View {
             }
             .sheet(isPresented: $teilen) {
                 Teilenblatt(gegenstaende: teilenliste)
+            }
+            .onChange(of: drucken) { _, neu in
+                guard neu, let fertig else { return }
+                drucken = false
+                Druckauftrag.zeigen(fertig, titel: werk.reise.titel,
+                                    beidseitig: umfang == .broschuere)
             }
             .task { befundVorab = Druckpruefung.vorab(werk.reise) }
         }

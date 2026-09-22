@@ -53,6 +53,17 @@ struct KartenbildWahl: View {
                 }
             }
 
+            // DIE REISEPUNKTE gelten für JEDE Quelle: Sie werden von
+            // dieser App auf den Untergrund gezeichnet, gleich ob der von
+            // Apple aufgenommen oder aus Kacheln gebaut wurde. Deshalb
+            // steht die Zeile außerhalb der Quellen-Zweige.
+            Picker("Reisepunkte", selection: $bild.punktstil) {
+                ForEach(Spurpunktstil.allCases) { art in Text(art.name).tag(art) }
+            }
+            Text(bild.punktstil.erklaerung)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
             if bild.quelle != .apple {
                 // Bei den Kachelquellen ist die Beschriftung IM BILD: Sie
                 // kommt fertig gerendert vom Server. Keine Einstellung

@@ -315,6 +315,30 @@ struct Gestaltung: Codable, Hashable {
     var textrandfarbe: Farbwert?
     var textschatten: Schattenart = .keiner
 
+    // WIE BREIT EINE TEXTSPALTE HÖCHSTENS WIRD — als Anteil der Satzbreite
+    // (ab 1.0.37).
+    //
+    // Ansage des Nutzers, 09/2026: „Mir fällt auf, dass der Text des
+    // Tagebuches in der Regel über die gesamte Breite einer Seite geht. Das
+    // finde ich nicht gut, denn ich denke, er ist besser lesbar, wenn er
+    // maximal über zwei Drittel der Seite geht."
+    //
+    // Er hat recht, und es ist nachzumessen: Die Zeilenlänge ist die eine
+    // Größe, an der Lesbarkeit hängt. Über die volle Satzbreite einer
+    // A4-Seite stehen bei 10,5 Punkt Schrift weit über achtzig Zeichen in
+    // einer Zeile; wer am Zeilenende ankommt, findet den Anfang der nächsten
+    // nicht mehr sicher wieder. Deshalb steht in der Oberfläche nicht nur der
+    // Regler, sondern auch die GEMESSENE Zahl der Zeichen je Zeile
+    // (`Textmass.zeichenJeZeile`) — eine Einstellung, die sich auf eine
+    // Behauptung stützt, wäre in diesem Buch die falsche.
+    //
+    // 0,66 ist die Vorgabe und die Zahl aus der Ansage. Sie ist eine OBERE
+    // Schranke und keine Vorschrift: Steht ein Foto neben dem Text, sucht
+    // `Mosaik.mischreihe` die Breite, bei der beides aufgeht, und die ist
+    // meist schmaler. Was rechts (oder links) frei bleibt, bekommen die
+    // Bilder — und wo keine mehr sind, bleibt es Rand.
+    var textspaltenanteil: Double = 0.66
+
     var kartenanteil: Double = 0.38
     var eckenradius: Double = 0
     var papier: Farbwert = .papier
@@ -357,6 +381,7 @@ struct Gestaltung: Codable, Hashable {
         textrandbreite = b.wert(.textrandbreite, 0.0)
         textrandfarbe = b.wahlweise(.textrandfarbe)
         textschatten = b.wert(.textschatten, Schattenart.keiner)
+        textspaltenanteil = b.wert(.textspaltenanteil, 0.66)
         kartenanteil = b.wert(.kartenanteil, 0.38)
         eckenradius = b.wert(.eckenradius, 0.0)
         papier = b.wert(.papier, Farbwert.papier)
