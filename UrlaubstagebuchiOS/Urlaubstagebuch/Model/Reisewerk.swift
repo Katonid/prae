@@ -29,6 +29,16 @@ final class Reisewerk: ObservableObject, Identifiable {
     // Abfahrtstafel: Wo sich eine Ursache nicht erschließen lässt, muss
     // eine Probe entscheiden.
     @Published var letzterGriff: String?
+    // Was beim letzten Zoomen der BUEHNE gerechnet wurde (ab 1.0.22).
+    //
+    // Eine eigene Zeile neben `letzterGriff`, weil es zwei verschiedene
+    // Fragen sind: Dort geht es darum, was ein Block entgegengenommen hat,
+    // hier darum, ob sich die Seite ueberhaupt schieben laesst. Gemeldet
+    // 09/2026: „Die Seite kann leider nicht verschoben werden. Wenn ich sie
+    // zoome, dann springt sie immer in irgendeine offenbar vorgerasterte
+    // Position." Geschrieben wird EINMAL je Geste und nie je Bildpunkt —
+    // ein `@Published` im Sekundentakt waere der Fehler aus 1.0.16.
+    @Published var letzteBuehne: String?
     @Published var zeigeGriffprobe = false
     // Wie oft sich Seite und Inspektor neu zeichnen. Bewusst KEIN
     // `@Published` — siehe `Zeichenmesser`: Ein Messgerät, dessen Messung

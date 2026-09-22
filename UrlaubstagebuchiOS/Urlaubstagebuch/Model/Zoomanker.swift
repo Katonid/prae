@@ -81,8 +81,11 @@ struct Zoomanker {
         let imElement = roh - Double(stelle) * schritt(massstab)
         let hoch = anteil(imElement, blatthoehe * massstab)
         // Waagerecht liegt das Element in der Mitte: Der Inhalt ist
-        // mindestens so breit wie das Sichtfeld (`maxWidth: .infinity`),
-        // und was schmaler ist, wird zentriert.
+        // mindestens so breit wie das Sichtfeld UND mindestens so breit wie
+        // das Blatt samt Rand (`ReiseView.inhaltsbreite`), und was schmaler
+        // ist, wird zentriert. Bis 1.0.21 nannte diese Zeile
+        // `maxWidth: .infinity` — ein HÖCHSTMASS als Beleg für ein
+        // Mindestmaß; siehe die Anmerkung an `inhaltsbreite`.
         let breite = blattbreite * massstab
         let links = max((Double(inhalt.width) - breite) / 2, rand)
         return Griff(index: stelle, hoch: hoch, quer: anteil(Double(punkt.x) - links, breite))
@@ -104,15 +107,36 @@ struct Zoomanker {
     /// Brennpunkt nicht halten: Weiter als bis zum Rand rollt kein
     /// `ScrollView`, und das ist richtig so.
     func anker(fuer griff: Griff, brennpunkt: CGPoint, sichtfeld: CGSize,
-               massstab: Double) -> UnitPoint {
+               massstab: Double) -> Ankerbefund {
         let hoch = blatthoehe * massstab
         let breit = blattbreite * massstab
-        return UnitPoint(
-            x: teil(Double(brennpunkt.x) - griff.quer * breit,
-                    Double(sichtfeld.width) - breit),
-            y: teil(Double(brennpunkt.y) - griff.hoch * hoch,
-                    Double(sichtfeld.height) - elementhoehe(massstab))
-        )
+        let rohX = teil(Double(brennpunkt.x) - griff.quer * breit,
+                        Double(sichtfeld.width) - breit)
+        let rohY = teil(Double(brennpunkt.y) - griff.hoch * hoch,
+                        Double(sichtfeld.height) - elementhoehe(massstab))
+        return Ankerbefund(anker: UnitPoint(x: min(max(rohX, 0), 1),
+                                            y: min(max(rohY, 0), 1)),
+                           rohX: rohX, rohY: rohY)
+    }
+
+    /// Der Anker UND die rohe Rechnung dahinter.
+    ///
+    /// Geklemmt wird erst hier und nicht mehr in der Rechnung, und das ist
+    /// der Unterschied, auf den es ankommt: Ein roher Anker außerhalb von
+    /// 0 bis 1 heißt, dass der Brennpunkt an dieser Stelle GAR NICHT zu
+    /// halten ist — weiter als bis zum Rand rollt kein `ScrollView`.
+    /// Geklemmt sieht genau das aus wie eine Handvoll fester Stellungen, in
+    /// die die Seite nach jedem Zoomen springt. Die Probe nennt deshalb
+    /// BEIDE Zahlen; wer nur die geklemmte sieht, hält eine unmögliche Lage
+    /// für eine falsch gerechnete.
+    struct Ankerbefund {
+        var anker: UnitPoint
+        var rohX: Double
+        var rohY: Double
+
+        var geklemmt: Bool {
+            rohX < -0.0005 || rohX > 1.0005 || rohY < -0.0005 || rohY > 1.0005
+        }
     }
 
     private func anteil(_ wert: Double, _ ganzes: Double) -> Double {
@@ -121,9 +145,10 @@ struct Zoomanker {
     }
 
     // Ein Nenner nahe null heißt: Element und Sichtfeld sind gleich groß.
+    // Geklemmt wird hier NICHT mehr (ab 1.0.22) — siehe `Ankerbefund`.
     private func teil(_ zaehler: Double, _ nenner: Double) -> Double {
         guard abs(nenner) > 1 else { return 0.5 }
-        return min(max(zaehler / nenner, 0), 1)
+        return zaehler / nenner
     }
 }
 
