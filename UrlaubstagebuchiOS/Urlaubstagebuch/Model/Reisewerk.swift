@@ -170,7 +170,7 @@ final class Reisewerk: ObservableObject, Identifiable {
 
     // Gehört diese Seite zu diesem Tag? `Self.titelseitenKennung` steht
     // für die Titelseite, die zu keinem Tag gehört.
-    func gehört(_ seite: Buchseite, zu tag: UUID) -> Bool {
+    func gehoert(_ seite: Buchseite, zu tag: UUID) -> Bool {
         if tag == Self.titelseitenKennung { return seite.tag == nil }
         return seite.tag?.id == tag
     }
@@ -344,10 +344,8 @@ final class Reisewerk: ObservableObject, Identifiable {
         alleNeuAnordnen(nurUnberuehrte: !auchHandarbeit)
     }
 
-    // Gibt zurück, ob an diesem Tag von Hand gearbeitet wurde. Die Ansicht
-    // fragt damit nach, BEVOR sie eine Stunde Arbeit überschreibt.
     // Wie viele Tage von Hand bearbeitet sind. Die Stilauswahl nennt die
-    // Zahl in ihrer Rückfrage: „an einigen Tagen" laesst einen raten, ob
+    // Zahl in ihrer Rückfrage: „an einigen Tagen" lässt einen raten, ob
     // es um einen geht oder um zwanzig.
     //
     // Gerechnet wird über alle Tage und alle Seiten — das gehört nicht in
@@ -357,6 +355,8 @@ final class Reisewerk: ObservableObject, Identifiable {
         reise.tage.filter { tag in tag.seiten.contains(where: \.vonHand) }.count
     }
 
+    // Gibt zurück, ob an diesem Tag von Hand gearbeitet wurde. Die Ansicht
+    // fragt damit nach, BEVOR sie eine Stunde Arbeit überschreibt.
     func hatHandarbeit(_ id: UUID) -> Bool {
         guard let stelle = tagIndex(id) else { return false }
         return reise.tage[stelle].seiten.contains { $0.vonHand }
