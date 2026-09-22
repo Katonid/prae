@@ -5384,6 +5384,84 @@ Befunde, und keiner davon war Geschmack:
   Rechnung**: bis zu zwölf CoreText-Messungen je Seite für die Textbreite,
   dazu je Anlauf der Bildzahl eine neue Aufteilung. Das läuft beim
   Neuanordnen und nicht beim Zeichnen — gesehen hat es trotzdem niemand.
+- **EINE REIHE IST EIN STAPEL, KEIN RASTER** (`Layoutautomat.querfuge`,
+  `.staffelhub`, `.neigung`, ab 1.0.36; Befund des Nutzers 09/2026 zu 1.0.35:
+  „Allerdings ist die Anordnung der Fotos jetzt schon wieder sehr, sehr
+  nüchtern. Alle sind rechtwinklig ausgerichtet, keins davon leicht gedreht
+  oder gar so, dass sich eine Ecke überlappt."). **Er hat recht, und es war
+  ein Rückschritt von mir**: 1.0.34 hatte das Staffeln und Drehen in
+  `reihenIn` eingebaut — und 1.0.35 hat genau diese Funktion durch das Mosaik
+  ersetzt, samt der Mechanik darin. **Wer eine Funktion ablöst, zählt vorher
+  auf, was in ihr steckte** — sonst löst man mit dem Fehler auch das mit, was
+  schon richtig war.
+  - **`Mosaik` hat seit 1.0.36 ZWEI Fugen**: `quer` innerhalb einer Reihe,
+    `fuge` zwischen den Reihen. Bis dahin war es ein einziger Wert, und damit
+    ließ sich „zwei Bilder überlappen einander" gar nicht ausdrücken — ein
+    negativer Wert hätte auch die Reihen ineinandergeschoben.
+  - **Überlappt wird in der RECHNUNG, nicht erst beim Setzen.** `quer` darf
+    negativ sein; `reihenhoehe` rechnet dann mit `breite - quer * (n-1)`, die
+    Kacheln werden BREITER und die Reihe höher, und die Satzbreite bleibt
+    gefüllt. Wer die Kacheln bloß beim Zeichnen enger rückte, ließe rechts
+    einen Streifen stehen — also genau das, was 1.0.35 abgestellt hat.
+  - **Der Staffelhub gehört ebenfalls in die Rechnung** (`staffel` je Reihe,
+    nur ab zwei Kacheln — dieselbe Bedingung in `Mosaik.spalte` und beim
+    Setzen). Sonst hielte die Spalte ihre Höhe nicht, sobald versetzt wird.
+  - **Nur in Stilen mit `Buchstil.lebendig`** (Tagebuch, Album, Postkarte).
+    In einem Magazin wäre ein schiefes Bild ein Fehler, in einem Album fehlte
+    es.
+  - **Der Winkel kommt aus der KENNUNG des Fotos** (`drehwinkel`, ±2,1°),
+    nie aus dem Zufall: Ein Satz, der sich bei jedem Neuanordnen anders
+    neigt, ist kein Satz, sondern ein Würfel. **Die Karte wird nicht
+    gedreht** (sie ist eine Auskunft, kein Erinnerungsstück), **die
+    Bildunterschrift auch nicht** — sie würde um ihre EIGENE Mitte gedreht
+    und rückte damit vom Bild ab.
+  - **`Block.ebene` entscheidet, wer obenauf liegt** (`Seite.sortiert`). Jede
+    zweite Kachel sitzt höher UND liegt oben; so sieht die Überlappung gelegt
+    aus und nicht verrutscht.
+  - **Der alte Weg staffelt und dreht wieder mit** (`reihenSetzen`, die acht
+    übrigen Muster) — ein Tag ganz ohne Text kommt nicht durch das Mosaik.
+    **Überlappt wird dort NICHT**: Die Breiten rechnet `naechsteReihe` mit der
+    ganzen Fuge, und zwei Rechnungen nebeneinander liefen auseinander.
+- **Das Wort „Bildunterschrift …" war die „Regieanweisung"** (ab 1.0.36,
+  gemeldet 09/2026: „an manchen Stellen steht Text, der wie eine
+  Regieanweisung wirkt. Ich weiß nicht, wo das herkommt."). **Woher es kommt,
+  ist am Quelltext abzulesen und nicht geraten:** Auf eine Seite schreibt die
+  App von sich aus nur vier Texte — die Seitenzahl, die Kopfzeile, „Kartenbild
+  fehlt" (nur wo eine Karte fehlt) und, auf dem Bildschirm, den Platzhalter
+  einer leeren Bildunterschrift. Nur der letzte wiederholt sich. Und
+  `SeitenflaecheView.unterschriftOeffnen` schaltet die Unterschrift bei einem
+  **Doppeltipp auf das Foto** ein — also mit demselben Griff, mit dem man Text
+  bearbeitet. Wer danach nichts schreibt, hat das Wort von da an unter dem
+  Bild stehen.
+  - **Statt des Wortes steht dort eine MARKE** — eine dünne Linie. Der Grund
+    für die Anzeige bleibt richtig (eine eingeschaltete Unterschrift ohne Text
+    wäre sonst eine unsichtbare Fläche, die sich nicht antippen lässt); was
+    falsch war, ist das WORT. Ins PDF geht beides nicht.
+  - **Gezählt wird trotzdem** (`Druckpruefung.leereUnterschriften`): Der Block
+    hält weiterhin eine Zeile unter dem Foto frei, und im Druck ist das eine
+    leere Zeile, die niemand bestellt hat. Die Zeile nennt Tag und Seite.
+  - **Und es gibt einen Ausweg** (`Reisewerk.leereUnterschriftenAbschalten`,
+    „…" oben rechts): Ein Hinweis ohne Weg, ihn aufzulösen, ist die Frage von
+    vorhin noch einmal. Gemerkt wird dabei EINMAL und nicht je Foto — der
+    Rückgängig-Stapel ist flach (25 Stände), und zwanzig Einzelschritte hätten
+    ihn geleert.
+- **Text um ein Foto herum ist weiterhin nicht gebaut**, und der Nutzer hat
+  das ausdrücklich hingenommen („wird wahrscheinlich nicht möglich sein").
+  Der Grund steht seit 1.0.34 da: CoreText legt einen Rahmen in ein Rechteck;
+  alles andere verlangte, jede Zeile einzeln zu setzen — also einen zweiten
+  Umbruch neben dem, mit dem `Textmass` misst.
+- **Nicht gemessen (1.0.36):** Keine Seite ist damit gesehen worden.
+  Gerechnet ist die Geometrie (dass die Satzbreite bei negativer `quer` gefüllt
+  bleibt, dass der Staffelhub in die Spaltenhöhe eingeht). **Gewählt und nicht
+  gemessen** sind alle drei Zahlen: die Überlappung (`-fuge * 1,1`), der
+  Staffelhub (`fuge * 0,9`) und der Winkel (±2,1° aus 1.0.34). Ob das auf
+  einer gedruckten Doppelseite nach „hingelegt" aussieht oder nach
+  „verrutscht", sagt erst der nächste Befund — und wie weit die gedrehten
+  Ecken am Satzspiegel überstehen, ist ebenfalls nur gerechnet. **Und der
+  Befund zur „Regieanweisung" ist am Quelltext hergeleitet, nicht an seinem
+  Buch nachgesehen**: Sollte er etwas anderes gemeint haben, steht es in
+  seinem eingelesenen Text und nicht in der App. **Nichts davon als erledigt
+  darstellen.**
 - **Die Bildunterschrift war halb gebaut** (ab 1.0.5, Wunsch des Nutzers
   09/2026: „zu jedem Foto einen Beschreibungstext … Dies soll jedoch eine
   Option für jedes Foto sein. Kein muss."). Der Layoutautomat hielt Platz
