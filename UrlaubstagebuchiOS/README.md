@@ -717,6 +717,87 @@ Bücher gefahrlos: Der erzeugte `Codable`-Leser verlangt einen Schlüssel nur
 für nicht-optionale Eigenschaften. Ein vorhandener Wert wird gelesen, ein
 fehlender wird `nil` — also „wie im Buch".
 
+## Das ganze Buch untereinander, und ein Wort an der Geste (1.0.28)
+
+Zwei Befunde des Nutzers, 09/2026:
+
+> Das [Zoomen] fühlt sich immer noch spröde an und ich kann dir versichern,
+> dass ich kein Bild ausgewählt habe. Die Geste müsste eigentlich allein der
+> Seite gehören, aber trotzdem muss ich mehrere Male anfassen.
+
+> Lieb, wenn alle Seiten fortlaufend untereinander stehen würden,
+> beziehungsweise in dieser Ansicht die Doppelseiten, sodass man mühelos von
+> einem Seitenpaar zum nächsten wischen kann, ohne dass man links die Liste
+> der Seiten [braucht].
+
+### Ein Buch blättert man
+
+Bis 1.0.27 filterten `sichtbareSeiten` und `sichtbareDoppelseiten` nach dem
+gewählten Tag. Damit war die Tagesliste links keine Übersicht, sondern der
+**einzige** Weg durch das Buch: Wer die letzte Seite eines Tages sah und
+weiterblättern wollte, musste zur Liste greifen. Der Filter ist ersatzlos
+weg; die Liste ist jetzt eine **Sprungmarke**.
+
+Damit heißt „gewählter Tag" etwas anderes als vorher. Er sagt nicht mehr, was
+gezeigt wird, sondern worauf der Titel, das Tagesmenü unten rechts und das
+Neuanordnen zielen — und **das muss dem folgen, was man sieht**. Wer zum
+6. August scrollt und dann „Seiten neu anordnen" tippt, meint den 6. August;
+still am Tag von vorhin zu arbeiten wäre genau die Art Fehler, die diese App
+sonst überall vermeidet.
+
+Gemeldet wird das über `onAppear`/`onDisappear` der Reihen
+(`ReiseView.imBlick`: Reihennummer auf Tageskennung, die kleinste ist die
+oberste). Das fällt **einmal je Reihe** an und nicht bei jedem Bildpunkt — aus
+dem Rollversatz zu rechnen wäre der naheliegende Weg und schriebe einen
+Zustand sechzigmal in der Sekunde; dieselbe Überlegung, aus der `Inhaltslage`
+seit 1.0.18 kein `@State` ist.
+
+**Den Kreis hält auf beiden Seiten dieselbe Prüfung.** Liste → Bühne und
+Bühne → Liste setzen denselben Wert; ohne Bremse sprängen sie einander
+hinterher. Gebremst wird mit der Frage, ob der Tag schon oben im Bild steht —
+steht er, ist nichts zu tun, und genau daran erkennt die Stelle auch, dass die
+Änderung vom Rollen kam. Ein Merker „das war ich" wäre der übliche Griff und
+läge bei jeder Änderung der Reihenfolge wieder daneben.
+
+Einzelseiten und Doppelseiten zählen ihre Reihen **verschieden** (Seitenzahl
+gegen Bogennummer); beim Umschalten wird `imBlick` deshalb geleert. Eine alte
+Meldung wäre dort nicht bloß veraltet, sondern falsch.
+
+### Ein Wort an der Geste
+
+Über dem Inhalt der Bühne liegt der `ScrollView` und damit dessen
+Schiebeerkenner — und der beginnt schon bei **einem** Finger. Zwei Finger auf
+einer Rollfläche sind für ihn ein Wisch; ohne ausdrückliche Erlaubnis zur
+**gleichzeitigen** Erkennung muss einer der beiden verlieren, und welcher,
+entscheiden die ersten Millisekunden der Bewegung. Das ist „mal beim ersten,
+mal beim dritten Versuch".
+
+Das ist keine Vermutung, sondern ein Vergleich **in dieser App**:
+
+| Stelle | Angehängt mit | Verhalten |
+| --- | --- | --- |
+| Bildausschnitt (`SeitenflaecheView`, seit 1.0.8) | `simultaneousGesture` | greift |
+| Seitenzoom (`ReiseView`, seit 1.0.17) | `.gesture` | greift unzuverlässig |
+
+Dieselbe Gestenart, dieselbe Rollfläche, derselbe Bildschirm — der Unterschied
+zwischen beiden ist dieses eine Wort. Wo zwei gleichartige Stellen sich
+verschieden verhalten, ist ihr Unterschied die erste Spur, und diese hier
+lässt sich am Quelltext nachlesen statt an einer Erinnerung.
+
+### Der Verdacht aus 1.0.27 ist widerlegt
+
+1.0.27 schrieb als naheliegenden Grund auf, ein gewähltes Foto sperre den
+Seitenzoom (seit 1.0.17 gehören zwei Finger dort dem Bildausschnitt) und ein
+zu kurzes Aufziehen komme als Tipp an, der die Auswahl aufhebt. Der Nutzer hat
+dem ausdrücklich widersprochen: „ich kann dir versichern, dass ich kein Bild
+ausgewählt habe."
+
+Die Zeile im Befund bleibt trotzdem stehen. Sie war nie eine Erklärung,
+sondern eine **Messung**, und sie hat genau das getan, wofür sie gebaut war:
+einen Zweig ausgeschlossen. Eine Probe, die eine Vermutung umwirft, ist nicht
+gescheitert — das ist ihr Sinn. Dieselbe Bauweise wie die Zeile „Soll/Ist" aus
+1.0.24, die in 1.0.26 die Geometrie entlastet und den Blick verschoben hat.
+
 ## Formate, A5 aus A4, Broschüre (1.0.27)
 
 Ansage des Nutzers, 09/2026:
@@ -2065,6 +2146,17 @@ im Inspektor gab es, aber keinen Weg zu sehen, was es bewirkt.
 
 ## Offene Punkte
 
+* **Ob die Geste jetzt verlässlich ankommt, ist NICHT gesehen** (1.0.28). Es
+  folgt daraus, wie UIKit zwei Erkenner gegeneinander abwägt, und aus dem
+  Vergleich mit dem Bildausschnitt in derselben App — gemessen wird es erst
+  durch den Zähler „Zoomgeste" im Befund („Bedienung prüfen"). **Ein
+  Nebeneffekt steht offen:** Mit `simultaneousGesture` rollt die Bühne während
+  des Aufziehens mit; am Ende rückt der Brennpunkt sie wieder zurecht (so seit
+  1.0.18), aber ob das ruhig aussieht oder wie ein Ruck, sagt erst der nächste
+  Befund.
+* **Die Bühne trägt jetzt wieder das GANZE Buch** (1.0.28). Der `LazyVStack`
+  aus 1.0.16 ist genau dafür da; wie sich ein Buch mit zweihundert Fotos dabei
+  anfühlt, ist weiterhin ungemessen. Der Zeichenmesser nennt die Summen.
 * **Die Broschüre ist nie gedruckt worden** (1.0.27). Gerechnet ist die
   Bogenfolge des Rückenstichs; ob sie gefaltet aufgeht, sagt erst ein
   Probedruck mit vier Seiten. Und welche Wendeeinstellung ein bestimmter
