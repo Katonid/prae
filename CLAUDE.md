@@ -4260,6 +4260,104 @@ Befunde, und keiner davon war Geschmack:
     Geocoder noch eine echte Sicherung. Gerechnet ist die Umrechnung und der
     Weg drumherum; ob die Zonen ankommen, sagt die Zeile „Nachgeschlagen: n
     von m Tagen" im Einlesen-Blatt. **Nicht als erledigt darstellen.**
+- **Ein Reisepunkt lässt sich ÄNDERN, nicht nur setzen und wegwischen**
+  (`PunktwahlView` mit `punktID`, `Reisewerk.punktAendern`, ab 1.0.20, Ansage
+  des Nutzers 09/2026: „Ich möchte sie löschen, örtlich und zeitlich verändern
+  können.").
+  - **Ein Bildschirm für beides.** Ein eigener Editor neben der Punktwahl wäre
+    ein zweiter Weg zu derselben Sache — dieselbe Regel wie bei den
+    Fotostilfeldern (1.0.10) und bei `Block.wirkung`.
+  - **Der TIPP auf die Karte setzt die Stelle** (ausdrücklich gewünscht). Bis
+    1.0.19 stand hier die Regel, ein Tipp sei schlechter als ein Fadenkreuz,
+    weil der Finger die Stelle verdeckt. Beides gilt: Der Tipp rückt die
+    Stelle unter das FADENKREUZ, statt sie blind zu übernehmen — man sieht
+    hinterher, wo sie gelandet ist, und schiebt die Karte nach. Der Maßstab
+    bleibt dabei (`spanne`), sonst spränge er bei jedem Tipp zurück.
+  - **Die Uhrzeit wird GETIPPT, nicht gedreht** (ebenfalls ausdrücklich).
+    Angenommen wird alles Eindeutige — „9:05", „0905", „9.05", „9" —, und was
+    keine Uhrzeit ist, sperrt den Knopf mit einem Satz daneben. Der
+    `DatePicker` ist damit weg; zwei Wege wären einer zu viel.
+  - **Eine geänderte Uhrzeit sortiert den Punkt NEU ein.** Die Reihenfolge der
+    Liste ist die Reihenfolge der gezeichneten Linie; ein Punkt von 8 Uhr
+    hinter einem von 17 Uhr ergäbe einen Weg, den niemand gefahren ist. Punkte
+    OHNE Uhrzeit bleiben, wo sie sind — wohin sie gehören, weiß auch die App
+    nicht (die Regel steht seit 1.0.0 dort).
+  - **`starten()` läuft nur EINMAL** (`geladen`). `.task` läuft nach einer
+    Rückkehr aus dem Hintergrund noch einmal, und dann stünde die gerade
+    verschobene Karte wieder am Anfang.
+- **Das App-Symbol ist eine FARBE und eine FORM** (`scripts/make-icon.py`, ab
+  1.0.20, Befund des Nutzers 09/2026: „Das Programm-Icon sieht von Weitem aus
+  wie eine weiße Fläche mit einem Rand drumherum."). Er hat recht, und der
+  Grund ist am alten Entwurf abzulesen: ein aufgeschlagenes Buch in
+  Papierweiß über drei Vierteln der Fläche, auf dunklem Grund. Aus zehn
+  Zentimetern sah man ein Buch; auf einem Homescreen misst ein Symbol vierzig
+  Bildpunkte, und dann bleiben von Papier, Falz und Lineatur eine helle
+  Fläche und ein dunkler Saum. **Bei dieser Größe trägt ein Symbol eine Farbe
+  und eine Form** — so machen es die Apps mit derselben Aufgabe (Polarsteps
+  eine Route, Karten eine Nadel, Books ein weißes Zeichen auf kräftigem
+  Verlauf). Jetzt: ein Weg mit Anfang und Ziel, weiß auf einem diagonalen
+  Verlauf von Abendsonne nach Tiefrot. **Die Kontur unter dem Weiß ist keine
+  Zierde** — der Verlauf ist oben links deutlich heller, und ohne sie verlöre
+  die Linie dort ihren Halt (dieselbe Überlegung wie bei den Linienzügen der
+  Abfahrtstafel). Der Verlauf läuft DIAGONAL: ein senkrechter sieht wie ein
+  Farbfeld aus, ein diagonaler hat eine Richtung. Alles bleibt zwischen 140
+  und 884 — was näher an der Ecke liegt, schneidet iOS mit seiner Maske weg.
+- **Vier Orte, vier Fragen — die Menüs** (ab 1.0.20, Befund des Nutzers
+  09/2026: „Ich finde, dass viele Funktionen nicht selbsterklärend in
+  verschachtelten Menüs abgelegt wurden."). Bis 1.0.19 standen oben drei
+  gleich aussehende Menüs („Einlesen", „Anordnen", „Buch"), und wo etwas lag,
+  ergab sich aus der Geschichte und nicht aus der Sache: der Satzspiegel (eine
+  Ansichtssache) unter „Anordnen", das PDF (eine Ausgabe) unter „Buch" neben
+  der Stilwahl, und die Sachen DIESES Tages verteilt auf zwei Menüs und die
+  Fußleiste.
+  - `+` — **was ins Buch hineinkommt** (Buch aufbauen, Text, Fotos, Dateien,
+    Spur, Ablage samt Zahl).
+  - Pinsel — **wie das Buch aussieht** (Stil, Schrift, Fotos, Textfelder,
+    Hintergrund, Format).
+  - `…` — **alles Seltene**: ausgeben, alle Tage neu anordnen, Hilfen beim
+    Anordnen (Satzspiegel, Einrasten), Prüfen.
+  - Unten rechts, mit dem DATUM beschriftet — **alles zu diesem Tag**: Text
+    und Fotos, Reisepunkte, neu anordnen, Seitenmuster, Seite anfügen.
+  - **Nichts steht an zwei Stellen.** Wer eine Funktion hinzufügt, sucht
+    zuerst die Frage, die sie beantwortet.
+  - „Zurück" heißt jetzt **„Widerrufen"**: Es stand direkt neben einem
+    Zurück-Pfeil, der das Buch schließt (jetzt „Bücher"). Zwei Dinge mit
+    demselben Wort sind eines zu viel.
+  - **Die Plus-Minus-Lupen sind ersatzlos weg** (Ansage des Nutzers: keine
+    doppelten Funktionen). Stufenweises Zoomen können zwei Finger besser; was
+    sie NICHT können, ist ein bestimmter Maßstab. Geblieben ist EIN Knopf, der
+    den Maßstab **nennt** („68 %") und „Einpassen" bzw. 100 % setzt — die
+    Beschriftung ist zugleich die Auskunft.
+  - **Die Fußleiste steht INLINE in der `ToolbarItemGroup`.** Eine Gruppe
+    verteilt ihre Kinder auf eigene Plätze; ein einzelner weitergereichter
+    Ausdruck ist für sie EIN Kind.
+- **Das Blatt braucht einen Schatten, der nicht mitschrumpft** (ab 1.0.20).
+  Er stand vor dem `scaleEffect` und wurde mitskaliert: Bei eingepasster
+  Ansicht (rund 0,4) blieben von neun Punkten dreieinhalb — die Seite lag
+  flach auf dem Grund, statt als Blatt darauf zu liegen. Jetzt liegt er
+  außerhalb und ist in BILDSCHIRMpunkten gerechnet, also auf jedem Maßstab
+  derselbe (dieselbe Überlegung wie bei den Säumen der Werkzeugleiste in
+  Tafelbild).
+- **Die Leinwand ist ein Mittelton, kein Fast-Weiß** (`ReiseView.leinwand`, ab
+  1.0.20). `systemGroupedBackground` ist sehr hell, und darauf ist ein weißes
+  Blatt kaum ein Blatt. So macht es keine App, die Seiten zeigt: Pages und
+  Keynote stellen das Papier auf einen deutlich dunkleren Grund, Books auf
+  einen ganz dunklen. Das ist kein Geschmack — **nur vor einem neutralen
+  Mittelton lässt sich beurteilen, wie hell ein Foto auf dem Papier wirklich
+  steht.**
+- **Ein Bild sagt, welcher Tag das war** (`TagListeView`, ab 1.0.20). Ein
+  Datum in einer Liste sagt nichts; das erste Foto des Tages sofort. Dieselbe
+  Bauweise wie in Fotos und Books. Gibt es keines, bleibt der Platz stehen,
+  damit die Zeilen nicht unterschiedlich weit eingerückt sind. Im Regal steht
+  seither das **Titelfoto** und nicht mehr das erste Foto der Reise (zwei
+  Bücher mit demselben Anreisetag sahen sonst gleich aus), hochkant wie ein
+  Buchrücken.
+- **Nicht gemessen (1.0.20):** Ob die neue Aufteilung sich besser bedienen
+  lässt, sagt erst der nächste Befund — geändert sind Wege und Namen, und das
+  ist keine Messung (dieselbe Einschränkung wie bei 1.0.10). Ebenso ungesehen:
+  wie das Symbol auf einem Homescreen wirkt, ob der Tipp auf die Karte den
+  richtigen Punkt trifft und ob der Schatten auf einem Gerät nicht zu schwer
+  ist. **Nicht als erledigt darstellen.**
 - **Die Bildunterschrift war halb gebaut** (ab 1.0.5, Wunsch des Nutzers
   09/2026: „zu jedem Foto einen Beschreibungstext … Dies soll jedoch eine
   Option für jedes Foto sein. Kein muss."). Der Layoutautomat hielt Platz

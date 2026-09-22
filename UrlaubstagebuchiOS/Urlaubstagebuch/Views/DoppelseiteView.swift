@@ -9,7 +9,7 @@ import SwiftUI
 // Gezeichnet wird mit `spacing: 0`: Im gebundenen Buch stoßen zwei
 // gegenüberliegende Seiten am Bund aneinander. Was dazwischen als heller
 // Streifen stehen bleibt, ist der ANSCHNITT beider Seiten — der wird
-// weggeschnitten, und wo er endet, zeigt die rote Schnittkante (Anordnen →
+// weggeschnitten, und wo er endet, zeigt die rote Schnittkante („…“ →
 // „Satzspiegel zeigen"). Ein Abstand dazwischen wäre bequemer zu zeichnen
 // und würde eine Lücke behaupten, die das Buch nicht hat.
 struct DoppelseiteView: View {

@@ -64,7 +64,7 @@ struct GestaltungView: View {
                 }
 
                 // Die Felder dafür stehen jetzt in `Fotostil` und sind
-                // über Buch → Fotos zu erreichen. Hier bleibt der Weg
+                // über Gestalten → Fotos zu erreichen. Hier bleibt der Weg
                 // dorthin, weil man sie eine Fassung lang an dieser Stelle
                 // gesucht hat.
                 Section {

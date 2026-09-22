@@ -78,6 +78,42 @@ private struct TagZeile: View {
     let reise: Reise
 
     var body: some View {
+        HStack(spacing: 11) {
+            // EIN BILD ZUM TAG (ab 1.0.20). So machen es die Apps, die
+            // dieselbe Liste zeigen — Fotos, Apple Books, jede Reise-App:
+            // Ein Datum sagt nichts darüber, welcher Tag das war, ein Bild
+            // sofort. Genommen wird das erste Foto des Tages; gibt es
+            // keines, bleibt der Platz leer stehen, damit die Zeilen nicht
+            // unterschiedlich weit eingerückt sind.
+            tagesbild
+            inhalt
+        }
+        .padding(.vertical, 2)
+    }
+
+    @ViewBuilder
+    private var tagesbild: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 7)
+                .fill(.quaternary)
+            if let erstes = tag.fotos.first,
+               let foto = reise.foto(erstes),
+               let bild = Bildarchiv.shared.vorschau(foto.datei, reise: reise.id, kante: 120)
+            {
+                Image(uiImage: bild)
+                    .resizable()
+                    .scaledToFill()
+            } else {
+                Image(systemName: "calendar")
+                    .font(.system(size: 15))
+                    .foregroundStyle(.tertiary)
+            }
+        }
+        .frame(width: 44, height: 44)
+        .clipShape(RoundedRectangle(cornerRadius: 7))
+    }
+
+    private var inhalt: some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(tag.datum.mittel)
                 .font(.subheadline.weight(.semibold))
@@ -105,7 +141,6 @@ private struct TagZeile: View {
                 }
             }
         }
-        .padding(.vertical, 2)
     }
 
     private func marke(_ symbol: String, _ text: String) -> some View {

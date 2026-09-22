@@ -717,6 +717,77 @@ Bücher gefahrlos: Der erzeugte `Codable`-Leser verlangt einen Schlüssel nur
 für nicht-optionale Eigenschaften. Ein vorhandener Wert wird gelesen, ein
 fehlender wird `nil` — also „wie im Buch".
 
+## Punkte bearbeiten, klarere Menüs, neues Symbol (1.0.20)
+
+### Reisepunkte lassen sich ändern
+
+Ein Tipp auf einen Punkt in der Liste (Tagesmenü → Reisepunkte) öffnet ihn:
+Ort, Name, Uhrzeit, Löschen. Es ist derselbe Bildschirm wie beim Setzen eines
+neuen Punktes — ein eigener Editor daneben wäre ein zweiter Weg zu derselben
+Sache und liefe irgendwann auseinander.
+
+Der **Ort** wird per Tipp auf die Karte gesetzt. Der Tipp übernimmt die Stelle
+aber nicht blind, sondern rückt sie unter das Fadenkreuz: Der Finger verdeckt
+genau die Stelle, die er trifft, und so sieht man hinterher, wo sie gelandet
+ist, und schiebt die Karte nach.
+
+Die **Uhrzeit** wird getippt, nicht gedreht. Angenommen wird alles Eindeutige —
+„9:05", „0905", „9.05", „9". Eine geänderte Uhrzeit sortiert den Punkt neu in
+die Spur ein: Die Reihenfolge der Liste ist die Reihenfolge der gezeichneten
+Linie, und ein Punkt von 8 Uhr hinter einem von 17 Uhr ergäbe einen Weg, den
+niemand gefahren ist.
+
+### Das Symbol
+
+Befund des Nutzers: „Das Programm-Icon sieht von Weitem aus wie eine weiße
+Fläche mit einem Rand drumherum." Das stimmte, und der Grund stand im alten
+Entwurf: ein aufgeschlagenes Buch in Papierweiß über drei Vierteln der Fläche.
+Aus zehn Zentimetern sah man ein Buch; auf einem Homescreen misst ein Symbol
+vierzig Bildpunkte, und dann bleiben eine helle Fläche und ein dunkler Saum.
+
+Bei dieser Größe trägt ein Symbol **eine Farbe und eine Form** — so machen es
+die Apps mit derselben Aufgabe. Jetzt: ein Weg mit Anfang und Ziel, weiß mit
+dunkler Kontur auf einem diagonalen Verlauf von Abendsonne nach Tiefrot.
+
+### Vier Orte, vier Fragen
+
+Bis 1.0.19 standen oben drei gleich aussehende Menüs — „Einlesen", „Anordnen",
+„Buch" —, und wo etwas lag, ergab sich aus der Geschichte und nicht aus der
+Sache: der Satzspiegel unter „Anordnen", das PDF unter „Buch" neben der
+Stilwahl, und alles zu einem Tag verteilt auf zwei Menüs und die Fußleiste.
+
+| Ort | Frage |
+| --- | --- |
+| `+` | Was kommt ins Buch hinein? |
+| Pinsel | Wie sieht das Buch aus? |
+| `…` | Alles Seltene: ausgeben, prüfen, Hilfen beim Anordnen |
+| Unten rechts, mit dem Datum | Alles zu **diesem** Tag |
+
+**Nichts steht an zwei Stellen.** „Zurück" heißt jetzt „Widerrufen" — es stand
+neben einem Zurück-Pfeil, der das Buch schließt.
+
+Die **Plus-Minus-Lupen sind weg**: Stufenweises Zoomen können zwei Finger
+besser. Geblieben ist ein Knopf, der den Maßstab nennt („68 %") und
+„Einpassen" oder 100 % setzt — was zwei Finger eben *nicht* können.
+
+### Das Blatt liegt jetzt auf etwas
+
+Der Schatten unter der Seite stand innerhalb des Maßstabs und wurde
+mitskaliert: Bei eingepasster Ansicht blieben von neun Punkten dreieinhalb.
+Er liegt jetzt außerhalb und ist in Bildschirmpunkten gerechnet. Dazu eine
+richtige Leinwand statt eines fast weißen Grundes — Pages, Keynote und Books
+stellen Papier auf einen deutlich dunkleren Grund, und nur davor lässt sich
+beurteilen, wie hell ein Foto auf dem Papier wirklich steht.
+
+In der Tagesliste steht ein Bild zum Tag, im Regal das Titelfoto als
+Buchrücken.
+
+**Nicht gemessen:** Ob die neue Aufteilung sich besser bedienen lässt, sagt
+erst der nächste Befund — geändert sind Wege und Namen, und das ist keine
+Messung. Ebenso ungesehen: wie das Symbol auf einem Homescreen wirkt, ob der
+Tipp auf die Karte den richtigen Punkt trifft und ob der Schatten auf einem
+Gerät nicht zu schwer ist.
+
 ## Uhrzeiten sind Ortszeiten (1.0.19)
 
 Ansage des Nutzers: Die Zeiten „müssten dann angepasst werden gemäß der
@@ -1481,6 +1552,10 @@ im Inspektor gab es, aber keinen Weg zu sehen, was es bewirkt.
   und dass `scrollTo` mit einem Anker außerhalb der Mitte tut, was die
   Dokumentation sagt. Beim Übergang von der Skalierung auf den gesetzten
   Maßstab kann ein Bild lang ein Sprung stehen bleiben.
+* **Ob die neue Menüaufteilung intuitiver ist, ist NICHT gemessen** (1.0.20).
+  Geändert sind Wege und Namen; ob sie den Befund „nicht selbsterklärend"
+  auflösen, sagt erst der nächste. Dasselbe gilt für das Symbol auf einem
+  Homescreen und für den Tipp auf die Karte.
 * **Ob die Zeitzonen wirklich nachgeschlagen werden, ist NICHT gemessen**
   (1.0.19). Gerechnet ist die Umrechnung; ob `CLPlacemark.timeZone` für die
   Orte dieser Reise etwas hergibt, sagt erst die Zeile „Nachgeschlagen: n von

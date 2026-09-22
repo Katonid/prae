@@ -13,7 +13,7 @@ import SwiftUI
 // ist keiner.
 //
 // Die Felder stehen hier als eigene Ansicht, weil sie an ZWEI Stellen
-// gebraucht werden: als eigenes Blatt (Buch → Fotos) und als Unterseite
+// gebraucht werden: als eigenes Blatt (Gestalten → Fotos) und als Unterseite
 // der Gestaltung, wo sie bisher lagen. Zwei Fassungen liefen auseinander.
 struct Fotostilfelder: View {
     @ObservedObject var werk: Reisewerk

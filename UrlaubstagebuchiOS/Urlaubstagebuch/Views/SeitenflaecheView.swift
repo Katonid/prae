@@ -275,9 +275,17 @@ struct SeitenflaecheView: View {
         .clipped()
         .background(Color.white)
         .compositingGroup()
-        .shadow(color: .black.opacity(0.18), radius: 9, y: 3)
         .scaleEffect(massstab, anchor: .topLeading)
         .frame(width: bogen.width * massstab, height: bogen.height * massstab)
+        // DER SCHATTEN LIEGT AUSSERHALB DES MASSSTABS (ab 1.0.20).
+        //
+        // Bis 1.0.19 stand er davor und wurde mitskaliert: Bei eingepasster
+        // Ansicht (rund 0,4) blieben von neun Punkten dreieinhalb übrig —
+        // die Seite lag flach auf dem Grund, statt als Blatt darauf zu
+        // liegen. Hier gerechnet ist er in BILDSCHIRMpunkten und damit auf
+        // jedem Maßstab derselbe. Dieselbe Überlegung wie bei den Säumen
+        // der Werkzeugleiste in Tafelbild.
+        .shadow(color: .black.opacity(0.30), radius: 16, y: 7)
         // EINMAL je Änderung, nicht bei jedem Neuzeichnen: Dahinter steckt
         // ein voller CoreText-Satz. Der Schlüssel nennt nur, was den
         // Befund ändern kann — Block, Rahmenmaße, Textlänge.
@@ -534,7 +542,7 @@ struct SeitenflaecheView: View {
         var probe = block
         probe.rahmen = ausgang
         // Ohne Einrasten wird schlicht die Strecke genommen. Der Schalter
-        // sitzt im Menü „Anordnen"; wer ihn ausmacht, bekommt auch keine
+        // sitzt unter „…" → Hilfen beim Anordnen; wer ihn ausmacht, bekommt auch keine
         // Linien — eine Linie ohne Wirkung wäre eine Behauptung.
         let gefangen: Einrasten.Fang
         if einrastenAn {
@@ -680,7 +688,7 @@ struct SeitenflaecheView: View {
     // Teil des Bildes — zwei Dinge, und beide müssen zu machen sein. Die
     // Kanten und Ecken ziehen den RAHMEN, zwei Finger den AUSSCHNITT. Die
     // Seite selbst wird nicht mit zwei Fingern gezoomt (dafür stehen die
-    // Lupen unten links), es gibt hier also nichts, womit sich diese Geste
+    // Maßstab-Knopf unten), es gibt hier also nichts, womit sich diese Geste
     // streiten könnte.
     private func zoomgeste(_ block: Block) -> some Gesture {
         MagnifyGesture(minimumScaleDelta: 0.01)

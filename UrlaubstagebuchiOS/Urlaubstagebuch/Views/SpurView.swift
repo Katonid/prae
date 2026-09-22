@@ -7,6 +7,11 @@ struct SpurView: View {
     let tagID: UUID
     @Environment(\.dismiss) private var schliessen
     @State private var punktwahl = false
+    // Welcher Punkt gerade geändert wird. Der WUNSCH trägt das Ziel, kein
+    // Schalter daneben — dieselbe Regel wie bei den Dateiwählern.
+    @State private var bearbeiten: Punktwunsch?
+
+    struct Punktwunsch: Identifiable { let id: UUID }
 
     private var tag: Reisetag? { werk.reise.tage.first { $0.id == tagID } }
 
@@ -32,7 +37,9 @@ struct SpurView: View {
                             Label("Aus den Fotos neu bauen", systemImage: "arrow.clockwise")
                         }
                     } footer: {
-                        Text("Beim Neubauen bleiben die von Hand gesetzten Punkte erhalten; die Fotopunkte werden ersetzt.")
+                        Text("Beim Neubauen bleiben die von Hand gesetzten Punkte erhalten; "
+                             + "die Fotopunkte werden ersetzt. Ein Tipp auf einen Punkt in der "
+                             + "Liste öffnet ihn zum Ändern \u{2014} Ort, Name, Uhrzeit, Löschen.")
                     }
 
                     Section {
@@ -41,7 +48,16 @@ struct SpurView: View {
                                 .foregroundStyle(.secondary)
                         }
                         ForEach(tag.spur) { punkt in
-                            PunktZeile(punkt: punkt)
+                            // Die ZEILE ist der Weg zum Ändern. Ein Punkt,
+                            // den man nur wegwischen kann, lässt sich nicht
+                            // berichtigen — und ein Knopf in einem Menü wäre
+                            // einer, den niemand findet.
+                            Button {
+                                bearbeiten = Punktwunsch(id: punkt.id)
+                            } label: {
+                                PunktZeile(punkt: punkt)
+                            }
+                            .buttonStyle(.plain)
                         }
                         .onDelete { stellen in werk.punkteLoeschen(tagID, stellen: stellen) }
                         .onMove { von, nach in werk.punkteVerschieben(tagID, von: von, nach: nach) }
@@ -89,6 +105,9 @@ struct SpurView: View {
             }
             .sheet(isPresented: $punktwahl) {
                 PunktwahlView(werk: werk, tagID: tagID)
+            }
+            .sheet(item: $bearbeiten) { wunsch in
+                PunktwahlView(werk: werk, tagID: tagID, punktID: wunsch.id)
             }
         }
     }
@@ -145,6 +164,10 @@ private struct PunktZeile: View {
                 .font(.caption2)
                 .foregroundStyle(.secondary)
             }
+            Spacer()
+            Image(systemName: "chevron.right")
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
         }
     }
 
