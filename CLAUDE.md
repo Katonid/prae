@@ -5865,6 +5865,77 @@ Befunde, und keiner davon war Geschmack:
   ist und ob der Systemdruckdialog die Broschüre richtig auf das Papier
   bringt, sagt erst der nächste Befund. **Nichts davon als erledigt
   darstellen.**
+- **DIE GRÖSSE EINES FOTOS WAR KEINE ENTSCHEIDUNG, SONDERN EINE
+  NEBENWIRKUNG** (`Tagesplan.zielreihenhoehe`, `Mosaik`-Deckel, ab 1.0.42;
+  Befund des Nutzers 09/2026: „Mir ist nicht klar, wie das zustande kommt,
+  dass einige Fotos riesengroß auf der Seite platziert werden, während andere
+  dort, wo der Text noch mit im Spiel ist, ein Bruchteil dieser Größe haben.
+  Das ist nicht ausgewogen." — dazu ein Tag mit fünf Fotos, der über vier
+  Seiten lief und am Ende Bilder allein auf der Seite stehen ließ).
+  **Nachgerechnet an der Geometrie, nicht geraten:** Die Höhe einer
+  randbündigen Reihe ist `Satzbreite / Σ Seitenverhältnisse`. Auf A4 mit den
+  Vorgaberändern (Satz 178 × 261 mm) wird ein HOCHFORMAT allein in seiner
+  Reihe 237 mm hoch — 91 Prozent der Satzhöhe; dasselbe Foto zu dritt misst
+  45 mm. Faktor **5,3**, und welcher der beiden Fälle eintrat, hing allein
+  daran, wie viele Kacheln zufällig auf dieser Seite gelandet waren.
+  - **Und die Kachelzahl kam aus einer ZÄHLUNG**: `kachelnAufSeite` teilte
+    die offenen Kacheln durch die geschätzten Restseiten. Korrigiert wurde
+    danach allein über die DEHNUNG — und die sagt nur, ob die Spalte den
+    Kasten füllt. Zwei randbündige Hochformate untereinander füllen ihn
+    genauso gut wie sechs kleine Kacheln. Über die GRÖSSE sagt sie nichts,
+    und deshalb konnte niemand sie steuern.
+  - **Die Zielreihenhöhe ist gerechnet, nicht gewählt.** Eine Reihe der Höhe
+    h trägt Kacheln mit der Verhältnissumme B/h; für alle Kacheln eines
+    Tages (Summe S) sind das S·h/B Reihen, und die Spalte wird S·h²/B hoch.
+    Die Spaltenhöhe wächst also mit dem QUADRAT der Reihenhöhe — und aus der
+    Fläche A, die den Bildern an diesem Tag bleibt, folgt genau eine Höhe:
+    **h = √(A·B/S)**. Mehr Bilder werden kleiner, weniger größer, stetig
+    statt in Sprüngen. Gedeckelt auf 0,16 bis 0,42 der Satzhöhe.
+  - **Eine Reihe darf SCHMALER sein als der Satz.** Was über dem Deckel
+    (Zielhöhe × 1,3) läge, wird nicht höher, sondern schmaler: Die Kacheln
+    behalten ihr Verhältnis, die Reihe steht mittig, und rechts und links
+    bleibt Rand. **Genau das konnte der alte Weg immer schon**
+    (`naechsteReihe`: „sie wird gedeckelt und steht dann linksbündig, statt
+    als Riese die Seite zu sprengen") — 1.0.35 hat diese Funktion durch das
+    Mosaik ersetzt und den Deckel dabei verloren. **Dasselbe Muster wie beim
+    Staffeln in 1.0.36: Wer eine Funktion ablöst, zählt vorher auf, was in
+    ihr steckte.** Zum zweiten Mal an derselben Ablösung.
+  - **Die Kachelzahl je Seite folgt jetzt aus der FLÄCHE** (`kachelnFuer`,
+    dieselbe Rechnung rückwärts): so viele Kacheln, wie bei der Zielhöhe auf
+    den Platz nach dem Text gehen. `kachelnAufSeite` ist ersatzlos entfernt —
+    ein Mechanismus, dessen Grund widerlegt ist, bleibt nicht liegen.
+  - **Nach unten gibt es keine Dehnungsgrenze mehr.** Sie stand da, solange
+    eine Reihe die Satzbreite füllen MUSSTE: Stauchen hieß dann, das Bild
+    seitlich zu beschneiden. Seit eine Reihe schmaler werden darf, heißt
+    Stauchen „kleiner und mittig" und kostet nichts — und es rettet die
+    Seite: Mit der alten Grenze wurde die Spalte höher als der Kasten, die
+    letzte Reihe fiel heraus (`abgebrochen`), und ihr Bild landete allein auf
+    der nächsten Seite. **Das war die zweite Hälfte des gemeldeten Fehlers.**
+    Nach OBEN bleibt die Grenze, denn Dehnen beschneidet weiterhin.
+  - **Keine hungernde letzte Seite.** Passt alles Offene noch auf diese
+    Seite — gemessen an der Zielhöhe und der Stauchung, die ohnehin erlaubt
+    ist —, kommt es mit. Der Grenzwert ist die Dehnungsgrenze selbst und
+    keine zweite Zahl: Bei mehr Stauchung ginge die Spalte über den Kasten
+    hinaus und die letzte Reihe fiele wieder heraus.
+  - **Gehalten wird der BESTE Versuch, nicht der letzte.** Zwischen zwei
+    Kachelzahlen kann eine Seite springen (mit drei Bildern zu hoch, mit
+    zweien zu niedrig, keine im Band); bis 1.0.41 nahm die Schleife, was im
+    zehnten Durchgang zufällig dastand. Gewertet wird jetzt wie in
+    `Mosaik.beste`, und eine schon versuchte Zahl wird nicht wiederholt.
+- **Und weil sich das hier nicht ansehen lässt, misst es die App**
+  (`Druckpruefung.bildgroessen`, ab 1.0.42). Eine Zeile im Befund nennt den
+  größten Größenunterschied innerhalb EINES Tages, samt Datum und beiden
+  Maßen in Millimetern, und wie viel Prozent der Satzhöhe das höchste Foto
+  des Buches nimmt. Gemessen am fertigen Satz und nicht an der Absicht —
+  dasselbe Muster wie die Stufenprobe bei Schulalarm. Ein Faktor bis etwa
+  2,5 gilt als Akzent, darüber steht die Zeile orange.
+- **Nicht gemessen (1.0.42):** Keine Seite ist damit gesehen worden.
+  Gerechnet und an den Vorgabemaßen nachgerechnet ist die URSACHE (91 gegen
+  17 Prozent der Satzhöhe für dasselbe Foto) und die Geometrie der Abhilfe.
+  **Gewählt und nicht gemessen** sind die Grenzen der Zielhöhe (0,16 bis 0,42
+  der Satzhöhe), der Deckel darüber (1,3) und die Schwellen der neuen
+  Befundzeile (2,5 und 3,2). Ob eine Doppelseite damit ausgewogen AUSSIEHT,
+  sagt erst der nächste Befund — und seit 1.0.42 sagt er es mit Zahlen.
 - **SELBST INSTALLIERTE SCHRIFTEN ZÄHLT `UIFont.familyNames` NICHT MIT**
   (`Model/Geraeteschriften.swift`, `Schriftwahl` in `Views/Waehler.swift`, ab
   1.0.41; gemeldet 09/2026: „Quicksand und … sind auf dem iPad installiert
@@ -6181,7 +6252,7 @@ Befunde, und keiner davon war Geschmack:
   Stellen im pbxproj (Debug + Release) — es gibt KEINE Skript-Bauphase.
   **Jede Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne
   Nachfrage, als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann
-  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.40 (Build 41). Dazu gesetzt:
+  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.42 (Build 43). Dazu gesetzt:
   `DEVELOPMENT_TEAM = F4989GSTWS` und
   `INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.travel`.
   Seit 1.0.4 steht dort auch `CODE_SIGN_ENTITLEMENTS = Config/Urlaubstagebuch.entitlements`

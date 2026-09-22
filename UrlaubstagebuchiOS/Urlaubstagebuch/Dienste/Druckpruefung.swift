@@ -134,6 +134,70 @@ enum Druckpruefung {
         )]
     }
 
+    // WIE UNTERSCHIEDLICH GROSS DIE FOTOS EINES TAGES SIND (ab 1.0.42).
+    //
+    // Der Befund des Nutzers, 09/2026: Einige Fotos stünden riesengroß auf
+    // der Seite, während andere dort, wo der Text noch mit im Spiel ist, ein
+    // Bruchteil dieser Größe hätten; das sei nicht ausgewogen.
+    //
+    // Nachgerechnet an der Geometrie: Die Höhe einer randbündigen Reihe ist
+    // Satzbreite geteilt durch die Summe der Seitenverhältnisse. Auf A4 mit
+    // den Vorgaberändern (Satz 178 x 261 mm) wird ein Hochformat ALLEIN in
+    // seiner Reihe 237 mm hoch, also 91 Prozent der Satzhöhe; dasselbe Foto
+    // zu dritt misst 45 mm. Der Faktor zwischen beiden ist 5,3 — und welcher
+    // der beiden Fälle eintrat, hing bis 1.0.41 allein daran, wie viele
+    // Kacheln zufällig auf der Seite gelandet waren.
+    //
+    // Seit 1.0.42 gibt es eine Zielhöhe je Tag und einen Deckel darüber. Ob
+    // das reicht, sagt nicht der Quelltext, sondern diese Zeile: Sie misst am
+    // fertigen Satz, wie weit größtes und kleinstes Foto eines Tages
+    // auseinanderliegen. Eine Zusage ist sie nicht — sie ist die Messung, an
+    // der sich der nächste Befund prüfen lässt.
+    static func bildgroessen(_ reise: Reise) -> [Zeile] {
+        let satzhoehe = Double(reise.gestaltung.satzspiegel(reise.format).height)
+        var schlimmster: (tag: String, klein: Double, gross: Double)?
+        var hoechstes: (tag: String, hoehe: Double)?
+        for tag in reise.tage {
+            var hoehen: [Double] = []
+            for seite in tag.seiten {
+                for block in seite.bloecke {
+                    guard case .foto = block.inhalt else { continue }
+                    hoehen.append(block.rahmen.hoehe)
+                }
+            }
+            guard let klein = hoehen.min(), let gross = hoehen.max(), klein > 1 else { continue }
+            if hoechstes == nil || gross > hoechstes!.hoehe {
+                hoechstes = (tag.datum.mittel, gross)
+            }
+            if let bisher = schlimmster {
+                if gross / klein > bisher.gross / bisher.klein {
+                    schlimmster = (tag.datum.mittel, klein, gross)
+                }
+            } else {
+                schlimmster = (tag.datum.mittel, klein, gross)
+            }
+        }
+        guard let schlimmster, let hoechstes else { return [] }
+        let faktor = schlimmster.gross / schlimmster.klein
+        let anteil = hoechstes.hoehe / max(satzhoehe, 1) * 100
+        // Stückweise zusammengesetzt und nicht in einer langen Plus-Kette:
+        // Die Mischung aus Literalen, Interpolation und Format-Aufrufen ist
+        // genau der Ausdruck, an dem der Typprüfer in 1.0.38 aufgegeben hat.
+        var text = "Gemessen am fertigen Satz. "
+        text += "Größter Unterschied an einem Tag: \(schlimmster.tag) \u{2014} "
+        text += "kleinstes Foto \(Druckmass.mmText(schlimmster.klein)), "
+        text += "größtes \(Druckmass.mmText(schlimmster.gross)).\n"
+        let prozent = String(format: "%.0f", anteil)
+        text += "Das höchste Foto des Buches steht am \(hoechstes.tag) und nimmt "
+        text += "\(prozent) Prozent der Satzhöhe.\n"
+        text += "Ein Faktor bis etwa 2,5 ist gewollt \u{2014} ein Akzent neben kleineren "
+        text += "Bildern. Darüber wirkt eine Doppelseite unausgewogen; dann hilft ein "
+        text += "anderes Seitenmuster für diesen Tag."
+        let stufe: Stufe = faktor > 3.2 ? .warnung : (faktor > 2.5 ? .hinweis : .gut)
+        let zahl = String(format: "%.1f", faktor).replacingOccurrences(of: ".", with: ",")
+        return [Zeile(stufe: stufe, titel: "Fotogrößen: Faktor \(zahl)", text: text)]
+    }
+
     // WO MITTEN IM SATZ GETRENNT WURDE (ab 1.0.41).
     //
     // Der Befund, der diese Fassung ausgelöst hat (Nutzer, 09/2026): „Ich
@@ -335,6 +399,7 @@ enum Druckpruefung {
         zeilen.append(contentsOf: abgeschnittenerText(reise))
         zeilen.append(contentsOf: doppelterText(reise))
         zeilen.append(contentsOf: leereUnterschriften(reise))
+        zeilen.append(contentsOf: bildgroessen(reise))
         zeilen.append(contentsOf: zeilenlaenge(reise))
         zeilen.append(contentsOf: trennungsbefund(reise))
         zeilen.append(contentsOf: mittenImSatz(reise))

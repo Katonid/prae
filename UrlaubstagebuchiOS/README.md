@@ -352,6 +352,59 @@ wirkungslos — und genau das will man beim Umstellen einer Schrift nicht.
 * Eine Reise, die sich nicht lesen lässt, wird in der Übersicht gezählt.
 * Der Einfuhrbericht sagt in einem Satz, was ankam und was nicht.
 
+## Wie groß ein Foto wird (1.0.42)
+
+Gemeldet 09/2026: Ein Tag mit fünf Fotos, einer Karte und mäßig viel Text lief
+über vier Seiten; am Ende standen Bilder allein auf der Seite, und die Größen
+gingen weit auseinander — „einige Fotos riesengroß, während andere dort, wo der
+Text noch mit im Spiel ist, ein Bruchteil dieser Größe haben."
+
+**Nachgerechnet an der Geometrie.** Die Höhe einer randbündigen Reihe ist
+Satzbreite geteilt durch die Summe der Seitenverhältnisse. Auf A4 mit den
+Vorgaberändern (Satz 178 × 261 mm):
+
+| Reihe | Höhe | Anteil der Satzhöhe |
+| --- | --- | --- |
+| ein Hochformat (3:4) allein | 237 mm | 91 % |
+| ein Querformat (4:3) allein | 134 mm | 51 % |
+| drei Kacheln nebeneinander | 45 mm | 17 % |
+
+Faktor 5,3 zwischen der ersten und der letzten Zeile — und welcher Fall eintrat,
+hing allein daran, wie viele Kacheln zufällig auf dieser Seite gelandet waren.
+Die kamen aus einer Zählung (offene Kacheln geteilt durch geschätzte
+Restseiten), und korrigiert wurde danach allein über die Dehnung. Die sagt aber
+nur, ob die Spalte den Kasten füllt: Zwei randbündige Hochformate untereinander
+füllen ihn genauso gut wie sechs kleine Kacheln.
+
+**Seit 1.0.42 hat jeder Tag eine Zielreihenhöhe, und sie ist gerechnet.** Eine
+Reihe der Höhe h trägt Kacheln mit der Verhältnissumme B/h; für alle Kacheln
+eines Tages (Summe S) sind das S·h/B Reihen, und die Spalte wird S·h²/B hoch.
+Aus der Fläche A, die den Bildern an diesem Tag bleibt, folgt damit genau eine
+Höhe: **h = √(A·B/S)**. Mehr Bilder werden kleiner, weniger größer — stetig
+statt in Sprüngen.
+
+Daraus folgt der Rest:
+
+* **Eine Reihe darf schmaler sein als der Satz.** Was über dem Deckel
+  (Zielhöhe × 1,3) läge, wird nicht höher, sondern schmaler; die Kacheln
+  behalten ihr Verhältnis und die Reihe steht mittig. Der alte Weg
+  (`naechsteReihe`) konnte das immer schon — 1.0.35 hat ihn durch das Mosaik
+  ersetzt und den Deckel dabei verloren.
+* **Wie viele Bilder auf eine Seite gehören, folgt aus der Fläche** und nicht
+  mehr aus der Zahl der Seiten.
+* **Nach unten gibt es keine Dehnungsgrenze mehr.** Sie stand da, solange eine
+  Reihe die Satzbreite füllen musste; jetzt heißt Stauchen „kleiner und mittig"
+  und kostet nichts. Mit der alten Grenze wurde die Spalte höher als der Kasten,
+  die letzte Reihe fiel heraus und ihr Bild landete allein auf der nächsten
+  Seite — die zweite Hälfte des gemeldeten Fehlers.
+* **Keine hungernde letzte Seite:** Passt alles Offene noch auf diese Seite,
+  kommt es mit.
+
+**Und die App misst nach.** „Vor dem Druck prüfen" nennt seit 1.0.42 den größten
+Größenunterschied innerhalb eines Tages, mit Datum und beiden Maßen, und wie
+viel Prozent der Satzhöhe das höchste Foto des Buches nimmt. Gemessen am
+fertigen Satz und nicht an der Absicht.
+
 ## Selbst installierte Schriften (1.0.41)
 
 Gemeldet 09/2026: „Quicksand und … sind auf dem iPad installiert und können
@@ -3402,6 +3455,12 @@ im Inspektor gab es, aber keinen Weg zu sehen, was es bewirkt.
 
 ## Offene Punkte
 
+* **Nichts an 1.0.42 ist auf einem Gerät gesehen.** Gerechnet ist die Ursache
+  (91 gegen 17 Prozent der Satzhöhe für dasselbe Foto) und die Geometrie der
+  Abhilfe. Gewählt und nicht gemessen sind die Grenzen der Zielhöhe (0,16 bis
+  0,42 der Satzhöhe), der Deckel darüber (1,3) und die Schwellen der neuen
+  Befundzeile. Ob eine Doppelseite damit ausgewogen aussieht, sagt erst der
+  nächste Befund — jetzt mit Zahlen daneben.
 * **Nichts an 1.0.41 ist auf einem Gerät gesehen.** Ob der Systemwähler die
   selbst installierten Schriften zeigt, ob die Anmeldung auf `.process`
   greift, ob der Name nach einem Neustart trägt und ob eine so gewählte

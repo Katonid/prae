@@ -54,6 +54,23 @@ import Foundation
 // Rechnung und nicht als Aufschlag hinterher: Sonst hielte die Spalte ihre
 // Höhe nicht, sobald gestaffelt wird — dieselbe Überlegung wie bei den
 // Bildunterschriften.
+//
+// EINE REIHE DARF SCHMALER SEIN ALS DER SATZ (`hoechstens`, ab 1.0.42).
+//
+// Bis 1.0.41 folgte die Höhe einer Reihe zwingend aus der Satzbreite:
+// `hoehe = B / Σr`. Damit war die GRÖSSE eines Fotos keine Entscheidung,
+// sondern eine Nebenwirkung davon, wie viele Kacheln zufällig neben ihm
+// standen — ein Hochformat allein in einer Reihe wird 1,33·B hoch, auf A4
+// also gut 85 % der Satzhöhe; dieselbe Kachel zu dritt ist ein Fünftel
+// davon. Genau das hat der Nutzer gemeldet (09/2026).
+//
+// `hoechstens` deckelt die Reihenhöhe. Was dann an Breite fehlt, bleibt
+// Rand: Die Kacheln behalten ihr Verhältnis, die Reihe steht mittig. Den
+// Deckel gibt es im alten Weg seit jeher (`Layoutautomat.naechsteReihe`,
+// „sie wird gedeckelt und steht dann linksbündig, statt als Riese die Seite
+// zu sprengen") — 1.0.35 hat diese Funktion durch das Mosaik ersetzt und
+// den Deckel dabei verloren. Dasselbe Muster wie beim Staffeln in 1.0.36:
+// **Wer eine Funktion ablöst, zählt vorher auf, was in ihr steckte.**
 enum Mosaik {
     // Die Höhe einer randbündigen Reihe: Die Breiten verhalten sich wie die
     // Seitenverhältnisse, und zusammen füllen sie die Satzbreite.
@@ -93,15 +110,24 @@ enum Mosaik {
         var dehnung: Double
     }
 
+    // `hoechstens` deckelt die Höhe JEDER Reihe. Gedeckelt wird erst hier
+    // und nicht schon in `aufteilen`: Dort entscheidet die Höhe, wann eine
+    // Reihe voll ist — käme von dort ein gedeckelter Wert zurück, wäre
+    // jede Reihe sofort „niedrig genug" und bestünde aus einer einzigen
+    // Kachel. Gepackt wird also mit der natürlichen Höhe, gezeichnet mit
+    // der gedeckelten.
     static func spalte(_ verhaeltnisse: [Double], breite: Double, quer: Double,
                        fuge: Double, hoehe: Double, ziel: Double, staffel: Double = 0,
+                       hoechstens: Double = .infinity,
                        unterschrift: (Int) -> Double = { _ in 0 }) -> Spalte
     {
         let reihen = aufteilen(verhaeltnisse, breite: breite, quer: quer, ziel: ziel)
         var hoehen: [Double] = []
         var unten: Double = 0
         for reihe in reihen {
-            hoehen.append(reihenhoehe(reihe.map { verhaeltnisse[$0] }, breite: breite, quer: quer))
+            let natuerlich = reihenhoehe(reihe.map { verhaeltnisse[$0] },
+                                         breite: breite, quer: quer)
+            hoehen.append(min(natuerlich, hoechstens))
             unten += reihe.map(unterschrift).max() ?? 0
             if reihe.count > 1 { unten += staffel }
         }
@@ -122,7 +148,7 @@ enum Mosaik {
     // gestaucht werden muss.
     static func beste(_ verhaeltnisse: [Double], breite: Double, quer: Double,
                       fuge: Double, hoehe: Double, reihen: ClosedRange<Int>,
-                      staffel: Double = 0,
+                      staffel: Double = 0, hoechstens: Double = .infinity,
                       unterschrift: (Int) -> Double = { _ in 0 }) -> Spalte?
     {
         guard !verhaeltnisse.isEmpty, hoehe > 1, breite > 1 else { return nil }
@@ -132,7 +158,7 @@ enum Mosaik {
             guard ziel > 1 else { continue }
             let versuch = spalte(verhaeltnisse, breite: breite, quer: quer, fuge: fuge,
                                  hoehe: hoehe, ziel: ziel, staffel: staffel,
-                                 unterschrift: unterschrift)
+                                 hoechstens: hoechstens, unterschrift: unterschrift)
             guard versuch.dehnung > 0 else { continue }
             if beste == nil || abs(log(versuch.dehnung)) < abs(log(beste!.dehnung)) {
                 beste = versuch
@@ -164,8 +190,15 @@ enum Mosaik {
     // `fuge` ist der Abstand zwischen Text und Fotos und bleibt auch dann
     // ein Abstand, wenn die Fotos untereinander überlappen (`quer` negativ):
     // Ein Bild, das über den Text greift, macht ihn unlesbar.
+    //
+    // `hoechstens` gilt hier genauso wie in `spalte`: Ein Hochformat neben
+    // einer schmalen Textspalte wird sonst höher als eine halbe Seite, und
+    // damit wäre die Reihe mit dem Text der nächste Riese. Findet sich in
+    // keiner Stufe ein Foto unter dem Deckel, kommt `nil` zurück — dann
+    // steht der Text über die volle Spaltenbreite und die Bilder darunter.
     static func mischreihe(fotos: [Double], breite: Double, quer: Double, fuge: Double,
                            kleinste: Double, groesste: Double, stufen: Int,
+                           hoechstens: Double = .infinity,
                            texthoehe: (Double) -> Double) -> Mischung?
     {
         guard !fotos.isEmpty, stufen > 1, groesste > kleinste else { return nil }
@@ -178,6 +211,7 @@ enum Mosaik {
             let uebrig = breite - textbreite - fuge - quer * Double(fotos.count - 1)
             guard uebrig > breite * 0.16 else { continue }
             let fotohoehe = uebrig / summe
+            guard fotohoehe <= hoechstens else { continue }
             let gemessen = texthoehe(textbreite)
             guard gemessen <= fotohoehe else { continue }
             // Je kleiner der Rest unter dem Text, desto besser sitzt die

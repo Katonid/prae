@@ -68,6 +68,12 @@ struct Tagesplan {
     var seiten: Int
     var gangart: Gangart
     var textanteil: Double
+    // Wie hoch eine Fotoreihe an DIESEM Tag werden soll — dieselbe Zahl auf
+    // jeder seiner Seiten. Sie ist die Antwort auf „einige Fotos riesengroß,
+    // andere ein Bruchteil davon" (Befund des Nutzers, 09/2026): Vorher gab
+    // es keine, und die Größe eines Fotos folgte allein daraus, wie viele
+    // Kacheln zufällig in seiner Reihe standen.
+    var zielhoehe: Double
 
     // Die beiden Schwellen sind GEWÄHLT und nicht gemessen. Sie sind weit
     // auseinander gelegt, damit der Regelfall die ausgewogene Gangart ist:
@@ -77,6 +83,7 @@ struct Tagesplan {
     static let textschwelle = 0.72
 
     static func bauen(textHoehe: Double, bilderHoehe: Double, kacheln: Int,
+                      verhaeltnissumme: Double, satzbreite: Double,
                       kopf: Double, satzhoehe: Double, fuge: Double) -> Tagesplan
     {
         let luft = (textHoehe > 1 && bilderHoehe > 1) ? fuge * 2 : 0
@@ -102,25 +109,77 @@ struct Tagesplan {
         let roh = (gesamt + kopf) / max(satzhoehe, 1) - 0.08
         let seiten = max(1, Int(roh.rounded(.up)))
 
+        // Was den Bildern an diesem Tag insgesamt an Höhe bleibt: alle
+        // Seiten zusammen, abzüglich Kopfzeile, Text und der Fugen. Aus
+        // dieser Fläche folgt die Zielreihenhöhe (siehe unten).
+        let fugen = fuge * 2 * Double(seiten)
+        let flaeche = Double(seiten) * satzhoehe - kopf - textHoehe - fugen
+        let ziel = zielreihenhoehe(verhaeltnissumme: verhaeltnissumme,
+                                   breite: satzbreite, flaeche: flaeche,
+                                   satzhoehe: satzhoehe)
+
         return Tagesplan(textHoehe: textHoehe, bilderHoehe: bilderHoehe,
                          kacheln: kacheln, seiten: seiten,
-                         gangart: gangart, textanteil: anteil)
+                         gangart: gangart, textanteil: anteil, zielhoehe: ziel)
     }
 
-    // Wie viele Kacheln auf die Seite gehören, die gerade gefüllt wird.
+    // DIE ZIELHÖHE EINER FOTOREIHE — GERECHNET, NICHT GEWÄHLT (ab 1.0.42).
     //
-    // Gerechnet wird aus dem, was NOCH offen ist, und aus der Zahl der noch
-    // vorgesehenen Seiten — nicht aus einer beim Start festgelegten Liste.
-    // Damit bleibt die Verteilung gleichmäßig, auch wenn eine Seite mehr
-    // aufgenommen hat als geplant (Ansage des Nutzers, 09/2026: „Das
-    // verteile ich einigermaßen gleichmäßig auf die Seiten. So dass immer
-    // Bilder und Text auf jeder Seite sind.").
-    func kachelnAufSeite(offen: Int, restSeiten: Int) -> Int {
-        guard offen > 0 else { return 0 }
-        guard restSeiten > 1 else { return offen }
-        let je = Double(offen) / Double(restSeiten)
-        return min(offen, max(1, Int(je.rounded())))
+    // Eine randbündige Reihe der Höhe h trägt Kacheln, deren
+    // Seitenverhältnisse sich zu B/h summieren (denn jede Kachel ist h·r
+    // breit, und zusammen füllen sie B). Für alle Kacheln eines Tages mit
+    // der Verhältnissumme S braucht es damit S·h/B Reihen, und die Spalte
+    // wird S·h²/B hoch.
+    //
+    // Die Spaltenhöhe wächst also mit dem QUADRAT der Reihenhöhe — und
+    // umgekehrt folgt aus der Fläche A, die den Bildern bleibt, genau eine
+    // Höhe: h = √(A·B/S). Mehr Bilder werden kleiner, weniger Bilder
+    // größer, und zwar stetig statt in Sprüngen.
+    //
+    // Die beiden Grenzen sind GEWÄHLT und nicht gemessen. Nach oben 0,42
+    // der Satzhöhe: Eine Reihe, die mehr nimmt, lässt keine zweite mehr zu,
+    // und dann ist die Seite wieder ein einzelnes großes Bild. Nach unten
+    // 0,16: Darunter wird ein Foto in einem gedruckten Buch zur Briefmarke.
+    static func zielreihenhoehe(verhaeltnissumme: Double, breite: Double,
+                                flaeche: Double, satzhoehe: Double) -> Double
+    {
+        let ruecklage = satzhoehe * 0.32
+        guard verhaeltnissumme > 0.01, breite > 1, flaeche > 1 else { return ruecklage }
+        let roh = (flaeche * breite / verhaeltnissumme).squareRoot()
+        return min(max(roh, satzhoehe * 0.16), satzhoehe * 0.42)
     }
+
+    // Wie viele Kacheln eine Seite bei dieser Zielhöhe trägt.
+    //
+    // Dieselbe Rechnung rückwärts: Eine Spalte aus Reihen der Höhe h ist
+    // S·h²/B hoch. Gesucht ist also die Zahl der Kacheln von vorn, deren
+    // Verhältnissumme gerade die freie Höhe dieser Seite deckt.
+    //
+    // Bis 1.0.41 stand hier `kachelnAufSeite(offen:restSeiten:)` und teilte
+    // schlicht die Zahl der offenen Kacheln durch die Zahl der noch
+    // vorgesehenen Seiten. Eine Zählung sagt aber nichts über die GRÖSSE:
+    // Zwei randbündige Hochformate untereinander füllen eine Seite genauso
+    // gut wie sechs kleine Kacheln, und genau das war der gemeldete Fehler.
+    func kachelnFuer(verhaeltnisse: [Double], hoehe: Double, breite: Double) -> Int {
+        guard !verhaeltnisse.isEmpty else { return 0 }
+        guard zielhoehe > 1, hoehe > 1, breite > 1 else { return 1 }
+        let bedarf = hoehe * breite / (zielhoehe * zielhoehe)
+        var summe: Double = 0
+        for (stelle, verhaeltnis) in verhaeltnisse.enumerated() {
+            summe += verhaeltnis
+            if summe >= bedarf { return stelle + 1 }
+        }
+        return verhaeltnisse.count
+    }
+
+    // Wie hoch die Spalte aus diesen Kacheln bei der Zielhöhe wird — die
+    // Umkehrung von `kachelnFuer` und gebraucht für die Frage, ob nach
+    // dieser Seite noch genug übrig bleibt, um eine weitere zu füllen.
+    func spaltenhoehe(verhaeltnisse: ArraySlice<Double>, breite: Double) -> Double {
+        guard breite > 1 else { return 0 }
+        return verhaeltnisse.reduce(0, +) * zielhoehe * zielhoehe / breite
+    }
+
 }
 
 // Bis 1.0.34 stand hier eine Aufzählung `Seitenform` — nurText, nurBilder,
