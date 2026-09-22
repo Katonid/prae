@@ -5065,6 +5065,91 @@ Befunde, und keiner davon war Geschmack:
   abwechslungsreich wirkt oder unruhig, sagt erst der nächste Befund. Ebenso
   ungeprüft, ob ein leicht gedrehter Textblock im PDF sauber steht. **Nicht als
   erledigt darstellen.**
+- **„Tagebuch" ist ein STIL, kein Seitenmuster** (`Buchstil.tagebuch`, ab
+  1.0.32; Ansage des Nutzers 09/2026: „Die Option Tagebuch finde ich nach wie
+  vor nicht. Ich möchte, dass sie dort eingefügt wird, wo die anderen Optionen
+  sind. Nämlich da, wo ich Fotobuch und Magazin auswählen kann."). Es gab
+  „Text und Bilder im Wechsel" seit 1.0.29 — als `Seitenmuster`, also hinter
+  dem Tagesmenü, dort, wo man einen EINZELNEN Tag anders setzen lässt. 1.0.31
+  hat dieses Menü findbar gemacht, und der Nutzer hat es trotzdem nicht
+  gefunden: **Er hat nicht an der falschen Stelle gesucht, es lag an der
+  falschen.** Ein durchgehend erzählendes Buch ist eine Handschrift und kein
+  Sonderfall eines Tages. Fünfte Auflage von „es war da, man fand es nicht" —
+  und die erste, bei der nicht der Weg zu kurz war, sondern die Sache am
+  falschen Ort stand. **Merke: Wird etwas zum zweiten Mal nicht gefunden, ist
+  nicht der Weg dorthin zu prüfen, sondern die Zuordnung.**
+- **Ein sechster Stil ist EINE Zeile** (`Buchstil.alle`). `StilView` läuft über
+  diese Liste; wer einen Stil anlegt und dort nicht einträgt, hat ihn gebaut
+  und nicht ausgeliefert. Das Muster `.wechsel` steht in `tagebuch` an erster
+  Stelle der `musterVorliebe` — es steht das auch in allen fünf anderen Stilen,
+  greift dort aber erst ab 1200 Zeichen und vier Fotos; der Unterschied ist
+  nicht das Muster, sondern Schrift, Papier, Fugen und `lebendig`. Und
+  `Seitenmuster.wechsel` heißt seither nicht mehr „Tagebuch: …": Zwei Dinge
+  mit demselben Namen sind eines zu viel.
+- **Ein Tag fängt mit einem Bild an** (Aufmacherband, ab 1.0.32). Befund des
+  Nutzers zu 1.0.31: „Ich finde sie nach wie vor sehr nüchtern." Die Seiten
+  waren richtig gesetzt und sahen aus wie ein Bericht — Kopfzeile, Textspalte,
+  darunter eine Reihe gleich hoher Bilder. Im Muster `.wechsel` steht jetzt
+  unter der Kopfzeile ein Bild über die **ganze Satzbreite**, auch wenn die
+  Textspalte darunter schmaler ist: Genau dieser Unterschied macht es zum
+  Aufmacher. Es kostet ein Foto aus dem Vorrat, deshalb erst ab dreien — bei
+  zweien wäre die Reihe darunter leer, und der Tag sähe ärmer aus statt
+  reicher. Höhe ein Drittel der Satzhöhe; die Zahl ist **gewählt und nicht
+  gemessen**.
+- **Die letzte Seite eines Tages war die verschenkte**
+  (`ausfuellendesZiel`, `stapelhoehe`, ab 1.0.32). Zweiter Teil desselben
+  Befundes: „es wird häufig Platz verschenkt." Am Quelltext nachzurechnen und
+  keine Vermutung: `zielhoehe(fuer:)` leitet die Reihenhöhe allein aus der
+  ZAHL der Kacheln ab und sieht die Seite nie an. Solange viele Bilder warten,
+  ist das richtig — die nächste Reihe füllt ohnehin nach. Auf der letzten Seite
+  warten aber oft nur noch zwei oder drei: Eine Reihe steht oben, darunter
+  bleibt die halbe Seite weiß. Und `restplatzVerteilen` hilft dort **prinzipiell
+  nicht** — es verteilt die Lücken ZWISCHEN den Reihen, und bei einer einzigen
+  Reihe gibt es keine.
+  - **Vergrößert wird nur, wenn ALLES Offene auf diese eine Seite passt und
+    kein Text mehr wartet.** Sonst gehört der Platz dem Text bzw. füllt die
+    nächste Reihe die Seite ohnehin. Damit ist die Änderung eng auf den
+    gemeldeten Fall begrenzt und lässt jede andere Seite, wie sie war.
+  - **Gesucht wird in Schritten, nicht gerechnet.** Eine größere Zielhöhe nimmt
+    Kacheln aus den Reihen heraus und kann damit eine Reihe MEHR ergeben — der
+    Zusammenhang ist nicht monoton, eine geschlossene Formel gäbe es nicht.
+    Gehalten wird der letzte Wert, der nachweislich passte.
+  - **Gemessen wird mit derselben Funktion, die auch setzt** (`naechsteReihe`,
+    samt Staffelhub). Eine zweite Schätzung daneben liefe auseinander, und dann
+    hielte die Seite nicht, was die Probe sagt.
+- **Wer entscheidet, ob Handarbeit stehen bleibt, ist der Nutzer** (ab 1.0.32,
+  Ansage 09/2026: „Ich möchte außerdem die Option haben, wenn ich eine
+  Gestaltungsansicht ändere, dass auch bereits bearbeitete Seiten wieder
+  zurückgesetzt werden. Ich möchte das frei entscheiden können."). Bis 1.0.31
+  wurden von Hand bearbeitete Tage beim Stilwechsel IMMER verschont. Die
+  Vorsicht ist richtig — eine Automatik, die eine Stunde Handarbeit ohne
+  Rückfrage überschreibt, benutzt man genau einmal. Falsch war, daraus eine
+  Regel zu machen: Wer den Stil wechselt, will das ganze Buch anders haben, und
+  dann stehen ein paar Seiten im alten Satz mitten darin. Gefragt wird
+  weiterhin, nur ist die Antwort jetzt eine **Wahl** („Bearbeitete Seiten
+  behalten" / „Alles neu setzen") und keine Ansage. **Merke: Eine Rückfrage,
+  die nur eine Antwort zulässt, ist keine Rückfrage.** Die Zahl der betroffenen
+  Tage steht in der Meldung — „an einigen Tagen" lässt einen raten, ob es um
+  einen geht oder um zwanzig; gezählt wird beim TIPP und nicht im Körper der
+  Ansicht (dieselbe Falle wie bei der Druckprüfung in 1.0.0).
+- **Eine pauschale Ersetzung trifft auch BEZEICHNER** (Selbstfund beim Bau von
+  1.0.32). Beim Geradeziehen von Umlauten in Kommentaren wurde aus `gehoert`
+  ein `gehört` — auch im Funktionsnamen; `ReiseView` rief danach etwas, das es
+  nicht mehr gab. Gemeldet hat es der Bau, nicht
+  `scripts/swift-quelltext-pruefen.py`: Der sieht String-Literale an und keine
+  Bezeichner. **Wer Umlaute in Kommentaren richtet, prüft vorher, ob dieselbe
+  Zeichenfolge auch in einem Bezeichner vorkommt** — deutsche Namen im
+  Quelltext sind in diesem Repo die Regel, also ist es nicht der Sonderfall,
+  sondern der Normalfall.
+- **Nicht gemessen (1.0.32):** Keine Seite ist damit gesehen worden. Gerechnet
+  ist, WARUM unten Platz blieb; dass die Seite jetzt gefüllt aussieht, folgt
+  aus der Geometrie. Die Zahlen sind **gewählt und nicht gemessen**: ein
+  Drittel der Satzhöhe fürs Band, Deckel 2,2 und Schrittweite 1,05 beim
+  Füllen, die Schwellen 600 Zeichen und drei Fotos. Ob der neue Stil auf einem
+  Gerät nach Tagebuch aussieht, sagt erst der nächste Befund. **Zwei Dinge auf
+  einmal geändert** (Aufmacher und Füllung) — das ist hier vertretbar, weil sie
+  sich auf der Seite nicht verwechseln lassen: ein breites Bild oben ist der
+  eine, größere Reihen unten der andere.
 - **Die Bildunterschrift war halb gebaut** (ab 1.0.5, Wunsch des Nutzers
   09/2026: „zu jedem Foto einen Beschreibungstext … Dies soll jedoch eine
   Option für jedes Foto sein. Kein muss."). Der Layoutautomat hielt Platz
