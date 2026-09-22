@@ -90,6 +90,36 @@ struct Layoutautomat {
     private var fuge: Double { gestaltung.fugePt }
     private var bogen: CGRect { gestaltung.randabfallend(format) }
 
+    // EINE REIHE IST EIN STAPEL, KEIN RASTER (ab 1.0.36).
+    //
+    // Befund des Nutzers 09/2026 zu 1.0.35: „Allerdings ist die Anordnung
+    // der Fotos jetzt schon wieder sehr, sehr nüchtern. Alle sind
+    // rechtwinklig ausgerichtet, keins davon leicht gedreht oder gar so,
+    // dass sich eine Ecke überlappt."
+    //
+    // Er hat recht, und es war ein Rückschritt von mir: 1.0.34 hatte das
+    // Staffeln und Drehen in `reihenIn` eingebaut, und 1.0.35 hat genau
+    // diese Funktion durch das Mosaik ersetzt — samt der Mechanik darin.
+    //
+    // `querfuge` ist der Abstand INNERHALB einer Reihe und darf negativ
+    // sein; dann greifen benachbarte Kacheln übereinander. Weil `Mosaik`
+    // damit rechnet, werden die Bilder dabei BREITER und die Reihe höher —
+    // die Satzbreite bleibt gefüllt. `staffelhub` versetzt jede zweite
+    // Kachel nach oben, `neigung` dreht sie.
+    //
+    // Nur in Stilen, die das vertragen (`Buchstil.lebendig`): In einem
+    // Magazin wäre ein schiefes Bild ein Fehler, in einem Album fehlte es.
+    private var querfuge: Double { stil.lebendig ? -fuge * 1.1 : fuge }
+    private var staffelhub: Double { stil.lebendig ? fuge * 0.9 : 0 }
+
+    // Gedreht wird nur, wo auch überlappt wird, und immer um denselben
+    // Winkel für dasselbe Bild. Eine Karte wird NICHT gedreht: Sie ist eine
+    // Auskunft und kein Erinnerungsstück.
+    private func neigung(_ kachel: Kachel) -> Double {
+        guard stil.lebendig, kachel.kennung != nil else { return 0 }
+        return drehwinkel(kachel.kennung)
+    }
+
     // MARK: - Titelseite
 
     // Mit Titelfoto ist sie ein Plakat, ohne ein ruhiges Textblatt. Beides
@@ -643,7 +673,8 @@ struct Layoutautomat {
                 let daneben = min(fotos.count, voll > platz.height * 0.32 ? 1 : 2)
                 let neben = Array(fotos.prefix(daneben))
                 if let mischung = Mosaik.mischreihe(
-                    fotos: neben.map(\.verhaeltnis), breite: breite, fuge: fuge,
+                    fotos: neben.map(\.verhaeltnis), breite: breite, quer: querfuge,
+                    fuge: fuge,
                     kleinste: breite * 0.30, groesste: breite * 0.70, stufen: 12,
                     texthoehe: { Textmass.hoehe(text, bild: typografie.flieText, breite: $0) }
                 ) {
@@ -666,8 +697,10 @@ struct Layoutautomat {
             // freien Höhe ab, bevor es die Dehnung bildet. Sonst hielten
             // die Reihen ihre Höhe nicht, sobald Unterschriften
             // eingeschaltet sind.
-            spalte = Mosaik.beste(fotos.map(\.verhaeltnis), breite: breite, fuge: fuge,
+            spalte = Mosaik.beste(fotos.map(\.verhaeltnis), breite: breite,
+                                  quer: querfuge, fuge: fuge,
                                   hoehe: uebrig, reihen: 1...4,
+                                  staffel: staffelhub * 2,
                                   unterschrift: { fotos[$0].unterschrift })
         }
 
@@ -681,9 +714,14 @@ struct Layoutautomat {
         func setzeTextreihe() {
             guard !text.isEmpty else { return }
             let textLinks = nummer % 4 < 2
-            let fotobreite = breite - textbreite - fuge * Double(textreihe.count)
+            let luecken = Double(max(textreihe.count - 1, 0))
+            // Zwischen Text und Fotos steht immer eine ganze Fuge, zwischen
+            // zwei Fotos die `querfuge` — die darf überlappen, der Text
+            // nicht (siehe `Mosaik.mischreihe`).
+            let fotobreite = breite - textbreite - fuge - querfuge * luecken
+            let fotospanne = fotobreite + querfuge * luecken
             let bildhoehe = textreihenhoehe - (textreihe.map(\.unterschrift).max() ?? 0)
-            var x = Double(platz.minX) + (textLinks ? 0 : fotobreite + fuge * Double(textreihe.count))
+            var x = Double(platz.minX) + (textLinks ? 0 : fotospanne + fuge)
             bloecke.append(Block(
                 inhalt: .text(text),
                 rahmen: Rahmen(x: x, y: y, breite: textbreite, hoehe: max(texthoehe, 1))
@@ -692,12 +730,13 @@ struct Layoutautomat {
                 ? Double(platz.minX) + textbreite + fuge
                 : Double(platz.minX)
             let summe = textreihe.reduce(0.0) { $0 + $1.verhaeltnis }
-            for kachel in textreihe {
+            for (stelle, kachel) in textreihe.enumerated() {
                 let kachelbreite = summe > 0.01 ? fotobreite * (kachel.verhaeltnis / summe) : 0
                 let (neue, _) = kachelbloecke(kachel, x: x, y: y,
-                                              breite: kachelbreite, hoehe: bildhoehe)
+                                              breite: kachelbreite, hoehe: bildhoehe,
+                                              gedreht: neigung(kachel), ebene: stelle % 2)
                 bloecke.append(contentsOf: neue)
-                x += kachelbreite + fuge
+                x += kachelbreite + querfuge
             }
             y += textreihenhoehe + fuge + 4
         }
@@ -713,24 +752,37 @@ struct Layoutautomat {
             for (nummerReihe, reihe) in spalte.reihen.enumerated() {
                 let hoehe = spalte.hoehen[nummerReihe] * faktor
                 let unten = reihe.map { fotos[$0].unterschrift }.max() ?? 0
-                if y + hoehe + unten > grenze + 0.5 { break }
+                // Gestaffelt wird erst ab zwei Kacheln — ein einzelnes Bild
+                // steht schief da und sonst nichts, und daneben fehlte der
+                // Vergleich, an dem man die Absicht erkennt. Dieselbe
+                // Bedingung wie in `Mosaik.spalte`, sonst hielte die Spalte
+                // ihre Höhe nicht.
+                let hub = reihe.count > 1 ? staffelhub : 0
+                if y + hoehe + hub * 2 + unten > grenze + 0.5 { break }
                 let summe = reihe.reduce(0.0) { $0 + fotos[$1].verhaeltnis }
                 var x = Double(platz.minX)
                 var kennungen: [UUID] = []
-                for stelle in reihe {
-                    let kachel = fotos[stelle]
+                for (stelle, nummerKachel) in reihe.enumerated() {
+                    let kachel = fotos[nummerKachel]
                     let kachelbreite = summe > 0.01
-                        ? (breite - fuge * Double(reihe.count - 1)) * (kachel.verhaeltnis / summe)
+                        ? (breite - querfuge * Double(reihe.count - 1))
+                            * (kachel.verhaeltnis / summe)
                         : breite
-                    let (neue, _) = kachelbloecke(kachel, x: x, y: y,
-                                                  breite: kachelbreite, hoehe: hoehe)
+                    // Jede zweite Kachel sitzt oben statt unten und liegt
+                    // dabei über ihren Nachbarn — so sieht die Überlappung
+                    // gelegt aus und nicht verrutscht.
+                    let versatz = stelle % 2 == 1 ? 0.0 : hub * 2
+                    let (neue, _) = kachelbloecke(kachel, x: x, y: y + versatz,
+                                                  breite: kachelbreite, hoehe: hoehe,
+                                                  gedreht: neigung(kachel),
+                                                  ebene: stelle % 2)
                     bloecke.append(contentsOf: neue)
                     kennungen.append(contentsOf: neue.map(\.id))
-                    x += kachelbreite + fuge
+                    x += kachelbreite + querfuge
                 }
                 if !kennungen.isEmpty { gezeichnet.append(kennungen) }
                 gesetzteKacheln += reihe.count
-                y += hoehe + unten + fuge
+                y += hoehe + hub * 2 + unten + fuge
             }
             if gezeichnet.count > 1 {
                 bloecke = restplatzVerteilen(bloecke, reihen: gezeichnet,
@@ -758,7 +810,8 @@ struct Layoutautomat {
     // gehört zum Bild, und wer sie beim Weiterrücken vergisst, setzt den
     // nächsten Block darüber.
     private func kachelbloecke(_ kachel: Kachel, x: Double, y: Double, breite: Double,
-                               hoehe: Double, gedreht: Double = 0) -> ([Block], Double)
+                               hoehe: Double, gedreht: Double = 0,
+                               ebene: Int = 0) -> ([Block], Double)
     {
         var bloecke: [Block] = []
         var unten = hoehe
@@ -767,7 +820,14 @@ struct Layoutautomat {
             guard let foto = fotoIndex[id] else { return ([], 0) }
             var block = fotoblock(foto, x: x, y: y, breite: breite, hoehe: hoehe)
             block.drehung = gedreht
+            // Die Ebene entscheidet, welches von zwei überlappenden Bildern
+            // oben liegt (`Seite.sortiert`).
+            block.ebene = ebene
             bloecke.append(block)
+            // Die Bildunterschrift dreht NICHT mit: Sie ist die Zeile, die
+            // jemand unter ein eingeklebtes Bild schreibt, und die steht
+            // gerade. Mitgedreht würde sie um ihre EIGENE Mitte gedreht und
+            // rückte damit vom Bild ab.
             if let zeile = unterschriftBlock(foto, x: x, y: y + hoehe, breite: breite) {
                 bloecke.append(zeile)
                 unten += unterschriftHoehe(foto, breite: breite)
@@ -970,7 +1030,7 @@ struct Layoutautomat {
         // wachsen, dass sie die Seite füllen (siehe `ausfuellendesZiel`).
         func zielNachlegen() {
             ziel = ausfuellendesZiel(offen, breite: reihenBreite, grund: grundziel,
-                                     platz: satz.maxY - y, hub: 0,
+                                     platz: satz.maxY - y, hub: staffelhub,
                                      textOffen: !text.isEmpty)
         }
         zielNachlegen()
@@ -1107,7 +1167,14 @@ struct Layoutautomat {
             }
             guard !offen.isEmpty else { break }
             let (reihe, hoehe, gestreckt) = naechsteReihe(offen, breite: reihenBreite, ziel: ziel)
-            if y + hoehe > satz.maxY, !bloecke.isEmpty {
+            // Auch hier wird gestaffelt und gedreht (wieder ab 1.0.36): Ein
+            // Tag ganz ohne Text kommt nicht durch das Mosaik, und drei
+            // Bilder in einer Flucht sind dort so nüchtern wie überall
+            // sonst. Überlappt wird auf diesem Weg NICHT — die Breiten
+            // rechnet `naechsteReihe` mit der ganzen Fuge, und zwei
+            // Rechnungen nebeneinander liefen auseinander.
+            let hub = reihe.count > 1 ? staffelhub : 0
+            if y + hoehe + hub * 2 > satz.maxY, !bloecke.isEmpty {
                 seiten.append(Seite(
                     bloecke: restplatzVerteilen(bloecke, reihen: reihenaufSeite,
                                                 unten: y - fuge)))
@@ -1119,20 +1186,23 @@ struct Layoutautomat {
             }
             var x = reihenX
             var reihenbloecke: [UUID] = []
-            for kachel in reihe {
+            for (stelle, kachel) in reihe.enumerated() {
                 let breite = gestreckt * kachel.verhaeltnis
+                let versatz = stelle % 2 == 1 ? 0.0 : hub * 2
                 switch kachel.inhalt {
                 case let .foto(id):
                     if let foto = fotoIndex[id] {
-                        let block = fotoblock(foto, x: x, y: y,
+                        var block = fotoblock(foto, x: x, y: y + versatz,
                                               breite: breite, hoehe: gestreckt)
+                        block.drehung = neigung(kachel)
+                        block.ebene = stelle % 2
                         bloecke.append(block)
                         reihenbloecke.append(block.id)
                         // Die Unterschrift steht UNTER dem Bild und in
                         // dessen Breite. Die Reihenhöhe hält den Platz
                         // dafür schon frei (`naechsteReihe`); hier wird er
                         // nur noch gefüllt.
-                        if let zeile = unterschriftBlock(foto, x: x, y: y + gestreckt,
+                        if let zeile = unterschriftBlock(foto, x: x, y: y + versatz + gestreckt,
                                                          breite: breite)
                         {
                             bloecke.append(zeile)
@@ -1145,7 +1215,7 @@ struct Layoutautomat {
                         }
                     }
                 case .karte:
-                    let block = karteBlock(x: x, y: y, breite: breite, hoehe: gestreckt)
+                    let block = karteBlock(x: x, y: y + versatz, breite: breite, hoehe: gestreckt)
                     bloecke.append(block)
                     reihenbloecke.append(block.id)
                 default:
@@ -1154,7 +1224,7 @@ struct Layoutautomat {
                 x += breite + fuge
             }
             if !reihenbloecke.isEmpty { reihenaufSeite.append(reihenbloecke) }
-            y += hoehe + fuge
+            y += hoehe + hub * 2 + fuge
             offen.removeFirst(reihe.count)
         }
         bloecke = restplatzVerteilen(bloecke, reihen: reihenaufSeite, unten: y - fuge)

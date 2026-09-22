@@ -39,27 +39,42 @@ import Foundation
 // (`Textmass`, also derselbe Satz, der hinterher zeichnet) und als Abschluss
 // hereingereicht — sonst gäbe es zwei Meinungen darüber, wie hoch ein Text
 // in einer gegebenen Breite wird.
+//
+// ZWEI FUGEN, NICHT EINE (ab 1.0.36). `quer` ist der Abstand INNERHALB einer
+// Reihe, `fuge` der zwischen den Reihen. Bis 1.0.35 war es ein einziger Wert
+// — und damit ließ sich gar nicht ausdrücken, dass zwei Bilder einander
+// überlappen sollen, denn ein negativer Wert hätte dann auch die Reihen
+// ineinandergeschoben. `quer` darf negativ sein; die Kacheln werden dabei
+// BREITER, die Reihe wird höher, und die Satzbreite bleibt gefüllt. Wer
+// stattdessen bloß beim Setzen enger rückte, ließe rechts einen Streifen
+// stehen.
+//
+// `staffel` ist der Zuschlag, den JEDE Reihe zusätzlich braucht, wenn die
+// Kacheln darin gegeneinander versetzt und gedreht stehen. Er gehört in die
+// Rechnung und nicht als Aufschlag hinterher: Sonst hielte die Spalte ihre
+// Höhe nicht, sobald gestaffelt wird — dieselbe Überlegung wie bei den
+// Bildunterschriften.
 enum Mosaik {
     // Die Höhe einer randbündigen Reihe: Die Breiten verhalten sich wie die
     // Seitenverhältnisse, und zusammen füllen sie die Satzbreite.
-    static func reihenhoehe(_ verhaeltnisse: [Double], breite: Double, fuge: Double) -> Double {
+    static func reihenhoehe(_ verhaeltnisse: [Double], breite: Double, quer: Double) -> Double {
         guard !verhaeltnisse.isEmpty else { return 0 }
         let summe = verhaeltnisse.reduce(0, +)
-        let netto = breite - fuge * Double(verhaeltnisse.count - 1)
+        let netto = breite - quer * Double(verhaeltnisse.count - 1)
         return max(netto, 1) / max(summe, 0.01)
     }
 
     // Reihen zu einer Zielhöhe: Es wird gefüllt, bis die Reihe niedrig genug
     // ist. Die letzte Reihe bleibt, wie sie ist — sie wird von der Dehnung
     // mitgenommen.
-    static func aufteilen(_ verhaeltnisse: [Double], breite: Double, fuge: Double,
+    static func aufteilen(_ verhaeltnisse: [Double], breite: Double, quer: Double,
                           ziel: Double) -> [[Int]]
     {
         var reihen: [[Int]] = []
         var laufend: [Int] = []
         for nummer in verhaeltnisse.indices {
             laufend.append(nummer)
-            let hoehe = reihenhoehe(laufend.map { verhaeltnisse[$0] }, breite: breite, fuge: fuge)
+            let hoehe = reihenhoehe(laufend.map { verhaeltnisse[$0] }, breite: breite, quer: quer)
             if hoehe <= ziel {
                 reihen.append(laufend)
                 laufend = []
@@ -78,16 +93,17 @@ enum Mosaik {
         var dehnung: Double
     }
 
-    static func spalte(_ verhaeltnisse: [Double], breite: Double, fuge: Double,
-                       hoehe: Double, ziel: Double,
+    static func spalte(_ verhaeltnisse: [Double], breite: Double, quer: Double,
+                       fuge: Double, hoehe: Double, ziel: Double, staffel: Double = 0,
                        unterschrift: (Int) -> Double = { _ in 0 }) -> Spalte
     {
-        let reihen = aufteilen(verhaeltnisse, breite: breite, fuge: fuge, ziel: ziel)
+        let reihen = aufteilen(verhaeltnisse, breite: breite, quer: quer, ziel: ziel)
         var hoehen: [Double] = []
         var unten: Double = 0
         for reihe in reihen {
-            hoehen.append(reihenhoehe(reihe.map { verhaeltnisse[$0] }, breite: breite, fuge: fuge))
+            hoehen.append(reihenhoehe(reihe.map { verhaeltnisse[$0] }, breite: breite, quer: quer))
             unten += reihe.map(unterschrift).max() ?? 0
+            if reihe.count > 1 { unten += staffel }
         }
         let fugen = fuge * Double(max(reihen.count - 1, 0))
         let summe = hoehen.reduce(0, +)
@@ -104,8 +120,9 @@ enum Mosaik {
     // Überlegung wie bei `ausfuellendesZiel` seit 1.0.32). Gewertet wird die
     // Dehnung: Am besten ist die Aufteilung, die am wenigsten gedehnt oder
     // gestaucht werden muss.
-    static func beste(_ verhaeltnisse: [Double], breite: Double, fuge: Double,
-                      hoehe: Double, reihen: ClosedRange<Int>,
+    static func beste(_ verhaeltnisse: [Double], breite: Double, quer: Double,
+                      fuge: Double, hoehe: Double, reihen: ClosedRange<Int>,
+                      staffel: Double = 0,
                       unterschrift: (Int) -> Double = { _ in 0 }) -> Spalte?
     {
         guard !verhaeltnisse.isEmpty, hoehe > 1, breite > 1 else { return nil }
@@ -113,8 +130,9 @@ enum Mosaik {
         for zahl in reihen where zahl >= 1 {
             let ziel = (hoehe - fuge * Double(zahl - 1)) / Double(zahl)
             guard ziel > 1 else { continue }
-            let versuch = spalte(verhaeltnisse, breite: breite, fuge: fuge,
-                                 hoehe: hoehe, ziel: ziel, unterschrift: unterschrift)
+            let versuch = spalte(verhaeltnisse, breite: breite, quer: quer, fuge: fuge,
+                                 hoehe: hoehe, ziel: ziel, staffel: staffel,
+                                 unterschrift: unterschrift)
             guard versuch.dehnung > 0 else { continue }
             if beste == nil || abs(log(versuch.dehnung)) < abs(log(beste!.dehnung)) {
                 beste = versuch
@@ -143,7 +161,10 @@ enum Mosaik {
         var hoehe: Double
     }
 
-    static func mischreihe(fotos: [Double], breite: Double, fuge: Double,
+    // `fuge` ist der Abstand zwischen Text und Fotos und bleibt auch dann
+    // ein Abstand, wenn die Fotos untereinander überlappen (`quer` negativ):
+    // Ein Bild, das über den Text greift, macht ihn unlesbar.
+    static func mischreihe(fotos: [Double], breite: Double, quer: Double, fuge: Double,
                            kleinste: Double, groesste: Double, stufen: Int,
                            texthoehe: (Double) -> Double) -> Mischung?
     {
@@ -154,7 +175,7 @@ enum Mosaik {
         for stufe in 0..<stufen {
             let anteil = Double(stufe) / Double(stufen - 1)
             let textbreite = (kleinste + (groesste - kleinste) * anteil).rounded()
-            let uebrig = breite - textbreite - fuge * Double(fotos.count)
+            let uebrig = breite - textbreite - fuge - quer * Double(fotos.count - 1)
             guard uebrig > breite * 0.16 else { continue }
             let fotohoehe = uebrig / summe
             let gemessen = texthoehe(textbreite)

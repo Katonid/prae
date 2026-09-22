@@ -99,6 +99,41 @@ enum Druckpruefung {
         )]
     }
 
+    // EINE EINGESCHALTETE UNTERSCHRIFT OHNE TEXT (ab 1.0.36).
+    //
+    // Gemeldet 09/2026: „an manchen Stellen steht Text, der wie eine
+    // Regieanweisung wirkt. Ich weiß nicht, wo das herkommt." Bis 1.0.35
+    // stand unter einem solchen Foto das Wort „Bildunterschrift …" — und
+    // dorthin kommt es durch einen DOPPELTIPP auf das Bild, also durch
+    // denselben Griff, mit dem man Text bearbeitet.
+    //
+    // Das Wort ist weg (`SeitenflaecheView`), der Block ist es nicht: Er
+    // hält weiterhin eine Zeile Platz unter dem Foto frei, und im Druck ist
+    // das eine leere Zeile, die niemand bestellt hat. Also wird gezählt,
+    // gesagt, wo es steht, und ein Weg genannt, es loszuwerden — ein
+    // Hinweis ohne Ausweg ist die Frage von vorhin noch einmal.
+    static func leereUnterschriften(_ reise: Reise) -> [Zeile] {
+        var treffer: [String] = []
+        for tag in reise.tage {
+            for (nummer, seite) in tag.seiten.enumerated() {
+                for block in seite.bloecke {
+                    guard case let .bildunterschrift(id) = block.inhalt,
+                          let foto = reise.foto(id),
+                          foto.unterschrift.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                    else { continue }
+                    treffer.append("\(tag.datum.mittel), Seite \(nummer + 1)")
+                }
+            }
+        }
+        guard !treffer.isEmpty else { return [] }
+        return [Zeile(
+            stufe: .hinweis,
+            titel: "\(treffer.count)\u{00D7} Bildunterschrift eingeschaltet, aber leer",
+            text: "Unter diesen Fotos bleibt eine Zeile frei, in der nichts steht. So etwas entsteht durch einen Doppeltipp auf ein Foto \u{2014} der schaltet die Unterschrift ein. Entweder etwas hineinschreiben, oder alle auf einmal abschalten: \u{201E}\u{2026}\u{201C} oben rechts \u{2192} \u{201E}Leere Bildunterschriften abschalten\u{201C}.\n"
+                + treffer.prefix(12).joined(separator: "\n")
+        )]
+    }
+
     // MARK: - Vor dem Ausgeben
 
     static func vorab(_ reise: Reise) -> [Zeile] {
@@ -125,6 +160,7 @@ enum Druckpruefung {
         zeilen.append(contentsOf: schriften(reise))
         zeilen.append(contentsOf: abgeschnittenerText(reise))
         zeilen.append(contentsOf: doppelterText(reise))
+        zeilen.append(contentsOf: leereUnterschriften(reise))
 
         // Randabfallendes
         let randab = reise.seitenfolge.reduce(0) { summe, seite in

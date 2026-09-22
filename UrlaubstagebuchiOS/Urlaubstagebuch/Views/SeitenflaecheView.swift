@@ -879,14 +879,36 @@ struct BlockInhaltView: View {
         case .bildunterschrift:
             let text = Seitensatz.inhaltstext(block, tag: tag, reise: werk.reise)
             if text.isEmpty {
-                // Nur auf dem Bildschirm und nie im PDF: Eine eingeschaltete
-                // Unterschrift ohne Text wäre sonst eine unsichtbare Fläche,
-                // die sich nicht antippen lässt, weil niemand weiß, wo sie
-                // liegt.
-                Text("Bildunterschrift \u{2026}")
-                    .font(.system(size: max(werk.reise.typografie.bildunterschrift.groesse, 5)))
-                    .foregroundStyle(.tertiary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                // KEIN WORT, SONDERN EINE MARKE (ab 1.0.36).
+                //
+                // Hier stand bis 1.0.35 das Wort „Bildunterschrift …".
+                // Gemeldet 09/2026: „an manchen Stellen steht Text, der wie
+                // eine Regieanweisung wirkt. Ich weiß nicht, wo das
+                // herkommt." Genau das war es — und wie es dorthin kam,
+                // ist am Quelltext abzulesen: Ein DOPPELTIPP auf ein Foto
+                // schaltet die Unterschrift ein (`unterschriftOeffnen`),
+                // und wer danach nichts schreibt, hat von da an dieses
+                // Wort unter dem Bild stehen. Ein Doppeltipp ist aber auch
+                // der Griff, mit dem man Text bearbeitet; man landet also
+                // versehentlich dort.
+                //
+                // Der Grund für die Anzeige bleibt trotzdem richtig: Eine
+                // eingeschaltete Unterschrift ohne Text wäre sonst eine
+                // unsichtbare Fläche, die sich nicht antippen lässt, weil
+                // niemand weiß, wo sie liegt. Also bleibt eine MARKE — eine
+                // dünne Linie, so lang wie ein paar Wörter — und kein Wort:
+                // Die sieht man als leeres Feld und liest sie nicht als Satz.
+                // Ins PDF geht sie so wenig wie das Wort vorher.
+                //
+                // Wie viele solcher leeren Unterschriften im Buch stehen und
+                // wie man sie in einem Zug wieder los wird, sagt
+                // `Druckpruefung.leereUnterschriften`.
+                let hoehe = max(werk.reise.typografie.bildunterschrift.groesse, 5)
+                Rectangle()
+                    .fill(.tertiary)
+                    .opacity(0.45)
+                    .frame(width: hoehe * 6, height: max(hoehe * 0.09, 0.5))
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             } else {
                 Textkasten(text: text,
                            bild: Seitensatz.schriftbild(block, reise: werk.reise),

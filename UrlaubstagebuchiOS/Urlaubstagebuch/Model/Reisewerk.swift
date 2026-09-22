@@ -515,6 +515,52 @@ final class Reisewerk: ObservableObject, Identifiable {
         }
     }
 
+    // ALLE LEEREN BILDUNTERSCHRIFTEN AUF EINMAL ABSCHALTEN (ab 1.0.36).
+    //
+    // Sie entstehen durch einen Doppeltipp auf ein Foto und halten danach
+    // eine leere Zeile unter dem Bild frei. Einzeln lassen sie sich schon
+    // seit 1.0.5 abschalten — nur findet man sie nicht, wenn man nicht
+    // weiß, wonach man sucht. `Druckpruefung.leereUnterschriften` sagt, wo
+    // sie stehen, und hier steht der Weg, sie loszuwerden.
+    //
+    // Angefasst wird NUR, was wirklich leer ist: Eine Unterschrift, in der
+    // ein Wort steht, ist Handarbeit und bleibt.
+    @discardableResult
+    func leereUnterschriftenAbschalten() -> Int {
+        let leere = reise.tage
+            .flatMap(\.seiten)
+            .flatMap(\.bloecke)
+            .compactMap { block -> UUID? in
+                guard case let .bildunterschrift(id) = block.inhalt,
+                      let foto = reise.foto(id),
+                      foto.unterschrift.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                else { return nil }
+                return id
+            }
+        let kennungen = Set(leere)
+        guard !kennungen.isEmpty else { return 0 }
+        // EINMAL merken, nicht je Foto: `unterschriftUmschalten` legt bei
+        // jedem Aufruf einen Stand auf den Rückgängig-Stapel, und der ist
+        // flach (25 Stände). Zwanzig leere Unterschriften hätten ihn damit
+        // geleert — und der Stand von davor wäre unerreichbar.
+        merken()
+        for id in kennungen {
+            if var foto = reise.foto(id) {
+                foto.unterschriftZeigen = false
+                reise.setzeFoto(foto)
+            }
+        }
+        for t in reise.tage.indices {
+            for seite in reise.tage[t].seiten.indices {
+                reise.tage[t].seiten[seite].bloecke.removeAll { block in
+                    guard case let .bildunterschrift(id) = block.inhalt else { return false }
+                    return kennungen.contains(id)
+                }
+            }
+        }
+        return kennungen.count
+    }
+
     // Der kurze Weg von einem Foto zu seiner Unterschrift: einschalten,
     // wenn sie aus ist, den Block suchen und ihn gleich zum Schreiben
     // öffnen. Gemeldet 09/2026: „Ich habe noch nicht gefunden, wie ich eine
