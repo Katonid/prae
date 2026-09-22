@@ -27,7 +27,7 @@ struct Schriftenprobe: View {
             } header: {
                 Text("Befund")
             } footer: {
-                Text("Diese Zahlen sind gemessen, nicht angenommen. Wenn die erste Zeile 0 Einträge nennt, gibt diese Abfrage auf diesem Gerät nichts her \u{2014} dann führt der Weg über den Wähler von iOS, und das gehört hierher gemeldet.")
+                Text("Diese Zahlen sind gemessen, nicht angenommen. Ganz oben steht, was dieser Bau überhaupt darf \u{2014} gelesen aus dem eingebetteten Bereitstellungsprofil; fehlt das Schriftenrecht dort, sagen die Zahlen darunter nichts über das Gerät aus. Wenn ein Profil das Recht BEWILLIGT, steht die Zeichenkette dabei: Die gehört gemeldet, dann kann sie in die Entitlements-Datei.")
             }
 
             Section {
