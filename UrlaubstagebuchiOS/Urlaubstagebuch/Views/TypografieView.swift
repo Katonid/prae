@@ -126,16 +126,44 @@ struct TypografieView: View {
                 get: { bild.wrappedValue.farbe.farbe },
                 set: { bild.wrappedValue.farbe = Farbwert($0) }
             ))
-            if bild.wrappedValue.ausrichtung == .blocksatz, !bild.wrappedValue.trennung {
-                // Blocksatz ohne Trennung reißt Löcher in die Zeilen. Getrennt
-                // wird hier nicht von uns, sondern von Apples deutschem
-                // Wörterbuch — eine selbst gebaute Trennung wäre verboten,
-                // die deutsche ist nicht ableitbar.
-                Label("Blocksatz ohne Silbentrennung reißt Löcher in die Zeilen.",
-                      systemImage: "info.circle")
-                    .font(.caption)
-                    .foregroundStyle(.orange)
-            }
+            trennungshinweise
+        }
+    }
+
+    // WAS DER SCHALTER WIRKLICH TUT — und wo er nichts tut.
+    //
+    // Bis 1.0.39 stand hier nur die erste Zeile, und sie verschwand, sobald
+    // man die Trennung einschaltete. Getrennt wurde trotzdem nie (siehe
+    // `Model/Silbentrennung.swift`): Die App nahm die Warnung zurück und
+    // ließ die Löcher stehen. Ein Hinweis, der das Gegenteil dessen sagt,
+    // was gilt, ist schlimmer als keiner.
+    @ViewBuilder
+    private var trennungshinweise: some View {
+        if bild.wrappedValue.ausrichtung == .blocksatz, !bild.wrappedValue.trennung {
+            Label("Blocksatz ohne Silbentrennung reißt Löcher in die Zeilen.",
+                  systemImage: "info.circle")
+                .font(.caption)
+                .foregroundStyle(.orange)
+        }
+        if bild.wrappedValue.trennung, !Silbentrennung.verfuegbar {
+            Label("Dieses Gerät hat kein deutsches Trennwörterbuch — es wird nichts getrennt.",
+                  systemImage: "exclamationmark.triangle")
+                .font(.caption)
+                .foregroundStyle(.orange)
+        }
+        if bild.wrappedValue.trennung, bild.wrappedValue.versalien {
+            Label("In Großbuchstaben wird nicht getrennt.",
+                  systemImage: "info.circle")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        if bild.wrappedValue.trennung, Silbentrennung.verfuegbar,
+           !bild.wrappedValue.versalien
+        {
+            Label("Die Trennstellen kommen aus dem Wörterbuch des Geräts, nicht aus dieser App.",
+                  systemImage: "text.book.closed")
+                .font(.caption)
+                .foregroundStyle(.secondary)
         }
     }
 

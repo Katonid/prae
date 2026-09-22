@@ -263,9 +263,17 @@ struct Schriftbild: Codable, Hashable {
     var sperrung: Double = 0
     // Silbentrennung ist hier ausdrücklich erlaubt, anders als in den
     // anderen Projekten dieses Repos: Getrennt wird nicht von uns, sondern
-    // von Apples Wörterbuch (`hyphenationFactor` mit deutscher Sprache).
-    // Eine selbst gebaute Trennung bliebe verboten — die deutsche ist nicht
-    // ableitbar, und eine falsche stünde für immer im gedruckten Buch.
+    // von Apples deutschem Wörterbuch. Eine selbst gebaute Trennung bliebe
+    // verboten — die deutsche ist nicht ableitbar, und eine falsche stünde
+    // für immer im gedruckten Buch.
+    //
+    // **Gesetzt wird sie NICHT hier, sondern in `Silbentrennung`** (ab
+    // 1.0.40). Bis dahin stand unten nur `hyphenationFactor` — und das ist
+    // ein Feld von TextKit, das CoreText beim Übersetzen des
+    // `NSParagraphStyle` wegwirft. Die Seite wird mit CoreText gesetzt,
+    // also hat der Schalter dort nie etwas getan; im Textfeld beim
+    // Bearbeiten (TextKit) dagegen schon. Der ganze Befund steht in
+    // `Model/Silbentrennung.swift`.
     var trennung: Bool = false
 
     var uiFont: UIFont { familie.uiFont(groesse: groesse, fett: fett, kursiv: kursiv) }
@@ -278,6 +286,10 @@ struct Schriftbild: Codable, Hashable {
         absatz.minimumLineHeight = zeilenhoehe
         absatz.maximumLineHeight = zeilenhoehe
         absatz.paragraphSpacing = absatzabstand
+        // Bleibt stehen, obwohl CoreText es ignoriert: Das Textfeld beim
+        // Bearbeiten (`TextflaecheBruecke`) ist ein `UITextView` und setzt
+        // über TextKit — dort wirkt es, und dort SOLL es wirken, damit das
+        // Feld so umbricht wie die Seite darunter.
         absatz.hyphenationFactor = trennung ? 1 : 0
         absatz.lineBreakMode = .byWordWrapping
         var werte: [NSAttributedString.Key: Any] = [

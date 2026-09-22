@@ -34,7 +34,12 @@ enum Seitensatz {
             width: rechteck.width,
             height: rechteck.height
         )
-        let setzer = Textmass.rahmensetzer(text, bild: bild)
+        // Dieselbe Breite, mit der auch gemessen wurde — an ihr hängt seit
+        // 1.0.40 die Silbentrennung.
+        // `Double(…)` ausdrücklich: Überall, wo ein Wert aus einem `CGRect`
+        // in ein `Double` geht, steht in diesem Repo die Umwandlung dabei
+        // (die Falle aus 1.0.37, dort ein zweites Mal bezahlt).
+        let setzer = Textmass.rahmensetzer(text, bild: bild, breite: Double(rechteck.width))
         let pfad = CGPath(rect: gedreht, transform: nil)
         let rahmen = CTFramesetterCreateFrame(setzer, CFRange(location: 0, length: 0), pfad, nil)
         CTFrameDraw(rahmen, zusammenhang)
