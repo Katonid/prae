@@ -717,6 +717,101 @@ Bücher gefahrlos: Der erzeugte `Codable`-Leser verlangt einen Schlüssel nur
 für nicht-optionale Eigenschaften. Ein vorhandener Wert wird gelesen, ein
 fehlender wird `nil` — also „wie im Buch".
 
+## Tagebuch ist ein Stil — und die letzte Seite wird gefüllt (1.0.32)
+
+Drei Befunde des Nutzers zu 1.0.31, und der erste ist der wichtigste.
+
+### „Die Option Tagebuch finde ich nach wie vor nicht"
+
+Es gab sie seit 1.0.29 — als **Seitenmuster**, also hinter dem Tagesmenü,
+dort, wo man einen einzelnen Tag anders setzen lässt. 1.0.31 hat dieses Menü
+findbar gemacht (Datum auf dem Knopf, der Menüpunkt nennt seinen eigenen
+Stand), und der Nutzer hat es trotzdem nicht gefunden. Er hat auch gesagt,
+wo er sucht: „da, wo ich Fotobuch und Magazin auswählen kann."
+
+**Er hat nicht an der falschen Stelle gesucht — es lag an der falschen.**
+Ein durchgehend erzählendes Buch ist eine Handschrift und kein Sonderfall
+eines Tages. „Tagebuch" ist seit 1.0.32 ein **Stil** und steht als sechster
+in der Liste, vor Magazin. Fünfte Auflage von „es war da, man fand es
+nicht" — und die erste, bei der nicht der Weg zu kurz war, sondern die
+Zuordnung falsch. Wird etwas zum zweiten Mal nicht gefunden, ist nicht der
+Weg dorthin zu prüfen, sondern die Zuordnung.
+
+Der Stil setzt warmes Papier, Iowan Old Style für Titel und Fließtext, ein
+gesperrtes Datum in Braun, weite Fugen und `lebendig` — Bilder dürfen also
+leicht gegeneinander versetzt und eine Spur gedreht liegen. Das Muster
+`.wechsel` steht bei ihm an erster Stelle; es steht das auch in allen fünf
+anderen Stilen, greift dort aber erst ab 1200 Zeichen und vier Fotos. Der
+Unterschied zwischen den Stilen ist nicht das Muster, sondern Schrift,
+Papier, Fugen und Lebendigkeit.
+
+Dazu heißt `Seitenmuster.wechsel` nicht mehr „Tagebuch: Text und Bilder im
+Wechsel", sondern nur noch „Text und Bilder im Wechsel": Zwei Dinge mit
+demselben Namen sind eines zu viel.
+
+### „Sehr nüchtern, und es wird häufig Platz verschenkt"
+
+Zwei Sachen, und beide sind am Quelltext nachzurechnen.
+
+**Ein Tag fing nicht mit einem Bild an.** Kopfzeile, Textspalte, darunter
+eine Reihe gleich hoher Bilder — richtig gesetzt und wie ein Bericht. Im
+Muster `.wechsel` steht jetzt unter der Kopfzeile ein **Aufmacherband** über
+die ganze Satzbreite, auch wenn die Textspalte darunter schmaler ist: Genau
+dieser Unterschied macht es zum Aufmacher. Es kostet ein Foto aus dem
+Vorrat, deshalb erst ab dreien — bei zweien wäre die Reihe darunter leer,
+und der Tag sähe ärmer aus statt reicher.
+
+**Die letzte Seite eines Tages war die verschenkte.** `zielhoehe(fuer:)`
+leitet die Reihenhöhe allein aus der ZAHL der Kacheln ab und sieht die Seite
+nie an. Solange viele Bilder warten, ist das richtig — die nächste Reihe
+füllt ohnehin nach. Auf der letzten Seite warten aber oft nur noch zwei oder
+drei: Eine Reihe steht oben, darunter bleibt die halbe Seite weiß. Und
+`restplatzVerteilen` hilft dort **prinzipiell nicht** — es verteilt die
+Lücken ZWISCHEN den Reihen, und bei einer einzigen Reihe gibt es keine.
+
+`ausfuellendesZiel` fragt deshalb zu Beginn jeder Seite nach:
+
+* **Vergrößert wird nur, wenn ALLES Offene auf diese eine Seite passt und
+  kein Text mehr wartet.** Sonst gehört der Platz dem Text, bzw. die nächste
+  Reihe füllt die Seite ohnehin. Damit ist die Änderung eng auf den
+  gemeldeten Fall begrenzt und lässt jede andere Seite, wie sie war.
+* **Gesucht wird in Schritten, nicht gerechnet.** Eine größere Zielhöhe nimmt
+  Kacheln aus den Reihen heraus und kann damit eine Reihe MEHR ergeben — der
+  Zusammenhang ist nicht monoton, eine geschlossene Formel gäbe es nicht.
+  Gehalten wird der letzte Wert, der nachweislich passte.
+* **Gemessen wird mit derselben Funktion, die auch setzt** (`naechsteReihe`,
+  samt Staffelhub). Eine zweite Schätzung daneben liefe auseinander, und dann
+  hielte die Seite nicht, was die Probe sagt.
+
+### „Ich möchte das frei entscheiden können"
+
+Bis 1.0.31 wurden von Hand bearbeitete Tage beim Stilwechsel **immer**
+verschont. Die Vorsicht ist richtig — eine Automatik, die eine Stunde
+Handarbeit ohne Rückfrage überschreibt, benutzt man genau einmal. Falsch
+war, daraus eine Regel zu machen: Wer den Stil wechselt, will das ganze Buch
+anders haben, und dann stehen ein paar Seiten im alten Satz mitten darin.
+
+Gefragt wird weiterhin, nur ist die Antwort jetzt eine Wahl: „Bearbeitete
+Seiten behalten" oder „Alles neu setzen". **Eine Rückfrage, die nur eine
+Antwort zulässt, ist keine Rückfrage.** Die Meldung nennt die Zahl der
+betroffenen Tage — „an einigen Tagen" lässt einen raten, ob es um einen geht
+oder um zwanzig — und weist auf „Widerrufen" hin. Gezählt wird beim Tipp und
+nicht im Körper der Ansicht; ein Lauf über alle Tage und Seiten gehört nicht
+in etwas, das bei jedem Neuzeichnen läuft.
+
+### Nicht gemessen
+
+Keine Seite ist damit gesehen worden. Gerechnet ist, WARUM unten Platz
+blieb; dass die Seite jetzt gefüllt aussieht, folgt aus der Geometrie. Die
+Zahlen sind gewählt und nicht gemessen: ein Drittel der Satzhöhe fürs Band,
+Deckel 2,2 und Schrittweite 1,05 beim Füllen, die Schwellen 600 Zeichen und
+drei Fotos. Ob der neue Stil auf einem Gerät nach Tagebuch aussieht, sagt
+erst der nächste Befund.
+
+**Zwei Dinge auf einmal geändert** (Aufmacher und Füllung). Das ist hier
+vertretbar, weil sie sich auf der Seite nicht verwechseln lassen: ein
+breites Bild oben ist der eine, größere Reihen unten der andere.
+
 ## Keine zwei Seiten gleich — und der Streifen gehört der Reihe (1.0.31)
 
 Zum dritten Mal dieselbe Sache (09/2026): „Ein langer Text soll
@@ -2451,6 +2546,16 @@ im Inspektor gab es, aber keinen Weg zu sehen, was es bewirkt.
   wäre der schlechtere Tausch.
 
 ## Offene Punkte
+
+* **Nichts an 1.0.32 ist auf einem Gerät gesehen.** Gerechnet ist, warum
+  unten auf der letzten Seite eines Tages Platz blieb; dass sie jetzt gefüllt
+  aussieht, folgt aus der Geometrie. Die Zahlen sind **gewählt und nicht
+  gemessen**: ein Drittel der Satzhöhe fürs Aufmacherband, Deckel 2,2 und
+  Schrittweite 1,05 beim Füllen, die Schwellen 600 Zeichen und drei Fotos.
+  Ob der Stil „Tagebuch" auf einem Gerät nach Tagebuch aussieht — Iowan Old
+  Style, warmes Papier, leicht versetzte Bilder —, sagt erst der nächste
+  Befund. Und ob ein Buch, das im alten Stil gesetzt war, nach „Alles neu
+  setzen" wirklich besser dasteht, weiß nur, wer es angesehen hat.
 
 * **Wie eine Doppelseite im neuen Rhythmus AUSSIEHT, hat niemand gesehen**
   (1.0.31). Gerechnet ist die Ursache des vollen Textblocks — sie ist am
