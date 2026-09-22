@@ -717,6 +717,68 @@ Bücher gefahrlos: Der erzeugte `Codable`-Leser verlangt einen Schlüssel nur
 für nicht-optionale Eigenschaften. Ein vorhandener Wert wird gelesen, ein
 fehlender wird `nil` — also „wie im Buch".
 
+## Verschieben findbar, Kopieren gebaut (1.0.39)
+
+> „Ich suche noch nach der Funktion, Elemente auf eine andere Seite zu
+> kopieren oder zu verschieben. Sie ist zu versteckt."
+
+Beides trifft zu, und auf zweierlei Weise. **Verschieben** gab es seit 1.0.29 —
+aber nur im Block-Inspektor, dort ganz unten, hinter Schrift, Wirkung, Lage und
+Ausschnitt; und der Inspektor selbst liegt hinter dem Schieberegler in der
+Werkzeugleiste. **Kopieren** gab es überhaupt nicht.
+
+### Der Kommentar behauptete ein Menü, das es nicht gab
+
+Über `Reisewerk.seitenlage` steht seit 1.0.29: „Gebraucht an zwei Stellen
+(Inspektor und Blockmenü)". Ein Blockmenü gab es nie — die Funktion wurde von
+genau einer Stelle gerufen. Es war geplant und nur halb gebaut.
+
+**Ein Kommentar, der eine zweite Aufrufstelle behauptet, ist kein Beleg dafür,
+dass es sie gibt.** Dieselbe Wurzel wie bei jedem anderen Fall in diesem
+Papier, in dem ein Kommentar eine Prüfung ersetzen sollte.
+
+### Der Inspektor ist für Einstellungen, nicht für Handgriffe
+
+Was man mit einem Block **tut**, gehört dorthin, wo man ihn gerade anfasst. Das
+Blockmenü steht deshalb unten in der Leiste neben dem Tagesmenü, beschriftet
+mit der Art des Blocks („Foto", „Textblock", „Karte" …), und erscheint nur,
+solange ein Block gewählt ist. Darin: Verschieben (zurück, vor, neue Seite,
+bestimmte Seite), Kopieren, Teilen, Nach vorn holen, Entfernen.
+
+Der Abschnitt im Inspektor bleibt — zwei Zugänge, dieselben Funktionen im Werk.
+
+### Kopiert werden kann, was sich selbst gehört
+
+Fotos, Karten, Linien und Flächen ja; Fließtext, Überschrift, Datumszeile und
+Bildunterschrift nein. Das folgt aus dem Modell und ist keine Bequemlichkeit:
+Ein Tagebuchtext gehört dem **Tag** und steht einmal darin. Eine Kopie wäre im
+Druck derselbe Absatz zweimal — `Druckpruefung.doppelterText` meldet genau das
+seit 1.0.9 als Fehler —, und `Neuverteilung.fliesstexte` schriebe ihn beim
+nächsten Neuverteilen doppelt in den Tagebuchtext zurück.
+
+Der Grund steht im Fußtext des Inspektors. Im Menü fehlt der Eintrag ganz,
+statt ausgegraut dazustehen: Ein Knopf ohne Wirkung ist für den Menschen davor
+ein kaputter Knopf, ein fehlender wird nicht gesucht. Wer einen Textkasten
+aufteilen will, teilt ihn — das ist die Sache, die dahinter gemeint ist.
+
+**Eine Kopie erbt keine Kennung** (Lehre aus Tafelbild 1.4.5): Zwei Blöcke mit
+derselben `id` sind für jede Suche ein Block, und der zweite ließe sich nie
+wieder anfassen. Auf derselben Seite liegt sie versetzt und auf den Satzspiegel
+geklemmt.
+
+### Zwei eigene Fallen beim Gegenlesen
+
+Beide stehen namentlich in diesem Papier, und beide standen trotzdem im eigenen
+Entwurf: ein `min` über eine `CGRect`-Kante und einen `Double` (die
+CGFloat-Falle aus 1.0.37), und ein Menükörper aus verschachtelten Sections,
+Bedingungen und `ForEach` (die Typprüfer-Falle aus 1.0.38). **Die Regeln zu
+kennen genügt nicht; sie müssen am eigenen Diff angewandt werden, bevor der Bau
+es tut.**
+
+**Nicht gemessen:** Nichts davon ist auf einem Gerät gesehen worden. Dass das
+Blockmenü auffindbar *ist*, folgt daraus, dass es unten in der Leiste steht und
+den Namen des Blocks trägt — gesehen hat es niemand.
+
 ## Alles neu verteilen — und kein Satz geht dabei verloren (1.0.38)
 
 > „Ich frage mich, wie die nun geschaffene Funktion auf dem bereits
