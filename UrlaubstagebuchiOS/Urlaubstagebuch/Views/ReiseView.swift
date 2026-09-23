@@ -196,6 +196,13 @@ struct ReiseView: View {
 
     private var buehne: some View {
         GeometryReader { raum in
+            // Wie oft die BÜHNE selbst neu aufgebaut wird. Sie trägt
+            // `lupe`, wird also während der Zoomgeste bei jedem Bildpunkt
+            // durchlaufen — das ist gewollt und billig, solange die
+            // Seiten darin verglichen werden statt neu gebaut (siehe
+            // `SeitenflaecheView.==`). Ob das so ist, sagt der Vergleich
+            // dieser Zahl mit „Seite" im Befund.
+            let _ = werk.messer.melde("B\u{00FC}hne")
             // Der Leser gibt den einzigen Weg her, mit dem sich ein
             // SwiftUI-`ScrollView` unter iOS 17 gezielt bewegen lässt:
             // `scrollTo` auf ein Element, mit einem Anker. Einen Versatz
@@ -363,6 +370,11 @@ struct ReiseView: View {
         ForEach(seiten) { buchseite in
             VStack(spacing: Buehnenmasse.beschriftungsabstand) {
                 SeitenflaecheView(werk: werk, buchseite: buchseite, massstab: massstabJetzt)
+                    // Ohne `.equatable()` baut die Zweifingergeste jede
+                    // sichtbare Seite bei jedem Bildpunkt neu auf — siehe
+                    // `SeitenflaecheView.==`. Wer eine dritte Aufrufstelle
+                    // anlegt, hängt es mit dran.
+                    .equatable()
                 // FESTE Höhe, und das ist keine Kosmetik: `Zoomanker`
                 // rechnet mit ihr. Eine Zeile, die sich ihre Höhe selbst
                 // sucht, wäre in dieser Rechnung eine Schätzung.
@@ -584,6 +596,20 @@ struct ReiseView: View {
     private var seitenzoom: some Gesture {
         MagnifyGesture(minimumScaleDelta: 0.01)
             .onChanged { wert in
+                // GEZÄHLT WIRD DIE GESTE SELBST (ab 1.0.59).
+                //
+                // Bis 1.0.58 stand im Befund unten der Satz, „Zoomgeste"
+                // zähle, wie viele Gesten angekommen sind — und die Zeile
+                // konnte gar nicht erscheinen, denn niemand hat je
+                // gezählt. Dieselbe Wurzel wie an jeder anderen Stelle
+                // dieses Papiers: **Ein Kommentar ersetzt keine Prüfung.**
+                //
+                // Jetzt zählt sie je BILDPUNKT der Bewegung, und das ist
+                // die Zahl, um die es beim Wort „flüssig" geht: Steht
+                // „Zoomgeste" bei 60/s und „Seite" bei 0/s, kommt die
+                // Geste an und die Seiten zeichnen sich nicht mit; laufen
+                // beide gleich hoch, ist es umgekehrt.
+                werk.messer.melde("Zoomgeste")
                 if zoomAnfang == nil { gesteBeginnen(wert) }
                 let anfang = zoomAnfang ?? massstabJetzt
                 // `magnification` ist die GESAMTE Bewegung seit dem
@@ -1365,9 +1391,11 @@ struct ReiseView: View {
         // aus, mehr wollte sie nie. Der Grund steht seit 1.0.28 eine Ebene
         // tiefer, am `simultaneousGesture` der Bühne.
         //
-        // „Zoomgeste" unten zählt, wie viele Gesten überhaupt ANGEKOMMEN
-        // sind: Bleibt die Zahl null, während jemand aufzieht, hat der
-        // Erkenner nie begonnen.
+        // „Zoomgeste" unten zählt seit 1.0.59 WIRKLICH mit — bis dahin
+        // stand dieser Satz da und kein Aufruf dahinter. Bleibt die Zahl
+        // null, während jemand aufzieht, hat der Erkenner nie begonnen;
+        // steht sie hoch und „Seite" bei null, kommt die Geste an, ohne
+        // dass sich die Seiten mitzeichnen.
         let sperre = seitenzoomErlaubt
             ? "Seitenzoom: erlaubt"
             : (werk.ausschnittsmodus != nil

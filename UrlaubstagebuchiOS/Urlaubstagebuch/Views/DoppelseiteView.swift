@@ -54,6 +54,10 @@ struct DoppelseiteView: View {
     private func seite(_ buchseite: Buchseite?, umschlag: Bool, vorn: Bool) -> some View {
         if let buchseite {
             SeitenflaecheView(werk: werk, buchseite: buchseite, massstab: massstab)
+                // Siehe `SeitenflaecheView.==`: Der Körper dieser Ansicht
+                // läuft bei jedem Bildpunkt der Zoomgeste mit, und ohne
+                // den Vergleich zöge er beide Seiten des Bogens mit.
+                .equatable()
         } else if umschlag {
             UmschlagInnenseite(groesse: bogenmass, massstab: massstab, vorn: vorn)
         } else {

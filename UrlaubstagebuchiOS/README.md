@@ -41,7 +41,7 @@ Digital und die üblichen Online-Druckereien, abgerufen 09/2026):
 | **Endformat** | A4 hoch, A4 quer, 21 x 21, 30 x 30 cm, exakt aus Millimetern gerechnet. |
 | **Anschnitt** | Einstellbar, Vorgabe 3 mm (BoD verlangt 5). Steht als BleedBox in der Datei. |
 | **TrimBox** | Das Endformat, damit die Druckerei weiß, wo geschnitten wird. |
-| **300 dpi** | Bilder bis 3600 Punkte Kante; die Prüfung nennt das schwächste Bild mit Seitenzahl. |
+| **300 dpi** | Bilder bis 3600 Bildpunkte Kante (Vorwahl), wahlweise 6000. Die Prüfung rechnet seit 1.0.59 mit genau dieser Kante und nennt das schwächste Bild mit Seitenzahl. |
 | **Schriften eingebettet** | Die Prüfung liest die Einbettungserlaubnis aus der Schrift selbst (`fsType`). |
 | **RGB** | Bleibt RGB — genau das verlangen Fotobuchdienste, sie wandeln selbst um. |
 | **Keine Transparenz (PDF/X-1a, X-3)** | Schalter beim Ausgeben; Schatten fallen weg, Verläufe werden zu Feldern. |
@@ -479,6 +479,93 @@ gewählt und nicht gemessen — die Gewichte, das Raster, die Vorgaben (10 %
 Sichtbarkeit, 34 % Breite). Ob ein Zeichen bei 10 % im Druck noch zu sehen ist
 oder schon stört, sagt erst der erste Ausdruck; auf dem Bildschirm wirkt es
 kräftiger als auf Papier.
+
+## Was wirklich in der Datei steht (1.0.59)
+
+Frage des Nutzers, 09/2026: „ist eigentlich gewährleistet, dass die
+PDF-Datei die für den Druck erforderliche Auflösung beinhaltet."
+
+Die Antwort hängt an **zwei** Zahlen — an den Bildpunkten der Aufnahme und
+an der Höchstkante, auf die `Bildarchiv.fuerAusgabe` beim Schreiben
+herunterrechnet. Bis 1.0.58 kannte die Druckprüfung nur die erste: Sie
+rechnete mit den Bildpunkten der Originaldatei, und die kommen so gar
+nicht in die Datei. Bei „Zum Ansehen" (1600 Bildpunkte) war die genannte
+Zahl das Doppelte bis Dreifache des Wirklichen — die Prüfung meldete
+„Alle Bilder über 250 dpi" über einem PDF, in dem kein einziges Bild so
+fein war.
+
+- **Gerechnet wird jetzt mit der Kante, mit der auch ausgegeben wird**
+  (`Model/Ausgabeguete.swift`). Die Kante steht dort und nur dort; die
+  Druckprüfung nimmt die Vorwahl („Für den Druck", 3600) und **schreibt
+  hin, dass sie es tut**.
+- **Das Hintergrundfoto wird mitgezählt.** Es füllt Seite oder
+  Doppelseite ganz aus und ist damit fast immer das schwächste Bild eines
+  Buches — bis 1.0.58 wurde es überhaupt nicht angesehen, weil die
+  Prüfung nur Fotoblöcke durchging.
+- **„Gedeckelt" und „das Foto gibt nicht mehr her" sind zwei Befunde mit
+  zwei verschiedenen Handgriffen.** Nur der erste lässt sich im
+  Ausgabeblatt beheben, und nur dann nennt die App die höhere Güte als
+  Antwort.
+- **Im Ausgabeblatt steht die Zahl für die GEWÄHLTE Güte**, und sie
+  rechnet sich bei jedem Wechsel neu — in einer Aufgabe und nicht im
+  Körper der Ansicht (der Lauf geht über jede Seite und jedes Bild).
+
+Unverändert richtig bleibt alles darunter: Die Aufnahme selbst liegt
+**unverändert** im Bildarchiv, nichts wird beim Einlesen neu kodiert; die
+Karte wird für das PDF mit sechs Bildpunkten je Seitenpunkt aufgenommen
+(bei Apple-Karten also rund 430 dpi, bei einer Kachelquelle begrenzt durch
+die 48 Kacheln, die die Nutzungsrichtlinie der OSM Foundation zulässt);
+Schriften werden als Text gesetzt, und ob sie eingebettet werden dürfen,
+liest die Prüfung aus der Schrift selbst.
+
+**Nicht gemessen (1.0.59):** Keine Datei ist damit gedruckt worden.
+Gerechnet ist, was die Kante mit der Auflösung macht; **ob ein
+Druckdienst die Datei so annimmt und wie das Ergebnis auf Papier
+aussieht, sagt erst der erste Abzug.** Ungemessen bleibt auch, ob
+CoreGraphics beim Schreiben der Datei noch einmal komprimiert — die
+Bildpunkte gehen vollständig hinein, mit welcher Kodierung, entscheidet
+das System.
+
+## Flüssiger zoomen (1.0.59)
+
+Wunsch des Nutzers, 09/2026: „Dennoch würde ich mir wünschen, wenn
+Verschiebe- oder Zoom-Aktionen auf dem Bildschirm etwas flüssiger
+ablaufen könnten."
+
+- **Die Seiten zeichnen sich beim Zoomen nicht mehr mit.** Der Zoom
+  während der Geste ist seit 1.0.18 eine reine Skalierung — gerechnet
+  wird erst am Ende. Der Faktor steht aber als Zustand im Körper der
+  Bühne und wird bei jedem Bildpunkt neu gesetzt; damit bekam jede
+  sichtbare Seite einen neuen Wert, und ohne einen Vergleich muss SwiftUI
+  von einer Änderung ausgehen und den ganzen Körper neu bauen: den
+  Hintergrund, die Lage des Wasserzeichens (ein Suchlauf über 49 Felder),
+  jeden Textkasten, jedes Vorschaubild. `SeitenflaecheView` ist deshalb
+  `Equatable`, und beide Aufrufstellen hängen `.equatable()` an — dieselbe
+  Bauweise wie bei der Netzkarte der Abfahrtstafel.
+- **Abgeschaltet wird damit nichts.** Was sich IM `Reisewerk` ändert,
+  meldet es selbst, und diese Meldung geht am Vergleich vorbei. Es fällt
+  nur der Durchgang weg, bei dem sich gar nichts geändert hat.
+- **Und es gibt jetzt die Gegenprobe dazu.** Bis 1.0.58 stand im Befund
+  unter „Bedienung prüfen" der Satz, „Zoomgeste" zähle die angekommenen
+  Gesten — **und niemand hat je gezählt**; die Zeile konnte gar nicht
+  erscheinen. Dieselbe Wurzel wie überall sonst in diesem Papier: *Ein
+  Kommentar ersetzt keine Prüfung.* Gezählt wird seither wirklich, und
+  zwar je Bildpunkt der Bewegung, dazu die Bühne selbst. Steht
+  „Zoomgeste" bei 60/s und „Seite" bei 0/s, kommt die Geste an und die
+  Seiten zeichnen sich nicht mit; laufen beide gleich hoch, ist es
+  umgekehrt.
+- **Auch Hintergrundfoto und Wasserzeichen zählen jetzt in „Fotos" mit.**
+  Ein Wasserzeichen liegt auf jeder Seite; es war die Art Bild, die sich
+  am ehesten summiert, und es fehlte in der Zahl.
+
+**Nicht gemessen (1.0.59):** Auf einem Gerät gesehen hat das niemand.
+Abgezählt ist, WAS bei einer Zoomgeste je Bildpunkt anfiel und was davon
+jetzt wegfällt; ob sich die Bühne dadurch flüssig anfühlt, sagt erst der
+nächste Befund — und seit dieser Fassung sagt er es mit Zahlen. **Offen
+bleibt die zweite Hälfte:** Am ENDE einer Geste ändert sich der Maßstab,
+und dann holt jede Seite ihre Vorschaubilder in einer feineren Stufe neu
+von der Platte, auf dem Hauptfaden. Was das kostet, steht als „Fotos" im
+Befund; geändert ist daran nichts. **Nicht als erledigt darstellen.**
 
 ## Der Hintergrund lässt sich zoomen und verschieben (1.0.58)
 

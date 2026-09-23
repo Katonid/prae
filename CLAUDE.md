@@ -7214,6 +7214,74 @@ Befunde, und keiner davon war Geschmack:
   Fotoliste; seit 1.0.56 ist es eine Schleife über `gueltigeBilder` statt
   einer einzelnen Datei. Vergäße man sie, verlöre ein ausgetauschtes Buch
   seine Zeichen.
+- **DIE AUFLÖSUNG IM PDF HÄNGT AN ZWEI ZAHLEN, UND DIE PRÜFUNG KANNTE NUR
+  EINE** (`Model/Ausgabeguete.swift`, ab 1.0.59; Frage des Nutzers 09/2026:
+  „ist eigentlich gewährleistet, dass die PDF-Datei die für den Druck
+  erforderliche Auflösung beinhaltet. Ich lasse ja bei einem sehr guten
+  Fotodienst entwickeln."). Die Aufnahme liegt unverändert im Bildarchiv —
+  beim AUSGEBEN rechnet `Bildarchiv.fuerAusgabe` sie aber auf eine
+  Höchstkante herunter (`auftrag.bildkante`, Vorwahl 3600). Die Druckprüfung
+  rechnete bis 1.0.58 mit `foto.breite`, also mit den Bildpunkten der
+  Originaldatei, und nannte damit eine Zahl, die die Datei gar nicht hält:
+  Bei „Zum Ansehen" (1600) war das das Doppelte bis Dreifache, und die
+  Meldung „Alle Bilder über 250 dpi" stand über einem PDF, in dem kein
+  einziges Bild so fein war. **Eine Prüfung, die eine Zahl nennt, die die
+  Datei nicht hält, ist schlimmer als keine** — dieselbe Regel wie bei
+  „Plan" gegen „pünktlich".
+  - **Die Kante steht an EINER Stelle.** `Bildguete` ist deshalb aus
+    `AusgabeView` ins Modell gewandert: Eine Ansicht kann die Druckprüfung
+    nicht fragen, und zwei Fassungen derselben Zahl liefen auseinander.
+    Gerechnet wird in der Prüfung mit `Bildguete.vorgabe`, weil das der
+    Regelfall beim Ausgeben ist — **und die Zeile schreibt hin, dass sie es
+    tut**, statt es vorauszusetzen. Wer eine andere Güte wählt, bekommt
+    seine Zahl im Ausgabeblatt, dort mit dem gewählten Deckel.
+  - **Das HINTERGRUNDFOTO wird mitgezählt.** Es füllt Seite oder
+    Doppelseite ganz aus und ist damit fast immer das schwächste Bild eines
+    Buches; gezählt wurden bis 1.0.58 nur Fotoblöcke. Die Fläche dafür
+    rechnet `Bogenlage.bildflaeche` — dieselbe Funktion, die auch zeichnet.
+  - **„Gedeckelt" und „das Foto gibt nicht mehr her" sind zwei Befunde.**
+    Nur der erste lässt sich im Ausgabeblatt beheben, und nur dann nennt
+    die App die höhere Güte als Antwort. Gerechnet wird beides in einem
+    Durchgang (`dpi` gibt zwei Werte zurück).
+  - **Gerechnet wird in einer AUFGABE, nicht im Körper.** Der Lauf geht
+    über jede Seite und jedes Bild des Buches — dieselbe Falle wie bei der
+    Druckprüfung in 1.0.0.
+  - **Nicht gemessen:** Keine Datei ist damit gedruckt worden. Gerechnet
+    ist, was die Kante mit der Auflösung macht; ob ein Druckdienst sie
+    annimmt und wie das Papier aussieht, sagt erst der erste Abzug.
+- **EINE ZOOMGESTE DARF NICHT JEDE SEITE NEU BAUEN** (`SeitenflaecheView:
+  Equatable`, `.equatable()`, ab 1.0.59; Wunsch des Nutzers 09/2026: „wenn
+  Verschiebe- oder Zoom-Aktionen auf dem Bildschirm etwas flüssiger
+  ablaufen könnten"). Der Zoom WÄHREND der Geste ist seit 1.0.18 eine reine
+  Skalierung, und das ist richtig — gerechnet wird erst am Ende. Nur: `lupe`
+  ist ein Zustand im Körper der Bühne und wird bei jedem Bildpunkt gesetzt.
+  Damit bekommt jede sichtbare `SeitenflaecheView` einen neuen Wert, und
+  ohne Vergleich muss SwiftUI von einer Änderung ausgehen: Hintergrund,
+  Wasserzeichenlage (ein Suchlauf über 49 Felder), jeder Textkasten, jedes
+  Vorschaubild. Verglichen wird jetzt, was das Aussehen bestimmt — das
+  `werk` über die IDENTITÄT, denn was sich in ihm ändert, meldet es selbst
+  und geht am Vergleich vorbei. **Es wird nichts abgeschaltet**, es fällt
+  nur der Durchgang weg, bei dem sich nichts geändert hat. Dieselbe Bauweise
+  wie bei der Netzkarte der Abfahrtstafel (1.1.17). **Wer eine gespeicherte
+  Eigenschaft hinzufügt, trägt sie in `==` ein; wer eine dritte Aufrufstelle
+  anlegt, hängt `.equatable()` mit dran.**
+- **„Zoomgeste" stand im Befund und wurde NIE gezählt** (behoben in 1.0.59).
+  In `ReiseView` stand seit 1.0.28 der Satz, die Zeile zähle, wie viele
+  Gesten überhaupt angekommen sind — und im ganzen Quelltext gab es keinen
+  einzigen `melde("Zoomgeste")`; die Zeile konnte gar nicht erscheinen.
+  **Ein Kommentar ersetzt keine Prüfung**, zum wiederholten Mal, und
+  diesmal an der Probe selbst. Gezählt wird seither je Bildpunkt der
+  Bewegung, dazu die Bühne (`Bühne`). Damit ist die Gegenprobe zum Punkt
+  darüber da: „Zoomgeste" hoch und „Seite" bei null heißt, die Geste kommt
+  an und die Seiten zeichnen sich nicht mit; laufen beide gleich hoch, ist
+  es umgekehrt. Mitgezählt in „Fotos" werden seither auch Hintergrundfoto
+  und Wasserzeichen — Letzteres liegt auf JEDER Seite und war damit die
+  Art Bild, die sich am ehesten summiert.
+- **Offen und nicht als erledigt darstellen:** Am ENDE einer Geste ändert
+  sich der Maßstab, und dann holt jede Seite ihre Vorschaubilder eine Stufe
+  feiner neu von der Platte — auf dem HAUPTFADEN (`Bildarchiv.vorschau` ist
+  synchron). Was das kostet, steht als „Fotos" im Befund; geändert ist
+  daran in 1.0.59 nichts.
 - **DER BUNDSTEG RÜHRT DEN HINTERGRUND NICHT AN — UND KEINE SCHON GESETZTE
   SEITE** (ab 1.0.58; gemeldet 09/2026 mit einem Bild der Doppelseitenansicht:
   „Der Bund soll offenbar tatsächlich bei 0 mm liegen. Das habe ich jetzt so
@@ -7774,7 +7842,7 @@ Befunde, und keiner davon war Geschmack:
   Stellen im pbxproj (Debug + Release) — es gibt KEINE Skript-Bauphase.
   **Jede Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne
   Nachfrage, als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann
-  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.58 (Build 59). Dazu gesetzt:
+  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.59 (Build 60). Dazu gesetzt:
   `DEVELOPMENT_TEAM = F4989GSTWS` und
   `INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.travel`.
   Seit 1.0.4 steht dort auch `CODE_SIGN_ENTITLEMENTS = Config/Urlaubstagebuch.entitlements`
