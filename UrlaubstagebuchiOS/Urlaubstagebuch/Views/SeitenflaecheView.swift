@@ -423,6 +423,23 @@ struct SeitenflaecheView: View, Equatable {
         // jedem Maßstab derselbe. Dieselbe Überlegung wie bei den Säumen
         // der Werkzeugleiste in Tafelbild.
         .shadow(color: .black.opacity(0.30), radius: 16, y: 7)
+        // WELCHE SEITE GEMEINT IST, MUSS MAN SEHEN (ab 1.0.61).
+        //
+        // Gemeldet 09/2026: „schwer zu erkennen, ob eine Seite ausgewählt
+        // wird bzw. auf welcher Seite die Änderungen, die ich vornehmen
+        // möchte, greifen werden." Deshalb ein Rahmen in der Akzentfarbe
+        // um das ganze Blatt — außerhalb des Maßstabs gezeichnet und in
+        // BILDSCHIRMpunkten, wie der Schatten: Eine Linie, die beim
+        // Herauszoomen dünner wird, ist genau dann weg, wenn man die
+        // Übersicht braucht.
+        .overlay {
+            if istGewaehlteSeite {
+                RoundedRectangle(cornerRadius: 3)
+                    .strokeBorder(Color.accentColor, lineWidth: 3)
+                    .padding(-3)
+                    .allowsHitTesting(false)
+            }
+        }
         // EINMAL je Änderung, nicht bei jedem Neuzeichnen: Dahinter steckt
         // ein voller CoreText-Satz. Der Schlüssel nennt nur, was den
         // Befund ändern kann — Block, Rahmenmaße, Textlänge.
@@ -533,11 +550,28 @@ struct SeitenflaecheView: View, Equatable {
         return CGPoint(x: stelle.x - block.rahmen.x, y: stelle.y - block.rahmen.y)
     }
 
+    // Eine gerechnete Seite (Umschlag, Ausgleichsseite) steht in keinem
+    // Tag; dort lässt sich nichts einsetzen, also wird sie auch nicht als
+    // Ziel angeboten. Ein Rahmen um ein Blatt, auf das nichts geht, wäre
+    // eine Zusage, die der nächste Knopf nicht hält.
+    private var seitenwahlMoeglich: Bool {
+        bearbeitbar && !buchseite.amUmschlag && !buchseite.ausgleich
+    }
+
+    private var istGewaehlteSeite: Bool {
+        seitenwahlMoeglich && werk.gewaehlteSeite == buchseite.seite.id
+    }
+
     // MARK: - Tippen
 
     private func einfachtipp(_ punkt: CGPoint) {
         guard bearbeitbar else { return }
         werk.textBearbeitung = nil
+        // EIN TIPP WÄHLT AUCH DIE SEITE (ab 1.0.61). Er tut es als
+        // Erstes und unabhängig davon, ob ein Block getroffen wurde: Wer
+        // ins Leere tippt, meint genau dieses Blatt — und danach sagt die
+        // Umrandung, dass er es bekommen hat.
+        if seitenwahlMoeglich { werk.gewaehlteSeite = buchseite.seite.id }
         let treffer = blockUnter(punkt)
         werk.letzterGriff = treffer.map { "Tipp auf \($0.inhalt.name)" } ?? "Tipp ins Leere"
         guard let treffer else {

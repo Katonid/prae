@@ -49,6 +49,19 @@ struct Foto: Identifiable, Codable, Hashable {
     // Was der Nutzer bewusst weggelassen hat, kommt beim nächsten
     // Neuanordnen nicht zurück — sonst wäre jede Aufräumarbeit umsonst.
     var abgelegt: Bool = false
+    // EIN BILD, DAS VON HAND EINGESETZT WURDE (ab 1.0.61).
+    //
+    // Ansage des Nutzers, 09/2026: „Diese Bilder sollen dann nicht in der
+    // Reisespur auftauchen und es ist völlig unerheblich, ob sie einen
+    // Zeitstempel haben oder einen Ort."
+    //
+    // Eine Grafik ist kein Reisefoto: Sie gehört keinem Tag, sie hat
+    // nichts erlebt, und sie ist nicht „heimatlos" — sie liegt genau
+    // dort, wo jemand sie hingelegt hat. Deshalb steht sie in keiner
+    // Ablage und in keiner Zählung, die nach fehlendem Datum oder
+    // fehlendem Ort fragt. In die Reisespur kommt sie ohnehin nicht: Die
+    // wird aus `tag.fotos` gebaut, und dort steht sie nicht.
+    var grafik: Bool = false
 
     // Ein Leser von Hand — dieselbe Vorsorge wie bei Reise und Reisetag
     // (siehe `Model/Nachsicht.swift`). Ohne ihn machte jedes neue Feld am
@@ -70,6 +83,7 @@ struct Foto: Identifiable, Codable, Hashable {
         // auszublenden nähme dem Nutzer Arbeit weg, die er gemacht hat.
         unterschriftZeigen = b.wert(.unterschriftZeigen, !unterschrift.isEmpty)
         abgelegt = b.wert(.abgelegt, false)
+        grafik = b.wert(.grafik, false)
     }
 
     // Von Hand geschrieben, weil der eigene Leser den erzeugten Erzeuger
@@ -78,7 +92,7 @@ struct Foto: Identifiable, Codable, Hashable {
          aufnahme: Date? = nil, tagesschluessel: String? = nil,
          koordinate: Koordinate? = nil, ortsquelle: Ortsquelle = .keiner,
          unterschrift: String = "", unterschriftZeigen: Bool = false,
-         abgelegt: Bool = false)
+         abgelegt: Bool = false, grafik: Bool = false)
     {
         self.id = id
         self.datei = datei
@@ -91,6 +105,7 @@ struct Foto: Identifiable, Codable, Hashable {
         self.unterschrift = unterschrift
         self.unterschriftZeigen = unterschriftZeigen
         self.abgelegt = abgelegt
+        self.grafik = grafik
     }
 
     var seitenverhaeltnis: Double {

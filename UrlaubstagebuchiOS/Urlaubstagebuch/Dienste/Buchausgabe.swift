@@ -49,6 +49,10 @@ struct Buchseite: Identifiable, Equatable {
     /// Bühne tut das, um zu wissen, welcher Tag oben im Bild steht), nimmt
     /// den Rang und nie die Nummer.
     var rang: Int = 0
+    /// Die leere Seite, die den Buchblock auf eine gerade Zahl bringt
+    /// (ab 1.0.60). Sie steht in KEINEM Tag — sie wird gerechnet, wie die
+    /// Titelseite, und darf deshalb nirgends bearbeitet werden.
+    var ausgleich: Bool = false
 
     var amUmschlag: Bool { teil != .innen }
 
@@ -95,11 +99,54 @@ extension Reise {
                       stil: buchstil, fotoIndex: fotoIndex, umschlag: umschlag)
     }
 
+    // DIE LETZTE SEITE EINES BUCHES IST EINE LINKE (ab 1.0.60).
+    //
+    // Ansage des Nutzers, 09/2026: „Natürlich muss die letzte Seite des
+    // Buches eine linke Seite sein, also eine gerade Seitenzahl haben. Ist
+    // das bei den erstellten Seiten nicht der Fall, dann musst du bitte
+    // noch eine zusätzliche Seite anlegen."
+    //
+    // Das ist keine Vorliebe, sondern Buchbinderei: Ein Blatt hat zwei
+    // Seiten, also hat ein gebundener Block immer eine GERADE Zahl davon.
+    // Bis 1.0.59 hat die App den Fall nur GEMELDET („die letzte Seite hat
+    // keine Rückseite") — gemeldet wird ein Zustand, den man ändern kann;
+    // diesen kann man nicht ändern, das Papier ist ja da. Die Frage ist
+    // allein, ob die letzte Seite im PDF steht oder ob der Druckdienst sie
+    // stillschweigend anhängt, und das Zweite ist eine Seite, die niemand
+    // gesehen hat.
+    static func brauchtAusgleich(_ blockseiten: Int) -> Bool {
+        blockseiten > 0 && blockseiten % 2 == 1
+    }
+
+    // Die Kennung der Ausgleichsseite ist FEST und wird nicht gewürfelt.
+    // Sie wird bei jedem Durchgang neu gebaut, und eine neue Kennung je
+    // Durchgang risse der Bühne die Identität ihrer Zeile weg: `ForEach`
+    // und `scrollTo` hängen daran, und `.equatable()` verglich ab 1.0.59
+    // jedes Mal etwas anderes. Dieselbe Überlegung wie beim gemerkten
+    // Titelblatt.
+    static let ausgleichsseitenKennung =
+        UUID(uuidString: "5EEE0000-0000-4000-A000-000000000001")!
+
+    // Wie viele Seiten der BUCHBLOCK hat — das, was gebunden wird, samt
+    // der Ausgleichsseite und samt der Titelseite, wenn die kein eigener
+    // Umschlagbogen ist. Gerechnet und nicht gezählt: `seitenfolge` setzt
+    // dafür das Titelblatt, und das kostet zwei CoreText-Messungen; diese
+    // Zahl wird aber in jedem Ansichtskörper gebraucht, der die
+    // Rückenbreite zeigt.
+    var blockseiten: Int {
+        var anzahl = tage.filter { !$0.ausgeblendet }.reduce(0) { $0 + $1.seiten.count }
+        // Ohne Umschlagbogen ist die Titelseite die gewöhnliche Seite 1 —
+        // sie wird mitgebunden und zählt für den Rücken mit. Bis 1.0.59
+        // fehlte sie in dieser Zahl, und der Rücken war um ein halbes
+        // Blatt zu dünn gerechnet.
+        if titelseite, !hatRueckseite { anzahl += 1 }
+        if Reise.brauchtAusgleich(anzahl) { anzahl += 1 }
+        return anzahl
+    }
+
     // Wie viele Seiten der INNENTEIL hat — ohne Umschlag. Das ist die
     // Zahl, aus der die Rückenbreite folgt.
-    var innenseiten: Int {
-        tage.filter { !$0.ausgeblendet }.reduce(0) { $0 + $1.seiten.count }
-    }
+    var innenseiten: Int { blockseiten }
 
     // Die RÜCKSEITE des Buches, sobald der Umschlag als Bogen gilt. Sie
     // trägt die Nummer 0 und liegt damit nach `Bogenlage` links — die
@@ -136,11 +183,25 @@ extension Reise {
                                    nummer: amBogen ? 0 : nummer))
             if !amBogen { nummer += 1 }
         }
+        var letzterTag: Reisetag?
         for tag in tage where !tag.ausgeblendet {
             for seite in tag.seiten {
                 folge.append(Buchseite(seite: seite, tag: tag, teil: .innen, nummer: nummer))
                 nummer += 1
             }
+            if !tag.seiten.isEmpty { letzterTag = tag }
+        }
+        // Die Ausgleichsseite: leer, ohne Seitenzahl, mit dem Hintergrund
+        // des Buches — und sie gehört dem LETZTEN Tag. Ohne Tag hielte
+        // `wasserzeichen(fuer:)` sie für eine Umschlagseite und
+        // `kurzname` nennte sie „Titelseite"; mit ihm ist sie schlicht
+        // die letzte Seite dieses Tages, und die Bühne springt beim
+        // Blättern an die richtige Stelle.
+        if Reise.brauchtAusgleich(nummer - 1), let letzterTag {
+            let leer = Seite(id: Reise.ausgleichsseitenKennung, bloecke: [],
+                             ohneSeitenzahl: true)
+            folge.append(Buchseite(seite: leer, tag: letzterTag, teil: .innen,
+                                   nummer: nummer, ausgleich: true))
         }
         for (stelle, _) in folge.enumerated() { folge[stelle].rang = stelle }
         return folge

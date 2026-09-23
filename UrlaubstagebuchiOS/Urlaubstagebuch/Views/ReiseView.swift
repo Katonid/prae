@@ -82,6 +82,11 @@ struct ReiseView: View {
     // jedem Bildpunkt — dieselbe Überlegung, aus der `Inhaltslage` kein
     // `@State` ist (die Lehre aus 1.0.16).
     @State private var imBlick: [Int: UUID] = [:]
+    // Und dasselbe für die SEITEN: welche Blätter in einer Reihe liegen
+    // (ab 1.0.61). Daraus folgt die vorgewählte Seite — dieselbe Regel wie
+    // beim gewählten Tag seit 1.0.28: Was oben im Bild steht, ist gemeint.
+    // Ein Tipp auf ein Blatt wählt es ausdrücklich und schlägt die Vorwahl.
+    @State private var seitenImBlick: [Int: [UUID]] = [:]
     // Der geführte Weg „Buch aufbauen" schickt zum nächsten Blatt und
     // bekommt danach die Bühne zurück. Ein Blatt über einem Blatt wäre auf
     // dem iPad ein Kärtchen auf einem Kärtchen — deshalb macht das eine zu
@@ -106,6 +111,10 @@ struct ReiseView: View {
         case textimport
         case fotos
         case dateien
+        // Ein Bild von Hand auf die gewählte Seite (ab 1.0.61) — nicht zu
+        // verwechseln mit `.dateien`: Das ist die Fotoeinfuhr, die Tagen
+        // zuordnet und nach Datum und Ort fragt.
+        case grafik
         case tagesspur
         case typografie
         case fotostil
@@ -132,6 +141,7 @@ struct ReiseView: View {
             case .textimport: return "text"
             case .fotos: return "fotos"
             case .dateien: return "dateien"
+            case .grafik: return "grafik"
             case .tagesspur: return "tagesspur"
             case .typografie: return "typo"
             case .fotostil: return "fotostil"
@@ -353,7 +363,15 @@ struct ReiseView: View {
             // Einzelseiten und Doppelseiten zählen ihre Reihen VERSCHIEDEN
             // (Seitenzahl gegen Bogennummer). Beim Umschalten ist die alte
             // Meldung deshalb nicht bloß veraltet, sondern falsch.
-            .onChange(of: doppelseiten) { _, _ in imBlick.removeAll() }
+            .onChange(of: doppelseiten) { _, _ in
+                imBlick.removeAll()
+                seitenImBlick.removeAll()
+            }
+            // Die Vorwahl folgt dem Bild — aber nur, wenn die gewählte
+            // Seite gar nicht mehr zu sehen ist. Sonst nähme das Scrollen
+            // innerhalb einer Doppelseite dem Nutzer das Blatt weg, das er
+            // eben angetippt hat.
+            .onChange(of: seitenImBlick) { _, _ in seitenvorwahl() }
         }
         .navigationTitle(titelzeile)
         .navigationBarTitleDisplayMode(.inline)
@@ -378,15 +396,26 @@ struct ReiseView: View {
                 // FESTE Höhe, und das ist keine Kosmetik: `Zoomanker`
                 // rechnet mit ihr. Eine Zeile, die sich ihre Höhe selbst
                 // sucht, wäre in dieser Rechnung eine Schätzung.
+                // Die Beschriftung sagt seit 1.0.61 auch, WELCHE Seite
+                // gewählt ist — in der Akzentfarbe und mit Wort. Der
+                // Rahmen auf dem Blatt allein reicht nicht: Wer weit
+                // herausgezoomt hat, sieht zwei Blätter nebeneinander und
+                // muss die Farbe nicht deuten müssen.
                 Text(seitenname(buchseite))
                     .font(.caption2)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(istGewaehlt(buchseite) ? Color.accentColor : .secondary)
                     .frame(height: Buehnenmasse.beschriftung)
             }
             // Die Kennung, auf die `scrollTo` zielt.
             .id("blatt-\(buchseite.id)")
-            .onAppear { imBlick[buchseite.rang] = tageskennung(buchseite) }
-            .onDisappear { imBlick[buchseite.rang] = nil }
+            .onAppear {
+                imBlick[buchseite.rang] = tageskennung(buchseite)
+                seitenImBlick[buchseite.rang] = einsetzbar(buchseite)
+            }
+            .onDisappear {
+                imBlick[buchseite.rang] = nil
+                seitenImBlick[buchseite.rang] = nil
+            }
         }
         if seiten.isEmpty { hinweisLeer }
     }
@@ -402,18 +431,21 @@ struct ReiseView: View {
                 // Anfang — dann ist er der Tag, um den es geht.
                 .onAppear {
                     imBlick[einer.bogen] = tageskennung(einer.rechts ?? einer.links)
+                    seitenImBlick[einer.bogen] =
+                        einsetzbar(einer.links) + einsetzbar(einer.rechts)
                 }
-                .onDisappear { imBlick[einer.bogen] = nil }
+                .onDisappear {
+                    imBlick[einer.bogen] = nil
+                    seitenImBlick[einer.bogen] = nil
+                }
         }
         if bogen.isEmpty {
             hinweisLeer
-        } else if let hinweis = ungeradeSeitenzahl {
-            // Gesagt wird es dort, wo die Frage entsteht: In der
-            // Doppelseitenansicht sieht man, dass der letzte Bogen keine
-            // Rückseite hat. Die meisten Druckdienste verlangen eine
-            // GERADE Seitenzahl; das ist hier NICHT geprüft, sondern
-            // gezählt — was ein bestimmter Anbieter annimmt, steht in
-            // seinen Angaben und nicht in dieser App.
+        } else if let hinweis = ausgleichshinweis {
+            // Gesagt wird es dort, wo man es sieht: In der
+            // Doppelseitenansicht steht die ergänzte Seite als letzte
+            // links, und rechts daneben die Innenseite des Umschlags.
+            // Ohne diesen Satz fragte sich jeder, woher die Seite kommt.
             Text(hinweis)
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -427,12 +459,22 @@ struct ReiseView: View {
     // seit 1.0.52 ein eigenes Stück Papier und steht in keiner Seitenzahl.
     // Mit ihm gezählt wäre die Zahl um zwei zu hoch — und die Parität,
     // auf die es hier ankommt, bliebe zufällig richtig.
-    private var ungeradeSeitenzahl: String? {
-        let anzahl = werk.seitenfolge.filter { !$0.amUmschlag }.count
-        guard anzahl > 0, anzahl % 2 == 1 else { return nil }
-        return "Der Buchblock hat \(anzahl) Seiten, also eine ungerade Zahl \u{2014} "
-            + "die letzte Seite hat keine Rückseite. Viele Druckdienste verlangen "
-            + "eine gerade Seitenzahl; ob dieser es tut, steht in seinen Angaben."
+    // WOHER DIE LETZTE SEITE KOMMT (ab 1.0.60).
+    //
+    // Bis 1.0.59 stand hier die Meldung, der Buchblock habe eine ungerade
+    // Zahl. Gemeldet wird ein Zustand, den man ändern kann — diesen kann
+    // man nicht ändern: Ein Blatt hat zwei Seiten. Ergänzt wird die
+    // fehlende deshalb von selbst (`Reise.seitenfolge`), und hier steht
+    // nur noch, dass es geschehen ist.
+    private var ausgleichshinweis: String? {
+        let seiten = werk.seitenfolge
+        guard seiten.contains(where: \.ausgleich) else { return nil }
+        let anzahl = seiten.filter { !$0.amUmschlag }.count
+        var text = "Der Buchblock hätte \(anzahl - 1) Seiten, also eine ungerade Zahl. "
+        text += "Die letzte Seite ist deshalb leer ergänzt \u{2014} ein gebundenes Blatt "
+        text += "hat zwei Seiten, und die letzte eines Buches ist immer eine linke. "
+        text += "Sie steht so auch in der ausgegebenen Datei."
+        return text
     }
 
     private var hinweisLeer: some View {
@@ -459,6 +501,29 @@ struct ReiseView: View {
     // Der Tag, der GERADE OBEN im Bild steht. Die kleinste gemeldete
     // Reihennummer ist die oberste — die Reihen stehen untereinander und
     // sind nach Seitenzahl geordnet.
+    // Welche Seite gilt, wenn etwas eingesetzt wird. Steht die bisherige
+    // noch im Bild, bleibt sie; sonst wird es das oberste Blatt im Bild.
+    private func seitenvorwahl() {
+        let sichtbar = Set(seitenImBlick.values.flatMap { $0 })
+        if let da = werk.gewaehlteSeite, sichtbar.contains(da) { return }
+        // Von oben nach unten die erste Reihe, die überhaupt ein Blatt
+        // hergibt: Der Umschlag und die Ausgleichsseite stehen in keinem
+        // Tag, auf sie geht nichts, und eine Vorwahl darauf wäre ein Ziel,
+        // das der nächste Knopf nicht annimmt.
+        for schluessel in seitenImBlick.keys.sorted() {
+            if let erste = seitenImBlick[schluessel]?.first {
+                werk.gewaehlteSeite = erste
+                return
+            }
+        }
+    }
+
+    // Welche Blätter einer Reihe sich bearbeiten lassen.
+    private func einsetzbar(_ buchseite: Buchseite?) -> [UUID] {
+        guard let buchseite, !buchseite.amUmschlag, !buchseite.ausgleich else { return [] }
+        return [buchseite.seite.id]
+    }
+
     private var tagImBlick: UUID? {
         guard let oberste = imBlick.keys.min() else { return nil }
         return imBlick[oberste]
@@ -531,7 +596,12 @@ struct ReiseView: View {
     // nicht mit: „Seite 0" stünde unter der Rückseite, und die ist keine
     // Seite des Buchblocks, sondern die linke Hälfte des Umschlagbogens.
     private func seitenname(_ buchseite: Buchseite) -> String {
-        buchseite.kurzname
+        istGewaehlt(buchseite) ? buchseite.kurzname + " \u{00B7} ausgewählt" : buchseite.kurzname
+    }
+
+    private func istGewaehlt(_ buchseite: Buchseite) -> Bool {
+        !buchseite.amUmschlag && !buchseite.ausgleich
+            && werk.gewaehlteSeite == buchseite.seite.id
     }
 
     private var inhaltsbreite: CGFloat {
@@ -1087,6 +1157,34 @@ struct ReiseView: View {
             // Zuerst der geführte Weg: Er sagt, in welcher Reihenfolge die
             // drei Schritte zusammengehören, und zeigt hinterher, was
             // zugeordnet wurde.
+            // ZUERST DAS, WAS AUF DIE GEWÄHLTE SEITE GEHT (ab 1.0.61).
+            //
+            // Ansage des Nutzers, 09/2026: „Ich möchte in das Buch manuell
+            // Bilder oder Grafiken einfügen können. Dies soll über den
+            // Plus-Button geschehen, sowie bei den Textfeldern auch."
+            // Den Textblock gab es seit 1.0.0 — im Block-Inspektor unter
+            // „Auf die Seite legen", also hinter dem Regler in der
+            // Werkzeugleiste und nur, wenn gerade KEIN Block gewählt ist.
+            // Gefunden hat ihn niemand. Der Abschnitt nennt deshalb die
+            // Seite beim Namen: Ein Menü, das nicht sagt, worauf es wirkt,
+            // ist die Frage von vorhin noch einmal.
+            if let seite = werk.einsetzbareSeite {
+                Section(werk.seitenname(seite).map { "Auf " + $0 } ?? "Auf die gewählte Seite") {
+                    Button("Textfeld", systemImage: "text.alignleft") {
+                        werk.blockHinzufuegen(.text("Neuer Text"), aufSeite: seite)
+                    }
+                    Button("Bild oder Grafik…", systemImage: "photo") { blatt = .grafik }
+                    Button("Karte", systemImage: "map") {
+                        werk.blockHinzufuegen(.karte, aufSeite: seite)
+                    }
+                    Button("Trennlinie", systemImage: "minus") {
+                        werk.blockHinzufuegen(.linie, aufSeite: seite)
+                    }
+                    Button("Farbfläche", systemImage: "square.fill") {
+                        werk.blockHinzufuegen(.flaeche, aufSeite: seite)
+                    }
+                }
+            }
             Button("Buch aufbauen…", systemImage: "wand.and.sparkles") { blatt = .aufbau }
             Divider()
             Button("Tagebuchtext…", systemImage: "text.book.closed") { blatt = .textimport }
@@ -1518,6 +1616,8 @@ struct ReiseView: View {
             FotoeinfuhrView(werk: werk)
         case .dateien:
             DateieinfuhrView(werk: werk)
+        case .grafik:
+            GrafikEinfuehrView(werk: werk)
         case .tagesspur:
             SpurimportView(werk: werk)
         case .typografie:

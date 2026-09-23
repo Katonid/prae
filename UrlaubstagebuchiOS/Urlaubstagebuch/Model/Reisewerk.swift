@@ -15,6 +15,24 @@ final class Reisewerk: ObservableObject, Identifiable {
     @Published var reise: Reise { didSet { geplantSichern() } }
     @Published var gewaehlterTag: UUID?
     @Published var gewaehlterBlock: UUID?
+    // AUF WELCHER SEITE ETWAS EINGESETZT WIRD (ab 1.0.61).
+    //
+    // Befund des Nutzers, 09/2026: „schwer zu erkennen, ob eine Seite
+    // ausgewählt wird bzw. auf welcher Seite die Änderungen, die ich
+    // vornehmen möchte, greifen werden."
+    //
+    // Er hat recht, und es war schlimmer als unsichtbar: Bis 1.0.60 stand
+    // unter „Auf die Seite legen" im Inspektor der `seitenzeiger` — ein
+    // Zähler, den Einfügen, Löschen und Verschieben setzen, der mit dem,
+    // was gerade im Bild steht, aber NICHTS zu tun hat. Der neue Block
+    // landete also auf irgendeiner Seite des gewählten Tages, und wer ihn
+    // dort nicht fand, hielt den Knopf für kaputt.
+    //
+    // Gewählt wird jetzt eine SEITE, sie wird auf der Bühne sichtbar
+    // umrandet, und sie folgt dem, was oben im Bild steht — dieselbe
+    // Regel wie beim gewählten Tag seit 1.0.28. Ein Tipp auf ein Blatt
+    // wählt es ausdrücklich.
+    @Published var gewaehlteSeite: UUID?
     @Published var seitenzeiger: Int = 0
     @Published var meldung: Meldung?
     @Published var beschaeftigt: String?
@@ -1177,6 +1195,85 @@ final class Reisewerk: ObservableObject, Identifiable {
         reise.tage[t].seiten[seite].bloecke.append(neu)
         reise.tage[t].seiten[seite].heben(neu.id)
         gewaehlterBlock = neu.id
+    }
+
+    // Wo eine Seite im Buch steht — Tag und Stelle. Die Bühne kennt nur
+    // ihre Kennung; alles, was an ihr arbeitet, braucht beides.
+    func seitenstelle(_ seiteID: UUID) -> (tag: Int, seite: Int)? {
+        for (t, tag) in reise.tage.enumerated() {
+            if let stelle = tag.seiten.firstIndex(where: { $0.id == seiteID }) {
+                return (t, stelle)
+            }
+        }
+        return nil
+    }
+
+    // Dieselbe Frage als Wahrheitswert: Lässt sich auf dieser Seite
+    // überhaupt etwas einsetzen? Die Ausgleichsseite (1.0.60) und die
+    // beiden Umschlagseiten werden GERECHNET und stehen in keinem Tag —
+    // ein Block darauf wäre beim nächsten Durchgang weg. Ein Knopf, der
+    // das trotzdem anbietet, ist ein Knopf, der nichts tut.
+    var einsetzbareSeite: UUID? {
+        guard let id = gewaehlteSeite, seitenstelle(id) != nil else { return nil }
+        return id
+    }
+
+    // Der Name der gewählten Seite, für die Beschriftung des Menüs. Ohne
+    // ihn stünde dort „Auf die Seite legen" und man müsste raten, welche
+    // gemeint ist — genau der gemeldete Zustand.
+    func seitenname(_ seiteID: UUID) -> String? {
+        guard let stelle = seitenstelle(seiteID) else { return nil }
+        let tag = reise.tage[stelle.tag]
+        return "\(tag.datum.kurz), Blatt \(stelle.seite + 1)"
+    }
+
+    // Einsetzen auf einer BESTIMMTEN Seite, nicht auf dem Seitenzeiger.
+    func blockHinzufuegen(_ inhalt: Blockinhalt, aufSeite seiteID: UUID) {
+        guard let stelle = seitenstelle(seiteID) else { return }
+        blockHinzufuegen(inhalt, tag: reise.tage[stelle.tag].id, seite: stelle.seite)
+    }
+
+    // EIN BILD VON HAND (ab 1.0.61).
+    //
+    // Ansage des Nutzers, 09/2026: „Ich möchte in das Buch manuell Bilder
+    // oder Grafiken einfügen können. Dies soll über den Plus-Button
+    // geschehen, sowie bei den Textfeldern auch."
+    //
+    // Es geht NICHT durch die Fotoeinfuhr: Die ordnet einem Tag zu, fragt
+    // nach Datum und Ort und meldet, was fehlt — für eine Grafik ist das
+    // alles keine Auskunft, sondern Lärm (gemeldet 09/2026: „1 Fotos
+    // tragen keinen Ort … 1 Fotos tragen kein Datum und stehen jetzt bei
+    // 4. Juni 2026"). Gelesen werden nur die MASSE; der Rest der Datei
+    // interessiert hier nicht.
+    //
+    // Der Rahmen folgt dem Seitenverhältnis des Bildes: Ein fester Rahmen
+    // schnitte jedes Hochformat an, denn gefüllt wird, nicht eingepasst.
+    @discardableResult
+    func grafikEinfuegen(_ daten: Data, endung: String, aufSeite seiteID: UUID) -> Bool {
+        guard let stelle = seitenstelle(seiteID) else { return false }
+        let befund = Bildleser.befund(datei: daten)
+        guard let datei = try? Bildarchiv.shared.ablegen(daten, reise: reise.id, endung: endung)
+        else { return false }
+        merken()
+        let foto = Foto(datei: datei,
+                        breite: befund.breite > 0 ? befund.breite : 1000,
+                        hoehe: befund.hoehe > 0 ? befund.hoehe : 750,
+                        grafik: true)
+        reise.setzeFoto(foto)
+        let satz = reise.gestaltung.satzspiegel(reise.format)
+        let breite = min(Double(satz.width) * 0.46, 260.0)
+        let hoehe = min(breite / max(foto.seitenverhaeltnis, 0.2), Double(satz.height) * 0.7)
+        let neu = Block(
+            inhalt: .foto(foto.id),
+            rahmen: Rahmen(x: Double(satz.midX) - breite / 2,
+                           y: Double(satz.midY) - hoehe / 2,
+                           breite: breite, hoehe: hoehe),
+            vonHand: true
+        )
+        reise.tage[stelle.tag].seiten[stelle.seite].bloecke.append(neu)
+        reise.tage[stelle.tag].seiten[stelle.seite].heben(neu.id)
+        gewaehlterBlock = neu.id
+        return true
     }
 
     // EINE LEERE SEITE AN EINER BESTIMMTEN STELLE (ab 1.0.33).

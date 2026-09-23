@@ -480,6 +480,110 @@ Sichtbarkeit, 34 % Breite). Ob ein Zeichen bei 10 % im Druck noch zu sehen ist
 oder schon stört, sagt erst der erste Ausdruck; auf dem Bildschirm wirkt es
 kräftiger als auf Papier.
 
+## Bilder und Textfelder von Hand — auf einer sichtbar gewählten Seite (1.0.61)
+
+Ansage des Nutzers, 09/2026: „Ich möchte in das Buch manuell Bilder oder
+Grafiken einfügen können. Dies soll über den Plus-Button geschehen, sowie
+bei den Textfeldern auch. Diese Bilder sollen dann nicht in der Reisespur
+auftauchen und es ist völlig unerheblich, ob sie einen Zeitstempel haben
+oder einen Ort." Und daneben: „schwer zu erkennen, ob eine Seite
+ausgewählt wird bzw. auf welcher Seite die Änderungen, die ich vornehmen
+möchte, greifen werden. Das muss etwas offensichtlicher werden."
+
+Der zweite Satz ist der wichtigere — er beschreibt keinen Wunsch, sondern
+einen Fehler.
+
+- **„Auf die Seite legen" gab es seit 1.0.0**, im Block-Inspektor und nur,
+  wenn gerade kein Block gewählt war. Gefunden hat es niemand (das ist der
+  elfte Fall dieser Art in diesem Papier). Schlimmer war, worauf es wirkte:
+  auf `werk.seitenzeiger` — einen Zähler, den Einfügen, Löschen und
+  Verschieben setzen und der mit dem, was im Bild steht, **nichts** zu tun
+  hat. Der neue Block landete also auf irgendeiner Seite des Tages.
+- **Gewählt wird jetzt eine SEITE**, und man sieht es: ein Rahmen in der
+  Akzentfarbe um das Blatt, dazu „· ausgewählt" unter der Seite. Ein Tipp
+  auf ein Blatt wählt es; ansonsten folgt die Wahl dem, was oben im Bild
+  steht — dieselbe Regel wie beim gewählten Tag seit 1.0.28. Sie wechselt
+  aber **nicht**, solange das gewählte Blatt noch zu sehen ist: Sonst nähme
+  das Scrollen innerhalb einer Doppelseite dem Nutzer das Blatt weg, das er
+  eben angetippt hat.
+- **Der Rahmen ist außerhalb des Maßstabs gezeichnet**, wie der Schatten
+  seit 1.0.20 — eine Linie, die beim Herauszoomen dünner wird, ist genau
+  dann weg, wenn man die Übersicht braucht.
+- **Das Plus-Menü nennt die Seite beim Namen** („Auf 22. Aug., Blatt 2")
+  und bietet dort Textfeld, Bild oder Grafik, Karte, Trennlinie und
+  Farbfläche an. Der Inspektor zeigt dieselbe Seite und ruft dieselbe
+  Stelle — zwei Wege, eine Sache.
+- **Umschlag und Ausgleichsseite werden gar nicht erst angeboten.** Sie
+  werden gerechnet und stehen in keinem Tag; ein Block darauf wäre beim
+  nächsten Durchgang weg, und ein Knopf, der das anbietet, ist ein Knopf,
+  der nichts tut.
+
+**Eine Grafik ist kein Reisefoto** (`Foto.grafik`). Sie geht nicht durch
+die Fotoeinfuhr: Die ordnet einem Tag zu, liest Datum und Ort, baut daraus
+Reisepunkte und meldet hinterher, was gefehlt hat — für eine Grafik ist
+jede dieser Auskünfte Lärm; gemeldet wurde genau das, wörtlich über ein
+eingesetztes Bild: „1 Fotos tragen keinen Ort … 1 Fotos tragen kein Datum
+und stehen jetzt bei 4. Juni 2026." Gelesen werden nur die Maße. Sie
+gehört keinem Tag, steht deshalb in keiner Reisespur (die wird aus
+`tag.fotos` gebaut) und **nicht in der Fotoablage**: Heimatlos ist sie
+nicht, sie liegt genau dort, wo jemand sie hingelegt hat. Der Weg führt in
+die Dateien und nicht in die Mediathek — eine Grafik ist meist ein PNG mit
+durchsichtigem Grund, und den gibt die Mediathek nicht zuverlässig her.
+Die echte Endung bleibt erhalten, aus demselben Grund. Der Rahmen folgt
+dem Seitenverhältnis des Bildes: Ein fester Rahmen schnitte jedes
+Hochformat an, denn gefüllt wird, nicht eingepasst.
+
+**Nicht gemessen (1.0.61):** Auf einem Gerät gesehen hat das niemand.
+Gerechnet ist, worauf die alten Knöpfe gewirkt haben und worauf die neuen
+wirken; **ob die Seitenwahl sich richtig anfühlt — ob sie dem Blick folgt,
+ohne dem Finger zu widersprechen —, sagt erst der nächste Befund.** Und
+eine Oberflächenänderung als gelöstes Bedienproblem auszugeben wäre genau
+die Behauptung, die dieses Papier sonst verbietet.
+
+## Die letzte Seite ist eine linke (1.0.60)
+
+Ansage des Nutzers, 09/2026: „Natürlich muss die letzte Seite des Buches
+eine linke Seite sein, also eine gerade Seitenzahl haben. Ist das bei den
+erstellten Seiten nicht der Fall, dann musst du bitte noch eine
+zusätzliche Seite anlegen."
+
+Das ist Buchbinderei und keine Vorliebe: Ein Blatt hat zwei Seiten, also
+hat ein gebundener Block immer eine gerade Zahl davon. Bis 1.0.59 hat die
+App den Fall nur **gemeldet** („die letzte Seite hat keine Rückseite") —
+und das ist die falsche Antwort: Gemeldet wird ein Zustand, den man ändern
+kann; diesen kann man nicht ändern, das Papier ist ja da. Die Frage war
+nur, ob die letzte Seite im PDF steht oder ob der Druckdienst sie
+stillschweigend anhängt — und das Zweite ist eine Seite, die niemand
+gesehen hat.
+
+- **Ergänzt wird in `Reise.seitenfolge`**, also dort, wo auch das
+  Titelblatt entsteht — nicht als Seite in einem Tag. Damit fasst sie kein
+  Neuanordnen an, kein Muster, kein Stilwechsel, und sie verschwindet von
+  selbst, sobald eine echte Seite dazukommt.
+- **Ihre Kennung ist fest** und wird nicht gewürfelt: An ihr hängen
+  `ForEach`, `scrollTo` und der Vergleich aus 1.0.59.
+- **Sie gehört dem letzten Tag.** Ohne Tag hielte `wasserzeichen(fuer:)`
+  sie für eine Umschlagseite und `kurzname` nennte sie „Titelseite".
+- **Leer heißt nicht nackt:** Sie trägt den Hintergrund des Buches und
+  damit auch die zweite Hälfte eines Bildes, das über die Doppelseite
+  läuft — der letzte Bogen geht dadurch auf. Eine Seitenzahl bekommt sie
+  nicht.
+- **Zwei Zahlen daneben waren falsch und sind es nicht mehr.** Der
+  Buchrücken rechnete aus `innenseiten`, und darin fehlte die Titelseite,
+  wenn sie kein eigener Umschlagbogen ist — der Rücken war um ein halbes
+  Blatt zu dünn. Und `seitenzahl` zählte ausgeblendete Tage mit: Im
+  Ausgabeblatt stand eine andere Zahl, als die Datei hinterher Seiten
+  hatte. Beide kommen jetzt aus `blockseiten`, also aus einer Stelle.
+- **Wer eine Zählung ändert, sucht nach jeder Stelle, die sie nachbaut.**
+  Die Prüfung auf Hintergründe über die Doppelseite baut die Nummerierung
+  selbst nach; ohne die Ausgleichsseite hätte sie genau dort eine halbe
+  Doppelseite gemeldet.
+
+**Nicht gemessen (1.0.60):** Keine Datei ist damit gedruckt worden.
+Gerechnet ist die Paarung; **ob ein bestimmter Druckdienst eine gerade
+Seitenzahl verlangt und wie er zählt, steht in seinen Angaben** und nicht
+in dieser App.
+
 ## Was wirklich in der Datei steht (1.0.59)
 
 Frage des Nutzers, 09/2026: „ist eigentlich gewährleistet, dass die
