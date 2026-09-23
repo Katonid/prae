@@ -545,6 +545,16 @@ enum Druckpruefung {
                 nummer += 1
             }
         }
+        // Und die Ausgleichsseite (ab 1.0.60). Sie hat keinen eigenen
+        // Hintergrund und folgt dem Buch — spannt der über die
+        // Doppelseite, trägt sie die zweite Hälfte, und der letzte Bogen
+        // geht damit auf. Ohne diese Zeile meldete die Prüfung genau
+        // dort eine halbe Doppelseite: **Wer eine Zählung ändert, sucht
+        // nach jeder Stelle, die sie nachbaut.**
+        if Reise.brauchtAusgleich(nummer - 1) {
+            seiten.append((nummer, reise.gestaltung.hintergrund, "ergänzte letzte Seite"))
+            nummer += 1
+        }
         func spannt(_ grund: Seitenhintergrund) -> UUID? {
             guard grund.art == .foto, grund.ueberDoppelseite else { return nil }
             return grund.fotoID

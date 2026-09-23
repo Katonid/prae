@@ -210,5 +210,14 @@ struct Reise: Identifiable, Codable {
         return "\(erster.kurz) bis \(letzter.mittel)"
     }
 
-    var seitenzahl: Int { (titelseite ? 1 : 0) + tage.reduce(0) { $0 + $1.seiten.count } }
+    // Wie viele Seiten die AUSGEGEBENE Datei hat. Gerechnet und nicht
+    // gezählt (`seitenfolge` setzt dafür das Titelblatt), aber Zahl für
+    // Zahl dieselbe Folge: der Buchblock samt Ausgleichsseite, dazu die
+    // beiden Umschlagseiten, wenn der Umschlag ein eigener Bogen ist.
+    //
+    // Bis 1.0.59 stand hier eine eigene Rechnung, und die zählte AUCH
+    // ausgeblendete Tage mit und die Ausgleichsseite nicht — im
+    // Ausgabeblatt stand damit eine andere Zahl, als die Datei hinterher
+    // Seiten hatte.
+    var seitenzahl: Int { blockseiten + (hatRueckseite ? 2 : 0) }
 }

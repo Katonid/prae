@@ -407,13 +407,11 @@ struct ReiseView: View {
         }
         if bogen.isEmpty {
             hinweisLeer
-        } else if let hinweis = ungeradeSeitenzahl {
-            // Gesagt wird es dort, wo die Frage entsteht: In der
-            // Doppelseitenansicht sieht man, dass der letzte Bogen keine
-            // Rückseite hat. Die meisten Druckdienste verlangen eine
-            // GERADE Seitenzahl; das ist hier NICHT geprüft, sondern
-            // gezählt — was ein bestimmter Anbieter annimmt, steht in
-            // seinen Angaben und nicht in dieser App.
+        } else if let hinweis = ausgleichshinweis {
+            // Gesagt wird es dort, wo man es sieht: In der
+            // Doppelseitenansicht steht die ergänzte Seite als letzte
+            // links, und rechts daneben die Innenseite des Umschlags.
+            // Ohne diesen Satz fragte sich jeder, woher die Seite kommt.
             Text(hinweis)
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -427,12 +425,22 @@ struct ReiseView: View {
     // seit 1.0.52 ein eigenes Stück Papier und steht in keiner Seitenzahl.
     // Mit ihm gezählt wäre die Zahl um zwei zu hoch — und die Parität,
     // auf die es hier ankommt, bliebe zufällig richtig.
-    private var ungeradeSeitenzahl: String? {
-        let anzahl = werk.seitenfolge.filter { !$0.amUmschlag }.count
-        guard anzahl > 0, anzahl % 2 == 1 else { return nil }
-        return "Der Buchblock hat \(anzahl) Seiten, also eine ungerade Zahl \u{2014} "
-            + "die letzte Seite hat keine Rückseite. Viele Druckdienste verlangen "
-            + "eine gerade Seitenzahl; ob dieser es tut, steht in seinen Angaben."
+    // WOHER DIE LETZTE SEITE KOMMT (ab 1.0.60).
+    //
+    // Bis 1.0.59 stand hier die Meldung, der Buchblock habe eine ungerade
+    // Zahl. Gemeldet wird ein Zustand, den man ändern kann — diesen kann
+    // man nicht ändern: Ein Blatt hat zwei Seiten. Ergänzt wird die
+    // fehlende deshalb von selbst (`Reise.seitenfolge`), und hier steht
+    // nur noch, dass es geschehen ist.
+    private var ausgleichshinweis: String? {
+        let seiten = werk.seitenfolge
+        guard seiten.contains(where: \.ausgleich) else { return nil }
+        let anzahl = seiten.filter { !$0.amUmschlag }.count
+        var text = "Der Buchblock hätte \(anzahl - 1) Seiten, also eine ungerade Zahl. "
+        text += "Die letzte Seite ist deshalb leer ergänzt \u{2014} ein gebundenes Blatt "
+        text += "hat zwei Seiten, und die letzte eines Buches ist immer eine linke. "
+        text += "Sie steht so auch in der ausgegebenen Datei."
+        return text
     }
 
     private var hinweisLeer: some View {

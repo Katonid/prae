@@ -7241,6 +7241,43 @@ Befunde, und keiner davon war Geschmack:
   Fotoliste; seit 1.0.56 ist es eine Schleife über `gueltigeBilder` statt
   einer einzelnen Datei. Vergäße man sie, verlöre ein ausgetauschtes Buch
   seine Zeichen.
+- **DIE LETZTE SEITE EINES BUCHES IST EINE LINKE** (`Reise.brauchtAusgleich`,
+  `blockseiten`, ab 1.0.60; Ansage des Nutzers 09/2026: „Natürlich muss die
+  letzte Seite des Buches eine linke Seite sein, also eine gerade Seitenzahl
+  haben. Ist das bei den erstellten Seiten nicht der Fall, dann musst du
+  bitte noch eine zusätzliche Seite anlegen."). Ein Blatt hat zwei Seiten,
+  also hat ein gebundener Block eine gerade Zahl davon. Bis 1.0.59 hat die
+  App den Fall nur GEMELDET — und das war die falsche Art Antwort:
+  **Gemeldet wird ein Zustand, den man ändern kann; dieser lässt sich nicht
+  ändern, das Papier ist ja da.** Die Frage war allein, ob die letzte Seite
+  im PDF steht oder ob der Druckdienst sie stillschweigend anhängt, und das
+  Zweite ist eine Seite, die niemand gesehen hat.
+  - **Ergänzt wird in `Reise.seitenfolge`**, also dort, wo auch das
+    Titelblatt entsteht — NICHT als Seite in einem Tag. Damit fasst sie kein
+    Neuanordnen an, kein Muster und kein Stilwechsel, und sie verschwindet
+    von selbst, sobald eine echte Seite dazukommt. Bearbeiten lässt sie sich
+    nicht; sie steht in keiner Seitenliste.
+  - **Ihre Kennung ist FEST** (`Reise.ausgleichsseitenKennung`) und wird
+    nicht bei jedem Durchgang gewürfelt: An der Kennung hängen `ForEach`,
+    `scrollTo` und der Vergleich aus 1.0.59 — dieselbe Überlegung wie beim
+    gemerkten Titelblatt.
+  - **Sie gehört dem LETZTEN Tag.** Ohne Tag hielte `wasserzeichen(fuer:)`
+    sie für eine Umschlagseite (dort heißt „kein Tag" genau das) und
+    `kurzname` nennte sie „Titelseite".
+  - **Leer heißt nicht nackt:** Sie trägt den Hintergrund des Buches und
+    damit die zweite Hälfte eines Bildes, das über die Doppelseite läuft —
+    der letzte Bogen geht dadurch auf. Eine Seitenzahl bekommt sie nicht.
+  - **Zwei Zahlen daneben waren falsch.** `innenseiten` (daraus folgt die
+    RÜCKENBREITE) ließ die Titelseite aus, wenn sie kein eigener
+    Umschlagbogen ist — der Rücken war um ein halbes Blatt zu dünn
+    gerechnet. Und `seitenzahl` zählte ausgeblendete Tage mit, nannte also
+    im Ausgabeblatt eine andere Zahl, als die Datei hinterher Seiten hatte.
+    Beide kommen seither aus `blockseiten`.
+  - **Wer eine Zählung ändert, sucht nach jeder Stelle, die sie nachbaut.**
+    `Druckpruefung.doppelseitenhintergrund` baut die Nummerierung selbst
+    nach; ohne die Ausgleichsseite hätte es genau dort eine halbe
+    Doppelseite gemeldet. (Dieselbe Lehre wie bei der Umstellung in 1.0.52,
+    dort waren es drei Stellen.)
 - **DIE AUFLÖSUNG IM PDF HÄNGT AN ZWEI ZAHLEN, UND DIE PRÜFUNG KANNTE NUR
   EINE** (`Model/Ausgabeguete.swift`, ab 1.0.59; Frage des Nutzers 09/2026:
   „ist eigentlich gewährleistet, dass die PDF-Datei die für den Druck
@@ -7869,7 +7906,7 @@ Befunde, und keiner davon war Geschmack:
   Stellen im pbxproj (Debug + Release) — es gibt KEINE Skript-Bauphase.
   **Jede Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne
   Nachfrage, als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann
-  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.59 (Build 60). Dazu gesetzt:
+  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.60 (Build 61). Dazu gesetzt:
   `DEVELOPMENT_TEAM = F4989GSTWS` und
   `INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.travel`.
   Seit 1.0.4 steht dort auch `CODE_SIGN_ENTITLEMENTS = Config/Urlaubstagebuch.entitlements`
