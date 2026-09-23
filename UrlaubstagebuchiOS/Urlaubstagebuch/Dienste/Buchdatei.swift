@@ -77,10 +77,10 @@ enum Buchdatei {
         // stünde weiter in der Datei, die Bilddatei fehlte. Merke: Wer eine
         // neue Bildart anlegt, trägt sie hier ein.
         var namen: [String] = reise.fotos.map(\.datei)
-        if let zeichen = reise.gestaltung.wasserzeichen, zeichen.gueltig,
-           !namen.contains(zeichen.datei)
+        for zeichenbild in reise.gestaltung.wasserzeichen?.gueltigeBilder ?? []
+            where !namen.contains(zeichenbild.datei)
         {
-            namen.append(zeichen.datei)
+            namen.append(zeichenbild.datei)
         }
         for datei in namen {
             let ort = Bildarchiv.shared.pfad(reise.id, datei: datei)

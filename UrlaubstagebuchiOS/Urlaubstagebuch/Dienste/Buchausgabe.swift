@@ -693,14 +693,19 @@ enum Buchausgabe {
         // im Buch. Dieselbe Entscheidung wie beim Schatten daneben — nur
         // dass der Verlauf dort zu einem geschlossenen Feld wird, weil er
         // etwas lesbar machen muss und dieses Zeichen nichts.
-        if !auftrag.ohneTransparenz, let zeichen = reise.wasserzeichen(fuer: buchseite),
-           let bild = Bildarchiv.shared.fuerAusgabe(zeichen.datei, reise: reise.id,
-                                                    kante: auftrag.bildkante)
-        {
+        // Erst die LAGE, dann das Bild: Seit 1.0.56 sagt `ort`, welches
+        // der bis zu zehn Bilder auf dieser Seite liegt — vorher lässt
+        // sich gar nicht wissen, welche Datei zu holen ist.
+        if !auftrag.ohneTransparenz, let zeichen = reise.wasserzeichen(fuer: buchseite) {
             let satz = reise.gestaltung.satzspiegel(reise.format)
             let ort = Wasserzeichenlage.ort(zeichen, satz: satz, seite: buchseite.seite)
-            Seitensatz.zeichneWasserzeichen(bild, ort: ort,
-                                            deckung: zeichen.deckung, in: zusammenhang)
+            if let zeichenbild = ort.bild,
+               let bild = Bildarchiv.shared.fuerAusgabe(zeichenbild.datei, reise: reise.id,
+                                                        kante: auftrag.bildkante)
+            {
+                Seitensatz.zeichneWasserzeichen(bild, ort: ort,
+                                                deckung: zeichen.deckung, in: zusammenhang)
+            }
         }
 
         for block in buchseite.seite.sortiert {

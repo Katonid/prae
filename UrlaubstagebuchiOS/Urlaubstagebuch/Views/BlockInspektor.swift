@@ -142,10 +142,13 @@ struct BlockInspektor: View {
         guard let eigen = seite(tag, stelle)?.wasserzeichen, eigen.gesetzt else {
             return "automatisch"
         }
-        if eigen.winkel != nil, abs(eigen.versatzX) + abs(eigen.versatzY) > 0.01 {
-            return "gedreht und verschoben"
-        }
-        return eigen.winkel != nil ? "eigener Winkel" : "verschoben"
+        // Aufgezählt wird, was wirklich gesetzt ist — „angepasst" allein
+        // ließe einen raten, was auf dieser Seite anders ist.
+        var teile: [String] = []
+        if eigen.bild != nil { teile.append("eigenes Bild") }
+        if eigen.winkel != nil { teile.append("eigener Winkel") }
+        if abs(eigen.versatzX) + abs(eigen.versatzY) > 0.01 { teile.append("verschoben") }
+        return teile.isEmpty ? "automatisch" : teile.joined(separator: ", ")
     }
 
     // Ist kein Block gewählt, gehört dieser Platz der SEITE. Ein eigener

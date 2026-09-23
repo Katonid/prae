@@ -109,8 +109,13 @@ struct SeitenflaecheView: View {
             // anders aussieht als der Druck.
             if let zeichen = werk.reise.wasserzeichen(fuer: buchseite),
                let ort = wasserzeichenort(zeichen),
+               // WELCHES der bis zu zehn Bilder hier liegt, sagt `ort`
+               // selbst (ab 1.0.56) — es steht in derselben Antwort wie
+               // der Rahmen, weil die Höhe am Seitenverhältnis genau
+               // dieses Bildes hängt.
+               let zeichenbild = ort.bild,
                let bild = Bildarchiv.shared.vorschau(
-                   zeichen.datei, reise: werk.reise.id,
+                   zeichenbild.datei, reise: werk.reise.id,
                    kante: Bildschaerfe.kante(ort.bildrahmen.size, geraet: Double(geraet),
                                              massstab: massstab, groesste: 1600))
             {

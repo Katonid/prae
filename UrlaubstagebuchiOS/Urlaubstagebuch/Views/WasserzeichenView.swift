@@ -4,6 +4,11 @@ import UniformTypeIdentifiers
 
 // Das Wasserzeichen des Buches — einmal festgelegt, auf jeder Seite.
 //
+// Seit 1.0.56 sind es bis zu ZEHN Bilder, und welches auf einer Seite
+// liegt, zieht die Automatik aus der Kennung der Seite. Was hier
+// eingestellt wird, gilt weiterhin für alle: Deckkraft, Größe, Lage und
+// Drehung gehören dem Buch, nicht dem einzelnen Bild.
+//
 // Ansage des Nutzers, 09/2026: ein Ahornblatt, halbdurchsichtig, möglichst
 // dort, wo sonst nichts steht. Was hier eingestellt wird, gilt für das
 // ganze Buch.
@@ -29,30 +34,10 @@ struct WasserzeichenView: View {
                         .frame(height: 190)
                         .listRowInsets(EdgeInsets())
                 } footer: {
-                    Text(zeichen == nil
-                         ? "Noch kein Bild gewählt."
-                         : "So liegt es auf einer Seite mit Text und einem Foto. Wo genau, entscheidet sich auf jeder Seite neu.")
+                    Text(probenhinweis)
                 }
 
-                Section {
-                    Button {
-                        dateiwahl = true
-                    } label: {
-                        Label(zeichen == nil ? "Bilddatei wählen…" : "Andere Bilddatei wählen…",
-                              systemImage: "photo.badge.plus")
-                    }
-                    if zeichen != nil {
-                        Button(role: .destructive) {
-                            entfernen()
-                        } label: {
-                            Label("Wasserzeichen entfernen", systemImage: "trash")
-                        }
-                    }
-                } header: {
-                    Text("Bild")
-                } footer: {
-                    Text(bildhinweis)
-                }
+                bilderabschnitt
 
                 if let zeichen {
                     Section {
@@ -113,16 +98,114 @@ struct WasserzeichenView: View {
                 }
             }
             .sheet(isPresented: $dateiwahl) {
-                Dateiwahl(typen: [.image]) { adressen in
+                // MEHRERE auf einmal: Wer zehn Symbole hat, soll nicht
+                // zehnmal denselben Weg gehen.
+                Dateiwahl(typen: [.image], mehrere: true) { adressen in
                     dateiwahl = false
-                    if let erste = adressen.first { uebernehmen(erste) }
+                    uebernehmen(adressen)
                 }
                 .ignoresSafeArea()
             }
         }
     }
 
+    // MARK: - Die Bilder
+
+    private var bilder: [Zeichenbild] { zeichen?.gueltigeBilder ?? [] }
+
+    private var bilderabschnitt: some View {
+        Section {
+            ForEach(bilder) { eintrag in
+                bildzeile(eintrag)
+            }
+            if bilder.count < Wasserzeichen.hoechstzahl {
+                Button {
+                    dateiwahl = true
+                } label: {
+                    Label(bilder.isEmpty ? "Bilddatei wählen…" : "Weitere Bilder hinzufügen…",
+                          systemImage: "photo.badge.plus")
+                }
+            }
+            if !bilder.isEmpty {
+                Button(role: .destructive) {
+                    alleEntfernen()
+                } label: {
+                    Label("Alle entfernen", systemImage: "trash")
+                }
+            }
+        } header: {
+            Text(bilder.count > 1 ? "Bilder (\(bilder.count) von \(Wasserzeichen.hoechstzahl))"
+                                  : "Bild")
+        } footer: {
+            Text(bildhinweis)
+        }
+    }
+
+    // Der Knopf zum Entfernen ist `.borderless`: In einer Liste machte
+    // eine gewöhnliche Schaltfläche die ganze Zeile antippbar, und dann
+    // löschte ein Tipp irgendwo in der Zeile das Bild.
+    private func bildzeile(_ eintrag: Zeichenbild) -> some View {
+        HStack(spacing: 12) {
+            bildchen(eintrag)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(name(eintrag))
+                Text(formtext(eintrag))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            Button(role: .destructive) {
+                entfernen(eintrag)
+            } label: {
+                Image(systemName: "trash")
+            }
+            .buttonStyle(.borderless)
+        }
+    }
+
+    @ViewBuilder
+    private func bildchen(_ eintrag: Zeichenbild) -> some View {
+        if let bild = Bildarchiv.shared.vorschau(eintrag.datei, reise: werk.reise.id,
+                                                 kante: 120)
+        {
+            Image(uiImage: bild)
+                .resizable()
+                .scaledToFit()
+                .frame(width: 40, height: 40)
+        } else {
+            RoundedRectangle(cornerRadius: 6)
+                .fill(Color(.systemGray5))
+                .frame(width: 40, height: 40)
+        }
+    }
+
+    // Ein Dateiname ist eine UUID und sagt niemandem etwas. Gezählt wird
+    // deshalb die Stelle in der Liste.
+    private func name(_ eintrag: Zeichenbild) -> String {
+        let stelle = (bilder.firstIndex(of: eintrag) ?? 0) + 1
+        return "Bild \(stelle)"
+    }
+
+    private func formtext(_ eintrag: Zeichenbild) -> String {
+        if eintrag.seitenverhaeltnis > 1.08 { return "quer" }
+        if eintrag.seitenverhaeltnis < 0.93 { return "hochkant" }
+        return "quadratisch"
+    }
+
     // MARK: - Texte
+
+    private var probenhinweis: String {
+        if bilder.isEmpty { return "Noch kein Bild gewählt." }
+        if bilder.count == 1 {
+            return "So liegt es auf einer Seite mit Text und einem Foto. Wo genau, entscheidet sich auf jeder Seite neu."
+        }
+        var text = "Gezeigt ist Bild 1. Auf einer Seite liegt jeweils EINES der "
+        text += "\(bilder.count) Bilder — welches, zieht die App aus der Kennung der Seite, "
+        text += "nicht aus dem Zufall: Dieselbe Seite bekommt beim nächsten Öffnen dasselbe "
+        text += "Bild, und das PDF zeigt, was auf dem Bildschirm steht. Eine einzelne Seite "
+        text += "lässt sich umstellen: nichts auswählen, dann Pinsel \u{2192} Wasserzeichen."
+        return text
+    }
 
     // Ehrlich statt bequem: Die Mediathek ist bewusst NICHT der Weg.
     private var bildhinweis: String {
@@ -130,6 +213,10 @@ struct WasserzeichenView: View {
         text += "Ein JPEG hat immer einen Grund, und der legt sich als helles Rechteck über die Seite. "
         text += "Deshalb führt dieser Weg in die Dateien und nicht in die Fotos: "
         text += "Die Mediathek gibt fast nur JPEG und HEIC heraus, und beide können keine Durchsichtigkeit."
+        if bilder.count >= Wasserzeichen.hoechstzahl {
+            text += " Mehr als \(Wasserzeichen.hoechstzahl) Bilder gehen nicht \u{2014} "
+            text += "entferne eines, um ein anderes aufzunehmen."
+        }
         return text
     }
 
@@ -178,15 +265,15 @@ struct WasserzeichenView: View {
     private var probe: some View {
         ZStack {
             werk.reise.gestaltung.papier.farbe
-            if let zeichen, let bild = Bildarchiv.shared.vorschau(zeichen.datei,
-                                                                  reise: werk.reise.id,
-                                                                  kante: 600)
+            if let erstes = bilder.first,
+               let bild = Bildarchiv.shared.vorschau(erstes.datei, reise: werk.reise.id,
+                                                     kante: 600)
             {
                 Image(uiImage: bild)
                     .resizable()
                     .scaledToFit()
                     .padding(28)
-                    .opacity(zeichen.deckung)
+                    .opacity(zeichen?.deckung ?? 0.1)
             }
             VStack(alignment: .leading, spacing: 5) {
                 Text("Über den Pass")
@@ -229,41 +316,75 @@ struct WasserzeichenView: View {
     // Die gewählte Datei wandert unverändert ins Bildarchiv DIESER Reise —
     // mit ihrer echten Endung: Eine PNG unter dem Namen `.jpg` abzulegen
     // ginge zwar, aber jede spätere Suche nach dem Format sähe dann falsch.
-    private func uebernehmen(_ adresse: URL) {
+    // HINZUGEFÜGT, nicht ersetzt (ab 1.0.56). Was eingestellt war, bleibt
+    // ohnehin: Deckkraft, Größe, Lage und Drehung gehören dem Buch und
+    // nicht dem einzelnen Bild.
+    private func uebernehmen(_ adressen: [URL]) {
+        guard !adressen.isEmpty else { return }
+        var neu = werk.reise.gestaltung.wasserzeichen ?? Wasserzeichen()
+        var aufgenommen = 0
+        var uebrig = 0
+        var gemerkt = false
+        for adresse in adressen {
+            guard neu.bilder.count < Wasserzeichen.hoechstzahl else {
+                uebrig += 1
+                continue
+            }
+            guard let eintrag = eingelesen(adresse) else { continue }
+            if !gemerkt {
+                werk.merken()
+                gemerkt = true
+            }
+            neu.bilder.append(eintrag)
+            aufgenommen += 1
+        }
+        guard aufgenommen > 0 || uebrig > 0 else { return }
+        if aufgenommen > 0 { werk.reise.gestaltung.wasserzeichen = neu }
+        // Stillschweigend die Hälfte zu verschlucken wäre der schlimmere
+        // Fehler: Wer zwölf Dateien wählt, muss erfahren, dass zwei
+        // draußen blieben.
+        if uebrig > 0 {
+            werk.meldung = .init(text: "\(uebrig) Bild(er) nicht aufgenommen \u{2014} mehr als \(Wasserzeichen.hoechstzahl) gehen nicht.")
+        }
+    }
+
+    private func eingelesen(_ adresse: URL) -> Zeichenbild? {
         let offen = adresse.startAccessingSecurityScopedResource()
         defer { if offen { adresse.stopAccessingSecurityScopedResource() } }
         guard let daten = try? Data(contentsOf: adresse) else {
             werk.meldung = .init(text: "Die Datei ließ sich nicht lesen.")
-            return
+            return nil
         }
         let endung = adresse.pathExtension.isEmpty ? "png" : adresse.pathExtension.lowercased()
         guard let name = try? Bildarchiv.shared.ablegen(daten, reise: werk.reise.id,
                                                         endung: endung)
         else {
             werk.meldung = .init(text: "Die Datei ließ sich nicht ablegen.")
-            return
+            return nil
         }
-
-        werk.merken()
-        let alt = werk.reise.gestaltung.wasserzeichen
-        var neu = Wasserzeichen(datei: name, seitenverhaeltnis: verhaeltnis(daten))
-        // Was eingestellt war, bleibt: Wer nur das Bild austauscht, will
-        // nicht auch Deckkraft, Größe und Lage zurückgesetzt bekommen.
-        if let alt {
-            neu.deckung = alt.deckung
-            neu.anteil = alt.anteil
-            neu.lage = alt.lage
-            neu.aufTitelblatt = alt.aufTitelblatt
-        }
-        werk.reise.gestaltung.wasserzeichen = neu
-        if let alt, alt.gueltig { Bildarchiv.shared.loeschen(alt.datei, reise: werk.reise.id) }
+        return Zeichenbild(datei: name, seitenverhaeltnis: verhaeltnis(daten))
     }
 
-    private func entfernen() {
+    // Ein einzelnes Bild geht, die Einstellungen bleiben. Seiten, die
+    // ausdrücklich auf dieses Bild zeigten, fallen auf die Automatik
+    // zurück — ein Verweis ins Leere darf nie eine leere Fläche ergeben,
+    // und die Korrekturen der anderen Seiten dafür anzutasten wäre zu viel
+    // des Guten.
+    private func entfernen(_ eintrag: Zeichenbild) {
+        guard var neu = werk.reise.gestaltung.wasserzeichen else { return }
+        werk.merken()
+        neu.bilder.removeAll { $0.datei == eintrag.datei }
+        werk.reise.gestaltung.wasserzeichen = neu.gueltig ? neu : nil
+        Bildarchiv.shared.loeschen(eintrag.datei, reise: werk.reise.id)
+    }
+
+    private func alleEntfernen() {
         guard let alt = werk.reise.gestaltung.wasserzeichen else { return }
         werk.merken()
         werk.reise.gestaltung.wasserzeichen = nil
-        if alt.gueltig { Bildarchiv.shared.loeschen(alt.datei, reise: werk.reise.id) }
+        for eintrag in alt.gueltigeBilder {
+            Bildarchiv.shared.loeschen(eintrag.datei, reise: werk.reise.id)
+        }
     }
 
     // Breite durch Höhe, EINMAL gemessen — und zwar aus den Kopfdaten, ohne
