@@ -6348,6 +6348,67 @@ Befunde, und keiner davon war Geschmack:
   Belegung 4). Ob ein Zeichen bei 10 % im Druck noch zu sehen ist oder
   schon stört, sagt erst der erste Ausdruck — auf dem Bildschirm wirkt es
   kräftiger als auf Papier. **Nicht als erledigt darstellen.**
+- **EIN HINTERGRUNDBILD ÜBER DIE DOPPELSEITE** (`Model/Bogenlage.swift`,
+  `Seitenhintergrund.ueberDoppelseite`, ab 1.0.47; Ansage des Nutzers
+  09/2026: „ich möchte einstellen können, dass ein Hintergrundbild über eine
+  Doppelseite geht"). Bis 1.0.46 füllte ein Hintergrundfoto immer genau eine
+  Seite; im aufgeschlagenen Buch standen damit zwei Ausschnitte desselben
+  Bildes nebeneinander, jeder für sich vollständig.
+  - **Ein SCHALTER und keine Automatik**, wörtlich erbeten: „Da ich nicht
+    absehen kann, ob es vielleicht andere Konstellationen gibt, wo es
+    sinnvoll ist, das Bild auf jeder Seite zu haben." Beides ist richtig, nur
+    für verschiedene Bilder — ein Muster, ein Himmel oder eine Struktur
+    gehört auf jede Seite, eine Landschaft über den Bund. Aus als Vorgabe:
+    Was bisher gesetzt wurde, sieht danach unverändert aus.
+  - **Welche Hälfte auf diese Seite fällt, ist BUCHBINDEREI und keine
+    Einstellung.** Seite 1 ist ein Recto, also rechts; jede rechte Seite
+    trägt eine ungerade Nummer. Die Regel stand seit 1.0.17 in
+    `Reisewerk.doppelseiten` („Links die gerade, rechts die ungerade Nummer
+    — nie umgekehrt") und steht jetzt als Funktion in `Bogenlage`; die
+    Doppelseitenansicht holt sie von dort. Zwei Fassungen ergäben eine
+    Ansicht, die anders paart als der Satz — und das sähe man erst im
+    gedruckten Buch.
+  - **Die Fläche ist 2 × Endformat breit, mit Anschnitt nur AUSSEN.** Am Bund
+    stoßen die Endformate aneinander (deshalb zeichnet die
+    Doppelseitenansicht sie ohne Abstand); innen deckt die Nachbarseite ab,
+    dort gibt es nichts zu beschneiden. **Beschnitten wird trotzdem am
+    Bogen** — die Nachbarseite ist ein eigenes Blatt Papier.
+  - **Gerechnet wird an EINER Stelle** (`Bogenlage.bildflaeche` für das PDF,
+    `Bogenlage.versatz` für SwiftUI — dieselbe Zahl, einmal als Rechteck in
+    Seitenkoordinaten, einmal als Versatz gegen die Bogenmitte, weil ein
+    `ZStack` mittig ausrichtet). Zwei Fassungen ergäben eine Vorschau, in der
+    das Bild anders steht als im Druck.
+  - **`HintergrundFlaeche` bekommt eine FESTE Größe.** Ein `ZStack` ist so
+    groß wie sein größtes Kind; ein Bild über die Doppelseite ist breiter
+    als diese Seite und zöge das Blatt auseinander. Der Rahmen steht deshalb
+    VOR dem `.clipped()`. `bogen` und `seitennummer` sind wahlweise — die
+    Probe im Hintergrund-Blatt steht nicht im Buch und hat keine
+    Nachbarseite; dort gibt es keine Doppelseite, über die etwas gehen
+    könnte.
+  - **`Seitenhintergrund` liest sich seit 1.0.47 von Hand.** Er hatte keinen
+    eigenen Leser, und das wäre hier still teuer geworden: `Gestaltung` holt
+    ihn über `b.wert(.hintergrund, .weiss)`, eine einzelne Seite über
+    `b.wahlweise(.hintergrund)` — ein neues Feld hätte in jedem vorhandenen
+    Buch den Buchhintergrund auf Weiß zurückgesetzt und jeden eigenen
+    Seitengrund verschwinden lassen, ohne eine Meldung. **Die Regel gilt für
+    jeden Typ, der wächst**, und sie galt für diesen noch nicht.
+  - **Was der Schalter NICHT kann, steht darunter.** Setzt jemand den
+    Hintergrund je SEITE, braucht die Nachbarseite dasselbe Bild mit
+    demselben Schalter — sonst steht im Buch die Hälfte des einen neben der
+    Hälfte des anderen, und auf dem Bildschirm sieht jede Seite für sich
+    tadellos aus. Deshalb zählt `Druckpruefung.doppelseitenhintergrund` die
+    Bögen, die nicht aufgehen. Die Hälfte, die auf die Innenseite des
+    Umschlags fällt (erster und letzter Bogen), wird eigens genannt und
+    nicht als Fehler gezählt: Sie wird nie gedruckt, und das ist das Buch
+    und kein Versehen.
+- **Nicht gemessen (1.0.47):** Keine Doppelseite ist damit gesehen worden.
+  Gerechnet ist die Geometrie — dass die Fläche zwei Endformate plus zwei
+  Anschnitte misst und der Versatz eine halbe Seitenbreite beträgt.
+  **Ungeprüft ist, ob der Bund im gedruckten Buch etwas verschluckt**: Ein
+  Hardcover verschwindet in der Bindung, und wie viel, sagt der Druckdienst
+  und nicht diese App — wer ein Gesicht genau in den Bund legt, verliert es
+  möglicherweise. Der Bundsteg (seit 1.0.1) schiebt den SATZ davon weg, das
+  Bild nicht. **Nicht als erledigt darstellen.**
 - **Die Bildunterschrift war halb gebaut** (ab 1.0.5, Wunsch des Nutzers
   09/2026: „zu jedem Foto einen Beschreibungstext … Dies soll jedoch eine
   Option für jedes Foto sein. Kein muss."). Der Layoutautomat hielt Platz
@@ -6609,7 +6670,7 @@ Befunde, und keiner davon war Geschmack:
   Stellen im pbxproj (Debug + Release) — es gibt KEINE Skript-Bauphase.
   **Jede Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne
   Nachfrage, als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann
-  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.46 (Build 47). Dazu gesetzt:
+  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.47 (Build 48). Dazu gesetzt:
   `DEVELOPMENT_TEAM = F4989GSTWS` und
   `INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.travel`.
   Seit 1.0.4 steht dort auch `CODE_SIGN_ENTITLEMENTS = Config/Urlaubstagebuch.entitlements`

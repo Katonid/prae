@@ -174,8 +174,14 @@ enum Seitensatz {
     //
     // `saat` macht das Papierkorn an der SEITE fest: dieselbe Seite bekommt
     // immer dasselbe Korn, zwei Seiten nebeneinander ein verschiedenes.
+    // `bildflaeche` ist die Fläche, in die das HINTERGRUNDFOTO gerechnet
+    // wird — sonst derselbe Bogen. Sie ist größer als er, wenn das Bild
+    // über die Doppelseite geht: Dann füllt es zwei Seiten, und diese
+    // eine zeigt ihre Hälfte davon. Beschnitten wird trotzdem am Bogen —
+    // die Nachbarseite ist ein eigenes Blatt Papier.
     static func zeichneHintergrund(_ grund: Seitenhintergrund, rechteck: CGRect,
                                    bild: UIImage?, saat: UInt64 = 0,
+                                   bildflaeche: CGRect? = nil,
                                    in zusammenhang: CGContext)
     {
         zusammenhang.saveGState()
@@ -221,7 +227,7 @@ enum Seitensatz {
                 zusammenhang.saveGState()
                 zusammenhang.clip(to: rechteck)
                 let ziel = Bildausschnitt.voll.zielrechteck(bildgroesse: bild.size,
-                                                            rahmen: rechteck)
+                                                            rahmen: bildflaeche ?? rechteck)
                 bild.draw(in: ziel)
                 zusammenhang.restoreGState()
             }

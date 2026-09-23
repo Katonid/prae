@@ -416,6 +416,77 @@ enum Druckpruefung {
                       titel: "Wasserzeichen", text: text)]
     }
 
+    // Ein Hintergrundbild über die Doppelseite geht nur auf, wenn BEIDE
+    // Seiten des Bogens dasselbe Bild mit demselben Schalter tragen. Auf
+    // dem Bildschirm sieht die einzelne Seite dabei völlig in Ordnung aus
+    // — sie zeigt ja ihre Hälfte; dass die andere Hälfte woanders steht,
+    // fällt erst im aufgeschlagenen Buch auf. Also wird es gezählt.
+    static func doppelseitenhintergrund(_ reise: Reise) -> [Zeile] {
+        // Dieselbe Nummerierung wie `seitenfolge` — nur ohne das
+        // Titelblatt zu SETZEN: Gebraucht wird hier seine Nummer und
+        // nicht seine Seite. Einen eigenen Hintergrund hat es nicht, es
+        // folgt dem Buch.
+        var seiten: [(nummer: Int, grund: Seitenhintergrund, wo: String)] = []
+        var nummer = 1
+        if reise.titelseite {
+            seiten.append((nummer, reise.gestaltung.hintergrund, "Titelblatt"))
+            nummer += 1
+        }
+        for tag in reise.tage where !tag.ausgeblendet {
+            for seite in tag.seiten {
+                seiten.append((nummer, seite.hintergrund ?? reise.gestaltung.hintergrund,
+                               tag.datum.mittel))
+                nummer += 1
+            }
+        }
+        func spannt(_ grund: Seitenhintergrund) -> UUID? {
+            guard grund.art == .foto, grund.ueberDoppelseite else { return nil }
+            return grund.fotoID
+        }
+        guard seiten.contains(where: { spannt($0.grund) != nil }) else { return [] }
+
+        var nachNummer: [Int: (nummer: Int, grund: Seitenhintergrund, wo: String)] = [:]
+        for seite in seiten { nachNummer[seite.nummer] = seite }
+        var ganz = 0
+        var halb: [String] = []
+        var amUmschlag = 0
+        let letzte = seiten.map { $0.nummer }.max() ?? 0
+        var zaehler = 0
+        while 2 * zaehler <= letzte {
+            // Links die gerade, rechts die ungerade Nummer — dieselbe
+            // Paarung wie in `Bogenlage` und in der Doppelseitenansicht.
+            let links = nachNummer[2 * zaehler]
+            let rechts = nachNummer[2 * zaehler + 1]
+            zaehler += 1
+            let bildLinks = links.flatMap { spannt($0.grund) }
+            let bildRechts = rechts.flatMap { spannt($0.grund) }
+            if bildLinks == nil, bildRechts == nil { continue }
+            if bildLinks != nil, bildLinks == bildRechts { ganz += 1; continue }
+            // Eine fehlende Nachbarseite ist kein Versehen, sondern das
+            // Buch: Vor Seite 1 und hinter der letzten liegt die
+            // Innenseite des Umschlags, und die kommt von der Druckerei.
+            if links == nil || rechts == nil { amUmschlag += 1; continue }
+            let offen = links?.wo ?? "?"
+            halb.append("Seiten \(2 * (zaehler - 1)) und \(2 * zaehler - 1) (\(offen))")
+        }
+
+        var text = "\(ganz) Doppelseiten zeigen ein durchgehendes Bild."
+        if amUmschlag > 0 {
+            text += " Bei \(amUmschlag) fällt die andere Hälfte auf die Innenseite des "
+            text += "Umschlags und wird nie gedruckt — das ist der erste oder der letzte Bogen."
+        }
+        if halb.isEmpty {
+            text += " Kein Bogen zeigt zwei verschiedene Hälften."
+            return [Zeile(stufe: .gut, titel: "Hintergrund über die Doppelseite", text: text)]
+        }
+        text += " Auf \(halb.count) Bogen tragen die beiden Seiten NICHT dasselbe Bild — "
+        text += "dort steht im Buch die Hälfte des einen neben der Hälfte des anderen. "
+        text += "Beide Seiten brauchen dasselbe Foto mit demselben Schalter.\n"
+        text += halb.prefix(12).joined(separator: "\n")
+        return [Zeile(stufe: .warnung,
+                      titel: "\(halb.count) Doppelseiten gehen nicht auf", text: text)]
+    }
+
     static func vorab(_ reise: Reise) -> [Zeile] {
         var zeilen: [Zeile] = []
         let format = reise.format
@@ -446,6 +517,7 @@ enum Druckpruefung {
         zeilen.append(contentsOf: trennungsbefund(reise))
         zeilen.append(contentsOf: mittenImSatz(reise))
         zeilen.append(contentsOf: wasserzeichen(reise))
+        zeilen.append(contentsOf: doppelseitenhintergrund(reise))
 
         // Randabfallendes
         let randab = reise.seitenfolge.reduce(0) { summe, seite in

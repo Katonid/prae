@@ -70,8 +70,9 @@ struct SeitenflaecheView: View {
             // Neuzeichnen, und genau das ist die Zahl, die hier niemand
             // nachmessen kann.
             let _ = werk.messer.melde("Seite")
-            HintergrundFlaeche(werk: werk, hintergrund: hintergrund, seite: buchseite.seite)
-                .frame(width: bogen.width, height: bogen.height)
+            HintergrundFlaeche(werk: werk, hintergrund: hintergrund, seite: buchseite.seite,
+                               format: format, anschnitt: anschnitt,
+                               bogen: bogen, seitennummer: buchseite.nummer)
                 .offset(x: -anschnitt, y: -anschnitt)
                 .allowsHitTesting(false)
 
@@ -808,6 +809,27 @@ struct HintergrundFlaeche: View {
     @ObservedObject var werk: Reisewerk
     let hintergrund: Seitenhintergrund
     let seite: Seite
+    let format: CGSize
+    let anschnitt: Double
+    // Der Bogen, auf den beschnitten wird — `nil` heißt „nimm, was der
+    // Platz hergibt" (die Probe im Hintergrund-Blatt).
+    var bogen: CGSize?
+    // Die Nummer im Buch. Daran hängt, ob diese Seite links oder rechts
+    // liegt; `nil` heißt „außerhalb des Buches", und dann gibt es keine
+    // Doppelseite, über die etwas gehen könnte.
+    var seitennummer: Int?
+
+    // Wie groß das Hintergrundfoto gezeichnet wird und wie weit gegen die
+    // Bogenmitte verschoben — oder `nil`, wenn es schlicht diese eine
+    // Seite füllt. Über die Doppelseite ist es zwei Seitenbreiten breit
+    // und um eine halbe versetzt: nach rechts auf einer linken Seite, nach
+    // links auf einer rechten.
+    private var doppelflaeche: (breite: Double, hoehe: Double, versatz: Double)? {
+        guard hintergrund.ueberDoppelseite, let seitennummer, let bogen else { return nil }
+        return (Double(bogen.width) + Double(format.width),
+                Double(bogen.height),
+                Bogenlage.versatz(nummer: seitennummer, format: format, anschnitt: anschnitt))
+    }
 
     var body: some View {
         ZStack {
@@ -822,17 +844,40 @@ struct HintergrundFlaeche: View {
             case .foto:
                 hintergrund.farbe.farbe
                 if let id = hintergrund.fotoID, let foto = werk.reise.foto(id),
+                   // Über die Doppelseite deckt dasselbe Bild die
+                   // doppelte Breite ab — mit derselben Kante wäre es auf
+                   // dem Bildschirm halb so fein. Das PDF holt ohnehin die
+                   // volle Auflösung (`auftrag.bildkante`).
                    let bild = Bildarchiv.shared.vorschau(foto.datei, reise: werk.reise.id,
-                                                         kante: 1400)
+                                                         kante: doppelflaeche == nil ? 1400 : 2400)
                 {
-                    Image(uiImage: bild)
-                        .resizable()
-                        .scaledToFill()
+                    fotoflaeche(bild)
                 }
                 hintergrund.farbe.farbe.opacity(hintergrund.schleier)
             }
         }
+        // Die Größe steht FEST am Bogen und richtet sich nicht nach dem
+        // größten Kind: Ein Bild über die Doppelseite ist breiter als diese
+        // Seite, und ohne diesen Rahmen wüchse der Stapel mit und zöge das
+        // Blatt auseinander. Beschnitten wird danach am Bogen — die
+        // Nachbarseite ist ein eigenes Blatt Papier.
+        .frame(width: bogen?.width, height: bogen?.height)
         .clipped()
+    }
+
+    @ViewBuilder
+    private func fotoflaeche(_ bild: UIImage) -> some View {
+        if let flaeche = doppelflaeche {
+            Image(uiImage: bild)
+                .resizable()
+                .scaledToFill()
+                .frame(width: CGFloat(flaeche.breite), height: CGFloat(flaeche.hoehe))
+                .offset(x: CGFloat(flaeche.versatz))
+        } else {
+            Image(uiImage: bild)
+                .resizable()
+                .scaledToFill()
+        }
     }
 }
 

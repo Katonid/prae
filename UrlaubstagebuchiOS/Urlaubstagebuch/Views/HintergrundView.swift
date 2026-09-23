@@ -119,6 +119,15 @@ struct HintergrundView: View {
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
+
+                        Section {
+                            Toggle("Bild über die Doppelseite",
+                                   isOn: binden(\.ueberDoppelseite))
+                        } header: {
+                            Text("Wie weit das Bild reicht")
+                        } footer: {
+                            Text(doppelseitenhinweis)
+                        }
                     }
                 }
             }
@@ -139,7 +148,13 @@ struct HintergrundView: View {
 
     private var probe: some View {
         ZStack(alignment: .topLeading) {
-            HintergrundFlaeche(werk: werk, hintergrund: grund, seite: Seite())
+            // Ohne Bogen und ohne Seitennummer: Die Probe steht nicht im
+            // Buch, sie hat keine Nachbarseite, und ein Bild über die
+            // Doppelseite wäre hier eine Behauptung über etwas, das es an
+            // dieser Stelle nicht gibt.
+            HintergrundFlaeche(werk: werk, hintergrund: grund, seite: Seite(),
+                               format: werk.reise.format.groesse,
+                               anschnitt: werk.reise.gestaltung.anschnittPt)
             VStack(alignment: .leading, spacing: 6) {
                 Text(werk.reise.gestaltung.datumsstil
                     .text(Tagesdatum(Date()), nummer: 3).uppercased())
@@ -155,6 +170,25 @@ struct HintergrundView: View {
             }
             .padding(16)
         }
+    }
+
+    // Was der Schalter kann und was nicht — beides steht da, und der
+    // zweite Teil ist der wichtigere: Die App kann eine Doppelseite nicht
+    // erzwingen. Wer den Hintergrund je SEITE setzt, muss beiden Seiten
+    // dasselbe Bild geben, sonst zeigt jede ihre Hälfte eines anderen.
+    private var doppelseitenhinweis: String {
+        var text = "Aus: Das Bild füllt jede Seite für sich. An: Es füllt die ganze "
+        text += "aufgeschlagene Doppelseite, und jede Seite zeigt ihre Hälfte davon. "
+        text += "Ein Muster oder ein Himmel gehört auf jede Seite, eine Landschaft über den Bund."
+        if istBuch {
+            text += " Die linke Hälfte des ersten Bogens wird nie gedruckt — dort liegt im "
+            text += "gebundenen Buch die Innenseite des Umschlags."
+        } else {
+            text += " Damit es aufgeht, braucht die Nachbarseite dasselbe Bild mit demselben "
+            text += "Schalter. Sonst zeigt jede Seite ihre Hälfte eines anderen Bildes, und "
+            text += "das fällt erst im gedruckten Buch auf."
+        }
+        return text
     }
 
     private func binden<W>(_ pfad: WritableKeyPath<Seitenhintergrund, W>) -> Binding<W> {

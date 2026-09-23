@@ -354,8 +354,19 @@ enum Buchausgabe {
             grundbild = Bildarchiv.shared.fuerAusgabe(foto.datei, reise: reise.id,
                                                       kante: auftrag.bildkante)
         }
+        // Geht das Hintergrundfoto über die Doppelseite, wird es in die
+        // Fläche BEIDER Seiten gerechnet und hier die Hälfte davon
+        // gezeichnet. Gerechnet wird das von derselben Funktion, die auch
+        // die Ansicht fragt — zwei Fassungen ergäben eine Vorschau, in
+        // der das Bild anders steht als im Druck.
+        var bildflaeche: CGRect?
+        if grund.art == .foto, grund.ueberDoppelseite {
+            bildflaeche = Bogenlage.bildflaeche(nummer: buchseite.nummer,
+                                                format: endformat, anschnitt: anschnitt)
+        }
         Seitensatz.zeichneHintergrund(grund, rechteck: bogenrechteck, bild: grundbild,
-                                      saat: buchseite.seite.id.saat, in: zusammenhang)
+                                      saat: buchseite.seite.id.saat,
+                                      bildflaeche: bildflaeche, in: zusammenhang)
 
         // Das Wasserzeichen liegt über dem Hintergrund und unter allem
         // anderen. Ohne Transparenz fällt es WEG und wird nicht etwa
