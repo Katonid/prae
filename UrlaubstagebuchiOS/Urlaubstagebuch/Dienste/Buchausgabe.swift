@@ -784,7 +784,7 @@ enum Buchausgabe {
         let satz = reise.gestaltung.satzspiegel(reise.format)
         var vorrat: [String: UIImage] = [:]
         for zeichenbild in zeichen.gueltigeBilder where vorrat[zeichenbild.datei] == nil {
-            let groesse = Wasserzeichen.groesse(zeichen, bild: zeichenbild, satz: satz)
+            let groesse = Wasserzeichenlage.groesse(zeichen, bild: zeichenbild, satz: satz)
             let lang = Double(max(groesse.width, groesse.height))
             let noetig = Int((lang / 72 * auftrag.zieldpi).rounded(.up))
             let kante = max(64, min(auftrag.bildkante, noetig))
