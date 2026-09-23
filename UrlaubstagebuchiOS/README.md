@@ -480,6 +480,74 @@ Sichtbarkeit, 34 % Breite). Ob ein Zeichen bei 10 % im Druck noch zu sehen ist
 oder schon stört, sagt erst der erste Ausdruck; auf dem Bildschirm wirkt es
 kräftiger als auf Papier.
 
+## Ausschneiden, kopieren, einfügen (1.0.65)
+
+Ein Element lässt sich jetzt **ausschneiden oder kopieren** und danach auf
+einer **beliebigen** Seite wieder einfügen — auch in einem anderen Tag und
+auf dem Umschlag.
+
+Vorher ging das nicht, und der Grund steht im Quelltext: Die Abschnitte
+„Verschieben" und „Kopieren" rechnen beide mit den Seiten **dieses** Tages.
+Ein frisch angelegter Tag hat genau eine; dann fällt „eine Seite zurück"
+aus (es gibt keine), „eine Seite vor" ebenso, „auf Seite …" auch — und übrig
+bleibt der eine Eintrag „Auf eine neue Seite". Genau so war es gemeldet
+worden.
+
+**So geht es:** Element antippen → das Menü mit seinem Namen unten in der
+Leiste → „Ausschneiden" oder „Kopieren". Danach die Zielseite antippen und
+unten auf „… einfügen" tippen. Der Knopf steht dort, solange etwas in der
+Ablage liegt; im Plus-Menü und im Inspektor steht er ebenfalls.
+
+Drei Dinge daran sind Entscheidungen und keine Bequemlichkeit:
+
+- **Jedes Einfügen vergibt eine neue Kennung** — auch beim ausgeschnittenen
+  Block. Zwei Blöcke mit derselben Kennung wären für jede Suche einer, und
+  der zweite ließe sich nie wieder anfassen. Nebenwirkung mit Absicht:
+  zweimal einfügen ergibt zwei Blöcke.
+- **Ein Foto wechselt dabei den Tag.** Welchem Tag ein Foto gehört, steht in
+  dessen Fotoliste; ohne diesen Schritt stünde es weiter beim alten Tag und
+  käme dort beim nächsten Neuanordnen wieder auf eine Seite. Aus dem alten
+  Tag genommen wird es nur, wenn es dort in keinem Block mehr steht — ein
+  Foto darf zweimal im Buch stehen. Eine Grafik bleibt außen vor: Sie
+  gehört keinem Tag.
+- **Ein Tagebuchtext bleibt bei seinem Tag.** Sein Text steht am Tag und
+  nicht im Block; beim Neuverteilen wanderte er sonst in den falschen
+  Tagebuchtext, und zwar unbemerkt. Dasselbe gilt für Überschrift,
+  Datumszeile und Bildunterschrift. Eine Karte kommt nicht auf den
+  Umschlag — dort gibt es keinen Tag. Beides steht als Satz da, statt dass
+  der Knopf einfach fehlt.
+
+## Ein Bild aus der Mediathek, ohne Datumslogik (1.0.65)
+
+„+" → **„Bild aus der Mediathek…"** setzt ein Bild genau auf die gewählte
+Seite: ohne Datum, ohne Ort, ohne Punkt auf der Karte und ohne Eintrag in
+einer Fotoliste. Den Weg über **Dateien** gibt es seit 1.0.61; aus der
+Mediathek führte bis dahin jeder Weg durch die Fotoeinfuhr — also durch
+Datum, Ort, Tageszuordnung und einen Bericht darüber, was fehlt. Für ein
+Bild, das einfach hier liegen soll, ist das alles kein Hinweis, sondern
+Lärm.
+
+Es ist derselbe Wähler wie bei den Reisefotos und dieselbe Funktion
+dahinter; nur die Verarbeitung davor fällt weg. Für Reisefotos bleibt der
+gewohnte Weg („+" → „Fotos aus der Mediathek…"): Die verteilen sich weiter
+über ihr Aufnahmedatum auf die Tage.
+
+## Der Inspektor ist wieder lesbar (1.0.65)
+
+Die Spalte, die der Pinsel aufzieht, stand durchscheinend über der Seite.
+Über einer weißen Buchseite fällt das nicht auf — über einem
+randabfallenden Foto steht die Schrift im Bild, und genau dort steht sie
+immer: Der Inspektor ist offen, **während** man an einem Foto arbeitet. Er
+hat jetzt einen undurchsichtigen Grund.
+
+**Nicht gemessen (1.0.65):** Nichts davon ist auf einem Gerät gesehen
+worden. Die Ursache des Verschiebe-Engpasses ist am Quelltext abgezählt und
+passt Punkt für Punkt zum Bildschirmfoto; dass die Inspektor-Spalte ihr
+Material wirklich freigibt, ist die Lesart der Dokumentation und keine
+Messung. Ebenso ungesehen: ob die Mediathek die echte Endung hergibt (bei
+einem bearbeiteten Foto liefert sie oft JPEG, auch wenn das Original ein
+PNG war).
+
 ## Eigene Felder auf Titelseite und Rückseite (1.0.64)
 
 Ansage des Nutzers, 09/2026: „Es soll mir zum Beispiel auch möglich sein,

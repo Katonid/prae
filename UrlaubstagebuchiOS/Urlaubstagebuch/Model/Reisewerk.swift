@@ -36,6 +36,38 @@ final class Reisewerk: ObservableObject, Identifiable {
     @Published var seitenzeiger: Int = 0
     @Published var meldung: Meldung?
     @Published var beschaeftigt: String?
+    // DIE ZWISCHENABLAGE (ab 1.0.65).
+    //
+    // Befund des Nutzers, 09/2026: „Im Moment ist es so, dass ich zum
+    // Beispiel ein Foto nur auf eine Seite verschieben kann, die nach der
+    // aktuellen Seite neu angelegt wird. Etwas anderes steht mir offenbar
+    // nicht zur Verfügung. Ich würde es begrüßen, wenn ich dort einen ganz
+    // normalen Dialog bekommen würde, so wie er in jeder App gültig ist.
+    // Ausschneiden, kopieren, einfügen."
+    //
+    // Er hat recht, und der Grund steht im Quelltext: `blockVerschieben`
+    // und `blockKopieren` rechnen beide mit `seitenlage`, also mit den
+    // Seiten DIESES Tages — und ein frisch angelegter Tag hat genau eine.
+    // Dann fällt „eine Seite zurück“, „eine Seite vor“ und „auf Seite …“
+    // weg, und übrig bleibt der eine Eintrag, den er beschreibt.
+    //
+    // Ausschneiden, Kopieren und Einfügen lösen das allgemein: Was in der
+    // Ablage liegt, geht auf JEDE gewählte Seite — auch in einen anderen
+    // Tag und auf den Umschlag. Damit braucht die Zielseite keinen Platz
+    // in einem Menü mehr; sie wird ausgewählt wie sonst auch.
+    @Published private(set) var ablage: Ablageinhalt?
+
+    struct Ablageinhalt {
+        var block: Block
+        // Woher er kam. Bei einem Block vom Umschlag ist das `nil` — und
+        // genau daran hängt die Regel unten, dass ein Tagebuchtext seinen
+        // Tag nicht verlässt.
+        var tagID: UUID?
+        var ausgeschnitten: Bool
+
+        var name: String { block.inhalt.name }
+    }
+
     // Was die Seite bei der letzten Ziehbewegung entgegengenommen hat.
     //
     // Das ist eine PROBE und keine Zugabe: Dass sich Bilder nicht
@@ -1315,6 +1347,127 @@ final class Reisewerk: ObservableObject, Identifiable {
         gewaehlterBlock = kopie.id
         seitenzeiger = seite
         return true
+    }
+
+    // AUSSCHNEIDEN, KOPIEREN, EINFÜGEN (ab 1.0.65).
+    //
+    // Die drei Handgriffe, die jede App kennt — und der Weg, der die
+    // Seitenfrage ganz aus dem Menü nimmt: Eingefügt wird auf die GEWÄHLTE
+    // Seite, und die wählt man auf der Bühne mit einem Tipp. Damit geht es
+    // über Seiten-, Tages- und Umschlagsgrenzen hinweg, ohne dass ein Menü
+    // jede mögliche Zielseite aufzählen müsste.
+    //
+    // Die Ablage hält eine KOPIE und keinen Verweis. Wer ausschneidet und
+    // dann etwas anderes tut, hat den Block trotzdem noch; wer zweimal
+    // einfügt, bekommt zwei Blöcke.
+    func blockAusschneiden(_ id: UUID) {
+        guard let geholt = blockWert(id) else { return }
+        let tag = block(id).map { reise.tage[$0.tag].id }
+        ablage = Ablageinhalt(block: geholt, tagID: tag, ausgeschnitten: true)
+        // `blockLoeschen` merkt selbst — ein zweites `merken()` davor
+        // legte einen Stand auf den Stapel, in dem nichts geschehen ist.
+        blockLoeschen(id)
+        meldung = .init(text: "\(geholt.inhalt.name) ausgeschnitten. "
+                        + "Seite antippen, dann \u{201E}Einfügen\u{201C}.")
+    }
+
+    func blockInDieAblage(_ id: UUID) {
+        guard let geholt = blockWert(id) else { return }
+        let tag = block(id).map { reise.tage[$0.tag].id }
+        ablage = Ablageinhalt(block: geholt, tagID: tag, ausgeschnitten: false)
+        meldung = .init(text: "\(geholt.inhalt.name) kopiert. "
+                        + "Seite antippen, dann \u{201E}Einfügen\u{201C}.")
+    }
+
+    // Warum es hier NICHT geht — oder `nil`, wenn es geht.
+    //
+    // Zwei Fälle, und beide sind keine Bequemlichkeit: Ein TAGEBUCHTEXT
+    // gehört seinem Tag. `Neuverteilung.fliesstexte` schreibt ihn beim
+    // Neuverteilen dorthin zurück, wo sein Block liegt; in einem fremden
+    // Tag stünde er danach im falschen Tagebuchtext, und zwar still.
+    // Dasselbe gilt für Überschrift, Datumszeile und Bildunterschrift —
+    // deren Text steht am Tag bzw. am Foto. Und eine KARTE zeichnet die
+    // Spur eines Tages; auf dem Umschlag gibt es keinen.
+    func einfuegenGrund(auf seiteID: UUID) -> String? {
+        guard let inhalt = ablage else { return nil }
+        let amUmschlag = umschlagflaeche(seiteID) != nil
+        if inhalt.block.inhalt == .karte, amUmschlag {
+            return "Eine Karte zeichnet die Spur eines Tages \u{2014} auf dem Umschlag "
+                + "gibt es keinen."
+        }
+        guard inhalt.block.inhalt.istText else { return nil }
+        let zielTag = seitenstelle(seiteID).map { reise.tage[$0.tag].id }
+        if zielTag != nil, zielTag == inhalt.tagID { return nil }
+        return "\(inhalt.name) gehört seinem Tag \u{2014} der Text steht am Tag und nicht "
+            + "im Block. Einfügen geht deshalb nur auf einer Seite desselben Tages."
+    }
+
+    @discardableResult
+    func blockEinfuegen(auf seiteID: UUID) -> Bool {
+        guard let inhalt = ablage else { return false }
+        if let grund = einfuegenGrund(auf: seiteID) {
+            meldung = .init(text: grund, schwer: true)
+            return false
+        }
+        let flaeche = umschlagflaeche(seiteID)
+        guard flaeche != nil || seitenstelle(seiteID) != nil else { return false }
+        merken()
+        var neu = inhalt.block
+        // EINE KOPIE ERBT KEINE KENNUNG — auch die eines ausgeschnittenen
+        // Blocks nicht: Er lässt sich zweimal einfügen, und zwei Blöcke mit
+        // derselben Kennung sind für jede Suche einer. Dieselbe Lehre wie
+        // bei `blockKopieren` und bei Tafelbild 1.4.5.
+        neu.id = UUID()
+        neu.vonHand = true
+        let satz = flaeche == nil ? reise.gestaltung.satzspiegel(reise.format) : umschlagsatz
+        neu.rahmen = inSatz(neu.rahmen, satz)
+        if let flaeche {
+            setzeUmschlagbloecke(flaeche, umschlagbloecke(flaeche) + [neu])
+            gewaehlterBlock = neu.id
+            return true
+        }
+        guard let stelle = seitenstelle(seiteID) else { return false }
+        reise.tage[stelle.tag].seiten[stelle.seite].bloecke.append(neu)
+        reise.tage[stelle.tag].seiten[stelle.seite].heben(neu.id)
+        // Ein FOTO gehört einem Tag (`tag.fotos`), und genau das ändert
+        // sich, wenn es auf die Seite eines anderen Tages wandert. Ohne
+        // diesen Schritt stünde es weiter in der Fotoliste des alten Tages
+        // und würde beim nächsten Neuanordnen dort wieder gesetzt.
+        if let fotoID = neu.fotoID { fotoDemTagZuordnen(fotoID, tag: stelle.tag) }
+        gewaehlterBlock = neu.id
+        seitenzeiger = stelle.seite
+        return true
+    }
+
+    // Der Rahmen bleibt, wo er war — aber nicht außerhalb des Papiers. Ein
+    // Block vom Umschlag ist breiter als eine Buchseite; ohne das Klemmen
+    // läge er dort halb im Anschnitt, ohne dass es jemand gewollt hätte.
+    private func inSatz(_ rahmen: Rahmen, _ satz: CGRect) -> Rahmen {
+        var neu = rahmen
+        neu.breite = min(neu.breite, Double(satz.width))
+        neu.hoehe = min(neu.hoehe, Double(satz.height))
+        neu.x = min(max(neu.x, Double(satz.minX)), Double(satz.maxX) - neu.breite)
+        neu.y = min(max(neu.y, Double(satz.minY)), Double(satz.maxY) - neu.hoehe)
+        return neu
+    }
+
+    // Ein Foto dem Zieltag zuschlagen — und aus jedem Tag nehmen, der es
+    // danach in keinem Block mehr zeigt.
+    //
+    // Eine GRAFIK bleibt außen vor: Sie gehört keinem Tag (seit 1.0.61),
+    // taucht in keiner Fotoliste auf und soll es auch nicht.
+    private func fotoDemTagZuordnen(_ fotoID: UUID, tag ziel: Int) {
+        guard let bild = reise.foto(fotoID), !bild.grafik else { return }
+        if !reise.tage[ziel].fotos.contains(fotoID) {
+            reise.tage[ziel].fotos.append(fotoID)
+        }
+        for andere in reise.tage.indices where andere != ziel {
+            guard reise.tage[andere].fotos.contains(fotoID) else { continue }
+            let zeigtEsNoch = reise.tage[andere].seiten.contains { seite in
+                seite.bloecke.contains { $0.fotoID == fotoID }
+            }
+            if !zeigtEsNoch { reise.tage[andere].fotos.removeAll { $0 == fotoID } }
+        }
     }
 
     func blockNachVorn(_ id: UUID) {

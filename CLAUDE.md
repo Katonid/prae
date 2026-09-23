@@ -7241,6 +7241,106 @@ Befunde, und keiner davon war Geschmack:
   Fotoliste; seit 1.0.56 ist es eine Schleife über `gueltigeBilder` statt
   einer einzelnen Datei. Vergäße man sie, verlöre ein ausgetauschtes Buch
   seine Zeichen.
+- **AUSSCHNEIDEN, KOPIEREN, EINFÜGEN — WEIL DAS MENÜ DIE ZIELSEITE NICHT
+  AUFZÄHLEN KANN** (`Reisewerk.Ablageinhalt`, `blockAusschneiden`,
+  `blockInDieAblage`, `einfuegenGrund`, `blockEinfuegen`, ab 1.0.65; Befund
+  des Nutzers 09/2026: „Im Moment ist es so, dass ich zum Beispiel ein Foto
+  nur auf eine Seite verschieben kann, die nach der aktuellen Seite neu
+  angelegt wird. Etwas anderes steht mir offenbar nicht zur Verfügung. Ich
+  würde es begrüßen, wenn ich dort einen ganz normalen Dialog bekommen
+  würde, so wie er in jeder App gültig ist. Ausschneiden, kopieren,
+  einfügen.").
+  **Er hat recht, und es ist am Quelltext abzuzählen:** `verschiebenAbschnitt`
+  und `kopierenAbschnitt` rechnen beide mit `seitenlage`, also mit den Seiten
+  DIESES Tages. Ein Tag mit EINER Seite lässt davon „eine Seite zurück"
+  (ausgegraut, `jetzt == 0`), „eine Seite vor" (fehlt, `jetzt+1 == anzahl`)
+  und „auf Seite …" (fehlt, `anzahl <= 2`) wegfallen — übrig bleibt genau
+  der eine Eintrag, den er beschreibt. Auf seinem Bildschirmfoto ist das
+  Punkt für Punkt zu sehen.
+  - **Die Ablage nimmt die Zielseite aus dem Menü heraus.** Eingefügt wird
+    auf die GEWÄHLTE Seite (`einsetzbareSeite`), und die wählt man auf der
+    Bühne mit einem Tipp — seit 1.0.61 ist sie dort sichtbar umrandet.
+    Damit geht es über Seiten-, Tages- und Umschlagsgrenzen hinweg, ohne
+    dass ein Menü jede mögliche Zielseite aufzählen müsste. Die beiden
+    alten Abschnitte bleiben: Sie sind die Abkürzung für den Nachbarn.
+  - **Die Ablage hält eine KOPIE, keinen Verweis**, und jedes Einfügen
+    vergibt eine NEUE Kennung — auch beim ausgeschnittenen Block. Zwei
+    Blöcke mit derselben Kennung sind für jede Suche einer (`block(_:)`
+    fände immer nur den ersten); dieselbe Lehre wie bei `blockKopieren` und
+    bei Tafelbild 1.4.5. Nebenwirkung mit Absicht: Zweimal einfügen ergibt
+    zwei Blöcke.
+  - **Ein FOTO wechselt beim Einfügen den Tag** (`fotoDemTagZuordnen`).
+    `tag.fotos` sagt, wem ein Foto gehört; ohne diesen Schritt stünde es
+    weiter in der Fotoliste des alten Tages und käme beim nächsten
+    Neuanordnen dort wieder auf eine Seite. Aus dem alten Tag genommen wird
+    es nur, wenn es dort in KEINEM Block mehr steht — seit `blockKopieren`
+    darf dasselbe Foto zweimal im Buch stehen. Eine GRAFIK (seit 1.0.61)
+    bleibt außen vor: Sie gehört keinem Tag.
+  - **Ein TAGEBUCHTEXT verlässt seinen Tag NICHT** (`einfuegenGrund`).
+    `Neuverteilung.fliesstexte` schreibt ihn beim Neuverteilen dorthin
+    zurück, wo sein Block liegt; in einem fremden Tag stünde er danach im
+    falschen Tagebuchtext, und zwar still. Dasselbe gilt für Überschrift,
+    Datumszeile und Bildunterschrift — deren Text steht am Tag bzw. am
+    Foto. Und eine KARTE kommt nicht auf den Umschlag; dort gibt es keinen
+    Tag. Beides steht als SATZ da und nicht als fehlender Eintrag: Hier
+    weiß man, warum es nicht geht, und ein weggelassener Knopf ließe einen
+    raten, ob die Ablage leer ist oder das Ziel nicht passt.
+  - **Der Rahmen wird auf den Satzspiegel der ZIELfläche geklemmt**
+    (`inSatz`). Ein Block vom Umschlag ist breiter als eine Buchseite; ohne
+    das Klemmen läge er dort halb im Anschnitt.
+  - **Der Einfügeknopf steht in der FUSSLEISTE**, nicht nur im Menü. Wer
+    gerade ausgeschnitten hat, hat keinen Block mehr gewählt — dann ist das
+    Blockmenü weg, und im Plus-Menü müsste man den Eintrag erst suchen.
+    Dieselbe Lehre wie beim Gruppenchat in Schulalarm und beim
+    Sichtumschalter der Abfahrtstafel.
+- **EIN BILD AUS DER MEDIATHEK GEHT AUCH OHNE DATUM** (`BildAusFotosView`,
+  ab 1.0.65; Ansage des Nutzers 09/2026: „Nachdem dies geschehen ist, möchte
+  ich über das Plusmenü aber auch Fotos auswählen können, egal ob von
+  Dateien oder aus der Fotomediathek, die dann einfach auf der Seite
+  eingefügt werden, egal welchen Zeitstempel sie haben."). Den Weg über
+  DATEIEN gibt es seit 1.0.61 (`GrafikEinfuehrView`); aus der MEDIATHEK
+  führte bis 1.0.64 jeder Weg durch die Fotoeinfuhr — also durch Datum, Ort,
+  Tageszuordnung und einen Bericht darüber, was fehlt. Für ein Bild, das
+  einfach auf einer Seite liegen soll, ist das alles keine Auskunft, sondern
+  Lärm; genau dieser Befund hat 1.0.61 ausgelöst („1 Fotos tragen keinen Ort
+  … 1 Fotos tragen kein Datum"), und er galt für die Mediathek weiter.
+  **Es ist derselbe Wähler wie in der Fotoeinfuhr und dieselbe Funktion
+  dahinter** (`grafikEinfuegen`) — zwei Fassungen desselben Einsetzens
+  liefen auseinander. Das Bild gilt danach als `grafik`: keine Fotoliste,
+  kein Punkt auf der Karte, kein Eintrag in „Fotos ohne Tag". Der Eintrag
+  „Bild oder Grafik…" heißt seither „Bild aus Dateien…", damit die beiden
+  Wege nebeneinander sagen, woher sie holen.
+- **`loadDataRepresentation` DARF SEINEN RÜCKRUF MEHRMALS AUFRUFEN.** Ein
+  zweites `resume` an einer `CheckedContinuation` ist kein Fehler, sondern
+  ein Absturz — deshalb auch hier der Wächter `Einmal`, wie in der
+  Zeitraumeinfuhr seit 1.0.30. **Wer eine zweite Stelle baut, die ein
+  `itemProvider`-Ergebnis in `async` überführt, baut ihn mit.**
+- **EIN INSPEKTOR MUSS LESBAR SEIN** (ab 1.0.65, gemeldet 09/2026 mit
+  Bildschirmfoto: „Bei der Menüleiste, die sich herausschiebt, wenn ich den
+  Pinsel drücke, ist die Transparenz zu groß eingestellt. Dort kann ich kaum
+  etwas erkennen."). Eine `.inspector`-Spalte liegt auf iPadOS über dem
+  Inhalt und bekommt von SwiftUI ein durchscheinendes Material. Über einer
+  weißen Buchseite fällt das nicht auf; über einem randabfallenden Foto
+  steht die Schrift im Bild — und genau dort steht sie IMMER, denn der
+  Inspektor ist offen, WÄHREND man an einem Foto arbeitet. Zwei Zeilen
+  zusammen, und keine reicht allein: `.scrollContentBackground(.hidden)` an
+  JEDER `Form` darin (es sind zwei — die gefüllte und die leere) und
+  darunter `.background(Color(uiColor: .systemGroupedBackground),
+  ignoresSafeAreaEdges: .all)`. Ohne `ignoresSafeAreaEdges` bliebe oben und
+  unten ein durchscheinender Streifen stehen.
+- **Das Schriftenrecht trägt die App-Id inzwischen** (Ansage des Nutzers,
+  09/2026, mit Bildschirmfoto aus Xcode: Capability „Fonts" bzw. „Font
+  Enumeration", Haken bei „Use Installed Fonts" — „Es funktioniert nämlich
+  mit dem Bild."). Damit ist der Grund weg, aus dem 1.0.45 das Recht wieder
+  ausgebaut hat: Es fehlte an der App-Id, und ein Profil kann nur
+  bewilligen, was die App-Id kann. **Ins Repo gehört es trotzdem erst,
+  wenn die Zeichenkette NACHGESCHLAGEN ist und nicht geraten** — genau
+  daran ist 1.0.44 gescheitert, und der Preis war nicht eine Funktion,
+  sondern der ganze Bau. Nachzulesen ist sie an zwei Stellen auf dem Mac
+  des Nutzers: in `Config/Urlaubstagebuch.entitlements`, die Xcode selbst
+  geschrieben hat, und im Befund unter „Schriften prüfen", der seit 1.0.45
+  die Rechte aus dem eingebetteten Profil liest. **Erst diese Zeichenkette
+  wird eingetragen, nicht vorher.**
 - **EIGENE FELDER AUF TITELSEITE UND RÜCKSEITE — SIE LIEGEN NEBEN DER
   GERECHNETEN SEITE, NICHT DARIN** (`Umschlag.titelbloecke`, `.rueckbloecke`,
   ab 1.0.64; Ansage des Nutzers 09/2026: „Es soll mir zum Beispiel auch
@@ -7298,7 +7398,21 @@ Befunde, und keiner davon war Geschmack:
   - **Die AUSGLEICHSSEITE bleibt draußen.** Sie wird gerechnet, gehört
     keinem und hat keinen Ort, an dem etwas liegen bleiben könnte — dort
     wäre ein Block wirklich beim nächsten Durchgang weg.
-  - **Nicht gemessen (1.0.64):** Keine Seite ist damit gesehen worden.
+  - **Nicht gemessen (1.0.65):** Nichts davon ist auf einem Gerät gesehen
+  worden. Am Quelltext ABGEZÄHLT ist die Ursache des gemeldeten
+  Verschiebe-Engpasses (beide Abschnitte rechnen mit `seitenlage`, und ein
+  Tag mit einer Seite lässt davon einen Eintrag übrig) — und sie passt Punkt
+  für Punkt zum Bildschirmfoto. **Ungeprüft ist die Abhilfe beim
+  Inspektor**: Dass eine `.inspector`-Spalte ihr Material freigibt, sobald
+  die `Form` ihren Hintergrund abgibt, ist die Lesart der Dokumentation und
+  keine Messung; hilft es nicht, ist der nächste Griff `.presentationBackground`
+  bzw. ein eigener `ZStack` um die Spalte. Ebenso ungesehen: ob die Mediathek
+  die ECHTE Endung hergibt (bei einem bearbeiteten Foto liefert sie oft JPEG,
+  auch wenn das Original ein PNG war) und wie sich das Umhängen eines Fotos
+  in einen anderen Tag auf dessen Satz auswirkt — neu angeordnet wird dabei
+  NICHTS, der Block bleibt, wo er eingefügt wurde. **Nicht als erledigt
+  darstellen.**
+- **Nicht gemessen (1.0.64):** Keine Seite ist damit gesehen worden.
     Gerechnet ist, WARUM ein Block in der gerechneten Seite verschwindet
     und warum er daneben stehen bleibt. **Gewählt und nicht gemessen** sind
     die Startmaße eines neuen Umschlagfeldes (60 % der Satzbreite,
@@ -8102,7 +8216,7 @@ Befunde, und keiner davon war Geschmack:
   Stellen im pbxproj (Debug + Release) — es gibt KEINE Skript-Bauphase.
   **Jede Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne
   Nachfrage, als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann
-  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.64 (Build 65). Dazu gesetzt:
+  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.65 (Build 66). Dazu gesetzt:
   `DEVELOPMENT_TEAM = F4989GSTWS` und
   `INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.travel`.
   Seit 1.0.4 steht dort auch `CODE_SIGN_ENTITLEMENTS = Config/Urlaubstagebuch.entitlements`

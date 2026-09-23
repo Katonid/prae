@@ -73,10 +73,30 @@ struct BlockInspektor: View {
                     rahmenAbschnitt(block)
                     werkzeugAbschnitt(block)
                 }
+                .scrollContentBackground(.hidden)
             } else {
                 leer
             }
         }
+        // EIN INSPEKTOR MUSS LESBAR SEIN (ab 1.0.65).
+        //
+        // Befund des Nutzers, 09/2026: „Bei der Menüleiste, die sich
+        // herausschiebt, wenn ich den Pinsel drücke, ist die Transparenz
+        // zu groß eingestellt. Dort kann ich kaum etwas erkennen."
+        //
+        // Eine `.inspector`-Spalte liegt auf iPadOS über dem Inhalt und
+        // bekommt von SwiftUI ein durchscheinendes Material — auf einer
+        // weißen Buchseite ist das angenehm, über einem bunten Foto oder
+        // einem randabfallenden Bild steht die Schrift im Bild. Und genau
+        // dort steht sie hier immer: Der Inspektor ist offen, WÄHREND man
+        // an einem Foto arbeitet.
+        //
+        // Zwei Zeilen zusammen, und keine reicht allein: Die `Form` gibt
+        // ihren eigenen Hintergrund frei, und darunter liegt eine
+        // undurchsichtige Fläche in der gewohnten Farbe für gruppierte
+        // Listen. Sie geht bis in die Sicherheitsabstände, sonst bliebe
+        // oben und unten ein durchscheinender Streifen stehen.
+        .background(Color(uiColor: .systemGroupedBackground), ignoresSafeAreaEdges: .all)
         .navigationTitle("Block")
         .task(id: absatztext) {
             absaetze = werk.messer.misst("Absätze") {
@@ -229,6 +249,7 @@ struct BlockInspektor: View {
                     Text("Eine einzelne Seite darf anders sein als das Buch — ein farbiger Grund zu Beginn eines Abschnitts trägt weiter als eine zweite Schriftart.")
                 }
             }
+            .scrollContentBackground(.hidden)
         } else {
             ContentUnavailableView {
                 Label("Keine Seite", systemImage: "doc")
@@ -1055,6 +1076,15 @@ struct BlockInspektor: View {
 
     private func werkzeugAbschnitt(_ block: Block) -> some View {
         Section {
+            // ZWEITER ZUGANG, EINE STELLE (ab 1.0.65). Dieselben drei
+            // Handgriffe wie im Blockmenü unten in der Leiste und dieselben
+            // Funktionen im Werk — zwei Fassungen liefen auseinander.
+            Button("Ausschneiden", systemImage: "scissors") {
+                werk.blockAusschneiden(block.id)
+            }
+            Button("Kopieren", systemImage: "doc.on.doc") {
+                werk.blockInDieAblage(block.id)
+            }
             Button("Nach vorn holen", systemImage: "square.3.layers.3d.top.filled") {
                 werk.blockNachVorn(block.id)
             }
@@ -1064,7 +1094,7 @@ struct BlockInspektor: View {
                 Label("Block entfernen", systemImage: "trash")
             }
         } footer: {
-            Text("Ein entfernter Fotoblock nimmt das Foto nicht mit — es bleibt in der Ablage und lässt sich wieder einsetzen.")
+            Text("Ausgeschnitten oder kopiert liegt der Block in der Zwischenablage: Tippe danach die Zielseite an — auch in einem anderen Tag oder auf dem Umschlag — und wähle im Plus-Menü „Einfügen“. Ein entfernter Fotoblock nimmt das Foto nicht mit; es bleibt in der Ablage und lässt sich wieder einsetzen.")
         }
     }
 
