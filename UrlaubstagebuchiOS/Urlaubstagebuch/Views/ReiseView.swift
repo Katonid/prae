@@ -789,11 +789,25 @@ struct ReiseView: View {
         ToolbarItem(placement: .topBarTrailing) { gestaltenMenue }
         ToolbarItem(placement: .topBarTrailing) { mehrMenue }
 
+        // DER PINSEL GEHÖRT DEM EINZELNEN ELEMENT (ab 1.0.49).
+        //
+        // Bis 1.0.48 trug dieser Knopf das Reglersymbol und das Menü
+        // daneben den Pinsel — also genau andersherum, als es kennt, wer
+        // Pages benutzt: Dort öffnet der Pinsel die Einstellungen des
+        // GEWÄHLTEN Elements. Gemeldet 09/2026: „Irgendwie habe ich fast
+        // sogar das Gefühl, dass die beiden Symbole vertauscht sind." Sie
+        // waren es.
+        //
+        // Der Tausch allein reicht aber nicht, denn schuld war nicht nur
+        // das Bild: „Ausgewähltes" und „Gestalten" sagen beide etwas über
+        // die TÄTIGKEIT und nichts über den GELTUNGSBEREICH — und der ist
+        // hier der ganze Unterschied. Die Beschriftungen nennen ihn seither
+        // beim Namen: „Auswahl" gegen „Ganzes Buch".
         ToolbarItem(placement: .topBarTrailing) {
             Button {
                 inspektor.toggle()
             } label: {
-                Label("Ausgewähltes", systemImage: "slider.horizontal.3")
+                Label("Auswahl", systemImage: "paintbrush")
             }
         }
 
@@ -1045,24 +1059,35 @@ struct ReiseView: View {
     }
 
     // WIE SIEHT DAS BUCH AUS?
+    //
+    // Der Abschnittstitel steht hier nicht als Zierde: Er beantwortet die
+    // Frage, mit der der Nutzer vor dem Menü steht — gilt das jetzt für
+    // alles oder nur für das, was ich gerade angetippt habe? Dieselbe
+    // Frage beantwortet der Pinsel daneben andersherum.
     private var gestaltenMenue: some View {
         Menu {
-            Button("Stil wählen…", systemImage: "paintpalette") { blatt = .stil }
-            Button("Schrift und Ausrichtung…", systemImage: "textformat") { blatt = .typografie }
-            Button("Fotos…", systemImage: "photo.stack") { blatt = .fotostil }
-            Button("Textfelder…", systemImage: "text.alignleft") { blatt = .textstil }
-            Button("Seitenhintergrund…", systemImage: "square.fill.on.square.fill") {
-                blatt = .hintergrund
+            Section("Gilt für das ganze Buch") {
+                Button("Stil wählen…", systemImage: "paintpalette") { blatt = .stil }
+                Button("Schrift und Ausrichtung…", systemImage: "textformat") {
+                    blatt = .typografie
+                }
+                Button("Fotos…", systemImage: "photo.stack") { blatt = .fotostil }
+                Button("Textfelder…", systemImage: "text.alignleft") { blatt = .textstil }
+                Button("Seitenhintergrund…", systemImage: "square.fill.on.square.fill") {
+                    blatt = .hintergrund
+                }
+                // Das Wasserzeichen steht neben dem Hintergrund, weil es
+                // dieselbe Frage beantwortet: Was liegt auf jeder Seite, ohne
+                // dass es jemand dorthin gestellt hat.
+                Button("Wasserzeichen…", systemImage: "drop") { blatt = .wasserzeichen }
+                Divider()
+                Button("Seitenformat…", systemImage: "square.resize") { blatt = .seitenformat }
+                Button("Ränder, Karte, Seitenzahlen…", systemImage: "ruler") {
+                    blatt = .gestaltung
+                }
             }
-            // Das Wasserzeichen steht neben dem Hintergrund, weil es
-            // dieselbe Frage beantwortet: Was liegt auf jeder Seite, ohne
-            // dass es jemand dorthin gestellt hat.
-            Button("Wasserzeichen…", systemImage: "drop") { blatt = .wasserzeichen }
-            Divider()
-            Button("Seitenformat…", systemImage: "square.resize") { blatt = .seitenformat }
-            Button("Ränder, Karte, Seitenzahlen…", systemImage: "ruler") { blatt = .gestaltung }
         } label: {
-            Label("Gestalten", systemImage: "paintbrush")
+            Label("Ganzes Buch", systemImage: "book.closed")
         }
     }
 

@@ -479,6 +479,95 @@ Sichtbarkeit, 34 % Breite). Ob ein Zeichen bei 10 % im Druck noch zu sehen ist
 oder schon stört, sagt erst der erste Ausdruck; auf dem Bildschirm wirkt es
 kräftiger als auf Papier.
 
+## Pinsel und Buch, die große Karte, die Ausreißer (1.0.49)
+
+Drei Befunde aus einem Durchgang, und alle drei sind Bedienung.
+
+### Der Pinsel gehört dem einzelnen Element
+
+> „Bei der Bedienung der App komme ich immer durcheinander mit dem
+> Pinsel-Symbol und dem Symbol für die Einstellungsmöglichkeiten. Irgendwie
+> habe ich fast sogar das Gefühl, dass die beiden Symbole vertauscht sind.
+> Wenn ich zum Beispiel in Pages arbeite, ist der Pinsel dafür zuständig, die
+> Einstellungen einzelner Elemente im Dokument zu ändern."
+
+Sie waren vertauscht. In Pages öffnet der Pinsel die Einstellungen des
+**gewählten** Elements; hier tat das der Schieberegler, und der Pinsel führte
+in die buchweite Gestaltung.
+
+Der Tausch allein hätte es nicht gerichtet. „Ausgewähltes" und „Gestalten"
+sagen beide etwas über die *Tätigkeit* — und der Unterschied zwischen diesen
+beiden Knöpfen ist nicht die Tätigkeit, sondern der **Geltungsbereich**. Sie
+heißen deshalb jetzt **„Auswahl"** (Pinsel, ganz rechts) und **„Ganzes Buch"**
+(Buchsymbol), und im Menü steht „Gilt für das ganze Buch" als Abschnittstitel
+darüber.
+
+Mitgezogen wurden alle Stellen, die den Knopf beim Namen nennen: die
+Bedienungskarte hinter dem „?", die Querverweise in den Einstellungen und der
+Satz in der Druckprüfung. Eine Karte, die einen Knopf bei einem Namen nennt,
+den es nicht mehr gibt, ist schlimmer als gar keine.
+
+### Die Karte war nicht klein gebaut — sie war ein Blatt in einem Blatt
+
+> „Zum einen möchte ich die Punkte auf der Karte auswählen und merke, dass
+> diese viel zu klein öffnet. Diese Karte könnte sich ja tatsächlich über
+> einen großen Teil des Bildschirms erstrecken."
+
+Die Punkteliste ist selbst ein Blatt, und auf dem iPad ist ein Blatt ein
+Kärtchen in der Bildschirmmitte. Die Karte hing als zweites daran und konnte
+damit nie größer werden als das erste. Sie geht jetzt über den ganzen
+Bildschirm auf.
+
+Die kleine Vorschau oben ist seither ein **Bild** und kein Bedienelement: Sie
+lässt sich nicht mehr schieben und zoomen — auf 240 Punkten Höhe war das eine
+Karte, an der sich nichts machen ließ, und sie schluckte ausgerechnet den
+Tipp, mit dem man die richtige öffnen wollte. Ein Tipp darauf öffnet jetzt die
+volle Karte.
+
+### Punkte, die aus der Linie springen
+
+> „Mein Gerät hat den Standort zuweilen sehr ungenau aufgezeichnet und somit
+> sind Punkte mit einer Linie verbunden worden, die sehr weit auseinander
+> sind. In diesem Fall sticht die Linie sehr hervor, obwohl sie gar nicht dem
+> Reiseverlauf entspricht."
+
+Gegen die Messung lässt sich nichts tun: Ein GPS-Empfänger zwischen zwei
+Häuserwänden meldet zuweilen eine Stelle einige Kilometer daneben, und weil
+die Spur eine Reihenfolge ist, zeichnet die Karte getreulich hin und wieder
+zurück. Gegen die **Linie** lässt sich etwas tun.
+
+Gemessen wird der **Umweg** — was der Punkt an zusätzlicher Linie kostet
+(`hin + zurück − direkt`). Das ist genau der Schaden, um den es geht: Bei
+einem Sprung hin und gleich zurück ist er das Doppelte der Abweichung, bei
+einer Kurve unterwegs fast null.
+
+Die Schwelle hängt an der Spur selbst. Zwei Kilometer sind in einer
+Stadtbesichtigung ein Ausreißer und auf einer Fahrt durch Kanada nichts;
+verglichen wird deshalb gegen den **Median** der Schrittweiten dieser Spur —
+nicht gegen den Mittelwert, denn den verderben genau die Ausreißer, die
+gesucht werden. Dazu ein Boden von anderthalb Kilometern: Was darunter liegt,
+sticht auf einer Buchseite nicht heraus. Ein zweiter Grund ist ein unmögliches
+Tempo (über 1200 km/h) — aber nur in **beide** Richtungen: Ein Linienflug ist
+auch schnell, er kommt nur nicht in derselben Minute zurück.
+
+**Gelöscht wird nichts von selbst.** Ein Abstecher zum Aussichtspunkt und
+zurück sieht von außen genauso aus wie ein Messfehler, und welcher von beidem
+es war, weiß nur, wer dabei war. Über der Punkteliste steht ein Abschnitt mit
+Stelle, Namen und der zusätzlichen Linie in Kilometern; von dort lassen sich
+alle auf einmal entfernen (mit Rückfrage) oder nur auswählen und einzeln
+ansehen. Markiert sind sie in der Liste, auf der Vorschau und auf der großen
+Karte — mit Zeichen *und* Farbe, denn Orange allein sieht nicht jeder.
+
+Der erste und der letzte Punkt werden nicht geprüft: Ein Ausreißer wird an
+seinen Nachbarn erkannt, und die beiden haben nur einen.
+
+**Nicht gemessen:** Keine Spur ist damit angesehen worden. Alle drei Zahlen
+sind gewählt und nicht gemessen (Boden 1,5 km, Faktor 8 auf den Median,
+1200 km/h) — ob sie das Richtige treffen, sagt erst der nächste Befund, und
+weil die App die Zahlen hinschreibt, sagt er es mit Zahlen. Zwei
+aufeinanderfolgende Ausreißer kann diese Erkennung nicht trennen: Der zweite
+ist der Nachbar des ersten, und dann ist der Umweg klein.
+
 ## Die zweite Überschrift — der Ort unter dem Datum (1.0.48)
 
 > „In dem zu importierenden Text … ist es so, dass nach dem Datum eine zweite

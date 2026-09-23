@@ -138,7 +138,7 @@ struct EinstellungenView: View {
         } footer: {
             Text("Eine Datei mit der Endung .\(Buchdatei.endung) enthält ein ganzes "
                  + "Buch samt aller Bilder. Gesichert wird sie im geöffneten Buch "
-                 + "unter Buch \u{2192} Buch als Datei sichern.")
+                 + "unter \u{201E}\u{2026}\u{201C} oben rechts \u{2192} Buch als Datei sichern.")
         }
     }
 

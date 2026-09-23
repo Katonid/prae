@@ -296,7 +296,7 @@ enum Druckpruefung {
         let anteil = Int((reise.gestaltung.textspaltenanteil * 100).rounded())
         let grund = "Gemessen am l\u{00E4}ngsten Textblock des Buches: rund \(zeichen) Zeichen "
             + "je Zeile bei \(Druckmass.mmText(breite)) Spaltenbreite \u{2014} das sind "
-            + "\(anteil)\u{00A0}% der Satzbreite (Gestalten \u{2192} R\u{00E4}nder, Karte, "
+            + "\(anteil)\u{00A0}% der Satzbreite (Ganzes Buch \u{2192} R\u{00E4}nder, Karte, "
             + "Seitenzahlen). Als bequem zu lesen gelten 45 bis 75 Zeichen; das ist eine "
             + "Faustregel des Schriftsatzes und keine Messung an diesem Buch."
         if zeichen > 85 {

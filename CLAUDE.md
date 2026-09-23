@@ -6469,6 +6469,106 @@ Befunde, und keiner davon war Geschmack:
   - **Ein leerer Fund überschreibt nichts** (`Fotoeinfuhr.textVerteilen`),
     auch beim Ersetzen: Wer die zweite Überschrift von Hand eingetippt hat
     und denselben Text noch einmal einliest, verlöre sie sonst.
+- **DER PINSEL GEHÖRT DEM EINZELNEN ELEMENT, DAS BUCH DEM GANZEN BUCH** (ab
+  1.0.49; gemeldet 09/2026: „Bei der Bedienung der App komme ich immer
+  durcheinander mit dem Pinsel-Symbol und dem Symbol für die
+  Einstellungsmöglichkeiten. Irgendwie habe ich fast sogar das Gefühl, dass
+  die beiden Symbole vertauscht sind."). **Sie waren es.** In Pages öffnet
+  der Pinsel die Einstellungen des GEWÄHLTEN Elements; hier tat das der
+  Schieberegler, und der Pinsel führte in die buchweite Gestaltung. Der Nutzer
+  hat also nicht eine fremde Gewohnheit mitgebracht, sondern eine verbreitete
+  benannt — und in einer App, die Seiten setzt, ist Pages der Vergleich, den
+  jeder im Kopf hat.
+  - **Der Tausch allein hätte es nicht gerichtet.** „Ausgewähltes" und
+    „Gestalten" sagen beide etwas über die TÄTIGKEIT — und der Unterschied
+    zwischen diesen beiden Knöpfen ist nicht die Tätigkeit, sondern der
+    GELTUNGSBEREICH. Sie heißen seither **„Auswahl"** (Pinsel) und **„Ganzes
+    Buch"** (Buchsymbol), und im Menü steht der Abschnittstitel „Gilt für das
+    ganze Buch" darüber. **Merke: Wo zwei Wege dasselbe TUN und sich nur
+    darin unterscheiden, WORAUF sie wirken, gehört der Geltungsbereich in
+    die Beschriftung und nicht die Tätigkeit.**
+  - **Wer eine Beschriftung ändert, zieht die Bedienungskarte mit.** In
+    `BedienungView` stand siebenmal „Gestalten (Pinsel)" und „Der Pinsel →" —
+    eine Karte, die einen Knopf bei einem Namen nennt, den es nicht mehr
+    gibt, ist schlimmer als gar keine. Dasselbe gilt für die Querverweise in
+    `GestaltungView`, `BlockInspektor` und der Druckprüfung.
+  - **Nicht gemessen:** Ob die Verwechslung damit aufhört, sagt erst der
+    nächste Befund. Geändert sind Symbole und Namen, und das ist keine
+    Messung — dieselbe Einschränkung wie bei den Menüs in 1.0.20.
+- **Die Punktekarte war nicht klein gebaut, sie war ein BLATT IN EINEM
+  BLATT** (ab 1.0.49; gemeldet 09/2026: „Zum einen möchte ich die Punkte auf
+  der Karte auswählen und merke, dass diese viel zu klein öffnet. Diese Karte
+  könnte sich ja tatsächlich über einen großen Teil des Bildschirms
+  erstrecken."). `SpurView` ist selbst ein `.sheet`, und auf dem iPad ist ein
+  Sheet ein Kärtchen in der Bildschirmmitte; `PunktwahlView` hing als zweites
+  daran und konnte damit nie größer werden als das erste. **Dieselbe Lehre
+  wie beim Platz-Editor in Tafelbild**, wo der Grundriss aus genau diesem
+  Grund ein Drittel der Höhe bekam — dort war sie aufgeschrieben und hier
+  nicht gezogen. Ein `fullScreenCover` hängt sich nicht in das Kärtchen,
+  sondern über alles.
+  - **Die Vorschau oben ist seither ein BILD** (`interactionModes: []`) und
+    zugleich der Weg zur Karte: Ein Tipp darauf öffnet die volle. Sie war
+    schieb- und zoombar — auf 240 Punkten Höhe in einem Kärtchen ist das
+    eine Karte, an der sich nichts machen lässt, und sie schluckte
+    ausgerechnet den Tipp, mit dem man die richtige öffnen wollte. Dieselbe
+    Regel wie überall: **Was auf einer Karte liegt, ist ein Bild; was etwas
+    tut, ist ein Knopf.**
+- **PUNKTE, DIE AUS DER LINIE SPRINGEN** (`Dienste/Ausreisser.swift`, ab
+  1.0.49; gemeldet 09/2026: „Mein Gerät hat den Standort zuweilen sehr
+  ungenau aufgezeichnet und somit sind Punkte mit einer Linie verbunden
+  worden, die sehr weit auseinander sind. In diesem Fall sticht die Linie
+  sehr hervor, obwohl sie gar nicht dem Reiseverlauf entspricht."). Gegen die
+  MESSUNG lässt sich nichts tun — ein GPS-Empfänger zwischen zwei Häuserwänden
+  meldet zuweilen eine Stelle einige Kilometer daneben. Gegen die LINIE schon.
+  - **Gemessen wird der UMWEG, nicht die Entfernung zum Nachbarn.**
+    `hin + zurück − direkt` ist genau das, was der Punkt an zusätzlicher
+    Linie KOSTET, also genau der Schaden, um den es geht: Bei einem Sprung
+    hin und gleich zurück ist er das Doppelte der Abweichung, bei einer
+    Kurve unterwegs fast null. Eine senkrechte Entfernung zur Verbindungslinie
+    wäre die naheliegende Alternative, bräuchte eine Projektion in eine Ebene
+    (über hundert Kilometer hinweg schief) und brächte im einzigen Fall, um
+    den es geht, dasselbe Ergebnis.
+  - **Die Schwelle hängt an der SPUR selbst.** Zwei Kilometer sind in einer
+    Stadtbesichtigung ein Ausreißer und auf einer Fahrt durch Kanada nichts.
+    Verglichen wird gegen den MEDIAN der Schrittweiten dieser Spur — nicht
+    gegen den Mittelwert, denn den verderben genau die Ausreißer, die gesucht
+    werden. Dazu ein absoluter Boden (1,5 km): Was darunter liegt, sticht auf
+    einer Buchseite nicht heraus.
+  - **Ein unmögliches TEMPO zählt nur in BEIDE Richtungen.** Über 1200 km/h
+    fährt und fliegt nichts; ein echter Linienflug ist aber auch schnell, und
+    er unterscheidet sich vom Messfehler genau darin, dass er nicht in
+    derselben Minute zurückkommt. Fehlt eine der beiden Uhrzeiten, heißt das
+    „weiß ich nicht" und nicht „ja" — ein Handpunkt ohne Zeit darf nicht
+    auffällig werden, bloß weil er keine trägt.
+  - **Der erste und der letzte Punkt werden nicht geprüft**, und das steht
+    auch da: Ein Ausreißer wird an seinen NACHBARN erkannt, und die beiden
+    haben nur einen. Geraten wird nichts.
+  - **GELÖSCHT WIRD NICHTS VON SELBST.** Ein Abstecher zum Aussichtspunkt und
+    zurück sieht von außen genauso aus wie ein Messfehler, und welcher von
+    beidem es war, weiß nur, wer dabei war. Der Abschnitt über der Punkteliste
+    nennt Stelle, Namen und die zusätzliche Linie in Kilometern und bietet
+    zweierlei an: alle auf einmal entfernen (mit Rückfrage) oder nur
+    auswählen und einzeln ansehen — Letzteres über den Auswahlmodus, den es
+    seit 1.0.21 gibt. **Kein zweiter Weg zu derselben Sache.**
+  - **Markiert wird an DREI Stellen** — in der Punkteliste, auf der kleinen
+    Vorschau und auf der großen Karte —, und immer mit Zeichen UND Farbe: Ein
+    farbfehlsichtiger Mensch sieht Orange allein nicht. Auf der großen Karte
+    steht unter dem gewählten Punkt im Klartext, warum er auffällt; ein
+    Zeichen ohne Erklärung ist ein Rätsel.
+  - **Gerechnet wird in `.task(id:)`, nicht als berechnete Eigenschaft.** Der
+    Lauf geht über jeden Punkt und misst je drei Entfernungen; der Körper
+    dieser Ansichten läuft bei jeder Meldung des Werks und bei jeder
+    Kamerabewegung noch einmal. Vierte Auflage derselben Falle — **eine
+    berechnete Eigenschaft sieht billig aus.**
+- **Nicht gemessen (1.0.49):** Keine Spur ist damit angesehen worden. **Alle
+  drei Zahlen der Ausreißererkennung sind GEWÄHLT und nicht gemessen** (Boden
+  1,5 km, Faktor 8 auf den Median, 1200 km/h) — ob sie an der Spur des Nutzers
+  das Richtige treffen, sagt erst sein nächster Befund, und weil die App die
+  Zahlen hinschreibt, sagt er es mit Zahlen. Gerechnet ist, warum die Karte
+  nicht größer werden konnte (ein Sheet in einem Sheet); gesehen hat es
+  niemand. **Zwei aufeinanderfolgende Ausreißer kann diese Erkennung nicht
+  trennen** — der zweite ist der Nachbar des ersten, und dann ist der Umweg
+  klein; das nicht als gelöst darstellen. **Nicht als erledigt darstellen.**
 - **Nicht gemessen (1.0.48):** Keine Seite ist damit gesetzt worden, und
   **an der Vorlage des Nutzers ist die Erkennung nicht gelaufen** — die
   Datei liegt hier nicht. Gerechnet ist, warum Kürze in beiden Textsorten
@@ -6747,7 +6847,7 @@ Befunde, und keiner davon war Geschmack:
   Stellen im pbxproj (Debug + Release) — es gibt KEINE Skript-Bauphase.
   **Jede Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne
   Nachfrage, als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann
-  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.48 (Build 49). Dazu gesetzt:
+  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.49 (Build 50). Dazu gesetzt:
   `DEVELOPMENT_TEAM = F4989GSTWS` und
   `INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.travel`.
   Seit 1.0.4 steht dort auch `CODE_SIGN_ENTITLEMENTS = Config/Urlaubstagebuch.entitlements`

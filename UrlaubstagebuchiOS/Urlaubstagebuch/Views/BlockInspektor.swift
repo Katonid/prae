@@ -561,7 +561,7 @@ struct BlockInspektor: View {
                             werk.reise.setzeFoto(geaendert)
                         }
                     ), axis: .vertical)
-                    Text("Schrift, Größe und Farbe stellst du unter Buch \u{2192} "
+                    Text("Schrift, Größe und Farbe stellst du unter Ganzes Buch \u{2192} "
                          + "Schrift und Ausrichtung für alle Bildunterschriften auf einmal ein.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
