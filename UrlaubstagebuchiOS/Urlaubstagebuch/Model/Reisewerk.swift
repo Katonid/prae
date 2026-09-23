@@ -150,45 +150,42 @@ final class Reisewerk: ObservableObject, Identifiable {
         return misch.finalize()
     }
 
+    // Die Seitenfolge der Bühne. Gezählt wird sie NICHT hier, sondern in
+    // `Reise.seitenfolge(titelblatt:rueckblatt:)` — bis 1.0.51 stand die
+    // Zählung an beiden Stellen, und eine davon hätte die andere
+    // irgendwann überholt. Was hier bleibt, ist das Merken der gesetzten
+    // Umschlagseiten: Ihr Satz kostet zwei CoreText-Messungen, und der
+    // Körper einer Ansicht läuft oft.
     var seitenfolge: [Buchseite] {
-        var folge: [Buchseite] = []
+        var gesetztesTitelblatt: Seite?
+        var gesetztesRueckblatt: Seite?
+        let schluessel = titelblattschluessel
         if reise.hatRueckseite {
-            let schluessel = titelblattschluessel
-            let seite: Seite
             if let da = rueckblatt, da.schluessel == schluessel {
-                seite = da.seite
+                gesetztesRueckblatt = da.seite
             } else {
-                seite = messer.sammelt("Titelblatt") {
+                let seite = messer.sammelt("Titelblatt") {
                     reise.automat.rueckseite(text: reise.umschlag.rueckseitentext,
                                              foto: reise.umschlag.rueckseitenfoto)
                 }
                 rueckblatt = (schluessel, seite)
+                gesetztesRueckblatt = seite
             }
-            folge.append(Buchseite(seite: seite, tag: nil, nummer: 0))
         }
-        var nummer = 1
         if reise.titelseite {
-            let schluessel = titelblattschluessel
-            let seite: Seite
             if let da = titelblatt, da.schluessel == schluessel {
-                seite = da.seite
+                gesetztesTitelblatt = da.seite
             } else {
-                seite = messer.sammelt("Titelblatt") {
+                let seite = messer.sammelt("Titelblatt") {
                     reise.automat.titelseite(titel: reise.titel, untertitel: reise.untertitel,
                                              zeitraum: reise.zeitraum, titelfoto: reise.titelfoto)
                 }
                 titelblatt = (schluessel, seite)
-            }
-            folge.append(Buchseite(seite: seite, tag: nil, nummer: nummer))
-            nummer += 1
-        }
-        for tag in reise.tage where !tag.ausgeblendet {
-            for seite in tag.seiten {
-                folge.append(Buchseite(seite: seite, tag: tag, nummer: nummer))
-                nummer += 1
+                gesetztesTitelblatt = seite
             }
         }
-        return folge
+        return reise.seitenfolge(titelblatt: gesetztesTitelblatt,
+                                 rueckblatt: gesetztesRueckblatt)
     }
 
     // Gehört diese Seite zu diesem Tag? `Self.titelseitenKennung` steht
@@ -226,21 +223,27 @@ final class Reisewerk: ObservableObject, Identifiable {
     // UMSCHLAGS (beim Hardcover das Vorsatzpapier), und die kommt von der
     // Druckerei und steht in keinem PDF. Sie wird deshalb gezeigt und als
     // solche benannt, aber nicht mitgezählt.
+    //
+    // Der UMSCHLAG ist seit 1.0.52 ein eigener Bogen mit der Nummer 0 und
+    // steht außerhalb dieser Zählung — bis dahin zählte er mit und schob
+    // damit jede Seite des Buchblocks um eine Stelle, also auf die falsche
+    // Buchhälfte (siehe `Buchteil`).
     struct Doppelseite: Identifiable {
-        // Der laufende Bogen: 0 trägt rechts die Seite 1, 1 die Seiten 2
-        // und 3, und so weiter.
+        // Der laufende Bogen: 0 ist der Umschlag, 1 trägt rechts die
+        // Seite 1, 2 die Seiten 2 und 3, und so weiter.
         let bogen: Int
         var links: Buchseite?
         var rechts: Buchseite?
 
         var id: Int { bogen }
-        // Links liegt die Innenseite des Umschlags — nur auf dem ersten
-        // Bogen, und nur dort, weil davor keine Seite steht.
-        var beginntMitUmschlag: Bool { bogen == 0 && links == nil }
+        var istUmschlag: Bool { bogen == 0 }
+        // Links liegt die Innenseite des Umschlags — auf dem ersten Bogen
+        // des Buchblocks, weil davor keine Seite steht.
+        var beginntMitUmschlag: Bool { !istUmschlag && links == nil }
         // Und rechts liegt die Innenseite des RÜCKEN-Umschlags: Eine
         // fehlende rechte Seite kann es nur am Ende des Buches geben, denn
         // gebaut wird der Bogen aus fortlaufenden Nummern.
-        var endetMitUmschlag: Bool { rechts == nil }
+        var endetMitUmschlag: Bool { !istUmschlag && rechts == nil }
     }
 
     var doppelseiten: [Doppelseite] {
@@ -249,20 +252,16 @@ final class Reisewerk: ObservableObject, Identifiable {
         var nachBogen: [Int: Doppelseite] = [:]
         for seite in alle {
             // Links die gerade, rechts die ungerade Nummer — nie
-            // umgekehrt. Die Regel steht in `Bogenlage` und wird von dort
-            // geholt: Dieselbe Paarung entscheidet seit 1.0.47 auch, welche
-            // Hälfte eines Hintergrundbildes auf diese Seite fällt, und
-            // zwei Fassungen ergaben eine Ansicht, die anders paart als der
-            // Druck.
-            let nummer = seite.nummer / 2
+            // umgekehrt. Entschieden wird das an EINER Stelle
+            // (`Buchseite.liegtRechts`), und dieselbe Antwort entscheidet
+            // seit 1.0.47 auch, welche Hälfte eines Hintergrundbildes auf
+            // diese Seite fällt: Zwei Fassungen ergäben eine Ansicht, die
+            // anders paart als der Druck.
+            let nummer = seite.bogennummer
             var doppel = nachBogen[nummer] ?? Doppelseite(bogen: nummer, links: nil, rechts: nil)
-            if Bogenlage.rechts(seite.nummer) { doppel.rechts = seite } else { doppel.links = seite }
+            if seite.liegtRechts { doppel.rechts = seite } else { doppel.links = seite }
             nachBogen[nummer] = doppel
         }
-        // Der erste Bogen steht immer da, auch wenn rechts nichts liegt:
-        // Links gehört ihm die Innenseite des Umschlags, und die soll man
-        // sehen.
-        if nachBogen[0] == nil { nachBogen[0] = Doppelseite(bogen: 0, links: nil, rechts: nil) }
         return nachBogen.keys.sorted().compactMap { nachBogen[$0] }
     }
 

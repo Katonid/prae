@@ -30,9 +30,24 @@ enum Umschlagmass {
     // einem Softcover zählen sie nicht mit.
     static func rueckenbreite(_ umschlag: Umschlag, innenseiten: Int) -> Double {
         guard umschlag.rueckenZeigen else { return 0 }
+        // DIE TABELLE DES DRUCKDIENSTES SCHLÄGT DIE RECHNUNG (ab 1.0.52).
+        // Sie ist die einzige Angabe, die gilt — gerechnet wird nur, wo
+        // keine eingetragen ist oder wo sie über dieses Buch nichts sagt.
+        if let aus = umschlag.tabellenbreite(innenseiten: innenseiten) { return aus }
         let papier = Double(blaetter(innenseiten: innenseiten)) * max(0, umschlag.papierstaerke)
         let decke = umschlag.einband == .hardcover ? max(0, umschlag.deckenstaerke) : 0
         return papier + decke
+    }
+
+    /// Woher die Zahl stammt. Gebraucht überall dort, wo die Breite
+    /// hingeschrieben wird: Eine gerechnete Zahl als Messung auszugeben
+    /// wäre genau die Art Lüge, die diese App nicht erzählen darf.
+    static func rueckenherkunft(_ umschlag: Umschlag, innenseiten: Int) -> String {
+        guard umschlag.rueckenZeigen else { return "" }
+        if umschlag.tabellenbreite(innenseiten: innenseiten) != nil {
+            return "aus der eingetragenen Tabelle des Druckdienstes"
+        }
+        return "aus Seitenzahl, Papierstärke und Einband GERECHNET"
     }
 
     static func rueckenbreitePt(_ umschlag: Umschlag, innenseiten: Int) -> Double {

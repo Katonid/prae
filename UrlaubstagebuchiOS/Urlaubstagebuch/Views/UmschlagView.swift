@@ -20,6 +20,8 @@ struct UmschlagView: View {
     @State private var hintergrund = false
     @State private var schriftwahl = false
     @State private var fotowahl = false
+    @State private var stufeSeiten = ""
+    @State private var stufeMm = ""
 
     private var umschlag: Umschlag { werk.reise.umschlag }
 
@@ -42,6 +44,7 @@ struct UmschlagView: View {
 
                 if umschlag.alsBogen {
                     ruecken
+                    if umschlag.rueckenZeigen { rueckentabelle }
                     rueckseite
                 }
 
@@ -104,16 +107,109 @@ struct UmschlagView: View {
         }
     }
 
+    // DIE TABELLE DES DRUCKDIENSTES (ab 1.0.52). Eingetragen und nicht
+    // mitgeliefert: Was Saal Digital, epubli oder BoD an Rückenbreiten
+    // nennen, steht in deren Unterlagen und ändert sich mit dem Papier.
+    // Eine Tabelle, die diese App nach Gefühl mitbrächte, sähe aus wie
+    // eine Auskunft des Anbieters und wäre geraten.
+    private var rueckentabelle: some View {
+        Section {
+            ForEach(umschlag.rueckentabelle.sorted { $0.abSeiten < $1.abSeiten }) { stufe in
+                HStack {
+                    Text("ab \(stufe.abSeiten) Seiten")
+                    Spacer()
+                    Text(zahl(stufe.millimeter, "mm"))
+                        .foregroundStyle(gilt(stufe) ? Color.accentColor : .secondary)
+                        .fontWeight(gilt(stufe) ? .semibold : .regular)
+                }
+                .swipeActions {
+                    Button(role: .destructive) { stufeLoeschen(stufe) } label: {
+                        Label("Löschen", systemImage: "trash")
+                    }
+                }
+            }
+            HStack(spacing: 8) {
+                TextField("ab Seiten", text: $stufeSeiten)
+                    .keyboardType(.numberPad)
+                    .textFieldStyle(.roundedBorder)
+                TextField("mm", text: $stufeMm)
+                    .keyboardType(.decimalPad)
+                    .textFieldStyle(.roundedBorder)
+                Button("Eintragen") { stufeEintragen() }
+                    .buttonStyle(.bordered)
+                    .disabled(neueStufe == nil)
+            }
+        } header: {
+            Text("Tabelle des Druckdienstes")
+        } footer: {
+            Text(tabellenhinweis)
+        }
+    }
+
+    private func gilt(_ stufe: Umschlag.Rueckenstufe) -> Bool {
+        let passend = umschlag.rueckentabelle
+            .filter { $0.abSeiten <= werk.reise.innenseiten }
+            .max { $0.abSeiten < $1.abSeiten }
+        return passend?.abSeiten == stufe.abSeiten
+    }
+
+    private var neueStufe: Umschlag.Rueckenstufe? {
+        guard let seiten = Int(stufeSeiten.trimmingCharacters(in: .whitespaces)), seiten > 0,
+              let mm = Double(stufeMm.replacingOccurrences(of: ",", with: ".")
+                  .trimmingCharacters(in: .whitespaces)),
+              mm >= 0, mm <= 120
+        else { return nil }
+        return Umschlag.Rueckenstufe(abSeiten: seiten, millimeter: mm)
+    }
+
+    private func stufeEintragen() {
+        guard let neu = neueStufe else { return }
+        werk.merken()
+        var liste = werk.reise.umschlag.rueckentabelle.filter { $0.abSeiten != neu.abSeiten }
+        liste.append(neu)
+        liste.sort { $0.abSeiten < $1.abSeiten }
+        werk.reise.umschlag.rueckentabelle = liste
+        stufeSeiten = ""
+        stufeMm = ""
+    }
+
+    private func stufeLoeschen(_ stufe: Umschlag.Rueckenstufe) {
+        werk.merken()
+        werk.reise.umschlag.rueckentabelle.removeAll { $0.abSeiten == stufe.abSeiten }
+    }
+
+    private var tabellenhinweis: String {
+        var text = "Steht hier etwas, GILT es — dann wird nicht mehr gerechnet. "
+        text += "Genommen wird die letzte Zeile, deren Seitenzahl das Buch erreicht; "
+        text += "die geltende steht farbig. "
+        if umschlag.rueckentabelle.isEmpty {
+            text += "Noch keine Zeile eingetragen — solange bleibt es bei der Rechnung darüber. "
+        }
+        text += "Diese Zahlen kommen aus den Unterlagen des Druckdienstes und werden hier "
+        text += "bewusst nicht mitgeliefert: Sie ändern sich mit dem Papier, und eine geratene "
+        text += "Tabelle sähe aus wie eine Auskunft des Anbieters."
+        return text
+    }
+
     private var rueckenhinweis: String {
+        let seiten = werk.reise.innenseiten
         var text = "Leer heißt: der Titel des Buches. "
-        text += "Der Innenteil hat \(werk.reise.innenseiten) Seiten, also "
-        text += "\(Umschlagmass.blaetter(innenseiten: werk.reise.innenseiten)) Blätter. "
-        text += "Daraus mal der Papierstärke"
-        if umschlag.einband == .hardcover { text += " plus den beiden Deckeln" }
-        text += " folgt die Rückenbreite. "
-        text += "Das ist GERECHNET und nicht gemessen: Wie dick ein Blatt aufträgt, weiß der "
-        text += "Druckdienst und nicht diese App — seine Angabe gilt. Die Schrift läuft von "
-        text += "oben nach unten, wie es hierzulande üblich ist."
+        if umschlag.tabellenbreite(innenseiten: seiten) != nil {
+            text += "Die Rückenbreite kommt gerade aus der Tabelle unten \u{2014} "
+            text += "die Rechnung aus Papierstärke und Einband ruht so lange. "
+            text += "Der Innenteil hat \(seiten) Seiten. "
+        } else {
+            text += "Der Innenteil hat \(seiten) Seiten, also "
+            text += "\(Umschlagmass.blaetter(innenseiten: seiten)) Blätter. "
+            text += "Daraus mal der Papierstärke"
+            if umschlag.einband == .hardcover { text += " plus den beiden Deckeln" }
+            text += " folgt die Rückenbreite. "
+            text += "Das ist GERECHNET und nicht gemessen: Wie dick ein Blatt aufträgt, "
+            text += "weiß der Druckdienst und nicht diese App \u{2014} seine Angabe gilt. "
+            text += "Wer seine Tabelle hat, trägt sie unten ein; dann zählt sie statt "
+            text += "dieser Rechnung. "
+        }
+        text += "Die Schrift läuft von oben nach unten, wie es hierzulande üblich ist."
         return text
     }
 

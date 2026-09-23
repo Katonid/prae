@@ -188,8 +188,27 @@ struct Seitenformat: Codable, Hashable, Identifiable {
     static let quadrat28 = Seitenformat(breite: 280, hoehe: 280, vorlage: "quadrat28")
     static let quadrat30 = Seitenformat(breite: 300, hoehe: 300, vorlage: "quadrat30")
 
+    // FOTOBUCHFORMATE (ab 1.0.52, Ansage des Nutzers 09/2026: „Speichere
+    // bitte auch die drei von mir gewählten Formate von Saal Digital als
+    // Formate für das Fotobuch.").
+    //
+    // 21 × 28 cm fehlte bisher ganz — und es ist nachweislich das Format,
+    // in dem dieser Nutzer arbeitet: Sein am 23.09.2026 geschicktes PDF
+    // misst 595 × 793,72 Punkte, also genau 210 × 280 mm. Das Querformat
+    // steht daneben, weil es dasselbe Blatt ist.
+    //
+    // **Die Maße folgen der Formatangabe des Anbieters und sind nicht
+    // gemessen.** Was ein bestimmter Druckdienst annimmt, sagt er selbst;
+    // deshalb lassen sich seit 1.0.52 auch eigene Maße als Vorlage sichern
+    // (`Formatvorlagen`) — eine Liste im Quelltext veraltet, ein gemerktes
+    // Maß nicht.
+    static let foto21x28 = Seitenformat(breite: 210, hoehe: 280, vorlage: "foto21x28")
+    static let foto28x21 = Seitenformat(breite: 280, hoehe: 210, vorlage: "foto28x21")
+
     static let vorlagen: [Seitenformat] = [
-        .a4hoch, .a4quer, .a5hoch, .a5quer, .quadrat21, .quadrat28, .quadrat30,
+        .a4hoch, .a4quer, .a5hoch, .a5quer,
+        .foto21x28, .foto28x21,
+        .quadrat21, .quadrat28, .quadrat30,
     ]
 
     // MARK: - Grenzen der freien Eingabe
@@ -228,6 +247,8 @@ struct Seitenformat: Codable, Hashable, Identifiable {
         case "quadrat21": return "21 \u{00D7} 21 cm"
         case "quadrat28": return "28 \u{00D7} 28 cm"
         case "quadrat30": return "30 \u{00D7} 30 cm"
+        case "foto21x28": return "21 \u{00D7} 28 cm hoch"
+        case "foto28x21": return "28 \u{00D7} 21 cm quer"
         default: return "Eigenes Ma\u{00DF}"
         }
     }

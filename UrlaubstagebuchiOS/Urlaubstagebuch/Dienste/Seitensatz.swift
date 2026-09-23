@@ -244,12 +244,21 @@ enum Seitensatz {
     // Die Deckkraft steckt im Zeichenbefehl (`alpha:`) und nicht in einer
     // zweiten Fläche darüber: Ein Schleier über dem Bild legte sich auch
     // über den Hintergrund und machte die Seite fleckig.
-    static func zeichneWasserzeichen(_ bild: UIImage, rechteck: CGRect, deckung: Double,
-                                     in zusammenhang: CGContext)
+    static func zeichneWasserzeichen(_ bild: UIImage, ort: Wasserzeichenlage.Ort,
+                                     deckung: Double, in zusammenhang: CGContext)
     {
         guard deckung > 0.001 else { return }
         zusammenhang.saveGState()
-        let ziel = Wasserzeichenlage.eingepasst(bildgroesse: bild.size, rahmen: rechteck)
+        // Gedreht wird um die MITTE des Platzes, den die Lagerechnung
+        // dafür freigehalten hat — dieselbe Mitte, um die auch der
+        // Bildschirm dreht. Rechnete einer der beiden um eine andere,
+        // stünde das Zeichen im Druck woanders als in der Vorschau.
+        if abs(ort.winkel) > 0.01 {
+            zusammenhang.translateBy(x: ort.rahmen.midX, y: ort.rahmen.midY)
+            zusammenhang.rotate(by: CGFloat(ort.winkel * .pi / 180))
+            zusammenhang.translateBy(x: -ort.rahmen.midX, y: -ort.rahmen.midY)
+        }
+        let ziel = Wasserzeichenlage.eingepasst(bildgroesse: bild.size, rahmen: ort.bildrahmen)
         bild.draw(in: ziel, blendMode: .normal, alpha: CGFloat(min(deckung, 1)))
         zusammenhang.restoreGState()
     }

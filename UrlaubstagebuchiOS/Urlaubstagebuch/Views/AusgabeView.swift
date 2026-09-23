@@ -83,8 +83,10 @@ struct AusgabeView: View {
         guard mm > 0.05 else { return "" }
         let zahl = String(format: "%.1f", mm).replacingOccurrences(of: ".", with: ",")
         var text = " \u{2014} ein Bogen, Rücken \(zahl) mm. "
-        text += "Die Breite ist aus Seitenzahl, Papierstärke und Einband GERECHNET; "
-        text += "verbindlich ist die Angabe des Druckdienstes."
+        text += "Die Breite ist "
+        text += Umschlagmass.rueckenherkunft(werk.reise.umschlag,
+                                             innenseiten: werk.reise.innenseiten)
+        text += "; verbindlich ist die Angabe des Druckdienstes."
         return text
     }
 
@@ -217,7 +219,7 @@ struct AusgabeView: View {
                     .disabled(laeuft)
                 }
             }
-            .navigationTitle(umfang == .broschuere ? "Broschüre" : "Als PDF sichern")
+            .navigationTitle(titel)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -238,6 +240,14 @@ struct AusgabeView: View {
     }
 
     // MARK: - Broschüre
+
+    private var titel: String {
+        switch umfang {
+        case .broschuere: return "Broschüre"
+        case .getrennt: return "Zwei Dateien"
+        case .ganzesBuch: return "Als PDF sichern"
+        }
+    }
 
     private var broschuerenmass: String {
         let end = werk.reise.format

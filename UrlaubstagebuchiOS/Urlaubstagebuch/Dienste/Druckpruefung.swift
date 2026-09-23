@@ -471,9 +471,14 @@ enum Druckpruefung {
         // Titelblatt zu SETZEN: Gebraucht wird hier seine Nummer und
         // nicht seine Seite. Einen eigenen Hintergrund hat es nicht, es
         // folgt dem Buch.
+        //
+        // Der UMSCHLAG zählt seit 1.0.52 nicht mit: Gilt er als Bogen,
+        // gehört die Titelseite ihm, und der Buchblock beginnt bei 1. Wer
+        // sie mitzählt, verschiebt jede Seite auf die andere Buchhälfte
+        // und meldet daraufhin lauter Bogen, die „nicht aufgehen".
         var seiten: [(nummer: Int, grund: Seitenhintergrund, wo: String)] = []
         var nummer = 1
-        if reise.titelseite {
+        if reise.titelseite, !reise.hatRueckseite {
             seiten.append((nummer, reise.gestaltung.hintergrund, "Titelblatt"))
             nummer += 1
         }
@@ -553,15 +558,27 @@ enum Druckpruefung {
         text += "— links die Rückseite, in der Mitte der Rücken, rechts die Titelseite. "
         if mm > 0.05 {
             let zahl = String(format: "%.1f", mm).replacingOccurrences(of: ".", with: ",")
-            text += "Rückenbreite \(zahl) mm, gerechnet aus \(innen) Innenseiten "
-            text += "(\(blaetter) Blätter)"
-            if reise.umschlag.einband == .hardcover {
-                let decke = String(format: "%.1f", reise.umschlag.deckenstaerke)
+            // Woher die Zahl kommt, entscheidet seit 1.0.52 die Tabelle des
+            // Druckdienstes — steht eine da, wird nicht mehr gerechnet, und
+            // dann wäre „gerechnet aus n Innenseiten" schlicht falsch.
+            if let ausTabelle = reise.umschlag.tabellenbreite(innenseiten: innen) {
+                let tab = String(format: "%.1f", ausTabelle)
                     .replacingOccurrences(of: ".", with: ",")
-                text += " plus \(decke) mm Deckel"
+                text += "Rückenbreite \(tab) mm bei \(innen) Innenseiten, aus der "
+                text += "eingetragenen Tabelle des Druckdienstes. Die Rechnung aus "
+                text += "Papierstärke und Einband ruht."
+            } else {
+                text += "Rückenbreite \(zahl) mm, gerechnet aus \(innen) Innenseiten "
+                text += "(\(blaetter) Blätter)"
+                if reise.umschlag.einband == .hardcover {
+                    let decke = String(format: "%.1f", reise.umschlag.deckenstaerke)
+                        .replacingOccurrences(of: ".", with: ",")
+                    text += " plus \(decke) mm Deckel"
+                }
+                text += ". Das ist GERECHNET und nicht gemessen — verbindlich ist die Angabe "
+                text += "des Druckdienstes. Wer seine Tabelle hat, trägt sie unter "
+                text += "Umschlag ein."
             }
-            text += ". Das ist GERECHNET und nicht gemessen — verbindlich ist die Angabe "
-            text += "des Druckdienstes."
         } else {
             text += "Ohne Rücken."
         }
@@ -662,7 +679,7 @@ enum Druckpruefung {
     // ansieht: Ein Bild ist scharf, solange es klein steht, und matschig,
     // sobald es über eine halbe Seite läuft.
     private static func bildaufloesung(_ reise: Reise) -> [Zeile] {
-        var schlechteste: (dpi: Double, seite: Int)?
+        var schlechteste: (dpi: Double, seite: String)?
         var unterGrenze = 0
         var unterGut = 0
         var gezaehlt = 0
@@ -684,7 +701,7 @@ enum Druckpruefung {
                 if wert < Druckmass.dpiGrenze { unterGrenze += 1 }
                 else if wert < Druckmass.dpiGut { unterGut += 1 }
                 if schlechteste == nil || wert < schlechteste!.dpi {
-                    schlechteste = (wert, buchseite.nummer)
+                    schlechteste = (wert, buchseite.kurzname)
                 }
             }
         }
@@ -694,14 +711,14 @@ enum Druckpruefung {
             return [Zeile(
                 stufe: .warnung,
                 titel: "\(unterGrenze) Bilder unter 150 dpi",
-                text: "Sie werden im Druck sichtbar weich. Das schwächste liegt bei \(Int(schlechteste.dpi)) dpi auf Seite \(schlechteste.seite). Kleiner setzen oder das Bild in höherer Auflösung einlesen."
+                text: "Sie werden im Druck sichtbar weich. Das schwächste liegt bei \(Int(schlechteste.dpi)) dpi auf \(schlechteste.seite). Kleiner setzen oder das Bild in höherer Auflösung einlesen."
             )]
         }
         if unterGut > 0 {
             return [Zeile(
                 stufe: .hinweis,
                 titel: "\(unterGut) Bilder unter 250 dpi",
-                text: "Das reicht für ein Fotobuch meistens noch. Das schwächste liegt bei \(Int(schlechteste.dpi)) dpi auf Seite \(schlechteste.seite)."
+                text: "Das reicht für ein Fotobuch meistens noch. Das schwächste liegt bei \(Int(schlechteste.dpi)) dpi auf \(schlechteste.seite)."
             )]
         }
         return [Zeile(

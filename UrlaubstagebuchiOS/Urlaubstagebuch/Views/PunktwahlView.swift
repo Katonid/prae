@@ -74,6 +74,24 @@ struct PunktwahlView: View {
     // `.task(id:)` und nicht als berechnete Eigenschaft — der Körper dieser
     // Ansicht läuft bei jeder Kamerabewegung noch einmal.
     @State private var befunde: [Ausreisser.Befund] = []
+    // DIE QUITTUNG (ab 1.0.52). Gemeldet 09/2026: „Es wäre schön, wenn
+    // hier doch noch eine genauere Bestätigung durch die App erfolgen
+    // könnte. Ich bekomme zumindest keine Rückmeldung, wenn ich auf eine
+    // neue Uhrzeit gegangen bin und auf den orangenen Button. Normalerweise
+    // kann ja dann dieses Fenster im unteren Bereich auch wieder schließen.
+    // Das tut es bislang nicht."
+    //
+    // Gemeldet hat die App sehr wohl — nur an der falschen Stelle:
+    // `werk.meldung` wird in `ReiseView` gezeigt, und diese Ansicht liegt
+    // seit 1.0.49 als VOLLBILD darüber. Das Band erschien also hinter der
+    // Karte, wo es niemand sieht. Dieselbe Lehre wie bei Schulalarm 1.0.26
+    // („Ein Fehlerband unter einem Blatt sieht niemand"): **Wer aus einem
+    // Vollbild heraus etwas meldet, meldet es IN diesem Vollbild.**
+    //
+    // Und zugleich der zweite Teil des Befundes: Solange eine Quittung
+    // steht, sind die Eingabefelder zu — die Karte ist frei, und zwei
+    // Knöpfe führen zurück.
+    @State private var quittung: String?
 
     // Wie weit ein Tipp danebengehen darf, in BILDSCHIRMPUNKTEN. Apple
     // nennt 44 als Mindestmaß für ein Fingerziel; hier darf es großzügiger
@@ -141,7 +159,7 @@ struct PunktwahlView: View {
                     nameGeholt = false
                     zeitSetzen = false
                     zeittext = ""
-                    werk.meldung = .init(text: "Punkt gelöscht.")
+                    quittung = "Punkt gelöscht."
                 }
                 Button("Abbrechen", role: .cancel) {}
             } message: {
@@ -210,6 +228,7 @@ struct PunktwahlView: View {
     // des vorigen und würde beim nächsten „Übernehmen" auf den neuen
     // geschrieben.
     private func waehle(_ neu: Reisepunkt) {
+        quittung = nil
         guard neu.id != punktID else { return }
         punktID = neu.id
         mitte = neu.koordinate
@@ -272,7 +291,60 @@ struct PunktwahlView: View {
         .allowsHitTesting(false)
     }
 
+    @ViewBuilder
     private var leiste: some View {
+        if let quittung {
+            quittungsleiste(quittung)
+        } else {
+            eingabeleiste
+        }
+    }
+
+    // DIE QUITTUNG schließt die Eingabe und lässt die Karte frei — genau
+    // das, was gemeldet wurde. Sie verschwindet NICHT von selbst nach ein
+    // paar Sekunden: Wer gerade eine Uhrzeit übernommen hat, will sie
+    // nachlesen können, und ein Band, das währenddessen wegblendet, ist
+    // wieder keine Bestätigung. Weggeräumt wird sie durch eine Handlung —
+    // einen der beiden Knöpfe oder einen Tipp auf die Karte.
+    private func quittungsleiste(_ text: String) -> some View {
+        VStack(spacing: 10) {
+            HStack(alignment: .top, spacing: 8) {
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundStyle(.green)
+                Text(text)
+                    .font(.subheadline)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            Text("Die Spur ist geändert. Ein Tipp auf einen Punkt öffnet ihn, "
+                 + "\u{201E}Fertig\u{201C} oben schließt die Karte.")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            HStack(spacing: 10) {
+                if punkt != nil {
+                    Button {
+                        quittung = nil
+                    } label: {
+                        Label("Noch einmal ändern", systemImage: "slider.horizontal.3")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                }
+                Button {
+                    neuerPunkt()
+                } label: {
+                    Label("Nächster Punkt", systemImage: "mappin.and.ellipse")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+            }
+        }
+        .padding(14)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+        .padding(12)
+    }
+
+    private var eingabeleiste: some View {
         VStack(spacing: 10) {
             // WELCHER PUNKT GERADE DRAN IST — in Worten. Ein Tipp auf die
             // Karte kann ihn wechseln, und ein Knopf, der dann „Übernehmen"
@@ -303,15 +375,8 @@ struct PunktwahlView: View {
                     // einem Punkt gelandet, nie wieder zum Anlegen — und
                     // dass der Knopf unten plötzlich anders heißt, sähe wie
                     // ein Fehler aus.
-                    Button("Neuer Punkt") {
-                        punktID = nil
-                        name = ""
-                        nameGeholt = false
-                        zeitSetzen = false
-                        zeittext = ""
-                        Task { await nameHolen() }
-                    }
-                    .font(.caption)
+                    Button("Neuer Punkt") { neuerPunkt() }
+                        .font(.caption)
                 } else {
                     Image(systemName: "plus.circle")
                         .foregroundStyle(Color.accentColor)
@@ -496,17 +561,50 @@ struct PunktwahlView: View {
         if self.mitte == mitte { name = gefunden; nameGeholt = true }
     }
 
+    // Zurück auf „ein neuer Punkt". An EINER Stelle, weil es drei Wege
+    // dorthin gibt (der Knopf in der Kopfzeile der Leiste, der nach dem
+    // Übernehmen und der nach dem Löschen) und drei Fassungen davon
+    // auseinanderliefen — der Name des gelöschten Punktes stünde dann beim
+    // nächsten im Feld.
+    private func neuerPunkt() {
+        quittung = nil
+        punktID = nil
+        name = ""
+        nameGeholt = false
+        zeitSetzen = false
+        zeittext = ""
+        Task { await nameHolen() }
+    }
+
     private func punktSetzen() {
         guard let mitte else { return }
         let uhrzeit: Date? = zeitSetzen ? zeitAmTag() : nil
         let wie = name.isEmpty ? "ohne Namen" : name
+        // WAS ÜBERNOMMEN WURDE, steht in der Quittung — und zwar
+        // vollständig: Ort, Name und Uhrzeit. „Gespeichert" allein wäre
+        // keine Bestätigung, sondern eine Behauptung; wer eine Uhrzeit
+        // getippt hat, will genau diese Uhrzeit zurückgelesen bekommen.
+        var satz = wie
+        if let uhrzeit { satz += " \u{00B7} " + uhrzeittext(uhrzeit) }
+        else { satz += " \u{00B7} ohne Uhrzeit" }
         if let punktID {
             werk.punktAendern(tagID, punktID: punktID, ort: mitte, name: name, zeit: uhrzeit)
-            werk.meldung = .init(text: "Punkt geändert: \(wie)")
+            quittung = "Übernommen: \(satz)"
         } else {
             werk.punktHinzufuegen(tagID, ort: mitte, name: name, zeit: uhrzeit)
-            werk.meldung = .init(text: "Punkt gesetzt: \(wie)")
+            quittung = "Neuer Punkt gesetzt: \(satz)"
         }
+    }
+
+    // Die Uhrzeit so, wie sie am Ort stand — also in derselben festen Zone
+    // gelesen, in der `zeitAmTag` sie geschrieben hat. Mit der Zone des
+    // Geräts gelesen stünde in der Quittung eine andere Zahl als die
+    // getippte, und das sähe wie ein Fehler aus.
+    private func uhrzeittext(_ zeitpunkt: Date) -> String {
+        var kalender = Calendar(identifier: .gregorian)
+        kalender.timeZone = TimeZone(secondsFromGMT: 0) ?? .current
+        let teile = kalender.dateComponents([.hour, .minute], from: zeitpunkt)
+        return String(format: "%02d:%02d", teile.hour ?? 0, teile.minute ?? 0)
     }
 
     // Die Uhrzeit gehört auf den TAG des Eintrags, nicht auf heute — sonst

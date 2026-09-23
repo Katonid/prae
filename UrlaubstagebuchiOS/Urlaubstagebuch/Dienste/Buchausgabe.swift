@@ -3,6 +3,29 @@ import Foundation
 import PDFKit
 import UIKit
 
+// WO IM BUCH EINE SEITE LIEGT (ab 1.0.52).
+//
+// Bis 1.0.51 gab es dafür nur die laufende Nummer, und die zählte den
+// Umschlag mit: Rückseite 0, Titelseite 1, die erste Seite des Buchblocks
+// also 2. Nach `Bogenlage` ist eine gerade Nummer eine LINKE Seite — und
+// damit lag die erste wirkliche Buchseite links. Gemeldet 09/2026: „die
+// erste wirkliche Seite im Fotobuch ist ja eine rechte Seite, also eine
+// ungerade Seite. … Denn links von der Seite 1 wäre ja praktisch die
+// Innenseite des Umschlags, die nicht bearbeitet bzw. bedruckt wird."
+//
+// Er hat recht, und es ist keine Geschmacksfrage, sondern Buchbinderei:
+// Der Umschlag ist ein EIGENES Stück Papier und zählt im Buchblock nicht
+// mit. Die Zählung trennt sich deshalb in zwei Angaben — wo eine Seite
+// liegt (`teil`) und welche Zahl auf ihr steht (`nummer`).
+enum Buchteil: String {
+    /// Links auf dem Umschlagbogen.
+    case rueckseite
+    /// Rechts auf dem Umschlagbogen.
+    case titel
+    /// Der Buchblock: alles, was gebunden wird.
+    case innen
+}
+
 // Eine Seite des fertigen Buches samt ihrem Zusammenhang. Die Titelseite
 // gehört zu keinem Tag — deshalb ist `tag` freiwillig und nicht etwa ein
 // erfundener leerer Tag, den dann jede Auswertung wieder aussortieren muss.
@@ -10,7 +33,45 @@ struct Buchseite: Identifiable {
     var id: UUID { seite.id }
     var seite: Seite
     var tag: Reisetag?
+    var teil: Buchteil = .innen
+    /// Die gedruckte Seitenzahl. Sie zählt AUSSCHLIESSLICH den Buchblock,
+    /// ab 1; eine Umschlagseite trägt 0 und keine Zahl auf dem Papier.
     var nummer: Int
+    /// Die Stelle in der Seitenfolge, ab 0 — die einzige Angabe, die
+    /// eindeutig UND ordenbar ist. Die Nummer ist es seit 1.0.52 nicht
+    /// mehr: Rückseite und Titelseite tragen beide die 0, weil sie keine
+    /// Seiten des Buchblocks sind. Wer damit einen Schlüssel bildet (die
+    /// Bühne tut das, um zu wissen, welcher Tag oben im Bild steht), nimmt
+    /// den Rang und nie die Nummer.
+    var rang: Int = 0
+
+    var amUmschlag: Bool { teil != .innen }
+
+    /// Ob diese Seite im aufgeschlagenen Buch RECHTS liegt. Die eine
+    /// Stelle, an der das entschieden wird — gefragt von der Paarung, vom
+    /// Hintergrund über die Doppelseite und von der Druckprüfung.
+    var liegtRechts: Bool {
+        switch teil {
+        case .rueckseite: return false
+        case .titel: return true
+        case .innen: return Bogenlage.rechts(nummer)
+        }
+    }
+
+    /// Der laufende Bogen: 0 ist der Umschlag, 1 trägt rechts die Seite 1,
+    /// 2 die Seiten 2 und 3, und so weiter.
+    var bogennummer: Int { amUmschlag ? 0 : Bogenlage.bogen(nummer) }
+
+    /// Wie diese Seite heißt — unter ihrem Blatt auf der Bühne und in
+    /// jedem Befund. An EINER Stelle, weil „Seite 0" unter der Rückseite
+    /// genau der Satz wäre, den 1.0.52 abstellt.
+    var kurzname: String {
+        switch teil {
+        case .rueckseite: return "Umschlag: Rückseite"
+        case .titel: return "Umschlag: Titelseite"
+        case .innen: return tag == nil ? "Titelseite" : "Seite \(nummer)"
+        }
+    }
 }
 
 extension Reise {
@@ -41,33 +102,56 @@ extension Reise {
     // richtig, ohne eine zweite Regel daneben.
     var hatRueckseite: Bool { titelseite && umschlag.alsBogen }
 
-    var seitenfolge: [Buchseite] {
+    // DIE SEITENFOLGE — und die Nummerierung dahinter — steht an GENAU
+    // EINER Stelle.
+    //
+    // Sie wird von zwei Enden gebraucht: von der Ausgabe (hier) und von
+    // der Bühne (`Reisewerk.seitenfolge`, die sich die gesetzten
+    // Umschlagseiten merkt, weil ihr Satz zwei CoreText-Messungen kostet
+    // und der Körper einer Ansicht oft läuft). Bis 1.0.51 stand die
+    // Zählung deshalb ZWEIMAL da — und genau so etwas läuft auseinander.
+    // Hereingereicht werden deshalb die fertigen Umschlagseiten; wer sie
+    // setzt, entscheidet der Aufrufer.
+    func seitenfolge(titelblatt: Seite?, rueckblatt: Seite?) -> [Buchseite] {
         var folge: [Buchseite] = []
-        if hatRueckseite {
-            folge.append(Buchseite(
-                seite: automat.rueckseite(text: umschlag.rueckseitentext,
-                                          foto: umschlag.rueckseitenfoto),
-                tag: nil,
-                nummer: 0
-            ))
+        if hatRueckseite, let rueckblatt {
+            folge.append(Buchseite(seite: rueckblatt, tag: nil,
+                                   teil: .rueckseite, nummer: 0))
         }
         var nummer = 1
-        if titelseite {
-            folge.append(Buchseite(
-                seite: automat.titelseite(titel: titel, untertitel: untertitel,
-                                          zeitraum: zeitraum, titelfoto: titelfoto),
-                tag: nil,
-                nummer: nummer
-            ))
-            nummer += 1
+        if titelseite, let titelblatt {
+            // GILT DER UMSCHLAG ALS BOGEN, gehört die Titelseite ihm und
+            // nicht dem Buchblock: Sie wird auf denselben Bogen gedruckt
+            // wie Rückseite und Rücken, und die Zählung des Buches fängt
+            // dahinter bei 1 an. Ohne Bogen ist sie die gewöhnliche erste
+            // Seite — und liegt als ungerade Nummer ebenfalls rechts.
+            let amBogen = hatRueckseite
+            folge.append(Buchseite(seite: titelblatt, tag: nil,
+                                   teil: amBogen ? .titel : .innen,
+                                   nummer: amBogen ? 0 : nummer))
+            if !amBogen { nummer += 1 }
         }
         for tag in tage where !tag.ausgeblendet {
             for seite in tag.seiten {
-                folge.append(Buchseite(seite: seite, tag: tag, nummer: nummer))
+                folge.append(Buchseite(seite: seite, tag: tag, teil: .innen, nummer: nummer))
                 nummer += 1
             }
         }
+        for (stelle, _) in folge.enumerated() { folge[stelle].rang = stelle }
         return folge
+    }
+
+    var seitenfolge: [Buchseite] {
+        seitenfolge(
+            titelblatt: titelseite
+                ? automat.titelseite(titel: titel, untertitel: untertitel,
+                                     zeitraum: zeitraum, titelfoto: titelfoto)
+                : nil,
+            rueckblatt: hatRueckseite
+                ? automat.rueckseite(text: umschlag.rueckseitentext,
+                                     foto: umschlag.rueckseitenfoto)
+                : nil
+        )
     }
 }
 
@@ -119,15 +203,16 @@ enum Buchausgabe {
 
         var gefiltert = reise.seitenfolge
         if auftrag.nurUmschlag {
-            gefiltert = gefiltert.filter { $0.tag == nil }
+            gefiltert = gefiltert.filter(\.amUmschlag)
         } else if auftrag.ohneUmschlag {
-            gefiltert = gefiltert.filter { $0.tag != nil }
+            gefiltert = gefiltert.filter { !$0.amUmschlag }
         } else {
-            // Die Rückseite trägt die Nummer 0 und gehört auf den
-            // Umschlagbogen, nicht in den Buchblock. Im vollständigen PDF
-            // stünde sie sonst als erste Seite vor dem Titel — eine
-            // Reihenfolge, die es im gebundenen Buch nirgends gibt.
-            gefiltert = gefiltert.filter { $0.nummer > 0 }
+            // Die Rückseite gehört auf den Umschlagbogen, nicht in den
+            // Buchblock. Im vollständigen PDF stünde sie sonst als erste
+            // Seite vor dem Titel — eine Reihenfolge, die es im gebundenen
+            // Buch nirgends gibt. Die Titelseite bleibt dagegen drin: Wer
+            // eine Datei für alles ausgibt, will sie vorn haben.
+            gefiltert = gefiltert.filter { $0.teil != .rueckseite }
         }
         guard !gefiltert.isEmpty else { throw Fehler.keineSeiten }
         // Ab hier unveränderlich: Eine `var`, die aus einem nebenläufigen
@@ -398,9 +483,9 @@ enum Buchausgabe {
         let ruecken = Umschlagmass.ruecken(format, umschlag: reise.umschlag,
                                            innenseiten: innen)
 
-        let seiten = reise.seitenfolge.filter { $0.tag == nil }
-        guard let rueckseite = seiten.first(where: { $0.nummer == 0 }),
-              let titelseite = seiten.first(where: { $0.nummer == 1 })
+        let seiten = reise.seitenfolge.filter(\.amUmschlag)
+        guard let rueckseite = seiten.first(where: { $0.teil == .rueckseite }),
+              let titelseite = seiten.first(where: { $0.teil == .titel })
         else { throw Fehler.keineSeiten }
 
         let karten = await kartenbilder(seiten, reise: reise) { anteil in
@@ -578,7 +663,7 @@ enum Buchausgabe {
         // der das Bild anders steht als im Druck.
         var bildflaeche: CGRect?
         if grund.art == .foto, grund.ueberDoppelseite {
-            bildflaeche = Bogenlage.bildflaeche(nummer: buchseite.nummer,
+            bildflaeche = Bogenlage.bildflaeche(rechts: buchseite.liegtRechts,
                                                 format: endformat, anschnitt: anschnitt)
         }
         Seitensatz.zeichneHintergrund(grund, rechteck: bogenrechteck, bild: grundbild,
@@ -597,9 +682,8 @@ enum Buchausgabe {
                                                     kante: auftrag.bildkante)
         {
             let satz = reise.gestaltung.satzspiegel(reise.format)
-            let rechteck = Wasserzeichenlage.rechteck(zeichen, satz: satz,
-                                                      seite: buchseite.seite)
-            Seitensatz.zeichneWasserzeichen(bild, rechteck: rechteck,
+            let ort = Wasserzeichenlage.ort(zeichen, satz: satz, seite: buchseite.seite)
+            Seitensatz.zeichneWasserzeichen(bild, ort: ort,
                                             deckung: zeichen.deckung, in: zusammenhang)
         }
 

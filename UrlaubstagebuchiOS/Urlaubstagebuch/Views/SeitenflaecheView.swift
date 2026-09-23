@@ -72,7 +72,7 @@ struct SeitenflaecheView: View {
             let _ = werk.messer.melde("Seite")
             HintergrundFlaeche(werk: werk, hintergrund: hintergrund, seite: buchseite.seite,
                                format: format, anschnitt: anschnitt,
-                               bogen: bogen, seitennummer: buchseite.nummer)
+                               bogen: bogen, liegtRechts: buchseite.liegtRechts)
                 .offset(x: -anschnitt, y: -anschnitt)
                 .allowsHitTesting(false)
 
@@ -84,14 +84,18 @@ struct SeitenflaecheView: View {
                let bild = Bildarchiv.shared.vorschau(zeichen.datei, reise: werk.reise.id,
                                                      kante: 900)
             {
-                let ort = Wasserzeichenlage.rechteck(zeichen, satz: satz,
-                                                     seite: buchseite.seite)
+                let ort = Wasserzeichenlage.ort(zeichen, satz: satz, seite: buchseite.seite)
+                // Gedreht wird um die Mitte des BILDRAHMENS, und die ist
+                // nach `Wasserzeichenlage.ort` dieselbe wie die des
+                // Platzes: `rotationEffect` dreht ohne weitere Angabe um
+                // die Mitte der Ansicht, also genau darum.
                 Image(uiImage: bild)
                     .resizable()
                     .scaledToFit()
-                    .frame(width: ort.width, height: ort.height)
+                    .frame(width: ort.bildrahmen.width, height: ort.bildrahmen.height)
+                    .rotationEffect(.degrees(ort.winkel))
                     .opacity(zeichen.deckung)
-                    .offset(x: ort.minX, y: ort.minY)
+                    .offset(x: ort.bildrahmen.minX, y: ort.bildrahmen.minY)
                     .allowsHitTesting(false)
             }
 
@@ -830,7 +834,7 @@ struct HintergrundFlaeche: View {
     // Die Nummer im Buch. Daran hängt, ob diese Seite links oder rechts
     // liegt; `nil` heißt „außerhalb des Buches", und dann gibt es keine
     // Doppelseite, über die etwas gehen könnte.
-    var seitennummer: Int?
+    var liegtRechts: Bool?
 
     // Wie groß das Hintergrundfoto gezeichnet wird und wie weit gegen die
     // Bogenmitte verschoben — oder `nil`, wenn es schlicht diese eine
@@ -838,10 +842,10 @@ struct HintergrundFlaeche: View {
     // und um eine halbe versetzt: nach rechts auf einer linken Seite, nach
     // links auf einer rechten.
     private var doppelflaeche: (breite: Double, hoehe: Double, versatz: Double)? {
-        guard hintergrund.ueberDoppelseite, let seitennummer, let bogen else { return nil }
+        guard hintergrund.ueberDoppelseite, let liegtRechts, let bogen else { return nil }
         return (Double(bogen.width) + Double(format.width),
                 Double(bogen.height),
-                Bogenlage.versatz(nummer: seitennummer, format: format, anschnitt: anschnitt))
+                Bogenlage.versatz(rechts: liegtRechts, format: format, anschnitt: anschnitt))
     }
 
     var body: some View {
