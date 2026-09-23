@@ -364,7 +364,7 @@ struct ReiseView: View {
                 // FESTE Höhe, und das ist keine Kosmetik: `Zoomanker`
                 // rechnet mit ihr. Eine Zeile, die sich ihre Höhe selbst
                 // sucht, wäre in dieser Rechnung eine Schätzung.
-                Text("Seite \(buchseite.nummer)")
+                Text(seitenname(buchseite))
                     .font(.caption2)
                     .foregroundStyle(.secondary)
                     .frame(height: Buehnenmasse.beschriftung)
@@ -509,6 +509,15 @@ struct ReiseView: View {
     // bekannt — die eine ist gemessen, die andere ist Bogenbreite mal
     // Maßstab. Damit hängt das Schieben an keiner Zusage mehr, die niemand
     // nachlesen kann.
+    // Wie eine einzelne Seite unter ihrem Blatt heißt. Der Umschlag zählt
+    // nicht mit: „Seite 0" stünde unter der Rückseite, und die ist keine
+    // Seite des Buchblocks, sondern die linke Hälfte des Umschlagbogens.
+    private func seitenname(_ buchseite: Buchseite) -> String {
+        guard buchseite.tag == nil else { return "Seite \(buchseite.nummer)" }
+        if buchseite.nummer == 0 { return "Umschlag: Rückseite" }
+        return werk.reise.umschlag.alsBogen ? "Umschlag: Titelseite" : "Titelseite"
+    }
+
     private var inhaltsbreite: CGFloat {
         return max(CGFloat(buehnenbreite),
                    CGFloat(blattbreite(bei: massstabJetzt)) + 2 * Buehnenmasse.rand)
