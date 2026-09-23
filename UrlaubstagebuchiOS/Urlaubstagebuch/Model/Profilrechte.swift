@@ -91,6 +91,22 @@ enum Profilrechte {
     // Der Schlüssel, um den es in dieser Sache geht.
     static let schriftenschluessel = "com.apple.developer.user-fonts"
 
+    // Nennt das Profil dieses Bauwerks das Schriftenrecht? Gebraucht
+    // wird es an zwei Enden — für die Zeilen unten und für die Frage,
+    // wohin der nächste Verdacht zeigt, wenn das System trotzdem nichts
+    // hergibt (`Geraeteschriften.probe`). Zwei Fassungen liefen
+    // auseinander, und dann stünde in einem Befund zweierlei.
+    //
+    // `nil` heißt hier „kein Profil im Bündel oder nicht lesbar" und
+    // NICHT „nicht bewilligt" — über TestFlight und aus dem Laden liegt
+    // gar keines da. Ein `false` daraus zu machen wäre genau die Lüge,
+    // gegen die diese Datei gebaut ist.
+    static func schriftenrechtBewilligt() -> Bool? {
+        let befund = lesen()
+        guard befund.profilVorhanden, befund.fehler == nil else { return nil }
+        return befund.rechte[schriftenschluessel] != nil
+    }
+
     // Die Zeilen für den kopierbaren Befund. Sie nennen Zahlen und
     // Zeichenketten und deuten nichts.
     static func zeilen() -> [String] {
@@ -125,18 +141,22 @@ enum Profilrechte {
             zeile += beschreibung(wert)
             zeile += "."
             zeilen.append(zeile)
-            zeilen.append("  Genau diese Zeichenkette gehört in "
-                + "Config/Urlaubstagebuch.entitlements \u{2014} bitte melden.")
+            zeilen.append("  Seit 1.0.66 steht genau diese Zeichenkette in "
+                + "Config/Urlaubstagebuch.entitlements. Steht hier etwas "
+                + "anderes, bitte melden \u{2014} geraten wird sie nicht.")
         } else {
             var zeile = "Schriftenrecht ("
             zeile += schriftenschluessel
             zeile += "): steht NICHT im Profil."
             zeilen.append(zeile)
             zeilen.append("  Dann sieht diese App nur die Schriften des "
-                + "Systems und die aus ihrem eigenen Bündel. Das ist seit "
-                + "1.0.45 der gewollte Zustand: Ein Recht, das die App-Id "
-                + "nicht trägt, lässt sich nicht signieren, und eine App, "
-                + "die sich nicht signieren lässt, ist auf keinem iPad.")
+                + "Systems und die aus ihrem eigenen Bündel \u{2014} und die "
+                + "Zahlen darunter sagen nichts über das Gerät aus. Das Recht "
+                + "hängt an der App-Id: In der Entwicklerkonsole bekommt "
+                + "de.familie.urlaubstagebuch die Fähigkeit \u{201E}Fonts\u{201C}, "
+                + "danach in Xcode denselben Haken. Ein Recht, das die App-Id "
+                + "nicht trägt, lässt sich nicht signieren \u{2014} deshalb "
+                + "zuerst dort und erst dann im Repo.")
         }
         return zeilen
     }

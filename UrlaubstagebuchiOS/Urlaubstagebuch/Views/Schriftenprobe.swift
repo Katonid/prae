@@ -27,7 +27,7 @@ struct Schriftenprobe: View {
             } header: {
                 Text("Befund")
             } footer: {
-                Text("Diese Zahlen sind gemessen, nicht angenommen. Ganz oben steht, was dieser Bau überhaupt darf \u{2014} gelesen aus dem eingebetteten Bereitstellungsprofil; fehlt das Schriftenrecht dort, sagen die Zahlen darunter nichts über das Gerät aus. Wenn ein Profil das Recht BEWILLIGT, steht die Zeichenkette dabei: Die gehört gemeldet, dann kann sie in die Entitlements-Datei.")
+                Text("Diese Zahlen sind gemessen, nicht angenommen. Ganz oben steht, was dieser Bau überhaupt darf \u{2014} gelesen aus dem eingebetteten Bereitstellungsprofil; fehlt das Schriftenrecht dort, sagen die Zahlen darunter nichts über das Gerät aus. Seit 1.0.66 steht die vom Profil bewilligte Zeichenkette auch in der Entitlements-Datei \u{2014} weicht die Zeile oben davon ab, gehört sie gemeldet.")
             }
 
             Section {

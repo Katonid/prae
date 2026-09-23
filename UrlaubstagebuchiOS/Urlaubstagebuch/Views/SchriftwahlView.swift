@@ -153,18 +153,28 @@ struct SchriftwahlView: View {
             // Frage beantworten ließ. Liegt ein Bereitstellungsprofil im
             // Bündel und nennt es das Schriftenrecht nicht, ist es keine
             // von zwei Möglichkeiten mehr, sondern der Befund.
-            let profil = Profilrechte.lesen()
-            let sicherOhneRecht = profil.profilVorhanden && profil.fehler == nil
-                && profil.rechte[Profilrechte.schriftenschluessel] == nil
-            if sicherOhneRecht {
+            // Seit 1.0.66 sind es DREI Fälle und nicht zwei: Das Profil
+            // kann das Recht bewilligen und die Abfrage trotzdem leer
+            // ausgehen — genau so gemeldet am 23.09.2026. Dann liegt es
+            // nicht mehr an der App-Id, und der alte Satz („diese Fassung
+            // darf es nicht") wäre eine falsche Auskunft.
+            switch Profilrechte.schriftenrechtBewilligt() {
+            case .some(false):
                 systemzeile = "Diese Fassung darf die selbst installierten Schriften "
                     + "nicht sehen \u{2014} das Recht dafür steht nicht im "
                     + "Bereitstellungsprofil dieses Baus, und ohne das gibt iOS sie gar "
-                    + "nicht heraus. Es ist bewusst so: Mit dem Recht in der "
-                    + "Entitlements-Datei ließ sich die App überhaupt nicht mehr "
-                    + "signieren. Was hier steht, sind die Schriften des Systems \u{2014} "
+                    + "nicht heraus. Was hier steht, sind die Schriften des Systems "
+                    + "\u{2014} Zahlen dazu unter \u{201E}Schriften prüfen\u{201C}."
+                return
+            case .some(true):
+                systemzeile = "Dieses Gerät meldet keine selbst installierte Schrift, "
+                    + "obwohl dieser Bau das Recht dazu hat. Der Weg daneben geht "
+                    + "trotzdem: Der Wähler von iOS unten ist derselbe, den Pages "
+                    + "zeigt, und was du dort wählst, steht danach in der Liste. "
                     + "Zahlen dazu unter \u{201E}Schriften prüfen\u{201C}."
                 return
+            case .none:
+                break
             }
             systemzeile = "Dieses Gerät meldet keine selbst installierte Schrift "
                 + "(\(fund.roh) Einträge, davon lesbar \(fund.deskriptoren.count)). "

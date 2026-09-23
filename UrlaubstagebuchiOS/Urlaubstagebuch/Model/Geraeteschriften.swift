@@ -24,21 +24,22 @@ import UIKit
 // herauskommt, wird für diesen Prozess angemeldet; danach steht es in
 // `UIFont.familyNames` und damit in der gewohnten Liste.
 //
-// UND DARÜBER STEHT EIN RECHT — das diese App NICHT HAT (ab 1.0.45).
+// UND DARÜBER STEHT EIN RECHT — seit 1.0.66 wieder da, diesmal gemessen.
 // Ohne `com.apple.developer.user-fonts` gibt iOS einer App die selbst
-// installierten Schriften überhaupt nicht heraus — weder über diese Abfrage
-// noch über den Wähler. Gemessen an drei Bildschirmfotos des Nutzers
-// (22.09.2026): In Pages stehen Poppins, Proxima Nova, Publico Text und
-// Quicksand; im Wähler von iOS, den diese App zeigt, springt dieselbe Liste
-// von „PingFang TC" auf „Rockwell".
+// installierten Schriften überhaupt nicht heraus. 1.0.44 trug es mit einer
+// GERATENEN Zeichenkette ein und machte die App damit unsignierbar; 1.0.45
+// nahm es heraus und baute stattdessen `Profilrechte`, das liest, was der
+// Bau wirklich darf. Am 23.09.2026 hat genau diese Probe geantwortet:
+// „BEWILLIGT als [app-usage, system-installation]" — und seither steht das
+// Wort für Wort in der Entitlements-Datei. Die Begründung steht dort.
 //
-// 1.0.44 hat das Recht deshalb in `Config/Urlaubstagebuch.entitlements`
-// eingetragen — und damit die App UNSIGNIERBAR gemacht: Xcode wies ab, weil
-// das Bereitstellungsprofil dieses Recht nicht bewilligt. Es ist in 1.0.45
-// wieder heraus; die Begründung und der Weg zurück stehen in der
-// Entitlements-Datei selbst. Was dieser Bau wirklich darf, BEHAUPTET diese
-// Datei seither nicht mehr, sondern liest es aus dem eingebetteten Profil
-// (`Profilrechte`) und schreibt es in den Befund.
+// DER WÄHLER IST EIN EIGENER PROZESS, und das erklärt den scheinbaren
+// Widerspruch im selben Befund: Diese Abfrage meldete null Einträge,
+// während drei über den Wähler gewählte Schriften auffindbar waren.
+// `UIFontPickerViewController` läuft außerhalb der App (wie der
+// Fotowähler) und zeigt deshalb, was das Gerät hat; was DIESER Prozess
+// aufzählen und anmelden darf, ist eine andere Frage. Ein Befund über den
+// einen Weg sagt über den anderen nichts.
 //
 // **Gemessen ist das hier nicht.** Ob diese Abfrage auf dem iPad des
 // Nutzers etwas hergibt, weiß hier niemand — deshalb behauptet diese Datei
@@ -107,7 +108,7 @@ enum Geraeteschriften {
         ) { fehler, abgeschlossen in
             for eintrag in fehler as NSArray {
                 if let fall = eintrag as? Error {
-                    meldungen.append(fall.localizedDescription)
+                    meldungen.append(fehlertext(fall))
                 }
             }
             if abgeschlossen {
@@ -119,6 +120,47 @@ enum Geraeteschriften {
             }
             return true
         }
+    }
+
+    // WAS EIN FEHLER HEISST, STEHT IN SEINER ZAHL — nicht in seinem Satz
+    // (ab 1.0.66). Im Befund vom 23.09.2026 stand neunmal derselbe Satz:
+    // „Die Schriftregistrierung ist fehlgeschlagen." Das ist der
+    // allgemeine Text von CoreText und sagt über die Ursache nichts —
+    // und im SELBEN Befund waren alle drei über den Wähler gewählten
+    // Schriften auffindbar. Ein „Fehler", nach dem die Sache geht, ist
+    // fast immer „steht schon" (105); entschieden wird das an der Zahl
+    // und nicht an der Formulierung.
+    //
+    // Aufgeschrieben als Tabelle und nicht über `CTFontManagerError`:
+    // Die Zahlen stehen in Apples Papier und ändern sich nicht, die
+    // Namen der Swift-Fälle sind zwischen Fassungen schon gewandert.
+    // Was nicht in der Tabelle steht, wird NICHT gedeutet — dann steht
+    // dort nur die nackte Zahl, und die ist mehr wert als eine geratene
+    // Erklärung.
+    private static let fehlernamen: [Int: String] = [
+        101: "Datei nicht gefunden",
+        102: "zu wenig Rechte",
+        103: "Format nicht erkannt",
+        104: "Schriftdaten ungültig",
+        105: "steht schon \u{2014} bereits angemeldet",
+        201: "nicht angemeldet",
+        202: "in Gebrauch",
+        203: "wird vom System gebraucht",
+    ]
+
+    private static func fehlertext(_ fall: Error) -> String {
+        let roh = fall as NSError
+        var text = roh.domain
+        text += " "
+        text += String(roh.code)
+        if let name = fehlernamen[roh.code] {
+            text += " ("
+            text += name
+            text += ")"
+        }
+        text += ": "
+        text += roh.localizedDescription
+        return text
     }
 
     // Eine einzelne, über den Systemwähler gewählte Schrift.
@@ -197,13 +239,24 @@ enum Geraeteschriften {
             + "\(fund.deskriptoren.count) in \(fund.familien.count) Familien; "
             + "\(offene.count) gemerkte noch offen; Familien im Prozess: \(vorher)."
         guard !anzumelden.isEmpty else {
-            notiere(kopf + " Nichts anzumelden.")
+            // „Nichts anzumelden" ist zweierlei, und bis 1.0.65 stand nur
+            // das Wort da. Im Befund vom 23.09.2026 war es der GUTE Fall:
+            // Alle drei gemerkten Schriften waren schon auffindbar, es gab
+            // also nichts nachzuholen. Wer das liest, soll nicht raten
+            // müssen, ob gerade etwas fehlschlug.
+            let zusatz = gemerkte.isEmpty
+                ? " Nichts anzumelden (nichts gemerkt, System meldet nichts)."
+                : " Nichts anzumelden \u{2014} alle \(gemerkte.count) gemerkten "
+                    + "sind bereits auffindbar."
+            notiere(kopf + zusatz)
             return
         }
         anmelden(anzumelden) { befund in
             let nachher = UIFont.familyNames.count
+            let treffer = gemerkte.filter { kennt($0) }.count
             notiere(kopf + " Angemeldet: \(anzumelden.count), " + befund
-                    + " Familien danach: \(nachher).")
+                    + " Familien danach: \(nachher); auffindbar: "
+                    + "\(treffer) von \(gemerkte.count) gemerkten.")
         }
     }
 
@@ -245,11 +298,31 @@ enum Geraeteschriften {
             + "in \(fund.familien.count) Familien.\n"
         if fund.familien.isEmpty {
             text += "Keine Familie genannt.\n"
-            text += "Erster Verdacht: das Recht \u{201E}com.apple.developer.user-fonts\u{201C}. "
-            text += "Ohne das gibt iOS einer App die selbst installierten Schriften gar "
-            text += "nicht heraus \u{2014} auch nicht über den Wähler. Ob dieser Bau es "
-            text += "hat, steht oben unter \u{201E}Was dieser Bau darf\u{201C}; behauptet "
-            text += "wird es hier nicht mehr.\n"
+            // WOHIN DER NÄCHSTE VERDACHT ZEIGT, hängt davon ab, was oben
+            // steht (ab 1.0.66). Bis 1.0.65 zeigte diese Zeile immer auf
+            // das Recht an der App-Id — und im Befund vom 23.09.2026 war
+            // genau das schon bewilligt. Eine Probe, die nach dem Messen
+            // dieselbe Vermutung wiederholt, ist die Frage von vorhin noch
+            // einmal.
+            switch Profilrechte.schriftenrechtBewilligt() {
+            case .some(true):
+                text += "Das Profil BEWILLIGT das Schriftenrecht (siehe oben). Der "
+                text += "nächste Verdacht ist damit nicht mehr die App-Id, sondern ob "
+                text += "diese Fassung das Recht auch VERLANGT: Das steht in der "
+                text += "Entitlements-Datei, und die lässt sich von innen nicht lesen. "
+                text += "Im Repo steht es ab 1.0.66; welche Fassung hier läuft, steht "
+                text += "ganz oben.\n"
+            case .some(false):
+                text += "Das Profil nennt das Schriftenrecht NICHT (siehe oben). Dann "
+                text += "gibt iOS dieser App die selbst installierten Schriften gar "
+                text += "nicht heraus, und die Null darüber sagt nichts über das Gerät "
+                text += "aus.\n"
+            case .none:
+                text += "Ob dieser Bau das Recht "
+                text += "\u{201E}com.apple.developer.user-fonts\u{201C} hat, ließ sich "
+                text += "hier nicht lesen (siehe oben) \u{2014} ohne das Recht gibt iOS "
+                text += "einer App die selbst installierten Schriften gar nicht heraus.\n"
+            }
             text += "Gegenprobe ohne Fachwissen: Tippe unten auf "
             text += "\u{201E}Schrift vom Gerät wählen\u{2026}\u{201C}. Stehen deine eigenen "
             text += "Schriften dort, liegt es nicht am Recht; fehlen sie dort auch, dann "
@@ -264,6 +337,17 @@ enum Geraeteschriften {
         for name in gemerkte {
             text += "  " + name + " \u{2014} "
             text += kennt(name) ? "auffindbar\n" : "NICHT auffindbar\n"
+        }
+        // WAS AUFFINDBAR IST, GEHT — auch wenn das Protokoll darunter eine
+        // Fehlermeldung trägt (ab 1.0.66). Genau dieser Widerspruch stand
+        // im Befund vom 23.09.2026: dreimal „Die Schriftregistrierung ist
+        // fehlgeschlagen" und dreimal „auffindbar". Ein Protokoll, das
+        // einen harmlosen Fehler wie einen Ausfall aussehen lässt, schickt
+        // die Suche in die falsche Richtung.
+        if !gemerkte.isEmpty, gemerkte.allSatisfy({ kennt($0) }) {
+            text += "  Alle gewählten sind auffindbar. Eine Fehlermeldung beim "
+            text += "Anmelden bedeutet dann nichts \u{2014} meist heißt sie "
+            text += "\u{201E}steht schon\u{201C} (Code 105).\n"
         }
         text += "\nProtokoll (jüngste zuletzt):\n"
         text += protokoll.isEmpty ? "  (leer)\n" : protokoll.joined(separator: "\n")
