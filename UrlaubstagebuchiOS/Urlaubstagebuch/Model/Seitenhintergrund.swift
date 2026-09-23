@@ -43,6 +43,16 @@ struct Seitenhintergrund: Codable, Hashable {
     // ist per Definition nicht das, worauf man schauen soll.
     var schleier: Double = 0.72
     var koernung: Double = 0.06
+    // WIE KRÄFTIG DIE FARBEN HINTER DEM SCHLEIER BLEIBEN (ab 1.0.55).
+    //
+    // 0 heißt: gar nichts, also genau der Stand von vorher. 1 heißt: der
+    // Schleier wird voll ausgeglichen. Die Rechnung dahinter und ihre
+    // Grenze stehen in `Model/Farbkraft.swift`; hier steht nur, was der
+    // Nutzer eingestellt hat.
+    //
+    // Vorgabe 0, weil jedes vorhandene Buch danach unverändert aussehen
+    // muss — dieselbe Überlegung wie bei `ueberDoppelseite`.
+    var farbkraft: Double = 0
     // Ob ein Hintergrundfoto über die DOPPELSEITE geht statt über die
     // einzelne Seite (Ansage des Nutzers, 09/2026). Aus als Vorgabe: Was
     // bisher gesetzt wurde, sieht danach unverändert aus.
@@ -75,6 +85,7 @@ struct Seitenhintergrund: Codable, Hashable {
         fotoID = b.wahlweise(.fotoID)
         schleier = b.wert(.schleier, 0.72)
         koernung = b.wert(.koernung, 0.06)
+        farbkraft = b.wert(.farbkraft, 0)
         ueberDoppelseite = b.wert(.ueberDoppelseite, false)
     }
 
@@ -85,7 +96,7 @@ struct Seitenhintergrund: Codable, Hashable {
          zweitfarbe: Farbwert = Farbwert(rot: 0.93, gruen: 0.94, blau: 0.96),
          winkel: Double = 90, fotoID: UUID? = nil,
          schleier: Double = 0.72, koernung: Double = 0.06,
-         ueberDoppelseite: Bool = false)
+         farbkraft: Double = 0, ueberDoppelseite: Bool = false)
     {
         self.art = art
         self.farbe = farbe
@@ -94,10 +105,23 @@ struct Seitenhintergrund: Codable, Hashable {
         self.fotoID = fotoID
         self.schleier = schleier
         self.koernung = koernung
+        self.farbkraft = farbkraft
         self.ueberDoppelseite = ueberDoppelseite
     }
 
     var istSchlicht: Bool { art == .einfarbig }
+
+    // Der Faktor, mit dem das Hintergrundfoto gesättigt wird, BEVOR der
+    // Schleier darüberkommt. Er steht hier und wird von Bildschirm und PDF
+    // gemeinsam gefragt: Zwei Rechnungen ergäben zwei Bilder.
+    //
+    // Nur beim Foto. Eine einfarbige Fläche hat nichts zu verstärken —
+    // eine Farbe mit halber Deckung über weißem Papier IST eine hellere
+    // Farbe.
+    var farbkraftfaktor: Double {
+        guard art == .foto else { return 1 }
+        return Farbkraft.faktor(schleier: schleier, staerke: farbkraft)
+    }
 
     var swiftUIVerlauf: LinearGradient {
         let bogen = Angle(degrees: winkel)

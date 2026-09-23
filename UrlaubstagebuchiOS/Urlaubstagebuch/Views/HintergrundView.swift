@@ -16,6 +16,10 @@ struct HintergrundView: View {
     var fuerUmschlag: Bool = false
     @Environment(\.dismiss) private var schliessen
     @State private var fotowahl = false
+    // Was das Strecken kostet — GEMESSEN, nicht geschätzt (siehe
+    // `Model/Farbkraft.swift`). Gerechnet wird in `.task(id:)` und nicht im
+    // Körper: Der läuft bei jedem Neuzeichnen.
+    @State private var randanteil: Double?
 
     private var istBuch: Bool { seite == nil && !fuerUmschlag }
 
@@ -130,6 +134,8 @@ struct HintergrundView: View {
                                 .foregroundStyle(.secondary)
                         }
 
+                        farbkraftabschnitt
+
                         Section {
                             Toggle("Bild über die Doppelseite",
                                    isOn: binden(\.ueberDoppelseite))
@@ -153,7 +159,78 @@ struct HintergrundView: View {
                     aendern { $0.fotoID = id }
                 }
             }
+            .task(id: kraftschluessel) { randanteil = gemessenerRandanteil() }
         }
+    }
+
+    // MARK: - Farbkraft
+
+    // Eigener Abschnitt und keine Zeile im Bildabschnitt: Es ist die
+    // Antwort auf den Schleier darüber und will daneben gelesen werden.
+    private var farbkraftabschnitt: some View {
+        Section {
+            VStack(alignment: .leading) {
+                LabeledContent("Farbkraft",
+                               value: String(format: "%.0f %%", grund.farbkraft * 100))
+                Slider(value: binden(\.farbkraft), in: 0...1)
+            }
+            LabeledContent("Sättigung des Fotos", value: faktortext)
+            if let randanteil, randanteil > 0.005 {
+                Label(randtext(randanteil), systemImage: "exclamationmark.triangle")
+                    .font(.caption)
+                    .foregroundStyle(randanteil > 0.08 ? Color.orange : Color.secondary)
+            }
+        } header: {
+            Text("Farbkraft")
+        } footer: {
+            Text(farbkrafthinweis)
+        }
+    }
+
+    private var faktortext: String {
+        let faktor = grund.farbkraftfaktor
+        guard faktor > 1.001 else { return "unverändert" }
+        let zahl = String(format: "%.2f", faktor).replacingOccurrences(of: ".", with: ",")
+        return "\u{00D7} " + zahl
+    }
+
+    private func randtext(_ anteil: Double) -> String {
+        var text = "Gemessen: " + String(format: "%.0f", anteil * 100)
+        text += " % der Bildpunkte laufen dadurch an den Rand und verlieren dort ihre "
+        text += "Zeichnung. Gezählt an einer verkleinerten Fassung, einmal vorher und "
+        text += "einmal nachher."
+        return text
+    }
+
+    // Die ganze Rechnung in einem Absatz — samt dem, was sie NICHT kann.
+    private var farbkrafthinweis: String {
+        let schleiertext = String(format: "%.0f", grund.schleier * 100)
+        let decke = String(format: "%.0f",
+                           Farbkraft.erreichbareSaettigung(schleier: grund.schleier) * 100)
+        var text = "Der Schleier zieht jede Farbe Richtung Papierweiß, und dabei rücken alle "
+        text += "Farben zusammen — daher das Grau in Grau. Die Farbkraft sättigt das Foto, "
+        text += "BEVOR der Schleier darüberkommt, und holt damit genau den Abstand zurück, "
+        text += "den der Schleier genommen hat: durchsichtig und trotzdem bunt. "
+        text += "Eine Grenze bleibt, und die ist Arithmetik: Hinter einem Schleier von "
+        text += schleiertext + " % kann nichts mehr als " + decke + " % Sättigung erreichen, "
+        text += "ganz gleich, was das Foto zeigt. Der Regler führt bis dorthin und keinen "
+        text += "Schritt weiter. Bei einer einfarbigen Fläche gibt es dagegen nichts "
+        text += "auszugleichen: Eine Farbe mit halber Deckung über weißem Papier IST eine "
+        text += "hellere Farbe — dort wählt man gleich die hellere."
+        return text
+    }
+
+    // Ändert sich einer dieser drei Werte, wird neu gemessen.
+    private var kraftschluessel: String {
+        "\(grund.fotoID?.uuidString ?? "-")|\(grund.schleier)|\(grund.farbkraft)"
+    }
+
+    private func gemessenerRandanteil() -> Double? {
+        guard grund.art == .foto, let id = grund.fotoID,
+              let foto = werk.reise.foto(id),
+              let bild = Bildarchiv.shared.vorschau(foto.datei, reise: werk.reise.id, kante: 600)
+        else { return nil }
+        return Farbkraft.randanteil(bild, faktor: grund.farbkraftfaktor)
     }
 
     private var probe: some View {

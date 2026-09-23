@@ -906,7 +906,8 @@ struct HintergrundFlaeche: View {
                    // und steht in `Bildschaerfe` — bis 1.0.52 stand hier
                    // eine feste Zahl, und die war beim Hineinzoomen zu klein.
                    let bild = Bildarchiv.shared.vorschau(foto.datei, reise: werk.reise.id,
-                                                         kante: hintergrundkante)
+                                                         kante: hintergrundkante,
+                                                         farbkraft: hintergrund.farbkraftfaktor)
                 {
                     fotoflaeche(bild)
                 }

@@ -52,7 +52,13 @@ final class Bildarchiv {
         vorrat.removeObject(forKey: schluessel(datei, kante: 0) as NSString)
     }
 
-    private func schluessel(_ datei: String, kante: Int) -> String { "\(datei)@\(kante)" }
+    // Der Schlüssel nennt AUCH die Farbkraft (ab 1.0.55). Ohne sie stünde
+    // nach dem Umstellen das Bild von vorhin im Vorrat, und der Schieber
+    // sähe aus, als täte er nichts — dieselbe Falle wie beim Merkmal des
+    // Kartenbildes.
+    private func schluessel(_ datei: String, kante: Int, kraft: Double = 1) -> String {
+        kraft > 1.001 ? "\(datei)@\(kante)#\(kraft)" : "\(datei)@\(kante)"
+    }
 
     // Ein Vorschaubild mit höchstens `kante` Punkten an der langen Seite.
     //
@@ -60,8 +66,16 @@ final class Bildarchiv {
     // ankommt: Ohne sie liegt jedes hochkant aufgenommene Foto quer, und
     // zwar nur in der Vorschau — das Original sähe richtig aus, und man
     // suchte den Fehler an der falschen Stelle.
-    func vorschau(_ datei: String, reise: UUID, kante: Int) -> UIImage? {
-        let merker = schluessel(datei, kante: kante)
+    //
+    // `farbkraft` ist der Sättigungsfaktor aus `Farbkraft` — 1 heißt
+    // unverändert. Gestreckt wird HIER und nicht in der Ansicht: Das Sieb
+    // kostet einen vollen Durchgang über das Bild, und der Körper einer
+    // SwiftUI-Ansicht läuft bei jedem Neuzeichnen.
+    func vorschau(_ datei: String, reise: UUID, kante: Int,
+                  farbkraft: Double = 1) -> UIImage?
+    {
+        let kraft = Farbkraft.stufe(farbkraft)
+        let merker = schluessel(datei, kante: kante, kraft: kraft)
         if let da = vorrat.object(forKey: merker as NSString) { return da }
         let ort = pfad(reise, datei: datei)
         guard let quelle = CGImageSourceCreateWithURL(ort as CFURL, nil) else { return nil }
@@ -73,7 +87,8 @@ final class Bildarchiv {
         ]
         guard let bild = CGImageSourceCreateThumbnailAtIndex(quelle, 0, wunsch as CFDictionary)
         else { return nil }
-        let fertig = UIImage(cgImage: bild)
+        var fertig = UIImage(cgImage: bild)
+        if kraft > 1.001 { fertig = Farbkraft.verstaerkt(fertig, faktor: kraft) }
         vorrat.setObject(fertig, forKey: merker as NSString)
         return fertig
     }
