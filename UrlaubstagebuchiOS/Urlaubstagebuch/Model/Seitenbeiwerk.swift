@@ -35,8 +35,11 @@ enum Seitenbeiwerk {
     static func zeilen(_ buchseite: Buchseite, reise: Reise) -> [Zeile] {
         // Eine ganzseitig bebilderte Seite und die Umschlagseiten tragen
         // nichts davon: Die Zahl stünde auf dem Foto und sähe aus wie ein
-        // Versehen.
-        guard !buchseite.seite.ohneSeitenzahl else { return [] }
+        // Versehen. Der Umschlag wird zusätzlich an seinem `teil` erkannt
+        // und nicht nur an `ohneSeitenzahl` — er trägt seit 1.0.52 gar
+        // keine Seitenzahl mehr, weil er im Buchblock nicht mitzählt, und
+        // eine 0 unter der Rückseite wäre schlicht falsch.
+        guard !buchseite.amUmschlag, !buchseite.seite.ohneSeitenzahl else { return [] }
 
         let endformat = reise.format.groesse
         let satz = reise.gestaltung.satzspiegel(reise.format)

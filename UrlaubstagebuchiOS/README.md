@@ -480,6 +480,97 @@ Sichtbarkeit, 34 % Breite). Ob ein Zeichen bei 10 % im Druck noch zu sehen ist
 oder schon stört, sagt erst der erste Ausdruck; auf dem Bildschirm wirkt es
 kräftiger als auf Papier.
 
+## Seite 1 liegt rechts (1.0.52)
+
+Ein Buch schlägt man auf, und rechts liegt die Seite 1. Links davon liegt
+die Innenseite des Umschlags — die kommt von der Druckerei, steht in keinem
+PDF und wird nicht bedruckt.
+
+Bis 1.0.51 lag sie links. Der Grund ist am Quelltext abzuzählen und war
+keine Geschmacksfrage: Der Umschlag zählte im Buchblock mit (Rückseite 0,
+Titelseite 1), die erste wirkliche Seite trug also die 2 — und eine gerade
+Nummer liegt links. Die Paarungsregel war richtig, **die Zählung darunter
+war falsch.**
+
+Seit 1.0.52 trennt `Buchteil` die beiden Angaben, die vorher eine waren:
+
+| | wo die Seite liegt | welche Zahl auf ihr steht |
+|---|---|---|
+| Rückseite | links auf dem Umschlagbogen | keine |
+| Titelseite | rechts auf dem Umschlagbogen | keine |
+| Buchblock | nach der Nummer, ungerade rechts | 1, 2, 3 … |
+
+Der Umschlag ist damit ein eigener Bogen (Nummer 0) und steht außerhalb der
+Zählung — er ist ja auch ein eigenes Stück Papier. Ohne Umschlagbogen ist
+die Titelseite die gewöhnliche Seite 1 und liegt als ungerade Nummer
+ebenfalls rechts.
+
+Zwei Dinge sind dabei mitgegangen: Die Seitenfolge stand an **zwei**
+Stellen (in der Ausgabe und in der Bühne, die sich die gesetzten
+Umschlagseiten merkt) — sie steht jetzt an einer, und wer die Seiten setzt,
+entscheidet der Aufrufer. Und die Druckprüfung baute die Nummerierung
+**selbst nach**; sie hätte nach diesem Umbau lauter Bogen gemeldet, die
+„nicht aufgehen".
+
+## Das Wasserzeichen darf schräg stehen (1.0.52)
+
+Unter „Wasserzeichen" steht ein Abschnitt **„Schräg"**: aus (das Bild steht
+genau so da, wie es in der Datei liegt) oder eine Spanne bis 45 Grad.
+
+Jede Seite bekommt dann einen eigenen Winkel innerhalb dieser Spanne — und
+zwar **nicht gewürfelt**, sondern aus der Kennung der Seite gezogen.
+Dieselbe Seite steht beim nächsten Öffnen wieder gleich schief, und das PDF
+zeigt genau das, was auf dem Bildschirm steht. Ein gewürfelter Winkel wäre
+ein Buch, das bei jedem Start anders aussieht.
+
+Der **Platz** wird für den gedrehten Umriss gesucht: Ein um 30 Grad
+gedrehtes Bild braucht mehr Fläche als ein gerades, und wer den Winkel erst
+beim Zeichnen draufsetzt, lässt es über den Satzspiegel ragen.
+
+## Die Rückenbreite des Druckdienstes (1.0.52)
+
+Wie breit der Buchrücken wird, hängt am Papier der Druckerei. Die App
+rechnet es aus Blattzahl, Papierstärke und Einband — und **jeder
+Druckdienst nennt eigene Zahlen**, meist als Tabelle nach Seitenzahl.
+
+Unter **Umschlag → Tabelle des Druckdienstes** lässt sich diese Tabelle
+Zeile für Zeile eintragen: ab wie vielen Seiten sie gilt, und wie viele
+Millimeter. Steht dort etwas, **gilt es** — dann wird nicht mehr gerechnet,
+und die Gesamtbreite des Bogens folgt von selbst. Genommen wird die letzte
+Zeile, deren Seitenzahl das Buch erreicht; die geltende steht farbig.
+
+**Mitgeliefert wird keine Tabelle.** Die Zahlen ließen sich nicht
+nachschlagen (versucht am 23.09.2026), und eine nach Gefühl
+hingeschriebene sähe aus wie eine Auskunft des Anbieters. Wo die Zahl
+herkommt, steht überall dabei, wo sie hingeschrieben wird.
+
+## Zwei Dateien für den Druckdienst (1.0.52)
+
+Viele Fotobuchdienste wollen zwei PDF-Dateien: eine mit den Buchseiten,
+eine mit dem Umschlagbogen. Diesen Weg gibt es seit 1.0.50 — er lag nur als
+eine von drei Zeilen in einem zugeklappten Picker.
+
+Jetzt steht er als eigener Punkt im „…"-Menü (**„Umschlag und Innenteil
+getrennt…"**), und bei einem Buch mit Umschlagbogen ist er die **Vorwahl**:
+Ein Bogen ist doppelt so breit wie eine Seite und hat mitten in einer Datei
+mit Buchseiten nichts zu suchen. Umstellen lässt es sich mit einem Tipp.
+
+## Eigene Seitenformate (1.0.52)
+
+Unter **Seitenformat** stehen neben A4, A5 und den drei Quadraten jetzt
+auch **21 × 28 cm** und **28 × 21 cm** — zwei der gängigsten
+Fotobuchformate. Die Maße folgen der Formatangabe des Anbieters und sind
+nicht gemessen; verbindlich ist, was der Druckdienst nennt.
+
+Wer ein anderes braucht, tippt es ein und sichert es mit **„Als eigene
+Vorlage sichern"**. Sie liegt danach auf dem Gerät und steht in jedem Buch
+zur Wahl — welche Formate ein Druckdienst anbietet, ist keine Eigenschaft
+einer einzelnen Reise.
+
+Angewandt ergibt eine eigene Vorlage ein **freies Maß**: Das Buch trägt
+danach die Zahlen und nicht den Namen, damit es sich auch auf einem Gerät
+öffnen lässt, das diese Vorlage nicht kennt.
+
 ## Nur diese eine Karte (1.0.51)
 
 Befund des Nutzers, 09/2026: „Hier wollte ich gerade speziell nur für diese

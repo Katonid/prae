@@ -47,6 +47,22 @@ struct Wasserzeichen: Codable, Hashable {
 
     var lage: Lage = .automatisch
 
+    // WIE WEIT ES GEDREHT SEIN DARF, in Grad (ab 1.0.52).
+    //
+    // Ansage des Nutzers, 09/2026: „ich hätte gerne, dass ich einstellen
+    // kann, ob diese Bilddatei so wie sie ist erscheint oder in einem
+    // einzustellenden Toleranzbereich gedreht ist, beispielsweise von
+    // minus 30 Grad bis plus 30 Grad."
+    //
+    // 0 heißt: gerade. Sonst wird je Seite ein Winkel zwischen `-spanne`
+    // und `+spanne` gewählt — und zwar aus der KENNUNG der Seite
+    // (`UUID.saat`), nie aus dem Zufall: Derselbe Wert muss beim nächsten
+    // Öffnen wieder herauskommen, und die Seite auf dem Bildschirm muss
+    // dieselbe sein wie im PDF. Ein gewürfelter Winkel wäre ein Buch, das
+    // bei jedem Start anders aussieht — dieselbe Falle wie beim Papierkorn
+    // in 1.0.16 und bei den Linienfarben der Abfahrtstafel.
+    var drehspanne: Double = 0
+
     // Das Titelblatt ist die eine Seite, die für sich steht. Wer dort ein
     // ganzseitiges Foto hat, will darüber meist kein zweites Zeichen.
     var aufTitelblatt: Bool = true
@@ -89,8 +105,14 @@ struct Wasserzeichen: Codable, Hashable {
         deckung = b.wert(.deckung, 0.10)
         anteil = b.wert(.anteil, 0.34)
         lage = b.wert(.lage, Lage.automatisch)
+        drehspanne = b.wert(.drehspanne, 0.0)
         aufTitelblatt = b.wert(.aufTitelblatt, true)
     }
+
+    // Mehr als das liest sich nicht mehr als Zierde, sondern als Fehler
+    // im Satz — und ein Zeichen, das fast auf dem Kopf steht, ist keines
+    // mehr. **Gewählt und nicht gemessen.**
+    static let groessteDrehung: Double = 45
 
     // Ein Eintrag ohne Datei ist keiner. Das kann vorkommen, wenn ein Buch
     // aus einer `.reisebuch`-Datei kommt, in der die Bilddatei fehlte —
@@ -139,8 +161,79 @@ enum Wasserzeichenlage {
         return CGSize(width: breite, height: hoehe)
     }
 
+    // WO das Zeichen liegt UND wie weit es gedreht ist — beides in einer
+    // Antwort, weil beides zusammengehört: Ein gedrehtes Bild braucht mehr
+    // Platz als ein gerades, und wer den Winkel erst beim Zeichnen
+    // draufsetzt, lässt es über den Satzspiegel ragen.
+    struct Ort {
+        /// Der Platz, den das GEDREHTE Zeichen einnimmt. Danach sucht die
+        /// Lagerechnung, und damit wird gemessen, was es verdeckt.
+        var rahmen: CGRect
+        /// Der ungedrehte Rahmen des Bildes, mittig im Platz. Beide
+        /// Zeichner passen das Bild hier ein und drehen um die Mitte.
+        var bildrahmen: CGRect
+        /// In Grad, im Uhrzeigersinn. 0 heißt: gerade.
+        var winkel: Double
+    }
+
+    static func ort(_ zeichen: Wasserzeichen, satz: CGRect, seite: Seite) -> Ort {
+        let winkel = drehwinkel(zeichen, seite: seite)
+        var bild = groesse(zeichen, satz: satz)
+        var platz = umschliessend(bild, winkel: winkel)
+        // GEDREHT BRAUCHT ES MEHR PLATZ — und was nicht mehr in den
+        // Satzspiegel passt, wird KLEINER und ragt nicht heraus. Gedeckelt
+        // wird das Bild, nicht der Platz: Ein Platz, der größer ist als
+        // sein Inhalt, verschöbe nur die Lagesuche.
+        let deckel = min(Double(satz.width) / max(Double(platz.width), 0.01),
+                         Double(satz.height) / max(Double(platz.height), 0.01))
+        if deckel < 1 {
+            bild = CGSize(width: Double(bild.width) * deckel,
+                          height: Double(bild.height) * deckel)
+            platz = umschliessend(bild, winkel: winkel)
+        }
+        let rahmen = rechteck(zeichen, satz: satz, seite: seite, mass: platz)
+        let bildrahmen = CGRect(x: Double(rahmen.midX) - Double(bild.width) / 2,
+                                y: Double(rahmen.midY) - Double(bild.height) / 2,
+                                width: Double(bild.width), height: Double(bild.height))
+        return Ort(rahmen: rahmen, bildrahmen: bildrahmen, winkel: winkel)
+    }
+
+    // Der Winkel dieser Seite. Gleichverteilt über die Spanne, gezogen aus
+    // der Kennung der Seite — dieselbe Seite bekommt immer denselben.
+    static func drehwinkel(_ zeichen: Wasserzeichen, seite: Seite) -> Double {
+        let spanne = min(max(zeichen.drehspanne, 0), Wasserzeichen.groessteDrehung)
+        guard spanne > 0.01 else { return 0 }
+        // Eine zweite, andere Zahl aus derselben Kennung: Die Lage nimmt
+        // den Rest zur Feldzahl, und wer denselben Rest auch für den
+        // Winkel nähme, koppelte beide aneinander — dann stünde jedes
+        // Zeichen in derselben Ecke immer gleich schief.
+        let stufen: UInt64 = 2001
+        let wert = Double((seite.id.saat &* 6_364_136_223_846_793_005 &+ 1) % stufen)
+        return (wert / Double(stufen - 1) * 2 - 1) * spanne
+    }
+
+    // Das kleinste achsenparallele Rechteck um ein gedrehtes.
+    static func umschliessend(_ mass: CGSize, winkel: Double) -> CGSize {
+        guard abs(winkel) > 0.01 else { return mass }
+        let bogen = winkel * .pi / 180
+        let c = abs(cos(bogen))
+        let s = abs(sin(bogen))
+        let breite = Double(mass.width)
+        let hoehe = Double(mass.height)
+        return CGSize(width: breite * c + hoehe * s,
+                      height: breite * s + hoehe * c)
+    }
+
     static func rechteck(_ zeichen: Wasserzeichen, satz: CGRect, seite: Seite) -> CGRect {
-        let mass = groesse(zeichen, satz: satz)
+        rechteck(zeichen, satz: satz, seite: seite,
+                 mass: umschliessend(groesse(zeichen, satz: satz),
+                                     winkel: drehwinkel(zeichen, seite: seite)))
+    }
+
+    private static func rechteck(_ zeichen: Wasserzeichen, satz: CGRect, seite: Seite,
+                                 mass vorgabe: CGSize) -> CGRect
+    {
+        let mass = vorgabe
         // Durchweg `Double`, auch wo eine `CGFloat` danebenstünde: Ein
         // `CGRect` aus gemischten Typen ist in diesem Repo zweimal teuer
         // geworden (die Falle aus 1.0.37).

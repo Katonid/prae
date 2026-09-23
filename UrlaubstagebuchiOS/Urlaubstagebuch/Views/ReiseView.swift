@@ -115,6 +115,7 @@ struct ReiseView: View {
         case seitenformat
         case bedienung
         case ausgabe
+        case zweiDateien
         case broschuere
         case neuverteilen
         case tagInhalt(UUID)
@@ -140,6 +141,7 @@ struct ReiseView: View {
             case .seitenformat: return "format"
             case .bedienung: return "bedienung"
             case .ausgabe: return "ausgabe"
+            case .zweiDateien: return "zweidateien"
             case .broschuere: return "broschuere"
             case .neuverteilen: return "neuverteilen"
             case let .tagInhalt(id): return "tag-\(id)"
@@ -371,8 +373,8 @@ struct ReiseView: View {
             }
             // Die Kennung, auf die `scrollTo` zielt.
             .id("blatt-\(buchseite.id)")
-            .onAppear { imBlick[buchseite.nummer] = tageskennung(buchseite) }
-            .onDisappear { imBlick[buchseite.nummer] = nil }
+            .onAppear { imBlick[buchseite.rang] = tageskennung(buchseite) }
+            .onDisappear { imBlick[buchseite.rang] = nil }
         }
         if seiten.isEmpty { hinweisLeer }
     }
@@ -409,10 +411,14 @@ struct ReiseView: View {
         }
     }
 
+    // Gezählt wird der BUCHBLOCK, nicht die Seitenfolge: Der Umschlag ist
+    // seit 1.0.52 ein eigenes Stück Papier und steht in keiner Seitenzahl.
+    // Mit ihm gezählt wäre die Zahl um zwei zu hoch — und die Parität,
+    // auf die es hier ankommt, bliebe zufällig richtig.
     private var ungeradeSeitenzahl: String? {
-        let anzahl = werk.seitenfolge.count
+        let anzahl = werk.seitenfolge.filter { !$0.amUmschlag }.count
         guard anzahl > 0, anzahl % 2 == 1 else { return nil }
-        return "Das Buch hat \(anzahl) Seiten, also eine ungerade Zahl \u{2014} "
+        return "Der Buchblock hat \(anzahl) Seiten, also eine ungerade Zahl \u{2014} "
             + "die letzte Seite hat keine Rückseite. Viele Druckdienste verlangen "
             + "eine gerade Seitenzahl; ob dieser es tut, steht in seinen Angaben."
     }
@@ -513,9 +519,7 @@ struct ReiseView: View {
     // nicht mit: „Seite 0" stünde unter der Rückseite, und die ist keine
     // Seite des Buchblocks, sondern die linke Hälfte des Umschlagbogens.
     private func seitenname(_ buchseite: Buchseite) -> String {
-        guard buchseite.tag == nil else { return "Seite \(buchseite.nummer)" }
-        if buchseite.nummer == 0 { return "Umschlag: Rückseite" }
-        return werk.reise.umschlag.alsBogen ? "Umschlag: Titelseite" : "Titelseite"
+        buchseite.kurzname
     }
 
     private var inhaltsbreite: CGFloat {
@@ -1127,6 +1131,21 @@ struct ReiseView: View {
     private var mehrMenue: some View {
         Menu {
             Button("Als PDF sichern…", systemImage: "square.and.arrow.up") { blatt = .ausgabe }
+            // ZWEI DATEIEN FÜR DEN DRUCKDIENST (eigener Punkt ab 1.0.52).
+            //
+            // Den Weg gibt es seit 1.0.50 — als eine von drei Zeilen in
+            // einem Picker hinter „Als PDF sichern…". Gefunden hat ihn
+            // niemand: „Ich möchte bei der Exportfunktion Einbauen, dass
+            // automatisch ein Export von zwei PDF-Dateien vorgenommen
+            // werden soll." (09/2026). Zehnte Auflage von „es war da, man
+            // fand es nicht", und dieselbe Antwort wie bei der Broschüre in
+            // 1.0.37: derselbe Bildschirm, nur mit Vorwahl und mit einem
+            // Namen, der die Sache nennt statt des Werkzeugs.
+            if werk.reise.hatRueckseite {
+                Button("Umschlag und Innenteil getrennt…", systemImage: "doc.on.doc") {
+                    blatt = .zweiDateien
+                }
+            }
             // EIN EIGENER MENÜPUNKT FÜR DIE BROSCHÜRE (ab 1.0.37).
             //
             // Es gibt sie seit 1.0.27, vollständig gebaut — gefunden hat
@@ -1487,6 +1506,8 @@ struct ReiseView: View {
             BedienungView()
         case .ausgabe:
             AusgabeView(werk: werk)
+        case .zweiDateien:
+            AusgabeView(werk: werk, vorwahl: .getrennt)
         case .broschuere:
             AusgabeView(werk: werk, vorwahl: .broschuere)
         case .neuverteilen:

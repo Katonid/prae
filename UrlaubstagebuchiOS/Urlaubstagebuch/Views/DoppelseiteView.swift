@@ -19,12 +19,11 @@ struct DoppelseiteView: View {
 
     private var bogenmass: CGSize { werk.reise.gestaltung.bogen(werk.reise.format) }
 
-    // DER UMSCHLAGBOGEN (ab 1.0.50): Er ist daran zu erkennen, dass links
-    // die Seite mit der Nummer 0 liegt — die Rückseite des Buches. Die
-    // Paarung selbst kommt unverändert aus `Bogenlage`: Eine gerade Nummer
-    // liegt links, und 0 ist gerade. Eine zweite Regel daneben gibt es
-    // nicht.
-    private var istUmschlagbogen: Bool { bogen.links?.nummer == 0 }
+    // DER UMSCHLAGBOGEN (ab 1.0.50) ist seit 1.0.52 der Bogen mit der
+    // Nummer 0 und steht damit außerhalb der Zählung des Buchblocks. Bis
+    // dahin wurde er an der Seitennummer 0 erkannt — und genau diese
+    // Mitzählung schob die erste wirkliche Buchseite auf die linke Hälfte.
+    private var istUmschlagbogen: Bool { bogen.istUmschlag }
 
     private var rueckentext: String {
         werk.reise.umschlag.rueckenbeschriftung(titel: werk.reise.titel)

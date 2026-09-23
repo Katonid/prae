@@ -16,8 +16,15 @@ import Foundation
 // Regel liefen auseinander, und dann zeigte die Doppelseitenansicht eine
 // andere Paarung als der Druck.
 enum Bogenlage {
-    // `nummer` zählt ab 1; die erste Seite ist eine rechte.
+    // `nummer` zählt den BUCHBLOCK ab 1; die erste Seite ist eine rechte.
+    // Der Umschlag zählt darin nicht mit — er ist ein eigenes Stück
+    // Papier, und bis 1.0.51 schob genau das die erste wirkliche Seite
+    // nach links (siehe `Buchteil`).
     static func rechts(_ nummer: Int) -> Bool { nummer % 2 == 1 }
+
+    // Auf welchem BOGEN diese Nummer liegt: Seite 1 liegt allein auf dem
+    // ersten (links davon die Innenseite des Umschlags), danach je zwei.
+    static func bogen(_ nummer: Int) -> Int { nummer / 2 + 1 }
 
     // Die Fläche eines Bildes, das über die ganze Doppelseite geht — in
     // den Koordinaten DIESER Seite, deren Endformat bei (0,0) beginnt.
@@ -32,10 +39,12 @@ enum Bogenlage {
     // Außenkante (-Anschnitt) und läuft nach rechts über die Nachbarin
     // hinweg; für eine rechte Seite beginnt sie eine Seitenbreite plus
     // Anschnitt weiter links.
-    static func bildflaeche(nummer: Int, format: CGSize, anschnitt: Double) -> CGRect {
+    static func bildflaeche(rechts liegtRechts: Bool, format: CGSize,
+                            anschnitt: Double) -> CGRect
+    {
         let breite = Double(format.width)
         let hoehe = Double(format.height)
-        let links = rechts(nummer) ? -(breite + anschnitt) : -anschnitt
+        let links = liegtRechts ? -(breite + anschnitt) : -anschnitt
         return CGRect(x: links, y: -anschnitt,
                       width: 2 * breite + 2 * anschnitt,
                       height: hoehe + 2 * anschnitt)
@@ -48,8 +57,10 @@ enum Bogenlage {
     // gelegt. Es ist dieselbe Zahl wie oben, nur anders ausgedrückt —
     // eine halbe Seitenbreite nach rechts (linke Seite) oder nach links
     // (rechte Seite).
-    static func versatz(nummer: Int, format: CGSize, anschnitt: Double) -> Double {
-        let flaeche = bildflaeche(nummer: nummer, format: format, anschnitt: anschnitt)
+    static func versatz(rechts liegtRechts: Bool, format: CGSize,
+                        anschnitt: Double) -> Double
+    {
+        let flaeche = bildflaeche(rechts: liegtRechts, format: format, anschnitt: anschnitt)
         return Double(flaeche.midX) - Double(format.width) / 2
     }
 }

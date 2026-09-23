@@ -18,6 +18,14 @@ struct FormatView: View {
     @State private var breite: String = ""
     @State private var hoehe: String = ""
     @State private var wechsel: Formatwechsel.Vorschau?
+    // EIGENE VORLAGEN (ab 1.0.52). Sie liegen in den Voreinstellungen und
+    // nicht im Buch — welche Formate ein Druckdienst anbietet, ist keine
+    // Eigenschaft dieser einen Reise. Gemerkt werden sie hier als
+    // `@State`, weil die Liste sonst bei jedem Zeichnen aus `UserDefaults`
+    // gelesen und dekodiert würde.
+    @State private var eigene: [Formatvorlagen.Eintrag] = []
+    @State private var sichern = false
+    @State private var neuerName = ""
 
     var body: some View {
         NavigationStack {
@@ -56,6 +64,42 @@ struct FormatView: View {
                     }
                 } header: {
                     Text("Vorlagen")
+                } footer: {
+                    Text("Die Maße folgen der Formatangabe des jeweiligen Anbieters und sind nicht gemessen — verbindlich ist, was der Druckdienst nennt. Wer ein anderes braucht, tippt es unten ein und sichert es als eigene Vorlage.")
+                }
+
+                if !eigene.isEmpty {
+                    Section {
+                        ForEach(eigene) { eintrag in
+                            Button {
+                                formatWuenschen(eintrag.format)
+                            } label: {
+                                HStack {
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(eintrag.name)
+                                            .foregroundStyle(.primary)
+                                        Text(eintrag.format.masstext)
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                    Spacer()
+                                    Seitenriss(format: eintrag.format)
+                                }
+                            }
+                            .swipeActions {
+                                Button(role: .destructive) {
+                                    Formatvorlagen.entfernen(eintrag)
+                                    eigene = Formatvorlagen.alle
+                                } label: {
+                                    Label("Löschen", systemImage: "trash")
+                                }
+                            }
+                        }
+                    } header: {
+                        Text("Eigene Vorlagen")
+                    } footer: {
+                        Text("Gemerkt auf diesem Gerät, nicht im Buch. Angewandt ergeben sie ein freies Maß — das Buch trägt danach die Zahlen und nicht den Namen, damit es sich auch auf einem Gerät öffnen lässt, das diese Vorlage nicht kennt.")
+                    }
                 }
 
                 Section {
@@ -81,6 +125,15 @@ struct FormatView: View {
                         if let eigen = eigenesMass { formatWuenschen(eigen) }
                     }
                     .disabled(eigenesMass == nil)
+                    Button {
+                        guard let eigen = eigenesMass else { return }
+                        neuerName = Formatvorlagen.vorschlag(breite: eigen.breite,
+                                                             hoehe: eigen.hoehe)
+                        sichern = true
+                    } label: {
+                        Label("Als eigene Vorlage sichern…", systemImage: "square.and.arrow.down")
+                    }
+                    .disabled(eigenesMass == nil)
                 } header: {
                     Text("Eigenes Maß")
                 } footer: {
@@ -98,6 +151,21 @@ struct FormatView: View {
             .task {
                 if breite.isEmpty { breite = zahl(jetzt.breite) }
                 if hoehe.isEmpty { hoehe = zahl(jetzt.hoehe) }
+                eigene = Formatvorlagen.alle
+            }
+            .alert("Vorlage sichern", isPresented: $sichern) {
+                TextField("Name", text: $neuerName)
+                Button("Sichern") {
+                    guard let eigen = eigenesMass else { return }
+                    let name = neuerName.trimmingCharacters(in: .whitespacesAndNewlines)
+                    guard !name.isEmpty else { return }
+                    Formatvorlagen.sichern(.init(name: name, breite: eigen.breite,
+                                                 hoehe: eigen.hoehe))
+                    eigene = Formatvorlagen.alle
+                }
+                Button("Abbrechen", role: .cancel) {}
+            } message: {
+                Text("Das Maß wird auf diesem Gerät gemerkt und steht danach oben in der Liste. Das Buch selbst ändert sich dadurch nicht \u{2014} dafür ist \u{201E}Eigenes Maß übernehmen\u{201C} da.")
             }
             // ERST ZEIGEN, DANN ÜBERNEHMEN — dieselbe Regel wie bei jeder
             // Einfuhr dieser App. Ein Formatwechsel fasst jeden Block des

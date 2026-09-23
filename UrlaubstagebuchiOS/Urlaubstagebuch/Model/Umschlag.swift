@@ -68,6 +68,43 @@ struct Umschlag: Codable, Hashable {
     // Softcover zählt es nicht mit.
     var deckenstaerke: Double = 4
 
+    // DIE TABELLE DES DRUCKDIENSTES (ab 1.0.52).
+    //
+    // Ansage des Nutzers, 09/2026: „Bei Saal Digital werden in einer
+    // Tabelle Breiten für den Buchrücken angegeben, die in Abhängigkeit
+    // der Seitenzahl des Buches zu erwarten sind. … Die Breite des
+    // Buchrückens und davon abhängig natürlich auch die Gesamtbreite der
+    // Umschlagseite soll von der App in Abhängigkeit von der Seitenzahl
+    // automatisch festgelegt werden."
+    //
+    // Abhängig von der Seitenzahl war sie schon immer — gerechnet aus
+    // Blattzahl, Papierstärke und Einband. Was fehlte, ist die Möglichkeit,
+    // die Zahlen des Anbieters zu nehmen STATT sie zu rechnen. Denn sie
+    // sind die einzigen, die gelten: Wie dick ein Blatt aufträgt, weiß der
+    // Druckdienst.
+    //
+    // **Die Tabelle wird EINGETRAGEN und nicht mitgeliefert.** Sie steht
+    // bei Saal Digital hinter einer Oberfläche, die sich von hier aus nicht
+    // abrufen ließ (versucht am 23.09.2026, Profi-Bereich und Preisseite —
+    // beide geben die Zahlen nicht als Text heraus). Eine nach Gefühl
+    // hingeschriebene Tabelle wäre schlimmer als keine: Sie sähe aus wie
+    // eine Auskunft des Anbieters und wäre geraten. Dieselbe Regel wie bei
+    // den Fahrplanquellen der Abfahrtstafel — was sich nicht nachschlagen
+    // lässt, wird nicht geraten.
+    struct Rueckenstufe: Codable, Hashable, Identifiable {
+        /// Ab wie vielen Seiten des Buchblocks diese Zeile gilt.
+        var abSeiten: Int
+        /// Die Rückenbreite in Millimetern.
+        var millimeter: Double
+
+        var id: Int { abSeiten }
+    }
+
+    /// Leer heißt: gerechnet. Sonst gilt die Zeile mit dem größten
+    /// `abSeiten`, das die Seitenzahl nicht überschreitet — genau so, wie
+    /// eine solche Tabelle gelesen wird.
+    var rueckentabelle: [Rueckenstufe] = []
+
     // MARK: - Die Rückseite
 
     var rueckseitentext: String = ""
@@ -102,6 +139,7 @@ struct Umschlag: Codable, Hashable {
         papierstaerke = b.wert(.papierstaerke, 0.13)
         einband = b.wert(.einband, Einband.hardcover)
         deckenstaerke = b.wert(.deckenstaerke, 4)
+        rueckentabelle = b.wert(.rueckentabelle, [Rueckenstufe]())
         rueckseitentext = b.wert(.rueckseitentext, "")
         rueckseitenfoto = b.wahlweise(.rueckseitenfoto)
         hintergrund = b.wahlweise(.hintergrund)
@@ -114,6 +152,18 @@ struct Umschlag: Codable, Hashable {
     func rueckenbeschriftung(titel: String) -> String {
         let eigen = rueckentext.trimmingCharacters(in: .whitespacesAndNewlines)
         return eigen.isEmpty ? titel : eigen
+    }
+
+    /// Was die Tabelle zu dieser Seitenzahl sagt — `nil` heißt: Sie sagt
+    /// nichts dazu (leer, oder das Buch ist dünner als ihre erste Zeile).
+    /// Dann wird gerechnet, statt die kleinste Zeile zu nehmen: Eine
+    /// Tabelle, die bei 20 Seiten anfängt, hat über ein Buch mit 12 Seiten
+    /// keine Aussage getroffen.
+    func tabellenbreite(innenseiten: Int) -> Double? {
+        let passend = rueckentabelle
+            .filter { $0.abSeiten <= innenseiten }
+            .max { $0.abSeiten < $1.abSeiten }
+        return passend.map { max(0, $0.millimeter) }
     }
 
     var eigeneGestaltung: Bool {

@@ -78,6 +78,25 @@ struct WasserzeichenView: View {
                     } footer: {
                         Text(lagenhinweis)
                     }
+
+                    Section {
+                        Toggle("Gedreht", isOn: Binding(
+                            get: { zeichen.drehspanne > 0.01 },
+                            set: { an in aendern { $0.drehspanne = an ? 12 : 0 } }
+                        ))
+                        if zeichen.drehspanne > 0.01 {
+                            VStack(alignment: .leading) {
+                                LabeledContent("Höchstens",
+                                               value: gradtext(zeichen.drehspanne))
+                                Slider(value: binden(\.drehspanne),
+                                       in: 1 ... Wasserzeichen.groessteDrehung, step: 1)
+                            }
+                        }
+                    } header: {
+                        Text("Schräg")
+                    } footer: {
+                        Text(drehhinweis)
+                    }
                 }
             }
             .navigationTitle("Wasserzeichen")
@@ -105,6 +124,26 @@ struct WasserzeichenView: View {
         text += "Ein JPEG hat immer einen Grund, und der legt sich als helles Rechteck über die Seite. "
         text += "Deshalb führt dieser Weg in die Dateien und nicht in die Fotos: "
         text += "Die Mediathek gibt fast nur JPEG und HEIC heraus, und beide können keine Durchsichtigkeit."
+        return text
+    }
+
+    private func gradtext(_ grad: Double) -> String {
+        let zahl = String(format: "%.0f", grad)
+        return "\u{00B1}\(zahl)\u{00B0}"
+    }
+
+    private var drehhinweis: String {
+        guard let zeichen, zeichen.drehspanne > 0.01 else {
+            return "Aus heißt: Das Bild steht genau so da, wie es in der Datei liegt."
+        }
+        var text = "Jede Seite bekommt einen eigenen Winkel zwischen "
+        text += gradtext(zeichen.drehspanne).replacingOccurrences(of: "\u{00B1}", with: "\u{2212}")
+        text += " und +" + String(format: "%.0f", zeichen.drehspanne) + "\u{00B0}. "
+        text += "Er ist NICHT gewürfelt, sondern hängt an der Kennung der Seite: "
+        text += "Dieselbe Seite steht beim nächsten Öffnen wieder gleich schief, "
+        text += "und das PDF zeigt genau das, was hier zu sehen ist. "
+        text += "Der Platz für das Zeichen wird dabei mitgerechnet \u{2014} "
+        text += "gedreht braucht es mehr, und sonst ragte es über den Satzspiegel."
         return text
     }
 
@@ -167,6 +206,13 @@ struct WasserzeichenView: View {
                 werk.reise.gestaltung.wasserzeichen = jetzt
             }
         )
+    }
+
+    // Für alles, was mehr als ein Feld setzt oder eine Bedingung hat.
+    private func aendern(_ was: (inout Wasserzeichen) -> Void) {
+        guard var jetzt = werk.reise.gestaltung.wasserzeichen else { return }
+        was(&jetzt)
+        werk.reise.gestaltung.wasserzeichen = jetzt
     }
 
     // Die gewählte Datei wandert unverändert ins Bildarchiv DIESER Reise —

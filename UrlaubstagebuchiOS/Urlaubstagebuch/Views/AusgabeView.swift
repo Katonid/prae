@@ -23,16 +23,27 @@ struct AusgabeView: View {
     @State private var umfang: Umfang
     @State private var drucken = false
 
-    // WOMIT DER BILDSCHIRM AUFMACHT. Der Menüpunkt „Broschüre drucken…"
-    // reicht `.broschuere` herein; sonst bleibt es bei der einen Datei.
+    // WOMIT DER BILDSCHIRM AUFMACHT. Die Menüpunkte „Broschüre drucken…"
+    // und „Umschlag und Innenteil getrennt…" reichen ihren Umfang herein;
+    // ohne Vorgabe entscheidet das BUCH.
+    //
+    // Hat es einen Umschlagbogen, sind ZWEI Dateien die Vorwahl (ab
+    // 1.0.52, Ansage des Nutzers 09/2026: „dass automatisch ein Export von
+    // zwei PDF-Dateien vorgenommen werden soll"). Das ist nicht bloß
+    // Bequemlichkeit: Ein Bogen ist doppelt so breit wie eine Seite, und
+    // mitten in einer Datei mit Buchseiten hätte er dort nichts zu suchen.
+    // Umstellen lässt es sich weiterhin mit einem Tipp — der Picker steht
+    // sichtbar darüber, und still weglassen tut diese Vorwahl nichts:
+    // Ausgegeben wird in jedem Fall alles, nur eben in zwei Dateien.
     //
     // Gesetzt wird der Anfangswert HIER und nicht in `.task`: Ein Zustand,
     // den eine Aufgabe nachträglich überschreibt, springt für einen
     // Durchgang lang auf den falschen Wert — und wer in dieser Zeit schon
     // umgestellt hat, sieht seine Wahl zurückgesetzt.
-    init(werk: Reisewerk, vorwahl: Umfang = .ganzesBuch) {
+    init(werk: Reisewerk, vorwahl: Umfang? = nil) {
         self.werk = werk
-        _umfang = State(initialValue: vorwahl)
+        let ausDemBuch: Umfang = werk.reise.hatRueckseite ? .getrennt : .ganzesBuch
+        _umfang = State(initialValue: vorwahl ?? ausDemBuch)
     }
     @State private var teilenliste: [URL] = []
     @State private var befundVorab: [Druckpruefung.Zeile] = []
@@ -83,8 +94,10 @@ struct AusgabeView: View {
         guard mm > 0.05 else { return "" }
         let zahl = String(format: "%.1f", mm).replacingOccurrences(of: ".", with: ",")
         var text = " \u{2014} ein Bogen, Rücken \(zahl) mm. "
-        text += "Die Breite ist aus Seitenzahl, Papierstärke und Einband GERECHNET; "
-        text += "verbindlich ist die Angabe des Druckdienstes."
+        text += "Die Breite ist "
+        text += Umschlagmass.rueckenherkunft(werk.reise.umschlag,
+                                             innenseiten: werk.reise.innenseiten)
+        text += "; verbindlich ist die Angabe des Druckdienstes."
         return text
     }
 
@@ -217,7 +230,7 @@ struct AusgabeView: View {
                     .disabled(laeuft)
                 }
             }
-            .navigationTitle(umfang == .broschuere ? "Broschüre" : "Als PDF sichern")
+            .navigationTitle(titel)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -238,6 +251,14 @@ struct AusgabeView: View {
     }
 
     // MARK: - Broschüre
+
+    private var titel: String {
+        switch umfang {
+        case .broschuere: return "Broschüre"
+        case .getrennt: return "Zwei Dateien"
+        case .ganzesBuch: return "Als PDF sichern"
+        }
+    }
 
     private var broschuerenmass: String {
         let end = werk.reise.format
