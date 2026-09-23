@@ -480,6 +480,66 @@ Sichtbarkeit, 34 % Breite). Ob ein Zeichen bei 10 % im Druck noch zu sehen ist
 oder schon stört, sagt erst der erste Ausdruck; auf dem Bildschirm wirkt es
 kräftiger als auf Papier.
 
+## Das Schriftenrecht — gemessen statt geraten (1.0.66)
+
+Selbst installierte Schriften (Quicksand, Poppins und was sonst auf dem iPad
+liegt) tauchten in der Schriftwahl nicht auf. Der Grund ist ein Recht:
+`com.apple.developer.user-fonts`. Ohne das gibt iOS einer App die Schriften
+des Nutzers überhaupt nicht heraus.
+
+Der Weg dahin ging über zwei Fehlversuche, und beide stehen hier, weil sie
+sich sonst wiederholen.
+
+**1.0.44** trug das Recht mit der Zeichenkette `system-installed-fonts` ein.
+Sie war geraten — und der Preis war nicht eine Funktion, sondern der ganze
+Bau: Xcode fand kein passendes Profil mehr, und die App ließ sich auf kein
+Gerät mehr bringen. **1.0.45** nahm es wieder heraus und baute stattdessen
+eine **Probe**: Sie liest das eingebettete Bereitstellungsprofil und schreibt
+in den Befund, was dieser Bau wirklich darf — statt es zu behaupten.
+
+Am 23.09.2026 hat diese Probe geantwortet:
+
+    Schriftenrecht (com.apple.developer.user-fonts):
+    BEWILLIGT als ["app-usage", "system-installation"].
+
+Genau das steht seit 1.0.66 in `Config/Urlaubstagebuch.entitlements`, Wort
+für Wort. `app-usage` ist der Wert hinter Xcodes Haken „Use Installed Fonts"
+— der, um den es die ganze Zeit ging. `system-installation` braucht die App
+nicht (sie installiert keine Schriften), steht aber mit dabei: Eine Teilmenge
+der bewilligten Werte ist nicht gemessen, und an einer ungemessenen Annahme
+ist 1.0.44 gescheitert.
+
+**In die Mac-Datei kommt es nicht.** Der Mac-Bau hat ein eigenes Profil, und
+ein Recht, das dieses nicht trägt, richtet dort denselben Schaden an.
+
+**Nicht gemessen:** Im selben Befund meldete die Systemabfrage **null**
+Einträge, und jede Anmeldung endete mit „Die Schriftregistrierung ist
+fehlgeschlagen." Das Recht ist der belegte erste Schritt, kein Beweis. Ob die
+Abfrage danach etwas hergibt, sagt erst der nächste Befund — und ein grüner
+Bau in GitHub Actions sagt dazu gar nichts: Der übersetzt ohne Signierung und
+sieht Entitlements nie an.
+
+### Drei Zahlen, die nebeneinander standen und sich zu widersprechen schienen
+
+Im selben Bericht: null gemeldete Einträge, **drei** über den Wähler gewählte
+Schriften, und alle drei **auffindbar**. Das ist kein Widerspruch —
+`UIFontPickerViewController` läuft **außerhalb** der App, wie der Fotowähler.
+Was er zeigt, sagt nichts darüber, was die App selbst aufzählen darf. Ein
+Befund über den einen Weg ist kein Befund über den anderen.
+
+Dazu neunmal derselbe Satz im Protokoll: „Die Schriftregistrierung ist
+fehlgeschlagen." — während dieselben Schriften danach auffindbar waren. Das
+ist der allgemeine Text von CoreText und sagt über die Ursache nichts;
+wahrscheinlich heißt er schlicht „steht schon". Gemeldet werden seither
+**Domäne und Code** dazu, und wo die Zahl bekannt ist, ihr Name. Was nicht in
+der Tabelle steht, bleibt eine nackte Zahl und wird nicht gedeutet.
+
+Und der Befund wiederholt keine Vermutung mehr, die er selbst schon
+beantwortet hat: Steht das Recht im Profil, zeigt der nächste Verdacht nicht
+mehr auf die App-Id, sondern darauf, ob diese Fassung es auch verlangt. Auch
+„Nichts anzumelden" sagt jetzt dazu, ob es der gute Fall war (alles schon
+auffindbar) oder der leere.
+
 ## Ausschneiden, kopieren, einfügen (1.0.65)
 
 Ein Element lässt sich jetzt **ausschneiden oder kopieren** und danach auf

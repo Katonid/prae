@@ -6416,6 +6416,14 @@ Befunde, und keiner davon war Geschmack:
   nicht zu messen. **Wer eine Zeichenkette in eine Entitlements-Datei
   schreibt, die er nicht nachschlagen kann, rät — und ein geratenes Recht
   kostet nicht eine Funktion, sondern den ganzen Bau.**
+  **Nachtrag 1.0.66: `system-installed-fonts` gibt es nicht.** Die Probe aus
+  1.0.45 hat am 23.09.2026 geantwortet — das Profil bewilligt
+  `["app-usage", "system-installation"]`. **`app-usage` ist der Wert hinter
+  „Use Installed Fonts"**, also der, um den es die ganze Zeit ging; er stand
+  hier nie, weil er von hier aus nicht nachzuschlagen war. Der Absatz bleibt
+  trotzdem stehen: Er ist der Beleg dafür, dass die Regel greift — die
+  richtige Zeichenkette kam aus einer Messung auf dem Gerät und aus keiner
+  Überlegung hier.
 - **Was ein Bau DARF, wird seit 1.0.45 GELESEN** (`Model/Profilrechte.swift`,
   im Befund unter „Schriften prüfen" als erster Abschnitt). Gelesen wird die
   Rechteliste aus dem eingebetteten `embedded.mobileprovision` — also das,
@@ -7241,6 +7249,69 @@ Befunde, und keiner davon war Geschmack:
   Fotoliste; seit 1.0.56 ist es eine Schleife über `gueltigeBilder` statt
   einer einzelnen Datei. Vergäße man sie, verlöre ein ausgetauschtes Buch
   seine Zeichen.
+- **DAS SCHRIFTENRECHT STEHT WIEDER IN DER ENTITLEMENTS-DATEI — DIESMAL
+  GEMESSEN** (`Config/Urlaubstagebuch.entitlements`, ab 1.0.66; Befund des
+  Nutzers aus „Schriften prüfen", 23.09.2026). Die Probe aus 1.0.45 hat
+  geliefert, wofür sie gebaut war: Profil „iOS Team Provisioning Profile:
+  de.familie.urlaubstagebuch", elf bewilligte Rechte, darunter
+  **`com.apple.developer.user-fonts` als `["app-usage",
+  "system-installation"]`**. Genau diese Zeichenkette steht jetzt dort, Wort
+  für Wort.
+  - **`app-usage` ist der Wert hinter Xcodes Haken „Use Installed Fonts"** —
+    also der, den 1.0.44 mit `system-installed-fonts` zu erraten versuchte
+    und an dem das ganze Projekt unsignierbar wurde. Die Regel von damals
+    („wer eine Zeichenkette in eine Entitlements-Datei schreibt, die er nicht
+    nachschlagen kann, rät") hat also nicht bloß Schaden verhütet, sie hat
+    die richtige Antwort geliefert — nur eben von einem Gerät und nicht von
+    hier.
+  - **`system-installation` steht mit drin, obwohl die App es nicht
+    braucht.** Sie installiert keine Schriften. Eine TEILMENGE der
+    bewilligten Werte ist aber nicht gemessen, und der Fehlertext von 1.0.44
+    sprach ausdrücklich vom „value" des Rechts. Hier wird nicht zum zweiten
+    Mal geraten, auch nicht in die vorsichtige Richtung. **Wer es enger
+    haben will, nimmt in Xcode die Fähigkeit weg und meldet, was das Profil
+    danach sagt.**
+  - **NUR in die iOS-Datei.** `Config/Urlaubstagebuch-Mac.entitlements` ist
+    unangetastet: Der Mac-Bau hat ein eigenes Profil, und ein Recht, das
+    dieses nicht trägt, macht genau dort dasselbe kaputt wie 1.0.44 auf iOS.
+  - **NICHT GEMESSEN — und das ist die wichtigere Hälfte des Befundes.** Im
+    selben Bericht meldete `CTFontManagerCopyRegisteredFontDescriptors`
+    **null** Einträge, und jede Anmeldung endete mit „Die
+    Schriftregistrierung ist fehlgeschlagen." Der Eintrag ins Repo ist der
+    belegte erste Schritt, kein Beweis; ob die Abfrage danach etwas hergibt,
+    sagt erst der nächste Befund. Und ein grüner Bau in GitHub Actions sagt
+    dazu gar nichts (`CODE_SIGNING_ALLOWED=NO`).
+- **DER WÄHLER IST EIN EIGENER PROZESS — deshalb geht er, während die
+  Abfrage leer bleibt** (ab 1.0.66). Derselbe Befund enthielt einen
+  scheinbaren Widerspruch: null gemeldete Einträge, aber drei über den
+  Wähler gewählte Schriften (Quicksand Regular, Quicksand Medium, Poppins
+  Regular), alle drei **auffindbar**. `UIFontPickerViewController` läuft
+  außerhalb der App — wie der Fotowähler, und aus demselben Grund darf er
+  ohne Erlaubnis arbeiten. Was er zeigt, sagt über das, was DIESER Prozess
+  aufzählen darf, nichts. **Merke: Ein Befund über den einen Weg ist kein
+  Befund über den anderen** — 1.0.44 hatte genau daraus („im Wähler fehlen
+  sie") auf das Recht geschlossen, und das war damals richtig; als Regel
+  wäre es falsch.
+- **WAS EIN FEHLER HEISST, STEHT IN SEINER ZAHL** (`Geraeteschriften.fehlernamen`,
+  ab 1.0.66). Neunmal derselbe Satz im Protokoll — „Die Schriftregistrierung
+  ist fehlgeschlagen" —, und dieselben Schriften danach auffindbar. Das ist
+  der allgemeine Text von CoreText und sagt über die Ursache nichts;
+  wahrscheinlich heißt er „steht schon" (Code 105). Gemeldet werden seither
+  Domäne, Code und, wo die Zahl bekannt ist, ihr Name; was nicht in der
+  Tabelle steht, bleibt eine nackte Zahl und wird nicht gedeutet. Dieselbe
+  Regel wie bei Schulalarms `rohAbfrage`: **Ein aufgeräumter Satz ist für
+  die Person, die es richten muss, weniger wert als der rohe Befund.** Die
+  Tabelle nennt Zahlen und keine `CTFontManagerError`-Fälle — die Zahlen
+  stehen in Apples Papier, die Swift-Namen sind schon gewandert.
+- **Eine Probe, die nach dem Messen dieselbe Vermutung wiederholt, ist die
+  Frage von vorhin noch einmal** (ab 1.0.66). Bis 1.0.65 sagte der Befund
+  bei leerer Liste immer „Erster Verdacht: das Recht" — auch dann, wenn die
+  Zeile zwei Absätze darüber es als bewilligt auswies. Jetzt hängt der Satz
+  davon ab: bewilligt → der nächste Verdacht ist, ob diese FASSUNG es
+  verlangt; nicht bewilligt → es liegt an der App-Id; kein Profil lesbar →
+  es lässt sich nichts sagen. Dasselbe in der Schriftwahl (drei Fälle statt
+  zwei) und im Protokoll, wo „Nichts anzumelden" jetzt dazusagt, ob es der
+  gute Fall war (alles schon auffindbar) oder der leere.
 - **AUSSCHNEIDEN, KOPIEREN, EINFÜGEN — WEIL DAS MENÜ DIE ZIELSEITE NICHT
   AUFZÄHLEN KANN** (`Reisewerk.Ablageinhalt`, `blockAusschneiden`,
   `blockInDieAblage`, `einfuegenGrund`, `blockEinfuegen`, ab 1.0.65; Befund
@@ -7340,7 +7411,7 @@ Befunde, und keiner davon war Geschmack:
   des Nutzers: in `Config/Urlaubstagebuch.entitlements`, die Xcode selbst
   geschrieben hat, und im Befund unter „Schriften prüfen", der seit 1.0.45
   die Rechte aus dem eingebetteten Profil liest. **Erst diese Zeichenkette
-  wird eingetragen, nicht vorher.**
+  wird eingetragen, nicht vorher.** — **Erledigt in 1.0.66**, siehe dort.
 - **EIGENE FELDER AUF TITELSEITE UND RÜCKSEITE — SIE LIEGEN NEBEN DER
   GERECHNETEN SEITE, NICHT DARIN** (`Umschlag.titelbloecke`, `.rueckbloecke`,
   ab 1.0.64; Ansage des Nutzers 09/2026: „Es soll mir zum Beispiel auch
@@ -8216,11 +8287,12 @@ Befunde, und keiner davon war Geschmack:
   Stellen im pbxproj (Debug + Release) — es gibt KEINE Skript-Bauphase.
   **Jede Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne
   Nachfrage, als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann
-  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.65 (Build 66). Dazu gesetzt:
+  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.66 (Build 67). Dazu gesetzt:
   `DEVELOPMENT_TEAM = F4989GSTWS` und
   `INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.travel`.
   Seit 1.0.4 steht dort auch `CODE_SIGN_ENTITLEMENTS = Config/Urlaubstagebuch.entitlements`
-  (iCloud Documents, seit 1.0.44 zusätzlich `com.apple.developer.user-fonts`)
+  (iCloud Documents, seit 1.0.66 wieder `com.apple.developer.user-fonts`
+  mit den vom Profil bewilligten Werten)
   — nicht entfernen, sonst liegt der Abgleich still und die selbst
   installierten Schriften bleiben unsichtbar.
 - `ITSAppUsesNonExemptEncryption = NO` steht in `Config/Info.plist` UND als

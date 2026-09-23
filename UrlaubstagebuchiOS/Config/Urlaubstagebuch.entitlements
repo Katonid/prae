@@ -24,47 +24,64 @@
 		<string>iCloud.de.familie.urlaubstagebuch</string>
 	</array>
 
-	<!-- DAS SCHRIFTENRECHT STEHT HIER NICHT MEHR (heraus in 1.0.45).
-	     1.0.44 trug hier `com.apple.developer.user-fonts` mit dem Wert
-	     `system-installed-fonts` ein, damit die selbst installierten
-	     Schriften des Nutzers in der Schriftwahl auftauchen. Die Absicht war
-	     richtig; der Preis war, dass sich die App gar nicht mehr signieren
-	     ließ. Gemeldet 09/2026 mit einem Bildschirmfoto aus Xcode:
+	<!-- DAS SCHRIFTENRECHT — gemessen, nicht geraten (ab 1.0.66).
+
+	     Der Weg hierher ging über zwei Fassungen, und beide Fehler stehen
+	     hier, weil sie sich sonst wiederholen.
+
+	     1.0.44 trug diesen Schlüssel mit dem Wert `system-installed-fonts`
+	     ein. Die Zeichenkette war GERATEN — sie steht in keinem Papier —,
+	     und der Preis war nicht eine Funktion, sondern der ganze Bau:
 	     „Automatic signing failed — Provisioning profile ‚iOS Team
 	     Provisioning Profile: de.familie.urlaubstagebuch‘ doesn't match the
 	     entitlements file's value for the com.apple.developer.user-fonts
-	     entitlement."
+	     entitlement." Ein Profil kann nur bewilligen, was die App-Id in der
+	     Entwicklerkonsole kann; steht in der Datei etwas anderes, findet
+	     die automatische Signierung gar kein Profil mehr — und dann lässt
+	     sich auch nichts anderes mehr ausprobieren.
 
-	     EIN RECHT, DAS DIE APP-ID NICHT TRÄGT, MACHT DAS PROJEKT
-	     UNSIGNIERBAR. Ein Profil kann nur bewilligen, was die App-Id in der
-	     Entwicklerkonsole kann; steht in der Datei mehr, findet die
-	     automatische Signierung gar kein Profil mehr — und dann lässt sich
-	     auch nichts anderes mehr ausprobieren. Genau dieselbe Lehre steht
-	     seit dem ersten Signieren bei Schulalarm im Papier, für die
-	     Entitlements-Datei der Erweiterung. Sie galt hier genauso und wurde
-	     nicht gezogen.
+	     1.0.45 hat es deshalb ersatzlos herausgenommen und stattdessen eine
+	     PROBE gebaut, die das eingebettete Bereitstellungsprofil liest
+	     (`Profilrechte`): Was ein Bau darf, wird seither nachgesehen und
+	     nicht behauptet.
 
-	     UND DER BAU KONNTE ES NICHT MELDEN. GitHub Actions übersetzt mit
-	     `CODE_SIGNING_ALLOWED=NO` gegen den Simulator und sieht
+	     DIESE ZEILEN SIND DAS ERGEBNIS DIESER PROBE. Gemeldet 09/2026 aus
+	     „Schriften prüfen", Profil „iOS Team Provisioning Profile:
+	     de.familie.urlaubstagebuch":
+
+	         Schriftenrecht (com.apple.developer.user-fonts):
+	         BEWILLIGT als [„app-usage", „system-installation"].
+
+	     Also steht genau das hier, Wort für Wort. `app-usage` ist der Wert
+	     hinter Xcodes Haken „Use Installed Fonts" — DAS ist, was diese App
+	     braucht: die selbst installierten Schriften des Nutzers LESEN.
+	     `system-installation` (Schriften systemweit installieren) braucht
+	     sie nicht und benutzt sie nirgends; es steht hier, weil die App-Id
+	     beides trägt und eine TEILMENGE nicht gemessen ist. Genau an so
+	     einer ungemessenen Annahme ist 1.0.44 gescheitert — hier wird nicht
+	     zum zweiten Mal geraten, auch nicht in die vorsichtige Richtung.
+
+	     WER DAS ÄNDERN WILL, ändert es in Xcode und nicht hier: Fähigkeit
+	     „Fonts" bzw. „Font Enumeration" aus- oder abwählen, Xcode schreibt
+	     diese Datei dann selbst. Was danach im Profil steht, nennt
+	     „Schriften prüfen" wieder im Klartext — und erst das gehört ins
+	     Repo.
+
+	     UND DER BAU IN GITHUB ACTIONS KANN DAZU NICHTS SAGEN. Er übersetzt
+	     mit `CODE_SIGNING_ALLOWED=NO` gegen den Simulator und sieht
 	     Entitlements nie an. Der Bau zu 1.0.44 war grün, und die App war
-	     trotzdem nicht mehr auf ein Gerät zu bringen.
+	     trotzdem auf kein iPad mehr zu bringen. Ein grüner Bau ist hier
+	     kein Beleg.
 
-	     DER WERT SELBST IST DER ZWEITE VERDACHT. `system-installed-fonts`
-	     steht in keinem Papier, das sich nachschlagen ließ; belegt ist
-	     allein `system-installation`, und das ist das Recht, Schriften
-	     systemweit zu INSTALLIEREN — das tut diese App nicht, und ein Recht
-	     zu verlangen, das man nicht braucht, ist genau der Fehler von oben
-	     noch einmal. In Xcode heißt der Haken, um den es geht, „Use
-	     Installed Fonts"; welche Zeichenkette er schreibt, steht hier
-	     nirgends nachlesbar und wird nicht ein zweites Mal geraten.
-
-	     DER WEG ZURÜCK, falls die Schriften doch hierher sollen, ist
-	     gemessen und nicht geraten: In der Entwicklerkonsole bekommt die
-	     App-Id `de.familie.urlaubstagebuch` die Fähigkeit „Fonts", danach
-	     in Xcode die Fähigkeit „Fonts" mit dem Haken „Use Installed Fonts"
-	     — EINMAL, nicht zweimal. Xcode schreibt dann selbst in diese Datei,
-	     was richtig ist. Lässt es sich danach signieren, gehört genau diese
-	     Zeichenkette hierher, und „Schriften prüfen" nennt sie seit 1.0.45
-	     aus dem eingebetteten Profil. Vorher nicht. -->
+	     NICHT GEMESSEN: dass sich die App mit diesen Zeilen wieder
+	     signieren lässt, und dass danach die Systemabfrage wirklich etwas
+	     hergibt — im selben Befund meldete sie 0 Einträge, während drei
+	     über den Wähler gewählte Schriften auffindbar waren. Das Recht ist
+	     der belegte erste Schritt, kein Beweis. -->
+	<key>com.apple.developer.user-fonts</key>
+	<array>
+		<string>app-usage</string>
+		<string>system-installation</string>
+	</array>
 </dict>
 </plist>
