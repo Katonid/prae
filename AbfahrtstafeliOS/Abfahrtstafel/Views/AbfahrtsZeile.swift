@@ -43,16 +43,21 @@ struct AbfahrtsZeile: View {
             Liniensymbol(linie: abfahrt.linie, mitMittel: true)
 
             VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 5) {
+                HStack(alignment: .firstTextBaseline, spacing: 5) {
                     if let meldung {
                         Meldungsmarke(dringend: meldung.dringend)
                     }
-                    Text(abfahrt.richtung)
+                    // **Zwei Zeilen fürs Ziel** (ab 1.1.32). Eine reichte
+                    // nicht: Gemessen an einem Bildschirmfoto vom 23.09.2026
+                    // (iPhone, 402 pt breit) blieben der Zeile 135 pt, und
+                    // „Dortmund Hustedde-Straße" braucht mehr. Abgeschnitten
+                    // wird damit erst, wo auch zwei Zeilen nicht reichen.
+                    Text(Richtungsname.kurz(abfahrt.richtung, an: abfahrt.haltestelle.name))
                         .font(.body.weight(.medium))
+                        .lineLimit(2)
                         .strikethrough(abfahrt.faelltAus, color: .secondary)
                         .foregroundStyle(abfahrt.faelltAus ? Color.secondary : Color.primary)
                 }
-                .lineLimit(1)
 
                 HStack(spacing: 6) {
                     if zeigtHaltestelle {
@@ -70,6 +75,7 @@ struct AbfahrtsZeile: View {
                     }
                 }
                 .font(.caption)
+                .lineLimit(1)
                 .foregroundStyle(.secondary)
 
                 // Was die Quelle sonst über diese Linie sagt (ab 1.1.30) —
@@ -77,8 +83,16 @@ struct AbfahrtsZeile: View {
                 // Wartenden, und die ist schon dreizeilig.
                 Linienzusatz(linie: abfahrt.linie)
             }
-
-            Spacer(minLength: 4)
+            // **Die Spalte nimmt sich den Platz, statt ihn liegen zu lassen**
+            // (ab 1.1.32). Ohne diese Zeile bekommt eine `VStack` in einer
+            // `HStack` mit `Spacer` ihre IDEALBREITE — und die war hier die
+            // der schmalen Detailzeile darunter. Am Bildschirmfoto vom
+            // 23.09.2026 nachgemessen: Die Titelzeile brach bei 135,3 pt ab,
+            // genau dort, wo „01 · 07:42 +7 07:49" endet, während bis zur
+            // Minutenspalte 166,7 pt zur Verfügung standen. **31 pt lagen
+            // brach, und das Ziel wurde trotzdem abgeschnitten.** Der
+            // `Spacer` ist damit überflüssig; er war es, der den Rest nahm.
+            .frame(maxWidth: .infinity, alignment: .leading)
 
             if standIstAlt {
                 Text("alt")

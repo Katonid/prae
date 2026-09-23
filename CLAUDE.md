@@ -2510,6 +2510,109 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   - **Ein Ersatzverkehr steht in den MUSTERDATEN** — sonst ließe sich die
     Anzeige nur ansehen, wenn gerade irgendwo eine Strecke gesperrt ist;
     dieselbe Überlegung wie beim entfallenden Halt in Fasangarten.
+- **Ersatzverkehr lässt sich HERAUSFILTERN** (`Verbindungsfilter.ohneErsatzverkehr`,
+  ab 1.1.31, Ansage des Nutzers 09/2026). Erkannt wird er auf ZWEI Stufen, und
+  die werden nie vermischt — dieselbe Bauweise wie bei den entfallenden Halten
+  seit 1.1.6.
+  - **Stufe 1, die Quelle sagt es selbst — und zwar an ZWEI Stellen.**
+    National Express schreibt es in den LANGnamen (`routeLongName = "SEV RE 1"`,
+    „SEV RE 5X"), die Albtal-Verkehrs-Gesellschaft in den KURZnamen: Dort heißt
+    die Linie schlicht „SEV S7/S71". **Wer nur eines der beiden Felder liest,
+    verliert die Hälfte** — 1.1.30 las nur den Langnamen.
+  - **Stufe 2, ein BUS trägt den Namen einer Bahnlinie** (RE, RB, S, U, IC,
+    ICE, EC, RS, MEX mit Ziffer). Das ist **die eine Stelle, an der diese App
+    einen Liniennamen auswertet**, und sie ist gemessen (21.09.2026):
+    1434 Busabschnitte an zwölf deutschen Strecken zu vier Tageszeiten, 360
+    verschiedene Buslinien; die Buchstabenvorsätze echter Busse waren `M`, `N`,
+    `NE`, `SB`, `X` und `BER` — **keiner stößt mit der Liste zusammen**.
+    Getroffen wurden 130 Abschnitte, jeder einzelne von einem Bahnbetrieb.
+  - **Die 18 gefundenen Linien wurden EINZELN nachgefragt**, auf ihrer eigenen
+    Strecke: elf gibt es dort nachweislich als Schiene. Bei den übrigen gab die
+    Schienenabfrage **gar nichts** zurück — genau das, wonach eine gesperrte
+    Strecke aussieht. **Kein einziger Treffer war eine gewöhnliche Buslinie.**
+    Dazu 125 Busabschnitte im Ausland (Amsterdam bis Salzburg): kein
+    Fehltreffer. Dänische S-Busse heißen `300S`, die Ziffer steht vorn; `T`
+    steht bewusst NICHT in der Liste, weil `T1` in Frankreich eine Straßenbahn
+    ist und der Buchstabe ungemessen blieb.
+  - **Gesiebt werden BEIDE Stufen.** Von den 130 Abschnitten schrieben nur 39
+    es auch hin — ein Filter allein auf das Wort griffe nicht einmal in jedem
+    dritten Fall. Der Preis steht in der Fußzeile: Eine Buslinie, die wirklich
+    „S5" hieße, fiele mit heraus; in 1559 gemessenen Abschnitten gab es keine,
+    ausschließen lässt es sich nicht.
+  - **Zwei Hypothesen sind dabei gefallen, und beide stehen hier als
+    widerlegt.** Die Form der `routeId` trennt nichts (994 gewöhnliche Busse
+    tragen strukturierte Kennungen `de:…`, 310 anonyme; bei den bahnartigen
+    42 gegen 88) — sie sah bestechend aus, weil die echte S1
+    `de-DELFI_de:nrw:s1:_109` heißt und der Ersatz `de-DELFI_3958503_3`. Und
+    `routeType` 3 gegen 700 trennt ebenfalls nichts: Ein Rheinbahn-Stadtbus
+    trägt 3, ein Essener Nachtbus 700.
+  - **Der Filter kann NICHT in die Anfrage** — anders als Verkehrsmittel und
+    Deutschland-Ticket. Der GTFS-Typ **714** („Rail Replacement Bus Service")
+    kam in 1559 Abschnitten **kein einziges Mal** vor, `alerts` gibt es an
+    `/plan` gar nicht, und einen Parameter dafür kennt MOTIS nicht. Gesiebt
+    wird hinterher, und bleibt nichts übrig, sagt die Meldung, dass das eine
+    Aussage über den FILTER ist und nicht über den Fahrplan.
+  - **Was er nicht findet, steht auch da:** ein Ersatzverkehr unter
+    gewöhnlicher Busnummer, und Kürzel, die sich nicht nachprüfen ließen —
+    ÖBB „SV190" (Braunau/Inn Bf → Friedburg Bf, 62 min) und DB „EBU" (DB
+    Fernverkehr, 115 min). Beide sehen sehr danach aus; **was sich nicht
+    nachschlagen lässt, wird nicht geraten.**
+  - **Offen und nicht als erledigt darstellen:** Auf der TAFEL gibt es diesen
+    Filter nicht. Ein Ersatzverkehr ist dort ein Bus und fällt damit aus dem
+    Filter „S-Bahnen" heraus — wer wissen will, ob seine S1 ersetzt wird, sieht
+    sie unter „Busse". Markiert ist sie (Symbol und `Linienzusatz`), gefiltert
+    nicht.
+- **31 Punkte lagen brach, und trotzdem wurde abgeschnitten** (`AbfahrtsZeile`,
+  ab 1.1.32; gemeldet 09/2026: „Das ist nicht gut lesbar. Da wird vieles
+  abgeschnitten." — in jeder Zeile stand „Dortmund…" und dahinter drei Punkte).
+  **Am Bildschirmfoto nachgemessen** (iPhone, 1206 px = 402 pt, 3×), und der
+  erste Befund war der überraschende:
+  - **Die Titelzeile brach bei 135,3 pt ab — auf den Punkt dort, wo die
+    Detailzeile darunter endet** („01 · 07:42 +7 07:49"), während bis zur
+    Minutenspalte 166,7 pt zur Verfügung standen. **Eine `VStack` in einer
+    `HStack` mit `Spacer` bekommt ihre IDEALBREITE**, und die ist das Maximum
+    dessen, was die Kinder für sich verlangen — hier also die schmale Zeile
+    darunter. Der `Spacer` nahm den Rest. Abhilfe:
+    `.frame(maxWidth: .infinity, alignment: .leading)` an der Spalte, und der
+    `Spacer` fällt ersatzlos weg. **Merke: Wenn Text abgeschnitten wird und
+    daneben Platz frei ist, ist nicht der Text zu lang — die Spalte ist zu
+    schmal.**
+  - **Eine Zeile reicht für ein Fahrtziel nicht.** Jetzt zwei; abgeschnitten
+    wird erst, wo auch zwei nicht reichen.
+  - **Das Liniensymbol ist seit 1.1.29 breiter** (gemessen 70,7 pt statt der
+    52 pt Mindestbreite von vorher) — das Verkehrsmittelsymbol kostet knapp
+    19 pt. Es bleibt: Es ist die Antwort auf den Befund von 1.1.29. Aber es
+    gehört in die Rechnung, wenn wieder einmal etwas nicht passt.
+  - **Die Minutenspalte bleibt bei 62 pt.** Gemessen braucht „8 min" nur 38 pt
+    — der Wert ist aber für „jetzt" in 24 pt gesetzt, und ohne feste Breite
+    wandert die Ziffernspalte, sobald irgendwo „jetzt" auftaucht.
+- **Der Ortsname stand ZWEIMAL da** (`Views/Richtungsname.swift`, ab 1.1.32).
+  Die Haltestelle hieß „Dortmund Neu-Crengeldanz-Str.", das Ziel „Dortmund …"
+  — das zweite „Dortmund" fraß genau den Platz, an dem das Ziel steht.
+  **Nachgemessen am 23.09.2026 an 1680 Abfahrten in zwanzig deutschen
+  Städten: 33 % aller Ziele beginnen mit demselben Wort wie ihre
+  Haltestelle.** Das ist eine Eigenart der Verbünde und verteilt sich
+  entsprechend: Essen 86 %, Frankfurt 84 %, Dortmund 76 %, Bochum 74 %,
+  Wuppertal 69 %, Hannover 67 %, Köln 66 %, Duisburg 60 %, Augsburg 42 %,
+  Berlin 13 %, Kiel 9 %, Dresden 6 %, Hamburg 3 %, Leipzig/Bremen/Mainz 1 % —
+  und **München, Stuttgart, Nürnberg, Düsseldorf 0 %**. Wo die
+  Haltestellennamen den Ort gar nicht tragen, ändert die Regel also nichts.
+  - **Gestrichen wird nur das ERSTE Wort und nur bei Wort-für-Wort-Gleichheit**
+    (Groß/Klein egal, **Umlaute nicht eingeebnet**). An den Gegenproben
+    derselben Messung geprüft: „Dortmund Hbf → **München Hbf**" bleibt stehen —
+    dort ist der Ort die ganze Auskunft —, ebenso „→ Oberhausen Hbf",
+    „→ Enschede", „→ Bochum-Langendreer" (ein Bindestrichname ist EIN Wort)
+    und „→ DO-Walbertstraße/Schulmuseum" (eine Abkürzung ist nicht der
+    Ortsname; sie zu erraten wäre genau das, was diese App nicht tut). Ein
+    Ziel, das NUR aus dem Ort besteht, bleibt ebenfalls stehen.
+  - **Gekürzt wird in der ANSICHT, nicht in den Daten.** `Abfahrt.richtung`
+    trägt weiter den vollen Namen; er steht im Fahrtlauf über der Karte und in
+    der Überschrift der Haltestelle. Gekürzt wird nur die Zeile, in der der
+    Ort ohnehin direkt daneben steht.
+  - **Die Regel lässt sich ansehen** — in der Vorschau von `Richtungsname`, an
+    den gemessenen Paaren samt Gegenproben. NICHT in den Musterdaten: Die
+    Beispieltafel spielt in München, und dort gibt es den Fall nachweislich
+    nicht (0 %).
 
 ### Verbindungsauskunft (ab 1.1.0)
 
@@ -2987,7 +3090,7 @@ Auftrag, für Bauten, die niemand angefordert hatte.
   zwölfte Nachbesserung — derselbe Gedanke wie bei Tafelbild 1.4.0 und
   Schulalarm 1.1.0. Die Marken ab 1.0.x in diesem Papier bleiben stehen;
   sie sagen, wann etwas in den Quelltext kam. Danach zählt es weiter:
-  1.1.1 (Build 14), 1.1.2 (Build 15), 1.1.3 (Build 16), 1.1.4 (Build 17), 1.1.5 (Build 18), 1.1.6 (Build 19), 1.1.7 (Build 20), 1.1.8 (Build 21), 1.1.9 (Build 22), 1.1.10 (Build 23), 1.1.11 (Build 24), 1.1.12 (Build 25), 1.1.13 (Build 26), 1.1.14 (Build 27), 1.1.15 (Build 28), 1.1.16 (Build 29), 1.1.17 (Build 30), 1.1.18 (Build 31), 1.1.19 (Build 32), 1.1.20 (Build 33), 1.1.21 (Build 34), 1.1.22 (Build 35), 1.1.23 (Build 36), 1.1.24 (Build 37), 1.1.25 (Build 38), 1.1.26 (Build 39), 1.1.27 (Build 40), 1.1.28 (Build 41), 1.1.29 (Build 42), 1.1.30 (Build 43) … Dazu gesetzt (Ansage des Nutzers,
+  1.1.1 (Build 14), 1.1.2 (Build 15), 1.1.3 (Build 16), 1.1.4 (Build 17), 1.1.5 (Build 18), 1.1.6 (Build 19), 1.1.7 (Build 20), 1.1.8 (Build 21), 1.1.9 (Build 22), 1.1.10 (Build 23), 1.1.11 (Build 24), 1.1.12 (Build 25), 1.1.13 (Build 26), 1.1.14 (Build 27), 1.1.15 (Build 28), 1.1.16 (Build 29), 1.1.17 (Build 30), 1.1.18 (Build 31), 1.1.19 (Build 32), 1.1.20 (Build 33), 1.1.21 (Build 34), 1.1.22 (Build 35), 1.1.23 (Build 36), 1.1.24 (Build 37), 1.1.25 (Build 38), 1.1.26 (Build 39), 1.1.27 (Build 40), 1.1.28 (Build 41), 1.1.29 (Build 42), 1.1.30 (Build 43), 1.1.31 (Build 44), 1.1.32 (Build 45) … Dazu gesetzt (Ansage des Nutzers,
   09/2026): `DEVELOPMENT_TEAM = F4989GSTWS` — dieselbe Id wie Schulalarm und
   Tafelbild — und `INFOPLIST_KEY_LSApplicationCategoryType =
   public.app-category.navigation`. Beides steht als Build-Einstellung, weil

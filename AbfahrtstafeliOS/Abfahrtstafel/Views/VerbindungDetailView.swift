@@ -131,9 +131,15 @@ struct VerbindungDetailView: View {
                     // deren Namen er trägt. Siehe `Liniensymbol`.
                     if let linie = abschnitt.linie { Liniensymbol(linie: linie, mitMittel: true) }
                     VStack(alignment: .leading, spacing: 1) {
+                        // **Zwei Zeilen, und die Spalte nimmt den Platz**
+                        // (ab 1.1.32) — dieselbe Falle wie in `AbfahrtsZeile`:
+                        // Eine `VStack` neben einem `Spacer` bekommt ihre
+                        // Idealbreite, und die ist hier die der Zeile
+                        // darunter. Es wird eine Sache auf einmal geändert,
+                        // aber nicht zweimal derselbe Fehler stehen gelassen.
                         Text("Richtung \(abschnitt.richtung ?? "unbekannt")")
                             .font(.subheadline.weight(.medium))
-                            .lineLimit(1)
+                            .lineLimit(2)
                         // Was die Quelle sonst noch über diese Linie sagt
                         // (ab 1.1.30) — hier mit dem Betrieb, denn bei einem
                         // Ersatzverkehr ist er die halbe Auskunft.
@@ -146,7 +152,7 @@ struct VerbindungDetailView: View {
                                 .foregroundStyle(.secondary)
                         }
                     }
-                    Spacer(minLength: 0)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
 
                 halt(name: abschnitt.vonName, zeit: abschnitt.start, plan: abschnitt.geplanterStart, marke: "ein")
