@@ -161,7 +161,10 @@ enum Ausgabeguete {
         let bildgroesse = CGSize(width: foto.breite, height: foto.hoehe)
         guard bildgroesse.width > 1, bildgroesse.height > 1,
               rahmen.width > 1, rahmen.height > 1 else { return hoechstens }
-        let ziel = ausschnitt.zielrechteck(bildgroesse: bildgroesse, rahmen: rahmen)
+        // `zielrechteck` nimmt ein RECHTECK; wo es liegt, ändert an seiner
+        // Größe nichts, also reicht der Ursprung bei null.
+        let ziel = ausschnitt.zielrechteck(bildgroesse: bildgroesse,
+                                           rahmen: CGRect(origin: .zero, size: rahmen))
         let lang = Double(max(ziel.width, ziel.height))
         let noetig = Int((lang / 72 * dpi).rounded(.up))
         // Nie über die Güte und nie unter ein Maß, bei dem ein Bild zur

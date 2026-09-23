@@ -1038,9 +1038,9 @@ enum Buchausgabe {
             let satz = reise.gestaltung.satzspiegel(reise.format)
             let ort = Wasserzeichenlage.ort(wasserzeichen, satz: satz, seite: buchseite.seite)
             // Aus dem Vorrat — einmal je Datei geladen und nicht je Seite
-            // (siehe `wasserzeichenbilder`). Ist keiner da, wird es geholt:
-            // Der Bildschirm ruft diese Funktion ebenfalls, und dort gibt
-            // es keinen.
+            // (siehe `wasserzeichenbilder`). Steht dort nichts, wird es
+            // geholt: Wer einen fünften Ausgabeweg baut und den Vorrat
+            // vergisst, bekommt eine große Datei und kein fehlendes Bild.
             if let zeichenbild = ort.bild {
                 var bild = zeichen[zeichenbild.datei]
                 if bild == nil {
