@@ -6102,6 +6102,73 @@ Befunde, und keiner davon war Geschmack:
   lesen lassen, ob die Anmeldung greift, ob eine so erreichte Schrift ins
   PDF eingebettet wird). **Nichts davon als erledigt darstellen** — der
   Befund aus „Schriften prüfen" ist hier weiterhin die Messung.
+- **EIN RECHT, DAS DIE APP-ID NICHT TRÄGT, MACHT DAS PROJEKT UNSIGNIERBAR**
+  (Schriftenrecht wieder heraus in 1.0.45; gemeldet 09/2026 mit einem
+  Bildschirmfoto aus Xcode: „Automatic signing failed — Provisioning profile
+  ‚iOS Team Provisioning Profile: de.familie.urlaubstagebuch' doesn't match
+  the entitlements file's value for the com.apple.developer.user-fonts
+  entitlement."). 1.0.44 trug `com.apple.developer.user-fonts` in
+  `Config/Urlaubstagebuch.entitlements` ein, damit die selbst installierten
+  Schriften auftauchen. Die Absicht war richtig; der Preis war, dass sich die
+  App **gar nicht mehr signieren ließ** — und damit war nicht nur die
+  Schriftwahl weg, sondern jede Fassung, auch die davor gebauten.
+  Ein Profil kann nur bewilligen, was die App-Id in der Entwicklerkonsole
+  kann; steht in der Datei mehr, findet die automatische Signierung gar kein
+  Profil mehr. **Genau diese Lehre steht seit dem ersten Signieren bei
+  Schulalarm im Papier** („Wer der Erweiterung wieder eine Entitlements-Datei
+  gibt, macht das Projekt unsignierbar") — sie galt hier genauso und wurde
+  nicht gezogen. Das Recht ist deshalb **ersatzlos heraus** und nicht auf
+  einen anderen Wert gestellt: Erst muss die App-Id es tragen, dann darf es
+  in die Datei.
+- **Ein grüner Bau in GitHub Actions kann das NICHT melden.** Er übersetzt
+  mit `CODE_SIGNING_ALLOWED=NO` gegen den Simulator und sieht Entitlements
+  nie an. Der Bau zu 1.0.44 war grün, „Fehler" leer, „Warnungen" leer — und
+  die App war trotzdem auf kein iPad mehr zu bringen. Der Satz „Einen grünen
+  Bau nie als signierbar ausgeben" stand für Schulalarm schon da; **er gilt
+  für jede App dieses Repos, und eine Änderung an einer Entitlements-Datei
+  ist genau der Fall, für den er gemacht ist.**
+- **Der WERT war der zweite Fehler, und er war geraten.**
+  `system-installed-fonts` steht in keinem nachschlagbaren Papier; belegt ist
+  allein `system-installation` — und das ist das Recht, Schriften systemweit
+  zu INSTALLIEREN, was diese App nicht tut. In Xcode heißt der gemeinte Haken
+  „Use Installed Fonts"; welche Zeichenkette er schreibt, war von hier aus
+  nicht zu messen. **Wer eine Zeichenkette in eine Entitlements-Datei
+  schreibt, die er nicht nachschlagen kann, rät — und ein geratenes Recht
+  kostet nicht eine Funktion, sondern den ganzen Bau.**
+- **Was ein Bau DARF, wird seit 1.0.45 GELESEN** (`Model/Profilrechte.swift`,
+  im Befund unter „Schriften prüfen" als erster Abschnitt). Gelesen wird die
+  Rechteliste aus dem eingebetteten `embedded.mobileprovision` — also das,
+  was das Profil bewilligt. Bis dahin stand in Quelltext und Oberfläche, das
+  Recht sei „seit 1.0.44 in Kraft": eine Auskunft über das REPO, ausgegeben
+  als Auskunft über das GERÄT. Dieselbe Art Lüge wie bei Schulalarms
+  APNs-Umgebung, und dieselbe Antwort — **wo sich eine Frage nicht
+  erschließen lässt, muss eine Probe entscheiden.** Zwei Dinge hält der
+  Befund dabei auseinander: Die Entitlements-Datei sagt, was die App
+  VERLANGT, das Profil sagt, was ihr BEWILLIGT ist; nur das Zweite ist von
+  innen zu sehen. **Über TestFlight und aus dem Laden liegt gar kein Profil
+  im Bündel** (dieselbe Beobachtung wie Schulalarm 1.0.19) — dann sagt die
+  Zeile, dass sich hier nichts messen lässt, statt etwas zu behaupten.
+- **Und die Fußzeile der Schriftwahl hört auf zu raten.** „Das kann zweierlei
+  heißen: keine da — oder diese App darf sie nicht sehen" stand auch dann da,
+  wenn sich die Frage beantworten ließ. Liegt ein Profil im Bündel und nennt
+  es das Schriftenrecht nicht, ist es keine von zwei Möglichkeiten mehr,
+  sondern der Befund, und die Zeile sagt ihn.
+- **Der Weg zurück ist aufgeschrieben und wird nicht geraten:** in der
+  Entwicklerkonsole bekommt die App-Id `de.familie.urlaubstagebuch` die
+  Fähigkeit „Fonts", danach in Xcode die Fähigkeit „Fonts" mit dem Haken
+  „Use Installed Fonts" — EINMAL, nicht zweimal (auf dem Bildschirmfoto
+  standen zwei solche Abschnitte). Xcode schreibt dann selbst in die
+  Entitlements-Datei, was richtig ist. Lässt es sich danach signieren, nennt
+  „Schriften prüfen" die bewilligte Zeichenkette aus dem Profil, und **erst
+  die gehört ins Repo.** Vorher nicht.
+- **Nicht gemessen (1.0.45):** Dass die App sich jetzt wieder signieren
+  lässt, hat niemand gesehen — hier gibt es keinen Mac. Gemessen ist die
+  URSACHE: Das Recht kam in 1.0.44 hinein, vorher ließ sich signieren,
+  nachher nicht, und die Fehlermeldung nennt genau diesen Schlüssel.
+  Ungemessen bleibt auch, ob `Profilrechte` auf dem Gerät wirklich eine
+  Liste findet — der Aufbau eines Profils ist nachgelesen, nicht an einer
+  Datei geprüft; der Befund sagt es selbst, wenn nichts zu lesen war.
+  **Nicht als erledigt darstellen.**
 - **Die Bildunterschrift war halb gebaut** (ab 1.0.5, Wunsch des Nutzers
   09/2026: „zu jedem Foto einen Beschreibungstext … Dies soll jedoch eine
   Option für jedes Foto sein. Kein muss."). Der Layoutautomat hielt Platz
@@ -6363,7 +6430,7 @@ Befunde, und keiner davon war Geschmack:
   Stellen im pbxproj (Debug + Release) — es gibt KEINE Skript-Bauphase.
   **Jede Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne
   Nachfrage, als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann
-  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.44 (Build 45). Dazu gesetzt:
+  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.45 (Build 46). Dazu gesetzt:
   `DEVELOPMENT_TEAM = F4989GSTWS` und
   `INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.travel`.
   Seit 1.0.4 steht dort auch `CODE_SIGN_ENTITLEMENTS = Config/Urlaubstagebuch.entitlements`

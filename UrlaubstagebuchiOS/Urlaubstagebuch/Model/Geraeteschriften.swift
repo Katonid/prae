@@ -24,15 +24,21 @@ import UIKit
 // herauskommt, wird für diesen Prozess angemeldet; danach steht es in
 // `UIFont.familyNames` und damit in der gewohnten Liste.
 //
-// UND DARÜBER STEHT EIN RECHT (ab 1.0.44). Ohne
-// `com.apple.developer.user-fonts` = `system-installed-fonts` gibt iOS einer
-// App die selbst installierten Schriften ÜBERHAUPT NICHT heraus — weder über
-// diese Abfrage noch über den Wähler. Gemessen an drei Bildschirmfotos des
-// Nutzers (22.09.2026): In Pages stehen Poppins, Proxima Nova, Publico Text
-// und Quicksand; im Wähler von iOS, den diese App zeigt, springt dieselbe
-// Liste von „PingFang TC" auf „Rockwell". Das Recht steht seit 1.0.44 in
-// `Config/Urlaubstagebuch.entitlements`; wirksam wird es erst in einem
-// SIGNIERTEN Bau, und der Bau in GitHub Actions sieht Entitlements nie an.
+// UND DARÜBER STEHT EIN RECHT — das diese App NICHT HAT (ab 1.0.45).
+// Ohne `com.apple.developer.user-fonts` gibt iOS einer App die selbst
+// installierten Schriften überhaupt nicht heraus — weder über diese Abfrage
+// noch über den Wähler. Gemessen an drei Bildschirmfotos des Nutzers
+// (22.09.2026): In Pages stehen Poppins, Proxima Nova, Publico Text und
+// Quicksand; im Wähler von iOS, den diese App zeigt, springt dieselbe Liste
+// von „PingFang TC" auf „Rockwell".
+//
+// 1.0.44 hat das Recht deshalb in `Config/Urlaubstagebuch.entitlements`
+// eingetragen — und damit die App UNSIGNIERBAR gemacht: Xcode wies ab, weil
+// das Bereitstellungsprofil dieses Recht nicht bewilligt. Es ist in 1.0.45
+// wieder heraus; die Begründung und der Weg zurück stehen in der
+// Entitlements-Datei selbst. Was dieser Bau wirklich darf, BEHAUPTET diese
+// Datei seither nicht mehr, sondern liest es aus dem eingebetteten Profil
+// (`Profilrechte`) und schreibt es in den Befund.
 //
 // **Gemessen ist das hier nicht.** Ob diese Abfrage auf dem iPad des
 // Nutzers etwas hergibt, weiß hier niemand — deshalb behauptet diese Datei
@@ -227,16 +233,23 @@ enum Geraeteschriften {
         let familien = UIFont.familyNames.sorted()
         var text = "SCHRIFTEN \u{2014} BEFUND\n"
         text += "Reisebuch \(fassung)\n\n"
+        // WAS DIESER BAU DARF — gelesen, nicht behauptet (ab 1.0.45).
+        // Es steht ganz oben, weil es jede Zeile darunter erklärt: Ohne
+        // das Recht meldet das System einer App gar nichts, und dann sagt
+        // „0 Einträge" nichts über das Gerät aus.
+        text += "Was dieser Bau darf\n"
+        for zeile in Profilrechte.zeilen() { text += zeile + "\n" }
+        text += "\n"
         text += "Vom System als dauerhaft angemeldet gemeldet: \(fund.roh) Einträge.\n"
         text += "Davon als Deskriptor lesbar: \(fund.deskriptoren.count) "
             + "in \(fund.familien.count) Familien.\n"
         if fund.familien.isEmpty {
             text += "Keine Familie genannt.\n"
-            text += "Erster Verdacht: das Recht \u{201E}com.apple.developer.user-fonts\u{201C} "
-            text += "(system-installed-fonts). Ohne das gibt iOS einer App die selbst "
-            text += "installierten Schriften gar nicht heraus \u{2014} auch nicht über den "
-            text += "Wähler. Es steht seit 1.0.44 in der Entitlements-Datei und wirkt nur in "
-            text += "einem signierten Bau.\n"
+            text += "Erster Verdacht: das Recht \u{201E}com.apple.developer.user-fonts\u{201C}. "
+            text += "Ohne das gibt iOS einer App die selbst installierten Schriften gar "
+            text += "nicht heraus \u{2014} auch nicht über den Wähler. Ob dieser Bau es "
+            text += "hat, steht oben unter \u{201E}Was dieser Bau darf\u{201C}; behauptet "
+            text += "wird es hier nicht mehr.\n"
             text += "Gegenprobe ohne Fachwissen: Tippe unten auf "
             text += "\u{201E}Schrift vom Gerät wählen\u{2026}\u{201C}. Stehen deine eigenen "
             text += "Schriften dort, liegt es nicht am Recht; fehlen sie dort auch, dann "

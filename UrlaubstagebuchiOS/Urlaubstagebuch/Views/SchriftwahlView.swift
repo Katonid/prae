@@ -148,6 +148,24 @@ struct SchriftwahlView: View {
         let fund = Geraeteschriften.systemfund()
         geraetefamilien = fund.familien.map { Schriftfamilie(familienname: $0) }
         if fund.familien.isEmpty {
+            // ZUERST NACHSEHEN, DANN REDEN (ab 1.0.45). Bis 1.0.44 stand
+            // hier „das kann zweierlei heißen" — auch dann, wenn sich die
+            // Frage beantworten ließ. Liegt ein Bereitstellungsprofil im
+            // Bündel und nennt es das Schriftenrecht nicht, ist es keine
+            // von zwei Möglichkeiten mehr, sondern der Befund.
+            let profil = Profilrechte.lesen()
+            let sicherOhneRecht = profil.profilVorhanden && profil.fehler == nil
+                && profil.rechte[Profilrechte.schriftenschluessel] == nil
+            if sicherOhneRecht {
+                systemzeile = "Diese Fassung darf die selbst installierten Schriften "
+                    + "nicht sehen \u{2014} das Recht dafür steht nicht im "
+                    + "Bereitstellungsprofil dieses Baus, und ohne das gibt iOS sie gar "
+                    + "nicht heraus. Es ist bewusst so: Mit dem Recht in der "
+                    + "Entitlements-Datei ließ sich die App überhaupt nicht mehr "
+                    + "signieren. Was hier steht, sind die Schriften des Systems \u{2014} "
+                    + "Zahlen dazu unter \u{201E}Schriften prüfen\u{201C}."
+                return
+            }
             systemzeile = "Dieses Gerät meldet keine selbst installierte Schrift "
                 + "(\(fund.roh) Einträge, davon lesbar \(fund.deskriptoren.count)). "
                 + "Das kann zweierlei heißen: Es liegt keine auf dem Gerät \u{2014} oder "

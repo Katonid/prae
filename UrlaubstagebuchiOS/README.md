@@ -405,6 +405,66 @@ Größenunterschied innerhalb eines Tages, mit Datum und beiden Maßen, und wie
 viel Prozent der Satzhöhe das höchste Foto des Buches nimmt. Gemessen am
 fertigen Satz und nicht an der Absicht.
 
+## Das Schriftenrecht ist wieder heraus — die App ließ sich nicht mehr signieren (1.0.45)
+
+Gemeldet 09/2026 mit einem Bildschirmfoto aus Xcode:
+
+> Automatic signing failed — Provisioning profile „iOS Team Provisioning
+> Profile: de.familie.urlaubstagebuch" doesn't match the entitlements file's
+> value for the com.apple.developer.user-fonts entitlement.
+
+1.0.44 hatte genau dieses Recht eingetragen, damit die selbst installierten
+Schriften auftauchen. Die Absicht war richtig, der Preis war zu hoch: **Mit
+dem Recht in der Datei ließ sich die App überhaupt nicht mehr bauen** — nicht
+nur ohne Schriftwahl, sondern gar nicht. Ein Bereitstellungsprofil kann nur
+bewilligen, was die App-Id in der Entwicklerkonsole kann; steht in der Datei
+mehr, findet die automatische Signierung kein Profil mehr.
+
+Das Recht ist deshalb **ersatzlos heraus** und nicht auf einen anderen Wert
+gestellt. Erst muss die App-Id es tragen, dann darf es in die Datei.
+
+**Der Bau in GitHub Actions konnte das nicht melden.** Er übersetzt mit
+`CODE_SIGNING_ALLOWED=NO` gegen den Simulator und sieht Entitlements nie an.
+Der Bau zu 1.0.44 war grün — und die App war auf kein iPad mehr zu bringen.
+
+**Der Wert war obendrein geraten.** `system-installed-fonts` steht in keinem
+nachschlagbaren Papier; belegt ist allein `system-installation`, und das ist
+das Recht, Schriften systemweit zu *installieren* — was diese App nicht tut.
+
+### Was dieser Bau darf, wird jetzt gelesen
+
+„Schriften prüfen" beginnt seit 1.0.45 mit einem Abschnitt **Was dieser Bau
+darf**. Gelesen wird die Rechteliste aus dem eingebetteten
+Bereitstellungsprofil (`Model/Profilrechte.swift`) — also das, was dem Bau
+wirklich bewilligt ist, statt dessen, was im Repo steht. Bis dahin behauptete
+die App, das Recht sei „seit 1.0.44 in Kraft": eine Auskunft über das Repo,
+ausgegeben als Auskunft über das Gerät.
+
+Zwei Dinge hält der Befund auseinander: Die Entitlements-Datei sagt, was die
+App **verlangt**; das Profil sagt, was ihr **bewilligt** ist. Nur das Zweite
+lässt sich von innen sehen. Über TestFlight und aus dem App Store liegt gar
+kein Profil im Bündel — dann sagt die Zeile, dass sich hier nichts messen
+lässt, statt etwas zu behaupten.
+
+Und die Fußzeile der Schriftwahl hört auf zu raten: Liegt ein Profil vor und
+nennt es das Schriftenrecht nicht, steht dort kein „das kann zweierlei
+heißen" mehr, sondern der Befund.
+
+### Der Weg zurück, falls die Schriften doch hierher sollen
+
+1. In der Entwicklerkonsole bekommt die App-Id `de.familie.urlaubstagebuch`
+   die Fähigkeit **Fonts**.
+2. In Xcode: Signing & Capabilities → **Fonts**, Haken bei **Use Installed
+   Fonts** — **einmal**, nicht zweimal.
+3. Xcode schreibt dann selbst in `Config/Urlaubstagebuch.entitlements`, was
+   richtig ist.
+4. Lässt es sich danach signieren, nennt „Schriften prüfen" die bewilligte
+   Zeichenkette aus dem Profil. **Erst die gehört ins Repo** — vorher nicht.
+
+Alles, was 1.0.41 bis 1.0.44 daneben gebaut haben (der Wähler von iOS, die
+Systemabfrage, die Anmeldung, die Probe), bleibt unverändert stehen und
+wirkt, sobald das Recht da ist.
+
 ## Das Recht, die Schriften des Geräts zu sehen (1.0.44)
 
 Zum dritten Mal gemeldet, diesmal mit Bildschirmfotos — und die haben
@@ -3516,10 +3576,17 @@ im Inspektor gab es, aber keinen Weg zu sehen, was es bewirkt.
 
 ## Offene Punkte
 
-* **Ob das Recht aus 1.0.44 wirkt, ist nicht gemessen.** Dass es fehlt, ist
-  am Unterschied zwischen Pages und dem Wähler dieser App abgelesen; dass es
-  mit dem Recht geht, zeigt erst ein signierter Bau auf dem Mac. Alles, was
-  danach kommt, bleibt offen — siehe den Punkt darunter.
+* **Ob sich die App nach 1.0.45 wieder signieren lässt, ist nicht gemessen.**
+  Hier gibt es keinen Mac. Gemessen ist die *Ursache*: Das Recht kam in
+  1.0.44 hinein, vorher ließ sich signieren, nachher nicht, und die
+  Fehlermeldung nennt genau diesen Schlüssel.
+* **Ob `Profilrechte` auf dem Gerät eine Liste findet, ist nicht gemessen.**
+  Der Aufbau eines Bereitstellungsprofils ist nachgelesen, nicht an einer
+  Datei geprüft. Der Befund sagt es selbst, wenn nichts zu lesen war.
+* **Ob das Schriftenrecht wirkt, bleibt offen.** Dass es fehlt, ist am
+  Unterschied zwischen Pages und dem Wähler dieser App abgelesen; dass es mit
+  dem Recht geht, zeigt erst ein signierter Bau auf dem Mac — und dafür muss
+  die App-Id es zuerst tragen.
 * **Nichts an 1.0.43 ist auf einem Gerät gesehen.** Ob
   `CTFontManagerCopyRegisteredFontDescriptors(.persistent, true)` auf dem
   iPad des Nutzers überhaupt etwas zurückgibt, ob sich die Einträge als
