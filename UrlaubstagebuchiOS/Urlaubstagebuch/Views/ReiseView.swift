@@ -111,6 +111,7 @@ struct ReiseView: View {
         case fotostil
         case textstil
         case gestaltung
+        case umschlag
         case seitenformat
         case bedienung
         case ausgabe
@@ -135,6 +136,7 @@ struct ReiseView: View {
             case .fotostil: return "fotostil"
             case .textstil: return "textstil"
             case .gestaltung: return "gestaltung"
+            case .umschlag: return "umschlag"
             case .seitenformat: return "format"
             case .bedienung: return "bedienung"
             case .ausgabe: return "ausgabe"
@@ -517,8 +519,22 @@ struct ReiseView: View {
     // kleinen Seite die BÜHNE und nicht das Blatt. Eine Probe, die etwas
     // anderes misst, als ihre Beschriftung sagt, führt in die Irre.
     private func blattbreite(bei massstab: Double) -> Double {
+        breitesterBogen * massstab
+    }
+
+    // Der breiteste Bogen der Bühne. In der Doppelseitenansicht ist das
+    // seit 1.0.50 der UMSCHLAG: zwei Seiten plus Rücken. Ohne den Rücken
+    // wäre der Inhalt schmaler als das, was darin steht, und das letzte
+    // Stück des Umschlags ließe sich nicht heranschieben.
+    private var breitesterBogen: Double {
         let bogen = werk.reise.gestaltung.bogen(werk.reise.format)
-        return bogen.width * (doppelseiten ? 2 : 1) * massstab
+        guard doppelseiten else { return bogen.width }
+        var breite = bogen.width * 2
+        if werk.reise.hatRueckseite {
+            breite += Umschlagmass.rueckenbreitePt(werk.reise.umschlag,
+                                                   innenseiten: werk.reise.innenseiten)
+        }
+        return breite
     }
 
     // Wohin nach einem Zoom gerollt wird. Die laufende Nummer gehört dazu,
@@ -536,8 +552,7 @@ struct ReiseView: View {
     // In der Doppelseitenansicht zählt die DOPPELTE Breite: Was eingepasst
     // werden soll, ist der aufgeschlagene Bogen und nicht die halbe Seite.
     private var passenderMassstab: Double {
-        let bogen = werk.reise.gestaltung.bogen(werk.reise.format)
-        let breite = bogen.width * (doppelseiten ? 2 : 1)
+        let breite = breitesterBogen
         let platz = max(buehnenbreite - 56, 120)
         return min(max(platz / breite, 0.12), 1.6)
     }
@@ -1081,6 +1096,14 @@ struct ReiseView: View {
                 // dass es jemand dorthin gestellt hat.
                 Button("Wasserzeichen…", systemImage: "drop") { blatt = .wasserzeichen }
                 Divider()
+                // DER UMSCHLAG HAT SEINE EIGENE GESTALTUNG (ab 1.0.50) —
+                // und deshalb einen eigenen Menüpunkt und keine Unterseite
+                // der Gestaltung. Er ist nicht eine Seite unter Seiten,
+                // sondern das eine Stück Papier, das außen um das Buch
+                // liegt: Rückseite, Rücken, Titelseite.
+                Button("Umschlag und Titelseite…", systemImage: "book.closed.fill") {
+                    blatt = .umschlag
+                }
                 Button("Seitenformat…", systemImage: "square.resize") { blatt = .seitenformat }
                 Button("Ränder, Karte, Seitenzahlen…", systemImage: "ruler") {
                     blatt = .gestaltung
@@ -1447,6 +1470,8 @@ struct ReiseView: View {
             TextstilView(werk: werk)
         case .gestaltung:
             GestaltungView(werk: werk)
+        case .umschlag:
+            UmschlagView(werk: werk)
         case .seitenformat:
             FormatView(werk: werk)
         case .bedienung:

@@ -19,18 +19,38 @@ extension Reise {
     // Vorschau, die etwas anderes zeigt als der Druck.
     func wasserzeichen(fuer buchseite: Buchseite) -> Wasserzeichen? {
         guard let zeichen = gestaltung.wasserzeichen, zeichen.gueltig else { return nil }
-        // Kein Tag heißt Titelblatt.
+        // Kein Tag heißt Umschlag — Titelseite oder Rückseite.
         if buchseite.tag == nil, !zeichen.aufTitelblatt { return nil }
         return zeichen
     }
 
     var automat: Layoutautomat {
         Layoutautomat(format: format, gestaltung: gestaltung, typografie: typografie,
-                      stil: buchstil, fotoIndex: fotoIndex)
+                      stil: buchstil, fotoIndex: fotoIndex, umschlag: umschlag)
     }
+
+    // Wie viele Seiten der INNENTEIL hat — ohne Umschlag. Das ist die
+    // Zahl, aus der die Rückenbreite folgt.
+    var innenseiten: Int {
+        tage.filter { !$0.ausgeblendet }.reduce(0) { $0 + $1.seiten.count }
+    }
+
+    // Die RÜCKSEITE des Buches, sobald der Umschlag als Bogen gilt. Sie
+    // trägt die Nummer 0 und liegt damit nach `Bogenlage` links — die
+    // Doppelseitenansicht paart den Umschlagbogen dadurch von selbst
+    // richtig, ohne eine zweite Regel daneben.
+    var hatRueckseite: Bool { titelseite && umschlag.alsBogen }
 
     var seitenfolge: [Buchseite] {
         var folge: [Buchseite] = []
+        if hatRueckseite {
+            folge.append(Buchseite(
+                seite: automat.rueckseite(text: umschlag.rueckseitentext,
+                                          foto: umschlag.rueckseitenfoto),
+                tag: nil,
+                nummer: 0
+            ))
+        }
         var nummer = 1
         if titelseite {
             folge.append(Buchseite(
@@ -89,9 +109,26 @@ enum Buchausgabe {
     static func pdf(_ reise: Reise, auftrag: Auftrag = Auftrag(),
                     fortschritt: @escaping @MainActor (Double) -> Void) async throws -> URL
     {
+        // Der Umschlag ist ein BOGEN und keine Seite (ab 1.0.50): eine
+        // einzige PDF-Seite, zwei Buchseiten breit, mit dem Rücken
+        // dazwischen. So will es jeder Buchdienst, und so sieht es der
+        // Mensch, der das fertige Buch in die Hand nimmt.
+        if auftrag.nurUmschlag, reise.hatRueckseite {
+            return try await umschlagPdf(reise, auftrag: auftrag, fortschritt: fortschritt)
+        }
+
         var gefiltert = reise.seitenfolge
-        if auftrag.nurUmschlag { gefiltert = gefiltert.filter { $0.tag == nil } }
-        if auftrag.ohneUmschlag { gefiltert = gefiltert.filter { $0.tag != nil } }
+        if auftrag.nurUmschlag {
+            gefiltert = gefiltert.filter { $0.tag == nil }
+        } else if auftrag.ohneUmschlag {
+            gefiltert = gefiltert.filter { $0.tag != nil }
+        } else {
+            // Die Rückseite trägt die Nummer 0 und gehört auf den
+            // Umschlagbogen, nicht in den Buchblock. Im vollständigen PDF
+            // stünde sie sonst als erste Seite vor dem Titel — eine
+            // Reihenfolge, die es im gebundenen Buch nirgends gibt.
+            gefiltert = gefiltert.filter { $0.nummer > 0 }
+        }
         guard !gefiltert.isEmpty else { throw Fehler.keineSeiten }
         // Ab hier unveränderlich: Eine `var`, die aus einem nebenläufigen
         // Abschluss gelesen wird, ist unter Swift 6 ein Fehler — und der
@@ -326,6 +363,182 @@ enum Buchausgabe {
         return grund + ".pdf"
     }
 
+    // MARK: - Der Umschlagbogen
+
+    // EINE PDF-Seite: links die Rückseite, in der Mitte der Rücken, rechts
+    // die Titelseite (ab 1.0.50).
+    //
+    // Ansage des Nutzers, 09/2026: „In meiner Erinnerung ist es bei Saal
+    // Digital beispielsweise so, dass die Titelseite bzw. der Umschlag des
+    // Buches so dargestellt wird, dass die rechte Hälfte einer Doppelseite
+    // die tatsächliche Titelseite ist und die linke Seite die Rückseite des
+    // Buches."
+    //
+    // **Keine TrimBox in der Mitte.** Sie sagt einer Druckerei, wo
+    // geschnitten wird; auf einem Bogen mit zwei Seiten und einem Rücken
+    // gäbe es dafür keine einzige richtige Stelle — geschnitten wird außen,
+    // gefalzt wird am Rücken. Die TrimBox umfasst deshalb den GANZEN Bogen,
+    // und wo die Falze liegen, sagt die Rückenbreite. Dieselbe Überlegung
+    // wie bei der Broschüre seit 1.0.27.
+    static func umschlagPdf(_ reise: Reise, auftrag: Auftrag,
+                            fortschritt: @escaping @MainActor (Double) -> Void) async throws -> URL
+    {
+        let format = reise.format
+        let seitenmass = format.groesse
+        let anschnitt = reise.gestaltung.anschnittPt
+        let innen = reise.innenseiten
+        let endformat = Umschlagmass.endformat(format, umschlag: reise.umschlag,
+                                               innenseiten: innen)
+        let bogen = Umschlagmass.bogen(format, gestaltung: reise.gestaltung,
+                                       umschlag: reise.umschlag, innenseiten: innen)
+        let ruecken = Umschlagmass.ruecken(format, umschlag: reise.umschlag,
+                                           innenseiten: innen)
+
+        let seiten = reise.seitenfolge.filter { $0.tag == nil }
+        guard let rueckseite = seiten.first(where: { $0.nummer == 0 }),
+              let titelseite = seiten.first(where: { $0.nummer == 1 })
+        else { throw Fehler.keineSeiten }
+
+        let karten = await kartenbilder(seiten, reise: reise) { anteil in
+            fortschritt(anteil * 0.45)
+        }
+
+        let ziel = FileManager.default.temporaryDirectory
+            .appendingPathComponent(dateiname(reise, auftrag: auftrag))
+        try? FileManager.default.removeItem(at: ziel)
+
+        var medienbox = CGRect(origin: .zero, size: bogen)
+        let angaben: [String: Any] = [
+            kCGPDFContextTitle as String: reise.titel + " — Umschlag",
+            kCGPDFContextCreator as String: "Urlaubstagebuch",
+            kCGPDFContextSubject as String: reise.zeitraum,
+        ]
+        guard let abnehmer = CGDataConsumer(url: ziel as CFURL),
+              let zusammenhang = CGContext(consumer: abnehmer, mediaBox: &medienbox,
+                                           angaben as CFDictionary)
+        else {
+            throw Fehler.schreibfehler("Die Datei ließ sich nicht anlegen.")
+        }
+
+        var trimbox = CGRect(x: anschnitt, y: anschnitt,
+                             width: endformat.width, height: endformat.height)
+        var bleedbox = medienbox
+        let seiteninfo: [String: Any] = [
+            kCGPDFContextMediaBox as String: Data(bytes: &medienbox,
+                                                  count: MemoryLayout<CGRect>.size),
+            kCGPDFContextTrimBox as String: Data(bytes: &trimbox,
+                                                 count: MemoryLayout<CGRect>.size),
+            kCGPDFContextBleedBox as String: Data(bytes: &bleedbox,
+                                                  count: MemoryLayout<CGRect>.size),
+        ]
+
+        zusammenhang.beginPDFPage(seiteninfo as CFDictionary)
+        zusammenhang.saveGState()
+        zusammenhang.translateBy(x: 0, y: bogen.height)
+        zusammenhang.scaleBy(x: 1, y: -1)
+        zusammenhang.translateBy(x: anschnitt, y: anschnitt)
+
+        // Der Grund liegt über dem GANZEN Bogen, samt Rücken und
+        // Anschnitt. Eine Fläche, die am Endformat aufhört, hätte nach dem
+        // Beschneiden den weißen Faden, wegen dem es den Anschnitt gibt.
+        var grund = reise.umschlag.hintergrund ?? reise.gestaltung.hintergrund
+        // Ein Hintergrundfoto über den Umschlag ist etwas anderes als eines
+        // über eine Doppelseite: Hier ist es EIN Blatt, also wird es auch
+        // als eines gezeichnet.
+        grund.ueberDoppelseite = false
+        var grundbild: UIImage?
+        if grund.art == .foto, let id = grund.fotoID, let foto = reise.foto(id) {
+            grundbild = Bildarchiv.shared.fuerAusgabe(foto.datei, reise: reise.id,
+                                                      kante: auftrag.bildkante)
+        }
+        Seitensatz.zeichneHintergrund(
+            grund,
+            rechteck: CGRect(x: -anschnitt, y: -anschnitt,
+                             width: endformat.width + 2 * anschnitt,
+                             height: endformat.height + 2 * anschnitt),
+            bild: grundbild, saat: reise.id.saat, bildflaeche: nil, in: zusammenhang)
+
+        // Jede Hälfte in ihrem eigenen Koordinatensystem, beschnitten auf
+        // ihre Fläche plus den AUSSEN liegenden Anschnitt. Ohne den
+        // Beschnitt liefe ein randabfallendes Titelfoto über den Rücken —
+        // also genau über die Beschriftung, die dort stehen soll.
+        zeichneUmschlagseite(rueckseite, reise: reise, karten: karten, auftrag: auftrag,
+                             ursprung: .zero, aussenLinks: true,
+                             seitenmass: seitenmass, anschnitt: anschnitt,
+                             in: zusammenhang)
+        zeichneUmschlagseite(titelseite, reise: reise, karten: karten, auftrag: auftrag,
+                             ursprung: CGPoint(x: seitenmass.width + ruecken.width, y: 0),
+                             aussenLinks: false,
+                             seitenmass: seitenmass, anschnitt: anschnitt,
+                             in: zusammenhang)
+
+        if ruecken.width > 1 {
+            zeichneRuecken(reise, rechteck: ruecken, in: zusammenhang)
+        }
+
+        zusammenhang.restoreGState()
+        zusammenhang.endPDFPage()
+        zusammenhang.closePDF()
+        await MainActor.run { fortschritt(1) }
+        return ziel
+    }
+
+    private static func zeichneUmschlagseite(_ buchseite: Buchseite, reise: Reise,
+                                             karten: [UUID: UIImage], auftrag: Auftrag,
+                                             ursprung: CGPoint, aussenLinks: Bool,
+                                             seitenmass: CGSize, anschnitt: Double,
+                                             in zusammenhang: CGContext)
+    {
+        zusammenhang.saveGState()
+        zusammenhang.translateBy(x: ursprung.x, y: ursprung.y)
+        let x = aussenLinks ? -anschnitt : 0
+        let breite = seitenmass.width + anschnitt
+        zusammenhang.clip(to: CGRect(x: x, y: -anschnitt, width: breite,
+                                     height: seitenmass.height + 2 * anschnitt))
+        zeichneSeite(buchseite, reise: reise, karten: karten, auftrag: auftrag,
+                     in: zusammenhang)
+        zusammenhang.restoreGState()
+    }
+
+    // DIE BESCHRIFTUNG DES RÜCKENS läuft von OBEN nach UNTEN.
+    //
+    // Das ist die deutsche und europäische Gepflogenheit: Ein Buch, das
+    // flach auf dem Tisch liegt, soll sich mit dem Titel nach oben lesen
+    // lassen. Gedreht wird deshalb um +90 Grad — im schon umgedrehten
+    // Zeichensystem läuft die Schrift damit nach unten.
+    private static func zeichneRuecken(_ reise: Reise, rechteck: CGRect,
+                                       in zusammenhang: CGContext)
+    {
+        let text = reise.umschlag.rueckenbeschriftung(titel: reise.titel)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return }
+
+        var bild = reise.typografie.titel
+        if let familie = reise.umschlag.schriftfamilie { bild.familie = familie }
+        bild.ausrichtung = .mitte
+        // Der Rücken ist schmal. Die Schrift darf ihn nicht ausfüllen,
+        // sondern muss hineinpassen, auch wenn jemand einen dicken Titel
+        // gewählt hat — sonst stünde sie halb auf der Titelseite.
+        let platz = rechteck.width * 0.62
+        if bild.zeilenhoehe > platz, bild.zeilenhoehe > 0 {
+            bild.groesse = bild.groesse * platz / bild.zeilenhoehe
+        }
+
+        let laenge = rechteck.height
+        let breite = rechteck.width
+        let hoehe = min(Textmass.hoehe(text, bild: bild, breite: laenge), breite)
+
+        zusammenhang.saveGState()
+        zusammenhang.translateBy(x: rechteck.midX, y: rechteck.midY)
+        zusammenhang.rotate(by: .pi / 2)
+        zusammenhang.translateBy(x: -laenge / 2, y: -breite / 2)
+        Seitensatz.zeichneText(
+            text, bild: bild,
+            rechteck: CGRect(x: 0, y: (breite - hoehe) / 2, width: laenge, height: hoehe),
+            in: zusammenhang, seitenhoehe: breite)
+        zusammenhang.restoreGState()
+    }
+
     // MARK: - Eine Seite
 
     static func zeichneSeite(_ buchseite: Buchseite, reise: Reise, karten: [UUID: UIImage],
@@ -484,35 +697,18 @@ enum Buchausgabe {
     // Seitenzahl und Kopfzeile gehören zum BUCH und nicht zum Tag — deshalb
     // sind sie keine Blöcke im Satz, wo jemand sie versehentlich verschöbe,
     // sondern werden beim Zeichnen jeder Seite ergänzt.
+    //
+    // Wo sie stehen, rechnet seit 1.0.50 `Seitenbeiwerk` — dieselbe
+    // Funktion, die auch der Bildschirm fragt. Bis 1.0.49 stand die
+    // Rechnung nur hier, und damit gab es die Seitenzahlen ausschließlich
+    // im PDF; auf dem Bildschirm blieb der Schalter ohne jede Wirkung.
     static func zeichneFusszeile(_ buchseite: Buchseite, reise: Reise,
                                  in zusammenhang: CGContext)
     {
         let endformat = reise.format.groesse
-        let satz = reise.gestaltung.satzspiegel(reise.format)
-        var klein = reise.typografie.bildunterschrift
-        klein.farbe = .leise
-
-        if reise.gestaltung.seitenzahlen, !buchseite.seite.ohneSeitenzahl {
-            klein.ausrichtung = .mitte
-            let y = endformat.height - Druckmass.pt(reise.gestaltung.randUnten) * 0.6
-            Seitensatz.zeichneText(
-                "\(buchseite.nummer)", bild: klein,
-                rechteck: CGRect(x: satz.minX, y: y, width: satz.width,
-                                 height: klein.zeilenhoehe * 1.6),
-                in: zusammenhang, seitenhoehe: endformat.height)
-        }
-        if reise.gestaltung.kopfzeile, !buchseite.seite.ohneSeitenzahl {
-            var kopf = klein
-            kopf.ausrichtung = .rechts
-            kopf.versalien = true
-            kopf.sperrung = 1.2
-            let text = buchseite.tag?.datum.mittel ?? reise.titel
-            let y = Druckmass.pt(reise.gestaltung.randOben) * 0.42
-            Seitensatz.zeichneText(
-                text, bild: kopf,
-                rechteck: CGRect(x: satz.minX, y: y, width: satz.width,
-                                 height: kopf.zeilenhoehe * 1.6),
-                in: zusammenhang, seitenhoehe: endformat.height)
+        for zeile in Seitenbeiwerk.zeilen(buchseite, reise: reise) {
+            Seitensatz.zeichneText(zeile.text, bild: zeile.bild, rechteck: zeile.rechteck,
+                                   in: zusammenhang, seitenhoehe: endformat.height)
         }
     }
 }

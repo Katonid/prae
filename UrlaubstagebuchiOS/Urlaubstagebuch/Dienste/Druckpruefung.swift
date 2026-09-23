@@ -532,6 +532,52 @@ enum Druckpruefung {
                       titel: "\(halb.count) Doppelseiten gehen nicht auf", text: text)]
     }
 
+    // DER UMSCHLAGBOGEN (ab 1.0.50) — Maße und Rückenbreite.
+    //
+    // Die Rückenbreite ist die eine Zahl des ganzen Buches, die diese App
+    // NICHT messen kann: Sie hängt am Papier der Druckerei. Gerechnet wird
+    // sie aus Seitenzahl, Papierstärke und Einband; hingeschrieben wird
+    // beides — die Zahl und woher sie kommt. Eine gerechnete Zahl als
+    // Messung auszugeben wäre genau die Art Lüge, die diese Prüfung nicht
+    // erzählen darf.
+    static func umschlag(_ reise: Reise) -> [Zeile] {
+        guard reise.hatRueckseite else { return [] }
+        let innen = reise.innenseiten
+        let blaetter = Umschlagmass.blaetter(innenseiten: innen)
+        let mm = Umschlagmass.rueckenbreite(reise.umschlag, innenseiten: innen)
+        let bogen = Umschlagmass.bogen(reise.format, gestaltung: reise.gestaltung,
+                                       umschlag: reise.umschlag, innenseiten: innen)
+
+        var text = "Der Umschlag ist EIN Bogen von "
+        text += "\(Druckmass.mmText(bogen.width)) x \(Druckmass.mmText(bogen.height)) "
+        text += "— links die Rückseite, in der Mitte der Rücken, rechts die Titelseite. "
+        if mm > 0.05 {
+            let zahl = String(format: "%.1f", mm).replacingOccurrences(of: ".", with: ",")
+            text += "Rückenbreite \(zahl) mm, gerechnet aus \(innen) Innenseiten "
+            text += "(\(blaetter) Blätter)"
+            if reise.umschlag.einband == .hardcover {
+                let decke = String(format: "%.1f", reise.umschlag.deckenstaerke)
+                    .replacingOccurrences(of: ".", with: ",")
+                text += " plus \(decke) mm Deckel"
+            }
+            text += ". Das ist GERECHNET und nicht gemessen — verbindlich ist die Angabe "
+            text += "des Druckdienstes."
+        } else {
+            text += "Ohne Rücken."
+        }
+        text += " Eine TrimBox in der Mitte gibt es bewusst nicht: Geschnitten wird außen, "
+        text += "gefalzt wird am Rücken."
+
+        var stufe = Stufe.gut
+        var titel = "Umschlag als Bogen"
+        if mm > 0.05, mm < 4 {
+            stufe = .warnung
+            titel = "Sehr schmaler Rücken"
+            text += " Unter 4 mm bedrucken viele Buchdienste den Rücken gar nicht."
+        }
+        return [Zeile(stufe: stufe, titel: titel, text: text)]
+    }
+
     static func vorab(_ reise: Reise) -> [Zeile] {
         var zeilen: [Zeile] = []
         let format = reise.format
@@ -563,6 +609,7 @@ enum Druckpruefung {
         zeilen.append(contentsOf: mittenImSatz(reise))
         zeilen.append(contentsOf: wasserzeichen(reise))
         zeilen.append(contentsOf: doppelseitenhintergrund(reise))
+        zeilen.append(contentsOf: umschlag(reise))
         zeilen.append(contentsOf: spurausreisser(reise))
 
         // Randabfallendes

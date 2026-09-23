@@ -118,6 +118,10 @@ final class Reisewerk: ObservableObject, Identifiable {
     // zu zeichnen; zwei Wahrheiten für dieselbe Seite laufen auseinander
     // (Lehre aus 1.0.8).
     private var titelblatt: (schluessel: Int, seite: Seite)?
+    // Seit 1.0.50 gilt dasselbe für die RÜCKSEITE des Buches: Auch sie
+    // gibt es nicht, sie wird gerechnet — und sie hängt an denselben
+    // Werten plus dem, was auf ihr steht.
+    private var rueckblatt: (schluessel: Int, seite: Seite)?
 
     // Alles, was in das Titelblatt eingeht — und nichts sonst. Fehlte hier
     // ein Feld, bliebe ein alter Titel stehen, ohne dass etwas darauf
@@ -138,11 +142,30 @@ final class Reisewerk: ObservableObject, Identifiable {
         misch.combine(reise.gestaltung)
         misch.combine(reise.typografie)
         misch.combine(reise.buchstil)
+        // Der Umschlag bringt seit 1.0.50 eigene Gestaltung mit: Rand,
+        // Hintergrund, Schrift, Titelgröße — und den Text der Rückseite.
+        // Fehlte er hier, bliebe ein alter Umschlag stehen, ohne dass
+        // etwas darauf hinwiese.
+        misch.combine(reise.umschlag)
         return misch.finalize()
     }
 
     var seitenfolge: [Buchseite] {
         var folge: [Buchseite] = []
+        if reise.hatRueckseite {
+            let schluessel = titelblattschluessel
+            let seite: Seite
+            if let da = rueckblatt, da.schluessel == schluessel {
+                seite = da.seite
+            } else {
+                seite = messer.sammelt("Titelblatt") {
+                    reise.automat.rueckseite(text: reise.umschlag.rueckseitentext,
+                                             foto: reise.umschlag.rueckseitenfoto)
+                }
+                rueckblatt = (schluessel, seite)
+            }
+            folge.append(Buchseite(seite: seite, tag: nil, nummer: 0))
+        }
         var nummer = 1
         if reise.titelseite {
             let schluessel = titelblattschluessel

@@ -98,6 +98,9 @@ struct Reise: Identifiable, Codable {
     var akzent: Farbwert = .akzent
     var kartenbild = Kartenbild()
     var titelseite: Bool = true
+    // DER UMSCHLAG IST EIN BOGEN (ab 1.0.50) — und hat seine eigene
+    // Gestaltung. Siehe `Model/Umschlag.swift`.
+    var umschlag = Umschlag()
     var geaendert: Date = Date()
 
     init() {}
@@ -117,6 +120,7 @@ struct Reise: Identifiable, Codable {
         titelfoto = b.wahlweise(.titelfoto)
         akzent = b.wert(.akzent, Farbwert.akzent)
         titelseite = b.wert(.titelseite, true)
+        umschlag = b.wert(.umschlag, Umschlag())
         geaendert = b.wert(.geaendert, Date())
         if let neu: Kartenbild = b.wahlweise(.kartenbild) {
             kartenbild = neu

@@ -10,12 +10,19 @@ struct HintergrundView: View {
     @ObservedObject var werk: Reisewerk
     // Leer heißt: Es geht um das ganze Buch.
     var seite: (tag: UUID, stelle: Int)?
+    // Oder um den UMSCHLAG (ab 1.0.50): Er hat seine eigene Gestaltung,
+    // weil er ein eigenes Stück Papier ist. Dieselbe Ansicht, drittes
+    // Ziel — drei Bildschirme für dieselbe Entscheidung liefen auseinander.
+    var fuerUmschlag: Bool = false
     @Environment(\.dismiss) private var schliessen
     @State private var fotowahl = false
 
-    private var istBuch: Bool { seite == nil }
+    private var istBuch: Bool { seite == nil && !fuerUmschlag }
 
     private var grund: Seitenhintergrund {
+        if fuerUmschlag {
+            return werk.reise.umschlag.hintergrund ?? werk.reise.gestaltung.hintergrund
+        }
         if let seite, let t = werk.tagIndex(seite.tag),
            werk.reise.tage[t].seiten.indices.contains(seite.stelle),
            let eigener = werk.reise.tage[t].seiten[seite.stelle].hintergrund
@@ -26,6 +33,7 @@ struct HintergrundView: View {
     }
 
     private var eigenerGesetzt: Bool {
+        if fuerUmschlag { return werk.reise.umschlag.hintergrund != nil }
         guard let seite, let t = werk.tagIndex(seite.tag),
               werk.reise.tage[t].seiten.indices.contains(seite.stelle) else { return false }
         return werk.reise.tage[t].seiten[seite.stelle].hintergrund != nil
@@ -44,14 +52,16 @@ struct HintergrundView: View {
 
                 if !istBuch {
                     Section {
-                        Toggle("Eigener Hintergrund für diese Seite", isOn: Binding(
-                            get: { eigenerGesetzt },
-                            set: { an in setzen(an ? werk.reise.gestaltung.hintergrund : nil) }
-                        ))
+                        Toggle(fuerUmschlag ? "Eigener Hintergrund für den Umschlag"
+                                            : "Eigener Hintergrund für diese Seite",
+                               isOn: Binding(
+                                   get: { eigenerGesetzt },
+                                   set: { an in
+                                       setzen(an ? werk.reise.gestaltung.hintergrund : nil)
+                                   }
+                               ))
                     } footer: {
-                        Text(eigenerGesetzt
-                             ? "Diese Seite weicht vom Buch ab. Ausschalten stellt den Hintergrund des Buches wieder her."
-                             : "Diese Seite folgt dem Hintergrund des Buches.")
+                        Text(fussnote)
                     }
                 }
 
@@ -131,7 +141,7 @@ struct HintergrundView: View {
                     }
                 }
             }
-            .navigationTitle(istBuch ? "Hintergrund des Buches" : "Hintergrund der Seite")
+            .navigationTitle(titelzeile)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
@@ -180,15 +190,36 @@ struct HintergrundView: View {
         var text = "Aus: Das Bild füllt jede Seite für sich. An: Es füllt die ganze "
         text += "aufgeschlagene Doppelseite, und jede Seite zeigt ihre Hälfte davon. "
         text += "Ein Muster oder ein Himmel gehört auf jede Seite, eine Landschaft über den Bund."
-        if istBuch {
+        if fuerUmschlag {
+            text += " Auf dem Umschlag hat der Schalter keine Wirkung: Der ist EIN Stück "
+            text += "Papier, und das Bild läuft dort ohnehin über Rückseite, Rücken und "
+            text += "Titelseite."
+        } else if istBuch {
             text += " Die linke Hälfte des ersten Bogens wird nie gedruckt — dort liegt im "
-            text += "gebundenen Buch die Innenseite des Umschlags."
+            text += "gebundenen Buch die Innenseite des Umschlags, solange der Umschlag nicht "
+            text += "als Bogen gesetzt ist."
         } else {
             text += " Damit es aufgeht, braucht die Nachbarseite dasselbe Bild mit demselben "
             text += "Schalter. Sonst zeigt jede Seite ihre Hälfte eines anderen Bildes, und "
             text += "das fällt erst im gedruckten Buch auf."
         }
         return text
+    }
+
+    private var titelzeile: String {
+        if fuerUmschlag { return "Hintergrund des Umschlags" }
+        return istBuch ? "Hintergrund des Buches" : "Hintergrund der Seite"
+    }
+
+    private var fussnote: String {
+        if fuerUmschlag {
+            return eigenerGesetzt
+                ? "Der Umschlag weicht vom Buch ab. Ausschalten stellt den Hintergrund des Buches wieder her."
+                : "Der Umschlag folgt dem Hintergrund des Buches. Er gilt für Rückseite, Rücken und Titelseite zusammen — es ist ein Stück Papier."
+        }
+        return eigenerGesetzt
+            ? "Diese Seite weicht vom Buch ab. Ausschalten stellt den Hintergrund des Buches wieder her."
+            : "Diese Seite folgt dem Hintergrund des Buches."
     }
 
     private func binden<W>(_ pfad: WritableKeyPath<Seitenhintergrund, W>) -> Binding<W> {
@@ -205,6 +236,10 @@ struct HintergrundView: View {
     }
 
     private func setzen(_ neu: Seitenhintergrund?) {
+        if fuerUmschlag {
+            werk.reise.umschlag.hintergrund = neu
+            return
+        }
         if let seite, let t = werk.tagIndex(seite.tag),
            werk.reise.tage[t].seiten.indices.contains(seite.stelle)
         {

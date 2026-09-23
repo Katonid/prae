@@ -117,6 +117,19 @@ struct SeitenflaecheView: View {
                 }
             }
 
+            // SEITENZAHL UND KOPFZEILE — dieselben Rechtecke, die auch das
+            // PDF bekommt (`Seitenbeiwerk`). Bis 1.0.49 wurden sie hier
+            // GAR NICHT gezeichnet; der Schalter im Menü blieb auf dem
+            // Bildschirm ohne jede Wirkung (gemeldet 09/2026). Sie liegen
+            // über den Blöcken, weil sie es im PDF auch tun — dort werden
+            // sie zuletzt gezeichnet.
+            ForEach(Seitenbeiwerk.zeilen(buchseite, reise: werk.reise)) { zeile in
+                Textkasten(text: zeile.text, bild: zeile.bild)
+                    .frame(width: zeile.rechteck.width, height: zeile.rechteck.height)
+                    .offset(x: zeile.rechteck.minX, y: zeile.rechteck.minY)
+                    .allowsHitTesting(false)
+            }
+
             // WORAN der Block gerade einrastet, steht als Linie da.
             //
             // Sie liegt über den Blöcken und unter der Schnittkante, geht
