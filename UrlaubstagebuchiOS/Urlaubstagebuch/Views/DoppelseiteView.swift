@@ -32,6 +32,7 @@ struct DoppelseiteView: View {
     private var rueckenbreite: Double {
         guard istUmschlagbogen else { return 0 }
         return Umschlagmass.rueckenbreitePt(werk.reise.umschlag,
+                                            format: werk.reise.format,
                                             innenseiten: werk.reise.innenseiten)
     }
 
@@ -76,6 +77,7 @@ struct DoppelseiteView: View {
     private var zeile: String {
         if istUmschlagbogen {
             let mm = Umschlagmass.rueckenbreite(werk.reise.umschlag,
+                                                format: werk.reise.format,
                                                 innenseiten: werk.reise.innenseiten)
             var text = "Umschlag \u{00B7} Rückseite und Titelseite"
             if mm > 0.05 {

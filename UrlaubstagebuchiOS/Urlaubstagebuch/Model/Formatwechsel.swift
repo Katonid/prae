@@ -107,6 +107,15 @@ enum Formatwechsel {
                     skaliere(&reise.tage[tagIndex].seiten[seiteIndex].bloecke[blockIndex],
                              mal: f)
                 }
+                // Die Wasserzeichen-Korrektur einer Seite ist eine LÄNGE
+                // in Millimetern und wird deshalb mitgerechnet (ab 1.0.54)
+                // — der WINKEL daneben nicht, aus demselben Grund, aus dem
+                // die Drehung eines Blocks stehen bleibt.
+                if var eigen = reise.tage[tagIndex].seiten[seiteIndex].wasserzeichen {
+                    eigen.versatzX = gerundet(eigen.versatzX * f)
+                    eigen.versatzY = gerundet(eigen.versatzY * f)
+                    reise.tage[tagIndex].seiten[seiteIndex].wasserzeichen = eigen
+                }
             }
         }
     }

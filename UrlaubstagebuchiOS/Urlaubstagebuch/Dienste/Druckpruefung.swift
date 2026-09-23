@@ -391,14 +391,21 @@ enum Druckpruefung {
         let satz = reise.gestaltung.satzspiegel(reise.format)
         var seiten = 0
         var verdeckt = 0
+        var korrigiert = 0
         for tag in reise.tage {
             for seite in tag.seiten {
                 seiten += 1
-                let ort = Wasserzeichenlage.rechteck(zeichen, satz: satz, seite: seite)
+                if seite.wasserzeichen?.gesetzt == true { korrigiert += 1 }
+                // Gefragt wird `ort` und nicht `rechteck`: Seit 1.0.54
+                // kann eine Seite das Zeichen verschieben, und gezählt
+                // werden soll, wo es WIRKLICH liegt — sonst meldete die
+                // Prüfung eine Verdeckung, die der Nutzer gerade behoben
+                // hat.
+                let platz = Wasserzeichenlage.ort(zeichen, satz: satz, seite: seite).rahmen
                 // Ab einer gewichteten Belegung von 4 liegt mindestens die
                 // halbe Fläche unter einem Foto oder einer Karte. Text
                 // allein käme nie so weit — der wiegt 1.
-                if Wasserzeichenlage.belegung(ort, seite: seite) >= 4 { verdeckt += 1 }
+                if Wasserzeichenlage.belegung(platz, seite: seite) >= 4 { verdeckt += 1 }
             }
         }
         guard seiten > 0 else { return [] }
@@ -410,6 +417,11 @@ enum Druckpruefung {
             text += "Auf \(verdeckt) von \(seiten) Tagesseiten liegt es unter einem Foto "
             text += "oder einer Karte und ist dort kaum zu sehen \u{2014} dort war keine freie "
             text += "Stelle mehr."
+        }
+        if korrigiert > 0 {
+            text += " Auf \(korrigiert) Seite"
+            text += korrigiert == 1 ? "" : "n"
+            text += " ist es von Hand nachgestellt."
         }
         text += " Mit „Ohne Transparenz“ fällt es ganz weg."
         return [Zeile(stufe: verdeckt > seiten / 2 ? .hinweis : .gut,
@@ -549,7 +561,8 @@ enum Druckpruefung {
         guard reise.hatRueckseite else { return [] }
         let innen = reise.innenseiten
         let blaetter = Umschlagmass.blaetter(innenseiten: innen)
-        let mm = Umschlagmass.rueckenbreite(reise.umschlag, innenseiten: innen)
+        let mm = Umschlagmass.rueckenbreite(reise.umschlag, format: reise.format,
+                                            innenseiten: innen)
         let bogen = Umschlagmass.bogen(reise.format, gestaltung: reise.gestaltung,
                                        umschlag: reise.umschlag, innenseiten: innen)
 
@@ -561,12 +574,15 @@ enum Druckpruefung {
             // Woher die Zahl kommt, entscheidet seit 1.0.52 die Tabelle des
             // Druckdienstes — steht eine da, wird nicht mehr gerechnet, und
             // dann wäre „gerechnet aus n Innenseiten" schlicht falsch.
-            if let ausTabelle = reise.umschlag.tabellenbreite(innenseiten: innen) {
+            if let ausTabelle = reise.umschlag.tabellenbreite(innenseiten: innen,
+                                                              format: reise.format)
+            {
                 let tab = String(format: "%.1f", ausTabelle)
                     .replacingOccurrences(of: ".", with: ",")
-                text += "Rückenbreite \(tab) mm bei \(innen) Innenseiten, aus der "
-                text += "eingetragenen Tabelle des Druckdienstes. Die Rechnung aus "
-                text += "Papierstärke und Einband ruht."
+                text += "Rückenbreite \(tab) mm bei \(innen) Innenseiten, "
+                text += Umschlagmass.rueckenherkunft(reise.umschlag, format: reise.format,
+                                                     innenseiten: innen)
+                text += ". Die Rechnung aus Papierstärke und Einband ruht."
             } else {
                 text += "Rückenbreite \(zahl) mm, gerechnet aus \(innen) Innenseiten "
                 text += "(\(blaetter) Blätter)"

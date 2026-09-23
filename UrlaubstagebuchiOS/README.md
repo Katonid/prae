@@ -480,6 +480,73 @@ Sichtbarkeit, 34 % Breite). Ob ein Zeichen bei 10 % im Druck noch zu sehen ist
 oder schon stört, sagt erst der erste Ausdruck; auf dem Bildschirm wirkt es
 kräftiger als auf Papier.
 
+## Die Tabellen von Saal Digital liegen bei (1.0.54)
+
+Wie breit der Buchrücken wird, sagt der Druckdienst — und für drei Formate
+von Saal Digital stehen seine Zahlen jetzt in der App:
+
+| Produkt | Innenseiten | Rücken |
+|---|---|---|
+| Fotobuch 21 × 28 (ca. A4) | 26–160 | 12–36 mm |
+| Fotobuch 28 × 28 | 26–160 | 12–36 mm |
+| Fotobuch 28 × 19 (ca. A4 quer) | 26–160 | 12–36 mm |
+
+Welche gilt, entscheidet das Seitenformat; wählen und abschalten lässt es
+sich unter **Umschlag → Gemessene Tabelle**. Ein Knopf daneben übernimmt
+die Zeilen in die eigene Tabelle, wenn man sie ändern will.
+
+**Woher die Zahlen kommen.** Aus dem PDF, das der Nutzer geschickt hatte —
+neun Bildschirmfotos ohne einen einzigen Textzug, abgelesen aus den
+entpackten Bilddaten am 23.09.2026. In 1.0.52 stand hier noch, es gebe
+keine Tabelle zum Mitliefern; dieselbe Datei war damals schon einmal
+untersucht worden, aber nur auf die Frage, ob ihr Seitenmaß ein Buchformat
+belegt.
+
+**Was dort steht, sind Pixel.** Saal gibt den Rücken als Bildbreite samt
+Auflösung an: 142 px bei 300 dpi, beim Querformat 143 px bei 302 dpi — also
+12,02 bzw. 12,03 mm. In der App stehen die ganzen Millimeter; die Rundung
+beträgt höchstens 0,05 mm. Die Leiter überspringt übrigens 17 und 23 mm,
+und 21 × 28 ist den anderen beiden um genau eine Stufe voraus. Beides ist
+übernommen und nicht geglättet.
+
+**Reihenfolge:** eigene Tabelle → mitgelieferte Tabelle → Rechnung aus
+Papierstärke und Einband. Woher die Zahl stammt, steht überall dabei, wo
+sie hingeschrieben wird.
+
+**Nicht gemessen:** Keine Umschlagdatei ist damit gedruckt worden. Ändert
+der Anbieter sein Papier, ändert sich die Tabelle, und die App merkt davon
+nichts — verbindlich bleibt seine Angabe. Und der Produktname geht bei Saal
+vom Maß der Vorlage ab: Die Innenseiten-Vorlage des „21 × 28" misst
+abzüglich Beschnitt 210 × 270 mm, die des „28 × 28" 270 × 270, die des
+„28 × 19" 280 × 188. Deshalb greift die Zuordnung über das Format mit
+12 mm Toleranz.
+
+## Eine einzelne Seite nachstellen (1.0.54)
+
+Das Wasserzeichen sucht sich seine Stelle auf jeder Seite neu (seit 1.0.46)
+und bekommt seit 1.0.52 auch je Seite einen eigenen Winkel. Wo die Automatik
+danebenliegt, lässt sich seit 1.0.54 **eine einzelne Seite** nachstellen:
+
+Nichts auswählen → **Pinsel → Wasserzeichen**. Dort stehen
+
+* der Winkel, den die Automatik dieser Seite gibt — als Zahl,
+* eine Skizze: Satzspiegel, die Blöcke als graue Flächen, das Zeichen an
+  seiner gerechneten Stelle und in seinem gerechneten Winkel,
+* ein eigener Winkel und eine Verschiebung in Millimetern.
+
+Was nicht angefasst ist, folgt weiter der Automatik — ändert man am Buch die
+Größe oder die Sichtbarkeit, zieht diese Seite mit. „Wieder ganz
+automatisch" nimmt beides zurück.
+
+Das Zeichen bleibt dabei **im Satzspiegel**: Was darüber hinausginge, wäre
+im Druck angeschnitten. Nach einem Neuanordnen des Tages bleibt die
+Korrektur an der Stelle im Tag hängen, nicht am Inhalt — die Seite ist
+danach eine andere, und die Automatik sucht für sie neu.
+
+**Nicht gemessen:** Ob eine von Hand gedrehte Seite im PDF so steht wie auf
+dem Bildschirm, hat niemand gesehen. Gerechnet wird beides aus derselben
+Funktion.
+
 ## Warum der Text beim Hineinzoomen unscharf war (1.0.53)
 
 Gemeldet mit einem Bildschirmfoto bei 400 %: „Wie wird der Text eigentlich
@@ -580,16 +647,15 @@ Wie breit der Buchrücken wird, hängt am Papier der Druckerei. Die App
 rechnet es aus Blattzahl, Papierstärke und Einband — und **jeder
 Druckdienst nennt eigene Zahlen**, meist als Tabelle nach Seitenzahl.
 
-Unter **Umschlag → Tabelle des Druckdienstes** lässt sich diese Tabelle
+Unter **Umschlag → Eigene Tabelle** lässt sich diese Tabelle
 Zeile für Zeile eintragen: ab wie vielen Seiten sie gilt, und wie viele
 Millimeter. Steht dort etwas, **gilt es** — dann wird nicht mehr gerechnet,
 und die Gesamtbreite des Bogens folgt von selbst. Genommen wird die letzte
 Zeile, deren Seitenzahl das Buch erreicht; die geltende steht farbig.
 
-**Mitgeliefert wird keine Tabelle.** Die Zahlen ließen sich nicht
-nachschlagen (versucht am 23.09.2026), und eine nach Gefühl
-hingeschriebene sähe aus wie eine Auskunft des Anbieters. Wo die Zahl
-herkommt, steht überall dabei, wo sie hingeschrieben wird.
+**Seit 1.0.54 liegen drei gemessene Tabellen bei** (siehe oben); eigene
+Zeilen gehen ihnen vor. Wo die Zahl herkommt, steht überall dabei, wo sie
+hingeschrieben wird.
 
 ## Zwei Dateien für den Druckdienst (1.0.52)
 

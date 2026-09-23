@@ -17,6 +17,7 @@ struct BlockInspektor: View {
     // zwei Menüs weiter.
     @Binding var blatt: ReiseView.Blatt?
     @State private var hintergrundOffen = false
+    @State private var zeichenOffen = false
     @State private var ausschnittOffen = false
     // EIN BLATT UND KEIN VERWEIS (ab 1.0.29). Der Inspektor ist eine
     // `.inspector`-Spalte und bringt KEINEN eigenen Navigationsstapel mit;
@@ -114,6 +115,14 @@ struct BlockInspektor: View {
                 )
             }
         }
+        .sheet(isPresented: $zeichenOffen) {
+            if let tag = werk.tag, !tag.seiten.isEmpty {
+                WasserzeichenSeiteView(
+                    werk: werk, tagID: tag.id,
+                    stelle: min(max(werk.seitenzeiger, 0), tag.seiten.count - 1)
+                )
+            }
+        }
         .sheet(isPresented: $hintergrundOffen) {
             if let tag = werk.tag, !tag.seiten.isEmpty {
                 HintergrundView(
@@ -127,6 +136,16 @@ struct BlockInspektor: View {
     private func hintergrundname(_ tag: Reisetag, _ stelle: Int) -> String {
         guard let eigener = seite(tag, stelle)?.hintergrund else { return "wie im Buch" }
         return eigener.art.name
+    }
+
+    private func zeichenname(_ tag: Reisetag, _ stelle: Int) -> String {
+        guard let eigen = seite(tag, stelle)?.wasserzeichen, eigen.gesetzt else {
+            return "automatisch"
+        }
+        if eigen.winkel != nil, abs(eigen.versatzX) + abs(eigen.versatzY) > 0.01 {
+            return "gedreht und verschoben"
+        }
+        return eigen.winkel != nil ? "eigener Winkel" : "verschoben"
     }
 
     // Ist kein Block gewählt, gehört dieser Platz der SEITE. Ein eigener
@@ -165,6 +184,17 @@ struct BlockInspektor: View {
                         hintergrundOffen = true
                     } label: {
                         LabeledContent("Hintergrund", value: hintergrundname(tag, stelle))
+                    }
+                    // Nur, wenn es überhaupt ein Wasserzeichen gibt: Eine
+                    // Zeile, hinter der ein Satz steht statt einer
+                    // Einstellung, ist ein Knopf, der nichts tut.
+                    if werk.reise.gestaltung.wasserzeichen?.gueltig == true {
+                        Button {
+                            zeichenOffen = true
+                        } label: {
+                            LabeledContent("Wasserzeichen",
+                                           value: zeichenname(tag, stelle))
+                        }
                     }
                     Button(role: .destructive) {
                         werk.seiteLoeschen(tag.id, seite: stelle)

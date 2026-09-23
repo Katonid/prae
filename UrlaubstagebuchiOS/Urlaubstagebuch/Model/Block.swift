@@ -423,6 +423,11 @@ struct Seite: Identifiable, Codable, Hashable {
     // und die eine vergessene Stelle wäre wieder ein stiller Verlust.
     var vonHandAngelegt: Bool = false
 
+    // Eine Korrektur des Wasserzeichens auf DIESER Seite (ab 1.0.54).
+    // `nil` heißt: ganz automatisch — Lage und Winkel kommen wie bisher
+    // aus der Kennung der Seite und aus dem, was auf ihr steht.
+    var wasserzeichen: Wasserzeichenabweichung?
+
     init(id: UUID = UUID(), bloecke: [Block] = [], papier: Farbwert? = nil,
          hintergrund: Seitenhintergrund? = nil, ohneSeitenzahl: Bool = false,
          vonHandAngelegt: Bool = false)
@@ -445,6 +450,7 @@ struct Seite: Identifiable, Codable, Hashable {
         hintergrund = b.wahlweise(.hintergrund)
         ohneSeitenzahl = b.wert(.ohneSeitenzahl, false)
         vonHandAngelegt = b.wert(.vonHandAngelegt, false)
+        wasserzeichen = b.wahlweise(.wasserzeichen)
     }
 
     var vonHand: Bool { vonHandAngelegt || bloecke.contains(where: \.vonHand) }

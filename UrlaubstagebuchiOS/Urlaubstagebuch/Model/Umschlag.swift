@@ -83,14 +83,16 @@ struct Umschlag: Codable, Hashable {
     // sind die einzigen, die gelten: Wie dick ein Blatt aufträgt, weiß der
     // Druckdienst.
     //
-    // **Die Tabelle wird EINGETRAGEN und nicht mitgeliefert.** Sie steht
-    // bei Saal Digital hinter einer Oberfläche, die sich von hier aus nicht
-    // abrufen ließ (versucht am 23.09.2026, Profi-Bereich und Preisseite —
-    // beide geben die Zahlen nicht als Text heraus). Eine nach Gefühl
-    // hingeschriebene Tabelle wäre schlimmer als keine: Sie sähe aus wie
-    // eine Auskunft des Anbieters und wäre geraten. Dieselbe Regel wie bei
-    // den Fahrplanquellen der Abfahrtstafel — was sich nicht nachschlagen
-    // lässt, wird nicht geraten.
+    // **Seit 1.0.54 liegen drei gemessene Tabellen bei** (`Rueckentabellen`,
+    // abgelesen aus dem PDF des Nutzers), und eine davon gilt von selbst,
+    // sobald das Seitenformat zu ihr passt. In 1.0.52 stand hier noch, die
+    // Tabelle werde grundsätzlich eingetragen und nicht mitgeliefert —
+    // richtig war daran nur, dass NICHTS GERATEN wird: Was hier steht, ist
+    // abgelesen, und was sich nicht ablesen ließ, steht nicht da.
+    //
+    // Eingetragene Zeilen behalten trotzdem den Vortritt: Wer seine eigene
+    // Tabelle führt, hat sie von seinem Druckdienst und nicht aus dieser
+    // App.
     struct Rueckenstufe: Codable, Hashable, Identifiable {
         /// Ab wie vielen Seiten des Buchblocks diese Zeile gilt.
         var abSeiten: Int
@@ -100,10 +102,23 @@ struct Umschlag: Codable, Hashable {
         var id: Int { abSeiten }
     }
 
-    /// Leer heißt: gerechnet. Sonst gilt die Zeile mit dem größten
-    /// `abSeiten`, das die Seitenzahl nicht überschreitet — genau so, wie
+    /// Leer heißt: Es gilt die eingebaute Tabelle, wenn eine zum Format
+    /// passt — sonst wird gerechnet. Sonst gilt die Zeile mit dem größten
+    /// `abSeiten`, das die Seitenzahl nicht überschreitet: genau so, wie
     /// eine solche Tabelle gelesen wird.
     var rueckentabelle: [Rueckenstufe] = []
+
+    /// Eine ausdrücklich gewählte eingebaute Tabelle. `nil` heißt: die,
+    /// die zum Seitenformat passt. Wer ein eigenes Maß eingetippt hat, dem
+    /// passt vielleicht trotzdem eine — deshalb lässt sie sich auch von
+    /// Hand wählen.
+    var tabellenvorlage: String?
+
+    /// Keine eingebaute Tabelle. Ein eigener Schalter und kein `""` in
+    /// `tabellenvorlage`: „nichts gewählt" und „ausdrücklich keine" sind
+    /// zwei verschiedene Aussagen — dieselbe Lehre wie bei `Block.ohneGrund`
+    /// seit 1.0.12.
+    var ohneVorlage: Bool = false
 
     // MARK: - Die Rückseite
 
@@ -140,6 +155,8 @@ struct Umschlag: Codable, Hashable {
         einband = b.wert(.einband, Einband.hardcover)
         deckenstaerke = b.wert(.deckenstaerke, 4)
         rueckentabelle = b.wert(.rueckentabelle, [Rueckenstufe]())
+        tabellenvorlage = b.wahlweise(.tabellenvorlage)
+        ohneVorlage = b.wert(.ohneVorlage, false)
         rueckseitentext = b.wert(.rueckseitentext, "")
         rueckseitenfoto = b.wahlweise(.rueckseitenfoto)
         hintergrund = b.wahlweise(.hintergrund)
@@ -154,16 +171,33 @@ struct Umschlag: Codable, Hashable {
         return eigen.isEmpty ? titel : eigen
     }
 
-    /// Was die Tabelle zu dieser Seitenzahl sagt — `nil` heißt: Sie sagt
-    /// nichts dazu (leer, oder das Buch ist dünner als ihre erste Zeile).
-    /// Dann wird gerechnet, statt die kleinste Zeile zu nehmen: Eine
-    /// Tabelle, die bei 20 Seiten anfängt, hat über ein Buch mit 12 Seiten
-    /// keine Aussage getroffen.
-    func tabellenbreite(innenseiten: Int) -> Double? {
+    /// Die eingebaute Tabelle, die für dieses Buch gilt — `nil` heißt:
+    /// keine. Ausdrücklich abgeschaltet schlägt ausdrücklich gewählt,
+    /// und beides schlägt die Zuordnung über das Format.
+    func vorlage(fuer format: Seitenformat) -> Rueckentabellen.Vorlage? {
+        if ohneVorlage { return nil }
+        if let gewaehlt = tabellenvorlage { return Rueckentabellen.vorlage(gewaehlt) }
+        return Rueckentabellen.passend(zu: format)
+    }
+
+    /// Was die EIGENE, eingetragene Tabelle zu dieser Seitenzahl sagt —
+    /// `nil` heißt: Sie sagt nichts dazu (leer, oder das Buch ist dünner
+    /// als ihre erste Zeile). Dann wird nicht die kleinste Zeile genommen:
+    /// Eine Tabelle, die bei 20 Seiten anfängt, hat über ein Buch mit 12
+    /// Seiten keine Aussage getroffen.
+    func eigeneTabellenbreite(innenseiten: Int) -> Double? {
         let passend = rueckentabelle
             .filter { $0.abSeiten <= innenseiten }
             .max { $0.abSeiten < $1.abSeiten }
         return passend.map { max(0, $0.millimeter) }
+    }
+
+    /// Was überhaupt nachgeschlagen werden kann: erst die eigenen Zeilen,
+    /// dann die eingebaute Tabelle. `nil` heißt: Keine von beiden sagt
+    /// etwas — dann wird gerechnet.
+    func tabellenbreite(innenseiten: Int, format: Seitenformat) -> Double? {
+        if let eigen = eigeneTabellenbreite(innenseiten: innenseiten) { return eigen }
+        return vorlage(fuer: format)?.breite(innenseiten: innenseiten)
     }
 
     var eigeneGestaltung: Bool {

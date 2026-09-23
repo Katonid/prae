@@ -545,6 +545,7 @@ struct ReiseView: View {
         var breite = bogen.width * 2
         if werk.reise.hatRueckseite {
             breite += Umschlagmass.rueckenbreitePt(werk.reise.umschlag,
+                                                   format: werk.reise.format,
                                                    innenseiten: werk.reise.innenseiten)
         }
         return breite
