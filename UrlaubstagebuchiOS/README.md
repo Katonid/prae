@@ -480,6 +480,53 @@ Sichtbarkeit, 34 % Breite). Ob ein Zeichen bei 10 % im Druck noch zu sehen ist
 oder schon stört, sagt erst der erste Ausdruck; auf dem Bildschirm wirkt es
 kräftiger als auf Papier.
 
+## Warum der Text beim Hineinzoomen unscharf war (1.0.53)
+
+Gemeldet mit einem Bildschirmfoto bei 400 %: „Wie wird der Text eigentlich
+gerendert? Er wirkt unscharf."
+
+Am Quelltext abzuzählen und keine Vermutung. Core Animation rastert eine
+Ebene **genau einmal**, mit `layer.contentsScale` Bildpunkten je Punkt, und
+der Vorgabewert ist der Maßstab des Bildschirms. Der `scaleEffect` über der
+Seite ist danach eine **Abbildung und keine neue Zeichnung** — er zieht das
+fertige Bild auf. Der Text wurde also weiterhin mit zwei Bildpunkten je
+Seitenpunkt *gesetzt* und bei 400 % auf acht *gezeigt*: ein halber
+gerasterter Punkt je Bildschirmpunkt. Nichts daran war falsch gezeichnet, es
+war zu grob gezeichnet.
+
+Dasselbe eine Ebene weiter bei den **Fotos**: `vorschaukante` stand auf
+festen 2,2 Bildpunkten je Seitenpunkt — richtig für die unvergrößerte Seite
+auf einem gewöhnlichen Gerät und sonst nirgends.
+
+Wie fein gerastert wird, steht seither an **einer** Stelle
+(`Model/Bildschaerfe.swift`) und gilt für Text, Fotos, Wasserzeichen und
+Hintergrundfoto. Der Gerätemaßstab kommt aus der eigenen Ansicht
+(`traitCollection.displayScale` bzw. `\.displayScale`) und nie aus
+`UIScreen.main`: Hängt ein Beamer am iPad, wäre das die falsche Auskunft.
+
+Gestuft wird, weil jede Zwischengröße sonst ihre eigene Rasterung bekäme —
+und im Bildarchiv einen eigenen Eintrag, denn dessen Schlüssel nennt die
+Kante. Gedeckelt wird durch ein Pixelbudget je Fläche: Ein Textkasten von
+430 × 700 Punkten wöge bei achtfacher Rasterung 77 MB, und mehrere davon
+liegen in der Bühne.
+
+**Die Karte bleibt, wie sie ist**, und das ist kein Vergessen: Sie wird seit
+jeher mit vier Bildpunkten je Seitenpunkt aufgenommen. Weiter hinauf hilft
+nichts — `Kachelkarte` ist auf 48 Kacheln gedeckelt (Nutzungsrichtlinie der
+OSM Foundation), und eine größere Anforderung zöge nur eine tiefere Zoomstufe
+nach sich, die an derselben Grenze wieder gröber wird. Bei starker
+Vergrößerung ist sie damit das gröbste Element auf der Seite.
+
+**Das Textfeld beim Bearbeiten ist nicht mitgezogen.** `InlineText` ist ein
+`UITextView` und setzt über TextKit in eigene Unterebenen; ein
+`contentsScale` an der äußeren Ansicht erreicht sie nicht verlässlich.
+
+Und weil sich hier nichts nachmessen lässt, sagt es die App: Der Befund unter
+**Anordnen → „Bedienung prüfen"** nennt, was wirklich gesetzt wurde —
+Bildpunkte je Seitenpunkt gegen die, die gebraucht würden, dazu
+Gerätemaßstab, Bühnenmaßstab, die Größe des Kastens und ob das Budget
+gedeckelt hat.
+
 ## Seite 1 liegt rechts (1.0.52)
 
 Ein Buch schlägt man auf, und rechts liegt die Seite 1. Links davon liegt
@@ -4140,6 +4187,14 @@ im Inspektor gab es, aber keinen Weg zu sehen, was es bewirkt.
   wäre der schlechtere Tausch.
 
 ## Offene Punkte
+
+* **Nichts an 1.0.53 ist auf einem Gerät gesehen.** Gerechnet ist die
+  *Ursache* — dass eine Ebene mit ihrem `contentsScale` rastert und ein
+  `scaleEffect` das Ergebnis dehnt. Gewählt und nicht gemessen sind alle
+  Zahlen: das Pixelbudget (6 Millionen), die Stufenliste, die obere Grenze
+  der Vorschaubilder und die 200er-Rundung der Kanten. Ungemessen bleibt
+  auch der Preis: Eine feinere Rasterung kostet Speicher und Zeichenzeit.
+  Der Befund unter „Bedienung prüfen" nennt die Zahlen.
 
 * **Ob sich die App nach 1.0.45 wieder signieren lässt, ist nicht gemessen.**
   Hier gibt es keinen Mac. Gemessen ist die *Ursache*: Das Recht kam in

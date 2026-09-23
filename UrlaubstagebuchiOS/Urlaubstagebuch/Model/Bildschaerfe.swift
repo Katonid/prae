@@ -123,12 +123,20 @@ final class Schaerfeprobe {
     var befund: String {
         guard fein > 0 else { return "Schärfe: noch kein Text gerastert" }
         let wunsch = Bildschaerfe.aufwaerts(max(geraet, 1) * max(massstab, 0.05))
-        let zusatz = fein < wunsch - 0.01 ? " · vom Budget gedeckelt" : ""
-        return "Schärfe: " + String(format: "%.1f", fein) + " statt "
-            + String(format: "%.1f", wunsch) + " Bildpunkte je Seitenpunkt"
-            + " (Gerät " + String(format: "%.0f", geraet) + "× · Maßstab "
-            + String(format: "%.0f", massstab * 100) + " % · Kasten "
-            + String(format: "%.0f", Double(flaeche.width)) + "×"
-            + String(format: "%.0f", Double(flaeche.height)) + " pt" + zusatz + ")"
+        // Zusammengesetzt wird über eine LISTE und nicht über eine
+        // `+`-Kette: Die sprengt den Typprüfer, und zwar nicht erst in
+        // einem Ansichtskörper (die Lehre aus 1.0.38, zum zweiten Mal in
+        // dieser Fassung bezahlt).
+        var teile: [String] = []
+        teile.append("Schärfe: " + String(format: "%.1f", fein))
+        teile.append("statt " + String(format: "%.1f", wunsch))
+        teile.append("Bildpunkte je Seitenpunkt (Gerät")
+        teile.append(String(format: "%.0f", geraet) + "×")
+        teile.append("· Maßstab " + String(format: "%.0f", massstab * 100) + " %")
+        let breite = String(format: "%.0f", Double(flaeche.width))
+        let hoehe = String(format: "%.0f", Double(flaeche.height))
+        teile.append("· Kasten " + breite + "×" + hoehe + " pt")
+        if fein < wunsch - 0.01 { teile.append("· vom Budget gedeckelt") }
+        return teile.joined(separator: " ") + ")"
     }
 }

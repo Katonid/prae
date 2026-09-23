@@ -68,6 +68,22 @@ struct SeitenflaecheView: View {
         return buchseite.seite.bloecke.first { $0.id == id }
     }
 
+    // GEBAUT WIRD DER PROBENTEXT AUSSERHALB DES KÖRPERS.
+    //
+    // Eine `+`-Kette aus `??`, Text und Interpolation sprengt den
+    // Typprüfer — „unable to type-check this expression in reasonable
+    // time". Genau das ist beim Einbau der Schärfezeile passiert: Drei
+    // Teile gingen, der vierte kippte es. Die Lehre steht seit 1.0.38 im
+    // Papier und gilt auch für eine Kette aus lauter Zeichenketten.
+    private var probentext: String {
+        var zeilen: [String] = []
+        zeilen.append(werk.letzterGriff ?? "noch nichts gegriffen")
+        zeilen.append(werk.letzteBuehne ?? "noch nicht gezoomt")
+        zeilen.append(Schaerfeprobe.shared.befund)
+        zeilen.append(werk.messer.befund)
+        return zeilen.joined(separator: "\n")
+    }
+
     // Wo das Wasserzeichen liegt. Gerechnet wird es VOR dem Bild, weil
     // seine Größe sagt, wie fein das Bild geholt werden muss.
     private func wasserzeichenort(_ zeichen: Wasserzeichen) -> Wasserzeichenlage.Ort? {
@@ -263,10 +279,7 @@ struct SeitenflaecheView: View {
             // steht nur da, wenn jemand sie eingeschaltet hat, und sie sagt
             // nichts als das Gemessene.
             if bearbeitbar, werk.zeigeGriffprobe {
-                Text((werk.letzterGriff ?? "noch nichts gegriffen")
-                     + "\n" + (werk.letzteBuehne ?? "noch nicht gezoomt")
-                     + "\n" + Schaerfeprobe.shared.befund
-                     + "\n" + werk.messer.befund)
+                Text(probentext)
                     .font(.system(size: 9 / massstab, design: .monospaced))
                     .multilineTextAlignment(.leading)
                     .fixedSize()
