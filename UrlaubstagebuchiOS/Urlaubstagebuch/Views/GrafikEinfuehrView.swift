@@ -1,3 +1,4 @@
+import PhotosUI
 import SwiftUI
 import UniformTypeIdentifiers
 
@@ -75,5 +76,120 @@ struct GrafikEinfuehrView: View {
         }
         werk.meldung = .init(text: satz)
         schliessen()
+    }
+}
+
+// EIN BILD AUS DER MEDIATHEK, OHNE DATUMSLOGIK (ab 1.0.65).
+//
+// Ansage des Nutzers, 09/2026: „Nachdem dies geschehen ist, möchte ich über
+// das Plusmenü aber auch Fotos auswählen können, egal ob von Dateien oder
+// aus der Fotomediathek, die dann einfach auf der Seite eingefügt werden,
+// egal welchen Zeitstempel sie haben."
+//
+// Bis 1.0.64 führte JEDER Weg aus der Mediathek durch die Fotoeinfuhr —
+// also durch Datum, Ort, Tageszuordnung und einen Bericht darüber, was
+// fehlt. Das ist richtig, solange es um Reisefotos geht, und falsch, sobald
+// jemand ein Bild einfach auf eine Seite legen will. Der Weg über DATEIEN
+// konnte das seit 1.0.61; dieser hier ist derselbe, nur mit dem anderen
+// Wähler davor — dieselbe Funktion dahinter (`grafikEinfuegen`), denn zwei
+// Fassungen desselben Einsetzens liefen auseinander.
+//
+// Das Bild gilt danach als GRAFIK: Es steht in keiner Fotoliste eines
+// Tages, erzeugt keinen Punkt auf der Karte und taucht nicht in der Ablage
+// „Fotos ohne Tag" auf. Genau das ist gemeint mit „egal welchen Zeitstempel
+// sie haben".
+struct BildAusFotosView: View {
+    @ObservedObject var werk: Reisewerk
+    @Environment(\.dismiss) private var schliessen
+
+    var body: some View {
+        // Der Wähler zeigt sich SELBST — dieselbe Regel wie überall, wo ein
+        // fremder Dienst ein Fenster aufmacht.
+        Fotowahl { treffer in
+            Task { await einsetzen(treffer) }
+        }
+        .ignoresSafeArea()
+    }
+
+    private func einsetzen(_ treffer: [PHPickerResult]) async {
+        guard !treffer.isEmpty else {
+            schliessen()
+            return
+        }
+        guard let seite = werk.einsetzbareSeite else {
+            werk.meldung = .init(text: "Erst eine Seite antippen, dann das Bild wählen.",
+                                 schwer: true)
+            schliessen()
+            return
+        }
+        var gesetzt = 0
+        var gescheitert = 0
+        for eintrag in treffer {
+            guard let daten = await ladeDaten(eintrag) else {
+                gescheitert += 1
+                continue
+            }
+            if werk.grafikEinfuegen(daten, endung: endung(eintrag), aufSeite: seite) {
+                gesetzt += 1
+            } else {
+                gescheitert += 1
+            }
+        }
+        var satz = gesetzt == 1 ? "1 Bild eingesetzt." : "\(gesetzt) Bilder eingesetzt."
+        if gesetzt > 0 {
+            satz += " Es liegt in der Mitte der Seite und lässt sich von dort "
+            satz += "verschieben, drehen und in der Größe ziehen. "
+            satz += "Ein Tag wird ihm nicht zugeordnet."
+        }
+        if gescheitert > 0 {
+            satz += " \(gescheitert) ließen sich nicht lesen."
+        }
+        werk.meldung = .init(text: satz)
+        schliessen()
+    }
+
+    // Die ECHTE Endung, soweit die Mediathek sie hergibt. Ein PNG als
+    // „jpg" abzulegen nähme ihm den durchsichtigen Grund.
+    private func endung(_ eintrag: PHPickerResult) -> String {
+        let typen = eintrag.itemProvider.registeredTypeIdentifiers
+        if typen.contains(UTType.png.identifier) { return "png" }
+        if typen.contains(UTType.heic.identifier) { return "heic" }
+        return "jpg"
+    }
+
+    // Geladen werden DATEN und nie ein `UIImage` — ein entpacktes Bild hat
+    // seine Maße noch, aber alles andere nicht mehr, und `Bildleser` liest
+    // die Maße aus der Datei.
+    private func ladeDaten(_ eintrag: PHPickerResult) async -> Data? {
+        let anbieter = eintrag.itemProvider
+        guard anbieter.hasItemConformingToTypeIdentifier(UTType.image.identifier) else {
+            return nil
+        }
+        return await withCheckedContinuation { fortsetzen in
+            // `loadDataRepresentation` darf seinen Rückruf MEHRMALS
+            // aufrufen; ein zweites `resume` an einer Continuation ist kein
+            // Fehler, sondern ein Absturz. Dieselbe Falle wie in der
+            // Zeitraumeinfuhr seit 1.0.30.
+            let einmal = Einmal()
+            anbieter.loadDataRepresentation(
+                forTypeIdentifier: UTType.image.identifier
+            ) { daten, _ in
+                einmal.tun { fortsetzen.resume(returning: daten) }
+            }
+        }
+    }
+}
+
+// Ein Wächter, der genau einmal durchlässt.
+private final class Einmal: @unchecked Sendable {
+    private let sperre = NSLock()
+    private var schon = false
+
+    func tun(_ arbeit: () -> Void) {
+        sperre.lock()
+        let jetzt = !schon
+        schon = true
+        sperre.unlock()
+        if jetzt { arbeit() }
     }
 }

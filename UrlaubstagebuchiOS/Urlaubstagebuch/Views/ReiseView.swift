@@ -115,6 +115,7 @@ struct ReiseView: View {
         // verwechseln mit `.dateien`: Das ist die Fotoeinfuhr, die Tagen
         // zuordnet und nach Datum und Ort fragt.
         case grafik
+        case bildAusFotos
         case tagesspur
         case typografie
         case fotostil
@@ -142,6 +143,7 @@ struct ReiseView: View {
             case .fotos: return "fotos"
             case .dateien: return "dateien"
             case .grafik: return "grafik"
+            case .bildAusFotos: return "bildausfotos"
             case .tagesspur: return "tagesspur"
             case .typografie: return "typo"
             case .fotostil: return "fotostil"
@@ -1028,8 +1030,39 @@ struct ReiseView: View {
                 }
             }
 
+            ablageKnopf
+
             blockMenue
             tagMenue
+        }
+    }
+
+    // Der eine Knopf, der auch OHNE gewählten Block dasteht.
+    //
+    // Eine eigene Eigenschaft mit genau EINEM Kind: Ein
+    // `ToolbarItemGroup` verteilt seine Kinder auf eigene Plätze, und
+    // ein weitergereichter Ausdruck ist für sie eines — mehrere Knöpfe
+    // darin stünden zusammengedrängt statt nebeneinander (die Lehre aus
+    // Tafelbild). Gebraucht wird sie, damit die Gruppe unter zehn
+    // Kindern bleibt.
+    @ViewBuilder
+    private var ablageKnopf: some View {
+        // LIEGT ETWAS IN DER ABLAGE, STEHT DER KNOPF DA (ab 1.0.65).
+        //
+        // Nicht nur im Menü: Wer gerade ausgeschnitten hat, hat keinen
+        // Block mehr gewählt — das Blockmenü ist dann weg, und im
+        // Plus-Menü müsste man den Eintrag erst suchen. Ein Weg, den
+        // man nicht sieht, ist keiner; dieselbe Lehre wie beim
+        // Gruppenchat in Schulalarm und beim Sichtumschalter der
+        // Abfahrtstafel.
+        if let inhalt = werk.ablage, let ziel = werk.einsetzbareSeite {
+            Button {
+                werk.blockEinfuegen(auf: ziel)
+            } label: {
+                Label("\(inhalt.name) einfügen", systemImage: "doc.on.clipboard")
+            }
+            .tint(.orange)
+            .disabled(werk.einfuegenGrund(auf: ziel) != nil)
         }
     }
 
@@ -1063,6 +1096,7 @@ struct ReiseView: View {
                 // (ab 1.0.64) bekommt deshalb nur den letzten Abschnitt —
                 // nach vorn holen und entfernen. Ein ausgegrauter Eintrag
                 // ohne Grund wäre für den Menschen davor ein kaputter Knopf.
+                ablageAbschnitt(block)
                 if let lage = werk.seitenlage(block.id) {
                     verschiebenAbschnitt(block, lage: lage)
                     kopierenAbschnitt(block, lage: lage)
@@ -1072,6 +1106,58 @@ struct ReiseView: View {
                 Label(block.inhalt.name, systemImage: "square.on.square")
             }
         }
+    }
+
+    // AUSSCHNEIDEN, KOPIEREN, EINFÜGEN (ab 1.0.65).
+    //
+    // Befund des Nutzers, 09/2026: „Im Moment ist es so, dass ich zum
+    // Beispiel ein Foto nur auf eine Seite verschieben kann, die nach der
+    // aktuellen Seite neu angelegt wird. Etwas anderes steht mir offenbar
+    // nicht zur Verfügung." — Genau so ist es: Die beiden Abschnitte
+    // darunter rechnen mit den Seiten DIESES Tages, und ein Tag mit einer
+    // einzigen Seite lässt davon nur „Auf eine neue Seite" übrig.
+    //
+    // Der Abschnitt steht deshalb GANZ OBEN: Er ist der allgemeine Weg,
+    // die beiden darunter sind die Abkürzungen für den Nachbarn.
+    @ViewBuilder
+    private func ablageAbschnitt(_ block: Block) -> some View {
+        Section {
+            Button("Ausschneiden", systemImage: "scissors") {
+                werk.blockAusschneiden(block.id)
+            }
+            Button("Kopieren", systemImage: "doc.on.doc") {
+                werk.blockInDieAblage(block.id)
+            }
+            einfuegenKnopf
+        }
+    }
+
+    // Derselbe Knopf an zwei Stellen: im Blockmenü und im Plusmenü. Dort
+    // ist er der einzige — wer eingefügt hat und dann eine andere Seite
+    // wählt, hat gerade KEINEN Block gewählt, und das Blockmenü ist weg.
+    @ViewBuilder
+    private var einfuegenKnopf: some View {
+        if let inhalt = werk.ablage, let ziel = werk.einsetzbareSeite {
+            let grund = werk.einfuegenGrund(auf: ziel)
+            Button {
+                werk.blockEinfuegen(auf: ziel)
+            } label: {
+                Label(einfuegenTitel(inhalt, ziel: ziel), systemImage: "doc.on.clipboard")
+            }
+            // Ausgegraut und NICHT weggelassen: Hier weiß man, warum es
+            // nicht geht — der Grund steht im Titel des Menüs daneben, und
+            // ein fehlender Eintrag ließe einen raten, ob die Ablage leer
+            // ist oder das Ziel nicht passt.
+            .disabled(grund != nil)
+        }
+    }
+
+    private func einfuegenTitel(_ inhalt: Reisewerk.Ablageinhalt, ziel: UUID) -> String {
+        if werk.einfuegenGrund(auf: ziel) != nil {
+            return "\(inhalt.name) hier nicht einsetzbar"
+        }
+        guard let name = werk.seitenname(ziel) else { return "\(inhalt.name) einfügen" }
+        return "\(inhalt.name) einfügen \u{2014} auf " + name
     }
 
     // Auf welcher Seite der Block steht und wie viele es gibt.
@@ -1179,10 +1265,30 @@ struct ReiseView: View {
             // ist die Frage von vorhin noch einmal.
             if let seite = werk.einsetzbareSeite {
                 Section(werk.seitenname(seite).map { "Auf " + $0 } ?? "Auf die gewählte Seite") {
+                    einfuegenKnopf
                     Button("Textfeld", systemImage: "text.alignleft") {
                         werk.blockHinzufuegen(.text("Neuer Text"), aufSeite: seite)
                     }
-                    Button("Bild oder Grafik…", systemImage: "photo") { blatt = .grafik }
+                    Button("Bild aus Dateien\u{2026}", systemImage: "photo") { blatt = .grafik }
+                    // BILDER AUS DER MEDIATHEK, OHNE DATUMSLOGIK (ab 1.0.65).
+                    //
+                    // Ansage des Nutzers, 09/2026: „Nachdem dies geschehen
+                    // ist, möchte ich über das Plusmenü aber auch Fotos
+                    // auswählen können, egal ob von Dateien oder aus der
+                    // Fotomediathek, die dann einfach auf der Seite
+                    // eingefügt werden, egal welchen Zeitstempel sie
+                    // haben."
+                    //
+                    // Den Weg über DATEIEN gibt es seit 1.0.61, den über
+                    // die Mediathek nicht — dort führte jeder Weg durch
+                    // die Fotoeinfuhr, also durch Datum, Ort und einen
+                    // Bericht darüber, was fehlt. Für ein Bild, das
+                    // einfach hier liegen soll, ist das alles keine
+                    // Auskunft, sondern Lärm.
+                    Button("Bild aus der Mediathek\u{2026}",
+                           systemImage: "photo.on.rectangle.angled") {
+                        blatt = .bildAusFotos
+                    }
                     // EINE KARTE BRAUCHT EINEN TAG. Sie zeichnet die Spur
                     // dieses einen Tages; auf dem Umschlag gibt es keinen,
                     // und was dort stünde, wäre ein leerer Rahmen mit dem
@@ -1635,6 +1741,8 @@ struct ReiseView: View {
             DateieinfuhrView(werk: werk)
         case .grafik:
             GrafikEinfuehrView(werk: werk)
+        case .bildAusFotos:
+            BildAusFotosView(werk: werk)
         case .tagesspur:
             SpurimportView(werk: werk)
         case .typografie:
