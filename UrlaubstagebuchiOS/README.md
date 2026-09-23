@@ -480,6 +480,37 @@ Sichtbarkeit, 34 % Breite). Ob ein Zeichen bei 10 % im Druck noch zu sehen ist
 oder schon stört, sagt erst der erste Ausdruck; auf dem Bildschirm wirkt es
 kräftiger als auf Papier.
 
+## Der Umschlag: Grund, Ausgabe, Titel (1.0.67)
+
+Drei Befunde aus einem Durchgang, alle drei am Umschlag.
+
+**Das Bild fehlte im Umschlag-PDF.** `umschlagPdf` legt den Grund seit
+1.0.50 über den ganzen Bogen — und zeichnete danach für jede Hälfte den
+Seitengrund noch einmal darüber, in die halbe Fläche. Ein einfarbiger
+Grund übermalte das Bogenbild damit vollständig; ein Fotogrund wurde
+zweimal eingepasst, mit einem Ausschnitt, der für den Bogen gerechnet war.
+Auf dem Bildschirm ist das seit 1.0.63 richtig (die Hälften lassen ihren
+Grund weg) — dieselbe Zeile fehlte im PDF. Sie steht jetzt dort.
+
+Ob das der gemeldete Fehler war, sagt erst der nächste Export. Deshalb
+nennt die Druckprüfung seit 1.0.67 vor dem Ausgeben, was sie vorfindet:
+welcher Grund gilt, welche Datei dahintersteht, ob sie sich öffnen lässt,
+dazu Ausschnitt und Schleier.
+
+**Umschlag und Innenteil lassen sich einzeln ausgeben.** Bisher gab es sie
+nur zusammen („Umschlag als eigene Datei" schreibt beide). Bei einem vollen
+Buch sind das mehrere Gigabyte für den Innenteil, nur weil am Umschlag
+etwas zu ändern war. Neu unter „Anordnung": „Nur der Umschlagbogen" und
+„Nur die Buchseiten", dazu ein eigener Menüpunkt „Nur den Umschlag…".
+
+**Der Titel lässt sich höher oder tiefer setzen** (Umschlag → Gestaltung
+des Umschlags → „Titel senkrecht"). Mit dem Finger geht das nicht, und das
+ist kein Versehen: Titelseite und Rückseite werden bei jedem Durchgang
+gerechnet, ein dort hineingeschobener Block wäre beim nächsten Durchgang
+weg. Der Regler verschiebt die Rechnung und hält deshalb. Ohne eigene
+Angabe bleibt alles, wie es war — der Titel steht schlicht in der Mitte,
+auf einem Titelfoto unten.
+
 ## Das Schriftenrecht — gemessen statt geraten (1.0.66)
 
 Selbst installierte Schriften (Quicksand, Poppins und was sonst auf dem iPad

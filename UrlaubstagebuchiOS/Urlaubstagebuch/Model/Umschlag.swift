@@ -153,6 +153,27 @@ struct Umschlag: Codable, Hashable {
     // Die Schriftfamilie des Umschlags. `nil` heißt: die des Buchtitels.
     var schriftfamilie: Schriftfamilie?
 
+    // WIE HOCH DER TITEL AUF DER TITELSEITE STEHT (ab 1.0.67).
+    //
+    // Gemeldet 09/2026: „Die Schrift auf der Titelseite ragt ziemlich
+    // tief in den dunklen Bereich des Bildes. Dadurch ist sie nicht so gut
+    // zu sehen. Ich würde sie gerne auf der Seite verschieben, erkenne
+    // aber nicht, wie das gehen könnte.“ Es ging nicht — die
+    // Titelseite wird bei jedem Durchgang GERECHNET, und ein verschobener
+    // Block darauf wäre beim nächsten Durchgang weg (das steht seit
+    // 1.0.50 hier). Verschoben wird deshalb nicht der Block, sondern die
+    // Rechnung: ein ANTEIL in der Höhe des Satzspiegels, 0 = ganz oben,
+    // 1 = ganz unten.
+    //
+    // `nil` heißt „wie gerechnet“ und ist etwas anderes als 0,5:
+    // Die schlichte Titelseite setzt den Titel in die MITTE, die mit
+    // Titelfoto ein Feld UNTEN. Ein fester Vorgabewert hätte eine der
+    // beiden beim Update still verschoben — dieselbe Regel wie bei
+    // `Schriftabweichung` und `Block.wirkung`: eine Abweichung ist keine
+    // Kopie. Aufgelöst wird sie an EINER Stelle (`geltendeTitellage`),
+    // gefragt vom Layoutautomaten UND vom Regler.
+    var titellage: Double?
+
     // MARK: - Eigene Felder auf Titelseite und Rückseite (ab 1.0.64)
 
     // Ansage des Nutzers, 09/2026: „Es soll mir zum Beispiel auch möglich
@@ -202,6 +223,7 @@ struct Umschlag: Codable, Hashable {
         rand = b.wahlweise(.rand)
         titelfaktor = b.wert(.titelfaktor, 1)
         schriftfamilie = b.wahlweise(.schriftfamilie)
+        titellage = b.wahlweise(.titellage)
         titelbloecke = b.wert(.titelbloecke, [Block]())
         rueckbloecke = b.wert(.rueckbloecke, [Block]())
     }
@@ -226,6 +248,20 @@ struct Umschlag: Codable, Hashable {
         var misch = Hasher()
         misch.combine(ohneBloecke)
         return misch.finalize()
+    }
+
+    /// Wo der Titel senkrecht steht — aufgelöst an EINER Stelle,
+    /// gefragt vom Layoutautomaten und vom Regler im Umschlag-Blatt. Zwei
+    /// Fassungen ergäben einen Regler, der etwas anderes anzeigt, als die
+    /// Seite tut.
+    func geltendeTitellage(mitTitelfoto: Bool) -> Double {
+        titellage ?? Umschlag.titelvorgabe(mitTitelfoto: mitTitelfoto)
+    }
+
+    /// Die gerechnete Lage ohne eigene Angabe: auf einem Titelfoto steht
+    /// das Feld unten, sonst der Titel in der Mitte.
+    static func titelvorgabe(mitTitelfoto: Bool) -> Double {
+        mitTitelfoto ? 1 : 0.5
     }
 
     // Was auf dem Rücken steht — leer heißt Buchtitel.
@@ -265,6 +301,7 @@ struct Umschlag: Codable, Hashable {
 
     var eigeneGestaltung: Bool {
         hintergrund != nil || rand != nil || titelfaktor != 1 || schriftfamilie != nil
+            || titellage != nil
             || abs(rueckenlage - 0.5) > 0.001 || rueckenrichtung != .obenNachUnten
             || !titelbloecke.isEmpty || !rueckbloecke.isEmpty
     }

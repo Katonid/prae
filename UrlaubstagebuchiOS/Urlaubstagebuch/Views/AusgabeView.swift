@@ -66,9 +66,23 @@ struct AusgabeView: View {
     // können"), obwohl sie seit 1.0.27 vollständig gebaut ist, liegt an
     // drei Dingen auf einmal: falsches Menü, ein Wort, das nach Seitenzahl
     // klingt, und ein zugeklappter Picker darüber. Alle drei sind geändert.
+    // NUR DER UMSCHLAG, NUR DER INNENTEIL (ab 1.0.67).
+    //
+    // Ansage des Nutzers, 09/2026: „Ich versuche herauszufinden, woran das
+    // liegen könnte, damit ich jetzt nicht wieder beide Teile exportieren
+    // muss, denn das PDF für das eigentliche Buch ist mittlerweile knapp
+    // 4 GB groß." Das ist der Grund, und er wiegt schwer: Ein Umschlagbogen
+    // ist in Sekunden gesetzt, der Innenteil braucht mit zweihundert Fotos
+    // seine Zeit und seinen Platz. Wer am Umschlag etwas ändert, soll nicht
+    // vier Gigabyte mitschreiben lassen, die er schon hat.
+    //
+    // Gebaut wird dafür KEIN zweiter Weg: Es sind dieselben zwei Aufträge,
+    // die `getrennt` nacheinander stellt — hier eben einzeln.
     enum Umfang: String, CaseIterable, Identifiable {
         case ganzesBuch
         case getrennt
+        case nurUmschlag
+        case nurInnenteil
         case broschuere
 
         var id: String { rawValue }
@@ -76,6 +90,8 @@ struct AusgabeView: View {
             switch self {
             case .ganzesBuch: return "Buchseiten der Reihe nach"
             case .getrennt: return "Umschlag als eigene Datei"
+            case .nurUmschlag: return "Nur der Umschlagbogen"
+            case .nurInnenteil: return "Nur die Buchseiten"
             case .broschuere: return "Broschüre zum Selberfalten"
             }
         }
@@ -86,6 +102,10 @@ struct AusgabeView: View {
                 return "Eine Datei, Seite für Seite — das, was eine Druckerei oder ein Fotobuchdienst haben will."
             case .getrennt:
                 return "Zwei Dateien: Innenteil und Umschlag. Viele Buchdienste verlangen das so. Der Umschlag ist EIN breiter Bogen — links die Rückseite, in der Mitte der Rücken, rechts die Titelseite."
+            case .nurUmschlag:
+                return "Nur der Umschlagbogen, ohne eine einzige Buchseite. Für den Fall, dass am Umschlag etwas zu ändern war und der Innenteil schon liegt — der ist bei einem vollen Buch mehrere Gigabyte groß und braucht seine Zeit."
+            case .nurInnenteil:
+                return "Nur die Buchseiten, ohne den Umschlagbogen. Die Gegenrichtung zu „Nur der Umschlagbogen“: Beide zusammen ergeben dasselbe wie „Umschlag als eigene Datei“, nur eben zu zwei Zeitpunkten."
             case .broschuere:
                 return "Zwei Seiten nebeneinander auf einen Bogen, in Heftfolge. Für den eigenen Drucker: beidseitig ausdrucken, in der Mitte falten, heften."
             }
@@ -240,6 +260,8 @@ struct AusgabeView: View {
         switch umfang {
         case .broschuere: return "Broschüre"
         case .getrennt: return "Zwei Dateien"
+        case .nurUmschlag: return "Nur der Umschlag"
+        case .nurInnenteil: return "Nur der Innenteil"
         case .ganzesBuch: return "Als PDF sichern"
         }
     }
@@ -311,6 +333,38 @@ struct AusgabeView: View {
                         stufe: .gut, titel: "Umschlag getrennt gesichert",
                         text: umschlag.lastPathComponent + umschlagzusatz)]
                 teilenliste = [innen, umschlag]
+            } else if umfang == .nurUmschlag || umfang == .nurInnenteil {
+                // DIESELBEN ZWEI AUFTRÄGE wie bei `getrennt`, nur einzeln
+                // gestellt. Ein eigener Weg daneben liefe irgendwann
+                // auseinander — dieselbe Regel wie bei den Fotostilfeldern.
+                let nur = umfang == .nurUmschlag
+                let ziel = try await Buchausgabe.pdf(
+                    werk.reise,
+                    auftrag: .init(bildkante: guete.kante, ohneTransparenz: ohneTransparenz,
+                                   nurUmschlag: nur, ohneUmschlag: !nur),
+                    fortschritt: { wert in anteil = wert })
+                fertig = ziel
+                // Am Umschlagbogen misst die Druckprüfung TrimBox und
+                // BleedBox — die gibt es dort, anders als bei der
+                // Broschüre, und sie sind genau die Angaben, an denen eine
+                // Druckerei den Falz und den Schnitt festmacht.
+                //
+                // Der Satz wird Stück für Stück gebaut und nicht als
+                // `?:`-Kette mit `+` in einen Ausdruck geschrieben: Genau
+                // daran hat sich in 1.0.38 der Typprüfer verschluckt.
+                var einzeltitel = "Nur die Buchseiten"
+                var einzeltext = "In dieser Datei steht kein Umschlagbogen. "
+                einzeltext += "Den gibt es mit \u{201E}Nur der Umschlagbogen\u{201C} "
+                einzeltext += "als eigene Datei."
+                if nur {
+                    einzeltitel = "Nur der Umschlag"
+                    einzeltext = "In dieser Datei steht keine einzige Buchseite."
+                    einzeltext += umschlagzusatz
+                }
+                let einzelzeile = Druckpruefung.Zeile(stufe: .hinweis, titel: einzeltitel,
+                                                      text: einzeltext)
+                befundAmPDF = Druckpruefung.amPDF(ziel) + [einzelzeile]
+                teilenliste = [ziel]
             } else {
                 let ziel = try await Buchausgabe.pdf(
                     werk.reise,

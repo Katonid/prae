@@ -630,6 +630,78 @@ enum Druckpruefung {
     // beides — die Zahl und woher sie kommt. Eine gerechnete Zahl als
     // Messung auszugeben wäre genau die Art Lüge, die diese Prüfung nicht
     // erzählen darf.
+    // WAS AUF DEM UMSCHLAGBOGEN ALS GRUND LIEGT — nachgesehen, nicht
+    // behauptet (ab 1.0.67).
+    //
+    // Gemeldet 09/2026: „Der Export hat leider beim Umschlag PDF nicht das
+    // Bild mitgenommen." Eine Ursache ist am Quelltext abgezählt und
+    // behoben (die beiden Hälften übermalten den Bogengrund, siehe
+    // `Buchausgabe.zeichneSeite`) — GESEHEN hat das niemand, und eine
+    // zweite Ursache lässt sich von hier aus nicht ausschließen. Deshalb
+    // sagt diese Zeile vor dem Ausgeben, was sie vorfindet: welcher Grund
+    // gilt, welche Datei dahintersteht und ob sie sich überhaupt lesen
+    // lässt. Dasselbe Muster wie die Stufenprobe bei Schulalarm — wo sich
+    // eine Ursache nicht erschließen lässt, muss eine Probe entscheiden.
+    static func umschlaggrund(_ reise: Reise) -> [Zeile] {
+        guard reise.hatRueckseite else { return [] }
+        let eigen = reise.umschlag.hintergrund != nil
+        let grund = reise.umschlag.hintergrund ?? reise.gestaltung.hintergrund
+        var woher = eigen
+            ? "Der Umschlag hat einen eigenen Hintergrund: "
+            : "Der Umschlag folgt dem Hintergrund des Buches: "
+
+        switch grund.art {
+        case .einfarbig:
+            woher += "eine Farbe."
+        case .verlauf:
+            woher += "ein Verlauf."
+        case .papierstruktur:
+            woher += "Papierkorn."
+        case .foto:
+            return [fotogrundzeile(reise, grund: grund, woher: woher)]
+        }
+        woher += " Er liegt als EIN Stück über den ganzen Bogen, samt Rücken."
+        return [Zeile(stufe: .hinweis, titel: "Grund des Umschlags", text: woher)]
+    }
+
+    private static func fotogrundzeile(_ reise: Reise, grund: Seitenhintergrund,
+                                       woher: String) -> Zeile
+    {
+        guard let id = grund.fotoID, let foto = reise.foto(id) else {
+            return Zeile(
+                stufe: .warnung,
+                titel: "Umschlag: Hintergrundfoto fehlt",
+                text: woher + "ein Foto — nur gehört es zu keinem Bild dieses Buches mehr. Gedruckt bliebe die Farbe darunter. Wähle es unter Umschlag → Hintergrund des Umschlags neu."
+            )
+        }
+        // Nachgesehen wird mit einer kleinen Kante: Es geht darum, OB sich
+        // die Datei lesen lässt, nicht darum, sie schon zu setzen.
+        guard Bildarchiv.shared.fuerAusgabe(foto.datei, reise: reise.id, kante: 256) != nil
+        else {
+            return Zeile(
+                stufe: .warnung,
+                titel: "Umschlag: Bilddatei nicht lesbar",
+                text: woher + "das Foto \u{201E}\(foto.datei)\u{201C} \u{2014} die Datei ließ sich aber nicht öffnen. Im PDF bliebe dort nur die Farbe stehen."
+            )
+        }
+        let bogen = Umschlagmass.bogen(reise.format, gestaltung: reise.gestaltung,
+                                       umschlag: reise.umschlag,
+                                       innenseiten: reise.innenseiten)
+        var text = woher + "das Foto \u{201E}\(foto.datei)\u{201C}, gelesen."
+        text += " Es füllt den ganzen Bogen von "
+        text += "\(Druckmass.mmText(bogen.width)) x \(Druckmass.mmText(bogen.height))"
+        text += " als EIN Bild, über den Rücken hinweg."
+        let zoom = Int((grund.ausschnitt.zoom * 100).rounded())
+        if zoom != 100 {
+            text += " Ausschnitt: \(zoom) %."
+        }
+        if grund.schleier > 0.01 {
+            let schleier = Int((grund.schleier * 100).rounded())
+            text += " Darüber ein Schleier von \(schleier) %."
+        }
+        return Zeile(stufe: .gut, titel: "Grund des Umschlags", text: text)
+    }
+
     static func umschlag(_ reise: Reise) -> [Zeile] {
         guard reise.hatRueckseite else { return [] }
         let innen = reise.innenseiten
@@ -716,6 +788,7 @@ enum Druckpruefung {
         zeilen.append(contentsOf: wasserzeichen(reise))
         zeilen.append(contentsOf: doppelseitenhintergrund(reise))
         zeilen.append(contentsOf: umschlag(reise))
+        zeilen.append(contentsOf: umschlaggrund(reise))
         zeilen.append(contentsOf: spurausreisser(reise))
 
         // Randabfallendes

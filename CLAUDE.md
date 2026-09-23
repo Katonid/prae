@@ -7249,6 +7249,73 @@ Befunde, und keiner davon war Geschmack:
   Fotoliste; seit 1.0.56 ist es eine Schleife über `gueltigeBilder` statt
   einer einzelnen Datei. Vergäße man sie, verlöre ein ausgetauschtes Buch
   seine Zeichen.
+- **DER UMSCHLAGGRUND WURDE GEZEICHNET UND DANACH ZWEIMAL ÜBERMALT**
+  (`Buchausgabe.zeichneSeite(…ohneGrund:)`, ab 1.0.67; gemeldet 09/2026:
+  „Der Export hat leider beim Umschlag PDF nicht das Bild mitgenommen.").
+  **Am Quelltext abzuzählen und keine Vermutung:** `umschlagPdf` legt seit
+  1.0.50 den Grund über den GANZEN Bogen — und rief danach für jede Hälfte
+  `zeichneSeite`, die ihren Seitengrund BEDINGUNGSLOS noch einmal zeichnete,
+  diesmal in die halbe Fläche. Ein einfarbiger Seitengrund übermalte das
+  Bogenbild damit vollständig (stehen blieb nur der Streifen im Rücken, der
+  danach gezeichnet wird), ein Fotogrund wurde ZWEIMAL eingepasst — mit
+  einem Zoom und einem Versatz, die für den Bogen gerechnet wurden und auf
+  einer halben Fläche etwas ganz anderes treffen.
+  - **1.0.63 hat den Bildschirm gerichtet und das PDF stehen lassen.** Dort
+    heißt es seither „Der Umschlag hatte zwei Fassungen, und sie zeigten
+    Verschiedenes"; die Hälften lassen ihren Grund über
+    `SeitenflaecheView.ohneGrund` weg. Dieselbe Zeile fehlte im PDF.
+    **Wer eine Doppelung auflöst, sucht nach jeder Stelle, die sie hat** —
+    hier waren es zwei, und nur eine wurde behoben.
+  - **Geprüft wird VOR dem Laden.** Ein Hintergrundfoto wird in voller
+    Ausgabegüte von der Platte geholt; für eine Umschlaghälfte wäre das ein
+    ganzes Bild umsonst.
+  - **Und weil die Ursache gerechnet und nicht gesehen ist, MISST die App**
+    (`Druckpruefung.umschlaggrund`, Zeile „Grund des Umschlags" vor dem
+    Ausgeben): welcher Grund gilt (Umschlag oder Buch), welche Datei
+    dahintersteht, ob sie sich überhaupt öffnen lässt, dazu Ausschnitt und
+    Schleier. Eine zweite Ursache lässt sich von hier aus nicht
+    ausschließen — dasselbe Muster wie Schulalarms Stufenprobe.
+- **NUR DER UMSCHLAG, NUR DER INNENTEIL** (`Umfang.nurUmschlag`,
+  `.nurInnenteil`, ab 1.0.67; Ansage des Nutzers 09/2026: „damit ich jetzt
+  nicht wieder beide Teile exportieren muss, denn das PDF für das
+  eigentliche Buch ist mittlerweile knapp 4 GB groß"). Ein Umschlagbogen ist
+  in Sekunden gesetzt, der Innenteil eines vollen Buches wiegt Gigabyte und
+  braucht seine Zeit. **Gebaut wird dafür KEIN zweiter Weg:** Es sind
+  dieselben zwei Aufträge, die `getrennt` nacheinander stellt — hier einzeln.
+  Dazu ein eigener Menüpunkt „Nur den Umschlag…" neben „Umschlag und
+  Innenteil getrennt…": Der Picker im Blatt ist genau der Ort, an dem in
+  1.0.52 zehn Fassungen lang etwas stand, das niemand fand.
+- **DER TITEL LÄSST SICH VERSCHIEBEN — mit einem Regler und nicht mit dem
+  Finger** (`Umschlag.titellage`, ab 1.0.67; gemeldet 09/2026: „Die Schrift
+  auf der Titelseite ragt ziemlich tief in den dunklen Bereich des Bildes …
+  Ich würde sie gerne auf der Seite verschieben, erkenne aber nicht, wie das
+  gehen könnte."). Er hat es nicht gefunden, weil es das nicht gab:
+  Titelseite und Rückseite werden bei jedem Durchgang GERECHNET, und ein
+  dort hineingeschobener Block wäre beim nächsten Durchgang weg — das steht
+  seit 1.0.50 hier. Verschoben wird deshalb nicht der Block, sondern die
+  RECHNUNG: ein Anteil in der Höhe des Satzspiegels (0 = oben, 1 = unten),
+  Regler unter Umschlag → „Gestaltung des Umschlags".
+  - **`nil` heißt „wie gerechnet" und ist etwas anderes als 0,5.** Die
+    schlichte Titelseite setzt den Titel in die MITTE, die mit Titelfoto ein
+    Feld UNTEN; ein fester Vorgabewert hätte eine der beiden beim Update
+    still verschoben. Dieselbe Regel wie bei `Schriftabweichung` und
+    `Block.wirkung` — eine Abweichung ist keine Kopie. Aufgelöst wird sie an
+    EINER Stelle (`geltendeTitellage(mitTitelfoto:)`), gefragt vom
+    Layoutautomaten UND vom Regler: Zwei Fassungen ergäben einen Regler, der
+    etwas anderes anzeigt, als die Seite tut.
+  - **Nur senkrecht.** Waagerecht nimmt der Titel ohnehin die ganze
+    Satzbreite ein (schlicht) bzw. steht in einem Feld am linken Rand — dort
+    gibt es nichts zu verschieben, was nicht die Breite wäre. Das sagt die
+    Fußzeile auch, statt einen Regler anzubieten, der nichts tut.
+- **Nicht gemessen (1.0.67):** Kein Umschlag ist damit ausgegeben worden.
+  Gerechnet und am Quelltext abgezählt ist die URSACHE des fehlenden
+  Bildes — dass die Hälften den Bogengrund übermalten — und die Geometrie
+  der Titellage (bei Anteil 0,5 bzw. 1 steht auf den Punkt dieselbe Zeile
+  wie bis 1.0.66). **Ungeprüft bleibt, ob das der gemeldete Fehler WAR:**
+  Eine zweite Ursache lässt sich von hier aus nicht ausschließen, und genau
+  deshalb nennt die neue Befundzeile Zahlen statt einer Zusage. **Nicht als
+  erledigt darstellen** — der nächste Umschlag-Export des Nutzers ist hier
+  die Messung.
 - **DAS SCHRIFTENRECHT STEHT WIEDER IN DER ENTITLEMENTS-DATEI — DIESMAL
   GEMESSEN** (`Config/Urlaubstagebuch.entitlements`, ab 1.0.66; Befund des
   Nutzers aus „Schriften prüfen", 23.09.2026). Die Probe aus 1.0.45 hat
@@ -8287,7 +8354,7 @@ Befunde, und keiner davon war Geschmack:
   Stellen im pbxproj (Debug + Release) — es gibt KEINE Skript-Bauphase.
   **Jede Arbeitseinheit hebt Patch- UND Build-Nummer um je +1**, ohne
   Nachfrage, als Teil des PRs. Zählung ab 09/2026: 1.0.0 (Build 1), dann
-  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.66 (Build 67). Dazu gesetzt:
+  1.0.1 (Build 2) usw. — Stand 09/2026: 1.0.67 (Build 68). Dazu gesetzt:
   `DEVELOPMENT_TEAM = F4989GSTWS` und
   `INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.travel`.
   Seit 1.0.4 steht dort auch `CODE_SIGN_ENTITLEMENTS = Config/Urlaubstagebuch.entitlements`
